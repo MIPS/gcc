@@ -346,9 +346,9 @@ init_tree_optimization_passes (void)
   p = &pass_all_optimizations.sub;
   NEXT_PASS (pass_referenced_vars);
   NEXT_PASS (pass_build_ssa);
-  /*  NEXT_PASS (pass_build_pta); */
+  NEXT_PASS (pass_build_pta); 
   NEXT_PASS (pass_may_alias);
-  /*  NEXT_PASS (pass_del_pta); */
+  NEXT_PASS (pass_del_pta); 
   NEXT_PASS (pass_rename_ssa_copies);
   NEXT_PASS (pass_early_warn_uninitialized);
   NEXT_PASS (pass_dce);
@@ -357,9 +357,9 @@ init_tree_optimization_passes (void)
   NEXT_PASS (pass_dce);
   NEXT_PASS (pass_forwprop);
   NEXT_PASS (pass_phiopt);
-  /*  NEXT_PASS (pass_build_pta); */
+  NEXT_PASS (pass_build_pta); 
   NEXT_PASS (pass_may_alias);
-  /*  NEXT_PASS (pass_del_pta); */
+  NEXT_PASS (pass_del_pta); 
   NEXT_PASS (pass_tail_recursion);
   NEXT_PASS (pass_ch);
   NEXT_PASS (pass_profile);

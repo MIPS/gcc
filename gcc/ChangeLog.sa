@@ -1,3 +1,10 @@
+2004-11-18  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-ssa-structalias.c: Rewrite to use real offsets, instead of
+	field numbering.
+	* tree-optimize.c (init_tree_optimization_passes): Uncomment calls
+	to build_pta and del_pta.
+	
 2004-09-30  Daniel Berlin  <dberlin@dberlin.org>
 
 	* tree-ssa-loop-ivopts.c (rewrite_use_address): Mark new variables
