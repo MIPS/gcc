@@ -379,6 +379,18 @@ lose:
   return 0;
 }
 
+/* Returns 1 of hard register set A and B are equal.  */
+
+int
+hard_regs_same_p (a, b)
+     HARD_REG_SET a, b;
+{
+  GO_IF_HARD_REG_EQUAL (a, b, equal);
+  return 0;
+equal:
+  return 1;
+}
+
 /* Allocate and initialize the memory necessary for one pass of the
    register allocator.  */
 

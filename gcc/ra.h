@@ -575,6 +575,7 @@ extern rtx ra_emit_move_insn PARAMS ((rtx, rtx));
 extern void ra_debug_msg PARAMS ((unsigned int,
 			          const char *, ...)) ATTRIBUTE_PRINTF_2;
 extern int hard_regs_intersect_p PARAMS ((HARD_REG_SET *, HARD_REG_SET *));
+extern int hard_regs_same_p PARAMS ((HARD_REG_SET, HARD_REG_SET));
 extern unsigned int rtx_to_bits PARAMS ((rtx));
 extern struct web * find_subweb PARAMS ((struct web *, rtx));
 extern struct web * find_subweb_2 PARAMS ((struct web *, unsigned int));

@@ -2232,72 +2232,77 @@ restore_conflicts_from_coalesce (web)
   /* No original conflict list means no conflict was added at all
      after building the graph.  So neither we nor any neighbors have
      conflicts due to this coalescing.  */
-  if (!web->have_orig_conflicts)
+  if (web->have_orig_conflicts)
+    while (*pcl)
+      {
+	struct web *other = (*pcl)->t;
+	for (wl = web->orig_conflict_list; wl; wl = wl->next)
+	  if (wl->t == other)
+	    break;
+	if (wl)
+	  {
+	    /* We found this conflict also in the original list, so this
+	       was no new conflict.  */
+	    pcl = &((*pcl)->next);
+	  }
+	else
+	  {
+	    /* This is a new conflict, so delete it from us and
+	       the neighbor.  */
+	    struct conflict_link **opcl;
+	    struct conflict_link *owl;
+	    struct sub_conflict *sl;
+	    wl = *pcl;
+	    *pcl = wl->next;
+	    if (!other->have_orig_conflicts && other->type != PRECOLORED)
+	      abort ();
+	    for (owl = other->orig_conflict_list; owl; owl = owl->next)
+	      if (owl->t == web)
+		break;
+	    if (owl)
+	      abort ();
+	    opcl = &(other->conflict_list);
+	    while (*opcl)
+	      {
+		if ((*opcl)->t == web)
+		  {
+		    owl = *opcl;
+		    *opcl = owl->next;
+		    break;
+		  }
+		else
+		  {
+		    opcl = &((*opcl)->next);
+		  }
+	      }
+	    if (!owl && other->type != PRECOLORED)
+	      abort ();
+	    /* wl and owl contain the edge data to be deleted.  */
+	    RESET_BIT (sup_igraph, web->id * num_webs + other->id);
+	    RESET_BIT (sup_igraph, other->id * num_webs + web->id);
+	    RESET_BIT (igraph, igraph_index (web->id, other->id));
+	    for (sl = wl->sub; sl; sl = sl->next)
+	      RESET_BIT (igraph, igraph_index (sl->s->id, sl->t->id));
+	    if (other->type != PRECOLORED)
+	      {
+		for (sl = owl->sub; sl; sl = sl->next)
+		  RESET_BIT (igraph, igraph_index (sl->s->id, sl->t->id));
+	      }
+	  }
+      }
+
+  /* If we widen usable_regs we might need to create some conflict edges
+     which weren't created while it was still narrow, and which have their
+     source in _other_ webs coalescing.  Similar, we might have deleted some
+     conflicts above, which really are still there (diamond pattern
+     coalescing).  This is because we don't reference count interference
+     edges but some of them were the result of different coalesces.  */
+  if (!web->have_orig_conflicts
+      && hard_regs_same_p (web->usable_regs, web->orig_usable_regs))
     return;
-  while (*pcl)
-    {
-      struct web *other = (*pcl)->t;
-      for (wl = web->orig_conflict_list; wl; wl = wl->next)
-	if (wl->t == other)
-	  break;
-      if (wl)
-	{
-	  /* We found this conflict also in the original list, so this
-	     was no new conflict.  */
-	  pcl = &((*pcl)->next);
-	}
-      else
-	{
-	  /* This is a new conflict, so delete it from us and
-	     the neighbor.  */
-	  struct conflict_link **opcl;
-	  struct conflict_link *owl;
-	  struct sub_conflict *sl;
-	  wl = *pcl;
-	  *pcl = wl->next;
-	  if (!other->have_orig_conflicts && other->type != PRECOLORED)
-	    abort ();
-	  for (owl = other->orig_conflict_list; owl; owl = owl->next)
-	    if (owl->t == web)
-	      break;
-	  if (owl)
-	    abort ();
-	  opcl = &(other->conflict_list);
-	  while (*opcl)
-	    {
-	      if ((*opcl)->t == web)
-		{
-		  owl = *opcl;
-		  *opcl = owl->next;
-		  break;
-		}
-	      else
-		{
-		  opcl = &((*opcl)->next);
-		}
-	    }
-	  if (!owl && other->type != PRECOLORED)
-	    abort ();
-	  /* wl and owl contain the edge data to be deleted.  */
-	  RESET_BIT (sup_igraph, web->id * num_webs + other->id);
-	  RESET_BIT (sup_igraph, other->id * num_webs + web->id);
-	  RESET_BIT (igraph, igraph_index (web->id, other->id));
-	  for (sl = wl->sub; sl; sl = sl->next)
-	    RESET_BIT (igraph, igraph_index (sl->s->id, sl->t->id));
-	  if (other->type != PRECOLORED)
-	    {
-	      for (sl = owl->sub; sl; sl = sl->next)
-		RESET_BIT (igraph, igraph_index (sl->s->id, sl->t->id));
-	    }
-	}
-    }
 
   /* We must restore usable_regs because record_conflict will use it.  */
   COPY_HARD_REG_SET (web->usable_regs, web->orig_usable_regs);
-  /* We might have deleted some conflicts above, which really are still
-     there (diamond pattern coalescing).  This is because we don't reference
-     count interference edges but some of them were the result of different
-     coalesces.  */
   for (wl = web->conflict_list; wl; wl = wl->next)
     if (wl->t->type == COALESCED)
       {

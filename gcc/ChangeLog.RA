@@ -1,3 +1,9 @@
+2002-08-06  Michael Matz  <matz@suse.de>
+
+	* ra.c (hard_regs_same_p): New.
+	* ra.h (hard_regs_same_p): Prototype.
+	* ra-colorize.c (restore_conflicts_from_coalesce): Use it.
+
 2002-08-02  Denis Chertykov  <denisc@overta.ru>
 
 	* pre-reload.c (scan_addr_func): Bugfix. Argument ra_info removed.
