@@ -1,5 +1,8 @@
 2004-10-25  Tom Tromey  <tromey@redhat.com>
 
+	* java/util/ResourceBundle.java (tryBundle): Use
+	Class.isAssignableFrom rather than catching ClassCastException.
+
 	* java/util/zip/InflaterInputStream.java (fill): Don't throw an
 	exception if we hit EOF of `in'.
 	(read): Handle case where inflating returns -1.
