@@ -1,3 +1,8 @@
+2005-02-17  Devang Patel  <dpatel@apple.com>
+
+	Radar 3958387
+	* libcpp/lex.c (_cpp_get_fresh_line): Check warn_newline_at_eof.
+
 2005-01-04  Anders Bertelrud  <anders@apple.com>
 
 	Radar 3871393

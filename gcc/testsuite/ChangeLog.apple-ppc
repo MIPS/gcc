@@ -1,3 +1,9 @@
+2005-02-17  Devang Patel  <dpatel@apple.com>
+
+	Radar 3958387
+	* gcc.apple/Wno-newline-1.c: New.
+	* gcc.apple/Wno-newline-2.c: New.
+
 2005-02-17  Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 3971074
