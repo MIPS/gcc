@@ -463,8 +463,8 @@ get_expr_operands (stmt, expr_p, flags, prev_vops)
 	  if (SSA_DECL_P (arg)
 	      && POINTER_TYPE_P (TREE_TYPE (arg)))
 	    {
-	      int clobber_arg = (may_clobber && !TREE_READONLY (arg));
 	      tree deref = indirect_ref (arg);
+	      int clobber_arg = (may_clobber && !TREE_READONLY (deref));
 
 	      /* By default, adding a reference to an INDIRECT_REF
 		 variable, adds a VUSE of the base pointer.  Since we have
@@ -587,6 +587,14 @@ add_stmt_operand (var_p, stmt, flags, prev_vops)
   /* If VAR is not a variable, do nothing.  */
   if (var == NULL_TREE || !SSA_VAR_P (var))
     return;
+
+  /* FIXME: Currently, global variables are always treated as virtual
+     operands.  Otherwise, we would have to insert copy-in/copy-out
+     operations at escape points in the function (e.g., at call sites and
+     return points). The additional overhead of inserting these copies may
+     negate the optimizations enabled by renaming globals.  */
+  if (decl_function_context (!DECL_P (var) ? get_base_symbol (var) : var) == 0)
+    flags |= opf_force_vop;
 
   ann = stmt_ann (stmt);
 

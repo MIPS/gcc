@@ -2167,7 +2167,7 @@ linearize_cond_expr (tree *entry_p, basic_block bb)
 
   /* Linearize 'if (1)'.  */
   if (simple_cst_equal (pred, integer_one_node) == 1
-	   && body_is_empty (else_clause))
+      && body_is_empty (else_clause))
     {
       /* If there is no THEN_CLAUSE, remove the conditional.  */
       if (body_is_empty (then_clause))
@@ -2180,7 +2180,7 @@ linearize_cond_expr (tree *entry_p, basic_block bb)
 
   /* Linearize 'if (0)'.  */
   if (simple_cst_equal (pred, integer_zero_node) == 1
-	   && body_is_empty (then_clause))
+      && body_is_empty (then_clause))
     {
       /* If there is no ELSE_CLAUSE, remove the conditional.  */
       if (body_is_empty (else_clause))

@@ -126,8 +126,8 @@ typedef struct _elim_graph
   /* The actual nodes in the elimination graph.  */
   tree *nodes;
   /* The predecessor and successor list.  */
-  sbitmap *pred;
-  sbitmap *succ;
+  bitmap *pred;
+  bitmap *succ;
 
   /* Visited vector.  */
   sbitmap visited;
@@ -932,11 +932,19 @@ static elim_graph
 new_elim_graph (size)
      int size;
 {
+  int x;
   elim_graph g = (elim_graph) xmalloc (sizeof (struct _elim_graph));
+
   g->size = size;
   g->nodes = (tree *) xmalloc (sizeof (tree) * size);
-  g->pred = sbitmap_vector_alloc (size, size);
-  g->succ= sbitmap_vector_alloc (size, size);
+
+  g->pred = (bitmap *) xmalloc (sizeof (bitmap) * size);
+  g->succ= (bitmap *) xmalloc (sizeof (bitmap) * size);
+  for (x = 0; x < size; x++)
+    {
+      g->pred[x] = BITMAP_XMALLOC ();
+      g->succ[x] = BITMAP_XMALLOC ();
+    }
   g->visited = sbitmap_alloc (size);
   g->stack = (int *) xmalloc (sizeof (int) * size);
   
@@ -947,11 +955,16 @@ static void
 clear_elim_graph (g)
      elim_graph g;
 {
+  int x;
   int size = g->size;
+
   g->num_nodes = 0;
   memset (g->nodes, 0, sizeof (tree) * size);
-  sbitmap_vector_zero (g->pred, size);
-  sbitmap_vector_zero (g->succ, size);
+  for (x = 0; x < size; x++)
+    {
+      bitmap_clear (g->pred[x]);
+      bitmap_clear (g->succ[x]);
+    }
 }
 
 /* Delete an elimination graph.  */
@@ -959,10 +972,18 @@ static void
 delete_elim_graph (g)
      elim_graph g;
 {
+  int x;
   free (g->stack);
   sbitmap_free (g->visited);
-  sbitmap_free (g->succ);
-  sbitmap_free (g->pred);
+
+  for (x = g->size - 1; x >= 0 ; x--)
+    {
+      BITMAP_XFREE (g->succ[x]);
+      BITMAP_XFREE (g->pred[x]);
+    }
+  free (g->succ);
+  free (g->pred);
+
   free (g->nodes);
   free (g);
 }
@@ -1019,8 +1040,8 @@ eliminate_build (g, B, i)
 	  eliminate_name (g, Ti);
 	  p0 = var_to_partition (g->map, T0);
 	  pi = var_to_partition (g->map, Ti);
-	  SET_BIT (g->pred[pi], p0);
-	  SET_BIT (g->succ[p0], pi);
+	  bitmap_set_bit (g->pred[pi], p0);
+	  bitmap_set_bit (g->succ[p0], pi);
 	  edges++;
 	}
     }
@@ -1036,7 +1057,7 @@ elim_forward (g, T)
 {
   int S;
   SET_BIT (g->visited, T);
-  EXECUTE_IF_SET_IN_SBITMAP (g->succ[T], 0, S,
+  EXECUTE_IF_SET_IN_BITMAP (g->succ[T], 0, S,
     {
       if (!TEST_BIT (g->visited, S))
         elim_forward (g, S);
@@ -1054,7 +1075,7 @@ elim_unvisited_predecessor (g, T)
      int T;
 {
   int P;
-  EXECUTE_IF_SET_IN_SBITMAP (g->pred[T], 0, P,
+  EXECUTE_IF_SET_IN_BITMAP (g->pred[T], 0, P,
     {
       if (!TEST_BIT (g->visited, P))
         return 1;
@@ -1071,7 +1092,7 @@ elim_backward (g, T)
 {
   int P;
   SET_BIT (g->visited, T);
-  EXECUTE_IF_SET_IN_SBITMAP (g->pred[T], 0, P,
+  EXECUTE_IF_SET_IN_BITMAP (g->pred[T], 0, P,
     {
       if (!TEST_BIT (g->visited, P))
         elim_backward (g, P);
@@ -1097,7 +1118,7 @@ elim_create (g, T)
     {
       U = create_temp (partition_to_var (g->map, T));
       insert_copy_on_edge (g->e, U, partition_to_var (g->map, T));
-      EXECUTE_IF_SET_IN_SBITMAP (g->pred[T], 0, P,
+      EXECUTE_IF_SET_IN_BITMAP (g->pred[T], 0, P,
 	{
 	  if (!TEST_BIT (g->visited, P))
 	    {
@@ -1108,10 +1129,10 @@ elim_create (g, T)
     }
   else
     {
-      EXECUTE_IF_SET_IN_SBITMAP (g->succ[T], 0, S,
+      EXECUTE_IF_SET_IN_BITMAP (g->succ[T], 0, S,
 	{
 	  SET_BIT (g->visited, T);
-	  RESET_BIT (g->succ[T], S);
+	  bitmap_clear_bit(g->succ[T], S);
 	  insert_copy_on_edge (g->e, 
 			       partition_to_var (g->map, T), 
 			       partition_to_var (g->map, S));
