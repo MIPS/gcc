@@ -1,3 +1,7 @@
+2003-11-06  Jan Hubicka  <jh@suse.cz>
+
+	* tree-cfg.c (cleanup_cond_expr_graph):  Clean edge flags.
+
 2003-11-06  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* tree-dump.c (dump_options): Remove TDF_LINENO from all setting.

@@ -1766,6 +1766,8 @@ cleanup_cond_expr_graph (basic_block bb, block_stmt_iterator bsi)
   else
     abort ();
 
+  taken_edge->flags &= ~(EDGE_TRUE_VALUE | EDGE_FALSE_VALUE);
+
   return retval;
 }
 
