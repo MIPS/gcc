@@ -64,6 +64,7 @@ static void casts_away_constness_r PARAMS ((tree *, tree *));
 static int casts_away_constness PARAMS ((tree, tree));
 static void maybe_warn_about_returning_address_of_local PARAMS ((tree));
 static tree strip_all_pointer_quals PARAMS ((tree));
+static tree lookup_destructor (tree, tree, tree);
 
 /* Return the target type of TYPE, which means return T for:
    T*, T&, T[], T (...), and otherwise, just T.  */
@@ -1856,6 +1857,9 @@ build_class_member_access_expr (tree object, tree member,
   if (object == error_mark_node || member == error_mark_node)
     return error_mark_node;
 
+  if (TREE_CODE (member) == PSEUDO_DTOR_EXPR)
+    return member;
+
   my_friendly_assert (DECL_P (member) || BASELINK_P (member),
 		      20020801);
 
@@ -2070,6 +2074,33 @@ build_class_member_access_expr (tree object, tree member,
   return result;
 }
 
+/* Return the destructor denoted by OBJECT.SCOPE::~DTOR_TYPE, or, if
+   SCOPE is NULL, by OBJECT.~DTOR_TYPE.  */
+
+static tree
+lookup_destructor (tree object, tree scope, tree dtor_type)
+{
+  tree object_type = TREE_TYPE (object);
+
+  if (scope && !check_dtor_name (scope, dtor_type))
+    {
+      error ("qualified type `%T' does not match destructor name `~%T'",
+	     scope, dtor_type);
+      return error_mark_node;
+    }
+  if (!same_type_p (dtor_type, object_type))
+    {
+      error ("destructor name `%T' does not match type `%T' of expression",
+	     dtor_type, object_type);
+      return error_mark_node;
+    }
+  if (!TYPE_HAS_DESTRUCTOR (object_type))
+    return build (PSEUDO_DTOR_EXPR, void_type_node, object, scope,
+		  dtor_type);
+  return lookup_member (object_type, complete_dtor_identifier,
+			/*protect=*/1, /*want_type=*/0);
+}
+
 /* This function is called by the parser to process a class member
    access expression of the form OBJECT.NAME.  NAME is a node used by
    the parser to represent a name; it is not yet a DECL.  It may,
@@ -2165,34 +2196,28 @@ finish_class_member_access_expr (tree object, tree name)
 	  if (!access_path || access_path == error_mark_node)
 	    return error_mark_node;
 
-	  /* Look up the member.  */
-	  member = lookup_member (access_path, name, /*protect=*/1, 
-				  /*want_type=*/0);
-	  if (member == NULL_TREE)
+	  if (TREE_CODE (name) == BIT_NOT_EXPR)
+	    member = lookup_destructor (object, 
+					scope, 
+					TREE_OPERAND (name, 0));
+	  else
 	    {
-	      error ("'%D' has no member named '%E'", object_type, name);
-	      return error_mark_node;
+	      /* Look up the member.  */
+	      member = lookup_member (access_path, name, /*protect=*/1, 
+				      /*want_type=*/0);
+	      if (member == NULL_TREE)
+		{
+		  error ("'%D' has no member named '%E'", object_type, name);
+		  return error_mark_node;
+		}
+	      if (member == error_mark_node)
+		return error_mark_node;
 	    }
-	  else if (member == error_mark_node)
-	    return error_mark_node;
 	}
       else if (TREE_CODE (name) == BIT_NOT_EXPR)
-	{
-	  /* A destructor.  */
-	  if (!constructor_name_p (TREE_OPERAND (name, 0), object_type))
-	    {
-	      error ("destructor name `%D' does not match type `%T' of expression",
-		     TREE_OPERAND (name, 0), object_type);
-	      return error_mark_node;
-	    }
-	  if (! TYPE_HAS_DESTRUCTOR (object_type))
-	    {
-	      error ("type `%T' has no destructor", object_type);
-	      return error_mark_node;
-	    }
-	  member = lookup_member (object_type, complete_dtor_identifier,
-				  /*protect=*/1, /*want_type=*/0);
-	}
+	member = lookup_destructor (object, 
+				    /*scope=*/NULL_TREE, 
+				    TREE_OPERAND (name, 0));
       else if (TREE_CODE (name) == IDENTIFIER_NODE)
 	{
 	  /* An unqualified name.  */
@@ -2232,6 +2257,9 @@ finish_class_member_access_expr (tree object, tree name)
 	    }
 	}
     }
+
+  if (TREE_DEPRECATED (member))
+    warn_deprecated_use (member);
 
   return build_class_member_access_expr (object, member, access_path,
 					 /*preserve_reference=*/false);
@@ -4227,7 +4255,7 @@ build_unary_op (code, xarg, noconvert)
 	      if (current_class_type
 		  && TREE_OPERAND (arg, 0) == current_class_ref)
 		/* An expression like &memfn.  */
-		pedwarn ("ISO C++ forbids taking the address of an unqualified non-static member function to form a pointer to member function.  Say `&%T::%D'", base, name);
+		pedwarn ("ISO C++ forbids taking the address of an unqualified or parenthesized non-static member function to form a pointer to member function.  Say `&%T::%D'", base, name);
 	      else
 		pedwarn ("ISO C++ forbids taking the address of a bound member function to form a pointer to member function.  Say `&%T::%D'", base, name);
 	    }

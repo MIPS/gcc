@@ -222,13 +222,6 @@ build_scoped_method_call (exp, basetype, name, parms)
 
   if (processing_template_decl)
     {
-      if (TREE_CODE (name) == BIT_NOT_EXPR
-	  && TREE_CODE (TREE_OPERAND (name, 0)) == IDENTIFIER_NODE)
-	{
-	  tree type = get_aggr_from_typedef (TREE_OPERAND (name, 0), 0);
-	  if (type)
-	    name = build_min_nt (BIT_NOT_EXPR, type);
-	}
       name = build_min_nt (SCOPE_REF, basetype, name);
       return build_min_nt (METHOD_CALL_EXPR, name, exp, parms, NULL_TREE);
     }
@@ -478,24 +471,7 @@ build_method_call (instance, name, parms, basetype_path, flags)
     return error_mark_node;
 
   if (processing_template_decl)
-    {
-      /* We need to process template parm names here so that tsubst catches
-	 them properly.  Other type names can wait.  */
-      if (TREE_CODE (name) == BIT_NOT_EXPR)
-	{
-	  tree type = NULL_TREE;
-
-	  if (TREE_CODE (TREE_OPERAND (name, 0)) == IDENTIFIER_NODE)
-	    type = get_aggr_from_typedef (TREE_OPERAND (name, 0), 0);
-	  else if (TREE_CODE (TREE_OPERAND (name, 0)) == TYPE_DECL)
-	    type = TREE_TYPE (TREE_OPERAND (name, 0));
-
-	  if (type && TREE_CODE (type) == TEMPLATE_TYPE_PARM)
-	    name = build_min_nt (BIT_NOT_EXPR, type);
-	}
-
-      return build_min_nt (METHOD_CALL_EXPR, name, instance, parms, NULL_TREE);
-    }
+    return build_min_nt (METHOD_CALL_EXPR, name, instance, parms, NULL_TREE);
 
   if (TREE_CODE (instance) == OFFSET_REF)
     instance = resolve_offset_ref (instance);

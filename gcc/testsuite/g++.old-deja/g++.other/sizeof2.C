@@ -3,8 +3,8 @@
 
 struct S
 {
-  int j; // ERROR - member
-  int i[2]; // ERROR - member
+  int j;
+  int i[2];
 };
 
 void f ()

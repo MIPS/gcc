@@ -25,7 +25,7 @@ struct E {
 
 typedef struct A typedef_A;
 struct F {
-  typedef_A;			/* { dg-error "does not declare anything" } */
+  typedef_A;			/* { dg-error "expected declarator" } */
   char f;
 };
 char testF[sizeof(struct F) == sizeof(struct A) ? 1 : -1];

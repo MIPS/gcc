@@ -4125,6 +4125,7 @@ extern void finish_label_stmt                   PARAMS ((tree));
 extern void finish_label_decl                   PARAMS ((tree));
 extern void finish_subobject                    PARAMS ((tree));
 extern tree finish_parenthesized_expr           PARAMS ((tree));
+extern tree finish_non_static_data_member       PARAMS ((tree, tree));
 extern tree begin_stmt_expr                     PARAMS ((void));
 extern tree finish_stmt_expr                    PARAMS ((tree));
 extern tree finish_call_expr                    (tree, tree, bool);

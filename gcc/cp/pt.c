@@ -7080,6 +7080,9 @@ tsubst_copy (t, args, complain, in_decl)
       {
 	tree name;
 	tree qualifying_scope;
+	tree fns;
+	tree template_args;
+	bool template_id_p = false;
 
 	/* A baselink indicates a function from a base class.  The
 	   BASELINK_ACCESS_BINFO and BASELINK_BINFO are going to have
@@ -7090,8 +7093,20 @@ tsubst_copy (t, args, complain, in_decl)
 	   In addition, lookups that were not ambiguous before may be
 	   ambiguous now.  Therefore, we perform the lookup again. */
 	qualifying_scope = BINFO_TYPE (BASELINK_ACCESS_BINFO (t));
-	name = DECL_NAME (get_first_fn (BASELINK_FUNCTIONS (t)));
+	fns = BASELINK_FUNCTIONS (t);
+	if (TREE_CODE (fns) == TEMPLATE_ID_EXPR)
+	  {
+	    template_id_p = true;
+	    template_args = TREE_OPERAND (fns, 1);
+	    fns = TREE_OPERAND (fns, 0);
+	  }
+	name = DECL_NAME (get_first_fn (fns));
 	t = lookup_fnfields (qualifying_scope, name, /*protect=*/1);
+	if (BASELINK_P (t) && template_id_p)
+	  BASELINK_FUNCTIONS (t) 
+	    = build_nt (TEMPLATE_ID_EXPR,
+			BASELINK_FUNCTIONS (t),
+			template_args);
 	return adjust_result_of_qualified_name_lookup (t, 
 						       qualifying_scope,
 						       current_class_type);
@@ -7149,6 +7164,35 @@ tsubst_copy (t, args, complain, in_decl)
 	(code, tsubst (TREE_TYPE (t), args, complain, in_decl),
 	 tsubst_copy (TREE_OPERAND (t, 0), args, complain, in_decl));
 
+    case COMPONENT_REF:
+      {
+	tree object;
+	tree name;
+
+	object = tsubst_copy (TREE_OPERAND (t, 0), args, complain, in_decl);
+	name = TREE_OPERAND (t, 1);
+	if (TREE_CODE (name) == BIT_NOT_EXPR) 
+	  {
+	    name = tsubst_copy (TREE_OPERAND (name, 0), args,
+				complain, in_decl);
+	    name = build1 (BIT_NOT_EXPR, NULL_TREE, name);
+	  }
+	else if (TREE_CODE (name) == SCOPE_REF
+		 && TREE_CODE (TREE_OPERAND (name, 1)) == BIT_NOT_EXPR)
+	  {
+	    tree base = tsubst_copy (TREE_OPERAND (name, 0), args,
+				     complain, in_decl);
+	    name = TREE_OPERAND (name, 1);
+	    name = tsubst_copy (TREE_OPERAND (name, 0), args,
+				complain, in_decl);
+	    name = build1 (BIT_NOT_EXPR, NULL_TREE, name);
+	    name = build_nt (SCOPE_REF, base, name);
+	  }
+	else
+	  name = tsubst_copy (TREE_OPERAND (t, 1), args, complain, in_decl);
+	return build_nt (COMPONENT_REF, object, name);
+      }
+
     case PLUS_EXPR:
     case MINUS_EXPR:
     case MULT_EXPR:
@@ -7179,7 +7223,6 @@ tsubst_copy (t, args, complain, in_decl)
     case GE_EXPR:
     case LT_EXPR:
     case GT_EXPR:
-    case COMPONENT_REF:
     case ARRAY_REF:
     case COMPOUND_EXPR:
     case SCOPE_REF:
@@ -7202,33 +7245,12 @@ tsubst_copy (t, args, complain, in_decl)
 		       NULL_TREE);
 
     case METHOD_CALL_EXPR:
-      {
-	tree name = TREE_OPERAND (t, 0);
-	if (TREE_CODE (name) == BIT_NOT_EXPR)
-	  {
-	    name = tsubst_copy (TREE_OPERAND (name, 0), args,
-				complain, in_decl);
-	    name = build1 (BIT_NOT_EXPR, NULL_TREE, name);
-	  }
-	else if (TREE_CODE (name) == SCOPE_REF
-		 && TREE_CODE (TREE_OPERAND (name, 1)) == BIT_NOT_EXPR)
-	  {
-	    tree base = tsubst_copy (TREE_OPERAND (name, 0), args,
-				     complain, in_decl);
-	    name = TREE_OPERAND (name, 1);
-	    name = tsubst_copy (TREE_OPERAND (name, 0), args,
-				complain, in_decl);
-	    name = build1 (BIT_NOT_EXPR, NULL_TREE, name);
-	    name = build_nt (SCOPE_REF, base, name);
-	  }
-	else
-	  name = tsubst_copy (TREE_OPERAND (t, 0), args, complain, in_decl);
-	return build_nt
-	  (code, name, tsubst_copy (TREE_OPERAND (t, 1), args,
-				    complain, in_decl),
-	   tsubst_copy (TREE_OPERAND (t, 2), args, complain, in_decl),
-	   NULL_TREE);
-      }
+      return build_nt
+	(code, 
+	 tsubst_copy (TREE_OPERAND (t, 0), args, complain, in_decl),
+	 tsubst_copy (TREE_OPERAND (t, 1), args, complain, in_decl),
+	 tsubst_copy (TREE_OPERAND (t, 2), args, complain, in_decl),
+	 NULL_TREE);
 
     case STMT_EXPR:
       /* This processing should really occur in tsubst_expr, However,
@@ -7447,7 +7469,10 @@ tsubst_expr (t, args, complain, in_decl)
 	    tree name = DECL_NAME (decl);
 	    
 	    scope = tsubst_expr (scope, args, complain, in_decl);
-	    do_local_using_decl (build_nt (SCOPE_REF, scope, name));
+	    do_local_using_decl (lookup_qualified_name (scope,
+							name, 
+							/*is_type_p=*/0,
+							/*flags=*/0));
 	  }
 	else
 	  {

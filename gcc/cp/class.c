@@ -5831,9 +5831,9 @@ cannot resolve overloaded function `%D' based on conversion to type `%T'",
     {
       tree fns;
 
-      for (fns = overload; fns; fns = OVL_CHAIN (fns))
+      for (fns = overload; fns; fns = OVL_NEXT (fns))
 	{
-	  tree fn = OVL_FUNCTION (fns);
+	  tree fn = OVL_CURRENT (fns);
 	  tree fntype;
 
 	  if (TREE_CODE (fn) == TEMPLATE_DECL)
@@ -5880,9 +5880,9 @@ cannot resolve overloaded function `%D' based on conversion to type `%T'",
       if (TREE_CODE (target_fn_type) == METHOD_TYPE)
 	target_arg_types = TREE_CHAIN (target_arg_types);
 	  
-      for (fns = overload; fns; fns = OVL_CHAIN (fns))
+      for (fns = overload; fns; fns = OVL_NEXT (fns))
 	{
-	  tree fn = OVL_FUNCTION (fns);
+	  tree fn = OVL_CURRENT (fns);
 	  tree instantiation;
 	  tree instantiation_type;
 	  tree targs;
@@ -6042,10 +6042,19 @@ instantiate_type (lhstype, rhs, flags)
     {
       if (comptypes (lhstype, TREE_TYPE (rhs), strict))
 	return rhs;
-      if (complain)
-	error ("argument of type `%T' does not match `%T'",
-		  TREE_TYPE (rhs), lhstype);
-      return error_mark_node;
+      if (flag_ms_extensions 
+	  && TYPE_PTRMEMFUNC_P (lhstype)
+	  && !TYPE_PTRMEMFUNC_P (TREE_TYPE (rhs)))
+	/* Microsoft allows `A::f' to be resolved to a
+	   pointer-to-member.  */
+	;
+      else
+	{
+	  if (complain)
+	    error ("argument of type `%T' does not match `%T'",
+		   TREE_TYPE (rhs), lhstype);
+	  return error_mark_node;
+	}
     }
 
   if (TREE_CODE (rhs) == BASELINK)
@@ -6121,6 +6130,7 @@ instantiate_type (lhstype, rhs, flags)
       }
 
     case OVERLOAD:
+    case FUNCTION_DECL:
       return 
 	resolve_address_of_overloaded_function (lhstype, 
 						rhs,

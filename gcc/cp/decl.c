@@ -9743,9 +9743,8 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 	      my_friendly_assert (flags == NO_SPECIAL, 152);
 	      flags = DTOR_FLAG;
 	      sfk = sfk_destructor;
-	      if (TREE_CODE (name) == TYPE_DECL)
-		TREE_OPERAND (decl, 0) = name 
-		  = constructor_name (TREE_TYPE (name));
+	      if (TYPE_P (name))
+		TREE_OPERAND (decl, 0) = name = constructor_name (name);
 	      my_friendly_assert (TREE_CODE (name) == IDENTIFIER_NODE, 153);
 	      if (ctype == NULL_TREE)
 		{

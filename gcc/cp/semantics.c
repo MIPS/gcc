@@ -1183,6 +1183,58 @@ finish_parenthesized_expr (expr)
   return expr;
 }
 
+/* Finish a reference to a non-static data member (DECL) that is not
+   preceded by `.' or `->'.  */
+
+tree
+finish_non_static_data_member (tree decl, tree qualifying_scope)
+{
+  my_friendly_assert (TREE_CODE (decl) == FIELD_DECL, 20020909);
+
+  if (current_class_ptr == NULL_TREE)
+    {
+      if (current_function_decl 
+	  && DECL_STATIC_FUNCTION_P (current_function_decl))
+	cp_error_at ("invalid use of member `%D' in static member function",
+		     decl);
+      else
+	cp_error_at ("invalid use of non-static data member `%D'", decl);
+      error ("from this location");
+
+      return error_mark_node;
+    }
+  TREE_USED (current_class_ptr) = 1;
+  if (processing_template_decl)
+    return build_min_nt (COMPONENT_REF, current_class_ref, DECL_NAME (decl));
+  else
+    {
+      tree access_type = current_class_type;
+      tree object = current_class_ref;
+
+      while (!DERIVED_FROM_P (context_for_name_lookup (decl), access_type))
+	{
+	  access_type = TYPE_CONTEXT (access_type);
+	  while (DECL_P (access_type))
+	    access_type = DECL_CONTEXT (access_type);
+	}
+
+      enforce_access (access_type, decl);
+
+      /* If the data member was named `C::M', convert `*this' to `C'
+	 first.  */
+      if (qualifying_scope)
+	{
+	  tree binfo = NULL_TREE;
+	  object = build_scoped_ref (object, qualifying_scope,
+				     &binfo);
+	}
+
+      return build_class_member_access_expr (object, decl,
+					     /*access_path=*/NULL_TREE,
+					     /*preserve_reference=*/false);
+    }
+}
+
 /* Begin a statement-expression.  The value returned must be passed to
    finish_stmt_expr.  */
 
@@ -1333,6 +1385,20 @@ finish_call_expr (tree fn, tree args, bool disallow_virtual)
   else if (is_overloaded_fn (fn))
     /* A call to a namespace-scope function.  */
     return build_new_function_call (fn, args);
+  else if (TREE_CODE (fn) == PSEUDO_DTOR_EXPR)
+    {
+      tree result;
+
+      if (args)
+	error ("arguments to destructor are not allowed");
+      /* Mark the pseudo-destructor call as having side-effects so
+	 that we do not issue warnings about its use.  */
+      result = build1 (NOP_EXPR,
+		       void_type_node,
+		       TREE_OPERAND (fn, 0));
+      TREE_SIDE_EFFECTS (result) = 1;
+      return result;
+    }
   else if (CLASS_TYPE_P (TREE_TYPE (fn)))
     {
       /* If the "function" is really an object of class type, it might
@@ -1423,6 +1489,11 @@ finish_object_call_expr (fn, object, args)
 	}
     }
   
+  if (processing_template_decl)
+    return build_nt (CALL_EXPR,
+		     build_nt (COMPONENT_REF, object, fn),
+		     args);
+
   if (name_p (fn))
     return build_method_call (object, fn, args, NULL_TREE, LOOKUP_NORMAL);
   else
@@ -1525,16 +1596,21 @@ finish_compound_literal (type, initializer_list)
 			       initializer_list);
   /* Mark it as a compound-literal.  */
   TREE_HAS_CONSTRUCTOR (compound_literal) = 1;
-  /* Check the initialization.  */
-  compound_literal = digest_init (type, compound_literal, NULL);
-  /* If the TYPE was an array type with an unknown bound, then we can
-     figure out the dimension now.  For example, something like:
+  if (processing_template_decl)
+    TREE_TYPE (compound_literal) = type;
+  else
+    {
+      /* Check the initialization.  */
+      compound_literal = digest_init (type, compound_literal, NULL);
+      /* If the TYPE was an array type with an unknown bound, then we can
+	 figure out the dimension now.  For example, something like:
 
-       `(int []) { 2, 3 }'
-     
-     implies that the array has two elements.  */
-  if (TREE_CODE (type) == ARRAY_TYPE && !COMPLETE_TYPE_P (type))
-    complete_array_type (type, compound_literal, 1);
+	   `(int []) { 2, 3 }'
+
+	 implies that the array has two elements.  */
+      if (TREE_CODE (type) == ARRAY_TYPE && !COMPLETE_TYPE_P (type))
+	complete_array_type (type, compound_literal, 1);
+    }
 
   return compound_literal;
 }

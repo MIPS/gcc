@@ -1680,9 +1680,6 @@ adjust_result_of_qualified_name_lookup (tree decl,
 			   NULL);
 	}
     }
-  
-  if (BASELINK_P (decl) || TREE_CODE (decl) == FIELD_DECL)
-    decl = build_offset_ref (qualifying_scope, decl);
 
   return decl;
 }
