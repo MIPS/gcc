@@ -1,3 +1,8 @@
+2002-10-21  Richard Henderson  <rth@redhat.com>
+
+	* config/i386/i386.c (ix86_function_ok_for_sibcall): Look at
+	the function type, not the return type.
+
 2002-10-20  Zack Weinberg  <zack@codesourcery.com>
 
 	* config/i386/i386.c (ix86_function_ok_for_sibcall): Fix an

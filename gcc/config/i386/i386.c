@@ -1407,9 +1407,14 @@ ix86_function_ok_for_sibcall (decl, exp)
   if (!decl && !TARGET_64BIT)
     {
       int regparm = ix86_regparm;
-      tree attr;
+      tree attr, type;
 
-      attr = lookup_attribute ("regparm", TYPE_ATTRIBUTES (TREE_TYPE (exp)));
+      /* We're looking at the CALL_EXPR, we need the type of the function.  */
+      type = TREE_OPERAND (exp, 0);		/* pointer expression */
+      type = TREE_TYPE (type);			/* pointer type */
+      type = TREE_TYPE (type);			/* function type */
+
+      attr = lookup_attribute ("regparm", TYPE_ATTRIBUTES (type));
       if (attr)
         regparm = TREE_INT_CST_LOW (TREE_VALUE (TREE_VALUE (attr)));
 
