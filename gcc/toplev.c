@@ -4284,7 +4284,7 @@ process_options (void)
   if (flag_short_enums == 2)
 #ifdef DEFAULT_SHORT_ENUMS
     flag_short_enums = DEFAULT_SHORT_ENUMS;
-#endif
+#else
     flag_short_enums = 0;
 #endif
 

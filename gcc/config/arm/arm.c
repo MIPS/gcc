@@ -155,6 +155,7 @@ static void aof_dump_pic_table (FILE *);
 static void aof_file_start (void);
 static void aof_file_end (void);
 #endif
+static bool arm_align_anon_bitfield (void);
 
 
 /* Initialize the GCC target structure.  */
@@ -238,6 +239,9 @@ static void aof_file_end (void);
 #define TARGET_INIT_BUILTINS  arm_init_builtins
 #undef  TARGET_EXPAND_BUILTIN
 #define TARGET_EXPAND_BUILTIN arm_expand_builtin
+
+#undef TARGET_ALIGN_ANON_BITFIELD
+#define TARGET_ALIGN_ANON_BITFIELD arm_align_anon_bitfield
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -14404,3 +14408,11 @@ arm_no_early_mul_dep (rtx producer, rtx consumer)
 	  && !reg_overlap_mentioned_p (value, XEXP (op, 0)));
 }
 
+
+/* AAPCS requires that anonymous bitfields affect structure alignment.  */
+
+static bool
+arm_align_anon_bitfield (void)
+{
+  return TARGET_AAPCS_BASED;
+}
