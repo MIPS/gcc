@@ -374,8 +374,9 @@ case "${target}" in
     ;;
   *-*-freebsd* | *-*-kfreebsd*-gnu)
     noconfigdirs="$noconfigdirs target-newlib target-libgloss"
-    if test -f /usr/local/include/gmp.h; then
-      extra_host_args="--with-gmp=/usr/local"
+    if test "x$with_gmp" = x && test "x$with_gmp_dir" = x \
+	&& test -f /usr/local/include/gmp.h; then
+      with_gmp=/usr/local
     fi
 
     # Skip some stuff that's unsupported on some FreeBSD configurations.
