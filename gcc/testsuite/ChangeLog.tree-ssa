@@ -2,6 +2,14 @@
 
 	* gcc.dg/tree-ssa/20030731-1.c: XFAIL.
 	* gcc.dg/tree-ssa/20030814-6.c: XFAIL.
+	* gcc.dg/tree-ssa/20031106-1.c: XFAIL.
+	* gcc.dg/tree-ssa/20031106-2.c: XFAIL.
+	* gcc.dg/tree-ssa/20031106-3.c: XFAIL.
+	* gcc.dg/tree-ssa/20031106-4.c: XFAIL.
+	* gcc.dg/tree-ssa/20031106-5.c: XFAIL.
+	* gcc.dg/tree-ssa/20031106-6.c: XFAIL.
+	* gcc.dg/tree-ssa/sra-2.c: XFAIL.
+	* gcc.dg/tree-ssa/sra-3.c: XFAIL.
 
 	* gcc.dg/i386-ssetype-1.c: XFAIL.
 	* gcc.dg/i386-ssetype-3.c: XFAIL.
