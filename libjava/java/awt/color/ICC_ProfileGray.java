@@ -1,5 +1,5 @@
 /* ICC_ProfileGray.java -- the ICC profile for a Gray colorspace
-   Copyright (C) 2002 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2004 Free Software Foundation, Inc.
 
    This file is part of GNU Classpath.
 
@@ -67,7 +67,7 @@ public class ICC_ProfileGray extends ICC_Profile
 
   /**
    * Package-private constructor used by ICC_ColorSpace for creating an
-   * ICC_ProfileRGB from a predefined ColorSpace (CS_GRAY)
+   * ICC_ProfileGray from a predefined ColorSpace (CS_GRAY)
    */
   ICC_ProfileGray(int cspace)
   {
@@ -100,7 +100,7 @@ public class ICC_ProfileGray extends ICC_Profile
 
   /**
    * Returns the TRC gamma value.
-   * @throws IllegalArgumentException if the TRC is described by a lookup
+   * @throws ProfileDataException if the TRC is described by a lookup
    * table and not a gamma value.
    */
   public float getGamma()
@@ -118,7 +118,7 @@ public class ICC_ProfileGray extends ICC_Profile
 
   /**
    * Returns the TRC lookup table.
-   * @throws IllegalArgumentException if the TRC is described by a gamma value
+   * @throws ProfileDataException if the TRC is described by a gamma value
    * and not a lookup table.
    */
   public short[] getTRC()

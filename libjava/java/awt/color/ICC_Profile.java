@@ -1,5 +1,5 @@
 /* ICC_Profile.java -- color space profiling
-   Copyright (C) 2000, 2002 Free Software Foundation
+   Copyright (C) 2000, 2002, 2004 Free Software Foundation
 
    This file is part of GNU Classpath.
 
@@ -74,7 +74,7 @@ import java.util.Hashtable;
  *
  * The ICC_Profile class implements the version 2 format specified by
  * International Color Consortium Specification ICC.1:1998-09,
- * and it's addendum ICC.1A:1999-04, April 1999
+ * and its addendum ICC.1A:1999-04, April 1999
  * (available at www.color.org)
  *
  * @author Sven de Marothy
@@ -707,7 +707,6 @@ public class ICC_Profile implements Serializable
 	                                      + i * TagEntry.entrySize + 12),
 	                           data);
 
-	//	    System.out.println("Tag:"+te);
 	if (tagTable.put(te.hashKey(), te) != null)
 	  throw new IllegalArgumentException("Duplicate tag in profile:" + te);
       }
@@ -814,11 +813,11 @@ public class ICC_Profile implements Serializable
 
   /**
    * Returns curve data for a 'curv'-type tag
-   * If it's a gamma curve, a singly entry will be returned with the
+   * If it's a gamma curve, a single entry will be returned with the
    * gamma value (including 1.0 for linear response)
    * Otherwise the TRC table is returned.
    *
-   * (Package private - used by ICC_ProfileXYZ and ICC_ProfileGray)
+   * (Package private - used by ICC_ProfileRGB and ICC_ProfileGray)
    */
   short[] getCurve(int signature)
   {

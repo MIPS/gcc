@@ -47,10 +47,6 @@ package gnu.java.awt.color;
  *
  * @author Sven de Marothy
  */
-/**
- * Linear RGB.
- * TESTED
- */
 public class LinearRGBConverter implements ColorSpaceConverter
 {
   /**

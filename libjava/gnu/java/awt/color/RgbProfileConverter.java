@@ -79,7 +79,6 @@ public class RgbProfileConverter implements ColorSpaceConverter
   {
     toPCS = fromPCS = null;
     matrix = profile.getMatrix();
-    inv_matrix = invertMatrix(matrix);
 
     // get TRCs
     try
@@ -128,6 +127,16 @@ public class RgbProfileConverter implements ColorSpaceConverter
     catch (Exception e)
       {
 	fromPCS = null;
+      }
+
+    // Calculate the inverse matrix if no reverse CLUT is available
+    if(fromPCS == null)
+	inv_matrix = invertMatrix(matrix);
+    else 
+      {
+        // otherwise just set it to an identity matrix
+	inv_matrix = new float[3][3];
+	inv_matrix[0][0] = inv_matrix[1][1] = inv_matrix[2][2] = 1.0f;
       }
   }
 

@@ -1,5 +1,5 @@
 /* ICC_ProfileRGB.java -- the ICC profile for a RGB colorspace
-   Copyright (C) 2002 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2004 Free Software Foundation, Inc.
 
    This file is part of GNU Classpath.
 
@@ -139,7 +139,7 @@ public class ICC_ProfileRGB extends ICC_Profile
 
   /**
    * Returns the gamma value of a component
-   * @throws IllegalArgumentException if the TRC is described by a lookup
+   * @throws ProfileDataException if the TRC is described by a lookup
    * table and not a gamma value.
    */
   public float getGamma(int component)
@@ -174,7 +174,7 @@ public class ICC_ProfileRGB extends ICC_Profile
 
   /**
    * Returns the TRC lookup table for a component
-   * @throws IllegalArgumentException if the TRC is described by a gamma
+   * @throws ProfileDataException if the TRC is described by a gamma
    * value and not a lookup table.
    */
   public short[] getTRC(int component)

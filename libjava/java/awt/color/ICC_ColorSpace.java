@@ -1,5 +1,5 @@
 /* ICC_ColorSpace.java -- the canonical color space implementation
-   Copyright (C) 2000, 2002 Free Software Foundation
+   Copyright (C) 2000, 2002, 2004 Free Software Foundation
 
    This file is part of GNU Classpath.
 
