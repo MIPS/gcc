@@ -1,3 +1,7 @@
+2003-01-08  David Edelsohn  <edelsohn@gnu.org>
+
+	* doc/md.texi: Clarify assignment of units to automata description.
+
 2003-01-08  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* genautomata.c (unit_decl): Remove members
