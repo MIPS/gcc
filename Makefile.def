@@ -4,7 +4,7 @@ AutoGen definitions Makefile.tpl;
 // Makefile.in is generated from Makefile.tpl by 'autogen Makefile.def'.
 // This file was originally written by Nathanael Nerode.
 //
-//   Copyright 2002, 2003 Free Software Foundation
+//   Copyright 2002, 2003, 2005 Free Software Foundation
 //
 // This file is free software; you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -64,6 +64,7 @@ host_modules= { module= gcc; bootstrap=true;
 		extra_make_flags="$(EXTRA_GCC_FLAGS)"; };
 host_modules= { module= gawk; };
 host_modules= { module= gettext; };
+host_modules= { module= gcjx; };
 host_modules= { module= gnuserv; };
 host_modules= { module= gprof; };
 host_modules= { module= gzip; };
@@ -248,6 +249,7 @@ dependencies = { module=configure-gcc; on=configure-intl; };
 dependencies = { module=configure-gcc; on=configure-binutils; };
 dependencies = { module=configure-gcc; on=configure-gas; };
 dependencies = { module=configure-gcc; on=configure-ld; };
+dependencies = { module=configure-gcc; on=configure-gcjx; };
 dependencies = { module=all-gcc; on=all-libiberty; hard=true; };
 dependencies = { module=all-gcc; on=all-intl; };
 dependencies = { module=all-gcc; on=all-build-texinfo; };
@@ -258,6 +260,7 @@ dependencies = { module=all-gcc; on=all-build-libiberty; };
 dependencies = { module=all-gcc; on=all-build-fixincludes; };
 dependencies = { module=all-gcc; on=all-binutils; };
 dependencies = { module=all-gcc; on=all-gas; };
+dependencies = { module=all-gcc; on=all-gcjx; };
 dependencies = { module=all-gcc; on=all-ld; };
 dependencies = { module=all-gcc; on=all-zlib; };
 dependencies = { module=all-gcc; on=all-libcpp; hard=true; };
@@ -373,6 +376,7 @@ dependencies = { module=all-sim; on=configure-gdb; };
 dependencies = { module=all-fastjar; on=all-zlib; };
 dependencies = { module=all-fastjar; on=all-build-texinfo; };
 dependencies = { module=all-fastjar; on=all-libiberty; };
+dependencies = { module=all-gcjx; on=all-zlib; };
 
 // Warning, these are not well tested.
 dependencies = { module=all-autoconf; on=all-m4; };
@@ -430,6 +434,7 @@ dependencies = { module=configure-target-libjava; on=configure-target-boehm-gc; 
 dependencies = { module=configure-target-libjava; on=configure-target-qthreads; };
 dependencies = { module=configure-target-libjava; on=configure-target-libffi; };
 dependencies = { module=all-target-libjava; on=all-fastjar; };
+dependencies = { module=all-target-libjava; on=all-gcjx; };
 dependencies = { module=all-target-libjava; on=all-target-zlib; };
 dependencies = { module=all-target-libjava; on=all-target-boehm-gc; };
 dependencies = { module=all-target-libjava; on=all-target-qthreads; };

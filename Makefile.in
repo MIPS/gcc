@@ -673,6 +673,7 @@ configure-host:  \
     maybe-configure-gcc \
     maybe-configure-gawk \
     maybe-configure-gettext \
+    maybe-configure-gcjx \
     maybe-configure-gnuserv \
     maybe-configure-gprof \
     maybe-configure-gzip \
@@ -775,6 +776,7 @@ all-host:  \
     maybe-all-gcc \
     maybe-all-gawk \
     maybe-all-gettext \
+    maybe-all-gcjx \
     maybe-all-gnuserv \
     maybe-all-gprof \
     maybe-all-gzip \
@@ -872,6 +874,7 @@ info-host:  \
     maybe-info-gcc \
     maybe-info-gawk \
     maybe-info-gettext \
+    maybe-info-gcjx \
     maybe-info-gnuserv \
     maybe-info-gprof \
     maybe-info-gzip \
@@ -965,6 +968,7 @@ dvi-host:  \
     maybe-dvi-gcc \
     maybe-dvi-gawk \
     maybe-dvi-gettext \
+    maybe-dvi-gcjx \
     maybe-dvi-gnuserv \
     maybe-dvi-gprof \
     maybe-dvi-gzip \
@@ -1058,6 +1062,7 @@ html-host:  \
     maybe-html-gcc \
     maybe-html-gawk \
     maybe-html-gettext \
+    maybe-html-gcjx \
     maybe-html-gnuserv \
     maybe-html-gprof \
     maybe-html-gzip \
@@ -1151,6 +1156,7 @@ TAGS-host:  \
     maybe-TAGS-gcc \
     maybe-TAGS-gawk \
     maybe-TAGS-gettext \
+    maybe-TAGS-gcjx \
     maybe-TAGS-gnuserv \
     maybe-TAGS-gprof \
     maybe-TAGS-gzip \
@@ -1244,6 +1250,7 @@ install-info-host:  \
     maybe-install-info-gcc \
     maybe-install-info-gawk \
     maybe-install-info-gettext \
+    maybe-install-info-gcjx \
     maybe-install-info-gnuserv \
     maybe-install-info-gprof \
     maybe-install-info-gzip \
@@ -1337,6 +1344,7 @@ installcheck-host:  \
     maybe-installcheck-gcc \
     maybe-installcheck-gawk \
     maybe-installcheck-gettext \
+    maybe-installcheck-gcjx \
     maybe-installcheck-gnuserv \
     maybe-installcheck-gprof \
     maybe-installcheck-gzip \
@@ -1430,6 +1438,7 @@ mostlyclean-host:  \
     maybe-mostlyclean-gcc \
     maybe-mostlyclean-gawk \
     maybe-mostlyclean-gettext \
+    maybe-mostlyclean-gcjx \
     maybe-mostlyclean-gnuserv \
     maybe-mostlyclean-gprof \
     maybe-mostlyclean-gzip \
@@ -1523,6 +1532,7 @@ clean-host:  \
     maybe-clean-gcc \
     maybe-clean-gawk \
     maybe-clean-gettext \
+    maybe-clean-gcjx \
     maybe-clean-gnuserv \
     maybe-clean-gprof \
     maybe-clean-gzip \
@@ -1616,6 +1626,7 @@ distclean-host:  \
     maybe-distclean-gcc \
     maybe-distclean-gawk \
     maybe-distclean-gettext \
+    maybe-distclean-gcjx \
     maybe-distclean-gnuserv \
     maybe-distclean-gprof \
     maybe-distclean-gzip \
@@ -1709,6 +1720,7 @@ maintainer-clean-host:  \
     maybe-maintainer-clean-gcc \
     maybe-maintainer-clean-gawk \
     maybe-maintainer-clean-gettext \
+    maybe-maintainer-clean-gcjx \
     maybe-maintainer-clean-gnuserv \
     maybe-maintainer-clean-gprof \
     maybe-maintainer-clean-gzip \
@@ -1861,6 +1873,7 @@ do-check: unstage  \
     maybe-check-gcc \
     maybe-check-gawk \
     maybe-check-gettext \
+    maybe-check-gcjx \
     maybe-check-gnuserv \
     maybe-check-gprof \
     maybe-check-gzip \
@@ -1973,6 +1986,7 @@ install-host-nogcc:  \
     maybe-install-gas \
     maybe-install-gawk \
     maybe-install-gettext \
+    maybe-install-gcjx \
     maybe-install-gnuserv \
     maybe-install-gprof \
     maybe-install-gzip \
@@ -2042,6 +2056,7 @@ install-host:  \
     maybe-install-gcc \
     maybe-install-gawk \
     maybe-install-gettext \
+    maybe-install-gcjx \
     maybe-install-gnuserv \
     maybe-install-gprof \
     maybe-install-gzip \
@@ -10475,6 +10490,336 @@ maintainer-clean-gettext:
 	  || exit 1
 
 @endif gettext
+
+
+.PHONY: configure-gcjx maybe-configure-gcjx
+maybe-configure-gcjx:
+@if gcjx
+maybe-configure-gcjx: configure-gcjx
+configure-gcjx:
+	@test ! -f gcjx/Makefile || exit 0; \
+	[ -d gcjx ] || mkdir gcjx; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(HOST_EXPORTS) \
+	echo Configuring in gcjx; \
+	cd gcjx || exit 1; \
+	case $(srcdir) in \
+	  \.) \
+	    srcdiroption="--srcdir=."; \
+	    libsrcdir=".";; \
+	  /* | [A-Za-z]:[\\/]*) \
+	    srcdiroption="--srcdir=$(srcdir)/gcjx"; \
+	    libsrcdir="$$s/gcjx";; \
+	  *) \
+	    srcdiroption="--srcdir=../$(srcdir)/gcjx"; \
+	    libsrcdir="$$s/gcjx";; \
+	esac; \
+	$(SHELL) $${libsrcdir}/configure \
+	  $(HOST_CONFIGARGS) $${srcdiroption}  \
+	  || exit 1
+@endif gcjx
+
+.PHONY: all-gcjx maybe-all-gcjx
+maybe-all-gcjx:
+@if gcjx
+TARGET-gcjx=all
+maybe-all-gcjx: all-gcjx
+all-gcjx: configure-gcjx
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(HOST_EXPORTS) \
+	(cd gcjx && $(MAKE) $(FLAGS_TO_PASS)  \
+	  $(TARGET-gcjx))
+@endif gcjx
+
+.PHONY: check-gcjx maybe-check-gcjx
+maybe-check-gcjx:
+@if gcjx
+maybe-check-gcjx: check-gcjx
+
+check-gcjx:
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(HOST_EXPORTS) \
+	(cd gcjx && $(MAKE) $(FLAGS_TO_PASS) check)
+
+@endif gcjx
+
+.PHONY: install-gcjx maybe-install-gcjx
+maybe-install-gcjx:
+@if gcjx
+maybe-install-gcjx: install-gcjx
+
+install-gcjx: installdirs
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(HOST_EXPORTS) \
+	(cd gcjx && $(MAKE) $(FLAGS_TO_PASS) install)
+
+@endif gcjx
+
+# Other targets (info, dvi, etc.)
+
+.PHONY: maybe-info-gcjx info-gcjx
+maybe-info-gcjx:
+@if gcjx
+maybe-info-gcjx: info-gcjx
+
+info-gcjx: \
+    configure-gcjx 
+	@[ -f ./gcjx/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) ; do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing info in gcjx" ; \
+	(cd gcjx && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	          info) \
+	  || exit 1
+
+@endif gcjx
+
+.PHONY: maybe-dvi-gcjx dvi-gcjx
+maybe-dvi-gcjx:
+@if gcjx
+maybe-dvi-gcjx: dvi-gcjx
+
+dvi-gcjx: \
+    configure-gcjx 
+	@[ -f ./gcjx/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) ; do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing dvi in gcjx" ; \
+	(cd gcjx && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	          dvi) \
+	  || exit 1
+
+@endif gcjx
+
+.PHONY: maybe-html-gcjx html-gcjx
+maybe-html-gcjx:
+@if gcjx
+maybe-html-gcjx: html-gcjx
+
+html-gcjx: \
+    configure-gcjx 
+	@[ -f ./gcjx/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) ; do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing html in gcjx" ; \
+	(cd gcjx && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	          html) \
+	  || exit 1
+
+@endif gcjx
+
+.PHONY: maybe-TAGS-gcjx TAGS-gcjx
+maybe-TAGS-gcjx:
+@if gcjx
+maybe-TAGS-gcjx: TAGS-gcjx
+
+TAGS-gcjx: \
+    configure-gcjx 
+	@[ -f ./gcjx/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) ; do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing TAGS in gcjx" ; \
+	(cd gcjx && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	          TAGS) \
+	  || exit 1
+
+@endif gcjx
+
+.PHONY: maybe-install-info-gcjx install-info-gcjx
+maybe-install-info-gcjx:
+@if gcjx
+maybe-install-info-gcjx: install-info-gcjx
+
+install-info-gcjx: \
+    configure-gcjx \
+    info-gcjx 
+	@[ -f ./gcjx/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) ; do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing install-info in gcjx" ; \
+	(cd gcjx && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	          install-info) \
+	  || exit 1
+
+@endif gcjx
+
+.PHONY: maybe-installcheck-gcjx installcheck-gcjx
+maybe-installcheck-gcjx:
+@if gcjx
+maybe-installcheck-gcjx: installcheck-gcjx
+
+installcheck-gcjx: \
+    configure-gcjx 
+	@[ -f ./gcjx/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) ; do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing installcheck in gcjx" ; \
+	(cd gcjx && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	          installcheck) \
+	  || exit 1
+
+@endif gcjx
+
+.PHONY: maybe-mostlyclean-gcjx mostlyclean-gcjx
+maybe-mostlyclean-gcjx:
+@if gcjx
+maybe-mostlyclean-gcjx: mostlyclean-gcjx
+
+mostlyclean-gcjx: 
+	@[ -f ./gcjx/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) ; do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing mostlyclean in gcjx" ; \
+	(cd gcjx && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	          mostlyclean) \
+	  || exit 1
+
+@endif gcjx
+
+.PHONY: maybe-clean-gcjx clean-gcjx
+maybe-clean-gcjx:
+@if gcjx
+maybe-clean-gcjx: clean-gcjx
+
+clean-gcjx: 
+	@[ -f ./gcjx/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) ; do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing clean in gcjx" ; \
+	(cd gcjx && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	          clean) \
+	  || exit 1
+
+@endif gcjx
+
+.PHONY: maybe-distclean-gcjx distclean-gcjx
+maybe-distclean-gcjx:
+@if gcjx
+maybe-distclean-gcjx: distclean-gcjx
+
+distclean-gcjx: 
+	@[ -f ./gcjx/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) ; do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing distclean in gcjx" ; \
+	(cd gcjx && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	          distclean) \
+	  || exit 1
+
+@endif gcjx
+
+.PHONY: maybe-maintainer-clean-gcjx maintainer-clean-gcjx
+maybe-maintainer-clean-gcjx:
+@if gcjx
+maybe-maintainer-clean-gcjx: maintainer-clean-gcjx
+
+maintainer-clean-gcjx: 
+	@[ -f ./gcjx/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) ; do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing maintainer-clean in gcjx" ; \
+	(cd gcjx && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	          maintainer-clean) \
+	  || exit 1
+
+@endif gcjx
 
 
 .PHONY: configure-gnuserv maybe-configure-gnuserv
@@ -30651,7 +30996,7 @@ all-stage1:     \
   maybe-all-stage1-opcodes \
   maybe-all-stage1-binutils              \
   maybe-all-stage1-gas \
-  maybe-all-stage1-gcc        \
+  maybe-all-stage1-gcc         \
   maybe-all-stage1-intl   \
   maybe-all-stage1-ld \
   maybe-all-stage1-libcpp  \
@@ -30664,7 +31009,7 @@ clean-stage1:     \
   maybe-clean-stage1-opcodes \
   maybe-clean-stage1-binutils              \
   maybe-clean-stage1-gas \
-  maybe-clean-stage1-gcc        \
+  maybe-clean-stage1-gcc         \
   maybe-clean-stage1-intl   \
   maybe-clean-stage1-ld \
   maybe-clean-stage1-libcpp  \
@@ -31348,7 +31693,7 @@ all-stage2:     \
   maybe-all-stage2-opcodes \
   maybe-all-stage2-binutils              \
   maybe-all-stage2-gas \
-  maybe-all-stage2-gcc        \
+  maybe-all-stage2-gcc         \
   maybe-all-stage2-intl   \
   maybe-all-stage2-ld \
   maybe-all-stage2-libcpp  \
@@ -31361,7 +31706,7 @@ clean-stage2:     \
   maybe-clean-stage2-opcodes \
   maybe-clean-stage2-binutils              \
   maybe-clean-stage2-gas \
-  maybe-clean-stage2-gcc        \
+  maybe-clean-stage2-gcc         \
   maybe-clean-stage2-intl   \
   maybe-clean-stage2-ld \
   maybe-clean-stage2-libcpp  \
@@ -32069,7 +32414,7 @@ all-stage3:     \
   maybe-all-stage3-opcodes \
   maybe-all-stage3-binutils              \
   maybe-all-stage3-gas \
-  maybe-all-stage3-gcc        \
+  maybe-all-stage3-gcc         \
   maybe-all-stage3-intl   \
   maybe-all-stage3-ld \
   maybe-all-stage3-libcpp  \
@@ -32082,7 +32427,7 @@ clean-stage3:     \
   maybe-clean-stage3-opcodes \
   maybe-clean-stage3-binutils              \
   maybe-clean-stage3-gas \
-  maybe-clean-stage3-gcc        \
+  maybe-clean-stage3-gcc         \
   maybe-clean-stage3-intl   \
   maybe-clean-stage3-ld \
   maybe-clean-stage3-libcpp  \
@@ -32820,7 +33165,7 @@ all-stage4:     \
   maybe-all-stage4-opcodes \
   maybe-all-stage4-binutils              \
   maybe-all-stage4-gas \
-  maybe-all-stage4-gcc        \
+  maybe-all-stage4-gcc         \
   maybe-all-stage4-intl   \
   maybe-all-stage4-ld \
   maybe-all-stage4-libcpp  \
@@ -32833,7 +33178,7 @@ clean-stage4:     \
   maybe-clean-stage4-opcodes \
   maybe-clean-stage4-binutils              \
   maybe-clean-stage4-gas \
-  maybe-clean-stage4-gcc        \
+  maybe-clean-stage4-gcc         \
   maybe-clean-stage4-intl   \
   maybe-clean-stage4-ld \
   maybe-clean-stage4-libcpp  \
@@ -33567,7 +33912,7 @@ all-stageprofile:     \
   maybe-all-stageprofile-opcodes \
   maybe-all-stageprofile-binutils              \
   maybe-all-stageprofile-gas \
-  maybe-all-stageprofile-gcc        \
+  maybe-all-stageprofile-gcc         \
   maybe-all-stageprofile-intl   \
   maybe-all-stageprofile-ld \
   maybe-all-stageprofile-libcpp  \
@@ -33580,7 +33925,7 @@ clean-stageprofile:     \
   maybe-clean-stageprofile-opcodes \
   maybe-clean-stageprofile-binutils              \
   maybe-clean-stageprofile-gas \
-  maybe-clean-stageprofile-gcc        \
+  maybe-clean-stageprofile-gcc         \
   maybe-clean-stageprofile-intl   \
   maybe-clean-stageprofile-ld \
   maybe-clean-stageprofile-libcpp  \
@@ -34284,7 +34629,7 @@ all-stagefeedback:     \
   maybe-all-stagefeedback-opcodes \
   maybe-all-stagefeedback-binutils              \
   maybe-all-stagefeedback-gas \
-  maybe-all-stagefeedback-gcc        \
+  maybe-all-stagefeedback-gcc         \
   maybe-all-stagefeedback-intl   \
   maybe-all-stagefeedback-ld \
   maybe-all-stagefeedback-libcpp  \
@@ -34297,7 +34642,7 @@ clean-stagefeedback:     \
   maybe-clean-stagefeedback-opcodes \
   maybe-clean-stagefeedback-binutils              \
   maybe-clean-stagefeedback-gas \
-  maybe-clean-stagefeedback-gcc        \
+  maybe-clean-stagefeedback-gcc         \
   maybe-clean-stagefeedback-intl   \
   maybe-clean-stagefeedback-ld \
   maybe-clean-stagefeedback-libcpp  \
@@ -35053,6 +35398,7 @@ configure-stage3-gcc: maybe-configure-stage3-ld
 configure-stage4-gcc: maybe-configure-stage4-ld
 configure-stageprofile-gcc: maybe-configure-stageprofile-ld
 configure-stagefeedback-gcc: maybe-configure-stagefeedback-ld
+configure-gcc: maybe-configure-gcjx
 all-gcc: all-libiberty
 
 all-stage1-gcc: all-stage1-libiberty
@@ -35139,6 +35485,7 @@ all-stage3-gcc: maybe-all-stage3-gas
 all-stage4-gcc: maybe-all-stage4-gas
 all-stageprofile-gcc: maybe-all-stageprofile-gas
 all-stagefeedback-gcc: maybe-all-stagefeedback-gas
+all-gcc: maybe-all-gcjx
 all-gcc: maybe-all-ld
 
 all-stage1-gcc: maybe-all-stage1-ld
@@ -35451,6 +35798,7 @@ all-sim: maybe-configure-gdb
 all-fastjar: maybe-all-zlib
 all-fastjar: maybe-all-build-texinfo
 all-fastjar: maybe-all-libiberty
+all-gcjx: maybe-all-zlib
 all-autoconf: maybe-all-m4
 all-autoconf: maybe-all-build-texinfo
 all-automake: maybe-all-m4
@@ -35493,6 +35841,7 @@ configure-target-libjava: maybe-configure-target-boehm-gc
 configure-target-libjava: maybe-configure-target-qthreads
 configure-target-libjava: maybe-configure-target-libffi
 all-target-libjava: maybe-all-fastjar
+all-target-libjava: maybe-all-gcjx
 all-target-libjava: maybe-all-target-zlib
 all-target-libjava: maybe-all-target-boehm-gc
 all-target-libjava: maybe-all-target-qthreads
