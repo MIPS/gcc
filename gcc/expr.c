@@ -4258,7 +4258,7 @@ expand_assignment (to, from, want_value, suggest_reg)
    and storing the value into TARGET.
    TARGET may contain a QUEUED rtx.
 
-   If WANT_VALUE is nonzero, return a copy of the value
+   If WANT_VALUE & 1 is nonzero, return a copy of the value
    not in TARGET, so that we can be sure to use the proper
    value in a containing expression even if TARGET has something
    else stored in it.  If possible, we copy the value through a pseudo
@@ -4273,9 +4273,12 @@ expand_assignment (to, from, want_value, suggest_reg)
    with no sequence point.  Will other languages need this to
    be more thorough?
 
-   If WANT_VALUE is 0, we return NULL, to make sure
+   If WANT_VALUE & 1 is 0, we return NULL, to make sure
    to catch quickly any cases where the caller uses the value
-   and fails to set WANT_VALUE.  */
+   and fails to set WANT_VALUE.
+
+   If WANT_VALUE & 2 is set, this is a store into a call param on the
+   stack, and block moves may need to be treated specially.  */
 
 rtx
 store_expr (exp, target, want_value)
@@ -4291,7 +4294,8 @@ store_expr (exp, target, want_value)
     {
       /* Perform first part of compound expression, then assign from second
 	 part.  */
-      expand_expr (TREE_OPERAND (exp, 0), const0_rtx, VOIDmode, 0);
+      expand_expr (TREE_OPERAND (exp, 0), const0_rtx, VOIDmode,
+		   want_value & 2 ? EXPAND_STACK_PARM : EXPAND_NORMAL);
       emit_queue ();
       return store_expr (TREE_OPERAND (exp, 1), target, want_value);
     }
@@ -4311,20 +4315,20 @@ store_expr (exp, target, want_value)
       NO_DEFER_POP;
       jumpifnot (TREE_OPERAND (exp, 0), lab1);
       start_cleanup_deferral ();
-      store_expr (TREE_OPERAND (exp, 1), target, 0);
+      store_expr (TREE_OPERAND (exp, 1), target, want_value & 2);
       end_cleanup_deferral ();
       emit_queue ();
       emit_jump_insn (gen_jump (lab2));
       emit_barrier ();
       emit_label (lab1);
       start_cleanup_deferral ();
-      store_expr (TREE_OPERAND (exp, 2), target, 0);
+      store_expr (TREE_OPERAND (exp, 2), target, want_value & 2);
       end_cleanup_deferral ();
       emit_queue ();
       emit_label (lab2);
       OK_DEFER_POP;
 
-      return want_value ? target : NULL_RTX;
+      return want_value & 1 ? target : NULL_RTX;
     }
   else if (queued_subexp_p (target))
     /* If target contains a postincrement, let's not risk
@@ -4334,18 +4338,24 @@ store_expr (exp, target, want_value)
 	{
 	  /* Expand EXP into a new pseudo.  */
 	  temp = gen_reg_rtx (GET_MODE (target));
-	  temp = expand_expr (exp, temp, GET_MODE (target), 0);
+	  temp = expand_expr (exp, temp, GET_MODE (target),
+			      (want_value & 2
+			       ? EXPAND_STACK_PARM : EXPAND_NORMAL));
 	}
       else
-	temp = expand_expr (exp, NULL_RTX, GET_MODE (target), 0);
+	temp = expand_expr (exp, NULL_RTX, GET_MODE (target),
+			    (want_value & 2
+			     ? EXPAND_STACK_PARM : EXPAND_NORMAL));
 
       /* If target is volatile, ANSI requires accessing the value
 	 *from* the target, if it is accessed.  So make that happen.
 	 In no case return the target itself.  */
-      if (! MEM_VOLATILE_P (target) && want_value)
+      if (! MEM_VOLATILE_P (target) && (want_value & 1) != 0)
 	dont_return_target = 1;
     }
-  else if (want_value && GET_CODE (target) == MEM && ! MEM_VOLATILE_P (target)
+  else if ((want_value & 1) != 0
+	   && GET_CODE (target) == MEM
+	   && ! MEM_VOLATILE_P (target)
 	   && GET_MODE (target) != BLKmode)
     /* If target is in memory and caller wants value in a register instead,
        arrange that.  Pass TARGET as target for expand_expr so that,
@@ -4354,7 +4364,8 @@ store_expr (exp, target, want_value)
        Don't do this if TARGET is volatile because we are supposed
        to write it and then read it.  */
     {
-      temp = expand_expr (exp, target, GET_MODE (target), 0);
+      temp = expand_expr (exp, target, GET_MODE (target),
+			  want_value & 2 ? EXPAND_STACK_PARM : EXPAND_NORMAL);
       if (GET_MODE (temp) != BLKmode && GET_MODE (temp) != VOIDmode)
 	{
 	  /* If TEMP is already in the desired TARGET, only copy it from
@@ -4381,7 +4392,8 @@ store_expr (exp, target, want_value)
 	 the extend.  But don't do this if the type of EXP is a subtype
 	 of something else since then the conversion might involve
 	 more than just converting modes.  */
-      if (! want_value && INTEGRAL_TYPE_P (TREE_TYPE (exp))
+      if ((want_value & 1) == 0
+	  && INTEGRAL_TYPE_P (TREE_TYPE (exp))
 	  && TREE_TYPE (TREE_TYPE (exp)) == 0)
 	{
 	  if (TREE_UNSIGNED (TREE_TYPE (exp))
@@ -4398,12 +4410,13 @@ store_expr (exp, target, want_value)
 	  inner_target = SUBREG_REG (target);
 	}
 
-      temp = expand_expr (exp, inner_target, VOIDmode, 0);
+      temp = expand_expr (exp, inner_target, VOIDmode,
+			  want_value & 2 ? EXPAND_STACK_PARM : EXPAND_NORMAL);
 
       /* If TEMP is a volatile MEM and we want a result value, make
 	 the access now so it gets done only once.  Likewise if
 	 it contains TARGET.  */
-      if (GET_CODE (temp) == MEM && want_value
+      if (GET_CODE (temp) == MEM && (want_value & 1) != 0
 	  && (MEM_VOLATILE_P (temp)
 	      || reg_mentioned_p (SUBREG_REG (target), XEXP (temp, 0))))
 	temp = copy_to_reg (temp);
@@ -4426,7 +4439,7 @@ store_expr (exp, target, want_value)
 	 target.  Otherwise, the caller might get confused by a result whose
 	 mode is larger than expected.  */
 
-      if (want_value && GET_MODE (temp) != GET_MODE (target))
+      if ((want_value & 1) != 0 && GET_MODE (temp) != GET_MODE (target))
 	{
 	  if (GET_MODE (temp) != VOIDmode)
 	    {
@@ -4441,11 +4454,12 @@ store_expr (exp, target, want_value)
 				  temp, SUBREG_PROMOTED_UNSIGNED_P (target));
 	}
 
-      return want_value ? temp : NULL_RTX;
+      return want_value & 1 ? temp : NULL_RTX;
     }
   else
     {
-      temp = expand_expr (exp, target, GET_MODE (target), 0);
+      temp = expand_expr (exp, target, GET_MODE (target),
+			  want_value & 2 ? EXPAND_STACK_PARM : EXPAND_NORMAL);
       /* Return TARGET if it's a specified hardware register.
 	 If TARGET is a volatile mem ref, either return TARGET
 	 or return a reg copied *from* TARGET; ANSI requires this.
@@ -4457,7 +4471,7 @@ store_expr (exp, target, want_value)
 	    && REGNO (target) < FIRST_PSEUDO_REGISTER)
 	  && !(GET_CODE (target) == MEM && MEM_VOLATILE_P (target))
 	  && ! rtx_equal_p (temp, target)
-	  && (CONSTANT_P (temp) || want_value))
+	  && (CONSTANT_P (temp) || (want_value & 1) != 0))
 	dont_return_target = 1;
     }
 
@@ -4528,7 +4542,9 @@ store_expr (exp, target, want_value)
 
 	  if (GET_CODE (size) == CONST_INT
 	      && INTVAL (size) < TREE_STRING_LENGTH (exp))
-	    emit_block_move (target, temp, size, BLOCK_OP_NORMAL);
+	    emit_block_move (target, temp, size,
+			     (want_value & 2
+			      ? BLOCK_OP_CALL_PARM : BLOCK_OP_NORMAL));
 	  else
 	    {
 	      /* Compute the size of the data to copy from the string.  */
@@ -4536,13 +4552,17 @@ store_expr (exp, target, want_value)
 		= size_binop (MIN_EXPR,
 			      make_tree (sizetype, size),
 			      size_int (TREE_STRING_LENGTH (exp)));
-	      rtx copy_size_rtx = expand_expr (copy_size, NULL_RTX,
-					       VOIDmode, 0);
+	      rtx copy_size_rtx
+		= expand_expr (copy_size, NULL_RTX, VOIDmode,
+			       (want_value & 2
+				? EXPAND_STACK_PARM : EXPAND_NORMAL));
 	      rtx label = 0;
 
 	      /* Copy that much.  */
 	      copy_size_rtx = convert_to_mode (ptr_mode, copy_size_rtx, 0);
-	      emit_block_move (target, temp, copy_size_rtx, BLOCK_OP_NORMAL);
+	      emit_block_move (target, temp, copy_size_rtx,
+			       (want_value & 2
+				? BLOCK_OP_CALL_PARM : BLOCK_OP_NORMAL));
 
 	      /* Figure out how much is left in TARGET that we have to clear.
 		 Do all calculations in ptr_mode.  */
@@ -4583,13 +4603,15 @@ store_expr (exp, target, want_value)
       else if (GET_CODE (target) == PARALLEL)
 	emit_group_load (target, temp, int_size_in_bytes (TREE_TYPE (exp)));
       else if (GET_MODE (temp) == BLKmode)
-	emit_block_move (target, temp, expr_size (exp), BLOCK_OP_NORMAL);
+	emit_block_move (target, temp, expr_size (exp),
+			 (want_value & 2
+			  ? BLOCK_OP_CALL_PARM : BLOCK_OP_NORMAL));
       else
 	emit_move_insn (target, temp);
     }
 
   /* If we don't want a value, return NULL_RTX.  */
-  if (! want_value)
+  if ((want_value & 1) == 0)
     return NULL_RTX;
 
   /* If we are supposed to return TEMP, do so as long as it isn't a MEM.
@@ -4598,7 +4620,8 @@ store_expr (exp, target, want_value)
     return temp;
 
   /* Return TARGET itself if it is a hard register.  */
-  else if (want_value && GET_MODE (target) != BLKmode
+  else if ((want_value & 1) != 0
+	   && GET_MODE (target) != BLKmode
 	   && ! (GET_CODE (target) == REG
 		 && REGNO (target) < FIRST_PSEUDO_REGISTER))
     return copy_to_reg (target);
@@ -6415,7 +6438,14 @@ find_placeholder (exp, plist)
 
    EXPAND_CONST_ADDRESS says that it is okay to return a MEM
    with a constant address even if that address is not normally legitimate.
-   EXPAND_INITIALIZER and EXPAND_SUM also have this effect.  */
+   EXPAND_INITIALIZER and EXPAND_SUM also have this effect.
+
+   EXPAND_STACK_PARM is used when expanding to a TARGET on the stack for
+   a call parameter.  Such targets require special care as we haven't yet
+   marked TARGET so that it's safe from being trashed by libcalls.  We
+   don't want to use TARGET for anything but the final result;
+   Intermediate values must go elsewhere.   Additionally, calls to
+   emit_block_move will be flagged with BLOCK_OP_CALL_PARM.  */
 
 rtx
 expand_expr (exp, target, tmode, modifier)
@@ -6558,7 +6588,7 @@ expand_expr (exp, target, tmode, modifier)
   if (! cse_not_expected && mode != BLKmode && target
       && (GET_CODE (target) != REG || REGNO (target) < FIRST_PSEUDO_REGISTER)
       && ! (code == CONSTRUCTOR && GET_MODE_SIZE (mode) > UNITS_PER_WORD))
-    target = subtarget;
+    target = 0;
 
   switch (code)
     {
@@ -6744,7 +6774,7 @@ expand_expr (exp, target, tmode, modifier)
       return temp;
 
     case CONST_DECL:
-      return expand_expr (DECL_INITIAL (exp), target, VOIDmode, 0);
+      return expand_expr (DECL_INITIAL (exp), target, VOIDmode, modifier);
 
     case REAL_CST:
       /* If optimized, generate immediate CONST_DOUBLE
@@ -6860,7 +6890,8 @@ expand_expr (exp, target, tmode, modifier)
 	  if (temp == const0_rtx)
 	    expand_expr (TREE_OPERAND (exp, 0), const0_rtx, VOIDmode, 0);
 	  else
-	    store_expr (TREE_OPERAND (exp, 0), temp, 0);
+	    store_expr (TREE_OPERAND (exp, 0), temp,
+			modifier == EXPAND_STACK_PARM ? 2 : 0);
 
 	  TREE_USED (exp) = 1;
 	}
@@ -7049,7 +7080,8 @@ expand_expr (exp, target, tmode, modifier)
 	  /* Handle calls that pass values in multiple non-contiguous
 	     locations.  The Irix 6 ABI has examples of this.  */
 	  if (target == 0 || ! safe_from_p (target, exp, 1)
-	      || GET_CODE (target) == PARALLEL)
+	      || GET_CODE (target) == PARALLEL
+	      || modifier == EXPAND_STACK_PARM)
 	    target
 	      = assign_temp (build_qualified_type (type,
 						   (TYPE_QUALS (type)
@@ -7223,6 +7255,9 @@ expand_expr (exp, target, tmode, modifier)
 			&& (GET_MODE_BITSIZE (DECL_MODE (TREE_PURPOSE (elt)))
 			    <= HOST_BITS_PER_WIDE_INT))))
 	      {
+		if (DECL_BIT_FIELD (TREE_PURPOSE (elt))
+		    && modifier == EXPAND_STACK_PARM)
+		  target = 0;
 		op0 = expand_expr (TREE_VALUE (elt), target, tmode, modifier);
 		if (DECL_BIT_FIELD (TREE_PURPOSE (elt)))
 		  {
@@ -7277,10 +7312,12 @@ expand_expr (exp, target, tmode, modifier)
 			 (TREE_CODE (TREE_TYPE (tem)) == UNION_TYPE
 			  && (TREE_CODE (TYPE_SIZE (TREE_TYPE (tem)))
 			      != INTEGER_CST)
+			  && modifier != EXPAND_STACK_PARM
 			  ? target : NULL_RTX),
 			 VOIDmode,
 			 (modifier == EXPAND_INITIALIZER
-			  || modifier == EXPAND_CONST_ADDRESS)
+			  || modifier == EXPAND_CONST_ADDRESS
+			  || modifier == EXPAND_STACK_PARM)
 			 ? modifier : EXPAND_NORMAL);
 
 	/* If this is a constant, put it into a register if it is a
@@ -7297,7 +7334,8 @@ expand_expr (exp, target, tmode, modifier)
 
 	if (offset != 0)
 	  {
-	    rtx offset_rtx = expand_expr (offset, NULL_RTX, VOIDmode, EXPAND_SUM);
+	    rtx offset_rtx = expand_expr (offset, NULL_RTX, VOIDmode,
+					  EXPAND_SUM);
 
 	    /* If this object is in a register, put it into memory.
 	       This case can't occur in C, but can in Ada if we have
@@ -7433,7 +7471,8 @@ expand_expr (exp, target, tmode, modifier)
 		emit_block_move (target, op0,
 				 GEN_INT ((bitsize + BITS_PER_UNIT - 1)
 					  / BITS_PER_UNIT),
-				 BLOCK_OP_NORMAL);
+				 (modifier == EXPAND_STACK_PARM
+				  ? BLOCK_OP_CALL_PARM : BLOCK_OP_NORMAL));
 
 		return target;
 	      }
@@ -7443,8 +7482,10 @@ expand_expr (exp, target, tmode, modifier)
 	    if (GET_CODE (op0) == MEM && GET_CODE (XEXP (op0, 0)) == REG)
 	      mark_reg_pointer (XEXP (op0, 0), MEM_ALIGN (op0));
 
-	    op0 = extract_bit_field (op0, bitsize, bitpos,
-				     unsignedp, target, ext_mode, ext_mode,
+	    op0 = extract_bit_field (op0, bitsize, bitpos, unsignedp,
+				     (modifier == EXPAND_STACK_PARM
+				      ? NULL_RTX : target),
+				     ext_mode, ext_mode,
 				     int_size_in_bytes (TREE_TYPE (tem)));
 
 	    /* If the result is a record type and BITSIZE is narrower than
@@ -7688,8 +7729,8 @@ expand_expr (exp, target, tmode, modifier)
 	{
 	  if (DECL_BUILT_IN_CLASS (TREE_OPERAND (TREE_OPERAND (exp, 0), 0))
 	      == BUILT_IN_FRONTEND)
-	    return (*lang_hooks.expand_expr)
-	      (exp, original_target, tmode, modifier);
+	    return (*lang_hooks.expand_expr) (exp, original_target,
+					      tmode, modifier);
 	  else
 	    return expand_builtin (exp, target, subtarget, tmode, ignore);
 	}
@@ -7725,7 +7766,8 @@ expand_expr (exp, target, tmode, modifier)
 	  if (GET_CODE (target) == MEM)
 	    /* Store data into beginning of memory target.  */
 	    store_expr (TREE_OPERAND (exp, 0),
-			adjust_address (target, TYPE_MODE (valtype), 0), 0);
+			adjust_address (target, TYPE_MODE (valtype), 0),
+			modifier == EXPAND_STACK_PARM ? 2 : 0);
 
 	  else if (GET_CODE (target) == REG)
 	    /* Store this field into a union of the proper type.  */
@@ -7850,7 +7892,8 @@ expand_expr (exp, target, tmode, modifier)
 	      if (GET_MODE (op0) == BLKmode)
 		emit_block_move (new_with_op0_mode, op0,
 				 GEN_INT (GET_MODE_SIZE (TYPE_MODE (type))),
-				 BLOCK_OP_NORMAL);
+				 (modifier == EXPAND_STACK_PARM
+				  ? BLOCK_OP_CALL_PARM : BLOCK_OP_NORMAL));
 	      else
 		emit_move_insn (new_with_op0_mode, op0);
 
@@ -7902,6 +7945,8 @@ expand_expr (exp, target, tmode, modifier)
       if (modifier == EXPAND_SUM || modifier == EXPAND_INITIALIZER
 	  || (mode == ptr_mode && (unsignedp || ! flag_trapv)))
 	{
+	  if (modifier == EXPAND_STACK_PARM)
+	    target = 0;
 	  if (TREE_CODE (TREE_OPERAND (exp, 0)) == INTEGER_CST
 	      && GET_MODE_BITSIZE (mode) <= HOST_BITS_PER_WIDE_INT
 	      && TREE_CONSTANT (TREE_OPERAND (exp, 1)))
@@ -8124,6 +8169,9 @@ expand_expr (exp, target, tmode, modifier)
       if (! safe_from_p (subtarget, TREE_OPERAND (exp, 1), 1))
 	subtarget = 0;
 
+      if (modifier == EXPAND_STACK_PARM)
+	target = 0;
+
       /* Check for multiplying things that have been extended
 	 from a narrower type.  If this machine supports multiplying
 	 in that narrower type with a result in the desired type,
@@ -8207,6 +8255,8 @@ expand_expr (exp, target, tmode, modifier)
     case EXACT_DIV_EXPR:
       if (! safe_from_p (subtarget, TREE_OPERAND (exp, 1), 1))
 	subtarget = 0;
+      if (modifier == EXPAND_STACK_PARM)
+	target = 0;
       /* Possible optimization: compute the dividend with EXPAND_SUM
 	 then if the divisor is constant can optimize the case
 	 where some terms of the dividend have coeffs divisible by it.  */
@@ -8235,6 +8285,8 @@ expand_expr (exp, target, tmode, modifier)
     case ROUND_MOD_EXPR:
       if (! safe_from_p (subtarget, TREE_OPERAND (exp, 1), 1))
 	subtarget = 0;
+      if (modifier == EXPAND_STACK_PARM)
+	target = 0;
       op0 = expand_expr (TREE_OPERAND (exp, 0), subtarget, VOIDmode, 0);
       op1 = expand_expr (TREE_OPERAND (exp, 1), NULL_RTX, VOIDmode, 0);
       return expand_divmod (1, code, mode, op0, op1, target, unsignedp);
@@ -8246,14 +8298,14 @@ expand_expr (exp, target, tmode, modifier)
 
     case FIX_TRUNC_EXPR:
       op0 = expand_expr (TREE_OPERAND (exp, 0), NULL_RTX, VOIDmode, 0);
-      if (target == 0)
+      if (target == 0 || modifier == EXPAND_STACK_PARM)
 	target = gen_reg_rtx (mode);
       expand_fix (target, op0, unsignedp);
       return target;
 
     case FLOAT_EXPR:
       op0 = expand_expr (TREE_OPERAND (exp, 0), NULL_RTX, VOIDmode, 0);
-      if (target == 0)
+      if (target == 0 || modifier == EXPAND_STACK_PARM)
 	target = gen_reg_rtx (mode);
       /* expand_float can't figure out what to do if FROM has VOIDmode.
 	 So give it the correct mode.  With -O, cse will optimize this.  */
@@ -8266,6 +8318,8 @@ expand_expr (exp, target, tmode, modifier)
 
     case NEGATE_EXPR:
       op0 = expand_expr (TREE_OPERAND (exp, 0), subtarget, VOIDmode, 0);
+      if (modifier == EXPAND_STACK_PARM)
+	target = 0;
       temp = expand_unop (mode,
 			  ! unsignedp && flag_trapv
 			  && (GET_MODE_CLASS(mode) == MODE_INT)
@@ -8276,6 +8330,8 @@ expand_expr (exp, target, tmode, modifier)
 
     case ABS_EXPR:
       op0 = expand_expr (TREE_OPERAND (exp, 0), subtarget, VOIDmode, 0);
+      if (modifier == EXPAND_STACK_PARM)
+	target = 0;
 
       /* Handle complex values specially.  */
       if (GET_MODE_CLASS (mode) == MODE_COMPLEX_INT
@@ -8293,7 +8349,9 @@ expand_expr (exp, target, tmode, modifier)
     case MAX_EXPR:
     case MIN_EXPR:
       target = original_target;
-      if (target == 0 || ! safe_from_p (target, TREE_OPERAND (exp, 1), 1)
+      if (target == 0
+	  || modifier == EXPAND_STACK_PARM
+	  || ! safe_from_p (target, TREE_OPERAND (exp, 1), 1)
 	  || (GET_CODE (target) == MEM && MEM_VOLATILE_P (target))
 	  || GET_MODE (target) != mode
 	  || (GET_CODE (target) == REG
@@ -8350,6 +8408,8 @@ expand_expr (exp, target, tmode, modifier)
 
     case BIT_NOT_EXPR:
       op0 = expand_expr (TREE_OPERAND (exp, 0), subtarget, VOIDmode, 0);
+      if (modifier == EXPAND_STACK_PARM)
+	target = 0;
       temp = expand_unop (mode, one_cmpl_optab, op0, target, 1);
       if (temp == 0)
 	abort ();
@@ -8357,6 +8417,8 @@ expand_expr (exp, target, tmode, modifier)
 
     case FFS_EXPR:
       op0 = expand_expr (TREE_OPERAND (exp, 0), subtarget, VOIDmode, 0);
+      if (modifier == EXPAND_STACK_PARM)
+	target = 0;
       temp = expand_unop (mode, ffs_optab, op0, target, 1);
       if (temp == 0)
 	abort ();
@@ -8396,6 +8458,8 @@ expand_expr (exp, target, tmode, modifier)
     case RROTATE_EXPR:
       if (! safe_from_p (subtarget, TREE_OPERAND (exp, 1), 1))
 	subtarget = 0;
+      if (modifier == EXPAND_STACK_PARM)
+	target = 0;
       op0 = expand_expr (TREE_OPERAND (exp, 0), subtarget, VOIDmode, 0);
       return expand_shift (code, mode, op0, TREE_OPERAND (exp, 1), target,
 			   unsignedp);
@@ -8415,7 +8479,9 @@ expand_expr (exp, target, tmode, modifier)
     case UNGT_EXPR:
     case UNGE_EXPR:
     case UNEQ_EXPR:
-      temp = do_store_flag (exp, target, tmode != VOIDmode ? tmode : mode, 0);
+      temp = do_store_flag (exp,
+			    modifier != EXPAND_STACK_PARM ? target : NULL_RTX,
+			    tmode != VOIDmode ? tmode : mode, 0);
       if (temp != 0)
 	return temp;
 
@@ -8464,7 +8530,9 @@ expand_expr (exp, target, tmode, modifier)
     case TRUTH_ANDIF_EXPR:
     case TRUTH_ORIF_EXPR:
       if (! ignore
-	  && (target == 0 || ! safe_from_p (target, exp, 1)
+	  && (target == 0
+	      || modifier == EXPAND_STACK_PARM
+	      || ! safe_from_p (target, exp, 1)
 	      /* Make sure we don't have a hard reg (such as function's return
 		 value) live across basic blocks, if not optimizing.  */
 	      || (!optimize && GET_CODE (target) == REG
@@ -8484,6 +8552,8 @@ expand_expr (exp, target, tmode, modifier)
       return ignore ? const0_rtx : target;
 
     case TRUTH_NOT_EXPR:
+      if (modifier == EXPAND_STACK_PARM)
+	target = 0;
       op0 = expand_expr (TREE_OPERAND (exp, 0), target, VOIDmode, 0);
       /* The parser is careful to generate TRUTH_NOT_EXPR
 	 only with operands that are always zero or one.  */
@@ -8498,7 +8568,7 @@ expand_expr (exp, target, tmode, modifier)
       emit_queue ();
       return expand_expr (TREE_OPERAND (exp, 1),
 			  (ignore ? const0_rtx : target),
-			  VOIDmode, 0);
+			  VOIDmode, modifier);
 
     case COND_EXPR:
       /* If we would have a "singleton" (see below) were it not for a
@@ -8551,6 +8621,8 @@ expand_expr (exp, target, tmode, modifier)
 		return const0_rtx;
 	      }
 
+	    if (modifier == EXPAND_STACK_PARM)
+	      target = 0;
 	    op0 = expand_expr (TREE_OPERAND (exp, 0), target, mode, modifier);
 	    if (GET_MODE (op0) == mode)
 	      return op0;
@@ -8591,6 +8663,8 @@ expand_expr (exp, target, tmode, modifier)
 
 	if (ignore)
 	  temp = 0;
+	else if (modifier == EXPAND_STACK_PARM)
+	  temp = assign_temp (type, 0, 0, 1);
 	else if (original_target
 		 && (safe_from_p (original_target, TREE_OPERAND (exp, 0), 1)
 		     || (singleton && GET_CODE (original_target) == REG
@@ -8678,7 +8752,8 @@ expand_expr (exp, target, tmode, modifier)
 		    || (GET_CODE (temp) == REG
 			&& REGNO (temp) < FIRST_PSEUDO_REGISTER))
 		  temp = gen_reg_rtx (mode);
-		store_expr (singleton, temp, 0);
+		store_expr (singleton, temp,
+			    modifier == EXPAND_STACK_PARM ? 2 : 0);
 	      }
 	    else
 	      expand_expr (singleton,
@@ -8697,11 +8772,11 @@ expand_expr (exp, target, tmode, modifier)
 	      store_expr (build (TREE_CODE (binary_op), type,
 				 make_tree (type, temp),
 				 TREE_OPERAND (binary_op, 1)),
-			  temp, 0);
+			  temp, modifier == EXPAND_STACK_PARM ? 2 : 0);
 	    else
 	      store_expr (build1 (TREE_CODE (unary_op), type,
 				  make_tree (type, temp)),
-			  temp, 0);
+			  temp, modifier == EXPAND_STACK_PARM ? 2 : 0);
 	    op1 = op0;
 	  }
 	/* Check for A op 0 ? A : FOO and A op 0 ? FOO : A where OP is any
@@ -8720,11 +8795,13 @@ expand_expr (exp, target, tmode, modifier)
 	    if (GET_CODE (temp) == REG
 		&& REGNO (temp) < FIRST_PSEUDO_REGISTER)
 	      temp = gen_reg_rtx (mode);
-	    store_expr (TREE_OPERAND (exp, 1), temp, 0);
+	    store_expr (TREE_OPERAND (exp, 1), temp,
+			modifier == EXPAND_STACK_PARM ? 2 : 0);
 	    jumpif (TREE_OPERAND (exp, 0), op0);
 
 	    start_cleanup_deferral ();
-	    store_expr (TREE_OPERAND (exp, 2), temp, 0);
+	    store_expr (TREE_OPERAND (exp, 2), temp,
+			modifier == EXPAND_STACK_PARM ? 2 : 0);
 	    op1 = op0;
 	  }
 	else if (temp
@@ -8739,11 +8816,13 @@ expand_expr (exp, target, tmode, modifier)
 	    if (GET_CODE (temp) == REG
 		&& REGNO (temp) < FIRST_PSEUDO_REGISTER)
 	      temp = gen_reg_rtx (mode);
-	    store_expr (TREE_OPERAND (exp, 2), temp, 0);
+	    store_expr (TREE_OPERAND (exp, 2), temp,
+			modifier == EXPAND_STACK_PARM ? 2 : 0);
 	    jumpifnot (TREE_OPERAND (exp, 0), op0);
 
 	    start_cleanup_deferral ();
-	    store_expr (TREE_OPERAND (exp, 1), temp, 0);
+	    store_expr (TREE_OPERAND (exp, 1), temp,
+			modifier == EXPAND_STACK_PARM ? 2 : 0);
 	    op1 = op0;
 	  }
 	else
@@ -8757,7 +8836,8 @@ expand_expr (exp, target, tmode, modifier)
 	       example A ? throw : E  */
 	    if (temp != 0
 		&& TREE_TYPE (TREE_OPERAND (exp, 1)) != void_type_node)
-	      store_expr (TREE_OPERAND (exp, 1), temp, 0);
+	      store_expr (TREE_OPERAND (exp, 1), temp,
+			  modifier == EXPAND_STACK_PARM ? 2 : 0);
 	    else
 	      expand_expr (TREE_OPERAND (exp, 1),
 			   ignore ? const0_rtx : NULL_RTX, VOIDmode, 0);
@@ -8769,7 +8849,8 @@ expand_expr (exp, target, tmode, modifier)
 	    start_cleanup_deferral ();
 	    if (temp != 0
 		&& TREE_TYPE (TREE_OPERAND (exp, 2)) != void_type_node)
-	      store_expr (TREE_OPERAND (exp, 2), temp, 0);
+	      store_expr (TREE_OPERAND (exp, 2), temp,
+			  modifier == EXPAND_STACK_PARM ? 2 : 0);
 	    else
 	      expand_expr (TREE_OPERAND (exp, 2),
 			   ignore ? const0_rtx : NULL_RTX, VOIDmode, 0);
@@ -8874,7 +8955,7 @@ expand_expr (exp, target, tmode, modifier)
 	/* Mark it as expanded.  */
 	TREE_OPERAND (exp, 1) = NULL_TREE;
 
-	store_expr (exp1, target, 0);
+	store_expr (exp1, target, modifier == EXPAND_STACK_PARM ? 2 : 0);
 
 	expand_decl_cleanup_eh (NULL_TREE, cleanups, CLEANUP_EH_ONLY (exp));
 
@@ -8959,6 +9040,8 @@ expand_expr (exp, target, tmode, modifier)
       return expand_increment (exp, ! ignore, ignore);
 
     case ADDR_EXPR:
+      if (modifier == EXPAND_STACK_PARM)
+	target = 0;
       /* Are we taking the address of a nested function?  */
       if (TREE_CODE (TREE_OPERAND (exp, 0)) == FUNCTION_DECL
 	  && decl_function_context (TREE_OPERAND (exp, 0)) != 0
@@ -9080,7 +9163,8 @@ expand_expr (exp, target, tmode, modifier)
 		abort ();
 
 	      emit_block_move (new, op0, expr_size (TREE_OPERAND (exp, 0)),
-			       BLOCK_OP_NORMAL);
+			       (modifier == EXPAND_STACK_PARM
+				? BLOCK_OP_CALL_PARM : BLOCK_OP_NORMAL));
 	      op0 = new;
 	    }
 
@@ -9296,6 +9380,8 @@ expand_expr (exp, target, tmode, modifier)
   op0 = expand_expr (TREE_OPERAND (exp, 0), subtarget, VOIDmode, 0);
   op1 = expand_expr (TREE_OPERAND (exp, 1), NULL_RTX, VOIDmode, 0);
  binop2:
+  if (modifier == EXPAND_STACK_PARM)
+    target = 0;
   temp = expand_binop (mode, this_optab, op0, op1, target,
 		       unsignedp, OPTAB_LIB_WIDEN);
   if (temp == 0)

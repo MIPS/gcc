@@ -1,3 +1,101 @@
+2003-02-26  Michael Matz  <matz@suse.de>
+
+	* ra-colorize.c (merge_moves): Fix list handling.
+
+2003-02-26  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* pa.c (compute_frame_size): Don't assume PREFERRED_STACK_BOUNDARY
+	is 8 * STACK_BOUNDARY.
+	* pa.h (PREFERRED_STACK_BOUNDARY): Change to 128 on 64-bit port.
+
+2003-02-26  Alan Modra  <amodra@bigpond.net.au>
+
+	PR target/9681
+	* tlink.c (scan_linker_output): Drop leading '.' from symbol names.
+
+2003-02-25  Richard Henderson  <rth@redhat.com>
+
+        * config/i386/i386.c (function_arg): Pass variable sized
+        structures correctly on the stack.
+
+2003-02-25  Franz Sirl  <Franz.Sirl-kernel@lauterbach.com>
+
+	PR target/9732
+	* config/rs6000/rs6000.c (first_reg_to_save): Handle
+	PIC_OFFSET_TABLE_REGNUM for -fPIC too.
+	(rs6000_emit_prologue): Likewise.
+	(rs6000_emit_epilogue): Likewise.
+	* config/rs6000/rs6000.h (CONDITIONAL_REGISTER_USAGE): Make
+	PIC_OFFSET_TABLE_REGNUM a fixed register for -fPIC.
+
+2003-02-25  Richard Henderson  <rth@redhat.com>
+
+	* real.c (real_to_integer2): Force overflow result only for 
+	unsigned overflow.
+
+Tue Feb 25 12:39:33 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+	PR target/8343
+	* m68k.md (umulsidi, mulsidi expanders): Use register operand.
+
+2003-02-24  Svein E. Seldal  <Svein.Seldal@solidas.com>
+
+	* config/c4x/c4x.h (ASM_FILE_START): Added support for the c33
+	processor.
+
+2003-02-24  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* config/mips/iris6.h (TARGET_OS_CPP_BUILTINS): Define __c99 for
+	ISO C99 and C++.
+
+	* fixinc/inclhack.def (irix___restrict): Don't change __restrict
+	for C++ on IRIX 6.5.1[89].
+	* fixinc/tests/base/internal/sgimacros.h: New file.
+
+	* fixinc/inclhack.def (irix_wcsftime): Use XPG5 variant for C99.
+	* fixinc/tests/base/internal/wchar_core.h: New file.
+
+	* fixinc/inclhack.def (irix_socklen_t): Fix broken IRIX 6.5.1[78]
+	socklen_t definition.
+	* fixinc/fixincl.x: Regenerate.
+	* fixinc/tests/base/sys/socket.h: New file.
+	Fixes PR libgcj/9652.
+
+2003-02-24  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* config/alpha/osf.h (TARGET_OS_CPP_BUILTINS): Rename
+	__EXTERN_PREFIX to __PRAGMA_EXTERN_PREFIX.
+	* doc/extend.texi (Tru64 Pragmas): Reflect this.
+
+	* fixinc/inclhack.def (alpha___extern_prefix): Indicate #pragma
+	extern_prefix support for Tru64 UNIX V5 <sys/stat.h>. 
+	* fixinc/fixincl.x: Regenerate.
+	* fixinc/tests/base/sys/stat.h [ALPHA___EXTERN_PREFIX_CHECK]: New
+	testcase.
+	Fixes PR c/5059, c/6126, other/9671.
+	
+2003-02-24  Alan Modra  <amodra@bigpond.net.au>
+
+	* calls.c (store_one_arg): Revert 1999-02-16 change.  Revert
+	2000-12-17 change.  Pass EXPAND_STACK_PARM to expand_expr.
+	* expr.h (enum expand_modifier): Define EXPAND_STACK_PARM.
+	(enum block_op_methods): Reorder for better store_expr optimization.
+	* expr.c (store_expr): Test bit 1 of "want_value" for call param
+	stores, test bit 0 for original want_value meaning.  Pass
+	BLOCK_OP_CALL_PARM to emit_block_move when bit 1 set.  Adjust
+	recursive calls, and calls to expand_param.
+	(expand_expr): Handle EXPAND_STACK_PARM modifier.  When cse
+	expected, set target to 0 rather than to subtarget.  Formatting.
+
+2003-02-23  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* doc/invoke.texi (ggc-min-expand, ggc-min-heapsize): Document
+	new default behavior.
+	* ggc-common.c: Include sys/resource.h.
+	(ggc_rlimit_bound): New function.
+	(ggc_min_expand_heuristic, ggc_min_heapsize_heuristic): Update
+	defaults to account for rlimits.
+
 Sat Feb 22 19:34:29 CET 2003  Jan Hubicka  <jh@suse.cz>
 
 	* config/linux.h (TARGET_HAS_F_SETLKW): Define.

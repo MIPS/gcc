@@ -1,3 +1,28 @@
+2003-02-25  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/9829
+	* g++.dg/parse/namespace1.C: New test.
+
+2003-02-25  Franz Sirl  <Franz.Sirl-kernel@lauterbach.com>
+
+	PR target/9732
+	* gcc.dg/20030225-1.c: New test.
+
+2003-02-24  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* g++.dg/other/pragma-ep-1.C: Test for __PRAGMA_EXTERN_PREFIX.
+	* gcc.dg/pragma-ep-1.c: Likewise.
+
+2003-02-24  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/9602
+	* g++.dg/template/friend16.C: New test.
+
+2003-02-23  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/7982
+	* g++.dg/warn/implicit-typename1.C: New test.
+
 2003-02-22  Hans-Peter Nilsson  <hp@axis.com>
 
 	* gcc.dg/asmreg-1.c: New test.

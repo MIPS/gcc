@@ -954,6 +954,7 @@ add_binding (id, decl)
   tree binding = IDENTIFIER_BINDING (id);
   int ok = 1;
 
+  timevar_push (TV_NAME_LOOKUP);
   if (TREE_CODE (decl) == TYPE_DECL && DECL_ARTIFICIAL (decl))
     /* The new name is the type name.  */
     BINDING_TYPE (binding) = decl;
@@ -1010,7 +1011,7 @@ add_binding (id, decl)
       ok = 0;
     }
 
-  return ok;
+  POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, ok);
 }
 
 /* Add DECL to the list of things declared in B.  */
@@ -1096,6 +1097,7 @@ push_class_binding (id, decl)
   tree binding = IDENTIFIER_BINDING (id);
   tree context;
 
+  timevar_push (TV_NAME_LOOKUP);
   /* Note that we declared this value so that we can issue an error if
      this is an invalid redeclaration of a name already used for some
      other purpose.  */
@@ -1147,7 +1149,7 @@ push_class_binding (id, decl)
        in this class.  */
     INHERITED_VALUE_BINDING_P (binding) = 1;
 
-  return result;
+  POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, result);
 }
 
 /* Remove the binding for DECL which should be the innermost binding
@@ -2196,6 +2198,7 @@ set_namespace_binding (name, scope, val)
 {
   tree b;
 
+  timevar_push (TV_NAME_LOOKUP);
   if (scope == NULL_TREE)
     scope = global_namespace;
 
@@ -2205,11 +2208,12 @@ set_namespace_binding (name, scope, val)
       if (b == NULL_TREE || TREE_CODE (b) != CPLUS_BINDING)
 	{
 	  IDENTIFIER_NAMESPACE_BINDINGS (name) = val;
-	  return;
+          POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, (void)0);
 	}
     }
   b = binding_for_name (name, scope);
   BINDING_VALUE (b) = val;
+  timevar_pop (TV_NAME_LOOKUP);
 }
 
 /* Push into the scope of the NAME namespace.  If NAME is NULL_TREE, then we
@@ -6030,6 +6034,7 @@ warn_about_implicit_typename_lookup (typename, binding)
   tree name = DECL_NAME (typename);
 
   if (! (TREE_CODE (binding) == TEMPLATE_DECL
+	 && CLASS_TYPE_P (subtype)
 	 && CLASSTYPE_TEMPLATE_INFO (subtype)
 	 && CLASSTYPE_TI_TEMPLATE (subtype) == binding)
       && ! (TREE_CODE (binding) == TYPE_DECL
@@ -10325,6 +10330,14 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 		  else
 		    ctype = cname;
 		}
+
+	      /* If the parser sees something like "void a::b" where
+		 "a::b" is a namespace, it will build a SCOPE_REF with
+		 a NAMESPACE_DECL, rather than an IDENTIFIER_NODE, as
+		 the second operand.  Since the SCOPE_REF is being
+		 used as a declarator, we recover from that here.  */
+	      if (TREE_CODE (TREE_OPERAND (decl, 1)) == NAMESPACE_DECL)
+		TREE_OPERAND (decl, 1) = DECL_NAME (TREE_OPERAND (decl, 1));
 
 	      if (ctype && TREE_CODE (TREE_OPERAND (decl, 1)) == TYPE_DECL
 		  && constructor_name_p (DECL_NAME (TREE_OPERAND (decl, 1)),

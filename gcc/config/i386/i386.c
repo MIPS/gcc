@@ -2333,6 +2333,9 @@ function_arg (cum, mode, type, named)
 	break;
 
       case BLKmode:
+	if (bytes < 0)
+	  break;
+	/* FALLTHRU */
       case DImode:
       case SImode:
       case HImode:

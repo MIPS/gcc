@@ -1,3 +1,26 @@
+2003-02-25  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/9829
+	* decl.c (grokdeclarator): Handle SCOPE_REFs whose second argument
+	is a NAMESPACE_DECL.
+
+2003-02-24 Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* decl.c (add_binding): Time TV_NAME_LOOKUP.
+	(push_class_binding): Likewise.
+	(set_namespace_binding): Likewise.
+
+2003-02-24  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/9602
+	* typeck2.c (abstract_virtuals_error): Don't check when we
+	are processing a template.
+
+2003-02-23  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/7982
+	* decl.c (warn_about_implicit_typename_lookup): Handle TYPEOF_TYPE.
+
 2003-02-21  Mark Mitchell  <mark@codesourcery.com>
 
 	PR c++/9749
