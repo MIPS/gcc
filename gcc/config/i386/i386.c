@@ -812,7 +812,7 @@ static int ix86_split_to_parts PARAMS ((rtx, rtx *, enum machine_mode));
 static int ix86_nsaved_regs PARAMS ((void));
 static void ix86_emit_save_regs PARAMS ((void));
 static void ix86_emit_save_regs_using_mov PARAMS ((rtx, HOST_WIDE_INT));
-static void ix86_emit_restore_regs_using_mov PARAMS ((rtx, int, int));
+static void ix86_emit_restore_regs_using_mov PARAMS ((rtx, HOST_WIDE_INT, int));
 static void ix86_output_function_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
 static void ix86_set_move_mem_attrs_1 PARAMS ((rtx, rtx, rtx, rtx, rtx));
 static void ix86_sched_reorder_ppro PARAMS ((rtx *, rtx *));
@@ -5095,7 +5095,10 @@ pro_epilogue_adjust_stack (rtx dest, rtx src, rtx offset, int style)
       /* r11 is used by indirect sibcall return as well, set before the
 	 epilogue and used after the epilogue.  ATM indirect sibcall
 	 shouldn't be used together with huge frame sizes in one
-	 function because of the frame_size check in sibcall.c.  */
+	 function because of the frame_size check in sibcall.c. 
+
+	 Similar assumption is also made by ix86_emit_restore_regs_using_mov.
+	 */
       if (style == 0)
 	abort ();
       r11 = gen_rtx_REG (DImode, FIRST_REX_INT_REG + 3 /* R11 */);
@@ -5242,16 +5245,29 @@ ix86_expand_prologue (void)
 static void
 ix86_emit_restore_regs_using_mov (pointer, offset, maybe_eh_return)
      rtx pointer;
-     int offset;
+     HOST_WIDE_INT offset;
      int maybe_eh_return;
 {
   int regno;
+  rtx base_address = gen_rtx_MEM (Pmode, pointer);
 
   for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)
     if (ix86_save_reg (regno, maybe_eh_return))
       {
+	/* Ensure that adjust_address won't be forced to produce pointer
+	   out of range allowed by x86-64 instruction set.  */
+	if (TARGET_64BIT && offset != (int)offset)
+	  {
+	    rtx r11;
+
+	    r11 = gen_rtx_REG (DImode, FIRST_REX_INT_REG + 3 /* R11 */);
+	    emit_move_insn (r11, GEN_INT (offset));
+	    emit_insn (gen_adddi3 (r11, r11, pointer));
+	    base_address = gen_rtx_MEM (Pmode, r11);
+	    offset = 0;
+	  }
 	emit_move_insn (gen_rtx_REG (Pmode, regno),
-			adjust_address (gen_rtx_MEM (Pmode, pointer),
+			adjust_address (base_address,
 					Pmode, offset));
 	offset += UNITS_PER_WORD;
       }

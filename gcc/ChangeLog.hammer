@@ -1,3 +1,10 @@
+2003-11-30  Jan Hubicka  <jh@suse.cz>
+
+	* i386.c (ix86_emit_restore_regs_using_mov):  Deal with large offsets.
+	(pro_epilogue_adjust_stack):  Update comment.
+
+	* explow.c (round_push): Fix handling of large sizes.
+	
 2003-11-27  Josef Zlomek  <zlomekj@suse.cz>
 
 	* toplev.c (rest_of_compilation): Disable VRP when tracer was used and
