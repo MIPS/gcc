@@ -230,7 +230,7 @@ vfy_get_primitive_char (vfy_jclass klass)
 }
 
 int
-vfy_get_interface_count (vfy_jclass klass)
+vfy_get_interface_count (vfy_jclass klass ATTRIBUTE_UNUSED)
 {
   /* FIXME: Need to merge from mainline to get this. */
   #if 0
@@ -240,14 +240,15 @@ vfy_get_interface_count (vfy_jclass klass)
 }
 
 vfy_jclass
-vfy_get_interface (vfy_jclass klass, int index)
+vfy_get_interface (vfy_jclass klass ATTRIBUTE_UNUSED, int index ATTRIBUTE_UNUSED)
 {
   /* FIXME: Need to merge from mainline to get this. */
-  vfy_jclass k;
   #if 0
+  vfy_jclass k;
   k = BINFO_BASE_BINFO (klass, index);
-  #endif
   return k;
+  #endif
+  return NULL;
 }
 
 bool
@@ -378,7 +379,7 @@ vfy_note_type (int pc, int slot, vfy_jclass type)
 /* Verify the bytecodes of the current method.
    Return 1 on success, 0 on failure. */
 int
-verify_jvm_instructions (JCF *jcf, const unsigned char *byte_ops,
+verify_jvm_instructions_new (JCF *jcf, const unsigned char *byte_ops,
 			 long length)
 {
   vfy_method method;

@@ -511,6 +511,7 @@ get_type_val_for_signature (char sig)
       break;
     default:
       verify_fail ("invalid signature");
+      return null_type;
     }
   return rt;
 }
@@ -1088,6 +1089,7 @@ make_state (int max_stack, int max_locals)
   return s;
 }
 
+#if 0
 static void
 free_state (state *s)
 {
@@ -1096,6 +1098,7 @@ free_state (state *s)
   if (s->locals != NULL)
     vfy_free (s->locals);
 }
+#endif
 
 #if 0
     void *operator new[] (size_t bytes)

@@ -73,6 +73,10 @@ typedef struct
   int exc_count;
 } vfy_method;
 
+/* Entry point to the verifier.  */
+int verify_jvm_instructions_new (JCF *jcf, const unsigned char *byte_ops,
+				 long length);
+
 void *vfy_alloc (size_t bytes);
 void vfy_free (void *mem);
 bool vfy_strings_equal (vfy_string one, vfy_string two);

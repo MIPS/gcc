@@ -1,3 +1,13 @@
+2004-10-06  Bryce McKinlay  <mckinlay@redhat.com>
+
+	* Make-lang.in (verify.o): Re-enabled this target.
+	* verify-glue.c (vfy_get_interface_count): Add ATTRIBUTE_UNUSED.
+	(vfy_get_interface): Likewise.
+	(verify_jvm_instructions_new): Renamed from verify_jvm_instructions.
+	* verify.h (verify_jvm_instructions_new): Declare.
+	* verify-impl.c (free_state): Temporarily comment out unused
+	function.
+
 2004-10-06  Tom Tromey  <tromey@redhat.com>
 
 	* java-tree.h (JV_STATE_READ): New enum value.
