@@ -47,11 +47,13 @@ static int find_branch			PARAMS ((edge, dominance_info,
 static bool alp_enum_p			PARAMS ((basic_block, void *));
 static void add_loop			PARAMS ((struct loops *, struct loop *));
 static void fix_loop_placements		PARAMS ((struct loop *));
+static int fix_bb_placement		PARAMS ((struct loops *, basic_block));
+static void fix_bb_placements		PARAMS ((struct loops *, basic_block));
 static void place_new_loop		PARAMS ((struct loops *, struct loop *));
 static void scale_loop_frequencies	PARAMS ((struct loop *, int, int));
 static void scale_bbs_frequencies	PARAMS ((basic_block *, int, int, int));
 static void record_exit_edges		PARAMS ((edge, basic_block *, int,
-						edge *, int *, bool));
+						edge *, int *, int));
 static basic_block create_preheader	PARAMS ((struct loop *, dominance_info,
 						int));
 
@@ -158,6 +160,129 @@ find_branch (e, doms, bbs)
 			     n_basic_blocks, &rpe);
 }
 
+/* Fix BB placement inside loop hierarchy.  */
+static int
+fix_bb_placement (loops, bb)
+     struct loops *loops;
+     basic_block bb;
+{
+  edge e;
+  struct loop *loop = loops->tree_root, *act;
+
+  for (e = bb->succ; e; e = e->succ_next)
+    {
+      if (e->dest == EXIT_BLOCK_PTR)
+	continue;
+
+      act = e->dest->loop_father;
+      if (act->header == e->dest)
+	act = act->outer;
+
+      if (flow_loop_nested_p (loop, act))
+	loop = act;
+    }
+
+  if (loop == bb->loop_father)
+    return 0;
+
+  remove_bb_from_loops (bb);
+  add_bb_to_loop (bb, loop);
+
+  return 1;
+}
+
+/* Fix bb placements, starting from FROM.  Also fix placement of subloops
+   of FROM->loop_father.  */
+static void
+fix_bb_placements (loops, from)
+     struct loops *loops;
+     basic_block from;
+{
+  sbitmap in_queue;
+  basic_block *queue, *qtop, *qbeg, *qend;
+  struct loop *base_loop;
+  edge e;
+
+  /* We pass through blocks backreachable from FROM, testing whether some
+     of their successors moved to outer loop.  It may be neccessary to
+     iterate several times, but it is finite, as we stop unless we move
+     the basic block up the loop structure.  The whole story is a bit
+     more complicated due to presence of subloops, those are moved using
+     fix_loop_placement.  */
+
+  base_loop = from->loop_father;
+  if (base_loop == loops->tree_root)
+    return;
+
+  in_queue = sbitmap_alloc (last_basic_block);
+  sbitmap_zero (in_queue);
+  SET_BIT (in_queue, from->index);
+  /* Prevent us from going out of the base_loop.  */
+  SET_BIT (in_queue, base_loop->header->index);
+
+  queue = xcalloc (base_loop->num_nodes + 1, sizeof (basic_block));
+  qtop = queue + base_loop->num_nodes + 1;
+  qbeg = queue;
+  qend = queue + 1;
+  *qbeg = from;
+
+  while (qbeg != qend)
+    {
+      /* Get element from queue.  */
+      from = *qbeg;
+      qbeg++;
+      if (qbeg == qtop)
+	qbeg = queue;
+      RESET_BIT (in_queue, from->index);
+
+      if (from->loop_father->header == from)
+	{
+	  /* Subloop header, maybe move the loop upwards.  */
+	  if (!fix_loop_placement (from->loop_father))
+	    continue;
+	}
+      else
+	{
+	  if (!fix_bb_placement (loops, from))
+	    continue;
+	}
+
+      /* Something has changed, insert predecessors into queue.  */
+      for (e = from->pred; e; e = e->pred_next)
+	{
+	  basic_block pred = e->src;
+	  struct loop *nca;
+
+	  if (TEST_BIT (in_queue, pred->index))
+	    continue;
+
+	  /* If it is subloop, then it either was not moved, or 
+	     the path up the loop tree from base_loop do not contain
+	     it.  */
+	  nca = find_common_loop (pred->loop_father, base_loop);
+	  if (pred->loop_father != base_loop
+	      && (nca == base_loop
+		  || nca != pred->loop_father))
+	    pred = pred->loop_father->header;
+	  else if (!flow_loop_nested_p (from->loop_father, pred->loop_father))
+	    {
+	      /* No point in processing it.  */
+	      continue;
+	    }
+
+	  if (TEST_BIT (in_queue, pred->index))
+	    continue;
+
+	  /* Schedule the basic block.  */
+	  *qend = pred;
+	  qend++;
+	  if (qend == qtop)
+	    qend = queue;
+	  SET_BIT (in_queue, pred->index);
+	}
+    }
+}
+
 /* Removes path beginning at E.  */
 bool
 remove_path (loops, e)
@@ -242,6 +367,9 @@ remove_path (loops, e)
   /* Recount dominators.  */
   iterate_fix_dominators (loops->cfg.dom, dom_bbs, n_dom_bbs);
   free (dom_bbs);
+
+  /* Fix placements of basic blocks inside loops.  */
+  fix_bb_placements (loops, from);
 
   /* Fix loop placements.  */
   fix_loop_placements (from->loop_father);
@@ -724,7 +852,7 @@ record_exit_edges (orig, bbs, nbbs, to_remove, n_to_remove, is_orig)
      int nbbs;
      edge *to_remove;
      int *n_to_remove;
-     bool is_orig;
+     int is_orig;
 {
   sbitmap my_blocks;
   int i;

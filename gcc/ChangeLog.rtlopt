@@ -1,5 +1,11 @@
 2002-10-20  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
+	* cfgloopmanip.c (fix_bb_placement, fix_bb_placements): New.
+	(remove_path): Use them.
+	(record_exit_edges): Prototype changed.
+
+2002-10-20  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
 	* params.def (PARAM_MAX_COMPLETELY_PEEL_TIMES): Fix spelling typo
 	in comment.
 
