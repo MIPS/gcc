@@ -1,5 +1,7 @@
 2003-08-21  Per Bothner  <pbothner@apple.com>
 
+	* c-decl.c (setup_globals):  Don't clear input_filename.
+
 	* c-lang.c (c_write_globals):  Remove function.
 	(LANG_HOOKS_WRITE_GLOBALS):  Set to c_objc_common_finish_file instead.
 	* objc/objc-lang.c (LANG_HOOKS_WRITE_GLOBALS):  Likewise.

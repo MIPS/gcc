@@ -477,10 +477,6 @@ void setup_globals ()
   /* Make the binding_level structure for global names.  */
   pushlevel (0);
   global_scope = current_scope;
-  /* Declarations from c_common_nodes_and_builtins must not be associated
-     with this input file, lest we get differences between using and not
-     using preprocessed headers.  */
-  input_filename = NULL;
 }
 
 void
