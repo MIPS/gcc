@@ -5626,12 +5626,17 @@ nondestructive_fold_unary_to_constant (code, type, op0)
 	return NULL_TREE;
 
     case BIT_NOT_EXPR:
-      t = build_int_2 (~ TREE_INT_CST_LOW (op0), ~ TREE_INT_CST_HIGH (op0));
-      TREE_TYPE (t) = type;
-      force_fit_type (t, 0);
-      TREE_OVERFLOW (t) = TREE_OVERFLOW (op0);
-      TREE_CONSTANT_OVERFLOW (t) = TREE_CONSTANT_OVERFLOW (op0);
-      return t;
+      if (TREE_CODE (op0) == INTEGER_CST || TREE_CODE (op0) == REAL_CST)
+	{
+	  t = build_int_2 (~ TREE_INT_CST_LOW (op0), ~ TREE_INT_CST_HIGH (op0));
+	  TREE_TYPE (t) = type;
+	  force_fit_type (t, 0);
+	  TREE_OVERFLOW (t) = TREE_OVERFLOW (op0);
+	  TREE_CONSTANT_OVERFLOW (t) = TREE_CONSTANT_OVERFLOW (op0);
+	  return t;
+	}
+      else
+	return NULL_TREE;
 
     case REALPART_EXPR:
       if (TREE_CODE (op0) == COMPLEX_CST)

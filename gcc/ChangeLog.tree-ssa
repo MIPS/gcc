@@ -1,5 +1,8 @@
 2003-07-07  Jeff Law  <law@redhat.com>
 
+	* fold-const.c (nondestructive_fold_unary_to_constant: For BIT_NOT_EXPR
+	make sure OP0 is a suitable constant before trying to fold it.
+
 	* tree-cfg.c (handle_switch_fallthru): Set DECL_CONTEXT for
 	newly created labels.
 
