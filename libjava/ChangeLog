@@ -1,3 +1,20 @@
+2004-02-17 Olga Rodimina <rodimina@redhat.com>
+
+	* gnu/java/awt/peer/gtk/GdkGraphics2D.java:
+	(drawImage(img,xform,obs)): Invert xform before
+	passing the xform to cairo.
+	(drawImage(img,x,y,bgcolor,obs)): Implemented.
+	(drawImage (img,x,y,w,h,bgcolor,obs)): Partly
+	implemented.
+	(drawImage (img,x,y,w,h,obs)): Implemented.
+	(drawImage (img,dx1,dy1,dx2,dy2,sx1,sy1,sx2,sy2,
+	bgcolor,obs)): Partly implemented.
+	(drawImage (img,dx1,dy1,dx2,dy2,sx1,sy1,sx2,sy2,obs)):
+	Implemented.
+	* java/awt/image/BufferedImage.java:
+	(copyData): if dest is null, create raster with same
+	dimensions as the current image.
+
 2004-02-16  Graydon Hoare  <graydon@redhat.com>
 
 	* javax/swing/plaf/basic/BasicLabelUI.java 

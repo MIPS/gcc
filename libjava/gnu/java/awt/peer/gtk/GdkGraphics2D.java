@@ -913,18 +913,41 @@ public class GdkGraphics2D extends Graphics2D
       }
     else
       {
-        if (img instanceof BufferedImage)
-          {
-            // draw an image which has actually been loaded into memory fully
-            BufferedImage b = (BufferedImage) img;
-            return drawRaster (b.getColorModel (), b.getData (), xform);
-          }        
-        else
-          {
-            // begin progressive loading in a separate thread
-            new PainterThread (this, img, xform);
-            return false;
+      
+        // In this case, xform is an AffineTransform that transforms bounding
+        // box of the specified image from image space to user space. However
+        // when we pass this transform to cairo, cairo will use this transform
+        // to map "user coordinates" to "pixel" coordinates, which is the 
+        // other way around. Therefore to get the "user -> pixel" transform 
+        // that cairo wants from "image -> user" transform that we currently
+        // have, we will need to invert the transformation matrix.
+	
+        AffineTransform invertedXform = new AffineTransform();
+
+        try
+          {             
+	      invertedXform = xform.createInverse();
+             if (img instanceof BufferedImage)
+               {
+                   // draw an image which has actually been loaded 
+                   // into memory fully
+                   BufferedImage b = (BufferedImage) img;
+                   return drawRaster (b.getColorModel (), 
+                                      b.getData (), 
+                                      invertedXform);
+               }
+             else
+               {
+                   // begin progressive loading in a separate thread
+                   new PainterThread (this, img, invertedXform);
+                   return false;
+               }	       
           }
+        catch (NoninvertibleTransformException e)
+          {
+              throw new ImagingOpException("Unable to invert transform " 
+                                           + xform.toString());
+          } 	      
       }
   }
 
@@ -1168,33 +1191,89 @@ public class GdkGraphics2D extends Graphics2D
   public boolean drawImage (Image img, int x, int y, Color bgcolor, 
                             ImageObserver observer)
   {
-    throw new java.lang.UnsupportedOperationException ();
+    return drawImage (img, x, y, img.getWidth (observer), 
+                      img.getHeight (observer), bgcolor, observer);
   }
 
   public boolean drawImage (Image img, int x, int y, int width, int height, 
                             Color bgcolor, ImageObserver observer)
   {
-    throw new java.lang.UnsupportedOperationException ();
+   
+    // FIXME: change all the transparent pixels in the image to
+    // bgcolor.
+
+    return drawImage (img, x, y, width, height, observer);
   }
 
   public boolean drawImage (Image img, int x, int y, int width, int height, 
                             ImageObserver observer)
   {
-    throw new java.lang.UnsupportedOperationException ();
+
+    double scaleX =  width / (double) img.getWidth (observer);           
+    double scaleY =  height / (double) img.getHeight (observer);
+
+    return drawImage (img, 
+                      new AffineTransform(scaleX, 0f, 0f, scaleY, x, y),
+                      observer);
+
   }
 
   public boolean drawImage (Image img, int dx1, int dy1, int dx2, int dy2, 
                             int sx1, int sy1, int sx2, int sy2, 
                             Color bgcolor, ImageObserver observer)
   {
-    throw new java.lang.UnsupportedOperationException ();
+  
+    // FIXME: change all transparent pixels in the image to 
+    // bgcolor
+       
+    return drawImage (img, dx1, dy1, dx2, dy2, 
+                      sx1, sy1, sx2, sy2, observer);	
   }
 
   public boolean drawImage (Image img, int dx1, int dy1, int dx2, int dy2, 
                             int sx1, int sy1, int sx2, int sy2, 
                             ImageObserver observer) 
   {
-    throw new java.lang.UnsupportedOperationException ();
+  
+    Image subImage;	
+    
+    int sourceWidth = sx2 - sx1;
+    int sourceHeight = sy2 - sy1;     
+    
+    int destWidth = dx2 - dx1;
+    int destHeight = dy2 - dy1;
+    
+    double scaleX = destWidth / sourceWidth;
+    double scaleY = destHeight / sourceHeight;
+
+    // Get the subimage of the source enclosed in the 
+    // rectangle specified by sx1, sy1, sx2, sy2
+	
+    if (img instanceof BufferedImage)
+      {
+
+        BufferedImage b = (BufferedImage) img;
+        subImage = b.getSubimage(sx1,sy1,sx2,sy2);  
+      } 
+    else 
+      {
+
+        // FIXME: This code currently doesn't work. Null Pointer 
+        // exception is thrown in this case. This happens 
+        // because img.getSource() always returns null, since source gets 
+        // never initialized when it is created with the help of 
+        // createImage(int width, int height). 
+             
+	 CropImageFilter filter = new CropImageFilter(sx1,sx2,sx2,sy2);
+        FilteredImageSource src = new FilteredImageSource(img.getSource(), 
+                                                          filter);	
+							  						  
+        subImage = Toolkit.getDefaultToolkit().createImage(src);
+      }
+
+    return drawImage(subImage, new AffineTransform(scaleX, 0, 0,
+                                                  scaleY, dx1, dy1), 
+                                                  observer);
   }
 
   public void drawOval(int x, int y, int width, int height)

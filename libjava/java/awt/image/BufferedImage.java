@@ -255,7 +255,8 @@ public class BufferedImage extends Image
   public WritableRaster copyData(WritableRaster dest)
   {
     if (dest == null)
-      dest = raster.createCompatibleWritableRaster();
+      dest = raster.createCompatibleWritableRaster(getMinX(), getMinY(),
+                                                   getWidth(),getHeight());
 
     int x = dest.getMinX();
     int y = dest.getMinY();
