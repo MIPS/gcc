@@ -1,3 +1,7 @@
+2003-01-28  Diego Novillo  <dnovillo@redhat.com>
+
+	* filter_params.pl: Surround comments in @verbatim/@endverbatim.
+
 2003-01-19  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-ssa.doxy (OUTPUT_DIRECTORY, INPUT_FILTER): Replace

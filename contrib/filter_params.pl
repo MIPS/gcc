@@ -5,7 +5,8 @@
 # - PARAMS(()) is used for K&R compatibility. See ansidecl.h.
 
 while (<>) {
-    s/^\/\* /\/\*\* /;
+    s/^\/\* /\/\*\* \@verbatim /;
+    s/\*\// \@endverbatim \*\//;
     s/GTY[ \t]*\(\(.*\)\)//g;
     s/[ \t]ATTRIBUTE_UNUSED//g;
     s/PARAMS[ \t]*\(\((.*?)\)\)/\($1\)/sg;
