@@ -1,5 +1,12 @@
 2002-06-09  Jason Merrill  <jason@redhat.com>
 
+	* c-simplify.c (simplify_expr_common): Handle creating both lvalue
+	and rvalue temps.  Add new parameter to specify which.
+	(simplify_expr): Now just a wrapper.
+	(simplify_lvalue_expr): Likewise.
+	(simplify_expr_either): New wrapper.
+	(simplify_component_ref): Use it instead of simplify_lvalue_expr.
+
 	* c-pretty-print.c (debug_c_tree): Add a trailing newline.
 	(debug_c_node): Likewise.
 	* gdbinit.in (pct): New macro, calls debug_c_tree.

@@ -61,9 +61,11 @@ static void simplify_do_stmt         PARAMS ((tree));
 static void simplify_if_stmt         PARAMS ((tree, tree *));
 static void simplify_switch_stmt     PARAMS ((tree, tree *));
 static void simplify_return_stmt     PARAMS ((tree, tree *));
-static bool simplify_expr_common     PARAMS ((tree *, tree *, tree *,
-                                              int (*) PARAMS ((tree)), tree));
+static void simplify_expr_common     PARAMS ((tree *, tree *, tree *,
+                                              int (*) PARAMS ((tree)), tree, int));
 static void simplify_expr            PARAMS ((tree *, tree *, tree *,
+                                              int (*) PARAMS ((tree)), tree));
+static void simplify_expr_either     PARAMS ((tree *, tree *, tree *,
                                               int (*) PARAMS ((tree)), tree));
 static void simplify_array_ref       PARAMS ((tree *, tree *, tree *, tree));
 static void simplify_self_mod_expr   PARAMS ((tree *, tree *, tree *, tree));
@@ -962,21 +964,30 @@ simplify_return_stmt (stmt, pre_p)
 
     STMT is the statement tree that contains EXPR.  It's used in cases
 	where simplifying an expression requires creating new statement
-	trees.  */
+	trees.
 
-static bool
-simplify_expr_common (expr_p, pre_p, post_p, simple_test_f, stmt)
+    FALLBACK tells the function what sort of a temporary we want.  If the 1
+        bit is set, an rvalue is OK.  If the 2 bit is set, an lvalue is OK.
+        If both are set, either is OK, but an lvalue is preferable.  */
+
+static void
+simplify_expr_common (expr_p, pre_p, post_p, simple_test_f, stmt, fallback)
      tree *expr_p;
      tree *pre_p;
      tree *post_p;
      int (*simple_test_f) PARAMS ((tree));
      tree stmt;
+     int fallback;
 {
+  int fallback_rvalue = (fallback & 1);
+  int fallback_lvalue = (fallback & 2);
+  tree tmp;
+
   if (simple_test_f == NULL)
     abort ();
 
   if ((*simple_test_f) (*expr_p))
-    return true;
+    return;
 
   /* First deal with the special cases.  */
   switch (TREE_CODE (*expr_p))
@@ -1012,6 +1023,12 @@ simplify_expr_common (expr_p, pre_p, post_p, simple_test_f, stmt)
       simplify_compound_expr (expr_p, pre_p, post_p, stmt);
       break;
 
+    case REALPART_EXPR:
+    case IMAGPART_EXPR:
+      simplify_expr_common (&TREE_OPERAND (*expr_p, 0), pre_p, post_p,
+			    simple_test_f, stmt, fallback);
+      return;
+
     case MODIFY_EXPR:
       simplify_modify_expr (expr_p, pre_p, post_p, stmt);
       break;
@@ -1022,12 +1039,10 @@ simplify_expr_common (expr_p, pre_p, post_p, simple_test_f, stmt)
       break;
 
     case TRUTH_NOT_EXPR:
-      {
-	tree t = TREE_OPERAND (*expr_p, 0);
-	simplify_expr (&t, pre_p, post_p, is_simple_id, stmt);
-	*expr_p = build (EQ_EXPR, TREE_TYPE (*expr_p), t, integer_zero_node);
-	break;
-      }
+      tmp = TREE_OPERAND (*expr_p, 0);
+      simplify_expr (&tmp, pre_p, post_p, is_simple_id, stmt);
+      *expr_p = build (EQ_EXPR, TREE_TYPE (*expr_p), tmp, integer_zero_node);
+      break;
 
     case ADDR_EXPR:
       simplify_lvalue_expr (&TREE_OPERAND (*expr_p, 0), pre_p, post_p,
@@ -1140,8 +1155,43 @@ simplify_expr_common (expr_p, pre_p, post_p, simple_test_f, stmt)
       }
     }
 
-  /* Test the simplified expression.  */
-  return (*simple_test_f) (*expr_p);
+  /* If it's sufficiently simple already, we're done.  */
+  if ((*simple_test_f) (*expr_p))
+    return;
+
+  /* Otherwise, we need to create a new temporary for the simplified
+     expression.  */
+
+  if (fallback_lvalue && is_simple_varname (*expr_p))
+    {
+      /* An lvalue will do.  Take the address of the expression, store it
+	 in a temporary, and replace the expression with an INDIRECT_REF of
+	 that temporary.  */
+      tmp = build_addr_expr (*expr_p);
+      simplify_expr (&tmp, pre_p, post_p, is_simple_id, stmt);
+      *expr_p = build_indirect_ref (tmp, "");
+    }
+  else if (fallback_rvalue && is_simple_rhs (*expr_p))
+    {
+      if (VOID_TYPE_P (TREE_TYPE (*expr_p)))
+	abort ();
+
+      /* An rvalue will do.  Assign the simplified expression into a new
+	 temporary TMP and replace the original expression with TMP.  */
+      tmp = create_tmp_var (TREE_TYPE (*expr_p));
+      add_tree (build_modify_expr (tmp, NOP_EXPR, *expr_p), pre_p);
+      *expr_p = tmp;
+    }
+  else
+    {
+      fprintf (stderr, "simplification failed:\n");
+      debug_tree (*expr_p);
+      abort ();
+    }
+
+  /* Make sure the temporary matches our predicate.  */
+  if (!(*simple_test_f) (*expr_p))
+    abort ();
 }
 
 static void
@@ -1152,32 +1202,29 @@ simplify_expr (expr_p, pre_p, post_p, simple_test_f, stmt)
      int (*simple_test_f) PARAMS ((tree));
      tree stmt;
 {
-  bool ok = simplify_expr_common (expr_p, pre_p, post_p, simple_test_f, stmt);
-  
-  /* If it's sufficiently simple already, return.  */
-  if (ok)
-    return;
+  simplify_expr_common (expr_p, pre_p, post_p, simple_test_f, stmt, 1);
+}
 
-  /* Otherwise, we need to create a new temporary to hold the simplified
-     expression.  At this point, the expression should be simple enough to
-     qualify as a SIMPLE assignment RHS.  Otherwise, simplification has
-     failed.  */
-  if (!is_simple_rhs (*expr_p))
-    {
-      fprintf (stderr, "Expression is not a SIMPLE RHS:\n");
-      debug_tree (*expr_p);
-      fprintf (stderr, "\n");
-      abort ();
-    }
+static void
+simplify_lvalue_expr (expr_p, pre_p, post_p, simple_test_f, stmt)
+     tree *expr_p;
+     tree *pre_p;
+     tree *post_p;
+     int (*simple_test_f) PARAMS ((tree));
+     tree stmt;
+{
+  simplify_expr_common (expr_p, pre_p, post_p, simple_test_f, stmt, 2);
+}
 
-  /* If the simplified expression can be assigned into a new temporary TMP,
-     do so and replace the original expression with TMP.  */
-  if (!VOID_TYPE_P (TREE_TYPE (*expr_p)))
-    {
-      tree tmp = create_tmp_var (TREE_TYPE (*expr_p));
-      add_tree (build_modify_expr (tmp, NOP_EXPR, *expr_p), pre_p);
-      *expr_p = tmp;
-    }
+static void
+simplify_expr_either (expr_p, pre_p, post_p, simple_test_f, stmt)
+     tree *expr_p;
+     tree *pre_p;
+     tree *post_p;
+     int (*simple_test_f) PARAMS ((tree));
+     tree stmt;
+{
+  simplify_expr_common (expr_p, pre_p, post_p, simple_test_f, stmt, 1|2);
 }
 
 /* }}} */
@@ -1360,7 +1407,7 @@ simplify_component_ref (expr_p, pre_p, post_p, stmt)
       abort ();
 
   /* Now we're down to the first bit that isn't a COMPONENT_REF.  */
-  simplify_lvalue_expr (p, pre_p, post_p, is_simple_arraybase, stmt);
+  simplify_expr_either (p, pre_p, post_p, is_simple_arraybase, stmt);
 }
 
 /* }}} */
@@ -1777,77 +1824,6 @@ simplify_expr_wfl (expr_p, pre_p, post_p, simple_test_f, stmt)
 }
 
 /* }}} */
-
-/** {{{ simplify_lvalue_expr ()
-
-    Simplify the node pointed by EXPR_P into a SIMPLE lvalue.  The
-    simplification is done so that the simplified expression can be used on
-    the LHS of an assignment that modifies the same memory location than
-    the original expression.
-    
-    PRE_P points to the list where side effects that must happen before
-	*EXPR_P should be stored.
-
-    POST_P points to the list where side effects that must happen after
-    	*EXPR_P should be stored.
-
-    STMT is the statement tree that contains EXPR.  It's used in cases
-	where simplifying an expression requires creating new statement
-	trees.  */
-
-static void
-simplify_lvalue_expr (expr_p, pre_p, post_p, simple_test_f, stmt)
-     tree *expr_p;
-     tree *pre_p;
-     tree *post_p;
-     int (*simple_test_f) PARAMS ((tree));
-     tree stmt;
-{
-  bool ok;
-  tree expr;
-
-  if (TREE_CODE (*expr_p) == REALPART_EXPR
-      || TREE_CODE (*expr_p) == IMAGPART_EXPR)
-    {
-      simplify_lvalue_expr (&TREE_OPERAND (*expr_p, 0), pre_p, post_p,
-			    simple_test_f, stmt);
-      return;
-    }
-
-  ok = simplify_expr_common (expr_p, pre_p, post_p, simple_test_f, stmt);
-
-  /* If it's sufficiently simple already, return.  */
-  if (ok)
-    return;
-
-  /* Otherwise, we need to create a new temporary to hold the address of
-     the simplified expression.  At this point, the expression should be
-     simple enough to qualify as a SIMPLE varname.  Otherwise,
-     simplification has failed.  */
-  if (!is_simple_varname (*expr_p))
-    {
-      fprintf (stderr, "Expression is not a SIMPLE varname:\n");
-      debug_tree (*expr_p);
-      fprintf (stderr, "\n");
-      abort ();
-    }
-
-  /* So take the address of the expression, store it in a temporary, and
-     replace the expression with an INDIRECT_REF of that temporary.  */
-  expr = *expr_p;
-  expr = build_addr_expr (expr);
-  simplify_expr (&expr, pre_p, post_p, is_simple_id, stmt);
-  expr = build_indirect_ref (expr, "");
-
-  /* Make sure the INDIRECT_REF matches our predicate.  */
-  if (!(*simple_test_f) (expr))
-    abort ();
-
-  *expr_p = expr;
-}
-
-/* }}} */
-
 
 /* Code generation.  */
 
