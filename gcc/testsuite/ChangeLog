@@ -1,3 +1,8 @@
+2004-11-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/17825
+	* gcc.c-torture/compile/20041119-1.c: New test.
+
 2004-11-02  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c/18282
