@@ -4887,7 +4887,9 @@ is_fortran ()
 {
   unsigned lang = get_AT_unsigned (comp_unit_die, DW_AT_language);
 
-  return (lang == DW_LANG_Fortran77 || lang == DW_LANG_Fortran90);
+  return (lang == DW_LANG_Fortran77
+	  || lang == DW_LANG_Fortran90
+	  || lang == DW_LANG_Fortran95);
 }
 
 static inline int
@@ -10753,6 +10755,8 @@ gen_compile_unit_die (filename)
     language = DW_LANG_Ada83;
   else if (strcmp (language_string, "GNU F77") == 0)
     language = DW_LANG_Fortran77;
+  else if (strcmp (language_string, "GNU F95") == 0)
+    language = DW_LANG_Fortran95;
   else if (strcmp (language_string, "GNU Pascal") == 0)
     language = DW_LANG_Pascal83;
   else if (strcmp (language_string, "GNU Java") == 0)

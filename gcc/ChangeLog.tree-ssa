@@ -1,3 +1,10 @@
+2002-09-14  Steven Bosscher <s.bosscher@student.tudelft.nl>
+
+	* dwarf2out.c (is_fortran): Return true for
+	DW_LANG_Fortran95.
+	(gen_compile_unit_die): Return DW_LANG_Fortran95 if
+	language is "GNU F95".
+
 2002-09-13  Daniel Berlin  <dberlin@dberlin.org>
 	
 	* tree-dump.c (dump_switch_p): Get longest match, not first one.
