@@ -32,7 +32,7 @@ Boston, MA 02111-1307, USA.  */
 
 #ifdef __cplusplus
 extern "C" {
-#endiff /* __cplusplus */
+#endif /* __cplusplus */
 
 #define OBJC_SPARSE2		/* 2-level sparse array */
 /* #define OBJC_SPARSE3 */      /* 3-level sparse array */
