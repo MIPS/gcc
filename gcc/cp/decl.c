@@ -7118,7 +7118,9 @@ start_decl (declarator, declspecs, initialized, attributes, prefix_attributes)
   /* Set attributes here so if duplicate decl, will have proper attributes.  */
   cplus_decl_attributes (&decl, attributes, prefix_attributes, 0);
 
-  if (context && COMPLETE_TYPE_P (complete_type (context)))
+  if (!context)
+    /*OK*/;
+  else if (complete_type_or_else (context, NULL_TREE))
     {
       if (TREE_CODE (decl) == VAR_DECL)
 	{
@@ -7172,6 +7174,8 @@ start_decl (declarator, declspecs, initialized, attributes, prefix_attributes)
 	cp_pedwarn ("declaration of `%#D' outside of class is not definition",
 		    decl);
     }
+  else
+    return NULL_TREE;
 
   /* Enter this declaration into the symbol table.  */
   tem = maybe_push_decl (decl);
