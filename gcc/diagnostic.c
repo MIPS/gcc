@@ -278,7 +278,6 @@ diagnostic_action_after_output (diagnostic_context *context,
 	real_abort ();
 
       fnotice (stderr, bug_report_request, bug_report_url);
-      real_abort ();
       exit (FATAL_EXIT_CODE);
 
     case DK_FATAL:

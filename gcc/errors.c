@@ -94,7 +94,6 @@ internal_error (const char *format, ...)
   vfprintf (stderr, format, ap);
   va_end (ap);
   fputc ('\n', stderr);
-  abort ();
   exit (FATAL_EXIT_CODE);
 }
 
