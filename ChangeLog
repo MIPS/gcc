@@ -1,3 +1,7 @@
+2004-10-06  Josef Zlomek  <josef.zlomek@email.cz>
+
+	* MAINTAINERS: Update my e-mail address.
+
 2004-07-30  Matthias Klose  <doko@debian.org>
 
 	* configure: Add missing 'action' argument to trap.
