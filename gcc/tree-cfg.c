@@ -1887,7 +1887,9 @@ compute_dominance_frontiers (bitmap *frontiers, dominance_info idom)
 
   sbitmap_zero (done);
 
-  compute_dominance_frontiers_1 (frontiers, idom, 0, done);
+  compute_dominance_frontiers_1 (frontiers, idom,
+				 ENTRY_BLOCK_PTR->succ->dest->index,
+				 done);
 
   sbitmap_free (done);
 

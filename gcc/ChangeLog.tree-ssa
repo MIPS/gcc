@@ -1,3 +1,8 @@
+2003-12-07  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* tree-cfg.c (compute_dominance_frontiers): Don't assume that
+	the first block has index 0.		
+
 2003-12-07  Jan Hubicka  <jh@suse.cz>
 
 	* cgraph.c (create_edge): Rename to ...
