@@ -1,3 +1,13 @@
+2003-11-22  Diego Novillo  <dnovillo@redhat.com>
+
+	* Makefile.in (simple-break-elim.o): Remove.
+	(simple-goto-elim.o): Remove.
+	(tree-dchain.o): Remove.
+	* simple-break-elim.c: Remove.
+	* simple-goto-elim.c: Remove.
+	* tree-dchain.c: Remove.
+	* tree-dchain.h: Remove.
+
 2003-11-22  Daniel Berlin  <dberlin@dberlin.org>
 
 	* tree-ssa-pre.c (build_dfs_id_array_1): > should be >=

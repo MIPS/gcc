@@ -1604,12 +1604,6 @@ gimple-low.o : gimple-low.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) errors.h \
 tree-browser.o : tree-browser.c tree-browser.def $(CONFIG_H) $(SYSTEM_H) \
    $(TREE_H) errors.h tree-inline.h diagnostic.h $(HASHTAB_H) \
    $(TM_H) coretypes.h
-simple-break-elim.o : simple-break-elim.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) \
-   $(C_TREE_H) $(C_COMMON_H) diagnostic.h tree-dchain.h $(TM_H) coretypes.h
-simple-goto-elim.o : simple-goto-elim.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) \
-   $(C_TREE_H) $(C_COMMON_H) diagnostic.h tree-dchain.h $(TM_H) coretypes.h
-tree-dchain.o : tree-dchain.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) \
-   $(C_TREE_H) $(C_COMMON_H) tree-dchain.h $(TM_H) coretypes.h
 c-call-graph.o : c-call-graph.c $(CONFIG_H) $(SYSTEM_H) $(C_TREE_H) \
    $(C_COMMON_H) diagnostic.h hard-reg-set.h $(BASIC_BLOCK_H) $(TREE_FLOW_H) \
    $(TM_H) coretypes.h
