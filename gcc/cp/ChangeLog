@@ -1,3 +1,7 @@
+2002-11-19  Geoffrey Keating  <geoffk@apple.com>
+
+	* decl.c (anon_cnt): Mark to be saved for PCH.
+
 2002-10-25  Geoffrey Keating  <geoffk@apple.com>
 
 	* lex.c  (init_reswords): Delete now-untrue comment.

@@ -2813,7 +2813,7 @@ pushtag (name, type, globalize)
 
 /* Counter used to create anonymous type names.  */
 
-static int anon_cnt = 0;
+static GTY(()) int anon_cnt;
 
 /* Return an IDENTIFIER which can be used as a name for
    anonymous structs and unions.  */

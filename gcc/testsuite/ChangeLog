@@ -1,3 +1,8 @@
+2002-11-19  Geoffrey Keating  <geoffk@apple.com>
+
+	* gcc.dg/pch/except-1.h: New.
+	* gcc.dg/pch/except-1.c: New.
+
 2002-11-13  Geoffrey Keating  <geoffk@apple.com>
 
 	* gcc.dg/pch/pch.exp: Ensure that <test>.hp doesn't exist before

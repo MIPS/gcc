@@ -1,3 +1,7 @@
+2002-11-19  Geoffrey Keating  <geoffk@apple.com>
+
+	* function.c (funcdef_no): Mark to be saved in a PCH.
+
 2002-11-15  Geoffrey Keating  <geoffk@apple.com>
 
 	* ggc-page.c (ggc_pch_read): Remove unused 'bmap_size'.
