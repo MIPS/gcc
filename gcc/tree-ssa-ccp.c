@@ -111,7 +111,6 @@ static void visit_assignment (tree);
 static void add_var_to_ssa_edges_worklist (tree);
 static void add_outgoing_control_edges (basic_block);
 static void add_control_edge (edge);
-static void def_to_undefined (tree);
 static void def_to_varying (tree);
 static void set_lattice_value (tree, value);
 static void simulate_block (basic_block);
@@ -123,7 +122,7 @@ static bool replace_uses_in (tree, bool *);
 static latticevalue likely_value (tree);
 static tree get_rhs (tree);
 static void set_rhs (tree *, tree);
-static inline value *get_value (tree);
+static value *get_value (tree);
 static value get_default_value (tree);
 static tree ccp_fold_builtin (tree, tree);
 static bool get_strlen (tree, tree *, bitmap);
@@ -219,19 +218,20 @@ struct tree_opt_pass pass_ccp =
 
 /* Get the constant value associated with variable VAR.  */
 
-static inline value *
+static value *
 get_value (tree var)
 {
   value *val;
+
 #if defined ENABLE_CHECKING
   if (TREE_CODE (var) != SSA_NAME)
     abort ();
 #endif
 
-  val = &(value_vector[SSA_NAME_VERSION (var)]);
+  val = &value_vector[SSA_NAME_VERSION (var)];
   if (val->lattice_val == UNINITIALIZED)
     *val = get_default_value (var);
-    
+
   return val;
 }
 
@@ -409,8 +409,9 @@ substitute_and_fold (void)
 static void
 visit_phi_node (tree phi)
 {
-  int i, short_circuit = 0;
+  bool short_circuit = 0;
   value phi_val, *curr_val;
+  int i;
 
   /* If the PHI node has already been deemed to be VARYING, don't simulate
      it again.  */
@@ -424,23 +425,27 @@ visit_phi_node (tree phi)
     }
 
   curr_val = get_value (PHI_RESULT (phi));
-  if (curr_val->lattice_val == VARYING)
+  switch (curr_val->lattice_val)
     {
+    case VARYING:
       if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
 	fprintf (tree_dump_file, "\n   Shortcircuit. Default of VARYING.");
       short_circuit = 1;
+      break;
+
+    case CONSTANT:
+      phi_val = *curr_val;
+      break;
+
+    case UNDEFINED:
+    case UNINITIALIZED:
+      phi_val.lattice_val = UNDEFINED;
+      phi_val.const_val = NULL_TREE;
+      break;
+
+    default:
+      abort ();
     }
-  else
-    if (curr_val->lattice_val != CONSTANT)
-      {
-	phi_val.lattice_val = UNDEFINED;
-	phi_val.const_val = NULL_TREE;
-      }
-    else
-      {
-	phi_val.lattice_val = curr_val->lattice_val;
-	phi_val.const_val = curr_val->const_val;
-      }
 
   /* If the variable is volatile or the variable is never referenced in a
      real operand, then consider the PHI node VARYING.  */
@@ -454,9 +459,10 @@ visit_phi_node (tree phi)
 
 	if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
 	  {
-	    fprintf (tree_dump_file, "\n    Argument #%d (%d -> %d %sexecutable)\n",
-		    i, e->src->index, e->dest->index,
-		    (e->flags & EDGE_EXECUTABLE) ? "" : "not ");
+	    fprintf (tree_dump_file,
+		     "\n    Argument #%d (%d -> %d %sexecutable)\n",
+		     i, e->src->index, e->dest->index,
+		     (e->flags & EDGE_EXECUTABLE) ? "" : "not ");
 	  }
 
 	/* If the incoming edge is executable, Compute the meet operator for
@@ -650,8 +656,7 @@ visit_assignment (tree stmt)
     {
       /* For a simple copy operation, we copy the lattice values.  */
       value *nval = get_value (rhs);
-      val.lattice_val = nval->lattice_val;
-      val.const_val = nval->const_val;
+      val = *nval;
     }
   else
     {
@@ -944,25 +949,6 @@ evaluate_stmt (tree stmt)
       val.const_val = NULL_TREE;
     }
 
-  /* Debugging dumps.  */
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-    {
-      fprintf (tree_dump_file, "Statement evaluates to ");
-      print_generic_stmt (tree_dump_file, simplified, TDF_SLIM);
-      fprintf (tree_dump_file, " which is ");
-      if (val.lattice_val == CONSTANT)
-	{
-	  fprintf (tree_dump_file, "constant ");
-	  print_generic_expr (tree_dump_file, simplified, 0);
-	}
-      else if (val.lattice_val == VARYING)
-	fprintf (tree_dump_file, "not a constant");
-      else if (val.lattice_val == UNDEFINED)
-	fprintf (tree_dump_file, "undefined");
-
-      fprintf (tree_dump_file, "\n");
-    }
-
   return val;
 }
 
@@ -972,14 +958,20 @@ evaluate_stmt (tree stmt)
 static void
 dump_lattice_value (FILE *outf, const char *prefix, value val)
 {
-  if (val.lattice_val == UNDEFINED)
-    fprintf (outf, "%sUNDEFINED", prefix);
-  else if (val.lattice_val == VARYING)
-    fprintf (outf, "%sVARYING", prefix);
-  else
+  switch (val.lattice_val)
     {
+    case UNDEFINED:
+      fprintf (outf, "%sUNDEFINED", prefix);
+      break;
+    case VARYING:
+      fprintf (outf, "%sVARYING", prefix);
+      break;
+    case CONSTANT:
       fprintf (outf, "%sCONSTANT ", prefix);
       print_generic_expr (outf, val.const_val, 0);
+      break;
+    default:
+      abort ();
     }
 }
 
@@ -1274,107 +1266,68 @@ add_var_to_ssa_edges_worklist (tree var)
     }
 }
 
-/* Set the lattice value for the variable VAR to UNDEFINED.  */
-
-static void
-def_to_undefined (tree var)
-{
-  value *value = get_value (var);
-
-#ifdef ENABLE_CHECKING
-  /* CONSTANT->UNDEFINED is never a valid state transition.  */
-  if (value->lattice_val == CONSTANT)
-    abort ();
-
-  /* VARYING->UNDEFINED is generally not a valid state transition,
-     except for values which are initialized to VARYING.  */
-  if (value->lattice_val == VARYING
-      && get_default_value (var).lattice_val != VARYING)
-    abort ();
-#endif
-
-  if (value->lattice_val != UNDEFINED)
-    {
-      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-	fprintf (tree_dump_file, "Lattice value changed.  Adding definition to SSA edges.\n");
-
-      add_var_to_ssa_edges_worklist (var);
-      value->lattice_val = UNDEFINED;
-      value->const_val = NULL_TREE;
-    }
-}
-
-
 /* Set the lattice value for the variable VAR to VARYING.  */
 
 static void
 def_to_varying (tree var)
 {
-  value *value = get_value (var);
-
-  if (value->lattice_val != VARYING)
-    {
-      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-	fprintf (tree_dump_file, "Lattice value changed.  Adding definition to SSA edges.\n");
-
-      add_var_to_ssa_edges_worklist (var);
-      value->lattice_val = VARYING;
-      value->const_val = NULL_TREE;
-    }
+  value val;
+  val.lattice_val = VARYING;
+  val.const_val = NULL_TREE;
+  set_lattice_value (var, val);
 }
-
 
 /* Set the lattice value for variable VAR to VAL.  */
 
 static void
 set_lattice_value (tree var, value val)
 {
-  if (val.lattice_val == UNDEFINED)
-    def_to_undefined (var);
-  else if (val.lattice_val == VARYING)
-    def_to_varying (var);
-  else
-    {
-      value *old_val = get_value (var);
-
-      /* If the RHS is a constant value that is different from a previous
-	 value for this reference, add its SSA edge to the worklist.  */
-      if (old_val->lattice_val != CONSTANT
-	  || !(simple_cst_equal (old_val->const_val, val.const_val)) == 1)
-	{
-	  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-	    {
-	      fprintf (tree_dump_file, "Lattice value changed to ");
-	      print_generic_expr (tree_dump_file, val.const_val, 0);
-	      fprintf (tree_dump_file, ".  Adding definition to SSA edges.\n");
-	    }
-
-          add_var_to_ssa_edges_worklist (var);
+  value *old = get_value (var);
 
 #ifdef ENABLE_CHECKING
-	  /* VARYING -> CONSTANT is an invalid state transition, except
-	     for objects which start off in a VARYING state.  */
-	  if (old_val->lattice_val == VARYING
-	      && get_default_value (var).lattice_val != VARYING)
-	    abort ();
+  if (val.lattice_val == UNDEFINED)
+    {
+      /* CONSTANT->UNDEFINED is never a valid state transition.  */
+      if (old->lattice_val == CONSTANT)
+	abort ();
+
+      /* VARYING->UNDEFINED is generally not a valid state transition,
+	 except for values which are initialized to VARYING.  */
+      if (old->lattice_val == VARYING
+	  && get_default_value (var).lattice_val != VARYING)
+	abort ();
+    }
+  else if (val.lattice_val == CONSTANT)
+    {
+      /* VARYING -> CONSTANT is an invalid state transition, except
+	 for objects which start off in a VARYING state.  */
+      if (old->lattice_val == VARYING
+	  && get_default_value (var).lattice_val != VARYING)
+	abort ();
+    }
 #endif
 
-	  /* If the constant for VAR has changed, then this VAR is
-	     really varying.  */
-	  if (old_val->lattice_val == CONSTANT)
-	    {
-	      old_val->lattice_val = VARYING;
-	      old_val->const_val = NULL_TREE;
-	    }
-	  else
-	    {
-	      old_val->lattice_val = CONSTANT;
-	      old_val->const_val = val.const_val;
-	    }
+  /* If the constant for VAR has changed, then this VAR is really varying.  */
+  if (old->lattice_val == CONSTANT && val.lattice_val == CONSTANT
+      && !simple_cst_equal (old->const_val, val.const_val))
+    {
+      val.lattice_val = VARYING;
+      val.const_val = NULL_TREE;
+    }
+
+  if (old->lattice_val != val.lattice_val)
+    {
+      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+	{
+	  dump_lattice_value (tree_dump_file,
+			      "Lattice value changed to ", val);
+	  fprintf (tree_dump_file, ".  Adding definition to SSA edges.\n");
 	}
+
+      add_var_to_ssa_edges_worklist (var);
+      *old = val;
     }
 }
-
 
 /* Replace USE references in statement STMT with their immediate reaching
    definition.  Return true if at least one reference was replaced.  If
@@ -1406,32 +1359,6 @@ replace_uses_in (tree stmt, bool *replaced_addresses_p)
 	  if (POINTER_TYPE_P (TREE_TYPE (*use)) && replaced_addresses_p)
 	    *replaced_addresses_p = true;
 	}
-    }
-
-  /* Some builtins like strlen may evaluate to a constant value even if
-     they have non-constant operands.  For instance,
-     'strlen (g++ ? "foo" : "bar")' will always evaluate to 3.  If the
-     statement contains a call to one of these builtins, pretend that we
-     replaced constant operands in it so that it can be handed to
-     fold_stmt().  */
-  if (!replaced
-      && (TREE_CODE (stmt) == CALL_EXPR
-	  || (TREE_CODE (stmt) == MODIFY_EXPR
-	      && TREE_CODE (TREE_OPERAND (stmt, 1)) == CALL_EXPR)))
-
-    {
-      tree rhs = (TREE_CODE (stmt) == MODIFY_EXPR)
-		  ? TREE_OPERAND (stmt, 1)
-		  : stmt;
-      tree callee = get_callee_fndecl (rhs);
-
-      /* For now, we are only interested in handling a few builtins.  */
-      if (callee
-	  && DECL_BUILT_IN (callee)
-	  && DECL_BUILT_IN_CLASS (callee) != BUILT_IN_MD)
-	replaced = (DECL_FUNCTION_CODE (callee) == BUILT_IN_STRLEN
-	            || DECL_FUNCTION_CODE (callee) == BUILT_IN_FPUTS
-		    || DECL_FUNCTION_CODE (callee) == BUILT_IN_FPUTS_UNLOCKED);
     }
 
   return replaced;
@@ -2309,12 +2236,23 @@ execute_fold_all_builtins (void)
 	  if (!call || TREE_CODE (call) != CALL_EXPR)
 	    continue;
 	  callee = get_callee_fndecl (call);
-	  if (!callee || !DECL_BUILT_IN (callee))
+	  if (!callee || DECL_BUILT_IN_CLASS (callee) != BUILT_IN_NORMAL)
 	    continue;
 
 	  result = ccp_fold_builtin (*stmtp, call);
 	  if (!result)
-	    continue;
+	    switch (DECL_FUNCTION_CODE (callee))
+	      {
+	      case BUILT_IN_CONSTANT_P:
+		/* Resolve __builtin_constant_p.  If it hasn't been
+		   folded to integer_one_node by now, it's fairly
+		   certain that the value simply isn't constant.  */
+		result = integer_zero_node;
+		break;
+
+	      default:
+		continue;
+	      }
 
 	  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
 	    {

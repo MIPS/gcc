@@ -1,5 +1,17 @@
 2004-02-04  Richard Henderson  <rth@redhat.com>
 
+	* tree-ssa-ccp.c (get_value, visit_phi_node,
+	visit_assignment, dump_lattice_value): Tidy.
+	(evaluate_stmt): Don't do debug dump here.
+	(def_to_undefined): Merge into set_lattice_value.
+	(def_to_varying): Likewise, but retain as a wrapper.
+	(set_lattice_value): Tidy.  Emit correct debug info.
+	(replace_uses_in): Remove strlen hacks.
+	(execute_fold_all_builtins): Fix DECL_BUILT_IN comparison.
+	Force folding of BUILT_IN_CONSTANT_P.
+
+2004-02-04  Richard Henderson  <rth@redhat.com>
+
 	* builtins.c (fold_builtin_expect): New.
 	(fold_builtin_1): Call it.
 

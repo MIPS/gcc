@@ -1,7 +1,7 @@
 /* { dg-do compile } */
-/* { dg-options "-O1 -fdump-tree-ccp" } */
+/* { dg-options "-O1 -fdump-tree-fab" } */
 
-/* Check that ccp folds strlen of equally long strings, and that it does not
+/* Check that we fold strlen of equally long strings, and that we do not
    fail to terminate when there is a nontrivial cycle in the corresponding
    ssa graph.  */
 
@@ -28,4 +28,4 @@ middle:
 }
 
 /* There should be no calls to strlen.  */
-/* { dg-final { scan-tree-dump-times "strlen" 0 "ccp"} } */
+/* { dg-final { scan-tree-dump-times "strlen" 0 "fab"} } */

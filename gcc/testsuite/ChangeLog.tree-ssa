@@ -1,3 +1,7 @@
+2004-02-04  Richard Henderson  <rth@redhat.com>
+
+	* gcc.dg/tree-ssa/ssa-ccp-10.c: Look at fab dump.
+
 2004-02-03  Richard Henderson  <rth@redhat.com>
 
 	* gcc.dg/tree-ssa/20040204-1.c: Rename from ssa-ccp-5.c.
