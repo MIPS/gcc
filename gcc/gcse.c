@@ -4946,11 +4946,8 @@ gcse_emit_move_after (src, dest, insn)
   else
     eqv = SET_SRC (set);
 
-  /* Since the INSN is executed first, we must ensure that it does not
-     modify it's SRC.  In case it does the DEST is no longer equivalent
-     to SRC after then insn.  */
-  if (!modified_between_p (eqv, insn, NEXT_INSN (insn)))
-    set_unique_reg_note (new, REG_EQUAL, copy_insn_1 (src));
+  set_unique_reg_note (new, REG_EQUAL, copy_insn_1 (src));
+
   return new;
 }
 
