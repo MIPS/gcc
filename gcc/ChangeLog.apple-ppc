@@ -9,6 +9,18 @@
 
 2005-01-25  Dale Johannesen  <dalej@apple.com>
 
+	Radar 3941199
+	* config/rs6000/darwin-tramp.asm (__trampoline_setup):
+	Make work for 64 bit.
+
+2005-01-25  Dale Johannesen  <dalej@apple.com>
+
+	Radar 3944688
+	PR 19147
+	* config/rs6000/rs6000.md (andsi3_internal7, andsi3_internal8):  Delete.
+
+2005-01-25  Dale Johannesen  <dalej@apple.com>
+
 	Radar 3970057
 	* config/rs6000/rs6000.c (rs6000_return_in_memory):
 	Implement Darwin 64-bit convention correctly.
