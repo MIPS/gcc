@@ -5233,15 +5233,6 @@ build_c_cast (tree type, tree expr)
   if (type == error_mark_node || error_operand_p (expr))
     return error_mark_node;
 
-  /* APPLE LOCAL begin AltiVec */
-  /* If we are casting to a vector type, treat the expression as a vector
-     initializer if this target supports it.  */
-  if (TREE_CODE (type) == VECTOR_TYPE 
-      && targetm.cast_expr_as_vector_init
-      && !IS_AGGR_TYPE (TREE_TYPE(expr)))
-    return vector_constructor_from_expr (expr, type);
-  /* APPLE LOCAL end AltiVec */
-
   if (processing_template_decl)
     {
       tree t = build_min (CAST_EXPR, type,
@@ -5250,6 +5241,15 @@ build_c_cast (tree type, tree expr)
       TREE_SIDE_EFFECTS (t) = 1;
       return t;
     }
+
+  /* APPLE LOCAL begin AltiVec */
+  /* If we are casting to a vector type, treat the expression as a vector
+     initializer if this target supports it.  */
+  if (TREE_CODE (type) == VECTOR_TYPE 
+      && targetm.cast_expr_as_vector_init
+      && !IS_AGGR_TYPE (TREE_TYPE(expr)))
+    return vector_constructor_from_expr (expr, type);
+  /* APPLE LOCAL end AltiVec */
 
   /* Casts to a (pointer to a) specific ObjC class (or 'id' or
      'Class') should always be retained, because this information aids

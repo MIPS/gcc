@@ -635,6 +635,10 @@ build_vector (tree type, tree vals)
   tree v = make_node (VECTOR_CST);
   int over1 = 0, over2 = 0;
   tree link;
+  /* APPLE LOCAL begin AltiVec */
+  int max_index, count = 0;
+  tree list;
+  /* APPLE LOCAL end AltiVec */
 
   TREE_VECTOR_CST_ELTS (v) = vals;
   TREE_TYPE (v) = type;
@@ -644,11 +648,27 @@ build_vector (tree type, tree vals)
     {
       tree value = TREE_VALUE (link);
 
-      /* APPLE LOCAL AltiVec */
-      TREE_VALUE (link) = fold (value);
       over1 |= TREE_OVERFLOW (value);
       over2 |= TREE_CONSTANT_OVERFLOW (value);
+      /* APPLE LOCAL begin AltiVec */
+      TREE_VALUE (link) = fold (value);
+      count++;
+      list = link;
+      /* APPLE LOCAL end AltiVec */
     }
+
+  /* APPLE LOCAL begin AltiVec */
+  max_index = TYPE_VECTOR_SUBPARTS (type);
+  if (count > 0 && count < max_index)
+    {
+      int index;
+      tree expr = TREE_VALUE (list);
+      for (index = count; index < max_index; ++index)
+         list = chainon (list,
+                         build_tree_list (NULL_TREE,
+                                          convert (TREE_TYPE (type), expr)));
+    }
+  /* APPLE LOCAL end AltiVec */
 
   TREE_OVERFLOW (v) = over1;
   TREE_CONSTANT_OVERFLOW (v) = over2;

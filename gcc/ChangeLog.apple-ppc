@@ -1,3 +1,11 @@
+2004-11-10  Fariborz Jahanian <fjahanian@apple.com>
+
+	* c-common.c (vector_constructor_from_expr): Remove replication
+	of missing initializer.
+	* tree.c (build_vector): Replicate missing initializer. 
+	* cp/typeck.c (build_c_cast): Move building of vector constant
+	past checking for processing of template declaration.
+
 2004-11-08  Geoffrey Keating  <geoffk@apple.com>
 
 	* gcc.c: Improve local markers.

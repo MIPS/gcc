@@ -5825,7 +5825,8 @@ tree
 vector_constructor_from_expr (tree expr, tree vector_type)
 {
   tree list = NULL_TREE, elttype = TREE_TYPE (vector_type);
-  int index, max_index = TYPE_VECTOR_SUBPARTS (vector_type);
+  int index;
+  bool final;
   int all_constant = TREE_CONSTANT (expr);
 
   /* If we already have a vector expression, then the user probably
@@ -5834,17 +5835,21 @@ vector_constructor_from_expr (tree expr, tree vector_type)
     return convert (vector_type, expr);
 
   /* Walk through the compound expression, gathering initializers.  */
-  for (index = 0; index < max_index; ++index)
+  final = false;
+  for (index = 0; !final; ++index)
     {
       tree elem;
-      
+
       if (TREE_CODE (expr) == COMPOUND_EXPR)
 	{
 	  elem = TREE_OPERAND (expr, 1);
 	  expr = TREE_OPERAND (expr, 0);
 	}
       else
-	elem = expr;
+        {
+	  final = true;
+	  elem = expr;
+	}
 
       while (TREE_CODE (elem) == COMPOUND_EXPR && TREE_CONSTANT (elem))
 	elem = TREE_OPERAND (elem, 1);
