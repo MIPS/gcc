@@ -7910,6 +7910,13 @@ has_apple_kext_compatibility_attr_p (tree class)
   while (class != NULL)
     {
       tree base_binfo;
+
+      if (TREE_CODE (class) == ARRAY_TYPE)
+	{
+	  class = TREE_TYPE (class);
+	  continue;
+	}
+
       if (TYPE_USES_MULTIPLE_INHERITANCE (class))
 	return 0;
 
