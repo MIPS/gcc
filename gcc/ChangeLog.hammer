@@ -1,3 +1,14 @@
+2004-04-29  Josef Zlomek  <zlomekj@suse.cz>
+
+	Backport from mainline
+	2004-04-27  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+		PR debug/14829
+		* dwarf2out.c (reg_number): Rename to dbx_reg_number.  Adjust
+		all callers.
+		(multiple_reg_loc_descriptor, reg_loc_descriptor): Use gcc
+		register number for indexing hard_regno_nregs array.
+
 2004-04-28  Josef Zlomek  <zlomekj@suse.cz>
 
 	* var-tracking.c (variable_different_p): Add a parameter
