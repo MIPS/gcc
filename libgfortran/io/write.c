@@ -8,6 +8,15 @@ it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
+In addition to the permissions in the GNU General Public License, the
+Free Software Foundation gives you unlimited permission to link the
+compiled version of this file into combinations with other programs,
+and to distribute those combinations without any restriction coming
+from the use of this file.  (The General Public License restrictions
+do apply in other respects; for example, they cover modification of
+the file, and distribution when not linked into a combine
+executable.)
+
 Libgfortran is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -780,7 +789,7 @@ write_int (fnode *f, const char *source, int len, char *(*conv) (uint64_t))
 
   memcpy (p, q, digits);
 
-done:
+ done:
   return;
 }
 
@@ -865,7 +874,7 @@ write_decimal (fnode *f, const char *source, int len, char *(*conv) (int64_t))
 
   memcpy (p, q, digits);
 
-done:
+ done:
   return;
 }
 
@@ -928,15 +937,13 @@ btoa (uint64_t n)
 void
 write_i (fnode * f, const char *p, int len)
 {
-
-  write_decimal (f, p, len, (void *) itoa);
+  write_decimal (f, p, len, (void *) gfc_itoa);
 }
 
 
 void
 write_b (fnode * f, const char *p, int len)
 {
-
   write_int (f, p, len, btoa);
 }
 
@@ -944,14 +951,12 @@ write_b (fnode * f, const char *p, int len)
 void
 write_o (fnode * f, const char *p, int len)
 {
-
   write_int (f, p, len, otoa);
 }
 
 void
 write_z (fnode * f, const char *p, int len)
 {
-
   write_int (f, p, len, xtoa);
 }
 
@@ -959,7 +964,6 @@ write_z (fnode * f, const char *p, int len)
 void
 write_d (fnode *f, const char *p, int len)
 {
-
   write_float (f, p, len);
 }
 
@@ -967,7 +971,6 @@ write_d (fnode *f, const char *p, int len)
 void
 write_e (fnode *f, const char *p, int len)
 {
-
   write_float (f, p, len);
 }
 
@@ -975,7 +978,6 @@ write_e (fnode *f, const char *p, int len)
 void
 write_f (fnode *f, const char *p, int len)
 {
-
   write_float (f, p, len);
 }
 
@@ -983,7 +985,6 @@ write_f (fnode *f, const char *p, int len)
 void
 write_en (fnode *f, const char *p, int len)
 {
-
   write_float (f, p, len);
 }
 
@@ -991,7 +992,6 @@ write_en (fnode *f, const char *p, int len)
 void
 write_es (fnode *f, const char *p, int len)
 {
-
   write_float (f, p, len);
 }
 
@@ -1051,7 +1051,7 @@ write_integer (const char *source, int length)
   int digits;
   int width;
 
-  q = itoa (extract_int (source, length));
+  q = gfc_itoa (extract_int (source, length));
 
   switch (length)
     {
@@ -1172,7 +1172,6 @@ write_real (const char *source, int length)
 static void
 write_complex (const char *source, int len)
 {
-
   if (write_char ('('))
     return;
   write_real (source, len);

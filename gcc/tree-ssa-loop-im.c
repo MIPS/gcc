@@ -1,5 +1,5 @@
 /* Loop invariant motion.
-   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
    
 This file is part of GCC.
    
@@ -283,7 +283,7 @@ outermost_invariant_loop_expr (tree expr, struct loop *loop)
       && class != tcc_comparison)
     return NULL;
 
-  nops = first_rtl_op (TREE_CODE (expr));
+  nops = TREE_CODE_LENGTH (TREE_CODE (expr));
   for (i = 0; i < nops; i++)
     {
       aloop = outermost_invariant_loop_expr (TREE_OPERAND (expr, i), loop);
@@ -376,7 +376,7 @@ stmt_cost (tree stmt)
       /* Unless the call is a builtin_constant_p; this always folds to a
 	 constant, so moving it is useless.  */
       rhs = get_callee_fndecl (rhs);
-      if (DECL_BUILT_IN (rhs)
+      if (DECL_BUILT_IN_CLASS (rhs) == BUILT_IN_NORMAL
 	  && DECL_FUNCTION_CODE (rhs) == BUILT_IN_CONSTANT_P)
 	return 0;
 
@@ -743,7 +743,7 @@ force_move_till_expr (tree expr, struct loop *orig_loop, struct loop *loop)
       && class != tcc_comparison)
     return;
 
-  nops = first_rtl_op (TREE_CODE (expr));
+  nops = TREE_CODE_LENGTH (TREE_CODE (expr));
   for (i = 0; i < nops; i++)
     force_move_till_expr (TREE_OPERAND (expr, i), orig_loop, loop);
 }
@@ -1251,6 +1251,9 @@ determine_lsm (struct loops *loops)
 {
   struct loop *loop;
   basic_block bb;
+
+  if (!loops->tree_root->inner)
+    return;
 
   /* Create a UID for each statement in the function.  Ordering of the
      UIDs is not important for this pass.  */

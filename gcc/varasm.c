@@ -1,6 +1,7 @@
 /* Output variables, constants and external declarations, for GNU compiler.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997,
-   1998, 1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -791,7 +792,7 @@ set_user_assembler_name (tree decl, const char *name)
 int
 decode_reg_name (const char *asmspec)
 {
-  if (asmspec != 0 && strlen (asmspec) != 0)
+  if (asmspec != 0)
     {
       int i;
 
@@ -901,10 +902,10 @@ make_decl_rtl (tree decl)
 
   name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
 
-  reg_number = decode_reg_name (name);
 
   if (TREE_CODE (decl) != FUNCTION_DECL && DECL_REGISTER (decl))
     {
+      reg_number = decode_reg_name (name);
       /* First detect errors in declaring global registers.  */
       if (reg_number == -1)
 	error ("%Jregister name not specified for %qD", decl, decl);
@@ -955,12 +956,19 @@ make_decl_rtl (tree decl)
 	  return;
 	}
     }
-
   /* Now handle ordinary static variables and functions (in memory).
      Also handle vars declared register invalidly.  */
-
-  if (name[0] == '*' && (reg_number >= 0 || reg_number == -3))
-    error ("%Jregister name given for non-register variable %qD", decl, decl);
+  else if (name[0] == '*')
+  {
+#ifdef REGISTER_PREFIX
+    if (strlen (REGISTER_PREFIX) != 0)
+      {
+	reg_number = decode_reg_name (name);
+	if (reg_number >= 0 || reg_number == -3)
+	  error ("%Jregister name given for non-register variable %qD", decl, decl);
+      }
+#endif
+  }
 
   /* Specifying a section attribute on a variable forces it into a
      non-.bss section, and thus it cannot be common.  */
@@ -1435,9 +1443,16 @@ asm_emit_uninitialised (tree decl, const char *name,
 	destination = asm_dest_common;
     }
 
+  if (destination != asm_dest_common)
+    {
+      resolve_unique_section (decl, 0, flag_data_sections);
+      /* Custom sections don't belong here.  */
+      if (DECL_SECTION_NAME (decl))
+        return false;
+    }
+
   if (destination == asm_dest_bss)
     globalize_decl (decl);
-  resolve_unique_section (decl, 0, flag_data_sections);
 
   if (flag_shared_data)
     {
@@ -1618,16 +1633,6 @@ assemble_variable (tree decl, int top_level ATTRIBUTE_UNUSED,
   if (DECL_PRESERVE_P (decl))
     targetm.asm_out.mark_decl_preserved (name);
 
-  /* Output any data that we will need to use the address of.  */
-  if (DECL_INITIAL (decl) == error_mark_node)
-    reloc = contains_pointers_p (TREE_TYPE (decl)) ? 3 : 0;
-  else if (DECL_INITIAL (decl))
-    {
-      reloc = compute_reloc_for_constant (DECL_INITIAL (decl));
-      output_addressed_constants (DECL_INITIAL (decl));
-    }
-  resolve_unique_section (decl, reloc, flag_data_sections);
-
   /* Handle uninitialized definitions.  */
 
   /* If the decl has been given an explicit section name, then it
@@ -1681,7 +1686,17 @@ assemble_variable (tree decl, int top_level ATTRIBUTE_UNUSED,
   if (TREE_PUBLIC (decl) && DECL_NAME (decl))
     globalize_decl (decl);
 
+  /* Output any data that we will need to use the address of.  */
+  if (DECL_INITIAL (decl) == error_mark_node)
+    reloc = contains_pointers_p (TREE_TYPE (decl)) ? 3 : 0;
+  else if (DECL_INITIAL (decl))
+    {
+      reloc = compute_reloc_for_constant (DECL_INITIAL (decl));
+      output_addressed_constants (DECL_INITIAL (decl));
+    }
+
   /* Switch to the appropriate section.  */
+  resolve_unique_section (decl, reloc, flag_data_sections);
   variable_section (decl, reloc);
 
   /* dbxout.c needs to know this.  */
@@ -1752,6 +1767,12 @@ contains_pointers_p (tree type)
     }
 }
 
+/* In unit-at-a-time mode, we delay assemble_external processing until
+   the compilation unit is finalized.  This is the best we can do for
+   right now (i.e. stage 3 of GCC 4.0) - the right thing is to delay
+   it all the way to final.  See PR 17982 for further discussion.  */
+static GTY(()) tree pending_assemble_externals;
+
 #ifdef ASM_OUTPUT_EXTERNAL
 /* True if DECL is a function decl for which no out-of-line copy exists.
    It is assumed that DECL's assembler name has been set.  */
@@ -1773,7 +1794,36 @@ incorporeal_function_p (tree decl)
     }
   return false;
 }
+
+/* Actually do the tests to determine if this is necessary, and invoke
+   ASM_OUTPUT_EXTERNAL.  */
+static void
+assemble_external_real (tree decl)
+{
+  rtx rtl = DECL_RTL (decl);
+
+  if (MEM_P (rtl) && GET_CODE (XEXP (rtl, 0)) == SYMBOL_REF
+      && !SYMBOL_REF_USED (XEXP (rtl, 0))
+      && !incorporeal_function_p (decl))
+    {
+      /* Some systems do require some output.  */
+      SYMBOL_REF_USED (XEXP (rtl, 0)) = 1;
+      ASM_OUTPUT_EXTERNAL (asm_out_file, decl, XSTR (XEXP (rtl, 0), 0));
+    }
+}
 #endif
+
+void
+process_pending_assemble_externals (void)
+{
+#ifdef ASM_OUTPUT_EXTERNAL
+  tree list;
+  for (list = pending_assemble_externals; list; list = TREE_CHAIN (list))
+    assemble_external_real (TREE_VALUE (list));
+
+  pending_assemble_externals = 0;
+#endif
+}
 
 /* Output something to declare an external symbol to the assembler.
    (Most assemblers don't need this, so we normally output nothing.)
@@ -1786,23 +1836,17 @@ assemble_external (tree decl ATTRIBUTE_UNUSED)
      main body of this code is only rarely exercised.  To provide some
      testing, on all platforms, we make sure that the ASM_OUT_FILE is
      open.  If it's not, we should not be calling this function.  */
-  if (!asm_out_file)
-    abort ();
+  gcc_assert (asm_out_file);
 
 #ifdef ASM_OUTPUT_EXTERNAL
-  if (DECL_P (decl) && DECL_EXTERNAL (decl) && TREE_PUBLIC (decl))
-    {
-      rtx rtl = DECL_RTL (decl);
+  if (!DECL_P (decl) || !DECL_EXTERNAL (decl) || !TREE_PUBLIC (decl))
+    return;
 
-      if (MEM_P (rtl) && GET_CODE (XEXP (rtl, 0)) == SYMBOL_REF
-	  && !SYMBOL_REF_USED (XEXP (rtl, 0))
-	  && !incorporeal_function_p (decl))
-	{
-	  /* Some systems do require some output.  */
-	  SYMBOL_REF_USED (XEXP (rtl, 0)) = 1;
-	  ASM_OUTPUT_EXTERNAL (asm_out_file, decl, XSTR (XEXP (rtl, 0), 0));
-	}
-    }
+  if (flag_unit_at_a_time)
+    pending_assemble_externals = tree_cons (0, decl,
+					    pending_assemble_externals);
+  else
+    assemble_external_real (decl);
 #endif
 }
 
@@ -1846,11 +1890,24 @@ mark_decl_referenced (tree decl)
      which do not need to be marked.  */
 }
 
-/* Output to FILE a reference to the assembler name of a C-level name NAME.
-   If NAME starts with a *, the rest of NAME is output verbatim.
-   Otherwise NAME is transformed in an implementation-defined way
-   (usually by the addition of an underscore).
-   Many macros in the tm file are defined to call this function.  */
+/* Output to FILE (an assembly file) a reference to NAME.  If NAME
+   starts with a *, the rest of NAME is output verbatim.  Otherwise
+   NAME is transformed in a target-specific way (usually by the
+   addition of an underscore).  */
+
+void
+assemble_name_raw (FILE *file, const char *name)
+{
+  if (name[0] == '*')
+    fputs (&name[1], file);
+  else
+    ASM_OUTPUT_LABELREF (file, name);
+}
+
+/* Like assemble_name_raw, but should be used when NAME might refer to
+   an entity that is also represented as a tree (like a function or
+   variable).  If NAME does refer to such an entity, that entity will
+   be marked as referenced.  */
 
 void
 assemble_name (FILE *file, const char *name)
@@ -1864,10 +1921,7 @@ assemble_name (FILE *file, const char *name)
   if (id)
     mark_referenced (id);
 
-  if (name[0] == '*')
-    fputs (&name[1], file);
-  else
-    ASM_OUTPUT_LABELREF (file, name);
+  assemble_name_raw (file, name);
 }
 
 /* Allocate SIZE bytes writable static space with a gensym name
@@ -2251,28 +2305,17 @@ const_hash_1 (const tree exp)
 	      + const_hash_1 (TREE_IMAGPART (exp)));
 
     case CONSTRUCTOR:
-      if (TREE_CODE (TREE_TYPE (exp)) == SET_TYPE)
-	{
-	  char *tmp;
-
-	  len = int_size_in_bytes (TREE_TYPE (exp));
-	  tmp = alloca (len);
-	  get_set_constructor_bytes (exp, (unsigned char *) tmp, len);
-	  p = tmp;
-	  break;
-	}
-      else
-	{
-	  tree link;
-
-	  hi = 5 + int_size_in_bytes (TREE_TYPE (exp));
-
-	  for (link = CONSTRUCTOR_ELTS (exp); link; link = TREE_CHAIN (link))
-	    if (TREE_VALUE (link))
-	      hi = hi * 603 + const_hash_1 (TREE_VALUE (link));
-
-	  return hi;
-	}
+      {
+	tree link;
+	
+	hi = 5 + int_size_in_bytes (TREE_TYPE (exp));
+	
+	for (link = CONSTRUCTOR_ELTS (exp); link; link = TREE_CHAIN (link))
+	  if (TREE_VALUE (link))
+	    hi = hi * 603 + const_hash_1 (TREE_VALUE (link));
+	
+	return hi;
+      }
 
     case ADDR_EXPR:
     case FDESC_EXPR:
@@ -2371,72 +2414,53 @@ compare_constant (const tree t1, const tree t2)
 	      && compare_constant (TREE_IMAGPART (t1), TREE_IMAGPART (t2)));
 
     case CONSTRUCTOR:
-      typecode = TREE_CODE (TREE_TYPE (t1));
-      if (typecode != TREE_CODE (TREE_TYPE (t2)))
-	return 0;
+      {
+	tree l1, l2;
+	
+	typecode = TREE_CODE (TREE_TYPE (t1));
+	if (typecode != TREE_CODE (TREE_TYPE (t2)))
+	  return 0;
 
-      if (typecode == SET_TYPE)
-	{
-	  int len = int_size_in_bytes (TREE_TYPE (t2));
-	  unsigned char *tmp1, *tmp2;
+	if (typecode == ARRAY_TYPE)
+	  {
+	    HOST_WIDE_INT size_1 = int_size_in_bytes (TREE_TYPE (t1));
+	    /* For arrays, check that the sizes all match.  */
+	    if (TYPE_MODE (TREE_TYPE (t1)) != TYPE_MODE (TREE_TYPE (t2))
+		|| size_1 == -1
+		|| size_1 != int_size_in_bytes (TREE_TYPE (t2)))
+	      return 0;
+	  }
+	else
+	  {
+	    /* For record and union constructors, require exact type
+               equality.  */
+	    if (TREE_TYPE (t1) != TREE_TYPE (t2))
+	      return 0;
+	  }
 
-	  if (int_size_in_bytes (TREE_TYPE (t1)) != len)
-	    return 0;
-
-	  tmp1 = alloca (len);
-	  tmp2 = alloca (len);
-
-	  if (get_set_constructor_bytes (t1, tmp1, len) != NULL_TREE)
-	    return 0;
-	  if (get_set_constructor_bytes (t2, tmp2, len) != NULL_TREE)
-	    return 0;
-
-	  return memcmp (tmp1, tmp2, len) == 0;
-	}
-      else
-	{
-	  tree l1, l2;
-
-	  if (typecode == ARRAY_TYPE)
-	    {
-	      HOST_WIDE_INT size_1 = int_size_in_bytes (TREE_TYPE (t1));
-	      /* For arrays, check that the sizes all match.  */
-	      if (TYPE_MODE (TREE_TYPE (t1)) != TYPE_MODE (TREE_TYPE (t2))
-		  || size_1 == -1
-		  || size_1 != int_size_in_bytes (TREE_TYPE (t2)))
-		return 0;
-	    }
-	  else
-	    {
-	      /* For record and union constructors, require exact type
-                 equality.  */
-	      if (TREE_TYPE (t1) != TREE_TYPE (t2))
-		return 0;
-	    }
-
-	  for (l1 = CONSTRUCTOR_ELTS (t1), l2 = CONSTRUCTOR_ELTS (t2);
-	       l1 && l2;
-	       l1 = TREE_CHAIN (l1), l2 = TREE_CHAIN (l2))
-	    {
-	      /* Check that each value is the same...  */
-	      if (! compare_constant (TREE_VALUE (l1), TREE_VALUE (l2)))
-		return 0;
-	      /* ... and that they apply to the same fields!  */
-	      if (typecode == ARRAY_TYPE)
-		{
-		  if (! compare_constant (TREE_PURPOSE (l1),
-					  TREE_PURPOSE (l2)))
-		    return 0;
-		}
-	      else
-		{
-		  if (TREE_PURPOSE (l1) != TREE_PURPOSE (l2))
-		    return 0;
-		}
-	    }
-
-	  return l1 == NULL_TREE && l2 == NULL_TREE;
-	}
+	for (l1 = CONSTRUCTOR_ELTS (t1), l2 = CONSTRUCTOR_ELTS (t2);
+	     l1 && l2;
+	     l1 = TREE_CHAIN (l1), l2 = TREE_CHAIN (l2))
+	  {
+	    /* Check that each value is the same...  */
+	    if (! compare_constant (TREE_VALUE (l1), TREE_VALUE (l2)))
+	      return 0;
+	    /* ... and that they apply to the same fields!  */
+	    if (typecode == ARRAY_TYPE)
+	      {
+		if (! compare_constant (TREE_PURPOSE (l1),
+					TREE_PURPOSE (l2)))
+		  return 0;
+	      }
+	    else
+	      {
+		if (TREE_PURPOSE (l1) != TREE_PURPOSE (l2))
+		  return 0;
+	      }
+	  }
+	
+	return l1 == NULL_TREE && l2 == NULL_TREE;
+      }
 
     case ADDR_EXPR:
     case FDESC_EXPR:
@@ -2526,9 +2550,6 @@ copy_constant (tree exp)
 	CONSTRUCTOR_ELTS (copy) = list;
 	for (tail = list; tail; tail = TREE_CHAIN (tail))
 	  TREE_VALUE (tail) = copy_constant (TREE_VALUE (tail));
-	if (TREE_CODE (TREE_TYPE (exp)) == SET_TYPE)
-	  for (tail = list; tail; tail = TREE_CHAIN (tail))
-	    TREE_PURPOSE (tail) = copy_constant (TREE_PURPOSE (tail));
 
 	return copy;
       }
@@ -3001,6 +3022,7 @@ force_const_mem (enum machine_mode mode, rtx x)
   /* Construct the MEM.  */
   desc->mem = def = gen_const_mem (mode, symbol);
   set_mem_attributes (def, lang_hooks.types.type_for_mode (mode, 0), 1);
+  set_mem_align (def, align);
 
   /* If we're dropping a label to the constant pool, make sure we
      don't delete it.  */
@@ -3479,6 +3501,12 @@ initializer_constant_valid_p (tree value, tree endtype)
 	  && TREE_CODE (value) == INDIRECT_REF
 	  && TREE_CONSTANT (TREE_OPERAND (value, 0)))
 	return null_pointer_node;
+      /* Taking the address of a nested function involves a trampoline.  */
+      if (value
+	  && TREE_CODE (value) == FUNCTION_DECL
+	  && ((decl_function_context (value) && !DECL_NO_STATIC_CHAIN (value))
+	      || DECL_NON_ADDR_CONST_P (value)))
+	return NULL_TREE;
       return value;
 
     case VIEW_CONVERT_EXPR:
@@ -3789,22 +3817,6 @@ output_constant (tree exp, unsigned HOST_WIDE_INT size, unsigned int align)
 	output_constructor (exp, size, align);
       else
 	abort ();
-      return;
-
-    case SET_TYPE:
-      if (TREE_CODE (exp) == INTEGER_CST)
-	assemble_integer (expand_expr (exp, NULL_RTX,
-				       VOIDmode, EXPAND_INITIALIZER),
-			  thissize, align, 1);
-      else if (TREE_CODE (exp) == CONSTRUCTOR)
-	{
-	  unsigned char *buffer = alloca (thissize);
-	  if (get_set_constructor_bytes (exp, buffer, thissize))
-	    abort ();
-	  assemble_string ((char *) buffer, thissize);
-	}
-      else
-	error ("unknown set constructor type");
       return;
 
     case ERROR_MARK:
@@ -4335,19 +4347,66 @@ globalize_decl (tree decl)
   targetm.asm_out.globalize_label (asm_out_file, name);
 }
 
+/* Some targets do not allow a forward or undefined reference in a
+   ASM_OUTPUT_DEF.  Thus, a mechanism is needed to defer the output of
+   this assembler code.  The following struct holds the declaration
+   and target for a deferred output define.  */
+struct output_def_pair GTY(())
+{
+  tree decl;
+  tree target;
+};
+typedef struct output_def_pair *output_def_pair;
+
+/* Define gc'd vector type.  */
+DEF_VEC_GC_P(output_def_pair);
+
+/* Vector of output_def_pair pointers.  */
+static GTY(()) VEC(output_def_pair) *output_defs;
+
+#ifdef ASM_OUTPUT_DEF
+/* Output the assembler code for a define (equate) using ASM_OUTPUT_DEF
+   or ASM_OUTPUT_DEF_FROM_DECLS.  The function defines the symbol whose
+   tree node is DECL to have the value of the tree node TARGET.  */
+
+static void
+assemble_output_def (tree decl ATTRIBUTE_UNUSED, tree target ATTRIBUTE_UNUSED)
+{
+#ifdef ASM_OUTPUT_DEF_FROM_DECLS
+  ASM_OUTPUT_DEF_FROM_DECLS (asm_out_file, decl, target);
+#else
+  ASM_OUTPUT_DEF (asm_out_file,
+		  IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl)),
+		  IDENTIFIER_POINTER (target));
+#endif
+}
+#endif
+
+/* Process the vector of pending assembler defines.  */
+
+void
+process_pending_assemble_output_defs (void)
+{
+#ifdef ASM_OUTPUT_DEF
+  unsigned i;
+  output_def_pair p;
+
+  for (i = 0; VEC_iterate (output_def_pair, output_defs, i, p); i++)
+    assemble_output_def (p->decl, p->target);
+
+  output_defs = NULL;
+#endif
+}
+
 /* Emit an assembler directive to make the symbol for DECL an alias to
    the symbol for TARGET.  */
 
 void
-assemble_alias (tree decl, tree target ATTRIBUTE_UNUSED)
+assemble_alias (tree decl, tree target)
 {
-  const char *name;
-
   /* We must force creation of DECL_RTL for debug info generation, even though
      we don't use it here.  */
   make_decl_rtl (decl);
-
-  name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
 
 #ifdef ASM_OUTPUT_DEF
   /* Make name accessible from other files, if appropriate.  */
@@ -4358,16 +4417,25 @@ assemble_alias (tree decl, tree target ATTRIBUTE_UNUSED)
       maybe_assemble_visibility (decl);
     }
 
-#ifdef ASM_OUTPUT_DEF_FROM_DECLS
-  ASM_OUTPUT_DEF_FROM_DECLS (asm_out_file, decl, target);
-#else
-  ASM_OUTPUT_DEF (asm_out_file, name, IDENTIFIER_POINTER (target));
-#endif
+  if (TARGET_DEFERRED_OUTPUT_DEFS (decl, target))
+    {
+      output_def_pair p;
+
+      p = ggc_alloc (sizeof (struct output_def_pair));
+      p->decl = decl;
+      p->target = target;
+      VEC_safe_push (output_def_pair, output_defs, p);
+    }
+  else
+    assemble_output_def (decl, target);
 #else /* !ASM_OUTPUT_DEF */
 #if defined (ASM_OUTPUT_WEAK_ALIAS) || defined (ASM_WEAKEN_DECL)
   if (DECL_WEAK (decl))
     {
+      const char *name;
       tree *p, t;
+
+      name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
 #ifdef ASM_WEAKEN_DECL
       ASM_WEAKEN_DECL (asm_out_file, decl, name, IDENTIFIER_POINTER (target));
 #else
@@ -4389,6 +4457,44 @@ assemble_alias (tree decl, tree target ATTRIBUTE_UNUSED)
   warning ("alias definitions not supported in this configuration; ignored");
 #endif
 #endif
+
+  /* Tell cgraph that the aliased symbol is needed.  We *could* be more
+     specific and tell cgraph about the relationship between the two
+     symbols, but given that aliases virtually always exist for a reason,
+     it doesn't seem worthwhile.  */
+  if (flag_unit_at_a_time)
+    {
+      struct cgraph_node *fnode = NULL;
+      struct cgraph_varpool_node *vnode = NULL;
+
+      if (TREE_CODE (decl) == FUNCTION_DECL)
+	{
+	  fnode = cgraph_node_for_asm (target);
+	  if (fnode != NULL)
+	    cgraph_mark_needed_node (fnode);
+	  else
+	    {
+	      vnode = cgraph_varpool_node_for_asm (target);
+	      if (vnode != NULL)
+		cgraph_varpool_mark_needed_node (vnode);
+	    }
+	}
+      else
+	{
+	  vnode = cgraph_varpool_node_for_asm (target);
+	  if (vnode != NULL)
+	    cgraph_varpool_mark_needed_node (vnode);
+	  else
+	    {
+	      fnode = cgraph_node_for_asm (target);
+	      if (fnode != NULL)
+		cgraph_mark_needed_node (fnode);
+	    }
+	}
+
+      if (fnode == NULL && vnode == NULL)
+	warning ("%qD aliased to undefined symbol %qE", decl, target);
+    }
 
   TREE_USED (decl) = 1;
   TREE_ASM_WRITTEN (decl) = 1;
@@ -4566,16 +4672,18 @@ default_section_type_flags_1 (tree decl, const char *name, int reloc,
       || strncmp (name, ".gnu.linkonce.b.", 16) == 0
       || strcmp (name, ".sbss") == 0
       || strncmp (name, ".sbss.", 6) == 0
-      || strncmp (name, ".gnu.linkonce.sb.", 17) == 0
-      || strcmp (name, ".tbss") == 0
-      || strncmp (name, ".gnu.linkonce.tb.", 17) == 0)
+      || strncmp (name, ".gnu.linkonce.sb.", 17) == 0)
     flags |= SECTION_BSS;
 
   if (strcmp (name, ".tdata") == 0
-      || strcmp (name, ".tbss") == 0
-      || strncmp (name, ".gnu.linkonce.td.", 17) == 0
-      || strncmp (name, ".gnu.linkonce.tb.", 17) == 0)
+      || strncmp (name, ".tdata.", 7) == 0
+      || strncmp (name, ".gnu.linkonce.td.", 17) == 0)
     flags |= SECTION_TLS;
+
+  if (strcmp (name, ".tbss") == 0
+      || strncmp (name, ".tbss.", 6) == 0
+      || strncmp (name, ".gnu.linkonce.tb.", 17) == 0)
+    flags |= SECTION_TLS | SECTION_BSS;
 
   /* These three sections have special ELF types.  They are neither
      SHT_PROGBITS nor SHT_NOBITS, so when changing sections we don't
@@ -4897,6 +5005,7 @@ void
 default_elf_select_section_1 (tree decl, int reloc,
 			      unsigned HOST_WIDE_INT align, int shlib)
 {
+  const char *sname;
   switch (categorize_decl_for_section (decl, reloc, shlib))
     {
     case SECCAT_TEXT:
@@ -4904,56 +5013,61 @@ default_elf_select_section_1 (tree decl, int reloc,
       abort ();
     case SECCAT_RODATA:
       readonly_data_section ();
-      break;
+      return;
     case SECCAT_RODATA_MERGE_STR:
       mergeable_string_section (decl, align, 0);
-      break;
+      return;
     case SECCAT_RODATA_MERGE_STR_INIT:
       mergeable_string_section (DECL_INITIAL (decl), align, 0);
-      break;
+      return;
     case SECCAT_RODATA_MERGE_CONST:
       mergeable_constant_section (DECL_MODE (decl), align, 0);
-      break;
+      return;
     case SECCAT_SRODATA:
-      named_section (NULL_TREE, ".sdata2", reloc);
+      sname = ".sdata2";
       break;
     case SECCAT_DATA:
       data_section ();
-      break;
+      return;
     case SECCAT_DATA_REL:
-      named_section (NULL_TREE, ".data.rel", reloc);
+      sname = ".data.rel";
       break;
     case SECCAT_DATA_REL_LOCAL:
-      named_section (NULL_TREE, ".data.rel.local", reloc);
+      sname = ".data.rel.local";
       break;
     case SECCAT_DATA_REL_RO:
-      named_section (NULL_TREE, ".data.rel.ro", reloc);
+      sname = ".data.rel.ro";
       break;
     case SECCAT_DATA_REL_RO_LOCAL:
-      named_section (NULL_TREE, ".data.rel.ro.local", reloc);
+      sname = ".data.rel.ro.local";
       break;
     case SECCAT_SDATA:
-      named_section (NULL_TREE, ".sdata", reloc);
+      sname = ".sdata";
       break;
     case SECCAT_TDATA:
-      named_section (NULL_TREE, ".tdata", reloc);
+      sname = ".tdata";
       break;
     case SECCAT_BSS:
 #ifdef BSS_SECTION_ASM_OP
       bss_section ();
+      return;
 #else
-      named_section (NULL_TREE, ".bss", reloc);
-#endif
+      sname = ".bss";
       break;
+#endif
     case SECCAT_SBSS:
-      named_section (NULL_TREE, ".sbss", reloc);
+      sname = ".sbss";
       break;
     case SECCAT_TBSS:
-      named_section (NULL_TREE, ".tbss", reloc);
+      sname = ".tbss";
       break;
     default:
       abort ();
     }
+
+  if (!DECL_P (decl))
+    decl = NULL_TREE;
+  named_section (decl, sname, reloc);
 }
 
 /* Construct a unique section name based on the decl name and the
@@ -5091,10 +5205,10 @@ default_encode_section_info (tree decl, rtx rtl, int first ATTRIBUTE_UNUSED)
     flags |= SYMBOL_FLAG_FUNCTION;
   if (targetm.binds_local_p (decl))
     flags |= SYMBOL_FLAG_LOCAL;
-  if (targetm.in_small_data_p (decl))
-    flags |= SYMBOL_FLAG_SMALL;
   if (TREE_CODE (decl) == VAR_DECL && DECL_THREAD_LOCAL (decl))
     flags |= decl_tls_model (decl) << SYMBOL_FLAG_TLS_SHIFT;
+  else if (targetm.in_small_data_p (decl))
+    flags |= SYMBOL_FLAG_SMALL;
   /* ??? Why is DECL_EXTERNAL ever set for non-PUBLIC names?  Without
      being PUBLIC, the thing *must* be defined in this translation unit.
      Prevent this buglet from being propagated into rtl code as well.  */
@@ -5204,7 +5318,7 @@ default_internal_label (FILE *stream, const char *prefix,
 {
   char *const buf = alloca (40 + strlen (prefix));
   ASM_GENERATE_INTERNAL_LABEL (buf, prefix, labelno);
-  ASM_OUTPUT_LABEL (stream, buf);
+  ASM_OUTPUT_INTERNAL_LABEL (stream, buf);
 }
 
 /* This is the default behavior at the beginning of a file.  It's

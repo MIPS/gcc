@@ -1,6 +1,6 @@
 /* Subroutines shared by all languages that are variants of C.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -46,6 +46,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "hashtab.h"
 #include "tree-mudflap.h"
 #include "opts.h"
+#include "real.h"
 
 cpp_reader *parse_in;		/* Declared in c-pragma.h.  */
 
@@ -268,7 +269,6 @@ int flag_const_strings;
 /* Nonzero means to treat bitfields as signed unless they say `unsigned'.  */
 
 int flag_signed_bitfields = 1;
-int explicit_flag_signed_bitfields;
 
 /* Nonzero means warn about deprecated conversion from string constant to
    `char *'.  */
@@ -481,14 +481,6 @@ int max_tinst_depth = 500;
 tree *ridpointers;
 
 tree (*make_fname_decl) (tree, int);
-
-/* If non-NULL, the address of a language-specific function that
-   returns 1 for language-specific statement codes.  */
-int (*lang_statement_code_p) (enum tree_code);
-
-/* If non-NULL, the address of a language-specific function that takes
-   any action required right before expand_function_end is called.  */
-void (*lang_expand_function_end) (void);
 
 /* Nonzero means the expression being parsed will never be evaluated.
    This is a count, since unevaluated expressions can nest.  */
@@ -755,7 +747,10 @@ fname_as_string (int pretty_p)
       strname.len = len - 1;
 
       if (cpp_interpret_string (parse_in, &strname, 1, &cstr, false))
-	return (char *) cstr.text;
+	{
+	  XDELETEVEC (namep);
+	  return (char *) cstr.text;
+	}
     }
   else
     namep = xstrdup (name);
@@ -867,12 +862,7 @@ fix_string_type (tree value)
   i_type = build_index_type (build_int_cst (NULL_TREE, nchars - 1));
   a_type = build_array_type (e_type, i_type);
   if (flag_const_strings)
-    {
-      /* bleah, c_build_qualified_type should set TYPE_MAIN_VARIANT.  */
-      tree qa_type = c_build_qualified_type (a_type, TYPE_QUAL_CONST);
-      TYPE_MAIN_VARIANT (qa_type) = a_type;
-      a_type = qa_type;
-    }
+    a_type = c_build_qualified_type (a_type, TYPE_QUAL_CONST);
 
   TREE_TYPE (value) = a_type;
   TREE_CONSTANT (value) = 1;
@@ -1365,8 +1355,6 @@ verify_tree (tree x, struct tlist **pbefore_sp, struct tlist **pno_sp,
 	 Other non-expressions need not be processed.  */
       if (cl == tcc_unary)
 	{
-	  if (first_rtl_op (code) == 0)
-	    return;
 	  x = TREE_OPERAND (x, 0);
 	  writer = 0;
 	  goto restart;
@@ -1374,7 +1362,7 @@ verify_tree (tree x, struct tlist **pbefore_sp, struct tlist **pno_sp,
       else if (IS_EXPR_CODE_CLASS (cl))
 	{
 	  int lp;
-	  int max = first_rtl_op (TREE_CODE (x));
+	  int max = TREE_CODE_LENGTH (TREE_CODE (x));
 	  for (lp = 0; lp < max; lp++)
 	    {
 	      tmp_before = tmp_nosp = 0;
@@ -1985,14 +1973,6 @@ shorten_compare (tree *op0_ptr, tree *op1_ptr, tree *restype_ptr,
       type = c_common_signed_or_unsigned_type (unsignedp0,
 					       TREE_TYPE (primop0));
 
-      /* In C, if TYPE is an enumeration, then we need to get its
-	 min/max values from its underlying integral type, not the
-	 enumerated type itself.  In C++, TYPE_MAX_VALUE and
-	 TYPE_MIN_VALUE have already been set correctly on the
-	 enumeration type.  */
-      if (!c_dialect_cxx () && TREE_CODE (type) == ENUMERAL_TYPE)
-	type = c_common_type_for_size (TYPE_PRECISION (type), unsignedp0);
-
       maxval = TYPE_MAX_VALUE (type);
       minval = TYPE_MIN_VALUE (type);
 
@@ -2332,18 +2312,30 @@ c_common_truthvalue_conversion (tree expr)
     case TRUTH_AND_EXPR:
     case TRUTH_OR_EXPR:
     case TRUTH_XOR_EXPR:
+      if (TREE_TYPE (expr) != truthvalue_type_node)
+	return build2 (TREE_CODE (expr), truthvalue_type_node,
+		       TREE_OPERAND (expr, 0), TREE_OPERAND (expr, 1));
+      return expr;
+
     case TRUTH_NOT_EXPR:
-      TREE_TYPE (expr) = truthvalue_type_node;
+      if (TREE_TYPE (expr) != truthvalue_type_node)
+	return build1 (TREE_CODE (expr), truthvalue_type_node,
+		       TREE_OPERAND (expr, 0));
       return expr;
 
     case ERROR_MARK:
       return expr;
 
     case INTEGER_CST:
-      return integer_zerop (expr) ? truthvalue_false_node : truthvalue_true_node;
+      /* Avoid integer_zerop to ignore TREE_CONSTANT_OVERFLOW.  */
+      return (TREE_INT_CST_LOW (expr) != 0 || TREE_INT_CST_HIGH (expr) != 0)
+	     ? truthvalue_true_node
+	     : truthvalue_false_node;
 
     case REAL_CST:
-      return real_zerop (expr) ? truthvalue_false_node : truthvalue_true_node;
+      return real_compare (NE_EXPR, &TREE_REAL_CST (expr), &dconst0)
+	     ? truthvalue_true_node
+	     : truthvalue_false_node;
 
     case ADDR_EXPR:
       {
@@ -2486,9 +2478,28 @@ c_build_qualified_type (tree type, int type_quals)
     return type;
 
   if (TREE_CODE (type) == ARRAY_TYPE)
-    return build_array_type (c_build_qualified_type (TREE_TYPE (type),
-						     type_quals),
-			     TYPE_DOMAIN (type));
+    {
+      tree t;
+      tree element_type = c_build_qualified_type (TREE_TYPE (type),
+						  type_quals);
+
+      /* See if we already have an identically qualified type.  */
+      for (t = TYPE_MAIN_VARIANT (type); t; t = TYPE_NEXT_VARIANT (t))
+	{
+	  if (TYPE_QUALS (strip_array_types (t)) == type_quals
+	      && TYPE_NAME (t) == TYPE_NAME (type)
+	      && TYPE_CONTEXT (t) == TYPE_CONTEXT (type)
+	      && attribute_list_equal (TYPE_ATTRIBUTES (t),
+				       TYPE_ATTRIBUTES (type)))
+	    break;
+	}
+      if (!t)
+	{
+	  t = build_variant_type_copy (type);
+	  TREE_TYPE (t) = element_type;
+	}
+      return t;
+    }
 
   /* A restrict-qualified pointer type must be a pointer to object or
      incomplete type.  Note that the use of POINTER_TYPE_P also allows
@@ -3230,6 +3241,26 @@ c_common_nodes_and_builtins (void)
   main_identifier_node = get_identifier ("main");
 }
 
+/* Look up the function in built_in_decls that corresponds to DECL
+   and set ASMSPEC as its user assembler name.  DECL must be a
+   function decl that declares a builtin. */
+
+void
+set_builtin_user_assembler_name (tree decl, const char *asmspec)
+{
+  tree builtin;
+  gcc_assert (TREE_CODE (decl) == FUNCTION_DECL
+	      && DECL_BUILT_IN_CLASS (decl) == BUILT_IN_NORMAL
+	      && asmspec != 0);
+
+  builtin = built_in_decls [DECL_FUNCTION_CODE (decl)];
+  set_user_assembler_name (builtin, asmspec);
+  if (DECL_FUNCTION_CODE (decl) == BUILT_IN_MEMCPY)
+    init_block_move_fn (asmspec);
+  else if (DECL_FUNCTION_CODE (decl) == BUILT_IN_MEMSET)
+    init_block_clear_fn (asmspec);
+}
+
 tree
 build_va_arg (tree expr, tree type)
 {
@@ -3659,7 +3690,7 @@ c_do_switch_warnings (splay_tree cases, tree switch_stmt)
   else
     switch_location = input_location;
 
-  type = SWITCH_TYPE (switch_stmt);
+  type = SWITCH_STMT_TYPE (switch_stmt);
 
   default_node = splay_tree_lookup (cases, (splay_tree_key) NULL);
   if (warn_switch_default && !default_node)
@@ -3671,7 +3702,7 @@ c_do_switch_warnings (splay_tree cases, tree switch_stmt)
      default case, or when -Wswitch-enum was specified.  */
   if (((warn_switch && !default_node) || warn_switch_enum)
       && type && TREE_CODE (type) == ENUMERAL_TYPE
-      && TREE_CODE (SWITCH_COND (switch_stmt)) != INTEGER_CST)
+      && TREE_CODE (SWITCH_STMT_COND (switch_stmt)) != INTEGER_CST)
     {
       tree chain;
 
@@ -4312,7 +4343,18 @@ handle_mode_attribute (tree *node, tree name, tree args,
 
 	  if (!(flags & (int) ATTR_FLAG_TYPE_IN_PLACE))
 	    type = build_variant_type_copy (type);
+
+	  /* We cannot use layout_type here, because that will attempt
+	     to re-layout all variants, corrupting our original.  */
 	  TYPE_PRECISION (type) = TYPE_PRECISION (typefm);
+	  TYPE_MIN_VALUE (type) = TYPE_MIN_VALUE (typefm);
+	  TYPE_MAX_VALUE (type) = TYPE_MAX_VALUE (typefm);
+	  TYPE_SIZE (type) = TYPE_SIZE (typefm);
+	  TYPE_SIZE_UNIT (type) = TYPE_SIZE_UNIT (typefm);
+	  TYPE_MODE (type) = TYPE_MODE (typefm);
+	  if (!TYPE_USER_ALIGN (type))
+	    TYPE_ALIGN (type) = TYPE_ALIGN (typefm);
+
 	  typefm = type;
 	}
       else if (VECTOR_MODE_P (mode)
@@ -4324,8 +4366,6 @@ handle_mode_attribute (tree *node, tree name, tree args,
 	}
 
       *node = typefm;
-
-      /* No need to layout the type here.  The caller should do this.  */
     }
 
   return NULL_TREE;
@@ -4571,6 +4611,12 @@ handle_visibility_attribute (tree *node, tree name, tree args,
       decl = TYPE_NAME (decl);
       if (!decl)
         return NULL_TREE;
+      if (TREE_CODE (decl) == IDENTIFIER_NODE)
+	{
+	   warning ("%qE attribute ignored on types",
+		    name);
+	   return NULL_TREE;
+	}
     }
 
   if (strcmp (TREE_STRING_POINTER (id), "default") == 0)

@@ -1,6 +1,6 @@
 /* Definitions for C parsing and type checking.
    Copyright (C) 1987, 1993, 1994, 1995, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -41,10 +41,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 struct lang_decl GTY(())
 {
-  /* The return types and parameter types may have variable size.
-     This is a list of any SAVE_EXPRs that need to be evaluated to
-     compute those sizes.  */
-  tree pending_sizes;
+  char dummy;
 };
 
 /* In a RECORD_TYPE or UNION_TYPE, nonzero if any component is read-only.  */
@@ -73,6 +70,10 @@ struct lang_type GTY(())
   /* In an ENUMERAL_TYPE, the min and max values.  */
   tree enum_min;
   tree enum_max;
+  /* In a RECORD_TYPE, information specific to Objective-C, such
+     as a list of adopted protocols or a pointer to a corresponding
+     @interface.  See objc/objc-act.h for details.  */
+  tree objc_info;
 };
 
 /* Record whether a type or decl was written with nonconstant size.
@@ -433,7 +434,6 @@ extern int c_cannot_inline_tree_fn (tree *);
 extern bool c_objc_common_init (void);
 extern bool c_missing_noreturn_ok_p (tree);
 extern tree c_objc_common_truthvalue_conversion (tree expr);
-extern int defer_fn (tree);
 extern bool c_warn_unused_global_decl (tree);
 extern void c_initialize_diagnostics (diagnostic_context *);
 

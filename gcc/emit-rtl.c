@@ -1,6 +1,6 @@
 /* Emit RTL for the GCC expander.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -184,7 +184,6 @@ static int reg_attrs_htab_eq (const void *, const void *);
 static reg_attrs *get_reg_attrs (tree, int);
 static tree component_ref_for_mem_expr (tree);
 static rtx gen_const_vector (enum machine_mode, int);
-static rtx gen_complex_constant_part (enum machine_mode, rtx, int);
 static void copy_rtx_if_shared_1 (rtx *orig);
 
 /* Probability of the conditional branch currently proceeded by try_split.
@@ -1169,81 +1168,6 @@ gen_lowpart_common (enum machine_mode mode, rtx x)
   return 0;
 }
 
-/* Return the constant real or imaginary part (which has mode MODE)
-   of a complex value X.  The IMAGPART_P argument determines whether
-   the real or complex component should be returned.  This function
-   returns NULL_RTX if the component isn't a constant.  */
-
-static rtx
-gen_complex_constant_part (enum machine_mode mode, rtx x, int imagpart_p)
-{
-  tree decl, part;
-
-  if (MEM_P (x)
-      && GET_CODE (XEXP (x, 0)) == SYMBOL_REF)
-    {
-      decl = SYMBOL_REF_DECL (XEXP (x, 0));
-      if (decl != NULL_TREE && TREE_CODE (decl) == COMPLEX_CST)
-	{
-	  part = imagpart_p ? TREE_IMAGPART (decl) : TREE_REALPART (decl);
-	  if (TREE_CODE (part) == REAL_CST
-	      || TREE_CODE (part) == INTEGER_CST)
-	    return expand_expr (part, NULL_RTX, mode, 0);
-	}
-    }
-  return NULL_RTX;
-}
-
-/* Return the real part (which has mode MODE) of a complex value X.
-   This always comes at the low address in memory.  */
-
-rtx
-gen_realpart (enum machine_mode mode, rtx x)
-{
-  rtx part;
-
-  /* Handle complex constants.  */
-  part = gen_complex_constant_part (mode, x, 0);
-  if (part != NULL_RTX)
-    return part;
-
-  if (WORDS_BIG_ENDIAN
-      && GET_MODE_BITSIZE (mode) < BITS_PER_WORD
-      && REG_P (x)
-      && REGNO (x) < FIRST_PSEUDO_REGISTER)
-    internal_error
-      ("can't access real part of complex value in hard register");
-  else if (WORDS_BIG_ENDIAN)
-    return gen_highpart (mode, x);
-  else
-    return gen_lowpart (mode, x);
-}
-
-/* Return the imaginary part (which has mode MODE) of a complex value X.
-   This always comes at the high address in memory.  */
-
-rtx
-gen_imagpart (enum machine_mode mode, rtx x)
-{
-  rtx part;
-
-  /* Handle complex constants.  */
-  part = gen_complex_constant_part (mode, x, 1);
-  if (part != NULL_RTX)
-    return part;
-
-  if (WORDS_BIG_ENDIAN)
-    return gen_lowpart (mode, x);
-  else if (! WORDS_BIG_ENDIAN
-	   && GET_MODE_BITSIZE (mode) < BITS_PER_WORD
-	   && REG_P (x)
-	   && REGNO (x) < FIRST_PSEUDO_REGISTER)
-    internal_error
-      ("can't access imaginary part of complex value in hard register");
-  else
-    return gen_highpart (mode, x);
-}
-
 rtx
 gen_highpart (enum machine_mode mode, rtx x)
 {
@@ -1622,9 +1546,9 @@ set_mem_attributes_minus_bitpos (rtx ref, tree t, int objectp,
 	     || TREE_CODE (t) == SAVE_EXPR)
 	t = TREE_OPERAND (t, 0);
 
-      /* If this expression can't be addressed (e.g., it contains a reference
-	 to a non-addressable field), show we don't change its alias set.  */
-      if (! can_address_p (t))
+      /* If this expression uses it's parent's alias set, mark it such
+	 that we won't change it.  */
+      if (component_uses_parent_alias_set (t))
 	MEM_KEEP_ALIAS_SET_P (ref) = 1;
 
       /* If this is a decl, set the attributes of the MEM from it.  */
@@ -2788,9 +2712,23 @@ get_last_insn_anywhere (void)
 rtx
 get_first_nonnote_insn (void)
 {
-  rtx insn;
+  rtx insn = first_insn;
 
-  for (insn = first_insn; insn && NOTE_P (insn); insn = next_insn (insn));
+  if (insn)
+    {
+      if (NOTE_P (insn))
+	for (insn = next_insn (insn);
+	     insn && NOTE_P (insn);
+	     insn = next_insn (insn))
+	  continue;
+      else
+	{
+	  if (GET_CODE (insn) == INSN
+	      && GET_CODE (PATTERN (insn)) == SEQUENCE)
+	    insn = XVECEXP (PATTERN (insn), 0, 0);
+	}
+    }
+
   return insn;
 }
 
@@ -2800,9 +2738,24 @@ get_first_nonnote_insn (void)
 rtx
 get_last_nonnote_insn (void)
 {
-  rtx insn;
+  rtx insn = last_insn;
 
-  for (insn = last_insn; insn && NOTE_P (insn); insn = previous_insn (insn));
+  if (insn)
+    {
+      if (NOTE_P (insn))
+	for (insn = previous_insn (insn);
+	     insn && NOTE_P (insn);
+	     insn = previous_insn (insn))
+	  continue;
+      else
+	{
+	  if (GET_CODE (insn) == INSN
+	      && GET_CODE (PATTERN (insn)) == SEQUENCE)
+	    insn = XVECEXP (PATTERN (insn), 0,
+			    XVECLEN (PATTERN (insn), 0) - 1);
+	}
+    }
+
   return insn;
 }
 
@@ -3520,7 +3473,7 @@ add_insn_before (rtx insn, rtx before)
       if (INSN_P (insn))
 	bb->flags |= BB_DIRTY;
       /* Should not happen as first in the BB is always either NOTE or
-	 LABEl.  */
+	 LABEL.  */
       gcc_assert (BB_HEAD (bb) != insn
 		  /* Avoid clobbering of structure when creating new BB.  */
 		  || BARRIER_P (insn)

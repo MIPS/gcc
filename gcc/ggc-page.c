@@ -1,5 +1,5 @@
 /* "Bag-of-pages" garbage collector for the GNU compiler.
-   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -1139,8 +1139,14 @@ ggc_alloc_stat (size_t size MEM_STAT_DECL)
 	  word = bit = 0;
 	  while (~entry->in_use_p[word] == 0)
 	    ++word;
+
+#if GCC_VERSION >= 3004
+	  bit = __builtin_ctzl (~entry->in_use_p[word]);
+#else
 	  while ((entry->in_use_p[word] >> bit) & 1)
 	    ++bit;
+#endif
+
 	  hint = word * HOST_BITS_PER_LONG + bit;
 	}
 

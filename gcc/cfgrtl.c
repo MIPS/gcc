@@ -1,6 +1,6 @@
 /* Control flow graph manipulation code for GNU compiler.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -379,10 +379,13 @@ rtl_delete_block (basic_block b)
   if (tablejump_p (end, NULL, &tmp))
     end = tmp;
 
-  /* Include any barrier that may follow the basic block.  */
+  /* Include any barriers that may follow the basic block.  */
   tmp = next_nonnote_insn (end);
-  if (tmp && BARRIER_P (tmp))
-    end = tmp;
+  while (tmp && BARRIER_P (tmp))
+    {
+      end = tmp;
+      tmp = next_nonnote_insn (end);
+    }
 
   /* Selectively delete the entire chain.  */
   BB_HEAD (b) = NULL;
@@ -1201,12 +1204,6 @@ rtl_tidy_fallthru_edge (edge e)
 {
   rtx q;
   basic_block b = e->src, c = b->next_bb;
-  edge e2;
-  edge_iterator ei;
-
-  FOR_EACH_EDGE (e2, ei, b->succs)
-    if (e == e2)
-      break;
 
   /* ??? In a late-running flow pass, other folks may have deleted basic
      blocks by nopping out blocks, leaving multiple BARRIERs between here
@@ -1229,7 +1226,7 @@ rtl_tidy_fallthru_edge (edge e)
   if (JUMP_P (q)
       && onlyjump_p (q)
       && (any_uncondjump_p (q)
-	  || (EDGE_SUCC (b, 0) == e && ei.index == EDGE_COUNT (b->succs) - 1)))
+	  || EDGE_COUNT (b->succs) == 1))
     {
 #ifdef HAVE_cc0
       /* If this was a conditional jump, we need to also delete
@@ -1979,7 +1976,7 @@ rtl_verify_flow_info_1 (void)
       rtx note;
       edge_iterator ei;
 
-      if (INSN_P (BB_END (bb))
+      if (JUMP_P (BB_END (bb))
 	  && (note = find_reg_note (BB_END (bb), REG_BR_PROB, NULL_RTX))
 	  && EDGE_COUNT (bb->succs) >= 2
 	  && any_condjump_p (BB_END (bb)))
@@ -2197,13 +2194,7 @@ rtl_verify_flow_info (void)
 	  else
 	    for (insn = NEXT_INSN (BB_END (e->src)); insn != BB_HEAD (e->dest);
 		 insn = NEXT_INSN (insn))
-	      if (BARRIER_P (insn)
-#ifndef CASE_DROPS_THROUGH
-		  || INSN_P (insn)
-#else
-		  || (INSN_P (insn) && ! JUMP_TABLE_DATA_P (insn))
-#endif
-		  )
+	      if (BARRIER_P (insn) || INSN_P (insn))
 		{
 		  error ("verify_flow_info: Incorrect fallthru %i->%i",
 			 e->src->index, e->dest->index);
@@ -2587,25 +2578,8 @@ cfg_layout_redirect_edge_and_branch (edge e, basic_block dest)
          of conditional jump, remove it.  */
       if (EDGE_COUNT (src->succs) == 2)
 	{
-	  bool found = false;
-	  unsigned ix = 0;
-	  edge tmp, s;
-	  edge_iterator ei;
-
-	  FOR_EACH_EDGE (tmp, ei, src->succs)
-	    if (e == tmp)
-	      {
-		found = true;
-		ix = ei.index;
-		break;
-	      }
-
-	  gcc_assert (found);
-
-	  if (EDGE_COUNT (src->succs) > (ix + 1))
-	    s = EDGE_SUCC (src, ix + 1);
-	  else
-	    s = EDGE_SUCC (src, 0);
+	  /* Find the edge that is different from E.  */
+	  edge s = EDGE_SUCC (src, EDGE_SUCC (src, 0) == e);
 
 	  if (s->dest == dest
 	      && any_condjump_p (BB_END (src))

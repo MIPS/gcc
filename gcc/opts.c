@@ -1,5 +1,5 @@
 /* Command line option handling.
-   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Neil Booth.
 
 This file is part of GCC.
@@ -176,13 +176,13 @@ find_opt (const char *input, int lang_mask)
     {
       const struct cl_option *opt = &cl_options[mn];
 
-      /* Is this switch a prefix of the input?  */
-      if (!strncmp (input, opt->opt_text + 1, opt->opt_len))
+      /* Is the input either an exact match or a prefix that takes a
+	 joined argument?  */
+      if (!strncmp (input, opt->opt_text + 1, opt->opt_len)
+	  && (input[opt->opt_len] == '\0' || (opt->flags & CL_JOINED)))
 	{
-	  /* If language is OK, and the match is exact or the switch
-	     takes a joined argument, return it.  */
-	  if ((opt->flags & lang_mask)
-	      && (input[opt->opt_len] == '\0' || (opt->flags & CL_JOINED)))
+	  /* If language is OK, return it.  */
+	  if (opt->flags & lang_mask)
 	    return mn;
 
 	  /* If we haven't remembered a prior match, remember this
@@ -481,7 +481,6 @@ decode_options (unsigned int argc, const char **argv)
   if (optimize >= 1)
     {
       flag_defer_pop = 1;
-      flag_thread_jumps = 1;
 #ifdef DELAY_SLOTS
       flag_delayed_branch = 1;
 #endif
@@ -510,14 +509,12 @@ decode_options (unsigned int argc, const char **argv)
 	     the condition is satisfied in the first iteration and therefore
 	     to eliminate it.  Jump threading handles these cases now.  */
 	  flag_tree_ch = 1;
- 
-          /* PRE tends to generate bigger code.  */
-          flag_tree_pre = 1;
 	}
     }
 
   if (optimize >= 2)
     {
+      flag_thread_jumps = 1;
       flag_crossjumping = 1;
       flag_optimize_sibling_calls = 1;
       flag_cse_follow_jumps = 1;
@@ -540,6 +537,12 @@ decode_options (unsigned int argc, const char **argv)
       flag_reorder_blocks = 1;
       flag_reorder_functions = 1;
       flag_unit_at_a_time = 1;
+
+      if (!optimize_size)
+	{
+          /* PRE tends to generate bigger code.  */
+          flag_tree_pre = 1;
+	}
     }
 
   if (optimize >= 3)
@@ -572,7 +575,6 @@ decode_options (unsigned int argc, const char **argv)
       /* Inlining of very small functions usually reduces total size.  */
       set_param_value ("max-inline-insns-single", 5);
       set_param_value ("max-inline-insns-auto", 5);
-      set_param_value ("max-inline-insns-rtl", 10);
       flag_inline_functions = 1;
 
       /* We want to crossjump as much as possible.  */
@@ -808,7 +810,6 @@ common_handle_option (size_t scode, const char *arg, int value)
     case OPT_finline_limit_eq:
       set_param_value ("max-inline-insns-single", value / 2);
       set_param_value ("max-inline-insns-auto", value / 2);
-      set_param_value ("max-inline-insns-rtl", value);
       break;
 
     case OPT_fmessage_length_:

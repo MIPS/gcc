@@ -1,7 +1,7 @@
 /* Scalar Replacement of Aggregates (SRA) converts some structure
    references into scalar references, exposing them to the scalar
    optimizers.
-   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
 This file is part of GCC.
@@ -144,6 +144,8 @@ static struct obstack sra_obstack;
 static void dump_sra_elt_name (FILE *, struct sra_elt *);
 extern void debug_sra_elt_name (struct sra_elt *);
 
+/* Forward declarations.  */
+static tree generate_element_ref (struct sra_elt *);
 
 /* Return true if DECL is an SRA candidate.  */
 
@@ -184,7 +186,8 @@ type_can_be_decomposed_p (tree type)
     return false;
 
   /* The type must have a definite nonzero size.  */
-  if (TYPE_SIZE (type) == NULL || integer_zerop (TYPE_SIZE (type)))
+  if (TYPE_SIZE (type) == NULL || TREE_CODE (TYPE_SIZE (type)) != INTEGER_CST
+      || integer_zerop (TYPE_SIZE (type)))
     goto fail;
 
   /* The type must be a non-union aggregate.  */
@@ -1111,15 +1114,25 @@ instantiate_element (struct sra_elt *elt)
 
   elt->replacement = var = make_rename_temp (elt->type, "SR");
   DECL_SOURCE_LOCATION (var) = DECL_SOURCE_LOCATION (base);
-  TREE_NO_WARNING (var) = TREE_NO_WARNING (base);
-  DECL_ARTIFICIAL (var) = DECL_ARTIFICIAL (base);
-  DECL_IGNORED_P (var) = DECL_IGNORED_P (base);
+  DECL_ARTIFICIAL (var) = 1;
 
   if (DECL_NAME (base) && !DECL_IGNORED_P (base))
     {
       char *pretty_name = build_element_name (elt);
       DECL_NAME (var) = get_identifier (pretty_name);
       obstack_free (&sra_obstack, pretty_name);
+
+      DECL_DEBUG_EXPR (var) = generate_element_ref (elt);
+      DECL_DEBUG_EXPR_IS_FROM (var) = 1;
+
+      DECL_IGNORED_P (var) = 0;
+      TREE_NO_WARNING (var) = TREE_NO_WARNING (base);
+    }
+  else
+    {
+      DECL_IGNORED_P (var) = 1;
+      /* ??? We can't generate any warning that would be meaningful.  */
+      TREE_NO_WARNING (var) = 1;
     }
 
   if (dump_file)
@@ -1292,10 +1305,15 @@ decide_block_copy (struct sra_elt *elt)
       tree size_tree = TYPE_SIZE_UNIT (elt->type);
       bool use_block_copy = true;
 
+      /* Tradeoffs for COMPLEX types pretty much always make it better
+	 to go ahead and split the components.  */
+      if (TREE_CODE (elt->type) == COMPLEX_TYPE)
+	use_block_copy = false;
+
       /* Don't bother trying to figure out the rest if the structure is
 	 so large we can't do easy arithmetic.  This also forces block
 	 copies for variable sized structures.  */
-      if (host_integerp (size_tree, 1))
+      else if (host_integerp (size_tree, 1))
 	{
 	  unsigned HOST_WIDE_INT full_size, inst_size = 0;
 	  unsigned int inst_count;
@@ -1417,7 +1435,7 @@ mark_all_v_defs (tree stmt)
 
   get_stmt_operands (stmt);
 
-  FOR_EACH_SSA_TREE_OPERAND (sym, stmt, iter, SSA_OP_VIRTUAL_DEFS)
+  FOR_EACH_SSA_TREE_OPERAND (sym, stmt, iter, SSA_OP_ALL_VIRTUALS)
     {
       if (TREE_CODE (sym) == SSA_NAME)
 	sym = SSA_NAME_VAR (sym);
@@ -1563,23 +1581,9 @@ generate_element_zero (struct sra_elt *elt, tree *list_p)
 static void
 generate_one_element_init (tree var, tree init, tree *list_p)
 {
-  tree stmt;
-
   /* The replacement can be almost arbitrarily complex.  Gimplify.  */
-  stmt = build (MODIFY_EXPR, void_type_node, var, init);
-  gimplify_stmt (&stmt);
-
-  /* The replacement can expose previously unreferenced variables.  */
-  if (TREE_CODE (stmt) == STATEMENT_LIST)
-    {
-      tree_stmt_iterator i;
-      for (i = tsi_start (stmt); !tsi_end_p (i); tsi_next (&i))
-	find_new_referenced_vars (tsi_stmt_ptr (i));
-    }
-  else
-    find_new_referenced_vars (&stmt);
-
-  append_to_statement_list (stmt, list_p);
+  tree stmt = build (MODIFY_EXPR, void_type_node, var, init);
+  gimplify_and_add (stmt, list_p);
 }
 
 /* Generate a set of assignment statements in *LIST_P to set all instantiated
@@ -1589,7 +1593,7 @@ generate_one_element_init (tree var, tree init, tree *list_p)
    handle.  */
 
 static bool
-generate_element_init (struct sra_elt *elt, tree init, tree *list_p)
+generate_element_init_1 (struct sra_elt *elt, tree init, tree *list_p)
 {
   bool result = true;
   enum tree_code init_code;
@@ -1623,7 +1627,7 @@ generate_element_init (struct sra_elt *elt, tree init, tree *list_p)
 	  else
 	    t = (init_code == COMPLEX_EXPR
 		 ? TREE_OPERAND (init, 1) : TREE_IMAGPART (init));
-	  result &= generate_element_init (sub, t, list_p);
+	  result &= generate_element_init_1 (sub, t, list_p);
 	}
       break;
 
@@ -1633,7 +1637,7 @@ generate_element_init (struct sra_elt *elt, tree init, tree *list_p)
 	  sub = lookup_element (elt, TREE_PURPOSE (t), NULL, NO_INSERT);
 	  if (sub == NULL)
 	    continue;
-	  result &= generate_element_init (sub, TREE_VALUE (t), list_p);
+	  result &= generate_element_init_1 (sub, TREE_VALUE (t), list_p);
 	}
       break;
 
@@ -1643,6 +1647,37 @@ generate_element_init (struct sra_elt *elt, tree init, tree *list_p)
     }
 
   return result;
+}
+
+/* A wrapper function for generate_element_init_1 that handles cleanup after
+   gimplification.  */
+
+static bool
+generate_element_init (struct sra_elt *elt, tree init, tree *list_p)
+{
+  bool ret;
+
+  push_gimplify_context ();
+  ret = generate_element_init_1 (elt, init, list_p);
+  pop_gimplify_context (NULL);
+
+  /* The replacement can expose previously unreferenced variables.  */
+  if (ret && *list_p)
+    {
+      tree_stmt_iterator i;
+      size_t old, new, j;
+
+      old = num_referenced_vars;
+
+      for (i = tsi_start (*list_p); !tsi_end_p (i); tsi_next (&i))
+	find_new_referenced_vars (tsi_stmt_ptr (i));
+
+      new = num_referenced_vars;
+      for (j = old; j < new; ++j)
+	bitmap_set_bit (vars_to_rename, j);
+    }
+
+  return ret;
 }
 
 /* Insert STMT on all the outgoing edges out of BB.  Note that if BB
@@ -1840,9 +1875,7 @@ scalarize_init (struct sra_elt *lhs_elt, tree rhs, block_stmt_iterator *bsi)
     {
       /* Unshare the expression just in case this is from a decl's initial.  */
       rhs = unshare_expr (rhs);
-      push_gimplify_context ();
       result = generate_element_init (lhs_elt, rhs, &list);
-      pop_gimplify_context (NULL);
     }
 
   /* CONSTRUCTOR is defined such that any member not mentioned is assigned

@@ -1,7 +1,7 @@
 /* Medium-level subroutines: convert bit-field store and extract
    and shifts, multiplies and divides to rtl instructions.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -53,6 +53,9 @@ static rtx extract_split_bit_field (rtx, unsigned HOST_WIDE_INT,
 static void do_cmp_and_jump (rtx, rtx, enum rtx_code, enum machine_mode, rtx);
 static rtx expand_smod_pow2 (enum machine_mode, rtx, HOST_WIDE_INT);
 static rtx expand_sdiv_pow2 (enum machine_mode, rtx, HOST_WIDE_INT);
+
+/* Test whether a value is zero of a power of two.  */
+#define EXACT_POWER_OF_2_OR_ZERO_P(x) (((x) & ((x) - 1)) == 0)
 
 /* Nonzero means divides or modulus operations are relatively cheap for
    powers of two, so don't use branches; emit the operation instead.
@@ -431,21 +434,11 @@ store_bit_field (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
     {
       if (GET_MODE (op0) != fieldmode)
 	{
-	  if (GET_CODE (op0) == SUBREG)
-	    {
-	      /* Else we've got some float mode source being extracted
-		 into a different float mode destination -- this
-		 combination of subregs results in Severe Tire
-		 Damage.  */
-	      gcc_assert (GET_MODE (SUBREG_REG (op0)) == fieldmode
-			  || GET_MODE_CLASS (fieldmode) == MODE_INT
-			  || GET_MODE_CLASS (fieldmode) == MODE_PARTIAL_INT);
-	      op0 = SUBREG_REG (op0);
-	    }
-	  if (REG_P (op0))
-	    op0 = gen_rtx_SUBREG (fieldmode, op0, byte_offset);
-	  else
+	  if (MEM_P (op0))
 	    op0 = adjust_address (op0, fieldmode, offset);
+	  else
+	    op0 = simplify_gen_subreg (fieldmode, op0, GET_MODE (op0),
+				       byte_offset);
 	}
       emit_move_insn (op0, value);
       return value;
@@ -598,16 +591,18 @@ store_bit_field (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
       offset = 0;
     }
 
-  /* If VALUE is a floating-point mode, access it as an integer of the
-     corresponding size.  This can occur on a machine with 64 bit registers
-     that uses SFmode for float.  This can also occur for unaligned float
-     structure fields.  */
+  /* If VALUE has a floating-point or complex mode, access it as an
+     integer of the corresponding size.  This can occur on a machine
+     with 64 bit registers that uses SFmode for float.  It can also
+     occur for unaligned float or complex fields.  */
   orig_value = value;
-  if (GET_MODE_CLASS (GET_MODE (value)) != MODE_INT
+  if (GET_MODE (value) != VOIDmode
+      && GET_MODE_CLASS (GET_MODE (value)) != MODE_INT
       && GET_MODE_CLASS (GET_MODE (value)) != MODE_PARTIAL_INT)
-    value = gen_lowpart ((GET_MODE (value) == VOIDmode
-			  ? word_mode : int_mode_for_mode (GET_MODE (value))),
-			 value);
+    {
+      value = gen_reg_rtx (int_mode_for_mode (GET_MODE (value)));
+      emit_move_insn (gen_lowpart (GET_MODE (orig_value), value), orig_value);
+    }
 
   /* Now OFFSET is nonzero only if OP0 is memory
      and is therefore always measured in bytes.  */
@@ -1163,12 +1158,18 @@ extract_bit_field (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
     enum machine_mode imode = int_mode_for_mode (GET_MODE (op0));
     if (imode != GET_MODE (op0))
       {
-	op0 = gen_lowpart (imode, op0);
+	if (MEM_P (op0))
+	  op0 = adjust_address (op0, imode, 0);
+	else
+	  {
+	    gcc_assert (imode != BLKmode);
+	    op0 = gen_lowpart (imode, op0);
 
-	/* If we got a SUBREG, force it into a register since we aren't going
-	   to be able to do another SUBREG on it.  */
-	if (GET_CODE (op0) == SUBREG)
-	  op0 = force_reg (imode, op0);
+	    /* If we got a SUBREG, force it into a register since we
+	       aren't going to be able to do another SUBREG on it.  */
+	    if (GET_CODE (op0) == SUBREG)
+	      op0 = force_reg (imode, op0);
+	  }
       }
   }
 
@@ -1621,28 +1622,6 @@ extract_bit_field (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
     return spec_target;
   if (GET_MODE (target) != tmode && GET_MODE (target) != mode)
     {
-      /* If the target mode is complex, then extract the two scalar elements
-	 from the value now.  Creating (subreg:SC (reg:DI) 0), as we would do
-	 with the clause below, will cause gen_realpart or gen_imagpart to
-	 fail, since those functions must return lvalues.  */
-      if (COMPLEX_MODE_P (tmode))
-	{
-	  rtx realpart, imagpart;
-	  enum machine_mode itmode = GET_MODE_INNER (tmode);
-
-	  target = convert_to_mode (mode_for_size (GET_MODE_BITSIZE (tmode),
-						   MODE_INT, 0),
-				    target, unsignedp);
-
-	  realpart = extract_bit_field (target, GET_MODE_BITSIZE (itmode), 0,
-					unsignedp, NULL, itmode, itmode);
-	  imagpart = extract_bit_field (target, GET_MODE_BITSIZE (itmode),
-					GET_MODE_BITSIZE (itmode), unsignedp,
-					NULL, itmode, itmode);
-
-	  return gen_rtx_CONCAT (tmode, realpart, imagpart);
-	}
-
       /* If the target mode is not a scalar integral, first convert to the
 	 integer mode of that size and then access it as a floating-point
 	 value via a SUBREG.  */
@@ -2412,10 +2391,10 @@ static bool choose_mult_variant (enum machine_mode, HOST_WIDE_INT,
 static rtx expand_mult_const (enum machine_mode, rtx, HOST_WIDE_INT, rtx,
 			      const struct algorithm *, enum mult_variant);
 static unsigned HOST_WIDE_INT choose_multiplier (unsigned HOST_WIDE_INT, int,
-						 int, unsigned HOST_WIDE_INT *,
-						 int *, int *);
+						 int, rtx *, int *, int *);
 static unsigned HOST_WIDE_INT invert_mod2n (unsigned HOST_WIDE_INT, int);
 static rtx extract_high_half (enum machine_mode, rtx);
+static rtx expand_mult_highpart (enum machine_mode, rtx, rtx, rtx, int, int);
 static rtx expand_mult_highpart_optab (enum machine_mode, rtx, rtx, rtx,
 				       int, int);
 /* Compute and return the best algorithm for multiplying by T.
@@ -2687,7 +2666,7 @@ synth_mult (struct algorithm *alg_out, unsigned HOST_WIDE_INT t,
 	    op_latency = add_cost[mode];
 
 	  new_limit.cost = best_cost.cost - op_cost;
-	  new_limit.cost = best_cost.cost - op_latency;
+	  new_limit.latency = best_cost.latency - op_latency;
 	  synth_mult (alg_in, t / d, &new_limit, mode);
 
 	  alg_in->cost.cost += op_cost;
@@ -3056,11 +3035,25 @@ expand_mult (enum machine_mode mode, rtx op0, rtx op1, rtx target,
   if (const_op1 && GET_CODE (const_op1) == CONST_INT
       && (unsignedp || !flag_trapv))
     {
-      int mult_cost = rtx_cost (gen_rtx_MULT (mode, op0, op1), SET);
+      HOST_WIDE_INT coeff = INTVAL (const_op1);
+      int mult_cost;
 
-      if (choose_mult_variant (mode, INTVAL (const_op1), &algorithm, &variant,
+      /* Special case powers of two.  */
+      if (EXACT_POWER_OF_2_OR_ZERO_P (coeff))
+	{
+	  if (coeff == 0)
+	    return const0_rtx;
+	  if (coeff == 1)
+	    return op0;
+	  return expand_shift (LSHIFT_EXPR, mode, op0,
+			       build_int_cst (NULL_TREE, floor_log2 (coeff)),
+			       target, unsignedp);
+	}
+
+      mult_cost = rtx_cost (gen_rtx_MULT (mode, op0, op1), SET);
+      if (choose_mult_variant (mode, coeff, &algorithm, &variant,
 			       mult_cost))
-	return expand_mult_const (mode, op0, INTVAL (const_op1), target,
+	return expand_mult_const (mode, op0, coeff, target,
 				  &algorithm, variant);
     }
 
@@ -3124,8 +3117,7 @@ ceil_log2 (unsigned HOST_WIDE_INT x)
 static
 unsigned HOST_WIDE_INT
 choose_multiplier (unsigned HOST_WIDE_INT d, int n, int precision,
-		   unsigned HOST_WIDE_INT *multiplier_ptr,
-		   int *post_shift_ptr, int *lgup_ptr)
+		   rtx *multiplier_ptr, int *post_shift_ptr, int *lgup_ptr)
 {
   HOST_WIDE_INT mhigh_hi, mlow_hi;
   unsigned HOST_WIDE_INT mhigh_lo, mlow_lo;
@@ -3197,12 +3189,12 @@ choose_multiplier (unsigned HOST_WIDE_INT d, int n, int precision,
   if (n < HOST_BITS_PER_WIDE_INT)
     {
       unsigned HOST_WIDE_INT mask = ((unsigned HOST_WIDE_INT) 1 << n) - 1;
-      *multiplier_ptr = mhigh_lo & mask;
+      *multiplier_ptr = GEN_INT (mhigh_lo & mask);
       return mhigh_lo >= mask;
     }
   else
     {
-      *multiplier_ptr = mhigh_lo;
+      *multiplier_ptr = GEN_INT (mhigh_lo);
       return mhigh_hi;
     }
 }
@@ -3340,15 +3332,29 @@ expand_mult_highpart_optab (enum machine_mode mode, rtx op0, rtx op1,
     }
 
   /* Try widening the mode and perform a non-widening multiplication.  */
-  moptab = smul_optab;
   if (smul_optab->handlers[wider_mode].insn_code != CODE_FOR_nothing
       && size - 1 < BITS_PER_WORD
       && mul_cost[wider_mode] + shift_cost[mode][size-1] < max_cost)
     {
-      tem = expand_binop (wider_mode, moptab, op0, op1, 0,
+      rtx insns, wop0, wop1;
+
+      /* We need to widen the operands, for example to ensure the
+	 constant multiplier is correctly sign or zero extended.
+	 Use a sequence to clean-up any instructions emitted by
+	 the conversions if things don't work out.  */
+      start_sequence ();
+      wop0 = convert_modes (wider_mode, mode, op0, unsignedp);
+      wop1 = convert_modes (wider_mode, mode, op1, unsignedp);
+      tem = expand_binop (wider_mode, smul_optab, wop0, wop1, 0,
 			  unsignedp, OPTAB_WIDEN);
+      insns = get_insns ();
+      end_sequence ();
+
       if (tem)
-	return extract_high_half (mode, tem);
+	{
+	  emit_insn (insns);
+	  return extract_high_half (mode, tem);
+	}
     }
 
   /* Try widening multiplication of opposite signedness, and adjust.  */
@@ -3372,9 +3378,10 @@ expand_mult_highpart_optab (enum machine_mode mode, rtx op0, rtx op1,
   return 0;
 }
 
-/* Emit code to multiply OP0 and CNST1, putting the high half of the result
-   in TARGET if that is convenient, and return where the result is.  If the
-   operation can not be performed, 0 is returned.
+/* Emit code to multiply OP0 and OP1 (where OP1 is an integer constant),
+   putting the high half of the result in TARGET if that is convenient,
+   and return where the result is.  If the operation can not be performed,
+   0 is returned.
 
    MODE is the mode of operation and result.
 
@@ -3382,23 +3389,22 @@ expand_mult_highpart_optab (enum machine_mode mode, rtx op0, rtx op1,
 
    MAX_COST is the total allowed cost for the expanded RTL.  */
 
-rtx
-expand_mult_highpart (enum machine_mode mode, rtx op0,
-		      unsigned HOST_WIDE_INT cnst1, rtx target,
-		      int unsignedp, int max_cost)
+static rtx
+expand_mult_highpart (enum machine_mode mode, rtx op0, rtx op1,
+		      rtx target, int unsignedp, int max_cost)
 {
   enum machine_mode wider_mode = GET_MODE_WIDER_MODE (mode);
+  unsigned HOST_WIDE_INT cnst1;
   int extra_cost;
   bool sign_adjust = false;
   enum mult_variant variant;
   struct algorithm alg;
-  rtx op1, tem;
+  rtx tem;
 
   /* We can't support modes wider than HOST_BITS_PER_INT.  */
   gcc_assert (GET_MODE_BITSIZE (mode) <= HOST_BITS_PER_WIDE_INT);
 
-  op1 = gen_int_mode (cnst1, wider_mode);
-  cnst1 &= GET_MODE_MASK (mode);
+  cnst1 = INTVAL (op1) & GET_MODE_MASK (mode);
 
   /* We can't optimize modes wider than BITS_PER_WORD. 
      ??? We might be able to perform double-word arithmetic if 
@@ -3659,8 +3665,6 @@ expand_sdiv_pow2 (enum machine_mode mode, rtx op0, HOST_WIDE_INT d)
    (x mod 12) == (((x & 1023) + ((x >> 8) & ~3)) * 0x15555558 >> 2 * 3) >> 28
    */
 
-#define EXACT_POWER_OF_2_OR_ZERO_P(x) (((x) & ((x) - 1)) == 0)
-
 rtx
 expand_divmod (int rem_flag, enum tree_code code, enum machine_mode mode,
 	       rtx op0, rtx op1, rtx target, int unsignedp)
@@ -3863,9 +3867,10 @@ expand_divmod (int rem_flag, enum tree_code code, enum machine_mode mode,
 	  {
 	    if (unsignedp)
 	      {
-		unsigned HOST_WIDE_INT mh, ml;
+		unsigned HOST_WIDE_INT mh;
 		int pre_shift, post_shift;
 		int dummy;
+		rtx ml;
 		unsigned HOST_WIDE_INT d = (INTVAL (op1)
 					    & GET_MODE_MASK (compute_mode));
 
@@ -3993,6 +3998,7 @@ expand_divmod (int rem_flag, enum tree_code code, enum machine_mode mode,
 	      {
 		unsigned HOST_WIDE_INT ml;
 		int lgup, post_shift;
+		rtx mlr;
 		HOST_WIDE_INT d = INTVAL (op1);
 		unsigned HOST_WIDE_INT abs_d = d >= 0 ? d : -d;
 
@@ -4075,7 +4081,8 @@ expand_divmod (int rem_flag, enum tree_code code, enum machine_mode mode,
 		else if (size <= HOST_BITS_PER_WIDE_INT)
 		  {
 		    choose_multiplier (abs_d, size, size - 1,
-				       &ml, &post_shift, &lgup);
+				       &mlr, &post_shift, &lgup);
+		    ml = (unsigned HOST_WIDE_INT) INTVAL (mlr);
 		    if (ml < (unsigned HOST_WIDE_INT) 1 << (size - 1))
 		      {
 			rtx t1, t2, t3;
@@ -4087,7 +4094,7 @@ expand_divmod (int rem_flag, enum tree_code code, enum machine_mode mode,
 			extra_cost = (shift_cost[compute_mode][post_shift]
 				      + shift_cost[compute_mode][size - 1]
 				      + add_cost[compute_mode]);
-			t1 = expand_mult_highpart (compute_mode, op0, ml,
+			t1 = expand_mult_highpart (compute_mode, op0, mlr,
 						   NULL_RTX, 0,
 						   max_cost - extra_cost);
 			if (t1 == 0)
@@ -4120,10 +4127,11 @@ expand_divmod (int rem_flag, enum tree_code code, enum machine_mode mode,
 			  goto fail1;
 
 			ml |= (~(unsigned HOST_WIDE_INT) 0) << (size - 1);
+			mlr = gen_int_mode (ml, compute_mode);
 			extra_cost = (shift_cost[compute_mode][post_shift]
 				      + shift_cost[compute_mode][size - 1]
 				      + 2 * add_cost[compute_mode]);
-			t1 = expand_mult_highpart (compute_mode, op0, ml,
+			t1 = expand_mult_highpart (compute_mode, op0, mlr,
 						   NULL_RTX, 0,
 						   max_cost - extra_cost);
 			if (t1 == 0)
@@ -4173,9 +4181,10 @@ expand_divmod (int rem_flag, enum tree_code code, enum machine_mode mode,
       /* We will come here only for signed operations.  */
 	if (op1_is_constant && HOST_BITS_PER_WIDE_INT >= size)
 	  {
-	    unsigned HOST_WIDE_INT mh, ml;
+	    unsigned HOST_WIDE_INT mh;
 	    int pre_shift, lgup, post_shift;
 	    HOST_WIDE_INT d = INTVAL (op1);
+	    rtx ml;
 
 	    if (d > 0)
 	      {

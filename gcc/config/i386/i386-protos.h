@@ -1,6 +1,6 @@
 /* Definitions of target machine for GCC for IA-32.
    Copyright (C) 1988, 1992, 1994, 1995, 1996, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -125,11 +125,21 @@ extern void i386_output_dwarf_dtprel (FILE*, int, rtx);
 extern void ix86_expand_clear (rtx);
 extern void ix86_expand_move (enum machine_mode, rtx[]);
 extern void ix86_expand_vector_move (enum machine_mode, rtx[]);
+extern void ix86_expand_vector_move_misalign (enum machine_mode, rtx[]);
+extern void ix86_expand_push (enum machine_mode, rtx);
+extern rtx ix86_fixup_binary_operands (enum rtx_code,
+				       enum machine_mode, rtx[]);
+extern void ix86_fixup_binary_operands_no_copy (enum rtx_code,
+						enum machine_mode, rtx[]);
 extern void ix86_expand_binary_operator (enum rtx_code,
 					 enum machine_mode, rtx[]);
 extern int ix86_binary_operator_ok (enum rtx_code, enum machine_mode, rtx[]);
 extern void ix86_expand_unary_operator (enum rtx_code, enum machine_mode,
 					rtx[]);
+extern rtx ix86_build_signbit_mask (enum machine_mode, bool, bool);
+extern void ix86_expand_fp_absneg_operator (enum rtx_code, enum machine_mode,
+					    rtx[]);
+extern void ix86_split_copysign (rtx []);
 extern int ix86_unary_operator_ok (enum rtx_code, enum machine_mode, rtx[]);
 extern int ix86_match_ccmode (rtx, enum machine_mode);
 extern rtx ix86_expand_compare (enum rtx_code, rtx *, rtx *);
@@ -138,6 +148,7 @@ extern void ix86_expand_branch (enum rtx_code, rtx);
 extern int ix86_expand_setcc (enum rtx_code, rtx);
 extern int ix86_expand_int_movcc (rtx[]);
 extern int ix86_expand_fp_movcc (rtx[]);
+extern void ix86_split_sse_movcc (rtx[]);
 extern int ix86_expand_int_addcc (rtx[]);
 extern void ix86_expand_call (rtx, rtx, rtx, rtx, rtx, int);
 extern void x86_initialize_trampoline (rtx, rtx, rtx);
@@ -165,7 +176,8 @@ extern rtx ix86_va_arg (tree, tree);
 
 extern rtx ix86_force_to_memory (enum machine_mode, rtx);
 extern void ix86_free_from_memory (enum machine_mode);
-extern void ix86_split_fp_branch (enum rtx_code code, rtx, rtx, rtx, rtx, rtx);
+extern void ix86_split_fp_branch (enum rtx_code code, rtx, rtx,
+				  rtx, rtx, rtx, rtx);
 extern int ix86_hard_regno_mode_ok (int, enum machine_mode);
 extern int ix86_register_move_cost (enum machine_mode, enum reg_class,
 				    enum reg_class);
@@ -190,8 +202,6 @@ extern rtx function_arg (CUMULATIVE_ARGS *, enum machine_mode, tree, int);
 extern void function_arg_advance (CUMULATIVE_ARGS *, enum machine_mode,
 				  tree, int);
 extern rtx ix86_function_value (tree);
-extern void ix86_init_builtins (void);
-extern rtx ix86_expand_builtin (tree, rtx, rtx, enum machine_mode, int);
 #endif
 
 #endif
@@ -211,7 +221,10 @@ extern int x86_field_alignment (tree, int);
 
 extern rtx ix86_tls_get_addr (void);
 
-extern void ix86_expand_vector_init (rtx, rtx);
+extern void ix86_expand_vector_init (bool, rtx, rtx);
+extern void ix86_expand_vector_set (bool, rtx, rtx, int);
+extern void ix86_expand_vector_extract (bool, rtx, rtx, int);
+
 /* In winnt.c  */
 extern int i386_pe_dllexport_name_p (const char *);
 extern int i386_pe_dllimport_name_p (const char *);

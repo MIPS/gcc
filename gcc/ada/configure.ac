@@ -139,8 +139,6 @@ THREADSLIB=
 AC_SUBST(THREADSLIB)
 MISCLIB=
 AC_SUBST(MISCLIB)
-SYMLIB=
-AC_SUBST(SYMLIB)
 GMEM_LIB=
 AC_SUBST(GMEM_LIB)
 TGT_LIB=
@@ -511,7 +509,6 @@ sparc-sun-solaris*)
 
   THREADSLIB="-lposix4 -lthread"
   MISCLIB="-lposix4 -lnsl -lsocket"
-  SYMLIB='$(ADDR2LINE_SYMLIB)'
   SO_OPTS="-Wl,-h,"
   GNATLIB_SHARED="gnatlib-shared-dual"
   GMEM_LIB="gmemlib"
@@ -622,7 +619,6 @@ sparc-sun-solaris*)
   s-parame.adb<s-parame-linux.adb \
   system.ads<system-linux-x86.ads"
 
-  SYMLIB='$(ADDR2LINE_SYMLIB)'
   THREADSLIB="-lpthread"
   GNATLIB_SHARED="gnatlib-shared-dual"
   GMEM_LIB="gmemlib"
@@ -670,7 +666,6 @@ sparc-sun-solaris*)
 
   GNATLIB_SHARED="gnatlib-shared-dual"
 
-  SYMLIB='$(ADDR2LINE_SYMLIB)'
   THREADSLIB="-lc_r"
   GMEM_LIB="gmemlib"
   PREFIX_OBJS='$(PREFIX_REAL_OBJS)'
@@ -805,7 +800,6 @@ hppa*-hp-hpux11*)
 
   TGT_LIB="/usr/lib/libcl.a"
   THREADSLIB="-lpthread"
-  SYMLIB='$(ADDR2LINE_SYMLIB)'
   GMEM_LIB="gmemlib"
   soext='.sl'
   SO_OPTS="-Wl,+h,"
@@ -874,7 +868,6 @@ hppa*-hp-hpux11*)
   esac
 
   GMEM_LIB="gmemlib"
-  SYMLIB='$(ADDR2LINE_SYMLIB)'
   ;;
 
 *-*-lynxos)
@@ -931,16 +924,16 @@ hppa*-hp-hpux11*)
 
 *-*-rtems*)
   LIBGNAT_TARGET_PAIRS="\
-  a-intnam.ads<4rintnam.ads \
+  a-intnam.ads<a-intnam-rtems.ads \
   s-inmaop.adb<s-inmaop-posix.adb \
   s-intman.adb<s-intman-posix.adb \
-  s-osinte.adb<5rosinte.adb \
-  s-osinte.ads<5rosinte.ads \
+  s-osinte.adb<s-osinte-rtems.adb \
+  s-osinte.ads<s-osinte-rtems.ads \
   s-osprim.adb<s-osprim-posix.adb \
-  s-parame.adb<5rparame.adb \
+  s-parame.adb<s-parame-rtems.adb \
   s-taprop.adb<s-taprop-posix.adb \
   s-taspri.ads<s-taspri-posix.ads \
-  s-tpopsp.adb<5rtpopsp.adb"
+  s-tpopsp.adb<s-tpopsp-rtems.adb"
   ;;
 
 alpha*-dec-osf*)
@@ -961,7 +954,6 @@ alpha*-dec-osf*)
   system.ads<system-tru64.ads"
 
   GMEM_LIB="gmemlib"
-  SYMLIB='$(ADDR2LINE_SYMLIB)'
   THREADSLIB="-lpthread -lmach -lexc -lrt"
   PREFIX_OBJS='$(PREFIX_REAL_OBJS)'
   GNATLIB_SHARED="gnatlib-shared-default"
@@ -998,7 +990,7 @@ alpha*-dec-vms* | alpha*-dec-openvms* | alpha*-dec-vms* \
   s-osprim.ads<s-osprim-vms.ads \
   s-taprop.adb<s-taprop-vms.adb \
   s-taspri.ads<s-taspri-vms.ads \
-  s-tpopsp.adb<s-tpopsp-posix.adb \
+  s-tpopsp.adb<s-tpopsp-posix-foreign.adb \
   s-tpopde.adb<s-tpopde-vms.adb \
   s-tpopde.ads<s-tpopde-vms.ads \
   s-traent.adb<s-traent-vms.adb \
@@ -1075,7 +1067,6 @@ alpha*-dec-vms* | alpha*-dec-openvms* | alpha*-dec-vms* \
   system.ads<system-mingw.ads"
 
   MISCLIB="-lwsock32"
-  SYMLIB='$(ADDR2LINE_SYMLIB)'
   GMEM_LIB="gmemlib"
   PREFIX_OBJS='$(PREFIX_REAL_OBJS)'
   EXTRA_GNATMAKE_OBJS="mdll.o mdll-utl.o mdll-fil.o"
@@ -1101,7 +1092,6 @@ powerpc*-*-linux*)
   s-parame.adb<s-parame-linux.adb \
   system.ads<system-linux-ppc.ads"
 
-  SYMLIB='$(ADDR2LINE_SYMLIB)'
   THREADSLIB="-lpthread"
   GNATLIB_SHARED="gnatlib-shared-dual"
   GMEM_LIB="gmemlib"
@@ -1145,10 +1135,29 @@ powerpc*-*-linux*)
   s-taspri.ads<s-taspri-linux.ads \
   system.ads<system-linux-x86_64.ads"
 
-  SYMLIB='$(ADDR2LINE_SYMLIB)'
   THREADSLIB="-lpthread"
   GNATLIB_SHARED="gnatlib-shared-dual"
   GMEM_LIB="gmemlib"
+  PREFIX_OBJS='$(PREFIX_REAL_OBJS)'
+  LIBRARY_VERSION="${lib_version}"
+  ;;
+
+alpha*-*-linux*)
+  LIBGNAT_TARGET_PAIRS="\
+  a-intnam.ads<a-intnam-linux.ads \
+  s-inmaop.adb<s-inmaop-posix.adb \
+  s-intman.adb<s-intman-posix.adb \
+  s-osinte.ads<s-osinte-linux-alpha.ads \
+  s-osinte.adb<s-osinte-posix.adb \
+  s-osprim.adb<s-osprim-posix.adb \
+  s-taprop.adb<s-taprop-linux.adb \
+  s-tpopsp.adb<s-tpopsp-posix-foreign.adb \
+  s-taspri.ads<s-taspri-linux.ads \
+  system.ads<system-linux-alpha.ads"
+
+  MISCLIB=
+  THREADSLIB="-lpthread"
+  GNATLIB_SHARED="gnatlib-shared-dual"
   PREFIX_OBJS='$(PREFIX_REAL_OBJS)'
   LIBRARY_VERSION="${lib_version}"
   ;;
@@ -1164,7 +1173,9 @@ powerpc-*-darwin*)
   s-taprop.adb<s-taprop-posix.adb \
   s-taspri.ads<s-taspri-posix.ads \
   s-tpopsp.adb<s-tpopsp-posix-foreign.adb \
-  g-soccon.ads<g-soccon-aix.ads \
+  g-soccon.ads<g-soccon-darwin.ads \
+  a-numaux.ads<a-numaux-darwin.ads \
+  a-numaux.adb<a-numaux-darwin.adb \
   system.ads<system-darwin-ppc.ads"
 
   GNATLIB_SHARED="gnatlib-shared-darwin"

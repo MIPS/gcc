@@ -8,6 +8,15 @@ it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
+In addition to the permissions in the GNU General Public License, the
+Free Software Foundation gives you unlimited permission to link the
+compiled version of this file into combinations with other programs,
+and to distribute those combinations without any restriction coming
+from the use of this file.  (The General Public License restrictions
+do apply in other respects; for example, they cover modification of
+the file, and distribution when not linked into a combine
+executable.)
+
 Libgfortran is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -73,8 +82,13 @@ inquire_via_unit (gfc_unit * u)
 
   if (ioparm.sequential != NULL)
     {
-      p = (u == NULL) ? inquire_sequential (NULL, 0) :
-	inquire_sequential (u->file, u->file_len);
+      /* disallow an open direct access file to be accessed
+         sequentially */
+      if (u->flags.access==ACCESS_DIRECT)
+        p = "NO";
+      else   
+        p = (u == NULL) ? inquire_sequential (NULL, 0) :
+        inquire_sequential (u->file, u->file_len);
 
       cf_strcpy (ioparm.sequential, ioparm.sequential_len, p);
     }
@@ -152,13 +166,27 @@ inquire_via_unit (gfc_unit * u)
   if (ioparm.position != NULL)
     {
       if (u == NULL || u->flags.access == ACCESS_DIRECT)
-	p = undefined;
+        p = undefined;
       else
-	{
-	  p = NULL;		/* TODO: Try to decode what the standard says... */
-	}
-
-      cf_strcpy (ioparm.blank, ioparm.blank_len, p);
+        switch (u->flags.position)
+          {
+             case POSITION_REWIND:
+               p = "REWIND";
+               break;
+             case POSITION_APPEND:
+               p = "APPEND";
+               break;
+             case POSITION_ASIS:
+               p = "ASIS";
+               break;
+             default:
+               /* if not direct access, it must be
+                  either REWIND, APPEND, or ASIS.
+                  ASIS seems to be the best default */
+               p = "ASIS";
+               break;
+          }
+      cf_strcpy (ioparm.position, ioparm.position_len, p);
     }
 
   if (ioparm.action != NULL)
@@ -350,6 +378,9 @@ inquire_via_filename (void)
 
 /* Library entry point for the INQUIRE statement (non-IOLENGTH
    form).  */
+
+extern void st_inquire (void);
+export_proto(st_inquire);
 
 void
 st_inquire (void)

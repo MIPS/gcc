@@ -1,5 +1,5 @@
 /* Const/copy propagation and SSA_NAME replacement support routines.
-   Copyright (C) 2004 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -178,11 +178,10 @@ merge_alias_info (tree orig, tree new)
   tree orig_sym = SSA_NAME_VAR (orig);
   var_ann_t new_ann = var_ann (new_sym);
   var_ann_t orig_ann = var_ann (orig_sym);
-  struct ptr_info_def *new_ptr_info;
-  struct ptr_info_def *orig_ptr_info;
 
   gcc_assert (POINTER_TYPE_P (TREE_TYPE (orig)));
   gcc_assert (POINTER_TYPE_P (TREE_TYPE (new)));
+
 #if defined ENABLE_CHECKING
   gcc_assert (lang_hooks.types_compatible_p (TREE_TYPE (orig),
 					     TREE_TYPE (new)));
@@ -203,18 +202,30 @@ merge_alias_info (tree orig, tree new)
   else
     gcc_assert (new_ann->type_mem_tag == orig_ann->type_mem_tag);
 
-  /* Synchronize flow sensitive alias information.  If both pointers
-     had flow information and they are inconsistent, then something
-     has gone wrong.  */
-  new_ptr_info = get_ptr_info (new);
-  orig_ptr_info = get_ptr_info (orig);
+#if defined ENABLE_CHECKING
+  {
+    struct ptr_info_def *orig_ptr_info = SSA_NAME_PTR_INFO (orig);
+    struct ptr_info_def *new_ptr_info = SSA_NAME_PTR_INFO (new);
 
-  if (new_ptr_info->name_mem_tag == NULL_TREE)
-    memcpy (new_ptr_info, orig_ptr_info, sizeof (*new_ptr_info));
-  else if (orig_ptr_info->name_mem_tag == NULL_TREE)
-    memcpy (orig_ptr_info, new_ptr_info, sizeof (*orig_ptr_info));
-  else if (orig_ptr_info->name_mem_tag != new_ptr_info->name_mem_tag)
-    abort ();
+    if (orig_ptr_info
+	&& new_ptr_info
+	&& orig_ptr_info->name_mem_tag
+	&& new_ptr_info->name_mem_tag
+	&& orig_ptr_info->pt_vars
+	&& new_ptr_info->pt_vars)
+    {
+      /* Note that pointer NEW may actually have a different set of
+	 pointed-to variables.  However, since NEW is being
+	 copy-propagated into ORIG, it must always be true that the
+	 pointed-to set for pointer NEW is the same, or a subset, of
+	 the pointed-to set for pointer ORIG.  If this isn't the case,
+	 we shouldn't have been able to do the propagation of NEW into
+	 ORIG.  */
+      gcc_assert (bitmap_intersect_p (new_ptr_info->pt_vars,
+				      orig_ptr_info->pt_vars));
+    }
+  }
+#endif
 }   
 
 

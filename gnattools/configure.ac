@@ -111,8 +111,6 @@ EXTRA_GNATMAKE_OBJS=
 AC_SUBST(EXTRA_GNATMAKE_OBJS)
 TGT_LIB=
 AC_SUBST(TGT_LIB)
-SYMLIB=
-AC_SUBST(SYMLIB)
 GMEM_LIB=
 AC_SUBST(GMEM_LIB)
 
@@ -132,32 +130,34 @@ case "${target}" in
     ;;
   sparc-sun-solaris*)
     TOOLS_TARGET_PAIRS="mlib-tgt.adb<mlib-tgt-solaris.adb"
-    SYMLIB='$(ADDR2LINE_SYMLIB)'
     GMEM_LIB="gmemlib"
     ;;
   *86-*-solaris2*) # Unlike sparc-solaris
+    TOOLS_TARGET_PAIRS="mlib-tgt.adb<mlib-tgt-solaris.adb"
+    GMEM_LIB="gmemlib"
     ;;
   *86-*-linux* \
   | powerpc*-*-linux*)
     TOOLS_TARGET_PAIRS="\
     mlib-tgt.adb<mlib-tgt-linux.adb \
     indepsw.adb<indepsw-linux.adb"
-    SYMLIB='$(ADDR2LINE_SYMLIB)'
     GMEM_LIB="gmemlib"
     ;;
-  *ia64-*-linux* \
-  | s390*-*-linux*)
+  *ia64-*-linux* | alpha*-*-linux*)
+    TOOLS_TARGET_PAIRS="\
+    mlib-tgt.adb<mlib-tgt-linux.adb \
+    indepsw.adb<indepsw-linux.adb"
+    ;;
+  s390*-*-linux*)
     TOOLS_TARGET_PAIRS="mlib-tgt.adb<mlib-tgt-linux.adb"
     ;;
   *x86_64-*-linux*)
     TOOLS_TARGET_PAIRS="mlib-tgt.adb<mlib-tgt-linux.adb"
-    SYMLIB='$(ADDR2LINE_SYMLIB)'
     GMEM_LIB="gmemlib"
     ;;
   *86-*-freebsd*)
     TOOLS_TARGET_PAIRS="\
     mlib-tgt.adb<mlib-tgt-linux.adb"
-    SYMLIB='$(ADDR2LINE_SYMLIB)'
     GMEM_LIB="gmemlib"
     ;;
   mips-sgi-irix*)
@@ -176,19 +176,16 @@ case "${target}" in
         TGT_LIB="/usr/lib/libcl.a"
         ;;
     esac
-    SYMLIB='$(ADDR2LINE_SYMLIB)'
     GMEM_LIB="gmemlib"
     ;;
   *-ibm-aix*)
     TOOLS_TARGET_PAIRS="\
     mlib-tgt.adb<mlib-tgt-aix.adb \
     indepsw.adb<indepsw-aix.adb"
-    SYMLIB='$(ADDR2LINE_SYMLIB)'
     GMEM_LIB="gmemlib"
     ;;
   alpha*-dec-osf*)
     TOOLS_TARGET_PAIRS="mlib-tgt.adb<mlib-tgt-tru64.adb"
-    SYMLIB='$(ADDR2LINE_SYMLIB)'
     GMEM_LIB="gmemlib"
     ;;
   alpha*-dec-vms* | alpha*-dec-openvms* | alpha*-dec-vms* \
@@ -213,12 +210,14 @@ case "${target}" in
     indepsw.adb<indepsw-mingw.adb"
     EXTRA_GNATTOOLS='../../gnatdll$(exeext)'
     EXTRA_GNATMAKE_OBJS="mdll.o mdll-utl.o mdll-fil.o"
-    SYMLIB='$(ADDR2LINE_SYMLIB)'
     GMEM_LIB="gmemlib"
     ;;
   powerpc-*-darwin*)
     TOOLS_TARGET_PAIRS="mlib-tgt.adb<mlib-tgt-darwin.adb"
     GMEM_LIB="gmemlib"
+    ;;
+  *-*-lynxos)
+    TOOLS_TARGET_PAIRS="mlib-tgt.adb<mlib-tgt-lynxos.adb"
     ;;
 esac
 

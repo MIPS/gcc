@@ -61,6 +61,8 @@ subdir = .
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/../config/accross.m4 \
 	$(top_srcdir)/../config/acx.m4 \
+	$(top_srcdir)/../config/gcc-version.m4 \
+	$(top_srcdir)/../config/gxx-include-dir.m4 \
 	$(top_srcdir)/../config/iconv.m4 \
 	$(top_srcdir)/../config/lcmessage.m4 \
 	$(top_srcdir)/../config/lib-ld.m4 \
@@ -138,9 +140,9 @@ lib_gnu_awt_xlib_la_OBJECTS = $(am_lib_gnu_awt_xlib_la_OBJECTS)
 @XLIB_AWT_TRUE@am_lib_gnu_awt_xlib_la_rpath = -rpath $(toolexeclibdir)
 am__DEPENDENCIES_1 =
 am__lib_gnu_java_awt_peer_gtk_la_SOURCES_DIST =  \
-	gnu/java/awt/peer/gtk/GdkClasspathFontPeer.java \
-	gnu/java/awt/peer/gtk/GdkClasspathFontPeerMetrics.java \
+	gnu/java/awt/peer/gtk/GdkTextLayout.java \
 	gnu/java/awt/peer/gtk/GdkFontMetrics.java \
+	gnu/java/awt/peer/gtk/GdkFontPeer.java \
 	gnu/java/awt/peer/gtk/GdkGlyphVector.java \
 	gnu/java/awt/peer/gtk/GdkGraphics.java \
 	gnu/java/awt/peer/gtk/GdkGraphics2D.java \
@@ -158,7 +160,6 @@ am__lib_gnu_java_awt_peer_gtk_la_SOURCES_DIST =  \
 	gnu/java/awt/peer/gtk/GtkDialogPeer.java \
 	gnu/java/awt/peer/gtk/GtkEmbeddedWindowPeer.java \
 	gnu/java/awt/peer/gtk/GtkFileDialogPeer.java \
-	gnu/java/awt/peer/gtk/GtkFontPeer.java \
 	gnu/java/awt/peer/gtk/GtkFramePeer.java \
 	gnu/java/awt/peer/gtk/GtkGenericPeer.java \
 	gnu/java/awt/peer/gtk/GtkImage.java \
@@ -182,12 +183,13 @@ am__lib_gnu_java_awt_peer_gtk_la_SOURCES_DIST =  \
 	gnu/java/awt/peer/gtk/GtkWindowPeer.java \
 	gnu/java/awt/peer/gtk/GThreadMutex.java \
 	gnu/java/awt/peer/gtk/GThreadNativeMethodRunner.java \
-	jni/gtk-peer/gnu_java_awt_peer_gtk_GdkClasspathFontPeer.c \
-	jni/gtk-peer/gnu_java_awt_peer_gtk_GdkClasspathFontPeerMetrics.c \
-	jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGlyphVector.c \
 	jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGraphics2D.c \
+	jni/gtk-peer/gnu_java_awt_peer_gtk_GdkTextLayout.c \
 	jni/gtk-peer/gnu_java_awt_peer_gtk_GdkFontMetrics.c \
+	jni/gtk-peer/gnu_java_awt_peer_gtk_GdkFontPeer.c \
+	jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGlyphVector.c \
 	jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGraphics.c \
+	jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGraphicsEnvironment.c \
 	jni/gtk-peer/gnu_java_awt_peer_gtk_GdkPixbufDecoder.c \
 	jni/gtk-peer/gnu_java_awt_peer_gtk_GtkButtonPeer.c \
 	jni/gtk-peer/gnu_java_awt_peer_gtk_GtkCanvasPeer.c \
@@ -200,6 +202,7 @@ am__lib_gnu_java_awt_peer_gtk_la_SOURCES_DIST =  \
 	jni/gtk-peer/gnu_java_awt_peer_gtk_GtkEmbeddedWindowPeer.c \
 	jni/gtk-peer/gnu_java_awt_peer_gtk_GtkEvents.c \
 	jni/gtk-peer/gnu_java_awt_peer_gtk_GtkFileDialogPeer.c \
+	jni/gtk-peer/gnu_java_awt_peer_gtk_GtkFramePeer.c \
 	jni/gtk-peer/gnu_java_awt_peer_gtk_GtkGenericPeer.c \
 	jni/gtk-peer/gnu_java_awt_peer_gtk_GtkImagePainter.c \
 	jni/gtk-peer/gnu_java_awt_peer_gtk_GtkLabelPeer.c \
@@ -225,9 +228,9 @@ am__lib_gnu_java_awt_peer_gtk_la_SOURCES_DIST =  \
 	jni/gtk-peer/gtkpeer.h jni/classpath/jcl.h \
 	jni/classpath/jnilink.h jni/classpath/native_state.h \
 	jni/classpath/primlib.h
-am__objects_3 = gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GdkClasspathFontPeer.lo \
-	gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GdkClasspathFontPeerMetrics.lo \
+am__objects_3 = gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GdkTextLayout.lo \
 	gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GdkFontMetrics.lo \
+	gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GdkFontPeer.lo \
 	gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GdkGlyphVector.lo \
 	gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GdkGraphics.lo \
 	gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GdkGraphics2D.lo \
@@ -245,7 +248,6 @@ am__objects_3 = gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GdkClasspathF
 	gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GtkDialogPeer.lo \
 	gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GtkEmbeddedWindowPeer.lo \
 	gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GtkFileDialogPeer.lo \
-	gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GtkFontPeer.lo \
 	gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GtkFramePeer.lo \
 	gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GtkGenericPeer.lo \
 	gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GtkImage.lo \
@@ -269,13 +271,14 @@ am__objects_3 = gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GdkClasspathF
 	gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GtkWindowPeer.lo \
 	gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GThreadMutex.lo \
 	gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GThreadNativeMethodRunner.lo
-@GTK_CAIRO_TRUE@am__objects_4 = jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkClasspathFontPeer.lo \
-@GTK_CAIRO_TRUE@	jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkClasspathFontPeerMetrics.lo \
-@GTK_CAIRO_TRUE@	jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkGlyphVector.lo \
-@GTK_CAIRO_TRUE@	jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkGraphics2D.lo
+@GTK_CAIRO_TRUE@am__objects_4 = jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkGraphics2D.lo
 am__objects_5 = $(am__objects_4) \
+	jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkTextLayout.lo \
 	jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkFontMetrics.lo \
+	jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkFontPeer.lo \
+	jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkGlyphVector.lo \
 	jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkGraphics.lo \
+	jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkGraphicsEnvironment.lo \
 	jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkPixbufDecoder.lo \
 	jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GtkButtonPeer.lo \
 	jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GtkCanvasPeer.lo \
@@ -288,6 +291,7 @@ am__objects_5 = $(am__objects_4) \
 	jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GtkEmbeddedWindowPeer.lo \
 	jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GtkEvents.lo \
 	jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GtkFileDialogPeer.lo \
+	jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GtkFramePeer.lo \
 	jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GtkGenericPeer.lo \
 	jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GtkImagePainter.lo \
 	jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GtkLabelPeer.lo \
@@ -750,9 +754,11 @@ am__libgcj_la_SOURCES_DIST = prims.cc jni.cc exception.cc link.cc \
 	gnu/java/locale/LocaleInformation_zh_HK.java \
 	gnu/java/locale/LocaleInformation_zh_SG.java \
 	gnu/java/locale/LocaleInformation_zh_TW.java \
-	gnu/java/math/MPN.java \
+	gnu/java/math/MPN.java gnu/java/net/BASE64.java \
 	gnu/java/net/DefaultContentHandlerFactory.java \
+	gnu/java/net/EmptyX509TrustManager.java \
 	gnu/java/net/HeaderFieldHelper.java \
+	gnu/java/net/LineInputStream.java \
 	gnu/java/net/PlainDatagramSocketImpl.java \
 	gnu/java/net/PlainSocketImpl.java \
 	gnu/java/net/URLParseError.java \
@@ -763,8 +769,28 @@ am__libgcj_la_SOURCES_DIST = prims.cc jni.cc exception.cc link.cc \
 	gnu/java/net/protocol/file/Handler.java \
 	gnu/java/net/protocol/gcjlib/Connection.java \
 	gnu/java/net/protocol/gcjlib/Handler.java \
-	gnu/java/net/protocol/http/Connection.java \
+	gnu/java/net/protocol/http/Authenticator.java \
+	gnu/java/net/protocol/http/ByteArrayRequestBodyWriter.java \
+	gnu/java/net/protocol/http/ByteArrayResponseBodyReader.java \
+	gnu/java/net/protocol/http/ChunkedInputStream.java \
+	gnu/java/net/protocol/http/Cookie.java \
+	gnu/java/net/protocol/http/CookieManager.java \
+	gnu/java/net/protocol/http/Credentials.java \
+	gnu/java/net/protocol/http/HTTPConnection.java \
+	gnu/java/net/protocol/http/HTTPDateFormat.java \
+	gnu/java/net/protocol/http/HTTPURLConnection.java \
 	gnu/java/net/protocol/http/Handler.java \
+	gnu/java/net/protocol/http/Headers.java \
+	gnu/java/net/protocol/http/Request.java \
+	gnu/java/net/protocol/http/RequestBodyWriter.java \
+	gnu/java/net/protocol/http/Response.java \
+	gnu/java/net/protocol/http/ResponseBodyReader.java \
+	gnu/java/net/protocol/http/ResponseHeaderHandler.java \
+	gnu/java/net/protocol/http/SimpleCookieManager.java \
+	gnu/java/net/protocol/http/event/ConnectionEvent.java \
+	gnu/java/net/protocol/http/event/ConnectionListener.java \
+	gnu/java/net/protocol/http/event/RequestEvent.java \
+	gnu/java/net/protocol/http/event/RequestListener.java \
 	gnu/java/net/protocol/jar/Connection.java \
 	gnu/java/net/protocol/jar/Handler.java \
 	gnu/java/nio/ChannelInputStream.java \
@@ -1287,11 +1313,25 @@ am__libgcj_la_SOURCES_DIST = prims.cc jni.cc exception.cc link.cc \
 	gnu/java/awt/EmbeddedWindow.java \
 	gnu/java/awt/EmbeddedWindowSupport.java \
 	gnu/java/awt/EventModifier.java \
+	gnu/java/awt/color/CieXyzConverter.java \
+	gnu/java/awt/color/ClutProfileConverter.java \
+	gnu/java/awt/color/ColorLookUpTable.java \
+	gnu/java/awt/color/ColorSpaceConverter.java \
+	gnu/java/awt/color/GrayProfileConverter.java \
+	gnu/java/awt/color/GrayScaleConverter.java \
+	gnu/java/awt/color/LinearRGBConverter.java \
+	gnu/java/awt/color/ProfileHeader.java \
+	gnu/java/awt/color/PyccConverter.java \
+	gnu/java/awt/color/RgbProfileConverter.java \
+	gnu/java/awt/color/SrgbConverter.java \
+	gnu/java/awt/color/TagEntry.java \
+	gnu/java/awt/color/ToneReproductionCurve.java \
 	gnu/java/awt/image/ImageDecoder.java \
 	gnu/java/awt/image/XBMDecoder.java \
 	gnu/java/awt/peer/EmbeddedWindowPeer.java \
 	gnu/java/awt/peer/GLightweightPeer.java \
 	gnu/java/awt/peer/ClasspathFontPeer.java \
+	gnu/java/awt/peer/ClasspathTextLayoutPeer.java \
 	gnu/java/beans/editors/ColorEditor.java \
 	gnu/java/beans/editors/FontEditor.java \
 	gnu/java/beans/editors/NativeBooleanEditor.java \
@@ -1426,13 +1466,17 @@ am__libgcj_la_SOURCES_DIST = prims.cc jni.cc exception.cc link.cc \
 	java/awt/geom/CubicCurve2D.java \
 	java/awt/geom/FlatteningPathIterator.java \
 	java/awt/geom/GeneralPath.java java/awt/geom/QuadCurve2D.java \
+	java/awt/image/BandCombineOp.java \
+	java/awt/image/BandedSampleModel.java \
 	java/awt/image/AffineTransformOp.java \
 	java/awt/image/BufferedImage.java \
+	java/awt/image/BufferedImageFilter.java \
 	java/awt/image/ByteLookupTable.java \
+	java/awt/image/ColorConvertOp.java \
 	java/awt/image/ColorModel.java \
 	java/awt/image/ComponentColorModel.java \
 	java/awt/image/ComponentSampleModel.java \
-	java/awt/image/DataBuffer.java \
+	java/awt/image/ConvolveOp.java java/awt/image/DataBuffer.java \
 	java/awt/image/DataBufferByte.java \
 	java/awt/image/DataBufferDouble.java \
 	java/awt/image/DataBufferFloat.java \
@@ -1444,11 +1488,12 @@ am__libgcj_la_SOURCES_DIST = prims.cc jni.cc exception.cc link.cc \
 	java/awt/image/ImageObserver.java \
 	java/awt/image/ImageProducer.java \
 	java/awt/image/IndexColorModel.java java/awt/image/Kernel.java \
-	java/awt/image/LookupTable.java \
+	java/awt/image/LookupOp.java java/awt/image/LookupTable.java \
+	java/awt/image/MultiPixelPackedSampleModel.java \
 	java/awt/image/PackedColorModel.java \
 	java/awt/image/PixelInterleavedSampleModel.java \
 	java/awt/image/Raster.java java/awt/image/RasterOp.java \
-	java/awt/image/SampleModel.java \
+	java/awt/image/RescaleOp.java java/awt/image/SampleModel.java \
 	java/awt/image/ShortLookupTable.java \
 	java/awt/image/SinglePixelPackedSampleModel.java \
 	java/awt/image/WritableRaster.java \
@@ -1652,6 +1697,7 @@ am__libgcj_la_SOURCES_DIST = prims.cc jni.cc exception.cc link.cc \
 	javax/swing/plaf/basic/BasicTableHeaderUI.java \
 	javax/swing/plaf/basic/BasicTextAreaUI.java \
 	javax/swing/plaf/basic/BasicTextFieldUI.java \
+	javax/swing/plaf/basic/BasicTextPaneUI.java \
 	javax/swing/plaf/basic/BasicTextUI.java \
 	javax/swing/plaf/basic/BasicToggleButtonUI.java \
 	javax/swing/plaf/basic/BasicToolBarSeparatorUI.java \
@@ -1751,6 +1797,7 @@ am__libgcj_la_SOURCES_DIST = prims.cc jni.cc exception.cc link.cc \
 	javax/swing/ListCellRenderer.java javax/swing/ListModel.java \
 	javax/swing/ListSelectionModel.java \
 	javax/swing/LookAndFeel.java javax/swing/Scrollable.java \
+	javax/swing/SpinnerListModel.java \
 	javax/swing/SpinnerModel.java \
 	javax/swing/SpinnerNumberModel.java javax/swing/Spring.java \
 	javax/swing/SpringLayout.java javax/swing/SwingConstants.java \
@@ -1822,6 +1869,7 @@ am__libgcj_la_SOURCES_DIST = prims.cc jni.cc exception.cc link.cc \
 	javax/swing/text/LayeredHighlighter.java \
 	javax/swing/text/MutableAttributeSet.java \
 	javax/swing/text/NavigationFilter.java \
+	javax/swing/text/PasswordView.java \
 	javax/swing/text/PlainDocument.java \
 	javax/swing/text/PlainView.java javax/swing/text/Position.java \
 	javax/swing/text/Segment.java \
@@ -2618,11 +2666,25 @@ am__objects_11 = gnu/awt/LightweightRedirector.lo \
 	gnu/java/awt/EmbeddedWindow.lo \
 	gnu/java/awt/EmbeddedWindowSupport.lo \
 	gnu/java/awt/EventModifier.lo \
+	gnu/java/awt/color/CieXyzConverter.lo \
+	gnu/java/awt/color/ClutProfileConverter.lo \
+	gnu/java/awt/color/ColorLookUpTable.lo \
+	gnu/java/awt/color/ColorSpaceConverter.lo \
+	gnu/java/awt/color/GrayProfileConverter.lo \
+	gnu/java/awt/color/GrayScaleConverter.lo \
+	gnu/java/awt/color/LinearRGBConverter.lo \
+	gnu/java/awt/color/ProfileHeader.lo \
+	gnu/java/awt/color/PyccConverter.lo \
+	gnu/java/awt/color/RgbProfileConverter.lo \
+	gnu/java/awt/color/SrgbConverter.lo \
+	gnu/java/awt/color/TagEntry.lo \
+	gnu/java/awt/color/ToneReproductionCurve.lo \
 	gnu/java/awt/image/ImageDecoder.lo \
 	gnu/java/awt/image/XBMDecoder.lo \
 	gnu/java/awt/peer/EmbeddedWindowPeer.lo \
 	gnu/java/awt/peer/GLightweightPeer.lo \
 	gnu/java/awt/peer/ClasspathFontPeer.lo \
+	gnu/java/awt/peer/ClasspathTextLayoutPeer.lo \
 	gnu/java/beans/editors/ColorEditor.lo \
 	gnu/java/beans/editors/FontEditor.lo \
 	gnu/java/beans/editors/NativeBooleanEditor.lo \
@@ -2742,12 +2804,17 @@ am__objects_11 = gnu/awt/LightweightRedirector.lo \
 	java/awt/geom/CubicCurve2D.lo \
 	java/awt/geom/FlatteningPathIterator.lo \
 	java/awt/geom/GeneralPath.lo java/awt/geom/QuadCurve2D.lo \
+	java/awt/image/BandCombineOp.lo \
+	java/awt/image/BandedSampleModel.lo \
 	java/awt/image/AffineTransformOp.lo \
 	java/awt/image/BufferedImage.lo \
-	java/awt/image/ByteLookupTable.lo java/awt/image/ColorModel.lo \
+	java/awt/image/BufferedImageFilter.lo \
+	java/awt/image/ByteLookupTable.lo \
+	java/awt/image/ColorConvertOp.lo java/awt/image/ColorModel.lo \
 	java/awt/image/ComponentColorModel.lo \
 	java/awt/image/ComponentSampleModel.lo \
-	java/awt/image/DataBuffer.lo java/awt/image/DataBufferByte.lo \
+	java/awt/image/ConvolveOp.lo java/awt/image/DataBuffer.lo \
+	java/awt/image/DataBufferByte.lo \
 	java/awt/image/DataBufferDouble.lo \
 	java/awt/image/DataBufferFloat.lo \
 	java/awt/image/DataBufferInt.lo \
@@ -2758,11 +2825,12 @@ am__objects_11 = gnu/awt/LightweightRedirector.lo \
 	java/awt/image/ImageObserver.lo \
 	java/awt/image/ImageProducer.lo \
 	java/awt/image/IndexColorModel.lo java/awt/image/Kernel.lo \
-	java/awt/image/LookupTable.lo \
+	java/awt/image/LookupOp.lo java/awt/image/LookupTable.lo \
+	java/awt/image/MultiPixelPackedSampleModel.lo \
 	java/awt/image/PackedColorModel.lo \
 	java/awt/image/PixelInterleavedSampleModel.lo \
 	java/awt/image/Raster.lo java/awt/image/RasterOp.lo \
-	java/awt/image/SampleModel.lo \
+	java/awt/image/RescaleOp.lo java/awt/image/SampleModel.lo \
 	java/awt/image/ShortLookupTable.lo \
 	java/awt/image/SinglePixelPackedSampleModel.lo \
 	java/awt/image/WritableRaster.lo \
@@ -2955,6 +3023,7 @@ am__objects_11 = gnu/awt/LightweightRedirector.lo \
 	javax/swing/plaf/basic/BasicTableHeaderUI.lo \
 	javax/swing/plaf/basic/BasicTextAreaUI.lo \
 	javax/swing/plaf/basic/BasicTextFieldUI.lo \
+	javax/swing/plaf/basic/BasicTextPaneUI.lo \
 	javax/swing/plaf/basic/BasicTextUI.lo \
 	javax/swing/plaf/basic/BasicToggleButtonUI.lo \
 	javax/swing/plaf/basic/BasicToolBarSeparatorUI.lo \
@@ -3043,12 +3112,13 @@ am__objects_11 = gnu/awt/LightweightRedirector.lo \
 	javax/swing/JWindow.lo javax/swing/KeyStroke.lo \
 	javax/swing/ListCellRenderer.lo javax/swing/ListModel.lo \
 	javax/swing/ListSelectionModel.lo javax/swing/LookAndFeel.lo \
-	javax/swing/Scrollable.lo javax/swing/SpinnerModel.lo \
-	javax/swing/SpinnerNumberModel.lo javax/swing/Spring.lo \
-	javax/swing/SpringLayout.lo javax/swing/SwingConstants.lo \
-	javax/swing/SwingUtilities.lo javax/swing/Timer.lo \
-	javax/swing/ToolTipManager.lo javax/swing/TransferHandler.lo \
-	javax/swing/UIDefaults.lo javax/swing/UIManager.lo \
+	javax/swing/Scrollable.lo javax/swing/SpinnerListModel.lo \
+	javax/swing/SpinnerModel.lo javax/swing/SpinnerNumberModel.lo \
+	javax/swing/Spring.lo javax/swing/SpringLayout.lo \
+	javax/swing/SwingConstants.lo javax/swing/SwingUtilities.lo \
+	javax/swing/Timer.lo javax/swing/ToolTipManager.lo \
+	javax/swing/TransferHandler.lo javax/swing/UIDefaults.lo \
+	javax/swing/UIManager.lo \
 	javax/swing/UnsupportedLookAndFeelException.lo \
 	javax/swing/event/AncestorEvent.lo \
 	javax/swing/event/AncestorListener.lo \
@@ -3109,6 +3179,7 @@ am__objects_11 = gnu/awt/LightweightRedirector.lo \
 	javax/swing/text/LayeredHighlighter.lo \
 	javax/swing/text/MutableAttributeSet.lo \
 	javax/swing/text/NavigationFilter.lo \
+	javax/swing/text/PasswordView.lo \
 	javax/swing/text/PlainDocument.lo \
 	javax/swing/text/PlainView.lo javax/swing/text/Position.lo \
 	javax/swing/text/Segment.lo \
@@ -3737,9 +3808,11 @@ am__objects_14 = $(am__objects_9) gnu/classpath/ServiceFactory.lo \
 	gnu/java/locale/LocaleInformation_zh_HK.lo \
 	gnu/java/locale/LocaleInformation_zh_SG.lo \
 	gnu/java/locale/LocaleInformation_zh_TW.lo \
-	gnu/java/math/MPN.lo \
+	gnu/java/math/MPN.lo gnu/java/net/BASE64.lo \
 	gnu/java/net/DefaultContentHandlerFactory.lo \
+	gnu/java/net/EmptyX509TrustManager.lo \
 	gnu/java/net/HeaderFieldHelper.lo \
+	gnu/java/net/LineInputStream.lo \
 	gnu/java/net/PlainDatagramSocketImpl.lo \
 	gnu/java/net/PlainSocketImpl.lo gnu/java/net/URLParseError.lo \
 	gnu/java/net/protocol/core/Connection.lo \
@@ -3749,8 +3822,28 @@ am__objects_14 = $(am__objects_9) gnu/classpath/ServiceFactory.lo \
 	gnu/java/net/protocol/file/Handler.lo \
 	gnu/java/net/protocol/gcjlib/Connection.lo \
 	gnu/java/net/protocol/gcjlib/Handler.lo \
-	gnu/java/net/protocol/http/Connection.lo \
+	gnu/java/net/protocol/http/Authenticator.lo \
+	gnu/java/net/protocol/http/ByteArrayRequestBodyWriter.lo \
+	gnu/java/net/protocol/http/ByteArrayResponseBodyReader.lo \
+	gnu/java/net/protocol/http/ChunkedInputStream.lo \
+	gnu/java/net/protocol/http/Cookie.lo \
+	gnu/java/net/protocol/http/CookieManager.lo \
+	gnu/java/net/protocol/http/Credentials.lo \
+	gnu/java/net/protocol/http/HTTPConnection.lo \
+	gnu/java/net/protocol/http/HTTPDateFormat.lo \
+	gnu/java/net/protocol/http/HTTPURLConnection.lo \
 	gnu/java/net/protocol/http/Handler.lo \
+	gnu/java/net/protocol/http/Headers.lo \
+	gnu/java/net/protocol/http/Request.lo \
+	gnu/java/net/protocol/http/RequestBodyWriter.lo \
+	gnu/java/net/protocol/http/Response.lo \
+	gnu/java/net/protocol/http/ResponseBodyReader.lo \
+	gnu/java/net/protocol/http/ResponseHeaderHandler.lo \
+	gnu/java/net/protocol/http/SimpleCookieManager.lo \
+	gnu/java/net/protocol/http/event/ConnectionEvent.lo \
+	gnu/java/net/protocol/http/event/ConnectionListener.lo \
+	gnu/java/net/protocol/http/event/RequestEvent.lo \
+	gnu/java/net/protocol/http/event/RequestListener.lo \
 	gnu/java/net/protocol/jar/Connection.lo \
 	gnu/java/net/protocol/jar/Handler.lo \
 	gnu/java/nio/ChannelInputStream.lo \
@@ -4429,6 +4522,9 @@ build_vendor = @build_vendor@
 datadir = @datadir@
 exec_prefix = @exec_prefix@
 gcc_version = @gcc_version@
+gcc_version_full = @gcc_version_full@
+gcc_version_trigger = @gcc_version_trigger@
+gxx_include_dir = @gxx_include_dir@
 here = @here@
 host = @host@
 host_alias = @host_alias@
@@ -4441,6 +4537,7 @@ install_sh = @install_sh@
 libdir = @libdir@
 libexecdir = @libexecdir@
 libgcj_basedir = @libgcj_basedir@
+libstdcxx_incdir = @libstdcxx_incdir@
 localstatedir = @localstatedir@
 mandir = @mandir@
 mkdir_p = @mkdir_p@
@@ -4550,8 +4647,10 @@ AM_CPPFLAGS = -I$(top_srcdir) -Iinclude -I$(top_srcdir)/include \
 	$(GCC_UNWIND_INCLUDE) $(ZINCS) $(LIBFFIINCS)
 
 libgij_la_SOURCES = gij.cc
-libgij_la_LIBADD = libgcj.la
 libgij_la_DEPENDENCIES = libgcj.la libgcj.spec
+libgij_la_LIBADD = -L$(here)/.libs libgcj.la
+libgij_la_LDFLAGS = -rpath $(toolexeclibdir) \
+        -version-info `grep -v '^\#' $(srcdir)/libtool-version` $(LIBGCJ_LD_SYMBOLIC)
 libgcj_la_SOURCES = prims.cc jni.cc exception.cc \
 	link.cc defineclass.cc interpret.cc verify.cc \
 	$(nat_source_files) $(math_c_source_files) $(java_source_files) \
@@ -4581,15 +4680,16 @@ libgcj_la_LINK = $(LIBLINK)
 
 # Gtk/Cairo JNI sources.
 @GTK_CAIRO_TRUE@gtk_cairo_c_source_files = \
-@GTK_CAIRO_TRUE@jni/gtk-peer/gnu_java_awt_peer_gtk_GdkClasspathFontPeer.c \
-@GTK_CAIRO_TRUE@jni/gtk-peer/gnu_java_awt_peer_gtk_GdkClasspathFontPeerMetrics.c \
-@GTK_CAIRO_TRUE@jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGlyphVector.c \
 @GTK_CAIRO_TRUE@jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGraphics2D.c
 
 gtk_c_source_files = \
 $(gtk_cairo_c_source_files) \
+jni/gtk-peer/gnu_java_awt_peer_gtk_GdkTextLayout.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GdkFontMetrics.c \
+jni/gtk-peer/gnu_java_awt_peer_gtk_GdkFontPeer.c \
+jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGlyphVector.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGraphics.c \
+jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGraphicsEnvironment.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GdkPixbufDecoder.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkButtonPeer.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkCanvasPeer.c \
@@ -4602,6 +4702,7 @@ jni/gtk-peer/gnu_java_awt_peer_gtk_GtkComponentPeer.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkEmbeddedWindowPeer.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkEvents.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkFileDialogPeer.c \
+jni/gtk-peer/gnu_java_awt_peer_gtk_GtkFramePeer.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkGenericPeer.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkImagePainter.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkLabelPeer.c \
@@ -4628,9 +4729,9 @@ jni/classpath/native_state.c \
 jni/classpath/primlib.c
 
 gtk_awt_peer_sources = \
-gnu/java/awt/peer/gtk/GdkClasspathFontPeer.java \
-gnu/java/awt/peer/gtk/GdkClasspathFontPeerMetrics.java \
+gnu/java/awt/peer/gtk/GdkTextLayout.java \
 gnu/java/awt/peer/gtk/GdkFontMetrics.java \
+gnu/java/awt/peer/gtk/GdkFontPeer.java \
 gnu/java/awt/peer/gtk/GdkGlyphVector.java \
 gnu/java/awt/peer/gtk/GdkGraphics.java \
 gnu/java/awt/peer/gtk/GdkGraphics2D.java \
@@ -4648,7 +4749,6 @@ gnu/java/awt/peer/gtk/GtkContainerPeer.java \
 gnu/java/awt/peer/gtk/GtkDialogPeer.java \
 gnu/java/awt/peer/gtk/GtkEmbeddedWindowPeer.java \
 gnu/java/awt/peer/gtk/GtkFileDialogPeer.java \
-gnu/java/awt/peer/gtk/GtkFontPeer.java \
 gnu/java/awt/peer/gtk/GtkFramePeer.java	\
 gnu/java/awt/peer/gtk/GtkGenericPeer.java \
 gnu/java/awt/peer/gtk/GtkImage.java \
@@ -4923,11 +5023,25 @@ gnu/java/awt/ClasspathToolkit.java \
 gnu/java/awt/EmbeddedWindow.java \
 gnu/java/awt/EmbeddedWindowSupport.java \
 gnu/java/awt/EventModifier.java \
+gnu/java/awt/color/CieXyzConverter.java \
+gnu/java/awt/color/ClutProfileConverter.java \
+gnu/java/awt/color/ColorLookUpTable.java \
+gnu/java/awt/color/ColorSpaceConverter.java \
+gnu/java/awt/color/GrayProfileConverter.java \
+gnu/java/awt/color/GrayScaleConverter.java \
+gnu/java/awt/color/LinearRGBConverter.java \
+gnu/java/awt/color/ProfileHeader.java \
+gnu/java/awt/color/PyccConverter.java \
+gnu/java/awt/color/RgbProfileConverter.java \
+gnu/java/awt/color/SrgbConverter.java \
+gnu/java/awt/color/TagEntry.java \
+gnu/java/awt/color/ToneReproductionCurve.java \
 gnu/java/awt/image/ImageDecoder.java \
 gnu/java/awt/image/XBMDecoder.java \
 gnu/java/awt/peer/EmbeddedWindowPeer.java \
 gnu/java/awt/peer/GLightweightPeer.java \
 gnu/java/awt/peer/ClasspathFontPeer.java \
+gnu/java/awt/peer/ClasspathTextLayoutPeer.java \
 gnu/java/beans/editors/ColorEditor.java	\
 gnu/java/beans/editors/FontEditor.java \
 gnu/java/beans/editors/NativeBooleanEditor.java	\
@@ -5107,12 +5221,17 @@ java/awt/geom/CubicCurve2D.java \
 java/awt/geom/FlatteningPathIterator.java \
 java/awt/geom/GeneralPath.java \
 java/awt/geom/QuadCurve2D.java \
+java/awt/image/BandCombineOp.java \
+java/awt/image/BandedSampleModel.java \
 java/awt/image/AffineTransformOp.java \
 java/awt/image/BufferedImage.java \
+java/awt/image/BufferedImageFilter.java \
 java/awt/image/ByteLookupTable.java \
+java/awt/image/ColorConvertOp.java \
 java/awt/image/ColorModel.java \
 java/awt/image/ComponentColorModel.java \
 java/awt/image/ComponentSampleModel.java \
+java/awt/image/ConvolveOp.java \
 java/awt/image/DataBuffer.java \
 java/awt/image/DataBufferByte.java \
 java/awt/image/DataBufferDouble.java \
@@ -5126,11 +5245,14 @@ java/awt/image/ImageObserver.java \
 java/awt/image/ImageProducer.java \
 java/awt/image/IndexColorModel.java \
 java/awt/image/Kernel.java \
+java/awt/image/LookupOp.java \
 java/awt/image/LookupTable.java \
+java/awt/image/MultiPixelPackedSampleModel.java \
 java/awt/image/PackedColorModel.java \
 java/awt/image/PixelInterleavedSampleModel.java \
 java/awt/image/Raster.java \
 java/awt/image/RasterOp.java \
+java/awt/image/RescaleOp.java \
 java/awt/image/SampleModel.java \
 java/awt/image/ShortLookupTable.java \
 java/awt/image/SinglePixelPackedSampleModel.java \
@@ -5368,6 +5490,7 @@ javax/swing/plaf/basic/BasicTableUI.java \
 javax/swing/plaf/basic/BasicTableHeaderUI.java \
 javax/swing/plaf/basic/BasicTextAreaUI.java \
 javax/swing/plaf/basic/BasicTextFieldUI.java \
+javax/swing/plaf/basic/BasicTextPaneUI.java \
 javax/swing/plaf/basic/BasicTextUI.java \
 javax/swing/plaf/basic/BasicToggleButtonUI.java \
 javax/swing/plaf/basic/BasicToolBarSeparatorUI.java \
@@ -5491,6 +5614,7 @@ javax/swing/ListModel.java \
 javax/swing/ListSelectionModel.java \
 javax/swing/LookAndFeel.java \
 javax/swing/Scrollable.java \
+javax/swing/SpinnerListModel.java \
 javax/swing/SpinnerModel.java \
 javax/swing/SpinnerNumberModel.java \
 javax/swing/Spring.java \
@@ -5567,6 +5691,7 @@ javax/swing/text/Keymap.java \
 javax/swing/text/LayeredHighlighter.java \
 javax/swing/text/MutableAttributeSet.java \
 javax/swing/text/NavigationFilter.java \
+javax/swing/text/PasswordView.java \
 javax/swing/text/PlainDocument.java \
 javax/swing/text/PlainView.java \
 javax/swing/text/Position.java \
@@ -6608,8 +6733,11 @@ gnu/java/locale/LocaleInformation_zh_HK.java \
 gnu/java/locale/LocaleInformation_zh_SG.java \
 gnu/java/locale/LocaleInformation_zh_TW.java \
 gnu/java/math/MPN.java \
+gnu/java/net/BASE64.java \
 gnu/java/net/DefaultContentHandlerFactory.java \
+gnu/java/net/EmptyX509TrustManager.java \
 gnu/java/net/HeaderFieldHelper.java \
+gnu/java/net/LineInputStream.java \
 gnu/java/net/PlainDatagramSocketImpl.java \
 gnu/java/net/PlainSocketImpl.java \
 gnu/java/net/URLParseError.java \
@@ -6620,8 +6748,28 @@ gnu/java/net/protocol/file/Connection.java \
 gnu/java/net/protocol/file/Handler.java \
 gnu/java/net/protocol/gcjlib/Connection.java \
 gnu/java/net/protocol/gcjlib/Handler.java \
-gnu/java/net/protocol/http/Connection.java \
+gnu/java/net/protocol/http/Authenticator.java \
+gnu/java/net/protocol/http/ByteArrayRequestBodyWriter.java \
+gnu/java/net/protocol/http/ByteArrayResponseBodyReader.java \
+gnu/java/net/protocol/http/ChunkedInputStream.java \
+gnu/java/net/protocol/http/Cookie.java \
+gnu/java/net/protocol/http/CookieManager.java \
+gnu/java/net/protocol/http/Credentials.java \
+gnu/java/net/protocol/http/HTTPConnection.java \
+gnu/java/net/protocol/http/HTTPDateFormat.java \
+gnu/java/net/protocol/http/HTTPURLConnection.java \
 gnu/java/net/protocol/http/Handler.java \
+gnu/java/net/protocol/http/Headers.java \
+gnu/java/net/protocol/http/Request.java \
+gnu/java/net/protocol/http/RequestBodyWriter.java \
+gnu/java/net/protocol/http/Response.java \
+gnu/java/net/protocol/http/ResponseBodyReader.java \
+gnu/java/net/protocol/http/ResponseHeaderHandler.java \
+gnu/java/net/protocol/http/SimpleCookieManager.java \
+gnu/java/net/protocol/http/event/ConnectionEvent.java \
+gnu/java/net/protocol/http/event/ConnectionListener.java \
+gnu/java/net/protocol/http/event/RequestEvent.java \
+gnu/java/net/protocol/http/event/RequestListener.java \
 gnu/java/net/protocol/jar/Connection.java \
 gnu/java/net/protocol/jar/Handler.java \
 gnu/java/nio/ChannelInputStream.java \
@@ -7295,6 +7443,7 @@ AM_MAKEFLAGS = \
 	"infodir=$(infodir)" \
 	"libdir=$(libdir)" \
 	"prefix=$(prefix)" \
+	"gxx_include_dir=$(gxx_include_dir)" \
 	"AR=$(AR)" \
 	"AS=$(AS)" \
 	"LD=$(LD)" \
@@ -7535,13 +7684,13 @@ gnu/java/awt/peer/gtk/$(am__dirstamp):
 gnu/java/awt/peer/gtk/$(DEPDIR)/$(am__dirstamp):
 	@$(mkdir_p) gnu/java/awt/peer/gtk/$(DEPDIR)
 	@: > gnu/java/awt/peer/gtk/$(DEPDIR)/$(am__dirstamp)
-gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GdkClasspathFontPeer.lo:  \
-	gnu/java/awt/peer/gtk/$(am__dirstamp) \
-	gnu/java/awt/peer/gtk/$(DEPDIR)/$(am__dirstamp)
-gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GdkClasspathFontPeerMetrics.lo:  \
+gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GdkTextLayout.lo:  \
 	gnu/java/awt/peer/gtk/$(am__dirstamp) \
 	gnu/java/awt/peer/gtk/$(DEPDIR)/$(am__dirstamp)
 gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GdkFontMetrics.lo:  \
+	gnu/java/awt/peer/gtk/$(am__dirstamp) \
+	gnu/java/awt/peer/gtk/$(DEPDIR)/$(am__dirstamp)
+gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GdkFontPeer.lo:  \
 	gnu/java/awt/peer/gtk/$(am__dirstamp) \
 	gnu/java/awt/peer/gtk/$(DEPDIR)/$(am__dirstamp)
 gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GdkGlyphVector.lo:  \
@@ -7593,9 +7742,6 @@ gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GtkEmbeddedWindowPeer.lo:  \
 	gnu/java/awt/peer/gtk/$(am__dirstamp) \
 	gnu/java/awt/peer/gtk/$(DEPDIR)/$(am__dirstamp)
 gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GtkFileDialogPeer.lo:  \
-	gnu/java/awt/peer/gtk/$(am__dirstamp) \
-	gnu/java/awt/peer/gtk/$(DEPDIR)/$(am__dirstamp)
-gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GtkFontPeer.lo:  \
 	gnu/java/awt/peer/gtk/$(am__dirstamp) \
 	gnu/java/awt/peer/gtk/$(DEPDIR)/$(am__dirstamp)
 gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GtkFramePeer.lo:  \
@@ -7673,22 +7819,25 @@ jni/gtk-peer/$(am__dirstamp):
 jni/gtk-peer/$(DEPDIR)/$(am__dirstamp):
 	@$(mkdir_p) jni/gtk-peer/$(DEPDIR)
 	@: > jni/gtk-peer/$(DEPDIR)/$(am__dirstamp)
-jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkClasspathFontPeer.lo:  \
-	jni/gtk-peer/$(am__dirstamp) \
-	jni/gtk-peer/$(DEPDIR)/$(am__dirstamp)
-jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkClasspathFontPeerMetrics.lo:  \
-	jni/gtk-peer/$(am__dirstamp) \
-	jni/gtk-peer/$(DEPDIR)/$(am__dirstamp)
-jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkGlyphVector.lo:  \
-	jni/gtk-peer/$(am__dirstamp) \
-	jni/gtk-peer/$(DEPDIR)/$(am__dirstamp)
 jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkGraphics2D.lo:  \
+	jni/gtk-peer/$(am__dirstamp) \
+	jni/gtk-peer/$(DEPDIR)/$(am__dirstamp)
+jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkTextLayout.lo:  \
 	jni/gtk-peer/$(am__dirstamp) \
 	jni/gtk-peer/$(DEPDIR)/$(am__dirstamp)
 jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkFontMetrics.lo:  \
 	jni/gtk-peer/$(am__dirstamp) \
 	jni/gtk-peer/$(DEPDIR)/$(am__dirstamp)
+jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkFontPeer.lo:  \
+	jni/gtk-peer/$(am__dirstamp) \
+	jni/gtk-peer/$(DEPDIR)/$(am__dirstamp)
+jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkGlyphVector.lo:  \
+	jni/gtk-peer/$(am__dirstamp) \
+	jni/gtk-peer/$(DEPDIR)/$(am__dirstamp)
 jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkGraphics.lo:  \
+	jni/gtk-peer/$(am__dirstamp) \
+	jni/gtk-peer/$(DEPDIR)/$(am__dirstamp)
+jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkGraphicsEnvironment.lo:  \
 	jni/gtk-peer/$(am__dirstamp) \
 	jni/gtk-peer/$(DEPDIR)/$(am__dirstamp)
 jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkPixbufDecoder.lo:  \
@@ -7725,6 +7874,9 @@ jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GtkEvents.lo:  \
 	jni/gtk-peer/$(am__dirstamp) \
 	jni/gtk-peer/$(DEPDIR)/$(am__dirstamp)
 jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GtkFileDialogPeer.lo:  \
+	jni/gtk-peer/$(am__dirstamp) \
+	jni/gtk-peer/$(DEPDIR)/$(am__dirstamp)
+jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GtkFramePeer.lo:  \
 	jni/gtk-peer/$(am__dirstamp) \
 	jni/gtk-peer/$(DEPDIR)/$(am__dirstamp)
 jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GtkGenericPeer.lo:  \
@@ -9352,10 +9504,16 @@ gnu/java/math/$(DEPDIR)/$(am__dirstamp):
 	@: > gnu/java/math/$(DEPDIR)/$(am__dirstamp)
 gnu/java/math/MPN.lo: gnu/java/math/$(am__dirstamp) \
 	gnu/java/math/$(DEPDIR)/$(am__dirstamp)
+gnu/java/net/BASE64.lo: gnu/java/net/$(am__dirstamp) \
+	gnu/java/net/$(DEPDIR)/$(am__dirstamp)
 gnu/java/net/DefaultContentHandlerFactory.lo:  \
 	gnu/java/net/$(am__dirstamp) \
 	gnu/java/net/$(DEPDIR)/$(am__dirstamp)
+gnu/java/net/EmptyX509TrustManager.lo: gnu/java/net/$(am__dirstamp) \
+	gnu/java/net/$(DEPDIR)/$(am__dirstamp)
 gnu/java/net/HeaderFieldHelper.lo: gnu/java/net/$(am__dirstamp) \
+	gnu/java/net/$(DEPDIR)/$(am__dirstamp)
+gnu/java/net/LineInputStream.lo: gnu/java/net/$(am__dirstamp) \
 	gnu/java/net/$(DEPDIR)/$(am__dirstamp)
 gnu/java/net/PlainDatagramSocketImpl.lo: gnu/java/net/$(am__dirstamp) \
 	gnu/java/net/$(DEPDIR)/$(am__dirstamp)
@@ -9402,12 +9560,78 @@ gnu/java/net/protocol/http/$(am__dirstamp):
 gnu/java/net/protocol/http/$(DEPDIR)/$(am__dirstamp):
 	@$(mkdir_p) gnu/java/net/protocol/http/$(DEPDIR)
 	@: > gnu/java/net/protocol/http/$(DEPDIR)/$(am__dirstamp)
-gnu/java/net/protocol/http/Connection.lo:  \
+gnu/java/net/protocol/http/Authenticator.lo:  \
+	gnu/java/net/protocol/http/$(am__dirstamp) \
+	gnu/java/net/protocol/http/$(DEPDIR)/$(am__dirstamp)
+gnu/java/net/protocol/http/ByteArrayRequestBodyWriter.lo:  \
+	gnu/java/net/protocol/http/$(am__dirstamp) \
+	gnu/java/net/protocol/http/$(DEPDIR)/$(am__dirstamp)
+gnu/java/net/protocol/http/ByteArrayResponseBodyReader.lo:  \
+	gnu/java/net/protocol/http/$(am__dirstamp) \
+	gnu/java/net/protocol/http/$(DEPDIR)/$(am__dirstamp)
+gnu/java/net/protocol/http/ChunkedInputStream.lo:  \
+	gnu/java/net/protocol/http/$(am__dirstamp) \
+	gnu/java/net/protocol/http/$(DEPDIR)/$(am__dirstamp)
+gnu/java/net/protocol/http/Cookie.lo:  \
+	gnu/java/net/protocol/http/$(am__dirstamp) \
+	gnu/java/net/protocol/http/$(DEPDIR)/$(am__dirstamp)
+gnu/java/net/protocol/http/CookieManager.lo:  \
+	gnu/java/net/protocol/http/$(am__dirstamp) \
+	gnu/java/net/protocol/http/$(DEPDIR)/$(am__dirstamp)
+gnu/java/net/protocol/http/Credentials.lo:  \
+	gnu/java/net/protocol/http/$(am__dirstamp) \
+	gnu/java/net/protocol/http/$(DEPDIR)/$(am__dirstamp)
+gnu/java/net/protocol/http/HTTPConnection.lo:  \
+	gnu/java/net/protocol/http/$(am__dirstamp) \
+	gnu/java/net/protocol/http/$(DEPDIR)/$(am__dirstamp)
+gnu/java/net/protocol/http/HTTPDateFormat.lo:  \
+	gnu/java/net/protocol/http/$(am__dirstamp) \
+	gnu/java/net/protocol/http/$(DEPDIR)/$(am__dirstamp)
+gnu/java/net/protocol/http/HTTPURLConnection.lo:  \
 	gnu/java/net/protocol/http/$(am__dirstamp) \
 	gnu/java/net/protocol/http/$(DEPDIR)/$(am__dirstamp)
 gnu/java/net/protocol/http/Handler.lo:  \
 	gnu/java/net/protocol/http/$(am__dirstamp) \
 	gnu/java/net/protocol/http/$(DEPDIR)/$(am__dirstamp)
+gnu/java/net/protocol/http/Headers.lo:  \
+	gnu/java/net/protocol/http/$(am__dirstamp) \
+	gnu/java/net/protocol/http/$(DEPDIR)/$(am__dirstamp)
+gnu/java/net/protocol/http/Request.lo:  \
+	gnu/java/net/protocol/http/$(am__dirstamp) \
+	gnu/java/net/protocol/http/$(DEPDIR)/$(am__dirstamp)
+gnu/java/net/protocol/http/RequestBodyWriter.lo:  \
+	gnu/java/net/protocol/http/$(am__dirstamp) \
+	gnu/java/net/protocol/http/$(DEPDIR)/$(am__dirstamp)
+gnu/java/net/protocol/http/Response.lo:  \
+	gnu/java/net/protocol/http/$(am__dirstamp) \
+	gnu/java/net/protocol/http/$(DEPDIR)/$(am__dirstamp)
+gnu/java/net/protocol/http/ResponseBodyReader.lo:  \
+	gnu/java/net/protocol/http/$(am__dirstamp) \
+	gnu/java/net/protocol/http/$(DEPDIR)/$(am__dirstamp)
+gnu/java/net/protocol/http/ResponseHeaderHandler.lo:  \
+	gnu/java/net/protocol/http/$(am__dirstamp) \
+	gnu/java/net/protocol/http/$(DEPDIR)/$(am__dirstamp)
+gnu/java/net/protocol/http/SimpleCookieManager.lo:  \
+	gnu/java/net/protocol/http/$(am__dirstamp) \
+	gnu/java/net/protocol/http/$(DEPDIR)/$(am__dirstamp)
+gnu/java/net/protocol/http/event/$(am__dirstamp):
+	@$(mkdir_p) gnu/java/net/protocol/http/event
+	@: > gnu/java/net/protocol/http/event/$(am__dirstamp)
+gnu/java/net/protocol/http/event/$(DEPDIR)/$(am__dirstamp):
+	@$(mkdir_p) gnu/java/net/protocol/http/event/$(DEPDIR)
+	@: > gnu/java/net/protocol/http/event/$(DEPDIR)/$(am__dirstamp)
+gnu/java/net/protocol/http/event/ConnectionEvent.lo:  \
+	gnu/java/net/protocol/http/event/$(am__dirstamp) \
+	gnu/java/net/protocol/http/event/$(DEPDIR)/$(am__dirstamp)
+gnu/java/net/protocol/http/event/ConnectionListener.lo:  \
+	gnu/java/net/protocol/http/event/$(am__dirstamp) \
+	gnu/java/net/protocol/http/event/$(DEPDIR)/$(am__dirstamp)
+gnu/java/net/protocol/http/event/RequestEvent.lo:  \
+	gnu/java/net/protocol/http/event/$(am__dirstamp) \
+	gnu/java/net/protocol/http/event/$(DEPDIR)/$(am__dirstamp)
+gnu/java/net/protocol/http/event/RequestListener.lo:  \
+	gnu/java/net/protocol/http/event/$(am__dirstamp) \
+	gnu/java/net/protocol/http/event/$(DEPDIR)/$(am__dirstamp)
 gnu/java/net/protocol/jar/$(am__dirstamp):
 	@$(mkdir_p) gnu/java/net/protocol/jar
 	@: > gnu/java/net/protocol/jar/$(am__dirstamp)
@@ -11101,6 +11325,50 @@ gnu/java/awt/EmbeddedWindowSupport.lo: gnu/java/awt/$(am__dirstamp) \
 	gnu/java/awt/$(DEPDIR)/$(am__dirstamp)
 gnu/java/awt/EventModifier.lo: gnu/java/awt/$(am__dirstamp) \
 	gnu/java/awt/$(DEPDIR)/$(am__dirstamp)
+gnu/java/awt/color/$(am__dirstamp):
+	@$(mkdir_p) gnu/java/awt/color
+	@: > gnu/java/awt/color/$(am__dirstamp)
+gnu/java/awt/color/$(DEPDIR)/$(am__dirstamp):
+	@$(mkdir_p) gnu/java/awt/color/$(DEPDIR)
+	@: > gnu/java/awt/color/$(DEPDIR)/$(am__dirstamp)
+gnu/java/awt/color/CieXyzConverter.lo:  \
+	gnu/java/awt/color/$(am__dirstamp) \
+	gnu/java/awt/color/$(DEPDIR)/$(am__dirstamp)
+gnu/java/awt/color/ClutProfileConverter.lo:  \
+	gnu/java/awt/color/$(am__dirstamp) \
+	gnu/java/awt/color/$(DEPDIR)/$(am__dirstamp)
+gnu/java/awt/color/ColorLookUpTable.lo:  \
+	gnu/java/awt/color/$(am__dirstamp) \
+	gnu/java/awt/color/$(DEPDIR)/$(am__dirstamp)
+gnu/java/awt/color/ColorSpaceConverter.lo:  \
+	gnu/java/awt/color/$(am__dirstamp) \
+	gnu/java/awt/color/$(DEPDIR)/$(am__dirstamp)
+gnu/java/awt/color/GrayProfileConverter.lo:  \
+	gnu/java/awt/color/$(am__dirstamp) \
+	gnu/java/awt/color/$(DEPDIR)/$(am__dirstamp)
+gnu/java/awt/color/GrayScaleConverter.lo:  \
+	gnu/java/awt/color/$(am__dirstamp) \
+	gnu/java/awt/color/$(DEPDIR)/$(am__dirstamp)
+gnu/java/awt/color/LinearRGBConverter.lo:  \
+	gnu/java/awt/color/$(am__dirstamp) \
+	gnu/java/awt/color/$(DEPDIR)/$(am__dirstamp)
+gnu/java/awt/color/ProfileHeader.lo:  \
+	gnu/java/awt/color/$(am__dirstamp) \
+	gnu/java/awt/color/$(DEPDIR)/$(am__dirstamp)
+gnu/java/awt/color/PyccConverter.lo:  \
+	gnu/java/awt/color/$(am__dirstamp) \
+	gnu/java/awt/color/$(DEPDIR)/$(am__dirstamp)
+gnu/java/awt/color/RgbProfileConverter.lo:  \
+	gnu/java/awt/color/$(am__dirstamp) \
+	gnu/java/awt/color/$(DEPDIR)/$(am__dirstamp)
+gnu/java/awt/color/SrgbConverter.lo:  \
+	gnu/java/awt/color/$(am__dirstamp) \
+	gnu/java/awt/color/$(DEPDIR)/$(am__dirstamp)
+gnu/java/awt/color/TagEntry.lo: gnu/java/awt/color/$(am__dirstamp) \
+	gnu/java/awt/color/$(DEPDIR)/$(am__dirstamp)
+gnu/java/awt/color/ToneReproductionCurve.lo:  \
+	gnu/java/awt/color/$(am__dirstamp) \
+	gnu/java/awt/color/$(DEPDIR)/$(am__dirstamp)
 gnu/java/awt/image/$(am__dirstamp):
 	@$(mkdir_p) gnu/java/awt/image
 	@: > gnu/java/awt/image/$(am__dirstamp)
@@ -11125,6 +11393,9 @@ gnu/java/awt/peer/GLightweightPeer.lo:  \
 	gnu/java/awt/peer/$(am__dirstamp) \
 	gnu/java/awt/peer/$(DEPDIR)/$(am__dirstamp)
 gnu/java/awt/peer/ClasspathFontPeer.lo:  \
+	gnu/java/awt/peer/$(am__dirstamp) \
+	gnu/java/awt/peer/$(DEPDIR)/$(am__dirstamp)
+gnu/java/awt/peer/ClasspathTextLayoutPeer.lo:  \
 	gnu/java/awt/peer/$(am__dirstamp) \
 	gnu/java/awt/peer/$(DEPDIR)/$(am__dirstamp)
 gnu/java/beans/editors/$(am__dirstamp):
@@ -11581,11 +11852,19 @@ java/awt/image/$(am__dirstamp):
 java/awt/image/$(DEPDIR)/$(am__dirstamp):
 	@$(mkdir_p) java/awt/image/$(DEPDIR)
 	@: > java/awt/image/$(DEPDIR)/$(am__dirstamp)
+java/awt/image/BandCombineOp.lo: java/awt/image/$(am__dirstamp) \
+	java/awt/image/$(DEPDIR)/$(am__dirstamp)
+java/awt/image/BandedSampleModel.lo: java/awt/image/$(am__dirstamp) \
+	java/awt/image/$(DEPDIR)/$(am__dirstamp)
 java/awt/image/AffineTransformOp.lo: java/awt/image/$(am__dirstamp) \
 	java/awt/image/$(DEPDIR)/$(am__dirstamp)
 java/awt/image/BufferedImage.lo: java/awt/image/$(am__dirstamp) \
 	java/awt/image/$(DEPDIR)/$(am__dirstamp)
+java/awt/image/BufferedImageFilter.lo: java/awt/image/$(am__dirstamp) \
+	java/awt/image/$(DEPDIR)/$(am__dirstamp)
 java/awt/image/ByteLookupTable.lo: java/awt/image/$(am__dirstamp) \
+	java/awt/image/$(DEPDIR)/$(am__dirstamp)
+java/awt/image/ColorConvertOp.lo: java/awt/image/$(am__dirstamp) \
 	java/awt/image/$(DEPDIR)/$(am__dirstamp)
 java/awt/image/ColorModel.lo: java/awt/image/$(am__dirstamp) \
 	java/awt/image/$(DEPDIR)/$(am__dirstamp)
@@ -11593,6 +11872,8 @@ java/awt/image/ComponentColorModel.lo: java/awt/image/$(am__dirstamp) \
 	java/awt/image/$(DEPDIR)/$(am__dirstamp)
 java/awt/image/ComponentSampleModel.lo:  \
 	java/awt/image/$(am__dirstamp) \
+	java/awt/image/$(DEPDIR)/$(am__dirstamp)
+java/awt/image/ConvolveOp.lo: java/awt/image/$(am__dirstamp) \
 	java/awt/image/$(DEPDIR)/$(am__dirstamp)
 java/awt/image/DataBuffer.lo: java/awt/image/$(am__dirstamp) \
 	java/awt/image/$(DEPDIR)/$(am__dirstamp)
@@ -11620,7 +11901,12 @@ java/awt/image/IndexColorModel.lo: java/awt/image/$(am__dirstamp) \
 	java/awt/image/$(DEPDIR)/$(am__dirstamp)
 java/awt/image/Kernel.lo: java/awt/image/$(am__dirstamp) \
 	java/awt/image/$(DEPDIR)/$(am__dirstamp)
+java/awt/image/LookupOp.lo: java/awt/image/$(am__dirstamp) \
+	java/awt/image/$(DEPDIR)/$(am__dirstamp)
 java/awt/image/LookupTable.lo: java/awt/image/$(am__dirstamp) \
+	java/awt/image/$(DEPDIR)/$(am__dirstamp)
+java/awt/image/MultiPixelPackedSampleModel.lo:  \
+	java/awt/image/$(am__dirstamp) \
 	java/awt/image/$(DEPDIR)/$(am__dirstamp)
 java/awt/image/PackedColorModel.lo: java/awt/image/$(am__dirstamp) \
 	java/awt/image/$(DEPDIR)/$(am__dirstamp)
@@ -11630,6 +11916,8 @@ java/awt/image/PixelInterleavedSampleModel.lo:  \
 java/awt/image/Raster.lo: java/awt/image/$(am__dirstamp) \
 	java/awt/image/$(DEPDIR)/$(am__dirstamp)
 java/awt/image/RasterOp.lo: java/awt/image/$(am__dirstamp) \
+	java/awt/image/$(DEPDIR)/$(am__dirstamp)
+java/awt/image/RescaleOp.lo: java/awt/image/$(am__dirstamp) \
 	java/awt/image/$(DEPDIR)/$(am__dirstamp)
 java/awt/image/SampleModel.lo: java/awt/image/$(am__dirstamp) \
 	java/awt/image/$(DEPDIR)/$(am__dirstamp)
@@ -12263,6 +12551,9 @@ javax/swing/plaf/basic/BasicTextAreaUI.lo:  \
 javax/swing/plaf/basic/BasicTextFieldUI.lo:  \
 	javax/swing/plaf/basic/$(am__dirstamp) \
 	javax/swing/plaf/basic/$(DEPDIR)/$(am__dirstamp)
+javax/swing/plaf/basic/BasicTextPaneUI.lo:  \
+	javax/swing/plaf/basic/$(am__dirstamp) \
+	javax/swing/plaf/basic/$(DEPDIR)/$(am__dirstamp)
 javax/swing/plaf/basic/BasicTextUI.lo:  \
 	javax/swing/plaf/basic/$(am__dirstamp) \
 	javax/swing/plaf/basic/$(DEPDIR)/$(am__dirstamp)
@@ -12575,6 +12866,8 @@ javax/swing/LookAndFeel.lo: javax/swing/$(am__dirstamp) \
 	javax/swing/$(DEPDIR)/$(am__dirstamp)
 javax/swing/Scrollable.lo: javax/swing/$(am__dirstamp) \
 	javax/swing/$(DEPDIR)/$(am__dirstamp)
+javax/swing/SpinnerListModel.lo: javax/swing/$(am__dirstamp) \
+	javax/swing/$(DEPDIR)/$(am__dirstamp)
 javax/swing/SpinnerModel.lo: javax/swing/$(am__dirstamp) \
 	javax/swing/$(DEPDIR)/$(am__dirstamp)
 javax/swing/SpinnerNumberModel.lo: javax/swing/$(am__dirstamp) \
@@ -12780,6 +13073,8 @@ javax/swing/text/MutableAttributeSet.lo:  \
 	javax/swing/text/$(DEPDIR)/$(am__dirstamp)
 javax/swing/text/NavigationFilter.lo:  \
 	javax/swing/text/$(am__dirstamp) \
+	javax/swing/text/$(DEPDIR)/$(am__dirstamp)
+javax/swing/text/PasswordView.lo: javax/swing/text/$(am__dirstamp) \
 	javax/swing/text/$(DEPDIR)/$(am__dirstamp)
 javax/swing/text/PlainDocument.lo: javax/swing/text/$(am__dirstamp) \
 	javax/swing/text/$(DEPDIR)/$(am__dirstamp)
@@ -14724,12 +15019,40 @@ mostlyclean-compile:
 	-rm -f gnu/java/awt/EmbeddedWindowSupport.lo
 	-rm -f gnu/java/awt/EventModifier.$(OBJEXT)
 	-rm -f gnu/java/awt/EventModifier.lo
+	-rm -f gnu/java/awt/color/CieXyzConverter.$(OBJEXT)
+	-rm -f gnu/java/awt/color/CieXyzConverter.lo
+	-rm -f gnu/java/awt/color/ClutProfileConverter.$(OBJEXT)
+	-rm -f gnu/java/awt/color/ClutProfileConverter.lo
+	-rm -f gnu/java/awt/color/ColorLookUpTable.$(OBJEXT)
+	-rm -f gnu/java/awt/color/ColorLookUpTable.lo
+	-rm -f gnu/java/awt/color/ColorSpaceConverter.$(OBJEXT)
+	-rm -f gnu/java/awt/color/ColorSpaceConverter.lo
+	-rm -f gnu/java/awt/color/GrayProfileConverter.$(OBJEXT)
+	-rm -f gnu/java/awt/color/GrayProfileConverter.lo
+	-rm -f gnu/java/awt/color/GrayScaleConverter.$(OBJEXT)
+	-rm -f gnu/java/awt/color/GrayScaleConverter.lo
+	-rm -f gnu/java/awt/color/LinearRGBConverter.$(OBJEXT)
+	-rm -f gnu/java/awt/color/LinearRGBConverter.lo
+	-rm -f gnu/java/awt/color/ProfileHeader.$(OBJEXT)
+	-rm -f gnu/java/awt/color/ProfileHeader.lo
+	-rm -f gnu/java/awt/color/PyccConverter.$(OBJEXT)
+	-rm -f gnu/java/awt/color/PyccConverter.lo
+	-rm -f gnu/java/awt/color/RgbProfileConverter.$(OBJEXT)
+	-rm -f gnu/java/awt/color/RgbProfileConverter.lo
+	-rm -f gnu/java/awt/color/SrgbConverter.$(OBJEXT)
+	-rm -f gnu/java/awt/color/SrgbConverter.lo
+	-rm -f gnu/java/awt/color/TagEntry.$(OBJEXT)
+	-rm -f gnu/java/awt/color/TagEntry.lo
+	-rm -f gnu/java/awt/color/ToneReproductionCurve.$(OBJEXT)
+	-rm -f gnu/java/awt/color/ToneReproductionCurve.lo
 	-rm -f gnu/java/awt/image/ImageDecoder.$(OBJEXT)
 	-rm -f gnu/java/awt/image/ImageDecoder.lo
 	-rm -f gnu/java/awt/image/XBMDecoder.$(OBJEXT)
 	-rm -f gnu/java/awt/image/XBMDecoder.lo
 	-rm -f gnu/java/awt/peer/ClasspathFontPeer.$(OBJEXT)
 	-rm -f gnu/java/awt/peer/ClasspathFontPeer.lo
+	-rm -f gnu/java/awt/peer/ClasspathTextLayoutPeer.$(OBJEXT)
+	-rm -f gnu/java/awt/peer/ClasspathTextLayoutPeer.lo
 	-rm -f gnu/java/awt/peer/EmbeddedWindowPeer.$(OBJEXT)
 	-rm -f gnu/java/awt/peer/EmbeddedWindowPeer.lo
 	-rm -f gnu/java/awt/peer/GLightweightPeer.$(OBJEXT)
@@ -14738,12 +15061,10 @@ mostlyclean-compile:
 	-rm -f gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GThreadMutex.lo
 	-rm -f gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GThreadNativeMethodRunner.$(OBJEXT)
 	-rm -f gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GThreadNativeMethodRunner.lo
-	-rm -f gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GdkClasspathFontPeer.$(OBJEXT)
-	-rm -f gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GdkClasspathFontPeer.lo
-	-rm -f gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GdkClasspathFontPeerMetrics.$(OBJEXT)
-	-rm -f gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GdkClasspathFontPeerMetrics.lo
 	-rm -f gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GdkFontMetrics.$(OBJEXT)
 	-rm -f gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GdkFontMetrics.lo
+	-rm -f gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GdkFontPeer.$(OBJEXT)
+	-rm -f gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GdkFontPeer.lo
 	-rm -f gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GdkGlyphVector.$(OBJEXT)
 	-rm -f gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GdkGlyphVector.lo
 	-rm -f gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GdkGraphics.$(OBJEXT)
@@ -14754,6 +15075,8 @@ mostlyclean-compile:
 	-rm -f gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GdkGraphicsEnvironment.lo
 	-rm -f gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GdkPixbufDecoder.$(OBJEXT)
 	-rm -f gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GdkPixbufDecoder.lo
+	-rm -f gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GdkTextLayout.$(OBJEXT)
+	-rm -f gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GdkTextLayout.lo
 	-rm -f gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GtkButtonPeer.$(OBJEXT)
 	-rm -f gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GtkButtonPeer.lo
 	-rm -f gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GtkCanvasPeer.$(OBJEXT)
@@ -14778,8 +15101,6 @@ mostlyclean-compile:
 	-rm -f gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GtkEmbeddedWindowPeer.lo
 	-rm -f gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GtkFileDialogPeer.$(OBJEXT)
 	-rm -f gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GtkFileDialogPeer.lo
-	-rm -f gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GtkFontPeer.$(OBJEXT)
-	-rm -f gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GtkFontPeer.lo
 	-rm -f gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GtkFramePeer.$(OBJEXT)
 	-rm -f gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GtkFramePeer.lo
 	-rm -f gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GtkGenericPeer.$(OBJEXT)
@@ -15152,10 +15473,16 @@ mostlyclean-compile:
 	-rm -f gnu/java/locale/LocaleInformation_zh_TW.lo
 	-rm -f gnu/java/math/MPN.$(OBJEXT)
 	-rm -f gnu/java/math/MPN.lo
+	-rm -f gnu/java/net/BASE64.$(OBJEXT)
+	-rm -f gnu/java/net/BASE64.lo
 	-rm -f gnu/java/net/DefaultContentHandlerFactory.$(OBJEXT)
 	-rm -f gnu/java/net/DefaultContentHandlerFactory.lo
+	-rm -f gnu/java/net/EmptyX509TrustManager.$(OBJEXT)
+	-rm -f gnu/java/net/EmptyX509TrustManager.lo
 	-rm -f gnu/java/net/HeaderFieldHelper.$(OBJEXT)
 	-rm -f gnu/java/net/HeaderFieldHelper.lo
+	-rm -f gnu/java/net/LineInputStream.$(OBJEXT)
+	-rm -f gnu/java/net/LineInputStream.lo
 	-rm -f gnu/java/net/PlainDatagramSocketImpl.$(OBJEXT)
 	-rm -f gnu/java/net/PlainDatagramSocketImpl.lo
 	-rm -f gnu/java/net/PlainSocketImpl.$(OBJEXT)
@@ -15182,10 +15509,50 @@ mostlyclean-compile:
 	-rm -f gnu/java/net/protocol/gcjlib/Connection.lo
 	-rm -f gnu/java/net/protocol/gcjlib/Handler.$(OBJEXT)
 	-rm -f gnu/java/net/protocol/gcjlib/Handler.lo
-	-rm -f gnu/java/net/protocol/http/Connection.$(OBJEXT)
-	-rm -f gnu/java/net/protocol/http/Connection.lo
+	-rm -f gnu/java/net/protocol/http/Authenticator.$(OBJEXT)
+	-rm -f gnu/java/net/protocol/http/Authenticator.lo
+	-rm -f gnu/java/net/protocol/http/ByteArrayRequestBodyWriter.$(OBJEXT)
+	-rm -f gnu/java/net/protocol/http/ByteArrayRequestBodyWriter.lo
+	-rm -f gnu/java/net/protocol/http/ByteArrayResponseBodyReader.$(OBJEXT)
+	-rm -f gnu/java/net/protocol/http/ByteArrayResponseBodyReader.lo
+	-rm -f gnu/java/net/protocol/http/ChunkedInputStream.$(OBJEXT)
+	-rm -f gnu/java/net/protocol/http/ChunkedInputStream.lo
+	-rm -f gnu/java/net/protocol/http/Cookie.$(OBJEXT)
+	-rm -f gnu/java/net/protocol/http/Cookie.lo
+	-rm -f gnu/java/net/protocol/http/CookieManager.$(OBJEXT)
+	-rm -f gnu/java/net/protocol/http/CookieManager.lo
+	-rm -f gnu/java/net/protocol/http/Credentials.$(OBJEXT)
+	-rm -f gnu/java/net/protocol/http/Credentials.lo
+	-rm -f gnu/java/net/protocol/http/HTTPConnection.$(OBJEXT)
+	-rm -f gnu/java/net/protocol/http/HTTPConnection.lo
+	-rm -f gnu/java/net/protocol/http/HTTPDateFormat.$(OBJEXT)
+	-rm -f gnu/java/net/protocol/http/HTTPDateFormat.lo
+	-rm -f gnu/java/net/protocol/http/HTTPURLConnection.$(OBJEXT)
+	-rm -f gnu/java/net/protocol/http/HTTPURLConnection.lo
 	-rm -f gnu/java/net/protocol/http/Handler.$(OBJEXT)
 	-rm -f gnu/java/net/protocol/http/Handler.lo
+	-rm -f gnu/java/net/protocol/http/Headers.$(OBJEXT)
+	-rm -f gnu/java/net/protocol/http/Headers.lo
+	-rm -f gnu/java/net/protocol/http/Request.$(OBJEXT)
+	-rm -f gnu/java/net/protocol/http/Request.lo
+	-rm -f gnu/java/net/protocol/http/RequestBodyWriter.$(OBJEXT)
+	-rm -f gnu/java/net/protocol/http/RequestBodyWriter.lo
+	-rm -f gnu/java/net/protocol/http/Response.$(OBJEXT)
+	-rm -f gnu/java/net/protocol/http/Response.lo
+	-rm -f gnu/java/net/protocol/http/ResponseBodyReader.$(OBJEXT)
+	-rm -f gnu/java/net/protocol/http/ResponseBodyReader.lo
+	-rm -f gnu/java/net/protocol/http/ResponseHeaderHandler.$(OBJEXT)
+	-rm -f gnu/java/net/protocol/http/ResponseHeaderHandler.lo
+	-rm -f gnu/java/net/protocol/http/SimpleCookieManager.$(OBJEXT)
+	-rm -f gnu/java/net/protocol/http/SimpleCookieManager.lo
+	-rm -f gnu/java/net/protocol/http/event/ConnectionEvent.$(OBJEXT)
+	-rm -f gnu/java/net/protocol/http/event/ConnectionEvent.lo
+	-rm -f gnu/java/net/protocol/http/event/ConnectionListener.$(OBJEXT)
+	-rm -f gnu/java/net/protocol/http/event/ConnectionListener.lo
+	-rm -f gnu/java/net/protocol/http/event/RequestEvent.$(OBJEXT)
+	-rm -f gnu/java/net/protocol/http/event/RequestEvent.lo
+	-rm -f gnu/java/net/protocol/http/event/RequestListener.$(OBJEXT)
+	-rm -f gnu/java/net/protocol/http/event/RequestListener.lo
 	-rm -f gnu/java/net/protocol/jar/Connection.$(OBJEXT)
 	-rm -f gnu/java/net/protocol/jar/Connection.lo
 	-rm -f gnu/java/net/protocol/jar/Handler.$(OBJEXT)
@@ -15998,20 +16365,30 @@ mostlyclean-compile:
 	-rm -f java/awt/image/AffineTransformOp.lo
 	-rm -f java/awt/image/AreaAveragingScaleFilter.$(OBJEXT)
 	-rm -f java/awt/image/AreaAveragingScaleFilter.lo
+	-rm -f java/awt/image/BandCombineOp.$(OBJEXT)
+	-rm -f java/awt/image/BandCombineOp.lo
+	-rm -f java/awt/image/BandedSampleModel.$(OBJEXT)
+	-rm -f java/awt/image/BandedSampleModel.lo
 	-rm -f java/awt/image/BufferStrategy.$(OBJEXT)
 	-rm -f java/awt/image/BufferStrategy.lo
 	-rm -f java/awt/image/BufferedImage.$(OBJEXT)
 	-rm -f java/awt/image/BufferedImage.lo
+	-rm -f java/awt/image/BufferedImageFilter.$(OBJEXT)
+	-rm -f java/awt/image/BufferedImageFilter.lo
 	-rm -f java/awt/image/BufferedImageOp.$(OBJEXT)
 	-rm -f java/awt/image/BufferedImageOp.lo
 	-rm -f java/awt/image/ByteLookupTable.$(OBJEXT)
 	-rm -f java/awt/image/ByteLookupTable.lo
+	-rm -f java/awt/image/ColorConvertOp.$(OBJEXT)
+	-rm -f java/awt/image/ColorConvertOp.lo
 	-rm -f java/awt/image/ColorModel.$(OBJEXT)
 	-rm -f java/awt/image/ColorModel.lo
 	-rm -f java/awt/image/ComponentColorModel.$(OBJEXT)
 	-rm -f java/awt/image/ComponentColorModel.lo
 	-rm -f java/awt/image/ComponentSampleModel.$(OBJEXT)
 	-rm -f java/awt/image/ComponentSampleModel.lo
+	-rm -f java/awt/image/ConvolveOp.$(OBJEXT)
+	-rm -f java/awt/image/ConvolveOp.lo
 	-rm -f java/awt/image/CropImageFilter.$(OBJEXT)
 	-rm -f java/awt/image/CropImageFilter.lo
 	-rm -f java/awt/image/DataBuffer.$(OBJEXT)
@@ -16046,10 +16423,14 @@ mostlyclean-compile:
 	-rm -f java/awt/image/IndexColorModel.lo
 	-rm -f java/awt/image/Kernel.$(OBJEXT)
 	-rm -f java/awt/image/Kernel.lo
+	-rm -f java/awt/image/LookupOp.$(OBJEXT)
+	-rm -f java/awt/image/LookupOp.lo
 	-rm -f java/awt/image/LookupTable.$(OBJEXT)
 	-rm -f java/awt/image/LookupTable.lo
 	-rm -f java/awt/image/MemoryImageSource.$(OBJEXT)
 	-rm -f java/awt/image/MemoryImageSource.lo
+	-rm -f java/awt/image/MultiPixelPackedSampleModel.$(OBJEXT)
+	-rm -f java/awt/image/MultiPixelPackedSampleModel.lo
 	-rm -f java/awt/image/PackedColorModel.$(OBJEXT)
 	-rm -f java/awt/image/PackedColorModel.lo
 	-rm -f java/awt/image/PixelGrabber.$(OBJEXT)
@@ -16068,6 +16449,8 @@ mostlyclean-compile:
 	-rm -f java/awt/image/RenderedImage.lo
 	-rm -f java/awt/image/ReplicateScaleFilter.$(OBJEXT)
 	-rm -f java/awt/image/ReplicateScaleFilter.lo
+	-rm -f java/awt/image/RescaleOp.$(OBJEXT)
+	-rm -f java/awt/image/RescaleOp.lo
 	-rm -f java/awt/image/SampleModel.$(OBJEXT)
 	-rm -f java/awt/image/SampleModel.lo
 	-rm -f java/awt/image/ShortLookupTable.$(OBJEXT)
@@ -18788,6 +19171,8 @@ mostlyclean-compile:
 	-rm -f javax/swing/SizeRequirements.lo
 	-rm -f javax/swing/SizeSequence.$(OBJEXT)
 	-rm -f javax/swing/SizeSequence.lo
+	-rm -f javax/swing/SpinnerListModel.$(OBJEXT)
+	-rm -f javax/swing/SpinnerListModel.lo
 	-rm -f javax/swing/SpinnerModel.$(OBJEXT)
 	-rm -f javax/swing/SpinnerModel.lo
 	-rm -f javax/swing/SpinnerNumberModel.$(OBJEXT)
@@ -19116,6 +19501,8 @@ mostlyclean-compile:
 	-rm -f javax/swing/plaf/basic/BasicTextAreaUI.lo
 	-rm -f javax/swing/plaf/basic/BasicTextFieldUI.$(OBJEXT)
 	-rm -f javax/swing/plaf/basic/BasicTextFieldUI.lo
+	-rm -f javax/swing/plaf/basic/BasicTextPaneUI.$(OBJEXT)
+	-rm -f javax/swing/plaf/basic/BasicTextPaneUI.lo
 	-rm -f javax/swing/plaf/basic/BasicTextUI.$(OBJEXT)
 	-rm -f javax/swing/plaf/basic/BasicTextUI.lo
 	-rm -f javax/swing/plaf/basic/BasicToggleButtonUI.$(OBJEXT)
@@ -19194,6 +19581,8 @@ mostlyclean-compile:
 	-rm -f javax/swing/text/MutableAttributeSet.lo
 	-rm -f javax/swing/text/NavigationFilter.$(OBJEXT)
 	-rm -f javax/swing/text/NavigationFilter.lo
+	-rm -f javax/swing/text/PasswordView.$(OBJEXT)
+	-rm -f javax/swing/text/PasswordView.lo
 	-rm -f javax/swing/text/PlainDocument.$(OBJEXT)
 	-rm -f javax/swing/text/PlainDocument.lo
 	-rm -f javax/swing/text/PlainView.$(OBJEXT)
@@ -19330,20 +19719,22 @@ mostlyclean-compile:
 	-rm -f jni/classpath/lib_gnu_java_awt_peer_gtk_la-primlib.lo
 	-rm -f jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GThreadNativeMethodRunner.$(OBJEXT)
 	-rm -f jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GThreadNativeMethodRunner.lo
-	-rm -f jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkClasspathFontPeer.$(OBJEXT)
-	-rm -f jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkClasspathFontPeer.lo
-	-rm -f jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkClasspathFontPeerMetrics.$(OBJEXT)
-	-rm -f jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkClasspathFontPeerMetrics.lo
 	-rm -f jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkFontMetrics.$(OBJEXT)
 	-rm -f jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkFontMetrics.lo
+	-rm -f jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkFontPeer.$(OBJEXT)
+	-rm -f jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkFontPeer.lo
 	-rm -f jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkGlyphVector.$(OBJEXT)
 	-rm -f jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkGlyphVector.lo
 	-rm -f jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkGraphics.$(OBJEXT)
 	-rm -f jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkGraphics.lo
 	-rm -f jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkGraphics2D.$(OBJEXT)
 	-rm -f jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkGraphics2D.lo
+	-rm -f jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkGraphicsEnvironment.$(OBJEXT)
+	-rm -f jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkGraphicsEnvironment.lo
 	-rm -f jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkPixbufDecoder.$(OBJEXT)
 	-rm -f jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkPixbufDecoder.lo
+	-rm -f jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkTextLayout.$(OBJEXT)
+	-rm -f jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkTextLayout.lo
 	-rm -f jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GtkButtonPeer.$(OBJEXT)
 	-rm -f jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GtkButtonPeer.lo
 	-rm -f jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GtkCanvasPeer.$(OBJEXT)
@@ -19366,6 +19757,8 @@ mostlyclean-compile:
 	-rm -f jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GtkEvents.lo
 	-rm -f jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GtkFileDialogPeer.$(OBJEXT)
 	-rm -f jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GtkFileDialogPeer.lo
+	-rm -f jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GtkFramePeer.$(OBJEXT)
+	-rm -f jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GtkFramePeer.lo
 	-rm -f jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GtkGenericPeer.$(OBJEXT)
 	-rm -f jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GtkGenericPeer.lo
 	-rm -f jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GtkImagePainter.$(OBJEXT)
@@ -19683,21 +20076,35 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/java/awt/$(DEPDIR)/EmbeddedWindow.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/java/awt/$(DEPDIR)/EmbeddedWindowSupport.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/java/awt/$(DEPDIR)/EventModifier.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@gnu/java/awt/color/$(DEPDIR)/CieXyzConverter.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@gnu/java/awt/color/$(DEPDIR)/ClutProfileConverter.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@gnu/java/awt/color/$(DEPDIR)/ColorLookUpTable.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@gnu/java/awt/color/$(DEPDIR)/ColorSpaceConverter.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@gnu/java/awt/color/$(DEPDIR)/GrayProfileConverter.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@gnu/java/awt/color/$(DEPDIR)/GrayScaleConverter.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@gnu/java/awt/color/$(DEPDIR)/LinearRGBConverter.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@gnu/java/awt/color/$(DEPDIR)/ProfileHeader.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@gnu/java/awt/color/$(DEPDIR)/PyccConverter.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@gnu/java/awt/color/$(DEPDIR)/RgbProfileConverter.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@gnu/java/awt/color/$(DEPDIR)/SrgbConverter.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@gnu/java/awt/color/$(DEPDIR)/TagEntry.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@gnu/java/awt/color/$(DEPDIR)/ToneReproductionCurve.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/java/awt/image/$(DEPDIR)/ImageDecoder.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/java/awt/image/$(DEPDIR)/XBMDecoder.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/java/awt/peer/$(DEPDIR)/ClasspathFontPeer.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@gnu/java/awt/peer/$(DEPDIR)/ClasspathTextLayoutPeer.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/java/awt/peer/$(DEPDIR)/EmbeddedWindowPeer.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/java/awt/peer/$(DEPDIR)/GLightweightPeer.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/java/awt/peer/gtk/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-GThreadMutex.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/java/awt/peer/gtk/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-GThreadNativeMethodRunner.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@gnu/java/awt/peer/gtk/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-GdkClasspathFontPeer.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@gnu/java/awt/peer/gtk/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-GdkClasspathFontPeerMetrics.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/java/awt/peer/gtk/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-GdkFontMetrics.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@gnu/java/awt/peer/gtk/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-GdkFontPeer.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/java/awt/peer/gtk/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-GdkGlyphVector.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/java/awt/peer/gtk/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-GdkGraphics.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/java/awt/peer/gtk/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-GdkGraphics2D.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/java/awt/peer/gtk/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-GdkGraphicsEnvironment.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/java/awt/peer/gtk/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-GdkPixbufDecoder.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@gnu/java/awt/peer/gtk/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-GdkTextLayout.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/java/awt/peer/gtk/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-GtkButtonPeer.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/java/awt/peer/gtk/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-GtkCanvasPeer.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/java/awt/peer/gtk/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-GtkCheckboxGroupPeer.Plo@am__quote@
@@ -19710,7 +20117,6 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/java/awt/peer/gtk/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-GtkDialogPeer.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/java/awt/peer/gtk/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-GtkEmbeddedWindowPeer.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/java/awt/peer/gtk/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-GtkFileDialogPeer.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@gnu/java/awt/peer/gtk/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-GtkFontPeer.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/java/awt/peer/gtk/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-GtkFramePeer.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/java/awt/peer/gtk/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-GtkGenericPeer.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/java/awt/peer/gtk/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-GtkImage.Plo@am__quote@
@@ -19897,8 +20303,11 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/java/locale/$(DEPDIR)/LocaleInformation_zh_SG.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/java/locale/$(DEPDIR)/LocaleInformation_zh_TW.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/java/math/$(DEPDIR)/MPN.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@gnu/java/net/$(DEPDIR)/BASE64.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/java/net/$(DEPDIR)/DefaultContentHandlerFactory.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@gnu/java/net/$(DEPDIR)/EmptyX509TrustManager.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/java/net/$(DEPDIR)/HeaderFieldHelper.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@gnu/java/net/$(DEPDIR)/LineInputStream.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/java/net/$(DEPDIR)/PlainDatagramSocketImpl.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/java/net/$(DEPDIR)/PlainSocketImpl.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/java/net/$(DEPDIR)/URLParseError.Plo@am__quote@
@@ -19912,8 +20321,28 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/java/net/protocol/file/$(DEPDIR)/Handler.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/java/net/protocol/gcjlib/$(DEPDIR)/Connection.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/java/net/protocol/gcjlib/$(DEPDIR)/Handler.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@gnu/java/net/protocol/http/$(DEPDIR)/Connection.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@gnu/java/net/protocol/http/$(DEPDIR)/Authenticator.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@gnu/java/net/protocol/http/$(DEPDIR)/ByteArrayRequestBodyWriter.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@gnu/java/net/protocol/http/$(DEPDIR)/ByteArrayResponseBodyReader.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@gnu/java/net/protocol/http/$(DEPDIR)/ChunkedInputStream.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@gnu/java/net/protocol/http/$(DEPDIR)/Cookie.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@gnu/java/net/protocol/http/$(DEPDIR)/CookieManager.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@gnu/java/net/protocol/http/$(DEPDIR)/Credentials.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@gnu/java/net/protocol/http/$(DEPDIR)/HTTPConnection.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@gnu/java/net/protocol/http/$(DEPDIR)/HTTPDateFormat.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@gnu/java/net/protocol/http/$(DEPDIR)/HTTPURLConnection.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/java/net/protocol/http/$(DEPDIR)/Handler.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@gnu/java/net/protocol/http/$(DEPDIR)/Headers.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@gnu/java/net/protocol/http/$(DEPDIR)/Request.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@gnu/java/net/protocol/http/$(DEPDIR)/RequestBodyWriter.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@gnu/java/net/protocol/http/$(DEPDIR)/Response.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@gnu/java/net/protocol/http/$(DEPDIR)/ResponseBodyReader.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@gnu/java/net/protocol/http/$(DEPDIR)/ResponseHeaderHandler.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@gnu/java/net/protocol/http/$(DEPDIR)/SimpleCookieManager.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@gnu/java/net/protocol/http/event/$(DEPDIR)/ConnectionEvent.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@gnu/java/net/protocol/http/event/$(DEPDIR)/ConnectionListener.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@gnu/java/net/protocol/http/event/$(DEPDIR)/RequestEvent.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@gnu/java/net/protocol/http/event/$(DEPDIR)/RequestListener.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/java/net/protocol/jar/$(DEPDIR)/Connection.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/java/net/protocol/jar/$(DEPDIR)/Handler.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/java/nio/$(DEPDIR)/ChannelInputStream.Plo@am__quote@
@@ -20320,13 +20749,18 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@java/awt/im/spi/$(DEPDIR)/InputMethodDescriptor.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@java/awt/image/$(DEPDIR)/AffineTransformOp.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@java/awt/image/$(DEPDIR)/AreaAveragingScaleFilter.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@java/awt/image/$(DEPDIR)/BandCombineOp.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@java/awt/image/$(DEPDIR)/BandedSampleModel.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@java/awt/image/$(DEPDIR)/BufferStrategy.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@java/awt/image/$(DEPDIR)/BufferedImage.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@java/awt/image/$(DEPDIR)/BufferedImageFilter.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@java/awt/image/$(DEPDIR)/BufferedImageOp.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@java/awt/image/$(DEPDIR)/ByteLookupTable.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@java/awt/image/$(DEPDIR)/ColorConvertOp.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@java/awt/image/$(DEPDIR)/ColorModel.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@java/awt/image/$(DEPDIR)/ComponentColorModel.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@java/awt/image/$(DEPDIR)/ComponentSampleModel.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@java/awt/image/$(DEPDIR)/ConvolveOp.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@java/awt/image/$(DEPDIR)/CropImageFilter.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@java/awt/image/$(DEPDIR)/DataBuffer.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@java/awt/image/$(DEPDIR)/DataBufferByte.Plo@am__quote@
@@ -20344,8 +20778,10 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@java/awt/image/$(DEPDIR)/ImagingOpException.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@java/awt/image/$(DEPDIR)/IndexColorModel.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@java/awt/image/$(DEPDIR)/Kernel.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@java/awt/image/$(DEPDIR)/LookupOp.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@java/awt/image/$(DEPDIR)/LookupTable.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@java/awt/image/$(DEPDIR)/MemoryImageSource.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@java/awt/image/$(DEPDIR)/MultiPixelPackedSampleModel.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@java/awt/image/$(DEPDIR)/PackedColorModel.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@java/awt/image/$(DEPDIR)/PixelGrabber.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@java/awt/image/$(DEPDIR)/PixelInterleavedSampleModel.Plo@am__quote@
@@ -20355,6 +20791,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@java/awt/image/$(DEPDIR)/RasterOp.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@java/awt/image/$(DEPDIR)/RenderedImage.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@java/awt/image/$(DEPDIR)/ReplicateScaleFilter.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@java/awt/image/$(DEPDIR)/RescaleOp.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@java/awt/image/$(DEPDIR)/SampleModel.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@java/awt/image/$(DEPDIR)/ShortLookupTable.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@java/awt/image/$(DEPDIR)/SinglePixelPackedSampleModel.Plo@am__quote@
@@ -21715,6 +22152,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@javax/swing/$(DEPDIR)/SingleSelectionModel.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/swing/$(DEPDIR)/SizeRequirements.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/swing/$(DEPDIR)/SizeSequence.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@javax/swing/$(DEPDIR)/SpinnerListModel.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/swing/$(DEPDIR)/SpinnerModel.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/swing/$(DEPDIR)/SpinnerNumberModel.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/swing/$(DEPDIR)/Spring.Plo@am__quote@
@@ -21879,6 +22317,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@javax/swing/plaf/basic/$(DEPDIR)/BasicTableUI.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/swing/plaf/basic/$(DEPDIR)/BasicTextAreaUI.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/swing/plaf/basic/$(DEPDIR)/BasicTextFieldUI.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@javax/swing/plaf/basic/$(DEPDIR)/BasicTextPaneUI.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/swing/plaf/basic/$(DEPDIR)/BasicTextUI.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/swing/plaf/basic/$(DEPDIR)/BasicToggleButtonUI.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/swing/plaf/basic/$(DEPDIR)/BasicToolBarSeparatorUI.Plo@am__quote@
@@ -21918,6 +22357,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@javax/swing/text/$(DEPDIR)/LayeredHighlighter.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/swing/text/$(DEPDIR)/MutableAttributeSet.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/swing/text/$(DEPDIR)/NavigationFilter.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@javax/swing/text/$(DEPDIR)/PasswordView.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/swing/text/$(DEPDIR)/PlainDocument.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/swing/text/$(DEPDIR)/PlainView.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/swing/text/$(DEPDIR)/Position.Plo@am__quote@
@@ -21986,13 +22426,14 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@jni/classpath/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-native_state.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@jni/classpath/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-primlib.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@jni/gtk-peer/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GThreadNativeMethodRunner.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@jni/gtk-peer/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkClasspathFontPeer.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@jni/gtk-peer/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkClasspathFontPeerMetrics.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@jni/gtk-peer/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkFontMetrics.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@jni/gtk-peer/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkFontPeer.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@jni/gtk-peer/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkGlyphVector.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@jni/gtk-peer/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkGraphics.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@jni/gtk-peer/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkGraphics2D.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@jni/gtk-peer/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkGraphicsEnvironment.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@jni/gtk-peer/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkPixbufDecoder.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@jni/gtk-peer/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkTextLayout.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@jni/gtk-peer/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GtkButtonPeer.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@jni/gtk-peer/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GtkCanvasPeer.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@jni/gtk-peer/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GtkCheckboxGroupPeer.Plo@am__quote@
@@ -22004,6 +22445,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@jni/gtk-peer/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GtkEmbeddedWindowPeer.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@jni/gtk-peer/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GtkEvents.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@jni/gtk-peer/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GtkFileDialogPeer.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@jni/gtk-peer/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GtkFramePeer.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@jni/gtk-peer/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GtkGenericPeer.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@jni/gtk-peer/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GtkImagePainter.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@jni/gtk-peer/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GtkLabelPeer.Plo@am__quote@
@@ -22112,33 +22554,19 @@ distclean-compile:
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(LTCOMPILE) -c -o $@ $<
 
-jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkClasspathFontPeer.lo: jni/gtk-peer/gnu_java_awt_peer_gtk_GdkClasspathFontPeer.c
-@am__fastdepCC_TRUE@	if $(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(lib_gnu_java_awt_peer_gtk_la_CFLAGS) $(CFLAGS) -MT jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkClasspathFontPeer.lo -MD -MP -MF "jni/gtk-peer/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkClasspathFontPeer.Tpo" -c -o jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkClasspathFontPeer.lo `test -f 'jni/gtk-peer/gnu_java_awt_peer_gtk_GdkClasspathFontPeer.c' || echo '$(srcdir)/'`jni/gtk-peer/gnu_java_awt_peer_gtk_GdkClasspathFontPeer.c; \
-@am__fastdepCC_TRUE@	then mv -f "jni/gtk-peer/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkClasspathFontPeer.Tpo" "jni/gtk-peer/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkClasspathFontPeer.Plo"; else rm -f "jni/gtk-peer/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkClasspathFontPeer.Tpo"; exit 1; fi
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='jni/gtk-peer/gnu_java_awt_peer_gtk_GdkClasspathFontPeer.c' object='jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkClasspathFontPeer.lo' libtool=yes @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(lib_gnu_java_awt_peer_gtk_la_CFLAGS) $(CFLAGS) -c -o jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkClasspathFontPeer.lo `test -f 'jni/gtk-peer/gnu_java_awt_peer_gtk_GdkClasspathFontPeer.c' || echo '$(srcdir)/'`jni/gtk-peer/gnu_java_awt_peer_gtk_GdkClasspathFontPeer.c
-
-jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkClasspathFontPeerMetrics.lo: jni/gtk-peer/gnu_java_awt_peer_gtk_GdkClasspathFontPeerMetrics.c
-@am__fastdepCC_TRUE@	if $(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(lib_gnu_java_awt_peer_gtk_la_CFLAGS) $(CFLAGS) -MT jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkClasspathFontPeerMetrics.lo -MD -MP -MF "jni/gtk-peer/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkClasspathFontPeerMetrics.Tpo" -c -o jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkClasspathFontPeerMetrics.lo `test -f 'jni/gtk-peer/gnu_java_awt_peer_gtk_GdkClasspathFontPeerMetrics.c' || echo '$(srcdir)/'`jni/gtk-peer/gnu_java_awt_peer_gtk_GdkClasspathFontPeerMetrics.c; \
-@am__fastdepCC_TRUE@	then mv -f "jni/gtk-peer/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkClasspathFontPeerMetrics.Tpo" "jni/gtk-peer/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkClasspathFontPeerMetrics.Plo"; else rm -f "jni/gtk-peer/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkClasspathFontPeerMetrics.Tpo"; exit 1; fi
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='jni/gtk-peer/gnu_java_awt_peer_gtk_GdkClasspathFontPeerMetrics.c' object='jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkClasspathFontPeerMetrics.lo' libtool=yes @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(lib_gnu_java_awt_peer_gtk_la_CFLAGS) $(CFLAGS) -c -o jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkClasspathFontPeerMetrics.lo `test -f 'jni/gtk-peer/gnu_java_awt_peer_gtk_GdkClasspathFontPeerMetrics.c' || echo '$(srcdir)/'`jni/gtk-peer/gnu_java_awt_peer_gtk_GdkClasspathFontPeerMetrics.c
-
-jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkGlyphVector.lo: jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGlyphVector.c
-@am__fastdepCC_TRUE@	if $(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(lib_gnu_java_awt_peer_gtk_la_CFLAGS) $(CFLAGS) -MT jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkGlyphVector.lo -MD -MP -MF "jni/gtk-peer/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkGlyphVector.Tpo" -c -o jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkGlyphVector.lo `test -f 'jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGlyphVector.c' || echo '$(srcdir)/'`jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGlyphVector.c; \
-@am__fastdepCC_TRUE@	then mv -f "jni/gtk-peer/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkGlyphVector.Tpo" "jni/gtk-peer/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkGlyphVector.Plo"; else rm -f "jni/gtk-peer/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkGlyphVector.Tpo"; exit 1; fi
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGlyphVector.c' object='jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkGlyphVector.lo' libtool=yes @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(lib_gnu_java_awt_peer_gtk_la_CFLAGS) $(CFLAGS) -c -o jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkGlyphVector.lo `test -f 'jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGlyphVector.c' || echo '$(srcdir)/'`jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGlyphVector.c
-
 jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkGraphics2D.lo: jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGraphics2D.c
 @am__fastdepCC_TRUE@	if $(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(lib_gnu_java_awt_peer_gtk_la_CFLAGS) $(CFLAGS) -MT jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkGraphics2D.lo -MD -MP -MF "jni/gtk-peer/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkGraphics2D.Tpo" -c -o jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkGraphics2D.lo `test -f 'jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGraphics2D.c' || echo '$(srcdir)/'`jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGraphics2D.c; \
 @am__fastdepCC_TRUE@	then mv -f "jni/gtk-peer/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkGraphics2D.Tpo" "jni/gtk-peer/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkGraphics2D.Plo"; else rm -f "jni/gtk-peer/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkGraphics2D.Tpo"; exit 1; fi
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGraphics2D.c' object='jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkGraphics2D.lo' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(lib_gnu_java_awt_peer_gtk_la_CFLAGS) $(CFLAGS) -c -o jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkGraphics2D.lo `test -f 'jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGraphics2D.c' || echo '$(srcdir)/'`jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGraphics2D.c
+
+jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkTextLayout.lo: jni/gtk-peer/gnu_java_awt_peer_gtk_GdkTextLayout.c
+@am__fastdepCC_TRUE@	if $(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(lib_gnu_java_awt_peer_gtk_la_CFLAGS) $(CFLAGS) -MT jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkTextLayout.lo -MD -MP -MF "jni/gtk-peer/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkTextLayout.Tpo" -c -o jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkTextLayout.lo `test -f 'jni/gtk-peer/gnu_java_awt_peer_gtk_GdkTextLayout.c' || echo '$(srcdir)/'`jni/gtk-peer/gnu_java_awt_peer_gtk_GdkTextLayout.c; \
+@am__fastdepCC_TRUE@	then mv -f "jni/gtk-peer/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkTextLayout.Tpo" "jni/gtk-peer/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkTextLayout.Plo"; else rm -f "jni/gtk-peer/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkTextLayout.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='jni/gtk-peer/gnu_java_awt_peer_gtk_GdkTextLayout.c' object='jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkTextLayout.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(lib_gnu_java_awt_peer_gtk_la_CFLAGS) $(CFLAGS) -c -o jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkTextLayout.lo `test -f 'jni/gtk-peer/gnu_java_awt_peer_gtk_GdkTextLayout.c' || echo '$(srcdir)/'`jni/gtk-peer/gnu_java_awt_peer_gtk_GdkTextLayout.c
 
 jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkFontMetrics.lo: jni/gtk-peer/gnu_java_awt_peer_gtk_GdkFontMetrics.c
 @am__fastdepCC_TRUE@	if $(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(lib_gnu_java_awt_peer_gtk_la_CFLAGS) $(CFLAGS) -MT jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkFontMetrics.lo -MD -MP -MF "jni/gtk-peer/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkFontMetrics.Tpo" -c -o jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkFontMetrics.lo `test -f 'jni/gtk-peer/gnu_java_awt_peer_gtk_GdkFontMetrics.c' || echo '$(srcdir)/'`jni/gtk-peer/gnu_java_awt_peer_gtk_GdkFontMetrics.c; \
@@ -22147,12 +22575,33 @@ jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkFontMetrics.l
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(lib_gnu_java_awt_peer_gtk_la_CFLAGS) $(CFLAGS) -c -o jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkFontMetrics.lo `test -f 'jni/gtk-peer/gnu_java_awt_peer_gtk_GdkFontMetrics.c' || echo '$(srcdir)/'`jni/gtk-peer/gnu_java_awt_peer_gtk_GdkFontMetrics.c
 
+jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkFontPeer.lo: jni/gtk-peer/gnu_java_awt_peer_gtk_GdkFontPeer.c
+@am__fastdepCC_TRUE@	if $(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(lib_gnu_java_awt_peer_gtk_la_CFLAGS) $(CFLAGS) -MT jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkFontPeer.lo -MD -MP -MF "jni/gtk-peer/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkFontPeer.Tpo" -c -o jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkFontPeer.lo `test -f 'jni/gtk-peer/gnu_java_awt_peer_gtk_GdkFontPeer.c' || echo '$(srcdir)/'`jni/gtk-peer/gnu_java_awt_peer_gtk_GdkFontPeer.c; \
+@am__fastdepCC_TRUE@	then mv -f "jni/gtk-peer/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkFontPeer.Tpo" "jni/gtk-peer/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkFontPeer.Plo"; else rm -f "jni/gtk-peer/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkFontPeer.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='jni/gtk-peer/gnu_java_awt_peer_gtk_GdkFontPeer.c' object='jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkFontPeer.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(lib_gnu_java_awt_peer_gtk_la_CFLAGS) $(CFLAGS) -c -o jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkFontPeer.lo `test -f 'jni/gtk-peer/gnu_java_awt_peer_gtk_GdkFontPeer.c' || echo '$(srcdir)/'`jni/gtk-peer/gnu_java_awt_peer_gtk_GdkFontPeer.c
+
+jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkGlyphVector.lo: jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGlyphVector.c
+@am__fastdepCC_TRUE@	if $(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(lib_gnu_java_awt_peer_gtk_la_CFLAGS) $(CFLAGS) -MT jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkGlyphVector.lo -MD -MP -MF "jni/gtk-peer/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkGlyphVector.Tpo" -c -o jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkGlyphVector.lo `test -f 'jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGlyphVector.c' || echo '$(srcdir)/'`jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGlyphVector.c; \
+@am__fastdepCC_TRUE@	then mv -f "jni/gtk-peer/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkGlyphVector.Tpo" "jni/gtk-peer/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkGlyphVector.Plo"; else rm -f "jni/gtk-peer/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkGlyphVector.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGlyphVector.c' object='jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkGlyphVector.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(lib_gnu_java_awt_peer_gtk_la_CFLAGS) $(CFLAGS) -c -o jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkGlyphVector.lo `test -f 'jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGlyphVector.c' || echo '$(srcdir)/'`jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGlyphVector.c
+
 jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkGraphics.lo: jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGraphics.c
 @am__fastdepCC_TRUE@	if $(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(lib_gnu_java_awt_peer_gtk_la_CFLAGS) $(CFLAGS) -MT jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkGraphics.lo -MD -MP -MF "jni/gtk-peer/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkGraphics.Tpo" -c -o jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkGraphics.lo `test -f 'jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGraphics.c' || echo '$(srcdir)/'`jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGraphics.c; \
 @am__fastdepCC_TRUE@	then mv -f "jni/gtk-peer/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkGraphics.Tpo" "jni/gtk-peer/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkGraphics.Plo"; else rm -f "jni/gtk-peer/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkGraphics.Tpo"; exit 1; fi
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGraphics.c' object='jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkGraphics.lo' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(lib_gnu_java_awt_peer_gtk_la_CFLAGS) $(CFLAGS) -c -o jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkGraphics.lo `test -f 'jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGraphics.c' || echo '$(srcdir)/'`jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGraphics.c
+
+jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkGraphicsEnvironment.lo: jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGraphicsEnvironment.c
+@am__fastdepCC_TRUE@	if $(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(lib_gnu_java_awt_peer_gtk_la_CFLAGS) $(CFLAGS) -MT jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkGraphicsEnvironment.lo -MD -MP -MF "jni/gtk-peer/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkGraphicsEnvironment.Tpo" -c -o jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkGraphicsEnvironment.lo `test -f 'jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGraphicsEnvironment.c' || echo '$(srcdir)/'`jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGraphicsEnvironment.c; \
+@am__fastdepCC_TRUE@	then mv -f "jni/gtk-peer/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkGraphicsEnvironment.Tpo" "jni/gtk-peer/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkGraphicsEnvironment.Plo"; else rm -f "jni/gtk-peer/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkGraphicsEnvironment.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGraphicsEnvironment.c' object='jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkGraphicsEnvironment.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(lib_gnu_java_awt_peer_gtk_la_CFLAGS) $(CFLAGS) -c -o jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkGraphicsEnvironment.lo `test -f 'jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGraphicsEnvironment.c' || echo '$(srcdir)/'`jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGraphicsEnvironment.c
 
 jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkPixbufDecoder.lo: jni/gtk-peer/gnu_java_awt_peer_gtk_GdkPixbufDecoder.c
 @am__fastdepCC_TRUE@	if $(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(lib_gnu_java_awt_peer_gtk_la_CFLAGS) $(CFLAGS) -MT jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkPixbufDecoder.lo -MD -MP -MF "jni/gtk-peer/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkPixbufDecoder.Tpo" -c -o jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkPixbufDecoder.lo `test -f 'jni/gtk-peer/gnu_java_awt_peer_gtk_GdkPixbufDecoder.c' || echo '$(srcdir)/'`jni/gtk-peer/gnu_java_awt_peer_gtk_GdkPixbufDecoder.c; \
@@ -22237,6 +22686,13 @@ jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GtkFileDialogPee
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='jni/gtk-peer/gnu_java_awt_peer_gtk_GtkFileDialogPeer.c' object='jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GtkFileDialogPeer.lo' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(lib_gnu_java_awt_peer_gtk_la_CFLAGS) $(CFLAGS) -c -o jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GtkFileDialogPeer.lo `test -f 'jni/gtk-peer/gnu_java_awt_peer_gtk_GtkFileDialogPeer.c' || echo '$(srcdir)/'`jni/gtk-peer/gnu_java_awt_peer_gtk_GtkFileDialogPeer.c
+
+jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GtkFramePeer.lo: jni/gtk-peer/gnu_java_awt_peer_gtk_GtkFramePeer.c
+@am__fastdepCC_TRUE@	if $(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(lib_gnu_java_awt_peer_gtk_la_CFLAGS) $(CFLAGS) -MT jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GtkFramePeer.lo -MD -MP -MF "jni/gtk-peer/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GtkFramePeer.Tpo" -c -o jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GtkFramePeer.lo `test -f 'jni/gtk-peer/gnu_java_awt_peer_gtk_GtkFramePeer.c' || echo '$(srcdir)/'`jni/gtk-peer/gnu_java_awt_peer_gtk_GtkFramePeer.c; \
+@am__fastdepCC_TRUE@	then mv -f "jni/gtk-peer/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GtkFramePeer.Tpo" "jni/gtk-peer/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GtkFramePeer.Plo"; else rm -f "jni/gtk-peer/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GtkFramePeer.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='jni/gtk-peer/gnu_java_awt_peer_gtk_GtkFramePeer.c' object='jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GtkFramePeer.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(lib_gnu_java_awt_peer_gtk_la_CFLAGS) $(CFLAGS) -c -o jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GtkFramePeer.lo `test -f 'jni/gtk-peer/gnu_java_awt_peer_gtk_GtkFramePeer.c' || echo '$(srcdir)/'`jni/gtk-peer/gnu_java_awt_peer_gtk_GtkFramePeer.c
 
 jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GtkGenericPeer.lo: jni/gtk-peer/gnu_java_awt_peer_gtk_GtkGenericPeer.c
 @am__fastdepCC_TRUE@	if $(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(lib_gnu_java_awt_peer_gtk_la_CFLAGS) $(CFLAGS) -MT jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GtkGenericPeer.lo -MD -MP -MF "jni/gtk-peer/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GtkGenericPeer.Tpo" -c -o jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GtkGenericPeer.lo `test -f 'jni/gtk-peer/gnu_java_awt_peer_gtk_GtkGenericPeer.c' || echo '$(srcdir)/'`jni/gtk-peer/gnu_java_awt_peer_gtk_GtkGenericPeer.c; \
@@ -22594,19 +23050,12 @@ gnu/gcj/xlib/lib_gnu_awt_xlib_la-natXUnmapEvent.lo: gnu/gcj/xlib/natXUnmapEvent.
 @AMDEP_TRUE@@am__fastdepGCJ_FALSE@	DEPDIR=$(DEPDIR) $(GCJDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepGCJ_FALSE@	$(LTGCJCOMPILE) -c -o $@ $<
 
-gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GdkClasspathFontPeer.lo: gnu/java/awt/peer/gtk/GdkClasspathFontPeer.java
-@am__fastdepGCJ_TRUE@	if $(LIBTOOL) --mode=compile $(GCJ) $(lib_gnu_java_awt_peer_gtk_la_GCJFLAGS) $(GCJFLAGS) -MT gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GdkClasspathFontPeer.lo -MD -MP -MF "gnu/java/awt/peer/gtk/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-GdkClasspathFontPeer.Tpo" -c -o gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GdkClasspathFontPeer.lo `test -f 'gnu/java/awt/peer/gtk/GdkClasspathFontPeer.java' || echo '$(srcdir)/'`gnu/java/awt/peer/gtk/GdkClasspathFontPeer.java; \
-@am__fastdepGCJ_TRUE@	then mv -f "gnu/java/awt/peer/gtk/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-GdkClasspathFontPeer.Tpo" "gnu/java/awt/peer/gtk/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-GdkClasspathFontPeer.Plo"; else rm -f "gnu/java/awt/peer/gtk/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-GdkClasspathFontPeer.Tpo"; exit 1; fi
-@AMDEP_TRUE@@am__fastdepGCJ_FALSE@	source='gnu/java/awt/peer/gtk/GdkClasspathFontPeer.java' object='gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GdkClasspathFontPeer.lo' libtool=yes @AMDEPBACKSLASH@
+gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GdkTextLayout.lo: gnu/java/awt/peer/gtk/GdkTextLayout.java
+@am__fastdepGCJ_TRUE@	if $(LIBTOOL) --mode=compile $(GCJ) $(lib_gnu_java_awt_peer_gtk_la_GCJFLAGS) $(GCJFLAGS) -MT gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GdkTextLayout.lo -MD -MP -MF "gnu/java/awt/peer/gtk/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-GdkTextLayout.Tpo" -c -o gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GdkTextLayout.lo `test -f 'gnu/java/awt/peer/gtk/GdkTextLayout.java' || echo '$(srcdir)/'`gnu/java/awt/peer/gtk/GdkTextLayout.java; \
+@am__fastdepGCJ_TRUE@	then mv -f "gnu/java/awt/peer/gtk/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-GdkTextLayout.Tpo" "gnu/java/awt/peer/gtk/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-GdkTextLayout.Plo"; else rm -f "gnu/java/awt/peer/gtk/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-GdkTextLayout.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepGCJ_FALSE@	source='gnu/java/awt/peer/gtk/GdkTextLayout.java' object='gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GdkTextLayout.lo' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepGCJ_FALSE@	DEPDIR=$(DEPDIR) $(GCJDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepGCJ_FALSE@	$(LIBTOOL) --mode=compile $(GCJ) $(lib_gnu_java_awt_peer_gtk_la_GCJFLAGS) $(GCJFLAGS) -c -o gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GdkClasspathFontPeer.lo `test -f 'gnu/java/awt/peer/gtk/GdkClasspathFontPeer.java' || echo '$(srcdir)/'`gnu/java/awt/peer/gtk/GdkClasspathFontPeer.java
-
-gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GdkClasspathFontPeerMetrics.lo: gnu/java/awt/peer/gtk/GdkClasspathFontPeerMetrics.java
-@am__fastdepGCJ_TRUE@	if $(LIBTOOL) --mode=compile $(GCJ) $(lib_gnu_java_awt_peer_gtk_la_GCJFLAGS) $(GCJFLAGS) -MT gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GdkClasspathFontPeerMetrics.lo -MD -MP -MF "gnu/java/awt/peer/gtk/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-GdkClasspathFontPeerMetrics.Tpo" -c -o gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GdkClasspathFontPeerMetrics.lo `test -f 'gnu/java/awt/peer/gtk/GdkClasspathFontPeerMetrics.java' || echo '$(srcdir)/'`gnu/java/awt/peer/gtk/GdkClasspathFontPeerMetrics.java; \
-@am__fastdepGCJ_TRUE@	then mv -f "gnu/java/awt/peer/gtk/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-GdkClasspathFontPeerMetrics.Tpo" "gnu/java/awt/peer/gtk/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-GdkClasspathFontPeerMetrics.Plo"; else rm -f "gnu/java/awt/peer/gtk/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-GdkClasspathFontPeerMetrics.Tpo"; exit 1; fi
-@AMDEP_TRUE@@am__fastdepGCJ_FALSE@	source='gnu/java/awt/peer/gtk/GdkClasspathFontPeerMetrics.java' object='gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GdkClasspathFontPeerMetrics.lo' libtool=yes @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepGCJ_FALSE@	DEPDIR=$(DEPDIR) $(GCJDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepGCJ_FALSE@	$(LIBTOOL) --mode=compile $(GCJ) $(lib_gnu_java_awt_peer_gtk_la_GCJFLAGS) $(GCJFLAGS) -c -o gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GdkClasspathFontPeerMetrics.lo `test -f 'gnu/java/awt/peer/gtk/GdkClasspathFontPeerMetrics.java' || echo '$(srcdir)/'`gnu/java/awt/peer/gtk/GdkClasspathFontPeerMetrics.java
+@am__fastdepGCJ_FALSE@	$(LIBTOOL) --mode=compile $(GCJ) $(lib_gnu_java_awt_peer_gtk_la_GCJFLAGS) $(GCJFLAGS) -c -o gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GdkTextLayout.lo `test -f 'gnu/java/awt/peer/gtk/GdkTextLayout.java' || echo '$(srcdir)/'`gnu/java/awt/peer/gtk/GdkTextLayout.java
 
 gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GdkFontMetrics.lo: gnu/java/awt/peer/gtk/GdkFontMetrics.java
 @am__fastdepGCJ_TRUE@	if $(LIBTOOL) --mode=compile $(GCJ) $(lib_gnu_java_awt_peer_gtk_la_GCJFLAGS) $(GCJFLAGS) -MT gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GdkFontMetrics.lo -MD -MP -MF "gnu/java/awt/peer/gtk/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-GdkFontMetrics.Tpo" -c -o gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GdkFontMetrics.lo `test -f 'gnu/java/awt/peer/gtk/GdkFontMetrics.java' || echo '$(srcdir)/'`gnu/java/awt/peer/gtk/GdkFontMetrics.java; \
@@ -22614,6 +23063,13 @@ gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GdkFontMetrics.lo: gnu/java/a
 @AMDEP_TRUE@@am__fastdepGCJ_FALSE@	source='gnu/java/awt/peer/gtk/GdkFontMetrics.java' object='gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GdkFontMetrics.lo' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepGCJ_FALSE@	DEPDIR=$(DEPDIR) $(GCJDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepGCJ_FALSE@	$(LIBTOOL) --mode=compile $(GCJ) $(lib_gnu_java_awt_peer_gtk_la_GCJFLAGS) $(GCJFLAGS) -c -o gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GdkFontMetrics.lo `test -f 'gnu/java/awt/peer/gtk/GdkFontMetrics.java' || echo '$(srcdir)/'`gnu/java/awt/peer/gtk/GdkFontMetrics.java
+
+gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GdkFontPeer.lo: gnu/java/awt/peer/gtk/GdkFontPeer.java
+@am__fastdepGCJ_TRUE@	if $(LIBTOOL) --mode=compile $(GCJ) $(lib_gnu_java_awt_peer_gtk_la_GCJFLAGS) $(GCJFLAGS) -MT gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GdkFontPeer.lo -MD -MP -MF "gnu/java/awt/peer/gtk/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-GdkFontPeer.Tpo" -c -o gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GdkFontPeer.lo `test -f 'gnu/java/awt/peer/gtk/GdkFontPeer.java' || echo '$(srcdir)/'`gnu/java/awt/peer/gtk/GdkFontPeer.java; \
+@am__fastdepGCJ_TRUE@	then mv -f "gnu/java/awt/peer/gtk/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-GdkFontPeer.Tpo" "gnu/java/awt/peer/gtk/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-GdkFontPeer.Plo"; else rm -f "gnu/java/awt/peer/gtk/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-GdkFontPeer.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepGCJ_FALSE@	source='gnu/java/awt/peer/gtk/GdkFontPeer.java' object='gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GdkFontPeer.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepGCJ_FALSE@	DEPDIR=$(DEPDIR) $(GCJDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepGCJ_FALSE@	$(LIBTOOL) --mode=compile $(GCJ) $(lib_gnu_java_awt_peer_gtk_la_GCJFLAGS) $(GCJFLAGS) -c -o gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GdkFontPeer.lo `test -f 'gnu/java/awt/peer/gtk/GdkFontPeer.java' || echo '$(srcdir)/'`gnu/java/awt/peer/gtk/GdkFontPeer.java
 
 gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GdkGlyphVector.lo: gnu/java/awt/peer/gtk/GdkGlyphVector.java
 @am__fastdepGCJ_TRUE@	if $(LIBTOOL) --mode=compile $(GCJ) $(lib_gnu_java_awt_peer_gtk_la_GCJFLAGS) $(GCJFLAGS) -MT gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GdkGlyphVector.lo -MD -MP -MF "gnu/java/awt/peer/gtk/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-GdkGlyphVector.Tpo" -c -o gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GdkGlyphVector.lo `test -f 'gnu/java/awt/peer/gtk/GdkGlyphVector.java' || echo '$(srcdir)/'`gnu/java/awt/peer/gtk/GdkGlyphVector.java; \
@@ -22733,13 +23189,6 @@ gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GtkFileDialogPeer.lo: gnu/jav
 @AMDEP_TRUE@@am__fastdepGCJ_FALSE@	source='gnu/java/awt/peer/gtk/GtkFileDialogPeer.java' object='gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GtkFileDialogPeer.lo' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepGCJ_FALSE@	DEPDIR=$(DEPDIR) $(GCJDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepGCJ_FALSE@	$(LIBTOOL) --mode=compile $(GCJ) $(lib_gnu_java_awt_peer_gtk_la_GCJFLAGS) $(GCJFLAGS) -c -o gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GtkFileDialogPeer.lo `test -f 'gnu/java/awt/peer/gtk/GtkFileDialogPeer.java' || echo '$(srcdir)/'`gnu/java/awt/peer/gtk/GtkFileDialogPeer.java
-
-gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GtkFontPeer.lo: gnu/java/awt/peer/gtk/GtkFontPeer.java
-@am__fastdepGCJ_TRUE@	if $(LIBTOOL) --mode=compile $(GCJ) $(lib_gnu_java_awt_peer_gtk_la_GCJFLAGS) $(GCJFLAGS) -MT gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GtkFontPeer.lo -MD -MP -MF "gnu/java/awt/peer/gtk/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-GtkFontPeer.Tpo" -c -o gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GtkFontPeer.lo `test -f 'gnu/java/awt/peer/gtk/GtkFontPeer.java' || echo '$(srcdir)/'`gnu/java/awt/peer/gtk/GtkFontPeer.java; \
-@am__fastdepGCJ_TRUE@	then mv -f "gnu/java/awt/peer/gtk/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-GtkFontPeer.Tpo" "gnu/java/awt/peer/gtk/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-GtkFontPeer.Plo"; else rm -f "gnu/java/awt/peer/gtk/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-GtkFontPeer.Tpo"; exit 1; fi
-@AMDEP_TRUE@@am__fastdepGCJ_FALSE@	source='gnu/java/awt/peer/gtk/GtkFontPeer.java' object='gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GtkFontPeer.lo' libtool=yes @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepGCJ_FALSE@	DEPDIR=$(DEPDIR) $(GCJDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepGCJ_FALSE@	$(LIBTOOL) --mode=compile $(GCJ) $(lib_gnu_java_awt_peer_gtk_la_GCJFLAGS) $(GCJFLAGS) -c -o gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GtkFontPeer.lo `test -f 'gnu/java/awt/peer/gtk/GtkFontPeer.java' || echo '$(srcdir)/'`gnu/java/awt/peer/gtk/GtkFontPeer.java
 
 gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GtkFramePeer.lo: gnu/java/awt/peer/gtk/GtkFramePeer.java
 @am__fastdepGCJ_TRUE@	if $(LIBTOOL) --mode=compile $(GCJ) $(lib_gnu_java_awt_peer_gtk_la_GCJFLAGS) $(GCJFLAGS) -MT gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GtkFramePeer.lo -MD -MP -MF "gnu/java/awt/peer/gtk/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-GtkFramePeer.Tpo" -c -o gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GtkFramePeer.lo `test -f 'gnu/java/awt/peer/gtk/GtkFramePeer.java' || echo '$(srcdir)/'`gnu/java/awt/peer/gtk/GtkFramePeer.java; \
@@ -22918,6 +23367,7 @@ clean-libtool:
 	-rm -rf gnu/gcj/util/.libs gnu/gcj/util/_libs
 	-rm -rf gnu/gcj/xlib/.libs gnu/gcj/xlib/_libs
 	-rm -rf gnu/java/awt/.libs gnu/java/awt/_libs
+	-rm -rf gnu/java/awt/color/.libs gnu/java/awt/color/_libs
 	-rm -rf gnu/java/awt/image/.libs gnu/java/awt/image/_libs
 	-rm -rf gnu/java/awt/peer/.libs gnu/java/awt/peer/_libs
 	-rm -rf gnu/java/awt/peer/gtk/.libs gnu/java/awt/peer/gtk/_libs
@@ -22934,6 +23384,7 @@ clean-libtool:
 	-rm -rf gnu/java/net/protocol/file/.libs gnu/java/net/protocol/file/_libs
 	-rm -rf gnu/java/net/protocol/gcjlib/.libs gnu/java/net/protocol/gcjlib/_libs
 	-rm -rf gnu/java/net/protocol/http/.libs gnu/java/net/protocol/http/_libs
+	-rm -rf gnu/java/net/protocol/http/event/.libs gnu/java/net/protocol/http/event/_libs
 	-rm -rf gnu/java/net/protocol/jar/.libs gnu/java/net/protocol/jar/_libs
 	-rm -rf gnu/java/nio/.libs gnu/java/nio/_libs
 	-rm -rf gnu/java/nio/channels/.libs gnu/java/nio/channels/_libs
@@ -23425,6 +23876,8 @@ distclean-generic:
 	-rm -f gnu/gcj/xlib/$(am__dirstamp)
 	-rm -f gnu/java/awt/$(DEPDIR)/$(am__dirstamp)
 	-rm -f gnu/java/awt/$(am__dirstamp)
+	-rm -f gnu/java/awt/color/$(DEPDIR)/$(am__dirstamp)
+	-rm -f gnu/java/awt/color/$(am__dirstamp)
 	-rm -f gnu/java/awt/image/$(DEPDIR)/$(am__dirstamp)
 	-rm -f gnu/java/awt/image/$(am__dirstamp)
 	-rm -f gnu/java/awt/peer/$(DEPDIR)/$(am__dirstamp)
@@ -23457,6 +23910,8 @@ distclean-generic:
 	-rm -f gnu/java/net/protocol/gcjlib/$(am__dirstamp)
 	-rm -f gnu/java/net/protocol/http/$(DEPDIR)/$(am__dirstamp)
 	-rm -f gnu/java/net/protocol/http/$(am__dirstamp)
+	-rm -f gnu/java/net/protocol/http/event/$(DEPDIR)/$(am__dirstamp)
+	-rm -f gnu/java/net/protocol/http/event/$(am__dirstamp)
 	-rm -f gnu/java/net/protocol/jar/$(DEPDIR)/$(am__dirstamp)
 	-rm -f gnu/java/net/protocol/jar/$(am__dirstamp)
 	-rm -f gnu/java/nio/$(DEPDIR)/$(am__dirstamp)
@@ -23709,7 +24164,7 @@ clean-am: clean-binPROGRAMS clean-generic clean-libtool clean-local \
 
 distclean: distclean-recursive
 	-rm -f $(am__CONFIG_DISTCLEAN_FILES)
-	-rm -rf ./$(DEPDIR) gnu/awt/$(DEPDIR) gnu/awt/j2d/$(DEPDIR) gnu/awt/xlib/$(DEPDIR) gnu/classpath/$(DEPDIR) gnu/gcj/$(DEPDIR) gnu/gcj/convert/$(DEPDIR) gnu/gcj/io/$(DEPDIR) gnu/gcj/runtime/$(DEPDIR) gnu/gcj/tools/gcj_dbtool/$(DEPDIR) gnu/gcj/util/$(DEPDIR) gnu/gcj/xlib/$(DEPDIR) gnu/java/awt/$(DEPDIR) gnu/java/awt/image/$(DEPDIR) gnu/java/awt/peer/$(DEPDIR) gnu/java/awt/peer/gtk/$(DEPDIR) gnu/java/beans/$(DEPDIR) gnu/java/beans/editors/$(DEPDIR) gnu/java/beans/info/$(DEPDIR) gnu/java/io/$(DEPDIR) gnu/java/lang/$(DEPDIR) gnu/java/lang/reflect/$(DEPDIR) gnu/java/locale/$(DEPDIR) gnu/java/math/$(DEPDIR) gnu/java/net/$(DEPDIR) gnu/java/net/protocol/core/$(DEPDIR) gnu/java/net/protocol/file/$(DEPDIR) gnu/java/net/protocol/gcjlib/$(DEPDIR) gnu/java/net/protocol/http/$(DEPDIR) gnu/java/net/protocol/jar/$(DEPDIR) gnu/java/nio/$(DEPDIR) gnu/java/nio/channels/$(DEPDIR) gnu/java/nio/charset/$(DEPDIR) gnu/java/rmi/$(DEPDIR) gnu/java/rmi/dgc/$(DEPDIR) gnu/java/rmi/registry/$(DEPDIR) gnu/java/rmi/rmic/$(DEPDIR) gnu/java/rmi/server/$(DEPDIR) gnu/java/security/$(DEPDIR) gnu/java/security/action/$(DEPDIR) gnu/java/security/der/$(DEPDIR) gnu/java/security/provider/$(DEPDIR) gnu/java/security/util/$(DEPDIR) gnu/java/security/x509/$(DEPDIR) gnu/java/security/x509/ext/$(DEPDIR) gnu/java/text/$(DEPDIR) gnu/java/util/$(DEPDIR) gnu/java/util/prefs/$(DEPDIR) gnu/regexp/$(DEPDIR) java/applet/$(DEPDIR) java/awt/$(DEPDIR) java/awt/color/$(DEPDIR) java/awt/datatransfer/$(DEPDIR) java/awt/dnd/$(DEPDIR) java/awt/dnd/peer/$(DEPDIR) java/awt/event/$(DEPDIR) java/awt/font/$(DEPDIR) java/awt/geom/$(DEPDIR) java/awt/im/$(DEPDIR) java/awt/im/spi/$(DEPDIR) java/awt/image/$(DEPDIR) java/awt/image/renderable/$(DEPDIR) java/awt/peer/$(DEPDIR) java/awt/print/$(DEPDIR) java/beans/$(DEPDIR) java/beans/beancontext/$(DEPDIR) java/io/$(DEPDIR) java/lang/$(DEPDIR) java/lang/ref/$(DEPDIR) java/lang/reflect/$(DEPDIR) java/math/$(DEPDIR) java/net/$(DEPDIR) java/nio/$(DEPDIR) java/nio/channels/$(DEPDIR) java/nio/channels/spi/$(DEPDIR) java/nio/charset/$(DEPDIR) java/nio/charset/spi/$(DEPDIR) java/rmi/$(DEPDIR) java/rmi/activation/$(DEPDIR) java/rmi/dgc/$(DEPDIR) java/rmi/registry/$(DEPDIR) java/rmi/server/$(DEPDIR) java/security/$(DEPDIR) java/security/acl/$(DEPDIR) java/security/cert/$(DEPDIR) java/security/interfaces/$(DEPDIR) java/security/spec/$(DEPDIR) java/sql/$(DEPDIR) java/text/$(DEPDIR) java/util/$(DEPDIR) java/util/jar/$(DEPDIR) java/util/logging/$(DEPDIR) java/util/prefs/$(DEPDIR) java/util/regex/$(DEPDIR) java/util/zip/$(DEPDIR) javax/accessibility/$(DEPDIR) javax/crypto/$(DEPDIR) javax/crypto/interfaces/$(DEPDIR) javax/crypto/spec/$(DEPDIR) javax/imageio/$(DEPDIR) javax/imageio/event/$(DEPDIR) javax/imageio/metadata/$(DEPDIR) javax/imageio/spi/$(DEPDIR) javax/imageio/stream/$(DEPDIR) javax/naming/$(DEPDIR) javax/naming/directory/$(DEPDIR) javax/naming/event/$(DEPDIR) javax/naming/ldap/$(DEPDIR) javax/naming/spi/$(DEPDIR) javax/net/$(DEPDIR) javax/net/ssl/$(DEPDIR) javax/print/$(DEPDIR) javax/print/attribute/$(DEPDIR) javax/print/attribute/standard/$(DEPDIR) javax/print/event/$(DEPDIR) javax/security/auth/$(DEPDIR) javax/security/auth/callback/$(DEPDIR) javax/security/auth/login/$(DEPDIR) javax/security/auth/spi/$(DEPDIR) javax/security/auth/x500/$(DEPDIR) javax/security/cert/$(DEPDIR) javax/security/sasl/$(DEPDIR) javax/sql/$(DEPDIR) javax/swing/$(DEPDIR) javax/swing/border/$(DEPDIR) javax/swing/colorchooser/$(DEPDIR) javax/swing/event/$(DEPDIR) javax/swing/filechooser/$(DEPDIR) javax/swing/plaf/$(DEPDIR) javax/swing/plaf/basic/$(DEPDIR) javax/swing/plaf/metal/$(DEPDIR) javax/swing/table/$(DEPDIR) javax/swing/text/$(DEPDIR) javax/swing/text/html/$(DEPDIR) javax/swing/text/html/parser/$(DEPDIR) javax/swing/tree/$(DEPDIR) javax/swing/undo/$(DEPDIR) javax/transaction/$(DEPDIR) javax/transaction/xa/$(DEPDIR) jni/classpath/$(DEPDIR) jni/gtk-peer/$(DEPDIR) org/ietf/jgss/$(DEPDIR) org/w3c/dom/$(DEPDIR) org/w3c/dom/ranges/$(DEPDIR) org/w3c/dom/traversal/$(DEPDIR) org/xml/sax/$(DEPDIR) org/xml/sax/ext/$(DEPDIR) org/xml/sax/helpers/$(DEPDIR) sysdep/$(DEPDIR)
+	-rm -rf ./$(DEPDIR) gnu/awt/$(DEPDIR) gnu/awt/j2d/$(DEPDIR) gnu/awt/xlib/$(DEPDIR) gnu/classpath/$(DEPDIR) gnu/gcj/$(DEPDIR) gnu/gcj/convert/$(DEPDIR) gnu/gcj/io/$(DEPDIR) gnu/gcj/runtime/$(DEPDIR) gnu/gcj/tools/gcj_dbtool/$(DEPDIR) gnu/gcj/util/$(DEPDIR) gnu/gcj/xlib/$(DEPDIR) gnu/java/awt/$(DEPDIR) gnu/java/awt/color/$(DEPDIR) gnu/java/awt/image/$(DEPDIR) gnu/java/awt/peer/$(DEPDIR) gnu/java/awt/peer/gtk/$(DEPDIR) gnu/java/beans/$(DEPDIR) gnu/java/beans/editors/$(DEPDIR) gnu/java/beans/info/$(DEPDIR) gnu/java/io/$(DEPDIR) gnu/java/lang/$(DEPDIR) gnu/java/lang/reflect/$(DEPDIR) gnu/java/locale/$(DEPDIR) gnu/java/math/$(DEPDIR) gnu/java/net/$(DEPDIR) gnu/java/net/protocol/core/$(DEPDIR) gnu/java/net/protocol/file/$(DEPDIR) gnu/java/net/protocol/gcjlib/$(DEPDIR) gnu/java/net/protocol/http/$(DEPDIR) gnu/java/net/protocol/http/event/$(DEPDIR) gnu/java/net/protocol/jar/$(DEPDIR) gnu/java/nio/$(DEPDIR) gnu/java/nio/channels/$(DEPDIR) gnu/java/nio/charset/$(DEPDIR) gnu/java/rmi/$(DEPDIR) gnu/java/rmi/dgc/$(DEPDIR) gnu/java/rmi/registry/$(DEPDIR) gnu/java/rmi/rmic/$(DEPDIR) gnu/java/rmi/server/$(DEPDIR) gnu/java/security/$(DEPDIR) gnu/java/security/action/$(DEPDIR) gnu/java/security/der/$(DEPDIR) gnu/java/security/provider/$(DEPDIR) gnu/java/security/util/$(DEPDIR) gnu/java/security/x509/$(DEPDIR) gnu/java/security/x509/ext/$(DEPDIR) gnu/java/text/$(DEPDIR) gnu/java/util/$(DEPDIR) gnu/java/util/prefs/$(DEPDIR) gnu/regexp/$(DEPDIR) java/applet/$(DEPDIR) java/awt/$(DEPDIR) java/awt/color/$(DEPDIR) java/awt/datatransfer/$(DEPDIR) java/awt/dnd/$(DEPDIR) java/awt/dnd/peer/$(DEPDIR) java/awt/event/$(DEPDIR) java/awt/font/$(DEPDIR) java/awt/geom/$(DEPDIR) java/awt/im/$(DEPDIR) java/awt/im/spi/$(DEPDIR) java/awt/image/$(DEPDIR) java/awt/image/renderable/$(DEPDIR) java/awt/peer/$(DEPDIR) java/awt/print/$(DEPDIR) java/beans/$(DEPDIR) java/beans/beancontext/$(DEPDIR) java/io/$(DEPDIR) java/lang/$(DEPDIR) java/lang/ref/$(DEPDIR) java/lang/reflect/$(DEPDIR) java/math/$(DEPDIR) java/net/$(DEPDIR) java/nio/$(DEPDIR) java/nio/channels/$(DEPDIR) java/nio/channels/spi/$(DEPDIR) java/nio/charset/$(DEPDIR) java/nio/charset/spi/$(DEPDIR) java/rmi/$(DEPDIR) java/rmi/activation/$(DEPDIR) java/rmi/dgc/$(DEPDIR) java/rmi/registry/$(DEPDIR) java/rmi/server/$(DEPDIR) java/security/$(DEPDIR) java/security/acl/$(DEPDIR) java/security/cert/$(DEPDIR) java/security/interfaces/$(DEPDIR) java/security/spec/$(DEPDIR) java/sql/$(DEPDIR) java/text/$(DEPDIR) java/util/$(DEPDIR) java/util/jar/$(DEPDIR) java/util/logging/$(DEPDIR) java/util/prefs/$(DEPDIR) java/util/regex/$(DEPDIR) java/util/zip/$(DEPDIR) javax/accessibility/$(DEPDIR) javax/crypto/$(DEPDIR) javax/crypto/interfaces/$(DEPDIR) javax/crypto/spec/$(DEPDIR) javax/imageio/$(DEPDIR) javax/imageio/event/$(DEPDIR) javax/imageio/metadata/$(DEPDIR) javax/imageio/spi/$(DEPDIR) javax/imageio/stream/$(DEPDIR) javax/naming/$(DEPDIR) javax/naming/directory/$(DEPDIR) javax/naming/event/$(DEPDIR) javax/naming/ldap/$(DEPDIR) javax/naming/spi/$(DEPDIR) javax/net/$(DEPDIR) javax/net/ssl/$(DEPDIR) javax/print/$(DEPDIR) javax/print/attribute/$(DEPDIR) javax/print/attribute/standard/$(DEPDIR) javax/print/event/$(DEPDIR) javax/security/auth/$(DEPDIR) javax/security/auth/callback/$(DEPDIR) javax/security/auth/login/$(DEPDIR) javax/security/auth/spi/$(DEPDIR) javax/security/auth/x500/$(DEPDIR) javax/security/cert/$(DEPDIR) javax/security/sasl/$(DEPDIR) javax/sql/$(DEPDIR) javax/swing/$(DEPDIR) javax/swing/border/$(DEPDIR) javax/swing/colorchooser/$(DEPDIR) javax/swing/event/$(DEPDIR) javax/swing/filechooser/$(DEPDIR) javax/swing/plaf/$(DEPDIR) javax/swing/plaf/basic/$(DEPDIR) javax/swing/plaf/metal/$(DEPDIR) javax/swing/table/$(DEPDIR) javax/swing/text/$(DEPDIR) javax/swing/text/html/$(DEPDIR) javax/swing/text/html/parser/$(DEPDIR) javax/swing/tree/$(DEPDIR) javax/swing/undo/$(DEPDIR) javax/transaction/$(DEPDIR) javax/transaction/xa/$(DEPDIR) jni/classpath/$(DEPDIR) jni/gtk-peer/$(DEPDIR) org/ietf/jgss/$(DEPDIR) org/w3c/dom/$(DEPDIR) org/w3c/dom/ranges/$(DEPDIR) org/w3c/dom/traversal/$(DEPDIR) org/xml/sax/$(DEPDIR) org/xml/sax/ext/$(DEPDIR) org/xml/sax/helpers/$(DEPDIR) sysdep/$(DEPDIR)
 	-rm -f Makefile
 distclean-am: clean-am distclean-compile distclean-generic \
 	distclean-libtool distclean-local distclean-tags
@@ -23739,7 +24194,7 @@ installcheck-am:
 maintainer-clean: maintainer-clean-recursive
 	-rm -f $(am__CONFIG_DISTCLEAN_FILES)
 	-rm -rf $(top_srcdir)/autom4te.cache
-	-rm -rf ./$(DEPDIR) gnu/awt/$(DEPDIR) gnu/awt/j2d/$(DEPDIR) gnu/awt/xlib/$(DEPDIR) gnu/classpath/$(DEPDIR) gnu/gcj/$(DEPDIR) gnu/gcj/convert/$(DEPDIR) gnu/gcj/io/$(DEPDIR) gnu/gcj/runtime/$(DEPDIR) gnu/gcj/tools/gcj_dbtool/$(DEPDIR) gnu/gcj/util/$(DEPDIR) gnu/gcj/xlib/$(DEPDIR) gnu/java/awt/$(DEPDIR) gnu/java/awt/image/$(DEPDIR) gnu/java/awt/peer/$(DEPDIR) gnu/java/awt/peer/gtk/$(DEPDIR) gnu/java/beans/$(DEPDIR) gnu/java/beans/editors/$(DEPDIR) gnu/java/beans/info/$(DEPDIR) gnu/java/io/$(DEPDIR) gnu/java/lang/$(DEPDIR) gnu/java/lang/reflect/$(DEPDIR) gnu/java/locale/$(DEPDIR) gnu/java/math/$(DEPDIR) gnu/java/net/$(DEPDIR) gnu/java/net/protocol/core/$(DEPDIR) gnu/java/net/protocol/file/$(DEPDIR) gnu/java/net/protocol/gcjlib/$(DEPDIR) gnu/java/net/protocol/http/$(DEPDIR) gnu/java/net/protocol/jar/$(DEPDIR) gnu/java/nio/$(DEPDIR) gnu/java/nio/channels/$(DEPDIR) gnu/java/nio/charset/$(DEPDIR) gnu/java/rmi/$(DEPDIR) gnu/java/rmi/dgc/$(DEPDIR) gnu/java/rmi/registry/$(DEPDIR) gnu/java/rmi/rmic/$(DEPDIR) gnu/java/rmi/server/$(DEPDIR) gnu/java/security/$(DEPDIR) gnu/java/security/action/$(DEPDIR) gnu/java/security/der/$(DEPDIR) gnu/java/security/provider/$(DEPDIR) gnu/java/security/util/$(DEPDIR) gnu/java/security/x509/$(DEPDIR) gnu/java/security/x509/ext/$(DEPDIR) gnu/java/text/$(DEPDIR) gnu/java/util/$(DEPDIR) gnu/java/util/prefs/$(DEPDIR) gnu/regexp/$(DEPDIR) java/applet/$(DEPDIR) java/awt/$(DEPDIR) java/awt/color/$(DEPDIR) java/awt/datatransfer/$(DEPDIR) java/awt/dnd/$(DEPDIR) java/awt/dnd/peer/$(DEPDIR) java/awt/event/$(DEPDIR) java/awt/font/$(DEPDIR) java/awt/geom/$(DEPDIR) java/awt/im/$(DEPDIR) java/awt/im/spi/$(DEPDIR) java/awt/image/$(DEPDIR) java/awt/image/renderable/$(DEPDIR) java/awt/peer/$(DEPDIR) java/awt/print/$(DEPDIR) java/beans/$(DEPDIR) java/beans/beancontext/$(DEPDIR) java/io/$(DEPDIR) java/lang/$(DEPDIR) java/lang/ref/$(DEPDIR) java/lang/reflect/$(DEPDIR) java/math/$(DEPDIR) java/net/$(DEPDIR) java/nio/$(DEPDIR) java/nio/channels/$(DEPDIR) java/nio/channels/spi/$(DEPDIR) java/nio/charset/$(DEPDIR) java/nio/charset/spi/$(DEPDIR) java/rmi/$(DEPDIR) java/rmi/activation/$(DEPDIR) java/rmi/dgc/$(DEPDIR) java/rmi/registry/$(DEPDIR) java/rmi/server/$(DEPDIR) java/security/$(DEPDIR) java/security/acl/$(DEPDIR) java/security/cert/$(DEPDIR) java/security/interfaces/$(DEPDIR) java/security/spec/$(DEPDIR) java/sql/$(DEPDIR) java/text/$(DEPDIR) java/util/$(DEPDIR) java/util/jar/$(DEPDIR) java/util/logging/$(DEPDIR) java/util/prefs/$(DEPDIR) java/util/regex/$(DEPDIR) java/util/zip/$(DEPDIR) javax/accessibility/$(DEPDIR) javax/crypto/$(DEPDIR) javax/crypto/interfaces/$(DEPDIR) javax/crypto/spec/$(DEPDIR) javax/imageio/$(DEPDIR) javax/imageio/event/$(DEPDIR) javax/imageio/metadata/$(DEPDIR) javax/imageio/spi/$(DEPDIR) javax/imageio/stream/$(DEPDIR) javax/naming/$(DEPDIR) javax/naming/directory/$(DEPDIR) javax/naming/event/$(DEPDIR) javax/naming/ldap/$(DEPDIR) javax/naming/spi/$(DEPDIR) javax/net/$(DEPDIR) javax/net/ssl/$(DEPDIR) javax/print/$(DEPDIR) javax/print/attribute/$(DEPDIR) javax/print/attribute/standard/$(DEPDIR) javax/print/event/$(DEPDIR) javax/security/auth/$(DEPDIR) javax/security/auth/callback/$(DEPDIR) javax/security/auth/login/$(DEPDIR) javax/security/auth/spi/$(DEPDIR) javax/security/auth/x500/$(DEPDIR) javax/security/cert/$(DEPDIR) javax/security/sasl/$(DEPDIR) javax/sql/$(DEPDIR) javax/swing/$(DEPDIR) javax/swing/border/$(DEPDIR) javax/swing/colorchooser/$(DEPDIR) javax/swing/event/$(DEPDIR) javax/swing/filechooser/$(DEPDIR) javax/swing/plaf/$(DEPDIR) javax/swing/plaf/basic/$(DEPDIR) javax/swing/plaf/metal/$(DEPDIR) javax/swing/table/$(DEPDIR) javax/swing/text/$(DEPDIR) javax/swing/text/html/$(DEPDIR) javax/swing/text/html/parser/$(DEPDIR) javax/swing/tree/$(DEPDIR) javax/swing/undo/$(DEPDIR) javax/transaction/$(DEPDIR) javax/transaction/xa/$(DEPDIR) jni/classpath/$(DEPDIR) jni/gtk-peer/$(DEPDIR) org/ietf/jgss/$(DEPDIR) org/w3c/dom/$(DEPDIR) org/w3c/dom/ranges/$(DEPDIR) org/w3c/dom/traversal/$(DEPDIR) org/xml/sax/$(DEPDIR) org/xml/sax/ext/$(DEPDIR) org/xml/sax/helpers/$(DEPDIR) sysdep/$(DEPDIR)
+	-rm -rf ./$(DEPDIR) gnu/awt/$(DEPDIR) gnu/awt/j2d/$(DEPDIR) gnu/awt/xlib/$(DEPDIR) gnu/classpath/$(DEPDIR) gnu/gcj/$(DEPDIR) gnu/gcj/convert/$(DEPDIR) gnu/gcj/io/$(DEPDIR) gnu/gcj/runtime/$(DEPDIR) gnu/gcj/tools/gcj_dbtool/$(DEPDIR) gnu/gcj/util/$(DEPDIR) gnu/gcj/xlib/$(DEPDIR) gnu/java/awt/$(DEPDIR) gnu/java/awt/color/$(DEPDIR) gnu/java/awt/image/$(DEPDIR) gnu/java/awt/peer/$(DEPDIR) gnu/java/awt/peer/gtk/$(DEPDIR) gnu/java/beans/$(DEPDIR) gnu/java/beans/editors/$(DEPDIR) gnu/java/beans/info/$(DEPDIR) gnu/java/io/$(DEPDIR) gnu/java/lang/$(DEPDIR) gnu/java/lang/reflect/$(DEPDIR) gnu/java/locale/$(DEPDIR) gnu/java/math/$(DEPDIR) gnu/java/net/$(DEPDIR) gnu/java/net/protocol/core/$(DEPDIR) gnu/java/net/protocol/file/$(DEPDIR) gnu/java/net/protocol/gcjlib/$(DEPDIR) gnu/java/net/protocol/http/$(DEPDIR) gnu/java/net/protocol/http/event/$(DEPDIR) gnu/java/net/protocol/jar/$(DEPDIR) gnu/java/nio/$(DEPDIR) gnu/java/nio/channels/$(DEPDIR) gnu/java/nio/charset/$(DEPDIR) gnu/java/rmi/$(DEPDIR) gnu/java/rmi/dgc/$(DEPDIR) gnu/java/rmi/registry/$(DEPDIR) gnu/java/rmi/rmic/$(DEPDIR) gnu/java/rmi/server/$(DEPDIR) gnu/java/security/$(DEPDIR) gnu/java/security/action/$(DEPDIR) gnu/java/security/der/$(DEPDIR) gnu/java/security/provider/$(DEPDIR) gnu/java/security/util/$(DEPDIR) gnu/java/security/x509/$(DEPDIR) gnu/java/security/x509/ext/$(DEPDIR) gnu/java/text/$(DEPDIR) gnu/java/util/$(DEPDIR) gnu/java/util/prefs/$(DEPDIR) gnu/regexp/$(DEPDIR) java/applet/$(DEPDIR) java/awt/$(DEPDIR) java/awt/color/$(DEPDIR) java/awt/datatransfer/$(DEPDIR) java/awt/dnd/$(DEPDIR) java/awt/dnd/peer/$(DEPDIR) java/awt/event/$(DEPDIR) java/awt/font/$(DEPDIR) java/awt/geom/$(DEPDIR) java/awt/im/$(DEPDIR) java/awt/im/spi/$(DEPDIR) java/awt/image/$(DEPDIR) java/awt/image/renderable/$(DEPDIR) java/awt/peer/$(DEPDIR) java/awt/print/$(DEPDIR) java/beans/$(DEPDIR) java/beans/beancontext/$(DEPDIR) java/io/$(DEPDIR) java/lang/$(DEPDIR) java/lang/ref/$(DEPDIR) java/lang/reflect/$(DEPDIR) java/math/$(DEPDIR) java/net/$(DEPDIR) java/nio/$(DEPDIR) java/nio/channels/$(DEPDIR) java/nio/channels/spi/$(DEPDIR) java/nio/charset/$(DEPDIR) java/nio/charset/spi/$(DEPDIR) java/rmi/$(DEPDIR) java/rmi/activation/$(DEPDIR) java/rmi/dgc/$(DEPDIR) java/rmi/registry/$(DEPDIR) java/rmi/server/$(DEPDIR) java/security/$(DEPDIR) java/security/acl/$(DEPDIR) java/security/cert/$(DEPDIR) java/security/interfaces/$(DEPDIR) java/security/spec/$(DEPDIR) java/sql/$(DEPDIR) java/text/$(DEPDIR) java/util/$(DEPDIR) java/util/jar/$(DEPDIR) java/util/logging/$(DEPDIR) java/util/prefs/$(DEPDIR) java/util/regex/$(DEPDIR) java/util/zip/$(DEPDIR) javax/accessibility/$(DEPDIR) javax/crypto/$(DEPDIR) javax/crypto/interfaces/$(DEPDIR) javax/crypto/spec/$(DEPDIR) javax/imageio/$(DEPDIR) javax/imageio/event/$(DEPDIR) javax/imageio/metadata/$(DEPDIR) javax/imageio/spi/$(DEPDIR) javax/imageio/stream/$(DEPDIR) javax/naming/$(DEPDIR) javax/naming/directory/$(DEPDIR) javax/naming/event/$(DEPDIR) javax/naming/ldap/$(DEPDIR) javax/naming/spi/$(DEPDIR) javax/net/$(DEPDIR) javax/net/ssl/$(DEPDIR) javax/print/$(DEPDIR) javax/print/attribute/$(DEPDIR) javax/print/attribute/standard/$(DEPDIR) javax/print/event/$(DEPDIR) javax/security/auth/$(DEPDIR) javax/security/auth/callback/$(DEPDIR) javax/security/auth/login/$(DEPDIR) javax/security/auth/spi/$(DEPDIR) javax/security/auth/x500/$(DEPDIR) javax/security/cert/$(DEPDIR) javax/security/sasl/$(DEPDIR) javax/sql/$(DEPDIR) javax/swing/$(DEPDIR) javax/swing/border/$(DEPDIR) javax/swing/colorchooser/$(DEPDIR) javax/swing/event/$(DEPDIR) javax/swing/filechooser/$(DEPDIR) javax/swing/plaf/$(DEPDIR) javax/swing/plaf/basic/$(DEPDIR) javax/swing/plaf/metal/$(DEPDIR) javax/swing/table/$(DEPDIR) javax/swing/text/$(DEPDIR) javax/swing/text/html/$(DEPDIR) javax/swing/text/html/parser/$(DEPDIR) javax/swing/tree/$(DEPDIR) javax/swing/undo/$(DEPDIR) javax/transaction/$(DEPDIR) javax/transaction/xa/$(DEPDIR) jni/classpath/$(DEPDIR) jni/gtk-peer/$(DEPDIR) org/ietf/jgss/$(DEPDIR) org/w3c/dom/$(DEPDIR) org/w3c/dom/ranges/$(DEPDIR) org/w3c/dom/traversal/$(DEPDIR) org/xml/sax/$(DEPDIR) org/xml/sax/ext/$(DEPDIR) org/xml/sax/helpers/$(DEPDIR) sysdep/$(DEPDIR)
 	-rm -f Makefile
 maintainer-clean-am: distclean-am maintainer-clean-generic
 
@@ -23787,10 +24242,94 @@ uninstall-info: uninstall-info-recursive
 	uninstall-toolexecmainlibDATA
 
 
-$(gtk_jni_headers): $(gtk_awt_peer_sources)
+jniinclude/gnu_java_awt_peer_gtk_GdkFontMetrics.h: gnu/java/awt/peer/gtk/GdkFontMetrics.java
+jniinclude/gnu_java_awt_peer_gtk_GdkGlyphVector.h: gnu/java/awt/peer/gtk/GdkGlyphVector.java
+jniinclude/gnu_java_awt_peer_gtk_GdkGraphics.h: gnu/java/awt/peer/gtk/GdkGraphics.java
+jniinclude/gnu_java_awt_peer_gtk_GdkGraphics2D.h: gnu/java/awt/peer/gtk/GdkGraphics2D.java
+jniinclude/gnu_java_awt_peer_gtk_GdkGraphicsEnvironment.h: gnu/java/awt/peer/gtk/GdkGraphicsEnvironment.java
+jniinclude/gnu_java_awt_peer_gtk_GdkPixbufDecoder.h: gnu/java/awt/peer/gtk/GdkPixbufDecoder.java
+jniinclude/gnu_java_awt_peer_gtk_GtkButtonPeer.h: gnu/java/awt/peer/gtk/GtkButtonPeer.java
+jniinclude/gnu_java_awt_peer_gtk_GtkCanvasPeer.h: gnu/java/awt/peer/gtk/GtkCanvasPeer.java
+jniinclude/gnu_java_awt_peer_gtk_GtkCheckboxGroupPeer.h: gnu/java/awt/peer/gtk/GtkCheckboxGroupPeer.java
+jniinclude/gnu_java_awt_peer_gtk_GtkCheckboxMenuItemPeer.h: gnu/java/awt/peer/gtk/GtkCheckboxMenuItemPeer.java
+jniinclude/gnu_java_awt_peer_gtk_GtkCheckboxPeer.h: gnu/java/awt/peer/gtk/GtkCheckboxPeer.java
+jniinclude/gnu_java_awt_peer_gtk_GtkChoicePeer.h: gnu/java/awt/peer/gtk/GtkChoicePeer.java
+jniinclude/gnu_java_awt_peer_gtk_GtkClipboard.h: gnu/java/awt/peer/gtk/GtkClipboard.java
+jniinclude/gnu_java_awt_peer_gtk_GtkComponentPeer.h: gnu/java/awt/peer/gtk/GtkComponentPeer.java
+jniinclude/gnu_java_awt_peer_gtk_GtkContainerPeer.h: gnu/java/awt/peer/gtk/GtkContainerPeer.java
+jniinclude/gnu_java_awt_peer_gtk_GtkDialogPeer.h: gnu/java/awt/peer/gtk/GtkDialogPeer.java
+jniinclude/gnu_java_awt_peer_gtk_GtkEmbeddedWindowPeer.h: gnu/java/awt/peer/gtk/GtkEmbeddedWindowPeer.java
+jniinclude/gnu_java_awt_peer_gtk_GtkFileDialogPeer.h: gnu/java/awt/peer/gtk/GtkFileDialogPeer.java
+jniinclude/gnu_java_awt_peer_gtk_GtkFontPeer.h: gnu/java/awt/peer/gtk/GtkFontPeer.java
+jniinclude/gnu_java_awt_peer_gtk_GtkFramePeer.h: gnu/java/awt/peer/gtk/GtkFramePeer.java
+jniinclude/gnu_java_awt_peer_gtk_GtkGenericPeer.h: gnu/java/awt/peer/gtk/GtkGenericPeer.java
+jniinclude/gnu_java_awt_peer_gtk_GtkImage.h: gnu/java/awt/peer/gtk/GtkImage.java
+jniinclude/gnu_java_awt_peer_gtk_GtkImagePainter.h: gnu/java/awt/peer/gtk/GtkImagePainter.java
+jniinclude/gnu_java_awt_peer_gtk_GtkLabelPeer.h: gnu/java/awt/peer/gtk/GtkLabelPeer.java
+jniinclude/gnu_java_awt_peer_gtk_GtkListPeer.h: gnu/java/awt/peer/gtk/GtkListPeer.java
+jniinclude/gnu_java_awt_peer_gtk_GtkMainThread.h: gnu/java/awt/peer/gtk/GtkMainThread.java
+jniinclude/gnu_java_awt_peer_gtk_GtkMenuBarPeer.h: gnu/java/awt/peer/gtk/GtkMenuBarPeer.java
+jniinclude/gnu_java_awt_peer_gtk_GtkMenuComponentPeer.h: gnu/java/awt/peer/gtk/GtkMenuComponentPeer.java
+jniinclude/gnu_java_awt_peer_gtk_GtkMenuItemPeer.h: gnu/java/awt/peer/gtk/GtkMenuItemPeer.java
+jniinclude/gnu_java_awt_peer_gtk_GtkMenuPeer.h: gnu/java/awt/peer/gtk/GtkMenuPeer.java
+jniinclude/gnu_java_awt_peer_gtk_GtkOffScreenImage.h: gnu/java/awt/peer/gtk/GtkOffScreenImage.java
+jniinclude/gnu_java_awt_peer_gtk_GtkPanelPeer.h: gnu/java/awt/peer/gtk/GtkPanelPeer.java
+jniinclude/gnu_java_awt_peer_gtk_GtkPopupMenuPeer.h: gnu/java/awt/peer/gtk/GtkPopupMenuPeer.java
+jniinclude/gnu_java_awt_peer_gtk_GtkScrollPanePeer.h: gnu/java/awt/peer/gtk/GtkScrollPanePeer.java
+jniinclude/gnu_java_awt_peer_gtk_GtkScrollbarPeer.h: gnu/java/awt/peer/gtk/GtkScrollbarPeer.java
+jniinclude/gnu_java_awt_peer_gtk_GtkTextAreaPeer.h: gnu/java/awt/peer/gtk/GtkTextAreaPeer.java
+jniinclude/gnu_java_awt_peer_gtk_GtkTextComponentPeer.h: gnu/java/awt/peer/gtk/GtkTextComponentPeer.java
+jniinclude/gnu_java_awt_peer_gtk_GtkTextFieldPeer.h: gnu/java/awt/peer/gtk/GtkTextFieldPeer.java
+jniinclude/gnu_java_awt_peer_gtk_GtkToolkit.h: gnu/java/awt/peer/gtk/GtkToolkit.java
+jniinclude/gnu_java_awt_peer_gtk_GtkWindowPeer.h: gnu/java/awt/peer/gtk/GtkWindowPeer.java
+jniinclude/gnu_java_awt_peer_gtk_GThreadMutex.h: gnu/java/awt/peer/gtk/GThreadMutex.java
+jniinclude/gnu_java_awt_peer_gtk_GThreadNativeMethodRunner.h: gnu/java/awt/peer/gtk/GThreadNativeMethodRunner.java
+jniinclude/gnu_java_awt_peer_gtk_GdkTextLayout.h: gnu/java/awt/peer/gtk/GdkTextLayout.java
+jniinclude/gnu_java_awt_peer_gtk_GdkFontPeer.h: gnu/java/awt/peer/gtk/GdkFontPeer.java
+
+$(gtk_jni_headers): %.h:
 	@input=`echo $@ | sed -e 's,jniinclude/,,' -e 's,_,.,g' -e 's,.h$$,,'`; \
 	echo "$(GCJH) -jni -d jniinclude -classpath '' -bootclasspath $(top_builddir) $$input"; \
 	$(GCJH) -jni -d jniinclude -classpath '' -bootclasspath $(top_builddir) $$input
+
+jni/gtk-peer/gnu_java_awt_peer_gtk_GdkFontMetrics.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GdkFontMetrics.h
+jni/gtk-peer/gnu_java_awt_peer_gtk_GdkFontPeer.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GdkFontPeer.h
+jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGlyphVector.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GdkGlyphVector.h
+jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGraphics2D.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GdkGraphics2D.h
+jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGraphicsEnvironment.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GdkGraphicsEnvironment.h
+jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGraphics.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GdkGraphics.h
+jni/gtk-peer/gnu_java_awt_peer_gtk_GdkPixbufDecoder.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GdkPixbufDecoder.h
+jni/gtk-peer/gnu_java_awt_peer_gtk_GdkTextLayout.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GdkTextLayout.h
+jni/gtk-peer/gnu_java_awt_peer_gtk_GThreadNativeMethodRunner.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GThreadNativeMethodRunner.h
+jni/gtk-peer/gnu_java_awt_peer_gtk_GtkButtonPeer.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GtkButtonPeer.h
+jni/gtk-peer/gnu_java_awt_peer_gtk_GtkCanvasPeer.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GtkCanvasPeer.h
+jni/gtk-peer/gnu_java_awt_peer_gtk_GtkCheckboxGroupPeer.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GtkCheckboxGroupPeer.h
+jni/gtk-peer/gnu_java_awt_peer_gtk_GtkCheckboxMenuItemPeer.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GtkCheckboxMenuItemPeer.h
+jni/gtk-peer/gnu_java_awt_peer_gtk_GtkCheckboxPeer.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GtkCheckboxPeer.h $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GtkComponentPeer.h
+jni/gtk-peer/gnu_java_awt_peer_gtk_GtkChoicePeer.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GtkChoicePeer.h
+jni/gtk-peer/gnu_java_awt_peer_gtk_GtkClipboard.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GtkClipboard.h
+jni/gtk-peer/gnu_java_awt_peer_gtk_GtkComponentPeer.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GtkComponentPeer.h
+jni/gtk-peer/gnu_java_awt_peer_gtk_GtkEmbeddedWindowPeer.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GtkEmbeddedWindowPeer.h
+jni/gtk-peer/gnu_java_awt_peer_gtk_GtkFileDialogPeer.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GtkFileDialogPeer.h
+jni/gtk-peer/gnu_java_awt_peer_gtk_GtkFramePeer.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GtkFramePeer.h
+jni/gtk-peer/gnu_java_awt_peer_gtk_GtkGenericPeer.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GtkGenericPeer.h
+jni/gtk-peer/gnu_java_awt_peer_gtk_GtkImagePainter.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GtkImagePainter.h
+jni/gtk-peer/gnu_java_awt_peer_gtk_GtkLabelPeer.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GtkLabelPeer.h
+jni/gtk-peer/gnu_java_awt_peer_gtk_GtkListPeer.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GtkListPeer.h
+jni/gtk-peer/gnu_java_awt_peer_gtk_GtkMainThread.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GtkMainThread.h
+jni/gtk-peer/gnu_java_awt_peer_gtk_GtkMenuBarPeer.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GtkMenuBarPeer.h
+jni/gtk-peer/gnu_java_awt_peer_gtk_GtkMenuComponentPeer.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GtkMenuComponentPeer.h
+jni/gtk-peer/gnu_java_awt_peer_gtk_GtkMenuItemPeer.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GtkMenuItemPeer.h
+jni/gtk-peer/gnu_java_awt_peer_gtk_GtkMenuPeer.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GtkMenuPeer.h
+jni/gtk-peer/gnu_java_awt_peer_gtk_GtkPanelPeer.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GtkPanelPeer.h
+jni/gtk-peer/gnu_java_awt_peer_gtk_GtkPopupMenuPeer.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GtkPopupMenuPeer.h
+jni/gtk-peer/gnu_java_awt_peer_gtk_GtkScrollBarPeer.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GtkScrollbarPeer.h
+jni/gtk-peer/gnu_java_awt_peer_gtk_GtkScrollPanePeer.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GtkScrollPanePeer.h
+jni/gtk-peer/gnu_java_awt_peer_gtk_GtkTextAreaPeer.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GtkTextAreaPeer.h
+jni/gtk-peer/gnu_java_awt_peer_gtk_GtkTextComponentPeer.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GtkTextComponentPeer.h
+jni/gtk-peer/gnu_java_awt_peer_gtk_GtkTextFieldPeer.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GtkTextFieldPeer.h
+jni/gtk-peer/gnu_java_awt_peer_gtk_GtkToolkit.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GtkToolkit.h
+jni/gtk-peer/gnu_java_awt_peer_gtk_GtkWindowPeer.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GtkWindowPeer.h
 
 $(lib_gnu_java_awt_peer_gtk_la_OBJECTS): $(lib_gnu_java_awt_peer_gtk_la_DEPENDENCIES)
 
@@ -24019,10 +24558,10 @@ install-data-local:
 	@: $(call write_entries_to_file,$(nat_headers_install) $(extra_headers),tmp-ilist)
 	@cat tmp-ilist | while read f; do \
 	  d="`echo $$f | sed -e 's,/[^/]*$$,,'`"; \
-	  $(mkinstalldirs) $(DESTDIR)$(includedir)/$$d; \
+	  $(mkinstalldirs) $(DESTDIR)$(gxx_include_dir)/$$d; \
 	  if test -f $(srcdir)/$$f; then p=$(srcdir)/$$f; else p=$$f; fi; \
-	  echo " $(INSTALL_DATA) $$p $(DESTDIR)$(includedir)/$$f"; \
-	  $(INSTALL_DATA) $$p $(DESTDIR)$(includedir)/$$f; \
+	  echo " $(INSTALL_DATA) $$p $(DESTDIR)$(gxx_include_dir)/$$f"; \
+	  $(INSTALL_DATA) $$p $(DESTDIR)$(gxx_include_dir)/$$f; \
 	done
 	-@rm -f tmp-ilist
 	$(mkinstalldirs) $(DESTDIR)$(secdir)
@@ -24031,16 +24570,16 @@ install-data-local:
 	  $(INSTALL_DATA) $(srcdir)/java/security/$$f $(DESTDIR)$(secdir)/$$f; \
 	done
 	$(INSTALL_DATA) $(srcdir)/java/util/logging/logging.properties $(DESTDIR)$(propdir)/logging.properties
-	$(INSTALL_DATA) 'java/io/ObjectOutputStream$$PutField.h' $(DESTDIR)$(includedir)/java/io/
-	$(INSTALL_DATA) 'java/io/ObjectInputStream$$GetField.h' $(DESTDIR)$(includedir)/java/io/
-	$(INSTALL_DATA) 'java/nio/channels/Pipe$$SinkChannel.h' $(DESTDIR)$(includedir)/java/nio/channels/
-	$(INSTALL_DATA) 'java/nio/channels/Pipe$$SourceChannel.h' $(DESTDIR)$(includedir)/java/nio/channels/
-	$(INSTALL_DATA) 'java/lang/reflect/Proxy$$ProxyData.h' $(DESTDIR)$(includedir)/java/lang/reflect/
-	$(INSTALL_DATA) 'java/lang/reflect/Proxy$$ProxyType.h' $(DESTDIR)$(includedir)/java/lang/reflect/
-	$(INSTALL_DATA) 'gnu/java/net/PlainSocketImpl$$SocketInputStream.h' $(DESTDIR)$(includedir)/gnu/java/net/
-	$(INSTALL_DATA) 'gnu/java/net/PlainSocketImpl$$SocketOutputStream.h' $(DESTDIR)$(includedir)/gnu/java/net/
-	$(INSTALL_DATA) 'gnu/java/nio/PipeImpl$$SinkChannelImpl.h' $(DESTDIR)$(includedir)/gnu/java/nio/
-	$(INSTALL_DATA) 'gnu/java/nio/PipeImpl$$SourceChannelImpl.h' $(DESTDIR)$(includedir)/gnu/java/nio/
+	$(INSTALL_DATA) 'java/io/ObjectOutputStream$$PutField.h' $(DESTDIR)$(gxx_include_dir)/java/io/
+	$(INSTALL_DATA) 'java/io/ObjectInputStream$$GetField.h' $(DESTDIR)$(gxx_include_dir)/java/io/
+	$(INSTALL_DATA) 'java/nio/channels/Pipe$$SinkChannel.h' $(DESTDIR)$(gxx_include_dir)/java/nio/channels/
+	$(INSTALL_DATA) 'java/nio/channels/Pipe$$SourceChannel.h' $(DESTDIR)$(gxx_include_dir)/java/nio/channels/
+	$(INSTALL_DATA) 'java/lang/reflect/Proxy$$ProxyData.h' $(DESTDIR)$(gxx_include_dir)/java/lang/reflect/
+	$(INSTALL_DATA) 'java/lang/reflect/Proxy$$ProxyType.h' $(DESTDIR)$(gxx_include_dir)/java/lang/reflect/
+	$(INSTALL_DATA) 'gnu/java/net/PlainSocketImpl$$SocketInputStream.h' $(DESTDIR)$(gxx_include_dir)/gnu/java/net/
+	$(INSTALL_DATA) 'gnu/java/net/PlainSocketImpl$$SocketOutputStream.h' $(DESTDIR)$(gxx_include_dir)/gnu/java/net/
+	$(INSTALL_DATA) 'gnu/java/nio/PipeImpl$$SinkChannelImpl.h' $(DESTDIR)$(gxx_include_dir)/gnu/java/nio/
+	$(INSTALL_DATA) 'gnu/java/nio/PipeImpl$$SourceChannelImpl.h' $(DESTDIR)$(gxx_include_dir)/gnu/java/nio/
 
 maintainer-check: libgcj.la
 	$(NM) .libs/libgcj.a | grep ' T ' \

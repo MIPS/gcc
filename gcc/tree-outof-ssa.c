@@ -1,5 +1,5 @@
 /* Convert a program in SSA form into Normal form.
-   Copyright (C) 2004 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005 Free Software Foundation, Inc.
    Contributed by Andrew Macleod <amacleod@redhat.com>
 
 This file is part of GCC.
@@ -156,7 +156,19 @@ create_temp (tree t)
   if (name == NULL)
     name = "temp";
   tmp = create_tmp_var (type, name);
+
+  if (DECL_DEBUG_EXPR (t) && DECL_DEBUG_EXPR_IS_FROM (t))
+    {
+      DECL_DEBUG_EXPR (tmp) = DECL_DEBUG_EXPR (t);  
+      DECL_DEBUG_EXPR_IS_FROM (tmp) = 1;
+    }
+  else if (!DECL_IGNORED_P (t))
+    {
+      DECL_DEBUG_EXPR (tmp) = t;
+      DECL_DEBUG_EXPR_IS_FROM (tmp) = 1;
+    }
   DECL_ARTIFICIAL (tmp) = DECL_ARTIFICIAL (t);
+  DECL_IGNORED_P (tmp) = DECL_IGNORED_P (t);
   add_referenced_tmp_var (tmp);
 
   /* add_referenced_tmp_var will create the annotation and set up some
@@ -569,7 +581,7 @@ coalesce_abnormal_edges (var_map map, conflict_graph graph, root_var_p rv)
   basic_block bb;
   edge e;
   tree phi, var, tmp;
-  int x, y;
+  int x, y, z;
   edge_iterator ei;
 
   /* Code cannot be inserted on abnormal edges. Look for all abnormal 
@@ -641,8 +653,9 @@ coalesce_abnormal_edges (var_map map, conflict_graph graph, root_var_p rv)
 				      "ABNORMAL: Coalescing ",
 				      var, " and ", tmp);
 		  }
+	        z = var_union (map, var, tmp);
 #ifdef ENABLE_CHECKING
-		if (var_union (map, var, tmp) == NO_PARTITION)
+		if (z == NO_PARTITION)
 		  {
 		    print_exprs_edge (stderr, e, "\nUnable to coalesce", 
 				      partition_to_var (map, x), " and ", 
@@ -650,9 +663,13 @@ coalesce_abnormal_edges (var_map map, conflict_graph graph, root_var_p rv)
 		    internal_error ("SSA corruption");
 		  }
 #else
-		gcc_assert (var_union (map, var, tmp) != NO_PARTITION);
+		gcc_assert (z != NO_PARTITION);
 #endif
-		conflict_graph_merge_regs (graph, x, y);
+		gcc_assert (z == x || z == y);
+		if (z == x)
+		  conflict_graph_merge_regs (graph, x, y);
+		else
+		  conflict_graph_merge_regs (graph, y, x);
 	      }
 	  }
 }
@@ -1449,6 +1466,7 @@ check_replaceable (temp_expr_table_p tab, tree stmt)
   int num_use_ops, version;
   var_map map = tab->map;
   ssa_op_iter iter;
+  tree call_expr;
 
   if (TREE_CODE (stmt) != MODIFY_EXPR)
     return false;
@@ -1474,6 +1492,15 @@ check_replaceable (temp_expr_table_p tab, tree stmt)
   /* Float expressions must go through memory if float-store is on.  */
   if (flag_float_store && FLOAT_TYPE_P (TREE_TYPE (TREE_OPERAND (stmt, 1))))
     return false;
+
+  /* Calls to functions with side-effects cannot be replaced.  */
+  if ((call_expr = get_call_expr_in (stmt)) != NULL_TREE)
+    {
+      int call_flags = call_expr_flags (call_expr);
+      if (TREE_SIDE_EFFECTS (call_expr)
+	  && !(call_flags & (ECF_PURE | ECF_CONST | ECF_NORETURN)))
+	return false;
+    }
 
   uses = USE_OPS (ann);
   num_use_ops = NUM_USES (uses);
@@ -2352,6 +2379,95 @@ remove_ssa_form (FILE *dump, var_map map, int flags)
   dump_file = save;
 }
 
+/* Search every PHI node for arguments associated with backedges which
+   we can trivially determine will need a copy (the argument is either
+   not an SSA_NAME or the argument has a different underlying variable
+   than the PHI result).
+
+   Insert a copy from the PHI argument to a new destination at the
+   end of the block with the backedge to the top of the loop.  Update
+   the PHI argument to reference this new destination.  */
+
+static void
+insert_backedge_copies (void)
+{
+  basic_block bb;
+
+  FOR_EACH_BB (bb)
+    {
+      tree phi;
+
+      for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
+	{
+	  tree result = PHI_RESULT (phi);
+	  tree result_var;
+	  int i;
+
+	  if (!is_gimple_reg (result))
+	    continue;
+
+	  result_var = SSA_NAME_VAR (result);
+	  for (i = 0; i < PHI_NUM_ARGS (phi); i++)
+	    {
+	      tree arg = PHI_ARG_DEF (phi, i);
+	      edge e = PHI_ARG_EDGE (phi, i);
+
+	      /* If the argument is not an SSA_NAME, then we will
+		 need a constant initialization.  If the argument is
+		 an SSA_NAME with a different underlying variable and
+		 we are not combining temporaries, then we will
+		 need a copy statement.  */
+	      if ((e->flags & EDGE_DFS_BACK)
+		  && (TREE_CODE (arg) != SSA_NAME
+		      || (!flag_tree_combine_temps
+			  && SSA_NAME_VAR (arg) != result_var)))
+		{
+		  tree stmt, name, last = NULL;
+		  block_stmt_iterator bsi;
+
+		  bsi = bsi_last (PHI_ARG_EDGE (phi, i)->src);
+		  if (!bsi_end_p (bsi))
+		    last = bsi_stmt (bsi);
+
+		  /* In theory the only way we ought to get back to the
+		     start of a loop should be with a COND_EXPR or GOTO_EXPR.
+		     However, better safe than sorry. 
+
+		     If the block ends with a control statement or
+		     something that might throw, then we have to
+		     insert this assignment before the last
+		     statement.  Else insert it after the last statement.  */
+		  if (last && stmt_ends_bb_p (last))
+		    {
+		      /* If the last statement in the block is the definition
+			 site of the PHI argument, then we can't insert
+			 anything after it.  */
+		      if (TREE_CODE (arg) == SSA_NAME
+			  && SSA_NAME_DEF_STMT (arg) == last)
+			continue;
+		    }
+
+		  /* Create a new instance of the underlying
+		     variable of the PHI result.  */
+		  stmt = build (MODIFY_EXPR, TREE_TYPE (result_var),
+				NULL, PHI_ARG_DEF (phi, i));
+		  name = make_ssa_name (result_var, stmt);
+		  TREE_OPERAND (stmt, 0) = name;
+
+		  /* Insert the new statement into the block and update
+		     the PHI node.  */
+		  if (last && stmt_ends_bb_p (last))
+		    bsi_insert_before (&bsi, stmt, BSI_NEW_STMT);
+		  else
+		    bsi_insert_after (&bsi, stmt, BSI_NEW_STMT);
+		  modify_stmt (stmt);
+		  SET_PHI_ARG_DEF (phi, i, name);
+		}
+	    }
+	}
+    }
+}
+
 /* Take the current function out of SSA form, as described in
    R. Morgan, ``Building an Optimizing Compiler'',
    Butterworth-Heinemann, Boston, MA, 1998. pp 176-186.  */
@@ -2362,6 +2478,14 @@ rewrite_out_of_ssa (void)
   var_map map;
   int var_flags = 0;
   int ssa_flags = (SSANORM_REMOVE_ALL_PHIS | SSANORM_USE_COALESCE_LIST);
+
+  /* If elimination of a PHI requires inserting a copy on a backedge,
+     then we will have to split the backedge which has numerous
+     undesirable performance effects.
+
+     A significant number of such cases can be handled here by inserting
+     copies into the loop itself.  */
+  insert_backedge_copies ();
 
   if (!flag_tree_live_range_split)
     ssa_flags |= SSANORM_COALESCE_PARTITIONS;

@@ -8,6 +8,15 @@ it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
+In addition to the permissions in the GNU General Public License, the
+Free Software Foundation gives you unlimited permission to link the
+compiled version of this file into combinations with other programs,
+and to distribute those combinations without any restriction coming
+from the use of this file.  (The General Public License restrictions
+do apply in other respects; for example, they cover modification of
+the file, and distribution when not linked into a combine
+executable.)
+
 Libgfortran is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -71,16 +80,16 @@ formatted_backspace (void)
     }
   while (base != 0);
 
-/* base is the new pointer.  Seek to it exactly */
-
-done:
+  /* base is the new pointer.  Seek to it exactly */
+ done:
   if (sseek (current_unit->s, base) == FAILURE)
     goto io_error;
   current_unit->last_record--;
+  current_unit->endfile = NO_ENDFILE;
 
   return;
 
-io_error:
+ io_error:
   generate_error (ERROR_OS, NULL);
 }
 
@@ -109,10 +118,13 @@ unformatted_backspace (void)
   current_unit->last_record--;
   return;
 
-io_error:
+ io_error:
   generate_error (ERROR_OS, NULL);
 }
 
+
+extern void st_backspace (void);
+export_proto(st_backspace);
 
 void
 st_backspace (void)
@@ -155,6 +167,6 @@ st_backspace (void)
 	unformatted_backspace ();
     }
 
-done:
+ done:
   library_end ();
 }

@@ -1,3 +1,33 @@
+2005-01-23  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* configure: Regenerate.
+
+2005-01-11  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* include/cpplib.h (c_lang): Fix comment to say cpp_create_reader.
+
+	* include/cpplib.h: Also update copyright years.
+	
+2005-01-03  Geoffrey Keating  <geoffk@apple.com>
+
+	* files.c (_cpp_find_file): Add files found by search_path_exhausted
+	to the list of all files.
+
+2005-01-01  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* internal.h: Update references to Cpp lib filenames.
+	* directives.c: Likewise.
+	* init.c: Likewise.
+	* macro.c: Likewise.
+	* traditional.c: Likewise.
+
+2004-12-15  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR preprocessor/15167
+	* files.c (destroy_cpp_file): New function.
+	(should_stack_file): Make a new file if the
+	compared file is still stacked.
+
 2004-11-28  Nathanael Nerode  <neroden@gcc.gnu.org>
 
 	PR preprocessor/17610 

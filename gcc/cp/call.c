@@ -1,6 +1,6 @@
 /* Functions related to invoking methods and overloaded functions.
    Copyright (C) 1987, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com) and
    modified by Brendan Kehoe (brendan@cygnus.com).
 
@@ -170,7 +170,7 @@ static struct z_candidate *add_conv_candidate
 static struct z_candidate *add_function_candidate 
 	(struct z_candidate **, tree, tree, tree, tree, tree, int);
 static conversion *implicit_conversion (tree, tree, tree, int);
-static conversion *standard_conversion (tree, tree, tree);
+static conversion *standard_conversion (tree, tree, tree, int);
 static conversion *reference_binding (tree, tree, tree, int);
 static conversion *build_conv (conversion_kind, tree, conversion *);
 static bool is_subseq (conversion *, conversion *);
@@ -428,8 +428,7 @@ null_ptr_cst_p (tree t)
 
      A null pointer constant is an integral constant expression
      (_expr.const_) rvalue of integer type that evaluates to zero.  */
-  if (DECL_INTEGRAL_CONSTANT_VAR_P (t))
-    t = decl_constant_value (t);
+  t = integral_constant_value (t);
   if (t == null_node
       || (CP_INTEGRAL_TYPE_P (TREE_TYPE (t)) && integer_zerop (t)))
     return true;
@@ -583,7 +582,7 @@ strip_top_quals (tree t)
    also pass the expression EXPR to convert from.  */
 
 static conversion *
-standard_conversion (tree to, tree from, tree expr)
+standard_conversion (tree to, tree from, tree expr, int flags)
 {
   enum tree_code fcode, tcode;
   conversion *conv;
@@ -633,7 +632,7 @@ standard_conversion (tree to, tree from, tree expr)
          the standard conversion sequence to perform componentwise
          conversion.  */
       conversion *part_conv = standard_conversion
-        (TREE_TYPE (to), TREE_TYPE (from), NULL_TREE);
+        (TREE_TYPE (to), TREE_TYPE (from), NULL_TREE, flags);
       
       if (part_conv)
         {
@@ -815,7 +814,8 @@ standard_conversion (tree to, tree from, tree expr)
   else if (fcode == VECTOR_TYPE && tcode == VECTOR_TYPE
 	   && vector_types_convertible_p (from, to))
     return build_conv (ck_std, to, conv);
-  else if (IS_AGGR_TYPE (to) && IS_AGGR_TYPE (from)
+  else if (!(flags & LOOKUP_CONSTRUCTOR_CALLABLE)
+	   && IS_AGGR_TYPE (to) && IS_AGGR_TYPE (from)
 	   && is_properly_derived_from (from, to))
     {
       if (conv->kind == ck_rvalue)
@@ -1227,7 +1227,7 @@ implicit_conversion (tree to, tree from, tree expr, int flags)
   if (TREE_CODE (to) == REFERENCE_TYPE)
     conv = reference_binding (to, from, expr, flags);
   else
-    conv = standard_conversion (to, from, expr);
+    conv = standard_conversion (to, from, expr, flags);
 
   if (conv)
     return conv;
@@ -2333,10 +2333,18 @@ any_strictly_viable (struct z_candidate *cands)
   return false;
 }
 
+/* OBJ is being used in an expression like "OBJ.f (...)".  In other
+   words, it is about to become the "this" pointer for a member
+   function call.  Take the address of the object.  */
+
 static tree
 build_this (tree obj)
 {
-  /* Fix this to work on non-lvalues.  */
+  /* In a template, we are only concerned about the type of the
+     expression, so we can take a shortcut.  */
+  if (processing_template_decl)
+    return build_address (obj);
+
   return build_unary_op (ADDR_EXPR, obj, 0);
 }
 
@@ -2649,7 +2657,8 @@ build_user_type_conversion (tree totype, tree expr, int flags)
     {
       if (cand->second_conv->kind == ck_ambig)
 	return error_mark_node;
-      return convert_from_reference (convert_like (cand->second_conv, expr));
+      expr = convert_like (cand->second_conv, expr);
+      return convert_from_reference (expr);
     }
   return NULL_TREE;
 }
@@ -2671,8 +2680,6 @@ resolve_args (tree args)
 	  error ("invalid use of void expression");
 	  return error_mark_node;
 	}
-      arg = convert_from_reference (arg);
-      TREE_VALUE (t) = arg;
     }
   return args;
 }
@@ -2978,6 +2985,7 @@ build_object_call (tree obj, tree args)
       else
 	{
 	  obj = convert_like_with_context (cand->convs[0], obj, cand->fn, -1);
+	  obj = convert_from_reference (obj);
 	  result = build_function_call (obj, args);
 	}
     }
@@ -3474,7 +3482,6 @@ prep_operand (tree operand)
 {
   if (operand)
     {
-      operand = convert_from_reference (operand);
       if (CLASS_TYPE_P (TREE_TYPE (operand))
 	  && CLASSTYPE_TEMPLATE_INSTANTIATION (TREE_TYPE (operand)))
 	/* Make sure the template type is instantiated now.  */
@@ -4081,6 +4088,7 @@ check_constructor_callable (tree type, tree expr)
 			     build_tree_list (NULL_TREE, expr), 
 			     type,
 			     LOOKUP_NORMAL | LOOKUP_ONLYCONVERTING
+			     | LOOKUP_NO_CONVERSION
 			     | LOOKUP_CONSTRUCTOR_CALLABLE);
 }
 
@@ -4226,12 +4234,11 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
     case ck_identity:
       if (type_unknown_p (expr))
 	expr = instantiate_type (totype, expr, tf_error | tf_warning);
-      /* Convert a non-array constant variable to its underlying value, unless we
-	 are about to bind it to a reference, in which case we need to
+      /* Convert a constant to its underlying value, unless we are
+	 about to bind it to a reference, in which case we need to
 	 leave it as an lvalue.  */
-      if (inner >= 0
-	  && TREE_CODE (TREE_TYPE (expr)) != ARRAY_TYPE)
-	expr = decl_constant_value (expr);
+      if (inner >= 0)
+	expr = integral_constant_value (expr);
       if (convs->check_copy_constructor_p)
 	check_constructor_callable (totype, expr);
       return expr;
@@ -4289,13 +4296,12 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
 	if (convs->need_temporary_p || !lvalue_p (expr))
 	  {
 	    tree type = convs->u.next->type;
+	    cp_lvalue_kind lvalue = real_lvalue_p (expr);
 
 	    if (!CP_TYPE_CONST_NON_VOLATILE_P (TREE_TYPE (ref_type)))
 	      {
 		/* If the reference is volatile or non-const, we
 		   cannot create a temporary.  */
-		cp_lvalue_kind lvalue = real_lvalue_p (expr);
-		
 		if (lvalue & clk_bitfield)
 		  error ("cannot bind bitfield %qE to %qT",
 			 expr, ref_type);
@@ -4304,6 +4310,20 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
 			 expr, ref_type);
 		else
 		  error ("cannot bind rvalue %qE to %qT", expr, ref_type);
+		return error_mark_node;
+	      }
+	    /* If the source is a packed field, and we must use a copy
+	       constructor, then building the target expr will require
+	       binding the field to the reference parameter to the
+	       copy constructor, and we'll end up with an infinite
+	       loop.  If we can use a bitwise copy, then we'll be
+	       OK.  */
+	    if ((lvalue & clk_packed) 
+		&& CLASS_TYPE_P (type) 
+		&& !TYPE_HAS_TRIVIAL_INIT_REF (type))
+	      {
+		error ("cannot bind packed field %qE to %qT",
+		       expr, ref_type);
 		return error_mark_node;
 	      }
 	    expr = build_target_expr_with_type (expr, type);
@@ -5196,8 +5216,6 @@ build_new_method_call (tree instance, tree fns, tree args,
   if (args == error_mark_node)
     return error_mark_node;
 
-  if (TREE_CODE (TREE_TYPE (instance)) == REFERENCE_TYPE)
-    instance = convert_from_reference (instance);
   basetype = TYPE_MAIN_VARIANT (TREE_TYPE (instance));
   instance_ptr = build_this (instance);
 
@@ -6355,6 +6373,7 @@ make_temporary_var_for_ref_to_temp (tree decl, tree type)
   /* Create the variable.  */
   var = build_decl (VAR_DECL, NULL_TREE, type);
   DECL_ARTIFICIAL (var) = 1;
+  DECL_IGNORED_P (var) = 1;
   TREE_USED (var) = 1;
 
   /* Register the variable.  */

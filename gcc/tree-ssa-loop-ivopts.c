@@ -1,5 +1,5 @@
 /* Induction variable optimizations.
-   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
    
 This file is part of GCC.
    
@@ -244,6 +244,9 @@ struct iv_ca
   /* The candidates used.  */
   bitmap cands;
 
+  /* The number of candidates in the set.  */
+  unsigned n_cands;
+
   /* Total number of registers needed.  */
   unsigned n_regs;
 
@@ -287,6 +290,12 @@ struct iv_ca_delta
 
 #define MAX_CONSIDERED_USES \
   ((unsigned) PARAM_VALUE (PARAM_IV_MAX_CONSIDERED_USES))
+
+/* If there are at most this number of ivs in the set, try removing unnecessary
+   ivs from the set always.  */
+
+#define ALWAYS_PRUNE_CAND_SET_BOUND \
+  ((unsigned) PARAM_VALUE (PARAM_IV_ALWAYS_PRUNE_CAND_SET_BOUND))
 
 /* The list of trees for that the decl_rtl field must be reset is stored
    here.  */
@@ -435,8 +444,11 @@ dump_use (FILE *file, struct iv_use *use)
 
   dump_iv (file, use->iv);
 
-  fprintf (file, "  related candidates ");
-  dump_bitmap (file, use->related_cands);
+  if (use->related_cands)
+    {
+      fprintf (file, "  related candidates ");
+      dump_bitmap (file, use->related_cands);
+    }
 }
 
 /* Dumps information about the uses to FILE.  */
@@ -825,7 +837,7 @@ contains_abnormal_ssa_name_p (tree expr)
     return false;
 
   if (code == ADDR_EXPR)
-    return !for_each_index (&TREE_OPERAND (expr, 1),
+    return !for_each_index (&TREE_OPERAND (expr, 0),
 			    idx_contains_abnormal_ssa_name_p,
 			    NULL);
 
@@ -1270,7 +1282,7 @@ expr_invariant_in_loop_p (struct loop *loop, tree expr)
   if (!EXPR_P (expr))
     return false;
 
-  len = first_rtl_op (TREE_CODE (expr));
+  len = TREE_CODE_LENGTH (TREE_CODE (expr));
   for (i = 0; i < len; i++)
     if (!expr_invariant_in_loop_p (loop, TREE_OPERAND (expr, i)))
       return false;
@@ -1388,6 +1400,37 @@ idx_record_use (tree base, tree *idx,
   return true;
 }
 
+/* Returns true if memory reference REF may be unaligned.  */
+
+static bool
+may_be_unaligned_p (tree ref)
+{
+  tree base;
+  tree base_type;
+  HOST_WIDE_INT bitsize;
+  HOST_WIDE_INT bitpos;
+  tree toffset;
+  enum machine_mode mode;
+  int unsignedp, volatilep;
+  unsigned base_align;
+
+  /* The test below is basically copy of what expr.c:normal_inner_ref
+     does to check whether the object must be loaded by parts when
+     STRICT_ALIGNMENT is true.  */
+  base = get_inner_reference (ref, &bitsize, &bitpos, &toffset, &mode,
+			      &unsignedp, &volatilep, true);
+  base_type = TREE_TYPE (base);
+  base_align = TYPE_ALIGN (base_type);
+
+  if (mode != BLKmode
+      && (base_align < GET_MODE_ALIGNMENT (mode)
+	  || bitpos % GET_MODE_ALIGNMENT (mode) != 0
+	  || bitpos % BITS_PER_UNIT != 0))
+    return true;
+
+  return false;
+}
+
 /* Finds addresses in *OP_P inside STMT.  */
 
 static void
@@ -1401,6 +1444,10 @@ find_interesting_uses_address (struct ivopts_data *data, tree stmt, tree *op_p)
      to handle.  TODO.  */
   if (TREE_CODE (base) == COMPONENT_REF
       && DECL_NONADDRESSABLE_P (TREE_OPERAND (base, 1)))
+    goto fail;
+
+  if (STRICT_ALIGNMENT
+      && may_be_unaligned_p (base))
     goto fail;
 
   ifs_ivopts_data.ivopts_data = data;
@@ -1732,6 +1779,27 @@ add_candidate_1 (struct ivopts_data *data,
   return cand;
 }
 
+/* Returns true if incrementing the induction variable at the end of the LOOP
+   is allowed.
+
+   The purpose is to avoid splitting latch edge with a biv increment, thus
+   creating a jump, possibly confusing other optimization passes and leaving
+   less freedom to scheduler.  So we allow IP_END_POS only if IP_NORMAL_POS
+   is not available (so we do not have a better alternative), or if the latch
+   edge is already nonempty.  */
+
+static bool
+allow_ip_end_pos_p (struct loop *loop)
+{
+  if (!ip_normal_pos (loop))
+    return true;
+
+  if (!empty_block_p (ip_end_pos (loop)))
+    return true;
+
+  return false;
+}
+
 /* Adds a candidate BASE + STEP * i.  Important field is set to IMPORTANT and
    position to POS.  If USE is not NULL, the candidate is set as related to
    it.  The candidate computation is scheduled on all available positions.  */
@@ -1742,7 +1810,8 @@ add_candidate (struct ivopts_data *data,
 {
   if (ip_normal_pos (data->current_loop))
     add_candidate_1 (data, base, step, important, IP_NORMAL, use, NULL_TREE);
-  if (ip_end_pos (data->current_loop))
+  if (ip_end_pos (data->current_loop)
+      && allow_ip_end_pos_p (data->current_loop))
     add_candidate_1 (data, base, step, important, IP_END, use, NULL_TREE);
 }
 
@@ -2162,10 +2231,9 @@ prepare_decl_rtl (tree *expr_p, int *ws, void *data)
     {
     case ADDR_EXPR:
       for (expr_p = &TREE_OPERAND (*expr_p, 0);
-	   (handled_component_p (*expr_p)
-	    || TREE_CODE (*expr_p) == REALPART_EXPR
-	    || TREE_CODE (*expr_p) == IMAGPART_EXPR);
-	   expr_p = &TREE_OPERAND (*expr_p, 0));
+	   handled_component_p (*expr_p);
+	   expr_p = &TREE_OPERAND (*expr_p, 0))
+	continue;
       obj = *expr_p;
       if (DECL_P (obj))
         x = produce_memory_decl_rtl (obj, regno);
@@ -2821,7 +2889,7 @@ split_address_cost (struct ivopts_data *data,
   int unsignedp, volatilep;
   
   core = get_inner_reference (addr, &bitsize, &bitpos, &toffset, &mode,
-			      &unsignedp, &volatilep);
+			      &unsignedp, &volatilep, false);
 
   if (toffset != 0
       || bitpos % BITS_PER_UNIT != 0
@@ -3108,8 +3176,20 @@ determine_use_iv_cost_generic (struct ivopts_data *data,
 			       struct iv_use *use, struct iv_cand *cand)
 {
   bitmap depends_on;
-  unsigned cost = get_computation_cost (data, use, cand, false, &depends_on);
+  unsigned cost;
 
+  /* The simple case first -- if we need to express value of the preserved
+     original biv, the cost is 0.  This also prevents us from counting the
+     cost of increment twice -- once at this use and once in the cost of
+     the candidate.  */
+  if (cand->pos == IP_ORIGINAL
+      && cand->incremented_at == use->stmt)
+    {
+      set_use_iv_cost (data, use, cand, 0, NULL);
+      return true;
+    }
+
+  cost = get_computation_cost (data, use, cand, false, &depends_on);
   set_use_iv_cost (data, use, cand, cost, depends_on);
 
   return cost != INFTY;
@@ -3303,7 +3383,18 @@ determine_use_iv_cost_outer (struct ivopts_data *data,
   edge exit;
   tree value;
   struct loop *loop = data->current_loop;
-	  
+
+  /* The simple case first -- if we need to express value of the preserved
+     original biv, the cost is 0.  This also prevents us from counting the
+     cost of increment twice -- once at this use and once in the cost of
+     the candidate.  */
+  if (cand->pos == IP_ORIGINAL
+      && cand->incremented_at == use->stmt)
+    {
+      set_use_iv_cost (data, use, cand, 0, NULL);
+      return true;
+    }
+
   if (!cand->iv)
     {
       if (!may_replace_final_value (loop, use, &value))
@@ -3449,8 +3540,7 @@ static void
 determine_iv_cost (struct ivopts_data *data, struct iv_cand *cand)
 {
   unsigned cost_base, cost_step;
-  tree base, last;
-  basic_block bb;
+  tree base;
 
   if (!cand->iv)
     {
@@ -3474,15 +3564,9 @@ determine_iv_cost (struct ivopts_data *data, struct iv_cand *cand)
   
   /* Prefer not to insert statements into latch unless there are some
      already (so that we do not create unnecessary jumps).  */
-  if (cand->pos == IP_END)
-    {
-      bb = ip_end_pos (data->current_loop);
-      last = last_stmt (bb);
-
-      if (!last
-	  || TREE_CODE (last) == LABEL_EXPR)
-	cand->cost++;
-    }
+  if (cand->pos == IP_END
+      && empty_block_p (ip_end_pos (data->current_loop)))
+    cand->cost++;
 }
 
 /* Determines costs of computation of the candidates.  */
@@ -3662,6 +3746,7 @@ iv_ca_set_no_cp (struct ivopts_data *data, struct iv_ca *ivs,
       /* Do not count the pseudocandidates.  */
       if (cp->cand->iv)
 	ivs->n_regs--;
+      ivs->n_cands--;
       ivs->cand_cost -= cp->cand->cost;
     }
 
@@ -3711,6 +3796,7 @@ iv_ca_set_cp (struct ivopts_data *data, struct iv_ca *ivs,
 	  /* Do not count the pseudocandidates.  */
 	  if (cp->cand->iv)
 	    ivs->n_regs++;
+	  ivs->n_cands++;
 	  ivs->cand_cost += cp->cand->cost;
 	}
 
@@ -3807,12 +3893,55 @@ iv_ca_delta_add (struct iv_use *use, struct cost_pair *old_cp,
   return change;
 }
 
+/* Joins two lists of changes L1 and L2.  Destructive -- old lists
+   are rewritten.   */
+
+static struct iv_ca_delta *
+iv_ca_delta_join (struct iv_ca_delta *l1, struct iv_ca_delta *l2)
+{
+  struct iv_ca_delta *last;
+
+  if (!l2)
+    return l1;
+
+  if (!l1)
+    return l2;
+
+  for (last = l1; last->next_change; last = last->next_change)
+    continue;
+  last->next_change = l2;
+
+  return l1;
+}
+
 /* Returns candidate by that USE is expressed in IVS.  */
 
 static struct cost_pair *
 iv_ca_cand_for_use (struct iv_ca *ivs, struct iv_use *use)
 {
   return ivs->cand_for_use[use->id];
+}
+
+/* Reverse the list of changes DELTA, forming the inverse to it.  */
+
+static struct iv_ca_delta *
+iv_ca_delta_reverse (struct iv_ca_delta *delta)
+{
+  struct iv_ca_delta *act, *next, *prev = NULL;
+  struct cost_pair *tmp;
+
+  for (act = delta; act; act = next)
+    {
+      next = act->next_change;
+      act->next_change = prev;
+      prev = act;
+
+      tmp = act->old_cp;
+      act->old_cp = act->new_cp;
+      act->new_cp = tmp;
+    }
+
+  return prev;
 }
 
 /* Commit changes in DELTA to IVS.  If FORWARD is false, the changes are
@@ -3823,23 +3952,21 @@ iv_ca_delta_commit (struct ivopts_data *data, struct iv_ca *ivs,
 		    struct iv_ca_delta *delta, bool forward)
 {
   struct cost_pair *from, *to;
+  struct iv_ca_delta *act;
 
-  for (; delta; delta = delta->next_change)
+  if (!forward)
+    delta = iv_ca_delta_reverse (delta);
+
+  for (act = delta; act; act = act->next_change)
     {
-      if (forward)
-	{
-	  from = delta->old_cp;
-	  to = delta->new_cp;
-	}
-      else
-	{
-	  from = delta->new_cp;
-	  to = delta->old_cp;
-	}
-
-      gcc_assert (iv_ca_cand_for_use (ivs, delta->use) == from);
-      iv_ca_set_cp (data, ivs, delta->use, to);
+      from = act->old_cp;
+      to = act->new_cp;
+      gcc_assert (iv_ca_cand_for_use (ivs, act->use) == from);
+      iv_ca_set_cp (data, ivs, act->use, to);
     }
+
+  if (!forward)
+    iv_ca_delta_reverse (delta);
 }
 
 /* Returns true if CAND is used in IVS.  */
@@ -3848,6 +3975,14 @@ static bool
 iv_ca_cand_used_p (struct iv_ca *ivs, struct iv_cand *cand)
 {
   return ivs->n_cand_uses[cand->id] > 0;
+}
+
+/* Returns number of induction variable candidates in the set IVS.  */
+
+static unsigned
+iv_ca_n_cands (struct iv_ca *ivs)
+{
+  return ivs->n_cands;
 }
 
 /* Free the list of changes DELTA.  */
@@ -3878,6 +4013,7 @@ iv_ca_new (struct ivopts_data *data)
   nw->cand_for_use = xcalloc (n_iv_uses (data), sizeof (struct cost_pair *));
   nw->n_cand_uses = xcalloc (n_iv_cands (data), sizeof (unsigned));
   nw->cands = BITMAP_XMALLOC ();
+  nw->n_cands = 0;
   nw->n_regs = 0;
   nw->cand_use_cost = 0;
   nw->cand_cost = 0;
@@ -3921,11 +4057,13 @@ iv_ca_dump (struct ivopts_data *data, FILE *file, struct iv_ca *ivs)
 }
 
 /* Try changing candidate in IVS to CAND for each use.  Return cost of the
-   new set, and store differences in DELTA.  */
+   new set, and store differences in DELTA.  Number of induction variables
+   in the new set is stored to N_IVS.  */
 
 static unsigned
 iv_ca_extend (struct ivopts_data *data, struct iv_ca *ivs,
-	      struct iv_cand *cand, struct iv_ca_delta **delta)
+	      struct iv_cand *cand, struct iv_ca_delta **delta,
+	      unsigned *n_ivs)
 {
   unsigned i, cost;
   struct iv_use *use;
@@ -3956,6 +4094,8 @@ iv_ca_extend (struct ivopts_data *data, struct iv_ca *ivs,
 
   iv_ca_delta_commit (data, ivs, *delta, true);
   cost = iv_ca_cost (ivs);
+  if (n_ivs)
+    *n_ivs = iv_ca_n_cands (ivs);
   iv_ca_delta_commit (data, ivs, *delta, false);
 
   return cost;
@@ -4045,6 +4185,55 @@ iv_ca_narrow (struct ivopts_data *data, struct iv_ca *ivs,
   return cost;
 }
 
+/* Try optimizing the set of candidates IVS by removing candidates different
+   from to EXCEPT_CAND from it.  Return cost of the new set, and store
+   differences in DELTA.  */
+
+static unsigned
+iv_ca_prune (struct ivopts_data *data, struct iv_ca *ivs,
+	     struct iv_cand *except_cand, struct iv_ca_delta **delta)
+{
+  bitmap_iterator bi;
+  struct iv_ca_delta *act_delta, *best_delta;
+  unsigned i, best_cost, acost;
+  struct iv_cand *cand;
+
+  best_delta = NULL;
+  best_cost = iv_ca_cost (ivs);
+
+  EXECUTE_IF_SET_IN_BITMAP (ivs->cands, 0, i, bi)
+    {
+      cand = iv_cand (data, i);
+
+      if (cand == except_cand)
+	continue;
+
+      acost = iv_ca_narrow (data, ivs, cand, &act_delta);
+
+      if (acost < best_cost)
+	{
+	  best_cost = acost;
+	  iv_ca_delta_free (&best_delta);
+	  best_delta = act_delta;
+	}
+      else
+	iv_ca_delta_free (&act_delta);
+    }
+
+  if (!best_delta)
+    {
+      *delta = NULL;
+      return best_cost;
+    }
+
+  /* Recurse to possibly remove other unnecessary ivs.  */
+  iv_ca_delta_commit (data, ivs, best_delta, true);
+  best_cost = iv_ca_prune (data, ivs, except_cand, delta);
+  iv_ca_delta_commit (data, ivs, best_delta, false);
+  *delta = iv_ca_delta_join (best_delta, *delta);
+  return best_cost;
+}
+
 /* Tries to extend the sets IVS in the best possible way in order
    to express the USE.  */
 
@@ -4089,7 +4278,7 @@ try_add_cand_for (struct ivopts_data *data, struct iv_ca *ivs,
 	continue;
 
       iv_ca_set_cp (data, ivs, use, cp);
-      act_cost = iv_ca_extend (data, ivs, cand, &act_delta);
+      act_cost = iv_ca_extend (data, ivs, cand, &act_delta, NULL);
       iv_ca_set_no_cp (data, ivs, use);
       act_delta = iv_ca_delta_add (use, NULL, cp, act_delta);
 
@@ -4122,7 +4311,7 @@ try_add_cand_for (struct ivopts_data *data, struct iv_ca *ivs,
 
 	  act_delta = NULL;
 	  iv_ca_set_cp (data, ivs, use, cp);
-	  act_cost = iv_ca_extend (data, ivs, cand, &act_delta);
+	  act_cost = iv_ca_extend (data, ivs, cand, &act_delta, NULL);
 	  iv_ca_set_no_cp (data, ivs, use);
 	  act_delta = iv_ca_delta_add (use, iv_ca_cand_for_use (ivs, use),
 				       cp, act_delta);
@@ -4169,25 +4358,36 @@ get_initial_solution (struct ivopts_data *data)
 static bool
 try_improve_iv_set (struct ivopts_data *data, struct iv_ca *ivs)
 {
-  unsigned i, acost, best_cost = iv_ca_cost (ivs);
-  struct iv_ca_delta *best_delta = NULL, *act_delta;
+  unsigned i, acost, best_cost = iv_ca_cost (ivs), n_ivs;
+  struct iv_ca_delta *best_delta = NULL, *act_delta, *tmp_delta;
   struct iv_cand *cand;
 
-  /* Try altering the set of induction variables by one.  */
+  /* Try extending the set of induction variables by one.  */
   for (i = 0; i < n_iv_cands (data); i++)
     {
       cand = iv_cand (data, i);
       
       if (iv_ca_cand_used_p (ivs, cand))
-	acost = iv_ca_narrow (data, ivs, cand, &act_delta);
-      else
-	acost = iv_ca_extend (data, ivs, cand, &act_delta);
+	continue;
+
+      acost = iv_ca_extend (data, ivs, cand, &act_delta, &n_ivs);
+      if (!act_delta)
+	continue;
+
+      /* If we successfully added the candidate and the set is small enough,
+	 try optimizing it by removing other candidates.  */
+      if (n_ivs <= ALWAYS_PRUNE_CAND_SET_BOUND)
+      	{
+	  iv_ca_delta_commit (data, ivs, act_delta, true);
+	  acost = iv_ca_prune (data, ivs, cand, &tmp_delta);
+	  iv_ca_delta_commit (data, ivs, act_delta, false);
+	  act_delta = iv_ca_delta_join (act_delta, tmp_delta);
+	}
 
       if (acost < best_cost)
 	{
 	  best_cost = acost;
-	  if (best_delta)
-	    iv_ca_delta_free (&best_delta);
+	  iv_ca_delta_free (&best_delta);
 	  best_delta = act_delta;
 	}
       else
@@ -4195,9 +4395,17 @@ try_improve_iv_set (struct ivopts_data *data, struct iv_ca *ivs)
     }
 
   if (!best_delta)
-    return false;
+    {
+      /* Try removing the candidates from the set instead.  */
+      best_cost = iv_ca_prune (data, ivs, NULL, &best_delta);
+
+      /* Nothing more we can do.  */
+      if (!best_delta)
+	return false;
+    }
 
   iv_ca_delta_commit (data, ivs, best_delta, true);
+  gcc_assert (best_cost == iv_ca_cost (ivs));
   iv_ca_delta_free (&best_delta);
   return true;
 }

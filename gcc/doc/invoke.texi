@@ -1,12 +1,12 @@
 @c Copyright (C) 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-@c 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+@c 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 @c This is part of the GCC manual.
 @c For copying conditions, see the file gcc.texi.
 
 @ignore
 @c man begin COPYRIGHT
 Copyright @copyright{} 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997,
-1998, 1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 Permission is granted to copy, distribute and/or modify this document
 under the terms of the GNU Free Documentation License, Version 1.2 or
@@ -242,7 +242,7 @@ Objective-C and Objective-C++ Dialects}.
 @gccoptlist{-Wbad-function-cast  -Wmissing-declarations @gol
 -Wmissing-prototypes  -Wnested-externs  -Wold-style-definition @gol
 -Wstrict-prototypes  -Wtraditional @gol
--Wdeclaration-after-statement}
+-Wdeclaration-after-statement -Wno-pointer-sign}
 
 @item Debugging Options
 @xref{Debugging Options,,Options for Debugging Your Program or GCC}.
@@ -294,7 +294,7 @@ Objective-C and Objective-C++ Dialects}.
 -floop-optimize -fcrossjumping  -fif-conversion  -fif-conversion2 @gol
 -finline-functions  -finline-limit=@var{n}  -fkeep-inline-functions @gol
 -fkeep-static-consts  -fmerge-constants  -fmerge-all-constants @gol
--fmodulo-sched -fnew-ra  -fno-branch-count-reg @gol
+-fmodulo-sched -fno-branch-count-reg @gol
 -fno-default-inline  -fno-defer-pop -floop-optimize2 -fmove-loop-invariants @gol
 -fno-function-cse  -fno-guess-branch-probability @gol
 -fno-inline  -fno-math-errno  -fno-peephole  -fno-peephole2 @gol
@@ -461,6 +461,7 @@ Objective-C and Objective-C++ Dialects}.
 -mvliw-branch  -mno-vliw-branch @gol
 -mmulti-cond-exec  -mno-multi-cond-exec  -mnested-cond-exec @gol
 -mno-nested-cond-exec  -mtomcat-stats @gol
+-mTLS -mtls @gol
 -mcpu=@var{cpu}}
 
 @emph{H8/300 Options}
@@ -502,8 +503,11 @@ Objective-C and Objective-C++ Dialects}.
 -mconstant-gp  -mauto-pic  -minline-float-divide-min-latency @gol
 -minline-float-divide-max-throughput @gol
 -minline-int-divide-min-latency @gol
--minline-int-divide-max-throughput  -mno-dwarf2-asm @gol
--mfixed-range=@var{register-range}}
+-minline-int-divide-max-throughput  @gol
+-minline-sqrt-min-latency -minline-sqrt-max-throughput @gol
+-mno-dwarf2-asm -mearly-stop-bits @gol
+-mfixed-range=@var{register-range} -mtls-size=@var{tls-size} @gol
+-mtune=@var{cpu-type} -mt -pthread -milp32 -mlp64}
 
 @emph{M32R/D Options}
 @gccoptlist{-m32r2 -m32rx -m32r @gol
@@ -3132,6 +3136,12 @@ effectively.  Often, the problem is that your code is too big or too
 complex; GCC will refuse to optimize programs when the optimization
 itself is likely to take inordinate amounts of time.
 
+@item -Wno-pointer-sign
+@opindex Wno-pointer-sign
+Don't warn for pointer argument passing or assignment with different signedness.
+Only useful in the negative form since this warning is enabled by default.
+This option is only supported for C and Objective-C@.
+
 @item -Werror
 @opindex Werror
 Make all warnings into errors.
@@ -3888,6 +3898,12 @@ compiling @file{foo.c} with @samp{-c -save-temps} would produce files
 preprocessed @file{foo.i} output file even though the compiler now
 normally uses an integrated preprocessor.
 
+When used in combination with the @option{-x} command line option,
+@option{-save-temps} is sensible enough to avoid over writing an
+input source file with the same extension as an intermediate file.
+The corresponding intermediate file may be obtained by renaming the
+source file before using @option{-save-temps}.
+
 @item -time
 @opindex time
 Report the CPU time taken by each subprocess in the compilation
@@ -4272,12 +4288,6 @@ behavior.
 Perform swing modulo scheduling immediately before the first scheduling
 pass.  This pass looks at innermost loops and reorders their
 instructions by overlapping different iterations.
-
-@item -fnew-ra
-@opindex fnew-ra
-Use a graph coloring register allocator.  Currently this option is meant
-only for testing.  Users should not specify this option, since it is not
-yet ready for production use.
 
 @item -fno-branch-count-reg
 @opindex fno-branch-count-reg
@@ -5202,12 +5212,6 @@ a ``home register''.
 
 Not enabled by default at any level because it has known bugs.
 
-@item -fnew-ra
-@opindex fnew-ra
-Use a graph coloring register allocator.  Currently this option is meant
-for testing, so we are interested to hear about miscompilations with
-@option{-fnew-ra}.
-
 @item -ftracer
 @opindex ftracer
 Perform tail duplication to enlarge superblock size.  This transformation
@@ -5388,22 +5392,25 @@ be applied.
 The default value is 120.
 
 @item large-function-insns
-The limit specifying really large functions.  For functions greater than this
-limit inlining is constrained by @option{--param large-function-growth}.
-This parameter is useful primarily to avoid extreme compilation time caused by non-linear
-algorithms used by the backend.
+The limit specifying really large functions.  For functions larger than this
+limit after inlining inlining is constrained by
+@option{--param large-function-growth}.  This parameter is useful primarily
+to avoid extreme compilation time caused by non-linear algorithms used by the
+backend.
 This parameter is ignored when @option{-funit-at-a-time} is not used.
 The default value is 3000.
 
 @item large-function-growth
 Specifies maximal growth of large function caused by inlining in percents.
 This parameter is ignored when @option{-funit-at-a-time} is not used.
-The default value is 200.
+The default value is 100 which limits large function growth to 2.0 times
+the original size.
 
 @item inline-unit-growth
 Specifies maximal overall growth of the compilation unit caused by inlining.
 This parameter is ignored when @option{-funit-at-a-time} is not used.
-The default value is 150.
+The default value is 50 which limits unit growth to 1.5 times the original
+size.
 
 @item max-inline-insns-recursive
 @itemx max-inline-insns-recursive-auto
@@ -5425,12 +5432,6 @@ taken into acount.  For function not declared inline, recursive inlining
 happens only when @option{-finline-functions} (included in @option{-O3}) is
 enabled and @option{--param max-inline-recursive-depth-auto} is used.  The
 default value is 500.
-
-@item max-inline-insns-rtl
-For languages that use the RTL inliner (this happens at a later stage
-than tree inlining), you can set the maximum allowable size (counted
-in RTL instructions) for the RTL inliner with this parameter.
-The default value is 600.
 
 @item max-unrolled-insns
 The maximum number of instructions that a loop should have if that loop
@@ -5477,6 +5478,11 @@ if there are more candidates, to avoid quadratic time complexity.
 @item iv-max-considered-uses
 The induction variable optimizations give up on loops that contain more
 induction variable uses.
+
+@item iv-always-prune-cand-set-bound
+If number of candidates in the set is smaller than this value,
+we always try to remove unnecessary ivs from the set during its
+optimization when a new iv is added to the set.
 
 @item max-iterations-to-track
 
@@ -5609,6 +5615,12 @@ interblock scheduling.  The default value is 10.
 @item max-sched-region-insns
 The maximum number of insns in a region to be considered for
 interblock scheduling.  The default value is 100.
+
+@item max-last-value-rtl
+
+The maximum size measured as number of RTLs that can be recorded in an expression
+in combiner for a pseudo register as last known value of that register.  The default
+is 10000.
 
 @item integer-share-limit
 Small integer constants can use a shared data structure, reducing the
@@ -7861,6 +7873,16 @@ shared libraries (i.e., @option{-fPIC} or @option{-fpic}), or when an
 optimization option such as @option{-O3} or above is present in the
 command line.
 
+@item -mTLS
+@opindex TLS
+
+Assume a large TLS segment when generating thread-local code.
+
+@item -mtls
+@opindex tls
+
+Do not assume a large TLS segment when generating thread-local code.
+
 @item -mgprel-ro
 @opindex mgprel-ro
 
@@ -8433,9 +8455,9 @@ extended precision arithmetics is still done using 387.  Later version, present
 only in Pentium4 and the future AMD x86-64 chips supports double precision
 arithmetics too.
 
-For i387 you need to use @option{-march=@var{cpu-type}}, @option{-msse} or
-@option{-msse2} switches to enable SSE extensions and make this option
-effective.  For x86-64 compiler, these extensions are enabled by default.
+For the i386 compiler, you need to use @option{-march=@var{cpu-type}}, @option{-msse}
+or @option{-msse2} switches to enable SSE extensions and make this option
+effective.  For the x86-64 compiler, these extensions are enabled by default.
 
 The resulting code should be considerably faster in the majority of cases and avoid
 the numerical instability problems of 387 code, but may break some existing
@@ -8843,12 +8865,30 @@ using the minimum latency algorithm.
 Generate code for inline divides of integer values
 using the maximum throughput algorithm.
 
+@item -minline-sqrt-min-latency
+@opindex minline-sqrt-min-latency
+Generate code for inline square roots
+using the minimum latency algorithm.
+
+@item -minline-sqrt-max-throughput
+@opindex minline-sqrt-max-throughput
+Generate code for inline square roots
+using the maximum throughput algorithm.
+
 @item -mno-dwarf2-asm
 @itemx -mdwarf2-asm
 @opindex mno-dwarf2-asm
 @opindex mdwarf2-asm
 Don't (or do) generate assembler code for the DWARF2 line number debugging
 info.  This may be useful when not using the GNU assembler.
+
+@item -mearly-stop-bits
+@itemx -mno-early-stop-bits
+@opindex mearly-stop-bits
+@opindex mno-early-stop-bits
+Allow stop bits to be placed earlier than immediately preceding the
+instruction that triggered the stop bit.  This can improve instruction
+scheduling, but does not always do so.
 
 @item -mfixed-range=@var{register-range}
 @opindex mfixed-range
@@ -8858,13 +8898,34 @@ useful when compiling kernel code.  A register range is specified as
 two registers separated by a dash.  Multiple register ranges can be
 specified separated by a comma.
 
-@item -mearly-stop-bits
-@itemx -mno-early-stop-bits
-@opindex mearly-stop-bits
-@opindex mno-early-stop-bits
-Allow stop bits to be placed earlier than immediately preceding the
-instruction that triggered the stop bit.  This can improve instruction
-scheduling, but does not always do so.
+@item -mtls-size=@var{tls-size}
+@opindex mtls-size
+Specify bit size of immediate TLS offsets.  Valid values are 14, 22, and
+64.
+
+@item -mtune-arch=@var{cpu-type}
+@opindex mtune-arch
+Tune the instruction scheduling for a particular CPU, Valid values are
+itanium, itanium1, merced, itanium2, and mckinley.
+
+@item -mt
+@itemx -pthread
+@opindex mt
+@opindex pthread
+Add support for multithreading using the POSIX threads library.  This
+option sets flags for both the preprocessor and linker.  It does
+not affect the thread safety of object code produced by the compiler or
+that of libraries supplied with it.  These are HP-UX specific flags.
+
+@item -milp32
+@itemx -mlp64
+@opindex milp32
+@opindex mlp64
+Generate code for a 32-bit or 64-bit environment.
+The 32-bit environment sets int, long and pointer to 32 bits.
+The 64-bit environment sets int to 32 bits and long and pointer
+to 64 bits.  These are HP-UX specific flags.
+
 @end table
 
 @node M32R/D Options
@@ -10842,8 +10903,9 @@ save area.
 In general, code compiled with @option{-mbackchain} is call-compatible with
 code compiled with @option{-mmo-backchain}; however, use of the backchain
 for debugging purposes usually requires that the whole binary is built with
-@option{-mbackchain}.  Note that the combination of @option{-mbackchain} and
-@option{-mpacked-stack} generates code that is not ABI-compatible.
+@option{-mbackchain}.  Note that the combination of @option{-mbackchain},
+@option{-mpacked-stack} and @option{-mhard-float} is not supported.  In order
+to build a linux kernel use @option{-msoft-float}.
 
 The default is to not maintain the backchain.
 
@@ -10861,14 +10923,15 @@ However, when @option{-mbackchain} is also in effect, the topmost word of
 the save area is always used to store the backchain, and the return address
 register is always saved two words below the backchain.
 
-As long as the stack frame backchain is not used, code generated with 
+As long as the stack frame backchain is not used, code generated with
 @option{-mpacked-stack} is call-compatible with code generated with
 @option{-mno-packed-stack}.  Note that some non-FSF releases of GCC 2.95 for
 S/390 or zSeries generated code that uses the stack frame backchain at run
 time, not just for debugging purposes.  Such code is not call-compatible
 with code compiled with @option{-mpacked-stack}.  Also, note that the
-combination of @option{-mbackchain} and @option{-mpacked-stack} generates code
-that is not ABI-compatible.
+combination of @option{-mbackchain},
+@option{-mpacked-stack} and @option{-mhard-float} is not supported.  In order
+to build a linux kernel use @option{-msoft-float}.
 
 The default is to not use the packed stack layout.
 
@@ -12013,8 +12076,8 @@ position-independent.
 @opindex fPIC
 If supported for the target machine, emit position-independent code,
 suitable for dynamic linking and avoiding any limit on the size of the
-global offset table.  This option makes a difference on the m68k
-and the SPARC@.
+global offset table.  This option makes a difference on the m68k,
+PowerPC and SPARC@.
 
 Position-independent code requires special support, and therefore works
 only on certain machines.

@@ -5,17 +5,26 @@
 This file is part of the GNU Fortran 95 runtime library (libgfortran).
 
 Libgfortran is free software; you can redistribute it and/or
-modify it under the terms of the GNU Lesser General Public
+modify it under the terms of the GNU General Public
 License as published by the Free Software Foundation; either
-version 2.1 of the License, or (at your option) any later version.
+version 2 of the License, or (at your option) any later version.
+
+In addition to the permissions in the GNU General Public License, the
+Free Software Foundation gives you unlimited permission to link the
+compiled version of this file into combinations with other programs,
+and to distribute those combinations without any restriction coming
+from the use of this file.  (The General Public License restrictions
+do apply in other respects; for example, they cover modification of
+the file, and distribution when not linked into a combine
+executable.)
 
 Libgfortran is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU Lesser General Public License for more details.
+GNU General Public License for more details.
 
-You should have received a copy of the GNU Lesser General Public
-License along with libgfor; see the file COPYING.LIB.  If not,
+You should have received a copy of the GNU General Public
+License along with libgfortran; see the file COPYING.  If not,
 write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -35,11 +44,13 @@ Boston, MA 02111-1307, USA.  */
    CHARACTER(LEN= ), INTENT(IN) :: NAME
    INTEGER, INTENT(OUT), OPTIONAL :: STATUS)  */
 
-void
-prefix(unlink_i4_sub) (char * name, GFC_INTEGER_4 * status,
-		       gfc_charlen_type name_len)
-{
+extern void unlink_i4_sub (char *name, GFC_INTEGER_4 *status,
+			   gfc_charlen_type name_len);
+iexport_proto(unlink_i4_sub);
 
+void
+unlink_i4_sub (char *name, GFC_INTEGER_4 *status, gfc_charlen_type name_len)
+{
   char *str, *s;
   GFC_INTEGER_4 stat;
 
@@ -57,16 +68,17 @@ prefix(unlink_i4_sub) (char * name, GFC_INTEGER_4 * status,
   if (status != NULL) 
     *status = (stat == 0) ? stat : errno;
 }
+iexport(unlink_i4_sub);
 
+extern void unlink_i8_sub (char *name, GFC_INTEGER_8 *status,
+			   gfc_charlen_type name_len);
+export_proto(unlink_i8_sub);
 
 void
-prefix(unlink_i8_sub) (char * name, GFC_INTEGER_8 * status,
-		               gfc_charlen_type name_len)
+unlink_i8_sub (char *name, GFC_INTEGER_8 *status, gfc_charlen_type name_len)
 {
-
   GFC_INTEGER_4 status4;
-
-  prefix (unlink_i4_sub) (name, &status4, name_len);
+  unlink_i4_sub (name, &status4, name_len);
   if (status)
     *status = status4;
 }
@@ -75,11 +87,13 @@ prefix(unlink_i8_sub) (char * name, GFC_INTEGER_8 * status,
 /* INTEGER FUNCTION UNLINK(NAME)
    CHARACTER(LEN= ), INTENT(IN) :: NAME  */
 
+extern GFC_INTEGER_4 PREFIX(unlink) (char *, gfc_charlen_type);
+export_proto_np(PREFIX(unlink));
+
 GFC_INTEGER_4
-prefix(unlink) (char * name, gfc_charlen_type name_len)
+PREFIX(unlink) (char *name, gfc_charlen_type name_len)
 {
   GFC_INTEGER_4 status;
-  prefix(unlink_i4_sub) (name, &status, name_len);
+  unlink_i4_sub (name, &status, name_len);
   return status;
 }
-

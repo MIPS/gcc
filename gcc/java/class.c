@@ -1,5 +1,5 @@
 /* Functions related to building classes and their related objects.
-   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -1741,7 +1741,7 @@ make_class_data (tree type)
   FINISH_RECORD_CONSTRUCTOR (temp);
   START_RECORD_CONSTRUCTOR (cons, class_type_node);
   PUSH_SUPER_VALUE (cons, temp);
-  PUSH_FIELD_VALUE (cons, "next", null_pointer_node);
+  PUSH_FIELD_VALUE (cons, "next_or_version", gcj_abi_version);
   PUSH_FIELD_VALUE (cons, "name", build_utf8_ref (DECL_NAME (type_decl)));
   PUSH_FIELD_VALUE (cons, "accflags",
 		    build_int_cst (NULL_TREE,
@@ -2338,8 +2338,7 @@ layout_class_method (tree this_class, tree super_class,
       tree super_method = lookup_argument_method (super_class, method_name,
 						  method_sig);
       if (super_method != NULL_TREE
-	  && ! METHOD_DUMMY (super_method)
-	  && ! DECL_ARTIFICIAL (super_method))
+	  && ! METHOD_DUMMY (super_method))
         {
 	  method_override = true;
 	  if (! METHOD_PUBLIC (super_method) && 
@@ -2358,7 +2357,8 @@ layout_class_method (tree this_class, tree super_class,
 	  tree method_index = get_method_index (super_method);
 	  set_method_index (method_decl, method_index);
 	  if (method_index == NULL_TREE 
-	      && !CLASS_FROM_SOURCE_P (this_class))
+	      && !CLASS_FROM_SOURCE_P (this_class)
+	      && ! DECL_ARTIFICIAL (super_method))
 	    error ("%Jnon-static method '%D' overrides static method",
                    method_decl, method_decl);
 	}
@@ -2419,10 +2419,11 @@ emit_register_classes (tree *list_p)
   if (registered_class == NULL)
     return;
 
-  /* ??? This isn't quite the correct test.  We also have to know
-     that the target is using gcc's crtbegin/crtend objects rather
-     than the ones that come with the operating system.  */
-  if (SUPPORTS_WEAK && targetm.have_named_sections)
+  /* TARGET_USE_JCR_SECTION defaults to 1 if SUPPORTS_WEAK and
+     TARGET_ASM_NAMED_SECTION, else 0.  Some targets meet those conditions
+     but lack suitable crtbegin/end objects or linker support.  These
+     targets can overide the default in tm.h to use the fallback mechanism.  */
+  if (TARGET_USE_JCR_SECTION)
     {
 #ifdef JCR_SECTION_NAME
       tree t;
@@ -2432,6 +2433,8 @@ emit_register_classes (tree *list_p)
 	assemble_integer (XEXP (DECL_RTL (t), 0),
 			  POINTER_SIZE / BITS_PER_UNIT, POINTER_SIZE, 1);
 #else
+      /* A target has defined TARGET_USE_JCR_SECTION, but doesn't have a
+	 JCR_SECTION_NAME.  */
       abort ();
 #endif
     }

@@ -1,6 +1,6 @@
 /* Expand builtin functions.
    Copyright (C) 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -99,7 +99,7 @@ static rtx expand_builtin_mathfn (tree, rtx, rtx);
 static rtx expand_builtin_mathfn_2 (tree, rtx, rtx);
 static rtx expand_builtin_mathfn_3 (tree, rtx, rtx);
 static rtx expand_builtin_args_info (tree);
-static rtx expand_builtin_next_arg (tree);
+static rtx expand_builtin_next_arg (void);
 static rtx expand_builtin_va_start (tree);
 static rtx expand_builtin_va_end (tree);
 static rtx expand_builtin_va_copy (tree);
@@ -185,7 +185,6 @@ static tree fold_builtin_strcat (tree);
 static tree fold_builtin_strncat (tree);
 static tree fold_builtin_strspn (tree);
 static tree fold_builtin_strcspn (tree);
-static void fold_builtin_next_arg (tree);
 static tree fold_builtin_sprintf (tree, int);
 
 
@@ -202,7 +201,7 @@ get_pointer_alignment (tree exp, unsigned int max_align)
 {
   unsigned int align, inner;
 
-  if (TREE_CODE (TREE_TYPE (exp)) != POINTER_TYPE)
+  if (! POINTER_TYPE_P (TREE_TYPE (exp)))
     return 0;
 
   align = TYPE_ALIGN (TREE_TYPE (TREE_TYPE (exp)));
@@ -216,7 +215,7 @@ get_pointer_alignment (tree exp, unsigned int max_align)
 	case CONVERT_EXPR:
 	case NON_LVALUE_EXPR:
 	  exp = TREE_OPERAND (exp, 0);
-	  if (TREE_CODE (TREE_TYPE (exp)) != POINTER_TYPE)
+	  if (! POINTER_TYPE_P (TREE_TYPE (exp)))
 	    return align;
 
 	  inner = TYPE_ALIGN (TREE_TYPE (TREE_TYPE (exp)));
@@ -1476,7 +1475,6 @@ type_to_class (tree type)
     case QUAL_UNION_TYPE:  return union_type_class;
     case ARRAY_TYPE:	   return (TYPE_STRING_FLAG (type)
 				   ? string_type_class : array_type_class);
-    case SET_TYPE:	   return set_type_class;
     case FILE_TYPE:	   return file_type_class;
     case LANG_TYPE:	   return lang_type_class;
     default:		   return no_type_class;
@@ -1773,6 +1771,7 @@ expand_builtin_mathfn (tree exp, rtx target, rtx subtarget)
       narg = builtin_save_expr (arg);
       if (narg != arg)
 	{
+	  arg = narg;
 	  arglist = build_tree_list (NULL_TREE, arg);
 	  exp = build_function_call_expr (fndecl, arglist);
 	}
@@ -1912,6 +1911,7 @@ expand_builtin_mathfn_2 (tree exp, rtx target, rtx subtarget)
   narg = builtin_save_expr (arg1);
   if (narg != arg1)
     {
+      arg1 = narg;
       temp = build_tree_list (NULL_TREE, narg);
       stable = false;
     }
@@ -1921,6 +1921,7 @@ expand_builtin_mathfn_2 (tree exp, rtx target, rtx subtarget)
   narg = builtin_save_expr (arg0);
   if (narg != arg0)
     {
+      arg0 = narg;
       arglist = tree_cons (NULL_TREE, narg, temp);
       stable = false;
     }
@@ -2031,6 +2032,7 @@ expand_builtin_mathfn_3 (tree exp, rtx target, rtx subtarget)
       narg = save_expr (arg);
       if (narg != arg)
 	{
+	  arg = narg;
 	  arglist = build_tree_list (NULL_TREE, arg);
 	  exp = build_function_call_expr (fndecl, arglist);
 	}
@@ -3741,43 +3743,13 @@ expand_builtin_args_info (tree arglist)
   return const0_rtx;
 }
 
-/* Expand ARGLIST, from a call to __builtin_next_arg.  */
+/* Expand a call to __builtin_next_arg.  */
 
 static rtx
-expand_builtin_next_arg (tree arglist)
+expand_builtin_next_arg (void)
 {
-  tree fntype = TREE_TYPE (current_function_decl);
-
-  if (TYPE_ARG_TYPES (fntype) == 0
-      || (TREE_VALUE (tree_last (TYPE_ARG_TYPES (fntype)))
-	  == void_type_node))
-    {
-      error ("%<va_start%> used in function with fixed args");
-      return const0_rtx;
-    }
-
-  if (arglist)
-    {
-      tree last_parm = tree_last (DECL_ARGUMENTS (current_function_decl));
-      tree arg = TREE_VALUE (arglist);
-
-      /* Strip off all nops for the sake of the comparison.  This
-	 is not quite the same as STRIP_NOPS.  It does more.
-	 We must also strip off INDIRECT_EXPR for C++ reference
-	 parameters.  */
-      while (TREE_CODE (arg) == NOP_EXPR
-	     || TREE_CODE (arg) == CONVERT_EXPR
-	     || TREE_CODE (arg) == NON_LVALUE_EXPR
-	     || TREE_CODE (arg) == INDIRECT_REF)
-	arg = TREE_OPERAND (arg, 0);
-      if (arg != last_parm)
-	warning ("second parameter of %<va_start%> not last named argument");
-    }
-  else
-    /* Evidently an out of date version of <stdarg.h>; can't validate
-       va_start's second argument, but can still work as intended.  */
-    warning ("%<__builtin_next_arg%> called without an argument");
-
+  /* Checking arguments is already done in fold_builtin_next_arg
+     that must be called before this function.  */
   return expand_binop (Pmode, add_optab,
 		       current_function_internal_arg_pointer,
 		       current_function_arg_offset_rtx,
@@ -3865,12 +3837,11 @@ expand_builtin_va_start (tree arglist)
       error ("too few arguments to function %<va_start%>");
       return const0_rtx;
     }
-  if (TREE_CHAIN (chain))
-    error ("too many arguments to function %<va_start%>");
 
-  fold_builtin_next_arg (chain);
+  if (fold_builtin_next_arg (chain))
+    return const0_rtx;
 
-  nextarg = expand_builtin_next_arg (chain);
+  nextarg = expand_builtin_next_arg ();
   valist = stabilize_va_list (TREE_VALUE (arglist), 1);
 
 #ifdef EXPAND_BUILTIN_VA_START
@@ -3922,6 +3893,18 @@ std_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p, tree *post_p)
       t = build2 (MODIFY_EXPR, TREE_TYPE (valist), valist_tmp,
 		  build2 (BIT_AND_EXPR, TREE_TYPE (valist), valist_tmp, t));
       gimplify_and_add (t, pre_p);
+    }
+  else
+    boundary = align;
+
+  /* If the actual alignment is less than the alignment of the type,
+     adjust the type accordingly so that we don't assume strict alignment
+     when deferencing the pointer.  */
+  boundary *= BITS_PER_UNIT;
+  if (boundary < TYPE_ALIGN (type))
+    {
+      type = build_variant_type_copy (type);
+      TYPE_ALIGN (type) = boundary;
     }
 
   /* Compute the rounded size of the type.  */
@@ -4005,7 +3988,7 @@ gimplify_va_arg_expr (tree *expr_p, tree *pre_p, tree *post_p)
          In that case, unwrap both types so that we can compare the
 	 underlying records.  */
       if (TREE_CODE (have_va_type) == ARRAY_TYPE
-	  || TREE_CODE (have_va_type) == POINTER_TYPE)
+	  || POINTER_TYPE_P (have_va_type))
 	{
 	  want_va_type = TREE_TYPE (want_va_type);
 	  have_va_type = TREE_TYPE (have_va_type);
@@ -4453,6 +4436,29 @@ expand_builtin_fabs (tree arglist, rtx target, rtx subtarget)
   return expand_abs (mode, op0, target, 0, safe_from_p (target, arg, 1));
 }
 
+/* Expand a call to copysign, copysignf, or copysignl with arguments ARGLIST.
+   Return NULL is a normal call should be emitted rather than expanding the
+   function inline.  If convenient, the result should be placed in TARGET.
+   SUBTARGET may be used as the target for computing the operand.  */
+
+static rtx
+expand_builtin_copysign (tree arglist, rtx target, rtx subtarget)
+{
+  rtx op0, op1;
+  tree arg;
+
+  if (!validate_arglist (arglist, REAL_TYPE, REAL_TYPE, VOID_TYPE))
+    return 0;
+
+  arg = TREE_VALUE (arglist);
+  op0 = expand_expr (arg, subtarget, VOIDmode, 0);
+
+  arg = TREE_VALUE (TREE_CHAIN (arglist));
+  op1 = expand_expr (arg, NULL, VOIDmode, 0);
+
+  return expand_copysign (op0, op1, target);
+}
+
 /* Create a new constant string literal and return a char* pointer to it.
    The STRING_CST value is the LEN characters at STR.  */
 static tree
@@ -4503,7 +4509,7 @@ expand_builtin_printf (tree arglist, rtx target, enum machine_mode mode,
   if (! arglist)
     return 0;
   fmt = TREE_VALUE (arglist);
-  if (TREE_CODE (TREE_TYPE (fmt)) != POINTER_TYPE)
+  if (! POINTER_TYPE_P (TREE_TYPE (fmt)))
     return 0;
   arglist = TREE_CHAIN (arglist);
 
@@ -4516,7 +4522,7 @@ expand_builtin_printf (tree arglist, rtx target, enum machine_mode mode,
   if (strcmp (fmt_str, "%s\n") == 0)
     {
       if (! arglist
-          || TREE_CODE (TREE_TYPE (TREE_VALUE (arglist))) != POINTER_TYPE
+          || ! POINTER_TYPE_P (TREE_TYPE (TREE_VALUE (arglist)))
 	  || TREE_CHAIN (arglist))
 	return 0;
       fn = fn_puts;
@@ -4605,13 +4611,13 @@ expand_builtin_fprintf (tree arglist, rtx target, enum machine_mode mode,
   if (! arglist)
     return 0;
   fp = TREE_VALUE (arglist);
-  if (TREE_CODE (TREE_TYPE (fp)) != POINTER_TYPE)
+  if (! POINTER_TYPE_P (TREE_TYPE (fp)))
     return 0;
   arglist = TREE_CHAIN (arglist);
   if (! arglist)
     return 0;
   fmt = TREE_VALUE (arglist);
-  if (TREE_CODE (TREE_TYPE (fmt)) != POINTER_TYPE)
+  if (! POINTER_TYPE_P (TREE_TYPE (fmt)))
     return 0;
   arglist = TREE_CHAIN (arglist);
 
@@ -4624,7 +4630,7 @@ expand_builtin_fprintf (tree arglist, rtx target, enum machine_mode mode,
   if (strcmp (fmt_str, "%s") == 0)
     {
       if (! arglist
-          || TREE_CODE (TREE_TYPE (TREE_VALUE (arglist))) != POINTER_TYPE
+          || ! POINTER_TYPE_P (TREE_TYPE (TREE_VALUE (arglist)))
 	  || TREE_CHAIN (arglist))
 	return 0;
       arg = TREE_VALUE (arglist);
@@ -4692,13 +4698,13 @@ expand_builtin_sprintf (tree arglist, rtx target, enum machine_mode mode)
   if (! arglist)
     return 0;
   dest = TREE_VALUE (arglist);
-  if (TREE_CODE (TREE_TYPE (dest)) != POINTER_TYPE)
+  if (! POINTER_TYPE_P (TREE_TYPE (dest)))
     return 0;
   arglist = TREE_CHAIN (arglist);
   if (! arglist)
     return 0;
   fmt = TREE_VALUE (arglist);
-  if (TREE_CODE (TREE_TYPE (fmt)) != POINTER_TYPE)
+  if (! POINTER_TYPE_P (TREE_TYPE (fmt)))
     return 0;
   arglist = TREE_CHAIN (arglist);
 
@@ -4734,7 +4740,7 @@ expand_builtin_sprintf (tree arglist, rtx target, enum machine_mode mode)
       if (! arglist || TREE_CHAIN (arglist))
 	return 0;
       arg = TREE_VALUE (arglist);
-      if (TREE_CODE (TREE_TYPE (arg)) != POINTER_TYPE)
+      if (! POINTER_TYPE_P (TREE_TYPE (arg)))
 	return 0;
 
       if (target != const0_rtx)
@@ -5082,6 +5088,14 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
         return target;
       break;
 
+    case BUILT_IN_COPYSIGN:
+    case BUILT_IN_COPYSIGNF:
+    case BUILT_IN_COPYSIGNL:
+      target = expand_builtin_copysign (arglist, target, subtarget);
+      if (target)
+	return target;
+      break;
+
       /* Just do a normal library call if we were unable to fold
 	 the values.  */
     case BUILT_IN_CABS:
@@ -5249,8 +5263,9 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
 
       /* Return the address of the first anonymous stack arg.  */
     case BUILT_IN_NEXT_ARG:
-      fold_builtin_next_arg (arglist);
-      return expand_builtin_next_arg (arglist);
+      if (fold_builtin_next_arg (arglist))
+        return const0_rtx;
+      return expand_builtin_next_arg ();
 
     case BUILT_IN_CLASSIFY_TYPE:
       return expand_builtin_classify_type (arglist);
@@ -7477,6 +7492,7 @@ fold_builtin_fabs (tree arglist, tree type)
     return 0;
 
   arg = TREE_VALUE (arglist);
+  arg = fold_convert (type, arg);
   if (TREE_CODE (arg) == REAL_CST)
     return fold_abs_const (arg, type);
   return fold (build1 (ABS_EXPR, type, arg));
@@ -7493,6 +7509,7 @@ fold_builtin_abs (tree arglist, tree type)
     return 0;
 
   arg = TREE_VALUE (arglist);
+  arg = fold_convert (type, arg);
   if (TREE_CODE (arg) == INTEGER_CST)
     return fold_abs_const (arg, type);
   return fold (build1 (ABS_EXPR, type, arg));
@@ -8072,8 +8089,14 @@ validate_arglist (tree arglist, ...)
 	  /* If no parameters remain or the parameter's code does not
 	     match the specified code, return false.  Otherwise continue
 	     checking any remaining arguments.  */
-	  if (arglist == 0
-	      || code != TREE_CODE (TREE_TYPE (TREE_VALUE (arglist))))
+	  if (arglist == 0)
+	    goto end;
+	  if (code == POINTER_TYPE)
+	    {
+	      if (! POINTER_TYPE_P (TREE_TYPE (TREE_VALUE (arglist))))
+		goto end;
+	    }
+	  else if (code != TREE_CODE (TREE_TYPE (TREE_VALUE (arglist))))
 	    goto end;
 	  break;
 	}
@@ -8650,7 +8673,10 @@ fold_builtin_fputs (tree arglist, bool ignore, bool unlocked, tree len)
   return build_function_call_expr (fn, arglist);
 }
 
-static void
+/* Fold the new_arg's arguments (ARGLIST). Returns true if there was an error
+   produced.  False otherwise.  This is done so that we don't output the error
+   or warning twice or three times.  */
+bool
 fold_builtin_next_arg (tree arglist)
 {
   tree fntype = TREE_TYPE (current_function_decl);
@@ -8658,11 +8684,32 @@ fold_builtin_next_arg (tree arglist)
   if (TYPE_ARG_TYPES (fntype) == 0
       || (TREE_VALUE (tree_last (TYPE_ARG_TYPES (fntype)))
 	  == void_type_node))
-    error ("%<va_start%> used in function with fixed args");
-  else if (arglist)
+    {
+      error ("%<va_start%> used in function with fixed args");
+      return true;
+    }
+  else if (!arglist)
+    {
+      /* Evidently an out of date version of <stdarg.h>; can't validate
+	 va_start's second argument, but can still work as intended.  */
+      warning ("%<__builtin_next_arg%> called without an argument");
+      return true;
+    }
+  /* We use __builtin_va_start (ap, 0, 0) or __builtin_next_arg (0, 0)
+     when we checked the arguments and if needed issued a warning.  */
+  else if (!TREE_CHAIN (arglist)
+           || !integer_zerop (TREE_VALUE (arglist))
+           || !integer_zerop (TREE_VALUE (TREE_CHAIN (arglist)))
+           || TREE_CHAIN (TREE_CHAIN (arglist)))
     {
       tree last_parm = tree_last (DECL_ARGUMENTS (current_function_decl));
       tree arg = TREE_VALUE (arglist);
+
+      if (TREE_CHAIN (arglist))
+        {
+          error ("%<va_start%> used with too many arguments");
+          return true;
+        }
 
       /* Strip off all nops for the sake of the comparison.  This
 	 is not quite the same as STRIP_NOPS.  It does more.
@@ -8674,13 +8721,23 @@ fold_builtin_next_arg (tree arglist)
 	     || TREE_CODE (arg) == INDIRECT_REF)
 	arg = TREE_OPERAND (arg, 0);
       if (arg != last_parm)
-	warning ("second parameter of %<va_start%> not last named argument");
-      TREE_VALUE (arglist) = arg;
+        {
+	  /* FIXME: Sometimes with the tree optimizers we can get the
+	     not the last argument even though the user used the last
+	     argument.  We just warn and set the arg to be the last
+	     argument so that we will get wrong-code because of
+	     it.  */
+	  warning ("second parameter of %<va_start%> not last named argument");
+	}
+      /* We want to verify the second parameter just once before the tree
+         optimizers are run and then avoid keeping it in the tree,
+         as otherwise we could warn even for correct code like:
+         void foo (int i, ...)
+         { va_list ap; i++; va_start (ap, i); va_end (ap); }  */
+      TREE_VALUE (arglist) = integer_zero_node;
+      TREE_CHAIN (arglist) = build_tree_list (NULL, integer_zero_node);
     }
-  else
-    /* Evidently an out of date version of <stdarg.h>; can't validate
-       va_start's second argument, but can still work as intended.  */
-    warning ("%<__builtin_next_arg%> called without an argument");
+  return false;
 }
 
 

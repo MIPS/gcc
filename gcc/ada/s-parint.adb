@@ -275,7 +275,7 @@ package body System.Partition_Interface is
 
    procedure Register_Receiving_Stub
      (Name          : Unit_Name;
-      Receiver      : RPC.RPC_Receiver;
+      Receiver      : RPC_Receiver;
       Version       : String := "";
       Subp_Info     : System.Address;
       Subp_Info_Len : Integer)
@@ -305,5 +305,19 @@ package body System.Partition_Interface is
          Main.all;
       end if;
    end Run;
+
+   --------------------
+   -- Same_Partition --
+   --------------------
+
+   function Same_Partition
+      (Left  : access RACW_Stub_Type;
+       Right : access RACW_Stub_Type) return Boolean
+   is
+      pragma Unreferenced (Left);
+      pragma Unreferenced (Right);
+   begin
+      return True;
+   end Same_Partition;
 
 end System.Partition_Interface;

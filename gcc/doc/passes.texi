@@ -146,7 +146,8 @@ semantic checks), it should return @code{GS_ERROR}.
 @node Pass manager
 @section Pass manager
 
-The pass manager is located in @file{passes.c} and @file{passes.h}.
+The pass manager is located in @file{passes.c}, @file{tree-optimize.c}
+and @file{tree-pass.h}.
 Its job is to run all of the individual passes in the correct order,
 and take care of standard bookkeeping that applies to every pass.
 
@@ -659,13 +660,6 @@ do a decent job.  The source is located in @file{local-alloc.c}.
 Global register allocation.  This pass allocates hard registers for
 the remaining pseudo registers (those whose life spans are not
 contained in one basic block).  The pass is located in @file{global.c}.
-
-@item
-Graph coloring register allocator.  The files @file{ra.c}, @file{ra-build.c},
-@file{ra-colorize.c}, @file{ra-debug.c}, @file{ra-rewrite.c} together with
-the header @file{ra.h} contain another register allocator, which is used
-when the option @option{-fnew-ra} is given.  In that case it is run instead
-of the above mentioned local and global register allocation passes.
 
 @cindex reloading
 @item

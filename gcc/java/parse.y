@@ -1,6 +1,6 @@
 /* Source code parsing and tree node generation for the GNU compiler
    for the Java(TM) language.
-   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
    Contributed by Alexandre Petit-Bianco (apbianco@cygnus.com)
 
@@ -277,7 +277,6 @@ static tree maybe_build_array_element_wfl (tree);
 static int array_constructor_check_entry (tree, tree);
 static const char *purify_type_name (const char *);
 static tree fold_constant_for_init (tree, tree);
-static tree strip_out_static_field_access_decl (tree);
 static jdeplist *reverse_jdep_list (struct parser_ctxt *);
 static void static_ref_err (tree, tree, tree);
 static void parser_add_interface (tree, tree, tree);
@@ -5591,6 +5590,10 @@ craft_constructor (tree class_decl, tree args)
   /* Then if there are any args to be enforced, enforce them now */
   for (; args && args != end_params_node; args = TREE_CHAIN (args))
     {
+      /* If we see a `void *', we need to change it to Object.  */
+      if (TREE_VALUE (args) == TREE_TYPE (null_pointer_node))
+	TREE_VALUE (args) = object_ptr_type_node;
+
       sprintf (buffer, "parm%d", i++);
       parm = tree_cons (get_identifier (buffer), TREE_VALUE (args), parm);
     }
@@ -6952,13 +6955,13 @@ process_imports (void)
       tree to_be_found = EXPR_WFL_NODE (TREE_PURPOSE (import));
       char *original_name;
 
-      original_name = xmemdup (IDENTIFIER_POINTER (to_be_found),
-			       IDENTIFIER_LENGTH (to_be_found),
-			       IDENTIFIER_LENGTH (to_be_found) + 1);
-
       /* Don't load twice something already defined. */
       if (IDENTIFIER_CLASS_VALUE (to_be_found))
 	continue;
+
+      original_name = xmemdup (IDENTIFIER_POINTER (to_be_found),
+			       IDENTIFIER_LENGTH (to_be_found),
+			       IDENTIFIER_LENGTH (to_be_found) + 1);
 
       while (1)
 	{
@@ -9674,12 +9677,12 @@ resolve_field_access (tree qual_wfl, tree *field_decl, tree *field_type)
   return field_ref;
 }
 
-/* If NODE is an access to f static field, strip out the class
+/* If NODE is an access to a static field, strip out the class
    initialization part and return the field decl, otherwise, return
    NODE. */
 
-static tree
-strip_out_static_field_access_decl (tree node)
+tree
+extract_field_decl (tree node)
 {
   if (TREE_CODE (node) == COMPOUND_EXPR)
     {
@@ -13795,7 +13798,9 @@ patch_binop (tree node, tree wfl_op1, tree wfl_op2)
       /* Types have to be either references or the null type. If
          they're references, it must be possible to convert either
          type to the other by casting conversion. */
-      else if (op1 == null_pointer_node || op2 == null_pointer_node
+      else if ((op1 == null_pointer_node && op2 == null_pointer_node)
+               || (op1 == null_pointer_node && JREFERENCE_TYPE_P (op2_type))
+               || (JREFERENCE_TYPE_P (op1_type) && op2 == null_pointer_node)
 	       || (JREFERENCE_TYPE_P (op1_type) && JREFERENCE_TYPE_P (op2_type)
 		   && (valid_ref_assignconv_cast_p (op1_type, op2_type, 1)
 		       || valid_ref_assignconv_cast_p (op2_type,
@@ -14256,7 +14261,7 @@ patch_unaryop (tree node, tree wfl_op)
     case PREINCREMENT_EXPR:
       /* 15.14.2 Prefix Decrement Operator -- */
     case PREDECREMENT_EXPR:
-      op = decl = strip_out_static_field_access_decl (op);
+      op = decl = extract_field_decl (op);
       outer_field_flag = outer_field_expanded_access_p (op, NULL, NULL, NULL);
       /* We might be trying to change an outer field accessed using
          access method. */

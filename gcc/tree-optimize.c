@@ -1,5 +1,5 @@
 /* Top-level control of tree optimizations.
-   Copyright 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
 This file is part of GCC.
@@ -354,6 +354,7 @@ init_tree_optimization_passes (void)
   NEXT_PASS (pass_dominator);
   NEXT_PASS (pass_redundant_phi);
   NEXT_PASS (pass_dce);
+  NEXT_PASS (pass_merge_phi);
   NEXT_PASS (pass_forwprop);
   NEXT_PASS (pass_phiopt);
   NEXT_PASS (pass_may_alias);
@@ -372,20 +373,35 @@ init_tree_optimization_passes (void)
   NEXT_PASS (pass_ccp);
   NEXT_PASS (pass_redundant_phi);
   NEXT_PASS (pass_fold_builtins);
+  /* FIXME: May alias should a TODO but for 4.0.0,
+     we add may_alias right after fold builtins
+     which can create arbitrary GIMPLE.  */
+  NEXT_PASS (pass_may_alias);
   NEXT_PASS (pass_split_crit_edges);
   NEXT_PASS (pass_pre);
   NEXT_PASS (pass_loop);
   NEXT_PASS (pass_dominator);
   NEXT_PASS (pass_redundant_phi);
+  /* FIXME: If DCE is not run before checking for uninitialized uses,
+     we may get false warnings (e.g., testsuite/gcc.dg/uninit-5.c).
+     However, this also causes us to misdiagnose cases that should be
+     real warnings (e.g., testsuite/gcc.dg/pr18501.c).
+     
+     To fix the false positives in uninit-5.c, we would have to
+     account for the predicates protecting the set and the use of each
+     variable.  Using a representation like Gated Single Assignment
+     may help.  */
+  NEXT_PASS (pass_late_warn_uninitialized);
   NEXT_PASS (pass_cd_dce);
   NEXT_PASS (pass_dse);
   NEXT_PASS (pass_forwprop);
   NEXT_PASS (pass_phiopt);
   NEXT_PASS (pass_tail_calls);
-  NEXT_PASS (pass_late_warn_uninitialized);
+  NEXT_PASS (pass_rename_ssa_copies);
   NEXT_PASS (pass_del_ssa);
   NEXT_PASS (pass_nrv);
   NEXT_PASS (pass_remove_useless_vars);
+  NEXT_PASS (pass_mark_used_blocks);
   NEXT_PASS (pass_cleanup_cfg_post_optimizing);
   *p = NULL;
 

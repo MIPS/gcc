@@ -8,6 +8,15 @@ it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
+In addition to the permissions in the GNU General Public License, the
+Free Software Foundation gives you unlimited permission to link the
+compiled version of this file into combinations with other programs,
+and to distribute those combinations without any restriction coming
+from the use of this file.  (The General Public License restrictions
+do apply in other respects; for example, they cover modification of
+the file, and distribution when not linked into a combine
+executable.)
+
 Libgfortran is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -36,7 +45,6 @@ Boston, MA 02111-1307, USA.  */
 void
 set_integer (void *dest, int64_t value, int length)
 {
-
   switch (length)
     {
     case 8:
@@ -95,7 +103,6 @@ max_value (int length, int signed_flag)
 int
 convert_real (void *dest, const char *buffer, int length)
 {
-
   errno = 0;
 
   switch (length)
@@ -204,7 +211,6 @@ read_a (fnode * f, char *p, int length)
 static char *
 eat_leading_spaces (int *width, char *p)
 {
-
   for (;;)
     {
       if (*width == 0 || *p != ' ')
@@ -325,11 +331,11 @@ read_decimal (fnode * f, char *dest, int length)
   set_integer (dest, v, length);
   return;
 
-bad:
+ bad:
   generate_error (ERROR_READ_VALUE, "Bad value during integer read");
   return;
 
-overflow:
+ overflow:
   generate_error (ERROR_READ_OVERFLOW,
 		  "Value overflowed during integer read");
   return;
@@ -461,11 +467,11 @@ read_radix (fnode * f, char *dest, int length, int radix)
   set_integer (dest, v, length);
   return;
 
-bad:
+ bad:
   generate_error (ERROR_READ_VALUE, "Bad value during integer read");
   return;
 
-overflow:
+ overflow:
   generate_error (ERROR_READ_OVERFLOW,
 		  "Value overflowed during integer read");
   return;
@@ -588,20 +594,16 @@ read_f (fnode * f, char *dest, int length)
 	}
     }
 
-/* No exponent has been seen, so we use the current scale factor */
-
+  /* No exponent has been seen, so we use the current scale factor */
   exponent = -g.scale_factor;
   goto done;
 
-bad_float:
+ bad_float:
   generate_error (ERROR_READ_VALUE, "Bad value during floating point read");
-  if (buffer != scratch)
-     free_mem (buffer);
   return;
 
-/* At this point the start of an exponent has been found */
-
-exp1:
+  /* At this point the start of an exponent has been found */
+ exp1:
   while (w > 0 && *p == ' ')
     {
       w--;
@@ -623,11 +625,10 @@ exp1:
   if (w == 0)
     goto bad_float;
 
-/* At this point a digit string is required.  We calculate the value
-   of the exponent in order to take account of the scale factor and
-   the d parameter before explict conversion takes place. */
-
-exp2:
+  /* At this point a digit string is required.  We calculate the value
+     of the exponent in order to take account of the scale factor and
+     the d parameter before explict conversion takes place. */
+ exp2:
   if (!isdigit (*p))
     goto bad_float;
 
@@ -654,7 +655,7 @@ exp2:
 
   exponent = exponent * exponent_sign;
 
-done:
+ done:
   /* Use the precision specified in the format if no decimal point has been
      seen.  */
   if (!seen_dp)

@@ -1,5 +1,5 @@
 /* Dwarf2 assembler output helper routines.
-   Copyright (C) 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -729,6 +729,7 @@ dw2_force_const_mem (rtx x)
 	  id = get_identifier (ref_name);
 	  decl = build_decl (VAR_DECL, id, ptr_type_node);
 	  DECL_ARTIFICIAL (decl) = 1;
+	  DECL_IGNORED_P (decl) = 1;
 	  TREE_PUBLIC (decl) = 1;
 	  DECL_INITIAL (decl) = decl;
 	  make_decl_one_only (decl);
@@ -742,6 +743,7 @@ dw2_force_const_mem (rtx x)
 	  id = get_identifier (label);
 	  decl = build_decl (VAR_DECL, id, ptr_type_node);
 	  DECL_ARTIFICIAL (decl) = 1;
+	  DECL_IGNORED_P (decl) = 1;
 	  TREE_STATIC (decl) = 1;
 	  DECL_INITIAL (decl) = decl;
 	}

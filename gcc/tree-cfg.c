@@ -1,5 +1,5 @@
 /* Control flow functions for trees.
-   Copyright (C) 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
 This file is part of GCC.
@@ -114,13 +114,13 @@ static void make_goto_expr_edges (basic_block);
 static edge tree_redirect_edge_and_branch (edge, basic_block);
 static edge tree_try_redirect_by_replacing_jump (edge, basic_block);
 static void split_critical_edges (void);
+static bool remove_fallthru_edge (VEC(edge) *);
 
 /* Various helpers.  */
 static inline bool stmt_starts_bb_p (tree, tree);
 static int tree_verify_flow_info (void);
 static void tree_make_forwarder_block (edge);
-static bool thread_jumps (void);
-static bool tree_forwarder_block_p (basic_block);
+static bool tree_forwarder_block_p (basic_block, bool);
 static void tree_cfg2vcg (FILE *);
 
 /* Flowgraph optimization and cleanup.  */
@@ -133,6 +133,7 @@ static edge find_taken_edge_cond_expr (basic_block, tree);
 static edge find_taken_edge_switch_expr (basic_block, tree);
 static tree find_case_label_for_value (tree, tree);
 static bool phi_alternatives_equal (basic_block, edge, edge);
+static bool cleanup_forwarder_blocks (void);
 
 
 /*---------------------------------------------------------------------------
@@ -450,7 +451,7 @@ make_edges (void)
      statements in it.  */
   make_edge (ENTRY_BLOCK_PTR, BASIC_BLOCK (0), EDGE_FALLTHRU);
 
-  /* Traverse basic block array placing edges.  */
+  /* Traverse the basic block array placing edges.  */
   FOR_EACH_BB (bb)
     {
       tree first = first_stmt (bb);
@@ -900,11 +901,12 @@ cleanup_tree_cfg (void)
   retval = cleanup_control_flow ();
   retval |= delete_unreachable_blocks ();
 
-  /* thread_jumps can redirect edges out of SWITCH_EXPRs, which can get
-     expensive.  So we want to enable recording of edge to CASE_LABEL_EXPR
-     mappings around the call to thread_jumps.  */
+  /* cleanup_forwarder_blocks can redirect edges out of SWITCH_EXPRs,
+     which can get expensive.  So we want to enable recording of edge
+     to CASE_LABEL_EXPR mappings around the call to
+     cleanup_forwarder_blocks.  */
   start_recording_case_labels ();
-  retval |= thread_jumps ();
+  retval |= cleanup_forwarder_blocks ();
   end_recording_case_labels ();
 
 #ifdef ENABLE_CHECKING
@@ -912,7 +914,7 @@ cleanup_tree_cfg (void)
     {
       gcc_assert (!cleanup_control_flow ());
       gcc_assert (!delete_unreachable_blocks ());
-      gcc_assert (!thread_jumps ());
+      gcc_assert (!cleanup_forwarder_blocks ());
     }
 #endif
 
@@ -1216,12 +1218,12 @@ tree_can_merge_blocks_p (basic_block a, basic_block b)
   if (EDGE_SUCC (a, 0)->dest != b)
     return false;
 
-  if (b == EXIT_BLOCK_PTR)
-    return false;
-  
   if (EDGE_COUNT (b->preds) > 1)
     return false;
 
+  if (b == EXIT_BLOCK_PTR)
+    return false;
+  
   /* If A ends by a statement causing exceptions or something similar, we
      cannot merge the blocks.  */
   stmt = last_stmt (a);
@@ -1322,8 +1324,11 @@ remove_useless_stmts_warn_notreached (tree stmt)
   if (EXPR_HAS_LOCATION (stmt))
     {
       location_t loc = EXPR_LOCATION (stmt);
-      warning ("%Hwill never be executed", &loc);
-      return true;
+      if (LOCATION_LINE (loc) > 0)
+	{
+	  warning ("%Hwill never be executed", &loc);
+	  return true;
+	}
     }
 
   switch (TREE_CODE (stmt))
@@ -1392,7 +1397,7 @@ remove_useless_stmts_cond (tree *stmt_p, struct rus_data *data)
 
   then_clause = COND_EXPR_THEN (*stmt_p);
   else_clause = COND_EXPR_ELSE (*stmt_p);
-  cond = COND_EXPR_COND (*stmt_p);
+  cond = fold (COND_EXPR_COND (*stmt_p));
 
   /* If neither arm does anything at all, we can remove the whole IF.  */
   if (!TREE_SIDE_EFFECTS (then_clause) && !TREE_SIDE_EFFECTS (else_clause))
@@ -2002,10 +2007,10 @@ remove_bb (basic_block bb)
           && FORCED_LABEL (LABEL_EXPR_LABEL (stmt)))
 	{
 	  basic_block new_bb = bb->prev_bb;
-	  block_stmt_iterator new_bsi = bsi_after_labels (new_bb);
+	  block_stmt_iterator new_bsi = bsi_start (new_bb);
 	  	  
 	  bsi_remove (&i);
-	  bsi_insert_after (&new_bsi, stmt, BSI_NEW_STMT);
+	  bsi_insert_before (&new_bsi, stmt, BSI_NEW_STMT);
 	}
       else
         {
@@ -2020,11 +2025,17 @@ remove_bb (basic_block bb)
 	 since this way we lose warnings for gotos in the original
 	 program that are indeed unreachable.  */
       if (TREE_CODE (stmt) != GOTO_EXPR && EXPR_HAS_LOCATION (stmt) && !loc)
+	{
+	  source_locus t;
+
 #ifdef USE_MAPPED_LOCATION
-	loc = EXPR_LOCATION (stmt);
+	  t = EXPR_LOCATION (stmt);
 #else
-	loc = EXPR_LOCUS (stmt);
+	  t = EXPR_LOCUS (stmt);
 #endif
+	  if (t && LOCATION_LINE (*t) > 0)
+	    loc = t;
+	}
     }
 
   /* If requested, give a warning that the first statement in the
@@ -2049,7 +2060,7 @@ cleanup_control_flow (void)
   basic_block bb;
   block_stmt_iterator bsi;
   bool retval = false;
-  tree stmt;
+  tree stmt, call;
 
   FOR_EACH_BB (bb)
     {
@@ -2062,6 +2073,17 @@ cleanup_control_flow (void)
       if (TREE_CODE (stmt) == COND_EXPR
 	  || TREE_CODE (stmt) == SWITCH_EXPR)
 	retval |= cleanup_control_expr_graph (bb, bsi);
+
+      /* Check for indirect calls that have been turned into
+	 noreturn calls.  */
+      call = get_call_expr_in (stmt);
+      if (call != 0
+	  && (call_expr_flags (call) & ECF_NORETURN) != 0
+	  && remove_fallthru_edge (bb->succs))
+	{
+	  free_dominance_info (CDI_DOMINATORS);
+	  retval = true;
+	}
     }
   return retval;
 }
@@ -2130,6 +2152,22 @@ cleanup_control_expr_graph (basic_block bb, block_stmt_iterator bsi)
   return retval;
 }
 
+/* Remove any fallthru edge from EV.  Return true if an edge was removed.  */
+
+static bool
+remove_fallthru_edge (VEC(edge) *ev)
+{
+  edge_iterator ei;
+  edge e;
+
+  FOR_EACH_EDGE (e, ei, ev)
+    if ((e->flags & EDGE_FALLTHRU) != 0)
+      {
+	remove_edge (e);
+	return true;
+      }
+  return false;
+}
 
 /* Given a basic block BB ending with COND_EXPR or SWITCH_EXPR, and a
    predicate VAL, return the edge that will be taken out of the block.
@@ -2264,19 +2302,17 @@ find_case_label_for_value (tree switch_expr, tree val)
 static bool
 phi_alternatives_equal (basic_block dest, edge e1, edge e2)
 {
-  tree phi, val1, val2;
-  int n1, n2;
+  int n1 = e1->dest_idx;
+  int n2 = e2->dest_idx;
+  tree phi;
 
   for (phi = phi_nodes (dest); phi; phi = PHI_CHAIN (phi))
     {
-      n1 = phi_arg_from_edge (phi, e1);
-      n2 = phi_arg_from_edge (phi, e2);
+      tree val1 = PHI_ARG_DEF (phi, n1);
+      tree val2 = PHI_ARG_DEF (phi, n2);
 
-      gcc_assert (n1 >= 0);
-      gcc_assert (n2 >= 0);
-
-      val1 = PHI_ARG_DEF (phi, n1);
-      val2 = PHI_ARG_DEF (phi, n2);
+      gcc_assert (val1 != NULL_TREE);
+      gcc_assert (val2 != NULL_TREE);
 
       if (!operand_equal_for_phi_arg_p (val1, val2))
 	return false;
@@ -3088,8 +3124,8 @@ bsi_insert_on_edge (edge e, tree stmt)
   append_to_statement_list (stmt, &PENDING_STMT (e));
 }
 
-/* Similar to bsi_insert_on_edge+bsi_commit_edge_inserts.  If new block has to
-   be created, it is returned.  */
+/* Similar to bsi_insert_on_edge+bsi_commit_edge_inserts.  If a new
+   block has to be created, it is returned.  */
 
 basic_block
 bsi_insert_on_edge_immediate (edge e, tree stmt)
@@ -3238,9 +3274,7 @@ verify_expr (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 	 tree) and ensure that any variable used as a prefix is marked
 	 addressable.  */
       for (x = TREE_OPERAND (t, 0);
-	   (handled_component_p (x)
-	    || TREE_CODE (x) == REALPART_EXPR
-	    || TREE_CODE (x) == IMAGPART_EXPR);
+	   handled_component_p (x);
 	   x = TREE_OPERAND (x, 0))
 	;
 
@@ -3288,8 +3322,7 @@ verify_expr (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 	 that determine where to reference is either a constant or a variable,
 	 verify that the base is valid, and then show we've already checked
 	 the subtrees.  */
-      while (TREE_CODE (t) == REALPART_EXPR || TREE_CODE (t) == IMAGPART_EXPR
-	     || handled_component_p (t))
+      while (handled_component_p (t))
 	{
 	  if (TREE_CODE (t) == COMPONENT_REF && TREE_OPERAND (t, 2))
 	    CHECK_OP (2, "Invalid COMPONENT_REF offset operator");
@@ -3426,7 +3459,8 @@ tree_node_can_be_shared (tree t)
 	 gimple invariants if they overflowed.  */
       || CONSTANT_CLASS_P (t)
       || is_gimple_min_invariant (t)
-      || TREE_CODE (t) == SSA_NAME)
+      || TREE_CODE (t) == SSA_NAME
+      || t == error_mark_node)
     return true;
 
   if (TREE_CODE (t) == CASE_LABEL_EXPR)
@@ -3589,25 +3623,38 @@ tree_verify_flow_info (void)
     {
       bool found_ctrl_stmt = false;
 
+      stmt = NULL_TREE;
+
       /* Skip labels on the start of basic block.  */
       for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
 	{
-	  if (TREE_CODE (bsi_stmt (bsi)) != LABEL_EXPR)
+	  tree prev_stmt = stmt;
+
+	  stmt = bsi_stmt (bsi);
+
+	  if (TREE_CODE (stmt) != LABEL_EXPR)
 	    break;
 
-	  if (label_to_block (LABEL_EXPR_LABEL (bsi_stmt (bsi))) != bb)
+	  if (prev_stmt && DECL_NONLOCAL (LABEL_EXPR_LABEL (stmt)))
 	    {
-	      tree stmt = bsi_stmt (bsi);
+	      error ("Nonlocal label %s is not first "
+		     "in a sequence of labels in bb %d",
+		     IDENTIFIER_POINTER (DECL_NAME (LABEL_EXPR_LABEL (stmt))),
+		     bb->index);
+	      err = 1;
+	    }
+
+	  if (label_to_block (LABEL_EXPR_LABEL (stmt)) != bb)
+	    {
 	      error ("Label %s to block does not match in bb %d\n",
 		     IDENTIFIER_POINTER (DECL_NAME (LABEL_EXPR_LABEL (stmt))),
 		     bb->index);
 	      err = 1;
 	    }
 
-	  if (decl_function_context (LABEL_EXPR_LABEL (bsi_stmt (bsi)))
+	  if (decl_function_context (LABEL_EXPR_LABEL (stmt))
 	      != current_function_decl)
 	    {
-	      tree stmt = bsi_stmt (bsi);
 	      error ("Label %s has incorrect context in bb %d\n",
 		     IDENTIFIER_POINTER (DECL_NAME (LABEL_EXPR_LABEL (stmt))),
 		     bb->index);
@@ -3883,18 +3930,19 @@ tree_make_forwarder_block (edge fallthru)
    ENTRY_BLOCK_PTR.  */
 
 static bool
-tree_forwarder_block_p (basic_block bb)
+tree_forwarder_block_p (basic_block bb, bool phi_wanted)
 {
   block_stmt_iterator bsi;
 
   /* BB must have a single outgoing edge.  */
   if (EDGE_COUNT (bb->succs) != 1
-      /* BB can not have any PHI nodes.  This could potentially be
-	 relaxed early in compilation if we re-rewrote the variables
-	 appearing in any PHI nodes in forwarder blocks.  */
-      || phi_nodes (bb)
+      /* If PHI_WANTED is false, BB must not have any PHI nodes.
+	 Otherwise, BB must have PHI nodes.  */
+      || (phi_nodes (bb) != NULL_TREE) != phi_wanted
       /* BB may not be a predecessor of EXIT_BLOCK_PTR.  */
       || EDGE_SUCC (bb, 0)->dest == EXIT_BLOCK_PTR
+      /* Nor should this be an infinite loop.  */
+      || EDGE_SUCC (bb, 0)->dest == bb
       /* BB may not have an abnormal outgoing edge.  */
       || (EDGE_SUCC (bb, 0)->flags & EDGE_ABNORMAL))
     return false; 
@@ -3903,9 +3951,9 @@ tree_forwarder_block_p (basic_block bb)
   gcc_assert (bb != ENTRY_BLOCK_PTR);
 #endif
 
-  /* Now walk through the statements.  We can ignore labels, anything else
-     means this is not a forwarder block.  */
-  for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+  /* Now walk through the statements backward.  We can ignore labels,
+     anything else means this is not a forwarder block.  */
+  for (bsi = bsi_last (bb); !bsi_end_p (bsi); bsi_next (&bsi))
     {
       tree stmt = bsi_stmt (bsi);
  
@@ -3927,280 +3975,381 @@ tree_forwarder_block_p (basic_block bb)
   return true;
 }
 
-/* Thread jumps from BB.  */
+/* Return true if BB has at least one abnormal incoming edge.  */
+
+static inline bool
+has_abnormal_incoming_edge_p (basic_block bb)
+{
+  edge e;
+  edge_iterator ei;
+
+  FOR_EACH_EDGE (e, ei, bb->preds)
+    if (e->flags & EDGE_ABNORMAL)
+      return true;
+
+  return false;
+}
+
+/* Removes forwarder block BB.  Returns false if this failed.  If a new
+   forwarder block is created due to redirection of edges, it is
+   stored to worklist.  */
 
 static bool
-thread_jumps_from_bb (basic_block bb)
+remove_forwarder_block (basic_block bb, basic_block **worklist)
 {
+  edge succ = EDGE_SUCC (bb, 0), e, s;
+  basic_block dest = succ->dest;
+  tree label;
+  tree phi;
   edge_iterator ei;
-  edge e;
-  bool retval = false;
+  block_stmt_iterator bsi, bsi_to;
+  bool seen_abnormal_edge = false;
 
-  /* Examine each of our block's successors to see if it is
-     forwardable.  */
-  for (ei = ei_start (bb->succs); (e = ei_safe_edge (ei)); )
+  /* We check for infinite loops already in tree_forwarder_block_p.
+     However it may happen that the infinite loop is created
+     afterwards due to removal of forwarders.  */
+  if (dest == bb)
+    return false;
+
+  /* If the destination block consists of a nonlocal label, do not merge
+     it.  */
+  label = first_stmt (dest);
+  if (label
+      && TREE_CODE (label) == LABEL_EXPR
+      && DECL_NONLOCAL (LABEL_EXPR_LABEL (label)))
+    return false;
+
+  /* If there is an abnormal edge to basic block BB, but not into
+     dest, problems might occur during removal of the phi node at out
+     of ssa due to overlapping live ranges of registers.
+
+     If there is an abnormal edge in DEST, the problems would occur
+     anyway since cleanup_dead_labels would then merge the labels for
+     two different eh regions, and rest of exception handling code
+     does not like it.
+     
+     So if there is an abnormal edge to BB, proceed only if there is
+     no abnormal edge to DEST and there are no phi nodes in DEST.  */
+  if (has_abnormal_incoming_edge_p (bb))
     {
-      int freq;
-      gcov_type count;
-      edge last, old;
-      basic_block dest, tmp, curr, old_dest;
-      tree phi;
-      int arg;
+      seen_abnormal_edge = true;
 
-      /* If the edge is abnormal or its destination is not
-	 forwardable, then there's nothing to do.  */
-      if ((e->flags & EDGE_ABNORMAL)
-	  || !bb_ann (e->dest)->forwardable)
+      if (has_abnormal_incoming_edge_p (dest)
+	  || phi_nodes (dest) != NULL_TREE)
+	return false;
+    }
+
+  /* If there are phi nodes in DEST, and some of the blocks that are
+     predecessors of BB are also predecessors of DEST, check that the
+     phi node arguments match.  */
+  if (phi_nodes (dest))
+    {
+      FOR_EACH_EDGE (e, ei, bb->preds)
 	{
-	  ei_next (&ei);
-	  continue;
-	}
+	  s = find_edge (e->src, dest);
+	  if (!s)
+	    continue;
 
-      /* Now walk through as many forwarder blocks as possible to find
-	 the ultimate destination we want to thread our jump to.  */
-      last = EDGE_SUCC (e->dest, 0);
-      bb_ann (e->dest)->forwardable = 0;
-      for (dest = EDGE_SUCC (e->dest, 0)->dest;
-	   bb_ann (dest)->forwardable;
-	   last = EDGE_SUCC (dest, 0),
-	     dest = EDGE_SUCC (dest, 0)->dest)
-	bb_ann (dest)->forwardable = 0;
-
-      /* Reset the forwardable marks to 1.  */
-      for (tmp = e->dest;
-	   tmp != dest;
-	   tmp = EDGE_SUCC (tmp, 0)->dest)
-	bb_ann (tmp)->forwardable = 1;
-
-      if (dest == e->dest)
-	{
-	  ei_next (&ei);
-	  continue;
-	}
-
-      old = find_edge (bb, dest);
-      if (old)
-	{
-	  /* If there already is an edge, check whether the values in
-	     phi nodes differ.  */
-	  if (!phi_alternatives_equal (dest, last, old))
-	    {
-	      /* The previous block is forwarder.  Redirect our jump
-		 to that target instead since we know it has no PHI
-		 nodes that will need updating.  */
-	      dest = last->src;
-
-	      /* That might mean that no forwarding at all is
-		 possible.  */
-	      if (dest == e->dest)
-		{
-		  ei_next (&ei);
-		  continue;
-		}
-
-	      old = find_edge (bb, dest);
-	    }
-	}
-
-      /* Perform the redirection.  */
-      retval = true;
-      count = e->count;
-      freq = EDGE_FREQUENCY (e);
-      old_dest = e->dest;
-      e = redirect_edge_and_branch (e, dest);
-
-      /* Update the profile.  */
-      if (profile_status != PROFILE_ABSENT)
-	for (curr = old_dest;
-	     curr != dest;
-	     curr = EDGE_SUCC (curr, 0)->dest)
-	  {
-	    curr->frequency -= freq;
-	    if (curr->frequency < 0)
-	      curr->frequency = 0;
-	    curr->count -= count;
-	    if (curr->count < 0)
-	      curr->count = 0;
-	    EDGE_SUCC (curr, 0)->count -= count;
-	    if (EDGE_SUCC (curr, 0)->count < 0)
-	      EDGE_SUCC (curr, 0)->count = 0;
-	  }
-
-      if (!old)
-	{
-	  /* Update PHI nodes.  We know that the new argument should
-	     have the same value as the argument associated with LAST.
-	     Otherwise we would have changed our target block
-	     above.  */
-	  for (phi = phi_nodes (dest); phi; phi = PHI_CHAIN (phi))
-	    {
-	      arg = phi_arg_from_edge (phi, last);
-	      gcc_assert (arg >= 0);
-	      add_phi_arg (phi, PHI_ARG_DEF (phi, arg), e);
-	    }
-	}
-
-      /* Remove the unreachable blocks (observe that if all blocks
-	 were reachable before, only those in the path we threaded
-	 over and did not have any predecessor outside of the path
-	 become unreachable).  */
-      for (; old_dest != dest; old_dest = tmp)
-	{
-	  tmp = EDGE_SUCC (old_dest, 0)->dest;
-
-	  if (EDGE_COUNT (old_dest->preds) > 0)
-	    break;
-
-	  delete_basic_block (old_dest);
-	}
-
-      /* Update the dominators.  */
-      if (dom_info_available_p (CDI_DOMINATORS))
-	{
-	  /* If the dominator of the destination was in the
-	     path, set its dominator to the start of the
-	     redirected edge.  */
-	  if (get_immediate_dominator (CDI_DOMINATORS, old_dest) == NULL)
-	    set_immediate_dominator (CDI_DOMINATORS, old_dest, bb);
-
-	  /* Now proceed like if we forwarded just over one edge at a
-	     time.  Algorithm for forwarding edge S --> A over
-	     edge A --> B then is
-
-	     if (idom (B) == A
-	         && !dominated_by (S, B))
-	       idom (B) = idom (A);
-	     recount_idom (A);  */
-
-	  for (; old_dest != dest; old_dest = tmp)
-	    {
-	      basic_block dom;
-
-	      tmp = EDGE_SUCC (old_dest, 0)->dest;
-
-	      if (get_immediate_dominator (CDI_DOMINATORS, tmp) == old_dest
-		  && !dominated_by_p (CDI_DOMINATORS, bb, tmp))
-		{
-		  dom = get_immediate_dominator (CDI_DOMINATORS, old_dest);
-		  set_immediate_dominator (CDI_DOMINATORS, tmp, dom);
-		}
-
-	      dom = recount_dominator (CDI_DOMINATORS, old_dest);
-	      set_immediate_dominator (CDI_DOMINATORS, old_dest, dom);
-	    }
+	  if (!phi_alternatives_equal (dest, succ, s))
+	    return false;
 	}
     }
 
-  return retval;
+  /* Redirect the edges.  */
+  for (ei = ei_start (bb->preds); (e = ei_safe_edge (ei)); )
+    {
+      if (e->flags & EDGE_ABNORMAL)
+	{
+	  /* If there is an abnormal edge, redirect it anyway, and
+	     move the labels to the new block to make it legal.  */
+	  s = redirect_edge_succ_nodup (e, dest);
+	}
+      else
+	s = redirect_edge_and_branch (e, dest);
+
+      if (s == e)
+	{
+	  /* Create arguments for the phi nodes, since the edge was not
+	     here before.  */
+	  for (phi = phi_nodes (dest); phi; phi = PHI_CHAIN (phi))
+	    add_phi_arg (phi, PHI_ARG_DEF (phi, succ->dest_idx), s);
+	}
+      else
+	{
+	  /* The source basic block might become a forwarder.  We know
+	     that it was not a forwarder before, since it used to have
+	     at least two outgoing edges, so we may just add it to
+	     worklist.  */
+	  if (tree_forwarder_block_p (s->src, false))
+	    *(*worklist)++ = s->src;
+	}
+    }
+
+  if (seen_abnormal_edge)
+    {
+      /* Move the labels to the new block, so that the redirection of
+	 the abnormal edges works.  */
+
+      bsi_to = bsi_start (dest);
+      for (bsi = bsi_start (bb); !bsi_end_p (bsi); )
+	{
+	  label = bsi_stmt (bsi);
+	  gcc_assert (TREE_CODE (label) == LABEL_EXPR);
+	  bsi_remove (&bsi);
+	  bsi_insert_before (&bsi_to, label, BSI_CONTINUE_LINKING);
+	}
+    }
+
+  /* Update the dominators.  */
+  if (dom_info_available_p (CDI_DOMINATORS))
+    {
+      basic_block dom, dombb, domdest;
+
+      dombb = get_immediate_dominator (CDI_DOMINATORS, bb);
+      domdest = get_immediate_dominator (CDI_DOMINATORS, dest);
+      if (domdest == bb)
+	{
+	  /* Shortcut to avoid calling (relatively expensive)
+	     nearest_common_dominator unless necessary.  */
+	  dom = dombb;
+	}
+      else
+	dom = nearest_common_dominator (CDI_DOMINATORS, domdest, dombb);
+
+      set_immediate_dominator (CDI_DOMINATORS, dest, dom);
+    }
+
+  /* And kill the forwarder block.  */
+  delete_basic_block (bb);
+
+  return true;
 }
 
-
-/* Thread jumps over empty statements.
-
-   This code should _not_ thread over obviously equivalent conditions
-   as that requires nontrivial updates to the SSA graph.
-
-   As a precondition, we require that all basic blocks be reachable.
-   That is, there should be no opportunities left for
-   delete_unreachable_blocks.  */
+/* Removes forwarder blocks.  */
 
 static bool
-thread_jumps (void)
+cleanup_forwarder_blocks (void)
 {
   basic_block bb;
-  bool retval = false;
-  basic_block *worklist = xmalloc (sizeof (basic_block) * last_basic_block);
+  bool changed = false;
+  basic_block *worklist = xmalloc (sizeof (basic_block) * n_basic_blocks);
   basic_block *current = worklist;
 
   FOR_EACH_BB (bb)
     {
-      bb_ann (bb)->forwardable = tree_forwarder_block_p (bb);
-      bb->flags &= ~BB_VISITED;
+      if (tree_forwarder_block_p (bb, false))
+	*current++ = bb;
     }
 
-  /* We pretend to have ENTRY_BLOCK_PTR in WORKLIST.  This way,
-     ENTRY_BLOCK_PTR will never be entered into WORKLIST.  */
-  ENTRY_BLOCK_PTR->flags |= BB_VISITED;
+  while (current != worklist)
+    {
+      bb = *--current;
+      changed |= remove_forwarder_block (bb, &current);
+    }
 
-  /* Initialize WORKLIST by putting non-forwarder blocks that
-     immediately precede forwarder blocks because those are the ones
-     that we know we can thread jumps from.  We use BB_VISITED to
-     indicate whether a given basic block is in WORKLIST or not,
-     thereby avoiding duplicates in WORKLIST.  */
+  free (worklist);
+  return changed;
+}
+
+/* Merge the PHI nodes at BB into those at BB's sole successor.  */
+
+static void
+remove_forwarder_block_with_phi (basic_block bb)
+{
+  edge succ = EDGE_SUCC (bb, 0);
+  basic_block dest = succ->dest;
+  tree label;
+  basic_block dombb, domdest, dom;
+
+  /* We check for infinite loops already in tree_forwarder_block_p.
+     However it may happen that the infinite loop is created
+     afterwards due to removal of forwarders.  */
+  if (dest == bb)
+    return;
+
+  /* If the destination block consists of a nonlocal label, do not
+     merge it.  */
+  label = first_stmt (dest);
+  if (label
+      && TREE_CODE (label) == LABEL_EXPR
+      && DECL_NONLOCAL (LABEL_EXPR_LABEL (label)))
+    return;
+
+  /* Redirect each incoming edge to BB to DEST.  */
+  while (EDGE_COUNT (bb->preds) > 0)
+    {
+      edge e = EDGE_PRED (bb, 0), s;
+      tree phi;
+
+      s = find_edge (e->src, dest);
+      if (s)
+	{
+	  /* We already have an edge S from E->src to DEST.  If S and
+	     E->dest's sole successor edge have the same PHI arguments
+	     at DEST, redirect S to DEST.  */
+	  if (phi_alternatives_equal (dest, s, succ))
+	    {
+	      e = redirect_edge_and_branch (e, dest);
+	      PENDING_STMT (e) = NULL_TREE;
+	      continue;
+	    }
+
+	  /* PHI arguments are different.  Create a forwarder block by
+	     splitting E so that we can merge PHI arguments on E to
+	     DEST.  */
+	  e = EDGE_SUCC (split_edge (e), 0);
+	}
+
+      s = redirect_edge_and_branch (e, dest);
+
+      /* redirect_edge_and_branch must not create a new edge.  */
+      gcc_assert (s == e);
+
+      /* Add to the PHI nodes at DEST each PHI argument removed at the
+	 destination of E.  */
+      for (phi = phi_nodes (dest); phi; phi = PHI_CHAIN (phi))
+	{
+	  tree def = PHI_ARG_DEF (phi, succ->dest_idx);
+
+	  if (TREE_CODE (def) == SSA_NAME)
+	    {
+	      tree var;
+
+	      /* If DEF is one of the results of PHI nodes removed during
+		 redirection, replace it with the PHI argument that used
+		 to be on E.  */
+	      for (var = PENDING_STMT (e); var; var = TREE_CHAIN (var))
+		{
+		  tree old_arg = TREE_PURPOSE (var);
+		  tree new_arg = TREE_VALUE (var);
+
+		  if (def == old_arg)
+		    {
+		      def = new_arg;
+		      break;
+		    }
+		}
+	    }
+
+	  add_phi_arg (phi, def, s);
+	}
+
+      PENDING_STMT (e) = NULL;
+    }
+
+  /* Update the dominators.  */
+  dombb = get_immediate_dominator (CDI_DOMINATORS, bb);
+  domdest = get_immediate_dominator (CDI_DOMINATORS, dest);
+  if (domdest == bb)
+    {
+      /* Shortcut to avoid calling (relatively expensive)
+	 nearest_common_dominator unless necessary.  */
+      dom = dombb;
+    }
+  else
+    dom = nearest_common_dominator (CDI_DOMINATORS, domdest, dombb);
+
+  set_immediate_dominator (CDI_DOMINATORS, dest, dom);
+  
+  /* Remove BB since all of BB's incoming edges have been redirected
+     to DEST.  */
+  delete_basic_block (bb);
+}
+
+/* This pass merges PHI nodes if one feeds into another.  For example,
+   suppose we have the following:
+
+  goto <bb 9> (<L9>);
+
+<L8>:;
+  tem_17 = foo ();
+
+  # tem_6 = PHI <tem_17(8), tem_23(7)>;
+<L9>:;
+
+  # tem_3 = PHI <tem_6(9), tem_2(5)>;
+<L10>:;
+
+  Then we merge the first PHI node into the second one like so:
+
+  goto <bb 9> (<L10>);
+
+<L8>:;
+  tem_17 = foo ();
+
+  # tem_3 = PHI <tem_23(7), tem_2(5), tem_17(8)>;
+<L10>:;
+*/
+
+static void
+merge_phi_nodes (void)
+{
+  basic_block *worklist = xmalloc (sizeof (basic_block) * n_basic_blocks);
+  basic_block *current = worklist;
+  basic_block bb;
+
+  calculate_dominance_info (CDI_DOMINATORS);
+
+  /* Find all PHI nodes that we may be able to merge.  */
   FOR_EACH_BB (bb)
     {
-      edge_iterator ei;
-      edge e;
+      basic_block dest;
 
-      /* We are not interested in finding non-forwarder blocks
-	 directly.  We want to find non-forwarder blocks as
-	 predecessors of a forwarder block.  */
-      if (!bb_ann (bb)->forwardable)
+      /* Look for a forwarder block with PHI nodes.  */
+      if (!tree_forwarder_block_p (bb, true))
 	continue;
 
-      /* Now we know BB is a forwarder block.  Visit each of its
-	 incoming edges and add to WORKLIST all non-forwarder blocks
-	 among BB's predecessors.  */
-      FOR_EACH_EDGE (e, ei, bb->preds)
+      dest = EDGE_SUCC (bb, 0)->dest;
+
+      /* We have to feed into another basic block with PHI
+	 nodes.  */
+      if (!phi_nodes (dest)
+	  /* We don't want to deal with a basic block with
+	     abnormal edges.  */
+	  || has_abnormal_incoming_edge_p (bb))
+	continue;
+
+      if (!dominated_by_p (CDI_DOMINATORS, dest, bb))
 	{
-	  /* We don't want to put a duplicate into WORKLIST.  */
-	  if ((e->src->flags & BB_VISITED) == 0
-	      /* We are not interested in threading jumps from a forwarder
-		 block.  */
-	      && !bb_ann (e->src)->forwardable)
-	    {
-	      e->src->flags |= BB_VISITED;
-	      *current++ = e->src;
-	    }
+	  /* If BB does not dominate DEST, then the PHI nodes at
+	     DEST must be the only users of the results of the PHI
+	     nodes at BB.  */
+	  *current++ = bb;
 	}
     }
 
   /* Now let's drain WORKLIST.  */
-  while (worklist != current)
+  while (current != worklist)
     {
       bb = *--current;
-
-      /* BB is no longer in WORKLIST, so clear BB_VISITED.  */
-      bb->flags &= ~BB_VISITED;
-
-      if (thread_jumps_from_bb (bb))
-	{
-	  retval = true;
-
-	  if (tree_forwarder_block_p (bb))
-	    {
-	      edge_iterator ej;
-	      edge f;
-
-	      bb_ann (bb)->forwardable = true;
-
-	      /* Attempts to thread through BB may have been blocked
-		 because BB was not a forwarder block before.  Now
-		 that BB is a forwarder block, we should revisit BB's
-		 predecessors.  */
-	      FOR_EACH_EDGE (f, ej, bb->preds)
-		{
-		  /* We don't want to put a duplicate into WORKLIST.  */
-		  if ((f->src->flags & BB_VISITED) == 0
-		      /* We are not interested in threading jumps from a
-			 forwarder block.  */
-		      && !bb_ann (f->src)->forwardable)
-		    {
-		      f->src->flags |= BB_VISITED;
-		      *current++ = f->src;
-		    }
-		}
-	    }
-	}
+      remove_forwarder_block_with_phi (bb);
     }
 
-  ENTRY_BLOCK_PTR->flags &= ~BB_VISITED;
-
   free (worklist);
-
-  return retval;
 }
 
+static bool
+gate_merge_phi (void)
+{
+  return 1;
+}
+
+struct tree_opt_pass pass_merge_phi = {
+  "mergephi",			/* name */
+  gate_merge_phi,		/* gate */
+  merge_phi_nodes,		/* execute */
+  NULL,				/* sub */
+  NULL,				/* next */
+  0,				/* static_pass_number */
+  TV_TREE_MERGE_PHI,		/* tv_id */
+  PROP_cfg | PROP_ssa,		/* properties_required */
+  0,				/* properties_provided */
+  0,				/* properties_destroyed */
+  0,				/* todo_flags_start */
+  TODO_dump_func | TODO_ggc_collect	/* todo_flags_finish */
+  | TODO_verify_ssa,
+  0				/* letter */
+};
 
 /* Return a non-special label in the head of basic block BLOCK.
    Create one if it doesn't exist.  */
@@ -4315,12 +4464,12 @@ tree_redirect_edge_and_branch (edge e, basic_block dest)
     case SWITCH_EXPR:
       {
         tree cases = get_cases_for_edge (e, stmt);
-	edge e2 = find_edge (e->src, dest);
 
 	/* If we have a list of cases associated with E, then use it
 	   as it's a lot faster than walking the entire case vector.  */
 	if (cases)
 	  {
+	    edge e2 = find_edge (e->src, dest);
 	    tree last, first;
 
 	    first = cases;
@@ -5551,6 +5700,7 @@ execute_warn_function_return (void)
   /* If we see "return;" in some basic block, then we do reach the end
      without returning a value.  */
   else if (warn_return_type
+	   && !TREE_NO_WARNING (cfun->decl)
 	   && EDGE_COUNT (EXIT_BLOCK_PTR->preds) > 0
 	   && !VOID_TYPE_P (TREE_TYPE (TREE_TYPE (cfun->decl))))
     {
@@ -5571,6 +5721,7 @@ execute_warn_function_return (void)
 		locus = &cfun->function_end_locus;
 	      warning ("%Hcontrol reaches end of non-void function", locus);
 #endif
+	      TREE_NO_WARNING (cfun->decl) = 1;
 	      break;
 	    }
 	}

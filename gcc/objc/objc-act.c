@@ -1,6 +1,6 @@
 /* Implement classes and message passing for Objective C.
    Copyright (C) 1992, 1993, 1994, 1995, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Steve Naroff.
 
 This file is part of GCC.
@@ -55,6 +55,7 @@ Boston, MA 02111-1307, USA.  */
 #endif
 
 #include "c-common.h"
+#include "c-pragma.h"
 #include "flags.h"
 #include "langhooks.h"
 #include "objc-act.h"
@@ -72,6 +73,7 @@ Boston, MA 02111-1307, USA.  */
 #include "tree-iterator.h"
 #include "libfuncs.h"
 #include "hashtab.h"
+#include "langhooks-def.h"
 
 #define OBJC_VOID_AT_END	void_list_node
 
@@ -175,7 +177,7 @@ static void build_next_objc_exception_stuff (void);
 
 static tree build_ivar_template (void);
 static tree build_method_template (void);
-static tree build_private_template (tree);
+static void build_private_template (tree);
 static void build_class_template (void);
 static void build_selector_template (void);
 static void build_category_template (void);
@@ -589,6 +591,7 @@ objc_finish_file (void)
 #ifdef OBJCPLUS
   /* We need to instantiate templates _before_ we emit ObjC metadata;
      if we do not, some metadata (such as selectors) may go missing.  */
+  at_eof = 1;
   instantiate_pending_templates (0);
 #endif
 
@@ -835,6 +838,27 @@ objc_is_class_id (tree type)
   return OBJC_TYPE_NAME (type) == objc_class_id;
 }
 
+
+int
+objc_types_compatible_p (tree type1, tree type2)
+{
+
+  if (objc_is_object_ptr (type1) || objc_is_object_ptr (type2)
+      || objc_is_class_name (type1) || objc_is_class_name (type2))
+    {
+      return lhd_types_compatible_p (type1, type2);
+    }
+  else
+    {
+#ifdef OBJCPLUS
+      return cxx_types_compatible_p (type1, type2);
+#else
+      return c_types_compatible_p (type1, type2);
+#endif
+    }
+}
+
+
 /* Return 1 if LHS and RHS are compatible types for assignment or
    various other operations.  Return 0 if they are incompatible, and
    return -1 if we choose to not decide (because the types are really
@@ -871,7 +895,7 @@ objc_comptypes (tree lhs, tree rhs, int reflexive)
 
       if (lhs_is_proto)
         {
-	  tree lproto, lproto_list = TYPE_PROTOCOL_LIST (lhs);
+	  tree lproto, lproto_list = TYPE_OBJC_PROTOCOL_LIST (TREE_TYPE (lhs));
 	  tree rproto, rproto_list;
 	  tree p;
 
@@ -883,7 +907,7 @@ objc_comptypes (tree lhs, tree rhs, int reflexive)
 	      if (IS_ID (lhs) != IS_ID (rhs))
 		return 0;
 
-	      rproto_list = TYPE_PROTOCOL_LIST (rhs);
+	      rproto_list = TYPE_OBJC_PROTOCOL_LIST (TREE_TYPE (rhs));
 
 	      if (!reflexive)
 		{
@@ -969,9 +993,9 @@ objc_comptypes (tree lhs, tree rhs, int reflexive)
 			 the protocol we're looking for, check for "one-off"
 			 protocols (e.g., `NSObject<MyProt> *foo;') attached
 			 to the rhs.  */
-		      if (!rproto)
+		      if (!rproto && TYPE_HAS_OBJC_INFO (TREE_TYPE (rhs)))
 			{
-			  rproto_list = TYPE_PROTOCOL_LIST (TREE_TYPE (rhs));
+			  rproto_list = TYPE_OBJC_PROTOCOL_LIST (TREE_TYPE (rhs));
 			  rproto = lookup_protocol_in_reflist (rproto_list, p);
 			}
 
@@ -1020,7 +1044,7 @@ objc_comptypes (tree lhs, tree rhs, int reflexive)
 		{
 		  tree rname = OBJC_TYPE_NAME (TREE_TYPE (lhs));
 		  tree rinter;
-		  tree rproto, rproto_list = TYPE_PROTOCOL_LIST (rhs);
+		  tree rproto, rproto_list = TYPE_OBJC_PROTOCOL_LIST (TREE_TYPE (rhs));
 
 		  /* Make sure the protocol is supported by the object on
 		     the lhs.  */
@@ -1042,9 +1066,9 @@ objc_comptypes (tree lhs, tree rhs, int reflexive)
 			     check for "one-off" protocols (e.g.,
 			     `NSObject<MyProt> *foo;') attached to the
 			     lhs.  */
-			  if (!lproto)
+			  if (!lproto && TYPE_HAS_OBJC_INFO (TREE_TYPE (lhs)))
 			    {
-			      lproto_list = TYPE_PROTOCOL_LIST
+			      lproto_list = TYPE_OBJC_PROTOCOL_LIST
 				(TREE_TYPE (lhs));
 			      lproto = lookup_protocol_in_reflist
 				(lproto_list, p);
@@ -1182,11 +1206,11 @@ objc_check_decl (tree decl)
 tree
 objc_get_protocol_qualified_type (tree interface, tree protocols)
 {
-  tree type;
+  /* If INTERFACE is not provided, default to 'id'.  */
+  tree type = (interface ? objc_is_id (interface) : objc_object_type);
+  bool is_ptr = (type != NULL_TREE);
 
-  if (!interface)
-    type = objc_object_type;
-  else if (!(type = objc_is_id (interface)))
+  if (!is_ptr)
     {
       type = objc_is_class_name (interface);
 
@@ -1199,13 +1223,27 @@ objc_get_protocol_qualified_type (tree interface, tree protocols)
   if (protocols)
     {
       type = build_variant_type_copy (type);
-      /* Look up protocols and install in lang specific list.  Note
-	 that the protocol list can have a different lifetime than T!  */
-      SET_TYPE_PROTOCOL_LIST (type, lookup_and_install_protocols (protocols));
 
-      /* Establish the ObjC-ness of this record.  */
-      if (TREE_CODE (type) == RECORD_TYPE)
-	TREE_STATIC_TEMPLATE (type) = 1;
+      /* For pointers (i.e., 'id' or 'Class'), attach the protocol(s)
+	 to the pointee.  */
+      if (is_ptr)
+	{
+	  TREE_TYPE (type) = build_variant_type_copy (TREE_TYPE (type));
+	  TYPE_POINTER_TO (TREE_TYPE (type)) = type;
+	  type = TREE_TYPE (type);
+	}
+
+      /* Look up protocols and install in lang specific list.  */
+      DUP_TYPE_OBJC_INFO (type, TYPE_MAIN_VARIANT (type));
+      TYPE_OBJC_PROTOCOL_LIST (type) = lookup_and_install_protocols (protocols);
+
+      /* For RECORD_TYPEs, point to the @interface; for 'id' and 'Class',
+	 return the pointer to the new pointee variant.  */
+      if (is_ptr)
+	type = TYPE_POINTER_TO (type);
+      else
+	TYPE_OBJC_INTERFACE (type)
+	  = TYPE_OBJC_INTERFACE (TYPE_MAIN_VARIANT (type));
     }
 
   return type;
@@ -2327,8 +2365,15 @@ build_selector_translation_table (void)
               }
           }
         if (!found)
-	  warning ("%Jcreating selector for nonexistent method %qE",
-		   TREE_PURPOSE (chain), TREE_VALUE (chain));
+	  {
+	    location_t *loc;
+	    if (flag_next_runtime && TREE_PURPOSE (chain))
+	      loc = &DECL_SOURCE_LOCATION (TREE_PURPOSE (chain));
+	    else
+	      loc = &input_location;
+	    warning ("%Hcreating selector for nonexistent method %qE",
+		     loc, TREE_VALUE (chain));
+	  }
       }
 
       expr = build_selector (TREE_VALUE (chain));
@@ -2658,18 +2703,26 @@ objc_declare_class (tree ident_list)
 
       if (! objc_is_class_name (ident))
 	{
-	  tree record = lookup_name (ident);
-	
-	  if (record && ! TREE_STATIC_TEMPLATE (record))
+	  tree record = lookup_name (ident), type = record;
+
+	  if (record)
 	    {
-	      error ("%qs redeclared as different kind of symbol",
-		     IDENTIFIER_POINTER (ident));
-	      error ("%Jprevious declaration of '%D'",
-		     record, record);
+	      if (TREE_CODE (record) == TYPE_DECL)
+		type = DECL_ORIGINAL_TYPE (record);
+
+	      if (!TYPE_HAS_OBJC_INFO (type)
+		  || !TYPE_OBJC_INTERFACE (type))
+		{
+		  error ("%qs redeclared as different kind of symbol",
+			 IDENTIFIER_POINTER (ident));
+		  error ("%Jprevious declaration of '%D'",
+			 record, record);
+		}
 	    }
 
 	  record = xref_tag (RECORD_TYPE, ident);
-	  TREE_STATIC_TEMPLATE (record) = 1;
+	  INIT_TYPE_OBJC_INFO (record);
+	  TYPE_OBJC_INTERFACE (record) = ident;
 	  class_chain = tree_cons (NULL_TREE, ident, class_chain);
 	}
     }
@@ -3481,38 +3534,27 @@ build_objc_exception_stuff (void)
 			NULL, nothrow_list);
 }
 
+/* Construct a C struct corresponding to ObjC class CLASS, with the same
+   name as the class:
 
-/* struct <classname> {
+   struct <classname> {
      struct _objc_class *isa;
      ...
    };  */
 
-static tree
+static void
 build_private_template (tree class)
 {
-  tree ivar_context;
-
-  if (CLASS_STATIC_TEMPLATE (class))
+  if (!CLASS_STATIC_TEMPLATE (class))
     {
-      uprivate_record = CLASS_STATIC_TEMPLATE (class);
-      ivar_context = TYPE_FIELDS (CLASS_STATIC_TEMPLATE (class));
-    }
-  else
-    {
-      uprivate_record = start_struct (RECORD_TYPE, CLASS_NAME (class));
-      ivar_context = get_class_ivars (class);
+      tree record = start_struct (RECORD_TYPE, CLASS_NAME (class));
 
-      finish_struct (uprivate_record, ivar_context, NULL_TREE);
-
-      CLASS_STATIC_TEMPLATE (class) = uprivate_record;
-
+      finish_struct (record, get_class_ivars (class), NULL_TREE);
       /* mark this record as class template - for class type checking */
-      TREE_STATIC_TEMPLATE (uprivate_record) = 1;
+      INIT_TYPE_OBJC_INFO (record);
+      TYPE_OBJC_INTERFACE (record) = class;
+      CLASS_STATIC_TEMPLATE (class) = record;
     }
-
-  objc_instance_type = build_pointer_type (uprivate_record);
-
-  return ivar_context;
 }
 
 /* Begin code generation for protocols...  */
@@ -5286,6 +5328,12 @@ get_arg_type_list (tree meth, int context, int superflag)
     {
       tree arg_type = TREE_VALUE (TREE_TYPE (akey));
 
+      /* Decay arrays and functions into pointers.  */
+      if (TREE_CODE (arg_type) == ARRAY_TYPE)
+	arg_type = build_pointer_type (TREE_TYPE (arg_type));
+      else if (TREE_CODE (arg_type) == FUNCTION_TYPE)
+	arg_type = build_pointer_type (arg_type);
+
       chainon (arglist, build_tree_list (NULL_TREE, arg_type));
     }
 
@@ -5571,7 +5619,9 @@ objc_finish_message_expr (tree receiver, tree sel_name, tree method_params)
       else
 	{
 	  class_tree = (IS_CLASS (rtype) ? objc_class_name : NULL_TREE);
-	  rprotos = TYPE_PROTOCOL_LIST (rtype);
+	  rprotos = (TYPE_HAS_OBJC_INFO (TREE_TYPE (rtype))
+		     ? TYPE_OBJC_PROTOCOL_LIST (TREE_TYPE (rtype))
+		     : NULL_TREE);
 	  rtype = NULL_TREE;
 	}
 
@@ -5612,14 +5662,14 @@ objc_finish_message_expr (tree receiver, tree sel_name, tree method_params)
       saved_rtype = rtype;
       if (TYPED_OBJECT (rtype))
 	{
-	  rprotos = TYPE_PROTOCOL_LIST (rtype);
-	  rtype = lookup_interface (OBJC_TYPE_NAME (rtype));
+	  rprotos = TYPE_OBJC_PROTOCOL_LIST (rtype);
+	  rtype = TYPE_OBJC_INTERFACE (rtype);
 	}
       /* If we could not find an @interface declaration, we must have
 	 only seen a @class declaration; so, we cannot say anything
 	 more intelligent about which methods the receiver will
 	 understand. */
-      if (!rtype)
+      if (!rtype || TREE_CODE (rtype) == IDENTIFIER_NODE)
 	rtype = saved_rtype;
       else if (TREE_CODE (rtype) == CLASS_INTERFACE_TYPE
 	  || TREE_CODE (rtype) == CLASS_IMPLEMENTATION_TYPE)
@@ -6352,9 +6402,9 @@ objc_is_public (tree expr, tree identifier)
 
   if (code == RECORD_TYPE)
     {
-      if (TREE_STATIC_TEMPLATE (basetype))
+      if (TYPE_HAS_OBJC_INFO (basetype) && TYPE_OBJC_INTERFACE (basetype))
 	{
-	  if (!lookup_interface (OBJC_TYPE_NAME (basetype)))
+	  if (TREE_CODE (TYPE_OBJC_INTERFACE (basetype)) == IDENTIFIER_NODE)
 	    {
 	      error ("cannot find interface declaration for %qs",
 		     IDENTIFIER_POINTER (OBJC_TYPE_NAME (basetype)));
@@ -6788,7 +6838,10 @@ continue_class (tree class)
       push_lang_context (lang_name_c);
 #endif
 
-      ivar_context = build_private_template (implementation_template);
+      build_private_template (implementation_template);
+      uprivate_record = CLASS_STATIC_TEMPLATE (implementation_template);
+      ivar_context = TYPE_FIELDS (uprivate_record);
+      objc_instance_type = build_pointer_type (uprivate_record);
 
       imp_entry = (struct imp_entry *) ggc_alloc (sizeof (struct imp_entry));
 
@@ -6820,15 +6873,7 @@ continue_class (tree class)
       push_lang_context (lang_name_c);
 #endif /* OBJCPLUS */
 
-      if (!CLASS_STATIC_TEMPLATE (class))
-	{
-	  tree record = start_struct (RECORD_TYPE, CLASS_NAME (class));
-	  finish_struct (record, get_class_ivars (class), NULL_TREE);
-	  CLASS_STATIC_TEMPLATE (class) = record;
-
-	  /* Mark this record as a class template for static typing.  */
-	  TREE_STATIC_TEMPLATE (record) = 1;
-	}
+      build_private_template (class);
 
 #ifdef OBJCPLUS
       pop_lang_context ();
@@ -7025,7 +7070,8 @@ encode_pointer (tree type, int curtype, int format)
 	      obstack_1grow (&util_obstack, '@');
 	      return;
 	    }
-	  else if (TREE_STATIC_TEMPLATE (pointer_to))
+	  else if (TYPE_HAS_OBJC_INFO (pointer_to)
+		   && TYPE_OBJC_INTERFACE (pointer_to))
 	    {
               if (generating_instance_variables)
 	        {
@@ -7365,11 +7411,22 @@ static GTY(()) tree objc_parmlist = NULL_TREE;
 static void
 objc_push_parm (tree parm)
 {
-  /* Convert array parameters of unknown size into pointers.  */
-  if (TREE_CODE (TREE_TYPE (parm)) == ARRAY_TYPE
-      && !TYPE_SIZE (TREE_TYPE (parm)))
+  /* Decay arrays and functions into pointers.  */
+  if (TREE_CODE (TREE_TYPE (parm)) == ARRAY_TYPE)
     TREE_TYPE (parm) = build_pointer_type (TREE_TYPE (TREE_TYPE (parm)));
+  else if (TREE_CODE (TREE_TYPE (parm)) == FUNCTION_TYPE)
+    TREE_TYPE (parm) = build_pointer_type (TREE_TYPE (parm));
 
+  DECL_ARG_TYPE_AS_WRITTEN (parm) = TREE_TYPE (parm);
+  DECL_ARG_TYPE (parm)
+    = lang_hooks.types.type_promotes_to (TREE_TYPE (parm));
+
+  /* Record constancy and volatility.  */
+  c_apply_type_quals_to_decl
+  ((TYPE_READONLY (TREE_TYPE (parm)) ? TYPE_QUAL_CONST : 0)
+   | (TYPE_RESTRICT (TREE_TYPE (parm)) ? TYPE_QUAL_RESTRICT : 0)
+   | (TYPE_VOLATILE (TREE_TYPE (parm)) ? TYPE_QUAL_VOLATILE : 0), parm);
+  
   objc_parmlist = chainon (objc_parmlist, parm);
 }
 
@@ -7401,7 +7458,8 @@ objc_get_parm_info (int have_ellipsis)
       tree next = TREE_CHAIN (parm_info);
 
       TREE_CHAIN (parm_info) = NULL_TREE; 
-      pushdecl (parm_info);
+      parm_info = pushdecl (parm_info);
+      finish_decl (parm_info, NULL_TREE, NULL_TREE);
       parm_info = next;
     }
   arg_info = get_parm_info (have_ellipsis);
@@ -7461,9 +7519,9 @@ start_method_def (tree method)
   parmlist = METHOD_SEL_ARGS (method);
   while (parmlist)
     {
-      tree parm = build_decl (PARM_DECL, KEYWORD_ARG_NAME (parmlist),
-			      TREE_VALUE (TREE_TYPE (parmlist)));
+      tree type = TREE_VALUE (TREE_TYPE (parmlist)), parm;
 
+      parm = build_decl (PARM_DECL, KEYWORD_ARG_NAME (parmlist), type);
       objc_push_parm (parm);
       parmlist = TREE_CHAIN (parmlist);
     }
@@ -7511,8 +7569,13 @@ objc_types_are_equivalent (tree type1, tree type2)
   if (TYPE_MAIN_VARIANT (type1) != TYPE_MAIN_VARIANT (type2))
     return 0;
 
-  type1 = TYPE_PROTOCOL_LIST (type1);
-  type2 = TYPE_PROTOCOL_LIST (type2);
+  type1 = (TYPE_HAS_OBJC_INFO (type1)
+	   ? TYPE_OBJC_PROTOCOL_LIST (type1)
+	   : NULL_TREE);
+  type2 = (TYPE_HAS_OBJC_INFO (type2)
+	   ? TYPE_OBJC_PROTOCOL_LIST (type2)
+	   : NULL_TREE);
+
   if (list_length (type1) == list_length (type2))
     {
       for (; type2; type2 = TREE_CHAIN (type2))
@@ -7596,24 +7659,26 @@ objc_start_function (tree name, tree type, tree attrs,
 
 #ifdef OBJCPLUS
   DECL_ARGUMENTS (fndecl) = params;
-#endif
   DECL_INITIAL (fndecl) = error_mark_node;
   DECL_EXTERNAL (fndecl) = 0;
   TREE_STATIC (fndecl) = 1;
-
-#ifdef OBJCPLUS
   retrofit_lang_decl (fndecl);
   cplus_decl_attributes (&fndecl, attrs, 0);
   start_preparsed_function (fndecl, attrs, /*flags=*/SF_DEFAULT);
 #else
   decl_attributes (&fndecl, attrs, 0);
   announce_function (fndecl);
+  DECL_INITIAL (fndecl) = error_mark_node;
+  DECL_EXTERNAL (fndecl) = 0;
+  TREE_STATIC (fndecl) = 1;
   current_function_decl = pushdecl (fndecl);
   push_scope ();
   declare_parm_level ();
   DECL_RESULT (current_function_decl)
     = build_decl (RESULT_DECL, NULL_TREE,
 		  TREE_TYPE (TREE_TYPE (current_function_decl)));
+  DECL_ARTIFICIAL (DECL_RESULT (current_function_decl)) = 1;
+  DECL_IGNORED_P (DECL_RESULT (current_function_decl)) = 1;
   start_fname_decls ();
   store_parm_decls_from (params);
 #endif
@@ -7924,14 +7989,39 @@ gen_type_name_0 (tree type)
 
   if (TYPE_P (type) && TYPE_NAME (type))
     type = TYPE_NAME (type);
-  else if (POINTER_TYPE_P (type))
+  else if (POINTER_TYPE_P (type) || TREE_CODE (type) == ARRAY_TYPE)
     {
-      gen_type_name_0 (TREE_TYPE (type));
+      tree inner = TREE_TYPE (type);
+
+      while (TREE_CODE (inner) == ARRAY_TYPE)
+	inner = TREE_TYPE (inner);
+
+      gen_type_name_0 (inner);
       
-      if (!POINTER_TYPE_P (TREE_TYPE (type)))
+      if (!POINTER_TYPE_P (inner))
 	strcat (errbuf, " ");
 
-      strcat (errbuf, "*");
+      if (POINTER_TYPE_P (type))
+	strcat (errbuf, "*");
+      else
+	while (type != inner)
+	  {
+	    strcat (errbuf, "[");
+
+	    if (TYPE_DOMAIN (type))
+	      {
+		char sz[20];
+
+		sprintf (sz, HOST_WIDE_INT_PRINT_DEC,
+			 (TREE_INT_CST_LOW 
+			  (TYPE_MAX_VALUE (TYPE_DOMAIN (type))) + 1));
+		strcat (errbuf, sz);
+	      }
+
+	    strcat (errbuf, "]");
+	    type = TREE_TYPE (type);
+	  }
+
       goto exit_function;
     }
 
@@ -7939,7 +8029,12 @@ gen_type_name_0 (tree type)
     type = DECL_NAME (type);
 
   strcat (errbuf, IDENTIFIER_POINTER (type));
-  proto = TYPE_PROTOCOL_LIST (orig);
+
+  /* For 'id' and 'Class', adopted protocols are stored in the pointee.  */
+  if (objc_is_id (orig))
+    orig = TREE_TYPE (orig);
+  
+  proto = TYPE_HAS_OBJC_INFO (orig) ? TYPE_OBJC_PROTOCOL_LIST (orig) : NULL_TREE;
 
   if (proto)
     {

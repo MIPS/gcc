@@ -35,7 +35,6 @@ target_noncanonical=@target_noncanonical@
 # Support for migrating Make-tools.in into here
 # FIXME by doing so
 TGT_LIB = @TGT_LIB@
-SYMLIB = @SYMLIB@
 INTERNAL_CFLAGS = @CROSS@ -DIN_GCC
 SYSLIBS = @GNAT_LIBEXC@
 GMEM_LIB = @GMEM_LIB@
@@ -43,7 +42,6 @@ vms_host = @vms_host@
 EXTRA_GNATMAKE_OBJS = @EXTRA_GNATMAKE_OBJS@
 TOOLS_FLAGS_TO_PASS_TEMP = \
 	"TGT_LIB=$(TGT_LIB)" \
-	"SYMLIB=$(SYMLIB)" \
 	"INTERNAL_CFLAGS=$(INTERNAL_CFLAGS)" \
 	"SYSLIBS=$(SYSLIBS)" \
 	"GMEM_LIB=$(GMEM_LIB)" \
@@ -181,9 +179,7 @@ GNATTOOLS2_FILES = \
 	../../gnatfind$(exeext) \
 	../../gnatname$(exeext) \
 	../../gnatclean$(exeext) \
-	../../gprmake$(exeext) \
-	../../gprcmd$(exeext) \
-	../../gpr2make$(exeext)
+	../../gprmake$(exeext)
 
 # Makefile targets
 # ----------------
@@ -310,12 +306,6 @@ gnattools-cross: $(GCC_DIR)/stamp-tools $(GCC_DIR)/stamp-gnatlib
 	fi
 	if [ -f $(GCC_DIR)/gnatsym$(exeext) ] ; then \
 	  mv $(GCC_DIR)/gnatsym$(exeext) $(GCC_DIR)/gnatsym-cross$(exeext); \
-	fi
-	if [ -f $(GCC_DIR)/gpr2make$(exeext) ] ; then \
-	  mv $(GCC_DIR)/gpr2make$(exeext) $(GCC_DIR)/gpr2make-cross$(exeext); \
-	fi
-	if [ -f $(GCC_DIR)/gprcmd$(exeext) ] ; then \
-	  mv $(GCC_DIR)/gprcmd$(exeext) $(GCC_DIR)/gprcmd-cross$(exeext); \
 	fi
 
 # Other

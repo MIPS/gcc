@@ -1,3 +1,8 @@
+2005-01-29  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	Merge from mainline.  Changes to mainline gcc/ada/Makefile.in
+	applied to configure.ac, Makefile.in, and files in gnattools. (Whew.)
+
 2004-12-19  Nathanael Nerode  <neroden@gcc.gnu.org>
 
 	* Make-tools.in: Move to gnattools subdir.

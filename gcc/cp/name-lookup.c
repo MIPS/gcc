@@ -1,5 +1,5 @@
 /* Definitions for C++ name lookup routines.
-   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005  Free Software Foundation, Inc.
    Contributed by Gabriel Dos Reis <gdr@integrable-solutions.net>
 
 This file is part of GCC.
@@ -1329,11 +1329,16 @@ leave_scope (void)
 
   /* Find the innermost enclosing class scope, and reset
      CLASS_BINDING_LEVEL appropriately.  */
-  for (scope = current_binding_level;
-       scope && scope->kind != sk_class;
-       scope = scope->level_chain)
-    ;
-  class_binding_level = scope && scope->kind == sk_class ? scope : NULL;
+  if (scope->kind == sk_class)
+    {
+      class_binding_level = NULL;
+      for (scope = current_binding_level; scope; scope = scope->level_chain)
+	if (scope->kind == sk_class)
+	  {
+	    class_binding_level = scope;
+	    break;
+	  }
+    }
 
   return current_binding_level;
 }
@@ -1473,7 +1478,7 @@ getdecls (void)
 static int no_print_functions = 0;
 static int no_print_builtins = 0;
 
-void
+static void
 print_binding_level (struct cp_binding_level* lvl)
 {
   tree t;
@@ -1651,7 +1656,7 @@ set_identifier_type_value (tree id, tree decl)
    specified class TYPE.  When given a template, this routine doesn't
    lose the specialization.  */
 
-tree
+static inline tree
 constructor_name_full (tree type)
 {
   return TYPE_IDENTIFIER (TYPE_MAIN_VARIANT (type));
@@ -2059,10 +2064,16 @@ do_nonmember_using_decl (tree scope, tree name, tree oldval, tree oldtype,
 	             are the same extern "C" functions, that's ok.  */
                   if (decls_match (new_fn, old_fn))
 		    {
-		      /* If the OLD_FN was a builtin, there is now a
-			 real declaration.  */
+		      /* If the OLD_FN was a builtin, we've seen a real 
+			 declaration in another namespace.  Use it instead.
+			 Set tmp1 to NULL so we can use the existing
+			 OVERLOAD logic at the end of this inner loop.
+		      */
 		      if (DECL_ANTICIPATED (old_fn))
-			DECL_ANTICIPATED (old_fn) = 0;
+			{
+			  gcc_assert (! DECL_ANTICIPATED (new_fn));
+			  tmp1 = NULL;
+			}
 		      break;
 		    }
 		  else if (!DECL_ANTICIPATED (old_fn))
@@ -2203,16 +2214,14 @@ is_ancestor (tree root, tree child)
     }
 }
 
-/* Enter the class or namespace scope indicated by T suitable for
-   name lookup.  T can be arbitrary scope, not necessary nested inside
-   the current scope.  Returns TRUE iff pop_scope should be called
-   later to exit this scope.  */
+/* Enter the class or namespace scope indicated by T suitable for name
+   lookup.  T can be arbitrary scope, not necessary nested inside the
+   current scope.  Returns a non-null scope to pop iff pop_scope
+   should be called later to exit this scope.  */
 
-bool
+tree
 push_scope (tree t)
 {
-  bool pop = true;
-
   if (TREE_CODE (t) == NAMESPACE_DECL)
     push_decl_namespace (t);
   else if (CLASS_TYPE_P (t))
@@ -2225,10 +2234,10 @@ push_scope (tree t)
 	   need to re-enter the scope.  Since we are not actually
 	   pushing a new scope, our caller should not call
 	   pop_scope.  */
-	pop = false;
+	t = NULL_TREE;
     }
 
-  return pop;
+  return t;
 }
 
 /* Leave scope pushed by push_scope.  */
@@ -2469,9 +2478,7 @@ pushdecl_class_level (tree x)
 	  input_location = save_location;
 	}
     }
-  timevar_pop (TV_NAME_LOOKUP);
-
-  return is_valid;
+  POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, is_valid);
 }
 
 /* Return the BINDING (if any) for NAME in SCOPE, which is a class
@@ -2677,33 +2684,23 @@ push_class_level_binding (tree name, tree x)
   POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, ok);
 }
 
+/* Process "using SCOPE::NAME" in a class scope.  Return the
+   USING_DECL created.  */
+
 tree
-do_class_using_decl (tree decl)
+do_class_using_decl (tree scope, tree name)
 {
-  tree name, value, scope, type;
+  tree value, type;
   
-  if (TREE_CODE (decl) != SCOPE_REF
-      || !TREE_OPERAND (decl, 0)
-      || !TYPE_P (TREE_OPERAND (decl, 0)))
+  if (!scope || !TYPE_P (scope))
     {
       error ("using-declaration for non-member at class scope");
       return NULL_TREE;
     }
-  scope = TREE_OPERAND (decl, 0);
-  name = TREE_OPERAND (decl, 1);
   if (TREE_CODE (name) == BIT_NOT_EXPR)
     {
       error ("using-declaration cannot name destructor");
       return NULL_TREE;
-    }
-  if (TREE_CODE (name) == TYPE_DECL)
-    name = DECL_NAME (name);
-  else if (TREE_CODE (name) == TEMPLATE_DECL)
-     name = DECL_NAME (name);
-  else if (BASELINK_P (name))
-    {
-      tree fns = BASELINK_FUNCTIONS (name);
-      name = DECL_NAME (get_first_fn (fns));
     }
 
   gcc_assert (TREE_CODE (name) == IDENTIFIER_NODE);
@@ -2735,7 +2732,10 @@ namespace_binding (tree name, tree scope)
 
   if (scope == NULL)
     scope = global_namespace;
-  scope = ORIGINAL_NAMESPACE (scope);
+  else
+    /* Unnecessary for the global namespace because it can't be an alias. */
+    scope = ORIGINAL_NAMESPACE (scope);
+
   binding = cxx_scope_find_binding_for_name (NAMESPACE_LEVEL (scope), name);
 
   return binding ? binding->value : NULL_TREE;
@@ -2821,7 +2821,7 @@ set_decl_namespace (tree decl, tree scope, bool friendp)
 
 /* Return the namespace where the current declaration is declared.  */
 
-tree
+static tree
 current_decl_namespace (void)
 {
   tree result;
@@ -4566,9 +4566,10 @@ maybe_process_template_type_declaration (tree type, int globalize,
 /* Push a tag name NAME for struct/class/union/enum type TYPE.
    Normally put it into the inner-most non-sk_cleanup scope,
    but if GLOBALIZE is true, put it in the inner-most non-class scope.
-   The latter is needed for implicit declarations.  */
+   The latter is needed for implicit declarations.
+   Returns TYPE upon success and ERROR_MARK_NODE otherwise.  */
 
-void
+tree
 pushtag (tree name, tree type, int globalize)
 {
   struct cp_binding_level *b;
@@ -4633,6 +4634,8 @@ pushtag (tree name, tree type, int globalize)
 
 	  d = maybe_process_template_type_declaration (type,
 						       globalize, b);
+	  if (d == error_mark_node)
+	    POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, error_mark_node);
 
 	  if (b->kind == sk_class)
 	    {
@@ -4695,7 +4698,7 @@ pushtag (tree name, tree type, int globalize)
       tree d = build_decl (TYPE_DECL, NULL_TREE, type);
       TYPE_STUB_DECL (type) = pushdecl_with_scope (d, b);
     }
-  timevar_pop (TV_NAME_LOOKUP);
+  POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, type);
 }
 
 /* Subroutines for reverting temporarily to top-level for instantiation

@@ -2965,13 +2965,34 @@ package body Sem_Prag is
                else
                   Set_Imported (Def_Id);
 
-                  --  If Import intrinsic, set intrinsic flag and verify
-                  --  that it is known as such.
+                  --  Special processing for Convention_Intrinsic
 
                   if C = Convention_Intrinsic then
+
+                     --  Link_Name argument not allowed for intrinsic
+
+                     if Present (Arg3)
+                       and then Chars (Arg3) = Name_Link_Name
+                     then
+                        Arg4 := Arg3;
+                     end if;
+
+                     if Present (Arg4) then
+                        Error_Pragma_Arg
+                          ("Link_Name argument not allowed for " &
+                           "Import Intrinsic",
+                           Arg4);
+                     end if;
+
                      Set_Is_Intrinsic_Subprogram (Def_Id);
-                     Check_Intrinsic_Subprogram
-                       (Def_Id, Expression (Arg2));
+
+                     --  If no external name is present, then check that
+                     --  this is a valid intrinsic subprogram. If an external
+                     --  name is present, then this is handled by the back end.
+
+                     if No (Arg3) then
+                        Check_Intrinsic_Subprogram (Def_Id, Expression (Arg2));
+                     end if;
                   end if;
 
                   --  All interfaced procedures need an external symbol
@@ -3073,24 +3094,29 @@ package body Sem_Prag is
          procedure Set_Inline_Flags (Subp : Entity_Id);
          --  Sets Is_Inlined and Has_Pragma_Inline flags for Subp
 
-         function Cannot_Inline (Subp : Entity_Id) return Boolean;
-         --  Do not set the inline flag if body is available and contains
-         --  exception handlers, to prevent undefined symbols at link time.
-         --  Emit warning if front-end inlining is enabled and the pragma
-         --  appears too late.
+         function Inlining_Not_Possible (Subp : Entity_Id) return Boolean;
+         --  Returns True if it can be determined at this stage that inlining
+         --  is not possible, for examle if the body is available and contains
+         --  exception handlers, we prevent inlining, since otherwise we can
+         --  get undefined symbols at link time. This function also emits a
+         --  warning if front-end inlining is enabled and the pragma appears
+         --  too late.
+         --  ??? is business with link symbols still valid, or does it relate
+         --  to front end ZCX which is being phased out ???
 
-         -------------------
-         -- Cannot_Inline --
-         -------------------
+         ---------------------------
+         -- Inlining_Not_Possible --
+         ---------------------------
 
-         function Cannot_Inline (Subp : Entity_Id) return Boolean is
-            Decl : constant Node_Id := Unit_Declaration_Node (Subp);
+         function Inlining_Not_Possible (Subp : Entity_Id) return Boolean is
+            Decl  : constant Node_Id := Unit_Declaration_Node (Subp);
+            Stats : Node_Id;
 
          begin
             if Nkind (Decl) = N_Subprogram_Body then
-               return
-                 Present
-                   (Exception_Handlers (Handled_Statement_Sequence (Decl)));
+               Stats := Handled_Statement_Sequence (Decl);
+               return Present (Exception_Handlers (Stats))
+                 or else Present (At_End_Proc (Stats));
 
             elsif Nkind (Decl) = N_Subprogram_Declaration
               and then Present (Corresponding_Body (Decl))
@@ -3112,18 +3138,22 @@ package body Sem_Prag is
                   return False;
 
                else
+                  Stats :=
+                    Handled_Statement_Sequence
+                        (Unit_Declaration_Node (Corresponding_Body (Decl)));
+
                   return
-                    Present (Exception_Handlers
-                      (Handled_Statement_Sequence
-                        (Unit_Declaration_Node (Corresponding_Body (Decl)))));
+                    Present (Exception_Handlers (Stats))
+                      or else Present (At_End_Proc (Stats));
                end if;
+
             else
                --  If body is not available, assume the best, the check is
                --  performed again when compiling enclosing package bodies.
 
                return False;
             end if;
-         end Cannot_Inline;
+         end Inlining_Not_Possible;
 
          -----------------
          -- Make_Inline --
@@ -3137,8 +3167,10 @@ package body Sem_Prag is
             if Etype (Subp) = Any_Type then
                return;
 
-            elsif Cannot_Inline (Subp) then
-               Applies := True;    --  Do not treat as an error.
+            --  If inlining is not possible, for now do not treat as an error
+
+            elsif Inlining_Not_Possible (Subp) then
+               Applies := True;
                return;
 
             --  Here we have a candidate for inlining, but we must exclude
@@ -3277,8 +3309,13 @@ package body Sem_Prag is
             elsif not Effective
               and then Warn_On_Redundant_Constructs
             then
-               Error_Msg_NE ("pragma Inline for& is redundant?",
-                 N, Entity (Subp_Id));
+               if Inlining_Not_Possible (Subp) then
+                  Error_Msg_NE
+                    ("pragma Inline for& is ignored?", N, Entity (Subp_Id));
+               else
+                  Error_Msg_NE
+                    ("pragma Inline for& is redundant?", N, Entity (Subp_Id));
+               end if;
             end if;
 
             Next (Assoc);
@@ -3469,6 +3506,10 @@ package body Sem_Prag is
       -- Process_Restrictions_Or_Restriction_Warnings --
       --------------------------------------------------
 
+      --  Note: some of the simple identifier cases were handled in par-prag,
+      --  but it is harmless (and more straightforward) to simply handle all
+      --  cases here, even if it means we repeat a bit of work in some cases.
+
       procedure Process_Restrictions_Or_Restriction_Warnings is
          Arg   : Node_Id;
          R_Id  : Restriction_Id;
@@ -3476,9 +3517,32 @@ package body Sem_Prag is
          Expr  : Node_Id;
          Val   : Uint;
 
+         procedure Check_Unit_Name (N : Node_Id);
+         --  Checks unit name parameter for No_Dependence. Returns if it has
+         --  an appropriate form, otherwise raises pragma argument error.
+
          procedure Set_Warning (R : All_Restrictions);
          --  If this is a Restriction_Warnings pragma, set warning flag,
          --  otherwise reset the flag.
+
+         ---------------------
+         -- Check_Unit_Name --
+         ---------------------
+
+         procedure Check_Unit_Name (N : Node_Id) is
+         begin
+            if Nkind (N) = N_Selected_Component then
+               Check_Unit_Name (Prefix (N));
+               Check_Unit_Name (Selector_Name (N));
+
+            elsif Nkind (N) = N_Identifier then
+               return;
+
+            else
+               Error_Pragma_Arg
+                 ("wrong form for unit name for No_Dependence", N);
+            end if;
+         end Check_Unit_Name;
 
          -----------------
          -- Set_Warning --
@@ -3540,7 +3604,13 @@ package body Sem_Prag is
                   Scope_Suppress := (others => True);
                end if;
 
-            --  Case of restriction identifier present
+            --  Case of No_Dependence => unit-name. Note that the parser
+            --  already made the necessary entry in the No_Dependence table.
+
+            elsif Id = Name_No_Dependence then
+               Check_Unit_Name (Expr);
+
+            --  All other cases of restriction identifier present
 
             else
                R_Id := Get_Restriction_Id (Process_Restriction_Synonyms (Arg));
@@ -8506,6 +8576,7 @@ package body Sem_Prag is
             end if;
 
             if Present (External) then
+               Check_Arg_Is_External_Name (External);
                Check_Too_Long (External);
             end if;
 

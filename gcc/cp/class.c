@@ -1,6 +1,6 @@
 /* Functions related to building classes and their related objects.
    Copyright (C) 1987, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004  Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005  Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -295,8 +295,11 @@ build_base_path (enum tree_code code,
 
   /* Now that we've saved expr, build the real null test.  */
   if (null_test)
-    null_test = fold (build2 (NE_EXPR, boolean_type_node,
-			      expr, integer_zero_node));
+    {
+      tree zero = cp_convert (TREE_TYPE (expr), integer_zero_node);
+      null_test = fold (build2 (NE_EXPR, boolean_type_node,
+				expr, zero));
+    }
 
   /* If this is a simple base reference, express it as a COMPONENT_REF.  */
   if (code == PLUS_EXPR && !virtual_access
@@ -492,9 +495,6 @@ build_vfield_ref (tree datum, tree type)
   if (datum == error_mark_node)
     return error_mark_node;
 
-  if (TREE_CODE (TREE_TYPE (datum)) == REFERENCE_TYPE)
-    datum = convert_from_reference (datum);
-
   /* First, convert to the requested type.  */
   if (!same_type_ignoring_top_level_qualifiers_p (TREE_TYPE (datum), type))
     datum = convert_to_base (datum, type, /*check_access=*/false,
@@ -659,28 +659,27 @@ build_vtable (tree class_type, tree name, tree vtable_type)
   DECL_EXTERNAL (decl) = 1;
   DECL_NOT_REALLY_EXTERN (decl) = 1;
 
-  if (write_symbols == DWARF2_DEBUG)
-    /* Mark the VAR_DECL node representing the vtable itself as a
-       "gratuitous" one, thereby forcing dwarfout.c to ignore it.  It
-       is rather important that such things be ignored because any
-       effort to actually generate DWARF for them will run into
-       trouble when/if we encounter code like:
+  /* Mark the VAR_DECL node representing the vtable itself as a
+     "gratuitous" one, thereby forcing dwarfout.c to ignore it.  It
+     is rather important that such things be ignored because any
+     effort to actually generate DWARF for them will run into
+     trouble when/if we encounter code like:
        
-         #pragma interface
-	 struct S { virtual void member (); };
+     #pragma interface
+     struct S { virtual void member (); };
 	   
-       because the artificial declaration of the vtable itself (as
-       manufactured by the g++ front end) will say that the vtable is
-       a static member of `S' but only *after* the debug output for
-       the definition of `S' has already been output.  This causes
-       grief because the DWARF entry for the definition of the vtable
-       will try to refer back to an earlier *declaration* of the
-       vtable as a static member of `S' and there won't be one.  We
-       might be able to arrange to have the "vtable static member"
-       attached to the member list for `S' before the debug info for
-       `S' get written (which would solve the problem) but that would
-       require more intrusive changes to the g++ front end.  */
-    DECL_IGNORED_P (decl) = 1;
+     because the artificial declaration of the vtable itself (as
+     manufactured by the g++ front end) will say that the vtable is
+     a static member of `S' but only *after* the debug output for
+     the definition of `S' has already been output.  This causes
+     grief because the DWARF entry for the definition of the vtable
+     will try to refer back to an earlier *declaration* of the
+     vtable as a static member of `S' and there won't be one.  We
+     might be able to arrange to have the "vtable static member"
+     attached to the member list for `S' before the debug info for
+     `S' get written (which would solve the problem) but that would
+     require more intrusive changes to the g++ front end.  */
+  DECL_IGNORED_P (decl) = 1;
 
   return decl;
 }
@@ -857,7 +856,8 @@ add_method (tree type, tree method)
   int using;
   unsigned slot;
   tree overload;
-  int template_conv_p;
+  bool template_conv_p = false;
+  bool conv_p;
   VEC(tree) *method_vec;
   bool complete_p;
   bool insert_p = false;
@@ -868,8 +868,10 @@ add_method (tree type, tree method)
 
   complete_p = COMPLETE_TYPE_P (type);
   using = (DECL_CONTEXT (method) != type);
-  template_conv_p = (TREE_CODE (method) == TEMPLATE_DECL
-                     && DECL_TEMPLATE_CONV_FN_P (method));
+  conv_p = DECL_CONV_FN_P (method);
+  if (conv_p)
+    template_conv_p = (TREE_CODE (method) == TEMPLATE_DECL
+		       && DECL_TEMPLATE_CONV_FN_P (method));
 
   method_vec = CLASSTYPE_METHOD_VEC (type);
   if (!method_vec)
@@ -901,7 +903,6 @@ add_method (tree type, tree method)
     }
   else
     {
-      bool conv_p = DECL_CONV_FN_P (method);
       tree m;
 
       insert_p = true;
@@ -1012,7 +1013,7 @@ add_method (tree type, tree method)
   /* Add the new binding.  */ 
   overload = build_overload (method, current_fns);
   
-  if (slot >= CLASSTYPE_FIRST_CONVERSION_SLOT && !complete_p)
+  if (!conv_p && slot >= CLASSTYPE_FIRST_CONVERSION_SLOT && !complete_p)
     push_class_level_binding (DECL_NAME (method), overload);
 
   if (insert_p)
@@ -2484,17 +2485,11 @@ add_implicitly_declared_members (tree t,
       default_fn = implicitly_declare_fn (sfk_destructor, t, /*const_p=*/0);
       check_for_override (default_fn, t);
 
-      /* If we couldn't make it work, then pretend we didn't need it.  */
-      if (default_fn == void_type_node)
-	TYPE_HAS_NONTRIVIAL_DESTRUCTOR (t) = 0;
-      else
-	{
-	  TREE_CHAIN (default_fn) = implicit_fns;
-	  implicit_fns = default_fn;
-
-	  if (DECL_VINDEX (default_fn))
-	    virtual_dtor = default_fn;
-	}
+      TREE_CHAIN (default_fn) = implicit_fns;
+      implicit_fns = default_fn;
+      
+      if (DECL_VINDEX (default_fn))
+	virtual_dtor = default_fn;
     }
   else
     /* Any non-implicit destructor is non-trivial.  */
@@ -2613,10 +2608,7 @@ check_bitfield_decl (tree field)
       STRIP_NOPS (w);
 
       /* detect invalid field size.  */
-      if (TREE_CODE (w) == CONST_DECL)
-	w = DECL_INITIAL (w);
-      else
-	w = decl_constant_value (w);
+      w = integral_constant_value (w);
 
       if (TREE_CODE (w) != INTEGER_CST)
 	{
@@ -3530,13 +3522,13 @@ build_base_field (record_layout_info rli, tree binfo,
       /* Create the FIELD_DECL.  */
       decl = build_decl (FIELD_DECL, NULL_TREE, CLASSTYPE_AS_BASE (basetype));
       DECL_ARTIFICIAL (decl) = 1;
+      DECL_IGNORED_P (decl) = 1;
       DECL_FIELD_CONTEXT (decl) = t;
       DECL_SIZE (decl) = CLASSTYPE_SIZE (basetype);
       DECL_SIZE_UNIT (decl) = CLASSTYPE_SIZE_UNIT (basetype);
       DECL_ALIGN (decl) = CLASSTYPE_ALIGN (basetype);
       DECL_USER_ALIGN (decl) = CLASSTYPE_USER_ALIGN (basetype);
       DECL_MODE (decl) = TYPE_MODE (basetype);
-      DECL_IGNORED_P (decl) = 1;
       DECL_FIELD_IS_BASE (decl) = 1;
 
       /* Try to place the field.  It may take more than one try if we
@@ -3787,6 +3779,8 @@ build_clone (tree fn, tree name)
       DECL_TEMPLATE_INFO (result) = copy_node (DECL_TEMPLATE_INFO (result));
       DECL_TI_TEMPLATE (result) = clone;
     }
+  else if (pch_file)
+    note_decl_for_pch (clone);
 
   return clone;
 }
@@ -4556,7 +4550,13 @@ layout_class_type (tree t, tree *virtuals_p)
              At this point, finish_record_layout will be called, but
 	     S1 is still incomplete.)  */
 	  if (TREE_CODE (field) == VAR_DECL)
-	    maybe_register_incomplete_var (field);
+	    {
+	      maybe_register_incomplete_var (field);
+	      /* The visibility of static data members is determined
+		 at their point of declaration, not their point of
+		 definition.  */
+	      determine_visibility (field);
+	    }
 	  continue;
 	}
 
@@ -4690,6 +4690,7 @@ layout_class_type (tree t, tree *virtuals_p)
 	  DECL_SIZE (padding_field) = padding;
 	  DECL_CONTEXT (padding_field) = t;
 	  DECL_ARTIFICIAL (padding_field) = 1;
+	  DECL_IGNORED_P (padding_field) = 1;
 	  layout_nonempty_base_or_field (rli, padding_field,
 					 NULL_TREE, 
 					 empty_base_offsets);
@@ -6188,35 +6189,6 @@ contains_empty_class_p (tree type)
   return false;
 }
 
-/* Find the enclosing class of the given NODE.  NODE can be a *_DECL or
-   a *_TYPE node.  NODE can also be a local class.  */
-
-tree
-get_enclosing_class (tree type)
-{
-  tree node = type;
-
-  while (node && TREE_CODE (node) != NAMESPACE_DECL)
-    {
-      switch (TREE_CODE_CLASS (TREE_CODE (node)))
-	{
-	case tcc_declaration:
-	  node = DECL_CONTEXT (node);
-	  break;
-
-	case tcc_type:
-	  if (node != type)
-	    return node;
-	  node = TYPE_CONTEXT (node);
-	  break;
-
-	default:
-	  gcc_unreachable ();
-	}
-    }
-  return NULL_TREE;
-}
-
 /* Note that NAME was looked up while the current class was being
    defined and that the result of that lookup was DECL.  */
 
@@ -7091,6 +7063,8 @@ dfs_accumulate_vtbl_inits (tree binfo,
   return inits;
 }
 
+static GTY(()) tree abort_fndecl_addr;
+
 /* Construct the initializer for BINFO's virtual function table.  BINFO
    is part of the hierarchy dominated by T.  If we're building a
    construction vtable, the ORIG_BINFO is the binfo we should use to
@@ -7240,16 +7214,24 @@ build_vtbl_initializer (tree binfo,
 	  /* You can't call an abstract virtual function; it's abstract.
 	     So, we replace these functions with __pure_virtual.  */
 	  if (DECL_PURE_VIRTUAL_P (fn_original))
-	    fn = abort_fndecl;
-	  else if (!integer_zerop (delta) || vcall_index)
 	    {
-	      fn = make_thunk (fn, /*this_adjusting=*/1, delta, vcall_index);
-	      if (!DECL_NAME (fn))
-		finish_thunk (fn);
+	      fn = abort_fndecl;
+	      if (abort_fndecl_addr == NULL)
+		abort_fndecl_addr = build1 (ADDR_EXPR, vfunc_ptr_type_node, fn);
+	      init = abort_fndecl_addr;
 	    }
-	  /* Take the address of the function, considering it to be of an
-	     appropriate generic type.  */
-	  init = build1 (ADDR_EXPR, vfunc_ptr_type_node, fn);
+	  else
+	    {
+	      if (!integer_zerop (delta) || vcall_index)
+		{
+		  fn = make_thunk (fn, /*this_adjusting=*/1, delta, vcall_index);
+		  if (!DECL_NAME (fn))
+		    finish_thunk (fn);
+		}
+	      /* Take the address of the function, considering it to be of an
+		 appropriate generic type.  */
+	      init = build1 (ADDR_EXPR, vfunc_ptr_type_node, fn);
+	    }
 	}
 
       /* And add it to the chain of initializers.  */
@@ -7710,3 +7692,4 @@ cp_fold_obj_type_ref (tree ref, tree known_type)
   return build_address (fndecl);
 }
 
+#include "gt-cp-class.h"

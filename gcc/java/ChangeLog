@@ -1,3 +1,158 @@
+2005-01-25  Tom Tromey  <tromey@redhat.com>
+
+	* Make-lang.in (java/java-tree-inline.o): Removed.
+
+2005-01-25  Ranjit Mathew  <rmathew@hotmail.com>
+
+	PR java/19070
+	* parse.y (patch_binop): Allow comparisons against NULL only
+	if the other operand is of a reference type.
+
+2005-01-24  Tom Tromey  <tromey@redhat.com>
+
+	* java-tree.h (gcj_abi_version): Declare.
+	* class.c (make_class_data): Push gcj_abi_version into "next"
+	field.  Renamed field.
+	* decl.c (gcj_abi_version): New global.
+	(parse_version): New function.
+	(java_init_decl_processing): Call it.  Renamed 'next' field.
+	Include version.h.
+	(GCJ_BINARYCOMPAT_ADDITION): New define.
+
+2005-01-24  Roger Sayle  <roger@eyesopen.com>
+
+	PR java/19295
+	* jcf-write.c (generate_bytecode_insns): Conversions between
+	integer types of the same precision shouldn't generate widening
+	or narrowing conversion bytecodes.
+
+2005-01-22  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* java-except.h, java-tree.h: Remove unused prototypes.
+
+2005-01-20  Andrew Pinski  <pinskia@gcc.gnu.org>
+
+	PR java/18091:
+	* jcf-write.c (perform_relocations): Don't call memcpy if source
+	and destination are the same.
+
+2005-01-17  Tom Tromey  <tromey@redhat.com>
+
+	* verify-impl.c (get_short): Sign extend.
+	(get_int): Likewise.
+
+2005-01-12  Ranjit Mathew  <rmathew@hotmail.com>
+
+	* expr.c (build_jni_stub): Replace mistaken use of TYPE_SIZE_UNIT
+	with TYPE_SIZE.
+
+2005-01-10  Ranjit Mathew  <rmathew@hotmail.com>
+
+	* verify.c: Revert to the version before the BC-ABI merge.
+
+2005-01-10  Ranjit Mathew  <rmathew@hotmail.com>
+
+	PR java/19277
+	* check-init.c (check_init): Take care of references that do not
+	have an explicit final variable declaration (e.g. array length
+	access) for pre/post in/de-crement operators.
+
+2005-01-08  Mark Wielaard  <mark@klomp.org>
+
+	* parse.y (process_imports): Allocate (and free) original_name only
+	when not already defined.
+	* jcf-parse.c (read_class): Free results of find_class() and
+	lrealpath().
+	(java_parse_file): Keep pointer to head of file_list and free when
+	done. Free result of lrealpath().
+
+2005-01-05  Tom Tromey  <tromey@redhat.com>
+
+	* gcj.texi (Standard Properties): java.ext.dirs is now used.
+
+2004-12-20  Andrew Haley  <aph@redhat.com>
+
+	* typeck.c: Use fold_convert for ints and booleans.
+
+2004-12-17  Andrew Haley  <aph@redhat.com>
+
+	PR java/18931
+	* typeck.c (convert): Use a CONVERT_EXPR when converting to
+	BOOLEAN_TYPE or CHAR_TYPE.
+	(convert_to_boolean, convert_to_char) : Remove.
+	* convert.h (convert_to_boolean, convert_to_char) : Remove.
+	* expr.c (expand_load_internal): Do type conversion if type is not
+	as required.
+	
+2004-12-13  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	PR target/18459
+	* class.c (emit_register_classes): Use TARGET_USE_JCR_SECTION.
+	Update comment.
+
+2004-12-07  Andrew Haley  <aph@redhat.com>
+
+	PR java/18811:
+	* jcf-parse.c (load_class): Remove sanity test for missing inner
+	class file.
+	
+2004-12-06  Tom Tromey  <tromey@redhat.com>
+
+	* Make-lang.in (JAVA_MANFILES): Added gcj-dbtool.
+	(java.uninstall): Likewise.
+	(java.maintainer-clean): Likewise.
+	(.INTERMEDIATE): Likewise.
+	(java.install-man): Likewise.
+	(gcj-dbtool.pod): New target.
+	* gcj.texi (Code Generation): Document -findirect-dispatch.
+	(libgcj Runtime Properties): Document
+	gnu.gcj.precompiled.db.path.
+	(Top): Link to "Invoking gcj-dbtool".
+
+2004-12-06  Tom Tromey  <tromey@redhat.com>
+
+	PR java/14853:
+	* java-tree.h (extract_field_decl): Declare.
+	* parse.y (extract_field_decl): Renamed from
+	strip_out_static_field_access_decl.  No longer static.
+	* check-init.c (get_variable_decl): Unwrap COMPOUND_EXPRs.
+
+2004-12-03  Tom Tromey  <tromey@redhat.com>
+
+	* lang.c (flag_new_verifier): Define.
+	(java_post_options): Set flag_new_verifier if indirect dispatch
+	is being used.
+	* lang.opt (fnew-verifier): Removed.
+
+2004-12-03  Tom Tromey  <tromey@redhat.com>
+
+	PR bootstrap/14614:
+	* Make-lang.in (java.install-common): Only install transformed
+	gcjh if gcj-cross exists.
+
+2004-12-03  Andrew Haley  <aph@redhat.com>
+
+	PR java/18812
+	* except.c (link_handler): Patch 'outer' field of siblings of the
+	range we're demoting.
+
+2004-12-03  Andrew Haley  <aph@redhat.com>
+	
+	PR java/18697 
+	* class.c (layout_class_method): Don't fail to override a method
+	simply because it has DECL_ARTIFICIAL set.
+
+2004-12-02  Tom Tromey  <tromey@redhat.com>
+
+	PR java/16675:
+	* parse.y (craft_constructor): Special case null_pointer_node.
+
+2004-12-02  Tom Tromey  <tromey@redhat.com>
+
+	PR java/18741:
+	* java-gimplify.c (java_gimplify_expr): Don't call
+	SET_EXPR_LOCATION unless wrapped tree is an expression.
+
 2004-11-27  Per Bothner  <per@bothner.com>
 
 	* jcf-parse.c (set_source_filename):  Improvement to Andrew's fix:

@@ -1,7 +1,7 @@
 /* Report error messages, build initializers, and perform
    some front-end optimizations for C++ compiler.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2004
+   1999, 2000, 2001, 2002, 2004, 2005
    Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
@@ -506,8 +506,9 @@ split_nonconstant_init_1 (tree dest, tree init)
     case VECTOR_TYPE:
       if (!initializer_constant_valid_p (init, type))
 	{
+	  tree cons = copy_node (init);
 	  CONSTRUCTOR_ELTS (init) = NULL;
-	  code = build2 (MODIFY_EXPR, type, dest, init);
+	  code = build2 (MODIFY_EXPR, type, dest, cons);
 	  code = build_stmt (EXPR_STMT, code);
 	  add_stmt (code);
 	}
@@ -1210,12 +1211,6 @@ build_x_arrow (tree expr)
       if (type_dependent_expression_p (expr))
 	return build_min_nt (ARROW_EXPR, expr);
       expr = build_non_dependent_expr (expr);
-    }
-
-  if (TREE_CODE (type) == REFERENCE_TYPE)
-    {
-      expr = convert_from_reference (expr);
-      type = TREE_TYPE (expr);
     }
 
   if (IS_AGGR_TYPE (type))

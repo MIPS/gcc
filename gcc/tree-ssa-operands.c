@@ -1,5 +1,5 @@
 /* SSA operands management for trees.
-   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -893,20 +893,33 @@ build_ssa_operands (tree stmt, stmt_ann_t ann, stmt_operands_p old_ops,
   switch (code)
     {
     case MODIFY_EXPR:
-      get_expr_operands (stmt, &TREE_OPERAND (stmt, 1), opf_none);
-      if (TREE_CODE (TREE_OPERAND (stmt, 0)) == ARRAY_REF 
-	  || TREE_CODE (TREE_OPERAND (stmt, 0)) == ARRAY_RANGE_REF
-	  || TREE_CODE (TREE_OPERAND (stmt, 0)) == COMPONENT_REF
-	  || TREE_CODE (TREE_OPERAND (stmt, 0)) == REALPART_EXPR
-	  || TREE_CODE (TREE_OPERAND (stmt, 0)) == IMAGPART_EXPR
-	  /* Use a V_MAY_DEF if the RHS might throw, as the LHS won't be
-	     modified in that case.  FIXME we should represent somehow
-	     that it is killed on the fallthrough path.  */
-	  || tree_could_throw_p (TREE_OPERAND (stmt, 1)))
-        get_expr_operands (stmt, &TREE_OPERAND (stmt, 0), opf_is_def);
-      else
-        get_expr_operands (stmt, &TREE_OPERAND (stmt, 0), 
-	                   opf_is_def | opf_kill_def);
+      /* First get operands from the RHS.  For the LHS, we use a V_MAY_DEF if
+	 either only part of LHS is modified or if the RHS might throw,
+	 otherwise, use V_MUST_DEF.
+
+	 ??? If it might throw, we should represent somehow that it is killed
+	 on the fallthrough path.  */
+      {
+	tree lhs = TREE_OPERAND (stmt, 0);
+	int lhs_flags = opf_is_def;
+
+	get_expr_operands (stmt, &TREE_OPERAND (stmt, 1), opf_none);
+
+	/* If the LHS is a VIEW_CONVERT_EXPR, it isn't changing whether
+	   or not the entire LHS is modified; that depends on what's
+	   inside the VIEW_CONVERT_EXPR.  */
+	if (TREE_CODE (lhs) == VIEW_CONVERT_EXPR)
+	  lhs = TREE_OPERAND (lhs, 0);
+
+	if (TREE_CODE (lhs) != ARRAY_REF && TREE_CODE (lhs) != ARRAY_RANGE_REF
+	    && TREE_CODE (lhs) != COMPONENT_REF
+	    && TREE_CODE (lhs) != BIT_FIELD_REF
+	    && TREE_CODE (lhs) != REALPART_EXPR
+	    && TREE_CODE (lhs) != IMAGPART_EXPR)
+	  lhs_flags |= opf_kill_def;
+
+        get_expr_operands (stmt, &TREE_OPERAND (stmt, 0), lhs_flags);
+      }
       break;
 
     case COND_EXPR:
@@ -1361,18 +1374,6 @@ get_indirect_ref_operands (tree stmt, tree expr, int flags)
   /* Stores into INDIRECT_REF operands are never killing definitions.  */
   flags &= ~opf_kill_def;
 
-  if (REF_ORIGINAL (expr))
-    {
-      enum tree_code ocode = TREE_CODE (REF_ORIGINAL (expr));
-
-      /* If we originally accessed part of a structure, we do it still.  */
-      if (ocode == ARRAY_REF
-	  || ocode == COMPONENT_REF
-	  || ocode == REALPART_EXPR
-	  || ocode == IMAGPART_EXPR)
-	flags &= ~opf_kill_def;
-    }
-
   if (SSA_VAR_P (ptr))
     {
       struct ptr_info_def *pi = NULL;
@@ -1519,13 +1520,10 @@ add_stmt_operand (tree *var_p, stmt_ann_t s_ann, int flags)
   sym = (TREE_CODE (var) == SSA_NAME ? SSA_NAME_VAR (var) : var);
   v_ann = var_ann (sym);
 
-  /* Don't expose volatile variables to the optimizers.  */
-  if (TREE_THIS_VOLATILE (sym))
-    {
-      if (s_ann)
-	s_ann->has_volatile_ops = true;
-      return;
-    }
+  /* Mark statements with volatile operands.  Optimizers should back
+     off from statements having volatile operands.  */
+  if (TREE_THIS_VOLATILE (sym) && s_ann)
+    s_ann->has_volatile_ops = true;
 
   if (is_real_op)
     {

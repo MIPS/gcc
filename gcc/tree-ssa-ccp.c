@@ -1,5 +1,6 @@
 /* Conditional constant propagation pass for the GNU compiler.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005
+   Free Software Foundation, Inc.
    Adapted from original RTL SSA-CCP by Daniel Berlin <dberlin@dberlin.org>
    Adapted to GIMPLE trees by Diego Novillo <dnovillo@redhat.com>
 
@@ -579,16 +580,18 @@ substitute_and_fold (void)
 	    {
 	      bool changed = fold_stmt (bsi_stmt_ptr (i));
 	      stmt = bsi_stmt(i);
+
 	      /* If we folded a builtin function, we'll likely
 		 need to rename VDEFs.  */
 	      if (replaced_address || changed)
-		{
-		  mark_new_vars_to_rename (stmt, vars_to_rename);
-		  if (maybe_clean_eh_stmt (stmt))
-		    tree_purge_dead_eh_edges (bb);
-		}
-	      else
-		modify_stmt (stmt);
+		mark_new_vars_to_rename (stmt, vars_to_rename);
+
+              /* If we cleaned up EH information from the statement,
+                 remove EH edges.  */
+	      if (maybe_clean_eh_stmt (stmt))
+		tree_purge_dead_eh_edges (bb);
+
+	      modify_stmt (stmt);
 	    }
 
 	  if (dump_file && (dump_flags & TDF_DETAILS))
@@ -1053,21 +1056,35 @@ visit_assignment (tree stmt, tree *output_p)
       val = *nval;
     }
   else
-    {
-      /* Evaluate the statement.  */
+    /* Evaluate the statement.  */
       val = evaluate_stmt (stmt);
-    }
 
-  /* FIXME: Hack.  If this was a definition of a bitfield, we need to widen
+  /* If the original LHS was a VIEW_CONVERT_EXPR, modify the constant
+     value to be a VIEW_CONVERT_EXPR of the old constant value.  This is
+     valid because a VIEW_CONVERT_EXPR is valid everywhere an operand of
+     aggregate type is valid.
+
+     ??? Also, if this was a definition of a bitfield, we need to widen
      the constant value into the type of the destination variable.  This
      should not be necessary if GCC represented bitfields properly.  */
   {
-    tree lhs = TREE_OPERAND (stmt, 0);
-    if (val.lattice_val == CONSTANT
-	&& TREE_CODE (lhs) == COMPONENT_REF
-	&& DECL_BIT_FIELD (TREE_OPERAND (lhs, 1)))
+    tree orig_lhs = TREE_OPERAND (stmt, 0);
+
+    if (TREE_CODE (orig_lhs) == VIEW_CONVERT_EXPR
+	&& val.lattice_val == CONSTANT)
       {
-	tree w = widen_bitfield (val.const_val, TREE_OPERAND (lhs, 1), lhs);
+	val.const_val = build1 (VIEW_CONVERT_EXPR,
+				TREE_TYPE (TREE_OPERAND (orig_lhs, 0)),
+				val.const_val);
+	orig_lhs = TREE_OPERAND (orig_lhs, 1);
+      }
+
+    if (val.lattice_val == CONSTANT
+	&& TREE_CODE (orig_lhs) == COMPONENT_REF
+	&& DECL_BIT_FIELD (TREE_OPERAND (orig_lhs, 1)))
+      {
+	tree w = widen_bitfield (val.const_val, TREE_OPERAND (orig_lhs, 1),
+				 orig_lhs);
 
 	if (w && is_gimple_min_invariant (w))
 	  val.const_val = w;
@@ -1433,45 +1450,39 @@ maybe_fold_offset_to_component_ref (tree record_type, tree base, tree offset,
 	continue;
 
       field_type = TREE_TYPE (f);
-      if (cmp < 0)
-	{
-	  /* Don't care about offsets into the middle of scalars.  */
-	  if (!AGGREGATE_TYPE_P (field_type))
-	    continue;
-
-	  /* Check for array at the end of the struct.  This is often
-	     used as for flexible array members.  We should be able to
-	     turn this into an array access anyway.  */
-	  if (TREE_CODE (field_type) == ARRAY_TYPE)
-	    tail_array_field = f;
-
-	  /* Check the end of the field against the offset.  */
-	  if (!DECL_SIZE_UNIT (f)
-	      || TREE_CODE (DECL_SIZE_UNIT (f)) != INTEGER_CST)
-	    continue;
-	  t = int_const_binop (MINUS_EXPR, offset, DECL_FIELD_OFFSET (f), 1);
-	  if (!tree_int_cst_lt (t, DECL_SIZE_UNIT (f)))
-	    continue;
-
-	  /* If we matched, then set offset to the displacement into
-	     this field.  */
-	  offset = t;
-	}
 
       /* Here we exactly match the offset being checked.  If the types match,
 	 then we can return that field.  */
-      else if (lang_hooks.types_compatible_p (orig_type, field_type))
+      if (cmp == 0
+	  && lang_hooks.types_compatible_p (orig_type, field_type))
 	{
 	  if (base_is_ptr)
 	    base = build1 (INDIRECT_REF, record_type, base);
 	  t = build (COMPONENT_REF, field_type, base, f, NULL_TREE);
 	  return t;
 	}
+      
+      /* Don't care about offsets into the middle of scalars.  */
+      if (!AGGREGATE_TYPE_P (field_type))
+	continue;
 
-      /* Don't care about type-punning of scalars.  */
-      else if (!AGGREGATE_TYPE_P (field_type))
-	return NULL_TREE;
+      /* Check for array at the end of the struct.  This is often
+	 used as for flexible array members.  We should be able to
+	 turn this into an array access anyway.  */
+      if (TREE_CODE (field_type) == ARRAY_TYPE)
+	tail_array_field = f;
 
+      /* Check the end of the field against the offset.  */
+      if (!DECL_SIZE_UNIT (f)
+	  || TREE_CODE (DECL_SIZE_UNIT (f)) != INTEGER_CST)
+	continue;
+      t = int_const_binop (MINUS_EXPR, offset, field_offset, 1);
+      if (!tree_int_cst_lt (t, DECL_SIZE_UNIT (f)))
+	continue;
+
+      /* If we matched, then set offset to the displacement into
+	 this field.  */
+      offset = t;
       goto found;
     }
 
@@ -1480,6 +1491,7 @@ maybe_fold_offset_to_component_ref (tree record_type, tree base, tree offset,
 
   f = tail_array_field;
   field_type = TREE_TYPE (f);
+  offset = int_const_binop (MINUS_EXPR, offset, byte_position (f), 1);
 
  found:
   /* If we get here, we've got an aggregate field, and a possibly 

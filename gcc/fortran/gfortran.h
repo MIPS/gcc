@@ -1,5 +1,5 @@
 /* gfortran header file
-   Copyright (C) 2000, 2001, 2002, 2003, 2004 Free Software Foundation,
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation,
    Inc.
    Contributed by Andy Vaught
 
@@ -29,8 +29,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    multiple header files.  Besides, Microsoft's winnt.h was 250k last
    time I looked, so by comparison this is perfectly reasonable.  */
 
-/* We need system.h for HOST_WIDE_INT. Including hwint.h by itself doesn't
-   seem to be sufficient on some systems.  */
 #include "system.h"
 #include "coretypes.h"
 #include "input.h"
@@ -53,9 +51,6 @@ char *alloca ();
 #endif /* not _AIX */
 #endif /* do not HAVE_ALLOCA_H */
 #endif /* not __GNUC__ */
-
-
-#include <stdio.h>		/* need FILE * here */
 
 /* Major control parameters.  */
 
@@ -96,7 +91,7 @@ typedef struct
 mstring;
 
 
-/* Flags to specify which standardi/extension contains a feature.  */
+/* Flags to specify which standard/extension contains a feature.  */
 #define GFC_STD_GNU                (1<<5)    /* GNU Fortran extension.  */
 #define GFC_STD_F2003             (1<<4)    /* New in F2003.  */
 /* Note that no features were obsoleted nor deleted in F2003.  */
@@ -315,7 +310,9 @@ enum gfc_generic_isym_id
   GFC_ISYM_EXP,
   GFC_ISYM_EXPONENT,
   GFC_ISYM_FLOOR,
+  GFC_ISYM_FNUM,
   GFC_ISYM_FRACTION,
+  GFC_ISYM_FSTAT,
   GFC_ISYM_GETCWD,
   GFC_ISYM_GETGID,
   GFC_ISYM_GETPID,
@@ -379,6 +376,7 @@ enum gfc_generic_isym_id
   GFC_ISYM_SPREAD,
   GFC_ISYM_SQRT,
   GFC_ISYM_SR_KIND,
+  GFC_ISYM_STAT,
   GFC_ISYM_SUM,
   GFC_ISYM_SYSTEM,
   GFC_ISYM_TAN,
@@ -1072,7 +1070,7 @@ typedef struct gfc_expr
     struct
     {
       gfc_actual_arglist *actual;
-      char *name;	/* Points to the ultimate name of the function */
+      const char *name;	/* Points to the ultimate name of the function */
       gfc_intrinsic_sym *isym;
       gfc_symbol *esym;
     }
@@ -1170,8 +1168,8 @@ gfc_equiv;
    a single value.  If *high is NULL, the selection is from *low
    upwards, if *low is NULL the selection is *high downwards.
 
-   This structure has separate fields to allow singe and double linked
-   lists of CASEs the same time.  The singe linked list along the NEXT
+   This structure has separate fields to allow single and double linked
+   lists of CASEs at the same time.  The singe linked list along the NEXT
    field is a list of cases for a single CASE label.  The double linked
    list along the LEFT/RIGHT fields is used to detect overlap and to
    build a table of the cases for SELECT constructs with a CHARACTER
@@ -1506,9 +1504,7 @@ int gfc_handle_option (size_t, const char *, int);
 bool gfc_post_options (const char **);
 
 /* iresolve.c */
-char * gfc_get_string (const char *, ...) ATTRIBUTE_PRINTF_1;
-void gfc_iresolve_init_1 (void);
-void gfc_iresolve_done_1 (void);
+const char * gfc_get_string (const char *, ...) ATTRIBUTE_PRINTF_1;
 
 /* error.c */
 
@@ -1740,7 +1736,7 @@ void gfc_resolve (gfc_namespace *);
 int gfc_impure_variable (gfc_symbol *);
 int gfc_pure (gfc_symbol *);
 int gfc_elemental (gfc_symbol *);
-try gfc_resolve_iterator (gfc_iterator *);
+try gfc_resolve_iterator (gfc_iterator *, bool);
 try gfc_resolve_index (gfc_expr *, int);
 
 /* array.c */
@@ -1806,6 +1802,7 @@ try gfc_resolve_dt (gfc_dt *);
 void gfc_module_init_2 (void);
 void gfc_module_done_2 (void);
 void gfc_dump_module (const char *, int);
+bool gfc_check_access (gfc_access, gfc_access);
 
 /* primary.c */
 symbol_attribute gfc_variable_attr (gfc_expr *, gfc_typespec *);

@@ -30,7 +30,29 @@
 
 # define _GC_H
 
-# include <config.h>
+/* 
+ * As this header includes gc_config.h, preprocessor conflicts can occur with 
+ * clients that include their own autoconf headers. The following #undef's 
+ * work around some likely conflicts.
+ */
+
+# ifdef PACKAGE_NAME
+#   undef PACKAGE_NAME
+# endif
+# ifdef PACKAGE_BUGREPORT
+#  undef PACKAGE_BUGREPORT
+# endif
+# ifdef PACKAGE_STRING
+#  undef PACKAGE_STRING
+# endif
+# ifdef PACKAGE_TARNAME
+#  undef PACKAGE_TARNAME
+# endif
+# ifdef PACKAGE_VERSION
+#  undef PACKAGE_VERSION
+# endif
+
+# include <gc_config.h>
 # include "gc_config_macros.h"
 
 # if defined(__STDC__) || defined(__cplusplus)

@@ -1,5 +1,5 @@
 /* Rewrite a program in Normal form into SSA.
-   Copyright (C) 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
 This file is part of GCC.
@@ -156,7 +156,7 @@ static void insert_phi_nodes (bitmap *, bitmap);
 static void rewrite_stmt (struct dom_walk_data *, basic_block,
 			  block_stmt_iterator);
 static inline void rewrite_operand (use_operand_p);
-static void insert_phi_nodes_for (tree, bitmap *, VEC(basic_block) *);
+static void insert_phi_nodes_for (tree, bitmap *, VEC(basic_block) **);
 static tree get_reaching_def (tree);
 static hashval_t def_blocks_hash (const void *);
 static int def_blocks_eq (const void *, const void *);
@@ -165,6 +165,12 @@ static int debug_def_blocks_r (void **, void *);
 static inline struct def_blocks_d *get_def_blocks_for (tree);
 static inline struct def_blocks_d *find_def_blocks_for (tree);
 static void htab_statistics (FILE *, htab_t);
+
+/* Use TREE_VISITED to keep track of which statements we want to
+   rename.  When renaming a subset of the variables, not all
+   statements will be processed.  This is decided in mark_def_sites.  */
+#define REWRITE_THIS_STMT(T)	TREE_VISITED (T)
+
 
 /* Get the information associated with NAME.  */
 
@@ -379,14 +385,20 @@ mark_def_sites (struct dom_walk_data *walk_data,
   stmt = bsi_stmt (bsi);
   get_stmt_operands (stmt);
 
+  REWRITE_THIS_STMT (stmt) = 0;
+
   /* If a variable is used before being set, then the variable is live
      across a block boundary, so mark it live-on-entry to BB.  */
 
-  FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, SSA_OP_USE | SSA_OP_VUSE | SSA_OP_VMUSTDEFKILL)
+  FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter,
+			    SSA_OP_USE | SSA_OP_VUSE | SSA_OP_VMUSTDEFKILL)
     {
-      if (prepare_use_operand_for_rename (use_p, &uid)
-	  && !TEST_BIT (kills, uid))
-	set_livein_block (USE_FROM_PTR (use_p), bb);
+      if (prepare_use_operand_for_rename (use_p, &uid))
+	{
+	  REWRITE_THIS_STMT (stmt) = 1;
+	  if (!TEST_BIT (kills, uid))
+	    set_livein_block (USE_FROM_PTR (use_p), bb);
+	}
     }
   
   /* Note that virtual definitions are irrelevant for computing KILLS
@@ -394,7 +406,6 @@ mark_def_sites (struct dom_walk_data *walk_data,
      variable.  However, the operand of a virtual definitions is a use
      of the variable, so it may cause the variable to be considered
      live-on-entry.  */
-
   FOR_EACH_SSA_MAYDEF_OPERAND (def_p, use_p, stmt, iter)
     {
       if (prepare_use_operand_for_rename (use_p, &uid))
@@ -406,22 +417,24 @@ mark_def_sites (struct dom_walk_data *walk_data,
 	    
           set_livein_block (USE_FROM_PTR (use_p), bb);
 	  set_def_block (DEF_FROM_PTR (def_p), bb, false, false);
+	  REWRITE_THIS_STMT (stmt) = 1;
 	}
     }
 
-  /* Now process the virtual must-defs made by this statement.  */
+  /* Now process the defs and must-defs made by this statement.  */
   FOR_EACH_SSA_TREE_OPERAND (def, stmt, iter, SSA_OP_DEF | SSA_OP_VMUSTDEF)
     {
       if (prepare_def_operand_for_rename (def, &uid))
 	{
 	  set_def_block (def, bb, false, false);
 	  SET_BIT (kills, uid);
+	  REWRITE_THIS_STMT (stmt) = 1;
 	}
     }
-
 }
 
-/* Ditto, but works over ssa names.  */
+
+/* Same as mark_def_sites, but works over SSA names.  */
 
 static void
 ssa_mark_def_sites (struct dom_walk_data *walk_data,
@@ -588,8 +601,8 @@ prepare_def_operand_for_rename (tree def, size_t *uid_p)
    WORK_STACK is the vector used to implement the worklist of basic
    blocks.  */
 
-static inline
-void insert_phi_nodes_1 (tree var, bitmap *dfs, VEC(basic_block) *work_stack)
+static inline void
+insert_phi_nodes_1 (tree var, bitmap *dfs, VEC(basic_block) **work_stack)
 {
   if (get_phi_state (var) != NEED_PHI_STATE_NO)
     insert_phi_nodes_for (var, dfs, work_stack);
@@ -614,7 +627,7 @@ insert_phi_nodes (bitmap *dfs, bitmap names_to_rename)
 
   /* Vector WORK_STACK is a stack of CFG blocks.  Each block that contains
      an assignment or PHI node will be pushed to this stack.  */
-  work_stack = VEC_alloc (basic_block, last_basic_block);
+  work_stack = VEC_alloc (basic_block, n_basic_blocks);
 
   /* Iterate over all variables in VARS_TO_RENAME.  For each variable, add
      to the work list all the blocks that have a definition for the
@@ -625,17 +638,17 @@ insert_phi_nodes (bitmap *dfs, bitmap names_to_rename)
       EXECUTE_IF_SET_IN_BITMAP (names_to_rename, 0, i, bi)
 	{
 	  if (ssa_name (i))
-	    insert_phi_nodes_1 (ssa_name (i), dfs, work_stack);
+	    insert_phi_nodes_1 (ssa_name (i), dfs, &work_stack);
 	}
     }
   else if (vars_to_rename)
     EXECUTE_IF_SET_IN_BITMAP (vars_to_rename, 0, i, bi)
       {
-	insert_phi_nodes_1 (referenced_var (i), dfs, work_stack);
+	insert_phi_nodes_1 (referenced_var (i), dfs, &work_stack);
       }
   else
     for (i = 0; i < num_referenced_vars; i++)
-      insert_phi_nodes_1 (referenced_var (i), dfs, work_stack);
+      insert_phi_nodes_1 (referenced_var (i), dfs, &work_stack);
 
   VEC_free (basic_block, work_stack);
 
@@ -762,11 +775,8 @@ ssa_rewrite_initialize_block (struct dom_walk_data *walk_data, basic_block bb)
 
 	  if (abnormal_phi)
 	    SSA_NAME_OCCURS_IN_ABNORMAL_PHI (new_name) = 1;
+	  ssa_register_new_def (result, new_name);
 	}
-      else
-	new_name = result;
-
-      ssa_register_new_def (result, new_name);
     }
 }
 
@@ -807,7 +817,7 @@ rewrite_add_phi_arguments (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
     phi nodes we want to add arguments for.  */
 
 static void
-rewrite_virtual_phi_arguments (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED, 
+rewrite_virtual_phi_arguments (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
 			       basic_block bb)
 {
   edge e;
@@ -999,7 +1009,7 @@ htab_statistics (FILE *file, htab_t htab)
    implement the worklist of basic blocks.  */
 
 static void
-insert_phi_nodes_for (tree var, bitmap *dfs, VEC(basic_block) *work_stack)
+insert_phi_nodes_for (tree var, bitmap *dfs, VEC(basic_block) **work_stack)
 {
   struct def_blocks_d *def_map;
   bitmap phi_insertion_points;
@@ -1017,7 +1027,7 @@ insert_phi_nodes_for (tree var, bitmap *dfs, VEC(basic_block) *work_stack)
 
   EXECUTE_IF_SET_IN_BITMAP (def_map->def_blocks, 0, bb_index, bi)
     {
-      VEC_quick_push (basic_block, work_stack, BASIC_BLOCK (bb_index));
+      VEC_safe_push (basic_block, *work_stack, BASIC_BLOCK (bb_index));
     }
 
   /* Pop a block off the worklist, add every block that appears in
@@ -1032,12 +1042,12 @@ insert_phi_nodes_for (tree var, bitmap *dfs, VEC(basic_block) *work_stack)
      determine if fully pruned or semi pruned SSA form was appropriate.
 
      We now always use fully pruned SSA form.  */
-  while (VEC_length (basic_block, work_stack) > 0)
+  while (VEC_length (basic_block, *work_stack) > 0)
     {
       unsigned dfs_index;
       bitmap_iterator bi;
 
-      bb = VEC_pop (basic_block, work_stack);
+      bb = VEC_pop (basic_block, *work_stack);
       bb_index = bb->index;
       
       EXECUTE_IF_AND_COMPL_IN_BITMAP (dfs[bb_index],
@@ -1046,7 +1056,10 @@ insert_phi_nodes_for (tree var, bitmap *dfs, VEC(basic_block) *work_stack)
 	{
 	  basic_block bb = BASIC_BLOCK (dfs_index);
 
-	  VEC_quick_push (basic_block, work_stack, bb);
+	  /* Use a safe push because if there is a definition of VAR
+	     in every basic block, then WORK_STACK may eventually have
+	     more than N_BASIC_BLOCK entries.  */
+	  VEC_safe_push (basic_block, *work_stack, bb);
 	  bitmap_set_bit (phi_insertion_points, dfs_index);
 	}
     }
@@ -1096,6 +1109,11 @@ rewrite_stmt (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
   stmt = bsi_stmt (si);
   ann = stmt_ann (stmt);
 
+  /* If mark_def_sites decided that we don't need to rewrite this
+     statement, ignore it.  */
+  if (!REWRITE_THIS_STMT (stmt))
+    return;
+
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
       fprintf (dump_file, "Renaming statement ");
@@ -1123,7 +1141,8 @@ rewrite_stmt (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
     }
 }
 
-/* Ditto, for rewriting ssa names.  */
+
+/* Same as rewrite_stmt, for rewriting ssa names.  */
 
 static void
 ssa_rewrite_stmt (struct dom_walk_data *walk_data,
@@ -1177,8 +1196,21 @@ ssa_rewrite_stmt (struct dom_walk_data *walk_data,
 static inline void
 rewrite_operand (use_operand_p op_p)
 {
-  if (TREE_CODE (USE_FROM_PTR (op_p)) != SSA_NAME)
-    SET_USE (op_p, get_reaching_def (USE_FROM_PTR (op_p)));
+  tree var = USE_FROM_PTR (op_p);
+  if (TREE_CODE (var) != SSA_NAME)
+    SET_USE (op_p, get_reaching_def (var));
+  else
+    {
+#if defined ENABLE_CHECKING
+      /* If we get to this point, VAR is an SSA_NAME.  If VAR's symbol
+	 was marked for renaming, make sure that its reaching
+	 definition is VAR itself.  Otherwise, something has gone
+	 wrong.  */
+      tree sym = SSA_NAME_VAR (var);
+      if (bitmap_bit_p (vars_to_rename, var_ann (sym)->uid))
+	gcc_assert (var == get_reaching_def (SSA_NAME_VAR (var)));
+#endif
+    }
 }
 
 /* Register DEF (an SSA_NAME) to be a new definition for its underlying
@@ -1506,8 +1538,9 @@ mark_def_site_blocks (void)
 
   /* We no longer need this bitmap, clear and free it.  */
   sbitmap_free (mark_def_sites_global_data.kills);
-
 }
+
+
 /* Main entry point into the SSA builder.  The renaming process
    proceeds in five main phases:
 
@@ -1618,7 +1651,6 @@ rewrite_ssa_into_ssa (void)
   struct mark_def_sites_global_data mark_def_sites_global_data;
   unsigned i;
   sbitmap snames_to_rename;
-  tree name;
   bitmap to_rename;
   bitmap_iterator bi;
   
@@ -1663,6 +1695,7 @@ rewrite_ssa_into_ssa (void)
   EXECUTE_IF_SET_IN_BITMAP (to_rename, 0, i, bi)
     {
       SET_BIT (snames_to_rename, i);
+      set_current_def (ssa_name (i), NULL_TREE);
     }
 
   mark_def_sites_global_data.kills = sbitmap_alloc (num_ssa_names);
@@ -1685,10 +1718,6 @@ rewrite_ssa_into_ssa (void)
 
   /* We no longer need this bitmap, clear and free it.  */
   sbitmap_free (mark_def_sites_global_data.kills);
-
-  for (i = 1; i < num_ssa_names; i++)
-    if (ssa_name (i))
-      set_current_def (ssa_name (i), NULL_TREE);
 
   /* Insert PHI nodes at dominance frontiers of definition blocks.  */
   insert_phi_nodes (dfs, to_rename);
@@ -1723,6 +1752,11 @@ rewrite_ssa_into_ssa (void)
 
   EXECUTE_IF_SET_IN_BITMAP (to_rename, 0, i, bi)
     {
+      /* Free SSA_NAME_AUX.  We don't have to zero it because
+	 release_ssa_name will.  */
+      if (SSA_NAME_AUX (ssa_name (i)))
+	free (SSA_NAME_AUX (ssa_name (i)));
+
       release_ssa_name (ssa_name (i));
     }
 
@@ -1744,15 +1778,16 @@ rewrite_ssa_into_ssa (void)
 
   htab_delete (def_blocks);
 
+#ifdef ENABLE_CHECKING
   for (i = 1; i < num_ssa_names; i++)
     {
-      name = ssa_name (i);
-      if (!name || !SSA_NAME_AUX (name))
+      tree name = ssa_name (i);
+      if (!name)
 	continue;
 
-      free (SSA_NAME_AUX (name));
-      SSA_NAME_AUX (name) = NULL;
+      gcc_assert (SSA_NAME_AUX (name) == NULL);
     }
+#endif
 
   BITMAP_XFREE (to_rename);
   

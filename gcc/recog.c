@@ -1,6 +1,6 @@
 /* Subroutines used by or related to instruction recognition.
    Copyright (C) 1987, 1988, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -2968,6 +2968,7 @@ peephole2_optimize (FILE *dump_file ATTRIBUTE_UNUSED)
   bool changed;
 #endif
   bool do_cleanup_cfg = false;
+  bool do_global_life_update = false;
   bool do_rebuild_jump_labels = false;
 
   /* Initialize the regsets we're going to use.  */
@@ -2986,6 +2987,8 @@ peephole2_optimize (FILE *dump_file ATTRIBUTE_UNUSED)
   FOR_EACH_BB_REVERSE (bb)
     {
       struct propagate_block_info *pbi;
+      reg_set_iterator rsi;
+      unsigned int j;
 
       /* Indicate that all slots except the last holds invalid data.  */
       for (i = 0; i < MAX_INSNS_PER_PEEP2; ++i)
@@ -3207,6 +3210,15 @@ peephole2_optimize (FILE *dump_file ATTRIBUTE_UNUSED)
 	    break;
 	}
 
+      /* Some peepholes can decide the don't need one or more of their
+	 inputs.  If this happens, local life update is not enough.  */
+      EXECUTE_IF_AND_COMPL_IN_BITMAP (bb->global_live_at_start, live,
+				      0, j, rsi)
+	{
+	  do_global_life_update = true;
+	  break;
+	}
+
       free_propagate_block_info (pbi);
     }
 
@@ -3223,8 +3235,10 @@ peephole2_optimize (FILE *dump_file ATTRIBUTE_UNUSED)
   if (do_cleanup_cfg)
     {
       cleanup_cfg (0);
-      update_life_info (0, UPDATE_LIFE_GLOBAL_RM_NOTES, PROP_DEATH_NOTES);
+      do_global_life_update = true;
     }
+  if (do_global_life_update)
+    update_life_info (0, UPDATE_LIFE_GLOBAL_RM_NOTES, PROP_DEATH_NOTES);
 #ifdef HAVE_conditional_execution
   else
     {

@@ -1,6 +1,6 @@
 /* Build expressions with type checking for C++ compiler.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -1020,7 +1020,7 @@ comptypes (tree t1, tree t2, int strict)
       
       /* We may be dealing with Objective-C instances...  */
       if (TREE_CODE (t1) == RECORD_TYPE
-	  && (retval = objc_comptypes (t1, t2, 0) >= 0))
+	  && ((retval = objc_comptypes (t1, t2, 0)) >= 0))
          return retval;
       /* ...but fall through if we are not.  */
 
@@ -1087,17 +1087,6 @@ at_least_as_qualified_p (tree type1, tree type2)
   
   /* All qualifiers for TYPE2 must also appear in TYPE1.  */
   return (q1 & q2) == q2;
-}
-
-/* Returns 1 if TYPE1 is more qualified than TYPE2.  */
-
-bool
-more_qualified_p (tree type1, tree type2)
-{
-  int q1 = cp_type_quals (type1);
-  int q2 = cp_type_quals (type2);
-
-  return q1 != q2 && (q1 & q2) == q2;
 }
 
 /* Returns 1 if TYPE1 is more cv-qualified than TYPE2, -1 if TYPE2 is
@@ -1343,13 +1332,6 @@ decay_conversion (tree exp)
   type = TREE_TYPE (exp);
   code = TREE_CODE (type);
 
-  if (code == REFERENCE_TYPE)
-    {
-      exp = convert_from_reference (exp);
-      type = TREE_TYPE (exp);
-      code = TREE_CODE (type);
-    }
-
   if (type == error_mark_node)
     return error_mark_node;
 
@@ -1358,20 +1340,9 @@ decay_conversion (tree exp)
       cxx_incomplete_type_error (exp, TREE_TYPE (exp));
       return error_mark_node;
     }
-  
-  /* Constants can be used directly unless they're not loadable.  */
-  if (TREE_CODE (exp) == CONST_DECL)
-    exp = DECL_INITIAL (exp);
-  /* Replace a nonvolatile const static variable with its value.  We
-     don't do this for arrays, though; we want the address of the
-     first element of the array, not the address of the first element
-     of its initializing constant.  */
-  else if (code != ARRAY_TYPE)
-    {
-      exp = decl_constant_value (exp);
-      type = TREE_TYPE (exp);
-    }
 
+  exp = integral_constant_value (exp);
+  
   /* build_c_cast puts on a NOP_EXPR to make the result not an lvalue.
      Leave such NOP_EXPRs, since RHS is being used in non-lvalue context.  */
 
@@ -1905,12 +1876,6 @@ finish_class_member_access_expr (tree object, tree name)
       object = build_non_dependent_expr (object);
     }
   
-  if (TREE_CODE (object_type) == REFERENCE_TYPE)
-    {
-      object = convert_from_reference (object);
-      object_type = TREE_TYPE (object);
-    }
-
   /* [expr.ref]
 
      The type of the first expression shall be "class object" (of a
@@ -2102,7 +2067,7 @@ build_indirect_ref (tree ptr, const char *errorstring)
 	     ? ptr : decay_conversion (ptr));
   type = TREE_TYPE (pointer);
 
-  if (TYPE_PTR_P (type) || TREE_CODE (type) == REFERENCE_TYPE)
+  if (POINTER_TYPE_P (type))
     {
       /* [expr.unary.op]
 	 
@@ -2223,7 +2188,7 @@ build_array_ref (tree array, tree idx)
 
       /* Apply integral promotions *after* noticing character types.
 	 (It is unclear why we do these promotions -- the standard
-	 does not say that we should.  In fact, the natual thing would
+	 does not say that we should.  In fact, the natural thing would
 	 seem to be to convert IDX to ptrdiff_t; we're performing
 	 pointer arithmetic.)  */
       idx = perform_integral_promotions (idx);
@@ -2627,9 +2592,6 @@ convert_arguments (tree typelist, tree values, tree fndecl, int flags)
 	}
       else
 	{
-	  if (TREE_CODE (TREE_TYPE (val)) == REFERENCE_TYPE)
-	    val = convert_from_reference (val);
-
 	  if (fndecl && DECL_BUILT_IN (fndecl)
 	      && DECL_FUNCTION_CODE (fndecl) == BUILT_IN_CONSTANT_P)
 	    /* Don't do ellipsis conversion for __built_in_constant_p
@@ -4180,11 +4142,18 @@ build_unary_op (enum tree_code code, tree xarg, int noconvert)
    for certain kinds of expressions which are not really lvalues
    but which we can accept as lvalues.
 
-   If ARG is not a kind of expression we can handle, return zero.  */
+   If ARG is not a kind of expression we can handle, return
+   NULL_TREE.  */
    
 tree
 unary_complex_lvalue (enum tree_code code, tree arg)
 {
+  /* Inside a template, making these kinds of adjustments is
+     pointless; we are only concerned with the type of the
+     expression.  */
+  if (processing_template_decl)
+    return NULL_TREE;
+
   /* Handle (a, b) used as an "lvalue".  */
   if (TREE_CODE (arg) == COMPOUND_EXPR)
     {
@@ -4466,7 +4435,6 @@ build_x_compound_expr (tree op1, tree op2)
 tree
 build_compound_expr (tree lhs, tree rhs)
 {
-  lhs = decl_constant_value (lhs);
   lhs = convert_to_void (lhs, "left-hand operand of comma");
   
   if (lhs == error_mark_node || rhs == error_mark_node)
@@ -4682,7 +4650,6 @@ build_static_cast_1 (tree type, tree expr, bool c_cast_p,
       || (INTEGRAL_OR_ENUMERATION_TYPE_P (type)
 	  && INTEGRAL_OR_ENUMERATION_TYPE_P (intype)))
     {
-      expr = decl_constant_value (expr);
       expr = ocp_convert (type, expr, CONV_C_CAST, LOOKUP_NORMAL);
 
       /* Ignore any integer overflow caused by the cast.  */
@@ -4783,7 +4750,7 @@ build_static_cast (tree type, tree expr)
       expr = build_min (STATIC_CAST_EXPR, type, expr);
       /* We don't know if it will or will not have side effects.  */
       TREE_SIDE_EFFECTS (expr) = 1;
-      return expr;
+      return convert_from_reference (expr);
     }
 
   /* build_c_cast puts on a NOP_EXPR to make the result not an lvalue.
@@ -4934,10 +4901,7 @@ build_reinterpret_cast_1 (tree type, tree expr, bool c_cast_p,
     ;
   else if ((TYPE_PTRFN_P (type) && TYPE_PTRFN_P (intype))
 	   || (TYPE_PTRMEMFUNC_P (type) && TYPE_PTRMEMFUNC_P (intype)))
-    {
-      expr = decl_constant_value (expr);
-      return fold_if_not_in_template (build_nop (type, expr));
-    }
+    return fold_if_not_in_template (build_nop (type, expr));
   else if ((TYPE_PTRMEM_P (type) && TYPE_PTRMEM_P (intype))
 	   || (TYPE_PTROBV_P (type) && TYPE_PTROBV_P (intype)))
     {
@@ -4954,7 +4918,7 @@ build_reinterpret_cast_1 (tree type, tree expr, bool c_cast_p,
 	warning ("cast from %qT to %qT increases required alignment of "
 		 "target type",
 		 intype, type);
-      expr = decl_constant_value (expr);
+      
       return fold_if_not_in_template (build_nop (type, expr));
     }
   else if ((TYPE_PTRFN_P (type) && TYPE_PTROBV_P (intype))
@@ -4966,12 +4930,12 @@ build_reinterpret_cast_1 (tree type, tree expr, bool c_cast_p,
  	   addresses this issue, but as of 2004/10/26 is still in
  	   drafting.  */
  	warning ("ISO C++ forbids casting between pointer-to-function and pointer-to-object");
-      
-      expr = decl_constant_value (expr);
       return fold_if_not_in_template (build_nop (type, expr));
     }
   else if (TREE_CODE (type) == VECTOR_TYPE)
     return fold_if_not_in_template (convert_to_vector (type, expr));
+  else if (TREE_CODE (intype) == VECTOR_TYPE)
+    return fold_if_not_in_template (convert_to_integer (type, expr));
   else
     {
       if (valid_p)
@@ -4997,7 +4961,7 @@ build_reinterpret_cast (tree type, tree expr)
 	  && type_dependent_expression_p (expr))
 	/* There might turn out to be side effects inside expr.  */
 	TREE_SIDE_EFFECTS (t) = 1;
-      return t;
+      return convert_from_reference (t);
     }
 
   return build_reinterpret_cast_1 (type, expr, /*c_cast_p=*/false,
@@ -5125,7 +5089,7 @@ build_const_cast (tree type, tree expr)
 	  && type_dependent_expression_p (expr))
 	/* There might turn out to be side effects inside expr.  */
 	TREE_SIDE_EFFECTS (t) = 1;
-      return t;
+      return convert_from_reference (t);
     }
 
   return build_const_cast_1 (type, expr, /*complain=*/true,
@@ -5151,7 +5115,7 @@ build_c_cast (tree type, tree expr)
 			  tree_cons (NULL_TREE, value, NULL_TREE));
       /* We don't know if it will or will not have side effects.  */
       TREE_SIDE_EFFECTS (t) = 1;
-      return t;
+      return convert_from_reference (t);
     }
 
   /* Casts to a (pointer to a) specific ObjC class (or 'id' or
@@ -5372,11 +5336,6 @@ build_modify_expr (tree lhs, enum tree_code modifycode, tree rhs)
     }
   else
     {
-      if (TREE_CODE (lhstype) == REFERENCE_TYPE)
-	{
-	  lhs = convert_from_reference (lhs);
-	  olhstype = lhstype = TREE_TYPE (lhs);
-	}
       lhs = require_complete_type (lhs);
       if (lhs == error_mark_node)
 	return error_mark_node;
@@ -5945,16 +5904,6 @@ convert_for_assignment (tree type, tree rhs,
   if (TREE_CODE (rhs) == CONST_DECL)
     rhs = DECL_INITIAL (rhs);
   
-  /* We do not use decl_constant_value here because of this case:
-
-       const char* const s = "s";
- 
-     The conversion rules for a string literal are more lax than for a
-     variable; in particular, a string literal can be converted to a
-     "char *" but the variable "s" cannot be converted in the same
-     way.  If the conversion is allowed, the optimization should be
-     performed while creating the converted expression.  */
-
   /* [expr.ass]
 
      The expression is implicitly converted (clause _conv_) to the
@@ -6024,9 +5973,6 @@ convert_for_initialization (tree exp, tree type, tree rhs, int flags,
   if (rhs == error_mark_node
       || (TREE_CODE (rhs) == TREE_LIST && TREE_VALUE (rhs) == error_mark_node))
     return error_mark_node;
-
-  if (TREE_CODE (TREE_TYPE (rhs)) == REFERENCE_TYPE)
-    rhs = convert_from_reference (rhs);
 
   if ((TREE_CODE (TREE_TYPE (rhs)) == ARRAY_TYPE
        && TREE_CODE (type) != ARRAY_TYPE

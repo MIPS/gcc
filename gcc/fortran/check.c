@@ -1,5 +1,5 @@
 /* Check functions
-   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Andy Vaught & Katherine Holcomb
 
 This file is part of GCC.
@@ -26,10 +26,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    has been sorted into the right order and has NULL arguments in the
    correct places for missing optional arguments.  */
 
-
-#include <stdlib.h>
-#include <stdarg.h>
-
 #include "config.h"
 #include "system.h"
 #include "flags.h"
@@ -43,7 +39,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 static void
 must_be (gfc_expr * e, int n, const char *thing)
 {
-
   gfc_error ("'%s' argument of '%s' intrinsic at %L must be %s",
 	     gfc_current_intrinsic_arg[n], gfc_current_intrinsic, &e->where,
 	     thing);
@@ -55,7 +50,6 @@ must_be (gfc_expr * e, int n, const char *thing)
 static try
 type_check (gfc_expr * e, int n, bt type)
 {
-
   if (e->ts.type == type)
     return SUCCESS;
 
@@ -70,7 +64,6 @@ type_check (gfc_expr * e, int n, bt type)
 static try
 numeric_check (gfc_expr * e, int n)
 {
-
   if (gfc_numeric_ts (&e->ts))
     return SUCCESS;
 
@@ -85,10 +78,24 @@ numeric_check (gfc_expr * e, int n)
 static try
 int_or_real_check (gfc_expr * e, int n)
 {
-
   if (e->ts.type != BT_INTEGER && e->ts.type != BT_REAL)
     {
       must_be (e, n, "INTEGER or REAL");
+      return FAILURE;
+    }
+
+  return SUCCESS;
+}
+
+
+/* Check that an expression is real or complex.  */
+
+static try
+real_or_complex_check (gfc_expr * e, int n)
+{
+  if (e->ts.type != BT_REAL && e->ts.type != BT_COMPLEX)
+    {
+      must_be (e, n, "REAL or COMPLEX");
       return FAILURE;
     }
 
@@ -151,7 +158,6 @@ double_check (gfc_expr * d, int n)
 static try
 logical_array_check (gfc_expr * array, int n)
 {
-
   if (array->ts.type != BT_LOGICAL || array->rank == 0)
     {
       must_be (array, n, "a logical array");
@@ -167,7 +173,6 @@ logical_array_check (gfc_expr * array, int n)
 static try
 array_check (gfc_expr * e, int n)
 {
-
   if (e->rank != 0)
     return SUCCESS;
 
@@ -182,7 +187,6 @@ array_check (gfc_expr * e, int n)
 static try
 scalar_check (gfc_expr * e, int n)
 {
-
   if (e->rank == 0)
     return SUCCESS;
 
@@ -234,7 +238,6 @@ rank_check (gfc_expr * e, int n, int rank)
 static try
 nonoptional_check (gfc_expr * e, int n)
 {
-
   if (e->expr_type == EXPR_VARIABLE && e->symtree->n.sym->attr.optional)
     {
       gfc_error ("'%s' argument of '%s' intrinsic at %L must not be OPTIONAL",
@@ -271,7 +274,6 @@ kind_value_check (gfc_expr * e, int n, int k)
 static try
 variable_check (gfc_expr * e, int n)
 {
-
   if ((e->expr_type == EXPR_VARIABLE
        && e->symtree->n.sym->attr.flavor != FL_PARAMETER)
       || (e->expr_type == EXPR_FUNCTION
@@ -298,7 +300,6 @@ variable_check (gfc_expr * e, int n)
 static try
 dim_check (gfc_expr * dim, int n, int optional)
 {
-
   if (optional)
     {
       if (dim == NULL)
@@ -367,7 +368,6 @@ dim_rank_check (gfc_expr * dim, gfc_expr * array, int allow_assumed)
 static try
 check_a_kind (gfc_expr * a, gfc_expr * kind, bt type)
 {
-
   if (type_check (a, 0, BT_REAL) == FAILURE)
     return FAILURE;
   if (kind_check (kind, 1, type) == FAILURE)
@@ -381,7 +381,6 @@ check_a_kind (gfc_expr * a, gfc_expr * kind, bt type)
 try
 gfc_check_a_ikind (gfc_expr * a, gfc_expr * kind)
 {
-
   return check_a_kind (a, kind, BT_INTEGER);
 }
 
@@ -390,14 +389,12 @@ gfc_check_a_ikind (gfc_expr * a, gfc_expr * kind)
 try
 gfc_check_a_xkind (gfc_expr * a, gfc_expr * kind)
 {
-
   return check_a_kind (a, kind, BT_REAL);
 }
 
 try
 gfc_check_abs (gfc_expr * a)
 {
-
   if (numeric_check (a, 0) == FAILURE)
     return FAILURE;
 
@@ -408,7 +405,6 @@ gfc_check_abs (gfc_expr * a)
 try
 gfc_check_all_any (gfc_expr * mask, gfc_expr * dim)
 {
-
   if (logical_array_check (mask, 0) == FAILURE)
     return FAILURE;
 
@@ -422,7 +418,6 @@ gfc_check_all_any (gfc_expr * mask, gfc_expr * dim)
 try
 gfc_check_allocated (gfc_expr * array)
 {
-
   if (variable_check (array, 0) == FAILURE)
     return FAILURE;
 
@@ -445,7 +440,6 @@ gfc_check_allocated (gfc_expr * array)
 try
 gfc_check_a_p (gfc_expr * a, gfc_expr * p)
 {
-
   if (int_or_real_check (a, 0) == FAILURE)
     return FAILURE;
 
@@ -524,13 +518,12 @@ gfc_check_atan2 (gfc_expr * y, gfc_expr * x)
   return SUCCESS;
 }
 
-  
+
 /* BESJN and BESYN functions.  */
 
 try
 gfc_check_besn (gfc_expr * n, gfc_expr * x)
 {
-
   if (scalar_check (n, 0) == FAILURE)
     return FAILURE;
 
@@ -550,7 +543,6 @@ gfc_check_besn (gfc_expr * n, gfc_expr * x)
 try
 gfc_check_btest (gfc_expr * i, gfc_expr * pos)
 {
-
   if (type_check (i, 0, BT_INTEGER) == FAILURE)
     return FAILURE;
   if (type_check (pos, 1, BT_INTEGER) == FAILURE)
@@ -563,7 +555,6 @@ gfc_check_btest (gfc_expr * i, gfc_expr * pos)
 try
 gfc_check_char (gfc_expr * i, gfc_expr * kind)
 {
-
   if (type_check (i, 0, BT_INTEGER) == FAILURE)
     return FAILURE;
   if (kind_check (kind, 1, BT_CHARACTER) == FAILURE)
@@ -576,7 +567,6 @@ gfc_check_char (gfc_expr * i, gfc_expr * kind)
 try
 gfc_check_cmplx (gfc_expr * x, gfc_expr * y, gfc_expr * kind)
 {
-
   if (numeric_check (x, 0) == FAILURE)
     return FAILURE;
 
@@ -602,7 +592,6 @@ gfc_check_cmplx (gfc_expr * x, gfc_expr * y, gfc_expr * kind)
 try
 gfc_check_count (gfc_expr * mask, gfc_expr * dim)
 {
-
   if (logical_array_check (mask, 0) == FAILURE)
     return FAILURE;
   if (dim_check (dim, 1, 1) == FAILURE)
@@ -615,7 +604,6 @@ gfc_check_count (gfc_expr * mask, gfc_expr * dim)
 try
 gfc_check_cshift (gfc_expr * array, gfc_expr * shift, gfc_expr * dim)
 {
-
   if (array_check (array, 0) == FAILURE)
     return FAILURE;
 
@@ -639,7 +627,6 @@ gfc_check_cshift (gfc_expr * array, gfc_expr * shift, gfc_expr * dim)
 try
 gfc_check_dcmplx (gfc_expr * x, gfc_expr * y)
 {
-
   if (numeric_check (x, 0) == FAILURE)
     return FAILURE;
 
@@ -662,7 +649,6 @@ gfc_check_dcmplx (gfc_expr * x, gfc_expr * y)
 try
 gfc_check_dble (gfc_expr * x)
 {
-
   if (numeric_check (x, 0) == FAILURE)
     return FAILURE;
 
@@ -673,7 +659,6 @@ gfc_check_dble (gfc_expr * x)
 try
 gfc_check_digits (gfc_expr * x)
 {
-
   if (int_or_real_check (x, 0) == FAILURE)
     return FAILURE;
 
@@ -684,7 +669,6 @@ gfc_check_digits (gfc_expr * x)
 try
 gfc_check_dot_product (gfc_expr * vector_a, gfc_expr * vector_b)
 {
-
   switch (vector_a->ts.type)
     {
     case BT_LOGICAL:
@@ -718,7 +702,6 @@ try
 gfc_check_eoshift (gfc_expr * array, gfc_expr * shift, gfc_expr * boundary,
 		   gfc_expr * dim)
 {
-
   if (array_check (array, 0) == FAILURE)
     return FAILURE;
 
@@ -750,13 +733,61 @@ gfc_check_eoshift (gfc_expr * array, gfc_expr * shift, gfc_expr * boundary,
 }
 
 
+/* A single complex argument.  */
+
+try
+gfc_check_fn_c (gfc_expr * a)
+{
+  if (type_check (a, 0, BT_COMPLEX) == FAILURE)
+    return FAILURE;
+
+  return SUCCESS;
+}
+
+
+/* A single real argument.  */
+
+try
+gfc_check_fn_r (gfc_expr * a)
+{
+  if (type_check (a, 0, BT_REAL) == FAILURE)
+    return FAILURE;
+
+  return SUCCESS;
+}
+
+
+/* A single real or complex argument.  */
+
+try
+gfc_check_fn_rc (gfc_expr * a)
+{
+  if (real_or_complex_check (a, 0) == FAILURE)
+    return FAILURE;
+
+  return SUCCESS;
+}
+
+
+try
+gfc_check_fnum (gfc_expr * unit)
+{
+  if (type_check (unit, 0, BT_INTEGER) == FAILURE)
+    return FAILURE;
+
+  if (scalar_check (unit, 0) == FAILURE)
+    return FAILURE;
+
+  return SUCCESS;
+}
+
+
 /* This is used for the g77 one-argument Bessel functions, and the
    error function.  */
 
 try
 gfc_check_g77_math1 (gfc_expr * x)
 {
-
   if (scalar_check (x, 0) == FAILURE)
     return FAILURE;
 
@@ -770,7 +801,6 @@ gfc_check_g77_math1 (gfc_expr * x)
 try
 gfc_check_huge (gfc_expr * x)
 {
-
   if (int_or_real_check (x, 0) == FAILURE)
     return FAILURE;
 
@@ -783,7 +813,6 @@ gfc_check_huge (gfc_expr * x)
 try
 gfc_check_i (gfc_expr * i)
 {
-
   if (type_check (i, 0, BT_INTEGER) == FAILURE)
     return FAILURE;
 
@@ -794,13 +823,18 @@ gfc_check_i (gfc_expr * i)
 try
 gfc_check_iand (gfc_expr * i, gfc_expr * j)
 {
-
-  if (type_check (i, 0, BT_INTEGER) == FAILURE
-      || type_check (j, 1, BT_INTEGER) == FAILURE)
+  if (type_check (i, 0, BT_INTEGER) == FAILURE)
     return FAILURE;
 
-  if (same_type_check (i, 0, j, 1) == FAILURE)
+  if (type_check (j, 1, BT_INTEGER) == FAILURE)
     return FAILURE;
+
+  if (i->ts.kind != j->ts.kind)
+    {
+      if (gfc_notify_std (GFC_STD_GNU, "Extension: Different type kinds at %L",
+                          &i->where) == FAILURE)
+	return FAILURE;
+    }
 
   return SUCCESS;
 }
@@ -809,10 +843,10 @@ gfc_check_iand (gfc_expr * i, gfc_expr * j)
 try
 gfc_check_ibclr (gfc_expr * i, gfc_expr * pos)
 {
+  if (type_check (i, 0, BT_INTEGER) == FAILURE)
+    return FAILURE;
 
-  if (type_check (i, 0, BT_INTEGER) == FAILURE
-      || type_check (pos, 1, BT_INTEGER) == FAILURE
-      || kind_value_check (pos, 1, gfc_default_integer_kind) == FAILURE)
+  if (type_check (pos, 1, BT_INTEGER) == FAILURE)
     return FAILURE;
 
   return SUCCESS;
@@ -822,11 +856,13 @@ gfc_check_ibclr (gfc_expr * i, gfc_expr * pos)
 try
 gfc_check_ibits (gfc_expr * i, gfc_expr * pos, gfc_expr * len)
 {
+  if (type_check (i, 0, BT_INTEGER) == FAILURE)
+    return FAILURE;
 
-  if (type_check (i, 0, BT_INTEGER) == FAILURE
-      || type_check (pos, 1, BT_INTEGER) == FAILURE
-      || kind_value_check (pos, 1, gfc_default_integer_kind) == FAILURE
-      || type_check (len, 2, BT_INTEGER) == FAILURE)
+  if (type_check (pos, 1, BT_INTEGER) == FAILURE)
+    return FAILURE;
+
+  if (type_check (len, 2, BT_INTEGER) == FAILURE)
     return FAILURE;
 
   return SUCCESS;
@@ -836,10 +872,10 @@ gfc_check_ibits (gfc_expr * i, gfc_expr * pos, gfc_expr * len)
 try
 gfc_check_ibset (gfc_expr * i, gfc_expr * pos)
 {
+  if (type_check (i, 0, BT_INTEGER) == FAILURE)
+    return FAILURE;
 
-  if (type_check (i, 0, BT_INTEGER) == FAILURE
-      || type_check (pos, 1, BT_INTEGER) == FAILURE
-      || kind_value_check (pos, 1, gfc_default_integer_kind) == FAILURE)
+  if (type_check (pos, 1, BT_INTEGER) == FAILURE)
     return FAILURE;
 
   return SUCCESS;
@@ -849,7 +885,6 @@ gfc_check_ibset (gfc_expr * i, gfc_expr * pos)
 try
 gfc_check_idnint (gfc_expr * a)
 {
-
   if (double_check (a, 0) == FAILURE)
     return FAILURE;
 
@@ -860,13 +895,18 @@ gfc_check_idnint (gfc_expr * a)
 try
 gfc_check_ieor (gfc_expr * i, gfc_expr * j)
 {
-
-  if (type_check (i, 0, BT_INTEGER) == FAILURE
-      || type_check (j, 1, BT_INTEGER) == FAILURE)
+  if (type_check (i, 0, BT_INTEGER) == FAILURE)
     return FAILURE;
 
-  if (same_type_check (i, 0, j, 1) == FAILURE)
+  if (type_check (j, 1, BT_INTEGER) == FAILURE)
     return FAILURE;
+
+  if (i->ts.kind != j->ts.kind)
+    {
+      if (gfc_notify_std (GFC_STD_GNU, "Extension: Different type kinds at %L",
+                          &i->where) == FAILURE)
+	return FAILURE;
+    }
 
   return SUCCESS;
 }
@@ -875,7 +915,6 @@ gfc_check_ieor (gfc_expr * i, gfc_expr * j)
 try
 gfc_check_index (gfc_expr * string, gfc_expr * substring, gfc_expr * back)
 {
-
   if (type_check (string, 0, BT_CHARACTER) == FAILURE
       || type_check (substring, 1, BT_CHARACTER) == FAILURE)
     return FAILURE;
@@ -897,7 +936,6 @@ gfc_check_index (gfc_expr * string, gfc_expr * substring, gfc_expr * back)
 try
 gfc_check_int (gfc_expr * x, gfc_expr * kind)
 {
-
   if (numeric_check (x, 0) == FAILURE
       || kind_check (kind, 1, BT_INTEGER) == FAILURE)
     return FAILURE;
@@ -909,13 +947,18 @@ gfc_check_int (gfc_expr * x, gfc_expr * kind)
 try
 gfc_check_ior (gfc_expr * i, gfc_expr * j)
 {
-
-  if (type_check (i, 0, BT_INTEGER) == FAILURE
-      || type_check (j, 1, BT_INTEGER) == FAILURE)
+  if (type_check (i, 0, BT_INTEGER) == FAILURE)
     return FAILURE;
 
-  if (same_type_check (i, 0, j, 1) == FAILURE)
+  if (type_check (j, 1, BT_INTEGER) == FAILURE)
     return FAILURE;
+
+  if (i->ts.kind != j->ts.kind)
+    {
+      if (gfc_notify_std (GFC_STD_GNU, "Extension: Different type kinds at %L",
+                          &i->where) == FAILURE)
+    return FAILURE;
+    }
 
   return SUCCESS;
 }
@@ -924,7 +967,6 @@ gfc_check_ior (gfc_expr * i, gfc_expr * j)
 try
 gfc_check_ishft (gfc_expr * i, gfc_expr * shift)
 {
-
   if (type_check (i, 0, BT_INTEGER) == FAILURE
       || type_check (shift, 1, BT_INTEGER) == FAILURE)
     return FAILURE;
@@ -936,7 +978,6 @@ gfc_check_ishft (gfc_expr * i, gfc_expr * shift)
 try
 gfc_check_ishftc (gfc_expr * i, gfc_expr * shift, gfc_expr * size)
 {
-
   if (type_check (i, 0, BT_INTEGER) == FAILURE
       || type_check (shift, 1, BT_INTEGER) == FAILURE)
     return FAILURE;
@@ -951,7 +992,6 @@ gfc_check_ishftc (gfc_expr * i, gfc_expr * shift, gfc_expr * size)
 try
 gfc_check_kind (gfc_expr * x)
 {
-
   if (x->ts.type == BT_DERIVED)
     {
       must_be (x, 0, "a non-derived type");
@@ -965,7 +1005,6 @@ gfc_check_kind (gfc_expr * x)
 try
 gfc_check_lbound (gfc_expr * array, gfc_expr * dim)
 {
-
   if (array_check (array, 0) == FAILURE)
     return FAILURE;
 
@@ -984,7 +1023,6 @@ gfc_check_lbound (gfc_expr * array, gfc_expr * dim)
 try
 gfc_check_logical (gfc_expr * a, gfc_expr * kind)
 {
-
   if (type_check (a, 0, BT_LOGICAL) == FAILURE)
     return FAILURE;
   if (kind_check (kind, 1, BT_LOGICAL) == FAILURE)
@@ -999,7 +1037,6 @@ gfc_check_logical (gfc_expr * a, gfc_expr * kind)
 static try
 min_max_args (gfc_actual_arglist * arg)
 {
-
   if (arg == NULL || arg->next == NULL)
     {
       gfc_error ("Intrinsic '%s' at %L must have at least two arguments",
@@ -1073,7 +1110,6 @@ gfc_check_min_max (gfc_actual_arglist * arg)
 try
 gfc_check_min_max_integer (gfc_actual_arglist * arg)
 {
-
   return check_rest (BT_INTEGER, gfc_default_integer_kind, arg);
 }
 
@@ -1081,7 +1117,6 @@ gfc_check_min_max_integer (gfc_actual_arglist * arg)
 try
 gfc_check_min_max_real (gfc_actual_arglist * arg)
 {
-
   return check_rest (BT_REAL, gfc_default_real_kind, arg);
 }
 
@@ -1089,7 +1124,6 @@ gfc_check_min_max_real (gfc_actual_arglist * arg)
 try
 gfc_check_min_max_double (gfc_actual_arglist * arg)
 {
-
   return check_rest (BT_REAL, gfc_default_double_kind, arg);
 }
 
@@ -1099,7 +1133,6 @@ gfc_check_min_max_double (gfc_actual_arglist * arg)
 try
 gfc_check_matmul (gfc_expr * matrix_a, gfc_expr * matrix_b)
 {
-
   if ((matrix_a->ts.type != BT_LOGICAL) && !gfc_numeric_ts (&matrix_b->ts))
     {
       must_be (matrix_a, 0, "numeric or LOGICAL");
@@ -1232,11 +1265,10 @@ check_reduction (gfc_actual_arglist * ap)
 try
 gfc_check_minval_maxval (gfc_actual_arglist * ap)
 {
-  
   if (int_or_real_check (ap->expr, 0) == FAILURE
       || array_check (ap->expr, 0) == FAILURE)
     return FAILURE;
-  
+
   return check_reduction (ap);
 }
 
@@ -1244,11 +1276,10 @@ gfc_check_minval_maxval (gfc_actual_arglist * ap)
 try
 gfc_check_product_sum (gfc_actual_arglist * ap)
 {
-  
   if (numeric_check (ap->expr, 0) == FAILURE
       || array_check (ap->expr, 0) == FAILURE)
     return FAILURE;
-  
+
   return check_reduction (ap);
 }
 
@@ -1256,7 +1287,6 @@ gfc_check_product_sum (gfc_actual_arglist * ap)
 try
 gfc_check_merge (gfc_expr * tsource, gfc_expr * fsource, gfc_expr * mask)
 {
-
   if (same_type_check (tsource, 0, fsource, 1) == FAILURE)
     return FAILURE;
 
@@ -1270,7 +1300,6 @@ gfc_check_merge (gfc_expr * tsource, gfc_expr * fsource, gfc_expr * mask)
 try
 gfc_check_nearest (gfc_expr * x, gfc_expr * s)
 {
-
   if (type_check (x, 0, BT_REAL) == FAILURE)
     return FAILURE;
 
@@ -1307,7 +1336,6 @@ gfc_check_null (gfc_expr * mold)
 try
 gfc_check_pack (gfc_expr * array, gfc_expr * mask, gfc_expr * vector)
 {
-
   if (array_check (array, 0) == FAILURE)
     return FAILURE;
 
@@ -1338,7 +1366,6 @@ gfc_check_pack (gfc_expr * array, gfc_expr * mask, gfc_expr * vector)
 try
 gfc_check_precision (gfc_expr * x)
 {
-
   if (x->ts.type != BT_REAL && x->ts.type != BT_COMPLEX)
     {
       must_be (x, 0, "of type REAL or COMPLEX");
@@ -1377,7 +1404,6 @@ gfc_check_present (gfc_expr * a)
 try
 gfc_check_radix (gfc_expr * x)
 {
-
   if (int_or_real_check (x, 0) == FAILURE)
     return FAILURE;
 
@@ -1388,7 +1414,6 @@ gfc_check_radix (gfc_expr * x)
 try
 gfc_check_range (gfc_expr * x)
 {
-
   if (numeric_check (x, 0) == FAILURE)
     return FAILURE;
 
@@ -1400,7 +1425,6 @@ gfc_check_range (gfc_expr * x)
 try
 gfc_check_real (gfc_expr * a, gfc_expr * kind)
 {
-
   if (numeric_check (a, 0) == FAILURE)
     return FAILURE;
 
@@ -1414,7 +1438,6 @@ gfc_check_real (gfc_expr * a, gfc_expr * kind)
 try
 gfc_check_repeat (gfc_expr * x, gfc_expr * y)
 {
-
   if (type_check (x, 0, BT_CHARACTER) == FAILURE)
     return FAILURE;
 
@@ -1483,7 +1506,6 @@ gfc_check_reshape (gfc_expr * source, gfc_expr * shape,
 try
 gfc_check_scale (gfc_expr * x, gfc_expr * i)
 {
-
   if (type_check (x, 0, BT_REAL) == FAILURE)
     return FAILURE;
 
@@ -1497,7 +1519,6 @@ gfc_check_scale (gfc_expr * x, gfc_expr * i)
 try
 gfc_check_scan (gfc_expr * x, gfc_expr * y, gfc_expr * z)
 {
-
   if (type_check (x, 0, BT_CHARACTER) == FAILURE)
     return FAILURE;
 
@@ -1517,7 +1538,6 @@ gfc_check_scan (gfc_expr * x, gfc_expr * y, gfc_expr * z)
 try
 gfc_check_selected_real_kind (gfc_expr * p, gfc_expr * r)
 {
-
   if (p == NULL && r == NULL)
     {
       gfc_error ("Missing arguments to %s intrinsic at %L",
@@ -1539,7 +1559,6 @@ gfc_check_selected_real_kind (gfc_expr * p, gfc_expr * r)
 try
 gfc_check_set_exponent (gfc_expr * x, gfc_expr * i)
 {
-
   if (type_check (x, 0, BT_REAL) == FAILURE)
     return FAILURE;
 
@@ -1572,9 +1591,21 @@ gfc_check_shape (gfc_expr * source)
 
 
 try
+gfc_check_sign (gfc_expr * a, gfc_expr * b)
+{
+  if (int_or_real_check (a, 0) == FAILURE)
+    return FAILURE;
+
+  if (same_type_check (a, 0, b, 1) == FAILURE)
+    return FAILURE;
+
+  return SUCCESS;
+}
+
+
+try
 gfc_check_size (gfc_expr * array, gfc_expr * dim)
 {
-
   if (array_check (array, 0) == FAILURE)
     return FAILURE;
 
@@ -1595,23 +1626,8 @@ gfc_check_size (gfc_expr * array, gfc_expr * dim)
 
 
 try
-gfc_check_sign (gfc_expr * a, gfc_expr * b)
-{
-
-  if (int_or_real_check (a, 0) == FAILURE)
-    return FAILURE;
-
-  if (same_type_check (a, 0, b, 1) == FAILURE)
-    return FAILURE;
-
-  return SUCCESS;
-}
-
-
-try
 gfc_check_spread (gfc_expr * source, gfc_expr * dim, gfc_expr * ncopies)
 {
-
   if (source->rank >= GFC_MAX_DIMENSIONS)
     {
       must_be (source, 0, "less than rank " stringize (GFC_MAX_DIMENSIONS));
@@ -1623,7 +1639,102 @@ gfc_check_spread (gfc_expr * source, gfc_expr * dim, gfc_expr * ncopies)
 
   if (type_check (ncopies, 2, BT_INTEGER) == FAILURE)
     return FAILURE;
+
   if (scalar_check (ncopies, 2) == FAILURE)
+    return FAILURE;
+
+  return SUCCESS;
+}
+
+
+try
+gfc_check_fstat (gfc_expr * unit, gfc_expr * array)
+{
+  if (type_check (unit, 0, BT_INTEGER) == FAILURE)
+    return FAILURE;
+
+  if (scalar_check (unit, 0) == FAILURE)
+    return FAILURE;
+
+  if (type_check (array, 1, BT_INTEGER) == FAILURE
+      || kind_value_check (unit, 0, gfc_default_integer_kind) == FAILURE)
+    return FAILURE;
+
+  if (array_check (array, 1) == FAILURE)
+    return FAILURE;
+
+  return SUCCESS;
+}
+
+
+try
+gfc_check_fstat_sub (gfc_expr * unit, gfc_expr * array, gfc_expr * status)
+{
+  if (type_check (unit, 0, BT_INTEGER) == FAILURE)
+    return FAILURE;
+
+  if (scalar_check (unit, 0) == FAILURE)
+    return FAILURE;
+
+  if (type_check (array, 1, BT_INTEGER) == FAILURE
+      || kind_value_check (array, 1, gfc_default_integer_kind) == FAILURE)
+    return FAILURE;
+
+  if (array_check (array, 1) == FAILURE)
+    return FAILURE;
+
+  if (status == NULL)
+    return SUCCESS;
+
+  if (type_check (status, 2, BT_INTEGER) == FAILURE
+      || kind_value_check (status, 2, gfc_default_integer_kind) == FAILURE)
+    return FAILURE;
+
+  if (scalar_check (status, 2) == FAILURE)
+    return FAILURE;
+
+  return SUCCESS;
+}
+
+
+try
+gfc_check_stat (gfc_expr * name, gfc_expr * array)
+{
+  if (type_check (name, 0, BT_CHARACTER) == FAILURE)
+    return FAILURE;
+
+  if (type_check (array, 1, BT_INTEGER) == FAILURE
+      || kind_value_check (array, 1, gfc_default_integer_kind) == FAILURE)
+    return FAILURE;
+
+  if (array_check (array, 1) == FAILURE)
+    return FAILURE;
+
+  return SUCCESS;
+}
+
+
+try
+gfc_check_stat_sub (gfc_expr * name, gfc_expr * array, gfc_expr * status)
+{
+  if (type_check (name, 0, BT_CHARACTER) == FAILURE)
+    return FAILURE;
+
+  if (type_check (array, 1, BT_INTEGER) == FAILURE
+      || kind_value_check (array, 1, gfc_default_integer_kind) == FAILURE)
+    return FAILURE;
+
+  if (array_check (array, 1) == FAILURE)
+    return FAILURE;
+
+  if (status == NULL)
+    return SUCCESS;
+
+  if (type_check (status, 2, BT_INTEGER) == FAILURE
+      || kind_value_check (array, 1, gfc_default_integer_kind) == FAILURE)
+    return FAILURE;
+
+  if (scalar_check (status, 2) == FAILURE)
     return FAILURE;
 
   return SUCCESS;
@@ -1635,7 +1746,6 @@ gfc_check_transfer (gfc_expr * source ATTRIBUTE_UNUSED,
 		    gfc_expr * mold ATTRIBUTE_UNUSED,
 		    gfc_expr * size)
 {
-
   if (size != NULL)
     {
       if (type_check (size, 2, BT_INTEGER) == FAILURE)
@@ -1655,7 +1765,6 @@ gfc_check_transfer (gfc_expr * source ATTRIBUTE_UNUSED,
 try
 gfc_check_transpose (gfc_expr * matrix)
 {
-
   if (rank_check (matrix, 0, 2) == FAILURE)
     return FAILURE;
 
@@ -1666,7 +1775,6 @@ gfc_check_transpose (gfc_expr * matrix)
 try
 gfc_check_ubound (gfc_expr * array, gfc_expr * dim)
 {
-
   if (array_check (array, 0) == FAILURE)
     return FAILURE;
 
@@ -1678,6 +1786,7 @@ gfc_check_ubound (gfc_expr * array, gfc_expr * dim)
       if (dim_rank_check (dim, array, 0) == FAILURE)
 	return FAILURE;
     }
+
   return SUCCESS;
 }
 
@@ -1685,7 +1794,6 @@ gfc_check_ubound (gfc_expr * array, gfc_expr * dim)
 try
 gfc_check_unpack (gfc_expr * vector, gfc_expr * mask, gfc_expr * field)
 {
-
   if (rank_check (vector, 0, 1) == FAILURE)
     return FAILURE;
 
@@ -1705,7 +1813,6 @@ gfc_check_unpack (gfc_expr * vector, gfc_expr * mask, gfc_expr * field)
 try
 gfc_check_verify (gfc_expr * x, gfc_expr * y, gfc_expr * z)
 {
-
   if (type_check (x, 0, BT_CHARACTER) == FAILURE)
     return FAILURE;
 
@@ -1738,7 +1845,6 @@ gfc_check_trim (gfc_expr * x)
 try
 gfc_check_x (gfc_expr * x)
 {
-
   if (type_check (x, 0, BT_REAL) == FAILURE)
     return FAILURE;
 
@@ -1751,7 +1857,6 @@ gfc_check_x (gfc_expr * x)
 try
 gfc_check_cpu_time (gfc_expr * time)
 {
-
   if (scalar_check (time, 0) == FAILURE)
     return FAILURE;
 
@@ -1769,7 +1874,6 @@ try
 gfc_check_date_and_time (gfc_expr * date, gfc_expr * time,
 			 gfc_expr * zone, gfc_expr * values)
 {
-
   if (date != NULL)
     {
       if (type_check (date, 0, BT_CHARACTER) == FAILURE)
@@ -1820,7 +1924,6 @@ try
 gfc_check_mvbits (gfc_expr * from, gfc_expr * frompos, gfc_expr * len,
 		  gfc_expr * to, gfc_expr * topos)
 {
-
   if (type_check (from, 0, BT_INTEGER) == FAILURE)
     return FAILURE;
 
@@ -1846,7 +1949,6 @@ gfc_check_mvbits (gfc_expr * from, gfc_expr * frompos, gfc_expr * len,
 try
 gfc_check_random_number (gfc_expr * harvest)
 {
-
   if (type_check (harvest, 0, BT_REAL) == FAILURE)
     return FAILURE;
 
@@ -1860,7 +1962,6 @@ gfc_check_random_number (gfc_expr * harvest)
 try
 gfc_check_random_seed (gfc_expr * size, gfc_expr * put, gfc_expr * get)
 {
-
   if (size != NULL)
     {
       if (scalar_check (size, 0) == FAILURE)
@@ -1925,7 +2026,6 @@ gfc_check_random_seed (gfc_expr * size, gfc_expr * put, gfc_expr * get)
 try
 gfc_check_second_sub (gfc_expr * time)
 {
-
   if (scalar_check (time, 0) == FAILURE)
     return FAILURE;
 
@@ -1946,7 +2046,6 @@ try
 gfc_check_system_clock (gfc_expr * count, gfc_expr * count_rate,
                         gfc_expr * count_max)
 {
-
   if (count != NULL)
     {
       if (scalar_check (count, 0) == FAILURE)
@@ -1970,7 +2069,8 @@ gfc_check_system_clock (gfc_expr * count, gfc_expr * count_rate,
       if (variable_check (count_rate, 1) == FAILURE)
         return FAILURE;
 
-      if (count != NULL && same_type_check(count, 0, count_rate, 1) == FAILURE)
+      if (count != NULL
+	  && same_type_check (count, 0, count_rate, 1) == FAILURE)
         return FAILURE;
 
     }
@@ -1986,16 +2086,16 @@ gfc_check_system_clock (gfc_expr * count, gfc_expr * count_rate,
       if (variable_check (count_max, 2) == FAILURE)
         return FAILURE;
 
-      if (count != NULL && same_type_check(count, 0, count_max, 2) == FAILURE)
+      if (count != NULL
+	  && same_type_check (count, 0, count_max, 2) == FAILURE)
         return FAILURE;
 
       if (count_rate != NULL
-          && same_type_check(count_rate, 1, count_max, 2) == FAILURE)
+          && same_type_check (count_rate, 1, count_max, 2) == FAILURE)
         return FAILURE;
+    }
 
-   }
-
-    return SUCCESS;
+  return SUCCESS;
 }
 
 try
@@ -2104,7 +2204,6 @@ gfc_check_etime_sub (gfc_expr * values, gfc_expr * time)
 try
 gfc_check_getcwd_sub (gfc_expr * cwd, gfc_expr * status)
 {
-
   if (type_check (cwd, 0, BT_CHARACTER) == FAILURE)
     return FAILURE;
 
@@ -2124,9 +2223,8 @@ gfc_check_getcwd_sub (gfc_expr * cwd, gfc_expr * status)
 try
 gfc_check_exit (gfc_expr * status)
 {
-  
   if (status == NULL)
-  return SUCCESS;
+    return SUCCESS;
 
   if (type_check (status, 0, BT_INTEGER) == FAILURE)
     return FAILURE;
@@ -2139,9 +2237,24 @@ gfc_check_exit (gfc_expr * status)
 
 
 try
+gfc_check_flush (gfc_expr * unit)
+{
+  if (unit == NULL)
+    return SUCCESS;
+
+  if (type_check (unit, 0, BT_INTEGER) == FAILURE)
+    return FAILURE;
+
+  if (scalar_check (unit, 0) == FAILURE)
+    return FAILURE;
+
+  return SUCCESS;
+}
+
+
+try
 gfc_check_umask (gfc_expr * mask)
 {
-
   if (type_check (mask, 0, BT_INTEGER) == FAILURE)
     return FAILURE;
 
@@ -2155,7 +2268,6 @@ gfc_check_umask (gfc_expr * mask)
 try
 gfc_check_umask_sub (gfc_expr * mask, gfc_expr * old)
 {
-
   if (type_check (mask, 0, BT_INTEGER) == FAILURE)
     return FAILURE;
 
@@ -2178,7 +2290,6 @@ gfc_check_umask_sub (gfc_expr * mask, gfc_expr * old)
 try
 gfc_check_unlink (gfc_expr * name)
 {
-
   if (type_check (name, 0, BT_CHARACTER) == FAILURE)
     return FAILURE;
 
@@ -2189,7 +2300,6 @@ gfc_check_unlink (gfc_expr * name)
 try
 gfc_check_unlink_sub (gfc_expr * name, gfc_expr * status)
 {
-
   if (type_check (name, 0, BT_CHARACTER) == FAILURE)
     return FAILURE;
 

@@ -1,5 +1,5 @@
 /* Alias analysis for trees.
-   Copyright (C) 2004 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
 This file is part of GCC.
@@ -195,7 +195,8 @@ tree global_var;
    The concept of 'escaping' is the same one used in the Java world.  When
    a pointer or an ADDR_EXPR escapes, it means that it has been exposed
    outside of the current function.  So, assignment to global variables,
-   function arguments and returning a pointer are all escape sites.
+   function arguments and returning a pointer are all escape sites, as are
+   conversions between pointers and integers.
 
    This is where we are currently limited.  Since not everything is renamed
    into SSA, we lose track of escape properties when a pointer is stashed
@@ -353,7 +354,8 @@ struct tree_opt_pass pass_may_alias =
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
   TODO_dump_func | TODO_rename_vars
-    | TODO_ggc_collect | TODO_verify_ssa,  /* todo_flags_finish */
+    | TODO_ggc_collect | TODO_verify_ssa
+    | TODO_verify_stmts, 		/* todo_flags_finish */
   0					/* letter */
 };
 
@@ -436,19 +438,19 @@ init_alias_info (void)
   if (aliases_computed_p)
     {
       unsigned i;
-      bitmap_iterator bi;
-
-      /* Clear the call-clobbered set.  We are going to re-discover
-	  call-clobbered variables.  */
-      EXECUTE_IF_SET_IN_BITMAP (call_clobbered_vars, 0, i, bi)
+      basic_block bb;
+  
+     /* Make sure that every statement has a valid set of operands.
+	If a statement needs to be scanned for operands while we
+	compute aliases, it may get erroneous operands because all
+	the alias relations are not built at that point.
+	FIXME: This code will become obsolete when operands are not
+	lazily updated.  */
+      FOR_EACH_BB (bb)
 	{
-	  tree var = referenced_var (i);
-
-	  /* Variables that are intrinsically call-clobbered (globals,
-	     local statics, etc) will not be marked by the aliasing
-	     code, so we can't remove them from CALL_CLOBBERED_VARS.  */
-	  if (!is_call_clobbered (var))
-	    bitmap_clear_bit (call_clobbered_vars, var_ann (var)->uid);
+	  block_stmt_iterator si;
+	  for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
+	    get_stmt_operands (bsi_stmt (si));
 	}
 
       /* Similarly, clear the set of addressable variables.  In this
@@ -459,9 +461,19 @@ init_alias_info (void)
       /* Clear flow-insensitive alias information from each symbol.  */
       for (i = 0; i < num_referenced_vars; i++)
 	{
-	  var_ann_t ann = var_ann (referenced_var (i));
+	  tree var = referenced_var (i);
+	  var_ann_t ann = var_ann (var);
+
 	  ann->is_alias_tag = 0;
 	  ann->may_aliases = NULL;
+
+	  /* Since we are about to re-discover call-clobbered
+	     variables, clear the call-clobbered flag.  Variables that
+	     are intrinsically call-clobbered (globals, local statics,
+	     etc) will not be marked by the aliasing code, so we can't
+	     remove them from CALL_CLOBBERED_VARS.  */
+	  if (ann->mem_tag_kind != NOT_A_TAG || !is_global_var (var))
+	    clear_call_clobbered (var);
 	}
 
       /* Clear flow-sensitive points-to information from each SSA name.  */
@@ -609,6 +621,16 @@ ptr_is_dereferenced_by (tree ptr, tree stmt, bool *is_store)
 	  return true;
 	}
     }
+  else
+    {
+      /* CALL_EXPRs may also contain pointer dereferences for types
+	 that are not GIMPLE register types.  If the CALL_EXPR is on
+	 the RHS of an assignment, it will be handled by the
+	 MODIFY_EXPR handler above.  */
+      tree call = get_call_expr_in (stmt);
+      if (call && walk_tree (&call, find_ptr_dereference, ptr, NULL))
+	return true;
+    }
 
   return false;
 }
@@ -661,22 +683,6 @@ compute_points_to_and_addr_escape (struct alias_info *ai)
 
 	  if (stmt_escapes_p)
 	    block_ann->has_escape_site = 1;
-
-	  /* Special case for silly ADDR_EXPR tricks
-	     (gcc.c-torture/unsorted/pass.c).  If this statement is an
-	     assignment to a non-pointer variable and the RHS takes the
-	     address of a variable, assume that the variable on the RHS is
-	     call-clobbered.  We could add the LHS to the list of
-	     "pointers" and follow it to see if it really escapes, but it's
-	     not worth the pain.  */
-	  if (addr_taken
-	      && TREE_CODE (stmt) == MODIFY_EXPR
-	      && !POINTER_TYPE_P (TREE_TYPE (TREE_OPERAND (stmt, 0))))
-	    EXECUTE_IF_SET_IN_BITMAP (addr_taken, 0, i, bi)
-	      {
-		tree var = referenced_var (i);
-		mark_call_clobbered (var);
-	      }
 
 	  FOR_EACH_SSA_TREE_OPERAND (op, stmt, iter, SSA_OP_USE)
 	    {
@@ -917,6 +923,7 @@ compute_flow_sensitive_aliasing (struct alias_info *ai)
 	EXECUTE_IF_SET_IN_BITMAP (pi->pt_vars, 0, j, bi)
 	  {
 	    add_may_alias (pi->name_mem_tag, referenced_var (j));
+	    add_may_alias (v_ann->type_mem_tag, referenced_var (j));
 	  }
 
       /* If the name tag is call clobbered, so is the type tag
@@ -942,7 +949,6 @@ static void
 compute_flow_insensitive_aliasing (struct alias_info *ai)
 {
   size_t i;
-  sbitmap res;
 
   /* Initialize counter for the total number of virtual operands that
      aliasing will introduce.  When AI->TOTAL_ALIAS_VOPS goes beyond the
@@ -1036,8 +1042,6 @@ compute_flow_insensitive_aliasing (struct alias_info *ai)
      To avoid this problem, we do a final traversal of AI->POINTERS
      looking for pairs of pointers that have no aliased symbols in
      common and yet have conflicting alias set numbers.  */
-  res = sbitmap_alloc (num_referenced_vars);
-
   for (i = 0; i < ai->num_pointers; i++)
     {
       size_t j;
@@ -1057,8 +1061,7 @@ compute_flow_insensitive_aliasing (struct alias_info *ai)
 
 	  /* The two pointers may alias each other.  If they already have
 	     symbols in common, do nothing.  */
-	  sbitmap_a_and_b (res, may_aliases1, may_aliases2);
-	  if (sbitmap_first_set_bit (res) >= 0)
+	  if (sbitmap_any_common_bits (may_aliases1, may_aliases2))
 	    continue;
 
 	  if (sbitmap_first_set_bit (may_aliases2) >= 0)
@@ -1079,8 +1082,6 @@ compute_flow_insensitive_aliasing (struct alias_info *ai)
 	    }
 	}
     }
-
-  sbitmap_free (res);
 
   if (dump_file)
     fprintf (dump_file, "%s: Total number of aliased vops: %ld\n",
@@ -1224,14 +1225,11 @@ static void
 group_aliases (struct alias_info *ai)
 {
   size_t i;
-  sbitmap res;
 
   /* Sort the POINTERS array in descending order of contributed
      virtual operands.  */
   qsort (ai->pointers, ai->num_pointers, sizeof (struct alias_map_d *),
          total_alias_vops_cmp);
-
-  res = sbitmap_alloc (num_referenced_vars);
 
   /* For every pointer in AI->POINTERS, reverse the roles of its tag
      and the tag's may-aliases set.  */
@@ -1252,8 +1250,7 @@ group_aliases (struct alias_info *ai)
 	{
 	  sbitmap tag2_aliases = ai->pointers[j]->may_aliases;
 
-	  sbitmap_a_and_b (res, tag1_aliases, tag2_aliases);
-	  if (sbitmap_first_set_bit (res) >= 0)
+          if (sbitmap_any_common_bits (tag1_aliases, tag2_aliases))
 	    {
 	      tree tag2 = var_ann (ai->pointers[j]->var)->type_mem_tag;
 
@@ -1322,8 +1319,6 @@ group_aliases (struct alias_info *ai)
 	    }
 	}
     }
-
-  sbitmap_free (res);
 
   if (dump_file)
     fprintf (dump_file,
@@ -1415,7 +1410,6 @@ setup_pointers_and_addressables (struct alias_info *ai)
       if (TREE_ADDRESSABLE (var))
 	{
 	  if (!bitmap_bit_p (ai->addresses_needed, v_ann->uid)
-	      && v_ann->mem_tag_kind == NOT_A_TAG
 	      && TREE_CODE (var) != RESULT_DECL
 	      && !is_global_var (var))
 	    {
@@ -1554,26 +1548,7 @@ maybe_create_global_var (struct alias_info *ai)
 	  n_clobbered++;
 	}
 
-      /* Create .GLOBAL_VAR if we have too many call-clobbered
-	 variables.  We also create .GLOBAL_VAR when there no
-	 call-clobbered variables to prevent code motion
-	 transformations from re-arranging function calls that may
-	 have side effects.  For instance,
-
-		foo ()
-		{
-		  int a = f ();
-		  g ();
-		  h (a);
-		}
-
-	 There are no call-clobbered variables in foo(), so it would
-	 be entirely possible for a pass to want to move the call to
-	 f() after the call to g().  If f() has side effects, that
-	 would be wrong.  Creating .GLOBAL_VAR in this case will
-	 insert VDEFs for it and prevent such transformations.  */
-      if (n_clobbered == 0
-	  || ai->num_calls_found * n_clobbered >= (size_t) GLOBAL_VAR_THRESHOLD)
+      if (ai->num_calls_found * n_clobbered >= (size_t) GLOBAL_VAR_THRESHOLD)
 	create_global_var ();
     }
 
@@ -2049,6 +2024,16 @@ is_escape_site (tree stmt, size_t *num_calls_p)
       if (lhs == NULL_TREE)
 	return true;
 
+      /* If the RHS is a conversion between a pointer and an integer, the
+	 pointer escapes since we can't track the integer.  */
+      if ((TREE_CODE (TREE_OPERAND (stmt, 1)) == NOP_EXPR
+	   || TREE_CODE (TREE_OPERAND (stmt, 1)) == CONVERT_EXPR
+	   || TREE_CODE (TREE_OPERAND (stmt, 1)) == VIEW_CONVERT_EXPR)
+	  && POINTER_TYPE_P (TREE_TYPE (TREE_OPERAND
+					(TREE_OPERAND (stmt, 1), 0)))
+	  && !POINTER_TYPE_P (TREE_TYPE (TREE_OPERAND (stmt, 1))))
+	return true;
+
       /* If the LHS is an SSA name, it can't possibly represent a non-local
 	 memory store.  */
       if (TREE_CODE (lhs) == SSA_NAME)
@@ -2204,7 +2189,7 @@ static void
 create_global_var (void)
 {
   global_var = build_decl (VAR_DECL, get_identifier (".GLOBAL_VAR"),
-                           size_type_node);
+                           void_type_node);
   DECL_ARTIFICIAL (global_var) = 1;
   TREE_READONLY (global_var) = 0;
   DECL_EXTERNAL (global_var) = 1;

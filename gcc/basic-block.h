@@ -1,5 +1,5 @@
 /* Define control and data flow tables, and regsets.
-   Copyright (C) 1987, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1987, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -98,8 +98,8 @@ typedef bitmap_iterator reg_set_iterator;
 /* Loop over all registers in REGSET1 and REGSET2, starting with MIN, setting
    REGNUM to the register number and executing CODE for all registers that are
    set in the first regset and not set in the second.  */
-#define EXECUTE_IF_AND_COMPL_IN_REG_SET(REGSET, MIN, REGNUM, RSI)	\
-  EXECUTE_IF_AND_COMPL_IN_BITMAP (REGSET, MIN, REGNUM, RSI)
+#define EXECUTE_IF_AND_COMPL_IN_REG_SET(REGSET1, REGSET2, MIN, REGNUM, RSI) \
+  EXECUTE_IF_AND_COMPL_IN_BITMAP (REGSET1, REGSET2, MIN, REGNUM, RSI)
 
 /* Loop over all registers in REGSET1 and REGSET2, starting with MIN, setting
    REGNUM to the register number and executing CODE for all registers that are
@@ -285,17 +285,47 @@ typedef struct reorder_block_def
 
 #define BB_FREQ_MAX 10000
 
-/* Masks for basic_block.flags.  */
-#define BB_DIRTY		1
-#define BB_NEW			2
-#define BB_REACHABLE		4
-#define BB_VISITED		8
-#define BB_IRREDUCIBLE_LOOP	16
-#define BB_SUPERBLOCK		32
-#define BB_DISABLE_SCHEDULE     64
+/* Masks for basic_block.flags.
 
+   BB_VISITED should not be used by passes, it is used internally by
+   dfs_enumerate_from.
+
+   BB_HOT_PARTITION and BB_COLD_PARTITION should be preserved throughout
+   the compilation, so they are never cleared.
+
+   All other flags may be cleared by clear_bb_flags().  It is generally
+   a bad idea to rely on any flags being up-to-date.  */
+
+/* Set if insns in BB have are modified.  Used for updating liveness info.  */
+#define BB_DIRTY		1
+
+/* Only set on blocks that have just been created by create_bb.  */
+#define BB_NEW			2
+
+/* Set by find_unreachable_blocks.  Do not rely on this being set in any
+   pass.  */
+#define BB_REACHABLE		4
+
+/* Used by dfs_enumerate_from to keep track of visited basic blocks.  */
+#define BB_VISITED		8
+
+/* Set for blocks in an irreducible loop by loop analysis.  */
+#define BB_IRREDUCIBLE_LOOP	16
+
+/* Set on blocks that may actually not be single-entry single-exit block.  */
+#define BB_SUPERBLOCK		32
+
+/* Set on basic blocks that the scheduler should not touch.  This is used
+   by SMS to prevent other schedulers from messing with the loop schedule.  */
+#define BB_DISABLE_SCHEDULE	64
+
+/* Set on blocks that should be put in a hot section.  */
 #define BB_HOT_PARTITION	128
+
+/* Set on blocks that should be put in a cold section.  */
 #define BB_COLD_PARTITION	256
+
+/* Dummy flag for convenience in the hot/cold partitioning code.  */
 #define BB_UNPARTITIONED	0
 
 /* Partitions, to be used when partitioning hot and cold basic blocks into
@@ -662,7 +692,7 @@ enum update_life_extent
 				 | PROP_SCAN_DEAD_STORES)
 #define PROP_POSTRELOAD		(PROP_DEATH_NOTES  \
 				 | PROP_KILL_DEAD_CODE  \
-				 | PROP_SCAN_DEAD_CODE | PROP_AUTOINC \
+				 | PROP_SCAN_DEAD_CODE \
 				 | PROP_SCAN_DEAD_STORES)
 
 #define CLEANUP_EXPENSIVE	1	/* Do relatively expensive optimizations

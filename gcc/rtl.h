@@ -1,6 +1,6 @@
 /* Register Transfer Language (RTL) definitions for GCC
    Copyright (C) 1987, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -382,8 +382,7 @@ struct rtvec_def GTY(()) {
 /* 1 if X is a constant value that is an integer.  */
 
 #define CONSTANT_P(X)   \
-  (GET_RTX_CLASS (GET_CODE (X)) == RTX_CONST_OBJ			\
-   || GET_CODE (X) == CONST_VECTOR)
+  (GET_RTX_CLASS (GET_CODE (X)) == RTX_CONST_OBJ)
 
 /* 1 if X can be used to represent an object.  */
 #define OBJECT_P(X)							\
@@ -967,6 +966,7 @@ enum label_kind
    not to use an rtx with this cost under any circumstances.  */
 #define MAX_COST INT_MAX
 
+extern void init_rtlanal (void);
 extern int rtx_cost (rtx, enum rtx_code);
 extern int address_cost (rtx, enum machine_mode);
 extern unsigned int subreg_lsb (rtx);
@@ -1383,8 +1383,6 @@ extern rtx gen_lowpart_if_possible (enum machine_mode, rtx);
 /* In emit-rtl.c */
 extern rtx gen_highpart (enum machine_mode, rtx);
 extern rtx gen_highpart_mode (enum machine_mode, enum machine_mode, rtx);
-extern rtx gen_realpart (enum machine_mode, rtx);
-extern rtx gen_imagpart (enum machine_mode, rtx);
 extern rtx operand_subword (rtx, unsigned int, int, enum machine_mode);
 
 /* In emit-rtl.c */
@@ -1581,7 +1579,6 @@ extern int count_occurrences (rtx, rtx, int);
 extern int reg_referenced_p (rtx, rtx);
 extern int reg_used_between_p (rtx, rtx, rtx);
 extern int reg_set_between_p (rtx, rtx, rtx);
-extern int regs_set_between_p (rtx, rtx, rtx);
 extern int commutative_operand_precedence (rtx);
 extern int swap_commutative_operands_p (rtx, rtx);
 extern int modified_between_p (rtx, rtx, rtx);
@@ -2032,8 +2029,6 @@ extern void dump_flow_info (FILE *);
 extern void init_expmed (void);
 extern void expand_inc (rtx, rtx);
 extern void expand_dec (rtx, rtx);
-extern rtx expand_mult_highpart (enum machine_mode, rtx,
-				 unsigned HOST_WIDE_INT, rtx, int, int);
 
 /* In gcse.c */
 extern bool can_copy_p (enum machine_mode);
@@ -2062,10 +2057,9 @@ extern void init_reg_modes_once (void);
 extern void init_regs (void);
 extern void init_fake_stack_mems (void);
 extern void init_reg_sets (void);
-extern void regset_release_memory (void);
 extern void regclass_init (void);
 extern void regclass (rtx, int, FILE *);
-extern void reg_scan (rtx, unsigned int, int);
+extern void reg_scan (rtx, unsigned int);
 extern void reg_scan_update (rtx, rtx, unsigned int);
 extern void fix_register (const char *, int, int);
 extern void init_subregs_of_mode (void);
@@ -2110,15 +2104,11 @@ extern void emit_library_call (rtx, enum libcall_type, enum machine_mode, int,
 extern rtx emit_library_call_value (rtx, rtx, enum libcall_type,
 				    enum machine_mode, int, ...);
 
-/* In unroll.c */
-extern int set_dominates_use (int, int, int, rtx, rtx);
-
 /* In varasm.c */
 extern int in_data_section (void);
 extern void init_varasm_once (void);
 
 /* In rtl.c */
-extern void init_rtl (void);
 extern void traverse_md_constants (int (*) (void **, void *), void *);
 struct md_constant { char *name, *value; };
 

@@ -1,6 +1,6 @@
 /* Handle initialization things in C++.
    Copyright (C) 1987, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -214,7 +214,6 @@ build_zero_init (tree type, tree nelts, bool static_storage_p)
     }
   else if (TREE_CODE (type) == ARRAY_TYPE)
     {
-      tree index;
       tree max_index;
       tree inits;
 
@@ -222,20 +221,31 @@ build_zero_init (tree type, tree nelts, bool static_storage_p)
       init = build_constructor (type, NULL_TREE);
       /* Iterate over the array elements, building initializations.  */
       inits = NULL_TREE;
-      max_index = nelts ? nelts : array_type_nelts (type);
+      if (nelts)
+	max_index = fold (build2 (MINUS_EXPR, TREE_TYPE (nelts),
+				  nelts, integer_one_node));
+      else
+	max_index = array_type_nelts (type);
       gcc_assert (TREE_CODE (max_index) == INTEGER_CST);
 
       /* A zero-sized array, which is accepted as an extension, will
 	 have an upper bound of -1.  */
       if (!tree_int_cst_equal (max_index, integer_minus_one_node))
-	for (index = size_zero_node;
-	     !tree_int_cst_lt (max_index, index);
-	     index = size_binop (PLUS_EXPR, index, size_one_node))
-	  inits = tree_cons (index,
-			     build_zero_init (TREE_TYPE (type),
-					      /*nelts=*/NULL_TREE,
-					      static_storage_p),
-			     inits);
+	{
+	  tree elt_init = build_zero_init (TREE_TYPE (type),
+					   /*nelts=*/NULL_TREE,
+					   static_storage_p);
+	  tree range;
+	  
+	  /* If this is a one element array, we just use a regular init.  */
+	  if (tree_int_cst_equal (size_zero_node, max_index))
+	    range = size_zero_node;
+	  else
+	   range = build2 (RANGE_EXPR, sizetype, size_zero_node, max_index);
+	  
+	  inits = tree_cons (range, elt_init, inits);
+	}
+      
       CONSTRUCTOR_ELTS (init) = nreverse (inits);
     }
   else
@@ -1552,46 +1562,48 @@ build_offset_ref (tree type, tree name, bool address_p)
   return member;
 }
 
-/* If DECL is a `const' declaration, and its value is a known
-   constant, then return that value.  */
+/* If DECL is a CONST_DECL, or a constant VAR_DECL initialized by
+   constant of integral or enumeration type, then return that value.
+   These are those variables permitted in constant expressions by
+   [5.19/1].  FIXME:If we did lazy folding, this could be localized.  */
+
+tree
+integral_constant_value (tree decl)
+{
+  if ((TREE_CODE (decl) == CONST_DECL
+      || (TREE_CODE (decl) == VAR_DECL
+	  /* And so are variables with a 'const' type -- unless they
+	     are also 'volatile'.  */
+	  && CP_TYPE_CONST_NON_VOLATILE_P (TREE_TYPE (decl))
+	  && DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (decl)))
+      && DECL_INITIAL (decl)
+      && DECL_INITIAL (decl) != error_mark_node
+      && TREE_TYPE (DECL_INITIAL (decl))
+      && INTEGRAL_OR_ENUMERATION_TYPE_P (TREE_TYPE (decl)))
+    return DECL_INITIAL (decl);
+  return decl;
+}
+
+/* A more relaxed version of integral_constant_value, for which type
+   is not considered.  This is used by the common C/C++ code, and not
+   directly by the C++ front end.  */
 
 tree
 decl_constant_value (tree decl)
 {
-  /* When we build a COND_EXPR, we don't know whether it will be used
-     as an lvalue or as an rvalue.  If it is an lvalue, it's not safe
-     to replace the second and third operands with their
-     initializers.  So, we do that here.  */
-  if (TREE_CODE (decl) == COND_EXPR)
-    {
-      tree d1;
-      tree d2;
-
-      d1 = decl_constant_value (TREE_OPERAND (decl, 1));
-      d2 = decl_constant_value (TREE_OPERAND (decl, 2));
-
-      if (d1 != TREE_OPERAND (decl, 1) || d2 != TREE_OPERAND (decl, 2))
-	return build3 (COND_EXPR,
-		       TREE_TYPE (decl),
-		       TREE_OPERAND (decl, 0), d1, d2);
-    }
-
-  if (DECL_P (decl)
-      && (/* Enumeration constants are constant.  */
-	  TREE_CODE (decl) == CONST_DECL
+  if ((TREE_CODE (decl) == CONST_DECL
+      || (TREE_CODE (decl) == VAR_DECL
 	  /* And so are variables with a 'const' type -- unless they
-	     are also 'volatile'.  */
-	  || CP_TYPE_CONST_NON_VOLATILE_P (TREE_TYPE (decl)))
-      && TREE_CODE (decl) != PARM_DECL
+             are also 'volatile'.  */
+	  && CP_TYPE_CONST_NON_VOLATILE_P (TREE_TYPE (decl))))
       && DECL_INITIAL (decl)
       && DECL_INITIAL (decl) != error_mark_node
-      /* This is invalid if initial value is not constant.
-	 If it has either a function call, a memory reference,
-	 or a variable, then re-evaluating it could give different results.  */
-      && TREE_CONSTANT (DECL_INITIAL (decl))
-      /* Check for cases where this is sub-optimal, even though valid.  */
-      && TREE_CODE (DECL_INITIAL (decl)) != CONSTRUCTOR)
+      /* This is invalid if initial value is not constant.  If it has
+       	 either a function call, a memory reference, or a variable,
+       	 then re-evaluating it could give different results.  */
+      && TREE_CONSTANT (DECL_INITIAL (decl)))
     return DECL_INITIAL (decl);
+  
   return decl;
 }
 
@@ -1631,6 +1643,15 @@ build_new (tree placement, tree type, tree nelts, tree init,
       NEW_EXPR_USE_GLOBAL (rval) = use_global_new;
       TREE_SIDE_EFFECTS (rval) = 1;
       return rval;
+    }
+
+  if (nelts)
+    {
+      if (!build_expr_type_conversion (WANT_INT | WANT_ENUM, nelts, false))
+	pedwarn ("size in array new must have integral type");
+      nelts = save_expr (cp_convert (sizetype, nelts));
+      if (nelts == integer_zero_node)
+	warning ("zero size array reserves no space");
     }
 
   /* ``A reference cannot be created by the new operator.  A reference
@@ -2320,8 +2341,8 @@ create_temporary_var (tree type)
   decl = build_decl (VAR_DECL, NULL_TREE, type);
   TREE_USED (decl) = 1;
   DECL_ARTIFICIAL (decl) = 1;
-  DECL_SOURCE_LOCATION (decl) = input_location;
   DECL_IGNORED_P (decl) = 1;
+  DECL_SOURCE_LOCATION (decl) = input_location;
   DECL_CONTEXT (decl) = current_function_decl;
 
   return decl;
@@ -2666,8 +2687,6 @@ build_dtor_call (tree exp, special_function_kind dtor_kind, int flags)
     default:
       gcc_unreachable ();
     }
-
-  exp = convert_from_reference (exp);
   fn = lookup_fnfields (TREE_TYPE (exp), name, /*protect=*/2);
   return build_new_method_call (exp, fn, 
 				/*args=*/NULL_TREE,

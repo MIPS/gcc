@@ -1,5 +1,5 @@
 /* If-conversion for vectorizer.
-   Copyright (C) 2004 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005 Free Software Foundation, Inc.
    Contributed by Devang Patel <dpatel@apple.com>
 
 This file is part of GCC.
@@ -639,10 +639,23 @@ add_to_dst_predicate_list (struct loop * loop, basic_block bb,
     new_cond = unshare_expr (cond);
   else
     {
-      tree tmp_stmt;
+      tree tmp;
+      tree tmp_stmt = NULL_TREE;
+      tree tmp_stmts1 = NULL_TREE;
+      tree tmp_stmts2 = NULL_TREE;
+      prev_cond = force_gimple_operand (unshare_expr (prev_cond),
+					&tmp_stmts1, true, NULL);
+      if (tmp_stmts1)
+        bsi_insert_before (bsi, tmp_stmts1, BSI_SAME_STMT);
+
+      cond = force_gimple_operand (unshare_expr (cond),
+				   &tmp_stmts2, true, NULL);
+      if (tmp_stmts2)
+        bsi_insert_before (bsi, tmp_stmts2, BSI_SAME_STMT);
+
       /* new_cond == prev_cond AND cond */
-      tree tmp = build (TRUTH_AND_EXPR, boolean_type_node,
-			unshare_expr (prev_cond), cond);
+      tmp = build (TRUTH_AND_EXPR, boolean_type_node,
+		   unshare_expr (prev_cond), cond);
       tmp_stmt = ifc_temp_var (boolean_type_node, tmp);
       bsi_insert_before (bsi, tmp_stmt, BSI_SAME_STMT);
       new_cond = TREE_OPERAND (tmp_stmt, 0);
@@ -757,7 +770,7 @@ replace_phi_with_cond_modify_expr (tree phi, tree cond, basic_block true_bb,
   arg_1 = NULL_TREE;
 
   /* Use condition that is not TRUTH_NOT_EXPR in conditional modify expr.  */
-  if (PHI_ARG_EDGE(phi, 1)->src == true_bb)
+  if (EDGE_PRED (bb, 1)->src == true_bb)
     {
       arg_0 = PHI_ARG_DEF (phi, 1);
       arg_1 = PHI_ARG_DEF (phi, 0);
@@ -961,7 +974,7 @@ ifc_temp_var (tree type, tree exp)
   stmt = build (MODIFY_EXPR, type, var, exp);
 
   /* Get SSA name for the new variable and set make new statement
-     its definition statment.  */
+     its definition statement.  */
   new_name = make_ssa_name (var, stmt);
   TREE_OPERAND (stmt, 0) = new_name;
   SSA_NAME_DEF_STMT (new_name) = stmt;

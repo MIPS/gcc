@@ -352,6 +352,10 @@ static bool mips_pass_by_reference (CUMULATIVE_ARGS *, enum machine_mode mode,
 				    tree, bool);
 static bool mips_callee_copies (CUMULATIVE_ARGS *, enum machine_mode mode,
 				tree, bool);
+static int mips_arg_partial_bytes (CUMULATIVE_ARGS *, enum machine_mode mode,
+				   tree, bool);
+static bool mips_valid_pointer_mode (enum machine_mode);
+static bool mips_scalar_mode_supported_p (enum machine_mode);
 static bool mips_vector_mode_supported_p (enum machine_mode);
 static rtx mips_prepare_builtin_arg (enum insn_code, unsigned int, tree *);
 static rtx mips_prepare_builtin_target (enum insn_code, unsigned int, rtx);
@@ -796,9 +800,14 @@ const struct mips_cpu_info mips_cpu_info_table[] = {
 #define TARGET_PASS_BY_REFERENCE mips_pass_by_reference
 #undef TARGET_CALLEE_COPIES
 #define TARGET_CALLEE_COPIES mips_callee_copies
+#undef TARGET_ARG_PARTIAL_BYTES
+#define TARGET_ARG_PARTIAL_BYTES mips_arg_partial_bytes
 
 #undef TARGET_VECTOR_MODE_SUPPORTED_P
 #define TARGET_VECTOR_MODE_SUPPORTED_P mips_vector_mode_supported_p
+
+#undef TARGET_SCALAR_MODE_SUPPORTED_P
+#define TARGET_SCALAR_MODE_SUPPORTED_P mips_scalar_mode_supported_p
 
 #undef TARGET_INIT_BUILTINS
 #define TARGET_INIT_BUILTINS mips_init_builtins
@@ -3131,9 +3140,7 @@ mips_arg_info (const CUMULATIVE_ARGS *cum, enum machine_mode mode,
     }
 
   /* See whether the argument has doubleword alignment.  */
-  doubleword_aligned_p = (type
-			  ? TYPE_ALIGN (type) > BITS_PER_WORD
-			  : GET_MODE_UNIT_SIZE (mode) > UNITS_PER_WORD);
+  doubleword_aligned_p = FUNCTION_ARG_BOUNDARY (mode, type) > BITS_PER_WORD;
 
   /* Set REG_OFFSET to the register count we're interested in.
      The EABI allocates the floating-point registers separately,
@@ -3313,16 +3320,16 @@ function_arg (const CUMULATIVE_ARGS *cum, enum machine_mode mode,
 }
 
 
-/* Implement FUNCTION_ARG_PARTIAL_NREGS.  */
+/* Implement TARGET_ARG_PARTIAL_BYTES.  */
 
-int
-function_arg_partial_nregs (const CUMULATIVE_ARGS *cum,
-			    enum machine_mode mode, tree type, int named)
+static int
+mips_arg_partial_bytes (CUMULATIVE_ARGS *cum,
+			enum machine_mode mode, tree type, bool named)
 {
   struct mips_arg_info info;
 
   mips_arg_info (cum, mode, type, named, &info);
-  return info.stack_words > 0 ? info.reg_words : 0;
+  return info.stack_words > 0 ? info.reg_words * UNITS_PER_WORD : 0;
 }
 
 
@@ -7070,11 +7077,48 @@ mips_class_max_nregs (enum reg_class class ATTRIBUTE_UNUSED,
     return (GET_MODE_SIZE (mode) + UNITS_PER_WORD - 1) / UNITS_PER_WORD;
 }
 
-bool
+static bool
 mips_valid_pointer_mode (enum machine_mode mode)
 {
   return (mode == SImode || (TARGET_64BIT && mode == DImode));
 }
+
+/* Define this so that we can deal with a testcase like:
+
+   char foo __attribute__ ((mode (SI)));
+
+   then compiled with -mabi=64 and -mint64. We have no
+   32-bit type at that point and so the default case
+   always fails.  */
+
+static bool
+mips_scalar_mode_supported_p (enum machine_mode mode)
+{
+  switch (mode)
+    {
+    case QImode:
+    case HImode:
+    case SImode:
+    case DImode:
+      return true;
+
+      /* Handled via optabs.c.  */
+    case TImode:
+      return TARGET_64BIT;
+
+    case SFmode:
+    case DFmode:
+      return true;
+
+      /* LONG_DOUBLE_TYPE_SIZE is 128 for TARGET_NEWABI only.  */
+    case TFmode:
+      return TARGET_NEWABI;
+
+    default:
+      return false;
+    }
+}
+
 
 /* Target hook for vector_mode_supported_p.  */
 static bool

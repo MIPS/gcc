@@ -1,6 +1,7 @@
 /* Convert function calls to rtl insns, for GNU C compiler.
    Copyright (C) 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -832,10 +833,19 @@ store_unaligned_arguments_into_pseudos (struct arg_data *args, int num_actuals)
 	    < (unsigned int) MIN (BIGGEST_ALIGNMENT, BITS_PER_WORD)))
       {
 	int bytes = int_size_in_bytes (TREE_TYPE (args[i].tree_value));
-	int nregs = (bytes + UNITS_PER_WORD - 1) / UNITS_PER_WORD;
 	int endian_correction = 0;
 
-	args[i].n_aligned_regs = args[i].partial ? args[i].partial : nregs;
+	if (args[i].partial)
+	  {
+	    gcc_assert (args[i].partial % UNITS_PER_WORD == 0);
+	    args[i].n_aligned_regs = args[i].partial / UNITS_PER_WORD;
+	  }
+	else
+	  {
+	    args[i].n_aligned_regs
+	      = (bytes + UNITS_PER_WORD - 1) / UNITS_PER_WORD;
+	  }
+
 	args[i].aligned_regs = xmalloc (sizeof (rtx) * args[i].n_aligned_regs);
 
 	/* Structures smaller than a word are normally aligned to the
@@ -973,7 +983,7 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
 	 args[i].reg is nonzero if all or part is passed in registers.
 
 	 args[i].partial is nonzero if part but not all is passed in registers,
-	 and the exact value says how many words are passed in registers.
+	 and the exact value says how many bytes are passed in registers.
 
 	 args[i].pass_on_stack is nonzero if the argument must at least be
 	 computed on the stack.  It may then be loaded back into registers
@@ -1079,8 +1089,8 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
 
       if (args[i].reg)
 	args[i].partial
-	  = FUNCTION_ARG_PARTIAL_NREGS (*args_so_far, mode, type,
-					argpos < n_named_args);
+	  = targetm.calls.arg_partial_bytes (args_so_far, mode, type,
+					     argpos < n_named_args);
 
       args[i].pass_on_stack = targetm.calls.must_pass_in_stack (mode, type);
 
@@ -1348,6 +1358,7 @@ compute_argument_addresses (struct arg_data *args, rtx argblock, int num_actuals
 	  rtx offset = ARGS_SIZE_RTX (args[i].locate.offset);
 	  rtx slot_offset = ARGS_SIZE_RTX (args[i].locate.slot_offset);
 	  rtx addr;
+	  unsigned int align, boundary;
 
 	  /* Skip this parm if it will not be passed on the stack.  */
 	  if (! args[i].pass_on_stack && args[i].reg != 0)
@@ -1360,9 +1371,18 @@ compute_argument_addresses (struct arg_data *args, rtx argblock, int num_actuals
 
 	  addr = plus_constant (addr, arg_offset);
 	  args[i].stack = gen_rtx_MEM (args[i].mode, addr);
-	  set_mem_align (args[i].stack, PARM_BOUNDARY);
 	  set_mem_attributes (args[i].stack,
 			      TREE_TYPE (args[i].tree_value), 1);
+	  align = BITS_PER_UNIT;
+	  boundary = args[i].locate.boundary;
+	  if (args[i].locate.where_pad != downward)
+	    align = boundary;
+	  else if (GET_CODE (offset) == CONST_INT)
+	    {
+	      align = INTVAL (offset) * BITS_PER_UNIT | boundary;
+	      align = align & -align;
+	    }
+	  set_mem_align (args[i].stack, align);
 
 	  if (GET_CODE (slot_offset) == CONST_INT)
 	    addr = plus_constant (arg_reg, INTVAL (slot_offset));
@@ -1371,9 +1391,9 @@ compute_argument_addresses (struct arg_data *args, rtx argblock, int num_actuals
 
 	  addr = plus_constant (addr, arg_offset);
 	  args[i].stack_slot = gen_rtx_MEM (args[i].mode, addr);
-	  set_mem_align (args[i].stack_slot, PARM_BOUNDARY);
 	  set_mem_attributes (args[i].stack_slot,
 			      TREE_TYPE (args[i].tree_value), 1);
+	  set_mem_align (args[i].stack_slot, args[i].locate.boundary);
 
 	  /* Function incoming arguments may overlap with sibling call
 	     outgoing arguments and we cannot allow reordering of reads
@@ -1454,8 +1474,13 @@ load_register_parameters (struct arg_data *args, int num_actuals,
 	     we just use a normal move insn.  This value can be zero if the
 	     argument is a zero size structure with no fields.  */
 	  nregs = -1;
-	  if (partial)
-	    nregs = partial;
+	  if (GET_CODE (reg) == PARALLEL)
+	    ;
+	  else if (partial)
+	    {
+	      gcc_assert (partial % UNITS_PER_WORD == 0);
+	      nregs = partial / UNITS_PER_WORD;
+	    }
 	  else if (TYPE_MODE (TREE_TYPE (args[i].tree_value)) == BLKmode)
 	    {
 	      size = int_size_in_bytes (TREE_TYPE (args[i].tree_value));
@@ -1554,8 +1579,8 @@ load_register_parameters (struct arg_data *args, int num_actuals,
 	    use_group_regs (call_fusage, reg);
 	  else if (nregs == -1)
 	    use_reg (call_fusage, reg);
-	  else
-	    use_regs (call_fusage, REGNO (reg), nregs == 0 ? 1 : nregs);
+	  else if (nregs > 0)
+	    use_regs (call_fusage, REGNO (reg), nregs);
 	}
     }
 }
@@ -1645,7 +1670,7 @@ check_sibcall_argument_overlap_1 (rtx x)
 	       && GET_CODE (XEXP (XEXP (x, 0), 1)) == CONST_INT)
 	i = INTVAL (XEXP (XEXP (x, 0), 1));
       else
-	return 1;
+	return 0;
 
 #ifdef ARGS_GROW_DOWNWARD
       i = -i - GET_MODE_SIZE (GET_MODE (x));
@@ -2697,7 +2722,7 @@ expand_call (tree exp, rtx target, int ignore)
 	      end_sequence ();
 	      if (flag_unsafe_math_optimizations
 		  && fndecl
-		  && DECL_BUILT_IN (fndecl)
+		  && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL
 		  && (DECL_FUNCTION_CODE (fndecl) == BUILT_IN_SQRT
 		      || DECL_FUNCTION_CODE (fndecl) == BUILT_IN_SQRTF
 		      || DECL_FUNCTION_CODE (fndecl) == BUILT_IN_SQRTL))
@@ -3286,7 +3311,6 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
   if (mem_value && struct_value == 0 && ! pcc_struct_value)
     {
       rtx addr = XEXP (mem_value, 0);
-      int partial;
       
       nargs++;
 
@@ -3300,8 +3324,8 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
       argvec[count].partial = 0;
 
       argvec[count].reg = FUNCTION_ARG (args_so_far, Pmode, NULL_TREE, 1);
-      partial = FUNCTION_ARG_PARTIAL_NREGS (args_so_far, Pmode, NULL_TREE, 1);
-      gcc_assert (!partial);
+      gcc_assert (targetm.calls.arg_partial_bytes (&args_so_far, Pmode,
+						   NULL_TREE, 1) == 0);
 
       locate_and_pad_parm (Pmode, NULL_TREE,
 #ifdef STACK_PARMS_IN_REG_PARM_AREA
@@ -3387,7 +3411,7 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
       argvec[count].reg = FUNCTION_ARG (args_so_far, mode, NULL_TREE, 1);
 
       argvec[count].partial
-	= FUNCTION_ARG_PARTIAL_NREGS (args_so_far, mode, NULL_TREE, 1);
+	= targetm.calls.arg_partial_bytes (&args_so_far, mode, NULL_TREE, 1);
 
       locate_and_pad_parm (mode, NULL_TREE,
 #ifdef STACK_PARMS_IN_REG_PARM_AREA
@@ -4097,27 +4121,16 @@ store_one_arg (struct arg_data *arg, rtx argblock, int flags,
 	}
       else
 	{
-	  /* PUSH_ROUNDING has no effect on us, because
-	     emit_push_insn for BLKmode is careful to avoid it.  */
-	  if (reg && GET_CODE (reg) == PARALLEL)
-	  {
-	    /* Use the size of the elt to compute excess.  */
-	    rtx elt = XEXP (XVECEXP (reg, 0, 0), 0);
-	    excess = (arg->locate.size.constant
-		      - int_size_in_bytes (TREE_TYPE (pval))
-		      + partial * GET_MODE_SIZE (GET_MODE (elt)));
-	  }
-	  else
-	    excess = (arg->locate.size.constant
-		      - int_size_in_bytes (TREE_TYPE (pval))
-		      + partial * UNITS_PER_WORD);
+	  /* PUSH_ROUNDING has no effect on us, because emit_push_insn
+	     for BLKmode is careful to avoid it.  */
+	  excess = (arg->locate.size.constant
+		    - int_size_in_bytes (TREE_TYPE (pval))
+		    + partial);
 	  size_rtx = expand_expr (size_in_bytes (TREE_TYPE (pval)),
 				  NULL_RTX, TYPE_MODE (sizetype), 0);
 	}
 
-      /* Some types will require stricter alignment, which will be
-	 provided for elsewhere in argument layout.  */
-      parm_align = MAX (PARM_BOUNDARY, TYPE_ALIGN (TREE_TYPE (pval)));
+      parm_align = arg->locate.boundary;
 
       /* When an argument is padded down, the block is aligned to
 	 PARM_BOUNDARY, but the actual argument isn't.  */

@@ -1,5 +1,6 @@
 /* Target definitions for Darwin (Mac OS X) systems.
-   Copyright (C) 1989, 1990, 1991, 1992, 1993, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1989, 1990, 1991, 1992, 1993, 2000, 2001, 2002, 2003, 2004,
+   2005
    Free Software Foundation, Inc.
    Contributed by Apple Computer Inc.
 
@@ -116,6 +117,8 @@ Boston, MA 02111-1307, USA.  */
   { "-dynamic", "-Zdynamic" },  \
   { "-dynamiclib", "-Zdynamiclib" },  \
   { "-exported_symbols_list", "-Zexported_symbols_list" },  \
+  { "-gfull", "-g -fno-eliminate-unused-debug-symbols" }, \
+  { "-gused", "-g -feliminate-unused-debug-symbols" }, \
   { "-segaddr", "-Zsegaddr" }, \
   { "-segs_read_only_addr", "-Zsegs_read_only_addr" }, \
   { "-segs_read_write_addr", "-Zsegs_read_write_addr" }, \
@@ -316,10 +319,14 @@ extern const char *darwin_fix_and_continue_switch;
 #define REAL_LIBGCC_SPEC \
    "%{static|static-libgcc:-lgcc -lgcc_eh}\
     %{!static:%{!static-libgcc:\
-      %{!Zdynamiclib:%{!shared-libgcc:-lgcc  -lgcc_eh}\
-      %{shared-libgcc:-lgcc_s -lgcc} } %{Zdynamiclib:-lgcc_s}}}"
+      %{!Zdynamiclib:%{!shared-libgcc:-lgcc -lgcc_eh}\
+      %{shared-libgcc:-lgcc_s -lgcc}} %{Zdynamiclib:-lgcc_s -lgcc}}}"
 
 /* We specify crt0.o as -lcrt0.o so that ld will search the library path.  */
+/* We don't want anything to do with crt2.o in the 64-bit case;
+   testing the PowerPC-specific -m64 flag here is a little irregular,
+   but it's overkill to make copies of this spec for each target
+   arch.  */
 
 #undef  STARTFILE_SPEC
 #define STARTFILE_SPEC  \
@@ -327,11 +334,11 @@ extern const char *darwin_fix_and_continue_switch;
      %{!Zbundle:%{pg:%{static:-lgcrt0.o} \
                      %{!static:%{object:-lgcrt0.o} \
                                %{!object:%{preload:-lgcrt0.o} \
-                                 %{!preload:-lgcrt1.o crt2.o%s}}}} \
+                                 %{!preload:-lgcrt1.o %{!m64: crt2.o%s}}}}} \
                 %{!pg:%{static:-lcrt0.o} \
                       %{!static:%{object:-lcrt0.o} \
                                 %{!object:%{preload:-lcrt0.o} \
-                                  %{!preload:-lcrt1.o crt2.o%s}}}}}}"
+                                  %{!preload:-lcrt1.o %{!m64: crt2.o%s}}}}}}}"
 
 /* The native Darwin linker doesn't necessarily place files in the order
    that they're specified on the link line.  Thus, it is pointless
@@ -987,7 +994,7 @@ enum machopic_addr_class {
 #undef ASM_PREFERRED_EH_DATA_FORMAT
 #define ASM_PREFERRED_EH_DATA_FORMAT(CODE,GLOBAL)  \
   (((CODE) == 2 && (GLOBAL) == 1) \
-   ? (DW_EH_PE_pcrel | DW_EH_PE_indirect) : \
+   ? (DW_EH_PE_pcrel | DW_EH_PE_indirect | DW_EH_PE_sdata4) : \
      ((CODE) == 1 || (GLOBAL) == 0) ? DW_EH_PE_pcrel : DW_EH_PE_absptr)
 
 #define ASM_OUTPUT_DWARF_DELTA(FILE,SIZE,LABEL1,LABEL2)  \

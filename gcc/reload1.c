@@ -1,6 +1,6 @@
 /* Reload pseudo regs into hard regs for insns that require hard regs.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -1861,7 +1861,6 @@ delete_caller_save_insns (void)
 static void
 spill_failure (rtx insn, enum reg_class class)
 {
-  static const char *const reg_class_names[] = REG_CLASS_NAMES;
   if (asm_noperands (PATTERN (insn)) >= 0)
     error_for_asm (insn, "can't find a register in class %qs while "
 		   "reloading %<asm%>",
@@ -6705,7 +6704,8 @@ emit_output_reload_insns (struct insn_chain *chain, struct reload *rl,
 	  || !(set = single_set (insn))
 	  || rtx_equal_p (old, SET_DEST (set))
 	  || !reg_mentioned_p (old, SET_SRC (set))
-	  || !regno_clobbered_p (REGNO (old), insn, rl->mode, 0))
+	  || !((REGNO (old) < FIRST_PSEUDO_REGISTER)
+	       && regno_clobbered_p (REGNO (old), insn, rl->mode, 0)))
 	gen_reload (old, reloadreg, rl->opnum,
 		    rl->when_needed);
     }
@@ -6821,6 +6821,10 @@ do_input_reload (struct insn_chain *chain, struct reload *rl, int j)
      actually no need to store the old value in it.  */
 
   if (optimize
+      /* Only attempt this for input reloads; for RELOAD_OTHER we miss
+	 that there may be multiple uses of the previous output reload.
+	 Restricting to RELOAD_FOR_INPUT is mostly paranoia.  */
+      && rl->when_needed == RELOAD_FOR_INPUT
       && (reload_inherited[j] || reload_override_in[j])
       && rl->reg_rtx
       && REG_P (rl->reg_rtx)
@@ -7619,13 +7623,13 @@ delete_output_reload (rtx insn, int j, int last_reload_reg)
 
   /* If the pseudo-reg we are reloading is no longer referenced
      anywhere between the store into it and here,
-     and no jumps or labels intervene, then the value can get
-     here through the reload reg alone.
+     and we're within the same basic block, then the value can only
+     pass through the reload reg and end up here.
      Otherwise, give up--return.  */
   for (i1 = NEXT_INSN (output_reload_insn);
        i1 != insn; i1 = NEXT_INSN (i1))
     {
-      if (LABEL_P (i1) || JUMP_P (i1))
+      if (NOTE_INSN_BASIC_BLOCK_P (i1))
 	return;
       if ((NONJUMP_INSN_P (i1) || CALL_P (i1))
 	  && reg_mentioned_p (reg, PATTERN (i1)))

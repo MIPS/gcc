@@ -272,7 +272,7 @@ PACKAGE_STRING=
 PACKAGE_BUGREPORT=
 
 ac_unique_file="Makefile.in"
-ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS MAINT INSTALL_PROGRAM INSTALL_SCRIPT INSTALL_DATA build build_cpu build_vendor build_os host host_cpu host_vendor host_os target target_cpu target_vendor target_os target_noncanonical LN_S x_ada_cflags default_gnattools_target vms_host CC CFLAGS LDFLAGS CPPFLAGS ac_ct_CC EXEEXT OBJEXT GNAT_LIBEXC CROSS TOOLS_TARGET_PAIRS EXTRA_GNATTOOLS EXTRA_GNATMAKE_OBJS TGT_LIB SYMLIB GMEM_LIB LIBOBJS LTLIBOBJS'
+ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS MAINT INSTALL_PROGRAM INSTALL_SCRIPT INSTALL_DATA build build_cpu build_vendor build_os host host_cpu host_vendor host_os target target_cpu target_vendor target_os target_noncanonical LN_S x_ada_cflags default_gnattools_target vms_host CC CFLAGS LDFLAGS CPPFLAGS ac_ct_CC EXEEXT OBJEXT GNAT_LIBEXC CROSS TOOLS_TARGET_PAIRS EXTRA_GNATTOOLS EXTRA_GNATMAKE_OBJS TGT_LIB GMEM_LIB LIBOBJS LTLIBOBJS'
 ac_subst_files=''
 
 # Initialize some variables set by options.
@@ -2669,8 +2669,6 @@ EXTRA_GNATMAKE_OBJS=
 
 TGT_LIB=
 
-SYMLIB=
-
 GMEM_LIB=
 
 
@@ -2690,32 +2688,34 @@ case "${target}" in
     ;;
   sparc-sun-solaris*)
     TOOLS_TARGET_PAIRS="mlib-tgt.adb<mlib-tgt-solaris.adb"
-    SYMLIB='$(ADDR2LINE_SYMLIB)'
     GMEM_LIB="gmemlib"
     ;;
   *86-*-solaris2*) # Unlike sparc-solaris
+    TOOLS_TARGET_PAIRS="mlib-tgt.adb<mlib-tgt-solaris.adb"
+    GMEM_LIB="gmemlib"
     ;;
   *86-*-linux* \
   | powerpc*-*-linux*)
     TOOLS_TARGET_PAIRS="\
     mlib-tgt.adb<mlib-tgt-linux.adb \
     indepsw.adb<indepsw-linux.adb"
-    SYMLIB='$(ADDR2LINE_SYMLIB)'
     GMEM_LIB="gmemlib"
     ;;
-  *ia64-*-linux* \
-  | s390*-*-linux*)
+  *ia64-*-linux* | alpha*-*-linux*)
+    TOOLS_TARGET_PAIRS="\
+    mlib-tgt.adb<mlib-tgt-linux.adb \
+    indepsw.adb<indepsw-linux.adb"
+    ;;
+  s390*-*-linux*)
     TOOLS_TARGET_PAIRS="mlib-tgt.adb<mlib-tgt-linux.adb"
     ;;
   *x86_64-*-linux*)
     TOOLS_TARGET_PAIRS="mlib-tgt.adb<mlib-tgt-linux.adb"
-    SYMLIB='$(ADDR2LINE_SYMLIB)'
     GMEM_LIB="gmemlib"
     ;;
   *86-*-freebsd*)
     TOOLS_TARGET_PAIRS="\
     mlib-tgt.adb<mlib-tgt-linux.adb"
-    SYMLIB='$(ADDR2LINE_SYMLIB)'
     GMEM_LIB="gmemlib"
     ;;
   mips-sgi-irix*)
@@ -2734,19 +2734,16 @@ case "${target}" in
         TGT_LIB="/usr/lib/libcl.a"
         ;;
     esac
-    SYMLIB='$(ADDR2LINE_SYMLIB)'
     GMEM_LIB="gmemlib"
     ;;
   *-ibm-aix*)
     TOOLS_TARGET_PAIRS="\
     mlib-tgt.adb<mlib-tgt-aix.adb \
     indepsw.adb<indepsw-aix.adb"
-    SYMLIB='$(ADDR2LINE_SYMLIB)'
     GMEM_LIB="gmemlib"
     ;;
   alpha*-dec-osf*)
     TOOLS_TARGET_PAIRS="mlib-tgt.adb<mlib-tgt-tru64.adb"
-    SYMLIB='$(ADDR2LINE_SYMLIB)'
     GMEM_LIB="gmemlib"
     ;;
   alpha*-dec-vms* | alpha*-dec-openvms* | alpha*-dec-vms* \
@@ -2771,12 +2768,14 @@ case "${target}" in
     indepsw.adb<indepsw-mingw.adb"
     EXTRA_GNATTOOLS='../../gnatdll$(exeext)'
     EXTRA_GNATMAKE_OBJS="mdll.o mdll-utl.o mdll-fil.o"
-    SYMLIB='$(ADDR2LINE_SYMLIB)'
     GMEM_LIB="gmemlib"
     ;;
   powerpc-*-darwin*)
     TOOLS_TARGET_PAIRS="mlib-tgt.adb<mlib-tgt-darwin.adb"
     GMEM_LIB="gmemlib"
+    ;;
+  *-*-lynxos)
+    TOOLS_TARGET_PAIRS="mlib-tgt.adb<mlib-tgt-lynxos.adb"
     ;;
 esac
 
@@ -3454,7 +3453,6 @@ s,@TOOLS_TARGET_PAIRS@,$TOOLS_TARGET_PAIRS,;t t
 s,@EXTRA_GNATTOOLS@,$EXTRA_GNATTOOLS,;t t
 s,@EXTRA_GNATMAKE_OBJS@,$EXTRA_GNATMAKE_OBJS,;t t
 s,@TGT_LIB@,$TGT_LIB,;t t
-s,@SYMLIB@,$SYMLIB,;t t
 s,@GMEM_LIB@,$GMEM_LIB,;t t
 s,@LIBOBJS@,$LIBOBJS,;t t
 s,@LTLIBOBJS@,$LTLIBOBJS,;t t

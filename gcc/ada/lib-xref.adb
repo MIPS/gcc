@@ -32,7 +32,10 @@ with Lib.Util; use Lib.Util;
 with Namet;    use Namet;
 with Nlists;   use Nlists;
 with Opt;      use Opt;
+with Restrict; use Restrict;
+with Rident;   use Rident;
 with Sem_Prag; use Sem_Prag;
+with Sem_Util; use Sem_Util;
 with Sinfo;    use Sinfo;
 with Sinput;   use Sinput;
 with Snames;   use Snames;
@@ -258,6 +261,10 @@ package body Lib.Xref is
    begin
       pragma Assert (Nkind (E) in N_Entity);
 
+      if E = Standard_ASCII then
+         Check_Restriction (No_Obsolescent_Features, N);
+      end if;
+
       --  Never collect references if not in main source unit. However,
       --  we omit this test if Typ is 'e' or 'k', since these entries are
       --  really structural, and it is useful to have them in units
@@ -377,14 +384,29 @@ package body Lib.Xref is
             then
                null;
 
-            --  For now, ignore case of parameter to entry, since we don't deal
-            --  correctly with the case of multiple accepts for the same entry.
-            --  To deal with this we would have to put the flag on the body
-            --  entity, but that's not easy, since everyone references the spec
-            --  entity. To be looked at later to improve this case ???
+            --  For entry formals, we want to place the warning on the
+            --  corresponding entity in the accept statement. The current
+            --  scope is the body of the accept, so we find the formal
+            --  whose name matches that of the entry formal (there is no
+            --  link between the two entities, and the one in the accept
+            --  statement is only used for conformance checking).
 
             elsif Ekind (Scope (E)) = E_Entry then
-               null;
+               declare
+                  BE : Entity_Id;
+
+               begin
+                  BE := First_Entity (Current_Scope);
+                  while Present (BE) loop
+                     if Chars (BE) = Chars (E) then
+                        Error_Msg_NE
+                          ("?pragma Unreferenced given for&", N, BE);
+                        exit;
+                     end if;
+
+                     Next_Entity (BE);
+                  end loop;
+               end;
 
             --  Here we issue the warning, since this is a real reference
 

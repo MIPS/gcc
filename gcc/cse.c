@@ -1,6 +1,6 @@
 /* Common subexpression elimination for GNU compiler.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -202,15 +202,6 @@ Related expressions:
    so that it is possible to find out if there exists any
    register equivalent to an expression related to a given expression.  */
 
-/* One plus largest register number used in this function.  */
-
-static int max_reg;
-
-/* One plus largest instruction UID used in this function at time of
-   cse_main call.  */
-
-static int max_insn_uid;
-
 /* Length of qty_table vector.  We know in advance we will not need
    a quantity number this big.  */
 
@@ -338,12 +329,25 @@ struct cse_reg_info
   unsigned int subreg_ticked;
 };
 
-/* A free list of cse_reg_info entries.  */
-static struct cse_reg_info *cse_reg_info_free_list;
+/* We maintain a linked list of cse_reg_info instances, which is
+   partitioned into two pieces.  The first part, pointed to by
+   cse_reg_info_list, is a list of those entries that are in use.  The
+   second part, pointed to by cse_reg_info_list_free, is a list of
+   those entries that are not in use.
 
-/* A used list of cse_reg_info entries.  */
-static struct cse_reg_info *cse_reg_info_used_list;
-static struct cse_reg_info *cse_reg_info_used_list_end;
+   We combine these two parts into one linked list for efficiency.
+   Specifically, when we take an element from the second part and want
+   to move it to the first part, all we have to do is move the pointer
+   cse_reg_info_list_free to the next element.  Also, if we wish to
+   move all elements into the second part, we just have to move the
+   pointer to the first element of the list.  */
+
+/* A linked list of cse_reg_info entries that have been allocated so
+   far.  */
+static struct cse_reg_info *cse_reg_info_list;
+
+/* A pointer to the first unused entry in the above linked list.  */
+static struct cse_reg_info *cse_reg_info_list_free;
 
 /* A mapping from registers to cse_reg_info data structures.  */
 #define REGHASH_SHIFT	7
@@ -554,15 +558,6 @@ static struct table_elt *table[HASH_SIZE];
    but currently removed from the table.  */
 
 static struct table_elt *free_element_chain;
-
-/* Number of `struct table_elt' structures made so far for this function.  */
-
-static int n_elements_made;
-
-/* Maximum value `n_elements_made' has had so far in this compilation
-   for functions previously processed.  */
-
-static int max_elements_made;
 
 /* Set to the cost of a constant pool reference if one was found for a
    symbolic constant.  If this was found, it means we should try to
@@ -880,13 +875,17 @@ get_cse_reg_info (unsigned int regno)
   if (p == NULL)
     {
       /* Get a new cse_reg_info structure.  */
-      if (cse_reg_info_free_list)
+      if (cse_reg_info_list_free)
 	{
-	  p = cse_reg_info_free_list;
-	  cse_reg_info_free_list = p->next;
+	  p = cse_reg_info_list_free;
+	  cse_reg_info_list_free = p->next;
 	}
       else
-	p = xmalloc (sizeof (struct cse_reg_info));
+	{
+	  p = xmalloc (sizeof (struct cse_reg_info));
+	  p->next = cse_reg_info_list;
+	  cse_reg_info_list = p;
+	}
 
       /* Insert into hash table.  */
       p->hash_next = *hash_head;
@@ -898,10 +897,6 @@ get_cse_reg_info (unsigned int regno)
       p->subreg_ticked = -1;
       p->reg_qty = -regno - 1;
       p->regno = regno;
-      p->next = cse_reg_info_used_list;
-      cse_reg_info_used_list = p;
-      if (!cse_reg_info_used_list_end)
-	cse_reg_info_used_list_end = p;
     }
 
   /* Cache this lookup; we tend to be looking up information about the
@@ -926,12 +921,8 @@ new_basic_block (void)
 
   memset (reg_hash, 0, sizeof reg_hash);
 
-  if (cse_reg_info_used_list)
-    {
-      cse_reg_info_used_list_end->next = cse_reg_info_free_list;
-      cse_reg_info_free_list = cse_reg_info_used_list;
-      cse_reg_info_used_list = cse_reg_info_used_list_end = 0;
-    }
+  cse_reg_info_list_free = cse_reg_info_list;
+
   cached_cse_reg_info = 0;
 
   CLEAR_HARD_REG_SET (hard_regs_in_table);
@@ -1493,10 +1484,7 @@ insert (rtx x, struct table_elt *classp, unsigned int hash, enum machine_mode mo
   if (elt)
     free_element_chain = elt->next_same_hash;
   else
-    {
-      n_elements_made++;
-      elt = xmalloc (sizeof (struct table_elt));
-    }
+    elt = xmalloc (sizeof (struct table_elt));
 
   elt->exp = x;
   elt->canon_exp = NULL_RTX;
@@ -2853,18 +2841,21 @@ find_best_addr (rtx insn, rtx *loc, enum machine_mode mode)
      be valid and produce better code.  */
   if (!REG_P (addr))
     {
-      rtx folded = fold_rtx (copy_rtx (addr), NULL_RTX);
-      int addr_folded_cost = address_cost (folded, mode);
-      int addr_cost = address_cost (addr, mode);
+      rtx folded = fold_rtx (addr, NULL_RTX);
+      if (folded != addr)
+	{
+	  int addr_folded_cost = address_cost (folded, mode);
+	  int addr_cost = address_cost (addr, mode);
 
-      if ((addr_folded_cost < addr_cost
-	   || (addr_folded_cost == addr_cost
-	       /* ??? The rtx_cost comparison is left over from an older
-		  version of this code.  It is probably no longer helpful.  */
-	       && (rtx_cost (folded, MEM) > rtx_cost (addr, MEM)
-		   || approx_reg_cost (folded) < approx_reg_cost (addr))))
-	  && validate_change (insn, loc, folded, 0))
-	addr = folded;
+	  if ((addr_folded_cost < addr_cost
+	       || (addr_folded_cost == addr_cost
+		   /* ??? The rtx_cost comparison is left over from an older
+		      version of this code.  It is probably no longer helpful.*/
+		   && (rtx_cost (folded, MEM) > rtx_cost (addr, MEM)
+		       || approx_reg_cost (folded) < approx_reg_cost (addr))))
+	      && validate_change (insn, loc, folded, 0))
+	    addr = folded;
+	}
     }
 
   /* If this address is not in the hash table, we can't look for equivalences
@@ -3262,6 +3253,7 @@ fold_rtx (rtx x, rtx insn)
     case SYMBOL_REF:
     case LABEL_REF:
     case REG:
+    case PC:
       /* No use simplifying an EXPR_LIST
 	 since they are used only for lists of args
 	 in a function call's REG_EQUAL note.  */
@@ -3272,17 +3264,6 @@ fold_rtx (rtx x, rtx insn)
     case CC0:
       return prev_insn_cc0;
 #endif
-
-    case PC:
-      /* If the next insn is a CODE_LABEL followed by a jump table,
-	 PC's value is a LABEL_REF pointing to that label.  That
-	 lets us fold switch statements on the VAX.  */
-      {
-	rtx next;
-	if (insn && tablejump_p (insn, &next, NULL))
-	  return gen_rtx_LABEL_REF (Pmode, next);
-      }
-      break;
 
     case SUBREG:
       /* See if we previously assigned a constant value to this SUBREG.  */
@@ -3617,9 +3598,12 @@ fold_rtx (rtx x, rtx insn)
 #endif
 
     case ASM_OPERANDS:
-      for (i = ASM_OPERANDS_INPUT_LENGTH (x) - 1; i >= 0; i--)
-	validate_change (insn, &ASM_OPERANDS_INPUT (x, i),
-			 fold_rtx (ASM_OPERANDS_INPUT (x, i), insn), 0);
+      if (insn)
+	{
+	  for (i = ASM_OPERANDS_INPUT_LENGTH (x) - 1; i >= 0; i--)
+	    validate_change (insn, &ASM_OPERANDS_INPUT (x, i),
+			     fold_rtx (ASM_OPERANDS_INPUT (x, i), insn), 0);
+	}
       break;
 
     default:
@@ -3865,6 +3849,10 @@ fold_rtx (rtx x, rtx insn)
 	 constant, set CONST_ARG0 and CONST_ARG1 appropriately.  We needn't
 	 do anything if both operands are already known to be constant.  */
 
+      /* ??? Vector mode comparisons are not supported yet.  */
+      if (VECTOR_MODE_P (mode))
+	break;
+
       if (const_arg0 == 0 || const_arg1 == 0)
 	{
 	  struct table_elt *p0, *p1;
@@ -3882,8 +3870,6 @@ fold_rtx (rtx x, rtx insn)
 
 	  code = find_comparison_args (code, &folded_arg0, &folded_arg1,
 				       &mode_arg0, &mode_arg1);
-	  const_arg0 = equiv_constant (folded_arg0);
-	  const_arg1 = equiv_constant (folded_arg1);
 
 	  /* If the mode is VOIDmode or a MODE_CC mode, we don't know
 	     what kinds of things are being compared, so we can't do
@@ -3891,6 +3877,9 @@ fold_rtx (rtx x, rtx insn)
 
 	  if (mode_arg0 == VOIDmode || GET_MODE_CLASS (mode_arg0) == MODE_CC)
 	    break;
+
+	  const_arg0 = equiv_constant (folded_arg0);
+	  const_arg1 = equiv_constant (folded_arg1);
 
 	  /* If we do not now have two constants being compared, see
 	     if we can nevertheless deduce some things about the
@@ -4861,7 +4850,7 @@ cse_insn (rtx insn, rtx libcall_insn)
       else
 	SET_SRC (sets[i].rtl) = new;
 
-      if (GET_CODE (dest) == ZERO_EXTRACT || GET_CODE (dest) == SIGN_EXTRACT)
+      if (GET_CODE (dest) == ZERO_EXTRACT)
 	{
 	  validate_change (insn, &XEXP (dest, 1),
 			   canon_reg (XEXP (dest, 1), insn), 1);
@@ -4869,9 +4858,9 @@ cse_insn (rtx insn, rtx libcall_insn)
 			   canon_reg (XEXP (dest, 2), insn), 1);
 	}
 
-      while (GET_CODE (dest) == SUBREG || GET_CODE (dest) == STRICT_LOW_PART
+      while (GET_CODE (dest) == SUBREG
 	     || GET_CODE (dest) == ZERO_EXTRACT
-	     || GET_CODE (dest) == SIGN_EXTRACT)
+	     || GET_CODE (dest) == STRICT_LOW_PART)
 	dest = XEXP (dest, 0);
 
       if (MEM_P (dest))
@@ -4968,8 +4957,7 @@ cse_insn (rtx insn, rtx libcall_insn)
 	 causes later instructions to be mis-optimized.  */
       /* If storing a constant in a bitfield, pre-truncate the constant
 	 so we will be able to record it later.  */
-      if (GET_CODE (SET_DEST (sets[i].rtl)) == ZERO_EXTRACT
-	  || GET_CODE (SET_DEST (sets[i].rtl)) == SIGN_EXTRACT)
+      if (GET_CODE (SET_DEST (sets[i].rtl)) == ZERO_EXTRACT)
 	{
 	  rtx width = XEXP (SET_DEST (sets[i].rtl), 1);
 
@@ -5625,11 +5613,9 @@ cse_insn (rtx insn, rtx libcall_insn)
       /* Now deal with the destination.  */
       do_not_record = 0;
 
-      /* Look within any SIGN_EXTRACT or ZERO_EXTRACT
-	 to the MEM or REG within it.  */
-      while (GET_CODE (dest) == SIGN_EXTRACT
+      /* Look within any ZERO_EXTRACT to the MEM or REG within it.  */
+      while (GET_CODE (dest) == SUBREG
 	     || GET_CODE (dest) == ZERO_EXTRACT
-	     || GET_CODE (dest) == SUBREG
 	     || GET_CODE (dest) == STRICT_LOW_PART)
 	dest = XEXP (dest, 0);
 
@@ -5657,8 +5643,7 @@ cse_insn (rtx insn, rtx libcall_insn)
 	 because the value in it after the store
 	 may not equal what was stored, due to truncation.  */
 
-      if (GET_CODE (SET_DEST (sets[i].rtl)) == ZERO_EXTRACT
-	  || GET_CODE (SET_DEST (sets[i].rtl)) == SIGN_EXTRACT)
+      if (GET_CODE (SET_DEST (sets[i].rtl)) == ZERO_EXTRACT)
 	{
 	  rtx width = XEXP (SET_DEST (sets[i].rtl), 1);
 
@@ -6726,15 +6711,7 @@ cse_main (rtx f, int nregs, FILE *file)
   init_recog ();
   init_alias_analysis ();
 
-  max_reg = nregs;
-
-  max_insn_uid = get_max_uid ();
-
   reg_eqv_table = xmalloc (nregs * sizeof (struct reg_eqv_elem));
-
-  /* Reset the counter indicating how many elements have been made
-     thus far.  */
-  n_elements_made = 0;
 
   /* Find the largest uid.  */
 
@@ -6819,9 +6796,6 @@ cse_main (rtx f, int nregs, FILE *file)
       alloca (0);
 #endif
     }
-
-  if (max_elements_made < n_elements_made)
-    max_elements_made = n_elements_made;
 
   /* Clean up.  */
   end_alias_analysis ();

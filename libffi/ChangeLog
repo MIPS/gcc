@@ -1,3 +1,70 @@
+2005-01-12  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* testsuite/libffi.special/special.exp (cxx_options): Add
+	-shared-libgcc.
+
+2004-12-31  Richard Henderson  <rth@redhat.com>
+
+	* src/types.c (FFI_AGGREGATE_TYPEDEF): Remove.
+	(FFI_TYPEDEF): Rename from FFI_INTEGRAL_TYPEDEF.  Replace size and
+	offset parameters with a type parameter; deduce size and structure
+	alignment.  Update all users.
+
+2004-12-31  Richard Henderson  <rth@redhat.com>
+
+	* src/types.c (FFI_TYPE_POINTER): Define with sizeof.
+	(FFI_TYPE_LONGDOUBLE): Fix for ia64.
+	* src/ia64/ffitarget.h (struct ffi_ia64_trampoline_struct): Move 
+	into ffi_prep_closure.
+	* src/ia64/ia64_flags.h, src/ia64/ffi.c, src/ia64/unix.S: Rewrite
+	from scratch.
+
+2004-12-27  Richard Henderson  <rth@redhat.com>
+
+	* src/x86/unix64.S: Fix typo in unwind info.
+
+2004-12-25  Richard Henderson  <rth@redhat.com>
+
+	* src/x86/ffi64.c (struct register_args): Rename from stackLayout.
+	(enum x86_64_reg_class): Add X86_64_COMPLEX_X87_CLASS.
+	(merge_classes): Check for it.
+	(SSE_CLASS_P): New.
+	(classify_argument): Pass byte_offset by value; perform all updates
+	inside struct case.
+	(examine_argument): Add classes argument; handle
+	X86_64_COMPLEX_X87_CLASS.
+	(ffi_prep_args): Merge into ...
+	(ffi_call): ... here.  Share stack frame with ffi_call_unix64.
+	(ffi_prep_cif_machdep): Setup cif->flags for proper structure return.
+	(ffi_fill_return_value): Remove.
+	(ffi_prep_closure): Remove dead assert.
+	(ffi_closure_unix64_inner): Rename from ffi_closure_UNIX64_inner.
+	Rewrite to use struct register_args instead of va_list.  Create
+	flags for handling structure returns.
+	* src/x86/unix64.S: Remove dead strings.
+	(ffi_call_unix64): Rename from ffi_call_UNIX64.  Rewrite to share
+	stack frame with ffi_call.  Handle structure returns properly.
+	(float2sse, floatfloat2sse, double2sse): Remove.
+	(sse2float, sse2double, sse2floatfloat): Remove.
+	(ffi_closure_unix64): Rename from ffi_closure_UNIX64.  Rewrite
+	to handle structure returns properly.
+
+2004-12-08  David Edelsohn  <edelsohn@gnu.org>
+
+	* Makefile.am (AM_MAKEFLAGS): Remove duplicate LIBCFLAGS and
+	PICFLAG.
+	* Makefile.in: Regenerated.
+
+2004-12-02  Richard Sandiford  <rsandifo@redhat.com>
+
+	* configure.ac: Use TL_AC_GCC_VERSION to set gcc_version.
+	* configure, aclocal.m4, Makefile.in: Regenerate.
+	* include/Makefile.in, testsuite/Makefile.in: Regenerate.
+
+2004-11-29  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* configure: Regenerate for libtool change.
+
 2004-11-25  Kelley Cook  <kcook@gcc.gnu.org>
 
 	* configure: Regenerate for libtool reversion.

@@ -1,6 +1,6 @@
 /* Definitions for parsing and type checking for the GNU compiler for
    the Java(TM) language.
-   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -274,6 +274,7 @@ typedef struct CPool constant_pool;
 
 extern GTY(()) tree java_lang_cloneable_identifier_node;
 extern GTY(()) tree java_io_serializable_identifier_node;
+extern GTY(()) tree gcj_abi_version;
 
 enum java_tree_index
 {
@@ -1219,7 +1220,6 @@ extern tree ident_subst (const char *, int, const char *, int, int,
 extern tree identifier_subst (const tree, const char *, int, int,
 			      const char *);
 extern int global_bindings_p (void);
-extern int kept_level_p (void);
 extern tree getdecls (void);
 extern void pushlevel (int);
 extern tree poplevel (int,int, int);
@@ -1271,7 +1271,6 @@ extern tree build_newarray (int, tree);
 extern tree build_anewarray (tree, tree);
 extern tree build_new_array (tree, tree);
 extern tree build_java_array_length_access (tree);
-extern tree build_java_arraynull_check (tree, tree, tree);
 extern tree build_java_indirect_ref (tree, tree, int);
 extern tree java_check_reference (tree, int);
 extern tree build_get_class (tree);
@@ -1294,7 +1293,6 @@ extern int common_enclosing_context_p (tree, tree);
 extern int common_enclosing_instance_p (tree, tree);
 extern int enclosing_context_p (tree, tree);
 extern tree build_result_decl (tree);
-extern void emit_handlers (void);
 extern void set_method_index (tree decl, tree method_index);
 extern tree get_method_index (tree decl);
 extern void make_class_data (tree);
@@ -1381,7 +1379,6 @@ extern void init_src_parse (void);
 extern int cxx_keyword_p (const char *, int);
 extern tree java_mangle_decl (struct obstack *, tree);
 extern tree java_mangle_class_field (struct obstack *, tree);
-extern tree java_mangle_class_field_from_string (struct obstack *, char *);
 extern tree java_mangle_vtable (struct obstack *, tree);
 extern void append_gpp_mangled_name (const char *, int);
 
@@ -1921,5 +1918,7 @@ extern tree build_expr_wfl              PARAMS ((tree, const char *, int, int));
 
 extern void java_genericize		PARAMS ((tree));
 extern int java_gimplify_expr		PARAMS ((tree *, tree *, tree *));
+
+extern tree extract_field_decl (tree);
 
 #endif /* ! GCC_JAVA_TREE_H */

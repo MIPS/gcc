@@ -15,6 +15,15 @@
 /* libm includes atanf */
 #undef HAVE_ATANF
 
+/* Define to 1 if the target supports __attribute__((alias(...))). */
+#undef HAVE_ATTRIBUTE_ALIAS
+
+/* Define to 1 if the target supports __attribute__((dllexport)). */
+#undef HAVE_ATTRIBUTE_DLLEXPORT
+
+/* Define to 1 if the target supports __attribute__((visibility(...))). */
+#undef HAVE_ATTRIBUTE_VISIBILITY
+
 /* libm includes ceilf */
 #undef HAVE_CEILF
 
@@ -45,6 +54,9 @@
 /* libm includes expf */
 #undef HAVE_EXPF
 
+/* libm includes fabsf */
+#undef HAVE_FABSF
+
 /* libm includes finite */
 #undef HAVE_FINITE
 
@@ -74,6 +86,9 @@
 
 /* libm includes hypotf */
 #undef HAVE_HYPOTF
+
+/* Define to 1 if you have the <ieeefp.h> header file. */
+#undef HAVE_IEEEFP_H
 
 /* Define to 1 if you have the <inttypes.h> header file. */
 #undef HAVE_INTTYPES_H
@@ -164,6 +179,15 @@
 
 /* Define to 1 if you have the `strtof' function. */
 #undef HAVE_STRTOF
+
+/* Define to 1 if `st_blksize' is member of `struct stat'. */
+#undef HAVE_STRUCT_STAT_ST_BLKSIZE
+
+/* Define to 1 if `st_blocks' is member of `struct stat'. */
+#undef HAVE_STRUCT_STAT_ST_BLOCKS
+
+/* Define to 1 if `st_rdev' is member of `struct stat'. */
+#undef HAVE_STRUCT_STAT_ST_RDEV
 
 /* Define to 1 if you have the <sys/mman.h> header file. */
 #undef HAVE_SYS_MMAN_H

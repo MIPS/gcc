@@ -198,7 +198,7 @@ BASE_TARGET_EXPORTS = \
 	CC="$(CC_FOR_TARGET)"; export CC; \
 	CFLAGS="$(CFLAGS_FOR_TARGET)"; export CFLAGS; \
 	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
-	CPPFLAGS="$(CFLAGS_FOR_TARGET)"; export CPPFLAGS; \
+	CPPFLAGS="$(CPPFLAGS_FOR_TARGET)"; export CPPFLAGS; \
 	CXXFLAGS="$(CXXFLAGS_FOR_TARGET)"; export CXXFLAGS; \
 	GCJ="$(GCJ_FOR_TARGET)"; export GCJ; \
 	GFORTRAN="$(GFORTRAN_FOR_TARGET)"; export GFORTRAN; \
@@ -552,6 +552,7 @@ BASE_FLAGS_TO_PASS = \
 	"AS_FOR_TARGET=$(AS_FOR_TARGET)" \
 	"CC_FOR_TARGET=$(CC_FOR_TARGET)" \
 	"CFLAGS_FOR_TARGET=$(CFLAGS_FOR_TARGET)" \
+	"CPPFLAGS_FOR_TARGET=$(CPPFLAGS_FOR_TARGET)" \
 	"CXX_FOR_TARGET=$(CXX_FOR_TARGET)" \
 	"CXXFLAGS_FOR_TARGET=$(CXXFLAGS_FOR_TARGET)" \
 	"DLLTOOL_FOR_TARGET=$(DLLTOOL_FOR_TARGET)" \
@@ -1840,6 +1841,7 @@ clean-target-libgcc:
 	(cd gcc/libgcc && find . -type d -print) | \
 	while read d; do rm -f gcc/$$d/libgcc.a || : ; done
 	-rm -rf gcc/libgcc
+	-rm -f gcc/stmp-dirs
 
 # Check target.
 
@@ -35516,13 +35518,6 @@ all-stage4-gcc: maybe-all-stage4-libiberty
 all-stageprofile-gcc: maybe-all-stageprofile-libiberty
 all-stagefeedback-gcc: maybe-all-stagefeedback-libiberty
 all-gcc: maybe-all-fixincludes
-
-all-stage1-gcc: maybe-all-stage1-fixincludes
-all-stage2-gcc: maybe-all-stage2-fixincludes
-all-stage3-gcc: maybe-all-stage3-fixincludes
-all-stage4-gcc: maybe-all-stage4-fixincludes
-all-stageprofile-gcc: maybe-all-stageprofile-fixincludes
-all-stagefeedback-gcc: maybe-all-stagefeedback-fixincludes
 install-gcc: maybe-install-fixincludes
 configure-libcpp: configure-libiberty
 

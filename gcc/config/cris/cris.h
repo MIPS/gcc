@@ -1,5 +1,5 @@
 /* Definitions for GCC.  Part of the machine description for CRIS.
-   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
    Contributed by Axis Communications.  Written by Hans-Peter Nilsson.
 
@@ -116,24 +116,24 @@ extern const char *cris_elinux_stacksize_str;
    Note that -melf overrides -maout.  */
 
 #define CPP_SPEC \
- "%{mtune=*:-D__tune_%* %{mtune=v*:-D__CRIS_arch_tune=%*}}\
+ "%{mtune=*:-D__tune_%* %{mtune=v*:-D__CRIS_arch_tune=%*}\
    %{mtune=etrax4:-D__tune_v3 -D__CRIS_arch_tune=3}\
    %{mtune=etrax100:-D__tune_v8 -D__CRIS_arch_tune=8}\
    %{mtune=svinto:-D__tune_v8 -D__CRIS_arch_tune=8}\
    %{mtune=etrax100lx:-D__tune_v10 -D__CRIS_arch_tune=10}\
-   %{mtune=ng:-D__tune_v10 -D__CRIS_arch_tune=10}\
-  %{mcpu=*:-D__arch_%* %{mcpu=v*:-D__CRIS_arch_version=%*}}\
+   %{mtune=ng:-D__tune_v10 -D__CRIS_arch_tune=10}}\
+  %{mcpu=*:-D__arch_%* %{mcpu=v*:-D__CRIS_arch_version=%*}\
    %{mcpu=etrax4:-D__arch_v3 -D__CRIS_arch_version=3}\
    %{mcpu=etrax100:-D__arch_v8 -D__CRIS_arch_version=8}\
    %{mcpu=svinto:-D__arch_v8 -D__CRIS_arch_version=8}\
    %{mcpu=etrax100lx:-D__arch_v10 -D__CRIS_arch_version=10}\
-   %{mcpu=ng:-D__arch_v10 -D__CRIS_arch_version=10}\
-  %{march=*:-D__arch_%* %{march=v*:-D__CRIS_arch_version=%*}}\
+   %{mcpu=ng:-D__arch_v10 -D__CRIS_arch_version=10}}\
+  %{march=*:-D__arch_%* %{march=v*:-D__CRIS_arch_version=%*}\
    %{march=etrax4:-D__arch_v3 -D__CRIS_arch_version=3}\
    %{march=etrax100:-D__arch_v8 -D__CRIS_arch_version=8}\
    %{march=svinto:-D__arch_v8 -D__CRIS_arch_version=8}\
    %{march=etrax100lx:-D__arch_v10 -D__CRIS_arch_version=10}\
-   %{march=ng:-D__arch_v10 -D__CRIS_arch_version=10}\
+   %{march=ng:-D__arch_v10 -D__CRIS_arch_version=10}}\
   %{metrax100:-D__arch__v8 -D__CRIS_arch_version=8}\
   %{metrax4:-D__arch__v3 -D__CRIS_arch_version=3}\
   %(cpp_subtarget)"
@@ -210,35 +210,27 @@ extern const char *cris_elinux_stacksize_str;
   %{sim2:%{!T*:-Tdata 0x4000000 -Tbss 0x8000000}}\
   %{!r:%{O2|O3: --gc-sections}}"
 
-/* Which library to get.  The only difference from the default is to get
-   libsc.a if -sim is given to the driver.  Repeat -lc -lsysX
-   {X=sim,linux}, because libsysX needs (at least) errno from libc, and
-   then we want to resolve new unknowns in libc against libsysX, not
-   libnosys.  */
+/* Which library to get.  The simulator uses a different library for
+   the low-level syscalls (implementing the Linux syscall ABI instead
+   of direct-iron accesses).  Default everything with the stub "nosys"
+   library.  */
 /* Override previous definitions (linux.h).  */
 #undef LIB_SPEC
 #define LIB_SPEC \
- "%{sim*:-lc -lsyssim -lc -lsyssim}\
+ "%{sim*:--start-group -lc -lsyslinux --end-group}\
   %{!sim*:%{g*:-lg}\
     %{!p:%{!pg:-lc}}%{p:-lc_p}%{pg:-lc_p} -lbsp}\
   -lnosys"
 
 /* Linker startfile options; crt0 flavors.
-
-   At the moment there are no gcrt0.o or mcrt0.o, but keep them here and
-   link them to crt0.o to be prepared.  Use scrt0.c if running the
-   simulator, linear style, or s2crt0.c if fixed style.  */
-/* We need to remove any previous definition (elfos.h).  */
+   We need to remove any previous definition (elfos.h).  */
 #undef STARTFILE_SPEC
 #define STARTFILE_SPEC \
- "%{sim2:s2crt0.o%s}\
-  %{!sim2:%{sim:scrt0.o%s}\
-   %{!sim:%{pg:gcrt0.o%s}\
-    %{!pg:%{p:mcrt0.o%s}%{!p:crt0.o%s}}}}\
-  crtbegin.o%s"
+ "%{sim*:crt1.o%s}%{!sim*:crt0.o%s}\
+  crti.o%s crtbegin.o%s"
 
 #undef ENDFILE_SPEC
-#define ENDFILE_SPEC "crtend.o%s"
+#define ENDFILE_SPEC "crtend.o%s crtn.o%s"
 
 #define EXTRA_SPECS				\
   {"cpp_subtarget", CRIS_CPP_SUBTARGET_SPEC},	\
@@ -953,13 +945,6 @@ enum reg_class {NO_REGS, ALL_REGS, LIM_REG_CLASSES};
   ? gen_rtx_REG (MODE, CRIS_FIRST_ARG_REG + (CUM).regs)		\
   : NULL_RTX)
 
-#define FUNCTION_ARG_PARTIAL_NREGS(CUM, MODE, TYPE, NAMED)	\
- (((CUM).regs == (CRIS_MAX_ARGS_IN_REGS - 1)			\
-   && !targetm.calls.must_pass_in_stack (MODE, TYPE)		\
-   && CRIS_FUNCTION_ARG_SIZE (MODE, TYPE) > 4			\
-   && CRIS_FUNCTION_ARG_SIZE (MODE, TYPE) <= 8)			\
-  ? 1 : 0)
-
 /* Contrary to what you'd believe, defining FUNCTION_ARG_CALLEE_COPIES
    seems like a (small total) loss, at least for gcc-2.7.2 compiling and
    running gcc-2.1 (small win in size, small loss running -- 100.1%),
@@ -1342,27 +1327,6 @@ struct cum_args {int regs;};
 /* The jump table is immediately connected to the preceding insn.  */
 #define JUMP_TABLES_IN_TEXT_SECTION 1
 
-/* We pull a little trick to register the _fini function with atexit,
-   after (presumably) registering the eh frame info, since we don't handle
-   _fini (a.k.a. ___fini_start) in crt0 or have a crti for "pure" ELF.  If
-   you change this, don't forget that you can't have library function
-   references (e.g. to atexit) in crtend.o, since those won't be resolved
-   to libraries; those are linked in *before* crtend.o.  */
-#ifdef CRT_BEGIN
-# define CRT_CALL_STATIC_FUNCTION(SECTION_OP, FUNC)		\
-static void __attribute__((__used__))				\
-call_ ## FUNC (void)						\
-{								\
-  asm (SECTION_OP);						\
-  FUNC ();							\
-  if (__builtin_strcmp (#FUNC, "frame_dummy") == 0)		\
-   {								\
-     extern void __fini__start (void);				\
-     atexit (__fini__start);					\
-   }								\
-  asm (TEXT_SECTION_ASM_OP);					\
-}
-#endif
 
 /* Node: PIC */
 

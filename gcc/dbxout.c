@@ -1,6 +1,6 @@
 /* Output dbx-format symbol table information from GNU compiler.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -1967,23 +1967,6 @@ dbxout_type (tree type, int full)
 	}
       break;
 
-    case SET_TYPE:
-      if (use_gnu_debug_info_extensions)
-	{
-	  have_used_extensions = 1;
-	  stabstr_S ("@s");
-	  stabstr_D (BITS_PER_UNIT * int_size_in_bytes (type));
-	  stabstr_C (';');
-
-	  /* Check if a bitstring type, which in Chill is
-	     different from a [power]set.  */
-	  if (TYPE_STRING_FLAG (type))
-	    stabstr_S ("@S;");
-	}
-      stabstr_C ('S');
-      dbxout_type (TYPE_DOMAIN (type), 0);
-      break;
-
     case ARRAY_TYPE:
       /* Make arrays of packed bits look like bitstrings for chill.  */
       if (TYPE_PACKED (type) && use_gnu_debug_info_extensions)
@@ -2750,6 +2733,37 @@ dbxout_symbol_location (tree decl, tree type, const char *suffix, rtx home)
 
 	  letter = decl_function_context (decl) ? 'V' : 'S';
 
+	  /* Some ports can transform a symbol ref into a label ref,
+	     because the symbol ref is too far away and has to be
+	     dumped into a constant pool.  Alternatively, the symbol
+	     in the constant pool might be referenced by a different
+	     symbol.  */
+	  if (GET_CODE (addr) == SYMBOL_REF
+	      && CONSTANT_POOL_ADDRESS_P (addr))
+	    {
+	      bool marked;
+	      rtx tmp = get_pool_constant_mark (addr, &marked);
+
+	      if (GET_CODE (tmp) == SYMBOL_REF)
+		{
+		  addr = tmp;
+		  if (CONSTANT_POOL_ADDRESS_P (addr))
+		    get_pool_constant_mark (addr, &marked);
+		  else
+		    marked = true;
+		}
+	      else if (GET_CODE (tmp) == LABEL_REF)
+		{
+		  addr = tmp;
+		  marked = true;
+		}
+
+	      /* If all references to the constant pool were optimized
+		 out, we just ignore the symbol.  */
+	      if (!marked)
+		return 0;
+	    }
+
 	  /* This should be the same condition as in assemble_variable, but
 	     we don't have access to dont_output_data here.  So, instead,
 	     we rely on the fact that error_mark_node initializers always
@@ -2764,37 +2778,6 @@ dbxout_symbol_location (tree decl, tree type, const char *suffix, rtx home)
 	    code = DBX_STATIC_CONST_VAR_CODE;
 	  else
 	    {
-	      /* Some ports can transform a symbol ref into a label ref,
-		 because the symbol ref is too far away and has to be
-		 dumped into a constant pool.  Alternatively, the symbol
-		 in the constant pool might be referenced by a different
-		 symbol.  */
-	      if (GET_CODE (addr) == SYMBOL_REF
-		  && CONSTANT_POOL_ADDRESS_P (addr))
-		{
-		  bool marked;
-		  rtx tmp = get_pool_constant_mark (addr, &marked);
-
-		  if (GET_CODE (tmp) == SYMBOL_REF)
-		    {
-		      addr = tmp;
-		      if (CONSTANT_POOL_ADDRESS_P (addr))
-		        get_pool_constant_mark (addr, &marked);
-		      else
-			marked = true;
-		    }
-		  else if (GET_CODE (tmp) == LABEL_REF)
-		    {
-		      addr = tmp;
-		      marked = true;
-		    }
-
-		   /* If all references to the constant pool were optimized
-		      out, we just ignore the symbol.  */
-		  if (!marked)
-		    return 0;
-		}
-
 	      /* Ultrix `as' seems to need this.  */
 #ifdef DBX_STATIC_STAB_DATA_SECTION
 	      data_section ();

@@ -1,5 +1,5 @@
 /* Data and Control Flow Analysis for Trees.
-   Copyright (C) 2001, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
 This file is part of GCC.
@@ -345,10 +345,6 @@ struct bb_ann_d GTY(())
   /* Chain of PHI nodes for this block.  */
   tree phi_nodes;
 
-  /* Nonzero if this block is forwardable during cfg cleanups.  This is also
-     used to detect loops during cfg cleanups.  */
-  unsigned forwardable: 1;
-
   /* Nonzero if this block contains an escape point (see is_escape_site).  */
   unsigned has_escape_site : 1;
 
@@ -540,6 +536,7 @@ extern tree get_virtual_var (tree);
 extern void add_referenced_tmp_var (tree);
 extern void mark_new_vars_to_rename (tree, bitmap);
 extern void find_new_referenced_vars (tree *);
+void mark_call_clobbered_vars_to_rename (void);
 
 extern void redirect_immediate_uses (tree, tree);
 extern tree make_rename_temp (tree, const char *);
@@ -575,7 +572,6 @@ DEF_VEC_MALLOC_P (tree_on_heap);
 
 /* In tree-ssa.c  */
 extern void init_tree_ssa (void);
-extern void debug_reaching_defs (void);
 extern void dump_tree_ssa (FILE *);
 extern void debug_tree_ssa (void);
 extern void debug_def_blocks (void);
@@ -702,7 +698,6 @@ enum move_pos
 extern enum move_pos movement_possibility (tree);
 
 /* In tree-flow-inline.h  */
-static inline int phi_arg_from_edge (tree, edge);
 static inline bool is_call_clobbered (tree);
 static inline void mark_call_clobbered (tree);
 static inline void set_is_used (tree);
