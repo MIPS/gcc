@@ -1,3 +1,20 @@
+2000-04-17  Richard Henderson  <rth@cygnus.com>
+
+	* condexec.c (HAVE_conditional_execution): Default to 0.
+	(HAVE_conditional_move, HAVE_incscc, HAVE_decscc): Likewise.
+	Don't conditionally compile anything.
+	(noce_try_store_flag_inc): Break out from noce_try_store_flag_arith.
+	(noce_try_store_flag_constants): Likewise.
+	(noce_try_store_flag_mask): Likewise.
+	(noce_try_store_flag_arith): Remove.
+	(noce_process_if_block): Call them.
+	* genconfig.c (main): Set all HAVE_foo to 1.
+
+	* flow.c (mark_set_1): A modified but not killed register is in
+	fact dead if it wasn't used before.
+	(flush_reg_cond_reg_1): Make regno unsigned.  Fix merge error.
+	(find_auto_inc): Fix merge error.
+	
 2000-04-15  Richard Henderson  <rth@cygnus.com>
 
 	* flow.c (struct propagate_block_info): Replace new_dead and

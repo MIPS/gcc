@@ -4005,8 +4005,7 @@ mark_set_1 (pbi, code, reg, cond, insn)
 
   /* Modifying just one hardware register of a multi-reg value or just a
      byte field of a register does not mean the value from before this insn
-     is now dead.  But it does mean liveness of that register at the end of
-     the block is significant.  */
+     is now dead.  Of course, if it was dead after it's unused now.  */
 
   not_dead = 0;
   switch (GET_CODE (reg))
@@ -4014,13 +4013,13 @@ mark_set_1 (pbi, code, reg, cond, insn)
     case ZERO_EXTRACT:
     case SIGN_EXTRACT:
     case STRICT_LOW_PART:
-      not_dead = 1;
       do
 	reg = XEXP (reg, 0);
       while (GET_CODE (reg) == SUBREG
 	     || GET_CODE (reg) == ZERO_EXTRACT
 	     || GET_CODE (reg) == SIGN_EXTRACT
 	     || GET_CODE (reg) == STRICT_LOW_PART);
+      not_dead = REGNO_REG_SET_P (pbi->reg_live, REGNO (reg));
       break;
 
     case SUBREG:
@@ -4031,7 +4030,7 @@ mark_set_1 (pbi, code, reg, cond, insn)
             + UNITS_PER_WORD - 1) / UNITS_PER_WORD)
           < ((GET_MODE_SIZE (GET_MODE (SUBREG_REG (reg)))
               + UNITS_PER_WORD - 1) / UNITS_PER_WORD))
-	not_dead = 1;
+        not_dead = REGNO_REG_SET_P (pbi->reg_live, REGNO (SUBREG_REG (reg)));
       reg = SUBREG_REG (reg);
       break;
 
@@ -4397,7 +4396,7 @@ flush_reg_cond_reg_1 (node, data)
 {
   struct reg_cond_life_info *rcli;
   int *xdata = (int *) data;
-  int regno = xdata[0];
+  unsigned int regno = xdata[0];
   rtx c, *prev;
 
   /* Don't need to search if last flushed value was farther on in
@@ -4445,7 +4444,7 @@ flush_reg_cond_reg (pbi, regno)
 			     flush_reg_cond_reg_1, pair) == -1)
     splay_tree_remove (pbi->reg_cond_dead, pair[1]);
 
-  CLEAR_REGNO_REG_SET (pbi->reg_cond_dead, regno);
+  CLEAR_REGNO_REG_SET (pbi->reg_cond_reg, regno);
 }
 
 /* Logical arithmetic on predicate conditions.  IOR, NOT and NAND.
@@ -4720,7 +4719,7 @@ find_auto_inc (pbi, x, insn)
 	      /* If the original source was dead, it's dead now.  */
 	      rtx note = find_reg_note (incr, REG_DEAD, NULL_RTX);
 	      if (note && XEXP (note, 0) != addr)
-		SET_REGNO_REG_SET (pbi->new_dead, REGNO (XEXP (note, 0)));
+		CLEAR_REGNO_REG_SET (pbi->reg_live, REGNO (XEXP (note, 0)));
 	      
 	      PUT_CODE (incr, NOTE);
 	      NOTE_LINE_NUMBER (incr) = NOTE_INSN_DELETED;

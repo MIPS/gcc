@@ -33,6 +33,19 @@
 #include "tm_p.h"
 
 
+#ifndef HAVE_conditional_execution
+#define HAVE_conditional_execution 0
+#endif
+#ifndef HAVE_conditional_move
+#define HAVE_conditional_move 0
+#endif
+#ifndef HAVE_incscc
+#define HAVE_incscc 0
+#endif
+#ifndef HAVE_decscc
+#define HAVE_decscc 0
+#endif
+
 #ifndef MAX_CONDITIONAL_EXECUTE
 #define MAX_CONDITIONAL_EXECUTE   (BRANCH_COST + 1)
 #endif
@@ -59,14 +72,15 @@ static int num_modified_insns;
 static int num_removed_blocks;
 
 /* Forward references.  */
-#ifdef HAVE_conditional_execution
 static int count_bb_insns		PARAMS ((basic_block));
+static rtx first_active_insn		PARAMS ((basic_block));
+static int last_active_insn_p		PARAMS ((basic_block, rtx));
+
 static int cond_exec_process_insns	PARAMS ((rtx, rtx, rtx, int,
 						 varray_type));
 static void cond_exec_unprocess_insns	PARAMS ((varray_type));
 static int cond_exec_process_if_block	PARAMS ((basic_block, basic_block,
 						 basic_block, basic_block));
-#endif
 
 static int noce_process_if_block	PARAMS ((basic_block, basic_block,
 						 basic_block, basic_block));
@@ -77,7 +91,6 @@ static int process_if_block		PARAMS ((basic_block, basic_block,
 static void merge_if_block		PARAMS ((basic_block, basic_block,
 						 basic_block, basic_block));
 
-#ifdef HAVE_conditional_execution
 /* Count the number of non-jump active insns in BB.  */
 
 static int
@@ -99,7 +112,6 @@ count_bb_insns (bb)
 
   return count;
 }
-#endif /* HAVE_conditional_execution */
 
 /* Return the first non-jump active insn in the basic block.  */
 
@@ -147,8 +159,6 @@ last_active_insn_p (bb, insn)
   return GET_CODE (insn) == JUMP_INSN;
 }
 
-#ifdef HAVE_conditional_execution
-
 /* Go through a bunch of insns, converting them to conditional
    execution format if possible.  Return TRUE if all of the non-note
    insns were processed.  */
@@ -429,7 +439,6 @@ cond_exec_process_if_block (test_bb, then_bb, else_bb, join_bb)
   VARRAY_FREE (undo);
   return FALSE;
 }
-#endif /* HAVE_conditional_execution */
 
 /* Used by noce_process_if_block to communicate with its subroutines. 
 
@@ -445,15 +454,17 @@ struct noce_if_info
 };
 
 static int noce_try_store_flag		PARAMS ((struct noce_if_info *));
-static int noce_try_store_flag_arith	PARAMS ((struct noce_if_info *));
-#ifdef HAVE_conditional_move
+static int noce_try_store_flag_inc	PARAMS ((struct noce_if_info *));
+static int noce_try_store_flag_constants PARAMS ((struct noce_if_info *));
+static int noce_try_store_flag_mask	PARAMS ((struct noce_if_info *));
 static int noce_try_cmove		PARAMS ((struct noce_if_info *));
 static int noce_try_cmove_arith		PARAMS ((struct noce_if_info *));
-#endif
 
-/* Only try 0 and STORE_FLAG_VALUE here.  Other combinations will be
-   tried in noce_try_store_flag_arith after noce_try_cmove has had a
-   go at the conversion.  */
+/* Convert "if (test) x = 1; else x = 0".
+
+   Only try 0 and STORE_FLAG_VALUE here.  Other combinations will be
+   tried in noce_try_store_flag_constants after noce_try_cmove has had
+   a go at the conversion.  */
 
 static int
 noce_try_store_flag (if_info)
@@ -499,88 +510,25 @@ noce_try_store_flag (if_info)
     }
 }
 
-/* Try more complex cases involving store_flag.  */
+/* Convert "if (test) x = a; else x = b", for A and B constant.  */
 
 static int
-noce_try_store_flag_arith (if_info)
+noce_try_store_flag_constants (if_info)
      struct noce_if_info *if_info;
 {
   enum rtx_code code;
   rtx target, seq;
   int reversep;
-
-  /* Convert "if (test) foo++" into "foo += (test != 0)", and 
-     similarly for "foo--".  */
-
-  if (! no_new_pseudos
-      && (BRANCH_COST >= 2
-#ifdef HAVE_incscc
-	  || HAVE_incscc
-#endif
-#ifdef HAVE_decscc
-	  || HAVE_decscc
-#endif
-	  )
-      /* Should be no `else' case to worry about.  */
-      && if_info->b == if_info->x
-      && GET_CODE (if_info->a) == PLUS
-      && (XEXP (if_info->a, 1) == const1_rtx
-	  || XEXP (if_info->a, 1) == constm1_rtx)
-      && rtx_equal_p (XEXP (if_info->a, 0), if_info->x)
-      && can_reverse_comparison_p (if_info->cond, if_info->jump))
-    {
-      int subtract, normalize;
-
-      code = reverse_condition (GET_CODE (if_info->cond));
-
-      if (STORE_FLAG_VALUE == INTVAL (XEXP (if_info->a, 1)))
-	subtract = 0, normalize = 0;
-      else if (-STORE_FLAG_VALUE == INTVAL (XEXP (if_info->a, 1)))
-	subtract = 1, normalize = 0;
-      else
-	subtract = 0, normalize = INTVAL (XEXP (if_info->a, 1));
-      
-      start_sequence ();
-
-      target = emit_store_flag (gen_reg_rtx (GET_MODE (if_info->x)), code, 
-				XEXP (if_info->cond, 0),
-				XEXP (if_info->cond, 1), VOIDmode,
-				(code == LTU || code == LEU
-				 || code == GTU || code == GEU),
-				normalize);
-
-      if (target)
-	target = expand_binop (GET_MODE (if_info->x),
-			       subtract ? sub_optab : add_optab,
-			       if_info->x, target, if_info->x, 0, OPTAB_WIDEN);
-      if (target)
-	{
-	  if (target != if_info->x)
-	    emit_move_insn (if_info->x, target);
-
-	  seq = get_insns ();
-	  end_sequence ();
-	  emit_insns_before (seq, if_info->cond_earliest);
-
-	  return TRUE;
-	}
-
-      end_sequence ();
-      return FALSE;
-    }
-				
-  /* Convert A and B constant, but not 0 and STORE_TEST_FLAG, which was
-     taken care of earlier.  Branches have to be moderately expensive.  */
+  HOST_WIDE_INT ai, bi, diff, tmp;
+  int normalize, can_reverse;
 
   if (! no_new_pseudos
       && GET_CODE (if_info->a) == CONST_INT
       && GET_CODE (if_info->b) == CONST_INT)
     {
-      HOST_WIDE_INT ai = INTVAL (if_info->a);
-      HOST_WIDE_INT bi = INTVAL (if_info->b);
-      HOST_WIDE_INT diff = ai - bi;
-      HOST_WIDE_INT tmp;
-      int normalize, can_reverse;
+      ai = INTVAL (if_info->a);
+      bi = INTVAL (if_info->b);
+      diff = ai - bi;
 
       can_reverse = can_reverse_comparison_p (if_info->cond, if_info->jump);
 
@@ -674,8 +622,81 @@ noce_try_store_flag_arith (if_info)
       return TRUE;
     }
 
-  /* if (test) x = 0;
-     =>   x &= -(test == 0);  */
+  return FALSE;
+}
+
+/* Convert "if (test) foo++" into "foo += (test != 0)", and 
+   similarly for "foo--".  */
+
+static int
+noce_try_store_flag_inc (if_info)
+     struct noce_if_info *if_info;
+{
+  enum rtx_code code;
+  rtx target, seq;
+  int subtract, normalize;
+
+  if (! no_new_pseudos
+      && (BRANCH_COST >= 2
+	  || HAVE_incscc
+	  || HAVE_decscc)
+      /* Should be no `else' case to worry about.  */
+      && if_info->b == if_info->x
+      && GET_CODE (if_info->a) == PLUS
+      && (XEXP (if_info->a, 1) == const1_rtx
+	  || XEXP (if_info->a, 1) == constm1_rtx)
+      && rtx_equal_p (XEXP (if_info->a, 0), if_info->x)
+      && can_reverse_comparison_p (if_info->cond, if_info->jump))
+    {
+      code = reverse_condition (GET_CODE (if_info->cond));
+
+      if (STORE_FLAG_VALUE == INTVAL (XEXP (if_info->a, 1)))
+	subtract = 0, normalize = 0;
+      else if (-STORE_FLAG_VALUE == INTVAL (XEXP (if_info->a, 1)))
+	subtract = 1, normalize = 0;
+      else
+	subtract = 0, normalize = INTVAL (XEXP (if_info->a, 1));
+      
+      start_sequence ();
+
+      target = emit_store_flag (gen_reg_rtx (GET_MODE (if_info->x)), code, 
+				XEXP (if_info->cond, 0),
+				XEXP (if_info->cond, 1), VOIDmode,
+				(code == LTU || code == LEU
+				 || code == GTU || code == GEU),
+				normalize);
+
+      if (target)
+	target = expand_binop (GET_MODE (if_info->x),
+			       subtract ? sub_optab : add_optab,
+			       if_info->x, target, if_info->x, 0, OPTAB_WIDEN);
+      if (target)
+	{
+	  if (target != if_info->x)
+	    emit_move_insn (if_info->x, target);
+
+	  seq = get_insns ();
+	  end_sequence ();
+	  emit_insns_before (seq, if_info->cond_earliest);
+
+	  return TRUE;
+	}
+
+      end_sequence ();
+    }
+
+  return FALSE;
+}
+
+/* Convert "if (test) x = 0;" to "x &= -(test == 0);"  */
+
+static int
+noce_try_store_flag_mask (if_info)
+     struct noce_if_info *if_info;
+{
+  enum rtx_code code;
+  rtx target, seq;
+  int reversep;
 
   reversep = 0;
   if (! no_new_pseudos
@@ -721,7 +742,6 @@ noce_try_store_flag_arith (if_info)
   return FALSE;
 }
 
-#ifdef HAVE_conditional_move
 /* Try only simple constants and registers here.  More complex cases
    are handled in noce_try_cmove_arith after noce_try_store_flag_arith
    has had a go at it.  */
@@ -922,7 +942,6 @@ noce_try_cmove_arith (if_info)
   end_sequence ();
   return FALSE;
 }
-#endif /* HAVE_conditional_move */
 
 /* Given a simple IF-THEN or IF-THEN-ELSE block, attempt to convert it
    without using conditional execution.  Return TRUE if we were
@@ -1078,16 +1097,21 @@ noce_process_if_block (test_bb, then_bb, else_bb, join_bb)
 
   if (noce_try_store_flag (&if_info))
     goto success;
-#ifdef HAVE_conditional_move
-  if (noce_try_cmove (&if_info))
+  if (HAVE_conditional_move
+      && noce_try_cmove (&if_info))
     goto success;
-#endif
-  if (noce_try_store_flag_arith (&if_info))
-    goto success;
-#ifdef HAVE_conditional_move
-  if (noce_try_cmove_arith (&if_info))
-    goto success;
-#endif
+  if (! HAVE_conditional_execution)
+    {
+      if (noce_try_store_flag_constants (&if_info))
+	goto success;
+      if (noce_try_store_flag_inc (&if_info))
+	goto success;
+      if (noce_try_store_flag_mask (&if_info))
+	goto success;
+      if (HAVE_conditional_move
+	  && noce_try_cmove_arith (&if_info))
+	goto success;
+    }
 
   return FALSE;
 
@@ -1280,15 +1304,14 @@ process_if_block (test_bb, then_bb, else_bb, join_bb)
       return TRUE;
     }
 
-#ifdef HAVE_conditional_execution
-  if (reload_completed
+  if (HAVE_conditional_execution
+      && reload_completed
       && cond_exec_process_if_block (test_bb, then_bb, else_bb, join_bb))
     {
       if (rtl_dump_file)
 	fprintf (rtl_dump_file, "Conversion succeeded.\n");
       return TRUE;
     }
-#endif
 
   return FALSE;
 }
@@ -1389,11 +1412,9 @@ if_convert ()
 {
   int block_num;
 
-#ifndef HAVE_conditional_execution
   /* Without conditional execution, nothing applies after reload.  */
-  if (reload_completed)
+  if (! HAVE_conditional_execution && reload_completed)
     return;
-#endif
 
   num_possible_if_blocks = 0;
   num_updated_if_blocks = 0;
