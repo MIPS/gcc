@@ -7508,7 +7508,7 @@ dead_libcall_p (rtx insn, int *counts)
 static regset_head trivially_dead_nonlocal_regs;
 
 /* Called via note_stores.  */
-void
+static void
 note_dead_set (rtx dest, rtx pat, void *data)
 {
   basic_block bb = data;
