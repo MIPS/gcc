@@ -1,4 +1,11 @@
-2003-10-29  Per Bothner  <per@bothner.com>
+2003-10-29  Per Bothner  <pbothner@apple.com>
+
+	* c-patch.in (maybe_identifier):  New non-terminal.
+	(structsp_attr):  Use maybe_identifier to combine_case.  Not only
+	is this simpler, but it calls finish_struct before parsing body,
+	which is needed for compiler-server to adjust currently_nested.
+
+2003-10-29  Per Bothner  <pbothner@apple.com>
 
 	* cpphash.h (struct cpp_fragment):  Fields start_line and end_line
 	are fileline instances.
