@@ -170,9 +170,15 @@ CC_STATUS cc_prev_status;
 
 char regs_ever_live[FIRST_PSEUDO_REGISTER];
 
+/* Like regs_ever_live, but 1 if a reg is set or clobbered from an asm.
+   Unlike regs_ever_live, elements of this array corresponding to
+   eliminable regs like the frame pointer are set if an asm sets them.  */
+
+char regs_asm_clobbered[FIRST_PSEUDO_REGISTER];
+
 /* Nonzero means current function must be given a frame pointer.
-   Set in stmt.c if anything is allocated on the stack there.
-   Set in reload1.c if anything is allocated on the stack there.  */
+   Initialized in function.c to 0.  Set only in reload1.c as per
+   the needs of the function.  */
 
 int frame_pointer_needed;
 
@@ -667,7 +673,7 @@ compute_alignments (void)
 
   FOR_EACH_BB (bb)
     {
-      rtx label = bb->head;
+      rtx label = BB_HEAD (bb);
       int fallthru_frequency = 0, branch_frequency = 0, has_fallthru = 0;
       edge e;
 
@@ -1336,19 +1342,6 @@ final_start_function (rtx first ATTRIBUTE_UNUSED, FILE *file,
 
   this_is_asm_operands = 0;
 
-#ifdef NON_SAVING_SETJMP
-  /* A function that calls setjmp should save and restore all the
-     call-saved registers on a system where longjmp clobbers them.  */
-  if (NON_SAVING_SETJMP && current_function_calls_setjmp)
-    {
-      int i;
-
-      for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
-	if (!call_used_regs[i])
-	  regs_ever_live[i] = 1;
-    }
-#endif
-
   last_filename = locator_file (prologue_locator);
   last_linenum = locator_line (prologue_locator);
 
@@ -1437,7 +1430,7 @@ profile_function (FILE *file ATTRIBUTE_UNUSED)
   function_section (current_function_decl);
 
 #if defined(ASM_OUTPUT_REG_PUSH)
-  if (sval && GET_CODE (svrtx) == REG)
+  if (sval && svrtx != NULL_RTX && GET_CODE (svrtx) == REG)
     ASM_OUTPUT_REG_PUSH (file, REGNO (svrtx));
 #endif
 
@@ -1468,7 +1461,7 @@ profile_function (FILE *file ATTRIBUTE_UNUSED)
 #endif
 
 #if defined(ASM_OUTPUT_REG_PUSH)
-  if (sval && GET_CODE (svrtx) == REG)
+  if (sval && svrtx != NULL_RTX && GET_CODE (svrtx) == REG)
     ASM_OUTPUT_REG_POP (file, REGNO (svrtx));
 #endif
 }
@@ -1847,10 +1840,6 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
       if (prescan > 0)
 	break;
 
-#ifdef FINAL_PRESCAN_LABEL
-      FINAL_PRESCAN_INSN (insn, NULL, 0);
-#endif
-
       if (LABEL_NAME (insn))
 	(*debug_hooks->label) (insn);
 
@@ -1918,7 +1907,7 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	/* An INSN, JUMP_INSN or CALL_INSN.
 	   First check for special kinds that recog doesn't recognize.  */
 
-	if (GET_CODE (body) == USE /* These are just declarations */
+	if (GET_CODE (body) == USE /* These are just declarations.  */
 	    || GET_CODE (body) == CLOBBER)
 	  break;
 
@@ -2153,10 +2142,6 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 
 	if (optimize)
 	  {
-#if 0
-	    rtx set = single_set (insn);
-#endif
-
 	    if (set
 		&& GET_CODE (SET_DEST (set)) == CC0
 		&& insn != last_ignored_compare)

@@ -115,6 +115,9 @@
 /* Define if you have the <fcntl.h> header file.  */
 #undef HAVE_FCNTL_H
 
+/* Define if you have the <iconv.h> header file.  */
+#undef HAVE_ICONV_H
+
 /* Define if you have the <langinfo.h> header file.  */
 #undef HAVE_LANGINFO_H
 
@@ -241,8 +244,14 @@
    through valgrind (a memory checker).  This is extremely expensive. */
 #undef ENABLE_VALGRIND_CHECKING
 
+/* Define if valgrind's valgrind/memcheck.h header is installed. */
+#undef HAVE_VALGRIND_MEMCHECK_H
+
 /* Define if valgrind's memcheck.h header is installed. */
 #undef HAVE_MEMCHECK_H
+
+/* Define to enable detailed memory allocation stats gathering. */
+#undef GATHER_STATISTICS
 
 /* Always define this when using the GNU C Library */
 #undef _GNU_SOURCE
@@ -510,9 +519,6 @@
 
 /* Define if your linker supports -pie option. */
 #undef HAVE_LD_PIE
-
-/* Define if your MIPS libgloss linker scripts consistently include STARTUP directives. */
-#undef HAVE_MIPS_LIBGLOSS_STARTUP_DIRECTIVES
 
 /* Define to PREFIX/include if cpp should also search that directory. */
 #undef PREFIX_INCLUDE_DIR

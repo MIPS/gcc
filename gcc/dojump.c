@@ -57,7 +57,6 @@ init_pending_stack_adjust (void)
 void
 clear_pending_stack_adjust (void)
 {
-#ifdef EXIT_IGNORE_STACK
   if (optimize > 0
       && (! flag_omit_frame_pointer || current_function_calls_alloca)
       && EXIT_IGNORE_STACK
@@ -67,7 +66,6 @@ clear_pending_stack_adjust (void)
       stack_pointer_delta -= pending_stack_adjust,
       pending_stack_adjust = 0;
     }
-#endif
 }
 
 /* Pop any previously-pushed arguments that have not been popped yet.  */
@@ -127,10 +125,6 @@ do_jump (tree exp, rtx if_false_label, rtx if_true_label)
   int i;
   tree type;
   enum machine_mode mode;
-
-#ifdef MAX_INTEGER_COMPUTATION_MODE
-  check_max_integer_computation_mode (exp);
-#endif
 
   emit_queue ();
 
@@ -584,7 +578,14 @@ do_jump (tree exp, rtx if_false_label, rtx if_true_label)
 	{
 	  /* The RTL optimizers prefer comparisons against pseudos.  */
 	  if (GET_CODE (temp) == SUBREG)
-	    temp = copy_to_reg (temp);
+	    {
+	      /* Compare promoted variables in their promoted mode.  */
+	      if (SUBREG_PROMOTED_VAR_P (temp)
+		  && GET_CODE (XEXP (temp, 0)) == REG)
+		temp = XEXP (temp, 0);
+	      else
+		temp = copy_to_reg (temp);
+	    }
 	  do_compare_rtx_and_jump (temp, CONST0_RTX (GET_MODE (temp)),
 				   NE, TREE_UNSIGNED (TREE_TYPE (exp)),
 				   GET_MODE (temp), NULL_RTX,

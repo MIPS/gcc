@@ -2012,38 +2012,22 @@ split_small_symbolic_operand (rtx x)
    Technically we could copy them if we could set up a mapping from one
    sequence number to another, across the set of insns to be duplicated.
    This seems overly complicated and error-prone since interblock motion
-   from sched-ebb could move one of the pair of insns to a different block.  */
+   from sched-ebb could move one of the pair of insns to a different block.
+
+   Also cannot allow jsr insns to be duplicated.  If they throw exceptions,
+   then they'll be in a different block from their ldgp.  Which could lead
+   the bb reorder code to think that it would be ok to copy just the block
+   containing the call and branch to the block containing the ldgp.  */
 
 static bool
 alpha_cannot_copy_insn_p (rtx insn)
 {
-  rtx pat;
-
   if (!reload_completed || !TARGET_EXPLICIT_RELOCS)
     return false;
-
-  if (GET_CODE (insn) != INSN)
+  if (recog_memoized (insn) >= 0)
+    return get_attr_cannot_copy (insn);
+  else
     return false;
-  if (asm_noperands (insn) >= 0)
-    return false;
-
-  pat = PATTERN (insn);
-  if (GET_CODE (pat) != SET)
-    return false;
-  pat = SET_SRC (pat);
-  if (GET_CODE (pat) == UNSPEC_VOLATILE)
-    {
-      if (XINT (pat, 1) == UNSPECV_LDGP1
-	  || XINT (pat, 1) == UNSPECV_PLDGP2)
-	return true;
-    }
-  else if (GET_CODE (pat) == UNSPEC)
-    {
-      if (XINT (pat, 1) == UNSPEC_LDGP2)
-	return true;
-    }
-
-  return false;
 }
 
   
@@ -6096,10 +6080,10 @@ function_value (tree valtype, tree func ATTRIBUTE_UNUSED,
   return gen_rtx_REG (mode, regnum);
 }
 
-tree
-alpha_build_va_list (void)
+static tree
+alpha_build_builtin_va_list (void)
 {
-  tree base, ofs, record, type_decl;
+  tree base, ofs, space, record, type_decl;
 
   if (TARGET_ABI_OPEN_VMS || TARGET_ABI_UNICOSMK)
     return ptr_type_node;
@@ -6111,9 +6095,16 @@ alpha_build_va_list (void)
 
   /* C++? SET_IS_AGGR_TYPE (record, 1); */
 
+  /* Dummy field to prevent alignment warnings.  */
+  space = build_decl (FIELD_DECL, NULL_TREE, integer_type_node);
+  DECL_FIELD_CONTEXT (space) = record;
+  DECL_ARTIFICIAL (space) = 1;
+  DECL_IGNORED_P (space) = 1;
+
   ofs = build_decl (FIELD_DECL, get_identifier ("__offset"),
 		    integer_type_node);
   DECL_FIELD_CONTEXT (ofs) = record;
+  TREE_CHAIN (ofs) = space;
 
   base = build_decl (FIELD_DECL, get_identifier ("__base"),
 		     ptr_type_node);
@@ -6686,7 +6677,7 @@ alpha_expand_builtin (tree exp, rtx target,
 /* These variables are used for communication between the following functions.
    They indicate various things about the current function being compiled
    that are used to tell what kind of prologue, epilogue and procedure
-   descriptior to generate.  */
+   descriptor to generate.  */
 
 /* Nonzero if we need a stack procedure.  */
 enum alpha_procedure_types {PT_NULL = 0, PT_REGISTER = 1, PT_STACK = 2};
@@ -6939,10 +6930,19 @@ alpha_does_function_need_gp (void)
   if (! TARGET_ABI_OSF)
     return 0;
 
+  /* We need the gp to load the address of __mcount.  */
   if (TARGET_PROFILING_NEEDS_GP && current_function_profile)
     return 1;
 
+  /* The code emitted by alpha_output_mi_thunk_osf uses the gp.  */
   if (current_function_is_thunk)
+    return 1;
+
+  /* The nonlocal receiver pattern assumes that the gp is valid for
+     the nested function.  Reasonable because it's almost always set
+     correctly already.  For the cases where that's wrong, make sure
+     the nested function loads its gp on entry.  */
+  if (current_function_has_nonlocal_goto)
     return 1;
 
   /* If we need a GP (we have a LDSYM insn or a CALL_INSN), load it first. 
@@ -8826,7 +8826,7 @@ alpha_align_insns (unsigned int max_align,
 	  int nop_count = (align - ofs) / 4;
 	  rtx where;
 
-	  /* Insert nops before labels, branches, and calls to truely merge
+	  /* Insert nops before labels, branches, and calls to truly merge
 	     the execution of the nops with the previous instruction group.  */
 	  where = prev_nonnote_insn (i);
 	  if (where)
@@ -10200,6 +10200,9 @@ alpha_init_libfuncs (void)
 #define TARGET_STRICT_ARGUMENT_NAMING hook_bool_CUMULATIVE_ARGS_true
 #undef TARGET_PRETEND_OUTGOING_VARARGS_NAMED
 #define TARGET_PRETEND_OUTGOING_VARARGS_NAMED hook_bool_CUMULATIVE_ARGS_true
+
+#undef TARGET_BUILD_BUILTIN_VA_LIST
+#define TARGET_BUILD_BUILTIN_VA_LIST alpha_build_builtin_va_list
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 

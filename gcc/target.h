@@ -207,7 +207,7 @@ struct gcc_target
        correspondingly starts and finishes.  The function defined by
        init_dfa_pre_cycle_insn and init_dfa_post_cycle_insn are used
        to initialize the corresponding insns.  The default values of
-       the memebers result in not changing the automaton state when
+       the members result in not changing the automaton state when
        the new simulated processor cycle correspondingly starts and
        finishes.  */
     void (* init_dfa_pre_cycle_insn) (void);
@@ -262,9 +262,8 @@ struct gcc_target
        fourth argument is the cost of the dependence as estimated by
        the scheduler.  The last argument is the distance in cycles 
        between the already scheduled insn (first parameter) and the
-       the second insn (second parameter).
-    */
-    bool (* is_costly_dependence) PARAMS ((rtx, rtx, rtx, int, int));
+       the second insn (second parameter).  */
+    bool (* is_costly_dependence) (rtx, rtx, rtx, int, int);
   } sched;
 
   /* Given two decls, merge their attributes and return the result.  */
@@ -382,6 +381,9 @@ struct gcc_target
      delayed-branch scheduling.  */
   void (* machine_dependent_reorg) (void);
 
+  /* Create the __builtin_va_list type.  */
+  tree (* build_builtin_va_list) (void);
+
   /* Validity-checking routines for PCH files, target-specific.
      get_pch_validity returns a pointer to the data to be stored,
      and stores the size in its argument.  pch_valid_p gets the same
@@ -424,6 +426,7 @@ struct gcc_target
     bool (*promote_prototypes) (tree fntype);
     rtx (*struct_value_rtx) (tree fndecl, int incoming);
     bool (*return_in_memory) (tree type, tree fndecl);
+    bool (*return_in_msb) (tree type);
     rtx (*expand_builtin_saveregs) (void);
     /* Returns pretend_argument_size.  */
     void (*setup_incoming_varargs) (CUMULATIVE_ARGS *ca, enum machine_mode mode,

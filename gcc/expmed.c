@@ -326,17 +326,13 @@ store_bit_field (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
 
      If the target is memory, storing any naturally aligned field can be
      done with a simple store.  For targets that support fast unaligned
-     memory, any naturally sized, unit aligned field can be done directly.
-
-     It's okay if the requested bitsize is greater than fieldmode's
-     bitsize; that just means the mode has padding bits.  */
+     memory, any naturally sized, unit aligned field can be done directly.  */
 
   byte_offset = (bitnum % BITS_PER_WORD) / BITS_PER_UNIT
                 + (offset * UNITS_PER_WORD);
 
   if (bitpos == 0
-      && GET_MODE_BITSIZE (fieldmode) != 0
-      && bitsize >= GET_MODE_BITSIZE (fieldmode)
+      && bitsize == GET_MODE_BITSIZE (fieldmode)
       && (GET_CODE (op0) != MEM
 	  ? ((GET_MODE_SIZE (fieldmode) >= UNITS_PER_WORD
 	     || GET_MODE_SIZE (GET_MODE (op0)) == GET_MODE_SIZE (fieldmode))
@@ -1033,12 +1029,9 @@ extract_bit_field (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
   if (GET_CODE (op0) == REG
       && mode == GET_MODE (op0)
       && bitnum == 0
-      && GET_MODE_BITSIZE (GET_MODE (op0)) != 0
-      && bitsize >= GET_MODE_BITSIZE (GET_MODE (op0)))
+      && bitsize == GET_MODE_BITSIZE (GET_MODE (op0)))
     {
-      /* We're trying to extract a full register from itself.
-         (If the requested bitsize is greater than the bitsize of op0,
-         that just means op0's mode has padding bits.)  */
+      /* We're trying to extract a full register from itself.  */
       return op0;
     }
 
@@ -1086,13 +1079,18 @@ extract_bit_field (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
      If that's wrong, the solution is to test for it and set TARGET to 0
      if needed.  */
 
-  mode1  = (VECTOR_MODE_P (tmode)
-	    ? mode
-	    : mode_for_size (bitsize, GET_MODE_CLASS (tmode), 0));
+  /* Only scalar integer modes can be converted via subregs.  There is an
+     additional problem for FP modes here in that they can have a precision
+     which is different from the size.  mode_for_size uses precision, but
+     we want a mode based on the size, so we must avoid calling it for FP
+     modes.  */
+  mode1  = (SCALAR_INT_MODE_P (tmode)
+	    ? mode_for_size (bitsize, GET_MODE_CLASS (tmode), 0)
+	    : mode);
 
   if (((bitsize >= BITS_PER_WORD && bitsize == GET_MODE_BITSIZE (mode)
 	&& bitpos % BITS_PER_WORD == 0)
-       || (mode_for_size (bitsize, GET_MODE_CLASS (tmode), 0) != BLKmode
+       || (mode1 != BLKmode
 	   /* ??? The big endian test here is wrong.  This is correct
 	      if the value is in a register, and if mode_for_size is not
 	      the same mode as op0.  This causes us to get unnecessarily

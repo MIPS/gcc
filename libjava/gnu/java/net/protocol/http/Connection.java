@@ -44,39 +44,34 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.net.HttpURLConnection;
-import java.net.InetAddress;
 import java.net.ProtocolException;
 import java.net.Socket;
 import java.net.URL;
 import java.net.URLConnection;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.Vector;
 import java.util.Hashtable;
-import java.util.Enumeration;
 
 /**
- * Written using on-line Java Platform 1.2 API Specification, as well
- * as "The Java Class Libraries", 2nd edition (Addison-Wesley, 1998).
+ * This subclass of java.net.URLConnection models a URLConnection via
+ * the HTTP protocol.
+ *
  * Status: Minimal subset of functionality.  Proxies only partially
  * handled; Redirects not yet handled.  FileNameMap handling needs to
  * be considered.  useCaches, ifModifiedSince, and
  * allowUserInteraction need consideration as well as doInput and
  * doOutput.
- */
-
-/**
+ * 
+ * @author Aaron M. Renn <arenn@urbanophile.com>
  * @author Warren Levy <warrenl@cygnus.com>
- * @date March 29, 1999.
  */
-class Connection extends HttpURLConnection
+public final class Connection extends HttpURLConnection
 {
-  protected Socket sock = null;
-  private static Hashtable defRequestProperties = new Hashtable();
-  private Hashtable requestProperties;
-  private Hashtable hdrHash = new Hashtable();
-  private Vector hdrVec = new Vector();
-  private BufferedInputStream bufferedIn;
-
+  /**
+   * The socket we are connected to
+   */
+  private Socket socket;
   private static int proxyPort = 80;
   private static boolean proxyInUse = false;
   private static String proxyHost = null;
@@ -104,25 +99,29 @@ class Connection extends HttpURLConnection
       }
   }
 
-  public Connection(URL url)
+  /**
+   * The InputStream for this connection.
+   */
+  private BufferedInputStream inputStream;
+
+  /**
+   * This is the object that holds the header field information
+   */
+  private Hashtable requestProperties = new Hashtable();
+  private Hashtable hdrHash = new Hashtable();
+  private Vector hdrVec = new Vector();
+
+  /**
+   * Calls superclass constructor to initialize
+   */
+  protected Connection(URL url)
   {
     super(url);
-    requestProperties = (Hashtable) defRequestProperties.clone();
+
+    /* Set up some variables */
+    doOutput = false;
   }
 
-  // Override method in URLConnection.
-  public static void setDefaultRequestProperty(String key, String value)
-  {
-    defRequestProperties.put(key, value);
-  }
-
-  // Override method in URLConnection.
-  public static String getDefaultRequestProperty(String key)
-  {
-    return (String) defRequestProperties.get(key);
-  }
-
-  // Override method in URLConnection.
   public void setRequestProperty(String key, String value)
   {
     if (connected)
@@ -131,7 +130,6 @@ class Connection extends HttpURLConnection
     requestProperties.put(key, value);
   }
 
-  // Override method in URLConnection.
   public String getRequestProperty(String key)
   {
     if (connected)
@@ -140,7 +138,10 @@ class Connection extends HttpURLConnection
     return (String) requestProperties.get(key);
   }
 
-  // Implementation of abstract method.
+  /**
+   * Connects to the remote host, sends the request, and parses the reply
+   * code and header information returned
+   */
   public void connect() throws IOException
   {
     // Call is ignored if already connected.
@@ -152,55 +153,98 @@ class Connection extends HttpURLConnection
     if (proxyInUse)
       {
 	port = proxyPort;
-	sock = new Socket(proxyHost, port);
+	socket = new Socket(proxyHost, port);
       }
     else
       {
-	InetAddress destAddr = InetAddress.getByName(url.getHost());
 	if ((port = url.getPort()) == -1)
 	  port = 80;
 	// Open socket and output stream.
-	sock = new Socket(destAddr, port);
+	socket = new Socket(url.getHost(), port);
       }
 
-    PrintWriter out = new PrintWriter(sock.getOutputStream());
+    // Originally tried using a BufferedReader here to take advantage of
+    // the readLine method and avoid the following, but the buffer read
+    // past the end of the headers so the first part of the content was lost.
+    // It is probably more robust than it needs to be, e.g. the byte[]
+    // is unlikely to overflow and a '\r' should always be followed by a '\n',
+    // but it is better to be safe just in case.
+    inputStream = new BufferedInputStream(socket.getInputStream());
 
-    // Send request including any request properties that were set.
-    out.print(getRequestMethod() + " " + url.getFile() + " HTTP/1.0\r\n");
-    out.print("Host: " + url.getHost() + ":" + port + "\r\n");
-    Enumeration reqKeys = requestProperties.keys();
-    Enumeration reqVals = requestProperties.elements();
-    while (reqKeys.hasMoreElements())
-      out.print(reqKeys.nextElement() + ": " + reqVals.nextElement() + "\r\n");
-    out.print("\r\n");
-    out.flush();    
+    sendRequest();
     getHttpHeaders();
     connected = true;
   }
 
-  // Implementation of abstract method.
+  /**
+   * Disconnects from the remote server.
+   */
   public void disconnect()
   {
-    if (sock != null)
+    if (socket != null)
       {
 	try
 	  {
-	    sock.close();
+	    socket.close();
 	  }
-	catch (IOException ex)
+	catch (IOException e)
 	  {
-	    ; // Ignore errors in closing socket.
+	    // Ignore errors in closing socket.
 	  }
-	sock = null;
+	socket = null;
       }
   }
 
+  /**
+   * Write HTTP request header and content to outputWriter.
+   */
+  void sendRequest() throws IOException
+  {
+    // Create PrintWriter for easier sending of headers.
+    PrintWriter outputWriter = new PrintWriter(socket.getOutputStream());
+    
+    // Send request including any request properties that were set.
+    outputWriter.print (getRequestMethod() + " " + url.getFile()
+                        + " HTTP/1.0\r\n");
+
+    // Set additional HTTP headers.
+    if (getRequestProperty ("Host") == null)
+      setRequestProperty ("Host", url.getHost());
+    
+    // Write all req_props name-value pairs to the output writer.
+    Iterator itr = getRequestProperties().entrySet().iterator();
+
+    while (itr.hasNext())
+      {
+        Map.Entry e = (Map.Entry) itr.next();
+        outputWriter.print (e.getKey() + ": " + e.getValue() + "\r\n");
+      }
+
+    // One more CR-LF indicates end of header.
+    outputWriter.print ("\r\n");
+    outputWriter.flush();
+  }
+
+  /**
+   * Return a boolean indicating whether or not this connection is
+   * going through a proxy
+   *
+   * @return true if using a proxy, false otherwise
+   */
   public boolean usingProxy()
   {
     return proxyInUse;
   }
 
-  // Override default method in URLConnection.
+  /**
+   * Returns an InputStream for reading from this connection.  This stream
+   * will be "queued up" for reading just the contents of the requested file.
+   * Overrides URLConnection.getInputStream()
+   *
+   * @return An InputStream for this connection.
+   *
+   * @exception IOException If an error occurs
+   */
   public InputStream getInputStream() throws IOException
   {
     if (!connected)
@@ -208,22 +252,40 @@ class Connection extends HttpURLConnection
 
     if (!doInput)
       throw new ProtocolException("Can't open InputStream if doInput is false");
-    return bufferedIn;
+    
+    return inputStream;
   }
 
-  // Override default method in URLConnection.
   public OutputStream getOutputStream() throws IOException
   {
     if (!connected)
       connect();
 
     if (! doOutput)
-      throw new
-	ProtocolException("Can't open OutputStream if doOutput is false");
-    return sock.getOutputStream();
+      throw new ProtocolException("Can't open OutputStream if doOutput is false");
+    
+    return socket.getOutputStream();
   }
 
-  // Override default method in URLConnection.
+  /**
+   * Overrides java.net.HttpURLConnection.setRequestMethod() in order to
+   * restrict the available methods to only those we support.
+   *
+   * @param method The RequestMethod to use
+   *
+   * @exception ProtocolException If the specified method is not valid
+   */
+  public void setRequestMethod (String method) throws ProtocolException
+  {
+    method = method.toUpperCase();
+    
+    if (method.equals("GET"))
+      super.setRequestMethod (method);
+    else
+      throw new ProtocolException ("Unsupported or unknown request method " +
+                                   method);
+  }
+
   public String getHeaderField(String name)
   {
     if (!connected)
@@ -239,7 +301,6 @@ class Connection extends HttpURLConnection
     return (String) hdrHash.get(name.toLowerCase());
   }
 
-  // Override default method in URLConnection.
   public Map getHeaderFields()
   {
     if (!connected)
@@ -255,7 +316,15 @@ class Connection extends HttpURLConnection
     return hdrHash;
   }
 
-  // Override default method in URLConnection.
+  /**
+   * This method returns the header field value at the specified numeric
+   * index.
+   *
+   * @param n The index into the header field array
+   *
+   * @return The value of the specified header field, or <code>null</code>
+   * if the specified index is not valid.
+   */
   public String getHeaderField(int n)
   {
     if (!connected)
@@ -273,7 +342,15 @@ class Connection extends HttpURLConnection
     return null;
   }
 
-  // Override default method in URLConnection.
+  /**
+   * This method returns the header field key at the specified numeric
+   * index.
+   *
+   * @param n The index into the header field array
+   *
+   * @return The name of the header field key, or <code>null</code> if the
+   * specified index is not valid.
+   */
   public String getHeaderFieldKey(int n)
   {
     if (!connected)
@@ -313,16 +390,11 @@ class Connection extends HttpURLConnection
       return str;
   }
 
+  /**
+   * Read HTTP reply from inputStream.
+   */
   private void getHttpHeaders() throws IOException
   {
-    // Originally tried using a BufferedReader here to take advantage of
-    // the readLine method and avoid the following, but the buffer read
-    // past the end of the headers so the first part of the content was lost.
-    // It is probably more robust than it needs to be, e.g. the byte[]
-    // is unlikely to overflow and a '\r' should always be followed by a '\n',
-    // but it is better to be safe just in case.
-    bufferedIn = new BufferedInputStream(sock.getInputStream());
-
     int buflen = 100;
     byte[] buf = new byte[buflen];
     String line = "";
@@ -340,12 +412,12 @@ class Connection extends HttpURLConnection
 	// FIXME: This is rather inefficient.
 	for (i = 0; i < buflen; i++)
 	  {
-	    buf[i] = (byte) bufferedIn.read();
+	    buf[i] = (byte) inputStream.read();
 	    if (buf[i] == -1)
 	      throw new IOException("Malformed HTTP header");
 	    if (buf[i] == '\r')
 	      {
-	        bufferedIn.read(ch, 0, 1);
+	        inputStream.read(ch, 0, 1);
 		if (ch[0] == '\n')
 		  gotnl = true;
 		break;

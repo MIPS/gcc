@@ -237,7 +237,7 @@ proc gcc-dg-debug-runtest { target_compile trivial opt_opts testcases } {
     # assembler output, but stabs debugging does not.
     # http://gcc.gnu.org/ml/gcc-regression/2003-04/msg00095.html
 	    if { [string match {*/debug-[12].c} "$nshort"] \
-		    && [string match "*O3*" "$flags"] \
+		    && [string match "*O*" "$flags"] \
 		    && ( [string match "*coff*" "$flags"] \
 			 || [string match "*stabs*" "$flags"] ) } {
 		set doit 0
@@ -262,6 +262,23 @@ proc dg-require-weak { args } {
 	unresolved "$name"
     }
     if { $weak_available != 1 } {
+	set dg-do-what [list [lindex ${dg-do-what} 0] "N" "P"]
+	return
+    }
+}
+
+# If this target does not support the "visibility" attribute, skip this
+# test.
+
+proc dg-require-visibility { args } {
+    upvar dg-do-what dg-do-what
+    upvar name name
+
+    set visibility_available [ check_visibility_available ]
+    if { $visibility_available == -1 } {
+	unresolved "$name"
+    }
+    if { $visibility_available != 1 } {
 	set dg-do-what [list [lindex ${dg-do-what} 0] "N" "P"]
 	return
     }

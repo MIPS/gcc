@@ -693,12 +693,6 @@ load_inner_classes (tree cur_class)
     }
 }
 
-void
-init_outgoing_cpool (void)
-{
-  outgoing_cpool = ggc_alloc_cleared (sizeof (struct CPool));
-}
-
 static void
 parse_class_file (void)
 {
@@ -710,7 +704,6 @@ parse_class_file (void)
   input_filename = DECL_SOURCE_FILE (TYPE_NAME (current_class));
   input_line = 0;
   (*debug_hooks->start_source_file) (input_line, input_filename);
-  init_outgoing_cpool ();
 
   /* Currently we always have to emit calls to _Jv_InitClass when
      compiling from class files.  */
@@ -760,8 +753,8 @@ parse_class_file (void)
       input_line = 0;
       if (DECL_LINENUMBERS_OFFSET (method))
 	{
-	  register int i;
-	  register unsigned char *ptr;
+	  int i;
+	  unsigned char *ptr;
 	  JCF_SEEK (jcf, DECL_LINENUMBERS_OFFSET (method));
 	  linenumber_count = i = JCF_readu2 (jcf);
 	  linenumber_table = ptr = jcf->read_ptr;
@@ -1172,10 +1165,9 @@ classify_zip_file (struct ZipDirectory *zdir)
 		   ".class", 6))
     return 1;
 
-  /* For now we drop the manifest and other information.  Maybe it
-     would make more sense to compile it in?  */
-  if (zdir->filename_length > 8
-      && !strncmp (class_name_in_zip_dir, "META-INF/", 9))
+  /* For now we drop the manifest, but not other information.  */
+  if (zdir->filename_length == 20
+      && !strncmp (class_name_in_zip_dir, "META-INF/MANIFEST.MF", 20))
     return 0;
 
   /* Drop directory entries.  */

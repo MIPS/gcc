@@ -206,7 +206,7 @@ static void
 flush_quick_stack (void)
 {
   int stack_index = stack_pointer;
-  register tree prev, cur, next;
+  tree prev, cur, next;
 
   /* First reverse the quick_stack, and count the number of slots it has. */
   for (cur = quick_stack, prev = NULL_TREE; cur != NULL_TREE; cur = next)
@@ -503,8 +503,9 @@ java_stack_swap (void)
   decl1 = find_stack_slot (stack_pointer - 1, type1);
   decl2 = find_stack_slot (stack_pointer - 2, type2);
   temp = copy_to_reg (DECL_RTL (decl1));
-  emit_move_insn (DECL_RTL (decl1), DECL_RTL (decl2));
-  emit_move_insn (DECL_RTL (decl2), temp);
+  emit_move_insn (DECL_RTL (find_stack_slot (stack_pointer - 1, type2)), 
+		  DECL_RTL (decl2));
+  emit_move_insn (DECL_RTL (find_stack_slot (stack_pointer - 2, type1)), temp);
   stack_type_map[stack_pointer - 1] = type2;
   stack_type_map[stack_pointer - 2] = type1;
 }

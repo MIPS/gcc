@@ -1526,6 +1526,12 @@ package VMS_Data is
    --
    --   Do not look in the default directory for source files of the runtime.
 
+   S_GCC_Nostlib : aliased constant S := "/NOSTD_LIBRARIES "              &
+                                            "-nostdlib";
+   --        /NOSTD_LIBRARIES
+   --
+   --    Do not look for library files in the system default directory.
+
    S_GCC_Opt     : aliased constant S := "/OPTIMIZE="                      &
                                             "ALL "                         &
                                                "-O2,!-O0,!-O1,!-O3 "       &
@@ -1584,6 +1590,17 @@ package VMS_Data is
    --   compiler. The source and object directories to be searched will be
    --   communicated to the compiler through logical names
    --   ADA_PRJ_INCLUDE_FILE and ADA_PRJ_OBJECTS_FILE.
+
+   S_GCC_Psta    : aliased constant S := "/PRINT_STANDARD "                &
+                                            "-gnatS";
+   --        /PRINT_STANDARD
+   --
+   --   cause the compiler to output a representation of package Standard
+   --   in a form very close to standard Ada. It is not quite possible to
+   --   do this and remain entirely Standard (since new numeric base types
+   --   cannot be created in standard Ada), but the output is easily
+   --   readable to any Ada programmer, and is useful to determine the
+   --   characteristics of target dependent types in package Standard.
 
    S_GCC_Report  : aliased constant S := "/REPORT_ERRORS="                 &
                                             "VERBOSE "                     &
@@ -2272,10 +2289,6 @@ package VMS_Data is
                                                "-gnatwA "                  &
                                             "ALL_GCC "                     &
                                                "-Wall "                    &
-                                            "BIASED_ROUNDING "             &
-                                               "-gnatwb "                  &
-                                            "NOBIASED_ROUNDING "           &
-                                               "-gnatwB "                  &
                                             "CONDITIONALS "                &
                                                "-gnatwc "                  &
                                             "NOCONDITIONALS "              &
@@ -2392,30 +2405,6 @@ package VMS_Data is
    --   ALL_GCC                 Request additional messages from the GCC
    --                           backend.  Most of these are not relevant
    --                           to Ada.
-   --
-   --   BIASED_ROUNDING         Activate warnings on biased rounding.
-   --                           If a static floating-point expression has
-   --                           a value that is exactly half way between
-   --                           two adjacent machine numbers, then the
-   --                           rules of Ada (Ada Reference Manual,
-   --                           para 4.9(38)) require that this rounding
-   --                           be done away from zero, even if the normal
-   --                           unbiased rounding rules at run time would
-   --                           require rounding towards zero.
-   --
-   --                           This warning message alerts you to such
-   --                           instances where compile-time rounding and
-   --                           run-time rounding are not equivalent.
-   --                           If it is important to get proper run-time
-   --                           rounding, then you can force this by
-   --                           making one of the operands into a
-   --                           variable. The default is that such
-   --                           warnings are not generated. Note that
-   --                           /WARNINGS=ALL does not affect the setting
-   --                           of this warning option.
-   --
-   --   NOBIASED_ROUNDING       Suppress warnings on biased rounding.
-   --                           Disable warnings on biased rounding.
    --
    --   CONDITIONALS            Activate warnings for conditional
    --                           Expressions used in tests that are known
@@ -2809,10 +2798,12 @@ package VMS_Data is
       S_GCC_Noadc   'Access,
       S_GCC_Noload  'Access,
       S_GCC_Nostinc 'Access,
+      S_GCC_Nostlib 'Access,
       S_GCC_Opt     'Access,
       S_GCC_OptX    'Access,
       S_GCC_Polling 'Access,
       S_GCC_Project 'Access,
+      S_GCC_Psta    'Access,
       S_GCC_Report  'Access,
       S_GCC_ReportX 'Access,
       S_GCC_Repinfo 'Access,
@@ -4635,12 +4626,6 @@ package VMS_Data is
       S_Shared_Noinhib 'Access,
       S_Shared_Verb    'Access,
       S_Shared_ZZZZZ   'Access);
-
-   --------------------------------
-   -- Switches for GNAT STANDARD --
-   --------------------------------
-
-   Standard_Switches : aliased constant Switches := (1 .. 0 => null);
 
    ----------------------------
    -- Switches for GNAT STUB --

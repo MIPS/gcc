@@ -17,7 +17,6 @@ details.  */
 
 #include <gnu/java/net/PlainDatagramSocketImpl.h>
 #include <java/io/IOException.h>
-#include <java/io/InterruptedIOException.h>
 #include <java/net/BindException.h>
 #include <java/net/SocketException.h>
 #include <java/net/InetAddress.h>
@@ -69,11 +68,14 @@ gnu::java::net::PlainDatagramSocketImpl::create ()
       _Jv_ThrowSocketException ();
     }
 
-  _Jv_platform_close_on_exec (sock);
+  // Cast this to a HANDLE so we can make
+  // it non-inheritable via _Jv_platform_close_on_exec.
+  HANDLE hSocket = (HANDLE) sock;
+  _Jv_platform_close_on_exec (hSocket);
 
   // We use native_fd in place of fd here.  From leaving fd null we avoid
   // the double close problem in FileDescriptor.finalize.
-  native_fd = (int) sock;
+  native_fd = (jint) hSocket;
 }
 
 void
@@ -199,7 +201,8 @@ gnu::java::net::PlainDatagramSocketImpl::peekData(::java::net::DatagramPacket *p
   // FIXME: Deal with Multicast and if the socket is connected.
   union SockAddr u;
   socklen_t addrlen = sizeof(u);
-  jbyte *dbytes = elements (p->getData());
+  jbyte *dbytes = elements (p->getData()) + p->getOffset();
+  jint maxlen = p->maxlen - p->getOffset();
   ssize_t retlen = 0;
 
   if (timeout > 0)
@@ -211,7 +214,7 @@ gnu::java::net::PlainDatagramSocketImpl::peekData(::java::net::DatagramPacket *p
     }
 
   retlen =
-    ::recvfrom (native_fd, (char *) dbytes, p->getLength(), MSG_PEEK, (sockaddr*) &u,
+    ::recvfrom (native_fd, (char *) dbytes, maxlen, MSG_PEEK, (sockaddr*) &u,
       &addrlen);
   if (retlen == SOCKET_ERROR)
     goto error;
@@ -237,7 +240,7 @@ gnu::java::net::PlainDatagramSocketImpl::peekData(::java::net::DatagramPacket *p
 
   p->setAddress (new ::java::net::InetAddress (raddr, NULL));
   p->setPort (rport);
-  p->setLength ((jint) retlen);
+  p->length = (jint) retlen;
   return rport;
 
 error:
@@ -277,7 +280,7 @@ gnu::java::net::PlainDatagramSocketImpl::send (::java::net::DatagramPacket *p)
   jbyte *bytes = elements (haddress);
   int len = haddress->length;
   struct sockaddr *ptr = (struct sockaddr *) &u.address;
-  jbyte *dbytes = elements (p->getData());
+  jbyte *dbytes = elements (p->getData()) + p->getOffset();
   if (len == 4)
     {
       u.address.sin_family = AF_INET;
@@ -313,7 +316,8 @@ gnu::java::net::PlainDatagramSocketImpl::receive (::java::net::DatagramPacket *p
   // FIXME: Deal with Multicast and if the socket is connected.
   union SockAddr u;
   socklen_t addrlen = sizeof(u);
-  jbyte *dbytes = elements (p->getData());
+  jbyte *dbytes = elements (p->getData()) + p->getOffset();
+  jint maxlen = p->maxlen - p->getOffset();
   ssize_t retlen = 0;
 
   if (timeout > 0)
@@ -328,7 +332,7 @@ gnu::java::net::PlainDatagramSocketImpl::receive (::java::net::DatagramPacket *p
     }
 
   retlen =
-    ::recvfrom (native_fd, (char *) dbytes, p->getLength(), 0, (sockaddr*) &u,
+    ::recvfrom (native_fd, (char *) dbytes, maxlen, 0, (sockaddr*) &u,
       &addrlen);
   if (retlen < 0)
     goto error;
@@ -354,7 +358,7 @@ gnu::java::net::PlainDatagramSocketImpl::receive (::java::net::DatagramPacket *p
 
   p->setAddress (new ::java::net::InetAddress (raddr, NULL));
   p->setPort (rport);
-  p->setLength ((jint) retlen);
+  p->length = (jint) retlen;
   return;
 
  error:

@@ -884,6 +884,11 @@ and later return that value, without knowing what data type
 the function tried to return (as long as your caller expects
 that data type).
 
+However, these built-in functions may interact badly with some
+sophisticated features or other extensions of the language.  It
+is, therefore, not recommended to use them outside very simple
+functions acting as mere forwarders for their arguments.
+
 @deftypefn {Built-in Function} {void *} __builtin_apply_args ()
 This built-in function returns a pointer to data
 describing how to perform a call with the same arguments as were passed
@@ -1069,7 +1074,8 @@ This will work with all versions of GCC@.
 
 Compound expressions, conditional expressions and casts are allowed as
 lvalues provided their operands are lvalues.  This means that you can take
-their addresses or store values into them.
+their addresses or store values into them.  All these extensions are
+deprecated.
 
 Standard C++ allows compound expressions and conditional expressions
 as lvalues, and permits casts to reference type, so use of this
@@ -3907,18 +3913,19 @@ The ordinary output operands must be write-only; GCC will assume that
 the values in these operands before the instruction are dead and need
 not be generated.  Extended asm supports input-output or read-write
 operands.  Use the constraint character @samp{+} to indicate such an
-operand and list it with the output operands.
+operand and list it with the output operands.  You should only use
+read-write operands when the constraints for the operand (or the
+operand in which only some of the bits are to be changed) allow a
+register.
 
-When the constraints for the read-write operand (or the operand in which
-only some of the bits are to be changed) allows a register, you may, as
-an alternative, logically split its function into two separate operands,
-one input operand and one write-only output operand.  The connection
-between them is expressed by constraints which say they need to be in
-the same location when the instruction executes.  You can use the same C
-expression for both operands, or different expressions.  For example,
-here we write the (fictitious) @samp{combine} instruction with
-@code{bar} as its read-only source operand and @code{foo} as its
-read-write destination:
+You may, as an alternative, logically split its function into two
+separate operands, one input operand and one write-only output
+operand.  The connection between them is expressed by constraints
+which say they need to be in the same location when the instruction
+executes.  You can use the same C expression for both operands, or
+different expressions.  For example, here we write the (fictitious)
+@samp{combine} instruction with @code{bar} as its read-only source
+operand and @code{foo} as its read-write destination:
 
 @example
 asm ("combine %2,%0" : "=r" (foo) : "0" (foo), "g" (bar));
@@ -4721,8 +4728,8 @@ architecture does not allow for this specific SIMD type, gcc will
 produce code that uses 4 @code{SIs}.
 
 The types defined in this manner can be used with a subset of normal C
-operations.  Currently, gcc will allow using the following operators on
-these types: @code{+, -, *, /, unary minus}@.
+operations.  Currently, gcc will allow using the following operators
+on these types: @code{+, -, *, /, unary minus, ^, |, &, ~}@.
 
 The operations behave like C++ @code{valarrays}.  Addition is defined as
 the addition of the corresponding elements of the operands.  For
@@ -4738,9 +4745,10 @@ v4si a, b, c;
 c = a + b;
 @end example
 
-Subtraction, multiplication, and division operate in a similar manner.
-Likewise, the result of using the unary minus operator on a vector type
-is a vector whose elements are the negative value of the corresponding
+Subtraction, multiplication, division, and the logical operations
+operate in a similar manner.  Likewise, the result of using the unary
+minus or complement operators on a vector type is a vector whose
+elements are the negative or complemented values of the corresponding
 elements in the operand.
 
 You can declare variables and use them in function calls and returns, as
@@ -7648,6 +7656,8 @@ Predefined Macros,cpp,The GNU C Preprocessor}).
 * Bound member functions:: You can extract a function pointer to the
                         method denoted by a @samp{->*} or @samp{.*} expression.
 * C++ Attributes::      Variable, function, and type attributes for C++ only.
+* Strong Using::      Strong using-directives for namespace composition.
+* Offsetof::            Special syntax for implementing @code{offsetof}.
 * Java Exceptions::     Tweaking exception handling to work with Java.
 * Deprecated Features:: Things will disappear from g++.
 * Backwards Compatibility:: Compatibilities with earlier definitions of C++.
@@ -8247,6 +8257,64 @@ Calls to methods declared in this interface will be dispatched using GCJ's
 interface table mechanism, instead of regular virtual table dispatch.
 
 @end table
+
+See also @xref{Strong Using}.
+
+@node Strong Using
+@section Strong Using
+
+A using-directive with @code{__attribute ((strong))} is stronger
+than a normal using-directive in two ways:
+
+@itemize @bullet
+@item
+Templates from the used namespace can be specialized as though they were members of the using namespace.
+
+@item
+The using namespace is considered an associated namespace of all
+templates in the used namespace for purposes of argument-dependent
+name lookup.
+@end itemize
+
+This is useful for composing a namespace transparently from
+implementation namespaces.  For example:
+
+@smallexample
+namespace std @{
+  namespace debug @{
+    template <class T> struct A @{ @};
+  @}
+  using namespace debug __attribute ((__strong__));
+  template <> struct A<int> @{ @};   // ok to specialize
+
+  template <class T> void f (A<T>);
+@}
+
+int main()
+@{
+  f (std::A<float>());             // lookup finds std::f
+  f (std::A<int>());
+@}
+@end smallexample
+
+@node Offsetof
+@section Offsetof
+
+G++ uses a syntactic extension to implement the @code{offsetof} macro.
+
+In particular:
+
+@smallexample
+  __offsetof__ (expression)
+@end smallexample
+
+is equivalent to the parenthesized expression, except that the
+expression is considered an integral constant expression even if it
+contains certain operators that are not normally permitted in an
+integral constant expression.  Users should never use
+@code{__offsetof__} directly; the only valid use of
+@code{__offsetof__} is to implement the @code{offsetof} macro in
+@code{<stddef.h>}.
 
 @node Java Exceptions
 @section Java Exceptions

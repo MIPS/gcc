@@ -47,12 +47,20 @@ cls_struct_7byte_gn(ffi_cif* cif, void* resp, void** args, void* userdata)
 int main (void)
 {
   ffi_cif cif;
+#ifndef USING_MMAP
   static ffi_closure cl;
-  ffi_closure *pcl = &cl;
+#endif
+  ffi_closure *pcl;
   void* args_dbl[5];
   ffi_type* cls_struct_fields[5];
   ffi_type cls_struct_type;
   ffi_type* dbl_arg_types[5];
+
+#ifdef USING_MMAP
+  pcl = allocate_mmap (sizeof(ffi_closure));
+#else
+  pcl = &cl;
+#endif
 
   cls_struct_type.size = 0;
   cls_struct_type.alignment = 0;
@@ -82,19 +90,15 @@ int main (void)
 
   ffi_call(&cif, FFI_FN(cls_struct_7byte_fn), &res_dbl, args_dbl);
   /* { dg-output "127 120 1 254 12 128 9 255: 139 248 10 509" } */
-  CHECK( res_dbl.a == (g_dbl.a + f_dbl.a));
-  CHECK( res_dbl.b == (g_dbl.b + f_dbl.b));
-  CHECK( res_dbl.c == (g_dbl.c + f_dbl.c));
-  CHECK( res_dbl.d == (g_dbl.d + f_dbl.d));
+  printf("res: %d %d %d %d\n", res_dbl.a, res_dbl.b, res_dbl.c, res_dbl.d);
+  /* { dg-output "\nres: 139 248 10 509" } */
 
   CHECK(ffi_prep_closure(pcl, &cif, cls_struct_7byte_gn, NULL) == FFI_OK);
 
   res_dbl = ((cls_struct_7byte(*)(cls_struct_7byte, cls_struct_7byte))(pcl))(g_dbl, f_dbl);
   /* { dg-output "\n127 120 1 254 12 128 9 255: 139 248 10 509" } */
-  CHECK( res_dbl.a == (g_dbl.a + f_dbl.a));
-  CHECK( res_dbl.b == (g_dbl.b + f_dbl.b));
-  CHECK( res_dbl.c == (g_dbl.c + f_dbl.c));
-  CHECK( res_dbl.d == (g_dbl.d + f_dbl.d));
+  printf("res: %d %d %d %d\n", res_dbl.a, res_dbl.b, res_dbl.c, res_dbl.d);
+  /* { dg-output "\nres: 139 248 10 509" } */
 
   exit(0);
 }

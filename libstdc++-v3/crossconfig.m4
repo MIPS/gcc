@@ -53,7 +53,6 @@ case "${host}" in
     GLIBCXX_CHECK_COMPLEX_MATH_SUPPORT
     GLIBCXX_CHECK_WCHAR_T_SUPPORT
     AC_DEFINE(HAVE_LC_MESSAGES)
-    AC_DEFINE(HAVE_LRAND48)
     AC_DEFINE(HAVE_GETPAGESIZE)
     AC_DEFINE(HAVE_SETENV)
     AC_DEFINE(HAVE_SIGSETJMP)
@@ -123,7 +122,7 @@ case "${host}" in
 	;;
     esac
     ;;
-  *-linux* | *-uclinux* | *-gnu*)
+  *-linux* | *-uclinux* | *-gnu* | *-kfreebsd*-gnu | *-knetbsd*-gnu)
     AC_CHECK_HEADERS([nan.h ieeefp.h endian.h sys/isa_defs.h \
       machine/endian.h machine/param.h sys/machine.h sys/types.h \
       fp.h locale.h float.h inttypes.h])
@@ -217,7 +216,6 @@ case "${host}" in
          AC_DEFINE(HAVE_S_ISREG)
          AC_DEFINE(HAVE_LC_MESSAGES)
          AC_DEFINE(HAVE_BTOWC)
-         AC_DEFINE(HAVE_DRAND48)
          AC_DEFINE(HAVE_FGETWC)
          AC_DEFINE(HAVE_FGETWS)
          AC_DEFINE(HAVE_FINITE)

@@ -551,7 +551,9 @@ specified in @code{outputs} in @file{config-lang.in}, although this is
 deprecated).  Some hooks are defined by using a double-colon rule for
 @code{@var{hook}}, rather than by using a target of form
 @code{@var{lang}.@var{hook}}.  These hooks are called ``double-colon
-hooks'' below.
+hooks'' below.  It also adds any testsuite targets that can use the
+standard rule in @file{gcc/Makefile.in} to the variable
+@code{lang_checks}.
 
 @table @code
 @item all.build
@@ -600,14 +602,11 @@ anything.
 @item mostlyclean
 @itemx clean
 @itemx distclean
-@itemx extraclean
 @itemx maintainer-clean
-Except for @code{extraclean}, the language parts of the standard GNU
+The language parts of the standard GNU
 @samp{*clean} targets. @xref{Standard Targets, , Standard Targets for
 Users, standards, GNU Coding Standards}, for details of the standard
-targets.  @code{extraclean} does @code{distclean} and also deletes
-anything likely to be found in the source directory that shouldn't be
-in the distribution.  For GCC, @code{maintainer-clean} should delete
+targets.  For GCC, @code{maintainer-clean} should delete
 all generated files in the source directory that are not checked into
 CVS, but should not delete anything checked into CVS@.
 @item stage1
@@ -778,6 +777,7 @@ here; FIXME: document the others.
 
 @menu
 * Test Idioms::     Idioms used in test suite code.
+* Ada Tests::       The Ada language test suites.
 * C Tests::         The C language test suites.
 * libgcj Tests::    The Java library test suites.
 * gcov Testing::    Support for testing gcov.
@@ -859,6 +859,39 @@ appropriate code to avoid causing failures on unsupported systems;
 unfortunately, the mechanisms for this differ by directory.
 
 FIXME: discuss non-C test suites here.
+
+@node Ada Tests
+@subsection Ada Language Test Suites
+
+The Ada test suite includes executable tests from the ACATS 2.5 test
+suite, publicly available at @uref{http://www.adaic.org/compilers/acats/2.5}
+
+These tests are integrated in the GCC test suite in the
+@file{gcc/testsuite/ada/acats} directory, and
+enabled automatically when running @code{make check}, assuming
+the Ada language has been enabled when configuring GCC.
+
+You can also run the Ada test suite independently, using
+@code{make check-ada}, or run a subset of the tests by specifying which
+chapter to run, e.g:
+
+@smallexample
+$ make check-ada CHAPTERS="c3 c9"
+@end smallexample
+
+The tests are organized by directory, each directory corresponding to
+a chapter of the Ada Reference Manual. So for example, c9 corresponds
+to chapter 9, which deals with tasking features of the language.
+
+There is also an extra chapter called @file{gcc} containing a template for
+creating new executable tests.
+
+The tests are run using two 'sh' scripts: run_acats and run_all.sh
+To run the tests using a simulator or a cross target, see the small
+customization section at the top of run_all.sh
+
+These tests are run using the build tree: they can be run without doing
+a @code{make install}.
 
 @node C Tests
 @subsection C Language Test Suites

@@ -205,6 +205,7 @@ static unsigned int xtensa_multibss_section_type_flags (tree, const char *,
 static void xtensa_select_rtx_section (enum machine_mode, rtx,
 				       unsigned HOST_WIDE_INT);
 static bool xtensa_rtx_costs (rtx, int, int, int *);
+static tree xtensa_build_builtin_va_list (void);
 
 static int current_function_arg_words;
 static const int reg_nonleaf_alloc_order[FIRST_PSEUDO_REGISTER] =
@@ -232,6 +233,9 @@ static const int reg_nonleaf_alloc_order[FIRST_PSEUDO_REGISTER] =
 #define TARGET_RTX_COSTS xtensa_rtx_costs
 #undef TARGET_ADDRESS_COST
 #define TARGET_ADDRESS_COST hook_int_rtx_0
+
+#undef TARGET_BUILD_BUILTIN_VA_LIST
+#define TARGET_BUILD_BUILTIN_VA_LIST xtensa_build_builtin_va_list
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -1581,10 +1585,10 @@ xtensa_setup_frame_addresses (void)
    a comment showing where the end of the loop is.  However, if there is a
    label or a branch at the end of the loop then we need to place a nop
    there.  If the loop ends with a label we need the nop so that branches
-   targetting that label will target the nop (and thus remain in the loop),
-   instead of targetting the instruction after the loop (and thus exiting
+   targeting that label will target the nop (and thus remain in the loop),
+   instead of targeting the instruction after the loop (and thus exiting
    the loop).  If the loop ends with a branch, we need the nop in case the
-   branch is targetting a location inside the loop.  When the branch
+   branch is targeting a location inside the loop.  When the branch
    executes it will cause the loop count to be decremented even if it is
    taken (because it is the last instruction in the loop), so we need to
    nop after the branch to prevent the loop count from being decremented
@@ -2318,8 +2322,8 @@ xtensa_return_addr (int count, rtx frame)
    references argument word N for 0 <= N < 6, and __va_stk[N*4] references
    argument word N for N >= 6.  */
 
-tree
-xtensa_build_va_list (void)
+static tree
+xtensa_build_builtin_va_list (void)
 {
   tree f_stk, f_reg, f_ndx, record, type_decl;
 

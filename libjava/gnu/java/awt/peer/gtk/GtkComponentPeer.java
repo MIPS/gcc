@@ -99,7 +99,8 @@ public class GtkComponentPeer extends GtkGenericPeer
     insets = new Insets (0, 0, 0, 0);
   }
 
-  native void connectHooks ();
+  native void connectJObject ();
+  native void connectSignals ();
 
   protected GtkComponentPeer (Component awtComponent)
   {
@@ -114,7 +115,8 @@ public class GtkComponentPeer extends GtkGenericPeer
       getArgs (awtComponent, args);
       args.setArgs (this);
 
-      connectHooks ();
+      connectJObject ();
+      connectSignals ();
 
       if (awtComponent.getForeground () != null)
 	setForeground (awtComponent.getForeground ());
@@ -242,13 +244,12 @@ public class GtkComponentPeer extends GtkGenericPeer
       PrepareImage (GtkImage image, ImageObserver observer)
       {
 	this.image = image;
-	this.observer = observer;
+	image.setObserver (observer);
       }
       
       public void run ()
       {
-	// XXX: need to return data to image observer
-	image.source.startProduction (null);
+	image.source.startProduction (image);
       }
     }
 

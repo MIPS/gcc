@@ -647,8 +647,21 @@ clear()
 public synchronized void
 replaceItem(String item, int index) throws IllegalArgumentException
 {
-  remove(index);
-  addItem(item, index);
+  if ((index < 0) || (index >= items.size()))
+    throw new IllegalArgumentException("Bad list index: " + index);
+
+  items.insertElementAt(item, index + 1);
+  items.removeElementAt (index);
+
+  if (peer != null)
+    {
+      ListPeer l = (ListPeer) peer;
+
+      /* We add first and then remove so that the selected
+	 item remains the same */
+      l.add (item, index + 1);
+      l.delItems (index, index);
+    }
 }
 
 /*************************************************************************/
@@ -668,7 +681,7 @@ getSelectedIndex()
       selected = l.getSelectedIndexes ();
     }
 
-  if (selected == null || selected.length > 1)
+  if (selected == null || selected.length != 1)
     return -1;
   return selected[0];
 }

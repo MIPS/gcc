@@ -110,9 +110,11 @@ _Unwind_GetGR (struct _Unwind_Context *context, int index)
 _Unwind_Word
 _Unwind_GetCFA (struct _Unwind_Context *context)
 {
-  /* ??? Is there any way to get this information?  */
-  return NULL;
-} 
+  unw_word_t ret;
+
+  unw_get_reg (&context->cursor, UNW_IA64_SP, &ret);
+  return ret;
+}
 
 /* Overwrite the saved value for register REG in CONTEXT with VAL.  */
 
@@ -122,6 +124,11 @@ _Unwind_SetGR (struct _Unwind_Context *context, int index, _Unwind_Word val)
   /* Note: here we depend on the fact that general registers are
      expected to start with register number 0!  */
   unw_set_reg (&context->cursor, index, val);
+#ifdef UNW_TARGET_IA64
+  if (index >= UNW_IA64_GR && index <= UNW_IA64_GR + 127)
+    /* Clear the NaT bit.  */
+    unw_set_reg (&context->cursor, UNW_IA64_NAT + (index - UNW_IA64_GR), 0);
+#endif
 }
 
 /* Retrieve the return address for CONTEXT.  */
@@ -166,6 +173,19 @@ _Unwind_FindEnclosingFunction (void *pc)
 {
   return NULL;
 }
+
+#ifdef UNW_TARGET_IA64
+
+_Unwind_Word
+_Unwind_GetBSP (struct _Unwind_Context *context)
+{
+  unw_word_t ret;
+
+  unw_get_reg (&context->cursor, UNW_IA64_BSP, &ret);
+  return ret;
+}
+
+#endif
 
 #include "unwind.inc"
 

@@ -42,6 +42,7 @@ with Types;
 with Ada.Command_Line;     use Ada.Command_Line;
 with GNAT.OS_Lib;          use GNAT.OS_Lib;
 with Interfaces.C_Streams; use Interfaces.C_Streams;
+with System.CRTL;
 
 procedure Gnatlink is
    pragma Ident (Gnatvsn.Gnat_Static_Version_String);
@@ -619,6 +620,10 @@ procedure Gnatlink is
       GNAT_Shared : Boolean := False;
       --  Save state of -shared option.
 
+      Xlinker_Was_Previous : Boolean := False;
+      --  Indicate that "-Xlinker" was the option preceding the current
+      --  option. If True, then the current option is never suppressed.
+
       --  Rollback data
 
       --  These data items are used to store current binder file context.
@@ -766,6 +771,7 @@ procedure Gnatlink is
       ------------------------
 
       procedure Store_File_Context is
+         use type System.CRTL.long;
       begin
          RB_Next_Line := Next_Line;
          RB_Nfirst    := Nfirst;
@@ -936,8 +942,17 @@ procedure Gnatlink is
       --  Process switches and options
 
       if Next_Line (Nfirst .. Nlast) /= End_Info then
+         Xlinker_Was_Previous := False;
+
          loop
-            if Next_Line (Nfirst .. Nlast) = "-static" then
+            if Xlinker_Was_Previous
+              or else Next_Line (Nfirst .. Nlast) = "-Xlinker"
+            then
+               Linker_Options.Increment_Last;
+               Linker_Options.Table (Linker_Options.Last) :=
+                 new String'(Next_Line (Nfirst .. Nlast));
+
+            elsif Next_Line (Nfirst .. Nlast) = "-static" then
                GNAT_Static := True;
 
             elsif Next_Line (Nfirst .. Nlast) = "-shared" then
@@ -946,9 +961,7 @@ procedure Gnatlink is
             --  Add binder options only if not already set on the command
             --  line. This rule is a way to control the linker options order.
 
-            elsif not Is_Option_Present (Next_Line (Nfirst .. Nlast))
-              or else Next_Line (Nfirst .. Nlast) = "-Xlinker"
-            then
+            elsif not Is_Option_Present (Next_Line (Nfirst .. Nlast)) then
                if Nlast > Nfirst + 2 and then
                  Next_Line (Nfirst .. Nfirst + 1) = "-L"
                then
@@ -1124,6 +1137,8 @@ procedure Gnatlink is
                     new String'(Next_Line (Nfirst .. Nlast));
                end if;
             end if;
+
+            Xlinker_Was_Previous := Next_Line (Nfirst .. Nlast) = "-Xlinker";
 
             Get_Next_Line;
             exit when Next_Line (Nfirst .. Nlast) = End_Info;

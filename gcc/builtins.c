@@ -710,6 +710,13 @@ expand_builtin_longjmp (rtx buf_addr, rtx value)
 	{
 	  lab = copy_to_reg (lab);
 
+	  emit_insn (gen_rtx_CLOBBER (VOIDmode,
+				      gen_rtx_MEM (BLKmode,
+						   gen_rtx_SCRATCH (VOIDmode))));
+	  emit_insn (gen_rtx_CLOBBER (VOIDmode,
+				      gen_rtx_MEM (BLKmode,
+						   hard_frame_pointer_rtx)));
+
 	  emit_move_insn (hard_frame_pointer_rtx, fp);
 	  emit_stack_restore (SAVE_NONLOCAL, stack, NULL_RTX);
 
@@ -1219,12 +1226,16 @@ expand_builtin_apply (rtx function, rtx arguments, rtx argsize)
 #endif
     emit_stack_save (SAVE_BLOCK, &old_stack_level, NULL_RTX);
 
-  /* Push a block of memory onto the stack to store the memory arguments.
-     Save the address in a register, and copy the memory arguments.  ??? I
-     haven't figured out how the calling convention macros effect this,
-     but it's likely that the source and/or destination addresses in
-     the block copy will need updating in machine specific ways.  */
-  dest = allocate_dynamic_stack_space (argsize, 0, BITS_PER_UNIT);
+  /* Allocate a block of memory onto the stack and copy the memory
+     arguments to the outgoing arguments address.  */
+  allocate_dynamic_stack_space (argsize, 0, BITS_PER_UNIT);
+  dest = virtual_outgoing_args_rtx;
+#ifndef STACK_GROWS_DOWNWARD
+  if (GET_CODE (argsize) == CONST_INT)
+    dest = plus_constant (dest, -INTVAL (argsize));
+  else
+    dest = gen_rtx_PLUS (Pmode, dest, negate_rtx (Pmode, argsize));
+#endif
   dest = gen_rtx_MEM (BLKmode, dest);
   set_mem_align (dest, PARM_BOUNDARY);
   src = gen_rtx_MEM (BLKmode, incoming_args);
@@ -1378,7 +1389,7 @@ expand_builtin_return (rtx result)
 
   /* Return whatever values was restored by jumping directly to the end
      of the function.  */
-  expand_null_return ();
+  expand_naked_return ();
 }
 
 /* Used by expand_builtin_classify_type and fold_builtin_classify_type.  */
@@ -2261,7 +2272,8 @@ expand_builtin_strstr (tree arglist, rtx target, enum machine_mode mode)
 
 	  /* Return an offset into the constant string argument.  */
 	  return expand_expr (fold (build (PLUS_EXPR, TREE_TYPE (s1),
-					   s1, ssize_int (r - p1))),
+					   s1, convert (TREE_TYPE (s1),
+							ssize_int (r - p1)))),
 			      target, mode, EXPAND_NORMAL);
 	}
 
@@ -2318,7 +2330,8 @@ expand_builtin_strchr (tree arglist, rtx target, enum machine_mode mode)
 
 	  /* Return an offset into the constant string argument.  */
 	  return expand_expr (fold (build (PLUS_EXPR, TREE_TYPE (s1),
-					   s1, ssize_int (r - p1))),
+					   s1, convert (TREE_TYPE (s1),
+							ssize_int (r - p1)))),
 			      target, mode, EXPAND_NORMAL);
 	}
 
@@ -2362,7 +2375,8 @@ expand_builtin_strrchr (tree arglist, rtx target, enum machine_mode mode)
 
 	  /* Return an offset into the constant string argument.  */
 	  return expand_expr (fold (build (PLUS_EXPR, TREE_TYPE (s1),
-					   s1, ssize_int (r - p1))),
+					   s1, convert (TREE_TYPE (s1),
+							ssize_int (r - p1)))),
 			      target, mode, EXPAND_NORMAL);
 	}
 
@@ -2408,7 +2422,8 @@ expand_builtin_strpbrk (tree arglist, rtx target, enum machine_mode mode)
 
 	  /* Return an offset into the constant string argument.  */
 	  return expand_expr (fold (build (PLUS_EXPR, TREE_TYPE (s1),
-					   s1, ssize_int (r - p1))),
+					   s1, convert (TREE_TYPE (s1),
+							ssize_int (r - p1)))),
 			      target, mode, EXPAND_NORMAL);
 	}
 
@@ -3910,6 +3925,14 @@ stabilize_va_list (tree valist, int needs_lvalue)
   return valist;
 }
 
+/* The "standard" definition of va_list is void*.  */
+
+tree
+std_build_builtin_va_list (void)
+{
+  return ptr_type_node;
+}
+
 /* The "standard" implementation of va_start: just assign `nextarg' to
    the variable.  */
 
@@ -4436,6 +4459,14 @@ expand_builtin_expect_jump (tree exp, rtx if_false_label, rtx if_true_label)
       do_jump (arg0, if_false_label, if_true_label);
       ret = get_insns ();
       end_sequence ();
+
+      /* For mildly unsafe builtin jump's, if unsave_expr_now
+	 creates a new tree instead of changing the old one
+	 TREE_VALUE (arglist) needs to be updated.  */
+      if (arg0 != TREE_VALUE (arglist)
+	  && TREE_CODE (arg0) == UNSAVE_EXPR
+	  && TREE_OPERAND (arg0, 0) != TREE_VALUE (arglist))
+	TREE_VALUE (arglist) = TREE_OPERAND (arg0, 0);
 
       /* Now that the __builtin_expect has been validated, go through and add
 	 the expect's to each of the conditional jumps.  If we run into an

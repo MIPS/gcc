@@ -28,6 +28,10 @@
 // invalidate any other reasons why the executable file might be covered by
 // the GNU General Public License.
 
+// This file implements demangling of "C++ ABI for Itanium"-mangled symbol
+// and type names as described in Revision 1.73 of the C++ ABI as can be found
+// at http://www.codesourcery.com/cxx-abi/abi.html#mangling
+
 #ifndef _DEMANGLER_H
 #define _DEMANGLER_H 1
 
@@ -40,32 +44,15 @@
 #define _GLIBCXX_DEMANGLER_DOUT(cntrl, data)
 #define _GLIBCXX_DEMANGLER_DOUT_ENTERING(x)
 #define _GLIBCXX_DEMANGLER_DOUT_ENTERING2(x)
-#define _GLIBCXX_DEMANGLER_RETURN \
-    return M_result
-#define _GLIBCXX_DEMANGLER_RETURN2 \
-    return M_result
+#define _GLIBCXX_DEMANGLER_DOUT_ENTERING3(x)
+#define _GLIBCXX_DEMANGLER_RETURN return M_result
+#define _GLIBCXX_DEMANGLER_RETURN2 return M_result
+#define _GLIBCXX_DEMANGLER_RETURN3
 #define _GLIBCXX_DEMANGLER_FAILURE \
     do { M_result = false; return false; } while(0)
 #else
 #define _GLIBCXX_DEMANGLER_CWDEBUG 1
 #endif
-
-// The following defines change the behaviour of the demangler.  The
-// default behaviour is that none of these macros is defined.
-
-// _GLIBCXX_DEMANGLER_STYLE_VOID
-// Default behaviour:					int f()
-// Uses (void) instead of ():				int f(void)
-
-// _GLIBCXX_DEMANGLER_STYLE_LITERAL
-// Default behaviour:					(long)13, 
-//							(unsigned long long)19
-// Use extensions 'u', 'l' and 'll' for integral
-// literals (as in template arguments):			13l, 19ull
-
-// _GLIBCXX_DEMANGLER_STYLE_LITERAL_INT
-// Default behaviour:					4
-// Use also an explicit cast for int in literals:	(int)4
 
 namespace __gnu_cxx
 {
@@ -78,7 +65,7 @@ namespace __gnu_cxx
       template_template_param,
       nested_name_prefix,
       nested_name_template_prefix,
-      unscoped_template_name,
+      unscoped_template_name
     };
 
     struct substitution_st
@@ -126,7 +113,9 @@ namespace __gnu_cxx
     template<typename Allocator>
       class qualifier
       {
-	typedef std::basic_string<char, std::char_traits<char>, Allocator>
+	typedef typename Allocator::template rebind<char>::other
+	        char_Allocator;
+	typedef std::basic_string<char, std::char_traits<char>, char_Allocator>
 	    string_type;
 
       private:
@@ -192,18 +181,49 @@ namespace __gnu_cxx
 	part_of_substitution(void) const
 	{ return M_part_of_substitution; }
 
+#if _GLIBCXX_DEMANGLER_CWDEBUG
+	friend std::ostream& operator<<(std::ostream& os, qualifier const& qual)
+	{
+	  os << (char)qual.M_qualifier1;
+	  if (qual.M_qualifier1 == vendor_extension ||
+	      qual.M_qualifier1 == array ||
+	      qual.M_qualifier1 == pointer_to_member)
+	    os << " [" << qual.M_optional_type << ']';
+	  else if (qual.M_qualifier1 == 'K' ||
+		   qual.M_qualifier1 == 'V' ||
+		   qual.M_qualifier1 == 'r')
+	  {
+	    if (qual.M_qualifier2)
+	    {
+	      os << (char)qual.M_qualifier2;
+	      if (qual.M_qualifier3)
+		os << (char)qual.M_qualifier3;
+	    }
+	  }
+	  return os;
+	}
+#endif
       };
 
     template<typename Allocator>
       class qualifier_list
       {
-	typedef std::basic_string<char, std::char_traits<char>, Allocator>
+	typedef typename Allocator::template rebind<char>::other
+  	  char_Allocator;
+	typedef std::basic_string<char, std::char_traits<char>, char_Allocator>
 	  string_type;
 
       private:
-	bool M_printing_suppressed;
-	std::vector<qualifier<Allocator>, Allocator> M_qualifier_starts;
+	mutable bool M_printing_suppressed;
+	typedef qualifier<Allocator> qual;
+        typedef typename Allocator::template rebind<qual>::other qual_Allocator;
+	typedef std::vector<qual, qual_Allocator> qual_vector;
+	qual_vector M_qualifier_starts;
 	session<Allocator>& M_demangler;
+
+	void decode_KVrA(string_type& prefix, string_type& postfix, int cvq,
+			 typename qual_vector::
+			   const_reverse_iterator const& iter_array) const;
 
       public:
 	qualifier_list(session<Allocator>& demangler_obj)
@@ -240,7 +260,7 @@ namespace __gnu_cxx
 	void
 	decode_qualifiers(string_type& prefix,
 	    		  string_type& postfix,
-			  bool member_function_pointer_qualifiers);
+			  bool member_function_pointer_qualifiers) const;
 
 	bool
 	suppressed(void) const
@@ -254,13 +274,86 @@ namespace __gnu_cxx
 	size(void) const
 	{ return M_qualifier_starts.size(); }
 
+#if _GLIBCXX_DEMANGLER_CWDEBUG
+	friend std::ostream& operator<<(std::ostream& os, qualifier_list const& list)
+	{
+	  typename qual_vector::const_iterator
+	      iter = list.M_qualifier_starts.begin();
+	  if (iter != list.M_qualifier_starts.end())
+	  {
+	    os << "{ " << *iter;
+	    while (++iter != list.M_qualifier_starts.end())
+	      os << ", " << *iter;
+	    os << " }";
+	  }
+	  else
+	    os << "{ }";
+	  return os;
+	}
+#endif
       };
+
+    struct implementation_details
+    {
+      private:
+        unsigned int M_style;
+
+      public:
+	// The following flags change the behaviour of the demangler.  The
+	// default behaviour is that none of these flags is set.
+
+        static unsigned int const style_void = 1;
+	// Default behaviour:				int f()
+	// Use (void) instead of ():			int f(void)
+
+        static unsigned int const style_literal = 2;
+	// Default behaviour:				(long)13, 
+	//						(unsigned long long)19
+	// Use extensions 'u', 'l' and 'll' for integral
+	// literals (as in template arguments):		13l, 19ull
+
+        static unsigned int const style_literal_int = 4;
+	// Default behaviour:				4
+	// Use also an explicit
+	//   cast for int in literals:			(int)4
+
+        static unsigned int const style_compact_expr_ops = 8;
+	// Default behaviour:				(i) < (3), sizeof (int)
+	// Don't output spaces around
+	//   operators in expressions:			(i)<(3), sizeof(int)
+
+        static unsigned int const style_sizeof_typename = 16;
+	// Default behaviour:				sizeof (X::t)
+	// Put 'typename' infront of <nested-name>
+	// types inside a 'sizeof':			sizeof (typename X::t)
+
+      public:
+	implementation_details(unsigned int style_flags = 0) :
+	    M_style(style_flags) { }
+	virtual ~implementation_details() { }
+	bool get_style_void(void) const
+	    { return (M_style & style_void); }
+	bool get_style_literal(void) const
+	    { return (M_style & style_literal); }
+	bool get_style_literal_int(void) const
+	    { return (M_style & style_literal_int); }
+	bool get_style_compact_expr_ops(void) const
+	    { return (M_style & style_compact_expr_ops); }
+	bool get_style_sizeof_typename(void) const
+	    { return (M_style & style_sizeof_typename); }
+        // This can be overridden by user implementations.
+        virtual bool decode_real(char* /* output */, unsigned long* /* input */,
+				 size_t /* size_of_real */) const
+            { return false; }
+    };
 
     template<typename Allocator>
       class session
       {
 	friend class qualifier_list<Allocator>;
-	typedef std::basic_string<char, std::char_traits<char>, Allocator>
+	typedef typename Allocator::template rebind<char>::other
+    	    char_Allocator;
+	typedef std::basic_string<char, std::char_traits<char>, char_Allocator>
 	    string_type;
 
       private:
@@ -277,33 +370,36 @@ namespace __gnu_cxx
 	bool M_name_is_conversion_operator;
 	bool M_template_args_need_space;
 	string_type M_function_name;
-	std::vector<int, Allocator> M_template_arg_pos;
+        typedef typename Allocator::template rebind<int>::other
+                int_Allocator;
+        typedef typename Allocator::template rebind<substitution_st>::other
+                subst_Allocator;
+	std::vector<int, int_Allocator> M_template_arg_pos;
 	int M_template_arg_pos_offset;
-	std::vector<substitution_st, Allocator> M_substitutions_pos;
+	std::vector<substitution_st, subst_Allocator> M_substitutions_pos;
+	implementation_details const& M_implementation_details;
 #if _GLIBCXX_DEMANGLER_CWDEBUG
 	bool M_inside_add_substitution;
 #endif
 
       public:
-	explicit session(char const* in, int len)
+	explicit session(char const* in, int len,
+	    implementation_details const& id = implementation_details())
 	: M_str(in), M_pos(0), M_maxpos(len - 1), M_result(true),
 	  M_inside_template_args(0), M_inside_type(0),
 	  M_inside_substitution(0), M_saw_destructor(false),
 	  M_name_is_cdtor(false), M_name_is_template(false),
 	  M_name_is_conversion_operator(false),
-	  M_template_args_need_space(false), M_template_arg_pos_offset(0)
+	  M_template_args_need_space(false), M_template_arg_pos_offset(0),
+	  M_implementation_details(id)
 #if _GLIBCXX_DEMANGLER_CWDEBUG
 	  , M_inside_add_substitution(false)
 #endif
 	{ }
 
 	static int
-	decode_encoding(string_type& output, char const* input, int len);
-
-	bool
-	decode_type_with_postfix(string_type& prefix,
-		                 string_type& postfix,
-	            qualifier_list<Allocator>* qualifiers = NULL);
+	decode_encoding(string_type& output, char const* input, int len,
+	  implementation_details const& id = implementation_details());
 
 	bool
 	decode_type(string_type& output,
@@ -323,6 +419,10 @@ namespace __gnu_cxx
 	char
 	current(void) const
 	{ return (M_pos > M_maxpos) ? 0 : M_str[M_pos]; }
+
+	char
+	next_peek(void) const
+	{ return (M_pos >= M_maxpos) ? 0 : M_str[M_pos + 1]; }
 
 	char
 	next(void)
@@ -345,6 +445,8 @@ namespace __gnu_cxx
 	                 substitution_nt sub_type,
 			 int number_of_prefixes);
 
+	bool decode_type_with_postfix(string_type& prefix,
+	    string_type& postfix, qualifier_list<Allocator>* qualifiers = NULL);
 	bool decode_bare_function_type(string_type& output);
 	bool decode_builtin_type(string_type& output);
 	bool decode_call_offset(string_type& output);
@@ -366,8 +468,9 @@ namespace __gnu_cxx
 	    qualifier_list<Allocator>* qualifiers = NULL);
 	bool decode_unqualified_name(string_type& output);
 	bool decode_unscoped_name(string_type& output);
-	bool decode_decimal_integer(string_type& output);
+	bool decode_non_negative_decimal_integer(string_type& output);
 	bool decode_special_name(string_type& output);
+        bool decode_real(string_type& output, size_t size_of_real);
       };
 
     template<typename Allocator>
@@ -425,6 +528,8 @@ namespace __gnu_cxx
 		    subst += "::";
 		  if (current() == 'S')
 		    decode_substitution(subst);
+		  else if (current() == 'T')
+		    decode_template_param(subst);
 		  else
 		    decode_unqualified_name(subst);
 		}
@@ -460,13 +565,14 @@ namespace __gnu_cxx
     inline char tolower(char c) { return isupper(c) ? c - 'A' + 'a' : c; }
 
     //
-    // <decimal-integer> ::= 0
-    //                   ::= 1|2|3|4|5|6|7|8|9 [<digit>+]
-    // <digit>           ::= 0|1|2|3|4|5|6|7|8|9
+    // <non-negative decimal integer> ::= 0
+    //                                ::= 1|2|3|4|5|6|7|8|9 [<digit>+]
+    // <digit>                        ::= 0|1|2|3|4|5|6|7|8|9
     //
     template<typename Allocator>
       bool
-      session<Allocator>::decode_decimal_integer(string_type& output)
+      session<Allocator>::
+	  decode_non_negative_decimal_integer(string_type& output)
       {
 	char c = current();
 	if (c == '0')
@@ -487,7 +593,7 @@ namespace __gnu_cxx
 	return M_result;
       }
 
-    // <number> ::= [n] <decimal-integer>
+    // <number> ::= [n] <non-negative decimal integer>
     //
     template<typename Allocator>
       bool
@@ -495,12 +601,12 @@ namespace __gnu_cxx
       {
 	_GLIBCXX_DEMANGLER_DOUT_ENTERING("decode_number");
 	if (current() != 'n')
-	  decode_decimal_integer(output);
+	  decode_non_negative_decimal_integer(output);
 	else
 	{
 	  output += '-';
 	  eat_current();
-	  decode_decimal_integer(output);
+	  decode_non_negative_decimal_integer(output);
 	}
 	_GLIBCXX_DEMANGLER_RETURN;
       }
@@ -821,6 +927,66 @@ namespace __gnu_cxx
 
     template<typename Allocator>
       bool
+      session<Allocator>::decode_real(string_type& output, size_t size_of_real)
+      {
+	_GLIBCXX_DEMANGLER_DOUT_ENTERING("decode_real");
+
+	unsigned long words[4];	// 32 bit per long, maximum of 128 bits.
+	unsigned long* word = &words[0];
+
+	int saved_pos;
+	store(saved_pos);
+
+	// The following assumes that leading zeroes are also included in the
+	// mangled name, I am not sure that is conforming to the C++-ABI, but
+	// it is what g++ does.
+	unsigned char nibble, c = current();
+	for(size_t word_cnt = size_of_real / 4; word_cnt > 0; --word_cnt)
+	{
+	  for (int nibble_cnt = 0; nibble_cnt < 8; ++nibble_cnt)
+	  {
+	    // Translate character into nibble.
+	    if (c < '0' || c > 'f')
+	      _GLIBCXX_DEMANGLER_FAILURE;
+	    if (c <= '9')
+	      nibble = c - '0';
+	    else if (c >= 'a')
+	      nibble = c - 'a' + 10;
+	    else
+	      _GLIBCXX_DEMANGLER_FAILURE;
+	    // Write nibble into word array.
+	    if (nibble_cnt == 0)
+	      *word = nibble << 28;
+	    else
+	      *word |= (nibble << (28 - 4 * nibble_cnt));
+	    c = next();
+	  }
+	  ++word;
+	}
+	char buf[24];
+	if (M_implementation_details.decode_real(buf, words, size_of_real))
+	{
+	  output += buf;
+	  _GLIBCXX_DEMANGLER_RETURN;
+	}
+	restore(saved_pos);
+
+	output += '[';
+	c = current();
+	for(size_t nibble_cnt = 0; nibble_cnt < 2 * size_of_real; ++nibble_cnt)
+	{
+	  if (c < '0' || c > 'f' || (c > '9' && c < 'a'))
+	    _GLIBCXX_DEMANGLER_FAILURE;
+	  output += c;
+	  c = next();
+	}
+	output += ']';
+
+	_GLIBCXX_DEMANGLER_RETURN;
+      }
+
+    template<typename Allocator>
+      bool
       session<Allocator>::decode_literal(string_type& output)
       {
 	_GLIBCXX_DEMANGLER_DOUT_ENTERING("decode_literal");
@@ -831,7 +997,7 @@ namespace __gnu_cxx
 	    _GLIBCXX_DEMANGLER_FAILURE;
 	  eat_current();
 	  if ((M_pos += decode_encoding(output, M_str + M_pos,
-		  M_maxpos - M_pos + 1)) < 0)
+		  M_maxpos - M_pos + 1, M_implementation_details)) < 0)
 	    _GLIBCXX_DEMANGLER_FAILURE;
 	}
 	else
@@ -847,34 +1013,39 @@ namespace __gnu_cxx
 	    _GLIBCXX_DEMANGLER_RETURN;
 	  }
 	  char c = current();
-#ifdef _GLIBCXX_DEMANGLER_STYLE_LITERAL
-	  if (c == 'i' || c == 'j' || c == 'l' ||
-	      c == 'm' || c == 'x' || c == 'y')
+	  if ((c == 'i' || c == 'j' || c == 'l' ||
+	       c == 'm' || c == 'x' || c == 'y') &&
+              M_implementation_details.get_style_literal())
+	    eat_current();
+	  else if (c == 'i' &&
+	      !M_implementation_details.get_style_literal_int())
 	    eat_current();
 	  else
-#else
-#ifndef _GLIBCXX_DEMANGLER_STYLE_LITERAL_INT
-	  if (c == 'i')
-	    eat_current();
-	  else
-#endif
-#endif
 	  {
 	    output += '(';
 	    if (!decode_type(output))
 	      _GLIBCXX_DEMANGLER_FAILURE;
 	    output += ')';
 	  }
-	  if (!decode_number(output))
+	  if (c >= 'd' && c <= 'g')
+	  {
+	    size_t size_of_real = (c == 'd') ? sizeof(double) :
+	        ((c == 'f') ? sizeof(float) :
+		(c == 'e') ?  sizeof(long double) : 16);
+	    if (!decode_real(output, size_of_real))
+		_GLIBCXX_DEMANGLER_FAILURE;
+	  }
+	  else if (!decode_number(output))
 	    _GLIBCXX_DEMANGLER_FAILURE;
-#ifdef _GLIBCXX_DEMANGLER_STYLE_LITERAL
-	  if (c == 'j' || c == 'm' || c == 'y')
-	    output += 'u';
-	  if (c == 'l' || c == 'm')
-	    output += 'l';
-	  if (c == 'x' || c == 'y')
-	    output += "ll";
-#endif
+          if (M_implementation_details.get_style_literal())
+	  {
+	    if (c == 'j' || c == 'm' || c == 'y')
+	      output += 'u';
+	    if (c == 'l' || c == 'm')
+	      output += 'l';
+	    if (c == 'x' || c == 'y')
+	      output += "ll";
+	  }
 	}
 	_GLIBCXX_DEMANGLER_RETURN;
       }
@@ -884,6 +1055,7 @@ namespace __gnu_cxx
     //   na				# new[]
     //   dl				# delete        
     //   da				# delete[]      
+    //   ps				# + (unary)
     //   ng				# - (unary)     
     //   ad				# & (unary)     
     //   de				# * (unary)     
@@ -925,12 +1097,11 @@ namespace __gnu_cxx
     //   pt				# ->            
     //   cl				# ()            
     //   ix				# []            
-    //   qu				# ?             
-    //   sz				# sizeof        
-    //   sr				# scope resolution (::), see below        
+    //   qu				# ?
+    //   st				# sizeof (a type)
+    //   sz				# sizeof (an expression)
     //   cv <type>			# (cast)        
     //   v <digit> <source-name>	# vendor extended operator
-    //
     //
     // Symbol operator codes exist of two characters, we need to find a
     // quick hash so that their names can be looked up in a table.
@@ -938,24 +1109,24 @@ namespace __gnu_cxx
     // The puzzle :)
     // Shift the rows so that there is at most one character per column.
     //
-    // A perfect solution:
+    // A perfect solution (Oh no, it's THE MATRIX!):
     //                                              horizontal
-    //    .....................................     offset + 'a'
-    // a, ||a||d|||||||||n||||s||||||||||||||||||	    2
-    // c, || || ||lm|o||| |||| ||||||||||||||||||	   -3
-    // d, || a| |e  | ||l |||| |||v||||||||||||||	    3
-    // e, ||  | |   o q|  |||| ||| ||||||||||||||	   -4
-    // g, |e  | |      |  t||| ||| ||||||||||||||	   -3
-    // i, |   | |      |   ||| ||| ||||||||||x|||    12
-    // l, |   | |      e   ||| ||| ||st|||||| |||	    9
-    // m, |   | |          ||| ||| |i  lm|||| |||	   18
-    // n, a   e g          ||t |w| |     |||| |||	    0
-    // o,                  ||  | | |     ||o| r||	   19
-    // p,                  lm  p | t     || |  ||	    6
-    // q,                        |       || u  ||	   14
-    // r,                        |       |m    |s	   20
-    // s,                        r       z     | 	    6
-    //    .....................................
+    //    .......................................   offset + 'a'
+    // a, a||d|||||||||n||||s||||||||||||||||||||       0
+    // c,  || |||||||lm o||| ||||||||||||||||||||       0
+    // d,  || a|||e||    l|| ||||||v|||||||||||||       4
+    // e,  ||  ||| ||     || |||o|q |||||||||||||       8
+    // g,  ||  ||| ||     || e|| |  ||||||||t||||      15
+    // i,  ||  ||| ||     ||  || |  |||||||| |||x      15
+    // l,  |e  ||| ||     st  || |  |||||||| |||       -2
+    // m,  |   |i| lm         || |  |||||||| |||       -2
+    // n,  a   e g            t| w  |||||||| |||        1
+    // o,                      |    ||||o||r |||       16
+    // p,                      |    ||lm |p  st|       17
+    // q,                      |    u|   |     |        6
+    // r,                      m     s   |     |        9
+    // s,                                t     z       12
+    //    .......................................
     // ^            ^__ second character
     // |___ first character
     //
@@ -981,65 +1152,71 @@ namespace __gnu_cxx
       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
       //   a    b    c    d    e    f    g    h    i    j    k
-      0, -95,   0,-100, -94,-101,   0,-100,   0, -85,   0,   0,
+      0, -97,   0, -97, -93, -89,   0, -82,   0, -82,   0,   0,
       //   l    m    n    o    p    q    r    s    t    u    v
-	 -88, -79, -97, -78, -91, -83, -77, -91,   0,   0,   0,
+	 -99, -99, -96, -81, -80, -91, -88, -85,   0,   0,   0,
 #else
       //   a    b    c    d    e    f    g    h    i    j    k
-      0, 161,   0, 156, 162, 155,   0, 156,   0, 171,   0,   0,
+      0, 159,   0, 159, 163, 167,   0, 174,   0, 174,   0,   0,
       //   l    m    n    o    p    q    r    s    t    u    v
-	 168, 177, 159, 178, 165, 173, 179, 165,   0,   0,   0,
+	 157, 157, 160, 175, 176, 165, 168, 171,   0,   0,   0,
 #endif
       // ... more zeros
+    };
+
+    enum xary_nt {
+      unary,
+      binary,
+      trinary
     };
 
     struct entry_st
     {
       char const* opcode;
       char const* symbol_name;
-      bool unary;
+      xary_nt type;
     };
 
     entry_st const symbol_name_table_c[39] = {
-      { "na",  "operator new[]", true },
-      { "ge",  "operator>=", false },
-      { "aa",  "operator&&", false },
-      { "da",  "operator delete[]", true },
-      { "ne",  "operator!=", false },
-      { "ad",  "operator&", true },	// unary
-      { "ng",  "operator-", true },	// unary
-      { "de",  "operator*", true },	// unary
-      { "cl",  "operator()", true },
-      { "cm",  "operator,", false },
-      { "eo=", "operator^", false },
-      { "co",  "operator~", false },
-      { "eq",  "operator==", false },
-      { "le",  "operator<=", false },
-      { "dl",  "operator delete", true },
-      { "an=", "operator&", false },
-      { "gt",  "operator>", false },
-      { "pl=", "operator+", false },
-      { "pm",  "operator->*", false },
-      { "nt",  "operator!", true },
-      { "as=", "operator", false },
-      { "pp",  "operator++", true },
-      { "nw",  "operator new", true },
-      { "sr",  "::", true },
-      { "dv=", "operator/", false },
-      { "pt",  "operator->", false },
-      { "mi=", "operator-", false },
-      { "ls=", "operator<<", false },
-      { "lt",  "operator<", false },
-      { "ml=", "operator*", false },
-      { "mm",  "operator--", true },
-      { "sz",  "sizeof", true },
-      { "rm=", "operator%", false },
-      { "oo",  "operator||", false },
-      { "qu",  "operator?", false },
-      { "ix",  "operator[]", true },
-      { "or=", "operator|", false },
-      { "", NULL, false },
-      { "rs=", "operator>>", false }
+      { "aa",  "operator&&", binary },
+      { "na",  "operator new[]", unary },
+      { "le",  "operator<=", binary },
+      { "ad",  "operator&", unary },
+      { "da",  "operator delete[]", unary },
+      { "ne",  "operator!=", binary },
+      { "mi=", "operator-", binary },
+      { "ng",  "operator-", unary },
+      { "de",  "operator*", unary },
+      { "ml=", "operator*", binary },
+      { "mm",  "operator--", unary },
+      { "cl",  "operator()", unary },
+      { "cm",  "operator,", binary },
+      { "an=", "operator&", binary },
+      { "co",  "operator~", binary },
+      { "dl",  "operator delete", unary },
+      { "ls=", "operator<<", binary },
+      { "lt",  "operator<", binary },
+      { "as=", "operator", binary },
+      { "ge",  "operator>=", binary },
+      { "nt",  "operator!", unary },
+      { "rm=", "operator%", binary },
+      { "eo=", "operator^", binary },
+      { "nw",  "operator new", unary },
+      { "eq",  "operator==", binary },
+      { "dv=", "operator/", binary },
+      { "qu",  "operator?", trinary },
+      { "rs=", "operator>>", binary },
+      { "pl=", "operator+", binary },
+      { "pm",  "operator->*", binary },
+      { "oo",  "operator||", binary },
+      { "st",  "sizeof", unary },
+      { "pp",  "operator++", unary },
+      { "or=", "operator|", binary },
+      { "gt",  "operator>", binary },
+      { "ps",  "operator+", unary },
+      { "pt",  "operator->", binary },
+      { "sz",  "sizeof", unary },
+      { "ix",  "operator[]", unary }
     };
 
     template<typename Allocator>
@@ -1070,11 +1247,11 @@ namespace __gnu_cxx
 	      if (opcode1 != current())
 		output += '=';
 	      eat_current();
-	      if (hash == 27 || hash == 28)
+	      if (hash == 16 || hash == 17)
 		M_template_args_need_space = true;
 	      _GLIBCXX_DEMANGLER_RETURN;
 	    }
-	    else if (opcode0 == 'c' && opcode1 == 'v')
+	    else if (opcode0 == 'c' && opcode1 == 'v')	// casting operator
 	    {
 	      eat_current();
 	      output += "operator ";
@@ -1101,10 +1278,15 @@ namespace __gnu_cxx
     //
     // <expression> ::= <unary operator-name> <expression>
     //              ::= <binary operator-name> <expression> <expression>
+    //              ::= <trinary operator-name> <expression> <expression> <expression>
+    //              ::= st <type>
+    //              ::= <template-param>
+    //              ::= sr <type> <unqualified-name>                   # dependent name
+    //              ::= sr <type> <unqualified-name> <template-args>   # dependent template-id
     //              ::= <expr-primary>
     //
-    // <expr-primary> ::= <template-param>		# Starts with a T
-    //                ::= L <type> <value number> E	# literal
+    // <expr-primary> ::= L <type> <value number> E     # integer literal
+    //                ::= L <type> <value float> E	# floating literal
     //                ::= L <mangled-name> E		# external name
     //
     template<typename Allocator>
@@ -1127,6 +1309,86 @@ namespace __gnu_cxx
 	  eat_current();
 	  _GLIBCXX_DEMANGLER_RETURN;
 	}
+	else if (current() == 's')
+	{
+	  char opcode1 = next();
+	  if (opcode1 == 't' || opcode1 == 'z')
+	  {
+	    eat_current();
+	    if (M_implementation_details.get_style_compact_expr_ops())
+	      output += "sizeof(";
+	    else
+	      output += "sizeof (";
+	    if (opcode1 == 't')
+	    {
+	      // I cannot think of a mangled name that is valid for both cases
+	      // when just replacing the 't' by a 'z' or vica versa, which
+	      // indicates that there is no ambiguity that dictates the need
+	      // for a seperate "st" case, except to be able catch invalid
+	      // mangled names.  However there CAN be ambiguity in the demangled
+	      // name when there are both a type and a symbol of the same name,
+	      // which then leads to different encoding (of course) with
+	      // sizeof (type) or sizeof (expression) respectively, but that
+	      // ambiguity is not per se related to "sizeof" except that that
+	      // is the only place where both a type AND an expression are valid
+	      // in as part of a (template function) type.
+	      //
+	      // Example:
+	      //
+	      // struct B { typedef int t; };
+	      // struct A : public B { static int t[2]; };
+	      // template<int i, int j> struct C { typedef int q; };
+	      // template<int i, typename T>
+	      //   void f(typename C<sizeof (typename T::t),
+	      //                     sizeof (T::t)>::q) { }
+	      // void instantiate() { f<5, A>(0); }
+	      //
+	      // Leads to _Z1fILi5E1AEvN1CIXstN1T1tEEXszsrS2_1tEE1qE which
+	      // demangles as
+	      // void f<5, A>(C<sizeof (T::t), sizeof (T::t)>::q)
+	      //
+	      // This is ambiguity is very unlikely to happen and it is kind
+	      // of fuzzy to detect when adding a 'typename' makes sense.
+	      //
+	      if (M_implementation_details.get_style_sizeof_typename())
+	      {
+		// We can only get here inside a template parameter,
+		// so this is syntactically correct if the given type is
+		// a typedef.  The only disadvantage is that it is inconsistent
+		// with all other places where the 'typename' keyword should be
+		// used and we don't.
+		// With this, the above example will demangle as
+		// void f<5, A>(C<sizeof (typename T::t), sizeof (T::t)>::q)
+		if (current() == 'N' ||	// <nested-name>
+					  // This should be a safe bet.
+		    (current() == 'S' &&
+		     next_peek() == 't'))	// std::something, guess that
+					  // this involves a typedef.
+		  output += "typename ";
+	      }
+	      if (!decode_type(output))
+		_GLIBCXX_DEMANGLER_FAILURE;
+	    }
+	    else
+	    {
+	      if (!decode_expression(output))
+		_GLIBCXX_DEMANGLER_FAILURE;
+	    }
+	    output += ')';
+	    _GLIBCXX_DEMANGLER_RETURN;
+	  }
+	  else if (current() == 'r')
+	  {
+	    eat_current();
+	    if (!decode_type(output))
+	      _GLIBCXX_DEMANGLER_FAILURE;
+	    output += "::";
+	    if (!decode_unqualified_name(output))
+	      _GLIBCXX_DEMANGLER_FAILURE;
+	    if (current() != 'I' || decode_template_args(output))
+	      _GLIBCXX_DEMANGLER_RETURN;
+	  }
+	}
 	else
 	{
 	  char opcode0 = current();
@@ -1147,31 +1409,58 @@ namespace __gnu_cxx
 	      if (entry.opcode[0] == opcode0 && entry.opcode[1] == opcode1
 		  && (opcode1 == current() || entry.opcode[2] == '='))
 	      {
-		char const* p = entry.symbol_name;
-		if (!strncmp("operator", p, 8))
-		  p += 8;
-		if (*p == ' ')
-		  ++p;
-		if (entry.unary)
-		  output += p;
+		char const* op = entry.symbol_name + 8;	// Skip "operator".
+		if (*op == ' ')				// operator new and delete.
+		  ++op;
+		if (entry.type == unary)
+		  output += op;
 		bool is_eq = (opcode1 != current());
 		eat_current();
+		if (index == 34 && M_inside_template_args)	// operator>
+		  output += '(';
 		output += '(';
 		if (!decode_expression(output))
 		  _GLIBCXX_DEMANGLER_FAILURE;
 		output += ')';
-		if (!entry.unary)
+		if (entry.type != unary)
 		{
-		  output += ' ';
-		  output += p;
+	          if (!M_implementation_details.get_style_compact_expr_ops())
+		    output += ' ';
+		  output += op;
 		  if (is_eq)
 		    output += '=';
-		  output += ' ';
+	          if (!M_implementation_details.get_style_compact_expr_ops())
+		    output += ' ';
 		  output += '(';
 		  if (!decode_expression(output))
 		    _GLIBCXX_DEMANGLER_FAILURE;
 		  output += ')';
+		  if (index == 34 && M_inside_template_args)
+		    output += ')';
+		  if (entry.type == trinary)
+		  {
+		    if (M_implementation_details.get_style_compact_expr_ops())
+		      output += ":(";
+		    else
+		      output += " : (";
+		    if (!decode_expression(output))
+		      _GLIBCXX_DEMANGLER_FAILURE;
+		    output += ')';
+		  }
 		}
+		_GLIBCXX_DEMANGLER_RETURN;
+	      }
+	      else if (opcode0 == 'c' &&
+	               opcode1 == 'v')		// casting operator.
+	      {
+		eat_current();
+		output += '(';
+		if (!decode_type(output))
+		  _GLIBCXX_DEMANGLER_FAILURE;
+		output += ")(";
+		if (!decode_expression(output))
+		  _GLIBCXX_DEMANGLER_FAILURE;
+		output += ')';
 		_GLIBCXX_DEMANGLER_RETURN;
 	      }
 	    }
@@ -1183,8 +1472,9 @@ namespace __gnu_cxx
     //
     // <template-args> ::= I <template-arg>+ E
     // <template-arg> ::= <type>			# type or template
-    //                ::= L <type> <value number> E	# literal
-    //                ::= L_Z <encoding> E		# external name
+    //                ::= L <type> <value number> E	# integer literal
+    //                ::= L <type> <value float> E	# floating literal
+    //                ::= L <mangled-name> E		# external name
     //                ::= X <expression> E		# expression
     template<typename Allocator>
       bool
@@ -1242,7 +1532,12 @@ namespace __gnu_cxx
       }
 
     // <bare-function-type> ::=
-    //   <signature type>+		# types are parameter types
+    //   <signature type>+		# Types are parameter types.
+    //
+    // Note that the possible return type of the <bare-function-type>
+    // has already been eaten before we call this function.  This makes
+    // our <bare-function-type> slightly different from the one in
+    // the C++-ABI description.
     //
     template<typename Allocator>
       bool
@@ -1257,8 +1552,7 @@ namespace __gnu_cxx
 	  M_saw_destructor = false;
 	  _GLIBCXX_DEMANGLER_RETURN;
 	}
-#ifndef _GLIBCXX_DEMANGLER_STYLE_VOID
-	if (current() == 'v')
+	if (current() == 'v' && !M_implementation_details.get_style_void())
 	{
 	  eat_current();
 	  if (current() != 'E' && current() != 0)
@@ -1267,7 +1561,6 @@ namespace __gnu_cxx
 	  M_saw_destructor = false;
 	  _GLIBCXX_DEMANGLER_RETURN;
 	}
-#endif
 	output += '(';
 	M_template_args_need_space = false;
 	if (!decode_type(output))	// Must have at least one parameter.
@@ -1325,8 +1618,8 @@ namespace __gnu_cxx
     // <Q>F<R><B>E 	    ==> R (Q)B		"<R>", "<B>" (<B> recursive)
     //                                              and "F<R><B>E".
     //
-    // Note that if <R> has postfix qualifiers (an array), then those
-    // are added AFTER the (member) function type.  For example:
+    // Note that if <R> has postfix qualifiers (an array or function), then
+    // those are added AFTER the (member) function type.  For example:
     // <Q>FPA<R><B>E ==> R (*(Q)B) [], where the PA added the prefix
     // "(*" and the postfix ") []".
     //
@@ -1341,10 +1634,13 @@ namespace __gnu_cxx
     // <Q>[K|V|r]+	==> [ const| volatile| restrict]+Q	"KVr..."
     // <Q>U<S>		==>  SQ				"U<S>..."
     // <Q>M<C>		==> C::*Q			"M<C>..." (<C> recurs.)
-    // A<I>		==> [I]				"A<I>..." (<I> recurs.)
+    // A<I>		==>  [I]			"A<I>..." (<I> recurs.)
     // <Q>A<I>		==>  (Q) [I]			"A<I>..." (<I> recurs.)
-    //   Note that when <Q> ends on an A<I2> then the brackets are omitted:
-    //   A<I2>A<I>	  ==> [I2][I]
+    //   Note that when <Q> ends on an A<I2> then the brackets are omitted
+    //   and no space is written between the two:
+    //   A<I2>A<I>	==>  [I2][I]
+    //   If <Q> ends on [KVr]+, which can happen in combination with
+    //   substitutions only, then special handling is required, see below.
     //  
     // A <substitution> is handled with an input position switch during which
     // new substitutions are turned off.  Because recursive handling of types
@@ -1372,16 +1668,98 @@ namespace __gnu_cxx
     // For some weird reason, g++ (3.2.1) does not add substitutions for
     // qualified member function pointers.  I think that is another bug.
     //
+
+    // In the case of
+    // <Q>A<I>
+    // where <Q> ends on [K|V|r]+ then that part should be processed as
+    // if it was behind the A<I> instead of in front of it.  This is
+    // because a constant array of ints is normally always mangled as
+    // an array of constant ints.  KVr qualifiers can end up in front
+    // of an array when the array is part of a substitution or template
+    // parameter, but the demangling should still result in the same
+    // syntax; thus KA2_i (const array of ints) must result in the same
+    // demangling as A2_Ki (array of const ints).  As a result we must
+    // demangle ...[...[[KVr]+A<I0>][KVr]+A<I1>]...[KVr]+A<In>[KVr]+
+    // as A<I0>A<I1>...A<In>[KVr]+ where each K, V and r in the series
+    // collapses to a single character at the right of the string.
+    // For example:
+    // VA9_KrA6_KVi --> A9_A6_KVri --> int volatile const restrict [9][6]
+    // Note that substitutions are still added as usual (the translation
+    // to A9_A6_KVri does not really happen).
+    //
+    // This decoding is achieved by delaying the decoding of any sequence
+    // of [KVrA]'s and processing them together in the order: first the
+    // short-circuited KVr part and then the arrays.
+    static int const cvq_K = 1;		// Saw at least one K
+    static int const cvq_V = 2;		// Saw at least one V
+    static int const cvq_r = 4;		// Saw at least one r
+    static int const cvq_A = 8;		// Saw at least one A
+    static int const cvq_last = 16;	// No remaining qualifiers.
+    static int const cvq_A_cnt = 32;	// Bit 5 and higher represent the
+    					//   number of A's in the series.
+    // In the function below, iter_array points to the first (right most)
+    // A in the series, if any.
+    template<typename Allocator>
+      void
+      qualifier_list<Allocator>::decode_KVrA(
+          string_type& prefix, string_type& postfix, int cvq,
+          typename qual_vector::const_reverse_iterator const& iter_array) const
+	{
+	  _GLIBCXX_DEMANGLER_DOUT_ENTERING3("decode_KVrA");
+	  if ((cvq & cvq_K))
+	    prefix += " const";
+	  if ((cvq & cvq_V))
+	    prefix += " volatile";
+	  if ((cvq & cvq_r))
+	    prefix += " restrict";
+	  if ((cvq & cvq_A))
+	  {
+	    int n = cvq >> 5;
+	    for (typename qual_vector::
+	        const_reverse_iterator iter = iter_array;
+		iter != M_qualifier_starts.rend(); ++iter)
+	    {
+	      switch((*iter).first_qualifier())
+	      {
+		case 'K':
+		case 'V':
+		case 'r':
+		  break;
+		case 'A':
+		{
+		  string_type index = (*iter).get_optional_type();
+		  if (--n == 0 && (cvq & cvq_last))
+		    postfix = " [" + index + "]" + postfix;
+		  else if (n > 0)
+		    postfix = "[" + index + "]" + postfix;
+		  else
+		  {
+		    prefix += " (";
+		    postfix = ") [" + index + "]" + postfix;
+		  }
+		  break;
+		}
+		default:
+		  _GLIBCXX_DEMANGLER_RETURN3;
+	      }
+	    }
+	  }
+	  _GLIBCXX_DEMANGLER_RETURN3;
+	}
+
     template<typename Allocator>
       void
       qualifier_list<Allocator>::decode_qualifiers(
 	  string_type& prefix,
 	  string_type& postfix,
-	  bool member_function_pointer_qualifiers = false)
+	  bool member_function_pointer_qualifiers = false) const
       {
-	for(typename std::vector<qualifier<Allocator>, Allocator>::
-	    reverse_iterator iter = M_qualifier_starts.rbegin();
-	    iter != M_qualifier_starts.rend();)
+	_GLIBCXX_DEMANGLER_DOUT_ENTERING3("decode_qualifiers");
+	int cvq = 0;
+	typename qual_vector::const_reverse_iterator iter_array;
+	for(typename qual_vector::
+	    const_reverse_iterator iter = M_qualifier_starts.rbegin();
+	    iter != M_qualifier_starts.rend(); ++iter)
 	{
 	  if (!member_function_pointer_qualifiers
 	      && !(*iter).part_of_substitution())
@@ -1397,39 +1775,54 @@ namespace __gnu_cxx
 	    switch(qualifier_char)
 	    {
 	      case 'P':
+		if (cvq)
+		{
+		  decode_KVrA(prefix, postfix, cvq, iter_array);
+		  cvq = 0;
+		}
 		prefix += "*";
 		break;
 	      case 'R':
+		if (cvq)
+		{
+		  decode_KVrA(prefix, postfix, cvq, iter_array);
+		  cvq = 0;
+		}
 		prefix += "&";
 		break;
 	      case 'K':
-		prefix += " const";
+		cvq |= cvq_K;
 		continue;
 	      case 'V':
-		prefix += " volatile";
+		cvq |= cvq_V;
 		continue;
 	      case 'r':
-		prefix += " restrict";
+		cvq |= cvq_r;
 		continue;
 	      case 'A':
-	      {
-		string_type index = (*iter).get_optional_type();
-		if (++iter != M_qualifier_starts.rend()
-		    && (*iter).first_qualifier() != 'A')
+	        if (!(cvq & cvq_A))
 		{
-		  prefix += " (";
-		  postfix = ") [" + index + "]" + postfix;
+		  cvq |= cvq_A;
+		  iter_array = iter;
 		}
-		else
-		  postfix = "[" + index + "]" + postfix;
+		cvq += cvq_A_cnt;
 		break;
-	      }
 	      case 'M':
+	        if (cvq)
+		{
+		  decode_KVrA(prefix, postfix, cvq, iter_array);
+		  cvq = 0;
+		}
 		prefix += " ";
 		prefix += (*iter).get_optional_type();
 		prefix += "::*";
 		break;
 	      case 'U':
+	        if (cvq)
+		{
+		  decode_KVrA(prefix, postfix, cvq, iter_array);
+		  cvq = 0;
+		}
 		prefix += " ";
 		prefix += (*iter).get_optional_type();
 		break;
@@ -1438,10 +1831,11 @@ namespace __gnu_cxx
 	    }
 	    break;
 	  }
-	  if (qualifier_char != 'A')
-	    ++iter;
 	}
+	if (cvq)
+	  decode_KVrA(prefix, postfix, cvq|cvq_last, iter_array);
 	M_printing_suppressed = false;
+	_GLIBCXX_DEMANGLER_RETURN3;
       }
 
     //
@@ -1451,8 +1845,7 @@ namespace __gnu_cxx
 	  string_type& prefix, string_type& postfix,
 	  qualifier_list<Allocator>* qualifiers)
       {
-	_GLIBCXX_DEMANGLER_DOUT_ENTERING2
-	    (qualifiers ? "decode_type" : "decode_type[with qualifiers]");
+	_GLIBCXX_DEMANGLER_DOUT_ENTERING2("decode_type");
 	++M_inside_type;
 	bool recursive_template_param_or_substitution_call;
 	if (!(recursive_template_param_or_substitution_call = qualifiers))
@@ -1531,6 +1924,7 @@ namespace __gnu_cxx
 	    }
 	    case 'M':
 	    {
+	      // <pointer-to-member-type> ::= M <class type> <member type>
 	      // <Q>M<C> or <Q>M<C><Q2>F<R><B>E
 	      eat_current();
 	      string_type class_type;
@@ -1577,7 +1971,8 @@ namespace __gnu_cxx
 		// Return type.
 		// Constructors, destructors and conversion operators don't
 		// have a return type, but seem to never get here.
-		if (!decode_type_with_postfix(prefix, postfix))
+		string_type return_type_postfix;
+		if (!decode_type_with_postfix(prefix, return_type_postfix))
 		    // substitution: <R> recursive
 		{
 		  failure = true;
@@ -1599,9 +1994,10 @@ namespace __gnu_cxx
 		add_substitution(start_pos, type);
 		// substitution: all qualified types if any.
 		qualifiers->decode_qualifiers(prefix, postfix);
-		prefix += ")";
-		prefix += bare_function_type;
-		prefix += member_function_qualifiers;
+		postfix += ")";
+		postfix += bare_function_type;
+		postfix += member_function_qualifiers;
+		postfix += return_type_postfix;
 		goto decode_type_exit;
 	      }
 	      qualifiers->add_qualifier_start(pointer_to_member, start_pos,
@@ -1631,21 +2027,31 @@ namespace __gnu_cxx
 	  {
 	    case 'F':
 	    {
+	      // <function-type> ::= F [Y] <bare-function-type> E
+	      //
+	      // Note that g++ never generates the 'Y', but we try to
+	      // demangle it anyway.
+	      bool extern_C = (next() == 'Y');
+	      if (extern_C)
+		eat_current();
+	        
 	      // <Q>F<R><B>E 		==> R (Q)B
 	      //     substitution: "<R>", "<B>" (<B> recursive) and "F<R><B>E".
-	      eat_current();
+
 	      // Return type.
-	      if (!decode_type_with_postfix(prefix, postfix))
+	      string_type return_type_postfix;
+	      if (!decode_type_with_postfix(prefix, return_type_postfix))
 		  // Substitution: "<R>".
 	      {
 		failure = true;
 		break;
 	      }
-	      // Only array (pointer) types have a postfix.
-	      // In that case we don't want the space but
-	      // expect something like prefix is "int (*"
-	      // and postfix is ") [1]".
-	      if (postfix.size() == 0)
+	      // Only array and function (pointer) types have a postfix.
+	      // In that case we don't want the space but expect something
+	      // like prefix is "int (*" and postfix is ") [1]".
+	      // We do want the space if this pointer is qualified.
+	      if (return_type_postfix.size() == 0 ||
+	          (prefix.size() > 0 && *prefix.rbegin() != '*'))
 		prefix += ' ';
 	      prefix += '(';
 	      string_type bare_function_type;
@@ -1659,8 +2065,11 @@ namespace __gnu_cxx
 	      add_substitution(start_pos, type);  // Substitution: "F<R><B>E".
 	      qualifiers->decode_qualifiers(prefix, postfix);
 		  // substitution: all qualified types, if any.
-	      prefix += ")";
-	      prefix += bare_function_type;
+	      postfix += ")";
+	      if (extern_C)
+	        postfix += " [extern \"C\"] ";
+	      postfix += bare_function_type;
+	      postfix += return_type_postfix;
 	      break;
 	    }
 	    case 'T':
@@ -1783,10 +2192,12 @@ namespace __gnu_cxx
     //
     // <prefix> ::= <prefix> <unqualified-name>
     //          ::= <template-prefix> <template-args>
+    //          ::= <template-param>
     //          ::= # empty
     //          ::= <substitution>
     //
     // <template-prefix> ::= <prefix> <template unqualified-name>
+    //                   ::= <template-param>
     //                   ::= <substitution>
     //
     template<typename Allocator>
@@ -1840,7 +2251,12 @@ namespace __gnu_cxx
 	  }
 	  else
 	  {
-	    if (!decode_unqualified_name(output))
+	    if (current() == 'T')
+	    {
+	      if (!decode_template_param(output))
+		_GLIBCXX_DEMANGLER_FAILURE;
+	    }
+	    else if (!decode_unqualified_name(output))
 	      _GLIBCXX_DEMANGLER_FAILURE;
 	    if (current() != 'E')
 	    {
@@ -1878,7 +2294,8 @@ namespace __gnu_cxx
 	if (current() != 'Z' || M_pos >= M_maxpos)
 	  _GLIBCXX_DEMANGLER_FAILURE;
 	if ((M_pos += decode_encoding(output, M_str + M_pos + 1,
-		M_maxpos - M_pos) + 1) < 0 || eat_current() != 'E')
+		M_maxpos - M_pos, M_implementation_details) + 1) < 0 ||
+		eat_current() != 'E')
 	  _GLIBCXX_DEMANGLER_FAILURE;
 	output += "::";
 	if (current() == 's')
@@ -2006,7 +2423,7 @@ namespace __gnu_cxx
 
     // <unscoped-name> ::=
     //   <unqualified-name>		# Starts not with an 'S'
-    //   St <unqualified-name>	# ::std::
+    //   St <unqualified-name>		# ::std::
     //
     template<typename Allocator>
       bool
@@ -2177,7 +2594,7 @@ namespace __gnu_cxx
 	    if (!decode_call_offset(output)
 		|| !decode_call_offset(output)
 		|| (M_pos += decode_encoding(output, M_str + M_pos,
-		    M_maxpos - M_pos + 1)) < 0)
+		    M_maxpos - M_pos + 1, M_implementation_details)) < 0)
 	      _GLIBCXX_DEMANGLER_FAILURE;
 	    _GLIBCXX_DEMANGLER_RETURN;
 	  case 'C':		// GNU extension?
@@ -2204,7 +2621,7 @@ namespace __gnu_cxx
 	      output += "non-virtual thunk to ";
 	    if (!decode_call_offset(output)
 		|| (M_pos += decode_encoding(output, M_str + M_pos,
-		    M_maxpos - M_pos + 1)) < 0)
+		    M_maxpos - M_pos + 1, M_implementation_details)) < 0)
 	      _GLIBCXX_DEMANGLER_FAILURE;
 	    _GLIBCXX_DEMANGLER_RETURN;
 	}
@@ -2219,8 +2636,7 @@ namespace __gnu_cxx
     template<typename Allocator>
       int
       session<Allocator>::decode_encoding(string_type& output,
-					  char const* in,
-					  int len)
+          char const* in, int len, implementation_details const& id)
       {
 #if _GLIBCXX_DEMANGLER_CWDEBUG
 	_GLIBCXX_DEMANGLER_DOUT(dc::demangler,
@@ -2231,7 +2647,7 @@ namespace __gnu_cxx
 #endif
 	if (len <= 0)
 	  return INT_MIN;
-	session<Allocator> demangler_session(in, len);
+	session<Allocator> demangler_session(in, len, id);
 	string_type nested_name_qualifiers;
 	int saved_pos;
 	demangler_session.store(saved_pos);
@@ -2249,12 +2665,14 @@ namespace __gnu_cxx
 	  return demangler_session.M_pos;
 	}
 	// Must have been a <function name>.
+	string_type return_type_postfix;
 	if (demangler_session.M_name_is_template
 	    && !(demangler_session.M_name_is_cdtor
 	         || demangler_session.M_name_is_conversion_operator))
 	{
-	  if (!demangler_session.decode_type(output))
-	      // Return type of function
+	  // Return type of function
+	  if (!demangler_session.decode_type_with_postfix(output,
+	      return_type_postfix))
 	    return INT_MIN;
 	  output += ' ';
 	}
@@ -2262,6 +2680,7 @@ namespace __gnu_cxx
 	if (!demangler_session.decode_bare_function_type(output))
 	  return INT_MIN;
 	output += nested_name_qualifiers;
+	output += return_type_postfix;
 	return demangler_session.M_pos;
       }
 
@@ -2271,11 +2690,13 @@ namespace __gnu_cxx
   template<typename Allocator>
     struct demangle
     {
-      typedef Allocator allocator_type;
-      typedef std::basic_string<char, std::char_traits<char>, Allocator> 
+      typedef typename Allocator::template rebind<char>::other char_Allocator;
+      typedef std::basic_string<char, std::char_traits<char>, char_Allocator> 
 	  string_type;
-      static string_type symbol(char const* in);
-      static string_type type(char const* in);
+      static string_type symbol(char const* in,
+                                demangler::implementation_details const& id);
+      static string_type type(char const* in,
+                              demangler::implementation_details const& id);
     };
 
   // demangle::symbol()
@@ -2283,8 +2704,9 @@ namespace __gnu_cxx
   // Demangle `input' which should be a mangled function name as for
   // instance returned by nm(1).
   template<typename Allocator>
-    std::basic_string<char, std::char_traits<char>, Allocator>
-    demangle<Allocator>::symbol(char const* input)
+    typename demangle<Allocator>::string_type
+    demangle<Allocator>::symbol(char const* input,
+                                demangler::implementation_details const& id)
     {
       // <mangled-name> ::= _Z <encoding>
       // <mangled-name> ::= _GLOBAL_ _<type>_ <disambiguation part>
@@ -2313,8 +2735,8 @@ namespace __gnu_cxx
 	}
 	else if (input[1] == 'Z')
 	{
-	  int cnt = demangler_type::decode_encoding(result, input + 2,
-						    INT_MAX);
+	  int cnt =
+	      demangler_type::decode_encoding(result, input + 2, INT_MAX, id);
 	  if (cnt < 0 || input[cnt + 2] != 0)
 	    failure = true;
 	}
@@ -2333,15 +2755,16 @@ namespace __gnu_cxx
   // Demangle `input' which must be a zero terminated mangled type
   // name as for instance returned by std::type_info::name().
   template<typename Allocator>
-    std::basic_string<char, std::char_traits<char>, Allocator> 
-    demangle<Allocator>::type(char const* input)
+    typename demangle<Allocator>::string_type
+    demangle<Allocator>::type(char const* input,
+                              demangler::implementation_details const& id)
     {
       std::basic_string<char, std::char_traits<char>, Allocator> result;
       if (input == NULL)
 	result = "(null)";
       else
       {
-	demangler::session<Allocator> demangler_session(input, INT_MAX);
+	demangler::session<Allocator> demangler_session(input, INT_MAX, id);
 	if (!demangler_session.decode_type(result)
 	    || demangler_session.remaining_input_characters())
 	{

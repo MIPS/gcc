@@ -136,19 +136,10 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "toplev.h"
 #include "recog.h"
 #include "expr.h"
-#include "ssa.h"
 #include "timevar.h"
 
 #include "obstack.h"
 #include "splay-tree.h"
-
-/* EXIT_IGNORE_STACK should be nonzero if, when returning from a function,
-   the stack pointer does not matter.  The value is tested only in
-   functions that have frame pointers.
-   No definition is equivalent to always zero.  */
-#ifndef EXIT_IGNORE_STACK
-#define EXIT_IGNORE_STACK 0
-#endif
 
 #ifndef HAVE_epilogue
 #define HAVE_epilogue 0
@@ -160,9 +151,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #define HAVE_sibcall_epilogue 0
 #endif
 
-#ifndef LOCAL_REGNO
-#define LOCAL_REGNO(REGNO)  0
-#endif
 #ifndef EPILOGUE_USES
 #define EPILOGUE_USES(REGNO)  0
 #endif
@@ -293,7 +281,6 @@ static void notice_stack_pointer_modification_1 (rtx, rtx, void *);
 static void notice_stack_pointer_modification (rtx);
 static void mark_reg (rtx, void *);
 static void mark_regs_live_at_end (regset);
-static int set_phi_alternative_reg (rtx, int, int, void *);
 static void calculate_global_regs_live (sbitmap, sbitmap, int);
 static void propagate_block_delete_insn (rtx);
 static rtx propagate_block_delete_libcall (rtx, rtx);
@@ -328,6 +315,7 @@ static void add_to_mem_set_list (struct propagate_block_info *, rtx);
 static int invalidate_mems_from_autoinc (rtx *, void *);
 static void invalidate_mems_from_set (struct propagate_block_info *, rtx);
 static void clear_log_links (sbitmap);
+static int count_or_remove_death_notes_bb (basic_block, int);
 
 
 void
@@ -380,7 +368,7 @@ first_insn_after_basic_block_note (basic_block block)
   rtx insn;
 
   /* Get the first instruction in the block.  */
-  insn = block->head;
+  insn = BB_HEAD (block);
 
   if (insn == NULL_RTX)
     return NULL_RTX;
@@ -465,7 +453,10 @@ life_analysis (rtx f, FILE *file, int flags)
      is not immediately handy.  */
 
   if (flags & PROP_REG_INFO)
-    memset (regs_ever_live, 0, sizeof (regs_ever_live));
+    {
+      memset (regs_ever_live, 0, sizeof (regs_ever_live));
+      memset (regs_asm_clobbered, 0, sizeof (regs_asm_clobbered));
+    }
   update_life_info (NULL, UPDATE_LIFE_GLOBAL, flags);
 
   /* Clean up.  */
@@ -506,7 +497,7 @@ verify_wide_reg_1 (rtx *px, void *pregno)
 static void
 verify_wide_reg (int regno, basic_block bb)
 {
-  rtx head = bb->head, end = bb->end;
+  rtx head = BB_HEAD (bb), end = BB_END (bb);
 
   while (1)
     {
@@ -595,6 +586,9 @@ verify_local_live_at_start (regset new_live_at_start, basic_block bb)
    ??? This is not true in one situation -- when a pre-reload splitter
    generates subregs of a multi-word pseudo, current life analysis will
    lose the kill.  So we _can_ have a pseudo go live.  How irritating.
+
+   It is also not true when a peephole decides that it doesn't need one
+   or more of the inputs.
 
    Including PROP_REG_INFO does not properly refresh regs_ever_live
    unless the caller resets it to zero.  */
@@ -820,7 +814,7 @@ delete_noop_moves (rtx f ATTRIBUTE_UNUSED)
 
   FOR_EACH_BB (bb)
     {
-      for (insn = bb->head; insn != NEXT_INSN (bb->end); insn = next)
+      for (insn = BB_HEAD (bb); insn != NEXT_INSN (BB_END (bb)); insn = next)
 	{
 	  next = NEXT_INSN (insn);
 	  if (INSN_P (insn) && noop_move_p (insn))
@@ -1033,20 +1027,6 @@ mark_regs_live_at_end (regset set)
   diddle_return_value (mark_reg, set);
 }
 
-/* Callback function for for_each_successor_phi.  DATA is a regset.
-   Sets the SRC_REGNO, the regno of the phi alternative for phi node
-   INSN, in the regset.  */
-
-static int
-set_phi_alternative_reg (rtx insn ATTRIBUTE_UNUSED,
-			 int dest_regno ATTRIBUTE_UNUSED, int src_regno,
-			 void *data)
-{
-  regset live = (regset) data;
-  SET_REGNO_REG_SET (live, src_regno);
-  return 0;
-}
-
 /* Propagate global life info around the graph of basic blocks.  Begin
    considering blocks with their corresponding bit set in BLOCKS_IN.
    If BLOCKS_IN is null, consider it the universal set.
@@ -1207,14 +1187,6 @@ calculate_global_regs_live (sbitmap blocks_in, sbitmap blocks_out, int flags)
 	      && fixed_regs[PIC_OFFSET_TABLE_REGNUM])
 	    SET_REGNO_REG_SET (new_live_at_end, PIC_OFFSET_TABLE_REGNUM);
 	}
-
-      /* Regs used in phi nodes are not included in
-	 global_live_at_start, since they are live only along a
-	 particular edge.  Set those regs that are live because of a
-	 phi node alternative corresponding to this particular block.  */
-      if (in_ssa_form)
-	for_each_successor_phi (bb, &set_phi_alternative_reg,
-				new_live_at_end);
 
       if (bb == ENTRY_BLOCK_PTR)
 	{
@@ -1864,8 +1836,8 @@ init_propagate_block_info (basic_block bb, regset live, regset local_set,
   /* If this block ends in a conditional branch, for each register
      live from one side of the branch and not the other, record the
      register as conditionally dead.  */
-  if (GET_CODE (bb->end) == JUMP_INSN
-      && any_condjump_p (bb->end))
+  if (GET_CODE (BB_END (bb)) == JUMP_INSN
+      && any_condjump_p (BB_END (bb)))
     {
       regset_head diff_head;
       regset diff = INITIALIZE_REG_SET (diff_head);
@@ -1890,7 +1862,7 @@ init_propagate_block_info (basic_block bb, regset live, regset local_set,
       else
 	{
 	  /* This can happen with a conditional jump to the next insn.  */
-	  if (JUMP_LABEL (bb->end) != bb_true->head)
+	  if (JUMP_LABEL (BB_END (bb)) != BB_HEAD (bb_true))
 	    abort ();
 
 	  /* Simplest way to do nothing.  */
@@ -1902,7 +1874,7 @@ init_propagate_block_info (basic_block bb, regset live, regset local_set,
 			    bb_false->global_live_at_start, BITMAP_XOR))
 	{
 	  /* Extract the condition from the branch.  */
-	  rtx set_src = SET_SRC (pc_set (bb->end));
+	  rtx set_src = SET_SRC (pc_set (BB_END (bb)));
 	  rtx cond_true = XEXP (set_src, 0);
 	  rtx reg = XEXP (cond_true, 0);
 
@@ -1971,7 +1943,7 @@ init_propagate_block_info (basic_block bb, regset live, regset local_set,
 	      && ! current_function_calls_eh_return)))
     {
       rtx insn, set;
-      for (insn = bb->end; insn != bb->head; insn = PREV_INSN (insn))
+      for (insn = BB_END (bb); insn != BB_HEAD (bb); insn = PREV_INSN (insn))
 	if (GET_CODE (insn) == INSN
 	    && (set = single_set (insn))
 	    && GET_CODE (SET_DEST (set)) == MEM)
@@ -2051,7 +2023,7 @@ propagate_block (basic_block bb, regset live, regset local_set,
   /* Scan the block an insn at a time from end to beginning.  */
 
   changed = 0;
-  for (insn = bb->end;; insn = prev)
+  for (insn = BB_END (bb); ; insn = prev)
     {
       /* If this is a call to `setjmp' et al, warn if any
 	 non-volatile datum is live.  */
@@ -2066,7 +2038,7 @@ propagate_block (basic_block bb, regset live, regset local_set,
       else
         changed |= NEXT_INSN (prev) != insn;
 
-      if (insn == bb->head)
+      if (insn == BB_HEAD (bb))
 	break;
     }
 
@@ -2465,6 +2437,7 @@ mark_set_regs (struct propagate_block_info *pbi, rtx x, rtx insn)
   rtx cond = NULL_RTX;
   rtx link;
   enum rtx_code code;
+  int flags = pbi->flags;
 
   if (insn)
     for (link = REG_NOTES (insn); link; link = XEXP (link, 1))
@@ -2473,14 +2446,17 @@ mark_set_regs (struct propagate_block_info *pbi, rtx x, rtx insn)
 	  mark_set_1 (pbi, SET, XEXP (link, 0),
 		      (GET_CODE (x) == COND_EXEC
 		       ? COND_EXEC_TEST (x) : NULL_RTX),
-		      insn, pbi->flags);
+		      insn, flags);
       }
  retry:
   switch (code = GET_CODE (x))
     {
     case SET:
+      if (GET_CODE (XEXP (x, 1)) == ASM_OPERANDS)
+	flags |= PROP_ASM_SCAN;
+      /* Fall through */
     case CLOBBER:
-      mark_set_1 (pbi, code, SET_DEST (x), cond, insn, pbi->flags);
+      mark_set_1 (pbi, code, SET_DEST (x), cond, insn, flags);
       return;
 
     case COND_EXEC:
@@ -2492,7 +2468,9 @@ mark_set_regs (struct propagate_block_info *pbi, rtx x, rtx insn)
       {
 	int i;
 
-	for (i = XVECLEN (x, 0) - 1; i >= 0; i--)
+	/* We must scan forwards.  If we have an asm, we need to set
+	   the PROP_ASM_SCAN flag before scanning the clobbers.  */
+	for (i = 0; i < XVECLEN (x, 0); i++)
 	  {
 	    rtx sub = XVECEXP (x, 0, i);
 	    switch (code = GET_CODE (sub))
@@ -2503,13 +2481,24 @@ mark_set_regs (struct propagate_block_info *pbi, rtx x, rtx insn)
 
 		cond = COND_EXEC_TEST (sub);
 		sub = COND_EXEC_CODE (sub);
-		if (GET_CODE (sub) != SET && GET_CODE (sub) != CLOBBER)
-		  break;
-		/* Fall through.  */
+		if (GET_CODE (sub) == SET)
+		  goto mark_set;
+		if (GET_CODE (sub) == CLOBBER)
+		  goto mark_clob;
+		break;
 
 	      case SET:
+	      mark_set:
+		if (GET_CODE (XEXP (sub, 1)) == ASM_OPERANDS)
+		  flags |= PROP_ASM_SCAN;
+		/* Fall through */
 	      case CLOBBER:
-		mark_set_1 (pbi, code, SET_DEST (sub), cond, insn, pbi->flags);
+	      mark_clob:
+		mark_set_1 (pbi, code, SET_DEST (sub), cond, insn, flags);
+		break;
+
+	      case ASM_OPERANDS:
+		flags |= PROP_ASM_SCAN;
 		break;
 
 	      default:
@@ -2733,6 +2722,9 @@ mark_set_1 (struct propagate_block_info *pbi, enum rtx_code code, rtx reg, rtx c
 		{
 		  for (i = regno_first; i <= regno_last; i++)
 		    regs_ever_live[i] = 1;
+		  if (flags & PROP_ASM_SCAN)
+		    for (i = regno_first; i <= regno_last; i++)
+		      regs_asm_clobbered[i] = 1;
 		}
 	      else
 		{
@@ -2818,6 +2810,14 @@ mark_set_1 (struct propagate_block_info *pbi, enum rtx_code code, rtx reg, rtx c
     {
       if (flags & (PROP_LOG_LINKS | PROP_AUTOINC))
 	pbi->reg_next_use[regno_first] = 0;
+
+      if ((flags & PROP_REG_INFO) != 0
+	  && (flags & PROP_ASM_SCAN) != 0
+	  &&  regno_first < FIRST_PSEUDO_REGISTER)
+	{
+	  for (i = regno_first; i <= regno_last; i++)
+	    regs_asm_clobbered[i] = 1;
+	}
     }
 
   /* If this is the last pass and this is a SCRATCH, show it will be dying
@@ -3311,8 +3311,8 @@ attempt_auto_inc (struct propagate_block_info *pbi, rtx inc, rtx insn,
 	 new insn(s) and do the updates.  */
       emit_insn_before (insns, insn);
 
-      if (pbi->bb->head == insn)
-	pbi->bb->head = insns;
+      if (BB_HEAD (pbi->bb) == insn)
+	BB_HEAD (pbi->bb) = insns;
 
       /* INCR will become a NOTE and INSN won't contain a
 	 use of INCR_REG.  If a use of INCR_REG was just placed in
@@ -3908,14 +3908,6 @@ mark_used_regs (struct propagate_block_info *pbi, rtx x, rtx cond, rtx insn)
       x = COND_EXEC_CODE (x);
       goto retry;
 
-    case PHI:
-      /* We _do_not_ want to scan operands of phi nodes.  Operands of
-	 a phi function are evaluated only when control reaches this
-	 block along a particular edge.  Therefore, regs that appear
-	 as arguments to phi should not be added to the global live at
-	 start.  */
-      return;
-
     default:
       break;
     }
@@ -4197,65 +4189,95 @@ int
 count_or_remove_death_notes (sbitmap blocks, int kill)
 {
   int count = 0;
+  int i;
   basic_block bb;
 
-  FOR_EACH_BB_REVERSE (bb)
+  
+  /* This used to be a loop over all the blocks with a membership test
+     inside the loop.  That can be amazingly expensive on a large CFG
+     when only a small number of bits are set in BLOCKs (for example,
+     the calls from the scheduler typically have very few bits set).
+
+     For extra credit, someone should convert BLOCKS to a bitmap rather
+     than an sbitmap.  */
+  if (blocks)
     {
-      rtx insn;
-
-      if (blocks && ! TEST_BIT (blocks, bb->index))
-	continue;
-
-      for (insn = bb->head;; insn = NEXT_INSN (insn))
+      EXECUTE_IF_SET_IN_SBITMAP (blocks, 0, i,
 	{
-	  if (INSN_P (insn))
-	    {
-	      rtx *pprev = &REG_NOTES (insn);
-	      rtx link = *pprev;
-
-	      while (link)
-		{
-		  switch (REG_NOTE_KIND (link))
-		    {
-		    case REG_DEAD:
-		      if (GET_CODE (XEXP (link, 0)) == REG)
-			{
-			  rtx reg = XEXP (link, 0);
-			  int n;
-
-			  if (REGNO (reg) >= FIRST_PSEUDO_REGISTER)
-			    n = 1;
-			  else
-			    n = HARD_REGNO_NREGS (REGNO (reg), GET_MODE (reg));
-			  count += n;
-			}
-		      /* Fall through.  */
-
-		    case REG_UNUSED:
-		      if (kill)
-			{
-			  rtx next = XEXP (link, 1);
-			  free_EXPR_LIST_node (link);
-			  *pprev = link = next;
-			  break;
-			}
-		      /* Fall through.  */
-
-		    default:
-		      pprev = &XEXP (link, 1);
-		      link = *pprev;
-		      break;
-		    }
-		}
-	    }
-
-	  if (insn == bb->end)
-	    break;
+	  count += count_or_remove_death_notes_bb (BASIC_BLOCK (i), kill);
+	});
+    }
+  else
+    {
+      FOR_EACH_BB (bb)
+	{
+	  count += count_or_remove_death_notes_bb (bb, kill);
 	}
     }
 
   return count;
 }
+  
+/* Optionally removes all the REG_DEAD and REG_UNUSED notes from basic
+   block BB.  Returns a count of the number of registers that died.  */
+
+static int
+count_or_remove_death_notes_bb (basic_block bb, int kill)
+{
+  int count = 0;
+  rtx insn;
+
+  for (insn = BB_HEAD (bb); ; insn = NEXT_INSN (insn))
+    {
+      if (INSN_P (insn))
+	{
+	  rtx *pprev = &REG_NOTES (insn);
+	  rtx link = *pprev;
+
+	  while (link)
+	    {
+	      switch (REG_NOTE_KIND (link))
+		{
+		case REG_DEAD:
+		  if (GET_CODE (XEXP (link, 0)) == REG)
+		    {
+		      rtx reg = XEXP (link, 0);
+		      int n;
+
+		      if (REGNO (reg) >= FIRST_PSEUDO_REGISTER)
+		        n = 1;
+		      else
+		        n = HARD_REGNO_NREGS (REGNO (reg), GET_MODE (reg));
+		      count += n;
+		    }
+
+		  /* Fall through.  */
+
+		case REG_UNUSED:
+		  if (kill)
+		    {
+		      rtx next = XEXP (link, 1);
+		      free_EXPR_LIST_node (link);
+		      *pprev = link = next;
+		      break;
+		    }
+		  /* Fall through.  */
+
+		default:
+		  pprev = &XEXP (link, 1);
+		  link = *pprev;
+		  break;
+		}
+	    }
+	}
+
+      if (insn == BB_END (bb))
+	break;
+    }
+
+  return count;
+}
+
 /* Clear LOG_LINKS fields of insns in a selected blocks or whole chain
    if blocks is NULL.  */
 
@@ -4276,7 +4298,7 @@ clear_log_links (sbitmap blocks)
       {
 	basic_block bb = BASIC_BLOCK (i);
 
-	for (insn = bb->head; insn != NEXT_INSN (bb->end);
+	for (insn = BB_HEAD (bb); insn != NEXT_INSN (BB_END (bb));
 	     insn = NEXT_INSN (insn))
 	  if (INSN_P (insn))
 	    free_INSN_LIST_list (&LOG_LINKS (insn));

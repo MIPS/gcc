@@ -63,7 +63,7 @@
 
 #include <bits/concept_check.h>
 
-namespace std
+namespace __gnu_norm
 {
 
 // Forward declaration of operators < and ==, needed for friend declaration.
@@ -100,10 +100,10 @@ private:
                   _Identity<value_type>, key_compare, _Alloc> _Rep_type;
   _Rep_type _M_t;  // red-black tree representing multiset
 public:
-  typedef typename _Rep_type::const_pointer pointer;
-  typedef typename _Rep_type::const_pointer const_pointer;
-  typedef typename _Rep_type::const_reference reference;
-  typedef typename _Rep_type::const_reference const_reference;
+  typedef typename _Alloc::pointer pointer;
+  typedef typename _Alloc::const_pointer const_pointer;
+  typedef typename _Alloc::reference reference;
+  typedef typename _Alloc::const_reference const_reference;
   typedef typename _Rep_type::const_iterator iterator;
   typedef typename _Rep_type::const_iterator const_iterator;
   typedef typename _Rep_type::const_reverse_iterator reverse_iterator;
@@ -256,6 +256,6 @@ inline void swap(multiset<_Key,_Compare,_Alloc>& __x,
   __x.swap(__y);
 }
 
-} // namespace std
+} // namespace __gnu_norm
 
 #endif /* _MULTISET_H */

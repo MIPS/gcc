@@ -321,10 +321,7 @@ init_reg_sets_1 (void)
     {
       for (j = 0; j < N_REG_CLASSES; j++)
 	{
-#ifdef HARD_REG_SET
-	  register		/* Declare it register if it's a scalar.  */
-#endif
-	    HARD_REG_SET c;
+	  HARD_REG_SET c;
 	  int k;
 
 	  COPY_HARD_REG_SET (c, reg_class_contents[i]);
@@ -355,10 +352,7 @@ init_reg_sets_1 (void)
     {
       for (j = 0; j < N_REG_CLASSES; j++)
 	{
-#ifdef HARD_REG_SET
-	  register		/* Declare it register if it's a scalar.  */
-#endif
-	    HARD_REG_SET c;
+	  HARD_REG_SET c;
 	  int k;
 
 	  COPY_HARD_REG_SET (c, reg_class_contents[i]);
@@ -1085,8 +1079,8 @@ scan_one_insn (rtx insn, int pass)
 	{
 	  basic_block b;
 	  FOR_EACH_BB (b)
-	    if (insn == b->head)
-	      b->head = newinsn;
+	    if (insn == BB_HEAD (b))
+	      BB_HEAD (b) = newinsn;
 	}
 
       /* This makes one more setting of new insns's dest.  */
@@ -1240,10 +1234,10 @@ regclass (rtx f, int nregs, FILE *dump)
 	       aggressive than the assumptions made elsewhere and is being
 	       tried as an experiment.  */
 	    frequency = REG_FREQ_FROM_BB (bb);
-	    for (insn = bb->head; ; insn = NEXT_INSN (insn))
+	    for (insn = BB_HEAD (bb); ; insn = NEXT_INSN (insn))
 	      {
 		insn = scan_one_insn (insn, pass);
-		if (insn == bb->end)
+		if (insn == BB_END (bb))
 		  break;
 	      }
 	  }
@@ -2293,21 +2287,20 @@ reg_scan (rtx f, unsigned int nregs, int repeat ATTRIBUTE_UNUSED)
 {
   rtx insn;
 
+  timevar_push (TV_REG_SCAN);
+
   allocate_reg_info (nregs, TRUE, FALSE);
   max_parallel = 3;
   max_set_parallel = 0;
 
-  timevar_push (TV_REG_SCAN);
-
   for (insn = f; insn; insn = NEXT_INSN (insn))
-    if (GET_CODE (insn) == INSN
-	|| GET_CODE (insn) == CALL_INSN
-	|| GET_CODE (insn) == JUMP_INSN)
+    if (INSN_P (insn))
       {
-	if (GET_CODE (PATTERN (insn)) == PARALLEL
-	    && XVECLEN (PATTERN (insn), 0) > max_parallel)
-	  max_parallel = XVECLEN (PATTERN (insn), 0);
-	reg_scan_mark_refs (PATTERN (insn), insn, 0, 0);
+	rtx pat = PATTERN (insn);
+	if (GET_CODE (pat) == PARALLEL
+	    && XVECLEN (pat, 0) > max_parallel)
+	  max_parallel = XVECLEN (pat, 0);
+	reg_scan_mark_refs (pat, insn, 0, 0);
 
 	if (REG_NOTES (insn))
 	  reg_scan_mark_refs (REG_NOTES (insn), insn, 1, 0);
@@ -2331,14 +2324,13 @@ reg_scan_update (rtx first, rtx last, unsigned int old_max_regno)
   allocate_reg_info (max_reg_num (), FALSE, FALSE);
 
   for (insn = first; insn != last; insn = NEXT_INSN (insn))
-    if (GET_CODE (insn) == INSN
-	|| GET_CODE (insn) == CALL_INSN
-	|| GET_CODE (insn) == JUMP_INSN)
+    if (INSN_P (insn))
       {
-	if (GET_CODE (PATTERN (insn)) == PARALLEL
-	    && XVECLEN (PATTERN (insn), 0) > max_parallel)
-	  max_parallel = XVECLEN (PATTERN (insn), 0);
-	reg_scan_mark_refs (PATTERN (insn), insn, 0, old_max_regno);
+	rtx pat = PATTERN (insn);
+	if (GET_CODE (pat) == PARALLEL
+	    && XVECLEN (pat, 0) > max_parallel)
+	  max_parallel = XVECLEN (pat, 0);
+	reg_scan_mark_refs (pat, insn, 0, old_max_regno);
 
 	if (REG_NOTES (insn))
 	  reg_scan_mark_refs (REG_NOTES (insn), insn, 1, old_max_regno);
@@ -2414,6 +2406,8 @@ reg_scan_mark_refs (rtx x, rtx insn, int note_flag, unsigned int min_regno)
 	    REG_N_SETS (REGNO (reg))++;
 	    REG_N_REFS (REGNO (reg))++;
 	  }
+	else if (GET_CODE (reg) == MEM)
+	  reg_scan_mark_refs (XEXP (reg, 0), insn, note_flag, min_regno);
       }
       break;
 
@@ -2546,10 +2540,7 @@ reg_class_subset_p (enum reg_class c1, enum reg_class c2)
 int
 reg_classes_intersect_p (enum reg_class c1, enum reg_class c2)
 {
-#ifdef HARD_REG_SET
-  register
-#endif
-    HARD_REG_SET c;
+  HARD_REG_SET c;
 
   if (c1 == c2) return 1;
 

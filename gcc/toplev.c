@@ -63,7 +63,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "regs.h"
 #include "timevar.h"
 #include "diagnostic.h"
-#include "ssa.h"
 #include "params.h"
 #include "reload.h"
 #include "dwarf2asm.h"
@@ -125,7 +124,6 @@ static void print_switch_values (FILE *, int, int, const char *,
 
 /* Rest of compilation helper functions.  */
 static bool rest_of_handle_inlining (tree);
-static rtx rest_of_handle_ssa (tree, rtx);
 static void rest_of_handle_cse (tree, rtx);
 static void rest_of_handle_cse2 (tree, rtx);
 static void rest_of_handle_gcse (tree, rtx);
@@ -148,8 +146,8 @@ static void rest_of_handle_regmove (tree, rtx);
 static void rest_of_handle_sched (tree, rtx);
 static void rest_of_handle_sched2 (tree, rtx);
 #endif
-static bool rest_of_handle_new_regalloc (tree, rtx, int *);
-static bool rest_of_handle_old_regalloc (tree, rtx, int *);
+static bool rest_of_handle_new_regalloc (tree, rtx);
+static bool rest_of_handle_old_regalloc (tree, rtx);
 static void rest_of_handle_regrename (tree, rtx);
 static void rest_of_handle_reorder_blocks (tree, rtx);
 #ifdef STACK_REGS
@@ -254,10 +252,6 @@ enum dump_file_index
   DFI_sibling,
   DFI_eh,
   DFI_jump,
-  DFI_ssa,
-  DFI_ssa_ccp,
-  DFI_ssa_dce,
-  DFI_ussa,
   DFI_null,
   DFI_cse,
   DFI_addressof,
@@ -269,8 +263,8 @@ enum dump_file_index
   DFI_vpt,
   DFI_ce1,
   DFI_tracer,
-  DFI_web,
   DFI_loop2,
+  DFI_web,
   DFI_cse2,
   DFI_life,
   DFI_combine,
@@ -298,8 +292,8 @@ enum dump_file_index
 
    Remaining -d letters:
 
-	"            m   q         "
-	"         JK   O Q       Y "
+	"   e        m   q         "
+	"         JK   O Q     WXY "
 */
 
 static struct dump_file_info dump_file[DFI_MAX] =
@@ -309,10 +303,6 @@ static struct dump_file_info dump_file[DFI_MAX] =
   { "sibling",  'i', 0, 0, 0 },
   { "eh",	'h', 0, 0, 0 },
   { "jump",	'j', 0, 0, 0 },
-  { "ssa",	'e', 1, 0, 0 },
-  { "ssaccp",	'W', 1, 0, 0 },
-  { "ssadce",	'X', 1, 0, 0 },
-  { "ussa",	'e', 1, 0, 0 },	/* Yes, duplicate enable switch.  */
   { "null",	'u', 0, 0, 0 },
   { "cse",	's', 0, 0, 0 },
   { "addressof", 'F', 0, 0, 0 },
@@ -324,8 +314,8 @@ static struct dump_file_info dump_file[DFI_MAX] =
   { "vpt",	'V', 1, 0, 0 },
   { "ce1",	'C', 1, 0, 0 },
   { "tracer",	'T', 1, 0, 0 },
-  { "web",      'Z', 0, 0, 0 },
   { "loop2",	'L', 1, 0, 0 },
+  { "web",      'Z', 0, 0, 0 },
   { "cse2",	't', 1, 0, 0 },
   { "life",	'f', 1, 0, 0 },	/* Yes, duplicate enable switch.  */
   { "combine",	'c', 1, 0, 0 },
@@ -481,11 +471,7 @@ int flag_short_enums;
    be saved across function calls, if that produces overall better code.
    Optional now, so people can test it.  */
 
-#ifdef DEFAULT_CALLER_SAVES
-int flag_caller_saves = 1;
-#else
 int flag_caller_saves = 0;
-#endif
 
 /* Nonzero if structures and unions should be returned in memory.
 
@@ -892,26 +878,8 @@ int flag_debug_asm = 0;
 
 int flag_dump_rtl_in_asm = 0;
 
-/* -fgnu-linker specifies use of the GNU linker for initializations.
-   (Or, more generally, a linker that handles initializations.)
-   -fno-gnu-linker says that collect2 will be used.  */
-#ifdef USE_COLLECT2
-int flag_gnu_linker = 0;
-#else
-int flag_gnu_linker = 1;
-#endif
-
 /* Nonzero means put zero initialized data in the bss section.  */
 int flag_zero_initialized_in_bss = 1;
-
-/* Enable SSA.  */
-int flag_ssa = 0;
-
-/* Enable ssa conditional constant propagation.  */
-int flag_ssa_ccp = 0;
-
-/* Enable ssa aggressive dead code elimination.  */
-int flag_ssa_dce = 0;
 
 /* Tag all structures with __attribute__(packed).  */
 int flag_pack_struct = 0;
@@ -1131,7 +1099,6 @@ static const lang_independent_options f_options[] =
   {"function-sections", &flag_function_sections, 1 },
   {"data-sections", &flag_data_sections, 1 },
   {"verbose-asm", &flag_verbose_asm, 1 },
-  {"gnu-linker", &flag_gnu_linker, 1 },
   {"regmove", &flag_regmove, 1 },
   {"optimize-register-move", &flag_regmove, 1 },
   {"pack-struct", &flag_pack_struct, 1 },
@@ -1149,9 +1116,6 @@ static const lang_independent_options f_options[] =
   {"dump-unnumbered", &flag_dump_unnumbered, 1 },
   {"instrument-functions", &flag_instrument_function_entry_exit, 1 },
   {"zero-initialized-in-bss", &flag_zero_initialized_in_bss, 1 },
-  {"ssa", &flag_ssa, 1 },
-  {"ssa-ccp", &flag_ssa_ccp, 1 },
-  {"ssa-dce", &flag_ssa_dce, 1 },
   {"leading-underscore", &flag_leading_underscore, 1 },
   {"ident", &flag_no_ident, 0 },
   { "peephole2", &flag_peephole2, 1 },
@@ -1720,7 +1684,11 @@ check_global_declarations (tree *vec, int len)
 
       /* Warn about static fns or vars defined but not used.  */
       if (((warn_unused_function && TREE_CODE (decl) == FUNCTION_DECL)
-	   || (warn_unused_variable && TREE_CODE (decl) == VAR_DECL))
+	   /* We don't warn about "static const" variables because the
+	      "rcs_id" idiom uses that construction.  */
+	   || (warn_unused_variable
+	       && TREE_CODE (decl) == VAR_DECL && ! TREE_READONLY (decl)))
+	  && ! DECL_IN_SYSTEM_HEADER (decl)
 	  && ! TREE_USED (decl)
 	  /* The TREE_USED bit for file-scope decls is kept in the identifier,
 	     to handle multiple external decls in different scopes.  */
@@ -1948,8 +1916,15 @@ rest_of_decl_compilation (tree decl,
 	make_decl_rtl (decl, asmspec);
 
       /* Don't output anything when a tentative file-scope definition
-	 is seen.  But at end of compilation, do output code for them.  */
-      if ((at_end || !DECL_DEFER_OUTPUT (decl)) && !DECL_EXTERNAL (decl))
+	 is seen.  But at end of compilation, do output code for them.
+
+	 We do output all variables when unit-at-a-time is active and rely on
+	 callgraph code to defer them except for forward declarations
+	 (see gcc.c-torture/compile/920624-1.c) */
+      if ((at_end
+	   || !DECL_DEFER_OUTPUT (decl)
+	   || (flag_unit_at_a_time && DECL_INITIAL (decl)))
+	  && !DECL_EXTERNAL (decl))
 	{
 	  if (flag_unit_at_a_time && !cgraph_global_info_ready
 	      && TREE_CODE (decl) != FUNCTION_DECL && top_level)
@@ -2184,7 +2159,7 @@ rest_of_handle_machine_reorg (tree decl, rtx insns)
 /* Run new register allocator.  Return TRUE if we must exit
    rest_of_compilation upon return.  */
 static bool
-rest_of_handle_new_regalloc (tree decl, rtx insns, int *rebuild_notes)
+rest_of_handle_new_regalloc (tree decl, rtx insns)
 {
   int failure;
 
@@ -2223,7 +2198,6 @@ rest_of_handle_new_regalloc (tree decl, rtx insns, int *rebuild_notes)
     return true;
 
   reload_completed = 1;
-  *rebuild_notes = 0;
 
   return false;
 }
@@ -2231,9 +2205,10 @@ rest_of_handle_new_regalloc (tree decl, rtx insns, int *rebuild_notes)
 /* Run old register allocator.  Return TRUE if we must exit
    rest_of_compilation upon return.  */
 static bool
-rest_of_handle_old_regalloc (tree decl, rtx insns, int *rebuild_notes)
+rest_of_handle_old_regalloc (tree decl, rtx insns)
 {
   int failure;
+  int rebuild_notes;
 
   /* Allocate the reg_renumber array.  */
   allocate_reg_info (max_regno, FALSE, TRUE);
@@ -2244,9 +2219,22 @@ rest_of_handle_old_regalloc (tree decl, rtx insns, int *rebuild_notes)
   allocate_initial_values (reg_equiv_memory_loc);
 
   regclass (insns, max_reg_num (), rtl_dump_file);
-  *rebuild_notes = local_alloc ();
+  rebuild_notes = local_alloc ();
 
   timevar_pop (TV_LOCAL_ALLOC);
+
+  /* Local allocation may have turned an indirect jump into a direct
+     jump.  If so, we must rebuild the JUMP_LABEL fields of jumping
+     instructions.  */
+  if (rebuild_notes)
+    {
+      timevar_push (TV_JUMP);
+
+      rebuild_jump_labels (insns);
+      purge_all_dead_edges (0);
+
+      timevar_pop (TV_JUMP);
+    }
 
   if (dump_file[DFI_lreg].enabled)
     {
@@ -2310,7 +2298,6 @@ rest_of_handle_regrename (tree decl, rtx insns)
 static void
 rest_of_handle_reorder_blocks (tree decl, rtx insns)
 {
-  timevar_push (TV_REORDER_BLOCKS);
   open_dump_file (DFI_bbro, decl);
 
   /* Last attempt to optimize CFG, as scheduling, peepholing and insn
@@ -2327,7 +2314,6 @@ rest_of_handle_reorder_blocks (tree decl, rtx insns)
     cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_UPDATE_LIFE);
 
   close_dump_file (DFI_bbro, print_rtl_with_bb, insns);
-  timevar_pop (TV_REORDER_BLOCKS);
 }
 
 #ifdef INSN_SCHEDULING
@@ -2406,7 +2392,6 @@ rest_of_handle_regmove (tree decl, rtx insns)
 static void
 rest_of_handle_tracer (tree decl, rtx insns)
 {
-  timevar_push (TV_TRACER);
   open_dump_file (DFI_tracer, decl);
   if (rtl_dump_file)
     dump_flow_info (rtl_dump_file);
@@ -2414,7 +2399,6 @@ rest_of_handle_tracer (tree decl, rtx insns)
   cleanup_cfg (CLEANUP_EXPENSIVE);
   reg_scan (insns, max_reg_num (), 0);
   close_dump_file (DFI_tracer, print_rtl_with_bb, get_insns ());
-  timevar_pop (TV_TRACER);
 }
 
 /* If-conversion and CFG cleanup.  */
@@ -2586,6 +2570,7 @@ rest_of_handle_jump_bypass (tree decl, rtx insns)
   open_dump_file (DFI_bypass, decl);
 
   cleanup_cfg (CLEANUP_EXPENSIVE);
+  reg_scan (insns, max_reg_num (), 1);
 
   if (bypass_jumps (rtl_dump_file))
     {
@@ -2744,71 +2729,6 @@ rest_of_handle_inlining (tree decl)
      done.  This goes for anything that gets here with DECL_EXTERNAL
      set, not just things with DECL_INLINE.  */
   return (bool) DECL_EXTERNAL (decl);
-}
-
-/* Rest of compilation helper to convert the rtl to SSA form.  */
-static rtx
-rest_of_handle_ssa (tree decl, rtx insns)
-{
-  timevar_push (TV_TO_SSA);
-  open_dump_file (DFI_ssa, decl);
-
-  cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
-  convert_to_ssa ();
-
-  close_dump_file (DFI_ssa, print_rtl_with_bb, insns);
-  timevar_pop (TV_TO_SSA);
-
-  /* Perform sparse conditional constant propagation, if requested.  */
-  if (flag_ssa_ccp)
-    {
-      timevar_push (TV_SSA_CCP);
-      open_dump_file (DFI_ssa_ccp, decl);
-
-      ssa_const_prop ();
-
-      close_dump_file (DFI_ssa_ccp, print_rtl_with_bb, get_insns ());
-      timevar_pop (TV_SSA_CCP);
-    }
-
-  /* It would be useful to cleanup the CFG at this point, but block
-     merging and possibly other transformations might leave a PHI
-     node in the middle of a basic block, which is a strict no-no.  */
-
-  /* The SSA implementation uses basic block numbers in its phi
-     nodes.  Thus, changing the control-flow graph or the basic
-     blocks, e.g., calling find_basic_blocks () or cleanup_cfg (),
-     may cause problems.  */
-
-  if (flag_ssa_dce)
-    {
-      /* Remove dead code.  */
-
-      timevar_push (TV_SSA_DCE);
-      open_dump_file (DFI_ssa_dce, decl);
-
-      insns = get_insns ();
-      ssa_eliminate_dead_code ();
-
-      close_dump_file (DFI_ssa_dce, print_rtl_with_bb, insns);
-      timevar_pop (TV_SSA_DCE);
-    }
-
-  /* Convert from SSA form.  */
-
-  timevar_push (TV_FROM_SSA);
-  open_dump_file (DFI_ussa, decl);
-
-  convert_from_ssa ();
-  /* New registers have been created.  Rescan their usage.  */
-  reg_scan (insns, max_reg_num (), 1);
-
-  close_dump_file (DFI_ussa, print_rtl_with_bb, insns);
-  timevar_pop (TV_FROM_SSA);
-
-  ggc_collect ();
-
-  return insns;
 }
 
 /* Try to identify useless null pointer tests and delete them.  */
@@ -3139,7 +3059,6 @@ void
 rest_of_compilation (tree decl)
 {
   rtx insns;
-  int rebuild_label_notes_after_reload;
 
   timevar_push (TV_REST_OF_COMPILATION);
 
@@ -3225,10 +3144,6 @@ rest_of_compilation (tree decl)
 
   delete_unreachable_blocks ();
 
-  /* We have to issue these warnings now already, because CFG cleanups
-     further down may destroy the required information.  */
-  check_function_return_warnings ();
-
   /* Turn NOTE_INSN_PREDICTIONs into branch predictions.  */
   if (flag_guess_branch_prob)
     {
@@ -3239,6 +3154,14 @@ rest_of_compilation (tree decl)
 
   if (flag_optimize_sibling_calls)
     rest_of_handle_sibling_calls (insns);
+
+  /* We have to issue these warnings now already, because CFG cleanups
+     further down may destroy the required information.  However, this
+     must be done after the sibcall optimization pass because the barrier
+     emitted for noreturn calls that are candidate for the optimization
+     is folded into the CALL_PLACEHOLDER until after this pass, so the
+     CFG is inaccurate.  */
+  check_function_return_warnings ();
 
   timevar_pop (TV_JUMP);
 
@@ -3320,12 +3243,6 @@ rest_of_compilation (tree decl)
   /* Now is when we stop if -fsyntax-only and -Wreturn-type.  */
   if (rtl_dump_and_exit || flag_syntax_only || DECL_DEFER_OUTPUT (decl))
     goto exit_rest_of_compilation;
-
-  /* Long term, this should probably move before the jump optimizer too,
-     but I didn't want to disturb the rtl_dump_and_exit and related
-     stuff at this time.  */
-  if (optimize > 0 && flag_ssa)
-    insns = rest_of_handle_ssa (decl, insns);
 
   timevar_push (TV_JUMP);
 
@@ -3449,14 +3366,12 @@ rest_of_compilation (tree decl)
 
   if (flag_new_regalloc)
     {
-      if (rest_of_handle_new_regalloc (decl, insns,
-				       &rebuild_label_notes_after_reload))
+      if (rest_of_handle_new_regalloc (decl, insns))
 	goto exit_rest_of_compilation;
     }
   else
     {
-      if (rest_of_handle_old_regalloc (decl, insns,
-				       &rebuild_label_notes_after_reload))
+      if (rest_of_handle_old_regalloc (decl, insns))
 	goto exit_rest_of_compilation;
     }
 
@@ -3470,19 +3385,6 @@ rest_of_compilation (tree decl)
       timevar_push (TV_RELOAD_CSE_REGS);
       reload_cse_regs (insns);
       timevar_pop (TV_RELOAD_CSE_REGS);
-    }
-
-  /* Register allocation and reloading may have turned an indirect jump into
-     a direct jump.  If so, we must rebuild the JUMP_LABEL fields of
-     jumping instructions.  */
-  if (rebuild_label_notes_after_reload)
-    {
-      timevar_push (TV_JUMP);
-
-      rebuild_jump_labels (insns);
-      purge_all_dead_edges (0);
-
-      timevar_pop (TV_JUMP);
     }
 
   close_dump_file (DFI_postreload, print_rtl_with_bb, insns);
@@ -4106,7 +4008,9 @@ init_asm_output (const char *name)
 void *
 default_get_pch_validity (size_t *len)
 {
+#ifdef TARGET_OPTIONS
   size_t i;
+#endif
   char *result, *r;
   
   *len = sizeof (target_flags) + 2;
@@ -4648,6 +4552,7 @@ finalize (void)
       ggc_print_statistics ();
       stringpool_statistics ();
       dump_tree_statistics ();
+      dump_rtx_statistics ();
     }
 
   /* Free up memory for the benefit of leak detectors.  */

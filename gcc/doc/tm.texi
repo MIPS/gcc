@@ -329,7 +329,7 @@ et al, within sysroot+suffix.
 @defmac SYSROOT_HEADERS_SUFFIX_SPEC
 Define this macro to add a headers_suffix to the target sysroot when
 GCC is configured with a sysroot.  This will cause GCC to pass the
-updated sysroot+headers_suffix to CPP@, causing it to search for
+updated sysroot+headers_suffix to CPP, causing it to search for
 usr/include, et al, within sysroot+headers_suffix.
 @end defmac
 
@@ -3052,6 +3052,19 @@ For proper signal handling in Java this macro is accompanied by
 @code{MAKE_THROW_FRAME}, defined in @file{libjava/include/*-signal.h} headers.
 @end defmac
 
+@defmac MD_HANDLE_UNWABI (@var{context}, @var{fs})
+This macro allows the target to add operating system specific code to the
+call-frame unwinder to handle the IA-64 @code{.unwabi} unwinding directive,
+usually used for signal or interrupt frames.
+
+This macro is called from @code{uw_update_context} in @file{unwind-ia64.c}.
+@var{context} is an @code{_Unwind_Context};
+@var{fs} is an @code{_Unwind_FrameState}.  Examine @code{fs->unwabi}
+for the abi and context in the @code{.unwabi} directive.  If the
+@code{.unwabi} directive can be handled, the register save addresses should
+be updated in @var{fs}.
+@end defmac
+
 @node Stack Checking
 @subsection Specifying How Stack Checking is Done
 
@@ -3798,13 +3811,6 @@ be passed in a pair of floating point registers, even though a complex
 float would fit in one 64-bit floating point register.
 @end defmac
 
-@defmac LOAD_ARGS_REVERSED
-If defined, the order in which arguments are loaded into their
-respective argument registers is reversed so that the last
-argument is loaded first.  This macro only affects arguments
-passed in registers.
-@end defmac
-
 @node Scalar Return
 @subsection How Scalar Function Values Are Returned
 @cindex return values in registers
@@ -3903,6 +3909,18 @@ need more space than is implied by @code{FUNCTION_VALUE_REGNO_P} for
 saving and restoring an arbitrary return value.
 @end defmac
 
+@deftypefn {Target Hook} bool TARGET_RETURN_IN_MSB (tree @var{type})
+This hook should return true if values of type @var{type} are returned
+at the most significant end of a register (in other words, if they are
+padded at the least significant end).  You can assume that @var{type}
+is returned in a register; the caller is required to check this.
+
+Note that the register provided by @code{FUNCTION_VALUE} must be able
+to hold the complete return value.  For example, if a 1-, 2- or 3-byte
+structure is returned at the most significant end of a 4-byte register,
+@code{FUNCTION_VALUE} should provide an @code{SImode} rtx.
+@end deftypefn
+
 @node Aggregate Return
 @subsection How Large Values Are Returned
 @cindex aggregates as return values
@@ -3984,14 +4002,6 @@ nothing when you use @option{-freg-struct-return} mode.
 If you enable it, GCC can save registers around function calls.  This
 makes it possible to use call-clobbered registers to hold variables that
 must live across calls.
-
-@defmac DEFAULT_CALLER_SAVES
-Define this macro if function calls on the target machine do not preserve
-any registers; in other words, if @code{CALL_USED_REGISTERS} has 1
-for all registers.  When defined, this macro enables @option{-fcaller-saves}
-by default for all optimization levels.  It has no effect for optimization
-levels 2 and higher, where @option{-fcaller-saves} is the default.
-@end defmac
 
 @defmac CALLER_SAVE_PROFITABLE (@var{refs}, @var{calls})
 A C expression to determine whether it is worthwhile to consider placing
@@ -4171,7 +4181,8 @@ function.
 Define this macro as a C expression that is nonzero if the return
 instruction or the function epilogue ignores the value of the stack
 pointer; in other words, if it is safe to delete an instruction to
-adjust the stack pointer before a return from the function.
+adjust the stack pointer before a return from the function.  The
+default is 0.
 
 Note that this macro's value is relevant only for functions for which
 frame pointers are maintained.  It is never safe to delete a final
@@ -7200,12 +7211,6 @@ writing conditional output routines in those patterns.
 If this macro is not defined, it is equivalent to a null statement.
 @end defmac
 
-@defmac FINAL_PRESCAN_LABEL
-If defined, @code{FINAL_PRESCAN_INSN} will be called on each
-@code{CODE_LABEL}.  In that case, @var{opvec} will be a null pointer and
-@var{noperands} will be zero.
-@end defmac
-
 @defmac PRINT_OPERAND (@var{stream}, @var{x}, @var{code})
 A C compound statement to output to stdio stream @var{stream} the
 assembler syntax for an instruction operand @var{x}.  @var{x} is an
@@ -8933,15 +8938,6 @@ symbols must be explicitly imported from shared libraries (DLLs).
 @defmac MD_ASM_CLOBBERS (@var{clobbers})
 A C statement that adds to @var{clobbers} @code{STRING_CST} trees for
 any hard regs the port wishes to automatically clobber for all asms.
-@end defmac
-
-@defmac MAX_INTEGER_COMPUTATION_MODE
-Define this to the largest integer machine mode which can be used for
-operations other than load, store and copy operations.
-
-You need only define this macro if the target holds values larger than
-@code{word_mode} in general purpose registers.  Most targets should not define
-this macro.
 @end defmac
 
 @defmac MATH_LIBRARY

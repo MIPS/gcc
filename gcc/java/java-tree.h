@@ -44,7 +44,6 @@ struct JCF;
 
 /* Usage of TREE_LANG_FLAG_?:
    0: IS_A_SINGLE_IMPORT_CLASSFILE_NAME_P (in IDENTIFIER_NODE)
-      RESOLVE_EXPRESSION_NAME_P (in EXPR_WITH_FILE_LOCATION)
       FOR_LOOP_P (in LOOP_EXPR)
       SUPPRESS_UNREACHABLE_ERROR (for other _EXPR nodes)
       ANONYMOUS_CLASS_P (in RECORD_TYPE)
@@ -308,8 +307,6 @@ enum java_tree_index
   JTI_RUNTIME_EXCEPTION_TYPE_NODE,
   JTI_ERROR_EXCEPTION_TYPE_NODE,
   JTI_RAWDATA_PTR_TYPE_NODE,
-  JTI_CLASS_NOT_FOUND_TYPE_NODE,
-  JTI_NO_CLASS_DEF_FOUND_TYPE_NODE,
 
   JTI_BYTE_ARRAY_TYPE_NODE,
   JTI_SHORT_ARRAY_TYPE_NODE,
@@ -492,10 +489,6 @@ extern GTY(()) tree java_global_trees[JTI_MAX];
   java_global_trees[JTI_ERROR_EXCEPTION_TYPE_NODE]
 #define rawdata_ptr_type_node \
   java_global_trees[JTI_RAWDATA_PTR_TYPE_NODE]
-#define class_not_found_type_node \
-  java_global_trees[JTI_CLASS_NOT_FOUND_TYPE_NODE]
-#define no_class_def_found_type_node \
-  java_global_trees[JTI_NO_CLASS_DEF_FOUND_TYPE_NODE]
 
 #define byte_array_type_node \
   java_global_trees[JTI_BYTE_ARRAY_TYPE_NODE]
@@ -699,9 +692,6 @@ extern GTY(()) tree java_global_trees[JTI_MAX];
   java_global_trees[JTI_PREDEF_FILENAMES]
 
 #define nativecode_ptr_type_node ptr_type_node
-
-/* They need to be reset before processing each class */
-extern GTY(()) struct CPool *outgoing_cpool; 
 
 #define wfl_operator \
   java_global_trees[JTI_WFL_OPERATOR]
@@ -947,6 +937,9 @@ union lang_tree_node
 /* True if NODE is a class initialization flag. */
 #define LOCAL_CLASS_INITIALIZATION_FLAG_P(NODE) \
     (DECL_LANG_SPECIFIC (NODE) && LOCAL_CLASS_INITIALIZATION_FLAG(NODE))
+/* True if NODE is a variable that is out of scope.  */
+#define LOCAL_VAR_OUT_OF_SCOPE_P(NODE) \
+    (DECL_LANG_SPECIFIC(NODE)->u.v.freed)
 /* Create a DECL_LANG_SPECIFIC if necessary. */
 #define MAYBE_CREATE_VAR_LANG_DECL_SPECIFIC(T)			\
   if (DECL_LANG_SPECIFIC (T) == NULL)				\
@@ -1031,6 +1024,7 @@ struct lang_decl_var GTY(())
   tree wfl;			/* Original wfl */
   unsigned int final_iud : 1;	/* Final initialized upon declaration */
   unsigned int cif : 1;		/* True: decl is a class initialization flag */
+  unsigned int freed;		/* Decl is no longer in scope.  */
 };
 
 /* This is what 'lang_decl' really points to.  */
@@ -1221,7 +1215,6 @@ extern int enclosing_context_p (tree, tree);
 extern void complete_start_java_method (tree);
 extern tree build_result_decl (tree);
 extern void emit_handlers (void);
-extern void init_outgoing_cpool (void);
 extern void make_class_data (tree);
 extern void register_class (void);
 extern int alloc_name_constant (int, tree);
@@ -1556,9 +1549,6 @@ extern tree *type_map;
    feature a finalizer method. */
 #define HAS_FINALIZER_P(EXPR) TREE_LANG_FLAG_3 (EXPR)
 
-/* True if EXPR (a WFL in that case) resolves into an expression name */
-#define RESOLVE_EXPRESSION_NAME_P(WFL) TREE_LANG_FLAG_0 (WFL)
-
 /* True if EXPR (a LOOP_EXPR in that case) is part of a for statement */
 #define FOR_LOOP_P(EXPR) TREE_LANG_FLAG_0 (EXPR)
 
@@ -1727,6 +1717,8 @@ while (0)
 #define BLOCK_EXPR_BODY(NODE)   BLOCK_SUBBLOCKS(NODE)
 /* True for an implicit block surrounding declaration not at start of {...}. */
 #define BLOCK_IS_IMPLICIT(NODE) TREE_LANG_FLAG_1 (NODE)
+#define BLOCK_EMPTY_P(NODE) \
+  (TREE_CODE (NODE) == BLOCK && BLOCK_EXPR_BODY (NODE) == empty_stmt_node)
 
 #define BUILD_MONITOR_ENTER(WHERE, ARG)				\
   {								\

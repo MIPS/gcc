@@ -235,7 +235,7 @@ begin
    --  Line for -gnatN switch
 
    Write_Switch_Char ("N");
-   Write_Line ("Full (frontend) inlining of subprograqms");
+   Write_Line ("Full (frontend) inlining of subprograms");
 
    --  Line for -gnato switch
 
@@ -276,6 +276,11 @@ begin
 
    Write_Switch_Char ("s");
    Write_Line ("Syntax check only");
+
+   --  Lines for -gnatS switch
+
+   Write_Switch_Char ("S");
+   Write_Line ("Print listing of package Standard");
 
    --  Lines for -gnatt switch
 

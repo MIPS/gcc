@@ -818,8 +818,8 @@ package body Sem_Util is
    begin
       if Ekind (T) = E_Incomplete_Type then
 
-         --  If the type is available through a limited_with_clause,
-         --  verify that its full view has been analyzed.
+         --  Ada0Y (AI-50217): If the type is available through a limited
+         --  with_clause, verify that its full view has been analyzed.
 
          if From_With_Type (T)
            and then Present (Non_Limited_View (T))
@@ -6370,6 +6370,12 @@ package body Sem_Util is
          then
             Error_Msg_N (
               "operator of the type is not directly visible!", Expr);
+
+         elsif Ekind (Found_Type) = E_Void
+           and then Present (Parent (Found_Type))
+           and then Nkind (Parent (Found_Type)) = N_Full_Type_Declaration
+         then
+            Error_Msg_NE ("found premature usage of}!", Expr, Found_Type);
 
          else
             Error_Msg_NE ("found}!", Expr, Found_Type);

@@ -36,7 +36,13 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "bitmap.h"
 
 #ifdef ENABLE_VALGRIND_CHECKING
-#include <valgrind/memcheck.h>
+# ifdef HAVE_VALGRIND_MEMCHECK_H
+#  include <valgrind/memcheck.h>
+# elif defined HAVE_MEMCHECK_H
+#  include <memcheck.h>
+# else
+#  include <valgrind.h>
+# endif
 #else
 /* Avoid #ifdef:s when we can help it.  */
 #define VALGRIND_DISCARD(x)
@@ -83,7 +89,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    If we track inter-zone pointers, we can mark single zones at a
    time.
    If we have a zone where we guarantee no inter-zone pointers, we
-   could mark that zone seperately.
+   could mark that zone separately.
    The garbage zone should not be marked, and we should return 1 in
    ggc_set_mark for any object in the garbage zone, which cuts off
    marking quickly.  */
@@ -238,7 +244,6 @@ struct max_alignment {
 #define LOOKUP_L2(p) \
   (((size_t) (p) >> G.lg_pagesize) & ((1 << PAGE_L2_BITS) - 1))
 
-struct alloc_zone;
 /* A page_entry records the status of an allocation page.  */
 typedef struct page_entry
 {
@@ -262,7 +267,7 @@ typedef struct page_entry
 #endif
 
   /* Number of bytes on the page unallocated.  Only used during
-     collection, and even then large pages merely set this non-zero.  */
+     collection, and even then large pages merely set this nonzero.  */
   size_t bytes_free;
 
   /* Context depth of this page.  */
@@ -271,6 +276,7 @@ typedef struct page_entry
   /* Does this page contain small objects, or one large object?  */
   bool large_p;
 
+  /* The zone that this page entry belongs to.  */
   struct alloc_zone *zone;
 } page_entry;
 
@@ -375,8 +381,11 @@ struct alloc_zone
   /* Next zone in the linked list of zones.  */
   struct alloc_zone *next_zone;
 
-  /* Return true if this zone was collected during this collection.  */
+  /* True if this zone was collected during this collection.  */
   bool was_collected;
+
+  /* True if this zone should be destroyed after the next collection.  */
+  bool dead;
 } main_zone;
 
 struct alloc_zone *rtl_zone;
@@ -995,20 +1004,26 @@ ggc_alloc_zone_1 (size_t size, struct alloc_zone *zone, short type)
   return result;
 }
 
-/* Allocate a SIZE of chunk memory of GTE type, into an approriate zone
+/* Allocate a SIZE of chunk memory of GTE type, into an appropriate zone
    for that type.  */
 
 void *
 ggc_alloc_typed (enum gt_types_enum gte, size_t size)
 {
-  if (gte == gt_ggc_e_14lang_tree_node)
-    return ggc_alloc_zone_1 (size, tree_zone, gte);
-  else if (gte == gt_ggc_e_7rtx_def)
-    return ggc_alloc_zone_1 (size, rtl_zone, gte);
-  else if (gte == gt_ggc_e_9rtvec_def)
-    return ggc_alloc_zone_1 (size, rtl_zone, gte);
-  else
-    return ggc_alloc_zone_1 (size, &main_zone, gte);
+  switch (gte)
+    {
+    case gt_ggc_e_14lang_tree_node:
+      return ggc_alloc_zone_1 (size, tree_zone, gte);
+
+    case gt_ggc_e_7rtx_def:
+      return ggc_alloc_zone_1 (size, rtl_zone, gte);
+
+    case gt_ggc_e_9rtvec_def:
+      return ggc_alloc_zone_1 (size, rtl_zone, gte);
+
+    default:
+      return ggc_alloc_zone_1 (size, &main_zone, gte);
+    }
 }
 
 /* Normal ggc_alloc simply allocates into the main zone.  */
@@ -1127,26 +1142,16 @@ ggc_get_size (const void *p)
 
 /* Initialize the ggc-zone-mmap allocator.  */
 void
-init_ggc ()
+init_ggc (void)
 {
-  /* Create the zones.  */
+  /* Set up the main zone by hand.  */
   main_zone.name = "Main zone";
   G.zones = &main_zone;
 
-  rtl_zone = xcalloc (1, sizeof (struct alloc_zone));
-  rtl_zone->name = "RTL zone";
-  /* The main zone's connected to the ... rtl_zone */
-  G.zones->next_zone = rtl_zone;
-
-  garbage_zone = xcalloc (1, sizeof (struct alloc_zone));
-  garbage_zone->name = "Garbage zone";
-  /* The rtl zone's connected to the ... garbage zone */
-  rtl_zone->next_zone = garbage_zone;
-
-  tree_zone = xcalloc (1, sizeof (struct alloc_zone));
-  tree_zone->name = "Tree zone";
-  /* The garbage zone's connected to ... the tree zone */
-  garbage_zone->next_zone = tree_zone;
+  /* Allocate the default zones.  */
+  rtl_zone = new_ggc_zone ("RTL zone");
+  tree_zone = new_ggc_zone ("Tree zone");
+  garbage_zone = new_ggc_zone ("Garbage zone");
 
   G.pagesize = getpagesize();
   G.lg_pagesize = exact_log2 (G.pagesize);
@@ -1191,11 +1196,42 @@ init_ggc ()
 #endif
 }
 
+/* Start a new GGC zone.  */
+
+struct alloc_zone *
+new_ggc_zone (const char * name)
+{
+  struct alloc_zone *new_zone = xcalloc (1, sizeof (struct alloc_zone));
+  new_zone->name = name;
+  new_zone->next_zone = G.zones->next_zone;
+  G.zones->next_zone = new_zone;
+  return new_zone;
+}
+
+/* Destroy a GGC zone.  */
+void
+destroy_ggc_zone (struct alloc_zone * dead_zone)
+{
+  struct alloc_zone *z;
+
+  for (z = G.zones; z && z->next_zone != dead_zone; z = z->next_zone)
+    /* Just find that zone.  */ ;
+
+#ifdef ENABLE_CHECKING
+  /* We should have found the zone in the list.  Anything else is fatal.  */
+  if (!z)
+    abort ();
+#endif
+
+  /* z is dead, baby. z is dead.  */
+  z->dead= true;
+}
+
 /* Increment the `GC context'.  Objects allocated in an outer context
    are never freed, eliminating the need to register their roots.  */
 
 void
-ggc_push_context ()
+ggc_push_context (void)
 {
   struct alloc_zone *zone;
   for (zone = G.zones; zone; zone = zone->next_zone)
@@ -1228,15 +1264,15 @@ ggc_pop_context_1 (struct alloc_zone *zone)
   /* Any remaining pages in the popped context are lowered to the new
      current context; i.e. objects allocated in the popped context and
      left over are imported into the previous context.  */
-    for (p = zone->pages; p != NULL; p = p->next)
-      if (p->context_depth > depth)
-	p->context_depth = depth;
+  for (p = zone->pages; p != NULL; p = p->next)
+    if (p->context_depth > depth)
+      p->context_depth = depth;
 }
 
 /* Pop all the zone contexts.  */
 
 void
-ggc_pop_context ()
+ggc_pop_context (void)
 {
   struct alloc_zone *zone;
   for (zone = G.zones; zone; zone = zone->next_zone)
@@ -1282,7 +1318,7 @@ sweep_pages (struct alloc_zone *zone)
 	}
 
       /* Large pages are all or none affairs. Either they are
-	 completely empty, or they are completeley full.
+	 completely empty, or they are completely full.
 	 Thus, if the above didn't catch it, we need not do anything
 	 except remove the mark and reset the bytes_free.
 
@@ -1371,19 +1407,24 @@ sweep_pages (struct alloc_zone *zone)
 static bool
 ggc_collect_1 (struct alloc_zone *zone, bool need_marking)
 {
-  /* Avoid frequent unnecessary work by skipping collection if the
-     total allocations haven't expanded much since the last
-     collection.  */
-  float allocated_last_gc =
-    MAX (zone->allocated_last_gc, (size_t)PARAM_VALUE (GGC_MIN_HEAPSIZE) * 1024);
+  if (!zone->dead)
+    {
+      /* Avoid frequent unnecessary work by skipping collection if the
+	 total allocations haven't expanded much since the last
+	 collection.  */
+      float allocated_last_gc =
+	MAX (zone->allocated_last_gc,
+	     (size_t) PARAM_VALUE (GGC_MIN_HEAPSIZE) * 1024);
 
-  float min_expand = allocated_last_gc * PARAM_VALUE (GGC_MIN_EXPAND) / 100;
+      float min_expand = allocated_last_gc * PARAM_VALUE (GGC_MIN_EXPAND) / 100;
 
-  if (zone->allocated < allocated_last_gc + min_expand)
-    return false;
+      if (zone->allocated < allocated_last_gc + min_expand)
+	return false;
+    }
 
   if (!quiet_flag)
-    fprintf (stderr, " {%s GC %luk -> ", zone->name, (unsigned long) zone->allocated / 1024);
+    fprintf (stderr, " {%s GC %luk -> ",
+	     zone->name, (unsigned long) zone->allocated / 1024);
 
   /* Zero the total allocated bytes.  This will be recalculated in the
      sweep phase.  */
@@ -1401,7 +1442,6 @@ ggc_collect_1 (struct alloc_zone *zone, bool need_marking)
   sweep_pages (zone);
   zone->was_collected = true;
   zone->allocated_last_gc = zone->allocated;
-
 
   if (!quiet_flag)
     fprintf (stderr, "%luk}", (unsigned long) zone->allocated / 1024);
@@ -1430,10 +1470,12 @@ calculate_average_page_survival (struct alloc_zone *zone)
    structures.  */
 
 static inline void
-check_cookies ()
+check_cookies (void)
 {
 #ifdef COOKIE_CHECKING
   page_entry *p;
+  struct alloc_zone *zone;
+
   for (zone = G.zones; zone; zone = zone->next_zone)
     {
       for (p = zone->pages; p; p = p->next)
@@ -1459,7 +1501,7 @@ check_cookies ()
 /* Top level collection routine.  */
 
 void
-ggc_collect ()
+ggc_collect (void)
 {
   struct alloc_zone *zone;
   bool marked = false;
@@ -1470,6 +1512,7 @@ ggc_collect ()
   /* Start by possibly collecting the main zone.  */
   main_zone.was_collected = false;
   marked |= ggc_collect_1 (&main_zone, true);
+
   /* In order to keep the number of collections down, we don't
      collect other zones unless we are collecting the main zone.  This
      gives us roughly the same number of collections as we used to
@@ -1481,36 +1524,30 @@ ggc_collect ()
 
   if (main_zone.was_collected)
     {
-      check_cookies ();
-      rtl_zone->was_collected = false;
-      marked |= ggc_collect_1 (rtl_zone, !marked);
-      check_cookies ();
-      tree_zone->was_collected = false;
-      marked |= ggc_collect_1 (tree_zone, !marked);
-      check_cookies ();
-      garbage_zone->was_collected = false;
-      marked |= ggc_collect_1 (garbage_zone, !marked);
+      struct alloc_zone *zone;
+
+      for (zone = main_zone.next_zone; zone; zone = zone->next_zone)
+	{
+	  check_cookies ();
+	  zone->was_collected = false;
+	  marked |= ggc_collect_1 (zone, !marked);
+	}
     }
 
   /* Print page survival stats, if someone wants them.  */
   if (GGC_DEBUG_LEVEL >= 2)
     {
-      if (rtl_zone->was_collected)
+      for (zone = G.zones; zone; zone = zone->next_zone)
 	{
-	  f = calculate_average_page_survival (rtl_zone);
-	  printf ("Average RTL page survival is %f\n", f);
-	}
-      if (main_zone.was_collected)
-	{
-	  f = calculate_average_page_survival (&main_zone);
-	  printf ("Average main page survival is %f\n", f);
-	}
-      if (tree_zone->was_collected)
-	{
-	  f = calculate_average_page_survival (tree_zone);
-	  printf ("Average tree page survival is %f\n", f);
+	  if (zone->was_collected)
+	    {
+	      f = calculate_average_page_survival (zone);
+	      printf ("Average page survival in zone `%s' is %f\n",
+		      zone->name, f);
+	    }
 	}
     }
+
   /* Since we don't mark zone at a time right now, marking in any
      zone means marking in every zone. So we have to clear all the
      marks in all the zones that weren't collected already.  */
@@ -1552,13 +1589,34 @@ ggc_collect ()
 	  }
       }
     }
+
+  /* Free dead zones.  */
+  for (zone = G.zones; zone && zone->next_zone; zone = zone->next_zone)
+    {
+      if (zone->next_zone->dead)
+	{
+	  struct alloc_zone *dead_zone = zone->next_zone;
+
+	  printf ("Zone `%s' is dead and will be freed.\n", dead_zone->name);
+
+	  /* The zone must be empty.  */
+	  if (dead_zone->allocated != 0)
+	    abort ();
+
+	  /* Unchain the dead zone, release all its pages and free it.  */
+	  zone->next_zone = zone->next_zone->next_zone;
+	  release_pages (dead_zone);
+	  free (dead_zone);
+	}
+    }
+
   timevar_pop (TV_GC);
 }
 
 /* Print allocation statistics.  */
 
 void
-ggc_print_statistics ()
+ggc_print_statistics (void)
 {
 }
 
@@ -1570,7 +1628,6 @@ struct ggc_pch_data
   } d;
   size_t base;
   size_t written;
-
 };
 
 /* Initialize the PCH datastructure.  */
@@ -1655,7 +1712,7 @@ ggc_pch_write_object (struct ggc_pch_data *d ATTRIBUTE_UNUSED,
   if (!is_string)
     {
       struct alloc_chunk *chunk = (struct alloc_chunk *) ((char *)x - CHUNK_OVERHEAD);
-      size = chunk->size;
+      size = ggc_get_size (x);
       if (fwrite (chunk, size + CHUNK_OVERHEAD, 1, f) != 1)
 	fatal_error ("can't write PCH file: %m");
       d->written += size + CHUNK_OVERHEAD;

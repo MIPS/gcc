@@ -755,6 +755,12 @@ add_method (tree type, tree method, int error_p)
     {
       slot = CLASSTYPE_DESTRUCTOR_SLOT;
       TYPE_HAS_DESTRUCTOR (type) = 1;
+      
+      if (TYPE_FOR_JAVA (type))
+	error (DECL_ARTIFICIAL (method)
+	       ? "Java class '%T' cannot have an implicit non-trivial destructor"
+	       : "Java class '%T' cannot have a destructor",
+	       DECL_CONTEXT (method));
     }
   else
     {
@@ -1109,7 +1115,11 @@ handle_using_decl (tree using_decl, tree t)
   binfo = lookup_base (t, ctype, ba_any, NULL);
   if (! binfo)
     {
+      location_t saved_loc = input_location;
+
+      input_location = DECL_SOURCE_LOCATION (using_decl);
       error_not_base_type (ctype, t);
+      input_location = saved_loc;
       return;
     }
   
@@ -1173,7 +1183,7 @@ handle_using_decl (tree using_decl, tree t)
       return;
     }
   
-  /* Make type T see field decl FDECL with access ACCESS.*/
+  /* Make type T see field decl FDECL with access ACCESS.  */
   if (flist)
     for (; flist; flist = OVL_NEXT (flist))
       {
@@ -1896,7 +1906,11 @@ same_signature_p (tree fndecl, tree base_fndecl)
   if (DECL_DESTRUCTOR_P (base_fndecl) || DECL_DESTRUCTOR_P (fndecl))
     return 0;
 
-  if (DECL_NAME (fndecl) == DECL_NAME (base_fndecl))
+  if (DECL_NAME (fndecl) == DECL_NAME (base_fndecl)
+      || (DECL_CONV_FN_P (fndecl)
+	  && DECL_CONV_FN_P (base_fndecl)
+	  && same_type_p (DECL_CONV_FN_TYPE (fndecl),
+			  DECL_CONV_FN_TYPE (base_fndecl))))
     {
       tree types, base_types;
       types = TYPE_ARG_TYPES (TREE_TYPE (fndecl));
@@ -2160,13 +2174,22 @@ update_vtable_entry_for_fn (tree t, tree binfo, tree fn, tree* virtuals,
       
       if (DECL_THUNK_P (fn))
 	{
+	  my_friendly_assert (DECL_RESULT_THUNK_P (fn), 20031211);
 	  fixed_offset = ssize_int (THUNK_FIXED_OFFSET (fn));
 	  virtual_offset = THUNK_VIRTUAL_OFFSET (fn);
 	}
       else
 	fixed_offset = virtual_offset = NULL_TREE;
 
-      if (!virtual_offset)
+      if (virtual_offset)
+	/* Find the equivalent binfo within the return type of the
+	   overriding function. We will want the vbase offset from
+	   there.  */
+	virtual_offset =
+	  TREE_VALUE (purpose_member
+		      (BINFO_TYPE (virtual_offset),
+		       CLASSTYPE_VBASECLASSES (TREE_TYPE (over_return))));
+      else
 	{
 	  /* There was no existing virtual thunk (which takes
 	     precedence).  */
@@ -2435,7 +2458,8 @@ check_for_override (tree decl, tree ctype)
          override a virtual function from a base class.  */
     return;
   if ((DECL_DESTRUCTOR_P (decl)
-       || IDENTIFIER_VIRTUAL_P (DECL_NAME (decl)))
+       || IDENTIFIER_VIRTUAL_P (DECL_NAME (decl))
+       || DECL_CONV_FN_P (decl))
       && look_for_overrides (ctype, decl)
       && !DECL_STATIC_FUNCTION_P (decl))
     /* Set DECL_VINDEX to a value that is neither an INTEGER_CST nor
@@ -3567,14 +3591,18 @@ layout_empty_base (tree binfo, tree eoc, splay_tree offsets)
   /* This routine should only be used for empty classes.  */
   my_friendly_assert (is_empty_class (basetype), 20000321);
   alignment = ssize_int (CLASSTYPE_ALIGN_UNIT (basetype));
-  
-  if (abi_version_at_least (2))
-    BINFO_OFFSET (binfo) = size_zero_node;
-  if (warn_abi && !integer_zerop (BINFO_OFFSET (binfo)))
-    warning ("offset of empty base `%T' may not be ABI-compliant and may"
-	     "change in a future version of GCC",
-	     BINFO_TYPE (binfo));
 
+  if (!integer_zerop (BINFO_OFFSET (binfo)))
+    {
+      if (abi_version_at_least (2))
+	propagate_binfo_offsets
+	  (binfo, size_diffop (size_zero_node, BINFO_OFFSET (binfo)));
+      else if (warn_abi)
+	warning ("offset of empty base `%T' may not be ABI-compliant and may"
+		 "change in a future version of GCC",
+		 BINFO_TYPE (binfo));
+    }
+  
   /* This is an empty base class.  We first try to put it at offset
      zero.  */
   if (layout_conflict_p (binfo,
@@ -5011,7 +5039,7 @@ finish_struct_1 (tree t)
      bases and members and add implicitly generated methods.  */
   check_bases_and_members (t);
 
-  /* Find the key method */
+  /* Find the key method.  */
   if (TYPE_CONTAINS_VPTR_P (t))
     {
       CLASSTYPE_KEY_METHOD (t) = key_method (t);
@@ -5024,6 +5052,10 @@ finish_struct_1 (tree t)
 
   /* Layout the class itself.  */
   layout_class_type (t, &virtuals);
+  if (CLASSTYPE_AS_BASE (t) != t)
+    /* We use the base type for trivial assignments, and hence it
+       needs a mode.  */
+    compute_record_mode (CLASSTYPE_AS_BASE (t));
 
   /* Make sure that we get our own copy of the vfield FIELD_DECL.  */
   vfield = TYPE_VFIELD (t);
@@ -5579,6 +5611,9 @@ currently_open_derived_class (tree t)
 
   /* The bases of a dependent type are unknown.  */
   if (dependent_type_p (t))
+    return NULL_TREE;
+
+  if (!current_class_type)
     return NULL_TREE;
 
   if (DERIVED_FROM_P (t, current_class_type))
@@ -6592,7 +6627,7 @@ dump_class_hierarchy_1 (FILE *stream, int flags, tree t)
   fprintf (stream, "\n");
 }
 
-/* Debug interface to heirarchy dumping.  */
+/* Debug interface to hierarchy dumping.  */
 
 extern void
 debug_class (tree t)
@@ -6699,11 +6734,7 @@ dump_thunk (FILE *stream, int indent, tree thunk)
 	   !DECL_THUNK_P (thunk) ? "function"
 	   : DECL_THIS_THUNK_P (thunk) ? "this-thunk" : "covariant-thunk",
 	   name ? IDENTIFIER_POINTER (name) : "<unset>");
-  if (!DECL_THUNK_P (thunk))
-    /*NOP*/;
-  else if (THUNK_ALIAS_P (thunk))
-    fprintf (stream, " alias to %p", (void *)THUNK_ALIAS (thunk));
-  else
+  if (DECL_THUNK_P (thunk))
     {
       HOST_WIDE_INT fixed_adjust = THUNK_FIXED_OFFSET (thunk);
       tree virtual_adjust = THUNK_VIRTUAL_OFFSET (thunk);
@@ -6718,6 +6749,8 @@ dump_thunk (FILE *stream, int indent, tree thunk)
 	fprintf (stream, " vbase=" HOST_WIDE_INT_PRINT_DEC "(%s)",
 		 tree_low_cst (BINFO_VPTR_FIELD (virtual_adjust), 0),
 		 type_as_string (BINFO_TYPE (virtual_adjust), TFF_SCOPE));
+      if (THUNK_ALIAS (thunk))
+	fprintf (stream, " alias to %p", (void *)THUNK_ALIAS (thunk));
     }
   fprintf (stream, "\n");
   for (thunks = DECL_THUNKS (thunk); thunks; thunks = TREE_CHAIN (thunks))
@@ -7390,7 +7423,7 @@ build_vtbl_initializer (tree binfo,
 	{
 	  if (!DECL_NAME (fn))
 	    finish_thunk (fn);
-	  if (THUNK_ALIAS_P (fn))
+	  if (THUNK_ALIAS (fn))
 	    {
 	      fn = THUNK_ALIAS (fn);
 	      BV_FN (v) = fn;

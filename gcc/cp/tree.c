@@ -49,6 +49,7 @@ static tree build_target_expr (tree, tree);
 static tree count_trees_r (tree *, int *, void *);
 static tree verify_stmt_tree_r (tree *, int *, void *);
 static tree find_tree_r (tree *, int *, void *);
+static tree build_local_temp (tree);
 
 static tree handle_java_interface_attribute (tree *, tree, tree, int, bool *);
 static tree handle_com_interface_attribute (tree *, tree, tree, int, bool *);
@@ -242,6 +243,19 @@ build_target_expr (tree decl, tree value)
   return t;
 }
 
+/* Return an undeclared local temporary of type TYPE for use in building a
+   TARGET_EXPR.  */
+
+static tree
+build_local_temp (tree type)
+{
+  tree slot = build_decl (VAR_DECL, NULL_TREE, type);
+  DECL_ARTIFICIAL (slot) = 1;
+  DECL_CONTEXT (slot) = current_function_decl;
+  layout_decl (slot, 0);
+  return slot;
+}
+
 /* INIT is a CALL_EXPR which needs info about its target.
    TYPE is the type that this initialization should appear to have.
 
@@ -269,10 +283,7 @@ build_cplus_new (tree type, tree init)
 	     && TREE_CODE (TREE_OPERAND (fn, 0)) == FUNCTION_DECL
 	     && DECL_CONSTRUCTOR_P (TREE_OPERAND (fn, 0)));
 
-  slot = build_decl (VAR_DECL, NULL_TREE, type);
-  DECL_ARTIFICIAL (slot) = 1;
-  DECL_CONTEXT (slot) = current_function_decl;
-  layout_decl (slot, 0);
+  slot = build_local_temp (type);
 
   /* We split the CALL_EXPR into its function and its arguments here.
      Then, in expand_expr, we put them back together.  The reason for
@@ -306,26 +317,33 @@ tree
 build_target_expr_with_type (tree init, tree type)
 {
   tree slot;
-  tree rval;
 
   if (TREE_CODE (init) == TARGET_EXPR)
     return init;
   else if (CLASS_TYPE_P (type) && !TYPE_HAS_TRIVIAL_INIT_REF (type)
 	   && TREE_CODE (init) != COND_EXPR
-	   && TREE_CODE (init) != CONSTRUCTOR)
+	   && TREE_CODE (init) != CONSTRUCTOR
+	   && TREE_CODE (init) != VA_ARG_EXPR)
     /* We need to build up a copy constructor call.  COND_EXPR is a special
        case because we already have copies on the arms and we don't want
        another one here.  A CONSTRUCTOR is aggregate initialization, which
-       is handled separately.  */
+       is handled separately.  A VA_ARG_EXPR is magic creation of an
+       aggregate; there's no additional work to be done.  */
     return force_rvalue (init);
 
-  slot = build_decl (VAR_DECL, NULL_TREE, type);
-  DECL_ARTIFICIAL (slot) = 1;
-  DECL_CONTEXT (slot) = current_function_decl;
-  layout_decl (slot, 0);
-  rval = build_target_expr (slot, init);
+  slot = build_local_temp (type);
+  return build_target_expr (slot, init);
+}
 
-  return rval;
+/* Like the above function, but without the checking.  This function should
+   only be used by code which is deliberately trying to subvert the type
+   system, such as call_builtin_trap.  */
+
+tree
+force_target_expr (tree type, tree init)
+{
+  tree slot = build_local_temp (type);
+  return build_target_expr (slot, init);
 }
 
 /* Like build_target_expr_with_type, but use the type of INIT.  */
@@ -1277,9 +1295,9 @@ break_out_target_exprs (tree t)
 tree
 build_min_nt (enum tree_code code, ...)
 {
-  register tree t;
-  register int length;
-  register int i;
+  tree t;
+  int length;
+  int i;
   va_list p;
 
   va_start (p, code);
@@ -1303,9 +1321,9 @@ build_min_nt (enum tree_code code, ...)
 tree
 build_min (enum tree_code code, tree tt, ...)
 {
-  register tree t;
-  register int length;
-  register int i;
+  tree t;
+  int length;
+  int i;
   va_list p;
 
   va_start (p, tt);
@@ -1334,9 +1352,9 @@ build_min (enum tree_code code, tree tt, ...)
 tree
 build_min_non_dep (enum tree_code code, tree non_dep, ...)
 {
-  register tree t;
-  register int length;
-  register int i;
+  tree t;
+  int length;
+  int i;
   va_list p;
 
   va_start (p, non_dep);
@@ -1436,7 +1454,7 @@ decl_namespace_context (tree decl)
 bool
 cp_tree_equal (tree t1, tree t2)
 {
-  register enum tree_code code1, code2;
+  enum tree_code code1, code2;
 
   if (t1 == t2)
     return true;
@@ -1978,7 +1996,7 @@ cp_walk_subtrees (tree* tp,
     case TYPENAME_TYPE:
     case TYPEOF_TYPE:
     case BASELINK:
-      /* None of thse have subtrees other than those already walked
+      /* None of these have subtrees other than those already walked
          above.  */
       *walk_subtrees_p = 0;
       break;
@@ -2174,28 +2192,6 @@ cp_copy_res_decl_for_inlining (tree result,
     }
 
   return var;
-}
-
-/* Record that we're about to start inlining FN, and return nonzero if
-   that's OK.  Used for lang_hooks.tree_inlining.start_inlining.  */
-
-int
-cp_start_inlining (tree fn)
-{
-  if (DECL_TEMPLATE_INSTANTIATION (fn))
-    return push_tinst_level (fn);
-  else
-    return 1;
-}
-
-/* Record that we're done inlining FN.  Used for
-   lang_hooks.tree_inlining.end_inlining.  */
-
-void
-cp_end_inlining (tree fn ATTRIBUTE_UNUSED )
-{
-  if (DECL_TEMPLATE_INSTANTIATION (fn))
-    pop_tinst_level ();
 }
 
 /* Initialize tree.c.  */

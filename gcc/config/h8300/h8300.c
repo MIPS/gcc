@@ -365,9 +365,7 @@ byte_reg (rtx x, int b)
    SIZE to adjust the stack pointer.  */
 
 static void
-dosize (sign, size)
-     int sign;
-     unsigned int size;
+dosize (int sign, unsigned int size)
 {
   /* H8/300 cannot add/subtract a large constant with a single
      instruction.  If a temporary register is available, load the
@@ -436,8 +434,10 @@ push (int rn)
 
   if (TARGET_H8300)
     x = gen_push_h8300 (reg);
+  else if (!TARGET_NORMAL_MODE)
+    x = gen_push_h8300hs_advanced (reg);
   else
-    x = gen_push_h8300hs (reg);
+    x = gen_push_h8300hs_normal (reg);
   x = emit_insn (x);
   REG_NOTES (x) = gen_rtx_EXPR_LIST (REG_INC, stack_pointer_rtx, 0);
 }
@@ -452,8 +452,10 @@ pop (int rn)
 
   if (TARGET_H8300)
     x = gen_pop_h8300 (reg);
+  else if (!TARGET_NORMAL_MODE)
+    x = gen_pop_h8300hs_advanced (reg);
   else
-    x = gen_pop_h8300hs (reg);
+    x = gen_pop_h8300hs_normal (reg);
   x = emit_insn (x);
   REG_NOTES (x) = gen_rtx_EXPR_LIST (REG_INC, stack_pointer_rtx, 0);
 }
@@ -1979,7 +1981,7 @@ compute_mov_length (rtx *operands)
 
 		  if (val == (val & 0x00ff) || val == (val & 0xff00))
 		    return 4;
-		  
+
 		  switch (val & 0xffffffff)
 		    {
 		    case 0xffffffff:
@@ -4514,6 +4516,26 @@ same_cmp_preceding_p (rtx i3)
 	  && any_condjump_p (i2) && onlyjump_p (i2));
 }
 
+/* Return nonzero if we have the same comparison insn as I1 two insns
+   after I1.  I1 is assumed to be a comparison insn.  */
+
+int
+same_cmp_following_p (rtx i1)
+{
+  rtx i2, i3;
+
+  /* Make sure we have a sequence of three insns.  */
+  i2 = next_nonnote_insn (i1);
+  if (i2 == NULL_RTX)
+    return 0;
+  i3 = next_nonnote_insn (i2);
+  if (i3 == NULL_RTX)
+    return 0;
+
+  return (INSN_P (i3) && rtx_equal_p (PATTERN (i1), PATTERN (i3))
+	  && any_condjump_p (i2) && onlyjump_p (i2));
+}
+
 /* Return nonzero if register OLD_REG can be renamed to register NEW_REG.  */
 
 int
@@ -4528,7 +4550,7 @@ h8300_hard_regno_rename_ok (unsigned int old_reg ATTRIBUTE_UNUSED,
       && !regs_ever_live[new_reg])
     return 0;
 
-   return 1;
+  return 1;
 }
 
 /* Perform target dependent optabs initialization.  */

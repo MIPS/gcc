@@ -634,6 +634,23 @@ fix = {
 
 
 /*
+ *  Change external names of wcstok/wcsftime via asm instead of macros on
+ *  Tru64 UNIX V4.0.
+ */
+fix = {
+    hackname = alpha_wchar;
+    files    = wchar.h;
+
+    mach     = "alpha*-dec-osf4*";
+    select   = "#define wcstok wcstok_r";
+    sed      = "s@#define wcstok wcstok_r@extern wchar_t *wcstok __((wchar_t *, const wchar_t *, wchar_t **)) __asm__(\"wcstok_r\");@";
+    sed      = "s@#define wcsftime __wcsftime_isoc@extern size_t   wcsftime __((wchar_t *, size_t, const wchar_t *, const struct tm *)) __asm__(\"__wcsftime_isoc\");@";
+    test_text = "#define wcstok wcstok_r\n"
+		"#define wcsftime __wcsftime_isoc";
+};
+
+
+/*
  *  For C++, avoid any typedef or macro definition of bool,
  *  and use the built in type instead.
  *  HP/UX 10.20 also has it in curses_colr/curses.h.
@@ -915,6 +932,24 @@ fix = {
                 "}\n"
                 "#endif\n";
     test_text = "extern void* malloc( size_t );";
+};
+
+
+/*
+ *  __private_extern__ doesn't exist in FSF GCC.  Even if it did,
+ *  why would you ever put it in a system header file?
+ */
+fix = {
+  hackname  = darwin_private_extern;
+  mach      = "*-*-darwin*";
+  files     = mach-o/dyld.h;
+  select    = "__private_extern__ [a-z_]+ _dyld_";
+  c_fix     = format;
+  c_fix_arg = "extern";
+  c_fix_arg = "__private_extern__";
+  test_text = "__private_extern__ int _dyld_func_lookup(\n"
+	      "const char *dyld_func_name,\n"
+	      "unsigned long *address);\n";
 };
 
 
@@ -2469,8 +2504,7 @@ fix = {
      * instead of va_list.
      * Don't claim to have defined va_list.
      */
-    sed = "s@ va_list @ __gnuc_va_list @\n"
-          "s@ va_list)@ __gnuc_va_list)@\n"
+    sed = "s@[ \t]va_list\\([ \t)]\\)@ __gnuc_va_list\\1@\n"
 	  "s@(va_list)&@(__gnuc_va_list)\\&@\n"
           "s@ _VA_LIST_));@ __gnuc_va_list));@\n"
           "s@ __VA_LIST__));@ __gnuc_va_list));@\n"

@@ -61,12 +61,12 @@
 #ifndef _LIST_TCC
 #define _LIST_TCC 1
 
-namespace std
+namespace __gnu_norm
 {
   template<typename _Tp, typename _Alloc>
     void
     _List_base<_Tp,_Alloc>::
-    __clear()
+    _M_clear()
     {
       typedef _List_node<_Tp>  _Node;
       _Node* __cur = static_cast<_Node*>(this->_M_node._M_next);
@@ -92,7 +92,8 @@ namespace std
           this->_M_node._M_next = __x._M_node._M_next;
           this->_M_node._M_prev = __x._M_node._M_prev;
           
-          this->_M_node._M_next->_M_prev = this->_M_node._M_prev->_M_next = &this->_M_node;
+	  this->_M_node._M_prev->_M_next = &this->_M_node;
+          this->_M_node._M_next->_M_prev = this->_M_node._M_prev->_M_next;
           __x._M_node._M_next = __x._M_node._M_prev = &__x._M_node;
         }
       }
@@ -101,7 +102,8 @@ namespace std
         __x._M_node._M_next = this->_M_node._M_next;
         __x._M_node._M_prev = this->_M_node._M_prev;
         
-        __x._M_node._M_next->_M_prev = __x._M_node._M_prev->_M_next = &__x._M_node;
+	__x._M_node._M_prev->_M_next = &__x._M_node;
+        __x._M_node._M_next->_M_prev = __x._M_node._M_prev->_M_next;
         this->_M_node._M_next = this->_M_node._M_prev = &this->_M_node;
       }
       else
@@ -109,8 +111,10 @@ namespace std
         std::swap(this->_M_node._M_next,__x._M_node._M_next);
         std::swap(this->_M_node._M_prev,__x._M_node._M_prev);
       
-        this->_M_node._M_next->_M_prev = this->_M_node._M_prev->_M_next = &this->_M_node;
-        __x._M_node._M_next->_M_prev = __x._M_node._M_prev->_M_next = &__x._M_node;
+	this->_M_node._M_prev->_M_next = &this->_M_node;
+        this->_M_node._M_next->_M_prev = this->_M_node._M_prev->_M_next;
+	__x._M_node._M_prev->_M_next = &__x._M_node;
+        __x._M_node._M_next->_M_prev = __x._M_node._M_prev->_M_next;
       } 
     }
  
@@ -196,11 +200,13 @@ namespace std
     template <typename _InputIterator>
       void
       list<_Tp,_Alloc>::
-      _M_assign_dispatch(_InputIterator __first2, _InputIterator __last2, __false_type)
+      _M_assign_dispatch(_InputIterator __first2, _InputIterator __last2, 
+			 __false_type)
       {
         iterator __first1 = begin();
         iterator __last1 = end();
-        for (; __first1 != __last1 && __first2 != __last2; ++__first1, ++__first2)
+        for (; __first1 != __last1 && __first2 != __last2; 
+	     ++__first1, ++__first2)
           *__first1 = *__first2;
         if (__first2 == __last2)
           erase(__first1, __last1);
@@ -249,21 +255,26 @@ namespace std
     list<_Tp,_Alloc>::
     merge(list& __x)
     {
-      iterator __first1 = begin();
-      iterator __last1 = end();
-      iterator __first2 = __x.begin();
-      iterator __last2 = __x.end();
-      while (__first1 != __last1 && __first2 != __last2)
-        if (*__first2 < *__first1)
-        {
-          iterator __next = __first2;
-          _M_transfer(__first1, __first2, ++__next);
-          __first2 = __next;
-        }
-        else
-          ++__first1;
-      if (__first2 != __last2)
-        _M_transfer(__last1, __first2, __last2);
+      // _GLIBCXX_RESOLVE_LIB_DEFECTS
+      // 300. list::merge() specification incomplete
+      if (this != &__x)
+	{
+	  iterator __first1 = begin();
+	  iterator __last1 = end();
+	  iterator __first2 = __x.begin();
+	  iterator __last2 = __x.end();
+	  while (__first1 != __last1 && __first2 != __last2)
+	    if (*__first2 < *__first1)
+	      {
+		iterator __next = __first2;
+		_M_transfer(__first1, __first2, ++__next);
+		__first2 = __next;
+	      }
+	    else
+	      ++__first1;
+	  if (__first2 != __last2)
+	    _M_transfer(__last1, __first2, __last2);
+	}
     }
   
   // FIXME put this somewhere else
@@ -271,10 +282,12 @@ namespace std
   __List_base_reverse(_List_node_base* __p)
   {
     _List_node_base* __tmp = __p;
-    do {
-      std::swap(__tmp->_M_next, __tmp->_M_prev);
-      __tmp = __tmp->_M_prev;     // Old next node is now prev.
-    } while (__tmp != __p);
+    do 
+      {
+	std::swap(__tmp->_M_next, __tmp->_M_prev);
+	__tmp = __tmp->_M_prev;     // Old next node is now prev.
+      } 
+    while (__tmp != __p);
   }
   
   template<typename _Tp, typename _Alloc>
@@ -351,20 +364,26 @@ namespace std
       list<_Tp,_Alloc>::
       merge(list& __x, _StrictWeakOrdering __comp)
       {
-        iterator __first1 = begin();
-        iterator __last1 = end();
-        iterator __first2 = __x.begin();
-        iterator __last2 = __x.end();
-        while (__first1 != __last1 && __first2 != __last2)
-          if (__comp(*__first2, *__first1))
-          {
-            iterator __next = __first2;
-            _M_transfer(__first1, __first2, ++__next);
-            __first2 = __next;
-          }
-          else
-            ++__first1;
-        if (__first2 != __last2) _M_transfer(__last1, __first2, __last2);
+	// _GLIBCXX_RESOLVE_LIB_DEFECTS
+	// 300. list::merge() specification incomplete	
+	if (this != &__x)
+	  {
+	    iterator __first1 = begin();
+	    iterator __last1 = end();
+	    iterator __first2 = __x.begin();
+	    iterator __last2 = __x.end();
+	    while (__first1 != __last1 && __first2 != __last2)
+	      if (__comp(*__first2, *__first1))
+		{
+		  iterator __next = __first2;
+		  _M_transfer(__first1, __first2, ++__next);
+		  __first2 = __next;
+		}
+	      else
+		++__first1;
+	    if (__first2 != __last2)
+	      _M_transfer(__last1, __first2, __last2);
+	  }
       }
   
   template<typename _Tp, typename _Alloc>
@@ -398,6 +417,6 @@ namespace std
         swap(__counter[__fill-1]);
       }
     }
-} // namespace std
+} // namespace __gnu_norm
 
 #endif /* _LIST_TCC */

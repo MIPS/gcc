@@ -11,7 +11,14 @@
    <meta name="DESCRIPTION" content="Notes for the libstdc++ extensions." />
    <meta name="GENERATOR" content="vi and eight fingers" />
    <title>libstdc++-v3 HOWTO:  Extensions</title>
-<link rel="StyleSheet" href="../lib3styles.css" />
+<link rel="StyleSheet" href="../lib3styles.css" type="text/css" />
+<link rel="Start" href="../documentation.html" type="text/html"
+  title="GNU C++ Standard Library" />
+<link rel="Prev" href="../27_io/howto.html" type="text/html"
+  title="Input/Output" />
+<link rel="Bookmark" href="sgiexts.html" type="text/html"
+  title="SGI extensions" />
+<link rel="Copyright" href="../17_intro/license.html" type="text/html" />
 </head>
 <body>
 
@@ -474,8 +481,15 @@
     <dt><a href="lwg-defects.html#60">60</a>:
         <em>What is a formatted input function?</em>
     </dt>
-    <dd>This DR made many widespread changes to <code>basic_istream</code>,
-        not all of which have been implemented.
+    <dd>This DR made many widespread changes to <code>basic_istream</code>
+        and <code>basic_ostream</code> all of which have been implemented.
+    </dd>
+
+    <dt><a href="lwg-defects.html#63">63</a>:
+        <em>Exception-handling policy for unformatted output</em>
+    </dt>
+    <dd>Make the policy consistent with that of formatted input, unformatted
+        input, and formatted output.
     </dd>
 
     <dt><a href="lwg-defects.html#68">68</a>:
@@ -491,6 +505,13 @@
     <dd>The text of the standard was gibberish.  Typos gone rampant.
     </dd>
 
+    <dt><a href="lwg-defects.html#75">75</a>:
+        <em>Contradiction in codecvt::length's argument types</em>
+    </dt>
+    <dd>Change the first parameter to <code>stateT&amp;</code> and implement
+        the new effects paragraph.
+    </dd>
+
     <dt><a href="lwg-defects.html#83">83</a>:
         <em>string::npos vs. string::max_size()</em>
     </dt>
@@ -503,6 +524,15 @@
     </dt>
     <dd>The effect contain <code>isspace(c,getloc())</code> which must be
         replaced by <code>isspace(c,is.getloc())</code>.
+    </dd>
+
+    <dt><a href="lwg-defects.html#91">91</a>:
+        <em>Description of operator&gt;&gt; and getline() for string&lt;&gt;
+	    might cause endless loop</em>
+    </dt>
+    <dd>They behave as a formatted input function and as an unformatted
+        input function, respectively (except that <code>getline</code> is
+	not required to set <code>gcount</code>).
     </dd>
 
     <dt><a href="lwg-defects.html#109">109</a>:
@@ -593,7 +623,7 @@
         for const instances.
     </dd>
 
-    <dt><a href="lwg-active.html#231">231</a>:
+    <dt><a href="lwg-defects.html#231">231</a>:
         <em>Precision in iostream?</em>
     </dt>
     <dd>For conversion from a floating-point type, <code>str.precision()</code>
@@ -646,6 +676,37 @@
     <dd>If <code>(this == &amp;rhs)</code> do nothing.
     </dd>
 
+    <dt><a href="lwg-defects.html#300">300</a>:
+        <em>List::merge() specification incomplete</em>
+    </dt>
+    <dd>If <code>(this == &amp;x)</code> do nothing.
+    </dd>
+
+    <dt><a href="lwg-defects.html#303">303</a>:
+        <em>Bitset input operator underspecified</em>
+    </dt>
+    <dd>Basically, compare the input character to <code>is.widen(0)</code>
+        and <code>is.widen(1)</code>.
+    </dd>
+
+    <dt><a href="lwg-defects.html#305">305</a>:
+        <em>Default behavior of codecvt&lt;wchar_t, char, mbstate_t&gt;::length()</em>
+    </dt>
+    <dd>Do not specify what <code>codecvt&lt;wchar_t, char, mbstate_t&gt;::do_length</code>
+        must return.
+    </dd>
+
+    <dt><a href="lwg-defects.html#328">328</a>:
+        <em>Bad sprintf format modifier in money_put&lt;&gt;::do_put()</em>
+    </dt>
+    <dd>Change the format string to &quot;%.0Lf&quot;.
+    </dd>
+
+    <dt><a href="lwg-active.html#402">402</a>:
+        <em>Wrong new expression in [some_]allocator::construct</em>
+    </dt>
+    <dd>Replace &quot;new&quot; with &quot;::new&quot;.
+    </dd>
 <!--
     <dt><a href="lwg-defects.html#"></a>:
         <em></em>

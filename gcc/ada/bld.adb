@@ -1559,9 +1559,9 @@ package body Bld is
                            Put ("src.list_file:=" &
                                 "$(strip $(shell gprcmd to_absolute $(");
                            Put (Project_Name);
-                           Put (".base_dir) $(");
+                           Put (".base_dir) '$(");
                            Put_Attribute (Project, Pkg, Item_Name, No_Name);
-                           Put_Line (")))");
+                           Put_Line (")'))");
 
                            if In_Case then
                               if Source_List_File_Declaration = False then
@@ -1595,9 +1595,9 @@ package body Bld is
                            Put (".obj_dir:=" &
                                 "$(strip $(shell gprcmd to_absolute $(");
                            Put (Project_Name);
-                           Put (".base_dir) $(");
+                           Put (".base_dir) '$(");
                            Put_Attribute (Project, Pkg, Item_Name, No_Name);
-                           Put_Line (")))");
+                           Put_Line (")'))");
 
                         elsif Item_Name = Snames.Name_Exec_Dir then
 
@@ -1611,9 +1611,9 @@ package body Bld is
                            Put ("EXEC_DIR:=" &
                                 "$(strip $(shell gprcmd to_absolute $(");
                            Put (Project_Name);
-                           Put (".base_dir) $(");
+                           Put (".base_dir) '$(");
                            Put_Attribute (Project, Pkg, Item_Name, No_Name);
-                           Put_Line (")))");
+                           Put_Line (")'))");
 
                         elsif Item_Name = Snames.Name_Main then
 
@@ -2594,6 +2594,25 @@ package body Bld is
 
                --  Include some utility functions and saved all reserved
                --  env. vars. by including Makefile.prolog.
+
+               New_Line;
+
+               --  First, if MAKE_ROOT is not defined, try to get GNAT prefix
+
+               Put ("   ifeq ($(");
+               Put (MAKE_ROOT);
+               Put ("),)");
+               New_Line;
+
+               Put ("      MAKE_ROOT=$(shell gprcmd prefix)");
+               New_Line;
+
+               Put ("   endif");
+               New_Line;
+
+               New_Line;
+
+               --  If MAKE_ROOT is still not defined, then fail
 
                Put ("   ifeq ($(");
                Put (MAKE_ROOT);

@@ -88,9 +88,10 @@ enum rid
   RID_PUBLIC,   RID_PRIVATE,  RID_PROTECTED,
   RID_TEMPLATE, RID_NULL,     RID_CATCH,
   RID_DELETE,   RID_FALSE,    RID_NAMESPACE,
-  RID_NEW,      RID_OPERATOR, RID_THIS,
-  RID_THROW,    RID_TRUE,     RID_TRY,
-  RID_TYPENAME, RID_TYPEID,   RID_USING,
+  RID_NEW,      RID_OFFSETOF, RID_OPERATOR, 
+  RID_THIS,     RID_THROW,    RID_TRUE,     
+  RID_TRY,      RID_TYPENAME, RID_TYPEID,   
+  RID_USING,
 
   /* casts */
   RID_CONSTCAST, RID_DYNCAST, RID_REINTCAST, RID_STATCAST,
@@ -552,7 +553,7 @@ extern int flag_isoc94;
 
 extern int flag_isoc99;
 
-/* Nonzero means that we have builtin functions, and main is an int */
+/* Nonzero means that we have builtin functions, and main is an int.  */
 
 extern int flag_hosted;
 
@@ -672,17 +673,6 @@ extern int flag_no_gnu_keywords;
    they can be inlined.  */
 
 extern int flag_implement_inlines;
-
-/* Nonzero means do emit exported implementations of templates, instead of
-   multiple static copies in each file that needs a definition.  */
-
-extern int flag_external_templates;
-
-/* Nonzero means that the decision to emit or not emit the implementation of a
-   template depends on where the template is instantiated, rather than where
-   it is defined.  */
-
-extern int flag_alt_external_templates;
 
 /* Nonzero means that implicit instantiations will be emitted if needed.  */
 
@@ -1330,6 +1320,7 @@ extern void c_stddef_cpp_builtins (void);
 extern void fe_file_change (const struct line_map *);
 extern int c_estimate_num_insns (tree decl);
 extern bool c_decl_uninit (tree t);
+extern void c_parse_error (const char *, enum cpp_ttype, tree);
 
 /* The following have been moved here from c-tree.h, since they're needed
    in the ObjC++ world, too.  What is more, stub-objc.c could use a few

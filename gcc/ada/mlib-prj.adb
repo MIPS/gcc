@@ -576,7 +576,7 @@ package body MLib.Prj is
                      for W in Unit_Data.First_With .. Unit_Data.Last_With loop
                         Afile := Withs.Table (W).Afile;
 
-                        if Library_ALIs.Get (Afile)
+                        if Afile /= No_Name and then Library_ALIs.Get (Afile)
                           and then not Processed_ALIs.Get (Afile)
                         then
                            if not Interface_ALIs.Get (Afile) then
@@ -805,6 +805,49 @@ package body MLib.Prj is
             Add_Argument
               (B_Start & Get_Name_String (Data.Library_Name) & ".adb");
             Add_Argument ("-L" & Get_Name_String (Data.Library_Name));
+
+            --  Check if Binder'Default_Switches ("Ada) is defined. If it is,
+            --  add these switches to call gnatbind.
+
+            declare
+               Binder_Package : constant Package_Id :=
+                                  Value_Of
+                                    (Name        => Name_Binder,
+                                     In_Packages => Data.Decl.Packages);
+
+            begin
+               if Binder_Package /= No_Package then
+                  declare
+                     Defaults : constant Array_Element_Id :=
+                                  Value_Of
+                                    (Name      => Name_Default_Switches,
+                                     In_Arrays =>
+                                       Packages.Table
+                                         (Binder_Package).Decl.Arrays);
+                     Switches : Variable_Value := Nil_Variable_Value;
+
+                     Switch : String_List_Id := Nil_String;
+
+                  begin
+                     if Defaults /= No_Array_Element then
+                        Switches :=
+                          Value_Of
+                            (Index => Name_Ada, In_Array => Defaults);
+
+                        if not Switches.Default then
+                           Switch := Switches.Values;
+
+                           while Switch /= Nil_String loop
+                              Add_Argument
+                                (Get_Name_String
+                                   (String_Elements.Table (Switch).Value));
+                              Switch := String_Elements.Table (Switch).Next;
+                           end loop;
+                        end if;
+                     end if;
+                  end;
+               end if;
+            end;
 
             --  Get all the ALI files of the project file
 
@@ -1313,6 +1356,7 @@ package body MLib.Prj is
                   Interfaces    => Arguments (1 .. Argument_Number),
                   Lib_Filename  => Lib_Filename.all,
                   Lib_Dir       => Lib_Dirpath.all,
+                  Symbol_Data   => Data.Symbol_Data,
                   Driver_Name   => Driver_Name,
                   Lib_Address   => DLL_Address.all,
                   Lib_Version   => Lib_Version.all,

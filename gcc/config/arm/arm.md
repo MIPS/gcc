@@ -719,13 +719,13 @@
 )
 
 (define_insn "*addsi3_carryin_shift"
-  [(set (match_operand:SI 0 "s_register_operand" "")
+  [(set (match_operand:SI 0 "s_register_operand" "=r")
 	(plus:SI (ltu:SI (reg:CC_C CC_REGNUM) (const_int 0))
 		 (plus:SI
 		   (match_operator:SI 2 "shift_operator"
-		      [(match_operand:SI 3 "s_register_operand" "")
-		       (match_operand:SI 4 "reg_or_int_operand" "")])
-		    (match_operand:SI 1 "s_register_operand" ""))))]
+		      [(match_operand:SI 3 "s_register_operand" "r")
+		       (match_operand:SI 4 "reg_or_int_operand" "rM")])
+		    (match_operand:SI 1 "s_register_operand" "r"))))]
   "TARGET_ARM"
   "adc%?\\t%0, %1, %3%S2"
   [(set_attr "conds" "use")
@@ -776,6 +776,20 @@
   [(set_attr "conds" "use")
    (set_attr "length" "4,8")]
 )
+
+; transform ((x << y) - 1) to ~(~(x-1) << y)  Where X is a constant.
+(define_split
+  [(set (match_operand:SI 0 "s_register_operand" "")
+	(plus:SI (ashift:SI (match_operand:SI 1 "const_int_operand" "")
+			    (match_operand:SI 2 "s_register_operand" ""))
+		 (const_int -1)))
+   (clobber (match_operand:SI 3 "s_register_operand" ""))]
+  "TARGET_ARM"
+  [(set (match_dup 3) (match_dup 1))
+   (set (match_dup 0) (not:SI (ashift:SI (match_dup 3) (match_dup 2))))]
+  "
+  operands[1] = GEN_INT (~(INTVAL (operands[1]) - 1));
+")
 
 (define_expand "addsf3"
   [(set (match_operand:SF          0 "s_register_operand" "")
@@ -1146,7 +1160,7 @@
    (set_attr "insn" "mlas")]
 )
 
-;; Unnamed template to match long long multiply-accumlate (smlal)
+;; Unnamed template to match long long multiply-accumulate (smlal)
 
 (define_insn "*mulsidi3adddi"
   [(set (match_operand:DI 0 "s_register_operand" "=&r")
@@ -1183,7 +1197,7 @@
    (set_attr "predicable" "yes")]
 )
 
-;; Unnamed template to match long long unsigned multiply-accumlate (umlal)
+;; Unnamed template to match long long unsigned multiply-accumulate (umlal)
 
 (define_insn "*umulsidi3adddi"
   [(set (match_operand:DI 0 "s_register_operand" "=&r")
@@ -1670,6 +1684,28 @@
 
 (define_split
   [(set (match_operand:SI 0 "s_register_operand" "")
+	(match_operator:SI 1 "shiftable_operator"
+	 [(zero_extract:SI (match_operand:SI 2 "s_register_operand" "")
+			   (match_operand:SI 3 "const_int_operand" "")
+			   (match_operand:SI 4 "const_int_operand" ""))
+	  (match_operand:SI 5 "s_register_operand" "")]))
+   (clobber (match_operand:SI 6 "s_register_operand" ""))]
+  "TARGET_ARM"
+  [(set (match_dup 6) (ashift:SI (match_dup 2) (match_dup 3)))
+   (set (match_dup 0)
+	(match_op_dup 1
+	 [(lshiftrt:SI (match_dup 6) (match_dup 4))
+	  (match_dup 5)]))]
+  "{
+     HOST_WIDE_INT temp = INTVAL (operands[3]);
+
+     operands[3] = GEN_INT (32 - temp - INTVAL (operands[4]));
+     operands[4] = GEN_INT (32 - temp);
+   }"
+)
+  
+(define_split
+  [(set (match_operand:SI 0 "s_register_operand" "")
 	(sign_extract:SI (match_operand:SI 1 "s_register_operand" "")
 			 (match_operand:SI 2 "const_int_operand" "")
 			 (match_operand:SI 3 "const_int_operand" "")))]
@@ -1684,6 +1720,28 @@
    }"
 )
 
+(define_split
+  [(set (match_operand:SI 0 "s_register_operand" "")
+	(match_operator:SI 1 "shiftable_operator"
+	 [(sign_extract:SI (match_operand:SI 2 "s_register_operand" "")
+			   (match_operand:SI 3 "const_int_operand" "")
+			   (match_operand:SI 4 "const_int_operand" ""))
+	  (match_operand:SI 5 "s_register_operand" "")]))
+   (clobber (match_operand:SI 6 "s_register_operand" ""))]
+  "TARGET_ARM"
+  [(set (match_dup 6) (ashift:SI (match_dup 2) (match_dup 3)))
+   (set (match_dup 0)
+	(match_op_dup 1
+	 [(ashiftrt:SI (match_dup 6) (match_dup 4))
+	  (match_dup 5)]))]
+  "{
+     HOST_WIDE_INT temp = INTVAL (operands[3]);
+
+     operands[3] = GEN_INT (32 - temp - INTVAL (operands[4]));
+     operands[4] = GEN_INT (32 - temp);
+   }"
+)
+  
 ;;; ??? This pattern is bogus.  If operand3 has bits outside the range
 ;;; represented by the bitfield, then this will produce incorrect results.
 ;;; Somewhere, the value needs to be truncated.  On targets like the m68k,
@@ -2194,6 +2252,109 @@
    (set_attr "predicable" "yes")]
 )
 
+(define_split
+  [(set (match_operand:SI 0 "s_register_operand" "")
+	(match_operator:SI 1 "logical_binary_operator"
+	 [(zero_extract:SI (match_operand:SI 2 "s_register_operand" "")
+			   (match_operand:SI 3 "const_int_operand" "")
+			   (match_operand:SI 4 "const_int_operand" ""))
+	  (match_operator:SI 9 "logical_binary_operator"
+	   [(lshiftrt:SI (match_operand:SI 5 "s_register_operand" "")
+			 (match_operand:SI 6 "const_int_operand" ""))
+	    (match_operand:SI 7 "s_register_operand" "")])]))
+   (clobber (match_operand:SI 8 "s_register_operand" ""))]
+  "TARGET_ARM
+   && GET_CODE (operands[1]) == GET_CODE (operands[9])
+   && INTVAL (operands[3]) == 32 - INTVAL (operands[6])"
+  [(set (match_dup 8)
+	(match_op_dup 1
+	 [(ashift:SI (match_dup 2) (match_dup 4))
+	  (match_dup 5)]))
+   (set (match_dup 0)
+	(match_op_dup 1
+	 [(lshiftrt:SI (match_dup 8) (match_dup 6))
+	  (match_dup 7)]))]
+  "
+  operands[4] = GEN_INT (32 - (INTVAL (operands[3]) + INTVAL (operands[4])));
+")
+
+(define_split
+  [(set (match_operand:SI 0 "s_register_operand" "")
+	(match_operator:SI 1 "logical_binary_operator"
+	 [(match_operator:SI 9 "logical_binary_operator"
+	   [(lshiftrt:SI (match_operand:SI 5 "s_register_operand" "")
+			 (match_operand:SI 6 "const_int_operand" ""))
+	    (match_operand:SI 7 "s_register_operand" "")])
+	  (zero_extract:SI (match_operand:SI 2 "s_register_operand" "")
+			   (match_operand:SI 3 "const_int_operand" "")
+			   (match_operand:SI 4 "const_int_operand" ""))]))
+   (clobber (match_operand:SI 8 "s_register_operand" ""))]
+  "TARGET_ARM
+   && GET_CODE (operands[1]) == GET_CODE (operands[9])
+   && INTVAL (operands[3]) == 32 - INTVAL (operands[6])"
+  [(set (match_dup 8)
+	(match_op_dup 1
+	 [(ashift:SI (match_dup 2) (match_dup 4))
+	  (match_dup 5)]))
+   (set (match_dup 0)
+	(match_op_dup 1
+	 [(lshiftrt:SI (match_dup 8) (match_dup 6))
+	  (match_dup 7)]))]
+  "
+  operands[4] = GEN_INT (32 - (INTVAL (operands[3]) + INTVAL (operands[4])));
+")
+
+(define_split
+  [(set (match_operand:SI 0 "s_register_operand" "")
+	(match_operator:SI 1 "logical_binary_operator"
+	 [(sign_extract:SI (match_operand:SI 2 "s_register_operand" "")
+			   (match_operand:SI 3 "const_int_operand" "")
+			   (match_operand:SI 4 "const_int_operand" ""))
+	  (match_operator:SI 9 "logical_binary_operator"
+	   [(ashiftrt:SI (match_operand:SI 5 "s_register_operand" "")
+			 (match_operand:SI 6 "const_int_operand" ""))
+	    (match_operand:SI 7 "s_register_operand" "")])]))
+   (clobber (match_operand:SI 8 "s_register_operand" ""))]
+  "TARGET_ARM
+   && GET_CODE (operands[1]) == GET_CODE (operands[9])
+   && INTVAL (operands[3]) == 32 - INTVAL (operands[6])"
+  [(set (match_dup 8)
+	(match_op_dup 1
+	 [(ashift:SI (match_dup 2) (match_dup 4))
+	  (match_dup 5)]))
+   (set (match_dup 0)
+	(match_op_dup 1
+	 [(ashiftrt:SI (match_dup 8) (match_dup 6))
+	  (match_dup 7)]))]
+  "
+  operands[4] = GEN_INT (32 - (INTVAL (operands[3]) + INTVAL (operands[4])));
+")
+
+(define_split
+  [(set (match_operand:SI 0 "s_register_operand" "")
+	(match_operator:SI 1 "logical_binary_operator"
+	 [(match_operator:SI 9 "logical_binary_operator"
+	   [(ashiftrt:SI (match_operand:SI 5 "s_register_operand" "")
+			 (match_operand:SI 6 "const_int_operand" ""))
+	    (match_operand:SI 7 "s_register_operand" "")])
+	  (sign_extract:SI (match_operand:SI 2 "s_register_operand" "")
+			   (match_operand:SI 3 "const_int_operand" "")
+			   (match_operand:SI 4 "const_int_operand" ""))]))
+   (clobber (match_operand:SI 8 "s_register_operand" ""))]
+  "TARGET_ARM
+   && GET_CODE (operands[1]) == GET_CODE (operands[9])
+   && INTVAL (operands[3]) == 32 - INTVAL (operands[6])"
+  [(set (match_dup 8)
+	(match_op_dup 1
+	 [(ashift:SI (match_dup 2) (match_dup 4))
+	  (match_dup 5)]))
+   (set (match_dup 0)
+	(match_op_dup 1
+	 [(ashiftrt:SI (match_dup 8) (match_dup 6))
+	  (match_dup 7)]))]
+  "
+  operands[4] = GEN_INT (32 - (INTVAL (operands[3]) + INTVAL (operands[4])));
+")
 
 
 ;; Minimum and maximum insns
@@ -4040,7 +4201,7 @@
    (set (match_dup 2)
 	(ashiftrt:SI (match_operand 0 "" "") (const_int 8)))
    ;; store the high byte
-   (set (match_dup 4) (subreg:QI (match_dup 2) 0))]	;explicit subreg safe
+   (set (match_dup 4) (match_dup 5))]
   "TARGET_ARM"
   "
   {
@@ -4056,7 +4217,8 @@
     operands[1] = adjust_address (operands[1], QImode, 0);
     operands[3] = gen_lowpart (QImode, operands[0]);
     operands[0] = gen_lowpart (SImode, operands[0]);
-    operands[2] = gen_reg_rtx (SImode); 
+    operands[2] = gen_reg_rtx (SImode);
+    operands[5] = gen_lowpart (QImode, operands[2]);
   }"
 )
 
@@ -4064,7 +4226,7 @@
   [(set (match_dup 4) (match_dup 3))
    (set (match_dup 2)
 	(ashiftrt:SI (match_operand 0 "" "") (const_int 8)))
-   (set (match_operand 1 "" "")	(subreg:QI (match_dup 2) 3))]
+   (set (match_operand 1 "" "")	(match_dup 5))]
   "TARGET_ARM"
   "
   {
@@ -4081,13 +4243,14 @@
     operands[3] = gen_lowpart (QImode, operands[0]);
     operands[0] = gen_lowpart (SImode, operands[0]);
     operands[2] = gen_reg_rtx (SImode);
+    operands[5] = gen_lowpart (QImode, operands[2]);
   }"
 )
 
 ;; Subroutine to store a half word integer constant into memory.
 (define_expand "storeinthi"
   [(set (match_operand 0 "" "")
-	(subreg:QI (match_operand 1 "" "") 0))
+	(match_operand 1 "" ""))
    (set (match_dup 3) (match_dup 2))]
   "TARGET_ARM"
   "
@@ -4128,6 +4291,7 @@
     operands[3] = adjust_address (op0, QImode, 1);
     operands[0] = adjust_address (operands[0], QImode, 0);
     operands[2] = gen_lowpart (QImode, operands[2]);
+    operands[1] = gen_lowpart (QImode, operands[1]);
   }"
 )
 
@@ -4448,11 +4612,12 @@
    (set (match_dup 3)
 	(ashiftrt:SI (match_dup 2) (const_int 16)))
    (set (match_operand:HI 0 "s_register_operand" "")
-	(subreg:HI (match_dup 3) 0))]
+	(match_dup 4))]
   "TARGET_ARM"
   "
   operands[2] = gen_reg_rtx (SImode);
   operands[3] = gen_reg_rtx (SImode);
+  operands[4] = gen_lowpart (HImode, operands[3]);
   "
 )
 
@@ -7516,6 +7681,24 @@
 		      (const_string "alu_shift_reg")))]
 )
 
+(define_split
+  [(set (match_operand:SI 0 "s_register_operand" "")
+	(match_operator:SI 1 "shiftable_operator"
+	 [(match_operator:SI 2 "shiftable_operator"
+	   [(match_operator:SI 3 "shift_operator"
+	     [(match_operand:SI 4 "s_register_operand" "")
+	      (match_operand:SI 5 "reg_or_int_operand" "")])
+	    (match_operand:SI 6 "s_register_operand" "")])
+	  (match_operand:SI 7 "arm_rhs_operand" "")]))
+   (clobber (match_operand:SI 8 "s_register_operand" ""))]
+  "TARGET_ARM"
+  [(set (match_dup 8)
+	(match_op_dup 2 [(match_op_dup 3 [(match_dup 4) (match_dup 5)])
+			 (match_dup 6)]))
+   (set (match_dup 0)
+	(match_op_dup 1 [(match_dup 8) (match_dup 7)]))]
+  "")
+
 (define_insn "*arith_shiftsi_compare0"
   [(set (reg:CC_NOOV CC_REGNUM)
         (compare:CC_NOOV (match_operator:SI 1 "shiftable_operator"
@@ -8029,6 +8212,44 @@
 				  operands[5]);"
   [(set_attr "conds" "clob")
    (set_attr "length" "20")])
+
+(define_split
+  [(set (reg:CC_NOOV CC_REGNUM)
+	(compare:CC_NOOV (ior:SI
+			  (and:SI (match_operand:SI 0 "s_register_operand" "")
+				  (const_int 1))
+			  (match_operator:SI 1 "comparison_operator"
+			   [(match_operand:SI 2 "s_register_operand" "")
+			    (match_operand:SI 3 "arm_add_operand" "")]))
+			 (const_int 0)))
+   (clobber (match_operand:SI 4 "s_register_operand" ""))]
+  "TARGET_ARM"
+  [(set (match_dup 4)
+	(ior:SI (match_op_dup 1 [(match_dup 2) (match_dup 3)])
+		(match_dup 0)))
+   (set (reg:CC_NOOV CC_REGNUM)
+	(compare:CC_NOOV (and:SI (match_dup 4) (const_int 1))
+			 (const_int 0)))]
+  "")
+
+(define_split
+  [(set (reg:CC_NOOV CC_REGNUM)
+	(compare:CC_NOOV (ior:SI
+			  (match_operator:SI 1 "comparison_operator"
+			   [(match_operand:SI 2 "s_register_operand" "")
+			    (match_operand:SI 3 "arm_add_operand" "")])
+			  (and:SI (match_operand:SI 0 "s_register_operand" "")
+				  (const_int 1)))
+			 (const_int 0)))
+   (clobber (match_operand:SI 4 "s_register_operand" ""))]
+  "TARGET_ARM"
+  [(set (match_dup 4)
+	(ior:SI (match_op_dup 1 [(match_dup 2) (match_dup 3)])
+		(match_dup 0)))
+   (set (reg:CC_NOOV CC_REGNUM)
+	(compare:CC_NOOV (and:SI (match_dup 4) (const_int 1))
+			 (const_int 0)))]
+  "")
 
 (define_insn "*negscc"
   [(set (match_operand:SI 0 "s_register_operand" "=r")
@@ -9396,9 +9617,9 @@
               (unspec_volatile [(return)] VUNSPEC_EPILOGUE)])]
   "TARGET_ARM"
   "*
-  if (USE_RETURN_INSN (FALSE))
+  if (use_return_insn (FALSE, next_nonnote_insn (insn)))
     return output_return_instruction (const_true_rtx, FALSE, FALSE);
-  return arm_output_epilogue (FALSE);
+  return arm_output_epilogue (next_nonnote_insn (insn));
   "
 ;; Length is absolute worst case
   [(set_attr "length" "44")
@@ -9414,7 +9635,7 @@
   "TARGET_EITHER"
   "*
   if (TARGET_ARM)
-    return arm_output_epilogue (TRUE);
+    return arm_output_epilogue (NULL);
   else /* TARGET_THUMB */
     return thumb_unexpanded_epilogue ();
   "

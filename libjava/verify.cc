@@ -1010,6 +1010,7 @@ private:
 	  _Jv_Free (info);
 	  info = next;
 	}
+      seen_subrs = NULL;
     }
 
     void copy (const state *copy, int max_stack, int max_locals,
@@ -1025,21 +1026,20 @@ private:
 	  // See push_jump_merge to understand this case.
 	  if (ret_semantics)
 	    locals[i] = type (copy->local_changed[i]
-			      ? unsuitable_type
+			      ? copy->locals[i]
 			      : unused_by_subroutine_type);
 	  else
 	    locals[i] = copy->locals[i];
-	  local_changed[i] = copy->local_changed[i];
+	  local_changed[i] = subroutine ? copy->local_changed[i] : false;
 	}
 
       clean_subrs ();
       if (copy->seen_subrs)
 	{
-	  for (subr_info *info = seen_subrs; info != NULL; info = info->next)
+	  for (subr_info *info = copy->seen_subrs;
+	       info != NULL; info = info->next)
 	    add_subr (info->pc);
 	}
-      else
-	seen_subrs = NULL;
 
       this_type = copy->this_type;
       // Don't modify `next'.
@@ -1465,7 +1465,8 @@ private:
 	// which was not modified by the subroutine.
 	states[npc] = new state (nstate, current_method->max_stack,
 				 current_method->max_locals, ret_semantics);
-	debug_print ("== New state in push_jump_merge\n");
+	debug_print ("== New state in push_jump_merge (ret_semantics = %s)\n",
+		     ret_semantics ? "true" : "false");
 	states[npc]->print ("New", npc, current_method->max_stack,
 			    current_method->max_locals);
       }

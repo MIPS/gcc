@@ -53,26 +53,21 @@
    (UNSPEC_LDR			23)
    (UNSPEC_SDL			24)
    (UNSPEC_SDR			25)
+   (UNSPEC_LOADGP		26)
+   (UNSPEC_LOAD_CALL		27)
 
-   ;; Constants used in relocation unspecs.  RELOC_GOT_PAGE and RELOC_GOT_DISP
-   ;; are really only available for n32 and n64.  However, it is convenient
-   ;; to reuse them for SVR4 PIC, where they represent the local and global
-   ;; forms of R_MIPS_GOT16.
-   (RELOC_GOT_HI		100)
-   (RELOC_GOT_LO		101)
-   (RELOC_GOT_PAGE		102)
-   (RELOC_GOT_DISP		103)
-   (RELOC_CALL16		104)
-   (RELOC_CALL_HI		105)
-   (RELOC_CALL_LO		106)
-   (RELOC_LOADGP_HI		107)
-   (RELOC_LOADGP_LO		108)])
+   (UNSPEC_ADDRESS_FIRST	100)
+
+   (FAKE_CALL_REGNO		79)])
 
 ;; ....................
 ;;
 ;;	Attributes
 ;;
 ;; ....................
+
+(define_attr "got" "unset,xgot_high,load"
+  (const_string "unset"))
 
 ;; For jal instructions, this attribute is DIRECT when the target address
 ;; is symbolic and INDIRECT when it is a register.
@@ -125,8 +120,8 @@
 ;; nop		no operation
 (define_attr "type"
   "unknown,branch,jump,call,load,store,prefetch,prefetchx,move,condmove,xfer,hilo,const,arith,darith,imul,imadd,idiv,icmp,fadd,fmul,fmadd,fdiv,fabs,fneg,fcmp,fcvt,fsqrt,frsqrt,multi,nop"
-  (cond [(eq_attr "jal" "!unset")
-	 (const_string "call")]
+  (cond [(eq_attr "jal" "!unset") (const_string "call")
+	 (eq_attr "got" "load") (const_string "load")]
 	(const_string "unknown")))
 
 ;; Main data type used by the insn
@@ -178,6 +173,11 @@
 		     (const_int 0))
 		 (const_int 24)
 		 ] (const_int 12))
+
+	  (eq_attr "got" "load")
+	  (const_int 4)
+	  (eq_attr "got" "xgot_high")
+	  (const_int 8)
 
 	  (eq_attr "type" "const")
 	  (symbol_ref "mips_const_insns (operands[1]) * 4")
@@ -883,7 +883,7 @@
       rtx tmp = gen_reg_rtx (DImode);
 
       emit_move_insn (tmp, operands[1]);
-      emit_insn (gen_addsi3 (tmp, tmp, operands[2]));
+      emit_insn (gen_adddi3 (tmp, tmp, operands[2]));
       emit_move_insn (operands[0], tmp);
       DONE;
     }
@@ -4061,8 +4061,8 @@ dsrl\t%3,%3,1\n\
 
 (define_insn "mov_lwl"
   [(set (match_operand:SI 0 "register_operand" "=d")
-	(unspec:SI [(match_operand:BLK 1 "general_operand" "m")
-		    (match_operand:QI 2 "general_operand" "m")]
+	(unspec:SI [(match_operand:BLK 1 "memory_operand" "m")
+		    (match_operand:QI 2 "memory_operand" "m")]
 		   UNSPEC_LWL))]
   "!TARGET_MIPS16"
   "lwl\t%0,%2"
@@ -4072,8 +4072,8 @@ dsrl\t%3,%3,1\n\
 
 (define_insn "mov_lwr"
   [(set (match_operand:SI 0 "register_operand" "=d")
-	(unspec:SI [(match_operand:BLK 1 "general_operand" "m")
-		    (match_operand:QI 2 "general_operand" "m")
+	(unspec:SI [(match_operand:BLK 1 "memory_operand" "m")
+		    (match_operand:QI 2 "memory_operand" "m")
 		    (match_operand:SI 3 "register_operand" "0")]
 		   UNSPEC_LWR))]
   "!TARGET_MIPS16"
@@ -4085,7 +4085,7 @@ dsrl\t%3,%3,1\n\
 (define_insn "mov_swl"
   [(set (match_operand:BLK 0 "memory_operand" "=m")
 	(unspec:BLK [(match_operand:SI 1 "reg_or_0_operand" "dJ")
-		     (match_operand:QI 2 "general_operand" "m")]
+		     (match_operand:QI 2 "memory_operand" "m")]
 		    UNSPEC_SWL))]
   "!TARGET_MIPS16"
   "swl\t%z1,%2"
@@ -4095,7 +4095,7 @@ dsrl\t%3,%3,1\n\
 (define_insn "mov_swr"
   [(set (match_operand:BLK 0 "memory_operand" "+m")
 	(unspec:BLK [(match_operand:SI 1 "reg_or_0_operand" "dJ")
-		     (match_operand:QI 2 "general_operand" "m")
+		     (match_operand:QI 2 "memory_operand" "m")
 		     (match_dup 0)]
 		    UNSPEC_SWR))]
   "!TARGET_MIPS16"
@@ -4106,8 +4106,8 @@ dsrl\t%3,%3,1\n\
 
 (define_insn "mov_ldl"
   [(set (match_operand:DI 0 "register_operand" "=d")
-	(unspec:DI [(match_operand:BLK 1 "general_operand" "m")
-		    (match_operand:QI 2 "general_operand" "m")]
+	(unspec:DI [(match_operand:BLK 1 "memory_operand" "m")
+		    (match_operand:QI 2 "memory_operand" "m")]
 		   UNSPEC_LDL))]
   "TARGET_64BIT && !TARGET_MIPS16"
   "ldl\t%0,%2"
@@ -4116,8 +4116,8 @@ dsrl\t%3,%3,1\n\
 
 (define_insn "mov_ldr"
   [(set (match_operand:DI 0 "register_operand" "=d")
-	(unspec:DI [(match_operand:BLK 1 "general_operand" "m")
-		    (match_operand:QI 2 "general_operand" "m")
+	(unspec:DI [(match_operand:BLK 1 "memory_operand" "m")
+		    (match_operand:QI 2 "memory_operand" "m")
 		    (match_operand:DI 3 "register_operand" "0")]
 		   UNSPEC_LDR))]
   "TARGET_64BIT && !TARGET_MIPS16"
@@ -4129,7 +4129,7 @@ dsrl\t%3,%3,1\n\
 (define_insn "mov_sdl"
   [(set (match_operand:BLK 0 "memory_operand" "=m")
 	(unspec:BLK [(match_operand:DI 1 "reg_or_0_operand" "dJ")
-		     (match_operand:QI 2 "general_operand" "m")]
+		     (match_operand:QI 2 "memory_operand" "m")]
 		    UNSPEC_SDL))]
   "TARGET_64BIT && !TARGET_MIPS16"
   "sdl\t%z1,%2"
@@ -4139,7 +4139,7 @@ dsrl\t%3,%3,1\n\
 (define_insn "mov_sdr"
   [(set (match_operand:BLK 0 "memory_operand" "+m")
 	(unspec:BLK [(match_operand:DI 1 "reg_or_0_operand" "dJ")
-		     (match_operand:QI 2 "general_operand" "m")
+		     (match_operand:QI 2 "memory_operand" "m")
 		     (match_dup 0)]
 		    UNSPEC_SDR))]
   "TARGET_64BIT && !TARGET_MIPS16"
@@ -4147,31 +4147,109 @@ dsrl\t%3,%3,1\n\
   [(set_attr "type" "store")
    (set_attr "mode" "DI")])
 
+;; Insns to fetch a global symbol from a big GOT.
 
-;; Instructions for loading a relocation expression using "lui".
+(define_insn_and_split "*xgot_hisi"
+  [(set (match_operand:SI 0 "register_operand" "=d")
+	(high:SI (match_operand:SI 1 "global_got_operand" "")))]
+  "TARGET_EXPLICIT_RELOCS && TARGET_XGOT"
+  "#"
+  "&& reload_completed"
+  [(set (match_dup 0) (high:SI (match_dup 2)))
+   (set (match_dup 0) (plus:SI (match_dup 0) (match_dup 3)))]
+{
+  operands[2] = mips_gotoff_global (operands[1]);
+  operands[3] = pic_offset_table_rtx;
+}
+  [(set_attr "got" "xgot_high")])
 
-(define_insn "luisi"
-  [(set (match_operand:SI 0 "register_operand" "=r")
-	(unspec:SI [(match_operand 1 "const_arith_operand" "")] UNSPEC_HIGH))]
-  ""
-  "lui\t%0,%1"
-  [(set_attr "type" "arith")])
+(define_insn_and_split "*xgot_losi"
+  [(set (match_operand:SI 0 "register_operand" "=d")
+	(lo_sum:SI (match_operand:SI 1 "register_operand" "d")
+		   (match_operand:SI 2 "global_got_operand" "")))]
+  "TARGET_EXPLICIT_RELOCS && TARGET_XGOT"
+  "#"
+  "&& reload_completed"
+  [(set (match_dup 0) (match_dup 3))]
+  { operands[3] = mips_load_got_global (operands[1], operands[2]); }
+  [(set_attr "got" "load")])
 
-(define_insn "luidi"
-  [(set (match_operand:DI 0 "register_operand" "=r")
-	(unspec:DI [(match_operand 1 "const_arith_operand" "")] UNSPEC_HIGH))]
-  "TARGET_64BIT"
-  "lui\t%0,%1"
-  [(set_attr "type" "arith")])
+(define_insn_and_split "*xgot_hidi"
+  [(set (match_operand:DI 0 "register_operand" "=d")
+	(high:DI (match_operand:DI 1 "global_got_operand" "")))]
+  "TARGET_EXPLICIT_RELOCS && TARGET_XGOT"
+  "#"
+  "&& reload_completed"
+  [(set (match_dup 0) (high:DI (match_dup 2)))
+   (set (match_dup 0) (plus:DI (match_dup 0) (match_dup 3)))]
+{
+  operands[2] = mips_gotoff_global (operands[1]);
+  operands[3] = pic_offset_table_rtx;
+}
+  [(set_attr "got" "xgot_high")])
 
+(define_insn_and_split "*xgot_lodi"
+  [(set (match_operand:DI 0 "register_operand" "=d")
+	(lo_sum:DI (match_operand:DI 1 "register_operand" "d")
+		   (match_operand:DI 2 "global_got_operand" "")))]
+  "TARGET_EXPLICIT_RELOCS && TARGET_XGOT"
+  "#"
+  "&& reload_completed"
+  [(set (match_dup 0) (match_dup 3))]
+  { operands[3] = mips_load_got_global (operands[1], operands[2]); }
+  [(set_attr "got" "load")])
+
+;; Insns to fetch a global symbol from a normal GOT.
+
+(define_insn_and_split "*got_dispsi"
+  [(set (match_operand:SI 0 "register_operand" "=d")
+	(match_operand:SI 1 "global_got_operand" ""))]
+  "TARGET_EXPLICIT_RELOCS && !TARGET_XGOT"
+  "#"
+  "&& reload_completed"
+  [(set (match_dup 0) (match_dup 2))]
+  { operands[2] = mips_load_got_global (pic_offset_table_rtx, operands[1]); }
+  [(set_attr "got" "load")])
+
+(define_insn_and_split "*got_dispdi"
+  [(set (match_operand:DI 0 "register_operand" "=d")
+	(match_operand:DI 1 "global_got_operand" ""))]
+  "TARGET_EXPLICIT_RELOCS && !TARGET_XGOT"
+  "#"
+  "&& reload_completed"
+  [(set (match_dup 0) (match_dup 2))]
+  { operands[2] = mips_load_got_global (pic_offset_table_rtx, operands[1]); }
+  [(set_attr "got" "load")])
+
+;; Insns for loading the high part of a local symbol.
+
+(define_insn_and_split "*got_pagesi"
+  [(set (match_operand:SI 0 "register_operand" "=d")
+	(high:SI (match_operand:SI 1 "local_got_operand" "")))]
+  "TARGET_EXPLICIT_RELOCS"
+  "#"
+  "&& reload_completed"
+  [(set (match_dup 0) (match_dup 2))]
+  { operands[2] = mips_load_got_page (operands[1]); }
+  [(set_attr "got" "load")])
+
+(define_insn_and_split "*got_pagedi"
+  [(set (match_operand:DI 0 "register_operand" "=d")
+	(high:DI (match_operand:DI 1 "local_got_operand" "")))]
+  "TARGET_EXPLICIT_RELOCS"
+  "#"
+  "&& reload_completed"
+  [(set (match_dup 0) (match_dup 2))]
+  { operands[2] = mips_load_got_page (operands[1]); }
+  [(set_attr "got" "load")])
 
 ;; Instructions for adding the low 16 bits of an address to a register.
 ;; Operand 2 is the address: print_operand works out which relocation
 ;; should be applied.
 
 (define_insn "*lowsi"
-  [(set (match_operand:SI 0 "register_operand" "=r")
-	(lo_sum:SI (match_operand:SI 1 "register_operand" "r")
+  [(set (match_operand:SI 0 "register_operand" "=d")
+	(lo_sum:SI (match_operand:SI 1 "register_operand" "d")
 		   (match_operand:SI 2 "immediate_operand" "")))]
   "!TARGET_MIPS16"
   "addiu\t%0,%1,%R2"
@@ -4179,8 +4257,8 @@ dsrl\t%3,%3,1\n\
    (set_attr "mode"	"SI")])
 
 (define_insn "*lowdi"
-  [(set (match_operand:DI 0 "register_operand" "=r")
-	(lo_sum:DI (match_operand:DI 1 "register_operand" "r")
+  [(set (match_operand:DI 0 "register_operand" "=d")
+	(lo_sum:DI (match_operand:DI 1 "register_operand" "d")
 		   (match_operand:DI 2 "immediate_operand" "")))]
   "!TARGET_MIPS16 && TARGET_64BIT"
   "daddiu\t%0,%1,%R2"
@@ -5047,6 +5125,26 @@ dsrl\t%3,%3,1\n\
   [(set_attr "type"	"xfer,store")
    (set_attr "mode"	"SF")
    (set_attr "length"	"4")])
+
+;; Insn to initialize $gp for n32/n64 abicalls.  Operand 0 is the offset
+;; of _gp from the start of this function.  Operand 1 is the incoming
+;; function address.
+(define_insn_and_split "loadgp"
+  [(unspec_volatile [(match_operand 0 "" "")
+		     (match_operand 1 "register_operand" "")] UNSPEC_LOADGP)]
+  "TARGET_ABICALLS && TARGET_NEWABI"
+  "#"
+  ""
+  [(set (match_dup 2) (match_dup 3))
+   (set (match_dup 2) (match_dup 4))
+   (set (match_dup 2) (match_dup 5))]
+{
+  operands[2] = pic_offset_table_rtx;
+  operands[3] = gen_rtx_HIGH (Pmode, operands[0]);
+  operands[4] = gen_rtx_PLUS (Pmode, operands[2], operands[1]);
+  operands[5] = gen_rtx_LO_SUM (Pmode, operands[2], operands[0]);
+}
+  [(set_attr "length" "12")])
 
 ;; The use of gp is hidden when not using explicit relocations.
 ;; This blockage instruction prevents the gp load from being
@@ -8154,8 +8252,8 @@ ld\t%2,%1-%S1(%2)\;daddu\t%2,%2,$31\;%*j\t%2%/"
 ;; Normal return.
 
 (define_insn "return_internal"
-  [(use (match_operand 0 "pmode_register_operand" ""))
-   (return)]
+  [(return)
+   (use (match_operand 0 "pmode_register_operand" ""))]
   ""
   "%*j\t%0%/"
   [(set_attr "type"	"jump")
@@ -8235,6 +8333,42 @@ ld\t%2,%1-%S1(%2)\;daddu\t%2,%2,$31\;%*j\t%2%/"
 ;;	FUNCTION CALLS
 ;;
 ;;  ....................
+
+;; Instructions to load a call address from the GOT.  The address might
+;; point to a function or to a lazy binding stub.  In the latter case,
+;; the stub will use the dynamic linker to resolve the function, which
+;; in turn will change the GOT entry to point to the function's real
+;; address.
+;;
+;; This means that every call, even pure and constant ones, can
+;; potentially modify the GOT entry.  And once a stub has been called,
+;; we must not call it again.
+;;
+;; We represent this restriction using an imaginary fixed register that
+;; acts like a GOT version number.  By making the register call-clobbered,
+;; we tell the target-independent code that the address could be changed
+;; by any call insn.
+(define_insn "load_callsi"
+  [(set (match_operand:SI 0 "register_operand" "=c")
+	(unspec:SI [(match_operand:SI 1 "register_operand" "r")
+		    (match_operand:SI 2 "immediate_operand" "")
+		    (reg:SI FAKE_CALL_REGNO)]
+		   UNSPEC_LOAD_CALL))]
+  "TARGET_ABICALLS"
+  "lw\t%0,%R2(%1)"
+  [(set_attr "type" "load")
+   (set_attr "length" "4")])
+
+(define_insn "load_calldi"
+  [(set (match_operand:DI 0 "register_operand" "=c")
+	(unspec:DI [(match_operand:DI 1 "register_operand" "r")
+		    (match_operand:DI 2 "immediate_operand" "")
+		    (reg:DI FAKE_CALL_REGNO)]
+		   UNSPEC_LOAD_CALL))]
+  "TARGET_ABICALLS"
+  "ld\t%0,%R2(%1)"
+  [(set_attr "type" "load")
+   (set_attr "length" "4")])
 
 ;; Sibling calls.  All these patterns use jump instructions.
 
@@ -9038,3 +9172,9 @@ ld\t%2,%1-%S1(%2)\;daddu\t%2,%2,$31\;%*j\t%2%/"
   [(set_attr "type"	"branch")
    (set_attr "mode"	"none")
    (set_attr "length"	"8")])
+
+(define_split
+  [(match_operand 0 "small_data_pattern" "")]
+  "reload_completed"
+  [(match_dup 0)]
+  { operands[0] = mips_rewrite_small_data (operands[0]); })

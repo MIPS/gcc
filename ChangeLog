@@ -1,3 +1,60 @@
+2003-12-21  Bernardo Innocenti  <bernie@develer.com>
+ 
+ 	* configure.in (*-*-uclinux): Exclude newlib, libgloss and rda.
+ 	* configure: Regenerated.
+
+2003-12-16  Jan Hubicka  <jh@suse.cz>
+
+	* MAINTAINERS: Add myself as callgraph maintainer.
+
+2003-12-08  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	* configure.in (raw_libstdcxx_flags): Remove the leading space.
+	* configure: Regenerate.
+
+2003-12-01  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+
+	* MAINTAINERS: Move myself from 'Bug database only accounts' to
+	'Write After Approval' section. Update email.
+
+2003-12-01  James Lemke <jim@wasabisystems.com>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
+2003-11-20  Matt Thomas  <matt@3am-software.com>
+
+	* MAINTAINERS: Add myself as a vax port maintainer.
+
+2003-11-20  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* Makefile.tpl (BASE_FLAGS_TO_PASS): Pass along CONFIG_SHELL.
+	(configure-build-[+module+], configure-[+module+]): Likewise.
+	(configure-target-[+module+], configure-gcc, config.status): Likewise.
+	* Makefile.in: Regenerate.
+
+2003-11-19  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* libtool.m4: Sync darwin bits from libtool cvs to build a gcc with
+	shared/dylibed libraries.
+	* ltmain.sh: Likewise.
+	* ltcf-c.sh: Likewise, disable shared library build for OS-X < 10.3.
+	* ltcf-cxx.sh: Likewise.
+	* ltcf-gcj.sh: Likewise.
+	* ltconfig: Likewise.
+
+2003-11-17  Stan Cox  <scox@redhat.com>
+
+	* MAINTAINERS: Add myself as iq2000 port maintainer.
+
+2003-11-14  Arnaud Charlet  <charlet@act-europe.fr>
+
+        * Makefile.tpl (EXTRA_GCC_FLAGS): Pass BOOT_ADAFLAGS.
+        * Makefile.in: Regenerate.
+
+2003-11-03  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* config.sub: Update to 2003-11-03 version.
+
 2003-10-20  Phil Edwards  <phil@codesourcery.com>
 
 	* configure.in (*-*-vxworks):  Add target-libiberty to noconfdirs.

@@ -342,8 +342,18 @@ package body Sem_Ch4 is
            and then Comes_From_Source (N)
            and then not In_Instance_Body
          then
-            Error_Msg_N ("initialization not allowed for limited types", N);
-            Explain_Limited_Type (Type_Id, N);
+            --  Ada0Y (AI-287): Do not post an error if the expression corres-
+            --  ponds to a limited aggregate. Limited aggregates are checked in
+            --  sem_aggr in a per-component manner (cf. Get_Value subprogram).
+
+            if Extensions_Allowed
+              and then Nkind (Expression (E)) = N_Aggregate
+            then
+               null;
+            else
+               Error_Msg_N ("initialization not allowed for limited types", N);
+               Explain_Limited_Type (Type_Id, N);
+            end if;
          end if;
 
          Analyze_And_Resolve (Expression (E), Type_Id);
@@ -3436,6 +3446,9 @@ package body Sem_Ch4 is
          Actual := First_Actual (N);
 
          while Present (Actual) loop
+            --  Ada0Y (AI-50217): Post an error in case of premature usage of
+            --  an entity from the limited view.
+
             if not Analyzed (Etype (Actual))
              and then From_With_Type (Etype (Actual))
             then

@@ -306,7 +306,7 @@ cxx_incomplete_type_error (tree value, tree type)
 tree
 store_init_value (tree decl, tree init)
 {
-  register tree value, type;
+  tree value, type;
 
   /* If variable's type was invalidly declared, just ignore it.  */
 
@@ -470,8 +470,7 @@ digest_init (tree type, tree init, tree* tail)
 	  if (TYPE_DOMAIN (type) != 0
 	      && TREE_CONSTANT (TYPE_SIZE (type)))
 	    {
-	      register int size
-		= TREE_INT_CST_LOW (TYPE_SIZE (type));
+	      int size = TREE_INT_CST_LOW (TYPE_SIZE (type));
 	      size = (size + BITS_PER_UNIT - 1) / BITS_PER_UNIT;
 	      /* In C it is ok to subtract 1 from the length of the string
 		 because it's ok to ignore the terminating null char that is
@@ -577,11 +576,11 @@ digest_init (tree type, tree init, tree* tail)
 static tree
 process_init_constructor (tree type, tree init, tree* elts)
 {
-  register tree tail;
+  tree tail;
   /* List of the elements of the result constructor,
      in reverse order.  */
-  register tree members = NULL;
-  register tree next1;
+  tree members = NULL;
+  tree next1;
   tree result;
   int allconstant = 1;
   int allsimple = 1;
@@ -605,8 +604,8 @@ process_init_constructor (tree type, tree init, tree* elts)
 
   if (TREE_CODE (type) == ARRAY_TYPE || TREE_CODE (type) == VECTOR_TYPE)
     {
-      register long len;
-      register int i;
+      long len;
+      int i;
 
       if (TREE_CODE (type) == ARRAY_TYPE)
 	{
@@ -616,7 +615,7 @@ process_init_constructor (tree type, tree init, tree* elts)
 		   - TREE_INT_CST_LOW (TYPE_MIN_VALUE (domain))
 		   + 1);
 	  else
-	    len = -1;  /* Take as many as there are */
+	    len = -1;  /* Take as many as there are.  */
 	}
       else
 	{
@@ -696,7 +695,7 @@ process_init_constructor (tree type, tree init, tree* elts)
     }
   else if (TREE_CODE (type) == RECORD_TYPE)
     {
-      register tree field;
+      tree field;
 
       if (tail)
 	{
@@ -817,7 +816,7 @@ process_init_constructor (tree type, tree init, tree* elts)
 	   /* If the initializer was empty, use default zero initialization.  */
 	   && tail)
     {
-      register tree field = TYPE_FIELDS (type);
+      tree field = TYPE_FIELDS (type);
 
       /* Find the first named field.  ANSI decided in September 1990
 	 that only named fields count here.  */
@@ -1132,7 +1131,7 @@ build_functional_cast (tree exp, tree parms)
 
   if (! IS_AGGR_TYPE (type))
     {
-      /* this must build a C cast */
+      /* This must build a C cast.  */
       if (parms == NULL_TREE)
 	parms = integer_zero_node;
       else

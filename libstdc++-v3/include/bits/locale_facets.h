@@ -63,45 +63,23 @@ namespace std
   template<typename _Tv>
     void
     __convert_to_v(const char* __in, _Tv& __out, ios_base::iostate& __err, 
-		   const __c_locale& __cloc, int __base = 10);
+		   const __c_locale& __cloc);
 
   // Explicit specializations for required types.
   template<>
     void
-    __convert_to_v(const char*, long&, ios_base::iostate&, 
-		   const __c_locale&, int);
-
-  template<>
-    void
-    __convert_to_v(const char*, unsigned long&, ios_base::iostate&, 
-		   const __c_locale&, int);
-
-#ifdef _GLIBCXX_USE_LONG_LONG
-  template<>
-    void
-    __convert_to_v(const char*, long long&, ios_base::iostate&, 
-		   const __c_locale&, int);
-
-  template<>
-    void
-    __convert_to_v(const char*, unsigned long long&, ios_base::iostate&, 
-		   const __c_locale&, int);
-#endif
-
-  template<>
-    void
     __convert_to_v(const char*, float&, ios_base::iostate&, 
-		   const __c_locale&, int);
+		   const __c_locale&);
 
   template<>
     void
     __convert_to_v(const char*, double&, ios_base::iostate&, 
-		   const __c_locale&, int);
+		   const __c_locale&);
 
- template<>
+  template<>
     void
     __convert_to_v(const char*, long double&, ios_base::iostate&, 
-		   const __c_locale&, int);
+		   const __c_locale&);
 
   // NB: __pad is a struct, rather than a function, so it can be
   // partially-specialized.
@@ -125,7 +103,7 @@ namespace std
   template<typename _CharT>
     bool
     __verify_grouping(const basic_string<_CharT>& __grouping, 
-		      basic_string<_CharT>& __grouping_tmp);
+		      const basic_string<_CharT>& __grouping_tmp);
 
   // Used by both numeric and monetary facets.
   // Inserts "group separator" characters into an array of characters.
@@ -167,57 +145,217 @@ namespace std
   #include <bits/ctype_base.h>
 
   // Common base for ctype<_CharT>.  
+  /**
+   *  @brief  Common base for ctype facet
+   *
+   *  This template class provides implementations of the public functions
+   *  that forward to the protected virtual functions.
+   *
+   *  This template also provides abtract stubs for the protected virtual
+   *  functions.
+  */
   template<typename _CharT>
     class __ctype_abstract_base : public locale::facet, public ctype_base
     {
     public:
       // Types:
+      /// Typedef for the template parameter
       typedef _CharT char_type;
 
+      /**
+       *  @brief  Test char_type classification.
+       *
+       *  This function finds a mask M for @a c and compares it to mask @a m.
+       *  It does so by returning the value of ctype<char_type>::do_is().
+       *
+       *  @param c  The char_type to compare the mask of.
+       *  @param m  The mask to compare against.
+       *  @return  (M & m) != 0.
+      */
       bool 
       is(mask __m, char_type __c) const
       { return this->do_is(__m, __c); }
 
+      /**
+       *  @brief  Return a mask array.
+       *
+       *  This function finds the mask for each char_type in the range [lo,hi)
+       *  and successively writes it to vec.  vec must have as many elements
+       *  as the char array.  It does so by returning the value of
+       *  ctype<char_type>::do_is().
+       *
+       *  @param lo  Pointer to start of range.
+       *  @param hi  Pointer to end of range.
+       *  @param vec  Pointer to an array of mask storage.
+       *  @return  @a hi.
+      */
       const char_type*
       is(const char_type *__lo, const char_type *__hi, mask *__vec) const   
       { return this->do_is(__lo, __hi, __vec); }
 
+      /**
+       *  @brief  Find char_type matching a mask
+       *
+       *  This function searches for and returns the first char_type c in
+       *  [lo,hi) for which is(m,c) is true.  It does so by returning
+       *  ctype<char_type>::do_scan_is().
+       *
+       *  @param m  The mask to compare against.
+       *  @param lo  Pointer to start of range.
+       *  @param hi  Pointer to end of range.
+       *  @return  Pointer to matching char_type if found, else @a hi.
+      */
       const char_type*
       scan_is(mask __m, const char_type* __lo, const char_type* __hi) const
       { return this->do_scan_is(__m, __lo, __hi); }
 
+      /**
+       *  @brief  Find char_type not matching a mask
+       *
+       *  This function searches for and returns the first char_type c in
+       *  [lo,hi) for which is(m,c) is false.  It does so by returning
+       *  ctype<char_type>::do_scan_not().
+       *
+       *  @param m  The mask to compare against.
+       *  @param lo  Pointer to first char in range.
+       *  @param hi  Pointer to end of range.
+       *  @return  Pointer to non-matching char if found, else @a hi.
+      */
       const char_type*
       scan_not(mask __m, const char_type* __lo, const char_type* __hi) const
       { return this->do_scan_not(__m, __lo, __hi); }
 
+      /**
+       *  @brief  Convert to uppercase.
+       *
+       *  This function converts the argument to uppercase if possible.
+       *  If not possible (for example, '2'), returns the argument.  It does
+       *  so by returning ctype<char_type>::do_toupper().
+       *
+       *  @param c  The char_type to convert.
+       *  @return  The uppercase char_type if convertible, else @a c.
+      */
       char_type 
       toupper(char_type __c) const
       { return this->do_toupper(__c); }
 
+      /**
+       *  @brief  Convert array to uppercase.
+       *
+       *  This function converts each char_type in the range [lo,hi) to
+       *  uppercase if possible.  Other elements remain untouched.  It does so
+       *  by returning ctype<char_type>:: do_toupper(lo, hi).
+       *
+       *  @param lo  Pointer to start of range.
+       *  @param hi  Pointer to end of range.
+       *  @return  @a hi.
+      */
       const char_type*
       toupper(char_type *__lo, const char_type* __hi) const
       { return this->do_toupper(__lo, __hi); }
 
-      char_type 
+      /**
+       *  @brief  Convert to lowercase.
+       *
+       *  This function converts the argument to lowercase if possible.  If
+       *  not possible (for example, '2'), returns the argument.  It does so
+       *  by returning ctype<char_type>::do_tolower(c).
+       *
+       *  @param c  The char_type to convert.
+       *  @return  The lowercase char_type if convertible, else @a c.
+      */
+      char_type
       tolower(char_type __c) const
       { return this->do_tolower(__c); }
 
+      /**
+       *  @brief  Convert array to lowercase.
+       *
+       *  This function converts each char_type in the range [lo,hi) to
+       *  lowercase if possible.  Other elements remain untouched.  It does so
+       *  by returning ctype<char_type>:: do_tolower(lo, hi).
+       *
+       *  @param lo  Pointer to start of range.
+       *  @param hi  Pointer to end of range.
+       *  @return  @a hi.
+      */
       const char_type*
       tolower(char_type* __lo, const char_type* __hi) const
       { return this->do_tolower(__lo, __hi); }
 
-      char_type 
+      /**
+       *  @brief  Widen char to char_type
+       *
+       *  This function converts the char argument to char_type using the
+       *  simplest reasonable transformation.  It does so by returning
+       *  ctype<char_type>::do_widen(c).
+       *
+       *  Note: this is not what you want for codepage conversions.  See
+       *  codecvt for that.
+       *
+       *  @param c  The char to convert.
+       *  @return  The converted char_type.
+      */
+      char_type
       widen(char __c) const
       { return this->do_widen(__c); }
 
+      /**
+       *  @brief  Widen array to char_type
+       *
+       *  This function converts each char in the input to char_type using the
+       *  simplest reasonable transformation.  It does so by returning
+       *  ctype<char_type>::do_widen(c).
+       *
+       *  Note: this is not what you want for codepage conversions.  See
+       *  codecvt for that.
+       *
+       *  @param lo  Pointer to start of range.
+       *  @param hi  Pointer to end of range.
+       *  @param to  Pointer to the destination array.
+       *  @return  @a hi.
+      */
       const char*
       widen(const char* __lo, const char* __hi, char_type* __to) const
       { return this->do_widen(__lo, __hi, __to); }
 
+      /**
+       *  @brief  Narrow char_type to char
+       *
+       *  This function converts the char_type to char using the simplest
+       *  reasonable transformation.  If the conversion fails, dfault is
+       *  returned instead.  It does so by returning
+       *  ctype<char_type>::do_narrow(c).
+       *
+       *  Note: this is not what you want for codepage conversions.  See
+       *  codecvt for that.
+       *
+       *  @param c  The char_type to convert.
+       *  @param dfault  Char to return if conversion fails.
+       *  @return  The converted char.
+      */
       char 
       narrow(char_type __c, char __dfault) const
       { return this->do_narrow(__c, __dfault); }
 
+      /**
+       *  @brief  Narrow array to char array
+       *
+       *  This function converts each char_type in the input to char using the
+       *  simplest reasonable transformation and writes the results to the
+       *  destination array.  For any char_type in the input that cannot be
+       *  converted, @a dfault is used instead.  It does so by returning
+       *  ctype<char_type>::do_narrow(lo, hi, dfault, to).
+       *
+       *  Note: this is not what you want for codepage conversions.  See
+       *  codecvt for that.
+       *
+       *  @param lo  Pointer to start of range.
+       *  @param hi  Pointer to end of range.
+       *  @param dfault  Char to use if conversion fails.
+       *  @param to  Pointer to the destination array.
+       *  @return  @a hi.
+      */
       const char_type*
       narrow(const char_type* __lo, const char_type* __hi,
 	      char __dfault, char *__to) const
@@ -230,49 +368,253 @@ namespace std
       virtual 
       ~__ctype_abstract_base() { }
       
-      virtual bool 
+      /**
+       *  @brief  Test char_type classification.
+       *
+       *  This function finds a mask M for @a c and compares it to mask @a m.
+       *
+       *  do_is() is a hook for a derived facet to change the behavior of
+       *  classifying.  do_is() must always return the same result for the
+       *  same input.
+       *
+       *  @param c  The char_type to find the mask of.
+       *  @param m  The mask to compare against.
+       *  @return  (M & m) != 0.
+      */
+      virtual bool
       do_is(mask __m, char_type __c) const = 0;
 
+      /**
+       *  @brief  Return a mask array.
+       *
+       *  This function finds the mask for each char_type in the range [lo,hi)
+       *  and successively writes it to vec.  vec must have as many elements
+       *  as the input.
+       *
+       *  do_is() is a hook for a derived facet to change the behavior of
+       *  classifying.  do_is() must always return the same result for the
+       *  same input.
+       *
+       *  @param lo  Pointer to start of range.
+       *  @param hi  Pointer to end of range.
+       *  @param vec  Pointer to an array of mask storage.
+       *  @return  @a hi.
+      */
       virtual const char_type*
       do_is(const char_type* __lo, const char_type* __hi, 
 	    mask* __vec) const = 0;
 
+      /**
+       *  @brief  Find char_type matching mask
+       *
+       *  This function searches for and returns the first char_type c in
+       *  [lo,hi) for which is(m,c) is true.
+       *
+       *  do_scan_is() is a hook for a derived facet to change the behavior of
+       *  match searching.  do_is() must always return the same result for the
+       *  same input.
+       *
+       *  @param m  The mask to compare against.
+       *  @param lo  Pointer to start of range.
+       *  @param hi  Pointer to end of range.
+       *  @return  Pointer to a matching char_type if found, else @a hi.
+      */
       virtual const char_type*
       do_scan_is(mask __m, const char_type* __lo,
 		 const char_type* __hi) const = 0;
 
+      /**
+       *  @brief  Find char_type not matching mask
+       *
+       *  This function searches for and returns a pointer to the first
+       *  char_type c of [lo,hi) for which is(m,c) is false.
+       *
+       *  do_scan_is() is a hook for a derived facet to change the behavior of
+       *  match searching.  do_is() must always return the same result for the
+       *  same input.
+       *
+       *  @param m  The mask to compare against.
+       *  @param lo  Pointer to start of range.
+       *  @param hi  Pointer to end of range.
+       *  @return  Pointer to a non-matching char_type if found, else @a hi.
+      */
       virtual const char_type*
       do_scan_not(mask __m, const char_type* __lo, 
 		  const char_type* __hi) const = 0;
 
+      /**
+       *  @brief  Convert to uppercase.
+       *
+       *  This virtual function converts the char_type argument to uppercase
+       *  if possible.  If not possible (for example, '2'), returns the
+       *  argument.
+       *
+       *  do_toupper() is a hook for a derived facet to change the behavior of
+       *  uppercasing.  do_toupper() must always return the same result for
+       *  the same input.
+       *
+       *  @param c  The char_type to convert.
+       *  @return  The uppercase char_type if convertible, else @a c.
+      */
       virtual char_type 
       do_toupper(char_type) const = 0;
 
+      /**
+       *  @brief  Convert array to uppercase.
+       *
+       *  This virtual function converts each char_type in the range [lo,hi)
+       *  to uppercase if possible.  Other elements remain untouched.
+       *
+       *  do_toupper() is a hook for a derived facet to change the behavior of
+       *  uppercasing.  do_toupper() must always return the same result for
+       *  the same input.
+       *
+       *  @param lo  Pointer to start of range.
+       *  @param hi  Pointer to end of range.
+       *  @return  @a hi.
+      */
       virtual const char_type*
       do_toupper(char_type* __lo, const char_type* __hi) const = 0;
 
-      virtual char_type 
+      /**
+       *  @brief  Convert to lowercase.
+       *
+       *  This virtual function converts the argument to lowercase if
+       *  possible.  If not possible (for example, '2'), returns the argument.
+       *
+       *  do_tolower() is a hook for a derived facet to change the behavior of
+       *  lowercasing.  do_tolower() must always return the same result for
+       *  the same input.
+       *
+       *  @param c  The char_type to convert.
+       *  @return  The lowercase char_type if convertible, else @a c.
+      */
+      virtual char_type
       do_tolower(char_type) const = 0;
 
+      /**
+       *  @brief  Convert array to lowercase.
+       *
+       *  This virtual function converts each char_type in the range [lo,hi)
+       *  to lowercase if possible.  Other elements remain untouched.
+       *
+       *  do_tolower() is a hook for a derived facet to change the behavior of
+       *  lowercasing.  do_tolower() must always return the same result for
+       *  the same input.
+       *
+       *  @param lo  Pointer to start of range.
+       *  @param hi  Pointer to end of range.
+       *  @return  @a hi.
+      */
       virtual const char_type*
       do_tolower(char_type* __lo, const char_type* __hi) const = 0;
       
+      /**
+       *  @brief  Widen char
+       *
+       *  This virtual function converts the char to char_type using the
+       *  simplest reasonable transformation.
+       *
+       *  do_widen() is a hook for a derived facet to change the behavior of
+       *  widening.  do_widen() must always return the same result for the
+       *  same input.
+       *
+       *  Note: this is not what you want for codepage conversions.  See
+       *  codecvt for that.
+       *
+       *  @param c  The char to convert.
+       *  @return  The converted char_type
+      */
       virtual char_type 
       do_widen(char) const = 0;
 
+      /**
+       *  @brief  Widen char array
+       *
+       *  This function converts each char in the input to char_type using the
+       *  simplest reasonable transformation.
+       *
+       *  do_widen() is a hook for a derived facet to change the behavior of
+       *  widening.  do_widen() must always return the same result for the
+       *  same input.
+       *
+       *  Note: this is not what you want for codepage conversions.  See
+       *  codecvt for that.
+       *
+       *  @param lo  Pointer to start range.
+       *  @param hi  Pointer to end of range.
+       *  @param to  Pointer to the destination array.
+       *  @return  @a hi.
+      */
       virtual const char*
       do_widen(const char* __lo, const char* __hi, 
 	       char_type* __dest) const = 0;
 
+      /**
+       *  @brief  Narrow char_type to char
+       *
+       *  This virtual function converts the argument to char using the
+       *  simplest reasonable transformation.  If the conversion fails, dfault
+       *  is returned instead.
+       *
+       *  do_narrow() is a hook for a derived facet to change the behavior of
+       *  narrowing.  do_narrow() must always return the same result for the
+       *  same input.
+       *
+       *  Note: this is not what you want for codepage conversions.  See
+       *  codecvt for that.
+       *
+       *  @param c  The char_type to convert.
+       *  @param dfault  Char to return if conversion fails.
+       *  @return  The converted char.
+      */
       virtual char 
       do_narrow(char_type, char __dfault) const = 0;
 
+      /**
+       *  @brief  Narrow char_type array to char
+       *
+       *  This virtual function converts each char_type in the range [lo,hi) to
+       *  char using the simplest reasonable transformation and writes the
+       *  results to the destination array.  For any element in the input that
+       *  cannot be converted, @a dfault is used instead.
+       *
+       *  do_narrow() is a hook for a derived facet to change the behavior of
+       *  narrowing.  do_narrow() must always return the same result for the
+       *  same input.
+       *
+       *  Note: this is not what you want for codepage conversions.  See
+       *  codecvt for that.
+       *
+       *  @param lo  Pointer to start of range.
+       *  @param hi  Pointer to end of range.
+       *  @param dfault  Char to use if conversion fails.
+       *  @param to  Pointer to the destination array.
+       *  @return  @a hi.
+      */
       virtual const char_type*
       do_narrow(const char_type* __lo, const char_type* __hi,
-		 char __dfault, char* __dest) const = 0;
+		char __dfault, char* __dest) const = 0;
     };
 
   // NB: Generic, mostly useless implementation.
+  /**
+   *  @brief  Template ctype facet
+   *
+   *  This template class defines classification and conversion functions for
+   *  character sets.  It wraps <cctype> functionality.  Ctype gets used by
+   *  streams for many I/O operations.
+   *
+   *  This template provides the protected virtual functions the developer
+   *  will have to replace in a derived class or specialization to make a
+   *  working facet.  The public functions that access them are defined in
+   *  __ctype_abstract_base, to allow for implementation flexibility.  See
+   *  ctype<wchar_t> for an example.  The functions are documented in
+   *  __ctype_abstract_base.
+   *
+   *  Note: implementations are provided for all the protected virtual
+   *  functions, but will likely not be useful.
+  */
   template<typename _CharT>
     class ctype : public __ctype_abstract_base<_CharT>
     {
@@ -281,6 +623,7 @@ namespace std
       typedef _CharT 		  	char_type;
       typedef typename ctype::mask 	mask;
 
+      /// The facet id for ctype<char_type>
       static locale::id 	       	id;
 
       explicit 
@@ -333,11 +676,20 @@ namespace std
     locale::id ctype<_CharT>::id;
 
   // 22.2.1.3  ctype<char> specialization.
+  /**
+   *  @brief  The ctype<char> specialization.
+   *
+   *  This class defines classification and conversion functions for
+   *  the char type.  It gets used by char streams for many I/O
+   *  operations.  The char specialization provides a number of
+   *  optimizations as well.
+  */
   template<>
     class ctype<char> : public locale::facet, public ctype_base
     {
     public:
       // Types:
+      /// Typedef for the template parameter char.
       typedef char 	       	char_type;
 
     protected:
@@ -347,90 +699,409 @@ namespace std
       __to_type 	       	_M_toupper;
       __to_type  	       	_M_tolower;
       const mask*              	_M_table;
+      mutable char		_M_widen_ok;
+      mutable char		_M_widen[1 + static_cast<unsigned char>(-1)];
+      mutable char		_M_narrow[1 + static_cast<unsigned char>(-1)];
+      mutable char		_M_narrow_ok;	// 0 uninitialized, 1 init,
+						// 2 non-consecutive
       
     public:
+      /// The facet id for ctype<char>
       static locale::id        id;
+      /// The size of the mask table.  It is SCHAR_MAX + 1.
       static const size_t      table_size = 1 + static_cast<unsigned char>(-1);
 
+      /**
+       *  @brief  Constructor performs initialization.
+       *
+       *  This is the constructor provided by the standard.
+       *
+       *  @param table If non-zero, table is used as the per-char mask.
+       *               Else classic_table() is used.
+       *  @param del   If true, passes ownership of table to this facet.
+       *  @param refs  Passed to the base facet class.
+      */
       explicit 
       ctype(const mask* __table = 0, bool __del = false, size_t __refs = 0);
 
+      /**
+       *  @brief  Constructor performs static initialization.
+       *
+       *  This constructor is used to construct the initial C locale facet.
+       *
+       *  @param cloc  Handle to C locale data.
+       *  @param table If non-zero, table is used as the per-char mask.
+       *  @param del   If true, passes ownership of table to this facet.
+       *  @param refs  Passed to the base facet class.
+      */
       explicit 
       ctype(__c_locale __cloc, const mask* __table = 0, bool __del = false, 
 	    size_t __refs = 0);
 
-      inline bool 
+      /**
+       *  @brief  Test char classification.
+       *
+       *  This function compares the mask table[c] to @a m.
+       *
+       *  @param c  The char to compare the mask of.
+       *  @param m  The mask to compare against.
+       *  @return  True if m & table[c] is true, false otherwise.
+      */
+      inline bool
       is(mask __m, char __c) const;
  
+      /**
+       *  @brief  Return a mask array.
+       *
+       *  This function finds the mask for each char in the range [lo, hi) and
+       *  successively writes it to vec.  vec must have as many elements as
+       *  the char array.
+       *
+       *  @param lo  Pointer to start of range.
+       *  @param hi  Pointer to end of range.
+       *  @param vec  Pointer to an array of mask storage.
+       *  @return  @a hi.
+      */
       inline const char*
       is(const char* __lo, const char* __hi, mask* __vec) const;
  
+      /**
+       *  @brief  Find char matching a mask
+       *
+       *  This function searches for and returns the first char in [lo,hi) for
+       *  which is(m,char) is true.
+       *
+       *  @param m  The mask to compare against.
+       *  @param lo  Pointer to start of range.
+       *  @param hi  Pointer to end of range.
+       *  @return  Pointer to a matching char if found, else @a hi.
+      */
       inline const char*
       scan_is(mask __m, const char* __lo, const char* __hi) const;
 
+      /**
+       *  @brief  Find char not matching a mask
+       *
+       *  This function searches for and returns a pointer to the first char
+       *  in [lo,hi) for which is(m,char) is false.
+       *
+       *  @param m  The mask to compare against.
+       *  @param lo  Pointer to start of range.
+       *  @param hi  Pointer to end of range.
+       *  @return  Pointer to a non-matching char if found, else @a hi.
+      */
       inline const char*
       scan_not(mask __m, const char* __lo, const char* __hi) const;
      
+      /**
+       *  @brief  Convert to uppercase.
+       *
+       *  This function converts the char argument to uppercase if possible.
+       *  If not possible (for example, '2'), returns the argument.
+       *
+       *  toupper() acts as if it returns ctype<char>::do_toupper(c).
+       *  do_toupper() must always return the same result for the same input.
+       *
+       *  @param c  The char to convert.
+       *  @return  The uppercase char if convertible, else @a c.
+      */
       char_type 
       toupper(char_type __c) const
       { return this->do_toupper(__c); }
 
+      /**
+       *  @brief  Convert array to uppercase.
+       *
+       *  This function converts each char in the range [lo,hi) to uppercase
+       *  if possible.  Other chars remain untouched.
+       *
+       *  toupper() acts as if it returns ctype<char>:: do_toupper(lo, hi).
+       *  do_toupper() must always return the same result for the same input.
+       *
+       *  @param lo  Pointer to first char in range.
+       *  @param hi  Pointer to end of range.
+       *  @return  @a hi.
+      */
       const char_type*
       toupper(char_type *__lo, const char_type* __hi) const
       { return this->do_toupper(__lo, __hi); }
 
+      /**
+       *  @brief  Convert to lowercase.
+       *
+       *  This function converts the char argument to lowercase if possible.
+       *  If not possible (for example, '2'), returns the argument.
+       *
+       *  tolower() acts as if it returns ctype<char>::do_tolower(c).
+       *  do_tolower() must always return the same result for the same input.
+       *
+       *  @param c  The char to convert.
+       *  @return  The lowercase char if convertible, else @a c.
+      */
       char_type 
       tolower(char_type __c) const
       { return this->do_tolower(__c); }
 
+      /**
+       *  @brief  Convert array to lowercase.
+       *
+       *  This function converts each char in the range [lo,hi) to lowercase
+       *  if possible.  Other chars remain untouched.
+       *
+       *  tolower() acts as if it returns ctype<char>:: do_tolower(lo, hi).
+       *  do_tolower() must always return the same result for the same input.
+       *
+       *  @param lo  Pointer to first char in range.
+       *  @param hi  Pointer to end of range.
+       *  @return  @a hi.
+      */
       const char_type*
       tolower(char_type* __lo, const char_type* __hi) const
       { return this->do_tolower(__lo, __hi); }
 
+      /**
+       *  @brief  Widen char
+       *
+       *  This function converts the char to char_type using the simplest
+       *  reasonable transformation.  For an underived ctype<char> facet, the
+       *  argument will be returned unchanged.
+       *
+       *  This function works as if it returns ctype<char>::do_widen(c).
+       *  do_widen() must always return the same result for the same input.
+       *
+       *  Note: this is not what you want for codepage conversions.  See
+       *  codecvt for that.
+       *
+       *  @param c  The char to convert.
+       *  @return  The converted character.
+      */
       char_type 
       widen(char __c) const
-      { return this->do_widen(__c); }
+      { 
+	if (_M_widen_ok) return _M_widen[__c];
+	this->_M_widen_init();
+	return this->do_widen(__c);
+      }
 
+      /**
+       *  @brief  Widen char array
+       *
+       *  This function converts each char in the input to char using the
+       *  simplest reasonable transformation.  For an underived ctype<char>
+       *  facet, the argument will be copied unchanged.
+       *
+       *  This function works as if it returns ctype<char>::do_widen(c).
+       *  do_widen() must always return the same result for the same input.
+       *
+       *  Note: this is not what you want for codepage conversions.  See
+       *  codecvt for that.
+       *
+       *  @param lo  Pointer to first char in range.
+       *  @param hi  Pointer to end of range.
+       *  @param to  Pointer to the destination array.
+       *  @return  @a hi.
+      */
       const char*
       widen(const char* __lo, const char* __hi, char_type* __to) const
-      { return this->do_widen(__lo, __hi, __to); }
+      {
+	if (_M_widen_ok == 1)
+	  {
+	    memcpy(__to, __lo, __hi - __lo);
+	    return __hi;
+	  }
+	if (!_M_widen_ok) _M_widen_init();
+	return this->do_widen(__lo, __hi, __to);
+      }
 
+      /**
+       *  @brief  Narrow char
+       *
+       *  This function converts the char to char using the simplest
+       *  reasonable transformation.  If the conversion fails, dfault is
+       *  returned instead.  For an underived ctype<char> facet, @a c
+       *  will be returned unchanged.
+       *
+       *  This function works as if it returns ctype<char>::do_narrow(c).
+       *  do_narrow() must always return the same result for the same input.
+       *
+       *  Note: this is not what you want for codepage conversions.  See
+       *  codecvt for that.
+       *
+       *  @param c  The char to convert.
+       *  @param dfault  Char to return if conversion fails.
+       *  @return  The converted character.
+      */
       char 
       narrow(char_type __c, char __dfault) const
-      { return this->do_narrow(__c, __dfault); }
+      {
+	if (_M_narrow[__c]) return _M_narrow[__c];
+	const char __t = do_narrow(__c, __dfault);
+	if (__t != __dfault) _M_narrow[__c] = __t;
+	return __t;
+      }
 
+      /**
+       *  @brief  Narrow char array
+       *
+       *  This function converts each char in the input to char using the
+       *  simplest reasonable transformation and writes the results to the
+       *  destination array.  For any char in the input that cannot be
+       *  converted, @a dfault is used instead.  For an underived ctype<char>
+       *  facet, the argument will be copied unchanged.
+       *
+       *  This function works as if it returns ctype<char>::do_narrow(lo, hi,
+       *  dfault, to).  do_narrow() must always return the same result for the
+       *  same input.
+       *
+       *  Note: this is not what you want for codepage conversions.  See
+       *  codecvt for that.
+       *
+       *  @param lo  Pointer to start of range.
+       *  @param hi  Pointer to end of range.
+       *  @param dfault  Char to use if conversion fails.
+       *  @param to  Pointer to the destination array.
+       *  @return  @a hi.
+      */
       const char_type*
       narrow(const char_type* __lo, const char_type* __hi,
-	      char __dfault, char *__to) const
-      { return this->do_narrow(__lo, __hi, __dfault, __to); }
+	     char __dfault, char *__to) const
+      {
+	if (__builtin_expect(_M_narrow_ok == 1,true))
+	  {
+	    memcpy(__to, __lo, __hi - __lo);
+	    return __hi;
+	  }
+	if (!_M_narrow_ok)
+	  _M_narrow_init();
+	return this->do_narrow(__lo, __hi, __dfault, __to);
+      }
 
     protected:
+      /// Returns a pointer to the mask table provided to the constructor, or
+      /// the default from classic_table() if none was provided.
       const mask* 
       table() const throw()
       { return _M_table; }
 
+      /// Returns a pointer to the C locale mask table.
       static const mask* 
       classic_table() throw();
 
+      /**
+       *  @brief  Destructor.
+       *
+       *  This function deletes table() if @a del was true in the
+       *  constructor.
+      */
       virtual 
       ~ctype();
 
+      /**
+       *  @brief  Convert to uppercase.
+       *
+       *  This virtual function converts the char argument to uppercase if
+       *  possible.  If not possible (for example, '2'), returns the argument.
+       *
+       *  do_toupper() is a hook for a derived facet to change the behavior of
+       *  uppercasing.  do_toupper() must always return the same result for
+       *  the same input.
+       *
+       *  @param c  The char to convert.
+       *  @return  The uppercase char if convertible, else @a c.
+      */
       virtual char_type 
       do_toupper(char_type) const;
 
+      /**
+       *  @brief  Convert array to uppercase.
+       *
+       *  This virtual function converts each char in the range [lo,hi) to
+       *  uppercase if possible.  Other chars remain untouched.
+       *
+       *  do_toupper() is a hook for a derived facet to change the behavior of
+       *  uppercasing.  do_toupper() must always return the same result for
+       *  the same input.
+       *
+       *  @param lo  Pointer to start of range.
+       *  @param hi  Pointer to end of range.
+       *  @return  @a hi.
+      */
       virtual const char_type*
       do_toupper(char_type* __lo, const char_type* __hi) const;
 
+      /**
+       *  @brief  Convert to lowercase.
+       *
+       *  This virtual function converts the char argument to lowercase if
+       *  possible.  If not possible (for example, '2'), returns the argument.
+       *
+       *  do_tolower() is a hook for a derived facet to change the behavior of
+       *  lowercasing.  do_tolower() must always return the same result for
+       *  the same input.
+       *
+       *  @param c  The char to convert.
+       *  @return  The lowercase char if convertible, else @a c.
+      */
       virtual char_type 
       do_tolower(char_type) const;
 
+      /**
+       *  @brief  Convert array to lowercase.
+       *
+       *  This virtual function converts each char in the range [lo,hi) to
+       *  lowercase if possible.  Other chars remain untouched.
+       *
+       *  do_tolower() is a hook for a derived facet to change the behavior of
+       *  lowercasing.  do_tolower() must always return the same result for
+       *  the same input.
+       *
+       *  @param lo  Pointer to first char in range.
+       *  @param hi  Pointer to end of range.
+       *  @return  @a hi.
+      */
       virtual const char_type*
       do_tolower(char_type* __lo, const char_type* __hi) const;
       
+      /**
+       *  @brief  Widen char
+       *
+       *  This virtual function converts the char to char using the simplest
+       *  reasonable transformation.  For an underived ctype<char> facet, the
+       *  argument will be returned unchanged.
+       *
+       *  do_widen() is a hook for a derived facet to change the behavior of
+       *  widening.  do_widen() must always return the same result for the
+       *  same input.
+       *
+       *  Note: this is not what you want for codepage conversions.  See
+       *  codecvt for that.
+       *
+       *  @param c  The char to convert.
+       *  @return  The converted character.
+      */
       virtual char_type 
       do_widen(char __c) const
       { return __c; }
 
+      /**
+       *  @brief  Widen char array
+       *
+       *  This function converts each char in the range [lo,hi) to char using
+       *  the simplest reasonable transformation.  For an underived
+       *  ctype<char> facet, the argument will be copied unchanged.
+       *
+       *  do_widen() is a hook for a derived facet to change the behavior of
+       *  widening.  do_widen() must always return the same result for the
+       *  same input.
+       *
+       *  Note: this is not what you want for codepage conversions.  See
+       *  codecvt for that.
+       *
+       *  @param lo  Pointer to start of range.
+       *  @param hi  Pointer to end of range.
+       *  @param to  Pointer to the destination array.
+       *  @return  @a hi.
+      */
       virtual const char*
       do_widen(const char* __lo, const char* __hi, char_type* __dest) const
       {
@@ -438,16 +1109,103 @@ namespace std
 	return __hi;
       }
 
+      /**
+       *  @brief  Narrow char
+       *
+       *  This virtual function converts the char to char using the simplest
+       *  reasonable transformation.  If the conversion fails, dfault is
+       *  returned instead.  For an underived ctype<char> facet, @a c will be
+       *  returned unchanged.
+       *
+       *  do_narrow() is a hook for a derived facet to change the behavior of
+       *  narrowing.  do_narrow() must always return the same result for the
+       *  same input.
+       *
+       *  Note: this is not what you want for codepage conversions.  See
+       *  codecvt for that.
+       *
+       *  @param c  The char to convert.
+       *  @param dfault  Char to return if conversion fails.
+       *  @return  The converted char.
+      */
       virtual char 
       do_narrow(char_type __c, char) const
       { return __c; }
 
+      /**
+       *  @brief  Narrow char array to char array
+       *
+       *  This virtual function converts each char in the range [lo,hi) to
+       *  char using the simplest reasonable transformation and writes the
+       *  results to the destination array.  For any char in the input that
+       *  cannot be converted, @a dfault is used instead.  For an underived
+       *  ctype<char> facet, the argument will be copied unchanged.
+       *
+       *  do_narrow() is a hook for a derived facet to change the behavior of
+       *  narrowing.  do_narrow() must always return the same result for the
+       *  same input.
+       *
+       *  Note: this is not what you want for codepage conversions.  See
+       *  codecvt for that.
+       *
+       *  @param lo  Pointer to start of range.
+       *  @param hi  Pointer to end of range.
+       *  @param dfault  Char to use if conversion fails.
+       *  @param to  Pointer to the destination array.
+       *  @return  @a hi.
+      */
       virtual const char_type*
       do_narrow(const char_type* __lo, const char_type* __hi,
 		char, char* __dest) const
       {
 	memcpy(__dest, __lo, __hi - __lo);
 	return __hi;
+      }
+
+    private:
+
+      void _M_widen_init() const
+      {
+	char __tmp[sizeof(_M_widen)];
+	for (size_t __i = 0; __i < sizeof(_M_widen); ++__i)
+	  __tmp[__i] = __i;
+	do_widen(__tmp, __tmp + sizeof(__tmp), _M_widen);
+	    
+	_M_widen_ok = 1;
+	// Set _M_widen_ok to 2 if memcpy can't be used.
+	for (size_t __i = 0; __i < sizeof(_M_widen); ++__i)
+	  if (__tmp[__i] != _M_widen[__i])
+	    {
+	      _M_widen_ok = 2;
+	      break;
+	    }
+      }
+
+      // Fill in the narrowing cache and flag whether all values are
+      // valid or not.  _M_narrow_ok is set to 1 if the whole table is
+      // narrowed, 2 if only some values could be narrowed.
+      void _M_narrow_init() const
+      {
+	char __tmp[sizeof(_M_narrow)];
+	for (size_t __i = 0; __i < sizeof(_M_narrow); ++__i)
+	  __tmp[__i] = __i;
+	do_narrow(__tmp, __tmp + sizeof(__tmp), 0, _M_narrow);
+
+	// Check if any default values were created.  Do this by
+	// renarrowing with a different default value and comparing.
+	bool __consecutive = true;
+	for (size_t __i = 0; __i < sizeof(_M_narrow); ++__i)
+	  if (!_M_narrow[__i])
+	    {
+	      char __c;
+	      do_narrow(__tmp + __i, __tmp + __i + 1, 1, &__c);
+	      if (__c == 1)
+		{
+		  __consecutive = false;
+		  break;
+		}
+	    }
+	_M_narrow_ok = __consecutive ? 1 : 2;
       }
     };
  
@@ -457,24 +1215,60 @@ namespace std
 
 #ifdef _GLIBCXX_USE_WCHAR_T
   // 22.2.1.3  ctype<wchar_t> specialization
+  /**
+   *  @brief  The ctype<wchar_t> specialization.
+   *
+   *  This class defines classification and conversion functions for the
+   *  wchar_t type.  It gets used by wchar_t streams for many I/O operations.
+   *  The wchar_t specialization provides a number of optimizations as well.
+   *
+   *  ctype<wchar_t> inherits its public methods from
+   *  __ctype_abstract_base<wchar_t>.
+  */
   template<>
     class ctype<wchar_t> : public __ctype_abstract_base<wchar_t>
     {
     public:
       // Types:
+      /// Typedef for the template parameter wchar_t.
       typedef wchar_t 	       	char_type;
       typedef wctype_t	       	__wmask_type;
 
     protected:
       __c_locale		_M_c_locale_ctype;
 
+      // Pre-computed narrowed and widened chars.
+      bool                      _M_narrow_ok;
+      char                      _M_narrow[128];
+      wint_t                    _M_widen[1 + static_cast<unsigned char>(-1)];
+
+      // Pre-computed elements for do_is.
+      mask                      _M_bit[16];
+      __wmask_type              _M_wmask[16];
+
     public:
       // Data Members:
+      /// The facet id for ctype<wchar_t>
       static locale::id        	id;
 
+      /**
+       *  @brief  Constructor performs initialization.
+       *
+       *  This is the constructor provided by the standard.
+       *
+       *  @param refs  Passed to the base facet class.
+      */
       explicit 
       ctype(size_t __refs = 0);
 
+      /**
+       *  @brief  Constructor performs static initialization.
+       *
+       *  This constructor is used to construct the initial C locale facet.
+       *
+       *  @param cloc  Handle to C locale data.
+       *  @param refs  Passed to the base facet class.
+      */
       explicit 
       ctype(__c_locale __cloc, size_t __refs = 0);
 
@@ -482,46 +1276,242 @@ namespace std
       __wmask_type
       _M_convert_to_wmask(const mask __m) const;
 
+      /// Destructor
       virtual 
       ~ctype();
 
+      /**
+       *  @brief  Test wchar_t classification.
+       *
+       *  This function finds a mask M for @a c and compares it to mask @a m.
+       *
+       *  do_is() is a hook for a derived facet to change the behavior of
+       *  classifying.  do_is() must always return the same result for the
+       *  same input.
+       *
+       *  @param c  The wchar_t to find the mask of.
+       *  @param m  The mask to compare against.
+       *  @return  (M & m) != 0.
+      */
       virtual bool 
       do_is(mask __m, char_type __c) const;
 
+      /**
+       *  @brief  Return a mask array.
+       *
+       *  This function finds the mask for each wchar_t in the range [lo,hi)
+       *  and successively writes it to vec.  vec must have as many elements
+       *  as the input.
+       *
+       *  do_is() is a hook for a derived facet to change the behavior of
+       *  classifying.  do_is() must always return the same result for the
+       *  same input.
+       *
+       *  @param lo  Pointer to start of range.
+       *  @param hi  Pointer to end of range.
+       *  @param vec  Pointer to an array of mask storage.
+       *  @return  @a hi.
+      */
       virtual const char_type*
       do_is(const char_type* __lo, const char_type* __hi, mask* __vec) const;
 
+      /**
+       *  @brief  Find wchar_t matching mask
+       *
+       *  This function searches for and returns the first wchar_t c in
+       *  [lo,hi) for which is(m,c) is true.
+       *
+       *  do_scan_is() is a hook for a derived facet to change the behavior of
+       *  match searching.  do_is() must always return the same result for the
+       *  same input.
+       *
+       *  @param m  The mask to compare against.
+       *  @param lo  Pointer to start of range.
+       *  @param hi  Pointer to end of range.
+       *  @return  Pointer to a matching wchar_t if found, else @a hi.
+      */
       virtual const char_type*
       do_scan_is(mask __m, const char_type* __lo, const char_type* __hi) const;
 
+      /**
+       *  @brief  Find wchar_t not matching mask
+       *
+       *  This function searches for and returns a pointer to the first
+       *  wchar_t c of [lo,hi) for which is(m,c) is false.
+       *
+       *  do_scan_is() is a hook for a derived facet to change the behavior of
+       *  match searching.  do_is() must always return the same result for the
+       *  same input.
+       *
+       *  @param m  The mask to compare against.
+       *  @param lo  Pointer to start of range.
+       *  @param hi  Pointer to end of range.
+       *  @return  Pointer to a non-matching wchar_t if found, else @a hi.
+      */
       virtual const char_type*
       do_scan_not(mask __m, const char_type* __lo, 
 		  const char_type* __hi) const;
 
+      /**
+       *  @brief  Convert to uppercase.
+       *
+       *  This virtual function converts the wchar_t argument to uppercase if
+       *  possible.  If not possible (for example, '2'), returns the argument.
+       *
+       *  do_toupper() is a hook for a derived facet to change the behavior of
+       *  uppercasing.  do_toupper() must always return the same result for
+       *  the same input.
+       *
+       *  @param c  The wchar_t to convert.
+       *  @return  The uppercase wchar_t if convertible, else @a c.
+      */
       virtual char_type 
       do_toupper(char_type) const;
 
+      /**
+       *  @brief  Convert array to uppercase.
+       *
+       *  This virtual function converts each wchar_t in the range [lo,hi) to
+       *  uppercase if possible.  Other elements remain untouched.
+       *
+       *  do_toupper() is a hook for a derived facet to change the behavior of
+       *  uppercasing.  do_toupper() must always return the same result for
+       *  the same input.
+       *
+       *  @param lo  Pointer to start of range.
+       *  @param hi  Pointer to end of range.
+       *  @return  @a hi.
+      */
       virtual const char_type*
       do_toupper(char_type* __lo, const char_type* __hi) const;
 
+      /**
+       *  @brief  Convert to lowercase.
+       *
+       *  This virtual function converts the argument to lowercase if
+       *  possible.  If not possible (for example, '2'), returns the argument.
+       *
+       *  do_tolower() is a hook for a derived facet to change the behavior of
+       *  lowercasing.  do_tolower() must always return the same result for
+       *  the same input.
+       *
+       *  @param c  The wchar_t to convert.
+       *  @return  The lowercase wchar_t if convertible, else @a c.
+      */
       virtual char_type 
       do_tolower(char_type) const;
 
+      /**
+       *  @brief  Convert array to lowercase.
+       *
+       *  This virtual function converts each wchar_t in the range [lo,hi) to
+       *  lowercase if possible.  Other elements remain untouched.
+       *
+       *  do_tolower() is a hook for a derived facet to change the behavior of
+       *  lowercasing.  do_tolower() must always return the same result for
+       *  the same input.
+       *
+       *  @param lo  Pointer to start of range.
+       *  @param hi  Pointer to end of range.
+       *  @return  @a hi.
+      */
       virtual const char_type*
       do_tolower(char_type* __lo, const char_type* __hi) const;
       
+      /**
+       *  @brief  Widen char to wchar_t
+       *
+       *  This virtual function converts the char to wchar_t using the
+       *  simplest reasonable transformation.  For an underived ctype<wchar_t>
+       *  facet, the argument will be cast to wchar_t.
+       *
+       *  do_widen() is a hook for a derived facet to change the behavior of
+       *  widening.  do_widen() must always return the same result for the
+       *  same input.
+       *
+       *  Note: this is not what you want for codepage conversions.  See
+       *  codecvt for that.
+       *
+       *  @param c  The char to convert.
+       *  @return  The converted wchar_t.
+      */
       virtual char_type 
       do_widen(char) const;
 
+      /**
+       *  @brief  Widen char array to wchar_t array
+       *
+       *  This function converts each char in the input to wchar_t using the
+       *  simplest reasonable transformation.  For an underived ctype<wchar_t>
+       *  facet, the argument will be copied, casting each element to wchar_t.
+       *
+       *  do_widen() is a hook for a derived facet to change the behavior of
+       *  widening.  do_widen() must always return the same result for the
+       *  same input.
+       *
+       *  Note: this is not what you want for codepage conversions.  See
+       *  codecvt for that.
+       *
+       *  @param lo  Pointer to start range.
+       *  @param hi  Pointer to end of range.
+       *  @param to  Pointer to the destination array.
+       *  @return  @a hi.
+      */
       virtual const char*
       do_widen(const char* __lo, const char* __hi, char_type* __dest) const;
 
+      /**
+       *  @brief  Narrow wchar_t to char
+       *
+       *  This virtual function converts the argument to char using the
+       *  simplest reasonable transformation.  If the conversion fails, dfault
+       *  is returned instead.  For an underived ctype<wchar_t> facet, @a c will
+       *  be cast to char and returned.
+       *
+       *  do_narrow() is a hook for a derived facet to change the behavior of
+       *  narrowing.  do_narrow() must always return the same result for the
+       *  same input.
+       *
+       *  Note: this is not what you want for codepage conversions.  See
+       *  codecvt for that.
+       *
+       *  @param c  The wchar_t to convert.
+       *  @param dfault  Char to return if conversion fails.
+       *  @return  The converted char.
+      */
       virtual char 
       do_narrow(char_type, char __dfault) const;
 
+      /**
+       *  @brief  Narrow wchar_t array to char array
+       *
+       *  This virtual function converts each wchar_t in the range [lo,hi) to
+       *  char using the simplest reasonable transformation and writes the
+       *  results to the destination array.  For any wchar_t in the input that
+       *  cannot be converted, @a dfault is used instead.  For an underived
+       *  ctype<wchar_t> facet, the argument will be copied, casting each
+       *  element to char.
+       *
+       *  do_narrow() is a hook for a derived facet to change the behavior of
+       *  narrowing.  do_narrow() must always return the same result for the
+       *  same input.
+       *
+       *  Note: this is not what you want for codepage conversions.  See
+       *  codecvt for that.
+       *
+       *  @param lo  Pointer to start of range.
+       *  @param hi  Pointer to end of range.
+       *  @param dfault  Char to use if conversion fails.
+       *  @param to  Pointer to the destination array.
+       *  @return  @a hi.
+      */
       virtual const char_type*
       do_narrow(const char_type* __lo, const char_type* __hi,
 		char __dfault, char* __dest) const;
+
+      // For use at construction time only.
+      void 
+      _M_initialize_ctype();
     };
 
   template<>
@@ -586,7 +1576,7 @@ namespace std
     static const char* _S_atoms_out;
 
     // String literal of acceptable (narrow) input, for num_get.
-    // "-+xX0123456789eEabcdfABCDF"
+    // "-+xX0123456789abcdefABCDEF"
     static const char* _S_atoms_in;
 
     enum 
@@ -596,8 +1586,8 @@ namespace std
       _S_ix, 
       _S_iX, 
       _S_izero,
-      _S_ie = _S_izero + 10,
-      _S_iE = _S_izero + 11,
+      _S_ie = _S_izero + 14,
+      _S_iE = _S_izero + 20,
       _S_iend = 26
     };
 
@@ -624,7 +1614,7 @@ namespace std
       _CharT                    	_M_atoms_out[__num_base::_S_oend + 1];
 
       // A list of valid numeric literals for input: in the standard
-      // "C" locale, this is "-+xX0123456789eEabcdfABCDF"
+      // "C" locale, this is "-+xX0123456789abcdefABCDEF"
       // This array contains the chars after having been passed
       // through the current locale's ctype<_CharT>.widen().
       _CharT                    	_M_atoms_in[__num_base::_S_iend + 1];
@@ -647,32 +1637,33 @@ namespace std
     void
     __numpunct_cache<_CharT>::_M_cache(const locale& __loc)
     {
+      _M_allocated = true;
+
       const numpunct<_CharT>& __np = use_facet<numpunct<_CharT> >(__loc);
-      string __grouping = __np.grouping();
-      char* __group = new char[__grouping.length() + 1];
-      __grouping.copy(__group, __grouping.length());
-      __group[__grouping.length()] = char();
-      _M_grouping = __group;
-      
-      _M_use_grouping = __grouping.length() != 0 && __grouping.data()[0] != 0;
+
+      const string::size_type __len = __np.grouping().size();
+      char* __grouping = new char[__len + 1];
+      __np.grouping().copy(__grouping, __len);
+      __grouping[__len] = char();
+      _M_grouping = __grouping;
+      _M_use_grouping = __len && __np.grouping()[0] != 0;
 
       typedef basic_string<_CharT> __string_type;
-
-      __string_type __true = __np.truename();
-      _CharT* __truename = new _CharT[__true.length() + 1];
-      __true.copy(__truename, __true.length());
-      __truename[__true.length()] = _CharT(); 
+      typename __string_type::size_type __lentf = __np.truename().size();
+      _CharT* __truename = new _CharT[__lentf + 1];
+      __np.truename().copy(__truename, __lentf);
+      __truename[__lentf] = _CharT();
       _M_truename = __truename;
-
-      __string_type __false = __np.falsename();
-      _CharT* __falsename = new _CharT[__false.length() + 1];
-      __false.copy(__falsename, __false.length());
-      __falsename[__false.length()] = _CharT(); 
+      
+      __lentf = __np.falsename().size();
+      _CharT* __falsename = new _CharT[__lentf + 1];
+      __np.falsename().copy(__falsename, __lentf);
+      __falsename[__lentf] = _CharT();
       _M_falsename = __falsename;
-            
+          
       _M_decimal_point = __np.decimal_point();
       _M_thousands_sep = __np.thousands_sep();
-
+      
       const ctype<_CharT>& __ct = use_facet<ctype<_CharT> >(__loc);
       __ct.widen(__num_base::_S_atoms_out, 
 		 __num_base::_S_atoms_out + __num_base::_S_oend, _M_atoms_out);
@@ -680,8 +1671,6 @@ namespace std
       __ct.widen(__num_base::_S_atoms_in, 
 		 __num_base::_S_atoms_in + __num_base::_S_iend, _M_atoms_in);
       _M_atoms_in[__num_base::_S_iend] = _CharT();
-
-      _M_allocated = true;
     }
 
   template<typename _CharT>
@@ -894,9 +1883,10 @@ namespace std
       _M_extract_float(iter_type, iter_type, ios_base&, ios_base::iostate&, 
 		       string& __xtrc) const;
 
-      iter_type 
-      _M_extract_int(iter_type, iter_type, ios_base&, ios_base::iostate&, 
-		     string& __xtrc, int& __base) const;
+      template<typename _ValueT>
+        iter_type 
+        _M_extract_int(iter_type, iter_type, ios_base&, ios_base::iostate&, 
+		       _ValueT& __v) const;
 
       virtual iter_type 
       do_get(iter_type, iter_type, ios_base&, ios_base::iostate&, bool&) const;
@@ -1519,6 +2509,7 @@ namespace std
       void
       _M_extract_name(iter_type& __beg, iter_type& __end, int& __member,
 		      const _CharT** __names, size_t __indexlen, 
+		      const ctype<_CharT>& __ctype, 
 		      ios_base::iostate& __err) const;
 
       // Extract on a component-by-component basis, via __format argument.

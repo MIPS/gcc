@@ -1,4 +1,4 @@
-# Top level makefile fragment for the GNU compiler for the Java(TM)
+# Top level -*- makefile -*- fragment for the GNU compiler for the Java(TM)
 # language.
 #   Copyright (C) 1996, 1998, 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
 
@@ -29,7 +29,7 @@
 # foo.all.build, foo.all.cross, foo.start.encap, foo.rest.encap,
 # foo.install-normal, foo.install-common, foo.install-man,
 # foo.uninstall,
-# foo.mostlyclean, foo.clean, foo.distclean, foo.extraclean,
+# foo.mostlyclean, foo.clean, foo.distclean,
 # foo.maintainer-clean, foo.stage1, foo.stage2, foo.stage3, foo.stage4
 #
 # where `foo' is the name of the language.
@@ -43,9 +43,7 @@
 # Actual names to use when installing a native compiler.
 JAVA_INSTALL_NAME = `echo gcj|sed '$(program_transform_name)'`
 JAVA_TARGET_INSTALL_NAME = $(target_noncanonical)-`echo gcj|sed '$(program_transform_name)'`
-
-# Actual names to use when installing a cross-compiler.
-JAVA_CROSS_NAME = `echo gcj|sed '$(program_transform_cross_name)'`
+GCJH_TARGET_INSTALL_NAME = $(target_noncanonical)-`echo gcjh|sed '$(program_transform_name)'`
 
 GCJ = gcj
 
@@ -158,14 +156,19 @@ java.rest.encap:
 
 
 java.tags: force
-	cd $(srcdir)/java; etags *.y *.c *.h --language=none --regex='/DEFTREECODE [(]\([A-Z_]+\)/\1/' java-tree.def
+	cd $(srcdir)/java; etags -o TAGS.sub *.y *.c *.h --language=none \
+	  --regex='/DEFTREECODE [(]\([A-Z_]+\)/\1/' java-tree.def; \
+	etags --include TAGS.sub --include ../TAGS.sub
+
 
 info:: $(docobjdir)/gcj.info
-dvi:: java/gcj.dvi
+dvi:: $(docobjdir)/gcj.dvi
 generated-manpages:: $(docobjdir)/gcj.1 $(docobjdir)/gcjh.1 \
 	$(docobjdir)/jv-scan.1 $(docobjdir)/jcf-dump.1 \
 	$(docobjdir)/gij.1 $(docobjdir)/jv-convert.1 \
 	$(docobjdir)/rmic.1 $(docobjdir)/rmiregistry.1
+
+check-java :
 
 # Install hooks:
 # jc1, gcj, jvgenmain, and gcjh are installed elsewhere as part
@@ -174,16 +177,19 @@ generated-manpages:: $(docobjdir)/gcj.1 $(docobjdir)/gcjh.1 \
 # Nothing to do here.
 java.install-normal:
 
+# Install gcj as well as the target-independent tools.
+# For a native build, we special-case gcjh and also install
+# its explicitly-prefixed variant. This allows us to write
+# portable makefiles for both cross builds (where gcjh *must*
+# be explicitly prefixed) and native builds.
 java.install-common: installdirs
 	-if [ -f $(GCJ)$(exeext) ]; then \
+	  rm -f $(DESTDIR)$(bindir)/$(JAVA_INSTALL_NAME)$(exeext); \
+	  $(INSTALL_PROGRAM) $(GCJ)$(exeext) $(DESTDIR)$(bindir)/$(JAVA_INSTALL_NAME)$(exeext); \
+	  chmod a+x $(DESTDIR)$(bindir)/$(JAVA_INSTALL_NAME)$(exeext); \
 	  if [ -f $(GCJ)-cross$(exeext) ]; then \
-	    rm -f $(DESTDIR)$(bindir)/$(JAVA_CROSS_NAME)$(exeext); \
-	    $(INSTALL_PROGRAM) $(GCJ)-cross$(exeext) $(DESTDIR)$(bindir)/$(JAVA_CROSS_NAME)$(exeext); \
-	    chmod a+x $(DESTDIR)$(bindir)/$(JAVA_CROSS_NAME)$(exeext); \
+	    true; \
 	  else \
-	    rm -f $(DESTDIR)$(bindir)/$(JAVA_INSTALL_NAME)$(exeext); \
-	    $(INSTALL_PROGRAM) $(GCJ)$(exeext) $(DESTDIR)$(bindir)/$(JAVA_INSTALL_NAME)$(exeext); \
-	    chmod a+x $(DESTDIR)$(bindir)/$(JAVA_INSTALL_NAME)$(exeext); \
 	    rm -f $(DESTDIR)$(bindir)/$(JAVA_TARGET_INSTALL_NAME)$(exeext); \
 	    ( cd $(DESTDIR)$(bindir) && \
 	      $(LN) $(JAVA_INSTALL_NAME)$(exeext) $(JAVA_TARGET_INSTALL_NAME)$(exeext) ); \
@@ -195,6 +201,11 @@ java.install-common: installdirs
 	    rm -f $(DESTDIR)$(bindir)/$$tool_transformed_name$(exeext); \
 	    $(INSTALL_PROGRAM) $$tool$(exeext) $(DESTDIR)$(bindir)/$$tool_transformed_name$(exeext); \
 	    chmod a+x $(DESTDIR)$(bindir)/$$tool_transformed_name$(exeext); \
+	    if [ $$tool = gcjh ]; then \
+	      rm -f $(DESTDIR)$(bindir)/$(GCJH_TARGET_INSTALL_NAME)$(exeext); \
+	      ( cd $(DESTDIR)$(bindir) && \
+	        $(LN) $$tool_transformed_name$(exeext) $(GCJH_TARGET_INSTALL_NAME)$(exeext) ); \
+	    fi; \
           fi ; \
        done
 
@@ -202,9 +213,7 @@ java.install-man:
 
 java.uninstall:
 	-rm -rf $(DESTDIR)$(bindir)/$(JAVA_INSTALL_NAME)$(exeext)
-	-rm -rf $(DESTDIR)$(bindir)/$(JAVA_CROSS_NAME)$(exeext)
 	-rm -rf $(DESTDIR)$(man1dir)/$(JAVA_INSTALL_NAME)$(man1ext)
-	-rm -rf $(DESTDIR)$(man1dir)/$(JAVA_CROSS_NAME)$(man1ext)
 	-rm -rf $(DESTDIR)$(man1dir)/gcjh$(man1ext)
 	-rm -rf $(DESTDIR)$(man1dir)/jv-scan$(man1ext)
 	-rm -rf $(DESTDIR)$(man1dir)/jcf-dump$(man1ext)
@@ -226,7 +235,6 @@ java.clean:
 java.distclean:
 	-rm -f java/config.status java/Makefile
 	-rm -f java/parse.output
-java.extraclean:
 java.maintainer-clean:
 	-rm -f $(parsedir)/java/parse.c $(parsedir)/java/parse-scan.c java/parse.output java/y.tab.c
 	-rm -f $(docobjdir)/gcj.1 $(docobjdir)/gcjh.1
@@ -354,87 +362,44 @@ java/java-tree-inline.o: tree-inline.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
 	$(srcdir)/tree-inline.c -o $@
 
 # Documentation
-$(docobjdir)/gcj.info: $(srcdir)/java/gcj.texi $(docdir)/include/fdl.texi \
+$(docobjdir)/gcj.info: java/gcj.texi $(docdir)/include/fdl.texi \
   $(docdir)/include/gpl.texi $(docdir)/include/gcc-common.texi stmp-docobjdir
 	if test "x$(BUILD_INFO)" = xinfo; then \
-	  rm -f $(docobjdir)/gcj.info*; \
-	  $(MAKEINFO) $(MAKEINFOFLAGS) -I $(docdir)/include \
-	  -o $(docobjdir)/gcj.info $(srcdir)/java/gcj.texi; \
+	  rm -f doc/gcj.info*; \
+	  $(MAKEINFO) $(MAKEINFOFLAGS) -I $(docdir)/include -o $@ $<; \
 	else true; fi
 
-java/gcj.dvi: $(srcdir)/java/gcj.texi $(srcdir)/doc/include/fdl.texi \
-	 $(srcdir)/doc/include/gpl.texi $(srcdir)/doc/include/gcc-common.texi
-	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	cd java && $(TEXI2DVI) -I $$s/doc/include $$s/java/gcj.texi
+$(docobjdir)/gcj.dvi: java/gcj.texi $(docdir)/include/fdl.texi \
+	 $(docdir)/include/gpl.texi $(docdir)/include/gcc-common.texi \
+	 stmp-docobjdir
+	$(TEXI2DVI) -I $(docdir)/include -o $@ $<
 
-$(docobjdir)/gcj.1: $(srcdir)/java/gcj.texi stmp-docobjdir
-	-$(TEXI2POD) -D gcj < $(srcdir)/java/gcj.texi > java/gcj.pod
-	-($(POD2MAN) --section=1 java/gcj.pod > java/gcj.1.T$$$$ && \
-		mv -f java/gcj.1.T$$$$ $(docobjdir)/gcj.1) || \
-		(rm -f java/gcj.1.T$$$$ && exit 1)
-	-rm -f java/gcj.pod
+.INTERMEDIATE: gcj.pod gcjh.pod jv-scan.pod jcf-dump.pod gij.pod \
+  jv-convert.pod rmic.pod rmiregistry.pod
 
-$(docobjdir)/gcjh.1: $(srcdir)/java/gcj.texi stmp-docobjdir
-	-$(TEXI2POD) -D gcjh < $(srcdir)/java/gcj.texi > java/gcjh.pod
-	-($(POD2MAN) --section=1 java/gcjh.pod > java/gcjh.1.T$$$$ && \
-		mv -f java/gcjh.1.T$$$$ $(docobjdir)/gcjh.1) || \
-		(rm -f java/gcjh.1.T$$$$ && exit 1)
-	-rm -f java/gcjh.pod
-
-$(docobjdir)/jv-scan.1: $(srcdir)/java/gcj.texi stmp-docobjdir
-	-$(TEXI2POD) -D jv-scan < $(srcdir)/java/gcj.texi > java/jv-scan.pod
-	-($(POD2MAN) --section=1 java/jv-scan.pod > java/jv-scan.1.T$$$$ && \
-		mv -f java/jv-scan.1.T$$$$ $(docobjdir)/jv-scan.1) || \
-		(rm -f java/jv-scan.1.T$$$$ && exit 1)
-	-rm -f java/jv-scan.pod
-
-$(docobjdir)/jcf-dump.1: $(srcdir)/java/gcj.texi stmp-docobjdir
-	-$(TEXI2POD) -D jcf-dump < $(srcdir)/java/gcj.texi > java/jcf-dump.pod
-	-($(POD2MAN) --section=1 java/jcf-dump.pod > java/jcf-dump.1.T$$$$ && \
-		mv -f java/jcf-dump.1.T$$$$ $(docobjdir)/jcf-dump.1) || \
-		(rm -f java/jcf-dump.1.T$$$$ && exit 1)
-	-rm -f java/jcf-dump.pod
-
-$(docobjdir)/gij.1: $(srcdir)/java/gcj.texi stmp-docobjdir
-	-$(TEXI2POD) -D gij < $(srcdir)/java/gcj.texi > java/gij.pod
-	-($(POD2MAN) --section=1 java/gij.pod > java/gij.1.T$$$$ && \
-		mv -f java/gij.1.T$$$$ $(docobjdir)/gij.1) || \
-		(rm -f java/gij.1.T$$$$ && exit 1)
-	-rm -f java/gij.pod
-
-$(docobjdir)/jv-convert.1: $(srcdir)/java/gcj.texi stmp-docobjdir
-	-$(TEXI2POD) -D jv-convert < $(srcdir)/java/gcj.texi > java/jv-convert.pod
-	-($(POD2MAN) --section=1 java/jv-convert.pod > java/jv-convert.1.T$$$$ && \
-		mv -f java/jv-convert.1.T$$$$ $(docobjdir)/jv-convert.1) || \
-		(rm -f java/jv-convert.1.T$$$$ && exit 1)
-	-rm -f java/jv-convert.pod
-
-$(docobjdir)/rmic.1: $(srcdir)/java/gcj.texi stmp-docobjdir
-	-$(TEXI2POD) -D rmic < $(srcdir)/java/gcj.texi > java/rmic.pod
-	-($(POD2MAN) --section=1 java/rmic.pod > java/rmic.1.T$$$$ && \
-		mv -f java/rmic.1.T$$$$ $(docobjdir)/rmic.1) || \
-		(rm -f java/rmic.1.T$$$$ && exit 1)
-	-rm -f java/rmic.pod
-
-$(docobjdir)/rmiregistry.1: $(srcdir)/java/gcj.texi stmp-docobjdir
-	-$(TEXI2POD) -D rmiregistry < $(srcdir)/java/gcj.texi > java/rmiregistry.pod
-	-($(POD2MAN) --section=1 java/rmiregistry.pod > java/rmiregistry.1.T$$$$ && \
-		mv -f java/rmiregistry.1.T$$$$ $(docobjdir)/rmiregistry.1) || \
-		(rm -f java/rmiregistry.1.T$$$$ && exit 1)
-	-rm -f java/rmiregistry.pod
+gcj.pod: java/gcj.texi
+	-$(TEXI2POD) -D gcj < $< > $@
+gcjh.pod: java/gcj.texi
+	-$(TEXI2POD) -D gcjh < $< > $@
+jv-scan.pod: java/gcj.texi
+	-$(TEXI2POD) -D jv-scan < $< > $@
+jcf-dump.pod: java/gcj.texi
+	-$(TEXI2POD) -D jcf-dump < $< > $@
+gij.pod: java/gcj.texi
+	-$(TEXI2POD) -D gij < $< > $@
+jv-convert.pod: java/gcj.texi
+	-$(TEXI2POD) -D jv-convert < $< > $@
+rmic.pod: java/gcj.texi
+	-$(TEXI2POD) -D rmic < $< > $@
+rmiregistry.pod: java/gcj.texi
+	-$(TEXI2POD) -D rmiregistry < $< > $@
 
 # Install the man pages.
 java.install-man: installdirs $(GENERATED_JAVA_MANPAGES)
 	-if [ -f $(GCJ)$(exeext) ]; then \
-	  if [ -f $(GCJ)-cross$(exeext) ]; then \
-	    rm -f $(DESTDIR)$(man1dir)/$(JAVA_CROSS_NAME)$(man1ext); \
-	    $(INSTALL_DATA) $(docobjdir)/gcj.1 $(DESTDIR)$(man1dir)/$(JAVA_CROSS_NAME)$(man1ext); \
-	    chmod a-x $(DESTDIR)$(man1dir)/$(JAVA_CROSS_NAME)$(man1ext); \
-	  else \
-	    rm -f $(DESTDIR)$(man1dir)/$(JAVA_INSTALL_NAME)$(man1ext); \
-	    $(INSTALL_DATA) $(docobjdir)/gcj.1 $(DESTDIR)$(man1dir)/$(JAVA_INSTALL_NAME)$(man1ext); \
-	    chmod a-x $(DESTDIR)$(man1dir)/$(JAVA_INSTALL_NAME)$(man1ext); \
-	  fi ; \
+	  rm -f $(DESTDIR)$(man1dir)/$(JAVA_INSTALL_NAME)$(man1ext); \
+	  $(INSTALL_DATA) $(docobjdir)/gcj.1 $(DESTDIR)$(man1dir)/$(JAVA_INSTALL_NAME)$(man1ext); \
+	  chmod a-x $(DESTDIR)$(man1dir)/$(JAVA_INSTALL_NAME)$(man1ext); \
 	fi
 	-rm -f $(DESTDIR)$(man1dir)/gcjh$(man1ext)
 	-$(INSTALL_DATA) $(docobjdir)/gcjh.1 $(DESTDIR)$(man1dir)/gcjh$(man1ext)

@@ -88,6 +88,11 @@ package body Sem_Res is
    --  Give list of candidate interpretations when a character literal cannot
    --  be resolved.
 
+   procedure Check_Direct_Boolean_Op (N : Node_Id);
+   --  N is a binary operator node which may possibly operate on Boolean
+   --  operands. If the operator does have Boolean operands, then a call is
+   --  made to check the restriction No_Direct_Boolean_Operators.
+
    procedure Check_Discriminant_Use (N : Node_Id);
    --  Enforce the restrictions on the use of discriminants when constraining
    --  a component of a discriminated type (record or concurrent type).
@@ -341,6 +346,17 @@ package body Sem_Res is
            Scope_Suppress;
       end if;
    end Analyze_And_Resolve;
+
+   -----------------------------
+   -- Check_Direct_Boolean_Op --
+   -----------------------------
+
+   procedure Check_Direct_Boolean_Op (N : Node_Id) is
+   begin
+      if Root_Type (Etype (Left_Opnd (N))) = Standard_Boolean then
+         Check_Restriction (No_Direct_Boolean_Operators, N);
+      end if;
+   end Check_Direct_Boolean_Op;
 
    ----------------------------
    -- Check_Discriminant_Use --
@@ -1940,9 +1956,25 @@ package body Sem_Res is
                if Is_Overloaded (N)
                  and then Nkind (N) = N_Function_Call
                then
-                  Error_Msg_Node_2 := Typ;
-                  Error_Msg_NE ("no visible interpretation of&" &
-                    " matches expected type&", N, Name (N));
+                  declare
+                     Subp_Name : Node_Id;
+                  begin
+                     if Is_Entity_Name (Name (N)) then
+                        Subp_Name := Name (N);
+
+                     elsif Nkind (Name (N)) = N_Selected_Component then
+
+                        --  Protected operation: retrieve operation name.
+
+                        Subp_Name := Selector_Name (Name (N));
+                     else
+                        raise Program_Error;
+                     end if;
+
+                     Error_Msg_Node_2 := Typ;
+                     Error_Msg_NE ("no visible interpretation of&" &
+                       " matches expected type&", N, Subp_Name);
+                  end;
 
                   if All_Errors_Mode then
                      declare
@@ -3315,7 +3347,6 @@ package body Sem_Res is
       --  dereference made explicit in Analyze_Call.
 
       if Ekind (Etype (Subp)) = E_Subprogram_Type then
-
          if not Is_Overloaded (Subp) then
             Nam := Etype (Subp);
 
@@ -3421,6 +3452,12 @@ package body Sem_Res is
                end if;
             end loop;
          end;
+      end if;
+
+      --  Cannot call thread body directly
+
+      if Is_Thread_Body (Nam) then
+         Error_Msg_N ("cannot call thread body directly", N);
       end if;
 
       --  If the subprogram is not global, then kill all checks. This is
@@ -3690,6 +3727,13 @@ package body Sem_Res is
          Establish_Transient_Scope
            (N, Sec_Stack => not Functions_Return_By_DSP_On_Target);
 
+         --  If the call appears within the bounds of a loop, it will
+         --  be rewritten and reanalyzed, nothing left to do here.
+
+         if Nkind (N) /= N_Function_Call then
+            return;
+         end if;
+
       elsif Is_Init_Proc (Nam)
         and then not Within_Init_Proc
       then
@@ -3831,6 +3875,8 @@ package body Sem_Res is
       T : Entity_Id;
 
    begin
+      Check_Direct_Boolean_Op (N);
+
       --  If this is an intrinsic operation which is not predefined, use
       --  the types of its declared arguments to resolve the possibly
       --  overloaded operands. Otherwise the operands are unambiguous and
@@ -4570,6 +4616,8 @@ package body Sem_Res is
    --  Start of processing for Resolve_Equality_Op
 
    begin
+      Check_Direct_Boolean_Op (N);
+
       Set_Etype (N, Base_Type (Typ));
       Generate_Reference (T, N, ' ');
 
@@ -4951,6 +4999,8 @@ package body Sem_Res is
       B_Typ : Entity_Id;
 
    begin
+      Check_Direct_Boolean_Op (N);
+
       --  Predefined operations on scalar types yield the base type. On
       --  the other hand, logical operations on arrays yield the type of
       --  the arguments (and the context).
@@ -6156,6 +6206,12 @@ package body Sem_Res is
                  Rop);
                Error_Msg_N ("\as Duration, and will lose precision?", Rop);
             end if;
+
+         elsif Is_Numeric_Type (Typ)
+           and then Nkind (Operand) in N_Op
+           and then Unique_Fixed_Point_Type (N) /= Any_Type
+         then
+            Set_Etype (Operand, Standard_Duration);
 
          else
             Error_Msg_N ("invalid context for mixed mode operation", N);

@@ -2033,10 +2033,6 @@ struct sh_args {
 /* Perform any needed actions needed for a function that is receiving a
    variable number of arguments.  */
 
-/* Define the `__builtin_va_list' type for the ABI.  */
-#define BUILD_VA_LIST_TYPE(VALIST) \
-  (VALIST) = sh_build_va_list ()
-
 /* Implement `va_start' for varargs and stdarg.  */
 #define EXPAND_BUILTIN_VA_START(valist, nextarg) \
   sh_va_start (valist, nextarg)
@@ -2879,7 +2875,7 @@ struct sh_args {
    used to use the encodings 245..260, but that doesn't make sense:
    PR_REG and PR_MEDIA_REG are actually the same register, and likewise
    the FP registers stay the same when switching between compact and media
-   mode.  Hence, we also need to use the same dwarf frame coloumns.
+   mode.  Hence, we also need to use the same dwarf frame columns.
    Likewise, we need to support unwind information for SHmedia registers
    even in compact code.  */
 #define SH_DBX_REGISTER_NUMBER(REGNO) \
@@ -3149,6 +3145,7 @@ extern int rtx_equal_function_value_matters;
   {"arith_reg_or_0_operand", {SUBREG, REG, CONST_INT, CONST_VECTOR}},	\
   {"binary_float_operator", {PLUS, MINUS, MULT, DIV}},			\
   {"binary_logical_operator", {AND, IOR, XOR}},				\
+  {"cmpsi_operand", {SUBREG, REG, CONST_INT}},				\
   {"commutative_float_operator", {PLUS, MULT}},				\
   {"equality_comparison_operator", {EQ,NE}},				\
   {"extend_reg_operand", {SUBREG, REG, TRUNCATE}},			\
@@ -3246,7 +3243,8 @@ extern int rtx_equal_function_value_matters;
    : FP_MODE_NONE)
 
 #define MODE_AFTER(MODE, INSN)                  \
-     (recog_memoized (INSN) >= 0                \
+     (TARGET_HITACHI				\
+      && recog_memoized (INSN) >= 0		\
       && get_attr_fp_set (INSN) != FP_SET_NONE  \
       ? get_attr_fp_set (INSN)                  \
       : (MODE))

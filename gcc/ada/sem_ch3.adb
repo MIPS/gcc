@@ -548,9 +548,9 @@ package body Sem_Ch3 is
    --  Create new modular type. Verify that modulus is in  bounds and is
    --  a power of two (implementation restriction).
 
-   procedure New_Binary_Operator (Op_Name : Name_Id; Typ : Entity_Id);
+   procedure New_Concatenation_Op (Typ : Entity_Id);
    --  Create an abbreviated declaration for an operator in order to
-   --  materialize minimally operators on derived types.
+   --  materialize concatenation on array types.
 
    procedure Ordinary_Fixed_Point_Type_Declaration
      (T   : Entity_Id;
@@ -690,6 +690,10 @@ package body Sem_Ch3 is
       --  if the designated type is.
 
       Set_Is_Public          (Anon_Type, Is_Public (Scope (Anon_Type)));
+
+      --  Ada0Y (AI-50217): Propagate the attribute that indicates that the
+      --  designated type comes from the limited view (for back-end purposes).
+
       Set_From_With_Type     (Anon_Type, From_With_Type (Desig_Type));
 
       --  The context is either a subprogram declaration or an access
@@ -857,9 +861,9 @@ package body Sem_Ch3 is
       --  access type is also imported, and therefore restricted in its use.
       --  The access type may already be imported, so keep setting otherwise.
 
-      --  If the non-limited view of the designated type is available, use
-      --  it as the designated type of the access type, so that the back-end
-      --  gets a usable entity.
+      --  Ada0Y (AI-50217): If the non-limited view of the designated type is
+      --  available, use it as the designated type of the access type, so that
+      --  the back-end gets a usable entity.
 
       if From_With_Type (Desig) then
          Set_From_With_Type (T);
@@ -2448,9 +2452,11 @@ package body Sem_Ch3 is
    begin
       Prev := Find_Type_Name (N);
 
-      --  The full view, if present, now points to the current type. If the
-      --  type was previously decorated when imported through a LIMITED WITH
-      --  clause, it appears as incomplete but has no full view.
+      --  The full view, if present, now points to the current type
+
+      --  Ada0Y (AI-50217): If the type was previously decorated when imported
+      --  through a LIMITED WITH clause, it appears as incomplete but has no
+      --  full view.
 
       if Ekind (Prev) = E_Incomplete_Type
         and then Present (Full_View (Prev))
@@ -2859,7 +2865,7 @@ package body Sem_Ch3 is
       if Number_Dimensions (T) = 1
          and then not Is_Packed_Array_Type (T)
       then
-         New_Binary_Operator (Name_Op_Concat, T);
+         New_Concatenation_Op (T);
       end if;
 
       --  In the case of an unconstrained array the parser has already
@@ -3055,14 +3061,21 @@ package body Sem_Ch3 is
       --  declared in a closed scope (e.g., a subprogram), then we
       --  need to explicitly introduce the new type's concatenation
       --  operator since Derive_Subprograms will not inherit the
-      --  parent's operator.
+      --  parent's operator. If the parent type is unconstrained, the
+      --  operator is of the unconstrained base type.
 
       if Number_Dimensions (Parent_Type) = 1
         and then not Is_Limited_Type (Parent_Type)
         and then not Is_Derived_Type (Parent_Type)
         and then not Is_Package (Scope (Base_Type (Parent_Type)))
       then
-         New_Binary_Operator (Name_Op_Concat, Derived_Type);
+         if not Is_Constrained (Parent_Type)
+           and then Is_Constrained (Derived_Type)
+         then
+            New_Concatenation_Op (Implicit_Base);
+         else
+            New_Concatenation_Op (Derived_Type);
+         end if;
       end if;
    end Build_Derived_Array_Type;
 
@@ -6233,10 +6246,21 @@ package body Sem_Ch3 is
       if (Is_Limited_Type (T)
            or else Is_Limited_Composite (T))
         and then not In_Instance
+        and then not In_Inlined_Body
       then
-         Error_Msg_N
-           ("cannot initialize entities of limited type", Exp);
-         Explain_Limited_Type (T, Exp);
+         --  Ada0Y (AI-287): Relax the strictness of the front-end in case of
+         --  limited aggregates and extension aggregates.
+
+         if Extensions_Allowed
+           and then (Nkind (Exp) = N_Aggregate
+                     or else Nkind (Exp) = N_Extension_Aggregate)
+         then
+            null;
+         else
+            Error_Msg_N
+              ("cannot initialize entities of limited type", Exp);
+            Explain_Limited_Type (T, Exp);
+         end if;
       end if;
    end Check_Initialization;
 
@@ -7691,8 +7715,8 @@ package body Sem_Ch3 is
          if not Error_Posted (S)
            and then
              (Nkind (S) /= N_Range
-               or else Base_Type (T) /= Base_Type (Etype (Low_Bound (S)))
-               or else Base_Type (T) /= Base_Type (Etype (High_Bound (S))))
+               or else not Covers (T, (Etype (Low_Bound (S))))
+               or else not Covers (T, (Etype (High_Bound (S)))))
          then
             if Base_Type (T) /= Any_Type
               and then Etype (Low_Bound (S)) /= Any_Type
@@ -8415,18 +8439,6 @@ package body Sem_Ch3 is
 
       Init_Size_Align (Implicit_Base);
 
-      --  Complete entity for first subtype
-
-      Set_Ekind          (T, E_Decimal_Fixed_Point_Subtype);
-      Set_Etype          (T, Implicit_Base);
-      Set_Size_Info      (T, Implicit_Base);
-      Set_First_Rep_Item (T, First_Rep_Item (Implicit_Base));
-      Set_Digits_Value   (T, Digs_Val);
-      Set_Delta_Value    (T, Delta_Val);
-      Set_Small_Value    (T, Delta_Val);
-      Set_Scale_Value    (T, Scale_Val);
-      Set_Is_Constrained (T);
-
       --  If there are bounds given in the declaration use them as the
       --  bounds of the first named subtype.
 
@@ -8469,6 +8481,17 @@ package body Sem_Ch3 is
          Set_Fixed_Range (T, Loc, -Bound_Val, Bound_Val);
       end if;
 
+      --  Complete entity for first subtype
+
+      Set_Ekind          (T, E_Decimal_Fixed_Point_Subtype);
+      Set_Etype          (T, Implicit_Base);
+      Set_Size_Info      (T, Implicit_Base);
+      Set_First_Rep_Item (T, First_Rep_Item (Implicit_Base));
+      Set_Digits_Value   (T, Digs_Val);
+      Set_Delta_Value    (T, Delta_Val);
+      Set_Small_Value    (T, Delta_Val);
+      Set_Scale_Value    (T, Scale_Val);
+      Set_Is_Constrained (T);
    end Decimal_Fixed_Point_Type_Declaration;
 
    -----------------------
@@ -10929,11 +10952,11 @@ package body Sem_Ch3 is
 
    end Modular_Type_Declaration;
 
-   -------------------------
-   -- New_Binary_Operator --
-   -------------------------
+   --------------------------
+   -- New_Concatenation_Op --
+   --------------------------
 
-   procedure New_Binary_Operator (Op_Name : Name_Id; Typ : Entity_Id) is
+   procedure New_Concatenation_Op (Typ : Entity_Id) is
       Loc : constant Source_Ptr := Sloc (Typ);
       Op  : Entity_Id;
 
@@ -10955,26 +10978,26 @@ package body Sem_Ch3 is
          return Formal;
       end Make_Op_Formal;
 
-   --  Start of processing for New_Binary_Operator
+   --  Start of processing for New_Concatenation_Op
 
    begin
-      Op := Make_Defining_Operator_Symbol (Loc, Op_Name);
+      Op := Make_Defining_Operator_Symbol (Loc, Name_Op_Concat);
 
       Set_Ekind                   (Op, E_Operator);
       Set_Scope                   (Op, Current_Scope);
       Set_Etype                   (Op, Typ);
-      Set_Homonym                 (Op, Get_Name_Entity_Id (Op_Name));
+      Set_Homonym                 (Op, Get_Name_Entity_Id (Name_Op_Concat));
       Set_Is_Immediately_Visible  (Op);
       Set_Is_Intrinsic_Subprogram (Op);
       Set_Has_Completion          (Op);
       Append_Entity               (Op, Current_Scope);
 
-      Set_Name_Entity_Id (Op_Name, Op);
+      Set_Name_Entity_Id (Name_Op_Concat, Op);
 
       Append_Entity (Make_Op_Formal (Typ, Op), Op);
       Append_Entity (Make_Op_Formal (Typ, Op), Op);
 
-   end New_Binary_Operator;
+   end New_Concatenation_Op;
 
    -------------------------------------------
    -- Ordinary_Fixed_Point_Type_Declaration --

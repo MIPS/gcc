@@ -81,7 +81,7 @@ extern void __frv_deregister_eh(void) __attribute__((__destructor__));
 
 extern func_ptr __EH_FRAME_BEGIN__[];
 
-/* Register the exeception handling table as the first constructor */
+/* Register the exception handling table as the first constructor */
 void
 __frv_register_eh (void)
 {
@@ -93,7 +93,7 @@ __frv_register_eh (void)
 /* Note, do not declare __{,de}register_frame_info weak as it seems
    to interfere with the pic support.  */
 
-/* Unregister the exeception handling table as a deconstructor */
+/* Unregister the exception handling table as a deconstructor */
 void
 __frv_deregister_eh (void)
 {
@@ -110,7 +110,7 @@ __frv_deregister_eh (void)
 
 /* Run the global destructors */
 void
-__do_global_dtors ()
+__do_global_dtors (void)
 {
   static func_ptr *p = __DTOR_LIST__ + 1;
   while (*p)
@@ -122,7 +122,7 @@ __do_global_dtors ()
 
 /* Run the global constructors */
 void
-__do_global_ctors ()
+__do_global_ctors (void)
 {
   unsigned long nptrs = (unsigned long) __CTOR_LIST__[0];
   unsigned i;
@@ -145,7 +145,7 @@ __do_global_ctors ()
    to run __do_global_ctors, so we need not do anything here.  */
 
 void
-__main ()
+__main (void)
 {
   /* Support recursive calls to `main': run initializers just once.  */
   static int initialized;

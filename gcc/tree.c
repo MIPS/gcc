@@ -2294,6 +2294,7 @@ build (enum tree_code code, tree tt, ...)
   int fro;
   int constant;
   va_list p;
+  tree node;
 
   va_start (p, tt);
 
@@ -2380,10 +2381,17 @@ build (enum tree_code code, tree tt, ...)
     {
       /* Calls have side-effects, except those to const or
 	 pure functions.  */
-      tree fn = get_callee_fndecl (t);
-
-      if (!fn || (!DECL_IS_PURE (fn) && !TREE_READONLY (fn)))
+      i = call_expr_flags (t);
+      if (!(i & (ECF_CONST | ECF_PURE)))
 	TREE_SIDE_EFFECTS (t) = 1;
+
+      /* And even those have side-effects if their arguments do.  */
+      else for (node = TREE_OPERAND (t, 1); node; node = TREE_CHAIN (node))
+	if (TREE_SIDE_EFFECTS (TREE_VALUE (node)))
+	  {
+	    TREE_SIDE_EFFECTS (t) = 1;
+	    break;
+	  }
     }
 
   return t;
@@ -4115,7 +4123,7 @@ get_unwidened (tree op, tree for_type)
 	 The resulting extension to its nominal type (a fullword type)
 	 must fit the same conditions as for other extensions.  */
 
-      if (innerprec < TYPE_PRECISION (TREE_TYPE (op))
+      if (INT_CST_LT_UNSIGNED (TYPE_SIZE (type), TYPE_SIZE (TREE_TYPE (op)))
 	  && (for_type || ! DECL_BIT_FIELD (TREE_OPERAND (op, 1)))
 	  && (! uns || final_prec <= innerprec || unsignedp)
 	  && type != 0)
@@ -4916,8 +4924,7 @@ build_common_tree_nodes_2 (int short_double)
   layout_type (complex_long_double_type_node);
 
   {
-    tree t;
-    BUILD_VA_LIST_TYPE (t);
+    tree t = (*targetm.build_builtin_va_list) ();
 
     /* Many back-ends define record types without setting TYPE_NAME.
        If we copied the record type here, we'd keep the original
@@ -5004,6 +5011,11 @@ initializer_zerop (tree init)
 	    && ! REAL_VALUE_MINUS_ZERO (TREE_REAL_CST (TREE_IMAGPART (init))));
     case CONSTRUCTOR:
       {
+	/* Set is empty if it has no elements.  */
+        if ((TREE_CODE (TREE_TYPE (init)) == SET_TYPE)
+             && CONSTRUCTOR_ELTS (init))
+	  return false;
+
 	if (AGGREGATE_TYPE_P (TREE_TYPE (init)))
 	  {
 	    tree aggr_init = CONSTRUCTOR_ELTS (init);

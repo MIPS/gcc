@@ -27,7 +27,15 @@ GLIBCXX_3.4 {
     # Names inside the 'extern' block are demangled names.
     extern "C++"
     {
-      std::[A-Za-k]*;
+      std::[A-Za-h]*;
+      std::i[a-n]*;
+      std::ios_base::[A-Ha-z]*;
+      std::ios_base::_M_grow_words*;
+      std::ios_base::_M_init*;
+      std::ios_base::Init::[A-Za-z]*;
+      std::ios_base::[J-Za-z]*;
+      std::i[p-z]*;
+      std::[A-Zj-k]*;
       std::length_error*;
       std::logic_error*;
       std::locale::[A-Za-e]*;
@@ -57,7 +65,11 @@ GLIBCXX_3.4 {
       std::__num_base::_S_atoms_out;
       std::__moneypunct_cache*;
       std::__numpunct_cache*;
-      std::__timepunct_cache*
+      std::__timepunct_cache*;
+      __gnu_norm::*;
+      __gnu_debug::_Safe_iterator_base*;
+      __gnu_debug::_Safe_sequence_base*;
+      __gnu_debug::_Error_formatter*
     };
 
     # Names not in an 'extern' block are mangled names.
@@ -88,9 +100,13 @@ GLIBCXX_3.4 {
     # std::locale::facet destructors
     _ZNSt6locale5facetD*;
 	 
-    # std::locale::_Impl constructors, destrutors
+    # std::locale::_Impl constructors, destructors
     _ZNSt6locale5_ImplC*;
     _ZNSt6locale5_ImplD*;
+
+    # std::ios_base, std::ios_base::Init destructors
+    _ZNSt8ios_baseD*;
+    _ZNSt8ios_base4InitD*;
 
     # bool has_facet 
     _ZSt9has_facet*;
@@ -103,9 +119,6 @@ GLIBCXX_3.4 {
     _ZSt20_Rb_tree_rotate_leftPSt18_Rb_tree_node_baseRS0_;
     _ZSt21_Rb_tree_rotate_rightPSt18_Rb_tree_node_baseRS0_;
     _ZSt28_Rb_tree_rebalance_for_erasePSt18_Rb_tree_node_baseRS_;
-
-    # std::__ctype_abstract_base*
-    _ZNSt21__ctype_abstract_base*;
 
     # std::__codecvt_abstract_base*
     _ZNStSt23__codecvt_abstract_base*;

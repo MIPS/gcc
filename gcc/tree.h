@@ -273,8 +273,7 @@ struct tree_common GTY(())
 /* The tree-code says what kind of node it is.
    Codes are defined in tree.def.  */
 #define TREE_CODE(NODE) ((enum tree_code) (NODE)->common.code)
-#define TREE_SET_CODE(NODE, VALUE) \
-((NODE)->common.code = (ENUM_BITFIELD (tree_code)) (VALUE))
+#define TREE_SET_CODE(NODE, VALUE) ((NODE)->common.code = (VALUE))
 
 /* When checking is enabled, errors will be generated if a tree node
    is accessed incorrectly. The macros abort with a fatal error.  */
@@ -1498,6 +1497,9 @@ struct tree_type GTY(())
 #define DECL_DECLARED_INLINE_P(NODE) \
   (FUNCTION_DECL_CHECK (NODE)->decl.declared_inline_flag)
 
+/* Value of the decls's visibility attribute */
+#define DECL_VISIBILITY(NODE) (DECL_CHECK (NODE)->decl.visibility)
+
 /* In a FUNCTION_DECL, nonzero if the function cannot be inlined.  */
 #define DECL_UNINLINABLE(NODE) (FUNCTION_DECL_CHECK (NODE)->decl.uninlinable)
 
@@ -1638,6 +1640,16 @@ struct tree_type GTY(())
   (! DECL_CONTEXT (EXP)						\
    || TREE_CODE (DECL_CONTEXT (EXP)) == TRANSLATION_UNIT_DECL)
 
+/* Enumerate visibility settings.  */
+
+enum symbol_visibility
+{
+  VISIBILITY_DEFAULT,
+  VISIBILITY_INTERNAL,
+  VISIBILITY_HIDDEN,
+  VISIBILITY_PROTECTED
+};
+
 struct function;
 
 struct tree_decl GTY(())
@@ -1679,8 +1691,9 @@ struct tree_decl GTY(())
   unsigned uninlinable : 1;
   unsigned thread_local_flag : 1;
   unsigned declared_inline_flag : 1;
-  unsigned unused : 3;
-  /* three unused bits.  */
+  ENUM_BITFIELD(symbol_visibility) visibility : 2;
+  unsigned unused : 1;
+  /* one unused bit.  */
 
   unsigned lang_flag_0 : 1;
   unsigned lang_flag_1 : 1;
@@ -2014,15 +2027,6 @@ enum tls_model {
 
 extern enum tls_model flag_tls_default;
 
-/* Enumerate visibility settings.  */
-
-enum symbol_visibility
-{
-  VISIBILITY_DEFAULT,
-  VISIBILITY_INTERNAL,
-  VISIBILITY_HIDDEN,
-  VISIBILITY_PROTECTED
-};
 
 /* A pointer-to-function member type looks like:
 
@@ -2714,7 +2718,7 @@ extern tree get_file_function_name_long (const char *);
 extern tree get_set_constructor_bits (tree, char *, int);
 extern tree get_set_constructor_bytes (tree, unsigned char *, int);
 extern tree get_callee_fndecl (tree);
-extern void set_decl_assembler_name (tree);
+extern void change_decl_assembler_name (tree, tree);
 extern int type_num_arguments (tree);
 extern tree lhd_unsave_expr_now (tree);
 
@@ -2943,6 +2947,7 @@ extern rtx emit_line_note (location_t);
 #define ECF_LIBCALL_BLOCK	4096
 
 extern int flags_from_decl_or_type (tree);
+extern int call_expr_flags (tree);
 
 extern int setjmp_call_p (tree);
 extern bool alloca_call_p (tree);
@@ -2976,7 +2981,6 @@ extern void make_decl_one_only (tree);
 extern int supports_one_only (void);
 extern void variable_section (tree, int);
 enum tls_model decl_tls_model (tree);
-enum symbol_visibility decl_visibility (tree);
 extern void resolve_unique_section (tree, int, int);
 extern void mark_referenced (tree);
 extern void notice_global_symbol (tree);

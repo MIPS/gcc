@@ -1023,10 +1023,6 @@ common_handle_option (size_t scode, const char *arg,
       flag_gcse_las = value;
       break;
 
-    case OPT_fgnu_linker:
-      flag_gnu_linker = value;
-      break;
-
     case OPT_fguess_branch_probability:
       flag_guess_branch_prob = value;
       break;
@@ -1057,7 +1053,6 @@ common_handle_option (size_t scode, const char *arg,
 
     case OPT_finline_limit_:
     case OPT_finline_limit_eq:
-      set_param_value ("max-inline-insns", value);
       set_param_value ("max-inline-insns-single", value / 2);
       set_param_value ("max-inline-insns-auto", value / 2);
       set_param_value ("max-inline-insns-rtl", value);
@@ -1298,18 +1293,6 @@ common_handle_option (size_t scode, const char *arg,
 
     case OPT_fsingle_precision_constant:
       flag_single_precision_constant = value;
-      break;
-
-    case OPT_fssa:
-      flag_ssa = value;
-      break;
-
-    case OPT_fssa_ccp:
-      flag_ssa_ccp = value;
-      break;
-
-    case OPT_fssa_dce:
-      flag_ssa_dce = value;
       break;
 
     case OPT_fstack_check:
@@ -1846,7 +1829,7 @@ wrap_help (const char *help, const char *item, unsigned int item_width)
 		len = i;
 	      else if ((help[i] == '-' || help[i] == '/')
 		       && help[i + 1] != ' '
-		       && ISALPHA (help[i - 1]))
+		       && i > 0 && ISALPHA (help[i - 1]))
 		len = i + 1;
 	    }
 	}

@@ -29,6 +29,7 @@ details.  */
 #include <java/io/InterruptedIOException.h>
 #include <java/net/BindException.h>
 #include <java/net/SocketException.h>
+#include <java/net/SocketTimeoutException.h>
 #include <java/net/InetAddress.h>
 #include <java/net/NetworkInterface.h>
 #include <java/net/DatagramPacket.h>
@@ -208,7 +209,8 @@ gnu::java::net::PlainDatagramSocketImpl::peekData (::java::net::DatagramPacket *
   // FIXME: Deal with Multicast and if the socket is connected.
   union SockAddr u;
   socklen_t addrlen = sizeof(u);
-  jbyte *dbytes = elements (p->getData());
+  jbyte *dbytes = elements (p->getData()) + p->getOffset();
+  jint maxlen = p->maxlen - p->getOffset();
   ssize_t retlen = 0;
 
   // Do timeouts via select since SO_RCVTIMEO is not always available.
@@ -224,11 +226,12 @@ gnu::java::net::PlainDatagramSocketImpl::peekData (::java::net::DatagramPacket *
       if ((retval = _Jv_select (native_fd + 1, &rset, NULL, NULL, &tv)) < 0)
         goto error;
       else if (retval == 0)
-        throw new ::java::io::InterruptedIOException ();
+        throw new ::java::net::SocketTimeoutException
+          (JvNewStringUTF ("PeekData timed out") );
     }
 
   retlen =
-    ::recvfrom (native_fd, (char *) dbytes, p->getLength(), MSG_PEEK, (sockaddr*) &u,
+    ::recvfrom (native_fd, (char *) dbytes, maxlen, MSG_PEEK, (sockaddr*) &u,
       &addrlen);
   if (retlen < 0)
     goto error;
@@ -254,7 +257,7 @@ gnu::java::net::PlainDatagramSocketImpl::peekData (::java::net::DatagramPacket *
 
   p->setAddress (new ::java::net::InetAddress (raddr, NULL));
   p->setPort (rport);
-  p->setLength ((jint) retlen);
+  p->length = (int) retlen;
   return rport;
 
  error:
@@ -290,7 +293,7 @@ gnu::java::net::PlainDatagramSocketImpl::send (::java::net::DatagramPacket *p)
   jbyte *bytes = elements (haddress);
   int len = haddress->length;
   struct sockaddr *ptr = (struct sockaddr *) &u.address;
-  jbyte *dbytes = elements (p->getData());
+  jbyte *dbytes = elements (p->getData()) + p->getOffset();
   if (len == 4)
     {
       u.address.sin_family = AF_INET;
@@ -327,7 +330,8 @@ gnu::java::net::PlainDatagramSocketImpl::receive (::java::net::DatagramPacket *p
   // FIXME: Deal with Multicast and if the socket is connected.
   union SockAddr u;
   socklen_t addrlen = sizeof(u);
-  jbyte *dbytes = elements (p->getData());
+  jbyte *dbytes = elements (p->getData()) + p->getOffset();
+  jint maxlen = p->maxlen - p->getOffset();
   ssize_t retlen = 0;
 
   // Do timeouts via select since SO_RCVTIMEO is not always available.
@@ -343,11 +347,12 @@ gnu::java::net::PlainDatagramSocketImpl::receive (::java::net::DatagramPacket *p
       if ((retval = _Jv_select (native_fd + 1, &rset, NULL, NULL, &tv)) < 0)
         goto error;
       else if (retval == 0)
-        throw new ::java::io::InterruptedIOException ();
+        throw new ::java::net::SocketTimeoutException
+          (JvNewStringUTF ("Receive timed out") );
     }
 
   retlen =
-    ::recvfrom (native_fd, (char *) dbytes, p->getLength(), 0, (sockaddr*) &u,
+    ::recvfrom (native_fd, (char *) dbytes, maxlen, 0, (sockaddr*) &u,
       &addrlen);
   if (retlen < 0)
     goto error;
@@ -373,7 +378,7 @@ gnu::java::net::PlainDatagramSocketImpl::receive (::java::net::DatagramPacket *p
 
   p->setAddress (new ::java::net::InetAddress (raddr, NULL));
   p->setPort (rport);
-  p->setLength ((jint) retlen);
+  p->length = (jint) retlen;
   return;
 
  error:
@@ -516,12 +521,12 @@ gnu::java::net::PlainDatagramSocketImpl::setOption (jint optID,
         if (::setsockopt (native_fd, SOL_SOCKET, SO_BROADCAST, (char *) &val,
                           val_len) != 0)
           goto error;
-	break;
+	return;
 	
       case _Jv_SO_OOBINLINE_ :
         throw new ::java::net::SocketException (
           JvNewStringUTF ("SO_OOBINLINE: not valid for UDP"));
-        break;
+        return;
 	
       case _Jv_SO_SNDBUF_ :
       case _Jv_SO_RCVBUF_ :
@@ -590,12 +595,12 @@ gnu::java::net::PlainDatagramSocketImpl::setOption (jint optID,
       case _Jv_IP_MULTICAST_IF2_ :
         throw new ::java::net::SocketException (
           JvNewStringUTF ("IP_MULTICAST_IF2: not yet implemented"));
-        break;
+        return;
 	
       case _Jv_IP_MULTICAST_LOOP_ :
         throw new ::java::net::SocketException (
           JvNewStringUTF ("IP_MULTICAST_LOOP: not yet implemented"));
-        break;
+        return;
 	
       case _Jv_IP_TOS_ :
         if (::setsockopt (native_fd, SOL_SOCKET, IP_TOS, (char *) &val,

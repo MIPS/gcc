@@ -1106,7 +1106,7 @@ pp_c_initializer_list (c_pretty_printer *pp, tree e)
     }
 }
 
-/* Pretty-print a brace-enclosed initializer-list.   */
+/* Pretty-print a brace-enclosed initializer-list.  */
 
 static void
 pp_c_brace_enclosed_initializer_list (c_pretty_printer *pp, tree l)
@@ -1246,7 +1246,7 @@ pp_c_postfix_expression (c_pretty_printer *pp, tree e)
     }
 }
 
-/* Print out an expression-list; E is expected to be a TREE_LIST  */
+/* Print out an expression-list; E is expected to be a TREE_LIST.  */
 
 void
 pp_c_expression_list (c_pretty_printer *pp, tree e)
@@ -1259,7 +1259,7 @@ pp_c_expression_list (c_pretty_printer *pp, tree e)
     }
 }
 
-/* Print out an expression-list in parens, as in a function call.   */
+/* Print out an expression-list in parens, as in a function call.  */
 
 void
 pp_c_call_argument_list (c_pretty_printer *pp, tree t)
@@ -1820,7 +1820,7 @@ pp_c_expression (c_pretty_printer *pp, tree e)
 
 /* statement:
       labeled-statement
-      coumpound-statement
+      compound-statement
       expression-statement
       selection-statement
       iteration-statement
@@ -1870,7 +1870,7 @@ pp_c_statement (c_pretty_printer *pp, tree stmt)
       pp_needs_newline (pp) = true;
       break;
 
-      /* coumpound-statement:
+      /* compound-statement:
             {  block-item-list(opt) }
 
          block-item-list:

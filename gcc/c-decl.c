@@ -61,7 +61,6 @@ enum decl_context
   FUNCDEF,			/* Function definition */
   PARM,				/* Declaration of parm before function body */
   FIELD,			/* Declaration inside struct or union */
-  BITFIELD,			/* Likewise but with specified width */
   TYPENAME};			/* Typename (inside cast or sizeof)  */
 
 
@@ -125,6 +124,10 @@ static GTY(()) struct stmt_tree_s c_stmt_tree;
 /* The current scope statement stack.  */
 
 static GTY(()) tree c_scope_stmt_stack;
+
+/* State saving variables.  */
+int c_in_iteration_stmt;
+int c_in_case_stmt;
 
 /* A list of external DECLs that appeared at block scope when there was
    some other global meaning for that identifier.  */
@@ -311,7 +314,7 @@ static void bind_label (tree, tree, struct c_scope *);
 static void implicit_decl_warning (tree);
 static tree lookup_tag (enum tree_code, tree, int);
 static tree lookup_name_current_level (tree);
-static tree grokdeclarator (tree, tree, enum decl_context, int);
+static tree grokdeclarator (tree, tree, enum decl_context, int, tree *);
 static tree grokparms (tree, int);
 static void layout_array_type (tree);
 static void store_parm_decls_newstyle (void);
@@ -321,6 +324,7 @@ static void c_expand_body_1 (tree, int);
 static tree any_external_decl (tree);
 static void record_external_decl (tree);
 static void warn_if_shadowing (tree, tree);
+static void check_bitfield_type_and_width (tree *, tree *, const char *);
 static void clone_underlying_type (tree);
 static bool flexible_array_type_p (tree);
 static hashval_t link_hash_hash	(const void *);
@@ -425,13 +429,13 @@ void
 objc_mark_locals_volatile (void *enclosing_blk)
 {
   struct c_scope *scope;
-  
-  for (scope = current_scope; 
+
+  for (scope = current_scope;
        scope && scope != enclosing_blk;
        scope = scope->outer)
     {
       tree decl;
-      
+
       for (decl = scope->names; decl; decl = TREE_CHAIN (decl))
 	{
 	  DECL_REGISTER (decl) = 0;
@@ -440,9 +444,9 @@ objc_mark_locals_volatile (void *enclosing_blk)
       /* Do not climb up past the current function.  */
       if (scope->function_body)
 	break;
-    }	
-}     
-  
+    }
+}
+
 /* Nonzero if we are currently in the global scope.  */
 
 int
@@ -537,7 +541,7 @@ poplevel (int keep, int dummy ATTRIBUTE_UNUSED, int functionbody)
   tree decl;
   tree p;
 
-  /* The following line does not use |= due to a bug in HP's C compiler */
+  /* The following line does not use |= due to a bug in HP's C compiler.  */
   scope->function_body = scope->function_body | functionbody;
 
   if (keep == KEEP_MAYBE)
@@ -672,7 +676,7 @@ poplevel (int keep, int dummy ATTRIBUTE_UNUSED, int functionbody)
     IDENTIFIER_TAG_VALUE (TREE_PURPOSE (p)) = TREE_VALUE (p);
 
   /* Dispose of the block that we just made inside some higher level.  */
-  if (scope->function_body)
+  if (scope->function_body && current_function_decl)
     DECL_INITIAL (current_function_decl) = block;
   else if (scope->outer)
     {
@@ -1331,6 +1335,19 @@ duplicate_decls (tree newdecl, tree olddecl, int different_binding_level,
 	 Currently, it can only be defined in the prototype.  */
       COPY_DECL_ASSEMBLER_NAME (olddecl, newdecl);
 
+      /* If either declaration has a nondefault visibility, use it.  */
+      if (DECL_VISIBILITY (olddecl) != VISIBILITY_DEFAULT)
+	{
+	  if (DECL_VISIBILITY (newdecl) != VISIBILITY_DEFAULT
+	      && DECL_VISIBILITY (newdecl) != DECL_VISIBILITY (olddecl))
+	    {
+	      warning ("%J'%D': visibility attribute ignored because it",
+		       newdecl, newdecl);
+	      warning ("%Jconflicts with previous declaration here", olddecl);
+	    }
+	  DECL_VISIBILITY (newdecl) = DECL_VISIBILITY (olddecl);
+	}
+
       if (TREE_CODE (newdecl) == FUNCTION_DECL)
 	{
 	  DECL_STATIC_CONSTRUCTOR(newdecl) |= DECL_STATIC_CONSTRUCTOR(olddecl);
@@ -1408,7 +1425,7 @@ duplicate_decls (tree newdecl, tree olddecl, int different_binding_level,
 	{
 	  if (TREE_USED (olddecl)
 	      /* In unit-at-a-time mode we never inline re-defined extern
-	         inline functions. */
+	         inline functions.  */
 	      && !flag_unit_at_a_time)
 	    (*debug_hooks->outlining_inline_function) (olddecl);
 
@@ -1677,7 +1694,7 @@ pushdecl (tree x)
     DECL_CONTEXT (x) = current_file_decl;
   else
     DECL_CONTEXT (x) = current_function_decl;
-  
+
   if (name)
     {
       tree old;
@@ -1712,13 +1729,13 @@ pushdecl (tree x)
       if (DECL_EXTERNAL (x) || scope == global_scope)
 	{
 	  /* Find and check against a previous, not-in-scope, external
-	     decl for this identifier.  (C99 s???: If two declarations
-	     with external linkage, referring to the same object, have
-	     incompatible types, the behavior is undefined).  */
-	  tree ext = any_external_decl (name);
+	     decl for this identifier.  (C99 6.2.7p2: All declarations
+	     that refer to the same object or function shall have
+	     compatible type; otherwise, the behavior is undefined.)  */
+ 	  tree ext = any_external_decl (name);
 	  if (ext)
 	    {
-	      if (duplicate_decls (x, ext, scope != global_scope, 
+	      if (duplicate_decls (x, ext, scope != global_scope,
 				   false))
 		x = copy_node (ext);
 	    }
@@ -2250,7 +2267,7 @@ c_init_decl_processing (void)
   tree endlink;
   tree ptr_ftype_void, ptr_ftype_ptr;
   location_t save_loc = input_location;
-  
+
   /* Adds some ggc roots, and reserved words for c-parse.in.  */
   c_parse_init ();
 
@@ -2523,7 +2540,8 @@ groktypename (tree typename)
 
   split_specs_attrs (TREE_PURPOSE (typename), &specs, &attrs);
 
-  typename = grokdeclarator (TREE_VALUE (typename), specs, TYPENAME, 0);
+  typename = grokdeclarator (TREE_VALUE (typename), specs, TYPENAME, 0,
+			     NULL);
 
   /* Apply attributes.  */
   decl_attributes (&typename, attrs, 0);
@@ -2540,7 +2558,7 @@ groktypename_in_parm_context (tree typename)
     return typename;
   return grokdeclarator (TREE_VALUE (typename),
 			 TREE_PURPOSE (typename),
-			 PARM, 0);
+			 PARM, 0, NULL);
 }
 
 /* Decode a declarator in an ordinary declaration or data definition.
@@ -2570,7 +2588,7 @@ start_decl (tree declarator, tree declspecs, int initialized, tree attributes)
     deprecated_state = DEPRECATED_SUPPRESS;
 
   decl = grokdeclarator (declarator, declspecs,
-			 NORMAL, initialized);
+			 NORMAL, initialized, NULL);
 
   deprecated_state = DEPRECATED_NORMAL;
 
@@ -2757,7 +2775,7 @@ finish_decl (tree decl, tree init, tree asmspec_tree)
 		    || TREE_CODE (decl) == FIELD_DECL))
     objc_check_decl (decl);
 
-  /* Deduce size of array from initialization, if not already known */
+  /* Deduce size of array from initialization, if not already known.  */
   if (TREE_CODE (type) == ARRAY_TYPE
       && TYPE_DOMAIN (type) == 0
       && TREE_CODE (decl) != TYPE_DECL)
@@ -2870,7 +2888,7 @@ finish_decl (tree decl, tree init, tree asmspec_tree)
 #endif
 	}
       SET_DECL_RTL (decl, NULL_RTX);
-      SET_DECL_ASSEMBLER_NAME (decl, get_identifier (starred));
+      change_decl_assembler_name (decl, get_identifier (starred));
     }
 
   /* If #pragma weak was used, mark the decl weak now.  */
@@ -2920,7 +2938,7 @@ finish_decl (tree decl, tree init, tree asmspec_tree)
 		warning ("%Jignoring asm-specifier for non-static local "
                          "variable '%D'", decl, decl);
 	      else
-		SET_DECL_ASSEMBLER_NAME (decl, get_identifier (asmspec));
+		change_decl_assembler_name (decl, get_identifier (asmspec));
 	    }
 
 	  if (TREE_CODE (decl) != FUNCTION_DECL)
@@ -3006,7 +3024,8 @@ push_parm_decl (tree parm)
   immediate_size_expand = 0;
 
   decl = grokdeclarator (TREE_VALUE (TREE_PURPOSE (parm)),
-			 TREE_PURPOSE (TREE_PURPOSE (parm)), PARM, 0);
+			 TREE_PURPOSE (TREE_PURPOSE (parm)),
+			 PARM, 0, NULL);
   decl_attributes (&decl, TREE_VALUE (parm), 0);
 
   decl = pushdecl (decl);
@@ -3201,6 +3220,77 @@ flexible_array_type_p (tree type)
   }
 }
 
+/* Performs sanity checks on the TYPE and WIDTH of the bit-field NAME,
+   replacing with appropriate values if they are invalid.  */
+static void
+check_bitfield_type_and_width (tree *type, tree *width, const char *orig_name)
+{
+  tree type_mv;
+  unsigned int max_width;
+  unsigned HOST_WIDE_INT w;
+  const char *name = orig_name ? orig_name: _("<anonymous>");
+
+  /* Necessary?  */
+  STRIP_NOPS (*width);
+
+  /* Detect and ignore out of range field width and process valid
+     field widths.  */
+  if (TREE_CODE (*width) != INTEGER_CST)
+    {
+      error ("bit-field `%s' width not an integer constant", name);
+      *width = integer_one_node;
+    }
+  else
+    {
+      constant_expression_warning (*width);
+      if (tree_int_cst_sgn (*width) < 0)
+	{
+	  error ("negative width in bit-field `%s'", name);
+	  *width = integer_one_node;
+	}
+      else if (integer_zerop (*width) && orig_name)
+	{
+	  error ("zero width for bit-field `%s'", name);
+	  *width = integer_one_node;
+	}
+    }
+
+  /* Detect invalid bit-field type.  */
+  if (TREE_CODE (*type) != INTEGER_TYPE
+      && TREE_CODE (*type) != BOOLEAN_TYPE
+      && TREE_CODE (*type) != ENUMERAL_TYPE)
+    {
+      error ("bit-field `%s' has invalid type", name);
+      *type = unsigned_type_node;
+    }
+
+  type_mv = TYPE_MAIN_VARIANT (*type);
+  if (pedantic
+      && type_mv != integer_type_node
+      && type_mv != unsigned_type_node
+      && type_mv != boolean_type_node)
+    pedwarn ("type of bit-field `%s' is a GCC extension", name);
+
+  if (type_mv == boolean_type_node)
+    max_width = CHAR_TYPE_SIZE;
+  else
+    max_width = TYPE_PRECISION (*type);
+
+  if (0 < compare_tree_int (*width, max_width))
+    {
+      error ("width of `%s' exceeds its type", name);
+      w = max_width;
+      *width = build_int_2 (w, 0);
+    }
+  else
+    w = tree_low_cst (*width, 1);
+
+  if (TREE_CODE (*type) == ENUMERAL_TYPE
+      && (w < min_precision (TYPE_MIN_VALUE (*type), TREE_UNSIGNED (*type))
+	  || w < min_precision (TYPE_MAX_VALUE (*type), TREE_UNSIGNED (*type))))
+    warning ("`%s' is narrower than values of its type", name);
+}
+
 /* Given declspecs and a declarator,
    determine the name and type of the object declared
    and construct a ..._DECL node for it.
@@ -3220,8 +3310,9 @@ flexible_array_type_p (tree type)
      TYPENAME if for a typename (in a cast or sizeof).
       Don't make a DECL node; just return the ..._TYPE node.
      FIELD for a struct or union field; make a FIELD_DECL.
-     BITFIELD for a field with specified width.
    INITIALIZED is 1 if the decl has an initializer.
+   WIDTH is non-NULL for bit-fields, and is a pointer to an INTEGER_CST node
+   representing the width of the bit-field.
 
    In the TYPENAME case, DECLARATOR is really an absolute declarator.
    It may also be so in the PARM case, for a prototype where the
@@ -3232,7 +3323,7 @@ flexible_array_type_p (tree type)
 
 static tree
 grokdeclarator (tree declarator, tree declspecs,
-		enum decl_context decl_context, int initialized)
+		enum decl_context decl_context, int initialized, tree *width)
 {
   int specbits = 0;
   tree spec;
@@ -3247,19 +3338,16 @@ grokdeclarator (tree declarator, tree declspecs,
   int explicit_char = 0;
   int defaulted_int = 0;
   tree typedef_decl = 0;
-  const char *name;
+  const char *name, *orig_name;
   tree typedef_type = 0;
   int funcdef_flag = 0;
   enum tree_code innermost_code = ERROR_MARK;
-  int bitfield = 0;
   int size_varies = 0;
   tree decl_attr = NULL_TREE;
   tree array_ptr_quals = NULL_TREE;
   int array_parm_static = 0;
   tree returned_attrs = NULL_TREE;
-
-  if (decl_context == BITFIELD)
-    bitfield = 1, decl_context = FIELD;
+  bool bitfield = width != NULL;
 
   if (decl_context == FUNCDEF)
     funcdef_flag = 1, decl_context = NORMAL;
@@ -3292,6 +3380,7 @@ grokdeclarator (tree declarator, tree declspecs,
 	default:
 	  abort ();
 	}
+    orig_name = name;
     if (name == 0)
       name = "type name";
   }
@@ -3524,7 +3613,7 @@ grokdeclarator (tree declarator, tree declspecs,
     }
 
   /* Decide whether an integer type is signed or not.
-     Optionally treat bitfields as signed by default.  */
+     Optionally treat bit-fields as signed by default.  */
   if (specbits & 1 << (int) RID_UNSIGNED
       || (bitfield && ! flag_signed_bitfields
 	  && (explicit_int || defaulted_int || explicit_char
@@ -3595,6 +3684,10 @@ grokdeclarator (tree declarator, tree declspecs,
 	  type = build_complex_type (type);
 	}
     }
+
+  /* Check the type and width of a bit-field.  */
+  if (bitfield)
+    check_bitfield_type_and_width (&type, width, orig_name);
 
   /* Figure out the type qualifiers for the declaration.  There are
      two ways a declaration can become qualified.  One is something
@@ -4637,7 +4730,7 @@ get_parm_info (int void_at_end)
 	default: abort ();
 	}
 
-      if (TREE_PURPOSE (decl)) 
+      if (TREE_PURPOSE (decl))
 	/* The first %s will be one of 'struct', 'union', or 'enum'.  */
 	warning ("\"%s %s\" declared inside parameter list",
 		 keyword, IDENTIFIER_POINTER (TREE_PURPOSE (decl)));
@@ -4752,7 +4845,7 @@ start_struct (enum tree_code code, tree name)
 
 /* Process the specs, declarator (NULL if omitted) and width (NULL if omitted)
    of a structure component, returning a FIELD_DECL node.
-   WIDTH is non-NULL for bit fields only, and is an INTEGER_CST node.
+   WIDTH is non-NULL for bit-fields only, and is an INTEGER_CST node.
 
    This is done during the parsing of the struct declaration.
    The FIELD_DECL nodes are chained together and the lot of them
@@ -4807,7 +4900,8 @@ grokfield (tree declarator, tree declspecs, tree width)
 	}
     }
 
-  value = grokdeclarator (declarator, declspecs, width ? BITFIELD : FIELD, 0);
+  value = grokdeclarator (declarator, declspecs, FIELD, 0,
+			  width ? &width : NULL);
 
   finish_decl (value, NULL_TREE, NULL_TREE);
   DECL_INITIAL (value) = width;
@@ -4954,72 +5048,12 @@ finish_struct (tree t, tree fieldlist, tree attributes)
 	error ("nested redefinition of `%s'",
 	       IDENTIFIER_POINTER (TYPE_NAME (t)));
 
-      /* Detect invalid bit-field size.  */
-      if (DECL_INITIAL (x))
-	STRIP_NOPS (DECL_INITIAL (x));
       if (DECL_INITIAL (x))
 	{
-	  if (TREE_CODE (DECL_INITIAL (x)) == INTEGER_CST)
-	    constant_expression_warning (DECL_INITIAL (x));
-	  else
-	    {
-	      error ("%Jbit-field '%D' width not an integer constant", x, x);
-	      DECL_INITIAL (x) = NULL;
-	    }
-	}
-
-      /* Detect invalid bit-field type.  */
-      if (DECL_INITIAL (x)
-	  && TREE_CODE (TREE_TYPE (x)) != INTEGER_TYPE
-	  && TREE_CODE (TREE_TYPE (x)) != BOOLEAN_TYPE
-	  && TREE_CODE (TREE_TYPE (x)) != ENUMERAL_TYPE)
-	{
-	  error ("%Jbit-field '%D' has invalid type", x, x);
-	  DECL_INITIAL (x) = NULL;
-	}
-
-      if (DECL_INITIAL (x) && pedantic
-	  && TYPE_MAIN_VARIANT (TREE_TYPE (x)) != integer_type_node
-	  && TYPE_MAIN_VARIANT (TREE_TYPE (x)) != unsigned_type_node
-	  && TYPE_MAIN_VARIANT (TREE_TYPE (x)) != boolean_type_node
-	  /* Accept an enum that's equivalent to int or unsigned int.  */
-	  && !(TREE_CODE (TREE_TYPE (x)) == ENUMERAL_TYPE
-	       && (TYPE_PRECISION (TREE_TYPE (x))
-		   == TYPE_PRECISION (integer_type_node))))
-	pedwarn ("%Jbit-field '%D' type invalid in ISO C", x, x);
-
-      /* Detect and ignore out of range field width and process valid
-	 field widths.  */
-      if (DECL_INITIAL (x))
-	{
-	  int max_width
-	    = (TYPE_MAIN_VARIANT (TREE_TYPE (x)) == boolean_type_node
-	       ? CHAR_TYPE_SIZE : TYPE_PRECISION (TREE_TYPE (x)));
-
-	  if (tree_int_cst_sgn (DECL_INITIAL (x)) < 0)
-	    error ("%Jnegative width in bit-field '%D'", x, x);
-	  else if (0 < compare_tree_int (DECL_INITIAL (x), max_width))
-	    pedwarn ("%Jwidth of '%D' exceeds its type", x, x);
-	  else if (integer_zerop (DECL_INITIAL (x)) && DECL_NAME (x) != 0)
-	    error ("%Jzero width for bit-field '%D'", x, x);
-	  else
-	    {
-	      /* The test above has assured us that TREE_INT_CST_HIGH is 0.  */
-	      unsigned HOST_WIDE_INT width
-		= tree_low_cst (DECL_INITIAL (x), 1);
-
-	      if (TREE_CODE (TREE_TYPE (x)) == ENUMERAL_TYPE
-		  && (width < min_precision (TYPE_MIN_VALUE (TREE_TYPE (x)),
-					     TREE_UNSIGNED (TREE_TYPE (x)))
-		      || (width
-			  < min_precision (TYPE_MAX_VALUE (TREE_TYPE (x)),
-					   TREE_UNSIGNED (TREE_TYPE (x))))))
-		warning ("%J'%D' is narrower than values of its type", x, x);
-
-	      DECL_SIZE (x) = bitsize_int (width);
-	      DECL_BIT_FIELD (x) = 1;
-	      SET_DECL_C_BIT_FIELD (x);
-	    }
+	  unsigned HOST_WIDE_INT width = tree_low_cst (DECL_INITIAL (x), 1);
+	  DECL_SIZE (x) = bitsize_int (width);
+	  DECL_BIT_FIELD (x) = 1;
+	  SET_DECL_C_BIT_FIELD (x);
 	}
 
       DECL_INITIAL (x) = 0;
@@ -5055,7 +5089,7 @@ finish_struct (tree t, tree fieldlist, tree attributes)
 
   layout_type (t);
 
-  /* Delete all zero-width bit-fields from the fieldlist */
+  /* Delete all zero-width bit-fields from the fieldlist.  */
   {
     tree *fieldlistp = &fieldlist;
     while (*fieldlistp)
@@ -5071,7 +5105,7 @@ finish_struct (tree t, tree fieldlist, tree attributes)
   TYPE_FIELDS (t) = fieldlist;
 
   /* If there are lots of fields, sort so we can look through them fast.
-    We arbitrarily consider 16 or more elts to be "a lot".  */
+     We arbitrarily consider 16 or more elts to be "a lot".  */
 
   {
     int len = 0;
@@ -5088,23 +5122,23 @@ finish_struct (tree t, tree fieldlist, tree attributes)
         tree *field_array;
         struct lang_type *space;
         struct sorted_fields_type *space2;
-        
+
         len += list_length (x);
-  
+
         /* Use the same allocation policy here that make_node uses, to
           ensure that this lives as long as the rest of the struct decl.
           All decls in an inline function need to be saved.  */
-  
+
         space = ggc_alloc (sizeof (struct lang_type));
         space2 = ggc_alloc (sizeof (struct sorted_fields_type) + len * sizeof (tree));
-        
+
         len = 0;
 	space->s = space2;
 	field_array = &space2->elts[0];
         for (x = fieldlist; x; x = TREE_CHAIN (x))
           {
             field_array[len++] = x;
-          
+
             /* If there is anonymous struct or union, break out of the loop.  */
             if (DECL_NAME (x) == NULL)
               break;
@@ -5119,7 +5153,7 @@ finish_struct (tree t, tree fieldlist, tree attributes)
           }
       }
   }
-  
+
   for (x = TYPE_MAIN_VARIANT (t); x; x = TYPE_NEXT_VARIANT (x))
     {
       TYPE_FIELDS (x) = TYPE_FIELDS (t);
@@ -5438,11 +5472,13 @@ start_function (tree declspecs, tree declarator, tree attributes)
   current_function_returns_abnormally = 0;
   warn_about_return_type = 0;
   current_extern_inline = 0;
+  c_in_iteration_stmt = 0;
+  c_in_case_stmt = 0;
 
   /* Don't expand any sizes in the return type of the function.  */
   immediate_size_expand = 0;
 
-  decl1 = grokdeclarator (declarator, declspecs, FUNCDEF, 1);
+  decl1 = grokdeclarator (declarator, declspecs, FUNCDEF, 1, NULL);
 
   /* If the declarator is not suitable for a function definition,
      cause a syntax error.  */
@@ -6052,11 +6088,13 @@ finish_function (void)
  	}
     }
 
-  BLOCK_SUPERCONTEXT (DECL_INITIAL (fndecl)) = fndecl;
+  if (DECL_INITIAL (fndecl) && DECL_INITIAL (fndecl) != error_mark_node)
+    BLOCK_SUPERCONTEXT (DECL_INITIAL (fndecl)) = fndecl;
 
   /* Must mark the RESULT_DECL as being in this function.  */
 
-  DECL_CONTEXT (DECL_RESULT (fndecl)) = fndecl;
+  if (DECL_RESULT (fndecl) && DECL_RESULT (fndecl) != error_mark_node)
+    DECL_CONTEXT (DECL_RESULT (fndecl)) = fndecl;
 
   if (MAIN_NAME_P (DECL_NAME (fndecl)) && flag_hosted)
     {
@@ -6156,7 +6194,7 @@ c_expand_body_1 (tree fndecl, int nested_p)
       /* Squirrel away our current state.  */
       push_function_context ();
     }
-
+    
   tree_rest_of_compilation (fndecl, nested_p);
 
   if (nested_p)
@@ -6187,7 +6225,9 @@ c_expand_body_1 (tree fndecl, int nested_p)
 void
 c_expand_body (tree fndecl)
 {
-  c_expand_body_1 (fndecl, 0);
+
+  if (DECL_INITIAL (fndecl) && DECL_INITIAL (fndecl) != error_mark_node)
+    c_expand_body_1 (fndecl, 0);
 }
 
 /* Check the declarations given in a for-loop for satisfying the C99
@@ -6251,20 +6291,6 @@ check_for_loop_decls (void)
     }
 }
 
-/* Save and restore the variables in this file and elsewhere
-   that keep track of the progress of compilation of the current function.
-   Used for nested functions.  */
-
-struct language_function GTY(())
-{
-  struct c_language_function base;
-  int returns_value;
-  int returns_null;
-  int returns_abnormally;
-  int warn_about_return_type;
-  int extern_inline;
-};
-
 /* Save and reinitialize the variables
    used during compilation of a C function.  */
 
@@ -6277,6 +6303,8 @@ c_push_function_context (struct function *f)
 
   p->base.x_stmt_tree = c_stmt_tree;
   p->base.x_scope_stmt_stack = c_scope_stmt_stack;
+  p->x_in_iteration_stmt = c_in_iteration_stmt;
+  p->x_in_case_stmt = c_in_case_stmt;
   p->returns_value = current_function_returns_value;
   p->returns_null = current_function_returns_null;
   p->returns_abnormally = current_function_returns_abnormally;
@@ -6303,6 +6331,8 @@ c_pop_function_context (struct function *f)
 
   c_stmt_tree = p->base.x_stmt_tree;
   c_scope_stmt_stack = p->base.x_scope_stmt_stack;
+  c_in_iteration_stmt = p->x_in_iteration_stmt;
+  c_in_case_stmt = p->x_in_case_stmt;
   current_function_returns_value = p->returns_value;
   current_function_returns_null = p->returns_null;
   current_function_returns_abnormally = p->returns_abnormally;
@@ -6510,7 +6540,7 @@ merge_translation_unit_decls (void)
   tree decl;
   htab_t link_hash_table;
   tree block;
-  
+
   /* Create the BLOCK that poplevel would have created, but don't
      actually call poplevel since that's expensive.  */
   block = make_node (BLOCK);
@@ -6551,7 +6581,7 @@ merge_translation_unit_decls (void)
 		DECL_EXTERNAL (decl) = 1;
 	      else if (DECL_COMMON (old_decl) || DECL_ONE_ONLY (old_decl))
 		DECL_EXTERNAL (old_decl) = 1;
-	      
+
 	      if (DECL_EXTERNAL (decl))
 		{
 		  DECL_INITIAL (decl) = NULL_TREE;
@@ -6585,10 +6615,10 @@ merge_translation_unit_decls (void)
 	{
 	  tree global_decl;
 	  global_decl = htab_find (link_hash_table, decl);
-	  
+
 	  if (! global_decl)
 	    continue;
-	  
+
 	  /* Print any appropriate error messages, and partially merge
 	     the decls.  */
 	  (void) duplicate_decls (decl, global_decl, true, true);
@@ -6603,7 +6633,7 @@ void
 c_write_global_declarations(void)
 {
   tree link;
-  
+
   for (link = current_file_decl; link; link = TREE_CHAIN (link))
     {
       tree globals = BLOCK_VARS (DECL_INITIAL (link));
@@ -6611,16 +6641,16 @@ c_write_global_declarations(void)
       tree *vec = xmalloc (sizeof (tree) * len);
       int i;
       tree decl;
-      
+
       /* Process the decls in the order they were written.  */
 
       for (i = 0, decl = globals; i < len; i++, decl = TREE_CHAIN (decl))
 	vec[i] = decl;
-      
+
       wrapup_global_declarations (vec, len);
-      
+
       check_global_declarations (vec, len);
-      
+
       /* Clean up.  */
       free (vec);
     }
@@ -6633,7 +6663,7 @@ c_reset_state (void)
 {
   tree link;
   tree file_scope_decl;
-  
+
   /* Pop the global scope.  */
   if (current_scope != global_scope)
       current_scope = global_scope;

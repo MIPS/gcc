@@ -403,6 +403,7 @@ static bool check_unique_operand_names (tree, tree);
 static char *resolve_operand_name_1 (char *, tree, tree);
 static void expand_null_return_1 (rtx);
 static enum br_predictor return_prediction (rtx);
+static rtx shift_return_value (rtx);
 static void expand_value_return (rtx);
 static int tail_recursion_args (tree, tree);
 static void expand_cleanups (tree, int, int);
@@ -646,6 +647,13 @@ expand_goto (tree label)
       else
 #endif
 	{
+	  emit_insn (gen_rtx_CLOBBER (VOIDmode,
+				      gen_rtx_MEM (BLKmode,
+						   gen_rtx_SCRATCH (VOIDmode))));
+	  emit_insn (gen_rtx_CLOBBER (VOIDmode,
+				      gen_rtx_MEM (BLKmode,
+						   hard_frame_pointer_rtx)));
+
 	  /* Restore frame pointer for containing function.
 	     This sets the actual hard register used for the frame pointer
 	     to the location of the function's incoming static chain info.
@@ -1246,6 +1254,9 @@ parse_output_constraint (const char **constraint_p, int operand_num,
 	break;
       }
 
+  if (*is_inout && !*allows_reg)
+    warning ("read-write constraint does not allow a register");
+
   return true;
 }
 
@@ -1261,6 +1272,7 @@ parse_input_constraint (const char **constraint_p, int input_num,
   const char *orig_constraint = constraint;
   size_t c_len = strlen (constraint);
   size_t j;
+  bool saw_match = false;
 
   /* Assume the constraint doesn't allow the use of either
      a register or memory.  */
@@ -1311,6 +1323,8 @@ parse_input_constraint (const char **constraint_p, int input_num,
 	{
 	  char *end;
 	  unsigned long match;
+
+	  saw_match = true;
 
 	  match = strtoul (constraint + j, &end, 10);
 	  if (match >= (unsigned long) noutputs)
@@ -1375,6 +1389,9 @@ parse_input_constraint (const char **constraint_p, int input_num,
 #endif
 	break;
       }
+
+  if (saw_match && !*allows_reg)
+    warning ("matching constraint does not allow a register");
 
   return true;
 }
@@ -1704,13 +1721,16 @@ expand_asm_operands (tree string, tree outputs, tree inputs,
 
 	      if (CONSTANT_P (op))
 		{
-		  op = force_const_mem (TYPE_MODE (type), op);
-		  op = validize_mem (op);
+		  rtx mem = force_const_mem (TYPE_MODE (type), op);
+		  if (mem)
+		    op = validize_mem (mem);
+		  else
+		    op = force_reg (TYPE_MODE (type), op);
 		}
-	      else if (GET_CODE (op) == REG
-		       || GET_CODE (op) == SUBREG
-		       || GET_CODE (op) == ADDRESSOF
-		       || GET_CODE (op) == CONCAT)
+	      if (GET_CODE (op) == REG
+		  || GET_CODE (op) == SUBREG
+		  || GET_CODE (op) == ADDRESSOF
+		  || GET_CODE (op) == CONCAT)
 		{
 		  tree qual_type = build_qualified_type (type,
 							 (TYPE_QUALS (type)
@@ -2874,6 +2894,26 @@ expand_null_return (void)
   expand_null_return_1 (last_insn);
 }
 
+/* Generate RTL to return directly from the current function.
+   (That is, we bypass any return value.)  */
+
+void
+expand_naked_return (void)
+{
+  rtx last_insn, end_label;
+
+  last_insn = get_last_insn ();
+  end_label = naked_return_label;
+
+  clear_pending_stack_adjust ();
+  do_pending_stack_adjust ();
+  clear_last_expr ();
+
+  if (end_label == 0)
+    end_label = naked_return_label = gen_label_rtx ();
+  expand_goto_internal (NULL_TREE, end_label, last_insn);
+}
+
 /* Try to guess whether the value of return means error code.  */
 static enum br_predictor
 return_prediction (rtx val)
@@ -2901,6 +2941,34 @@ return_prediction (rtx val)
     }
   return PRED_NO_PREDICTION;
 }
+
+
+/* If the current function returns values in the most significant part
+   of a register, shift return value VAL appropriately.  The mode of
+   the function's return type is known not to be BLKmode.  */
+
+static rtx
+shift_return_value (rtx val)
+{
+  tree type;
+
+  type = TREE_TYPE (DECL_RESULT (current_function_decl));
+  if (targetm.calls.return_in_msb (type))
+    {
+      rtx target;
+      HOST_WIDE_INT shift;
+
+      target = DECL_RTL (DECL_RESULT (current_function_decl));
+      shift = (GET_MODE_BITSIZE (GET_MODE (target))
+	       - BITS_PER_UNIT * int_size_in_bytes (type));
+      if (shift > 0)
+	val = expand_binop (GET_MODE (target), ashl_optab,
+			    gen_lowpart (GET_MODE (target), val),
+			    GEN_INT (shift), target, 1, OPTAB_WIDEN);
+    }
+  return val;
+}
+
 
 /* Generate RTL to return from the current function, with value VAL.  */
 
@@ -3066,7 +3134,7 @@ expand_return (tree retval)
     {
       int i;
       unsigned HOST_WIDE_INT bitpos, xbitpos;
-      unsigned HOST_WIDE_INT big_endian_correction = 0;
+      unsigned HOST_WIDE_INT padding_correction = 0;
       unsigned HOST_WIDE_INT bytes
 	= int_size_in_bytes (TREE_TYPE (retval_rhs));
       int n_regs = (bytes + UNITS_PER_WORD - 1) / UNITS_PER_WORD;
@@ -3083,25 +3151,33 @@ expand_return (tree retval)
 	  return;
 	}
 
-      /* Structures whose size is not a multiple of a word are aligned
-	 to the least significant byte (to the right).  On a BYTES_BIG_ENDIAN
-	 machine, this means we must skip the empty high order bytes when
-	 calculating the bit offset.  */
-      if (BYTES_BIG_ENDIAN
-	  && bytes % UNITS_PER_WORD)
-	big_endian_correction = (BITS_PER_WORD - ((bytes % UNITS_PER_WORD)
-						  * BITS_PER_UNIT));
+      /* If the structure doesn't take up a whole number of words, see
+	 whether the register value should be padded on the left or on
+	 the right.  Set PADDING_CORRECTION to the number of padding
+	 bits needed on the left side.
+
+	 In most ABIs, the structure will be returned at the least end of
+	 the register, which translates to right padding on little-endian
+	 targets and left padding on big-endian targets.  The opposite
+	 holds if the structure is returned at the most significant
+	 end of the register.  */
+      if (bytes % UNITS_PER_WORD != 0
+	  && (targetm.calls.return_in_msb (TREE_TYPE (retval_rhs))
+	      ? !BYTES_BIG_ENDIAN
+	      : BYTES_BIG_ENDIAN))
+	padding_correction = (BITS_PER_WORD - ((bytes % UNITS_PER_WORD)
+					       * BITS_PER_UNIT));
 
       /* Copy the structure BITSIZE bits at a time.  */
-      for (bitpos = 0, xbitpos = big_endian_correction;
+      for (bitpos = 0, xbitpos = padding_correction;
 	   bitpos < bytes * BITS_PER_UNIT;
 	   bitpos += bitsize, xbitpos += bitsize)
 	{
 	  /* We need a new destination pseudo each time xbitpos is
-	     on a word boundary and when xbitpos == big_endian_correction
+	     on a word boundary and when xbitpos == padding_correction
 	     (the first time through).  */
 	  if (xbitpos % BITS_PER_WORD == 0
-	      || xbitpos == big_endian_correction)
+	      || xbitpos == padding_correction)
 	    {
 	      /* Generate an appropriate register.  */
 	      dst = gen_reg_rtx (word_mode);
@@ -3128,21 +3204,25 @@ expand_return (tree retval)
 			   BITS_PER_WORD);
 	}
 
-      /* Find the smallest integer mode large enough to hold the
-	 entire structure and use that mode instead of BLKmode
-	 on the USE insn for the return register.  */
-      for (tmpmode = GET_CLASS_NARROWEST_MODE (MODE_INT);
-	   tmpmode != VOIDmode;
-	   tmpmode = GET_MODE_WIDER_MODE (tmpmode))
-	/* Have we found a large enough mode?  */
-	if (GET_MODE_SIZE (tmpmode) >= bytes)
-	  break;
+      tmpmode = GET_MODE (result_rtl);
+      if (tmpmode == BLKmode)
+	{
+	  /* Find the smallest integer mode large enough to hold the
+	     entire structure and use that mode instead of BLKmode
+	     on the USE insn for the return register.  */
+	  for (tmpmode = GET_CLASS_NARROWEST_MODE (MODE_INT);
+	       tmpmode != VOIDmode;
+	       tmpmode = GET_MODE_WIDER_MODE (tmpmode))
+	    /* Have we found a large enough mode?  */
+	    if (GET_MODE_SIZE (tmpmode) >= bytes)
+	      break;
 
-      /* No suitable mode found.  */
-      if (tmpmode == VOIDmode)
-	abort ();
+	  /* No suitable mode found.  */
+	  if (tmpmode == VOIDmode)
+	    abort ();
 
-      PUT_MODE (result_rtl, tmpmode);
+	  PUT_MODE (result_rtl, tmpmode);
+	}
 
       if (GET_MODE_SIZE (tmpmode) < GET_MODE_SIZE (word_mode))
 	result_reg_mode = word_mode;
@@ -3175,7 +3255,7 @@ expand_return (tree retval)
       val = force_not_mem (val);
       emit_queue ();
       /* Return the calculated value, doing cleanups first.  */
-      expand_value_return (val);
+      expand_value_return (shift_return_value (val));
     }
   else
     {
@@ -3487,6 +3567,14 @@ expand_nl_handler_label (rtx slot, rtx before_insn)
 static void
 expand_nl_goto_receiver (void)
 {
+    /* Clobber the FP when we get here, so we have to make sure it's
+     marked as used by this function.  */
+  emit_insn (gen_rtx_USE (VOIDmode, hard_frame_pointer_rtx));
+
+  /* Mark the static chain as clobbered here so life information
+     doesn't get messed up for it.  */
+  emit_insn (gen_rtx_CLOBBER (VOIDmode, static_chain_rtx));
+
 #ifdef HAVE_nonlocal_goto
   if (! HAVE_nonlocal_goto)
 #endif
@@ -3535,6 +3623,13 @@ expand_nl_goto_receiver (void)
   if (HAVE_nonlocal_goto_receiver)
     emit_insn (gen_nonlocal_goto_receiver ());
 #endif
+
+  /* @@@ This is a kludge.  Not all machine descriptions define a blockage
+     insn, but we must not allow the code we just generated to be reordered
+     by scheduling.  Specifically, the update of the frame pointer must
+     happen immediately, not later.  So emit an ASM_INPUT to act as blockage
+     insn.  */
+  emit_insn (gen_rtx_ASM_INPUT (VOIDmode, ""));
 }
 
 /* Make handlers for nonlocal gotos taking place in the function calls in

@@ -54,42 +54,36 @@ namespace __gnu_cxx
     {
     public:
       // Types:
-      typedef _CharT                     	        char_type;
-      typedef _Traits                    	        traits_type;
-      typedef typename traits_type::int_type 		int_type;
-      typedef typename traits_type::pos_type 		pos_type;
-      typedef typename traits_type::off_type 		off_type;
+      typedef _CharT				        char_type;
+      typedef _Traits				        traits_type;
+      typedef typename traits_type::int_type		int_type;
+      typedef typename traits_type::pos_type		pos_type;
+      typedef typename traits_type::off_type		off_type;
       typedef std::size_t                               size_t;
-      
+
     public:
       /**
        *  @param  fd  An open file descriptor.
        *  @param  mode  Same meaning as in a standard filebuf.
-       *  @param  del  Whether to close the file on destruction.
-       *  @param  size  Optimal or preferred size of internal buffer, in bytes.
-       *                Note that it includes a position for the overflow char,
-       *                therefore, can't be smaller than 2.
+       *  @param  size  Optimal or preferred size of internal buffer, in chars.
        *
        *  This constructor associates a file stream buffer with an open
-       *  POSIX file descriptor.  Iff @a del is true, then the associated
-       *  file will be closed when the stdio_filebuf is closed/destroyed.
+       *  POSIX file descriptor.
       */
-      stdio_filebuf(int __fd, std::ios_base::openmode __mode, bool __del, 
+      stdio_filebuf(int __fd, std::ios_base::openmode __mode,
 		    size_t __size = static_cast<size_t>(BUFSIZ));
 
       /**
        *  @param  f  An open @c FILE*.
        *  @param  mode  Same meaning as in a standard filebuf.
-       *  @param  size  Optimal or preferred size of internal buffer, in bytes.
-       *                Defaults to system's @c BUFSIZ. Note that it includes
-       *                a position for the overflow char, therefore, can't be
-       *                smaller than 2.
+       *  @param  size  Optimal or preferred size of internal buffer, in chars.
+       *                Defaults to system's @c BUFSIZ.
        *
        *  This constructor associates a file stream buffer with an open
        *  C @c FILE*.  The @c FILE* will not be automatically closed when the
        *  stdio_filebuf is closed/destroyed.
       */
-      stdio_filebuf(std::__c_file* __f, std::ios_base::openmode __mode, 
+      stdio_filebuf(std::__c_file* __f, std::ios_base::openmode __mode,
 		    size_t __size = static_cast<size_t>(BUFSIZ));
 
       /**
@@ -118,10 +112,9 @@ namespace __gnu_cxx
 
   template<typename _CharT, typename _Traits>
     stdio_filebuf<_CharT, _Traits>::
-    stdio_filebuf(int __fd, std::ios_base::openmode __mode, bool __del, 
-		  size_t __size)
+    stdio_filebuf(int __fd, std::ios_base::openmode __mode, size_t __size)
     {
-      this->_M_file.sys_open(__fd, __mode, __del);
+      this->_M_file.sys_open(__fd, __mode);
       if (this->is_open())
 	{
 	  this->_M_mode = __mode;
@@ -135,7 +128,7 @@ namespace __gnu_cxx
 
   template<typename _CharT, typename _Traits>
     stdio_filebuf<_CharT, _Traits>::
-    stdio_filebuf(std::__c_file* __f, std::ios_base::openmode __mode, 
+    stdio_filebuf(std::__c_file* __f, std::ios_base::openmode __mode,
 		  size_t __size)
     {
       this->_M_file.sys_open(__f, __mode);
@@ -151,4 +144,4 @@ namespace __gnu_cxx
     }
 } // namespace __gnu_cxx
 
-#endif 
+#endif

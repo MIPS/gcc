@@ -486,7 +486,6 @@ static void
 cgraph_expand_function (struct cgraph_node *node)
 {
   tree decl = node->decl;
-  struct cgraph_edge *e;
 
   if (flag_unit_at_a_time)
     announce_function (decl);
@@ -497,21 +496,8 @@ cgraph_expand_function (struct cgraph_node *node)
      via lang_expand_decl_stmt.  */
   (*lang_hooks.callgraph.expand_function) (decl);
 
-  if (!flag_unit_at_a_time)
-    {
-       if (!node->local.inlinable
-	   || (!node->local.disregard_inline_limits
-	       && !cgraph_default_inline_p (node)))
-	 DECL_SAVED_TREE (node->decl) = NULL;
-    }
-  else
-    {
-      for (e = node->callers; e; e = e->next_caller)
-	if (e->inline_call)
-	  break;
-      if (!e)
-	DECL_SAVED_TREE (decl) = NULL;
-    }
+  if (!cgraph_function_possibly_inlined_p (decl))
+    DECL_SAVED_TREE (decl) = NULL;
   current_function_decl = NULL;
 }
 
@@ -945,7 +931,7 @@ cgraph_default_inline_p (struct cgraph_node *n)
    All inline candidates are put into prioritized heap based on estimated
    growth of the overall number of instructions and then update the estimates.
 
-   INLINED and INLINED_CALEES are just pointers to arrays large enought
+   INLINED and INLINED_CALEES are just pointers to arrays large enough
    to be passed to cgraph_inlined_into and cgraph_inlined_callees.  */
 
 static void

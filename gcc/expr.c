@@ -47,6 +47,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "langhooks.h"
 #include "intl.h"
 #include "tm_p.h"
+#include "target.h"
 
 /* Decide whether a function's arguments should be processed
    from first to last or from last to first.
@@ -605,9 +606,9 @@ convert_move (rtx to, rtx from, int unsignedp)
       rtx value, insns;
       convert_optab tab;
 
-      if (GET_MODE_BITSIZE (from_mode) < GET_MODE_BITSIZE (to_mode))
+      if (GET_MODE_PRECISION (from_mode) < GET_MODE_PRECISION (to_mode))
 	tab = sext_optab;
-      else if (GET_MODE_BITSIZE (from_mode) > GET_MODE_BITSIZE (to_mode))
+      else if (GET_MODE_PRECISION (from_mode) > GET_MODE_PRECISION (to_mode))
 	tab = trunc_optab;
       else
 	abort ();
@@ -2121,10 +2122,10 @@ emit_group_store (rtx orig_dst, rtx src, tree type ATTRIBUTE_UNUSED, int ssize)
    set of registers starting with SRCREG into TGTBLK.  If TGTBLK
    is null, a stack temporary is created.  TGTBLK is returned.
 
-   The primary purpose of this routine is to handle functions
-   that return BLKmode structures in registers.  Some machines
-   (the PA for example) want to return all small structures
-   in registers regardless of the structure's alignment.  */
+   The purpose of this routine is to handle functions that return
+   BLKmode structures in registers.  Some machines (the PA for example)
+   want to return all small structures in registers regardless of the
+   structure's alignment.  */
 
 rtx
 copy_blkmode_from_reg (rtx tgtblk, rtx srcreg, tree type)
@@ -2132,7 +2133,7 @@ copy_blkmode_from_reg (rtx tgtblk, rtx srcreg, tree type)
   unsigned HOST_WIDE_INT bytes = int_size_in_bytes (type);
   rtx src = NULL, dst = NULL;
   unsigned HOST_WIDE_INT bitsize = MIN (TYPE_ALIGN (type), BITS_PER_WORD);
-  unsigned HOST_WIDE_INT bitpos, xbitpos, big_endian_correction = 0;
+  unsigned HOST_WIDE_INT bitpos, xbitpos, padding_correction = 0;
 
   if (tgtblk == 0)
     {
@@ -2150,13 +2151,20 @@ copy_blkmode_from_reg (rtx tgtblk, rtx srcreg, tree type)
       && GET_MODE_SIZE (GET_MODE (srcreg)) < UNITS_PER_WORD)
     srcreg = convert_to_mode (word_mode, srcreg, TREE_UNSIGNED (type));
 
-  /* Structures whose size is not a multiple of a word are aligned
-     to the least significant byte (to the right).  On a BYTES_BIG_ENDIAN
-     machine, this means we must skip the empty high order bytes when
-     calculating the bit offset.  */
-  if (BYTES_BIG_ENDIAN
-      && bytes % UNITS_PER_WORD)
-    big_endian_correction
+  /* If the structure doesn't take up a whole number of words, see whether
+     SRCREG is padded on the left or on the right.  If it's on the left,
+     set PADDING_CORRECTION to the number of bits to skip.
+
+     In most ABIs, the structure will be returned at the least end of
+     the register, which translates to right padding on little-endian
+     targets and left padding on big-endian targets.  The opposite
+     holds if the structure is returned at the most significant
+     end of the register.  */
+  if (bytes % UNITS_PER_WORD != 0
+      && (targetm.calls.return_in_msb (type)
+	  ? !BYTES_BIG_ENDIAN
+	  : BYTES_BIG_ENDIAN))
+    padding_correction
       = (BITS_PER_WORD - ((bytes % UNITS_PER_WORD) * BITS_PER_UNIT));
 
   /* Copy the structure BITSIZE bites at a time.
@@ -2164,15 +2172,15 @@ copy_blkmode_from_reg (rtx tgtblk, rtx srcreg, tree type)
      We could probably emit more efficient code for machines which do not use
      strict alignment, but it doesn't seem worth the effort at the current
      time.  */
-  for (bitpos = 0, xbitpos = big_endian_correction;
+  for (bitpos = 0, xbitpos = padding_correction;
        bitpos < bytes * BITS_PER_UNIT;
        bitpos += bitsize, xbitpos += bitsize)
     {
       /* We need a new source operand each time xbitpos is on a
-	 word boundary and when xbitpos == big_endian_correction
+	 word boundary and when xbitpos == padding_correction
 	 (the first time through).  */
       if (xbitpos % BITS_PER_WORD == 0
-	  || xbitpos == big_endian_correction)
+	  || xbitpos == padding_correction)
 	src = operand_subword_force (srcreg, xbitpos / BITS_PER_WORD,
 				     GET_MODE (srcreg));
 
@@ -3466,8 +3474,18 @@ emit_push_insn (rtx x, enum machine_mode mode, tree type, rtx size,
 
       rtx temp;
       int used = partial * UNITS_PER_WORD;
-      int offset = used % (PARM_BOUNDARY / BITS_PER_UNIT);
+      int offset;
       int skip;
+
+      if (reg && GET_CODE (reg) == PARALLEL)
+	{
+	  /* Use the size of the elt to compute offset.  */
+	  rtx elt = XEXP (XVECEXP (reg, 0, 0), 0);
+	  used = partial * GET_MODE_SIZE (GET_MODE (elt));
+	  offset = used % (PARM_BOUNDARY / BITS_PER_UNIT);
+	}
+      else
+	offset = used % (PARM_BOUNDARY / BITS_PER_UNIT);
 
       if (size == 0)
 	abort ();
@@ -3826,7 +3844,11 @@ expand_assignment (tree to, tree from, int want_value)
 	}
 
       if (TREE_CODE (to) == COMPONENT_REF
-	  && TREE_READONLY (TREE_OPERAND (to, 1)))
+	  && TREE_READONLY (TREE_OPERAND (to, 1))
+	  /* We can't assert that a MEM won't be set more than once
+	     if the component is not addressable because another
+	     non-addressable component may be referenced by the same MEM.  */
+	  && ! (GET_CODE (to_rtx) == MEM && ! can_address_p (to)))
 	{
 	  if (to_rtx == orig_to_rtx)
 	    to_rtx = copy_rtx (to_rtx);
@@ -4621,7 +4643,10 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size)
 				       highest_pow2_factor (offset));
 	    }
 
-	  if (TREE_READONLY (field))
+	  /* If the constructor has been cleared, setting RTX_UNCHANGING_P
+	     on the MEM might lead to scheduling the clearing after the
+	     store.  */
+	  if (TREE_READONLY (field) && !cleared)
 	    {
 	      if (GET_CODE (to_rtx) == MEM)
 		to_rtx = copy_rtx (to_rtx);
@@ -5918,60 +5943,6 @@ var_rtx (tree exp)
       return 0;
     }
 }
-
-#ifdef MAX_INTEGER_COMPUTATION_MODE
-
-void
-check_max_integer_computation_mode (tree exp)
-{
-  enum tree_code code;
-  enum machine_mode mode;
-
-  /* Strip any NOPs that don't change the mode.  */
-  STRIP_NOPS (exp);
-  code = TREE_CODE (exp);
-
-  /* We must allow conversions of constants to MAX_INTEGER_COMPUTATION_MODE.  */
-  if (code == NOP_EXPR
-      && TREE_CODE (TREE_OPERAND (exp, 0)) == INTEGER_CST)
-    return;
-
-  /* First check the type of the overall operation.   We need only look at
-     unary, binary and relational operations.  */
-  if (TREE_CODE_CLASS (code) == '1'
-      || TREE_CODE_CLASS (code) == '2'
-      || TREE_CODE_CLASS (code) == '<')
-    {
-      mode = TYPE_MODE (TREE_TYPE (exp));
-      if (GET_MODE_CLASS (mode) == MODE_INT
-	  && mode > MAX_INTEGER_COMPUTATION_MODE)
-	internal_error ("unsupported wide integer operation");
-    }
-
-  /* Check operand of a unary op.  */
-  if (TREE_CODE_CLASS (code) == '1')
-    {
-      mode = TYPE_MODE (TREE_TYPE (TREE_OPERAND (exp, 0)));
-      if (GET_MODE_CLASS (mode) == MODE_INT
-	  && mode > MAX_INTEGER_COMPUTATION_MODE)
-	internal_error ("unsupported wide integer operation");
-    }
-
-  /* Check operands of a binary/comparison op.  */
-  if (TREE_CODE_CLASS (code) == '2' || TREE_CODE_CLASS (code) == '<')
-    {
-      mode = TYPE_MODE (TREE_TYPE (TREE_OPERAND (exp, 0)));
-      if (GET_MODE_CLASS (mode) == MODE_INT
-	  && mode > MAX_INTEGER_COMPUTATION_MODE)
-	internal_error ("unsupported wide integer operation");
-
-      mode = TYPE_MODE (TREE_TYPE (TREE_OPERAND (exp, 1)));
-      if (GET_MODE_CLASS (mode) == MODE_INT
-	  && mode > MAX_INTEGER_COMPUTATION_MODE)
-	internal_error ("unsupported wide integer operation");
-    }
-}
-#endif
 
 /* Return the highest power of two that EXP is known to be a multiple of.
    This is used in updating alignment of MEMs in array references.  */
@@ -6274,49 +6245,6 @@ expand_expr (tree exp, rtx target, enum machine_mode tmode,
 
       target = 0;
     }
-
-#ifdef MAX_INTEGER_COMPUTATION_MODE
-  /* Only check stuff here if the mode we want is different from the mode
-     of the expression; if it's the same, check_max_integer_computation_mode
-     will handle it.  Do we really need to check this stuff at all?  */
-
-  if (target
-      && GET_MODE (target) != mode
-      && TREE_CODE (exp) != INTEGER_CST
-      && TREE_CODE (exp) != PARM_DECL
-      && TREE_CODE (exp) != ARRAY_REF
-      && TREE_CODE (exp) != ARRAY_RANGE_REF
-      && TREE_CODE (exp) != COMPONENT_REF
-      && TREE_CODE (exp) != BIT_FIELD_REF
-      && TREE_CODE (exp) != INDIRECT_REF
-      && TREE_CODE (exp) != CALL_EXPR
-      && TREE_CODE (exp) != VAR_DECL
-      && TREE_CODE (exp) != RTL_EXPR)
-    {
-      enum machine_mode mode = GET_MODE (target);
-
-      if (GET_MODE_CLASS (mode) == MODE_INT
-	  && mode > MAX_INTEGER_COMPUTATION_MODE)
-	internal_error ("unsupported wide integer operation");
-    }
-
-  if (tmode != mode
-      && TREE_CODE (exp) != INTEGER_CST
-      && TREE_CODE (exp) != PARM_DECL
-      && TREE_CODE (exp) != ARRAY_REF
-      && TREE_CODE (exp) != ARRAY_RANGE_REF
-      && TREE_CODE (exp) != COMPONENT_REF
-      && TREE_CODE (exp) != BIT_FIELD_REF
-      && TREE_CODE (exp) != INDIRECT_REF
-      && TREE_CODE (exp) != VAR_DECL
-      && TREE_CODE (exp) != CALL_EXPR
-      && TREE_CODE (exp) != RTL_EXPR
-      && GET_MODE_CLASS (tmode) == MODE_INT
-      && tmode > MAX_INTEGER_COMPUTATION_MODE)
-    internal_error ("unsupported wide integer operation");
-
-  check_max_integer_computation_mode (exp);
-#endif
 
   /* If will do cse, generate all results into pseudo registers
      since 1) that allows cse to find more things
@@ -6943,7 +6871,8 @@ expand_expr (tree exp, rtx target, enum machine_mode tmode,
 		 && modifier != EXPAND_MEMORY
 		 && TREE_READONLY (array) && ! TREE_SIDE_EFFECTS (array)
 		 && TREE_CODE (array) == VAR_DECL && DECL_INITIAL (array)
-		 && TREE_CODE (DECL_INITIAL (array)) != ERROR_MARK)
+		 && TREE_CODE (DECL_INITIAL (array)) != ERROR_MARK
+		 && targetm.binds_local_p (array))
 	  {
 	    if (TREE_CODE (index) == INTEGER_CST)
 	      {
@@ -7130,10 +7059,9 @@ expand_expr (tree exp, rtx target, enum machine_mode tmode,
 	      offset_rtx = convert_to_mode (ptr_mode, offset_rtx, 0);
 #endif
 
-	    /* A constant address in OP0 can have VOIDmode, we must not try
-	       to call force_reg for that case.  Avoid that case.  */
-	    if (GET_CODE (op0) == MEM
-		&& GET_MODE (op0) == BLKmode
+	    if (GET_MODE (op0) == BLKmode
+		/* A constant address in OP0 can have VOIDmode, we must
+		   not try to call force_reg in that case.  */
 		&& GET_MODE (XEXP (op0, 0)) != VOIDmode
 		&& bitsize != 0
 		&& (bitpos % bitsize) == 0
@@ -7190,7 +7118,10 @@ expand_expr (tree exp, rtx target, enum machine_mode tmode,
 	       fetch it as a bit field.  */
 	    || (mode1 != BLKmode
 		&& (((TYPE_ALIGN (TREE_TYPE (tem)) < GET_MODE_ALIGNMENT (mode)
-		      || (bitpos % GET_MODE_ALIGNMENT (mode) != 0))
+		      || (bitpos % GET_MODE_ALIGNMENT (mode) != 0)
+		      || (GET_CODE (op0) == MEM
+			  && (MEM_ALIGN (op0) < GET_MODE_ALIGNMENT (mode1)
+			      || (bitpos % GET_MODE_ALIGNMENT (mode1) != 0))))
 		     && ((modifier == EXPAND_CONST_ADDRESS
 			  || modifier == EXPAND_INITIALIZER)
 			 ? STRICT_ALIGNMENT
@@ -7853,16 +7784,6 @@ expand_expr (tree exp, rtx target, enum machine_mode tmode,
 
 	  op0 = expand_expr (TREE_OPERAND (exp, 0), subtarget, VOIDmode,
 			     EXPAND_SUM);
-
-	  /* If we knew for certain that this is arithmetic for an array
-	     reference, and we knew the bounds of the array, then we could
-	     apply the distributive law across (PLUS X C) for constant C.
-	     Without such knowledge, we risk overflowing the computation
-	     when both X and C are large, but X+C isn't.  */
-	  /* ??? Could perhaps special-case EXP being unsigned and C being
-	     positive.  In that case we are certain that X+C is no smaller
-	     than X and so the transformed expression will overflow iff the
-	     original would have.  */
 
 	  if (GET_CODE (op0) != REG)
 	    op0 = force_operand (op0, NULL_RTX);
@@ -9328,7 +9249,7 @@ expand_increment (tree exp, int post, int ignore)
     {
       /* We have a true reference to the value in OP0.
 	 If there is an insn to add or subtract in this mode, queue it.
-	 Queueing the increment insn avoids the register shuffling
+	 Queuing the increment insn avoids the register shuffling
 	 that often results if we must increment now and first save
 	 the old value for subsequent use.  */
 
@@ -9775,7 +9696,7 @@ do_tablejump (rtx index, enum machine_mode mode, rtx range, rtx table_label,
   if (mode != Pmode)
     index = convert_to_mode (Pmode, index, 1);
 
-  /* Don't let a MEM slip thru, because then INDEX that comes
+  /* Don't let a MEM slip through, because then INDEX that comes
      out of PIC_CASE_VECTOR_ADDRESS won't be a valid address,
      and break_out_memory_refs will go to work on it and mess it up.  */
 #ifdef PIC_CASE_VECTOR_ADDRESS

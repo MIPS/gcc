@@ -297,6 +297,7 @@ package body Sinfo is
       (N : Node_Id) return Boolean is
    begin
       pragma Assert (False
+        or else NT (N).Nkind = N_Component_Association
         or else NT (N).Nkind = N_Formal_Package_Declaration
         or else NT (N).Nkind = N_Formal_Subprogram_Declaration);
       return Flag15 (N);
@@ -929,6 +930,15 @@ package body Sinfo is
         or else NT (N).Nkind = N_Freeze_Entity);
       return Node4 (N);
    end Entity;
+
+   function Entity_Or_Associated_Node
+      (N : Node_Id) return Node_Id is
+   begin
+      pragma Assert (False
+        or else NT (N).Nkind in N_Has_Entity
+        or else NT (N).Nkind = N_Freeze_Entity);
+      return Node4 (N);
+   end Entity_Or_Associated_Node;
 
    function Entry_Body_Formal_Part
       (N : Node_Id) return Node_Id is
@@ -1753,6 +1763,15 @@ package body Sinfo is
         or else NT (N).Nkind = N_Assignment_Statement);
       return Flag7 (N);
    end No_Ctrl_Actions;
+
+   function No_Elaboration_Check
+      (N : Node_Id) return Boolean is
+   begin
+      pragma Assert (False
+        or else NT (N).Nkind = N_Function_Call
+        or else NT (N).Nkind = N_Procedure_Call_Statement);
+      return Flag14 (N);
+   end No_Elaboration_Check;
 
    function No_Entities_Ref_In_Spec
       (N : Node_Id) return Boolean is
@@ -2720,6 +2739,7 @@ package body Sinfo is
       (N : Node_Id; Val : Boolean := True) is
    begin
       pragma Assert (False
+        or else NT (N).Nkind = N_Component_Association
         or else NT (N).Nkind = N_Formal_Package_Declaration
         or else NT (N).Nkind = N_Formal_Subprogram_Declaration);
       Set_Flag15 (N, Val);
@@ -4175,6 +4195,15 @@ package body Sinfo is
         or else NT (N).Nkind = N_Assignment_Statement);
       Set_Flag7 (N, Val);
    end Set_No_Ctrl_Actions;
+
+   procedure Set_No_Elaboration_Check
+      (N : Node_Id; Val : Boolean := True) is
+   begin
+      pragma Assert (False
+        or else NT (N).Nkind = N_Function_Call
+        or else NT (N).Nkind = N_Procedure_Call_Statement);
+      Set_Flag14 (N, Val);
+   end Set_No_Elaboration_Check;
 
    procedure Set_No_Entities_Ref_In_Spec
       (N : Node_Id; Val : Boolean := True) is

@@ -34,6 +34,9 @@
 #include "tm.h"
 #include "dwarf2.h"
 #include "unwind.h"
+#ifdef __USING_SJLJ_EXCEPTIONS__
+# define NO_SIZE_OF_ENCODED_VALUE
+#endif
 #include "unwind-pe.h"
 #include "unwind-dw2-fde.h"
 #include "gthr.h"
@@ -104,7 +107,7 @@ typedef struct
 	REG_UNSAVED,
 	REG_SAVED_OFFSET,
 	REG_SAVED_REG,
-	REG_SAVED_EXP,
+	REG_SAVED_EXP
       } how;
     } reg[DWARF_FRAME_REGISTERS+1];
 
@@ -120,7 +123,7 @@ typedef struct
   enum {
     CFA_UNSET,
     CFA_REG_OFFSET,
-    CFA_EXP,
+    CFA_EXP
   } cfa_how;
 
   /* The PC described by the current frame state.  */
@@ -287,7 +290,7 @@ void *
 _Unwind_FindEnclosingFunction (void *pc)
 {
   struct dwarf_eh_bases bases;
-  struct dwarf_fde *fde = _Unwind_Find_FDE (pc-1, &bases);
+  const struct dwarf_fde *fde = _Unwind_Find_FDE (pc-1, &bases);
   if (fde)
     return bases.func;
   else
@@ -313,7 +316,7 @@ _Unwind_GetTextRelBase (struct _Unwind_Context *context)
    or NULL if we encountered an undecipherable augmentation.  */
 
 static const unsigned char *
-extract_cie_info (struct dwarf_cie *cie, struct _Unwind_Context *context,
+extract_cie_info (const struct dwarf_cie *cie, struct _Unwind_Context *context,
 		  _Unwind_FrameState *fs)
 {
   const unsigned char *aug = cie->augmentation;
@@ -998,8 +1001,8 @@ execute_cfa_program (const unsigned char *insn_ptr,
 static _Unwind_Reason_Code
 uw_frame_state_for (struct _Unwind_Context *context, _Unwind_FrameState *fs)
 {
-  struct dwarf_fde *fde;
-  struct dwarf_cie *cie;
+  const struct dwarf_fde *fde;
+  const struct dwarf_cie *cie;
   const unsigned char *aug, *insn, *end;
 
   memset (fs, 0, sizeof (*fs));

@@ -234,7 +234,7 @@ do {								\
 #define EXTRA_SECTION_FUNCTIONS						\
 extern void readonly_data (void);					\
 void									\
-readonly_data ()							\
+readonly_data (void)							\
 {									\
   if (in_section != in_readonly_data)					\
     {									\
@@ -332,8 +332,8 @@ readonly_data ()							\
 
 #define DO_GLOBAL_DTORS_BODY			\
 do {						\
-  extern void __gcc_plt_call ();		\
-  void (*reference)() = &__gcc_plt_call;	\
+  extern void __gcc_plt_call (void);		\
+  void (*reference)(void) = &__gcc_plt_call;	\
   func_ptr *p;					\
   __asm__ ("" : : "r" (reference));		\
   for (p = __DTOR_LIST__ + 1; *p; )		\

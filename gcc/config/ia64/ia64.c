@@ -344,11 +344,6 @@ static const struct attribute_spec ia64_attribute_table[] =
 #undef TARGET_SCHED_DFA_NEW_CYCLE
 #define TARGET_SCHED_DFA_NEW_CYCLE ia64_dfa_new_cycle
 
-#ifdef HAVE_AS_TLS
-#undef TARGET_HAVE_TLS
-#define TARGET_HAVE_TLS true
-#endif
-
 #undef TARGET_FUNCTION_OK_FOR_SIBCALL
 #define TARGET_FUNCTION_OK_FOR_SIBCALL ia64_function_ok_for_sibcall
 
@@ -1465,6 +1460,8 @@ spill_xfmode_operand (rtx in, int force)
 /* Emit comparison instruction if necessary, returning the expression
    that holds the compare result in the proper mode.  */
 
+static GTY(()) rtx cmptf_libfunc;
+
 rtx
 ia64_expand_compare (enum rtx_code code, enum machine_mode mode)
 {
@@ -1479,6 +1476,59 @@ ia64_expand_compare (enum rtx_code code, enum machine_mode mode)
 	cmp = op0;
       else
 	abort ();
+    }
+  /* HPUX TFmode compare requires a library call to _U_Qfcmp, which takes a
+     magic number as its third argument, that indicates what to do.
+     The return value is an integer to be compared against zero.  */
+  else if (TARGET_HPUX && GET_MODE (op0) == TFmode)
+    {
+      enum qfcmp_magic {
+	QCMP_INV = 1,	/* Raise FP_INVALID on SNaN as a side effect.  */
+	QCMP_UNORD = 2,
+	QCMP_EQ = 4,
+	QCMP_LT = 8,
+	QCMP_GT = 16
+      } magic;
+      enum rtx_code ncode;
+      rtx ret, insns;
+      if (GET_MODE (op1) != TFmode)
+	abort ();
+      switch (code)
+	{
+	  /* 1 = equal, 0 = not equal.  Equality operators do
+	     not raise FP_INVALID when given an SNaN operand.  */
+	case EQ:        magic = QCMP_EQ;                  ncode = NE; break;
+	case NE:        magic = QCMP_EQ;                  ncode = EQ; break;
+	  /* isunordered() from C99.  */
+	case UNORDERED: magic = QCMP_UNORD;               ncode = NE; break;
+	  /* Relational operators raise FP_INVALID when given
+	     an SNaN operand.  */
+	case LT:        magic = QCMP_LT        |QCMP_INV; ncode = NE; break;
+	case LE:        magic = QCMP_LT|QCMP_EQ|QCMP_INV; ncode = NE; break;
+	case GT:        magic = QCMP_GT        |QCMP_INV; ncode = NE; break;
+	case GE:        magic = QCMP_GT|QCMP_EQ|QCMP_INV; ncode = NE; break;
+	  /* FUTURE: Implement UNEQ, UNLT, UNLE, UNGT, UNGE, LTGT.
+	     Expanders for buneq etc. weuld have to be added to ia64.md
+	     for this to be useful.  */
+	default: abort ();
+	}
+
+      start_sequence ();
+
+      ret = emit_library_call_value (cmptf_libfunc, 0, LCT_CONST, DImode, 3,
+				     op0, TFmode, op1, TFmode,
+				     GEN_INT (magic), DImode);
+      cmp = gen_reg_rtx (BImode);
+      emit_insn (gen_rtx_SET (VOIDmode, cmp,
+			      gen_rtx_fmt_ee (ncode, BImode,
+					      ret, const0_rtx)));
+
+      insns = get_insns ();
+      end_sequence ();
+
+      emit_libcall_block (insns, cmp, cmp,
+			  gen_rtx_fmt_ee (code, BImode, op0, op1));
+      code = NE;
     }
   else
     {
@@ -3065,13 +3115,13 @@ ia64_hard_regno_rename_ok (int from, int to)
 static bool
 ia64_assemble_integer (rtx x, unsigned int size, int aligned_p)
 {
-  if (size == (TARGET_ILP32 ? 4 : 8)
+  if (size == POINTER_SIZE / BITS_PER_UNIT
       && aligned_p
       && !(TARGET_NO_PIC || TARGET_AUTO_PIC)
       && GET_CODE (x) == SYMBOL_REF
       && SYMBOL_REF_FUNCTION_P (x))
     {
-      if (TARGET_ILP32)
+      if (POINTER_SIZE == 32)
 	fputs ("\tdata4\t@fptr(", asm_out_file);
       else
 	fputs ("\tdata8\t@fptr(", asm_out_file);
@@ -3227,7 +3277,8 @@ ia64_initialize_trampoline (rtx addr, rtx fnaddr, rtx static_chain)
       if (!declared_ia64_trampoline)
 	{
 	  declared_ia64_trampoline = true;
-	  fputs ("\t.global\t__ia64_trampoline\n", asm_out_file);
+	  (*targetm.asm_out.globalize_label) (asm_out_file,
+					      "__ia64_trampoline");
 	}
     }
 
@@ -3471,9 +3522,10 @@ ia64_function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode, tree type,
 		      ? 1 : GET_MODE_SIZE (gr_mode) / UNITS_PER_WORD;
 	}
 
-      /* If we ended up using just one location, just return that one loc.  */
+      /* If we ended up using just one location, just return that one loc, but
+	 change the mode back to the argument mode.  */
       if (i == 1)
-	return XEXP (loc[0], 0);
+	return gen_rtx_REG (mode, REGNO (XEXP (loc[0], 0)));
       else
 	return gen_rtx_PARALLEL (mode, gen_rtvec_v (i, loc));
     }
@@ -4350,7 +4402,7 @@ ia64_asm_output_external (FILE *file, tree decl, const char *name)
   if (TARGET_GNU_AS
       && (!TARGET_HPUX_LD
 	  || TREE_CODE (decl) != FUNCTION_DECL
-	  || strstr(name, "__builtin_") == name))
+	  || strstr (name, "__builtin_") == name))
     return;
 
   /* ??? The Intel assembler creates a reference that needs to be satisfied by
@@ -4485,6 +4537,18 @@ ia64_override_options (void)
     {
       warning ("cannot optimize integer division for both latency and throughput");
       target_flags &= ~MASK_INLINE_INT_DIV_THR;
+    }
+
+  if (TARGET_INLINE_SQRT_LAT && TARGET_INLINE_SQRT_THR)
+    {
+      warning ("cannot optimize square root for both latency and throughput");
+      target_flags &= ~MASK_INLINE_SQRT_THR;
+    }
+
+  if (TARGET_INLINE_SQRT_LAT)
+    {
+      warning ("not yet implemented: latency-optimized inline square root");
+      target_flags &= ~MASK_INLINE_SQRT_LAT;
     }
 
   if (ia64_fixed_range_string)
@@ -4896,9 +4960,9 @@ set_src_needs_barrier (rtx x, struct reg_flags flags, int pred, rtx cond)
   return need_barrier;
 }
 
-/* Handle an access to rtx X of type FLAGS using predicate register PRED.
-   Return 1 is this access creates a dependency with an earlier instruction
-   in the same group.  */
+/* Handle an access to rtx X of type FLAGS using predicate register
+   PRED.  Return 1 if this access creates a dependency with an earlier
+   instruction in the same group.  */
 
 static int
 rtx_needs_barrier (rtx x, struct reg_flags flags, int pred)
@@ -5124,7 +5188,9 @@ rtx_needs_barrier (rtx x, struct reg_flags flags, int pred)
 	case UNSPEC_FR_SPILL:
 	case UNSPEC_FR_RESTORE:
 	case UNSPEC_GETF_EXP:
+	case UNSPEC_SETF_EXP:
         case UNSPEC_ADDP4:
+	case UNSPEC_FR_SQRT_RECIP_APPROX:
 	  need_barrier = rtx_needs_barrier (XVECEXP (x, 0, 0), flags, pred);
 	  break;
 
@@ -6491,13 +6557,44 @@ get_next_important_insn (rtx insn, rtx tail)
   return NULL_RTX;
 }
 
-/* The following function does insn bundling.  Bundling algorithm is
-   based on dynamic programming.  It tries to insert different number of
-   nop insns before/after the real insns.  At the end of EBB, it chooses the
-   best alternative and then, moving back in EBB, inserts templates for
-   the best alternative.  The algorithm is directed by information
-   (changes of simulated processor cycle) created by the 2nd insn
-   scheduling.  */
+/* The following function does insn bundling.  Bundling means
+   inserting templates and nop insns to fit insn groups into permitted
+   templates.  Instruction scheduling uses NDFA (non-deterministic
+   finite automata) encoding informations about the templates and the
+   inserted nops.  Nondeterminism of the automata permits follows
+   all possible insn sequences very fast.
+
+   Unfortunately it is not possible to get information about inserting
+   nop insns and used templates from the automata states.  The
+   automata only says that we can issue an insn possibly inserting
+   some nops before it and using some template.  Therefore insn
+   bundling in this function is implemented by using DFA
+   (deterministic finite automata).  We follows all possible insn
+   sequences by inserting 0-2 nops (that is what the NDFA describe for
+   insn scheduling) before/after each insn being bundled.  We know the
+   start of simulated processor cycle from insn scheduling (insn
+   starting a new cycle has TImode).
+
+   Simple implementation of insn bundling would create enormous
+   number of possible insn sequences satisfying information about new
+   cycle ticks taken from the insn scheduling.  To make the algorithm
+   practical we use dynamic programming.  Each decision (about
+   inserting nops and implicitly about previous decisions) is described
+   by structure bundle_state (see above).  If we generate the same
+   bundle state (key is automaton state after issuing the insns and
+   nops for it), we reuse already generated one.  As consequence we
+   reject some decisions which can not improve the solution and
+   reduce memory for the algorithm.
+
+   When we reach the end of EBB (extended basic block), we choose the
+   best sequence and then, moving back in EBB, insert templates for
+   the best alternative.  The templates are taken from querying
+   automaton state for each insn in chosen bundle states.
+
+   So the algorithm makes two (forward and backward) passes through
+   EBB.  There is an additional forward pass through EBB for Itanium1
+   processor.  This pass inserts more nops to make dependency between
+   a producer insn and MMMUL/MMSHF at least 4 cycles long.  */
 
 static void
 bundling (FILE *dump, int verbose, rtx prev_head_insn, rtx tail)
@@ -6512,6 +6609,7 @@ bundling (FILE *dump, int verbose, rtx prev_head_insn, rtx tail)
   enum attr_type type;
 
   insn_num = 0;
+  /* Count insns in the EBB.  */
   for (insn = NEXT_INSN (prev_head_insn);
        insn && insn != tail;
        insn = NEXT_INSN (insn))
@@ -6524,7 +6622,7 @@ bundling (FILE *dump, int verbose, rtx prev_head_insn, rtx tail)
   initiate_bundle_state_table ();
   index_to_bundle_states = xmalloc ((insn_num + 2)
 				    * sizeof (struct bundle_state *));
-  /* First (forward) pass -- generates states. */
+  /* First (forward) pass -- generation of bundle states. */
   curr_state = get_free_bundle_state ();
   curr_state->insn = NULL;
   curr_state->before_nops_num = 0;
@@ -6538,6 +6636,7 @@ bundling (FILE *dump, int verbose, rtx prev_head_insn, rtx tail)
   state_reset (curr_state->dfa_state);
   index_to_bundle_states [0] = curr_state;
   insn_num = 0;
+  /* Shift cycle mark if it is put on insn which could be ignored.  */
   for (insn = NEXT_INSN (prev_head_insn);
        insn != tail;
        insn = NEXT_INSN (insn))
@@ -6560,6 +6659,7 @@ bundling (FILE *dump, int verbose, rtx prev_head_insn, rtx tail)
 	      break;
 	    }
       }
+  /* Froward pass: generation of bundle states.  */
   for (insn = get_next_important_insn (NEXT_INSN (prev_head_insn), tail);
        insn != NULL_RTX;
        insn = next_insn)
@@ -6579,19 +6679,25 @@ bundling (FILE *dump, int verbose, rtx prev_head_insn, rtx tail)
 	{
 	  pos = curr_state->accumulated_insns_num % 3;
 	  next_state = curr_state->next;
-	  /* Finish the current bundle in order to start a subsequent
-	     asm insn in a new bundle.  */
+	  /* We must fill up the current bundle in order to start a
+	     subsequent asm insn in a new bundle.  Asm insn is always
+	     placed in a separate bundle.  */
 	  only_bundle_end_p
 	    = (next_insn != NULL_RTX
 	       && INSN_CODE (insn) == CODE_FOR_insn_group_barrier
 	       && ia64_safe_type (next_insn) == TYPE_UNKNOWN);
+	  /* We may fill up the current bundle if it is the cycle end
+	     without a group barrier.  */
 	  bundle_end_p
 	    = (only_bundle_end_p || next_insn == NULL_RTX
 	       || (GET_MODE (next_insn) == TImode
 		   && INSN_CODE (insn) != CODE_FOR_insn_group_barrier));
 	  if (type == TYPE_F || type == TYPE_B || type == TYPE_L
 	      || type == TYPE_S
-	      /* We need to insert 2 Nops for cases like M_MII.  */
+	      /* We need to insert 2 nops for cases like M_MII.  To
+		 guarantee issuing all insns on the same cycle for
+		 Itanium 1, we need to issue 2 nops after the first M
+		 insn (MnnMII where n is a nop insn).  */
 	      || (type == TYPE_M && ia64_tune == PROCESSOR_ITANIUM
 		  && !bundle_end_p && pos == 1))
 	    issue_nops_and_insn (curr_state, 2, insn, bundle_end_p,
@@ -6608,6 +6714,10 @@ bundling (FILE *dump, int verbose, rtx prev_head_insn, rtx tail)
 	   curr_state = curr_state->next)
 	if (verbose >= 2 && dump)
 	  {
+	    /* This structure is taken from generated code of the
+	       pipeline hazard recognizer (see file insn-attrtab.c).
+	       Please don't forget to change the structure if a new
+	       automaton is added to .md file.  */
 	    struct DFA_chip
 	    {
 	      unsigned short one_automaton_state;
@@ -6632,12 +6742,18 @@ bundling (FILE *dump, int verbose, rtx prev_head_insn, rtx tail)
 	  }
     }
   if (index_to_bundle_states [insn_num] == NULL)
+    /* We should find a solution because the 2nd insn scheduling has
+       found one.  */
     abort ();
-  /* Finding state with a minimal cost:  */
+  /* Find a state corresponding to the best insn sequence.  */
   best_state = NULL;
   for (curr_state = index_to_bundle_states [insn_num];
        curr_state != NULL;
        curr_state = curr_state->next)
+    /* We are just looking at the states with fully filled up last
+       bundle.  The first we prefer insn sequences with minimal cost
+       then with minimal inserted nops and finally with branch insns
+       placed in the 3rd slots.  */
     if (curr_state->accumulated_insns_num % 3 == 0
 	&& (best_state == NULL || best_state->cost > curr_state->cost
 	    || (best_state->cost == curr_state->cost
@@ -6648,7 +6764,7 @@ bundling (FILE *dump, int verbose, rtx prev_head_insn, rtx tail)
 			&& curr_state->branch_deviation
 			< best_state->branch_deviation)))))
       best_state = curr_state;
-  /* Second (backward) pass: adding nops and templates:  */
+  /* Second (backward) pass: adding nops and templates.  */
   insn_num = best_state->before_nops_num;
   template0 = template1 = -1;
   for (curr_state = best_state;
@@ -6683,9 +6799,17 @@ bundling (FILE *dump, int verbose, rtx prev_head_insn, rtx tail)
 	      : ((struct DFA_chip *) curr_state->dfa_state)->twob_automaton_state),
 	     INSN_UID (insn));
 	}
+      /* Find the position in the current bundle window.  The window can
+	 contain at most two bundles.  Two bundle window means that
+	 the processor will make two bundle rotation.  */
       max_pos = get_max_pos (curr_state->dfa_state);
-      if (max_pos == 6 || (max_pos == 3 && template0 < 0))
+      if (max_pos == 6
+	  /* The following (negative template number) means that the
+	     processor did one bundle rotation.  */
+	  || (max_pos == 3 && template0 < 0))
 	{
+	  /* We are at the end of the window -- find template(s) for
+	     its bundle(s).  */
 	  pos = max_pos;
 	  if (max_pos == 3)
 	    template0 = get_template (curr_state->dfa_state, 3);
@@ -6696,6 +6820,7 @@ bundling (FILE *dump, int verbose, rtx prev_head_insn, rtx tail)
 	    }
 	}
       if (max_pos > 3 && template1 < 0)
+	/* It may happen when we have the stop inside a bundle.  */
 	{
 	  if (pos > 3)
 	    abort ();
@@ -6703,6 +6828,7 @@ bundling (FILE *dump, int verbose, rtx prev_head_insn, rtx tail)
 	  pos += 3;
 	}
       if (!asm_p)
+	/* Emit nops after the current insn.  */
 	for (i = 0; i < curr_state->after_nops_num; i++)
 	  {
 	    nop = gen_nop ();
@@ -6712,18 +6838,26 @@ bundling (FILE *dump, int verbose, rtx prev_head_insn, rtx tail)
 	      abort ();
 	    if (pos % 3 == 0)
 	      {
+		/* We are at the start of a bundle: emit the template
+		   (it should be defined).  */
 		if (template0 < 0)
 		  abort ();
 		b = gen_bundle_selector (GEN_INT (template0));
 		ia64_emit_insn_before (b, nop);
+		/* If we have two bundle window, we make one bundle
+		   rotation.  Otherwise template0 will be undefined
+		   (negative value).  */
 		template0 = template1;
 		template1 = -1;
 	      }
 	  }
+      /* Move the position backward in the window.  Group barrier has
+	 no slot.  Asm insn takes all bundle.  */
       if (INSN_CODE (insn) != CODE_FOR_insn_group_barrier
 	  && GET_CODE (PATTERN (insn)) != ASM_INPUT
 	  && asm_noperands (PATTERN (insn)) < 0)
 	pos--;
+      /* Long insn takes 2 slots.  */
       if (ia64_safe_type (insn) == TYPE_L)
 	pos--;
       if (pos < 0)
@@ -6733,15 +6867,20 @@ bundling (FILE *dump, int verbose, rtx prev_head_insn, rtx tail)
 	  && GET_CODE (PATTERN (insn)) != ASM_INPUT
 	  && asm_noperands (PATTERN (insn)) < 0)
 	{
+	  /* The current insn is at the bundle start: emit the
+	     template.  */
 	  if (template0 < 0)
 	    abort ();
 	  b = gen_bundle_selector (GEN_INT (template0));
 	  ia64_emit_insn_before (b, insn);
 	  b = PREV_INSN (insn);
 	  insn = b;
+	  /* See comment above in analogous place for emiting nops
+	     after the insn.  */
 	  template0 = template1;
 	  template1 = -1;
 	}
+      /* Emit nops after the current insn.  */
       for (i = 0; i < curr_state->before_nops_num; i++)
 	{
 	  nop = gen_nop ();
@@ -6753,6 +6892,8 @@ bundling (FILE *dump, int verbose, rtx prev_head_insn, rtx tail)
 	    abort ();
 	  if (pos % 3 == 0)
 	    {
+	      /* See comment above in analogous place for emiting nops
+		 after the insn.  */
 	      if (template0 < 0)
 		abort ();
 	      b = gen_bundle_selector (GEN_INT (template0));
@@ -6765,7 +6906,11 @@ bundling (FILE *dump, int verbose, rtx prev_head_insn, rtx tail)
 	}
     }
   if (ia64_tune == PROCESSOR_ITANIUM)
-    /* Insert additional cycles for MM-insns: */
+    /* Insert additional cycles for MM-insns (MMMUL and MMSHF).
+       Itanium1 has a strange design, if the distance between an insn
+       and dependent MM-insn is less 4 then we have a 6 additional
+       cycles stall.  So we make the distance equal to 4 cycles if it
+       is less.  */
     for (insn = get_next_important_insn (NEXT_INSN (prev_head_insn), tail);
 	 insn != NULL_RTX;
 	 insn = next_insn)
@@ -6777,11 +6922,16 @@ bundling (FILE *dump, int verbose, rtx prev_head_insn, rtx tail)
 	  abort ();
 	next_insn = get_next_important_insn (NEXT_INSN (insn), tail);
 	if (INSN_UID (insn) < clocks_length && add_cycles [INSN_UID (insn)])
+	  /* We found a MM-insn which needs additional cycles.  */
 	  {
 	    rtx last;
 	    int i, j, n;
 	    int pred_stop_p;
 
+	    /* Now we are searching for a template of the bundle in
+	       which the MM-insn is placed and the position of the
+	       insn in the bundle (0, 1, 2).  Also we are searching
+	       for that there is a stop before the insn.  */
 	    last = prev_active_insn (insn);
 	    pred_stop_p = recog_memoized (last) == CODE_FOR_insn_group_barrier;
 	    if (pred_stop_p)
@@ -6792,17 +6942,27 @@ bundling (FILE *dump, int verbose, rtx prev_head_insn, rtx tail)
 		{
 		  template0 = XINT (XVECEXP (PATTERN (last), 0, 0), 0);
 		  if (template0 == 9)
+		    /* The insn is in MLX bundle.  Change the template
+		       onto MFI because we will add nops before the
+		       insn.  It simplifies subsequent code a lot.  */
 		    PATTERN (last)
 		      = gen_bundle_selector (GEN_INT (2)); /* -> MFI */
 		  break;
 		}
 	      else if (recog_memoized (last) != CODE_FOR_insn_group_barrier)
 		n++;
+	    /* Some check of correctness: the stop is not at the
+	       bundle start, there are no more 3 insns in the bundle,
+	       and the MM-insn is not at the start of bundle with
+	       template MLX.  */
 	    if ((pred_stop_p && n == 0) || n > 2
 		|| (template0 == 9 && n != 0))
 	      abort ();
+	    /* Put nops after the insn in the bundle.  */
 	    for (j = 3 - n; j > 0; j --)
 	      ia64_emit_insn_before (gen_nop (), insn);
+	    /* It takes into account that we will add more N nops
+	       before the insn lately -- please see code below.  */
 	    add_cycles [INSN_UID (insn)]--;
 	    if (!pred_stop_p || add_cycles [INSN_UID (insn)])
 	      ia64_emit_insn_before (gen_insn_group_barrier (GEN_INT (3)),
@@ -6811,13 +6971,15 @@ bundling (FILE *dump, int verbose, rtx prev_head_insn, rtx tail)
 	      add_cycles [INSN_UID (insn)]--;
 	    for (i = add_cycles [INSN_UID (insn)]; i > 0; i--)
 	      {
-		/* Insert .MII bundle.  */
+		/* Insert "MII;" template.  */
 		ia64_emit_insn_before (gen_bundle_selector (GEN_INT (0)),
 				       insn);
 		ia64_emit_insn_before (gen_nop (), insn);
 		ia64_emit_insn_before (gen_nop (), insn);
 		if (i > 1)
 		  {
+		    /* To decrease code size, we use "MI;I;"
+		       template.  */
 		    ia64_emit_insn_before
 		      (gen_insn_group_barrier (GEN_INT (3)), insn);
 		    i--;
@@ -6826,10 +6988,15 @@ bundling (FILE *dump, int verbose, rtx prev_head_insn, rtx tail)
 		ia64_emit_insn_before (gen_insn_group_barrier (GEN_INT (3)),
 				       insn);
 	      }
+	    /* Put the MM-insn in the same slot of a bundle with the
+	       same template as the original one.  */
 	    ia64_emit_insn_before (gen_bundle_selector (GEN_INT (template0)),
 				   insn);
+	    /* To put the insn in the same slot, add necessary number
+	       of nops.  */
 	    for (j = n; j > 0; j --)
 	      ia64_emit_insn_before (gen_nop (), insn);
+	    /* Put the stop if the original bundle had it.  */
 	    if (pred_stop_p)
 	      ia64_emit_insn_before (gen_insn_group_barrier (GEN_INT (3)),
 				     insn);
@@ -7074,7 +7241,7 @@ emit_predicate_relation_info (void)
   FOR_EACH_BB_REVERSE (bb)
     {
       int r;
-      rtx head = bb->head;
+      rtx head = BB_HEAD (bb);
 
       /* We only need such notes at code labels.  */
       if (GET_CODE (head) != CODE_LABEL)
@@ -7088,8 +7255,8 @@ emit_predicate_relation_info (void)
 	  {
 	    rtx p = gen_rtx_REG (BImode, r);
 	    rtx n = emit_insn_after (gen_pred_rel_mutex (p), head);
-	    if (head == bb->end)
-	      bb->end = n;
+	    if (head == BB_END (bb))
+	      BB_END (bb) = n;
 	    head = n;
 	  }
     }
@@ -7100,7 +7267,7 @@ emit_predicate_relation_info (void)
      the call.  */
   FOR_EACH_BB_REVERSE (bb)
     {
-      rtx insn = bb->head;
+      rtx insn = BB_HEAD (bb);
 
       while (1)
 	{
@@ -7110,13 +7277,13 @@ emit_predicate_relation_info (void)
 	    {
 	      rtx b = emit_insn_before (gen_safe_across_calls_all (), insn);
 	      rtx a = emit_insn_after (gen_safe_across_calls_normal (), insn);
-	      if (bb->head == insn)
-		bb->head = b;
-	      if (bb->end == insn)
-		bb->end = a;
+	      if (BB_HEAD (bb) == insn)
+		BB_HEAD (bb) = b;
+	      if (BB_END (bb) == insn)
+		BB_END (bb) = a;
 	    }
 
-	  if (insn == bb->end)
+	  if (insn == BB_END (bb))
 	    break;
 	  insn = NEXT_INSN (insn);
 	}
@@ -8324,12 +8491,16 @@ ia64_hpux_init_libfuncs (void)
   set_optab_libfunc (abs_optab, TFmode, "_U_Qfabs");
   set_optab_libfunc (neg_optab, TFmode, "_U_Qfneg");
 
-  set_optab_libfunc (eq_optab, TFmode, "_U_Qfeq");
-  set_optab_libfunc (ne_optab, TFmode, "_U_Qfne");
-  set_optab_libfunc (gt_optab, TFmode, "_U_Qfgt");
-  set_optab_libfunc (ge_optab, TFmode, "_U_Qfge");
-  set_optab_libfunc (lt_optab, TFmode, "_U_Qflt");
-  set_optab_libfunc (le_optab, TFmode, "_U_Qfle");
+  /* ia64_expand_compare uses this.  */
+  cmptf_libfunc = init_one_libfunc ("_U_Qfcmp");
+
+  /* These should never be used.  */
+  set_optab_libfunc (eq_optab, TFmode, 0);
+  set_optab_libfunc (ne_optab, TFmode, 0);
+  set_optab_libfunc (gt_optab, TFmode, 0);
+  set_optab_libfunc (ge_optab, TFmode, 0);
+  set_optab_libfunc (lt_optab, TFmode, 0);
+  set_optab_libfunc (le_optab, TFmode, 0);
 
   set_conv_libfunc (sext_optab,   TFmode, SFmode, "_U_Qfcnvff_sgl_to_quad");
   set_conv_libfunc (sext_optab,   TFmode, DFmode, "_U_Qfcnvff_dbl_to_quad");

@@ -295,7 +295,7 @@ static tree split_complex_args (tree);
 static void set_insn_locators (rtx, int) ATTRIBUTE_UNUSED;
 
 /* Pointer to chain of `struct function' for containing functions.  */
-static GTY(()) struct function *outer_function_chain;
+struct function *outer_function_chain;
 
 /* List of insns that were postponed by purge_addressof_1.  */
 static rtx postponed_insns;
@@ -452,6 +452,7 @@ free_after_compilation (struct function *f)
   f->x_nonlocal_goto_stack_level = NULL;
   f->x_cleanup_label = NULL;
   f->x_return_label = NULL;
+  f->x_naked_return_label = NULL;
   f->computed_goto_common_label = NULL;
   f->computed_goto_common_reg = NULL;
   f->x_save_expr_regs = NULL;
@@ -2091,7 +2092,23 @@ fixup_var_refs_1 (rtx var, enum machine_mode promoted_mode, rtx *loc, rtx insn,
 	  replacement = find_fixup_replacement (replacements, x);
 	  if (replacement->new)
 	    {
+	      enum machine_mode mode = GET_MODE (x);
 	      *loc = replacement->new;
+
+	      /* Careful!  We may have just replaced a SUBREG by a MEM, which
+		 means that the insn may have become invalid again.  We can't
+		 in this case make a new replacement since we already have one
+		 and we must deal with MATCH_DUPs.  */
+	      if (GET_CODE (replacement->new) == MEM)
+		{
+		  INSN_CODE (insn) = -1;
+		  if (recog_memoized (insn) >= 0)
+		    return;
+
+		  fixup_var_refs_1 (replacement->new, mode, &PATTERN (insn),
+				    insn, replacements, no_share);
+		}
+
 	      return;
 	    }
 
@@ -2851,7 +2868,17 @@ gen_mem_addressof (rtx reg, tree decl, int rescan)
 	fixup_var_refs (reg, GET_MODE (reg), TREE_UNSIGNED (type), reg, 0);
     }
   else if (rescan)
-    fixup_var_refs (reg, GET_MODE (reg), 0, reg, 0);
+    {
+      /* This can only happen during reload.  Clear the same flag bits as
+	 reload.  */
+      MEM_VOLATILE_P (reg) = 0;
+      RTX_UNCHANGING_P (reg) = 0;
+      MEM_IN_STRUCT_P (reg) = 0;
+      MEM_SCALAR_P (reg) = 0;
+      MEM_ATTRS (reg) = 0;
+
+      fixup_var_refs (reg, GET_MODE (reg), 0, reg, 0);
+    }
 
   return reg;
 }
@@ -2929,6 +2956,7 @@ purge_addressof_1 (rtx *loc, rtx insn, int force, int store, int may_postpone,
   int i, j;
   const char *fmt;
   bool result = true;
+  bool libcall = false;
 
   /* Re-start here to avoid recursion in common cases.  */
  restart:
@@ -2936,6 +2964,10 @@ purge_addressof_1 (rtx *loc, rtx insn, int force, int store, int may_postpone,
   x = *loc;
   if (x == 0)
     return true;
+
+  /* Is this a libcall?  */
+  if (!insn)
+    libcall = REG_NOTE_KIND (*loc) == REG_RETVAL;
 
   code = GET_CODE (x);
 
@@ -3070,28 +3102,27 @@ purge_addressof_1 (rtx *loc, rtx insn, int force, int store, int may_postpone,
 		 which can be succinctly described with a simple SUBREG.
 		 Note that removing the REG_EQUAL note is not an option
 		 on the last insn of a libcall, so we must do a replacement.  */
-	      if (! purge_addressof_replacements
-		  && ! purge_bitfield_addressof_replacements)
+
+	      /* In compile/990107-1.c:7 compiled at -O1 -m1 for sh-elf,
+		 we got
+		 (mem:DI (addressof:SI (reg/v:DF 160) 159 0x401c8510)
+		 [0 S8 A32]), which can be expressed with a simple
+		 same-size subreg  */
+	      if ((GET_MODE_SIZE (GET_MODE (x))
+		   <= GET_MODE_SIZE (GET_MODE (sub)))
+		  /* Again, invalid pointer casts (as in
+		     compile/990203-1.c) can require paradoxical
+		     subregs.  */
+		  || (GET_MODE_SIZE (GET_MODE (x)) > UNITS_PER_WORD
+		      && (GET_MODE_SIZE (GET_MODE (x))
+			  > GET_MODE_SIZE (GET_MODE (sub)))
+		      && libcall))
 		{
-		  /* In compile/990107-1.c:7 compiled at -O1 -m1 for sh-elf,
-		     we got
-		     (mem:DI (addressof:SI (reg/v:DF 160) 159 0x401c8510)
-		      [0 S8 A32]), which can be expressed with a simple
-		     same-size subreg  */
-		  if ((GET_MODE_SIZE (GET_MODE (x))
-		       == GET_MODE_SIZE (GET_MODE (sub)))
-		      /* Again, invalid pointer casts (as in
-			 compile/990203-1.c) can require paradoxical
-			 subregs.  */
-		      || (GET_MODE_SIZE (GET_MODE (x)) > UNITS_PER_WORD
-			  && (GET_MODE_SIZE (GET_MODE (x))
-			      > GET_MODE_SIZE (GET_MODE (sub)))))
-		    {
-		      *loc = gen_rtx_SUBREG (GET_MODE (x), sub, 0);
-		      return true;
-		    }
-		  /* ??? Are there other cases we should handle?  */
+		  *loc = gen_rtx_SUBREG (GET_MODE (x), sub, 0);
+		  return true;
 		}
+	      /* ??? Are there other cases we should handle?  */
+
 	      /* Sometimes we may not be able to find the replacement.  For
 		 example when the original insn was a MEM in a wider mode,
 		 and the note is part of a sign extension of a narrowed
@@ -4256,7 +4287,7 @@ assign_parms (tree fndecl)
      the function returns a structure.  */
   tree function_result_decl = 0;
   int varargs_setup = 0;
-  int reg_parm_stack_space = 0;
+  int reg_parm_stack_space ATTRIBUTE_UNUSED = 0;
   rtx conversion_insns = 0;
 
   /* Nonzero if function takes extra anonymous args.
@@ -4700,6 +4731,21 @@ assign_parms (tree fndecl)
 
 	 Set DECL_RTL to that place.  */
 
+      if (GET_CODE (entry_parm) == PARALLEL && nominal_mode != BLKmode
+	  && XVECLEN (entry_parm, 0) > 1)
+	{
+	  /* Reconstitute objects the size of a register or larger using
+	     register operations instead of the stack.  */
+	  rtx parmreg = gen_reg_rtx (nominal_mode);
+
+	  if (REG_P (parmreg))
+	    {
+	      emit_group_store (parmreg, entry_parm, TREE_TYPE (parm),
+				int_size_in_bytes (TREE_TYPE (parm)));
+	      SET_DECL_RTL (parm, parmreg);
+	    }
+	}
+
       if (nominal_mode == BLKmode
 #ifdef BLOCK_REG_PADDING
 	  || (locate.where_pad == (BYTES_BIG_ENDIAN ? upward : downward)
@@ -4723,7 +4769,8 @@ assign_parms (tree fndecl)
 		 assign_stack_local if space was not allocated in the argument
 		 list.  If it was, this will not work if PARM_BOUNDARY is not
 		 a multiple of BITS_PER_WORD.  It isn't clear how to fix this
-		 if it becomes a problem.  */
+		 if it becomes a problem.  Exception is when BLKmode arrives
+		 with arguments not conforming to word_mode.  */
 
 	      if (stack_parm == 0)
 		{
@@ -4731,7 +4778,9 @@ assign_parms (tree fndecl)
 		  PUT_MODE (stack_parm, GET_MODE (entry_parm));
 		  set_mem_attributes (stack_parm, parm, 1);
 		}
-
+	      else if (GET_CODE (entry_parm) == PARALLEL 
+		       && GET_MODE(entry_parm) == BLKmode)
+		;
 	      else if (PARM_BOUNDARY % BITS_PER_WORD != 0)
 		abort ();
 
@@ -4794,7 +4843,10 @@ assign_parms (tree fndecl)
 		move_block_from_reg (REGNO (entry_parm), mem,
 				     size_stored / UNITS_PER_WORD);
 	    }
-	  SET_DECL_RTL (parm, stack_parm);
+	  /* If parm is already bound to register pair, don't change 
+	     this binding.  */
+	  if (! DECL_RTL_SET_P (parm))
+	    SET_DECL_RTL (parm, stack_parm);
 	}
       else if (! ((! optimize
 		   && ! DECL_REGISTER (parm))
@@ -4943,13 +4995,13 @@ assign_parms (tree fndecl)
 
 	  else if (passed_pointer
 		   && FUNCTION_ARG_CALLEE_COPIES (args_so_far,
-						  TYPE_MODE (DECL_ARG_TYPE (parm)),
-						  DECL_ARG_TYPE (parm),
+						  TYPE_MODE (TREE_TYPE (passed_type)),
+						  TREE_TYPE (passed_type),
 						  named_arg)
-		   && ! TREE_ADDRESSABLE (DECL_ARG_TYPE (parm)))
+		   && ! TREE_ADDRESSABLE (TREE_TYPE (passed_type)))
 	    {
 	      rtx copy;
-	      tree type = DECL_ARG_TYPE (parm);
+	      tree type = TREE_TYPE (passed_type);
 
 	      /* This sequence may involve a library call perhaps clobbering
 		 registers that haven't been copied to pseudos yet.  */
@@ -6681,7 +6733,7 @@ expand_function_start (tree subr, int parms_have_cleanups)
 	  tem = decl_function_context (tem);
 	  if (tem == 0)
 	    break;
-	  /* Chain thru stack frames, assuming pointer to next lexical frame
+	  /* Chain through stack frames, assuming pointer to next lexical frame
 	     is found at the place we always store it.  */
 #ifdef FRAME_GROWS_DOWNWARD
 	  last_ptr = plus_constant (last_ptr,
@@ -6986,16 +7038,14 @@ expand_function_end (void)
   /* If we had calls to alloca, and this machine needs
      an accurate stack pointer to exit the function,
      insert some code to save and restore the stack pointer.  */
-#ifdef EXIT_IGNORE_STACK
-  if (! EXIT_IGNORE_STACK)
-#endif
-    if (current_function_calls_alloca)
-      {
-	rtx tem = 0;
+  if (! EXIT_IGNORE_STACK
+      && current_function_calls_alloca)
+    {
+      rtx tem = 0;
 
-	emit_stack_save (SAVE_FUNCTION, &tem, parm_birth_insn);
-	emit_stack_restore (SAVE_FUNCTION, tem, NULL_RTX);
-      }
+      emit_stack_save (SAVE_FUNCTION, &tem, parm_birth_insn);
+      emit_stack_restore (SAVE_FUNCTION, tem, NULL_RTX);
+    }
 
   /* If scalar return value was computed in a pseudo-reg, or was a named
      return value that got dumped to the stack, copy that to the hard
@@ -7106,6 +7156,11 @@ expand_function_end (void)
     if (clobber_after != after)
       cfun->x_clobber_return_insn = after;
   }
+
+  /* Output the label for the naked return from the function, if one is
+     expected.  This is currently used only by __builtin_return.  */
+  if (naked_return_label)
+    emit_label (naked_return_label);
 
   /* ??? This should no longer be necessary since stupid is no longer with
      us, but there are some parts of the compiler (eg reload_combine, and
@@ -7246,9 +7301,9 @@ sibcall_epilogue_contains (rtx insn)
 static void
 emit_return_into_block (basic_block bb, rtx line_note)
 {
-  emit_jump_insn_after (gen_return (), bb->end);
+  emit_jump_insn_after (gen_return (), BB_END (bb));
   if (line_note)
-    emit_note_copy_after (line_note, PREV_INSN (bb->end));
+    emit_note_copy_after (line_note, PREV_INSN (BB_END (bb)));
 }
 #endif /* HAVE_return */
 
@@ -7292,9 +7347,12 @@ struct epi_info
   rtx equiv_reg_src;		/* If nonzero, the value that SP_EQUIV_REG
 				   should be set to once we no longer need
 				   its value.  */
+  rtx const_equiv[FIRST_PSEUDO_REGISTER]; /* Any known constant equivalences
+					     for registers.  */
 };
 
 static void handle_epilogue_set (rtx, struct epi_info *);
+static void update_epilogue_consts (rtx, rtx, void *);
 static void emit_equiv_load (struct epi_info *);
 
 /* Modify INSN, a list of one or more insns that is part of the epilogue, to
@@ -7307,8 +7365,7 @@ keep_stack_depressed (rtx insns)
   struct epi_info info;
   rtx insn, next;
 
-  /* If the epilogue is just a single instruction, it ust be OK as is.  */
-
+  /* If the epilogue is just a single instruction, it must be OK as is.  */
   if (NEXT_INSN (insns) == NULL_RTX)
     return insns;
 
@@ -7319,6 +7376,9 @@ keep_stack_depressed (rtx insns)
   info.sp_equiv_reg = stack_pointer_rtx;
   info.sp_offset = 0;
   info.equiv_reg_src = 0;
+
+  for (j = 0; j < FIRST_PSEUDO_REGISTER; j++)
+    info.const_equiv[j] = 0;
 
   insn = insns;
   next = NULL_RTX;
@@ -7411,7 +7471,8 @@ keep_stack_depressed (rtx insns)
 		    && !refers_to_regno_p (regno,
 					   regno + HARD_REGNO_NREGS (regno,
 								     Pmode),
-					   info.equiv_reg_src, NULL))
+					   info.equiv_reg_src, NULL)
+		    && info.const_equiv[regno] == 0)
 		  break;
 
 	      if (regno == FIRST_PSEUDO_REGISTER)
@@ -7467,6 +7528,8 @@ keep_stack_depressed (rtx insns)
       info.sp_equiv_reg = info.new_sp_equiv_reg;
       info.sp_offset = info.new_sp_offset;
 
+      /* Now update any constants this insn sets.  */
+      note_stores (PATTERN (insn), update_epilogue_consts, &info);
       insn = next;
     }
 
@@ -7490,11 +7553,18 @@ handle_epilogue_set (rtx set, struct epi_info *p)
       if (SET_DEST (set) != stack_pointer_rtx)
 	abort ();
 
-      if (GET_CODE (SET_SRC (set)) == PLUS
-	  && GET_CODE (XEXP (SET_SRC (set), 1)) == CONST_INT)
+      if (GET_CODE (SET_SRC (set)) == PLUS)
 	{
 	  p->new_sp_equiv_reg = XEXP (SET_SRC (set), 0);
-	  p->new_sp_offset = INTVAL (XEXP (SET_SRC (set), 1));
+	  if (GET_CODE (XEXP (SET_SRC (set), 1)) == CONST_INT)
+	    p->new_sp_offset = INTVAL (XEXP (SET_SRC (set), 1));
+	  else if (GET_CODE (XEXP (SET_SRC (set), 1)) == REG
+		   && REGNO (XEXP (SET_SRC (set), 1)) < FIRST_PSEUDO_REGISTER
+		   && p->const_equiv[REGNO (XEXP (SET_SRC (set), 1))] != 0)
+	    p->new_sp_offset
+	      = INTVAL (p->const_equiv[REGNO (XEXP (SET_SRC (set), 1))]);
+	  else
+	    abort ();
 	}
       else
 	p->new_sp_equiv_reg = SET_SRC (set), p->new_sp_offset = 0;
@@ -7517,11 +7587,16 @@ handle_epilogue_set (rtx set, struct epi_info *p)
      there seems little point in handling that case.  Note that we have
      to allow for the case where we are setting the register set in
      the previous part of a PARALLEL inside a single insn.  But use the
-     old offset for any updates within this insn.  */
+     old offset for any updates within this insn.  We must allow for the case
+     where the register is being set in a different (usually wider) mode than
+     Pmode).  */
   else if (p->new_sp_equiv_reg != 0 && reg_set_p (p->new_sp_equiv_reg, set))
     {
-      if (!rtx_equal_p (p->new_sp_equiv_reg, SET_DEST (set))
-	  || p->equiv_reg_src != 0)
+      if (p->equiv_reg_src != 0
+	  || GET_CODE (p->new_sp_equiv_reg) != REG
+	  || GET_CODE (SET_DEST (set)) != REG
+	  || GET_MODE_BITSIZE (GET_MODE (SET_DEST (set))) > BITS_PER_WORD
+	  || REGNO (p->new_sp_equiv_reg) != REGNO (SET_DEST (set)))
 	abort ();
       else
 	p->equiv_reg_src
@@ -7544,15 +7619,38 @@ handle_epilogue_set (rtx set, struct epi_info *p)
     }
 }
 
+/* Update the tracking information for registers set to constants.  */
+
+static void
+update_epilogue_consts (rtx dest, rtx x, void *data)
+{
+  struct epi_info *p = (struct epi_info *) data;
+
+  if (GET_CODE (dest) != REG || REGNO (dest) >= FIRST_PSEUDO_REGISTER)
+    return;
+  else if (GET_CODE (x) == CLOBBER || ! rtx_equal_p (dest, SET_DEST (x))
+	   || GET_CODE (SET_SRC (x)) != CONST_INT)
+    p->const_equiv[REGNO (dest)] = 0;
+  else
+    p->const_equiv[REGNO (dest)] = SET_SRC (x);
+}
+
 /* Emit an insn to do the load shown in p->equiv_reg_src, if needed.  */
 
 static void
 emit_equiv_load (struct epi_info *p)
 {
   if (p->equiv_reg_src != 0)
-    emit_move_insn (p->sp_equiv_reg, p->equiv_reg_src);
+    {
+      rtx dest = p->sp_equiv_reg;
 
-  p->equiv_reg_src = 0;
+      if (GET_MODE (p->equiv_reg_src) != GET_MODE (dest))
+	dest = gen_rtx_REG (GET_MODE (p->equiv_reg_src),
+			    REGNO (p->sp_equiv_reg));
+
+      emit_move_insn (dest, p->equiv_reg_src);
+      p->equiv_reg_src = 0;
+    }
 }
 #endif
 
@@ -7630,7 +7728,7 @@ thread_prologue_and_epilogue_insns (rtx f ATTRIBUTE_UNUSED)
       last = e->src;
 
       /* Verify that there are no active instructions in the last block.  */
-      label = last->end;
+      label = BB_END (last);
       while (label && GET_CODE (label) != CODE_LABEL)
 	{
 	  if (active_insn_p (label))
@@ -7638,7 +7736,7 @@ thread_prologue_and_epilogue_insns (rtx f ATTRIBUTE_UNUSED)
 	  label = PREV_INSN (label);
 	}
 
-      if (last->head == label && GET_CODE (label) == CODE_LABEL)
+      if (BB_HEAD (last) == label && GET_CODE (label) == CODE_LABEL)
 	{
 	  rtx epilogue_line_note = NULL_RTX;
 
@@ -7662,7 +7760,7 @@ thread_prologue_and_epilogue_insns (rtx f ATTRIBUTE_UNUSED)
 	      if (bb == ENTRY_BLOCK_PTR)
 		continue;
 
-	      jump = bb->end;
+	      jump = BB_END (bb);
 	      if ((GET_CODE (jump) != JUMP_INSN) || JUMP_LABEL (jump) != label)
 		continue;
 
@@ -7697,9 +7795,9 @@ thread_prologue_and_epilogue_insns (rtx f ATTRIBUTE_UNUSED)
 	  /* Emit a return insn for the exit fallthru block.  Whether
 	     this is still reachable will be determined later.  */
 
-	  emit_barrier_after (last->end);
+	  emit_barrier_after (BB_END (last));
 	  emit_return_into_block (last, epilogue_line_note);
-	  epilogue_end = last->end;
+	  epilogue_end = BB_END (last);
 	  last->succ->flags &= ~EDGE_FALLTHRU;
 	  goto epilogue_done;
 	}
@@ -7755,7 +7853,7 @@ epilogue_done:
   for (e = EXIT_BLOCK_PTR->pred; e; e = e->pred_next)
     {
       basic_block bb = e->src;
-      rtx insn = bb->end;
+      rtx insn = BB_END (bb);
       rtx i;
       rtx newinsn;
 
@@ -7812,7 +7910,7 @@ epilogue_done:
 	}
 
       /* Find the last line number note in the first block.  */
-      for (insn = ENTRY_BLOCK_PTR->next_bb->end;
+      for (insn = BB_END (ENTRY_BLOCK_PTR->next_bb);
 	   insn != prologue_end && insn;
 	   insn = PREV_INSN (insn))
 	if (GET_CODE (insn) == NOTE && NOTE_LINE_NUMBER (insn) > 0)

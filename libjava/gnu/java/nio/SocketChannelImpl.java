@@ -66,7 +66,7 @@ public final class SocketChannelImpl extends SocketChannel
   private PlainSocketImpl impl;
   private NIOSocket socket;
   private boolean blocking = true;
-  private boolean connectionPending = false;
+  private boolean connectionPending;
 
   SocketChannelImpl (SelectorProvider provider)
     throws IOException
@@ -81,7 +81,7 @@ public final class SocketChannelImpl extends SocketChannel
     throws IOException
   {
     super (provider);
-    this.impl = socket.getImpl();
+    this.impl = socket.getPlainSocketImpl();
     this.socket = socket;
   }
 
@@ -99,14 +99,14 @@ public final class SocketChannelImpl extends SocketChannel
       }
   }
 
-  PlainSocketImpl getImpl()
+  PlainSocketImpl getPlainSocketImpl()
   {
     return impl;
   }
 
   int getNativeFD()
   {
-    return socket.getImpl().getNativeFD();
+    return socket.getPlainSocketImpl().getNativeFD();
   }
 
   protected void implCloseSelectableChannel () throws IOException
@@ -301,8 +301,6 @@ public final class SocketChannelImpl extends SocketChannel
         data = src.array();
       }
 
-    System.out.println ("INTERNAL: writing to socket outputstream");
-    
     OutputStream output = socket.getOutputStream();
     output.write (data, offset, len);
 

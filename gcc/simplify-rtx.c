@@ -1031,6 +1031,15 @@ simplify_unary_operation (enum rtx_code code, enum machine_mode mode,
 	      && GET_CODE (XEXP (XEXP (op, 0), 1)) == LABEL_REF)
 	    return XEXP (op, 0);
 
+	  /* Check for a sign extension of a subreg of a promoted
+	     variable, where the promotion is sign-extended, and the
+	     target mode is the same as the variable's promotion.  */
+	  if (GET_CODE (op) == SUBREG
+	      && SUBREG_PROMOTED_VAR_P (op)
+	      && ! SUBREG_PROMOTED_UNSIGNED_P (op)
+	      && GET_MODE (XEXP (op, 0)) == mode)
+	    return XEXP (op, 0);
+
 #if defined(POINTERS_EXTEND_UNSIGNED) && !defined(HAVE_ptr_extend)
 	  if (! POINTERS_EXTEND_UNSIGNED
 	      && mode == Pmode && GET_MODE (op) == ptr_mode
@@ -1043,8 +1052,17 @@ simplify_unary_operation (enum rtx_code code, enum machine_mode mode,
 #endif
 	  break;
 
-#if defined(POINTERS_EXTEND_UNSIGNED) && !defined(HAVE_ptr_extend)
 	case ZERO_EXTEND:
+	  /* Check for a zero extension of a subreg of a promoted
+	     variable, where the promotion is zero-extended, and the
+	     target mode is the same as the variable's promotion.  */
+	  if (GET_CODE (op) == SUBREG
+	      && SUBREG_PROMOTED_VAR_P (op)
+	      && SUBREG_PROMOTED_UNSIGNED_P (op)
+	      && GET_MODE (XEXP (op, 0)) == mode)
+	    return XEXP (op, 0);
+
+#if defined(POINTERS_EXTEND_UNSIGNED) && !defined(HAVE_ptr_extend)
 	  if (POINTERS_EXTEND_UNSIGNED > 0
 	      && mode == Pmode && GET_MODE (op) == ptr_mode
 	      && (CONSTANT_P (op)
@@ -1053,8 +1071,8 @@ simplify_unary_operation (enum rtx_code code, enum machine_mode mode,
 		      && REG_POINTER (SUBREG_REG (op))
 		      && GET_MODE (SUBREG_REG (op)) == Pmode)))
 	    return convert_memory_address (Pmode, op);
-	  break;
 #endif
+	  break;
 
 	default:
 	  break;
@@ -2821,18 +2839,33 @@ simplify_ternary_operation (enum rtx_code code, enum machine_mode mode,
       if (GET_CODE (op0) == CONST_INT)
 	return op0 != const0_rtx ? op1 : op2;
 
-      /* Convert a == b ? b : a to "a".  */
-      if (GET_CODE (op0) == NE && ! side_effects_p (op0)
-	  && !HONOR_NANS (mode)
-	  && rtx_equal_p (XEXP (op0, 0), op1)
-	  && rtx_equal_p (XEXP (op0, 1), op2))
+      /* Convert c ? a : a into "a".  */
+      if (rtx_equal_p (op1, op2) && ! side_effects_p (op0))
 	return op1;
-      else if (GET_CODE (op0) == EQ && ! side_effects_p (op0)
-	  && !HONOR_NANS (mode)
-	  && rtx_equal_p (XEXP (op0, 1), op1)
-	  && rtx_equal_p (XEXP (op0, 0), op2))
+
+      /* Convert a != b ? a : b into "a".  */
+      if (GET_CODE (op0) == NE
+	  && ! side_effects_p (op0)
+	  && ! HONOR_NANS (mode)
+	  && ! HONOR_SIGNED_ZEROS (mode)
+	  && ((rtx_equal_p (XEXP (op0, 0), op1)
+	       && rtx_equal_p (XEXP (op0, 1), op2))
+	      || (rtx_equal_p (XEXP (op0, 0), op2)
+		  && rtx_equal_p (XEXP (op0, 1), op1))))
+	return op1;
+
+      /* Convert a == b ? a : b into "b".  */
+      if (GET_CODE (op0) == EQ
+	  && ! side_effects_p (op0)
+	  && ! HONOR_NANS (mode)
+	  && ! HONOR_SIGNED_ZEROS (mode)
+	  && ((rtx_equal_p (XEXP (op0, 0), op1)
+	       && rtx_equal_p (XEXP (op0, 1), op2))
+	      || (rtx_equal_p (XEXP (op0, 0), op2)
+		  && rtx_equal_p (XEXP (op0, 1), op1))))
 	return op2;
-      else if (GET_RTX_CLASS (GET_CODE (op0)) == '<' && ! side_effects_p (op0))
+
+      if (GET_RTX_CLASS (GET_CODE (op0)) == '<' && ! side_effects_p (op0))
 	{
 	  enum machine_mode cmp_mode = (GET_MODE (XEXP (op0, 0)) == VOIDmode
 					? GET_MODE (XEXP (op0, 1))
@@ -2874,6 +2907,7 @@ simplify_ternary_operation (enum rtx_code code, enum machine_mode mode,
 	    }
 	}
       break;
+
     case VEC_MERGE:
       if (GET_MODE (op0) != mode
 	  || GET_MODE (op1) != mode
@@ -3286,7 +3320,7 @@ simplify_subreg (enum machine_mode outermode, rtx op,
      of real and imaginary part.  */
   if (GET_CODE (op) == CONCAT)
     {
-      int is_realpart = byte < GET_MODE_UNIT_SIZE (innermode);
+      int is_realpart = byte < (unsigned int) GET_MODE_UNIT_SIZE (innermode);
       rtx part = is_realpart ? XEXP (op, 0) : XEXP (op, 1);
       unsigned int final_offset;
       rtx res;

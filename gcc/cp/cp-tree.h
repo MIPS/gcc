@@ -521,9 +521,6 @@ enum cp_tree_index
     CPTI_BASE_DESC_TYPE,
 
     CPTI_CLASS_TYPE,
-    CPTI_RECORD_TYPE,
-    CPTI_UNION_TYPE,
-    CPTI_ENUM_TYPE,
     CPTI_UNKNOWN_TYPE,
     CPTI_VTBL_TYPE,
     CPTI_VTBL_PTR_TYPE,
@@ -602,9 +599,6 @@ extern GTY(()) tree cp_global_trees[CPTI_MAX];
 #define base_desc_type_node		cp_global_trees[CPTI_BASE_DESC_TYPE]
 
 #define class_type_node			cp_global_trees[CPTI_CLASS_TYPE]
-#define record_type_node		cp_global_trees[CPTI_RECORD_TYPE]
-#define union_type_node			cp_global_trees[CPTI_UNION_TYPE]
-#define enum_type_node			cp_global_trees[CPTI_ENUM_TYPE]
 #define unknown_type_node		cp_global_trees[CPTI_UNKNOWN_TYPE]
 #define vtbl_type_node			cp_global_trees[CPTI_VTBL_TYPE]
 #define vtbl_ptr_type_node		cp_global_trees[CPTI_VTBL_PTR_TYPE]
@@ -1000,7 +994,7 @@ enum languages { lang_c, lang_cplusplus, lang_java };
 /* Nonzero iff TYPE is derived from PARENT. Ignores accessibility and
    ambiguity issues.  */
 #define DERIVED_FROM_P(PARENT, TYPE) \
-  (lookup_base ((TYPE), PARENT, ba_any, NULL) != NULL_TREE)
+  (lookup_base ((TYPE), (PARENT), ba_any, NULL) != NULL_TREE)
 /* Nonzero iff TYPE is uniquely derived from PARENT. Ignores
    accessibility.  */
 #define UNIQUELY_DERIVED_FROM_P(PARENT, TYPE) \
@@ -1017,7 +1011,7 @@ enum languages { lang_c, lang_cplusplus, lang_java };
 /* This is a few header flags for 'struct lang_type'.  Actually,
    all but the first are used only for lang_type_class; they
    are put in this structure to save space.  */
-__extension__ struct lang_type_header GTY(())
+struct lang_type_header GTY(())
 {
   CHAR_BITFIELD is_lang_type_class : 1;
 
@@ -1357,7 +1351,7 @@ struct lang_type GTY(())
 #define TYPE_HAS_DEFAULT_CONSTRUCTOR(NODE) \
   (LANG_TYPE_CLASS_CHECK (NODE)->h.has_default_ctor)
 
-/* Nonzero means that this type contains a mutable member */
+/* Nonzero means that this type contains a mutable member.  */
 #define CLASSTYPE_HAS_MUTABLE(NODE) (LANG_TYPE_CLASS_CHECK (NODE)->has_mutable)
 #define TYPE_HAS_MUTABLE_P(NODE) (cp_has_mutable_p (NODE))
 
@@ -1634,12 +1628,17 @@ struct lang_decl_flags GTY(())
   unsigned this_thunk_p : 1;
 
   union lang_decl_u {
-    /* In a FUNCTION_DECL, VAR_DECL, TYPE_DECL, or TEMPLATE_DECL, this
-       is DECL_TEMPLATE_INFO.  */
+    /* In a FUNCTION_DECL for which DECL_THUNK_P does not hold,
+       VAR_DECL, TYPE_DECL, or TEMPLATE_DECL, this is
+       DECL_TEMPLATE_INFO.  */
     tree GTY ((tag ("0"))) template_info;
 
     /* In a NAMESPACE_DECL, this is NAMESPACE_LEVEL.  */
     struct cp_binding_level * GTY ((tag ("1"))) level;
+
+    /* In a FUNCTION_DECL for which DECL_THUNK_P holds, this is
+       THUNK_ALIAS.  */
+    tree GTY ((tag ("2"))) thunk_alias;
   } GTY ((desc ("%1.u1sel"))) u;
 
   union lang_decl_u2 {
@@ -1840,7 +1839,7 @@ struct lang_decl GTY(())
 
 /* Nonzero if NODE is a user-defined conversion operator.  */
 #define DECL_CONV_FN_P(NODE) \
-  (IDENTIFIER_TYPENAME_P (DECL_NAME (NODE)))
+  (DECL_NAME (NODE) && IDENTIFIER_TYPENAME_P (DECL_NAME (NODE)))
 
 /* If FN is a conversion operator, the type to which it converts.
    Otherwise, NULL_TREE.  */
@@ -2062,6 +2061,11 @@ struct lang_decl GTY(())
 /* In a NAMESPACE_DECL, the DECL_INITIAL is used to record all users
    of a namespace, to record the transitive closure of using namespace.  */
 #define DECL_NAMESPACE_USERS(NODE) DECL_INITIAL (NAMESPACE_DECL_CHECK (NODE))
+
+/* In a NAMESPACE_DECL, the list of namespaces which have associated
+   themselves with this one.  */
+#define DECL_NAMESPACE_ASSOCIATIONS(NODE) \
+  (NAMESPACE_DECL_CHECK (NODE)->decl.saved_tree)
 
 /* In a NAMESPACE_DECL, points to the original namespace if this is
    a namespace alias.  */
@@ -2854,12 +2858,17 @@ struct lang_decl GTY(())
    for the result pointer adjustment.
 
    The constant adjustment is given by THUNK_FIXED_OFFSET.  If the
-   vcall or vbase offset is required, the index into the vtable is given by
-   THUNK_VIRTUAL_OFFSET.
+   vcall or vbase offset is required, THUNK_VIRTUAL_OFFSET is
+   used. For this pointer adjusting thunks, it is the vcall offset
+   into the vtable.  For result pointer adjusting thunks it is the
+   binfo of the virtual base to convert to.  Use that binfo's vbase
+   offset.
 
-   Due to ordering constraints in class layout, it is possible to have
-   equivalent covariant thunks. THUNK_ALIAS_P and THUNK_ALIAS are used
-   in those cases.  */
+   It is possible to have equivalent covariant thunks.  These are
+   distinct virtual covariant thunks whose vbase offsets happen to
+   have the same value.  THUNK_ALIAS is used to pick one as the
+   canonical thunk, which will get all the this pointer adjusting
+   thunks attached to it.  */
 
 /* An integer indicating how many bytes should be subtracted from the
    this or result pointer when this function is called.  */
@@ -2877,15 +2886,11 @@ struct lang_decl GTY(())
    binfos.)  */
 
 #define THUNK_VIRTUAL_OFFSET(DECL) \
-  (LANG_DECL_U2_CHECK (VAR_OR_FUNCTION_DECL_CHECK (DECL), 0)->virtual_offset)
+  (LANG_DECL_U2_CHECK (FUNCTION_DECL_CHECK (DECL), 0)->virtual_offset)
 
-/* A thunk which is equivalent to another thunk. */
-#define THUNK_ALIAS_P(DECL) \
-  (THUNK_VIRTUAL_OFFSET (DECL) && DECL_P (THUNK_VIRTUAL_OFFSET (DECL)))
-
-/* When THUNK_ALIAS_P is true, this indicates the thunk which is
-   aliased.  */
-#define THUNK_ALIAS(DECL) THUNK_VIRTUAL_OFFSET (DECL)
+/* A thunk which is equivalent to another thunk.  */
+#define THUNK_ALIAS(DECL) \
+  (DECL_LANG_SPECIFIC (FUNCTION_DECL_CHECK (DECL))->decl_flags.u.thunk_alias)
 
 /* For thunk NODE, this is the FUNCTION_DECL thunked to.  */
 #define THUNK_TARGET(NODE)				\
@@ -2935,7 +2940,7 @@ typedef enum cp_lvalue_kind {
   clk_ordinary = 1, /* An ordinary lvalue.  */
   clk_class = 2,    /* An rvalue of class-type.  */
   clk_bitfield = 4, /* An lvalue for a bit-field.  */
-  clk_packed = 8    /* An lvalue for a packed field. */
+  clk_packed = 8    /* An lvalue for a packed field.  */
 } cp_lvalue_kind;
 
 /* Various kinds of template specialization, instantiation, etc.  */
@@ -3079,8 +3084,6 @@ extern GTY(()) tree error_mark_list;
 /* For building calls to `delete'.  */
 extern GTY(()) tree integer_two_node;
 extern GTY(()) tree integer_three_node;
-
-extern GTY(()) tree anonymous_namespace_name;
 
 /* The number of function bodies which we are currently processing.
    (Zero if we are at namespace scope, one inside the body of a
@@ -3618,7 +3621,7 @@ extern void pushtag				(tree, tree, int);
 extern tree make_anon_name			(void);
 extern void clear_anon_tags			(void);
 extern int decls_match				(tree, tree);
-extern int duplicate_decls			(tree, tree);
+extern tree duplicate_decls			(tree, tree);
 extern tree pushdecl_top_level			(tree);
 extern tree pushdecl_top_level_and_finish       (tree, tree);
 extern tree push_using_decl                     (tree, tree);
@@ -3689,6 +3692,7 @@ extern int walk_namespaces                      (walk_namespaces_fn,
 extern int wrapup_globals_for_namespace         (tree, void *);
 extern tree create_implicit_typedef             (tree, tree);
 extern tree maybe_push_decl                     (tree);
+extern tree force_target_expr			(tree, tree);
 extern tree build_target_expr_with_type         (tree, tree);
 extern int local_variable_p                     (tree);
 extern int nonstatic_local_decl_p               (tree);
@@ -3706,14 +3710,13 @@ extern GTY(()) tree last_function_parms;
 /* in decl2.c */
 extern bool check_java_method (tree);
 extern int grok_method_quals (tree, tree, tree);
-extern void warn_if_unknown_interface (tree);
 extern void grok_x_components (tree);
 extern void maybe_retrofit_in_chrg (tree);
 extern void maybe_make_one_only	(tree);
 extern void grokclassfn	(tree, tree, enum overload_flags, tree);
 extern tree grok_array_decl (tree, tree);
 extern tree delete_sanity (tree, tree, int, int);
-extern tree check_classfn (tree, tree);
+extern tree check_classfn (tree, tree, bool);
 extern void check_member_template (tree);
 extern tree grokfield (tree, tree, tree, tree, tree);
 extern tree grokbitfield (tree, tree, tree);
@@ -3872,6 +3875,7 @@ extern void redeclare_class_template            (tree, tree);
 extern tree lookup_template_class		(tree, tree, tree, tree, int, tsubst_flags_t);
 extern tree lookup_template_function            (tree, tree);
 extern int uses_template_parms			(tree);
+extern int uses_template_parms_level		(tree, int);
 extern tree instantiate_class_template		(tree);
 extern tree instantiate_template		(tree, tree, tsubst_flags_t);
 extern int fn_type_unification                  (tree, tree, tree, tree, tree, unification_kind_t, int);
@@ -3889,6 +3893,7 @@ extern int is_member_template                   (tree);
 extern int comp_template_parms                  (tree, tree);
 extern int template_class_depth                 (tree);
 extern int is_specialization_of                 (tree, tree);
+extern bool is_specialization_of_friend         (tree, tree);
 extern int comp_template_args                   (tree, tree);
 extern void maybe_process_partial_specialization (tree);
 extern void maybe_check_template_type           (tree);
@@ -3959,6 +3964,7 @@ extern void reinit_search_statistics		(void);
 extern tree current_scope			(void);
 extern int at_function_scope_p                  (void);
 extern bool at_class_scope_p                    (void);
+extern bool at_namespace_scope_p                (void);
 extern tree context_for_name_lookup		(tree);
 extern tree lookup_conversions			(tree);
 extern tree binfo_for_vtable			(tree);
@@ -4162,8 +4168,6 @@ extern int cp_is_overload_p (tree);
 extern int cp_auto_var_in_fn_p (tree,tree);
 extern tree cp_copy_res_decl_for_inlining (tree, tree, tree, void*,
 						   int*, tree);
-extern int cp_start_inlining			(tree);
-extern void cp_end_inlining			(tree);
 
 /* in typeck.c */
 extern int string_conv_p			(tree, tree, int);

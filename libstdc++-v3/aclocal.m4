@@ -1,4 +1,4 @@
-# generated automatically by aclocal 1.7.7 -*- Autoconf -*-
+# generated automatically by aclocal 1.7.8 -*- Autoconf -*-
 
 # Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002
 # Free Software Foundation, Inc.
@@ -606,10 +606,17 @@ dnl
 dnl Check whether LFS support is available.
 dnl
 AC_DEFUN(GLIBCXX_CHECK_LFS, [
+  AC_LANG_SAVE
+  AC_LANG_CPLUSPLUS	
   AC_CACHE_VAL(glibcxx_cv_LFS, [
     AC_TRY_LINK(
-      [#include <unistd.h>],
-      [fopen64("t", "w");
+      [#include <unistd.h>
+       #include <stdio.h>
+      ],
+      [FILE* fp;
+       fopen64("t", "w");
+       fseeko64(fp, 0, SEEK_CUR);
+       ftello64(fp);
        lseek64(1, 0, SEEK_CUR);],	
       [glibcxx_cv_LFS=yes],
       [glibcxx_cv_LFS=no])
@@ -617,6 +624,7 @@ AC_DEFUN(GLIBCXX_CHECK_LFS, [
   if test $glibcxx_cv_LFS = yes; then
     AC_DEFINE(_GLIBCXX_USE_LFS)
   fi
+  AC_LANG_RESTORE	
 ])
 
 
@@ -1353,33 +1361,6 @@ AC_DEFUN(GLIBCXX_ENABLE_HOSTED, [
 
 
 dnl
-dnl Check for libunwind exception handling support.  If enabled, then
-dnl we assume that the _Unwind_* functions that make up the Unwind ABI
-dnl (_Unwind_RaiseException, _Unwind_Resume, etc.) are defined by
-dnl libunwind instead of libgcc, and that libstdc++ has a dependency
-dnl on libunwind as well as libgcc.
-dnl
-dnl --enable-libunwind-exceptions forces the use of libunwind.
-dnl --disable-libunwind-exceptions assumes there is no libunwind.
-dnl
-dnl Substs:
-dnl  LIBUNWIND_FLAG
-dnl
-AC_DEFUN(GLIBCXX_ENABLE_LIBUNWIND_EXCEPTIONS, [
-  AC_MSG_CHECKING([for use of libunwind])
-  GLIBCXX_ENABLE(libunwind-exceptions,no,,
-    [force use of libunwind for exceptions])
-  AC_MSG_RESULT($use_libunwind_exceptions)
-  if test $enable_libunwind_exceptions = yes; then
-    LIBUNWIND_FLAG="-lunwind"
-  else
-    LIBUNWIND_FLAG=""
-  fi
-  AC_SUBST(LIBUNWIND_FLAG)
-])
-
-
-dnl
 dnl Check for template specializations for the 'long long' type extension.
 dnl The result determines only whether 'long long' I/O is enabled; things
 dnl like numeric_limits<> specializations are always available.
@@ -2004,7 +1985,7 @@ AC_DEFUN([AM_AUTOMAKE_VERSION],[am__api_version="1.7"])
 # Call AM_AUTOMAKE_VERSION so it can be traced.
 # This function is AC_REQUIREd by AC_INIT_AUTOMAKE.
 AC_DEFUN([AM_SET_CURRENT_AUTOMAKE_VERSION],
-	 [AM_AUTOMAKE_VERSION([1.7.7])])
+	 [AM_AUTOMAKE_VERSION([1.7.8])])
 
 # Helper functions for option handling.                    -*- Autoconf -*-
 

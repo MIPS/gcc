@@ -56,7 +56,7 @@ import java.nio.channels.spi.SelectorProvider;
 public final class DatagramChannelImpl extends DatagramChannel
 {
   private NIODatagramSocket socket;
-  private boolean blocking = false;
+  private boolean blocking = true;
   
   protected DatagramChannelImpl (SelectorProvider provider)
     throws IOException
@@ -67,7 +67,7 @@ public final class DatagramChannelImpl extends DatagramChannel
 
   public int getNativeFD()
   {
-    return socket.getImpl().getNativeFD();
+    return socket.getPlainDatagramSocketImpl().getNativeFD();
   }
     
   public DatagramSocket socket ()

@@ -1,23 +1,23 @@
-/* Definitions of target machine for GNU compiler, Mitsubishi M32R cpu.
-   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002
+/* Definitions of target machine for GNU compiler, Renesas M32R cpu.
+   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003
    Free Software Foundation, Inc.
 
-This file is part of GCC.
+   This file is part of GCC.
 
-GCC is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+   GCC is free software; you can redistribute it and/or modify it
+   under the terms of the GNU General Public License as published
+   by the Free Software Foundation; either version 2, or (at your
+   option) any later version.
 
-GCC is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+   GCC is distributed in the hope that it will be useful, but WITHOUT
+   ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+   or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
+   License for more details.
 
-You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+   You should have received a copy of the GNU General Public License
+   along with GCC; see the file COPYING.  If not, write to
+   the Free Software Foundation, 59 Temple Place - Suite 330,
+   Boston, MA 02111-1307, USA.  */
 
 /* Things to do:
 - longlong.h?
@@ -42,14 +42,18 @@ Boston, MA 02111-1307, USA.  */
 
 /* M32R/X overrides.  */
 /* Print subsidiary information on the compiler version in use.  */
-#define TARGET_VERSION fprintf (stderr, " (m32r/x)");
+#define TARGET_VERSION fprintf (stderr, " (m32r/x/2)");
 
 /* Additional flags for the preprocessor.  */
-#define CPP_CPU_SPEC "%{m32rx:-D__M32RX__} %{m32r:-U__M32RX__}"
+#define CPP_CPU_SPEC "%{m32rx:-D__M32RX__ -D__m32rx__ -U__M32R2__ -U__m32r2__} \
+%{m32r2:-D__M32R2__ -D__m32r2__ -U__M32RX__ -U__m32rx__} \
+%{m32r:-U__M32RX__  -U__m32rx__ -U__M32R2__ -U__m32r2__} \
+ "
+
 
 /* Assembler switches.  */
 #define ASM_CPU_SPEC \
-"%{m32r} %{m32rx} %{!O0: %{O*: -O}} --no-warn-explicit-parallel-conflicts"
+"%{m32r} %{m32rx} %{m32r2} %{!O0: %{O*: -O}} --no-warn-explicit-parallel-conflicts"
 
 /* Use m32rx specific crt0/crtinit/crtfini files.  */
 #define STARTFILE_CPU_SPEC "%{!shared:crt0.o%s} %{m32rx:m32rx/crtinit.o%s} %{!m32rx:crtinit.o%s}"
@@ -58,7 +62,8 @@ Boston, MA 02111-1307, USA.  */
 /* Extra machine dependent switches.  */
 #define SUBTARGET_SWITCHES							\
     { "32rx",			TARGET_M32RX_MASK, "Compile for the m32rx" },	\
-    { "32r",			-TARGET_M32RX_MASK, "" },
+    { "32r2",			TARGET_M32R2_MASK, "Compile for the m32r2" },	\
+    { "32r",			-(TARGET_M32RX_MASK+TARGET_M32R2_MASK), "" },
 
 /* Define this macro as a C expression for the initializer of an array of
    strings to tell the driver program which options are defaults for this
@@ -222,6 +227,12 @@ extern int target_flags;
 #define TARGET_M32RX            (target_flags & TARGET_M32RX_MASK)
 #undef  TARGET_M32R
 #define TARGET_M32R             (! TARGET_M32RX)
+
+/* Support extended instruction set of m32r2.  */
+#define TARGET_M32R2_MASK       (1 << 6)
+#define TARGET_M32R2            (target_flags & TARGET_M32RX_MASK)
+#undef  TARGET_M32R
+#define TARGET_M32R             (! TARGET_M32RX && ! TARGET_M32R2)
 
 /* Macro to define tables used to set the flags.
    This is a list in braces of pairs in braces,

@@ -61,7 +61,7 @@
 #ifndef _BVECTOR_H
 #define _BVECTOR_H 1
 
-namespace std
+namespace __gnu_norm
 { 
   typedef unsigned long _Bit_type;
   enum { _S_word_bit = int(CHAR_BIT * sizeof(_Bit_type)) };
@@ -261,86 +261,41 @@ inline _Bit_const_iterator
 operator+(ptrdiff_t __n, const _Bit_const_iterator& __x) { return __x + __n; }
 
 
-// Bit-vector base class, which encapsulates the difference between
-// old SGI-style allocators and standard-conforming allocators.
-
-// Base class for ordinary allocators.
-template <class _Allocator, bool __is_static>
-class _Bvector_alloc_base {
-public:
-  typedef typename _Alloc_traits<bool, _Allocator>::allocator_type
-          allocator_type;
-  allocator_type get_allocator() const { return _M_data_allocator; }
-
-  _Bvector_alloc_base(const allocator_type& __a)
-    : _M_data_allocator(__a), _M_start(), _M_finish(), _M_end_of_storage(0) {}
-
-protected:
-  _Bit_type * _M_bit_alloc(size_t __n) 
-    { return _M_data_allocator.allocate((__n + _S_word_bit - 1)/_S_word_bit); }
-  void _M_deallocate() {
-    if (_M_start._M_p)
-      _M_data_allocator.deallocate(_M_start._M_p, 
-                                   _M_end_of_storage - _M_start._M_p);
-  }  
-
-  typename _Alloc_traits<_Bit_type, _Allocator>::allocator_type 
-          _M_data_allocator;
-  _Bit_iterator _M_start;
-  _Bit_iterator _M_finish;
-  _Bit_type * _M_end_of_storage;
-};
-
-// Specialization for instanceless allocators.
-template <class _Allocator>
-class _Bvector_alloc_base<_Allocator, true> {
-public:
-  typedef typename _Alloc_traits<bool, _Allocator>::allocator_type
-          allocator_type;
-  allocator_type get_allocator() const { return allocator_type(); }
-
-  _Bvector_alloc_base(const allocator_type&)
-    : _M_start(), _M_finish(), _M_end_of_storage(0) {}
-
-protected:
-  typedef typename _Alloc_traits<_Bit_type, _Allocator>::_Alloc_type
-          _Alloc_type;
-          
-  _Bit_type * _M_bit_alloc(size_t __n) 
-    { return _Alloc_type::allocate((__n + _S_word_bit - 1)/_S_word_bit); }
-  void _M_deallocate() {
-    if (_M_start._M_p)
-      _Alloc_type::deallocate(_M_start._M_p,
-                              _M_end_of_storage - _M_start._M_p);
-  }  
-
-  _Bit_iterator _M_start;
-  _Bit_iterator _M_finish;
-  _Bit_type * _M_end_of_storage;
-};  
-
 template <class _Alloc>
 class _Bvector_base
-  : public _Bvector_alloc_base<_Alloc,
-                               _Alloc_traits<bool, _Alloc>::_S_instanceless>
+  : public _Alloc::template rebind<_Bit_type>::other
 {
-  typedef _Bvector_alloc_base<_Alloc,
-                              _Alloc_traits<bool, _Alloc>::_S_instanceless>
-          _Base;
+  typedef typename _Alloc::template rebind<_Bit_type>::other _Bit_alloc_type;
 public:
-  typedef typename _Base::allocator_type allocator_type;
+  typedef _Alloc allocator_type;
+  allocator_type get_allocator() const {
+    return *static_cast<const _Bit_alloc_type*>(this);
+  }
 
-  _Bvector_base(const allocator_type& __a) : _Base(__a) {}
-  ~_Bvector_base() { _Base::_M_deallocate(); }
+  _Bvector_base(const allocator_type& __a)
+    : _Bit_alloc_type(__a), _M_start(), _M_finish(), _M_end_of_storage(0) { }
+  ~_Bvector_base() { this->_M_deallocate(); }
+
+protected:
+  _Bit_type* _M_bit_alloc(size_t __n) {
+    return _Bit_alloc_type::allocate((__n + _S_word_bit - 1)/_S_word_bit);
+  }
+  void _M_deallocate() {
+    if (_M_start._M_p)
+      _Bit_alloc_type::deallocate(_M_start._M_p, _M_end_of_storage - _M_start._M_p);
+  }  
+
+  _Bit_iterator _M_start;
+  _Bit_iterator _M_finish;
+  _Bit_type * _M_end_of_storage;
 };
 
-} // namespace std
+} // namespace __gnu_norm
 
 // Declare a partial specialization of vector<T, Alloc>.
 #include <bits/stl_vector.h>
-namespace std
+namespace __gnu_norm
 {
-
 template <typename _Alloc> 
   class vector<bool, _Alloc> : public _Bvector_base<_Alloc> 
   {
@@ -723,13 +678,8 @@ template <typename _Alloc>
     void clear() { erase(begin(), end()); }
   };
 
-// This typedef is non-standard.  It is provided for backward compatibility.
-typedef vector<bool, __alloc> bit_vector;
-
-} // namespace std 
+  // This typedef is non-standard.  It is provided for backward compatibility.
+  typedef vector<bool, __alloc> bit_vector;
+} // namespace __gnu_norm
 
 #endif /* _BVECTOR_H */
-
-// Local Variables:
-// mode:C++
-// End:

@@ -71,6 +71,7 @@
 #define SUBTARGET_OVERRIDE_OPTIONS				  	\
 do {									\
   rs6000_altivec_abi = 1;						\
+  rs6000_altivec_vrsave = 1;						\
   if (DEFAULT_ABI == ABI_DARWIN)					\
   {									\
     if (MACHO_DYNAMIC_NO_PIC_P)						\
@@ -97,9 +98,14 @@ do {									\
 %{static: %{Zdynamic: %e conflicting code gen style switches are used}}\
 %{!static:%{!mdynamic-no-pic:-fPIC}}"
 
+/* It's virtually impossible to predict all the possible combinations
+   of -mcpu and -maltivec and whatnot, so just supply
+   -force_cpusubtype_ALL if any are seen.  Radar 3492132 against the
+   assembler is asking for a .machine directive so we could get this
+   really right.  */
 #define ASM_SPEC "-arch ppc \
   %{Zforce_cpusubtype_ALL:-force_cpusubtype_ALL} \
-  %{!Zforce_cpusubtype_ALL:%{faltivec:-force_cpusubtype_ALL}}"
+  %{!Zforce_cpusubtype_ALL:%{maltivec|mcpu=*|mpowerpc64:-force_cpusubtype_ALL}}"
 
 #undef SUBTARGET_EXTRA_SPECS
 #define SUBTARGET_EXTRA_SPECS			\

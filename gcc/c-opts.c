@@ -108,7 +108,7 @@ static void sanitize_cpp_opts (void);
 static void add_prefixed_path (const char *, size_t);
 static void push_command_line_include (void);
 static void cb_file_change (cpp_reader *, const struct line_map *);
-static void finish_options (const char *);
+static bool finish_options (const char *);
 
 #ifndef STDC_0_IN_SYSTEM_HEADERS
 #define STDC_0_IN_SYSTEM_HEADERS 0
@@ -672,7 +672,9 @@ c_common_handle_option (size_t scode, const char *arg, int value)
       /* Fall through.  */
 
     case OPT_fall_virtual:
+    case OPT_falt_external_templates:
     case OPT_fenum_int_equiv:
+    case OPT_fexternal_templates:
     case OPT_fguiding_decls:
     case OPT_fhonor_std:
     case OPT_fhuge_objects:
@@ -695,15 +697,6 @@ c_common_handle_option (size_t scode, const char *arg, int value)
 
     case OPT_faccess_control:
       flag_access_control = value;
-      break;
-
-    case OPT_falt_external_templates:
-      flag_alt_external_templates = value;
-      if (value)
-	flag_external_templates = true;
-    cp_deprecated:
-      warning ("switch \"%s\" is deprecated, please see documentation "
-	       "for details", option->opt_text);
       break;
 
     case OPT_fasm:
@@ -798,10 +791,6 @@ c_common_handle_option (size_t scode, const char *arg, int value)
     case OPT_fenforce_eh_specs:
       flag_enforce_eh_specs = value;
       break;
-
-    case OPT_fexternal_templates:
-      flag_external_templates = value;
-      goto cp_deprecated;
 
     case OPT_ffixed_form:
     case OPT_ffixed_line_length_:
@@ -1183,8 +1172,8 @@ c_common_init (void)
 
   if (flag_preprocess_only)
     {
-      finish_options (in_fnames[0]);
-      preprocess_file (parse_in);
+      if (finish_options (in_fnames[0]))
+	preprocess_file (parse_in);
       return false;
     }
 
@@ -1220,7 +1209,8 @@ c_common_parse_file (int set_yydebug ATTRIBUTE_UNUSED)
 	  cpp_undef_all (parse_in);
 	}
 
-      finish_options(in_fnames[file_index]);
+      if (! finish_options(in_fnames[file_index]))
+	break;
       if (file_index == 0)
 	pch_init();
       c_parse_file ();
@@ -1387,10 +1377,14 @@ add_prefixed_path (const char *suffix, size_t chain)
 
 /* Handle -D, -U, -A, -imacros, and the first -include.  
    TIF is the input file to which we will return after processing all
-   the includes.  */
-static void
+   the includes.  Returns true on success.  */
+static bool
 finish_options (const char *tif)
 {
+  this_input_filename = tif;
+  if (! cpp_find_main_file (parse_in, this_input_filename))
+    return false;
+
   if (!cpp_opts->preprocessed)
     {
       size_t i;
@@ -1435,14 +1429,17 @@ finish_options (const char *tif)
 
 	  if (opt->code == OPT_imacros
 	      && cpp_push_include (parse_in, opt->arg))
-	    cpp_scan_nooutput (parse_in);
+	    {
+	      /* Disable push_command_line_include callback for now.  */
+	      include_cursor = deferred_count + 1;
+	      cpp_scan_nooutput (parse_in);
+	    }
 	}
     }
 
   include_cursor = 0;
-  this_input_filename = tif;
-  cpp_find_main_file (parse_in, this_input_filename);
   push_command_line_include ();
+  return true;
 }
 
 /* Give CPP the next file given by -include, if any.  */

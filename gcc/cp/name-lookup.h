@@ -211,7 +211,7 @@ struct cp_binding_level GTY(())
     /* The kind of scope that this object represents.  However, a
        SK_TEMPLATE_SPEC scope is represented with KIND set to
        SK_TEMPALTE_PARMS and EXPLICIT_SPEC_P set to true.  */
-    enum scope_kind kind : 4;
+    ENUM_BITFIELD (scope_kind) kind : 4;
 
     /* True if this scope is an SK_TEMPLATE_SPEC scope.  This field is
        only valid if KIND == SK_TEMPLATE_PARMS.  */
@@ -306,6 +306,8 @@ extern void do_local_using_decl (tree);
 extern tree do_class_using_decl (tree);
 extern void do_using_directive (tree);
 extern tree lookup_arg_dependent (tree, tree, tree);
+extern bool is_associated_namespace (tree, tree);
+extern void parse_using_directive (tree, tree);
 
 
 /* Set *DECL to the (non-hidden) declaration for ID at global scope,

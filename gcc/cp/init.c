@@ -514,6 +514,7 @@ sort_mem_initializers (tree t, tree mem_inits)
 	    cp_warning_at ("  `%#D'", subobject);
 	  else
 	    warning ("  base `%T'", subobject);
+	  warning ("  when initialized here");
 	}
 
       /* Look again, from the beginning of the list.  */
@@ -1121,7 +1122,7 @@ build_aggr_init (tree exp, tree init, int flags)
     }
 
   if (TREE_CODE (exp) == VAR_DECL || TREE_CODE (exp) == PARM_DECL)
-    /* just know that we've seen something for this node */
+    /* Just know that we've seen something for this node.  */
     TREE_USED (exp) = 1;
 
   TREE_TYPE (exp) = TYPE_MAIN_VARIANT (type);
@@ -1499,7 +1500,7 @@ build_offset_ref (tree type, tree name, bool address_p)
 
       if (TREE_CODE (t) != TEMPLATE_ID_EXPR && !really_overloaded_fn (t))
 	{
-	  /* Get rid of a potential OVERLOAD around it */
+	  /* Get rid of a potential OVERLOAD around it.  */
 	  t = OVL_CURRENT (t);
 
 	  /* Unique functions are handled easily.  */
@@ -1687,7 +1688,7 @@ build_new (tree placement, tree decl, tree init, int use_global_new)
 
       if (absdcl && TREE_CODE (absdcl) == ARRAY_REF)
 	{
-	  /* probably meant to be a vec new */
+	  /* Probably meant to be a vec new.  */
 	  tree this_nelts;
 
 	  while (TREE_OPERAND (absdcl, 0)
@@ -1842,7 +1843,7 @@ build_java_class_ref (tree type)
       jclass_node = TREE_TYPE (jclass_node);
     }
 
-  /* Mangle the class$ field */
+  /* Mangle the class$ field.  */
   {
     tree field;
     for (field = TYPE_FIELDS (type); field; field = TREE_CHAIN (field))
@@ -2005,11 +2006,18 @@ build_new_1 (tree exp)
       tree class_size = size_in_bytes (true_type);
       static const char alloc_name[] = "_Jv_AllocObject";
       use_java_new = 1;
-      alloc_decl = IDENTIFIER_GLOBAL_VALUE (get_identifier (alloc_name));
-      if (alloc_decl == NULL_TREE)
-	fatal_error ("call to Java constructor with `%s' undefined",
-		     alloc_name);
-
+      if (!get_global_value_if_present (get_identifier (alloc_name), 
+					&alloc_decl))
+	{
+	  error ("call to Java constructor with `%s' undefined", alloc_name);
+	  return error_mark_node;
+	}
+      else if (really_overloaded_fn (alloc_decl))
+	{
+	  error ("`%D' should never be overloaded", alloc_decl);
+	  return error_mark_node;
+	}
+      alloc_decl = OVL_CURRENT (alloc_decl);
       class_addr = build1 (ADDR_EXPR, jclass_node, class_decl);
       alloc_call = (build_function_call
 		    (alloc_decl,
@@ -2060,13 +2068,22 @@ build_new_1 (tree exp)
   if (alloc_call == error_mark_node)
     return error_mark_node;
 
-  /* The ALLOC_CALL should be a CALL_EXPR -- or a COMPOUND_EXPR whose
-     right-hand-side is ultimately a CALL_EXPR -- and the first
-     operand should be the address of a known FUNCTION_DECL.  */
-  t = alloc_call;
-  while (TREE_CODE (t) == COMPOUND_EXPR) 
-    t = TREE_OPERAND (t, 1);
-  alloc_fn = get_callee_fndecl (t);
+  /* In the simple case, we can stop now.  */
+  pointer_type = build_pointer_type (type);
+  if (!cookie_size && !is_initialized)
+    return build_nop (pointer_type, alloc_call);
+
+  /* While we're working, use a pointer to the type we've actually
+     allocated. Store the result of the call in a variable so that we
+     can use it more than once.  */
+  full_pointer_type = build_pointer_type (full_type);
+  alloc_expr = get_target_expr (build_nop (full_pointer_type, alloc_call));
+  alloc_node = TARGET_EXPR_SLOT (alloc_expr);
+
+  /* Strip any COMPOUND_EXPRs from ALLOC_CALL.  */
+  while (TREE_CODE (alloc_call) == COMPOUND_EXPR) 
+    alloc_call = TREE_OPERAND (alloc_call, 1);
+  alloc_fn = get_callee_fndecl (alloc_call);
   my_friendly_assert (alloc_fn != NULL_TREE, 20020325);
 
   /* Now, check to see if this function is actually a placement
@@ -2083,6 +2100,27 @@ build_new_1 (tree exp)
     = (type_num_arguments (TREE_TYPE (alloc_fn)) > 1 
        || varargs_function_p (alloc_fn));
 
+  /* Preevaluate the placement args so that we don't reevaluate them for a
+     placement delete.  */
+  if (placement_allocation_fn_p)
+    {
+      tree inits = NULL_TREE;
+      t = TREE_CHAIN (TREE_OPERAND (alloc_call, 1));
+      for (; t; t = TREE_CHAIN (t))
+	if (TREE_SIDE_EFFECTS (TREE_VALUE (t)))
+	  {
+	    tree init;
+	    TREE_VALUE (t) = stabilize_expr (TREE_VALUE (t), &init);
+	    if (inits)
+	      inits = build (COMPOUND_EXPR, void_type_node, inits, init);
+	    else
+	      inits = init;
+	  }
+      if (inits)
+	alloc_expr = build (COMPOUND_EXPR, TREE_TYPE (alloc_expr), inits,
+			    alloc_expr);
+    }
+
   /*        unless an allocation function is declared with an empty  excep-
      tion-specification  (_except.spec_),  throw(), it indicates failure to
      allocate storage by throwing a bad_alloc exception  (clause  _except_,
@@ -2095,18 +2133,6 @@ build_new_1 (tree exp)
 
   nothrow = TYPE_NOTHROW_P (TREE_TYPE (alloc_fn));
   check_new = (flag_check_new || nothrow) && ! use_java_new;
-
-  /* In the simple case, we can stop now.  */
-  pointer_type = build_pointer_type (type);
-  if (!cookie_size && !is_initialized)
-    return build_nop (pointer_type, alloc_call);
-
-  /* While we're working, use a pointer to the type we've actually
-     allocated. Store the result of the call in a variable so that we
-     can use it more than once.  */
-  full_pointer_type = build_pointer_type (full_type);
-  alloc_expr = get_target_expr (build_nop (full_pointer_type, alloc_call));
-  alloc_node = TARGET_EXPR_SLOT (alloc_expr);
 
   if (cookie_size)
     {
@@ -2578,11 +2604,13 @@ build_vec_init (tree base, tree maxindex, tree init, int from_array)
 
 	  num_initialized_elts++;
 
+	  current_stmt_tree ()->stmts_are_full_exprs_p = 1;
 	  if (IS_AGGR_TYPE (type) || TREE_CODE (type) == ARRAY_TYPE)
 	    finish_expr_stmt (build_aggr_init (baseref, elt, 0));
 	  else
 	    finish_expr_stmt (build_modify_expr (baseref, NOP_EXPR,
 						 elt));
+	  current_stmt_tree ()->stmts_are_full_exprs_p = 0;
 
 	  finish_expr_stmt (build_unary_op (PREINCREMENT_EXPR, base, 0));
 	  finish_expr_stmt (build_unary_op (PREDECREMENT_EXPR, iterator, 0));
@@ -2828,7 +2856,7 @@ build_delete (tree type, tree addr, special_function_kind auto_delete,
       if (TREE_SIDE_EFFECTS (addr))
 	addr = save_expr (addr);
 
-      /* throw away const and volatile on target type of addr */
+      /* Throw away const and volatile on target type of addr.  */
       addr = convert_force (build_pointer_type (type), addr, 0);
     }
   else if (TREE_CODE (type) == ARRAY_TYPE)
@@ -3088,7 +3116,8 @@ build_vec_delete (tree base, tree maxindex,
     }
   else if (TREE_CODE (type) == ARRAY_TYPE)
     {
-      /* get the total number of things in the array, maxindex is a bad name */
+      /* Get the total number of things in the array, maxindex is a
+	 bad name.  */
       maxindex = array_type_nelts_total (type);
       type = strip_array_types (type);
       base = build_unary_op (ADDR_EXPR, base, 1);

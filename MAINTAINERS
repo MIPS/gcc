@@ -53,6 +53,7 @@ i860 port		Jason Eckhardt		jle@rice.edu
 i960 port		Jim Wilson		wilson@specifixinc.com
 ia64 port		Jim Wilson		wilson@specifixinc.com
 ip2k port		Denis Chertykov		denisc@overta.ru
+iq2000 port		Stan Cox		scox@redhat.com
 m32r port		Nick Clifton		nickc@redhat.com
 m68hc11 port		Stephane Carrez		stcarrez@nerim.fr
 m68k port (?)		Jeff Law		law@redhat.com
@@ -77,6 +78,7 @@ sparc port		David S. Miller		davem@redhat.com
 sparc port		Jakub Jelinek		jakub@redhat.com
 v850 port		Nick Clifton		nickc@redhat.com
 vax port		Dave Anglin		dave.anglin@nrc.ca
+vax port		Matt Thomas		matt@3am-software.com
 x86-64 port		Jan Hubicka		jh@suse.cz
 xstormy16 port		Geoffrey Keating	geoffk@geoffk.org
 xtensa port		Bob Wilson		bob.wilson@acm.org
@@ -123,6 +125,7 @@ scheduler (+ haifa)	Michael Meissner	gnu@the-meissners.org
 scheduler (+ haifa)	Jeff Law		law@redhat.com
 reorg			Jeff Law		law@redhat.com
 caller-save.c		Jeff Law		law@redhat.com
+callgraph		Jan Hubicka		jh@suse.cz
 debugging code		Jim Wilson		wilson@specifixinc.com
 dwarf debugging code	Jason Merrill		jason@redhat.com
 c++ runtime libs	Paolo Carlini		pcarlini@unitus.it
@@ -172,6 +175,7 @@ in changes outside of the parts of the compiler they maintain.
 			Write After Approval	(last name alphabetical order)
 
 Matt Austern                                    austern@apple.com
+Giovanni Bajo					giovannibajo@gcc.gnu.org
 Scott Bambrough					scottb@netwinder.org
 Wolfgang Bangerth				bangerth@dealii.org
 Daniel Berlin					dan@dberlin.org
@@ -219,6 +223,7 @@ Jeff Knaggs					jknaggs@redhat.com
 Matt Kraai					kraai@alumni.cmu.edu
 Marc Lehmann					pcg@goof.com
 Alan Lehotsky					apl@alum.mit.edu
+James Lemke					jim@wasabisystems.com
 Kriang Lerdsuwanakij				lerdsuwa@users.sourceforge.net
 Warren Levy					warrenl@cruzio.com
 Don Lindsay					dlindsay@redhat.com
@@ -278,7 +283,6 @@ Josef Zlomek					zlomekj@suse.cz
 
 Bug database only accounts
 
-Giovanni Bajo					giovannibajo@libero.it
 James Dennett					jdennett@acm.org
 Christian Ehrhardt				ehrhardt@mathematik.uni-ulm.de
 Dara Hazeghi					dhazeghi@yahoo.com

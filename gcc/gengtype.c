@@ -1087,7 +1087,7 @@ open_base_files (void)
       "config.h", "system.h", "coretypes.h", "tm.h", "varray.h",
       "hashtab.h", "splay-tree.h", "bitmap.h", "tree.h", "rtl.h",
       "function.h", "insn-config.h", "expr.h", "hard-reg-set.h",
-      "basic-block.h", "cselib.h", "insn-addr.h", "ssa.h", "optabs.h",
+      "basic-block.h", "cselib.h", "insn-addr.h", "optabs.h",
       "libfuncs.h", "debug.h", "ggc.h", "cgraph.h",
       NULL
     };
@@ -2914,10 +2914,10 @@ main(int argc ATTRIBUTE_UNUSED, char **argv ATTRIBUTE_UNUSED)
   do_scalar_typedef ("uint8", &pos);
   do_scalar_typedef ("jword", &pos);
   do_scalar_typedef ("JCF_u2", &pos);
+  do_scalar_typedef ("void", &pos);
 
-  do_typedef ("PTR", create_pointer (create_scalar_type ("void",
-							 strlen ("void"))),
-	      &pos);
+  do_typedef ("PTR", create_pointer (resolve_typedef ("void", &pos)), &pos);
+
   do_typedef ("HARD_REG_SET", create_array (
 	      create_scalar_type ("unsigned long", strlen ("unsigned long")),
 	      "2"), &pos);

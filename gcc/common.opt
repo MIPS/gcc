@@ -366,10 +366,6 @@ fgcse-las
 Common
 Perform redundant load after store elimination in global common subexpression elimination
 
-fgnu-linker
-Common
-Output GNU ld formatted global initializers
-
 fguess-branch-probability
 Common
 Enable guessing of branch probabilities
@@ -627,18 +623,6 @@ Disable optimizations observable by IEEE signaling NaNs
 fsingle-precision-constant
 Common
 Convert floating point constants to single precision constants
-
-fssa
-Common
-Enable static single assignment optimizations
-
-fssa-ccp
-Common
-Enable SSA conditional constant propagation
-
-fssa-dce
-Common
-Enable aggressive SSA dead code elimination
 
 fstack-check
 Common

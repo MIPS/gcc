@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1997-2001 Free Software Foundation, Inc.          --
+--          Copyright (C) 1997-2003 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -47,11 +47,10 @@ with GNAT.OS_Lib;          use GNAT.OS_Lib;
 with Gnatvsn;              use Gnatvsn;
 with Interfaces.C_Streams; use Interfaces.C_Streams;
 with Osint;                use Osint;
-with Sdefault;             use Sdefault;
 with System;
 
 procedure GnatLbr is
-   pragma Ident (Gnat_Version_String);
+   pragma Ident (Gnat_Static_Version_String);
 
    type Lib_Mode is (None, Create, Set, Delete);
    Next_Arg  : Integer;
@@ -192,7 +191,7 @@ begin
             --  there are two.
             --
             Include_Dirs := 0;
-            Include_Dir_Name := String_Access (Include_Dir_Default_Name);
+            Include_Dir_Name := new String'(Include_Dir_Default_Prefix);
             Get_Next_Dir_In_Path_Init (String_Access (Include_Dir_Name));
 
             loop
@@ -208,7 +207,7 @@ begin
             end loop;
 
             Object_Dirs := 0;
-            Object_Dir_Name := String_Access (Object_Dir_Default_Name);
+            Object_Dir_Name := new String'(Object_Dir_Default_Prefix);
             Get_Next_Dir_In_Path_Init (String_Access (Object_Dir_Name));
 
             loop
@@ -255,7 +254,8 @@ begin
                              & F_ADC_File (1 .. F_ADC_File_Len));
 
                Make_Args (6) :=
-                 new String'("LIBRARY_VERSION=" & '"' & Library_Version & '"');
+                 new String'("LIBRARY_VERSION=" & '"' &
+                             Verbose_Library_Version & '"');
 
                Make_Args (7) :=
                  new String'("-f");

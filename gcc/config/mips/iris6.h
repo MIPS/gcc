@@ -423,12 +423,6 @@ while (0)
 #define ASM_OUTPUT_ALIGNED_BSS(FILE, DECL, NAME, SIZE, ALIGN) \
   asm_output_aligned_bss (FILE, DECL, NAME, SIZE, ALIGN)
 
-/* Define the `__builtin_va_list' type for the ABI.  On IRIX 6, this
-   type is `char *'.  */
-#undef BUILD_VA_LIST_TYPE
-#define BUILD_VA_LIST_TYPE(VALIST) \
-  (VALIST) = build_pointer_type (char_type_node)
-
 #undef ASM_DECLARE_OBJECT_NAME
 #define ASM_DECLARE_OBJECT_NAME mips_declare_object_name
 
@@ -442,8 +436,7 @@ while (0)
 /* Profiling is supported via libprof1.a not -lc_p as in IRIX 3.  */
 /* ??? If no mabi=X option give, but a mipsX option is, then should depend
    on the mipsX option.  */
-#undef STARTFILE_SPEC
-#define STARTFILE_SPEC \
+#define IRIX6_STARTFILE_SPEC \
   "%{!shared: \
      %{mabi=32:%{pg:gcrt1.o%s} \
        %{!pg:%{p:mcrt1.o%s libprof1.a%s}%{!p:crt1.o%s}}} \
@@ -467,8 +460,10 @@ while (0)
            %{!p:/usr/lib32/mips4/crt1.o%s}}} \
        %{!mips4:%{pg:/usr/lib32/mips3/gcrt1.o%s} \
          %{!pg:%{p:/usr/lib32/mips3/mcrt1.o%s /usr/lib32/mips3/libprof1.a%s} \
-           %{!p:/usr/lib32/mips3/crt1.o%s}}}}} \
-   crtbegin.o%s"
+           %{!p:/usr/lib32/mips3/crt1.o%s}}}}}"
+
+#undef STARTFILE_SPEC
+#define STARTFILE_SPEC "%(irix6_startfile_spec) crtbegin.o%s"
 
 #undef LIB_SPEC
 #define LIB_SPEC \
@@ -487,10 +482,8 @@ while (0)
 
 /* ??? If no mabi=X option give, but a mipsX option is, then should depend
    on the mipsX option.  */
-#undef ENDFILE_SPEC
-#define ENDFILE_SPEC \
-  "crtend.o%s \
-   %{!shared: \
+#define IRIX6_ENDFILE_SPEC \
+  "%{!shared: \
      %{mabi=32:crtn.o%s}\
      %{mabi=n32:%{mips4:/usr/lib32/mips4/crtn.o%s}\
        %{!mips4:/usr/lib32/mips3/crtn.o%s}}\
@@ -498,6 +491,9 @@ while (0)
        %{!mips4:/usr/lib64/mips3/crtn.o%s}}\
      %{!mabi*:%{mips4:/usr/lib32/mips4/crtn.o%s}\
        %{!mips4:/usr/lib32/mips3/crtn.o%s}}}"
+
+#undef ENDFILE_SPEC
+#define ENDFILE_SPEC "crtend.o%s %(irix6_endfile_spec)"
 
 /* ??? If no mabi=X option give, but a mipsX option is, then should depend
    on the mipsX option.  */
@@ -522,3 +518,8 @@ do {								\
 } while (0)
 
 #define MIPS_TFMODE_FORMAT mips_extended_format
+
+#undef SUBTARGET_EXTRA_SPECS
+#define SUBTARGET_EXTRA_SPECS \
+  { "irix6_startfile_spec", IRIX6_STARTFILE_SPEC }, \
+  { "irix6_endfile_spec", IRIX6_ENDFILE_SPEC },

@@ -24,12 +24,13 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
-with Fmap;     use Fmap;
+with Fmap;             use Fmap;
 with Hostparm;
-with Namet;    use Namet;
-with Opt;      use Opt;
-with Output;   use Output;
-with Sdefault; use Sdefault;
+with Namet;            use Namet;
+with Opt;              use Opt;
+with Output;           use Output;
+with Sdefault;         use Sdefault;
+with System.Case_Util; use System.Case_Util;
 with Table;
 
 with Unchecked_Conversion;
@@ -40,7 +41,19 @@ with GNAT.HTable;
 package body Osint is
 
    Running_Program : Program_Type := Unspecified;
-   Program_Set     : Boolean      := False;
+   --  comment required here ???
+
+   Program_Set : Boolean := False;
+   --  comment required here ???
+
+   Std_Prefix : String_Ptr;
+   --  Standard prefix, computed dynamically the first time Relocate_Path
+   --  is called, and cached for subsequent calls.
+
+   Empty  : aliased String := "";
+   No_Dir : constant String_Ptr := Empty'Access;
+   --  Used in Locate_File as a fake directory when Name is already an
+   --  absolute path.
 
    -------------------------------------
    -- Use of Name_Find and Name_Enter --
@@ -61,8 +74,7 @@ package body Osint is
 
    function Append_Suffix_To_File_Name
      (Name   : Name_Id;
-      Suffix : String)
-      return   Name_Id;
+      Suffix : String) return Name_Id;
    --  Appends Suffix to Name and returns the new name.
 
    function OS_Time_To_GNAT_Time (T : OS_Time) return Time_Stamp_Type;
@@ -71,11 +83,19 @@ package body Osint is
    function Concat (String_One : String; String_Two : String) return String;
    --  Concatenates 2 strings and returns the result of the concatenation
 
+   function Executable_Prefix return String_Ptr;
+   --  Returns the name of the root directory where the executable is stored.
+   --  The executable must be located in a directory called "bin", or
+   --  under root/lib/gcc-lib/..., or under root/libexec/gcc/... Thus, if
+   --  the executable is stored in directory "/foo/bar/bin", this routine
+   --  returns "/foo/bar/".  Return "" if the location is not recognized
+   --  as described above.
+
    function Update_Path (Path : String_Ptr) return String_Ptr;
    --  Update the specified path to replace the prefix with the location
    --  where GNAT is installed. See the file prefix.c in GCC for details.
 
-   procedure Write_With_Check (A  : Address; N  : Integer);
+   procedure Write_With_Check (A : Address; N  : Integer);
    --  Writes N bytes from buffer starting at address A to file whose FD is
    --  stored in Output_FD, and whose file name is stored as a File_Name_Type
    --  in Output_File_Name. A check is made for disk full, and if this is
@@ -86,8 +106,7 @@ package body Osint is
      (N    : File_Name_Type;
       T    : File_Type;
       Dir  : Natural;
-      Name : String)
-      return File_Name_Type;
+      Name : String) return File_Name_Type;
    --  See if the file N whose name is Name exists in directory Dir. Dir is
    --  an index into the Lib_Search_Directories table if T = Library.
    --  Otherwise if T = Source, Dir is an index into the
@@ -99,8 +118,7 @@ package body Osint is
 
    function To_Path_String_Access
      (Path_Addr : Address;
-      Path_Len  : Integer)
-      return      String_Access;
+      Path_Len  : Integer) return String_Access;
    --  Converts a C String to an Ada String. Are we doing this to avoid
    --  withing Interfaces.C.Strings ???
 
@@ -205,17 +223,15 @@ package body Osint is
      Equal      => "=");
 
    function Smart_Find_File
-     (N    : File_Name_Type;
-      T    : File_Type)
-      return File_Name_Type;
+     (N : File_Name_Type;
+      T : File_Type) return File_Name_Type;
    --  Exactly like Find_File except that if File_Cache_Enabled is True this
    --  routine looks first in the hash table to see if the full name of the
    --  file is already available.
 
    function Smart_File_Stamp
-     (N    : File_Name_Type;
-      T    : File_Type)
-      return Time_Stamp_Type;
+     (N : File_Name_Type;
+      T : File_Type) return Time_Stamp_Type;
    --  Takes the same parameter as the routine above (N is a file name
    --  without any prefix directory information) and behaves like File_Stamp
    --  except that if File_Cache_Enabled is True this routine looks first in
@@ -578,8 +594,7 @@ package body Osint is
 
    function Append_Suffix_To_File_Name
      (Name   : Name_Id;
-      Suffix : String)
-      return   Name_Id
+      Suffix : String) return Name_Id
    is
    begin
       Get_Name_String (Name);
@@ -735,6 +750,63 @@ package body Osint is
       return Name_Enter;
    end Executable_Name;
 
+   -------------------------
+   -- Executable_Prefix --
+   -------------------------
+
+   function Executable_Prefix return String_Ptr is
+      Exec_Name : String (1 .. Len_Arg (0));
+
+      function Get_Install_Dir (Exec : String) return String_Ptr;
+      --  S is the executable name preceeded by the absolute or relative
+      --  path, e.g. "c:\usr\bin\gcc.exe" or "..\bin\gcc".
+
+      ---------------------
+      -- Get_Install_Dir --
+      ---------------------
+
+      function Get_Install_Dir (Exec : String) return String_Ptr is
+      begin
+         for J in reverse Exec'Range loop
+            if Is_Directory_Separator (Exec (J)) then
+               if J < Exec'Last - 5 then
+                  if (To_Lower (Exec (J + 1)) = 'l'
+                      and then To_Lower (Exec (J + 2)) = 'i'
+                      and then To_Lower (Exec (J + 3)) = 'b')
+                    or else
+                      (To_Lower (Exec (J + 1)) = 'b'
+                       and then To_Lower (Exec (J + 2)) = 'i'
+                       and then To_Lower (Exec (J + 3)) = 'n')
+                  then
+                     return new String'(Exec (Exec'First .. J));
+                  end if;
+               end if;
+            end if;
+         end loop;
+
+         return new String'("");
+      end Get_Install_Dir;
+
+   --  Start of processing for Executable_Prefix
+
+   begin
+      Osint.Fill_Arg (Exec_Name'Address, 0);
+
+      --  First determine if a path prefix was placed in front of the
+      --  executable name.
+
+      for J in reverse Exec_Name'Range loop
+         if Is_Directory_Separator (Exec_Name (J)) then
+            return Get_Install_Dir (Exec_Name);
+         end if;
+      end loop;
+
+      --  If we come here, the user has typed the executable name with no
+      --  directory prefix.
+
+      return Get_Install_Dir (GNAT.OS_Lib.Locate_Exec_On_Path (Exec_Name).all);
+   end Executable_Prefix;
+
    ------------------
    -- Exit_Program --
    ------------------
@@ -820,9 +892,8 @@ package body Osint is
    ---------------
 
    function Find_File
-     (N :    File_Name_Type;
-      T :    File_Type)
-      return File_Name_Type
+     (N : File_Name_Type;
+      T : File_Type) return File_Name_Type
    is
    begin
       Get_Name_String (N);
@@ -1019,8 +1090,7 @@ package body Osint is
    --  call to Get_Next_Dir_In_Path_Init, updated by Get_Next_Dir_In_Path.
 
    function Get_Next_Dir_In_Path
-     (Search_Path : String_Access)
-      return        String_Access
+     (Search_Path : String_Access) return String_Access
    is
       Lower_Bound : Positive := Search_Path_Pos;
       Upper_Bound : Positive;
@@ -1073,8 +1143,7 @@ package body Osint is
 
    function Get_RTS_Search_Dir
      (Search_Dir : String;
-      File_Type  : Search_File_Type)
-      return       String_Ptr
+      File_Type  : Search_File_Type) return String_Ptr
    is
       procedure Get_Current_Dir
         (Dir    : System.Address;
@@ -1229,6 +1298,28 @@ package body Osint is
       end if;
    end Get_RTS_Search_Dir;
 
+   --------------------------------
+   -- Include_Dir_Default_Prefix --
+   --------------------------------
+
+   function Include_Dir_Default_Prefix return String is
+      Include_Dir : String_Access :=
+                      String_Access (Update_Path (Include_Dir_Default_Name));
+
+   begin
+      if Include_Dir = null then
+         return "";
+
+      else
+         declare
+            Result : constant String := Include_Dir.all;
+         begin
+            Free (Include_Dir);
+            return Result;
+         end;
+      end if;
+   end Include_Dir_Default_Prefix;
+
    ----------------
    -- Initialize --
    ----------------
@@ -1339,13 +1430,17 @@ package body Osint is
      (N    : File_Name_Type;
       T    : File_Type;
       Dir  : Natural;
-      Name : String)
-      return File_Name_Type
+      Name : String) return File_Name_Type
    is
       Dir_Name : String_Ptr;
 
    begin
-      if T = Library then
+      --  If Name is already an absolute path, do not look for a directory
+
+      if Is_Absolute_Path (Name) then
+         Dir_Name := No_Dir;
+
+      elsif T = Library then
          Dir_Name := Lib_Search_Directories.Table (Dir);
 
       else pragma Assert (T /= Config);
@@ -1381,9 +1476,8 @@ package body Osint is
    -------------------------------
 
    function Matching_Full_Source_Name
-     (N    : File_Name_Type;
-      T    : Time_Stamp_Type)
-      return File_Name_Type
+     (N : File_Name_Type;
+      T : Time_Stamp_Type) return File_Name_Type
    is
    begin
       Get_Name_String (N);
@@ -1610,6 +1704,28 @@ package body Osint is
       return Number_File_Names;
    end Number_Of_Files;
 
+   -------------------------------
+   -- Object_Dir_Default_Prefix --
+   -------------------------------
+
+   function Object_Dir_Default_Prefix return String is
+      Object_Dir : String_Access :=
+                     String_Access (Update_Path (Object_Dir_Default_Name));
+
+   begin
+      if Object_Dir = null then
+         return "";
+
+      else
+         declare
+            Result : constant String := Object_Dir.all;
+         begin
+            Free (Object_Dir);
+            return Result;
+         end;
+      end if;
+   end Object_Dir_Default_Prefix;
+
    ----------------------
    -- Object_File_Name --
    ----------------------
@@ -1698,8 +1814,7 @@ package body Osint is
    function Read_Default_Search_Dirs
      (Search_Dir_Prefix       : String_Access;
       Search_File             : String_Access;
-      Search_Dir_Default_Name : String_Access)
-      return                  String_Access
+      Search_Dir_Default_Name : String_Access) return String_Access
    is
       Prefix_Len : constant Integer := Search_Dir_Prefix.all'Length;
       Buffer     : String (1 .. Prefix_Len + Search_File.all'Length + 1);
@@ -1818,8 +1933,7 @@ package body Osint is
 
    function Read_Library_Info
      (Lib_File  : File_Name_Type;
-      Fatal_Err : Boolean := False)
-      return      Text_Buffer_Ptr
+      Fatal_Err : Boolean := False) return Text_Buffer_Ptr
    is
       Lib_FD : File_Descriptor;
       --  The file descriptor for the current library file. A negative value
@@ -2074,6 +2188,44 @@ package body Osint is
 
    end Read_Source_File;
 
+   -------------------
+   -- Relocate_Path --
+   -------------------
+
+   function Relocate_Path
+     (Prefix : String;
+      Path   : String) return String_Ptr
+   is
+      S : String_Ptr;
+
+      procedure set_std_prefix (S : String; Len : Integer);
+      pragma Import (C, set_std_prefix);
+
+   begin
+      if Std_Prefix = null then
+         Std_Prefix := Executable_Prefix;
+
+         if Std_Prefix.all /= "" then
+            --  Remove trailing directory separator when calling set_std_prefix
+
+            set_std_prefix (Std_Prefix.all, Std_Prefix'Length - 1);
+         end if;
+      end if;
+
+      if Path (Prefix'Range) = Prefix then
+         if Std_Prefix.all /= "" then
+            S := new String
+              (1 .. Std_Prefix'Length + Path'Last - Prefix'Last);
+            S (1 .. Std_Prefix'Length) := Std_Prefix.all;
+            S (Std_Prefix'Length + 1 .. S'Last) :=
+              Path (Prefix'Last + 1 .. Path'Last);
+            return S;
+         end if;
+      end if;
+
+      return new String'(Path);
+   end Relocate_Path;
+
    -----------------
    -- Set_Program --
    -----------------
@@ -2093,9 +2245,8 @@ package body Osint is
    ----------------------
 
    function Smart_File_Stamp
-     (N    : File_Name_Type;
-      T    : File_Type)
-      return Time_Stamp_Type
+     (N : File_Name_Type;
+      T : File_Type) return Time_Stamp_Type
    is
       Time_Stamp : Time_Stamp_Type;
 
@@ -2120,8 +2271,7 @@ package body Osint is
 
    function Smart_Find_File
      (N : File_Name_Type;
-      T : File_Type)
-      return File_Name_Type
+      T : File_Type) return File_Name_Type
    is
       Full_File_Name : File_Name_Type;
 
@@ -2212,13 +2362,11 @@ package body Osint is
 
    function To_Canonical_Dir_Spec
      (Host_Dir     : String;
-      Prefix_Style : Boolean)
-      return         String_Access
+      Prefix_Style : Boolean) return String_Access
    is
       function To_Canonical_Dir_Spec
         (Host_Dir    : Address;
-         Prefix_Flag : Integer)
-         return        Address;
+         Prefix_Flag : Integer) return Address;
       pragma Import (C, To_Canonical_Dir_Spec, "__gnat_to_canonical_dir_spec");
 
       C_Host_Dir      : String (1 .. Host_Dir'Length + 1);
@@ -2254,13 +2402,11 @@ package body Osint is
 
    function To_Canonical_File_List
      (Wildcard_Host_File : String;
-      Only_Dirs          : Boolean)
-      return               String_Access_List_Access
+      Only_Dirs          : Boolean) return String_Access_List_Access
    is
       function To_Canonical_File_List_Init
         (Host_File : Address;
-         Only_Dirs : Integer)
-      return Integer;
+         Only_Dirs : Integer) return Integer;
       pragma Import (C, To_Canonical_File_List_Init,
                      "__gnat_to_canonical_file_list_init");
 
@@ -2313,8 +2459,7 @@ package body Osint is
    ----------------------------
 
    function To_Canonical_File_Spec
-     (Host_File : String)
-      return      String_Access
+     (Host_File : String) return String_Access
    is
       function To_Canonical_File_Spec (Host_File : Address) return Address;
       pragma Import
@@ -2349,8 +2494,7 @@ package body Osint is
    ----------------------------
 
    function To_Canonical_Path_Spec
-     (Host_Path : String)
-      return      String_Access
+     (Host_Path : String) return String_Access
    is
       function To_Canonical_Path_Spec (Host_Path : Address) return Address;
       pragma Import
@@ -2384,13 +2528,11 @@ package body Osint is
 
    function To_Host_Dir_Spec
      (Canonical_Dir : String;
-      Prefix_Style  : Boolean)
-      return          String_Access
+      Prefix_Style  : Boolean) return String_Access
    is
       function To_Host_Dir_Spec
         (Canonical_Dir : Address;
-         Prefix_Flag   : Integer)
-         return          Address;
+         Prefix_Flag   : Integer) return Address;
       pragma Import (C, To_Host_Dir_Spec, "__gnat_to_host_dir_spec");
 
       C_Canonical_Dir : String (1 .. Canonical_Dir'Length + 1);
@@ -2420,8 +2562,7 @@ package body Osint is
    ----------------------------
 
    function To_Host_File_Spec
-     (Canonical_File : String)
-      return           String_Access
+     (Canonical_File : String) return String_Access
    is
       function To_Host_File_Spec (Canonical_File : Address) return Address;
       pragma Import (C, To_Host_File_Spec, "__gnat_to_host_file_spec");
@@ -2451,8 +2592,7 @@ package body Osint is
 
    function To_Path_String_Access
      (Path_Addr : Address;
-      Path_Len  : Integer)
-      return      String_Access
+      Path_Len  : Integer) return String_Access
    is
       subtype Path_String is String (1 .. Path_Len);
       type    Path_String_Access is access Path_String;
@@ -2493,7 +2633,7 @@ package body Osint is
 
       In_Length      : constant Integer := Path'Length;
       In_String      : String (1 .. In_Length + 1);
-      Component_Name : aliased String := "GNAT" & ASCII.NUL;
+      Component_Name : aliased String := "GCC" & ASCII.NUL;
       Result_Ptr     : Address;
       Result_Length  : Integer;
       Out_String     : String_Ptr;

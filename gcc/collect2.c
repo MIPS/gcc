@@ -968,8 +968,9 @@ main (int argc, char **argv)
     }
   obstack_free (&temporary_obstack, temporary_firstobj);
 
-  /* -fno-exceptions -w */
-  num_c_args += 2;
+  /* -fno-profile-arcs -fno-test-coverage -fno-branch-probabilities
+     -fno-exceptions -w */
+  num_c_args += 5;
 
   c_ptr = (const char **) (c_argv = xcalloc (sizeof (char *), num_c_args));
 
@@ -1111,6 +1112,9 @@ main (int argc, char **argv)
 	}
     }
   obstack_free (&temporary_obstack, temporary_firstobj);
+  *c_ptr++ = "-fno-profile-arcs";
+  *c_ptr++ = "-fno-test-coverage";
+  *c_ptr++ = "-fno-branch-probabilities";
   *c_ptr++ = "-fno-exceptions";
   *c_ptr++ = "-w";
 
@@ -1493,10 +1497,10 @@ main (int argc, char **argv)
 
   fork_execute ("gcc",  c_argv);
 #ifdef COLLECT_EXPORT_LIST
-  /* On AIX we must call tlink because of possible templates resolution */
+  /* On AIX we must call tlink because of possible templates resolution.  */
   do_tlink (ld2_argv, object_lst);
 #else
-  /* Otherwise, simply call ld because tlink is already done */
+  /* Otherwise, simply call ld because tlink is already done.  */
   fork_execute ("ld", ld2_argv);
 
   /* Let scan_prog_file do any final mods (OSF/rose needs this for
@@ -2524,7 +2528,7 @@ scan_libraries (const char *prog_name)
 
 #ifdef OBJECT_FORMAT_COFF
 
-#if defined(EXTENDED_COFF)
+#if defined (EXTENDED_COFF)
 
 #   define GCC_SYMBOLS(X)	(SYMHEADER(X).isymMax + SYMHEADER(X).iextMax)
 #   define GCC_SYMENT		SYMR
@@ -2537,14 +2541,26 @@ scan_libraries (const char *prog_name)
 
 #   define GCC_SYMBOLS(X)	(HEADER(ldptr).f_nsyms)
 #   define GCC_SYMENT		SYMENT
-#   define GCC_OK_SYMBOL(X) \
-     (((X).n_sclass == C_EXT) && \
-      ((X).n_scnum > N_UNDEF) && \
-      (aix64_flag \
-       || (((X).n_type & N_TMASK) == (DT_NON << N_BTSHFT) \
-           || ((X).n_type & N_TMASK) == (DT_FCN << N_BTSHFT))))
-#   define GCC_UNDEF_SYMBOL(X) \
-     (((X).n_sclass == C_EXT) && ((X).n_scnum == N_UNDEF))
+#   if defined (C_WEAKEXT)
+#     define GCC_OK_SYMBOL(X) \
+       (((X).n_sclass == C_EXT || (X).n_sclass == C_WEAKEXT) && \
+        ((X).n_scnum > N_UNDEF) && \
+        (aix64_flag \
+         || (((X).n_type & N_TMASK) == (DT_NON << N_BTSHFT) \
+             || ((X).n_type & N_TMASK) == (DT_FCN << N_BTSHFT))))
+#     define GCC_UNDEF_SYMBOL(X) \
+       (((X).n_sclass == C_EXT || (X).n_sclass == C_WEAKEXT) && \
+        ((X).n_scnum == N_UNDEF))
+#   else
+#     define GCC_OK_SYMBOL(X) \
+       (((X).n_sclass == C_EXT) && \
+        ((X).n_scnum > N_UNDEF) && \
+        (aix64_flag \
+         || (((X).n_type & N_TMASK) == (DT_NON << N_BTSHFT) \
+             || ((X).n_type & N_TMASK) == (DT_FCN << N_BTSHFT))))
+#     define GCC_UNDEF_SYMBOL(X) \
+       (((X).n_sclass == C_EXT) && ((X).n_scnum == N_UNDEF))
+#   endif
 #   define GCC_SYMINC(X)	((X).n_numaux+1)
 #   define GCC_SYMZERO(X)	0
 

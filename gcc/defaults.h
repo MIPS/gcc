@@ -382,10 +382,6 @@ do { fputs (integer_asm_op (POINTER_SIZE / UNITS_PER_WORD, TRUE), FILE); \
 #define POINTER_SIZE BITS_PER_WORD
 #endif
 
-#ifndef BUILD_VA_LIST_TYPE
-#define BUILD_VA_LIST_TYPE(X) ((X) = ptr_type_node)
-#endif
-
 #ifndef PIC_OFFSET_TABLE_REGNUM
 #define PIC_OFFSET_TABLE_REGNUM INVALID_REGNUM
 #endif
@@ -687,6 +683,17 @@ You Lose!  You must define PREFERRED_DEBUGGING_TYPE!
 #ifndef PRINT_REG
 #define PRINT_REG(RTX, CODE, FILE) \
   fprintf ((FILE), "%s", reg_names[REGNO (RTX)])
+#endif
+
+#ifndef LOCAL_REGNO
+#define LOCAL_REGNO(REGNO)  0
+#endif
+
+/* EXIT_IGNORE_STACK should be nonzero if, when returning from a function,
+   the stack pointer does not matter.  The value is tested only in
+   functions that have frame pointers.  */
+#ifndef EXIT_IGNORE_STACK
+#define EXIT_IGNORE_STACK 0
 #endif
 
 #endif  /* ! GCC_DEFAULTS_H */

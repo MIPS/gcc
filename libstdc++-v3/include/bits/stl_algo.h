@@ -63,12 +63,12 @@
 
 #include <bits/stl_heap.h>
 #include <bits/stl_tempbuf.h>     // for _Temporary_buffer
+#include <debug/debug.h>
 
 // See concept_check.h for the __glibcxx_*_requires macros.
 
 namespace std
 {
-
   /**
    *  @brief Find the median of three values.
    *  @param  a  A value.
@@ -153,6 +153,7 @@ namespace std
     {
       // concept requirements
       __glibcxx_function_requires(_InputIteratorConcept<_InputIterator>)
+      __glibcxx_requires_valid_range(__first, __last);
       for ( ; __first != __last; ++__first)
 	__f(*__first);
       return __f;
@@ -295,6 +296,7 @@ namespace std
       __glibcxx_function_requires(_InputIteratorConcept<_InputIterator>)
       __glibcxx_function_requires(_EqualOpConcept<
 		typename iterator_traits<_InputIterator>::value_type, _Tp>)
+      __glibcxx_requires_valid_range(__first, __last);
       return std::find(__first, __last, __val, std::__iterator_category(__first));
     }
 
@@ -315,6 +317,7 @@ namespace std
       __glibcxx_function_requires(_InputIteratorConcept<_InputIterator>)
       __glibcxx_function_requires(_UnaryPredicateConcept<_Predicate,
 	      typename iterator_traits<_InputIterator>::value_type>)
+      __glibcxx_requires_valid_range(__first, __last);
       return std::find_if(__first, __last, __pred, std::__iterator_category(__first));
     }
 
@@ -334,6 +337,7 @@ namespace std
       __glibcxx_function_requires(_ForwardIteratorConcept<_ForwardIterator>)
       __glibcxx_function_requires(_EqualityComparableConcept<
 	    typename iterator_traits<_ForwardIterator>::value_type>)
+      __glibcxx_requires_valid_range(__first, __last);
       if (__first == __last)
 	return __last;
       _ForwardIterator __next = __first;
@@ -365,6 +369,7 @@ namespace std
       __glibcxx_function_requires(_BinaryPredicateConcept<_BinaryPredicate,
 	    typename iterator_traits<_ForwardIterator>::value_type,
 	    typename iterator_traits<_ForwardIterator>::value_type>)
+      __glibcxx_requires_valid_range(__first, __last);
       if (__first == __last)
 	return __last;
       _ForwardIterator __next = __first;
@@ -393,6 +398,7 @@ namespace std
       __glibcxx_function_requires(_EqualityComparableConcept<
 	    typename iterator_traits<_InputIterator>::value_type >)
       __glibcxx_function_requires(_EqualityComparableConcept<_Tp>)
+      __glibcxx_requires_valid_range(__first, __last);
       typename iterator_traits<_InputIterator>::difference_type __n = 0;
       for ( ; __first != __last; ++__first)
 	if (*__first == __value)
@@ -416,6 +422,7 @@ namespace std
       __glibcxx_function_requires(_InputIteratorConcept<_InputIterator>)
       __glibcxx_function_requires(_UnaryPredicateConcept<_Predicate,
 	    typename iterator_traits<_InputIterator>::value_type>)
+      __glibcxx_requires_valid_range(__first, __last);
       typename iterator_traits<_InputIterator>::difference_type __n = 0;
       for ( ; __first != __last; ++__first)
 	if (__pred(*__first))
@@ -458,7 +465,8 @@ namespace std
       __glibcxx_function_requires(_EqualOpConcept<
 	    typename iterator_traits<_ForwardIterator1>::value_type,
 	    typename iterator_traits<_ForwardIterator2>::value_type>)
-
+      __glibcxx_requires_valid_range(__first1, __last1);
+      __glibcxx_requires_valid_range(__first2, __last2);
       // Test for empty ranges
       if (__first1 == __last1 || __first2 == __last2)
 	return __first1;
@@ -531,6 +539,8 @@ namespace std
       __glibcxx_function_requires(_BinaryPredicateConcept<_BinaryPredicate,
 	    typename iterator_traits<_ForwardIterator1>::value_type,
 	    typename iterator_traits<_ForwardIterator2>::value_type>)
+      __glibcxx_requires_valid_range(__first1, __last1);
+      __glibcxx_requires_valid_range(__first2, __last2);
 
       // Test for empty ranges
       if (__first1 == __last1 || __first2 == __last2)
@@ -603,6 +613,7 @@ namespace std
       __glibcxx_function_requires(_EqualityComparableConcept<
 	    typename iterator_traits<_ForwardIterator>::value_type>)
       __glibcxx_function_requires(_EqualityComparableConcept<_Tp>)
+      __glibcxx_requires_valid_range(__first, __last);
 
       if (__count <= 0)
 	return __first;
@@ -651,6 +662,7 @@ namespace std
       __glibcxx_function_requires(_ForwardIteratorConcept<_ForwardIterator>)
       __glibcxx_function_requires(_BinaryPredicateConcept<_BinaryPredicate,
 	    typename iterator_traits<_ForwardIterator>::value_type, _Tp>)
+      __glibcxx_requires_valid_range(__first, __last);
 
       if (__count <= 0)
 	return __first;
@@ -708,6 +720,7 @@ namespace std
       __glibcxx_function_requires(_ConvertibleConcept<
 	    typename iterator_traits<_ForwardIterator2>::value_type,
 	    typename iterator_traits<_ForwardIterator1>::value_type>)
+      __glibcxx_requires_valid_range(__first1, __last1);
 
       for ( ; __first1 != __last1; ++__first1, ++__first2)
 	std::iter_swap(__first1, __first2);
@@ -739,6 +752,7 @@ namespace std
       __glibcxx_function_requires(_OutputIteratorConcept<_OutputIterator,
             // "the type returned by a _UnaryOperation"
             __typeof__(__unary_op(*__first))>)
+      __glibcxx_requires_valid_range(__first, __last);
 
       for ( ; __first != __last; ++__first, ++__result)
 	*__result = __unary_op(*__first);
@@ -775,6 +789,7 @@ namespace std
       __glibcxx_function_requires(_OutputIteratorConcept<_OutputIterator,
             // "the type returned by a _BinaryOperation"
             __typeof__(__binary_op(*__first1,*__first2))>)
+      __glibcxx_requires_valid_range(__first1, __last1);
 
       for ( ; __first1 != __last1; ++__first1, ++__first2, ++__result)
 	*__result = __binary_op(*__first1, *__first2);
@@ -804,6 +819,7 @@ namespace std
 	    typename iterator_traits<_ForwardIterator>::value_type, _Tp>)
       __glibcxx_function_requires(_ConvertibleConcept<_Tp,
 	    typename iterator_traits<_ForwardIterator>::value_type>)
+      __glibcxx_requires_valid_range(__first, __last);
 
       for ( ; __first != __last; ++__first)
 	if (*__first == __old_value)
@@ -833,6 +849,7 @@ namespace std
 	    typename iterator_traits<_ForwardIterator>::value_type>)
       __glibcxx_function_requires(_UnaryPredicateConcept<_Predicate,
 	    typename iterator_traits<_ForwardIterator>::value_type>)
+      __glibcxx_requires_valid_range(__first, __last);
 
       for ( ; __first != __last; ++__first)
 	if (__pred(*__first))
@@ -865,6 +882,7 @@ namespace std
 	    typename iterator_traits<_InputIterator>::value_type>)
       __glibcxx_function_requires(_EqualOpConcept<
 	    typename iterator_traits<_InputIterator>::value_type, _Tp>)
+      __glibcxx_requires_valid_range(__first, __last);
 
       for ( ; __first != __last; ++__first, ++__result)
 	*__result = *__first == __old_value ? __new_value : *__first;
@@ -898,6 +916,7 @@ namespace std
 	    typename iterator_traits<_InputIterator>::value_type>)
       __glibcxx_function_requires(_UnaryPredicateConcept<_Predicate,
 	    typename iterator_traits<_InputIterator>::value_type>)
+      __glibcxx_requires_valid_range(__first, __last);
 
       for ( ; __first != __last; ++__first, ++__result)
 	*__result = __pred(*__first) ? __new_value : *__first;
@@ -923,6 +942,7 @@ namespace std
       __glibcxx_function_requires(_ForwardIteratorConcept<_ForwardIterator>)
       __glibcxx_function_requires(_GeneratorConcept<_Generator,
 	    typename iterator_traits<_ForwardIterator>::value_type>)
+      __glibcxx_requires_valid_range(__first, __last);
 
       for ( ; __first != __last; ++__first)
 	*__first = __gen();
@@ -977,6 +997,7 @@ namespace std
 	    typename iterator_traits<_InputIterator>::value_type>)
       __glibcxx_function_requires(_EqualOpConcept<
 	    typename iterator_traits<_InputIterator>::value_type, _Tp>)
+      __glibcxx_requires_valid_range(__first, __last);
 
       for ( ; __first != __last; ++__first)
 	if (!(*__first == __value)) {
@@ -1011,6 +1032,7 @@ namespace std
 	    typename iterator_traits<_InputIterator>::value_type>)
       __glibcxx_function_requires(_UnaryPredicateConcept<_Predicate,
 	    typename iterator_traits<_InputIterator>::value_type>)
+      __glibcxx_requires_valid_range(__first, __last);
 
       for ( ; __first != __last; ++__first)
 	if (!__pred(*__first)) {
@@ -1047,6 +1069,7 @@ namespace std
 	    typename iterator_traits<_ForwardIterator>::value_type>)
       __glibcxx_function_requires(_EqualOpConcept<
 	    typename iterator_traits<_ForwardIterator>::value_type, _Tp>)
+      __glibcxx_requires_valid_range(__first, __last);
 
       __first = std::find(__first, __last, __value);
       _ForwardIterator __i = __first;
@@ -1079,6 +1102,7 @@ namespace std
       __glibcxx_function_requires(_Mutable_ForwardIteratorConcept<_ForwardIterator>)
       __glibcxx_function_requires(_UnaryPredicateConcept<_Predicate,
 	    typename iterator_traits<_ForwardIterator>::value_type>)
+      __glibcxx_requires_valid_range(__first, __last);
 
       __first = std::find_if(__first, __last, __pred);
       _ForwardIterator __i = __first;
@@ -1207,6 +1231,7 @@ namespace std
 	    typename iterator_traits<_InputIterator>::value_type>)
       __glibcxx_function_requires(_EqualityComparableConcept<
 	    typename iterator_traits<_InputIterator>::value_type>)
+      __glibcxx_requires_valid_range(__first, __last);
 
       typedef typename iterator_traits<_OutputIterator>::iterator_category _IterType;
 
@@ -1239,6 +1264,7 @@ namespace std
       __glibcxx_function_requires(_InputIteratorConcept<_InputIterator>)
       __glibcxx_function_requires(_OutputIteratorConcept<_OutputIterator,
 	    typename iterator_traits<_InputIterator>::value_type>)
+      __glibcxx_requires_valid_range(__first, __last);
 
       typedef typename iterator_traits<_OutputIterator>::iterator_category _IterType;
 
@@ -1266,7 +1292,8 @@ namespace std
       // concept requirements
       __glibcxx_function_requires(_Mutable_ForwardIteratorConcept<_ForwardIterator>)
       __glibcxx_function_requires(_EqualityComparableConcept<
-	    typename iterator_traits<_ForwardIterator>::value_type>)
+		     typename iterator_traits<_ForwardIterator>::value_type>)
+      __glibcxx_requires_valid_range(__first, __last);
 
       // Skip the beginning, if already unique.
       __first = std::adjacent_find(__first, __last);
@@ -1306,6 +1333,7 @@ namespace std
       __glibcxx_function_requires(_BinaryPredicateConcept<_BinaryPredicate,
 		typename iterator_traits<_ForwardIterator>::value_type,
 		typename iterator_traits<_ForwardIterator>::value_type>)
+      __glibcxx_requires_valid_range(__first, __last);
 
       // Skip the beginning, if already unique.
       __first = std::adjacent_find(__first, __last, __binary_pred);
@@ -1371,7 +1399,8 @@ namespace std
     {
       // concept requirements
       __glibcxx_function_requires(_Mutable_BidirectionalIteratorConcept<
-		_BidirectionalIterator>)
+		    _BidirectionalIterator>)
+      __glibcxx_requires_valid_range(__first, __last);
       std::__reverse(__first, __last, std::__iterator_category(__first));
     }
 
@@ -1399,6 +1428,7 @@ namespace std
       __glibcxx_function_requires(_BidirectionalIteratorConcept<_BidirectionalIterator>)
       __glibcxx_function_requires(_OutputIteratorConcept<_OutputIterator,
 		typename iterator_traits<_BidirectionalIterator>::value_type>)
+      __glibcxx_requires_valid_range(__first, __last);
 
       while (__first != __last) {
 	--__last;
@@ -1583,6 +1613,8 @@ namespace std
     {
       // concept requirements
       __glibcxx_function_requires(_Mutable_ForwardIteratorConcept<_ForwardIterator>)
+      __glibcxx_requires_valid_range(__first, __middle);
+      __glibcxx_requires_valid_range(__middle, __last);
 
       typedef typename iterator_traits<_ForwardIterator>::iterator_category _IterType;
       std::__rotate(__first, __middle, __last, _IterType());
@@ -1614,31 +1646,11 @@ namespace std
       __glibcxx_function_requires(_ForwardIteratorConcept<_ForwardIterator>)
       __glibcxx_function_requires(_OutputIteratorConcept<_OutputIterator,
 		typename iterator_traits<_ForwardIterator>::value_type>)
+      __glibcxx_requires_valid_range(__first, __middle);
+      __glibcxx_requires_valid_range(__middle, __last);
 
       return std::copy(__first, __middle, copy(__middle, __last, __result));
     }
-
-
-  /**
-   *  @if maint
-   *  Return a random number in the range [0, __n).  This function encapsulates
-   *  whether we're using rand (part of the standard C library) or lrand48
-   *  (not standard, but a much better choice whenever it's available).
-   *
-   *  XXX There is no corresponding encapsulation fn to seed the generator.
-   *  @endif
-  */
-  template<typename _Distance>
-    inline _Distance
-    __random_number(_Distance __n)
-    {
-  #ifdef _GLIBCXX_HAVE_LRAND48
-      return lrand48() % __n;
-  #else
-      return rand() % __n;
-  #endif
-    }
-
 
   /**
    *  @brief Randomly shuffle the elements of a sequence.
@@ -1657,10 +1669,11 @@ namespace std
       // concept requirements
       __glibcxx_function_requires(_Mutable_RandomAccessIteratorConcept<
 	    _RandomAccessIterator>)
+      __glibcxx_requires_valid_range(__first, __last);
 
-      if (__first == __last) return;
-      for (_RandomAccessIterator __i = __first + 1; __i != __last; ++__i)
-	std::iter_swap(__i, __first + std::__random_number((__i - __first) + 1));
+      if (__first != __last) 
+	for (_RandomAccessIterator __i = __first + 1; __i != __last; ++__i)
+	  std::iter_swap(__i, __first + (std::rand() % ((__i - __first) + 1)));
     }
 
   /**
@@ -1684,6 +1697,7 @@ namespace std
       // concept requirements
       __glibcxx_function_requires(_Mutable_RandomAccessIteratorConcept<
 	    _RandomAccessIterator>)
+      __glibcxx_requires_valid_range(__first, __last);
 
       if (__first == __last) return;
       for (_RandomAccessIterator __i = __first + 1; __i != __last; ++__i)
@@ -1773,6 +1787,7 @@ namespace std
       __glibcxx_function_requires(_Mutable_ForwardIteratorConcept<_ForwardIterator>)
       __glibcxx_function_requires(_UnaryPredicateConcept<_Predicate,
 	    typename iterator_traits<_ForwardIterator>::value_type>)
+      __glibcxx_requires_valid_range(__first, __last);
 
       return std::__partition(__first, __last, __pred, std::__iterator_category(__first));
     }
@@ -1873,6 +1888,7 @@ namespace std
       __glibcxx_function_requires(_Mutable_ForwardIteratorConcept<_ForwardIterator>)
       __glibcxx_function_requires(_UnaryPredicateConcept<_Predicate,
 	    typename iterator_traits<_ForwardIterator>::value_type>)
+      __glibcxx_requires_valid_range(__first, __last);
 
       if (__first == __last)
 	return __first;
@@ -2139,6 +2155,8 @@ namespace std
       __glibcxx_function_requires(_Mutable_RandomAccessIteratorConcept<
 	    _RandomAccessIterator>)
       __glibcxx_function_requires(_LessThanComparableConcept<_ValueType>)
+      __glibcxx_requires_valid_range(__first, __middle);
+      __glibcxx_requires_valid_range(__middle, __last);
 
       std::make_heap(__first, __middle);
       for (_RandomAccessIterator __i = __middle; __i < __last; ++__i)
@@ -2179,6 +2197,8 @@ namespace std
 	    _RandomAccessIterator>)
       __glibcxx_function_requires(_BinaryPredicateConcept<_Compare,
 							  _ValueType, _ValueType>)
+      __glibcxx_requires_valid_range(__first, __middle);
+      __glibcxx_requires_valid_range(__middle, __last);
 
       std::make_heap(__first, __middle, __comp);
       for (_RandomAccessIterator __i = __middle; __i < __last; ++__i)
@@ -2219,6 +2239,8 @@ namespace std
       __glibcxx_function_requires(_ConvertibleConcept<_InputValueType, _OutputValueType>)
       __glibcxx_function_requires(_LessThanComparableConcept<_OutputValueType>)
       __glibcxx_function_requires(_LessThanComparableConcept<_InputValueType>)
+      __glibcxx_requires_valid_range(__first, __last);
+      __glibcxx_requires_valid_range(__result_first, __result_last);
 
       if (__result_first == __result_last) return __result_last;
       _RandomAccessIterator __result_real_last = __result_first;
@@ -2275,6 +2297,8 @@ namespace std
       __glibcxx_function_requires(_ConvertibleConcept<_InputValueType, _OutputValueType>)
       __glibcxx_function_requires(_BinaryPredicateConcept<_Compare,
 				  _OutputValueType, _OutputValueType>)
+      __glibcxx_requires_valid_range(__first, __last);
+      __glibcxx_requires_valid_range(__result_first, __result_last);
 
       if (__result_first == __result_last) return __result_last;
       _RandomAccessIterator __result_real_last = __result_first;
@@ -2375,6 +2399,7 @@ namespace std
       __glibcxx_function_requires(_Mutable_RandomAccessIteratorConcept<
 	    _RandomAccessIterator>)
       __glibcxx_function_requires(_LessThanComparableConcept<_ValueType>)
+      __glibcxx_requires_valid_range(__first, __last);
 
       if (__first != __last) {
 	std::__introsort_loop(__first, __last, __lg(__last - __first) * 2);
@@ -2406,6 +2431,7 @@ namespace std
       __glibcxx_function_requires(_Mutable_RandomAccessIteratorConcept<
 	    _RandomAccessIterator>)
       __glibcxx_function_requires(_BinaryPredicateConcept<_Compare, _ValueType, _ValueType>)
+      __glibcxx_requires_valid_range(__first, __last);
 
       if (__first != __last) {
 	std::__introsort_loop(__first, __last, __lg(__last - __first) * 2, __comp);
@@ -2438,6 +2464,7 @@ namespace std
       __glibcxx_function_requires(_ForwardIteratorConcept<_ForwardIterator>)
       __glibcxx_function_requires(_SameTypeConcept<_Tp, _ValueType>)
       __glibcxx_function_requires(_LessThanComparableConcept<_Tp>)
+      __glibcxx_requires_partitioned(__first, __last, __val);
 
       _DistanceType __len = std::distance(__first, __last);
       _DistanceType __half;
@@ -2483,6 +2510,7 @@ namespace std
       // concept requirements
       __glibcxx_function_requires(_ForwardIteratorConcept<_ForwardIterator>)
       __glibcxx_function_requires(_BinaryPredicateConcept<_Compare, _ValueType, _Tp>)
+      __glibcxx_requires_partitioned_pred(__first, __last, __val, __comp);
 
       _DistanceType __len = std::distance(__first, __last);
       _DistanceType __half;
@@ -2525,6 +2553,7 @@ namespace std
       __glibcxx_function_requires(_ForwardIteratorConcept<_ForwardIterator>)
       __glibcxx_function_requires(_SameTypeConcept<_Tp, _ValueType>)
       __glibcxx_function_requires(_LessThanComparableConcept<_Tp>)
+      __glibcxx_requires_partitioned(__first, __last, __val);
 
       _DistanceType __len = std::distance(__first, __last);
       _DistanceType __half;
@@ -2570,6 +2599,7 @@ namespace std
       // concept requirements
       __glibcxx_function_requires(_ForwardIteratorConcept<_ForwardIterator>)
       __glibcxx_function_requires(_BinaryPredicateConcept<_Compare, _Tp, _ValueType>)
+      __glibcxx_requires_partitioned_pred(__first, __last, __val, __comp);
 
       _DistanceType __len = std::distance(__first, __last);
       _DistanceType __half;
@@ -2755,6 +2785,8 @@ namespace std
 	    typename iterator_traits<_InputIterator2>::value_type>)
       __glibcxx_function_requires(_LessThanComparableConcept<
 	    typename iterator_traits<_InputIterator1>::value_type>)
+      __glibcxx_requires_sorted(__first1, __last1);
+      __glibcxx_requires_sorted(__first2, __last2);
 
       while (__first1 != __last1 && __first2 != __last2) {
 	if (*__first2 < *__first1) {
@@ -2808,6 +2840,8 @@ namespace std
       __glibcxx_function_requires(_BinaryPredicateConcept<_Compare,
 	    typename iterator_traits<_InputIterator1>::value_type,
 	    typename iterator_traits<_InputIterator2>::value_type>)
+      __glibcxx_requires_sorted_pred(__first1, __last1, __comp);
+      __glibcxx_requires_sorted_pred(__first2, __last2, __comp);
 
       while (__first1 != __last1 && __first2 != __last2) {
 	if (__comp(*__first2, *__first1)) {
@@ -3170,6 +3204,8 @@ namespace std
       __glibcxx_function_requires(_Mutable_BidirectionalIteratorConcept<
 	    _BidirectionalIterator>)
       __glibcxx_function_requires(_LessThanComparableConcept<_ValueType>)
+      __glibcxx_requires_sorted(__first, __middle);
+      __glibcxx_requires_sorted(__middle, __last);
 
       if (__first == __middle || __middle == __last)
 	return;
@@ -3223,6 +3259,8 @@ namespace std
 	    _BidirectionalIterator>)
       __glibcxx_function_requires(_BinaryPredicateConcept<_Compare,
 	    _ValueType, _ValueType>)
+      __glibcxx_requires_sorted_pred(__first, __middle, __comp);
+      __glibcxx_requires_sorted_pred(__middle, __last, __comp);
 
       if (__first == __middle || __middle == __last)
 	return;
@@ -3309,6 +3347,7 @@ namespace std
       __glibcxx_function_requires(_Mutable_RandomAccessIteratorConcept<
 	    _RandomAccessIterator>)
       __glibcxx_function_requires(_LessThanComparableConcept<_ValueType>)
+      __glibcxx_requires_valid_range(__first, __last);
 
       _Temporary_buffer<_RandomAccessIterator, _ValueType> buf(__first, __last);
       if (buf.begin() == 0)
@@ -3346,6 +3385,7 @@ namespace std
 	    _RandomAccessIterator>)
       __glibcxx_function_requires(_BinaryPredicateConcept<_Compare,
 							  _ValueType, _ValueType>)
+      __glibcxx_requires_valid_range(__first, __last);
 
       _Temporary_buffer<_RandomAccessIterator, _ValueType> buf(__first, __last);
       if (buf.begin() == 0)
@@ -3381,6 +3421,8 @@ namespace std
       // concept requirements
       __glibcxx_function_requires(_Mutable_RandomAccessIteratorConcept<_RandomAccessIterator>)
       __glibcxx_function_requires(_LessThanComparableConcept<_ValueType>)
+      __glibcxx_requires_valid_range(__first, __nth);
+      __glibcxx_requires_valid_range(__nth, __last);
 
       while (__last - __first > 3) {
 	_RandomAccessIterator __cut =
@@ -3425,6 +3467,8 @@ namespace std
       __glibcxx_function_requires(_Mutable_RandomAccessIteratorConcept<_RandomAccessIterator>)
       __glibcxx_function_requires(_BinaryPredicateConcept<_Compare,
 				  _ValueType, _ValueType>)
+      __glibcxx_requires_valid_range(__first, __nth);
+      __glibcxx_requires_valid_range(__nth, __last);
 
       while (__last - __first > 3) {
 	_RandomAccessIterator __cut =
@@ -3469,6 +3513,7 @@ namespace std
       __glibcxx_function_requires(_ForwardIteratorConcept<_ForwardIterator>)
       __glibcxx_function_requires(_SameTypeConcept<_Tp, _ValueType>)
       __glibcxx_function_requires(_LessThanComparableConcept<_Tp>)
+      __glibcxx_requires_partitioned(__first, __last, __val);
 
       _DistanceType __len = std::distance(__first, __last);
       _DistanceType __half;
@@ -3524,6 +3569,7 @@ namespace std
       __glibcxx_function_requires(_ForwardIteratorConcept<_ForwardIterator>)
       __glibcxx_function_requires(_BinaryPredicateConcept<_Compare, _ValueType, _Tp>)
       __glibcxx_function_requires(_BinaryPredicateConcept<_Compare, _Tp, _ValueType>)
+      __glibcxx_requires_partitioned_pred(__first, __last, __val, __comp);
 
       _DistanceType __len = std::distance(__first, __last);
       _DistanceType __half;
@@ -3572,6 +3618,7 @@ namespace std
       __glibcxx_function_requires(_SameTypeConcept<_Tp,
 		typename iterator_traits<_ForwardIterator>::value_type>)
       __glibcxx_function_requires(_LessThanComparableConcept<_Tp>)
+      __glibcxx_requires_partitioned(__first, __last, __val);
 
       _ForwardIterator __i = std::lower_bound(__first, __last, __val);
       return __i != __last && !(__val < *__i);
@@ -3603,6 +3650,7 @@ namespace std
 		typename iterator_traits<_ForwardIterator>::value_type, _Tp>)
       __glibcxx_function_requires(_BinaryPredicateConcept<_Compare, _Tp,
 		typename iterator_traits<_ForwardIterator>::value_type>)
+      __glibcxx_requires_partitioned_pred(__first, __last, __val, __comp);
 
       _ForwardIterator __i = std::lower_bound(__first, __last, __val, __comp);
       return __i != __last && !__comp(__val, *__i);
@@ -3642,6 +3690,8 @@ namespace std
 	    typename iterator_traits<_InputIterator2>::value_type>)
       __glibcxx_function_requires(_LessThanComparableConcept<
 	    typename iterator_traits<_InputIterator1>::value_type>)
+      __glibcxx_requires_sorted(__first1, __last1);
+      __glibcxx_requires_sorted(__first2, __last2);
 
       while (__first1 != __last1 && __first2 != __last2)
 	if (*__first2 < *__first1)
@@ -3687,6 +3737,8 @@ namespace std
       __glibcxx_function_requires(_BinaryPredicateConcept<_Compare,
 	    typename iterator_traits<_InputIterator1>::value_type,
 	    typename iterator_traits<_InputIterator2>::value_type>)
+      __glibcxx_requires_sorted_pred(__first1, __last1, __comp);
+      __glibcxx_requires_sorted_pred(__first2, __last2, __comp);
 
       while (__first1 != __last1 && __first2 != __last2)
 	if (__comp(*__first2, *__first1))
@@ -3732,6 +3784,8 @@ namespace std
 	    typename iterator_traits<_InputIterator2>::value_type>)
       __glibcxx_function_requires(_LessThanComparableConcept<
 	    typename iterator_traits<_InputIterator1>::value_type>)
+      __glibcxx_requires_sorted(__first1, __last1);
+      __glibcxx_requires_sorted(__first2, __last2);
 
       while (__first1 != __last1 && __first2 != __last2) {
 	if (*__first1 < *__first2) {
@@ -3788,6 +3842,8 @@ namespace std
       __glibcxx_function_requires(_BinaryPredicateConcept<_Compare,
 	    typename iterator_traits<_InputIterator1>::value_type,
 	    typename iterator_traits<_InputIterator2>::value_type>)
+      __glibcxx_requires_sorted_pred(__first1, __last1, __comp);
+      __glibcxx_requires_sorted_pred(__first2, __last2, __comp);
 
       while (__first1 != __last1 && __first2 != __last2) {
 	if (__comp(*__first1, *__first2)) {
@@ -3840,6 +3896,8 @@ namespace std
 	    typename iterator_traits<_InputIterator2>::value_type>)
       __glibcxx_function_requires(_LessThanComparableConcept<
 	    typename iterator_traits<_InputIterator1>::value_type>)
+      __glibcxx_requires_sorted(__first1, __last1);
+      __glibcxx_requires_sorted(__first2, __last2);
 
       while (__first1 != __last1 && __first2 != __last2)
 	if (*__first1 < *__first2)
@@ -3892,6 +3950,8 @@ namespace std
       __glibcxx_function_requires(_BinaryPredicateConcept<_Compare,
 	    typename iterator_traits<_InputIterator1>::value_type,
 	    typename iterator_traits<_InputIterator2>::value_type>)
+      __glibcxx_requires_sorted_pred(__first1, __last1, __comp);
+      __glibcxx_requires_sorted_pred(__first2, __last2, __comp);
 
       while (__first1 != __last1 && __first2 != __last2)
 	if (__comp(*__first1, *__first2))
@@ -3941,6 +4001,8 @@ namespace std
 	    typename iterator_traits<_InputIterator2>::value_type>)
       __glibcxx_function_requires(_LessThanComparableConcept<
 	    typename iterator_traits<_InputIterator1>::value_type>)
+      __glibcxx_requires_sorted(__first1, __last1);
+      __glibcxx_requires_sorted(__first2, __last2);
 
       while (__first1 != __last1 && __first2 != __last2)
 	if (*__first1 < *__first2) {
@@ -3996,6 +4058,8 @@ namespace std
       __glibcxx_function_requires(_BinaryPredicateConcept<_Compare,
 	    typename iterator_traits<_InputIterator1>::value_type,
 	    typename iterator_traits<_InputIterator2>::value_type>)
+      __glibcxx_requires_sorted_pred(__first1, __last1, __comp);
+      __glibcxx_requires_sorted_pred(__first2, __last2, __comp);
 
       while (__first1 != __last1 && __first2 != __last2)
 	if (__comp(*__first1, *__first2)) {
@@ -4044,6 +4108,8 @@ namespace std
 	    typename iterator_traits<_InputIterator2>::value_type>)
       __glibcxx_function_requires(_LessThanComparableConcept<
 	    typename iterator_traits<_InputIterator1>::value_type>)
+      __glibcxx_requires_sorted(__first1, __last1);
+      __glibcxx_requires_sorted(__first2, __last2);
 
       while (__first1 != __last1 && __first2 != __last2)
 	if (*__first1 < *__first2) {
@@ -4101,6 +4167,8 @@ namespace std
       __glibcxx_function_requires(_BinaryPredicateConcept<_Compare,
 	    typename iterator_traits<_InputIterator1>::value_type,
 	    typename iterator_traits<_InputIterator2>::value_type>)
+      __glibcxx_requires_sorted_pred(__first1, __last1, __comp);
+      __glibcxx_requires_sorted_pred(__first2, __last2, __comp);
 
       while (__first1 != __last1 && __first2 != __last2)
 	if (__comp(*__first1, *__first2)) {
@@ -4137,6 +4205,7 @@ namespace std
       __glibcxx_function_requires(_ForwardIteratorConcept<_ForwardIterator>)
       __glibcxx_function_requires(_LessThanComparableConcept<
 	    typename iterator_traits<_ForwardIterator>::value_type>)
+      __glibcxx_requires_valid_range(__first, __last);
 
       if (__first == __last) return __first;
       _ForwardIterator __result = __first;
@@ -4164,6 +4233,7 @@ namespace std
       __glibcxx_function_requires(_BinaryPredicateConcept<_Compare,
 	    typename iterator_traits<_ForwardIterator>::value_type,
 	    typename iterator_traits<_ForwardIterator>::value_type>)
+      __glibcxx_requires_valid_range(__first, __last);
 
       if (__first == __last) return __first;
       _ForwardIterator __result = __first;
@@ -4186,6 +4256,7 @@ namespace std
       __glibcxx_function_requires(_ForwardIteratorConcept<_ForwardIterator>)
       __glibcxx_function_requires(_LessThanComparableConcept<
 	    typename iterator_traits<_ForwardIterator>::value_type>)
+      __glibcxx_requires_valid_range(__first, __last);
 
       if (__first == __last) return __first;
       _ForwardIterator __result = __first;
@@ -4213,6 +4284,7 @@ namespace std
       __glibcxx_function_requires(_BinaryPredicateConcept<_Compare,
 	    typename iterator_traits<_ForwardIterator>::value_type,
 	    typename iterator_traits<_ForwardIterator>::value_type>)
+      __glibcxx_requires_valid_range(__first, __last);
 
       if (__first == __last) return __first;
       _ForwardIterator __result = __first;
@@ -4244,6 +4316,7 @@ namespace std
       __glibcxx_function_requires(_BidirectionalIteratorConcept<_BidirectionalIterator>)
       __glibcxx_function_requires(_LessThanComparableConcept<
 	    typename iterator_traits<_BidirectionalIterator>::value_type>)
+      __glibcxx_requires_valid_range(__first, __last);
 
       if (__first == __last)
 	return false;
@@ -4296,6 +4369,7 @@ namespace std
       __glibcxx_function_requires(_BinaryPredicateConcept<_Compare,
 	    typename iterator_traits<_BidirectionalIterator>::value_type,
 	    typename iterator_traits<_BidirectionalIterator>::value_type>)
+      __glibcxx_requires_valid_range(__first, __last);
 
       if (__first == __last)
 	return false;
@@ -4344,6 +4418,7 @@ namespace std
       __glibcxx_function_requires(_BidirectionalIteratorConcept<_BidirectionalIterator>)
       __glibcxx_function_requires(_LessThanComparableConcept<
 	    typename iterator_traits<_BidirectionalIterator>::value_type>)
+      __glibcxx_requires_valid_range(__first, __last);
 
       if (__first == __last)
 	return false;
@@ -4396,6 +4471,7 @@ namespace std
       __glibcxx_function_requires(_BinaryPredicateConcept<_Compare,
 	    typename iterator_traits<_BidirectionalIterator>::value_type,
 	    typename iterator_traits<_BidirectionalIterator>::value_type>)
+      __glibcxx_requires_valid_range(__first, __last);
 
       if (__first == __last)
 	return false;
@@ -4451,6 +4527,8 @@ namespace std
       __glibcxx_function_requires(_EqualOpConcept<
 	    typename iterator_traits<_InputIterator>::value_type,
 	    typename iterator_traits<_ForwardIterator>::value_type>)
+      __glibcxx_requires_valid_range(__first1, __last1);
+      __glibcxx_requires_valid_range(__first2, __last2);
 
       for ( ; __first1 != __last1; ++__first1)
 	for (_ForwardIterator __iter = __first2; __iter != __last2; ++__iter)
@@ -4489,6 +4567,8 @@ namespace std
       __glibcxx_function_requires(_BinaryPredicateConcept<_BinaryPredicate,
 	    typename iterator_traits<_InputIterator>::value_type,
 	    typename iterator_traits<_ForwardIterator>::value_type>)
+      __glibcxx_requires_valid_range(__first1, __last1);
+      __glibcxx_requires_valid_range(__first2, __last2);
 
       for ( ; __first1 != __last1; ++__first1)
 	for (_ForwardIterator __iter = __first2; __iter != __last2; ++__iter)
@@ -4649,6 +4729,8 @@ namespace std
       __glibcxx_function_requires(_EqualOpConcept<
 	    typename iterator_traits<_ForwardIterator1>::value_type,
 	    typename iterator_traits<_ForwardIterator2>::value_type>)
+      __glibcxx_requires_valid_range(__first1, __last1);
+      __glibcxx_requires_valid_range(__first2, __last2);
 
       return std::__find_end(__first1, __last1, __first2, __last2,
 			     std::__iterator_category(__first1),
@@ -4694,6 +4776,8 @@ namespace std
       __glibcxx_function_requires(_BinaryPredicateConcept<_BinaryPredicate,
 	    typename iterator_traits<_ForwardIterator1>::value_type,
 	    typename iterator_traits<_ForwardIterator2>::value_type>)
+      __glibcxx_requires_valid_range(__first1, __last1);
+      __glibcxx_requires_valid_range(__first2, __last2);
 
       return std::__find_end(__first1, __last1, __first2, __last2,
 			     std::__iterator_category(__first1),

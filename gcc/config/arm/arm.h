@@ -1027,6 +1027,12 @@ extern const char * structure_size_string;
 	fixed_regs[regno] = call_used_regs[regno] = 1;		\
     }								\
 								\
+  /* The link register can be clobbered by any branch insn,	\
+     but we have no way to track that at present, so mark	\
+     it as unavailable.  */					\
+  if (TARGET_THUMB)						\
+    fixed_regs[LR_REGNUM] = call_used_regs[LR_REGNUM] = 1;	\
+								\
   if (TARGET_MAVERICK && TARGET_HARD_FLOAT)			\
     {								\
       for (regno = FIRST_FPA_REGNUM;				\
@@ -1937,7 +1943,7 @@ typedef struct
 /* Determine if the epilogue should be output as RTL.
    You should override this if you define FUNCTION_EXTRA_EPILOGUE.  */
 #define USE_RETURN_INSN(ISCOND)				\
-  (TARGET_ARM ? use_return_insn (ISCOND) : 0)
+  (TARGET_ARM ? use_return_insn (ISCOND, NULL) : 0)
 
 /* Definitions for register eliminations.
 

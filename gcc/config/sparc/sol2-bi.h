@@ -133,7 +133,7 @@
  * This should be the same as in sol2.h, except with "/sparcv9"
  * appended to the paths and /usr/ccs/lib is no longer necessary
  */
-#define LINK_ARCH64_SPEC \
+#define LINK_ARCH64_SPEC_BASE \
   "%{mcmodel=medlow:-M /usr/lib/ld/sparcv9/map.below4G} \
    %{G:-G} \
    %{YP,*} \
@@ -146,12 +146,30 @@
      %{!YP,*:%{p|pg:-Y P,/usr/lib/libp/sparcv9:/usr/lib/sparcv9} \
        %{!p:%{!pg:-Y P,/usr/lib/sparcv9}}}}"
 
+#define LINK_ARCH64_SPEC LINK_ARCH64_SPEC_BASE
+
 #undef LINK_ARCH_SPEC
+#if DISABLE_MULTILIB
+#if DEFAULT_ARCH32_P
+#define LINK_ARCH_SPEC "\
+%{m32:%(link_arch32)} \
+%{m64:%edoes not support multilib} \
+%{!m32:%{!m64:%(link_arch_default)}} \
+"
+#else
+#define LINK_ARCH_SPEC "\
+%{m32:%edoes not support multilib} \
+%{m64:%(link_arch64)} \
+%{!m32:%{!m64:%(link_arch_default)}} \
+"
+#endif
+#else
 #define LINK_ARCH_SPEC "\
 %{m32:%(link_arch32)} \
 %{m64:%(link_arch64)} \
 %{!m32:%{!m64:%(link_arch_default)}} \
 "
+#endif
 
 #define LINK_ARCH_DEFAULT_SPEC \
 (DEFAULT_ARCH32_P ? LINK_ARCH32_SPEC : LINK_ARCH64_SPEC)

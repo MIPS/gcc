@@ -182,7 +182,23 @@ md_file=
 
 # Obsolete configurations.
 case ${target} in
- dummy)
+ d30v-* | \
+ dsp16xx-* | \
+ i370-* | \
+ i960-* | \
+ i?86-moss-msdos | i?86-*-moss* | \
+ i?86-ncr-sysv4* | \
+ i?86-*-netware | \
+ i?86-*-freebsd2* | i?86-*-freebsd*aout* | \
+ i?86-*-linux*aout* | \
+ i?86-*-linux*libc1* | \
+ i?86-*-interix | \
+ i?86-*-mach* | \
+ i?86-*-udk* | \
+ i?86-*-sysv[123]* | \
+ i386-*-vsta | \
+ m68k-hp-hpux* | m68000-hp-hpux* | \
+ m68k-*-sysv4*)
     if test "x$enable_obsolete" != xyes; then
       echo "*** Configuration ${target} is obsolete." >&2
       echo "*** Specify --enable-obsolete to build it anyway." >&2
@@ -643,7 +659,7 @@ arm*-*-netbsd*)
 	use_collect2=yes
 	;;
 arm*-*-linux*)			# ARM GNU/Linux with ELF
-	tm_file="dbxelf.h elfos.h arm/unknown-elf.h arm/elf.h arm/aout.h arm/arm.h arm/linux-gas.h arm/linux-elf.h"
+	tm_file="dbxelf.h elfos.h linux.h arm/unknown-elf.h arm/elf.h arm/aout.h arm/arm.h arm/linux-gas.h arm/linux-elf.h"
 	tmake_file="t-slibgcc-elf-ver t-linux arm/t-linux"
 	extra_parts="crtbegin.o crtbeginS.o crtend.o crtendS.o"
 	gnu_ld=yes
@@ -875,7 +891,6 @@ i370-*-linux*)
 	;;
 i[34567]86-*-darwin*)
 	tm_file="${tm_file} i386/darwin.h"
-	use_fixproto=yes
 	;;
 i[34567]86-*-elf*)
 	tm_file="${tm_file} i386/unix.h i386/att.h dbxelf.h elfos.h i386/i386elf.h"
@@ -1324,12 +1339,14 @@ m68k-*-coff*)
 	;;
 m68020-*-elf* | m68k-*-elf*)
 	tm_file="m68k/m68k.h m68k/m68k-none.h m68k/m68kelf.h dbxelf.h elfos.h m68k/m68kemb.h m68k/m68020-elf.h"
+	tm_defines="MOTOROLA USE_GAS"
 	tmake_file=m68k/t-m68kelf
 	extra_parts="crtbegin.o crtend.o"
 	use_fixproto=yes
 	;;
 m68010-*-netbsdelf* | m68k*-*-netbsdelf*)
 	tm_file="${tm_file} dbxelf.h elfos.h netbsd.h netbsd-elf.h m68k/netbsd-elf.h"
+	tm_defines="MOTOROLA USE_GAS"
 	case ${target} in
 	m68010*)
 		target_cpu_default="0"
@@ -1340,6 +1357,13 @@ m68010-*-netbsdelf* | m68k*-*-netbsdelf*)
 	esac
 	;;
 m68k*-*-netbsd*)
+    if test "x$enable_obsolete" != xyes; then
+      echo "*** Configuration ${target} is obsolete." >&2
+      echo "*** Specify --enable-obsolete to build it anyway." >&2
+      echo "*** Support will be REMOVED in the next major release of GCC," >&2
+      echo "*** unless a maintainer comes forward." >&2
+      exit 1
+    fi
 	tm_file="m68k/m68k.h netbsd.h netbsd-aout.h m68k/netbsd.h"
 	tmake_file=t-netbsd
 	extra_parts=""
@@ -1376,6 +1400,7 @@ m68k-*-linux*)		# Motorola m68k's running GNU/Linux
 m68k-*-rtems*)
 	tmake_file="m68k/t-m68kbare m68k/t-crtstuff t-rtems m68k/t-rtems"
 	tm_file="m68k/m68k.h m68k/m68k-none.h m68k/m68kelf.h dbxelf.h elfos.h m68k/m68kemb.h m68k/m68020-elf.h m68k/rtemself.h rtems.h"
+	tm_defines="MOTOROLA USE_GAS"
 	extra_parts="crtbegin.o crtend.o"
 	;;
 mcore-*-elf)
@@ -1418,6 +1443,7 @@ mips-sgi-irix6*o32)		# SGI System V.4., IRIX 6, O32 ABI
 	;;
 mips-sgi-irix6*)		# SGI System V.4., IRIX 6
 	tm_file="${tm_file} mips/iris5.h mips/iris6.h"
+	tmake_file="mips/t-iris mips/t-iris5-6 mips/t-iris6"
 	if test x$gas = xyes
 	then
 		tm_file="${tm_file} mips/iris6gas.h"
@@ -1425,8 +1451,8 @@ mips-sgi-irix6*)		# SGI System V.4., IRIX 6
 	if test "x$gnu_ld" = xyes
 	then
 		tm_file="${tm_file} mips/iris6gld.h"
+		tmake_file="$tmake_file mips/t-iris6gld"
 	fi
-	tmake_file="mips/t-iris mips/t-iris5-6 mips/t-iris6"
 	target_cpu_default="MASK_ABICALLS|MASK_FLOAT64|MASK_64BIT"
 	tm_defines="MIPS_ISA_DEFAULT=3 MIPS_ABI_DEFAULT=ABI_N32"
 	# See comment in mips/iris5.h file.  Only enabled for O32 ABI
@@ -1653,11 +1679,8 @@ powerpc-*-beos*)
 	;;
 powerpc-*-darwin*)
 	tm_file="${tm_file} rs6000/darwin.h"
-	tmake_file="t-darwin rs6000/t-darwin"
+	tmake_file="t-darwin t-slibgcc-darwin rs6000/t-darwin"
 	extra_headers=altivec.h
-	# override ppc default
-	need_64bit_hwint=
-	use_fixproto=yes
 	;;
 powerpc*-*-freebsd*)
 	tm_file="${tm_file} dbxelf.h elfos.h ${fbsd_tm_file} rs6000/sysv4.h rs6000/freebsd.h"
@@ -1823,6 +1846,7 @@ s390x-ibm-tpf*)
 	tm_p_file=s390/s390-protos.h
 	md_file=s390/s390.md
 	extra_modes=s390/s390-modes.def
+	extra_parts="crtbegin.o crtbeginS.o crtbeginT.o crtend.o crtendS.o"
 	out_file=s390/s390.c
 	tmake_file="t-slibgcc-elf-ver s390/t-crtstuff s390/t-tpf"
 	;;
@@ -2191,6 +2215,13 @@ vax-*-ultrix*)			# VAXen running ultrix
 	use_fixproto=yes
 	;;
 vax-*-*)			# VAX default entry
+    if test "x$enable_obsolete" != xyes; then
+      echo "*** Configuration ${target} is obsolete." >&2
+      echo "*** Specify --enable-obsolete to build it anyway." >&2
+      echo "*** Support will be REMOVED in the next major release of GCC," >&2
+      echo "*** unless a maintainer comes forward." >&2
+      exit 1
+    fi
 	use_fixproto=yes
 	;;
 xscale-*-elf)
@@ -2502,7 +2533,7 @@ fi
 			| 401 | 403 | 405 | 405fp | 440 | 440fp | 505 \
 			| 601 | 602 | 603 | 603e | ec603e | 604 \
 			| 604e | 620 | 630 | 740 | 750 | 7400 | 7450 \
-			| 8540 | 801 | 821 | 823 | 860 | 970)
+			| 8540 | 801 | 821 | 823 | 860 | 970 | G3 | G4 | G5)
 				# OK
 				;;
 			*)

@@ -104,11 +104,12 @@ static tree direct_reference_binding (tree, tree);
 static bool promoted_arithmetic_type_p (tree);
 static tree conditional_conversion (tree, tree);
 static char *name_as_c_string (tree, tree, bool *);
-static tree call_builtin_trap (void);
+static tree call_builtin_trap (tree);
 static tree prep_operand (tree);
 static void add_candidates (tree, tree, tree, bool, tree, tree,
 			    int, struct z_candidate **);
 static tree merge_conversion_sequences (tree, tree);
+static bool magic_varargs_p (tree);
 
 tree
 build_vfield_ref (tree datum, tree type)
@@ -1743,7 +1744,7 @@ add_builtin_candidate (struct z_candidate **candidates, enum tree_code code,
 	  type1 = type2;
 	  break;
 	}
-      /* FALLTHROUGH */
+      /* Fall through.  */
     case LT_EXPR:
     case GT_EXPR:
     case LE_EXPR:
@@ -2036,7 +2037,7 @@ add_builtin_candidates (struct z_candidate **candidates, enum tree_code code,
     case GT_EXPR:
     case GE_EXPR:
       enum_p = 1;
-      /* FALLTHROUGH */
+      /* Fall through.  */
     
     default:
       ref1 = 0;
@@ -3408,7 +3409,7 @@ prep_operand (tree operand)
    CANDIDATES.  The ARGS are the arguments provided to the call,
    without any implicit object parameter.  The EXPLICIT_TARGS are
    explicit template arguments provided.  TEMPLATE_ONLY is true if
-   only template fucntions should be considered.  CONVERSION_PATH,
+   only template functions should be considered.  CONVERSION_PATH,
    ACCESS_PATH, and FLAGS are as for add_function_candidate.  */
 
 static void
@@ -3824,10 +3825,6 @@ build_op_delete_call (enum tree_code code, tree addr, tree size,
 
       /* Find the allocation function that is being called.  */
       call_expr = placement;
-      /* Sometimes we have a COMPOUND_EXPR, rather than a simple
-	 CALL_EXPR.  */
-      while (TREE_CODE (call_expr) == COMPOUND_EXPR)
-	call_expr = TREE_OPERAND (call_expr, 1);
       /* Extract the function.  */
       alloc_fn = get_callee_fndecl (call_expr);
       my_friendly_assert (alloc_fn != NULL_TREE, 20020327);
@@ -3910,7 +3907,15 @@ build_op_delete_call (enum tree_code code, tree addr, tree size,
 	args = tree_cons (NULL_TREE, addr, 
 			  build_tree_list (NULL_TREE, size));
 
-      return build_function_call (fn, args);
+      if (placement)
+	{
+	  /* The placement args might not be suitable for overload
+	     resolution at this point, so build the call directly.  */
+	  mark_used (fn);
+	  return build_cxx_call (fn, args, args);
+	}
+      else
+	return build_function_call (fn, args);
     }
 
   /* If we are doing placement delete we do nothing if we don't find a
@@ -4097,7 +4102,7 @@ convert_like_real (tree convs, tree expr, tree fn, int argnum, int inner,
     case RVALUE_CONV:
       if (! IS_AGGR_TYPE (totype))
 	return expr;
-      /* else fall through */
+      /* Else fall through.  */
     case BASE_CONV:
       if (TREE_CODE (convs) == BASE_CONV && !NEED_TEMPORARY_P (convs))
 	{
@@ -4187,16 +4192,18 @@ convert_like_real (tree convs, tree expr, tree fn, int argnum, int inner,
 		      LOOKUP_NORMAL|LOOKUP_NO_CONVERSION);
 }
 
-/* Build a call to __builtin_trap which can be used in an expression.  */
+/* Build a call to __builtin_trap which can be used as an expression of
+   type TYPE.  */
 
 static tree
-call_builtin_trap (void)
+call_builtin_trap (tree type)
 {
   tree fn = IDENTIFIER_GLOBAL_VALUE (get_identifier ("__builtin_trap"));
 
   my_friendly_assert (fn != NULL, 20030927);
   fn = build_call (fn, NULL_TREE);
-  fn = build (COMPOUND_EXPR, integer_type_node, fn, integer_zero_node);
+  fn = build (COMPOUND_EXPR, type, fn, error_mark_node);
+  fn = force_target_expr (type, fn);
   return fn;
 }
 
@@ -4235,7 +4242,7 @@ convert_arg_to_ellipsis (tree arg)
       warning ("cannot pass objects of non-POD type `%#T' through `...'; \
 call will abort at runtime",
 	       TREE_TYPE (arg));
-      arg = call_builtin_trap ();
+      arg = call_builtin_trap (TREE_TYPE (arg));
     }
 
   return arg;
@@ -4257,8 +4264,10 @@ build_x_va_arg (tree expr, tree type)
   if (! pod_type_p (type))
     {
       /* Undefined behavior [expr.call] 5.2.2/7.  */
-      warning ("cannot receive objects of non-POD type `%#T' through `...'",
-		  type);
+      warning ("cannot receive objects of non-POD type `%#T' through `...'; \
+call will abort at runtime",
+	       type);
+      return call_builtin_trap (type);
     }
   
   return build_va_arg (expr, type);
@@ -4364,6 +4373,29 @@ convert_for_arg_passing (tree type, tree val)
   return val;
 }
 
+/* Returns true iff FN is a function with magic varargs, i.e. ones for
+   which no conversions at all should be done.  This is true for some
+   builtins which don't act like normal functions.  */
+
+static bool
+magic_varargs_p (tree fn)
+{
+  if (DECL_BUILT_IN (fn))
+    switch (DECL_FUNCTION_CODE (fn))
+      {
+      case BUILT_IN_CLASSIFY_TYPE:
+      case BUILT_IN_CONSTANT_P:
+      case BUILT_IN_NEXT_ARG:
+      case BUILT_IN_STDARG_START:
+      case BUILT_IN_VA_START:
+	return true;
+
+      default:;
+      }
+
+  return false;
+}
+
 /* Subroutine of the various build_*_call functions.  Overload resolution
    has chosen a winning candidate CAND; build up a CALL_EXPR accordingly.
    ARGS is a TREE_LIST of the unconverted arguments to the call.  FLAGS is a
@@ -4387,7 +4419,39 @@ build_over_call (struct z_candidate *cand, int flags)
       joust (cand, WRAPPER_ZC (TREE_VALUE (val)), 1);
 
   if (DECL_FUNCTION_MEMBER_P (fn))
-    perform_or_defer_access_check (cand->access_path, fn);
+    {
+      /* If FN is a template function, two cases must be considered.
+	 For example:
+
+	   struct A {
+	     protected:
+	       template <class T> void f();
+	   };
+	   template <class T> struct B {
+	     protected:
+	       void g();
+	   };
+	   struct C : A, B<int> {
+	     using A::f;	// #1
+	     using B<int>::g;	// #2
+	   };
+
+	 In case #1 where `A::f' is a member template, DECL_ACCESS is
+	 recorded in the primary template but not in its specialization.
+	 We check access of FN using its primary template.
+
+	 In case #2, where `B<int>::g' has a DECL_TEMPLATE_INFO simply
+	 because it is a member of class template B, DECL_ACCESS is
+	 recorded in the specialization `B<int>::g'.  We cannot use its
+	 primary template because `B<T>::g' and `B<int>::g' may have
+	 different access.  */
+      if (DECL_TEMPLATE_INFO (fn)
+	  && is_member_template (DECL_TI_TEMPLATE (fn)))
+	perform_or_defer_access_check (cand->access_path,
+				       DECL_TI_TEMPLATE (fn));
+      else
+	perform_or_defer_access_check (cand->access_path, fn);
+    }
 
   if (args && TREE_CODE (args) != TREE_LIST)
     args = build_tree_list (NULL_TREE, args);
@@ -4481,10 +4545,14 @@ build_over_call (struct z_candidate *cand, int flags)
 
   /* Ellipsis */
   for (; arg; arg = TREE_CHAIN (arg))
-    converted_args 
-      = tree_cons (NULL_TREE,
-		   convert_arg_to_ellipsis (TREE_VALUE (arg)),
-		   converted_args);
+    {
+      tree a = TREE_VALUE (arg);
+      if (magic_varargs_p (fn))
+	/* Do no conversions for magic varargs.  */;
+      else
+	a = convert_arg_to_ellipsis (a);
+      converted_args = tree_cons (NULL_TREE, a, converted_args);
+    }
 
   converted_args = nreverse (converted_args);
 
@@ -4563,9 +4631,30 @@ build_over_call (struct z_candidate *cand, int flags)
     {
       tree to = stabilize_reference
 	(build_indirect_ref (TREE_VALUE (converted_args), 0));
+      tree type = TREE_TYPE (to);
+      tree as_base = CLASSTYPE_AS_BASE (type);
 
       arg = build_indirect_ref (TREE_VALUE (TREE_CHAIN (converted_args)), 0);
-      val = build (MODIFY_EXPR, TREE_TYPE (to), to, arg);
+      if (tree_int_cst_equal (TYPE_SIZE (type), TYPE_SIZE (as_base)))
+	val = build (MODIFY_EXPR, TREE_TYPE (to), to, arg);
+      else
+	{
+	  /* We must only copy the non-tail padding parts. Use
+	     CLASSTYPE_AS_BASE for the bitwise copy.  */
+	  tree to_as_base, arg_as_base, base_ptr_type;
+
+	  to = save_expr (to);
+	  base_ptr_type = build_pointer_type (as_base);
+	  to_as_base = build_indirect_ref
+	    (build_nop (base_ptr_type, build_unary_op (ADDR_EXPR, to, 0)), 0);
+	  arg_as_base = build_indirect_ref
+	    (build_nop (base_ptr_type, build_unary_op (ADDR_EXPR, arg, 0)), 0);
+	  
+	  val = build (MODIFY_EXPR, as_base, to_as_base, arg_as_base);
+	  val = build (COMPOUND_EXPR, type, convert_to_void (val, NULL), to);
+	  TREE_USED (val) = 1;
+	}
+      
       return val;
     }
 

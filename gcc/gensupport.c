@@ -259,7 +259,7 @@ process_include (rtx desc, int lineno)
   fclose (input_file);
 }
 
-/* Process a top level rtx in some way, queueing as appropriate.  */
+/* Process a top level rtx in some way, queuing as appropriate.  */
 
 static void
 process_rtx (rtx desc, int lineno)
@@ -842,7 +842,7 @@ process_define_cond_exec (void)
 static char *
 save_string (const char *s, int len)
 {
-  register char *result = xmalloc (len + 1);
+  char *result = xmalloc (len + 1);
 
   memcpy (result, s, len);
   result[len] = 0;

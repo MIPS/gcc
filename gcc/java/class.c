@@ -723,8 +723,8 @@ strLengthUtf8 (char *str, int len)
 static int32
 hashUtf8String (const char *str, int len)
 {
-  register const unsigned char* ptr = (const unsigned char*) str;
-  register const unsigned char *limit = ptr + len;
+  const unsigned char* ptr = (const unsigned char*) str;
+  const unsigned char *limit = ptr + len;
   int32 hash = 0;
   for (; ptr < limit;)
     {
@@ -1568,7 +1568,7 @@ make_class_data (tree type)
   PUSH_FIELD_VALUE (cons, "idt", null_pointer_node);
   PUSH_FIELD_VALUE (cons, "arrayclass", null_pointer_node);
   PUSH_FIELD_VALUE (cons, "protectionDomain", null_pointer_node);
-  PUSH_FIELD_VALUE (cons, "signers", null_pointer_node);
+  PUSH_FIELD_VALUE (cons, "hack_signers", null_pointer_node);
   PUSH_FIELD_VALUE (cons, "chain", null_pointer_node);
 
   FINISH_RECORD_CONSTRUCTOR (cons);

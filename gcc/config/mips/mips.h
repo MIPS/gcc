@@ -476,7 +476,7 @@ extern const struct mips_cpu_info *mips_tune_info;
         {							\
 	  builtin_define ("_LANGUAGE_OBJECTIVE_C");		\
           builtin_define ("__LANGUAGE_OBJECTIVE_C");		\
-	  /* Bizzare, but needed at least for Irix.  */		\
+	  /* Bizarre, but needed at least for Irix.  */		\
 	  builtin_define_std ("LANGUAGE_C");			\
 	  builtin_define ("_LANGUAGE_C");			\
         }							\
@@ -1244,8 +1244,6 @@ extern const struct mips_cpu_info *mips_tune_info;
    SFmode register saves.  */
 #define DWARF_CIE_DATA_ALIGNMENT 4
 
-#define FIND_BASE_TERM(X) mips_delegitimize_address (X)
-
 /* Correct the offset of automatic variables and arguments.  Note that
    the MIPS debug format wants all automatic variables and arguments
    to be in terms of the virtual frame pointer (stack pointer before
@@ -1470,7 +1468,8 @@ extern const struct mips_cpu_info *mips_tune_info;
    - 8 condition code registers
    - 2 accumulator registers (hi and lo)
    - 32 registers each for coprocessors 0, 2 and 3
-   - 6 dummy entries that were used at various times in the past.  */
+   - FAKE_CALL_REGNO (see the comment above load_callsi for details)
+   - 5 dummy entries that were used at various times in the past.  */
 
 #define FIRST_PSEUDO_REGISTER 176
 
@@ -2028,9 +2027,7 @@ extern enum reg_class mips_char_to_class[256];
    part of a call sequence and allow a global 'foo' to be lazily bound.  */
 
 #define DANGEROUS_FOR_LA25_P(OP)					\
-  (TARGET_ABICALLS							\
-   && !TARGET_EXPLICIT_RELOCS						\
-   && mips_global_pic_constant_p (OP))
+  (!TARGET_EXPLICIT_RELOCS && global_got_operand (OP, VOIDmode))
 
 /* Letters in the range `Q' through `U' may be defined in a
    machine-dependent fashion to stand for arbitrary operand types.
@@ -2234,7 +2231,7 @@ extern enum reg_class mips_char_to_class[256];
 
 /* 1 if N is a possible register number for a function value.
    On the MIPS, R2 R3 and F0 F2 are the only register thus used.
-   Currently, R2 and F0 are only implemented  here (C has no complex type)  */
+   Currently, R2 and F0 are only implemented here (C has no complex type)  */
 
 #define FUNCTION_VALUE_REGNO_P(N) ((N) == GP_RETURN || (N) == FP_RETURN \
   || (LONG_DOUBLE_TYPE_SIZE == 128 && FP_RETURN != GP_RETURN \
@@ -2321,9 +2318,7 @@ typedef struct mips_args {
 
 /* Initialize a variable CUM of type CUMULATIVE_ARGS
    for a call to a function whose data type is FNTYPE.
-   For a library call, FNTYPE is 0.
-
-*/
+   For a library call, FNTYPE is 0.  */
 
 #define INIT_CUMULATIVE_ARGS(CUM,FNTYPE,LIBNAME,INDIRECT)		\
   init_cumulative_args (&CUM, FNTYPE, LIBNAME)				\
@@ -2412,10 +2407,6 @@ typedef struct mips_args {
    : ((LOC) + 15) & ~15)
 
 
-/* Define the `__builtin_va_list' type for the ABI.  */
-#define BUILD_VA_LIST_TYPE(VALIST) \
-  (VALIST) = mips_build_va_list ()
-
 /* Implement `va_start' for varargs and stdarg.  */
 #define EXPAND_BUILTIN_VA_START(valist, nextarg) \
   mips_va_start (valist, nextarg)
@@ -2802,7 +2793,11 @@ typedef struct mips_args {
 #define PREDICATE_CODES							\
   {"uns_arith_operand",		{ REG, CONST_INT, SUBREG, ADDRESSOF }},	\
   {"symbolic_operand",		{ CONST, SYMBOL_REF, LABEL_REF }},	\
-  {"const_arith_operand",	{ CONST, CONST_INT }},			\
+  {"global_got_operand",	{ CONST, SYMBOL_REF, LABEL_REF }},	\
+  {"local_got_operand",		{ CONST, SYMBOL_REF, LABEL_REF }},	\
+  {"const_arith_operand",	{ CONST_INT }},				\
+  {"small_data_pattern",	{ SET, PARALLEL, UNSPEC,		\
+				  UNSPEC_VOLATILE }},			\
   {"arith_operand",		{ REG, CONST_INT, CONST, SUBREG, ADDRESSOF }},	\
   {"reg_or_0_operand",		{ REG, CONST_INT, CONST_DOUBLE, SUBREG, ADDRESSOF }}, \
   {"small_int",			{ CONST_INT }},				\

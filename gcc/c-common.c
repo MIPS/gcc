@@ -386,7 +386,7 @@ int flag_isoc94;
 
 int flag_isoc99;
 
-/* Nonzero means that we have builtin functions, and main is an int */
+/* Nonzero means that we have builtin functions, and main is an int.  */
 
 int flag_hosted = 1;
 
@@ -510,17 +510,6 @@ int flag_no_gnu_keywords;
 
 int flag_implement_inlines = 1;
 
-/* Nonzero means do emit exported implementations of templates, instead of
-   multiple static copies in each file that needs a definition.  */
-
-int flag_external_templates;
-
-/* Nonzero means that the decision to emit or not emit the implementation of a
-   template depends on where the template is instantiated, rather than where
-   it is defined.  */
-
-int flag_alt_external_templates;
-
 /* Nonzero means that implicit instantiations will be emitted if needed.  */
 
 int flag_implicit_templates = 1;
@@ -620,10 +609,12 @@ int flag_enforce_eh_specs = 1;
 
     1: The version of the ABI first used in G++ 3.2.
 
+    2: The version of the ABI first used in G++ 3.4.
+
     Additional positive integers will be assigned as new versions of
     the ABI become the default version of the ABI.  */
 
-int flag_abi_version = 1;
+int flag_abi_version = 2;
 
 /* Nonzero means warn about things that will change when compiling
    with an ABI-compliant compiler.  */
@@ -4929,33 +4920,32 @@ handle_visibility_attribute (tree *node, tree name, tree args,
 			     bool *no_add_attrs)
 {
   tree decl = *node;
+  tree id = TREE_VALUE (args);
+
+  *no_add_attrs = true;
 
   if (decl_function_context (decl) != 0 || ! TREE_PUBLIC (decl))
     {
       warning ("`%s' attribute ignored", IDENTIFIER_POINTER (name));
-      *no_add_attrs = true;
+      return NULL_TREE;
     }
-  else
-    {
-      tree id;
 
-      id = TREE_VALUE (args);
-      if (TREE_CODE (id) != STRING_CST)
-	{
-	  error ("visibility arg not a string");
-	  *no_add_attrs = true;
-	  return NULL_TREE;
-	}
-      if (strcmp (TREE_STRING_POINTER (id), "hidden")
-	  && strcmp (TREE_STRING_POINTER (id), "protected")
-	  && strcmp (TREE_STRING_POINTER (id), "internal")
-	  && strcmp (TREE_STRING_POINTER (id), "default"))
-	{
-	  error ("visibility arg must be one of \"default\", \"hidden\", \"protected\" or \"internal\"");
-	  *no_add_attrs = true;
-	  return NULL_TREE;
-	}
+  if (TREE_CODE (id) != STRING_CST)
+    {
+      error ("visibility arg not a string");
+      return NULL_TREE;
     }
+
+  if (strcmp (TREE_STRING_POINTER (id), "default") == 0)
+    DECL_VISIBILITY (decl) = VISIBILITY_DEFAULT;
+  else if (strcmp (TREE_STRING_POINTER (id), "internal") == 0)
+    DECL_VISIBILITY (decl) = VISIBILITY_INTERNAL;
+  else if (strcmp (TREE_STRING_POINTER (id), "hidden") == 0)
+    DECL_VISIBILITY (decl) = VISIBILITY_HIDDEN;  
+  else if (strcmp (TREE_STRING_POINTER (id), "protected") == 0)
+    DECL_VISIBILITY (decl) = VISIBILITY_PROTECTED;
+  else
+    error ("visibility arg must be one of \"default\", \"hidden\", \"protected\" or \"internal\"");
 
   return NULL_TREE;
 }
@@ -5775,7 +5765,7 @@ c_estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
     return NULL;
   switch (TREE_CODE (x))
     { 
-    /* Reconginze assignments of large structures and constructors of
+    /* Recognize assignments of large structures and constructors of
        big arrays.  */
     case MODIFY_EXPR:
     case CONSTRUCTOR:
@@ -5892,6 +5882,38 @@ c_decl_uninit (tree t)
   if (walk_tree_without_duplicates (&DECL_INITIAL (t), c_decl_uninit_1, t))
     return true;
   return false;
+}
+
+/* Issue the error given by MSGID, indicating that it occurred before
+   TOKEN, which had the associated VALUE.  */
+
+void
+c_parse_error (const char *msgid, enum cpp_ttype token, tree value)
+{
+  const char *string = _(msgid);
+
+  if (token == CPP_EOF)
+    error ("%s at end of input", string);
+  else if (token == CPP_CHAR || token == CPP_WCHAR)
+    {
+      unsigned int val = TREE_INT_CST_LOW (value);
+      const char *const ell = (token == CPP_CHAR) ? "" : "L";
+      if (val <= UCHAR_MAX && ISGRAPH (val))
+	error ("%s before %s'%c'", string, ell, val);
+      else
+	error ("%s before %s'\\x%x'", string, ell, val);
+    }
+  else if (token == CPP_STRING
+	   || token == CPP_WSTRING)
+    error ("%s before string constant", string);
+  else if (token == CPP_NUMBER)
+    error ("%s before numeric constant", string);
+  else if (token == CPP_NAME)
+    error ("%s before \"%s\"", string, IDENTIFIER_POINTER (value));
+  else if (token < N_TTYPES)
+    error ("%s before '%s' token", string, cpp_type2name (token));
+  else
+    error ("%s", string);
 }
 
 #include "gt-c-common.h"

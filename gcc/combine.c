@@ -345,7 +345,6 @@ static void setup_incoming_promotions (void);
 static void set_nonzero_bits_and_sign_copies (rtx, rtx, void *);
 static int cant_combine_insn_p (rtx);
 static int can_combine_p (rtx, rtx, rtx, rtx, rtx *, rtx *);
-static int sets_function_arg_p (rtx);
 static int combinable_i3pat (rtx, rtx *, rtx, rtx, int, rtx *);
 static int contains_muldiv (rtx);
 static rtx try_combine (rtx, rtx, rtx, int *);
@@ -609,8 +608,8 @@ combine_instructions (rtx f, unsigned int nregs)
 
   FOR_EACH_BB (this_basic_block)
     {
-      for (insn = this_basic_block->head;
-           insn != NEXT_INSN (this_basic_block->end);
+      for (insn = BB_HEAD (this_basic_block);
+           insn != NEXT_INSN (BB_END (this_basic_block));
 	   insn = next ? next : NEXT_INSN (insn))
 	{
 	  next = 0;
@@ -1205,45 +1204,6 @@ can_combine_p (rtx insn, rtx i3, rtx pred ATTRIBUTE_UNUSED, rtx succ,
   return 1;
 }
 
-/* Check if PAT is an insn - or a part of it - used to set up an
-   argument for a function in a hard register.  */
-
-static int
-sets_function_arg_p (rtx pat)
-{
-  int i;
-  rtx inner_dest;
-
-  switch (GET_CODE (pat))
-    {
-    case INSN:
-      return sets_function_arg_p (PATTERN (pat));
-
-    case PARALLEL:
-      for (i = XVECLEN (pat, 0); --i >= 0;)
-	if (sets_function_arg_p (XVECEXP (pat, 0, i)))
-	  return 1;
-
-      break;
-
-    case SET:
-      inner_dest = SET_DEST (pat);
-      while (GET_CODE (inner_dest) == STRICT_LOW_PART
-	     || GET_CODE (inner_dest) == SUBREG
-	     || GET_CODE (inner_dest) == ZERO_EXTRACT)
-	inner_dest = XEXP (inner_dest, 0);
-
-      return (GET_CODE (inner_dest) == REG
-	      && REGNO (inner_dest) < FIRST_PSEUDO_REGISTER
-	      && FUNCTION_ARG_REGNO_P (REGNO (inner_dest)));
-
-    default:
-      break;
-    }
-
-  return 0;
-}
-
 /* LOC is the location within I3 that contains its pattern or the component
    of a PARALLEL of the pattern.  We validate that it is valid for combining.
 
@@ -2377,7 +2337,7 @@ try_combine (rtx i3, rtx i2, rtx i1, int *new_direct_jump_p)
 
 	  for (insn = NEXT_INSN (i3);
 	       insn && (this_basic_block->next_bb == EXIT_BLOCK_PTR
-			|| insn != this_basic_block->next_bb->head);
+			|| insn != BB_HEAD (this_basic_block->next_bb));
 	       insn = NEXT_INSN (insn))
 	    {
 	      if (INSN_P (insn) && reg_referenced_p (ni2dest, PATTERN (insn)))
@@ -2586,7 +2546,7 @@ try_combine (rtx i3, rtx i2, rtx i1, int *new_direct_jump_p)
 				  SET_DEST (XVECEXP (PATTERN (i2), 0, i))))
 	    for (temp = NEXT_INSN (i2);
 		 temp && (this_basic_block->next_bb == EXIT_BLOCK_PTR
-			  || this_basic_block->head != temp);
+			  || BB_HEAD (this_basic_block) != temp);
 		 temp = NEXT_INSN (temp))
 	      if (temp != i3 && INSN_P (temp))
 		for (link = LOG_LINKS (temp); link; link = XEXP (link, 1))
@@ -6083,10 +6043,11 @@ make_extraction (enum machine_mode mode, rtx inner, HOST_WIDE_INT pos,
 	{
 	  if (tmode != inner_mode)
 	    {
-	      if (in_dest)
+	      /* We can't call gen_lowpart_for_combine in a DEST since we
+		 always want a SUBREG (see below) and it would sometimes
+		 return a new hard register.  */
+	      if (pos || in_dest)
 		{
-		  /* We can't call gen_lowpart_for_combine here since we always want
-		     a SUBREG and it would sometimes return a new hard register.  */
 		  HOST_WIDE_INT final_word = pos / BITS_PER_WORD;
 
 		  if (WORDS_BIG_ENDIAN
@@ -12018,7 +11979,7 @@ reg_dead_at_p (rtx reg, rtx insn)
   else
     {
       FOR_EACH_BB (block)
-	if (insn == block->head)
+	if (insn == BB_HEAD (block))
 	  break;
 
       if (block == EXIT_BLOCK_PTR)
@@ -12657,7 +12618,7 @@ distribute_notes (rtx notes, rtx from_insn, rtx i3, rtx i2)
 		{
 		  if (! INSN_P (tem))
 		    {
-		      if (tem == bb->head)
+		      if (tem == BB_HEAD (bb))
 			break;
 		      continue;
 		    }
@@ -12702,11 +12663,12 @@ distribute_notes (rtx notes, rtx from_insn, rtx i3, rtx i2)
 			     This might delete other dead insns recursively.
 			     First set the pattern to something that won't use
 			     any register.  */
+			  rtx old_notes = REG_NOTES (tem);
 
 			  PATTERN (tem) = pc_rtx;
+			  REG_NOTES (tem) = NULL;
 
-			  distribute_notes (REG_NOTES (tem), tem, tem,
-					    NULL_RTX);
+			  distribute_notes (old_notes, tem, tem, NULL_RTX);
 			  distribute_links (LOG_LINKS (tem));
 
 			  PUT_CODE (tem, NOTE);
@@ -12718,10 +12680,11 @@ distribute_notes (rtx notes, rtx from_insn, rtx i3, rtx i2)
 			  if (cc0_setter)
 			    {
 			      PATTERN (cc0_setter) = pc_rtx;
+			      old_notes = REG_NOTES (cc0_setter);
+			      REG_NOTES (cc0_setter) = NULL;
 
-			      distribute_notes (REG_NOTES (cc0_setter),
-						cc0_setter, cc0_setter,
-						NULL_RTX);
+			      distribute_notes (old_notes, cc0_setter,
+						cc0_setter, NULL_RTX);
 			      distribute_links (LOG_LINKS (cc0_setter));
 
 			      PUT_CODE (cc0_setter, NOTE);
@@ -12782,7 +12745,7 @@ distribute_notes (rtx notes, rtx from_insn, rtx i3, rtx i2)
 		      break;
 		    }
 
-		  if (tem == bb->head)
+		  if (tem == BB_HEAD (bb))
 		    break;
 		}
 
@@ -12879,7 +12842,7 @@ distribute_notes (rtx notes, rtx from_insn, rtx i3, rtx i2)
 			      {
 				if (! INSN_P (tem))
 				  {
-				    if (tem == bb->head)
+				    if (tem == BB_HEAD (bb))
 				      {
 					SET_BIT (refresh_blocks,
 						 this_basic_block->index);
@@ -12986,7 +12949,7 @@ distribute_links (rtx links)
 
       for (insn = NEXT_INSN (XEXP (link, 0));
 	   (insn && (this_basic_block->next_bb == EXIT_BLOCK_PTR
-		     || this_basic_block->next_bb->head != insn));
+		     || BB_HEAD (this_basic_block->next_bb) != insn));
 	   insn = NEXT_INSN (insn))
 	if (INSN_P (insn) && reg_overlap_mentioned_p (reg, PATTERN (insn)))
 	  {
