@@ -20,13 +20,13 @@ XXX: libgcc license?
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <sys/time.h>
 #include <sys/types.h>
+#include <sys/mman.h>
 #include <unistd.h>
 #include <assert.h>
 #include <errno.h>
 #include <limits.h>
-#include <time.h>
+#include <sched.h>
 
 #include "mf-runtime.h"
 #include "mf-impl.h"
@@ -41,23 +41,19 @@ XXX: libgcc license?
 
 #ifdef WRAP_pthreadstuff
 
+
 #ifndef LIBMUDFLAPTH
 #error "pthreadstuff is to be included only in libmudflapth"
 #endif
 
 
 
-/* Describes a thread (dead or alive). */
+/* Describe a thread (dead or alive). */
 struct pthread_info
 {
   short used_p;  /* Is this slot in use?  */
-
+  short dead_p;  /* Is this thread dead?  */
   pthread_t self; /* The thread id.  */
-  short dead_p;  /* Has thread died?  */
-
-  /* The user's thread entry point and argument.  */
-  void * (*user_fn)(void *);
-  void *user_arg;
 
   /* If libmudflapth allocated the stack, store its base/size.  */
   void *stack;
@@ -68,80 +64,170 @@ struct pthread_info
 };
 
 
-/* To avoid dynamic memory allocation, use static array.
-   It is used as a simple hash table.  */
+/* Describe the startup information for a new user thread.  */
+struct pthread_start_info
+{
+  /* The user's thread entry point and argument.  */
+  void * (*user_fn)(void *);
+  void *user_arg;
+
+  /* Set by user thread when this startup struct may be disposed of.  */
+  struct pthread_info *thread_info;
+};
+
+
+
+
+/* To avoid dynamic memory allocation, use static array to store these
+   thread description structs.  The second (_idx) array is used as a
+   simple caching hash table, mapping PTHREAD_HASH(thread) to its
+   index in __mf_pthread_info[]. */
+
 #define LIBMUDFLAPTH_THREADS_MAX 1024
 static struct pthread_info __mf_pthread_info[LIBMUDFLAPTH_THREADS_MAX];
+static unsigned __mf_pthread_info_idx[LIBMUDFLAPTH_THREADS_MAX];
 #define PTHREAD_HASH(p) ((unsigned) (p) % LIBMUDFLAPTH_THREADS_MAX)
-/* XXX: locking required? */
 
 
-/* Find and return the pthread_info struct for the running thread.  */
+/* Find any old empty entry in __mf_pthread_info; mark it used and
+   return it.  Return NULL if there are no more available slots.  */
 struct pthread_info* 
-__mf_find_threadinfo ()
+__mf_allocate_blank_threadinfo (unsigned* idx)
 {
-  pthread_t self = pthread_self ();
-  unsigned hash = PTHREAD_HASH (self);
-  unsigned i;
-  struct pthread_info *result = NULL;
+  static unsigned probe = LIBMUDFLAPTH_THREADS_MAX-1;
+  unsigned probe_at_start = probe;
+  static pthread_mutex_t mutex =
+#ifdef PTHREAD_ERRORCHECK_MUTEX_INITIALIZER_NP
+    PTHREAD_ERRORCHECK_MUTEX_INITIALIZER_NP;
+#else
+    PTHREAD_MUTEX_INITIALIZER;
+#endif
+  int rc;
 
-  for (i = hash; 
-       (i+1) % LIBMUDFLAPTH_THREADS_MAX != hash; 
-       i = (i+1) % LIBMUDFLAPTH_THREADS_MAX)
+  rc = pthread_mutex_lock (& mutex);
+  assert (rc == 0);
+
+  /* Look for a blank spot starting one past the last one we found. */
+  do
     {
-      struct pthread_info* pi = & __mf_pthread_info [i];
-      if (pi->used_p && pi->self == self) 
-	{
-	  result = pi;
-	  break;
-	}
-    }
-
-  /* XXX: This is too slow for the main thread.  It will not show up
-     in the table since it was not created with pthread_create(), but
-     will have to search the entire table.  */
-
-  return result;
-}
-
-
-struct pthread_info* 
-__mf_create_threadinfo ()
-{
-  pthread_t self = pthread_self ();
-  unsigned hash = PTHREAD_HASH (self);
-  unsigned i;
-  struct pthread_info *result = NULL;
-
-  for (i = hash; 
-       (i+1) % LIBMUDFLAPTH_THREADS_MAX != hash; 
-       i = (i+1) % LIBMUDFLAPTH_THREADS_MAX)
-    {
-      struct pthread_info* pi = & __mf_pthread_info [i];
+      probe = (probe + 1) % LIBMUDFLAPTH_THREADS_MAX;
+      struct pthread_info* pi = & __mf_pthread_info [probe];
       if (! pi->used_p)
 	{
+	  /* memset (pi, 0, sizeof (*pi)); */
 	  pi->used_p = 1;
-	  pi->self = self;
-	  result = pi;
-	  break;
+	  if (idx != NULL) *idx = probe;
+	  /* VERBOSE_TRACE ("allocated threadinfo slot %u\n", probe); */
+	  rc = pthread_mutex_unlock (& mutex);
+	  assert (rc == 0);
+	  return pi;
 	}
     }
+  while (probe != probe_at_start);
+  
+  rc = pthread_mutex_unlock (& mutex);
+  assert (rc == 0);
+  return NULL;
+}
+
+
+/* Find and return the pthread_info struct for the current thread.
+   There might already be one in __mf_pthread_info for this thread, in
+   which case return it.  There may not be one (if this is a main
+   thread, an auxiliary -lpthread manager, or an actual user thread
+   making an early call into libmudflap.  In these cases, create a new
+   entry.  If not it's not the main thread, put it into reentrant
+   initial state.
+*/
+static struct pthread_info* 
+__mf_find_threadinfo ()
+{
+  pthread_t it = pthread_self ();
+  unsigned *hash = & __mf_pthread_info_idx [PTHREAD_HASH (it)];
+  struct pthread_info *result = NULL;
+  static pthread_t last;
+  static int main_thread_seen_p;
+
+  /* Check out the lookup cache; failing that, do a linear search
+     around the table.  */
+  {
+    struct pthread_info* pi = & __mf_pthread_info [*hash];
+    unsigned i;
+
+    if (pi->used_p && pi->self == it)
+      result = pi;
+    else for (i = 0; i < LIBMUDFLAPTH_THREADS_MAX; i++)
+      {
+	struct pthread_info* pi2 = & __mf_pthread_info [i];
+	if (pi2->used_p && pi2->self == it) 
+	  {
+	    *hash = i;
+	    result = pi2;
+	    break;
+	  }
+      }
+  }    
+
+  if (result == NULL)
+    {
+      /* Create a __mf_pthread_info record for the main thread.  It's
+	 different from the auto-recognized worker bees because for
+	 example we can assume that it's a fully stack/errno-equipped
+	 thread. */
+
+      /* This must be the main thread, until now unseen in libmudflap.  */
+      unsigned *hash = & __mf_pthread_info_idx [PTHREAD_HASH (it)];
+      struct pthread_info* pi = __mf_allocate_blank_threadinfo (hash);
+      assert (pi != NULL);
+      assert (pi->used_p);
+      result = pi;
+      result->self = it;
+
+      if (! main_thread_seen_p)
+	{
+	  result->state = active;
+	  /* NB: leave result->thread_errno unset, as main thread's errno
+	     has already been registered in __mf_init.  */
+	  /* NB: leave stack-related fields unset, to avoid
+	     deallocation.  */
+	  main_thread_seen_p = 1;
+	  VERBOSE_TRACE ("identified self as main thread\n");
+	}
+      else
+	{
+	  result->state = reentrant;
+	  /* NB: leave result->thread_errno unset, as worker thread's
+	     errno is unlikely to be used, and user threads fill them
+	     in during __mf_pthread_spawn().  */
+	  /* NB: leave stack-related fields unset, leaving pthread_create
+	     to fill them in for user threads, leaving them empty for
+	     other threads.  */
+	  VERBOSE_TRACE ("identified self as new aux or user thread\n");
+	}
+    }
+
+  if (last != it)
+    {
+      VERBOSE_TRACE ("found threadinfo for %u, slot %u\n", 
+		     (unsigned) it,
+		     (unsigned) *hash);
+      last = it;
+    }
+
+  assert (result != NULL);
+  assert (result->self == it);
 
   return result;
 }
 
 
 
+/* Return a pointer to the per-thread __mf_state variable.  */
 enum __mf_state_enum *
 __mf_state_perthread ()
 {
-  static enum __mf_state_enum __mf_state_global = active;
-  struct pthread_info *pi = __mf_find_threadinfo ();
-
-  if (pi == NULL)
-    return & __mf_state_global;
-  else
-    return & pi->state;
+  assert (! __mf_starting_p);
+  return & (__mf_find_threadinfo()->state);
 }
 
 
@@ -152,23 +238,31 @@ __mf_pthread_cleanup (void *arg)
 
   /* XXX: This unregistration is not safe on platforms where distinct
      threads share errno (or at least its virtual address).  */
-  if (__mf_opts.heur_std_data)
+  if (pi->thread_errno != NULL)
     __mf_unregister (pi->thread_errno, sizeof (int));
+
+  /* XXX: Only detached threads should designate themselves as dead
+     here.  Non-detached threads are marked dead after their
+     personalized pthread_join() call.  */
+  pi->state = reentrant;
   pi->dead_p = 1;
 
-  /* Some subsequent pthread_create will garbage_collect our stack.  */
+  VERBOSE_TRACE ("thread pi %p exiting\n", pi);
 }
-
 
 
 static void *
 __mf_pthread_spawner (void *arg)
 {
-  struct pthread_info *pi = arg;
+  struct pthread_info *pi = __mf_find_threadinfo ();
   void *result = NULL;
 
-  pi->self = pthread_self ();
+  /* Turn off reentrancy indications.  */
+  assert (pi->state == reentrant);
+  pi->state = active;
 
+  VERBOSE_TRACE ("new user thread\n");
+  
   if (__mf_opts.heur_std_data)
     {
       pi->thread_errno = & errno;
@@ -182,10 +276,20 @@ __mf_pthread_spawner (void *arg)
   /* We considered using pthread_key_t objects instead of these
      cleanup stacks, but they were less cooperative with the
      interposed malloc hooks in libmudflap.  */
-  pthread_cleanup_push (& __mf_pthread_cleanup, arg);
+  pthread_cleanup_push (& __mf_pthread_cleanup, pi);
 
   /* Call user thread */
-  result = pi->user_fn (pi->user_arg);
+  {
+    /* Extract given entry point and argument.  */
+    struct pthread_start_info *psi = arg;
+    void * (*user_fn)(void *) = psi->user_fn;
+    void *user_arg = psi->user_arg;
+
+    /* Signal the main thread to resume.  */
+    psi->thread_info = pi;
+      
+    result = (*user_fn)(user_arg);
+  }
 
   pthread_cleanup_pop (1 /* execute */);
 
@@ -213,12 +317,11 @@ __mf_0fn_pthread_create (pthread_t *thr, pthread_attr_t *attr,
 WRAPPER(int, pthread_create, pthread_t *thr, const pthread_attr_t *attr, 
 	 void * (*start) (void *), void *arg)
 {
-  DECLARE(void, free, void *p);
-  DECLARE(void *, malloc, size_t c);
+  DECLARE(int, munmap, void *p, size_t l);
+  DECLARE(void *, mmap, void *p, size_t l, int prot, int flags, int fd, off_t of);
   DECLARE(int, pthread_create, pthread_t *thr, const pthread_attr_t *attr, 
 	  void * (*start) (void *), void *arg);
   int result;
-  struct pthread_info *pi;
   pthread_attr_t override_attr;
   void *override_stack;
   size_t override_stacksize;
@@ -226,30 +329,36 @@ WRAPPER(int, pthread_create, pthread_t *thr, const pthread_attr_t *attr,
 
   TRACE ("pthread_create\n");
 
-  /* Garbage collect dead thread stacks.  */
+  /* Garbage-collect dead threads' stacks.  */
+  LOCKTH ();
   for (i = 0; i < LIBMUDFLAPTH_THREADS_MAX; i++)
     {
-      pi = & __mf_pthread_info [i];
-      if (pi->used_p
-	  && pi->dead_p 
-	  && !pthread_kill (pi->self, 0)) /* Really dead?  XXX: safe?  */ 
-	{
-	  if (pi->stack != NULL)
-	    CALL_REAL (free, pi->stack);
+      struct pthread_info *pi = & __mf_pthread_info [i];
+      if (! pi->used_p)
+	continue;
+      if (! pi->dead_p)
+	continue;
 
-	  pi->stack = NULL;
-	  pi->stack_size = 0;
-	  pi->used_p = 0;
+      /* VERBOSE_TRACE ("thread %u pi %p stack cleanup deferred (%u)\n",
+	 (unsigned) pi->self, pi, pi->dead_p); */
+	      
+      /* Delay actual deallocation by a few cycles, try to discourage the
+	 race mentioned at the end of __mf_pthread_spawner().  */
+      if (pi->dead_p)
+	pi->dead_p ++;
+      if (pi->dead_p >= 10 /* XXX */)
+	{
+	  if (pi->stack)
+	    CALL_REAL (munmap, pi->stack, pi->stack_size);
+
+	  VERBOSE_TRACE ("slot %u freed, stack %p\n", i, pi->stack);
+	  memset (pi, 0, sizeof (*pi));
+
+	  /* One round of garbage collection is enough.  */
+	  break;
 	}
     }
-
-  /* Find a slot in __mf_pthread_info to track this thread.  */
-  pi = __mf_create_threadinfo ();
-  if (pi == NULL) /* no slots free - simulated out-of-memory.  */
-    {
-      errno = EAGAIN;
-      return -1;
-    }
+  UNLOCKTH ();
 
   /* Let's allocate a stack for this thread, if one is not already
      supplied by the caller.  We don't want to let e.g. the
@@ -269,7 +378,7 @@ WRAPPER(int, pthread_create, pthread_t *thr, const pthread_attr_t *attr,
     }
 
   /* Do we need to allocate the new thread's stack?  */
-  if (override_stack == NULL)
+  if (__mf_opts.thread_stack && override_stack == NULL)
     {
       uintptr_t alignment = 256; /* power of two */
 
@@ -277,29 +386,30 @@ WRAPPER(int, pthread_create, pthread_t *thr, const pthread_attr_t *attr,
 	 threads to have nonconflicting entries in the lookup cache
 	 for their tracked stack objects.  */
       static unsigned perturb = 0;
-      const unsigned perturb_delta = 0; /* 32; */
+      const unsigned perturb_delta = 32;
       const unsigned perturb_count = 16;
       perturb += perturb_delta;
       if (perturb > perturb_delta*perturb_count) perturb = 0;
 
       /* Use glibc x86 defaults */
-      if (override_stacksize < alignment)
 /* Should have been defined in <limits.h> */
 #ifndef PTHREAD_STACK_MIN
 #define PTHREAD_STACK_MIN 65536
 #endif
-	override_stacksize = max (PTHREAD_STACK_MIN, 2 * 1024 * 1024);
+      override_stacksize = max (PTHREAD_STACK_MIN, __mf_opts.thread_stack * 1024);
 
-      override_stack = CALL_REAL (malloc, override_stacksize);
-      if (override_stack == NULL)
+      override_stack = CALL_REAL (mmap, NULL, override_stacksize, 
+				  PROT_READ|PROT_WRITE, 
+				  MAP_PRIVATE|MAP_ANONYMOUS,
+				  0, 0);
+      if (override_stack == 0 || override_stack == MAP_FAILED)
 	{
 	  errno = EAGAIN;
-	  pi->used_p = 0;
 	  return -1;
 	}
 
-      pi->stack = override_stack;
-      pi->stack_size = override_stacksize;
+      VERBOSE_TRACE ("thread stack alloc %p size %lu\n", 
+		     override_stack, (unsigned long) override_stacksize);
 
       /* The stackaddr pthreads attribute is a candidate stack pointer.
 	 It must point near the top or the bottom of this buffer, depending
@@ -315,31 +425,108 @@ WRAPPER(int, pthread_create, pthread_t *thr, const pthread_attr_t *attr,
 				     override_stacksize - alignment - perturb) != 0)
 	{
 	  /* This should not happen.  */
-	  CALL_REAL (free, pi->stack);
-	  pi->stack = NULL;
+	  CALL_REAL (munmap, override_stack, override_stacksize);
 	  errno = EAGAIN;
-	  pi->used_p = 0;
 	  return -1;
 	}
-
   }
 
-  /* Fill in remaining fields.  */
-  pi->user_fn = start;
-  pi->user_arg = arg;
-  pi->dead_p = 0;
-  pi->state = active;
+  /* Actually start the child thread.  */
+  {
+    struct pthread_start_info psi;
+    struct pthread_info *pi = NULL;
+    
+    /* Fill in startup-control fields.  */
+    psi.user_fn = start;
+    psi.user_arg = arg;
+    psi.thread_info = NULL;
+    
+    /* Actually create the thread.  */
+    __mf_state = reentrant;
+    result = CALL_REAL (pthread_create, thr, & override_attr,
+			& __mf_pthread_spawner, (void *) & psi);
+    __mf_state = active;
+    /* We also hook pthread_join/pthread_exit to get into reentrant
+       mode during thread shutdown/cleanup.  */
 
-  /* Actually create the thread.  */
-  result = CALL_REAL (pthread_create, thr, & override_attr,
-		      & __mf_pthread_spawner, (void *) pi);
-  
+    /* Wait until child thread has progressed far enough into its
+       __mf_pthread_spawner() call.  */
+    while (1) /* XXX: timeout? */
+      {
+	volatile struct pthread_start_info *psip = & psi;
+	pi = psip->thread_info;
+	if (pi != NULL) 
+	  break;
+	sched_yield ();
+      }
+
+    /* Fill in remaining fields in pthread_info. */
+    pi->stack = override_stack;
+    pi->stack_size = override_stacksize;
+    /* XXX: this might be too late for future heuristics that attempt
+       to use thread stack bounds.  We may need to put the new thread
+       to sleep. */
+  }
+
+
   /* May need to clean up if we created a pthread_attr_t of our own.  */
   if (attr == NULL)
     pthread_attr_destroy (& override_attr); /* NB: this shouldn't deallocate stack */
 
   return result;
 }
+
+
+
+#if PIC
+/* A special bootstrap variant. */
+int
+__mf_0fn_pthread_join (pthread_t thr, void **rc)
+{
+  return -1;
+}
+#endif
+
+
+#undef pthread_join
+WRAPPER(int, pthread_join, pthread_t thr, void **rc)
+{
+  DECLARE(int, pthread_join, pthread_t thr, void **rc);
+  int result;
+
+  TRACE ("pthread_join\n");
+  __mf_state = reentrant;
+  result = CALL_REAL (pthread_join, thr, rc);
+  __mf_state = active;
+  
+  return result;
+}
+
+
+#if PIC
+/* A special bootstrap variant. */
+void
+__mf_0fn_pthread_exit (void *rc)
+{
+}
+#endif
+
+
+#undef pthread_exit
+WRAPPER(void, pthread_exit, void *rc)
+{
+  DECLARE(void, pthread_exit, void *rc);
+
+  TRACE ("pthread_exit\n");
+  /* __mf_state = reentrant; */
+  CALL_REAL (pthread_exit, rc);
+  /* NOTREACHED */
+}
+
+
+
+
+
 
 
 #endif /* pthreadstuff */

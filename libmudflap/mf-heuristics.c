@@ -44,14 +44,14 @@ __mf_heuristic_check (uintptr_t ptr, uintptr_t ptr_high)
     {
       uintptr_t stack_top_guess = (uintptr_t)__builtin_frame_address(0);
 #if defined(__i386__) && defined (__linux__)
-      uintptr_t stack_segment_base = 0xC0000000;
+      uintptr_t stack_segment_base = 0xC0000000; /* XXX: Bad assumption. */
 #else
       /* Cause tests to fail. */
       uintptr_t stack_segment_base = 0;
 #endif
 
-      VERBOSE_TRACE ("mf: stack estimated as %08lx-%08lx\n", 
-		     stack_top_guess, stack_segment_base);
+      VERBOSE_TRACE ("mf: stack estimated as %p-%p\n", 
+		     (void *) stack_top_guess, (void *) stack_segment_base);
 
       if (ptr_high <= stack_segment_base &&
 	  ptr >= stack_top_guess &&
@@ -125,10 +125,10 @@ __mf_heuristic_check (uintptr_t ptr, uintptr_t ptr_high)
 			    }
 			  
 			  VERBOSE_TRACE ("mf: registering region #%d "
-					 "%08lx-%08lx given %s",
-					 i, (uintptr_t) low, (uintptr_t) high, buf);
+					 "%p-%p given %s",
+					 i, (void *) low, (void *) high, buf);
 			  
-			  __mfu_register ((uintptr_t) low, (uintptr_t) (high-low),
+			  __mfu_register ((void *) low, (size_t) (high-low),
 					  __MF_TYPE_GUESS, 
 					  "/proc/self/maps segment");
 			  

@@ -133,6 +133,11 @@ struct __mf_options
   /* Maintain this many stack frames for contexts. */
   unsigned backtrace;
 
+#ifdef LIBMUDFLAPTH
+  /* Thread stack size.  */
+  unsigned thread_stack;
+#endif
+
   /* Major operation mode */
   enum
   {
@@ -182,7 +187,9 @@ enum __mf_dynamic_index
   dyn_munmap, dyn_realloc, 
   dyn_INITRESOLVE,  /* Marker for last init-time resolution. */
 #ifdef LIBMUDFLAPTH 
-  dyn_pthread_create
+  dyn_pthread_create,
+  dyn_pthread_join,
+  dyn_pthread_exit
 #endif
 };
 
@@ -330,9 +337,12 @@ ret __mfwrap_ ## fname (__VA_ARGS__)
   if (UNLIKELY (size > 0 && __MF_CACHE_MISS_P (value, size))) \
     __mf_check ((void *) (value), (size), acc, "(" context ")"); \
  } while (0)
-#define BEGIN_PROTECT(ty, fname, ...)       \
-  ty result;                                \
-  if (UNLIKELY (__mf_state == reentrant))   \
+#define BEGIN_PROTECT(fname, ...)       \
+  if (UNLIKELY (__mf_starting_p)) \
+  {                                         \
+    return CALL_BACKUP(fname, __VA_ARGS__); \
+  }                                         \
+  else if (UNLIKELY (__mf_state == reentrant))   \
   {                                         \
     extern unsigned long __mf_reentrancy;   \
     if (UNLIKELY (__mf_opts.verbose_trace)) { \
@@ -342,18 +352,10 @@ ret __mfwrap_ ## fname (__VA_ARGS__)
     __mf_reentrancy ++; \
     return CALL_REAL(fname, __VA_ARGS__);   \
   }                                         \
-  else if (UNLIKELY (__mf_starting_p)) \
-  {                                         \
-    return CALL_BACKUP(fname, __VA_ARGS__); \
-  }                                         \
   else                                      \
   {                                         \
     TRACE ("%s\n", __PRETTY_FUNCTION__); \
   }
-
-#define END_PROTECT(ty, fname, ...)              \
-  result = (ty) CALL_REAL(fname, __VA_ARGS__);   \
-  return result;
 
 
 /* Unlocked variants of main entry points from mf-runtime.h.  */

@@ -1,3 +1,26 @@
+2003-07-23  Frank Ch. Eigler  <fche@redhat.com>
+
+	Multithreading fixes:
+	* mf-runtime.c (__mf_object): Store allocating/deallocating
+	thread id.
+	(options): Support new "-thread-stack" option.
+	Rename "-heur-argv-environ" option to "-heur-stdlib".
+	Disable "-lc-mask" and "-lc-shift" options.
+	(__mf_dynamic): Add function pointers for pthread_join/_exit.
+	(__assert_fail): New self-contained function for glibc.
+	* mf-hooks3.c: Essentially rewritten, particularly related to
+	use of __mf_pthread_info array.
+	(pthread_join, _exit): New hook functions.
+	* mf-impl.h (BEGIN_PROTECT): Handle starting_p case.
+	* testsuite/libmudflap.cth/pass40-frag.c: New test.
+
+	Warning cleanups:
+	* mf-heuristics.c: Add type casts for tracing, sub calls.
+	* mf-impl.h (BEGIN_PROTECT): Redefine to omit result type.
+	Update all callers to declare explicit result holder.
+	(END_PROTECT): Removed.
+	* testsuite/*/*frags.exp: Clean up default MUDFLAP_OPTIONS.
+
 2003-07-15  Diego Novillo  <dnovillo@redhat.com>
 
 	* testsuite/libmudflap.c/fail21-frag.c: Add volatile modifiers.

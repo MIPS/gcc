@@ -149,12 +149,18 @@ typedef struct __mf_object
   struct timeval alloc_time;
   char **alloc_backtrace;
   size_t alloc_backtrace_size;
+#ifdef LIBMUDFLAPTH
+  pthread_t alloc_thread;
+#endif
 
   int deallocated_p;
   uintptr_t dealloc_pc;
   struct timeval dealloc_time;
   char **dealloc_backtrace;
   size_t dealloc_backtrace_size;
+#ifdef LIBMUDFLAPTH
+  pthread_t dealloc_thread;
+#endif
 } __mf_object_t;
 
 
@@ -210,6 +216,9 @@ __mf_set_default_options ()
   __mf_opts.mudflap_mode = mode_check;
   __mf_opts.violation_mode = viol_nop;
   __mf_opts.heur_std_data = 1;
+#ifdef LIBMUDFLAPTH
+  __mf_opts.thread_stack = 0;
+#endif
 }
 
 static struct option
@@ -298,8 +307,8 @@ options [] =
     {"heur-start-end", 
      "support _start.._end heuristics",
      set_option, 1, &__mf_opts.heur_start_end},
-    {"heur-argv-environ", 
-     "register standard library data (argv, errno, ...)",
+    {"heur-stdlib", 
+     "register standard library data (argv, errno, stdin, ...)",
      set_option, 1, &__mf_opts.heur_std_data},
     {"free-queue-length", 
      "queue N deferred free() calls before performing them",
@@ -310,19 +319,25 @@ options [] =
     {"crumple-zone", 
      "surround allocations with crumple zones of N bytes",
      read_integer_option, 0, &__mf_opts.crumple_zone},
+    /* XXX: not type-safe.
     {"lc-mask", 
      "set lookup cache size mask to N (2**M - 1)",
      read_integer_option, 0, (int *)(&__mf_lc_mask)},
     {"lc-shift", 
      "set lookup cache pointer shift",
      read_integer_option, 0, (int *)(&__mf_lc_shift)},
+    */
     {"lc-adapt", 
      "adapt mask/shift parameters after N cache misses",
      read_integer_option, 1, &__mf_opts.adapt_cache},
     {"backtrace", 
      "keep an N-level stack trace of each call context",
      read_integer_option, 0, &__mf_opts.backtrace},
-
+#ifdef LIBMUDFLAPTH
+    {"thread-stack", 
+     "override thread stacks allocation: N kB",
+     read_integer_option, 0, &__mf_opts.thread_stack},
+#endif
     {0, 0, set_option, 0, NULL}
   };
 
@@ -555,7 +570,9 @@ struct __mf_dynamic_entry __mf_dynamic [] =
   {NULL, "realloc", NULL},
   {NULL, "DUMMY", NULL}, /* dyn_INITRESOLVE */
 #ifdef LIBMUDFLAPTH
-  {NULL, "pthread_create", PTHREAD_CREATE_VERSION}
+  {NULL, "pthread_create", PTHREAD_CREATE_VERSION},
+  {NULL, "pthread_join", NULL},
+  {NULL, "pthread_exit", NULL}
 #endif
 };
 
@@ -611,6 +628,7 @@ int
 __wrap_main (int argc, char* argv[])
 {
   extern char **environ;
+  extern int main ();
   static int been_here = 0;
 
   if (__mf_opts.heur_std_data && ! been_here)
@@ -686,7 +704,8 @@ void __mfu_check (void *ptr, size_t sz, int type, const char *location)
     __mf_sigusr1_respond ();
 
   TRACE ("check ptr=%p b=%u size=%lu %s location=`%s'\n",
-	 ptr, entry_idx, sz, (type == 0 ? "read" : "write"), location);
+	 ptr, entry_idx, (unsigned long)sz,
+	 (type == 0 ? "read" : "write"), location);
   
   switch (__mf_opts.mudflap_mode)
     {
@@ -931,7 +950,10 @@ __mf_insert_new_object (uintptr_t low, uintptr_t high, int type,
 #if HAVE_GETTIMEOFDAY
   gettimeofday (& new_obj->data.alloc_time, NULL);
 #endif
-  
+#if LIBMUDFLAPTH
+  new_obj->data.alloc_thread = pthread_self ();
+#endif
+
   if (__mf_opts.backtrace > 0 && (type == __MF_TYPE_HEAP || type == __MF_TYPE_HEAP_I))
     new_obj->data.alloc_backtrace_size = 
       __mf_backtrace (& new_obj->data.alloc_backtrace,
@@ -986,8 +1008,8 @@ __mf_register (void *ptr, size_t sz, int type, const char *name)
 void
 __mfu_register (void *ptr, size_t sz, int type, const char *name)
 {
-  TRACE ("register ptr=%p size=%lu type=%x name='%s'\n", ptr, sz, 
-	type, name ? name : "");
+  TRACE ("register ptr=%p size=%lu type=%x name='%s'\n", 
+	 ptr, (unsigned long) sz, type, name ? name : "");
 
   if (__mf_opts.collect_stats)
     {
@@ -1047,7 +1069,7 @@ __mfu_register (void *ptr, size_t sz, int type, const char *name)
 	      {
 		/* do nothing */
 		VERBOSE_TRACE ("duplicate static reg %p-%p `%s'\n", 
-			       low, high, 
+			       (void *) low, (void *) high, 
 			       (ovr_obj->data.name ? ovr_obj->data.name : ""));
 		break;
 	      }
@@ -1060,7 +1082,8 @@ __mfu_register (void *ptr, size_t sz, int type, const char *name)
 		ovr_obj->data.high == high)
 	      {
 		/* do nothing */
-		VERBOSE_TRACE ("duplicate guess reg %p-%p\n", low, high);
+		VERBOSE_TRACE ("duplicate guess reg %p-%p\n", 
+			       (void *) low, (void *) high);
 		break;
 	      }
 
@@ -1087,7 +1110,7 @@ __mfu_register (void *ptr, size_t sz, int type, const char *name)
 		assert (num_ovr_objs == num_overlapping_objs);
 
 		VERBOSE_TRACE ("splitting guess %p-%p, # overlaps: %u\n",
-			       low, high, num_ovr_objs);
+			       (void *) low, (void *) high, num_ovr_objs);
 
 		/* Add GUESS regions between the holes: before each
 		   overlapping region.  */
@@ -1185,7 +1208,7 @@ __mfu_unregister (void *ptr, size_t sz)
   if (UNLIKELY (__mf_opts.sigusr1_report))
   __mf_sigusr1_respond ();
 
-  TRACE ("unregister ptr=%p size=%lu\n", ptr, sz);
+  TRACE ("unregister ptr=%p size=%lu\n", ptr, (unsigned long) sz);
 
   switch (__mf_opts.mudflap_mode)
     { 
@@ -1224,7 +1247,7 @@ __mfu_unregister (void *ptr, size_t sz)
 	old_obj = objs[0];
 
 	if (UNLIKELY (num_overlapping_objs != 1 ||
-		      ptr != old_obj->data.low)) /* XXX: what about sz? */
+		      (uintptr_t)ptr != old_obj->data.low)) /* XXX: what about sz? */
 	  {
 	    __mf_violation (ptr, sz,
 			    (uintptr_t) __builtin_return_address (0), NULL,
@@ -1255,6 +1278,9 @@ __mfu_unregister (void *ptr, size_t sz)
 	    old_obj->data.dealloc_pc = (uintptr_t) __builtin_return_address (0);
 #if HAVE_GETTIMEOFDAY
 	    gettimeofday (& old_obj->data.dealloc_time, NULL);
+#endif
+#ifdef LIBMUDFLAPTH
+	    old_obj->data.dealloc_thread = pthread_self ();
 #endif
 
 	    if (__mf_opts.backtrace > 0 && old_obj->data.type == __MF_TYPE_HEAP)
@@ -1421,7 +1447,7 @@ __mf_tree_analyze (__mf_object_tree_t *obj, struct tree_stats* s)
 	  uintptr_t addr;
 
 	  VERBOSE_TRACE ("analyze low=%p live=%u name=`%s'\n",
-			 obj->data.low, obj->data.liveness, obj->data.name);
+			 (void *) obj->data.low, obj->data.liveness, obj->data.name);
 
 	  s->live_obj_count ++;
 	  s->total_weight += (double) obj->data.liveness;
@@ -1448,7 +1474,7 @@ static void
 __mf_adapt_cache ()
 {
   struct tree_stats s;
-  uintptr_t new_mask;
+  uintptr_t new_mask = 0;
   unsigned char new_shift;
   float cache_utilization;
   float max_value;
@@ -1484,7 +1510,7 @@ __mf_adapt_cache ()
   /* Converge toward this slowly to reduce flapping. */  
   smoothed_new_shift = 0.9*smoothed_new_shift + 0.1*i;
   new_shift = (unsigned) (smoothed_new_shift + 0.5);
-  assert (new_shift >= 0 && new_shift < sizeof (uintptr_t)*8);
+  assert (new_shift < sizeof (uintptr_t)*8);
 
   /* Count number of used buckets.  */
   cache_utilization = 0.0;
@@ -1499,7 +1525,7 @@ __mf_adapt_cache ()
   VERBOSE_TRACE ("adapt cache obj=%u/%u sizes=%lu/%.0f/%.0f => "
 		 "util=%u%% m=%p s=%u\n",
 		 s.obj_count, s.live_obj_count, s.total_size, s.total_weight, s.weighted_size,
-		 (unsigned)(cache_utilization*100.0), new_mask, new_shift);
+		 (unsigned)(cache_utilization*100.0), (void *) new_mask, new_shift);
 
   /* We should reinitialize cache if its parameters have changed.  */
   if (new_mask != __mf_lc_mask ||
@@ -1771,7 +1797,7 @@ __mf_describe_object (__mf_object_t *obj)
     {
       fprintf (stderr,
 	       "mudflap object %p: name=`%s'\n",
-	       (uintptr_t) obj, (obj->name ? obj->name : ""));
+	       (void *) obj, (obj->name ? obj->name : ""));
       return;
     }
   else
@@ -1780,9 +1806,14 @@ __mf_describe_object (__mf_object_t *obj)
   fprintf (stderr,
 	   "mudflap object %p: name=`%s'\n"
 	   "bounds=[%p,%p] size=%lu area=%s check=%ur/%uw liveness=%u%s\n"
-	   "alloc time=%lu.%06lu pc=%p\n",
-	   (uintptr_t) obj, (obj->name ? obj->name : ""), 
-	   obj->low, obj->high, (obj->high - obj->low + 1),
+	   "alloc time=%lu.%06lu pc=%p"
+#ifdef LIBMUDFLAPTH
+	   " thread=%u"
+#endif
+	   "\n",
+	   (void *) obj, (obj->name ? obj->name : ""), 
+	   (void *) obj->low, (void *) obj->high,
+	   (unsigned long) (obj->high - obj->low + 1),
 	   (obj->type == __MF_TYPE_NOACCESS ? "no-access" :
 	    obj->type == __MF_TYPE_HEAP ? "heap" :
 	    obj->type == __MF_TYPE_HEAP_I ? "heap-init" :
@@ -1792,7 +1823,12 @@ __mf_describe_object (__mf_object_t *obj)
 	    "unknown"),
 	   obj->read_count, obj->write_count, obj->liveness, 
 	   obj->watching_p ? " watching" : "",
-	   obj->alloc_time.tv_sec, obj->alloc_time.tv_usec, obj->alloc_pc);
+	   obj->alloc_time.tv_sec, obj->alloc_time.tv_usec, 
+	   (void *) obj->alloc_pc
+#ifdef LIBMUDFLAPTH
+	   , (unsigned) obj->alloc_thread
+#endif
+	   );
 
   if (__mf_opts.backtrace > 0)
   {
@@ -1805,8 +1841,18 @@ __mf_describe_object (__mf_object_t *obj)
     {
       if (obj->deallocated_p)
 	{
-	  fprintf (stderr, "dealloc time=%lu.%06lu pc=%p\n",
-		   obj->dealloc_time.tv_sec, obj->dealloc_time.tv_usec, obj->dealloc_pc);
+	  fprintf (stderr, "dealloc time=%lu.%06lu pc=%p"
+#ifdef LIBMUDFLAPTH
+		   " thread=%u"
+#endif
+		   "\n",
+		   obj->dealloc_time.tv_sec, obj->dealloc_time.tv_usec, 
+		   (void *) obj->dealloc_pc
+#ifdef LIBMUDFLAPTH
+		   , (unsigned) obj->dealloc_thread
+#endif
+		   );
+
 
 	  if (__mf_opts.backtrace > 0)
 	  {
@@ -1954,7 +2000,7 @@ __mf_backtrace (char ***symbols, void *guess_pc, unsigned guess_omit_levels)
   DECLARE (void *, calloc, size_t c, size_t n);
   DECLARE (void *, malloc, size_t n);
 
-  pc_array = CALL_REAL (calloc, pc_array_size, sizeof (void *));
+  pc_array = CALL_REAL (calloc, pc_array_size, sizeof (void *) );
 #ifdef HAVE_BACKTRACE
   pc_array_size = backtrace (pc_array, pc_array_size);
 #else
@@ -2040,8 +2086,9 @@ __mf_violation (void *ptr, size_t sz, uintptr_t pc,
   static unsigned violation_number;
   DECLARE(void, free, void *ptr);
 
-  TRACE ("violation pc=%p location=%s type=%d ptr=%p size=%lu\n", pc, 
-	 (location != NULL ? location : ""), type, ptr, sz);
+  TRACE ("violation pc=%p location=%s type=%d ptr=%p size=%lu\n", 
+	 (void *) pc, 
+	 (location != NULL ? location : ""), type, ptr, (unsigned long) sz);
 
   if (__mf_opts.collect_stats)
     __mf_count_violation [(type < 0) ? 0 :
@@ -2070,7 +2117,7 @@ __mf_violation (void *ptr, size_t sz, uintptr_t pc,
 	      (type == __MF_VIOL_UNREGISTER) ? "unregister" :
 	      (type == __MF_VIOL_WATCH) ? "watch" : "unknown"),
 	     now.tv_sec, now.tv_usec, 
-	     ptr, sz, pc,
+	     (void *) ptr, (unsigned long)sz, (void *) pc,
 	     (location != NULL ? " location=`" : ""),
 	     (location != NULL ? location : ""),
 	     (location != NULL ? "'" : ""));
@@ -2213,7 +2260,7 @@ __mf_watch_or_not (void *ptr, size_t sz, char flag)
   unsigned count = 0;
 
   TRACE ("%s ptr=%p size=%lu",
-	 (flag ? "watch" : "unwatch"), ptr, sz);
+	 (flag ? "watch" : "unwatch"), ptr, (unsigned long) sz);
   
   switch (__mf_opts.mudflap_mode)
     {
@@ -2244,7 +2291,7 @@ __mf_watch_or_not (void *ptr, size_t sz, char flag)
 	  {
 	    __mf_object_t *obj = & (all_ovr_objs[n]->data);
 
-	    VERBOSE_TRACE (" [%p]", (uintptr_t) obj);
+	    VERBOSE_TRACE (" [%p]", (void *) obj);
 	    if (obj->watching_p != flag)
 	      {
 		obj->watching_p = flag;
@@ -2303,3 +2350,57 @@ __mf_sigusr1_respond ()
       handler_installed = 0; /* We may need to re-enable signal; this might be a SysV library. */
     }
 }
+
+
+/* XXX: provide an alternative __assert_fail function that cannot
+   fail due to libmudflap infinite recursion.  */
+#ifndef NDEBUG
+
+static void
+write_itoa (int fd, unsigned n)
+{
+  enum x { bufsize = sizeof(n)*4 };
+  char buf [bufsize];
+  unsigned i;
+
+  for (i=0; i<bufsize-1; i++)
+    {
+      unsigned digit = n % 10;
+      buf[bufsize-2-i] = digit + '0';
+      n /= 10;
+      if (n == 0) 
+	{
+	  char *m = & buf [bufsize-2-i];
+	  buf[bufsize-1] = '\0';
+	  write (fd, m, strlen(m));
+	  break;
+	}
+    }
+}
+
+
+void
+__assert_fail (const char *msg, const char *file, unsigned line, const char *func)
+{
+#define write2(string) write (2, (string), strlen ((string)));
+  write2("mf");
+#ifdef LIBMUDFLAPTH
+  write2("(");
+  write_itoa (2, (unsigned) pthread_self ());  
+  write2(")");
+#endif
+  write2(": assertion failure: `");
+  write (2, msg, strlen (msg));
+  write2("' in ");
+  write (2, func, strlen (func));
+  write2(" at ");
+  write (2, file, strlen (file));
+  write2(":");
+  write_itoa (2, line);
+  write2("\n");
+#undef write2
+  abort ();
+}
+
+
+#endif

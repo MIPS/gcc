@@ -58,12 +58,13 @@ WRAPPER(void *, malloc, size_t c)
 {
   size_t size_with_crumple_zones;
   DECLARE(void *, malloc, size_t c);
-  BEGIN_PROTECT (void *, malloc, c);
-  
+  void *result;
+  BEGIN_PROTECT (malloc, c);
+
   size_with_crumple_zones = 
     CLAMPADD(c,CLAMPADD(__mf_opts.crumple_zone,
 			__mf_opts.crumple_zone));
-  result = (char *) CALL_REAL(malloc, size_with_crumple_zones);
+  result = (char *) CALL_REAL (malloc, size_with_crumple_zones);
   
   if (LIKELY(result))
     {
@@ -109,13 +110,14 @@ WRAPPER(void *, calloc, size_t c, size_t n)
   DECLARE(void *, calloc, size_t, size_t);
   DECLARE(void *, malloc, size_t);
   DECLARE(void *, memset, void *, int, size_t);
-  BEGIN_PROTECT (char *, calloc, c, n);
+  char *result;
+  BEGIN_PROTECT (calloc, c, n);
   
   size_with_crumple_zones = 
     CLAMPADD((c * n), /* XXX: CLAMPMUL */
 	     CLAMPADD(__mf_opts.crumple_zone,
 		      __mf_opts.crumple_zone));  
-  result = (char *) CALL_REAL(malloc, size_with_crumple_zones);
+  result = (char *) CALL_REAL (malloc, size_with_crumple_zones);
   
   if (LIKELY(result))
     memset (result, 0, size_with_crumple_zones);
@@ -149,8 +151,8 @@ WRAPPER(void *, realloc, void *buf, size_t c)
   size_t size_with_crumple_zones;
   char *base = buf;
   unsigned saved_wipe_heap;
-
-  BEGIN_PROTECT (char *, realloc, buf, c);
+  char *result;
+  BEGIN_PROTECT (realloc, buf, c);
 
   if (LIKELY(buf))
     base -= __mf_opts.crumple_zone;
@@ -158,7 +160,7 @@ WRAPPER(void *, realloc, void *buf, size_t c)
   size_with_crumple_zones = 
     CLAMPADD(c, CLAMPADD(__mf_opts.crumple_zone,
 			 __mf_opts.crumple_zone));
-  result = (char *) CALL_REAL(realloc, base, size_with_crumple_zones);
+  result = (char *) CALL_REAL (realloc, base, size_with_crumple_zones);
 
   /* Ensure heap wiping doesn't occur during this peculiar
      unregister/reregister pair.  */
@@ -206,14 +208,12 @@ WRAPPER(void, free, void *buf)
   static void *free_queue [__MF_FREEQ_MAX];
   static unsigned free_ptr = 0;
   static int freeq_initialized = 0;
-  DECLARE(void * , free, void *);  
-
-  BEGIN_PROTECT(void *, free, buf);
+  DECLARE(void, free, void *);  
+ 
+  BEGIN_PROTECT (free, buf);
 
   if (UNLIKELY(buf == NULL))
     return;
-
-  TRACE ("free %p\n", __PRETTY_FUNCTION__, buf);
 
   LOCKTH ();
   if (UNLIKELY(!freeq_initialized))
@@ -256,12 +256,12 @@ WRAPPER(void, free, void *buf)
       base -= __mf_opts.crumple_zone;
       if (__mf_opts.trace_mf_calls)
 	{
-	  VERBOSE_TRACE ("freeing pointer %08lx = %08lx - %u\n",
-			 (uintptr_t) base, 
-			 (uintptr_t) buf, 
+	  VERBOSE_TRACE ("freeing pointer %p = %p - %u\n",
+			 (void *) base, 
+			 (void *) buf, 
 			 __mf_opts.crumple_zone);
 	}
-      CALL_REAL(free, base);
+      CALL_REAL (free, base);
     }
 }
 #endif
@@ -284,13 +284,12 @@ WRAPPER(void *, mmap,
 	void  *start,  size_t length, int prot, 
 	int flags, int fd, off_t offset)
 {
-
   DECLARE(void *, mmap, void *, size_t, int, 
 			    int, int, off_t);
-  BEGIN_PROTECT(void *, mmap, start, length, 
-		prot, flags, fd, offset);
+  void *result;
+  BEGIN_PROTECT (mmap, start, length, prot, flags, fd, offset);
 
-  result = CALL_REAL(mmap, start, length, prot, 
+  result = CALL_REAL (mmap, start, length, prot, 
 			flags, fd, offset);
 
   /*
@@ -340,9 +339,10 @@ __mf_0fn_munmap (void *start, size_t length)
 WRAPPER(int , munmap, void *start, size_t length)
 {
   DECLARE(int, munmap, void *, size_t);
-  BEGIN_PROTECT(int, munmap, start, length);
+  int result;
+  BEGIN_PROTECT (munmap, start, length);
   
-  result = CALL_REAL(munmap, start, length);
+  result = CALL_REAL (munmap, start, length);
 
   /*
   VERBOSE_TRACE ("munmap (%08lx, %08lx, ...) => %08lx\n", 
@@ -389,7 +389,7 @@ __mf_wrap_alloca_indirect (size_t c)
   struct alloca_tracking *track;
 
   TRACE ("%s\n", __PRETTY_FUNCTION__);
-  VERBOSE_TRACE ("alloca stack level %08lx\n", (uintptr_t) stack);
+  VERBOSE_TRACE ("alloca stack level %p\n", (void *) stack);
 
   /* XXX: thread locking! */
 
