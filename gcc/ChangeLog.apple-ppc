@@ -1,3 +1,8 @@
+2004-05-28  Fariborz Jahanian <fjahanian@apple.com>
+
+        * explow.c (copy_to_mode_reg): For PARALLEL patterns, copy
+        to reg via a temprary.
+
 2004-05-27  Dale Johannesen  <dalej@apple.com>
 
 	* loop-invariant.c (check_maybe_invariant):  Disallow CALL hoists.
