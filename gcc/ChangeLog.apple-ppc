@@ -1,3 +1,17 @@
+2005-01-28 Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 3979484
+
+	* cp/typeck2.c (digest_init): Convert AltiVec-style
+	vector constant to its internal tree representation.
+ 
+2005-01-28  Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 3967653
+
+	* config/rs6000/rs6000.c (rs6000_handle_altivec_attribute):
+	Diagnose 'long long' and 64bit 'long' vector declarations.
+
 2005-01-26  Dale Johannesen  <dalej@apple.com>
 
 	Radar 3974393

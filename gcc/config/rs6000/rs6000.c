@@ -61,10 +61,6 @@
 #include "xcoffout.h"  /* get declarations of xcoff_*_section_name */
 #endif
 
-/* APPLE LOCAL pascal strings */
-#include "../../libcpp/internal.h"
-extern struct cpp_reader* parse_in;
-
 /* APPLE LOCAL begin Macintosh alignment */
 #ifndef TARGET_ALIGN_MAC68K
 #define TARGET_ALIGN_MAC68K 0
@@ -19443,9 +19439,14 @@ rs6000_handle_altivec_attribute (tree *node, tree name, tree args,
 
   mode = TYPE_MODE (type);
 
-  if (rs6000_warn_altivec_long
-      && (type == long_unsigned_type_node || type == long_integer_type_node))
-    warning ("use of 'long' in AltiVec types is deprecated; use 'int'");
+  if (mode == DImode)
+    {
+      error ("use of AltiVec with 64-bit element size is not allowed; use 'int'");
+      mode = SImode; /* recover */
+    }
+  else if (rs6000_warn_altivec_long
+	   && (type == long_unsigned_type_node || type == long_integer_type_node))
+	 warning ("use of 'long' in AltiVec types is deprecated; use 'int'");
 
   switch (altivec_type)
     {
