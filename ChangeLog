@@ -1,3 +1,9 @@
+2004-02-13  Loren J. Rittle <ljrittle@acm.org>
+
+	* configure.in (*-*-freebsd*): Avoid crusty gmp.h.
+	(alpha*-*-*freebsd*, i[[3456789]]86-*-*freebsd*): Merge into above.
+	* configure: Rebuilt (with autoconf version 2.13).
+
 2004-02-10  Arnaud Charlet  <charlet@act-europe.fr>,
 	    Nathanael Nerode  <neroden@gcc.gnu.org>
 
