@@ -1,6 +1,7 @@
 2004-08-17  Ben Elliston  <bje@au.ibm.com>
 
 	* dominance.c (calc_idoms): Eliminate FOR_EACH_EDGE.
+	* cfghooks.c: (make_forwarder_block): Likewise.
 
 	* cfg.c (remove_edge): Don't use FOR_EACH_EDGE for loops that
 	alter the edge vector.

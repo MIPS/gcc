@@ -564,6 +564,7 @@ make_forwarder_block (basic_block bb, bool (*redirect_edge_p) (edge),
 {
   edge e, fallthru;
   basic_block dummy, jump;
+  unsigned ix;
 
   if (!cfg_hooks->make_forwarder_block)
     internal_error ("%s does not support make_forwarder_block.",
@@ -574,10 +575,13 @@ make_forwarder_block (basic_block bb, bool (*redirect_edge_p) (edge),
   bb = fallthru->dest;
 
   /* Redirect back edges we want to keep.  */
-  FOR_EACH_EDGE (e, dummy->preds)
+  for (ix = 0; VEC_iterate (edge, dummy->preds, ix, e); )
     {
       if (redirect_edge_p (e))
-	continue;
+	{
+	  ix++;
+	  continue;
+	}
 
       dummy->frequency -= EDGE_FREQUENCY (e);
       dummy->count -= e->count;
@@ -593,7 +597,6 @@ make_forwarder_block (basic_block bb, bool (*redirect_edge_p) (edge),
       if (jump)
 	new_bb_cbk (jump);
     }
-  END_FOR_EACH_EDGE;
 
   if (dom_computed[CDI_DOMINATORS] >= DOM_CONS_OK)
     {
