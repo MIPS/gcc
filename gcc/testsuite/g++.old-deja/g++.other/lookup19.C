@@ -43,7 +43,9 @@ struct G
 };
 
 typedef double H;
-G::operator H * ()		// ERROR - mismatch
+G::operator H * () // this will be G::H
 {
-  return 0;
+  static int i;
+  
+  return &i;
 }
