@@ -291,6 +291,7 @@ private:
   friend jboolean _Jv_InterfaceAssignableFrom (jclass, jclass);
   friend void *_Jv_LookupInterfaceMethodIdx (jclass klass, jclass iface, 
 					     int method_idx);
+  friend jboolean _Jv_IsAssignableFromSlow(jclass, jclass);
 
   friend void _Jv_ResolveClassRef (jclass, jclass *);
 
@@ -473,6 +474,10 @@ private:
   jclass arrayclass;
   // Security Domain to which this class belongs (or null).
   java::security::ProtectionDomain *protectionDomain;
+public:
+  // Pointer to verify method for this class.
+  void (*verify)(java::lang::ClassLoader *loader);
+private:
   // Signers of this class (or null).
   JArray<jobject> *hack_signers;
   // Used by Jv_PopClass and _Jv_PushClass to communicate with StackTrace.

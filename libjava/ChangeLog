@@ -1,3 +1,19 @@
+2004-08-27  Andrew Haley  <aph@redhat.com>
+
+	* java/lang/natClassLoader.cc (_Jv_FindClassInCache): Call
+	klass->verify().
+	* java/lang/natClass.cc (_Jv_LinkSymbolTable): Add debugging.
+	(_Jv_LinkSymbolTable): Call Jv_LayoutClass on target class.
+
+2004-08-27  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/Class.h (_Jv_IsAssignableFromSlow): Declare as
+	friend.
+	* java/lang/natClass.cc (_Jv_CheckAssignment): New function.
+	(_Jv_IsAssignableFromSlow): New function.
+	Include VerifyError.h.
+	* include/jvm.h (_Jv_CheckAssignment): Declare.
+
 2004-08-18  Andrew Haley  <aph@redhat.com>
 
 	* java/lang/VMCompiler.java (loadSharedLibrary): Add className
@@ -27,7 +43,6 @@
 	* gnu/java/net/natPlainSocketImplPosix.cc (read): The value byte
 	is returned as an int in the range 0 to 255.
 
-=======
 2004-08-13  Tom Tromey  <tromey@redhat.com>
 
 	* java/lang/natClass.cc (_Jv_LinkSymbolTable): Prepare the target
@@ -89,7 +104,6 @@
 	* Makefile.in: Rebuilt.
 	* Makefile.am (interpret.lo): New rule.
 
->>>>>>> 1.2729.2.13
 2004-08-05  Andrew Haley  <aph@redhat.com>
 
 	* java/net/URLClassLoader.java (JarURLLoader.JarURLLoader): Look

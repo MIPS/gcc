@@ -401,6 +401,8 @@ extern "C" void *_Jv_LookupInterfaceMethod (jclass klass, Utf8Const *name,
 extern "C" void *_Jv_LookupInterfaceMethodIdx (jclass klass, jclass iface, 
                                                int meth_idx);
 extern "C" void _Jv_CheckArrayStore (jobject array, jobject obj);
+extern "C" void _Jv_CheckAssignment (java::lang::ClassLoader *,
+				     _Jv_Utf8Const *, _Jv_Utf8Const *);
 extern "C" void _Jv_RegisterClass (jclass klass);
 extern "C" void _Jv_RegisterClasses (jclass *classes);
 extern "C" void _Jv_RegisterResource (void *vptr);

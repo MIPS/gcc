@@ -257,6 +257,14 @@ _Jv_FindClassInCache (_Jv_Utf8Const *name, java::lang::ClassLoader *loader)
 	    }
 	}
     }
+  else
+    {
+      // FIXME  Is this the right place?  dunno.
+      JvSynchronize sync (klass);
+      if (klass->verify)
+	klass->verify (loader);
+      klass->verify = NULL;
+    }
 
   return klass;
 }

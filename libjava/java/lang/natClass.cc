@@ -57,6 +57,7 @@ details.  */
 #include <gcj/method.h>
 #include <gnu/gcj/runtime/MethodRef.h>
 #include <gnu/gcj/RawData.h>
+#include <java/lang/VerifyError.h>
 
 #include <java-cpool.h>
 #include <java-interp.h>
@@ -786,10 +787,10 @@ java::lang::Class::initializeClass (void)
   // short-circuit to avoid needless locking.
   if (state == JV_STATE_DONE)
     return;
-
+  
   // Step 1.
   _Jv_MonitorEnter (this);
-
+  
   if (state < JV_STATE_LINKED)
     {    
 #ifdef INTERPRETER
@@ -1163,6 +1164,71 @@ _Jv_CheckArrayStore (jobject arr, jobject obj)
 		 (obj_class->getName())->append
 		 (JvNewStringUTF(" in array of type "))->append
 		 (elt_class->getName())->toString());
+    }
+}
+
+
+jboolean
+_Jv_IsAssignableFromSlow (jclass target, jclass source)
+{
+  // First, strip arrays.
+  while (target->isArray ())
+    {
+      // If target is array, source must be as well.
+      if (! source->isArray ())
+	return false;
+      target = target->getComponentType ();
+      source = source->getComponentType ();
+    }
+
+  // Quick success.
+  if (target == &java::lang::Object::class$)
+    return true;
+
+  do
+    {
+      if (source == target)
+	return true;
+
+      if (target->isPrimitive () || source->isPrimitive ())
+	return false;
+
+      if (target->isInterface ())
+	{
+	  for (int i = 0; i < source->interface_count; ++i)
+	    {
+	      // We use a recursive call because we also need to
+	      // check superinterfaces.
+	      if (_Jv_IsAssignableFromSlow (target, source->getInterface (i)))
+		return true;
+	    }
+	}
+      source = source->getSuperclass ();
+    }
+  while (source != NULL);
+
+  return false;
+}
+
+// Check that SOURCE is assignment compatible with DEST.  Both are
+// loaded with the indicated class loader.  Neither is prepared.
+// Throws appropriate exception, usually VerifyError, on failure.
+void
+_Jv_CheckAssignment (java::lang::ClassLoader *loader,
+		     _Jv_Utf8Const *source_name,
+		     _Jv_Utf8Const *dest_name)
+{
+  jclass source = _Jv_FindClassFromSignature (source_name->data, loader);
+  jclass dest = _Jv_FindClassFromSignature (dest_name->data, loader);
+
+  if (! _Jv_IsAssignableFromSlow (dest, source))
+    {
+      using namespace java::lang;
+      StringBuffer *sb = new StringBuffer();
+      sb->append(dest->getName());
+      sb->append(JvNewStringLatin1(" isn't assignable from "));
+      sb->append(source->getName());
+      throw new VerifyError(sb->toString());
     }
 }
 
@@ -1866,6 +1932,11 @@ _Jv_LinkSymbolTable(jclass klass)
 // 		if (_Jv_CheckAccess (klass, cls, field->flags))
 // 		  {
 
+		if (_Jv_isBinaryCompatible (cls))
+		  {
+		    _Jv_LayoutClass(cls);
+		  }
+
 		if (!field->isResolved ())
 		  _Jv_ResolveField (field, cls->loader);
 
@@ -1878,6 +1949,13 @@ _Jv_LinkSymbolTable(jclass klass)
 // 		if (field_type != 0 && field->type != field_type)
 // 		  throw new java::lang::LinkageError
 // 		    (JvNewStringLatin1 
+		if (debug_link)
+		  fprintf (stderr, "  offsets[%d] = %d (class %s@%p : %s)\n",
+			   index,
+			   field->u.boffset,
+			   (const char*)cls->name->data,
+			   cls,
+			   (const char*)field->name->data);
 // 		     ("field type mismatch with different loaders"));
 
 		the_field = field;
