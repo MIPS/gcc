@@ -1,3 +1,8 @@
+2003-07-28  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	PR optimization/11631
+	* gcse.c (store_motion): Connect infinite loops to exit.
+
 Mon Jul 28 20:06:56 CEST 2003  Jan Hubicka  <jh@suse.cz>
 
 	* i386.md (memory attribute) Avoid accessing uninitialized memory
