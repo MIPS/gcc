@@ -1530,6 +1530,7 @@ javax/swing/text/TabableView.java \
 javax/swing/text/TabExpander.java \
 javax/swing/text/TabSet.java \
 javax/swing/text/TabStop.java \
+javax/swing/text/Utilities.java \
 javax/swing/text/View.java \
 javax/swing/text/ViewFactory.java \
 javax/swing/text/MutableAttributeSet.java \

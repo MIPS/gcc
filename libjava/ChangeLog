@@ -1,3 +1,12 @@
+2004-08-11  Roman Kennke  <roman@ontographics.com>
+
+	* javax/swing/text/Utilities.java: New file.
+
+2004-08-11  Michael Koch  <konqueror@gmx.de>
+
+	* Makefile.am: Added javax/swing/text/Utilities.java.
+	* Makefile.in: Regenerated.
+
 2004-08-10  Graydon Hoare  <graydon@redhat.com>
 
 	* javax/swing/text/SimpleAttributeSet.java: New file.

@@ -1208,6 +1208,7 @@ javax/swing/text/TabableView.java \
 javax/swing/text/TabExpander.java \
 javax/swing/text/TabSet.java \
 javax/swing/text/TabStop.java \
+javax/swing/text/Utilities.java \
 javax/swing/text/View.java \
 javax/swing/text/ViewFactory.java \
 javax/swing/text/MutableAttributeSet.java \
@@ -3279,8 +3280,8 @@ javax/swing/text/SimpleAttributeSet.lo javax/swing/text/Style.lo \
 javax/swing/text/StyleConstants.lo javax/swing/text/StyleContext.lo \
 javax/swing/text/TabableView.lo javax/swing/text/TabExpander.lo \
 javax/swing/text/TabSet.lo javax/swing/text/TabStop.lo \
-javax/swing/text/View.lo javax/swing/text/ViewFactory.lo \
-javax/swing/text/MutableAttributeSet.lo \
+javax/swing/text/Utilities.lo javax/swing/text/View.lo \
+javax/swing/text/ViewFactory.lo javax/swing/text/MutableAttributeSet.lo \
 javax/swing/text/NavigationFilter.lo javax/swing/text/StyledDocument.lo \
 javax/swing/text/StyledEditorKit.lo javax/swing/text/TextAction.lo \
 javax/swing/text/html/HTML.lo \
@@ -5375,8 +5376,9 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/javax/swing/text/StyledEditorKit.P \
 .deps/javax/swing/text/TabExpander.P .deps/javax/swing/text/TabSet.P \
 .deps/javax/swing/text/TabStop.P .deps/javax/swing/text/TabableView.P \
-.deps/javax/swing/text/TextAction.P .deps/javax/swing/text/View.P \
-.deps/javax/swing/text/ViewFactory.P .deps/javax/swing/text/html/HTML.P \
+.deps/javax/swing/text/TextAction.P .deps/javax/swing/text/Utilities.P \
+.deps/javax/swing/text/View.P .deps/javax/swing/text/ViewFactory.P \
+.deps/javax/swing/text/html/HTML.P \
 .deps/javax/swing/text/html/parser/ParserDelegator.P \
 .deps/javax/swing/tree/AbstractLayoutCache.P \
 .deps/javax/swing/tree/DefaultMutableTreeNode.P \
