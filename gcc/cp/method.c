@@ -522,7 +522,7 @@ use_thunk (thunk_fndecl, emit_p)
       /* But we don't want debugging information about it.  */
       DECL_IGNORED_P (thunk_fndecl) = 1;
 
-      expand_or_defer_fn (finish_function (0));
+      expand_body (finish_function (0));
     }
 
   pop_from_top_level ();
