@@ -2017,7 +2017,8 @@ rest_of_decl_compilation (tree decl,
 	}
       else
 	{
-	  error ("invalid register name `%s' for register variable", asmspec);
+	  error ("%Hinvalid register name `%s' for register variable",
+		 &DECL_SOURCE_LOCATION (decl), asmspec);
 	  DECL_REGISTER (decl) = 0;
 	  if (!top_level)
 	    expand_decl (decl);

@@ -1,3 +1,8 @@
+2003-11-10  Steven Bosscher  <stevenb@suse.de>
+
+	* toplev.c (rest_of_decl_compilation): Use the location of the
+	declaration for error messages.
+
 2003-11-10  Richard Henderson  <rth@redhat.com>
 
 	* c-common.c (c_warn_unused_result): Restructure to use iterator
