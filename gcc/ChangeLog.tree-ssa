@@ -1,3 +1,13 @@
+2003-05-21  Jason Merrill  <jason@redhat.com>
+
+	* builtins.c (simplify_builtin_next_arg): Split out from...
+	(expand_builtin_next_arg): ...here.
+	(simplify_builtin_va_start): Split out from...
+	(expand_builtin_va_start): ...here.
+	(simplify_builtin): Call it.
+	* gimplify.c (simplify_call_expr): If simplify_builtin worked,
+	just return.
+
 2003-05-20  Jason Merrill  <jason@redhat.com>
 
 	* gimplify.c (shortcut_cond_expr, shortcut_cond_r): Rewrite.

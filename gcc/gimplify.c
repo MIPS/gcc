@@ -1366,7 +1366,7 @@ simplify_call_expr (expr_p, pre_p, post_p, simple_test_f)
 
   /* This may be a call to a builtin function.
 
-     Builtin funtion calls may be transformed into different
+     Builtin function calls may be transformed into different
      (and more efficient) builtin function calls under certain
      circumstances.  Unfortunately, gimplification can muck things
      up enough that the builtin expanders are not aware that certain
@@ -1381,36 +1381,13 @@ simplify_call_expr (expr_p, pre_p, post_p, simple_test_f)
     {
       tree new = simplify_builtin (*expr_p, simple_test_f == is_simple_stmt);
 
-      if (new)
-        {
+      if (new && new != *expr_p)
+	{
 	  /* There was a transformation of this call which computes the
-	     same value, but in a more efficient way.
-
-	     There may be arguments to the original function call which
-	     must be evaluated to catch their side effects.  They will
-	     appear on the LHS of any COMPOUND_EXPRs from simplify_builtin.  */
-	  while (TREE_CODE (new) == COMPOUND_EXPR)
-	    {
-	      /* Expand an argument and add it to the pre-queue.  */
-	      simplify_expr (&TREE_OPERAND (new, 0), pre_p, post_p,
-			     is_simple_rhs, fb_rvalue);
-	      add_tree (TREE_OPERAND (new, 0), pre_p);
-	      new = TREE_OPERAND (new, 1);
-	    }
-
-	  /* NEW now contains the transformed builtin call.  It may be
-	     another call or an arbitrary expression.  If it was not
-	     a call, then we do a recursive simplification on the
-	     expression as a whole.  */
-          if (new && TREE_CODE (new) != CALL_EXPR)
-            {
-	      simplify_expr (&new, pre_p, post_p, is_simple_rhs, fb_rvalue);
-	      *expr_p = new;      	
-	      return;
-	    }
-
-	  /* NEW is another CALL_EXPR.  Fall through.  */
-	  *expr_p = new;      	
+	     same value, but in a more efficient way.  Return and try
+	     again.  */
+	  *expr_p = new;
+	  return;
 	}
     }
 

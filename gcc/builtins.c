@@ -104,8 +104,10 @@ static rtx expand_builtin_mathfn	PARAMS ((tree, rtx, rtx));
 static rtx expand_builtin_mathfn_2	PARAMS ((tree, rtx, rtx));
 static rtx expand_builtin_constant_p	PARAMS ((tree, enum machine_mode));
 static rtx expand_builtin_args_info	PARAMS ((tree));
-static rtx expand_builtin_next_arg	PARAMS ((tree));
+static rtx expand_builtin_next_arg	PARAMS ((void));
+static void simplify_builtin_next_arg	PARAMS ((tree));
 static rtx expand_builtin_va_start	PARAMS ((tree));
+static void simplify_builtin_va_start	PARAMS ((tree));
 static rtx expand_builtin_va_end	PARAMS ((tree));
 static rtx expand_builtin_va_copy	PARAMS ((tree));
 static rtx expand_builtin_memcmp	PARAMS ((tree, tree, rtx,
@@ -2782,21 +2784,16 @@ expand_builtin_args_info (arglist)
 
 /* Expand ARGLIST, from a call to __builtin_next_arg.  */
 
-static rtx
-expand_builtin_next_arg (arglist)
-     tree arglist;
+static void
+simplify_builtin_next_arg (tree arglist)
 {
   tree fntype = TREE_TYPE (current_function_decl);
 
   if (TYPE_ARG_TYPES (fntype) == 0
       || (TREE_VALUE (tree_last (TYPE_ARG_TYPES (fntype)))
 	  == void_type_node))
-    {
-      error ("`va_start' used in function with fixed args");
-      return const0_rtx;
-    }
-
-  if (arglist)
+    error ("`va_start' used in function with fixed args");
+  else if (arglist)
     {
       tree last_parm = tree_last (DECL_ARGUMENTS (current_function_decl));
       tree arg = TREE_VALUE (arglist);
@@ -2812,12 +2809,17 @@ expand_builtin_next_arg (arglist)
 	arg = TREE_OPERAND (arg, 0);
       if (arg != last_parm)
 	warning ("second parameter of `va_start' not last named argument");
+      TREE_VALUE (arglist) = arg;
     }
   else
     /* Evidently an out of date version of <stdarg.h>; can't validate
        va_start's second argument, but can still work as intended.  */
     warning ("`__builtin_next_arg' called without an argument");
+}
 
+static rtx
+expand_builtin_next_arg ()
+{
   return expand_binop (Pmode, add_optab,
 		       current_function_internal_arg_pointer,
 		       current_function_arg_offset_rtx,
@@ -2892,19 +2894,26 @@ std_expand_builtin_va_start (valist, nextarg)
 
 /* Expand ARGLIST, from a call to __builtin_va_start.  */
 
+static void
+simplify_builtin_va_start (tree arglist)
+{
+  tree chain = TREE_CHAIN (arglist);
+
+  if (TREE_CHAIN (chain))
+    error ("too many arguments to function `va_start'");
+
+  simplify_builtin_next_arg (chain);
+}
+
 static rtx
 expand_builtin_va_start (arglist)
      tree arglist;
 {
   rtx nextarg;
-  tree chain, valist;
+  tree valist;
 
-  chain = TREE_CHAIN (arglist);
-
-  if (TREE_CHAIN (chain))
-    error ("too many arguments to function `va_start'");
-
-  nextarg = expand_builtin_next_arg (chain);
+  simplify_builtin_va_start (arglist);
+  nextarg = expand_builtin_next_arg ();
   valist = stabilize_va_list (TREE_VALUE (arglist), 1);
 
 #ifdef EXPAND_BUILTIN_VA_START
@@ -3710,7 +3719,8 @@ expand_builtin (exp, target, subtarget, mode, ignore)
 
       /* Return the address of the first anonymous stack arg.  */
     case BUILT_IN_NEXT_ARG:
-      return expand_builtin_next_arg (arglist);
+      simplify_builtin_next_arg (arglist);
+      return expand_builtin_next_arg ();
 
     case BUILT_IN_CLASSIFY_TYPE:
       return expand_builtin_classify_type (arglist);
@@ -4693,6 +4703,9 @@ simplify_builtin (exp, ignore)
     case BUILT_IN_BCMP:
     case BUILT_IN_MEMCMP:
       return simplify_builtin_memcmp (arglist);
+    case BUILT_IN_VA_START:
+      simplify_builtin_va_start (arglist);
+      return NULL_TREE;
     default:
       return NULL_TREE;
     }
