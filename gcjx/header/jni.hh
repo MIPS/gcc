@@ -1,6 +1,6 @@
 // Write a JNI header.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -33,7 +33,7 @@ protected:
 
   void write (std::ostream &, model_type *);
   void add_char (char *, jchar, int *);
-  std::string translate (const std::string &);
+  std::string translate (model_element *, const std::string &);
 
   virtual std::string file_name (const std::string &);
   virtual void write_header (std::ostream &, const std::string &);

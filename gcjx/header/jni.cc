@@ -1,6 +1,6 @@
 // Write a JNI header.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -131,7 +131,7 @@ jni_code_generator::add_char (char *buf, jchar c, int *here)
 }
 
 std::string
-jni_code_generator::translate (const std::string &name)
+jni_code_generator::translate (model_element *request, const std::string &name)
 {
   char out[1 + 6 * name.length ()];
   unsigned int i = 0;
@@ -160,7 +160,7 @@ jni_code_generator::translate (const std::string &name)
 		    ch = r;
 		}
 	      else
-		abort ();	// FIXME
+		throw request->error ("malformed UTF-8 character");
 	    }
 	  else if ((c & 0xf0) == 0xe0)
 	    {
@@ -182,16 +182,16 @@ jni_code_generator::translate (const std::string &name)
 			  && r != 0xfffe && r != 0xffff)
 			ch = r;
 		      else
-			abort ();  // FIXME
+			throw request->error ("malformed UTF-8 character");
 		    }
 		  else
-		    abort ();	// FIXME
+		    throw request->error ("malformed UTF-8 character");
 		}
 	      else
-		abort (); 	// FIXME
+		throw request->error ("malformed UTF-8 character");
 	    }
 	  else
-	    abort ();		// FIXME
+	    throw request->error ("malformed UTF-8 character");
 	}
 
       add_char (out, ch, &where);
@@ -212,7 +212,7 @@ jni_code_generator::write_method (std::ostream &out,
   out << " JNICALL ";
 
   out << "Java_" << class_name << "_";
-  out << translate (meth->get_name ());
+  out << translate (meth, meth->get_name ());
   if (long_format)
     {
       std::string sig = meth->get_descriptor ();
@@ -220,7 +220,7 @@ jni_code_generator::write_method (std::ostream &out,
       int roff = sig.rfind (')');
       assert (roff >= 1);
       sig = sig.substr (1, roff - 1);
-      out << "_" << translate (sig);
+      out << "_" << translate (meth, sig);
     }
 
   out << " (JNIEnv *env, " << (meth->static_p () ? "jclass" : "jobject");
@@ -304,7 +304,7 @@ jni_code_generator::generate (model_class *klass)
       if (cname[i] == '$')
 	cname[i] = '.';
     }
-  cname = translate (cname);
+  cname = translate (klass, cname);
 
   std::string fname = (comp->get_output_directory ()
 		       + FILE_SEPARATOR

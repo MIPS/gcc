@@ -1,6 +1,6 @@
 // Write a JNI stub.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -76,7 +76,7 @@ jni_stub_generator::write_method (std::ostream &out,
   write (out, meth->get_return_type ());
   out << std::endl;
   out << "Java_" << class_name << "_";
-  out << translate (meth->get_name ());
+  out << translate (meth, meth->get_name ());
   if (long_format)
     {
       std::string sig = meth->get_descriptor ();
@@ -84,7 +84,7 @@ jni_stub_generator::write_method (std::ostream &out,
       int roff = sig.rfind (')');
       assert (roff >= 1);
       sig = sig.substr (1, roff - 1);
-      out << "_" << translate (sig);
+      out << "_" << translate (meth, sig);
     }
 
   out << " (JNIEnv *env, "

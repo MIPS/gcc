@@ -1,5 +1,14 @@
 2005-01-14  Tom Tromey  <tromey@redhat.com>
 
+	* header/jnistub.cc (write_method): Updated.
+	* header/jni.hh (jni_code_generator::translate): Updated.
+	* header/jni.cc (translate): Added 'request' argument.  Throw
+	exception on error.
+	(write_method): Updated.
+	(generate): Updated.
+
+2005-01-14  Tom Tromey  <tromey@redhat.com>
+
 	* bytecode/generate.cc (visit_for_enhanced): Removed unnecessary
 	casts.
 
