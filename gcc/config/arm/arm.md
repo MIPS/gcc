@@ -6170,9 +6170,11 @@
 
 (define_expand "indirect_jump"
   [(set (pc)
-	(match_operand:SI 0 "general_operand" "rm"))]
+	(match_operand:SI 0 "general_operand" ""))]
   "TARGET_EITHER"
   "if (TARGET_THUMB && GET_CODE (operands[0]) != REG)
+     operands[0] = force_reg (SImode, operands[0]);
+   else if (TARGET_ARM && GET_CODE (operands[0]) == CONST_INT)
      operands[0] = force_reg (SImode, operands[0]);
   "
 )
