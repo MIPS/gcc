@@ -889,6 +889,21 @@ expand_stmt (tree t)
 	= saved_stmts_are_full_exprs_p;
     }
 }
+
+/* Expand the statement at the outermost level of a function.  */
+
+void
+expand_stmt_toplev (tree t)
+{
+  if (STATEMENT_CODE_P (TREE_CODE (t)))
+    {
+      if (!flag_disable_gimple)
+	abort ();
+      expand_stmt (t);
+    }
+  else
+    expand_expr_stmt_value (t, 0, 0);
+}
 
 /* Determine whether expression EXP contains a potentially
    reachable label.  */

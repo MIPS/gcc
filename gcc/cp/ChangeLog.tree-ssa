@@ -1,5 +1,9 @@
 2003-09-03  Richard Henderson  <rth@redhat.com>
 
+	* cp-lang.c (LANG_HOOKS_RTL_EXPAND_STMT): Use expand_stmt_toplev.
+
+2003-09-03  Richard Henderson  <rth@redhat.com>
+
         * decl.c (finish_function): Fix misapplied patch.  Don't
         free_after_parsing or free_after_compilation.  For real this time.
 

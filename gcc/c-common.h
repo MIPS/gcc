@@ -336,6 +336,7 @@ extern void finish_stmt_tree (tree *);
 extern tree walk_stmt_tree (tree *, walk_tree_fn, void *);
 extern void prep_stmt (tree);
 extern void expand_stmt (tree);
+extern void expand_stmt_toplev (tree);
 extern tree c_begin_if_stmt (void);
 extern tree c_begin_while_stmt (void);
 extern void c_finish_while_stmt_cond (tree, tree);

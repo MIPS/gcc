@@ -51,17 +51,6 @@ static void update_cloned_parm (tree, tree);
 void
 optimize_function (tree fn)
 {
-  /* While in this function, we may choose to go off and compile
-     another function.  For example, we might instantiate a function
-     in the hopes of inlining it.  Normally, that wouldn't trigger any
-     actual RTL code-generation -- but it will if the template is
-     actually needed.  (For example, if it's address is taken, or if
-     some other function already refers to the template.)  If
-     code-generation occurs, then garbage collection will occur, so we
-     must protect ourselves, just as we do while building up the body
-     of the function.  */
-  ++function_depth;
-
   if (flag_inline_trees
       /* We do not inline thunks, as (a) the backend tries to optimize
          the call to the thunkee, (b) tree based inlining breaks that
@@ -75,23 +64,6 @@ optimize_function (tree fn)
 	 compile failure in g++.dg/opt/cleanup1.C because COMPONENT_REF
 	 nodes were being shared.  This is probably a bit heavy handed.  */
       unshare_all_trees (DECL_SAVED_TREE (fn));
-    }
-  
-  /* Undo the call to ggc_push_context above.  */
-  --function_depth;
-
-  /* Gimplify the function.  Don't try to optimize the function if
-     gimplification failed.  */
-  if (!flag_disable_gimple
-      && (keep_function_tree_in_gimple_form (fn)
-	  || gimplify_function_tree (fn)))
-    {
-      /* Debugging dump after gimplification.  */
-      dump_function (TDI_gimple, fn);
-
-      /* Invoke the SSA tree optimizer.  */
-      if (optimize >= 1 && !flag_disable_tree_ssa)
-	optimize_function_tree (fn);
     }
 }
 
