@@ -470,4 +470,5 @@ extern struct movable_list *find_movables (struct loops *);
 extern void loops_invariant_motion (struct loops *, struct movable_list *);
 extern void detect_strength_reductions (struct loops *loops,
 					 struct ivopt_actions *);
-extern void execute_strength_reductions (struct ivopt_actions *);
+extern void execute_strength_reductions (struct loops *,
+					 struct ivopt_actions *);

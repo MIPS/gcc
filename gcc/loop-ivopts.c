@@ -50,30 +50,35 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    we do not collide, as from obvious reasons we operate on disjoint sets
    of insns.
    
-   The heuristics to decide whether to perform the optimization is missing
-   for now, it will be added later.
-   
    The optimization itself is easy, all the neccessary information is provided
    by induction variable analysis.
    
    We proceed this way: for each iv class (starting from those with smaller
    steps) we pass all locations.  For each iv we then try to find best biv
-   on that we may base the replacement (plus we try to introduce new biv).  */
+   on that we may base the replacement (plus we try to introduce new biv).
+   
+   The heuristics to decide what to do tries to take register pressure,
+   addressing modes and various other issues into account.  */
 
 /* A description of new iv from strength reduction.  */
 struct str_red
 {
   rtx reg;		/* Register to hold the new induction variable.  */
+  rtx equal_to;		/* The equivalent old iv, if any.  */
+  struct iv_occurence *eq_occ;
+			/* The occurence where the old iv is incremented.  */
   int chosen;		/* Whether to use it or not.  */
   enum machine_mode mode; /* Mode of the induction variable.  */
   struct loop *loop;	/* Loop in that it should occur.  */
   int elimination;	/* If this in fact is a description of elimination
 			   of a biv.  */
+  struct str_red *forces; /* Elimination may force existence of some biv.  */
   rtx remove_notes;	/* A list of insns in that the note mentioning REG
 			   should be removed.  */
   rtx initial_value;	/* Value to that it should be initialized.  */
   rtx step;		/* Step of this iv.  */
   rtx value;		/* The value of iv.  */
+  rtx increment_after;	/* The insn after that it should be incremented.  */
   int cost;		/* For incrementing this iv.  */
   struct str_red *next;	/* In list of scheduled reductions.  */
 };
@@ -82,8 +87,6 @@ struct str_red
 struct repl_alt
 {
   struct str_red *iv;	/* On that it is based.  */
-  rtx inc_by;		/* Increase the iv by this amount after preforming
-			   the replacement.  */
   rtx seq;		/* The sequence to compute.  */
   rtx replacement;	/* Expression to replace it with (valid only for
 			   memory address ivs; sets of ivs emit their
@@ -128,8 +131,14 @@ struct iv_occ_list
 struct iv_occ_list **insn_occurences;
 
 #define COST_INFTY 100000
-#define MANY_IVS 30
+#define MANY_IVS 50
 #define ALTER_BY 3
+
+/* Checks whether insn I1 is dominated by I2.  */
+#define INSN_DOMINATED_BY_P(I1, I2)					\
+  (fast_dominated_by_p (BLOCK_FOR_INSN (I1), BLOCK_FOR_INSN (I2))	\
+   && (BLOCK_FOR_INSN (I1) != BLOCK_FOR_INSN (I2)			\
+       || DF_INSN_LUID (loop_df, (I2)) < DF_INSN_LUID (loop_df, (I1))))
 
 /* Generic mergesort function on lists.  */
 #define MERGESORT(SUFFIX, TYPE, NEXT, KEY)		\
@@ -209,6 +218,8 @@ static struct repl *decide_strength_reduction (struct loop *,
 static struct fval_repl *kill_old_global_iv (struct loop *,
 					     struct iv_occurence *,
 					     struct fval_repl **);
+static void remove_unnecesary_fvrepls (struct str_red *, struct fval_repl **);
+static void fixup_preserved_bivs (struct str_red **);
 static void add_iv_elimination (struct loop *, struct iv_occurence *,
 				struct repl *, struct fval_repl *,
 				struct str_red **);
@@ -229,7 +240,7 @@ static void determine_reductions_to_perform (struct loop *, struct str_red **,
 					     struct repl *);
 static void finish_biv (struct str_red *);
 static void finish_repl (struct repl *);
-static void create_biv (struct str_red *);
+static void create_biv (struct loops *loops, struct str_red *);
 static void replace_final_value (struct fval_repl *);
 static void execute_strength_reduction (struct repl *);
 static struct iv_occurence *partial_computation_p (struct loop *,
@@ -242,6 +253,8 @@ static void create_bivs_for (struct loop *, struct iv_occurence *,
 			     struct str_red **);
 static void create_biv_for (struct loop *, struct iv_occurence *,
 			    struct str_red *);
+static void record_old_biv (struct loops *, struct loop *, int, rtx, rtx,
+			    struct str_red **);
 static HOST_WIDE_INT greatest_common_divisor (HOST_WIDE_INT, HOST_WIDE_INT);
 static bool schedule_repl_for (struct repl *, struct repl_alt *);
 static rtx gen_repl_rtx (int, rtx, struct str_red *, enum machine_mode);
@@ -270,6 +283,8 @@ detect_strength_reductions (struct loops *loops, struct ivopt_actions *actions)
   unsigned i, max_uid = get_max_uid ();
   struct str_red **lred = &actions->ivs, *loop_reds;
   struct repl **lrepl = &actions->replacements, *loop_repls;
+  struct fval_repl **lfvrepl = &actions->repl_final_value;
+  struct fval_repl *loop_fvrepls, *afvrepl;
   struct iv_occ_list *nw, *nxt;
 
   if (rtl_dump_file)
@@ -301,6 +316,7 @@ detect_strength_reductions (struct loops *loops, struct ivopt_actions *actions)
 
       loop_reds = make_default_ivs (loop);
       loop_repls = NULL;
+      loop_fvrepls = NULL;
 
       for (step = iv_occurences[loop->num]; step; step = step->sc_next)
 	if (step->step != const0_rtx)
@@ -308,12 +324,20 @@ detect_strength_reductions (struct loops *loops, struct ivopt_actions *actions)
 	    for (occ = base->oc_first; occ; occ = occ->oc_next)
 	      create_bivs_for (loop, occ, &loop_reds);
 
+      for (i = 0; i < loop_max_regno; i++)
+	if (TEST_BIT (iv_interesting_reg, i))
+	  {
+	    rtx base, step;
+	    iv_split (loop_entry_values[loop->num][i], &base, &step);
+	    if (base && GET_CODE (step) == CONST_INT && step != const0_rtx)
+	      record_old_biv (loops, loop, i, base, step, &loop_reds);
+	  }
+
       for (step = iv_occurences[loop->num]; step; step = step->sc_next)
 	if (step->step != const0_rtx)
 	  for (base = step->bc_first; base; base = base->bc_next)
 	    for (occ = base->oc_first; occ; occ = occ->oc_next)
 	      {
-		struct fval_repl *afvrepl;
 		struct repl *arepl;
 
 		arepl = decide_strength_reduction (loop, occ,
@@ -321,8 +345,7 @@ detect_strength_reductions (struct loops *loops, struct ivopt_actions *actions)
 		if (!arepl)
 		  continue;
 
-		afvrepl = kill_old_global_iv (loop, occ,
-					      &actions->repl_final_value);
+		afvrepl = kill_old_global_iv (loop, occ, &loop_fvrepls);
 		add_iv_elimination (loop, occ, arepl, afvrepl, &loop_reds);
 	      }
 
@@ -336,6 +359,9 @@ detect_strength_reductions (struct loops *loops, struct ivopt_actions *actions)
 	}
 
       determine_reductions_to_perform (loop, &loop_reds, loop_repls);
+      fixup_preserved_bivs (&loop_reds);
+      remove_unnecesary_fvrepls (loop_reds, &loop_fvrepls);
+
 #ifdef AUTO_INC_DEC
       if (loop_repls)
 	  schedule_autoinc (loops, loop, loop_reds, loop_repls);
@@ -354,6 +380,10 @@ detect_strength_reductions (struct loops *loops, struct ivopt_actions *actions)
       *lrepl = loop_repls;
       while (*lrepl)
 	lrepl = &(*lrepl)->next;
+
+      *lfvrepl = loop_fvrepls;
+      while (*lfvrepl)
+	lfvrepl = &(*lfvrepl)->next;
 
       if (loop->inner)
 	{
@@ -387,8 +417,9 @@ schedule_autoinc (struct loops *loops, struct loop *loop, struct str_red *reds,
 		  struct repl *repls)
 {
   struct repl *last_repl, *repl;
-  basic_block bb, last_bb;
   int size, step;
+  rtx last_insn;
+  basic_block bb;
 
   for (; reds; reds = reds->next)
     {
@@ -411,7 +442,11 @@ schedule_autoinc (struct loops *loops, struct loop *loop, struct str_red *reds,
 
       step = INTVAL (reds->step);
       last_repl = NULL;
-      last_bb = NULL;
+      if (reds->increment_after)
+	last_insn = reds->increment_after;
+      else
+	last_insn = loop->latch->end;
+
       /* Find candidate for the last mem.  */
       for (repl = repls; repl; repl = repl->next)
 	{
@@ -422,22 +457,21 @@ schedule_autoinc (struct loops *loops, struct loop *loop, struct str_red *reds,
 	  if (!just_once_each_iteration_p (loops, loop, bb))
 	    continue;
 
+	  if (INSN_DOMINATED_BY_P (repl->insn, last_insn))
+	    continue;
+
 	  if (last_repl
-	      && fast_dominated_by_p (last_bb, bb)
-	      && (bb != last_bb
-		  || (DF_INSN_LUID (loop_df, repl->insn)
-		      < DF_INSN_LUID (loop_df, last_repl->insn))))
+	      && INSN_DOMINATED_BY_P (last_repl->insn, repl->insn))
 	    continue;
 
 	  last_repl = repl;
-	  last_bb = bb;
 	}
       if (!last_repl
-	  || GET_CODE (last_repl->loc) == SET)
+	  || last_repl->type != MEM)
 	continue;
 
       /* Check that size maches.  */
-      size = GET_MODE_SIZE (GET_MODE (last_repl->loc));
+      size = GET_MODE_SIZE (GET_MODE (*last_repl->occ->occurence));
       if ((HAVE_POST_INCREMENT || HAVE_PRE_INCREMENT)
 	  && step == size)
 	;
@@ -454,20 +488,17 @@ schedule_autoinc (struct loops *loops, struct loop *loop, struct str_red *reds,
 	  if (repl->chosen->iv != reds)
 	    continue;
 
-	  bb = BLOCK_FOR_INSN (repl->insn);
+	  if (INSN_DOMINATED_BY_P (repl->insn, last_insn))
+	    continue;
 
-	  if (fast_dominated_by_p (bb, last_bb)
-	      && (bb != last_bb
-		  || (DF_INSN_LUID (loop_df, last_repl->insn)
-		      < DF_INSN_LUID (loop_df, repl->insn))))
+	  if (INSN_DOMINATED_BY_P (repl->insn, last_repl->insn))
 	    break;
 	}
 
       if (repl)
 	continue;
 
-      last_repl->chosen->inc_by = last_repl->chosen->iv->step;
-      last_repl->chosen->iv->step = const0_rtx;
+      reds->increment_after = repl->insn;
     }
 }
 #endif
@@ -551,12 +582,7 @@ kill_old_global_iv (struct loop *loop, struct iv_occurence *occ,
 
       /* Except that it also might be used inside loop, if it passes through
 	 entry edge.  */
-      if (!fast_dominated_by_p (DF_REF_BB (use->ref),
-				DF_REF_BB (def->ref)))
-	break;
-      if ((DF_REF_BB (use->ref) == DF_REF_BB (def->ref))
-	  && (DF_REF_INSN_LUID (loop_df, use->ref)
-	      <= DF_REF_INSN_LUID (loop_df, def->ref)))
+      if (!INSN_DOMINATED_BY_P (DF_REF_INSN (use->ref), DF_REF_INSN (def->ref)))
 	break;
     }
   if (!use)
@@ -629,6 +655,7 @@ add_iv_elimination (struct loop *loop, struct iv_occurence *occ,
   struct repl_alt *alt;
   int may_enter;
   basic_block preheader;
+  struct str_red *forces = NULL;
 
   if (GET_CODE (*occ->occurence) != SET)
     return;
@@ -663,17 +690,24 @@ add_iv_elimination (struct loop *loop, struct iv_occurence *occ,
 	     edge may reach us.  The answer could be false even if the
 	     following conditions are not satisfied (as it could be killed
 	     by other defs on remaining paths), but this is slow to check.  */
-	  if (!fast_dominated_by_p (DF_REF_BB (use->ref),
-				    DF_REF_BB (def->ref)))
-	    break;
-	  if ((DF_REF_BB (use->ref) == DF_REF_BB (def->ref))
-	      && (DF_REF_INSN_LUID (loop_df, use->ref)
-		  <= DF_REF_INSN_LUID (loop_df, def->ref)))
+	  if (!INSN_DOMINATED_BY_P (DF_REF_INSN (use->ref),
+				    DF_REF_INSN (def->ref)))
 	    break;
 	}
 
       if (use)
-	return;
+	{
+	  /* Using the original iv is probably the best choice here.  */
+	  for (alt = repl->alts; alt; alt = alt->next)
+	    if (alt->iv->equal_to
+		&& REGNO (alt->iv->equal_to) == DF_REF_REGNO (def->ref))
+	      break;
+
+	  if (!alt)
+	    return;
+
+	  forces = alt->iv;
+	}
     }
 
   /* We need all uses inside loop to be covered by some replacement.  Since
@@ -691,12 +725,16 @@ add_iv_elimination (struct loop *loop, struct iv_occurence *occ,
     {
       nw = xmalloc (sizeof (struct str_red));
       nw->reg = reg;
+      nw->equal_to = NULL_RTX;
+      nw->eq_occ = NULL;
       nw->chosen = false;
       nw->mode = VOIDmode;
       nw->loop = loop;
       nw->elimination = true;
+      nw->forces = forces;
       nw->remove_notes = NULL_RTX;
       nw->initial_value = NULL_RTX;
+      nw->increment_after = NULL_RTX;
       nw->step = NULL_RTX;
       nw->value = NULL_RTX;
       /* Ensure that it is always chosen if possible.  */
@@ -709,7 +747,6 @@ add_iv_elimination (struct loop *loop, struct iv_occurence *occ,
 
   alt = xmalloc (sizeof (struct repl_alt));
   alt->iv = nw;
-  alt->inc_by = NULL_RTX;
   alt->seq = NULL_RTX;
   alt->replacement = NULL_RTX;
   alt->cost = -COST_INFTY;
@@ -868,11 +905,14 @@ elimination_invalid_p (struct loop *loop, rtx insn, rtx reg,
 
 /* Actually perform the reductions scheduled in ACTIONS.  */
 void
-execute_strength_reductions (struct ivopt_actions *actions)
+execute_strength_reductions (struct loops *loops, struct ivopt_actions *actions)
 {
   struct str_red *next, *reds;
   struct repl *repl, *rnext;
   struct fval_repl *frepl, *fnext;
+
+  for (reds = actions->ivs; reds; reds = reds->next)
+    create_biv (loops, reds);
 
   for (repl = actions->replacements; repl; repl = rnext)
     {
@@ -885,7 +925,6 @@ execute_strength_reductions (struct ivopt_actions *actions)
   for (reds = actions->ivs; reds; reds = next)
     {
       next = reds->next;
-      create_biv (reds);
       free (reds);
     }
 
@@ -961,7 +1000,6 @@ decide_strength_reduction (struct loop *loop, struct iv_occurence *occ,
     }
   nw->cost = computation_cost (loop, occ);
   nw->alts = NULL;
-
 
   /* Try to derive occurence from all possibilities.  */
   for (; *reds; reds = &(*reds)->next)
@@ -1113,7 +1151,6 @@ derive_iv_from (struct repl *repl, struct str_red *red)
   struct repl_alt *alt = xmalloc (sizeof (struct repl_alt));
 
   alt->iv = red;
-  alt->inc_by = const0_rtx;
   alt->seq = NULL_RTX;
   alt->replacement = NULL_RTX;
   alt->cost = 0;
@@ -1185,8 +1222,20 @@ schedule_repl_for (struct repl *repl, struct repl_alt *alt)
 
   if (code == MEM || code == SET)
     {
+      /* If this is the original iv, we may "replace" it at no extra cost
+	 (cost of addition is paid in cost of biv).  */
+      if (code == SET
+	  && SET_DEST (expr) == alt->iv->equal_to)
+	{
+	  seq = NULL_RTX;
+	  pre = NULL_RTX;
+	  addr = NULL_RTX;
+	  repl_cost = 0;
+	  goto succeed;
+	}
+
       /* This combination makes % and / to abort, so ignore it.  */
-      if (occ_step == (1 << (HOST_BITS_PER_WIDE_INT - 1))
+      if (occ_step == ((HOST_WIDE_INT) 1 << (HOST_BITS_PER_WIDE_INT - 1))
 	  && red_step == -1)
 	goto fail;
 
@@ -1194,10 +1243,19 @@ schedule_repl_for (struct repl *repl, struct repl_alt *alt)
 	goto fail;
 
       scale = occ_step / red_step;
+
+      if (!alt->iv->increment_after
+	  || !INSN_DOMINATED_BY_P (repl->insn, alt->iv->increment_after))
+	val = alt->iv->value;
+      else
+	val = simplify_alg_expr (GEN_BINARY (OP_PLUS, alt->iv->mode,
+					     COPY_EXPR (alt->iv->value),
+					     alt->iv->step));
+
       val = scale == 1
-	      ? alt->iv->value
+	      ? val
 	      : simplify_alg_expr (GEN_BINARY (OP_MULT, alt->iv->mode,
-					       COPY_EXPR (alt->iv->value),
+					       COPY_EXPR (val),
 					       CONST_INT_EXPR (scale)));
       if (alt->iv->mode != repl->occ->extended_mode)
 	val = GEN_SHORTEN (repl->occ->extended_mode, val);
@@ -1215,6 +1273,18 @@ schedule_repl_for (struct repl *repl, struct repl_alt *alt)
   else
     {
       /* We try to express the condition in the other variable.  */
+
+      v = XEXP (expr, repl->occ->arg);
+
+      /* We may always use the original iv.  */
+      if (v == alt->iv->equal_to)
+	{
+	  seq = NULL_RTX;
+	  pre = NULL_RTX;
+	  addr = expr;
+	  repl_cost = 0;
+	  goto succeed;
+	}
 
       /* Determine what is the result used for.  */
       if (code == COMPARE)
@@ -1247,8 +1317,6 @@ schedule_repl_for (struct repl *repl, struct repl_alt *alt)
       else
 	ccode = code;
 
-
-      v = XEXP (expr, repl->occ->arg);
       r = XEXP (expr, 1 - repl->occ->arg);
       if (!invariant_displacement_p (alt->iv->loop, r)
 	  || GET_CODE (v) != REG)
@@ -1291,6 +1359,7 @@ schedule_repl_for (struct repl *repl, struct repl_alt *alt)
     }
 
   /* If we are only computing costs, cancel the new pseudos created.  */
+succeed: ;
 fail: ;
   if (!really)
     {
@@ -1634,10 +1703,20 @@ gen_cond_repl_rtx (HOST_WIDE_INT occ_step, HOST_WIDE_INT red_step,
   rtx mmin, mmax;
   rtx a, b, c, l, bound;
   int grows;
+  rtx ival;
 
   /* For now; we may try to handle this later.  */
   if (mode != red->mode)
     return NULL_RTX;
+
+  
+  if (!red->increment_after
+      || !INSN_DOMINATED_BY_P (occ->insn, red->increment_after))
+    ival = COPY_EXPR (red->initial_value);
+  else
+    ival = simplify_alg_expr (GEN_BINARY (OP_PLUS, red->mode,
+					  COPY_EXPR (red->initial_value),
+					  red->step));
 
   /* If the condition is equality comparison and it is only multiplied by
      an odd number, the final equation is equivalent with the original one
@@ -1675,7 +1754,7 @@ gen_cond_repl_rtx (HOST_WIDE_INT occ_step, HOST_WIDE_INT red_step,
 	return NULL_RTX;
 
       /* And if the replacement iv wraps, things would not be easy, either.  */
-      if (may_wrap_p (red->loop, red->initial_value, red->step, mode, sign))
+      if (may_wrap_p (red->loop, ival, red->step, mode, sign))
 	return NULL_RTX;
 
       if (sign)
@@ -1756,7 +1835,7 @@ gen_cond_repl_rtx (HOST_WIDE_INT occ_step, HOST_WIDE_INT red_step,
 		return NULL_RTX;
 	    }
 
-	  l = red->initial_value;
+	  l = ival;
 	  if (occ_step != 1)
 	    {
 	      bound = simplify_gen_binary (sign ? DIV : UDIV, mode,
@@ -1813,8 +1892,7 @@ gen_cond_repl_rtx (HOST_WIDE_INT occ_step, HOST_WIDE_INT red_step,
   tmp = GEN_BINARY (OP_MINUS, mode,
 		    COPY_EXPR (r), COPY_EXPR (occ_base));
   tmp = GEN_BINARY (OP_MULT, mode, tmp, GEN_INT (red_step));
-  tmp1 = GEN_BINARY (OP_MULT, mode,
-		     COPY_EXPR (red->initial_value), GEN_INT (occ_step)); 
+  tmp1 = GEN_BINARY (OP_MULT, mode, ival, GEN_INT (occ_step)); 
   tmp = GEN_BINARY (OP_PLUS, mode, tmp, tmp1);
 
   return simplify_alg_expr (tmp);
@@ -1873,7 +1951,10 @@ create_biv_for (struct loop *loop, struct iv_occurence *occ,
   red->initial_value = iv_omit_initial_values (copy_rtx (occ->local_base));
   red->mode = occ->extended_mode;
   red->reg = NULL_RTX;
+  red->equal_to = NULL_RTX;
+  red->eq_occ = NULL;
   red->elimination = false;
+  red->forces = NULL;
   red->remove_notes = NULL_RTX;
   red->chosen = false;
   red->loop = loop;
@@ -1891,6 +1972,7 @@ create_biv_for (struct loop *loop, struct iv_occurence *occ,
   
   tmp = GEN_BINARY (OP_MULT, red->mode, gen_iteration (red->mode), red->step);
   tmp = GEN_BINARY (OP_PLUS, red->mode, COPY_EXPR (occ->local_base), tmp);
+  red->increment_after = NULL_RTX;
   red->value = simplify_alg_expr (tmp);
   if (!red->value)
     abort ();
@@ -1955,6 +2037,74 @@ create_bivs_for (struct loop *loop, struct iv_occurence *occ,
       }
 }
 
+/* Adds a biv equivalent to register REGNO with BASE and STEP in LOOP to list
+   of REDS, if it is simple enough.  */
+static void
+record_old_biv (struct loops *loops, struct loop *loop, int regno,
+		rtx base, rtx step, struct str_red **reds)
+{
+  struct df_link *def, *adef = NULL;
+  int n_regs = reg_rtx_no;
+  struct str_red *red;
+  rtx tmp;
+  struct iv_occ_list *occ_l;
+
+  /* ??? We only manage bivs set on exactly one place for now.  */
+
+  for (def = loop_df->regs[regno].defs; def; def = def->next)
+    {
+      if (!flow_bb_inside_loop_p (loop, DF_REF_BB (def->ref)))
+	continue;
+      if (adef)
+	return;
+
+      adef = def;
+    }
+
+  if (!adef
+      || !just_once_each_iteration_p (loops, loop, DF_REF_BB (adef->ref)))
+    abort ();
+
+  red = xmalloc (sizeof (struct str_red));
+  red->initial_value = regno_reg_rtx[regno];
+  red->increment_after = DF_REF_INSN (adef->ref);
+  red->mode = GET_MODE (regno_reg_rtx[regno]);
+  red->reg = NULL_RTX;
+  red->equal_to = regno_reg_rtx[regno];
+  for (occ_l = insn_occurences[INSN_UID (DF_REF_INSN (adef->ref))];
+       occ_l;
+       occ_l = occ_l->next)
+    if (GET_CODE (*occ_l->elt->occurence) == SET
+	&& SET_DEST (*occ_l->elt->occurence) == red->equal_to)
+      break;
+  if (!occ_l)
+    abort ();
+  red->eq_occ = occ_l->elt;
+  red->elimination = false;
+  red->forces = NULL;
+  red->remove_notes = NULL_RTX;
+  red->chosen = false;
+  red->loop = loop;
+  red->step = step;
+
+  tmp = gen_reg_rtx (red->mode);
+  tmp = GEN_BINARY (OP_PLUS, red->mode, tmp, red->step);
+  red->cost = rtx_cost (tmp, SET);
+  reg_rtx_no = n_regs;
+
+  /* Slightly prefer the original iv.  */
+  red->cost--;
+
+  tmp = GEN_BINARY (OP_MULT, red->mode, gen_iteration (red->mode), red->step);
+  tmp = GEN_BINARY (OP_PLUS, red->mode, COPY_EXPR (base), tmp);
+  red->value = simplify_alg_expr (tmp);
+  if (!red->value)
+    abort ();
+
+  red->next = *reds;
+  *reds = red;
+}
+
 /* Creates default bivs (SI and DI mode with step 1) for LOOP.  */
 static struct str_red *
 make_default_ivs (struct loop *loop)
@@ -1978,9 +2128,11 @@ make_default_ivs (struct loop *loop)
 
 /* Creates new biv according to RED.  */
 static void
-create_biv (struct str_red *red)
+create_biv (struct loops *loops, struct str_red *red)
 {
   rtx seq, tmp, *note;
+  rtx insn, after, cond;
+  basic_block latch;
 
   if (red->elimination)
     {
@@ -2000,6 +2152,82 @@ create_biv (struct str_red *red)
       return;
     }
 
+  start_sequence ();
+  tmp = simplify_gen_binary (PLUS, red->mode, red->reg, red->step);
+  tmp = force_operand (tmp, red->reg);
+  if (tmp != red->reg)
+    emit_move_insn (red->reg, tmp);
+  seq = get_insns ();
+  end_sequence ();
+
+  if (red->increment_after)
+    after = red->increment_after;
+  else
+    {
+      /* Find place where to put the increment.  If the latch is not empty,
+	 we won't spoil much by putting it there.  If it is empty and it has
+	 exactly one predecessor, we may try putting it into this predecessor,
+	 but we must be careful not to clobber flags and not to put it into
+	 an subloop.  The last possibility is to place it to the start of
+	 header; then we must adjust the initial value.  */
+      latch = loop_latch_edge (red->loop)->src;
+      FOR_BB_INSNS_REVERSE (latch, insn)
+	{
+	  if (INSN_P (insn))
+	    break;
+	}
+      if (insn != PREV_INSN (latch->head))
+	after = insn;
+      else
+	{
+	  int done = false;
+
+	  if (GET_CODE (red->initial_value) != CONST_INT
+	      && !latch->pred->pred_next
+	      && just_once_each_iteration_p (loops, red->loop,
+					     latch->pred->src)
+	      && any_condjump_p (latch->pred->src->end)
+	      && get_condition (latch->pred->src->end, &cond))
+	    {
+	      done = true;
+	      after = PREV_INSN (cond);
+	      for (insn = cond;
+		   insn != NEXT_INSN (latch->pred->src->end);
+		   insn = NEXT_INSN (insn))
+		if (reg_mentioned_p (red->reg, insn))
+		  {
+		    done = false;
+		    break;
+		  }
+	      
+	      /* If the increment does not clobber anything, we may
+		 safely put it after insn.  ??? This could be made more
+		 general.  */
+	      if (!done
+		  && insn != latch->pred->src->end
+		  && !NEXT_INSN (seq)
+		  && GET_CODE (PATTERN (seq)) == SET)
+		{
+		  after = insn;
+		  done = true;
+		}
+	    }
+
+	  if (!done)
+	    {
+	      red->initial_value =
+		      simplify_alg_expr (GEN_BINARY (MINUS, red->mode,
+						     red->initial_value,
+						     red->step));
+	      after = block_label (red->loop->header);
+	      if (NEXT_INSN (after)
+		  && GET_CODE (NEXT_INSN (after)) == NOTE)
+		after = NEXT_INSN (after);
+	    }
+	}
+    }
+  emit_insn_after (seq, after);
+
   /* Prepare the initial value.  */
   start_sequence ();
   tmp = force_operand (red->initial_value, red->reg);
@@ -2008,26 +2236,12 @@ create_biv (struct str_red *red)
   seq = get_insns ();
   end_sequence ();
   hoist_insn_to_depth (red->loop, red->loop->depth - 1, seq, true);
-
-  /* The step could be reduced to 0 by autoinc transformation.  */
-  if (red->step != const0_rtx)
-    {
-      start_sequence ();
-      tmp = simplify_gen_binary (PLUS, red->mode, red->reg, red->step);
-      tmp = force_operand (tmp, red->reg);
-      if (tmp != red->reg)
-	emit_move_insn (red->reg, tmp);
-      seq = get_insns ();
-      emit_insn_after (seq, loop_latch_edge (red->loop)->src->end);
-    }
 }
 
 /* Executes replacement for strength reduction REPL.  */
 static void
 execute_strength_reduction (struct repl *repl)
 {
-  rtx tmp, seq;
-
   if (repl->chosen->iv->elimination)
     {
       delete_insn (repl->insn);
@@ -2038,18 +2252,6 @@ execute_strength_reduction (struct repl *repl)
   hoist_insn_to_depth (repl->chosen->iv->loop,
 		       repl->chosen->iv->loop->depth - 1,
 		       repl->chosen->pre, true);
-
-  if (repl->chosen->inc_by != const0_rtx)
-    {
-      start_sequence ();
-      tmp = simplify_gen_binary (PLUS, repl->chosen->iv->mode,
-				 repl->chosen->iv->reg, repl->chosen->inc_by);
-      tmp = force_operand (tmp, repl->chosen->iv->reg);
-      if (tmp != repl->chosen->iv->reg)
-	emit_move_insn (repl->chosen->iv->reg, tmp);
-      seq = get_insns ();
-      emit_insn_after (seq, repl->insn);
-    }
 
   if (repl->type == SET)
     {
@@ -2121,6 +2323,8 @@ determine_reductions_to_perform (struct loop *loop, struct str_red **reds,
     {
       act->chosen = act->alts;
       act->chosen->iv->chosen = true;
+      if (act->chosen->iv->forces)
+	act->chosen->iv->forces->chosen = true;
     }
 
   if (!flag_reduce_all_givs)
@@ -2208,6 +2412,9 @@ determine_reductions_to_perform (struct loop *loop, struct str_red **reds,
       
       if (!act->chosen->iv->reg)
 	finish_biv (act->chosen->iv);
+      if (act->chosen->iv->forces
+	  && !act->chosen->iv->forces->reg)
+	finish_biv (act->chosen->iv->forces);
       finish_repl (act);
     }
 
@@ -2221,6 +2428,97 @@ determine_reductions_to_perform (struct loop *loop, struct str_red **reds,
 	  *reds = red->next;
 	  free (red);
 	}
+    }
+}
+ 
+/* Removes final value replacements FVREPLS that are unneccesary because
+   the original iv is preserved.  */
+static void
+remove_unnecesary_fvrepls (struct str_red *reds, struct fval_repl **fvrepls)
+{
+  struct str_red *red;
+  struct fval_repl *ths;
+
+  while (*fvrepls)
+    {
+      /* We want to keep the replacement if it gives more information and
+	 the assignment is cheap.  */
+      if (good_constant_p ((*fvrepls)->value))
+	{
+	  fvrepls = &(*fvrepls)->next;
+	  continue;
+	}
+
+      for (red = reds; red; red = red->next)
+	if (red->equal_to
+	    && red->equal_to == (*fvrepls)->reg)
+	  break;
+      if (!red)
+	{
+	  fvrepls = &(*fvrepls)->next;
+	  continue;
+	}
+      ths = *fvrepls;
+      *fvrepls = ths->next;
+      free (ths);
+    }
+}
+
+/* If we decide to preserve a biv, we need to ensure that its original
+   increment will be eliminated.  Scan REDS and modify them to achieve
+   this.  */
+static void
+fixup_preserved_bivs (struct str_red **reds)
+{
+  struct str_red *red, *el;
+  struct repl *repl;
+
+  for (red = *reds; red; red = red->next)
+    {
+      if (!red->equal_to)
+	continue;
+
+      repl = red->eq_occ->aux;
+      if (!repl)
+	abort ();
+
+      if (repl->chosen->iv->elimination
+	  || repl->chosen->iv == red)
+	continue;
+
+      free (repl->chosen);
+
+      for (el = *reds; el; el = el->next)
+	if (el->elimination && el->reg == red->reg)
+	  break;
+      if (!el)
+	{
+	  el = xmalloc (sizeof (struct str_red));
+	  el->reg = red->reg;
+	  el->equal_to = NULL_RTX;
+	  el->eq_occ = NULL;
+	  el->chosen = false;
+	  el->mode = VOIDmode;
+	  el->loop = red->loop;
+	  el->elimination = true;
+	  el->forces = NULL;
+	  el->remove_notes = NULL;
+	  el->initial_value = NULL_RTX;
+	  el->increment_after = NULL_RTX;
+	  el->step = NULL_RTX;
+	  el->value = NULL_RTX;
+	  el->cost = -COST_INFTY;
+	  el->next = *reds;
+	  *reds = el;
+	}
+
+      repl->chosen = xmalloc (sizeof (struct repl_alt));
+      repl->chosen->iv = el;
+      repl->chosen->seq = NULL_RTX;
+      repl->chosen->replacement = NULL_RTX;
+      repl->chosen->pre = NULL_RTX;
+      repl->chosen->cost = -COST_INFTY;
+      repl->chosen->next = NULL;
     }
 }
 
@@ -2357,10 +2655,15 @@ estimate_gain (struct str_red *reds, struct repl *repls, int free_regs)
 	return -COST_INFTY;
       act->chosen = alt;
 
-      gain += act->cost - act->chosen->cost;
-      if (!act->chosen->iv->elimination)
+      gain += act->cost - alt->cost;
+      if (!alt->iv->elimination)
 	n_repls++;
+
+      if (alt->iv->forces
+	  && !alt->iv->forces->chosen)
+	return -COST_INFTY;
     }
+
   for (red = reds; red; red = red->next)
     if (red->chosen)
       {
@@ -2384,7 +2687,7 @@ estimate_gain (struct str_red *reds, struct repl *repls, int free_regs)
 static void
 finish_biv (struct str_red *red)
 {
-  red->reg = gen_reg_rtx (red->mode);
+  red->reg = red->equal_to ? red->equal_to : gen_reg_rtx (red->mode);
 }
 
 /* Fill in remaining fields in replacement repl.  */
@@ -2418,8 +2721,13 @@ dump_new_biv (FILE *file, struct str_red *red)
     {
       fprintf (file, " -- ");
       print_rtl (file, red->reg);
-      if (red->elimination)
-	fprintf (file, " (elimination)");
+    }
+  if (red->elimination)
+    fprintf (file, " (elimination)");
+  if (!red->reg && red->equal_to)
+    {
+      fprintf (file, " -- equal to ");
+      print_rtl (file, red->equal_to);
     }
   fprintf (file, "\n");
 
@@ -2442,6 +2750,16 @@ dump_new_biv (FILE *file, struct str_red *red)
   fprintf (file, "  value ");
   print_rtl (file, red->value);
   fprintf (file, "\n"); 
+
+  if (red->increment_after)
+    {
+      fprintf (file, "  increment after ");
+      print_rtl_single (file, red->increment_after);
+      fprintf (file, "\n");
+    }
+
+  if (red->forces)
+    fprintf (file, "  forces %p\n", (void *) red->forces);
 
   fprintf (file, "  cost %d\n\n", red->cost);
 }

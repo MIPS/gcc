@@ -1,3 +1,32 @@
+2003-07-25  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* Makefile.in (cfgloopmanip.o): Add predict.h dependency.
+	* cfglayout.c (cfg_layout_duplicate_bb): Put new blocks
+	on more sane place in chain.
+	* cfgloop.h (execute_strength_reductions): Declaration changed.
+	* cfgloopmanip.c: Include predict.h.
+	(loop_split_edge_with): Put new blocks on more sane place in chain.
+	(copy_loop_headers): Put PRED_LOOP_HEADER prediction on the
+	appropriate edge.
+	* loop-init.c (loop_optimizer_optimize): Pass loops parameter to
+	execute_strength_reductions.
+	* loop-ivopts.c: Comment updates.
+	(struct str_red): New fields equal_to, eq_occ, forces, increment_after.
+	(create_biv_for): Initialize them.
+	(dump_new_biv): Dump them.
+	(struct repl_alt): Field inc_by removed.
+	(execute_strength_reduction): Don't handle it.
+	(MANY_IVS): Increased to 50.
+	(INSN_DOMINATED_BY_P): New.
+	(schedule_autoinc, kill_old_global_iv, add_iv_elimination): Use it.
+	(remove_unnecesary_fvrepls, fixup_preserved_bivs, record_old_biv): New.
+	(detect_strength_reductions, add_iv_elimination, schedule_repl_for,
+	gen_cond_repl_rtx, create_biv, execute_strength_reductions,
+	determine_reductions_to_perform, estimate_gain): Handle a
+	possibility to preserve old biv.
+	(schedule_autoinc): Update for changed fields.
+	(derive_iv_from): Don't initialize removed inc_by field.
+
 2003-07-22  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* cfgcleanup.c (merge_blocks): Work also for successors of the
@@ -2093,3 +2122,6 @@ Wed Oct 16 17:33:27 CEST 2002  Jan Hubicka  <jh@suse.cz>
 	trim_ld_motion_mems, reg_set_info, compute_store_table,
 	build_store_vectors, insert_store, free_store_memory,
 	store_motion): Modified due to removal of global variables.
+	* stmt.c (expand_end_loop): Rotate loops.
+	* config/i386/i386.c (x86_machine_dependent_reorg): Don't call
+	k8_avoid_jump_misspredicts on athlon.

@@ -28,6 +28,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "cfgloop.h"
 #include "cfglayout.h"
 #include "output.h"
+#include "predict.h"
 
 static struct loop * duplicate_loop (struct loops *, struct loop *,
 				     struct loop *, int);
@@ -1521,7 +1522,7 @@ loop_split_edge_with (edge e, rtx insns, struct loops *loops)
 
   /* Create basic block for it.  */
 
-  new_bb = create_basic_block (NULL_RTX, NULL_RTX, EXIT_BLOCK_PTR->prev_bb);
+  new_bb = create_basic_block (NULL_RTX, NULL_RTX, src);
   if (loops->cfg.dom)
     add_to_dominance_info (loops->cfg.dom, new_bb);
   add_bb_to_loop (new_bb, loop_c);
@@ -1665,6 +1666,8 @@ copy_loop_headers ()
 	  loop->header = new_header;
 	  if (loop->latch->succ->succ_next)
 	    loop_split_edge_with (loop_latch_edge (loop), NULL_RTX, &loops);
+	  predict_edge_def (loop_preheader_edge (loop),
+			    PRED_LOOP_HEADER, TAKEN);
 	}
     }
 

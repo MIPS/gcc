@@ -15773,7 +15773,7 @@ x86_machine_dependent_reorg (first)
     if (insert)
       emit_insn_before (gen_nop (), ret);
   }
-  if (TARGET_ATHLON_K8)
+  if (TARGET_K8)
     k8_avoid_jump_misspredicts (first);
 }
 

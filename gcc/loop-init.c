@@ -174,7 +174,7 @@ loop_optimizer_optimize (struct loops *loops)
   /* Now move the movables and reduce the variables; it is easier to have it
      split into two parts, so that we do not have to update iv information.  */
   loops_invariant_motion (loops, movables);
-  execute_strength_reductions (&ivopt_actions);
+  execute_strength_reductions (loops, &ivopt_actions);
 
   if (flag_peel_loops || flag_unroll_loops)
     unroll_and_peel_loops (loops);
