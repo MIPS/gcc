@@ -1,3 +1,10 @@
+2003-06-19  Jeff Sturm  <jsturm@one-point.com>
+
+	* gimplify.c (gimplify_expr): Handle LABELED_BLOCK_EXPR
+	and EXIT_BLOCK_EXPR.
+	(gimplify_labeled_block_expr): New function.
+	(gimplify_exit_block_expr): New function.
+
 2003-06-18  Andrew MacLeod  <amacleod@redhat.com>
 
 	* tree-cfg.c (EDGE_INSERT_LOCATION_BSI_AFTER): New location code.

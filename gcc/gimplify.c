@@ -80,6 +80,8 @@ static void gimplify_loop_expr		PARAMS ((tree *));
 static void gimplify_exit_expr		PARAMS ((tree *));
 static void gimplify_switch_expr (tree *, tree *);
 static void gimple_add_case_label (tree);
+static void gimplify_labeled_block_expr (tree *);
+static void gimplify_exit_block_expr (tree *);
 static hashval_t gimple_tree_hash (const void *);
 static int gimple_tree_eq (const void *, const void *);
 static tree lookup_tmp_var (tree, bool);
@@ -532,8 +534,11 @@ gimplify_expr (expr_p, pre_p, post_p, gimple_test_f, fallback)
 	  break;
 
 	case LABELED_BLOCK_EXPR:
-	  gimplify_stmt (&LABELED_BLOCK_BODY (*expr_p));
-	  recalculate_side_effects (*expr_p);
+	  gimplify_labeled_block_expr (expr_p);
+	  break;
+
+	case EXIT_BLOCK_EXPR:
+	  gimplify_exit_block_expr (expr_p);
 	  break;
 
 	case EXIT_EXPR:
@@ -1009,6 +1014,42 @@ gimple_add_case_label (tree expr)
 {
   if (gimplify_ctxp->case_labels)
     VARRAY_PUSH_TREE (gimplify_ctxp->case_labels, CASE_LABEL (expr));
+}
+
+/* Gimplify a LABELED_BLOCK_EXPR into a LABEL_EXPR following
+   a (possibly empty) body.  */
+
+static void
+gimplify_labeled_block_expr (tree *expr_p)
+{
+  tree body = LABELED_BLOCK_BODY (*expr_p);
+  tree label = LABELED_BLOCK_LABEL (*expr_p);
+  tree t;
+
+  DECL_CONTEXT (label) = current_function_decl;
+  t = build (LABEL_EXPR, void_type_node, label);
+  if (body != NULL_TREE)
+    t = build (COMPOUND_EXPR, void_type_node, body, t);
+  *expr_p = t;
+}
+
+/* Gimplify a EXIT_BLOCK_EXPR into a GOTO_EXPR.  */
+
+static void
+gimplify_exit_block_expr (tree *expr_p)
+{
+  tree labeled_block = TREE_OPERAND (*expr_p, 0);
+  tree label;
+
+  /* First operand must be a LABELED_BLOCK_EXPR, which should
+     already be lowered (or partially lowered) when we get here.  */
+#if defined ENABLE_CHECKING
+  if (TREE_CODE (labeled_block) != LABELED_BLOCK_EXPR)
+    abort ();
+#endif
+
+  label = LABELED_BLOCK_LABEL (labeled_block);
+  *expr_p = build1 (GOTO_EXPR, void_type_node, label);
 }
 
 /* Build a GOTO to the LABEL_DECL pointed to by LABEL_P, building it first
