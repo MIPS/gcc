@@ -1548,6 +1548,10 @@ gcov_exit (void)
 	      /* If everything done correctly, the summaries should be
 	         computed equal for each module.  */
 	      if (last_prg.runs
+#if defined (TARGET_HAS_F_SETLKW)
+	          /* We may be updating the files in parallel.  */
+		  && last_prg.runs == local_prg.runs
+#endif
 		  && memcmp (&last_prg, &local_prg, sizeof (last_prg)))
 		{
 		  fprintf (stderr, "profiling:%s:Invocation mismatch\n",
