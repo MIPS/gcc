@@ -3079,10 +3079,10 @@ enum tree_dump_index
   TDI_cfg,			/* dump the flowgraph for each function.  */
   TDI_dot,			/* create a dot graph file for each 
 				   function's flowgraph.  */
+  TDI_ssa_pre,                  /* dump SSA PRE information for each
+				   function.  */
   TDI_ssa,			/* dump SSA information for each function.  */
   TDI_ccp,			/* dump SSA CCP information for each
-				   function.  */
-  TDI_ssa_pre,                  /* dump SSA PRE information for each
 				   function.  */
   TDI_optimized,		/* dump each function after optimizing it */
   TDI_xml,                      /* dump function call graph.  */

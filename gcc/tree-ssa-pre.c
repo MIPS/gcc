@@ -59,6 +59,10 @@ Boston, MA 02111-1307, USA.  */
    Pieces are also taken from Open64's SSAPRE implementation.
 
 */
+/* TODO:
+   Strength reduction.
+   Register promotion.
+*/
 struct expr_info;
 static int expr_lexically_eq PARAMS ((tree, tree));
 static void free_expr_info PARAMS ((struct expr_info *));
@@ -320,7 +324,8 @@ find_tree_ref_for_var (ei, real, var)
   FOR_EACH_REF (ref, tmp, tree_refs (VARRAY_TREE (ei->realstmts, realnum)))
     {
       if (!(ref_type (ref) & V_USE)
-          || ref_expr (ref) != real)
+	  || !is_simple_modify_expr (ref_expr (ref))
+          || TREE_OPERAND (ref_expr (ref), 1) != real)
         continue;
       if (ref_var (ref) != var)
         continue;
@@ -353,7 +358,8 @@ defs_y_dom_x ( y, x)
         {
           /* Find the ref for this operand. */
           if (!(ref_type (ref) & V_USE)
-              || ref_expr (ref) != ref_expr (y))
+	      || !is_simple_modify_expr (ref_expr (ref))
+              || TREE_OPERAND (ref_expr (ref), 1) != ref_expr (y))
             continue;
           if (ref_var (ref) != TREE_OPERAND (ref_expr (y), i))
             continue;
@@ -368,7 +374,9 @@ defs_y_dom_x ( y, x)
 }
 
 /* Return true if the variables in t1 have the same defs as the
-   variables in t2.  */
+   variables in t2.  
+   NB: t1 is expected to be a statement or assignment (IE both left and right sides).
+   t2 is expected to be the right hand side only.*/
 static inline bool
 defs_match_p (ei, t1, t2)
      struct expr_info *ei;
@@ -381,8 +389,11 @@ defs_match_p (ei, t1, t2)
 
   FOR_EACH_REF (use1, tmp, tree_refs (t1))
     {
-      if (!(ref_type (use1) & V_USE) || 
-                      (TREE_CODE (ref_expr (use1)) != TREE_CODE (t2)))
+      tree use1expr = ref_expr (use1);
+      if (!(ref_type (use1) & V_USE) | !is_simple_modify_expr (use1expr))
+        continue;
+      use1expr = TREE_OPERAND (use1expr, 1);
+      if (TREE_CODE (use1expr) != TREE_CODE (t2))
         continue;
       use2 = find_tree_ref_for_var (ei, t2, ref_var (use1));
       if (!use2 || (imm_reaching_def (use2) != imm_reaching_def (use1)))
@@ -461,7 +472,6 @@ insert_occ_in_preorder_dt_order_1 (ei, fh, block)
       tree occurstmt = VARRAY_TREE (ei->occurstmts, i);
       tree_ref occurref = VARRAY_GENERIC_PTR (ei->refs, i);
       if (ref_bb (occurref) != block)
-	/*bb_for_stmt (occurstmt) != block)*/
         continue;
       if (TREE_CODE (VARRAY_TREE (ei->occurs, i)) == CALL_EXPR)
 	{
@@ -787,7 +797,7 @@ rename_1 (ei)
       if (ref_type (y) & E_KILL 
 	  && TREE_CODE (ref_expr (y)) == CALL_EXPR)
         {
-		if (VARRAY_ACTIVE_SIZE (stack) > 0)
+	  if (VARRAY_ACTIVE_SIZE (stack) > 0)
             {
               tree_ref stackref = VARRAY_TOP_GENERIC_PTR (stack);
               if (ref_type (stackref) & E_PHI)
@@ -1303,7 +1313,8 @@ expr_phi_insertion (dfs, ei)
 	  FOR_EACH_REF (ref, tmp, tree_refs (VARRAY_TREE (ei->realstmts, i)))
             {
               if (!(ref_type (ref) & V_USE )
-                  || ref_expr (ref) != real)
+                  || !is_simple_modify_expr (ref_expr (ref))
+                  || TREE_OPERAND (ref_expr (ref), 1) != real)
                 continue;
               if (ref_var (ref) != TREE_OPERAND (real, 0)
                   && (TREE_OPERAND (real, 1) == NULL 
@@ -1321,9 +1332,9 @@ expr_phi_insertion (dfs, ei)
 
   EXECUTE_IF_SET_IN_SBITMAP(dfphis, 0, i, 
   {
-    tree_ref ref = create_ref (NULL, E_PHI, 
+    tree_ref ref = create_ref (ei->expr, E_PHI, 
                                 BASIC_BLOCK (i), 
-                                NULL, ei->expr, NULL, true);
+                                NULL, NULL, NULL, true);
     VARRAY_PUSH_GENERIC_PTR (ei->erefs, ref);
     EXPRPHI_DOWNSAFE (ref) = 1;
     EXPRPHI_CANBEAVAIL (ref) = 1;
@@ -1798,6 +1809,8 @@ tree_perform_ssapre ()
 	    continue;
 	  if (htab_find (seen, expr) != NULL)
 	    continue;
+	  if (is_simple_modify_expr (expr))
+		  expr = TREE_OPERAND (expr, 1);
 	  if ((is_simple_binary_expr (expr)
 /*	       || is_simple_cast (expr)
 	       || is_simple_unary_expr (expr)*/)
@@ -1853,7 +1866,7 @@ tree_perform_ssapre ()
 	  	  add_call_to_ei (VARRAY_GENERIC_PTR (bexprs, k), ref);
 	      }
 	    }  
-	  *(htab_find_slot  (seen, expr, INSERT)) = expr;
+	  *(htab_find_slot  (seen, ref_expr (ref), INSERT)) = ref_expr (ref);
 	}
     }
   for (j = 0; j < VARRAY_ACTIVE_SIZE (bexprs); j++)

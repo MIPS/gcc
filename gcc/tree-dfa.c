@@ -707,7 +707,7 @@ create_ref (var, ref_type, bb, parent_stmt, parent_expr, operand_p, add_to_bb)
 
   /* Set the M_VOLATILE modifier, if the reference is to a volatile
      variable.  */
-  if (TREE_THIS_VOLATILE (var))
+  if (var && TREE_THIS_VOLATILE (var))
     ref_type |= M_VOLATILE;
 
   ref = (tree_ref) ggc_alloc (sizeof (*ref));

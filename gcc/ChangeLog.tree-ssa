@@ -1,3 +1,19 @@
+2002-09-09  Daniel Berlin <dberlin@dberlin.org>
+	* Makefile.in (tree-alias-steen.o): Remove gt-tree-alias-steen.h
+	(tree-alias-common.o): Add dependency on c-common.h
+	
+	* tree-ssa-pre.c: Fix PRE now that V_USE's expr's are the entire
+	assignment, rather than just the right hand side.
+	Stop generating our own call clobbers
+
+	* tree-dfa.c (create_ref): Make sure var is not null before checking
+	TREE_THIS_VOLATILE.
+	
+	* tree.h: Reorder TDI_* so ssapre comes before ssa.
+
+	* tree-dump.c: dump-tree-ssapre has to come before dump-tree-ssa
+	in the table, or else it'll never match.
+
 2002-09-09  Frank Ch. Eigler  <fche@redhat.com>
 
 	* tree-mudflap.c (mf_offset_expr_of_array_ref): Fold constants along

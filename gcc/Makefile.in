@@ -65,9 +65,9 @@ BOOT_LANGUAGES = c @all_boot_languages@
 # TCFLAGS is used for compilations with the GCC just built.
 XCFLAGS =
 TCFLAGS =
-CFLAGS = 
+CFLAGS =  
 STAGE1_CFLAGS = -g @stage1_cflags@ 
-BOOT_CFLAGS = -g -O2
+BOOT_CFLAGS = -g -O2 
 
 # Flags to determine code coverage. When coverage is disabled, this will
 # contain the optimization flags, as you normally want code coverage
@@ -1390,10 +1390,10 @@ disjoint-set.o: disjoint-set.c disjoint-set.h $(SYSTEM_H) $(CONFIG_H) $(GGC_H)
 tree-alias-ecr.o: tree-alias-ecr.c tree-alias-ecr.h disjoint-set.h tree-alias-type.h  $(SYSTEM_H) $(CONFIG_H) $(GGC_H)
 tree-alias-type.o: tree-alias-type.c tree-alias-type.h $(SYSTEM_H) $(CONFIG_H) $(GGC_H) gt-tree-alias-type.h
 tree-alias-steen.o: tree-alias-steen.c tree-alias-steen.h $(SYSTEM_H) \
-	$(CONFIG_H) $(GGC_H) $(TREE_H) gt-tree-alias-steen.h tree-flow.h \
-	$(C_COMMON_H)
+	$(CONFIG_H) $(GGC_H) $(TREE_H) tree-flow.h  $(C_COMMON_H)
 tree-alias-common.o: tree-alias-common.c tree-alias-common.h $(SYSTEM_H) \
-	$(CONFIG_H) $(GGC_H) $(TREE_H) gt-tree-alias-common.h tree-flow.h 
+	$(CONFIG_H) $(GGC_H) $(TREE_H) gt-tree-alias-common.h tree-flow.h \
+	$(C_COMMON_H)
 tree-ssa.o : tree-ssa.c tree-optimize.h tree-flow.h $(CONFIG_H) $(SYSTEM_H) \
    $(RTL_H) $(TREE_H) $(TM_P_H) $(BASIC_BLOCK_H) $(EXPR_H) $(C_COMMON_H) \
    $(GGC_H) output.h diagnostic.h ssa.h errors.h toplev.h ggc.h tree-simple.h
@@ -1935,7 +1935,6 @@ gt-alias.h gt-cselib.h gt-fold-const.h gt-gcse.h gt-profile.h : s-gtype; @true
 gt-expr.h gt-sdbout.h gt-optabs.h gt-bitmap.h gt-dwarf2out.h : s-gtype ; @true
 gt-ra-build.h gt-reg-stack.h gt-dependence.h : s-gtype ; @true
 gt-c-common.h gt-c-decl.h gt-c-parse.h gt-c-pragma.h : s-gtype; @true
-gt-tree-alias-steen.h : s-gtype ; @true
 gt-tree-alias-common.h : s-gtype ; @true
 gt-tree-alias-type.h : s-gtype ; @true
 gt-tree-mudflap.h : s-gtype ; @true
