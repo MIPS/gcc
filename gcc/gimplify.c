@@ -27,6 +27,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "rtl.h"
 #include "errors.h"
 #include "varray.h"
 #include "tree-simple.h"
@@ -1408,7 +1409,8 @@ simplify_call_expr (expr_p, pre_p, post_p, simple_test_f)
   /* If the function is "const", then clear TREE_SIDE_EFFECTS on its
      decl.  This allows us to eliminate redundant or useless
      calls to "const" functions.  */
-  if (decl && TREE_READONLY (decl) && ! TREE_THIS_VOLATILE (decl))
+  if (TREE_CODE (*expr_p) == CALL_EXPR
+      && (call_expr_flags (*expr_p) & ECF_CONST))
     TREE_SIDE_EFFECTS (*expr_p) = 0;
 }
 
