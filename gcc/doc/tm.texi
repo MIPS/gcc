@@ -4164,9 +4164,11 @@ outputting the insns in this list, usually by calling
 You need not define this macro if you did not define
 @code{DELAY_SLOTS_FOR_EPILOGUE}.
 
-@findex ASM_OUTPUT_MI_THUNK
-@item ASM_OUTPUT_MI_THUNK (@var{file}, @var{thunk_fndecl}, @var{delta}, @var{function})
-A C compound statement that outputs the assembler code for a thunk
+@end table
+
+@findex TARGET_ASM_OUTPUT_MI_THUNK
+@deftypefn {Target Hook} void TARGET_ASM_OUTPUT_MI_THUNK (FILE *@var{file}, tree @var{thunk_fndecl}, HOST_WIDE_INT @var{delta}, tree @var{function})
+A function that outputs the assembler code for a thunk
 function, used to implement C++ virtual function calls with multiple
 inheritance.  The thunk acts as a wrapper around a virtual function,
 adjusting the implicit object parameter before handing control off to
@@ -4197,7 +4199,24 @@ If you do not define this macro, the target-independent code in the C++
 front end will generate a less efficient heavyweight thunk that calls
 @var{function} instead of jumping to it.  The generic approach does
 not support varargs.
-@end table
+@end deftypefn
+
+@findex TARGET_ASM_OUTPUT_MI_VCALL_THUNK
+@deftypefn {Target Hook} void TARGET_ASM_OUTPUT_MI_VCALL_THUNK (FILE *@var{file}, tree @var{thunk_fndecl}, HOST_WIDE_INT @var{delta}, int @var{vcall_offset}, tree @var{function})
+A function like @code{TARGET_ASM_OUTPUT_MI_THUNK}, except that if
+@var{vcall_offset} is non-zero, an additional adjustment should be made
+after adding @code{delta}.  In particular, if @var{p} is the
+adjusted pointer, the following adjustment should be made:
+
+@example
+p += (*((ptrdiff_t **)p))[vcall_offset/sizeof(ptrdiff_t)]
+@end example
+
+@noindent
+If this function is defined, it will always be used in place of
+@code{TARGET_ASM_OUTPUT_MI_THUNK}.
+
+@end deftypefn
 
 @node Profiling
 @subsection Generating Code for Profiling
@@ -4245,18 +4264,18 @@ the function prologue.  Normally, the profiling code comes after.
 @subsection Permitting tail calls
 @cindex tail calls
 
-@table @code
-@findex FUNCTION_OK_FOR_SIBCALL
-@item FUNCTION_OK_FOR_SIBCALL (@var{decl})
-A C expression that evaluates to true if it is ok to perform a sibling
-call to @var{decl} from the current function.
+@deftypefn {Target Hook} bool TARGET_FUNCTION_OK_FOR_SIBCALL (tree @var{decl}, tree @var{exp})
+True if it is ok to do sibling call optimization for the specified
+call expression @var{exp}.  @var{decl} will be the called function,
+or @code{NULL} if this is an indirect call.
 
 It is not uncommon for limitations of calling conventions to prevent
 tail calls to functions outside the current unit of translation, or
-during PIC compilation.  Use this macro to enforce these restrictions,
+during PIC compilation.  The hook is used to enforce these restrictions,
 as the @code{sibcall} md pattern can not fail, or fall over to a
-``normal'' call.
-@end table
+``normal'' call.  The criteria for successful sibling call optimization
+may vary greatly between different architectures.
+@end deftypefn
 
 @node Varargs
 @section Implementing the Varargs Macros
@@ -6348,17 +6367,6 @@ host machine.
 The array element values are designed so that you can print them out
 using @code{fprintf} in the order they should appear in the target
 machine's memory.
-
-@item REAL_VALUE_TO_DECIMAL (@var{x}, @var{string}, @var{digits})
-@findex REAL_VALUE_TO_DECIMAL
-This macro converts @var{x}, of type @code{REAL_VALUE_TYPE}, to a
-decimal number and stores it as a string into @var{string}.
-You must pass, as @var{string}, the address of a long enough block
-of space to hold the result.
-
-The argument @var{digits} is the number of decimal digits to print,
-or @minus{}1 to indicate ``enough'', i.e. @code{DECIMAL_DIG} for
-for the target.
 @end table
 
 @node Uninitialized Data

@@ -1346,7 +1346,7 @@ size_htab_hash (x)
   tree t = (tree) x;
 
   return (TREE_INT_CST_HIGH (t) ^ TREE_INT_CST_LOW (t)
-	  ^ (hashval_t) ((long) TREE_TYPE (t) >> 3)
+	  ^ htab_hash_pointer (TREE_TYPE (t))
 	  ^ (TREE_OVERFLOW (t) << 20));
 }
 
@@ -5771,12 +5771,25 @@ fold (expr)
 
       goto binary;
 
-    case LSHIFT_EXPR:
-    case RSHIFT_EXPR:
     case LROTATE_EXPR:
     case RROTATE_EXPR:
+      if (integer_all_onesp (arg0))
+	return omit_one_operand (type, arg0, arg1);
+      goto shift;
+
+    case RSHIFT_EXPR:
+      /* Optimize -1 >> x for arithmetic right shifts.  */
+      if (integer_all_onesp (arg0) && ! TREE_UNSIGNED (type))
+	return omit_one_operand (type, arg0, arg1);
+      /* ... fall through ...  */
+
+    case LSHIFT_EXPR:
+    shift:
       if (integer_zerop (arg1))
 	return non_lvalue (convert (type, arg0));
+      if (integer_zerop (arg0))
+	return omit_one_operand (type, arg0, arg1);
+
       /* Since negative shift count is not well-defined,
 	 don't try to compute it in the compiler.  */
       if (TREE_CODE (arg1) == INTEGER_CST && tree_int_cst_sgn (arg1) < 0)

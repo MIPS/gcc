@@ -231,7 +231,7 @@ struct function_info
 /* Information about a single object file.  */
 struct gcov_info
 {
-  unsigned version;	        /* expected version number */
+  unsigned long version;        /* expected version number */
   struct gcov_info *next;	/* link to next, used by libgcc */
 
   const char *filename;		/* output file name */

@@ -182,7 +182,7 @@ _Unwind_GetDataRelBase (struct _Unwind_Context *_C)
 }
 
 static inline _Unwind_Ptr
-_Unwind_GetTextRelBase (struct _Unwind_Context *_C)
+_Unwind_GetTextRelBase (struct _Unwind_Context *_C __attribute__ ((unused)))
 {
   abort ();
   return 0;

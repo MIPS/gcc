@@ -63,6 +63,7 @@ extern int initial_exec_symbolic_operand PARAMS ((rtx, enum machine_mode));
 extern int local_exec_symbolic_operand PARAMS ((rtx, enum machine_mode));
 extern int pic_symbolic_operand PARAMS ((rtx, enum machine_mode));
 extern int call_insn_operand PARAMS ((rtx, enum machine_mode));
+extern int sibcall_insn_operand PARAMS ((rtx, enum machine_mode));
 extern int constant_call_address_operand PARAMS ((rtx, enum machine_mode));
 extern int const0_operand PARAMS ((rtx, enum machine_mode));
 extern int const1_operand PARAMS ((rtx, enum machine_mode));
@@ -211,7 +212,6 @@ extern tree ix86_handle_shared_attribute PARAMS ((tree *, tree, tree, int, bool 
 extern unsigned int i386_pe_section_type_flags PARAMS ((tree, const char *,
 							int));
 extern void i386_pe_asm_named_section PARAMS ((const char *, unsigned int));
-extern void x86_output_mi_thunk PARAMS ((FILE *, int, tree));
 extern int x86_field_alignment PARAMS ((tree, int));
 #endif
 

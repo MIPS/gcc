@@ -219,7 +219,6 @@ case $machine in
  | mn10200-*-*      \
  | ns32k-*-openbsd* \
  | romp-*-openbsd*  \
- | vax-*-vms* \
  )
     if test "x$enable_obsolete" != xyes; then
       echo "*** Configuration $machine is obsolete." >&2
@@ -871,6 +870,10 @@ hppa*64*-*-hpux11*)
 	xmake_file="pa/x-ada"
 	target_cpu_default="(MASK_PA_11|MASK_PA_20|MASK_GAS)"
 
+	if test x$gnu_ld = xyes
+	then
+		target_cpu_default="${target_cpu_default}|MASK_GNU_LD"
+	fi
 #	if [ x$enable_threads = x ]; then
 #	    enable_threads=$have_pthread_h
 #	fi
@@ -1396,6 +1399,9 @@ ia64*-*-linux*)
 	tmake_file="t-slibgcc-elf-ver t-linux ia64/t-ia64 ia64/t-glibc"
 	target_cpu_default="MASK_GNU_AS|MASK_GNU_LD"
 	extra_parts="crtbegin.o crtend.o crtbeginS.o crtendS.o crtfastmath.o"
+	if test x"$use_libunwind_exceptions" = xyes; then
+	  tmake_file="$tmake_file t-libunwind"
+	fi
 	;;
 ia64*-*-hpux*)
 	tm_file="${tm_file} dbxelf.h elfos.h svr4.h ia64/sysv4.h ia64/hpux.h ia64/hpux_longdouble.h"
@@ -2128,10 +2134,18 @@ rs6000-ibm-aix4.[3456789]* | powerpc-ibm-aix4.[3456789]*)
 	thread_file='aix'
 	extra_headers=
 	;;
-rs6000-ibm-aix[56789].* | powerpc-ibm-aix[56789].*)
+rs6000-ibm-aix5.1.* | powerpc-ibm-aix5.1.*)
 	xm_defines=POSIX
 	tm_file="${tm_file} rs6000/aix.h rs6000/aix51.h rs6000/xcoff.h"
 	tmake_file=rs6000/t-aix43
+	use_collect2=yes
+	thread_file='aix'
+	extra_headers=
+	;;
+rs6000-ibm-aix[56789].* | powerpc-ibm-aix[56789].*)
+	xm_defines=POSIX
+	tm_file="${tm_file} rs6000/aix.h rs6000/aix52.h rs6000/xcoff.h"
+	tmake_file=rs6000/t-aix52
 	use_collect2=yes
 	thread_file='aix'
 	extra_headers=
@@ -2609,7 +2623,8 @@ vax-*-sysv*)			# VAXen running system V
 	xm_defines=POSIX
 	;;
 vax-*-netbsdelf*)
-	echo "GCC does not yet support the ${machine} target"; exit 1
+	tm_file="${tm_file} elfos.h netbsd.h netbsd-elf.h vax/elf.h vax/netbsd-elf.h"
+	float_format=vax
 	;;
 vax-*-netbsd*)
 	tm_file="${tm_file} netbsd.h netbsd-aout.h vax/netbsd.h"
@@ -2624,8 +2639,8 @@ vax-*-ultrix*)			# VAXen running ultrix
 	tm_file="${tm_file} vax/ultrix.h"
 	;;
 vax-*-vms*)			# VAXen running VMS
-	xm_file=vax/xm-vms.h
-	tm_file=vax/vms.h
+	echo "Configuration $machine no longer supported" 1>&2
+	exit 1
 	;;
 vax-*-*)			# VAX default entry
 	;;
@@ -2825,6 +2840,11 @@ mips*-*-*)
 	case $machine in
 		mips*el-*-*)
 			tm_defines="TARGET_ENDIAN_DEFAULT=0 $tm_defines"
+			;;
+	esac
+	case $tm_file in
+		*mips/elf.h* | *mips/elf64.h*)
+			tm_defines="OBJECT_FORMAT_ELF $tm_defines"
 			;;
 	esac
 	if test "x$enable_gofast" = xyes

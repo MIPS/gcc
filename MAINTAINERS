@@ -119,7 +119,7 @@ caller-save.c		Jeff Law		law@redhat.com
 debugging code		Jim Wilson		wilson@redhat.com
 dwarf debugging code	Jason Merrill		jason@redhat.com
 c++ runtime libs	Paolo Carlini		pcarlini@unitus.it
-c++ runtime libs        Gabriel Dos Reis        dosreis@cmla.ens-cachan.fr
+c++ runtime libs        Gabriel Dos Reis        gdr@integrable-solutions.net
 c++ runtime libs	Ulrich Drepper		drepper@redhat.com
 c++ runtime libs	Phil Edwards		pme@gcc.gnu.org
 c++ runtime libs	Benjamin Kosnik		bkoz@redhat.com
@@ -130,7 +130,8 @@ fixincludes		Bruce Korb		bkorb@gnu.org
 gcse.c 			Jeff Law		law@redhat.com
 global opt framework	Jeff Law		law@redhat.com
 jump.c			David S. Miller		davem@redhat.com
-web pages		Gerald Pfeifer		pfeifer@dbai.tuwien.ac.at
+web pages co-maintainer	Gerald Pfeifer		pfeifer@dbai.tuwien.ac.at
+web pages co-maintainer	Janis Johnson		janis187@us.ibm.com
 config.sub/config.guess	Ben Elliston		config-patches@gnu.org
 basic block reordering	Jason Eckhardt		jle@rice.edu
 i18n			Philipp Thomas		pthomas@suse.de
@@ -145,6 +146,8 @@ docs co-maintainer	Gerald Pfeifer		pfeifer@dbai.tuwien.ac.at
 docs co-maintainer	Joseph Myers		jsm28@cam.ac.uk
 Pico-Java port		Steve Chamberlain	sac@transmeta.com
 RTEMS Ports		Joel Sherrill
+VxWorks	ports		Zack Weinberg		zack@codesourcery.com
+VxWorks	ports		Nathan Sidwell		nathan@codesourcery.com
 predict.def		Jan Hubicka		jh@suse.cz
 contrib/regression	Geoff Keating		geoffk@geoffk.org
 treelang                Tim Josling             tej@melbpc.org.au
@@ -168,6 +171,7 @@ Andrew Cagney					cagney@redhat.com
 Chandra Chavva					cchavva@redhat.com
 William Cohen					wcohen@redhat.com
 Chris Demetriou					cgd@broadcom.com
+Gabriel Dos Reis                                gdr@integrable-solutions.net
 *Paul Eggert					eggert@twinsun.com
 Steve Ellcey					sje@cup.hp.com
 Ben Elliston					bje@redhat.com
@@ -185,7 +189,6 @@ Manfred Hollstein				mhollstein@redhat.com
 Andreas Jaeger					aj@suse.de
 Jakub Jelinek					jakub@redhat.com
 Dale Johannesen 				dalej@apple.com
-Janis Johnson					janis187@us.ibm.com
 Klaus Kaempf					kkaempf@progis.de
 Brendan Kehoe					brendan@zen.org
 Mumit Khan					khan@xraylith.wisc.edu
@@ -220,10 +223,10 @@ Rainer Orth					ro@TechFak.Uni-Bielefeld.DE
 Devang Patel					dpatel@apple.com
 Nicola Pero					n.pero@mi.flashnet.it
 Alexandre Petit-Bianco				apbianco@redhat.com
+Sebastian Pop                                   s.pop@laposte.net
 Clinton Popetz					cpopetz@cpopetz.com
 Ken Raeburn					raeburn@redhat.com
 Rolf Rasmussen					rolfwr@gcc.gnu.org
-Gabriel Dos Reis                                dosreis@cmla.ens-cachan.fr
 Tom Rix						trix@redhat.com
 Craig Rodrigues					rodrigc@gcc.gnu.org
 Gavin Romig-Koch				gavin@redhat.com

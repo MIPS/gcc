@@ -4245,6 +4245,7 @@ cprop_insn (insn, alter_jumps)
 
 /* LIBCALL_SP is a zero-terminated array of insns at the end of a libcall;
    their REG_EQUAL notes need updating.  */
+
 static bool
 do_local_cprop (x, insn, alter_jumps, libcall_sp)
      rtx x;
@@ -4254,10 +4255,12 @@ do_local_cprop (x, insn, alter_jumps, libcall_sp)
 {
   rtx newreg = NULL, newcnst = NULL;
 
-  /* Rule out USE instructions and ASM statements as we don't want to change the hard registers mentioned.  */
+  /* Rule out USE instructions and ASM statements as we don't want to
+     change the hard registers mentioned.  */
   if (GET_CODE (x) == REG
       && (REGNO (x) >= FIRST_PSEUDO_REGISTER
-          || (GET_CODE (PATTERN (insn)) != USE && asm_noperands (PATTERN (insn)) < 0)))
+          || (GET_CODE (PATTERN (insn)) != USE
+	      && asm_noperands (PATTERN (insn)) < 0)))
     {
       cselib_val *val = cselib_lookup (x, GET_MODE (x), 0);
       struct elt_loc_list *l;

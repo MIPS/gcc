@@ -6534,7 +6534,7 @@ expand_expr (exp, target, tmode, modifier)
       }
 
     case PARM_DECL:
-      if (DECL_RTL (exp) == 0)
+      if (!DECL_RTL_SET_P (exp))
 	{
 	  error_with_decl (exp, "prior parameter's size depends on `%s'");
 	  return CONST0_RTX (mode);
@@ -7897,16 +7897,23 @@ expand_expr (exp, target, tmode, modifier)
 	    }
 	}
 
+      if (! safe_from_p (subtarget, TREE_OPERAND (exp, 1), 1))
+	subtarget = 0;
+
       /* No sense saving up arithmetic to be done
 	 if it's all in the wrong mode to form part of an address.
 	 And force_operand won't know whether to sign-extend or
 	 zero-extend.  */
       if ((modifier != EXPAND_SUM && modifier != EXPAND_INITIALIZER)
 	  || mode != ptr_mode)
-	goto binop;
-
-      if (! safe_from_p (subtarget, TREE_OPERAND (exp, 1), 1))
-	subtarget = 0;
+	{
+	  op0 = expand_expr (TREE_OPERAND (exp, 0), subtarget, VOIDmode, 0);
+	  op1 = expand_expr (TREE_OPERAND (exp, 1), NULL_RTX, VOIDmode, 0);
+	  temp = simplify_binary_operation (PLUS, mode, op0, op1);
+	  if (temp)
+	    return temp;
+	  goto binop2;
+	}
 
       op0 = expand_expr (TREE_OPERAND (exp, 0), subtarget, VOIDmode, modifier);
       op1 = expand_expr (TREE_OPERAND (exp, 1), NULL_RTX, VOIDmode, modifier);
@@ -10932,6 +10939,9 @@ do_tablejump (index, mode, range, table_label, default_label)
      enum machine_mode mode;
 {
   rtx temp, vector;
+
+  if (INTVAL (range) > cfun->max_jumptable_ents)
+    cfun->max_jumptable_ents = INTVAL (range);
 
   /* Do an unsigned comparison (in the proper mode) between the index
      expression and the value which represents the length of the range.

@@ -146,6 +146,12 @@ extern int target_flags;
 #define MASK_SIO 8192
 #define TARGET_SIO (target_flags & MASK_SIO)
 
+/* Assume GNU linker by default.  */
+#define MASK_GNU_LD 16384
+#ifndef TARGET_GNU_LD
+#define TARGET_GNU_LD (target_flags & MASK_GNU_LD)
+#endif
+
 #ifndef TARGET_PA_10
 #define TARGET_PA_10 (target_flags & (MASK_PA_11 | MASK_PA_20) == 0)
 #endif
@@ -890,9 +896,6 @@ struct hppa_args {int words, nargs_prototype, indirect; };
 extern GTY(()) rtx hppa_compare_op0;
 extern GTY(()) rtx hppa_compare_op1;
 extern enum cmp_type hppa_branch_type;
-
-#define ASM_OUTPUT_MI_THUNK(FILE, THUNK_FNDECL, DELTA, FUNCTION) \
-  pa_asm_output_mi_thunk (FILE, THUNK_FNDECL, DELTA, FUNCTION)
 
 /* On HPPA, we emit profiling code as rtl via PROFILE_HOOK rather than
    as assembly via FUNCTION_PROFILER.  Just output a local label.
@@ -1688,7 +1691,16 @@ do { 									\
    `assemble_name' uses this.  */
 
 #define ASM_OUTPUT_LABELREF(FILE,NAME)	\
-  fprintf ((FILE), "%s", (NAME) + (FUNCTION_NAME_P (NAME) ? 1 : 0))
+  do {					\
+    const char *xname = (NAME);		\
+    if (FUNCTION_NAME_P (NAME))		\
+      xname += 1;			\
+    if (xname[0] == '*')		\
+      xname += 1;			\
+    else				\
+      fputs (user_label_prefix, FILE);	\
+    fputs (xname, FILE);		\
+  } while (0)
 
 /* This is how to store into the string LABEL
    the symbol_ref name of an internal numbered label where

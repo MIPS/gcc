@@ -122,7 +122,7 @@
 
 ;; ??? Fix everything that tests this attribute.
 (define_attr "cpu"
-  "default,r3000,r3900,r6000,r4000,r4100,r4120,r4300,r4600,r4650,r5000,r5400,r5500,r8000,sr71000,r4kc,r5kc,r20kc"
+  "default,r3000,r3900,r6000,r4000,r4100,r4111,r4120,r4300,r4600,r4650,r5000,r5400,r5500,r8000,sr71000,r4kc,r5kc,r20kc"
   (const (symbol_ref "mips_cpu_attr")))
 
 ;; Does the instruction have a mandatory delay slot?
@@ -1900,6 +1900,8 @@
    (clobber (match_scratch:SI 6 "=a,a,a"))
    (clobber (match_scratch:SI 7 "=X,X,d"))]
   "(TARGET_MIPS3900
+   || TARGET_MIPS5400
+   || TARGET_MIPS5500
    || ISA_HAS_MADD_MSUB)
    && !TARGET_MIPS16"
   "*
@@ -1909,6 +1911,18 @@
     return \"#\";
   if (ISA_HAS_MADD_MSUB && which_alternative != 0)
     return \"#\";
+
+  if (TARGET_MIPS5400)
+    return macc[which_alternative];
+
+  if (TARGET_MIPS5500)
+    {
+      if (which_alternative == 0)
+        return madd[0];
+      else
+        return macc[which_alternative];
+    }
+
   return madd[which_alternative];
 }"
   [(set_attr "type"	"imadd,imadd,multi")

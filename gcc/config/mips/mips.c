@@ -660,6 +660,9 @@ const struct mips_cpu_info mips_cpu_info_table[] = {
 #undef TARGET_ENCODE_SECTION_INFO
 #define TARGET_ENCODE_SECTION_INFO mips_encode_section_info
 
+#undef TARGET_VALID_POINTER_MODE
+#define TARGET_VALID_POINTER_MODE mips_valid_pointer_mode
+
 struct gcc_target targetm = TARGET_INITIALIZER;
 
 /* Return truth value of whether OP can be used as an operands
@@ -814,8 +817,6 @@ mips_const_double_ok (op, mode)
      rtx op;
      enum machine_mode mode;
 {
-  REAL_VALUE_TYPE d;
-
   if (GET_CODE (op) != CONST_DOUBLE)
     return 0;
 
@@ -5786,12 +5787,10 @@ print_operand (file, op, letter)
   else if (code == CONST_DOUBLE
 	   && GET_MODE_CLASS (GET_MODE (op)) == MODE_FLOAT)
     {
-      REAL_VALUE_TYPE d;
-      char s[30];
+      char s[60];
 
-      REAL_VALUE_FROM_CONST_DOUBLE (d, op);
-      REAL_VALUE_TO_DECIMAL (d, s, -1);
-      fprintf (file, s);
+      real_to_decimal (s, CONST_DOUBLE_REAL_VALUE (op), sizeof (s), 0, 1);
+      fputs (s, file);
     }
 
   else if (letter == 'x' && GET_CODE (op) == CONST_INT)
@@ -8446,6 +8445,14 @@ mips_class_max_nregs (class, mode)
   else
     return (GET_MODE_SIZE (mode) + UNITS_PER_WORD - 1) / UNITS_PER_WORD;
 }
+
+bool
+mips_valid_pointer_mode (mode)
+     enum machine_mode mode;
+{
+  return (mode == SImode || (TARGET_64BIT && mode == DImode));
+}
+
 
 /* For each mips16 function which refers to GP relative symbols, we
    use a pseudo register, initialized at the start of the function, to

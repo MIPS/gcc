@@ -787,6 +787,7 @@ extern const char * const reg_note_name[];
 #define NOTE_BASIC_BLOCK(INSN)	XCBBDEF (INSN, 4, NOTE)
 #define NOTE_EXPECTED_VALUE(INSN) XCEXP (INSN, 4, NOTE)
 #define NOTE_PREDICTION(INSN)   XCINT (INSN, 4, NOTE)
+#define NOTE_PRECONDITIONED(INSN)   XCINT (INSN, 4, NOTE)
 
 /* In a NOTE that is a line number, this is the line number.
    Other kinds of NOTEs are identified by negative numbers here.  */
@@ -1576,6 +1577,7 @@ extern rtx set_unique_reg_note		PARAMS ((rtx, enum reg_note, rtx));
 #define single_set_1(I) single_set_2 (I, PATTERN (I))
 
 extern int rtx_addr_can_trap_p		PARAMS ((rtx));
+extern bool nonzero_address_p		PARAMS ((rtx));
 extern int rtx_unstable_p		PARAMS ((rtx));
 extern int rtx_varies_p			PARAMS ((rtx, int));
 extern int rtx_addr_varies_p		PARAMS ((rtx, int));
@@ -1943,6 +1945,7 @@ extern int invert_jump_1		PARAMS ((rtx, rtx));
 extern int invert_jump			PARAMS ((rtx, rtx, int));
 extern int rtx_renumbered_equal_p	PARAMS ((rtx, rtx));
 extern int true_regnum			PARAMS ((rtx));
+extern unsigned int reg_or_subregno	PARAMS ((rtx));
 extern int redirect_jump_1		PARAMS ((rtx, rtx));
 extern int redirect_jump		PARAMS ((rtx, rtx, int));
 extern void rebuild_jump_labels		PARAMS ((rtx));
@@ -2267,4 +2270,38 @@ extern void invert_br_probabilities	PARAMS ((rtx));
 extern bool expensive_function_p	PARAMS ((int));
 /* In tracer.c */
 extern void tracer			PARAMS ((void));
+
+/* In calls.c */
+
+/* Nonzero if this is a call to a `const' function.  */
+#define ECF_CONST		1
+/* Nonzero if this is a call to a `volatile' function.  */
+#define ECF_NORETURN		2
+/* Nonzero if this is a call to malloc or a related function.  */
+#define ECF_MALLOC		4
+/* Nonzero if it is plausible that this is a call to alloca.  */
+#define ECF_MAY_BE_ALLOCA	8
+/* Nonzero if this is a call to a function that won't throw an exception.  */
+#define ECF_NOTHROW		16
+/* Nonzero if this is a call to setjmp or a related function.  */
+#define ECF_RETURNS_TWICE	32
+/* Nonzero if this is a call to `longjmp'.  */
+#define ECF_LONGJMP		64
+/* Nonzero if this is a syscall that makes a new process in the image of
+   the current one.  */
+#define ECF_FORK_OR_EXEC	128
+#define ECF_SIBCALL		256
+/* Nonzero if this is a call to "pure" function (like const function,
+   but may read memory.  */
+#define ECF_PURE		512
+/* Nonzero if this is a call to a function that returns with the stack
+   pointer depressed.  */
+#define ECF_SP_DEPRESSED	1024
+/* Nonzero if this call is known to always return.  */
+#define ECF_ALWAYS_RETURN	2048
+/* Create libcall block around the call.  */
+#define ECF_LIBCALL_BLOCK	4096
+
+extern int flags_from_decl_or_type 		PARAMS ((tree));
+
 #endif /* ! GCC_RTL_H */

@@ -1508,13 +1508,8 @@ dump_expr (t, flags)
       break;
 
     case REAL_CST:
-      {
-	const unsigned char *p = (const unsigned char *) &TREE_REAL_CST (t);
-	size_t i;
-	strcpy (digit_buffer, "0x");
-	for (i = 0; i < sizeof TREE_REAL_CST (t); i++)
-	  sprintf (digit_buffer + 2 + 2*i, "%02x", *p++);
-      }
+      real_to_decimal (digit_buffer, &TREE_REAL_CST (t),
+		       sizeof (digit_buffer), 0, 1);
       output_add_string (scratch_buffer, digit_buffer);
       break;
 

@@ -1,5 +1,3 @@
-// { dg-options "-w" }
-
 struct c0 { virtual void f (); };
 struct c1 : public c0 {};
 struct c2 : public c0 {};

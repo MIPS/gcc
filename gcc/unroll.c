@@ -1136,6 +1136,9 @@ unroll_loop (loop, insn_count, strength_reduce_p)
   /* And whether the loop has been preconditioned.  */
   loop_info->preconditioned = loop_preconditioned;
 
+  /* Remember whether it was preconditioned for the second loop pass. */
+  NOTE_PRECONDITIONED (loop->end) = loop_preconditioned;
+
   /* For each biv and giv, determine whether it can be safely split into
      a different variable for each unrolled copy of the loop body.
      We precalculate and save this info here, since computing it is
@@ -2033,6 +2036,13 @@ copy_loop_body (loop, copy_start, copy_end, map, exit_label, last_iteration,
 	  REG_NOTES (copy) = initial_reg_note_copy (REG_NOTES (insn), map);
 	  INSN_SCOPE (copy) = INSN_SCOPE (insn);
 
+	  /* If there is a REG_EQUAL note present whose value
+	     is not loop invariant, then delete it, since it
+	     may cause problems with later optimization passes.  */
+	  if ((tem = find_reg_note (copy, REG_EQUAL, NULL_RTX))
+	      && !loop_invariant_p (loop, XEXP (tem, 0)))
+	    remove_note (copy, tem);
+
 #ifdef HAVE_cc0
 	  /* If this insn is setting CC0, it may need to look at
 	     the insn that uses CC0 to see what type of insn it is.
@@ -2822,7 +2832,7 @@ find_splittable_givs (loop, bl, unroll_type, increment, unroll_number)
 		  value = tem;
 		}
 
-	      splittable_regs[REGNO (v->new_reg)] = value;
+	      splittable_regs[reg_or_subregno (v->new_reg)] = value;
 	    }
 	  else
 	    continue;
@@ -2856,7 +2866,7 @@ find_splittable_givs (loop, bl, unroll_type, increment, unroll_number)
 	  if (! v->ignore)
 	    count = REG_IV_CLASS (ivs, REGNO (v->src_reg))->biv_count;
 
-	  splittable_regs_updates[REGNO (v->new_reg)] = count;
+	  splittable_regs_updates[reg_or_subregno (v->new_reg)] = count;
 	}
 
       result++;
@@ -3309,7 +3319,7 @@ loop_iterations (loop)
      accidentally get the branch for a contained loop if the branch for this
      loop was deleted.  We can only trust branches immediately before the
      loop_end.  */
-  last_loop_insn = prev_nonnote_insn (loop->end);
+  last_loop_insn = PREV_INSN (loop->end);
 
   /* ??? We should probably try harder to find the jump insn
      at the end of the loop.  The following code assumes that

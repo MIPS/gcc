@@ -108,6 +108,7 @@ static void store_reg PARAMS ((int, int, int));
 static void store_reg_modify PARAMS ((int, int, int));
 static void load_reg PARAMS ((int, int, int));
 static void set_reg_plus_d PARAMS ((int, int, int, int));
+static void pa_output_function_prologue PARAMS ((FILE *, HOST_WIDE_INT));
 static void pa_output_function_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
 static int pa_adjust_cost PARAMS ((rtx, rtx, rtx, int));
 static int pa_adjust_priority PARAMS ((rtx, int));
@@ -119,6 +120,8 @@ static const char *pa_strip_name_encoding PARAMS ((const char *));
 static bool pa_function_ok_for_sibcall PARAMS ((tree, tree));
 static void pa_globalize_label PARAMS ((FILE *, const char *))
      ATTRIBUTE_UNUSED;
+static void pa_asm_output_mi_thunk PARAMS ((FILE *, tree, HOST_WIDE_INT, tree));
+
 
 /* Save the operands last given to a compare for use when we
    generate a scc or bcc insn.  */
@@ -197,6 +200,9 @@ static size_t n_deferred_plabels = 0;
 
 #undef TARGET_FUNCTION_OK_FOR_SIBCALL
 #define TARGET_FUNCTION_OK_FOR_SIBCALL pa_function_ok_for_sibcall
+
+#undef TARGET_ASM_OUTPUT_MI_THUNK
+#define TARGET_ASM_OUTPUT_MI_THUNK pa_asm_output_mi_thunk
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -3152,7 +3158,7 @@ compute_frame_size (size, fregs_live)
    to do a "save" insn.  The decision about whether or not
    to do this is made in regclass.c.  */
 
-void
+static void
 pa_output_function_prologue (file, size)
      FILE *file;
      HOST_WIDE_INT size ATTRIBUTE_UNUSED;
@@ -6491,11 +6497,6 @@ hppa_encode_label (sym)
   char *newstr, *p;
 
   p = newstr = alloca (len + 1);
-  if (str[0] == '*')
-    {
-      str++;
-      len--;
-    }
   *p++ = '@';
   strcpy (p, str);
 
@@ -6527,7 +6528,9 @@ static const char *
 pa_strip_name_encoding (str)
      const char *str;
 {
-  return str + (*str == '*' || *str == '@');
+  str += (*str == '@');
+  str += (*str == '*');
+  return str;
 }
 
 int
@@ -6556,7 +6559,7 @@ is_function_label_plus_const (op)
 
 /* Output assembly code for a thunk to FUNCTION.  */
 
-void
+static void
 pa_asm_output_mi_thunk (file, thunk_fndecl, delta, function)
      FILE *file;
      tree thunk_fndecl;

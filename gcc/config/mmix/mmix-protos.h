@@ -78,7 +78,6 @@ extern void mmix_asm_output_aligned_local
   PARAMS ((FILE *, const char *, int, int));
 extern void mmix_asm_declare_register_global
   PARAMS ((FILE *, tree, int, const char *));
-extern void mmix_asm_output_mi_thunk PARAMS ((FILE *, tree, int, tree));
 
 /* Need tree.h and rtl.h */
 # ifdef RTX_CODE

@@ -83,6 +83,9 @@ public final class URL implements Serializable
    * @param handler The stream handler for the URL
    *
    * @exception MalformedURLException If an error occurs
+   * @exception SecurityException If  a security manager exists and its
+   * checkPermission method doesn't allow specifying a stream handler
+   * explicitly
    *
    * @since 1.2
    */
@@ -95,14 +98,9 @@ public final class URL implements Serializable
 
     if (handler != null)
       {
-	// TODO12: Need SecurityManager.checkPermission and
-	// TODO12: java.net.NetPermission from JDK 1.2 to be implemented.
-	// Throw an exception if an extant security mgr precludes
-	// specifying a StreamHandler.
-	//
-	// SecurityManager s = System.getSecurityManager();
-	// if (s != null)
-	//   s.checkPermission(NetPermission("specifyStreamHandler"));
+	SecurityManager s = System.getSecurityManager ();
+	if (s != null)
+	  s.checkPermission (new NetPermission ("specifyStreamHandler"));
 
         this.handler = handler;
       }
@@ -166,6 +164,9 @@ public final class URL implements Serializable
    * @param handler The stream handler for the URL
    *
    * @exception MalformedURLException If an error occurs
+   * @exception SecurityException If  a security manager exists and its
+   * checkPermission method doesn't allow specifying a stream handler
+   * explicitly
    * 
    * @since 1.2
    */
@@ -228,14 +229,9 @@ public final class URL implements Serializable
 
     if (handler != null)
       {
-	// TODO12: Need SecurityManager.checkPermission and
-	// TODO12: java.net.NetPermission from JDK 1.2 to be implemented.
-	// Throw an exception if an extant security mgr precludes
-	// specifying a StreamHandler.
-	//
-	// SecurityManager s = System.getSecurityManager();
-	// if (s != null)
-	//   s.checkPermission(NetPermission("specifyStreamHandler"));
+	SecurityManager s = System.getSecurityManager ();
+	if (s != null)
+	  s.checkPermission (new NetPermission ("specifyStreamHandler"));
 
         this.handler = handler;
       }
@@ -264,34 +260,31 @@ public final class URL implements Serializable
       return false;
 
     URL uObj = (URL) obj;
-    
-    // This comparison is very conservative.  It assumes that any
-    // field can be null.
-    return (port == uObj.port
-	    && ((protocol == null && uObj.protocol == null)
-		|| (protocol != null && protocol.equals(uObj.protocol)))
-	    && ((userInfo == null && uObj.userInfo == null)
-                || (userInfo != null && userInfo.equals(uObj.userInfo)))
-	    && ((authority == null && uObj.authority == null)
-                || (authority != null && authority.equals(uObj.authority)))
-	    && ((host == null && uObj.host == null)
-		|| (host != null && host.equals(uObj.host)))
-	    && ((file == null && uObj.file == null)
-		|| (file != null && file.equals(uObj.file)))
-	    && ((query == null && uObj.query == null)
-                || (query != null && query.equals(uObj.query)))
-	    && ((ref == null && uObj.ref == null)
-		|| (ref != null && ref.equals(uObj.ref))));
+
+    return handler.equals (this, uObj);
   }
 
   /**
    * Gets the contents of this URL
+   *
+   * @exception IOException If an error occurs
    *
    * @since 1.3
    */
   public final Object getContent() throws IOException
   {
     return openConnection().getContent();
+  }
+
+  /**
+   * Gets the contents of this URL
+   *
+   * @exception IOException If an error occurs
+   */
+  public final Object getContent (Class[] classes) throws IOException
+  {
+    // FIXME: implement this
+    return getContent();
   }
 
   public String getFile()
@@ -366,6 +359,14 @@ public final class URL implements Serializable
     return at < 0 ? null : host.substring(0, at);
   }
 
+  /**
+   * Returns the query of the URL
+   */
+  public String getQuery ()
+  {
+    return query;
+  }
+
   public int hashCode()
   {
     // JCL book says this is computed using (only) the hashcodes of the 
@@ -385,15 +386,26 @@ public final class URL implements Serializable
     if (hashCode != 0)
       return hashCode;		// Use cached value if available.
     else
-      return (protocol.hashCode() + ((host == null) ? 0 : host.hashCode()) +
-	port + file.hashCode());
+      return handler.hashCode (this);
   }
 
+  /**
+   * Returns a URLConnection object that represents a connection to the remote
+   * object referred to by the URL
+   *
+   * @exception IOException If an error occurs
+   */
   public URLConnection openConnection() throws IOException
   {
     return handler.openConnection(this);
   }
 
+  /**
+   * Opens a connection to this URL and returns an InputStream for reading
+   * from that connection
+   *
+   * @exception IOException If an error occurs
+   */
   public final InputStream openStream() throws IOException
   {
     return openConnection().getInputStream();
@@ -458,6 +470,13 @@ public final class URL implements Serializable
     hashCode = hashCode();			// Used for serialization.
   }
 
+  /**
+   * Sets an application's URLStreamHandlerFactory
+   *
+   * @exception Error If the application has already set a factory
+   * @exception SecurityException If a security manager exists and its
+   * checkSetFactory method doesn't allow the operation
+   */
   public static synchronized void
 	setURLStreamHandlerFactory(URLStreamHandlerFactory fac)
   {

@@ -151,7 +151,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #define LOOP_REGNO_NREGS(REGNO, SET_DEST) \
 ((REGNO) < FIRST_PSEUDO_REGISTER \
- ? HARD_REGNO_NREGS ((REGNO), GET_MODE (SET_DEST)) : 1)
+ ? (int) HARD_REGNO_NREGS ((REGNO), GET_MODE (SET_DEST)) : 1)
 
 
 /* Vector mapping INSN_UIDs to luids.
@@ -936,7 +936,7 @@ scan_loop (loop, flags)
 		  m->savings = regs->array[regno].n_times_set;
 		  if (find_reg_note (p, REG_RETVAL, NULL_RTX))
 		    m->savings += libcall_benefit (p);
-		  for (i = 0; i < (int) LOOP_REGNO_NREGS (regno, SET_DEST (set)); i++)
+		  for (i = 0; i < LOOP_REGNO_NREGS (regno, SET_DEST (set)); i++)
 		    regs->array[regno+i].set_in_loop = move_insn ? -2 : -1;
 		  /* Add M to the end of the chain MOVABLES.  */
 		  loop_movables_add (movables, m);
@@ -1040,7 +1040,7 @@ scan_loop (loop, flags)
 		      m->lifetime = LOOP_REG_LIFETIME (loop, regno);
 		      m->savings = 1;
 		      for (i = 0;
-			   i < (int) LOOP_REGNO_NREGS (regno, SET_DEST (set));
+			   i < LOOP_REGNO_NREGS (regno, SET_DEST (set));
 			   i++)
 			regs->array[regno+i].set_in_loop = -1;
 		      /* Add M to the end of the chain MOVABLES.  */
@@ -2183,7 +2183,7 @@ move_movables (loop, movables, threshold, insn_count)
 	      if (! m->partial)
 		{
 		  int i;
-		  for (i = 0; i < (int) LOOP_REGNO_NREGS (regno, m->set_dest); i++)
+		  for (i = 0; i < LOOP_REGNO_NREGS (regno, m->set_dest); i++)
 		    regs->array[regno+i].set_in_loop = 0;
 		}
 
@@ -2248,7 +2248,7 @@ move_movables (loop, movables, threshold, insn_count)
 			{
 			  int i;
 			  for (i = 0;
-			       i < (int) LOOP_REGNO_NREGS (regno, m1->set_dest);
+			       i < LOOP_REGNO_NREGS (regno, m1->set_dest);
 			       i++)
 			    regs->array[m1->regno+i].set_in_loop = 0;
 			}
@@ -2465,7 +2465,8 @@ prescan_loop (loop)
   loop_info->first_loop_store_insn = NULL_RTX;
   loop_info->mems_idx = 0;
   loop_info->num_mem_sets = 0;
-
+  /* If loop opts run twice, this was set on 1st pass for 2nd. */
+  loop_info->preconditioned = NOTE_PRECONDITIONED (end);
 
   for (insn = start; insn && GET_CODE (insn) != CODE_LABEL;
        insn = PREV_INSN (insn))
@@ -3508,7 +3509,7 @@ count_one_set (regs, insn, x, last_set)
 	{
 	  int i;
 	  int regno = REGNO (dest);
-	  for (i = 0; i < (int) LOOP_REGNO_NREGS (regno, dest); i++)
+	  for (i = 0; i < LOOP_REGNO_NREGS (regno, dest); i++)
 	    {
 	      /* If this is the first setting of this reg
 		 in current basic block, and it was set before,
@@ -9661,6 +9662,25 @@ loop_regs_scan (loop, extra_size)
 
       if (GET_CODE (insn) == CODE_LABEL || GET_CODE (insn) == JUMP_INSN)
 	memset (last_set, 0, regs->num * sizeof (rtx));
+
+      /* Invalidate all registers used for function argument passing.
+	 We check rtx_varies_p for the same reason as below, to allow
+	 optimizing PIC calculations.  */
+      if (GET_CODE (insn) == CALL_INSN)
+	{
+	  rtx link;
+	  for (link = CALL_INSN_FUNCTION_USAGE (insn); 
+	       link; 
+	       link = XEXP (link, 1))
+	    {
+	      rtx op, reg;
+
+	      if (GET_CODE (op = XEXP (link, 0)) == USE
+		  && GET_CODE (reg = XEXP (op, 0)) == REG
+		  && rtx_varies_p (reg, 1))
+		regs->array[REGNO (reg)].may_not_optimize = 1;
+	    }
+	}
     }
 
   /* Invalidate all hard registers clobbered by calls.  With one exception:

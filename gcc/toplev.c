@@ -375,11 +375,6 @@ int profile_flag = 0;
 
 int profile_arc_flag = 0;
 
-/* Nonzero if we should not attempt to generate thread-safe
-   code to profile program flow graph arcs.  */
-
-int flag_unsafe_profile_arcs = 0;
-
 /* Nonzero if generating info for gcov to calculate line test coverage.  */
 
 int flag_test_coverage = 0;
@@ -863,19 +858,10 @@ int flag_peephole2 = 0;
 /* This will try to guess branch probabilities.  */
 int flag_guess_branch_prob = 0;
 
-/* -fbounded-pointers causes gcc to compile pointers as composite
-   objects occupying three words: the pointer value, the base address
-   of the referent object, and the address immediately beyond the end
-   of the referent object.  The base and extent allow us to perform
-   runtime bounds checking.  -fbounded-pointers implies -fcheck-bounds.  */
-int flag_bounded_pointers = 0;
-
 /* -fcheck-bounds causes gcc to generate array bounds checks.
-   For C, C++: defaults to value of flag_bounded_pointers.
-   For ObjC: defaults to off.
+   For C, C++, ObjC: defaults to off.
    For Java: defaults to on.
-   For Fortran: defaults to off.
-   For CHILL: defaults to off.  */
+   For Fortran: defaults to off.  */
 int flag_bounds_check = 0;
 
 /* This will attempt to merge constant section constants, if 1 only
@@ -911,6 +897,10 @@ int align_labels_log;
 int align_labels_max_skip;
 int align_functions;
 int align_functions_log;
+
+/* Like align_functions_log above, but used by front-ends to force the
+   minimum function alignment.  Zero means no alignment is forced.  */
+int force_align_functions_log;
 
 /* Table of supported debugging formats.  */
 static const struct
@@ -1100,8 +1090,6 @@ static const lang_independent_options f_options[] =
    N_("Support synchronous non-call exceptions") },
   {"profile-arcs", &profile_arc_flag, 1,
    N_("Insert arc based program profiling code") },
-  {"unsafe-profile-arcs", &flag_unsafe_profile_arcs, 1,
-   N_("Avoid thread safety profiling overhead") },
   {"test-coverage", &flag_test_coverage, 1,
    N_("Create data files needed by gcov") },
   {"branch-probabilities", &flag_branch_probabilities, 1,
@@ -1186,10 +1174,8 @@ static const lang_independent_options f_options[] =
    N_("Allow math optimizations that may violate IEEE or ANSI standards") },
   {"signaling-nans", &flag_signaling_nans, 1,
    N_("Disable optimizations observable by IEEE signaling NaNs") },
-  {"bounded-pointers", &flag_bounded_pointers, 1,
-   N_("Compile pointers as triples: value, base & end") },
   {"bounds-check", &flag_bounds_check, 1,
-   N_("Generate code to check bounds before dereferencing pointers and arrays") },
+   N_("Generate code to check bounds before indexing arrays") },
   {"single-precision-constant", &flag_single_precision_constant, 1,
    N_("Convert floating point constant to single precision constant") },
   {"time-report", &time_report, 1,
@@ -1507,6 +1493,11 @@ int warn_missing_noreturn;
 
 int warn_deprecated_decl = 1;
 
+/* Nonzero means warn about constructs which might not be
+   strict-aliasing safe.  */
+
+int warn_strict_aliasing;
+
 /* Likewise for -W.  */
 
 static const lang_independent_options W_options[] =
@@ -1552,7 +1543,9 @@ static const lang_independent_options W_options[] =
   {"deprecated-declarations", &warn_deprecated_decl, 1,
    N_("Warn about uses of __attribute__((deprecated)) declarations") },
   {"missing-noreturn", &warn_missing_noreturn, 1,
-   N_("Warn about functions which might be candidates for attribute noreturn") }
+   N_("Warn about functions which might be candidates for attribute noreturn") },
+  {"strict-aliasing", &warn_strict_aliasing, 1,
+   N_ ("Warn about code which might break the strict aliasing rules") }
 };
 
 void
@@ -2574,7 +2567,9 @@ rest_of_compilation (decl)
   delete_unreachable_blocks ();
 
   /* Turn NOTE_INSN_PREDICTIONs into branch predictions.  */
+  timevar_push (TV_BRANCH_PROB);
   note_prediction_to_br_prob ();
+  timevar_pop (TV_BRANCH_PROB);
 
   /* We may have potential sibling or tail recursion sites.  Select one
      (of possibly multiple) methods of performing the call.  */

@@ -119,7 +119,7 @@ static GTY ((if_marked ("type_hash_marked_p"), param_is (struct type_hash)))
 static void set_type_quals PARAMS ((tree, int));
 static void append_random_chars PARAMS ((char *));
 static int type_hash_eq PARAMS ((const void *, const void *));
-static unsigned int type_hash_hash PARAMS ((const void *));
+static hashval_t type_hash_hash PARAMS ((const void *));
 static void print_type_hash_statistics PARAMS((void));
 static void finish_vector_type PARAMS((tree));
 static tree make_vector PARAMS ((enum machine_mode, tree, int));
@@ -177,7 +177,7 @@ tree_size (node)
     case '1':  /* a unary arithmetic expression */
     case '2':  /* a binary arithmetic expression */
       return (sizeof (struct tree_exp)
-	      + (TREE_CODE_LENGTH (code) - 1) * sizeof (char *));
+	      + TREE_CODE_LENGTH (code) * sizeof (char *) - sizeof (char *));
 
     case 'c':  /* a constant */
       /* We can't use TREE_CODE_LENGTH for INTEGER_CST, since the number of
@@ -199,7 +199,7 @@ tree_size (node)
 	length = (sizeof (struct tree_common)
 		  + TREE_CODE_LENGTH (code) * sizeof (char *));
 	if (code == TREE_VEC)
-	  length += (TREE_VEC_LENGTH (node) - 1) * sizeof (char *);
+	  length += TREE_VEC_LENGTH (node) * sizeof (char *) - sizeof (char *);
 	return length;
       }
 
@@ -2894,7 +2894,7 @@ type_hash_eq (va, vb)
 
 /* Return the cached hash value.  */
 
-static unsigned int
+static hashval_t
 type_hash_hash (item)
      const void *item;
 {
@@ -3435,26 +3435,28 @@ compare_tree_int (t, u)
    (RECORD_TYPE, UNION_TYPE and ENUMERAL_TYPE nodes are
    constructed by language-dependent code, not here.)  */
 
-/* Construct, lay out and return the type of pointers to TO_TYPE.
-   If such a type has already been constructed, reuse it.  */
+/* Construct, lay out and return the type of pointers to TO_TYPE
+   with mode MODE. If such a type has already been constructed,
+   reuse it.  */
 
 tree
-build_pointer_type (to_type)
+build_pointer_type_for_mode (to_type, mode)
      tree to_type;
+     enum machine_mode mode;
 {
   tree t = TYPE_POINTER_TO (to_type);
 
   /* First, if we already have a type for pointers to TO_TYPE, use it.  */
-
-  if (t != 0)
+  if (t != 0 && mode == ptr_mode)
     return t;
 
-  /* We need a new one.  */
   t = make_node (POINTER_TYPE);
 
   TREE_TYPE (t) = to_type;
+  TYPE_MODE (t) = mode;
 
   /* Record this type as the pointer to TO_TYPE.  */
+  if (mode == ptr_mode)
   TYPE_POINTER_TO (to_type) = t;
 
   /* Lay out the type.  This function has many callers that are concerned
@@ -3465,30 +3467,53 @@ build_pointer_type (to_type)
   return t;
 }
 
-/* Build the node for the type of references-to-TO_TYPE.  */
+/* By default build pointers in ptr_mode.  */
 
 tree
-build_reference_type (to_type)
+build_pointer_type (to_type)
      tree to_type;
+{
+  return build_pointer_type_for_mode (to_type, ptr_mode);
+}
+
+/* Construct, lay out and return the type of references to TO_TYPE
+   with mode MODE. If such a type has already been constructed,
+   reuse it.  */
+
+tree
+build_reference_type_for_mode (to_type, mode)
+     tree to_type;
+     enum machine_mode mode;
 {
   tree t = TYPE_REFERENCE_TO (to_type);
 
   /* First, if we already have a type for pointers to TO_TYPE, use it.  */
-
-  if (t)
+  if (t != 0 && mode == ptr_mode)
     return t;
 
-  /* We need a new one.  */
   t = make_node (REFERENCE_TYPE);
 
   TREE_TYPE (t) = to_type;
+  TYPE_MODE (t) = mode;
 
   /* Record this type as the pointer to TO_TYPE.  */
+  if (mode == ptr_mode)
   TYPE_REFERENCE_TO (to_type) = t;
 
   layout_type (t);
 
   return t;
+}
+
+
+/* Build the node for the type of references-to-TO_TYPE by default
+   in ptr_mode.  */
+
+tree
+build_reference_type (to_type)
+     tree to_type;
+{
+  return build_reference_type_for_mode (to_type, ptr_mode);
 }
 
 /* Build a type that is compatible with t but has no cv quals anywhere
@@ -4673,6 +4698,8 @@ build_common_tree_nodes_2 (short_double)
 
   unsigned_V4SI_type_node
     = make_vector (V4SImode, unsigned_intSI_type_node, 1);
+  unsigned_V2HI_type_node
+    = make_vector (V2HImode, unsigned_intHI_type_node, 1);
   unsigned_V2SI_type_node
     = make_vector (V2SImode, unsigned_intSI_type_node, 1);
   unsigned_V2DI_type_node
@@ -4691,6 +4718,7 @@ build_common_tree_nodes_2 (short_double)
   V16SF_type_node = make_vector (V16SFmode, float_type_node, 0);
   V4SF_type_node = make_vector (V4SFmode, float_type_node, 0);
   V4SI_type_node = make_vector (V4SImode, intSI_type_node, 0);
+  V2HI_type_node = make_vector (V2HImode, intHI_type_node, 0);
   V2SI_type_node = make_vector (V2SImode, intSI_type_node, 0);
   V2DI_type_node = make_vector (V2DImode, intDI_type_node, 0);
   V4HI_type_node = make_vector (V4HImode, intHI_type_node, 0);

@@ -400,7 +400,7 @@ find_opt (input, lang_flag)
       md = (mn + mx) / 2;
 
       opt_len = cl_options[md].opt_len;
-      comp = memcmp (input, cl_options[md].opt_text, opt_len);
+      comp = strncmp (input, cl_options[md].opt_text, opt_len);
 
       if (comp < 0)
 	mx = md;
@@ -443,7 +443,7 @@ find_opt (input, lang_flag)
 	      for (md = md + 1; md < (size_t) N_OPTS; md++)
 		{
 		  opt_len = cl_options[md].opt_len;
-		  if (memcmp (input, cl_options[md].opt_text, opt_len))
+		  if (strncmp (input, cl_options[md].opt_text, opt_len))
 		    break;
 		  if (input[opt_len] == '\0')
 		    return md;
@@ -515,9 +515,6 @@ c_common_init_options (lang)
   warn_pointer_arith = (lang == clk_cplusplus);
   if (lang == clk_c)
     warn_sign_compare = -1;
-
-  /* Mark as "unspecified" (see c_common_post_options).  */
-  flag_bounds_check = -1;
 }
 
 /* Handle one command-line option in (argc, argv).
@@ -702,7 +699,8 @@ c_common_decode_option (argc, argv)
       warn_sequence_point = on;	/* Was C only.  */
       warn_sign_compare = on;	/* Was C++ only.  */
       warn_switch = on;
-
+      warn_strict_aliasing = on;
+      
       /* Only warn about unknown pragmas that are not in system
 	 headers.  */                                        
       warn_unknown_pragmas = on;
@@ -1372,10 +1370,6 @@ c_common_post_options ()
 	  flag_inline_functions = 0;
 	}
     }
-
-  /* If still "unspecified", make it match -fbounded-pointers.  */
-  if (flag_bounds_check == -1)
-    flag_bounds_check = flag_bounded_pointers;
 
   /* Special format checking options don't work without -Wformat; warn if
      they are used.  */

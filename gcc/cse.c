@@ -316,6 +316,10 @@ struct cse_reg_info
      reg_tick value, such expressions existing in the hash table are
      invalid.  */
   int reg_in_table;
+
+  /* The SUBREG that was set when REG_TICK was last incremented.  Set
+     to -1 if the last store was to the whole register, not a subreg.  */
+  unsigned int subreg_ticked;
 };
 
 /* A free list of cse_reg_info entries.  */
@@ -514,6 +518,11 @@ struct table_elt
 
 #define REG_IN_TABLE(N) ((GET_CSE_REG_INFO (N))->reg_in_table)
 
+/* Get the SUBREG set at the last increment to REG_TICK (-1 if not a
+   SUBREG).  */
+
+#define SUBREG_TICKED(N) ((GET_CSE_REG_INFO (N))->subreg_ticked)
+
 /* Get the quantity number for REG.  */
 
 #define REG_QTY(N) ((GET_CSE_REG_INFO (N))->reg_qty)
@@ -582,55 +591,7 @@ struct cse_basic_block_data
     } path[PATHLENGTH];
 };
 
-/* Nonzero if X has the form (PLUS frame-pointer integer).  We check for
-   virtual regs here because the simplify_*_operation routines are called
-   by integrate.c, which is called before virtual register instantiation.
-
-   ?!? FIXED_BASE_PLUS_P and NONZERO_BASE_PLUS_P need to move into
-   a header file so that their definitions can be shared with the
-   simplification routines in simplify-rtx.c.  Until then, do not
-   change these macros without also changing the copy in simplify-rtx.c.  */
-
-#define FIXED_BASE_PLUS_P(X)					\
-  ((X) == frame_pointer_rtx || (X) == hard_frame_pointer_rtx	\
-   || ((X) == arg_pointer_rtx && fixed_regs[ARG_POINTER_REGNUM])\
-   || (X) == virtual_stack_vars_rtx				\
-   || (X) == virtual_incoming_args_rtx				\
-   || (GET_CODE (X) == PLUS && GET_CODE (XEXP (X, 1)) == CONST_INT \
-       && (XEXP (X, 0) == frame_pointer_rtx			\
-	   || XEXP (X, 0) == hard_frame_pointer_rtx		\
-	   || ((X) == arg_pointer_rtx				\
-	       && fixed_regs[ARG_POINTER_REGNUM])		\
-	   || XEXP (X, 0) == virtual_stack_vars_rtx		\
-	   || XEXP (X, 0) == virtual_incoming_args_rtx))	\
-   || GET_CODE (X) == ADDRESSOF)
-
-/* Similar, but also allows reference to the stack pointer.
-
-   This used to include FIXED_BASE_PLUS_P, however, we can't assume that
-   arg_pointer_rtx by itself is nonzero, because on at least one machine,
-   the i960, the arg pointer is zero when it is unused.  */
-
-#define NONZERO_BASE_PLUS_P(X)					\
-  ((X) == frame_pointer_rtx || (X) == hard_frame_pointer_rtx	\
-   || (X) == virtual_stack_vars_rtx				\
-   || (X) == virtual_incoming_args_rtx				\
-   || (GET_CODE (X) == PLUS && GET_CODE (XEXP (X, 1)) == CONST_INT \
-       && (XEXP (X, 0) == frame_pointer_rtx			\
-	   || XEXP (X, 0) == hard_frame_pointer_rtx		\
-	   || ((X) == arg_pointer_rtx				\
-	       && fixed_regs[ARG_POINTER_REGNUM])		\
-	   || XEXP (X, 0) == virtual_stack_vars_rtx		\
-	   || XEXP (X, 0) == virtual_incoming_args_rtx))	\
-   || (X) == stack_pointer_rtx					\
-   || (X) == virtual_stack_dynamic_rtx				\
-   || (X) == virtual_outgoing_args_rtx				\
-   || (GET_CODE (X) == PLUS && GET_CODE (XEXP (X, 1)) == CONST_INT \
-       && (XEXP (X, 0) == stack_pointer_rtx			\
-	   || XEXP (X, 0) == virtual_stack_dynamic_rtx		\
-	   || XEXP (X, 0) == virtual_outgoing_args_rtx))	\
-   || GET_CODE (X) == ADDRESSOF)
-
+static bool fixed_base_plus_p	PARAMS ((rtx x));
 static int notreg_cost		PARAMS ((rtx, enum rtx_code));
 static int approx_reg_cost_1	PARAMS ((rtx *, void *));
 static int approx_reg_cost	PARAMS ((rtx));
@@ -693,6 +654,39 @@ static bool insn_live_p		PARAMS ((rtx, int *));
 static bool set_live_p		PARAMS ((rtx, rtx, int *));
 static bool dead_libcall_p	PARAMS ((rtx, int *));
 
+/* Nonzero if X has the form (PLUS frame-pointer integer).  We check for
+   virtual regs here because the simplify_*_operation routines are called
+   by integrate.c, which is called before virtual register instantiation.  */
+
+static bool
+fixed_base_plus_p (x)
+     rtx x;
+{
+  switch (GET_CODE (x))
+    {
+    case REG:
+      if (x == frame_pointer_rtx || x == hard_frame_pointer_rtx)
+	return true;
+      if (x == arg_pointer_rtx && fixed_regs[ARG_POINTER_REGNUM])
+	return true;
+      if (REGNO (x) >= FIRST_VIRTUAL_REGISTER
+	  && REGNO (x) <= LAST_VIRTUAL_REGISTER)
+	return true;
+      return false;
+
+    case PLUS:
+      if (GET_CODE (XEXP (x, 1)) != CONST_INT)
+	return false;
+      return fixed_base_plus_p (XEXP (x, 0));
+
+    case ADDRESSOF:
+      return true;
+
+    default:
+      return false;
+    }
+}
+
 /* Dump the expressions in the equivalence class indicated by CLASSP.
    This function is used only for debugging.  */
 void
@@ -957,6 +951,7 @@ get_cse_reg_info (regno)
       /* Initialize it.  */
       p->reg_tick = 1;
       p->reg_in_table = -1;
+      p->subreg_ticked = -1;
       p->reg_qty = regno;
       p->regno = regno;
       p->next = cse_reg_info_used_list;
@@ -1190,6 +1185,7 @@ mention_regs (x)
 	    remove_invalid_refs (i);
 
 	  REG_IN_TABLE (i) = REG_TICK (i);
+	  SUBREG_TICKED (i) = -1;
 	}
 
       return 0;
@@ -1205,17 +1201,20 @@ mention_regs (x)
 
       if (REG_IN_TABLE (i) >= 0 && REG_IN_TABLE (i) != REG_TICK (i))
 	{
-	  /* If reg_tick has been incremented more than once since
-	     reg_in_table was last set, that means that the entire
-	     register has been set before, so discard anything memorized
-	     for the entire register, including all SUBREG expressions.  */
-	  if (REG_IN_TABLE (i) != REG_TICK (i) - 1)
+	  /* If REG_IN_TABLE (i) differs from REG_TICK (i) by one, and
+	     the last store to this register really stored into this
+	     subreg, then remove the memory of this subreg.
+	     Otherwise, remove any memory of the entire register and
+	     all its subregs from the table.  */
+	  if (REG_TICK (i) - REG_IN_TABLE (i) > 1
+	      || SUBREG_TICKED (i) != REGNO (SUBREG_REG (x)))
 	    remove_invalid_refs (i);
 	  else
 	    remove_invalid_subreg_refs (i, SUBREG_BYTE (x), GET_MODE (x));
 	}
 
       REG_IN_TABLE (i) = REG_TICK (i);
+      SUBREG_TICKED (i) = REGNO (SUBREG_REG (x));
       return 0;
     }
 
@@ -1596,7 +1595,7 @@ insert (x, classp, hash, mode)
 		   || (GET_CODE (x) == REG
 		       && RTX_UNCHANGING_P (x)
 		       && REGNO (x) >= FIRST_PSEUDO_REGISTER)
-		   || FIXED_BASE_PLUS_P (x));
+		   || fixed_base_plus_p (x));
 
   if (table[hash])
     table[hash]->prev_same_hash = elt;
@@ -1860,6 +1859,7 @@ invalidate (x, full_mode)
 
 	delete_reg_equiv (regno);
 	REG_TICK (regno)++;
+	SUBREG_TICKED (regno) = -1;
 
 	if (regno >= FIRST_PSEUDO_REGISTER)
 	  {
@@ -1887,6 +1887,7 @@ invalidate (x, full_mode)
 		CLEAR_HARD_REG_BIT (hard_regs_in_table, rn);
 		delete_reg_equiv (rn);
 		REG_TICK (rn)++;
+		SUBREG_TICKED (rn) = -1;
 	      }
 
 	    if (in_table)
@@ -2092,7 +2093,10 @@ invalidate_for_call ()
       {
 	delete_reg_equiv (regno);
 	if (REG_TICK (regno) >= 0)
-	  REG_TICK (regno)++;
+	  {
+	    REG_TICK (regno)++;
+	    SUBREG_TICKED (regno) = -1;
+	  }
 
 	in_table |= (TEST_HARD_REG_BIT (hard_regs_in_table, regno) != 0);
       }
@@ -2358,10 +2362,9 @@ canon_hash (x, mode)
 	  do_not_record = 1;
 	  return 0;
 	}
-      if (! RTX_UNCHANGING_P (x) || FIXED_BASE_PLUS_P (XEXP (x, 0)))
-	{
-	  hash_arg_in_memory = 1;
-	}
+      if (! RTX_UNCHANGING_P (x) || fixed_base_plus_p (XEXP (x, 0)))
+	hash_arg_in_memory = 1;
+
       /* Now that we have already found this special case,
 	 might as well speed it up as much as possible.  */
       hash += (unsigned) MEM;
@@ -2379,7 +2382,7 @@ canon_hash (x, mode)
 	  hash += (unsigned) USE;
 	  x = XEXP (x, 0);
 
-	  if (! RTX_UNCHANGING_P (x) || FIXED_BASE_PLUS_P (XEXP (x, 0)))
+	  if (! RTX_UNCHANGING_P (x) || fixed_base_plus_p (XEXP (x, 0)))
 	    hash_arg_in_memory = 1;
 
 	  /* Now that we have already found this special case,
@@ -3256,9 +3259,10 @@ find_comparison_args (code, parg1, parg2, pmode1, pmode2)
 	      break;
 	    }
 
-	  /* If this is fp + constant, the equivalent is a better operand since
-	     it may let us predict the value of the comparison.  */
-	  else if (NONZERO_BASE_PLUS_P (p->exp))
+	  /* If this non-trapping address, e.g. fp + constant, the
+	     equivalent is a better operand since it may let us predict
+	     the value of the comparison.  */
+	  else if (!rtx_addr_can_trap_p (p->exp))
 	    {
 	      arg1 = p->exp;
 	      continue;
@@ -3959,17 +3963,10 @@ fold_rtx (x, insn)
 	     comparison.  */
 	  if (const_arg0 == 0 || const_arg1 == 0)
 	    {
-	      /* Is FOLDED_ARG0 frame-pointer plus a constant?  Or
-		 non-explicit constant?  These aren't zero, but we
-		 don't know their sign.  */
+	      /* Some addresses are known to be nonzero.  We don't know
+		 their sign, but equality comparisons are known.  */
 	      if (const_arg1 == const0_rtx
-		  && (NONZERO_BASE_PLUS_P (folded_arg0)
-#if 0  /* Sad to say, on sysvr4, #pragma weak can make a symbol address
-	  come out as 0.  */
-		      || GET_CODE (folded_arg0) == SYMBOL_REF
-#endif
-		      || GET_CODE (folded_arg0) == LABEL_REF
-		      || GET_CODE (folded_arg0) == CONST))
+		  && nonzero_address_p (folded_arg0))
 		{
 		  if (code == EQ)
 		    return false_rtx;
@@ -4211,7 +4208,7 @@ fold_rtx (x, insn)
 	from_plus:
 	case SMIN:    case SMAX:      case UMIN:    case UMAX:
 	case IOR:     case AND:       case XOR:
-	case MULT:    case DIV:       case UDIV:
+	case MULT:
 	case ASHIFT:  case LSHIFTRT:  case ASHIFTRT:
 	  /* If we have (<op> <reg> <const_int>) for an associative OP and REG
 	     is known to be of similar form, we may be able to replace the
@@ -4259,11 +4256,9 @@ fold_rtx (x, insn)
 		break;
 
 	      /* Compute the code used to compose the constants.  For example,
-		 A/C1/C2 is A/(C1 * C2), so if CODE == DIV, we want MULT.  */
+		 A-C1-C2 is A-(C1 + C2), so if CODE == MINUS, we want PLUS.  */
 
-	      associate_code
-		= (code == MULT || code == DIV || code == UDIV ? MULT
-		   : is_shift || code == PLUS || code == MINUS ? PLUS : code);
+	      associate_code = (is_shift || code == MINUS ? PLUS : code);
 
 	      new_const = simplify_binary_operation (associate_code, mode,
 						     const_arg1, inner_const);
@@ -4299,6 +4294,14 @@ fold_rtx (x, insn)
 
 	      return simplify_gen_binary (code, mode, y, new_const);
 	    }
+	  break;
+
+	case DIV:       case UDIV:
+	  /* ??? The associative optimization performed immediately above is
+	     also possible for DIV and UDIV using associate_code of MULT.
+	     However, we would need extra code to verify that the
+	     multiplication does not overflow, that is, there is no overflow
+	     in the calculation of new_const.  */
 	  break;
 
 	default:
@@ -6163,7 +6166,7 @@ cse_insn (insn, libcall_insn)
 
 	elt->in_memory = (GET_CODE (sets[i].inner_dest) == MEM
 			  && (! RTX_UNCHANGING_P (sets[i].inner_dest)
-			      || FIXED_BASE_PLUS_P (XEXP (sets[i].inner_dest,
+			      || fixed_base_plus_p (XEXP (sets[i].inner_dest,
 							  0))));
 
 	/* If we have (set (subreg:m1 (reg:m2 foo) 0) (bar:m1)), M1 is no
@@ -6399,7 +6402,11 @@ addr_affects_sp_p (addr)
       && REGNO (XEXP (addr, 0)) == STACK_POINTER_REGNUM)
     {
       if (REG_TICK (STACK_POINTER_REGNUM) >= 0)
-	REG_TICK (STACK_POINTER_REGNUM)++;
+	{
+	  REG_TICK (STACK_POINTER_REGNUM)++;
+	  /* Is it possible to use a subreg of SP?  */
+	  SUBREG_TICKED (STACK_POINTER_REGNUM) = -1;
+	}
 
       /* This should be *very* rare.  */
       if (TEST_HARD_REG_BIT (hard_regs_in_table, STACK_POINTER_REGNUM))
@@ -7580,7 +7587,9 @@ insn_live_p (insn, counts)
      int *counts;
 {
   int i;
-  if (GET_CODE (PATTERN (insn)) == SET)
+  if (flag_non_call_exceptions && may_trap_p (PATTERN (insn)))
+    return true;
+  else if (GET_CODE (PATTERN (insn)) == SET)
     return set_live_p (PATTERN (insn), insn, counts);
   else if (GET_CODE (PATTERN (insn)) == PARALLEL)
     {

@@ -39,41 +39,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 /* Simplification and canonicalization of RTL.  */
 
-/* Nonzero if X has the form (PLUS frame-pointer integer).  We check for
-   virtual regs here because the simplify_*_operation routines are called
-   by integrate.c, which is called before virtual register instantiation.
-
-   ?!? NONZERO_BASE_PLUS_P needs to move into
-   a header file so that their definitions can be shared with the
-   simplification routines in simplify-rtx.c.  Until then, do not
-   change this macro without also changing the copy in simplify-rtx.c.  */
-
-/* Allows reference to the stack pointer.
-
-   This used to include FIXED_BASE_PLUS_P, however, we can't assume that
-   arg_pointer_rtx by itself is nonzero, because on at least one machine,
-   the i960, the arg pointer is zero when it is unused.  */
-
-#define NONZERO_BASE_PLUS_P(X)					\
-  ((X) == frame_pointer_rtx || (X) == hard_frame_pointer_rtx	\
-   || (X) == virtual_stack_vars_rtx				\
-   || (X) == virtual_incoming_args_rtx				\
-   || (GET_CODE (X) == PLUS && GET_CODE (XEXP (X, 1)) == CONST_INT \
-       && (XEXP (X, 0) == frame_pointer_rtx			\
-	   || XEXP (X, 0) == hard_frame_pointer_rtx		\
-	   || ((X) == arg_pointer_rtx				\
-	       && fixed_regs[ARG_POINTER_REGNUM])		\
-	   || XEXP (X, 0) == virtual_stack_vars_rtx		\
-	   || XEXP (X, 0) == virtual_incoming_args_rtx))	\
-   || (X) == stack_pointer_rtx					\
-   || (X) == virtual_stack_dynamic_rtx				\
-   || (X) == virtual_outgoing_args_rtx				\
-   || (GET_CODE (X) == PLUS && GET_CODE (XEXP (X, 1)) == CONST_INT \
-       && (XEXP (X, 0) == stack_pointer_rtx			\
-	   || XEXP (X, 0) == virtual_stack_dynamic_rtx		\
-	   || XEXP (X, 0) == virtual_outgoing_args_rtx))	\
-   || GET_CODE (X) == ADDRESSOF)
-
 /* Much code operates on (low, high) pairs; the low value is an
    unsigned wide int, the high value a signed wide int.  We
    occasionally need to sign extend from low to high as if low were a
@@ -145,6 +110,9 @@ avoid_constant_pool_reference (x)
   if (GET_CODE (x) != MEM)
     return x;
   addr = XEXP (x, 0);
+
+  if (GET_CODE (addr) == LO_SUM)
+    addr = XEXP (addr, 1);
 
   if (GET_CODE (addr) != SYMBOL_REF
       || ! CONSTANT_POOL_ADDRESS_P (addr))
@@ -340,9 +308,22 @@ simplify_replace_rtx (x, old, new)
 	return replace_equiv_address_nv (x,
 					 simplify_replace_rtx (XEXP (x, 0),
 							       old, new));
+      else if (code == LO_SUM)
+	{
+	  rtx op0 = simplify_replace_rtx (XEXP (x, 0), old, new);
+	  rtx op1 = simplify_replace_rtx (XEXP (x, 1), old, new);
 
-      if (REG_P (x) && REG_P (old) && REGNO (x) == REGNO (old))
-	return new;
+	  /* (lo_sum (high x) x) -> x  */
+	  if (GET_CODE (op0) == HIGH && rtx_equal_p (XEXP (op0, 0), op1))
+	    return op1;
+
+	  return gen_rtx_LO_SUM (mode, op0, op1);
+	}
+      else if (code == REG)
+	{
+	  if (REG_P (old) && REGNO (x) == REGNO (old))
+	    return new;
+	}
 
       return x;
 
@@ -1328,6 +1309,7 @@ simplify_binary_operation (code, mode, op0, op1)
 
 	case ROTATERT:
 	case ROTATE:
+	case ASHIFTRT:
 	  /* Rotating ~0 always results in ~0.  */
 	  if (GET_CODE (trueop0) == CONST_INT && width <= HOST_BITS_PER_WIDE_INT
 	      && (unsigned HOST_WIDE_INT) INTVAL (trueop0) == GET_MODE_MASK (mode)
@@ -1337,7 +1319,6 @@ simplify_binary_operation (code, mode, op0, op1)
 	  /* ... fall through ...  */
 
 	case ASHIFT:
-	case ASHIFTRT:
 	case LSHIFTRT:
 	  if (trueop1 == const0_rtx)
 	    return op0;
@@ -2022,25 +2003,12 @@ simplify_relational_operation (code, mode, op0, op1)
       switch (code)
 	{
 	case EQ:
-	  /* References to the frame plus a constant or labels cannot
-	     be zero, but a SYMBOL_REF can due to #pragma weak.  */
-	  if (((NONZERO_BASE_PLUS_P (op0) && trueop1 == const0_rtx)
-	       || GET_CODE (trueop0) == LABEL_REF)
-#if FRAME_POINTER_REGNUM != ARG_POINTER_REGNUM
-	      /* On some machines, the ap reg can be 0 sometimes.  */
-	      && op0 != arg_pointer_rtx
-#endif
-		)
+	  if (trueop1 == const0_rtx && nonzero_address_p (op0))
 	    return const0_rtx;
 	  break;
 
 	case NE:
-	  if (((NONZERO_BASE_PLUS_P (op0) && trueop1 == const0_rtx)
-	       || GET_CODE (trueop0) == LABEL_REF)
-#if FRAME_POINTER_REGNUM != ARG_POINTER_REGNUM
-	      && op0 != arg_pointer_rtx
-#endif
-	      )
+	  if (trueop1 == const0_rtx && nonzero_address_p (op0))
 	    return const_true_rtx;
 	  break;
 

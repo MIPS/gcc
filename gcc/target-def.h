@@ -106,6 +106,14 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 # endif
 #endif
 
+#ifndef TARGET_ASM_OUTPUT_MI_THUNK
+#define TARGET_ASM_OUTPUT_MI_THUNK NULL
+#endif
+
+#ifndef TARGET_ASM_OUTPUT_MI_VCALL_THUNK
+#define TARGET_ASM_OUTPUT_MI_VCALL_THUNK NULL
+#endif
+
 #if defined(TARGET_ASM_CONSTRUCTOR) && defined(TARGET_ASM_DESTRUCTOR)
 #define TARGET_HAVE_CTORS_DTORS true
 #else
@@ -177,7 +185,9 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 			TARGET_ASM_SELECT_RTX_SECTION,		\
 			TARGET_ASM_UNIQUE_SECTION,		\
 			TARGET_ASM_CONSTRUCTOR,			\
-			TARGET_ASM_DESTRUCTOR}
+			TARGET_ASM_DESTRUCTOR,                  \
+                        TARGET_ASM_OUTPUT_MI_THUNK,             \
+                        TARGET_ASM_OUTPUT_MI_VCALL_THUNK }
 
 /* Scheduler hooks.  All of these default to null pointers, which
    haifa-sched.c looks for and handles.  */
@@ -243,6 +253,10 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #define TARGET_BINDS_LOCAL_P default_binds_local_p
 #endif
 
+#ifndef TARGET_VALID_POINTER_MODE
+#define TARGET_VALID_POINTER_MODE default_valid_pointer_mode
+#endif
+
 /* In hook.c.  */
 #define TARGET_CANNOT_MODIFY_JUMPS_P hook_void_bool_false
 #define TARGET_FUNCTION_OK_FOR_SIBCALL hook_tree_tree_bool_false
@@ -277,6 +291,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
   TARGET_BINDS_LOCAL_P,				\
   TARGET_ENCODE_SECTION_INFO,			\
   TARGET_STRIP_NAME_ENCODING,			\
+  TARGET_VALID_POINTER_MODE,                    \
   TARGET_HAVE_NAMED_SECTIONS,			\
   TARGET_HAVE_CTORS_DTORS,			\
   TARGET_HAVE_TLS,				\

@@ -55,6 +55,7 @@ do { \
 #undef LIB_SPEC
 #define LIB_SPEC \
   "%{shared: -lc} \
+   %{!static:-rpath-link %R/lib:%R/usr/lib} \
    %{!shared: %{pthread:-lthread} \
      %{profile:-lc_p} %{!profile: -lc}}"
 

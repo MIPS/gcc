@@ -68,6 +68,7 @@ static void m68k_svr3_asm_out_constructor PARAMS ((rtx, int));
 #ifdef HPUX_ASM
 static void m68k_hp320_internal_label PARAMS ((FILE *, const char *, unsigned long));
 #endif
+static void m68k_output_mi_thunk PARAMS ((FILE *, tree, HOST_WIDE_INT, tree));
 
 
 /* Alignment to use for loops and jumps */
@@ -129,6 +130,9 @@ int m68k_last_compare_had_fp_operands;
 #define  TARGET_ASM_INTERNAL_LABEL m68k_hp320_internal_label
 #endif
 
+#undef TARGET_ASM_OUTPUT_MI_THUNK
+#define TARGET_ASM_OUTPUT_MI_THUNK m68k_output_mi_thunk
+
 struct gcc_target targetm = TARGET_INITIALIZER;
 
 /* Sometimes certain combinations of command options do not make
@@ -181,6 +185,27 @@ override_options ()
       else
 	m68k_align_funcs = i;
     }
+
+  /* -fPIC uses 32-bit pc-relative displacements, which don't exist
+     until the 68020.  */
+  if (! TARGET_68020 && flag_pic == 2)
+    error("-fPIC is not currently supported on the 68000 or 68010\n");
+
+  /* ??? A historic way of turning on pic, or is this intended to
+     be an embedded thing that doesn't have the same name binding
+     significance that it does on hosted ELF systems?  */
+  if (TARGET_PCREL && flag_pic == 0)
+    flag_pic = 1;
+
+  /* Turn off function cse if we are doing PIC.  We always want function call
+     to be done as `bsr foo@PLTPC', so it will force the assembler to create
+     the PLT entry for `foo'. Doing function cse will cause the address of
+     `foo' to be loaded into a register, which is exactly what we want to
+     avoid when we are doing PIC on svr4 m68k.  */
+  if (flag_pic)
+    flag_no_function_cse = 1;
+
+  SUBTARGET_OVERRIDE_OPTIONS;
 
   /* Tell the compiler which flavor of XFmode we're using.  */
   real_format_for_mode[XFmode - QFmode] = &ieee_extended_motorola_format;
@@ -3835,3 +3860,68 @@ m68k_hp320_internal_label (stream, prefix, labelno)
     fprintf (stream, "%s%ld:\n", prefix, labelno);
 }
 #endif
+
+static void
+m68k_output_mi_thunk (file, thunk, delta, function)
+     FILE *file;
+     tree thunk ATTRIBUTE_UNUSED;
+     HOST_WIDE_INT delta;
+     tree function;
+{
+  rtx xops[1];
+  const char *fmt;
+
+  if (delta > 0 && delta <= 8)
+    asm_fprintf (file, "\taddq.l %I%d,4(%Rsp)\n", (int) delta);
+  else if (delta < 0 && delta >= -8)
+    asm_fprintf (file, "\tsubq.l %I%d,4(%Rsp)\n", (int) -delta);
+  else
+    {
+      asm_fprintf (file, "\tadd.l %I");
+      fprintf (file, HOST_WIDE_INT_PRINT_DEC, delta);
+      asm_fprintf (file, ",4(%Rsp)\n");
+    }
+
+  xops[0] = DECL_RTL (function);
+
+  /* Logic taken from call patterns in m68k.md.  */
+  if (flag_pic)
+    {
+      if (TARGET_PCREL)
+	fmt = "bra.l %o0";
+      else
+	{
+#ifdef MOTOROLA
+#ifdef HPUX_ASM
+	  fmt = "bra.l %0";
+#else
+#ifdef USE_GAS
+	  fmt = "bra.l %0@PLTPC";
+#else
+	  fmt = "bra %0@PLTPC";
+#endif
+#endif
+#else
+#ifdef USE_GAS
+	  fmt = "bra.l %0";
+#else
+	  fmt = "jbra %0,a1";
+#endif
+#endif
+	}
+    }
+  else
+    {
+#if defined (MOTOROLA) && !defined (USE_GAS)
+#ifdef MOTOROLA_BSR
+      fmt = "bra %0";
+#else
+      fmt = "jmp %0";
+#endif
+#else
+      fmt = "jbra %0";
+#endif
+    }
+
+  output_asm_insn (fmt, xops);
+}

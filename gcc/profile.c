@@ -217,6 +217,8 @@ get_exec_counts ()
 			   2 = seen fn, 3 = seen prog summaries */
   unsigned magic, version;
   unsigned ix;
+  const char *name = IDENTIFIER_POINTER
+		      (DECL_ASSEMBLER_NAME (current_function_decl));
 
   profile_info.max_counter_in_program = 0;
   profile_info.count_profiles_merged = 0;
@@ -305,7 +307,7 @@ get_exec_counts ()
 	      || gcov_read_unsigned (da_file, &checksum))
 	    goto corrupt;
 	  
-	  if (strcmp (current_function_name, function_name_buffer))
+	  if (strcmp (name, function_name_buffer))
 	    ;
 	  else if (checksum != profile_info.current_function_cfg_checksum)
 	    {
@@ -755,6 +757,8 @@ branch_prob ()
   int i;
   int num_edges, ignored_edges;
   struct edge_list *el;
+  const char *name = IDENTIFIER_POINTER
+		      (DECL_ASSEMBLER_NAME (current_function_decl));
 
   profile_info.current_function_cfg_checksum = compute_checksum ();
 
@@ -913,8 +917,8 @@ branch_prob ()
       /* Announce function */
       if (gcov_write_unsigned (bbg_file, GCOV_TAG_FUNCTION)
 	  || !(offset = gcov_reserve_length (bbg_file))
-	  || gcov_write_string (bbg_file, current_function_name,
-			     strlen (current_function_name))
+	  || gcov_write_string (bbg_file, name,
+			     strlen (name))
 	  || gcov_write_unsigned (bbg_file,
 			    profile_info.current_function_cfg_checksum)
 	  || gcov_write_length (bbg_file, offset))
@@ -1061,7 +1065,7 @@ branch_prob ()
       functions_tail = &item->next;
       
       item->next = 0;
-      item->name = xstrdup (current_function_name);
+      item->name = xstrdup (name);
       item->cfg_checksum = profile_info.current_function_cfg_checksum;
       item->count_edges = profile_info.count_edges_instrumented_now;
     }
@@ -1354,7 +1358,7 @@ create_profiler ()
 
   /* Version ident */
   fields = build_decl (FIELD_DECL, NULL_TREE, long_unsigned_type_node);
-  value = tree_cons (fields, convert (unsigned_type_node, build_int_2
+  value = tree_cons (fields, convert (long_unsigned_type_node, build_int_2
 				      (GCOV_VERSION, 0)), value);
       
   /* NULL */
@@ -1394,7 +1398,9 @@ create_profiler ()
   field = build_decl (FIELD_DECL, NULL_TREE, long_integer_type_node);
   TREE_CHAIN (field) = fields;
   fields = field;
-  value = tree_cons (fields, integer_zero_node, value);
+  value = tree_cons (fields,
+		     convert (long_integer_type_node, integer_zero_node),
+		     value);
       
   /* function_info table */
   {

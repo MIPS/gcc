@@ -4519,7 +4519,8 @@ while (0)
 #define MIPS_UNMARK_STAB(code) ((code)-CODE_MASK)
 
 
-/* Default definitions for size_t and ptrdiff_t.  */
+/* Default definitions for size_t and ptrdiff_t.  We must override the
+   definitions from ../svr4.h on mips-*-linux-gnu.  */
 
 #ifndef SIZE_TYPE
 #define SIZE_TYPE (POINTER_SIZE == 64 ? "long unsigned int" : "unsigned int")

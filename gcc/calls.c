@@ -148,35 +148,6 @@ int stack_arg_under_construction;
 static int calls_function	PARAMS ((tree, int));
 static int calls_function_1	PARAMS ((tree, int));
 
-/* Nonzero if this is a call to a `const' function.  */
-#define ECF_CONST		1
-/* Nonzero if this is a call to a `volatile' function.  */
-#define ECF_NORETURN		2
-/* Nonzero if this is a call to malloc or a related function.  */
-#define ECF_MALLOC		4
-/* Nonzero if it is plausible that this is a call to alloca.  */
-#define ECF_MAY_BE_ALLOCA	8
-/* Nonzero if this is a call to a function that won't throw an exception.  */
-#define ECF_NOTHROW		16
-/* Nonzero if this is a call to setjmp or a related function.  */
-#define ECF_RETURNS_TWICE	32
-/* Nonzero if this is a call to `longjmp'.  */
-#define ECF_LONGJMP		64
-/* Nonzero if this is a syscall that makes a new process in the image of
-   the current one.  */
-#define ECF_FORK_OR_EXEC	128
-#define ECF_SIBCALL		256
-/* Nonzero if this is a call to "pure" function (like const function,
-   but may read memory.  */
-#define ECF_PURE		512
-/* Nonzero if this is a call to a function that returns with the stack
-   pointer depressed.  */
-#define ECF_SP_DEPRESSED	1024
-/* Nonzero if this call is known to always return.  */
-#define ECF_ALWAYS_RETURN	2048
-/* Create libcall block around the call.  */
-#define ECF_LIBCALL_BLOCK	4096
-
 static void emit_call_1		PARAMS ((rtx, tree, tree, HOST_WIDE_INT,
 					 HOST_WIDE_INT, HOST_WIDE_INT, rtx,
 					 rtx, int, rtx, int,
@@ -213,7 +184,6 @@ static rtx emit_library_call_value_1 		PARAMS ((int, rtx, rtx,
 							 enum machine_mode,
 							 int, va_list));
 static int special_function_p			PARAMS ((tree, int));
-static int flags_from_decl_or_type 		PARAMS ((tree));
 static rtx try_to_integrate			PARAMS ((tree, tree, rtx,
 							 int, tree, rtx));
 static int check_sibcall_argument_overlap_1	PARAMS ((rtx));
@@ -797,7 +767,7 @@ setjmp_call_p (fndecl)
 
 /* Detect flags (function attributes) from the function decl or type node.  */
 
-static int
+int
 flags_from_decl_or_type (exp)
      tree exp;
 {
@@ -871,6 +841,12 @@ precompute_register_parameters (num_actuals, args, reg_parm_seen)
 	       but PCC has one, so this will avoid some problems.  */
 	    emit_queue ();
 	  }
+
+	/* If the value is a non-legitimate constant, force it into a
+	   pseudo now.  TLS symbols sometimes need a call to resolve.  */
+	if (CONSTANT_P (args[i].value)
+	    && !LEGITIMATE_CONSTANT_P (args[i].value))
+	  args[i].value = force_reg (args[i].mode, args[i].value);
 
 	/* If we are to promote the function arg to a wider mode,
 	   do it now.  */
@@ -2442,9 +2418,10 @@ expand_call (exp, target, ignore)
       /* Check whether the target is able to optimize the call
 	 into a sibcall.  */
       || !(*targetm.function_ok_for_sibcall) (fndecl, exp)
-      || (flags & (ECF_RETURNS_TWICE | ECF_LONGJMP))
-      /* Functions that do not return may not be sibcall optimized.  */
-      || TYPE_VOLATILE (TREE_TYPE (TREE_OPERAND (exp, 0)))
+      /* Functions that do not return exactly once may not be sibcall
+         optimized.  */
+      || (flags & (ECF_RETURNS_TWICE | ECF_LONGJMP | ECF_NORETURN))
+      || TYPE_VOLATILE (TREE_TYPE (TREE_TYPE (TREE_OPERAND (exp, 0))))
       /* If this function requires more stack slots than the current
 	 function, we cannot change it into a sibling call.  */
       || args_size.constant > current_function_args_size

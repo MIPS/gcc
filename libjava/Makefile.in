@@ -1,6 +1,6 @@
-# Makefile.in generated automatically by automake 1.4-p5 from Makefile.am
+# Makefile.in generated automatically by automake 1.4 from Makefile.am
 
-# Copyright (C) 1994, 1995-8, 1999, 2001 Free Software Foundation, Inc.
+# Copyright (C) 1994, 1995-8, 1999 Free Software Foundation, Inc.
 # This Makefile.in is free software; the Free Software Foundation
 # gives unlimited permission to copy and/or distribute it,
 # with or without modifications, as long as this notice is preserved.
@@ -609,10 +609,12 @@ java/awt/Robot.java \
 java/awt/ScrollPaneAdjustable.java \
 java/awt/Stroke.java \
 java/awt/TexturePaint.java \
+java/awt/dnd/peer/DragSourceContextPeer.java \
+java/awt/dnd/peer/DropTargetContextPeer.java \
 java/awt/dnd/DnDConstants.java \
 java/awt/dnd/DragGestureEvent.java \
 java/awt/dnd/DragGestureListener.java \
-java/awt/dnd/DragGestureRecognizer.java \
+java/awt/dnd/DragGestureRecognizer.java	\
 java/awt/dnd/DragSource.java \
 java/awt/dnd/DragSourceAdapter.java \
 java/awt/dnd/DragSourceContext.java \
@@ -622,7 +624,15 @@ java/awt/dnd/DragSourceListener.java \
 java/awt/dnd/DragSourceMotionListener.java \
 java/awt/dnd/DropTarget.java \
 java/awt/dnd/InvalidDnDOperationException.java \
-java/awt/dnd/peer/DragSourceContextPeer.java \
+java/awt/dnd/Autoscroll.java \
+java/awt/dnd/DragSourceDropEvent.java \
+java/awt/dnd/DropTargetAdapter.java \
+java/awt/dnd/DropTargetContext.java \
+java/awt/dnd/DropTargetDragEvent.java \
+java/awt/dnd/DropTargetDropEvent.java \
+java/awt/dnd/DropTargetEvent.java \
+java/awt/dnd/DropTargetListener.java \
+java/awt/dnd/MouseDragGestureRecognizer.java \
 java/awt/font/TextHitInfo.java \
 java/awt/im/spi/InputMethod.java \
 java/awt/im/spi/InputMethodContext.java \
@@ -1042,6 +1052,8 @@ java/rmi/server/SocketSecurityException.java \
 java/rmi/server/UID.java \
 java/rmi/server/UnicastRemoteObject.java \
 java/rmi/server/Unreferenced.java \
+gnu/java/rmi/RMIMarshalledObjectInputStream.java \
+gnu/java/rmi/RMIMarshalledObjectOutputStream.java \
 gnu/java/rmi/dgc/DGCImpl.java \
 gnu/java/rmi/dgc/DGCImpl_Skel.java \
 gnu/java/rmi/dgc/DGCImpl_Stub.java \
@@ -1053,6 +1065,7 @@ gnu/java/rmi/rmic/Compiler.java	\
 gnu/java/rmi/rmic/CompilerProcess.java \
 gnu/java/rmi/rmic/RMIC.java \
 gnu/java/rmi/rmic/TabbedWriter.java \
+gnu/java/rmi/server/ConnectionRunnerPool.java \
 gnu/java/rmi/server/ProtocolConstants.java \
 gnu/java/rmi/server/RMIDefaultSocketFactory.java \
 gnu/java/rmi/server/RMIHashes.java \
@@ -1659,6 +1672,8 @@ java/net/DatagramSocketImplFactory.java \
 java/net/FileNameMap.java \
 java/net/HttpURLConnection.java	\
 java/net/InetAddress.java \
+java/net/Inet4Address.java \
+java/net/Inet6Address.java \
 java/net/InetSocketAddress.java \
 java/net/JarURLConnection.java \
 java/net/MalformedURLException.java \
@@ -1680,6 +1695,7 @@ java/net/SocketImplFactory.java	\
 java/net/SocketOptions.java \
 java/net/SocketPermission.java \
 java/net/SocketTimeoutException.java \
+java/net/URI.java \
 java/net/URISyntaxException.java \
 java/net/URL.java \
 java/net/URLClassLoader.java \
@@ -1690,11 +1706,29 @@ java/net/URLStreamHandler.java \
 java/net/URLStreamHandlerFactory.java \
 java/net/UnknownHostException.java \
 java/net/UnknownServiceException.java \
+java/nio/Buffer.java \
+java/nio/ByteBuffer.java \
+java/nio/MappedByteBuffer.java \
+java/nio/channels/AlreadyConnectedException.java \
+java/nio/channels/ByteChannel.java \
+java/nio/channels/Channel.java \
+java/nio/channels/ClosedChannelException.java \
 java/nio/channels/DatagramChannel.java \
+java/nio/channels/GatheringByteChannel.java \
 java/nio/channels/IllegalBlockingModeException.java \
+java/nio/channels/InterruptibleChannel.java \
+java/nio/channels/ReadableByteChannel.java \
+java/nio/channels/ScatteringByteChannel.java \
 java/nio/channels/ServerSocketChannel.java \
 java/nio/channels/SocketChannel.java \
+java/nio/channels/WritableByteChannel.java \
 java/nio/channels/spi/AbstractSelectableChannel.java \
+java/nio/charset/CharacterCodingException.java \
+java/nio/charset/IllegalCharsetNameException.java \
+java/nio/charset/MalformedInputException.java \
+java/nio/charset/UnmappableCharacterException.java \
+java/nio/charset/UnsupportedCharsetException.java \
+java/nio/charset/spi/CharsetProvider.java \
 java/security/AccessControlContext.java \
 java/security/AccessControlException.java \
 java/security/AccessController.java \
@@ -2462,8 +2496,10 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/gnu/java/locale/LocaleInformation_zh_HK.P \
 .deps/gnu/java/locale/LocaleInformation_zh_SG.P \
 .deps/gnu/java/locale/LocaleInformation_zh_TW.P \
-.deps/gnu/java/math/MPN.P .deps/gnu/java/rmi/dgc/DGCImpl.P \
-.deps/gnu/java/rmi/dgc/DGCImpl_Skel.P \
+.deps/gnu/java/math/MPN.P \
+.deps/gnu/java/rmi/RMIMarshalledObjectInputStream.P \
+.deps/gnu/java/rmi/RMIMarshalledObjectOutputStream.P \
+.deps/gnu/java/rmi/dgc/DGCImpl.P .deps/gnu/java/rmi/dgc/DGCImpl_Skel.P \
 .deps/gnu/java/rmi/dgc/DGCImpl_Stub.P \
 .deps/gnu/java/rmi/registry/RegistryImpl.P \
 .deps/gnu/java/rmi/registry/RegistryImpl_Skel.P \
@@ -2472,6 +2508,7 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/gnu/java/rmi/rmic/Compiler.P \
 .deps/gnu/java/rmi/rmic/CompilerProcess.P \
 .deps/gnu/java/rmi/rmic/RMIC.P .deps/gnu/java/rmi/rmic/TabbedWriter.P \
+.deps/gnu/java/rmi/server/ConnectionRunnerPool.P \
 .deps/gnu/java/rmi/server/ProtocolConstants.P \
 .deps/gnu/java/rmi/server/RMIDefaultSocketFactory.P \
 .deps/gnu/java/rmi/server/RMIHashes.P \
@@ -2574,18 +2611,27 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/java/awt/datatransfer/SystemFlavorMap.P \
 .deps/java/awt/datatransfer/Transferable.P \
 .deps/java/awt/datatransfer/UnsupportedFlavorException.P \
-.deps/java/awt/dnd/DnDConstants.P .deps/java/awt/dnd/DragGestureEvent.P \
+.deps/java/awt/dnd/Autoscroll.P .deps/java/awt/dnd/DnDConstants.P \
+.deps/java/awt/dnd/DragGestureEvent.P \
 .deps/java/awt/dnd/DragGestureListener.P \
 .deps/java/awt/dnd/DragGestureRecognizer.P \
 .deps/java/awt/dnd/DragSource.P .deps/java/awt/dnd/DragSourceAdapter.P \
 .deps/java/awt/dnd/DragSourceContext.P \
 .deps/java/awt/dnd/DragSourceDragEvent.P \
+.deps/java/awt/dnd/DragSourceDropEvent.P \
 .deps/java/awt/dnd/DragSourceEvent.P \
 .deps/java/awt/dnd/DragSourceListener.P \
 .deps/java/awt/dnd/DragSourceMotionListener.P \
-.deps/java/awt/dnd/DropTarget.P \
+.deps/java/awt/dnd/DropTarget.P .deps/java/awt/dnd/DropTargetAdapter.P \
+.deps/java/awt/dnd/DropTargetContext.P \
+.deps/java/awt/dnd/DropTargetDragEvent.P \
+.deps/java/awt/dnd/DropTargetDropEvent.P \
+.deps/java/awt/dnd/DropTargetEvent.P \
+.deps/java/awt/dnd/DropTargetListener.P \
 .deps/java/awt/dnd/InvalidDnDOperationException.P \
+.deps/java/awt/dnd/MouseDragGestureRecognizer.P \
 .deps/java/awt/dnd/peer/DragSourceContextPeer.P \
+.deps/java/awt/dnd/peer/DropTargetContextPeer.P \
 .deps/java/awt/event/AWTEventListener.P \
 .deps/java/awt/event/AWTEventListenerProxy.P \
 .deps/java/awt/event/ActionEvent.P \
@@ -2887,7 +2933,8 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/java/net/DatagramPacket.P .deps/java/net/DatagramSocket.P \
 .deps/java/net/DatagramSocketImpl.P \
 .deps/java/net/DatagramSocketImplFactory.P .deps/java/net/FileNameMap.P \
-.deps/java/net/HttpURLConnection.P .deps/java/net/InetAddress.P \
+.deps/java/net/HttpURLConnection.P .deps/java/net/Inet4Address.P \
+.deps/java/net/Inet6Address.P .deps/java/net/InetAddress.P \
 .deps/java/net/InetSocketAddress.P .deps/java/net/JarURLConnection.P \
 .deps/java/net/MalformedURLException.P .deps/java/net/MulticastSocket.P \
 .deps/java/net/NetPermission.P .deps/java/net/NetworkInterface.P \
@@ -2901,7 +2948,7 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/java/net/SocketException.P .deps/java/net/SocketImpl.P \
 .deps/java/net/SocketImplFactory.P .deps/java/net/SocketOptions.P \
 .deps/java/net/SocketPermission.P \
-.deps/java/net/SocketTimeoutException.P \
+.deps/java/net/SocketTimeoutException.P .deps/java/net/URI.P \
 .deps/java/net/URISyntaxException.P .deps/java/net/URL.P \
 .deps/java/net/URLClassLoader.P .deps/java/net/URLConnection.P \
 .deps/java/net/URLDecoder.P .deps/java/net/URLEncoder.P \
@@ -2911,12 +2958,27 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/java/net/UnknownServiceException.P \
 .deps/java/net/natInetAddress.P .deps/java/net/natNetworkInterface.P \
 .deps/java/net/natPlainDatagramSocketImpl.P \
-.deps/java/net/natPlainSocketImpl.P \
+.deps/java/net/natPlainSocketImpl.P .deps/java/nio/Buffer.P \
+.deps/java/nio/ByteBuffer.P .deps/java/nio/MappedByteBuffer.P \
+.deps/java/nio/channels/AlreadyConnectedException.P \
+.deps/java/nio/channels/ByteChannel.P .deps/java/nio/channels/Channel.P \
+.deps/java/nio/channels/ClosedChannelException.P \
 .deps/java/nio/channels/DatagramChannel.P \
+.deps/java/nio/channels/GatheringByteChannel.P \
 .deps/java/nio/channels/IllegalBlockingModeException.P \
+.deps/java/nio/channels/InterruptibleChannel.P \
+.deps/java/nio/channels/ReadableByteChannel.P \
+.deps/java/nio/channels/ScatteringByteChannel.P \
 .deps/java/nio/channels/ServerSocketChannel.P \
 .deps/java/nio/channels/SocketChannel.P \
+.deps/java/nio/channels/WritableByteChannel.P \
 .deps/java/nio/channels/spi/AbstractSelectableChannel.P \
+.deps/java/nio/charset/CharacterCodingException.P \
+.deps/java/nio/charset/IllegalCharsetNameException.P \
+.deps/java/nio/charset/MalformedInputException.P \
+.deps/java/nio/charset/UnmappableCharacterException.P \
+.deps/java/nio/charset/UnsupportedCharsetException.P \
+.deps/java/nio/charset/spi/CharsetProvider.P \
 .deps/java/rmi/AccessException.P .deps/java/rmi/AlreadyBoundException.P \
 .deps/java/rmi/ConnectException.P .deps/java/rmi/ConnectIOException.P \
 .deps/java/rmi/MarshalException.P .deps/java/rmi/MarshalledObject.P \
@@ -3785,7 +3847,7 @@ maintainer-clean-recursive:
 	dot_seen=no; \
 	rev=''; list='$(SUBDIRS)'; for subdir in $$list; do \
 	  rev="$$subdir $$rev"; \
-	  test "$$subdir" != "." || dot_seen=yes; \
+	  test "$$subdir" = "." && dot_seen=yes; \
 	done; \
 	test "$$dot_seen" = "no" && rev=". $$rev"; \
 	target=`echo $@ | sed s/-recursive//`; \

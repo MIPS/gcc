@@ -128,6 +128,1420 @@
 	Use mips_emit_fcc_reload.
 	(reload_outcc): Duplicate reload_incc.
 
+2002-10-21  Richard Henderson  <rth@redhat.com>
+
+	* config/i386/i386.c (ix86_function_ok_for_sibcall): Look at
+	the function type, not the return type.
+
+2002-10-20  Zack Weinberg  <zack@codesourcery.com>
+
+	* config/i386/i386.c (ix86_function_ok_for_sibcall): Fix an
+	inverted test in the conditional determining the possibility
+	of sibcalls in PIC mode.
+
+2002-10-20  Richard Henderson  <rth@redhat.com>
+
+	* target.h (struct gcc_target): Line wrap.
+
+	* config/alpha/alpha.c (alpha_output_mi_thunk_osf): Static.
+	(TARGET_ASM_OUTPUT_MI_THUNK): Define here...
+	* config/alpha/alpha.h: ... not here.
+	* config/alpha/alpha-protos.h: Update.
+
+	* config/arm/arm.c, config/arm/arm.h, config/arm/arm-protos.h
+	config/cris/cris-protos.h, config/cris/cris.c, config/cris/cris.h,
+	config/frv/frv-protos.h, config/frv/frv.c, config/frv/frv.h,
+	config/i386/i386-protos.h, config/i386/i386.c, config/i386/openbsd.h,
+	config/i386/unix.h, config/i960/i960-protos.h, config/i960/i960.c,
+	config/i960/i960.h, config/ia64/ia64-protos.h, config/ia64/ia64.c,
+	config/ia64/ia64.h, config/m68k/linux.h, config/m68k/m68k-protos.h,
+	config/m68k/m68k.c, config/m68k/netbsd-elf.h, config/m68k/openbsd.h,
+	config/mmix/mmix-protos.h, config/mmix/mmix.c, config/mmix/mmix.h,
+	config/pa/pa-protos.h, config/pa/pa.c, config/pa/pa.h,
+	config/s390/s390-protos.h, config/s390/s390.c, config/s390/s390.h,
+	config/sparc/openbsd.h, config/sparc/sparc-protos.h,
+	config/sparc/sparc.c, config/sparc/sparc.h,
+	config/stormy16/stormy16-protos.h, config/stormy16/stormy16.c,
+	config/stormy16/stormy16.h: Similarly.
+
+	* config/m68k/m68k.c (m68k_output_mi_thunk): Replicate mnemonic
+	selection logic from call patterns.
+
+2002-10-20  Mark Mitchell  <mark@codesourcery.com>
+
+	* config/m68k/m68k.c (m68k_output_mi_thunk): Fix typo.
+
+2002-10-20  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	PR other/8202
+	* i386.c (ix86_init_mmx_sse_builtins, ix86_expand_builtin): Define and
+	expand __builtin_ia32_pslldqi128 and __builtin_ia32_psrldqi128.
+	* i386.h (IX86_BUILTIN_PSLLDQI128, IX86_BUILTIN_PSRLDQI128): New.
+	* xmmintrin.h (_mm_srli_si128, _mm_slli_si128): New.
+
+2002-10-20  Roger Sayle  <roger@eyesopen.com>
+
+	PR c/761
+	* toplev.c (flag_unsafe_profile_arcs): Remove.
+	(flag_bounded_pointers): Remove.
+	(flag_bounds_check): Correct comments.
+	(lang_independent_options): Remove -funsafe-profile-arcs and
+	-fbounded-pointers.  Correct -fbounds-check comments.
+
+	* flags.h: Correct flag_schedule_interblock comments.
+	(flag_bounded_pointers): Remove prototype.
+	(flag_bounds_check): Correct comments.
+
+	* c-opts.c (c_common_init_options): No need to mark
+	flag_bounds_check as unspecified.
+	(c_common_post_options): And no need to set it from
+	flag_bounded_pointers if its still unspecified.
+
+	* doc/invoke.texi: Fix some overfull hboxes in "make dvi".
+	Document --version, -feliminate-dwarf-2-dups, -fno-sched-interblock,
+	-fno-sched-spec, -fsched-spec-load, -fsched-spec-load-dangerous,
+	-fsched-verbose=n, -fno-branch-count-reg and -fbounds-check.
+
+Sat Oct 19 22:02:28 2002  Alexandre Oliva  <aoliva@redhat.com>
+	Angela Marie Thomas  <angela@releasedominatrix.com>
+	Brendan Kehoe  <brendan@zen.org>
+	Nick Clifton  <nickc@redhat.com>
+	Andrew Haley  <aph@redhat.com>
+
+	* configure.in (--with-sysroot): New.  Don't inhibit libc if
+	given.  AC_SUBST TARGET_SYSTEM_ROOT, TARGET_SYSTEM_ROOT_DEFINE
+	and CROSS_SYSTEM_HEADER_DIR.
+	* configure: Rebuilt.
+	* Makefile.in (CROSS_SYSTEM_HEADER_DIR): Set in configure.
+	(TARGET_SYSTEM_ROOT): New.
+	(DRIVER_DEFINES): Define CROSS_INCLUDE_DIR from
+	CROSS_SYSTEM_HEADER_DIR.
+	(install-gcc-tooldir): New target.
+	(stmp-fixinc): Do not create $(libsubdir), but rather bail out
+	if SYSTEM_HEADER_DIR does not exist and it's not the default
+	sys-include directory.
+	(deduced.h, stmp-fixproto): Quote SYSTEM_HEADER_DIR properly.
+	(install-mkheaders): Likewise.
+	* gcc.c (target_system_root): New variable.
+	(add_sysrooted_prefix): New function.
+	(process_command): Recompute run-time target_system_root from
+	gcc_exec_prefix, keeping it unchanged if the relocated sysroot
+	does not exist.
+	(do_spec_1): Process 'R' spec.
+	(main): Add md_exec_prefix to exec_prefixes regardless of
+	startfile_prefix_spec.  Use add_sysrooted_prefix for
+	startfile_prefixes, and don't skip the default ones when cross
+	compiling with sysroot enabled.  Removed unused case of
+	non-absolute standard_startfile_prefix.
+	* config/interix.h: Remove the only potential, yet disabled,
+	occurrence of non-absolute (empty) standard_startfile_prefix.
+	* config/sh/linux.h (LIB_SPEC): Add -rpath-link in non-static
+	linking.
+	* config/mips/linux.h (LIB_SPEC): Define as in sh/linux.h.
+	* doc/install.texi (--with-sysroot): Document.
+	(--with-headers, --with-libs): Deprecate.
+
+2002-10-19  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+	    Mark Mitchell  <mark@codesourcery.com>
+
+	* alpha-protos.h (alpha_output_mi_thunk_osf): Update signature to
+	match target.h.
+	* arm-protos.h, arm.c (arm_output_mi_thunk): Likewise.
+	* cris-protos.h, cris.c (cris_asm_output_mi_thunk): Likewise.
+	* frv-protos.h, frv.c (frv_asm_output_mi_thunk): Likewise.
+	* i386-protos.h, i386.c (x86_output_mi_vcall_thunk,
+	x86_output_mi_thunk): Likewise.
+	* i960-protos.h, i960.c (i960_output_mi_thunk): Likewise.
+	* ia64-protos.h, ia64.c (ia64_output_mi_thunk): Likewise.
+	* m68k-protos.h, m68k.c (m68k_output_mi_thunk): Likewise.
+	* mmix-protos.h, mmix.c (mmix_asm_output_mi_thunk): Likewise.
+	* rs6000-protos.h, rs6000.c (output_mi_thunk): Likewise.
+	* s390-protos.h, s390.c (s390_output_mi_thunk): Likewise.
+	* stormy16-protos.h, stormy16.c (xstormy16_asm_output_mi_thunk):
+	Likewise.
+	* vax-protos.h, vax.c (vax_output_mi_thunk): Likewise.
+
+	* target.h (gcc_target): Update output_mi_thunk and
+	output_mi_vcall_thunk to take a HOST_WIDE_INT delta and
+	vcall_index.
+
+	* config/alpha/alpha.c: Replace ASM_OUTPUT_MI_THUNK with
+	TARGET_ASM_OUTPUT_MI_THUNK in comments.
+	* config/alpha/vms.h (ASM_OUTPUT_MI_THUNK): Don't #undef it.
+	(TARGET_ASM_OUTPUT_MI_THUNK): #undef it.
+	* config/frv/frv.h (DEFAULT_VTABLE_THUNKS): Remove definition.
+	* config/i386/i386-protos.h (x86_output_mi_vcall_thunk): Update
+	signature.
+	* config/i386/i386.c (x86_output_mi_vcall_thunk): Likewise.
+	* config/i386/openbsd.h: Replace ASM_OUTPUT_MI_THUNK with
+	TARGET_ASM_OUTPUT_MI_THUNK in comments.
+	* config/i960/i960.h (ASM_OUTPUT_MI_THUNK): Don't define.
+	(TARGET_ASM_OUTPUT_MI_THUNK): Do define.
+	* config/m68k/openbsd.h: Replace ASM_OUTPUT_MI_THUNK with
+	TARGET_ASM_OUTPUT_MI_THUNK in comments.
+	* config/rs6000/rs6000.c (rs6000_ra_ever_killed): Remove #ifdef
+	ASM_OUTPUT_MI_THUNK and replace with check of targetm.
+
+	* doc/tm.texi (TARGET_ASM_OUTPUT_MI_THUNK): Update signature.
+	(TARGET_ASM_OUTPU_MI_VCALL_THUNK): Likewise.
+
+2002-10-19  Brad Lucier  <lucier@math.purdue.edu>
+
+	* real.c (do_add): Fix 0+0 sign corner case.
+	(do_divide): Fix Inf/0 corner case.
+
+Sun Oct 20 00:31:31 CEST 2002  Jan Hubicka  <jh@suse.cz>
+
+	* i386.c (classify_argument): Pass MMX arguments in memory
+	(ix86_expand_builtin): Expand proper address mode for cflush.
+	* i386.md (movdqa): Fix typo.
+	(sse2_cflush): Accept DImode addresses.
+
+	* xmmintrin.h (_mm_sqrt_sd): Accept two arguments.
+	(_mm_max_sd): Fix pasto.
+	(_mm_storeh_pd, _mm_storel_pd): Fix.
+
+	* i386.c (bdesc_comi): Fix to match specification.
+	(ix86_expand_sse_comi): Emit the comparison properly.
+	* i386.md (sse_comi, sse2_comi, sse_ucomi, sse2_ucomi):
+	Do not use comparison operator.
+	(vnmaskcmp): Fix template.
+
+	* xmmintrin.h (_mm_cvtps_pi16): Fix.
+
+2002-10-19  Sebastian Pop  <s.pop@laposte.net>
+
+	* dependence.c : Removed.
+	* Makefile.in : Remove dependence.o.
+
+Sat Oct 19 10:46:52 CEST 2002  Jan Hubicka  <jh@suse.cz>
+
+	* mmintrin.h (__m64): typedef it to v2si.
+	(_mm_cvtsi32_si64, _mm_cvtsi32_si64_mm_sll_pi16,
+	_mm_sll_pi32, _mm_sll_pi64, _mm_slli_pi64, _mm_sra_pi16,
+	_mm_sra_pi32, _mm_srl_pi16, _mm_srl_pi32, _mm_srl_pi64,
+	_mm_srli_pi64, _mm_and_si64, _mm_andnot_si64,
+	_mm_or_si64, _mm_xor_si64): Add neccesary casts.
+	* xmmintrin.h (_mm_setzero_si64): Likewise.
+
+	* i386.h (ALIGN_MODE_128): Update comment; add missing modes
+	(SSE_REG_MODE_P, MMX_REG_MODE_P): New macros.
+
+	PR target/7693
+	Patch by Shawn Wagner
+	* mmintrin.h: Replace pi64 by si64.
+
+2002-10-18  David Edelsohn  <edelsohn@gnu.org>
+
+	* rs6000.md (movdf_hardfloat32): Order alternatives consistently.
+	Use length of 4 not *.
+	(movdf_hardfloat64): Same.  Support DFmode moves to/from CTR/LR.
+	(movdf_softfloat64): Likewise.
+	(movdi_internal32): Use length of 4 not *.
+	(movti_power): Same.
+	(ctrsi, ctrdi): Same.
+
+2002-10-18  Zack Weinberg  <zack@codesourcery.com>
+
+	* c-decl.c (start_decl): Point users of the old initialized-
+	typedef extension at __typeof__.
+
+2002-10-18  Richard Henderson  <rth@redhat.com>
+
+	* real.c (cmp_significand_0, rtd_divmod, ten_to_mptwo): New.
+	(real_to_decimal): Re-implement using the logic from the
+	gcc 3.2 etoasc.  Comment heavily.
+	(div_significands): Simplify loop startup and comparison logic.
+
+2002-10-18  Mark Mitchell  <mark@codesourcery.com>
+
+	* target-def.h (TARGET_ASM_OUTPUT_MI_THUNK): Default to NULL.
+	(TARGET_ASM_OUTPUT_MI_VCALL_THUNK): Likewise.
+	(TARGET_ASM_OUT): Add them.
+	* target.h (asm_out): Add output_mi_thunk and
+	output_mi_vcall_thunk.
+	* config/alpha/alpha.h (ASM_OUTPUT_MI_THUNK): Rename to ...
+	(TARGET_ASM_OUTPUT_MI_THUNK): ... this.
+	* config/arm/arm-protos.h (arm_output_mi_thunk): Declare.
+	* config/arm/arm.c (arm_output_mi_thunk): Define.
+	* config/arm/arm.h (ASM_OUTPUT_MI_THUNK): Rename to ...
+	(TARGET_ASM_OUTPUT_MI_THUNK): ... this.
+	* config/cris/cris.h (ASM_OUTPUT_MI_THUNK): Rename to ...
+	(TARGET_ASM_OUTPUT_MI_THUNK): ... this.
+	* config/frv/frv.h (ASM_OUTPUT_MI_THUNK): Rename to ...
+	(TARGET_ASM_OUTPUT_MI_THUNK): ... this.
+	* config/i386/i386-protos.h (x86_output_mi_thunk): Adjust
+	prototype.
+	(x86_output_mi_vcall_thunk): Declare.
+	* config/i386/i386.c (override_options): Clear
+	output_mi_vcall_thunk in 64-bit mode.
+	(ix86_fntype_regparm): New function.
+	(ix86_return_pops_args): Use it.
+	(ia32_this_parameter): New function.
+	(x86_output_mi_vcall_thunk): New function.
+	(x86_output_mi_thunk): Use it
+	* config/i386/unix.h (TARGET_ASM_OUTPUT_MI_THUNK): Adjust.
+	(TARGET_ASM_OUTPUT_MI_VCALL_THUNK): Define.
+	* config/i960/i960-protos.h (i960_output_mi_thunk): Declare.
+	* config/i960/i960.c (i960_output_mi_thunk): New function.
+	* config/i960/i960.h (ASM_OUTPUT_MI_THUNK): Adjust.
+	* config/ia64/ia64-protos.h (ia64_output_mi_thunk): Declare.
+	* config/ia64/ia64.c (ia64_output_mi_thunk): Define.
+	* config/ia64/ia64.h (ASM_OUTPUT_MI_THUNK): Rename to ...
+	(TARGET_ASM_OUTPUT_MI_THUNK): ... this.
+	* config/m68k/m68k-protos.h (m68k_output_mi_thunk): New function.
+	* config/m68k/linux.h (ASM_OUTPUT_MI_THUNK): Rename to ...
+	(TARGET_ASM_OUTPUT_MI_THUNK): ... this.
+	* config/m68k/netbsd-elf.h (ASM_OUTPUT_MI_THUNK): Rename to ...
+	(TARGET_ASM_OUTPUT_MI_THUNK): ... this.
+	* config/mmix/mmix.h (ASM_OUTPUT_MI_THUNK): Rename to ...
+	(TARGET_ASM_OUTPUT_MI_THUNK): ... this.
+	* config/pa/pa.h (ASM_OUTPUT_MI_THUNK): Rename to ...
+	(TARGET_ASM_OUTPUT_MI_THUNK): ... this.
+	* config/rs6000/sysv4.h (ASM_OUTPUT_MI_THUNK): Rename to ...
+	(TARGET_ASM_OUTPUT_MI_THUNK): ... this.
+	* config/s390/s390-protos.h (s390_output_mi_thunk): Declare.
+	* config/s390/s390.c (s390_output_mi_thunk): Define.
+	* config/s390/s390.h (ASM_OUTPUT_MI_THUNK): Rename to ...
+	(TARGET_ASM_OUTPUT_MI_THUNK): ... this.
+	* config/sparc/sparc.h (ASM_OUTPUT_MI_THUNK): Rename to ...
+	(TARGET_ASM_OUTPUT_MI_THUNK): ... this.
+	* config/stormy16/stormy16.h (ASM_OUTPUT_MI_THUNK): Rename to ...
+	(TARGET_ASM_OUTPUT_MI_THUNK): ... this.
+	* config/vax/vax-protos.h (vax_output_mi_thunk): Declare.
+	* config/vax/vax.c (vax_output_mi_thunk): Define.
+	* config/vax/vax.h (ASM_OUTPUT_MI_THUNK): Rename to ...
+	(TARGET_ASM_OUTPUT_MI_THUNK): ... this.
+	* doc/tm.texi: Adjust documentation.
+
+2002-10-18  Jason Thorpe  <thorpej@wasabisystems.com>
+
+	* config/netbsd.h (NETBSD_ENABLE_EXECUTE_STACK): Define
+	__enable_execute_stack function.
+	* config/alpha/netbsd.h (TRANSFER_FROM_TRAMPOLINE): Define
+	as NETBSD_ENABLE_EXECUTE_STACK.
+	* config/i386/netbsd-elf.h (TRANSFER_FROM_TRAMPOLINE): Ditto.
+	* config/i386/netbsd.h (TRANSFER_FROM_TRAMPOLINE): Ditto.
+	* config/i386/netbsd64.h (TRANSFER_FROM_TRAMPOLINE): Ditto.
+	* config/sparc/netbsd-elf.h (TRANSFER_FROM_TRAMPOLINE): Ditto.
+	* config/sparc/netbsd.h (TRANSFER_FROM_TRAMPOLINE): Ditto.
+
+2002-10-18  Jason Thorpe  <thorpej@wasabisystems.com>
+
+	* config/i386/i386.c (x86_initialize_trampoline): Emit a call
+	to __enable_execute_stack with the address of the trampoline
+	if TRANSFER_FROM_TRAMPOLINE is defined.
+	* config/i386/i386.h (TARGET_64BIT): Expand to a compile-time
+	constant if building libgcc2.
+
+Thu Oct 17 17:40:05 CEST 2002  Jan Hubicka  <jh@suse.cz>
+
+	* i386.c (pentium4_cost): Fix according to Intel recommendations.
+	(ix86_memory_move_cost): Fix for 64bit compilation.
+
+2002-10-17  Roger Sayle  <roger@eyesopen.com>
+
+	* doc/c-tree.texi: Update description of COND_EXPR tree nodes.
+
+2002-10-17  Geoffrey Keating  <geoffk@apple.com>
+
+	* config/rs6000/rs6000.h (HARD_REGNO_MODE_OK): Allow arbitrary modes
+	in CTR/LR/MQ.
+	* config/rs6000/rs6000.md (movcc_internal1): Support CCmode moves
+	to/from CTR/LR/MQ.
+	(movsf_hardfloat): Support SFmode moves to/from CTR/LR/MQ.
+	(movsf_softfloat): Likewise.
+
+2002-10-17  Janis Johnson  <janis187@us.ibm.com>
+
+	* Makefile.in (site.exp): Add ALT_CXX_UNDER_TEST and COMPAT_OPTIONS.
+
+2002-10-17  Jason Thorpe  <thorpej@wasabisystems.com>
+
+	* config/alpha/alpha.c (alpha_initialize_trampoline): Use
+	tramp, not addr, to pass the trampoline address to
+	__enable_execute_stack.
+
+Thu Oct 17 18:40:47 CEST 2002  Jan Hubicka  <jh@suse.cz>
+
+	* mmintrin.h: Guard by __MMX__
+	* xmmintrin.h: Guard by __SSE__
+
+	PR other/8062
+	* xmmintrin.h (_MM_SHUFFLE2): New macro.
+	(_mm_load*_?d): New functions.
+	(_mm_set*_?d): New functions.
+	(_mm_store*_?d): New functions.
+
+Wed Oct 16 15:01:29 CEST 2002  Jan Hubicka  <jh@suse.cz>
+
+	Really commit patch announced at Oct 14
+	PR c/7344
+	* predict.c (can_predict_insn_p): New function.
+	(estimate_probability): Avoid unnecesary work.
+	(process_note_prediction): Likewise.
+	* toplev.c (rest_of_compilation): Account early branch prediction pass
+	as TV_BRANCH_PROB.
+
+	PR other/8048
+	Found by Ian Ollmann
+	* xmmintrin.h (_mm_shuffle_pd): Fix typo.
+	(_mm_load?_pd): Likewise.
+	(_mm_store?_pd): Likewise.
+
+	PR target/7386
+	* i386.c (builtin_description):Drop cmpg[te]s[sd].
+	* xmmintrin.h (__mm_cmpg[te]_s[sd]): Rewrite using
+	swapped alternative.
+
+	PR opt/7630
+	* reload1.c (reload_inner_reg_of_subreg): New argument output;
+	(push_reload): Update call.
+
+2002-10-17  Richard Sandiford  <rsandifo@redhat.com>
+
+	* config.gcc (mips*-*-*): Add OBJECT_FORMAT_ELF to $tm_defines
+	if using mips/elf.h or mips/elf64.h.
+	* config/mips/elf.h (OBJECT_FORMAT_ELF): Remove.
+	* config/mips/elf64.h (OBJECT_FORMAT_ELF): Remove.
+
+2002-10-16  Aldy Hernandez  <aldyh@redhat.com>
+
+	* config/rs6000/rs6000.c (function_arg): Set inner mode of V1DI to
+	SI.
+
+2002-10-16  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* config/s390/linux.h (ASM_DOUBLE, _ASM_OUTPUT_LONG): Remove.
+	(LPREFIX): Likewise.
+	(ASM_COMMENT_START, LOCAL_LABEL_PREFIX, ASM_FORMAT_PRIVATE_NAME,
+	ASM_OUTPUT_ADDR_VEC_ELT, ASM_OUTPUT_ADDR_DIFF_ELT,
+	ASM_OUTPUT_ALIGN, ASM_OUTPUT_SKIP, ASM_OUTPUT_ALIGNED_BSS,
+	TEXT_SECTION_ASM_OP, DATA_SECTION_ASM_OP, BSS_SECTION_ASM_OP,
+	GLOBAL_ASM_OP, ASM_OUTPUT_MI_THUNK): Move to s390.h.
+
+	* config/s390/s390.h (ASM_COMMENT_START, LOCAL_LABEL_PREFIX,
+	ASM_FORMAT_PRIVATE_NAME, ASM_OUTPUT_ALIGN, ASM_OUTPUT_SKIP,
+	ASM_OUTPUT_ALIGNED_BSS, TEXT_SECTION_ASM_OP, DATA_SECTION_ASM_OP,
+	BSS_SECTION_ASM_OP): Move from linux.h.
+	(ASM_OUTPUT_ADDR_VEC_ELT, ASM_OUTPUT_ADDR_DIFF_ELT): Likewise.
+	Also, use ASM_GENERATE_INTERNAL_LABEL instead of LPREFIX.
+
+	* config/s390/s390.c (s390_function_profiler): Use
+	ASM_GENERATE_INTERNAL_LABEL instead of LPREFIX.
+
+2002-10-15  Eric Christopher  <echristo@redhat.com>
+
+	* stor-layout.c (layout_type): Call GET_MODE_BITSIZE once.
+	* java/parse.y (obtain_incomplete_type): Make pointer
+	ptr_mode.
+
+2002-10-15  Richard Henderson  <rth@redhat.com>
+
+	* real.c (real_to_decimal): Accept BUF_SIZE and CROP_TRAILING_ZEROS
+	as arguments.  Bound DIGITS by the available buffer size.
+	(real_to_hexadecimal): Likewise.
+	* real.h (real_to_decimal, real_to_hexadecimal): Update prototypes.
+	(REAL_VALUE_TO_DECIMAL): Remove.
+	* c-common.c, c-pretty-print.c, print-rtl.c, print-tree.c,
+	sched-vis.c, config/arc/arc.c, config/c4x/c4x.c, config/fr30/fr30.c,
+	config/i370/i370.h, config/i386/i386.c, config/i960/i960.c,
+	config/ip2k/ip2k.c, config/m32r/m32r.c, config/m68hc11/m68hc11.c,
+	config/m68k/hp320.h, config/m68k/m68k.h, config/m68k/sun2o4.h,
+	config/m68k/sun3.h, config/mips/mips.c, config/ns32k/ns32k.c,
+	config/pdp11/pdp11.h, config/vax/vax.h: Update all callers to
+	use real_to_decimal directly, and with the proper arguments.
+	* doc/tm.texi (REAL_VALUE_TO_DECIMAL): Remove.
+
+2002-10-15  Jim Wilson  <wilson@redhat.com>
+
+	* reload1.c (merge_assigned_reloads): After converting overlapping
+	reloads to RELOAD_OTHER, abort if there are now conflicting reloads.
+
+	* config/i386/i386.md (adddi3_1): Add call to ix86_binary_operator_ok.
+
+Tue Oct 15 22:08:35 CEST 2002  Jan Hubicka  <jh@suse.cz>
+
+	* expr.c (do_tablejump): Fix typo in my previous commit.
+
+2002-10-15  Richard Sandiford  <rsandifo@redhat.com>
+
+	* config/mips/vr.h (DRIVER_SELF_SPECS): Change %<mgp32 to %{<mgp32}.
+
+2002-10-15  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* config/s390/s390.c (s390_split_branches): Add return
+	value.  Add parameters TEMP_REG and TEMP_USED.  Use unspec 104.
+
+	(find_base_register_in_addr): New function.
+	(find_base_register_ref): New function.
+	(replace_base_register_ref): New function.
+
+	(struct constant_pool): Add members pool_insn, insns, and anchor.
+	Remove member last_insn.
+	(s390_start_pool): Initialize them.
+	(s390_end_pool): Emit pool placeholder insn.
+	(s390_add_pool_insn): New function.
+	(s390_find_pool): Use insns bitmap instead of addresses.
+	(s390_dump_pool): Replace placeholder insn.  Emit anchor.
+	Replace unspec 104 by local-pool-relative references.
+	(s390_output_constant_pool): Output anchor label if required.
+	(s390_output_symbolic_const): Handle unspec 104 and 105.
+	(s390_add_pool): Remove, replace by ...
+	(s390_add_constant, s390_find_constant): ... these new functions.
+	(s390_add_anchor): New function.
+
+	(s390_chunkify_pool): Delete, replace by ...
+	(s390_chunkify_start, s390_chunkify_finish,
+	s390_chunkify_cancel): ... these new functions.
+	(s390_optimize_prolog): Add parameter TEMP_REGNO.
+	Recompute register live data for special registers.
+	(s390_fixup_clobbered_return_reg): New function.
+	(s390_machine_dependent_reorg): Rewrite to use new
+	s390_chunkify_... routines.
+
+	config/s390/s390.md ("reload_base"): Rename to ...
+	("reload_base_31"): ... this.
+	("reload_base_64"): New insn.
+	("reload_base2"): Remove.
+	("reload_anchor"): New insn.
+	("pool"): New insn.
+
+	s390.c (s390_pool_overflow): Remove.
+	s390.h (s390_pool_overflow): Likewise.
+	s390.md ("cjump", "icjump", "doloop_si"): Remove s390_pool_overflow.
+
+Tue Oct 15 16:51:04 2002  J"orn Rennecke <joern.rennecke@superh.com>
+
+	* sh.md (movv8qi_i+2): Don't split if source is -1.
+
+2002-10-15  Janis Johnson  <janis187@us.ibm.com>
+
+	* doc/install.texi: Formatting changes for conformance to HTML 4.01.
+
+2002-10-15  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	PR opt/7409
+	* loop.c (loop_regs_scan): Mark registers used for function
+	argument passing as MAY_NOT_OPTIMIZE.
+
+Mon Oct 14 19:22:19 CEST 2002  Jan Hubicka  <jh@suse.cz>
+
+	* gcov-io.h (gcov_info): Fix type.
+	* profile.c (create_profiler): Fix type mismatch.
+
+Mon Oct 14 20:33:12 CEST 2002  Jan Hubicka  <jh@suse.cz>
+
+	* i386.md (movv2di_internal): New pattern.
+	(movv2df_internal, movv8hi_internal, movv16qi_internal): Fix predicate.
+	(movv2di): New expander.
+	* i386.c (ix86_preferred_reload_class): Return NO_REGS for vector operands.
+
+	* i386.c (ix86_expand_timode_binop_builtin): Delete.
+	(builtin_description): Add SSE1 logicals; rename SSE2 logicals.
+	(ix86_init_mmx_sse_builtins): Kill SSE1 logicals.
+	(ix86_expand_builtin): Likewise.
+	* i386.h (sse_andti4_df_1, sse_andti3_df_2, sse_andti3_sf_1, sse_andti3_sf_2,
+	sse_andti3,
+	sse_andnti4_df_1, sse_andti3_df_2, sse_andti3_sf_1, sse_andti3_sf_2,
+	sse_andnti3,
+	sse_orti4_df_1, sse_orti3_df_2, sse_orti3_sf_1, sse_orti3_sf_2,
+	sse_orti3,
+	sse_xorti4_df_1, sse_xorti3_df_2, sse_xorti3_sf_1, sse_xorti3_sf_2,
+	sse_xorti3): Kill.
+	(sse_andv4sf3, sse_andnv4sf3, sse_orv2df3, sse_xorv2df3, sse_andv2df3,
+	 sse_andnv2df3, sse_orv2df3, sse_xorv2df3): New expanders.
+	(*sse_andv4sf3, *sse_andnv2df3, *sse_orv4sf3, *sse_xorv4sf3, *sse_andv2df3,
+	 *sse_andnv2df3, *sse_orv2df3, *sse_xorv2df3): New patterns.
+	(*sse_andsf3, *sse_andndf3, *sse_ordf3, *sse_xordf3, *sse_anddf3,
+	 *sse_andndf3, *sse_orv2df3, *sse_xorv2df3): New patterns.
+
+	* xmmintrin.h (__m128i): Define as __v2di.
+
+	PR c++/6419
+	(expand_expr): Use DECL_RTL_SET_P.
+
+2002-10-14  Roger Sayle  <roger@eyesopen.com>
+
+	* combine.c (simplify_set):  Treat MODE_CC registers like cc0.
+
+2002-10-14  Roger Sayle  <roger@eyesopen.com>
+	    Zack Weinberg <zack@codesourcery.com>
+
+	* config/i386/i386.c (k6_cost): Correct typo.
+
+2002-10-14  Mark Mitchell  <mark@codesourcery.com>
+
+	PR optimization/6631
+	* alias.c (objects_must_conflict_p): Check honor_readonly when
+	examining TYPE_READONLY.
+	* function.c (assign_stack_temp_for_type): Likewise.
+
+2002-10-14  Falk Hueffner  <falk.hueffner@student.uni-tuebingen.de>
+
+	* config/alpha/alpha.md (extendsidi2_nofix, extendsidi2_fix):
+	Swap zero extension arguments.
+	(umaxhi3): Fix instruction class.
+	PR target/7211
+	(prefetch): Fix prefetch instructions.
+	PR target/7238
+	(pkwb): Fix output constraint.
+
+2002-10-14  Alexandre Oliva  <aoliva@redhat.com>
+
+	* config/mips/mips.c (print_operand): Increase buffer size for
+	real numbers.
+
+2002-10-14  Richard Henderson  <rth@redhat.com>
+
+	PR opt/8165
+	* gcse.c (adjust_libcall_notes): Revert last change.
+	* simplify-rtx.c (simplify_replace_rtx): Handle LO_SUM.
+
+2002-10-14  Andrew Haley  <aph@redhat.com>
+
+	* tree-inline.c (remap_block): All local class initialization
+	flags go in the outermost scope.
+	(expand_call_inline): Call java_inlining_map_static_initializers.
+	(expand_call_inline): Call java_inlining_merge_static_initializers.
+	* java/lang.c (merge_init_test_initialization): New.
+	(java_inlining_merge_static_initializers): New.
+	(inline_init_test_initialization): New.
+	(java_inlining_map_static_initializers): New.
+
+	* tree-inline.c (expand_call_inline): Convert retvar to expected
+	type.
+
+2002-10-14  Graham Stott  <graham.stott@btinternet.com>
+
+	* stmt.c (decl_conflicts_with_clobbers_p): Add REG_P check.
+
+2002-10-14  Aldy Hernandez  <aldyh@redhat.com>
+
+	* stmt.c: Fix typo in comment.
+
+Mon Oct 14 11:35:49 2002  J"orn Rennecke <joern.rennecke@superh.com>
+
+	* c-common.c (c_common_type_for_mode): Add V2HImode case.
+	* tree.c (build_common_tree_nodes_2): Initialize
+	unsigned_V2HI_type_node and V2HI_type_node.
+	* tree.h (enum tree_index): Add TI_UV2HI_TYPE and TI_V2HI_TYPE.
+	(unsigned_V2HI_type_node, V2HI_type_node): Define.
+
+2002-10-14  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/i386/i386.h (ASM_OUTPUT_REG_PUSH, ASM_OUTPUT_REG_POP):
+	Handle TARGET_64BIT.
+
+2002-10-14  Richard Sandiford  <rsandifo@redhat.com>
+
+	* config/mips/vr.h (DRIVER_SELF_SPECS): Define.
+	* config/mips/t-vr (MULTILIB_OPTIONS): Remove mlong32.
+	(MULTILIB_DIRNAMES): Remove long32.
+	(MULTILIB_EXCEPTIONS): Don't build -mabi=32 -mgp32 multilibs.
+	(MULTILIB_REDUNDANT_DIRS): Remove.
+
+2002-10-14  Richard Sandiford  <rsandifo@redhat.com>
+
+	* doc/tm.texi (DRIVER_SELF_SPECS): Document.
+	* gcc.c (driver_self_specs): New variable.
+	(do_self_spec): New function.
+	(main): Use it to process driver_self_specs.
+
+2002-10-13  Richard Henderson  <rth@redhat.com>
+
+	* config/i386/i386.c (ix86_function_ok_for_sibcall): Reject
+	indirect sibcalls when regparm >= 3.
+
+	* config/i386/i386.c (sibcall_insn_operand): New.
+	* config/i386/i386.h (PREDICATE_CODES): Update.
+	* config/i386/i386-protos.h: Update.
+	* config/i386/i386.md (sibcall_1, sibcall_value_1): Use it.
+
+	* rtl.c (shallow_copy_rtx): Use memcpy for the entire node.
+
+2002-10-12  Roger Sayle  <roger@eyesopen.com>
+
+	* simplify-rtx.c (simplify_binary_operation) [ASHIFTRT]: Optimize
+	arithmetic right shifts of ~0 during RTL simplifications.
+
+2002-10-12  Neil Booth  <neil@daikokuya.co.uk>
+
+	PR preprocessor/7862
+	PR preprocessor/8190
+	* gcc.c (cpp_unique_options): Don't delete .d files.
+	Remove stray whitespace.
+
+2002-10-12  Naohiko Shimizu  <pshimizu@fa2.so-net.ne.jp>
+
+	* pdp11.h (ASM_OUTPUT_SKIP): Add preceding 0 for octal constant.
+	(ASM_OUTPUT_COMMON, ASM_OUTPUT_LOCAL): Likewise.
+	* pdp11.c (pdp11_output_function_prologue): 0%o -> %#o.
+	(pdp11_output_function_epilogue, output_ascii): Likewise.
+	(output_addr_const_pdp11): Likewise.
+	* pdp11.md (movdi): Use offsetable memory for floating store.
+	(lshrsi3, negsi2): Delete irrelevant comment.
+
+2002-10-11  Andreas Bauer  <baueran@in.tum.de>
+
+	* config/i386/i386.c (ix86_function_ok_for_sibcall): Allow
+	indirect calls to be sibcall optimized.
+	* config/i386/i386.md (sibcall_1): New.
+	(call_1): Add no-sibcalls condition.
+	(sibcall_value_1): New.
+	(call_value_1): Add no-sibcalls condition.
+
+2002-10-11  Eric Christopher  <echristo@redhat.com>
+
+       * output.h (default_valid_pointer_mode): Declare.
+       * varasm.c (default_valid_pointer_mode): Define.
+       * target-def.h (TARGET_VALID_POINTER_MODE): Use.
+       * target.h: Ditto.
+       * tree.c (build_pointer_type_for_mode): New function.
+       (build_pointer_type): Use.
+       (build_reference_type_for_mode): New function.
+       (build_reference_type): Use.
+       * tree.h: Declare new functions.
+       * c-common.c (handle_mode_attribute): Use new functions, check
+       for type.
+       * stor-layout.c (layout_type): Depend on machine mode for
+       REFERENCE_TYPE and POINTER_TYPE.
+       * dwarf2out.c (simple_type_size_in_bits): Move upward in file.
+       (modified_type_die): Use instead of PTR_SIZE for POINTER_TYPE
+       and REFERENCE_TYPE.
+       * config/mips/mips.c (mips_valid_pointer_mode): New function.
+       (TARGET_VALID_POINTER_MODE): Use and define.
+       * config/mips/mips-protos.h (mips_valid_pointer_mode): Declare.
+
+2002-10-11  Geoffrey Keating  <geoffk@apple.com>
+
+	* cse.c (mention_regs): Set SUBREG_TICKED to the register number,
+	not the address of the REG.
+	(struct cse_reg_info): Make subreg_ticked unsigned.
+
+2002-10-11  Janis Johnson  <janis187@us.ibm.com>
+
+	* doc/compat.texi: Add info about C++ libraries.
+
+2002-10-11  Richard Henderson  <rth@redhat.com>
+
+	PR opt/8165
+	* gcse.c (adjust_libcall_notes): Also adjust notes for INSN.
+
+2002-10-11  John David Anglin  <dave@hiauly1.hia.nrc.ca>
+
+	* cfganal.c (dfs_enumerate_from): Use PARAMS.
+	* genautomata.c (output_insn_code_cases): Likewise.
+	* real.c (real_format): Likewise.
+	* tree.c (tree_size): Revise expressions using TREE_CODE_LENGTH to
+	ensure value is promoted before doing subtraction.
+
+Fri Oct 11 22:22:38 CEST 2002  Jan Hubicka  <jh@suse.cz>
+
+	* calls.c (expand_call): Simplify noreturn call.
+
+	PR c/7344
+	* cfgbuild.c (make_edges): Create edge cache when we do have
+	large jumptable.
+	* expr.c (do_tablejump): Note size of maximal jumptable.
+	* function.c (prepare_function_start): Zero out size.
+	* function.h (function): Add max_jumptable_ents.
+
+	* cfgcleanup.c (insn_match_p): Verify sibcall flag for calls to.
+
+Fri Oct 11 12:34:33 2002  J"orn Rennecke <joern.rennecke@superh.com>
+
+	* sh.md (movv8qi_i+2): For V8QI destinations, generate V4HI
+	register for mperm_w operation.
+
+Fri Oct 11 10:56:17 2002  J"orn Rennecke <joern.rennecke@superh.com>
+
+	* emit-rtl.c (gen_lowpart_common): When asked to make a vector from
+	an integer, use simplify_gen_subreg.
+
+2002-10-10  Diego Novillo  <dnovillo@redhat.com>
+
+	* calls.c (flags_from_decl_or_type): Make extern.
+	(ECF_*): Move ...
+	* rtl.h (ECF_*): ... here.
+	(flags_from_decl_or_type): Declare.
+
+2002-10-10  Roger Sayle  <roger@eyesopen.com>
+	    Nathan Sidwell <nathan@codesourcery.com>
+
+	* fold-const.c (fold) [RSHIFT_EXPR]: Optimize arithmetic right
+	shifts of the form -1 >> x.
+
+Thu Oct 10 16:52:55 CEST 2002  Jan Hubicka  <jh@suse.cz>
+
+	* cfgcleanup.c (insn_match_p): Verify sibcall flag for calls to.
+
+2002-10-10  Aldy Hernandez  <aldyh@redhat.com>
+
+	* extend.texi (Vector Extensions): Remove comment about single
+	element vectors.
+
+2002-10-10  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* fold-const.c (size_htab_hash): Use htab_hash_pointer.
+	* function.c (insns_for_mem_hash): Likewise.
+	* varasm.c (STRHASH): Likewise.
+
+2002-10-10  Stuart Hastings  <stuart@apple.com>
+
+	* cse.c (struct cse_reg_info): Add subreg_ticked.
+	(SUBREG_TICKED): New.
+	(get_cse_reg_info): Initialize SUBREG_TICKED.
+	(mention_regs): Use it.
+	(invalidate): Set SUBREG_TICKED.
+	(invalidate_for_call): Likewise.
+	(addr_affects_sp_p): Likewise.
+
+2002-10-10  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/i386/i386.md (tls_local_dynamic_base): Put pic reg
+	into proper operand.
+
+2002-10-10  Denis Chertykov  <denisc@overta.ru>
+
+	* config/ip2k/ip2k.c (function_epilogue): Optimize stack
+	deallocation.
+	* config/ip2k/libgcc.S: Combine routines used by function
+	epilogue.
+
+2002-10-10  Jim Wilson  <wilson@redhat.com>
+
+	* cse.c (fold_rtx): Don't perform associative optimization for DIV and
+	UDIV.
+
+2002-10-10  David Edelsohn  <edelsohn@gnu.org>
+
+	* config/rs6000/aix52.h: New file.
+	* config/rs6000/t-aix52: New File.
+	* config.gcc (rs6000-ibm-aix5.1.*): New entry.
+	(rs6000-ibm-aix[56789].*): Default to AIX 5.2.
+
+Thu Oct 10 19:37:54 CEST 2002  Jan Hubicka  <jh@suse.cz>
+
+	PR target/5610
+	* invoke.texi (-msse-math): Kill
+	(-msse): Add note to mfpmath=sse.
+
+Thu Oct 10 17:08:30 CEST 2002  Jan Hubicka  <jh@suse.cz>
+
+	PR target/7723
+	* i386.c (ix86_expand_vector_move): Do not generate const0->mem moves.
+
+2002-10-10  Neil Booth  <neil@daikokuya.co.uk>
+
+	PR preprocessor/8179
+	* gcc.c (cpp_options): Add {ansi}, move %{m*} to same location
+	as cc1_options.
+	(default_compilers): Pass debug options when preprocessing
+	stdin.
+
+2002-10-06  Richard Henderson  <rth@redhat.com>
+
+	* toplev.c (rest_of_compilation): Revert opt/2960 change.
+
+Wed Oct  9 21:18:43 CEST 2002  Jan Hubicka  <jh@suse.cz>
+
+	* i386.c (*_cost): Add branch costs.
+	(override_options): set ix86_branch_cost.
+	(ix86_expand_int_movcc): Use BRANCH_COST.
+	* i386.h (costs): Add branch_cost.
+
+2002-10-09  Zack Weinberg  <zack@codesourcery.com>
+
+	PR c/7353
+	* c-decl.c (start_decl): Unconditionally issue error for
+	'typedef foo = bar'.
+	(finish_decl): Remove special case for TYPE_DECL with initializer.
+
+	* doc/extend.texi: Delete "Naming Types" section.  Change all
+	cross-references to that section to refer to "Typeof" instead.
+	Add the useful safe-max()-macro example from "Naming Types" to
+	"Typeof", rewritten using that extension.  Add some compatibility
+	notes to "Typeof."
+
+2002-10-09  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* loop.c: Revert 2002-08-15 change.
+	(LOOP_REGNO_NREGS): Ensure type is int.
+
+2002-10-09  David Edelsohn  <edelsohn@gnu.org>
+
+	* config/rs6000/rs6000.md (extenddftf2): Change to define_insn
+	which copies first FPR and clears second.
+	(extendsftf2): Same.
+	(floatditf2): Fix typo.
+	(floatsitf2): Same.
+	(fix_trunctfdi2): Same.
+	(fix_trunctfsi2): Same.
+
+2002-10-09  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* conflict.c (arc_hash): Change return type to hashval_t.
+	* cselib.c (get_value_hash): Likewise.
+	* genautomata.c (automaton_decl_hash, insn_decl_hash, decl_hash,
+	state_hash, automata_list_hash): Likewise.
+	* read-rtl.c (def_hash): Likewise.
+	* tree.c (type_hash_hash): Likewise.
+
+2002-10-08  Aldy Hernandez  <aldyh@redhat.com>
+
+	* config/rs6000/rs6000.c (rs6000_ra_ever_killed): Call
+	prologue_epilogue_contains instead of using REG_MAYBE_DEAD notes.
+
+Wed Oct  9 15:54:49 2002  J"orn Rennecke <joern.rennecke@superh.com>
+
+	* sh.md (ffssi2): Fix emitted code.
+
+2002-10-09  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* cse.c (insn_live_p): Pass insn pattern, not full insn
+	to may_trap_p.
+
+2002-10-09  Neil Booth  <neil@daikokuya.co.uk>
+
+	* cppmacro.c (paste_tokens): Only allow / to paste with =.
+
+2002-10-09  David Edelsohn  <edelsohn@gnu.org>
+
+	* config/rs6000/rs6000.md (movdf splitter): Use gen_int_mode on
+	64-bit hosts.
+	(movtf_internal): Reference correct displacement for second value
+	in memory.
+	(movtf splitter): Correct generation of constants in 64-bit mode.
+
+2002-10-09  Alan Modra  <amodra@bigpond.net.au>
+
+	* libgcc2.c (__floatdisf): Properly cure double rounding.
+
+2002-10-09  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* c-common.c (cb_register_builtins): Define __WCHAR_MAX__.
+	* doc/cpp.texi (Common Predefined Macros): Document.
+
+2002-10-09  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	PR doc/7484
+	* doc/invoke.texi (Option Summary): List
+	-Wmissing-declarations as a C only option.
+
+2002-10-08  Roger Sayle  <roger@eyesopen.com>
+
+	* fold-const.c (fold) [LROTATE_EXPR, RROTATE_EXPR]: Optimize
+	left and right rotates of ~0, i.e. integer_all_onesp (arg0).
+	[LSHIFT_EXPR, RSHIFT_EXPR]: Optimize shifts and rotates of zero.
+
+Tue Oct  8 01:24:19 CEST 2002  Jan Hubicka  <jh@suse.cz>
+
+	* i386.c (x86_sse_partial_reg_dependency, x86_sse_partial_regs,
+	x86_sse_typeless_stores, x86_sse_load0_by_pxor): New global
+	variables.
+	(safe_vector_operand): Update sse_clrv4sf call.
+	(ix86_expand_buildin): Likewise
+	* i386.h (x86_sse_partial_reg_dependency, x86_sse_partial_regs,
+	x86_sse_typeless_stores, x86_sse_load0_by_pxor): Declare.
+	(TARGET_SSE_PARTIAL_REG_DEPENDENCY, TARGET_SSE_PARTIAL_REGS,
+	TARGET_SSE_TYPELESS_STORES, TARGET_SSE_TYPELESS_LOAD0): New
+	macros.
+	* i386.md (movsf*, movdf*, movti, movv4sf, movv2df, movv16qi, movv8hi,
+	movv4si):  Obey the new flags.
+	(floatsi2sf, floatdi2sf, truncatedf2sf): Emit extra load of 0 to avoid
+	reformating penalty.
+	(anddf, cmov patterns): Avoid reformating by first converting.
+	(sse_cvtsd2ss): Fix predicate.
+	(sse2_clrti): Fix mode,
+	(sse_clrv4sf): Avoid unspec.
+
+2002-10-08  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/sparc/t-linux64 (MULTILIB_OPTIONS): Remove
+	mno-app-regs|mcmodel=medany.
+	(MULTILIB_DIRNAMES, MULTILIB_OSDIRNAMES): Remove alt.
+	(MULTILIB_EXCEPTIONS, MULTILIB_EXCLUSIONS, MULTILIB_MATCHES): Remove.
+	(CRTSTUFF_T_CFLAGS): Define.
+
+2002-10-08  Roger Sayle  <roger@eyesopen.com>
+
+	PR target/8087
+	* simplify-rtx.c (avoid_constant_pool_reference):  Allow constant
+	pool references that are constructed using LO_SUM.
+
+2002-10-08  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* c-opts.c (c_common_decode_option): Add warn_strict_aliasing to
+	-Wall.
+	* c-typeck.c (build_c_cast): Use warn_strict_aliasing, tweak
+	message.
+	* flags.h (warn_strict_aliasing): Declare.
+	* toplev.c (warn_strict_aliasing): Define.
+	(lang_independent_options): Add it.
+	* doc/invoke.texi (-Wstrict-aliasing): Document it.
+
+2002-10-08  Zack Weinberg  <zack@codesourcery.com>
+
+	* system.h (GCCBUGURL): Delete.
+	* version.c (bug_report_url): New.  Add commentary about
+	modifying both these strings in modified distributions.
+	* version.h: Declare bug_report_url.
+
+	* diagnostic.c, gcc.c, gcov.c: Globally replace GCCBUGURL with
+	bug_report_url.
+
+2002-10-08  Nick Clifton  <nickc@redhat.com>
+
+	* config/rs6000/spe.h (__ev_set_acc_u64): Use __ev_create_u64 to
+	convert uint64_t into __ev64_opaque__.
+	(__ev_set_acc_s64): Likewise, but using signed types.
+
+2002-10-08  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* config/s390/s390.md ("*doloop_si_long"): Add missing operand.
+	("*doloop_di_long"): Likewise.
+
+Tue Oct  8 16:50:10 CEST 2002  Jan Hubicka  <jh@suse.cz>
+
+	* print-rtl.c (print_rtx): Increase buffer size for real numbers.
+
+2002-10-08  Richard Sandiford  <rsandifo@redhat.com>
+
+	* config/mips/mips.md (define_attr cpu): Add r4111.
+
+2002-10-08  Anthony Green  <green@redhat.com>
+
+	* bitmap.c (bitmap_equal_p): Clear all bitmap_head fields.
+
+2002-10-08  Michael Hayes  <m.hayes@elec.canterbury.ac.nz>
+
+	* config/c4x/c4x.c (c4x_print_operand): Enlarge buffer
+	for REAL_VALUE_TO_DECIMAL output.
+
+2002-10-07  Richard Henderson  <rth@redhat.com>
+
+	* cse.c (fixed_base_plus_p): Turn FIXED_BASE_PLUS_P into a
+	function; cleanup PLUS case by using recursion.  Update all users.
+	(NONZERO_BASE_PLUS_P): Remove.
+	(find_comparison_args): Use rtx_addr_can_trap_p instead.
+	(fold_rtx): Use nonzero_address_p.
+	* rtl.h (nonzero_address_p): Declare.
+	* rtlanal.c (rtx_varies_p): Handle ADDRESSOF.
+	(rtx_addr_can_trap_p): Likewise.
+	(nonzero_address_p): New.
+	* simplify-rtx.c (NONZERO_BASE_PLUS_P): Remove.
+	(simplify_relational_operation): Use nonzero_address_p.
+
+2002-10-07  David Edelsohn  <edelsohn@gnu.org>
+
+	* config/rs6000/rs6000.c (rs6000_override_options): Set
+	real_format_for_mode for IBM extended format, if enabled.
+	(easy_fp_constant): Add TFmode.
+	(rs6000_legitimize_address): Add TFmode.
+	(rs6000_legitimate_address): Same.
+	(function_arg_advance): TFmode uses two FPRs.
+	(rs6000_emit_prologue): Fix warning.
+	(rs6000_output_function_epilogue): Add TFmode.
+	(output_toc): Add TFmode.
+	* rs6000.h (SLOW_UNALIGNED_ACCESS): Add TFmode.
+	(LEGITIMATE_OFFSET_ADDRESS_P): Add TFmode.
+	* rs6000.md (movtf splitter): Load TFmode constant.
+
+2002-10-07  Dale Johannesen  <dalej@apple.com>
+
+	* rtl.h:  Add NOTE_PRECONDITIONED.
+	* unroll.c:  Set it.
+	* loop.c:  Set loop_info->preconditioned from it.
+	* doloop.c:  Permit doloop treatment when loop_info->preconditoned.
+
+2002-10-07  Richard Henderson  <rth@redhat.com>
+
+	* config/i960/i960.c (i960_setup_incoming_varargs): Create a
+	new rtx for comparing the argument pointer against zero.
+	(i960_va_start): Similarly.
+
+2002-10-07  Richard Henderson  <rth@redhat.com>
+
+	* config/i960/i960.md (*): Use TFmode, not XFmode.
+	* config/i960/i960.c (*): Likewise.
+	(i960_arg_size_and_align): Remove XFmode alignment hack.
+	(i960_round_align): Merge code from ROUND_TYPE_ALIGN.
+	* config/i960/i960.h (LONG_DOUBLE_TYPE_SIZE): Use 128, not 96.
+	(MAX_LONG_DOUBLE_TYPE_SIZE): Likewise.
+	(DATA_ALIGNMENT, ROUND_TYPE_SIZE): Remove.
+
+2002-10-07  Richard Henderson  <rth@redhat.com>
+
+	* config/fp-bit.c (EXTENDED_FLOAT_STUBS): Flush out all XF/TFmode
+	entry points; use void return value and argument list.
+
+2002-10-06  Andreas Bauer  <baueran@in.tum.de>
+
+	* calls.c (expand_call): Fix function-is-volatile check.
+
+2002-10-05  Naohiko Shimizu <nshimizu@keyaki.cc.u-tokai.ac.jp>
+
+	* t-pdp11: Add MULTILIB support for msoft-float.
+	* pdp11.h (LEGITIMATE_CONSTANT_P): Fix soft-float case.
+
+	* t-pdp11: Add LIB2FUNCS_EXTRA.
+	* pdp11.c (pdp11_output_function_prologue): Restrict offset to 16bit,
+	add preceding 0 to the octal constant, rename 'fp' to 'r5', rename
+	'fldd' to 'ldd', rename 'fstd' to 'std'.
+	(pdp11_output_function_epilogue): Likewise.
+	(output_move_quad): Make the comment gas compatible.
+	(output_ascii): Add preceding 0 to the octal constant.
+	(print_operand_address): Add pre_modify, post_modify.
+	(output_addr_const_pdp11): Add preceding 0 to the octal constant.
+	* pdp11.h (GO_IF_LEGITIMATE_ADDRESS) : Add 'movb' pre_modify case
+	with the indication of Paul Koning.
+	(PRINT_OPERAND): Fix floating constant.
+	* pdp11.md (movdi): Restrict matching pattern.
+	(movqi): Generalize the matching pattern.
+	(movdf): Restrict matching pattern.
+	(zero_extendqihi2): Change constant representation.
+	(floatsidf2): Fix wrong operands.
+	(addqi3): Fix wrong instruction name.
+	(subqi3): Fix wrong instruction name.
+	(andsi3, andhi3, andqi3): Simplify and fix to use 'bic'.
+	(xorsi3): Fix wrong insn.
+	(one_cmplqi2): Add two operand pattern.
+	(lsrsi3): New.
+	(negsi2): New.
+	(call): Add register indirect case.
+	(mod): Fix wrong subreg.
+
+2002-09-25  Eric Botcazou  <ebotcazou@libertysurf.fr>
+	    Volker Reichelt <reichelt@igpm.rwth-aachen.de>
+
+	PR c/7411
+	* expr.c (expand_expr) [PLUS]: Simplify after the operands
+	have been expanded in EXPAND_NORMAL mode.
+
+2002-10-06  Richard Henderson  <rth@redhat.com>
+
+	* config/rs6000/rs6000.md (load_toc_v4_PIC_2): Fix base constraint.
+
+2002-10-06  Richard Henderson  <rth@redhat.com>
+
+	PR optimization/2960
+	* toplev.c (rest_of_compilation): Don't copy_loop_headers if
+	optimize_size.
+
+2002-10-06  Alexandre Oliva  <aoliva@redhat.com>
+
+	* config/mips/mips.h (SIZE_TYPE, PTRDIFF_TYPE): Override
+	previously definitions.
+
+2002-10-06  Frank Ch. Eigler  <fche@redhat.com>
+
+	* cppinit.c (init_standard_includes, parse_option): Use strncmp.
+	* c-opts.c (find_opt): Similarly.
+
+Sat Oct  5 22:48:06 CEST 2002  Jan Hubicka  <jh@suse.cz>
+
+	* athlon.md: rewrite to DFA.
+	* i386 (ix86_adjust_cost): Drop memory latency code.
+	(ia32_use_dfa_pipeline_interface): Return true for Athlon.
+
+2002-10-05  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c (set_multilib_dir): Don't access *end.
+	Use memcpy instead of strncpy.  Don't write beyond malloced buffer.
+	(print_multilib_info): Don't show paths starting with ".:".
+	* genmultilib: Add new option, "yes" if multilibs are enabled.
+	Update comments.  If multilibs not enabled, print .:${osdirout}
+	for each directory.  If multilibs are enabled, always print
+	${dirout}:${osdirout}, even if the two are the same.
+	* Makefile.in (s-mlib): Pass @enable_multilib@ to genmultilib.
+	Pass all MULTILIB_* variables to genmultilib even if
+	--disable-multilib but MULTILIB_OSDIRNAMES is not empty.
+
+2002-10-04  Zack Weinberg  <zack@codesourcery.com>
+
+	* gcc.c (process_command): Set .validated for -pipe.  Correct
+	grammar in comment.
+
+2002-10-04  Bruce Korb  <bkorb@gnu.org>
+
+	* fixinc/inclhack.def(hpux11_abs):  use format fix
+	* fixinc/fixincl.x: regenerate
+	* fixinc/tests/base/stdlib.h: accommodate new fix test
+
+Sat Oct  5 19:42:45 CEST 2002  Jan Hubicka  <jh@suse.cz>
+
+	* c-common.c (cb_register_builtins):  Use really_no_inline.
+
+2002-10-04  David Edelsohn  <edelsohn@gnu.org>
+
+	* unroll.c (copy_loop_body): Remove REG_EQUAL note attached to
+	copied instruction if the note is not loop invariant.
+
+2002-10-04  Loren J. Rittle  <ljrittle@acm.org>
+
+	* gcc/ginclude/stddef.h: Support the FreeBSD 5 typedef system.
+
+2002-10-04  Steve Ellcey  <sje@cup.hp.com>
+
+	* doc/invoke.texi (HPPA):  Add -mlinker-opt, -mgnu-ld,
+	and -mhp-ld options to list of options.  Add -mgnu-ld
+	and -mhp-ld option descriptions.
+
+2002-10-04  Steve Ellcey  <sje@cup.hp.com>
+
+	* fixinc/inclhack.def (hpux11_abs):  New.
+	(stdio_va_list): change __va_list__ to __gnuc_va_list.
+	* fixinc/fixincl.x: Rebuild.
+
+2002-10-04  Roger Sayle  <roger@eyesopen.com>
+
+	* config/i386/i386.h (processor_costs): Add new fields fadd,
+	fmul, fdiv, fabs, fchs and fsqrt to costs structure.
+	(RTX_COSTS): Use these fields to determine the RTX costs
+	of floating point addition/subtraction, multiplication,
+	division, fabs, negation and square root respectively.
+	* config/i386/i386.c (size_cost): Provide instruction sizes
+	for these new fields.
+	(i386_cost, i486_cost, pentium_cost, pentiumpro_cost,
+	k6_cost, athlon_cost, pentium4_cost): Provide typical cycle
+	counts for these new fields for all x86 processor variants.
+
+2002-10-04  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* mips.c (mips_const_double_ok): Delete unused variable.
+
+	* gengtype.c (rtx_next): Change type to int.
+
+2002-10-04  Andreas Jaeger  <aj@suse.de>
+
+	* config/i386/t-linux64 (MULTILIB_OSDIRNAMES): Fix value.
+
+2002-10-04  Richard Henderson  <rth@redhat.com>
+
+	* real.h (SIGNIFICAND_BITS): Add one more word.
+	(CONST_DOUBLE_FORMAT): Accomodate 6 words.
+	* real.c (times_pten): New.
+	(real_to_decimal, real_from_string): Use it.
+	(sticky_rshift_significand): Use & to find modulus.
+	(rshift_significand, lshift_significand): Likewise.
+	(do_divide): Apply sticky bit after normalization.
+	(real_to_decimal, real_to_hexadecimal): Fix sign of Inf and NaN.
+
+2002-10-03  Andreas Bauer  <baueran@in.tum.de>
+
+	* doc/tm.texi (FUNCTION_OK_FOR_SIBCALL): Remove.
+	(TARGET_FUNCTION_OK_FOR_SIBCALL): New.
+
+2002-10-03  Andreas Jaeger  <aj@suse.de>
+
+	* gengtype.c (adjust_field_rtx_def): Cast variables of type size_t
+	to unsigned long, adjust printf format string.
+	(output_mangled_typename): Likewise.
+
+2002-10-03  Jason Thorpe  <thorpej@wasabisystems.com>
+
+	* config/vax/vax.c (vax_output_function_prologue): Use asm_fprintf.
+	* config/vax/vax.h (VAX_FUNCTION_PROFILER_NAME): New.
+	(FUNCTION_PROFILER): Rewrite to use ASM_GENERATE_INTERNAL_LABEL,
+	assemble_name, asm_fprintf, and VAX_FUNCTION_PROFILER_NAME.
+	(ASM_OUTPUT_MI_THUNK): Use asm_fprintf instead of REGISTER_PREFIX.
+	(PRINT_OPERAND_PUNCT_VALID_P): Fix comment.
+	* config/vax/elf.h (FUNCTION_PROFILER): Remove.
+	(VAX_FUNCTION_PROFILER_NAME): Redefine as "__mcount".
+
+2002-10-03  Mark Mitchell  <mark@codesourcery.com>
+
+	* doc/invoke.texi (-Wabi): Document mangling bug.
+
+2002-10-04  Alan Modra  <amodra@bigpond.net.au>
+
+	* config/rs6000/rs6000.c (rs6000_output_function_epilogue): Use a
+	name for the tbtab label that depends on the function asm name.
+	Don't output tbtab label unless optional_tbtab.
+	(output_mi_thunk): Formatting.
+
+2002-10-03  Richard Henderson  <rth@redhat.com>
+
+	* config/m68k/m68k.h (OVERRIDE_OPTIONS): Move additional code ...
+	* config/m68k/m68k.c (override_options): ... here.
+	* config/m68k/m68kelf.h (OVERRIDE_OPTIONS): Remove.
+	* config/m68k/m68kv4.h (OVERRIDE_OPTIONS): Remove.
+	* config/m68k/linux.h (SUBTARGET_OVERRIDE_OPTIONS): Remove.
+	* config/m68k/netbsd-elf.h (SUBTARGET_OVERRIDE_OPTIONS): Remove.
+
+2002-10-03  Richard Henderson  <rth@redhat.com>
+
+	* real.h (struct real_value): Use ENUM_BITFIELD.
+
+2002-10-03  Richard Henderson  <rth@redhat.com>
+
+	* config/i960/i960.md (call, call_value): Use emit_call_insn.
+
+2002-10-03  Steve Ellcey  <sje@cup.hp.com>
+
+	* config/pa/pa64-hpux.h (INIT_ENVIRONMENT): New.
+
+2002-10-03  Steve Ellcey  <sje@cup.hp.com>
+
+	* config.gcc (hppa*64*-*-hpux11*): Check gnu_ld.
+	* config/pa/pa.h (MASK_GNU_LD): New.
+	(TARGET_GNU_LD): New.
+	* config/pa/pa64-hpux.h (LINK_SPEC): Set based
+	on gnu-ld and MASK_GNU_LD.
+	(SUBTARGET_SWITCHES): New gnu-ld & hp-ld flags.
+
+Thu Oct  3 23:35:51 CEST 2002  Jan Hubicka  <jh@suse.cz>
+
+	* i386.c (athlon_cost): Fix the move costs.
+
+Thu Oct  3 23:20:58 CEST 2002  Jan Hubicka  <jh@suse.cz>
+
+	* final.c (final): Use symbol name as function name for profiling.
+	* profile.c (get_exec_counts): Likewise.
+	(branch_prob): Likewise.
+
+2002-10-03  Jakub Jelinek  <jakub@redhat.com>
+
+	* longlong.h (__udiv_qrnnd): Remove PARAMS from prototype.
+
+2002-10-03  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c (print_multi_os_directory): New variable.
+	(option_map): Support --print-multi-os-directory.
+	(struct prefix_list): Add os_multilib field.
+	(multilib_os_dir): New variable.
+	(static_specs): Add multilib_options.
+	(find_a_file): Add multilib argument.  Search in GCC or OS multilib
+	subdirs if non-zero.
+	(read_specs, execute): Update callers.
+	(find_file): Likewise.  Don't prefix name with multilib_dir, instead
+	pass 1 as multilib option.
+	(display_help): Include --print-multi-os-directory.
+	(add_prefix): Add os_multilib argument.  Initialize pl->os_multilib.
+	(process_command): Update callers.  Handle --print-multi-os-directory.
+	(do_spec_1) ['D']: Use multilib_os_directory if pl->os_multilib is
+	set.
+	(main): Update find_a_file and add_prefix callers.
+	Handle print_multi_os_directory.
+	(struct mdswitchstr): New.
+	(mdswitches, n_mdswitches): New variables.
+	(used_arg): Add MULTILIB_DEFAULT switches too if they are not
+	present on the command line nor their mutually incompatible
+	switches.
+	(default_arg): Optimize.
+	(set_multilib_dir): Compute multilib_os_dir.  Initialize mdswitches
+	array.
+	(print_multilib_info): Only print GCC multilib dir name, not OS
+	multilib dirname.
+	* genmultilib: Add osdirnames parameter.  Output multilib_options
+	variable.  If osdirnames is specified, output dirnames as
+	dirname:osdirname.
+	* mklibgcc.in: Use MULTILIB_OSDIRNAMES, --print-multi-directory
+	and --print-multi-os-directory instead of SHLIB_SLIBDIR_SUFFIXES
+	to compute libgcc_s soname and install path.
+	* Makefile.in (libgcc.mk): Pass MULTILIB_OSDIRNAMES instead of
+	SHLIB_SLIBDIR_SUFFIXES to mklibgcc.
+	(s_mlib): Pass MULTILIB_OSDIRNAMES or nothing as last genmultilib
+	argument.
+
+	* config/sparc/t-linux64 (MULTILIB_OSDIRNAMES): Set.
+	(SHLIB_SLIBDIR_SUFFIXES): Remove.
+	* config/sparc/linux64.h (STARTFILE_SPEC32, STARTFILE_SPEC64,
+	ENDFILE_SPEC32, ENDFILE_SPEC64, ENDFILE_COMMON): Remove.
+	(STARTFILE_SPEC, ENDFILE_SPEC): Don't distinguish between -m32
+	and -m64.
+	* config/sparc/t-sol2-64 (MULTILIB_OSDIRNAMES): Set.
+	(SHLIB_SLIBDIR_SUFFIXES): Remove.
+	* config/sparc/sol2-bi.h (STARTFILE_ARCH64_SPEC): Remove.
+	(STARTFILE_ARCH_SPEC): Remove.
+	* config/i386/t-linux64 (MULTILIB_OSDIRNAMES): Set.
+	(SHLIB_SLIBDIR_SUFFIXES): Remove.
+	* config/i386/linux64.h (STARTFILE_PREFIX_SPEC): Remove.
+	* config/mips/t-iris6 (MULTILIB_OSDIRNAMES): Set.
+	(SHLIB_SLIBDIR_SUFFIXES): Remove.
+
+Thu Oct  3 21:42:20 CEST 2002  Jan Hubicka  <jh@suse.cz>
+
+	* predict.c (choose_function_section): Avoid choice for linkonce functions.
+
+Thu Oct  3 15:15:00 CEST 2002  Jan Hubicka  <jh@suse.cz>
+
+	* i386.md (lea to mul peep2): Fix condition.
+
+2002-10-02  John David Anglin  <dave@hiauly1.hia.nrc.ca>
+
+	* pa-linux.h (FUNCTION_OK_FOR_SIBCALL): Delete macro.
+	* pa32-linux.h (FUNCTION_OK_FOR_SIBCALL): Define.
+
+2002-10-02  David Mosberger-Tang  <David.Mosberger@acm.org>
+
+	* unwind.h (_Unwind_GetTextRelBase): Mark _C argument with
+	attribute "unused".
+
+	* config/t-libunwind: Mention unwind-sjlj.c.
+	* unwind-libunwind.c: Change #ifdef __USING_LIBUNWIND_EXCEPTIONS__
+	to #ifndef __USING_SJLJ_EXCEPTIONS__.
+
+	* configure.in: Move sjlj-exceptions and --enable-libunwind-exceptions
+	before inclusion of config.gcc, but after configuring the compiler etc.
+	Determine default value for --enable-libunwind-exceptions based on
+	whether the host has a libunwind library (not guaranteed to be correct,
+	but it's a reasonable first guess and can always be overridden with an
+	explicit --enable/disable-libunwind-exceptions.
+	* config.gcc: For target ia64*-*-linux*, mention t-libunwind as a
+	tmake_file when $use_libunwind_exceptions is enabled.
+	* Makefile.in: Update comment: LIB2ADDEH is updated not just by
+	ia64 (e.g., config/t-linux also updates it).
+	* gcc.c (init_spec) [USE_LIBUNWIND_EXCEPTIONS]: Mention -lunwind
+	along with the shared version of libgcc since the latter requires
+	the former.
+	* unwind-libunwind.c: New file.
+	* config/t-libunwind: Ditto.
+
+2002-10-02  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* config.gcc: Remove support for vax-*-vms*.
+	* config/vax/vms.h: Remove.
+	* config/vax/xm-vms.h: Remove.
+	* config/vax/vax-protos.h: Remove VMS-specific code.
+	* config/vax/vax.c: Remove VMS-specific code.
+
+2002-10-02  Richard Henderson  <rth@redhat.com>
+
+	PR opt/7124
+	* config/i386/i386.c (ix86_register_move_cost): Increase cost
+	for secondary_memory_needed pairs.
+
+2002-10-02  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* doc/vms.texi: Blow away false include file section.
+
+2002-10-02  Roger Sayle  <roger@eyesopen.com>
+
+	PR optimization/6627
+	* toplev.c (force_align_functions_log): New global variable.
+	* flags.h (force_align_functions_log): Add extern prototype.
+	* varasm.c (assemble_start_function): Use it to force minimum
+	function alignment.
+	* config/i386/i386.h (FUNCTION_BOUNDARY): Set the correct
+	minimum function alignment to one byte.
+	(TARGET_PTRMEMFUNC_VBIT_LOCATION): Store the virtual bit in
+	the least significant bit of vtable member function pointers.
+	* tree.h (enum ptrmemfunc_vbit_where_t): Move definition to
+	here from cp/cp-tree.h.
+
+Wed Oct  2 17:01:36 CEST 2002  Jan Hubicka  <jh@suse.cz>
+
+	* i386.c (print_operand_address): Use RIP addressing for offsetted
+	label refs too.
+
+2002-09-30  David S. Miller  <davem@redhat.com>
+
+	PR middle-end/7151
+	* config/sparc/sparc.md (movdi_insn_sp32_v9): Accept 'e' regs.
+	(movdi reg/reg split): Match only on sparc32, and v9 when int regs.
+
 2002-10-01  Andreas Bauer  <baueran@in.tum.de>
 
 	* calls.c (expand_call): Remove the `no indirect check'
@@ -173,6 +1587,140 @@
 	* config/sparc/sparc.h: (FUNCTION_OK_FOR_SIBCALL): Remove.
 	* config/xtensa/xtensa.h: (FUNCTION_OK_FOR_SIBCALL): Remove.
 
+2002-10-01  Roger Sayle  <roger@eyesopen.com>
+
+	* unroll.c (loop_iterations): Revert 2002-09-08 change.
+
+2002-10-01  Richard Henderson  <rth@redhat.com>
+
+	* real.c (real_to_decimal): Crop trailing zeros for DIGITS < 0.
+	(real_to_hexadecimal): Likewise.
+	* print-rtl.c (print_rtx): If we are linked with real.c, don't
+	dump the XWINT fields of a floating point CONST_DOUBLE.
+
+2002-10-01  Jason Thorpe  <thorpej@wasabisystems.com>
+
+	* config/vax/elf.h (FUNCTION_PROFILER): Fix __mcount call.
+
+2002-10-01  Richard Henderson  <rth@redhat.com>
+
+	* calls.c (precompute_register_parameters): Force non-legitimate
+	constants into pseudos.
+
+2002-10-01  Nick Clifton  <nickc@redhat.com>
+
+	* config/rs6000/spe.md (spe_evrlwi): Add missing third operand
+	to assembler template.
+
+2002-10-01  Richard Henderson  <rth@redhat.com>
+
+	* dwarf2out.c (loc_descriptor_from_tree): Relax requirement
+	for TLS debug info to !DECL_EXTERNAL.
+
+2002-10-01  Matt Thomas  <matt@3am-software.com>
+	    Jason Thorpe  <thorpej@wasabisystems.com>
+
+	* config.gcc (vax-*-netbsdelf*): Enable configuration.
+	* config/elfos.h (PCC_BITFIELD_TYPE_MATTERS): Define only
+	if not already defined.
+	* config/vax/elf.h: New file.
+	* config/vax/netbsd-elf.h: New file.
+	* config/vax/vax.c: Include "debug.h".
+	(vax_output_function_prologue): Add dwarf2 support.  Use
+	MAIN_NAME_P when checking for VMS_TARGET stack adjust.
+	* config/vax/vax.h (CONST_OK_FOR_LETTER_P): Add cases for
+	'J' [0..63], 'K' [-128..127], 'L' [-32768..32767],
+	'M' [0..255], 'N' [0..65535], and, 'O' [-63..-1].
+	(VAX_ISTREAM_SYNC): Remove.
+	(INITIALIZE_TRAMPOLINE): Use gen_sync_istream.
+	(JUMP_TABLES_IN_TEXT_SECTION): Define.
+	(ASM_OUTPUT_REG_POP): Use reg_names for the stack pointer.
+	(ASM_OUTPUT_ADDR_VEC_ELT): Use ASM_GENERATE_INTERNAL_LABEL
+	and assemble_name.
+	(ASM_OUTPUT_ADDR_DIFF_ELT): Likewise.
+	(PRINT_OPERAND_PUNCT_VALID_P): Accept '|'.
+	(PRINT_OPERAND): Output REGISTER_PREFIX for '|'.
+	(INCOMING_RETURN_ADDR_RTX): Define.
+	* config/vax/vax.md (VUNSPEC_BLOCKAGE)
+	(VUNSPEC_SYNC_ISTREAM): Define.
+	(blockage): Use VUNSPEC_BLOCKAGE.
+	(sync_istream): New insn.
+
+2002-10-01  Richard Henderson  <rth@redhat.com>
+
+	* config/vax/vax.md (call_pop, *call_pop, call_value_pop)
+	(*call_value_pop, call, call_value): Add dwarf2 EH support.
+	(*call): New insn.
+
+2002-10-01  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c/8083
+	* c-typeck.c (build_c_cast): Warn about type punning which breaks
+	type based aliasing.
+
+2002-10-01  Mark Mitchell  <mark@codesourcery.com>
+
+	* stor-layout.c (update_alignment_for_field): New function.
+	(place_union_field): Use it.
+	(place_field): Likewise.
+
+2002-10-01  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR other/8077
+	* gcc.c (cc1_options): Add space on -auxbase-strip.
+
+2002-10-01  Jim Wilson  <wilson@redhat.com>
+
+	* config/v850/v850.h (EPILOGUE_USES): Define.
+
+2002-09-30  Andrew Haley  <aph@redhat.com>
+
+	* flow.c (insn_dead_p): When using non-call-exceptions, don't
+	eliminate insns that may trap.
+	* cse.c (insn_live_p): Likewise.
+
+2002-10-01  Richard Sandiford  <rsandifo@redhat.com>
+
+	* config/mips/mips.h (PROCESSOR_R4121): Rename to PROCESSOR_R4120.
+	(TARGET_MIPS4121): Rename to TARGET_MIPS4120.
+	* config/mips/mips.c (mips_cpu_info): Rename vr4121 to vr4120.
+	* config/mips/mips.md: Apply same renaming here.
+
+2002-10-01  Richard Sandiford  <rsandifo@redhat.com>
+
+	* config/mips/mips.c (PROCESSOR_R4320, TARGET_MIPS4320): Remove.
+	(GENERATE_MULT3_SI): Remove use of TARGET_MIPS4320.
+	* config/mips/mips.c (mips_cpu_info): Remove vr4320 entry.
+	* config/mips/mips.md (define_attr cpu): Remove r4320.
+	Remove vr4320 scheduler and uses of TARGET_MIPS4320.
+
+2002-10-01  Richard Sandiford  <rsandifo@redhat.com>
+
+	* config/mips/mips.c (mips16_strings): New variable.
+	(mips_output_function_epilogue): Clear the SYMBOL_REF_FLAG of every
+	symbol in mips16_strings.  Free the list.
+	(mips_encode_section_info): Keep track of local strings.
+
+2002-10-01  Richard Sandiford  <rsandifo@redhat.com>
+
+	* config/mips/mips.md (bunge, bltgt, bungt): New define_expands.
+	(sordered_df, sordered_sf): Remove.
+	* config/mips/mips.c (get_float_compare_codes): New fn.
+	(gen_int_relational, gen_conditional_move): Use it.
+
+2002-10-01  Richard Sandiford  <rsandifo@redhat.com>
+
+	* config/mips/mips-protos.h (mips_emit_fcc_reload): Declare.
+	* config/mips/mips.h (PREDICATE_CODES): Add fcc_register_operand.
+	* config/mips/mips.c (fcc_register_operand): New function.
+	(mips_emit_fcc_reload): New function, extracted from reload_incc.
+	(override_options): Allow TFmode values in float registers
+	if ISA_HAS_8CC.
+	* cnfig/mips/mips.md (reload_incc): Change destination prediate
+	to fcc_register_operand.  Remove misleading source constraint.
+	Use mips_emit_fcc_reload.
+	(reload_outcc): Duplicate reload_incc.
+
 2002-09-30  Zack Weinberg  <zack@codesourcery.com>
 
 	* gcc.c (validate_switches): Handle all new forms of spec
@@ -180,6 +1728,43 @@
 	(validate_all_switches): Repetitive logic broken out to...
 	(validate_switches_from_spec): ...here.
 	* mklibgcc.in: Don't @-flag commands to generate .oS files.
+
+2002-09-30  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* longlong.h: Partially synchronize with GMP-4.1 version:
+	Use i370 definitions also for s390.
+	Add generic definition of umul_ppmm in terms of smul_ppmm.
+	[s390] (umul_ppmm): Remove.
+	[s390] (smul_ppmm): Fix incorrect assembler constraints.
+	[s390] (smul_ppmm, sdiv_qrnnd): Rename __xx to __x.
+
+2002-09-30  Bob Wilson  <bob.wilson@acm.org>
+
+	* config/xtensa/xtensa.h (REG_CLASS_NAMES, REG_CLASS_CONTENTS):
+	Add new RL_REGS register class.
+	(PREFERRED_RELOAD_CLASS, PREFERRED_OUTPUT_RELOAD_CLASS):
+	Call xtensa_preferred_reload_class for both input and output reloads.
+	* config/xtensa/xtensa.c (xtensa_regno_to_class): Use new RL_REGS class.
+	(xtensa_preferred_reload_class): Handle output reloads; use RL_REGS
+	instead of either AR_REGS or GR_REGS classes.
+	(xtensa_secondary_reload_class): Use new RL_REGS class.
+	* config/xtensa/xtensa-protos.h (xtensa_preferred_reload_class): Update.
+
+2002-09-30  John David Anglin  <dave@hiauly1.hia.nrc.ca>
+
+	* pa.c (hppa_encode_label): Don't drop '*' from function labels.
+	(pa_strip_name_encoding): Strip '@' and '*', in that order.
+	* pa.h (ASM_OUTPUT_LABELREF): Output user_label_prefix except when
+	there is a '*' prefix in NAME.
+
+Mon Sep 30 21:33:23 CEST 2002  Jan Hubicka  <jh@suse.cz>
+
+	* reload.c (push_reload): Handle subregs and secondary memory.
+	* reload1.c (gen_reload): Likewise.
+
+	* jump.c (reg_or_subregno): New function.
+	* rtl.h (reg_or_subregno): Declare
+	* unroll.c (find_splittable_givs): Handle subregs.
 
 2002-09-30  Mark Mitchell  <mark@codesourcery.com>
 
@@ -997,7 +2582,7 @@ Tue Aug 27 20:07:01 CEST 2002  Jan Hubicka  <jh@suse.cz>
 	(const_float_1_operand): Use dconst1.
 	* config/mips/mips.md (movsf, movsf_internal1, movsf_internal2,
 	movdf, movdf_internal1, movdf_internal1a, movdf_internal2):
- 	Don't allow arbitrary constants; fix predicates and C constraint.
+	Don't allow arbitrary constants; fix predicates and C constraint.
 
 2002-09-20  Neil Booth  <neil@daikokuya.co.uk>
 
@@ -2016,15 +3601,6 @@ Tue Sep 17 13:40:13 2002  Nicola Pero  <n.pero@mi.flashnet.it>
 
 	* config/h8300/h8300.c (h8300_init_once): Fix formatting.
 
-2002-09-13  Matt Austern  <austern@apple.com>
-
-	* cp/cp-tree.h, cp/tree.c: New function non_cast_lvalue_p.
-	* cp/call.c: Change call-by-const-reference mechanism to use
-	non_cast_lvalue_p when deciding whether the create a temporary.
-	We need a temporary when passing, e.g. (long) x by const ref.
-	* testsuite/g++.dg/other/constref[12].C: New, regression tests for
-	passing a cast expression to a function by const reference.
-
 2002-09-13  Richard Henderson  <rth@redhat.com>
 
 	* config/alpha/alpha.md (attr type): Add callpal.
@@ -2274,7 +3850,7 @@ Tue Sep 17 13:40:13 2002  Nicola Pero  <n.pero@mi.flashnet.it>
 	* mcore.md: Likewise.
 	* mn10300.c (mask_ok_for_mem_btst): Likewise.
 
-2002-09-09  Eric Botcazou  ebotcazou@libertysurf.fr
+2002-09-09  Eric Botcazou  <ebotcazou@libertysurf.fr>
 
 	* optabs.c (expand_binop): Minor cleanup.
 	(expand_twoval_binop): Convert CONST_INTs like in expand_binop.
@@ -2603,7 +4179,7 @@ Tue Sep 17 13:40:13 2002  Nicola Pero  <n.pero@mi.flashnet.it>
 	* cfgcleanup.c (try_crossjump_to_edge): Fix updating of liveness
 	information.
 
-2002-09-07  Graham Stott  <graham.stott@btinternet.con>
+2002-09-07  Graham Stott  <graham.stott@btinternet.com>
 
        * rtlanal.c (dead_or_set_regno_p): Fix typo.
 
