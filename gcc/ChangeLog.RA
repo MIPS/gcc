@@ -1,3 +1,11 @@
+2003-04-10  Denis Chertykov  <denisc@overta.ru>
+
+	* ra-rewrite.c (find_move, init_find_move, insn2move):
+	Removed.
+	(coalesce_spill_slot): Use copy_insn_p for detecting move
+	insns.
+	(assign_stack_slots_1): Don't use insn2move, init_find_move.
+
 2003-04-02  Michael Matz  <matz@suse.de>
 
 	* ra-build.c (update_regnos_mentioned): Handle all copy insns.

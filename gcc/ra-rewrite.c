@@ -76,14 +76,9 @@ static void detect_non_changed_webs PARAMS ((void));
 static void reset_changed_flag PARAMS ((void));
 static void assign_stack_slots PARAMS ((void));
 static void assign_stack_slots_1 PARAMS ((void));
-static struct move * find_move PARAMS ((struct ref*));
-static void init_find_move PARAMS((void));
 static void mark_insn_refs_for_checking PARAMS ((struct ra_insn_info *,
 						 sbitmap , bitmap));
 static int coalesce_spill_slot PARAMS ((struct web *, struct ref*, rtx));
-
-/* Raw array for quick mapping INSN_UID to structure of a move.  */
-static struct move **insn2move;
 
 /* Bitmap used for tracking insns changed in spill pass.
    Very similar to ra_modified_insns.  */
@@ -2141,29 +2136,6 @@ assign_stack_slots ()
   detect_web_parts_to_rebuild ();
 }
 
-/* Setup insn2move array.  */
-static void
-init_find_move ()
-{
-  struct move_list *ml;
-  struct move *m;
-  for (ml = wl_moves; ml; ml = ml->next)
-    if ((m = ml->move) != NULL
-	&& bitmap_bit_p (emitted_by_spill, INSN_UID (m->insn)))
-      insn2move[INSN_UID (m->insn)] = m;
-}
-
-/* Return a structure of a move if REF is a def or use of a move
-   else return NULL.
- */
-static struct move *
-find_move (ref)
-     struct ref *ref;
-{
-  rtx insn = DF_REF_INSN (ref);
-  return insn2move[INSN_UID (insn)];
-}
-
 /* If the WEB connected with a small web referred by REF then substitute
    all refs of a small web to stack slot PLACE.
    Remove dead move insns.
@@ -2178,19 +2150,22 @@ coalesce_spill_slot (web, ref, place)
   struct web *dweb;
   struct web *s;
   struct web *t;
-  struct move *m;
   struct ref **refs;
   int num_refs;
   int i,j;
+  rtx move_insn;
   rtx back_move = NULL;
-  rtx insn, move_insn;
+  rtx insn = DF_REF_INSN (ref);
 
-  m = find_move (ref);
-  if (!m || !INSN_P (m->insn))
-    return 0;
-
-  s = m->source_web;
-  t = m->target_web;
+  if (copy_insn_p (insn, NULL, NULL))
+    {
+      struct ra_insn_info *info = &insn_df[INSN_UID (insn)];
+      if (!(info->num_defs == 1 && info->num_uses == 1))
+	return 0;
+      s = use2web[DF_REF_ID (info->uses[0])];
+      t = def2web[DF_REF_ID (info->defs[0])];
+    }
+  
   if (s == web)
     dweb = t;
   else if (t == web)
@@ -2206,7 +2181,7 @@ coalesce_spill_slot (web, ref, place)
       || TEST_BIT (sup_igraph, t->id * num_webs + s->id))
     return 0;
 
-  move_insn = m->insn;
+  move_insn = insn;
   
   /* Replace all web refs to stack spill slot.  */
   for (i = 0, refs = dweb->uses, num_refs = dweb->num_uses;
@@ -2216,19 +2191,22 @@ coalesce_spill_slot (web, ref, place)
       {
 	rtx target;
 	rtx insns;
-	struct move *back_m;
 
 	insn = DF_REF_INSN (refs[j]);
 	if (insn == move_insn)
 	  continue;
 	if (i == 0		/* Is this a use ? */
-	    && (back_m = find_move (refs[j])) != NULL
-	    && back_m->target_web == web)
+	    && copy_insn_p (insn, NULL, NULL))
 	  {
-	    if (back_move)
-	      abort ();
-	    back_move = back_m->insn;
-	    continue;
+	    struct ra_insn_info *info = &insn_df[INSN_UID (insn)];
+	    if (info->num_defs == 1 && info->num_uses == 1
+		&& def2web[DF_REF_ID (info->defs[0])] == web)
+	      {
+		if (back_move)
+		  abort ();
+		back_move = insn;
+		continue;
+	      }
 	  }
 	  
 	target = DF_REF_REG (refs[j]);
@@ -2299,9 +2277,6 @@ assign_stack_slots_1 ()
 
   ra_debug_msg (DUMP_COLORIZE, "Allocate stack spill slots for webs:\n");
 
-  insn2move = (struct move **) xcalloc (get_max_uid (),
-					sizeof (struct move *));
-  init_find_move ();
   webs_count = num_webs - num_subwebs;
   for (n = 0; n < webs_count; ++n)
     {
@@ -2486,7 +2461,6 @@ assign_stack_slots_1 ()
 	  deleted_move_cost += BLOCK_FOR_INSN (dead)->frequency + 1;
 	}
     }
-  free (insn2move);
 }
 
 /* A bitmap of pseudo reg numbers which are coalesced directly
