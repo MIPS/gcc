@@ -438,6 +438,10 @@ DEFPARAM(PARAM_STRUCT_REORG_DISTANCE_THRESHOLD,
 	"The maximum number of accessed memory bytes on the trace between two field accesses to still consider\
 	 the access in CPG calculation",
 	120) 
+DEFPARAM(PARAM_STRUCT_REORG_CACHE_MISS_PENALTY,
+	 "struct-reorg-cache-miss-penalty",
+	 "The cache miss penalty to be considered while doing data structure reorganization",
+	 20)
 /*
 Local variables:
 mode:c

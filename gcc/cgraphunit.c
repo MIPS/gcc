@@ -1224,17 +1224,18 @@ cgraph_optimize (void)
       dump_varpool (cgraph_dump_file);
     }
 
+
   if (flag_peel_structs)
     peel_structs ();
+
+  if (flag_matrix_flattening)
+    matrix_reorg ();
 
   ipa_passes ();
   /* FIXME: this should be unnecesary if inliner took care of removing dead
      functions.  */
   cgraph_remove_unreachable_nodes (false, dump_file); 
 
-  if (flag_matrix_flattening)
-    matrix_reorg ();
- 
   cgraph_global_info_ready = true;
   if (cgraph_dump_file)
     {

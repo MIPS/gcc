@@ -1213,33 +1213,6 @@ create_and_assemble_new_types (struct data_structure *struct_data,
   return return_list;
 }
 
-/* This function takes a list of newly created global variahles (NEW_VARS)
-   and adds them to the cgraph varpool list.  */
-
-static struct cgraph_varpool_node *
-add_to_varpool_list (struct struct_tree_list *new_vars,
-		     struct cgraph_varpool_node *current_varpool)
-{
-  struct cgraph_varpool_node *tmp;
-  struct cgraph_varpool_node *new_node;
-  struct struct_tree_list *current;
-  tree var_decl;
-
-  tmp = current_varpool->next_needed;
-  for (current = new_vars; current; current = current->next)
-    {
-      var_decl = current->data;
-      new_node = cgraph_varpool_node (var_decl);
-      notice_global_symbol (var_decl);
-      new_node->needed = 1;
-      current_varpool->next_needed = new_node;
-      current_varpool = new_node;
-    }
-  current_varpool->next_needed = tmp;
-  
-  return current_varpool;
-}
-
 /* This function takes a list of newly created variables (NEW_VARS) and
    a tree_list of existing variables, and adds the new variables to the
    list.  */
@@ -1397,6 +1370,7 @@ create_new_var_decls (struct data_structure *struct_data)
   struct new_var_data *return_list = NULL;
   struct new_var_data *tmp_node;
   struct cgraph_varpool_node *current_varpool;
+  struct cgraph_varpool_node *first_new_var = NULL;
   struct cgraph_node *c_node;
   tree var_decl;
   tree var_type;
@@ -1405,7 +1379,8 @@ create_new_var_decls (struct data_structure *struct_data)
 
   /* Go through global variables,,,  */
 
-  for (current_varpool = cgraph_varpool_nodes_queue; current_varpool;
+  for (current_varpool = cgraph_varpool_nodes_queue; 
+       current_varpool && (current_varpool != first_new_var);
        current_varpool = current_varpool->next_needed)
     {
       var_decl = current_varpool->decl;
@@ -1419,6 +1394,9 @@ create_new_var_decls (struct data_structure *struct_data)
       
       if (var_type == struct_data->decl)
 	{
+	  struct cgraph_varpool_node *new_node;
+	  struct struct_tree_list *current;
+
 	  new_vars_list = make_new_vars_1 (var_decl, struct_data);
 	  tmp_node = (struct new_var_data *) xmalloc (sizeof 
 						      (struct new_var_data));
@@ -1426,8 +1404,20 @@ create_new_var_decls (struct data_structure *struct_data)
 	  tmp_node->new_vars = new_vars_list;
 	  tmp_node->next = NULL;
 	  add_to_vars_list (tmp_node, &return_list);
-	  current_varpool = add_to_varpool_list (new_vars_list, 
-						 current_varpool);
+
+	  /* Add the newly created global variahles (NEW_VARS_LIST)
+	     to the cgraph varpool list at its end.  */
+	  for (current = new_vars_list; current; current = current->next)
+	    {
+	      tree v_decl = current->data;
+
+	      new_node = cgraph_varpool_node (v_decl);
+	      notice_global_symbol (v_decl);
+	      cgraph_varpool_mark_needed_node (new_node);
+	      cgraph_varpool_finalize_decl (v_decl);
+	      if (! first_new_var)
+		first_new_var = new_node;
+	    }
 	}
     }
 

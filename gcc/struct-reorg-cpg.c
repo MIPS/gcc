@@ -230,19 +230,6 @@ remove_faccg_arc (faccg_arc_t *arc, bool from_src, bool from_dest)
     }
 }
 
-/* Given source and dest looks for an arc that connects them together.  
-   Returns the arc if found and NULL if not.  */
-static faccg_arc_t *
-get_faccg_arc (faccg_node_t *src, faccg_node_t *dest)
-{
-  faccg_arc_t *arc;
-  
-  for (arc = src->succs; arc; arc = arc->succ_next)
-    if (arc->dest == dest)
-      return arc;
-
-  return NULL;
-}
 
 /* Change the source of the ARC to be SRC and update its count and
    distance.  */
@@ -364,19 +351,21 @@ split_dest_predecessors (faccg_node_t **head_p, faccg_arc_t *arc)
 static void
 collapse_successor (faccg_node_t **head_p, faccg_arc_t *arc, cpg_t *cpg)
 {
-  faccg_arc_t *succ, *succ_next;
+  faccg_arc_t *succ, *succ_next, *c_arc;
   faccg_node_t *dest = arc->dest;
   faccg_node_t *src = arc->src;
-
-  if (dest->preds->pred_next) 
-    abort ();
+      
 
   /* Update the CPG with the ARC and add ARC->dest to the collapsed 
      successors of ARC so we can update them later with relation to 
      ARC->src predecessors.  */
-  if (dest->f_index >= 0 && src->f_index >= 0)
+  if (dest->f_index >= 0) 
     {
-      add_cp_relation (cpg, src->f_index, dest->f_index, arc->count, arc->distance);
+      /* Add CP relation between the collapsed successors of ARC and ARC->dest.  */
+      for (c_arc = arc->collapsed_succs; c_arc; c_arc = c_arc->succ_next)
+	add_cp_relation (cpg, dest->f_index, c_arc->dest->f_index, c_arc->count, c_arc->distance);
+      if (src->f_index >= 0)
+	add_cp_relation (cpg, src->f_index, dest->f_index, arc->count, arc->distance);
       add_to_collapsed_succs (head_p, dest, arc, arc->count, arc->distance);
     }
   
@@ -385,7 +374,7 @@ collapse_successor (faccg_node_t **head_p, faccg_arc_t *arc, cpg_t *cpg)
     {
       remove_faccg_arc (arc, false, true);
       arc->dest = NULL;
-      if (dest->f_index < 0)
+      if (! dest->preds)
 	remove_facc_node (head_p, dest);
       return;
     }
@@ -393,15 +382,7 @@ collapse_successor (faccg_node_t **head_p, faccg_arc_t *arc, cpg_t *cpg)
   /* Update the edges from ARC->src to ARC->dest successors.  */
   for (succ = dest->succs; succ; succ = succ_next)
     {
-      /* We handle two cases: 1. the SUCC->dest is not a successor
-	 of ARC->src.  2. the SUCC->dest is a successor of ARC->src.  */
-      faccg_arc_t *arc2 = get_faccg_arc (arc->src, succ->dest);
-      faccg_arc_t *c_arc;
-
       succ_next = succ->succ_next;
-
-      if (! succ->dest)
-	continue;
 
       /* Add CP_RELATION between SRC and the collapsed successors of SUCC.  
 	 and update their distance/count fields.  */
@@ -415,45 +396,33 @@ collapse_successor (faccg_node_t **head_p, faccg_arc_t *arc, cpg_t *cpg)
 	}
 
       /* Add the collapsed successors of ARC to SUCC.  */
-      
       for ( c_arc = arc->collapsed_succs; c_arc; c_arc = c_arc->succ_next)
         add_to_collapsed_succs (head_p, c_arc->dest, succ, c_arc->count, 
 				c_arc->distance);
-
-      if (! arc2)
-	/* SUCC->dest is not a successeor of ARC->src.  */
-	redirect_arc_src (succ, arc->src, MIN (arc->count, succ->count),
-			  arc->distance + succ->distance);
-      else
-	/* SUCC->dest is a successeor of ARC->src.  */
-        {
-          gcov_type new_count = arc2->count + succ->count;
-
-	  if (! arc->dest)
-	    abort ();
-
-          arc2->distance = (arc2->distance * arc2->count
-			    + (succ->distance + arc->distance) 
-			      * succ->count)/new_count;
-          arc2->count = new_count;
-	  /* Remove this edge only from its destination, there could be 
-	     a case where SUCC has collapsed successors and we want to 
-	     keep it so we can later update them.  */
-	  if (succ->collapsed_succs)
-	    {
-	      remove_faccg_arc (succ, false, true);
-	      succ->dest = NULL;
-	    }
-	  else
-	    {
-	      remove_faccg_arc (succ, true, true);
-	      free (succ);
-	    }
-        }
+      /* Make the arc to be from the ARC source to the DEST successor.  
+	 This is the case of serial arcs thus: 
+	 new count = minimum (count1, count2)
+	 new distance = distance1 + distance2  */
+      redirect_arc_src (succ, arc->src, MIN (arc->count, succ->count),
+			arc->distance + succ->distance);
     }
   remove_faccg_arc (arc, true, true);
   free (arc);
-  remove_facc_node (head_p, dest);
+  if (! dest->preds)
+    remove_facc_node (head_p, dest);
+}
+
+/* Returns true if we can collapse the successor of arc.  */
+static bool
+can_collapse_successors_p (faccg_arc_t *arc)
+{
+  faccg_arc_t *crr;
+
+  for (crr = arc->dest->preds; crr; crr = crr->pred_next)
+    if (crr->src != arc->src)
+      return false;
+
+  return true;
 }
 
 /* A kind of BFS traversal of the field access graph, to compact it
@@ -487,7 +456,7 @@ compact_faccg (faccg_node_t *root, faccg_node_t **head_p, cpg_t *cpg)
 	      change = true;
 	    }
 	  else if (crr->dest->preds 
-		   && ! crr->dest->preds->pred_next)
+		   && can_collapse_successors_p (crr))
 	    {
 	      collapse_successor (head_p, crr, cpg);
 	      change = true;
@@ -1386,6 +1355,7 @@ average_cp_relation (struct data_structure *ds, sbitmap g, int f)
   12.   gi = gi + { f }
   13. end while.
 */
+
 static void 
 split_data_structure (struct data_structure *ds)
 {
@@ -1411,7 +1381,13 @@ split_data_structure (struct data_structure *ds)
       int max_i = -1; 
       int max_j = -1;
 
-      /* Find the hotest CP relation in the CPG from the remaining fields.  */
+      /* Find the hotest CP relation in the CPG from the remaining fields.  
+	 Here we want to favor hot self relation (a CP relation from one 
+         a field to itself) over relations to other fields becuase it has
+	 greater potential, if the groups size increases it will make less
+	 instances of the sub-structure fit in the same cache line.  
+	 The factor of favoring putting two fields together and seprating
+	 them should be linear with the cache miss penalty.  */
       for (i = 0; i < ds->num_fields; i++)
 	for (j = i; j < ds->num_fields; j++)
 	  if (TEST_BIT (remaining_fields, i))
@@ -1421,7 +1397,9 @@ split_data_structure (struct data_structure *ds)
 
 	      if (TEST_BIT (remaining_fields, j))
 		size += field_size_in_bytes (ds->fields[j].decl);  
-		
+	      /* Now consider the size of the fields.  */	
+	      if (i != j)
+		cp = cp / STRUCT_REORG_CACHE_MISS_PENALTY;
 	      if (cp > max_cp && size <= max_size) 
 		{
 		  max_cp = cp;
@@ -1472,7 +1450,8 @@ split_data_structure (struct data_structure *ds)
 	      if ((g_size + f_size) > max_size)
 		continue;
 	      average_cp = average_cp_relation (ds, crr_cluster->fields_in_cluster, i);
-	      average_cp = (average_cp * g_size)/(g_size + f_size);
+	      /* average_cp = (average_cp * g_size)/(g_size + f_size);*/
+	      average_cp = average_cp / STRUCT_REORG_CACHE_MISS_PENALTY;
 	      if (average_cp > max_cp)
 		{
 		  max_i = i;
