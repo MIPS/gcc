@@ -1,3 +1,23 @@
+2004-06-23  Ziemowit Laski  <zlaski@apple.com>
+
+	* objc/execute/next_mapping.h: Include stdlib.h and string.h.
+	(MIN, MAX, ROUND): Redefine macros to be C/C++-agnostic.
+	(__small_struct): New typedef.
+	(STRUCTURE_SIZE_BOUNDARY): Use __small_struct instead of an inline
+	struct definition.
+	(arglist_t): Provide a union tag.
+	(objc_aligned_size): Add missing prototype.
+	(objc_sizeof_type): Use sizeof(char) in place of sizeof(void);
+	remove extraneous break statements.
+	(objc_alignof_type, objc_skip_typespec): Remove extraneous break
+	statements.
+	* objc.dg/bitfield-2.m: Make 'id' definition a typedef.
+	* objc.dg/id-1.m: Attempt to define 'id' in an incompatible fashion.
+	* objc.dg/va-meth-1.m: New test case.
+	* obj-c++.dg/qual-types-1.mm: New test case.
+	* obj-c++.dg/template-4.mm: New test case.
+	* obj-c++.dg/va-meth-1.mm: New test case.
+
 2004-06-09  Ziemowit Laski  <zlaski@apple.com>
 
 	* obj-c++.dg/proto-qual-1.mm: New test case.

@@ -1,3 +1,40 @@
+2004-06-23  Ziemowit Laski  <zlaski@apple.com>
+
+	* objc-act.c (TYPE_ID): Rename to OBJECT_TYPEDEF_NAME.
+	(CLASS_TYPEDEF_NAME): New.
+	(objc_init): Do not initialize objc_ellipsis_node.
+	(objc_method_ellipsis): Remove.
+	(objc_get_static_reference, objc_get_object_reference): Removed,
+	replaced by...
+	(objc_get_protocol_qualified_type): ... this function; the 'id' and
+	'Class' types no longer need to be defined in a header.
+	(synth_module_prologue): Predefine 'id' and 'Class' as typedefs; rename
+	'temp_type' to 'type'.
+	(id_type, objc_id_id): Rename to objc_object_type and objc_object_name,
+	respectively.
+	(objc_class_type, objc_class_name, objc_class_reference): New.
+	(objc_build_constructor): Remove initializer element conversions;
+	tweak Objective-C++ impedance matching.
+	(add_objc_string): Cast return value to 'char *'.
+	(objc_is_id): New function.
+	(objc_is_object_ptr): Return the canonical type node.
+	(generate_ivar_lists): Convert one of the initializer elements.
+	(get_arg_type_list, start_method_def, gen_method_def): Account for
+	new representation of variable arguments and '...' in Objective-C
+	methods; add Objective-C++ impedance matching code.
+	(objc_finish_message_expr): Call objc_is_id() instead of using
+	IS_ID and IS_CLASS; Use objc_class_name instead of calling
+	get_identifier("Class").
+	(really_start_method): Initialize SELF_DECL here, and not in
+	start_method_def.
+	(objc_continue_method_definition): Remove.
+	(is_complex_decl): Use objc_is_id() instead of IS_ID.
+	* objc-act.h (OCTI_ELLIPSIS_NODE, objc_ellipsis_node): Remove.
+	(OCTI_ID_ID, id_type, objc_id_id): Rename to OCTI_ID_NAME,
+	objc_object_type and objc_object_name, respectively.
+	(OCTI_CLS_REF, OCTI_CLASS_NAME, objc_class_reference,
+	objc_class_name): New.
+
 2004-06-09  Ziemowit Laski  <zlaski@apple.com>
 
 	* objc-act.c (is_objc_type_qualifier): Rename to

@@ -1691,6 +1691,8 @@ static void cp_parser_objc_class_declaration
   (cp_parser *);
 static void cp_parser_objc_protocol_declaration
   (cp_parser *);
+static tree cp_parser_objc_protocol_refs
+  (cp_parser *);
 static void cp_parser_objc_superclass_or_category
   (cp_parser *, tree *, tree *);
 static void cp_parser_objc_class_interface
@@ -9107,7 +9109,20 @@ cp_parser_simple_type_specifier (cp_parser* parser, cp_parser_flags flags,
      followed by a "<".  That usually indicates that the user thought
      that the type was a template.  */
   if (type && type != error_mark_node)
-    cp_parser_check_for_invalid_template_id (parser, TREE_TYPE (type));
+    {
+      /* As a last-ditch effort, see if TYPE is an Objective-C type.
+	 If it is, then the '<'...'>' enclose protocol names rather than
+	 template arguments, and so everything is fine.  */
+      if (c_dialect_objc ()
+	  && (objc_is_id (type) || objc_is_class_name (type)))
+	{
+	  tree protos = cp_parser_objc_protocol_refs (parser);
+
+	  return objc_get_protocol_qualified_type (type, protos);
+	}
+
+      cp_parser_check_for_invalid_template_id (parser, TREE_TYPE (type));
+    }
 
   return type;
 }
@@ -15869,17 +15884,26 @@ cp_parser_objc_method_keyword_params (cp_parser* parser)
 static tree
 cp_parser_objc_method_tail_params_opt (cp_parser* parser)
 {
-  tree params;
+  tree params = make_node (TREE_LIST);
   cp_token *token = cp_lexer_peek_token (parser->lexer);
 
-  if (token->type != CPP_COMMA)
-    return NULL_TREE;
+  TREE_OVERFLOW (params) = 0;  /* Initially, assume no ellipsis.  */
 
-  cp_lexer_consume_token (parser->lexer);  /* Eat ','.  */
-  params = cp_parser_parameter_declaration_clause (parser);
+  while (token->type == CPP_COMMA)
+    {
+      cp_lexer_consume_token (parser->lexer);  /* Eat ','.  */
+      token = cp_lexer_peek_token (parser->lexer);
 
-  if (!params)
-    params = objc_method_ellipsis ();
+      if (token->type == CPP_ELLIPSIS)
+	{
+	  cp_lexer_consume_token (parser->lexer);  /* Eat '...'.  */
+	  TREE_OVERFLOW (params) = 1;
+	  break;
+	}
+
+      chainon (params, cp_parser_parameter_declaration (parser, false, NULL));
+      token = cp_lexer_peek_token (parser->lexer);
+    }
 
   return params;
 }
@@ -15942,7 +15966,6 @@ cp_parser_objc_method_definition_list (cp_parser* parser)
 	    cp_lexer_consume_token (parser->lexer);
 
 	  perform_deferred_access_checks ();
-	  objc_continue_method_definition ();
 	  stop_deferring_access_checks ();
 	  meth = cp_parser_function_definition_after_declarator (parser,
 								 false);

@@ -34,6 +34,12 @@ objc_is_class_name (tree arg ATTRIBUTE_UNUSED)
 }
 
 tree
+objc_is_id (tree arg ATTRIBUTE_UNUSED)
+{
+  return 0;
+}
+
+tree
 objc_is_object_ptr (tree arg ATTRIBUTE_UNUSED)
 {
   return 0;
@@ -94,12 +100,6 @@ void
 objc_start_protocol (tree proto ATTRIBUTE_UNUSED,
 		     tree protorefs ATTRIBUTE_UNUSED)
 {
-}
-
-tree
-objc_method_ellipsis (void)
-{
-  return 0;
 }
 
 void
@@ -182,11 +182,6 @@ objc_start_method_definition (tree signature ATTRIBUTE_UNUSED)
 }
 
 void
-objc_continue_method_definition (void)
-{
-}
-
-void
 objc_finish_method_definition (tree fndecl ATTRIBUTE_UNUSED)
 {
 }
@@ -244,14 +239,8 @@ objc_get_class_reference (tree name ATTRIBUTE_UNUSED)
 }
 
 tree
-objc_get_object_reference (tree name ATTRIBUTE_UNUSED)
-{
-  return 0;
-}
-
-tree
-objc_get_static_reference (tree name ATTRIBUTE_UNUSED,
-			   tree protos ATTRIBUTE_UNUSED)
+objc_get_protocol_qualified_type (tree name ATTRIBUTE_UNUSED,
+				  tree protos ATTRIBUTE_UNUSED)
 {
   return 0;
 }

@@ -1,3 +1,14 @@
+2004-06-23  Ziemowit Laski  <zlaski@apple.com>
+
+	* parser.c (cp_parser_objc_protocol_refs): Add missing prototype.
+	(cp_parser_simple_type_specifier): Attempt to parse type name
+	as a protocol-qualified Objective-C type, if preceding efforts
+	failed.
+	(cp_parser_objc_method_tail_params_opt): Fix handling of variable
+	arguments to methods.
+	(cp_parser_objc_method_definition_list): Do not call
+	objc_continue_method_definition().
+
 2004-06-09  Ziemowit Laski  <zlaski@apple.com>
 
 	* lang-specs.h: Bring over from mainline.

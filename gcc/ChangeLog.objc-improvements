@@ -1,3 +1,24 @@
+2004-06-23  Ziemowit Laski  <zlaski@apple.com>
+
+	* c-common.h (objc_is_id, objc_get_protocol_qualified_type): New
+	prototypes.
+	(objc_method_ellipsis, objc_get_static_reference,
+	objc_get_object_reference, objc_continue_method_definition):
+	Remove prototypes.
+	* c-parse.in (optparms, optellipsis): New nonterminals.
+	(myparms, myparm, myxdecls, mydecls, mydecl, optarglist): Remove.
+	(typespec_nonreserved_nonattr): Call objc_get_protocol_qualified_type()
+	instead of objc_get_static_reference() or objc_get_object_reference().
+	* c-typeck.c (build_c_cast): Preserve the NOP_EXPR when casting
+	to an Objective-C type.
+	* expr.c (categorize_ctor_elements_1): Check for presence of 
+	designated initializer before checking its TREE_CODE.
+	* stub_objc.c (objc_is_id, objc_get_protocol_qualified_type): New
+	stub functions.
+	(objc_method_ellipsis, objc_get_static_reference,
+	objc_get_object_reference, objc_continue_method_definition):
+	Remove stub functions.
+
 2004-06-09  Ziemowit Laski  <zlaski@apple.com>
 
 	* c-common.h (objc_is_type_qualifier): New prototype.

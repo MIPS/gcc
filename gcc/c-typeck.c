@@ -2874,8 +2874,8 @@ build_c_cast (tree type, tree expr)
   /* The ObjC front-end uses TYPE_MAIN_VARIANT to tie together types differing
      only in <protocol> qualifications.  But when constructing cast expressions,
      the protocols do matter and must be kept around.  */
-  if (!c_dialect_objc () || !objc_is_object_ptr (type))
-    type = TYPE_MAIN_VARIANT (type);
+  if (c_dialect_objc () && objc_is_object_ptr (type) && type != TREE_TYPE (expr))
+    return build1 (NOP_EXPR, type, expr);
 
   if (TREE_CODE (type) == ARRAY_TYPE)
     {

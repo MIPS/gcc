@@ -132,9 +132,9 @@ objcp_push_parm_decl (tree parm)
 }
 
 tree
-objcp_get_parm_info (int void_at_end)
+objcp_get_parm_info (int have_ellipsis)
 {
-  tree parm_info = finish_parmlist (objcp_parmlist, !void_at_end);
+  tree parm_info = finish_parmlist (objcp_parmlist, have_ellipsis);
 
   /* The C++ notion of a parameter list differs slightly from that of
      C.  Adjust for this.  */

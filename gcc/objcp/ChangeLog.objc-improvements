@@ -1,3 +1,10 @@
+2004-06-23  Ziemowit Laski  <zlaski@apple.com>
+
+	* lang-specs.h: Add missing initializer, analogously to
+	cp/lang-specs.h.
+	* objcp-decl.c (objcp_get_parm_info): Adjust call to
+	finish_parmlist().
+
 2004-06-09  Ziemowit Laski  <zlaski@apple.com>
 
 	* lang-specs.h: Add missing initializer, analogously to

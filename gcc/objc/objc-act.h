@@ -148,7 +148,6 @@ enum objc_tree_index
     OCTI_SELF_ID,
     OCTI_UCMD_ID,
     OCTI_UNUSED_LIST,
-    OCTI_ELLIPSIS_NODE,
 
     OCTI_SELF_DECL,
     OCTI_UMSG_DECL,
@@ -205,13 +204,15 @@ enum objc_tree_index
     OCTI_MODULE_TEMPL,
     OCTI_SUPER_TEMPL,
     OCTI_OBJ_REF,
+    OCTI_CLS_REF,
     OCTI_METH_PROTO_TEMPL,
     OCTI_FUNCTION1_TEMPL,
     OCTI_FUNCTION2_TEMPL,
 
     OCTI_OBJ_ID,
     OCTI_CLS_ID,
-    OCTI_ID_ID,
+    OCTI_ID_NAME,
+    OCTI_CLASS_NAME,
     OCTI_CNST_STR_ID,
     OCTI_CNST_STR_TYPE,
     OCTI_CNST_STR_GLOB_ID,
@@ -253,7 +254,6 @@ extern GTY(()) tree objc_global_trees[OCTI_MAX];
 #define self_id			objc_global_trees[OCTI_SELF_ID]
 #define ucmd_id			objc_global_trees[OCTI_UCMD_ID]
 #define unused_list		objc_global_trees[OCTI_UNUSED_LIST]
-#define objc_ellipsis_node	objc_global_trees[OCTI_ELLIPSIS_NODE]
 
 #define self_decl		objc_global_trees[OCTI_SELF_DECL]
 #define umsg_decl		objc_global_trees[OCTI_UMSG_DECL]
@@ -266,7 +266,7 @@ extern GTY(()) tree objc_global_trees[OCTI_MAX];
 
 #define super_type		objc_global_trees[OCTI_SUPER_TYPE]
 #define selector_type		objc_global_trees[OCTI_SEL_TYPE]
-#define id_type			objc_global_trees[OCTI_ID_TYPE]
+#define objc_object_type	objc_global_trees[OCTI_ID_TYPE]
 #define objc_class_type		objc_global_trees[OCTI_CLS_TYPE]
 #define instance_type		objc_global_trees[OCTI_NST_TYPE]
 #define protocol_type		objc_global_trees[OCTI_PROTO_TYPE]
@@ -274,7 +274,7 @@ extern GTY(()) tree objc_global_trees[OCTI_MAX];
 /* Type checking macros.  */
 
 #define IS_ID(TYPE) \
-  (POINTER_TYPE_P (TYPE) && TREE_TYPE (TYPE) == TREE_TYPE (id_type))
+  (POINTER_TYPE_P (TYPE) && TREE_TYPE (TYPE) == TREE_TYPE (objc_object_type))
 #define IS_CLASS(TYPE) \
   (POINTER_TYPE_P (TYPE) && TREE_TYPE (TYPE) == TREE_TYPE (objc_class_type))
 #define IS_PROTOCOL_QUALIFIED_ID(TYPE) \
@@ -368,6 +368,7 @@ extern GTY(()) tree objc_global_trees[OCTI_MAX];
 #define objc_module_template	objc_global_trees[OCTI_MODULE_TEMPL]
 #define objc_super_template	objc_global_trees[OCTI_SUPER_TEMPL]
 #define objc_object_reference	objc_global_trees[OCTI_OBJ_REF]
+#define objc_class_reference	objc_global_trees[OCTI_CLS_REF]
 #define objc_method_prototype_template		\
 				objc_global_trees[OCTI_METH_PROTO_TEMPL]
 #define function1_template	objc_global_trees[OCTI_FUNCTION1_TEMPL]
@@ -375,7 +376,8 @@ extern GTY(()) tree objc_global_trees[OCTI_MAX];
 
 #define objc_object_id		objc_global_trees[OCTI_OBJ_ID]
 #define objc_class_id		objc_global_trees[OCTI_CLS_ID]
-#define objc_id_id		objc_global_trees[OCTI_ID_ID]
+#define objc_object_name		objc_global_trees[OCTI_ID_NAME]
+#define objc_class_name		objc_global_trees[OCTI_CLASS_NAME]
 #define constant_string_id	objc_global_trees[OCTI_CNST_STR_ID]
 #define constant_string_type	objc_global_trees[OCTI_CNST_STR_TYPE]
 #define constant_string_global_id		\
