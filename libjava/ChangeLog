@@ -1,5 +1,12 @@
 2004-09-11  Michael Koch  <konqueror@gmx.de>
 
+	* gnu/java/awt/peer/gtk/GtkClipboard.java,
+	java/awt/datatransfer/Clipboard.java,
+	java/awt/datatransfer/ClipboardOwner.java:
+	Reformated to make it use our coding standard.
+
+2004-09-11  Michael Koch  <konqueror@gmx.de>
+
 	* javax/swing/SpinnerNumberModel.java
 	(SpinnerNumberModel): Implements java.io.Serializable.
 	(serialVersionUID): New field.
