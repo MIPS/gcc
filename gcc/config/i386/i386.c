@@ -15673,6 +15673,7 @@ k8_avoid_jump_misspredicts (first)
      */
   for (insn = first; insn; insn = NEXT_INSN (insn))
     {
+      int padsize = 0;
 
       nbytes += min_insn_size (insn);
       if (rtl_dump_file)
@@ -15682,7 +15683,7 @@ k8_avoid_jump_misspredicts (first)
 	   && GET_CODE (PATTERN (insn)) != ADDR_VEC
 	   && GET_CODE (PATTERN (insn)) != ADDR_DIFF_VEC)
 	  || GET_CODE (insn) == CALL_INSN)
-	njumps++;
+	njumps++, padsize = get_attr_length (insn) - 1;
       else
 	continue;
 
@@ -15706,8 +15707,13 @@ k8_avoid_jump_misspredicts (first)
 
       if (njumps == 3 && isjump && nbytes < 16)
 	{
-	  int padsize = 16 - nbytes + min_insn_size (insn);
+	  int padsize2 = 15 - nbytes + min_insn_size (insn);
 
+	  if (padsize2 > padsize)
+	    padsize = padsize2;
+	}
+      if (padsize)
+	{
 	  if (rtl_dump_file)
 	    fprintf (rtl_dump_file, "Padding insn %i by %i bytes!\n", INSN_UID (insn), padsize);
           emit_insn_before (gen_align (GEN_INT (padsize)), insn);
@@ -15762,7 +15768,7 @@ x86_machine_dependent_reorg (first)
     if (insert)
       emit_insn_before (gen_nop (), ret);
   }
-  if (TARGET_K8)
+  if (TARGET_ATHLON_K8)
     k8_avoid_jump_misspredicts (first);
 }
 
