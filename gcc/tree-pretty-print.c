@@ -534,7 +534,7 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags)
       break;
 
     case RESULT_DECL:
-      dump_generic_node (buffer, TREE_TYPE (node), spc, flags);
+      pp_string (buffer, "<retval>");
       break;
 
     case FIELD_DECL:

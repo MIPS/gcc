@@ -81,7 +81,6 @@ static void gimplify_switch_stmt (tree *);
 static void gimplify_return_stmt (tree *);
 static void gimplify_stmt_expr (tree *);
 static void gimplify_compound_literal_expr (tree *);
-static void make_type_writable (tree);
 #if defined ENABLE_CHECKING
 static int is_last_stmt_of_scope (tree);
 #endif
@@ -92,7 +91,6 @@ static void push_context (void);
 static void pop_context (void);
 static tree c_build_bind_expr (tree, tree);
 static void add_block_to_enclosing (tree);
-static tree mostly_copy_tree_r (tree *, int *, void *);
 static void gimplify_condition (tree *);
 
 enum bc_t { bc_break = 0, bc_continue = 1 };
@@ -871,7 +869,7 @@ gimplify_decl_stmt (tree *stmt_p, tree *next_p)
 		 and we use throw-away queues.  */
 	      tree pre = NULL;
 	      tree post = NULL;
-	      tree dummy_init = deep_copy_node (init);
+	      tree dummy_init = unshare_expr (init);
 	      gimplify_expr (&dummy_init, &pre, &post,
 			     is_gimple_initializer,
 			     fb_rvalue);
@@ -1020,200 +1018,6 @@ gimplify_stmt_expr (tree *expr_p)
 /* Code generation.  */
 
 /* Miscellaneous helpers.  */
-
-/*  Change the flags for the type of the node T to make it writable.  */
-
-static void
-make_type_writable (tree t)
-{
-#if defined ENABLE_CHECKING
-  if (t == NULL_TREE)
-    abort ();
-#endif
-
-  if (TYPE_READONLY (TREE_TYPE (t))
-      || ((TREE_CODE (TREE_TYPE (t)) == RECORD_TYPE
-	   || TREE_CODE (TREE_TYPE (t)) == UNION_TYPE)
-	  && C_TYPE_FIELDS_READONLY (TREE_TYPE (t))))
-    {
-      /* Make a copy of the type declaration.  */
-      TREE_TYPE (t) = build_type_copy (TREE_TYPE (t));
-      TYPE_READONLY (TREE_TYPE (t)) = 0;
-
-      /* If the type is a structure that contains a field readonly.  */
-      if ((TREE_CODE (TREE_TYPE (t)) == RECORD_TYPE
-	   || TREE_CODE (TREE_TYPE (t)) == UNION_TYPE)
-	  && C_TYPE_FIELDS_READONLY (TREE_TYPE (t)))
-	{
-	  C_TYPE_FIELDS_READONLY (TREE_TYPE (t)) = 0;
-
-	  /* Make the fields of the structure writable.  */
-	  {
-	    tree it;
-	    it = TYPE_FIELDS (TREE_TYPE (t));
-	    while (it)
-	      {
-		/* Make the field writable.  */
-		TREE_READONLY (it) = 0;
-
-		/* Make the type of the field writable.  */
-		make_type_writable (it);
-		it = TREE_CHAIN (it);
-	      }
-	  }
-	}
-    }
-}
-
-/*  Copy every statement from the chain CHAIN by calling deep_copy_node().
-    Return the new chain.  */
-
-tree
-deep_copy_list (tree chain)
-{
-  tree new_chain, res;
-
-  if (chain == NULL_TREE)
-    /* Nothing to copy.  */
-    return NULL_TREE;
-
-  new_chain = deep_copy_node (chain);
-  res = new_chain;
-
-  while (TREE_CHAIN (chain))
-    {
-      chain = TREE_CHAIN (chain);
-      TREE_CHAIN (new_chain) = deep_copy_node (chain);
-      new_chain = TREE_CHAIN (new_chain);
-    }
-
-  return res;
-}
-
-
-/*  Create a deep copy of NODE.  The only nodes that are not deep copied
-    are declarations, constants and types.  */
-
-tree
-deep_copy_node (tree node)
-{
-  tree res;
-
-  if (node == NULL_TREE)
-    return NULL_TREE;
-
-  switch (TREE_CODE (node))
-    {
-    case COMPOUND_STMT:
-      res = build_stmt (COMPOUND_STMT, deep_copy_list (COMPOUND_BODY (node)));
-      break;
-
-    case FOR_STMT:
-      res = build_stmt (FOR_STMT,
-			deep_copy_node (FOR_INIT_STMT (node)),
-			deep_copy_node (FOR_COND (node)),
-			deep_copy_node (FOR_EXPR (node)),
-			deep_copy_node (FOR_BODY (node)));
-      break;
-
-    case WHILE_STMT:
-      res = build_stmt (WHILE_STMT,
-			deep_copy_node (WHILE_COND (node)),
-			deep_copy_node (WHILE_BODY (node)));
-      break;
-
-    case DO_STMT:
-      res = build_stmt (DO_STMT,
-			deep_copy_node (DO_COND (node)),
-			deep_copy_node (DO_BODY (node)));
-      break;
-
-    case IF_STMT:
-      res = build_stmt (IF_STMT,
-			deep_copy_node (IF_COND (node)),
-			deep_copy_node (THEN_CLAUSE (node)),
-			deep_copy_node (ELSE_CLAUSE (node)));
-      break;
-
-    case SWITCH_STMT:
-      res = build_stmt (SWITCH_STMT,
-			deep_copy_node (SWITCH_COND (node)),
-			deep_copy_node (SWITCH_BODY (node)));
-      break;
-
-    case EXPR_STMT:
-      res = build_stmt (EXPR_STMT, deep_copy_node (EXPR_STMT_EXPR (node)));
-      break;
-
-    case DECL_STMT:
-      res = build_stmt (DECL_STMT, DECL_STMT_DECL (node));
-      break;
-
-    case RETURN_STMT:
-      res = build_stmt (RETURN_STMT, deep_copy_node (RETURN_STMT_EXPR (node)));
-      break;
-
-    case TREE_LIST:
-      res = build_tree_list (deep_copy_node (TREE_PURPOSE (node)),
-	                     deep_copy_node (TREE_VALUE (node)));
-      break;
-
-    case SCOPE_STMT:
-      if (SCOPE_BEGIN_P (node))
-	{
-	  /* ??? The sub-blocks and supercontext for the scope's BLOCK_VARS
-		 should be re-computed after copying.  */
-	  res = build_stmt (SCOPE_STMT,
-			    deep_copy_list (SCOPE_STMT_BLOCK (node)));
-	  SCOPE_BEGIN_P (res) = 1;
-	}
-      else
-	{
-	  res = build_stmt (SCOPE_STMT, NULL_TREE);
-	  SCOPE_BEGIN_P (res) = 0;
-	}
-      break;
-
-    default:
-      walk_tree (&node, mostly_copy_tree_r, NULL, NULL);
-      res = node;
-      break;
-    }
-
-  /* Set the line number.  */
-  if (STATEMENT_CODE_P (TREE_CODE (node)))
-    STMT_LINENO (res) = STMT_LINENO (node);
-
-  return res;
-}
-
-/* Similar to copy_tree_r() but do not copy SAVE_EXPR nodes.  These nodes
-   model computations that should only be done once.  If we were to unshare
-   something like SAVE_EXPR(i++), the gimplification process would create
-   wrong code.  */
-
-static tree
-mostly_copy_tree_r (tree *tp, int *walk_subtrees, void *data)
-{
-  enum tree_code code = TREE_CODE (*tp);
-  /* Don't unshare decls, blocks, types and SAVE_EXPR nodes.  */
-  if (TREE_CODE_CLASS (code) == 't'
-      || TREE_CODE_CLASS (code) == 'd'
-      || TREE_CODE_CLASS (code) == 'c'
-      || TREE_CODE_CLASS (code) == 'b'
-      || code == SAVE_EXPR)
-    *walk_subtrees = 0;
-  else if (code == STMT_EXPR || code == SCOPE_STMT || code == BIND_EXPR)
-    /* Unsharing STMT_EXPRs doesn't make much sense; they tend to be
-       complex, so they shouldn't be shared in the first place.  Unsharing
-       SCOPE_STMTs breaks because copy_tree_r zeroes out the block.  */
-    abort ();
-  else
-    copy_tree_r (tp, walk_subtrees, data);
-
-  return NULL_TREE;
-}
-
 
 #if defined ENABLE_CHECKING
 /*  Return nonzero if STMT is the last statement of its scope.  */
