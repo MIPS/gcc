@@ -36,6 +36,16 @@
 
 2003-10-14  Jeff Law  <law@redhat.com>
 
+	* tree-ssa-dom.c (record_equivalences_from_stmt): Renamed from
+	record_equivalances.  Caller updated.
+	(record_equivalences_from_phis): New function extracted from
+	optimize_block.
+	(record_equivalences_from_incoming_edge): Likewise.
+	(record_equivalances_from_block_entry): Likewise.
+	(cprop_into_phis): Likewise.
+	(optimize_stmt): Lots of code moved into new functions.  Call
+	record_equivlances_from_block_entry.
+ 
 	* tree-ssa-dom.c (optimize_block): Simplify interface slightly.
 	Use finalize_block.  Extract edge_flags from our block's
 	incoming edge as necessary.  Simplify recursive call.

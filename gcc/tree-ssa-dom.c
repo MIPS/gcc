@@ -156,10 +156,18 @@ static tree find_equivalent_equality_comparison (tree);
 static void record_range (tree, basic_block, varray_type);
 static bool extract_range_from_cond (tree, tree *, tree *, int *);
 static bool cprop_into_stmt (tree);
+static void cprop_into_phis (basic_block, varray_type);
+static void record_equivalences_from_phis (basic_block, varray_type);
+static void record_equivalences_from_block_entry (basic_block, tree,
+						  varray_type *, varray_type,
+						  varray_type, varray_type);
+static void record_equivalences_from_incoming_edge (basic_block, tree,
+						    varray_type *, varray_type,
+						    varray_type, varray_type);
 static bool eliminate_redundant_computations (tree, varray_type *,
 					      varray_type, stmt_ann_t);
-static void record_equivalences (tree, varray_type *, varray_type,
-				 int, stmt_ann_t);
+static void record_equivalences_from_stmt (tree, varray_type *, varray_type,
+					   int, stmt_ann_t);
 static void thread_through_successor (basic_block, varray_type *, varray_type);
 static void finalize_block (basic_block, varray_type *, varray_type,
 			    varray_type, varray_type, varray_type, sbitmap);
@@ -491,69 +499,73 @@ finalize_block (basic_block bb,
     }
 }
 
-/* Perform a depth-first traversal of the dominator tree looking for
-   redundant expressions and copy/constant propagation opportunities. 
+/* PHI nodes can create equivalences too.
 
-   Expressions computed by each statement are looked up in the
-   AVAIL_EXPRS table.  If a statement is found to make a redundant
-   computation, it is marked for removal.  Otherwise, the expression
-   computed by the statement is assigned a value number and entered
-   into the AVAIL_EXPRS table.  See optimize_stmt for details on the
-   types of redundancies handled during renaming.
+   Ignoring any alternatives which are the same as the result, if
+   all the alternatives are equal, then the PHI node creates an
+   equivalence.  */
+static void
+record_equivalences_from_phis (basic_block bb, varray_type const_and_copies)
+{
+  tree phi;
 
-   Once we've optimized the statements in this block we recursively
-   optimize every dominator child of this block.
+  for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
+    {
+      tree lhs = PHI_RESULT (phi);
+      tree rhs = NULL;
+      int i;
 
-   Finally, remove all the expressions added to the AVAIL_EXPRS
-   table during renaming.  This is because the expressions made
-   available to block BB and its dominator children are not valid for
-   blocks above BB in the dominator tree.
+      for (i = 0; i < PHI_NUM_ARGS (phi); i++)
+	{
+	  tree t = PHI_ARG_DEF (phi, i);
 
-   EDGE_FLAGS are the flags for the incoming edge from BB's dominator
-   parent block.  This is used to determine whether BB is the first block
-   of a THEN_CLAUSE or an ELSE_CLAUSE.
+	  if (TREE_CODE (t) == SSA_NAME || is_gimple_min_invariant (t))
+	    {
+	      /* Ignore alternatives which are the same as our LHS.  */
+	      if (operand_equal_p (lhs, t, 0))
+		continue;
 
-   VARS_TO_RENAME is a bitmap representing variables that will need to be
-   renamed into SSA after dominator optimization.
-   
-   CFG_ALTERED is set to true if cfg is altered.  */
+	      /* If we have not processed an alternative yet, then set
+		 RHS to this alternative.  */
+	      if (rhs == NULL)
+		rhs = t;
+	      /* If we have processed an alternative (stored in RHS), then
+		 see if it is equal to this one.  If it isn't, then stop
+		 the search.  */
+	      else if (! operand_equal_p (rhs, t, 0))
+		break;
+	    }
+	  else
+	    break;
+	}
+
+      /* If we had no interesting alternatives, then all the RHS alternatives
+	 must have been the same as LHS.  */
+      if (!rhs)
+	rhs = lhs;
+
+      /* If we managed to iterate through each PHI alternative without
+	 breaking out of the loop, then we have a PHI which may create
+	 a useful equivalence.  */
+      if (i == PHI_NUM_ARGS (phi)
+	  && may_propagate_copy (lhs, rhs))
+	set_value_for (lhs, rhs, const_and_copies);
+    }
+}
+
+/* Record any equivalences created by the incoming edge to BB.  If BB
+   has more than one incoming edge, then no equivalence is created.  */
 
 static void
-optimize_block (basic_block bb, tree parent_block_last_stmt,
-                sbitmap vars_to_rename, bool *cfg_altered)
+record_equivalences_from_incoming_edge (basic_block bb,
+					tree parent_block_last_stmt,
+					varray_type *block_avail_exprs_p,
+					varray_type block_const_and_copies,
+					varray_type const_and_copies,
+					varray_type vrp_variables)
 {
-  varray_type block_avail_exprs;
-  varray_type block_const_and_copies;
-  varray_type stmts_to_rescan;
-  varray_type vrp_variables;
-  bitmap children;
-  unsigned long i;
-  block_stmt_iterator si;
-  tree eq_expr_value = NULL_TREE;
-  edge e;
-  tree phi;
   int edge_flags;
-
-  /* Initialize the local stacks.
-     
-     BLOCK_AVAIL_EXPRS stores all the expressions made available in this
-     block.  Since expressions made available in this block are only valid
-     in blocks dominated by BB, when we finish rewriting BB and its
-     dominator children, we have to remove these expressions from the
-     AVAIL_EXPRS table.  This stack is used to know which expressions
-     to remove from the table.  */
-  VARRAY_TREE_INIT (block_avail_exprs, 20, "block_avail_exprs");
-  VARRAY_TREE_INIT (block_const_and_copies, 2, "block_const_and_copies");
-  VARRAY_TREE_INIT (stmts_to_rescan, 20, "stmts_to_rescan");
-
-  /* VRP_VARIABLES stores all the variables which have their values
-     constrainted by an operation in this block.  Right now only
-     conditionals constrain values.  Other operations may constrain
-     values in the future.  */
-  VARRAY_TREE_INIT (vrp_variables, 2, "vrp_variables");
-
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    fprintf (dump_file, "\n\nOptimizing block #%d\n\n", bb->index);
+  tree eq_expr_value = NULL_TREE;
 
   /* If we have a single predecessor, then extract EDGE_FLAGS from
      our single incoming edge.  Otherwise clear EDGE_FLAGS and
@@ -585,7 +597,7 @@ optimize_block (basic_block bb, tree parent_block_last_stmt,
       && (edge_flags & (EDGE_TRUE_VALUE | EDGE_FALSE_VALUE)))
     eq_expr_value = get_eq_expr_value (parent_block_last_stmt,
 				       (edge_flags & EDGE_TRUE_VALUE) != 0,
-				       &block_avail_exprs,
+				       block_avail_exprs_p,
 				       const_and_copies,
 				       bb,
 				       vrp_variables);
@@ -606,6 +618,8 @@ optimize_block (basic_block bb, tree parent_block_last_stmt,
 	 know its value at each of the case labels.  */
       if (TREE_CODE (switch_cond) == SSA_NAME)
 	{
+	  block_stmt_iterator si;
+
 	  /* Walk the statements at the start of this block.  */
 	  for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
 	    {
@@ -659,54 +673,96 @@ optimize_block (basic_block bb, tree parent_block_last_stmt,
       VARRAY_PUSH_TREE (block_const_and_copies, dest);
       VARRAY_PUSH_TREE (block_const_and_copies, prev_value);
     }
+}
 
-  /* PHI nodes can create equivalences too.
+/* Record equivalences upon entry to BB.  Equivlances can come from the
+   edge traversed to reach BB or they may come from PHI nodes at the
+   start of BB.  */
 
-     Ignoring any alternatives which are the same as the result, if
-     all the alternatives are equal, then the PHI node creates an
-     equivalence.  */
-  for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
-    {
-      tree lhs = PHI_RESULT (phi);
-      tree rhs = NULL;
-      int i;
+static void
+record_equivalences_from_block_entry (basic_block bb,
+				      tree parent_block_last_stmt,
+				      varray_type *block_avail_exprs_p,
+				      varray_type block_const_and_copies,
+				      varray_type const_and_copies,
+				      varray_type vrp_variables)
+{
+  record_equivalences_from_incoming_edge (bb, parent_block_last_stmt,
+					  block_avail_exprs_p,
+					  block_const_and_copies,
+					  const_and_copies,
+					  vrp_variables);
 
-      for (i = 0; i < PHI_NUM_ARGS (phi); i++)
-	{
-	  tree t = PHI_ARG_DEF (phi, i);
+  /* PHI nodes can create equivalences too.  */
+  record_equivalences_from_phis (bb, const_and_copies);
+}
 
-	  if (TREE_CODE (t) == SSA_NAME || is_gimple_min_invariant (t))
-	    {
-	      /* Ignore alternatives which are the same as our LHS.  */
-	      if (operand_equal_p (lhs, t, 0))
-		continue;
+/* Perform a depth-first traversal of the dominator tree looking for
+   redundant expressions and copy/constant propagation opportunities. 
 
-	      /* If we have not processed an alternative yet, then set
-		 RHS to this alternative.  */
-	      if (rhs == NULL)
-		rhs = t;
-	      /* If we have processed an alternative (stored in RHS), then
-		 see if it is equal to this one.  If it isn't, then stop
-		 the search.  */
-	      else if (! operand_equal_p (rhs, t, 0))
-		break;
-	    }
-	  else
-	    break;
-	}
+   Expressions computed by each statement are looked up in the
+   AVAIL_EXPRS table.  If a statement is found to make a redundant
+   computation, it is marked for removal.  Otherwise, the expression
+   computed by the statement is assigned a value number and entered
+   into the AVAIL_EXPRS table.  See optimize_stmt for details on the
+   types of redundancies handled during renaming.
 
-      /* If we had no interesting alternatives, then all the RHS alternatives
-	 must have been the same as LHS.  */
-      if (!rhs)
-	rhs = lhs;
+   Once we've optimized the statements in this block we recursively
+   optimize every dominator child of this block.
 
-      /* If we managed to iterate through each PHI alternative without
-	 breaking out of the loop, then we have a PHI which may create
-	 a useful equivalence.  */
-      if (i == PHI_NUM_ARGS (phi)
-	  && may_propagate_copy (lhs, rhs))
-	set_value_for (lhs, rhs, const_and_copies);
-    }
+   Finally, remove all the expressions added to the AVAIL_EXPRS
+   table during renaming.  This is because the expressions made
+   available to block BB and its dominator children are not valid for
+   blocks above BB in the dominator tree.
+
+   EDGE_FLAGS are the flags for the incoming edge from BB's dominator
+   parent block.  This is used to determine whether BB is the first block
+   of a THEN_CLAUSE or an ELSE_CLAUSE.
+
+   VARS_TO_RENAME is a bitmap representing variables that will need to be
+   renamed into SSA after dominator optimization.
+   
+   CFG_ALTERED is set to true if cfg is altered.  */
+
+static void
+optimize_block (basic_block bb, tree parent_block_last_stmt,
+                sbitmap vars_to_rename, bool *cfg_altered)
+{
+  varray_type block_avail_exprs;
+  varray_type block_const_and_copies;
+  varray_type stmts_to_rescan;
+  varray_type vrp_variables;
+  bitmap children;
+  unsigned long i;
+  block_stmt_iterator si;
+
+  /* Initialize the local stacks.
+     
+     BLOCK_AVAIL_EXPRS stores all the expressions made available in this
+     block.  Since expressions made available in this block are only valid
+     in blocks dominated by BB, when we finish rewriting BB and its
+     dominator children, we have to remove these expressions from the
+     AVAIL_EXPRS table.  This stack is used to know which expressions
+     to remove from the table.  */
+  VARRAY_TREE_INIT (block_avail_exprs, 20, "block_avail_exprs");
+  VARRAY_TREE_INIT (block_const_and_copies, 2, "block_const_and_copies");
+  VARRAY_TREE_INIT (stmts_to_rescan, 20, "stmts_to_rescan");
+
+  /* VRP_VARIABLES stores all the variables which have their values
+     constrainted by an operation in this block.  Right now only
+     conditionals constrain values.  Other operations may constrain
+     values in the future.  */
+  VARRAY_TREE_INIT (vrp_variables, 2, "vrp_variables");
+
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    fprintf (dump_file, "\n\nOptimizing block #%d\n\n", bb->index);
+
+  /* Record any equivalences created at the start of this block.  */
+  record_equivalences_from_block_entry (bb, parent_block_last_stmt,
+					&block_avail_exprs,
+					block_const_and_copies,
+					const_and_copies,
+					vrp_variables);
 
   /* Optimize each statement within the basic block.  */
   for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
@@ -722,74 +778,8 @@ optimize_block (basic_block bb, tree parent_block_last_stmt,
 	VARRAY_PUSH_TREE (stmts_to_rescan, bsi_stmt (si));
     }
 
-  /* Propagate known constants/copies into PHI nodes.
-
-     This can get rather expensive if the implementation is naive in
-     how it finds the phi alternative associated with a particular edge.  */
-  for (e = bb->succ; e; e = e->succ_next)
-    {
-      tree phi;
-      int phi_num_args;
-      int hint;
-
-      phi = phi_nodes (e->dest);
-      if (! phi)
-	continue;
-
-      /* There is no guarantee that for any two PHI nodes in a block that
-	 the phi alternative associated with a particular edge will be
-	 at the same index in the phi alternative array.
-
-	 However, it is very likely they will be the same.  So we keep
-	 track of the index of the alternative where we found the edge in
-	 the previous phi node and check that index first in the next
-	 phi node.  If that hint fails, then we actually search all
-	 the entries.  */
-      phi_num_args = PHI_NUM_ARGS (phi);
-      hint = phi_num_args;
-      for ( ; phi; phi = TREE_CHAIN (phi))
-	{
-	  int i;
-	  tree new;
-	  tree *orig_p;
-
-	  /* If the hint is valid (!= phi_num_args), see if it points
-	     us to the desired phi alternative.  */
-	  if (hint != phi_num_args && PHI_ARG_EDGE (phi, hint) == e)
-	    ;
-	  else
-	    {
-	      /* The hint was either invalid or did not point to the
-		 correct phi alternative.  Search all the alternatives
-		 for the correct one.  Update the hint.  */
-	      for (i = 0; i < phi_num_args; i++)
-		if (PHI_ARG_EDGE (phi, i) == e)
-		  break;
-	      hint = i;
-	    }
-
-#ifdef ENABLE_CHECKING
-	  /* If we did not find the proper alternative, then something is
-	     horribly wrong.  */
-	  if (hint == phi_num_args)
-	    abort ();
-#endif
-
-	  /* The alternative may be associated with a constant, so verify
-	     it is an SSA_NAME before doing anything with it.  */
-	  orig_p = &PHI_ARG_DEF (phi, hint);
-	  if (TREE_CODE (*orig_p) != SSA_NAME)
-	    continue;
-
-	  /* If we have *ORIG_P in our constant/copy table, then replace
-	     ORIG_P with its value in our constant/copy table.  */
-	  new = get_value_for (*orig_p, const_and_copies);
-	  if (new
-	      && (TREE_CODE (new) == SSA_NAME || is_gimple_min_invariant (new))
-	      && may_propagate_copy (*orig_p, new))
-	    *orig_p = new;
-	}
-    }
+  /* Propagate known constants/copies into PHI nodes.  */
+  cprop_into_phis (bb, const_and_copies);
 
   /* Recursively optimize the dominator children of BB.  */
   children = dom_children (bb);
@@ -1485,6 +1475,81 @@ cprop_into_stmt (tree stmt)
   return may_have_exposed_new_symbols;
 }
 
+/* Propagate known constants/copies into PHI nodes.  */
+
+static void
+cprop_into_phis (basic_block bb, varray_type const_and_copies)
+{
+  edge e;
+
+  /* This can get rather expensive if the implementation is naive in
+     how it finds the phi alternative associated with a particular edge.  */
+  for (e = bb->succ; e; e = e->succ_next)
+    {
+      tree phi;
+      int phi_num_args;
+      int hint;
+
+      phi = phi_nodes (e->dest);
+      if (! phi)
+	continue;
+
+      /* There is no guarantee that for any two PHI nodes in a block that
+	 the phi alternative associated with a particular edge will be
+	 at the same index in the phi alternative array.
+
+	 However, it is very likely they will be the same.  So we keep
+	 track of the index of the alternative where we found the edge in
+	 the previous phi node and check that index first in the next
+	 phi node.  If that hint fails, then we actually search all
+	 the entries.  */
+      phi_num_args = PHI_NUM_ARGS (phi);
+      hint = phi_num_args;
+      for ( ; phi; phi = TREE_CHAIN (phi))
+	{
+	  int i;
+	  tree new;
+	  tree *orig_p;
+
+	  /* If the hint is valid (!= phi_num_args), see if it points
+	     us to the desired phi alternative.  */
+	  if (hint != phi_num_args && PHI_ARG_EDGE (phi, hint) == e)
+	    ;
+	  else
+	    {
+	      /* The hint was either invalid or did not point to the
+		 correct phi alternative.  Search all the alternatives
+		 for the correct one.  Update the hint.  */
+	      for (i = 0; i < phi_num_args; i++)
+		if (PHI_ARG_EDGE (phi, i) == e)
+		  break;
+	      hint = i;
+	    }
+
+#ifdef ENABLE_CHECKING
+	  /* If we did not find the proper alternative, then something is
+	     horribly wrong.  */
+	  if (hint == phi_num_args)
+	    abort ();
+#endif
+
+	  /* The alternative may be associated with a constant, so verify
+	     it is an SSA_NAME before doing anything with it.  */
+	  orig_p = &PHI_ARG_DEF (phi, hint);
+	  if (TREE_CODE (*orig_p) != SSA_NAME)
+	    continue;
+
+	  /* If we have *ORIG_P in our constant/copy table, then replace
+	     ORIG_P with its value in our constant/copy table.  */
+	  new = get_value_for (*orig_p, const_and_copies);
+	  if (new
+	      && (TREE_CODE (new) == SSA_NAME || is_gimple_min_invariant (new))
+	      && may_propagate_copy (*orig_p, new))
+	    *orig_p = new;
+	}
+    }
+}
+
 /* Search for redundant computations in STMT.  If any are found, then
    replace them with the variable holding the result of the computation.
 
@@ -1595,11 +1660,11 @@ eliminate_redundant_computations (tree stmt,
    Detect and record those equivalences.  */
 
 static void
-record_equivalences (tree stmt,
-		     varray_type *block_avail_exprs_p,
-		     varray_type const_and_copies,
-		     int may_optimize_p,
-		     stmt_ann_t ann)
+record_equivalences_from_stmt (tree stmt,
+			       varray_type *block_avail_exprs_p,
+			       varray_type const_and_copies,
+			       int may_optimize_p,
+			       stmt_ann_t ann)
 {
   tree lhs = TREE_OPERAND (stmt, 0);
   enum tree_code lhs_code = TREE_CODE (lhs);
@@ -1820,8 +1885,8 @@ optimize_stmt (block_stmt_iterator si, varray_type *block_avail_exprs_p,
 
   /* Record any additional equivalences created by this statement.  */
   if (TREE_CODE (stmt) == MODIFY_EXPR)
-    record_equivalences (stmt, block_avail_exprs_p,
-			 const_and_copies, may_optimize_p, ann);
+    record_equivalences_from_stmt (stmt, block_avail_exprs_p,
+				   const_and_copies, may_optimize_p, ann);
 
   /* If STMT is a COND_EXPR and it was modified, then we may know
      where it goes.  In which case we can remove some edges, simplify
