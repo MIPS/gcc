@@ -1,3 +1,14 @@
+2002-10-17  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* config/ia64/itanium1.md: New file.
+
+	* config/ia64/itanium2.md: New file.
+
+	* config/ia64/ia64.md: Move DFA descriptions into the new files.
+	
+	* config/ia64/ia64.c (ia64_override_options): Add aliases of
+	itanium processor names.
+	
 2002-10-16  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* config/ia64/ia64.c (bundling): Print states for Itanium2 too.

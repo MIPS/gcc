@@ -4222,7 +4222,10 @@ ia64_override_options ()
   const processor_alias_table[] =
     {
       {"itanium", PROCESSOR_ITANIUM},
+      {"itanium1", PROCESSOR_ITANIUM},
+      {"merced", PROCESSOR_ITANIUM},
       {"itanium2", PROCESSOR_ITANIUM2},
+      {"mckinley", PROCESSOR_ITANIUM2},
     };
 
   int const pta_size = ARRAY_SIZE (processor_alias_table);
