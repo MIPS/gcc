@@ -1,3 +1,8 @@
+Mon Apr 29 10:26:21 2002  Jeffrey A Law  (law@redhat.com)
+
+	* pa.md (7100lc, 7200, 7300 scheduling): Slightly refine
+	handling of double precision multiplies.
+
 Sun Apr 28 13:35:13 2002  Jeffrey A Law  (law@redhat.com)
 
 	* pa.md (7100lc, 7200, 7300 scheduling): Refine handling of

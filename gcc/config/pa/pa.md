@@ -335,15 +335,15 @@
        (eq_attr "cpu" "7100LC,7200,7300"))
   "f_7100lc,fpalu_7100lc")
 
+;; Double precision multiplies lock the entire CPU for one
+;; cycle.  There is no way to avoid this lock and trying to
+;; schedule around the lock is pointless and thus there is no
+;; value in trying to model this lock.  Not modeling the lock
+;; allows for a smaller DFA and may reduce register pressure.
 (define_insn_reservation "Y1" 2
-  (and (eq_attr "type" "fpmulsgl")
+  (and (eq_attr "type" "fpmulsgl,fpmuldbl")
        (eq_attr "cpu" "7100LC,7200,7300"))
   "f_7100lc,fpmul_7100lc")
-
-(define_insn_reservation "Y2" 3
-  (and (eq_attr "type" "fpmuldbl")
-       (eq_attr "cpu" "7100LC,7200,7300"))
-  "f_7100lc,fpmul_7100lc,fpmul_7100lc")
 
 ;; fp division and sqrt instructions lock the entire CPU for
 ;; 7 cycles (single precision) or 14 cycles (double precision).
@@ -351,39 +351,39 @@
 ;; around the lock is pointless and thus there is no value in
 ;; trying to model this lock.  Not modeling the lock allows
 ;; for a smaller DFA and may reduce register pressure.
-(define_insn_reservation "Y3" 1
+(define_insn_reservation "Y2" 1
   (and (eq_attr "type" "fpdivsgl,fpsqrtsgl,fpdivdbl,fpsqrtdbl")
        (eq_attr "cpu" "7100LC,7200,7300"))
   "f_7100lc")
 
-(define_insn_reservation "Y4" 2
+(define_insn_reservation "Y3" 2
   (and (eq_attr "type" "load,fpload")
        (eq_attr "cpu" "7100LC,7200,7300"))
   "i1_7100lc+mem_7100lc")
 
-(define_insn_reservation "Y5" 2
+(define_insn_reservation "Y4" 2
   (and (eq_attr "type" "store,fpstore")
        (eq_attr "cpu" "7100LC"))
   "i1_7100lc+mem_7100lc,mem_7100lc")
 
-(define_insn_reservation "Y6" 1
+(define_insn_reservation "Y5" 1
   (and (eq_attr "type" "shift,nullshift")
        (eq_attr "cpu" "7100LC,7200,7300"))
   "i1_7100lc")
 
-(define_insn_reservation "Y7" 1
+(define_insn_reservation "Y6" 1
   (and (eq_attr "type" "!fpcc,fpalu,fpmulsgl,fpmuldbl,fpdivsgl,fpsqrtsgl,fpdivdbl,fpsqrtdbl,load,fpload,store,fpstore,shift,nullshift")
        (eq_attr "cpu" "7100LC,7200,7300"))
   "(i0_7100lc|i1_7100lc)")
 
 ;; The 7200 has a store-load penalty
-(define_insn_reservation "Y8" 2
+(define_insn_reservation "Y7" 2
   (and (eq_attr "type" "store,fpstore")
        (eq_attr "cpu" "7200"))
   "i1_7100lc,mem_7100lc")
 
 ;; The 7300 has no penalty for store-store or store-load
-(define_insn_reservation "Y9" 2
+(define_insn_reservation "Y8" 2
   (and (eq_attr "type" "store,fpstore")
        (eq_attr "cpu" "7300"))
   "i1_7100lc")
