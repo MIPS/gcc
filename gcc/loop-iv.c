@@ -2118,6 +2118,8 @@ compute_loop_end_values (loop, values)
   struct ref *def;
   basic_block def_bb;
   struct ref **found_def = xcalloc (max_regno, sizeof (struct ref *));
+  sbitmap invalid = sbitmap_alloc (max_regno);
+  sbitmap_zero (invalid);
 
   /* There must be exactly one definition of reg coming from inside of the
      loop that dominates the loop latch and belongs directly to the loop.  */
@@ -2130,20 +2132,25 @@ compute_loop_end_values (loop, values)
 	{
 	  regno = DF_REF_REGNO (def);
 	  if (TEST_BIT (modified_regs[loop->num], regno)
-	      && flow_bb_inside_loop_p (loop, def_bb)
-	      && def_bb->loop_father == loop
-	      && fast_dominated_by_p (dom, loop->latch, def_bb))
-	    found_def[regno] = def;
+	      && flow_bb_inside_loop_p (loop, def_bb))
+	    {
+	      if (def_bb->loop_father == loop
+		  && fast_dominated_by_p (dom, loop->latch, def_bb))
+		found_def[regno] = def;
+	      else
+		SET_BIT (invalid, regno);
+	    }
 	}
     });
 
   EXECUTE_IF_SET_IN_SBITMAP (modified_regs[loop->num], 0, regno,
     {
-      if (found_def[regno])
+      if (!TEST_BIT (invalid, regno) && found_def[regno])
 	values[regno] = found_def[regno]->aux;
       else
 	values[regno] = NULL_RTX;
     });
+  sbitmap_free (invalid);
   free (found_def);
 }
 
