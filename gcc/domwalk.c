@@ -51,6 +51,10 @@ Boston, MA 02111-1307, USA.  */
     we have a dominator tree.
 
 
+  [ Note this walker can also walk the post-dominator tree, which is
+    defined in a similar manner.  ie, block B1 is said to post-dominate
+    block B2 if all paths from B2 to the exit block must pass through
+    B1.  ]
 
   For example, given the CFG
 
@@ -123,11 +127,9 @@ Boston, MA 02111-1307, USA.  */
 
   TODO:
 
-    Right now walking statements is left to to the statement walker
-    callback itself.  Instead the dominator optimizer itself should walk
-    the statements calling a callback for each statement encountered.  
-    The direction of the statement walk would be determined by a flag
-    in the main dominator walker structure.  */
+    Walking statements is based on the block statement iterator abstraction,
+    which is currently an abstraction over walking tree statements.  Thus
+    the dominator walker is currently only useful for trees.  */
 
 /* Recursively walk the dominator tree.
 
@@ -142,6 +144,7 @@ walk_dominator_tree (struct dom_walk_data *walk_data, basic_block bb)
 {
   void *bd = NULL;
   basic_block dest;
+  block_stmt_iterator bsi;
 
   /* Callback to initialize the local data structure.  */
   if (walk_data->initialize_block_local_data)
@@ -177,7 +180,14 @@ walk_dominator_tree (struct dom_walk_data *walk_data, basic_block bb)
 
   /* Statement walk before walking dominator children.  */
   if (walk_data->before_dom_children_walk_stmts)
-    (*walk_data->before_dom_children_walk_stmts) (walk_data, bb);
+    {
+      if (walk_data->walk_stmts_backward)
+	for (bsi = bsi_last (bb); !bsi_end_p (bsi); bsi_prev (&bsi))
+	  (*walk_data->before_dom_children_walk_stmts) (walk_data, bb, bsi);
+      else
+	for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+	  (*walk_data->before_dom_children_walk_stmts) (walk_data, bb, bsi);
+    }
 
   /* Callback for operations to execute before we have walked the
      dominator children, and after we walk statements.  */
@@ -185,9 +195,9 @@ walk_dominator_tree (struct dom_walk_data *walk_data, basic_block bb)
     (*walk_data->before_dom_children_after_stmts) (walk_data, bb);
 
   /* Recursively call ourselves on the dominator children of BB.  */
-  for (dest = first_dom_son (CDI_DOMINATORS, bb);
+  for (dest = first_dom_son (walk_data->dom_direction, bb);
        dest;
-       dest = next_dom_son (CDI_DOMINATORS, dest))
+       dest = next_dom_son (walk_data->dom_direction, dest))
     {
       /* The destination block may have become unreachable, in
 	 which case there's no point in optimizing it.  */
@@ -202,7 +212,14 @@ walk_dominator_tree (struct dom_walk_data *walk_data, basic_block bb)
 
   /* Statement walk after walking dominator children.  */
   if (walk_data->after_dom_children_walk_stmts)
-    (*walk_data->after_dom_children_walk_stmts) (walk_data, bb);
+    {
+      if (walk_data->walk_stmts_backward)
+	for (bsi = bsi_last (bb); !bsi_end_p (bsi); bsi_prev (&bsi))
+	  (*walk_data->after_dom_children_walk_stmts) (walk_data, bb, bsi);
+      else
+	for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+	  (*walk_data->after_dom_children_walk_stmts) (walk_data, bb, bsi);
+    }
 
   /* Callback for operations to execute after we have walked the
      dominator children and after we have walked statements.  */

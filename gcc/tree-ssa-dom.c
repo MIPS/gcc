@@ -208,7 +208,9 @@ struct eq_expr_value
 };
 
 /* Local functions.  */
-static bool optimize_stmt (struct dom_walk_data *, block_stmt_iterator);
+static void optimize_stmt (struct dom_walk_data *, 
+			   basic_block bb,
+			   block_stmt_iterator);
 static inline tree get_value_for (tree, varray_type table);
 static inline void set_value_for (tree, tree, varray_type table);
 static tree lookup_avail_expr (tree, varray_type *, bool);
@@ -248,7 +250,6 @@ static void dom_opt_finalize_block (struct dom_walk_data *, basic_block);
 static void dom_opt_initialize_block_local_data (struct dom_walk_data *,
 						 basic_block, bool);
 static void dom_opt_initialize_block (struct dom_walk_data *, basic_block);
-static void dom_opt_walk_stmts (struct dom_walk_data *, basic_block);
 static void cprop_into_phis (struct dom_walk_data *, basic_block);
 static void remove_local_expressions_from_table (varray_type locals,
 						 unsigned limit,
@@ -574,8 +575,12 @@ tree_ssa_dominator_optimize (void)
 
 
   /* Setup callbacks for the generic dominator tree walker.  */
+  walk_data.walk_stmts_backward = false;
+  walk_data.dom_direction = CDI_DOMINATORS;
   walk_data.initialize_block_local_data = dom_opt_initialize_block_local_data;
   walk_data.before_dom_children_before_stmts = dom_opt_initialize_block;
+  walk_data.before_dom_children_walk_stmts = optimize_stmt;
+  walk_data.before_dom_children_after_stmts = cprop_into_phis;
   walk_data.after_dom_children_before_stmts = NULL;
   walk_data.after_dom_children_walk_stmts = NULL;
   walk_data.after_dom_children_after_stmts = dom_opt_finalize_block;
@@ -584,8 +589,6 @@ tree_ssa_dominator_optimize (void)
      structure.  */
   walk_data.global_data = NULL;
   walk_data.block_local_data_size = sizeof (struct dom_walk_block_data);
-  walk_data.before_dom_children_walk_stmts = dom_opt_walk_stmts;
-  walk_data.before_dom_children_after_stmts = cprop_into_phis;
 
   /* Now initialize the dominator walker.  */
   init_walk_dominator_tree (&walk_data);
@@ -1431,59 +1434,6 @@ record_equivalences_from_incoming_edge (struct dom_walk_data *walk_data,
   if (eq_expr_value.src && eq_expr_value.dst)
     record_equality (eq_expr_value.dst, eq_expr_value.src,
 		     &bd->const_and_copies);
-}
-
-/* Perform a depth-first traversal of the dominator tree looking for
-   redundant expressions and copy/constant propagation opportunities. 
-
-   Expressions computed by each statement are looked up in the
-   AVAIL_EXPRS table.  If a statement is found to make a redundant
-   computation, it is marked for removal.  Otherwise, the expression
-   computed by the statement is assigned a value number and entered
-   into the AVAIL_EXPRS table.  See optimize_stmt for details on the
-   types of redundancies handled during renaming.
-
-   Once we've optimized the statements in this block we recursively
-   optimize every dominator child of this block.
-
-   Finally, remove all the expressions added to the AVAIL_EXPRS
-   table during renaming.  This is because the expressions made
-   available to block BB and its dominator children are not valid for
-   blocks above BB in the dominator tree.
-
-   EDGE_FLAGS are the flags for the incoming edge from BB's dominator
-   parent block.  This is used to determine whether BB is the first block
-   of a THEN_CLAUSE or an ELSE_CLAUSE.
-
-   VARS_TO_RENAME is a bitmap representing variables that will need to be
-   renamed into SSA after dominator optimization.
-   
-   CFG_ALTERED is set to true if cfg is altered.  */
-
-static void
-dom_opt_walk_stmts (struct dom_walk_data *walk_data, basic_block bb)
-{
-  block_stmt_iterator si;
-  struct dom_walk_block_data *bd
-    = VARRAY_TOP_GENERIC_PTR (walk_data->block_data_stack);
-
-  /* Optimize each statement within the basic block.  */
-  for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
-    {
-      /* Optimization may have exposed new symbols that need to be renamed
-	 into SSA form.  If that happens, queue the statement to re-scan its
-	 operands after finishing optimizing this block and its dominator
-	 children.  Notice that we cannot re-scan the statement immediately
-	 because that would change the statement's value number.  If the
-	 statement had been added to AVAIL_EXPRS, we would not be able to
-	 find it again.  */
-      if (optimize_stmt (walk_data, si))
-	{
-	  if (! bd->stmts_to_rescan)
-	    VARRAY_TREE_INIT (bd->stmts_to_rescan, 20, "stmts_to_rescan");
-	  VARRAY_PUSH_TREE (bd->stmts_to_rescan, bsi_stmt (si));
-	}
-    }
 }
 
 /* Dump SSA statistics on FILE.  */
@@ -2675,12 +2625,8 @@ record_equivalences_from_stmt (tree stmt,
     }
 }
 
-/* Optimize the statement pointed by iterator SI into SSA form. 
+/* Optimize the statement pointed by iterator SI.
    
-   BLOCK_AVAIL_EXPRS_P points to a stack with all the expressions that have
-   been computed in this block and are available in children blocks to
-   be reused.
-
    We try to perform some simplistic global redundancy elimination and
    constant propagation:
 
@@ -2694,8 +2640,10 @@ record_equivalences_from_stmt (tree stmt,
       assignment is found, we map the value on the RHS of the assignment to
       the variable in the LHS in the CONST_AND_COPIES table.  */
 
-static bool
-optimize_stmt (struct dom_walk_data *walk_data, block_stmt_iterator si)
+static void
+optimize_stmt (struct dom_walk_data *walk_data,
+	       basic_block bb ATTRIBUTE_UNUSED,
+	       block_stmt_iterator si)
 {
   stmt_ann_t ann;
   tree stmt;
@@ -2815,7 +2763,12 @@ optimize_stmt (struct dom_walk_data *walk_data, block_stmt_iterator si)
 	cfg_altered = true;
     }
                                                                                 
-  return may_have_exposed_new_symbols;
+  if (may_have_exposed_new_symbols)
+    {
+      if (! bd->stmts_to_rescan)
+	VARRAY_TREE_INIT (bd->stmts_to_rescan, 20, "stmts_to_rescan");
+      VARRAY_PUSH_TREE (bd->stmts_to_rescan, bsi_stmt (si));
+    }
 }
 
 /* Replace the RHS of STMT with NEW_RHS.  If RHS can be found in the

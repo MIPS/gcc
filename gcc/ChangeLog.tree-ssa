@@ -1,3 +1,29 @@
+2004-02-12  Jeff Law  <law@redhat.com>
+
+	* domwalk.c (walk_dominator_tree): Move statement walking from
+	clients into here.  Walk statements in forward or backward order
+	as requested by the client.  Walk either the dominator tree or
+	the post-dominator tree as requested by the client.
+	* domwalk.h (dom_walk_data): Add two fields to control direction of
+	statement walk and dominator vs post-dominator tree walk.  Add
+	BSI argument to the per-statement callbacks.
+	* tree-ssa-dom.c (optimize_stmt): Update prototype so that it can
+	be directly used as a callback for the dominator tree walker.
+	Update stmts_to_rescan here.
+	(tree_ssa_dominator_optimize): Initialize new fields in the dominator
+	walker structure.  Use optimize_stmt instead of dom_opt_walk_stmts
+	for statement callback.
+	(dom_opt_walk_stmts): Kill.  No longer used.
+	* tree-ssa.c (mark_def_sites): Update prototype so that it can be
+	called as the per-statement callback.  No longer walk statements here.
+	(mark_def_sites_initialize_block): New.
+	(rewrite_stmt): Update prototype so that it can be called as the
+	per-statement callback.
+	(rewrite_walk_stmts): Kill.  No longer used.
+	(rewrite_into_ssa): Initialize new fields in the dominator walker
+	structure.  Use rewrite_stmt instead of rewrite_walk_stmts.  Add
+	mark_def_sites_initialize_block callback.
+
 2004-02-12  Steven Bosscher  <stevenb@suse.de>
 
 	* doc/cfg.texi: New file.

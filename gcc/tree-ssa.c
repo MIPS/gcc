@@ -164,15 +164,19 @@ static void rewrite_finalize_block (struct dom_walk_data *, basic_block);
 static void rewrite_initialize_block_local_data (struct dom_walk_data *,
 						 basic_block, bool);
 static void rewrite_initialize_block (struct dom_walk_data *, basic_block);
-static void rewrite_walk_stmts (struct dom_walk_data *, basic_block);
 static void rewrite_add_phi_arguments (struct dom_walk_data *, basic_block);
-static void mark_def_sites (struct dom_walk_data *walk_data, basic_block bb);
+static void mark_def_sites (struct dom_walk_data *walk_data,
+			    basic_block bb, block_stmt_iterator);
+static void mark_def_sites_initialize_block (struct dom_walk_data *walk_data,
+					     basic_block bb);
 static void compute_global_livein (bitmap, bitmap);
 static void set_def_block (tree, basic_block);
 static void set_livein_block (tree, basic_block);
 static bool prepare_operand_for_rename (tree *op_p, size_t *uid_p);
 static void insert_phi_nodes (bitmap *);
-static void rewrite_stmt (block_stmt_iterator, varray_type *);
+static void rewrite_stmt (struct dom_walk_data *,
+			  basic_block,
+			  block_stmt_iterator);
 static inline void rewrite_operand (tree *);
 static void insert_phi_nodes_for (tree, bitmap *);
 static tree get_reaching_def (tree);
@@ -392,8 +396,10 @@ rewrite_into_ssa (void)
 
   /* Setup callbacks for the generic dominator tree walker to find and
      mark definition sites.  */
+  walk_data.walk_stmts_backward = false;
+  walk_data.dom_direction = CDI_DOMINATORS;
   walk_data.initialize_block_local_data = NULL;
-  walk_data.before_dom_children_before_stmts = NULL;
+  walk_data.before_dom_children_before_stmts = mark_def_sites_initialize_block;
   walk_data.before_dom_children_walk_stmts = mark_def_sites;
   walk_data.before_dom_children_after_stmts = NULL; 
   walk_data.after_dom_children_before_stmts =  NULL;
@@ -428,9 +434,11 @@ rewrite_into_ssa (void)
   timevar_push (TV_TREE_SSA_REWRITE_BLOCKS);
 
   /* Setup callbacks for the generic dominator tree walker.  */
+  walk_data.walk_stmts_backward = false;
+  walk_data.dom_direction = CDI_DOMINATORS;
   walk_data.initialize_block_local_data = rewrite_initialize_block_local_data;
   walk_data.before_dom_children_before_stmts = rewrite_initialize_block;
-  walk_data.before_dom_children_walk_stmts = rewrite_walk_stmts;
+  walk_data.before_dom_children_walk_stmts = rewrite_stmt;
   walk_data.before_dom_children_after_stmts = rewrite_add_phi_arguments; 
   walk_data.after_dom_children_before_stmts =  NULL;
   walk_data.after_dom_children_walk_stmts =  NULL;
@@ -536,6 +544,18 @@ compute_global_livein (bitmap livein, bitmap def_blocks)
   free (worklist);
 }
 
+/* Block initialization routine for mark_def_sites.  Clear the 
+   KILLS bitmap at the start of each block.  */
+static void
+mark_def_sites_initialize_block (struct dom_walk_data *walk_data,
+				 basic_block bb ATTRIBUTE_UNUSED)
+{
+  struct mark_def_sites_global_data *gd = walk_data->global_data;
+  sbitmap kills = gd->kills;
+
+  sbitmap_zero (kills);
+}
+
 /* Collect definition sites for every variable in the function.
    Return a bitmap for the set of referenced variables which are
    "nonlocal", ie those which are live across block boundaries.
@@ -543,86 +563,81 @@ compute_global_livein (bitmap livein, bitmap def_blocks)
    we create.  */
 
 static void
-mark_def_sites (struct dom_walk_data *walk_data, basic_block bb)
+mark_def_sites (struct dom_walk_data *walk_data,
+		basic_block bb,
+		block_stmt_iterator bsi)
 {
   struct mark_def_sites_global_data *gd = walk_data->global_data;
   sbitmap kills = gd->kills;
-  block_stmt_iterator si;
+  vdef_optype vdefs;
+  vuse_optype vuses;
+  def_optype defs;
+  use_optype uses;
+  size_t i, uid;
+  tree stmt;
+  stmt_ann_t ann;
 
   /* Mark all the blocks that have definitions for each variable in the
      VARS_TO_RENAME bitmap.  */
-  sbitmap_zero (kills);
+  stmt = bsi_stmt (bsi);
+  get_stmt_operands (stmt);
+  ann = stmt_ann (stmt);
 
-  for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
+  /* If a variable is used before being set, then the variable
+     is live across a block boundary, so add it to NONLOCAL_VARS.  */
+  uses = USE_OPS (ann);
+  for (i = 0; i < NUM_USES (uses); i++)
     {
-      vdef_optype vdefs;
-      vuse_optype vuses;
-      def_optype defs;
-      use_optype uses;
-      size_t i, uid;
-      tree stmt;
-      stmt_ann_t ann;
+      tree *use_p = USE_OP_PTR (uses, i);
 
-      stmt = bsi_stmt (si);
-      get_stmt_operands (stmt);
-      ann = stmt_ann (stmt);
-
-      /* If a variable is used before being set, then the variable
-         is live across a block boundary, so add it to NONLOCAL_VARS.  */
-      uses = USE_OPS (ann);
-      for (i = 0; i < NUM_USES (uses); i++)
-        {
-          tree *use_p = USE_OP_PTR (uses, i);
-
-          if (prepare_operand_for_rename (use_p, &uid)
-	      && !TEST_BIT (kills, uid))
-	    set_livein_block (*use_p, bb);
-	}
+      if (prepare_operand_for_rename (use_p, &uid)
+	  && !TEST_BIT (kills, uid))
+	set_livein_block (*use_p, bb);
+    }
 	  
-      /* Similarly for virtual uses.  */
-      vuses = VUSE_OPS (ann);
-      for (i = 0; i < NUM_VUSES (vuses); i++)
-        {
-          tree *use_p = VUSE_OP_PTR (vuses, i);
+  /* Similarly for virtual uses.  */
+  vuses = VUSE_OPS (ann);
+  for (i = 0; i < NUM_VUSES (vuses); i++)
+    {
+      tree *use_p = VUSE_OP_PTR (vuses, i);
 
-          if (prepare_operand_for_rename (use_p, &uid)
-	      && !TEST_BIT (kills, uid))
-	    set_livein_block (*use_p, bb);
+      if (prepare_operand_for_rename (use_p, &uid)
+	  && !TEST_BIT (kills, uid))
+	set_livein_block (*use_p, bb);
+    }
+
+  /* Note that virtual definitions are irrelevant for computing
+     KILLED_VARS because a VDEF does not constitute a killing
+     definition of the variable.  However, the operand of a virtual
+     definitions is a use of the variable, so it may affect
+     GLOBALS.  */
+  vdefs = VDEF_OPS (ann);
+  for (i = 0; i < NUM_VDEFS (vdefs); i++)
+    {
+      size_t dummy;
+
+      if (prepare_operand_for_rename (VDEF_OP_PTR (vdefs, i), &uid)
+	  && prepare_operand_for_rename (VDEF_RESULT_PTR (vdefs, i), 
+					 &dummy))
+	{
+	  VDEF_RESULT (vdefs, i) = VDEF_OP (vdefs, i);
+
+	  set_def_block (VDEF_RESULT (vdefs, i), bb);
+	  if (!TEST_BIT (kills, uid))
+	    set_livein_block (VDEF_OP (vdefs, i), bb);
 	}
+    }
 
-      /* Note that virtual definitions are irrelevant for computing
-	 KILLED_VARS because a VDEF does not constitute a killing
-	 definition of the variable.  However, the operand of a virtual
-	 definitions is a use of the variable, so it may affect
-	 GLOBALS.  */
-      vdefs = VDEF_OPS (ann);
-      for (i = 0; i < NUM_VDEFS (vdefs); i++)
-        {
-	  size_t dummy;
+  /* Now process the definition made by this statement.  */
+  defs = DEF_OPS (ann);
+  for (i = 0; i < NUM_DEFS (defs); i++)
+    {
+      tree *def_p = DEF_OP_PTR (defs, i);
 
-          if (prepare_operand_for_rename (VDEF_OP_PTR (vdefs, i), &uid)
-	      && prepare_operand_for_rename (VDEF_RESULT_PTR (vdefs, i), 
-					     &dummy))
-	    {
-	      VDEF_RESULT (vdefs, i) = VDEF_OP (vdefs, i);
-
-	      set_def_block (VDEF_RESULT (vdefs, i), bb);
-	      if (!TEST_BIT (kills, uid))
-		set_livein_block (VDEF_OP (vdefs, i), bb);
-	    }
-	}
-
-      /* Now process the definition made by this statement.  */
-      defs = DEF_OPS (ann);
-      for (i = 0; i < NUM_DEFS (defs); i++)
-        {
-          tree *def_p = DEF_OP_PTR (defs, i);
-
-          if (prepare_operand_for_rename (def_p, &uid))
-	    {
-	      set_def_block (*def_p, bb);
-	      SET_BIT (kills, uid);
-	    }
+      if (prepare_operand_for_rename (def_p, &uid))
+	{
+	  set_def_block (*def_p, bb);
+	  SET_BIT (kills, uid);
 	}
     }
 }
@@ -862,23 +877,6 @@ rewrite_initialize_block (struct dom_walk_data *walk_data, basic_block bb)
 			&bd->block_defs, currdefs);
     }
 }
-
-/* SSA Rewriting Step 2.  Rewrite every variable used in each statement in
-   the block with its immediate reaching definitions.  Update the current
-   definition of a variable when a new real or virtual definition is found.  */
-
-static void
-rewrite_walk_stmts (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
-		    basic_block bb)
-{
-  block_stmt_iterator si;
-  struct rewrite_block_data *bd
-    = (struct rewrite_block_data *)VARRAY_TOP_GENERIC_PTR (walk_data->block_data_stack);
-
-  for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
-    rewrite_stmt (si, &bd->block_defs);
-}
-
 
 /* SSA Rewriting Step 3.  Visit all the successor blocks of BB looking for
    PHI nodes.  For every PHI node found, add a new argument containing the
@@ -3351,15 +3349,14 @@ insert_phi_nodes_for (tree var, bitmap *dfs)
   phi_insertion_points = NULL;
 }
 
-/* Rewrite statement pointed by iterator SI into SSA form. 
-
-   BLOCK_DEFS_P points to a stack with all the definitions found in the
-   block.  This is used by the dominator tree walker callbacks to restore
-   the current reaching definition for every variable defined in BB after
-   visiting the immediate dominators of BB.  */
+/* SSA Rewriting Step 2.  Rewrite every variable used in each statement in
+   the block with its immediate reaching definitions.  Update the current
+   definition of a variable when a new real or virtual definition is found.  */
 
 static void
-rewrite_stmt (block_stmt_iterator si, varray_type *block_defs_p)
+rewrite_stmt (struct dom_walk_data *walk_data,
+	      basic_block bb ATTRIBUTE_UNUSED,
+	      block_stmt_iterator si)
 {
   size_t i;
   stmt_ann_t ann;
@@ -3368,6 +3365,9 @@ rewrite_stmt (block_stmt_iterator si, varray_type *block_defs_p)
   vdef_optype vdefs;
   def_optype defs;
   use_optype uses;
+  struct rewrite_block_data *bd;
+
+  bd = VARRAY_TOP_GENERIC_PTR (walk_data->block_data_stack);
 
   stmt = bsi_stmt (si);
   ann = stmt_ann (stmt);
@@ -3411,7 +3411,7 @@ rewrite_stmt (block_stmt_iterator si, varray_type *block_defs_p)
       /* FIXME: We shouldn't be registering new defs if the variable
 	 doesn't need to be renamed.  */
       register_new_def (SSA_NAME_VAR (*def_p), *def_p,
-			block_defs_p, currdefs);
+			&bd->block_defs, currdefs);
     }
 
   /* Register new virtual definitions made by the statement.  */
@@ -3420,12 +3420,13 @@ rewrite_stmt (block_stmt_iterator si, varray_type *block_defs_p)
       rewrite_operand (VDEF_OP_PTR (vdefs, i));
 
       if (TREE_CODE (VDEF_RESULT (vdefs, i)) != SSA_NAME)
-	*VDEF_RESULT_PTR (vdefs, i) = make_ssa_name (VDEF_RESULT (vdefs, i), stmt);
+	*VDEF_RESULT_PTR (vdefs, i)
+	  = make_ssa_name (VDEF_RESULT (vdefs, i), stmt);
 
       /* FIXME: We shouldn't be registering new defs if the variable
 	 doesn't need to be renamed.  */
       register_new_def (SSA_NAME_VAR (VDEF_RESULT (vdefs, i)), 
-			VDEF_RESULT (vdefs, i), block_defs_p, currdefs);
+			VDEF_RESULT (vdefs, i), &bd->block_defs, currdefs);
     }
 }
 

@@ -21,10 +21,25 @@ Boston, MA 02111-1307, USA.  */
 
 /* This is the main data structure for the dominator walker.  It provides
    the callback hooks as well as a convenient place to hang block local
-   data.  Eventually it will probably include pass global data as well.  */
+   data and pass-global data.  */
 
 struct dom_walk_data
 {
+  /* This is the direction of the dominator tree we want to walk.  ie,
+     if it is set to CDI_DOMINATORS, then we walk the dominator tree,
+     if it is set to CDI_POST_DOMINATORS, then we walk the post
+     dominator tree.  */
+  ENUM_BITFIELD (cdi_direction) dom_direction : 2;
+
+  /* Nonzero if the statement walker should walk the statements from
+     last to first within a basic block instead of first to last.
+
+     Note this affects both statement walkers.  We haven't yet needed
+     to use the second statement walker for anything, so it's hard to
+     predict if we really need the ability to select their direction
+     independently.  */
+  bool walk_stmts_backward : 1;
+
   /* Function to initialize block local data.
 
      Note that the dominator walker infrastructure may provide a new
@@ -48,7 +63,7 @@ struct dom_walk_data
   /* Function to call to walk statements before the recursive walk
      of the dominator children.  */
   void (*before_dom_children_walk_stmts) (struct dom_walk_data *,
-					  basic_block);
+					  basic_block, block_stmt_iterator);
 
   /* Function to call after the statement walk occurring before the
      recursive walk of the dominator children.  */
@@ -63,7 +78,7 @@ struct dom_walk_data
   /* Function to call to walk statements after the recursive walk
      of the dominator children.  */
   void (*after_dom_children_walk_stmts) (struct dom_walk_data *,
-					 basic_block);
+					 basic_block, block_stmt_iterator);
 
   /* Function to call after the statement walk occurring after the
      recursive walk of the dominator children. 
