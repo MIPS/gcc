@@ -44,24 +44,27 @@ Boston, MA 02111-1307, USA.  */
 #include "timevar.h"
 #include "tree-alias-common.h"
 
-/* This file builds the SSA form for a function using Factored
-   Use-Def chains (FUD chains) as described in 
+/** @file tree-ssa.c
+    @brief Build the SSA form for a function tree.
 
-   Wolfe, M. J., High Performance Compilers for Parallel Computing,
-   Addison-Wesley, 1996.
+    This file builds the SSA form for a function using Factored
+    Use-Def chains (FUD chains) as described in the following 
+    two references:
 
-   This is the same algorithm described in 
+    - Wolfe, M. J., High Performance Compilers for Parallel Computing,
+      Addison-Wesley, 1996.
 
-   R. Cytron, J. Ferrante, B. Rosen, M. Wegman, and K. Zadeck.
-   Efficiently computing static single assignment form and the control
-   dependence graph. ACM Transactions on Programming Languages and Systems,
-   13(4):451-490, October 1991.
+    - R. Cytron, J. Ferrante, B. Rosen, M. Wegman, and K. Zadeck.
+      Efficiently computing static single assignment form and the control
+      dependence graph. ACM Transactions on Programming Languages and Systems,
+      13(4):451-490, October 1991.
 
-   Except that instead of re-writing the program into SSA form, we build a
-   web of pointers between variable uses and their immediately reaching
-   definitions.
+    An important difference is that instead of re-writing the program into
+    SSA form, we build a web of pointers between variable uses and their
+    immediately reaching definitions.  */
 
-   Partial references
+
+/* Partial references
    ------------------
 
    To deal with arrays and structures, we use the concept of non-killing
@@ -167,7 +170,10 @@ static inline tree_ref currdef_for	PARAMS ((tree));
 static inline void set_currdef_for	PARAMS ((tree, tree_ref));
 
 
-/* Main entry point to the SSA builder.  */
+/**
+   @brief  Main entry point to the SSA builder.
+   @param  fndecl Pointer to a gimplified function tree.
+*/
 
 void
 build_tree_ssa (fndecl)
@@ -219,8 +225,10 @@ build_tree_ssa (fndecl)
 }
 
 
-/* Insert PHI nodes at the dominance frontier of nodes with variable
-   definitions.  */
+/** @brief Insert PHI nodes at the dominance frontier of nodes
+	   with variable definitions.
+    @param dfs Dominance frontier blocks
+*/
 
 static void
 insert_phi_nodes (dfs)
@@ -259,42 +267,47 @@ insert_phi_nodes (dfs)
 }
 
 
-/* Build FUD (Factored Use-Def) chains.  This links every V_USE reference
-   of every variable to its immediate reaching V_DEF or V_PHI and fills in
-   the arguments for all the PHI nodes placed by insert_phi_nodes.
+/** @brief Build factored UD-chains.
 
-   The algorithm works by doing a depth-first walk of the dominator tree.
-   Every time a V_DEF or V_PHI reference is found, it is marked as the
-   current definition of the associated variable VAR.  It also marks it as
-   the current definition of every variable that VAR might be aliasing.
+    Build FUD (Factored Use-Def) chains.  This links every V_USE reference
+    of every variable to its immediate reaching V_DEF or V_PHI and fills in
+    the arguments for all the PHI nodes placed by insert_phi_nodes.
 
-   When a V_USE reference for VAR is found, the current definition of VAR
-   is retrieved and a use-def link is created between the use and that
-   definition.
+    The algorithm works by doing a depth-first walk of the dominator tree.
+    Every time a V_DEF or V_PHI reference is found, it is marked as the
+    current definition of the associated variable VAR.  It also marks it as
+    the current definition of every variable that VAR might be aliasing.
 
-   The algorithm also creates def-use links and def-def links similarly.
-   The def-def links are used to model "partial" and "may" definitions:
+    When a V_USE reference for VAR is found, the current definition of VAR
+    is retrieved and a use-def link is created between the use and that
+    definition.
+
+    The algorithm also creates def-use links and def-def links similarly.
+    The def-def links are used to model "partial" and "may" definitions:
    
-   - A partial definition is used in the case of arrays and structures.
-     Whenever the an element of the array is defined, the DFA pass creates
-     a V_DEF/partial reference for the array.  So, when computing reaching
-     definitions, every use of the array will be reached by all the
-     definitions made to individual elements.  For instance,
-
+    - A partial definition is used in the case of arrays and structures.
+      Whenever the an element of the array is defined, the DFA pass creates
+      a V_DEF/partial reference for the array.  So, when computing reaching
+      definitions, every use of the array will be reached by all the
+      definitions made to individual elements.  For instance,
+@verbatim
      		A[i] = foo();
 		A[j] = bar();
 		...
 		x = A[k];
+@endverbatim
+      Lacking dependency information, we have to assume that A[k] might be
+      reached by both A[i] and A[j].  The FUD chaining algorithm will place
+      a def-def link between A[i] and A[j].
 
-     Lacking dependency information, we have to assume that A[k] might be
-     reached by both A[i] and A[j].  The FUD chaining algorithm will place
-     a def-def link between A[i] and A[j].
+    - A "may" definition is introduced in the presence of aliasing.  When a
+      variable VAR is defined, that definition is also considered a
+      potential definition of all the variables that might be aliased by
+      VAR.  In this case the compiler keeps a def-def link for every
+      variable that VAR might be aliasing.
 
-   - A "may" definition is introduced in the presence of aliasing.  When a
-     variable VAR is defined, that definition is also considered a
-     potential definition of all the variables that might be aliased by
-     VAR.  In this case the compiler keeps a def-def link for every
-     variable that VAR might be aliasing.  */
+    @param idom Dominance information
+*/
 
 static void
 build_fud_chains (idom)
@@ -325,8 +338,12 @@ build_fud_chains (idom)
 }
 
 
-/* Perform a depth-first traversal of the dominator tree looking for FUD
-   chains.  */
+/** @brief Perform a depth-first traversal of the dominator tree looking
+	   for FUD chains.
+
+    @param bb   Chain of basic blocks to search 
+    @param idom Dominance information
+*/
 
 static void
 search_fud_chains (bb, idom)
@@ -407,8 +424,8 @@ search_fud_chains (bb, idom)
 }
 
 
-/* Computes reaching definitions and reached uses for all the variables
-   referenced in the current function.  */
+/** @brief Computes reaching definitions and reached uses for all the
+	   variables referenced in the current function.  */
 
 void
 compute_reaching_defs ()
@@ -471,9 +488,10 @@ compute_reaching_defs ()
 }
 
 
-/* Follow factored use-def chains to find all possible reaching definitions
-   for U, starting with D.  This also updates reached uses for each
-   reaching definition found.  */
+/** @brief Follow factored use-def chains to find all possible reaching
+	   definitions for U, starting with D.
+
+    This also updates reached uses for each reaching definition found.  */
 
 static void
 follow_chain (d, u)
@@ -528,12 +546,15 @@ follow_chain (d, u)
 }
 
 
-/* Remove the PHI alternative for the predecessor block BLOCK from
-   PHI_NODE. 
+/** @brief Remove a PHI alternative.
 
-   This routine assumes ordering of alternatives in the vector is
-   not important and implements removal by swapping the last alternative
-   with the alternative we want to delete, then shrinking the vector.  */
+    This routine assumes ordering of alternatives in the vector is
+    not important and implements removal by swapping the last alternative
+    with the alternative we want to delete, then shrinking the vector.
+
+    @param phi_node The PHI node from which the alternative should be removed
+    @param block    The predecessor block where the PHI alternative comes from
+*/
 
 void
 tree_ssa_remove_phi_alternative (phi_node, block)
@@ -566,7 +587,8 @@ tree_ssa_remove_phi_alternative (phi_node, block)
 }
 
 
-/* Dump reaching definitions for all the definitions in the function.  */
+/** @brief Dump reaching definitions for all the definitions in the
+	   function.  */
 
 void
 dump_reaching_defs (file)
@@ -599,7 +621,7 @@ dump_reaching_defs (file)
 }
 
 
-/* Dump reaching definitions on stderr.  */
+/** @brief Dump reaching definitions on stderr.  */
 
 void
 debug_reaching_defs ()
@@ -608,7 +630,9 @@ debug_reaching_defs ()
 }
 
 
-/* Dump SSA information to FILE.  */
+/** @brief Dump SSA information to a file.
+
+    @param file The file to dump the SSA information in.  */
 
 void
 dump_tree_ssa (file)
@@ -627,7 +651,7 @@ dump_tree_ssa (file)
 }
 
 
-/* Dump SSA information to stderr.  */
+/** @brief Dump SSA information to stderr.  */
 
 void
 debug_tree_ssa ()
@@ -640,7 +664,7 @@ debug_tree_ssa ()
 		  Helpers for the main SSA building functions
 ---------------------------------------------------------------------------*/
 
-/* Insert PHI nodes for variable VAR.  */
+/** @brief Insert PHI nodes for variable VAR.  */
 
 static void
 insert_phi_nodes_for (var, dfs)
@@ -685,9 +709,11 @@ insert_phi_nodes_for (var, dfs)
 }
 
 
-/* Add a new PHI node for variable VAR at the start of basic block BB.
-   If BB didn't have a definition of BB, we add BB itself to the worklist
-   because the PHI node introduces a new definition of VAR.  */
+/** @brief Add a new PHI node for variable VAR at the start of basic
+	   block BB.
+
+    If BB didn't have a definition of BB, we add BB itself to the
+    worklist because the PHI node introduces a new definition of VAR.  */
 
 static void
 add_phi_node (bb, var)
@@ -719,8 +745,8 @@ add_phi_node (bb, var)
 }
 
 
-/* Set up use-def, def-use and def-def links between reference REF and the
-   current reaching definition for VAR.  */
+/** @brief Set up use-def, def-use and def-def links between reference REF
+	   and the current reaching definition for VAR.  */
 
 static void
 set_ssa_links (ref, var)
@@ -817,7 +843,7 @@ set_ssa_links (ref, var)
 }
 
 
-/* Initialize DFA/SSA structures.  */
+/** @brief Initialize DFA/SSA structures.  */
 
 static void
 init_tree_ssa ()
@@ -852,7 +878,8 @@ init_tree_ssa ()
 }
 
 
-/* Deallocate memory associated with SSA data structures.  */
+/** @brief Deallocate memory associated with SSA data structures
+           for the function tree FNBODY.  */
 
 void
 delete_tree_ssa (fnbody)
@@ -881,8 +908,8 @@ delete_tree_ssa (fnbody)
 }
 
 
-/* Callback function for walk_tree to clear DFA/SSA annotations from
-   node *TP.  */
+/** @brief Callback function for walk_tree to clear DFA/SSA
+	   annotations from node *TP.  */
 
 static tree
 remove_annotations_r (tp, walk_subtrees, data)
@@ -895,9 +922,15 @@ remove_annotations_r (tp, walk_subtrees, data)
 }
 
 
-/* Return the current definition for variable V.  If V is aliased, return
-   the current definition for V's alias leader (i.e., the variable that
-   represents the alias set to which V belongs).  */
+/** @brief Return the current definition for variable V.
+
+    If V is aliased, return the current definition for V's alias
+    leader (i.e., the variable that represents the alias set to
+    which V belongs).
+
+    @param  v The variable that you want the current definition for
+    @return The current definition for V, or for its alias leader. 
+*/
 
 static inline tree_ref
 currdef_for (v)
@@ -910,9 +943,14 @@ currdef_for (v)
 }
 
 
-/* Set DEF to be the current definition for variable V.  If V is aliased,
-   set the current definition for V's alias leader (i.e., the variable that
-   represents the alias set to which V belongs).  */
+/** @brief Set DEF to be the current definition for variable V.
+
+    If V is aliased, set the current definition for V's alias leader
+    (i.e., the variable that represents the alias set to which V belongs).
+
+    @param v   The variable to set the current definition for
+    @param def The new `current' definition for V
+*/
 
 static inline void
 set_currdef_for (v, def)

@@ -1,3 +1,9 @@
+2002-12-11  Steven Bosscher <Steven.Bosscher@usafa.af.mil>
+
+	* tree-cfg.c: Add doxygen markers in comments.
+	* tree-optimize.c: Likewise.
+	* tree-ssa.c: Likewise.
+
 2002-12-11  Diego Novillo  <dnovillo@redhat.com>
 
 	* gimplify.c (simplify_return_expr): return statements should only

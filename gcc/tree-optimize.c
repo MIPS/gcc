@@ -37,8 +37,12 @@ Boston, MA 02111-1307, USA.  */
 #include "tree-dchain.h"
 #include "timevar.h"
 
-/* Main entry point to the tree SSA transformation routines.  FNDECL is
-   the FUNCTION_DECL node for the function to optimize.  */
+/** @file tree-optimize.c
+    @brief Rewrite a function tree to the SSA form and perform
+	   the SSA-based optimizations on it.  */
+
+/** @brief Main entry point to the tree SSA transformation routines.
+    @param fndecl is the FUNCTION_DECL node for the function to optimize.  */
 
 void
 optimize_function_tree (fndecl)
@@ -106,8 +110,9 @@ optimize_function_tree (fndecl)
 }
 
 
-/* Dump the body of current_function_decl to DUMP_FILE.  DUMP_FLAGS affect
-   dumping options.  */
+/** @brief Dump the body of current_function_decl to DUMP_FILE.
+    @param dump_file is the file to dump the function body to.
+    @param dump_flags affects dumping options (see TDF_* in tree.h).  */
 
 void
 dump_current_function (dump_file, dump_flags)

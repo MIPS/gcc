@@ -37,17 +37,23 @@ Boston, MA 02111-1307, USA.  */
 #include "diagnostic.h"
 #include "tree-flow.h"
 #include "timevar.h"
+   
+/** @file tree-cfg.c
+    @brief Build the control flow graph for a function tree. 
+   
+    This file cuts up a function tree in basic blocks and builds
+    the CFG for the function.  */
 
 /* Local declarations.  */
 
-/* Initial capacity for the basic block array.  */
+/** Initial capacity for the basic block array.  */
 static const int initial_cfg_capacity = 20;
 
 /* Dump files and flags.  */
-static FILE *dump_file;
-static int dump_flags;
+static FILE *dump_file;		/**< CFG dump file. */
+static int dump_flags;		/**< CFG dump flags.  */
 
-/* Array with control flow parents.  */
+/** Array with control flow parents.  */
 varray_type parent_array;
 
 
@@ -107,8 +113,8 @@ static void disconnect_unreachable_case_labels PARAMS ((basic_block));
 			      Create basic blocks
 ---------------------------------------------------------------------------*/
 
-/* Entry point to the CFG builder for trees.  FNBODY is the body of the
-   function to process.  */
+/** @brief Entry point to the CFG builder for trees.
+    @param fnbody is the body of the function to process.  */
 
 void
 build_tree_cfg (fnbody)
@@ -179,11 +185,11 @@ build_tree_cfg (fnbody)
 }
 
 
-/* Build a flowgraph for the statements starting at the statement pointed
-   by FIRST_P.
-   
-   PARENT_BLOCK is the header block for the control structure
-      immediately enclosing the new sub-graph.  */
+/** @brief Build a flowgraph for the statements starting at the
+	   statement pointed by FIRST_P.
+    @param firsp_p is a pointer to the first statement in the CFG.
+    @param parent_block is the header block for the control structure
+           immediately enclosing the new sub-graph.  */
 
 static void
 make_blocks (first_p, parent_block)
@@ -266,8 +272,9 @@ make_blocks (first_p, parent_block)
 }
 
 
-/* Create the blocks for the BIND_EXPR node *BIND_P.  PARENT_BLOCK is as in
-   make_blocks.  */
+/** @brief Create the blocks for the BIND_EXPR node *BIND_P.
+    @param bind_p is a pointer to the BIND_EXPR node to create blocks for.
+    @param parent_block As in make_blocks.  */
 
 static void
 make_bind_expr_blocks (bind_p, parent_block)
@@ -285,8 +292,9 @@ make_bind_expr_blocks (bind_p, parent_block)
 }
 
 
-/* Create the blocks for the LOOP_EXPR node *LOOP_P.  PARENT_BLOCK is as in
-   make_blocks.  */
+/** @brief Create the blocks for the LOOP_EXPR node *LOOP_P.
+    @param loop_p is a pointer to the LOOP_EXPR node to create blocks for.
+    @param parent_block as in make_blocks.  */
 
 static void
 make_loop_expr_blocks (loop_p, parent_block)
@@ -313,7 +321,9 @@ make_loop_expr_blocks (loop_p, parent_block)
 }
 
 
-/* Create the blocks for a COND_EXPR.  PARENT_BLOCK is as in make_blocks.  */
+/** @brief Create the blocks for a COND_EXPR.
+    @param cond_p is a pointer to the COND_EXPR node to create blocks for.
+    @param parent_block as in make_blocks.  */  
 
 static void
 make_cond_expr_blocks (cond_p, parent_block)
@@ -330,8 +340,10 @@ make_cond_expr_blocks (cond_p, parent_block)
 }
 
 
-/* Create the blocks for a SWITCH_EXPR.  PARENT_BLOCK is as as in
-   make_blocks.  */
+/** @brief Create the blocks for a SWITCH_EXPR.
+    @param switch_e_p is a pointer to the SWITCH_EXPR node to
+	   create blocks for.
+    @param parent_block as in make_blocks.  */
 
 static void
 make_switch_expr_blocks (switch_e_p, parent_block)
@@ -347,12 +359,10 @@ make_switch_expr_blocks (switch_e_p, parent_block)
 }
 
 
-/* Create and return a new basic block.
-
-   HEAD_P is a pointer to the first statement in the block.
-
-   PARENT_BLOCK is the entry block for the control structure containing
-      the new block.  */
+/** @brief Create and return a new basic block.
+    @param head_p is a pointer to the first statement in the block.
+    @param parent_block is the entry block for the control structure
+	   containing the new block.  */
 
 static basic_block
 create_bb (head_p, parent_block)
@@ -396,7 +406,7 @@ create_bb (head_p, parent_block)
 
 
 
-/* Create annotations for all the blocks in the flowgraph.  */
+/** @brief Create annotations for all the blocks in the flowgraph.  */
 
 static void
 create_block_annotations ()
@@ -422,7 +432,7 @@ create_block_annotations ()
 				 Edge creation
 ---------------------------------------------------------------------------*/
 
-/* Join all the blocks in the flowgraph.  */
+/** @brief Join all the blocks in the flowgraph.  */
 
 static void
 make_edges ()
@@ -477,7 +487,8 @@ make_edges ()
 }
 
 
-/* Create edges for control statement at basic block BB.  */
+/** @brief Create edges for control statement at basic block BB.
+    @param bb is the basic block to create edges for.  */
 
 static void
 make_ctrl_stmt_edges (bb)
@@ -525,8 +536,15 @@ make_ctrl_stmt_edges (bb)
 }
 
 
-/* Create exit edges for statements that alter the flow of control
-   (BREAK, CONTINUE, GOTO, RETURN and calls to non-returning functions).  */
+/** @brief Create exit edges for statements that alter the flow of
+           control.
+    @param bb is the basic block to create edges for.
+
+    Statements that alter the control flow are 'break', 'continue',
+    'goto', 'return' and calls to non-returning functions.
+
+    Note that passes to eliminate 'goto' and 'break' statements have
+    been implemented, but these passes are currently disabled.  */
 
 static void
 make_exit_edges (bb)
@@ -556,7 +574,26 @@ make_exit_edges (bb)
 }
 
 
-/* Create the edges for a LOOP_EXPR structure starting with bb.  */
+/** @brief Create the edges for a LOOP_EXPR structure.
+    @param bb is the basic block to create edges for.
+
+    Create the following edges.  The other edges will be naturally
+    created by the main loop in create_edges().
+
+@verbatim
+         +---> LOOP_EXPR -----+
+	 |         |          |
+         |         v          |
+         |   LOOP_EXPR_BODY   |
+	 |                    |
+	 |                    |
+	 +---- END_WHILE      |
+	                      |
+		              |
+	     Next block <-----+
+@endverbatim
+
+     If the body doesn't exist, we use the header instead.  */
 
 static void
 make_loop_expr_edges (bb)
@@ -569,22 +606,6 @@ make_loop_expr_edges (bb)
   if (entry == NULL_TREE || TREE_CODE (entry) != LOOP_EXPR)
     abort ();
 #endif
-
-  /* Create the following edges.  The other edges will be naturally created
-     by the main loop in create_edges().
-
-         +---> LOOP_EXPR -----+
-	 |         |          |
-         |         v          |
-         |   LOOP_EXPR_BODY   |
-	 |                    |
-	 |                    |
-	 +---- END_WHILE      |
-	                      |
-		              |
-	     Next block <-----+
-          
-     If the body doesn't exist, we use the header instead.  */
 
   /* Basic blocks for each component.  */
   end_bb = latch_block (bb);
@@ -599,7 +620,19 @@ make_loop_expr_edges (bb)
 }
 
 
-/* Create the edges for a COND_EXPR structure starting with BB.  */
+/** @brief Create the edges for a COND_EXPR.
+    @param bb is the basic block to create edges for.
+
+    Create the following edges.
+
+@verbatim
+	     COND_EXPR
+		/ \
+	       /   \
+	    THEN   ELSE
+@endverbatim
+
+     Either clause may be empty.  */
 
 static void
 make_cond_expr_edges (bb)
@@ -618,14 +651,6 @@ make_cond_expr_edges (bb)
   else_bb = first_exec_block (&COND_EXPR_ELSE (entry));
   successor_bb = successor_block (bb);
 
-  /* Create the following edges.
-
-	     COND_EXPR
-		/ \
-	       /   \
-	    THEN   ELSE
-
-     Either clause may be empty.  */
   if (then_bb)
     make_edge (bb, then_bb, EDGE_TRUE_VALUE);
 
@@ -639,7 +664,8 @@ make_cond_expr_edges (bb)
 }
 
 
-/* Create edges for a goto statement.  */
+/** @brief Create edges for a goto statement.
+    @param bb is the basic block to create edges for.  */
 
 static void
 make_goto_expr_edges (bb)
@@ -694,8 +720,10 @@ make_goto_expr_edges (bb)
 }
 
 
-/* Create the edge between CASE_LABEL_EXPR block BB and the block for the
-   associated SWITCH_EXPR node.  */
+/** @brief Create the edge between a case label and the block
+	   for the associated SWITCH_EXPR node.
+    @param bb is the basic block for the CASE_LABEL_EXPR to
+	   create edges for.  */
 
 static void
 make_case_label_edges (bb)
@@ -717,7 +745,8 @@ make_case_label_edges (bb)
 			       Flowgraph analysis
 ---------------------------------------------------------------------------*/
 
-/* Remove unreachable blocks and other miscellaneous clean up work.  */
+/** @brief Remove unreachable blocks and other miscellaneous
+	   clean up work.  */
 
 void
 cleanup_tree_cfg ()
@@ -728,7 +757,7 @@ cleanup_tree_cfg ()
 }
 
 
-/* Delete all unreachable basic blocks.   */
+/** @brief Delete all unreachable basic blocks.   */
 
 static void
 remove_unreachable_blocks ()
@@ -771,12 +800,16 @@ remove_unreachable_blocks ()
 }
 
 
-/* Remove block BB and its statements from the flowgraph.  Note that if
-   REMOVE_STMTS is nonzero and BB is the entry block for a compound
-   statement (control structures or blocks of code), removing BB will
-   effectively remove the whole structure from the program.  The caller is
-   responsible for making sure that all the blocks in the compound
-   structure are also removed.  */
+/** @brief Remove block BB and its statements from the flowgraph.
+    @param bb is the block that is to be removed from the CFG.
+    @param remove_stmts is a flag that is zero if the statements
+	   in BB should be preserved, nonzero otherwise.
+
+    Note that if REMOVE_STMTS is nonzero and BB is the entry block for
+    a compound statement (control structures or blocks of code), removing
+    BB will effectively remove the whole structure from the program.  The
+    caller is responsible for making sure that all the blocks in the
+    compound structure are also removed.  */
 
 static void
 remove_tree_bb (bb, remove_stmts)
@@ -820,7 +853,7 @@ remove_tree_bb (bb, remove_stmts)
 }
 
 
-/* Remove all the blocks in BB_ARRAY.  */
+/** @brief Remove all the blocks in BB_ARRAY.  */
 
 static void
 remove_blocks (bb_array)
@@ -836,7 +869,7 @@ remove_blocks (bb_array)
 }
 
 
-/* Return true if all the blocks in BB_ARRAY are unreachable.  */
+/** @brief Return true if all the blocks in BB_ARRAY are unreachable.  */
 
 static bool
 blocks_unreachable_p (bb_array)
@@ -855,7 +888,7 @@ blocks_unreachable_p (bb_array)
 }
 
 
-/* Return true if block BB starts with a nonlocal label.  */
+/** @brief Return true if block BB starts with a nonlocal label.  */
 
 static bool
 is_nonlocal_label_block (bb)
@@ -873,8 +906,8 @@ is_nonlocal_label_block (bb)
 }
 
 
-/* Find all the blocks in the graph that are included in the compound
-   structure starting at block BB.  */
+/** @brief Find all the blocks in the graph that are included in
+	   the compound structure starting at block BB.  */
 
 static varray_type
 find_subblocks (bb)
@@ -901,20 +934,23 @@ find_subblocks (bb)
 }
 
 
-/* Return true if BB is a control parent for CHILD_BB.  Notice that this
-   property is not the same as dominance.  This is a test for containment.
-   Given two blocks A and B, A DOM B does not imply A is-parent-of B.  For
-   instance,
+/** @brief Return true if BB is a control parent for CHILD_BB.
 
+    Notice that this property is not the same as dominance.  This
+    is a test for containment.  Given two blocks A and B, A DOM B
+    does not imply A is-parent-of B.  For instance,
+
+@verbatim
 	    1	{
 	    2	  s1;
 	    3	}
 	    4	{
 	    5	  s2;
 	    6	}
+@endverbatim
 
-   The block at line 1 dominates the block at line 4, but line 4 is not
-   contained in 1's compound structure.  */
+   The block at line 1 dominates the block at line 4, but line 4
+   is not contained in 1's compound structure.  */
 
 static bool
 is_parent (bb, child_bb)
@@ -936,10 +972,12 @@ is_parent (bb, child_bb)
 }
 
 
-/* Remove statement pointed by iterator I.  Note that this function will
-   wipe out control statements that may span multiple basic blocks.  Make
-   sure that you really want to remove the whole control structure before
-   calling this function.  */
+/** @brief Remove statement pointed by iterator I.
+
+    Note that this function will wipe out control statements that
+    may span multiple basic blocks.  Make sure that you really
+    want to remove the whole control structure before calling this
+    function.  */
 
 void
 gsi_remove (i)
@@ -966,10 +1004,12 @@ gsi_remove (i)
 }
 
 
-/* Remove statement *STMT_P.  Update all references associated with it.
-   Note that this function will wipe out control statements that may span
-   multiple basic blocks.  Make sure that you really want to remove the
-   whole control structure before calling this function.  */
+/** @brief Remove statement *STMT_P.
+
+    Update all references associated with it.  Note that this function
+    will wipe out control statements that may span multiple basic
+    blocks.  Make sure that you really want to remove the whole control
+    structure before calling this function.  */
 
 static void
 remove_stmt (stmt_p)
@@ -1001,9 +1041,10 @@ remove_stmt (stmt_p)
 }
 
 
-/* Scan all the loops in the flowgraph verifying their validity.   A valid
-   loop L contains no calls to user functions, no returns, no jumps out of
-   the loop and non-local gotos.  */
+/** @brief Scan all the loops in the flowgraph verifying their validity.
+
+    A valid loop L contains no calls to user functions, no returns, no
+    jumps out of the loop and non-local gotos.  */
 
 void
 validate_loops (loops)
@@ -1029,9 +1070,10 @@ validate_loops (loops)
 }
 
 
-/* Return true if the basic block BB makes the LOOP invalid.  This occurs if
-   the block contains a call to a user function, a return, a jump out of the
-   loop or a non-local goto.  */
+/** @brief Return true if the basic block BB makes the LOOP invalid.
+
+    This occurs if the block contains a call to a user function, a
+    return, a jump out of the loop or a non-local goto.  */
 
 static bool
 block_invalidates_loop (bb, loop)
@@ -1065,7 +1107,7 @@ block_invalidates_loop (bb, loop)
 }
 
 
-/* Try to remove superfluous control structures.  */
+/** @brief Try to remove superfluous control structures.  */
 
 static void
 cleanup_control_flow ()
@@ -1095,9 +1137,13 @@ cleanup_control_flow ()
 }
 
       
-/* If the predicate of the COND_EXPR node in block BB is constant,
-   disconnect the subgraph that contains the clause that is never
-   executed.  */
+/** @brief Disconnect an unreachable block in a conditional expression.
+    @param bb is the basic block with the COND_EXPR node that should
+	   be cleaned up.
+
+    If the predicate of the COND_EXPR node in block BB is constant,
+    disconnect the subgraph that contains the clause that is never
+    executed.  */
 
 static void
 cleanup_cond_expr_graph (bb)
@@ -1129,9 +1175,13 @@ cleanup_cond_expr_graph (bb)
 }
 
 
-/* If the switch condition of the SWITCH_EXPR node in block SWITCH_BB is
-   constant, disconnect all the subgraphs for all the case labels that will
-   never be taken.  */
+/** @brief Disconnect unreachable blocks in a 'switch' expression.
+    @param switch_bb is the basic block with the SWITCH_EXPR that
+	   should be cleaned up.
+
+    If the switch condition of the SWITCH_EXPR node in block SWITCH_BB is
+    constant, disconnect all the subgraphs for all the case labels that will
+    never be taken.  */
 
 static void
 cleanup_switch_expr_graph (switch_bb)
@@ -1164,8 +1214,12 @@ cleanup_switch_expr_graph (switch_bb)
 }
 
 
-/* If the switch() statement starting at basic block BB has a constant
-   condition, disconnect all the unreachable case labels.  */
+/** @brief Clean up a 'switch' expression with a constant condition.
+    @param switch_bb is the basic block with the SWITCH_EXPR that
+           should be cleaned up.
+
+    If the switch() statement starting at basic block BB has a constant
+    condition, disconnect all the unreachable case labels.  */
 
 static void
 disconnect_unreachable_case_labels (bb)
@@ -1208,9 +1262,12 @@ disconnect_unreachable_case_labels (bb)
 }
 
 
-/* Given a control block BB and a constant value VAL, return the edge
-   that will be taken out of BLOCK.  If VAL does not match a unique edge,
-   NULL is returned.  */
+/** @brief Given a control block BB and a constant value VAL, return
+	   the edge that will be taken out of BLOCK.
+    @param bb is a basic block 
+    @param val is a tree node representing a constant value.
+
+    If VAL does not match a unique edge, NULL is returned.  */
 
 edge
 find_taken_edge (bb, val)
@@ -1321,7 +1378,9 @@ find_taken_edge (bb, val)
 			 Code insertion and replacement
 ---------------------------------------------------------------------------*/
 
-/* Insert basic block NEW_BB before BB.  */
+/** @brief Insert basic block NEW_BB before BB.
+    @param new_bb is the block that must be inserted into the CFG.
+    @param bb is the block before which you want to insert NEW_BB.  */
 
 void
 insert_bb_before (new_bb, bb)
@@ -1344,7 +1403,7 @@ insert_bb_before (new_bb, bb)
 			      Debugging functions
 ---------------------------------------------------------------------------*/
 
-/* Dump a basic block to a file.  */
+/** @brief Dump a basic block to a file.  */
 
 void
 dump_tree_bb (outf, prefix, bb, indent)
@@ -1422,7 +1481,7 @@ dump_tree_bb (outf, prefix, bb, indent)
 }
 
 
-/* Dump a basic block on stderr.  */
+/** @brief Dump a basic block on stderr.  */
 
 void
 debug_tree_bb (bb)
@@ -1432,8 +1491,10 @@ debug_tree_bb (bb)
 }
 
 
-/* Dump the CFG on stderr.  FLAGS are the same used by the tree dumping
-   functions  (see TDF_* in tree.h).  */
+/** @brief Dump the CFG on stderr.
+
+    FLAGS are the same used by the tree dumping functions
+    (see TDF_* in tree.h).  */
 
 void
 debug_tree_cfg (flags)
@@ -1443,9 +1504,11 @@ debug_tree_cfg (flags)
 }
 
 
-/* Dump the program showing basic block boundaries on the given FILE.
-   FLAGS are the same used by the tree dumping functions (see TDF_* in
-   tree.h).  */
+/** @brief Dump the program showing basic block boundaries
+	   on the given FILE.
+
+    FLAGS are the same used by the tree dumping functions
+    (see TDF_* in tree.h).  */
 
 void
 dump_tree_cfg (file, flags)
@@ -1473,7 +1536,7 @@ dump_tree_cfg (file, flags)
 }
 
 
-/* Dump the flowgraph to a .dot FILE.  */
+/** @brief Dump the flowgraph to a .dot FILE.  */
 
 void
 tree_cfg2dot (file)
@@ -1555,9 +1618,12 @@ tree_cfg2dot (file)
 			     Miscellaneous helpers
 ---------------------------------------------------------------------------*/
 
-/* Return the successor block for BB.  If the block has no successors we
-   try the enclosing control structure until we find one.  If we reached
-   nesting level 0, return the exit block.  */
+/** @brief Return the successor block for BB.
+    @param bb is the basic block for which its successor should be returned.
+
+    If the block has no successors we try the enclosing control
+    structure until we find one.  If we reached nesting level 0,
+    return the exit block.  */
 
 static basic_block
 successor_block (bb)
@@ -1611,7 +1677,7 @@ successor_block (bb)
 }
 
 
-/* Return true if T represents a control statement.  */
+/** @brief Return true if T represents a control statement.  */
 
 bool
 is_ctrl_stmt (t)
@@ -1629,8 +1695,10 @@ is_ctrl_stmt (t)
 }
 
 
-/* Return true if T alters the flow of control (e.g., T is GOTO,
-   RETURN or a call to a non-returning function)  */
+/** @brief Return true if T alters the flow of control.
+
+    e.g., Return true if T is GOTO, RETURN or a call to
+    a non-returning function.  */
 
 bool
 is_ctrl_altering_stmt (t)
@@ -1675,7 +1743,7 @@ call_expr_flags (t)
 }
 
 
-/* Return true if T represent a loop statement.  */
+/** @brief Return true if T represent a loop statement.  */
 
 bool
 is_loop_stmt (t)
@@ -1686,7 +1754,7 @@ is_loop_stmt (t)
 }
 
 
-/* Return true if T is a computed goto.  */
+/** @brief Return true if T is a computed goto.  */
 
 bool
 is_computed_goto (t)
@@ -1698,7 +1766,7 @@ is_computed_goto (t)
 }
 
 
-/* Return true if T should start a new basic block.  */
+/** @brief Return true if T should start a new basic block.  */
 
 bool
 stmt_starts_bb_p (t)
@@ -1712,7 +1780,7 @@ stmt_starts_bb_p (t)
 }
 
 
-/* Remove all the blocks and edges that make up the flowgraph.  */
+/** @brief Remove all the blocks and edges that make up the flowgraph.  */
 
 void
 delete_tree_cfg ()
@@ -1727,8 +1795,10 @@ delete_tree_cfg ()
 }
 
 
-/* Returns the block marking the end of the loop body.  This is the block
-   that contains the back edge to the start of the loop.  */
+/** @brief Returns the block marking the end of the loop body.
+
+    This is the block that contains the back edge to the start
+    of the loop.  */
 
 basic_block
 latch_block (loop_bb)
@@ -1754,7 +1824,7 @@ latch_block (loop_bb)
 }
 
 
-/* Return true if BB is a latch block.  */
+/** @brief Return true if BB is a latch block.  */
 
 bool
 is_latch_block (bb)
@@ -1772,7 +1842,8 @@ is_latch_block (bb)
 }
 
 
-/* Return a pointer to the first executable statement starting at ENTRY_P.  */
+/** @brief Return a pointer to the first executable statement
+	   starting at ENTRY_P.  */
 
 static tree *
 first_exec_stmt (entry_p)
@@ -1801,8 +1872,8 @@ first_exec_stmt (entry_p)
 }
 
 
-/* Return the first basic block with executable statements in it, starting
-   at ENTRY_P.  */
+/** @brief Return the first basic block with executable statements
+	   in it, starting at ENTRY_P.  */
 
 static basic_block
 first_exec_block (entry_p)
@@ -1818,8 +1889,10 @@ first_exec_block (entry_p)
 }
 
 
-/* Returns the header block for the innermost switch statement containing
-   BB.  It returns NULL if BB is not inside a switch statement.  */
+/** @brief Returns the header block for the innermost switch statement
+	   containing BB.
+
+    Returns NULL if BB is not inside a switch statement.  */
 
 static basic_block
 switch_parent (bb)
@@ -1837,8 +1910,8 @@ switch_parent (bb)
 }
 
 
-/* Return the first statement in basic block BB, stripped of any WFL or NOP
-   containers.  */
+/** @brief Return the first statement in basic block BB, stripped of any
+	   WFL or NOP containers.  */
 
 tree
 first_stmt (bb)
@@ -1861,9 +1934,11 @@ first_stmt (bb)
 }
 
 
-/* Return the last statement in basic block BB, stripped of any WFL or NOP
-   containers.  empty_stmt_nodes are never returned. NULL is returned if 
-   there are no such statements.  */
+/** @brief Return the last statement in basic block BB, stripped of
+	   any WFL or NOP containers.
+
+    empty_stmt_nodes are never returned. NULL is returned if there
+    are no such statements.  */
 
 tree
 last_stmt (bb)
@@ -1894,7 +1969,7 @@ last_stmt (bb)
 }
 
 
-/* Return a pointer to the last statement in block BB.  */
+/** @brief Return a pointer to the last statement in block BB.  */
 
 tree *
 last_stmt_ptr (bb)
@@ -1913,9 +1988,11 @@ last_stmt_ptr (bb)
   return gsi_stmt_ptr (last);
 }
 
-/* Similar to gsi_start() but initializes the iterator at the first
-   statement in basic block BB which isn't an empty_stmt_node.  NULL is 
-   returned if there are no such statements.  */
+
+/** @brief Similar to gsi_start() but initializes the iterator at the
+	   first statement in basic block BB which isn't an empty_stmt_node.
+
+    NULL is returned if there are no such statements.  */
 
 gimple_stmt_iterator
 gsi_start_bb (bb)
@@ -1938,7 +2015,8 @@ gsi_start_bb (bb)
   return i;
 }
 
-/* Insert statement T into basic block BB.  */
+
+/** @brief Insert statement T into basic block BB.  */
 
 void
 set_bb_for_stmt (t, bb)
