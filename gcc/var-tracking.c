@@ -1355,12 +1355,13 @@ contains_symbol_ref (x)
      rtx x;
 {
   const char *fmt;
-  RTX_CODE code = GET_CODE (x);
+  RTX_CODE code;
   int i;
 
   if (!x)
     return false;
 
+  code = GET_CODE (x);
   if (code == SYMBOL_REF)
     return true;
 

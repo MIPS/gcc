@@ -1,3 +1,7 @@
+2003-11-10  Josef Zlomek  <zlomekj@suse.cz>
+
+	* var-tracking.c (contains_symbol_ref): Fix possible ICE.
+
 2003-11-09  Josef Zlomek  <zlomekj@suse.cz>
 
 	* flags.h (flag_var_tracking): New extern definition.
