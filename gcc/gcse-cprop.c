@@ -371,6 +371,7 @@ constprop_register (insn, from, to, alter_jumps, run_jump_opt_after_gcse)
      conditional branch instructions first.  */
   if (alter_jumps
       && (sset = single_set (insn)) != NULL
+      && NEXT_INSN (insn)
       && any_condjump_p (NEXT_INSN (insn)) && onlyjump_p (NEXT_INSN (insn)))
     {
       rtx dest = SET_DEST (sset);

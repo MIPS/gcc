@@ -1,5 +1,9 @@
 2003-01-24  Josef Zlomek  <zlomekj@suse.cz>
 
+	* gcse-cprop.c (constprop_register): Check NEXT_INSN (insn) != NULL.
+
+2003-01-24  Josef Zlomek  <zlomekj@suse.cz>
+
 	* var-tracking.c (MEM_HASH_VAL): Change hash function.
 
 2003-01-23  Josef Zlomek  <zlomekj@suse.cz>
