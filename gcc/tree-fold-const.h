@@ -1,5 +1,5 @@
 /* Fold GENERIC expressions.
-   Copyright (C) 2003 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
    Contributed by Sebastian Pop <s.pop@laposte.net>
    
 This file is part of GCC.
@@ -116,20 +116,31 @@ static inline tree
 tree_fold_int_plus (tree a,
 		    tree b)
 {
+  tree res;
+  
   if (TREE_CODE (a) == REAL_CST)
     return build (PLUS_EXPR, TREE_TYPE (a), a, b);
+  
   if (TREE_CODE (b) == REAL_CST)
     return build (PLUS_EXPR, TREE_TYPE (b), a, b);
-  else if (TREE_TYPE (a) == TREE_TYPE (b))
-    return fold (build (PLUS_EXPR, TREE_TYPE (a), a, b));
+  
+  if (TREE_TYPE (a) == TREE_TYPE (b))
+    res = fold (build (PLUS_EXPR, TREE_TYPE (a), a, b));
+  
   else
     {
       a = copy_node (a);
       b = copy_node (b);
       TREE_TYPE (a) = integer_type_node;
       TREE_TYPE (b) = integer_type_node;
-      return fold (build (PLUS_EXPR, integer_type_node, a, b));
+      res = fold (build (PLUS_EXPR, integer_type_node, a, b));
     }
+  
+  if (TREE_CODE (res) == NON_LVALUE_EXPR)
+    return TREE_OPERAND (res, 0);
+  
+  else
+    return res;
 }
 
 /* Fold the substraction.  */
@@ -138,20 +149,31 @@ static inline tree
 tree_fold_int_minus (tree a,
 		     tree b)
 {
+  tree res;
+  
   if (TREE_CODE (a) == REAL_CST)
     return build (MINUS_EXPR, TREE_TYPE (a), a, b);
+  
   if (TREE_CODE (b) == REAL_CST)
     return build (MINUS_EXPR, TREE_TYPE (b), a, b);
-  else if (TREE_TYPE (a) == TREE_TYPE (b))
-    return fold (build (MINUS_EXPR, TREE_TYPE (a), a, b));
+  
+  if (TREE_TYPE (a) == TREE_TYPE (b))
+    res = fold (build (MINUS_EXPR, TREE_TYPE (a), a, b));
+  
   else
     {
       a = copy_node (a);
       b = copy_node (b);
       TREE_TYPE (a) = integer_type_node;
       TREE_TYPE (b) = integer_type_node;
-      return fold (build (MINUS_EXPR, integer_type_node, a, b));
+      res = fold (build (MINUS_EXPR, integer_type_node, a, b));
     }
+  
+  if (TREE_CODE (res) == NON_LVALUE_EXPR)
+    return TREE_OPERAND (res, 0);
+  
+  else 
+    return res;
 }
 
 /* Fold the multiplication.  */
@@ -160,20 +182,31 @@ static inline tree
 tree_fold_int_multiply (tree a,
 			tree b)
 {
+  tree res;
+  
   if (TREE_CODE (a) == REAL_CST)
     return build (MULT_EXPR, TREE_TYPE (a), a, b);
+  
   if (TREE_CODE (b) == REAL_CST)
     return build (MULT_EXPR, TREE_TYPE (b), a, b);
-  else if (TREE_TYPE (a) == TREE_TYPE (b))
-    return fold (build (MULT_EXPR, TREE_TYPE (a), a, b));
+  
+  if (TREE_TYPE (a) == TREE_TYPE (b))
+    res = fold (build (MULT_EXPR, TREE_TYPE (a), a, b));
+  
   else
     {
       a = copy_node (a);
       b = copy_node (b);
       TREE_TYPE (a) = integer_type_node;
       TREE_TYPE (b) = integer_type_node;
-      return fold (build (MULT_EXPR, integer_type_node, a, b));
+      res = fold (build (MULT_EXPR, integer_type_node, a, b));
     }
+  
+  if (TREE_CODE (res) == NON_LVALUE_EXPR)
+    return TREE_OPERAND (res, 0);
+  
+  else
+    return res;
 }
 
 /* Division for integer result that rounds the quotient toward zero.  */

@@ -1,3 +1,10 @@
+2004-01-13  Sebastian Pop  <s.pop@laposte.net>
+            Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-fold-const.h (tree_fold_int_plus, tree_fold_int_minus,
+	tree_fold_int_multiply): Remove NON_LVALUE_EXPR from the
+	answers of the folder.  Fixes bootstraps for powerpc.
+
 2004-01-12  Sebastian Pop  <s.pop@laposte.net>
 
 	* tree-chrec.c (chrec_fold_plus, chrec_fold_multiply): Verify
