@@ -1,3 +1,8 @@
+2002-03-01  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* genautomata.c (output_automata_list_transition_code): Check
+	automata_list on NULL.
+
 2002-02-28  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* genautomata.c (output_insn_code_cases,

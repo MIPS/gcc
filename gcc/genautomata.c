@@ -7537,7 +7537,7 @@ output_automata_list_transition_code (automata_list)
   automata_list_el_t el, next_el;
 
   fprintf (output_file, "      {\n");
-  if (automata_list->next_automata_list_el != NULL)
+  if (automata_list != NULL && automata_list->next_automata_list_el != NULL)
     for (el = automata_list;; el = next_el)
       {
         next_el = el->next_automata_list_el;
@@ -7607,7 +7607,7 @@ output_automata_list_transition_code (automata_list)
 	  }
 	fprintf (output_file, " = %s;\n", TEMPORARY_VARIABLE_NAME);
       }
-  if (automata_list->next_automata_list_el != NULL)
+  if (automata_list != NULL && automata_list->next_automata_list_el != NULL)
     for (el = automata_list;; el = next_el)
       {
         next_el = el->next_automata_list_el;
