@@ -1,0 +1,6 @@
+2004-08-22  Paolo Bonzini  <bonzini@gnu.org>
+
+	* Makefile.def: Add libgomp.
+	* Makefile.in: Regenerate.
+	* configure.in: Add libgomp.
+	* configure: Regenerate.

@@ -161,6 +161,7 @@ target_libraries="target-libiberty \
 		target-libstdc++-v3 \
 		target-libmudflap \
 		target-libgfortran \
+		target-libgomp \
 		${libgcj} \
 		target-libobjc \
 		target-libada"

@@ -720,6 +720,7 @@ configure-target:  \
     maybe-configure-target-libmudflap \
     maybe-configure-target-newlib \
     maybe-configure-target-libgfortran \
+    maybe-configure-target-libgomp \
     maybe-configure-target-libobjc \
     maybe-configure-target-libtermcap \
     maybe-configure-target-winsup \
@@ -821,6 +822,7 @@ all-target:  \
     maybe-all-target-libmudflap \
     maybe-all-target-newlib \
     maybe-all-target-libgfortran \
+    maybe-all-target-libgomp \
     maybe-all-target-libobjc \
     maybe-all-target-libtermcap \
     maybe-all-target-winsup \
@@ -918,6 +920,7 @@ info-target:  \
     maybe-info-target-libmudflap \
     maybe-info-target-newlib \
     maybe-info-target-libgfortran \
+    maybe-info-target-libgomp \
     maybe-info-target-libobjc \
     maybe-info-target-libtermcap \
     maybe-info-target-winsup \
@@ -1010,6 +1013,7 @@ dvi-target:  \
     maybe-dvi-target-libmudflap \
     maybe-dvi-target-newlib \
     maybe-dvi-target-libgfortran \
+    maybe-dvi-target-libgomp \
     maybe-dvi-target-libobjc \
     maybe-dvi-target-libtermcap \
     maybe-dvi-target-winsup \
@@ -1102,6 +1106,7 @@ TAGS-target:  \
     maybe-TAGS-target-libmudflap \
     maybe-TAGS-target-newlib \
     maybe-TAGS-target-libgfortran \
+    maybe-TAGS-target-libgomp \
     maybe-TAGS-target-libobjc \
     maybe-TAGS-target-libtermcap \
     maybe-TAGS-target-winsup \
@@ -1194,6 +1199,7 @@ install-info-target:  \
     maybe-install-info-target-libmudflap \
     maybe-install-info-target-newlib \
     maybe-install-info-target-libgfortran \
+    maybe-install-info-target-libgomp \
     maybe-install-info-target-libobjc \
     maybe-install-info-target-libtermcap \
     maybe-install-info-target-winsup \
@@ -1286,6 +1292,7 @@ installcheck-target:  \
     maybe-installcheck-target-libmudflap \
     maybe-installcheck-target-newlib \
     maybe-installcheck-target-libgfortran \
+    maybe-installcheck-target-libgomp \
     maybe-installcheck-target-libobjc \
     maybe-installcheck-target-libtermcap \
     maybe-installcheck-target-winsup \
@@ -1378,6 +1385,7 @@ mostlyclean-target:  \
     maybe-mostlyclean-target-libmudflap \
     maybe-mostlyclean-target-newlib \
     maybe-mostlyclean-target-libgfortran \
+    maybe-mostlyclean-target-libgomp \
     maybe-mostlyclean-target-libobjc \
     maybe-mostlyclean-target-libtermcap \
     maybe-mostlyclean-target-winsup \
@@ -1470,6 +1478,7 @@ clean-target:  \
     maybe-clean-target-libmudflap \
     maybe-clean-target-newlib \
     maybe-clean-target-libgfortran \
+    maybe-clean-target-libgomp \
     maybe-clean-target-libobjc \
     maybe-clean-target-libtermcap \
     maybe-clean-target-winsup \
@@ -1562,6 +1571,7 @@ distclean-target:  \
     maybe-distclean-target-libmudflap \
     maybe-distclean-target-newlib \
     maybe-distclean-target-libgfortran \
+    maybe-distclean-target-libgomp \
     maybe-distclean-target-libobjc \
     maybe-distclean-target-libtermcap \
     maybe-distclean-target-winsup \
@@ -1654,6 +1664,7 @@ maintainer-clean-target:  \
     maybe-maintainer-clean-target-libmudflap \
     maybe-maintainer-clean-target-newlib \
     maybe-maintainer-clean-target-libgfortran \
+    maybe-maintainer-clean-target-libgomp \
     maybe-maintainer-clean-target-libobjc \
     maybe-maintainer-clean-target-libtermcap \
     maybe-maintainer-clean-target-winsup \
@@ -1800,6 +1811,7 @@ do-check: unstage  \
     maybe-check-target-libmudflap \
     maybe-check-target-newlib \
     maybe-check-target-libgfortran \
+    maybe-check-target-libgomp \
     maybe-check-target-libobjc \
     maybe-check-target-libtermcap \
     maybe-check-target-winsup \
@@ -1982,6 +1994,7 @@ install-target:  \
     maybe-install-target-libmudflap \
     maybe-install-target-newlib \
     maybe-install-target-libgfortran \
+    maybe-install-target-libgomp \
     maybe-install-target-libobjc \
     maybe-install-target-libtermcap \
     maybe-install-target-winsup \
@@ -23456,6 +23469,322 @@ maintainer-clean-target-libgfortran:
 @endif target-libgfortran
 
 
+.PHONY: configure-target-libgomp maybe-configure-target-libgomp
+maybe-configure-target-libgomp:
+@if target-libgomp
+maybe-configure-target-libgomp: configure-target-libgomp
+
+# There's only one multilib.out.  Cleverer subdirs shouldn't need it copied.
+$(TARGET_SUBDIR)/libgomp/multilib.out: multilib.out
+	$(SHELL) $(srcdir)/mkinstalldirs $(TARGET_SUBDIR)/libgomp ; \
+	rm -f $(TARGET_SUBDIR)/libgomp/Makefile || : ; \
+	cp multilib.out $(TARGET_SUBDIR)/libgomp/multilib.out
+
+configure-target-libgomp: $(TARGET_SUBDIR)/libgomp/multilib.out
+	@test ! -f $(TARGET_SUBDIR)/libgomp/Makefile || exit 0; \
+	$(SHELL) $(srcdir)/mkinstalldirs $(TARGET_SUBDIR)/libgomp ; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(NORMAL_TARGET_EXPORTS) \
+	echo Configuring in $(TARGET_SUBDIR)/libgomp; \
+	cd "$(TARGET_SUBDIR)/libgomp" || exit 1; \
+	case $(srcdir) in \
+	  /* | [A-Za-z]:[\\/]*) \
+	    topdir=$(srcdir) ;; \
+	  *) \
+	    case "$(TARGET_SUBDIR)" in \
+	      .) topdir="../$(srcdir)" ;; \
+	      *) topdir="../../$(srcdir)" ;; \
+	    esac ;; \
+	esac; \
+	  srcdiroption="--srcdir=$${topdir}/libgomp"; \
+	  libsrcdir="$$s/libgomp"; \
+	rm -f no-such-file || : ; \
+	CONFIG_SITE=no-such-file $(SHELL) $${libsrcdir}/configure \
+	  $(TARGET_CONFIGARGS) $${srcdiroption} \
+	  --with-target-subdir="$(TARGET_SUBDIR)"  \
+	  || exit 1
+@endif target-libgomp
+
+.PHONY: all-target-libgomp maybe-all-target-libgomp
+maybe-all-target-libgomp:
+@if target-libgomp
+TARGET-target-libgomp=all
+maybe-all-target-libgomp: all-target-libgomp
+all-target-libgomp: configure-target-libgomp
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(NORMAL_TARGET_EXPORTS) \
+	(cd $(TARGET_SUBDIR)/libgomp && \
+	  $(MAKE) $(TARGET_FLAGS_TO_PASS)   $(TARGET-target-libgomp))
+@endif target-libgomp
+
+.PHONY: check-target-libgomp maybe-check-target-libgomp
+maybe-check-target-libgomp:
+@if target-libgomp
+maybe-check-target-libgomp: check-target-libgomp
+
+check-target-libgomp:
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(NORMAL_TARGET_EXPORTS) \
+	(cd $(TARGET_SUBDIR)/libgomp && \
+	  $(MAKE) $(TARGET_FLAGS_TO_PASS)   check)
+
+@endif target-libgomp
+
+.PHONY: install-target-libgomp maybe-install-target-libgomp
+maybe-install-target-libgomp:
+@if target-libgomp
+maybe-install-target-libgomp: install-target-libgomp
+
+install-target-libgomp: installdirs
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(NORMAL_TARGET_EXPORTS) \
+	(cd $(TARGET_SUBDIR)/libgomp && \
+	  $(MAKE) $(TARGET_FLAGS_TO_PASS)  install)
+
+@endif target-libgomp
+
+# Other targets (info, dvi, etc.)
+
+.PHONY: maybe-info-target-libgomp info-target-libgomp
+maybe-info-target-libgomp:
+@if target-libgomp
+maybe-info-target-libgomp: info-target-libgomp
+
+info-target-libgomp: \
+    configure-target-libgomp 
+	@[ -f $(TARGET_SUBDIR)/libgomp/Makefile ] || exit 0 ; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(NORMAL_TARGET_EXPORTS) \
+	echo "Doing info in $(TARGET_SUBDIR)/libgomp" ; \
+	for flag in $(EXTRA_TARGET_FLAGS); do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	(cd $(TARGET_SUBDIR)/libgomp && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	           info) \
+	  || exit 1
+
+@endif target-libgomp
+
+.PHONY: maybe-dvi-target-libgomp dvi-target-libgomp
+maybe-dvi-target-libgomp:
+@if target-libgomp
+maybe-dvi-target-libgomp: dvi-target-libgomp
+
+dvi-target-libgomp: \
+    configure-target-libgomp 
+	@[ -f $(TARGET_SUBDIR)/libgomp/Makefile ] || exit 0 ; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(NORMAL_TARGET_EXPORTS) \
+	echo "Doing dvi in $(TARGET_SUBDIR)/libgomp" ; \
+	for flag in $(EXTRA_TARGET_FLAGS); do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	(cd $(TARGET_SUBDIR)/libgomp && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	           dvi) \
+	  || exit 1
+
+@endif target-libgomp
+
+.PHONY: maybe-TAGS-target-libgomp TAGS-target-libgomp
+maybe-TAGS-target-libgomp:
+@if target-libgomp
+maybe-TAGS-target-libgomp: TAGS-target-libgomp
+
+TAGS-target-libgomp: \
+    configure-target-libgomp 
+	@[ -f $(TARGET_SUBDIR)/libgomp/Makefile ] || exit 0 ; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(NORMAL_TARGET_EXPORTS) \
+	echo "Doing TAGS in $(TARGET_SUBDIR)/libgomp" ; \
+	for flag in $(EXTRA_TARGET_FLAGS); do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	(cd $(TARGET_SUBDIR)/libgomp && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	           TAGS) \
+	  || exit 1
+
+@endif target-libgomp
+
+.PHONY: maybe-install-info-target-libgomp install-info-target-libgomp
+maybe-install-info-target-libgomp:
+@if target-libgomp
+maybe-install-info-target-libgomp: install-info-target-libgomp
+
+install-info-target-libgomp: \
+    configure-target-libgomp \
+    info-target-libgomp 
+	@[ -f $(TARGET_SUBDIR)/libgomp/Makefile ] || exit 0 ; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(NORMAL_TARGET_EXPORTS) \
+	echo "Doing install-info in $(TARGET_SUBDIR)/libgomp" ; \
+	for flag in $(EXTRA_TARGET_FLAGS); do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	(cd $(TARGET_SUBDIR)/libgomp && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	           install-info) \
+	  || exit 1
+
+@endif target-libgomp
+
+.PHONY: maybe-installcheck-target-libgomp installcheck-target-libgomp
+maybe-installcheck-target-libgomp:
+@if target-libgomp
+maybe-installcheck-target-libgomp: installcheck-target-libgomp
+
+installcheck-target-libgomp: \
+    configure-target-libgomp 
+	@[ -f $(TARGET_SUBDIR)/libgomp/Makefile ] || exit 0 ; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(NORMAL_TARGET_EXPORTS) \
+	echo "Doing installcheck in $(TARGET_SUBDIR)/libgomp" ; \
+	for flag in $(EXTRA_TARGET_FLAGS); do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	(cd $(TARGET_SUBDIR)/libgomp && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	           installcheck) \
+	  || exit 1
+
+@endif target-libgomp
+
+.PHONY: maybe-mostlyclean-target-libgomp mostlyclean-target-libgomp
+maybe-mostlyclean-target-libgomp:
+@if target-libgomp
+maybe-mostlyclean-target-libgomp: mostlyclean-target-libgomp
+
+mostlyclean-target-libgomp: 
+	@[ -f $(TARGET_SUBDIR)/libgomp/Makefile ] || exit 0 ; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(NORMAL_TARGET_EXPORTS) \
+	echo "Doing mostlyclean in $(TARGET_SUBDIR)/libgomp" ; \
+	for flag in $(EXTRA_TARGET_FLAGS); do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	(cd $(TARGET_SUBDIR)/libgomp && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	           mostlyclean) \
+	  || exit 1
+
+@endif target-libgomp
+
+.PHONY: maybe-clean-target-libgomp clean-target-libgomp
+maybe-clean-target-libgomp:
+@if target-libgomp
+maybe-clean-target-libgomp: clean-target-libgomp
+
+clean-target-libgomp: 
+	@[ -f $(TARGET_SUBDIR)/libgomp/Makefile ] || exit 0 ; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(NORMAL_TARGET_EXPORTS) \
+	echo "Doing clean in $(TARGET_SUBDIR)/libgomp" ; \
+	for flag in $(EXTRA_TARGET_FLAGS); do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	(cd $(TARGET_SUBDIR)/libgomp && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	           clean) \
+	  || exit 1
+
+@endif target-libgomp
+
+.PHONY: maybe-distclean-target-libgomp distclean-target-libgomp
+maybe-distclean-target-libgomp:
+@if target-libgomp
+maybe-distclean-target-libgomp: distclean-target-libgomp
+
+distclean-target-libgomp: 
+	@[ -f $(TARGET_SUBDIR)/libgomp/Makefile ] || exit 0 ; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(NORMAL_TARGET_EXPORTS) \
+	echo "Doing distclean in $(TARGET_SUBDIR)/libgomp" ; \
+	for flag in $(EXTRA_TARGET_FLAGS); do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	(cd $(TARGET_SUBDIR)/libgomp && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	           distclean) \
+	  || exit 1
+
+@endif target-libgomp
+
+.PHONY: maybe-maintainer-clean-target-libgomp maintainer-clean-target-libgomp
+maybe-maintainer-clean-target-libgomp:
+@if target-libgomp
+maybe-maintainer-clean-target-libgomp: maintainer-clean-target-libgomp
+
+maintainer-clean-target-libgomp: 
+	@[ -f $(TARGET_SUBDIR)/libgomp/Makefile ] || exit 0 ; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(NORMAL_TARGET_EXPORTS) \
+	echo "Doing maintainer-clean in $(TARGET_SUBDIR)/libgomp" ; \
+	for flag in $(EXTRA_TARGET_FLAGS); do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	(cd $(TARGET_SUBDIR)/libgomp && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	           maintainer-clean) \
+	  || exit 1
+
+@endif target-libgomp
+
+
 .PHONY: configure-target-libobjc maybe-configure-target-libobjc
 maybe-configure-target-libobjc:
 @if target-libobjc
@@ -32419,6 +32748,8 @@ configure-target-newlib: maybe-all-gcc
 
 configure-target-libgfortran: maybe-all-gcc
 
+configure-target-libgomp: maybe-all-gcc
+
 configure-target-libobjc: maybe-all-gcc
 
 configure-target-libtermcap: maybe-all-gcc
@@ -32459,6 +32790,8 @@ configure-target-libada: maybe-all-target-newlib maybe-all-target-libgloss
 configure-target-libgfortran: maybe-all-target-newlib maybe-all-target-libgloss
 
 configure-target-libffi: maybe-all-target-newlib maybe-all-target-libgloss
+
+configure-target-libgomp: maybe-all-target-newlib maybe-all-target-libgloss
 
 configure-target-libjava: maybe-all-target-newlib maybe-all-target-libgloss
 configure-target-libjava: maybe-all-target-libstdc++-v3
