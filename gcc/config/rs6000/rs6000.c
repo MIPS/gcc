@@ -9886,7 +9886,7 @@ rs6000_assemble_integer (x, size, aligned_p)
 {
 #ifdef RELOCATABLE_NEEDS_FIXUP
   /* Special handling for SI values.  */
-  if (size == 4 && aligned_p)
+  if (size == 4 && aligned_p && RELOCATABLE_NEEDS_FIXUP)
     {
       extern int in_toc_section PARAMS ((void));
       static int recurse = 0;

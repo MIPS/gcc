@@ -1,3 +1,8 @@
+2004-07-30  Alan Modra  <amodra@bigpond.net.au>
+
+	* config/rs6000/rs6000.c (rs6000_assemble_integer): Test
+	RELOCATABLE_NEEDS_FIXUP, not just whether the macro is defined.
+
 2004-07-28  Alan Modra  <amodra@bigpond.net.au>
 
 	* config/rs6000/rs6000.c (function_arg_padding): Pad SFmode upwards.
