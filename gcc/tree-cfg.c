@@ -4424,7 +4424,8 @@ thread_jumps (void)
       if (stmt
 	  && stmt_ends_bb_p (stmt)
 	  && TREE_CODE (stmt) != GOTO_EXPR
-	  && TREE_CODE (stmt) != COND_EXPR)
+	  && TREE_CODE (stmt) != COND_EXPR
+	  && TREE_CODE (stmt) != SWITCH_EXPR)
 	continue;
 
       /* This block is now part of a forwarding path, mark it as not
@@ -4522,20 +4523,16 @@ thread_jumps (void)
 edge
 thread_edge (edge e, basic_block dest)
 {
-  block_stmt_iterator dest_iterator = bsi_start (dest);
   tree dest_stmt = first_stmt (dest);
-  tree label, goto_stmt, stmt;
+  tree label, stmt;
   basic_block bb = e->src, new_bb;
   int flags;
 
   /* We need a label at our final destination.  If it does not already exist,
      create it.  */
-  if (!dest_stmt
-      || TREE_CODE (dest_stmt) != LABEL_EXPR)
+  if (!dest_stmt || TREE_CODE (dest_stmt) != LABEL_EXPR)
     {
-      if (dest_stmt && TREE_CODE (dest_stmt) == CASE_LABEL_EXPR)
-	abort ();
-
+      block_stmt_iterator dest_iterator = bsi_start (dest);
       label = build_decl (LABEL_DECL, NULL_TREE, NULL_TREE);
       DECL_CONTEXT (label) = current_function_decl;
       dest_stmt = build1 (LABEL_EXPR, void_type_node, label);
@@ -4544,30 +4541,44 @@ thread_edge (edge e, basic_block dest)
   else
     label = LABEL_EXPR_LABEL (dest_stmt);
 
-  /* If our block does not end with a GOTO, then create one.  Otherwise redirect
-     the existing GOTO_EXPR to LABEL.  */
+  /* If our block does not end with a GOTO, then create one.
+     Otherwise redirect the existing GOTO_EXPR to LABEL.  */
+
   stmt = last_stmt (bb);
-  if (stmt && TREE_CODE (stmt) == COND_EXPR)
+  new_bb = NULL;
+  flags = 0;
+
+  switch (stmt ? TREE_CODE (stmt) : ERROR_MARK)
     {
+    case COND_EXPR:
       stmt = (e->flags & EDGE_TRUE_VALUE
 	      ? COND_EXPR_THEN (stmt)
 	      : COND_EXPR_ELSE (stmt));
       flags = e->flags;
-      if (TREE_CODE (stmt) != GOTO_EXPR)
-	abort ();
-    }
-  else
-    flags = 0;
+      /* FALLTHRU */
 
-  if (!stmt || TREE_CODE (stmt) != GOTO_EXPR)
-    {
-      goto_stmt = build1 (GOTO_EXPR, void_type_node, label);
-      bsi_insert_on_edge_immediate (e, goto_stmt, NULL, &new_bb);
-    }
-  else
-    {
+    case GOTO_EXPR:
       GOTO_DESTINATION (stmt) = label;
-      new_bb = NULL;
+      break;
+
+    case SWITCH_EXPR:
+      {
+	tree vec = SWITCH_LABELS (stmt);
+	size_t i, n = TREE_VEC_LENGTH (vec);
+
+	for (i = 0; i < n; ++i)
+	  {
+	    tree elt = TREE_VEC_ELT (vec, i);
+	    if (label_to_block (CASE_LABEL (elt)) == e->dest)
+	      CASE_LABEL (elt) = label;
+	  }
+      }
+      break;
+
+    default:
+      stmt = build1 (GOTO_EXPR, void_type_node, label);
+      bsi_insert_on_edge_immediate (e, stmt, NULL, &new_bb);
+      break;
     }
 
   /* Update/insert PHI nodes as necessary.  */
