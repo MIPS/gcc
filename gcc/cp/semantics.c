@@ -2459,7 +2459,7 @@ expand_or_defer_fn (fn)
 	     functions.  */
 	  if (DECL_DECLARED_INLINE_P (fn))
 	    import_export_decl (fn);
-	  cgraph_finalize_function (fn, DECL_SAVED_TREE (fn));
+	  cgraph_finalize_function (fn, function_depth > 1);
 	}
       else
 	{
