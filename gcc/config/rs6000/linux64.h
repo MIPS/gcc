@@ -45,6 +45,10 @@ Boston, MA 02111-1307, USA.  */
 %{mlittle} %{mlittle-endian} %{mbig} %{mbig-endian} \
 %{v:-V} %{Qy:} %{!Qn:-Qy} -a64 %(asm_cpu) %{Wa,*:%*}"
 
+/* 64-bit PowerPC Linux is always big-endian.  */
+#undef	TARGET_LITTLE_ENDIAN
+#define TARGET_LITTLE_ENDIAN	0
+
 /* 64-bit PowerPC Linux always has a TOC.  */
 #undef  TARGET_NO_TOC
 #define TARGET_NO_TOC		0
@@ -95,6 +99,35 @@ Boston, MA 02111-1307, USA.  */
 /* Indicate that jump tables go in the text section.  */
 #undef  JUMP_TABLES_IN_TEXT_SECTION
 #define JUMP_TABLES_IN_TEXT_SECTION 1
+
+/* The linux ppc64 ABI isn't explicit on whether aggregates smaller
+   than a doubleword should be padded upward or downward.  You could
+   reasonably assume that they follow the normal rules for structure
+   layout treating the parameter area as any other block of memory,
+   then map the reg param area to registers.  ie. pad updard.
+   Setting both of the following defines results in this behaviour.
+   Setting just the first one will result in aggregates that fit in a
+   doubleword being padded downward, and others being padded upward.
+   Not a bad idea as this results in struct { int x; } being passed
+   the same way as an int.  */
+#define AGGREGATE_PADDING_FIXED TARGET_64BIT
+#define AGGREGATES_PAD_UPWARD_ALWAYS 0
+
+/* We don't want anything in the reg parm area being passed on the
+   stack.  */
+#define MUST_PASS_IN_STACK(MODE, TYPE)				\
+  ((TARGET_64BIT						\
+    && (TYPE) != 0						\
+    && (TREE_CODE (TYPE_SIZE (TYPE)) != INTEGER_CST		\
+	|| TREE_ADDRESSABLE (TYPE)))				\
+   || (!TARGET_64BIT						\
+       && default_must_pass_in_stack ((MODE), (TYPE))))
+
+/* Specify padding for the last element of a block move between
+   registers and memory.  FIRST is nonzero if this is the only
+   element.  */
+#define BLOCK_REG_PADDING(MODE, TYPE, FIRST) \
+  (!(FIRST) ? upward : FUNCTION_ARG_PADDING (MODE, TYPE))
 
 /* 64-bit PowerPC Linux always has GPR13 fixed.  */
 #define FIXED_R13		1

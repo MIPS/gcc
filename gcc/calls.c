@@ -25,6 +25,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree.h"
 #include "flags.h"
 #include "expr.h"
+#include "optabs.h"
 #include "libfuncs.h"
 #include "function.h"
 #include "regs.h"
@@ -185,8 +186,8 @@ static void emit_call_1		PARAMS ((rtx, tree, tree, HOST_WIDE_INT,
 static void precompute_register_parameters	PARAMS ((int,
 							 struct arg_data *,
 							 int *));
-static int store_one_arg	PARAMS ((struct arg_data *, rtx, int, HOST_WIDE_INT,
-					 HOST_WIDE_INT));
+static int store_one_arg	PARAMS ((struct arg_data *, rtx, int,
+					 HOST_WIDE_INT, int));
 static void store_unaligned_arguments_into_pseudos PARAMS ((struct arg_data *,
 							    int));
 static int finalize_must_preallocate		PARAMS ((int, int,
@@ -225,10 +226,8 @@ static int combine_pending_stack_adjustment_and_call
 static tree fix_unsafe_tree		PARAMS ((tree));
 
 #ifdef REG_PARM_STACK_SPACE
-static rtx save_fixed_argument_area	PARAMS ((int, rtx, HOST_WIDE_INT *,
-						 HOST_WIDE_INT *));
-static void restore_fixed_argument_area	PARAMS ((rtx, rtx, HOST_WIDE_INT,
-						 HOST_WIDE_INT));
+static rtx save_fixed_argument_area	PARAMS ((int, rtx, int *, int *));
+static void restore_fixed_argument_area	PARAMS ((rtx, rtx, int, int));
 #endif
 
 /* If WHICH is 1, return 1 if EXP contains a call to the built-in function
@@ -945,93 +944,95 @@ save_fixed_argument_area (reg_parm_stack_space, argblock,
 			  low_to_save, high_to_save)
      int reg_parm_stack_space;
      rtx argblock;
-     HOST_WIDE_INT *low_to_save;
-     HOST_WIDE_INT *high_to_save;
+     int *low_to_save;
+     int *high_to_save;
 {
-  HOST_WIDE_INT i;
-  rtx save_area = NULL_RTX;
+  int low;
+  int high;
 
-  /* Compute the boundary of the that needs to be saved, if any.  */
+  /* Compute the boundary of the area that needs to be saved, if any.  */
+  high = reg_parm_stack_space;
 #ifdef ARGS_GROW_DOWNWARD
-  for (i = 0; i < reg_parm_stack_space + 1; i++)
-#else
-  for (i = 0; i < reg_parm_stack_space; i++)
+  high += 1;
 #endif
-    {
-      if (i >= highest_outgoing_arg_in_use
-	  || i >= STACK_USAGE_MAP_MAX
-	  || stack_usage_map[i] == 0)
-	continue;
+  if (high > highest_outgoing_arg_in_use)
+    high = highest_outgoing_arg_in_use;
+  if (high > STACK_USAGE_MAP_MAX)
+    high = STACK_USAGE_MAP_MAX;
 
-      if (*low_to_save == -1)
-	*low_to_save = i;
+  for (low = 0; low < high; low++)
+    if (stack_usage_map[low] != 0)
+      {
+	int num_to_save;
+	enum machine_mode save_mode;
+	int delta;
+	rtx stack_area;
+	rtx save_area;
 
-      *high_to_save = i;
-    }
+	while (stack_usage_map[--high] == 0)
+	  ;
 
-  if (*low_to_save >= 0)
-    {
-      HOST_WIDE_INT num_to_save = *high_to_save - *low_to_save + 1;
-      enum machine_mode save_mode
-	= mode_for_size (num_to_save * BITS_PER_UNIT, MODE_INT, 1);
-      rtx stack_area;
+	*low_to_save = low;
+	*high_to_save = high;
 
-      /* If we don't have the required alignment, must do this in BLKmode.  */
-      if ((*low_to_save & (MIN (GET_MODE_SIZE (save_mode),
-				BIGGEST_ALIGNMENT / UNITS_PER_WORD) - 1)))
-	save_mode = BLKmode;
+	num_to_save = high - low + 1;
+	save_mode = mode_for_size (num_to_save * BITS_PER_UNIT, MODE_INT, 1);
+
+	/* If we don't have the required alignment, must do this
+	   in BLKmode.  */
+	if ((low & (MIN (GET_MODE_SIZE (save_mode),
+			 BIGGEST_ALIGNMENT / UNITS_PER_WORD) - 1)))
+	  save_mode = BLKmode;
 
 #ifdef ARGS_GROW_DOWNWARD
-      stack_area
-	= gen_rtx_MEM (save_mode,
-		       memory_address (save_mode,
-				       plus_constant (argblock,
-						      - *high_to_save)));
+	delta = -high;
 #else
-      stack_area = gen_rtx_MEM (save_mode,
-				memory_address (save_mode,
-						plus_constant (argblock,
-							       *low_to_save)));
+	delta = low;
 #endif
+	stack_area = gen_rtx_MEM (save_mode,
+				  memory_address (save_mode,
+						  plus_constant (argblock,
+								 delta)));
 
-      set_mem_align (stack_area, PARM_BOUNDARY);
-      if (save_mode == BLKmode)
-	{
-	  save_area = assign_stack_temp (BLKmode, num_to_save, 0);
-	  emit_block_move (validize_mem (save_area), stack_area,
-			   GEN_INT (num_to_save), BLOCK_OP_CALL_PARM);
-	}
-      else
-	{
-	  save_area = gen_reg_rtx (save_mode);
-	  emit_move_insn (save_area, stack_area);
-	}
-    }
+	set_mem_align (stack_area, PARM_BOUNDARY);
+	if (save_mode == BLKmode)
+	  {
+	    save_area = assign_stack_temp (BLKmode, num_to_save, 0);
+	    emit_block_move (validize_mem (save_area), stack_area,
+			     GEN_INT (num_to_save), BLOCK_OP_CALL_PARM);
+	  }
+	else
+	  {
+	    save_area = gen_reg_rtx (save_mode);
+	    emit_move_insn (save_area, stack_area);
+	  }
 
-  return save_area;
+	return save_area;
+      }
+
+  return NULL_RTX;
 }
 
 static void
 restore_fixed_argument_area (save_area, argblock, high_to_save, low_to_save)
      rtx save_area;
      rtx argblock;
-     HOST_WIDE_INT high_to_save;
-     HOST_WIDE_INT low_to_save;
+     int high_to_save;
+     int low_to_save;
 {
   enum machine_mode save_mode = GET_MODE (save_area);
+  int delta;
+  rtx stack_area;
+
 #ifdef ARGS_GROW_DOWNWARD
-  rtx stack_area
-    = gen_rtx_MEM (save_mode,
-		   memory_address (save_mode,
-				   plus_constant (argblock,
-						  - high_to_save)));
+  delta = -high_to_save;
 #else
-  rtx stack_area
-    = gen_rtx_MEM (save_mode,
-		   memory_address (save_mode,
-				   plus_constant (argblock,
-						  low_to_save)));
+  delta = low_to_save;
 #endif
+  stack_area = gen_rtx_MEM (save_mode,
+			    memory_address (save_mode,
+					    plus_constant (argblock, delta)));
+  set_mem_align (stack_area, PARM_BOUNDARY);
 
   if (save_mode != BLKmode)
     emit_move_insn (stack_area, save_area);
@@ -1065,22 +1066,27 @@ store_unaligned_arguments_into_pseudos (args, num_actuals)
 	    < (unsigned int) MIN (BIGGEST_ALIGNMENT, BITS_PER_WORD)))
       {
 	int bytes = int_size_in_bytes (TREE_TYPE (args[i].tree_value));
-	int big_endian_correction = 0;
+	int nregs = (bytes + UNITS_PER_WORD - 1) / UNITS_PER_WORD;
+	int endian_correction = 0;
 
-	args[i].n_aligned_regs
-	  = args[i].partial ? args[i].partial
-	    : (bytes + (UNITS_PER_WORD - 1)) / UNITS_PER_WORD;
-
+	args[i].n_aligned_regs = args[i].partial ? args[i].partial : nregs;
 	args[i].aligned_regs = (rtx *) xmalloc (sizeof (rtx)
 						* args[i].n_aligned_regs);
 
-	/* Structures smaller than a word are aligned to the least
-	   significant byte (to the right).  On a BYTES_BIG_ENDIAN machine,
+	/* Structures smaller than a word are normally aligned to the
+	   least significant byte.  On a BYTES_BIG_ENDIAN machine,
 	   this means we must skip the empty high order bytes when
 	   calculating the bit offset.  */
-	if (BYTES_BIG_ENDIAN
-	    && bytes < UNITS_PER_WORD)
-	  big_endian_correction = (BITS_PER_WORD  - (bytes * BITS_PER_UNIT));
+	if (bytes < UNITS_PER_WORD
+#ifdef BLOCK_REG_PADDING
+	    && (BLOCK_REG_PADDING (args[i].mode,
+				   TREE_TYPE (args[i].tree_value), 1)
+		== downward)
+#else
+	    && BYTES_BIG_ENDIAN
+#endif
+	    )
+	  endian_correction = BITS_PER_WORD - bytes * BITS_PER_UNIT;
 
 	for (j = 0; j < args[i].n_aligned_regs; j++)
 	  {
@@ -1089,6 +1095,8 @@ store_unaligned_arguments_into_pseudos (args, num_actuals)
 	    int bitsize = MIN (bytes * BITS_PER_UNIT, BITS_PER_WORD);
 
 	    args[i].aligned_regs[j] = reg;
+	    word = extract_bit_field (word, bitsize, 0, 1, NULL_RTX,
+				      word_mode, word_mode, BITS_PER_WORD);
 
 	    /* There is no need to restrict this code to loading items
 	       in TYPE_ALIGN sized hunks.  The bitfield instructions can
@@ -1104,11 +1112,8 @@ store_unaligned_arguments_into_pseudos (args, num_actuals)
 	    emit_move_insn (reg, const0_rtx);
 
 	    bytes -= bitsize / BITS_PER_UNIT;
-	    store_bit_field (reg, bitsize, big_endian_correction, word_mode,
-			     extract_bit_field (word, bitsize, 0, 1, NULL_RTX,
-						word_mode, word_mode,
-						BITS_PER_WORD),
-			     BITS_PER_WORD);
+	    store_bit_field (reg, bitsize, endian_correction, word_mode,
+			     word, BITS_PER_WORD);
 	  }
       }
 }
@@ -1735,34 +1740,66 @@ load_register_parameters (args, num_actuals, call_fusage, flags)
     {
       rtx reg = ((flags & ECF_SIBCALL)
 		 ? args[i].tail_call_reg : args[i].reg);
-      int partial = args[i].partial;
-      int nregs;
-
       if (reg)
 	{
+	  int partial = args[i].partial;
+	  int nregs;
+	  int size = 0;
 	  /* Set to non-negative if must move a word at a time, even if just
 	     one word (e.g, partial == 1 && mode == DFmode).  Set to -1 if
 	     we just use a normal move insn.  This value can be zero if the
 	     argument is a zero size structure with no fields.  */
-	  nregs = (partial ? partial
-		   : (TYPE_MODE (TREE_TYPE (args[i].tree_value)) == BLKmode
-		      ? ((int_size_in_bytes (TREE_TYPE (args[i].tree_value))
-			  + (UNITS_PER_WORD - 1)) / UNITS_PER_WORD)
-		      : -1));
+	  nregs = -1;
+	  if (partial)
+	    nregs = partial;
+	  else if (TYPE_MODE (TREE_TYPE (args[i].tree_value)) == BLKmode)
+	    {
+	      size = int_size_in_bytes (TREE_TYPE (args[i].tree_value));
+	      nregs = (size + (UNITS_PER_WORD - 1)) / UNITS_PER_WORD;
+	    }
+	  else
+	    size = GET_MODE_SIZE (args[i].mode);
 
 	  /* Handle calls that pass values in multiple non-contiguous
 	     locations.  The Irix 6 ABI has examples of this.  */
 
 	  if (GET_CODE (reg) == PARALLEL)
-	    emit_group_load (reg, args[i].value,
-			     int_size_in_bytes (TREE_TYPE (args[i].tree_value)));
+	    {
+	      tree type = TREE_TYPE (args[i].tree_value);
+	      emit_group_load (reg, args[i].value, type,
+			       int_size_in_bytes (type));
+	    }
 
 	  /* If simple case, just do move.  If normal partial, store_one_arg
 	     has already loaded the register for us.  In all other cases,
 	     load the register(s) from memory.  */
 
 	  else if (nregs == -1)
-	    emit_move_insn (reg, args[i].value);
+	    {
+	      emit_move_insn (reg, args[i].value);
+#ifdef BLOCK_REG_PADDING
+	      /* Handle case where we have a value that needs shifting
+		 up to the msb.  eg. a QImode value and we're padding
+		 upward on a BYTES_BIG_ENDIAN machine.  */
+	      if (size < UNITS_PER_WORD
+		  && (args[i].locate.where_pad
+		      == (BYTES_BIG_ENDIAN ? upward : downward)))
+		{
+		  rtx x;
+		  int shift = (UNITS_PER_WORD - size) * BITS_PER_UNIT;
+
+		  /* Assigning REG here rather than a temp makes CALL_FUSAGE
+		     report the whole reg as used.  Strictly speaking, the
+		     call only uses SIZE bytes at the msb end, but it doesn't
+		     seem worth generating rtl to say that.  */
+		  reg = gen_rtx_REG (word_mode, REGNO (reg));
+		  x = expand_binop (word_mode, ashl_optab, reg,
+				    GEN_INT (shift), reg, 1, OPTAB_WIDEN);
+		  if (x != reg)
+		    emit_move_insn (reg, x);
+		}
+#endif
+	    }
 
 	  /* If we have pre-computed the values to put in the registers in
 	     the case of non-aligned structures, copy them in now.  */
@@ -1773,9 +1810,30 @@ load_register_parameters (args, num_actuals, call_fusage, flags)
 			      args[i].aligned_regs[j]);
 
 	  else if (partial == 0 || args[i].pass_on_stack)
-	    move_block_to_reg (REGNO (reg),
-			       validize_mem (args[i].value), nregs,
-			       args[i].mode);
+	    {
+	      rtx mem = validize_mem (args[i].value);
+
+#ifdef BLOCK_REG_PADDING
+	      /* Handle a BLKmode that needs shifting.  */
+	      if (nregs == 1 && size < UNITS_PER_WORD
+		  && args[i].locate.where_pad == downward)
+		{
+		  rtx tem = operand_subword_force (mem, 0, args[i].mode);
+		  rtx ri = gen_rtx_REG (word_mode, REGNO (reg));
+		  rtx x = gen_reg_rtx (word_mode);
+		  int shift = (UNITS_PER_WORD - size) * BITS_PER_UNIT;
+		  optab dir = BYTES_BIG_ENDIAN ? lshr_optab : ashl_optab;
+
+		  emit_move_insn (x, tem);
+		  x = expand_binop (word_mode, dir, x, GEN_INT (shift),
+				    ri, 1, OPTAB_WIDEN);
+		  if (x != ri)
+		    emit_move_insn (ri, x);
+		}
+	      else
+#endif
+		move_block_to_reg (REGNO (reg), mem, nregs, args[i].mode);
+	    }
 
 	  /* Handle calls that pass values in multiple non-contiguous
 	     locations.  The Irix 6 ABI has examples of this.  */
@@ -1803,9 +1861,9 @@ try_to_integrate (fndecl, actparms, target, ignore, type, structure_value_addr)
 {
   rtx temp;
   rtx before_call;
-  HOST_WIDE_INT i;
+  int i;
   rtx old_stack_level = 0;
-  HOST_WIDE_INT reg_parm_stack_space = 0;
+  int reg_parm_stack_space = 0;
 
 #ifdef REG_PARM_STACK_SPACE
 #ifdef MAYBE_REG_PARM_STACK_SPACE
@@ -1834,11 +1892,13 @@ try_to_integrate (fndecl, actparms, target, ignore, type, structure_value_addr)
 	     the stack before executing the inlined function if it
 	     makes any calls.  */
 
-	  for (i = reg_parm_stack_space - 1; i >= 0; i--)
-	    if (i < highest_outgoing_arg_in_use
-		&& i < STACK_USAGE_MAP_MAX
-		&& stack_usage_map[i] != 0)
-	      break;
+	  i = reg_parm_stack_space;
+	  if (i > highest_outgoing_arg_in_use)
+	    i = highest_outgoing_arg_in_use;
+	  if (i > STACK_USAGE_MAP_MAX)
+	    i = STACK_USAGE_MAP_MAX;
+	  while (--i >= 0 && stack_usage_map[i] == 0)
+	    ;
 
 	  if (stack_arg_under_construction || i >= 0)
 	    {
@@ -2180,7 +2240,7 @@ expand_call (exp, target, ignore)
   int must_preallocate = !PUSH_ARGS;
 
   /* Size of the stack reserved for parameter registers.  */
-  HOST_WIDE_INT reg_parm_stack_space = 0;
+  int reg_parm_stack_space = 0;
 
   /* Address of space preallocated for stack parms
      (on machines that lack push insns), or 0 if space not preallocated.  */
@@ -2192,8 +2252,8 @@ expand_call (exp, target, ignore)
   int is_integrable = 0;
 #ifdef REG_PARM_STACK_SPACE
   /* Define the boundary of the register parm stack space that needs to be
-     save, if any.  */
-  HOST_WIDE_INT low_to_save = -1, high_to_save;
+     saved, if any.  */
+  int low_to_save, high_to_save;
   rtx save_area = 0;		/* Place that it is saved */
 #endif
 
@@ -2629,7 +2689,7 @@ expand_call (exp, target, ignore)
   /* We want to make two insn chains; one for a sibling call, the other
      for a normal call.  We will select one of the two chains after
      initial RTL generation is complete.  */
-  for (pass = 0; pass < 2; pass++)
+  for (pass = try_tail_call ? 0 : 1; pass < 2; pass++)
     {
       int sibcall_failure = 0;
       /* We want to emit any pending stack adjustments before the tail
@@ -2643,9 +2703,6 @@ expand_call (exp, target, ignore)
 
       if (pass == 0)
 	{
-	  if (! try_tail_call)
-	    continue;
-
 	  /* Emit any queued insns now; otherwise they would end up in
              only one of the alternates.  */
 	  emit_queue ();
@@ -3268,7 +3325,7 @@ expand_call (exp, target, ignore)
 	    }
 
 	  if (! rtx_equal_p (target, valreg))
-	    emit_group_store (target, valreg,
+	    emit_group_store (target, valreg, TREE_TYPE (exp),
 			      int_size_in_bytes (TREE_TYPE (exp)));
 
 	  /* We can not support sibling calls for this case.  */
@@ -3345,10 +3402,8 @@ expand_call (exp, target, ignore)
 	{
 #ifdef REG_PARM_STACK_SPACE
 	  if (save_area)
-	    {
-	      restore_fixed_argument_area (save_area, argblock,
-					   high_to_save, low_to_save);
-	    }
+	    restore_fixed_argument_area (save_area, argblock,
+					 high_to_save, low_to_save);
 #endif
 
 	  /* If we saved any argument areas, restore them.  */
@@ -3533,8 +3588,8 @@ emit_library_call_value_1 (retval, orgfun, value, fn_type, outmode, nargs, p)
 
 #ifdef REG_PARM_STACK_SPACE
   /* Define the boundary of the register parm stack space that needs to be
-     save, if any.  */
-  HOST_WIDE_INT low_to_save = -1, high_to_save = 0;
+     saved, if any.  */
+  int low_to_save, high_to_save;
   rtx save_area = 0;            /* Place that it is saved.  */
 #endif
 
@@ -3757,12 +3812,12 @@ emit_library_call_value_1 (retval, orgfun, value, fn_type, outmode, nargs, p)
 	    {
 	      tree type = (*lang_hooks.types.type_for_mode) (mode, 0);
 
-	      slot = gen_rtx_MEM (mode,
-				  expand_expr (build1 (ADDR_EXPR,
-						       build_pointer_type
-						       (type),
-						       make_tree (type, val)),
-					       NULL_RTX, VOIDmode, 0));
+	      slot
+		= gen_rtx_MEM (mode,
+			       expand_expr (build1 (ADDR_EXPR,
+						    build_pointer_type (type),
+						    make_tree (type, val)),
+					    NULL_RTX, VOIDmode, 0));
 	    }
 
 	  call_fusage = gen_rtx_EXPR_LIST (VOIDmode,
@@ -3926,63 +3981,9 @@ emit_library_call_value_1 (retval, orgfun, value, fn_type, outmode, nargs, p)
     {
       /* The argument list is the property of the called routine and it
 	 may clobber it.  If the fixed area has been used for previous
-	 parameters, we must save and restore it.
-
-	 Here we compute the boundary of the that needs to be saved, if any.  */
-
-#ifdef ARGS_GROW_DOWNWARD
-      for (count = 0; count < reg_parm_stack_space + 1; count++)
-#else
-      for (count = 0; count < reg_parm_stack_space; count++)
-#endif
-	{
-	  if (count >= highest_outgoing_arg_in_use
-	      || count >= STACK_USAGE_MAP_MAX
-	      || stack_usage_map[count] == 0)
-	    continue;
-
-	  if (low_to_save == -1)
-	    low_to_save = count;
-
-	  high_to_save = count;
-	}
-
-      if (low_to_save >= 0)
-	{
-	  int num_to_save = high_to_save - low_to_save + 1;
-	  enum machine_mode save_mode
-	    = mode_for_size (num_to_save * BITS_PER_UNIT, MODE_INT, 1);
-	  rtx stack_area;
-
-	  /* If we don't have the required alignment, must do this in BLKmode.  */
-	  if ((low_to_save & (MIN (GET_MODE_SIZE (save_mode),
-				   BIGGEST_ALIGNMENT / UNITS_PER_WORD) - 1)))
-	    save_mode = BLKmode;
-
-#ifdef ARGS_GROW_DOWNWARD
-	  stack_area = gen_rtx_MEM (save_mode,
-				    memory_address (save_mode,
-						    plus_constant (argblock,
-								   -high_to_save)));
-#else
-	  stack_area = gen_rtx_MEM (save_mode,
-				    memory_address (save_mode,
-						    plus_constant (argblock,
-								   low_to_save)));
-#endif
-	  if (save_mode == BLKmode)
-	    {
-	      save_area = assign_stack_temp (BLKmode, num_to_save, 0);
-	      set_mem_align (save_area, PARM_BOUNDARY);
-	      emit_block_move (save_area, stack_area, GEN_INT (num_to_save),
-			       BLOCK_OP_CALL_PARM);
-	    }
-	  else
-	    {
-	      save_area = gen_reg_rtx (save_mode);
-	      emit_move_insn (save_area, stack_area);
-	    }
-	}
+	 parameters, we must save and restore it.  */
+      save_area = save_fixed_argument_area (reg_parm_stack_space, argblock,
+					    &low_to_save, &high_to_save);
     }
 #endif
 
@@ -4015,14 +4016,17 @@ emit_library_call_value_1 (retval, orgfun, value, fn_type, outmode, nargs, p)
 	      upper_bound = lower_bound + argvec[argnum].locate.size.constant;
 #endif
 
-	      for (i = lower_bound; i < upper_bound; i++)
-		if (stack_usage_map[i]
-		    /* Don't store things in the fixed argument area at this
-		       point; it has already been saved.  */
-		    && i > reg_parm_stack_space)
-		  break;
+	      i = lower_bound;
+	      /* Don't worry about things in the fixed argument area;
+		 it has already been saved.  */
+	      if (i < reg_parm_stack_space)
+		i = reg_parm_stack_space;
+	      while (i < upper_bound
+		     && i < STACK_USAGE_MAP_MAX
+		     && stack_usage_map[i] == 0)
+		i++;
 
-	      if (i != upper_bound)
+	      if (i < upper_bound && i < STACK_USAGE_MAP_MAX)
 		{
 		  /* We need to make a save area.  */
 		  unsigned int size
@@ -4097,7 +4101,7 @@ emit_library_call_value_1 (retval, orgfun, value, fn_type, outmode, nargs, p)
       /* Handle calls that pass values in multiple non-contiguous
 	 locations.  The PA64 has examples of this for library calls.  */
       if (reg != 0 && GET_CODE (reg) == PARALLEL)
-	emit_group_load (reg, val, GET_MODE_SIZE (GET_MODE (val)));
+	emit_group_load (reg, val, NULL_TREE, GET_MODE_SIZE (GET_MODE (val)));
       else if (reg != 0 && partial == 0)
 	emit_move_insn (reg, val);
 
@@ -4201,7 +4205,7 @@ emit_library_call_value_1 (retval, orgfun, value, fn_type, outmode, nargs, p)
 	  if (GET_CODE (valreg) == PARALLEL)
 	    {
 	      temp = gen_reg_rtx (outmode);
-	      emit_group_store (temp, valreg, outmode);
+	      emit_group_store (temp, valreg, NULL_TREE, outmode);
 	      valreg = temp;
 	    }
 
@@ -4244,7 +4248,7 @@ emit_library_call_value_1 (retval, orgfun, value, fn_type, outmode, nargs, p)
 	{
 	  if (value == 0)
 	    value = gen_reg_rtx (outmode);
-	  emit_group_store (value, valreg, outmode);
+	  emit_group_store (value, valreg, NULL_TREE, outmode);
 	}
       else if (value != 0)
 	emit_move_insn (value, valreg);
@@ -4256,29 +4260,8 @@ emit_library_call_value_1 (retval, orgfun, value, fn_type, outmode, nargs, p)
     {
 #ifdef REG_PARM_STACK_SPACE
       if (save_area)
-	{
-	  enum machine_mode save_mode = GET_MODE (save_area);
-#ifdef ARGS_GROW_DOWNWARD
-	  rtx stack_area
-	    = gen_rtx_MEM (save_mode,
-			   memory_address (save_mode,
-					   plus_constant (argblock,
-							  - high_to_save)));
-#else
-	  rtx stack_area
-	    = gen_rtx_MEM (save_mode,
-			   memory_address (save_mode,
-					   plus_constant (argblock, low_to_save)));
-#endif
-
-	  set_mem_align (stack_area, PARM_BOUNDARY);
-	  if (save_mode != BLKmode)
-	    emit_move_insn (stack_area, save_area);
-	  else
-	    emit_block_move (stack_area, save_area,
-			     GEN_INT (high_to_save - low_to_save + 1),
-			     BLOCK_OP_CALL_PARM);
-	}
+	restore_fixed_argument_area (save_area, argblock,
+				     high_to_save, low_to_save);
 #endif
 
       /* If we saved any argument areas, restore them.  */
@@ -4392,7 +4375,7 @@ store_one_arg (arg, argblock, flags, variable_size, reg_parm_stack_space)
      rtx argblock;
      int flags;
      HOST_WIDE_INT variable_size ATTRIBUTE_UNUSED;
-     HOST_WIDE_INT reg_parm_stack_space;
+     int reg_parm_stack_space;
 {
   tree pval = arg->tree_value;
   rtx reg = 0;
@@ -4432,24 +4415,17 @@ store_one_arg (arg, argblock, flags, variable_size, reg_parm_stack_space)
 	  upper_bound = lower_bound + arg->locate.size.constant;
 #endif
 
-	  if (lower_bound >= STACK_USAGE_MAP_MAX)
-	    i = upper_bound;
-	  else
-	    for (i = lower_bound; i < upper_bound; i++)
-	      {
-		if (i >= STACK_USAGE_MAP_MAX)
-		  {
-		    i = upper_bound;
-		    break;
-		  }
-		if (stack_usage_map[i]
-		    /* Don't store things in the fixed argument area at this point;
-		       it has already been saved.  */
-		    && i > reg_parm_stack_space)
-		  break;
-	      }
+	  i = lower_bound;
+	  /* Don't worry about things in the fixed argument area;
+	     it has already been saved.  */
+	  if (i < reg_parm_stack_space)
+	    i = reg_parm_stack_space;
+	  while (i < upper_bound
+		 && i < STACK_USAGE_MAP_MAX
+		 && stack_usage_map[i] == 0)
+	    i++;
 
-	  if (i != upper_bound)
+	  if (i < upper_bound && i < STACK_USAGE_MAP_MAX)
 	    {
 	      /* We need to make a save area.  */
 	      unsigned int size = arg->locate.size.constant * BITS_PER_UNIT;

@@ -68,7 +68,6 @@ enum expand_modifier {EXPAND_NORMAL = 0, EXPAND_STACK_PARM = 2, EXPAND_SUM,
 
 enum direction {none, upward, downward};
 
-#ifdef TREE_CODE /* Don't lose if tree.h not included.  */
 /* Structure to record the size of a sequence of arguments
    as the sum of a tree-expression and a constant.  This structure is
    also used to store offsets from the stack, which might be negative,
@@ -96,8 +95,9 @@ struct locate_and_pad_arg_data
   /* The amount that the stack pointer needs to be adjusted to
      force alignment for the next argument.  */
   struct args_size alignment_pad;
+  /* Which way we should pad this arg.  */
+  enum direction where_pad;
 };
-#endif
 
 /* Add the value of the tree INC to the `struct args_size' TO.  */
 
@@ -418,7 +418,7 @@ extern rtx gen_group_rtx PARAMS ((rtx));
 
 /* Load a BLKmode value into non-consecutive registers represented by a
    PARALLEL.  */
-extern void emit_group_load PARAMS ((rtx, rtx, int));
+extern void emit_group_load PARAMS ((rtx, rtx, tree, int));
 
 /* Move a non-consecutive group of registers represented by a PARALLEL into
    a non-consecutive group of registers represented by a PARALLEL.  */
@@ -426,12 +426,10 @@ extern void emit_group_move PARAMS ((rtx, rtx));
 
 /* Store a BLKmode value from non-consecutive registers represented by a
    PARALLEL.  */
-extern void emit_group_store PARAMS ((rtx, rtx, int));
+extern void emit_group_store PARAMS ((rtx, rtx, tree, int));
 
-#ifdef TREE_CODE
 /* Copy BLKmode object from a set of registers.  */
 extern rtx copy_blkmode_from_reg PARAMS ((rtx, rtx, tree));
-#endif
 
 /* Mark REG as holding a parameter for the next CALL_INSN.  */
 extern void use_reg PARAMS ((rtx *, rtx));
@@ -476,7 +474,6 @@ extern rtx emit_move_insn_1 PARAMS ((rtx, rtx));
    and return an rtx to address the beginning of the block.  */
 extern rtx push_block PARAMS ((rtx, int, int));
 
-#ifdef TREE_CODE
 /* Generate code to push something onto the stack, given its mode and type.  */
 extern void emit_push_insn PARAMS ((rtx, enum machine_mode, tree, rtx,
 				    unsigned int, int, rtx, int, rtx, rtx,
@@ -490,7 +487,6 @@ extern rtx expand_assignment PARAMS ((tree, tree, int, int));
    If SUGGEST_REG is nonzero, copy the value through a register
    and return that register, if that is possible.  */
 extern rtx store_expr PARAMS ((tree, rtx, int));
-#endif
 
 /* Given an rtx that may include add and multiply operations,
    generate them as insns and return a pseudo-reg containing the value.
@@ -523,7 +519,6 @@ extern void clear_pending_stack_adjust PARAMS ((void));
 /* Pop any previously-pushed arguments that have not been popped yet.  */
 extern void do_pending_stack_adjust PARAMS ((void));
 
-#ifdef TREE_CODE
 /* Return the tree node and offset if a given argument corresponds to
    a string constant.  */
 extern tree string_constant PARAMS ((tree, tree *));
@@ -537,7 +532,6 @@ extern void jumpif PARAMS ((tree, rtx));
 /* Generate code to evaluate EXP and jump to IF_FALSE_LABEL if
    the result is zero, or IF_TRUE_LABEL if the result is one.  */
 extern void do_jump PARAMS ((tree, rtx, rtx));
-#endif
 
 /* Generate rtl to compare two rtx's, will call emit_cmp_insn.  */
 extern rtx compare_from_rtx PARAMS ((rtx, rtx, enum rtx_code, int,
@@ -555,7 +549,6 @@ extern int try_tablejump PARAMS ((tree, tree, tree, tree, rtx, rtx));
 extern unsigned int case_values_threshold PARAMS ((void));
 
 
-#ifdef TREE_CODE
 /* rtl.h and tree.h were included.  */
 /* Return an rtx for the size in bytes of the value of an expr.  */
 extern rtx expr_size PARAMS ((tree));
@@ -581,10 +574,13 @@ extern rtx prepare_call_address	PARAMS ((rtx, tree, rtx *, int, int));
 
 extern rtx expand_call PARAMS ((tree, rtx, int));
 
+#ifdef TREE_CODE
 extern rtx expand_shift PARAMS ((enum tree_code, enum machine_mode, rtx, tree,
 				 rtx, int));
 extern rtx expand_divmod PARAMS ((int, enum tree_code, enum machine_mode, rtx,
 				  rtx, rtx, int));
+#endif
+
 extern void locate_and_pad_parm PARAMS ((enum machine_mode, tree, int, int,
 					 tree, struct args_size *,
 					 struct locate_and_pad_arg_data *));
@@ -592,7 +588,6 @@ extern rtx expand_inline_function PARAMS ((tree, tree, rtx, int, tree, rtx));
 
 /* Return the CODE_LABEL rtx for a LABEL_DECL, creating it if necessary.  */
 extern rtx label_rtx PARAMS ((tree));
-#endif
 
 /* Indicate how an input argument register was promoted.  */
 extern rtx promoted_input_arg PARAMS ((unsigned int, enum machine_mode *,
@@ -677,7 +672,6 @@ extern rtx widen_memory_access PARAMS ((rtx, enum machine_mode, HOST_WIDE_INT));
    valid address.  */
 extern rtx validize_mem PARAMS ((rtx));
 
-#ifdef TREE_CODE
 /* Given REF, either a MEM or a REG, and T, either the type of X or
    the expression corresponding to REF, set RTX_UNCHANGING_P if
    appropriate.  */
@@ -693,7 +687,6 @@ extern void set_mem_attributes PARAMS ((rtx, tree, int));
    expecting that it'll be added back in later.  */
 extern void set_mem_attributes_minus_bitpos PARAMS ((rtx, tree, int,
 						     HOST_WIDE_INT));
-#endif
 
 /* Assemble the static constant template for function entry trampolines.  */
 extern rtx assemble_trampoline_template PARAMS ((void));
@@ -725,11 +718,9 @@ extern rtx force_reg PARAMS ((enum machine_mode, rtx));
 /* Return given rtx, copied into a new temp reg if it was in memory.  */
 extern rtx force_not_mem PARAMS ((rtx));
 
-#ifdef TREE_CODE
 /* Return mode and signedness to use when object is promoted.  */
 extern enum machine_mode promote_mode PARAMS ((tree, enum machine_mode,
 					       int *, int));
-#endif
 
 /* Remove some bytes from the stack.  An rtx says how many.  */
 extern void adjust_stack PARAMS ((rtx));
@@ -809,9 +800,7 @@ extern void do_jump_by_parts_greater_rtx	PARAMS ((enum machine_mode,
 							 int, rtx, rtx, rtx,
 							 rtx));
 
-#ifdef TREE_CODE   /* Don't lose if tree.h not included.  */
 extern void mark_seen_cases			PARAMS ((tree, unsigned char *,
 							 HOST_WIDE_INT, int));
-#endif
 
 extern int vector_mode_valid_p		PARAMS ((enum machine_mode));

@@ -4633,6 +4633,8 @@ assign_parms (fndecl)
 						  offset_rtx));
 
 	set_mem_attributes (stack_parm, parm, 1);
+	if (entry_parm && MEM_ATTRS (stack_parm)->align < PARM_BOUNDARY)
+	  set_mem_align (stack_parm, PARM_BOUNDARY);
 
 	/* Set also REG_ATTRS if parameter was passed in a register.  */
 	if (entry_parm)
@@ -4664,6 +4666,7 @@ assign_parms (fndecl)
 	     locations.  The Irix 6 ABI has examples of this.  */
 	  if (GET_CODE (entry_parm) == PARALLEL)
 	    emit_group_store (validize_mem (stack_parm), entry_parm,
+			      TREE_TYPE (parm),
 			      int_size_in_bytes (TREE_TYPE (parm)));
 
 	  else
@@ -4770,7 +4773,12 @@ assign_parms (fndecl)
 
 	 Set DECL_RTL to that place.  */
 
-      if (nominal_mode == BLKmode || GET_CODE (entry_parm) == PARALLEL)
+      if (nominal_mode == BLKmode
+#ifdef BLOCK_REG_PADDING
+	  || (locate.where_pad == (BYTES_BIG_ENDIAN ? upward : downward)
+	      && GET_MODE_SIZE (promoted_mode) < UNITS_PER_WORD)
+#endif
+	  || GET_CODE (entry_parm) == PARALLEL)
 	{
 	  /* If a BLKmode arrives in registers, copy it to a stack slot.
 	     Handle calls that pass values in multiple non-contiguous
@@ -4805,7 +4813,7 @@ assign_parms (fndecl)
 	      /* Handle calls that pass values in multiple non-contiguous
 		 locations.  The Irix 6 ABI has examples of this.  */
 	      if (GET_CODE (entry_parm) == PARALLEL)
-		emit_group_store (mem, entry_parm, size);
+		emit_group_store (mem, entry_parm, TREE_TYPE (parm), size);
 
 	      else if (size == 0)
 		;
@@ -4817,7 +4825,13 @@ assign_parms (fndecl)
 		  enum machine_mode mode
 		    = mode_for_size (size * BITS_PER_UNIT, MODE_INT, 0);
 
-		  if (mode != BLKmode)
+		  if (mode != BLKmode
+#ifdef BLOCK_REG_PADDING
+		      && (size == UNITS_PER_WORD
+			  || (BLOCK_REG_PADDING (mode, TREE_TYPE (parm), 1)
+			      != (BYTES_BIG_ENDIAN ? upward : downward)))
+#endif
+		      )
 		    {
 		      rtx reg = gen_rtx_REG (mode, REGNO (entry_parm));
 		      emit_move_insn (change_address (mem, mode, 0), reg);
@@ -4828,7 +4842,13 @@ assign_parms (fndecl)
 		     to memory.  Note that the previous test doesn't
 		     handle all cases (e.g. SIZE == 3).  */
 		  else if (size != UNITS_PER_WORD
-			   && BYTES_BIG_ENDIAN)
+#ifdef BLOCK_REG_PADDING
+			   && (BLOCK_REG_PADDING (mode, TREE_TYPE (parm), 1)
+			       == downward)
+#else
+			   && BYTES_BIG_ENDIAN
+#endif
+			   )
 		    {
 		      rtx tem, x;
 		      int by = (UNITS_PER_WORD - size) * BITS_PER_UNIT;
@@ -5424,6 +5444,7 @@ locate_and_pad_parm (passed_mode, type, in_regs, partial, fndecl,
     = type ? size_in_bytes (type) : size_int (GET_MODE_SIZE (passed_mode));
   where_pad = FUNCTION_ARG_PADDING (passed_mode, type);
   boundary = FUNCTION_ARG_BOUNDARY (passed_mode, type);
+  locate->where_pad = where_pad;
 
 #ifdef ARGS_GROW_DOWNWARD
   locate->slot_offset.constant = -initial_offset_ptr->constant;
@@ -7150,6 +7171,7 @@ expand_function_end (filename, line, end_bindings)
 		emit_group_move (real_decl_rtl, decl_rtl);
 	      else
 		emit_group_load (real_decl_rtl, decl_rtl,
+				 TREE_TYPE (decl_result),
 				 int_size_in_bytes (TREE_TYPE (decl_result)));
 	    }
 	  else
@@ -8060,6 +8082,7 @@ reposition_prologue_and_epilogue_notes (f)
     }
 #endif /* HAVE_prologue or HAVE_epilogue */
 }
+
 /* Called once, at initialization, to initialize function.c.  */
 
 void
