@@ -1,3 +1,8 @@
+2004-06-16  Jon Ziegler  <jonz@apple.com>
+
+	Radar 3619941
+	* Revert to apple-gcc-1762 plus Dorit/Devang's 2004-06-15 patch.
+
 2004-06-15  Jon Ziegler  <jonz@apple.com>
 
 	Radar 3646298
