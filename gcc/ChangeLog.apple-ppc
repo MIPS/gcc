@@ -1,3 +1,15 @@
+2004-04-01  Fariborz Jahanian <fjahanian@apple.com>
+
+	* Makefile.in: add $(PARAMS_H) $(TM_P_H) dependencies
+	for sched-rgn.o.
+	* params.def: add definitions for 
+	max-sched-region-blocks and max-sched-region-insns.
+	* sched-rgn.c (too_large): change return type to bool.
+	Use the parametrized values of max-sched-region-blocks,
+	max-sched-region-insns for computing upper limits for
+	interblock scheduling. 
+	* doc/invoke.texi: Document max-sched-region-blocks,
+	max-sched-region-insns.
 
 2004-04-01  Caroline Tice  <ctice@apple.com>
 
