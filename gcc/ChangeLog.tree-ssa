@@ -1,3 +1,9 @@
+2003-12-11  Jan Hubicka  <jh@suse.cz>
+
+	* tree-inline.c (initialize_inlined_parameters): Disable
+	constant propagation for non-gimple-min-invariant when
+	preserving gimple form.
+
 2003-12-11  Jeff Law  <law@redhat.com>
 
 	* tree-ssa-ccp.c (widen_bitfield): Clear out unwanted high bits

@@ -738,7 +738,14 @@ DECL_ARGUMENTS (fn);
 	     Theoretically, we could check the expression to see if
 	     all of the variables that determine its value are
 	     read-only, but we don't bother.  */
-	  if (TREE_CONSTANT (value) || TREE_READONLY_DECL_P (value))
+	  if ((TREE_CONSTANT (value) || TREE_READONLY_DECL_P (value))
+	      /* We may produce non-gimple trees by adding NOPs or introduce
+	         invalid sharing when operand is not really constant.
+		 It is not big deal to prohibit constant propagation here as
+		 we will constant propagate in DOM1 pass anyway.  */
+	      && (!lang_hooks.gimple_before_inlining
+		  || (is_gimple_min_invariant (value)
+		      && TREE_TYPE (value) == TREE_TYPE (p))))
 	    {
 	      /* If this is a declaration, wrap it a NOP_EXPR so that
 		 we don't try to put the VALUE on the list of
