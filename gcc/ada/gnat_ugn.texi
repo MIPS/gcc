@@ -77,7 +77,13 @@
 @c
 @c oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo
 
-@setfilename gnat_ugn.info
+@ifset vms
+@setfilename gnat_ugn_vms.info
+@end ifset
+
+@ifset unw
+@setfilename gnat_ugn_unw.info
+@end ifset
 
 @ifset vms
 @settitle GNAT User's Guide for Native Platforms / OpenVMS Alpha
@@ -6929,7 +6935,7 @@ See also the packages @code{GNAT.Traceback} and
 @ifclear vms
 Note that on x86 ports, you must not use @option{-fomit-frame-pointer}
 @code{gcc} option.
-@end ifclear vms
+@end ifclear
 
 @item ^-F^/FORCE_ELABS_FLAGS^
 @cindex @option{^-F^/FORCE_ELABS_FLAGS^} (@command{gnatbind})
@@ -8157,6 +8163,12 @@ and ALI files go in the current working directory.
 
 This switch cannot be used when using a project file.
 
+@ifclear vms
+@item -eL
+@cindex @option{-eL} (@code{gnatmake})
+Follow all symbolic links when processing project files.
+@end ifclear
+
 @item ^-f^/FORCE_COMPILE^
 @cindex @option{^-f^/FORCE_COMPILE^} (@code{gnatmake})
 Force recompilations. Recompile all sources, even though some object
@@ -8322,6 +8334,15 @@ decides are necessary.
 Indicates the verbosity of the parsing of GNAT project files.
 See @ref{Switches Related to Project Files}.
 
+@item ^-x^/NON_PROJECT_UNIT_COMPILATION^
+@cindex @option{^-x^/NON_PROJECT_UNIT_COMPILATION^} (@code{gnatmake})
+Indicates that sources that are not part of any Project File may be compiled.
+Normally, when using Project Files, only sources that are part of a Project
+File may be compile. When this switch is used, a source outside of all Project
+Files may be compiled. The ALI file and the object file will be put in the
+object directory of the main Project. The compilation switches used will only
+be those specified on the command line.
+
 @item ^-X^/EXTERNAL_REFERENCE=^@var{name=value}
 Indicates that external variable @var{name} has the value @var{value}.
 The Project Manager will use this value for occurrences of
@@ -8345,10 +8366,8 @@ linker.
 @table @asis
 @item @code{gcc} @asis{switches}
 @ifclear vms
-Any uppercase switch (other than @option{-A},
-@option{-L} or
-@option{-S}) or any switch that is more than one character is passed to
-@code{gcc} (e.g. @option{-O}, @option{-gnato,} etc.)
+Any uppercase or multi-character switch that is not a @code{gnatmake} switch
+is passed to @code{gcc} (e.g. @option{-O}, @option{-gnato,} etc.)
 @end ifclear
 @ifset vms
 Any qualifier that cannot be recognized as a qualifier for @code{GNAT MAKE}
@@ -12441,12 +12460,37 @@ When @command{gnatmake} detects that a project file
 is a library project file, it will check all immediate sources of the project
 and rebuild the library if any of the sources have been recompiled.
 
-When a library is built or rebuilt, an attempt is made to delete all
+Standard project files can import library project files. In such cases,
+the libraries will only be rebuild if some of its sources are recompiled
+because they are in the closure of some other source in an importing project.
+Sources of the library project files that are not in such a closure will
+not be checked, unless the full library is checked, because one of its sources
+needs to be recompiled.
+
+For instance, assume the project file @code{A} imports the library project file
+@code{L}. The immediate sources of A are @file{a1.adb}, @file{a2.ads} and
+@file{a2.adb}. The immediate sources of L are @file{l1.ads}, @file{l1.adb},
+@file{l2.ads}, @file{l2.adb}.
+
+If @file{l1.adb} has been modified, then the library associated with @code{L}
+will be rebuild when compiling all the immediate sources of @code{A} only
+if @file{a1.ads}, @file{a2.ads} or @file{a2.adb} includes a statement
+@code{"with L1;"}.
+
+To be sure that all the sources in the library associated with @code{L} are
+up to date, and that all the sources of parject @code{A} are also up to date,
+the following two commands needs to be used:
+
+@smallexample
+gnatmake -Pl.gpr
+gnatmake -Pa.gpr
+@end smallexample
+
+When a library is built or rebuilt, an attempt is made first to delete all
 files in the library directory.
 All @file{ALI} files will also be copied from the object directory to the
 library directory. To build executables, @command{gnatmake} will use the
-library rather than the individual object files. The copy of the @file{ALI}
-files are made read-only.
+library rather than the individual object files.
 
 
 @c **********************************************
@@ -17531,7 +17575,9 @@ by @command{gnatstub} to compile an argument source file.
 @cindex @option{^-gnatyM^/MAX_LINE_LENGTH^} (@command{gnatstub})
 (@var{n} is a non-negative integer). Set the maximum line length in the
 body stub to @var{n}; the default is 79. The maximum value that can be
-specified is 32767.
+specified is 32767. Note that in the special case of configuration
+pragma files, the maximum is always 32767 regardless of whether or
+not this switch appears.
 
 @item ^-gnaty^/STYLE_CHECKS=^@var{n}
 @cindex @option{^-gnaty^/STYLE_CHECKS=^} (@command{gnatstub})

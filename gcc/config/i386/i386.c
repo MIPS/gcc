@@ -10636,7 +10636,7 @@ ix86_split_to_parts (rtx operand, rtx *parts, enum machine_mode mode)
 	      long l[3];
 
 	      REAL_VALUE_FROM_CONST_DOUBLE (r, operand);
-	      REAL_VALUE_TO_TARGET_LONG_DOUBLE (r, l);
+	      real_to_target (l, &r, mode);
 	      /* Do not use shift by 32 to avoid warning on 32bit systems.  */
 	      if (HOST_BITS_PER_WIDE_INT >= 64)
 	        parts[0]
@@ -15817,7 +15817,7 @@ ix86_expand_vector_init (rtx target, rtx vals)
     }
 
   /* ... values where only first field is non-constant are best loaded
-     from the pool and overwriten via move later.  */
+     from the pool and overwritten via move later.  */
   if (!i)
     {
       rtx op = simplify_gen_subreg (mode, XVECEXP (vals, 0, 0),
@@ -15928,4 +15928,67 @@ output_387_reg_move (rtx insn, rtx *operands)
   return "fst\t%y0";
 }
 
+/* Output code to perform a conditional jump to LABEL, if C2 flag in
+   FP status register is set.  */
+
+void
+ix86_emit_fp_unordered_jump (rtx label)
+{
+  rtx reg = gen_reg_rtx (HImode);
+  rtx temp;
+
+  emit_insn (gen_x86_fnstsw_1 (reg));
+
+  if (TARGET_USE_SAHF)
+    {
+      emit_insn (gen_x86_sahf_1 (reg));
+
+      temp = gen_rtx_REG (CCmode, FLAGS_REG); 
+      temp = gen_rtx_UNORDERED (VOIDmode, temp, const0_rtx);
+    }
+  else
+    {
+      emit_insn (gen_testqi_ext_ccno_0 (reg, GEN_INT (0x04)));
+
+      temp = gen_rtx_REG (CCNOmode, FLAGS_REG); 
+      temp = gen_rtx_NE (VOIDmode, temp, const0_rtx);
+    }
+  
+  temp = gen_rtx_IF_THEN_ELSE (VOIDmode, temp,
+			      gen_rtx_LABEL_REF (VOIDmode, label),
+			      pc_rtx);
+  temp = gen_rtx_SET (VOIDmode, pc_rtx, temp);
+  emit_jump_insn (temp);
+}
+
+/* Output code to perform a log1p XFmode calculation.  */
+
+void ix86_emit_i387_log1p (rtx op0, rtx op1)
+{
+  rtx label1 = gen_label_rtx ();
+  rtx label2 = gen_label_rtx ();
+
+  rtx tmp = gen_reg_rtx (XFmode);
+  rtx tmp2 = gen_reg_rtx (XFmode);
+
+  emit_insn (gen_absxf2 (tmp, op1));
+  emit_insn (gen_cmpxf (tmp,
+    CONST_DOUBLE_FROM_REAL_VALUE (
+       REAL_VALUE_ATOF ("0.29289321881345247561810596348408353", XFmode),
+       XFmode)));
+  emit_jump_insn (gen_bge (label1));
+
+  emit_move_insn (tmp2, standard_80387_constant_rtx (4)); /* fldln2 */
+  emit_insn (gen_fyl2xp1_xf3 (op0, tmp2, op1));
+  emit_jump (label2);
+
+  emit_label (label1);
+  emit_move_insn (tmp, CONST1_RTX (XFmode));
+  emit_insn (gen_addxf3 (tmp, op1, tmp));
+  emit_move_insn (tmp2, standard_80387_constant_rtx (4)); /* fldln2 */
+  emit_insn (gen_fyl2x_xf3 (op0, tmp2, tmp));
+
+  emit_label (label2);
+}
+     
 #include "gt-i386.h"

@@ -24,32 +24,44 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
-with GNAT.OS_Lib; use GNAT.OS_Lib;
 with Osint;
-with Prj;         use Prj;
+with Prj;   use Prj;
+with Types; use Types;
+
+with GNAT.OS_Lib; use GNAT.OS_Lib;
 
 package Makeutl is
 
    type Fail_Proc is access procedure
-     (S1 : String; S2 : String := ""; S3 : String := "");
+     (S1 : String;
+      S2 : String := "";
+      S3 : String := "");
    Do_Fail : Fail_Proc := Osint.Fail'Access;
+   --  Comment required ???
 
+   function Unit_Index_Of (ALI_File : File_Name_Type) return Int;
+   --  Find the index of a unit in a source file. Return zero if the file
+   --  is not a multi-unit source file.
 
    function Is_External_Assignment (Argv : String) return Boolean;
-   --  Verify that an external assignment switch is syntactically correct.
-   --  Correct forms are
+   --  Verify that an external assignment switch is syntactically correct
+   --
+   --  Correct forms are:
+   --
    --      -Xname=value
    --      -X"name=other value"
+   --
    --  Assumptions: 'First = 1, Argv (1 .. 2) = "-X"
    --  When this function returns True, the external assignment has
    --  been entered by a call to Prj.Ext.Add, so that in a project
    --  file, External ("name") will return "value".
 
+   function Linker_Options_Switches (Project  : Project_Id) return String_List;
+   --  Comment required ???
+
    --  Package Mains is used to store the mains specified on the command line
    --  and to retrieve them when a project file is used, to verify that the
    --  files exist and that they belong to a project file.
-
-   function Linker_Options_Switches (Project  : Project_Id) return String_List;
 
    package Mains is
 
@@ -84,5 +96,22 @@ package Makeutl is
    --  Parent. This subprogram is only called when using project files.
    --  For gnatbind switches, Including_L_Switch is False, because the
    --  argument of the -L switch is not a path.
+
+   ----------------------
+   -- Marking Routines --
+   ----------------------
+
+   procedure Mark (Source_File : File_Name_Type; Index : Int := 0);
+   --  Mark a unit, identified by its source file and, when Index is not 0,
+   --  the index of the unit in the source file. Marking is used to signal
+   --  that the unit has already been inserted in the Q.
+
+   function Is_Marked
+     (Source_File : File_Name_Type;
+      Index       : Int := 0) return Boolean;
+   --  Returns True if the unit was previously marked.
+
+   procedure Delete_All_Marks;
+   --  Remove all file/index couples marked
 
 end Makeutl;

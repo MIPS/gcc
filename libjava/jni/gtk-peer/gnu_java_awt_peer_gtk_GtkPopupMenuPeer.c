@@ -1,5 +1,5 @@
 /* gtkpopupmenupeer.c -- Native implementation of GtkPopupMenuPeer
-   Copyright (C) 1999 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2004 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -38,6 +38,8 @@ exception statement from your version. */
 
 #include "gtkpeer.h"
 #include "gnu_java_awt_peer_gtk_GtkPopupMenuPeer.h"
+
+void menu_pos (GtkMenu *, gint *, gint *, gboolean *, gpointer);
 
 struct pos
 {

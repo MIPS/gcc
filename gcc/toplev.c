@@ -268,8 +268,9 @@ int flag_reorder_functions = 0;
 
 /* Nonzero if registers should be renamed.  When
    flag_rename_registers == AUTODETECT_FLAG_VAR_TRACKING it will be set
-   according to optimize and default_debug_hooks in process_options ().  */
-int flag_rename_registers = AUTODETECT_FLAG_VAR_TRACKING;
+   according to optimize and default_debug_hooks in process_options (),
+   but we do not do this yet because it triggers aborts in flow.c.  */
+int flag_rename_registers = 0;
 int flag_cprop_registers = 0;
 
 /* Nonzero for -pedantic switch: warn about anything
@@ -313,7 +314,8 @@ unsigned local_tick;
 
 int flag_signed_char;
 
-/* Nonzero means give an enum type only as many bytes as it needs.  */
+/* Nonzero means give an enum type only as many bytes as it needs.  A value
+   of 2 means it has not yet been initialized.  */
 
 int flag_short_enums;
 
@@ -1633,8 +1635,6 @@ compile_file (void)
 
   dw2_output_indirect_constants ();
 
-  targetm.asm_out.file_end ();
-
   /* Attach a special .ident directive to the end of the file to identify
      the version of GCC which compiled this code.  The format of the .ident
      string is patterned after the ones produced by native SVR4 compilers.  */
@@ -1643,6 +1643,11 @@ compile_file (void)
     fprintf (asm_out_file, "%s\"GCC: (GNU) %s\"\n",
 	     IDENT_ASM_OP, version_string);
 #endif
+
+  /* This must be at the end.  Some target ports emit end of file directives
+     into the assembly file here, and hence we can not output anything to the
+     assembly file after this point.  */
+  targetm.asm_out.file_end ();
 }
 
 /* Display help for target options.  */
@@ -2227,6 +2232,9 @@ process_options (void)
   /* Some machines may reject certain combinations of options.  */
   OVERRIDE_OPTIONS;
 #endif
+
+  if (flag_short_enums == 2)
+    flag_short_enums = targetm.default_short_enums ();
 
   /* Set aux_base_name if not already set.  */
   if (aux_base_name)

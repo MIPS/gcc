@@ -362,7 +362,7 @@ search_path_exhausted (cpp_reader *pfile, const char *header, _cpp_file *file)
   if (func
       && file->dir == NULL)
     {
-      if ((file->path = func (pfile, header)) != NULL)
+      if ((file->path = func (pfile, header, &file->dir)) != NULL)
 	{
 	  if (open_file (file))
 	    return true;
@@ -382,7 +382,7 @@ _cpp_find_failed (_cpp_file *file)
 
 /* Given a filename FNAME search for such a file in the include path
    starting from START_DIR.  If FNAME is the empty string it is
-   interpreted as STDIN if START_DIR is PFILE->no_seach_path.
+   interpreted as STDIN if START_DIR is PFILE->no_search_path.
 
    If the file is not found in the file cache fall back to the O/S and
    add the result to our cache.
@@ -806,7 +806,7 @@ _cpp_stack_include (cpp_reader *pfile, const char *fname, int angle_brackets,
 static void
 open_file_failed (cpp_reader *pfile, _cpp_file *file)
 {
-  int sysp = pfile->line > 1 && pfile->buffer ? pfile->buffer->sysp : 0;
+  int sysp = pfile->line_table->highest_line > 1 && pfile->buffer ? pfile->buffer->sysp : 0;
   bool print_dep = CPP_OPTION (pfile, deps.style) > !!sysp;
 
   errno = file->err_no;
@@ -987,14 +987,15 @@ void
 cpp_make_system_header (cpp_reader *pfile, int syshdr, int externc)
 {
   int flags = 0;
-  const struct line_map *map = linemap_lookup (pfile->line_table, pfile->line);
+  const struct line_maps *line_table = pfile->line_table;
+  const struct line_map *map = &line_table->maps[line_table->used-1];
 
   /* 1 = system header, 2 = system header to be treated as C.  */
   if (syshdr)
     flags = 1 + (externc != 0);
   pfile->buffer->sysp = flags;
   _cpp_do_file_change (pfile, LC_RENAME, map->to_file,
-		       SOURCE_LINE (map, pfile->line), flags);
+		       SOURCE_LINE (map, pfile->line_table->highest_line), flags);
 }
 
 /* Allow the client to change the current file.  Used by the front end
@@ -1315,6 +1316,14 @@ cpp_get_path (struct _cpp_file *f)
   return f->path;
 }
 
+/* Get the directory associated with the _cpp_file F.  */
+
+cpp_dir *
+cpp_get_dir (struct _cpp_file *f)
+{
+  return f->dir;
+}
+
 /* Get the cpp_buffer currently associated with the cpp_reader
    PFILE.  */
 
@@ -1341,7 +1350,7 @@ cpp_get_prev (cpp_buffer *b)
   return b->prev;
 }
 
-/* This datastructure holds the list of header files that were seen
+/* This data structure holds the list of header files that were seen
    while the PCH was being built.  The 'entries' field is kept sorted
    in memcmp() order; yes, this means that on little-endian systems,
    it's sorted initially by the least-significant byte of 'size', but
@@ -1397,7 +1406,8 @@ pchf_adder (void **slot, void *data)
 	return 1;
 
       d->entries[count].once_only = f->once_only;
-      d->have_once_only |= f->once_only;
+      /* |= is avoided in the next line because of an HP C compiler bug */
+      d->have_once_only = d->have_once_only | f->once_only; 
       if (f->buffer_valid)
 	  md5_buffer ((const char *)f->buffer,
 		      f->st.st_size, d->entries[count].sum);

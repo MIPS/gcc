@@ -997,6 +997,7 @@ package Rtsfind is
      RE_Size_Type,                       -- System.Parameters
      RE_Unspecified_Size,                -- System.Parameters
 
+     RE_DSA_Implementation,              -- System.Partition_Interface
      RE_Get_Active_Partition_Id,         -- System.Partition_Interface
      RE_Get_Passive_Partition_Id,        -- System.Partition_Interface
      RE_Get_Local_Partition_Id,          -- System.Partition_Interface
@@ -2066,6 +2067,7 @@ package Rtsfind is
      RE_Size_Type                        => System_Parameters,
      RE_Unspecified_Size                 => System_Parameters,
 
+     RE_DSA_Implementation               => System_Partition_Interface,
      RE_Get_Active_Partition_Id          => System_Partition_Interface,
      RE_Get_Passive_Partition_Id         => System_Partition_Interface,
      RE_Get_Local_Partition_Id           => System_Partition_Interface,
@@ -2709,6 +2711,12 @@ package Rtsfind is
    --  Returns true if a call to RTE will succeed without raising an
    --  exception and without generating an error message, i.e. if the
    --  call will obtain the desired entity without any problems.
+
+   function RTU_Loaded (U : RTU_Id) return Boolean;
+   pragma Inline (RTU_Loaded);
+   --  Returns true if indicated unit has already been successfully loaded.
+   --  If the unit has not been loaded, returns False. Note that this does
+   --  not mean that an attempt to load it subsequently would fail.
 
    procedure Text_IO_Kludge (Nam : Node_Id);
    --  In Ada 83, and hence for compatibility in Ada 9X, package Text_IO has

@@ -71,7 +71,7 @@ package Prj is
    --  To specify how to process project files
 
    type Programming_Language is
-     (Lang_Ada, Lang_C, Lang_C_Plus_Plus, Lang_Fortran);
+     (Lang_Ada, Lang_C, Lang_C_Plus_Plus);
    --  The list of language supported
 
    subtype Other_Programming_Language is
@@ -85,12 +85,10 @@ package Prj is
    Lang_Ada_Name         : aliased String := "ada";
    Lang_C_Name           : aliased String := "c";
    Lang_C_Plus_Plus_Name : aliased String := "c++";
-   Lang_Fortran_Name     : aliased String := "for";
    Lang_Names : constant array (Programming_Language) of String_Access :=
      (Lang_Ada         => Lang_Ada_Name        'Access,
       Lang_C           => Lang_C_Name          'Access,
-      Lang_C_Plus_Plus => Lang_C_Plus_Plus_Name'Access,
-      Lang_Fortran     => Lang_Fortran_Name'Access);
+      Lang_C_Plus_Plus => Lang_C_Plus_Plus_Name'Access);
    --  Names of the supported programming languages, to be used after switch
    --  -x when using a GCC compiler.
 
@@ -100,25 +98,21 @@ package Prj is
    Lang_Ada_Display_Name         : aliased String := "Ada";
    Lang_C_Display_Name           : aliased String := "C";
    Lang_C_Plus_Plus_Display_Name : aliased String := "C++";
-   Lang_Fortran_Display_Name     : aliased String := "Fortran";
    Lang_Display_Names :
      constant array (Programming_Language) of String_Access :=
        (Lang_Ada         => Lang_Ada_Display_Name        'Access,
         Lang_C           => Lang_C_Display_Name          'Access,
-        Lang_C_Plus_Plus => Lang_C_Plus_Plus_Display_Name'Access,
-        Lang_Fortran     => Lang_Fortran_Display_Name'Access);
+        Lang_C_Plus_Plus => Lang_C_Plus_Plus_Display_Name'Access);
    --  Names of the supported programming languages, to be used for display
    --  purposes.
 
    Ada_Impl_Suffix         : aliased String := ".adb";
    C_Impl_Suffix           : aliased String := ".c";
    C_Plus_Plus_Impl_Suffix : aliased String := ".cc";
-   Fortran_Impl_Suffix     : aliased String := ".for";
    Lang_Suffixes : constant array (Programming_Language) of String_Access :=
      (Lang_Ada         => Ada_Impl_Suffix        'Access,
       Lang_C           => C_Impl_Suffix          'Access,
-      Lang_C_Plus_Plus => C_Plus_Plus_Impl_Suffix'Access,
-      Lang_Fortran     => Fortran_Impl_Suffix'Access);
+      Lang_C_Plus_Plus => C_Plus_Plus_Impl_Suffix'Access);
    --  Default extension of the sources of the different languages.
 
    Lang_Suffix_Ids : array (Programming_Language) of Name_Id;
@@ -127,16 +121,22 @@ package Prj is
    Gnatmake_String    : aliased String := "gnatmake";
    Gcc_String         : aliased String := "gcc";
    G_Plus_Plus_String : aliased String := "g++";
-   G77_String         : aliased String := "g77";
    Default_Compiler_Names  :
      constant array (Programming_Language) of String_Access :=
      (Lang_Ada         => Gnatmake_String   'Access,
       Lang_C           => Gcc_String        'Access,
-      Lang_C_Plus_Plus => G_Plus_Plus_String'Access,
-      Lang_Fortran     => G77_String        'Access);
+      Lang_C_Plus_Plus => G_Plus_Plus_String'Access);
    --  Default names of the compilers for the supported languages.
    --  Used when no IDE'Compiler_Command is specified for a language.
    --  For Ada, specify the gnatmake executable.
+
+   Ada_Args_Strings        : aliased String := "";
+   C_Args_String           : aliased String := "c";
+   C_Plus_Plus_Args_String : aliased String := "xx";
+   Lang_Args : constant array (Programming_Language) of String_Access :=
+     (Lang_Ada         => Ada_Args_Strings       'Access,
+      Lang_C           => C_Args_String          'Access,
+      Lang_C_Plus_Plus => C_Plus_Plus_Args_String'Access);
 
    type Other_Source_Id is new Nat;
    No_Other_Source : constant Other_Source_Id := 0;
@@ -197,6 +197,7 @@ package Prj is
    Nil_String : constant String_List_Id := 0;
    type String_Element is record
       Value    : Name_Id        := No_Name;
+      Index    : Int            := 0;
       Display_Value : Name_Id   := No_Name;
       Location : Source_Ptr     := No_Location;
       Flag     : Boolean        := False;
@@ -233,6 +234,7 @@ package Prj is
             Values : String_List_Id := Nil_String;
          when Single =>
             Value : Name_Id := No_Name;
+            Index : Int     := 0;
       end case;
    end record;
    --  Values for variables and array elements.
@@ -267,6 +269,7 @@ package Prj is
    No_Array_Element : constant Array_Element_Id := 0;
    type Array_Element is record
       Index                : Name_Id;
+      Src_Index            : Int := 0;
       Index_Case_Sensitive : Boolean := True;
       Value                : Variable_Value;
       Next                 : Array_Element_Id := No_Array_Element;

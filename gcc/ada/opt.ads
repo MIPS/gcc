@@ -398,6 +398,11 @@ package Opt is
    --  effect if an explicit Link_Name is supplied (a link name is always
    --  used exactly as given).
 
+   External_Unit_Compilation_Allowed : Boolean := False;
+   --  GNATMAKE
+   --  When True (set by gnatmake switch -x), allow compilation of sources
+   --  that are not part of any project file.
+
    Float_Format : Character := ' ';
    --  GNAT
    --  A non-blank value indicates that a Float_Format pragma has been
@@ -638,6 +643,11 @@ package Opt is
    --  Set to True when either Compile_Only, Bind_Only or Link_Only is
    --  set to True.
 
+   Main_Index : Int := 0;
+   --  GNATMAKE
+   --  This is set to non-zero by gnatmake switch -eInnn to indicate that
+   --  the main program is the nnn unit in a multi-unit source file.
+
    Mapping_File_Name : String_Ptr := null;
    --  GNAT
    --  File name of mapping between unit names, file names and path names.
@@ -653,6 +663,15 @@ package Opt is
    --  Maximum number of characters allowed in a file name, not counting the
    --  extension, as set by the appropriate switch. If no switch is given,
    --  then this value is initialized by Osint to the appropriate value.
+
+   Max_Line_Length : Int := Hostparm.Max_Line_Length;
+   --  This is a copy of Max_Line_Length used by the scanner. It is usually
+   --  set to be a copy of Hostparm.Max_Line_Length, and is used to check
+   --  the maximum line length in the scanner when style checking is inactive.
+   --  The only time it is set to a different value is during the scanning of
+   --  configuration pragma files, where we want to turn off all checking and
+   --  in particular we want to allow long lines. So we reset this value to
+   --  Column_Number'Last during scanning of configuration pragma files.
 
    Maximum_Processes : Positive := 1;
    --  GNATMAKE

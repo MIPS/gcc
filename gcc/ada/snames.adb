@@ -119,6 +119,9 @@ package body Snames is
      "system#" &
      "text_io#" &
      "wide_text_io#" &
+     "no_dsa#" &
+     "glade_dsa#" &
+     "polyorb_dsa#" &
      "addr#" &
      "async#" &
      "get_active_partition_id#" &
@@ -316,6 +319,7 @@ package body Snames is
      "win32#" &
      "as_is#" &
      "body_file_name#" &
+     "boolean_entry_barriers#" &
      "casing#" &
      "code#" &
      "component#" &
@@ -334,10 +338,10 @@ package body Snames is
      "gnat#" &
      "gpl#" &
      "ieee_float#" &
-     "homonym_number#" &
      "internal#" &
      "link_name#" &
      "lowercase#" &
+     "max_entry_queue_depth#" &
      "max_size#" &
      "mechanism#" &
      "mixedcase#" &
@@ -348,6 +352,7 @@ package body Snames is
      "on#" &
      "parameter_types#" &
      "reference#" &
+     "no_dynamic_interrupts#" &
      "no_requeue#" &
      "no_task_attributes#" &
      "restricted#" &

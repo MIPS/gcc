@@ -1,3 +1,75 @@
+2004-05-10  Andrew Haley  <aph@redhat.com>
+
+	* parse.y (create_class): Set TYPE_VFIELD.
+	* decl.c (java_init_decl_processing): Likewise.
+
+	* expr.c (build_invokevirtual): Remove DECL_VINDEX offset adjustment.
+	* class.c (make_method_value): Replace DECL_VINDEX with call to
+	get_method_index().
+	(get_dispatch_vector): Likewise.
+	(layout_class_method): Likewise.
+	Replace set of DECL_VINDEX with call to set_method_index().
+	(set_method_index): New function.
+	(get_method_index): New function.
+	* java-tree.h (set_method_index): New function decl.
+	(get_method_index): New function decl.
+
+2004-05-10  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* parse.y (check_pkg_class_access): Add new argument
+	and use it when cl is NULL to call lookup_cl on it.
+	(parser_check_super_interface): Do not call lookup_cl.
+	Pass this_decl to check_pkg_class_access and NULL
+	instead of lookup_cl.
+	(parser_check_super): Update for change in
+	check_pkg_class_access.
+	(do_resolve_class): Likewise.
+	(process_imports): Likewise.
+	(find_in_imports_on_demand): Likewise.
+	(resolve_qualified_expression_name): Likewise.
+
+2004-05-06  Ranjit Mathew  <rmathew@hotmail.com>
+
+	Fixes PR java/9685, PR java/15073
+	* parse.y (accessibility_string): New method.
+	(not_accessible_field_error): Use accessibility_string()
+	instead of java_accstring_lookup().
+	(resolve_qualified_expression_name): Check with
+	check_pkg_class_access() before allowing access using
+	qualified names.
+	Fix comment typo.
+	Use check_pkg_class_access() instead of not_accessible_p()
+	for unqualified types.
+	(not_accessible_p): Use DECL_CONTEXT (member) instead of 
+	REFERENCE for package-private access checking.
+	(patch_method_invocation): Use accessibility_string() instead
+	of java_accstring_lookup().
+
+2004-04-30  Ranjit Mathew  <rmathew@hotmail.com>
+
+	Fixes PR java/15133
+	* gjavah.c (struct method_name): Add member is_native.
+	(overloaded_jni_method_exists_p): Match candidate method only if
+	it is native.
+	(print_method_info): Initialise is_native flag from the method's
+	access flags.
+
+2004-04-30  Roger Sayle  <roger@eyesopen.com>
+
+	* builtins.c (java_builtins): Add acos, asin, ceil and floor.
+	(initialize_builtins): Likewise, define acos, asin, ceil and floor.
+
+2004-04-22  Roger Sayle  <roger@eyesopen.com>
+
+	* resource.c (write_resource_constructor): Guard call to possibly
+	NULL targetm.asm_out.constructor with targetm.have_ctors_dtors.
+
+2004-04-19  Bryce McKinlay  <mckinlay@redhat.com>
+
+	* class.c (make_class_data): Add new field aux_info.
+	* decl.c (java_init_decl_processing): Push type and decl for 
+	`aux_info'.
+
 2004-04-15  Bryce McKinlay  <mckinlay@redhat.com>
 
 	* expr.c (expand_java_NEW): Don't use size argument for 

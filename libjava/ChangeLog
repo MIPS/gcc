@@ -1,3 +1,1145 @@
+2004-05-11  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/net/natPlainSocketImplPosix.cc
+	(read): Fixed typo in expression.
+
+2004-05-10  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* testsuite/lib/libjava.exp (libjava_invoke): Add new argument
+	ld_library_additions. Adjust all calls to libjava_invoke to match
+	the new argument.
+
+	* testsuite/libjava.jni/jni.exp (gcj_jni_test_one): Pass stdc++
+	path to cxxflagslist.
+	Pass path of libstdc++ to libjava_invoke.
+
+	* testsuite/libjava.jar/jar.exp (gcj_jar_inerpret): Adjust
+	libjava_invoke arguments.
+
+2004-05-10  Ranjit Mathew  <rmathew@hotmail.com>
+
+	* testsuite/libjava.jacks/jacks.xfail: Update to reflect the current
+	reality.
+
+2004-05-07  Ranjit Mathew  <rmathew@gmail.com>
+
+	* testsuite/libjava.jni/jni.exp (gcj_jni_test_one): Don't link the
+	main binary against the JNI shared library.
+
+2004-05-07  Jerry Quinn  <jlquinn@optonline.net>
+
+	* java/util/SimpleTimeZone.java (startTimeMode, endTimeMode,
+        WALL_TIME, STANDARD_TIME, UTC_TIME): New members.
+	(SimpleTimeZone): Tweak docs.  Add new variation.
+	(setStartRule,setEndRule): Add new variations.  Use
+        startTimeMode and endTimeMode.
+
+2004-05-07  Jerry Quinn  <jlquinn@optonline.net>
+
+	* java/util/Calendar.java (getActualMinimum,
+        getActualMaximum):  Remove abstract.  Implement.
+
+2004-05-06  Bryce McKinlay  <mckinlay@redhat.com>
+
+	Run the jni tests using the interpreter.
+	* testsuite/libjava.jni/jni.exp (gcj_jni_compile_c_to_so): Append
+	options_cxx to shared lib compile command.
+	(gcj_jni_test_one): Pass cxxflags to gcj_jni_compile_c_to_so, so
+	they are used to link the shared lib, not the main binary.
+	Use libjava_invoke to run gij.
+
+2004-05-06  Michael Koch  <konqueror@gmx.de>
+
+	* java/util/logging/Level.java
+	(parse): Use == instead of String.equals().
+
+2004-05-06  Bryce McKinlay  <mckinlay@redhat.com>
+
+	* defineclass.cc (_Jv_ClassReader::prepare_pool_entry): Use 
+	verify_field_signature and verify_method_signature, not 
+	_Jv_VerifyFieldSignature and _Jv_VerifyMethodSigntature.
+	(_Jv_ClassReader::handleField): Likewise.
+	(_Jv_ClassReader::handleMethod): Likewise.
+
+2004-05-06  Michael Koch  <konqueror@gmx.de>
+
+	* javax/swing/table/TableColumn.java:
+	Reformated.
+
+2004-05-06  Michael Koch  <konqueror@gmx.de>
+
+	* javax/imageio/spi/ImageReaderWriterSpi.java
+	(ImageReaderWriterSpi): Made it public.
+	* javax/imageio/stream/ImageInputStream.java:
+	Clean up imports.
+
+2004-05-06  Michael Koch  <konqueror@gmx.de>
+
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkComponentPeer.c:
+	Removed empty line.
+
+2004-05-06  Michael Koch  <konqueror@gmx.de>
+
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkCheckboxGroupPeer.c,
+	jni/gtk-peer/gnu_java_awt_peer_gtk_GtkGenericPeer.c:
+	New files.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkCheckboxMenuItemPeer.c:
+	Include gnu_java_awt_peer_gtk_GtkCheckboxMenuItemPeer.h.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkCheckboxPeer.c:
+	Moved GtkCheckboxGroupPeer_dispose and GtkCheckboxGroupPeer_remove to
+	their own source file.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkComponentPeer.c:
+	Moved GtkGenericPeer_dispose and GtkComponentPeer_requestFocus to
+	their own source file. Removed GtkComponentPeer_gtkWidgetSetUsize.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkMenuPeer.c
+	(create): Define variable on top of function.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkPopupMenuPeer.c
+	(menu_pos): Prototyped.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkWindowPeer.c
+	(setTitle): Removed.
+	* jni/gtk-peer/gthread-jni.c
+	(gdk_threads_wake): Removed.
+	* Makefile.am (gtk_c_source_files): Added new files
+	jni/gtk-peer/gnu_java_awt_peer_gtk_GtkCheckboxGroupPeer.c and
+	jni/gtk-peer/gnu_java_awt_peer_gtk_GtkGenericPeer.c.
+	* Makefile.in: Regenerated.
+
+2004-05-05  Bryce McKinlay  <mckinlay@redhat.com>
+
+	* testsuite/libjava.jni/pr11951.java: Add missing System.loadLibrary()
+	call.
+
+2004-05-05  Mark Wielaard  <mark@klomp.org>
+
+	* javax/swing/AbstractButton.java: Replace special HTML entities with
+	ASCII equivalent.
+	* javax/swing/DefaultBoundedRangeModel.java: Likewise.
+	* javax/swing/DefaultButtonModel.java: Likewise.
+	* javax/swing/DefaultListModel.java: Likewise.
+	* javax/swing/JList.java: Likewise.
+	* javax/swing/JSlider.java: Likewise.
+	* javax/swing/ListModel.java: Likewise.
+	* javax/swing/Popup.java: Likewise.
+	* javax/swing/SwingUtilities.java: Likewise.
+
+2004-05-05  Michael Koch  <konqueror@gmx.de>
+
+	* javax/swing/AbstractButton.java,
+	javax/swing/ActionMap.java,
+	javax/swing/DefaultButtonModel.java,
+	javax/swing/DefaultListModel.java,
+	javax/swing/ImageIcon.java,
+	javax/swing/JComboBox.java,
+	javax/swing/JComponent.java,
+	javax/swing/JFrame.java,
+	javax/swing/JInternalFrame.java,
+	javax/swing/JMenuBar.java,
+	javax/swing/JMenuItem.java,
+	javax/swing/JOptionPane.java,
+	javax/swing/JProgressBar.java,
+	javax/swing/JRootPane.java,
+	javax/swing/JScrollBar.java,
+	javax/swing/JScrollPane.java,
+	javax/swing/JSeparator.java,
+	javax/swing/JSlider.java,
+	javax/swing/JTabbedPane.java,
+	javax/swing/JTable.java,
+	javax/swing/JTextField.java,
+	javax/swing/JToolBar.java,
+	javax/swing/JToolTip.java,
+	javax/swing/JTree.java,
+	javax/swing/JViewport.java,
+	javax/swing/JWindow.java,
+	javax/swing/KeyStroke.java,
+	javax/swing/LookAndFeel.java,
+	javax/swing/SwingUtilities.java,
+	javax/swing/Timer.java,
+	javax/swing/ToolTipManager.java,
+	javax/swing/UIDefaults.java,
+	javax/swing/border/TitledBorder.java,
+	javax/swing/filechooser/FileSystemView.java,
+	javax/swing/plaf/basic/BasicButtonListener.java,
+	javax/swing/plaf/basic/BasicButtonUI.java,
+	javax/swing/plaf/basic/BasicCheckBoxMenuItemUI.java,
+	javax/swing/plaf/basic/BasicGraphicsUtils.java,
+	javax/swing/plaf/basic/BasicLabelUI.java,
+	javax/swing/plaf/basic/BasicMenuItemUI.java,
+	javax/swing/plaf/basic/BasicRadioButtonMenuItemUI.java,
+	javax/swing/plaf/basic/BasicRootPaneUI.java,
+	javax/swing/plaf/basic/BasicScrollBarUI.java,
+	javax/swing/plaf/basic/BasicScrollPaneUI.java,
+	javax/swing/plaf/basic/BasicSliderUI.java,
+	javax/swing/plaf/basic/BasicTabbedPaneUI.java,
+	javax/swing/plaf/basic/BasicToggleButtonUI.java,
+	javax/swing/table/JTableHeader.java,
+	javax/swing/text/AbstractDocument.java,
+	javax/swing/text/DefaultCaret.java,
+	javax/swing/text/StyledEditorKit.java,
+	javax/swing/tree/DefaultTreeCellEditor.java:
+	Cleaned up imports.
+
+2004-05-05  Michael Koch  <konqueror@gmx.de>
+
+	* java/util/prefs/AbstractPreferences.java
+	(AbstractPreferences): Added parenthesis for clarity.
+	Closes classpath bug #7940.
+
+2004-05-05  Tom Tromey  <tromey@redhat.com>
+
+	* javax/naming/CompoundName.java (endsWith): Look at correct
+	element of source name.
+
+2004-05-05  Mark Wielaard  <mark@klomp.org>
+
+	Reported by f.haeglsperger@gmx.de [classpath patch #2485]
+	* java/util/HashMap.java (rehash): Add entry at start of bucket.
+
+2004-05-05  Tom Tromey  <tromey@redhat.com>
+
+	* java/io/BufferedReader.java (skip): Removed unused
+	variable.
+
+2004-05-05  Michael Koch  <konqueror@gmx.de>
+
+	* java/awt/FileDialog.java: Import java.io.Serializable explicitly.
+
+2004-05-05  Dalibor Topic  <robilad@kaffe.org>
+
+	* java/text/AttributedString.java,
+	java/text/AttributedStringIterator.java,
+	java/text/Collator.java,
+	java/text/DecimalFormatSymbols.java,
+	java/text/NumberFormat.java,
+	java/text/RuleBasedCollator.java:
+	Cleaned up imports.
+
+2004-05-05  Tom Tromey  <tromey@redhat.com>
+
+	* java/text/Format.java: Cleaned up imports.
+	* java/text/DecimalFormat.java: Cleaned up imports.
+	* java/security/SecureRandom.java: Cleaned up imports.
+	(SecureRandom): Removed unused variable.
+	* java/security/UnresolvedPermission.java: Cleaned up imports.
+	* java/util/Date.java (parse): Removed unused variable.
+	* java/util/ResourceBundle.java: Cleaned up imports.
+	(getBundle): Removed unused variable.
+	(tryBundle): Likewise.
+	* java/util/regex/Pattern.java (Pattern): Removed unused constructor.
+
+2004-05-05  Guilhem Lavaux <guilhem@kaffe.org>
+
+	* java/text/SimpleDateFormat.java:
+	(formatWithAttribute): New method. It implements
+	the formatting process with attributes.
+	(format): Use formatWithAttribute.
+	(formatToCharacterIterator): New method. Use
+	formatWithAttribute.
+
+2004-05-05  Guilhem Lavaux <guilhem@kaffe.org>
+
+	* java/text/MessageFormat.java:
+	(class Field): New class.
+	(formatToCharacterIterator): New method.
+	(format): Use formatInternal now.
+	(formatInternal): New method. String formatter should
+	be done here (with attributes). Attributes merging supported.
+	(parse): More documentation.
+	(getFormatsByArgumentIndex): New method.
+	(setFormatByArgumentIndex): New method.
+	(setFormatsByArgumentIndex): New method.
+
+2004-05-05  Guilhem Lavaux <guilhem@kaffe.org>
+
+	* java/text/DecimalFormat.java
+	(MAXIMUM_INTEGER_DIGITS): New constant to keep the numeric value 309.
+	(applyPatternWithSymbols): Use MAXIMUM_INTEGER_DIGITS.
+	(parse): Fixed handling of exponentiation notation and grouping.
+
+2004-05-05  Guilhem Lavaux <guilhem@kaffe.org>
+
+	* java/text/DecimalFormat.java
+	(scanFix): Build attribute array. Fixed error reporting.
+	(applyPatternWithSymbols): Store attributes for the prefix and
+	suffix.
+	(formatInternal): New method. Changed the way the string is
+	computed. Implemented attributes. Cleant up rounding in
+	exponential notation.
+	(format): Use formatInternal.
+	(formatToCharacterIterator): New method.
+	(exponentRound, negativePrefixRanges, positivePrefixRanges,
+	negativePrefixAttrs, positivePrefixAttrs, negativeSuffixRanges,
+	positiveSuffixRanges, negativeSuffixAttrs, positiveSuffixAttrs):
+	New fields.
+
+2004-05-04  Dalibor Topic  <robilad@kaffe.org>
+
+	* java/security/interfaces/DSAKeyPairGenerator.java,
+	java/security/interfaces/DSAPrivateKey.java,
+	java/security/interfaces/DSAPublicKey.java,
+	java/security/interfaces/RSAPrivateKey.java,
+	java/security/interfaces/RSAPublicKey.java:
+	Cleaned up imports.
+
+2004-05-04  Michael Koch  <konqueror@gmx.de>
+
+	* java/nio/ByteBuffer.java,
+	java/nio/CharBuffer.java,
+	java/nio/DoubleBuffer.java,
+	java/nio/FloatBuffer.java,
+	java/nio/IntBuffer.java,
+	java/nio/LongBuffer.java,
+	java/nio/ShortBuffer.java:
+	(compareTo): Fixed bogus implementation in all buffer classes.
+
+2004-05-04  Ingo Proetel  <proetel@aicas.com>
+
+	* java/awt/image/ColorModel.java (getRGBdefault): Default ColorModel has
+        32 bit pixels not 8 bit pixels.
+	(isCompatibleRaster): Added javadoc comment.
+
+2004-05-04  Ingo Proetel  <proetel@aicas.com>
+
+	* java/awt/image/ComponentSampleModel.java (setDataSamples):Do not reset
+	scanline stride.
+
+2004-05-04  Ingo Proetel  <proetel@aicas.com>
+
+	* java/awt/ColorPaintContext.java (<init>): Added ColorModel to signature.
+	(getColorModel): Return the actual color model.
+	(getRaster): Implemented.
+	(ColorRaster): New inner class.
+	* java/awt/SystemColor.java (createContext): Use ColorModel when creating
+	a PaintContext.
+	* java/awt/Color.java (<init>): Make exception more verbose.
+	(createContext): Use ColorModel when creating a PaintContext.
+
+2004-05-04  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/text/CharacterBreakIterator.java
+	(previous): Removed unused variable.
+
+2004-05-04  Guilhem Lavaux <guilhem@kaffe.org>
+
+	* gnu/java/text/FormatBuffer.java,
+	gnu/java/text/AttributedFormatBuffer.java,
+	gnu/java/text/StringFormatBuffer.java: New classes to implement
+	attributed iterators in java.text.
+	* gnu/java/text/FormatCharacterIterator.java: Moved 
+	from java/text as it is an internal class.
+	* java/text/FormatCharacterIterator.java: Removed.
+	* java/text/Format.java:
+	Import gnu.java.text.FormatCharacterIterator.
+	* Makefile.am (java_source_files): Added new files.
+	* Makefile.in: Regenerated.
+	
+
+2004-05-04  Mark Wielaard  <mark@klomp.org>
+
+	* gnu/java/nio/channels/FileChannelImpl.java (finalize): New method.
+
+2004-05-03  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* Makefile.am (WARNINGS): Replace -W with the more speaking -Wextra.
+	* Makefile.in: Rebuilt.
+
+2004-05-03  Mark Wielaard  <mark@klomp.org>
+
+	* gnu/java/security/der/DERReader.java: Call static methods staticly.
+	* java/awt/TextComponent.java (select): Use selectionEnd parameter.
+	* java/net/URL.java
+	(set(String, String, int, String, String, String, String, String)):
+	Assign this.file to path or path + "?" + query.
+	* java/util/Arrays.java: Call static methods staticly.
+	* java/util/zip/ZipEntry.java: Likewise.
+	* javax/swing/plaf/basic/BasicArrowButton.java (setDirection): Assign
+	dir to this.direction.
+	* javax/swing/table/DefaultTableCellRenderer.java (noFocusBorder):
+	Assign static field only once.
+	(DefaultTableCellRenderer): Don't reassign noFocusBorder each time.
+
+2004-05-03  Mark Wielaard  <mark@klomp.org>
+
+	* gnu/java/awt/peer/gtk/GtkTextAreaPeer.java (minimumSize): Removed
+	unused variables hScrollbarHeight and vScrollbarWidth.
+	(preferredSize): Likewise.
+	* gnu/java/security/provider/DSAParameters.java (engineToString):
+	Removed unused call to System.getProperty("line.seperator");
+	* java/security/Security.java (loadProviders): Return result.
+
+2004-05-03  Tom Tromey  <tromey@redhat.com>
+
+	* java/net/URLStreamHandler.java (toExternalForm): Removed
+	unused variables.
+	unused constructor.
+	* java/math/BigDecimal.java (divide): Removed unused variable.
+	* java/lang/Throwable.java: Cleaned up imports.
+	* java/lang/ClassLoader.java: Cleaned up imports.
+	* java/io/FilePermission.java (implies): Removed unused
+	variable.
+	* java/awt/TextComponent.java: Removed unused import.
+	* gnu/java/util/prefs/NodeReader.java: Cleaned up imports.
+	* gnu/java/util/DoubleEnumeration.java: Removed unused import.
+	* gnu/java/text/WordBreakIterator.java: Removed unused import.
+	* gnu/java/text/SentenceBreakIterator.java: Removed unused
+	import.
+	* gnu/java/text/LineBreakIterator.java: Removed unused import.
+	* gnu/java/text/CharacterBreakIterator.java: Removed
+	unused import.
+	* gnu/java/security/provider/DSAKeyPairGenerator.java:
+	Cleaned up imports.
+	* gnu/java/security/der/DERWriter.java: Cleaned up imports.
+	* gnu/java/nio/charset/UTF_16Decoder.java (put): Removed
+	unused method.
+	* gnu/java/nio/SocketChannelImpl.java: Cleaned up imports.
+	* gnu/java/nio/FileLockImpl.java: Cleaned up imports.
+	* gnu/java/io/Base64InputStream.java: Cleaned up imports.
+	* gnu/java/beans/info/ComponentBeanInfo.java: Cleaned up imports.
+	* gnu/classpath/ServiceFactory.java: Cleaned up imports.
+	(lookupProviders): Removed unused variable.
+	(loadNextServiceProvider): Likewise.
+	* gnu/java/beans/BeanInfoEmbryo.java: Cleaned up imports.
+
+2004-05-03  Michael Koch  <konqueror@gmx.de>
+
+	Fixes PR libgcj/14695:
+	* java/net/NetworkInterface.java
+	(getByName): Return null when no interface was found.
+
+2004-04-30  Ranjit Mathew  <rmathew@hotmail.com>
+            Tom Tromey  <tromey@redhat.com>
+
+	* testsuite/libjava.jni/jni.exp (gcj_jni_compile_c_to_so): Use
+	additional option "-Wmissing-prototypes" for compiling C sources.
+	Print actual filename for pass/fail rather than $name.c.
+	* testsuite/libjava.jni/PR15133.java: New testcase file.
+	* testsuite/libjava.jni/PR15133.c: Likewise.
+	* testsuite/libjava.jni/PR15133.out: Likewise.
+
+2004-04-30  Roger Sayle  <roger@eyesopen.com>
+
+	* testsuite/libjava.lang/MathBuiltin.java: Add tests for acos, asin,
+	ceil and floor.
+
+2004-04-25  Ranjit Mathew  <rmathew@hotmail.com>
+	
+	* testsuite/libjava.jacks/jacks.exp (gcj_jacks_write): Explicitly
+	limit the maximum heap size to avoid unnecessary thrashing.
+
+2004-04-24  Jerry Quinn  <jlquinn@optonline.net>
+
+	* java/text/CollationElementIterator.java (reset): Reset
+        lookahead variables.
+
+2004-04-23  Mark Wielaard  <mark@klomp.org>
+
+	* jni/classpath/jcl.c: Changed C++ comments into C comments.
+
+2004-04-23 Dalibor Topic <robilad@kaffe.org>
+
+	* java/sql/DriverManager.java:
+	Cleaned up imports.
+
+2004-04-23  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/URL.java
+	(hashcode): Don't initialize with default value explicitely.
+	(getContent): Removed redundant "final" keyword.
+	(openStream): Likewise.
+	(getURLStreamHandler): Fixed coding style.
+	* java/net/URLConnection.java
+	(defaultAllowUserInteraction): Don't initialize with default value
+	explicitely.
+	(connected): Likewise.
+	(doOutput): Likewise.
+	(ifModifiedSince): Likewise.
+	(dateformats_initialized): Likewise.
+	(setURLStreamHander): Use StreamTokenizer where it belongs to.
+
+2004-04-23  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/nio/channels/FileChannelImpl.java
+	(SET, CUR): Unused, removed.
+	(read): Implement here directly.
+	(implRead): Removed.
+	(write): Implement here directly.
+	(implWrite): Removed.
+
+2004-04-23  Dalibor Topic  <robilad@kaffe.org>
+
+	* javax/rmi/CORBA/PortableRemoteObjectDelegate.java,
+	javax/rmi/CORBA/Stub.java,
+	javax/rmi/CORBA/Util.java,
+	javax/rmi/CORBA/ValueHandler.java,
+	javax/rmi/CORBA/ValueHandler.java,
+	javax/rmi/PortableRemoteObject.java:
+	Cleaned up imports.
+
+2004-04-23 Dalibor Topic <robilad@kaffe.org>
+
+	* java/util/jar/JarFile.java,
+	java/util/jar/JarInputStream.java,
+	java/util/jar/JarOutputStream.java,
+	java/util/jar/Manifest.java:
+	Cleaned up imports.
+
+2004-04-23 Dalibor Topic <robilad@kaffe.org>
+
+	* java/util/ArrayList.java,
+	java/util/Calendar.java,
+	java/util/Currency.java,
+	java/util/HashMap.java,
+	java/util/HashSet.java,
+	java/util/Hashtable.java,
+	java/util/LinkedList.java,
+	java/util/Properties.java,
+	java/util/PropertyPermission.java,
+	java/util/TimeZone.java,
+	java/util/TreeMap.java,
+	java/util/TreeSet.java,
+	java/util/Vector.java,
+	java/util/WeakHashMap.java:
+	Cleaned up imports.
+
+2004-04-23  Dalibor Topic  <robilad@kaffe.org>
+
+	* java/util/logging/FileHandler.java,
+	java/util/logging/Formatter.java,
+	java/util/logging/Handler.java,
+	java/util/logging/Logger.java,
+	java/util/logging/SimpleFormatter.java,
+	java/util/logging/XMLFormatter.java:
+	Cleaned up imports.
+
+2004-04-22  Mark Wielaard  <mark@klomp.org>
+
+	* Makefile.am (PEDANTIC_CFLAGS): New -ansi -pedantic -Wall
+	-Wno-long-long flags variable.
+	(gtk_c_files): Use PEDANTIC_CFLAGS.
+	* Makefile.in: Regenerated.
+
+2004-04-22  Mark Wielaard  <mark@klomp.org>
+
+	* native/jni/gtk-peer/gnu_java_awt_peer_gtk_GtkComponentPeer.c:
+	Changed C++ comments into C comments.
+	* native/jni/gtk-peer/gnu_java_awt_peer_gtk_GtkMenuPeer.c:
+	Likewise.
+
+2004-04-22  Michael Koch  <konqueror@gmx.de>
+
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkPopupMenuPeer.c:
+	Merged copyright year with GNU classpath.
+
+2004-04-22  Dalibor Topic  <robilad@kaffe.org>
+
+	* javax/security/auth/x500/X500Principal.java:
+	Cleaned up imports.
+
+2004-04-22  Dalibor Topic  <robilad@kaffe.org>
+
+	* javax/swing/JSlider.java:
+	Fixed HTML tags in comments.
+
+2004-04-22  Dalibor Topic  <robilad@kaffe.org>
+
+	* javax/accessibility/AccessibleText.java:
+	Cleaned up imports.
+
+2004-04-22  Jeroen Frijters <jeroen@sumatra.nl>
+
+	* java/net/URLStreamHandler.java
+	(parseURL): Convert the file path to using '/' instead of native
+	file separator.
+
+2004-04-22  Guilhem Lavaux <guilhem@kaffe.org>
+
+	* java/net/URL.java
+	(userInfo): New field.
+	(URL): Set authority to the right value.
+	(setURL): Fixed authority and file initialization.
+	* java/net/URLStreamHandler.java
+	(parseURL): Take care of the query tag. Build authority.
+	(toExternalForm): Fixed URL building using authority.
+
+2004-04-22  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/Socket.java
+	(impl): Made package-private.
+	* java/net/ServerSocket.java
+	(implAccept): Access Socket.impl field directly.
+
+2004-04-22  Dalibor Topic  <robilad@kaffe.org>
+
+	* java/util/prefs/Preferences.java,
+	java/util/prefs/InvalidPreferencesFormatException.java,
+	java/util/prefs/BackingStoreException.java,
+	java/util/prefs/AbstractPreferences.java:
+	Cleaned up imports.
+
+2004-04-22  Dalibor Topic  <robilad@kaffe.org>
+
+	* java/util/regex/Matcher.java,
+	java/util/regex/Pattern.java:
+	Cleaned up imports.
+
+2004-04-22  Michael Koch  <konqueror@gmx.de>
+
+	* java/nio/charset/IllegalCharsetNameException.java
+	(charsetName): Made private.
+	(IllegalCharsetNameException): Added @param tag to javadoc.
+	(getCharsetName): Added @return tag to javadoc.
+	* java/nio/charset/MalformedInputException.java
+	(MalformedInputException): Added @param tag to javadoc.
+	(getInputLength): Revised method description, added @return tag.
+	(getMessage): Added @return tag.
+
+2004-04-22  Jerry Quinn  <jlquinn@optonline.net>
+
+	* java/awt/Font.java (deriveFont): Implement missing variants.
+	* gnu/java/awt/peer/ClasspathFontPeer.java (deriveFont): Implement
+	missing variants.
+
+2004-04-21  Bryce McKinlay  <mckinlay@redhat.com>
+
+	* java/lang/natClass.cc (_Jv_LayoutInterfaceMethods): New method.
+	Set method->index values for interface methods to their itable index.
+	(initializeClass): Call _Jv_LayoutInterfaceMethods.
+
+2004-04-21  Michael Koch  <konqueror@gmx.de>
+
+	* java/nio/DirectByteBufferImpl.java
+	(shiftDown): Made static, give address as argument and
+	provide a convenience method that overwrites shiftDown in
+	ByteBufferImpl and calls the native shiftDown.
+	* java/nio/MappedByteBufferImpl.java
+	(): Use optimized method in DirectByteBufferImpl.
+	* java/nio/natDirectByteBufferImpl.cc
+	(shiftDown): Changed method signature. Removed usage of array_offset.
+
+2004-04-21  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/net/natPlainSocketImplPosix.cc
+	(SocketInputStream::read): Make sure returned data is a byte value.
+
+2004-04-21  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/classpath/ServiceFactory.java,
+	gnu/classpath/ServiceProviderLoadingAction.java,
+	javax/imageio/ImageReader.java,
+	javax/imageio/ImageTranscoder.java,
+	javax/imageio/ImageWriter.java,
+	javax/imageio/package.html,
+	javax/imageio/spi/IIOServiceProvider.java,
+	javax/imageio/spi/ImageInputStreamSpi.java,
+	javax/imageio/spi/ImageOutputStreamSpi.java,
+	javax/imageio/spi/ImageReaderWriterSpi.java,
+	javax/imageio/spi/ImageTranscoderSpi.java,
+	javax/imageio/spi/RegisterableService.java,
+	javax/imageio/spi/ServiceRegistry.java,
+	javax/imageio/spi/package.html,
+	javax/imageio/stream/IIOByteBuffer.java,
+	javax/imageio/stream/ImageInputStream.java,
+	javax/imageio/stream/ImageOutputStream.java,
+	javax/imageio/stream/package.html:
+	New files.
+	* Makefile.am
+	(ordinary_java_source_files): Added
+	gnu/classpath/ServiceFactory.java and
+	gnu/classpath/ServiceProviderLoadingAction.java.
+	(javax_source_files): Added
+	javax/imageio/ImageReader.java,
+	javax/imageio/ImageTranscoder.java,
+	javax/imageio/ImageWriter.java,
+	javax/imageio/spi/IIOServiceProvider.java,
+	javax/imageio/spi/ImageInputStreamSpi.java,
+	javax/imageio/spi/ImageOutputStreamSpi.java,
+	javax/imageio/spi/ImageReaderWriterSpi.java,
+	javax/imageio/spi/ImageTranscoderSpi.java,
+	javax/imageio/spi/RegisterableService.java,
+	javax/imageio/spi/ServiceRegistry.java,
+	javax/imageio/stream/IIOByteBuffer.java,
+	javax/imageio/stream/ImageInputStream.java and
+	javax/imageio/stream/ImageOutputStream.java.
+	* Makefile.in: Regenerated.
+
+2004-04-21  Michael Koch  <konqueror@gmx.de>
+
+	* java/util/Properties.java
+	(load): Fix wrongly merged fix.
+
+2004-04-21  Mark Wielaard  <mark@klomp.org>
+
+	* native/jni/gtk-peer/gthread-jni.c (maybe_rethrow): Explicitly
+	malloc and free buf.
+
+2004-04-21  Dalibor Topic  <robilad@kaffe.org>
+
+	* javax/naming/AuthenticationException.java,
+	javax/naming/AuthenticationNotSupportedException.java,
+	javax/naming/CannotProceedException.java,
+	javax/naming/CommunicationException.java,
+	javax/naming/CompoundName.java,
+	javax/naming/ConfigurationException.java,
+	javax/naming/ContextNotEmptyException.java,
+	javax/naming/InitialContext.java,
+	javax/naming/InsufficientResourcesException.java,
+	javax/naming/InterruptedNamingException.java,
+	javax/naming/LimitExceededException.java,
+	javax/naming/LinkException.java,
+	javax/naming/LinkLoopException.java,
+	javax/naming/LinkRef.java,
+	javax/naming/MalformedLinkException.java,
+	javax/naming/Name.java,
+	javax/naming/NameAlreadyBoundException.java,
+	javax/naming/NameNotFoundException.java,
+	javax/naming/NamingSecurityException.java,
+	javax/naming/NoInitialContextException.java,
+	javax/naming/NoPermissionException.java,
+	javax/naming/NotContextException.java,
+	javax/naming/PartialResultException.java,
+	javax/naming/ReferralException.java,
+	javax/naming/ServiceUnavailableException.java,
+	javax/naming/SizeLimitExceededException.java,
+	javax/naming/TimeLimitExceededException.java,
+	javax/naming/directory/Attribute.java,
+	javax/naming/directory/Attributes.java,
+	javax/naming/directory/SearchResult.java,
+	javax/naming/event/NamingExceptionEvent.java,
+	javax/naming/spi/ResolveResult.java:
+	Cleaned up imports.
+
+2004-04-21  Mark Wielaard  <mark@klomp.org>
+
+	* native/jni/gtk-peer/gnu_java_awt_peer_gtk_GtkCheckboxPeer.c:
+	Changed C++ comments into C comments. Removed commented out code.
+	* native/jni/gtk-peer/gnu_java_awt_peer_gtk_GtkComponentPeer.c:
+	Likewise.
+	* native/jni/gtk-peer/gnu_java_awt_peer_gtk_GtkEvents.c:
+	Likewise.
+	* native/jni/gtk-peer/gnu_java_awt_peer_gtk_GtkFileDialogPeer.c:
+	Likewise.
+	* native/jni/gtk-peer/gnu_java_awt_peer_gtk_GtkListPeer.c:
+	Likewise.
+	* native/jni/gtk-peer/gnu_java_awt_peer_gtk_GtkTextComponentPeer.c:
+	Likewise.
+	* native/jni/gtk-peer/gthread-jni.c:
+	Likewise.
+
+2004-04-21  Mark Wielaard  <mark@klomp.org>
+
+	* javax/awt/JFrame.java: Implement WindowConstants. Remove final
+	static fields defined in interface.
+	* javax/awt/JDialog.java: Likewise.
+	(JDialog): Make constructors public.
+	(getDefaultCloseOperation): Make public.
+	(processWindowEvent): Call System.exit(0) when EXIT_ON_CLOSE set.
+	(setDefaultCloseOperation): Make public. Check argument. Add API doc.
+	* javax/swing/JViewport.java (JViewport): Make constructor public.
+
+2004-04-21  Michael Koch  <konqueror@gmx.de>
+
+	* java/util/Map.java
+	(Entry): Removed redundant "static" modifier.
+	* java/text/AttributedCharacterIterator.java:
+	Updated copyright year.
+
+2004-04-20  Michael Koch  <konqueror@gmx.de>
+
+	* javax/naming/directory/SearchControls.java:
+	Don't explicitely extend java.lang.Object.
+	* javax/naming/spi/DirStateFactory.java:
+	Merged copyright year with GNU classpath.
+
+2004-04-20  Michael Koch  <konqueror@gmx.de>
+
+	* java/nio/channels/Channels.java:
+	Merged coding style with GNU classpath.
+
+2004-04-20  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/ServerSocket.java
+	Merged coding style from GNU classpath.
+
+2004-04-20  Michael Koch  <konqueror@gmx.de>
+
+	* java/io/BufferedWriter.java:
+	Reordered variables to be at top of the class.
+	(localFlush): Removed redundant final keyword.
+
+2004-04-20  Ingo Proetel  <proetel@aicas.com>
+
+	* java/awt/event/MouseEvent.java (<init>): fixed field assignment 
+
+2004-04-20  Jeroen Frijters  <jeroen@frijters.net>
+
+	* java/text/DecimalFormat.java (scanFix): Removed suffix check
+	for percent and permill check.
+
+2004-04-20  Guilhem Lavaux <guilhem@kaffe.org>
+
+	* java/text/FieldPosition.java
+	(FieldPosition) Constructor now behaves as it should according
+	to the java documentation.
+
+2004-04-20  Mark Wielaard  <mark@klomp.org>
+
+	* java/util/Properties.java: Use the word umlaut, not &auml; in api
+	documentation.
+
+2004-04-20  Michael Koch  <konqueror@gmx.de>
+
+	* java/nio/Buffer.java,
+	java/nio/channels/AlreadyConnectedException.java,
+	java/nio/channels/AsynchronousCloseException.java,
+	java/nio/channels/ByteChannel.java,
+	java/nio/channels/CancelledKeyException.java,
+	java/nio/channels/Channel.java,
+	java/nio/channels/Channels.java,
+	java/nio/channels/ClosedByInterruptException.java,
+	java/nio/channels/ClosedChannelException.java,
+	java/nio/channels/ClosedSelectorException.java,
+	java/nio/channels/ConnectionPendingException.java,
+	java/nio/channels/DatagramChannel.java,
+	java/nio/channels/FileChannel.java,
+	java/nio/channels/FileLock.java,
+	java/nio/channels/FileLockInterruptionException.java,
+	java/nio/channels/GatheringByteChannel.java,
+	java/nio/channels/IllegalBlockingModeException.java,
+	java/nio/channels/IllegalSelectorException.java,
+	java/nio/channels/InterruptibleChannel.java,
+	java/nio/channels/NoConnectionPendingException.java,
+	java/nio/channels/NonReadableChannelException.java,
+	java/nio/channels/NonWritableChannelException.java,
+	java/nio/channels/NotYetBoundException.java,
+	java/nio/channels/NotYetConnectedException.java,
+	java/nio/channels/OverlappingFileLockException.java,
+	java/nio/channels/Pipe.java,
+	java/nio/channels/ReadableByteChannel.java,
+	java/nio/channels/ScatteringByteChannel.java,
+	java/nio/channels/SelectableChannel.java,
+	java/nio/channels/SelectionKey.java,
+	java/nio/channels/Selector.java,
+	java/nio/channels/ServerSocketChannel.java,
+	java/nio/channels/SocketChannel.java,
+	java/nio/channels/UnresolvedAddressException.java,
+	java/nio/channels/UnsupportedAddressTypeException.java,
+	java/nio/channels/WritableByteChannel.java,
+	java/nio/channels/spi/AbstractInterruptibleChannel.java,
+	java/nio/channels/spi/AbstractSelectableChannel.java,
+	java/nio/channels/spi/AbstractSelectionKey.java,
+	java/nio/channels/spi/AbstractSelector.java,
+	java/nio/channels/spi/SelectorProvider.java,
+	java/nio/charset/spi/CharsetProvider.java:
+	Fixed javadocs and jalopied all over java.nio.
+
+2004-04-20  Michael Koch  <konqueror@gmx.de>
+
+	* java/nio/ByteBufferImpl.java,
+	java/nio/CharBufferImpl.java,
+	java/nio/DirectByteBufferImpl.java,
+	java/nio/DoubleBufferImpl.java,
+	java/nio/DoubleViewBufferImpl.java,
+	java/nio/FloatBufferImpl.java,
+	java/nio/FloatViewBufferImpl.java,
+	java/nio/IntBufferImpl.java,
+	java/nio/IntViewBufferImpl.java,
+	java/nio/LongBufferImpl.java,
+	java/nio/LongViewBufferImpl.java,
+	java/nio/MappedByteBufferImpl.java,
+	java/nio/ShortBufferImpl.java,
+	java/nio/ShortViewBufferImpl.java:
+	Made sure all classes are final and removed final keyword from all
+	methods.
+
+2004-04-20  Michael Koch  <konqueror@gmx.de>
+
+	* java/rmi/MarshalledObject.java,
+	java/rmi/Naming.java,
+	java/rmi/RemoteException.java,
+	java/rmi/activation/ActivationException.java,
+	java/rmi/server/ServerCloneException.java,
+	java/security/AccessController.java,
+	java/security/AlgorithmParameterGenerator.java,
+	java/security/AlgorithmParameters.java,
+	java/security/CodeSource.java,
+	java/security/Identity.java,
+	java/security/IdentityScope.java,
+	java/security/KeyPairGenerator.java,
+	java/security/KeyStore.java,
+	java/security/Security.java,
+	java/security/Signature.java,
+	java/security/SignatureSpi.java,
+	java/security/SignedObject.java,
+	java/security/spec/DSAParameterSpec.java,
+	java/security/spec/DSAPrivateKeySpec.java,
+	java/security/spec/DSAPublicKeySpec.java,
+	java/sql/Array.java,
+	java/sql/DatabaseMetaData.java,
+	java/sql/ResultSet.java,
+	java/text/ChoiceFormat.java,
+	java/text/CollationElementIterator.java,
+	java/text/CollationKey.java,
+	java/text/Collator.java,
+	java/text/DateFormat.java,
+	java/text/DateFormatSymbols.java,
+	java/text/DecimalFormatSymbols.java,
+	java/text/Format.java,
+	java/text/ParsePosition.java,
+	java/text/RuleBasedCollator.java,
+	java/text/SimpleDateFormat.java,
+	java/text/StringCharacterIterator.java,
+	java/util/Collections.java,
+	java/util/PropertyResourceBundle.java,
+	java/util/ResourceBundle.java,
+	java/util/StringTokenizer.java,
+	java/util/jar/Attributes.java,
+	java/util/logging/ConsoleHandler.java,
+	java/util/logging/LogManager.java,
+	java/util/logging/MemoryHandler.java,
+	java/util/logging/SocketHandler.java,
+	javax/naming/NamingException.java:
+	Fixed javadoc, coding style and argument names all over.
+
+2004-04-20  Jeroen Frijters  <jeroen@frijters.net>
+
+	* java/io/FileDescriptor.java: (FileDescriptor) Added public
+	constructor. (valid) Added null check.
+
+2004-04-20  Guilhem Lavaux <guilhem@kaffe.org>
+
+        Reported by Nektarios Papadopoulos <npapadop@inaccessnetworks.com>
+	* java/io/FileOutputStream.java
+	(FileOutputStream) Reorganized constructors. Constructors now
+	check whether the given path is directory.
+
+2004-04-20  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/Authenticator.java,
+	java/net/BindException.java,
+	java/net/ConnectException.java,
+	java/net/ContentHandler.java,
+	java/net/ContentHandlerFactory.java,
+	java/net/DatagramPacket.java,
+	java/net/DatagramSocket.java,
+	java/net/DatagramSocketImpl.java,
+	java/net/DatagramSocketImplFactory.java,
+	java/net/FileNameMap.java,
+	java/net/HttpURLConnection.java,
+	java/net/Inet4Address.java,
+	java/net/Inet6Address.java,
+	java/net/InetAddress.java,
+	java/net/InetSocketAddress.java,
+	java/net/JarURLConnection.java,
+	java/net/MalformedURLException.java,
+	java/net/MulticastSocket.java,
+	java/net/NetPermission.java,
+	java/net/NetworkInterface.java,
+	java/net/NoRouteToHostException.java,
+	java/net/PasswordAuthentication.java,
+	java/net/PortUnreachableException.java,
+	java/net/ProtocolException.java,
+	java/net/ServerSocket.java,
+	java/net/Socket.java,
+	java/net/SocketAddress.java,
+	java/net/SocketException.java,
+	java/net/SocketImpl.java,
+	java/net/SocketImplFactory.java,
+	java/net/SocketOptions.java,
+	java/net/SocketPermission.java,
+	java/net/SocketTimeoutException.java,
+	java/net/URI.java,
+	java/net/URISyntaxException.java,
+	java/net/URL.java,
+	java/net/URLClassLoader.java,
+	java/net/URLConnection.java,
+	java/net/URLDecoder.java,
+	java/net/URLEncoder.java,
+	java/net/URLStreamHandler.java,
+	java/net/URLStreamHandlerFactory.java,
+	java/net/UnknownHostException.java,
+	java/net/UnknownServiceException.java:
+	Fixed javadocs, coding style and argument names all over.
+
+2004-04-20  Michael Koch  <konqueror@gmx.de>
+
+	* java/lang/Byte.java,
+	java/lang/CharSequence.java,
+	java/lang/ClassLoader.java,
+	java/lang/Compiler.java,
+	java/lang/Double.java,
+	java/lang/Float.java,
+	java/lang/Integer.java,
+	java/lang/Long.java,
+	java/lang/Math.java,
+	java/lang/Number.java,
+	java/lang/Package.java,
+	java/lang/Runtime.java,
+	java/lang/RuntimePermission.java,
+	java/lang/SecurityManager.java,
+	java/lang/Short.java,
+	java/lang/StringBuffer.java,
+	java/lang/System.java,
+	java/lang/ThreadGroup.java,
+	java/lang/Throwable.java,
+	java/lang/reflect/InvocationHandler.java,
+	java/lang/reflect/Proxy.java:
+	Fixed javadocs, coding style and argument names all over.
+
+2004-04-20  Michael Koch  <konqueror@gmx.de>
+
+	* java/io/BufferedWriter.java,
+	java/io/ByteArrayInputStream.java,
+	java/io/CharArrayWriter.java,
+	java/io/DataInput.java,
+	java/io/DataInputStream.java,
+	java/io/File.java,
+	java/io/FilterInputStream.java,
+	java/io/InputStream.java,
+	java/io/InputStreamReader.java,
+	java/io/ObjectInputStream.java,
+	java/io/ObjectStreamClass.java,
+	java/io/PipedInputStream.java,
+	java/io/PipedReader.java,
+	java/io/PushbackInputStream.java,
+	java/io/PushbackReader.java,
+	java/io/RandomAccessFile.java,
+	java/io/SerializablePermission.java,
+	java/io/StreamTokenizer.java,
+	java/io/StringWriter.java,
+	java/io/WriteAbortedException.java,
+	java/io/Writer.java:
+	Fixed javadocs all over, rename arguments to match javadocs,
+	fixed coding style.
+
+2004-04-20  Ingo Proetel  <proetel@aicas.com>
+
+	* java/awt/FontMetrics.java:
+	(charsWidth): fixed accumulation of total_width
+	(getWidth): simple default implementation
+	* java/awt/Polygon.java (getBoundingBox): Use correct y-coordinate
+	in Rectangle constructor.
+	* java/awt/image/Raster.java (toString): Added method. 
+	* java/awt/image/SampleModel.java (<init>): Added error cause
+	information to thrown exception.
+	* java/awt/image/SinglePixelPackedSampleModel.java (getDataElements):
+	New method.
+	(setDataElements): New method.
+	(setPixels): New method.
+	(toString): New method.
+
+2004-04-20  Sascha Brawer  <brawer@dandelis.ch>
+
+	* java/awt/image/ComponentColorModel.java
+	(createCompatibleSampleModel): Return PixelInterleavedSampleModel
+	for TYPE_BYTE and TYPE_USHORT transferTypes, in order to pass the
+	Mauve tests on this method. Improved documentation.
+
+2004-04-20  Michael Koch  <konqueror@gmx.de>
+
+	* javax/swing/JLayeredPane.java,
+	javax/swing/plaf/BorderUIResource.java,
+	javax/swing/plaf/ComponentUI.java,
+	javax/swing/undo/CompoundEdit.java,
+	javax/swing/undo/StateEdit.java:
+	Fixed HTML tags in javadocs all over.
+
+2004-04-20  Michael Koch  <konqueror@gmx.de>
+
+	* javax/print/attribute/EnumSyntax.java
+	(getOffset): Made protected.
+	* javax/print/attribute/HashAttributeSet.java
+	(HashAttributeSet): Likewise.
+	* javax/print/attribute/ResolutionSyntax.java
+	(getFeedResolution): Fixed typo in exception name.
+	(getCrossFeedResolution): Likewise.
+	* javax/print/attribute/SetOfIntegerSyntax.java
+	(SetOfIntegerSyntax): Fixed HTML entities in javadoc.
+	* javax/print/attribute/TextSyntax.java
+	(TextSyntax): Handle locale correctly.
+	(hashCode): Calc better hashcode value.
+	(equals): Fixed @return tag.
+	(toString): New method.
+
+2004-04-20  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/nio/FileLockImpl.java
+	(static): Removed, not needed anymore.
+	* gnu/java/nio/channels/FileChannelImpl.java
+	(FileChannelImpl): Made final.
+	(mode): Made private.
+	(READ, WRITE, APPEND): Made public.
+	(EXCL, SYNC, DSYNC): Likewise.
+	(static): Load native JNI library, when needed.
+	(length): Unused, removed.
+	(available): Made public.
+	(implPosition): Throws IOException.
+	(seek): Likewise.
+	(implTruncate): Likewise.
+	(unlock): Likewise.
+	(lock): Likewise.
+
+2004-04-20  Michael Koch  <konqueror@gmx.de>
+
+	* java/awt/AWTPermission.java,
+	java/awt/Component.java,
+	java/awt/ComponentOrientation.java,,
+	java/awt/Dialog.java,
+	java/awt/FontMetrics.java,
+	java/awt/Graphics.java,
+	java/awt/datatransfer/DataFlavor.java,
+	java/beans/Introspector.java,
+	java/beans/PropertyEditor.java,
+	java/beans/PropertyEditorManager.java,
+	java/beans/beancontext/BeanContextServiceProvider.java:
+	Fixed HTML tags in javadocs all over.
+
+2004-04-20  Mark Wielaard  <mark@klomp.org>
+
+	* gnu/java/awt/peer/gtk/GtkFontPeer.java: Use fallback when
+	MissingResourceException is thrown.
+	* gnu/java/awt/peer/gtk/GtkToolkit.java (getFontPeer): Don't return
+	null when a MissingResourceException is thrown. Should never happen.
+
+2004-04-20  Sascha Brawer  <brawer@dandelis.ch>
+
+	* java/awt/image/DataBufferShort.java,
+	java/awt/image/DataBufferFloat.java,
+	java/awt/image/DataBufferDouble.java,
+	java/awt/image/PixelInterleavedSampleModel.java: New files.
+	* gnu/java/awt/Buffers.java (createBuffer, createBufferFromData,
+	getData): Added support	for TYPE_SHORT, TYPE_FLOAT and TYPE_DOUBLE.
+
+2004-04-20  Michael Koch  <konqueror@gmx.de>
+
+	* Makefile.am (java_source_files): Added
+	java/awt/image/DataBufferDouble.java,
+	java/awt/image/DataBufferFloat.java,
+	java/awt/image/DataBufferShort.java and
+	java/awt/image/PixelInterleavedSampleModel.java.
+	* Makefile.in: Regenerated.
+
+2004-04-19  Bryce McKinlay  <mckinlay@redhat.com>
+ 
+	* gcj/cni.h (JvAllocObject): Remove these obsolete, 
+	undocumented CNI calls.
+	* include/java-interp.h (_Jv_InterpClass): No longer
+	extends java.lang.Class.
+	* java/lang/Class.h (Class): Add new field `aux_info'.
+	* boehm.cc (_Jv_MarkObj): Update java.lang.Class marking.
+	* defineclass.cc: Remove Class<->_Jv_InterpClass casts.
+	Use Class->aux_info instead.
+	* jni.cc (_Jv_JNI_AllocObject): Use _Jv_AllocObject.
+	* resolve.cc: Remove Class<->_Jv_InterpClass casts.
+	Use Class->aux_info instead.
+	* java/io/natObjectInputStream.cc (allocateObject): Use
+	_Jv_AllocObject.
+	* java/lang/natClass.cc (newInstance): Likewise.
+	* java/lang/natClassLoader.cc (_Jv_NewClass): Likewise.
+	* java/lang/natObject.cc (clone): Likewise.
+	* java/lang/reflect/natMethod.cc (_Jv_CallAnyMethodA): Likewise.
+	* java/lang/natVMClassLoader.cc (defineClass): Don't use
+	JvAllocObject. Allocate klass->aux_info here for interpreted
+	class.
+	
 2004-04-17  Mark Wielaard  <mark@klomp.org>
 
 	* javax/swing/JToggleButton.java (ToggleButtonModel):

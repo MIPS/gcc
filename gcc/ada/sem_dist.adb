@@ -293,8 +293,9 @@ package body Sem_Dist is
       RS_Pkg_E              : Entity_Id;
       RAS_Type              : Entity_Id;
       Async_E               : Entity_Id;
+      All_Calls_Remote_E    : Entity_Id;
       Attribute_Subp        : Entity_Id;
-      Parameter             : Node_Id;
+      Local_Addr            : Node_Id;
 
    begin
       --  Check if we have to expand the access attribute
@@ -331,25 +332,28 @@ package body Sem_Dist is
       RS_Pkg_Specif := Parent (Remote_Subp_Decl);
       RS_Pkg_E := Defining_Entity (RS_Pkg_Specif);
 
-      if Ekind (Remote_Subp) = E_Procedure
-        and then Is_Asynchronous (Remote_Subp)
-      then
-         Async_E := Standard_True;
-      else
-         Async_E := Standard_False;
-      end if;
+      Async_E :=
+        Boolean_Literals (Ekind (Remote_Subp) = E_Procedure
+                            and then Is_Asynchronous (Remote_Subp));
 
-      Parameter := New_Occurrence_Of (RTE (RE_Null_Address), Loc);
+      All_Calls_Remote_E :=
+        Boolean_Literals (Has_All_Calls_Remote (RS_Pkg_E));
+
+      Local_Addr :=
+        Make_Attribute_Reference (Loc,
+          Prefix         => New_Occurrence_Of (Remote_Subp, Loc),
+          Attribute_Name => Name_Address);
 
       Tick_Access_Conv_Call :=
         Make_Function_Call (Loc,
           Name => New_Occurrence_Of (Attribute_Subp, Loc),
           Parameter_Associations =>
             New_List (
-              Parameter,
+              Local_Addr,
               Make_String_Literal (Loc, Full_Qualified_Name (RS_Pkg_E)),
               Build_Subprogram_Id (Loc, Remote_Subp),
-              New_Occurrence_Of (Async_E, Loc)));
+              New_Occurrence_Of (Async_E, Loc),
+              New_Occurrence_Of (All_Calls_Remote_E, Loc)));
 
       Rewrite (N, Tick_Access_Conv_Call);
       Analyze_And_Resolve (N, RAS_Type);

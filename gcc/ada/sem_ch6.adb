@@ -88,6 +88,8 @@ package body Sem_Ch6 is
    --  subsequenty used for inline expansions at call sites. If subprogram can
    --  be inlined (depending on size and nature of local declarations) this
    --  function returns true. Otherwise subprogram body is treated normally.
+   --  If proper warnings are enabled and the subprogram contains a construct
+   --  that cannot be inlined, the offending construct is flagged accordingly.
 
    type Conformance_Type is
      (Type_Conformant, Mode_Conformant, Subtype_Conformant, Fully_Conformant);
@@ -2956,6 +2958,7 @@ package body Sem_Ch6 is
    is
       Type_1 : Entity_Id := T1;
       Type_2 : Entity_Id := T2;
+      Are_Anonymous_Access_To_Subprogram_Types : Boolean := False;
 
       function Base_Types_Match (T1, T2 : Entity_Id) return Boolean;
       --  If neither T1 nor T2 are generic actual types, or if they are
@@ -2984,6 +2987,17 @@ package body Sem_Ch6 is
             return not Is_Generic_Actual_Type (T1)
               or else not Is_Generic_Actual_Type (T2)
               or else Scope (T1) /= Scope (T2);
+
+         --  In some cases a type imported through a limited_with clause,
+         --  and its non-limited view are both visible, for example in an
+         --  anonymous access_to_classwide type in a formal. Both entities
+         --  designate the same type.
+
+         elsif From_With_Type (T1)
+           and then Ekind (T1) = E_Incomplete_Type
+           and then T2 = Non_Limited_View (T1)
+         then
+            return True;
 
          else
             return False;
@@ -3030,11 +3044,38 @@ package body Sem_Ch6 is
            or else Subtypes_Statically_Match (Type_1, Full_View (Type_2));
       end if;
 
+      --  Ada 0Y (AI-254): Detect anonymous access to subprogram types.
+
+      Are_Anonymous_Access_To_Subprogram_Types :=
+
+         --  Case 1: Anonymous access to subprogram types
+
+        (Ekind (Type_1) = E_Anonymous_Access_Subprogram_Type
+           and then Ekind (Type_2) = E_Anonymous_Access_Subprogram_Type)
+
+         --  Case 2: Anonymous access to PROTECTED subprogram types. In this
+         --  case the anonymous type_declaration has been replaced by an
+         --  occurrence of an internal access to subprogram type declaration
+         --  available through the Original_Access_Type attribute
+
+        or else
+          (Ekind (Type_1) = E_Access_Protected_Subprogram_Type
+            and then Ekind (Type_2) = E_Access_Protected_Subprogram_Type
+            and then not Comes_From_Source (Type_1)
+            and then not Comes_From_Source (Type_2)
+            and then Present (Original_Access_Type (Type_1))
+            and then Present (Original_Access_Type (Type_2))
+            and then Ekind (Original_Access_Type (Type_1)) =
+                       E_Anonymous_Access_Protected_Subprogram_Type
+            and then Ekind (Original_Access_Type (Type_2)) =
+                       E_Anonymous_Access_Protected_Subprogram_Type);
+
       --  Test anonymous access type case. For this case, static subtype
       --  matching is required for mode conformance (RM 6.3.1(15))
 
-      if Ekind (Type_1) = E_Anonymous_Access_Type
-        and then Ekind (Type_2) = E_Anonymous_Access_Type
+      if (Ekind (Type_1) = E_Anonymous_Access_Type
+            and then Ekind (Type_2) = E_Anonymous_Access_Type)
+        or else Are_Anonymous_Access_To_Subprogram_Types --  Ada 0Y (AI-254)
       then
          declare
             Desig_1 : Entity_Id;
@@ -3043,7 +3084,7 @@ package body Sem_Ch6 is
          begin
             Desig_1 := Directly_Designated_Type (Type_1);
 
-            --  An access parameter can designate an incomplete type.
+            --  An access parameter can designate an incomplete type
 
             if Ekind (Desig_1) = E_Incomplete_Type
               and then Present (Full_View (Desig_1))
@@ -3083,11 +3124,17 @@ package body Sem_Ch6 is
                  Conforming_Types
                    (Etype (Base_Type (Desig_1)),
                     Etype (Base_Type (Desig_2)), Ctype);
+
+            elsif Are_Anonymous_Access_To_Subprogram_Types then
+               return Ctype = Type_Conformant
+                        or else
+                      Subtypes_Statically_Match (Desig_1, Desig_2);
+
             else
                return Base_Type (Desig_1) = Base_Type (Desig_2)
                 and then (Ctype = Type_Conformant
-                          or else
-                        Subtypes_Statically_Match (Desig_1, Desig_2));
+                            or else
+                          Subtypes_Statically_Match (Desig_1, Desig_2));
             end if;
          end;
 
@@ -4552,8 +4599,9 @@ package body Sem_Ch6 is
                   end if;
 
                   --  In any case the implicit operation remains hidden by
-                  --  the existing declaration.
+                  --  the existing declaration, which is overriding.
 
+                  Set_Is_Overriding_Operation (E);
                   return;
 
                   --  Within an instance, the renaming declarations for
@@ -4958,14 +5006,17 @@ package body Sem_Ch6 is
 
             --  Ada 0Y (AI-254)
 
-            if Present (Access_To_Subprogram_Definition
-                         (Parameter_Type (Param_Spec)))
-              and then Protected_Present (Access_To_Subprogram_Definition
-                                           (Parameter_Type (Param_Spec)))
-            then
-               Formal_Type :=
-                 Replace_Anonymous_Access_To_Protected_Subprogram (Param_Spec);
-            end if;
+            declare
+               AD : constant Node_Id :=
+                      Access_To_Subprogram_Definition
+                        (Parameter_Type (Param_Spec));
+            begin
+               if Present (AD) and then Protected_Present (AD) then
+                  Formal_Type :=
+                    Replace_Anonymous_Access_To_Protected_Subprogram
+                      (Param_Spec, Formal_Type);
+               end if;
+            end;
          end if;
 
          Set_Etype (Formal, Formal_Type);

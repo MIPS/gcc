@@ -54,6 +54,7 @@ Boston, MA 02111-1307, USA.  */
 #include "integrate.h"
 #include "langhooks.h"
 #include "cfglayout.h"
+#include "sched-int.h"
 
 /* Enumeration for all of the relational tests, so that we can build
    arrays indexed by the test type, and not worry about the order
@@ -107,6 +108,33 @@ enum internal_test {
    multi-instruction addu sequence.  Use 0x7fe0 to work around this.  */
 #define MIPS_MAX_FIRST_STACK_STEP (TARGET_MIPS16 ? 0x100 : 0x7fe0)
 
+/* True if INSN is a mips.md pattern or asm statement.  */
+#define USEFUL_INSN_P(INSN)						\
+  (INSN_P (INSN)							\
+   && GET_CODE (PATTERN (INSN)) != USE					\
+   && GET_CODE (PATTERN (INSN)) != CLOBBER				\
+   && GET_CODE (PATTERN (INSN)) != ADDR_VEC				\
+   && GET_CODE (PATTERN (INSN)) != ADDR_DIFF_VEC)
+
+/* If INSN is a delayed branch sequence, return the first instruction
+   in the sequence, otherwise return INSN itself.  */
+#define SEQ_BEGIN(INSN)							\
+  (INSN_P (INSN) && GET_CODE (PATTERN (INSN)) == SEQUENCE		\
+   ? XVECEXP (PATTERN (INSN), 0, 0)					\
+   : (INSN))
+
+/* Likewise for the last instruction in a delayed branch sequence.  */
+#define SEQ_END(INSN)							\
+  (INSN_P (INSN) && GET_CODE (PATTERN (INSN)) == SEQUENCE		\
+   ? XVECEXP (PATTERN (INSN), 0, XVECLEN (PATTERN (INSN), 0) - 1)	\
+   : (INSN))
+
+/* Execute the following loop body with SUBINSN set to each instruction
+   between SEQ_BEGIN (INSN) and SEQ_END (INSN) inclusive.  */
+#define FOR_EACH_SUBINSN(SUBINSN, INSN)					\
+  for ((SUBINSN) = SEQ_BEGIN (INSN);					\
+       (SUBINSN) != NEXT_INSN (SEQ_END (INSN));				\
+       (SUBINSN) = NEXT_INSN (SUBINSN))
 
 /* Classifies an address.
 
@@ -138,6 +166,7 @@ struct mips16_constant;
 struct mips_arg_info;
 struct mips_address_info;
 struct mips_integer_op;
+struct mips_sim;
 
 static enum mips_symbol_type mips_classify_symbol (rtx);
 static void mips_split_const (rtx, rtx *, HOST_WIDE_INT *);
@@ -206,7 +235,6 @@ static void mips_select_rtx_section (enum machine_mode, rtx,
 static void mips_select_section (tree, int, unsigned HOST_WIDE_INT)
 				  ATTRIBUTE_UNUSED;
 static bool mips_in_small_data_p (tree);
-static void mips_encode_section_info (tree, rtx, int);
 static int mips_fpr_return_fields (tree, tree *);
 static bool mips_return_in_msb (tree);
 static rtx mips_return_fpr_pair (enum machine_mode mode,
@@ -220,6 +248,21 @@ static void dump_constants (struct mips16_constant *, rtx);
 static int mips16_insn_length (rtx);
 static int mips16_rewrite_pool_refs (rtx *, void *);
 static void mips16_lay_out_constants (void);
+static void mips_sim_reset (struct mips_sim *);
+static void mips_sim_init (struct mips_sim *, state_t);
+static void mips_sim_next_cycle (struct mips_sim *);
+static void mips_sim_wait_reg (struct mips_sim *, rtx, rtx);
+static int mips_sim_wait_regs_2 (rtx *, void *);
+static void mips_sim_wait_regs_1 (rtx *, void *);
+static void mips_sim_wait_regs (struct mips_sim *, rtx);
+static void mips_sim_wait_units (struct mips_sim *, rtx);
+static void mips_sim_wait_insn (struct mips_sim *, rtx);
+static void mips_sim_record_set (rtx, rtx, void *);
+static void mips_sim_issue_insn (struct mips_sim *, rtx);
+static void mips_sim_issue_nop (struct mips_sim *);
+static void mips_sim_finish_insn (struct mips_sim *, rtx);
+static void vr4130_avoid_branch_rt_conflict (rtx);
+static void vr4130_align_insns (void);
 static void mips_avoid_hazard (rtx, rtx, int *, rtx *, rtx);
 static void mips_avoid_hazards (void);
 static void mips_reorg (void);
@@ -227,11 +270,21 @@ static bool mips_strict_matching_cpu_name_p (const char *, const char *);
 static bool mips_matching_cpu_name_p (const char *, const char *);
 static const struct mips_cpu_info *mips_parse_cpu (const char *, const char *);
 static const struct mips_cpu_info *mips_cpu_info_from_isa (int);
-static int mips_adjust_cost (rtx, rtx, rtx, int);
 static bool mips_return_in_memory (tree, tree);
 static bool mips_strict_argument_naming (CUMULATIVE_ARGS *);
+static void mips_macc_chains_record (rtx);
+static void mips_macc_chains_reorder (rtx *, int);
+static void vr4130_true_reg_dependence_p_1 (rtx, rtx, void *);
+static bool vr4130_true_reg_dependence_p (rtx);
+static bool vr4130_swap_insns_p (rtx, rtx);
+static void vr4130_reorder (rtx *, int);
+static void mips_promote_ready (rtx *, int, int);
+static int mips_sched_reorder (FILE *, int, rtx *, int *, int);
+static int mips_variable_issue (FILE *, int, rtx, int);
+static int mips_adjust_cost (rtx, rtx, rtx, int);
 static int mips_issue_rate (void);
 static int mips_use_dfa_pipeline_interface (void);
+static int mips_multipass_dfa_lookahead (void);
 static void mips_init_libfuncs (void);
 static void mips_setup_incoming_varargs (CUMULATIVE_ARGS *, enum machine_mode,
 					 tree, int *, int);
@@ -273,10 +326,6 @@ struct mips_frame_info GTY(())
 };
 
 struct machine_function GTY(()) {
-  /* Pseudo-reg holding the address of the current function when
-     generating embedded PIC code.  */
-  rtx embedded_pic_fnaddr_rtx;
-
   /* Pseudo-reg holding the value of $28 in a mips16 function which
      refers to GP relative global variables.  */
   rtx mips16_gp_pseudo_rtx;
@@ -674,12 +723,19 @@ const struct mips_cpu_info mips_cpu_info_table[] = {
 #undef TARGET_ASM_SELECT_RTX_SECTION
 #define TARGET_ASM_SELECT_RTX_SECTION mips_select_rtx_section
 
+#undef TARGET_SCHED_REORDER
+#define TARGET_SCHED_REORDER mips_sched_reorder
+#undef TARGET_SCHED_VARIABLE_ISSUE
+#define TARGET_SCHED_VARIABLE_ISSUE mips_variable_issue
 #undef TARGET_SCHED_ADJUST_COST
 #define TARGET_SCHED_ADJUST_COST mips_adjust_cost
 #undef TARGET_SCHED_ISSUE_RATE
 #define TARGET_SCHED_ISSUE_RATE mips_issue_rate
 #undef TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE
 #define TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE mips_use_dfa_pipeline_interface
+#undef TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD
+#define TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD \
+  mips_multipass_dfa_lookahead
 
 #undef TARGET_FUNCTION_OK_FOR_SIBCALL
 #define TARGET_FUNCTION_OK_FOR_SIBCALL mips_function_ok_for_sibcall
@@ -691,8 +747,6 @@ const struct mips_cpu_info mips_cpu_info_table[] = {
 #undef TARGET_ADDRESS_COST
 #define TARGET_ADDRESS_COST mips_address_cost
 
-#undef TARGET_ENCODE_SECTION_INFO
-#define TARGET_ENCODE_SECTION_INFO mips_encode_section_info
 #undef TARGET_IN_SMALL_DATA_P
 #define TARGET_IN_SMALL_DATA_P mips_in_small_data_p
 
@@ -1661,6 +1715,23 @@ stack_operand (rtx op, enum machine_mode mode)
 	  && addr.reg == stack_pointer_rtx);
 }
 
+/* Helper function for DFA schedulers.  Return true if OP is a floating
+   point register.  */
+
+int
+fp_register_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
+{
+  return REG_P (op) && FP_REG_P (REGNO (op));
+}
+
+/* Helper function for DFA schedulers.  Return true if OP is a LO reg.  */
+
+int
+lo_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
+{
+  return REG_P (op) && REGNO (op) == LO_REGNUM;
+}
+
 
 /* This function is used to implement GO_IF_LEGITIMATE_ADDRESS.  It
    returns a nonzero value if X is a legitimate address for a memory
@@ -1990,6 +2061,23 @@ mips_legitimize_move (enum machine_mode mode, rtx dest, rtx src)
       return true;
     }
 
+  /* Check for individual, fully-reloaded mflo and mfhi instructions.  */
+  if (GET_MODE_SIZE (mode) <= UNITS_PER_WORD
+      && REG_P (src) && MD_REG_P (REGNO (src))
+      && REG_P (dest) && GP_REG_P (REGNO (dest)))
+    {
+      int other_regno = REGNO (src) == HI_REGNUM ? LO_REGNUM : HI_REGNUM;
+      if (GET_MODE_SIZE (mode) <= 4)
+	emit_insn (gen_mfhilo_si (gen_rtx_REG (SImode, REGNO (dest)),
+				  gen_rtx_REG (SImode, REGNO (src)),
+				  gen_rtx_REG (SImode, other_regno)));
+      else
+	emit_insn (gen_mfhilo_di (gen_rtx_REG (DImode, REGNO (dest)),
+				  gen_rtx_REG (DImode, REGNO (src)),
+				  gen_rtx_REG (DImode, other_regno)));
+      return true;
+    }
+
   /* We need to deal with constants that would be legitimate
      immediate_operands but not legitimate move_operands.  */
   if (CONSTANT_P (src) && !move_operand (src, mode))
@@ -2248,6 +2336,8 @@ mips_rtx_costs (rtx x, int code, int outer_code, int *total)
             *total = COSTS_N_INSNS (2);
           else if (TUNE_MIPS6000)
             *total = COSTS_N_INSNS (3);
+	  else if (TUNE_SB1)
+	    *total = COSTS_N_INSNS (4);
           else
             *total = COSTS_N_INSNS (6);
           return true;
@@ -2272,7 +2362,8 @@ mips_rtx_costs (rtx x, int code, int outer_code, int *total)
         {
           if (TUNE_MIPS3000
               || TUNE_MIPS3900
-              || TUNE_MIPS5000)
+              || TUNE_MIPS5000
+	      || TUNE_SB1)
             *total = COSTS_N_INSNS (4);
           else if (TUNE_MIPS6000
                    || TUNE_MIPS5400
@@ -2285,7 +2376,9 @@ mips_rtx_costs (rtx x, int code, int outer_code, int *total)
 
       if (mode == DFmode)
         {
-          if (TUNE_MIPS3000
+          if (TUNE_SB1)
+	    *total = COSTS_N_INSNS (4);
+          else if (TUNE_MIPS3000
               || TUNE_MIPS3900
               || TUNE_MIPS5000)
             *total = COSTS_N_INSNS (5);
@@ -2302,9 +2395,11 @@ mips_rtx_costs (rtx x, int code, int outer_code, int *total)
         *total = COSTS_N_INSNS (12);
       else if (TUNE_MIPS3900)
         *total = COSTS_N_INSNS (2);
-      else if (TUNE_MIPS5400 || TUNE_MIPS5500)
-        *total = COSTS_N_INSNS ((mode == DImode) ? 4 : 3);
-      else if (TUNE_MIPS7000)
+      else if (TUNE_MIPS4130)
+	*total = COSTS_N_INSNS (mode == DImode ? 6 : 4);
+      else if (TUNE_MIPS5400 || TUNE_SB1)
+        *total = COSTS_N_INSNS (mode == DImode ? 4 : 3);
+      else if (TUNE_MIPS5500 || TUNE_MIPS7000)
         *total = COSTS_N_INSNS (mode == DImode ? 9 : 5);
       else if (TUNE_MIPS9000)
         *total = COSTS_N_INSNS (mode == DImode ? 8 : 3);
@@ -2325,6 +2420,8 @@ mips_rtx_costs (rtx x, int code, int outer_code, int *total)
             *total = COSTS_N_INSNS (12);
           else if (TUNE_MIPS6000)
             *total = COSTS_N_INSNS (15);
+	  else if (TUNE_SB1)
+	    *total = COSTS_N_INSNS (24);
           else if (TUNE_MIPS5400 || TUNE_MIPS5500)
             *total = COSTS_N_INSNS (30);
           else
@@ -2341,6 +2438,8 @@ mips_rtx_costs (rtx x, int code, int outer_code, int *total)
             *total = COSTS_N_INSNS (59);
           else if (TUNE_MIPS6000)
             *total = COSTS_N_INSNS (16);
+	  else if (TUNE_SB1)
+	    *total = COSTS_N_INSNS (32);
           else
             *total = COSTS_N_INSNS (36);
           return true;
@@ -2356,6 +2455,8 @@ mips_rtx_costs (rtx x, int code, int outer_code, int *total)
         *total = COSTS_N_INSNS (38);
       else if (TUNE_MIPS5000)
         *total = COSTS_N_INSNS (36);
+      else if (TUNE_SB1)
+	*total = COSTS_N_INSNS ((mode == SImode) ? 36 : 68);
       else if (TUNE_MIPS5400 || TUNE_MIPS5500)
         *total = COSTS_N_INSNS ((mode == SImode) ? 42 : 74);
       else
@@ -2393,55 +2494,6 @@ static int
 mips_address_cost (rtx addr)
 {
   return mips_address_insns (addr, SImode);
-}
-
-/* Return a pseudo that points to the address of the current function.
-   The first time it is called for a function, an initializer for the
-   pseudo is emitted in the beginning of the function.  */
-
-rtx
-embedded_pic_fnaddr_reg (void)
-{
-  if (cfun->machine->embedded_pic_fnaddr_rtx == NULL)
-    {
-      rtx seq;
-
-      cfun->machine->embedded_pic_fnaddr_rtx = gen_reg_rtx (Pmode);
-
-      /* Output code at function start to initialize the pseudo-reg.  */
-      /* ??? We used to do this in FINALIZE_PIC, but that does not work for
-	 inline functions, because it is called after RTL for the function
-	 has been copied.  The pseudo-reg in embedded_pic_fnaddr_rtx however
-	 does not get copied, and ends up not matching the rest of the RTL.
-	 This solution works, but means that we get unnecessary code to
-	 initialize this value every time a function is inlined into another
-	 function.  */
-      start_sequence ();
-      emit_insn (gen_get_fnaddr (cfun->machine->embedded_pic_fnaddr_rtx,
-				 XEXP (DECL_RTL (current_function_decl), 0)));
-      seq = get_insns ();
-      end_sequence ();
-      push_topmost_sequence ();
-      emit_insn_after (seq, get_insns ());
-      pop_topmost_sequence ();
-    }
-
-  return cfun->machine->embedded_pic_fnaddr_rtx;
-}
-
-/* Return RTL for the offset from the current function to the argument.
-   X is the symbol whose offset from the current function we want.  */
-
-rtx
-embedded_pic_offset (rtx x)
-{
-  /* Make sure it is emitted.  */
-  embedded_pic_fnaddr_reg ();
-
-  return
-    gen_rtx_CONST (Pmode,
-		   gen_rtx_MINUS (Pmode, x,
-				  XEXP (DECL_RTL (current_function_decl), 0)));
 }
 
 /* Return one word of double-word value OP, taking into account the fixed
@@ -2600,9 +2652,6 @@ mips_output_move (rtx dest, rtx src)
     {
       if (src_code == REG)
 	{
-	  if (MD_REG_P (REGNO (src)))
-	    return "mf%1\t%0";
-
 	  if (ST_REG_P (REGNO (src)) && ISA_HAS_8CC)
 	    return "lui\t%0,0x3f80\n\tmovf\t%0,%.,%1";
 
@@ -4084,8 +4133,6 @@ mips_va_arg (tree valist, tree type)
 	  rsize = UNITS_PER_WORD;
 	}
 
-      addr_rtx = gen_reg_rtx (Pmode);
-
       if (!EABI_FLOAT_VARARGS_P)
 	{
 	  /* Case of all args in a merged stack.  No need to check bounds,
@@ -4108,12 +4155,12 @@ mips_va_arg (tree valist, tree type)
 
 	  /* Emit code to set addr_rtx to the valist, and postincrement
 	     the valist by the size of the argument, rounded up to the
-	     next word.	 */
+	     next word.	 Account for padding on big-endian targets.  */
 	  t = build (POSTINCREMENT_EXPR, TREE_TYPE (gpr), gpr,
 		     size_int (rsize));
-	  r = expand_expr (t, addr_rtx, Pmode, EXPAND_NORMAL);
-	  if (r != addr_rtx)
-	    emit_move_insn (addr_rtx, r);
+	  addr_rtx = expand_expr (t, 0, Pmode, EXPAND_NORMAL);
+	  if (BYTES_BIG_ENDIAN)
+	    addr_rtx = plus_constant (addr_rtx, rsize - size);
 
 	  /* Flush the POSTINCREMENT.  */
 	  emit_queue();
@@ -4126,6 +4173,8 @@ mips_va_arg (tree valist, tree type)
 	  tree ovfl, top, off;
 	  rtx lab_over = NULL_RTX, lab_false;
 	  HOST_WIDE_INT osize;
+
+	  addr_rtx = gen_reg_rtx (Pmode);
 
 	  f_ovfl = TYPE_FIELDS (va_list_type_node);
 	  f_gtop = TREE_CHAIN (f_ovfl);
@@ -4177,6 +4226,25 @@ mips_va_arg (tree valist, tree type)
 		 each one will take up UNITS_PER_HWFPVALUE bytes, regardless
 		 of the float's precision.  */
 	      rsize = UNITS_PER_HWFPVALUE;
+
+	      /* Overflow arguments are padded to UNITS_PER_WORD bytes
+		 (= PARM_BOUNDARY bits).  This can be different from RSIZE
+		 in two cases:
+
+		     (1) On 32-bit targets when TYPE is a structure such as:
+
+			     struct s { float f; };
+
+			 Such structures are passed in paired FPRs, so RSIZE
+			 will be 8 bytes.  However, the structure only takes
+			 up 4 bytes of memory, so OSIZE will only be 4.
+
+		     (2) In combinations such as -mgp64 -msingle-float
+			 -fshort-double.  Doubles passed in registers
+			 will then take up 4 (UNITS_PER_HWFPVALUE) bytes,
+			 but those passed on the stack take up
+			 UNITS_PER_WORD bytes.  */
+	      osize = MAX (GET_MODE_SIZE (TYPE_MODE (type)), UNITS_PER_WORD);
 	    }
 	  else
 	    {
@@ -4190,14 +4258,8 @@ mips_va_arg (tree valist, tree type)
 		  t = build (MODIFY_EXPR, TREE_TYPE (off), off, t);
 		  expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
 		}
+	      osize = rsize;
 	    }
-	  /* Every overflow argument must take up at least UNITS_PER_WORD
-	     bytes (= PARM_BOUNDARY bits).  RSIZE can sometimes be smaller
-	     than that, such as in the combination -mgp64 -msingle-float
-	     -fshort-double.  Doubles passed in registers will then take
-	     up UNITS_PER_HWFPVALUE bytes, but those passed on the stack
-	     take up UNITS_PER_WORD bytes.  */
-	  osize = MAX (rsize, UNITS_PER_WORD);
 
 	  /* [2] Emit code to branch if off == 0.  */
 	  r = expand_expr (off, NULL_RTX, TYPE_MODE (TREE_TYPE (off)),
@@ -4205,8 +4267,12 @@ mips_va_arg (tree valist, tree type)
 	  emit_cmp_and_jump_insns (r, const0_rtx, EQ, const1_rtx, GET_MODE (r),
 				   1, lab_false);
 
-	  /* [4] Emit code for: addr_rtx = top - off.  */
+	  /* [4] Emit code for: addr_rtx = top - off.  On big endian machines,
+	     the argument has RSIZE - SIZE bytes of leading padding.  */
 	  t = build (MINUS_EXPR, TREE_TYPE (top), top, off);
+	  if (BYTES_BIG_ENDIAN && rsize > size)
+	    t = build (PLUS_EXPR, TREE_TYPE (t), t,
+		       build_int_2 (rsize - size, 0));
 	  r = expand_expr (t, addr_rtx, Pmode, EXPAND_NORMAL);
 	  if (r != addr_rtx)
 	    emit_move_insn (addr_rtx, r);
@@ -4236,12 +4302,12 @@ mips_va_arg (tree valist, tree type)
 
 	  /* [10, 11].	Emit code to store ovfl in addr_rtx, then
 	     post-increment ovfl by osize.  On big-endian machines,
-	     the argument has OSIZE - RSIZE bytes of leading padding.  */
+	     the argument has OSIZE - SIZE bytes of leading padding.  */
 	  t = build (POSTINCREMENT_EXPR, TREE_TYPE (ovfl), ovfl,
 		     size_int (osize));
-	  if (BYTES_BIG_ENDIAN && osize > rsize)
+	  if (BYTES_BIG_ENDIAN && osize > size)
 	    t = build (PLUS_EXPR, TREE_TYPE (t), t,
-		       build_int_2 (osize - rsize, 0));
+		       build_int_2 (osize - size, 0));
 	  r = expand_expr (t, addr_rtx, Pmode, EXPAND_NORMAL);
 	  if (r != addr_rtx)
 	    emit_move_insn (addr_rtx, r);
@@ -4249,8 +4315,6 @@ mips_va_arg (tree valist, tree type)
 	  emit_queue();
 	  emit_label (lab_over);
 	}
-      if (BYTES_BIG_ENDIAN && rsize != size)
-	addr_rtx = plus_constant (addr_rtx, rsize - size);
       if (indirect)
 	{
 	  addr_rtx = force_reg (Pmode, addr_rtx);
@@ -4682,9 +4746,10 @@ override_options (void)
 	 architecture.
 
 	 By default, we enable use of Branch Likely instructions on
-	 all architectures which support them except for MIPS32 and MIPS64
-	 (i.e., the generic MIPS32 and MIPS64 ISAs, and processors which
-	 implement them).
+	 all architectures which support them with the following
+	 exceptions: when creating MIPS32 or MIPS64 code, and when
+	 tuning for architectures where their use tends to hurt
+	 performance.
 
 	 The MIPS32 and MIPS64 architecture specifications say "Software
 	 is strongly encouraged to avoid use of Branch Likely
@@ -4692,7 +4757,9 @@ override_options (void)
 	 of the [MIPS32 and MIPS64] architecture."  Therefore, we do not
 	 issue those instructions unless instructed to do so by
 	 -mbranch-likely.  */
-      if (ISA_HAS_BRANCHLIKELY && !(ISA_MIPS32 || ISA_MIPS32R2 || ISA_MIPS64))
+      if (ISA_HAS_BRANCHLIKELY
+	  && !(ISA_MIPS32 || ISA_MIPS32R2 || ISA_MIPS64)
+	  && !(TUNE_MIPS5500 || TUNE_SB1))
 	target_flags |= MASK_BRANCHLIKELY;
       else
 	target_flags &= ~MASK_BRANCHLIKELY;
@@ -4732,30 +4799,6 @@ override_options (void)
   if (!targetm.have_named_sections)
     mips_section_threshold = 0;
 
-  /* -membedded-pic is a form of PIC code suitable for embedded
-     systems.  All calls are made using PC relative addressing, and
-     all data is addressed using the $gp register.  This requires gas,
-     which does most of the work, and GNU ld, which automatically
-     expands PC relative calls which are out of range into a longer
-     instruction sequence.  All gcc really does differently is
-     generate a different sequence for a switch.  */
-  if (TARGET_EMBEDDED_PIC)
-    {
-      flag_pic = 1;
-      if (TARGET_ABICALLS)
-	warning ("-membedded-pic and -mabicalls are incompatible");
-
-      if (g_switch_set)
-	warning ("-G and -membedded-pic are incompatible");
-
-      /* Setting mips_section_threshold is not required, because gas
-	 will force everything to be GP addressable anyhow, but
-	 setting it will cause gcc to make better estimates of the
-	 number of instructions required to access a particular data
-	 item.  */
-      mips_section_threshold = 0x7fffffff;
-    }
-
   /* mips_split_addresses is a half-way house between explicit
      relocations and the traditional assembler macros.  It can
      split absolute 32-bit symbolic constants into a high/lo_sum
@@ -4787,7 +4830,7 @@ override_options (void)
 
        (1) The value of an R_MIPS_GOT16 relocation depends on whether
 	   the symbol is local or global.  We therefore need to know
-	   a symbol's binding before refering to it using %got().
+	   a symbol's binding before referring to it using %got().
 
        (2) R_MIPS_CALL16 can only be applied to global symbols.
 
@@ -4809,6 +4852,12 @@ override_options (void)
 
   if (TARGET_NAME_REGS)
     memcpy (mips_reg_names, mips_sw_reg_names, sizeof (mips_reg_names));
+
+  /* -mvr4130-align is a "speed over size" optimization: it usually produces
+     faster code, but at the expense of more nops.  Enable it at -O3 and
+     above.  */
+  if (optimize > 2 && (target_flags_explicit & MASK_VR4130_ALIGN) == 0)
+    target_flags |= MASK_VR4130_ALIGN;
 
   /* When compiling for the mips16, we can not use floating point.  We
      record the original hard float value in mips16_hard_float.  */
@@ -4936,7 +4985,7 @@ override_options (void)
 			|| (ISA_HAS_8CC && mode == TFmode));
 
 	  else if (MD_REG_P (regno))
-	    temp = (class == MODE_INT
+	    temp = (INTEGRAL_MODE_P (mode)
 		    && (size <= UNITS_PER_WORD
 			|| (regno == MD_REG_FIRST
 			    && size == 2 * UNITS_PER_WORD)));
@@ -5209,7 +5258,6 @@ mips_debugger_offset (rtx addr, HOST_WIDE_INT offset)
    'F'  print part of opcode for a floating-point branch condition.
    'N'  print part of opcode for a branch condition, inverted.
    'W'  print part of opcode for a floating-point branch condition, inverted.
-   'S'  OP is CODE_LABEL, print with prefix of "LS" (for embedded switch).
    'B'  print 'z' for EQ, 'n' for NE
    'b'  print 'n' for EQ, 'z' for NE
    'T'  print 'f' for EQ, 't' for NE
@@ -5446,14 +5494,6 @@ print_operand (FILE *file, rtx op, int letter)
 
   else if (letter == 'R')
     print_operand_reloc (file, op, mips_lo_relocs);
-
-  else if (letter == 'S')
-    {
-      char buffer[100];
-
-      ASM_GENERATE_INTERNAL_LABEL (buffer, "LS", CODE_LABEL_NUMBER (op));
-      assemble_name (file, buffer);
-    }
 
   else if (letter == 'Z')
     {
@@ -7214,11 +7254,7 @@ static void
 mips_select_section (tree decl, int reloc,
 		     unsigned HOST_WIDE_INT align ATTRIBUTE_UNUSED)
 {
-  if (TARGET_EMBEDDED_PIC && TREE_CODE (decl) == STRING_CST)
-    /* For embedded position independent code, put constant strings in the
-       text section, because the data section is limited to 64K in size.  */
-    text_section ();
-  else if (targetm.have_named_sections)
+  if (targetm.have_named_sections)
     default_elf_select_section (decl, reloc, align);
   else
     /* The native irix o32 assembler doesn't support named sections.  */
@@ -7271,38 +7307,6 @@ mips_in_small_data_p (tree decl)
 
   size = int_size_in_bytes (TREE_TYPE (decl));
   return (size > 0 && size <= mips_section_threshold);
-}
-
-
-/* When generating embedded PIC code, SYMBOL_REF_FLAG is set for
-   symbols which are not in the .text section.  */
-
-static void
-mips_encode_section_info (tree decl, rtx rtl, int first)
-{
-  rtx symbol;
-
-  if (GET_CODE (rtl) != MEM)
-    return;
-
-  symbol = XEXP (rtl, 0);
-
-  if (GET_CODE (symbol) != SYMBOL_REF)
-    return;
-
-  if (TARGET_EMBEDDED_PIC)
-    {
-      if (TREE_CODE (decl) == VAR_DECL)
-        SYMBOL_REF_FLAG (symbol) = 1;
-      else if (TREE_CODE (decl) == FUNCTION_DECL)
-        SYMBOL_REF_FLAG (symbol) = 0;
-      else if (TREE_CODE (decl) == STRING_CST)
-        SYMBOL_REF_FLAG (symbol) = 0;
-      else
-        SYMBOL_REF_FLAG (symbol) = 1;
-    }
-
-  default_encode_section_info (decl, rtl, first);
 }
 
 /* See whether VALTYPE is a record whose fields should be returned in
@@ -8434,8 +8438,373 @@ mips16_lay_out_constants (void)
     }
   dump_constants (pool.first, get_last_insn ());
 }
+
+/* A temporary variable used by for_each_rtx callbacks, etc.  */
+static rtx mips_sim_insn;
 
+/* A structure representing the state of the processor pipeline.
+   Used by the mips_sim_* family of functions.  */
+struct mips_sim {
+  /* The maximum number of instructions that can be issued in a cycle.
+     (Caches mips_issue_rate.)  */
+  unsigned int issue_rate;
 
+  /* The current simulation time.  */
+  unsigned int time;
+
+  /* How many more instructions can be issued in the current cycle.  */
+  unsigned int insns_left;
+
+  /* LAST_SET[X].INSN is the last instruction to set register X.
+     LAST_SET[X].TIME is the time at which that instruction was issued.
+     INSN is null if no instruction has yet set register X.  */
+  struct {
+    rtx insn;
+    unsigned int time;
+  } last_set[FIRST_PSEUDO_REGISTER];
+
+  /* The pipeline's current DFA state.  */
+  state_t dfa_state;
+};
+
+/* Reset STATE to the initial simulation state.  */
+
+static void
+mips_sim_reset (struct mips_sim *state)
+{
+  state->time = 0;
+  state->insns_left = state->issue_rate;
+  memset (&state->last_set, 0, sizeof (state->last_set));
+  state_reset (state->dfa_state);
+}
+
+/* Initialize STATE before its first use.  DFA_STATE points to an
+   allocated but uninitialized DFA state.  */
+
+static void
+mips_sim_init (struct mips_sim *state, state_t dfa_state)
+{
+  state->issue_rate = mips_issue_rate ();
+  state->dfa_state = dfa_state;
+  mips_sim_reset (state);
+}
+
+/* Advance STATE by one clock cycle.  */
+
+static void
+mips_sim_next_cycle (struct mips_sim *state)
+{
+  state->time++;
+  state->insns_left = state->issue_rate;
+  state_transition (state->dfa_state, 0);
+}
+
+/* Advance simulation state STATE until instruction INSN can read
+   register REG.  */
+
+static void
+mips_sim_wait_reg (struct mips_sim *state, rtx insn, rtx reg)
+{
+  unsigned int i;
+
+  for (i = 0; i < HARD_REGNO_NREGS (REGNO (reg), GET_MODE (reg)); i++)
+    if (state->last_set[REGNO (reg) + i].insn != 0)
+      {
+	unsigned int t;
+
+	t = state->last_set[REGNO (reg) + i].time;
+	t += insn_latency (state->last_set[REGNO (reg) + i].insn, insn);
+	while (state->time < t)
+	  mips_sim_next_cycle (state);
+    }
+}
+
+/* A for_each_rtx callback.  If *X is a register, advance simulation state
+   DATA until mips_sim_insn can read the register's value.  */
+
+static int
+mips_sim_wait_regs_2 (rtx *x, void *data)
+{
+  if (REG_P (*x))
+    mips_sim_wait_reg (data, mips_sim_insn, *x);
+  return 0;
+}
+
+/* Call mips_sim_wait_regs_2 (R, DATA) for each register R mentioned in *X.  */
+
+static void
+mips_sim_wait_regs_1 (rtx *x, void *data)
+{
+  for_each_rtx (x, mips_sim_wait_regs_2, data);
+}
+
+/* Advance simulation state STATE until all of INSN's register
+   dependencies are satisfied.  */
+
+static void
+mips_sim_wait_regs (struct mips_sim *state, rtx insn)
+{
+  mips_sim_insn = insn;
+  note_uses (&PATTERN (insn), mips_sim_wait_regs_1, state);
+}
+
+/* Advance simulation state STATE until the units required by
+   instruction INSN are available.  */
+
+static void
+mips_sim_wait_units (struct mips_sim *state, rtx insn)
+{
+  state_t tmp_state;
+
+  tmp_state = alloca (state_size ());
+  while (state->insns_left == 0
+	 || (memcpy (tmp_state, state->dfa_state, state_size ()),
+	     state_transition (tmp_state, insn) >= 0))
+    mips_sim_next_cycle (state);
+}
+
+/* Advance simulation state STATE until INSN is ready to issue.  */
+
+static void
+mips_sim_wait_insn (struct mips_sim *state, rtx insn)
+{
+  mips_sim_wait_regs (state, insn);
+  mips_sim_wait_units (state, insn);
+}
+
+/* mips_sim_insn has just set X.  Update the LAST_SET array
+   in simulation state DATA.  */
+
+static void
+mips_sim_record_set (rtx x, rtx pat ATTRIBUTE_UNUSED, void *data)
+{
+  struct mips_sim *state;
+  unsigned int i;
+
+  state = data;
+  if (REG_P (x))
+    for (i = 0; i < HARD_REGNO_NREGS (REGNO (x), GET_MODE (x)); i++)
+      {
+	state->last_set[REGNO (x) + i].insn = mips_sim_insn;
+	state->last_set[REGNO (x) + i].time = state->time;
+      }
+}
+
+/* Issue instruction INSN in scheduler state STATE.  Assume that INSN
+   can issue immediately (i.e., that mips_sim_wait_insn has already
+   been called).  */
+
+static void
+mips_sim_issue_insn (struct mips_sim *state, rtx insn)
+{
+  state_transition (state->dfa_state, insn);
+  state->insns_left--;
+
+  mips_sim_insn = insn;
+  note_stores (PATTERN (insn), mips_sim_record_set, state);
+}
+
+/* Simulate issuing a NOP in state STATE.  */
+
+static void
+mips_sim_issue_nop (struct mips_sim *state)
+{
+  if (state->insns_left == 0)
+    mips_sim_next_cycle (state);
+  state->insns_left--;
+}
+
+/* Update simulation state STATE so that it's ready to accept the instruction
+   after INSN.  INSN should be part of the main rtl chain, not a member of a
+   SEQUENCE.  */
+
+static void
+mips_sim_finish_insn (struct mips_sim *state, rtx insn)
+{
+  /* If INSN is a jump with an implicit delay slot, simulate a nop.  */
+  if (JUMP_P (insn))
+    mips_sim_issue_nop (state);
+
+  switch (GET_CODE (SEQ_BEGIN (insn)))
+    {
+    case CODE_LABEL:
+    case CALL_INSN:
+      /* We can't predict the processor state after a call or label.  */
+      mips_sim_reset (state);
+      break;
+
+    case JUMP_INSN:
+      /* The delay slots of branch likely instructions are only executed
+	 when the branch is taken.  Therefore, if the caller has simulated
+	 the delay slot instruction, STATE does not really reflect the state
+	 of the pipeline for the instruction after the delay slot.  Also,
+	 branch likely instructions tend to incur a penalty when not taken,
+	 so there will probably be an extra delay between the branch and
+	 the instruction after the delay slot.  */
+      if (INSN_ANNULLED_BRANCH_P (SEQ_BEGIN (insn)))
+	mips_sim_reset (state);
+      break;
+
+    default:
+      break;
+    }
+}
+
+/* The VR4130 pipeline issues aligned pairs of instructions together,
+   but it stalls the second instruction if it depends on the first.
+   In order to cut down the amount of logic required, this dependence
+   check is not based on a full instruction decode.  Instead, any non-SPECIAL
+   instruction is assumed to modify the register specified by bits 20-16
+   (which is usually the "rt" field).
+
+   In beq, beql, bne and bnel instructions, the rt field is actually an
+   input, so we can end up with a false dependence between the branch
+   and its delay slot.  If this situation occurs in instruction INSN,
+   try to avoid it by swapping rs and rt.  */
+
+static void
+vr4130_avoid_branch_rt_conflict (rtx insn)
+{
+  rtx first, second;
+
+  first = SEQ_BEGIN (insn);
+  second = SEQ_END (insn);
+  if (GET_CODE (first) == JUMP_INSN
+      && GET_CODE (second) == INSN
+      && GET_CODE (PATTERN (first)) == SET
+      && GET_CODE (SET_DEST (PATTERN (first))) == PC
+      && GET_CODE (SET_SRC (PATTERN (first))) == IF_THEN_ELSE)
+    {
+      /* Check for the right kind of condition.  */
+      rtx cond = XEXP (SET_SRC (PATTERN (first)), 0);
+      if ((GET_CODE (cond) == EQ || GET_CODE (cond) == NE)
+	  && REG_P (XEXP (cond, 0))
+	  && REG_P (XEXP (cond, 1))
+	  && reg_referenced_p (XEXP (cond, 1), PATTERN (second))
+	  && !reg_referenced_p (XEXP (cond, 0), PATTERN (second)))
+	{
+	  /* SECOND mentions the rt register but not the rs register.  */
+	  rtx tmp = XEXP (cond, 0);
+	  XEXP (cond, 0) = XEXP (cond, 1);
+	  XEXP (cond, 1) = tmp;
+	}
+    }
+}
+
+/* Implement -mvr4130-align.  Go through each basic block and simulate the
+   processor pipeline.  If we find that a pair of instructions could execute
+   in parallel, and the first of those instruction is not 8-byte aligned,
+   insert a nop to make it aligned.  */
+
+static void
+vr4130_align_insns (void)
+{
+  struct mips_sim state;
+  rtx insn, subinsn, last, last2, next;
+  bool aligned_p;
+
+  dfa_start ();
+
+  /* LAST is the last instruction before INSN to have a nonzero length.
+     LAST2 is the last such instruction before LAST.  */
+  last = 0;
+  last2 = 0;
+
+  /* ALIGNED_P is true if INSN is known to be at an aligned address.  */
+  aligned_p = true;
+
+  mips_sim_init (&state, alloca (state_size ()));
+  for (insn = get_insns (); insn != 0; insn = next)
+    {
+      unsigned int length;
+
+      next = NEXT_INSN (insn);
+
+      /* See the comment above vr4130_avoid_branch_rt_conflict for details.
+	 This isn't really related to the alignment pass, but we do it on
+	 the fly to avoid a separate instruction walk.  */
+      vr4130_avoid_branch_rt_conflict (insn);
+
+      if (USEFUL_INSN_P (insn))
+	FOR_EACH_SUBINSN (subinsn, insn)
+	  {
+	    mips_sim_wait_insn (&state, subinsn);
+
+	    /* If we want this instruction to issue in parallel with the
+	       previous one, make sure that the previous instruction is
+	       aligned.  There are several reasons why this isn't worthwhile
+	       when the second instruction is a call:
+
+	          - Calls are less likely to be performance critical,
+		  - There's a good chance that the delay slot can execute
+		    in parallel with the call.
+	          - The return address would then be unaligned.
+
+	       In general, if we're going to insert a nop between instructions
+	       X and Y, it's better to insert it immediately after X.  That
+	       way, if the nop makes Y aligned, it will also align any labels
+	       between X and Y.  */
+	    if (state.insns_left != state.issue_rate
+		&& GET_CODE (subinsn) != CALL_INSN)
+	      {
+		if (subinsn == SEQ_BEGIN (insn) && aligned_p)
+		  {
+		    /* SUBINSN is the first instruction in INSN and INSN is
+		       aligned.  We want to align the previous instruction
+		       instead, so insert a nop between LAST2 and LAST.
+
+		       Note that LAST could be either a single instruction
+		       or a branch with a delay slot.  In the latter case,
+		       LAST, like INSN, is already aligned, but the delay
+		       slot must have some extra delay that stops it from
+		       issuing at the same time as the branch.  We therefore
+		       insert a nop before the branch in order to align its
+		       delay slot.  */
+		    emit_insn_after (gen_nop (), last2);
+		    aligned_p = false;
+		  }
+		else if (subinsn != SEQ_BEGIN (insn) && !aligned_p)
+		  {
+		    /* SUBINSN is the delay slot of INSN, but INSN is
+		       currently unaligned.  Insert a nop between
+		       LAST and INSN to align it.  */
+		    emit_insn_after (gen_nop (), last);
+		    aligned_p = true;
+		  }
+	      }
+	    mips_sim_issue_insn (&state, subinsn);
+	  }
+      mips_sim_finish_insn (&state, insn);
+
+      /* Update LAST, LAST2 and ALIGNED_P for the next instruction.  */
+      length = get_attr_length (insn);
+      if (length > 0)
+	{
+	  /* If the instruction is an asm statement or multi-instruction
+	     mips.md patern, the length is only an estimate.  Insert an
+	     8 byte alignment after it so that the following instructions
+	     can be handled correctly.  */
+	  if (GET_CODE (SEQ_BEGIN (insn)) == INSN
+	      && (recog_memoized (insn) < 0 || length >= 8))
+	    {
+	      next = emit_insn_after (gen_align (GEN_INT (3)), insn);
+	      next = NEXT_INSN (next);
+	      mips_sim_next_cycle (&state);
+	      aligned_p = true;
+	    }
+	  else if (length & 4)
+	    aligned_p = !aligned_p;
+	  last2 = last;
+	  last = insn;
+	}
+
+      /* See whether INSN is an aligned label.  */
+      if (LABEL_P (insn) && label_to_alignment (insn) >= 3)
+	aligned_p = true;
+    }
+  dfa_finish ();
+}
+
 /* Subroutine of mips_reorg.  If there is a hazard between INSN
    and a previous instruction, avoid it by inserting nops after
    instruction AFTER.
@@ -8566,6 +8935,8 @@ mips_reorg (void)
       if (mips_flag_delayed_branch)
 	dbr_schedule (get_insns (), dump_file);
       mips_avoid_hazards ();
+      if (TUNE_MIPS4130 && TARGET_VR4130_ALIGN)
+	vr4130_align_insns ();
     }
 }
 
@@ -8931,7 +9302,7 @@ mips_output_conditional_branch (rtx insn, rtx *operands, int two_operands_p,
 		.set macro
 		.set reorder
 
-	   When generating non-embedded PIC, instead of:
+	   When generating PIC, instead of:
 
 	        j     target
 
@@ -9231,20 +9602,6 @@ mips_cpu_info_from_isa (int isa)
   return 0;
 }
 
-/* Adjust the cost of INSN based on the relationship between INSN that
-   is dependent on DEP_INSN through the dependence LINK.  The default
-   is to make no adjustment to COST.
-
-   On the MIPS, ignore the cost of anti- and output-dependencies.  */
-static int
-mips_adjust_cost (rtx insn ATTRIBUTE_UNUSED, rtx link,
-		  rtx dep ATTRIBUTE_UNUSED, int cost)
-{
-  if (REG_NOTE_KIND (link) != 0)
-    return 0;	/* Anti or output dependence.  */
-  return cost;
-}
-
 /* Implement HARD_REGNO_NREGS.  The size of FP registers are controlled
    by UNITS_PER_FPREG.  All other registers are word sized.  */
 
@@ -9278,17 +9635,267 @@ mips_strict_argument_naming (CUMULATIVE_ARGS *ca ATTRIBUTE_UNUSED)
 {
   return !TARGET_OLDABI;
 }
+
+/* Return true if INSN is a multiply-add or multiply-subtract
+   instruction and PREV assigns to the accumulator operand.  */
+
+bool
+mips_linked_madd_p (rtx prev, rtx insn)
+{
+  rtx x;
+
+  x = single_set (insn);
+  if (x == 0)
+    return false;
+
+  x = SET_SRC (x);
+
+  if (GET_CODE (x) == PLUS
+      && GET_CODE (XEXP (x, 0)) == MULT
+      && reg_set_p (XEXP (x, 1), prev))
+    return true;
+
+  if (GET_CODE (x) == MINUS
+      && GET_CODE (XEXP (x, 1)) == MULT
+      && reg_set_p (XEXP (x, 0), prev))
+    return true;
+
+  return false;
+}
+
+/* Used by TUNE_MACC_CHAINS to record the last scheduled instruction
+   that may clobber hi or lo.  */
+
+static rtx mips_macc_chains_last_hilo;
+
+/* A TUNE_MACC_CHAINS helper function.  Record that instruction INSN has
+   been scheduled, updating mips_macc_chains_last_hilo appropriately.  */
+
+static void
+mips_macc_chains_record (rtx insn)
+{
+  if (get_attr_may_clobber_hilo (insn))
+    mips_macc_chains_last_hilo = insn;
+}
+
+/* A TUNE_MACC_CHAINS helper function.  Search ready queue READY, which
+   has NREADY elements, looking for a multiply-add or multiply-subtract
+   instruction that is cumulative with mips_macc_chains_last_hilo.
+   If there is one, promote it ahead of anything else that might
+   clobber hi or lo.  */
+
+static void
+mips_macc_chains_reorder (rtx *ready, int nready)
+{
+  int i, j;
+
+  if (mips_macc_chains_last_hilo != 0)
+    for (i = nready - 1; i >= 0; i--)
+      if (mips_linked_madd_p (mips_macc_chains_last_hilo, ready[i]))
+	{
+	  for (j = nready - 1; j > i; j--)
+	    if (recog_memoized (ready[j]) >= 0
+		&& get_attr_may_clobber_hilo (ready[j]))
+	      {
+		mips_promote_ready (ready, i, j);
+		break;
+	      }
+	  break;
+	}
+}
+
+/* The last instruction to be scheduled.  */
+
+static rtx vr4130_last_insn;
+
+/* A note_stores callback used by vr4130_true_reg_dependence_p.  DATA
+   points to an rtx that is initially an instruction.  Nullify the rtx
+   if the instruction uses the value of register X.  */
+
+static void
+vr4130_true_reg_dependence_p_1 (rtx x, rtx pat ATTRIBUTE_UNUSED, void *data)
+{
+  rtx *insn_ptr = data;
+  if (REG_P (x)
+      && *insn_ptr != 0
+      && reg_referenced_p (x, PATTERN (*insn_ptr)))
+    *insn_ptr = 0;
+}
+
+/* Return true if there is true register dependence between vr4130_last_insn
+   and INSN.  */
+
+static bool
+vr4130_true_reg_dependence_p (rtx insn)
+{
+  note_stores (PATTERN (vr4130_last_insn),
+	       vr4130_true_reg_dependence_p_1, &insn);
+  return insn == 0;
+}
+
+/* A TUNE_MIPS4130 helper function.  Given that INSN1 is at the head of
+   the ready queue and that INSN2 is the instruction after it, return
+   true if it is worth promoting INSN2 ahead of INSN1.  Look for cases
+   in which INSN1 and INSN2 can probably issue in parallel, but for
+   which (INSN2, INSN1) should be less sensitive to instruction
+   alignment than (INSN1, INSN2).  See 4130.md for more details.  */
+
+static bool
+vr4130_swap_insns_p (rtx insn1, rtx insn2)
+{
+  rtx dep;
+
+  /* Check for the following case:
+
+     1) there is some other instruction X with an anti dependence on INSN1;
+     2) X has a higher priority than INSN2; and
+     3) X is an arithmetic instruction (and thus has no unit restrictions).
+
+     If INSN1 is the last instruction blocking X, it would better to
+     choose (INSN1, X) over (INSN2, INSN1).  */
+  for (dep = INSN_DEPEND (insn1); dep != 0; dep = XEXP (dep, 1))
+    if (REG_NOTE_KIND (dep) == REG_DEP_ANTI
+	&& INSN_PRIORITY (XEXP (dep, 0)) > INSN_PRIORITY (insn2)
+	&& recog_memoized (XEXP (dep, 0)) >= 0
+	&& get_attr_vr4130_class (XEXP (dep, 0)) == VR4130_CLASS_ALU)
+      return false;
+
+  if (vr4130_last_insn != 0
+      && recog_memoized (insn1) >= 0
+      && recog_memoized (insn2) >= 0)
+    {
+      /* See whether INSN1 and INSN2 use different execution units,
+	 or if they are both ALU-type instructions.  If so, they can
+	 probably execute in parallel.  */
+      enum attr_vr4130_class class1 = get_attr_vr4130_class (insn1);
+      enum attr_vr4130_class class2 = get_attr_vr4130_class (insn2);
+      if (class1 != class2 || class1 == VR4130_CLASS_ALU)
+	{
+	  /* If only one of the instructions has a dependence on
+	     vr4130_last_insn, prefer to schedule the other one first.  */
+	  bool dep1 = vr4130_true_reg_dependence_p (insn1);
+	  bool dep2 = vr4130_true_reg_dependence_p (insn2);
+	  if (dep1 != dep2)
+	    return dep1;
+
+	  /* Prefer to schedule INSN2 ahead of INSN1 if vr4130_last_insn
+	     is not an ALU-type instruction and if INSN1 uses the same
+	     execution unit.  (Note that if this condition holds, we already
+	     know that INSN2 uses a different execution unit.)  */
+	  if (class1 != VR4130_CLASS_ALU
+	      && recog_memoized (vr4130_last_insn) >= 0
+	      && class1 == get_attr_vr4130_class (vr4130_last_insn))
+	    return true;
+	}
+    }
+  return false;
+}
+
+/* A TUNE_MIPS4130 helper function.  (READY, NREADY) describes a ready
+   queue with at least two instructions.  Swap the first two if
+   vr4130_swap_insns_p says that it could be worthwhile.  */
+
+static void
+vr4130_reorder (rtx *ready, int nready)
+{
+  if (vr4130_swap_insns_p (ready[nready - 1], ready[nready - 2]))
+    mips_promote_ready (ready, nready - 2, nready - 1);
+}
+
+/* Remove the instruction at index LOWER from ready queue READY and
+   reinsert it in front of the instruction at index HIGHER.  LOWER must
+   be <= HIGHER.  */
+
+static void
+mips_promote_ready (rtx *ready, int lower, int higher)
+{
+  rtx new_head;
+  int i;
+
+  new_head = ready[lower];
+  for (i = lower; i < higher; i++)
+    ready[i] = ready[i + 1];
+  ready[i] = new_head;
+}
+
+/* Implement TARGET_SCHED_REORDER.  */
+
+static int
+mips_sched_reorder (FILE *file ATTRIBUTE_UNUSED, int verbose ATTRIBUTE_UNUSED,
+		    rtx *ready, int *nreadyp, int cycle)
+{
+  if (!reload_completed && TUNE_MACC_CHAINS)
+    {
+      if (cycle == 0)
+	mips_macc_chains_last_hilo = 0;
+      if (*nreadyp > 0)
+	mips_macc_chains_reorder (ready, *nreadyp);
+    }
+  if (reload_completed && TUNE_MIPS4130 && !TARGET_VR4130_ALIGN)
+    {
+      if (cycle == 0)
+	vr4130_last_insn = 0;
+      if (*nreadyp > 1)
+	vr4130_reorder (ready, *nreadyp);
+    }
+  return mips_issue_rate ();
+}
+
+/* Implement TARGET_SCHED_VARIABLE_ISSUE.  */
+
+static int
+mips_variable_issue (FILE *file ATTRIBUTE_UNUSED, int verbose ATTRIBUTE_UNUSED,
+		     rtx insn, int more)
+{
+  switch (GET_CODE (PATTERN (insn)))
+    {
+    case USE:
+    case CLOBBER:
+      /* Don't count USEs and CLOBBERs against the issue rate.  */
+      break;
+
+    default:
+      more--;
+      if (!reload_completed && TUNE_MACC_CHAINS)
+	mips_macc_chains_record (insn);
+      vr4130_last_insn = insn;
+      break;
+    }
+  return more;
+}
+
+/* Implement TARGET_SCHED_ADJUST_COST.  We assume that anti and output
+   dependencies have no cost.  */
+
+static int
+mips_adjust_cost (rtx insn ATTRIBUTE_UNUSED, rtx link,
+		  rtx dep ATTRIBUTE_UNUSED, int cost)
+{
+  if (REG_NOTE_KIND (link) != 0)
+    return 0;
+  return cost;
+}
+
+/* Return the number of instructions that can be issued per cycle.  */
 
 static int
 mips_issue_rate (void)
 {
   switch (mips_tune)
     {
+    case PROCESSOR_R4130:
     case PROCESSOR_R5400:
     case PROCESSOR_R5500:
     case PROCESSOR_R7000:
     case PROCESSOR_R9000:
       return 2;
+
+    case PROCESSOR_SB1:
+      /* This is actually 4, but we get better performance if we claim 3.
+	 This is partly because of unwanted speculative code motion with the
+	 larger number, and partly because in most common cases we can't
+	 reach the theoretical max of 4.  */
+      return 3;
 
     default:
       return 1;
@@ -9306,10 +9913,12 @@ mips_use_dfa_pipeline_interface (void)
 {
   switch (mips_tune)
     {
+    case PROCESSOR_R4130:
     case PROCESSOR_R5400:
     case PROCESSOR_R5500:
     case PROCESSOR_R7000:
     case PROCESSOR_R9000:
+    case PROCESSOR_SB1:
     case PROCESSOR_SR71000:
       return true;
 
@@ -9318,6 +9927,19 @@ mips_use_dfa_pipeline_interface (void)
     }
 }
 
+/* Implements TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD.  This should
+   be as wide as the scheduling freedom in the DFA.  */
+
+static int
+mips_multipass_dfa_lookahead (void)
+{
+  /* Can schedule up to 4 of the 6 function units in any one cycle.  */
+  if (mips_tune == PROCESSOR_SB1)
+    return 4;
+
+  return 0;
+}
+
 
 const char *
 mips_emit_prefetch (rtx *operands)

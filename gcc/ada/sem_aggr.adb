@@ -212,7 +212,7 @@ package body Sem_Aggr is
    --  This procedure performs the semantic checks for an array aggregate.
    --  True is returned if the aggregate resolution succeeds.
    --  The procedure works by recursively checking each nested aggregate.
-   --  Specifically, after checking a sub-aggreate nested at the i-th level
+   --  Specifically, after checking a sub-aggregate nested at the i-th level
    --  we recursively check all the subaggregates at the i+1-st level (if any).
    --  Note that for aggregates analysis and resolution go hand in hand.
    --  Aggregate analysis has been delayed up to here and it is done while
@@ -960,7 +960,7 @@ package body Sem_Aggr is
 
             Aggr_Typ : constant Entity_Id := Etype (Typ);
             --  This is the unconstrained array type, which is the type
-            --  against which the aggregate is to be resoved. Typ itself
+            --  against which the aggregate is to be resolved. Typ itself
             --  is the array type of the context which may not be the same
             --  subtype as the subtype for the final aggregate.
 
@@ -977,7 +977,7 @@ package body Sem_Aggr is
             --  formal parameter. Consequently we also need to test for
             --  N_Procedure_Call_Statement or N_Function_Call.
 
-            Set_Etype (N, Aggr_Typ);  --  may be overridden later on.
+            Set_Etype (N, Aggr_Typ);  --  may be overridden later on
 
             --  Ada 0Y (AI-231): Propagate the null_exclusion attribute to the
             --  components of the array aggregate
@@ -1398,6 +1398,12 @@ package body Sem_Aggr is
                   return Failure;
                end if;
             end if;
+
+            --  Ada 0Y (AI-231): Propagate the type to the nested aggregate.
+            --  Required to check the null-exclusion attribute (if present).
+            --  This value may be overridden later on.
+
+            Set_Etype (Expr, Etype (N));
 
             Resolution_OK := Resolve_Array_Aggregate
               (Expr, Nxt_Ind, Nxt_Ind_Constr, Component_Typ, Others_Allowed);

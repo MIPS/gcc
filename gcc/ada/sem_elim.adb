@@ -24,19 +24,21 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
-with Atree;   use Atree;
-with Einfo;   use Einfo;
-with Errout;  use Errout;
-with Namet;   use Namet;
-with Nlists;  use Nlists;
-with Sinput;  use Sinput;
-with Sinfo;   use Sinfo;
-with Snames;  use Snames;
-with Stand;   use Stand;
-with Stringt; use Stringt;
+with Atree;    use Atree;
+with Einfo;    use Einfo;
+with Errout;   use Errout;
+with Namet;    use Namet;
+with Nlists;   use Nlists;
+with Sem_Prag; use Sem_Prag;
+with Sinput;   use Sinput;
+with Sinfo;    use Sinfo;
+with Snames;   use Snames;
+with Stand;    use Stand;
+with Stringt;  use Stringt;
 with Table;
 
 with GNAT.HTable; use GNAT.HTable;
+
 package body Sem_Elim is
 
    No_Elimination : Boolean;
@@ -264,10 +266,9 @@ package body Sem_Elim is
          return;
       end if;
 
-      Elmt := Elim_Hash_Table.Get (Chars (E));
-
       --  Loop through homonyms for this key
 
+      Elmt := Elim_Hash_Table.Get (Chars (E));
       while Elmt /= null loop
          declare
             procedure Set_Eliminated;
@@ -354,7 +355,7 @@ package body Sem_Elim is
                Set_Eliminated;
                return;
 
-               --  Check for case of subprogram
+            --  Check for case of subprogram
 
             elsif Ekind (E) = E_Function
               or else Ekind (E) = E_Procedure
@@ -366,7 +367,7 @@ package body Sem_Elim is
 
                   declare
                      Sloc_Trace : constant String :=
-                       Name_Buffer (1 .. Name_Len);
+                                    Name_Buffer (1 .. Name_Len);
 
                      Idx : Natural := Sloc_Trace'First;
                      --  Index in Sloc_Trace, if equals to 0, then we have
@@ -377,7 +378,7 @@ package body Sem_Elim is
                      P      : Source_Ptr;
                      Sindex : Source_File_Index;
 
-                     function File_Mame_Match return Boolean;
+                     function File_Name_Match return Boolean;
                      --  This function is supposed to be called when Idx points
                      --  to the beginning of the new file name, and Name_Buffer
                      --  is set to contain the name of the proper source file
@@ -413,6 +414,10 @@ package body Sem_Elim is
                      --  non-space character in Sloc_Trace to the right of
                      --  Idx. Returns 0 if there is no such character.
 
+                     -----------------------------
+                     -- Different_Trace_Lengths --
+                     -----------------------------
+
                      function Different_Trace_Lengths return Boolean is
                      begin
                         P := Instantiation (Sindex);
@@ -422,8 +427,8 @@ package body Sem_Elim is
                            (P /= No_Location and then Idx = 0)
                         then
                            return True;
-                        else
 
+                        else
                            if P /= No_Location then
                               Sindex := Get_Source_File_Index (P);
                               Get_Name_String (File_Name (Sindex));
@@ -433,76 +438,97 @@ package body Sem_Elim is
                         end if;
                      end Different_Trace_Lengths;
 
-                     function File_Mame_Match return Boolean is
-                        Tmp_Idx : Positive;
-                        End_Idx : Positive;
-                     begin
+                     ---------------------
+                     -- File_Name_Match --
+                     ---------------------
 
+                     function File_Name_Match return Boolean is
+                        Tmp_Idx : Natural;
+                        End_Idx : Natural;
+
+                     begin
                         if Idx = 0 then
                            return False;
                         end if;
 
-                        for J in Idx .. Last loop
-                           if Sloc_Trace (J) = ':' then
-                              Tmp_Idx := J - 1;
+                        --  Find first colon. If no colon, then return False.
+                        --  If there is a colon, Tmp_Idx is set to point just
+                        --  before the colon.
+
+                        Tmp_Idx := Idx - 1;
+                        loop
+                           if Tmp_Idx >= Last then
+                              return False;
+                           elsif Sloc_Trace (Tmp_Idx + 1) = ':' then
                               exit;
+                           else
+                              Tmp_Idx := Tmp_Idx + 1;
                            end if;
                         end loop;
 
-                        for J in reverse Idx .. Tmp_Idx loop
-                           if Sloc_Trace (J) /= ' ' then
-                              End_Idx := J;
+                        --  Find last non-space before this colon. If there
+                        --  is no no space character before this colon, then
+                        --  return False. Otherwise, End_Idx set to point to
+                        --  this non-space character.
+
+                        End_Idx := Tmp_Idx;
+                        loop
+                           if End_Idx < Idx then
+                              return False;
+                           elsif Sloc_Trace (End_Idx) /= ' ' then
                               exit;
+                           else
+                              End_Idx := End_Idx - 1;
                            end if;
                         end loop;
+
+                        --  Now see if file name matches what is in Name_Buffer
+                        --  and if so, step Idx past it and return True. If the
+                        --  name does not match, return False.
 
                         if Sloc_Trace (Idx .. End_Idx) =
                            Name_Buffer (1 .. Name_Len)
                         then
                            Idx := Tmp_Idx + 2;
-
                            Idx := Skip_Spaces;
-
                            return True;
                         else
                            return False;
                         end if;
+                     end File_Name_Match;
 
-                     end File_Mame_Match;
+                     --------------------
+                     -- Line_Num_Match --
+                     --------------------
 
                      function Line_Num_Match return Boolean is
                         N : Int := 0;
-                     begin
 
+                     begin
                         if Idx = 0 then
                            return False;
                         end if;
 
                         while Idx <= Last
-                           and then
-                              Sloc_Trace (Idx) in '0' .. '9'
+                           and then Sloc_Trace (Idx) in '0' .. '9'
                         loop
                            N := N * 10 +
                             (Character'Pos (Sloc_Trace (Idx)) -
                              Character'Pos ('0'));
-
                            Idx := Idx + 1;
                         end loop;
 
                         if Get_Physical_Line_Number (P) =
                            Physical_Line_Number (N)
                         then
-
                            while Sloc_Trace (Idx) /= '['
-                               and then
-                                 Idx <= Last
+                               and then Idx <= Last
                            loop
                               Idx := Idx + 1;
                            end loop;
 
                            if Sloc_Trace (Idx) = '['
-                             and then
-                               Idx < Last
+                             and then Idx < Last
                            then
                               Idx := Idx + 1;
                               Idx := Skip_Spaces;
@@ -514,13 +540,16 @@ package body Sem_Elim is
                         else
                            return False;
                         end if;
-
                      end Line_Num_Match;
+
+                     -----------------
+                     -- Skip_Spaces --
+                     -----------------
 
                      function Skip_Spaces return Natural is
                         Res : Natural := Idx;
-                     begin
 
+                     begin
                         while Sloc_Trace (Res) = ' ' loop
                            Res := Res + 1;
 
@@ -534,15 +563,13 @@ package body Sem_Elim is
                      end Skip_Spaces;
 
                   begin
-                     P      := Sloc (E);
+                     P := Sloc (E);
                      Sindex := Get_Source_File_Index (P);
                      Get_Name_String (File_Name (Sindex));
 
                      Idx := Skip_Spaces;
-
                      while Idx > 0 loop
-
-                        if not File_Mame_Match then
+                        if not File_Name_Match then
                            goto Continue;
                         elsif not Line_Num_Match then
                            goto Continue;
@@ -572,10 +599,8 @@ package body Sem_Elim is
                   Form := First_Formal (E);
 
                   if No (Form)
-                   and then
-                    Elmt.Parameter_Types'Length = 1
-                   and then
-                    Elmt.Parameter_Types (1) = No_Name
+                    and then Elmt.Parameter_Types'Length = 1
+                    and then Elmt.Parameter_Types (1) = No_Name
                   then
                      --  Parameterless procedure matches
 
@@ -607,9 +632,10 @@ package body Sem_Elim is
                Set_Eliminated;
                return;
             end if;
-
-            <<Continue>> Elmt := Elmt.Homonym;
          end;
+
+      <<Continue>>
+         Elmt := Elmt.Homonym;
       end loop;
 
       return;
@@ -750,15 +776,11 @@ package body Sem_Elim is
 
             Data.Entity_Scope (1) := Chars (Arg_Ent);
 
-         elsif Nkind (Arg_Entity) = N_String_Literal then
-            String_To_Name_Buffer (Strval (Arg_Entity));
+         elsif Is_Config_Static_String (Arg_Entity) then
             Data.Entity_Name := Name_Find;
             Data.Entity_Node := Arg_Entity;
 
          else
-            Error_Msg_N
-              ("wrong form for Entity_Argument parameter of pragma%",
-               Arg_Unit_Name);
             return;
          end if;
       else
@@ -770,68 +792,60 @@ package body Sem_Elim is
 
       if Present (Arg_Parameter_Types) then
 
-         --  Case of one name, which looks like a parenthesized literal
-         --  rather than an aggregate.
-
-         if Nkind (Arg_Parameter_Types) = N_String_Literal
-           and then Paren_Count (Arg_Parameter_Types) = 1
-         then
-            String_To_Name_Buffer (Strval (Arg_Parameter_Types));
-
-            if Name_Len = 0 then
-               --  Parameterless procedure
-               Data.Parameter_Types := new Names'(1 => No_Name);
-            else
-               Data.Parameter_Types := new Names'(1 => Name_Find);
-            end if;
-
-         --  Otherwise must be an aggregate
-
-         elsif Nkind (Arg_Parameter_Types) /= N_Aggregate
-           or else Present (Component_Associations (Arg_Parameter_Types))
-           or else No (Expressions (Arg_Parameter_Types))
-         then
-            Error_Msg_N
-              ("Parameter_Types for pragma% must be list of string literals",
-               Arg_Parameter_Types);
-            return;
-
          --  Here for aggregate case
 
-         else
+         if Nkind (Arg_Parameter_Types) = N_Aggregate then
             Data.Parameter_Types :=
               new Names
                 (1 .. List_Length (Expressions (Arg_Parameter_Types)));
 
             Lit := First (Expressions (Arg_Parameter_Types));
             for J in Data.Parameter_Types'Range loop
-               if Nkind (Lit) /= N_String_Literal then
-                  Error_Msg_N
-                    ("parameter types for pragma% must be string literals",
-                     Lit);
+               if Is_Config_Static_String (Lit) then
+                  Data.Parameter_Types (J) := Name_Find;
+                  Next (Lit);
+               else
                   return;
                end if;
-
-               String_To_Name_Buffer (Strval (Lit));
-               Data.Parameter_Types (J) := Name_Find;
-               Next (Lit);
             end loop;
+
+         --  Otherwise we must have case of one name, which looks like a
+         --  parenthesized literal rather than an aggregate.
+
+         elsif Paren_Count (Arg_Parameter_Types) /= 1 then
+            Error_Msg_N
+              ("wrong form for argument of pragma Eliminate",
+               Arg_Parameter_Types);
+            return;
+
+         elsif Is_Config_Static_String (Arg_Parameter_Types) then
+            String_To_Name_Buffer (Strval (Arg_Parameter_Types));
+
+            if Name_Len = 0 then
+
+               --  Parameterless procedure
+
+               Data.Parameter_Types := new Names'(1 => No_Name);
+
+            else
+               Data.Parameter_Types := new Names'(1 => Name_Find);
+            end if;
+
+         else
+            return;
          end if;
       end if;
 
       --  Process Result_Types argument
 
       if Present (Arg_Result_Type) then
-
-         if Nkind (Arg_Result_Type) /= N_String_Literal then
-            Error_Msg_N
-              ("Result_Type argument for pragma% must be string literal",
-               Arg_Result_Type);
+         if Is_Config_Static_String (Arg_Result_Type) then
+            Data.Result_Type := Name_Find;
+         else
             return;
          end if;
 
-         String_To_Name_Buffer (Strval (Arg_Result_Type));
-         Data.Result_Type := Name_Find;
+      --  Here if no Result_Types argument
 
       else
          Data.Result_Type := No_Name;
@@ -840,17 +854,11 @@ package body Sem_Elim is
       --  Process Source_Location argument
 
       if Present (Arg_Source_Location) then
-
-         if Nkind (Arg_Source_Location) /= N_String_Literal then
-            Error_Msg_N
-              ("Source_Location argument for pragma% must be string literal",
-               Arg_Source_Location);
+         if Is_Config_Static_String (Arg_Source_Location) then
+            Data.Source_Location := Name_Find;
+         else
             return;
          end if;
-
-         String_To_Name_Buffer (Strval (Arg_Source_Location));
-         Data.Source_Location := Name_Find;
-
       else
          Data.Source_Location := No_Name;
       end if;

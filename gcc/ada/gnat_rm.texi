@@ -1308,16 +1308,17 @@ debug procedures in the middle of declarations.
 Syntax:
 
 @smallexample @c ada
-pragma Elaboration_Checks (RM | Static);
+pragma Elaboration_Checks (Dynamic | Static);
 @end smallexample
 
 @noindent
 This is a configuration pragma that provides control over the
 elaboration model used by the compilation affected by the
-pragma.  If the parameter is RM, then the dynamic elaboration
+pragma.  If the parameter is @code{Dynamic},
+then the dynamic elaboration
 model described in the Ada Reference Manual is used, as though
 the @code{-gnatE} switch had been specified on the command
-line.  If the parameter is Static, then the default GNAT static
+line.  If the parameter is @code{Static}, then the default GNAT static
 model is used.  This configuration pragma overrides the setting
 of the command line.  For full details on the elaboration models
 used by the GNAT compiler, see section ``Elaboration Order
@@ -1341,18 +1342,33 @@ pragma Eliminate (
     [Entity          =>]  IDENTIFIER |
                           SELECTED_COMPONENT |
                           STRING_LITERAL
-  [,[Parameter_Types =>]  PARAMETER_TYPES]
-  [,[Result_Type     =>]  result_SUBTYPE_NAME]
-  [,[Homonym_Number  =>]  INTEGER_LITERAL]);
+    [,OVERLOADING_RESOLUTION]);
+
+OVERLOADING_RESOLUTION ::= PARAMETER_AND_RESULT_TYPE_PROFILE |
+                           SOURCE_LOCATION
+
+PARAMETER_AND_RESULT_TYPE_PROFILE ::= PROCEDURE_PROFILE |
+                                      FUNCTION_PROFILE
+
+PROCEDURE_PROFILE ::= Parameter_Types => PARAMETER_TYPES
+
+FUNCTION_PROFILE ::= [Parameter_Types => PARAMETER_TYPES,]
+                      Result_Type => result_SUBTYPE_NAME]
 
 PARAMETER_TYPES ::= (SUBTYPE_NAME @{, SUBTYPE_NAME@})
-SUBTYPE_NAME    ::= STRING_LITERAL
+SUBTYPE_NAME    ::= STRING_VALUE
+
+SOURCE_LOCATION ::= Source_Location => SOURCE_TRACE
+SOURCE_TRACE    ::= STRING_VALUE
+
+STRING_VALUE ::= STRING_LITERAL @{& STRING_LITERAL@}
 @end smallexample
 
 @noindent
 This pragma indicates that the given entity is not used outside the
-compilation unit it is defined in.  The entity may be either a subprogram
-or a variable.
+compilation unit it is defined in. The entity must be an explicitly declared
+subprogram; this includes  generic subprogram instances and
+subprograms declared in generic package instances.
 
 If the entity to be eliminated is a library level subprogram, then
 the first form of pragma @code{Eliminate} is used with only a single argument.
@@ -1366,28 +1382,54 @@ the particular entity.  If the second argument is in string form, it must
 correspond to the internal manner in which GNAT stores entity names (see
 compilation unit Namet in the compiler sources for details).
 
-The remaining parameters are optionally used to distinguish
-between overloaded subprograms.  There are two ways of doing this.
+The remaining parameters (OVERLOADING_RESOLUTION) are optionally used
+to distinguish between overloaded subprograms. If a pragma does not contain
+the OVERLOADING_RESOLUTION parameter(s), it is applied to all the overloaded
+subprograms denoted by the first two parameters.
 
-Use @code{Parameter_Types} and @code{Result_Type} to specify the
-profile of the subprogram to be eliminated in a manner similar to that
-used for
-the extended @code{Import} and @code{Export} pragmas, except that the
-subtype names are always given as string literals, again corresponding
-to the internal manner in which GNAT stores entity names.
+Use PARAMETER_AND_RESULT_TYPE_PROFILE to specify the profile of the subprogram
+to be eliminated in a manner similar to that used for the extended
+@code{Import} and @code{Export} pragmas, except that the subtype names are
+always given as strings. At the moment, this form of distinguishing
+overloaded subprograms is implemented only partially, so we do not recommend
+using it for practical subprogram elimination.
 
-Alternatively, the @code{Homonym_Number} parameter is used to specify
-which overloaded alternative is to be eliminated.  A value of 1 indicates
-the first subprogram (in lexical order), 2 indicates the second etc.
+Note, that in case of a parameterless procedure its profile is represented
+as @code{Parameter_Types => ("")}
+
+Alternatively, the @code{Source_Location} parameter is used to specify
+which overloaded alternative is to be eliminated by pointing to the
+location of the DEFINING_PROGRAM_UNIT_NAME of this subprogram in the
+source text. The string literal (or concatenation of string literals)
+given as SOURCE_TRACE must have the following format:
+
+@smallexample @c ada
+SOURCE_TRACE ::= SOURCE_LOCATION@{LBRACKET SOURCE_LOCATION RBRACKET@}
+
+LBRACKET ::= [
+RBRACKET ::= ]
+
+SOURCE_LOCATION ::= FILE_NAME:LINE_NUMBER
+FILE_NAME       ::= STRING_LITERAL
+LINE_NUMBER     ::= DIGIT @{DIGIT@}
+@end smallexample
+
+SOURCE_TRACE should be the short name of the source file (with no directory
+information), and LINE_NUMBER is supposed to point to the line where the
+defining name of the subprogram is located.
+
+For the subprograms that are not a part of generic instantiations, only one
+SOURCE_LOCATION is used. If a subprogram is declared in a package
+instantiation, SOURCE_TRACE contains two SOURCE_LOCATIONs, the first one is
+the location of the (DEFINING_PROGRAM_UNIT_NAME of the) instantiation, and the
+second one denotes the declaration of the corresponding subprogram in the
+generic package. This approach is recursively used to create SOURCE_LOCATIONs
+in case of nested instantiations.
 
 The effect of the pragma is to allow the compiler to eliminate
 the code or data associated with the named entity.  Any reference to
 an eliminated entity outside the compilation unit it is defined in,
 causes a compile time or link time error.
-
-The parameters of this pragma may be given in any order, as long as
-the usual rules for use of named parameters and position parameters
-are used.
 
 The intention of pragma @code{Eliminate} is to allow a program to be compiled
 in a system independent manner, with unused entities eliminated, without
@@ -1399,6 +1441,10 @@ automatic, without requiring the use of pragma @code{Eliminate}.
 Note that the reason this pragma takes string literals where names might
 be expected is that a pragma @code{Eliminate} can appear in a context where the
 relevant names are not visible.
+
+Note that any change in the source files that includes removing, splitting of
+adding lines may make the set of Eliminate pragmas using SOURCE_LOCATION
+parameter illegal.
 
 @node Pragma Export_Exception
 @unnumberedsec Pragma Export_Exception
@@ -2926,14 +2972,13 @@ There are no semantic dependencies on the package Ada.Calendar.
 @item No_Relative_Delay
 There are no delay_relative_statements.
 
-@item No_Task_Attributes
-There are no semantic dependencies on the Ada.Task_Attributes package and
-there are no references to the attributes Callable and Terminated [RM 9.9].
+@item No_Task_Attributes_Package
+There are no semantic dependencies on the Ada.Task_Attributes package.
 
-@item Boolean_Entry_Barriers
-Entry barrier condition expressions shall be boolean
-objects which are declared in the protected type
-which contains the entry.
+@item Simple_Barriers
+Entry barrier condition expressions shall be either static
+boolean expressions or boolean objects which are declared in
+the protected type which contains the entry.
 
 @item Max_Asynchronous_Select_Nesting = 0
 [RM D.7] Specifies the maximum dynamic nesting level of asynchronous_selects.
@@ -2979,7 +3024,7 @@ and whose most recent description is available at
 
 The above set is a superset of the restrictions provided by pragma
 @code{Restricted_Run_Time}, it includes five additional restrictions
-(@code{Boolean_Entry_Barriers}, @code{No_Select_Statements},
+(@code{Simple_Barriers}, @code{No_Select_Statements},
 @code{No_Calendar},
 @code{No_Relative_Delay} and @code{No_Task_Termination}).  This means
 that pragma @code{Ravenscar}, like the pragma @code{Restricted_Run_Time},
@@ -3010,7 +3055,7 @@ A configuration pragma that establishes the following set of restrictions:
 @item No_Protected_Type_Allocators
 @item No_Local_Protected_Objects
 @item No_Requeue_Statements
-@item No_Task_Attributes
+@item No_Task_Attributes_Package
 @item Max_Asynchronous_Select_Nesting =  0
 @item Max_Task_Entries =  0
 @item Max_Protected_Entries = 1
@@ -6803,13 +6848,14 @@ then all compilation units in the partition must obey the restriction.
 
 @table @code
 
-@item Boolean_Entry_Barriers
-@findex Boolean_Entry_Barriers
+@item Simple_Barriers
+@findex Simple_Barriers
 This restriction ensures at compile time that barriers in entry declarations
-for protected types are restricted to references to simple boolean variables
-defined in the private part of the protected type.  No other form of entry
-barriers is permitted.  This is one of the restrictions of the Ravenscar
-profile for limited tasking (see also pragma @code{Ravenscar}).
+for protected types are restricted to either static boolean expressions or
+references to simple boolean variables defined in the private part of the
+protected type.  No other form of entry barriers is permitted.  This is one
+of the restrictions of the Ravenscar profile for limited tasking (see also
+pragma @code{Ravenscar}).
 
 @item Max_Entry_Queue_Depth => Expr
 @findex Max_Entry_Queue_Depth
@@ -6946,8 +6992,8 @@ user-defined storage pool.
 This restriction ensures at compile time that there are no implicit or
 explicit dependencies on the package @code{Ada.Streams}.
 
-@item No_Task_Attributes
-@findex No_Task_Attributes
+@item No_Task_Attributes_Package
+@findex No_Task_Attributes_Package
 This restriction ensures at compile time that there are no implicit or
 explicit dependencies on the package @code{Ada.Task_Attributes}.
 
@@ -12568,7 +12614,6 @@ primarily intended to be constructed automatically using a binding generator
 tool, although it is possible to construct them by hand.  No suitable binding
 generator tool is supplied with GNAT though.
 
-
 Using these pragmas it is possible to achieve complete
 inter-operability between Ada tagged types and C class definitions.
 See @ref{Implementation Defined Pragmas}, for more details.
@@ -12692,7 +12737,7 @@ including machine instructions in a subprogram.
 The two features are similar, and both are closely related to the mechanism
 provided by the asm instruction in the GNU C compiler.  Full understanding
 and use of the facilities in this package requires understanding the asm
-instruction as described in @cite{Using the GNU Compiler Collection (GCC)} 
+instruction as described in @cite{Using the GNU Compiler Collection (GCC)}
 by Richard Stallman. The relevant section is titled ``Extensions to the C
 Language Family'' -> ``Assembler Instructions with C Expression Operands''.
 

@@ -36,7 +36,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
     - cgraph_varpool_finalize_variable
 
-      This function has same behaviour as the above but is used for static
+      This function has same behavior as the above but is used for static
       variables.
 
     - cgraph_finalize_compilation_unit
@@ -183,6 +183,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "fibheap.h"
 #include "c-common.h"
 #include "intl.h"
+#include "function.h"
 
 #define INSNS_PER_CALL 10
 
@@ -323,7 +324,7 @@ cgraph_finalize_function (tree decl, bool nested)
       if (node->output)
 	abort ();
 
-      /* Reset our datastructures so we can analyze the function again.  */
+      /* Reset our data structures so we can analyze the function again.  */
       memset (&node->local, 0, sizeof (node->local));
       memset (&node->global, 0, sizeof (node->global));
       memset (&node->rtl, 0, sizeof (node->rtl));
@@ -377,6 +378,10 @@ cgraph_finalize_function (tree decl, bool nested)
      early then.  */
   if (DECL_EXTERNAL (decl))
     DECL_STRUCT_FUNCTION (decl) = NULL;
+
+  /* Possibly warn about unused parameters.  */
+  if (warn_unused_parameter)
+    do_warn_unused_parameter (decl);
 }
 
 /* Walk tree and record all calls.  Called via walk_tree.  */
@@ -884,7 +889,8 @@ cgraph_remove_unreachable_nodes (void)
       abort ();
 #endif
   for (node = cgraph_nodes; node; node = node->next)
-    if (node->needed && (!DECL_EXTERNAL (node->decl) || !node->analyzed))
+    if (node->needed && !node->global.inlined_to
+	&& (!DECL_EXTERNAL (node->decl) || !node->analyzed))
       {
 	node->aux = first;
 	first = node;
@@ -918,7 +924,7 @@ cgraph_remove_unreachable_nodes (void)
      eliminated
      Reachable extern inline functions we sometimes inlined will be turned into
      unanalyzed nodes so they look like for true extern functions to the rest
-     of code.  Body of such functions is relased via remove_node once the
+     of code.  Body of such functions is released via remove_node once the
      inline clones are eliminated.  */
   for (node = cgraph_nodes; node; node = node->next)
     {
@@ -927,6 +933,7 @@ cgraph_remove_unreachable_nodes (void)
 	  int local_insns;
 	  tree decl = node->decl;
 
+          node->global.inlined_to = NULL;
 	  if (DECL_STRUCT_FUNCTION (decl))
 	    local_insns = node->local.self_insns;
 	  else
@@ -1017,7 +1024,7 @@ cgraph_clone_inlined_nodes (struct cgraph_edge *e, bool duplicate)
 {
   struct cgraph_node *n;
 
-  /* We may elliminate the need for out-of-line copy to be output.  In that
+  /* We may eliminate the need for out-of-line copy to be output.  In that
      case just go ahead and re-use it.  */
   if (!e->callee->callers->next_caller
       && (!e->callee->needed || DECL_EXTERNAL (e->callee->decl))
@@ -1042,7 +1049,7 @@ cgraph_clone_inlined_nodes (struct cgraph_edge *e, bool duplicate)
   else
     e->callee->global.inlined_to = e->caller;
 
-  /* Recursivly clone all bodies.  */
+  /* Recursively clone all bodies.  */
   for (e = e->callee->callees; e; e = e->next_callee)
     if (!e->inline_failed)
       cgraph_clone_inlined_nodes (e, duplicate);
@@ -1105,7 +1112,7 @@ cgraph_mark_inline (struct cgraph_edge *edge)
   struct cgraph_edge *e, *next;
   int times = 0;
 
-  /* Look for all calls, mark them inline and clone recursivly
+  /* Look for all calls, mark them inline and clone recursively
      all inlined functions.  */
   for (e = what->callers; e; e = next)
     {
@@ -1177,7 +1184,7 @@ cgraph_default_inline_p (struct cgraph_node *n)
 
 /* Return true when inlining WHAT would create recursive inlining.
    We call recursive inlining all cases where same function appears more than
-   once in the single recusion nest path in the inline graph.  */
+   once in the single recursion nest path in the inline graph.  */
 
 static bool
 cgraph_recursive_inlining_p (struct cgraph_node *to,
@@ -1343,7 +1350,7 @@ cgraph_decide_inlining_of_small_functions (void)
 }
 
 /* Decide on the inlining.  We do so in the topological order to avoid
-   expenses on updating datastructures.  */
+   expenses on updating data structures.  */
 
 static void
 cgraph_decide_inlining (void)
@@ -1486,7 +1493,7 @@ cgraph_decide_inlining (void)
 }
 
 /* Decide on the inlining.  We do so in the topological order to avoid
-   expenses on updating datastructures.  */
+   expenses on updating data structures.  */
 
 static void
 cgraph_decide_inlining_incrementally (struct cgraph_node *node)
@@ -1556,7 +1563,7 @@ cgraph_expand_all_functions (void)
   if (order_pos != cgraph_n_nodes)
     abort ();
 
-  /* Garbage collector may remove inline clones we elliminate during
+  /* Garbage collector may remove inline clones we eliminate during
      optimization.  So we must be sure to not reference them.  */
   for (i = 0; i < order_pos; i++)
     if (order[i]->output)

@@ -214,7 +214,7 @@ in the following sections.
 -Wconversion  -Wno-deprecated-declarations @gol
 -Wdisabled-optimization  -Wno-div-by-zero  -Wendif-labels @gol
 -Werror  -Werror-implicit-function-declaration @gol
--Wfloat-equal  -Wformat  -Wformat=2 @gol
+-Wfatal-errors  -Wfloat-equal  -Wformat  -Wformat=2 @gol
 -Wno-format-extra-args -Wformat-nonliteral @gol
 -Wformat-security  -Wformat-y2k @gol
 -Wimplicit  -Wimplicit-function-declaration  -Wimplicit-int @gol
@@ -270,8 +270,8 @@ in the following sections.
 -fdelayed-branch  -fdelete-null-pointer-checks @gol
 -fexpensive-optimizations  -ffast-math  -ffloat-store @gol
 -fforce-addr  -fforce-mem  -ffunction-sections @gol
--fgcse  -fgcse-lm  -fgcse-sm  -fgcse-las  -floop-optimize @gol
--fcrossjumping  -fif-conversion  -fif-conversion2 @gol
+-fgcse  -fgcse-lm  -fgcse-sm  -fgcse-las  -fgcse-after-reload @gol
+-floop-optimize -fcrossjumping  -fif-conversion  -fif-conversion2 @gol
 -finline-functions  -finline-limit=@var{n}  -fkeep-inline-functions @gol
 -fkeep-static-consts  -fmerge-constants  -fmerge-all-constants @gol
 -fmove-all-movables  -fnew-ra  -fno-branch-count-reg @gol
@@ -328,7 +328,7 @@ in the following sections.
 
 @item Directory Options
 @xref{Directory Options,,Options for Directory Search}.
-@gccoptlist{-B@var{prefix}  -I@var{dir}  -I-  -L@var{dir}  -specs=@var{file}}
+@gccoptlist{-B@var{prefix}  -I@var{dir}  -iquote@var{dir}  -L@var{dir}  -specs=@var{file}  -I-}
 
 @item Target Options
 @c I wrote this xref this way to avoid overfull hbox. -- rms
@@ -462,15 +462,15 @@ in the following sections.
 -single_module  -static  -sub_library  -sub_umbrella @gol
 -twolevel_namespace  -umbrella  -undefined @gol
 -unexported_symbols_list  -weak_reference_mismatches @gol
--whatsloaded}
+-whatsloaded -F}
 
 @emph{MIPS Options}
 @gccoptlist{-EL  -EB  -march=@var{arch}  -mtune=@var{arch} @gol
 -mips1  -mips2  -mips3  -mips4  -mips32  -mips32r2  -mips64 @gol
 -mips16  -mno-mips16  -mabi=@var{abi}  -mabicalls  -mno-abicalls @gol
--mxgot  -mno-xgot  -membedded-pic  -mno-embedded-pic @gol
--mgp32  -mgp64  -mfp32  -mfp64  -mhard-float  -msoft-float @gol
--msingle-float  -mdouble-float  -mint64  -mlong64  -mlong32 @gol
+-mxgot  -mno-xgot  -mgp32  -mgp64  -mfp32  -mfp64 @gol
+-mhard-float  -msoft-float  -msingle-float  -mdouble-float @gol
+-mint64  -mlong64  -mlong32 @gol
 -G@var{num}  -membedded-data  -mno-embedded-data @gol
 -muninit-const-in-rodata  -mno-uninit-const-in-rodata @gol
 -msplit-addresses  -mno-split-addresses  @gol
@@ -482,7 +482,9 @@ in the following sections.
 -mfix-r4000  -mno-fix-r4000  -mfix-r4400  -mno-fix-r4400 @gol
 -mfix-vr4120  -mno-fix-vr4120  -mfix-sb1  -mno-fix-sb1 @gol
 -mflush-func=@var{func}  -mno-flush-func @gol
--mbranch-likely  -mno-branch-likely}
+-mbranch-likely  -mno-branch-likely @gol
+-mfp-exceptions -mno-fp-exceptions @gol
+-mvr4130-align -mno-vr4130-align}
 
 @emph{i386 and x86-64 Options}
 @gccoptlist{-mtune=@var{cpu-type}  -march=@var{cpu-type} @gol
@@ -869,10 +871,12 @@ Place output in file @var{file}.  This applies regardless to whatever
 sort of output is being produced, whether it be an executable file,
 an object file, an assembler file or preprocessed C code.
 
-If @option{-o} is not specified, the default is to put an executable file
-in @file{a.out}, the object file for @file{@var{source}.@var{suffix}} in
-@file{@var{source}.o}, its assembler file in @file{@var{source}.s}, and
-all preprocessed C source on standard output.
+If @option{-o} is not specified, the default is to put an executable
+file in @file{a.out}, the object file for
+@file{@var{source}.@var{suffix}} in @file{@var{source}.o}, its
+assembler file in @file{@var{source}.s}, a precompiled header file in
+@file{@var{source}.@var{suffix}.gch}, and all preprocessed C source on
+standard output.
 
 @item -v
 @opindex v
@@ -1762,7 +1766,7 @@ for NeXT-based systems, including Darwin and Mac OS X@.  The macro
 used.
 
 @item -fno-nil-receivers
-@opindex -fno-nil-receivers
+@opindex fno-nil-receivers
 Assume that all Objective-C message dispatches (e.g.,
 @code{[receiver message:arg]}) in this translation unit ensure that the receiver
 is not @code{nil}.  This allows for more efficient entry points in the runtime to be
@@ -1770,7 +1774,7 @@ used.  Currently, this option is only available in conjunction with
 the NeXT runtime on Mac OS X 10.3 and later.
 
 @item -fobjc-exceptions
-@opindex -fobjc-exceptions
+@opindex fobjc-exceptions
 Enable syntactic support for structured exception handling in Objective-C,
 similar to what is offered by C++ and Java.  Currently, this option is only
 available in conjunction with the NeXT runtime on Mac OS X 10.3 and later.
@@ -1862,7 +1866,7 @@ Unlike Java, Objective-C does not allow for entire methods to be marked
 to be unlocked properly.
 
 @item -freplace-objc-classes
-@opindex -freplace-objc-classes
+@opindex freplace-objc-classes
 Emit a special marker instructing @command{ld(1)} not to statically link in
 the resulting object file, and allow @command{dyld(1)} to load it in at
 run time instead.  This is used in conjunction with the Fix-and-Continue
@@ -1873,7 +1877,7 @@ is only available in conjunction with the NeXT runtime on Mac OS X 10.3
 and later.
 
 @item -fzero-link
-@opindex -fzero-link
+@opindex fzero-link
 When compiling for the NeXT runtime, the compiler ordinarily replaces calls
 to @code{objc_getClass("@dots{}")} (when the name of the class is known at
 compile time) with static class references that get initialized at load time,
@@ -1924,7 +1928,7 @@ compilation.  This also enforces the coding style convention
 that methods and selectors must be declared before being used.
 
 @item -print-objc-runtime-info
-@opindex -print-objc-runtime-info
+@opindex print-objc-runtime-info
 Generate C header describing the largest structure that is passed by
 value, if any.
 
@@ -2062,6 +2066,12 @@ machines.
 @opindex Wcomment
 Warn whenever a comment-start sequence @samp{/*} appears in a @samp{/*}
 comment, or whenever a Backslash-Newline appears in a @samp{//} comment.
+
+@item -Wfatal-errors
+@opindex Wfatal-errors
+This option causes the compiler to abort compilation on the first error
+occurred rather than trying to keep going and printing further error
+messages.
 
 @item -Wformat
 @opindex Wformat
@@ -3594,10 +3604,11 @@ the performance and/or code size at the expense of compilation time
 and possibly the ability to debug the program.
 
 The compiler performs optimization based on the knowledge it has of
-the program.  Using the @option{-funit-at-a-time} flag will allow the
-compiler to consider information gained from later functions in the
-file when compiling a function.  Compiling multiple files at once to a
-single output file (and using @option{-funit-at-a-time}) will allow
+the program.  Optimization levels @option{-O2} and above, in
+particular, enable @emph{unit-at-a-time} mode, which allows the
+compiler to consider information gained from later functions in
+the file when compiling a function.  Compiling multiple files at
+once to a single output file in @emph{unit-at-a-time} mode allows
 the compiler to use information gained from all of the files when
 compiling each of them.
 
@@ -3667,7 +3678,8 @@ invoking @option{-O2} on programs that use computed gotos.
 @opindex O3
 Optimize yet more.  @option{-O3} turns on all optimizations specified by
 @option{-O2} and also turns on the @option{-finline-functions},
-@option{-fweb} and @option{-frename-registers} options.
+@option{-fweb}, @option{-frename-registers}
+and @option{-fgcse-after-reload} options.
 
 @item -O0
 @opindex O0
@@ -3977,6 +3989,12 @@ elimination pass eliminates redundant loads that come after stores to the
 same memory location (both partial and full redundancies).
 
 Enabled by default when gcse is enabled.
+
+@item -fgcse-after-reload
+@opindex fgcse-after-reload
+When @option{-fgcse-after-reload} is enabled, a redundant load elimination
+pass is performed after reload. The purpose of this pass is to cleanup
+redundant spilling.
 
 @item -floop-optimize
 @opindex floop-optimize
@@ -4343,18 +4361,39 @@ If @var{n} is not specified or is zero, use a machine-dependent default.
 
 Enabled at levels @option{-O2}, @option{-O3}.
 
-@item -frename-registers
-@opindex frename-registers
-Attempt to avoid false dependencies in scheduled code by making use
-of registers left over after register allocation.  This optimization
-will most benefit processors with lots of registers.  Depending on the
-debug information format adopted by the target, however, it can
-make debugging impossible, since variables will no longer stay in
-a ``home register''.
+@item -funit-at-a-time
+@opindex funit-at-a-time
+Parse the whole compilation unit before starting to produce code.
+This allows some extra optimizations to take place but consumes
+more memory (in general).  There are some compatibility issues
+with @emph{unit-at-at-time} mode:
+@itemize @bullet
+@item
+enabling @emph{unit-at-a-time} mode may change the order
+in which functions, variables, and top-level @code{asm} statements
+are emitted, and will likely break code relying on some particular
+ordering.  The majority of such top-level @code{asm} statements,
+though, can be replaced by @code{section} attributes.
 
-Enabled at levels @option{-O}, @option{-O2}, @option{-O3}, @option{-Os},
-on targets where the default format for debugging information supports
-variable tracking.
+@item
+@emph{unit-at-a-time} mode removes unreferenced static variables
+and functions are removed.  This may result in undefined references
+when an @code{asm} statement refers directly to variables or functions
+that are otherwise unused.  In that case either the variable/function
+shall be listed as an operand of the @code{asm} statement operand or,
+in the case of top-level @code{asm} statements the attribute @code{used}
+shall be used on the declaration.
+
+@item
+Static functions now can use non-standard passing conventions that
+may break @code{asm} statements calling functions directly. Again,
+attribute @code{used} will prevent this behavior.
+@end itemize
+
+As a temporary workaround, @option{-fno-unit-at-a-time} can be used,
+but this scheme may not be supported by future releases of GCC. 
+
+Enabled at levels @option{-O2}, @option{-O3}.
 
 @item -fweb
 @opindex fweb
@@ -4562,7 +4601,7 @@ With @option{-fbranch-probabilities}, it reads back the data gathered
 from profiling values of expressions and adds @samp{REG_VALUE_PROFILE}
 notes to instructions for their later usage in optimizations.
 
-Enabled with @option{-profile-generate} and @option{-profile-use}.
+Enabled with @option{-fprofile-generate} and @option{-fprofile-use}.
 
 @item -fvpt
 @opindex fvpt
@@ -4574,7 +4613,18 @@ and actually performs the optimizations based on them.
 Currently the optimizations include specialization of division operation
 using the knowledge about the value of the denominator.
 
-Enabled with @option{-profile-generate} and @option{-profile-use}.
+Enabled with @option{-fprofile-generate} and @option{-fprofile-use}.
+
+@item -frename-registers
+@opindex frename-registers
+Attempt to avoid false dependencies in scheduled code by making use
+of registers left over after register allocation.  This optimization
+will most benefit processors with lots of registers.  Depending on the
+debug information format adopted by the target, however, it can
+make debugging impossible, since variables will no longer stay in
+a ``home register''.
+
+Not enabled by default at any level because it has known bugs.
 
 @item -fnew-ra
 @opindex fnew-ra
@@ -4588,15 +4638,7 @@ Perform tail duplication to enlarge superblock size. This transformation
 simplifies the control flow of the function allowing other optimizations to do
 better job.
 
-Enabled with @option{-profile-use}.
-
-@item -funit-at-a-time
-@opindex funit-at-a-time
-Parse the whole compilation unit before starting to produce code.
-This allows some extra optimizations to take place but consumes more
-memory.
-
-Enabled at levels @option{-O2}, @option{-O3}.
+Enabled with @option{-fprofile-use}.
 
 @item -funroll-loops
 @opindex funroll-loops
@@ -4606,7 +4648,7 @@ upon entry to the loop.  @option{-funroll-loops} implies
 (i.e. complete removal of loops with small constant number of iterations).
 This option makes code larger, and may or may not make it run faster.
 
-Enabled with @option{-profile-use}.
+Enabled with @option{-fprofile-use}.
 
 @item -funroll-all-loops
 @opindex funroll-all-loops
@@ -4621,7 +4663,7 @@ Peels the loops for that there is enough information that they do not
 roll much (from profile feedback).  It also turns on complete loop peeling
 (i.e. complete removal of loops with small constant number of iterations).
 
-Enabled with @option{-profile-use}.
+Enabled with @option{-fprofile-use}.
 
 @item -funswitch-loops
 @opindex funswitch-loops
@@ -5230,28 +5272,12 @@ the ordering for the include_next directive are not inadvertently changed.
 If you really need to change the search order for system directories,
 use the @option{-nostdinc} and/or @option{-isystem} options.
 
-@item -I-
-@opindex I-
-Any directories you specify with @option{-I} options before the @option{-I-}
-option are searched only for the case of @samp{#include "@var{file}"};
-they are not searched for @samp{#include <@var{file}>}.
-
-If additional directories are specified with @option{-I} options after
-the @option{-I-}, these directories are searched for all @samp{#include}
-directives.  (Ordinarily @emph{all} @option{-I} directories are used
-this way.)
-
-In addition, the @option{-I-} option inhibits the use of the current
-directory (where the current input file came from) as the first search
-directory for @samp{#include "@var{file}"}.  There is no way to
-override this effect of @option{-I-}.  With @option{-I.} you can specify
-searching the directory which was current when the compiler was
-invoked.  That is not exactly the same as what the preprocessor does
-by default, but it is often satisfactory.
-
-@option{-I-} does not inhibit the use of the standard system directories
-for header files.  Thus, @option{-I-} and @option{-nostdinc} are
-independent.
+@item -iquote@var{dir}
+@opindex iquote
+Add the directory @var{dir} to the head of the list of directories to
+be searched for header files only for the case of @samp{#include
+"@var{file}"}; they are not searched for @samp{#include <@var{file}>},
+otherwise just like @option{-I}.
 
 @item -L@var{dir}
 @opindex L
@@ -5309,6 +5335,31 @@ program uses when determining what switches to pass to @file{cc1},
 @file{cc1plus}, @file{as}, @file{ld}, etc.  More than one
 @option{-specs=@var{file}} can be specified on the command line, and they
 are processed in order, from left to right.
+
+@item -I-
+@opindex I-
+This option has been deprecated.  Please use @option{-iquote} instead for
+@option{-I} directories before the @option{-I-} and remove the @option{-I-}.
+Any directories you specify with @option{-I} options before the @option{-I-}
+option are searched only for the case of @samp{#include "@var{file}"};
+they are not searched for @samp{#include <@var{file}>}.
+
+If additional directories are specified with @option{-I} options after
+the @option{-I-}, these directories are searched for all @samp{#include}
+directives.  (Ordinarily @emph{all} @option{-I} directories are used
+this way.)
+
+In addition, the @option{-I-} option inhibits the use of the current
+directory (where the current input file came from) as the first search
+directory for @samp{#include "@var{file}"}.  There is no way to
+override this effect of @option{-I-}.  With @option{-I.} you can specify
+searching the directory which was current when the compiler was
+invoked.  That is not exactly the same as what the preprocessor does
+by default, but it is often satisfactory.
+
+@option{-I-} does not inhibit the use of the standard system directories
+for header files.  Thus, @option{-I-} and @option{-nostdinc} are
+independent.
 @end table
 
 @c man end
@@ -5641,13 +5692,6 @@ the last object files that will be passed to the linker.
 @item %C
 Process the @code{cpp} spec.  This is used to construct the arguments
 to be passed to the C preprocessor.
-
-@item %c
-Process the @code{signed_char} spec.  This is intended to be used
-to tell cpp whether a char is signed.  It typically has the definition:
-@smallexample
-%@{funsigned-char:-D__CHAR_UNSIGNED__@}
-@end smallexample
 
 @item %1
 Process the @code{cc1} spec.  This is used to construct the options to be
@@ -6366,8 +6410,8 @@ that select a particular cpu implementation.  Those are @samp{cypress},
 
 @item -mv8plus
 @itemx -mno-v8plus
-@opindex -mv8plus
-@opindex -mno-v8plus
+@opindex mv8plus
+@opindex mno-v8plus
 With @option{-mv8plus}, GCC generates code for the SPARC-V8+ ABI.  The
 difference from the V8 ABI is that the global and out registers are
 considered 64-bit wide.  This is enabled by default on Solaris in 32-bit
@@ -6375,8 +6419,8 @@ mode for all SPARC-V9 processors.
 
 @item -mvis
 @itemx -mno-vis
-@opindex -mvis
-@opindex -mno-vis
+@opindex mvis
+@opindex mno-vis
 With @option{-mvis}, GCC generates code that takes advantage of the UltraSPARC
 Visual Instruction Set extensions.  The default is @option{-mno-vis}.
 @end table
@@ -6920,7 +6964,7 @@ doesn't the linker will give an error message---incorrect code will not be
 generated.
 
 @item -mdebug
-@opindex -mdebug
+@opindex mdebug
 Makes the M32R specific code in the compiler display some statistics
 that might help in debugging programs.
 
@@ -7621,6 +7665,34 @@ These options are defined for all architectures running the Darwin operating
 system.  They are useful for compatibility with other Mac OS compilers.
 
 @table @gcctabopt
+@item -F@var{dir}
+@opindex F
+Add the framework directory @var{dir} to the head of the list of
+directories to be searched for header files.  These directories are
+interleaved with those specified by @option{-I} options and are
+scanned in a left-to-right order.
+
+A framework directory is a directory with frameworks in it.  A
+framework is a directory with a @samp{"Headers"} and/or
+@samp{"PrivateHeaders"} directory contained directly in it that ends
+in @samp{".framework"}.  The name of a framework is the name of this
+directory excluding the @samp{".framework"}.  Headers associated with
+the framework are found in one of those two directories, with
+@samp{"Headers"} being searched first.  A subframework is a framework
+directory that is in a framework's @samp{"Frameworks"} directory.
+Includes of subframework headers can only appear in a header of a
+framework that contains the subframework, or in a sibling subframework
+header.  Two subframeworks are siblings if they occur in the same
+framework.  A subframework should not have the same name as a
+framework, a warning will be issued if this is violated.  Currently a
+subframework cannot have subframeworks, in the future, the mechanism
+may be extended to support this.  The standard frameworks can be found
+in @samp{"/System/Library/Frameworks"}, @samp{"/Library/Frameworks"}
+and @samp{"/Local/Library/Frameworks"}.  An example include looks like
+@code{#include <Framework/header.h>}, where @samp{Framework} denotes
+the name of the framework and header.h is found in the
+@samp{"PrivateHeaders"} or @samp{"Headers"} directory.
+
 @item -all_load
 @opindex all_load
 Loads all members of static archive libraries.
@@ -7926,16 +7998,6 @@ file accesses more than 64k's worth of GOT entries.  Very few do.
 These options have no effect unless GCC is generating position
 independent code.
 
-@item -membedded-pic
-@itemx -mno-embedded-pic
-@opindex membedded-pic
-@opindex mno-embedded-pic
-Generate (do not generate) position-independent code suitable for some
-embedded systems.  All calls are made using PC relative addresses, and
-all data is addressed using the $gp register.  No more than 65536
-bytes of global data may be used.  This requires GNU as and GNU ld,
-which do most of the work.
-
 @item -mgp32
 @opindex mgp32
 Assume that general-purpose registers are 32 bits wide.
@@ -8181,6 +8243,29 @@ architecture.  An exception is for the MIPS32 and MIPS64 architectures
 and processors which implement those architectures; for those, Branch
 Likely instructions will not be generated by default because the MIPS32
 and MIPS64 architectures specifically deprecate their use.
+
+@item -mfp-exceptions
+@itemx -mno-fp-exceptions
+@opindex mfp-exceptions
+Specifies whether FP exceptions are enabled.  This affects how we schedule
+FP instructions for some processors.  The default is that FP exceptions are
+enabled.
+
+For instance, on the SB-1, if FP exceptions are disabled, and we are emitting
+64-bit code, then we can use both FP pipes.  Otherwise, we can only use one
+FP pipe.
+
+@item -mvr4130-align
+@itemx -mno-vr4130-align
+@opindex mvr4130-align
+The VR4130 pipeline is two-way superscalar, but can only issue two
+instructions together if the first one is 8-byte aligned.  When this
+option is enabled, GCC will align pairs of instructions that it
+thinks should execute in parallel.
+
+This option only has an effect when optimizing for the VR4130.
+It normally makes code faster, but at the expense of making it bigger.
+It is enabled by default at optimization level @option{-O3}.
 @end table
 
 @node i386 and x86-64 Options

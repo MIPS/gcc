@@ -643,8 +643,7 @@ case "${target}" in
     noconfigdirs="$noconfigdirs ld binutils gprof target-libgloss ${libgcj}"
     ;;
   mips*-*-irix5*)
-    # The GNU linker does not support shared libraries.
-    noconfigdirs="$noconfigdirs ld gprof target-libgloss ${libgcj}"
+    noconfigdirs="$noconfigdirs gprof target-libgloss ${libgcj}"
     ;;
   mips*-*-irix6*)
     # Linking libjava exceeds command-line length limits on at least
@@ -1069,6 +1068,7 @@ EOF
 fi
 
 ACX_PROG_GNAT
+ACX_PROG_CMP_IGNORE_INITIAL
 
 # By default, C is the only stage 1 language.
 stage1_languages=c

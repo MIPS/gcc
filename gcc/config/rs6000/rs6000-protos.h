@@ -102,7 +102,7 @@ extern int includes_rshift_p (rtx, rtx);
 extern int includes_rldic_lshift_p (rtx, rtx);
 extern int includes_rldicr_lshift_p (rtx, rtx);
 extern int registers_ok_for_quad_peep (rtx, rtx);
-extern int addrs_ok_for_quad_peep (rtx, rtx);
+extern int mems_ok_for_quad_peep (rtx, rtx);
 extern bool gpr_or_gpr_p (rtx, rtx);
 extern enum reg_class secondary_reload_class (enum reg_class,
 					      enum machine_mode, rtx);
@@ -116,6 +116,7 @@ extern enum rtx_code rs6000_reverse_condition (enum machine_mode,
 extern void rs6000_emit_sCOND (enum rtx_code, rtx);
 extern void rs6000_emit_cbranch (enum rtx_code, rtx);
 extern char * output_cbranch (rtx, const char *, int, rtx);
+extern char * output_e500_flip_gt_bit (rtx, rtx);
 extern rtx rs6000_emit_set_const (rtx, enum machine_mode, rtx, int);
 extern int rs6000_emit_cmove (rtx, rtx, rtx, rtx);
 extern void rs6000_emit_minmax (rtx, enum rtx_code, rtx, rtx);
@@ -200,6 +201,8 @@ extern int rs6000_memory_move_cost (enum machine_mode, enum reg_class, int);
 extern bool rs6000_tls_referenced_p (rtx);
 extern int rs6000_tls_symbol_ref (rtx, enum machine_mode);
 extern void rs6000_output_dwarf_dtprel (FILE*, int, rtx);
+extern int rs6000_hard_regno_nregs (int, enum machine_mode);
+extern void rs6000_conditional_register_usage (void);
 
 /* Declare functions in rs6000-c.c */
 
@@ -210,4 +213,5 @@ extern void rs6000_cpu_cpp_builtins (struct cpp_reader *);
 char *output_call (rtx, rtx *, int, int);
 #endif
 
+extern bool rs6000_hard_regno_mode_ok_p[][FIRST_PSEUDO_REGISTER];
 #endif  /* rs6000-protos.h */

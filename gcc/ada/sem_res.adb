@@ -4487,7 +4487,7 @@ package body Sem_Res is
       --  call at all violates a specified nesting depth of zero.
 
       if Is_Protected_Type (Scope (Nam)) then
-         Check_Restriction (Max_Entry_Queue_Depth, N);
+         Check_Restriction (Max_Entry_Queue_Length, N);
       end if;
 
       --  Use context type to disambiguate a protected function that can be
@@ -7076,7 +7076,9 @@ package body Sem_Res is
             end if;
          end;
 
-      elsif Ekind (Target_Type) = E_Access_Subprogram_Type
+      elsif (Ekind (Target_Type) = E_Access_Subprogram_Type
+               or else
+             Ekind (Target_Type) = E_Anonymous_Access_Subprogram_Type)
         and then Conversion_Check
                    (Ekind (Base_Type (Opnd_Type)) = E_Access_Subprogram_Type,
                     "illegal operand for access subprogram conversion")

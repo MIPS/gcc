@@ -265,6 +265,8 @@ gnat_to_gnu (Node_Id gnat_node)
      we do generates RTL and returns error_mark_node.  */
   if (!global_bindings_p ())
     {
+      do_pending_stack_adjust ();
+      emit_queue ();
       start_sequence ();
       emit_note (NOTE_INSN_DELETED);
       made_sequence = true;
@@ -285,14 +287,19 @@ gnat_to_gnu (Node_Id gnat_node)
 	    gigi_abort (303);
 	}
 
+      do_pending_stack_adjust ();
+      emit_queue ();
       gnu_root = make_expr_stmt_from_rtl (first_nondeleted_insn (get_insns ()),
 					  gnat_node);
       end_sequence ();
     }
   else if (made_sequence)
     {
-      rtx insns = first_nondeleted_insn (get_insns ());
+      rtx insns;
 
+      do_pending_stack_adjust ();
+      emit_queue ();
+      insns = first_nondeleted_insn (get_insns ());
       end_sequence ();
 
       if (insns)
@@ -2107,26 +2114,31 @@ tree_transform (Node_Id gnat_node)
     case N_If_Statement:
       gnu_result = NULL_TREE;
 
-      /* Make an IF_STMT for each of the "else if" parts.  */
+      /* Make an IF_STMT for each of the "else if" parts.  Avoid
+	 non-determinism.  */
       if (Present (Elsif_Parts (gnat_node)))
 	for (gnat_temp = First (Elsif_Parts (gnat_node));
 	     Present (gnat_temp); gnat_temp = Next (gnat_temp))
 	  {
-	    tree gnu_elseif
-	      = build_nt (IF_STMT, gnat_to_gnu (Condition (gnat_temp)),
-			  build_block_stmt (Then_Statements (gnat_temp)),
-			  NULL_TREE, NULL_TREE);
+	    gnu_expr = make_node (IF_STMT);
 
-	    TREE_SLOC (gnu_elseif) = Sloc (Condition (gnat_temp));
-	    TREE_CHAIN (gnu_elseif) = gnu_result;
-	    TREE_TYPE (gnu_elseif) = void_type_node;
-	    gnu_result = gnu_elseif;
+	    IF_STMT_COND (gnu_expr) = gnat_to_gnu (Condition (gnat_temp));
+	    IF_STMT_TRUE (gnu_expr)
+	      = build_block_stmt (Then_Statements (gnat_temp));
+	    IF_STMT_ELSE (gnu_expr) = IF_STMT_ELSEIF (gnu_expr) = NULL_TREE;
+	    TREE_SLOC (gnu_expr) = Sloc (Condition (gnat_temp));
+	    TREE_CHAIN (gnu_expr) = gnu_result;
+	    TREE_TYPE (gnu_expr) = void_type_node;
+	    gnu_result = gnu_expr;
 	  }
 
-      gnu_result = build_nt (IF_STMT, gnat_to_gnu (Condition (gnat_node)),
-			     build_block_stmt (Then_Statements (gnat_node)),
-			     nreverse (gnu_result),
-			     build_block_stmt (Else_Statements (gnat_node)));
+      /* Now make the IF_STMT.  Also avoid non-determinism.  */
+      gnu_expr = make_node (IF_STMT);
+      IF_STMT_COND (gnu_expr) = gnat_to_gnu (Condition (gnat_node));
+      IF_STMT_TRUE (gnu_expr) = build_block_stmt (Then_Statements (gnat_node));
+      IF_STMT_ELSEIF (gnu_expr) = nreverse (gnu_result);
+      IF_STMT_ELSE (gnu_expr) = build_block_stmt (Else_Statements (gnat_node));
+      gnu_result = gnu_expr;
       break;
 
     case N_Case_Statement:
@@ -2253,7 +2265,7 @@ tree_transform (Node_Id gnat_node)
 	    /* Communicate to GCC that we are done with the current WHEN,
 	       i.e. insert a "break" statement.  */
 	    expand_exit_something ();
-	    expand_end_bindings (getdecls (), kept_level_p (), -1);
+	    expand_end_bindings (NULL_TREE, kept_level_p (), -1);
 	    poplevel (kept_level_p (), 1, 0);
 	  }
 
@@ -2392,7 +2404,7 @@ tree_transform (Node_Id gnat_node)
 	     gnat_statement = Next (gnat_statement))
 	  gnat_to_code (gnat_statement);
 
-        expand_end_bindings (getdecls (), kept_level_p (), -1);
+        expand_end_bindings (NULL_TREE, kept_level_p (), -1);
         poplevel (kept_level_p (), 1, 0);
         gnu_block_stack = TREE_CHAIN (gnu_block_stack);
 
@@ -2418,7 +2430,7 @@ tree_transform (Node_Id gnat_node)
 	    /* Close the nesting level that sourround the loop that was used to
 	       declare the loop index variable.   */
 	    set_lineno (gnat_node, 1);
-	    expand_end_bindings (getdecls (), 1, -1);
+	    expand_end_bindings (NULL_TREE, 1, -1);
 	    poplevel (1, 1, 0);
 	  }
 
@@ -2436,7 +2448,7 @@ tree_transform (Node_Id gnat_node)
       expand_start_bindings (0);
       process_decls (Declarations (gnat_node), Empty, Empty, 1, 1);
       gnat_to_code (Handled_Statement_Sequence (gnat_node));
-      expand_end_bindings (getdecls (), kept_level_p (), -1);
+      expand_end_bindings (NULL_TREE, kept_level_p (), -1);
       poplevel (kept_level_p (), 1, 0);
       gnu_block_stack = TREE_CHAIN (gnu_block_stack);
       if (Present (Identifier (gnat_node)))
@@ -2722,7 +2734,7 @@ tree_transform (Node_Id gnat_node)
 	   will be present and any OUT parameters will be handled there.  */
 	gnat_to_code (Handled_Statement_Sequence (gnat_node));
 
-	expand_end_bindings (getdecls (), kept_level_p (), -1);
+	expand_end_bindings (NULL_TREE, kept_level_p (), -1);
 	poplevel (kept_level_p (), 1, 0);
 	gnu_block_stack = TREE_CHAIN (gnu_block_stack);
 
@@ -3528,7 +3540,7 @@ tree_transform (Node_Id gnat_node)
 	    gnu_except_ptr_stack = TREE_CHAIN (gnu_except_ptr_stack);
 
 	    /* End the binding level dedicated to the exception handlers.  */
-	    expand_end_bindings (getdecls (), kept_level_p (), -1);
+	    expand_end_bindings (NULL_TREE, kept_level_p (), -1);
 	    poplevel (kept_level_p (), 1, 0);
 
 	    /* End the "if" on setjmp.  Note that we have arranged things so
@@ -3591,7 +3603,7 @@ tree_transform (Node_Id gnat_node)
 	/* Close the binding level we made, if any.  */
 	if (exitable_binding_for_block)
 	  {
-	    expand_end_bindings (getdecls (), kept_level_p (), -1);
+	    expand_end_bindings (NULL_TREE, kept_level_p (), -1);
 	    poplevel (kept_level_p (), 1, 0);
 	  }
       }
@@ -3799,7 +3811,7 @@ tree_transform (Node_Id gnat_node)
       if (Exception_Mechanism == GCC_ZCX)
 	{
 	  /* Tell the back end that we're done with the current handler.  */
-	  expand_end_bindings (getdecls (), kept_level_p (), -1);
+	  expand_end_bindings (NULL_TREE, kept_level_p (), -1);
 	  poplevel (kept_level_p (), 1, 0);
 
 	  expand_end_catch ();
@@ -5531,7 +5543,7 @@ build_unit_elab (Entity_Id gnat_unit, int body_p, tree gnu_elab_list)
 	break;
       }
 
-  expand_end_bindings (getdecls (), kept_level_p (), -1);
+  expand_end_bindings (NULL_TREE, kept_level_p (), -1);
   poplevel (kept_level_p (), 1, 0);
   gnu_block_stack = TREE_CHAIN (gnu_block_stack);
   end_subprog_body ();
