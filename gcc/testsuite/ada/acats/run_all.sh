@@ -13,7 +13,8 @@ gccflags=""
 gnatflags="-gnatws"
 
 target_run () {
-LD_LIBRARY_PATH=$ADA_INCLUDE_PATH${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH} $*
+  LD_LIBRARY_PATH=$ADA_INCLUDE_PATH${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH} \
+    $EXPECT -f $testdir/run_test.exp $1 > $2
 }
 
 # End of customization section.
@@ -256,7 +257,7 @@ for chapter in $chapters; do
 
       echo "RUN $binmain" >> $dir/acats.log
       cd $dir/run
-      target_run $dir/tests/$chapter/$i/$binmain > $dir/tests/$chapter/$i/${i}.log 2>&1
+      target_run $dir/tests/$chapter/$i/$binmain $dir/tests/$chapter/$i/${i}.log
       cd $dir/tests/$chapter/$i
       cat ${i}.log >> $dir/acats.log
       egrep -e '(==== |\+\+\+\+ |\!\!\!\! )' ${i}.log > /dev/null 2>&1

@@ -1,3 +1,9 @@
+2004-11-28  James A. Morrison  <ja2morri@csclub.uwaterloo.ca>
+
+	PR ada/18302
+	* ada/acats/run_all.sh (target_run): Run test through run_test.expect.
+	* ada/acats/run_test.expect: Expect script for ACATS tests.
+
 2005-01-24  Eric Botcazou  <ebotcazou@libertysurf.fr>
 
 	* gcc.c-torture/compile/20050113-1.c: XFAIL on SPARC.

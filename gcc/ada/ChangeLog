@@ -1,3 +1,8 @@
+2004-11-28  James A. Morrison  <ja2morri@csclub.uwaterloo.ca>
+
+	PR ada/18302
+	* Make-lang.in (check-gnat): Set EXPECT environment variable.
+
 2005-01-18  Jakub Jelinek  <jakub@redhat.com>
 
 	PR ada/13470
