@@ -1,3 +1,11 @@
+2004-07-30  Tom Tromey  <tromey@redhat.com>
+
+	* gnu/java/awt/peer/GLightweightPeer.java,
+	gnu/java/awt/peer/gtk/GdkGraphics2D.java,
+	gnu/java/awt/peer/gtk/GtkComponentPeer.java,
+	javax/swing/JScrollPane.java: Removed
+	redundant imports.
+
 2004-07-30  David Jee  <djee@redhat.com>
 
 	* java/awt/DefaultKeyboardFocusManager.java
