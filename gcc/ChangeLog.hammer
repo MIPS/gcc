@@ -1,3 +1,7 @@
+Wed Feb 19 17:18:06 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+	* i386.md (movsfcc_1, movdfcc_1): Fix constrains.
+
 Wed Feb 19 17:09:48 CET 2003  Jan Hubicka  <jh@suse.cz>
 
 	* toplev.c (rest_of_compilation): Do unswitching before tracing.
