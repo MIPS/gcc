@@ -1,3 +1,138 @@
+2003-06-23  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/5754
+	* parse.y (structsp): Improve error handling of invalid nested
+	template classes.
+
+2003-06-23  Jakub Jelinek  <jakub@redhat.com>
+
+	* mangle.c: Include ggc.h, gt-cp-mangle.h.
+	(mangle_conv_op_name_for_type): Use htab_create_ggc instead of
+	htab_create.
+	* config-lang.in (gtfiles): Add cp/mangle.c.
+	* Make-lang.in (gt-cp-mangle.h): Depend on s-gtype.
+	(cp/mangle.o): Depend on gt-cp-mangle.h.
+
+2003-06-23  Jakub Jelinek  <jakub@redhat.com>
+
+	* mangle.c (hash_type): val is the TREE_LIST itself, not a pointer
+	to it.
+
+2003-06-21  Gabriel Dos Reis <gdr@integrable-solutions.net>
+
+        PR c++/10784
+        * call.c (joust): Warn about choosing conversion sequence only if
+        -Wconversion.
+	
+2003-06-21  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	PR c++/10864
+	* call.c (op_error): Tidy.
+	* error.c (dump_expr): Properly format 'T()' when T is an
+	aggregate type.
+
+2003-06-21  Gabriel Dos Reis <gdr@integrable-solutions.net>
+
+	PR c++/10915
+	* decl.c (grok_op_properties): Warn possible confusing conversion
+	only if -Wconversion.
+
+2003-06-20  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/10845
+	* pt.c (try_class_unification): Correct handling of member class
+	templates.
+
+2003-06-19  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/10939
+	* Make-lang.in (decl.o): Depend on input.h.
+	* decl.c (input.h): Include it.
+	(cp_finish_decl): Revert previous change: 
+	  2003-06-19  Mark Mitchell  <mark@codesourcery.com>
+	  * decl.c (cp_finish_decl): Remove support for RESULT_DECLs.
+	  Don't check building_stmt_tree.
+	* pt.c (tsubst_decl): Do not try to substitute into non-dependent
+	functions.
+
+	PR c++/9649
+	* cp-tree.h (pushdecl_class_level): Change prototype.
+	(push_class_level_binding): Likewise.
+	* decl.c (add_binding): Reject duplicate static data members.
+	(pushdecl_class_level): Return a value indicating whether or not
+	the binding was valid.
+	(push_class_level_binding): Likewise.
+	* semantics.c (finish_member_declaration): Don't keep invalid
+	declarations.
+
+2003-06-19  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/11041
+	* call.c (initialize_reference): Do not use cp_finish_decl to emit
+	temporary variables.
+	* cp-tree.h (static_aggregates): Declare.
+	(pushdecl_top_level_and_finish): Likewise.
+	* decl.c (pushdecl_top_level_1): New function.
+	(pushdecl_top_level): Use it.
+	(pushdecl_top_level_and_finish): New function.
+	(initialize_local_var): Remove redundant code.
+	(cp_finish_decl): Remove support for RESULT_DECLs.  Don't check
+	building_stmt_tree.
+	* decl.h (static_aggregates): Remove.
+	* decl2.c (get_guard): Use pushdecl_top_level_and_finish.
+	* rtti.c (get_tinfo_decl): Use pushdecl_top_level_and_finish.
+	(tinfo_base_init): Likewise.
+
+2003-06-19  Matt Austern  <austern@apple.com>
+
+	PR c++/11228
+	* init.c (build_zero_init): Assert that number of array elements
+	is an integer constant.
+	(build_default_init) Don't use build_zero_init for arrays with
+	variable number of elements.
+	
+2003-06-17  Mark Mitchell  <mark@codesourcery.com>
+
+	* mangle.c (mangle_conv_op_name_for_type): Correct sprintf format
+	string again.
+
+2003-06-17  Mark Mitchell  <mark@codesourcery.com>
+
+	* mangle.c (mangle_conv_op_name_for_type): Correct sprintf format
+	string.
+
+2003-06-17  Jason Merrill  <jason@redhat.com>
+
+	PR c++/10929
+	* decl.c (grokfndecl): Don't mark a function inline for
+	-finline-functions if it isn't defined.
+
+2003-06-17  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/10712
+	* class.c (handle_using_decl): Robustify.
+
+	PR c++/11105
+	* cp-tree.h (DECL_CONV_FN_TYPE): New method.
+	* decl.c (lookup_name_real): Backport conversion operator code
+	from mainline.
+	* mangle.c (struct globals): Remove internal_mangling_p.
+	(write_unqualified_name): Use DECL_CONV_FN_TYPE.
+	(write_template_parm): Don't write out the level number.
+	(conv_type_names): New variable.
+	(hash_type): New function.
+	(compare_type): Likewise.
+	(mangle_conv_op_name_for_type): Don't try to mangle conversion
+	operator names.
+	* search.c (lookup_conversion_operator): New function.
+	(lookup_fnfields_1): Use it.
+
+2003-06-12  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/10635
+	* typeck.c (build_c_cast): Check that the destination type is
+	complete.
+
 2003-06-10  Jason Merrill  <jason@redhat.com>
 
 	PR c++/10968

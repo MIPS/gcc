@@ -1,3 +1,84 @@
+2003-06-24  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/5754
+	* g++.dg/parse/crash6.C: New test.
+
+2003-06-23  Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.dg/opt/operator1.C: New test.
+
+2003-06-21  Gabriel Dos Reis <gdr@integrable-solutions.net>
+
+	* g++.old-deja/g++.benjamin/16077.C: Add -Wconversion option.
+	* g++.old-deja/g++.other/conv7.C: Likewise
+	* g++.old-deja/g++.other/overcnv2.C: Likewise.
+	* g++.old-deja/g++.other/overload14.C: Likewise.
+
+2003-06-21  Gabriel Dos Reis <gdr@integrable-solutions.net>
+
+	* g++.old-deja/g++.jason/conversion5.C: Adjust option.
+	* g++.old-deja/g++.bugs/900215_01.C: Likewise.
+
+2003-06-20  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/10888
+	* g++.dg/warn/Winline-2.C: New test. 
+
+	PR c++/10845
+	* g++.dg/template/member3.C: New test.
+
+2003-06-19  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/10939
+	* g++.dg/template/func1.C: New test.
+
+	PR c++/9649
+	* g++.dg/template/static4.C: New test.
+	* g++.old-deja/g++.other/anon7.C: Remove spurious error messages.
+
+2003-06-19  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/11041
+	* g++.dg/init/ref7.C: New test.
+
+2003-06-19  Matt Austern  <austern@apple.com>
+
+	PR c++/11228
+	* g++.dg/anew1.C: New test.
+	* g++.dg/anew2.C: New test.
+	* g++.dg/anew3.C: New test.
+	* g++.dg/anew4.C: New test.
+	
+2003-06-19  Loren James Rittle  <ljrittle@acm.org>
+	
+	* gcc.dg/cpp/redef3.c: New file.
+
+2003-06-17  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/10712
+	* g++.dg/lookup/using3.C: New test.
+
+	PR c++/11105
+	* g++.dg/abi/conv1.C: Remove it.
+	* g++.dg/template/conv7.C: New test.
+	* g++.dg/template/conv8.C: Likewise.
+	* g++.old-deja/g++.ext/pretty2.C: Do not test __FUNCTION__ for a
+	conversion operator.
+
+2003-06-13  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.c-torture/execute/20030611-1.c: New test.
+
+2003-06-12  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/10635
+	* g++.dg/expr/cast1.C: New test.
+
+2003-06-10  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/noreturn-1.c: Move noreturn warning line.
+	* gcc.dg/return-type-1.c: Move control reaches end warning line.
+
 2003-06-10  Richard Henderson  <rth@redhat.com>
 
         * gcc.dg/asm-7.c: Adjust expected warning text.

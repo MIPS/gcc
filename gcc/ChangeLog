@@ -1,3 +1,293 @@
+2003-06-24  Falk Hueffner  <falk.hueffner@student.uni-tuebingen.de>
+
+        PR target/11260
+        * config/alpha/alpha.md (sqrtdf2): Fix operand substitution.
+
+2003-06-24  Jakub Jelinek  <jakub@redhat.com>
+
+	* builtins.c (expand_builtin_strcpy): Don't evaluate side-effects in
+	src twice.
+
+2003-06-23  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/s390/s390.c (s390_output_mi_thunk): Avoid .plt in -m31
+	mode, as it requires pic register loaded.
+
+2003-06-23  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* doc/extend.texi: Fix typos.
+	* doc/md.texi: Likewise.
+
+2003-06-23  Roger Sayle  <roger@eyesopen.com>
+            Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
+
+	* doc/contrib.texi (Contributors): Add a note on testing and
+	remove duplicates from testers list.
+
+2003-06-23  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* doc/invoke.texi: Document dump options, dT and dW.
+
+2003-06-23  Andreas Schwab  <schwab@suse.de>
+
+	* doc/invoke.texi: Remove leading `-' from options in index.
+
+2003-06-22  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* doc/invoke.texi: Document dump, .cfg.
+
+2003-06-22  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* doc/invoke.texi: Alphabetize dump options.
+
+2003-06-22  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* doc/invoke.texi: Remove a duplicate -dk.
+
+2003-06-22  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* doc/rtl.texi: Fix the @findex for pre_modify.
+
+Sat Jun 21 13:37:52 CEST 2003  Jan Hubicka  <jh@suse.cz>
+
+	* i386.c (ix86_va_arg): Fix allocation of temporary slot.
+
+2003-06-21  Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
+
+	* doc/contrib.texi (Contributors): Use Windows instead of Win32.
+
+	Update Andreas Jaeger's entry.
+
+	Merge the two entries of Kaveh Ghazi, David Edelsohn, and
+	Loren J. Rittle.
+
+2003-06-20  Geoffrey Keating  <geoffk@apple.com>
+
+	PR c++/9393
+	* doc/invoke.texi (Debugging Options): Document -frandom-seed.
+	* configure.in: Check for gettimeofday.
+	* tree.c (flag_random_seed): Define.
+	(default_flag_random_seed): New.
+	(append_random_chars): Use flag_random_seed rather than trying
+	to acquire randomness here.
+	* tree.h (default_flag_random_seed): Declare.
+	* toplev.c (display_help): Add -frandom-seed and -fstack-limit-*
+	descriptions.
+	(decode_f_option): Handle -frandom-seed.
+	(print_switch_values): Call default_flag_random_seed.
+	* flags.h (flag_random_seed): Declare.
+	* configure: Regenerate.
+	* config.in: Regenerate.
+	
+2003-06-20  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/10888
+	* tree-inline.c (expand_call_inline): Do not warn about failing to
+	inline functions declared in system headers.
+	* doc/invoke.texi (-Winline): Expand on documentation.
+
+2003-06-20  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* configure.in (gcc_cv_as_gstabs_flag): Disable if assembler warns.
+	* configure: Regenerate.
+	Fixes PR driver/9362.
+
+2003-06-19  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* haifa-sched.c (max_isse): Backport from the mainline.
+	(choice_entry): New structure.
+	(choice_stack, cycle_issued_insns, max_lookahead_tries,
+	cached_first_cycle_multipass_dfa_lookahead, cached_issue_rate):
+	New variables.
+	(choose_ready): Calculate max_lookahead_tries.  Initiate
+	ready_try.
+	(schedule_block): Allocate/deallocate choice_stack.  Change
+	cycle_issued_insns value as necessary.
+	(sched_init): Check cached_issue_rate.
+
+2003-06-20  Daniel Egger  <degger@fhm.edu>
+            Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
+
+	* doc/install.texi (Building): Correct and improve statement
+	about parallel builds.
+
+2003-06-20  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* doc/install.texi (--with-gnu-as): Mention SPARC/Solaris and
+	SPARC64/Solaris as platforms where --with-gnu-as makes a difference.
+	(--with-as): Add @anchor.
+	(--with-gnu-ld): Fix typo.
+	(--with-ld): Add @uref to --with-as.
+
+2003-06-19  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* flow.c (initialize_uninitialized_subregs): Use
+	emit_move_insn instead of emitting a hardcoded move.
+
+2003-06-19  David Edelsohn  <edelsohn@gnu.org>
+
+	* config/rs6000/rs6000.c (init_cumulative_args): Limit CALL_LIBCALL
+	to ABI_V4.
+
+2003-06-19  DJ Delorie  <dj@redhat.com>
+
+	PR preprocessor/11022
+	* cppmacro.c (warn_of_redefinition): Handle cases where the two
+	definitions have different numbers of tokens.
+
+2003-06-18  Richard Henderson  <rth@redhat.com>
+
+	* config/ia64/unwind-ia64.c (_Unwind_GetCFA): New.
+	(_Unwind_FindEnclosingFunction): Implement.
+
+2003-06-18  Franz Sirl  <Franz.Sirl-kernel@lauterbach.com>
+
+	* config/rs6000/rs6000.c (init_cumulative_args): Add and handle LIBCALL
+	argument.
+	(function_arg): Handle CALL_LIBCALL flag.
+	* config/rs6000/rs6000-protos.h (init_cumulative_args): Update
+	prototype.
+	* config/rs6000/rs6000.h (CALL_LIBCALL): New macro.
+	(INIT_CUMULATIVE_LIBCALL_ARGS): New macro.
+	(INIT_CUMULATIVE_ARGS): Add LIBCALL argument.
+	(INIT_CUMULATIVE_INCOMING_ARGS): Likewise.
+
+2003-06-17  Jason Merrill  <jason@redhat.com>
+
+	PR c++/10929
+	* tree-inline.c (expand_call_inline): Don't warn about failing to
+	inline a function which was made inline by -finline-functions.
+
+2003-06-17  Ranjit Mathew  <rmathew@hotmail.com>
+
+	* install.texi (Testing): Add information on how to run Java
+	runtime tests separately.
+
+2003-06-17  Christopher Faylor  <cgf@redhat.com>
+
+	* doc/install.texi: Add msvc rebuild caveat.
+
+2003-06-17  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* doc/contrib.texi: Replace Hitachi with Renesas.
+	* doc/install.texi: Likewise.
+	* doc/invoke.texi: Likewise.
+
+2003-06-17  Franz Sirl  <Franz.Sirl-kernel@lauterbach.com>
+
+	* config/rs6000/linux.h (MD_FALLBACK_FRAME_STATE_FOR): Partly revert
+	2003-01-23 patch. Corrected to handle kernels with changed ucontext.
+
+	* config/rs6000/sysv4.h (SUBTARGET_OVERRIDE_OPTIONS): Error on invalid
+	-msdata=eabi usages.
+
+2003-06-14  Richard Earnshaw  <rearnsha@arm.com>
+
+	PR optimization/10842
+	From trunk:
+	2003-01-20  Nick Clifton  <nickc@redhat.com>
+
+	* config/arm/arm.md (sibcall_epilogue): Add an
+	UNSPEC_PROLOGUE_USE to prevent the link register from being
+	considered dead.
+
+	2003-02-02  Richard Earnshaw  <rearnsha@arm.com>
+
+	* arm.md (sibcall_epilogue): Set the "conds" to "clob".
+	(epilogue_insns): Likewise.
+
+2003-06-14  Richard Earnshaw  <rearnsha@arm.com>
+
+	PR target/11183
+	* arm.c (output_move_double): Pass SImode to adjust_address.
+
+2003-06-13  Janis Johnson  <janis187@us.ibm.com>
+
+	* doc/install.texi (m32r-*-elf): Change company to Renesas.
+
+2003-06-13  Richard Earnshaw  <rearnsha@arm.com>
+
+	* arm.c (output_call_mem): If the address references the link-register
+	use an instruction sequence that avoids early-clobbering IP.
+	(eliminate_lr2ip): Delete.
+
+2003-06-12  Richard Henderson  <rth@redhat.com>
+
+        PR target/11089
+        * config/i386/i386.md (sse_movaps): Use an expander to force
+        one operand to be a register.
+        (sse_movups): Likewise.
+
+2003-06-12  Richard Henderson  <rth@redhat.com>
+
+        PR middle-end/10557
+        * rtlanal.c (subreg_offset_representable_p): Relax subreg check.
+
+2003-06-13  Eric Botcazou  <ebotcazou@libertysurf.fr>
+            Christian Ehrhardt <ehrhardt@mathematik.uni-ulm.de>
+
+	PR target/10142
+	* config/sparc/sparc.c (function_arg_record_value_parms): Add
+	new 'stack' field.
+	(function_arg_record_value_1): Set 'stack' to 1 if we run out of
+	integer slots for an integer field.
+	(function_arg_record_value_3): Shift vector index.
+	(function_arg_record_value_2): Likewise.
+	(function_arg_record_value): Initialize 'stack' to 0.
+	Set 'stack' to 1 if we run out of integer slots for an integer field.
+	Generate (parallel [(expr_list (nil) ...) ...]) if 'stack' is set to 1.
+
+2003-06-13  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR optimization/10955
+	* unroll.c (unroll_loop): Fix off-by-one bug.
+
+2003-06-12  Richard Henderson  <rth@redhat.com>
+
+	PR middle-end/10475
+	* expmed.c (emit_store_flag): Use simplify_gen_subreg directly
+	for extracting sub-words.
+
+2003-06-12  Richard Henderson  <rth@redhat.com>
+
+	PR target/7594
+        * config/m68k/m68k.md (zero_extendhisi2): Use gen_lowpart_SUBREG.
+        (zero_extendqihi2, zero_extendqisi2): Likewise.
+
+2003-06-12  Richard Henderson  <rth@redhat.com>
+
+	PR inline-asm/4823
+	* reg-stack.c (any_malformed_asm): New.
+	(check_asm_stack_operands): Set it.
+	(convert_regs_1): Check it before aborting.
+
+2003-06-12  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-decl.c (c_expand_body): Save input_filename and lineno,
+	set it before tree inlining and restore before return.
+
+2003-06-12  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* config/s390/s390.c (s390_emit_prologue): Use LA instead of AR
+	to initialize GOT register.
+
+2003-06-12  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-opts.c (complain_wrong_lang): Add on argument.
+	Print no- switch if on is false.
+	(c_common_decode_option): Adjust caller.
+
+2003-06-11  Richard Henderson  <rth@redhat.com>
+
+        * stmt.c (expand_asm_operands): Don't warn for memories with
+        queued addresses.
+
+2003-06-11  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR target/8787
+	* config/i386/djgpp.h (ASM_FILE_START): emit `.intel_syntax'
+	if -masm=intel.
+
 2003-06-10  Andrew Haley  <aph@redhat.com>
 
 	* langhooks-def.h (LANG_HOOKS_DECL_OK_FOR_SIBCALL): New.
