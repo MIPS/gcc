@@ -1,3 +1,147 @@
+2003-12-01  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	Backport from mainline
+
+	2002-11-19  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	* config.gcc (sh*-*-linux*): Add t-slibgcc-elf-ver and t-linux.
+        to tmake_file.
+	* config/sh/libgcc-glibc.ver: New file.
+
+	Backport from mainline
+
+	2003-10-08  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	* config/sh/t-linux (SHLIB_LINK): Override to use a linker script
+	libgcc_s.so.
+	(SHLIB_INSTALL): Likewise.
+
+2003-12-01  Roger Sayle  <roger@eyesopen.com>
+
+	PR optimization/11634
+	* recog.c (split_insn): Factor test of INSN_P and handling of
+	set_noop_p out of here into the two callers.
+	(split_all_insns): Add INSN_P test and set_noop_p handling here.
+	If deleting a no-op set after reload that has a REG_UNUSED note,
+	mark the basic block as changed and recalculate life information.
+	(split_all_insns_noflow): Add INSN_P test and set_noop_p handling
+	here.
+
+2003-12-01  Zack Weinberg  <zack@codesourcery.com>
+
+	PR 12505
+	* configure.in: Check for system-provided 'uchar' type.
+	* configure, config.in: Regenerate.
+	* cpphash.h: Only typedef 'uchar' if the system doesn't.
+
+2003-12-01  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* unroll.c (find_splittable_givs): Add missing extend_value_for_giv.
+
+2003-12-01  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	Backport from mainline:
+
+	2003-11-27  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR optimization/13041
+	* final.c (frame_pointer_needed): Fix comment.
+	* reload1.c (reload): Decrease alignment of the frame
+	pointer if it was used for register allocation.
+
+2003-12-01  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	Backport from mainline:
+
+	2003-11-27  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR target/12900
+	* reg-stack (move_for_stack_reg): New prototype.  Return
+	whether a control flow insn was deleted.
+	(subst_stack_regs_pat): Likewise, using the information provided
+	by move_for_stack_reg.
+	(subst_stack_regs): Likewise, using the information provided
+	by subst_stack_regs_pat.
+	(convert_regs_1): Record whether a control flow insn was deleted,
+	using the information provided by subst_stack_regs.  Purge dead
+	edges only if a control flow insn was deleted.
+
+2003-12-01  Gabriel Dos Reis <gdr@integrable-solutions.net>
+
+	* doc/c-tree.texi (Function Bodies): Update HANDLER documentation.
+
+2003-11-29  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* config/s390/s390.md ("cmpint_di"): Fix incorrect instruction lengths.
+
+2003-11-19  Alan Modra  <amodra@bigpond.net.au>
+
+	Backport 2003-03-26  Alan Modra  <amodra@bigpond.net.au>
+	* cppinit.c (init_standard_includes): Add both "translated" and
+	non-translated header paths.
+
+2003-11-18  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	Fix links in online manuals.
+	* doc/invoke.texi (H8/300 Options): @xref to ld, not ld.info.
+
+2003-11-17  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* doc/invoke.texi (Warning Options): Simplify and clarify the
+	description of -Wnonnull.
+
+2003-11-14  Matthias Klose  <doko@debian.org>
+
+	Backport from mainline
+
+	2003-06-04  Jakub Jelinek  <jakub@redhat.com>
+
+	* function.c (trampolines_created): New variable.
+	(expand_function_end): Set it when doing INITIALIZE_TRAMPOLINE.
+	* function.h (trampolines_created): Add.
+	* config/s390/linux.h (ASM_FILE_END): Define.
+	* config/alpha/linux-elf.h (ASM_FILE_END): Define.
+	* config/m68k/linux.h (ASM_FILE_END): Define.
+	* config/rs6000/linux.h (ASM_FILE_END): Define.
+	* config/rs6000/linux64.h (ASM_FILE_END): Define.
+	* config/sparc/linux.h (ASM_FILE_END): Define.
+	* config/sparc/linux64.h (ASM_FILE_END): Define.
+	* config/i386/i386.c (ix86_asm_file_end): Use SUBTARGET_FILE_END.
+	* config/i386/linux.h (SUBTARGET_FILE_END): Define.
+	* config/i386/linux64.h (SUBTARGET_FILE_END): Define.
+
+	2003-06-05  Jakub Jelinek  <jakub@redhat.com>
+
+	* mklibgcc.in: Propagate .note.GNU-stack section if needed into
+	the .hidden assembly stubs.
+
+2003-11-13  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR optimization/12926
+	* expr.c (expand_assignment) [COMPONENT_REF]: Don't put
+	the UNCHANGING_RTX_P flag on memory references to read-only
+	components that are not addressable.
+
+2003-11-12  Alexey Starovoytov  <alexey.starovoytov@sun.com>
+
+	PR optimization/12953
+	* c-objc-common.c (inline_forbidden_p): Added check for BUILT_IN
+	before switch by FUNCTION_CODE.
+
+2003-11-10  Waldek Hebisch  <hebisch@math.uni.wroc.pl>
+
+	PR target/12865
+	* config/sparc/sparc.c (sparc_initialize_trampoline): Call
+	__enable_execute_stack only after writing onto the stack.
+	(sparc64_initialize_trampoline): Likewise.
+
+2003-11-08  Roger Sayle  <roger@eyesopen.com>
+
+	Backport from mainline
+	PR optimization/10467, PR optimization/11741
+	* gcse.c (pre_insert_copy_insn): Tweak the logic for finding the
+	appropriate set to match the code in hash_scan_insn.
+
 2003-10-26  Jakub Jelinek  <jakub@redhat.com>
 	    Jan Hubicka  <jh@suse.cz>
 
@@ -380,7 +524,7 @@ Mon May 12 11:32:53 CEST 2003  Jan Hubicka  <jh@suse.cz>
 	* config/i386/emmintrin.h: Here. New file.
 
 2003-11-04  H.J. Lu  <hongjiu.lu@intel.com>
- 
+
 	Backport from 3.4-branch
 	2003-04-25  H.J. Lu   <hjl@gnu.org>
 
@@ -478,7 +622,7 @@ Mon May 12 11:32:53 CEST 2003  Jan Hubicka  <jh@suse.cz>
 2003-10-14  Jason Merrill  <jason@redhat.com>
 
 	PR c/11885
-	* stor-layout.c (update_alignment_for_field): Packed non-bit-fields 
+	* stor-layout.c (update_alignment_for_field): Packed non-bit-fields
 	get byte alignment.
 
 2003-10-14  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
@@ -486,7 +630,7 @@ Mon May 12 11:32:53 CEST 2003  Jan Hubicka  <jh@suse.cz>
 	* fixinc/inclhack.def (alpha_pthread_gcc): New fix.
 	* fixinc/fixincl.x: Regenerate.
 	* fixinc/tests/base/pthread.h [ALPHA_PTHREAD_GCC_CHECK]: New
-	testcase. 
+	testcase.
 	Fixes PR bootstrap/9330.
 
 2003-10-14  Steven Bosscher  <steven@gcc.gnu.org>
@@ -534,7 +678,7 @@ Mon May 12 11:32:53 CEST 2003  Jan Hubicka  <jh@suse.cz>
 	Fixes PR libf2c/12263.
 
 2003-10-08  Timo Kokkonen  <tjko@iki.fi>
-            Eric Botcazou  <ebotcazou@libertysurf.fr>
+	    Eric Botcazou  <ebotcazou@libertysurf.fr>
 
 	PR bootstrap/12490
 	* scan-decls.c (MAX_EXTERN_C_BRACES): New preprocessor constant
@@ -634,7 +778,7 @@ Mon May 12 11:32:53 CEST 2003  Jan Hubicka  <jh@suse.cz>
 2003-10-01  Nick Clifton  <nickc@redhat.com>
 
 	* Import this patch from mainline:
-	
+
 	2003-02-01  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
 
 	* collect2.c (pexecute_pid): Rename to pid.
@@ -767,7 +911,7 @@ Mon May 12 11:32:53 CEST 2003  Jan Hubicka  <jh@suse.cz>
 
 	* config/alpha/alpha.c (alpha_expand_mov): Do gen_movdi_er_maybe_g
 	always during initial code generation.
-	* config/alpha/alpha.md (movdi_er_maybe_g): Don't conditionalize 
+	* config/alpha/alpha.md (movdi_er_maybe_g): Don't conditionalize
 	on flag_inline_functions.
 
 2003-09-17  Eric Botcazou  <ebotcazou@libertysurf.fr>
@@ -828,7 +972,7 @@ Mon May 12 11:32:53 CEST 2003  Jan Hubicka  <jh@suse.cz>
 	* configure: Regenerate.
 	* config.in: Li{ewise.
 	* config/i386/i386.c: Rename CMOV_SUN_AS_SYNTAX to
-	HAVE_AS_IX86_CMOV_SUN_SYNTAX. 
+	HAVE_AS_IX86_CMOV_SUN_SYNTAX.
 	* config/i386/sol2.h (CMOV_SUN_AS_SYNTAX): Remove.
 	Fixes PR target/12101.
 
@@ -865,7 +1009,7 @@ Sun Sep  7 14:53:36 CEST 2003  Jan Hubicka  <jh@suse.cz>
 	Backport from mainline:
 
 	2003-07-10  Denis Chertykov  <denisc@overta.ru>
-	            Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
+		    Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
 
 	* combine.c (gen_binary): Handle the CLOBBER rtx and
 	don't build a binary operation with it.
@@ -991,7 +1135,7 @@ Sat Sep  6 23:16:35 CEST 2003  Jan Hubicka  <jh@suse.cz>
 	(m32r_block_small_immediate_operand): New predicate.
 	* m32r.md (movstrsi_small_internal): New pattern.
 	* m32r.h (PREDICATE_CODES): Add m32r_block_small_immediate_operand.
-	* m32r-protos.h: Add prototype for m32r_block_small_immediate_operand.	
+	* m32r-protos.h: Add prototype for m32r_block_small_immediate_operand.
 
 2003-08-25  Richard Henderson  <rth@redhat.com>
 
@@ -18986,4 +19130,3 @@ cp:
 	* mips.h (FUNCTION_ARG_REGNO_P): Fix parentheses.
 
 See ChangeLog.7 for earlier changes.
-
