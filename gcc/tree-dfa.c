@@ -428,7 +428,8 @@ find_refs_in_expr (expr, ref_type, bb, parent_stmt, parent_expr)
 
       /* File and line number annotations.  */
     case EXPR_WITH_FILE_LOCATION:
-      find_refs_in_stmt (TREE_OPERAND (expr, 0), bb);
+      find_refs_in_expr (TREE_OPERAND (expr, 0), ref_type, bb, parent_stmt,
+	                 expr);
       break;
 
     case COMPOUND_LITERAL_EXPR:

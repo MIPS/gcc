@@ -22,10 +22,10 @@ Boston, MA 02111-1307, USA.  */
 #ifndef _TREE_SIMPLE_H
 #define _TREE_SIMPLE_H 1
 
-/* Interface used in [break/goto]-elimination : to be declared in a .h file. */
+/* Interface used in [break/goto]-elimination: to be declared in a .h file. */
 extern void insert_before_continue_end PARAMS ((tree, tree, int));
 extern void tree_build_scope           PARAMS ((tree *));
-extern tree create_tmp_var             PARAMS ((tree, tree *));
+extern tree create_tmp_var             PARAMS ((tree));
 extern tree declare_tmp_vars           PARAMS ((tree, tree));
 extern tree deep_copy_list             PARAMS ((tree));
 extern tree deep_copy_node             PARAMS ((tree));
@@ -42,8 +42,6 @@ int is_simple_modify_expr              PARAMS ((tree));
 int is_simple_modify_expr_lhs          PARAMS ((tree));
 int is_simple_binary_expr              PARAMS ((tree));
 int is_simple_condexpr                 PARAMS ((tree));
-int is_simple_binop                    PARAMS ((tree));
-int is_simple_relop                    PARAMS ((tree));
 int is_simple_unary_expr               PARAMS ((tree));
 int is_simple_call_expr                PARAMS ((tree));
 int is_simple_arglist                  PARAMS ((tree));

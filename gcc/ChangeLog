@@ -1,3 +1,71 @@
+2002-04-27  Diego Novillo  <dnovillo@redhat.com>
+
+	* c-decl.c (c_expand_body): Call simplify_tree to simplify a
+	FUNCTION_DECL node.
+	* c-simplify.c (simplify_tree): New function.
+	(simplify_stmt): Remove variable 'new_vars'.  Update all called
+	functions.
+	Remove argument 'scope'.  Update all callers.
+	Do not keep track of new scope statements as they are entered.
+	Do not call declare_tmp_vars().
+	(simplify_for_stmt): Remove argument new_vars_p.  Update all callers.
+	(simplify_while_stmt): Ditto.
+	(simplify_do_stmt): Ditto.
+	(simplify_if_stmt): Ditto.
+	(simplify_switch_stmt): Ditto.
+	(simplify_decl_stmt): Reformat comments.
+	(simplify_expr): Remove argument new_vars_p.  Update all callers.
+	Call simplify_save_expr() to simplify SAVE_EXPR nodes.
+	Call simplify_expr_wfl() to simplify EXPR_WITH_FILE_LOCATION nodes.
+	Do not call is_unop() and is_binop() when checking for unary and
+	binary operators.
+	Do not return early after simplify statement-expressions.
+	Do not call add_modify_stmt() to create assignment expressions.
+	(simplify_array_ref): Remove argument new_vars_p.  Update all callers.
+	(simplify_self_mod_expr): Ditto.
+	(simplify_component_ref): Ditto.
+	(simplify_call_expr): Ditto.
+	(simplify_tree_list): Ditto.
+	(simplify_cond_expr): Ditto.
+	(simplify_modify_expr): Ditto.
+	(simplify_boolean_expr): Ditto.
+	(simplify_compound_expr): Ditto.
+	(simplify_save_expr): New function.
+	(simplify_expr_wfl): New function.
+	(tree_build_scope): Reformat.
+	(add_tree): Call stmt_has_effect() and expr_has_effect() to decide
+	whether or not to add a new tree to the list.
+	(add_modify_stmt): Remove.
+	(create_tmp_var): Remove 'new_vars_p' argument.
+	Call pushdecl() to insert the newly created variable in the current
+	binding scope.
+	(declare_tmp_vars): Do not create a BLOCK_VARS for the scope.
+	(is_binop): Remove.
+	(is_unop): Remove.
+	(expr_has_effect): New function.
+	* c-tree.h (simplify_tree): Remove second argument.
+	* stmt.c (warn_if_unused_value): Check operand 0 of SAVE_EXPR
+	nodes.
+	* tree-dfa.c (find_refs_in_expr): Call find_refs_in_expr() to look
+	inside an EXPR_WITH_FILE_LOCATION node.
+	* tree-simple.c (is_simple_stmt): Add a case for SCOPE_STMT nodes.
+	(is_simple_compstmt): Assume that T is the first tree in the
+	compound statement's body.
+	Stop when a scope ending SCOPE_STMT node is found.
+	(is_simple_binary_expr): Don't call is_simple_binop().
+	(is_simple_condexpr): Don't call is_simple_relop().
+	(is_simple_binop): Remove.
+	(is_simple_relop): Remove.
+	(is_simple_unary_expr): Accept any operator with tree code class
+	'1' followed by a simple value.
+	Accept simple unary expressions wrapped inside SAVE_EXPR,
+	EXPR_WITH_FILE_LOCATION and NON_LVALUE_EXPR nodes.
+	(is_simple_id): Accept simple identifiers wrapped inside SAVE_EXPR,
+	EXPR_WITH_FILE_LOCATION and NON_LVALUE_EXPR nodes.
+	* tree-simple.h (create_tmp_var): Remove second argument.
+	(is_simple_binop): Remove.
+	(is_simple_relop): Remove.
+
 2002-04-22  Diego Novillo  <dnovillo@redhat.com>
 
 	* c-simplify.c (stmt_has_effect): New function.

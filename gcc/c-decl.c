@@ -6892,7 +6892,7 @@ c_expand_body (fndecl, nested_p, can_defer_p)
         }
 
       /* Simplify the function.  */
-      simplify_stmt (fn, NULL_TREE);
+      simplify_tree (fndecl);
 
       /* Debugging dump after simplification.  */
       if (dump_file)

@@ -249,6 +249,9 @@ is_simple_stmt (t)
   switch (TREE_CODE (t))
     {
     case COMPOUND_STMT:
+      return is_simple_compstmt (COMPOUND_BODY (t));
+
+    case SCOPE_STMT:
       return is_simple_compstmt (t);
 
     case EXPR_STMT:
@@ -321,11 +324,7 @@ int
 is_simple_compstmt (t)
      tree t;
 {
-  if (TREE_CODE (t) != COMPOUND_STMT)
-    return 0;
-
   /* Look for '{'.  */
-  t = COMPOUND_BODY (t);
   if (TREE_CODE (t) != SCOPE_STMT
       || !SCOPE_BEGIN_P (t))
     return 0;
@@ -336,7 +335,9 @@ is_simple_compstmt (t)
       return 0;
 
   /* Test all the statements in the body.  */
-  for (t = TREE_CHAIN (t); t && TREE_CHAIN (t); t = TREE_CHAIN (t))
+  for (t = TREE_CHAIN (t);
+       t && !(TREE_CODE (t) == SCOPE_STMT && SCOPE_END_P (t));
+       t = TREE_CHAIN (t))
     if (!is_simple_stmt (t))
       return 0;
 
@@ -443,7 +444,7 @@ int
 is_simple_binary_expr (t)
      tree t;
 {
-  return (is_simple_binop (t)
+  return (TREE_CODE_CLASS (TREE_CODE (t)) == '2'
 	  && is_simple_val (TREE_OPERAND (t, 0))
 	  && is_simple_val (TREE_OPERAND (t, 1)));
 }
@@ -463,47 +464,9 @@ is_simple_condexpr (t)
      tree t;
 {
   return (is_simple_val (t)
-	  || (is_simple_relop (t)
+	  || (TREE_CODE_CLASS (TREE_CODE (t)) == '<'
 	      && is_simple_val (TREE_OPERAND (t, 0))
 	      && is_simple_val (TREE_OPERAND (t, 1))));
-}
-
-/* }}} */
-
-/** {{{ is_simple_binop ()
-
-    Return nonzero if T is a SIMPLE binary operator:
-
-      binop
-	      : relop
-	      | '-'
-	      | '+'
-	      ....  */
-
-int
-is_simple_binop (t)
-     tree t;
-{
-  return (TREE_CODE_CLASS (TREE_CODE (t)) == '2'
-	  || is_simple_relop (t));
-}
-
-/* }}} */
-
-/** {{{ is_simple_relop ()
-
-    Return nonzero if T is a SIMPLE relational operator:
-
-      relop
-	      : '<'
-	      | '<='
-	      ...  */
-
-int
-is_simple_relop (t)
-     tree t;
-{
-  return (TREE_CODE_CLASS (TREE_CODE (t)) == '<');
 }
 
 /* }}} */
@@ -553,17 +516,23 @@ is_simple_unary_expr (t)
   if (is_simple_call_expr (t))
     return 1;
 
-  if (TREE_CODE (t) == NEGATE_EXPR
+  if (TREE_CODE_CLASS (TREE_CODE (t)) == '1'
       && is_simple_val (TREE_OPERAND (t, 0)))
     return 1;
 
   if (is_simple_cast (t))
     return 1;
 
-  /* Additions to the original grammar.  Allow statement-expressions.  */
+  /* Additions to the original grammar.  Allow STMT_EXPR, SAVE_EXPR and
+     EXPR_WITH_FILE_LOCATION.  */
   if (TREE_CODE (t) == STMT_EXPR
       && is_simple_stmt (STMT_EXPR_STMT (t)))
     return 1;
+
+  if (TREE_CODE (t) == SAVE_EXPR
+      || TREE_CODE (t) == EXPR_WITH_FILE_LOCATION
+      || TREE_CODE (t) == NON_LVALUE_EXPR)
+    return is_simple_unary_expr (TREE_OPERAND (t, 0));
 
   return 0;
 }
@@ -667,8 +636,11 @@ is_simple_id (t)
 	  || TREE_CODE (t) == PARM_DECL
 	  || TREE_CODE (t) == FIELD_DECL
 	  /* Additions to original grammar.  Allow identifiers wrapped
-	     in NON_LVALUE_EXPR.  Allow the address of a function decl.  */
-	  || (TREE_CODE (t) == NON_LVALUE_EXPR
+	     in NON_LVALUE_EXPR, EXPR_WITH_FILE_LOCATION and SAVE_EXPR.
+	     Allow the address of a function decl.  */
+	  || ((TREE_CODE (t) == NON_LVALUE_EXPR
+	       || TREE_CODE (t) == EXPR_WITH_FILE_LOCATION
+	       || TREE_CODE (t) == SAVE_EXPR)
 	      && is_simple_id (TREE_OPERAND (t, 0)))
 	  || (TREE_CODE (t) == ADDR_EXPR
 	      && TREE_CODE (TREE_OPERAND (t, 0)) == FUNCTION_DECL));
