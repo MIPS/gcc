@@ -198,7 +198,6 @@ do {									\
 
 /* These are used by -fbranch-probabilities */
 #define HOT_TEXT_SECTION_NAME "__TEXT,__text,regular,pure_instructions"
-#define NORMAL_TEXT_SECTION_NAME "__TEXT,__text,regular,pure_instructions"
 #define UNLIKELY_EXECUTED_TEXT_SECTION_NAME \
                               "__TEXT,__unlikely,regular,pure_instructions"
 /* The following is used by hot/cold partitioning to determine whether to
@@ -208,8 +207,6 @@ do {									\
    If -mlongcall is set, we use the indirect jumps (the macro below gets '0');
    otherwise we use unconditional branches (the macro below gets '1').  */
 #define HAS_LONG_UNCOND_BRANCH (TARGET_LONG_BRANCH ? 0 : 1)
-
-#define SECTION_FORMAT_STRING ".section %s\n\t.align 2\n"
 
 /* APPLE LOCAL begin long branch */
 /* Define cutoff for using external functions to save floating point.

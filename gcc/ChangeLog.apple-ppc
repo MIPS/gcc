@@ -1,3 +1,14 @@
+2004-06-14  Caroline Tice <ctice@apple.com>
+      Radar 3690727 (partial)
+      * defaults.h (NORMAL_TEXT_SECTION_NAME): Remove.
+      * passes.c (rest_of_compilation):  Add missing APPLE LOCAL.
+      * config/rs6000/darwin.h (NORMAL_TEXT_SECTION_NAME): Remove definition.
+      (SECTION_FORMAT_STRING): Likewise.
+      * config/rs6000/sysv4.h (NORMAL_TEXT_SECTION_NAME): Likewise.
+      (SECTION_FORMAT_STRING): Likewise.
+      * doc/tm.texi (NORMAL_TEXT_SECTION_STRING): Remove documentation.
+      (SECTION_FORMAT_STRING): Likewise.
+
 2004-06-14  Dale Johannesen  <dalej@apple.com>
 	Radar 3661661
 	* tree-ssa.c (tree_ssa_useless_type_conversion_1): fix from FSF.

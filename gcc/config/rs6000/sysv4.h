@@ -431,9 +431,7 @@ do {									\
 
 /* APPLE LOCAL begin hot/cold partitioning  */
 #define HOT_TEXT_SECTION_NAME ".text"
-#define NORMAL_TEXT_SECTION_NAME ".text"
 #define UNLIKELY_EXECUTED_TEXT_SECTION_NAME ".text.unlikely"
-#define SECTION_FORMAT_STRING ".section\t\"%s\"\n\t.align 2\n"
 /* APPLE LOCAL end hot/cold partitioning  */
 
 /* Override elfos.h definition.  */
