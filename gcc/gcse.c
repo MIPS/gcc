@@ -5328,7 +5328,7 @@ pre_insert_copy_insn (expr, insn)
 	  set = XVECEXP (pat, 0, i);
 
 	  if (GET_CODE (set) == SET
-	      && rtx_equal_p (SET_SRC (set), expr->expr))
+	      && expr_equiv_p (SET_SRC (set), expr->expr))
 	    break;
 	}
       if (!set)
