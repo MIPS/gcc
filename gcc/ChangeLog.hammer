@@ -1,3 +1,18 @@
+2004-04-18  Josef Zlomek  <zlomekj@suse.cz>
+
+	Backport from mainline
+	2003-09-15  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+		    Jeff Law  <law@redhat.com>
+
+		* gcse.c (remove_reachable_equiv_notes): New.
+		(replace_store_insn): Call it.  Update antic list.
+		(store_killed_in_insn): Take REG_EQUAL notes into account.
+		(build_store_vectors, delete_store): Add parameter to
+		replace_store_insn call.
+	
+	* gcse.c (remove_reachable_equiv_notes): Visit also blocks with kill
+	flag.  Handle last == NULL.
+
 2004-04-17  Alan Modra  <amodra@bigpond.net.au>
 
 	PR target/14715

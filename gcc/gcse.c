@@ -697,7 +697,10 @@ static bool store_killed_before		PARAMS ((rtx, rtx, rtx, basic_block,
 static void build_store_vectors		PARAMS ((void));
 static void insert_insn_start_bb	PARAMS ((rtx, basic_block));
 static int insert_store			PARAMS ((struct ls_expr *, edge));
-static void replace_store_insn		PARAMS ((rtx, rtx, basic_block));
+static void remove_reachable_equiv_notes PARAMS ((basic_block,
+						  struct ls_expr *));
+static void replace_store_insn		PARAMS ((rtx, rtx, basic_block,
+						 struct ls_expr *));
 static void delete_store		PARAMS ((struct ls_expr *,
 						 basic_block));
 static void free_store_memory		PARAMS ((void));
@@ -7319,7 +7322,7 @@ store_killed_in_insn (x, x_regs, insn, after)
      rtx x, x_regs, insn;
      int after;
 {
-  rtx reg, base;
+  rtx reg, base, note;
 
   if (GET_RTX_CLASS (GET_CODE (insn)) != 'i')
     return false;
@@ -7370,10 +7373,26 @@ store_killed_in_insn (x, x_regs, insn, after)
 		return true;
 	    }
 	}
-      return find_loads (SET_SRC (pat), x, after);
+      if (find_loads (SET_SRC (pat), x, after))
+	return true;
     }
-  else
-    return find_loads (PATTERN (insn), x, after);
+  else if (find_loads (PATTERN (insn), x, after))
+    return true;
+
+  /* If this insn has a REG_EQUAL or REG_EQUIV note referencing a memory
+     location aliased with X, then this insn kills X.  */
+  note = find_reg_equal_equiv_note (insn);
+  if (! note)
+    return false;
+  note = XEXP (note, 0);
+
+  /* However, if the note represents a must alias rather than a may
+     alias relationship, then it does not kill X.  */
+  if (expr_equiv_p (note, x))
+    return false;
+
+  /* See if there are any aliased loads in the note.  */
+  return find_loads (note, x, after);
 }
 
 /* Returns true if the expression X is loaded or clobbered on or after INSN
@@ -7467,7 +7486,7 @@ build_store_vectors ()
 	      rtx r = gen_reg_rtx (GET_MODE (ptr->pattern));
 	      if (gcse_file)
 		fprintf (gcse_file, "Removing redundant store:\n");
-	      replace_store_insn (r, XEXP (st, 0), bb);
+	      replace_store_insn (r, XEXP (st, 0), bb, ptr);
 	      continue;
 	    }
 	  SET_BIT (ae_gen[bb->index], ptr->index);
@@ -7645,15 +7664,91 @@ insert_store (expr, e)
   return 1;
 }
 
+/* Drop REG_EQUAL notes containing reference to store motion expression
+   SMEXPR reachable from the available set at basic block BB.  */
+static void
+remove_reachable_equiv_notes (bb, smexpr)
+     basic_block bb;
+     struct ls_expr *smexpr;
+{
+  edge *stack = xmalloc (sizeof (edge) * n_basic_blocks), act;
+  sbitmap visited = sbitmap_alloc (last_basic_block);
+  int stack_top = 0;
+  rtx last, insn, note;
+  rtx mem = smexpr->pattern;
+
+  sbitmap_zero (visited);
+  act = bb->succ;
+
+  while (1)
+    {
+      if (!act)
+	{
+	  if (!stack_top)
+	    {
+	      free (stack);
+	      sbitmap_free (visited);
+	      return;
+	    }
+	  act = stack[--stack_top];
+	}
+      bb = act->dest;
+      
+      if (bb == EXIT_BLOCK_PTR
+	  || TEST_BIT (visited, bb->index))
+	{
+	  act = act->succ_next;
+	  continue;
+	}
+      SET_BIT (visited, bb->index);
+
+      if (TEST_BIT (st_antloc[bb->index], smexpr->index))
+	{
+	  for (last = ANTIC_STORE_LIST (smexpr);
+	       last && BLOCK_FOR_INSN (XEXP (last, 0)) != bb;
+	       last = XEXP (last, 1))
+	    continue;
+	  if (last)
+	    last = XEXP (last, 0);
+	  else
+	    last = NEXT_INSN (bb->end);
+	}
+      else
+	last = NEXT_INSN (bb->end);
+  
+      for (insn = bb->head; insn != last; insn = NEXT_INSN (insn))
+	if (INSN_P (insn))
+	  {
+	    note = find_reg_equal_equiv_note (insn);
+	    if (!note || !expr_equiv_p (XEXP (note, 0), mem))
+	      continue;
+
+	    if (gcse_file)
+	      fprintf (gcse_file, "STORE_MOTION  drop REG_EQUAL note at insn %d:\n",
+		       INSN_UID (insn));
+	    remove_note (insn, note);
+	  }
+      act = act->succ_next;
+      if (bb->succ)
+	{
+	  if (act)
+	    stack[stack_top++] = act;
+	  act = bb->succ;
+	}
+    }
+}
+
 /* This routine will replace a store with a SET to a specified register.  */
 
 static void
-replace_store_insn (reg, del, bb)
+replace_store_insn (reg, del, bb, smexpr)
      rtx reg, del;
      basic_block bb;
+     struct ls_expr *smexpr;
 {
-  rtx insn;
+  rtx insn, mem, note, set, ptr;
 
+  mem = smexpr->pattern;
   insn = gen_move_insn (reg, SET_SRC (single_set (del)));
   insn = emit_insn_after (insn, del);
 
@@ -7667,7 +7762,35 @@ replace_store_insn (reg, del, bb)
       fprintf (gcse_file, "\n");
     }
 
+  for (ptr = ANTIC_STORE_LIST (smexpr); ptr; ptr = XEXP (ptr, 1))
+    if (XEXP (ptr, 0) == del)
+      {
+	XEXP (ptr, 0) = insn;
+	break;
+      }
   delete_insn (del);
+
+  /* Now we must handle REG_EQUAL notes whose contents is equal to the mem;
+     they are no longer accurate provided that they are reached by this
+     definition, so drop them.  */
+  for (; insn != NEXT_INSN (bb->end); insn = NEXT_INSN (insn))
+    if (INSN_P (insn))
+      {
+	set = single_set (insn);
+	if (!set)
+	  continue;
+	if (expr_equiv_p (SET_DEST (set), mem))
+	  return;
+	note = find_reg_equal_equiv_note (insn);
+	if (!note || !expr_equiv_p (XEXP (note, 0), mem))
+	  continue;
+
+	if (gcse_file)
+	  fprintf (gcse_file, "STORE_MOTION  drop REG_EQUAL note at insn %d:\n",
+		   INSN_UID (insn));
+	remove_note (insn, note);
+      }
+  remove_reachable_equiv_notes (bb, smexpr);
 }
 
 
@@ -7693,7 +7816,7 @@ delete_store (expr, bb)
 	{
 	  /* We know there is only one since we deleted redundant
 	     ones during the available computation.  */
-	  replace_store_insn (reg, del, bb);
+	  replace_store_insn (reg, del, bb, expr);
 	  break;
 	}
     }
