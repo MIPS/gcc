@@ -1,3 +1,8 @@
+2003-05-09  Sebastian Pop  <s.pop@laposte.net>
+
+	* tree-optimize.c (optimize_function_tree): Clarify the use of the
+	loop analyzer.
+
 2003-05-09  Jeff Law  <law@redhat.com>
 
 	* c-simplify.c (simplify_cleanup): Remove code which optimizes
