@@ -1640,12 +1640,13 @@ tree_generator::visit_method_invocation (model_method_invocation *,
 
 void
 tree_generator::visit_type_qualified_invocation
-(model_type_qualified_invocation *,
- const model_method *meth,
- const std::list<ref_expression> &args,
- bool super)
+    (model_type_qualified_invocation *,
+     const model_method *meth,
+     const std::list<ref_expression> &args,
+     bool super)
 {
-  handle_invocation (meth, meth->static_p () ? this_tree : NULL_TREE, args);
+  handle_invocation (meth, meth->static_p () ? NULL_TREE : this_tree, args,
+		     super);
 }
 
 void

@@ -1,3 +1,10 @@
+2005-02-07  Tom Tromey  <tromey@redhat.com>
+
+	* tree.cc (visit_type_qualified_invocation): Pass 'super' to
+	handle_invocation.  Handle static methods correctly.
+	* builtins.cc (map_type): Assign a name to the type.
+	(lay_out_class): Lay out class record type.
+
 2005-02-06  Tom Tromey  <tromey@redhat.com>
 
 	* treegen.hh (tree_code_generator::handles_class_p): New method.

@@ -232,10 +232,14 @@ tree_builtins::map_type (model_type *type)
       else
 	record = make_node (RECORD_TYPE);
       TYPE_BINFO (record) = make_tree_binfo (0);
+      TYPE_NAME (record) = map_identifier (klass->get_fully_qualified_name ());
+
+      // FIXME: make a NAMESPACE_DECL and use it as the DECL_CONTEXT.
 
       // FIXME: pushdecl() ?
-      tree decl = build_decl (TYPE_DECL, map_identifier (klass->get_name ()),
-			      record);
+      // FIXME: should we use the class's name or its fully qualified
+      // name?  For the moment we use the latter.
+      tree decl = build_decl (TYPE_DECL, TYPE_NAME (record), record);
       // FIXME: this isn't right... but we use it elsewhere.
       TYPE_STUB_DECL (record) = decl;
 
@@ -435,7 +439,7 @@ tree_builtins::lay_out_class (model_class *klass)
 
   lay_out_vtable (klass);
 
-  layout_type (klass_tree);
+  layout_type (klass_record);
   return klass_tree;
 }
 
