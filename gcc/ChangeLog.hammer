@@ -1,3 +1,29 @@
+2004-02-06  Josef Zlomek  <zlomekj@suse.cz>
+
+	Backport from mainline.
+	* dwarf2out.c (struct die_struct): Added field decl_id.
+	(decl_die_table): Changed to hash table.
+	(decl_die_table_allocated): Deleted.
+	(decl_die_table_in_use): Deleted.
+	(DECL_DIE_TABLE_INCREMENT): Deleted.
+	(decl_die_table_hash): New function.
+	(decl_die_table_eq): New function.
+	(lookup_decl_die): Lookup in a hash table.
+	(equate_decl_number_to_die): Insert into a hash table.
+	(dwarf2out_init): Init hash table decl_die_table.
+
+	* dwarf2out.c (struct var_loc_list_def): Added field decl_id.
+	(decl_loc_table): Changed to hash table.
+	(decl_loc_table_allocated): Deleted.
+	(decl_loc_table_in_use): Deleted.
+	(DECL_LOC_TABLE_INCREMENT): Deleted.
+	(decl_loc_table_hash): New function.
+	(decl_loc_table_eq): New function.
+	(lookup_decl_loc): Lookup in a hash table.
+	(add_var_loc_to_decl): Insert into a hash table.
+	(dwarf2out_begin_function): Empty the hash table.
+	(dwarf2out_init): Init hash table decl_loc_table.
+
 2004-02-06  Alan Modra  <amodra@bigpond.net.au>
 
 	Backport from mainline.

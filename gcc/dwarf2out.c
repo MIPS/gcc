@@ -3269,6 +3269,7 @@ typedef struct die_struct
   dw_offset die_offset;
   unsigned long die_abbrev;
   int die_mark;
+  unsigned int decl_id;
 }
 die_node;
 
@@ -3400,20 +3401,9 @@ static struct file_table file_table;
    dwarf2out_init.  */
 static const char *primary_filename;
 
-/* A pointer to the base of a table of references to DIE's that describe
-   declarations.  The table is indexed by DECL_UID() which is a unique
-   number identifying each decl.  */
-static dw_die_ref *decl_die_table;
-
-/* Number of elements currently allocated for the decl_die_table.  */
-static unsigned decl_die_table_allocated;
-
-/* Number of elements in decl_die_table currently in use.  */
-static unsigned decl_die_table_in_use;
-
-/* Size (in elements) of increments by which we may expand the
-   decl_die_table.  */
-#define DECL_DIE_TABLE_INCREMENT 256
+/* A hash table of references to DIE's that describe declarations.
+   The key is a DECL_UID() which is a unique number identifying each decl.  */
+static htab_t decl_die_table;
 
 /* Node of the variable location list.  */
 struct var_loc_node GTY ((chain_next ("%h.next")))
@@ -3431,6 +3421,9 @@ struct var_loc_list_def GTY (())
   /* Do not mark the last element of the chained list because
      it is marked through the chain.  */
   struct var_loc_node * GTY ((skip ("%h"))) last;
+
+  /* DECL_UID of the variable decl.  */
+  unsigned int decl_id;
 };
 typedef struct var_loc_list_def var_loc_list;
 
@@ -3438,17 +3431,7 @@ typedef struct var_loc_list_def var_loc_list;
 static unsigned int loclabel_num = 0;
 
 /* Table of decl location linked lists.  */
-static GTY ((length ("decl_loc_table_allocated"))) var_loc_list *decl_loc_table;
-
-/* Number of elements in the decl_loc_table that are allocated.  */
-static unsigned decl_loc_table_allocated;
-
-/* Number of elements in the decl_loc_table that are in use.  */
-static unsigned decl_loc_table_in_use;
-
-/* Size (in elements) of increments by which we may expand the
-   decl_die_table.  */
-#define DECL_LOC_TABLE_INCREMENT 256
+static GTY ((param_is (var_loc_list))) htab_t decl_loc_table;
 
 /* A pointer to the base of a list of references to DIE's that
    are uniquely identified by their tag, presence/absence of
@@ -3636,7 +3619,11 @@ static dw_die_ref new_die		PARAMS ((enum dwarf_tag, dw_die_ref,
 						 tree));
 static dw_die_ref lookup_type_die	PARAMS ((tree));
 static void equate_type_number_to_die	PARAMS ((tree, dw_die_ref));
+static hashval_t decl_die_table_hash	PARAMS ((const void *));
+static int decl_die_table_eq		PARAMS ((const void *, const void *));
 static dw_die_ref lookup_decl_die	PARAMS ((tree));
+static hashval_t decl_loc_table_hash 	PARAMS ((const void *));
+static int decl_loc_table_eq		PARAMS ((const void *, const void *));
 static var_loc_list *lookup_decl_loc	PARAMS ((tree));
 static void equate_decl_number_to_die	PARAMS ((tree, dw_die_ref));
 static void add_var_loc_to_decl		PARAMS ((tree, struct var_loc_node *));
@@ -5228,15 +5215,52 @@ equate_type_number_to_die (type, type_die)
   TYPE_SYMTAB_DIE (type) = type_die;
 }
 
+/* Returns a hash value for X (which really is a die_struct).  */
+
+static hashval_t
+decl_die_table_hash (x)
+     const void *x;
+{
+  return (hashval_t) ((const dw_die_ref) x)->decl_id;
+}
+
+/* Return nonzero if decl_id of die_struct X is the same as UID of decl *Y.  */
+
+static int
+decl_die_table_eq (x, y)
+     const void *x;
+     const void *y;
+{
+  return (((const dw_die_ref) x)->decl_id == DECL_UID ((const tree) y));
+}
+
 /* Return the DIE associated with a given declaration.  */
 
 static inline dw_die_ref
 lookup_decl_die (decl)
      tree decl;
 {
-  unsigned decl_id = DECL_UID (decl);
+  return htab_find_with_hash (decl_die_table, decl, DECL_UID (decl));
+}
 
-  return (decl_id < decl_die_table_in_use ? decl_die_table[decl_id] : NULL);
+/* Returns a hash value for X (which really is a var_loc_list).  */
+
+static hashval_t
+decl_loc_table_hash (x)
+     const void *x;
+{
+  return (hashval_t) ((const var_loc_list *) x)->decl_id;
+}
+
+/* Return nonzero if decl_id of var_loc_list X is the same as
+   UID of decl *Y.  */
+
+static int
+decl_loc_table_eq (x, y)
+     const void *x;
+     const void *y;
+{
+  return (((const var_loc_list *) x)->decl_id == DECL_UID ((const tree) y));
 }
 
 /* Return the var_loc list associated with a given declaration.  */
@@ -5245,9 +5269,7 @@ static inline var_loc_list *
 lookup_decl_loc (decl)
      tree decl;
 {
-  unsigned decl_id = DECL_UID (decl);
-
-  return (decl_id < decl_loc_table_in_use ? &decl_loc_table[decl_id] : NULL);
+  return htab_find_with_hash (decl_loc_table, decl, DECL_UID (decl));
 }
 
 /* Equate a DIE to a particular declaration.  */
@@ -5258,28 +5280,11 @@ equate_decl_number_to_die (decl, decl_die)
      dw_die_ref decl_die;
 {
   unsigned int decl_id = DECL_UID (decl);
-  unsigned int num_allocated;
+  void **slot;
 
-  if (decl_id >= decl_die_table_allocated)
-    {
-      num_allocated
-	= ((decl_id + 1 + DECL_DIE_TABLE_INCREMENT - 1)
-	   / DECL_DIE_TABLE_INCREMENT)
-	  * DECL_DIE_TABLE_INCREMENT;
-
-      decl_die_table
-	= (dw_die_ref *) xrealloc (decl_die_table,
-				   sizeof (dw_die_ref) * num_allocated);
-
-      memset ((char *) &decl_die_table[decl_die_table_allocated], 0,
-	     (num_allocated - decl_die_table_allocated) * sizeof (dw_die_ref));
-      decl_die_table_allocated = num_allocated;
-    }
-
-  if (decl_id >= decl_die_table_in_use)
-    decl_die_table_in_use = (decl_id + 1);
-
-  decl_die_table[decl_id] = decl_die;
+  slot = htab_find_slot_with_hash (decl_die_table, decl, decl_id, INSERT);
+  *slot = decl_die;
+  decl_die->decl_id = decl_id;
 }
 
 /* Add a variable location node to the linked list for DECL.  */
@@ -5290,28 +5295,19 @@ add_var_loc_to_decl (decl, loc)
      struct var_loc_node *loc;
 {
   unsigned int decl_id = DECL_UID (decl);
-  unsigned int num_allocated;
   var_loc_list *temp;
+  void **slot;
 
-  if (decl_id >= decl_loc_table_allocated)
+  slot = htab_find_slot_with_hash (decl_loc_table, decl, decl_id, INSERT);
+  if (*slot == NULL)
     {
-      num_allocated = ((decl_id + 1 + DECL_LOC_TABLE_INCREMENT - 1)
-		       / DECL_LOC_TABLE_INCREMENT)
-		      * DECL_LOC_TABLE_INCREMENT;
-
-      decl_loc_table = ggc_realloc (decl_loc_table,
-				    sizeof (var_loc_list) * num_allocated);
-
-      memset (&decl_loc_table[decl_loc_table_allocated], 0,
-	      (num_allocated - decl_loc_table_allocated)
-	      * sizeof (var_loc_list));
-      decl_loc_table_allocated = num_allocated;
+      temp = ggc_alloc_cleared (sizeof (var_loc_list));
+      temp->decl_id = decl_id;
+      *slot = temp;
     }
+  else
+    temp = *slot;
 
-  if (decl_id >= decl_loc_table_in_use)
-    decl_loc_table_in_use = decl_id + 1;
-
-  temp = &decl_loc_table[decl_id];
   if (temp->last)
     {
       /* If the current location is the same as the end of the list,
@@ -12690,10 +12686,9 @@ static void
 dwarf2out_begin_function (unused)
      tree unused ATTRIBUTE_UNUSED;
 {
-  decl_loc_table_in_use = 0;
-  memset (decl_loc_table, 0,
-	  sizeof (struct var_loc_node *) * decl_loc_table_allocated);
+  htab_empty (decl_loc_table);
 }
+
 /* Output a label to mark the beginning of a source code line entry
    and record information relating to this source line, in
    'line_info_table' for later output of the .debug_line section.  */
@@ -12875,17 +12870,13 @@ dwarf2out_init (main_input_filename)
      to add an initial DW_LNS_set_file.  */
   lookup_filename (main_input_filename);
 
-  /* Allocate the initial hunk of the decl_die_table.  */
-  decl_die_table
-    = (dw_die_ref *) xcalloc (DECL_DIE_TABLE_INCREMENT, sizeof (dw_die_ref));
-  decl_die_table_allocated = DECL_DIE_TABLE_INCREMENT;
-  decl_die_table_in_use = 0;
+  /* Allocate the decl_die_table.  */
+  decl_die_table = htab_create (10, decl_die_table_hash,
+				decl_die_table_eq, NULL);
 
-  /* Allocate the initial hunk of the decl_loc_table.  */
-  decl_loc_table = ggc_alloc_cleared (DECL_LOC_TABLE_INCREMENT
-				      * sizeof (var_loc_list));
-  decl_loc_table_allocated = DECL_LOC_TABLE_INCREMENT;
-  decl_loc_table_in_use = 0;
+  /* Allocate the decl_loc_table.  */
+  decl_loc_table = htab_create_ggc (10, decl_loc_table_hash,
+				    decl_loc_table_eq, NULL);
 
   /* Allocate the initial hunk of the decl_scope_table.  */
   VARRAY_TREE_INIT (decl_scope_table, 256, "decl_scope_table");
