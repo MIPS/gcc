@@ -114,7 +114,8 @@ bool
 maybe_hot_bb_p (bb)
 	basic_block bb;
 {
-  if (flag_branch_probabilities
+  if (profile_info.count_profiles_merged
+      && flag_branch_probabilities
       && bb->count < profile_info.max_counter_in_program / MIN_COUNT_FRACTION)
     return false;
   if (bb->frequency < MIN_FREQUENCY)
@@ -128,7 +129,8 @@ bool
 probably_cold_bb_p (bb)
      basic_block bb;
 {
-  if (flag_branch_probabilities
+  if (profile_info.count_profiles_merged
+      && flag_branch_probabilities
       && bb->count <= profile_info.max_counter_in_program / MIN_COUNT_FRACTION)
     return true;
   if (bb->frequency < MIN_FREQUENCY)
@@ -141,7 +143,8 @@ bool
 probably_never_executed_bb_p (bb)
 	basic_block bb;
 {
-  if (flag_branch_probabilities)
+  if (profile_info.count_profiles_merged
+      && flag_branch_probabilities)
     return ((bb->count + profile_info.count_profiles_merged)
 	    / profile_info.count_profiles_merged) == 0;
   return false;
@@ -1110,7 +1113,7 @@ estimate_bb_frequencies (loops)
   /* In case we do have profile feedback available, do just scale it to
      frequencies.  In case we don't, or the function has not been executed
      in trial run, estimate.  */
-  if (flag_branch_probabilities && ENTRY_BLOCK_PTR->succ->count)
+  if (profile_info.count_profiles_merged && ENTRY_BLOCK_PTR->succ->count)
     {
       counts_to_freqs ();
       return;
@@ -1222,7 +1225,8 @@ static void
 compute_function_frequency ()
 {
   int i;
-  if (!flag_branch_probabilities)
+  if (!profile_info.count_profiles_merged
+      && flag_branch_probabilities)
     return;
   cfun->function_frequency = FUNCTION_FREQUENCY_UNLIKELY_EXECUTED;
   for (i = 0; i < n_basic_blocks; i++)
