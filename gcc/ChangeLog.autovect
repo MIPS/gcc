@@ -1,5 +1,11 @@
 2004-12-20  Sebastian Pop  <pop@cri.ensmp.fr>
 
+	* tree-chrec.c (eq_evolutions_p): New.
+	* tree-chrec.h (eq_evolutions_p): Declared.
+	* tree-data-ref.c (analyze_overlapping_iterations): Use eq_evolutions_p.
+
+2004-12-20  Sebastian Pop  <pop@cri.ensmp.fr>
+
 	* Makefile.in (OBJS-common): Add tree-elim-check.o.
 	(tree-elim-check.o): New.
 	* common.opt (ftree-elim-checks): New.

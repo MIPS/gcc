@@ -1825,7 +1825,7 @@ analyze_overlapping_iterations (tree chrec_a,
   
   /* If they are the same chrec, and are affine, they overlap 
      on every iteration.  */
-  else if (chrec_a == chrec_b
+  else if (eq_evolutions_p (chrec_a, chrec_b)
 	   && evolution_function_is_affine_multivariate_p (chrec_a))
     {
       *overlap_iterations_a = integer_zero_node;

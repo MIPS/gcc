@@ -82,6 +82,7 @@ extern tree reset_evolution_in_loop (unsigned, tree, tree);
 extern tree chrec_merge (tree, tree);
 
 /* Observers.  */
+extern bool eq_evolutions_p (tree, tree);
 extern bool is_multivariate_chrec (tree);
 extern bool chrec_is_positive (tree, bool *);
 extern bool chrec_contains_symbols (tree);
