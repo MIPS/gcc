@@ -1,3 +1,7 @@
+2003-02-19  Josef Zlomek  <zlomekj@suse.cz>
+
+	* dwarf2out.c: Fix coding style on some places.
+
 2003-02-19  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* gcse.c (gcse_main): Do not call store motion.

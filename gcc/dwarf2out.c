@@ -3485,16 +3485,22 @@ struct var_loc_node GTY ((chain_next ("%h.next")))
   rtx GTY (()) var_loc_note;
   const char * GTY (()) label;
   struct var_loc_node * GTY (()) next;
-/*  struct var_loc_node *last;*/
 };
+
 /* Unique label counter.  */
 static unsigned int loclabel_num = 0;
+
 /* Table of decl location linked lists.  */
 static GTY ((length ("decl_loc_table_allocated"))) struct var_loc_node **decl_loc_table;
+
 /* Number of elements in the decl_loc_table that are allocated.  */
 static unsigned decl_loc_table_allocated;
+
 /* Number of elements in the decl_loc_table that are in use.  */
 static unsigned decl_loc_table_in_use;
+
+/* Size (in elements) of increments by which we may expand the
+   decl_die_table.  */
 #define DECL_LOC_TABLE_INCREMENT 256
 
 /* A pointer to the base of a list of references to DIE's that
@@ -5303,6 +5309,7 @@ static struct var_loc_node * lookup_decl_loc PARAMS ((tree));
 static void add_var_loc_to_decl PARAMS ((tree, struct var_loc_node *));
 
 /* Return the var_loc list associated with a given declaration.  */
+
 static inline struct var_loc_node *
 lookup_decl_loc (decl)
      tree decl;
@@ -5344,6 +5351,7 @@ equate_decl_number_to_die (decl, decl_die)
 }
 
 /* Add a variable location node to the linked list for DECL.  */
+
 static void
 add_var_loc_to_decl (decl, loc)
      tree decl;
@@ -5352,6 +5360,7 @@ add_var_loc_to_decl (decl, loc)
   unsigned int decl_id = DECL_UID (decl);
   unsigned int num_allocated;
   struct var_loc_node *temp;
+
   if (decl_id >= decl_loc_table_allocated)
     {
       num_allocated
@@ -5382,6 +5391,7 @@ add_var_loc_to_decl (decl, loc)
       /* Get to the end of the list */
       while (temp->next != NULL)
 	temp = temp->next;
+
       /* If the current location is the same as the end of the list,
 	 just extend the range of the location at the end of the
 	 list.  */ 
@@ -8597,6 +8607,7 @@ loc_descriptor (rtl)
     case CONCAT:
       loc_result = concat_loc_descriptor (XEXP (rtl, 0), XEXP (rtl, 1));
       break;
+
     case VAR_LOCATION:
       /* Single part */
       if (GET_CODE (XEXP (rtl, 1)) != PARALLEL)	
@@ -8624,6 +8635,7 @@ loc_descriptor (rtl)
 	    }
 	}  
       break;
+
     default:
       return 0;
     }
@@ -12584,9 +12596,11 @@ init_file_table ()
   VARRAY_PUSH_CHAR_PTR (file_table, NULL);
   file_table_last_lookup_index = 0;
 }
+
 /* Called by the final INSN scan whenever we see a var location.  We
    use it to drop labels in the right places, and throw the location in
    our lookup table.  */
+
 static void
 dwarf2out_var_location (loc_note)
      rtx loc_note;
@@ -12596,6 +12610,7 @@ dwarf2out_var_location (loc_note)
 
   if (!DECL_P (NOTE_VAR_LOCATION_DECL (loc_note)))
     return;
+
   newloc = ggc_alloc_cleared (sizeof (struct var_loc_node));
   ASM_GENERATE_INTERNAL_LABEL (loclabel, "LVL", loclabel_num++);
   ASM_OUTPUT_LABEL (asm_out_file, loclabel);  
@@ -12604,6 +12619,7 @@ dwarf2out_var_location (loc_note)
 
   add_var_loc_to_decl (NOTE_VAR_LOCATION_DECL (loc_note), newloc);
 }
+
 /* We need to reset the locations at the beginning of each
    function. We can't do this in the end_function hook, because the
    declarations that use the locations won't have been outputted when
@@ -12614,8 +12630,8 @@ dwarf2out_begin_function (unused)
      tree unused ATTRIBUTE_UNUSED;
 {
   decl_loc_table_in_use = 0;
-  memset (decl_loc_table, 0, sizeof (struct var_loc_node *) 
-	  * decl_loc_table_allocated);
+  memset (decl_loc_table, 0,
+	  sizeof (struct var_loc_node *) * decl_loc_table_allocated);
 }
 /* Output a label to mark the beginning of a source code line entry
    and record information relating to this source line, in
