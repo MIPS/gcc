@@ -1,5 +1,7 @@
 2003-04-21  Jeff Law  <law@redhat.com>
 
+	* c-simplify.c (c_build_bind_expr): Revert change from earlier today.
+
 	* c-common.h (find_reachable_label): Prototype.
 	* c-semantics.c (find_reachable_label): No longer static.
 	* c-simplify.c (c_build_bind_expr): Avoid creating unnecessary

@@ -367,11 +367,6 @@ c_build_bind_expr (block, body)
   c_simplify_stmt (&BIND_EXPR_BODY (bind));
   gimple_pop_bind_expr ();
 
-  /* If the block has an empty body and no decls, then just
-     return an empty statement.  */
-  if (BIND_EXPR_BODY (bind) == empty_stmt_node && decls == NULL_TREE)
-    return empty_stmt_node;
-
   return bind;
 }
 
