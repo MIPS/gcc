@@ -452,7 +452,7 @@ merge_blocks (e, b, c, mode)
     }
   /* Otherwise we will need to move code around.  Do that only if expensive
      transformations are allowed.  */
-  else if (mode & CLEANUP_EXPENSIVE)
+  else if ((mode & CLEANUP_EXPENSIVE) && !(mode & CLEANUP_PRE_SIBCALL))
     {
       edge tmp_edge, b_fallthru_edge;
       bool c_has_outgoing_fallthru;
