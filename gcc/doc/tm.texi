@@ -439,12 +439,6 @@ a @option{-B} prefix into a @option{-L} linker option if the prefix
 indicates an absolute file name.
 @end defmac
 
-@defmac STANDARD_EXEC_PREFIX
-Define this macro as a C string constant if you wish to override the
-standard choice of @file{/usr/local/lib/gcc-lib/} as the default prefix to
-try when searching for the executable files of the compiler.
-@end defmac
-
 @defmac MD_EXEC_PREFIX
 If defined, this macro is an additional prefix to try after
 @code{STANDARD_EXEC_PREFIX}.  @code{MD_EXEC_PREFIX} is not searched
@@ -455,8 +449,10 @@ to the list of directories used to find the assembler in @file{configure.in}.
 
 @defmac STANDARD_STARTFILE_PREFIX
 Define this macro as a C string constant if you wish to override the
-standard choice of @file{/usr/local/lib/} as the default prefix to
+standard choice of @code{libdir} as the default prefix to
 try when searching for startup files such as @file{crt0.o}.
+@code{STANDARD_STARTFILE_PREFIX} is not searched when the compiler
+is built as a cross compiler.
 @end defmac
 
 @defmac MD_STARTFILE_PREFIX
@@ -558,7 +554,7 @@ wrapped in @code{extern @samp{C}} when compiling C++.  Mark the end of
 the array with a null element.
 
 The component name denotes what GNU package the include file is part of,
-if any, in all upper-case letters.  For example, it might be @samp{GCC}
+if any, in all uppercase letters.  For example, it might be @samp{GCC}
 or @samp{BINUTILS}.  If the package is part of a vendor-supplied
 operating system, code the component name as @samp{0}.
 
@@ -2936,12 +2932,6 @@ want to support call frame debugging information like that provided by
 DWARF 2.
 @end defmac
 
-@defmac SMALL_STACK
-Define this macro if the stack size for the target is very small.  This
-has the effect of disabling gcc's built-in @samp{alloca}, though
-@samp{__builtin_alloca} is not affected.
-@end defmac
-
 @node Exception Handling
 @subsection Exception Handling Support
 @cindex exception handling
@@ -2997,6 +2987,13 @@ the @code{eh_return} instruction pattern should be used instead.
 
 If you want to support call frame exception handling, you must
 define either this macro or the @code{eh_return} instruction pattern.
+@end defmac
+
+@defmac RETURN_ADDR_OFFSET
+If defined, an integer-valued C expression for which rtl will be generated
+to add it to the exception handler address before it is searched in the
+exception handling tables, and to subtract it again from the address before
+using it to return to the exception handler.
 @end defmac
 
 @defmac ASM_PREFERRED_EH_DATA_FORMAT (@var{code}, @var{global})
@@ -3256,7 +3253,7 @@ If this macro is not defined, it defaults to
 
 Define this macro if the target's representation for dwarf registers
 is different than the internal representation for unwind column.
-Given a dwarf register, this macro should return the interal unwind
+Given a dwarf register, this macro should return the internal unwind
 column number to use instead.
 
 See the PowerPC's SPE target for an example.  
@@ -3372,6 +3369,13 @@ If the target machine does not have a push instruction, set it to zero.
 That directs GCC to use an alternate strategy: to
 allocate the entire argument block and then store the arguments into
 it.  When @code{PUSH_ARGS} is nonzero, @code{PUSH_ROUNDING} must be defined too.
+@end defmac
+
+@defmac PUSH_ARGS_REVERSED
+A C expression.  If nonzero, function arguments will be evaluated from
+last to first, rather than from first to last.  If this macro is not
+defined, it defaults to @code{PUSH_ARGS} on targets where the stack
+and args grow in opposite directions, and 0 otherwise.
 @end defmac
 
 @defmac PUSH_ROUNDING (@var{npushed})
@@ -3746,6 +3750,17 @@ implementation of va_arg will attempt to pad down before reading the
 next argument, if that argument is smaller than its aligned space as
 controlled by @code{PARM_BOUNDARY}.  If this macro is not defined, all such
 arguments are padded down if @code{BYTES_BIG_ENDIAN} is true.
+@end defmac
+
+@defmac BLOCK_REG_PADDING (@var{mode}, @var{type}, @var{first})
+Specify padding for the last element of a block move between registers and
+memory.  @var{first} is nonzero if this is the only element.  Defining this
+macro allows better control of register function parameters on big-endian
+machines, without using @code{PARALLEL} rtl.  In particular,
+@code{MUST_PASS_IN_STACK} need not test padding and mode of types in
+registers, as there is no longer a "wrong" part of a register;  For example,
+a three byte aggregate may be passed in the high part of a register if so
+required.
 @end defmac
 
 @defmac FUNCTION_ARG_BOUNDARY (@var{mode}, @var{type})
@@ -4753,15 +4768,6 @@ When this macro is nonzero, GCC will implicitly optimize @code{sin} calls into
 default is nonzero that should be proper value for most modern systems, however
 number of existing systems lacks support for these functions in the runtime so
 they needs this macro to be redefined to 0.
-@end defmac
-
-@defmac LIBGCC_NEEDS_DOUBLE
-Define this macro if @code{float} arguments cannot be passed to library
-routines (so they must be converted to @code{double}).  This macro
-affects both how library calls are generated and how the library
-routines in @file{libgcc.a} accept their arguments.  It is useful on
-machines where floating and fixed point arguments are passed
-differently, such as the i860.
 @end defmac
 
 @defmac NEXT_OBJC_RUNTIME
@@ -6615,6 +6621,22 @@ You may wish to use @code{ASM_OUTPUT_TYPE_DIRECTIVE} and/or
 @code{ASM_OUTPUT_SIZE_DIRECTIVE} in the definition of this macro.
 @end defmac
 
+@defmac ASM_DECLARE_CONSTANT_NAME (@var{stream}, @var{name}, @var{exp}, @var{size})
+A C statement (sans semicolon) to output to the stdio stream
+@var{stream} any text necessary for declaring the name @var{name} of a
+constant which is being defined.  This macro is responsible for
+outputting the label definition (perhaps using
+@code{ASM_OUTPUT_LABEL}).  The argument @var{exp} is the
+value of the constant, and @var{size} is the size of the constant
+in bytes.  @var{name} will be an internal label.
+
+If this macro is not defined, then the @var{name} is defined in the
+usual manner as a label (by means of @code{ASM_OUTPUT_LABEL}).
+
+You may wish to use @code{ASM_OUTPUT_TYPE_DIRECTIVE} in the definition
+of this macro.
+@end defmac
+
 @defmac ASM_DECLARE_REGISTER_GLOBAL (@var{stream}, @var{decl}, @var{regno}, @var{name})
 A C statement (sans semicolon) to output to the stdio stream
 @var{stream} any text necessary for claiming a register @var{regno}
@@ -7118,21 +7140,15 @@ If your system uses @command{collect2} as the means of processing
 constructors, then that program normally uses @command{nm} to scan
 an object file for constructor functions to be called.
 
-On certain kinds of systems, you can define these macros to make
+On certain kinds of systems, you can define this macro to make
 @command{collect2} work faster (and, in some cases, make it work at all):
 
 @defmac OBJECT_FORMAT_COFF
 Define this macro if the system uses COFF (Common Object File Format)
 object files, so that @command{collect2} can assume this format and scan
 object files directly for dynamic constructor/destructor functions.
-@end defmac
 
-@defmac OBJECT_FORMAT_ROSE
-Define this macro if the system uses ROSE format object files, so that
-@command{collect2} can assume this format and scan object files directly
-for dynamic constructor/destructor functions.
-
-These macros are effective only in a native compiler; @command{collect2} as
+This macro is effective only in a native compiler; @command{collect2} as
 part of a cross compiler always uses @command{nm} for the target machine.
 @end defmac
 
@@ -7319,7 +7335,7 @@ If defined this macro should expand to a series of @code{case}
 statements which will be parsed inside the @code{switch} statement of
 the @code{asm_fprintf} function.  This allows targets to define extra
 printf formats which may useful when generating their assembler
-statements.  Note that upper case letters are reserved for future
+statements.  Note that uppercase letters are reserved for future
 generic extensions to asm_fprintf, and so are not available to target
 specific code.  The output file is given by the parameter @var{file}.
 The varargs input pointer is @var{argptr} and the rest of the format
@@ -9137,7 +9153,7 @@ cannot_modify_jumps_past_reload_p ()
 @deftypefn {Target Hook} int TARGET_BRANCH_TARGET_REGISTER_CLASS (void)
 This target hook returns a register class for which branch target register
 optimizations should be applied.  All registers in this class should be
-usable interchangably.  After reload, registers in this class will be
+usable interchangeably.  After reload, registers in this class will be
 re-allocated and loads will be hoisted out of loops and be subjected
 to inter-block scheduling.
 @end deftypefn

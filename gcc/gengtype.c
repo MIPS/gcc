@@ -643,7 +643,6 @@ adjust_field_tree_exp (type_p t, options_p opt ATTRIBUTE_UNUSED)
     { "GOTO_SUBROUTINE_EXPR", 0, 2 },
     { "RTL_EXPR", 0, 2 },
     { "WITH_CLEANUP_EXPR", 2, 1 },
-    { "METHOD_CALL_EXPR", 3, 1 }
   };
 
   if (t->kind != TYPE_ARRAY)
@@ -1089,7 +1088,7 @@ open_base_files (void)
       "hashtab.h", "splay-tree.h", "bitmap.h", "tree.h", "rtl.h",
       "function.h", "insn-config.h", "expr.h", "hard-reg-set.h",
       "basic-block.h", "cselib.h", "insn-addr.h", "ssa.h", "optabs.h",
-      "libfuncs.h", "debug.h", "ggc.h",
+      "libfuncs.h", "debug.h", "ggc.h", "cgraph.h",
       NULL
     };
     const char *const *ifp;
@@ -1481,12 +1480,13 @@ output_escaped_param (struct walk_type_data *d, const char *param,
 /* Call D->PROCESS_FIELD for every field (or subfield) of D->VAL,
    which is of type T.  Write code to D->OF to constrain execution (at
    the point that D->PROCESS_FIELD is called) to the appropriate
-   cases.  D->PREV_VAL lists the objects containing the current object,
-   D->OPT is a list of options to apply, D->INDENT is the current
-   indentation level, D->LINE is used to print error messages,
-   D->BITMAP indicates which languages to print the structure for, and
-   D->PARAM is the current parameter (from an enclosing param_is
-   option).  */
+   cases.  Call D->PROCESS_FIELD on subobjects before calling it on
+   pointers to those objects.  D->PREV_VAL lists the objects
+   containing the current object, D->OPT is a list of options to
+   apply, D->INDENT is the current indentation level, D->LINE is used
+   to print error messages, D->BITMAP indicates which languages to
+   print the structure for, and D->PARAM is the current parameter
+   (from an enclosing param_is option).  */
 
 static void
 walk_type (type_p t, struct walk_type_data *d)
@@ -1623,7 +1623,6 @@ walk_type (type_p t, struct walk_type_data *d)
 	    oprintf (d->of, "%*sif (%s != NULL) {\n", d->indent, "", d->val);
 	    d->indent += 2;
 	    oprintf (d->of, "%*ssize_t i%d;\n", d->indent, "", loopcounter);
-	    d->process_field(t, d);
 	    oprintf (d->of, "%*sfor (i%d = 0; i%d < (size_t)(", d->indent, "",
 		     loopcounter, loopcounter);
 	    output_escaped_param (d, length, "length");
@@ -1639,6 +1638,7 @@ walk_type (type_p t, struct walk_type_data *d)
 	    d->used_length = 0;
 	    d->indent -= 2;
 	    oprintf (d->of, "%*s}\n", d->indent, "");
+	    d->process_field(t, d);
 	    d->indent -= 2;
 	    oprintf (d->of, "%*s}\n", d->indent, "");
 	  }
@@ -1960,8 +1960,7 @@ write_func_for_structure  (type_p orig_s, type_p s, type_p *param,
       oprintf (d.of, "gt_%s_", wtd->prefix);
       output_mangled_typename (d.of, orig_s);
     }
-  oprintf (d.of, " (x_p)\n");
-  oprintf (d.of, "      void *x_p;\n");
+  oprintf (d.of, " (void *x_p)\n");
   oprintf (d.of, "{\n");
   oprintf (d.of, "  %s %s * %sx = (%s %s *)x_p;\n",
 	   s->kind == TYPE_UNION ? "union" : "struct", s->u.s.tag,
@@ -2209,11 +2208,7 @@ write_local_func_for_structure (type_p orig_s, type_p s, type_p *param)
   oprintf (d.of, "void\n");
   oprintf (d.of, "gt_pch_p_");
   output_mangled_typename (d.of, orig_s);
-  oprintf (d.of, " (this_obj, x_p, op, cookie)\n");
-  oprintf (d.of, "      void *this_obj ATTRIBUTE_UNUSED;\n");
-  oprintf (d.of, "      void *x_p;\n");
-  oprintf (d.of, "      gt_pointer_operator op ATTRIBUTE_UNUSED;\n");
-  oprintf (d.of, "      void *cookie ATTRIBUTE_UNUSED;\n");
+  oprintf (d.of, " (void *this_obj ATTRIBUTE_UNUSED,\n\tvoid *x_p,\n\tgt_pointer_operator op ATTRIBUTE_UNUSED,\n\tvoid *cookie ATTRIBUTE_UNUSED)\n");
   oprintf (d.of, "{\n");
   oprintf (d.of, "  %s %s * const x ATTRIBUTE_UNUSED = (%s %s *)x_p;\n",
 	   s->kind == TYPE_UNION ? "union" : "struct", s->u.s.tag,
@@ -2628,12 +2623,11 @@ write_array (outf_p f, pair_p v, const struct write_types_data *wtd)
       oprintf (f, "static void gt_%sa_%s\n", wtd->param_prefix, v->name);
       oprintf (f,
        "    (void *, void *, gt_pointer_operator, void *);\n");
-      oprintf (f, "static void gt_%sa_%s (this_obj, x_p, op, cookie)\n",
+      oprintf (f, "static void gt_%sa_%s (void *this_obj ATTRIBUTE_UNUSED,\n",
 	       wtd->param_prefix, v->name);
-      oprintf (d.of, "      void *this_obj ATTRIBUTE_UNUSED;\n");
-      oprintf (d.of, "      void *x_p ATTRIBUTE_UNUSED;\n");
-      oprintf (d.of, "      gt_pointer_operator op ATTRIBUTE_UNUSED;\n");
-      oprintf (d.of, "      void *cookie ATTRIBUTE_UNUSED;\n");
+      oprintf (d.of, "      void *x_p ATTRIBUTE_UNUSED,\n");
+      oprintf (d.of, "      gt_pointer_operator op ATTRIBUTE_UNUSED,\n");
+      oprintf (d.of, "      void *cookie ATTRIBUTE_UNUSED)\n");
       oprintf (d.of, "{\n");
       d.prev_val[0] = d.prev_val[1] = d.prev_val[2] = d.val = v->name;
       d.process_field = write_types_local_process_field;
@@ -2644,9 +2638,8 @@ write_array (outf_p f, pair_p v, const struct write_types_data *wtd)
   d.opt = v->opt;
   oprintf (f, "static void gt_%sa_%s (void *);\n",
 	   wtd->prefix, v->name);
-  oprintf (f, "static void\ngt_%sa_%s (x_p)\n",
+  oprintf (f, "static void\ngt_%sa_%s (void *x_p ATTRIBUTE_UNUSED)\n",
 	   wtd->prefix, v->name);
-  oprintf (f, "      void *x_p ATTRIBUTE_UNUSED;\n");
   oprintf (f, "{\n");
   d.prev_val[0] = d.prev_val[1] = d.prev_val[2] = d.val = v->name;
   d.process_field = write_types_process_field;

@@ -20,6 +20,10 @@
 
 // 22.2.4.1.1 collate members
 
+// Doesn't work due to use of literal ISO8859.1 characters.  PR 11439
+// { dg-do compile { xfail *-*-* } } should be run
+// { dg-excess-errors "" }
+
 #include <testsuite_hooks.h>
 
 #define main discard_main_1
@@ -32,7 +36,7 @@
 
 int main()
 {
-  using namespace __gnu_cxx_test;
+  using namespace __gnu_test;
   func_callback two;
   two.push_back(&test01);
   two.push_back(&test02);

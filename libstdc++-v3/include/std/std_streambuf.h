@@ -37,8 +37,8 @@
  *  in your programs, rather than any of the "st[dl]_*.h" implementation files.
  */
 
-#ifndef _CPP_STREAMBUF
-#define _CPP_STREAMBUF	1
+#ifndef _CLIBXX_STREAMBUF
+#define _CLIBXX_STREAMBUF 1
 
 #pragma GCC system_header
 
@@ -178,32 +178,16 @@ namespace std
 
       /**
        *  @if maint
-       *  Place to stash in || out || in | out settings for current streambuf.
-       *  @endif
-      */
-      ios_base::openmode 	_M_mode;
-
-      /**
-       *  @if maint
        *  Current locale setting.
        *  @endif
       */
       locale 			_M_buf_locale;	
 
-      /**
-       *  @if maint
-       *  Yet unused.
-       *  @endif
-      */
-      fpos<__state_type>	_M_pos;
-
   public:
       /// Destructor deallocates no buffer space.
       virtual 
       ~basic_streambuf() 
-      {
-	_M_mode = ios_base::openmode(0);
-      }
+      { }
 
       // [27.5.2.2.1] locales
       /**
@@ -451,7 +435,7 @@ namespace std
       basic_streambuf()
       : _M_in_beg(0), _M_in_cur(0), _M_in_end(0), 
       _M_out_beg(0), _M_out_cur(0), _M_out_end(0),
-      _M_mode(ios_base::openmode(0)),_M_buf_locale(locale()) 
+      _M_buf_locale(locale()) 
       { }
 
       // [27.5.2.3.1] get area access
@@ -692,7 +676,7 @@ namespace std
 	int_type __ret = traits_type::eof();
 	const bool __testeof = traits_type::eq_int_type(this->underflow(), 
 							__ret);
-	if (!__testeof && this->gptr() < this->egptr())
+	if (!__testeof)
 	  {
 	    __ret = traits_type::to_int_type(*this->gptr());
 	    this->gbump(1);
@@ -757,7 +741,7 @@ namespace std
       overflow(int_type /* __c */ = traits_type::eof())
       { return traits_type::eof(); }
 
-#ifdef _GLIBCPP_DEPRECATED
+#ifdef _GLIBCXX_DEPRECATED
     // Annex D.6
     public:
       /**
@@ -769,7 +753,7 @@ namespace std
        *  See http://gcc.gnu.org/ml/libstdc++/2002-05/msg00168.html
        *
        *  @note  This function has been deprecated by the standard.  You
-       *         must define @c _GLIBCPP_DEPRECATED to make this visible; see
+       *         must define @c _GLIBCXX_DEPRECATED to make this visible; see
        *         c++config.h.
       */
       void 
@@ -782,7 +766,7 @@ namespace std
       }
 #endif
 
-#ifdef _GLIBCPP_RESOLVE_LIB_DEFECTS
+#ifdef _GLIBCXX_RESOLVE_LIB_DEFECTS
     // Side effect of DR 50. 
     private:
       basic_streambuf(const __streambuf_type&) { }; 
@@ -793,11 +777,8 @@ namespace std
     };
 } // namespace std
 
-#ifdef _GLIBCPP_NO_TEMPLATE_EXPORT
-# define export
-#endif
-#ifdef  _GLIBCPP_FULLY_COMPLIANT_HEADERS
-#include <bits/streambuf.tcc>
+#ifndef _GLIBCXX_EXPORT_TEMPLATE
+# include <bits/streambuf.tcc>
 #endif
 
-#endif	
+#endif /* _GLIBCXX_STREAMBUF */

@@ -37,8 +37,8 @@
  *  in your programs, rather than any of the "st[dl]_*.h" implementation files.
  */
 
-#ifndef _CPP_OSTREAM
-#define _CPP_OSTREAM	1
+#ifndef _GLIBCXX_OSTREAM
+#define _GLIBCXX_OSTREAM 1
 
 #pragma GCC system_header
 
@@ -69,8 +69,8 @@ namespace std
       typedef basic_streambuf<_CharT, _Traits> 		__streambuf_type;
       typedef basic_ios<_CharT, _Traits>		__ios_type;
       typedef basic_ostream<_CharT, _Traits>		__ostream_type;
-      typedef ostreambuf_iterator<_CharT, _Traits>	__ostreambuf_iter;
-      typedef num_put<_CharT, __ostreambuf_iter>        __numput_type;
+      typedef num_put<_CharT, ostreambuf_iterator<_CharT, _Traits> >        
+      							__num_put_type;
       typedef ctype<_CharT>           			__ctype_type;
 
       template<typename _CharT2, typename _Traits2>
@@ -203,7 +203,7 @@ namespace std
       operator<<(unsigned int __n)
       { return this->operator<<(static_cast<unsigned long>(__n)); }
 
-#ifdef _GLIBCPP_USE_LONG_LONG
+#ifdef _GLIBCXX_USE_LONG_LONG
       __ostream_type& 
       operator<<(long long __n);
 
@@ -541,11 +541,8 @@ namespace std
 
 } // namespace std
 
-#ifdef _GLIBCPP_NO_TEMPLATE_EXPORT
-# define export
-#endif
-#ifdef  _GLIBCPP_FULLY_COMPLIANT_HEADERS
+#ifndef _GLIBCXX_EXPORT_TEMPLATE
 # include <bits/ostream.tcc>
 #endif
 
-#endif	/* _CPP_OSTREAM */
+#endif	/* _GLIBCXX_OSTREAM */

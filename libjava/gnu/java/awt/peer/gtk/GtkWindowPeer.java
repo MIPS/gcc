@@ -37,15 +37,17 @@ exception statement from your version. */
 
 
 package gnu.java.awt.peer.gtk;
-import java.awt.peer.*;
-import java.awt.*;
+
+import java.awt.Component;
+import java.awt.Dimension;
+import java.awt.Window;
+import java.awt.peer.WindowPeer;
 
 public class GtkWindowPeer extends GtkContainerPeer
   implements WindowPeer
 {
   static protected final int GTK_WINDOW_TOPLEVEL = 0;
-  static protected final int GTK_WINDOW_DIALOG = 1;
-  static protected final int GTK_WINDOW_POPUP = 2;
+  static protected final int GTK_WINDOW_POPUP = 1;
 
   native void create (int type);
 

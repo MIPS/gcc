@@ -184,8 +184,8 @@ static const size_t extra_order_size_table[] = {
   sizeof (struct tree_decl),
   sizeof (struct tree_list),
   TREE_EXP_SIZE (2),
-  RTL_SIZE (2),			/* REG, MEM, PLUS, etc.  */
-  RTL_SIZE (10),		/* INSN, CALL_INSN, JUMP_INSN */
+  RTL_SIZE (2),			/* MEM, PLUS, etc.  */
+  RTL_SIZE (9),		/* INSN, CALL_INSN, JUMP_INSN */
 };
 
 /* The total number of orders.  */
@@ -400,6 +400,31 @@ static struct globals
      better runtime data access pattern.  */
   unsigned long **save_in_use;
 
+#ifdef GATHER_STATISTICS
+  struct
+  {
+    /* Total memory allocated with ggc_alloc */
+    unsigned long long total_allocated;
+    /* Total overhead for memory to be allocated with ggc_alloc */
+    unsigned long long total_overhead;
+
+    /* Total allocations and overhead for sizes less than 32, 64 and 128.
+       These sizes are interesting because they are typical cache line
+       sizes.  */
+   
+    unsigned long long total_allocated_under32;
+    unsigned long long total_overhead_under32;
+  
+    unsigned long long total_allocated_under64;
+    unsigned long long total_overhead_under64;
+  
+    unsigned long long total_allocated_under128;
+    unsigned long long total_overhead_under128;
+  
+    /* The overhead for each of the allocation orders.  */
+    unsigned long long total_overhead_per_order[NUM_ORDERS];
+  } stats;
+#endif
 } G;
 
 /* The size in bytes required to maintain a bitmap for the objects
@@ -453,8 +478,7 @@ push_depth (unsigned int i)
   if (G.depth_in_use >= G.depth_max)
     {
       G.depth_max *= 2;
-      G.depth = (unsigned int *) xrealloc ((char *) G.depth,
-					   G.depth_max * sizeof (unsigned int));
+      G.depth = xrealloc (G.depth, G.depth_max * sizeof (unsigned int));
     }
   G.depth[G.depth_in_use++] = i;
 }
@@ -467,10 +491,10 @@ push_by_depth (page_entry *p, unsigned long *s)
   if (G.by_depth_in_use >= G.by_depth_max)
     {
       G.by_depth_max *= 2;
-      G.by_depth = (page_entry **) xrealloc ((char *) G.by_depth,
-					     G.by_depth_max * sizeof (page_entry *));
-      G.save_in_use = (unsigned long **) xrealloc ((char *) G.save_in_use,
-						   G.by_depth_max * sizeof (unsigned long *));
+      G.by_depth = xrealloc (G.by_depth,
+			     G.by_depth_max * sizeof (page_entry *));
+      G.save_in_use = xrealloc (G.save_in_use,
+				G.by_depth_max * sizeof (unsigned long *));
     }
   G.by_depth[G.by_depth_in_use] = p;
   G.save_in_use[G.by_depth_in_use++] = s;
@@ -562,7 +586,7 @@ set_page_table_entry (void *p, page_entry *entry)
       goto found;
 
   /* Not found -- allocate a new table.  */
-  table = (page_table) xcalloc (1, sizeof(*table));
+  table = xcalloc (1, sizeof(*table));
   table->next = G.lookup;
   table->high_bits = high_bits;
   G.lookup = table;
@@ -575,7 +599,7 @@ found:
   L2 = LOOKUP_L2 (p);
 
   if (base[L1] == NULL)
-    base[L1] = (page_entry **) xcalloc (PAGE_L2_SIZE, sizeof (page_entry *));
+    base[L1] = xcalloc (PAGE_L2_SIZE, sizeof (page_entry *));
 
   base[L1][L2] = entry;
 }
@@ -723,7 +747,7 @@ alloc_page (unsigned order)
 	 memory order.  */
       for (i = GGC_QUIRE_SIZE - 1; i >= 1; i--)
 	{
-	  e = (struct page_entry *) xcalloc (1, page_entry_size);
+	  e = xcalloc (1, page_entry_size);
 	  e->order = order;
 	  e->bytes = G.pagesize;
 	  e->page = page + (i << G.lg_pagesize);
@@ -795,7 +819,7 @@ alloc_page (unsigned order)
 	  struct page_entry *e, *f = G.free_pages;
 	  for (a = enda - G.pagesize; a != page; a -= G.pagesize)
 	    {
-	      e = (struct page_entry *) xcalloc (1, page_entry_size);
+	      e = xcalloc (1, page_entry_size);
 	      e->order = order;
 	      e->bytes = G.pagesize;
 	      e->page = a;
@@ -809,7 +833,7 @@ alloc_page (unsigned order)
 #endif
 
   if (entry == NULL)
-    entry = (struct page_entry *) xcalloc (1, page_entry_size);
+    entry = xcalloc (1, page_entry_size);
 
   entry->bytes = entry_size;
   entry->page = page;
@@ -853,8 +877,8 @@ adjust_depth (void)
     {
       top = G.by_depth[G.by_depth_in_use-1];
 
-      /* Peel back indicies in depth that index into by_depth, so that
-	 as new elements are added to by_depth, we note the indicies
+      /* Peel back indices in depth that index into by_depth, so that
+	 as new elements are added to by_depth, we note the indices
 	 of those elements, if they are for new context depths.  */
       while (G.depth_in_use > (size_t)top->context_depth+1)
 	--G.depth_in_use;
@@ -1123,6 +1147,30 @@ ggc_alloc (size_t size)
      information is used in deciding when to collect.  */
   G.allocated += OBJECT_SIZE (order);
 
+#ifdef GATHER_STATISTICS
+  {
+    G.stats.total_overhead += OBJECT_SIZE (order) - size;
+    G.stats.total_overhead_per_order[order] += OBJECT_SIZE (order) - size;
+    G.stats.total_allocated += OBJECT_SIZE(order);
+
+    if (size <= 32){
+      G.stats.total_overhead_under32 += OBJECT_SIZE (order) - size;
+      G.stats.total_allocated_under32 += OBJECT_SIZE(order);
+    }
+
+    if (size <= 64){
+      G.stats.total_overhead_under64 += OBJECT_SIZE (order) - size;
+      G.stats.total_allocated_under64 += OBJECT_SIZE(order);
+    }
+  
+    if (size <= 128){
+      G.stats.total_overhead_under128 += OBJECT_SIZE (order) - size;
+      G.stats.total_allocated_under128 += OBJECT_SIZE(order);
+    }
+
+  }
+#endif
+  
   if (GGC_DEBUG_LEVEL >= 3)
     fprintf (G.debug_file,
 	     "Allocating object, requested size=%lu, actual=%lu at %p on %p\n",
@@ -1278,7 +1326,7 @@ init_ggc (void)
       }
 
     /* We have a good page, might as well hold onto it...  */
-    e = (struct page_entry *) xcalloc (1, sizeof (struct page_entry));
+    e = xcalloc (1, sizeof (struct page_entry));
     e->bytes = G.pagesize;
     e->page = p;
     e->next = G.free_pages;
@@ -1324,12 +1372,12 @@ init_ggc (void)
 
   G.depth_in_use = 0;
   G.depth_max = 10;
-  G.depth = (unsigned int *) xmalloc (G.depth_max * sizeof (unsigned int));
+  G.depth = xmalloc (G.depth_max * sizeof (unsigned int));
 
   G.by_depth_in_use = 0;
   G.by_depth_max = INITIAL_PTE_COUNT;
-  G.by_depth = (page_entry **) xmalloc (G.by_depth_max * sizeof (page_entry *));
-  G.save_in_use = (unsigned long **) xmalloc (G.by_depth_max * sizeof (unsigned long *));
+  G.by_depth = xmalloc (G.by_depth_max * sizeof (page_entry *));
+  G.save_in_use = xmalloc (G.by_depth_max * sizeof (unsigned long *));
 }
 
 /* Increment the `GC context'.  Objects allocated in an outer context
@@ -1404,7 +1452,7 @@ ggc_pop_context (void)
   G.context_depth_allocations &= omask - 1;
   G.context_depth_collections &= omask - 1;
 
-  /* The G.depth array is shortend so that the last index is the
+  /* The G.depth array is shortened so that the last index is the
      context_depth of the top element of by_depth.  */
   if (depth+1 < G.depth_in_use)
     e = G.depth[depth+1];
@@ -1761,7 +1809,7 @@ ggc_print_statistics (void)
 
   /* Collect some information about the various sizes of
      allocation.  */
-  fprintf (stderr, "\n%-5s %10s  %10s  %10s\n",
+  fprintf (stderr, "%-5s %10s  %10s  %10s\n",
 	   "Size", "Allocated", "Used", "Overhead");
   for (i = 0; i < NUM_ORDERS; ++i)
     {
@@ -1799,6 +1847,33 @@ ggc_print_statistics (void)
 	   SCALE (G.bytes_mapped), LABEL (G.bytes_mapped),
 	   SCALE (G.allocated), LABEL(G.allocated),
 	   SCALE (total_overhead), LABEL (total_overhead));
+
+#ifdef GATHER_STATISTICS  
+  {
+    fprintf (stderr, "Total Overhead:                        %10lld\n",
+             G.stats.total_overhead);
+    fprintf (stderr, "Total Allocated:                       %10lld\n",
+             G.stats.total_allocated);
+
+    fprintf (stderr, "Total Overhead  under  32B:            %10lld\n",
+             G.stats.total_overhead_under32);
+    fprintf (stderr, "Total Allocated under  32B:            %10lld\n",
+             G.stats.total_allocated_under32);
+    fprintf (stderr, "Total Overhead  under  64B:            %10lld\n",
+             G.stats.total_overhead_under64);
+    fprintf (stderr, "Total Allocated under  64B:            %10lld\n",
+             G.stats.total_allocated_under64);
+    fprintf (stderr, "Total Overhead  under 128B:            %10lld\n",
+             G.stats.total_overhead_under128);
+    fprintf (stderr, "Total Allocated under 128B:            %10lld\n",
+             G.stats.total_allocated_under128);
+   
+    for (i = 0; i < NUM_ORDERS; i++)
+      if (G.stats.total_overhead_per_order[i])
+        fprintf (stderr, "Total Overhead  page size %7d:     %10lld\n",
+                 OBJECT_SIZE (i), G.stats.total_overhead_per_order[i]);
+  }
+#endif
 }
 
 struct ggc_pch_data
@@ -1941,8 +2016,8 @@ move_ptes_to_front (int count_old_page_tables, int count_new_page_tables)
   page_entry **new_by_depth;
   unsigned long **new_save_in_use;
 
-  new_by_depth = (page_entry **) xmalloc (G.by_depth_max * sizeof (page_entry *));
-  new_save_in_use = (unsigned long **) xmalloc (G.by_depth_max * sizeof (unsigned long *));
+  new_by_depth = xmalloc (G.by_depth_max * sizeof (page_entry *));
+  new_save_in_use = xmalloc (G.by_depth_max * sizeof (unsigned long *));
 
   memcpy (&new_by_depth[0],
 	  &G.by_depth[count_old_page_tables],

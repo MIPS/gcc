@@ -78,14 +78,14 @@ Boston, MA 02111-1307, USA.  */
     {							\
       if (preprocessing_asm_p ())			\
 	builtin_define_std ("LANGUAGE_ASSEMBLY");	\
-      else if (c_language == clk_c)			\
-	builtin_define_std ("LANGUAGE_C");		\
-      else if (c_language == clk_cplusplus)		\
+      else if (c_dialect_cxx ())			\
 	{						\
 	  builtin_define ("__LANGUAGE_C_PLUS_PLUS");	\
 	  builtin_define ("__LANGUAGE_C_PLUS_PLUS__");	\
 	}						\
-      if (flag_objc)					\
+      else						\
+	builtin_define_std ("LANGUAGE_C");		\
+      if (c_dialect_objc ())				\
 	{						\
 	  builtin_define ("__LANGUAGE_OBJECTIVE_C");	\
 	  builtin_define ("__LANGUAGE_OBJECTIVE_C__");	\
@@ -1087,13 +1087,6 @@ extern int alpha_memory_latency;
 
 #define FUNCTION_ARG_PASS_BY_REFERENCE(CUM, MODE, TYPE, NAMED) \
   ((MODE) == TFmode || (MODE) == TCmode)
-
-/* Specify the padding direction of arguments.
-
-   On the Alpha, we must pad upwards in order to be able to pass args in
-   registers.  */
-
-#define FUNCTION_ARG_PADDING(MODE, TYPE)	upward
 
 /* For an arg passed partly in registers and partly in memory,
    this is the number of registers used.

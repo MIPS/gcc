@@ -264,14 +264,14 @@ struct _ffecom_concat_list_
 
 /* Static functions (internal). */
 
-static tree ffe_type_for_mode PARAMS ((enum machine_mode, int));
-static tree ffe_type_for_size PARAMS ((unsigned int, int));
-static tree ffe_unsigned_type PARAMS ((tree));
-static tree ffe_signed_type PARAMS ((tree));
-static tree ffe_signed_or_unsigned_type PARAMS ((int, tree));
-static bool ffe_mark_addressable PARAMS ((tree));
-static tree ffe_truthvalue_conversion PARAMS ((tree));
-static void ffecom_init_decl_processing PARAMS ((void));
+static tree ffe_type_for_mode (enum machine_mode, int);
+static tree ffe_type_for_size (unsigned int, int);
+static tree ffe_unsigned_type (tree);
+static tree ffe_signed_type (tree);
+static tree ffe_signed_or_unsigned_type (int, tree);
+static bool ffe_mark_addressable (tree);
+static tree ffe_truthvalue_conversion (tree);
+static void ffecom_init_decl_processing (void);
 static tree ffecom_arglist_expr_ (const char *argstring, ffebld args);
 static tree ffecom_widest_expr_type_ (ffebld list);
 static bool ffecom_overlap_ (tree dest_decl, tree dest_offset,
@@ -1530,8 +1530,7 @@ ffecom_possible_partial_overlap_ (ffebld expr1, ffebld expr2 ATTRIBUTE_UNUSED)
 
 static bool
 ffecom_overlap_ (tree dest_decl, tree dest_offset, tree dest_size,
-		 tree source_tree, ffebld source UNUSED,
-		 bool scalar_arg)
+		 tree source_tree, ffebld source UNUSED, bool scalar_arg)
 {
   tree source_decl;
   tree source_offset;
@@ -1582,7 +1581,6 @@ ffecom_overlap_ (tree dest_decl, tree dest_offset, tree dest_size,
     case BIT_IOR_EXPR:
     case BIT_XOR_EXPR:
     case BIT_AND_EXPR:
-    case BIT_ANDTC_EXPR:
     case BIT_NOT_EXPR:
     case TRUTH_ANDIF_EXPR:
     case TRUTH_ORIF_EXPR:
@@ -1712,9 +1710,8 @@ ffecom_overlap_ (tree dest_decl, tree dest_offset, tree dest_size,
    in a COMMON area the callee might know about (and thus modify).  */
 
 static bool
-ffecom_args_overlapping_ (tree dest_tree, ffebld dest UNUSED,
-			  tree args, tree callee_commons,
-			  bool scalar_args)
+ffecom_args_overlapping_ (tree dest_tree, ffebld dest UNUSED, tree args,
+			  tree callee_commons, bool scalar_args)
 {
   tree arg;
   tree dest_decl;
@@ -1788,10 +1785,9 @@ ffecom_build_f2c_string_ (int i, const char *s)
    to the arglist a pointer to a temporary to receive the return value.	 */
 
 static tree
-ffecom_call_ (tree fn, ffeinfoKindtype kt, bool is_f2c_complex,
-	      tree type, tree args, tree dest_tree,
-	      ffebld dest, bool *dest_used, tree callee_commons,
-	      bool scalar_args, tree hook)
+ffecom_call_ (tree fn, ffeinfoKindtype kt, bool is_f2c_complex, tree type,
+	      tree args, tree dest_tree, ffebld dest, bool *dest_used,
+	      tree callee_commons, bool scalar_args, tree hook)
 {
   tree item;
   tree tempvar;
@@ -1849,9 +1845,9 @@ ffecom_call_ (tree fn, ffeinfoKindtype kt, bool is_f2c_complex,
 
 static tree
 ffecom_call_binop_ (tree fn, ffeinfoKindtype kt, bool is_f2c_complex,
-		    tree type, ffebld left, ffebld right,
-		    tree dest_tree, ffebld dest, bool *dest_used,
-		    tree callee_commons, bool scalar_args, bool ref, tree hook)
+		    tree type, ffebld left, ffebld right, tree dest_tree,
+		    ffebld dest, bool *dest_used, tree callee_commons,
+		    bool scalar_args, bool ref, tree hook)
 {
   tree left_tree;
   tree right_tree;
@@ -2929,8 +2925,8 @@ ffecom_do_entry_ (ffesymbol fn, int entrynum)
    made, destination used instead, and dest_used flag set TRUE.  */
 
 static tree
-ffecom_expr_ (ffebld expr, tree dest_tree, ffebld dest,
-	      bool *dest_used, bool assignp, bool widenp)
+ffecom_expr_ (ffebld expr, tree dest_tree, ffebld dest, bool *dest_used,
+	      bool assignp, bool widenp)
 {
   tree item;
   tree list;
@@ -3795,8 +3791,8 @@ ffecom_expr_ (ffebld expr, tree dest_tree, ffebld dest,
    subroutines.  */
 
 static tree
-ffecom_expr_intrinsic_ (ffebld expr, tree dest_tree,
-			ffebld dest, bool *dest_used)
+ffecom_expr_intrinsic_ (ffebld expr, tree dest_tree, ffebld dest,
+			bool *dest_used)
 {
   tree expr_tree;
   tree saved_expr1;		/* For those who need it. */
@@ -5901,8 +5897,7 @@ ffecom_f2c_make_type_ (tree *type, int tcode, const char *name)
    given size.  */
 
 static void
-ffecom_f2c_set_lio_code_ (ffeinfoBasictype bt, int size,
-			  int code)
+ffecom_f2c_set_lio_code_ (ffeinfoBasictype bt, int size, int code)
 {
   int j;
   tree t;
@@ -6308,8 +6303,7 @@ ffecom_init_zero_ (tree decl)
 }
 
 static tree
-ffecom_intrinsic_ichar_ (tree tree_type, ffebld arg,
-			 tree *maybe_tree)
+ffecom_intrinsic_ichar_ (tree tree_type, ffebld arg, tree *maybe_tree)
 {
   tree expr_tree;
   tree length_tree;
@@ -7052,7 +7046,7 @@ ffecom_push_dummy_decls_ (ffebld dummy_list, bool stmtfunc)
    equivalent of a Fortran program unit.  */
 
 static void
-ffecom_start_progunit_ ()
+ffecom_start_progunit_ (void)
 {
   ffesymbol fn = ffecom_primary_entry_;
   ffebld arglist;
@@ -8078,8 +8072,8 @@ ffecom_sym_transform_ (ffesymbol s)
 	  DECL_EXTERNAL (t) = 1;
 	  TREE_PUBLIC (t) = 1;
 
-	  t = start_decl (t, TRUE);
-	  finish_decl (t, NULL_TREE, TRUE);
+	  t = start_decl (t, ffe_is_globals ());
+	  finish_decl (t, NULL_TREE, ffe_is_globals ());
 
 	  if ((g != NULL)
 	      && ((ffeglobal_type (g) == FFEGLOBAL_typeSUBR)
@@ -8764,8 +8758,7 @@ ffecom_transform_namelist_ (ffesymbol s)
    taking into account different units of measurements for offsets.  */
 
 static void
-ffecom_tree_canonize_ptr_ (tree *decl, tree *offset,
-			   tree t)
+ffecom_tree_canonize_ptr_ (tree *decl, tree *offset, tree t)
 {
   switch (TREE_CODE (t))
     {
@@ -8850,8 +8843,7 @@ ffecom_tree_canonize_ptr_ (tree *decl, tree *offset,
    reveal the overlap.  */
 
 static void
-ffecom_tree_canonize_ref_ (tree *decl, tree *offset,
-			   tree *size, tree t)
+ffecom_tree_canonize_ref_ (tree *decl, tree *offset, tree *size, tree t)
 {
   /* The default path is to report a nonexistant decl.  */
   *decl = NULL_TREE;
@@ -8898,7 +8890,6 @@ ffecom_tree_canonize_ref_ (tree *decl, tree *offset,
     case BIT_IOR_EXPR:
     case BIT_XOR_EXPR:
     case BIT_AND_EXPR:
-    case BIT_ANDTC_EXPR:
     case BIT_NOT_EXPR:
     case TRUTH_ANDIF_EXPR:
     case TRUTH_ORIF_EXPR:
@@ -9004,9 +8995,8 @@ ffecom_tree_canonize_ref_ (tree *decl, tree *offset,
 /* Do divide operation appropriate to type of operands.  */
 
 static tree
-ffecom_tree_divide_ (tree tree_type, tree left, tree right,
-		     tree dest_tree, ffebld dest, bool *dest_used,
-		     tree hook)
+ffecom_tree_divide_ (tree tree_type, tree left, tree right, tree dest_tree,
+		     ffebld dest, bool *dest_used, tree hook)
 {
   if ((left == error_mark_node)
       || (right == error_mark_node))
@@ -9093,8 +9083,7 @@ ffecom_tree_divide_ (tree tree_type, tree left, tree right,
 /* Build type info for non-dummy variable.  */
 
 static tree
-ffecom_type_localvar_ (ffesymbol s, ffeinfoBasictype bt,
-		       ffeinfoKindtype kt)
+ffecom_type_localvar_ (ffesymbol s, ffeinfoBasictype bt, ffeinfoKindtype kt)
 {
   tree type;
   ffebld dl;
@@ -9152,7 +9141,7 @@ ffecom_type_localvar_ (ffesymbol s, ffeinfoBasictype bt,
 
 static GTY(()) tree ffecom_type_namelist_var;
 static tree
-ffecom_type_namelist_ ()
+ffecom_type_namelist_ (void)
 {
   if (ffecom_type_namelist_var == NULL_TREE)
     {
@@ -9183,7 +9172,7 @@ ffecom_type_namelist_ ()
 
 static GTY(()) tree ffecom_type_vardesc_var;
 static tree
-ffecom_type_vardesc_ ()
+ffecom_type_vardesc_ (void)
 {
   if (ffecom_type_vardesc_var == NULL_TREE)
     {
@@ -9547,8 +9536,7 @@ ffecom_1_fn (tree node)
    checking for certain housekeeping things.  */
 
 tree
-ffecom_2 (enum tree_code code, tree type, tree node1,
-	  tree node2)
+ffecom_2 (enum tree_code code, tree type, tree node1, tree node2)
 {
   tree item;
 
@@ -9903,8 +9891,7 @@ ffecom_2pass_do_entrypoint (ffesymbol entry)
    TREE_SIDE_EFFECTS.  */
 
 tree
-ffecom_2s (enum tree_code code, tree type, tree node1,
-	   tree node2)
+ffecom_2s (enum tree_code code, tree type, tree node1, tree node2)
 {
   tree item;
 
@@ -9922,8 +9909,7 @@ ffecom_2s (enum tree_code code, tree type, tree node1,
    checking for certain housekeeping things.  */
 
 tree
-ffecom_3 (enum tree_code code, tree type, tree node1,
-	  tree node2, tree node3)
+ffecom_3 (enum tree_code code, tree type, tree node1, tree node2, tree node3)
 {
   tree item;
 
@@ -9945,8 +9931,7 @@ ffecom_3 (enum tree_code code, tree type, tree node1,
    TREE_SIDE_EFFECTS.  */
 
 tree
-ffecom_3s (enum tree_code code, tree type, tree node1,
-	   tree node2, tree node3)
+ffecom_3s (enum tree_code code, tree type, tree node1, tree node2, tree node3)
 {
   tree item;
 
@@ -10561,8 +10546,8 @@ ffecom_constantunion (ffebldConstantUnion *cu, ffeinfoBasictype bt,
 /* Transform constant-union to tree, with the type known.  */
 
 tree
-ffecom_constantunion_with_type (ffebldConstantUnion *cu,
-		      tree tree_type, ffebldConst ct)
+ffecom_constantunion_with_type (ffebldConstantUnion *cu, tree tree_type,
+				ffebldConst ct)
 {
   tree item;
 
@@ -10675,8 +10660,7 @@ ffecom_const_expr (ffebld expr)
 /* Handy way to make a field in a struct/union.  */
 
 tree
-ffecom_decl_field (tree context, tree prevfield,
-		   const char *name, tree type)
+ffecom_decl_field (tree context, tree prevfield, const char *name, tree type)
 {
   tree field;
 
@@ -10711,7 +10695,7 @@ ffecom_end_compstmt (void)
    Calls ffecom_sym_end_transition for each global and local symbol.  */
 
 void
-ffecom_end_transition ()
+ffecom_end_transition (void)
 {
   ffebld item;
 
@@ -10787,7 +10771,7 @@ ffecom_end_transition ()
    Make sure error updating not inhibited.  */
 
 void
-ffecom_exec_transition ()
+ffecom_exec_transition (void)
 {
   bool inhibited;
 
@@ -10977,7 +10961,7 @@ ffecom_expr_w (tree type, ffebld expr)
 /* Do global stuff.  */
 
 void
-ffecom_finish_compile ()
+ffecom_finish_compile (void)
 {
   assert (ffecom_outer_function_decl_ == NULL_TREE);
   assert (current_function_decl == NULL_TREE);
@@ -10997,7 +10981,7 @@ ffecom_finish_decl (tree decl, tree init, bool is_top_level)
 /* Finish a program unit.  */
 
 void
-ffecom_finish_progunit ()
+ffecom_finish_progunit (void)
 {
   ffecom_end_compstmt ();
 
@@ -11121,7 +11105,7 @@ ffecom_gfrt_kindtype (ffecomGfrt gfrt)
 }
 
 void
-ffecom_init_0 ()
+ffecom_init_0 (void)
 {
   tree endlink;
   int i;
@@ -11832,13 +11816,8 @@ ffecom_init_0 ()
 
   ffecom_float_zero_ = build_real (float_type_node, dconst0);
   ffecom_double_zero_ = build_real (double_type_node, dconst0);
-  {
-    REAL_VALUE_TYPE point_5;
-
-    REAL_ARITHMETIC (point_5, RDIV_EXPR, dconst1, dconst2);
-    ffecom_float_half_ = build_real (float_type_node, point_5);
-    ffecom_double_half_ = build_real (double_type_node, point_5);
-  }
+  ffecom_float_half_ = build_real (float_type_node, dconsthalf);
+  ffecom_double_half_ = build_real (double_type_node, dconsthalf);
 
   /* Do "extern int xargc;".  */
 
@@ -11889,7 +11868,7 @@ ffecom_init_0 ()
    ffecom_init_2();  */
 
 void
-ffecom_init_2 ()
+ffecom_init_2 (void)
 {
   assert (ffecom_outer_function_decl_ == NULL_TREE);
   assert (current_function_decl == NULL_TREE);
@@ -12049,8 +12028,7 @@ ffecom_lookup_label (ffelab label)
    the MODIFY_EXPR.  */
 
 tree
-ffecom_modify (tree newtype, tree lhs,
-	       tree rhs)
+ffecom_modify (tree newtype, tree lhs, tree rhs)
 {
   if (lhs == error_mark_node || rhs == error_mark_node)
     return error_mark_node;
@@ -12992,7 +12970,7 @@ ffecom_sym_retract (ffesymbol s UNUSED)
 /* Create temporary gcc label.  */
 
 tree
-ffecom_temp_label ()
+ffecom_temp_label (void)
 {
   tree glabel;
   static int mynumber = 0;
@@ -13106,7 +13084,7 @@ ffecom_type_expr (ffebld expr)
    first ENTRY statement, and so on).  */
 
 tree
-ffecom_which_entrypoint_decl ()
+ffecom_which_entrypoint_decl (void)
 {
   assert (ffecom_which_entrypoint_decl_ != NULL_TREE);
 
@@ -13129,16 +13107,16 @@ ffecom_which_entrypoint_decl ()
    "bison_rule_foo_" so they are easy to find.  */
 
 static void
-bison_rule_pushlevel_ ()
+bison_rule_pushlevel_ (void)
 {
-  emit_line_note (input_filename, input_line);
+  emit_line_note (input_location);
   pushlevel (0);
   clear_last_expr ();
   expand_start_bindings (0);
 }
 
 static tree
-bison_rule_compstmt_ ()
+bison_rule_compstmt_ (void)
 {
   tree t;
   int keep = kept_level_p ();
@@ -13147,7 +13125,7 @@ bison_rule_compstmt_ ()
   if (! keep)
     current_binding_level->names = NULL_TREE;
 
-  emit_line_note (input_filename, input_line);
+  emit_line_note (input_location);
   expand_end_bindings (getdecls (), keep, 0);
   t = poplevel (keep, 1, 0);
 
@@ -13165,8 +13143,7 @@ bison_rule_compstmt_ ()
 
 tree
 builtin_function (const char *name, tree type, int function_code,
-		  enum built_in_class class,
-		  const char *library_name,
+		  enum built_in_class class, const char *library_name,
 		  tree attrs ATTRIBUTE_UNUSED)
 {
   tree decl = build_decl (FUNCTION_DECL, get_identifier (name), type);
@@ -13742,7 +13719,7 @@ lookup_name_current_level (tree name)
 /* Create a new `struct f_binding_level'.  */
 
 static struct f_binding_level *
-make_binding_level ()
+make_binding_level (void)
 {
   /* NOSTRICT */
   return ggc_alloc (sizeof (struct f_binding_level));
@@ -13765,7 +13742,7 @@ struct f_function *f_function_chain;
 /* Restore the variables used during compilation of a C function.  */
 
 static void
-pop_f_function_context ()
+pop_f_function_context (void)
 {
   struct f_function *p = f_function_chain;
   tree link;
@@ -13801,10 +13778,9 @@ pop_f_function_context ()
    used during compilation of a C function.  */
 
 static void
-push_f_function_context ()
+push_f_function_context (void)
 {
-  struct f_function *p
-  = (struct f_function *) xmalloc (sizeof (struct f_function));
+  struct f_function *p = xmalloc (sizeof (struct f_function));
 
   push_function_context ();
 
@@ -14067,7 +14043,7 @@ convert (tree type, tree expr)
    store the result back using `storedecls' or you will lose.  */
 
 tree
-getdecls ()
+getdecls (void)
 {
   return current_binding_level->names;
 }
@@ -14075,13 +14051,13 @@ getdecls ()
 /* Nonzero if we are currently in the global binding level.  */
 
 int
-global_bindings_p ()
+global_bindings_p (void)
 {
   return current_binding_level == global_binding_level;
 }
 
 static void
-ffecom_init_decl_processing ()
+ffecom_init_decl_processing (void)
 {
   malloc_init ();
 
@@ -14120,10 +14096,10 @@ insert_block (tree block)
 }
 
 /* Each front end provides its own.  */
-static bool ffe_init PARAMS ((void));
-static void ffe_finish PARAMS ((void));
-static bool ffe_post_options PARAMS ((const char **));
-static void ffe_print_identifier PARAMS ((FILE *, tree, int));
+static bool ffe_init (void);
+static void ffe_finish (void);
+static bool ffe_post_options (const char **);
+static void ffe_print_identifier (FILE *, tree, int);
 
 struct language_function GTY(())
 {
@@ -14208,8 +14184,7 @@ const char *const tree_code_name[] = {
 #undef DEFTREECODE
 
 static bool
-ffe_post_options (pfilename)
-     const char **pfilename;
+ffe_post_options (const char **pfilename)
 {
   const char *filename = *pfilename;
 
@@ -14230,10 +14205,10 @@ ffe_post_options (pfilename)
 
 
 static bool
-ffe_init ()
+ffe_init (void)
 {
 #ifdef IO_BUFFER_SIZE
-  setvbuf (finput, (char *) xmalloc (IO_BUFFER_SIZE), _IOFBF, IO_BUFFER_SIZE);
+  setvbuf (finput, xmalloc (IO_BUFFER_SIZE), _IOFBF, IO_BUFFER_SIZE);
 #endif
 
   ffecom_init_decl_processing ();
@@ -14254,7 +14229,7 @@ ffe_init ()
 }
 
 static void
-ffe_finish ()
+ffe_finish (void)
 {
   ffe_terminate_0 ();
 
@@ -14596,7 +14571,7 @@ pushdecl (tree x)
 /* Nonzero if the current level needs to have a BLOCK made.  */
 
 static int
-kept_level_p ()
+kept_level_p (void)
 {
   tree decl;
 
@@ -15125,7 +15100,6 @@ static struct file_buf {
 } instack[INPUT_STACK_MAX];
 
 static int last_error_tick = 0;	   /* Incremented each time we print it.  */
-static int input_file_stack_tick = 0;  /* Incremented when status changes.  */
 
 /* Current nesting level of input sources.
    `instack[indepth]' is the level currently being read.  */
@@ -15154,7 +15128,8 @@ static struct file_name_map *read_name_map (const char *dirname);
    FIRST is the beginning of the chain to append, and LAST is the end.  */
 
 static void
-append_include_chain (struct file_name_list *first, struct file_name_list *last)
+append_include_chain (struct file_name_list *first,
+		      struct file_name_list *last)
 {
   struct file_name_list *dir;
 
@@ -15243,7 +15218,7 @@ open_include_file (char *filename, struct file_name_list *searchptr)
     }
   else
     {
-      dir = (char *) xmalloc (p - filename + 1);
+      dir = xmalloc (p - filename + 1);
       memcpy (dir, filename, p - filename);
       dir[p - filename] = '\0';
       from = p + 1;
@@ -15374,8 +15349,7 @@ read_name_map (const char *dirname)
     if (! strcmp (map_list_ptr->map_list_name, dirname))
       return map_list_ptr->map_list_map;
 
-  map_list_ptr = ((struct file_name_map_list *)
-		  xmalloc (sizeof (struct file_name_map_list)));
+  map_list_ptr = xmalloc (sizeof (struct file_name_map_list));
   map_list_ptr->map_list_name = xstrdup (dirname);
   map_list_ptr->map_list_map = NULL;
 
@@ -15405,8 +15379,7 @@ read_name_map (const char *dirname)
 	    ;
 	  to = read_filename_string (ch, f);
 
-	  ptr = ((struct file_name_map *)
-		 xmalloc (sizeof (struct file_name_map)));
+	  ptr = xmalloc (sizeof (struct file_name_map));
 	  ptr->map_from = from;
 
 	  /* Make the real filename absolute.  */
@@ -15446,7 +15419,7 @@ ffecom_file_ (const char *name)
      early #line directives (when -g is in effect).  */
 
   fp = &instack[++indepth];
-  memset ((char *) fp, 0, sizeof (FILE_BUF));
+  memset (fp, 0, sizeof (FILE_BUF));
   if (name == NULL)
     name = "";
   fp->nominal_fname = fp->fname = name;
@@ -15471,8 +15444,8 @@ ffecom_decode_include_option (const char *dir)
     ignore_srcdir = 1;
   else
     {
-      struct file_name_list *dirtmp = (struct file_name_list *)
-	xmalloc (sizeof (struct file_name_list));
+      struct file_name_list *dirtmp
+	= xmalloc (sizeof (struct file_name_list));
       dirtmp->next = 0;		/* New one goes on the end */
       dirtmp->fname = dir;
       dirtmp->got_name_map = 0;
@@ -15664,7 +15637,7 @@ ffecom_open_include_ (char *name, ffewhereLine l, ffewhereColumn c)
   instack[indepth].column = ffewhere_column_use (c);
 
   fp = &instack[indepth + 1];
-  memset ((char *) fp, 0, sizeof (FILE_BUF));
+  memset (fp, 0, sizeof (FILE_BUF));
   fp->nominal_fname = fp->fname = fname;
   fp->dir = searchptr;
 

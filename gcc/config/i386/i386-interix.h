@@ -1,5 +1,5 @@
 /* Target definitions for GNU compiler for Intel 80386 running Interix
-   Parts Copyright (C) 1991, 1999, 2000, 2002 Free Software Foundation, Inc.
+   Parts Copyright (C) 1991, 1999, 2000, 2002, 2003 Free Software Foundation, Inc.
 
    Parts:
      by Douglas B. Rupp (drupp@cs.washington.edu).
@@ -71,9 +71,9 @@ Boston, MA 02111-1307, USA.  */
 	else								\
 	  {								\
 	     builtin_define_std ("LANGUAGE_C");				\
-	     if (c_language == clk_cplusplus)				\
+	     if (c_dialect_cxx ())					\
 	       builtin_define_std ("LANGUAGE_C_PLUS_PLUS");		\
-	     if (flag_objc)						\
+	     if (c_dialect_objc ())					\
 	       builtin_define_std ("LANGUAGE_OBJECTIVE_C");		\
 	  } 								\
     }									\
@@ -236,7 +236,7 @@ Boston, MA 02111-1307, USA.  */
 #define TARGET_NOP_FUN_DLLIMPORT 1
 #define drectve_section()  /* nothing */
 
-/* Objective C has its own packing rules...
+/* Objective-C has its own packing rules...
    Objc tries to parallel the code in stor-layout.c at runtime	
    (see libobjc/encoding.c).  This (compile-time) packing info isn't 
    available at runtime, so it's hopeless to try.
@@ -341,7 +341,7 @@ while (0)
    symbols must be explicitly imported from shared libraries (DLLs).  */
 #define MULTIPLE_SYMBOL_SPACES
 
-extern void i386_pe_unique_section PARAMS ((tree, int));
+extern void i386_pe_unique_section (tree, int);
 #define TARGET_ASM_UNIQUE_SECTION i386_pe_unique_section
 
 #define SUPPORTS_ONE_ONLY 1

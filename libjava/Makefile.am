@@ -10,6 +10,15 @@ else
 SUBDIRS = $(DIRLTDL) gcj include
 endif
 
+# write_entries_to_file - writes each entry in a list
+# to the specified file. Each entry is written individually
+# to accomodate systems with severe command-line-length
+# limitations.
+# Parameters:
+# $(1): variable containing entries to iterate over
+# $(2): output file
+write_entries_to_file = $(shell rm -f $(2) || :) $(shell touch $(2)) $(foreach object,$(1),$(shell echo $(object) >> $(2)))
+
 ## ################################################################
 
 ##
@@ -34,6 +43,9 @@ endif
 toolexeclib_LTLIBRARIES = libgcj.la lib-org-xml-sax.la lib-org-w3c-dom.la \
     $(cond_gtk_ltlibrary) $(cond_x_ltlibrary)
 toolexecmainlib_DATA = libgcj.spec
+
+pkgconfigdir = $(libdir)/pkgconfig
+pkgconfig_DATA = libgcj.pc
 
 jardir = $(datadir)/java
 jar_DATA = libgcj-@gcc_version@.jar
@@ -61,10 +73,11 @@ if NULL_TARGET
 ## In this case, gcj is found outside the build tree.  However, zip is
 ## found in the build tree.
 ZIP = $(MULTIBUILDTOP)../$(COMPPATH)/fastjar/jar
+GCJH = gcjh
 else
 ZIP = jar
+GCJH = $(target_alias)-gcjh
 endif
-GCJH = gcjh
 else # CANADIAN
 GCJH = $(MULTIBUILDTOP)../$(COMPPATH)/gcc/gcjh
 ZIP = $(MULTIBUILDTOP)../$(COMPPATH)/fastjar/jar
@@ -91,13 +104,14 @@ GCC_UNWIND_INCLUDE = @GCC_UNWIND_INCLUDE@
 WARNINGS = -W -Wall
 ## We need _GNU_SOURCE defined for some Linux builds.  It doesn't hurt
 ## to always define it.
-AM_CXXFLAGS = -fno-rtti -fnon-call-exceptions \
+AM_CXXFLAGS = -fno-rtti -fnon-call-exceptions $(THREADCXXFLAGS) \
 ## Some systems don't allow `$' in identifiers by default, so we force it.
 	-fdollars-in-identifiers \
 ## Detect bugs in the verifier implementation, and maybe other places.
 	-Wswitch-enum \
 	@LIBGCJ_CXXFLAGS@ @X_CFLAGS@ $(WARNINGS) -D_GNU_SOURCE \
-	-DPREFIX="\"$(prefix)\"" -DLIBDIR="\"$(libdir)\""
+	-DPREFIX="\"$(prefix)\"" -DLIBDIR="\"$(libdir)\"" \
+	-DBOOT_CLASS_PATH="\"$(jardir)/$(jar_DATA)\""
 if USING_GCC
 AM_CFLAGS = @LIBGCJ_CFLAGS@ $(WARNINGS)
 else
@@ -162,6 +176,7 @@ jni/gtk-peer/gnu_java_awt_peer_gtk_GtkCheckboxPeer.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkChoicePeer.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkClipboard.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkComponentPeer.c \
+jni/gtk-peer/gnu_java_awt_peer_gtk_GtkEmbeddedWindowPeer.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkEvents.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkFileDialogPeer.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkImagePainter.c \
@@ -202,6 +217,7 @@ gnu/java/awt/peer/gtk/GtkClipboard.java	\
 gnu/java/awt/peer/gtk/GtkComponentPeer.java \
 gnu/java/awt/peer/gtk/GtkContainerPeer.java \
 gnu/java/awt/peer/gtk/GtkDialogPeer.java \
+gnu/java/awt/peer/gtk/GtkEmbeddedWindowPeer.java \
 gnu/java/awt/peer/gtk/GtkFileDialogPeer.java \
 gnu/java/awt/peer/gtk/GtkFontPeer.java \
 gnu/java/awt/peer/gtk/GtkFramePeer.java	\
@@ -226,11 +242,9 @@ gnu/java/awt/peer/gtk/GtkTextFieldPeer.java \
 gnu/java/awt/peer/gtk/GtkToolkit.java \
 gnu/java/awt/peer/gtk/GtkWindowPeer.java
 
-## FIXME: GNU make.
 gtk_c_headers = $(patsubst %.java,jniinclude/%.h,$(subst /,_,$(gtk_awt_peer_sources)))
 
 $(gtk_c_headers): $(gtk_awt_peer_sources)
-## FIXME: GNU make.
 	@input=`echo $@ | sed -e 's,jniinclude/,,' -e 's,_,.,g' -e 's,.h$$,,'`; \
 	echo "$(GCJH) -jni -d jniinclude -classpath '' -bootclasspath $(top_builddir) $$input"; \
 	$(GCJH) -jni -d jniinclude -classpath '' -bootclasspath $(top_builddir) $$input
@@ -325,16 +339,22 @@ all_java_source_files = \
 
 all_java_class_files = $(all_java_source_files:.java=.class)
 
-.java.class:
-	$(JAVAC) $(JCFLAGS) -classpath '' -bootclasspath $(here):$(srcdir) \
-             -d $(here) $<
-
-libgcj-@gcc_version@.jar: $(all_java_class_files)
+libgcj-@gcc_version@.jar: $(all_java_source_files)
 	-@rm -f libgcj-@gcc_version@.jar
+	@echo Compiling Java sourcefiles...
+	@: $(call write_entries_to_file,$?,libgcj.sourcelist)
+	$(JAVAC) $(JCFLAGS) -classpath '' -bootclasspath $(here):$(srcdir) -d $(here) @libgcj.sourcelist
 ## Note that we explicitly want to include directory information.
 	find java gnu javax org -type d -o -type f -name '*.class' | \
 	  sed -e '/\/\./d' -e '/\/xlib/d' | \
 	  $(ZIP) cfM0E@ $@
+
+# This next rule seems backward, but reflects the fact
+# that 1) all classfiles are compiled in one go when the
+# libgcj jarfile is built and 2) anything which depends
+# on a particular .class file must wait until the jarfile
+# is built.
+$(all_java_class_files): libgcj-@gcc_version@.jar
 
 MOSTLYCLEANFILES = $(javao_files) $(nat_files) $(nat_headers) $(c_files) $(x_javao_files) $(x_nat_files) $(x_nat_headers)
 CLEANFILES = libgcj-@gcc_version@.jar
@@ -355,28 +375,27 @@ SUFFIXES = .class .java .h
 .java.lo:
 	$(GCJCOMPILE) -o $@ $<
 
-## This is GNU make specific.  For the .o files in subdirs, use a
-## special rule.  The standard automake rule can't be overridden (this
-## is a bug in automake), and it also won't put the .o files into
-## subdirs.  FIXME.
+## FIXME: For the .o files in subdirs, use a special rule.  The
+## standard automake rule can't be overridden (this is a bug in
+## automake), and it also won't put the .o files into subdirs.
 $(nat_files) $(x_nat_files): %.lo: %.cc
 	@echo '$(LTCXXCOMPILE) -MD -MT $@ -MF $(@:.lo=.pp) -c -o $@ $<'; \
 	$(LTCXXCOMPILE) -MD -MT $@ -MF $(@:.lo=.pp) -c -o $@ $<
 	@-mv $(@:.lo=.pp) $(@:.lo=.d)
 
-## FIXME: GNU make.
+## FIXME: see above
 $(c_files): %.lo: %.c
 	$(LTCOMPILE) -c -o $@ $<
 
 $(c_files): java/lang/fdlibm.h java/lang/ieeefp.h java/lang/mprec.h
 
-## FIXME: GNU make.
+## FIXME: see above
 $(gtk_c_files): %.lo: %.c
 	$(LTCOMPILE) -c -Ijniinclude -I$(srcdir)/jni/classpath -I$(srcdir)/jni/gtk-peer $(GTK_CFLAGS) $(LIBART_CFLAGS) -o $@ $<
 
 $(gtk_c_files): $(gtk_c_headers)
 
-## FIXME: GNU make.
+## FIXME: see above.
 $(javao_files) $(x_javao_files) $(lib_org_w3c_dom_la_OBJECTS) $(lib_org_xml_sax_la_OBJECTS): %.lo: %.java
 	$(GCJCOMPILE) -o $@ $<
 
@@ -386,13 +405,15 @@ $(gtk_awt_peer_sources:.java=.lo): %.lo: %.java
 ## Pass the list of object files to libtool in a temporary file to 
 ## avoid tripping platform command line length limits.
 libgcj.la: $(libgcj_la_OBJECTS) $(libgcj_la_DEPENDENCIES)
-	@: $(shell echo Creating list of files to link...) $(shell rm -f libgcj.objectlist || :) $(shell touch libgcj.objectlist) $(foreach object,$(libgcj_la_OBJECTS) $(libgcj_la_LIBADD),$(shell echo $(object) >> libgcj.objectlist))
+	@echo Creating list of files to link...
+	@: $(call write_entries_to_file,$(libgcj_la_OBJECTS) $(libgcj_la_LIBADD),libgcj.objectlist)
 	$(libgcj_la_LINK) -objectlist libgcj.objectlist \
 	@GCLIBS@ @LIBFFI@ @ZLIBS@ \
 	-rpath $(toolexeclibdir) $(libgcj_la_LDFLAGS) $(LIBS)
 
 lib-gnu-awt-xlib.la: $(lib_gnu_awt_xlib_la_OBJECTS) $(lib_gnu_awt_xlib_la_DEPENDENCIES)
-	@: $(shell echo Creating list of files to link...) $(shell rm -f lib_gnu_awt_xlib.objectlist || :) $(shell touch lib_gnu_awt_xlib.objectlist) $(foreach object,$(lib_gnu_awt_xlib_la_OBJECTS) $(lib_gnu_awt_xlib_la_LIBADD),$(shell echo $(object) >> lib_gnu_awt_xlib.objectlist))
+	@echo Creating list of files to link...
+	@: $(call write_entries_to_file,$(lib_gnu_awt_xlib_la_OBJECTS) $(lib_gnu_awt_xlib_la_LIBADD),lib_gnu_awt_xlib.objectlist)
 	$(lib_gnu_awt_xlib_la_LINK) -objectlist lib_gnu_awt_xlib.objectlist \
 	-rpath $(toolexeclibdir) $(lib_gnu_awt_xlib_la_LDFLAGS) $(LIBS)
 
@@ -403,7 +424,6 @@ lib-gnu-awt-xlib.la: $(lib_gnu_awt_xlib_la_OBJECTS) $(lib_gnu_awt_xlib_la_DEPEND
 ##
 
 .class.h:
-## FIXME: GNU make specific.
 	$(GCJH) -classpath '' -bootclasspath $(top_builddir) $(basename $<)
 
 ## Header files used when compiling some of the nat* files.
@@ -510,7 +530,8 @@ install-data-local:
 	$(PRE_INSTALL)
 ## We use a GNU make trick here so that we don't go over the command
 ## length limit of some shells.
-	@: $(shell echo Creating list of headers to install...) $(shell rm -f tmp-ilist || :) $(shell touch tmp-ilist) $(foreach hdr,$(nat_headers) $(extra_headers),$(shell echo $(hdr) >> tmp-ilist))
+	@echo Creating list of headers to install...
+	@: $(call write_entries_to_file,$(nat_headers) $(extra_headers),tmp-ilist)
 	@cat tmp-ilist | while read f; do \
 	  d="`echo $$f | sed -e 's,/[^/]*$$,,'`"; \
 	  $(mkinstalldirs) $(DESTDIR)$(includedir)/$$d; \
@@ -565,6 +586,11 @@ class-check: libgcj-@gcc_version@.jar
 	  if $(GCJ_WITH_FLAGS) --syntax-only $$f; then \
 	  :; else ok=1; fi; \
 	done; exit $$ok
+
+## This rule checks whether write_entries_to_file works properly.
+write-entries-to-file-check:
+	@echo Creating list of files to link...
+	@: $(call write_entries_to_file,$(libgcj_la_OBJECTS) $(libgcj_la_LIBADD),libgcj.objectlist)
 
 ## ################################################################
 
@@ -748,10 +774,13 @@ gnu/awt/j2d/MappedRaster.java \
 gnu/java/awt/BitMaskExtent.java \
 gnu/java/awt/Buffers.java \
 gnu/java/awt/ComponentDataBlitOp.java \
+gnu/java/awt/EmbeddedWindow.java \
+gnu/java/awt/EmbeddedWindowSupport.java \
 gnu/java/awt/EventModifier.java \
-gnu/java/awt/GLightweightPeer.java \
 gnu/java/awt/image/ImageDecoder.java \
 gnu/java/awt/image/XBMDecoder.java \
+gnu/java/awt/peer/EmbeddedWindowPeer.java \
+gnu/java/awt/peer/GLightweightPeer.java \
 gnu/java/beans/editors/ColorEditor.java	\
 gnu/java/beans/editors/FontEditor.java \
 gnu/java/beans/editors/NativeBooleanEditor.java	\
@@ -813,6 +842,7 @@ java/awt/Graphics2D.java \
 java/awt/GraphicsConfiguration.java \
 java/awt/GridBagConstraints.java \
 java/awt/GridBagLayout.java \
+java/awt/GridBagLayoutInfo.java \
 java/awt/GridLayout.java \
 java/awt/IllegalComponentStateException.java \
 java/awt/Image.java \
@@ -1944,12 +1974,15 @@ gnu/gcj/protocol/http/Connection.java \
 gnu/gcj/protocol/http/Handler.java \
 gnu/gcj/protocol/jar/Connection.java \
 gnu/gcj/protocol/jar/Handler.java \
+gnu/gcj/protocol/gcjlib/Connection.java \
+gnu/gcj/protocol/gcjlib/Handler.java \
 gnu/gcj/runtime/FileDeleter.java \
 gnu/gcj/runtime/FinalizerThread.java \
 gnu/gcj/runtime/FirstThread.java \
 gnu/gcj/runtime/JNIWeakRef.java \
 gnu/gcj/runtime/MethodRef.java \
 gnu/gcj/runtime/NameFinder.java \
+gnu/gcj/runtime/SharedLibHelper.java \
 gnu/gcj/runtime/SharedLibLoader.java \
 gnu/gcj/runtime/StackTrace.java \
 gnu/gcj/runtime/StringBuffer.java \
@@ -2104,7 +2137,6 @@ gnu/java/locale/LocaleInformation_zh_SG.java \
 gnu/java/locale/LocaleInformation_zh_TW.java \
 gnu/java/math/MPN.java \
 gnu/java/nio/DatagramChannelImpl.java \
-gnu/java/nio/FileChannelImpl.java \
 gnu/java/nio/FileLockImpl.java \
 gnu/java/nio/PipeImpl.java \
 gnu/java/nio/SelectionKeyImpl.java \
@@ -2265,6 +2297,7 @@ java/nio/channels/ClosedSelectorException.java \
 java/nio/channels/ConnectionPendingException.java \
 java/nio/channels/DatagramChannel.java \
 java/nio/channels/FileChannel.java \
+java/nio/channels/FileChannelImpl.java \
 java/nio/channels/FileLock.java \
 java/nio/channels/FileLockInterruptionException.java \
 java/nio/channels/GatheringByteChannel.java \
@@ -2570,7 +2603,7 @@ gnu/gcj/runtime/natSharedLibLoader.cc \
 gnu/gcj/runtime/natStackTrace.cc \
 gnu/gcj/runtime/natStringBuffer.cc \
 gnu/gcj/runtime/natVMClassLoader.cc \
-gnu/java/nio/natFileChannelImpl.cc \
+gnu/java/awt/natEmbeddedWindow.cc \
 gnu/java/nio/natFileLockImpl.cc \
 gnu/java/nio/natSelectorImpl.cc \
 java/io/natFile.cc \
@@ -2602,6 +2635,7 @@ java/net/natInetAddress.cc \
 java/net/natPlainDatagramSocketImpl.cc \
 java/net/natPlainSocketImpl.cc \
 java/nio/natDirectByteBufferImpl.cc \
+java/nio/channels/natFileChannelImpl.cc \
 java/text/natCollator.cc \
 java/util/natResourceBundle.cc \
 java/util/natTimeZone.cc \
@@ -2639,6 +2673,7 @@ gnu/awt/xlib/XFontMetrics.java \
 gnu/awt/xlib/XFramePeer.java \
 gnu/awt/xlib/XGraphics.java \
 gnu/awt/xlib/XGraphicsConfiguration.java \
+gnu/awt/xlib/XOffScreenImage.java \
 gnu/awt/xlib/XPanelPeer.java \
 gnu/awt/xlib/XToolkit.java
 
@@ -2708,7 +2743,6 @@ texinfo: TexinfoDoclet.class
 ## Dependency tracking madness.
 ##
 
-## FIXME: depends on GNU make.
 -include deps.mk
 
 ## This is an evil hack to work around an automake limitation.  We
@@ -2718,7 +2752,7 @@ texinfo: TexinfoDoclet.class
 ## the C++ code whenever any .java file is touched.
 ## Also force all the class files to build first. This makes them build in
 ## the right order to improve performance.
-all-recursive: $(all_java_class_files) $(nat_headers) $(x_nat_headers)
+all-recursive: libgcj-@gcc_version@.jar $(nat_headers) $(x_nat_headers)
 
 ## ################################################################
 
@@ -2734,6 +2768,7 @@ AM_MAKEFLAGS = \
 	"CC_FOR_BUILD=$(CC_FOR_BUILD)" \
 	"CFLAGS=$(CFLAGS)" \
 	"CXXFLAGS=$(CXXFLAGS)" \
+	"CPPFLAGS=$(CPPFLAGS)" \
 	"CFLAGS_FOR_BUILD=$(CFLAGS_FOR_BUILD)" \
 	"CFLAGS_FOR_TARGET=$(CFLAGS_FOR_TARGET)" \
 	"INSTALL=$(INSTALL)" \

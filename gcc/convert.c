@@ -39,8 +39,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    in other cases error is called.  */
 
 tree
-convert_to_pointer (type, expr)
-     tree type, expr;
+convert_to_pointer (tree type, tree expr)
 {
   if (integer_zerop (expr))
     {
@@ -75,8 +74,7 @@ convert_to_pointer (type, expr)
 
 /* Avoid any floating point extensions from EXP.  */
 tree
-strip_float_extensions (exp)
-     tree exp;
+strip_float_extensions (tree exp)
 {
   tree sub, expt, subt;
 
@@ -124,8 +122,7 @@ strip_float_extensions (exp)
    in other cases error is called.  */
 
 tree
-convert_to_real (type, expr)
-     tree type, expr;
+convert_to_real (tree type, tree expr)
 {
   enum built_in_function fcode = builtin_mathfn_code (expr);
   tree itype = TREE_TYPE (expr);
@@ -155,7 +152,7 @@ convert_to_real (type, expr)
       if (TYPE_PRECISION (TREE_TYPE (arg0)) > TYPE_PRECISION (type))
 	newtype = TREE_TYPE (arg0);
 
-      /* Be curefull about integer to fp conversions.
+      /* Be careful about integer to fp conversions.
 	 These may overflow still.  */
       if (FLOAT_TYPE_P (TREE_TYPE (arg0))
 	  && TYPE_PRECISION (newtype) < TYPE_PRECISION (itype)
@@ -194,9 +191,9 @@ convert_to_real (type, expr)
       if (fn)
 	{
 	  tree arg0 = strip_float_extensions (TREE_VALUE (TREE_OPERAND (expr,
-					  				1)));
+									1)));
 	  tree arglist = build_tree_list (NULL_TREE,
-			  		  fold (convert_to_real (type, arg0)));
+					  fold (convert_to_real (type, arg0)));
 
 	  return build_function_call_expr (fn, arglist);
 	}
@@ -206,7 +203,7 @@ convert_to_real (type, expr)
   if (itype != type && FLOAT_TYPE_P (type))
     switch (TREE_CODE (expr))
       {
-	/* convert (float)-x into -(float)x.  This is always safe.  */
+	/* Convert (float)-x into -(float)x.  This is always safe.  */
 	case ABS_EXPR:
 	case NEGATE_EXPR:
 	  if (TYPE_PRECISION (type) < TYPE_PRECISION (TREE_TYPE (expr)))
@@ -214,7 +211,7 @@ convert_to_real (type, expr)
 			   fold (convert_to_real (type,
 						  TREE_OPERAND (expr, 0))));
 	  break;
-	/* convert (outertype)((innertype0)a+(innertype1)b)
+	/* Convert (outertype)((innertype0)a+(innertype1)b)
 	   into ((newtype)a+(newtype)b) where newtype
 	   is the widest mode from all of these.  */
 	case PLUS_EXPR:
@@ -285,8 +282,7 @@ convert_to_real (type, expr)
    not in use in any existing structure.  */
 
 tree
-convert_to_integer (type, expr)
-     tree type, expr;
+convert_to_integer (tree type, tree expr)
 {
   enum tree_code ex_form = TREE_CODE (expr);
   tree intype = TREE_TYPE (expr);
@@ -324,6 +320,7 @@ convert_to_integer (type, expr)
 
       if (TREE_CODE_CLASS (ex_form) == '<')
 	{
+	  expr = copy_node (expr);
 	  TREE_TYPE (expr) = type;
 	  return expr;
 	}
@@ -332,6 +329,7 @@ convert_to_integer (type, expr)
 	       || ex_form == TRUTH_OR_EXPR || ex_form == TRUTH_ORIF_EXPR
 	       || ex_form == TRUTH_XOR_EXPR)
 	{
+	  expr = copy_node (expr);
 	  TREE_OPERAND (expr, 0) = convert (type, TREE_OPERAND (expr, 0));
 	  TREE_OPERAND (expr, 1) = convert (type, TREE_OPERAND (expr, 1));
 	  TREE_TYPE (expr) = type;
@@ -340,6 +338,7 @@ convert_to_integer (type, expr)
 
       else if (ex_form == TRUTH_NOT_EXPR)
 	{
+	  expr = copy_node (expr);
 	  TREE_OPERAND (expr, 0) = convert (type, TREE_OPERAND (expr, 0));
 	  TREE_TYPE (expr) = type;
 	  return expr;
@@ -350,7 +349,27 @@ convert_to_integer (type, expr)
 	 we are truncating EXPR.  */
 
       else if (outprec >= inprec)
-	return build1 (NOP_EXPR, type, expr);
+	{
+	  enum tree_code code;
+
+	  /* If the precision of the EXPR's type is K bits and the
+	     destination mode has more bits, and the sign is changing,
+	     it is not safe to use a NOP_EXPR.  For example, suppose
+	     that EXPR's type is a 3-bit unsigned integer type, the
+	     TYPE is a 3-bit signed integer type, and the machine mode
+	     for the types is 8-bit QImode.  In that case, the
+	     conversion necessitates an explicit sign-extension.  In
+	     the signed-to-unsigned case the high-order bits have to
+	     be cleared.  */
+	  if (TREE_UNSIGNED (type) != TREE_UNSIGNED (TREE_TYPE (expr))
+	      && (TYPE_PRECISION (TREE_TYPE (expr))
+		  != GET_MODE_BITSIZE (TYPE_MODE (TREE_TYPE (expr)))))
+	    code = CONVERT_EXPR;
+	  else
+	    code = NOP_EXPR;
+
+	  return build1 (code, type, expr);
+	}
 
       /* If TYPE is an enumeral type or a type with a precision less
 	 than the number of bits in its mode, do the conversion to the
@@ -454,7 +473,6 @@ convert_to_integer (type, expr)
 	case BIT_AND_EXPR:
 	case BIT_IOR_EXPR:
 	case BIT_XOR_EXPR:
-	case BIT_ANDTC_EXPR:
 	trunc1:
 	  {
 	    tree arg0 = get_unwidened (TREE_OPERAND (expr, 0), type);
@@ -483,7 +501,7 @@ convert_to_integer (type, expr)
 		    /* Don't do unsigned arithmetic where signed was wanted,
 		       or vice versa.
 		       Exception: if both of the original operands were
- 		       unsigned then we can safely do the work as unsigned.
+		       unsigned then we can safely do the work as unsigned.
 		       Exception: shift operations take their type solely
 		       from the first argument.
 		       Exception: the LSHIFT_EXPR case above requires that
@@ -558,7 +576,7 @@ convert_to_integer (type, expr)
 	  /* It is sometimes worthwhile to push the narrowing down through
 	     the conditional and never loses.  */
 	  return fold (build (COND_EXPR, type, TREE_OPERAND (expr, 0),
-			      convert (type, TREE_OPERAND (expr, 1)), 
+			      convert (type, TREE_OPERAND (expr, 1)),
 			      convert (type, TREE_OPERAND (expr, 2))));
 
 	default:
@@ -593,11 +611,10 @@ convert_to_integer (type, expr)
 /* Convert EXPR to the complex type TYPE in the usual ways.  */
 
 tree
-convert_to_complex (type, expr)
-     tree type, expr;
+convert_to_complex (tree type, tree expr)
 {
   tree subtype = TREE_TYPE (type);
-  
+
   switch (TREE_CODE (TREE_TYPE (expr)))
     {
     case REAL_TYPE:
@@ -649,8 +666,7 @@ convert_to_complex (type, expr)
 /* Convert EXPR to the vector type TYPE in the usual ways.  */
 
 tree
-convert_to_vector (type, expr)
-     tree type, expr;
+convert_to_vector (tree type, tree expr)
 {
   switch (TREE_CODE (TREE_TYPE (expr)))
     {

@@ -175,16 +175,17 @@ struct attr_desc
 {
   char *name;			/* Name of attribute.  */
   struct attr_desc *next;	/* Next attribute.  */
+  struct attr_value *first_value; /* First value of this attribute.  */
+  struct attr_value *default_val; /* Default value for this attribute.  */
+  int lineno : 24;		/* Line number.  */
   unsigned is_numeric	: 1;	/* Values of this attribute are numeric.  */
   unsigned negative_ok	: 1;	/* Allow negative numeric values.  */
   unsigned unsigned_p	: 1;	/* Make the output function unsigned int.  */
   unsigned is_const	: 1;	/* Attribute value constant for each run.  */
   unsigned is_special	: 1;	/* Don't call `write_attr_set'.  */
-  unsigned func_units_p	: 1;	/* this is the function_units attribute */
-  unsigned blockage_p	: 1;	/* this is the blockage range function */
-  struct attr_value *first_value; /* First value of this attribute.  */
-  struct attr_value *default_val; /* Default value for this attribute.  */
-  int lineno;			/* Line number.  */
+  unsigned func_units_p	: 1;	/* This is the function_units attribute.  */
+  unsigned blockage_p	: 1;	/* This is the blockage range function.  */
+  unsigned static_p	: 1;	/* Make the output function static.  */
 };
 
 #define NULL_ATTR (struct attr_desc *) NULL
@@ -499,8 +500,7 @@ attr_hash_add_rtx (int hashcode, rtx rtl)
 {
   struct attr_hash *h;
 
-  h = (struct attr_hash *) obstack_alloc (hash_obstack,
-					  sizeof (struct attr_hash));
+  h = obstack_alloc (hash_obstack, sizeof (struct attr_hash));
   h->hashcode = hashcode;
   h->u.rtl = rtl;
   h->next = attr_hash_table[hashcode % RTL_HASH_SIZE];
@@ -514,8 +514,7 @@ attr_hash_add_string (int hashcode, char *str)
 {
   struct attr_hash *h;
 
-  h = (struct attr_hash *) obstack_alloc (hash_obstack,
-					  sizeof (struct attr_hash));
+  h = obstack_alloc (hash_obstack, sizeof (struct attr_hash));
   h->hashcode = -hashcode;
   h->u.str = str;
   h->next = attr_hash_table[hashcode % RTL_HASH_SIZE];
@@ -778,7 +777,7 @@ attr_string (const char *str, int len)
       return h->u.str;			/* <-- return if found.  */
 
   /* Not found; create a permanent copy and add it to the hash table.  */
-  new_str = (char *) obstack_alloc (hash_obstack, len + 1);
+  new_str = obstack_alloc (hash_obstack, len + 1);
   memcpy (new_str, str, len);
   new_str[len] = '\0';
   attr_hash_add_string (hashcode, new_str);
@@ -1458,7 +1457,7 @@ get_attr_value (rtx value, struct attr_desc *attr, int insn_code)
 	    || insn_alternatives[av->first_insn->insn_code]))
       return av;
 
-  av = (struct attr_value *) oballoc (sizeof (struct attr_value));
+  av = oballoc (sizeof (struct attr_value));
   av->value = value;
   av->next = attr->first_value;
   attr->first_value = av;
@@ -1505,7 +1504,7 @@ expand_delays (void)
 	= make_numeric_value (XVECLEN (delay->def, 1) / 3);
     }
 
-  make_internal_attr ("*num_delay_slots", condexp, 0);
+  make_internal_attr ("*num_delay_slots", condexp, ATTR_NONE);
 
   /* If more than one delay type, do the same for computing the delay type.  */
   if (num_delays > 1)
@@ -1520,7 +1519,7 @@ expand_delays (void)
 	  XVECEXP (condexp, 0, i + 1) = make_numeric_value (delay->num);
 	}
 
-      make_internal_attr ("*delay_type", condexp, 1);
+      make_internal_attr ("*delay_type", condexp, ATTR_SPECIAL);
     }
 
   /* For each delay possibility and delay slot, compute an eligibility
@@ -1538,7 +1537,7 @@ expand_delays (void)
 
 	  p = attr_printf (sizeof "*delay__" + MAX_DIGITS * 2,
 			   "*delay_%d_%d", delay->num, i / 3);
-	  make_internal_attr (p, newexp, 1);
+	  make_internal_attr (p, newexp, ATTR_SPECIAL);
 
 	  if (have_annul_true)
 	    {
@@ -1549,7 +1548,7 @@ expand_delays (void)
 				 make_numeric_value (0));
 	      p = attr_printf (sizeof "*annul_true__" + MAX_DIGITS * 2,
 			       "*annul_true_%d_%d", delay->num, i / 3);
-	      make_internal_attr (p, newexp, 1);
+	      make_internal_attr (p, newexp, ATTR_SPECIAL);
 	    }
 
 	  if (have_annul_false)
@@ -1561,7 +1560,7 @@ expand_delays (void)
 				 make_numeric_value (0));
 	      p = attr_printf (sizeof "*annul_false__" + MAX_DIGITS * 2,
 			       "*annul_false_%d_%d", delay->num, i / 3);
-	      make_internal_attr (p, newexp, 1);
+	      make_internal_attr (p, newexp, ATTR_SPECIAL);
 	    }
 	}
     }
@@ -1813,7 +1812,7 @@ expand_units (void)
 	      str = attr_printf ((strlen (unit->name) + sizeof "*_cost_"
 				  + MAX_DIGITS),
 				 "*%s_cost_%d", unit->name, op->num);
-	      make_internal_attr (str, issue_exp, 1);
+	      make_internal_attr (str, issue_exp, ATTR_SPECIAL);
 	    }
 
 	  /* Validate the condition.  */
@@ -1869,17 +1868,15 @@ expand_units (void)
       unitsmask = attr_rtx (FFS, unitsmask);
     }
 
-  make_internal_attr ("*function_units_used", unitsmask, 10);
+  make_internal_attr ("*function_units_used", unitsmask,
+		      (ATTR_NEGATIVE_OK | ATTR_FUNC_UNITS));
 
   /* Create an array of ops for each unit.  Add an extra unit for the
      result_ready_cost function that has the ops of all other units.  */
-  unit_ops = (struct function_unit_op ***)
-    xmalloc ((num_units + 1) * sizeof (struct function_unit_op **));
-  unit_num = (struct function_unit **)
-    xmalloc ((num_units + 1) * sizeof (struct function_unit *));
+  unit_ops = xmalloc ((num_units + 1) * sizeof (struct function_unit_op **));
+  unit_num = xmalloc ((num_units + 1) * sizeof (struct function_unit *));
 
-  unit_num[num_units] = unit = (struct function_unit *)
-    xmalloc (sizeof (struct function_unit));
+  unit_num[num_units] = unit = xmalloc (sizeof (struct function_unit));
   unit->num = num_units;
   unit->num_opclasses = 0;
 
@@ -1887,7 +1884,7 @@ expand_units (void)
     {
       unit_num[num_units]->num_opclasses += unit->num_opclasses;
       unit_num[unit->num] = unit;
-      unit_ops[unit->num] = op_array = (struct function_unit_op **)
+      unit_ops[unit->num] = op_array =
 	xmalloc (unit->num_opclasses * sizeof (struct function_unit_op *));
 
       for (op = unit->ops; op; op = op->next)
@@ -1895,7 +1892,7 @@ expand_units (void)
     }
 
   /* Compose the array of ops for the extra unit.  */
-  unit_ops[num_units] = op_array = (struct function_unit_op **)
+  unit_ops[num_units] = op_array =
     xmalloc (unit_num[num_units]->num_opclasses
 	    * sizeof (struct function_unit_op *));
 
@@ -2043,7 +2040,7 @@ expand_units (void)
 	      str = attr_printf ((strlen (unit->name) + sizeof "*_block_"
 				  + MAX_DIGITS),
 				 "*%s_block_%d", unit->name, op->num);
-	      make_internal_attr (str, blockage, 1);
+	      make_internal_attr (str, blockage, ATTR_SPECIAL);
 	    }
 
 	  /* Record MAX (BLOCKAGE (*,*)).  */
@@ -2077,18 +2074,20 @@ expand_units (void)
 	      str = attr_printf ((strlen (unit->name)
 				  + sizeof "*_unit_blockage_range"),
 				 "*%s_unit_blockage_range", unit->name);
-	      make_internal_attr (str, newexp, 20);
+	      make_internal_attr (str, newexp, (ATTR_STATIC|ATTR_BLOCKAGE|ATTR_UNSIGNED));
 	    }
 
 	  str = attr_printf (strlen (unit->name) + sizeof "*_unit_ready_cost",
 			     "*%s_unit_ready_cost", unit->name);
+	  make_internal_attr (str, readycost, ATTR_STATIC);
 	}
       else
-	str = "*result_ready_cost";
-
-      /* Make an attribute for the ready_cost function.  Simplifying
-	 further with simplify_by_exploding doesn't win.  */
-      make_internal_attr (str, readycost, 0);
+        {
+	  /* Make an attribute for the ready_cost function.  Simplifying
+	     further with simplify_by_exploding doesn't win.  */
+	  str = "*result_ready_cost";
+	  make_internal_attr (str, readycost, ATTR_NONE);
+	}
     }
 
   /* For each unit that requires a conflict cost function, make an attribute
@@ -2124,7 +2123,7 @@ expand_units (void)
       /* Simplifying caseexp with simplify_by_exploding doesn't win.  */
       str = attr_printf (strlen (unit->name) + sizeof "*_cases",
 			 "*%s_cases", unit->name);
-      make_internal_attr (str, caseexp, 1);
+      make_internal_attr (str, caseexp, ATTR_SPECIAL);
     }
 }
 
@@ -2249,7 +2248,7 @@ fill_attr (struct attr_desc *attr)
       else
 	av = get_attr_value (value, attr, id->insn_code);
 
-      ie = (struct insn_ent *) oballoc (sizeof (struct insn_ent));
+      ie = oballoc (sizeof (struct insn_ent));
       ie->insn_code = id->insn_code;
       ie->insn_index = id->insn_code;
       insert_insn_ent (av, ie);
@@ -2366,7 +2365,7 @@ make_length_attrs (void)
       make_internal_attr (new_names[i],
 			  substitute_address (length_attr->default_val->value,
 					      no_address_fn[i], address_fn[i]),
-			  0);
+			  ATTR_NONE);
       new_attr = find_attr (new_names[i], 0);
       for (av = length_attr->first_value; av; av = av->next)
 	for (ie = av->first_insn; ie; ie = ie->next)
@@ -2375,7 +2374,7 @@ make_length_attrs (void)
 							 no_address_fn[i],
 							 address_fn[i]),
 				     new_attr, ie->insn_code);
-	    new_ie = (struct insn_ent *) oballoc (sizeof (struct insn_ent));
+	    new_ie = oballoc (sizeof (struct insn_ent));
 	    new_ie->insn_code = ie->insn_code;
 	    new_ie->insn_index = ie->insn_index;
 	    insert_insn_ent (new_av, new_ie);
@@ -2454,7 +2453,7 @@ simplify_cond (rtx exp, int insn_code, int insn_index)
   rtx defval = XEXP (exp, 1);
   rtx new_defval = XEXP (exp, 1);
   int len = XVECLEN (exp, 0);
-  rtx *tests = (rtx *) xmalloc (len * sizeof (rtx));
+  rtx *tests = xmalloc (len * sizeof (rtx));
   int allsame = 1;
   rtx ret;
 
@@ -3394,17 +3393,13 @@ optimize_attrs (void)
     return;
 
   /* Make 2 extra elements, for "code" values -2 and -1.  */
-  insn_code_values
-    = (struct attr_value_list **) xmalloc ((insn_code_number + 2)
-					  * sizeof (struct attr_value_list *));
-  memset ((char *) insn_code_values, 0,
-	 (insn_code_number + 2) * sizeof (struct attr_value_list *));
+  insn_code_values = xcalloc ((insn_code_number + 2),
+			      sizeof (struct attr_value_list *));
 
   /* Offset the table address so we can index by -2 or -1.  */
   insn_code_values += 2;
 
-  iv = ivbuf = ((struct attr_value_list *)
-		xmalloc (num_insn_ents * sizeof (struct attr_value_list)));
+  iv = ivbuf = xmalloc (num_insn_ents * sizeof (struct attr_value_list));
 
   for (i = 0; i < MAX_ATTRS_INDEX; i++)
     for (attr = attrs[i]; attr; attr = attr->next)
@@ -3495,7 +3490,7 @@ simplify_by_exploding (rtx exp)
      cover the domain of the attribute.  This makes the expanded COND form
      order independent.  */
 
-  space = (struct dimension *) xmalloc (ndim * sizeof (struct dimension));
+  space = xmalloc (ndim * sizeof (struct dimension));
 
   total = 1;
   for (ndim = 0; list; ndim++)
@@ -3550,8 +3545,8 @@ simplify_by_exploding (rtx exp)
   for (i = 0; i < ndim; i++)
     space[i].current_value = space[i].values;
 
-  condtest = (rtx *) xmalloc (total * sizeof (rtx));
-  condval = (rtx *) xmalloc (total * sizeof (rtx));
+  condtest = xmalloc (total * sizeof (rtx));
+  condval = xmalloc (total * sizeof (rtx));
 
   /* Expand the tests and values by iterating over all values in the
      attribute space.  */
@@ -4048,7 +4043,7 @@ gen_attr (rtx exp, int lineno)
       name_ptr = XSTR (exp, 1);
       while ((p = next_comma_elt (&name_ptr)) != NULL)
 	{
-	  av = (struct attr_value *) oballoc (sizeof (struct attr_value));
+	  av = oballoc (sizeof (struct attr_value));
 	  av->value = attr_rtx (CONST_STRING, p);
 	  av->next = attr->first_value;
 	  attr->first_value = av;
@@ -4192,7 +4187,7 @@ gen_insn (rtx exp, int lineno)
 {
   struct insn_def *id;
 
-  id = (struct insn_def *) oballoc (sizeof (struct insn_def));
+  id = oballoc (sizeof (struct insn_def));
   id->next = defs;
   defs = id;
   id->def = exp;
@@ -4256,7 +4251,7 @@ gen_delay (rtx def, int lineno)
 	have_annul_false = 1;
     }
 
-  delay = (struct delay_desc *) oballoc (sizeof (struct delay_desc));
+  delay = oballoc (sizeof (struct delay_desc));
   delay->def = def;
   delay->num = ++num_delays;
   delay->next = delays;
@@ -4303,7 +4298,7 @@ gen_unit (rtx def, int lineno)
 
   if (unit == 0)
     {
-      unit = (struct function_unit *) oballoc (sizeof (struct function_unit));
+      unit = oballoc (sizeof (struct function_unit));
       unit->name = name;
       unit->multiplicity = multiplicity;
       unit->simultaneity = simultaneity;
@@ -4318,7 +4313,7 @@ gen_unit (rtx def, int lineno)
     }
 
   /* Make a new operation class structure entry and initialize it.  */
-  op = (struct function_unit_op *) oballoc (sizeof (struct function_unit_op));
+  op = oballoc (sizeof (struct function_unit_op));
   op->condexp = condexp;
   op->num = unit->num_opclasses++;
   op->ready = ready_cost;
@@ -4765,23 +4760,10 @@ write_attr_get (struct attr_desc *attr)
      switch we will generate.  */
   common_av = find_most_used (attr);
 
-  /* Write out prototype of function.  */
-  if (!attr->is_numeric)
-    printf ("extern enum attr_%s ", attr->name);
-  else if (attr->unsigned_p)
-    printf ("extern unsigned int ");
-  else
-    printf ("extern int ");
-  /* If the attribute name starts with a star, the remainder is the name of
-     the subroutine to use, instead of `get_attr_...'.  */
-  if (attr->name[0] == '*')
-    printf ("%s (rtx);\n", &attr->name[1]);
-  else
-    printf ("get_attr_%s (%s);\n", attr->name,
-	    (attr->is_const ? "void" : "rtx"));
-
   /* Write out start of function, then all values with explicit `case' lines,
      then a `default', then the value with the most uses.  */
+  if (attr->static_p)
+    printf ("static ");
   if (!attr->is_numeric)
     printf ("enum attr_%s\n", attr->name);
   else if (attr->unsigned_p)
@@ -4792,12 +4774,12 @@ write_attr_get (struct attr_desc *attr)
   /* If the attribute name starts with a star, the remainder is the name of
      the subroutine to use, instead of `get_attr_...'.  */
   if (attr->name[0] == '*')
-    printf ("%s (insn)\n", &attr->name[1]);
+    printf ("%s (rtx insn ATTRIBUTE_UNUSED)\n", &attr->name[1]);
   else if (attr->is_const == 0)
-    printf ("get_attr_%s (insn)\n", attr->name);
+    printf ("get_attr_%s (rtx insn ATTRIBUTE_UNUSED)\n", attr->name);
   else
     {
-      printf ("get_attr_%s ()\n", attr->name);
+      printf ("get_attr_%s (void)\n", attr->name);
       printf ("{\n");
 
       for (av = attr->first_value; av; av = av->next)
@@ -4810,7 +4792,6 @@ write_attr_get (struct attr_desc *attr)
       return;
     }
 
-  printf ("     rtx insn ATTRIBUTE_UNUSED;\n");
   printf ("{\n");
 
   if (GET_CODE (common_av->value) == FFS)
@@ -5284,12 +5265,8 @@ write_eligible_delay (const char *kind)
   /* Write function prelude.  */
 
   printf ("int\n");
-  printf ("eligible_for_%s (delay_insn, slot, candidate_insn, flags)\n",
+  printf ("eligible_for_%s (rtx delay_insn ATTRIBUTE_UNUSED, int slot, rtx candidate_insn, int flags ATTRIBUTE_UNUSED)\n",
 	  kind);
-  printf ("     rtx delay_insn ATTRIBUTE_UNUSED;\n");
-  printf ("     int slot;\n");
-  printf ("     rtx candidate_insn;\n");
-  printf ("     int flags ATTRIBUTE_UNUSED;\n");
   printf ("{\n");
   printf ("  rtx insn;\n");
   printf ("\n");
@@ -5467,11 +5444,9 @@ write_complex_function (struct function_unit *unit,
   int using_case;
   int i;
 
-  printf ("static int %s_unit_%s (rtx, rtx);\n", unit->name, name);
   printf ("static int\n");
-  printf ("%s_unit_%s (executing_insn, candidate_insn)\n", unit->name, name);
-  printf ("     rtx executing_insn;\n");
-  printf ("     rtx candidate_insn;\n");
+  printf ("%s_unit_%s (rtx executing_insn, rtx candidate_insn)\n",
+	  unit->name, name);
   printf ("{\n");
   printf ("  rtx insn;\n");
   printf ("  int casenum;\n\n");
@@ -5595,11 +5570,11 @@ find_attr (const char *name, int create)
   if (! create)
     return NULL;
 
-  attr = (struct attr_desc *) oballoc (sizeof (struct attr_desc));
+  attr = oballoc (sizeof (struct attr_desc));
   attr->name = attr_string (name, strlen (name));
   attr->first_value = attr->default_val = NULL;
   attr->is_numeric = attr->negative_ok = attr->is_const = attr->is_special = 0;
-  attr->unsigned_p = attr->func_units_p = attr->blockage_p = 0;
+  attr->unsigned_p = attr->func_units_p = attr->blockage_p = attr->static_p = 0;
   attr->next = attrs[index];
   attrs[index] = attr;
 
@@ -5619,11 +5594,12 @@ make_internal_attr (const char *name, rtx value, int special)
 
   attr->is_numeric = 1;
   attr->is_const = 0;
-  attr->is_special = (special & 1) != 0;
-  attr->negative_ok = (special & 2) != 0;
-  attr->unsigned_p = (special & 4) != 0;
-  attr->func_units_p = (special & 8) != 0;
-  attr->blockage_p = (special & 16) != 0;
+  attr->is_special = (special & ATTR_SPECIAL) != 0;
+  attr->negative_ok = (special & ATTR_NEGATIVE_OK) != 0;
+  attr->unsigned_p = (special & ATTR_UNSIGNED) != 0;
+  attr->func_units_p = (special & ATTR_FUNC_UNITS) != 0;
+  attr->blockage_p = (special & ATTR_BLOCKAGE) != 0;
+  attr->static_p = (special & ATTR_STATIC) != 0;
   attr->default_val = get_attr_value (value, attr, -2);
 }
 
@@ -5723,8 +5699,7 @@ write_const_num_delay_slots (void)
 
   if (attr)
     {
-      printf ("int\nconst_num_delay_slots (insn)\n");
-      printf ("     rtx insn;\n");
+      printf ("int\nconst_num_delay_slots (rtx insn)\n");
       printf ("{\n");
       printf ("  switch (recog_memoized (insn))\n");
       printf ("    {\n");
@@ -5912,13 +5887,13 @@ from the machine description file `md'.  */\n\n");
   printf ("#define operands recog_data.operand\n\n");
 
   /* Make `insn_alternatives'.  */
-  insn_alternatives = (int *) oballoc (insn_code_number * sizeof (int));
+  insn_alternatives = oballoc (insn_code_number * sizeof (int));
   for (id = defs; id; id = id->next)
     if (id->insn_code >= 0)
       insn_alternatives[id->insn_code] = (1 << id->num_alternatives) - 1;
 
   /* Make `insn_n_alternatives'.  */
-  insn_n_alternatives = (int *) oballoc (insn_code_number * sizeof (int));
+  insn_n_alternatives = oballoc (insn_code_number * sizeof (int));
   for (id = defs; id; id = id->next)
     if (id->insn_code >= 0)
       insn_n_alternatives[id->insn_code] = id->num_alternatives;
@@ -5989,7 +5964,7 @@ from the machine description file `md'.  */\n\n");
       write_automata ();
     }
 
-  /* Write out constant delay slot info */
+  /* Write out constant delay slot info.  */
   write_const_num_delay_slots ();
 
   write_length_unit_log ();

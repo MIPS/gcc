@@ -19,21 +19,6 @@ along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
-#define LINUX_DEFAULT_ELF
-#define MOTOROLA		/* Use Motorola syntax */
-#define USE_GAS			/* But GAS wants jbsr instead of jsr */
-
-/* TODO: convert includes to ${tm_file} list in config.gcc.  */
-#include <m68k/m68k.h>
-
-/* Make sure CC1 is undefined.  */
-#undef CC1_SPEC
-
-#include "dbxelf.h"
-#include "elfos.h"
-#include "svr4.h"
-#include <linux.h>		/* some common stuff */
-
 #undef TARGET_VERSION
 #define TARGET_VERSION fprintf (stderr, " (68k GNU/Linux with ELF)");
 
@@ -171,7 +156,7 @@ Boston, MA 02111-1307, USA.  */
 #undef ASM_OUTPUT_CASE_LABEL
 #define ASM_RETURN_CASE_JUMP				\
   do {							\
-    if (TARGET_5200)					\
+    if (TARGET_COLDFIRE)				\
       {							\
 	if (ADDRESS_REG_P (operands[0]))		\
 	  return "jmp %%pc@(2,%0:l)";			\
@@ -282,18 +267,6 @@ do {									\
     && TARGET_68881)							\
    ? gen_rtx_REG ((MODE), 16)						\
    : gen_rtx_REG ((MODE), 0))
-
-/* In m68k svr4, a symbol_ref rtx can be a valid PIC operand if it is
-   an operand of a function call.  */
-#undef LEGITIMATE_PIC_OPERAND_P
-#define LEGITIMATE_PIC_OPERAND_P(X) \
-  ((! symbolic_operand (X, VOIDmode) \
-    && ! (GET_CODE (X) == CONST_DOUBLE && mem_for_const_double (X) != 0	\
-	  && GET_CODE (mem_for_const_double (X)) == MEM			\
-	  && symbolic_operand (XEXP (mem_for_const_double (X), 0),	\
-			       VOIDmode))) 				\
-   || (GET_CODE (X) == SYMBOL_REF && SYMBOL_REF_FLAG (X))       	\
-   || PCREL_GENERAL_OPERAND_OK)
 
 /* For m68k SVR4, structures are returned using the reentrant
    technique.  */

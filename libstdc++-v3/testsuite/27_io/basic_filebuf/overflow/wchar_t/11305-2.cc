@@ -28,16 +28,16 @@ void test02()
   bool test = true;
 
   wfilebuf fb;
-  locale loc(__gnu_cxx_test::try_named_locale("en_US.UTF-8"));
+  locale loc(__gnu_test::try_named_locale("en_US.UTF-8"));
   fb.pubimbue(loc);
   fb.pubsetbuf(0, 0);
   fb.open("tmp_11305-2", ios_base::out);
-  wint_t n1 = fb.sputc(0x20000000);
-  wint_t n2 = fb.sputc(0x40000000);
+  wfilebuf::int_type n1 = fb.sputc(L'n');
+  wfilebuf::int_type n2 = fb.sputc(L'e');
   wfilebuf* f = fb.close();
   
-  VERIFY( n1 != WEOF );
-  VERIFY( n2 != WEOF );
+  VERIFY( n1 != wfilebuf::traits_type::eof() );
+  VERIFY( n2 != wfilebuf::traits_type::eof() );
   VERIFY( f != NULL );
 }
 

@@ -25,9 +25,25 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "hashtable.h"
 
+#ifdef HAVE_ICONV
+#include <iconv.h>
+#else
+#define HAVE_ICONV 0
+typedef int iconv_t;  /* dummy */
+#endif
+
 struct directive;		/* Deliberately incomplete.  */
 struct pending_option;
 struct op;
+struct strbuf;
+
+typedef bool (*convert_f) (iconv_t, const unsigned char *, size_t,
+			   struct strbuf *);
+struct cset_converter
+{
+  convert_f func;
+  iconv_t cd;
+};
 
 #ifndef HAVE_UCHAR
 typedef unsigned char uchar;
@@ -84,7 +100,7 @@ struct cpp_macro
   } exp;
 
   /* Definition line number.  */
-  unsigned int line;
+  fileline line;
 
   /* Number of tokens in expansion, or bytes for traditional macros.  */
   unsigned int count;
@@ -265,9 +281,9 @@ struct cpp_buffer
 
   struct cpp_buffer *prev;
 
-  /* Pointer into the include table; non-NULL if this is a file
-     buffer.  Used for include_next and to record control macros.  */
-  struct include_file *inc;
+  /* Pointer into the file table; non-NULL if this is a file buffer.
+     Used for include_next and to record control macros.  */
+  struct _cpp_file *file;
 
   /* Value of if_stack at start of this file.
      Used to prohibit unmatched #endif (etc) in an include file.  */
@@ -298,7 +314,7 @@ struct cpp_buffer
 
   /* The directory of the this buffer's file.  Its NAME member is not
      allocated, so we don't need to worry about freeing it.  */
-  struct cpp_path dir;
+  struct cpp_dir dir;
 
   /* Used for buffer overlays by cpptrad.c.  */
   const uchar *saved_cur, *saved_rlimit;
@@ -321,10 +337,10 @@ struct cpp_reader
   /* Source line tracking.  */
   struct line_maps line_maps;
   const struct line_map *map;
-  unsigned int line;
+  fileline line;
 
   /* The line of the '#' of the current directive.  */
-  unsigned int directive_line;
+  fileline directive_line;
 
   /* Memory buffers.  */
   _cpp_buff *a_buff;		/* Aligned permanent storage.  */
@@ -339,8 +355,25 @@ struct cpp_reader
   const struct directive *directive;
 
   /* Search paths for include files.  */
-  struct cpp_path *quote_include;	/* "" */
-  struct cpp_path *bracket_include;	/* <> */
+  struct cpp_dir *quote_include;	/* "" */
+  struct cpp_dir *bracket_include;	/* <> */
+  struct cpp_dir no_search_path;	/* No path.  */
+
+  /* Chain of all hashed _cpp_file instances.  */
+  struct _cpp_file *all_files;
+
+  /* File and directory hash table.  */
+  struct htab *file_hash;
+  struct file_hash_entry *file_hash_entries;
+  unsigned int file_hash_entries_allocated, file_hash_entries_used;
+
+  /* Nonzero means don't look for #include "foo" the source-file
+     directory.  */
+  bool quote_ignores_source_dir;
+
+  /* Non-zero if any file has contained #pragma once or #import has
+     been used.  */
+  bool seen_once_only;
 
   /* Multiple include optimization.  */
   const cpp_hashnode *mi_cmacro;
@@ -362,12 +395,13 @@ struct cpp_reader
   unsigned char *macro_buffer;
   unsigned int macro_buffer_len;
 
-  /* Tree of other included files.  See cppfiles.c.  */
-  struct splay_tree_s *all_include_files;
+  /* Descriptor for converting from the source character set to the
+     execution character set.  */
+  struct cset_converter narrow_cset_desc;
 
-  /* Current maximum length of directory names in the search path
-     for include files.  (Altered as we get more of them.)  */
-  unsigned int max_include_len;
+  /* Descriptor for converting from the source character set to the
+     wide execution character set.  */
+  struct cset_converter wide_cset_desc;
 
   /* Date and time text.  Calculated together if either is requested.  */
   const uchar *date;
@@ -408,12 +442,8 @@ struct cpp_reader
      preprocessor.  */
   struct spec_nodes spec_nodes;
 
-  /* Nonzero means don't look for #include "foo" the source-file
-     directory.  */
-  unsigned char quote_ignores_source_dir;
-
   /* Whether cpplib owns the hashtable.  */
-  unsigned char our_hashtable;
+  bool our_hashtable;
 
   /* Traditional preprocessing output buffer (a logical line).  */
   struct
@@ -467,7 +497,7 @@ extern unsigned char _cpp_trigraph_map[UCHAR_MAX + 1];
 #define CPP_WTRADITIONAL(PF) CPP_OPTION (PF, warn_traditional)
 
 /* In cpperror.c  */
-extern int _cpp_begin_message (cpp_reader *, int, unsigned int, unsigned int);
+extern int _cpp_begin_message (cpp_reader *, int, fileline, unsigned int);
 
 /* In cppmacro.c */
 extern void _cpp_free_definition (cpp_hashnode *);
@@ -485,16 +515,16 @@ extern void _cpp_init_hashtable (cpp_reader *, hash_table *);
 extern void _cpp_destroy_hashtable (cpp_reader *);
 
 /* In cppfiles.c */
+extern void _cpp_mark_file_once_only (cpp_reader *, struct _cpp_file *);
 extern void _cpp_fake_include (cpp_reader *, const char *);
-extern void _cpp_never_reread (struct include_file *);
-extern bool _cpp_read_file (cpp_reader *, const char *);
-extern bool _cpp_execute_include (cpp_reader *, const char *, int,
-				  enum include_type);
+extern bool _cpp_stack_file (cpp_reader *, const char *);
+extern bool _cpp_stack_include (cpp_reader *, const char *, int,
+				enum include_type);
 extern int _cpp_compare_file_date (cpp_reader *, const char *, int);
 extern void _cpp_report_missing_guards (cpp_reader *);
-extern void _cpp_init_includes (cpp_reader *);
-extern void _cpp_cleanup_includes (cpp_reader *);
-extern void _cpp_pop_file_buffer (cpp_reader *, struct include_file *);
+extern void _cpp_init_files (cpp_reader *);
+extern void _cpp_cleanup_files (cpp_reader *);
+extern void _cpp_pop_file_buffer (cpp_reader *, struct _cpp_file *);
 
 /* In cppexp.c */
 extern bool _cpp_parse_expr (cpp_reader *);
@@ -528,7 +558,7 @@ extern void _cpp_do_file_change (cpp_reader *, enum lc_reason, const char *,
 extern void _cpp_pop_buffer (cpp_reader *);
 
 /* In cpptrad.c.  */
-extern bool scan_out_logical_line (cpp_reader *, cpp_macro *);
+extern bool _cpp_scan_out_logical_line (cpp_reader *, cpp_macro *);
 extern bool _cpp_read_logical_line_trad (cpp_reader *);
 extern void _cpp_overlay_buffer (cpp_reader *pfile, const uchar *, size_t);
 extern void _cpp_remove_overlay (cpp_reader *);
@@ -539,7 +569,11 @@ extern uchar *_cpp_copy_replacement_text (const cpp_macro *, uchar *);
 extern size_t _cpp_replacement_text_len (const cpp_macro *);
 
 /* In cppcharset.c.  */
-cppchar_t _cpp_valid_ucn (cpp_reader *, const uchar **, int identifer_p);
+extern cppchar_t _cpp_valid_ucn (cpp_reader *, const uchar **,
+				 const uchar *, int);
+extern void _cpp_destroy_iconv (cpp_reader *);
+extern bool _cpp_interpret_string_notranslate (cpp_reader *, const cpp_string *,
+					       cpp_string *);
 
 /* Utility routines and macros.  */
 #define DSC(str) (const uchar *)str, sizeof str - 1

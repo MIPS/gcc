@@ -9,17 +9,10 @@ Libgcj License.  Please consult the file "LIBGCJ_LICENSE" for
 details.  */
 
 #include <config.h>
-
-#include <stdio.h>
-
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
+#include <platform.h>
 
 // Conflicts with the definition in "java/lang/reflect/Modifier.h"
 #undef STRICT
-
-#include <gcj/cni.h>
-#include <jvm.h>
 
 #include <java/lang/ConcreteProcess.h>
 #include <java/lang/IllegalThreadStateException.h>
@@ -111,16 +104,6 @@ java::lang::ConcreteProcess::waitFor (void)
   return exitCode;
 }
 
-static char *
-new_string (jstring string)
-{
-  jsize s = _Jv_GetStringUTFLength (string);
-  char *buf = (char *) _Jv_Malloc (s + 1);
-  _Jv_GetStringUTFRegion (string, 0, s, buf);
-  buf[s] = '\0';
-  return buf;
-}
-
 void
 java::lang::ConcreteProcess::startProcess (jstringArray progarray,
                                            jstringArray envp,
@@ -136,7 +119,7 @@ java::lang::ConcreteProcess::startProcess (jstringArray progarray,
   int cmdLineLen = 0;
 
   for (int i = 0; i < progarray->length; ++i)
-    cmdLineLen += (_Jv_GetStringUTFLength (elts[i]) + 3);
+    cmdLineLen += (_Jv_GetStringUTFLength (elts[i]) + 1);
 
   char *cmdLine = (char *) _Jv_Malloc (cmdLineLen + 1);
   char *cmdLineCurPos = cmdLine;
@@ -145,11 +128,9 @@ java::lang::ConcreteProcess::startProcess (jstringArray progarray,
     {
       if (i > 0)
         *cmdLineCurPos++ = ' ';
-      *cmdLineCurPos++ = '\"';
       jsize s = _Jv_GetStringUTFLength (elts[i]);
       _Jv_GetStringUTFRegion (elts[i], 0, s, cmdLineCurPos);
       cmdLineCurPos += s;
-      *cmdLineCurPos++ = '\"';
     }
   *cmdLineCurPos = '\0';
 
@@ -179,9 +160,7 @@ java::lang::ConcreteProcess::startProcess (jstringArray progarray,
     }
 
   // Get the working directory path, if specified.
-  char *wdir = NULL;
-  if (dir != NULL)
-    wdir = new_string (dir->getPath ());
+  JV_TEMP_UTF_STRING (wdir, dir ? dir->getPath () : 0);
 
   errorStream = NULL;
   inputStream = NULL;
@@ -206,29 +185,25 @@ java::lang::ConcreteProcess::startProcess (jstringArray progarray,
       sAttrs.lpSecurityDescriptor = NULL;
 
 
-      char tmpBuff[64];
       if (CreatePipe (&cldStdInRd, &cldStdInWr, &sAttrs, 0) == 0)
         {
-          sprintf (tmpBuff,
-                   "Error creating stdin pipe (Win32 Error Code: %lu)",
-                   GetLastError ());
-          throw new IOException (JvNewStringLatin1 (tmpBuff));
+          DWORD dwErrorCode = GetLastError ();
+          throw new IOException (_Jv_WinStrError ("Error creating stdin pipe",
+            dwErrorCode));
         }
 
       if (CreatePipe (&cldStdOutRd, &cldStdOutWr, &sAttrs, 0) == 0)
         {
-          sprintf (tmpBuff,
-                   "Error creating stdout pipe (Win32 Error Code: %lu)",
-                   GetLastError ());
-          throw new IOException (JvNewStringLatin1 (tmpBuff));
+          DWORD dwErrorCode = GetLastError ();
+          throw new IOException (_Jv_WinStrError ("Error creating stdout pipe",
+            dwErrorCode));
         }
 
       if (CreatePipe (&cldStdErrRd, &cldStdErrWr, &sAttrs, 0) == 0)
         {
-          sprintf (tmpBuff,
-                   "Error creating stderr pipe (Win32 Error Code: %lu)",
-                   GetLastError ());
-          throw new IOException (JvNewStringLatin1 (tmpBuff));
+          DWORD dwErrorCode = GetLastError ();
+          throw new IOException (_Jv_WinStrError ("Error creating stderr pipe",
+            dwErrorCode));
         }
 
       outputStream = new FileOutputStream
@@ -265,10 +240,9 @@ java::lang::ConcreteProcess::startProcess (jstringArray progarray,
                          &si,
                          &pi) == 0)
         {
-          sprintf (tmpBuff,
-                   "Error creating child process (Win32 Error Code: %lu)",
-                   GetLastError ());
-          throw new IOException (JvNewStringLatin1 (tmpBuff));
+          DWORD dwErrorCode = GetLastError ();
+          throw new IOException (
+            _Jv_WinStrError ("Error creating child process", dwErrorCode));
         }
 
       procHandle = (jint ) pi.hProcess;
@@ -281,8 +255,6 @@ java::lang::ConcreteProcess::startProcess (jstringArray progarray,
       _Jv_Free (cmdLine);
       if (env != NULL)
         _Jv_Free (env);
-      if (wdir != NULL)
-        _Jv_Free (wdir);
     }
   catch (java::lang::Throwable *thrown)
     {

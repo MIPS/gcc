@@ -316,10 +316,8 @@ extern void debug_decision_list
 static struct decision *
 new_decision (const char *position, struct decision_head *last)
 {
-  struct decision *new
-    = (struct decision *) xmalloc (sizeof (struct decision));
+  struct decision *new = xcalloc (1, sizeof (struct decision));
 
-  memset (new, 0, sizeof (*new));
   new->success = *last;
   new->position = xstrdup (position);
   new->number = next_number++;
@@ -336,7 +334,7 @@ new_decision_test (enum decision_type type, struct decision_test ***pplace)
   struct decision_test **place = *pplace;
   struct decision_test *test;
 
-  test = (struct decision_test *) xmalloc (sizeof (*test));
+  test = xmalloc (sizeof (*test));
   test->next = *place;
   test->type = type;
   *place = test;
@@ -770,7 +768,7 @@ add_to_sequence (rtx pattern, struct decision_head *last, const char *position,
   if (depth > max_depth)
     max_depth = depth;
 
-  subpos = (char *) xmalloc (depth + 2);
+  subpos = xmalloc (depth + 2);
   strcpy (subpos, position);
   subpos[depth + 1] = 0;
 
@@ -2272,28 +2270,18 @@ write_subroutine (struct decision_head *head, enum routine_type type)
   switch (type)
     {
     case RECOG:
-      printf ("%sint recog%s (rtx, rtx, int *);\n", s_or_e, extension);
       printf ("%sint\n\
-recog%s (x0, insn, pnum_clobbers)\n\
-     rtx x0 ATTRIBUTE_UNUSED;\n\
-     rtx insn ATTRIBUTE_UNUSED;\n\
-     int *pnum_clobbers ATTRIBUTE_UNUSED;\n", s_or_e, extension);
+recog%s (rtx x0 ATTRIBUTE_UNUSED,\n\trtx insn ATTRIBUTE_UNUSED,\n\tint *pnum_clobbers ATTRIBUTE_UNUSED)\n", s_or_e, extension);
       break;
     case SPLIT:
-      printf ("%srtx split%s (rtx, rtx);\n", s_or_e, extension);
       printf ("%srtx\n\
-split%s (x0, insn)\n\
-     rtx x0 ATTRIBUTE_UNUSED;\n\
-     rtx insn ATTRIBUTE_UNUSED;\n", s_or_e, extension);
+split%s (rtx x0 ATTRIBUTE_UNUSED, rtx insn ATTRIBUTE_UNUSED)\n",
+	      s_or_e, extension);
       break;
     case PEEPHOLE2:
-      printf ("%srtx peephole2%s (rtx, rtx, int *);\n",
-	      s_or_e, extension);
       printf ("%srtx\n\
-peephole2%s (x0, insn, _pmatch_len)\n\
-     rtx x0 ATTRIBUTE_UNUSED;\n\
-     rtx insn ATTRIBUTE_UNUSED;\n\
-     int *_pmatch_len ATTRIBUTE_UNUSED;\n", s_or_e, extension);
+peephole2%s (rtx x0 ATTRIBUTE_UNUSED,\n\trtx insn ATTRIBUTE_UNUSED,\n\tint *_pmatch_len ATTRIBUTE_UNUSED)\n",
+	      s_or_e, extension);
       break;
     }
 
@@ -2677,8 +2665,7 @@ record_insn_name (int code, const char *name)
     {
       int new_size;
       new_size = (insn_name_ptr_size ? insn_name_ptr_size * 2 : 512);
-      insn_name_ptr =
-	(char **) xrealloc (insn_name_ptr, sizeof(char *) * new_size);
+      insn_name_ptr = xrealloc (insn_name_ptr, sizeof(char *) * new_size);
       memset (insn_name_ptr + insn_name_ptr_size, 0,
 	      sizeof(char *) * (new_size - insn_name_ptr_size));
       insn_name_ptr_size = new_size;

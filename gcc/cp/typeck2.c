@@ -330,15 +330,8 @@ store_init_value (tree decl, tree init)
 	   && TREE_TYPE (init) != unknown_type_node)
     {
       if (TREE_CODE (decl) == RESULT_DECL)
-	{
-	  if (TREE_CHAIN (init))
-	    {
-	      warning ("comma expression used to initialize return value");
-	      init = build_compound_expr (init);
-	    }
-	  else
-	    init = TREE_VALUE (init);
-	}
+	init = build_x_compound_expr_from_list (init,
+						"return value initializer");
       else if (TREE_CODE (init) == TREE_LIST
 	       && TREE_CODE (TREE_TYPE (decl)) == ARRAY_TYPE)
 	{
@@ -346,17 +339,8 @@ store_init_value (tree decl, tree init)
 	  return NULL_TREE;
 	}
       else
-	{
-	  /* We get here with code like `int a (2);' */
-	     
-	  if (TREE_CHAIN (init) != NULL_TREE)
-	    {
-	      pedwarn ("initializer list being treated as compound expression");
-	      init = build_compound_expr (init);
-	    }
-	  else
-	    init = TREE_VALUE (init);
-	}
+	/* We get here with code like `int a (2);' */
+	init = build_x_compound_expr_from_list (init, "initializer");
     }
 
   /* End of special C++ code.  */
@@ -506,7 +490,7 @@ digest_init (tree type, tree init, tree* tail)
   if (code == INTEGER_TYPE || code == REAL_TYPE || code == POINTER_TYPE
       || code == ENUMERAL_TYPE || code == REFERENCE_TYPE
       || code == BOOLEAN_TYPE || code == COMPLEX_TYPE
-      || TYPE_PTRMEMFUNC_P (type))
+      || TYPE_PTR_TO_MEMBER_P (type))
     {
       if (raw_constructor)
 	{
@@ -980,50 +964,48 @@ build_scoped_ref (tree datum, tree basetype, tree* binfo_p)
    delegation is detected.  */
 
 tree
-build_x_arrow (tree datum)
+build_x_arrow (tree expr)
 {
+  tree orig_expr = expr;
   tree types_memoized = NULL_TREE;
-  register tree rval = datum;
-  tree type = TREE_TYPE (rval);
+  tree type = TREE_TYPE (expr);
   tree last_rval = NULL_TREE;
 
   if (type == error_mark_node)
     return error_mark_node;
 
   if (processing_template_decl)
-    return build_min_nt (ARROW_EXPR, rval);
-
-  if (TREE_CODE (rval) == OFFSET_REF)
     {
-      rval = resolve_offset_ref (datum);
-      type = TREE_TYPE (rval);
+      if (type_dependent_expression_p (expr))
+	return build_min_nt (ARROW_EXPR, expr);
+      expr = build_non_dependent_expr (expr);
     }
 
   if (TREE_CODE (type) == REFERENCE_TYPE)
     {
-      rval = convert_from_reference (rval);
-      type = TREE_TYPE (rval);
+      expr = convert_from_reference (expr);
+      type = TREE_TYPE (expr);
     }
 
   if (IS_AGGR_TYPE (type))
     {
-      while ((rval = build_new_op (COMPONENT_REF, LOOKUP_NORMAL, rval,
+      while ((expr = build_new_op (COMPONENT_REF, LOOKUP_NORMAL, expr,
 				   NULL_TREE, NULL_TREE)))
 	{
-	  if (rval == error_mark_node)
+	  if (expr == error_mark_node)
 	    return error_mark_node;
 
-	  if (value_member (TREE_TYPE (rval), types_memoized))
+	  if (value_member (TREE_TYPE (expr), types_memoized))
 	    {
 	      error ("circular pointer delegation detected");
 	      return error_mark_node;
 	    }
 	  else
 	    {
-	      types_memoized = tree_cons (NULL_TREE, TREE_TYPE (rval),
+	      types_memoized = tree_cons (NULL_TREE, TREE_TYPE (expr),
 					  types_memoized);
 	    }
-	  last_rval = rval;
+	  last_rval = expr;
 	}     
 
       if (last_rval == NULL_TREE)
@@ -1036,10 +1018,17 @@ build_x_arrow (tree datum)
 	last_rval = convert_from_reference (last_rval);
     }
   else
-    last_rval = default_conversion (rval);
+    last_rval = decay_conversion (expr);
 
   if (TREE_CODE (TREE_TYPE (last_rval)) == POINTER_TYPE)
-    return build_indirect_ref (last_rval, NULL);
+    {
+      if (processing_template_decl)
+	return build_min (ARROW_EXPR, 
+			  TREE_TYPE (TREE_TYPE (last_rval)), 
+			  orig_expr);
+
+      return build_indirect_ref (last_rval, NULL);
+    }
 
   if (types_memoized)
     error ("result of `operator->()' yields non-pointer result");
@@ -1048,72 +1037,31 @@ build_x_arrow (tree datum)
   return error_mark_node;
 }
 
-/* Make an expression to refer to the COMPONENT field of
-   structure or union value DATUM.  COMPONENT is an arbitrary
-   expression.  DATUM has not already been checked out to be of
-   aggregate type.
-
-   For C++, COMPONENT may be a TREE_LIST.  This happens when we must
-   return an object of member type to a method of the current class,
-   but there is not yet enough typing information to know which one.
-   As a special case, if there is only one method by that name,
-   it is returned.  Otherwise we return an expression which other
-   routines will have to know how to deal with later.  */
+/* Return an expression for "DATUM .* COMPONENT".  DATUM has not
+   already been checked out to be of aggregate type.  */
 
 tree
 build_m_component_ref (tree datum, tree component)
 {
-  tree type;
+  tree ptrmem_type;
   tree objtype;
-  tree field_type;
-  int type_quals;
+  tree type;
   tree binfo;
-
-  if (processing_template_decl)
-    return build_min_nt (DOTSTAR_EXPR, datum, component);
 
   datum = decay_conversion (datum);
 
   if (datum == error_mark_node || component == error_mark_node)
     return error_mark_node;
 
-  objtype = TYPE_MAIN_VARIANT (TREE_TYPE (datum));  
-
-  if (TYPE_PTRMEMFUNC_P (TREE_TYPE (component)))
-    {
-      type = TREE_TYPE (TYPE_PTRMEMFUNC_FN_TYPE (TREE_TYPE (component)));
-      field_type = type;
-    }
-  else if (TYPE_PTRMEM_P (TREE_TYPE (component)))
-    {
-      type = TREE_TYPE (TREE_TYPE (component));
-      field_type = TREE_TYPE (type);
-      
-      /* Compute the type of the field, as described in [expr.ref].  */
-      type_quals = TYPE_UNQUALIFIED;
-      if (TREE_CODE (field_type) == REFERENCE_TYPE)
-	/* The standard says that the type of the result should be the
-       	   type referred to by the reference.  But for now, at least,
-       	   we do the conversion from reference type later.  */
-	;
-      else
-	{
-	  type_quals = (cp_type_quals (field_type)  
-			| cp_type_quals (TREE_TYPE (datum)));
-
-	  /* There's no such thing as a mutable pointer-to-member, so
-	     things are not as complex as they are for references to
-	     non-static data members.  */
-	  field_type = cp_build_qualified_type (field_type, type_quals);
-	}
-    }
-  else
+  ptrmem_type = TREE_TYPE (component);
+  if (!TYPE_PTR_TO_MEMBER_P (ptrmem_type))
     {
       error ("`%E' cannot be used as a member pointer, since it is of type `%T'", 
-		component, TREE_TYPE (component));
+	     component, ptrmem_type);
       return error_mark_node;
     }
-
+    
+  objtype = TYPE_MAIN_VARIANT (TREE_TYPE (datum));  
   if (! IS_AGGR_TYPE (objtype))
     {
       error ("cannot apply member pointer `%E' to `%E', which is of non-aggregate type `%T'",
@@ -1121,21 +1069,37 @@ build_m_component_ref (tree datum, tree component)
       return error_mark_node;
     }
 
-  binfo = lookup_base (objtype, TYPE_METHOD_BASETYPE (type),
+  type = TYPE_PTRMEM_POINTED_TO_TYPE (ptrmem_type);
+  binfo = lookup_base (objtype, TYPE_PTRMEM_CLASS_TYPE (ptrmem_type),
 		       ba_check, NULL);
   if (!binfo)
     {
       error ("member type `%T::' incompatible with object type `%T'",
-		TYPE_METHOD_BASETYPE (type), objtype);
+	     type, objtype);
       return error_mark_node;
     }
   else if (binfo == error_mark_node)
     return error_mark_node;
 
-  component = build (OFFSET_REF, field_type, datum, component);
-  if (TREE_CODE (type) == OFFSET_TYPE)
-    component = resolve_offset_ref (component);
-  return component;
+  if (TYPE_PTRMEM_P (ptrmem_type))
+    {
+      /* Compute the type of the field, as described in [expr.ref].
+	 There's no such thing as a mutable pointer-to-member, so
+	 things are not as complex as they are for references to
+	 non-static data members.  */
+      type = cp_build_qualified_type (type,
+				      (cp_type_quals (type)  
+				       | cp_type_quals (TREE_TYPE (datum))));
+      /* Build an expression for "object + offset" where offset is the
+	 value stored in the pointer-to-data-member.  */
+      datum = build (PLUS_EXPR, build_pointer_type (type),
+		     build_base_path (PLUS_EXPR, build_address (datum), 
+				      binfo, 1),
+		     build_nop (ptrdiff_type_node, component));
+      return build_indirect_ref (datum, 0);
+    }
+  else
+    return build (OFFSET_REF, type, datum, component);
 }
 
 /* Return a tree node for the expression TYPENAME '(' PARMS ')'.  */
@@ -1150,23 +1114,7 @@ build_functional_cast (tree exp, tree parms)
   if (exp == error_mark_node || parms == error_mark_node)
     return error_mark_node;
 
-  if (TREE_CODE (exp) == IDENTIFIER_NODE)
-    {
-      if (IDENTIFIER_HAS_TYPE_VALUE (exp))
-	/* Either an enum or an aggregate type.  */
-	type = IDENTIFIER_TYPE_VALUE (exp);
-      else
-	{
-	  type = lookup_name (exp, 1);
-	  if (!type || TREE_CODE (type) != TYPE_DECL)
-	    {
-	      error ("`%T' fails to be a typedef or built-in type", exp);
-	      return error_mark_node;
-	    }
-	  type = TREE_TYPE (type);
-	}
-    }
-  else if (TREE_CODE (exp) == TYPE_DECL)
+  if (TREE_CODE (exp) == TYPE_DECL)
     type = TREE_TYPE (exp);
   else
     type = exp;
@@ -1180,11 +1128,7 @@ build_functional_cast (tree exp, tree parms)
       if (parms == NULL_TREE)
 	parms = integer_zero_node;
       else
-	{
-	  if (TREE_CHAIN (parms) != NULL_TREE)
-	    pedwarn ("initializer list being treated as compound expression");
-	  parms = build_compound_expr (parms);
-	}
+	parms = build_x_compound_expr_from_list (parms, "functional cast");
 
       return build_c_cast (type, parms);
     }
@@ -1231,9 +1175,9 @@ build_functional_cast (tree exp, tree parms)
 tree
 add_exception_specifier (tree list, tree spec, int complain)
 {
-  int ok;
+  bool ok;
   tree core = spec;
-  int is_ptr;
+  bool is_ptr;
   int diag_type = -1; /* none */
   
   if (spec == error_mark_node)
@@ -1248,16 +1192,16 @@ add_exception_specifier (tree list, tree spec, int complain)
   if (is_ptr || TREE_CODE (core) == REFERENCE_TYPE)
     core = TREE_TYPE (core);
   if (complain < 0)
-    ok = 1;
+    ok = true;
   else if (VOID_TYPE_P (core))
     ok = is_ptr;
   else if (TREE_CODE (core) == TEMPLATE_TYPE_PARM)
-    ok = 1;
+    ok = true;
   else if (processing_template_decl)
-    ok = 1;
+    ok = true;
   else
     {
-      ok = 1;
+      ok = true;
       /* 15.4/1 says that types in an exception specifier must be complete,
          but it seems more reasonable to only require this on definitions
          and calls.  So just give a pedwarn at this point; we will give an

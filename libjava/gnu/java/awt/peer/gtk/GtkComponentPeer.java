@@ -37,9 +37,34 @@ exception statement from your version. */
 
 
 package gnu.java.awt.peer.gtk;
-import java.awt.*;
-import java.awt.event.*;
-import java.awt.image.*;
+
+import java.awt.AWTEvent;
+import java.awt.BufferCapabilities;
+import java.awt.Color;
+import java.awt.Component;
+import java.awt.Cursor;
+import java.awt.Dimension;
+import java.awt.Font;
+import java.awt.FontMetrics;
+import java.awt.Frame;
+import java.awt.Graphics;
+import java.awt.GraphicsConfiguration;
+import java.awt.Image;
+import java.awt.Insets;
+import java.awt.ItemSelectable;
+import java.awt.Point;
+import java.awt.Rectangle;
+import java.awt.Toolkit;
+import java.awt.Window;
+import java.awt.event.FocusEvent;
+import java.awt.event.ItemEvent;
+import java.awt.event.KeyEvent;
+import java.awt.event.MouseEvent;
+import java.awt.event.PaintEvent;
+import java.awt.image.ColorModel;
+import java.awt.image.ImageObserver;
+import java.awt.image.ImageProducer;
+import java.awt.image.VolatileImage;
 import java.awt.peer.ComponentPeer;
 
 public class GtkComponentPeer extends GtkGenericPeer
@@ -325,13 +350,13 @@ public class GtkComponentPeer extends GtkGenericPeer
 				 new Rectangle (x, y, width, height)));
   }
 
-  protected void postKeyEvent (int id, long when, int mods, 
-			       int keyCode, char keyChar)
+  protected void postKeyEvent (int id, long when, int mods,
+			       int keyCode, char keyChar, int keyLocation)
   {
-    q.postEvent (new KeyEvent (awtComponent, id, when, mods, 
-			       keyCode, keyChar));
+    q.postEvent (new KeyEvent (awtComponent, id, when, mods,
+			       keyCode, keyChar, keyLocation));
   }
-  
+
   protected void postFocusEvent (int id, boolean temporary)
   {
     q.postEvent (new FocusEvent (awtComponent, id, temporary));

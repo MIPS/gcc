@@ -57,7 +57,7 @@ add_condition (const char *expr)
   if (expr[0] == 0)
     return;
 
-  test = (struct c_test *) xmalloc (sizeof (struct c_test));
+  test = xmalloc (sizeof (struct c_test));
   test->expr = expr;
 
   *(htab_find_slot (condition_table, test, INSERT)) = test;
@@ -118,8 +118,7 @@ write_header (void)
 /* Dummy external declarations.  */\n\
 extern rtx insn;\n\
 extern rtx ins1;\n\
-extern rtx operands[];\n\
-extern int next_insn_tests_no_inequality (rtx);\n");
+extern rtx operands[];\n");
 
   puts ("\
 /* If we don't have __builtin_constant_p, or it's not acceptable in\n\

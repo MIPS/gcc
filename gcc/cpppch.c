@@ -17,7 +17,6 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "config.h"
 #include "system.h"
-#include "coretypes.h"
 #include "cpplib.h"
 #include "cpphash.h"
 #include "intl.h"
@@ -510,7 +509,13 @@ cpp_valid_state (cpp_reader *r, const char *name, int fd)
       else if (cmp > 0)
  	++i;
       else
-	goto fail;
+	{
+	  if (CPP_OPTION (r, warn_invalid_pch))
+	    cpp_error (r, DL_WARNING_SYSHDR, 
+		       "%s: not used because `%s' is defined",
+		       name, first);
+	  goto fail;
+	}
     }
    
   free(nl.defs);

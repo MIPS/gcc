@@ -1,5 +1,14 @@
 2003-06-27  Nathanael Nerode  <neroden@gcc.gnu.org>
 
+	* Makefile.tpl: Change the directory naming scheme in another
+	futile attempt to get 'compare' to work.  Replace ${PWD} with
+	${PWD_COMMAND}.
+	* Makefile.in: Regenerate.
+
+	Merge from mainline and resolve conflicts.
+
+2003-06-27  Nathanael Nerode  <neroden@gcc.gnu.org>
+
 	* Makefile.tpl: Make 'compare' target work properly.
 	* Makefile.in: Regenerate.
 	So, bootstrap didn't really work. *sigh*  There's a difference

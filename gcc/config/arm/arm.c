@@ -452,7 +452,7 @@ static const struct processors all_architectures[] =
   { NULL, 0 }
 };
 
-/* This is a magic stucture.  The 'string' field is magically filled in
+/* This is a magic structure.  The 'string' field is magically filled in
    with a pointer to the value specified by the user on the command line
    assuming that the user has specified such a value.  */
 
@@ -2085,7 +2085,7 @@ arm_va_arg (tree valist, tree type)
       tree t;
 
       /* Maintain 64-bit alignment of the valist pointer by
-	 contructing:   valist = ((valist + (8 - 1)) & -8).  */
+	 constructing:   valist = ((valist + (8 - 1)) & -8).  */
       minus_eight = build_int_2 (- (IWMMXT_ALIGNMENT / BITS_PER_UNIT), -1);
       t = build_int_2 ((IWMMXT_ALIGNMENT / BITS_PER_UNIT) - 1, 0);
       t = build (PLUS_EXPR,    TREE_TYPE (valist), valist, t);
@@ -2094,7 +2094,7 @@ arm_va_arg (tree valist, tree type)
       TREE_SIDE_EFFECTS (t) = 1;
       expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
 
-      /* This is to stop the combine pass optimising
+      /* This is to stop the combine pass optimizing
 	 away the alignment adjustment.  */
       mark_reg_pointer (arg_pointer_rtx, PARM_BOUNDARY);
     }
@@ -3168,16 +3168,6 @@ arm_rtx_costs_1 (rtx x, enum rtx_code code, enum rtx_code outer)
 	  
 	default:
 	  return 99;
-#if 0	  
-	case FFS:
-	case FLOAT:
-	case FIX:
-	case UNSIGNED_FIX:
-	  /* XXX guess */
-	  fprintf (stderr, "unexpected code for thumb in rtx_costs: %s\n",
-		   rtx_name[code]);
-	  abort ();
-#endif
 	}
     }
   
@@ -3706,10 +3696,6 @@ arm_reload_memory_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
 int
 bad_signed_byte_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
 {
-#if 0
-  if ((mode == QImode && !memory_operand (op, mode)) || GET_CODE (op) != MEM)
-    return 0;
-#endif
   if (GET_CODE (op) != MEM)
     return 0;
 
@@ -6138,7 +6124,7 @@ get_jump_table_size (rtx insn)
 
 /* Move a minipool fix MP from its current location to before MAX_MP.
    If MAX_MP is NULL, then MP doesn't need moving, but the addressing
-   contrains may need updating.  */
+   constraints may need updating.  */
 static Mnode *
 move_minipool_fix_forward_ref (Mnode *mp, Mnode *max_mp,
 			       HOST_WIDE_INT max_address)
@@ -6761,7 +6747,7 @@ push_minipool_fix (rtx insn, HOST_WIDE_INT address, rtx *loc,
   Mfix * fix = (Mfix *) obstack_alloc (&minipool_obstack, sizeof (* fix));
 
 #ifdef AOF_ASSEMBLER
-  /* PIC symbol refereneces need to be converted into offsets into the
+  /* PIC symbol references need to be converted into offsets into the
      based area.  */
   /* XXX This shouldn't be done here.  */
   if (flag_pic && GET_CODE (value) == SYMBOL_REF)
@@ -8601,13 +8587,6 @@ arm_output_epilogue (int really_return)
 	}
     }
 
-#if 0
-  if (ARM_FUNC_TYPE (func_type) == ARM_FT_EXCEPTION_HANDLER)
-    /* Adjust the stack to remove the exception handler stuff.  */
-    asm_fprintf (f, "\tadd\t%r, %r, %r\n", SP_REGNUM, SP_REGNUM,
-		 REGNO (eh_ofs));
-#endif
-
   if (! really_return
     || (ARM_FUNC_TYPE (func_type) == ARM_FT_NORMAL
 	&& current_function_pretend_args_size == 0
@@ -9511,13 +9490,13 @@ arm_print_operand (FILE *stream, rtx x, int code)
 	 
 	 In a pair of registers containing a DI or DF value the 'Q'
 	 operand returns the register number of the register containing
-	 the least signficant part of the value.  The 'R' operand returns
+	 the least significant part of the value.  The 'R' operand returns
 	 the register number of the register containing the most
 	 significant part of the value.
 	 
 	 The 'H' operand returns the higher of the two register numbers.
 	 On a run where WORDS_BIG_ENDIAN is true the 'H' operand is the
-	 same as the 'Q' operand, since the most signficant part of the
+	 same as the 'Q' operand, since the most significant part of the
 	 value is held in the lower number register.  The reverse is true
 	 on systems where WORDS_BIG_ENDIAN is false.
 	 
@@ -9983,15 +9962,6 @@ arm_final_prescan_insn (rtx insn)
   if (GET_CODE (body) == PARALLEL && XVECLEN (body, 0) > 0)
     body = XVECEXP (body, 0, 0);
 
-#if 0  
-  /* If this is a conditional return then we don't want to know */
-  if (GET_CODE (body) == SET && GET_CODE (SET_DEST (body)) == PC
-      && GET_CODE (SET_SRC (body)) == IF_THEN_ELSE
-      && (GET_CODE (XEXP (SET_SRC (body), 1)) == RETURN
-          || GET_CODE (XEXP (SET_SRC (body), 2)) == RETURN))
-    return;
-#endif
-
   if (reverse
       || (GET_CODE (body) == SET && GET_CODE (SET_DEST (body)) == PC
 	  && GET_CODE (SET_SRC (body)) == IF_THEN_ELSE))
@@ -10278,7 +10248,7 @@ arm_hard_regno_mode_ok (unsigned int regno, enum machine_mode mode)
     return VALID_IWMMXT_REG_MODE (mode);
 
   if (regno <= LAST_ARM_REGNUM)
-    /* We allow any value to be stored in the general regisetrs.  */
+    /* We allow any value to be stored in the general registers.  */
     return 1;
 
   if (   regno == FRAME_POINTER_REGNUM
@@ -10745,7 +10715,7 @@ arm_init_iwmmxt_builtins (void)
 
   /* Add all builtins that are more or less simple operations on two
      operands.  */
-  for (i = 0, d = bdesc_2arg; i < sizeof (bdesc_2arg) / sizeof *d; i++, d++)
+  for (i = 0, d = bdesc_2arg; i < ARRAY_SIZE (bdesc_2arg); i++, d++)
     {
       /* Use one of the operands; the target can have a different mode for
 	 mask-generating compares.  */
@@ -11185,11 +11155,11 @@ arm_expand_builtin (tree exp,
       break;
     }
 
-  for (i = 0, d = bdesc_2arg; i < sizeof (bdesc_2arg) / sizeof *d; i++, d++)
+  for (i = 0, d = bdesc_2arg; i < ARRAY_SIZE (bdesc_2arg); i++, d++)
     if (d->code == (const enum arm_builtins) fcode)
       return arm_expand_binop_builtin (d->icode, arglist, target);
 
-  for (i = 0, d = bdesc_1arg; i < sizeof (bdesc_1arg) / sizeof *d; i++, d++)
+  for (i = 0, d = bdesc_1arg; i < ARRAY_SIZE (bdesc_1arg); i++, d++)
     if (d->code == (const enum arm_builtins) fcode)
       return arm_expand_unop_builtin (d->icode, arglist, target, 0);
 
@@ -11678,7 +11648,7 @@ thumb_far_jump_used_p (int in_prologue)
 	  && get_attr_far_jump (insn) == FAR_JUMP_YES
 	  )
 	{
-	  /* Record the fact that we have decied that
+	  /* Record the fact that we have decided that
 	     the function does use far jumps.  */
 	  cfun->machine->far_jump_used = 1;
 	  return 1;
@@ -11732,7 +11702,7 @@ thumb_unexpanded_epilogue (void)
       high_regs_pushed++;
 
   /* The prolog may have pushed some high registers to use as
-     work registers.  eg the testuite file:
+     work registers.  eg the testsuite file:
      gcc/testsuite/gcc/gcc.c-torture/execute/complex-2.c
      compiles to produce:
 	push	{r4, r5, r6, r7, lr}

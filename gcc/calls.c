@@ -27,6 +27,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree.h"
 #include "flags.h"
 #include "expr.h"
+#include "optabs.h"
 #include "libfuncs.h"
 #include "function.h"
 #include "regs.h"
@@ -39,26 +40,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "target.h"
 #include "cgraph.h"
 #include "except.h"
-
-/* Decide whether a function's arguments should be processed
-   from first to last or from last to first.
-
-   They should if the stack and args grow in opposite directions, but
-   only if we have push insns.  */
-
-#ifdef PUSH_ROUNDING
-
-#ifndef PUSH_ARGS_REVERSED
-#if defined (STACK_GROWS_DOWNWARD) != defined (ARGS_GROW_DOWNWARD)
-#define PUSH_ARGS_REVERSED  PUSH_ARGS
-#endif
-#endif
-
-#endif
-
-#ifndef PUSH_ARGS_REVERSED
-#define PUSH_ARGS_REVERSED 0
-#endif
 
 #ifndef STACK_POINTER_OFFSET
 #define STACK_POINTER_OFFSET    0
@@ -281,8 +262,8 @@ calls_function_1 (tree exp, int which)
       break;
     }
 
-  /* Only expressions, references, and blocks can contain calls.  */
-  if (! IS_EXPR_CODE_CLASS (class) && class != 'r' && class != 'b')
+  /* Only expressions and blocks can contain calls.  */
+  if (! IS_EXPR_CODE_CLASS (class) && class != 'b')
     return 0;
 
   for (i = 0; i < length; i++)
@@ -549,6 +530,10 @@ emit_call_1 (rtx funexp, tree fndecl ATTRIBUTE_UNUSED, tree funtype ATTRIBUTE_UN
      if the context of the call as a whole permits.  */
   inhibit_defer_pop = old_inhibit_defer_pop;
 
+  /* Don't bother cleaning up after a noreturn function.  */
+  if (ecf_flags & (ECF_NORETURN | ECF_LONGJMP))
+    return;
+
   if (n_popped > 0)
     {
       if (!already_popped)
@@ -616,8 +601,14 @@ special_function_p (tree fndecl, int flags)
       && IDENTIFIER_LENGTH (DECL_NAME (fndecl)) <= 17
       /* Exclude functions not at the file scope, or not `extern',
 	 since they are not the magic functions we would otherwise
-	 think they are.  */
-      && DECL_CONTEXT (fndecl) == NULL_TREE && TREE_PUBLIC (fndecl))
+	 think they are.
+         FIXME: this should be handled with attributes, not with this
+         hacky imitation of DECL_ASSEMBLER_NAME.  It's (also) wrong
+         because you can declare fork() inside a function if you
+         wish.  */
+      && (DECL_CONTEXT (fndecl) == NULL_TREE 
+	  || TREE_CODE (DECL_CONTEXT (fndecl)) == TRANSLATION_UNIT_DECL)
+      && TREE_PUBLIC (fndecl))
     {
       const char *name = IDENTIFIER_POINTER (DECL_NAME (fndecl));
       const char *tname = name;
@@ -739,10 +730,13 @@ flags_from_decl_or_type (tree exp)
 
       if (TREE_NOTHROW (exp))
 	flags |= ECF_NOTHROW;
+
+      if (TREE_READONLY (exp) && ! TREE_THIS_VOLATILE (exp))
+	flags |= ECF_LIBCALL_BLOCK;
     }
 
   if (TREE_READONLY (exp) && ! TREE_THIS_VOLATILE (exp))
-    flags |= ECF_CONST | ECF_LIBCALL_BLOCK;
+    flags |= ECF_CONST;
 
   if (TREE_THIS_VOLATILE (exp))
     flags |= ECF_NORETURN;
@@ -944,22 +938,26 @@ store_unaligned_arguments_into_pseudos (struct arg_data *args, int num_actuals)
 	    < (unsigned int) MIN (BIGGEST_ALIGNMENT, BITS_PER_WORD)))
       {
 	int bytes = int_size_in_bytes (TREE_TYPE (args[i].tree_value));
-	int big_endian_correction = 0;
+	int nregs = (bytes + UNITS_PER_WORD - 1) / UNITS_PER_WORD;
+	int endian_correction = 0;
 
-	args[i].n_aligned_regs
-	  = args[i].partial ? args[i].partial
-	    : (bytes + (UNITS_PER_WORD - 1)) / UNITS_PER_WORD;
+	args[i].n_aligned_regs = args[i].partial ? args[i].partial : nregs;
+	args[i].aligned_regs = xmalloc (sizeof (rtx) * args[i].n_aligned_regs);
 
-	args[i].aligned_regs = (rtx *) xmalloc (sizeof (rtx)
-						* args[i].n_aligned_regs);
-
-	/* Structures smaller than a word are aligned to the least
-	   significant byte (to the right).  On a BYTES_BIG_ENDIAN machine,
+	/* Structures smaller than a word are normally aligned to the
+	   least significant byte.  On a BYTES_BIG_ENDIAN machine,
 	   this means we must skip the empty high order bytes when
 	   calculating the bit offset.  */
-	if (BYTES_BIG_ENDIAN
-	    && bytes < UNITS_PER_WORD)
-	  big_endian_correction = (BITS_PER_WORD  - (bytes * BITS_PER_UNIT));
+	if (bytes < UNITS_PER_WORD
+#ifdef BLOCK_REG_PADDING
+	    && (BLOCK_REG_PADDING (args[i].mode,
+				   TREE_TYPE (args[i].tree_value), 1)
+		== downward)
+#else
+	    && BYTES_BIG_ENDIAN
+#endif
+	    )
+	  endian_correction = BITS_PER_WORD - bytes * BITS_PER_UNIT;
 
 	for (j = 0; j < args[i].n_aligned_regs; j++)
 	  {
@@ -968,6 +966,8 @@ store_unaligned_arguments_into_pseudos (struct arg_data *args, int num_actuals)
 	    int bitsize = MIN (bytes * BITS_PER_UNIT, BITS_PER_WORD);
 
 	    args[i].aligned_regs[j] = reg;
+	    word = extract_bit_field (word, bitsize, 0, 1, NULL_RTX,
+				      word_mode, word_mode, BITS_PER_WORD);
 
 	    /* There is no need to restrict this code to loading items
 	       in TYPE_ALIGN sized hunks.  The bitfield instructions can
@@ -983,11 +983,8 @@ store_unaligned_arguments_into_pseudos (struct arg_data *args, int num_actuals)
 	    emit_move_insn (reg, const0_rtx);
 
 	    bytes -= bitsize / BITS_PER_UNIT;
-	    store_bit_field (reg, bitsize, big_endian_correction, word_mode,
-			     extract_bit_field (word, bitsize, 0, 1, NULL_RTX,
-						word_mode, word_mode,
-						BITS_PER_WORD),
-			     BITS_PER_WORD);
+	    store_bit_field (reg, bitsize, endian_correction, word_mode,
+			     word, BITS_PER_WORD);
 	  }
       }
 }
@@ -1241,6 +1238,14 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
 #endif
 			     args[i].pass_on_stack ? 0 : args[i].partial,
 			     fndecl, args_size, &args[i].locate);
+#ifdef BLOCK_REG_PADDING
+      else
+	/* The argument is passed entirely in registers.  See at which
+	   end it should be padded.  */
+	args[i].locate.where_pad =
+	  BLOCK_REG_PADDING (mode, type,
+			     int_size_in_bytes (type) <= UNITS_PER_WORD);
+#endif
 
       /* Update ARGS_SIZE, the total stack space for args so far.  */
 
@@ -1590,35 +1595,67 @@ load_register_parameters (struct arg_data *args, int num_actuals,
     {
       rtx reg = ((flags & ECF_SIBCALL)
 		 ? args[i].tail_call_reg : args[i].reg);
-      int partial = args[i].partial;
-      int nregs;
-
       if (reg)
 	{
+	  int partial = args[i].partial;
+	  int nregs;
+	  int size = 0;
 	  rtx before_arg = get_last_insn ();
 	  /* Set to non-negative if must move a word at a time, even if just
 	     one word (e.g, partial == 1 && mode == DFmode).  Set to -1 if
 	     we just use a normal move insn.  This value can be zero if the
 	     argument is a zero size structure with no fields.  */
-	  nregs = (partial ? partial
-		   : (TYPE_MODE (TREE_TYPE (args[i].tree_value)) == BLKmode
-		      ? ((int_size_in_bytes (TREE_TYPE (args[i].tree_value))
-			  + (UNITS_PER_WORD - 1)) / UNITS_PER_WORD)
-		      : -1));
+	  nregs = -1;
+	  if (partial)
+	    nregs = partial;
+	  else if (TYPE_MODE (TREE_TYPE (args[i].tree_value)) == BLKmode)
+	    {
+	      size = int_size_in_bytes (TREE_TYPE (args[i].tree_value));
+	      nregs = (size + (UNITS_PER_WORD - 1)) / UNITS_PER_WORD;
+	    }
+	  else
+	    size = GET_MODE_SIZE (args[i].mode);
 
 	  /* Handle calls that pass values in multiple non-contiguous
 	     locations.  The Irix 6 ABI has examples of this.  */
 
 	  if (GET_CODE (reg) == PARALLEL)
-	    emit_group_load (reg, args[i].value,
-			     int_size_in_bytes (TREE_TYPE (args[i].tree_value)));
+	    {
+	      tree type = TREE_TYPE (args[i].tree_value);
+	      emit_group_load (reg, args[i].value, type,
+			       int_size_in_bytes (type));
+	    }
 
 	  /* If simple case, just do move.  If normal partial, store_one_arg
 	     has already loaded the register for us.  In all other cases,
 	     load the register(s) from memory.  */
 
 	  else if (nregs == -1)
-	    emit_move_insn (reg, args[i].value);
+	    {
+	      emit_move_insn (reg, args[i].value);
+#ifdef BLOCK_REG_PADDING
+	      /* Handle case where we have a value that needs shifting
+		 up to the msb.  eg. a QImode value and we're padding
+		 upward on a BYTES_BIG_ENDIAN machine.  */
+	      if (size < UNITS_PER_WORD
+		  && (args[i].locate.where_pad
+		      == (BYTES_BIG_ENDIAN ? upward : downward)))
+		{
+		  rtx x;
+		  int shift = (UNITS_PER_WORD - size) * BITS_PER_UNIT;
+
+		  /* Assigning REG here rather than a temp makes CALL_FUSAGE
+		     report the whole reg as used.  Strictly speaking, the
+		     call only uses SIZE bytes at the msb end, but it doesn't
+		     seem worth generating rtl to say that.  */
+		  reg = gen_rtx_REG (word_mode, REGNO (reg));
+		  x = expand_binop (word_mode, ashl_optab, reg,
+				    GEN_INT (shift), reg, 1, OPTAB_WIDEN);
+		  if (x != reg)
+		    emit_move_insn (reg, x);
+		}
+#endif
+	    }
 
 	  /* If we have pre-computed the values to put in the registers in
 	     the case of non-aligned structures, copy them in now.  */
@@ -1629,9 +1666,30 @@ load_register_parameters (struct arg_data *args, int num_actuals,
 			      args[i].aligned_regs[j]);
 
 	  else if (partial == 0 || args[i].pass_on_stack)
-	    move_block_to_reg (REGNO (reg),
-			       validize_mem (args[i].value), nregs,
-			       args[i].mode);
+	    {
+	      rtx mem = validize_mem (args[i].value);
+
+#ifdef BLOCK_REG_PADDING
+	      /* Handle a BLKmode that needs shifting.  */
+	      if (nregs == 1 && size < UNITS_PER_WORD
+		  && args[i].locate.where_pad == downward)
+		{
+		  rtx tem = operand_subword_force (mem, 0, args[i].mode);
+		  rtx ri = gen_rtx_REG (word_mode, REGNO (reg));
+		  rtx x = gen_reg_rtx (word_mode);
+		  int shift = (UNITS_PER_WORD - size) * BITS_PER_UNIT;
+		  optab dir = BYTES_BIG_ENDIAN ? lshr_optab : ashl_optab;
+
+		  emit_move_insn (x, tem);
+		  x = expand_binop (word_mode, dir, x, GEN_INT (shift),
+				    ri, 1, OPTAB_WIDEN);
+		  if (x != ri)
+		    emit_move_insn (ri, x);
+		}
+	      else
+#endif
+		move_block_to_reg (REGNO (reg), mem, nregs, args[i].mode);
+	    }
 
 	  /* When a parameter is a block, and perhaps in other cases, it is
 	     possible that it did a load from an argument slot that was
@@ -1762,7 +1820,8 @@ try_to_integrate (tree fndecl, tree actparms, rtx target, int ignore,
   if (DECL_INLINE (fndecl) && warn_inline && !flag_no_inline
       && optimize > 0 && !TREE_ADDRESSABLE (fndecl))
     {
-      warning_with_decl (fndecl, "inlining failed in call to `%s'");
+      warning ("%Hinlining failed in call to '%F'",
+               &DECL_SOURCE_LOCATION (fndecl), fndecl);
       warning ("called from here");
     }
   (*lang_hooks.mark_addressable) (fndecl);
@@ -2101,7 +2160,8 @@ expand_call (tree exp, rtx target, int ignore)
 	  if (DECL_INLINE (fndecl) && warn_inline && !flag_no_inline
 	      && optimize > 0)
 	    {
-	      warning_with_decl (fndecl, "can't inline call to `%s'");
+	      warning ("%Hcan't inline call to '%F'",
+                       &DECL_SOURCE_LOCATION (fndecl), fndecl);
 	      warning ("called from here");
 	    }
 	  (*lang_hooks.mark_addressable) (fndecl);
@@ -2320,8 +2380,8 @@ expand_call (tree exp, rtx target, int ignore)
   INIT_CUMULATIVE_ARGS (args_so_far, funtype, NULL_RTX, fndecl);
 
   /* Make a vector to hold all the information about each arg.  */
-  args = (struct arg_data *) alloca (num_actuals * sizeof (struct arg_data));
-  memset ((char *) args, 0, num_actuals * sizeof (struct arg_data));
+  args = alloca (num_actuals * sizeof (struct arg_data));
+  memset (args, 0, num_actuals * sizeof (struct arg_data));
 
   /* Build up entries in the ARGS array, compute the size of the
      arguments into ARGS_SIZE, etc.  */
@@ -2373,7 +2433,7 @@ expand_call (tree exp, rtx target, int ignore)
   if (currently_expanding_call++ != 0
       || !flag_optimize_sibling_calls
       || !rtx_equal_function_value_matters
-      || any_pending_cleanups (1)
+      || any_pending_cleanups ()
       || args_size.var)
     try_tail_call = try_tail_recursion = 0;
 
@@ -2465,7 +2525,7 @@ expand_call (tree exp, rtx target, int ignore)
         addr = fix_unsafe_tree (addr);
       /* Expanding one of those dangerous arguments could have added
 	 cleanups, but otherwise give it a whirl.  */
-      if (any_pending_cleanups (1))
+      if (any_pending_cleanups ())
 	try_tail_call = try_tail_recursion = 0;
     }
 
@@ -2497,7 +2557,7 @@ expand_call (tree exp, rtx target, int ignore)
       expand_start_target_temps ();
       if (optimize_tail_recursion (actparms, get_last_insn ()))
 	{
-	  if (any_pending_cleanups (1))
+	  if (any_pending_cleanups ())
 	    try_tail_call = try_tail_recursion = 0;
 	  else
 	    tail_recursion_insns = get_insns ();
@@ -2711,8 +2771,7 @@ expand_call (tree exp, rtx target, int ignore)
 		  highest_outgoing_arg_in_use = MAX (initial_highest_arg_in_use,
 						     needed);
 #endif
-		  stack_usage_map
-		    = (char *) alloca (highest_outgoing_arg_in_use);
+		  stack_usage_map = alloca (highest_outgoing_arg_in_use);
 
 		  if (initial_highest_arg_in_use)
 		    memcpy (stack_usage_map, initial_stack_usage_map,
@@ -2817,8 +2876,7 @@ expand_call (tree exp, rtx target, int ignore)
 		    = stack_arg_under_construction;
 		  stack_arg_under_construction = 0;
 		  /* Make a new map for the new argument list.  */
-		  stack_usage_map = (char *)
-		    alloca (highest_outgoing_arg_in_use);
+		  stack_usage_map = alloca (highest_outgoing_arg_in_use);
 		  memset (stack_usage_map, 0, highest_outgoing_arg_in_use);
 		  highest_outgoing_arg_in_use = 0;
 		}
@@ -3094,6 +3152,10 @@ expand_call (tree exp, rtx target, int ignore)
 	    }
 
 	  emit_barrier_after (last);
+
+	  /* Stack adjustments after a noreturn call are dead code.  */
+	  stack_pointer_delta = old_stack_allocated;
+	  pending_stack_adjust = 0;
 	}
 
       if (flags & ECF_LONGJMP)
@@ -3103,7 +3165,7 @@ expand_call (tree exp, rtx target, int ignore)
 
       /* If there are cleanups to be called, don't use a hard reg as target.
 	 We need to double check this and see if it matters anymore.  */
-      if (any_pending_cleanups (1))
+      if (any_pending_cleanups ())
 	{
 	  if (target && REG_P (target)
 	      && REGNO (target) < FIRST_PSEUDO_REGISTER)
@@ -3150,7 +3212,7 @@ expand_call (tree exp, rtx target, int ignore)
 	    }
 
 	  if (! rtx_equal_p (target, valreg))
-	    emit_group_store (target, valreg,
+	    emit_group_store (target, valreg, TREE_TYPE (exp),
 			      int_size_in_bytes (TREE_TYPE (exp)));
 
 	  /* We can not support sibling calls for this case.  */
@@ -3324,8 +3386,9 @@ expand_call (tree exp, rtx target, int ignore)
 	  normal_call_insns = insns;
 
 	  /* Verify that we've deallocated all the stack we used.  */
-	  if (old_stack_allocated !=
-	      stack_pointer_delta - pending_stack_adjust)
+	  if (! (flags & (ECF_NORETURN | ECF_LONGJMP))
+	      && old_stack_allocated != stack_pointer_delta
+					- pending_stack_adjust)
 	    abort ();
 	}
 
@@ -3607,8 +3670,8 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
      of the full argument passing conventions to limit complexity here since
      library functions shouldn't have many args.  */
 
-  argvec = (struct arg *) alloca ((nargs + 1) * sizeof (struct arg));
-  memset ((char *) argvec, 0, (nargs + 1) * sizeof (struct arg));
+  argvec = alloca ((nargs + 1) * sizeof (struct arg));
+  memset (argvec, 0, (nargs + 1) * sizeof (struct arg));
 
 #ifdef INIT_CUMULATIVE_LIBCALL_ARGS
   INIT_CUMULATIVE_LIBCALL_ARGS (args_so_far, outmode, fun);
@@ -3677,13 +3740,6 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
       if (mode == BLKmode
 	  || (GET_MODE (val) != mode && GET_MODE (val) != VOIDmode))
 	abort ();
-
-      /* On some machines, there's no way to pass a float to a library fcn.
-	 Pass it as a double instead.  */
-#ifdef LIBGCC_NEEDS_DOUBLE
-      if (LIBGCC_NEEDS_DOUBLE && mode == SFmode)
-	val = convert_modes (DFmode, SFmode, val, 0), mode = DFmode;
-#endif
 
       /* There's no need to call protect_from_queue, because
 	 either emit_move_insn or emit_push_insn will do that.  */
@@ -3843,7 +3899,7 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
       highest_outgoing_arg_in_use = MAX (initial_highest_arg_in_use,
 					 needed);
 #endif
-      stack_usage_map = (char *) alloca (highest_outgoing_arg_in_use);
+      stack_usage_map = alloca (highest_outgoing_arg_in_use);
 
       if (initial_highest_arg_in_use)
 	memcpy (stack_usage_map, initial_stack_usage_map,
@@ -3994,7 +4050,7 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
       /* Handle calls that pass values in multiple non-contiguous
 	 locations.  The PA64 has examples of this for library calls.  */
       if (reg != 0 && GET_CODE (reg) == PARALLEL)
-	emit_group_load (reg, val, GET_MODE_SIZE (GET_MODE (val)));
+	emit_group_load (reg, val, NULL_TREE, GET_MODE_SIZE (GET_MODE (val)));
       else if (reg != 0 && partial == 0)
 	emit_move_insn (reg, val);
 
@@ -4098,7 +4154,8 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
 	  if (GET_CODE (valreg) == PARALLEL)
 	    {
 	      temp = gen_reg_rtx (outmode);
-	      emit_group_store (temp, valreg, outmode);
+	      emit_group_store (temp, valreg, NULL_TREE, 
+				GET_MODE_SIZE (outmode));
 	      valreg = temp;
 	    }
 
@@ -4141,7 +4198,7 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
 	{
 	  if (value == 0)
 	    value = gen_reg_rtx (outmode);
-	  emit_group_store (value, valreg, outmode);
+	  emit_group_store (value, valreg, NULL_TREE, GET_MODE_SIZE (outmode));
 	}
       else if (value != 0)
 	emit_move_insn (value, valreg);

@@ -319,7 +319,7 @@ dump_substitution_candidates ()
 /* Both decls and types can be substitution candidates, but sometimes
    they refer to the same thing.  For instance, a TYPE_DECL and
    RECORD_TYPE for the same class refer to the same thing, and should
-   be treated accordinginly in substitutions.  This function returns a
+   be treated accordingly in substitutions.  This function returns a
    canonicalized tree node representing NODE that is used when adding
    and substitution candidates and finding matches.  */
 
@@ -1333,9 +1333,8 @@ discriminator_for_local_entity (tree entity)
    string literals used in FUNCTION.  */
 
 static int
-discriminator_for_string_literal (function, string)
-     tree function ATTRIBUTE_UNUSED;
-     tree string ATTRIBUTE_UNUSED;
+discriminator_for_string_literal (tree function ATTRIBUTE_UNUSED,
+				  tree string ATTRIBUTE_UNUSED)
 {
   /* For now, we don't discriminate amongst string literals.  */
   return 0;
@@ -1428,7 +1427,7 @@ write_type (tree type)
   if (write_CV_qualifiers_for_type (type) > 0)
     /* If TYPE was CV-qualified, we just wrote the qualifiers; now
        mangle the unqualified type.  The recursive call is needed here
-       since both the qualified and uqualified types are substitution
+       since both the qualified and unqualified types are substitution
        candidates.  */
     write_type (TYPE_MAIN_VARIANT (type));
   else if (TREE_CODE (type) == ARRAY_TYPE)
@@ -1441,7 +1440,9 @@ write_type (tree type)
       /* See through any typedefs.  */
       type = TYPE_MAIN_VARIANT (type);
 
-      switch (TREE_CODE (type))
+      if (TYPE_PTRMEM_P (type))
+	write_pointer_to_member_type (type);
+      else switch (TREE_CODE (type))
 	{
 	case VOID_TYPE:
 	case BOOLEAN_TYPE:
@@ -1483,15 +1484,8 @@ write_type (tree type)
 	  break;
 
 	case POINTER_TYPE:
-	  /* A pointer-to-member variable is represented by a POINTER_TYPE
-	     to an OFFSET_TYPE, so check for this first.  */
-	  if (TYPE_PTRMEM_P (type))
-	    write_pointer_to_member_type (type);
-	  else
-	    {
-	      write_char ('P');
-	      write_type (TREE_TYPE (type));
-	    }
+	  write_char ('P');
+	  write_type (TREE_TYPE (type));
 	  break;
 
 	case REFERENCE_TYPE:
@@ -1512,10 +1506,6 @@ write_type (tree type)
 	  write_template_template_param (type);
 	  write_template_args 
 	    (TI_ARGS (TEMPLATE_TEMPLATE_PARM_TEMPLATE_INFO (type)));
-	  break;
-
-	case OFFSET_TYPE:
-	  write_pointer_to_member_type (build_pointer_type (type));
 	  break;
 
 	case VECTOR_TYPE:
@@ -1936,8 +1926,6 @@ write_expression (tree expr)
 	    {
 	      template_args = TREE_OPERAND (member, 1);
 	      member = TREE_OPERAND (member, 0);
-	      if (TREE_CODE (member) == LOOKUP_EXPR)
-		member = TREE_OPERAND (member, 0);
 	    }
 	  else
 	    template_args = NULL_TREE;
@@ -2008,6 +1996,10 @@ write_expression (tree expr)
 
       switch (code)
 	{
+        case CALL_EXPR:
+          sorry ("call_expr cannot be mangled due to a defect in the C++ ABI");
+          break;
+
 	case CAST_EXPR:
 	  write_type (TREE_TYPE (expr));
 	  write_expression (TREE_VALUE (TREE_OPERAND (expr, 0)));
@@ -2025,6 +2017,19 @@ write_expression (tree expr)
 	  write_type (TREE_OPERAND (expr, 0));
 	  if (TREE_CODE (TREE_OPERAND (expr, 1)) == IDENTIFIER_NODE)
 	    write_source_name (TREE_OPERAND (expr, 1));
+	  else if (TREE_CODE (TREE_OPERAND (expr, 1)) == TEMPLATE_ID_EXPR)
+	    {
+	      tree template_id;
+	      tree name;
+
+	      template_id = TREE_OPERAND (expr, 1);
+	      name = TREE_OPERAND (template_id, 0);
+	      /* FIXME: What about operators?  */
+	      my_friendly_assert (TREE_CODE (name) == IDENTIFIER_NODE,
+				  20030707);
+	      write_source_name (TREE_OPERAND (template_id, 0));
+	      write_template_args (TREE_OPERAND (template_id, 1));
+	    }
 	  else
 	    {
 	      /* G++ 3.2 incorrectly put out both the "sr" code and
@@ -2138,7 +2143,7 @@ write_template_arg (tree node)
 			::= <name>
 			::= <substitution>  */
 
-void
+static void
 write_template_template_arg (const tree decl)
 {
   MANGLE_TRACE_TREE ("template-template-arg", decl);
@@ -2203,14 +2208,7 @@ write_pointer_to_member_type (const tree type)
    TEMPLATE_TEMPLATE_PARM, BOUND_TEMPLATE_TEMPLATE_PARM or a
    TEMPLATE_PARM_INDEX.
 
-     <template-param> ::= T </parameter/ number> _
-
-   If we are internally mangling then we distinguish level and, for
-   non-type parms, type too. The mangling appends
-   
-     </level/ number> _ </non-type type/ type> _
-
-   This is used by mangle_conv_op_name_for_type.  */
+     <template-param> ::= T </parameter/ number> _  */
 
 static void
 write_template_param (const tree parm)

@@ -37,8 +37,8 @@
  *  You should not attempt to use it directly.
  */
 
-#ifndef _CPP_BITS_LOCALE_CLASSES_H
-#define _CPP_BITS_LOCALE_CLASSES_H	1
+#ifndef _LOCALE_CLASSES_H
+#define _LOCALE_CLASSES_H 1
 
 #pragma GCC system_header
 
@@ -73,8 +73,7 @@ namespace std
       use_facet(const locale&);
 
     template<typename _Cache>
-      friend const _Cache&
-      __use_cache(const locale& __loc);
+      friend struct __use_cache;
    
     // Category values:
     // NB: Order must match _S_facet_categories definition in locale.cc
@@ -161,7 +160,7 @@ namespace std
     // macros. For GNU systems, the following are also valid:
     // LC_PAPER, LC_NAME, LC_ADDRESS, LC_TELEPHONE, LC_MEASUREMENT,
     // and LC_IDENTIFICATION.
-    static const size_t _S_categories_size = 6 + _GLIBCPP_NUM_CATEGORIES;
+    static const size_t _S_categories_size = 6 + _GLIBCXX_NUM_CATEGORIES;
 
     explicit 
     locale(_Impl*) throw();
@@ -298,8 +297,7 @@ namespace std
       use_facet(const locale&);
 
     template<typename _Cache>
-      friend const _Cache&
-      __use_cache(const locale& __loc);
+      friend struct __use_cache;
 
   private:
     // Data Members.
@@ -370,7 +368,7 @@ namespace std
       { _M_install_facet(&_Facet::id, __facet); }
 
     void
-    _M_install_cache(const facet* __cache, size_t __index)
+    _M_install_cache(const facet* __cache, size_t __index) throw()
     { 
       __cache->_M_add_reference();
       _M_caches[__index] = __cache; 
@@ -386,7 +384,7 @@ namespace std
 	{
 	  delete [] _M_impl->_M_names[__i];
 	  char* __new = new char[2];
-	  strcpy(__new, "*");
+	  std::strcpy(__new, "*");
 	  _M_impl->_M_names[__i] = __new;
 	}
     }

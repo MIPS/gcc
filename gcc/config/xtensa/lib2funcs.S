@@ -28,7 +28,7 @@ along with GCC; see the file COPYING.  If not, write to the Free
 Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 02111-1307, USA.  */
 
-#include "xtensa/xtensa-config.h"
+#include "xtensa-config.h"
 
 /* __xtensa_libgcc_window_spill: This function flushes out all but the
    current register window.  This is used to set up the stack so that
@@ -150,7 +150,7 @@ __xtensa_nonlocal_goto:
    be touched by the trampoline.  An ISYNC instruction is also needed to
    make sure that the modified instructions are loaded into the instruction
    fetch buffer. */
-	
+
 #define TRAMPOLINE_SIZE 59
 
 	.text

@@ -66,7 +66,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #ifndef ASM_FORMAT_PRIVATE_NAME
 # define ASM_FORMAT_PRIVATE_NAME(OUTPUT, NAME, LABELNO) \
   do { const char *const name_ = (NAME); \
-       char *const output_ = (OUTPUT) = (char *) alloca (strlen (name_) + 32);\
+       char *const output_ = (OUTPUT) = alloca (strlen (name_) + 32);\
        sprintf (output_, ASM_PN_FORMAT, name_, (unsigned long)(LABELNO)); \
   } while (0)
 #endif
@@ -411,6 +411,26 @@ do { fputs (integer_asm_op (POINTER_SIZE / UNITS_PER_WORD, TRUE), FILE); \
 #endif
 #endif
 
+/* Decide whether a function's arguments should be processed
+   from first to last or from last to first.
+
+   They should if the stack and args grow in opposite directions, but
+   only if we have push insns.  */
+
+#ifdef PUSH_ROUNDING
+
+#ifndef PUSH_ARGS_REVERSED
+#if defined (STACK_GROWS_DOWNWARD) != defined (ARGS_GROW_DOWNWARD)
+#define PUSH_ARGS_REVERSED  PUSH_ARGS
+#endif
+#endif
+
+#endif
+
+#ifndef PUSH_ARGS_REVERSED
+#define PUSH_ARGS_REVERSED 0
+#endif
+
 /* If PREFERRED_STACK_BOUNDARY is not defined, set it to STACK_BOUNDARY.
    STACK_BOUNDARY is required.  */
 #ifndef PREFERRED_STACK_BOUNDARY
@@ -642,6 +662,17 @@ You Lose!  You must define PREFERRED_DEBUGGING_TYPE!
 /* Provide a default value for STORE_FLAG_VALUE.  */
 #ifndef STORE_FLAG_VALUE
 #define STORE_FLAG_VALUE  1
+#endif
+
+/* This macro is used to determine what the largest unit size that
+   move_by_pieces can use is.  */
+
+/* MOVE_MAX_PIECES is the number of bytes at a time which we can
+   move efficiently, as opposed to  MOVE_MAX which is the maximum
+   number of bytes we can move with a single instruction.  */
+
+#ifndef MOVE_MAX_PIECES
+#define MOVE_MAX_PIECES   MOVE_MAX
 #endif
 
 #endif  /* ! GCC_DEFAULTS_H */

@@ -58,7 +58,7 @@ Boston, MA 02111-1307, USA.  */
    them here.  Note this is structured for easy comparison to the version
    in mips.h.
 
-   FIXME: This probably isn't the best solution.  But in the absense
+   FIXME: This probably isn't the best solution.  But in the absence
    of something better, it will have to do, for now.  */
 
 #undef TARGET_CPU_CPP_BUILTINS
@@ -128,20 +128,9 @@ Boston, MA 02111-1307, USA.  */
   while (0)
 
 
-/* Include the generic MIPS ELF configuration.  */
-#include <mips/elf.h>
-
-/* Now clean up after it.  */
+/* Clean up after the generic MIPS/ELF configuration.  */
 #undef MD_EXEC_PREFIX
 #undef MD_STARTFILE_PREFIX
-
-/* Get generic NetBSD definitions.  */
-#include <netbsd.h>
-
-
-/* Get generic NetBSD ELF definitions.  */
-#include <netbsd-elf.h>
-
 
 /* Extra specs we need.  */
 #undef SUBTARGET_EXTRA_SPECS

@@ -47,10 +47,8 @@ Boston, MA 02111-1307, USA.  */
 #endif
 
 void
-lang_specific_driver (in_argc, in_argv, in_added_libraries)
-     int *in_argc;
-     const char *const **in_argv;
-     int *in_added_libraries;
+lang_specific_driver (int *in_argc, const char *const **in_argv,
+		      int *in_added_libraries)
 {
   int i, j;
 
@@ -115,7 +113,7 @@ lang_specific_driver (in_argc, in_argv, in_added_libraries)
   argv = *in_argv;
   added_libraries = *in_added_libraries;
 
-  args = (int *) xcalloc (argc, sizeof (int));
+  args = xcalloc (argc, sizeof (int));
 
   for (i = 1; i < argc; i++)
     {
@@ -170,12 +168,12 @@ lang_specific_driver (in_argc, in_argv, in_added_libraries)
 	      saw_speclang = 1;
 	    }
 	  else if (((argv[i][2] == '\0'
-		     && (char *)strchr ("bBVDUoeTuIYmLiA", argv[i][1]) != NULL)
+		     && strchr ("bBVDUoeTuIYmLiA", argv[i][1]) != NULL)
 		    || strcmp (argv[i], "-Xlinker") == 0
 		    || strcmp (argv[i], "-Tdata") == 0))
 	    quote = argv[i];
 	  else if ((argv[i][2] == '\0'
-		    && (char *) strchr ("cSEM", argv[i][1]) != NULL)
+		    && strchr ("cSEM", argv[i][1]) != NULL)
 		   || strcmp (argv[i], "-MM") == 0
 		   || strcmp (argv[i], "-fsyntax-only") == 0)
 	    {
@@ -245,7 +243,7 @@ lang_specific_driver (in_argc, in_argv, in_added_libraries)
 
   /* Make sure to have room for the trailing NULL argument.  */
   num_args = argc + added + need_math + shared_libgcc + (library > 0) + 1;
-  arglist = (const char **) xmalloc (num_args * sizeof (char *));
+  arglist = xmalloc (num_args * sizeof (char *));
 
   i = 0;
   j = 0;

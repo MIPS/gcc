@@ -30,8 +30,12 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "ggc.h"
 #include "langhooks.h"
 #include "langhooks-def.h"
+#include "diagnostic.h"
+#include "c-pretty-print.h"
 
-static int c_init_options (void);
+static void c_initialize_diagnostics (diagnostic_context *);
+
+enum c_language_kind c_language = clk_c;
 
 /* ### When changing hooks, consider if ObjC needs changing too!! ### */
 
@@ -42,9 +46,13 @@ static int c_init_options (void);
 #undef LANG_HOOKS_FINISH
 #define LANG_HOOKS_FINISH c_common_finish
 #undef LANG_HOOKS_INIT_OPTIONS
-#define LANG_HOOKS_INIT_OPTIONS c_init_options
+#define LANG_HOOKS_INIT_OPTIONS c_common_init_options
+#undef LANG_HOOKS_INITIALIZE_DIAGNOSTICS
+#define LANG_HOOKS_INITIALIZE_DIAGNOSTICS c_initialize_diagnostics
 #undef LANG_HOOKS_HANDLE_OPTION
 #define LANG_HOOKS_HANDLE_OPTION c_common_handle_option
+#undef LANG_HOOKS_MISSING_ARGUMENT
+#define LANG_HOOKS_MISSING_ARGUMENT c_common_missing_argument
 #undef LANG_HOOKS_POST_OPTIONS
 #define LANG_HOOKS_POST_OPTIONS c_common_post_options
 #undef LANG_HOOKS_GET_ALIAS_SET
@@ -59,14 +67,14 @@ static int c_init_options (void);
 #define LANG_HOOKS_PARSE_FILE c_common_parse_file
 #undef LANG_HOOKS_TRUTHVALUE_CONVERSION
 #define LANG_HOOKS_TRUTHVALUE_CONVERSION c_common_truthvalue_conversion
-#undef LANG_HOOKS_INSERT_DEFAULT_ATTRIBUTES
-#define LANG_HOOKS_INSERT_DEFAULT_ATTRIBUTES c_insert_default_attributes
 #undef LANG_HOOKS_FINISH_INCOMPLETE_DECL
 #define LANG_HOOKS_FINISH_INCOMPLETE_DECL c_finish_incomplete_decl
 #undef LANG_HOOKS_UNSAFE_FOR_REEVAL
 #define LANG_HOOKS_UNSAFE_FOR_REEVAL c_common_unsafe_for_reeval
 #undef LANG_HOOKS_STATICP
 #define LANG_HOOKS_STATICP c_staticp
+#undef LANG_HOOKS_SET_DECL_ASSEMBLER_NAME
+#define LANG_HOOKS_SET_DECL_ASSEMBLER_NAME c_static_assembler_name
 #undef LANG_HOOKS_NO_BODY_BLOCKS
 #define LANG_HOOKS_NO_BODY_BLOCKS true
 #undef LANG_HOOKS_WARN_UNUSED_GLOBAL_DECL
@@ -79,6 +87,11 @@ static int c_init_options (void);
 #define LANG_HOOKS_FUNCTION_LEAVE_NESTED c_pop_function_context
 #undef LANG_HOOKS_DUP_LANG_SPECIFIC_DECL
 #define LANG_HOOKS_DUP_LANG_SPECIFIC_DECL c_dup_lang_specific_decl
+#undef LANG_HOOKS_DECL_UNINIT
+#define LANG_HOOKS_DECL_UNINIT c_decl_uninit
+
+#undef LANG_HOOKS_RTL_EXPAND_STMT
+#define LANG_HOOKS_RTL_EXPAND_STMT expand_stmt
 
 /* Attribute hooks.  */
 #undef LANG_HOOKS_COMMON_ATTRIBUTE_TABLE
@@ -98,6 +111,8 @@ static int c_init_options (void);
 #undef LANG_HOOKS_TREE_INLINING_CONVERT_PARM_FOR_INLINING
 #define LANG_HOOKS_TREE_INLINING_CONVERT_PARM_FOR_INLINING \
   c_convert_parm_for_inlining
+#undef LANG_HOOKS_TREE_INLINING_ESTIMATE_NUM_INSNS
+#define LANG_HOOKS_TREE_INLINING_ESTIMATE_NUM_INSNS c_estimate_num_insns
 #undef LANG_HOOKS_TREE_DUMP_DUMP_TREE_FN
 #define LANG_HOOKS_TREE_DUMP_DUMP_TREE_FN c_dump_tree
 
@@ -118,6 +133,9 @@ static int c_init_options (void);
 #define LANG_HOOKS_INCOMPLETE_TYPE_ERROR c_incomplete_type_error
 #undef LANG_HOOKS_TYPE_PROMOTES_TO
 #define LANG_HOOKS_TYPE_PROMOTES_TO c_type_promotes_to
+
+#undef LANG_HOOKS_WRITE_GLOBALS
+#define LANG_HOOKS_WRITE_GLOBALS c_write_global_declarations
 
 /* ### When changing hooks, consider if ObjC needs changing too!! ### */
 
@@ -158,12 +176,6 @@ const char *const tree_code_name[] = {
 #include "c-common.def"
 };
 #undef DEFTREECODE
-
-static int
-c_init_options (void)
-{
-  return c_common_init_options (clk_c);
-}
 
 /* Used by c-lex.c, but only for objc.  */
 
@@ -216,5 +228,19 @@ finish_file (void)
 {
   c_objc_common_finish_file ();
 }
+
+static void
+c_initialize_diagnostics (diagnostic_context *context)
+{
+  pretty_printer *base = context->printer;
+  c_pretty_printer *pp = xmalloc (sizeof (c_pretty_printer));
+  memcpy (pp_base (pp), base, sizeof (pretty_printer));
+  pp_c_pretty_printer_init (pp);
+  context->printer = (pretty_printer *) pp;
+
+  /* It is safe to free this object because it was previously malloc()'d.  */
+  free (base);
+}
+
 
 #include "gtype-c.h"

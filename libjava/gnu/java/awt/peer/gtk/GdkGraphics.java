@@ -38,8 +38,15 @@ exception statement from your version. */
 
 package gnu.java.awt.peer.gtk;
 
-import java.awt.*;
-import java.awt.image.*;
+import java.awt.Color;
+import java.awt.Dimension;
+import java.awt.Font;
+import java.awt.FontMetrics;
+import java.awt.Graphics;
+import java.awt.Image;
+import java.awt.Rectangle;
+import java.awt.Shape;
+import java.awt.image.ImageObserver;
 import java.text.AttributedCharacterIterator;
 
 public class GdkGraphics extends Graphics
@@ -208,8 +215,7 @@ public class GdkGraphics extends Graphics
   native void drawString (String str, int x, int y, String fname, int size);
   public void drawString (String str, int x, int y)
   {
-    drawString (str, x, y,
-		((GtkFontPeer)font.getPeer ()).getXLFD (), font.getSize ());
+    drawString (str, x, y, font.getName(), font.getSize());
   }
 
   public void drawString (AttributedCharacterIterator ci, int x, int y)

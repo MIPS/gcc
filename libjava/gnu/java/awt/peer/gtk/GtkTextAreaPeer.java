@@ -37,8 +37,11 @@ exception statement from your version. */
 
 
 package gnu.java.awt.peer.gtk;
-import java.awt.peer.*;
-import java.awt.*;
+
+import java.awt.Dimension;
+import java.awt.Font;
+import java.awt.TextArea;
+import java.awt.peer.TextAreaPeer;
 
 public class GtkTextAreaPeer extends GtkTextComponentPeer
   implements TextAreaPeer
@@ -104,6 +107,6 @@ public class GtkTextAreaPeer extends GtkTextComponentPeer
 
   public void setFont (Font f)
   {
-    gtkSetFont(((GtkFontPeer)f.getPeer()).getXLFD(), f.getSize());
+    gtkSetFont(f.getName(), f.getSize());
   }
 }

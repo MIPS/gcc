@@ -233,7 +233,7 @@ override_options (void)
       flag_pic = 0;
     }
 
-  /* On Unicos/Mk, the native compiler consistenly generates /d suffices for 
+  /* On Unicos/Mk, the native compiler consistently generates /d suffices for 
      floating-point instructions.  Make that the default for this target.  */
   if (TARGET_ABI_UNICOSMK)
     alpha_fprm = ALPHA_FPRM_DYN;
@@ -974,7 +974,7 @@ call_operand (rtx op, enum machine_mode mode)
     {
       if (TARGET_ABI_OSF)
 	{
-	  /* Disallow virtual registers to cope with pathalogical test cases
+	  /* Disallow virtual registers to cope with pathological test cases
 	     such as compile/930117-1.c in which the virtual reg decomposes
 	     to the frame pointer.  Which is a hard reg that is not $27.  */
 	  return (REGNO (op) == 27 || REGNO (op) > LAST_VIRTUAL_REGISTER);
@@ -2006,7 +2006,7 @@ split_small_symbolic_operand (rtx x)
    that we've marked with gpdisp relocs, since those have to stay in
    1-1 correspondence with one another.
 
-   Techinically we could copy them if we could set up a mapping from one
+   Technically we could copy them if we could set up a mapping from one
    sequence number to another, across the set of insns to be duplicated.
    This seems overly complicated and error-prone since interblock motion
    from sched-ebb could move one of the pair of insns to a different block.  */
@@ -3481,7 +3481,7 @@ alpha_split_conditional_move (enum rtx_code code, rtx dest, rtx cond,
      be shared.  */
 
   if (f == 0 && exact_log2 (diff) > 0
-      /* On EV6, we've got enough shifters to make non-arithmatic shifts
+      /* On EV6, we've got enough shifters to make non-arithmetic shifts
 	 viable over a longer latency cmove.  On EV5, the E0 slot is a
 	 scarce resource, and on EV4 shift has the same latency as a cmove.  */
       && (diff <= 8 || alpha_cpu == PROCESSOR_EV6))
@@ -5120,7 +5120,7 @@ alpha_use_dfa_pipeline_interface (void)
 
    For EV4, loads can be issued to either IB0 or IB1, thus we have 2
    alternative schedules.  For EV5, we can choose between E0/E1 and
-   FA/FM.  For EV6, an arithmatic insn can be issued to U0/U1/L0/L1.  */
+   FA/FM.  For EV6, an arithmetic insn can be issued to U0/U1/L0/L1.  */
 
 static int
 alpha_multipass_dfa_lookahead (void)
@@ -7253,7 +7253,7 @@ alpha_expand_prologue (void)
 	       => alpha_procedure_type != PT_NULL,
 
 	     so when we are not setting the bit here, we are guaranteed to
-	     have emited an FRP frame pointer update just before.  */
+	     have emitted an FRP frame pointer update just before.  */
 	  RTX_FRAME_RELATED_P (seq) = ! frame_pointer_needed;
 	}
     }
@@ -8267,7 +8267,7 @@ alpha_handle_trap_shadows (void)
 }
 
 /* Alpha can only issue instruction groups simultaneously if they are
-   suitibly aligned.  This is very processor-specific.  */
+   suitably aligned.  This is very processor-specific.  */
 
 enum alphaev4_pipe {
   EV4_STOP = 0,
@@ -8857,7 +8857,7 @@ alpha_elf_select_rtx_section (enum machine_mode mode, rtx x,
 			      unsigned HOST_WIDE_INT align)
 {
   if (TARGET_SMALL_DATA && GET_MODE_SIZE (mode) <= g_switch_value)
-    /* ??? Consider using mergable sdata sections.  */
+    /* ??? Consider using mergeable sdata sections.  */
     sdata_section ();
   else
     default_elf_select_rtx_section (mode, x, align);
@@ -9278,22 +9278,19 @@ unicosmk_initial_elimination_offset (int from, int to)
 static void
 unicosmk_output_module_name (FILE *file)
 {
-  const char *name;
-
-  /* Strip directories.  */
-
-  name = strrchr (main_input_filename, '/');
-  if (name)
-    ++name;
-  else
-    name = main_input_filename;
-
+  const char *name = lbasename (main_input_filename);
+  unsigned len = strlen (name);
+  char *clean_name = alloca (len + 2);
+  char *ptr = clean_name;
+  
   /* CAM only accepts module names that start with a letter or '$'. We
      prefix the module name with a '$' if necessary.  */
 
   if (!ISALPHA (*name))
-    putc ('$', file);
-  output_clean_symbol_name (file, name);
+    *ptr++ = '$';
+  memcpy (ptr, name, len + 1);
+  clean_symbol_name (clean_name);
+  fputs (clean_name, file);
 }
 
 /* Output the definition of a common variable.  */

@@ -74,7 +74,7 @@ push_alignment (int alignment, tree id)
     {
       align_stack * entry;
 
-      entry = (align_stack *) ggc_alloc (sizeof (* entry));
+      entry = ggc_alloc (sizeof (* entry));
 
       entry->alignment  = alignment;
       entry->num_pushes = 1;
@@ -273,8 +273,10 @@ apply_pragma_weak (tree decl, tree value)
     }
 
   if (SUPPORTS_WEAK && DECL_EXTERNAL (decl) && TREE_USED (decl)
+      && !DECL_WEAK (decl) /* don't complain about a redundant #pragma */
       && TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl)))
-    warning_with_decl (decl, "applying #pragma weak `%s' after first use results in unspecified behavior");
+    warning ("%Happlying #pragma weak '%D' after first use results "
+             "in unspecified behavior", &DECL_SOURCE_LOCATION (decl), decl);
 
   declare_weak (decl);
 }
@@ -284,15 +286,22 @@ maybe_apply_pragma_weak (tree decl)
 {
   tree *p, t, id;
 
-  /* Copied from the check in set_decl_assembler_name.  */
-  if (TREE_CODE (decl) == FUNCTION_DECL
-      || (TREE_CODE (decl) == VAR_DECL 
-          && (TREE_STATIC (decl) 
-              || DECL_EXTERNAL (decl) 
-              || TREE_PUBLIC (decl))))
-    id = DECL_ASSEMBLER_NAME (decl);
-  else
+  /* Avoid asking for DECL_ASSEMBLER_NAME when it's not needed.  */
+
+  /* No weak symbols pending, take the short-cut.  */
+  if (!pending_weaks)
     return;
+  /* If it's not visible outside this file, it doesn't matter whether
+     it's weak.  */
+  if (!DECL_EXTERNAL (decl) && !TREE_PUBLIC (decl))
+    return;
+  /* If it's not a function or a variable, it can't be weak.
+     FIXME: what kinds of things are visible outside this file but
+     aren't functions or variables?   Should this be an abort() instead?  */
+  if (TREE_CODE (decl) != FUNCTION_DECL && TREE_CODE (decl) != VAR_DECL)
+    return;
+
+  id = DECL_ASSEMBLER_NAME (decl);
 
   for (p = &pending_weaks; (t = *p) ; p = &TREE_CHAIN (t))
     if (id == TREE_PURPOSE (t))

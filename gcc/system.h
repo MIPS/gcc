@@ -446,10 +446,12 @@ extern void abort (void);
 #ifndef HOST_PTR_PRINTF
 # ifdef HAVE_PRINTF_PTR
 #  define HOST_PTR_PRINTF "%p"
+# elif SIZEOF_INT == SIZEOF_VOID_P
+#  define HOST_PTR_PRINTF "%x"
+# elif SIZEOF_LONG == SIZEOF_VOID_P
+#  define HOST_PTR_PRINTF "%lx"
 # else
-#  define HOST_PTR_PRINTF \
-    (sizeof (int) == sizeof (char *) ? "%x" \
-     : sizeof (long) == sizeof (char *) ? "%lx" : "%llx")
+#  define HOST_PTR_PRINTF "%llx"
 # endif
 #endif /* ! HOST_PTR_PRINTF */
 
@@ -458,29 +460,15 @@ extern void abort (void);
 #define PATH_SEPARATOR ':'
 #endif
 
+/* Filename handling macros.  */
+#include "filenames.h"
+
+/* These should be phased out in favor of IS_DIR_SEPARATOR, where possible.  */
 #ifndef DIR_SEPARATOR
-#define DIR_SEPARATOR '/'
-#endif
-
-/* Define IS_DIR_SEPARATOR.  */
-#ifndef DIR_SEPARATOR_2
-# define IS_DIR_SEPARATOR(CH) ((CH) == DIR_SEPARATOR)
-#else /* DIR_SEPARATOR_2 */
-# define IS_DIR_SEPARATOR(CH) \
-	(((CH) == DIR_SEPARATOR) || ((CH) == DIR_SEPARATOR_2))
-#endif /* DIR_SEPARATOR_2 */
-
-/* Say how to test for an absolute pathname.  On Unix systems, this is if
-   it starts with a leading slash or a '$', the latter meaning the value of
-   an environment variable is to be used.  On machine with DOS-based
-   file systems, it is also absolute if it starts with a drive identifier.  */
-#ifdef HAVE_DOS_BASED_FILE_SYSTEM
-#define IS_ABSOLUTE_PATHNAME(STR) \
-  (IS_DIR_SEPARATOR ((STR)[0]) || (STR)[0] == '$' \
-   || ((STR)[0] != '\0' && (STR)[1] == ':' && IS_DIR_SEPARATOR ((STR)[2])))
-#else
-#define IS_ABSOLUTE_PATHNAME(STR) \
-  (IS_DIR_SEPARATOR ((STR)[0]) || (STR)[0] == '$')
+# define DIR_SEPARATOR '/'
+# ifdef HAVE_DOS_BASED_FILE_SYSTEM
+#  define DIR_SEPARATOR_2 '\\'
+# endif
 #endif
 
 /* Get libiberty declarations.  */
@@ -598,13 +586,14 @@ typedef char _Bool;
 	WCHAR_UNSIGNED UNIQUE_SECTION SELECT_SECTION SELECT_RTX_SECTION	\
 	ENCODE_SECTION_INFO STRIP_NAME_ENCODING ASM_GLOBALIZE_LABEL	\
 	ASM_OUTPUT_MI_THUNK CONST_COSTS RTX_COSTS DEFAULT_RTX_COSTS	\
-	ADDRESS_COST MACHINE_DEPENDENT_REORG ASM_FILE_START ASM_FILE_END
+	ADDRESS_COST MACHINE_DEPENDENT_REORG ASM_FILE_START ASM_FILE_END \
+	ASM_SIMPLIFY_DWARF_ADDR
 
 /* Other obsolete target macros, or macros that used to be in target
    headers and were not used, and may be obsolete or may never have
    been used.  */
  #pragma GCC poison INT_ASM_OP ASM_OUTPUT_EH_REGION_BEG CPP_PREDEFINES	   \
-	ASM_OUTPUT_EH_REGION_END ASM_OUTPUT_LABELREF_AS_INT		   \
+	ASM_OUTPUT_EH_REGION_END ASM_OUTPUT_LABELREF_AS_INT SMALL_STACK    \
 	DOESNT_NEED_UNWINDER EH_TABLE_LOOKUP OBJC_SELECTORS_WITHOUT_LABELS \
 	OMIT_EH_TABLE EASY_DIV_EXPR IMPLICIT_FIX_EXPR			   \
 	LONGJMP_RESTORE_FROM_STACK MAX_INT_TYPE_SIZE ASM_IDENTIFY_GCC	   \
@@ -621,11 +610,12 @@ typedef char _Bool;
 	DBX_LBRAC_FIRST DBX_OUTPUT_ENUM DBX_OUTPUT_SOURCE_FILENAME	   \
 	DBX_WORKING_DIRECTORY INSN_CACHE_DEPTH INSN_CACHE_SIZE		   \
 	INSN_CACHE_LINE_WIDTH INIT_SECTION_PREAMBLE NEED_ATEXIT ON_EXIT	   \
-	EXIT_BODY
+	EXIT_BODY OBJECT_FORMAT_ROSE MULTIBYTE_CHARS MAP_CHARACTER	   \
+	LIBGCC_NEEDS_DOUBLE
 
 /* Hooks that are no longer used.  */
  #pragma GCC poison LANG_HOOKS_FUNCTION_MARK LANG_HOOKS_FUNCTION_FREE	\
-	LANG_HOOKS_MARK_TREE
+	LANG_HOOKS_MARK_TREE LANG_HOOKS_INSERT_DEFAULT_ATTRIBUTES
 
 /* Libiberty macros that are no longer used in GCC.  */
 #undef ANSI_PROTOTYPES

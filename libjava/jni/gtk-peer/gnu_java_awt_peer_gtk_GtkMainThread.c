@@ -54,7 +54,12 @@ jmethodID postFocusEventID;
 jmethodID postAdjustmentEventID;
 jmethodID postItemEventID;
 jmethodID postListItemEventID;
+jmethodID postTextEventID;
 JNIEnv *gdk_env;
+
+#ifdef PORTABLE_NATIVE_SYNC
+JavaVM *gdk_vm;
+#endif
 
 /*
  * Call gtk_init.  It is very important that this happen before any other
@@ -68,7 +73,8 @@ Java_gnu_java_awt_peer_gtk_GtkMainThread_gtkInit (JNIEnv *env, jclass clazz)
   char **argv;
   char *homedir, *rcpath = NULL;
 /*    jclass gtkgenericpeer; */
-  jclass gtkcomponentpeer, gtkwindowpeer, gtkscrollbarpeer, gtklistpeer, gtkmenuitempeer;
+  jclass gtkcomponentpeer, gtkwindowpeer, gtkscrollbarpeer, gtklistpeer,
+    gtkmenuitempeer, gtktextcomponentpeer;
 
   NSA_INIT (env, clazz);
 
@@ -81,7 +87,16 @@ Java_gnu_java_awt_peer_gtk_GtkMainThread_gtkInit (JNIEnv *env, jclass clazz)
 
   /* until we have JDK 1.2 JNI, assume we have a VM with threads that 
      match what GLIB was compiled for */
-  g_thread_init (NULL);
+#ifdef PORTABLE_NATIVE_SYNC
+  (*env)->GetJavaVM( env, &gdk_vm );
+  g_thread_init ( &g_thread_jni_functions );
+  printf("called gthread init\n");
+#else
+  g_thread_init ( NULL );
+#endif
+
+  /* From GDK 2.0 onwards we have to explicitly call gdk_threads_init */
+  gdk_threads_init();
 
   gtk_init (&argc, &argv);
 
@@ -119,7 +134,10 @@ Java_gnu_java_awt_peer_gtk_GtkMainThread_gtkInit (JNIEnv *env, jclass clazz)
   gtkscrollbarpeer = (*env)->FindClass (env, 
 				     "gnu/java/awt/peer/gtk/GtkScrollbarPeer");
   gtklistpeer = (*env)->FindClass (env, "gnu/java/awt/peer/gtk/GtkListPeer");
-  gtkmenuitempeer = (*env)->FindClass (env, "gnu/java/awt/peer/gtk/GtkMenuItemPeer");
+  gtkmenuitempeer = (*env)->FindClass (env,
+                                     "gnu/java/awt/peer/gtk/GtkMenuItemPeer");
+  gtktextcomponentpeer = (*env)->FindClass (env,
+                                     "gnu/java/awt/peer/gtk/GtkTextComponentPeer");
 /*    gdkColor = (*env)->FindClass (env, */
 /*  				"gnu/java/awt/peer/gtk/GdkColor"); */
 /*    gdkColorID = (*env)->GetMethodID (env, gdkColor, "<init>", "(III)V"); */
@@ -137,7 +155,7 @@ Java_gnu_java_awt_peer_gtk_GtkMainThread_gtkInit (JNIEnv *env, jclass clazz)
   postExposeEventID = (*env)->GetMethodID (env, gtkcomponentpeer, 
 					  "postExposeEvent", "(IIII)V");
   postKeyEventID = (*env)->GetMethodID (env, gtkcomponentpeer,
-					"postKeyEvent", "(IJIIC)V");
+					"postKeyEvent", "(IJIICI)V");
   postFocusEventID = (*env)->GetMethodID (env, gtkcomponentpeer,
 					  "postFocusEvent", "(IZ)V");
   postAdjustmentEventID = (*env)->GetMethodID (env, gtkscrollbarpeer,
@@ -149,6 +167,9 @@ Java_gnu_java_awt_peer_gtk_GtkMainThread_gtkInit (JNIEnv *env, jclass clazz)
   postListItemEventID = (*env)->GetMethodID (env, gtklistpeer,
 					     "postItemEvent",
 					     "(II)V");
+  postTextEventID = (*env)->GetMethodID (env, gtktextcomponentpeer,
+					     "postTextEvent",
+					     "()V");
 }
 
 /*

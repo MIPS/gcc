@@ -35,6 +35,7 @@ Boston, MA 02111-1307, USA.  */
 #include "toplev.h"
 #include "lex.h"
 #include "target.h"
+#include "convert.h"
 
 /* The number of nested classes being processed.  If we are not in the
    scope of any class, this is zero.  */
@@ -124,19 +125,16 @@ static tree modify_all_vtables (tree, tree);
 static void determine_primary_base (tree);
 static void finish_struct_methods (tree);
 static void maybe_warn_about_overly_private_class (tree);
-static int field_decl_cmp (const void *, const void *);
-static int resort_field_decl_cmp (const void *, const void *);
 static int method_name_cmp (const void *, const void *);
 static int resort_method_name_cmp (const void *, const void *);
 static void add_implicitly_declared_members (tree, int, int, int);
 static tree fixed_type_or_null (tree, int *, int *);
 static tree resolve_address_of_overloaded_function (tree, tree, int,
 							  int, int, tree);
-static tree build_vtable_entry_ref (tree, tree, tree);
 static tree build_vtbl_ref_1 (tree, tree);
 static tree build_vtbl_initializer (tree, tree, tree, tree, int *);
 static int count_fields (tree);
-static int add_fields_to_vec (tree, tree, int);
+static int add_fields_to_record_type (tree, struct sorted_fields_type*, int);
 static void check_bitfield_decl (tree);
 static void check_field_decl (tree, tree, int *, int *, int *, int *);
 static void check_field_decls (tree, tree *, int *, int *, int *);
@@ -330,8 +328,9 @@ build_base_path (enum tree_code code,
       v_offset = build_indirect_ref (v_offset, NULL);
       TREE_CONSTANT (v_offset) = 1;
 
-      offset = cp_convert (ptrdiff_type_node,
-			   size_diffop (offset, BINFO_OFFSET (v_binfo)));
+      offset = convert_to_integer (ptrdiff_type_node,
+				   size_diffop (offset, 
+						BINFO_OFFSET (v_binfo)));
 
       if (!integer_zerop (offset))
 	v_offset = build (code, ptrdiff_type_node, v_offset, offset);
@@ -393,35 +392,34 @@ convert_to_base (tree object, tree type, bool check_access)
   return build_base_path (PLUS_EXPR, object, binfo, /*nonnull=*/1);
 }
 
-
-/* Virtual function things.  */
+/* EXPR is an expression with class type.  BASE is a base class (a
+   BINFO) of that class type.  Returns EXPR, converted to the BASE
+   type.  This function assumes that EXPR is the most derived class;
+   therefore virtual bases can be found at their static offsets.  */
 
-static tree
-build_vtable_entry_ref (tree array_ref, tree instance, tree idx)
+tree
+convert_to_base_statically (tree expr, tree base)
 {
-  tree i, i2, vtable, first_fn, basetype;
+  tree expr_type;
 
-  basetype = TREE_TYPE (instance);
-  if (TREE_CODE (basetype) == REFERENCE_TYPE)
-    basetype = TREE_TYPE (basetype);
+  expr_type = TREE_TYPE (expr);
+  if (!same_type_p (expr_type, BINFO_TYPE (base)))
+    {
+      tree pointer_type;
 
-  vtable = get_vtbl_decl_for_binfo (TYPE_BINFO (basetype));
-  first_fn = TYPE_BINFO_VTABLE (basetype);
+      pointer_type = build_pointer_type (expr_type);
+      expr = build_unary_op (ADDR_EXPR, expr, /*noconvert=*/1);
+      if (!integer_zerop (BINFO_OFFSET (base)))
+	  expr = build (PLUS_EXPR, pointer_type, expr, 
+			build_nop (pointer_type, BINFO_OFFSET (base)));
+      expr = build_nop (build_pointer_type (BINFO_TYPE (base)), expr);
+      expr = build1 (INDIRECT_REF, BINFO_TYPE (base), expr);
+    }
 
-  i = fold (build_array_ref (first_fn, idx));
-  i = fold (build_c_cast (ptrdiff_type_node,
-			  build_unary_op (ADDR_EXPR, i, 0)));
-  i2 = fold (build_array_ref (vtable, build_int_2 (0,0)));
-  i2 = fold (build_c_cast (ptrdiff_type_node,
-			   build_unary_op (ADDR_EXPR, i2, 0)));
-  i = fold (cp_build_binary_op (MINUS_EXPR, i, i2));
-
-  if (TREE_CODE (i) != INTEGER_CST)
-    abort ();
-
-  return build (VTABLE_REF, TREE_TYPE (array_ref), array_ref, vtable, i);
+  return expr;
 }
 
+
 /* Given an object INSTANCE, return an expression which yields the
    vtable element corresponding to INDEX.  There are many special
    cases for INSTANCE which we take care of here, mainly to avoid
@@ -439,9 +437,7 @@ build_vtbl_ref_1 (tree instance, tree idx)
   int cdtorp = 0;
   tree fixed_type = fixed_type_or_null (instance, NULL, &cdtorp);
 
-  tree basetype = TREE_TYPE (instance);
-  if (TREE_CODE (basetype) == REFERENCE_TYPE)
-    basetype = TREE_TYPE (basetype);
+  tree basetype = non_reference (TREE_TYPE (instance));
 
   if (fixed_type && !cdtorp)
     {
@@ -467,9 +463,6 @@ build_vtbl_ref (tree instance, tree idx)
 {
   tree aref = build_vtbl_ref_1 (instance, idx);
 
-  if (flag_vtable_gc)
-    aref = build_vtable_entry_ref (aref, instance, idx);
-
   return aref;
 }
 
@@ -486,9 +479,6 @@ build_vfn_ref (tree instance, tree idx)
   if (TARGET_VTABLE_USES_DESCRIPTORS)
     aref = build1 (NOP_EXPR, TREE_TYPE (aref),
 		   build_unary_op (ADDR_EXPR, aref, /*noconvert=*/1));
-
-  if (flag_vtable_gc)
-    aref = build_vtable_entry_ref (aref, instance, idx);
 
   return aref;
 }
@@ -760,7 +750,10 @@ add_method (tree type, tree method, int error_p)
   if (DECL_MAYBE_IN_CHARGE_CONSTRUCTOR_P (method))
     slot = CLASSTYPE_CONSTRUCTOR_SLOT;
   else if (DECL_MAYBE_IN_CHARGE_DESTRUCTOR_P (method))
-    slot = CLASSTYPE_DESTRUCTOR_SLOT;
+    {
+      slot = CLASSTYPE_DESTRUCTOR_SLOT;
+      TYPE_HAS_DESTRUCTOR (type) = 1;
+    }
   else
     {
       int have_template_convs_p = 0;
@@ -927,7 +920,7 @@ add_method (tree type, tree method, int error_p)
 	      else
 		{
 		  cp_error_at ("`%#D' and `%#D' cannot be overloaded",
-			       method, fn, method);
+			       method, fn);
 
 		  /* We don't call duplicate_decls here to merge
 		     the declarations because that will confuse
@@ -1294,9 +1287,6 @@ check_bases (tree t,
       TYPE_HAS_COMPLEX_ASSIGN_REF (t) 
 	|= TYPE_HAS_COMPLEX_ASSIGN_REF (basetype);
       TYPE_HAS_COMPLEX_INIT_REF (t) |= TYPE_HAS_COMPLEX_INIT_REF (basetype);
-      TYPE_OVERLOADS_CALL_EXPR (t) |= TYPE_OVERLOADS_CALL_EXPR (basetype);
-      TYPE_OVERLOADS_ARRAY_REF (t) |= TYPE_OVERLOADS_ARRAY_REF (basetype);
-      TYPE_OVERLOADS_ARROW (t) |= TYPE_OVERLOADS_ARROW (basetype);
       TYPE_POLYMORPHIC_P (t) |= TYPE_POLYMORPHIC_P (basetype);
       CLASSTYPE_CONTAINS_EMPTY_CLASS_P (t) 
 	|= CLASSTYPE_CONTAINS_EMPTY_CLASS_P (basetype);
@@ -1659,16 +1649,12 @@ maybe_warn_about_overly_private_class (tree t)
   /* Even if some of the member functions are non-private, the class
      won't be useful for much if all the constructors or destructors
      are private: such an object can never be created or destroyed.  */
-  if (TYPE_HAS_DESTRUCTOR (t))
+  if (TYPE_HAS_DESTRUCTOR (t)
+      && TREE_PRIVATE (CLASSTYPE_DESTRUCTORS (t)))
     {
-      tree dtor = TREE_VEC_ELT (CLASSTYPE_METHOD_VEC (t), 1);
-
-      if (TREE_PRIVATE (dtor))
-	{
-	  warning ("`%#T' only defines a private destructor and has no friends",
-		      t);
-	  return;
-	}
+      warning ("`%#T' only defines a private destructor and has no friends",
+	       t);
+      return;
     }
 
   if (TYPE_HAS_CONSTRUCTOR (t))
@@ -1715,71 +1701,10 @@ maybe_warn_about_overly_private_class (tree t)
     }
 }
 
-/* Function to help qsort sort FIELD_DECLs by name order.  */
-
-static int
-field_decl_cmp (const void* x_p, const void* y_p)
-{
-  const tree *const x = x_p;
-  const tree *const y = y_p;
-  if (DECL_NAME (*x) == DECL_NAME (*y))
-    /* A nontype is "greater" than a type.  */
-    return DECL_DECLARES_TYPE_P (*y) - DECL_DECLARES_TYPE_P (*x);
-  if (DECL_NAME (*x) == NULL_TREE)
-    return -1;
-  if (DECL_NAME (*y) == NULL_TREE)
-    return 1;
-  if (DECL_NAME (*x) < DECL_NAME (*y))
-    return -1;
-  return 1;
-}
-
 static struct {
   gt_pointer_operator new_value;
   void *cookie;
 } resort_data;
-
-/* This routine compares two fields like field_decl_cmp but using the
-   pointer operator in resort_data.  */
-
-static int
-resort_field_decl_cmp (const void* x_p, const void* y_p)
-{
-  const tree *const x = x_p;
-  const tree *const y = y_p;
-
-  if (DECL_NAME (*x) == DECL_NAME (*y))
-    /* A nontype is "greater" than a type.  */
-    return DECL_DECLARES_TYPE_P (*y) - DECL_DECLARES_TYPE_P (*x);
-  if (DECL_NAME (*x) == NULL_TREE)
-    return -1;
-  if (DECL_NAME (*y) == NULL_TREE)
-    return 1;
-  {
-    tree d1 = DECL_NAME (*x);
-    tree d2 = DECL_NAME (*y);
-    resort_data.new_value (&d1, resort_data.cookie);
-    resort_data.new_value (&d2, resort_data.cookie);
-    if (d1 < d2)
-      return -1;
-  }
-  return 1;
-}
-
-/* Resort DECL_SORTED_FIELDS because pointers have been reordered.  */
-
-void 
-resort_sorted_fields (void* obj, 
-                      void* orig_obj ATTRIBUTE_UNUSED , 
-                      gt_pointer_operator new_value, 
-                      void* cookie)
-{
-  tree sf = obj;
-  resort_data.new_value = new_value;
-  resort_data.cookie = cookie;
-  qsort (&TREE_VEC_ELT (sf, 0), TREE_VEC_LENGTH (sf), sizeof (tree),
-	 resort_field_decl_cmp);
-}
 
 /* Comparison function to compare two TYPE_METHOD_VEC entries by name.  */
 
@@ -2216,7 +2141,7 @@ update_vtable_entry_for_fn (tree t, tree binfo, tree fn, tree* virtuals,
     return;
   overrider_target = overrider_fn = TREE_PURPOSE (overrider);
   
-  /* Check for adjusting covariant return types. */
+  /* Check for adjusting covariant return types.  */
   over_return = TREE_TYPE (TREE_TYPE (overrider_target));
   base_return = TREE_TYPE (TREE_TYPE (target_fn));
   
@@ -2242,7 +2167,7 @@ update_vtable_entry_for_fn (tree t, tree binfo, tree fn, tree* virtuals,
       if (!virtual_offset)
 	{
 	  /* There was no existing virtual thunk (which takes
-	     precidence). */
+	     precidence).  */
 	  tree thunk_binfo;
 	  base_kind kind;
 	  
@@ -2279,7 +2204,7 @@ update_vtable_entry_for_fn (tree t, tree binfo, tree fn, tree* virtuals,
       if (fixed_offset || virtual_offset)
 	/* Replace the overriding function with a covariant thunk.  We
 	   will emit the overriding function in its own slot as
-	   well. */
+	   well.  */
 	overrider_fn = make_thunk (overrider_target, /*this_adjusting=*/0,
 				   fixed_offset, virtual_offset);
     }
@@ -2790,18 +2715,18 @@ count_fields (tree fields)
 }
 
 /* Subroutine of finish_struct_1.  Recursively add all the fields in the
-   TREE_LIST FIELDS to the TREE_VEC FIELD_VEC, starting at offset IDX.  */
+   TREE_LIST FIELDS to the SORTED_FIELDS_TYPE elts, starting at offset IDX.  */
 
 static int
-add_fields_to_vec (tree fields, tree field_vec, int idx)
+add_fields_to_record_type (tree fields, struct sorted_fields_type *field_vec, int idx)
 {
   tree x;
   for (x = fields; x; x = TREE_CHAIN (x))
     {
       if (TREE_CODE (x) == FIELD_DECL && ANON_AGGR_TYPE_P (TREE_TYPE (x)))
-	idx = add_fields_to_vec (TYPE_FIELDS (TREE_TYPE (x)), field_vec, idx);
+	idx = add_fields_to_record_type (TYPE_FIELDS (TREE_TYPE (x)), field_vec, idx);
       else
-	TREE_VEC_ELT (field_vec, idx++) = x;
+	field_vec->elts[idx++] = x;
     }
   return idx;
 }
@@ -2961,7 +2886,7 @@ check_field_decl (tree field,
       /* `build_class_init_list' does not recognize
 	 non-FIELD_DECLs.  */
       if (TREE_CODE (t) == UNION_TYPE && any_default_members != 0)
-	cp_error_at ("multiple fields in union `%T' initialized");
+	error ("multiple fields in union `%T' initialized", t);
       *any_default_members = 1;
     }
 }
@@ -3026,7 +2951,15 @@ check_field_decls (tree t, tree *access_decls,
 
       if (TREE_CODE (x) == FIELD_DECL)
 	{
-	  DECL_PACKED (x) |= TYPE_PACKED (t);
+	  if (TYPE_PACKED (t))
+	    {
+	      if (!pod_type_p (TREE_TYPE (x)) && !TYPE_PACKED (TREE_TYPE (x)))
+		cp_warning_at
+		  ("ignoring packed attribute on unpacked non-POD field `%#D'",
+		   x);
+	      else
+		DECL_PACKED (x) = 1;
+	    }
 
 	  if (DECL_C_BIT_FIELD (x) && integer_zerop (DECL_INITIAL (x)))
 	    /* We don't treat zero-width bitfields as making a class
@@ -3091,12 +3024,6 @@ check_field_decls (tree t, tree *access_decls,
 	  type = build_pointer_type (type);
 	  TREE_TYPE (x) = type;
 	}
-      else if (TREE_CODE (type) == OFFSET_TYPE)
-	{
-	  cp_error_at ("field `%D' invalidly declared offset type", x);
-	  type = build_pointer_type (type);
-	  TREE_TYPE (x) = type;
-	}
 
       if (type == error_mark_node)
 	continue;
@@ -3143,7 +3070,7 @@ check_field_decls (tree t, tree *access_decls,
 
       type = strip_array_types (type);
       
-      if (TREE_CODE (type) == POINTER_TYPE)
+      if (TYPE_PTR_P (type))
 	has_pointers = 1;
 
       if (DECL_MUTABLE_P (x) || TYPE_HAS_MUTABLE_P (type))
@@ -3187,7 +3114,7 @@ check_field_decls (tree t, tree *access_decls,
       /* Core issue 80: A nonstatic data member is required to have a
 	 different name from the class iff the class has a
 	 user-defined constructor.  */
-      if (constructor_name_p (x, t) && TYPE_HAS_CONSTRUCTOR (t))
+      if (constructor_name_p (DECL_NAME (x), t) && TYPE_HAS_CONSTRUCTOR (t))
 	cp_pedwarn_at ("field `%#D' with same name as class", x);
 
       /* We set DECL_C_BIT_FIELD in grokbitfield.
@@ -3906,9 +3833,9 @@ build_clone (tree fn, tree name)
        /* If this is subobject constructor or destructor, add the vtt
 	 parameter.  */
       TREE_TYPE (clone) 
-	= build_cplus_method_type (basetype,
-				   TREE_TYPE (TREE_TYPE (clone)),
-				   parmtypes);
+	= build_method_type_directly (basetype,
+				      TREE_TYPE (TREE_TYPE (clone)),
+				      parmtypes);
       if (exceptions)
 	TREE_TYPE (clone) = build_exception_variant (TREE_TYPE (clone),
 						     exceptions);
@@ -4085,9 +4012,9 @@ adjust_clone_args (tree decl)
 					   clone_parms);
 		  TREE_TYPE (clone_parms) = TREE_TYPE (orig_clone_parms);
 		}
-	      type = build_cplus_method_type (basetype,
-					      TREE_TYPE (TREE_TYPE (clone)),
-					      clone_parms);
+	      type = build_method_type_directly (basetype,
+						 TREE_TYPE (TREE_TYPE (clone)),
+						 clone_parms);
 	      if (exceptions)
 		type = build_exception_variant (type, exceptions);
 	      TREE_TYPE (clone) = type;
@@ -5046,7 +4973,6 @@ finish_struct_1 (tree t)
   /* If this type was previously laid out as a forward reference,
      make sure we lay it out again.  */
   TYPE_SIZE (t) = NULL_TREE;
-  CLASSTYPE_GOT_SEMICOLON (t) = 0;
   CLASSTYPE_PRIMARY_BINFO (t) = NULL_TREE;
 
   fixup_inline_methods (t);
@@ -5067,7 +4993,7 @@ finish_struct_1 (tree t)
       CLASSTYPE_KEY_METHOD (t) = key_method (t);
 
       /* If a polymorphic class has no key method, we may emit the vtable
-	 in every translation unit where the class definition appears. */
+	 in every translation unit where the class definition appears.  */
       if (CLASSTYPE_KEY_METHOD (t) == NULL_TREE)
 	keyed_classes = tree_cons (NULL_TREE, t, keyed_classes);
     }
@@ -5170,9 +5096,11 @@ finish_struct_1 (tree t)
   n_fields = count_fields (TYPE_FIELDS (t));
   if (n_fields > 7)
     {
-      tree field_vec = make_tree_vec (n_fields);
-      add_fields_to_vec (TYPE_FIELDS (t), field_vec, 0);
-      qsort (&TREE_VEC_ELT (field_vec, 0), n_fields, sizeof (tree),
+      struct sorted_fields_type *field_vec = ggc_alloc (sizeof (struct sorted_fields_type) 
+	+ n_fields * sizeof (tree));
+      field_vec->len = n_fields;
+      add_fields_to_record_type (TYPE_FIELDS (t), field_vec, 0);
+      qsort (field_vec->elts, n_fields, sizeof (tree),
 	     field_decl_cmp);
       if (! DECL_LANG_SPECIFIC (TYPE_MAIN_DECL (t)))
 	retrofit_lang_decl (TYPE_MAIN_DECL (t));
@@ -5451,8 +5379,7 @@ init_class_processing (void)
   current_class_depth = 0;
   current_class_stack_size = 10;
   current_class_stack 
-    = (class_stack_node_t) xmalloc (current_class_stack_size 
-				    * sizeof (struct class_stack_node));
+    = xmalloc (current_class_stack_size * sizeof (struct class_stack_node));
   VARRAY_TREE_INIT (local_classes, 8, "local_classes");
 
   ridpointers[(int) RID_PUBLIC] = access_public_node;
@@ -5462,19 +5389,6 @@ init_class_processing (void)
 
 /* Set global variables CURRENT_CLASS_NAME and CURRENT_CLASS_TYPE as
    appropriate for TYPE.
-
-   If MODIFY is 1, we set IDENTIFIER_CLASS_VALUE's of names
-   which can be seen locally to the class.  They are shadowed by
-   any subsequent local declaration (including parameter names).
-
-   If MODIFY is 2, we set IDENTIFIER_CLASS_VALUE's of names
-   which have static meaning (i.e., static members, static
-   member functions, enum declarations, etc).
-
-   If MODIFY is 3, we set IDENTIFIER_CLASS_VALUE of names
-   which can be seen locally to the class (as in 1), but
-   know that we are doing this for declaration purposes
-   (i.e. friend foo::bar (int)).
 
    So that we may avoid calls to lookup_name, we cache the _TYPE
    nodes of local TYPE_DECLs in the TREE_TYPE field of the name.
@@ -5488,7 +5402,7 @@ init_class_processing (void)
    that name becomes `error_mark_node'.  */
 
 void
-pushclass (tree type, bool modify)
+pushclass (tree type)
 {
   type = TYPE_MAIN_VARIANT (type);
 
@@ -5497,9 +5411,9 @@ pushclass (tree type, bool modify)
     {
       current_class_stack_size *= 2;
       current_class_stack
-	= (class_stack_node_t) xrealloc (current_class_stack,
-					 current_class_stack_size
-					 * sizeof (struct class_stack_node));
+	= xrealloc (current_class_stack,
+		    current_class_stack_size
+		    * sizeof (struct class_stack_node));
     }
 
   /* Insert a new entry on the class stack.  */
@@ -5532,39 +5446,50 @@ pushclass (tree type, bool modify)
 
   /* If we're about to enter a nested class, clear
      IDENTIFIER_CLASS_VALUE for the enclosing classes.  */
-  if (modify && current_class_depth > 1)
+  if (current_class_depth > 1)
     clear_identifier_class_values ();
 
   pushlevel_class ();
 
-  if (modify)
+  if (type != previous_class_type || current_class_depth > 1)
     {
-      if (type != previous_class_type || current_class_depth > 1)
-	push_class_decls (type);
-      else
+      push_class_decls (type);
+      if (CLASSTYPE_IS_TEMPLATE (type))
 	{
-	  tree item;
+	  /* If we are entering the scope of a template (not a
+	     specialization), we need to push all the using decls with
+	     dependent scope too.  */
+	  tree fields;
 
-	  /* We are re-entering the same class we just left, so we
-	     don't have to search the whole inheritance matrix to find
-	     all the decls to bind again.  Instead, we install the
-	     cached class_shadowed list, and walk through it binding
-	     names and setting up IDENTIFIER_TYPE_VALUEs.  */
-	  set_class_shadows (previous_class_values);
-	  for (item = previous_class_values; item; item = TREE_CHAIN (item))
-	    {
-	      tree id = TREE_PURPOSE (item);
-	      tree decl = TREE_TYPE (item);
-
-	      push_class_binding (id, decl);
-	      if (TREE_CODE (decl) == TYPE_DECL)
-		set_identifier_type_value (id, TREE_TYPE (decl));
-	    }
-	  unuse_fields (type);
+	  for (fields = TYPE_FIELDS (type);
+	       fields; fields = TREE_CHAIN (fields))
+	    if (TREE_CODE (fields) == USING_DECL && !TREE_TYPE (fields))
+	      pushdecl_class_level (fields);
 	}
-
-      cxx_remember_type_decls (CLASSTYPE_NESTED_UTDS (type));
     }
+  else
+    {
+      tree item;
+
+      /* We are re-entering the same class we just left, so we don't
+	 have to search the whole inheritance matrix to find all the
+	 decls to bind again.  Instead, we install the cached
+	 class_shadowed list, and walk through it binding names and
+	 setting up IDENTIFIER_TYPE_VALUEs.  */
+      set_class_shadows (previous_class_values);
+      for (item = previous_class_values; item; item = TREE_CHAIN (item))
+	{
+	  tree id = TREE_PURPOSE (item);
+	  tree decl = TREE_TYPE (item);
+	  
+	  push_class_binding (id, decl);
+	  if (TREE_CODE (decl) == TYPE_DECL)
+	    set_identifier_type_value (id, decl);
+	}
+      unuse_fields (type);
+    }
+  
+  cxx_remember_type_decls (CLASSTYPE_NESTED_UTDS (type));
 }
 
 /* When we exit a toplevel class scope, we save the
@@ -5628,7 +5553,7 @@ currently_open_derived_class (tree t)
 {
   int i;
 
-  /* The bases of a dependent type are unknown. */
+  /* The bases of a dependent type are unknown.  */
   if (dependent_type_p (t))
     return NULL_TREE;
 
@@ -5666,7 +5591,7 @@ push_nested_class (tree type)
 
   if (context && CLASS_TYPE_P (context))
     push_nested_class (context);
-  pushclass (type, true);
+  pushclass (type);
 }
 
 /* Undoes a push_nested_class call.  */
@@ -6276,8 +6201,7 @@ get_vfield_name (tree type)
     binfo = BINFO_BASETYPE (binfo, 0);
 
   type = BINFO_TYPE (binfo);
-  buf = (char *) alloca (sizeof (VFIELD_NAME_FORMAT)
-			 + TYPE_NAME_LENGTH (type) + 2);
+  buf = alloca (sizeof (VFIELD_NAME_FORMAT) + TYPE_NAME_LENGTH (type) + 2);
   sprintf (buf, VFIELD_NAME_FORMAT,
 	   IDENTIFIER_POINTER (constructor_name (type)));
   return get_identifier (buf);
@@ -6317,6 +6241,7 @@ build_self_reference (void)
   DECL_NONLOCAL (value) = 1;
   DECL_CONTEXT (value) = current_class_type;
   DECL_ARTIFICIAL (value) = 1;
+  SET_DECL_SELF_REFERENCE_P (value);
 
   if (processing_template_decl)
     value = push_template_decl (value);
@@ -6399,21 +6324,6 @@ get_enclosing_class (tree type)
 	}
     }
   return NULL_TREE;
-}
-
-/* Return 1 if TYPE or one of its enclosing classes is derived from BASE.  */
-
-int
-is_base_of_enclosing_class (tree base, tree type)
-{
-  while (type)
-    {
-      if (lookup_base (type, base, ba_any, NULL))
-	return 1;
-
-      type = get_enclosing_class (type);
-    }
-  return 0;
 }
 
 /* Note that NAME was looked up while the current class was being
@@ -6528,7 +6438,7 @@ maybe_indent_hierarchy (FILE * stream, int indent, int indented_p)
 /* Dump the offsets of all the bases rooted at BINFO to STREAM.
    INDENT should be zero when called from the top level; it is
    incremented recursively.  IGO indicates the next expected BINFO in
-   inheritance graph ordering. */
+   inheritance graph ordering.  */
 
 static tree
 dump_class_hierarchy_r (FILE *stream,
@@ -7819,13 +7729,13 @@ add_vcall_offset (tree orig_fn, tree binfo, vtbl_init_data *vid)
 	  vcall_offset = fold (build1 (NOP_EXPR, vtable_entry_type,
 				       vcall_offset));
 	}
-      /* Add the intiailizer to the vtable.  */
+      /* Add the initializer to the vtable.  */
       *vid->last_init = build_tree_list (NULL_TREE, vcall_offset);
       vid->last_init = &TREE_CHAIN (*vid->last_init);
     }
 }
 
-/* Return vtbl initializers for the RTTI entries coresponding to the
+/* Return vtbl initializers for the RTTI entries corresponding to the
    BINFO's vtable.  The RTTI entries should indicate the object given
    by VID->rtti_binfo.  */
 

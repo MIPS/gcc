@@ -1,6 +1,6 @@
 /* Operating system specific defines to be used when targeting GCC for any
    Solaris 2 system.
-   Copyright 2002 Free Software Foundation, Inc.
+   Copyright 2002, 2003 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -66,7 +66,7 @@ Boston, MA 02111-1307, USA.  */
 	/* For C++ we need to add some additional macro	\
 	   definitions required by the C++ standard	\
 	   library.  */					\
-	if (c_language == clk_cplusplus)		\
+	if (c_dialect_cxx ())				\
 	  {						\
 	    builtin_define ("_XOPEN_SOURCE=500");	\
 	    builtin_define ("_LARGEFILE_SOURCE=1");	\
@@ -166,13 +166,9 @@ Boston, MA 02111-1307, USA.  */
  *
  */
 
-/* This declares mprotect (used in TRANSFER_FROM_TRAMPOLINE) for
-   libgcc2.c.  */
-/* We don't want to include this because sys/mman.h is not present on
-   some non-Solaris configurations that use sol2.h.  */
-#if 0 /* def L_trampoline */
-#include <sys/mman.h>
-#endif
+/* sys/mman.h is not present on some non-Solaris configurations
+   that use sol2.h, so TRANSFER_FROM_TRAMPOLINE must use a magic
+   number instead of the appropriate PROT_* flags.  */
 
 #define TRANSFER_FROM_TRAMPOLINE					\
 									\

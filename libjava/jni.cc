@@ -418,6 +418,18 @@ _Jv_JNI_PopSystemFrame (JNIEnv *env)
     }
 }
 
+template<typename T> T extract_from_jvalue(jvalue const & t);
+template<> jboolean extract_from_jvalue(jvalue const & jv) { return jv.z; }
+template<> jbyte    extract_from_jvalue(jvalue const & jv) { return jv.b; }
+template<> jchar    extract_from_jvalue(jvalue const & jv) { return jv.c; }
+template<> jshort   extract_from_jvalue(jvalue const & jv) { return jv.s; }
+template<> jint     extract_from_jvalue(jvalue const & jv) { return jv.i; }
+template<> jlong    extract_from_jvalue(jvalue const & jv) { return jv.j; }
+template<> jfloat   extract_from_jvalue(jvalue const & jv) { return jv.f; }
+template<> jdouble  extract_from_jvalue(jvalue const & jv) { return jv.d; }
+template<> jobject  extract_from_jvalue(jvalue const & jv) { return jv.l; }
+
+
 // This function is used from other template functions.  It wraps the
 // return value appropriately; we specialize it so that object returns
 // are turned into local references.
@@ -430,7 +442,7 @@ wrap_value (JNIEnv *, T value)
 
 // This specialization is used for jobject, jclass, jstring, jarray,
 // etc.
-template<typename T>
+template<typename R, typename T>
 static T *
 wrap_value (JNIEnv *env, T *value)
 {
@@ -491,7 +503,7 @@ static jclass
 
       java::lang::ClassLoader *loader = NULL;
       if (env->klass != NULL)
-	loader = env->klass->getClassLoader ();
+	loader = env->klass->getClassLoaderInternal ();
 
       if (loader == NULL)
 	{
@@ -777,15 +789,11 @@ static T
 	return_type = klass;
 
       jvalue result;
-      jthrowable ex = _Jv_CallAnyMethodA (obj, return_type, id,
-					  style == constructor,
-					  arg_types, args, &result);
+      _Jv_CallAnyMethodA (obj, return_type, id,
+			  style == constructor,
+			  arg_types, args, &result);
 
-      if (ex != NULL)
-	env->ex = ex;
-
-      // We cheat a little here.  FIXME.
-      return wrap_value (env, * (T *) &result);
+      return wrap_value (env, extract_from_jvalue<T>(result));
     }
   catch (jthrowable t)
     {
@@ -847,15 +855,11 @@ static T
 	}
 
       jvalue result;
-      jthrowable ex = _Jv_CallAnyMethodA (obj, return_type, id,
-					  style == constructor,
-					  arg_types, arg_copy, &result);
+      _Jv_CallAnyMethodA (obj, return_type, id,
+			  style == constructor,
+			  arg_types, arg_copy, &result);
 
-      if (ex != NULL)
-	env->ex = ex;
-
-      // We cheat a little here.  FIXME.
-      return wrap_value (env, * (T *) &result);
+      return wrap_value (env, extract_from_jvalue<T>(result));
     }
   catch (jthrowable t)
     {
@@ -893,12 +897,9 @@ static void
       if (style == constructor)
 	return_type = klass;
 
-      jthrowable ex = _Jv_CallAnyMethodA (obj, return_type, id,
-					  style == constructor,
-					  arg_types, args, NULL);
-
-      if (ex != NULL)
-	env->ex = ex;
+      _Jv_CallAnyMethodA (obj, return_type, id,
+			  style == constructor,
+			  arg_types, args, NULL);
     }
   catch (jthrowable t)
     {
@@ -947,12 +948,9 @@ static void
 	    arg_copy[i].l = unwrap (args[i].l);
 	}
 
-      jthrowable ex = _Jv_CallAnyMethodA (obj, return_type, id,
-					  style == constructor,
-					  arg_types, args, NULL);
-
-      if (ex != NULL)
-	env->ex = ex;
+      _Jv_CallAnyMethodA (obj, return_type, id,
+			  style == constructor,
+			  arg_types, args, NULL);
     }
   catch (jthrowable t)
     {
@@ -1189,7 +1187,7 @@ static jfieldID
 
       // FIXME: what if field_class == NULL?
 
-      java::lang::ClassLoader *loader = clazz->getClassLoader ();
+      java::lang::ClassLoader *loader = clazz->getClassLoaderInternal ();
       while (clazz != NULL)
 	{
 	  // We acquire the class lock so that fields aren't resolved

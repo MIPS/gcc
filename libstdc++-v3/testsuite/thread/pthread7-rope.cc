@@ -18,9 +18,9 @@
 // Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
 // USA.
 
-// { dg-do run { target *-*-freebsd* *-*-netbsd* *-*-linux* *-*-solaris* *-*-cygwin *-*-darwin* } }
-// { dg-options "-DDEBUG_ASSERT -pthread" { target *-*-freebsd* *-*-netbsd* *-*-linux* } }
-// { dg-options "-DDEBUG_ASSERT -pthreads" { target *-*-solaris* } }
+// { dg-do run { target *-*-freebsd* *-*-netbsd* *-*-linux* *-*-solaris* *-*-cygwin *-*-darwin* alpha*-*-osf* } }
+// { dg-options "-D_GLIBCXX_ASSERT -pthread" { target *-*-freebsd* *-*-netbsd* *-*-linux* alpha*-*-osf* } }
+// { dg-options "-D_GLIBCXX_ASSERT -pthreads" { target *-*-solaris* } }
 
 #include <ext/rope>
 #include <cstring>

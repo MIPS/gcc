@@ -28,12 +28,12 @@
 // invalidate any other reasons why the executable file might be covered by
 // the GNU General Public License.
 
-#ifndef _GLIBCPP_TESTSUITE_IO_H
-#define _GLIBCPP_TESTSUITE_IO_H
+#ifndef _GLIBCXX_TESTSUITE_IO_H
+#define _GLIBCXX_TESTSUITE_IO_H
 
 #include <fstream>
 
-namespace __gnu_cxx_test
+namespace __gnu_test
 {  
   // Used to verify the constraints/requirements on get and put areas
   // as defined in 
@@ -73,7 +73,7 @@ namespace __gnu_cxx_test
     }
     
   };
-}; // namespace __gnu_cxx_test
+}; // namespace __gnu_test
 
-#endif // _GLIBCPP_TESTSUITE_IO_H
+#endif // _GLIBCXX_TESTSUITE_IO_H
 

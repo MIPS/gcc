@@ -33,8 +33,8 @@
  *  You should not attempt to use it directly.
  */
 
-#ifndef _CPP_BITS_BASICIOS_H
-#define _CPP_BITS_BASICIOS_H 1
+#ifndef _BASIC_IOS_H
+#define _BASIC_IOS_H 1
 
 #pragma GCC system_header
 
@@ -76,10 +76,10 @@ namespace std
        *  @endif
       */
       typedef ctype<_CharT>                          __ctype_type;
-      typedef ostreambuf_iterator<_CharT, _Traits>   __ostreambuf_iter;
-      typedef num_put<_CharT, __ostreambuf_iter>     __numput_type;
-      typedef istreambuf_iterator<_CharT, _Traits>   __istreambuf_iter;
-      typedef num_get<_CharT, __istreambuf_iter>     __numget_type;
+      typedef num_put<_CharT, ostreambuf_iterator<_CharT, _Traits> >     
+						     __num_put_type;
+      typedef num_get<_CharT, istreambuf_iterator<_CharT, _Traits> >     
+      						     __num_get_type;
       //@}
       
       // Data members:
@@ -92,9 +92,9 @@ namespace std
       // Cached use_facet<ctype>, which is based on the current locale info.
       const __ctype_type*                            _M_ctype;      
       // For ostream.
-      const __numput_type*                           _M_num_put;
+      const __num_put_type*                          _M_num_put;
       // For istream.
-      const __numget_type*                           _M_num_get;
+      const __num_get_type*                          _M_num_get;
 
     public:
       //@{
@@ -319,7 +319,15 @@ namespace std
       rdbuf(basic_streambuf<_CharT, _Traits>* __sb);
 
       /**
-       *  @doctodo
+       *  @brief  Copies fields of __rhs into this.
+       *  @param  __rhs  The source values for the copies.
+       *  @return  Reference to this object.
+       *
+       *  All fields of __rhs are copied into this object except that rdbuf()
+       *  and rdstate() remain unchanged.  All values in the pword and iword
+       *  arrays are copied.  Before copying, each callback is invoked with
+       *  erase_event.  After copying, each (new) callback is invoked with
+       *  copyfmt_event.  The final step is to copy exceptions().
       */
       basic_ios&
       copyfmt(const basic_ios& __rhs);
@@ -441,9 +449,8 @@ namespace std
     };
 } // namespace std
 
-#ifdef _GLIBCPP_NO_TEMPLATE_EXPORT
-# define export
+#ifndef _GLIBCXX_EXPORT_TEMPLATE
 #include <bits/basic_ios.tcc>
 #endif
 
-#endif /* _CPP_BITS_BASICIOS_H */
+#endif /* _BASIC_IOS_H */

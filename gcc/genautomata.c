@@ -1616,7 +1616,7 @@ n_sep_els (char *s, int sep, int par_flag)
    elements in the string and number of elements through els_num.
    Take parentheses into account if PAREN_P has nonzero value.  The
    function also inserts the end marker NULL at the end of vector.
-   Return 0 for the null string, -1 if parantheses are not balanced.  */
+   Return 0 for the null string, -1 if parentheses are not balanced.  */
 static char **
 get_str_vect (char *str, int *els_num, int sep, int paren_p)
 {
@@ -1922,15 +1922,15 @@ gen_automaton (rtx def)
 void
 gen_automata_option (rtx def)
 {
-  if (strcmp ((char *) XSTR (def, 0), NO_MINIMIZATION_OPTION + 1) == 0)
+  if (strcmp (XSTR (def, 0), NO_MINIMIZATION_OPTION + 1) == 0)
     no_minimization_flag = 1;
-  else if (strcmp ((char *) XSTR (def, 0), TIME_OPTION + 1) == 0)
+  else if (strcmp (XSTR (def, 0), TIME_OPTION + 1) == 0)
     time_flag = 1;
-  else if (strcmp ((char *) XSTR (def, 0), V_OPTION + 1) == 0)
+  else if (strcmp (XSTR (def, 0), V_OPTION + 1) == 0)
     v_flag = 1;
-  else if (strcmp ((char *) XSTR (def, 0), W_OPTION + 1) == 0)
+  else if (strcmp (XSTR (def, 0), W_OPTION + 1) == 0)
     w_flag = 1;
-  else if (strcmp ((char *) XSTR (def, 0), NDFA_OPTION + 1) == 0)
+  else if (strcmp (XSTR (def, 0), NDFA_OPTION + 1) == 0)
     ndfa_flag = 1;
   else
     fatal ("invalid option `%s' in automata_option", XSTR (def, 0));
@@ -7911,7 +7911,7 @@ output_min_issue_delay_table (automaton_t automaton)
   fprintf (output_file, " ");
   output_min_issue_delay_vect_name (output_file, automaton);
   fprintf (output_file, "[] ATTRIBUTE_UNUSED = {\n");
-  /* Compress the vector */
+  /* Compress the vector.  */
   if (automaton->max_min_delay < 2)
     automaton->min_issue_delay_table_compression_factor = 8;
   else if (automaton->max_min_delay < 4)
@@ -8207,13 +8207,10 @@ output_automata_list_min_issue_delay_code (automata_list_el_t automata_list)
 static void
 output_internal_min_issue_delay_func (void)
 {
-  fprintf (output_file, "static int %s (int, struct %s *);\n",
-	   INTERNAL_MIN_ISSUE_DELAY_FUNC_NAME, CHIP_NAME);
   fprintf (output_file,
-	   "static int\n%s (%s, %s)\n\tint %s;\n\tstruct %s *%s  ATTRIBUTE_UNUSED;\n",
+	   "static int\n%s (int %s, struct %s *%s ATTRIBUTE_UNUSED)\n",
 	   INTERNAL_MIN_ISSUE_DELAY_FUNC_NAME, INTERNAL_INSN_CODE_NAME,
-	   CHIP_PARAMETER_NAME, INTERNAL_INSN_CODE_NAME, CHIP_NAME,
-	   CHIP_PARAMETER_NAME);
+	   CHIP_NAME, CHIP_PARAMETER_NAME);
   fprintf (output_file, "{\n  int %s ATTRIBUTE_UNUSED;\n  int %s = -1;\n",
 	   TEMPORARY_VARIABLE_NAME, RESULT_VARIABLE_NAME);
   fprintf (output_file, "\n  switch (%s)\n    {\n", INTERNAL_INSN_CODE_NAME);
@@ -8323,12 +8320,9 @@ output_automata_list_transition_code (automata_list_el_t automata_list)
 static void
 output_internal_trans_func (void)
 {
-  fprintf (output_file, "static int %s (int, struct %s *);\n",
-	   INTERNAL_TRANSITION_FUNC_NAME, CHIP_NAME);
   fprintf (output_file,
-	   "static int\n%s (%s, %s)\n\tint %s;\n\tstruct %s *%s  ATTRIBUTE_UNUSED;\n",
+	   "static int\n%s (int %s, struct %s *%s ATTRIBUTE_UNUSED)\n",
 	   INTERNAL_TRANSITION_FUNC_NAME, INTERNAL_INSN_CODE_NAME,
-	   CHIP_PARAMETER_NAME, INTERNAL_INSN_CODE_NAME,
 	   CHIP_NAME, CHIP_PARAMETER_NAME);
   fprintf (output_file, "{\n  int %s ATTRIBUTE_UNUSED;\n", TEMPORARY_VARIABLE_NAME);
   fprintf (output_file, "\n  switch (%s)\n    {\n", INTERNAL_INSN_CODE_NAME);
@@ -8373,10 +8367,9 @@ output_dfa_insn_code_func (void)
   /* Emacs c-mode gets really confused if there's a { or } in column 0
      inside a string, so don't do that.  */
   fprintf (output_file, "\
-static void dfa_insn_code_enlarge (int);\n\
 static void\n\
-dfa_insn_code_enlarge (uid)\n\
-     int uid;\n{\n\
+dfa_insn_code_enlarge (int uid)\n\
+{\n\
   int i = %s;\n\
   %s = 2 * uid;\n\
   %s = xrealloc (%s,\n\
@@ -8390,15 +8383,12 @@ dfa_insn_code_enlarge (uid)\n\
 	   DFA_INSN_CODES_LENGTH_VARIABLE_NAME,
 	   DFA_INSN_CODES_VARIABLE_NAME);
   fprintf (output_file, "\
-static inline int %s (rtx);\n\
-static inline int\n%s (%s)\n\
-    rtx %s;\n{\n\
- int uid = INSN_UID (%s);\n\
- int %s;\n\n",
-	   DFA_INSN_CODE_FUNC_NAME, DFA_INSN_CODE_FUNC_NAME,
-	   INSN_PARAMETER_NAME, INSN_PARAMETER_NAME,
-	   INSN_PARAMETER_NAME,
-	   INTERNAL_INSN_CODE_NAME);
+static inline int\n%s (rtx %s)\n\
+{\n\
+  int uid = INSN_UID (%s);\n\
+  int %s;\n\n",
+	   DFA_INSN_CODE_FUNC_NAME, INSN_PARAMETER_NAME,
+	   INSN_PARAMETER_NAME, INTERNAL_INSN_CODE_NAME);
 
   fprintf (output_file,
 	   "  if (uid >= %s)\n    dfa_insn_code_enlarge (uid);\n\n",
@@ -8422,9 +8412,9 @@ static inline int\n%s (%s)\n\
 static void
 output_trans_func (void)
 {
-  fprintf (output_file, "int\n%s (%s, %s)\n\t%s %s;\n\trtx %s;\n",
-	   TRANSITION_FUNC_NAME, STATE_NAME, INSN_PARAMETER_NAME,
-	   STATE_TYPE_NAME, STATE_NAME, INSN_PARAMETER_NAME);
+  fprintf (output_file, "int\n%s (%s %s, rtx %s)\n",
+	   TRANSITION_FUNC_NAME, STATE_TYPE_NAME, STATE_NAME,
+	   INSN_PARAMETER_NAME);
   fprintf (output_file, "{\n  int %s;\n", INTERNAL_INSN_CODE_NAME);
   output_internal_insn_code_evaluation (INSN_PARAMETER_NAME,
 					INTERNAL_INSN_CODE_NAME, -1);
@@ -8497,13 +8487,10 @@ output_automata_list_state_alts_code (automata_list_el_t automata_list)
 static void
 output_internal_state_alts_func (void)
 {
-  fprintf (output_file, "static int %s (int, struct %s *);\n",
-	   INTERNAL_STATE_ALTS_FUNC_NAME, CHIP_NAME);
   fprintf (output_file,
-	   "static int\n%s (%s, %s)\n\tint %s;\n\tstruct %s *%s;\n",
+	   "static int\n%s (int %s, struct %s *%s)\n",
 	   INTERNAL_STATE_ALTS_FUNC_NAME, INTERNAL_INSN_CODE_NAME,
-	   CHIP_PARAMETER_NAME, INTERNAL_INSN_CODE_NAME, CHIP_NAME,
-	   CHIP_PARAMETER_NAME);
+	   CHIP_NAME, CHIP_PARAMETER_NAME);
   fprintf (output_file, "{\n  int %s;\n", RESULT_VARIABLE_NAME);
   fprintf (output_file, "\n  switch (%s)\n    {\n", INTERNAL_INSN_CODE_NAME);
   output_insn_code_cases (output_automata_list_state_alts_code);
@@ -8532,9 +8519,9 @@ output_state_alts_func (void)
 static void
 output_min_issue_delay_func (void)
 {
-  fprintf (output_file, "int\n%s (%s, %s)\n\t%s %s;\n\trtx %s;\n",
-	   MIN_ISSUE_DELAY_FUNC_NAME, STATE_NAME, INSN_PARAMETER_NAME,
-	   STATE_TYPE_NAME, STATE_NAME, INSN_PARAMETER_NAME);
+  fprintf (output_file, "int\n%s (%s %s, rtx %s)\n",
+	   MIN_ISSUE_DELAY_FUNC_NAME, STATE_TYPE_NAME, STATE_NAME,
+	   INSN_PARAMETER_NAME);
   fprintf (output_file, "{\n  int %s;\n", INTERNAL_INSN_CODE_NAME);
   fprintf (output_file, "\n  if (%s != 0)\n    {\n", INSN_PARAMETER_NAME);
   fprintf (output_file, "      %s = %s (%s);\n", INTERNAL_INSN_CODE_NAME,
@@ -8555,11 +8542,8 @@ output_internal_dead_lock_func (void)
 {
   automaton_t automaton;
 
-  fprintf (output_file, "static int %s (struct %s *);\n",
-	   INTERNAL_DEAD_LOCK_FUNC_NAME, CHIP_NAME);
-  fprintf (output_file, "static int\n%s (%s)\n\tstruct %s *%s;\n",
-	   INTERNAL_DEAD_LOCK_FUNC_NAME, CHIP_PARAMETER_NAME, CHIP_NAME,
-	   CHIP_PARAMETER_NAME);
+  fprintf (output_file, "static int\n%s (struct %s *%s)\n",
+	   INTERNAL_DEAD_LOCK_FUNC_NAME, CHIP_NAME, CHIP_PARAMETER_NAME);
   fprintf (output_file, "{\n");
   for (automaton = description->first_automaton;
        automaton != NULL;
@@ -8578,8 +8562,8 @@ output_internal_dead_lock_func (void)
 static void
 output_dead_lock_func (void)
 {
-  fprintf (output_file, "int\n%s (%s)\n\t%s %s;\n",
-	   DEAD_LOCK_FUNC_NAME, STATE_NAME, STATE_TYPE_NAME, STATE_NAME);
+  fprintf (output_file, "int\n%s (%s %s)\n",
+	   DEAD_LOCK_FUNC_NAME, STATE_TYPE_NAME, STATE_NAME);
   fprintf (output_file, "{\n  return %s (%s);\n}\n\n",
 	   INTERNAL_DEAD_LOCK_FUNC_NAME, STATE_NAME);
 }
@@ -8588,11 +8572,8 @@ output_dead_lock_func (void)
 static void
 output_internal_reset_func (void)
 {
-  fprintf (output_file, "static void %s (struct %s *);\n",
-	   INTERNAL_RESET_FUNC_NAME, CHIP_NAME);
-  fprintf (output_file, "static void\n%s (%s)\n\tstruct %s *%s;\n",
-	   INTERNAL_RESET_FUNC_NAME, CHIP_PARAMETER_NAME,
-	   CHIP_NAME, CHIP_PARAMETER_NAME);
+  fprintf (output_file, "static inline void\n%s (struct %s *%s)\n",
+	   INTERNAL_RESET_FUNC_NAME, CHIP_NAME, CHIP_PARAMETER_NAME);
   fprintf (output_file, "{\n  memset (%s, 0, sizeof (struct %s));\n}\n\n",
 	   CHIP_PARAMETER_NAME, CHIP_NAME);
 }
@@ -8601,7 +8582,7 @@ output_internal_reset_func (void)
 static void
 output_size_func (void)
 {
-  fprintf (output_file, "int\n%s ()\n", SIZE_FUNC_NAME);
+  fprintf (output_file, "int\n%s (void)\n", SIZE_FUNC_NAME);
   fprintf (output_file, "{\n  return sizeof (struct %s);\n}\n\n", CHIP_NAME);
 }
 
@@ -8609,8 +8590,8 @@ output_size_func (void)
 static void
 output_reset_func (void)
 {
-  fprintf (output_file, "void\n%s (%s)\n\t %s %s;\n",
-	   RESET_FUNC_NAME, STATE_NAME, STATE_TYPE_NAME, STATE_NAME);
+  fprintf (output_file, "void\n%s (%s %s)\n",
+	   RESET_FUNC_NAME, STATE_TYPE_NAME, STATE_NAME);
   fprintf (output_file, "{\n  %s (%s);\n}\n\n", INTERNAL_RESET_FUNC_NAME,
 	   STATE_NAME);
 }
@@ -8620,11 +8601,9 @@ static void
 output_min_insn_conflict_delay_func (void)
 {
   fprintf (output_file,
-	   "int\n%s (%s, %s, %s)\n\t%s %s;\n\trtx %s;\n\trtx %s;\n",
-	   MIN_INSN_CONFLICT_DELAY_FUNC_NAME,
-	   STATE_NAME, INSN_PARAMETER_NAME, INSN2_PARAMETER_NAME,
-	   STATE_TYPE_NAME, STATE_NAME,
-	   INSN_PARAMETER_NAME, INSN2_PARAMETER_NAME);
+	   "int\n%s (%s %s, rtx %s, rtx %s)\n",
+	   MIN_INSN_CONFLICT_DELAY_FUNC_NAME, STATE_TYPE_NAME,
+	   STATE_NAME, INSN_PARAMETER_NAME, INSN2_PARAMETER_NAME);
   fprintf (output_file, "{\n  struct %s %s;\n  int %s, %s;\n",
 	   CHIP_NAME, CHIP_NAME, INTERNAL_INSN_CODE_NAME,
 	   INTERNAL_INSN2_CODE_NAME);
@@ -8665,18 +8644,11 @@ output_internal_insn_latency_func (void)
 	  tabletype = "int";
       }
 
-  fprintf (output_file, "static int %s (int, int, rtx, rtx);\n",
-	   INTERNAL_INSN_LATENCY_FUNC_NAME);
-  fprintf (output_file, "static int\n%s (%s, %s, %s, %s)",
+  fprintf (output_file, "static int\n%s (int %s ATTRIBUTE_UNUSED,\n\tint %s ATTRIBUTE_UNUSED,\n\trtx %s ATTRIBUTE_UNUSED,\n\trtx %s ATTRIBUTE_UNUSED)\n",
 	   INTERNAL_INSN_LATENCY_FUNC_NAME, INTERNAL_INSN_CODE_NAME,
 	   INTERNAL_INSN2_CODE_NAME, INSN_PARAMETER_NAME,
 	   INSN2_PARAMETER_NAME);
-  fprintf (output_file,
-	   "\n\tint %s ATTRIBUTE_UNUSED;\n\tint %s ATTRIBUTE_UNUSED;\n",
-	   INTERNAL_INSN_CODE_NAME, INTERNAL_INSN2_CODE_NAME);
-  fprintf (output_file,
-	   "\trtx %s ATTRIBUTE_UNUSED;\n\trtx %s ATTRIBUTE_UNUSED;\n{\n",
-	   INSN_PARAMETER_NAME, INSN2_PARAMETER_NAME);
+  fprintf (output_file, "{\n");
 
   if (DECL_INSN_RESERV (advance_cycle_insn_decl)->insn_num == 0)
     {
@@ -8751,9 +8723,8 @@ output_internal_insn_latency_func (void)
 static void
 output_insn_latency_func (void)
 {
-  fprintf (output_file, "int\n%s (%s, %s)\n\trtx %s;\n\trtx %s;\n",
-	   INSN_LATENCY_FUNC_NAME, INSN_PARAMETER_NAME, INSN2_PARAMETER_NAME,
-	   INSN_PARAMETER_NAME, INSN2_PARAMETER_NAME);
+  fprintf (output_file, "int\n%s (rtx %s, rtx %s)\n",
+	   INSN_LATENCY_FUNC_NAME, INSN_PARAMETER_NAME, INSN2_PARAMETER_NAME);
   fprintf (output_file, "{\n  int %s, %s;\n",
 	   INTERNAL_INSN_CODE_NAME, INTERNAL_INSN2_CODE_NAME);
   output_internal_insn_code_evaluation (INSN_PARAMETER_NAME,
@@ -8774,9 +8745,8 @@ output_print_reservation_func (void)
   int i, j;
 
   fprintf (output_file,
-	   "void\n%s (%s, %s)\n\tFILE *%s;\n\trtx %s ATTRIBUTE_UNUSED;\n{\n",
+	   "void\n%s (FILE *%s, rtx %s ATTRIBUTE_UNUSED)\n{\n",
            PRINT_RESERVATION_FUNC_NAME, FILE_PARAMETER_NAME,
-           INSN_PARAMETER_NAME, FILE_PARAMETER_NAME,
            INSN_PARAMETER_NAME);
 
   if (DECL_INSN_RESERV (advance_cycle_insn_decl)->insn_num == 0)
@@ -8872,8 +8842,7 @@ output_get_cpu_unit_code_func (void)
 	   LOW_VARIABLE_NAME, MIDDLE_VARIABLE_NAME, HIGH_VARIABLE_NAME);
   fprintf (output_file, "  static struct %s %s [] =\n    {\n",
 	   NAME_CODE_STRUCT_NAME, NAME_CODE_TABLE_NAME);
-  units = (unit_decl_t *) xmalloc (sizeof (unit_decl_t)
-				   * description->units_num);
+  units = xmalloc (sizeof (unit_decl_t) * description->units_num);
   memcpy (units, units_array, sizeof (unit_decl_t) * description->units_num);
   qsort (units, description->units_num, sizeof (unit_decl_t), units_cmp);
   for (i = 0; i < description->units_num; i++)
@@ -8941,7 +8910,7 @@ static void
 output_dfa_clean_insn_cache_func (void)
 {
   fprintf (output_file,
-	   "void\n%s ()\n{\n  int %s;\n\n",
+	   "void\n%s (void)\n{\n  int %s;\n\n",
 	   DFA_CLEAN_INSN_CACHE_FUNC_NAME, I_VARIABLE_NAME);
   fprintf (output_file,
 	   "  for (%s = 0; %s < %s; %s++)\n    %s [%s] = -1;\n}\n\n",
@@ -8955,9 +8924,9 @@ static void
 output_dfa_start_func (void)
 {
   fprintf (output_file,
-	   "void\n%s ()\n{\n  %s = get_max_uid ();\n",
+	   "void\n%s (void)\n{\n  %s = get_max_uid ();\n",
 	   DFA_START_FUNC_NAME, DFA_INSN_CODES_LENGTH_VARIABLE_NAME);
-  fprintf (output_file, "  %s = (int *) xmalloc (%s * sizeof (int));\n",
+  fprintf (output_file, "  %s = xmalloc (%s * sizeof (int));\n",
 	   DFA_INSN_CODES_VARIABLE_NAME, DFA_INSN_CODES_LENGTH_VARIABLE_NAME);
   fprintf (output_file, "  %s ();\n}\n\n", DFA_CLEAN_INSN_CACHE_FUNC_NAME);
 }
@@ -8966,7 +8935,7 @@ output_dfa_start_func (void)
 static void
 output_dfa_finish_func (void)
 {
-  fprintf (output_file, "void\n%s ()\n{\n  free (%s);\n}\n\n",
+  fprintf (output_file, "void\n%s (void)\n{\n  free (%s);\n}\n\n",
 	   DFA_FINISH_FUNC_NAME, DFA_INSN_CODES_VARIABLE_NAME);
 }
 
@@ -9467,7 +9436,7 @@ make_insn_alts_attr (void)
   make_internal_attr (attr_printf (sizeof ("*")
 				   + strlen (INSN_ALTS_FUNC_NAME) + 1,
 				   "*%s", INSN_ALTS_FUNC_NAME),
-		      condexp, 0);
+		      condexp, ATTR_NONE);
 }
 
 
@@ -9504,7 +9473,7 @@ make_internal_dfa_insn_code_attr (void)
     (attr_printf (sizeof ("*")
 		  + strlen (INTERNAL_DFA_INSN_CODE_FUNC_NAME) + 1,
 		  "*%s", INTERNAL_DFA_INSN_CODE_FUNC_NAME),
-     condexp, 0);
+     condexp, ATTR_STATIC);
 }
 
 
@@ -9538,7 +9507,7 @@ make_default_insn_latency_attr (void)
   make_internal_attr (attr_printf (sizeof ("*")
 				   + strlen (INSN_DEFAULT_LATENCY_FUNC_NAME)
 				   + 1, "*%s", INSN_DEFAULT_LATENCY_FUNC_NAME),
-		      condexp, 0);
+		      condexp, ATTR_NONE);
 }
 
 
@@ -9587,7 +9556,7 @@ make_bypass_attr (void)
   make_internal_attr (attr_printf (sizeof ("*")
 				   + strlen (BYPASS_P_FUNC_NAME) + 1,
 				   "*%s", BYPASS_P_FUNC_NAME),
-		      result_rtx, 0);
+		      result_rtx, ATTR_NONE);
 }
 
 

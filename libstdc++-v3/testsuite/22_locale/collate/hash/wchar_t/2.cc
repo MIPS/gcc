@@ -20,6 +20,10 @@
 
 // 22.2.4.1.1 collate members
 
+// Doesn't work due to use of literal ISO8859.1 characters.  PR 11439
+// { dg-do compile { xfail *-*-* } } should be run
+// { dg-excess-errors "" }
+
 #include <locale>
 #include <testsuite_hooks.h>
 
@@ -32,9 +36,9 @@ void test02()
 
   // basic construction
   locale loc_c = locale::classic();
-  locale loc_us = __gnu_cxx_test::try_named_locale("en_US");
-  locale loc_fr = __gnu_cxx_test::try_named_locale("fr_FR");
-  locale loc_de = __gnu_cxx_test::try_named_locale("de_DE");
+  locale loc_us = __gnu_test::try_named_locale("en_US");
+  locale loc_fr = __gnu_test::try_named_locale("fr_FR");
+  locale loc_de = __gnu_test::try_named_locale("de_DE");
   VERIFY( loc_c != loc_de );
   VERIFY( loc_us != loc_fr );
   VERIFY( loc_us != loc_de );

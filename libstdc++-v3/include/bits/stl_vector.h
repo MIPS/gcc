@@ -58,8 +58,8 @@
  *  You should not attempt to use it directly.
  */
 
-#ifndef __GLIBCPP_INTERNAL_VECTOR_H
-#define __GLIBCPP_INTERNAL_VECTOR_H
+#ifndef _VECTOR_H
+#define _VECTOR_H 1
 
 #include <bits/stl_iterator_base_funcs.h>
 #include <bits/functexcept.h>
@@ -153,7 +153,7 @@ namespace std
       _Vector_base(size_t __n, const allocator_type& __a)
       : _Base(__a)
       {
-	this->_M_start = _M_allocate(__n);
+	this->_M_start = this->_M_allocate(__n);
 	this->_M_finish = this->_M_start;
 	this->_M_end_of_storage = this->_M_start + __n;
       }
@@ -186,7 +186,7 @@ namespace std
     class vector : protected _Vector_base<_Tp, _Alloc>
     {
       // Concept requirements.
-      __glibcpp_class_requires(_Tp, _SGIAssignableConcept)
+      __glibcxx_class_requires(_Tp, _SGIAssignableConcept)
   
       typedef _Vector_base<_Tp, _Alloc>                     _Base;
       typedef vector<_Tp, _Alloc>                           vector_type;
@@ -239,7 +239,7 @@ namespace std
       vector(size_type __n, const value_type& __value,
 	     const allocator_type& __a = allocator_type())
       : _Base(__n, __a)
-      { this->_M_finish = uninitialized_fill_n(this->_M_start, __n, __value); }
+      { this->_M_finish = std::uninitialized_fill_n(this->_M_start, __n, __value); }
   
       /**
        *  @brief  Create a %vector with default elements.
@@ -251,8 +251,8 @@ namespace std
       explicit
       vector(size_type __n)
       : _Base(__n, allocator_type())
-      { this->_M_finish = uninitialized_fill_n(this->_M_start,
-					       __n, value_type()); }
+      { this->_M_finish = std::uninitialized_fill_n(this->_M_start,
+						    __n, value_type()); }
       
       /**
        *  @brief  %Vector copy constructor.
@@ -265,8 +265,8 @@ namespace std
        */
       vector(const vector& __x)
       : _Base(__x.size(), __x.get_allocator())
-      { this->_M_finish = uninitialized_copy(__x.begin(), __x.end(),
-					     this->_M_start);
+      { this->_M_finish = std::uninitialized_copy(__x.begin(), __x.end(),
+						  this->_M_start);
       }
   
       /**
@@ -298,7 +298,7 @@ namespace std
        *  themselves are pointers, the pointed-to memory is not touched in any
        *  way.  Managing the pointer is the user's responsibilty.
        */
-      ~vector() { _Destroy(this->_M_start, this->_M_finish); }
+      ~vector() { std::_Destroy(this->_M_start, this->_M_finish); }
   
       /**
        *  @brief  %Vector assignment operator.
@@ -600,7 +600,7 @@ namespace std
       {
 	if (this->_M_finish != this->_M_end_of_storage)
 	  {
-	    _Construct(this->_M_finish, __x);
+	    std::_Construct(this->_M_finish, __x);
 	    ++this->_M_finish;
 	  }
 	else
@@ -619,7 +619,7 @@ namespace std
       pop_back()
       {
 	--this->_M_finish;
-	_Destroy(this->_M_finish);
+	std::_Destroy(this->_M_finish);
       }
       
       /**
@@ -753,10 +753,10 @@ namespace std
         _M_allocate_and_copy(size_type __n,
 			     _ForwardIterator __first, _ForwardIterator __last)
         {
-	  pointer __result = _M_allocate(__n);
+	  pointer __result = this->_M_allocate(__n);
 	  try
 	    {
-	      uninitialized_copy(__first, __last, __result);
+	      std::uninitialized_copy(__first, __last, __result);
 	      return __result;
 	    }
 	  catch(...)
@@ -776,7 +776,7 @@ namespace std
         {
 	  this->_M_start = _M_allocate(__n);
 	  this->_M_end_of_storage = this->_M_start + __n;
-	  this->_M_finish = uninitialized_fill_n(this->_M_start, __n, __value);
+	  this->_M_finish = std::uninitialized_fill_n(this->_M_start, __n, __value);
 	}
       
       // Called by the range constructor to implement [23.1.1]/9
@@ -807,10 +807,10 @@ namespace std
 			    _ForwardIterator __last, forward_iterator_tag)
         {
 	  size_type __n = std::distance(__first, __last);
-	  this->_M_start = _M_allocate(__n);
+	  this->_M_start = this->_M_allocate(__n);
 	  this->_M_end_of_storage = this->_M_start + __n;
-	  this->_M_finish = uninitialized_copy(__first, __last,
-					       this->_M_start);
+	  this->_M_finish = std::uninitialized_copy(__first, __last,
+						    this->_M_start);
 	}
       
       
@@ -915,7 +915,7 @@ namespace std
     operator==(const vector<_Tp,_Alloc>& __x, const vector<_Tp,_Alloc>& __y)
     {
       return __x.size() == __y.size() &&
-             equal(__x.begin(), __x.end(), __y.begin());
+             std::equal(__x.begin(), __x.end(), __y.begin());
     }
   
   /**
@@ -933,8 +933,8 @@ namespace std
     inline bool
     operator<(const vector<_Tp,_Alloc>& __x, const vector<_Tp,_Alloc>& __y)
     {
-      return lexicographical_compare(__x.begin(), __x.end(),
-                                     __y.begin(), __y.end());
+      return std::lexicographical_compare(__x.begin(), __x.end(),
+					  __y.begin(), __y.end());
     }
   
   /// Based on operator==
@@ -968,4 +968,4 @@ namespace std
     { __x.swap(__y); }
 } // namespace std
 
-#endif /* __GLIBCPP_INTERNAL_VECTOR_H */
+#endif /* _VECTOR_H */

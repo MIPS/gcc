@@ -31,7 +31,7 @@ void test04()
   bool test = true;
   using namespace std;
 
-#ifdef _GLIBCPP_HAVE_SETENV
+#ifdef _GLIBCXX_HAVE_SETENV
 
   const char* LANG_orig = getenv("LANG") ? strdup(getenv("LANG")) : "";
   const char* LC_ALL_orig = getenv("LC_ALL") ? strdup(getenv("LC_ALL")) : "";
@@ -47,7 +47,7 @@ void test04()
     getenv("LC_MONETARY") ? strdup(getenv("LC_MONETARY")) : "";
   const char* LC_MESSAGES_orig = 
     getenv("LC_MESSAGES") ? strdup(getenv("LC_MESSAGES")) : "";
-#if _GLIBCPP_NUM_CATEGORIES
+#if _GLIBCXX_NUM_CATEGORIES
   const char* LC_PAPER_orig = 
     getenv("LC_PAPER") ? strdup(getenv("LC_PAPER")) : "";
   const char* LC_NAME_orig = 
@@ -65,7 +65,7 @@ void test04()
   // Check that a "POSIX" LC_ALL is equivalent to "C".
   if (!setenv("LC_ALL", "POSIX", 1))
     {
-      locale loc = __gnu_cxx_test::try_named_locale("");
+      locale loc = __gnu_test::try_named_locale("");
       VERIFY( loc.name() == "C" );
     }
   setenv("LC_ALL", "", 1);
@@ -73,7 +73,7 @@ void test04()
   // Check that a "en_PH" LC_ALL is equivalent to "en_PH".
   if (!setenv("LC_ALL", "en_PH", 1))
     {
-      locale loc = __gnu_cxx_test::try_named_locale("");
+      locale loc = __gnu_test::try_named_locale("");
       VERIFY( loc.name() == "en_PH" );
     }
   setenv("LC_ALL", "", 1);
@@ -83,7 +83,7 @@ void test04()
     {
       if (!setenv("LC_ALL", "en_PH", 1))
 	{
-	  locale loc = __gnu_cxx_test::try_named_locale("");
+	  locale loc = __gnu_test::try_named_locale("");
 	  VERIFY( loc.name() == "en_PH" );
 	}
       setenv("LC_ALL", "", 1);
@@ -100,7 +100,7 @@ void test04()
   setenv("LC_COLLATE", "", 1);
   setenv("LC_MONETARY", "", 1);
   setenv("LC_MESSAGES", "", 1);
-#if _GLIBCPP_NUM_CATEGORIES
+#if _GLIBCXX_NUM_CATEGORIES
   setenv("LC_PAPER", "", 1);
   setenv("LC_NAME", "", 1);
   setenv("LC_ADDRESS", "", 1);
@@ -112,7 +112,7 @@ void test04()
   // Check the default set by LANG.
   if (!setenv("LANG", "fr_FR", 1))
     {
-      locale loc = __gnu_cxx_test::try_named_locale("");
+      locale loc = __gnu_test::try_named_locale("");
       VERIFY( loc.name() == "fr_FR" );
     }
 
@@ -126,9 +126,9 @@ void test04()
   // Setting a category in the "C" default.
   if (!setenv("LC_COLLATE", "de_DE", 1))
     {
-      locale loc = __gnu_cxx_test::try_named_locale("");
+      locale loc = __gnu_test::try_named_locale("");
 
-#if _GLIBCPP_NUM_CATEGORIES
+#if _GLIBCXX_NUM_CATEGORIES
       VERIFY( loc.name() == "LC_CTYPE=C;LC_NUMERIC=C;LC_TIME=C;"
               "LC_COLLATE=de_DE;LC_MONETARY=C;LC_MESSAGES=C;LC_PAPER=C;"
 	      "LC_NAME=C;LC_ADDRESS=C;LC_TELEPHONE=C;LC_MEASUREMENT=C;"
@@ -142,8 +142,8 @@ void test04()
   // Changing the LANG default while LC_COLLATE is set.
   if (!setenv("LANG", "fr_FR", 1))
     {
-      locale loc = __gnu_cxx_test::try_named_locale("");
-#if _GLIBCPP_NUM_CATEGORIES
+      locale loc = __gnu_test::try_named_locale("");
+#if _GLIBCXX_NUM_CATEGORIES
       VERIFY( loc.name() == "LC_CTYPE=fr_FR;LC_NUMERIC=fr_FR;"
 	      "LC_TIME=fr_FR;LC_COLLATE=de_DE;LC_MONETARY=fr_FR;"
 	      "LC_MESSAGES=fr_FR;LC_PAPER=fr_FR;LC_NAME=fr_FR;"
@@ -157,10 +157,10 @@ void test04()
     }
   
   // Changing another (C only) category.
-#if _GLIBCPP_NUM_CATEGORIES
+#if _GLIBCXX_NUM_CATEGORIES
   if (!setenv("LC_IDENTIFICATION", "it_IT", 1))
     {
-      locale loc = __gnu_cxx_test::try_named_locale("");
+      locale loc = __gnu_test::try_named_locale("");
       VERIFY( loc.name() == "LC_CTYPE=fr_FR;LC_NUMERIC=fr_FR;"
 	      "LC_TIME=fr_FR;LC_COLLATE=de_DE;LC_MONETARY=fr_FR;"
 	      "LC_MESSAGES=fr_FR;LC_PAPER=fr_FR;LC_NAME=fr_FR;"
@@ -178,7 +178,7 @@ void test04()
   setenv("LC_COLLATE", LC_COLLATE_orig ? LC_COLLATE_orig : "", 1);
   setenv("LC_MONETARY", LC_MONETARY_orig ? LC_MONETARY_orig : "", 1);
   setenv("LC_MESSAGES", LC_MESSAGES_orig ? LC_MESSAGES_orig : "", 1);
-#if _GLIBCPP_NUM_CATEGORIES
+#if _GLIBCXX_NUM_CATEGORIES
   setenv("LC_PAPER", LC_PAPER_orig ? LC_PAPER_orig : "", 1);
   setenv("LC_NAME", LC_NAME_orig ? LC_NAME_orig : "", 1);
   setenv("LC_ADDRESS", LC_ADDRESS_orig ? LC_ADDRESS_orig : "", 1);

@@ -1,3 +1,105 @@
+2003-08-24  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* gcc_release (build_sources): Create/update the LAST_UPDATED file
+	in the source directory with information how sources were obtained.
+	
+2003-08-16  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* gcc_release (build_sources): Use two new variables EXPORTTAG and
+	EXPORTDATE to make the extraction of sources more transparent and
+	also allow snapshots (off mainline) without a tag.
+
+2003-08-08  Mark Mitchell  <mark@codesourcery.com>
+
+	* gcc_release: Correct logic for updating version.c.  Put
+	prereleases into a subdirectory.
+
+2003-07-29  Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
+
+	* crontab: Update invocation of gcc_release according to the
+	previous changes there.  Add automatic 3.4 snapshots from mainline.
+
+2003-07-23  Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
+
+	* gcc_release (usage): Document that -s now takes symbolic name
+	and branch of the snapshot as parameters.
+	Implement this as part of command-line processing.
+	(BRANCH): Remove default initialization for snapshots.
+	(CVSBRANCH): Ditto.
+	Do not lay down a CVS tag if generating a snapshot from mainline.
+	
+2003-07-19  Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
+
+	* gcc_release (announce_snapshot): Use ${RELEASE} instead
+	of ${BRANCH}-${DATE} to refer to the snapshot directory.
+	Put README file into the snapshot directory.
+
+	(RELEASE): Define as ${BRANCH}-${DATE} for snapshots.
+	(FTP_PATH): Use ${RELEASE} in case of snapshots.
+	(TAG): Ditto.
+	(OLD_TARS): Adjust to new directory scheme for snapshots.
+
+2003-07-14  Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
+
+	* gcc_release (announce_snapshot): Add substitution of @RELEASE@
+	for README and index.html.
+	* snapshot-README: Use it.
+	* snapshot-index.html: Ditto.
+
+2003-07-09  Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
+	
+	* gcc_release (announce_snapshot): Add substitution of @BRANCH@
+	for README and index.html.  Remove substitution of @LONG_DATE@.
+	Put index.html into the respective snapshot directory.
+	Adjust subject of the notification mail to the new naming scheme
+	for CVS tags.
+	Adjust name of the LATEST-IS-... files to the new naming scheme
+	for snapshot directories.
+	(FTP_PATH): Ditto.
+	(LAST_DIR): Ditto.
+	(LAST_LONG_DATE): Remove.
+
+	* snapshot-README: Adjust to the new naming schemes for directories
+	and snapshots per se.
+	Dynamically fill in the respective branch instead of hardcoding it.
+
+	* snapshot-index.html: Replace individual links to diffs with a
+	general link to the diff/ subdirectory.
+	Mention the concrete snapshot in <title> and <h1>.
+	Adjust links to the new location of index.html.
+	
+2003-07-08  Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
+
+	* gcc_release: Move handling of complex modes directly after
+	switch handling.
+	(TAG): Include the branch name as part of snapshot CVS tags.
+
+2003-07-04  Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
+
+	* gcc_release: Execute gcc.gnu.org-only operations which are
+	related to diff generation only if diffs have been requested.
+	(build_sources): Improve tracing and an error message related
+	to tagging.
+
+2003-07-01  Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
+
+	* gcc_release (BRANCH): Rename to...
+	(CVSBRANCH): ...new macro, and use BRANCH for the variant users
+	will see.
+	(FTP_BRANCH): For snapshots, include ${BRANCH} in the last part
+	of the directory name.
+	Use .snapshot_date-${BRANCH} instead of .snapshot_date.
+
+2003-06-28  Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
+
+	* gcc_release: Command "all" now creates .gz files only for
+	releases and pre-releases.
+
+2003-06-27  Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
+
+	* gcc_release (build_sources): Do not include gnats.html any longer.
+	Make an error message more descriptive.
+	
 2003-06-25  Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
 
 	* gcc_release: Factor the updating of links and READMEs on the

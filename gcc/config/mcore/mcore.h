@@ -28,12 +28,6 @@
 #define	MCORE_STRUCT_ARGS
 /* RBE: end of "move elsewhere".  */
 
-#include "hwint.h"
-
-#ifndef HAVE_MACHINE_MODES
-#include "machmode.h"
-#endif
-
 /* Run-time Target Specification.  */
 #define TARGET_MCORE
 
@@ -179,10 +173,8 @@ extern const char * mcore_stack_increment_string;
      N_("Maximum amount for a single stack increment operation"), 0}	\
 }
 
-#ifndef CC1_SPEC
 /* The MCore ABI says that bitfields are unsigned by default.  */
 #define CC1_SPEC "-funsigned-bitfields"
-#endif
 
 /* What options are we going to default to specific settings when
    -O* happens; the user can subsequently override these settings.
@@ -258,7 +250,7 @@ extern const char * mcore_stack_increment_string;
 /* Allocation boundary (in *bits*) for storing arguments in argument list.  */
 #define PARM_BOUNDARY  	32
 
-/* Doubles must be alogned to an 8 byte boundary.  */
+/* Doubles must be aligned to an 8 byte boundary.  */
 #define FUNCTION_ARG_BOUNDARY(MODE, TYPE) \
   ((MODE != BLKmode && (GET_MODE_SIZE (MODE) == 8)) \
    ? BIGGEST_ALIGNMENT : PARM_BOUNDARY)
@@ -790,7 +782,7 @@ extern const enum reg_class reg_class_from_letter[];
 /* Output assembler code for a block containing the constant parts
    of a trampoline, leaving space for the variable parts.
 
-   On the MCore, the trapoline looks like:
+   On the MCore, the trampoline looks like:
    	lrw	r1,  function
      	lrw	r13, area
    	jmp	r13
@@ -1195,7 +1187,7 @@ extern long mcore_current_compilation_timestamp;
    games. This is because when we use this, we get a marked 
    reference through the call to assemble_name and this forces C++
    inlined member functions (or any inlined function) to be instantiated
-   regardless of whether any callsites remain.
+   regardless of whether any call sites remain.
    This makes this aspect of the compiler non-ABI compliant.  */
 
 /* Similar, but for libcall. FUN is an rtx.  */

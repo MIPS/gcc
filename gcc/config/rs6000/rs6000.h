@@ -475,6 +475,16 @@ extern int rs6000_alignment_flags;
 #define TARGET_ALIGN_NATURAL 0
 #endif
 
+/* Define TARGET_MFCRF if the target assembler supports the optional
+   field operand for mfcr and the target processor supports the
+   instruction.  */
+
+#ifdef HAVE_AS_MFCRF
+#define TARGET_MFCRF (rs6000_cpu == PROCESSOR_POWER4)
+#else
+#define TARGET_MFCRF 0
+#endif
+
 #define TARGET_LONG_DOUBLE_128 (rs6000_long_double_type_size == 128)
 #define TARGET_ALTIVEC_ABI rs6000_altivec_abi
 #define TARGET_ALTIVEC_VRSAVE rs6000_altivec_vrsave
@@ -1698,6 +1708,8 @@ typedef struct machine_function GTY(())
   const char *some_ld_name;
   /* Whether the instruction chain has been scanned already.  */
   int insn_chain_scanned_p;
+  /* Flags if __builtin_return_address (0) was used.  */
+  int ra_need_lr;
 } machine_function;
 
 /* Define a data type for recording info about an argument list
@@ -1724,7 +1736,6 @@ typedef struct rs6000_args
   int fregno;			/* next available FP register */
   int vregno;			/* next available AltiVec register */
   int nargs_prototype;		/* # args left in the current prototype */
-  int orig_nargs;		/* Original value of nargs_prototype */
   int prototype;		/* Whether a prototype was defined */
   int stdarg;			/* Whether function is a stdarg function.  */
   int call_cookie;		/* Do special things for this call */
@@ -1868,13 +1879,8 @@ typedef struct rs6000_args
 #define EXPAND_BUILTIN_VA_ARG(valist, type) \
   rs6000_va_arg (valist, type)
 
-/* For AIX, the rule is that structures are passed left-aligned in
-   their stack slot.  However, GCC does not presently do this:
-   structures which are the same size as integer types are passed
-   right-aligned, as if they were in fact integers.  This only
-   matters for structures of size 1 or 2, or 4 when TARGET_64BIT.
-   ABI_V4 does not use std_expand_builtin_va_arg.  */
-#define PAD_VARARGS_DOWN (TYPE_MODE (type) != BLKmode)
+#define PAD_VARARGS_DOWN \
+   (FUNCTION_ARG_PADDING (TYPE_MODE (type), type) == downward)
 
 /* Define this macro to be a nonzero value if the location where a function
    argument is passed depends on whether or not it is a named argument.  */

@@ -1,5 +1,5 @@
 /* Dependency generator for Makefile fragments.
-   Copyright (C) 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2003 Free Software Foundation, Inc.
    Contributed by Zack Weinberg, Mar 2000
 
 This program is free software; you can redistribute it and/or modify it
@@ -22,8 +22,6 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 #include "config.h"
 #include "system.h"
-#include "coretypes.h"
-#include "tm.h"
 #include "mkdeps.h"
 
 /* Keep this structure local to this file, so clients don't find it
@@ -39,7 +37,7 @@ struct deps
   unsigned int deps_size;
 };
 
-static const char *munge	PARAMS ((const char *));
+static const char *munge (const char *);
 
 /* Given a filename, quote characters in that filename which are
    significant to Make.  Note that it's not possible to quote all such
@@ -47,10 +45,9 @@ static const char *munge	PARAMS ((const char *));
    not properly handled.  It isn't possible to get this right in any
    current version of Make.  (??? Still true?  Old comment referred to
    3.76.1.)  */
-   
+
 static const char *
-munge (filename)
-     const char *filename;
+munge (const char *filename)
 {
   int len;
   const char *p, *q;
@@ -111,9 +108,9 @@ munge (filename)
 /* Public routines.  */
 
 struct deps *
-deps_init ()
+deps_init (void)
 {
-  struct deps *d = (struct deps *) xmalloc (sizeof (struct deps));
+  struct deps *d = xmalloc (sizeof (struct deps));
 
   /* Allocate space for the vectors only if we need it.  */
 
@@ -129,8 +126,7 @@ deps_init ()
 }
 
 void
-deps_free (d)
-     struct deps *d;
+deps_free (struct deps *d)
 {
   unsigned int i;
 
@@ -154,15 +150,12 @@ deps_free (d)
 /* Adds a target T.  We make a copy, so it need not be a permanent
    string.  QUOTE is true if the string should be quoted.  */
 void
-deps_add_target (d, t, quote)
-     struct deps *d;
-     const char *t;
-     int quote;
+deps_add_target (struct deps *d, const char *t, int quote)
 {
   if (d->ntargets == d->targets_size)
     {
       d->targets_size = d->targets_size * 2 + 4;
-      d->targetv = (const char **) xrealloc (d->targetv,
+      d->targetv = xrealloc (d->targetv,
 			     d->targets_size * sizeof (const char *));
     }
 
@@ -178,9 +171,7 @@ deps_add_target (d, t, quote)
    string as the default target in interpreted as stdin.  The string
    is quoted for MAKE.  */
 void
-deps_add_default_target (d, tgt)
-     struct deps *d;
-     const char *tgt;
+deps_add_default_target (struct deps *d, const char *tgt)
 {
   /* Only if we have no targets.  */
   if (d->ntargets)
@@ -194,41 +185,35 @@ deps_add_default_target (d, tgt)
 # define TARGET_OBJECT_SUFFIX ".o"
 #endif
       const char *start = lbasename (tgt);
-      char *o = (char *) alloca (strlen (start) + strlen (TARGET_OBJECT_SUFFIX) + 1);
+      char *o = alloca (strlen (start) + strlen (TARGET_OBJECT_SUFFIX) + 1);
       char *suffix;
 
       strcpy (o, start);
-      
+
       suffix = strrchr (o, '.');
       if (!suffix)
         suffix = o + strlen (o);
       strcpy (suffix, TARGET_OBJECT_SUFFIX);
-      
+
       deps_add_target (d, o, 1);
     }
 }
 
 void
-deps_add_dep (d, t)
-     struct deps *d;
-     const char *t;
+deps_add_dep (struct deps *d, const char *t)
 {
   t = munge (t);  /* Also makes permanent copy.  */
 
   if (d->ndeps == d->deps_size)
     {
       d->deps_size = d->deps_size * 2 + 8;
-      d->depv = (const char **)
-	xrealloc (d->depv, d->deps_size * sizeof (const char *));
+      d->depv = xrealloc (d->depv, d->deps_size * sizeof (const char *));
     }
   d->depv[d->ndeps++] = t;
 }
 
 void
-deps_write (d, fp, colmax)
-     const struct deps *d;
-     FILE *fp;
-     unsigned int colmax;
+deps_write (const struct deps *d, FILE *fp, unsigned int colmax)
 {
   unsigned int size, i, column;
 
@@ -275,11 +260,9 @@ deps_write (d, fp, colmax)
     }
   putc ('\n', fp);
 }
-  
+
 void
-deps_phony_targets (d, fp)
-     const struct deps *d;
-     FILE *fp;
+deps_phony_targets (const struct deps *d, FILE *fp)
 {
   unsigned int i;
 
@@ -297,9 +280,7 @@ deps_phony_targets (d, fp)
    error number will be in errno.  */
 
 int
-deps_save (deps, f)
-     struct deps *deps;
-     FILE *f;
+deps_save (struct deps *deps, FILE *f)
 {
   unsigned int i;
 
@@ -328,15 +309,12 @@ deps_save (deps, f)
    in which case that filename is skipped.  */
 
 int
-deps_restore (deps, fd, self)
-     struct deps *deps;
-     FILE *fd;
-     const char *self;
+deps_restore (struct deps *deps, FILE *fd, const char *self)
 {
   unsigned int i, count;
   size_t num_to_read;
   size_t buf_size = 512;
-  char *buf = (char *) xmalloc (buf_size);
+  char *buf = xmalloc (buf_size);
 
   /* Number of dependences.  */
   if (fread (&count, 1, sizeof (count), fd) != sizeof (count))
@@ -357,7 +335,7 @@ deps_restore (deps, fd, self)
 	return -1;
       buf[num_to_read] = '\0';
 
-      /* Generate makefile dependencies from .pch if -nopch-deps.  */ 
+      /* Generate makefile dependencies from .pch if -nopch-deps.  */
       if (self != NULL && strcmp (buf, self) != 0)
         deps_add_dep (deps, buf);
     }

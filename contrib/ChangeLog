@@ -1,3 +1,30 @@
+2003-08-21  Mark Mitchell  <mark@codesourcery.com>
+
+	* gcc_build: Fix handling of -t option.  Add -x option.
+
+2003-07-31  Matt Kraai  <kraai@alumni.cmu.edu>
+
+	* texi2pod.pl: Remove extra line.
+
+2003-07-15  Matt Kraai  <kraai@alumni.cmu.edu>
+
+	* texi2pod.pl: Default @itemize's parameter to @bullet.
+
+2003-07-12  Zack Weinberg  <zack@codesourcery.com>
+
+	* gcc_update: gcc/acconfig.h no longer exists.
+
+2003-07-11  Matthias Klose  <doko@debian.org>
+
+	* test_installed: Add options to run objc tests.
+	In generated site.exp, initialize rootme, CFLAGS, CXXFLAGS.
+
+2003-07-04  Zack Weinberg  <zack@codesourcery.com>
+
+	* gcc_update: Remove gcc/intl/plural.c from list.
+	Add new generated files intl/plural.c, intl/configure,
+	intl/config.h.in.
+
 2003-06-13  Jason Thorpe  <thorpej@wasabisystems.com>
 
 	* gcc_update (files_and_dependencies): Add
@@ -53,7 +80,7 @@
 2002-12-28  Alexandre Oliva  <aoliva@redhat.com>
 
 	* gcc_update (configure): Depend on config/acx.m4 as well.
-	
+
 	* gcc_update (configure): Depend on configure.in.
 
 2002-12-24  Joseph S. Myers  <jsm@polyomino.org.uk>

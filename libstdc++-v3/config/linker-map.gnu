@@ -1,4 +1,4 @@
-## Linker script for GNU ld 2.11.94+ only.
+## Linker script for GNU ld 2.13.91+ only.
 ##
 ## Copyright (C) 2002, 2003 Free Software Foundation, Inc.
 ##
@@ -20,12 +20,11 @@
 ## Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
 ## USA.
 
-GLIBCPP_3.4 {
+GLIBCXX_3.4 {
 
   global:
 
     # Names inside the 'extern' block are demangled names.
-    # All but the last are terminated with a semicolon.
     extern "C++"
     {
       std::[A-Za-k]*;
@@ -56,7 +55,9 @@ GLIBCPP_3.4 {
       std::__num_base::_S_format_int*;
       std::__num_base::_S_atoms_in;
       std::__num_base::_S_atoms_out;
-      std::__numpunct_cache*
+      std::__moneypunct_cache*;
+      std::__numpunct_cache*;
+      std::__timepunct_cache*
     };
 
     # Names not in an 'extern' block are mangled names.
@@ -73,6 +74,15 @@ GLIBCPP_3.4 {
 
     # bool has_facet 
     _ZSt9has_facet*;
+
+    # _Rb_tree
+    _ZSt18_Rb_tree_decrementPSt18_Rb_tree_node_base;
+    _ZSt18_Rb_tree_incrementPSt18_Rb_tree_node_base;
+    _ZSt18_Rb_tree_rebalancePSt18_Rb_tree_node_baseRS0_;
+    _ZSt20_Rb_tree_black_countPKSt18_Rb_tree_node_baseS1_;
+    _ZSt20_Rb_tree_rotate_leftPSt18_Rb_tree_node_baseRS0_;
+    _ZSt21_Rb_tree_rotate_rightPSt18_Rb_tree_node_baseRS0_;
+    _ZSt28_Rb_tree_rebalance_for_erasePSt18_Rb_tree_node_baseRS_;
 
     # virtual table
     _ZTVNSt8ios_base7failureE;
@@ -168,6 +178,8 @@ GLIBCPP_3.4 {
     _ZN9__gnu_cxx17_Atomic_add_mutexE;
     _ZN9__gnu_cxx22_Atomic_add_mutex_onceE;
     _ZN9__gnu_cxx31__gthread_atomic_add_mutex_onceEv;
+
+  # DO NOT DELETE THIS LINE.  Port-specific symbols, if any, will be here.
 
   local:
     *;

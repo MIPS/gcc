@@ -28,6 +28,7 @@
 
 #include <clocale>
 #include <cstring>
+#include <cstdlib>     // For getenv, free.
 #include <cctype>
 #include <cwctype>     // For towupper, etc.
 #include <locale>
@@ -55,7 +56,7 @@ namespace std
   const locale::category 	locale::all;
 
   // In the future, GLIBCXX_ABI > 5 should remove all uses of
-  // _GLIBCPP_ASM_SYMVER in this file, and remove exports of any
+  // _GLIBCXX_ASM_SYMVER in this file, and remove exports of any
   // static data members of locale.
 
   // These are no longer exported.
@@ -72,7 +73,7 @@ namespace std
   {
     &std::ctype<char>::id, 
     &codecvt<char, char, mbstate_t>::id,
-#ifdef _GLIBCPP_USE_WCHAR_T
+#ifdef _GLIBCXX_USE_WCHAR_T
     &std::ctype<wchar_t>::id,
     &codecvt<wchar_t, char, mbstate_t>::id,
 #endif
@@ -85,7 +86,7 @@ namespace std
     &num_get<char>::id,  
     &num_put<char>::id,  
     &numpunct<char>::id, 
-#ifdef _GLIBCPP_USE_WCHAR_T
+#ifdef _GLIBCXX_USE_WCHAR_T
     &num_get<wchar_t>::id,
     &num_put<wchar_t>::id,
     &numpunct<wchar_t>::id,
@@ -97,7 +98,7 @@ namespace std
   locale::_Impl::_S_id_collate[] =
   {
     &std::collate<char>::id,
-#ifdef _GLIBCPP_USE_WCHAR_T
+#ifdef _GLIBCXX_USE_WCHAR_T
     &std::collate<wchar_t>::id,
 #endif
     0
@@ -109,7 +110,7 @@ namespace std
     &__timepunct<char>::id, 
     &time_get<char>::id, 
     &time_put<char>::id, 
-#ifdef _GLIBCPP_USE_WCHAR_T
+#ifdef _GLIBCXX_USE_WCHAR_T
     &__timepunct<wchar_t>::id, 
     &time_get<wchar_t>::id,
     &time_put<wchar_t>::id,
@@ -124,7 +125,7 @@ namespace std
     &money_put<char>::id,        
     &moneypunct<char, false>::id, 
     &moneypunct<char, true >::id, 
-#ifdef _GLIBCPP_USE_WCHAR_T
+#ifdef _GLIBCXX_USE_WCHAR_T
     &money_get<wchar_t>::id,
     &money_put<wchar_t>::id,
     &moneypunct<wchar_t, false>::id,
@@ -137,7 +138,7 @@ namespace std
   locale::_Impl::_S_id_messages[] =
   {
     &std::messages<char>::id, 
-#ifdef _GLIBCPP_USE_WCHAR_T
+#ifdef _GLIBCXX_USE_WCHAR_T
     &std::messages<wchar_t>::id,
 #endif
     0
@@ -176,18 +177,19 @@ namespace std
     if (__s)
       {
 	_S_initialize(); 
-	if (strcmp(__s, "C") == 0 || strcmp(__s, "POSIX") == 0)
+	if (std::strcmp(__s, "C") == 0 || std::strcmp(__s, "POSIX") == 0)
 	  (_M_impl = _S_classic)->_M_add_reference();
-	else if (strcmp(__s, "") != 0)
+	else if (std::strcmp(__s, "") != 0)
 	  _M_impl = new _Impl(__s, 1);
 	else
 	  {
 	    // Get it from the environment.
-	    char* __env = getenv("LC_ALL");
+	    char* __env = std::getenv("LC_ALL");
 	    // If LC_ALL is set we are done.
-	    if (__env && strcmp(__env, "") != 0)
+	    if (__env && std::strcmp(__env, "") != 0)
 	      {
-		if (strcmp(__env, "C") == 0 || strcmp(__env, "POSIX") == 0)
+		if (std::strcmp(__env, "C") == 0 
+		    || std::strcmp(__env, "POSIX") == 0)
 		  (_M_impl = _S_classic)->_M_add_reference();
 		else
 		  _M_impl = new _Impl(__env, 1);
@@ -196,9 +198,10 @@ namespace std
 	      {
 		char* __res;
 		// LANG may set a default different from "C".
-		char* __env = getenv("LANG");
-		if (!__env || strcmp(__env, "") == 0 || strcmp(__env, "C") == 0
-		    || strcmp(__env, "POSIX") == 0)
+		char* __env = std::getenv("LANG");
+		if (!__env || std::strcmp(__env, "") == 0 
+		    || std::strcmp(__env, "C") == 0 
+		    || std::strcmp(__env, "POSIX") == 0)
 		  __res = strdup("C");
 		else 
 		  __res = strdup(__env);
@@ -206,21 +209,21 @@ namespace std
 		// Scan the categories looking for the first one
 		// different from LANG.
 		size_t __i = 0;
-		if (strcmp(__res, "C") == 0)
+		if (std::strcmp(__res, "C") == 0)
 		  for (; __i < _S_categories_size; ++__i)
 		    {
-		      __env = getenv(_S_categories[__i]);
-		      if (__env && strcmp(__env, "") != 0 
-			  && strcmp(__env, "C") != 0 
-			  && strcmp(__env, "POSIX") != 0) 
+		      __env = std::getenv(_S_categories[__i]);
+		      if (__env && std::strcmp(__env, "") != 0 
+			  && std::strcmp(__env, "C") != 0 
+			  && std::strcmp(__env, "POSIX") != 0) 
 			break;
 		    }
 		else
 		  for (; __i < _S_categories_size; ++__i)
 		    {
-		      __env = getenv(_S_categories[__i]);
-		      if (__env && strcmp(__env, "") != 0 
-			  && strcmp(__env, __res) != 0) 
+		      __env = std::getenv(_S_categories[__i]);
+		      if (__env && std::strcmp(__env, "") != 0 
+			  && std::strcmp(__env, __res) != 0) 
 			break;
 		    }
 	
@@ -243,16 +246,16 @@ namespace std
 		    __i++;
 		    for (; __i < _S_categories_size; ++__i)
 		      {
-			__env = getenv(_S_categories[__i]);
-			if (!__env || strcmp(__env, "") == 0)
+			__env = std::getenv(_S_categories[__i]);
+			if (!__env || std::strcmp(__env, "") == 0)
 			  {
 			    __str += _S_categories[__i];
 			    __str += '=';
 			    __str += __res;
 			    __str += ';';
 			  }
-			else if (strcmp(__env, "C") == 0
-				 || strcmp(__env, "POSIX") == 0)
+			else if (std::strcmp(__env, "C") == 0
+				 || std::strcmp(__env, "POSIX") == 0)
 			  {
 			    __str += _S_categories[__i];
 			    __str += "=C;";
@@ -270,11 +273,11 @@ namespace std
 		  }
 		// ... otherwise either an additional instance of
 		// the "C" locale or LANG.
-		else if (strcmp(__res, "C") == 0)
+		else if (std::strcmp(__res, "C") == 0)
 		  (_M_impl = _S_classic)->_M_add_reference();
 		else
 		  _M_impl = new _Impl(__res, 1);
-		free(__res);
+		std::free(__res);
 	      }
 	  }
       }
@@ -323,7 +326,7 @@ namespace std
     __other._M_impl->_M_add_reference();
     _S_global = __other._M_impl; 
     if (_S_global->_M_check_same_name() 
-	&& (strcmp(_S_global->_M_names[0], "*") != 0))
+	&& (std::strcmp(_S_global->_M_names[0], "*") != 0))
       setlocale(LC_ALL, __other.name().c_str());
 
     // Reference count sanity check: one reference removed for the
@@ -425,7 +428,7 @@ namespace std
 	  case LC_TIME:     
 	    __ret = time; 
 	    break;
-#ifdef _GLIBCPP_HAVE_LC_MESSAGES
+#ifdef _GLIBCXX_HAVE_LC_MESSAGES
 	  case LC_MESSAGES: 
 	    __ret = messages;
 	    break;
@@ -449,65 +452,33 @@ namespace std
   locale::facet::
   ~facet() { }
 
-  template<>
-    const __numpunct_cache<char>&
-    __use_cache(const locale& __loc)
-    {
-      size_t __i = numpunct<char>::id._M_id();
-      const locale::facet** __caches = __loc._M_impl->_M_caches;
-      if (!__caches[__i])
-	{
-	  __numpunct_cache<char>* __tmp = new __numpunct_cache<char>;
-	  __tmp->_M_cache(__loc);
-	  __loc._M_impl->_M_install_cache(__tmp, __i);
-	}
-      return static_cast<const __numpunct_cache<char>&>(*__caches[__i]);
-    }
-
-#ifdef _GLIBCPP_USE_WCHAR_T
-  template<>
-    const __numpunct_cache<wchar_t>&
-    __use_cache(const locale& __loc)
-    {
-      size_t __i = numpunct<wchar_t>::id._M_id();
-      const locale::facet** __caches = __loc._M_impl->_M_caches;
-      if (!__caches[__i])
-	{
-	  __numpunct_cache<wchar_t>* __tmp = new __numpunct_cache<wchar_t>;
-	  __tmp->_M_cache(__loc);
-	  __loc._M_impl->_M_install_cache(__tmp, __i);
-	}
-      return static_cast<const __numpunct_cache<wchar_t>&>(*__caches[__i]);
-    }
-#endif
-
-  // Definitions for static const data members of time_base
+  // Definitions for static const data members of time_base.
   template<> 
     const char*
-    __timepunct<char>::_S_timezones[14] =
+    __timepunct_cache<char>::_S_timezones[14] =
     { 
       "GMT", "HST", "AKST", "PST", "MST", "CST", "EST", "AST", "NST", "CET", 
       "IST", "EET", "CST", "JST"  
     };
  
-#ifdef _GLIBCPP_USE_WCHAR_T
+#ifdef _GLIBCXX_USE_WCHAR_T
   template<> 
     const wchar_t*
-    __timepunct<wchar_t>::_S_timezones[14] =
+    __timepunct_cache<wchar_t>::_S_timezones[14] =
     { 
       L"GMT", L"HST", L"AKST", L"PST", L"MST", L"CST", L"EST", L"AST", 
       L"NST", L"CET", L"IST", L"EET", L"CST", L"JST"  
     };
 #endif
 
-  // Definitions for static const data members of money_base
+  // Definitions for static const data members of money_base.
   const money_base::pattern 
   money_base::_S_default_pattern =  { {symbol, sign, none, value} };
 
-  const char* __num_base::_S_atoms_in = "0123456789eEabcdfABCDF";
+  const char* __num_base::_S_atoms_in = "-+xX0123456789eEabcdfABCDF";
   const char* __num_base::_S_atoms_out ="-+xX0123456789abcdef0123456789ABCDEF";
 
-  // _GLIBCPP_RESOLVE_LIB_DEFECTS
+  // _GLIBCXX_RESOLVE_LIB_DEFECTS
   // According to the resolution of DR 231, about 22.2.2.2.2, p11,
   // "str.precision() is specified in the conversion specification".
   void

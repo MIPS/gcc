@@ -64,13 +64,13 @@ inform() {
 
 usage() {
 cat <<EOF
-gcc_release -r release [further options]
-gcc_release -s [further options]
+gcc_release -r release [-f] [further options]
+gcc_release -s name:cvsbranch [further options]
 
 Options:
 
   -r release           Version of the form X.Y or X.Y.Z.
-  -s                   Create a snapshot, not a real release.
+  -s name:cvsbranch    Create a snapshot, not a real release.
 
   -d destination       Local working directory where we will build the release
                        (default=${HOME}).
@@ -119,7 +119,7 @@ build_sources() {
     inform "Updating ChangeLogs and version files"
 
     ${CVS} co -d "`basename ${SOURCE_DIRECTORY}`" \
-           -r ${BRANCH} gcc || \
+           -r ${CVSBRANCH} gcc || \
            error "Could not check out release sources"
     for x in `find ${SOURCE_DIRECTORY} -name ChangeLog`; do
       # Update this ChangeLog file only if it does not yet contain the
@@ -144,7 +144,7 @@ EOF
     for x in gcc/version.c; do 
       y=`basename ${x}`
       (changedir `dirname ${SOURCE_DIRECTORY}/${x}` && \
-          sed -e 's|= \".*\"|= \"'${RELEASE}'\"|g' < ${y} > ${y}.new && \
+          sed -e 's|version_string\[\] = \".*\"|version_string\[\] = \"'${RELEASE}'\"|g' < ${y} > ${y}.new && \
 	  mv ${y}.new ${y} && \
           ${CVS} ci -m 'Update version' ${y}) || \
 	  error "Could not update ${x}"
@@ -158,27 +158,46 @@ EOF
 
   # Tag the sources.
   if [ -n "${TAG}" ]; then
-    inform "Tagging release sources"
-    ${CVS} rtag -r ${BRANCH} -F ${TAG} gcc || \
-      error "Could not tag release sources"
-    BRANCH=$TAG
+    inform "Tagging sources as ${TAG}"
+    ${CVS} rtag -r ${CVSBRANCH} -F ${TAG} gcc || \
+      error "Could not tag sources"
+    EXPORTTAG="-r${TAG}"
+    EXPORTDATE=""
+  else
+    if [ ${CVSBRANCH} != "HEAD" ]; then
+      EXPORTTAG="-r${CVSBRANCH}"
+    else
+      # HEAD is the default branch, no need to specify it.
+      EXPORTTAG=""
+    fi
+    EXPORTDATE="-D`date -u +"%Y-%m-%d %H:%M"` UTC"
   fi
 
   # Export the current sources.
-  inform "Retrieving release sources"
-  ${CVS} \
-       export -d "`basename ${SOURCE_DIRECTORY}`" \
-       -r ${BRANCH} gcc || \
-    error "Could not retrieve release sources"
+  inform "Retrieving sources (cvs export ${EXPORTTAG} ${EXPORTDATE} gcc)"
 
-  # Run gcc_update on them to set up the timestamps nicely.
+  if [ -z "${EXPORTTAG}" ]; then
+    ${CVS} export -d "`basename ${SOURCE_DIRECTORY}`" \
+       "${EXPORTDATE}" gcc || \
+      error "Could not retrieve sources"
+  elif [ -z "${EXPORTDATE}" ]; then
+    ${CVS} export -d "`basename ${SOURCE_DIRECTORY}`" \
+       "${EXPORTTAG}" gcc || \
+      error "Could not retrieve sources"
+  else
+    error "Cannot specify -r and -D at the same time"
+  fi
+
+  # Run gcc_update on them to set up the timestamps nicely, and (re)write
+  # the LAST_UPDATED file containing the CVS tag/date used.
   changedir "gcc-${RELEASE}"
   contrib/gcc_update --touch
+  echo "Obtained from CVS: ${EXPORTTAG} ${EXPORTDATE}" > LAST_UPDATED
 
   # Obtain some documentation files from the wwwdocs module.
   inform "Retrieving HTML documentation"
   changedir "${WORKING_DIRECTORY}"
-  for x in bugs gnats faq; do
+  for x in bugs faq; do
     (${CVS} export -r HEAD wwwdocs/htdocs/${x}.html && \
      cp ${WORKING_DIRECTORY}/wwwdocs/htdocs/${x}.html \
         ${SOURCE_DIRECTORY}) || \
@@ -192,7 +211,7 @@ EOF
     (${ENV} TERM=vt100 lynx -dump $file \
        | sed -e "s#file://localhost`/bin/pwd`\(.*\)#http://gcc.gnu.org\1#g" \
        > $newfile) || \
-     error "Could not regenerate documentation"
+     error "Could not generate text-only version of ${file}"
   done
 
   # For a prerelease or real release, we need to generate additional
@@ -377,22 +396,26 @@ announce_snapshot() {
   
   TEXT_DATE=`date --date=$DATE +%B\ %d,\ %Y`
   cd ~ftp/pub/gcc/snapshots
-  sed -e "s%@DATE@%$DATE%g" -e "s%@LAST_DATE@%$LAST_DATE%g" \
-    -e "s%@LONG_DATE@%$LONG_DATE%g" \
+  sed -e "s%@DATE@%$DATE%g" \
+     -e "s%@LAST_DATE@%$LAST_DATE%g" \
+    -e "s%@BRANCH@%${BRANCH}%g" \
+    -e "s%@RELEASE@%${RELEASE}%g" \
     -e "s%@TEXT_DATE@%$TEXT_DATE%g" < ~/scripts/snapshot-README > $$
-  mv $$ README
-  sed -e "s%@DATE@%$DATE%g" -e "s%@LAST_DATE@%$LAST_DATE%g" \
-    -e "s%@LONG_DATE@%$LONG_DATE%g" \
+  mv $$ ${RELEASE}/README
+  sed -e "s%@DATE@%$DATE%g" \
+     -e "s%@LAST_DATE@%$LAST_DATE%g" \
+    -e "s%@BRANCH@%${BRANCH}%g" \
+    -e "s%@RELEASE@%${RELEASE}%g" \
     -e "s%@TEXT_DATE@%$TEXT_DATE%g" < ~/scripts/snapshot-index.html > $$
-  mv $$ index.html
+  mv $$ ${RELEASE}/index.html
 
-  touch LATEST-IS-$LONG_DATE
-  rm -f LATEST-IS-$LAST_LONG_DATE
+  touch LATEST-IS-${BRANCH}-${DATE}
+  rm -f LATEST-IS-${BRANCH}-${LAST_DATE}
 
   inform "Sending mail"
 
   export QMAILHOST=gcc.gnu.org
-  mail -s "gcc-ss-$DATE is now available" gcc@gcc.gnu.org < ~ftp/pub/gcc/snapshots/README
+  mail -s "gcc-ss-${RELEASE} is now available" gcc@gcc.gnu.org < ~ftp/pub/gcc/snapshots/${RELEASE}/README
 }
 
 ########################################################################
@@ -431,8 +454,13 @@ RELEASE_REVISION=""
 # The complete name of the release.
 RELEASE=""
 
-# The name of the branch from which the release should be made.
+# The name of the branch from which the release should be made, in a 
+# user-friendly form.
 BRANCH=""
+
+# The name of the branch from which the release should be made, as used
+# for our version control system.
+CVSBRANCH=""
 
 # The tag to apply to the sources used for the release.
 TAG=""
@@ -494,14 +522,17 @@ TAR="${TAR:-tar}"
 ########################################################################
 
 # Parse the options.
-while getopts "d:fr:u:t:p:sl" ARG; do
+while getopts "d:fr:u:t:p:s:l" ARG; do
     case $ARG in
     d)    DESTINATION="${OPTARG}";;
     r)    RELEASE="${OPTARG}";;
     t)    TAG="${OPTARG}";;
     u)    CVS_USERNAME="${OPTARG}";;
     f)    FINAL=1;;
-    s)    SNAPSHOT=1;;
+    s)    SNAPSHOT=1
+          BRANCH=${OPTARG%:*}
+          CVSBRANCH=${OPTARG#*:}
+          ;;
     l)    LOCAL=1
 	  SCP=cp
 	  FTP_PATH=~ftp/pub/gcc
@@ -514,6 +545,25 @@ while getopts "d:fr:u:t:p:sl" ARG; do
     esac
 done
 shift `expr ${OPTIND} - 1`
+
+# Handle the major modes.
+while [ $# -ne 0 ]; do
+    case $1 in
+    diffs)    MODE_DIFFS=1;;
+    gzip)     MODE_GZIP=1;;
+    sources)  MODE_SOURCES=1;;
+    tarfiles) MODE_TARFILES=1;;
+    upload)   MODE_UPLOAD=1;;
+    all)      MODE_SOURCES=1; MODE_TARFILES=1; MODE_DIFFS=1; MODE_UPLOAD=1;
+              if [ $SNAPSHOT -ne 1 ]; then
+                # Only for releases and pre-releases.
+                MODE_GZIP=1;
+              fi
+              ;;
+    *)        error "Unknown mode $1";;
+    esac
+    shift
+done
 
 # Perform consistency checking.
 if [ ${LOCAL} -eq 0 ] && [ -z ${CVS_USERNAME} ]; then
@@ -547,29 +597,28 @@ if [ $SNAPSHOT -eq 0 ]; then
 
   # Compute the name of the branch, which is based solely on the major
   # and minor release numbers.
-  BRANCH="gcc-${RELEASE_MAJOR}_${RELEASE_MINOR}-branch"
+  CVSBRANCH="gcc-${RELEASE_MAJOR}_${RELEASE_MINOR}-branch"
 
   # If this is not a final release, set various parameters acordingly.
   if [ ${FINAL} -ne 1 ]; then
     RELEASE="${RELEASE}-${DATE}"
-    FTP_PATH="${FTP_PATH}/snapshots/"
+    FTP_PATH="${FTP_PATH}/prerelease-${RELEASE}/"
   else
     FTP_PATH="${FTP_PATH}/releases/gcc-${RELEASE}/"
   fi
 else
-  RELEASE=$DATE
-  # For now snapshots come from the 3.3 branch.
-  BRANCH=gcc-3_3-branch
-  FTP_PATH="${FTP_PATH}/snapshots/${LONG_DATE}"
-  TAG=gcc_ss_${DATE}
+  RELEASE=${BRANCH}-${DATE}
+  FTP_PATH="${FTP_PATH}/snapshots/${RELEASE}"
+  if [ ${CVSBRANCH} != "HEAD" ]; then
+    TAG=gcc-ss-`echo ${RELEASE} | tr '.' '_'`
+  fi
 
   # Building locally on gcc.gnu.org, we know what the last snapshot date
   # was.
-  if [ $LOCAL -ne 0 ]; then
-    LAST_DATE=`cat ~/.snapshot_date`
-    LAST_LONG_DATE=`date --date=$LAST_DATE +%Y-%m-%d`
-    LAST_DIR=~ftp/pub/gcc/snapshots/${LAST_LONG_DATE}
-    OLD_TARS=${LAST_DIR}/gcc-${LAST_DATE}.tar.bz2
+  if [ $MODE_DIFFS -ne 0 ] && [ $LOCAL -ne 0 ]; then
+    LAST_DATE=`cat ~/.snapshot_date-${BRANCH}`
+    LAST_DIR=~ftp/pub/gcc/snapshots/${BRANCH}-${LAST_DATE}
+    OLD_TARS=${LAST_DIR}/gcc-${BRANCH}-${LAST_DATE}.tar.bz2
   fi
 fi
 
@@ -602,20 +651,6 @@ export CVSROOT
 # Set the timezone to UTC
 TZ="UTC0"
 export TZ
-
-# Handle the major modes.
-while [ $# -ne 0 ]; do
-    case $1 in
-    diffs)    MODE_DIFFS=1;;
-    gzip)     MODE_GZIP=1;;
-    sources)  MODE_SOURCES=1;;
-    tarfiles) MODE_TARFILES=1;;
-    upload)   MODE_UPLOAD=1;;
-    all)      MODE_SOURCES=1; MODE_TARFILES=1; MODE_DIFFS=1; MODE_GZIP=1; MODE_UPLOAD=1;;
-    *)        error "Unknown mode $1";;
-    esac
-    shift
-done
 
 # Build the source directory.
 
@@ -656,7 +691,7 @@ if [ $MODE_UPLOAD -ne 0 ]; then
 
     # Update snapshot date file.
     changedir ~
-    echo $DATE >.snapshot_date
+    echo $DATE > .snapshot_date-${BRANCH}
 
     # Remove working directory
     rm -rf ${WORKING_DIRECTORY}

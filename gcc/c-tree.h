@@ -46,7 +46,7 @@ struct lang_identifier GTY(())
 
 union lang_tree_node 
   GTY((desc ("TREE_CODE (&%h.generic) == IDENTIFIER_NODE"),
-       chain_next ("(union lang_tree_node *)TREE_CHAIN (&%h.generic)")))
+       chain_next ("TREE_CODE (&%h.generic) == INTEGER_TYPE ? (union lang_tree_node *)TYPE_NEXT_VARIANT (&%h.generic) : (union lang_tree_node *)TREE_CHAIN (&%h.generic)")))
 {
   union tree_node GTY ((tag ("0"), 
 			desc ("tree_node_structure (&%h)"))) 
@@ -58,7 +58,6 @@ union lang_tree_node
 
 struct lang_decl GTY(())
 {
-  struct c_lang_decl base;
   /* The return types and parameter types may have variable size.
      This is a list of any SAVE_EXPRs that need to be evaluated to
      compute those sizes.  */
@@ -95,22 +94,19 @@ struct lang_decl GTY(())
    nonzero if the definition of the type has already started.  */
 #define C_TYPE_BEING_DEFINED(TYPE) TYPE_LANG_FLAG_0 (TYPE)
 
+/* In an incomplete RECORD_TYPE or UNION_TYPE, a list of variable
+   declarations whose type would be completed by completing that type.  */
+#define C_TYPE_INCOMPLETE_VARS(TYPE) TYPE_VFIELD (TYPE)
+
 /* In an IDENTIFIER_NODE, nonzero if this identifier is actually a
    keyword.  C_RID_CODE (node) is then the RID_* value of the keyword,
    and C_RID_YYCODE is the token number wanted by Yacc.  */
 #define C_IS_RESERVED_WORD(ID) TREE_LANG_FLAG_0 (ID)
 
-/* This function was declared inline.  This flag controls the linkage
-   semantics of 'inline'; whether or not the function is inlined is
-   controlled by DECL_INLINE.  */
-#define DECL_DECLARED_INLINE_P(NODE) \
-  (DECL_LANG_SPECIFIC (NODE)->base.declared_inline)
-
 /* In a RECORD_TYPE, a sorted array of the fields of the type.  */
 struct lang_type GTY(())
 {
-  int len;
-  tree GTY((length ("%h.len"))) elts[1];
+  struct sorted_fields_type * GTY ((reorder ("resort_sorted_fields"))) s; 
 };
 
 /* Record whether a type or decl was written with nonconstant size.
@@ -151,13 +147,17 @@ struct lang_type GTY(())
    without prototypes.  */
 #define TYPE_ACTUAL_ARG_TYPES(NODE) TYPE_BINFO (NODE)
 
+/* Values for the first parameter to poplevel.  */
+#define KEEP_NO		0
+#define KEEP_YES	1
+#define KEEP_MAYBE	2
+
 
 /* in c-lang.c and objc-act.c */
 extern tree lookup_interface (tree);
 extern tree is_class_name (tree);
 extern tree objc_is_id (tree);
 extern void objc_check_decl (tree);
-extern void finish_file (void);
 extern int objc_comptypes (tree, tree, int);
 extern tree objc_message_selector (void);
 extern tree lookup_objc_ivar (tree);
@@ -172,24 +172,24 @@ extern void gen_aux_info_record (tree, int, int, int);
 
 /* in c-decl.c */
 extern int global_bindings_p (void);
-extern int kept_level_p (void);
 extern tree getdecls (void);
 extern void pushlevel (int);
 extern void insert_block (tree);
 extern void set_block (tree);
 extern tree pushdecl (tree);
 
-extern void c_insert_default_attributes (tree);
 extern void c_init_decl_processing (void);
 extern void c_dup_lang_specific_decl (tree);
 extern void c_print_identifier (FILE *, tree, int);
 extern tree build_array_declarator (tree, tree, int, int);
 extern tree build_enumerator (tree, tree);
 extern void check_for_loop_decls (void);
-extern void clear_parm_order (void);
+extern void mark_forward_parm_decls (void);
 extern int  complete_array_type (tree, tree, int);
-extern void declare_parm_level (int);
-extern tree define_label (const char *, int, tree);
+extern void declare_parm_level (void);
+extern void undeclared_variable (tree);
+extern tree declare_label (tree);
+extern tree define_label (location_t, tree);
 extern void finish_decl (tree, tree, tree);
 extern tree finish_enum (tree, tree, tree);
 extern void finish_function (int, int);
@@ -202,18 +202,13 @@ extern tree implicitly_declare (tree);
 extern int  in_parm_level_p (void);
 extern void keep_next_level (void);
 extern tree lookup_name (tree);
-extern void parmlist_tags_warning (void);
 extern void pending_xref_error (void);
 extern void c_push_function_context (struct function *);
 extern void c_pop_function_context (struct function *);
-extern void pop_label_level (void);
-extern void push_label_level (void);
 extern void push_parm_decl (tree);
 extern tree pushdecl_top_level (tree);
-extern tree pushdecl_function_level (tree, tree);
 extern void pushtag (tree, tree);
 extern tree set_array_declarator_type (tree, tree, int);
-extern tree shadow_label (tree);
 extern void shadow_tag (tree);
 extern void shadow_tag_warned (tree, int);
 extern tree start_enum (tree);
@@ -225,7 +220,9 @@ extern tree xref_tag (enum tree_code, tree);
 extern tree c_begin_compound_stmt (void);
 extern void c_expand_deferred_function (tree);
 extern void c_expand_decl_stmt (tree);
+extern void c_static_assembler_name (tree);
 extern tree make_pointer_declarator (tree, tree);
+extern void merge_translation_unit_decls (void);
 
 /* in c-objc-common.c */
 extern int c_disregard_inline_limits (tree);
@@ -242,9 +239,16 @@ extern bool c_warn_unused_global_decl (tree);
 			  ((VOLATILE_P) ? TYPE_QUAL_VOLATILE : 0))
 
 #define c_sizeof_nowarn(T)  c_sizeof_or_alignof_type (T, SIZEOF_EXPR, 0)
+
 /* in c-typeck.c */
+
+/* For use with comptypes.  */
+enum {
+  COMPARE_STRICT = 0
+};
+
 extern tree require_complete_type (tree);
-extern int comptypes (tree, tree);
+extern int comptypes (tree, tree, int);
 extern tree c_size_in_bytes (tree);
 extern bool c_mark_addressable (tree);
 extern void c_incomplete_type_error (tree, tree);
@@ -273,6 +277,7 @@ extern void set_init_index (tree, tree);
 extern void set_init_label (tree);
 extern void process_init_element (tree);
 extern tree build_compound_literal (tree, tree);
+extern void pedwarn_c90 (const char *, ...) ATTRIBUTE_PRINTF_1;
 extern void pedwarn_c99 (const char *, ...) ATTRIBUTE_PRINTF_1;
 extern tree c_start_case (tree);
 extern void c_finish_case (void);
@@ -301,8 +306,14 @@ extern int system_header_p;
 
 /* In c-decl.c */
 extern void c_finish_incomplete_decl (tree);
+extern void c_write_global_declarations (void);
 
 extern GTY(()) tree static_ctors;
 extern GTY(()) tree static_dtors;
+
+/* In order for the format checking to accept the C frontend
+   diagnostic framework extensions, you must include this file before
+   toplev.h, not after.  */
+#define GCC_DIAG_STYLE __gcc_cdiag__
 
 #endif /* ! GCC_C_TREE_H */

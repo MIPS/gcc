@@ -29,6 +29,10 @@ Boston, MA 02111-1307, USA.  */
 #include "toplev.h"
 #include "langhooks.h"
 #include "langhooks-def.h"
+#include "diagnostic.h"
+#include "cxx-pretty-print.h"
+
+enum c_language_kind c_language = clk_cxx;
 
 static HOST_WIDE_INT cxx_get_alias_set (tree);
 static bool ok_to_generate_alias_set_for_type (tree);
@@ -36,6 +40,7 @@ static bool cxx_warn_unused_global_decl (tree);
 static tree cp_expr_size (tree);
 static size_t cp_tree_size (enum tree_code);
 static bool cp_var_mod_type_p (tree);
+static void cxx_initialize_diagnostics (diagnostic_context *);
 
 #undef LANG_HOOKS_NAME
 #define LANG_HOOKS_NAME "GNU C++"
@@ -48,9 +53,15 @@ static bool cp_var_mod_type_p (tree);
 #undef LANG_HOOKS_CLEAR_BINDING_STACK
 #define LANG_HOOKS_CLEAR_BINDING_STACK pop_everything
 #undef LANG_HOOKS_INIT_OPTIONS
-#define LANG_HOOKS_INIT_OPTIONS cxx_init_options
+#define LANG_HOOKS_INIT_OPTIONS c_common_init_options
+#undef LANG_HOOKS_INITIALIZE_DIAGNOSTICS
+#define LANG_HOOKS_INITIALIZE_DIAGNOSTICS cxx_initialize_diagnostics
 #undef LANG_HOOKS_HANDLE_OPTION
 #define LANG_HOOKS_HANDLE_OPTION c_common_handle_option
+#undef LANG_HOOKS_HANDLE_FILENAME
+#define LANG_HOOKS_HANDLE_FILENAME c_common_handle_filename
+#undef LANG_HOOKS_MISSING_ARGUMENT
+#define LANG_HOOKS_MISSING_ARGUMENT c_common_missing_argument
 #undef LANG_HOOKS_POST_OPTIONS
 #define LANG_HOOKS_POST_OPTIONS c_common_post_options
 #undef LANG_HOOKS_GET_ALIAS_SET
@@ -71,8 +82,6 @@ static bool cp_var_mod_type_p (tree);
 #define LANG_HOOKS_MAYBE_BUILD_CLEANUP cxx_maybe_build_cleanup
 #undef LANG_HOOKS_TRUTHVALUE_CONVERSION
 #define LANG_HOOKS_TRUTHVALUE_CONVERSION c_common_truthvalue_conversion
-#undef LANG_HOOKS_INSERT_DEFAULT_ATTRIBUTES
-#define LANG_HOOKS_INSERT_DEFAULT_ATTRIBUTES cxx_insert_default_attributes
 #undef LANG_HOOKS_UNSAFE_FOR_REEVAL
 #define LANG_HOOKS_UNSAFE_FOR_REEVAL c_common_unsafe_for_reeval
 #undef LANG_HOOKS_SET_DECL_ASSEMBLER_NAME
@@ -97,12 +106,19 @@ static bool cp_var_mod_type_p (tree);
 #define LANG_HOOKS_WARN_UNUSED_GLOBAL_DECL cxx_warn_unused_global_decl
 #undef LANG_HOOKS_WRITE_GLOBALS
 #define LANG_HOOKS_WRITE_GLOBALS lhd_do_nothing
+#undef LANG_HOOKS_DECL_UNINIT
+#define LANG_HOOKS_DECL_UNINIT c_decl_uninit
 
 
 #undef LANG_HOOKS_FUNCTION_INIT
 #define LANG_HOOKS_FUNCTION_INIT cxx_push_function_context
 #undef LANG_HOOKS_FUNCTION_FINAL
 #define LANG_HOOKS_FUNCTION_FINAL cxx_pop_function_context
+
+#undef LANG_HOOKS_RTL_EXPAND_START
+#define LANG_HOOKS_RTL_EXPAND_START cxx_expand_function_start
+#undef LANG_HOOKS_RTL_EXPAND_STMT
+#define LANG_HOOKS_RTL_EXPAND_STMT expand_stmt
 
 /* Attribute hooks.  */
 #undef LANG_HOOKS_COMMON_ATTRIBUTE_TABLE
@@ -138,6 +154,8 @@ static bool cp_var_mod_type_p (tree);
 #define LANG_HOOKS_TREE_INLINING_START_INLINING cp_start_inlining
 #undef LANG_HOOKS_TREE_INLINING_END_INLINING
 #define LANG_HOOKS_TREE_INLINING_END_INLINING cp_end_inlining
+#undef LANG_HOOKS_TREE_INLINING_ESTIMATE_NUM_INSNS
+#define LANG_HOOKS_TREE_INLINING_ESTIMATE_NUM_INSNS c_estimate_num_insns
 #undef LANG_HOOKS_TREE_DUMP_DUMP_TREE_FN
 #define LANG_HOOKS_TREE_DUMP_DUMP_TREE_FN cp_dump_tree
 #undef LANG_HOOKS_TREE_DUMP_TYPE_QUALS_FN
@@ -145,8 +163,10 @@ static bool cp_var_mod_type_p (tree);
 #undef LANG_HOOKS_EXPR_SIZE
 #define LANG_HOOKS_EXPR_SIZE cp_expr_size
 
-#undef LANG_HOOKS_PREPARE_ASSEMBLE_VARIABLE 
-#define LANG_HOOKS_PREPARE_ASSEMBLE_VARIABLE prepare_assemble_variable
+#undef LANG_HOOKS_CALLGRAPH_EXPAND_FUNCTION
+#define LANG_HOOKS_CALLGRAPH_EXPAND_FUNCTION expand_body
+#undef LANG_HOOKS_CALLGRAPH_LOWER_FUNCTION
+#define LANG_HOOKS_CALLGRAPH_LOWER_FUNCTION lower_function
 
 #undef LANG_HOOKS_MAKE_TYPE
 #define LANG_HOOKS_MAKE_TYPE cxx_make_type
@@ -351,7 +371,7 @@ cp_var_mod_type_p (tree type)
 {
   /* If TYPE is a pointer-to-member, it is variably modified if either
      the class or the member are variably modified.  */
-  if (TYPE_PTRMEM_P (type) || TYPE_PTRMEMFUNC_P (type))
+  if (TYPE_PTR_TO_MEMBER_P (type))
     return (variably_modified_type_p (TYPE_PTRMEM_CLASS_TYPE (type))
 	    || variably_modified_type_p (TYPE_PTRMEM_POINTED_TO_TYPE (type)));
 
@@ -359,3 +379,24 @@ cp_var_mod_type_p (tree type)
   return false;
 }
 
+/* Stub routine to tell people that this doesn't work yet.  */
+void
+c_reset_state (void)
+{
+  sorry ("inter-module optimisations not implemented yet");
+}
+
+/* Construct a C++-aware pretty-printer for CONTEXT.  It is assumed
+   that CONTEXT->printer is an already constructed basic pretty_printer.  */
+static void
+cxx_initialize_diagnostics (diagnostic_context *context)
+{
+  pretty_printer *base = context->printer;
+  cxx_pretty_printer *pp = xmalloc (sizeof (cxx_pretty_printer));
+  memcpy (pp_base (pp), base, sizeof (pretty_printer));
+  pp_cxx_pretty_printer_init (pp);
+  context->printer = (pretty_printer *) pp;
+
+  /* It is safe to free this object because it was previously malloc()'d.  */
+  free (base);
+}

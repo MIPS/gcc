@@ -32,8 +32,8 @@
 // ISO C++ 14882: 27.8  File-based streams
 //
 
-#ifndef _CPP_BITS_FSTREAM_TCC
-#define _CPP_BITS_FSTREAM_TCC 1
+#ifndef _FSTREAM_TCC
+#define _FSTREAM_TCC 1
 
 #pragma GCC system_header
 
@@ -69,11 +69,11 @@ namespace std
   template<typename _CharT, typename _Traits>
     basic_filebuf<_CharT, _Traits>::
     basic_filebuf() : __streambuf_type(), _M_file(&_M_lock), 
-    _M_state_cur(__state_type()), _M_state_beg(__state_type()),
-    _M_buf(NULL), _M_buf_size(BUFSIZ), _M_buf_allocated(false),
-    _M_reading(false), _M_writing(false), _M_last_overflowed(false),
-    _M_pback_cur_save(0), _M_pback_end_save(0), _M_pback_init(false),
-    _M_codecvt(0)
+    _M_mode(ios_base::openmode(0)), _M_state_cur(__state_type()),
+    _M_state_beg(__state_type()), _M_buf(NULL), _M_buf_size(BUFSIZ),
+    _M_buf_allocated(false), _M_reading(false), _M_writing(false),
+    _M_last_overflowed(false), _M_pback_cur_save(0), _M_pback_end_save(0),
+    _M_pback_init(false), _M_codecvt(0)
     { 
       if (has_facet<__codecvt_type>(this->_M_buf_locale))
 	_M_codecvt = &use_facet<__codecvt_type>(this->_M_buf_locale);
@@ -98,9 +98,9 @@ namespace std
 	      _M_writing = false;
 	      _M_set_buffer(-1);
 
+	      // 27.8.1.3,4
 	      if ((__mode & ios_base::ate) 
 		  && this->seekoff(0, ios_base::end, __mode) < 0)
-		// 27.8.1.3,4
 		this->close();
 	      else
 		__ret = this;
@@ -180,7 +180,7 @@ namespace std
   template<typename _CharT, typename _Traits>
     typename basic_filebuf<_CharT, _Traits>::int_type 
     basic_filebuf<_CharT, _Traits>::
-    _M_underflow(bool __bump)
+    underflow()
     {
       int_type __ret = traits_type::eof();
       const bool __testin = this->_M_mode & ios_base::in;
@@ -194,12 +194,7 @@ namespace std
 	  _M_destroy_pback();
 
 	  if (this->gptr() < this->egptr())
-	    {
-	      __ret = traits_type::to_int_type(*this->gptr());
-	      if (__bump)
-		this->gbump(1);
-	      return __ret;
-	    }
+	    return traits_type::to_int_type(*this->gptr());
 
 	  // Get and convert input sequence.
 	  const size_t __buflen = this->_M_buf_size > 1
@@ -208,14 +203,16 @@ namespace std
 	  streamsize __ilen = 0;
 	  if (__check_facet(_M_codecvt).always_noconv())
 	    {
-	      __elen = _M_file.xsgetn(reinterpret_cast<char*>(this->eback()), __buflen);
+	      __elen = _M_file.xsgetn(reinterpret_cast<char*>(this->eback()), 
+				      __buflen);
 	      __ilen = __elen;
 	    }
 	  else
 	    {
 	      // Worst-case number of external bytes.
 	      // XXX Not done encoding() == -1.
-	      const streamsize __blen = __buflen * _M_codecvt->max_length();
+	      const int __enc = _M_codecvt->encoding();
+	      const streamsize __blen = __enc > 0 ? __buflen * __enc : __buflen;
 	      char* __buf = static_cast<char*>(__builtin_alloca(__blen));
 	      __elen = _M_file.xsgetn(__buf, __blen);
 
@@ -247,8 +244,6 @@ namespace std
 	      _M_set_buffer(__ilen);
 	      _M_reading = true;
 	      __ret = traits_type::to_int_type(*this->gptr());
-	      if (__bump)
-		this->gbump(1);
 	    }
 	  else if (__elen == 0)
 	    {
@@ -443,6 +438,54 @@ namespace std
       return __elen && __elen == __plen;
     }
 
+   template<typename _CharT, typename _Traits>
+     streamsize
+     basic_filebuf<_CharT, _Traits>::
+     xsputn(const _CharT* __s, streamsize __n)
+     { 
+       streamsize __ret = 0;
+      
+       // Optimization in the always_noconv() case, to be generalized in the
+       // future: when __n is sufficiently large we write directly instead of
+       // using the buffer.
+       const bool __testout = this->_M_mode & ios_base::out;
+       if (__testout && !_M_reading
+	   && __check_facet(_M_codecvt).always_noconv())
+	{
+	  // Measurement would reveal the best choice.
+	  const streamsize __chunk = 1ul << 10;
+	  streamsize __bufavail = this->epptr() - this->pptr();
+
+	  // Don't mistake 'uncommitted' mode buffered with unbuffered.
+	  if (!_M_writing && this->_M_buf_size > 1)
+	    __bufavail = this->_M_buf_size - 1;
+
+	  const streamsize __limit = std::min(__chunk, __bufavail);
+	  if (__n >= __limit)
+	    {
+	      const streamsize __buffill = this->pptr() - this->pbase();
+	      const char* __buf = reinterpret_cast<const char*>(this->pbase());
+	      __ret = _M_file.xsputn_2(__buf, __buffill,
+				       reinterpret_cast<const char*>(__s), __n);
+	      if (__ret == __buffill + __n)
+		{
+		  _M_set_buffer(0);
+		  _M_writing = true;
+		}
+	      if (__ret > __buffill)
+		__ret -= __buffill;
+	      else
+		__ret = 0;
+	    }
+	  else
+	    __ret = __streambuf_type::xsputn(__s, __n);
+	}
+       else
+	 __ret = __streambuf_type::xsputn(__s, __n);
+      
+       return __ret;
+    }
+
   template<typename _CharT, typename _Traits>
     typename basic_filebuf<_CharT, _Traits>::__streambuf_type* 
     basic_filebuf<_CharT, _Traits>::
@@ -486,7 +529,7 @@ namespace std
       
       int __width = 0;
       if (_M_codecvt)
-	  __width = _M_codecvt->encoding();
+	__width = _M_codecvt->encoding();
       if (__width < 0)
 	__width = 0;
 
@@ -496,11 +539,8 @@ namespace std
 	  // Ditch any pback buffers to avoid confusion.
 	  _M_destroy_pback();
 
-	  // Sync the internal and external streams.	      
-	  off_type __computed_off = __width * __off;
-	  
-	  if (this->pbase() < this->pptr()
-	      || _M_last_overflowed)
+	  off_type __computed_off = __off;	  
+	  if (this->pbase() < this->pptr())
 	    {
 	      // Part one: update the output sequence.
 	      this->sync();
@@ -511,8 +551,9 @@ namespace std
 	  else if (_M_reading && __way == ios_base::cur)
 	    __computed_off += this->gptr() - this->egptr();
 	  
-	  // Return pos_type(off_type(-1)) in case of failure.
-	  __ret = _M_file.seekoff(__computed_off, __way, __mode);
+	  // Returns pos_type(off_type(-1)) in case of failure.
+	  __ret = _M_file.seekoff(__computed_off * __width, __way, __mode);
+	  
 	  _M_reading = false;
 	  _M_writing = false;
 	  _M_set_buffer(-1);
@@ -526,9 +567,17 @@ namespace std
     basic_filebuf<_CharT, _Traits>::
     seekpos(pos_type __pos, ios_base::openmode __mode)
     {
-#ifdef _GLIBCPP_RESOLVE_LIB_DEFECTS
+#ifdef _GLIBCXX_RESOLVE_LIB_DEFECTS
 // 171. Strange seekpos() semantics due to joint position
-      return this->seekoff(off_type(__pos), ios_base::beg, __mode);
+      pos_type __ret =  pos_type(off_type(-1)); 
+
+      int __width = 0;
+      if (_M_codecvt)
+	__width = _M_codecvt->encoding();
+      if (__width > 0)
+	__ret = this->seekoff(off_type(__pos) / __width, ios_base::beg, __mode);
+
+      return __ret;
 #endif
     }
 
@@ -566,13 +615,13 @@ namespace std
   // Inhibit implicit instantiations for required instantiations,
   // which are defined via explicit instantiations elsewhere.  
   // NB:  This syntax is a GNU extension.
-#if _GLIBCPP_EXTERN_TEMPLATE
+#if _GLIBCXX_EXTERN_TEMPLATE
   extern template class basic_filebuf<char>;
   extern template class basic_ifstream<char>;
   extern template class basic_ofstream<char>;
   extern template class basic_fstream<char>;
 
-#ifdef _GLIBCPP_USE_WCHAR_T
+#ifdef _GLIBCXX_USE_WCHAR_T
   extern template class basic_filebuf<wchar_t>;
   extern template class basic_ifstream<wchar_t>;
   extern template class basic_ofstream<wchar_t>;

@@ -36,8 +36,8 @@
  *  in your programs, rather than any of the "st[dl]_*.h" implementation files.
  */
 
-#ifndef _CPP_SSTREAM
-#define _CPP_SSTREAM	1
+#ifndef _GLIBCXX_SSTREAM
+#define _GLIBCXX_SSTREAM 1
 
 #pragma GCC system_header
 
@@ -65,7 +65,7 @@ namespace std
       // Types:
       typedef _CharT 					char_type;
       typedef _Traits 					traits_type;
-#ifdef _GLIBCPP_RESOLVE_LIB_DEFECTS
+#ifdef _GLIBCXX_RESOLVE_LIB_DEFECTS
 // 251. basic_stringbuf missing allocator_type
       typedef _Alloc				       	allocator_type;
 #endif
@@ -85,6 +85,13 @@ namespace std
       //@}
 
     protected:
+      /**
+       *  @if maint
+       *  Place to stash in || out || in | out settings for current stringbuf.
+       *  @endif
+      */
+      ios_base::openmode 	_M_mode;
+
       // Data Members:
       /**
        *  @if maint
@@ -179,18 +186,9 @@ namespace std
 	_M_sync(const_cast<char_type*>(_M_string.data()), 0, __len);
       }
 
-      int_type
-      _M_underflow(bool __bump);
-
       // [documentation is inherited]
       virtual int_type
-      underflow()
-      { return _M_underflow(false); }
-
-      // [documentation is inherited]
-      virtual int_type
-      uflow()
-      { return _M_underflow(true); }
+      underflow();
 
       // [documentation is inherited]
       virtual int_type
@@ -306,7 +304,7 @@ namespace std
       // Types:
       typedef _CharT 					char_type;
       typedef _Traits 					traits_type;
-#ifdef _GLIBCPP_RESOLVE_LIB_DEFECTS
+#ifdef _GLIBCXX_RESOLVE_LIB_DEFECTS
 // 251. basic_stringbuf missing allocator_type
       typedef _Alloc				       	allocator_type;
 #endif
@@ -425,7 +423,7 @@ namespace std
       // Types:
       typedef _CharT 					char_type;
       typedef _Traits 					traits_type;
-#ifdef _GLIBCPP_RESOLVE_LIB_DEFECTS
+#ifdef _GLIBCXX_RESOLVE_LIB_DEFECTS
 // 251. basic_stringbuf missing allocator_type
       typedef _Alloc				       	allocator_type;
 #endif
@@ -544,7 +542,7 @@ namespace std
       // Types:
       typedef _CharT 					char_type;
       typedef _Traits 					traits_type;
-#ifdef _GLIBCPP_RESOLVE_LIB_DEFECTS
+#ifdef _GLIBCXX_RESOLVE_LIB_DEFECTS
 // 251. basic_stringbuf missing allocator_type
       typedef _Alloc				       	allocator_type;
 #endif
@@ -643,11 +641,8 @@ namespace std
     };
 } // namespace std
 
-#ifdef _GLIBCPP_NO_TEMPLATE_EXPORT
-# define export
-#endif
-#ifdef  _GLIBCPP_FULLY_COMPLIANT_HEADERS
+#ifndef _GLIBCXX_EXPORT_TEMPLATE
 # include <bits/sstream.tcc>
 #endif
 
-#endif
+#endif /* _GLIBCXX_SSTREAM */

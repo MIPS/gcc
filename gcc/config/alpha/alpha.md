@@ -120,7 +120,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 
 ;; The ROUND_SUFFIX attribute marks which instructions require a
 ;; rounding-mode suffix.  The value NONE indicates no suffix,
-;; the value NORMAL indicates a suffix controled by alpha_fprm.
+;; the value NORMAL indicates a suffix controlled by alpha_fprm.
 
 (define_attr "round_suffix" "none,normal,c"
   (const_string "none"))
@@ -133,7 +133,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 ;;   V_SV_SVI	accepts /v, /sv and /svi (cvttq only)
 ;;   U_SU_SUI	accepts /u, /su and /sui (most fp instructions)
 ;;
-;; The actual suffix emitted is controled by alpha_fptm.
+;; The actual suffix emitted is controlled by alpha_fptm.
 
 (define_attr "trap_suffix" "none,su,sui,v_sv,v_sv_svi,u_su_sui"
   (const_string "none"))
@@ -6911,7 +6911,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
   [(const_int 0)]
   "
 {
-  emit_note (NULL, NOTE_INSN_DELETED);
+  emit_note (NOTE_INSN_DELETED);
   DONE;
 }")
 
@@ -7171,7 +7171,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
    (match_operand:DI 2 "reg_or_8bit_operand" "")]
   ""
 {
-  rtx (*gen) PARAMS ((rtx, rtx, rtx, rtx));
+  rtx (*gen) (rtx, rtx, rtx, rtx);
   if (WORDS_BIG_ENDIAN)
     gen = gen_extxl_be;
   else
@@ -7186,7 +7186,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
    (match_operand:DI 2 "reg_or_8bit_operand" "")]
   ""
 {
-  rtx (*gen) PARAMS ((rtx, rtx, rtx, rtx));
+  rtx (*gen) (rtx, rtx, rtx, rtx);
   if (WORDS_BIG_ENDIAN)
     gen = gen_extxl_be;
   else
@@ -7201,7 +7201,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
    (match_operand:DI 2 "reg_or_8bit_operand" "")]
   ""
 {
-  rtx (*gen) PARAMS ((rtx, rtx, rtx, rtx));
+  rtx (*gen) (rtx, rtx, rtx, rtx);
   if (WORDS_BIG_ENDIAN)
     gen = gen_extxl_be;
   else
@@ -7216,7 +7216,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
    (match_operand:DI 2 "reg_or_8bit_operand" "")]
   ""
 {
-  rtx (*gen) PARAMS ((rtx, rtx, rtx, rtx));
+  rtx (*gen) (rtx, rtx, rtx, rtx);
   if (WORDS_BIG_ENDIAN)
     gen = gen_extxl_be;
   else
@@ -7231,7 +7231,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
    (match_operand:DI 2 "reg_or_8bit_operand" "")]
   ""
 {
-  rtx (*gen) PARAMS ((rtx, rtx, rtx));
+  rtx (*gen) (rtx, rtx, rtx);
   if (WORDS_BIG_ENDIAN)
     gen = gen_extwh_be;
   else
@@ -7246,7 +7246,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
    (match_operand:DI 2 "reg_or_8bit_operand" "")]
   ""
 {
-  rtx (*gen) PARAMS ((rtx, rtx, rtx));
+  rtx (*gen) (rtx, rtx, rtx);
   if (WORDS_BIG_ENDIAN)
     gen = gen_extlh_be;
   else
@@ -7261,7 +7261,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
    (match_operand:DI 2 "reg_or_8bit_operand" "")]
   ""
 {
-  rtx (*gen) PARAMS ((rtx, rtx, rtx));
+  rtx (*gen) (rtx, rtx, rtx);
   if (WORDS_BIG_ENDIAN)
     gen = gen_extqh_be;
   else
@@ -7276,7 +7276,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
    (match_operand:DI 2 "reg_or_8bit_operand" "")]
   ""
 {
-  rtx (*gen) PARAMS ((rtx, rtx, rtx));
+  rtx (*gen) (rtx, rtx, rtx);
   if (WORDS_BIG_ENDIAN)
     gen = gen_insbl_be;
   else
@@ -7292,7 +7292,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
    (match_operand:DI 2 "reg_or_8bit_operand" "")]
   ""
 {
-  rtx (*gen) PARAMS ((rtx, rtx, rtx));
+  rtx (*gen) (rtx, rtx, rtx);
   if (WORDS_BIG_ENDIAN)
     gen = gen_inswl_be;
   else
@@ -7308,7 +7308,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
    (match_operand:DI 2 "reg_or_8bit_operand" "")]
   ""
 {
-  rtx (*gen) PARAMS ((rtx, rtx, rtx));
+  rtx (*gen) (rtx, rtx, rtx);
   if (WORDS_BIG_ENDIAN)
     gen = gen_insll_be;
   else
@@ -7325,7 +7325,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
    (match_operand:DI 2 "reg_or_8bit_operand" "")]
   ""
 {
-  rtx (*gen) PARAMS ((rtx, rtx, rtx));
+  rtx (*gen) (rtx, rtx, rtx);
   if (WORDS_BIG_ENDIAN)
     gen = gen_insql_be;
   else
@@ -7370,7 +7370,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
    (match_operand:DI 2 "reg_or_8bit_operand" "")]
   ""
 {
-  rtx (*gen) PARAMS ((rtx, rtx, rtx, rtx));
+  rtx (*gen) (rtx, rtx, rtx, rtx);
   rtx mask;
   if (WORDS_BIG_ENDIAN)
     gen = gen_mskxl_be;
@@ -7387,7 +7387,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
    (match_operand:DI 2 "reg_or_8bit_operand" "")]
   ""
 {
-  rtx (*gen) PARAMS ((rtx, rtx, rtx, rtx));
+  rtx (*gen) (rtx, rtx, rtx, rtx);
   rtx mask;
   if (WORDS_BIG_ENDIAN)
     gen = gen_mskxl_be;
@@ -7404,7 +7404,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
    (match_operand:DI 2 "reg_or_8bit_operand" "")]
   ""
 {
-  rtx (*gen) PARAMS ((rtx, rtx, rtx, rtx));
+  rtx (*gen) (rtx, rtx, rtx, rtx);
   rtx mask;
   if (WORDS_BIG_ENDIAN)
     gen = gen_mskxl_be;
@@ -7421,7 +7421,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
    (match_operand:DI 2 "reg_or_8bit_operand" "")]
   ""
 {
-  rtx (*gen) PARAMS ((rtx, rtx, rtx, rtx));
+  rtx (*gen) (rtx, rtx, rtx, rtx);
   rtx mask;
   if (WORDS_BIG_ENDIAN)
     gen = gen_mskxl_be;

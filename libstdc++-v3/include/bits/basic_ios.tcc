@@ -1,4 +1,4 @@
-// basic_ios locale and locale-related member functions -*- C++ -*-
+// basic_ios member functions -*- C++ -*-
 
 // Copyright (C) 1999, 2001, 2002, 2003 Free Software Foundation, Inc.
 //
@@ -27,8 +27,8 @@
 // invalidate any other reasons why the executable file might be covered by
 // the GNU General Public License.
 
-#ifndef _CPP_BITS_BASICIOS_TCC
-#define _CPP_BITS_BASICIOS_TCC 1
+#ifndef _BASIC_IOS_TCC
+#define _BASIC_IOS_TCC 1
 
 #pragma GCC system_header
 
@@ -167,19 +167,19 @@ namespace std
     {
       if (__builtin_expect(has_facet<__ctype_type>(__loc), true))
 	_M_ctype = &use_facet<__ctype_type>(__loc);
-      if (__builtin_expect(has_facet<__numput_type>(__loc), true))
-	_M_num_put = &use_facet<__numput_type>(__loc); 
-      if (__builtin_expect(has_facet<__numget_type>(__loc), true))
-	_M_num_get = &use_facet<__numget_type>(__loc); 
+      if (__builtin_expect(has_facet<__num_put_type>(__loc), true))
+	_M_num_put = &use_facet<__num_put_type>(__loc); 
+      if (__builtin_expect(has_facet<__num_get_type>(__loc), true))
+	_M_num_get = &use_facet<__num_get_type>(__loc); 
     }
 
   // Inhibit implicit instantiations for required instantiations,
   // which are defined via explicit instantiations elsewhere.  
   // NB:  This syntax is a GNU extension.
-#if _GLIBCPP_EXTERN_TEMPLATE
+#if _GLIBCXX_EXTERN_TEMPLATE
   extern template class basic_ios<char>;
 
-#ifdef _GLIBCPP_USE_WCHAR_T
+#ifdef _GLIBCXX_USE_WCHAR_T
   extern template class basic_ios<wchar_t>;
 #endif
 #endif

@@ -89,8 +89,9 @@ static int version_done = 0;
 static unsigned int work_nesting_level = 0;
 
 /* Prepare to handle switches.  */
-int
-treelang_init_options (void)
+unsigned int
+treelang_init_options (unsigned int argc ATTRIBUTE_UNUSED,
+		       const char **argv ATTRIBUTE_UNUSED)
 {
   return CL_Treelang;
 }
@@ -106,17 +107,6 @@ treelang_handle_option (size_t scode, const char *arg ATTRIBUTE_UNUSED,
     {
     default:
       abort();
-
-    case OPT__help:
-      if (!version_done)
-	{
-	  fputs (language_string, stdout);
-	  fputs (version_string, stdout);
-	  fputs ("\n", stdout);
-	  version_done = 1;
-	}
-      fprintf (stdout, "Usage: tree1 [switches] -o output input\n");
-      break;
 
     case OPT_v:
       if (!version_done)
@@ -148,7 +138,7 @@ treelang_handle_option (size_t scode, const char *arg ATTRIBUTE_UNUSED,
 /* Language dependent parser setup.  */
 
 bool
-treelang_init ()
+treelang_init (void)
 {
   input_filename = main_input_filename;
   input_line = 0;

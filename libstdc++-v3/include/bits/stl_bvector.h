@@ -58,8 +58,8 @@
  *  You should not attempt to use it directly.
  */
 
-#ifndef __GLIBCPP_INTERNAL_BVECTOR_H
-#define __GLIBCPP_INTERNAL_BVECTOR_H
+#ifndef _BVECTOR_H
+#define _BVECTOR_H 1
 
 namespace std
 { 
@@ -373,25 +373,25 @@ template <typename _Alloc>
   
   protected:
     void _M_initialize(size_type __n) {
-      _Bit_type * __q = _M_bit_alloc(__n);
+      _Bit_type * __q = this->_M_bit_alloc(__n);
       this->_M_end_of_storage = __q + (__n + _S_word_bit - 1)/_S_word_bit;
       this->_M_start = iterator(__q, 0);
       this->_M_finish = this->_M_start + difference_type(__n);
     }
     void _M_insert_aux(iterator __position, bool __x) {
       if (this->_M_finish._M_p != this->_M_end_of_storage) {
-        copy_backward(__position, this->_M_finish, this->_M_finish + 1);
+        std::copy_backward(__position, this->_M_finish, this->_M_finish + 1);
         *__position = __x;
         ++this->_M_finish;
       }
       else {
         size_type __len = size() 
 	                  ? 2 * size() : static_cast<size_type>(_S_word_bit);
-        _Bit_type * __q = _M_bit_alloc(__len);
-        iterator __i = copy(begin(), __position, iterator(__q, 0));
+        _Bit_type * __q = this->_M_bit_alloc(__len);
+        iterator __i = std::copy(begin(), __position, iterator(__q, 0));
         *__i++ = __x;
-        this->_M_finish = copy(__position, end(), __i);
-        _M_deallocate();
+        this->_M_finish = std::copy(__position, end(), __i);
+        this->_M_deallocate();
         this->_M_end_of_storage = __q + (__len + _S_word_bit - 1)/_S_word_bit;
         this->_M_start = iterator(__q, 0);
       }
@@ -412,7 +412,7 @@ template <typename _Alloc>
                              forward_iterator_tag) {
       size_type __n = std::distance(__first, __last);
       _M_initialize(__n);
-      copy(__first, __last, this->_M_start);
+      std::copy(__first, __last, this->_M_start);
     }
   
     template <class _InputIterator>
@@ -432,18 +432,18 @@ template <typename _Alloc>
       if (__first != __last) {
         size_type __n = std::distance(__first, __last);
         if (capacity() - size() >= __n) {
-          copy_backward(__position, end(),
-			this->_M_finish + difference_type(__n));
-          copy(__first, __last, __position);
+          std::copy_backward(__position, end(),
+			     this->_M_finish + difference_type(__n));
+          std::copy(__first, __last, __position);
           this->_M_finish += difference_type(__n);
         }
         else {
           size_type __len = size() + std::max(size(), __n);
-          _Bit_type * __q = _M_bit_alloc(__len);
-          iterator __i = copy(begin(), __position, iterator(__q, 0));
-          __i = copy(__first, __last, __i);
-          this->_M_finish = copy(__position, end(), __i);
-          _M_deallocate();
+          _Bit_type * __q = this->_M_bit_alloc(__len);
+          iterator __i = std::copy(begin(), __position, iterator(__q, 0));
+          __i = std::copy(__first, __last, __i);
+          this->_M_finish = std::copy(__position, end(), __i);
+          this->_M_deallocate();
           this->_M_end_of_storage
 	    = __q + (__len + _S_word_bit - 1)/_S_word_bit;
           this->_M_start = iterator(__q, 0);
@@ -496,19 +496,19 @@ template <typename _Alloc>
       : _Bvector_base<_Alloc>(__a)
     {
       _M_initialize(__n);
-      fill(this->_M_start._M_p, this->_M_end_of_storage, __value ? ~0 : 0);
+      std::fill(this->_M_start._M_p, this->_M_end_of_storage, __value ? ~0 : 0);
     }
   
     explicit vector(size_type __n)
       : _Bvector_base<_Alloc>(allocator_type())
     {
       _M_initialize(__n);
-      fill(this->_M_start._M_p, this->_M_end_of_storage, 0);
+      std::fill(this->_M_start._M_p, this->_M_end_of_storage, 0);
     }
   
     vector(const vector& __x) : _Bvector_base<_Alloc>(__x.get_allocator()) {
       _M_initialize(__x.size());
-      copy(__x.begin(), __x.end(), this->_M_start);
+      std::copy(__x.begin(), __x.end(), this->_M_start);
     }
   
     // Check whether it's an integral type.  If so, it's not an iterator.
@@ -516,13 +516,13 @@ template <typename _Alloc>
     template <class _Integer>
     void _M_initialize_dispatch(_Integer __n, _Integer __x, __true_type) {
       _M_initialize(__n);
-      fill(this->_M_start._M_p, this->_M_end_of_storage, __x ? ~0 : 0);
+      std::fill(this->_M_start._M_p, this->_M_end_of_storage, __x ? ~0 : 0);
     }
   
     template <class _InputIterator>
     void _M_initialize_dispatch(_InputIterator __first, _InputIterator __last,
                                 __false_type) {
-      _M_initialize_range(__first, __last, __iterator_category(__first));
+      _M_initialize_range(__first, __last, std::__iterator_category(__first));
     }
   
     template <class _InputIterator>
@@ -539,10 +539,10 @@ template <typename _Alloc>
     vector& operator=(const vector& __x) {
       if (&__x == this) return *this;
       if (__x.size() > capacity()) {
-        _M_deallocate();
+        this->_M_deallocate();
         _M_initialize(__x.size());
       }
-      copy(__x.begin(), __x.end(), begin());
+      std::copy(__x.begin(), __x.end(), begin());
       this->_M_finish = begin() + difference_type(__x.size());
       return *this;
     }
@@ -554,12 +554,12 @@ template <typename _Alloc>
   
     void _M_fill_assign(size_t __n, bool __x) {
       if (__n > size()) {
-        fill(this->_M_start._M_p, this->_M_end_of_storage, __x ? ~0 : 0);
+        std::fill(this->_M_start._M_p, this->_M_end_of_storage, __x ? ~0 : 0);
         insert(end(), __n - size(), __x);
       }
       else {
         erase(begin() + __n, end());
-        fill(this->_M_start._M_p, this->_M_end_of_storage, __x ? ~0 : 0);
+        std::fill(this->_M_start._M_p, this->_M_end_of_storage, __x ? ~0 : 0);
       }
     }
   
@@ -577,7 +577,7 @@ template <typename _Alloc>
   
     template <class _InputIterator>
     void _M_assign_dispatch(_InputIterator __first, _InputIterator __last, __false_type)
-      { _M_assign_aux(__first, __last, __iterator_category(__first)); }
+      { _M_assign_aux(__first, __last, std::__iterator_category(__first)); }
   
     template <class _InputIterator>
     void _M_assign_aux(_InputIterator __first, _InputIterator __last,
@@ -596,11 +596,11 @@ template <typename _Alloc>
                        forward_iterator_tag) {
       size_type __len = std::distance(__first, __last);
       if (__len < size())
-        erase(copy(__first, __last, begin()), end());
+        erase(std::copy(__first, __last, begin()), end());
       else {
         _ForwardIterator __mid = __first;
-        advance(__mid, size());
-        copy(__first, __mid, begin());
+        std::advance(__mid, size());
+        std::copy(__first, __mid, begin());
         insert(end(), __mid, __last);
       }
     }    
@@ -609,9 +609,9 @@ template <typename _Alloc>
       if (__n > this->max_size())
 	__throw_length_error(__N("vector::reserve"));
       if (this->capacity() < __n) {
-        _Bit_type * __q = _M_bit_alloc(__n);
-        this->_M_finish = copy(begin(), end(), iterator(__q, 0));
-        _M_deallocate();
+        _Bit_type * __q = this->_M_bit_alloc(__n);
+        this->_M_finish = std::copy(begin(), end(), iterator(__q, 0));
+        this->_M_deallocate();
         this->_M_start = iterator(__q, 0);
         this->_M_end_of_storage = __q + (__n + _S_word_bit - 1)/_S_word_bit;
       }
@@ -662,7 +662,7 @@ template <typename _Alloc>
     void _M_insert_dispatch(iterator __pos,
                             _InputIterator __first, _InputIterator __last,
                             __false_type) {
-      _M_insert_range(__pos, __first, __last, __iterator_category(__first));
+      _M_insert_range(__pos, __first, __last, std::__iterator_category(__first));
     }
   
     template <class _InputIterator>
@@ -675,18 +675,18 @@ template <typename _Alloc>
     void _M_fill_insert(iterator __position, size_type __n, bool __x) {
       if (__n == 0) return;
       if (capacity() - size() >= __n) {
-        copy_backward(__position, end(),
-		      this->_M_finish + difference_type(__n));
-        fill(__position, __position + difference_type(__n), __x);
+        std::copy_backward(__position, end(),
+			   this->_M_finish + difference_type(__n));
+        std::fill(__position, __position + difference_type(__n), __x);
         this->_M_finish += difference_type(__n);
       }
       else {
         size_type __len = size() + std::max(size(), __n);
-        _Bit_type * __q = _M_bit_alloc(__len);
-        iterator __i = copy(begin(), __position, iterator(__q, 0));
-        fill_n(__i, __n, __x);
-        this->_M_finish = copy(__position, end(), __i + difference_type(__n));
-        _M_deallocate();
+        _Bit_type * __q = this->_M_bit_alloc(__len);
+        iterator __i = std::copy(begin(), __position, iterator(__q, 0));
+        std::fill_n(__i, __n, __x);
+        this->_M_finish = std::copy(__position, end(), __i + difference_type(__n));
+        this->_M_deallocate();
         this->_M_end_of_storage = __q + (__len + _S_word_bit - 1)/_S_word_bit;
         this->_M_start = iterator(__q, 0);
       }
@@ -699,12 +699,12 @@ template <typename _Alloc>
     void pop_back() { --this->_M_finish; }
     iterator erase(iterator __position) {
       if (__position + 1 != end())
-        copy(__position + 1, end(), __position);
+        std::copy(__position + 1, end(), __position);
         --this->_M_finish;
       return __position;
     }
     iterator erase(iterator __first, iterator __last) {
-      this->_M_finish = copy(__last, end(), __first);
+      this->_M_finish = std::copy(__last, end(), __first);
       return __first;
     }
     void resize(size_type __new_size, bool __x = bool()) {
@@ -728,7 +728,7 @@ typedef vector<bool, __alloc> bit_vector;
 
 } // namespace std 
 
-#endif /* __GLIBCPP_INTERNAL_BVECTOR_H */
+#endif /* _BVECTOR_H */
 
 // Local Variables:
 // mode:C++

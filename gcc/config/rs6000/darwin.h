@@ -97,6 +97,14 @@ do {									\
 %{static: %{Zdynamic: %e conflicting code gen style switches are used}}\
 %{!static:%{!mdynamic-no-pic:-fPIC}}"
 
+#define ASM_SPEC "-arch ppc \
+  %{Zforce_cpusubtype_ALL:-force_cpusubtype_ALL} \
+  %{!Zforce_cpusubtype_ALL:%{faltivec:-force_cpusubtype_ALL}}"
+
+#undef SUBTARGET_EXTRA_SPECS
+#define SUBTARGET_EXTRA_SPECS			\
+  { "darwin_arch", "ppc" },
+
 /* Make both r2 and r3 available for allocation.  */
 #define FIXED_R2 0
 #define FIXED_R13 0
@@ -208,7 +216,7 @@ do {									\
 #define PROCESSOR_DEFAULT  PROCESSOR_PPC7400
 
 /* Default target flag settings.  Despite the fact that STMW/LMW
-   serializes, it's still a big codesize win to use them.  Use FSEL by
+   serializes, it's still a big code size win to use them.  Use FSEL by
    default as well.  */
 
 #undef  TARGET_DEFAULT

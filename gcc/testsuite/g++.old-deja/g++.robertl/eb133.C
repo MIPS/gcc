@@ -9,10 +9,9 @@ int main()
 {
 	try {
 	}
-	catch (bad_alloc) { // { dg-error "" } parse error
+	catch (bad_alloc) { // { dg-error "" }
 		return 1;
 	}
 	return 0;
 }
 
-	

@@ -30,7 +30,7 @@
 
 #include <testsuite_hooks.h>
 
-#ifdef _GLIBCPP_MEM_LIMITS
+#ifdef _GLIBCXX_MEM_LIMITS
 #include <unistd.h>
 #include <sys/time.h>
 #include <sys/resource.h>
@@ -42,9 +42,9 @@
 #include <locale>
 #include <cxxabi.h>
 
-namespace __gnu_cxx_test
+namespace __gnu_test
 {
-#ifdef _GLIBCPP_MEM_LIMITS
+#ifdef _GLIBCXX_MEM_LIMITS
   void 
   set_memory_limits(float size)
   {
@@ -53,28 +53,28 @@ namespace __gnu_cxx_test
     __typeof__ (r.rlim_cur) limit = (__typeof__ (r.rlim_cur))(size * 1048576);
 
     // Heap size, seems to be common.
-#if _GLIBCPP_HAVE_MEMLIMIT_DATA
+#if _GLIBCXX_HAVE_MEMLIMIT_DATA
     getrlimit(RLIMIT_DATA, &r);
     r.rlim_cur = limit;
     setrlimit(RLIMIT_DATA, &r);
 #endif
 
     // Resident set size.
-#if _GLIBCPP_HAVE_MEMLIMIT_RSS
+#if _GLIBCXX_HAVE_MEMLIMIT_RSS
     getrlimit(RLIMIT_RSS, &r);
     r.rlim_cur = limit;
     setrlimit(RLIMIT_RSS, &r);
 #endif
 
     // Mapped memory (brk + mmap).
-#if _GLIBCPP_HAVE_MEMLIMIT_VMEM
+#if _GLIBCXX_HAVE_MEMLIMIT_VMEM
     getrlimit(RLIMIT_VMEM, &r);
     r.rlim_cur = limit;
     setrlimit(RLIMIT_VMEM, &r);
 #endif
 
     // Virtual memory.
-#if _GLIBCPP_HAVE_MEMLIMIT_AS
+#if _GLIBCXX_HAVE_MEMLIMIT_AS
     getrlimit(RLIMIT_AS, &r);
     r.rlim_cur = limit;
     setrlimit(RLIMIT_AS, &r);
@@ -155,8 +155,9 @@ namespace __gnu_cxx_test
     if (res != NULL)
       {
 	string preLC_ALL = res;
-	for (func_callback::const_iterator i = l.begin(); i != l.end(); ++i)
-	  (*i)();
+	const func_callback::test_type* tests = l.tests();
+	for (int i = 0; i < l.size(); ++i)
+	  (*tests[i])();
 	string postLC_ALL= setlocale(LC_ALL, NULL);
 	VERIFY( preLC_ALL == postLC_ALL );
       }
@@ -171,7 +172,7 @@ namespace __gnu_cxx_test
     using namespace std;
     bool test = true;
     
-#ifdef _GLIBCPP_HAVE_SETENV 
+#ifdef _GLIBCXX_HAVE_SETENV 
     // Set the global locale. 
     locale loc_name = try_named_locale(name);
     locale orig = locale::global(loc_name);
@@ -180,8 +181,9 @@ namespace __gnu_cxx_test
     const char* oldENV = getenv(env);
     if (!setenv(env, name, 1))
       {
-	for (func_callback::const_iterator i = l.begin(); i != l.end(); ++i)
-	  (*i)();
+	const func_callback::test_type* tests = l.tests();
+	for (int i = 0; i < l.size(); ++i)
+	  (*tests[i])();
 	setenv(env, oldENV ? oldENV : "", 1);
       }
     else

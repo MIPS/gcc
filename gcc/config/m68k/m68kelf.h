@@ -1,7 +1,7 @@
 /* m68kelf support, derived from m68kv4.h */
 
 /* Target definitions for GNU compiler for mc680x0 running System V.4
-   Copyright (C) 1991, 1993, 2000, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1991, 1993, 2000, 2002, 2003 Free Software Foundation, Inc.
 
    Written by Ron Guilmette (rfg@netcom.com) and Fred Fish (fnf@cygnus.com).
 
@@ -21,8 +21,6 @@ You should have received a copy of the GNU General Public License
 along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
-
-/* #notinclude "m68k/sgs.h"	/ * The m68k/SVR4 assembler is SGS based */
 
 /* These are necessary for -fpic/-fPIC to work correctly.  */
 #ifndef MOTOROLA
@@ -75,7 +73,7 @@ Boston, MA 02111-1307, USA.  */
 
 #define ASM_RETURN_CASE_JUMP				\
   do {							\
-    if (TARGET_5200)					\
+    if (TARGET_COLDFIRE)				\
       {							\
 	if (ADDRESS_REG_P (operands[0]))		\
 	  return "jmp %%pc@(2,%0:l)";			\
@@ -246,16 +244,6 @@ extern int switch_table_difference_label_flag;
 #undef ASM_OUTPUT_BEFORE_CASE_LABEL
 #define ASM_OUTPUT_BEFORE_CASE_LABEL(FILE,PREFIX,NUM,TABLE)		\
   fprintf ((FILE), "%s&%d\n", SWBEG_ASM_OP, XVECLEN (PATTERN (TABLE), 1));
-
-/* In m68k svr4, a symbol_ref rtx can be a valid PIC operand if it is an
-   operand of a function call.  */
-#undef LEGITIMATE_PIC_OPERAND_P
-
-#define LEGITIMATE_PIC_OPERAND_P(X)	\
-  (! symbolic_operand (X, VOIDmode)				\
-   || (GET_CODE (X) == SYMBOL_REF && SYMBOL_REF_FLAG (X))	\
-   || PCREL_GENERAL_OPERAND_OK)
-
 /* end of stuff from m68kv4.h */
 
 #undef SGS_CMP_ORDER

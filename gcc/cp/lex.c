@@ -38,7 +38,6 @@ Boston, MA 02111-1307, USA.  */
 #include "output.h"
 #include "tm_p.h"
 #include "timevar.h"
-#include "diagnostic.h"
 
 static int interface_strcmp (const char *);
 static void init_cp_pragma (void);
@@ -50,7 +49,6 @@ static void handle_pragma_interface (cpp_reader *);
 static void handle_pragma_implementation (cpp_reader *);
 static void handle_pragma_java_exceptions (cpp_reader *);
 
-static int is_global (tree);
 static void init_operators (void);
 static void copy_lang_type (tree);
 
@@ -147,22 +145,6 @@ int interface_unknown;		/* whether or not we know this class
 				   to behave according to #pragma interface.  */
 
 
-/* Initialization before switch parsing.  */
-int
-cxx_init_options (void)
-{
-  /* Default exceptions on.  */
-  flag_exceptions = 1;
-  /* By default wrap lines at 80 characters.  Is getenv ("COLUMNS")
-     preferable?  */
-  diagnostic_line_cutoff (global_dc) = 80;
-  /* By default, emit location information once for every
-     diagnostic message.  */
-  diagnostic_prefixing_rule (global_dc) = DIAGNOSTICS_SHOW_PREFIX_ONCE;
-
-  return c_common_init_options (clk_cplusplus);
-}
-
 void
 cxx_finish (void)
 {
@@ -224,7 +206,6 @@ init_operators (void)
   operator_name_info [(int) ROUND_MOD_EXPR].name = "(round %)";
   operator_name_info [(int) ABS_EXPR].name = "abs";
   operator_name_info [(int) FFS_EXPR].name = "ffs";
-  operator_name_info [(int) BIT_ANDTC_EXPR].name = "&~";
   operator_name_info [(int) TRUTH_AND_EXPR].name = "strict &&";
   operator_name_info [(int) TRUTH_OR_EXPR].name = "strict ||";
   operator_name_info [(int) IN_EXPR].name = "in";
@@ -372,7 +353,7 @@ init_reswords (void)
   int mask = ((flag_no_asm ? D_ASM : 0)
 	      | (flag_no_gnu_keywords ? D_EXT : 0));
 
-  ridpointers = (tree *) ggc_calloc ((int) RID_MAX, sizeof (tree));
+  ridpointers = ggc_calloc ((int) RID_MAX, sizeof (tree));
   for (i = 0; i < ARRAY_SIZE (reswords); i++)
     {
       id = get_identifier (reswords[i].word);
@@ -409,7 +390,10 @@ cxx_init (void)
 
   INIT_STATEMENT_CODES (stmt_codes);
 
-  input_filename = "<internal>";
+  /* We cannot just assign to input_filename because it has already
+     been initialized and will be used later as an N_BINCL for stabs+
+     debugging.  */
+  push_srcloc ("<internal>", 0);
 
   init_reswords ();
   init_tree ();
@@ -446,12 +430,16 @@ cxx_init (void)
   interface_unknown = 1;
 
   if (c_common_init () == false)
-    return false;
+    {
+      pop_srcloc();
+      return false;
+    }
 
   init_cp_pragma ();
 
   init_repo (main_input_filename);
 
+  pop_srcloc();
   return true;
 }
 
@@ -517,28 +505,6 @@ interface_strcmp (const char* s)
   return 1;
 }
 
-void
-note_got_semicolon (tree type)
-{
-  if (!TYPE_P (type))
-    abort ();
-  if (CLASS_TYPE_P (type))
-    CLASSTYPE_GOT_SEMICOLON (type) = 1;
-}
-
-void
-note_list_got_semicolon (tree declspecs)
-{
-  tree link;
-
-  for (link = declspecs; link; link = TREE_CHAIN (link))
-    {
-      tree type = TREE_VALUE (link);
-      if (type && TYPE_P (type))
-	note_got_semicolon (type);
-    }
-  clear_anon_tags ();
-}
 
 
 /* Parse a #pragma whose sole argument is a string constant.
@@ -654,7 +620,7 @@ handle_pragma_implementation (cpp_reader* dfile ATTRIBUTE_UNUSED )
     }
   if (ifiles == 0)
     {
-      ifiles = (struct impl_files*) xmalloc (sizeof (struct impl_files));
+      ifiles = xmalloc (sizeof (struct impl_files));
       ifiles->filename = main_filename;
       ifiles->next = impl_file_chain;
       impl_file_chain = ifiles;
@@ -672,30 +638,10 @@ handle_pragma_java_exceptions (cpp_reader* dfile ATTRIBUTE_UNUSED )
   choose_personality_routine (lang_java);
 }
 
-/* Return true if d is in a global scope.  */
-
-static int
-is_global (tree d)
-{
-  while (1)
-    switch (TREE_CODE (d))
-      {
-      case ERROR_MARK:
-	return 1;
-
-      case OVERLOAD: d = OVL_FUNCTION (d); continue;
-      case TREE_LIST: d = TREE_VALUE (d); continue;
-      default:
-        my_friendly_assert (DECL_P (d), 980629);
-
-	return DECL_NAMESPACE_SCOPE_P (d);
-      }
-}
-
 /* Issue an error message indicating that the lookup of NAME (an
-   IDENTIFIER_NODE) failed.  */
+   IDENTIFIER_NODE) failed.  Returns the ERROR_MARK_NODE.  */
 
-void
+tree
 unqualified_name_lookup_error (tree name)
 {
   if (IDENTIFIER_OPNAME_P (name))
@@ -724,194 +670,49 @@ unqualified_name_lookup_error (tree name)
       SET_IDENTIFIER_NAMESPACE_VALUE (name, error_mark_node);
       SET_IDENTIFIER_ERROR_LOCUS (name, current_function_decl);
     }
+
+  return error_mark_node;
 }
 
-tree
-do_identifier (register tree token, tree args)
-{
-  register tree id;
-
-  timevar_push (TV_NAME_LOOKUP);
-  id = lookup_name (token, 0);
-
-  /* Do Koenig lookup if appropriate (inside templates we build lookup
-     expressions instead).
-
-     [basic.lookup.koenig]: If the ordinary unqualified lookup of the name
-     finds the declaration of a class member function, the associated
-     namespaces and classes are not considered.  */
-
-  if (args && !current_template_parms && (!id || is_global (id)))
-    id = lookup_arg_dependent (token, id, args);
-
-  if (id == error_mark_node)
-    {
-      /* lookup_name quietly returns error_mark_node if we're parsing,
-	 as we don't want to complain about an identifier that ends up
-	 being used as a declarator.  So we call it again to get the error
-	 message.  */
-      id = lookup_name (token, 0);
-      POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, error_mark_node);
-    }
-
-  if (!id || (TREE_CODE (id) == FUNCTION_DECL
-	      && DECL_ANTICIPATED (id)))
-    {
-      if (current_template_parms)
-        POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP,
-                                build_min_nt (LOOKUP_EXPR, token));
-      else if (IDENTIFIER_TYPENAME_P (token))
-	/* A templated conversion operator might exist.  */
-	POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, token);
-      else
-	{
-	  unqualified_name_lookup_error (token);
-	  POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, error_mark_node);
-	}
-    }
-
-  id = check_for_out_of_scope_variable (id);
-
-  /* TREE_USED is set in `hack_identifier'.  */
-  if (TREE_CODE (id) == CONST_DECL)
-    {
-      /* Check access.  */
-      if (IDENTIFIER_CLASS_VALUE (token) == id)
-	perform_or_defer_access_check (TYPE_BINFO (DECL_CONTEXT (id)), id);
-      if (!processing_template_decl || DECL_TEMPLATE_PARM_P (id))
-	id = DECL_INITIAL (id);
-    }
-  else
-    id = hack_identifier (id, token);
-
-  /* We must look up dependent names when the template is
-     instantiated, not while parsing it.  For now, we don't
-     distinguish between dependent and independent names.  So, for
-     example, we look up all overloaded functions at
-     instantiation-time, even though in some cases we should just use
-     the DECL we have here.  We also use LOOKUP_EXPRs to find things
-     like local variables, rather than creating TEMPLATE_DECLs for the
-     local variables and then finding matching instantiations.  */
-  if (current_template_parms
-      && (is_overloaded_fn (id)
-	  || (TREE_CODE (id) == VAR_DECL
-	      && CP_DECL_CONTEXT (id)
-	      && TREE_CODE (CP_DECL_CONTEXT (id)) == FUNCTION_DECL)
-	  || TREE_CODE (id) == PARM_DECL
-	  || TREE_CODE (id) == RESULT_DECL
-	  || TREE_CODE (id) == USING_DECL))
-    id = build_min_nt (LOOKUP_EXPR, token);
-
-  POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, id);
-}
+/* Like unqualified_name_lookup_error, but NAME is an unqualified-id
+   used as a function.  Returns an appropriate expression for
+   NAME.  */
 
 tree
-do_scoped_id (tree token, tree id)
+unqualified_fn_lookup_error (tree name)
 {
-  timevar_push (TV_NAME_LOOKUP);
-  if (!id || (TREE_CODE (id) == FUNCTION_DECL
-	      && DECL_ANTICIPATED (id)))
-    {
-      if (processing_template_decl)
-	{
-	  id = build_min_nt (LOOKUP_EXPR, token);
-	  LOOKUP_EXPR_GLOBAL (id) = 1;
-	  POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, id);
-	}
-      if (IDENTIFIER_NAMESPACE_VALUE (token) != error_mark_node)
-        error ("`::%D' undeclared (first use here)", token);
-      id = error_mark_node;
-      /* Prevent repeated error messages.  */
-      SET_IDENTIFIER_NAMESPACE_VALUE (token, error_mark_node);
-    }
-  else
-    {
-      if (TREE_CODE (id) == ADDR_EXPR)
-	mark_used (TREE_OPERAND (id, 0));
-      else if (TREE_CODE (id) != OVERLOAD)
-	mark_used (id);
-    }
-  if (TREE_CODE (id) == CONST_DECL && ! processing_template_decl)
-    {
-      /* XXX CHS - should we set TREE_USED of the constant? */
-      id = DECL_INITIAL (id);
-      /* This is to prevent an enum whose value is 0
-	 from being considered a null pointer constant.  */
-      id = build1 (NOP_EXPR, TREE_TYPE (id), id);
-      TREE_CONSTANT (id) = 1;
-    }
-
   if (processing_template_decl)
     {
-      if (is_overloaded_fn (id))
+      /* In a template, it is invalid to write "f()" or "f(3)" if no
+	 declaration of "f" is available.  Historically, G++ and most
+	 other compilers accepted that usage since they deferred all name
+	 lookup until instantiation time rather than doing unqualified
+	 name lookup at template definition time; explain to the user what 
+	 is going wrong.
+
+	 Note that we have the exact wording of the following message in
+	 the manual (trouble.texi, node "Name lookup"), so they need to
+	 be kept in synch.  */
+      pedwarn ("there are no arguments to `%D' that depend on a template "
+	       "parameter, so a declaration of `%D' must be available", 
+	       name, name);
+      
+      if (!flag_permissive)
 	{
-	  id = build_min_nt (LOOKUP_EXPR, token);
-	  LOOKUP_EXPR_GLOBAL (id) = 1;
-	  POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, id);
+	  static bool hint;
+	  if (!hint)
+	    {
+	      error ("(if you use `-fpermissive', G++ will accept your code, "
+		     "but allowing the use of an undeclared name is "
+		     "deprecated)");
+	      hint = true;
+	    }
 	}
-      /* else just use the decl */
+      return name;
     }
-  POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, convert_from_reference (id));
+
+  return unqualified_name_lookup_error (name);
 }
-
-tree
-identifier_typedecl_value (tree node)
-{
-  tree t, type;
-  type = IDENTIFIER_TYPE_VALUE (node);
-  if (type == NULL_TREE)
-    return NULL_TREE;
-
-  if (IDENTIFIER_BINDING (node))
-    {
-      t = IDENTIFIER_VALUE (node);
-      if (t && TREE_CODE (t) == TYPE_DECL && TREE_TYPE (t) == type)
-	return t;
-    }
-  if (IDENTIFIER_NAMESPACE_VALUE (node))
-    {
-      t = IDENTIFIER_NAMESPACE_VALUE (node);
-      if (t && TREE_CODE (t) == TYPE_DECL && TREE_TYPE (t) == type)
-	return t;
-    }
-
-  /* Will this one ever happen?  */
-  if (TYPE_MAIN_DECL (type))
-    return TYPE_MAIN_DECL (type);
-
-  /* We used to do an internal error of 62 here, but instead we will
-     handle the return of a null appropriately in the callers.  */
-  return NULL_TREE;
-}
-
-#ifdef GATHER_STATISTICS
-/* The original for tree_node_kind is in the toplevel tree.c; changes there
-   need to be brought into here, unless this were actually put into a header
-   instead.  */
-/* Statistics-gathering stuff.  */
-typedef enum
-{
-  d_kind,
-  t_kind,
-  b_kind,
-  s_kind,
-  r_kind,
-  e_kind,
-  c_kind,
-  id_kind,
-  op_id_kind,
-  perm_list_kind,
-  temp_list_kind,
-  vec_kind,
-  x_kind,
-  lang_decl,
-  lang_type,
-  all_kinds
-} tree_node_kind;
-
-extern int tree_node_counts[];
-extern int tree_node_sizes[];
-#endif
 
 tree
 build_lang_decl (enum tree_code code, tree name, tree type)
@@ -938,7 +739,7 @@ retrofit_lang_decl (tree t)
   else
     size = sizeof (struct lang_decl_flags);
 
-  ld = (struct lang_decl *) ggc_alloc_cleared (size);
+  ld = ggc_alloc_cleared (size);
 
   ld->decl_flags.can_be_full = CAN_HAVE_FULL_LANG_DECL_P (t) ? 1 : 0;
   ld->decl_flags.u1sel = TREE_CODE (t) == NAMESPACE_DECL ? 1 : 0;
@@ -974,7 +775,7 @@ cxx_dup_lang_specific_decl (tree node)
     size = sizeof (struct lang_decl_flags);
   else
     size = sizeof (struct lang_decl);
-  ld = (struct lang_decl *) ggc_alloc (size);
+  ld = ggc_alloc (size);
   memcpy (ld, DECL_LANG_SPECIFIC (node), size);
   DECL_LANG_SPECIFIC (node) = ld;
 
@@ -1011,7 +812,7 @@ copy_lang_type (tree node)
     size = sizeof (struct lang_type);
   else
     size = sizeof (struct lang_type_ptrmem);
-  lt = (struct lang_type *) ggc_alloc (size);
+  lt = ggc_alloc (size);
   memcpy (lt, TYPE_LANG_SPECIFIC (node), size);
   TYPE_LANG_SPECIFIC (node) = lt;
 
@@ -1044,8 +845,7 @@ cxx_make_type (enum tree_code code)
     {
       struct lang_type *pi;
 
-      pi = ((struct lang_type *)
-	    ggc_alloc_cleared (sizeof (struct lang_type)));
+      pi = ggc_alloc_cleared (sizeof (struct lang_type));
 
       TYPE_LANG_SPECIFIC (t) = pi;
       pi->u.c.h.is_lang_type_class = 1;

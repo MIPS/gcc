@@ -1,3 +1,31 @@
+2003-08-27  Daniel Jacobowitz  <drow@mvista.com>
+
+	* aclocal.m4: Include acx.m4 and no-executables.m4.
+	(libiberty_AC_FUNC_STRNCMP): Use AC_LIBOBJ.
+	(LIB_AC_PROG_CC): Remove.
+	* configure.in: Update AC_PREREQ to 2.57.  Use GCC_NO_EXECUTABLES.
+	Use AC_PROG_CC and set ac_libiberty_warn_cflags instead of using
+	LIB_AC_PROG_CC.  Use AC_LIBOBJ.  Call AC_ISC_POSIX later, only if
+	performing link tests.
+	* configure: Regenerated.
+
+2003-08-12  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+        * cp-demangle.c: Clarify what package(s) this is part of.
+
+2003-07-05  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	* pex-win32.c (pexecute): Mark parameters this_pname and
+	temp_base as unused. Remove unused variables retries,
+	sleep_interval. Initialize org_stdin, org_stdout.
+	(pwait): Mark parameter flags as unused.
+
+2003-07-02  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	* pex-win32.c (fix_argv): Ensure that the executable pathname
+	uses Win32 backslashes.
+	(pexecute): Cast away constness when assigning *errmsg_arg.
+
 2003-06-26  H.J. Lu <hongjiu.lu@intel.com>
 
 	* testsuite/demangle-expected: Add more GNU V3 testcases.

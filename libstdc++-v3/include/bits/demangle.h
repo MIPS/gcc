@@ -28,44 +28,42 @@
 // invalidate any other reasons why the executable file might be covered by
 // the GNU General Public License.
 
-#ifndef __DEMANGLER_H
-#define __DEMANGLER_H 1
+#ifndef _DEMANGLER_H
+#define _DEMANGLER_H 1
 
-#include <limits>
 #include <vector>
 #include <string>
-#include <cctype>
 
-#ifndef _GLIBCPP_DEMANGLER_DEBUG
-#define _GLIBCPP_DEMANGLER_CWDEBUG 0
-#define _GLIBCPP_DEMANGLER_DEBUG(x)
-#define _GLIBCPP_DEMANGLER_DOUT(cntrl, data)
-#define _GLIBCPP_DEMANGLER_DOUT_ENTERING(x)
-#define _GLIBCPP_DEMANGLER_DOUT_ENTERING2(x)
-#define _GLIBCPP_DEMANGLER_RETURN \
+#ifndef _GLIBCXX_DEMANGLER_DEBUG
+#define _GLIBCXX_DEMANGLER_CWDEBUG 0
+#define _GLIBCXX_DEMANGLER_DEBUG(x)
+#define _GLIBCXX_DEMANGLER_DOUT(cntrl, data)
+#define _GLIBCXX_DEMANGLER_DOUT_ENTERING(x)
+#define _GLIBCXX_DEMANGLER_DOUT_ENTERING2(x)
+#define _GLIBCXX_DEMANGLER_RETURN \
     return M_result
-#define _GLIBCPP_DEMANGLER_RETURN2 \
+#define _GLIBCXX_DEMANGLER_RETURN2 \
     return M_result
-#define _GLIBCPP_DEMANGLER_FAILURE \
+#define _GLIBCXX_DEMANGLER_FAILURE \
     do { M_result = false; return false; } while(0)
 #else
-#define _GLIBCPP_DEMANGLER_CWDEBUG 1
+#define _GLIBCXX_DEMANGLER_CWDEBUG 1
 #endif
 
 // The following defines change the behaviour of the demangler.  The
 // default behaviour is that none of these macros is defined.
 
-// _GLIBCPP_DEMANGLER_STYLE_VOID
+// _GLIBCXX_DEMANGLER_STYLE_VOID
 // Default behaviour:					int f()
 // Uses (void) instead of ():				int f(void)
 
-// _GLIBCPP_DEMANGLER_STYLE_LITERAL
+// _GLIBCXX_DEMANGLER_STYLE_LITERAL
 // Default behaviour:					(long)13, 
 //							(unsigned long long)19
 // Use extensions 'u', 'l' and 'll' for integral
 // literals (as in template arguments):			13l, 19ull
 
-// _GLIBCPP_DEMANGLER_STYLE_LITERAL_INT
+// _GLIBCXX_DEMANGLER_STYLE_LITERAL_INT
 // Default behaviour:					4
 // Use also an explicit cast for int in literals:	(int)4
 
@@ -282,7 +280,7 @@ namespace __gnu_cxx
 	std::vector<int, Allocator> M_template_arg_pos;
 	int M_template_arg_pos_offset;
 	std::vector<substitution_st, Allocator> M_substitutions_pos;
-#if _GLIBCPP_DEMANGLER_CWDEBUG
+#if _GLIBCXX_DEMANGLER_CWDEBUG
 	bool M_inside_add_substitution;
 #endif
 
@@ -294,7 +292,7 @@ namespace __gnu_cxx
 	  M_name_is_cdtor(false), M_name_is_template(false),
 	  M_name_is_conversion_operator(false),
 	  M_template_args_need_space(false), M_template_arg_pos_offset(0)
-#if _GLIBCPP_DEMANGLER_CWDEBUG
+#if _GLIBCXX_DEMANGLER_CWDEBUG
 	  , M_inside_add_substitution(false)
 #endif
 	{ }
@@ -373,7 +371,7 @@ namespace __gnu_cxx
       };
 
     template<typename Allocator>
-#if !_GLIBCPP_DEMANGLER_CWDEBUG
+#if !_GLIBCXX_DEMANGLER_CWDEBUG
       inline
 #endif
       void
@@ -383,14 +381,14 @@ namespace __gnu_cxx
       {
 	if (!M_inside_substitution)
 	{
-#if _GLIBCPP_DEMANGLER_CWDEBUG
+#if _GLIBCXX_DEMANGLER_CWDEBUG
 	  if (M_inside_add_substitution)
 	    return;
 #endif
 	  M_substitutions_pos.
 	      push_back(substitution_st(start_pos,
 		  sub_type, number_of_prefixes));
-#if _GLIBCPP_DEMANGLER_CWDEBUG
+#if _GLIBCXX_DEMANGLER_CWDEBUG
 	  if (!DEBUGCHANNELS::dc::demangler.is_on())
 	    return;
 	  string_type substitution_name("S");
@@ -403,7 +401,7 @@ namespace __gnu_cxx
 	  int saved_pos = M_pos;
 	  M_pos = start_pos;
 	  M_inside_add_substitution = true;
-	  _GLIBCPP_DEMANGLER_DEBUG( dc::demangler.off() );
+	  _GLIBCXX_DEMANGLER_DEBUG( dc::demangler.off() );
 	  switch(sub_type)
 	  {
 	    case type:
@@ -437,8 +435,8 @@ namespace __gnu_cxx
 	      break;
 	  }
 	  M_pos = saved_pos;
-	  _GLIBCPP_DEMANGLER_DEBUG( dc::demangler.on() );
-	  _GLIBCPP_DEMANGLER_DOUT(dc::demangler,
+	  _GLIBCXX_DEMANGLER_DEBUG( dc::demangler.on() );
+	  _GLIBCXX_DEMANGLER_DOUT(dc::demangler,
 	      "Adding substitution " << substitution_name
 	      << " : " << subst
 	      << " (from " << location_ct((char*)__builtin_return_address(0)
@@ -452,6 +450,14 @@ namespace __gnu_cxx
 #endif
 	}
       }
+
+    // We don't want to depend on locale (or include <cctype> for that matter).
+    // We also don't want to use "safe-ctype.h" because that headerfile is not
+    // available to the users.
+    inline bool isdigit(char c) { return c >= '0' && c <= '9'; }
+    inline bool islower(char c) { return c >= 'a' && c <= 'z'; }
+    inline bool isupper(char c) { return c >= 'A' && c <= 'Z'; }
+    inline char tolower(char c) { return isupper(c) ? c - 'A' + 'a' : c; }
 
     //
     // <decimal-integer> ::= 0
@@ -468,7 +474,7 @@ namespace __gnu_cxx
 	  output += '0';
 	  eat_current();
 	}
-	else if (!std::isdigit(c))
+	else if (!isdigit(c))
 	  M_result = false;
 	else
 	{
@@ -476,7 +482,7 @@ namespace __gnu_cxx
 	  {
 	    output += c;
 	  }
-	  while (std::isdigit((c = next())));
+	  while (isdigit((c = next())));
 	}
 	return M_result;
       }
@@ -487,7 +493,7 @@ namespace __gnu_cxx
       bool
       session<Allocator>::decode_number(string_type& output)
       {
-	_GLIBCPP_DEMANGLER_DOUT_ENTERING("decode_number");
+	_GLIBCXX_DEMANGLER_DOUT_ENTERING("decode_number");
 	if (current() != 'n')
 	  decode_decimal_integer(output);
 	else
@@ -496,7 +502,7 @@ namespace __gnu_cxx
 	  eat_current();
 	  decode_decimal_integer(output);
 	}
-	_GLIBCPP_DEMANGLER_RETURN;
+	_GLIBCXX_DEMANGLER_RETURN;
       }
 
     // <builtin-type> ::= v  # void
@@ -557,13 +563,13 @@ namespace __gnu_cxx
       bool
       session<Allocator>::decode_builtin_type(string_type& output)
       {
-	_GLIBCPP_DEMANGLER_DOUT_ENTERING("decode_builtin_type");
+	_GLIBCXX_DEMANGLER_DOUT_ENTERING("decode_builtin_type");
 	char const* bt;
 	if (!islower(current()) || !(bt = builtin_type_c[current() - 'a']))
-	  _GLIBCPP_DEMANGLER_FAILURE;
+	  _GLIBCXX_DEMANGLER_FAILURE;
 	output += bt;
 	eat_current();
-	_GLIBCPP_DEMANGLER_RETURN;
+	_GLIBCXX_DEMANGLER_RETURN;
       }
 
     // <class-enum-type> ::= <name>
@@ -572,12 +578,12 @@ namespace __gnu_cxx
       bool
       session<Allocator>::decode_class_enum_type(string_type& output)
       {
-	_GLIBCPP_DEMANGLER_DOUT_ENTERING("decode_class_enum_type");
+	_GLIBCXX_DEMANGLER_DOUT_ENTERING("decode_class_enum_type");
 	string_type nested_name_qualifiers;
 	if (!decode_name(output, nested_name_qualifiers))
-	  _GLIBCPP_DEMANGLER_FAILURE;
+	  _GLIBCXX_DEMANGLER_FAILURE;
 	output += nested_name_qualifiers;
-	_GLIBCPP_DEMANGLER_RETURN;
+	_GLIBCXX_DEMANGLER_RETURN;
       }
 
     // <substitution> ::=
@@ -601,7 +607,7 @@ namespace __gnu_cxx
       session<Allocator>::decode_substitution(string_type& output,
 	  qualifier_list<Allocator>* qualifiers)
       {
-	_GLIBCPP_DEMANGLER_DOUT_ENTERING("decode_substitution");
+	_GLIBCXX_DEMANGLER_DOUT_ENTERING("decode_substitution");
 	unsigned int value = 0;
 	char c = next();
 	if (c != '_')
@@ -621,7 +627,7 @@ namespace __gnu_cxx
 	      eat_current();
 	      if (qualifiers)
 		qualifiers->printing_suppressed();
-	      _GLIBCPP_DEMANGLER_RETURN;
+	      _GLIBCXX_DEMANGLER_RETURN;
 	    }
 	    case 'b':
 	    {
@@ -636,7 +642,7 @@ namespace __gnu_cxx
 	      eat_current();
 	      if (qualifiers)
 		qualifiers->printing_suppressed();
-	      _GLIBCPP_DEMANGLER_RETURN;
+	      _GLIBCXX_DEMANGLER_RETURN;
 	    }
 	    case 'd':
 	      output += "std::iostream";
@@ -650,7 +656,7 @@ namespace __gnu_cxx
 	      eat_current();
 	      if (qualifiers)
 		qualifiers->printing_suppressed();
-	      _GLIBCPP_DEMANGLER_RETURN;
+	      _GLIBCXX_DEMANGLER_RETURN;
 	    case 'i':
 	      output += "std::istream";
 	      if (!M_inside_template_args)
@@ -663,7 +669,7 @@ namespace __gnu_cxx
 	      eat_current();
 	      if (qualifiers)
 		qualifiers->printing_suppressed();
-	      _GLIBCPP_DEMANGLER_RETURN;
+	      _GLIBCXX_DEMANGLER_RETURN;
 	    case 'o':
 	      output += "std::ostream";
 	      if (!M_inside_template_args)
@@ -676,7 +682,7 @@ namespace __gnu_cxx
 	      eat_current();
 	      if (qualifiers)
 		qualifiers->printing_suppressed();
-	      _GLIBCPP_DEMANGLER_RETURN;
+	      _GLIBCXX_DEMANGLER_RETURN;
 	    case 's':
 	      output += "std::string";
 	      if (!M_inside_template_args)
@@ -689,24 +695,24 @@ namespace __gnu_cxx
 	      eat_current();
 	      if (qualifiers)
 		qualifiers->printing_suppressed();
-	      _GLIBCPP_DEMANGLER_RETURN;
+	      _GLIBCXX_DEMANGLER_RETURN;
 	    case 't':
 	      output += "std";
 	      eat_current();
 	      if (qualifiers)
 		qualifiers->printing_suppressed();
-	      _GLIBCPP_DEMANGLER_RETURN;
+	      _GLIBCXX_DEMANGLER_RETURN;
 	    default:
 	      for(;; c = next())
 	      {
-		if (std::isdigit(c))
+		if (isdigit(c))
 		  value = value * 36 + c - '0';
 		else if (isupper(c))
 		  value = value * 36 + c - 'A' + 10;
 		else if (c == '_')
 		  break;
 		else
-		  _GLIBCPP_DEMANGLER_FAILURE;
+		  _GLIBCXX_DEMANGLER_FAILURE;
 	      }
 	      ++value;
 	      break;
@@ -715,7 +721,7 @@ namespace __gnu_cxx
 	eat_current();
 	if (value >= M_substitutions_pos.size() ||
 	    M_inside_type > 20)			// Rather than core dump.
-	  _GLIBCPP_DEMANGLER_FAILURE;
+	  _GLIBCXX_DEMANGLER_FAILURE;
 	++M_inside_substitution;
 	int saved_pos = M_pos;
 	substitution_st& substitution(M_substitutions_pos[value]);
@@ -738,7 +744,7 @@ namespace __gnu_cxx
 		  output += ' ';
 		M_template_args_need_space = false;
 		if (!decode_template_args(output))
-		  _GLIBCPP_DEMANGLER_FAILURE;
+		  _GLIBCXX_DEMANGLER_FAILURE;
 	      }
 	      else
 	      {
@@ -747,10 +753,10 @@ namespace __gnu_cxx
 		if (current() == 'S')
 		{
 		  if (!decode_substitution(output))
-		    _GLIBCPP_DEMANGLER_FAILURE;
+		    _GLIBCXX_DEMANGLER_FAILURE;
 		}
 		else if (!decode_unqualified_name(output))
-		  _GLIBCPP_DEMANGLER_FAILURE;
+		  _GLIBCXX_DEMANGLER_FAILURE;
 	      }
 	    }
 	    if (qualifiers)
@@ -764,7 +770,7 @@ namespace __gnu_cxx
 	}
 	M_pos = saved_pos;
 	--M_inside_substitution;
-	_GLIBCPP_DEMANGLER_RETURN;
+	_GLIBCXX_DEMANGLER_RETURN;
       }
 
     // <template-param> ::= T_			# first template parameter
@@ -775,14 +781,14 @@ namespace __gnu_cxx
       session<Allocator>::decode_template_param(string_type& output,
 	  qualifier_list<Allocator>* qualifiers)
       {
-	_GLIBCPP_DEMANGLER_DOUT_ENTERING("decode_template_parameter");
+	_GLIBCXX_DEMANGLER_DOUT_ENTERING("decode_template_parameter");
 	if (current() != 'T')
-	  _GLIBCPP_DEMANGLER_FAILURE;
+	  _GLIBCXX_DEMANGLER_FAILURE;
 	unsigned int value = 0;
 	char c;
 	if ((c = next()) != '_')
 	{
-	  while(std::isdigit(c))
+	  while(isdigit(c))
 	  {
 	    value = value * 10 + c - '0';
 	    c = next();
@@ -790,14 +796,14 @@ namespace __gnu_cxx
 	  ++value;
 	}
 	if (eat_current() != '_')
-	  _GLIBCPP_DEMANGLER_FAILURE;
+	  _GLIBCXX_DEMANGLER_FAILURE;
 	value += M_template_arg_pos_offset;
 	if (value >= M_template_arg_pos.size())
-	  _GLIBCPP_DEMANGLER_FAILURE;
+	  _GLIBCXX_DEMANGLER_FAILURE;
 	int saved_pos = M_pos;
 	M_pos = M_template_arg_pos[value];
 	if (M_inside_type > 20)		// Rather than core dump.
-	  _GLIBCPP_DEMANGLER_FAILURE;
+	  _GLIBCXX_DEMANGLER_FAILURE;
 	++M_inside_substitution;
 	if (current() == 'X')
 	{
@@ -810,23 +816,23 @@ namespace __gnu_cxx
 	  decode_type(output, qualifiers);
 	--M_inside_substitution;
 	M_pos = saved_pos;
-	_GLIBCPP_DEMANGLER_RETURN;
+	_GLIBCXX_DEMANGLER_RETURN;
       }
 
     template<typename Allocator>
       bool
       session<Allocator>::decode_literal(string_type& output)
       {
-	_GLIBCPP_DEMANGLER_DOUT_ENTERING("decode_literal");
+	_GLIBCXX_DEMANGLER_DOUT_ENTERING("decode_literal");
 	eat_current();	// Eat the 'L'.
 	if (current() == '_')
 	{
 	  if (next() != 'Z')
-	    _GLIBCPP_DEMANGLER_FAILURE;
+	    _GLIBCXX_DEMANGLER_FAILURE;
 	  eat_current();
 	  if ((M_pos += decode_encoding(output, M_str + M_pos,
 		  M_maxpos - M_pos + 1)) < 0)
-	    _GLIBCPP_DEMANGLER_FAILURE;
+	    _GLIBCXX_DEMANGLER_FAILURE;
 	}
 	else
 	{
@@ -838,16 +844,16 @@ namespace __gnu_cxx
 	    else
 	      output += "true";
 	    eat_current();
-	    _GLIBCPP_DEMANGLER_RETURN;
+	    _GLIBCXX_DEMANGLER_RETURN;
 	  }
 	  char c = current();
-#ifdef _GLIBCPP_DEMANGLER_STYLE_LITERAL
+#ifdef _GLIBCXX_DEMANGLER_STYLE_LITERAL
 	  if (c == 'i' || c == 'j' || c == 'l' ||
 	      c == 'm' || c == 'x' || c == 'y')
 	    eat_current();
 	  else
 #else
-#ifndef _GLIBCPP_DEMANGLER_STYLE_LITERAL_INT
+#ifndef _GLIBCXX_DEMANGLER_STYLE_LITERAL_INT
 	  if (c == 'i')
 	    eat_current();
 	  else
@@ -856,12 +862,12 @@ namespace __gnu_cxx
 	  {
 	    output += '(';
 	    if (!decode_type(output))
-	      _GLIBCPP_DEMANGLER_FAILURE;
+	      _GLIBCXX_DEMANGLER_FAILURE;
 	    output += ')';
 	  }
 	  if (!decode_number(output))
-	    _GLIBCPP_DEMANGLER_FAILURE;
-#ifdef _GLIBCPP_DEMANGLER_STYLE_LITERAL
+	    _GLIBCXX_DEMANGLER_FAILURE;
+#ifdef _GLIBCXX_DEMANGLER_STYLE_LITERAL
 	  if (c == 'j' || c == 'm' || c == 'y')
 	    output += 'u';
 	  if (c == 'l' || c == 'm')
@@ -870,7 +876,7 @@ namespace __gnu_cxx
 	    output += "ll";
 #endif
 	}
-	_GLIBCPP_DEMANGLER_RETURN;
+	_GLIBCXX_DEMANGLER_RETURN;
       }
 
     // <operator-name> ::=
@@ -1040,7 +1046,7 @@ namespace __gnu_cxx
       bool
       session<Allocator>::decode_operator_name(string_type& output)
       {
-	_GLIBCPP_DEMANGLER_DOUT_ENTERING("decode_operator_name");
+	_GLIBCXX_DEMANGLER_DOUT_ENTERING("decode_operator_name");
 
 	char opcode0 = current();
 	char opcode1 = tolower(next());
@@ -1066,7 +1072,7 @@ namespace __gnu_cxx
 	      eat_current();
 	      if (hash == 27 || hash == 28)
 		M_template_args_need_space = true;
-	      _GLIBCPP_DEMANGLER_RETURN;
+	      _GLIBCXX_DEMANGLER_RETURN;
 	    }
 	    else if (opcode0 == 'c' && opcode1 == 'v')
 	    {
@@ -1082,14 +1088,14 @@ namespace __gnu_cxx
 		M_template_arg_pos.push_back(M_pos + 3);
 	      }
 	      if (!decode_type(output))
-		_GLIBCPP_DEMANGLER_FAILURE;
+		_GLIBCXX_DEMANGLER_FAILURE;
 	      if (!M_inside_template_args)
 		M_name_is_conversion_operator = true;
-	      _GLIBCPP_DEMANGLER_RETURN;
+	      _GLIBCXX_DEMANGLER_RETURN;
 	    }
 	  }
 	}
-	_GLIBCPP_DEMANGLER_FAILURE;
+	_GLIBCXX_DEMANGLER_FAILURE;
       }
 
     //
@@ -1105,21 +1111,21 @@ namespace __gnu_cxx
       bool
       session<Allocator>::decode_expression(string_type& output)
       {
-	_GLIBCPP_DEMANGLER_DOUT_ENTERING("decode_expression");
+	_GLIBCXX_DEMANGLER_DOUT_ENTERING("decode_expression");
 	if (current() == 'T')
 	{
 	  if (!decode_template_param(output))
-	    _GLIBCPP_DEMANGLER_FAILURE;
-	  _GLIBCPP_DEMANGLER_RETURN;
+	    _GLIBCXX_DEMANGLER_FAILURE;
+	  _GLIBCXX_DEMANGLER_RETURN;
 	}
 	else if (current() == 'L')
 	{
 	  if (!decode_literal(output))
-	    _GLIBCPP_DEMANGLER_FAILURE;
+	    _GLIBCXX_DEMANGLER_FAILURE;
 	  if (current() != 'E')
-	    _GLIBCPP_DEMANGLER_FAILURE;
+	    _GLIBCXX_DEMANGLER_FAILURE;
 	  eat_current();
-	  _GLIBCPP_DEMANGLER_RETURN;
+	  _GLIBCXX_DEMANGLER_RETURN;
 	}
 	else
 	{
@@ -1152,7 +1158,7 @@ namespace __gnu_cxx
 		eat_current();
 		output += '(';
 		if (!decode_expression(output))
-		  _GLIBCPP_DEMANGLER_FAILURE;
+		  _GLIBCXX_DEMANGLER_FAILURE;
 		output += ')';
 		if (!entry.unary)
 		{
@@ -1163,15 +1169,15 @@ namespace __gnu_cxx
 		  output += ' ';
 		  output += '(';
 		  if (!decode_expression(output))
-		    _GLIBCPP_DEMANGLER_FAILURE;
+		    _GLIBCXX_DEMANGLER_FAILURE;
 		  output += ')';
 		}
-		_GLIBCPP_DEMANGLER_RETURN;
+		_GLIBCXX_DEMANGLER_RETURN;
 	      }
 	    }
 	  }
 	}
-	_GLIBCPP_DEMANGLER_FAILURE;
+	_GLIBCXX_DEMANGLER_FAILURE;
       }
 
     //
@@ -1184,9 +1190,9 @@ namespace __gnu_cxx
       bool
       session<Allocator>::decode_template_args(string_type& output)
       {
-	_GLIBCPP_DEMANGLER_DOUT_ENTERING("decode_template_args");
+	_GLIBCXX_DEMANGLER_DOUT_ENTERING("decode_template_args");
 	if (eat_current() != 'I')
-	  _GLIBCPP_DEMANGLER_FAILURE;
+	  _GLIBCXX_DEMANGLER_FAILURE;
 	int prev_size = M_template_arg_pos.size();
 	++M_inside_template_args;
 	if (M_template_args_need_space)
@@ -1203,21 +1209,21 @@ namespace __gnu_cxx
 	  {
 	    eat_current();
 	    if (!decode_expression(output))
-	      _GLIBCPP_DEMANGLER_FAILURE;
+	      _GLIBCXX_DEMANGLER_FAILURE;
 	    if (current() != 'E')
-	      _GLIBCPP_DEMANGLER_FAILURE;
+	      _GLIBCXX_DEMANGLER_FAILURE;
 	    eat_current();
 	  }
 	  else if (current() == 'L')
 	  {
 	    if (!decode_literal(output))
-	      _GLIBCPP_DEMANGLER_FAILURE;
+	      _GLIBCXX_DEMANGLER_FAILURE;
 	    if (current() != 'E')
-	      _GLIBCPP_DEMANGLER_FAILURE;
+	      _GLIBCXX_DEMANGLER_FAILURE;
 	    eat_current();
 	  }
 	  else if (!decode_type(output))
-	    _GLIBCPP_DEMANGLER_FAILURE;
+	    _GLIBCXX_DEMANGLER_FAILURE;
 	  if (current() == 'E')
 	    break;
 	  output += ", ";
@@ -1232,7 +1238,7 @@ namespace __gnu_cxx
 	  M_name_is_template = true;
 	  M_template_arg_pos_offset = prev_size;
 	}
-	_GLIBCPP_DEMANGLER_RETURN;
+	_GLIBCXX_DEMANGLER_RETURN;
       }
 
     // <bare-function-type> ::=
@@ -1242,38 +1248,38 @@ namespace __gnu_cxx
       bool
       session<Allocator>::decode_bare_function_type(string_type& output)
       {
-	_GLIBCPP_DEMANGLER_DOUT_ENTERING("decode_bare_function_type");
+	_GLIBCXX_DEMANGLER_DOUT_ENTERING("decode_bare_function_type");
 	if (M_saw_destructor)
 	{
 	  if (eat_current() != 'v' || (current() != 'E' && current() != 0))
-	    _GLIBCPP_DEMANGLER_FAILURE;
+	    _GLIBCXX_DEMANGLER_FAILURE;
 	  output += "()";
 	  M_saw_destructor = false;
-	  _GLIBCPP_DEMANGLER_RETURN;
+	  _GLIBCXX_DEMANGLER_RETURN;
 	}
-#ifndef _GLIBCPP_DEMANGLER_STYLE_VOID
+#ifndef _GLIBCXX_DEMANGLER_STYLE_VOID
 	if (current() == 'v')
 	{
 	  eat_current();
 	  if (current() != 'E' && current() != 0)
-	    _GLIBCPP_DEMANGLER_FAILURE;
+	    _GLIBCXX_DEMANGLER_FAILURE;
 	  output += "()";
 	  M_saw_destructor = false;
-	  _GLIBCPP_DEMANGLER_RETURN;
+	  _GLIBCXX_DEMANGLER_RETURN;
 	}
 #endif
 	output += '(';
 	M_template_args_need_space = false;
 	if (!decode_type(output))	// Must have at least one parameter.
-	  _GLIBCPP_DEMANGLER_FAILURE;
+	  _GLIBCXX_DEMANGLER_FAILURE;
 	while (current() != 'E' && current() != 0)
 	{
 	  output += ", ";
 	  if (!decode_type(output))
-	    _GLIBCPP_DEMANGLER_FAILURE;
+	    _GLIBCXX_DEMANGLER_FAILURE;
 	}
 	output += ')';
-	_GLIBCPP_DEMANGLER_RETURN;
+	_GLIBCXX_DEMANGLER_RETURN;
       }
 
     // <type> ::=
@@ -1445,7 +1451,7 @@ namespace __gnu_cxx
 	  string_type& prefix, string_type& postfix,
 	  qualifier_list<Allocator>* qualifiers)
       {
-	_GLIBCPP_DEMANGLER_DOUT_ENTERING2
+	_GLIBCXX_DEMANGLER_DOUT_ENTERING2
 	    (qualifiers ? "decode_type" : "decode_type[with qualifiers]");
 	++M_inside_type;
 	bool recursive_template_param_or_substitution_call;
@@ -1768,8 +1774,8 @@ namespace __gnu_cxx
 	if (!recursive_template_param_or_substitution_call)
 	  delete qualifiers;
 	if (failure)
-	  _GLIBCPP_DEMANGLER_FAILURE;
-	_GLIBCPP_DEMANGLER_RETURN2;
+	  _GLIBCXX_DEMANGLER_FAILURE;
+	_GLIBCXX_DEMANGLER_RETURN2;
       }
 
     // <nested-name> ::= N [<CV-qualifiers>] <prefix> <unqualified-name> E
@@ -1788,10 +1794,10 @@ namespace __gnu_cxx
       session<Allocator>::decode_nested_name(string_type& output,
 					     string_type& qualifiers)
       {
-	_GLIBCPP_DEMANGLER_DOUT_ENTERING("decode_nested_name");
+	_GLIBCXX_DEMANGLER_DOUT_ENTERING("decode_nested_name");
 
 	if (current() != 'N' || M_pos >= M_maxpos)
-	  _GLIBCPP_DEMANGLER_FAILURE;
+	  _GLIBCXX_DEMANGLER_FAILURE;
 
 	// <CV-qualifiers> ::= [r] [V] [K]  # restrict (C99), volatile, const
 	char const* qualifiers_start = &M_str[M_pos + 1];
@@ -1819,12 +1825,12 @@ namespace __gnu_cxx
 	  if (current() == 'S')
 	  {
 	    if (!decode_substitution(output))
-	      _GLIBCPP_DEMANGLER_FAILURE;
+	      _GLIBCXX_DEMANGLER_FAILURE;
 	  }
 	  else if (current() == 'I')
 	  {
 	    if (!decode_template_args(output))
-	      _GLIBCPP_DEMANGLER_FAILURE;
+	      _GLIBCXX_DEMANGLER_FAILURE;
 	    if (current() != 'E')
 	    {
 	      // substitution: "<template-prefix> <template-args>".
@@ -1835,7 +1841,7 @@ namespace __gnu_cxx
 	  else
 	  {
 	    if (!decode_unqualified_name(output))
-	      _GLIBCPP_DEMANGLER_FAILURE;
+	      _GLIBCXX_DEMANGLER_FAILURE;
 	    if (current() != 'E')
 	    {
 	      // substitution: "<prefix> <unqualified-name>" or
@@ -1849,7 +1855,7 @@ namespace __gnu_cxx
 	  if (current() == 'E')
 	  {
 	    eat_current();
-	    _GLIBCPP_DEMANGLER_RETURN;
+	    _GLIBCXX_DEMANGLER_RETURN;
 	  }
 	  if (current() != 'I')
 	    output += "::";
@@ -1857,7 +1863,7 @@ namespace __gnu_cxx
 	    output += ' ';
 	  M_template_args_need_space = false;
 	}
-	_GLIBCPP_DEMANGLER_FAILURE;
+	_GLIBCXX_DEMANGLER_FAILURE;
       }
 
     // <local-name> := Z <function encoding> E <entity name> [<discriminator>]
@@ -1868,12 +1874,12 @@ namespace __gnu_cxx
       bool
       session<Allocator>::decode_local_name(string_type& output)
       {
-	_GLIBCPP_DEMANGLER_DOUT_ENTERING("decode_local_name");
+	_GLIBCXX_DEMANGLER_DOUT_ENTERING("decode_local_name");
 	if (current() != 'Z' || M_pos >= M_maxpos)
-	  _GLIBCPP_DEMANGLER_FAILURE;
+	  _GLIBCXX_DEMANGLER_FAILURE;
 	if ((M_pos += decode_encoding(output, M_str + M_pos + 1,
 		M_maxpos - M_pos) + 1) < 0 || eat_current() != 'E')
-	  _GLIBCPP_DEMANGLER_FAILURE;
+	  _GLIBCXX_DEMANGLER_FAILURE;
 	output += "::";
 	if (current() == 's')
 	{
@@ -1884,13 +1890,13 @@ namespace __gnu_cxx
 	{
 	  string_type nested_name_qualifiers;
 	  if (!decode_name(output, nested_name_qualifiers))
-	    _GLIBCPP_DEMANGLER_FAILURE;
+	    _GLIBCXX_DEMANGLER_FAILURE;
 	  output += nested_name_qualifiers;
 	}
 	string_type discriminator;
 	if (current() == '_' && next() != 'n' && !decode_number(discriminator))
-	  _GLIBCPP_DEMANGLER_FAILURE;
-	_GLIBCPP_DEMANGLER_RETURN;
+	  _GLIBCXX_DEMANGLER_FAILURE;
+	_GLIBCXX_DEMANGLER_RETURN;
       }
 
     // <source-name> ::= <positive length number> <identifier>
@@ -1899,11 +1905,11 @@ namespace __gnu_cxx
       bool
       session<Allocator>::decode_source_name(string_type& output)
       {
-	_GLIBCPP_DEMANGLER_DOUT_ENTERING("decode_source_name");
+	_GLIBCXX_DEMANGLER_DOUT_ENTERING("decode_source_name");
 	int length = current() - '0';
 	if (length < 1 || length > 9)
-	  _GLIBCPP_DEMANGLER_FAILURE;
-	while(std::isdigit(next()))
+	  _GLIBCXX_DEMANGLER_FAILURE;
+	while(isdigit(next()))
 	  length = 10 * length + current() - '0';
 	char const* ptr = &M_str[M_pos];
 	if (length > 11 && !strncmp(ptr, "_GLOBAL_", 8) && ptr[9] == 'N'
@@ -1911,16 +1917,16 @@ namespace __gnu_cxx
 	{
 	  output += "(anonymous namespace)";
 	  if ((M_pos += length) > M_maxpos + 1)
-	    _GLIBCPP_DEMANGLER_FAILURE;
+	    _GLIBCXX_DEMANGLER_FAILURE;
 	}
 	else
 	  while(length--)
 	  {
 	    if (current() == 0)
-	      _GLIBCPP_DEMANGLER_FAILURE;
+	      _GLIBCXX_DEMANGLER_FAILURE;
 	    output += eat_current();
 	  }
-	_GLIBCPP_DEMANGLER_RETURN;
+	_GLIBCXX_DEMANGLER_RETURN;
       }
 
     // <unqualified-name> ::= <operator-name>	# Starts with lower case.
@@ -1931,8 +1937,8 @@ namespace __gnu_cxx
       bool
       session<Allocator>::decode_unqualified_name(string_type& output)
       {
-	_GLIBCPP_DEMANGLER_DOUT_ENTERING("decode_unqualified_name");
-	if (std::isdigit(current()))
+	_GLIBCXX_DEMANGLER_DOUT_ENTERING("decode_unqualified_name");
+	if (isdigit(current()))
 	{
 	  if (!M_inside_template_args)
 	  {
@@ -1948,13 +1954,13 @@ namespace __gnu_cxx
 	    M_name_is_cdtor = false;
 	    M_name_is_conversion_operator = false;
 	    if (!decode_source_name(M_function_name))
-	      _GLIBCPP_DEMANGLER_FAILURE;
+	      _GLIBCXX_DEMANGLER_FAILURE;
 	    if (!recursive_unqualified_name)
 	      output += M_function_name;
 	  }
 	  else if (!decode_source_name(output))
-	    _GLIBCPP_DEMANGLER_FAILURE;
-	  _GLIBCPP_DEMANGLER_RETURN;
+	    _GLIBCXX_DEMANGLER_FAILURE;
+	  _GLIBCXX_DEMANGLER_RETURN;
 	}
 	if (islower(current()))
 	{
@@ -1965,15 +1971,15 @@ namespace __gnu_cxx
 	    M_name_is_cdtor = false;
 	    M_name_is_conversion_operator = false;
 	    if (!decode_operator_name(M_function_name))
-	      _GLIBCPP_DEMANGLER_FAILURE;
+	      _GLIBCXX_DEMANGLER_FAILURE;
 	    output += M_function_name;
 	  }
-	  _GLIBCPP_DEMANGLER_RETURN;
+	  _GLIBCXX_DEMANGLER_RETURN;
 	}
 	if (current() == 'C' || current() == 'D')
 	{
 	  if (M_inside_template_args)
-	    _GLIBCPP_DEMANGLER_FAILURE;
+	    _GLIBCXX_DEMANGLER_FAILURE;
 	  // <ctor-dtor-name> ::=
 	  //   C1	# complete object (in-charge) constructor
 	  //   C2	# base object (not-in-charge) constructor
@@ -1986,22 +1992,22 @@ namespace __gnu_cxx
 	  {
 	    char c = next();
 	    if (c < '1' || c > '3')
-	      _GLIBCPP_DEMANGLER_FAILURE;
+	      _GLIBCXX_DEMANGLER_FAILURE;
 	  }
 	  else
 	  {
 	    char c = next();
 	    if (c < '0' || c > '2')
-	      _GLIBCPP_DEMANGLER_FAILURE;
+	      _GLIBCXX_DEMANGLER_FAILURE;
 	    output += '~';
 	    M_saw_destructor = true;
 	  }
 	  M_name_is_cdtor = true;
 	  eat_current();
 	  output += M_function_name;
-	  _GLIBCPP_DEMANGLER_RETURN;
+	  _GLIBCXX_DEMANGLER_RETURN;
 	}
-	_GLIBCPP_DEMANGLER_FAILURE;
+	_GLIBCXX_DEMANGLER_FAILURE;
       }
 
     // <unscoped-name> ::=
@@ -2012,16 +2018,16 @@ namespace __gnu_cxx
       bool
       session<Allocator>::decode_unscoped_name(string_type& output)
       {
-	_GLIBCPP_DEMANGLER_DOUT_ENTERING("decode_unscoped_name");
+	_GLIBCXX_DEMANGLER_DOUT_ENTERING("decode_unscoped_name");
 	if (current() == 'S')
 	{
 	  if (next() != 't')
-	    _GLIBCPP_DEMANGLER_FAILURE;
+	    _GLIBCXX_DEMANGLER_FAILURE;
 	  eat_current();
 	  output += "std::";
 	}
 	decode_unqualified_name(output);
-	_GLIBCPP_DEMANGLER_RETURN;
+	_GLIBCXX_DEMANGLER_RETURN;
       }
 
     // <name> ::=
@@ -2039,34 +2045,34 @@ namespace __gnu_cxx
       session<Allocator>::decode_name(string_type& output,
 				      string_type& nested_name_qualifiers)
       {
-	_GLIBCPP_DEMANGLER_DOUT_ENTERING("decode_name");
+	_GLIBCXX_DEMANGLER_DOUT_ENTERING("decode_name");
 	int substitution_start = M_pos;
 	if (current() == 'S' && (M_pos >= M_maxpos || M_str[M_pos + 1] != 't'))
 	{
 	  if (!decode_substitution(output))
-	    _GLIBCPP_DEMANGLER_FAILURE;
+	    _GLIBCXX_DEMANGLER_FAILURE;
 	}
 	else if (current() == 'N')
 	{
 	  decode_nested_name(output, nested_name_qualifiers);
-	  _GLIBCPP_DEMANGLER_RETURN;
+	  _GLIBCXX_DEMANGLER_RETURN;
 	}
 	else if (current() == 'Z')
 	{
 	  decode_local_name(output);
-	  _GLIBCPP_DEMANGLER_RETURN;
+	  _GLIBCXX_DEMANGLER_RETURN;
 	}
 	else if (!decode_unscoped_name(output))
-	  _GLIBCPP_DEMANGLER_FAILURE;
+	  _GLIBCXX_DEMANGLER_FAILURE;
 	if (current() == 'I')
 	{
 	  // Must have been an <unscoped-template-name>.
 	  add_substitution(substitution_start, unscoped_template_name);
 	  if (!decode_template_args(output))
-	    _GLIBCPP_DEMANGLER_FAILURE;
+	    _GLIBCXX_DEMANGLER_FAILURE;
 	}
 	M_template_args_need_space = false;
-	_GLIBCPP_DEMANGLER_RETURN;
+	_GLIBCXX_DEMANGLER_RETURN;
       }
 
     // <call-offset> ::= h <nv-offset> _
@@ -2079,12 +2085,12 @@ namespace __gnu_cxx
     template<typename Allocator>
       bool
       session<Allocator>::decode_call_offset(string_type&
-#if _GLIBCPP_DEMANGLER_CWDEBUG
+#if _GLIBCXX_DEMANGLER_CWDEBUG
 	  output
 #endif
 	  )
       {
-	_GLIBCPP_DEMANGLER_DOUT_ENTERING("decode_call_offset");
+	_GLIBCXX_DEMANGLER_DOUT_ENTERING("decode_call_offset");
 	if (current() == 'h')
 	{
 	  string_type dummy;
@@ -2092,7 +2098,7 @@ namespace __gnu_cxx
 	  if (decode_number(dummy) && current() == '_')
 	  {
 	    eat_current();
-	    _GLIBCPP_DEMANGLER_RETURN;
+	    _GLIBCXX_DEMANGLER_RETURN;
 	  }
 	}
 	else if (current() == 'v')
@@ -2105,11 +2111,11 @@ namespace __gnu_cxx
 	    if (decode_number(dummy) && current() == '_')
 	    {
 	      eat_current();
-	      _GLIBCPP_DEMANGLER_RETURN;
+	      _GLIBCXX_DEMANGLER_RETURN;
 	    }
 	  }
 	}
-	_GLIBCPP_DEMANGLER_FAILURE;
+	_GLIBCXX_DEMANGLER_FAILURE;
       }
 
     //
@@ -2135,67 +2141,67 @@ namespace __gnu_cxx
       bool
       session<Allocator>::decode_special_name(string_type& output)
       {
-	_GLIBCPP_DEMANGLER_DOUT_ENTERING("decode_special_name");
+	_GLIBCXX_DEMANGLER_DOUT_ENTERING("decode_special_name");
 	if (current() == 'G')
 	{
 	  if (next() != 'V')
-	    _GLIBCPP_DEMANGLER_FAILURE;
+	    _GLIBCXX_DEMANGLER_FAILURE;
 	  output += "guard variable for ";
 	  string_type nested_name_qualifiers;
 	  eat_current();
 	  if (!decode_name(output, nested_name_qualifiers))
-	    _GLIBCPP_DEMANGLER_FAILURE;
+	    _GLIBCXX_DEMANGLER_FAILURE;
 	  output += nested_name_qualifiers;
-	  _GLIBCPP_DEMANGLER_RETURN;
+	  _GLIBCXX_DEMANGLER_RETURN;
 	}
 	else if (current() != 'T')
-	  _GLIBCPP_DEMANGLER_FAILURE;
+	  _GLIBCXX_DEMANGLER_FAILURE;
 	switch(next())
 	{
 	  case 'V':
 	    output += "vtable for ";
 	    eat_current();
 	    decode_type(output);
-	    _GLIBCPP_DEMANGLER_RETURN;
+	    _GLIBCXX_DEMANGLER_RETURN;
 	  case 'T':
 	    output += "VTT for ";
 	    eat_current();
 	    decode_type(output);
-	    _GLIBCPP_DEMANGLER_RETURN;
+	    _GLIBCXX_DEMANGLER_RETURN;
 	  case 'I':
 	    output += "typeinfo for ";
 	    eat_current();
 	    decode_type(output);
-	    _GLIBCPP_DEMANGLER_RETURN;
+	    _GLIBCXX_DEMANGLER_RETURN;
 	  case 'S':
 	    output += "typeinfo name for ";
 	    eat_current();
 	    decode_type(output);
-	    _GLIBCPP_DEMANGLER_RETURN;
+	    _GLIBCXX_DEMANGLER_RETURN;
 	  case 'c':
 	    output += "covariant return thunk to ";
 	    if (!decode_call_offset(output)
 		|| !decode_call_offset(output)
 		|| (M_pos += decode_encoding(output, M_str + M_pos,
 		    M_maxpos - M_pos + 1)) < 0)
-	      _GLIBCPP_DEMANGLER_FAILURE;
-	    _GLIBCPP_DEMANGLER_RETURN;
+	      _GLIBCXX_DEMANGLER_FAILURE;
+	    _GLIBCXX_DEMANGLER_RETURN;
 	  case 'C':		// GNU extension?
 	  {
 	    string_type first;
 	    output += "construction vtable for ";
 	    eat_current();
 	    if (!decode_type(first))
-	      _GLIBCPP_DEMANGLER_FAILURE;
-	    while(std::isdigit(current()))
+	      _GLIBCXX_DEMANGLER_FAILURE;
+	    while(isdigit(current()))
 	      eat_current();
 	    if (eat_current() != '_')
-	      _GLIBCPP_DEMANGLER_FAILURE;
+	      _GLIBCXX_DEMANGLER_FAILURE;
 	    if (!decode_type(output))
-	      _GLIBCPP_DEMANGLER_FAILURE;
+	      _GLIBCXX_DEMANGLER_FAILURE;
 	    output += "-in-";
 	    output += first;
-	    _GLIBCPP_DEMANGLER_RETURN;
+	    _GLIBCXX_DEMANGLER_RETURN;
 	  }
 	  default:
 	    if (current() == 'v')
@@ -2205,8 +2211,8 @@ namespace __gnu_cxx
 	    if (!decode_call_offset(output)
 		|| (M_pos += decode_encoding(output, M_str + M_pos,
 		    M_maxpos - M_pos + 1)) < 0)
-	      _GLIBCPP_DEMANGLER_FAILURE;
-	    _GLIBCPP_DEMANGLER_RETURN;
+	      _GLIBCXX_DEMANGLER_FAILURE;
+	    _GLIBCXX_DEMANGLER_RETURN;
 	}
       }
 
@@ -2222,11 +2228,11 @@ namespace __gnu_cxx
 					  char const* in,
 					  int len)
       {
-#if _GLIBCPP_DEMANGLER_CWDEBUG
-	_GLIBCPP_DEMANGLER_DOUT(dc::demangler,
+#if _GLIBCXX_DEMANGLER_CWDEBUG
+	_GLIBCXX_DEMANGLER_DOUT(dc::demangler,
 	    "Output thus far: \"" << output << '"');
 	string_type input(in, len > 0x40000000 ? strlen(in) : len);
-	_GLIBCPP_DEMANGLER_DOUT(
+	_GLIBCXX_DEMANGLER_DOUT(
 	    dc::demangler, "Entering decode_encoding(\"" << input << "\")");
 #endif
 	if (len <= 0)

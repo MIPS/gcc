@@ -37,8 +37,8 @@
  *  in your programs, rather than any of the "st[dl]_*.h" implementation files.
  */
 
-#ifndef _CPP_FSTREAM
-#define _CPP_FSTREAM	1
+#ifndef _GLIBCXX_FSTREAM
+#define _GLIBCXX_FSTREAM 1
 
 #pragma GCC system_header
 
@@ -105,6 +105,13 @@ namespace std
       */
       __file_type 		_M_file;
 
+      /**
+       *  @if maint
+       *  Place to stash in || out || in | out settings for current filebuf.
+       *  @endif
+      */
+      ios_base::openmode 	_M_mode;
+
       // Current and beginning state type for codecvt.
       /**
        *  @if maint
@@ -138,11 +145,15 @@ namespace std
       */
       bool			_M_buf_allocated;
 
-      // _M_reading == false && _M_writing == false for 'uncommitted' mode;  
-      // _M_reading == true for 'read' mode;
-      // _M_writing == true for 'write' mode;
-      //
-      // NB: _M_reading == true && _M_writing == true is unused.
+      /**
+       *  @if maint
+       *  _M_reading == false && _M_writing == false for 'uncommitted' mode;  
+       *  _M_reading == true for 'read' mode;
+       *  _M_writing == true for 'write' mode;
+       *
+       *  NB: _M_reading == true && _M_writing == true is unused.
+       *  @endif
+      */ 
       bool                      _M_reading;
       bool                      _M_writing;
 
@@ -166,9 +177,13 @@ namespace std
       // Cached codecvt facet.
       const __codecvt_type* 	_M_codecvt;
 
-      // Initializes pback buffers, and moves normal buffers to safety.
-      // Assumptions:
-      // _M_in_cur has already been moved back
+      /**
+       *  @if maint
+       *  Initializes pback buffers, and moves normal buffers to safety.
+       *  Assumptions:
+       *  _M_in_cur has already been moved back
+       *  @endif
+      */
       void
       _M_create_pback()
       {
@@ -181,9 +196,13 @@ namespace std
 	  }
       }
 
-      // Deactivates pback buffer contents, and restores normal buffer.
-      // Assumptions:
-      // The pback buffer has only moved forward.
+      /**
+       *  @if maint
+       *  Deactivates pback buffer contents, and restores normal buffer.
+       *  Assumptions:
+       *  The pback buffer has only moved forward.
+       *  @endif
+      */ 
       void
       _M_destroy_pback() throw()
       {
@@ -211,11 +230,7 @@ namespace std
       */
       virtual
       ~basic_filebuf()
-      {
-	this->close();
-	_M_buf_size = 0;
-	_M_last_overflowed = false;
-      }
+      { this->close(); }
 
       // Members:
       /**
@@ -281,29 +296,9 @@ namespace std
       // charater from the real input source when the buffer is empty.
       // Buffered input uses underflow()
 
-      // The only difference between underflow() and uflow() is that the
-      // latter bumps _M_in_cur after the read.  In the sync_with_stdio
-      // case, this is important, as we need to unget the read character in
-      // the underflow() case in order to maintain synchronization.  So
-      // instead of calling underflow() from uflow(), we create a common
-      // subroutine to do the real work.
-      /**
-       *  @if maint
-       *  @doctodo
-       *  @endif
-      */
-      int_type
-      _M_underflow(bool __bump);
-
       // [documentation is inherited]
       virtual int_type
-      underflow()
-      { return _M_underflow(false); }
-
-      // [documentation is inherited]
-      virtual int_type
-      uflow()
-      { return _M_underflow(true); }
+      underflow();
 
       // [documentation is inherited]
       virtual int_type
@@ -370,7 +365,7 @@ namespace std
 	// NB: _M_file.sync() will be called within.
 	if (this->pbase() < this->pptr())
 	  {
-	    int_type __tmp = this->overflow();
+	    const int_type __tmp = this->overflow();
 	    if (traits_type::eq_int_type(__tmp, traits_type::eof()))
 	      __ret = -1;
 	    else
@@ -412,11 +407,7 @@ namespace std
 
       // [documentation is inherited]
       virtual streamsize
-      xsputn(const char_type* __s, streamsize __n)
-      {
-	_M_destroy_pback();
-	return __streambuf_type::xsputn(__s, __n);
-      }
+      xsputn(const char_type* __s, streamsize __n);
 
       /**
        *  @if maint
@@ -426,16 +417,20 @@ namespace std
       void
       _M_output_unshift();
 
-      // This function sets the pointers of the internal buffer, both get
-      // and put areas. Typically:
-      //
-      //  __off == egptr() - eback() upon underflow/uflow ('read' mode);
-      //  __off == 0 upon overflow ('write' mode);
-      //  __off == -1 upon open, setbuf, seekoff/pos ('uncommitted' mode).
-      // 
-      // NB: epptr() - pbase() == _M_buf_size - 1, since _M_buf_size
-      // reflects the actual allocated memory and the last cell is reserved
-      // for the overflow char of a full put area.
+      /**
+       *  @if maint 
+       *  This function sets the pointers of the internal buffer, both get
+       *  and put areas. Typically:
+       *
+       *   __off == egptr() - eback() upon underflow/uflow ('read' mode);
+       *   __off == 0 upon overflow ('write' mode);
+       *   __off == -1 upon open, setbuf, seekoff/pos ('uncommitted' mode).
+       * 
+       *  NB: epptr() - pbase() == _M_buf_size - 1, since _M_buf_size
+       *  reflects the actual allocated memory and the last cell is reserved
+       *  for the overflow char of a full put area.
+       *  @endif
+      */
       void
       _M_set_buffer(streamsize __off)
       {
@@ -825,11 +820,8 @@ namespace std
     };
 } // namespace std
 
-#ifdef _GLIBCPP_NO_TEMPLATE_EXPORT
-# define export
-#endif
-#ifdef  _GLIBCPP_FULLY_COMPLIANT_HEADERS
+#ifndef _GLIBCXX_EXPORT_TEMPLATE
 # include <bits/fstream.tcc>
 #endif
 
-#endif
+#endif /* _GLIBCXX_FSTREAM */

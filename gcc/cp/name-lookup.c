@@ -90,7 +90,7 @@ binding_table_construct (binding_table table, size_t chain_count)
     (table->chain_count * sizeof (binding_entry));
 }
 
-/* Free TABLE by making its entries ready for reuse. */
+/* Free TABLE by making its entries ready for reuse.  */
 void
 binding_table_free (binding_table table)
 {
@@ -377,7 +377,12 @@ set_namespace_binding (tree name, tree scope, tree val)
   if (scope == NULL_TREE)
     scope = global_namespace;
   b = binding_for_name (NAMESPACE_LEVEL (scope), name);
-  BINDING_VALUE (b) = val;
+  if (!BINDING_VALUE (b)
+      || TREE_CODE (val) == OVERLOAD 
+      || val == error_mark_node)
+    BINDING_VALUE (b) = val;
+  else
+    add_binding (b, val);
   timevar_pop (TV_NAME_LOOKUP);
 }
 

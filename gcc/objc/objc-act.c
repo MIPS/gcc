@@ -915,7 +915,8 @@ objc_check_decl (decl)
   if (TREE_CODE (type) == RECORD_TYPE
       && TREE_STATIC_TEMPLATE (type)
       && type != constant_string_type)
-    error_with_decl (decl, "`%s' cannot be statically allocated");
+    error ("%H'%D' cannot be statically allocated",
+           &DECL_SOURCE_LOCATION (decl), decl);
 }
 
 /* Implement static typing.  At this point, we know we have an interface.  */
@@ -939,7 +940,7 @@ get_static_reference (interface, protocols)
 
       /* Look up protocols and install in lang specific list.  Note
 	 that the protocol list can have a different lifetime than T!  */
-      TYPE_PROTOCOL_LIST (t) = lookup_and_install_protocols (protocols);
+      SET_TYPE_PROTOCOL_LIST (t, lookup_and_install_protocols (protocols));
 
       /* This forces a new pointer type to be created later
 	 (in build_pointer_type)...so that the new template
@@ -988,7 +989,7 @@ get_object_reference (protocols)
       TYPE_NEXT_VARIANT (m) = t;
 
       /* Look up protocols...and install in lang specific list */
-      TYPE_PROTOCOL_LIST (t) = lookup_and_install_protocols (protocols);
+      SET_TYPE_PROTOCOL_LIST (t, lookup_and_install_protocols (protocols));
 
       /* This forces a new pointer type to be created later
 	 (in build_pointer_type)...so that the new template
@@ -1274,18 +1275,18 @@ my_build_string (len, str)
   return fix_string_type (build_string (len, str));
 }
 
-/* Given a chain of STRING_CST's, build a static instance of
-   NXConstantString which points at the concatenation of those strings.
+/* Build a static instance of NXConstantString which points at the
+   string constant STRING.
    We place the string object in the __string_objects section of the
    __OBJC segment.  The Objective-C runtime will initialize the isa
    pointers of the string objects to point at the NXConstantString
    class object.  */
 
 tree
-build_objc_string_object (strings)
-     tree strings;
+build_objc_string_object (string)
+     tree string;
 {
-  tree string, initlist, constructor;
+  tree initlist, constructor;
   int length;
 
   if (lookup_interface (constant_string_id) == NULL_TREE)
@@ -1297,22 +1298,6 @@ build_objc_string_object (strings)
 
   add_class_reference (constant_string_id);
 
-  if (TREE_CHAIN (strings))
-    {
-      varray_type vstrings;
-      VARRAY_TREE_INIT (vstrings, 32, "strings");
-
-      for (; strings ; strings = TREE_CHAIN (strings))
-	VARRAY_PUSH_TREE (vstrings, strings);
-
-      string = combine_strings (vstrings);
-    }
-  else
-    string = strings;
-
-  string = fix_string_type (string);
-
-  TREE_SET_CODE (string, STRING_CST);
   length = TREE_STRING_LENGTH (string) - 1;
 
   /* We could not properly create NXConstantString in synth_module_prologue,
@@ -1607,6 +1592,7 @@ forward_declare_categories ()
 	  impent->class_decl
 	    = create_builtin_decl (VAR_DECL, objc_category_template,
 				   IDENTIFIER_POINTER (synth_id_with_class_suffix ("_OBJC_CATEGORY", objc_implementation_context)));
+	  TREE_PUBLIC (impent->class_decl) = 0;
 	}
     }
   objc_implementation_context = sav;
@@ -1991,7 +1977,7 @@ build_selector_reference_decl ()
 
   decl = build_decl (VAR_DECL, ident, selector_type);
   DECL_EXTERNAL (decl) = 1;
-  TREE_PUBLIC (decl) = 1;
+  TREE_PUBLIC (decl) = 0;
   TREE_USED (decl) = 1;
   TREE_READONLY (decl) = 1;
   DECL_ARTIFICIAL (decl) = 1;
@@ -2206,7 +2192,7 @@ build_class_reference_decl ()
 
   decl = build_decl (VAR_DECL, ident, objc_class_type);
   DECL_EXTERNAL (decl) = 1;
-  TREE_PUBLIC (decl) = 1;
+  TREE_PUBLIC (decl) = 0;
   TREE_USED (decl) = 1;
   TREE_READONLY (decl) = 1;
   DECL_CONTEXT (decl) = 0;
@@ -2343,7 +2329,7 @@ build_objc_string_decl (section)
 
   decl = build_decl (VAR_DECL, ident, build_array_type (char_type_node, 0));
   DECL_EXTERNAL (decl) = 1;
-  TREE_PUBLIC (decl) = 1;
+  TREE_PUBLIC (decl) = 0;
   TREE_USED (decl) = 1;
   TREE_READONLY (decl) = 1;
   TREE_CONSTANT (decl) = 1;
@@ -2385,7 +2371,8 @@ objc_declare_class (ident_list)
 	{
 	  error ("`%s' redeclared as different kind of symbol",
 		  IDENTIFIER_POINTER (ident));
-	  error_with_decl (decl, "previous declaration of `%s'");
+	  error ("%Hprevious declaration of '%D'",
+                 &DECL_SOURCE_LOCATION (decl), decl);
 	}
 
       if (! is_class_name (ident))
@@ -3476,7 +3463,7 @@ synth_forward_declarations ()
 {
   tree sc_spec, decl_specs, an_id;
 
-  /* extern struct objc_class _OBJC_CLASS_<my_name>; */
+  /* static struct objc_class _OBJC_CLASS_<my_name>; */
 
   an_id = synth_id_with_class_suffix ("_OBJC_CLASS", objc_implementation_context);
 
@@ -3485,15 +3472,17 @@ synth_forward_declarations ()
   UOBJC_CLASS_decl = define_decl (an_id, decl_specs);
   TREE_USED (UOBJC_CLASS_decl) = 1;
   DECL_ARTIFICIAL (UOBJC_CLASS_decl) = 1;
+  TREE_PUBLIC (UOBJC_CLASS_decl) = 0;
 
-  /* extern struct objc_class _OBJC_METACLASS_<my_name>; */
+  /* static struct objc_class _OBJC_METACLASS_<my_name>; */
 
   an_id = synth_id_with_class_suffix ("_OBJC_METACLASS",
 				      objc_implementation_context);
 
   UOBJC_METACLASS_decl = define_decl (an_id, decl_specs);
   TREE_USED (UOBJC_METACLASS_decl) = 1;
-  DECL_ARTIFICIAL(UOBJC_METACLASS_decl) = 1;
+  DECL_ARTIFICIAL (UOBJC_METACLASS_decl) = 1;
+  TREE_PUBLIC (UOBJC_METACLASS_decl) = 0;
 
   /* Pre-build the following entities - for speed/convenience.  */
 
@@ -3537,7 +3526,7 @@ check_ivars (inter, imp)
 
       t1 = TREE_TYPE (intdecls); t2 = TREE_TYPE (impdecls);
 
-      if (!comptypes (t1, t2))
+      if (!comptypes (t1, t2, false))
 	{
 	  if (DECL_NAME (intdecls) == DECL_NAME (impdecls))
 	    {
@@ -4488,7 +4477,7 @@ synth_id_with_class_suffix (preamble, ctxt)
     {
       const char *const class_name
 	= IDENTIFIER_POINTER (CLASS_NAME (objc_implementation_context));
-      string = (char *) alloca (strlen (preamble) + strlen (class_name) + 3);
+      string = alloca (strlen (preamble) + strlen (class_name) + 3);
       sprintf (string, "%s_%s", preamble,
 	       IDENTIFIER_POINTER (CLASS_NAME (ctxt)));
     }
@@ -4500,17 +4489,14 @@ synth_id_with_class_suffix (preamble, ctxt)
 	= IDENTIFIER_POINTER (CLASS_NAME (objc_implementation_context));
       const char *const class_super_name
 	= IDENTIFIER_POINTER (CLASS_SUPER_NAME (objc_implementation_context));
-      string = (char *) alloca (strlen (preamble)
-				+ strlen (class_name)
-				+ strlen (class_super_name)
-				+ 3);
+      string = alloca (strlen (preamble) + strlen (class_name)
+		       + strlen (class_super_name) + 3);
       sprintf (string, "%s_%s_%s", preamble, class_name, class_super_name);
     }
   else if (TREE_CODE (ctxt) == PROTOCOL_INTERFACE_TYPE)
     {
       const char *protocol_name = IDENTIFIER_POINTER (PROTOCOL_NAME (ctxt));
-      string
-	= (char *) alloca (strlen (preamble) + strlen (protocol_name) + 3);
+      string = alloca (strlen (preamble) + strlen (protocol_name) + 3);
       sprintf (string, "%s_%s", preamble, protocol_name);
     }
   else
@@ -4632,7 +4618,7 @@ build_keyword_selector (selector)
 	len++;
     }
 
-  buf = (char *) alloca (len + 1);
+  buf = alloca (len + 1);
   /* Start the buffer out as an empty string.  */
   buf[0] = '\0';
 
@@ -4921,7 +4907,7 @@ finish_message_expr (receiver, sel_name, method_params)
 	;
       else if (! IS_ID (rtype)
 	       /* Allow any type that matches objc_class_type.  */
-	       && ! comptypes (rtype, objc_class_type))
+	       && ! comptypes (rtype, objc_class_type, false))
 	{
 	  warning ("invalid receiver type `%s'",
 		   gen_declaration (rtype, errbuf));
@@ -5242,7 +5228,7 @@ build_protocol_reference (p)
 {
   tree decl, ident, ptype;
 
-  /* extern struct objc_protocol _OBJC_PROTOCOL_<mumble>; */
+  /* static struct objc_protocol _OBJC_PROTOCOL_<mumble>; */
 
   ident = synth_id_with_class_suffix ("_OBJC_PROTOCOL", p);
   ptype
@@ -5256,7 +5242,7 @@ build_protocol_reference (p)
     {
       decl = build_decl (VAR_DECL, ident, ptype);
       DECL_EXTERNAL (decl) = 1;
-      TREE_PUBLIC (decl) = 1;
+      TREE_PUBLIC (decl) = 0;
       TREE_USED (decl) = 1;
       DECL_ARTIFICIAL (decl) = 1;
 
@@ -5446,8 +5432,8 @@ hash_func (sel_name)
 static void
 hash_init ()
 {
-  nst_method_hash_list = (hash *) ggc_calloc (SIZEHASHTABLE, sizeof (hash));
-  cls_method_hash_list = (hash *) ggc_calloc (SIZEHASHTABLE, sizeof (hash));
+  nst_method_hash_list = ggc_calloc (SIZEHASHTABLE, sizeof (hash));
+  cls_method_hash_list = ggc_calloc (SIZEHASHTABLE, sizeof (hash));
 }
 
 /* WARNING!!!!  hash_enter is called with a method, and will peek
@@ -5463,7 +5449,7 @@ hash_enter (hashlist, method)
   hash obj;
   int slot = hash_func (METHOD_SEL_NAME (method)) % SIZEHASHTABLE;
 
-  obj = (hash) ggc_alloc (sizeof (struct hashed_entry));
+  obj = ggc_alloc (sizeof (struct hashed_entry));
   obj->list = 0;
   obj->next = hashlist[slot];
   obj->key = method;
@@ -5497,7 +5483,7 @@ hash_add_attr (entry, value)
 {
   attr obj;
 
-  obj = (attr) ggc_alloc (sizeof (struct hashed_attribute));
+  obj = ggc_alloc (sizeof (struct hashed_attribute));
   obj->next = entry->list;
   obj->value = value;
 
@@ -6132,7 +6118,8 @@ start_class (code, class_name, super_name, protocol_list)
     {
       error ("`%s' redeclared as different kind of symbol",
 	     IDENTIFIER_POINTER (class_name));
-      error_with_decl (decl, "previous declaration of `%s'");
+      error ("%Hprevious declaration of '%D'",
+             &DECL_SOURCE_LOCATION (decl), decl);
     }
 
   if (code == CLASS_IMPLEMENTATION_TYPE)
@@ -6286,7 +6273,7 @@ continue_class (class)
       if (!objc_class_template)
 	build_class_template ();
 
-      imp_entry = (struct imp_entry *) ggc_alloc (sizeof (struct imp_entry));
+      imp_entry = ggc_alloc (sizeof (struct imp_entry));
 
       imp_entry->next = imp_list;
       imp_entry->imp_context = class;
@@ -6382,7 +6369,7 @@ finish_class (class)
     {
       tree decl_specs;
       const char *class_name = IDENTIFIER_POINTER (CLASS_NAME (class));
-      char *string = (char *) alloca (strlen (class_name) + 3);
+      char *string = alloca (strlen (class_name) + 3);
 
       /* extern struct objc_object *_<my_name>; */
 
@@ -7080,7 +7067,8 @@ comp_method_with_proto (method, proto)
   /* install return type */
   TREE_TYPE (function1_template) = groktypename (TREE_TYPE (proto));
 
-  return comptypes (TREE_TYPE (METHOD_DEFINITION (method)), function1_template);
+  return comptypes (TREE_TYPE (METHOD_DEFINITION (method)), function1_template,
+		    false);
 }
 
 /* Return 1 if PROTO1 is consistent with PROTO2.  */
@@ -7103,7 +7091,7 @@ comp_proto_with_proto (proto0, proto1)
   TREE_TYPE (function1_template) = groktypename (TREE_TYPE (proto0));
   TREE_TYPE (function2_template) = groktypename (TREE_TYPE (proto1));
 
-  return comptypes (function1_template, function2_template);
+  return comptypes (function1_template, function2_template, false);
 }
 
 /* - Generate an identifier for the function. the format is "_n_cls",
@@ -7135,8 +7123,8 @@ really_start_method (method, parmlist)
   method_slot++;
 
   /* Make sure this is big enough for any plausible method label.  */
-  buf = (char *) alloca (50 + strlen (sel_name) + strlen (class_name)
-			 + (cat_name ? strlen (cat_name) : 0));
+  buf = alloca (50 + strlen (sel_name) + strlen (class_name)
+		+ (cat_name ? strlen (cat_name) : 0));
 
   OBJC_GEN_METHOD_LABEL (buf, TREE_CODE (method) == INSTANCE_METHOD_DECL,
 			 class_name, cat_name, sel_name, method_slot);
@@ -8073,7 +8061,7 @@ dump_interface (fp, chain)
      declaration is so long that it doesn't fit in the buffer.  The
      code and all the related functions should be rewritten to avoid
      using fixed size buffers.  */
-  char *buf = (char *) xmalloc (1024 * 10);
+  char *buf = xmalloc (1024 * 10);
   const char *my_name = IDENTIFIER_POINTER (CLASS_NAME (chain));
   tree ivar_decls = CLASS_RAW_IVARS (chain);
   tree nst_methods = CLASS_NST_METHODS (chain);
@@ -8199,7 +8187,7 @@ init_objc ()
   gcc_obstack_init (&util_obstack);
   util_firstobj = (char *) obstack_finish (&util_obstack);
 
-  errbuf = (char *) xmalloc (BUFSIZE);
+  errbuf = xmalloc (BUFSIZE);
   hash_init ();
   synth_module_prologue ();
 }
@@ -8379,7 +8367,7 @@ handle_class_ref (chain)
      tree chain;
 {
   const char *name = IDENTIFIER_POINTER (TREE_VALUE (chain));
-  char *string = (char *) alloca (strlen (name) + 30);
+  char *string = alloca (strlen (name) + 30);
   tree decl;
   tree exp;
 
@@ -8429,7 +8417,7 @@ handle_impent (impent)
       const char *const class_name =
 	IDENTIFIER_POINTER (CLASS_NAME (impent->imp_context));
 
-      string = (char *) alloca (strlen (class_name) + 30);
+      string = alloca (strlen (class_name) + 30);
 
       sprintf (string, "%sobjc_class_name_%s",
                (flag_next_runtime ? "." : "__"), class_name);
@@ -8441,7 +8429,7 @@ handle_impent (impent)
       const char *const class_super_name =
         IDENTIFIER_POINTER (CLASS_SUPER_NAME (impent->imp_context));
 
-      string = (char *) alloca (strlen (class_name)
+      string = alloca (strlen (class_name)
 				+ strlen (class_super_name) + 30);
 
       /* Do the same for categories.  Even though no references to

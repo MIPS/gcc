@@ -40,8 +40,8 @@
  *  in your programs, rather than any of the "st[dl]_*.h" implementation files.
  */
 
-#ifndef _CPP_COMPLEX
-#define _CPP_COMPLEX	1
+#ifndef _GLIBCXX_COMPLEX
+#define _GLIBCXX_COMPLEX 1
 
 #pragma GCC system_header
 
@@ -243,7 +243,7 @@ namespace std
     complex<_Tp>::operator/=(const complex<_Up>& __z)
     {
       const _Tp __r =  _M_real * __z.real() + _M_imag * __z.imag();
-      const _Tp __n = norm(__z);
+      const _Tp __n = std::norm(__z);
       _M_imag = (_M_imag * __z.real() - _M_real * __z.imag()) / __n;
       _M_real = __r / __n;
       return *this;
@@ -447,7 +447,7 @@ namespace std
       template<typename _Tp>
         static inline _Tp _S_do_it(const complex<_Tp>& __z)
         {
-          _Tp __res = abs(__z);
+          _Tp __res = std::abs(__z);
           return __res * __res;
         }
     };
@@ -456,7 +456,7 @@ namespace std
     inline _Tp
     norm(const complex<_Tp>& __z)
     {
-      return _Norm_helper<__is_floating<_Tp>::_M_type && !_GLIBCPP_FAST_MATH>::_S_do_it(__z);
+      return _Norm_helper<__is_floating<_Tp>::_M_type && !_GLIBCXX_FAST_MATH>::_S_do_it(__z);
     }
 
   template<typename _Tp>
@@ -491,17 +491,17 @@ namespace std
   template<typename _Tp>
     inline complex<_Tp>
     exp(const complex<_Tp>& __z)
-    { return polar(exp(__z.real()), __z.imag()); }
+    { return std::polar(exp(__z.real()), __z.imag()); }
 
   template<typename _Tp>
     inline complex<_Tp>
     log(const complex<_Tp>& __z)
-    { return complex<_Tp>(log(abs(__z)), arg(__z)); }
+    { return complex<_Tp>(log(std::abs(__z)), std::arg(__z)); }
 
   template<typename _Tp>
     inline complex<_Tp>
     log10(const complex<_Tp>& __z)
-    { return log(__z) / log(_Tp(10.0)); }
+    { return std::log(__z) / log(_Tp(10.0)); }
 
   template<typename _Tp>
     inline complex<_Tp>
@@ -535,7 +535,7 @@ namespace std
         }
       else
         {
-          _Tp __t = sqrt(2 * (abs(__z) + abs(__x)));
+          _Tp __t = sqrt(2 * (std::abs(__z) + abs(__x)));
           _Tp __u = __t / 2;
           return __x > _Tp()
             ? complex<_Tp>(__u, __y / __t)
@@ -547,21 +547,21 @@ namespace std
     inline complex<_Tp>
     tan(const complex<_Tp>& __z)
     {
-      return sin(__z) / cos(__z);
+      return std::sin(__z) / std::cos(__z);
     }
 
   template<typename _Tp>
     inline complex<_Tp>
     tanh(const complex<_Tp>& __z)
     {
-      return sinh(__z) / cosh(__z);
+      return std::sinh(__z) / std::cosh(__z);
     }
 
   template<typename _Tp>
     inline complex<_Tp>
     pow(const complex<_Tp>& __z, int __n)
     {
-      return __pow_helper(__z, __n);
+      return std::__pow_helper(__z, __n);
     }
 
   template<typename _Tp>
@@ -572,7 +572,7 @@ namespace std
         return pow(__x.real(), __y);
 
       complex<_Tp> __t = log(__x);
-      return polar(exp(__y * __t.real()), __y * __t.imag());
+      return std::polar(exp(__y * __t.real()), __y * __t.imag());
     }
 
   template<typename _Tp>
@@ -588,7 +588,7 @@ namespace std
     {
       return __x == _Tp()
         ? _Tp()
-        : polar(pow(__x, __y.real()), __y.imag() * log(__x));
+        : std::polar(pow(__x, __y.real()), __y.imag() * log(__x));
     }
 
   // 26.2.3  complex specializations
@@ -599,7 +599,7 @@ namespace std
     typedef float value_type;
     
     complex(float = 0.0f, float = 0.0f);
-#ifdef _GLIBCPP_BUGGY_COMPLEX
+#ifdef _GLIBCXX_BUGGY_COMPLEX
     complex(const complex& __z) : _M_value(__z._M_value) { }
 #endif
     explicit complex(const complex<double>&);
@@ -746,7 +746,7 @@ namespace std
     typedef double value_type;
 
     complex(double  =0.0, double =0.0);
-#ifdef _GLIBCPP_BUGGY_COMPLEX
+#ifdef _GLIBCXX_BUGGY_COMPLEX
     complex(const complex& __z) : _M_value(__z._M_value) { }
 #endif
     complex(const complex<float>&);
@@ -892,7 +892,7 @@ namespace std
     typedef long double value_type;
 
     complex(long double = 0.0L, long double = 0.0L);
-#ifdef _GLIBCPP_BUGGY_COMPLEX
+#ifdef _GLIBCXX_BUGGY_COMPLEX
     complex(const complex& __z) : _M_value(__z._M_value) { }
 #endif
     complex(const complex<float>&);
@@ -1062,4 +1062,4 @@ namespace std
   : _M_value(_ComplexT(__z._M_value)) { }
 } // namespace std
 
-#endif	/* _CPP_COMPLEX */
+#endif	/* _GLIBCXX_COMPLEX */

@@ -19,54 +19,20 @@
 ## You should have received a copy of the GNU General Public License
 ## along with GCC; see the file COPYING.  If not, write to
 ## the Free Software Foundation, 59 Temple Place - Suite 330,
-## Boston, MA 02111-1307, USA. 
+## Boston, MA 02111-1307, USA.
 
-AUTOMAKE_OPTIONS = 1.3 cygnus
-MAINT_CHARSET = latin1
-
-mkinstalldirs = $(SHELL) $(toplevel_srcdir)/mkinstalldirs
-
-# Cross compiler and multilib support.
-CC = @CC@
-CXX = @glibcpp_CXX@
-toolexecdir = @glibcpp_toolexecdir@
-toolexeclibdir = @glibcpp_toolexeclibdir@
-
+include $(top_srcdir)/fragment.am
 
 # Need this library to both be part of libstdc++.a, and installed
 # separately too.
-# 1) separate libsupc++.la 
+# 1) separate libsupc++.la
 toolexeclib_LTLIBRARIES = libsupc++.la
 # 2) integrated libsupc++convenience.la that is to be a part of libstdc++.a
 noinst_LTLIBRARIES = libsupc++convenience.la
 
 
-# Compile flags that should be constant throughout the build, both for
-# SUBDIRS and for libstdc++-v3 in general.
-OPTIMIZE_CXXFLAGS = @OPTIMIZE_CXXFLAGS@
-
-# These bits are all figured out from configure. Look in acinclude.m4
-# or configure.in to see how they are set. See GLIBCPP_EXPORT_FLAGS
-# NB: DEBUGFLAGS have to be at the end so that -O2 can be overridden.
-CONFIG_CXXFLAGS = \
-	@SECTION_FLAGS@ @EXTRA_CXX_FLAGS@
-
-# Warning flags to use.
-WARN_CXXFLAGS = \
-	@WARN_FLAGS@ $(WERROR) -fdiagnostics-show-location=once
-
-LIBSUPCXX_CXXFLAGS = @LIBSUPCXX_PICFLAGS@
-
-# Use common includes from acinclude.m4/GLIBCPP_EXPORT_INCLUDES
-GLIBCPP_INCLUDES = @GLIBCPP_INCLUDES@
-LIBSUPCXX_INCLUDES = @LIBSUPCXX_INCLUDES@
-GCC_INCLUDES = -I$(toplevel_srcdir)/gcc -I$(toplevel_srcdir)/include
-
-INCLUDES = \
-	$(GCC_INCLUDES) $(GLIBCPP_INCLUDES) $(LIBSUPCXX_INCLUDES)
-
 headers = \
-	exception new typeinfo cxxabi.h exception_defines.h 
+	exception new typeinfo cxxabi.h exception_defines.h
 
 sources = \
 	del_op.cc \
@@ -96,23 +62,23 @@ sources = \
 	vec.cc \
 	vterminate.cc
 
-libsupc___la_SOURCES = $(sources) 
-libsupc__convenience_la_SOURCES = $(sources) 
+libsupc___la_SOURCES = $(sources)
+libsupc__convenience_la_SOURCES = $(sources)
 
-glibcppinstalldir = $(gxx_include_dir)
-glibcppinstall_HEADERS = $(headers)
+glibcxxinstalldir = $(gxx_include_dir)
+glibcxxinstall_HEADERS = $(headers)
 
 # AM_CXXFLAGS needs to be in each subdirectory so that it can be
 # modified in a per-library or per-sub-library way.  Need to manually
 # set this option because CONFIG_CXXFLAGS has to be after
 # OPTIMIZE_CXXFLAGS on the compile line so that -O2 can be overridden
-# as the occasion call for it. 
+# as the occasion call for it.
 AM_CXXFLAGS = \
 	-fno-implicit-templates \
-	$(LIBSUPCXX_CXXFLAGS) \
+	$(LIBSUPCXX_PICFLAGS) \
 	$(WARN_CXXFLAGS) \
 	$(OPTIMIZE_CXXFLAGS) \
-	$(CONFIG_CXXFLAGS) 
+	$(CONFIG_CXXFLAGS)
 
 AM_MAKEFLAGS = \
 	"gxx_include_dir=$(gxx_include_dir)"
@@ -139,8 +105,8 @@ AM_MAKEFLAGS = \
 # We have to put --tag disable-shared after --tag CXX lest things
 # CXX undo the affect of disable-shared.
 LTCXXCOMPILE = $(LIBTOOL) --tag CXX --tag disable-shared \
-               --mode=compile $(CXX) $(INCLUDES) \
-	       $(AM_CPPFLAGS) $(CPPFLAGS) $(CXXFLAGS) $(AM_CXXFLAGS) 
+	       --mode=compile $(CXX) $(TOPLEVEL_INCLUDES) \
+	       $(AM_CPPFLAGS) $(CPPFLAGS) $(CXXFLAGS) $(AM_CXXFLAGS)
 
 # 3) We'd have a problem when building the shared libstdc++ object if
 # the rules automake generates would be used.  We cannot allow g++ to
@@ -149,24 +115,24 @@ LTCXXCOMPILE = $(LIBTOOL) --tag CXX --tag disable-shared \
 # directory to configure libstdc++-v3 to use gcc as the C++
 # compilation driver.
 CXXLINK = $(LIBTOOL) --tag CXX --tag disable-shared \
-          --mode=link $(CXX) \
-          @OPT_LDFLAGS@ @SECTION_LDFLAGS@ $(AM_CXXFLAGS) $(LDFLAGS) -o $@
+	  --mode=link $(CXX) \
+	  $(OPT_LDFLAGS) $(SECTION_LDFLAGS) $(AM_CXXFLAGS) $(LDFLAGS) -o $@
 
 # We have to have rules modified from the default to counteract SUN make
-# prepending each of $(glibcppinstall_HEADERS) with VPATH below.
-install-glibcppinstallHEADERS: $(glibcppinstall_HEADERS)
+# prepending each of $(glibcxxinstall_HEADERS) with VPATH below.
+install-glibcxxinstallHEADERS: $(glibcxxinstall_HEADERS)
 	@$(NORMAL_INSTALL)
-	$(mkinstalldirs) $(DESTDIR)$(glibcppinstalldir)
-	@list='$(glibcppinstall_HEADERS)'; for p in $$list; do \
+	$(mkinstalldirs) $(DESTDIR)$(glibcxxinstalldir)
+	@list='$(glibcxxinstall_HEADERS)'; for p in $$list; do \
 	  q=`echo $$p | sed -e 's,.*/,,'`; \
 	  if test -f "$$p"; then d= ; else d="$(srcdir)/"; fi; \
-	  echo " $(INSTALL_DATA) $$d$$p $(DESTDIR)$(glibcppinstalldir)/$$q"; \
-	  $(INSTALL_DATA) $$d$$p $(DESTDIR)$(glibcppinstalldir)/$$q; \
+	  echo " $(INSTALL_DATA) $$d$$p $(DESTDIR)$(glibcxxinstalldir)/$$q"; \
+	  $(INSTALL_DATA) $$d$$p $(DESTDIR)$(glibcxxinstalldir)/$$q; \
 	done
 
-uninstall-glibcppinstallHEADERS:
+uninstall-glibcxxinstallHEADERS:
 	@$(NORMAL_UNINSTALL)
-	list='$(glibcppinstall_HEADERS)'; for p in $$list; do \
+	list='$(glibcxxinstall_HEADERS)'; for p in $$list; do \
 	  q=`echo $$p | sed -e 's,.*/,,'`; \
-	  rm -f $(DESTDIR)$(glibcppinstalldir)/$$q; \
+	  rm -f $(DESTDIR)$(glibcxxinstalldir)/$$q; \
 	done

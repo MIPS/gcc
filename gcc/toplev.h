@@ -26,21 +26,13 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #define skip_leading_substring(whole,  part) \
    (strncmp (whole, part, strlen (part)) ? NULL : whole + strlen (part))
 
-extern int toplev_main			(int, char **);
-extern int read_integral_parameter	(const char *, const char *,
-					 const int);
-extern void strip_off_ending		(char *, int);
-extern const char *trim_filename	(const char *);
-extern void internal_error		(const char *, ...)
+extern int toplev_main (unsigned int, const char **);
+extern int read_integral_parameter (const char *, const char *, const int);
+extern void strip_off_ending (char *, int);
+extern const char *trim_filename (const char *);
+extern void _fatal_insn_not_found (rtx, const char *, int, const char *)
      ATTRIBUTE_NORETURN;
-extern void _fatal_insn_not_found	(struct rtx_def *,
-  					 const char *, int,
-					 const char *)
-     ATTRIBUTE_NORETURN;
-extern void _fatal_insn			(const char *,
-					 struct rtx_def *,
-					 const char *, int,
-					 const char *)
+extern void _fatal_insn (const char *, rtx, const char *, int, const char *)
      ATTRIBUTE_NORETURN;
 
 #define fatal_insn(msgid, insn) \
@@ -48,37 +40,40 @@ extern void _fatal_insn			(const char *,
 #define fatal_insn_not_found(insn) \
 	_fatal_insn_not_found (insn, __FILE__, __LINE__, __FUNCTION__)
 
+/* If we haven't already defined a frontend specific diagnostics
+   style, use the generic one.  */
+#ifndef GCC_DIAG_STYLE
+#define GCC_DIAG_STYLE __gcc_diag__
+#endif
 /* None of these functions are suitable for ATTRIBUTE_PRINTF, because
    each language front end can extend them with its own set of format
-   specifiers.  */
-extern void warning			(const char *, ...);
-extern void error			(const char *, ...);
-extern void fatal_error			(const char *, ...)
+   specifiers.  We must use custom format checks.  */
+#if GCC_VERSION >= 3004
+#define ATTRIBUTE_GCC_DIAG(m, n) __attribute__ ((__format__ (GCC_DIAG_STYLE, m, n))) ATTRIBUTE_NONNULL(m)
+#else
+#define ATTRIBUTE_GCC_DIAG(m, n) ATTRIBUTE_NONNULL(m)
+#endif
+extern void internal_error (const char *, ...) ATTRIBUTE_GCC_DIAG(1,2)
      ATTRIBUTE_NORETURN;
-extern void pedwarn			(const char *, ...);
-extern void sorry			(const char *, ...);
+extern void warning (const char *, ...);
+extern void error (const char *, ...);
+extern void fatal_error (const char *, ...) ATTRIBUTE_GCC_DIAG(1,2)
+     ATTRIBUTE_NORETURN;
+extern void pedwarn (const char *, ...);
+extern void sorry (const char *, ...) ATTRIBUTE_GCC_DIAG(1,2);
+extern void inform (const char *, ...) ATTRIBUTE_GCC_DIAG(1,2);
 
-extern void rest_of_decl_compilation	(union tree_node *,
-					 const char *, int, int);
-extern void rest_of_type_compilation	(union tree_node *, int);
-extern void rest_of_compilation		(union tree_node *);
+extern void rest_of_decl_compilation (tree, const char *, int, int);
+extern void rest_of_type_compilation (tree, int);
+extern void rest_of_compilation (tree);
+extern void tree_rest_of_compilation (tree);
 
-extern void pedwarn_with_decl		(union tree_node *,
-					 const char *, ...);
-extern void warning_with_decl		(union tree_node *,
-					 const char *, ...);
-extern void error_with_decl		(union tree_node *,
-					 const char *, ...);
+extern void announce_function (tree);
 
-extern void announce_function		(union tree_node *);
+extern void error_for_asm (rtx, const char *, ...) ATTRIBUTE_GCC_DIAG(2,3);
+extern void warning_for_asm (rtx, const char *, ...) ATTRIBUTE_GCC_DIAG(2,3);
+extern void warn_deprecated_use (tree);
 
-extern void error_for_asm		(struct rtx_def *,
-					 const char *, ...);
-extern void warning_for_asm		(struct rtx_def *,
-					 const char *, ...);
-extern void warn_deprecated_use		(union tree_node *);
-
-extern void output_clean_symbol_name    (FILE *, const char *);
 #ifdef BUFSIZ
 extern void output_quoted_string	(FILE *, const char *);
 extern void output_file_directive	(FILE *, const char *);
@@ -91,8 +86,12 @@ extern void fnotice			(FILE *, const char *, ...)
      ATTRIBUTE_PRINTF_2;
 #endif
 
-extern int wrapup_global_declarations   (union tree_node **, int);
-extern void check_global_declarations   (union tree_node **, int);
+extern int wrapup_global_declarations (tree *, int);
+extern void check_global_declarations (tree *, int);
+extern void write_global_declarations (void);
+
+/* A unique local time stamp, might be zero if none is available.  */
+extern unsigned local_tick;
 
 extern const char *progname;
 extern const char *dump_base_name;
@@ -125,7 +124,6 @@ extern int flag_ssa_dce;
 extern int time_report;
 extern int flag_new_regalloc;
 
-extern void display_help (void);
 extern void display_target_options (void);
 extern void print_version (FILE *, const char *);
 extern void set_target_switch (const char *);
@@ -141,9 +139,6 @@ extern void set_fast_math_flags         (int);
 /* Handle -d switch.  */
 extern void decode_d_option		(const char *);
 
-/* Handle -g switch.  */
-extern void decode_g_option		(const char *);
-
 /* Return true iff flags are set as if -ffast-math.  */
 extern bool fast_math_flags_set_p	(void);
 
@@ -156,5 +151,11 @@ extern bool fast_math_flags_set_p	(void);
 #endif
 extern int exact_log2_wide             (unsigned HOST_WIDE_INT);
 extern int floor_log2_wide             (unsigned HOST_WIDE_INT);
+
+/* Functions used to get and set GCC's notion of in what directory
+   compilation was started.  */
+
+extern const char *get_src_pwd	       (void);
+extern bool set_src_pwd		       (const char *);
 
 #endif /* ! GCC_TOPLEV_H */

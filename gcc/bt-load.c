@@ -89,7 +89,7 @@ typedef struct btr_def_s
   btr_user uses;
   /* If this def has a reaching use which is not a simple use
      in a branch instruction, then has_ambiguous_use will be true,
-     and we will not attempt to migrate this definition.       */
+     and we will not attempt to migrate this definition.  */
   char has_ambiguous_use;
   /* live_range is an approximation to the true live range for this
      def/use web, because it records the set of blocks that contain
@@ -277,9 +277,8 @@ find_btr_def_group (btr_def_group *all_btr_def_groups, btr_def def)
 
       if (!this_group)
 	{
-	  this_group = (btr_def_group)
-	    obstack_alloc (&migrate_btrl_obstack,
-			   sizeof (struct btr_def_group_s));
+	  this_group = obstack_alloc (&migrate_btrl_obstack,
+				      sizeof (struct btr_def_group_s));
 	  this_group->src = def_src;
 	  this_group->members = NULL;
 	  this_group->next = *all_btr_def_groups;
@@ -301,8 +300,8 @@ add_btr_def (fibheap_t all_btr_defs, basic_block bb, int insn_luid, rtx insn,
 	     unsigned int dest_reg, int other_btr_uses_before_def,
 	     btr_def_group *all_btr_def_groups)
 {
-  btr_def this = (btr_def)
-    obstack_alloc (&migrate_btrl_obstack, sizeof (struct btr_def_s));
+  btr_def this
+    = obstack_alloc (&migrate_btrl_obstack, sizeof (struct btr_def_s));
   this->bb = bb;
   this->luid = insn_luid;
   this->insn = insn;
@@ -353,8 +352,7 @@ new_btr_user (basic_block bb, int insn_luid, rtx insn)
 	usep = NULL;
     }
   use = usep ? *usep : NULL_RTX;
-  user = (btr_user)
-    obstack_alloc (&migrate_btrl_obstack, sizeof (struct btr_user_s));
+  user = obstack_alloc (&migrate_btrl_obstack, sizeof (struct btr_user_s));
   user->bb = bb;
   user->luid = insn_luid;
   user->insn = insn;
@@ -421,7 +419,7 @@ typedef struct {
 /* Called via note_stores or directly to register stores into /
    clobbers of a branch target register DEST that are not recognized as
    straightforward definitions.  DATA points to information about the
-   current basic block that needs updating.   */
+   current basic block that needs updating.  */
 static void
 note_btr_set (rtx dest, rtx set ATTRIBUTE_UNUSED, void *data)
 {
@@ -593,7 +591,7 @@ compute_out (sbitmap *bb_out, sbitmap *bb_gen, sbitmap *bb_kill, int max_uid)
       For each block,
 	BB_IN  = union over predecessors of BB_OUT(pred)
 	BB_OUT = (BB_IN - BB_KILL) + BB_GEN
-     Iterate until the bb_out sets stop growing.   */
+     Iterate until the bb_out sets stop growing.  */
   int i;
   int changed;
   sbitmap bb_in = sbitmap_alloc (max_uid);
@@ -652,7 +650,7 @@ link_btr_uses (btr_def *def_array, btr_user *use_array, sbitmap *bb_out,
 
 	      if (user != NULL)
 		{
-		  /* Find all the reaching defs for this use */
+		  /* Find all the reaching defs for this use.  */
 		  sbitmap reaching_defs_of_reg = sbitmap_alloc(max_uid);
 		  int uid;
 
@@ -679,7 +677,7 @@ link_btr_uses (btr_def *def_array, btr_user *use_array, sbitmap *bb_out,
 		    {
 		      btr_def def = def_array[uid];
 
-		      /* We now know that def reaches user */
+		      /* We now know that def reaches user.  */
 
 		      if (rtl_dump_file)
 			fprintf (rtl_dump_file,
@@ -736,8 +734,7 @@ build_btr_def_use_webs (fibheap_t all_btr_defs)
   sbitmap *btr_defset   = sbitmap_vector_alloc (
 			   (last_btr - first_btr) + 1, max_uid);
   sbitmap *bb_gen      = sbitmap_vector_alloc (n_basic_blocks, max_uid);
-  HARD_REG_SET *btrs_written = (HARD_REG_SET *) xcalloc (
-			       n_basic_blocks, sizeof (HARD_REG_SET));
+  HARD_REG_SET *btrs_written = xcalloc (n_basic_blocks, sizeof (HARD_REG_SET));
   sbitmap *bb_kill;
   sbitmap *bb_out;
 
@@ -841,8 +838,7 @@ augment_live_range (bitmap live_range, HARD_REG_SET *btrs_live_in_range,
 {
   basic_block *worklist, *tos;
 
-  tos = worklist =
-    (basic_block *) xmalloc (sizeof (basic_block) * (n_basic_blocks + 1));
+  tos = worklist = xmalloc (sizeof (basic_block) * (n_basic_blocks + 1));
 
   if (dominated_by_p (dom, new_bb, head_bb))
     *tos++ = new_bb;
@@ -1004,7 +1000,7 @@ combine_btr_defs (btr_def def, HARD_REG_SET *btrs_live_in_range)
 	  btr = choose_btr (combined_btrs_live);
 	  if (btr != -1)
 	    {
-	      /* We can combine them */
+	      /* We can combine them.  */
 	      if (rtl_dump_file)
 		fprintf (rtl_dump_file,
 			 "Combining def in insn %d with def in insn %d\n",
@@ -1037,7 +1033,7 @@ combine_btr_defs (btr_def def, HARD_REG_SET *btrs_live_in_range)
 		def->other_btr_uses_after_use = 1;
 	      COPY_HARD_REG_SET (*btrs_live_in_range, combined_btrs_live);
 
-	      /* Delete the old target register initialization */
+	      /* Delete the old target register initialization.  */
 	      delete_insn (other_def->insn);
 
 	    }
@@ -1108,7 +1104,7 @@ move_btr_def (basic_block new_def_bb, int btr, btr_def def, bitmap live_range,
     fprintf (rtl_dump_file, "New pt is insn %d, inserted after insn %d\n",
 	     INSN_UID (def->insn), INSN_UID (insp));
 
-  /* Delete the old target register initialization */
+  /* Delete the old target register initialization.  */
   delete_insn (old_insn);
 
   /* Replace each use of the old target register by a use of the new target
@@ -1157,7 +1153,7 @@ can_move_up (basic_block bb, rtx insn, int n_insns)
    MIN_COST is the lower bound on the cost of the DEF after migration.
    If we migrate DEF so that its cost falls below MIN_COST,
    then we do not attempt to migrate further.  The idea is that
-   we migrate defintions in a priority order based on their cost,
+   we migrate definitions in a priority order based on their cost,
    when the cost of this definition falls below MIN_COST, then
    there is another definition with cost == MIN_COST which now
    has a higher priority than this definition.
@@ -1185,7 +1181,7 @@ migrate_btr_def (btr_def def, int min_cost)
 	     INSN_UID (def->insn), def->cost, min_cost);
 
   if (!def->group || def->has_ambiguous_use)
-    /* These defs are not migratable */
+    /* These defs are not migratable.  */
     {
       if (rtl_dump_file)
 	fprintf (rtl_dump_file, "it's not migratable\n");
@@ -1318,8 +1314,7 @@ migrate_btr_defs (enum reg_class btr_class, int allow_callee_save)
 	  first_btr = reg;
       }
 
-  btrs_live =
-    (HARD_REG_SET *) xcalloc (n_basic_blocks, sizeof (HARD_REG_SET));
+  btrs_live = xcalloc (n_basic_blocks, sizeof (HARD_REG_SET));
 
   build_btr_def_use_webs (all_btr_defs);
 

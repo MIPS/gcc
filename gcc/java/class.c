@@ -57,6 +57,7 @@ static tree get_dispatch_table (tree, tree);
 static int supers_all_compiled (tree type);
 static void add_interface_do (tree, tree, int);
 static tree maybe_layout_super_class (tree, tree);
+static void add_miranda_methods (tree, tree);
 static int assume_compiled (const char *);
 static tree build_method_symbols_entry (tree);
 
@@ -148,8 +149,7 @@ add_assume_compiled (const char *ident, int excludep)
 {
   int len;
   assume_compiled_node *parent;
-  assume_compiled_node *node = 
-    xmalloc (sizeof (assume_compiled_node));
+  assume_compiled_node *node = xmalloc (sizeof (assume_compiled_node));
 
   node->ident = xstrdup (ident);
   node->excludep = excludep;
@@ -618,7 +618,6 @@ add_method_1 (tree this_class, int access_flags, tree name, tree function_type)
     METHOD_FINAL (fndecl) = DECL_INLINE (fndecl) = 1;
   if (access_flags & ACC_SYNCHRONIZED) METHOD_SYNCHRONIZED (fndecl) = 1;
   if (access_flags & ACC_ABSTRACT) METHOD_ABSTRACT (fndecl) = 1;
-  if (access_flags & ACC_TRANSIENT) METHOD_TRANSIENT (fndecl) = 1;
   if (access_flags & ACC_STRICT) METHOD_STRICTFP (fndecl) = 1;
   return fndecl;
 }
@@ -1034,10 +1033,10 @@ get_access_flags_from_decl (tree decl)
 	access_flags |= ACC_NATIVE;
       if (METHOD_ABSTRACT (decl))
 	access_flags |= ACC_ABSTRACT;
-      if (METHOD_TRANSIENT (decl))
-	access_flags |= ACC_TRANSIENT;
       if (METHOD_STRICTFP (decl))
 	access_flags |= ACC_STRICT;
+      if (METHOD_INVISIBLE (decl))
+	access_flags |= ACC_INVISIBLE;
       return access_flags;
     }
   abort ();
@@ -1212,8 +1211,8 @@ get_dispatch_table (tree type, tree this_class_addr)
       if (METHOD_ABSTRACT (method))
 	{
 	  if (! abstract_p)
-	    warning_with_decl (method,
-			       "abstract method in non-abstract class");
+	    warning ("%Habstract method in non-abstract class",
+                     &DECL_SOURCE_FILE (method));
 
 	  if (TARGET_VTABLE_USES_DESCRIPTORS)
 	    for (j = 0; j < TARGET_VTABLE_USES_DESCRIPTORS; ++j)
@@ -1751,14 +1750,14 @@ layout_class (tree this_class)
 {
   tree super_class = CLASSTYPE_SUPER (this_class);
   tree field;
-  
+
   class_list = tree_cons (this_class, NULL_TREE, class_list);
   if (CLASS_BEING_LAIDOUT (this_class))
     {
       char buffer [1024];
       char *report;
       tree current;
-      
+
       sprintf (buffer, " with `%s'",
 	       IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (this_class))));
       obstack_grow (&temporary_obstack, buffer, strlen (buffer));
@@ -1812,8 +1811,9 @@ layout_class (tree this_class)
 
   layout_type (this_class);
 
-  /* Also recursively load/layout any superinterfaces, but only if class was
-  loaded from bytecode. The source parser will take care of this itself. */
+  /* Also recursively load/layout any superinterfaces, but only if
+     class was loaded from bytecode.  The source parser will take care
+     of this itself.  */
   if (!CLASS_FROM_SOURCE_P (this_class))
     {
       tree basetype_vec = TYPE_BINFO_BASETYPES (this_class);
@@ -1841,12 +1841,59 @@ layout_class (tree this_class)
 	}
     }
 
-  /* Convert the size back to an SI integer value */
-  TYPE_SIZE_UNIT (this_class) = 
+  /* Convert the size back to an SI integer value.  */
+  TYPE_SIZE_UNIT (this_class) =
     fold (convert (int_type_node, TYPE_SIZE_UNIT (this_class)));
 
   CLASS_BEING_LAIDOUT (this_class) = 0;
   class_list = TREE_CHAIN (class_list);
+}
+
+static void
+add_miranda_methods (tree base_class, tree search_class)
+{
+  tree basetype_vec = TYPE_BINFO_BASETYPES (search_class);
+  int i, n = TREE_VEC_LENGTH (basetype_vec);
+  for (i = 1; i < n; ++i)
+    {
+      tree method_decl;
+      tree elt = TREE_VEC_ELT (basetype_vec, i);
+      if (elt == NULL_TREE)
+	break;
+      elt = BINFO_TYPE (elt);
+
+      /* Note that order matters here.  However, all the base classes
+	 will have been laid out at this point, so the order will
+	 always be correct.  Also, this code must match similar layout
+	 code in the runtime.  */
+      for (method_decl = TYPE_METHODS (elt);
+	   method_decl; method_decl = TREE_CHAIN (method_decl))
+	{
+	  tree sig, override;
+
+	  /* An interface can have <clinit>.  */
+	  if (ID_CLINIT_P (DECL_NAME (method_decl)))
+	    continue;
+
+	  sig = build_java_argument_signature (TREE_TYPE (method_decl));
+	  override = lookup_argument_method (base_class,
+					     DECL_NAME (method_decl), sig);
+	  if (override == NULL_TREE)
+	    {
+	      /* Found a Miranda method.  Add it.  */
+	      tree new_method;
+	      sig = build_java_signature (TREE_TYPE (method_decl));
+	      new_method
+		= add_method (base_class,
+			      get_access_flags_from_decl (method_decl),
+			      DECL_NAME (method_decl), sig);
+	      METHOD_INVISIBLE (new_method) = 1;
+	    }
+	}
+
+      /* Try superinterfaces.  */
+      add_miranda_methods (base_class, elt);
+    }
 }
 
 void
@@ -1870,11 +1917,20 @@ layout_class_methods (tree this_class)
   else
     dtable_count = integer_zero_node;
 
+  if (CLASS_ABSTRACT (TYPE_NAME (this_class)))
+    {
+      /* An abstract class can have methods which are declared only in
+	 an implemented interface.  These are called "Miranda
+	 methods".  We make a dummy method entry for such methods
+	 here.  */
+      add_miranda_methods (this_class, this_class);
+    }
+
   TYPE_METHODS (this_class) = nreverse (TYPE_METHODS (this_class));
 
   for (method_decl = TYPE_METHODS (this_class);
        method_decl; method_decl = TREE_CHAIN (method_decl))
-    dtable_count = layout_class_method (this_class, super_class, 
+    dtable_count = layout_class_method (this_class, super_class,
 					method_decl, dtable_count);
 
   TYPE_NVIRTUALS (this_class) = dtable_count;
@@ -1928,8 +1984,8 @@ layout_class_method (tree this_class, tree super_class,
 	  DECL_VINDEX (method_decl) = DECL_VINDEX (super_method);
 	  if (DECL_VINDEX (method_decl) == NULL_TREE 
 	      && !CLASS_FROM_SOURCE_P (this_class))
-	    error_with_decl (method_decl,
-			     "non-static method '%s' overrides static method");
+	    error ("%Hnon-static method '%D' overrides static method",
+                   &DECL_SOURCE_LOCATION (method_decl), method_decl);
 	}
       else if (! METHOD_FINAL (method_decl)
 	       && ! METHOD_PRIVATE (method_decl)
@@ -2042,7 +2098,7 @@ emit_register_classes (void)
 
 /* Make a method_symbol_type (_Jv_MethodSymbol) node for METHOD. */
 
-tree
+static tree
 build_method_symbols_entry (tree method)
 {
   tree clname, name, signature, method_symbol;
@@ -2157,7 +2213,7 @@ java_treetreehash_find (htab_t ht, tree t)
 {
   struct treetreehash_entry *e;
   hashval_t hv = JAVA_TREEHASHHASH_H (t);
-  e = (struct treetreehash_entry *) htab_find_with_hash (ht, t, hv);
+  e = htab_find_with_hash (ht, t, hv);
   if (e == NULL)
     return NULL;
   else

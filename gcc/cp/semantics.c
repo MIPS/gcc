@@ -41,6 +41,7 @@
 #include "output.h"
 #include "timevar.h"
 #include "debug.h"
+#include "cgraph.h"
 
 /* There routines provide a modular interface to perform many parsing
    operations.  They may therefore be used during actual parsing, or
@@ -58,9 +59,7 @@ static void genrtl_try_block (tree);
 static void genrtl_eh_spec_block (tree);
 static void genrtl_handler (tree);
 static void cp_expand_stmt (tree);
-static void genrtl_start_function (tree);
-static void genrtl_finish_function (tree);
-static tree clear_decl_rtl (tree *, int *, void *);
+
 
 /* Finish processing the COND, the SUBSTMT condition for STMT.  */
 
@@ -154,7 +153,7 @@ void push_deferring_access_checks (deferring_kind deferring)
       deferred_access_free_list = d->next;
     }
   else
-    d = (deferred_access *) ggc_alloc (sizeof (deferred_access));
+    d = ggc_alloc (sizeof (deferred_access));
 
   d->next = deferred_access_stack;
   d->deferred_access_checks = NULL_TREE;
@@ -377,13 +376,17 @@ finish_goto_stmt (tree destination)
      mark the used labels as used.  */
   if (TREE_CODE (destination) == LABEL_DECL)
     TREE_USED (destination) = 1;
-    
-  if (TREE_CODE (destination) != LABEL_DECL)
-    /* We don't inline calls to functions with computed gotos.
-       Those functions are typically up to some funny business,
-       and may be depending on the labels being at particular
-       addresses, or some such.  */
-    DECL_UNINLINABLE (current_function_decl) = 1;
+  else
+    {
+      /* The DESTINATION is being used as an rvalue.  */
+      if (!processing_template_decl)
+	destination = decay_conversion (destination);
+      /* We don't inline calls to functions with computed gotos.
+	 Those functions are typically up to some funny business,
+	 and may be depending on the labels being at particular
+	 addresses, or some such.  */
+      DECL_UNINLINABLE (current_function_decl) = 1;
+    }
   
   check_goto (destination);
 
@@ -393,7 +396,7 @@ finish_goto_stmt (tree destination)
 /* COND is the condition-expression for an if, while, etc.,
    statement.  Convert it to a boolean value, if appropriate.  */
 
-tree
+static tree
 maybe_convert_cond (tree cond)
 {
   /* Empty conditions remain empty.  */
@@ -415,31 +418,18 @@ tree
 finish_expr_stmt (tree expr)
 {
   tree r = NULL_TREE;
-  tree expr_type = NULL_TREE;;
 
   if (expr != NULL_TREE)
     {
-      if (!processing_template_decl
-	  && !(stmts_are_full_exprs_p ())
-	  && ((TREE_CODE (TREE_TYPE (expr)) == ARRAY_TYPE
-	       && lvalue_p (expr))
-	      || TREE_CODE (TREE_TYPE (expr)) == FUNCTION_TYPE))
-	expr = default_conversion (expr);
-      
-      /* Remember the type of the expression.  */
-      expr_type = TREE_TYPE (expr);
-
-      if (stmts_are_full_exprs_p ())
+      if (!processing_template_decl)
 	expr = convert_to_void (expr, "statement");
+      else if (!type_dependent_expression_p (expr))
+	convert_to_void (build_non_dependent_expr (expr), "statement");
       
       r = add_stmt (build_stmt (EXPR_STMT, expr));
     }
 
   finish_stmt ();
-
-  /* This was an expression-statement, so we save the type of the
-     expression.  */
-  last_expr_type = expr_type;
 
   return r;
 }
@@ -747,7 +737,10 @@ finish_switch_cond (tree cond, tree switch_stmt)
       orig_type = TREE_TYPE (cond);
       if (cond != error_mark_node)
 	{
-	  cond = default_conversion (cond);
+	  /* [stmt.switch]
+
+	     Integral promotions are performed.  */
+	  cond = perform_integral_promotions (cond);
 	  cond = fold (build1 (CLEANUP_POINT_EXPR, TREE_TYPE (cond), cond));
 	}
 
@@ -794,7 +787,7 @@ genrtl_try_block (tree t)
   else
     {
       if (!FN_TRY_BLOCK_P (t)) 
-	emit_line_note (input_filename, input_line);
+	emit_line_note (input_location);
 
       expand_eh_region_start ();
       expand_stmt (TRY_STMTS (t));
@@ -967,6 +960,8 @@ finish_handler_parms (tree decl, tree handler)
     type = expand_start_catch_block (decl);
 
   HANDLER_TYPE (handler) = type;
+  if (type)
+    mark_used (eh_type_info (type));
 }
 
 /* Finish a handler, which may be given by HANDLER.  The BLOCKs are
@@ -981,12 +976,12 @@ finish_handler (tree handler)
   RECHAIN_STMTS (handler, HANDLER_BODY (handler));
 }
 
-/* Begin a compound-statement.  If HAS_NO_SCOPE is nonzero, the
+/* Begin a compound-statement.  If HAS_NO_SCOPE is true, the
    compound-statement does not define a scope.  Returns a new
-   COMPOUND_STMT if appropriate.  */
+   COMPOUND_STMT.  */
 
 tree
-begin_compound_stmt (int has_no_scope)
+begin_compound_stmt (bool has_no_scope)
 {
   tree r; 
   int is_try = 0;
@@ -1014,20 +1009,18 @@ begin_compound_stmt (int has_no_scope)
   return r;
 }
 
-/* Finish a compound-statement, which may be given by COMPOUND_STMT.
-   If HAS_NO_SCOPE is nonzero, the compound statement does not define
-   a scope.  */
+/* Finish a compound-statement, which is given by COMPOUND_STMT. */
 
 tree
-finish_compound_stmt (int has_no_scope, tree compound_stmt)
+finish_compound_stmt (tree compound_stmt)
 {
   tree r;
   tree t;
 
-  if (!has_no_scope)
-    r = do_poplevel ();
-  else
+  if (COMPOUND_STMT_NO_SCOPE (compound_stmt))
     r = NULL_TREE;
+  else
+    r = do_poplevel ();
 
   RECHAIN_STMTS (compound_stmt, COMPOUND_BODY (compound_stmt));
 
@@ -1136,7 +1129,7 @@ finish_asm_stmt (tree cv_qualifier,
 tree
 finish_label_stmt (tree name)
 {
-  tree decl = define_label (input_filename, input_line, name);
+  tree decl = define_label (input_location, name);
   return add_stmt (build_stmt (LABEL_STMT, decl));
 }
 
@@ -1214,11 +1207,11 @@ finish_parenthesized_expr (tree expr)
    preceded by `.' or `->'.  */
 
 tree
-finish_non_static_data_member (tree decl, tree qualifying_scope)
+finish_non_static_data_member (tree decl, tree object, tree qualifying_scope)
 {
   my_friendly_assert (TREE_CODE (decl) == FIELD_DECL, 20020909);
 
-  if (current_class_ptr == NULL_TREE)
+  if (!object)
     {
       if (current_function_decl 
 	  && DECL_STATIC_FUNCTION_P (current_function_decl))
@@ -1232,27 +1225,42 @@ finish_non_static_data_member (tree decl, tree qualifying_scope)
     }
   TREE_USED (current_class_ptr) = 1;
   if (processing_template_decl)
-    return build_min (COMPONENT_REF, TREE_TYPE (decl),
-		      current_class_ref, DECL_NAME (decl));
+    {
+      tree type = TREE_TYPE (decl);
+
+      if (TREE_CODE (type) == REFERENCE_TYPE)
+	type = TREE_TYPE (type);
+      else
+	{
+	  /* Set the cv qualifiers */
+	  int quals = cp_type_quals (TREE_TYPE (current_class_ref));
+	  
+	  if (DECL_MUTABLE_P (decl))
+	    quals &= ~TYPE_QUAL_CONST;
+
+	  quals |= cp_type_quals (TREE_TYPE (decl));
+	  type = cp_build_qualified_type (type, quals);
+	}
+      
+      return build_min (COMPONENT_REF, type, object, decl);
+    }
   else
     {
-      tree access_type = current_class_type;
-      tree object = current_class_ref;
-
-      while (access_type
-	     && !DERIVED_FROM_P (context_for_name_lookup (decl), access_type))
+      tree access_type = TREE_TYPE (object);
+      tree lookup_context = context_for_name_lookup (decl);
+      
+      while (!DERIVED_FROM_P (lookup_context, access_type))
 	{
 	  access_type = TYPE_CONTEXT (access_type);
 	  while (access_type && DECL_P (access_type))
 	    access_type = DECL_CONTEXT (access_type);
-	}
 
-      if (!access_type)
-	{
-	  cp_error_at ("object missing in reference to `%D'",
-		       decl);
-	  error ("from this location");
-	  return error_mark_node;
+	  if (!access_type)
+	    {
+	      cp_error_at ("object missing in reference to `%D'", decl);
+	      error ("from this location");
+	      return error_mark_node;
+	    }
 	}
 
       perform_or_defer_access_check (TYPE_BINFO (access_type), decl);
@@ -1272,6 +1280,120 @@ finish_non_static_data_member (tree decl, tree qualifying_scope)
     }
 }
 
+/* DECL was the declaration to which a qualified-id resolved.  Issue
+   an error message if it is not accessible.  If OBJECT_TYPE is
+   non-NULL, we have just seen `x->' or `x.' and OBJECT_TYPE is the
+   type of `*x', or `x', respectively.  If the DECL was named as
+   `A::B' then NESTED_NAME_SPECIFIER is `A'.  */
+
+void
+check_accessibility_of_qualified_id (tree decl, 
+				     tree object_type, 
+				     tree nested_name_specifier)
+{
+  tree scope;
+  tree qualifying_type = NULL_TREE;
+  
+  /* Determine the SCOPE of DECL.  */
+  scope = context_for_name_lookup (decl);
+  /* If the SCOPE is not a type, then DECL is not a member.  */
+  if (!TYPE_P (scope))
+    return;
+  /* Compute the scope through which DECL is being accessed.  */
+  if (object_type 
+      /* OBJECT_TYPE might not be a class type; consider:
+
+	   class A { typedef int I; };
+	   I *p;
+	   p->A::I::~I();
+
+         In this case, we will have "A::I" as the DECL, but "I" as the
+	 OBJECT_TYPE.  */
+      && CLASS_TYPE_P (object_type)
+      && DERIVED_FROM_P (scope, object_type))
+    /* If we are processing a `->' or `.' expression, use the type of the
+       left-hand side.  */
+    qualifying_type = object_type;
+  else if (nested_name_specifier)
+    {
+      /* If the reference is to a non-static member of the
+	 current class, treat it as if it were referenced through
+	 `this'.  */
+      if (DECL_NONSTATIC_MEMBER_P (decl)
+	  && current_class_ptr
+	  && DERIVED_FROM_P (scope, current_class_type))
+	qualifying_type = current_class_type;
+      /* Otherwise, use the type indicated by the
+	 nested-name-specifier.  */
+      else
+	qualifying_type = nested_name_specifier;
+    }
+  else
+    /* Otherwise, the name must be from the current class or one of
+       its bases.  */
+    qualifying_type = currently_open_derived_class (scope);
+
+  if (qualifying_type)
+    perform_or_defer_access_check (TYPE_BINFO (qualifying_type), decl);
+}
+
+/* EXPR is the result of a qualified-id.  The QUALIFYING_CLASS was the
+   class named to the left of the "::" operator.  DONE is true if this
+   expression is a complete postfix-expression; it is false if this
+   expression is followed by '->', '[', '(', etc.  ADDRESS_P is true
+   iff this expression is the operand of '&'.  */
+
+tree
+finish_qualified_id_expr (tree qualifying_class, tree expr, bool done,
+			  bool address_p)
+{
+  if (error_operand_p (expr))
+    return error_mark_node;
+
+  /* If EXPR occurs as the operand of '&', use special handling that
+     permits a pointer-to-member.  */
+  if (address_p && done)
+    {
+      if (TREE_CODE (expr) == SCOPE_REF)
+	expr = TREE_OPERAND (expr, 1);
+      expr = build_offset_ref (qualifying_class, expr, 
+			       /*address_p=*/true);
+      return expr;
+    }
+
+  if (TREE_CODE (expr) == FIELD_DECL)
+    expr = finish_non_static_data_member (expr, current_class_ref,
+					  qualifying_class);
+  else if (BASELINK_P (expr) && !processing_template_decl)
+    {
+      tree fn;
+      tree fns;
+
+      /* See if any of the functions are non-static members.  */
+      fns = BASELINK_FUNCTIONS (expr);
+      if (TREE_CODE (fns) == TEMPLATE_ID_EXPR)
+	fns = TREE_OPERAND (fns, 0);
+      for (fn = fns; fn; fn = OVL_NEXT (fn))
+	if (DECL_NONSTATIC_MEMBER_FUNCTION_P (fn))
+	  break;
+      /* If so, the expression may be relative to the current
+	 class.  */
+      if (fn && current_class_type 
+	  && DERIVED_FROM_P (qualifying_class, current_class_type))
+	expr = (build_class_member_access_expr 
+		(maybe_dummy_object (qualifying_class, NULL),
+		 expr,
+		 BASELINK_ACCESS_BINFO (expr),
+		 /*preserve_reference=*/false));
+      else if (done)
+	/* The expression is a qualified name whose address is not
+	   being taken.  */
+	expr = build_offset_ref (qualifying_class, expr, /*address_p=*/false);
+    }
+
+  return expr;
+}
+
 /* Begin a statement-expression.  The value returned must be passed to
    finish_stmt_expr.  */
 
@@ -1284,59 +1406,102 @@ begin_stmt_expr (void)
   if (! cfun && !last_tree)
     begin_stmt_tree (&scope_chain->x_saved_tree);
 
+  last_expr_type = NULL_TREE;
+  
   keep_next_level (1);
-  /* If we're building a statement tree, then the upcoming compound
-     statement will be chained onto the tree structure, starting at
-     last_tree.  We return last_tree so that we can later unhook the
-     compound statement.  */
+
   return last_tree; 
 }
 
-/* Used when beginning a statement-expression outside function scope.
-   For example, when handling a file-scope initializer, we use this
-   function.  */
+/* Process the final expression of a statement expression. EXPR can be
+   NULL, if the final expression is empty.  Build up a TARGET_EXPR so
+   that the result value can be safely returned to the enclosing
+   expression.  */
 
 tree
-begin_global_stmt_expr (void)
+finish_stmt_expr_expr (tree expr)
 {
-  if (! cfun && !last_tree)
-    begin_stmt_tree (&scope_chain->x_saved_tree);
+  tree result = NULL_TREE;
+  tree type = void_type_node;
 
-  keep_next_level (1);
+  if (expr)
+    {
+      type = TREE_TYPE (expr);
+      
+      if (!processing_template_decl && !VOID_TYPE_P (TREE_TYPE (expr)))
+	{
+	  if (TREE_CODE (type) == ARRAY_TYPE
+	      || TREE_CODE (type) == FUNCTION_TYPE)
+	    expr = decay_conversion (expr);
+
+	  expr = convert_from_reference (expr);
+	  expr = require_complete_type (expr);
+
+	  /* Build a TARGET_EXPR for this aggregate.  finish_stmt_expr
+	     will then pull it apart so the lifetime of the target is
+	     within the scope of the expresson containing this statement
+	     expression.  */
+	  if (TREE_CODE (expr) == TARGET_EXPR)
+	    ;
+	  else if (!IS_AGGR_TYPE (type) || TYPE_HAS_TRIVIAL_INIT_REF (type))
+	    expr = build_target_expr_with_type (expr, type);
+	  else
+	    {
+	      /* Copy construct.  */
+	      expr = build_special_member_call
+		(NULL_TREE, complete_ctor_identifier,
+		 build_tree_list (NULL_TREE, expr),
+		 TYPE_BINFO (type), LOOKUP_NORMAL);
+	      expr = build_cplus_new (type, expr);
+	      my_friendly_assert (TREE_CODE (expr) == TARGET_EXPR, 20030729);
+	    }
+	}
+
+      if (expr != error_mark_node)
+	{
+	  result = build_stmt (EXPR_STMT, expr);
+	  add_stmt (result);
+	}
+    }
   
-  return last_tree ? last_tree : expand_start_stmt_expr(/*has_scope=*/1); 
+  finish_stmt ();
+
+  /* Remember the last expression so that finish_stmt_expr can pull it
+     apart.  */
+  last_expr_type = result ? result : void_type_node;
+  
+  return result;
 }
 
-/* Finish the STMT_EXPR last begun with begin_global_stmt_expr.  */
+/* Finish a statement-expression.  EXPR should be the value returned
+   by the previous begin_stmt_expr.  Returns an expression
+   representing the statement-expression.  */
 
 tree 
-finish_global_stmt_expr (tree stmt_expr)
-{
-  stmt_expr = expand_end_stmt_expr (stmt_expr);
-  
-  if (! cfun
-      && TREE_CHAIN (scope_chain->x_saved_tree) == NULL_TREE)
-    finish_stmt_tree (&scope_chain->x_saved_tree);
-
-  return stmt_expr;
-}
-
-/* Finish a statement-expression.  RTL_EXPR should be the value
-   returned by the previous begin_stmt_expr; EXPR is the
-   statement-expression.  Returns an expression representing the
-   statement-expression.  */
-
-tree 
-finish_stmt_expr (tree rtl_expr)
+finish_stmt_expr (tree rtl_expr, bool has_no_scope)
 {
   tree result;
-
-  /* If the last thing in the statement-expression was not an
-     expression-statement, then it has type `void'.  */
+  tree result_stmt = last_expr_type;
+  tree type;
+  
   if (!last_expr_type)
-    last_expr_type = void_type_node;
-  result = build_min (STMT_EXPR, last_expr_type, last_tree);
+    type = void_type_node;
+  else
+    {
+      if (result_stmt == void_type_node)
+	{
+	  type = void_type_node;
+	  result_stmt = NULL_TREE;
+	}
+      else
+	type = TREE_TYPE (EXPR_STMT_EXPR (result_stmt));
+    }
+  
+  result = build_min (STMT_EXPR, type, last_tree);
   TREE_SIDE_EFFECTS (result) = 1;
+  STMT_EXPR_NO_SCOPE (result) = has_no_scope;
+  
+  last_expr_type = NULL_TREE;
   
   /* Remove the compound statement from the tree structure; it is
      now saved in the STMT_EXPR.  */
@@ -1349,7 +1514,64 @@ finish_stmt_expr (tree rtl_expr)
       && TREE_CHAIN (scope_chain->x_saved_tree) == NULL_TREE)
     finish_stmt_tree (&scope_chain->x_saved_tree);
 
+  if (processing_template_decl)
+    return result;
+
+  if (!VOID_TYPE_P (type))
+    {
+      /* Pull out the TARGET_EXPR that is the final expression. Put
+	 the target's init_expr as the final expression and then put
+	 the statement expression itself as the target's init
+	 expr. Finally, return the target expression.  */
+      tree last_expr = EXPR_STMT_EXPR (result_stmt);
+      
+      my_friendly_assert (TREE_CODE (last_expr) == TARGET_EXPR, 20030729);
+      EXPR_STMT_EXPR (result_stmt) = TREE_OPERAND (last_expr, 1);
+      TREE_OPERAND (last_expr, 1) = result;
+      result = last_expr;
+    }
   return result;
+}
+
+/* Perform Koenig lookup.  FN is the postfix-expression representing
+   the call; ARGS are the arguments to the call.  Returns the
+   functions to be considered by overload resolution.  */
+
+tree
+perform_koenig_lookup (tree fn, tree args)
+{
+  tree identifier = NULL_TREE;
+  tree functions = NULL_TREE;
+
+  /* Find the name of the overloaded function.  */
+  if (TREE_CODE (fn) == IDENTIFIER_NODE)
+    identifier = fn;
+  else if (is_overloaded_fn (fn))
+    {
+      functions = fn;
+      identifier = DECL_NAME (get_first_fn (functions));
+    }
+  else if (DECL_P (fn))
+    {
+      functions = fn;
+      identifier = DECL_NAME (fn);
+    }
+
+  /* A call to a namespace-scope function using an unqualified name.
+
+     Do Koenig lookup -- unless any of the arguments are
+     type-dependent.  */
+  if (!any_type_dependent_arguments_p (args))
+    {
+      fn = lookup_arg_dependent (identifier, functions, args);
+      if (!fn)
+	/* The unqualified name could not be resolved.  */
+	fn = unqualified_fn_lookup_error (identifier);
+    }
+  else
+    fn = identifier;
+
+  return fn;
 }
 
 /* Generate an expression for `FN (ARGS)'.
@@ -1365,15 +1587,31 @@ finish_stmt_expr (tree rtl_expr)
 tree 
 finish_call_expr (tree fn, tree args, bool disallow_virtual)
 {
+  tree result;
+  tree orig_fn;
+  tree orig_args;
+
   if (fn == error_mark_node || args == error_mark_node)
     return error_mark_node;
-
-  if (processing_template_decl)
-    return build_nt (CALL_EXPR, fn, args, NULL_TREE);
 
   /* ARGS should be a list of arguments.  */
   my_friendly_assert (!args || TREE_CODE (args) == TREE_LIST,
 		      20020712);
+
+  orig_fn = fn;
+  orig_args = args;
+
+  if (processing_template_decl)
+    {
+      if (type_dependent_expression_p (fn)
+	  || any_type_dependent_arguments_p (args))
+	return build_nt (CALL_EXPR, fn, args);
+      if (!BASELINK_P (fn)
+	  && TREE_CODE (fn) != PSEUDO_DTOR_EXPR
+	  && TREE_TYPE (fn) != unknown_type_node)
+	fn = build_non_dependent_expr (fn);
+      args = build_non_dependent_args (orig_args);
+    }
 
   /* A reference to a member function will appear as an overloaded
      function (rather than a BASELINK) if an unqualified name was used
@@ -1395,6 +1633,7 @@ finish_call_expr (tree fn, tree args, bool disallow_virtual)
 	}
     }
 
+  result = NULL_TREE;
   if (BASELINK_P (fn))
     {
       tree object;
@@ -1421,7 +1660,8 @@ finish_call_expr (tree fn, tree args, bool disallow_virtual)
 	  && DERIVED_FROM_P (BINFO_TYPE (BASELINK_ACCESS_BINFO (fn)),
 			     current_class_type)
 	  && current_class_ref)
-	object = current_class_ref;
+	object = maybe_dummy_object (BINFO_TYPE (BASELINK_ACCESS_BINFO (fn)),
+				     NULL);
       else
 	{
 	  tree representative_fn;
@@ -1433,17 +1673,22 @@ finish_call_expr (tree fn, tree args, bool disallow_virtual)
 	  object = build_dummy_object (DECL_CONTEXT (representative_fn));
 	}
 
-      return build_new_method_call (object, fn, args, NULL_TREE,
-				    (disallow_virtual 
-				     ? LOOKUP_NONVIRTUAL : 0));
+      if (processing_template_decl)
+	{
+	  if (type_dependent_expression_p (object))
+	    return build_nt (CALL_EXPR, orig_fn, orig_args);
+	  object = build_non_dependent_expr (object);
+	}
+
+      result = build_new_method_call (object, fn, args, NULL_TREE,
+				      (disallow_virtual 
+				       ? LOOKUP_NONVIRTUAL : 0));
     }
   else if (is_overloaded_fn (fn))
     /* A call to a namespace-scope function.  */
-    return build_new_function_call (fn, args);
+    result = build_new_function_call (fn, args);
   else if (TREE_CODE (fn) == PSEUDO_DTOR_EXPR)
     {
-      tree result;
-
       if (args)
 	error ("arguments to destructor are not allowed");
       /* Mark the pseudo-destructor call as having side-effects so
@@ -1452,20 +1697,18 @@ finish_call_expr (tree fn, tree args, bool disallow_virtual)
 		       void_type_node,
 		       TREE_OPERAND (fn, 0));
       TREE_SIDE_EFFECTS (result) = 1;
-      return result;
     }
   else if (CLASS_TYPE_P (TREE_TYPE (fn)))
-    {
-      /* If the "function" is really an object of class type, it might
-	 have an overloaded `operator ()'.  */
-      tree result;
-      result = build_new_op (CALL_EXPR, LOOKUP_NORMAL, fn, args, NULL_TREE);
-      if (result)
-	return result;
-    }
+    /* If the "function" is really an object of class type, it might
+       have an overloaded `operator ()'.  */
+    result = build_new_op (CALL_EXPR, LOOKUP_NORMAL, fn, args, NULL_TREE);
+  if (!result)
+    /* A call where the function is unknown.  */
+    result = build_function_call (fn, args);
 
-  /* A call where the function is unknown.  */
-  return build_function_call (fn, args);
+  if (processing_template_decl)
+    return build (CALL_EXPR, TREE_TYPE (result), orig_fn, orig_args);
+  return result;
 }
 
 /* Finish a call to a postfix increment or decrement or EXPR.  (Which
@@ -1475,13 +1718,6 @@ finish_call_expr (tree fn, tree args, bool disallow_virtual)
 tree 
 finish_increment_expr (tree expr, enum tree_code code)
 {
-  /* If we get an OFFSET_REF, turn it into what it really means (e.g.,
-     a COMPONENT_REF).  This way if we've got, say, a reference to a
-     static member that's being operated on, we don't end up trying to
-     find a member operator for the class it's in.  */
-
-  if (TREE_CODE (expr) == OFFSET_REF)
-    expr = resolve_offset_ref (expr);
   return build_x_unary_op (code, expr);  
 }
 
@@ -1548,16 +1784,6 @@ finish_object_call_expr (tree fn, tree object, tree args)
     return build_method_call (object, fn, args, NULL_TREE, LOOKUP_NORMAL);
   else
     return build_new_method_call (object, fn, args, NULL_TREE, LOOKUP_NORMAL);
-}
-
-/* Finish a qualified member function call using OBJECT and ARGS as
-   arguments to FN.  Returns an expression for the call.  */
-
-tree 
-finish_qualified_object_call_expr (tree fn, tree object, tree args)
-{
-  return build_scoped_method_call (object, TREE_OPERAND (fn, 0),
-				   TREE_OPERAND (fn, 1), args);
 }
 
 /* Finish a pseudo-destructor expression.  If SCOPE is NULL, the
@@ -1650,7 +1876,7 @@ finish_fname (tree id)
   
   decl = fname_decl (C_RID_CODE (id), id);
   if (processing_template_decl)
-    decl = build_min_nt (LOOKUP_EXPR, DECL_NAME (decl));
+    decl = DECL_NAME (decl);
   return decl;
 }
 
@@ -1805,7 +2031,7 @@ begin_class_definition (tree t)
       pushtag (TYPE_IDENTIFIER (t), t, 0);
     }
   maybe_process_partial_specialization (t);
-  pushclass (t, true);
+  pushclass (t);
   TYPE_BEING_DEFINED (t) = 1;
   TYPE_PACKED (t) = flag_pack_struct;
   /* Reset the interface data, at the earliest possible
@@ -1879,7 +2105,8 @@ finish_member_declaration (tree decl)
 					  /*friend_p=*/0);
     }
   /* Enter the DECL into the scope of the class.  */
-  else if (TREE_CODE (decl) == USING_DECL || pushdecl_class_level (decl))
+  else if ((TREE_CODE (decl) == USING_DECL && TREE_TYPE (decl))
+	   || pushdecl_class_level (decl))
     {
       /* All TYPE_DECLs go at the end of TYPE_FIELDS.  Ordinary fields
 	 go at the beginning.  The reason is that lookup_field_1
@@ -1912,41 +2139,6 @@ finish_member_declaration (tree decl)
     }
 }
 
-/* Finish a class definition T with the indicate ATTRIBUTES.  If SEMI,
-   the definition is immediately followed by a semicolon.  Returns the
-   type.  */
-
-tree
-finish_class_definition (tree t, tree attributes, int semi, int pop_scope_p)
-{
-  if (t == error_mark_node)
-    return error_mark_node;
-
-  /* finish_struct nukes this anyway; if finish_exception does too,
-     then it can go.  */
-  if (semi)
-    note_got_semicolon (t);
-
-  /* If we got any attributes in class_head, xref_tag will stick them in
-     TREE_TYPE of the type.  Grab them now.  */
-  attributes = chainon (TYPE_ATTRIBUTES (t), attributes);
-  TYPE_ATTRIBUTES (t) = NULL_TREE;
-
-  if (TREE_CODE (t) == ENUMERAL_TYPE)
-    ;
-  else
-    {
-      t = finish_struct (t, attributes);
-      if (semi) 
-	note_got_semicolon (t);
-    }
-
-  if (pop_scope_p)
-    pop_scope (CP_DECL_CONTEXT (TYPE_MAIN_DECL (t)));
-
-  return t;
-}
-
 /* Finish processing the declaration of a member class template
    TYPES whose template parameters are given by PARMS.  */
 
@@ -1962,7 +2154,6 @@ finish_member_class_template (tree types)
     if (IS_AGGR_TYPE_CODE (TREE_CODE (TREE_VALUE (t))))
       maybe_process_partial_specialization (TREE_VALUE (t));
 
-  note_list_got_semicolon (types);
   grok_x_components (types);
   if (TYPE_CONTEXT (TREE_VALUE (types)) != current_class_type)
     /* The component was in fact a friend declaration.  We avoid
@@ -2001,8 +2192,8 @@ finish_template_type (tree name, tree args, int entering_scope)
   tree decl;
 
   decl = lookup_template_class (name, args,
-				NULL_TREE, NULL_TREE,
-	                        entering_scope, /*complain=*/1);
+				NULL_TREE, NULL_TREE, entering_scope,
+				tf_error | tf_warning | tf_user);
   if (decl != error_mark_node)
     decl = TYPE_STUB_DECL (decl);
 
@@ -2066,6 +2257,383 @@ check_multiple_declarators (void)
     error ("multiple declarators in template declaration");
 }
 
+/* Issue a diagnostic that NAME cannot be found in SCOPE.  */
+
+void
+qualified_name_lookup_error (tree scope, tree name)
+{
+  if (TYPE_P (scope))
+    {
+      if (!COMPLETE_TYPE_P (scope))
+	error ("incomplete type `%T' used in nested name specifier", scope);
+      else
+	error ("`%D' is not a member of `%T'", name, scope);
+    }
+  else if (scope != global_namespace)
+    error ("`%D' is not a member of `%D'", name, scope);
+  else
+    error ("`::%D' has not been declared", name);
+}
+	      
+/* ID_EXPRESSION is a representation of parsed, but unprocessed,
+   id-expression.  (See cp_parser_id_expression for details.)  SCOPE,
+   if non-NULL, is the type or namespace used to explicitly qualify
+   ID_EXPRESSION.  DECL is the entity to which that name has been
+   resolved.  
+
+   *CONSTANT_EXPRESSION_P is true if we are presently parsing a
+   constant-expression.  In that case, *NON_CONSTANT_EXPRESSION_P will
+   be set to true if this expression isn't permitted in a
+   constant-expression, but it is otherwise not set by this function.
+   *ALLOW_NON_CONSTANT_EXPRESSION_P is true if we are parsing a
+   constant-expression, but a non-constant expression is also
+   permissible.
+
+   If an error occurs, and it is the kind of error that might cause
+   the parser to abort a tentative parse, *ERROR_MSG is filled in.  It
+   is the caller's responsibility to issue the message.  *ERROR_MSG
+   will be a string with static storage duration, so the caller need
+   not "free" it.
+
+   Return an expression for the entity, after issuing appropriate
+   diagnostics.  This function is also responsible for transforming a
+   reference to a non-static member into a COMPONENT_REF that makes
+   the use of "this" explicit.  
+
+   Upon return, *IDK will be filled in appropriately.  */
+
+tree
+finish_id_expression (tree id_expression, 
+		      tree decl,
+		      tree scope,
+		      cp_id_kind *idk,
+		      tree *qualifying_class,
+		      bool constant_expression_p,
+		      bool allow_non_constant_expression_p,
+		      bool *non_constant_expression_p,
+		      const char **error_msg)
+{
+  /* Initialize the output parameters.  */
+  *idk = CP_ID_KIND_NONE;
+  *error_msg = NULL;
+
+  if (id_expression == error_mark_node)
+    return error_mark_node;
+  /* If we have a template-id, then no further lookup is
+     required.  If the template-id was for a template-class, we
+     will sometimes have a TYPE_DECL at this point.  */
+  else if (TREE_CODE (decl) == TEMPLATE_ID_EXPR
+	   || TREE_CODE (decl) == TYPE_DECL)
+    ;
+  /* Look up the name.  */
+  else 
+    {
+      if (decl == error_mark_node)
+	{
+	  /* Name lookup failed.  */
+	  if (scope && (!TYPE_P (scope) || !dependent_type_p (scope)))
+	    {
+	      /* Qualified name lookup failed, and the qualifying name
+      		 was not a dependent type.  That is always an
+      		 error.  */
+	      qualified_name_lookup_error (scope, id_expression);
+	      return error_mark_node;
+	    }
+	  else if (!scope)
+	    {
+	      /* It may be resolved via Koenig lookup.  */
+	      *idk = CP_ID_KIND_UNQUALIFIED;
+	      return id_expression;
+	    }
+	}
+      /* If DECL is a variable that would be out of scope under
+	 ANSI/ISO rules, but in scope in the ARM, name lookup
+	 will succeed.  Issue a diagnostic here.  */
+      else
+	decl = check_for_out_of_scope_variable (decl);
+
+      /* Remember that the name was used in the definition of
+	 the current class so that we can check later to see if
+	 the meaning would have been different after the class
+	 was entirely defined.  */
+      if (!scope && decl != error_mark_node)
+	maybe_note_name_used_in_class (id_expression, decl);
+    }
+
+  /* If we didn't find anything, or what we found was a type,
+     then this wasn't really an id-expression.  */
+  if (TREE_CODE (decl) == TEMPLATE_DECL
+      && !DECL_FUNCTION_TEMPLATE_P (decl))
+    {
+      *error_msg = "missing template arguments";
+      return error_mark_node;
+    }
+  else if (TREE_CODE (decl) == TYPE_DECL
+	   || TREE_CODE (decl) == NAMESPACE_DECL)
+    {
+      *error_msg = "expected primary-expression";
+      return error_mark_node;
+    }
+
+  /* If the name resolved to a template parameter, there is no
+     need to look it up again later.  Similarly, we resolve
+     enumeration constants to their underlying values.  */
+  if (TREE_CODE (decl) == CONST_DECL)
+    {
+      *idk = CP_ID_KIND_NONE;
+      if (DECL_TEMPLATE_PARM_P (decl) || !processing_template_decl)
+	return DECL_INITIAL (decl);
+      return decl;
+    }
+  else
+    {
+      bool dependent_p;
+
+      /* If the declaration was explicitly qualified indicate
+	 that.  The semantics of `A::f(3)' are different than
+	 `f(3)' if `f' is virtual.  */
+      *idk = (scope 
+	      ? CP_ID_KIND_QUALIFIED
+	      : (TREE_CODE (decl) == TEMPLATE_ID_EXPR
+		 ? CP_ID_KIND_TEMPLATE_ID
+		 : CP_ID_KIND_UNQUALIFIED));
+
+
+      /* [temp.dep.expr]
+
+	 An id-expression is type-dependent if it contains an
+	 identifier that was declared with a dependent type.
+
+	 The standard is not very specific about an id-expression that
+	 names a set of overloaded functions.  What if some of them
+	 have dependent types and some of them do not?  Presumably,
+	 such a name should be treated as a dependent name.  */
+      /* Assume the name is not dependent.  */
+      dependent_p = false;
+      if (!processing_template_decl)
+	/* No names are dependent outside a template.  */
+	;
+      /* A template-id where the name of the template was not resolved
+	 is definitely dependent.  */
+      else if (TREE_CODE (decl) == TEMPLATE_ID_EXPR
+	       && (TREE_CODE (TREE_OPERAND (decl, 0)) 
+		   == IDENTIFIER_NODE))
+	dependent_p = true;
+      /* For anything except an overloaded function, just check its
+	 type.  */
+      else if (!is_overloaded_fn (decl))
+	dependent_p 
+	  = dependent_type_p (TREE_TYPE (decl));
+      /* For a set of overloaded functions, check each of the
+	 functions.  */
+      else
+	{
+	  tree fns = decl;
+
+	  if (BASELINK_P (fns))
+	    fns = BASELINK_FUNCTIONS (fns);
+
+	  /* For a template-id, check to see if the template
+	     arguments are dependent.  */
+	  if (TREE_CODE (fns) == TEMPLATE_ID_EXPR)
+	    {
+	      tree args = TREE_OPERAND (fns, 1);
+	      dependent_p = any_dependent_template_arguments_p (args);
+	      /* The functions are those referred to by the
+		 template-id.  */
+	      fns = TREE_OPERAND (fns, 0);
+	    }
+
+	  /* If there are no dependent template arguments, go through
+	     the overlaoded functions.  */
+	  while (fns && !dependent_p)
+	    {
+	      tree fn = OVL_CURRENT (fns);
+
+	      /* Member functions of dependent classes are
+		 dependent.  */
+	      if (TREE_CODE (fn) == FUNCTION_DECL
+		  && type_dependent_expression_p (fn))
+		dependent_p = true;
+	      else if (TREE_CODE (fn) == TEMPLATE_DECL
+		       && dependent_template_p (fn))
+		dependent_p = true;
+
+	      fns = OVL_NEXT (fns);
+	    }
+	}
+
+      /* If the name was dependent on a template parameter, we will
+	 resolve the name at instantiation time.  */
+      if (dependent_p)
+	{
+	  /* Create a SCOPE_REF for qualified names, if the scope is
+	     dependent.  */
+	  if (scope)
+	    {
+	      if (TYPE_P (scope))
+		*qualifying_class = scope;
+	      /* Since this name was dependent, the expression isn't
+		 constant -- yet.  No error is issued because it might
+		 be constant when things are instantiated.  */
+	      if (constant_expression_p)
+		*non_constant_expression_p = true;
+	      if (TYPE_P (scope) && dependent_type_p (scope))
+		return build_nt (SCOPE_REF, scope, id_expression);
+	      else if (TYPE_P (scope) && DECL_P (decl))
+		return build (SCOPE_REF, TREE_TYPE (decl), scope,
+			      id_expression);
+	      else
+		return decl;
+	    }
+	  /* A TEMPLATE_ID already contains all the information we
+	     need.  */
+	  if (TREE_CODE (id_expression) == TEMPLATE_ID_EXPR)
+	    return id_expression;
+	  /* Since this name was dependent, the expression isn't
+	     constant -- yet.  No error is issued because it might be
+	     constant when things are instantiated.  */
+	  if (constant_expression_p)
+	    *non_constant_expression_p = true;
+	  *idk = CP_ID_KIND_UNQUALIFIED_DEPENDENT;
+	  return id_expression;
+	}
+
+      /* Only certain kinds of names are allowed in constant
+	 expression.  Enumerators have already been handled above.  */
+      if (constant_expression_p)
+	{
+	  /* Non-type template parameters of integral or enumeration
+	     type are OK.  */
+	  if (TREE_CODE (decl) == TEMPLATE_PARM_INDEX
+	      && INTEGRAL_OR_ENUMERATION_TYPE_P (TREE_TYPE (decl)))
+	  ;
+	  /* Const variables or static data members of integral or
+	     enumeration types initialized with constant expressions
+	     are OK.  */
+	  else if (TREE_CODE (decl) == VAR_DECL
+		   && CP_TYPE_CONST_P (TREE_TYPE (decl))
+		   && INTEGRAL_OR_ENUMERATION_TYPE_P (TREE_TYPE (decl))
+		   && DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (decl))
+	    ;
+	  else
+	    {
+	      if (!allow_non_constant_expression_p)
+		{
+		  error ("`%D' cannot appear in a constant-expression", decl);
+		  return error_mark_node;
+		}
+	      *non_constant_expression_p = true;
+	    }
+	}
+      
+      if (TREE_CODE (decl) == NAMESPACE_DECL)
+	{
+	  error ("use of namespace `%D' as expression", decl);
+	  return error_mark_node;
+	}
+      else if (DECL_CLASS_TEMPLATE_P (decl))
+	{
+	  error ("use of class template `%T' as expression", decl);
+	  return error_mark_node;
+	}
+      else if (TREE_CODE (decl) == TREE_LIST)
+	{
+	  /* Ambiguous reference to base members.  */
+	  error ("request for member `%D' is ambiguous in "
+		 "multiple inheritance lattice", id_expression);
+	  print_candidates (decl);
+	  return error_mark_node;
+	}
+
+      /* Mark variable-like entities as used.  Functions are similarly
+	 marked either below or after overload resolution.  */
+      if (TREE_CODE (decl) == VAR_DECL
+	  || TREE_CODE (decl) == PARM_DECL
+	  || TREE_CODE (decl) == RESULT_DECL)
+	mark_used (decl);
+
+      if (scope)
+	{
+	  decl = (adjust_result_of_qualified_name_lookup 
+		  (decl, scope, current_class_type));
+
+	  if (TREE_CODE (decl) == FUNCTION_DECL)
+	    mark_used (decl);
+
+	  if (TREE_CODE (decl) == FIELD_DECL || BASELINK_P (decl))
+	    *qualifying_class = scope;
+	  else if (!processing_template_decl)
+	    decl = convert_from_reference (decl);
+	  else if (TYPE_P (scope))
+	    decl = build (SCOPE_REF, TREE_TYPE (decl), scope, decl);
+	}
+      else if (TREE_CODE (decl) == FIELD_DECL)
+	decl = finish_non_static_data_member (decl, current_class_ref,
+					      /*qualifying_scope=*/NULL_TREE);
+      else if (is_overloaded_fn (decl))
+	{
+	  tree first_fn = OVL_CURRENT (decl);
+
+	  if (TREE_CODE (first_fn) == TEMPLATE_DECL)
+	    first_fn = DECL_TEMPLATE_RESULT (first_fn);
+
+	  if (!really_overloaded_fn (decl))
+	    mark_used (first_fn);
+
+	  if (TREE_CODE (first_fn) == FUNCTION_DECL
+	      && DECL_FUNCTION_MEMBER_P (first_fn))
+	    {
+	      /* A set of member functions.  */
+	      decl = maybe_dummy_object (DECL_CONTEXT (first_fn), 0);
+	      return finish_class_member_access_expr (decl, id_expression);
+	    }
+	}
+      else
+	{
+	  if (TREE_CODE (decl) == VAR_DECL
+	      || TREE_CODE (decl) == PARM_DECL
+	      || TREE_CODE (decl) == RESULT_DECL)
+	    {
+	      tree context = decl_function_context (decl);
+	      
+	      if (context != NULL_TREE && context != current_function_decl
+		  && ! TREE_STATIC (decl))
+		{
+		  error ("use of %s from containing function",
+			 (TREE_CODE (decl) == VAR_DECL
+			  ? "`auto' variable" : "parameter"));
+		  cp_error_at ("  `%#D' declared here", decl);
+		  return error_mark_node;
+		}
+	    }
+	  
+	  if (DECL_P (decl) && DECL_NONLOCAL (decl)
+	      && DECL_CLASS_SCOPE_P (decl)
+	      && DECL_CONTEXT (decl) != current_class_type)
+	    {
+	      tree path;
+	      
+	      path = currently_open_derived_class (DECL_CONTEXT (decl));
+	      perform_or_defer_access_check (TYPE_BINFO (path), decl);
+	    }
+	  
+	  if (! processing_template_decl)
+	    decl = convert_from_reference (decl);
+	}
+      
+      /* Resolve references to variables of anonymous unions
+	 into COMPONENT_REFs.  */
+      if (TREE_CODE (decl) == ALIAS_DECL)
+	decl = DECL_INITIAL (decl);
+    }
+
+  if (TREE_DEPRECATED (decl))
+    warn_deprecated_use (decl);
+
+  return decl;
+}
+
 /* Implement the __typeof keyword: Return the type of EXPR, suitable for
    use as a type-specifier.  */
 
@@ -2081,9 +2649,6 @@ finish_typeof (tree expr)
 
       return type;
     }
-
-  if (TREE_CODE (expr) == OFFSET_REF)
-    expr = resolve_offset_ref (expr);
 
   type = TREE_TYPE (expr);
 
@@ -2150,37 +2715,46 @@ cp_expand_stmt (tree t)
 
 static tree
 simplify_aggr_init_exprs_r (tree* tp, 
-                            int* walk_subtrees ATTRIBUTE_UNUSED , 
-                            void* data ATTRIBUTE_UNUSED )
+                            int* walk_subtrees,
+                            void* data ATTRIBUTE_UNUSED)
 {
-  tree aggr_init_expr;
-  tree call_expr;
-  tree fn;
-  tree args;
-  tree slot;
-  tree type;
-  enum style_t { ctor, arg, pcc } style;
-
-  aggr_init_expr = *tp;
   /* We don't need to walk into types; there's nothing in a type that
      needs simplification.  (And, furthermore, there are places we
      actively don't want to go.  For example, we don't want to wander
      into the default arguments for a FUNCTION_DECL that appears in a
      CALL_EXPR.)  */
-  if (TYPE_P (aggr_init_expr))
+  if (TYPE_P (*tp))
     {
       *walk_subtrees = 0;
       return NULL_TREE;
     }
   /* Only AGGR_INIT_EXPRs are interesting.  */
-  else if (TREE_CODE (aggr_init_expr) != AGGR_INIT_EXPR)
+  else if (TREE_CODE (*tp) != AGGR_INIT_EXPR)
     return NULL_TREE;
 
+  simplify_aggr_init_expr (tp);
+
+  /* Keep iterating.  */
+  return NULL_TREE;
+}
+
+/* Replace the AGGR_INIT_EXPR at *TP with an equivalent CALL_EXPR.  This
+   function is broken out from the above for the benefit of the tree-ssa
+   project.  */
+
+void
+simplify_aggr_init_expr (tree *tp)
+{
+  tree aggr_init_expr = *tp;
+
   /* Form an appropriate CALL_EXPR.  */
-  fn = TREE_OPERAND (aggr_init_expr, 0);
-  args = TREE_OPERAND (aggr_init_expr, 1);
-  slot = TREE_OPERAND (aggr_init_expr, 2);
-  type = TREE_TYPE (aggr_init_expr);
+  tree fn = TREE_OPERAND (aggr_init_expr, 0);
+  tree args = TREE_OPERAND (aggr_init_expr, 1);
+  tree slot = TREE_OPERAND (aggr_init_expr, 2);
+  tree type = TREE_TYPE (aggr_init_expr);
+
+  tree call_expr;
+  enum style_t { ctor, arg, pcc } style;
 
   if (AGGR_INIT_VIA_CTOR_P (aggr_init_expr))
     style = ctor;
@@ -2199,21 +2773,31 @@ simplify_aggr_init_exprs_r (tree* tp,
     {
       /* Pass the address of the slot.  If this is a constructor, we
 	 replace the first argument; otherwise, we tack on a new one.  */
+      tree addr;
+
       if (style == ctor)
 	args = TREE_CHAIN (args);
 
       cxx_mark_addressable (slot);
-      args = tree_cons (NULL_TREE, 
-			build1 (ADDR_EXPR, 
-				build_pointer_type (TREE_TYPE (slot)),
-				slot),
-			args);
+      addr = build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (slot)), slot);
+      if (style == arg)
+	{
+	  /* The return type might have different cv-quals from the slot.  */
+	  tree fntype = TREE_TYPE (TREE_TYPE (fn));
+#ifdef ENABLE_CHECKING
+	  if (TREE_CODE (fntype) != FUNCTION_TYPE
+	      && TREE_CODE (fntype) != METHOD_TYPE)
+	    abort ();
+#endif
+	  addr = convert (build_pointer_type (TREE_TYPE (fntype)), addr);
+	}
+
+      args = tree_cons (NULL_TREE, addr, args);
     }
 
   call_expr = build (CALL_EXPR, 
 		     TREE_TYPE (TREE_TYPE (TREE_TYPE (fn))),
 		     fn, args, NULL_TREE);
-  TREE_SIDE_EFFECTS (call_expr) = 1;
 
   if (style == arg)
     /* Tell the backend that we've added our return slot to the argument
@@ -2238,9 +2822,6 @@ simplify_aggr_init_exprs_r (tree* tp,
   /* Replace the AGGR_INIT_EXPR with the CALL_EXPR.  */
   TREE_CHAIN (call_expr) = TREE_CHAIN (aggr_init_expr);
   *tp = call_expr;
-
-  /* Keep iterating.  */
-  return NULL_TREE;
 }
 
 /* Emit all thunks to FN that should be emitted when FN is emitted.  */
@@ -2279,7 +2860,56 @@ expand_body (tree fn)
 {
   location_t saved_loc;
   tree saved_function;
+  
+  /* Compute the appropriate object-file linkage for inline
+     functions.  */
+  if (DECL_DECLARED_INLINE_P (fn))
+    import_export_decl (fn);
 
+  /* If FN is external, then there's no point in generating RTL for
+     it.  This situation can arise with an inline function under
+     `-fexternal-templates'; we instantiate the function, even though
+     we're not planning on emitting it, in case we get a chance to
+     inline it.  */
+  if (DECL_EXTERNAL (fn))
+    return;
+
+  /* ??? When is this needed?  */
+  saved_loc = input_location;
+  saved_function = current_function_decl;
+
+  timevar_push (TV_INTEGRATION);
+  optimize_function (fn);
+  timevar_pop (TV_INTEGRATION);
+
+  tree_rest_of_compilation (fn);
+
+  current_function_decl = saved_function;
+  input_location = saved_loc;
+
+  extract_interface_info ();
+
+  /* Emit any thunks that should be emitted at the same time as FN.  */
+  emit_associated_thunks (fn);
+
+  /* If this function is marked with the constructor attribute, add it
+     to the list of functions to be called along with constructors
+     from static duration objects.  */
+  if (DECL_STATIC_CONSTRUCTOR (fn))
+    static_ctors = tree_cons (NULL_TREE, fn, static_ctors);
+
+  /* If this function is marked with the destructor attribute, add it
+     to the list of functions to be called along with destructors from
+     static duration objects.  */
+  if (DECL_STATIC_DESTRUCTOR (fn))
+    static_dtors = tree_cons (NULL_TREE, fn, static_dtors);
+}
+
+/* Generate RTL for FN.  */
+
+void
+expand_or_defer_fn (tree fn)
+{
   /* When the parser calls us after finishing the body of a template
      function, we don't really want to expand the body.  When we're
      processing an in-class definition of an inline function,
@@ -2318,6 +2948,36 @@ expand_body (tree fn)
   if (flag_syntax_only)
     return;
 
+  if (flag_unit_at_a_time && cgraph_global_info_ready)
+    abort ();
+
+  if (flag_unit_at_a_time && !cgraph_global_info_ready)
+    {
+      if (at_eof)
+	{
+	  /* Compute the appropriate object-file linkage for inline
+	     functions.  */
+	  if (DECL_DECLARED_INLINE_P (fn))
+	    import_export_decl (fn);
+	  cgraph_finalize_function (fn, DECL_SAVED_TREE (fn));
+	}
+      else
+	{
+	  if (!DECL_EXTERNAL (fn))
+	    {
+	      DECL_NOT_REALLY_EXTERN (fn) = 1;
+	      DECL_EXTERNAL (fn) = 1;
+	    }
+	  /* Remember this function.  In finish_file we'll decide if
+	     we actually need to write this function out.  */
+	  defer_fn (fn);
+	  /* Let the back-end know that this function exists.  */
+	  (*debug_hooks->deferred_inline_function) (fn);
+	}
+      return;
+    }
+
+
   /* If possible, avoid generating RTL for this function.  Instead,
      just record it as an inline function, and wait until end-of-file
      to decide whether to write it out or not.  */
@@ -2343,74 +3003,7 @@ expand_body (tree fn)
       return;
     }
 
-  /* Compute the appropriate object-file linkage for inline
-     functions.  */
-  if (DECL_DECLARED_INLINE_P (fn))
-    import_export_decl (fn);
-
-  /* If FN is external, then there's no point in generating RTL for
-     it.  This situation can arise with an inline function under
-     `-fexternal-templates'; we instantiate the function, even though
-     we're not planning on emitting it, in case we get a chance to
-     inline it.  */
-  if (DECL_EXTERNAL (fn))
-    return;
-
-  /* Save the current file name and line number.  When we expand the
-     body of the function, we'll set INPUT_LOCATION so that
-     error-mesages come out in the right places.  */
-  saved_loc = input_location;
-  saved_function = current_function_decl;
-  input_location = DECL_SOURCE_LOCATION (fn);
-  current_function_decl = fn;
-
-  timevar_push (TV_INTEGRATION);
-
-  /* Optimize the body of the function before expanding it.  */
-  optimize_function (fn);
-
-  timevar_pop (TV_INTEGRATION);
-  timevar_push (TV_EXPAND);
-
-  genrtl_start_function (fn);
-  current_function_is_thunk = DECL_THUNK_P (fn);
-
-  /* Expand the body.  */
-  expand_stmt (DECL_SAVED_TREE (fn));
-
-  /* Statements should always be full-expressions at the outermost set
-     of curly braces for a function.  */
-  my_friendly_assert (stmts_are_full_exprs_p (), 19990831);
-
-  /* The outermost statement for a function contains the line number
-     recorded when we finished processing the function.  */
-  input_line = STMT_LINENO (DECL_SAVED_TREE (fn));
-
-  /* Generate code for the function.  */
-  genrtl_finish_function (fn);
-
-  /* If possible, obliterate the body of the function so that it can
-     be garbage collected.  */
-  if (dump_enabled_p (TDI_all))
-    /* Keep the body; we're going to dump it.  */
-    ;
-  else if (DECL_INLINE (fn) && flag_inline_trees)
-    /* We might need the body of this function so that we can expand
-       it inline somewhere else.  */
-    ;
-  else
-    /* We don't need the body; blow it away.  */
-    DECL_SAVED_TREE (fn) = NULL_TREE;
-
-  /* And restore the current source position.  */
-  current_function_decl = saved_function;
-  input_location = saved_loc;
-  extract_interface_info ();
-
-  timevar_pop (TV_EXPAND);
-
-  /* Emit any thunks that should be emitted at the same time as FN.  */
-  emit_associated_thunks (fn);
+  expand_body (fn);
 }
 
 /* Helper function for walk_tree, used by finish_function to override all
@@ -2438,197 +3031,16 @@ nullify_returns_r (tree* tp, int* walk_subtrees, void* data)
 
 /* Start generating the RTL for FN.  */
 
-static void
-genrtl_start_function (tree fn)
+void
+cxx_expand_function_start (void)
 {
-  /* Tell everybody what function we're processing.  */
-  current_function_decl = fn;
-  /* Get the RTL machinery going for this function.  */
-  init_function_start (fn);
   /* Let everybody know that we're expanding this function, not doing
      semantic analysis.  */
   expanding_p = 1;
 
-  /* Even though we're inside a function body, we still don't want to
-     call expand_expr to calculate the size of a variable-sized array.
-     We haven't necessarily assigned RTL to all variables yet, so it's
-     not safe to try to expand expressions involving them.  */
-  immediate_size_expand = 0;
-  cfun->x_dont_save_pending_sizes_p = 1;
-
-  /* Let the user know we're compiling this function.  */
-  announce_function (fn);
-
-  /* Initialize the per-function data.  */
-  my_friendly_assert (!DECL_PENDING_INLINE_P (fn), 20000911);
-  if (DECL_SAVED_FUNCTION_DATA (fn))
-    {
-      /* If we already parsed this function, and we're just expanding it
-	 now, restore saved state.  */
-      *cp_function_chain = *DECL_SAVED_FUNCTION_DATA (fn);
-
-      /* This function is being processed in whole-function mode; we
-	 already did semantic analysis.  */
-      cfun->x_whole_function_mode_p = 1;
-
-      /* If we decided that we didn't want to inline this function,
-	 make sure the back-end knows that.  */
-      if (!current_function_cannot_inline)
-	current_function_cannot_inline = cp_function_chain->cannot_inline;
-
-      /* We don't need the saved data anymore.  Unless this is an inline
-         function; we need the named return value info for
-         cp_copy_res_decl_for_inlining.  */
-      if (! DECL_INLINE (fn))
-	DECL_SAVED_FUNCTION_DATA (fn) = NULL;
-    }
-
-  /* Keep track of how many functions we're presently expanding.  */
-  ++function_depth;
-
-  /* Create a binding level for the parameters.  */
-  expand_function_start (fn, /*parms_have_cleanups=*/0);
-  /* If this function is `main'.  */
-  if (DECL_MAIN_P (fn))
-    expand_main_function ();
-
   /* Give our named return value the same RTL as our RESULT_DECL.  */
   if (current_function_return_value)
-    COPY_DECL_RTL (DECL_RESULT (fn), current_function_return_value);
-}
-
-/* Finish generating the RTL for FN.  */
-
-static void
-genrtl_finish_function (tree fn)
-{
-  tree t;
-
-#if 0
-  if (write_symbols != NO_DEBUG)
-    {
-      /* Keep this code around in case we later want to control debug info
-	 based on whether a type is "used".  (jason 1999-11-11) */
-
-      tree ttype = target_type (fntype);
-      tree parmdecl;
-
-      if (IS_AGGR_TYPE (ttype))
-	/* Let debugger know it should output info for this type.  */
-	note_debug_info_needed (ttype);
-
-      for (parmdecl = DECL_ARGUMENTS (fndecl); parmdecl; parmdecl = TREE_CHAIN (parmdecl))
-	{
-	  ttype = target_type (TREE_TYPE (parmdecl));
-	  if (IS_AGGR_TYPE (ttype))
-	    /* Let debugger know it should output info for this type.  */
-	    note_debug_info_needed (ttype);
-	}
-    }
-#endif
-
-  /* Clean house because we will need to reorder insns here.  */
-  do_pending_stack_adjust ();
-
-  /* If we have a named return value, we need to force a return so that
-     the return register is USEd.  */
-  if (DECL_NAME (DECL_RESULT (fn)))
-    emit_jump (return_label);
-
-  /* We hard-wired immediate_size_expand to zero in start_function.
-     Expand_function_end will decrement this variable.  So, we set the
-     variable to one here, so that after the decrement it will remain
-     zero.  */
-  immediate_size_expand = 1;
-
-  /* Generate rtl for function exit.  */
-  expand_function_end ();
-
-  /* If this is a nested function (like a template instantiation that
-     we're compiling in the midst of compiling something else), push a
-     new GC context.  That will keep local variables on the stack from
-     being collected while we're doing the compilation of this
-     function.  */
-  if (function_depth > 1)
-    ggc_push_context ();
-
-  /* There's no need to defer outputting this function any more; we
-     know we want to output it.  */
-  DECL_DEFER_OUTPUT (fn) = 0;
-
-  /* Run the optimizers and output the assembler code for this
-     function.  */
-  rest_of_compilation (fn);
-
-  /* Undo the call to ggc_push_context above.  */
-  if (function_depth > 1)
-    ggc_pop_context ();
-
-#if 0
-  /* Keep this code around in case we later want to control debug info
-     based on whether a type is "used".  (jason 1999-11-11) */
-
-  if (ctype && TREE_ASM_WRITTEN (fn))
-    note_debug_info_needed (ctype);
-#endif
-
-  /* If this function is marked with the constructor attribute, add it
-     to the list of functions to be called along with constructors
-     from static duration objects.  */
-  if (DECL_STATIC_CONSTRUCTOR (fn))
-    static_ctors = tree_cons (NULL_TREE, fn, static_ctors);
-
-  /* If this function is marked with the destructor attribute, add it
-     to the list of functions to be called along with destructors from
-     static duration objects.  */
-  if (DECL_STATIC_DESTRUCTOR (fn))
-    static_dtors = tree_cons (NULL_TREE, fn, static_dtors);
-
-  --function_depth;
-
-  /* In C++, we should never be saving RTL for the function.  */
-  my_friendly_assert (!DECL_SAVED_INSNS (fn), 20010903);
-
-  /* Since we don't need the RTL for this function anymore, stop
-     pointing to it.  That's especially important for LABEL_DECLs,
-     since you can reach all the instructions in the function from the
-     CODE_LABEL stored in the DECL_RTL for the LABEL_DECL.  Walk the
-     BLOCK-tree, clearing DECL_RTL for LABEL_DECLs and non-static
-     local variables.  */
-  walk_tree_without_duplicates (&DECL_SAVED_TREE (fn),
-				clear_decl_rtl,
-				NULL);
-
-  /* Clear out the RTL for the arguments.  */
-  for (t = DECL_ARGUMENTS (fn); t; t = TREE_CHAIN (t))
-    {
-      SET_DECL_RTL (t, NULL_RTX);
-      DECL_INCOMING_RTL (t) = NULL_RTX;
-    }
-
-  if (!(flag_inline_trees && DECL_INLINE (fn)))
-    /* DECL_INITIAL must remain nonzero so we know this was an
-       actual function definition.  */
-    DECL_INITIAL (fn) = error_mark_node;
-  
-  /* Let the error reporting routines know that we're outside a
-     function.  For a nested function, this value is used in
-     pop_cp_function_context and then reset via pop_function_context.  */
-  current_function_decl = NULL_TREE;
-}
-
-/* Clear out the DECL_RTL for the non-static variables in BLOCK and
-   its sub-blocks.  */
-
-static tree
-clear_decl_rtl (tree* tp, 
-                int* walk_subtrees ATTRIBUTE_UNUSED , 
-                void* data ATTRIBUTE_UNUSED )
-{
-  if (nonstatic_local_decl_p (*tp)) 
-    SET_DECL_RTL (*tp, NULL_RTX);
-    
-  return NULL_TREE;
+    COPY_DECL_RTL (DECL_RESULT (cfun->decl), current_function_return_value);
 }
 
 /* Perform initialization related to this module.  */

@@ -55,7 +55,7 @@ extern enum debug_info_level debug_info_level;
 
 /* Nonzero means use GNU-only extensions in the generated symbolic
    debugging information.  */
-extern int use_gnu_debug_info_extensions;
+extern bool use_gnu_debug_info_extensions;
 
 /* Nonzero means emit debugging information only for symbols which are used.  */
 extern int flag_debug_only_used_symbols;
@@ -99,7 +99,7 @@ extern bool warnings_are_errors;
    set_Wunused() to update the -Wunused-* flags that correspond to the
    -Wunused option.  */
 
-extern void set_Wunused PARAMS ((int setting));
+extern void set_Wunused (int setting);
 
 extern bool warn_unused_function;
 extern bool warn_unused_label;
@@ -478,11 +478,11 @@ extern int flag_shlib;
 
 extern int flag_exceptions;
 
-/* Nonzero means generate frame unwind info table when supported */
+/* Nonzero means generate frame unwind info table when supported.  */
 
 extern int flag_unwind_tables;
 
-/* Nonzero means generate frame unwind info table exact at each insn boundary */
+/* Nonzero means generate frame unwind info table exact at each insn boundary.  */
 
 extern int flag_asynchronous_unwind_tables;
 

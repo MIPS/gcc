@@ -1893,10 +1893,10 @@ compute_mov_length (rtx *operands)
 	      if (REG_P (src))
 		return 4;
 
-	      if (src == const0_rtx)
-		return 2;
+	      if (CONST_DOUBLE_OK_FOR_LETTER_P (src, 'G'))
+		return 4;
 
-	      return 6;
+	      return 8;
 	    }
 
 	  base_length = 8;
@@ -1920,7 +1920,7 @@ compute_mov_length (rtx *operands)
 	    return base_length - 2;
 	  else
 	    /* In SImode and SFmode, we use two mov.w instructions, so
-	       double the adustment.  */
+	       double the adjustment.  */
 	    return base_length - 4;
 	}
 
@@ -2013,8 +2013,9 @@ compute_mov_length (rtx *operands)
 	      if (REG_P (src))
 		return 2;
 
-	      if (src == const0_rtx)
+	      if (CONST_DOUBLE_OK_FOR_LETTER_P (src, 'G'))
 		return 2;
+
 	      return 6;
 	    }
 
@@ -4470,7 +4471,7 @@ byte_accesses_mergeable_p (rtx addr1, rtx addr2)
 }
 
 /* Return nonzero if we have the same comparison insn as I3 two insns
-   before I3.  I3 is assumed to be a comparision insn.  */
+   before I3.  I3 is assumed to be a comparison insn.  */
 
 int
 same_cmp_preceding_p (rtx i3)

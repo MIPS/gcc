@@ -124,7 +124,7 @@ the files in these directories.
 @item config
 Configuration files for supported architectures and operating
 systems.  @xref{Back End, , Anatomy of a Target Back End}, for
-details of the files in thie directory.
+details of the files in this directory.
 
 @item doc
 Texinfo documentation for GCC, together with automatically generated
@@ -175,7 +175,8 @@ timestamp.
 
 @menu
 * Config Fragments::     Scripts used by @file{configure}.
-* System Config::        The @file{config.gcc} file.
+* System Config::        The @file{config.build}, @file{config.host}, and
+                         @file{config.gcc} files.
 * Configuration Files::  Files created by running @file{configure}.
 @end menu
 
@@ -191,10 +192,14 @@ files, kept in the top level directory, are used.  FIXME: when is the
 the top level one) used?
 
 @item The file @file{config.gcc} is used to handle configuration
-specific to the particular build, host or target machine.  (In
-general, this should only be used for features that cannot reasonably
-be tested in Autoconf feature tests.)  @xref{System Config, , The
-@file{config.gcc} File}, for details of the contents of this file.
+specific to the particular target machine.  The file 
+@file{config.build} is used to handle configuration specific to the 
+particular build machine.  The file @file{config.host} is used to handle
+configuration specific to the particular host machine.  (In general,
+these should only be used for features that cannot reasonably be tested in
+Autoconf feature tests.)
+@xref{System Config, , The @file{config.build}, @file{config.host},
+and @file{config.gcc} Files}, for details of the contents of these files.
 
 @item Each language subdirectory has a file
 @file{@var{language}/config-lang.in} that is used for
@@ -206,9 +211,22 @@ creating the output of @file{configure}.
 @end itemize
 
 @node System Config
-@subsubsection The @file{config.gcc} File
+@subsubsection The @file{config.build}, @file{config.host}, and @file{config.gcc} Files
 
-FIXME: document the contents of this file, and what variables should
+The @file{config.build} file contains specific rules for particular systems
+which GCC is built on.  This should be used as rarely as possible, as the
+behavior of the build system can always be detected by autoconf.
+
+The @file{config.host} file contains specific rules for particular systems
+which GCC will run on.  This is rarely needed.
+
+The @file{config.gcc} file contains specific rules for particular systems
+which GCC will generate code for.  This is usually needed.
+
+Each file has a list of the shell variables it sets, with descriptions, at the
+top of the file.
+
+FIXME: document the contents of these files, and what variables should
 be set to control build, host and target configuration.
 
 @include configfiles.texi
@@ -468,8 +486,7 @@ following are also necessary:
 @item
 At least one Bugzilla component for bugs in that front end and runtime
 libraries.  This category needs to be mentioned in
-@file{gcc/gccbug.in}, and in @file{gnats.html} on the GCC web site, as
-well as being added to the Bugzilla database.
+@file{gcc/gccbug.in}, as well as being added to the Bugzilla database.
 @item
 Normally, one or more maintainers of that front end listed in
 @file{MAINTAINERS}.
@@ -562,8 +579,7 @@ FIXME: what is this target for?
 @item install-common
 Install everything that is part of the front end, apart from the
 compiler executables listed in @code{compilers} in
-@file{config-lang.in} that are installed in @file{@var{libsubdir}} by
-the main @file{Makefile}.
+@file{config-lang.in}.
 @item install-info
 Install info documentation for the front end, if it is present in the
 source directory.  (It may not be present if a suitable version of
@@ -602,12 +618,9 @@ Move to the stage directory files not included in @code{stagestuff} in
 
 @item lang.opt
 This file registers the set of switches that the front end accepts on
-the command line.  The file format is documented in the file
-@file{c.opt}.  These files are processed by the script @file{opts.sh}.
-@item lang-options.h
-This file provides entries for @code{documented_lang_options} in
-@file{toplev.c} describing command-line options the front end accepts
-for @option{--help} output.
+the command line, and their --help text.  The file format is
+documented in the file @file{c.opt}.  These files are processed by the
+script @file{opts.sh}.
 @item lang-specs.h
 This file provides entries for @code{default_compilers} in
 @file{gcc.c} which override the default of giving an error that a
@@ -654,8 +667,8 @@ If defined to @samp{yes}, this front end is built in stage 1 of the
 bootstrap.  This is only relevant to front ends written in their own
 languages.
 @item compilers
-If defined, a space-separated list of compiler executables that should
-be installed in @file{@var{libsubdir}}.  The names here will each end
+If defined, a space-separated list of compiler executables that will
+be run by the driver.  The names here will each end
 with @samp{\$(exeext)}.
 @item stagestuff
 If defined, a space-separated list of files that should be moved to

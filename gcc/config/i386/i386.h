@@ -1135,7 +1135,7 @@ do {									\
 #define HARD_REGNO_CALLER_SAVE_MODE(REGNO, NREGS, MODE)			\
   (CC_REGNO_P (REGNO) ? VOIDmode					\
    : (MODE) == VOIDmode && (NREGS) != 1 ? VOIDmode			\
-   : (MODE) == VOIDmode ? choose_hard_reg_mode ((REGNO), (NREGS))	\
+   : (MODE) == VOIDmode ? choose_hard_reg_mode ((REGNO), (NREGS), false)\
    : (MODE) == HImode && !TARGET_PARTIAL_REG_STALL ? SImode		\
    : (MODE) == QImode && (REGNO) >= 4 && !TARGET_64BIT ? SImode 	\
    : (MODE))
@@ -1248,7 +1248,7 @@ do {									\
 #define RETURN_IN_MEMORY(TYPE) \
   ix86_return_in_memory (TYPE)
 
-/* This is overriden by <cygwin.h>.  */
+/* This is overridden by <cygwin.h>.  */
 #define MS_AGGREGATE_RETURN 0
 
 
@@ -3018,6 +3018,10 @@ do {						\
   {"const0_operand", {CONST_INT, CONST_DOUBLE}},			\
   {"const1_operand", {CONST_INT}},					\
   {"const248_operand", {CONST_INT}},					\
+  {"const_0_to_3_operand", {CONST_INT}},				\
+  {"const_0_to_7_operand", {CONST_INT}},				\
+  {"const_0_to_15_operand", {CONST_INT}},				\
+  {"const_0_to_255_operand", {CONST_INT}},				\
   {"incdec_operand", {CONST_INT}},					\
   {"mmx_reg_operand", {REG}},						\
   {"reg_no_sp_operand", {SUBREG, REG}},					\

@@ -21,9 +21,12 @@ Boston, MA 02111-1307, USA.  */
 #ifndef GCC_HOST_HOOKS_H
 #define GCC_HOST_HOOKS_H
 
-struct host_hooks 
+struct host_hooks
 {
-  void (*extra_signals) PARAMS((void));
+  void (*extra_signals) (void);
+
+  void * (*gt_pch_get_address) (size_t);
+  bool (*gt_pch_use_address) (void *, size_t);
 
   /* Whenever you add entries here, make sure you adjust hosthooks-def.h.  */
 };

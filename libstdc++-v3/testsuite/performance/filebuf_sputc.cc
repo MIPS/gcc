@@ -33,7 +33,7 @@
 int main() 
 {
   using namespace std;
-  using namespace __gnu_cxx_test;
+  using namespace __gnu_test;
 
   time_counter time;
   resource_counter resource;
@@ -69,5 +69,6 @@ int main()
   stop_counters(time, resource);
   report_performance(__FILE__, "C++", time, resource);
 
+  unlink("tmp");
   return 0;
 }

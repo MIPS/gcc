@@ -30,15 +30,19 @@ enum hist_type
 			   difference between two evaluations of a value.  */
 };
 
+#define COUNTER_FOR_HIST_TYPE(TYPE) ((int) (TYPE) + GCOV_FIRST_VALUE_COUNTER)
+#define HIST_TYPE_FOR_COUNTER(COUNTER) \
+  ((enum hist_type) ((COUNTER) - GCOV_FIRST_VALUE_COUNTER))
+
 /* The value to measure.  */
 struct histogram_value
 {
   rtx value;		/* The value to profile.  */
   enum machine_mode mode; /* And its mode.  */
-  rtx seq;		/* Insns requiered to count the profiled value.  */
+  rtx seq;		/* Insns required to count the profiled value.  */
   rtx insn;		/* Insn before that to measure.  */
   enum hist_type type;	/* Type of information to measure.  */
-  unsigned n_counters;	/* Number of requiered counters.  */
+  unsigned n_counters;	/* Number of required counters.  */
   union
     {
       struct

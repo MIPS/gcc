@@ -42,7 +42,7 @@ static struct
 /* General output routines.  */
 static void scan_translation_unit (cpp_reader *);
 static void scan_translation_unit_trad (cpp_reader *);
-static void account_for_newlines (const uchar *, size_t);
+static void account_for_newlines (const unsigned char *, size_t);
 static int dump_macro (cpp_reader *, cpp_hashnode *, void *);
 
 static void print_line (const struct line_map *, unsigned int,
@@ -174,7 +174,7 @@ scan_translation_unit (cpp_reader *pfile)
 
 /* Adjust print.line for newlines embedded in output.  */
 static void
-account_for_newlines (const uchar *str, size_t len)
+account_for_newlines (const unsigned char *str, size_t len)
 {
   while (len--)
     if (*str++ == '\n')
@@ -260,9 +260,10 @@ print_line (const struct line_map *map, unsigned int line, const char *special_f
 /* Called when a line of output is started.  TOKEN is the first token
    of the line, and at end of file will be CPP_EOF.  */
 static void
-cb_line_change (cpp_reader *pfile, const cpp_token *token, int parsing_args)
+cb_line_change (cpp_reader *pfile, const cpp_token *token,
+		int parsing_args ATTRIBUTE_UNUSED)
 {
-  if (token->type == CPP_EOF || parsing_args)
+  if (token->type == CPP_EOF)
     return;
 
   maybe_print_line (print.map, token->line);

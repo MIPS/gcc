@@ -48,14 +48,14 @@
 #include "params.h"
 #include "coverage.h"
 
-static int count_insns		PARAMS ((basic_block));
-static bool ignore_bb_p		PARAMS ((basic_block));
-static bool better_p		PARAMS ((edge, edge));
-static edge find_best_successor PARAMS ((basic_block));
-static edge find_best_predecessor PARAMS ((basic_block));
-static int find_trace		PARAMS ((basic_block, basic_block *));
-static void tail_duplicate	PARAMS ((void));
-static void layout_superblocks	PARAMS ((void));
+static int count_insns (basic_block);
+static bool ignore_bb_p (basic_block);
+static bool better_p (edge, edge);
+static edge find_best_successor (basic_block);
+static edge find_best_predecessor (basic_block);
+static int find_trace (basic_block, basic_block *);
+static void tail_duplicate (void);
+static void layout_superblocks (void);
 
 /* Minimal outgoing edge probability considered for superblock formation.  */
 static int probability_cutoff;
@@ -64,12 +64,11 @@ static int branch_ratio_cutoff;
 /* Return true if BB has been seen - it is connected to some trace
    already.  */
 
-#define seen(bb) (RBI (bb)->visited || RBI (bb)->next)
+#define seen(bb) (bb->rbi->visited || bb->rbi->next)
 
 /* Return true if we should ignore the basic block for purposes of tracing.  */
 static bool
-ignore_bb_p (bb)
-     basic_block bb;
+ignore_bb_p (basic_block bb)
 {
   if (bb->index < 0)
     return true;
@@ -81,8 +80,7 @@ ignore_bb_p (bb)
 /* Return number of instructions in the block.  */
 
 static int
-count_insns (bb)
-     basic_block bb;
+count_insns (basic_block bb)
 {
   rtx insn;
   int n = 0;
@@ -95,8 +93,7 @@ count_insns (bb)
 
 /* Return true if E1 is more frequent than E2.  */
 static bool
-better_p (e1, e2)
-     edge e1, e2;
+better_p (edge e1, edge e2)
 {
   if (e1->count != e2->count)
     return e1->count > e2->count;
@@ -114,8 +111,7 @@ better_p (e1, e2)
 /* Return most frequent successor of basic block BB.  */
 
 static edge
-find_best_successor (bb)
-     basic_block bb;
+find_best_successor (basic_block bb)
 {
   edge e;
   edge best = NULL;
@@ -133,8 +129,7 @@ find_best_successor (bb)
 /* Return most frequent predecessor of basic block BB.  */
 
 static edge
-find_best_predecessor (bb)
-     basic_block bb;
+find_best_predecessor (basic_block bb)
 {
   edge e;
   edge best = NULL;
@@ -154,9 +149,7 @@ find_best_predecessor (bb)
    Return number of basic blocks recorded.  */
 
 static int
-find_trace (bb, trace)
-     basic_block bb;
-     basic_block *trace;
+find_trace (basic_block bb, basic_block *trace)
 {
   int i = 0;
   edge e;
@@ -198,7 +191,7 @@ find_trace (bb, trace)
    if profitable.  */
 
 static void
-tail_duplicate ()
+tail_duplicate (void)
 {
   fibnode_t *blocks = xcalloc (last_basic_block, sizeof (fibnode_t));
   basic_block *trace = xmalloc (sizeof (basic_block) * n_basic_blocks);
@@ -295,8 +288,8 @@ tail_duplicate ()
 		fprintf (rtl_dump_file, "Duplicated %i as %i [%i]\n",
 			 old->index, bb2->index, bb2->frequency);
 	    }
-	  RBI (bb)->next = bb2;
-	  RBI (bb2)->visited = 1;
+	  bb->rbi->next = bb2;
+	  bb2->rbi->visited = 1;
 	  bb = bb2;
 	  /* In case the trace became infrequent, stop duplicating.  */
 	  if (ignore_bb_p (bb))
@@ -316,13 +309,13 @@ tail_duplicate ()
   fibheap_delete (heap);
 }
 
-/* Connect the superblocks into linear seuqence.  At the moment we attempt to keep
+/* Connect the superblocks into linear sequence.  At the moment we attempt to keep
    the original order as much as possible, but the algorithm may be made smarter
    later if needed.  BB reordering pass should void most of the benefits of such
    change though.  */
 
 static void
-layout_superblocks ()
+layout_superblocks (void)
 {
   basic_block end = ENTRY_BLOCK_PTR->succ->dest;
   basic_block bb = ENTRY_BLOCK_PTR->succ->dest->next_bb;
@@ -330,28 +323,28 @@ layout_superblocks ()
   while (bb != EXIT_BLOCK_PTR)
     {
       edge e, best = NULL;
-      while (RBI (end)->next)
-	end = RBI (end)->next;
+      while (end->rbi->next)
+	end = end->rbi->next;
 
       for (e = end->succ; e; e = e->succ_next)
 	if (e->dest != EXIT_BLOCK_PTR
 	    && e->dest != ENTRY_BLOCK_PTR->succ->dest
-	    && !RBI (e->dest)->visited
+	    && !e->dest->rbi->visited
 	    && (!best || EDGE_FREQUENCY (e) > EDGE_FREQUENCY (best)))
 	  best = e;
 
       if (best)
 	{
-	  RBI (end)->next = best->dest;
-	  RBI (best->dest)->visited = 1;
+	  end->rbi->next = best->dest;
+	  best->dest->rbi->visited = 1;
 	}
       else
 	for (; bb != EXIT_BLOCK_PTR; bb = bb->next_bb)
 	  {
-	    if (!RBI (bb)->visited)
+	    if (!bb->rbi->visited)
 	      {
-		RBI (end)->next = bb;
-		RBI (bb)->visited = 1;
+		end->rbi->next = bb;
+		bb->rbi->visited = 1;
 		break;
 	      }
 	  }
@@ -361,11 +354,11 @@ layout_superblocks ()
 /* Main entry point to this file.  */
 
 void
-tracer ()
+tracer (void)
 {
   if (n_basic_blocks <= 1)
     return;
-  cfg_layout_initialize (NULL);
+  cfg_layout_initialize ();
   mark_dfs_back_edges ();
   if (rtl_dump_file)
     dump_flow_info (rtl_dump_file);

@@ -30,7 +30,7 @@
 
 // This file provides the following:
 //
-// 1)  VERIFY(), via DEBUG_ASSERT, from Brent Verner <brent@rcfile.org>.
+// 1)  VERIFY(), via _GLIBCXX_ASSERT, from Brent Verner <brent@rcfile.org>.
 //   This file is included in the various testsuite programs to provide
 //   #define(able) assert() behavior for debugging/testing. It may be
 //   a suitable location for other furry woodland creatures as well.
@@ -39,7 +39,7 @@
 //   set_memory_limits() uses setrlimit() to restrict dynamic memory
 //   allocation.  We provide a default memory limit if none is passed by the
 //   calling application.  The argument to set_memory_limits() is the
-//   limit in megabytes (a floating-point number).  If _GLIBCPP_MEM_LIMITS is
+//   limit in megabytes (a floating-point number).  If _GLIBCXX_MEM_LIMITS is
 //   not #defined before including this header, then no limiting is attempted.
 //
 // 3)  counter
@@ -55,28 +55,32 @@
 // 5) pod_char, pod_int, , abstract character classes and
 //   char_traits specializations for testing instantiations.
 
-#ifndef _GLIBCPP_TESTSUITE_HOOKS_H
-#define _GLIBCPP_TESTSUITE_HOOKS_H
+#ifndef _GLIBCXX_TESTSUITE_HOOKS_H
+#define _GLIBCXX_TESTSUITE_HOOKS_H
 
 #include <bits/c++config.h>
 #include <bits/functexcept.h>
 #include <cstddef>
-#ifdef DEBUG_ASSERT
+#ifdef _GLIBCXX_ASSERT
 # include <cassert>
 # define VERIFY(fn) assert(fn)
 #else
 # define VERIFY(fn) test &= (fn)
 #endif
-#include <list>
 #include <locale>
+#ifdef _GLIBCXX_HAVE_UNISTD_H
+# include <unistd.h>
+#else
+# define unlink(x)
+#endif
 
-namespace __gnu_cxx_test
+namespace __gnu_test
 {
-  // All macros are defined in GLIBCPP_CONFIGURE_TESTSUITE and imported
+  // All macros are defined in GLIBCXX_CONFIGURE_TESTSUITE and imported
   // from c++config.h
 
   // Set memory limits if possible, if not set to 0.
-#ifndef _GLIBCPP_MEM_LIMITS
+#ifndef _GLIBCXX_MEM_LIMITS
 #  define MEMLIMIT_MB 0
 #else
 # ifndef MEMLIMIT_MB
@@ -95,8 +99,32 @@ namespace __gnu_cxx_test
   // Simple callback structure for variable numbers of tests (all with
   // same signature).  Assume all unit tests are of the signature
   // void test01(); 
-  typedef void (*test_func) (void);
-  typedef std::list<test_func> func_callback;
+  class func_callback
+  {
+  public:
+    typedef void (*test_type) (void);
+
+  private:
+    int		_M_size;
+    test_type	_M_tests[15];
+    
+  public:
+    func_callback(): _M_size(0) { };
+
+    int
+    size() const { return _M_size; }
+
+    const test_type*
+    tests() const { return _M_tests; }
+
+    void
+    push_back(test_type test)
+    {
+      _M_tests[_M_size] = test;
+      ++_M_size;
+    }
+  };
+
 
   // Run select unit tests after setting global locale.
   void 
@@ -122,16 +150,6 @@ namespace __gnu_cxx_test
     int i;
   };
   
-  struct pod_unsigned_int
-  {
-    unsigned int i;
-  };
-  
-  struct pod_long
-  {
-    unsigned long i;
-  };
-  
   struct state
   {
     unsigned long l;
@@ -152,7 +170,7 @@ namespace __gnu_cxx_test
     ~counter() { --count; }
   };
   
-#define assert_count(n)   VERIFY(__gnu_cxx_test::counter::count == n)
+#define assert_count(n)   VERIFY(__gnu_test::counter::count == n)
   
   // A (static) class for counting copy constructors and possibly throwing an
   // exception on a desired count.
@@ -305,7 +323,7 @@ namespace __gnu_cxx_test
   inline bool
   operator==(const copy_tracker& lhs, const copy_tracker& rhs)
   { return lhs.id() == rhs.id(); }
-} // namespace __gnu_cxx_test
+} // namespace __gnu_test
 
 namespace std
 {
@@ -314,13 +332,13 @@ namespace std
 
   // char_traits specialization
   template<>
-    struct char_traits<__gnu_cxx_test::pod_char>
+    struct char_traits<__gnu_test::pod_char>
     {
-      typedef __gnu_cxx_test::pod_char	char_type;
-      typedef __gnu_cxx_test::pod_int  	int_type;
+      typedef __gnu_test::pod_char	char_type;
+      typedef __gnu_test::pod_int  	int_type;
       typedef long 			pos_type;
       typedef unsigned long 		off_type;
-      typedef __gnu_cxx_test::state   	state_type;
+      typedef __gnu_test::state   	state_type;
       
       static void 
       assign(char_type& __c1, const char_type& __c2);
@@ -366,5 +384,5 @@ namespace std
     };
 } // namespace std
 
-#endif // _GLIBCPP_TESTSUITE_HOOKS_H
+#endif // _GLIBCXX_TESTSUITE_HOOKS_H
 

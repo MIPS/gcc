@@ -274,20 +274,21 @@ DEFTREECODE (COMPLEX_CST, "complex_cst", 'c', 0)
 /* Contents are in TREE_VECTOR_CST_ELTS field.  */
 DEFTREECODE (VECTOR_CST, "vector_cst", 'c', 0)     
 
-/* Contents are TREE_STRING_LENGTH and TREE_STRING_POINTER fields. */
+/* Contents are TREE_STRING_LENGTH and TREE_STRING_POINTER fields.  */
 DEFTREECODE (STRING_CST, "string_cst", 'c', 0)
 
-/* Declarations.  All references to names are represented as ..._DECL nodes.
-   The decls in one binding context are chained through the TREE_CHAIN field.
-   Each DECL has a DECL_NAME field which contains an IDENTIFIER_NODE.
-    (Some decls, most often labels, may have zero as the DECL_NAME).
-   DECL_CONTEXT points to the node representing the context in which
-    this declaration has its scope.  For FIELD_DECLs, this is the
-    RECORD_TYPE, UNION_TYPE, or QUAL_UNION_TYPE node that the field
-    is a member of.  For VAR_DECL, PARM_DECL, FUNCTION_DECL, LABEL_DECL,
-    and CONST_DECL nodes, this points to either the FUNCTION_DECL for the
-    containing function, the RECORD_TYPE or UNION_TYPE for the containing
-    type, or NULL_TREE if the given decl has "file scope".
+/* Declarations.  All references to names are represented as ..._DECL
+   nodes.  The decls in one binding context are chained through the
+   TREE_CHAIN field.  Each DECL has a DECL_NAME field which contains
+   an IDENTIFIER_NODE.  (Some decls, most often labels, may have zero
+   as the DECL_NAME).  DECL_CONTEXT points to the node representing
+   the context in which this declaration has its scope.  For
+   FIELD_DECLs, this is the RECORD_TYPE, UNION_TYPE, or
+   QUAL_UNION_TYPE node that the field is a member of.  For VAR_DECL,
+   PARM_DECL, FUNCTION_DECL, LABEL_DECL, and CONST_DECL nodes, this
+   points to either the FUNCTION_DECL for the containing function, the
+   RECORD_TYPE or UNION_TYPE for the containing type, or NULL_TREE or
+   a TRANSLATION_UNIT_DECL if the given decl has "file scope".
    DECL_ABSTRACT_ORIGIN, if non-NULL, points to the original (abstract)
     ..._DECL node of which this decl is an (inlined or template expanded)
     instance.
@@ -298,9 +299,9 @@ DEFTREECODE (STRING_CST, "string_cst", 'c', 0)
     and DECL_MODE fields exist in decl nodes just as in type nodes.
     They are unused in LABEL_DECL, TYPE_DECL and CONST_DECL nodes.
 
-   DECL_OFFSET holds an integer number of bits offset for the location.
-   DECL_VOFFSET holds an expression for a variable offset; it is
-   to be multiplied by DECL_VOFFSET_UNIT (an integer).
+   DECL_FIELD_BIT_OFFSET holds an integer number of bits offset for
+   the location.  DECL_VOFFSET holds an expression for a variable
+   offset; it is to be multiplied by DECL_VOFFSET_UNIT (an integer).
    These fields are relevant only in FIELD_DECLs and PARM_DECLs.
 
    DECL_INITIAL holds the value to initialize a variable to,
@@ -346,6 +347,10 @@ DEFTREECODE (FIELD_DECL, "field_decl", 'd', 0)
 /* A namespace declaration.  Namespaces appear in DECL_CONTEXT of other
    _DECLs, providing a hierarchy of names.  */
 DEFTREECODE (NAMESPACE_DECL, "namespace_decl", 'd', 0)
+
+/* A translation unit.  This is not technically a declaration, since it
+   can't be looked up, but it's close enough.  */
+DEFTREECODE (TRANSLATION_UNIT_DECL, "translation_unit_decl", 'd', 0)
 
 /* References to storage.  */
 
@@ -468,11 +473,6 @@ DEFTREECODE (BIND_EXPR, "bind_expr", 'e', 3)
    Operand 1 is the argument list, a list of expressions
    made out of a chain of TREE_LIST nodes.  */
 DEFTREECODE (CALL_EXPR, "call_expr", 'e', 2)
-
-/* Call a method.  Operand 0 is the method, whose type is a METHOD_TYPE.
-   Operand 1 is the expression for "self".
-   Operand 2 is the list of explicit arguments.  */
-DEFTREECODE (METHOD_CALL_EXPR, "method_call_expr", 'e', 4)
 
 /* Specify a value to compute along with its corresponding cleanup.
    Operand 0 argument is an expression whose value needs a cleanup.
@@ -638,7 +638,6 @@ DEFTREECODE (RROTATE_EXPR, "rrotate_expr", '2', 2)
 DEFTREECODE (BIT_IOR_EXPR, "bit_ior_expr", '2', 2)
 DEFTREECODE (BIT_XOR_EXPR, "bit_xor_expr", '2', 2)
 DEFTREECODE (BIT_AND_EXPR, "bit_and_expr", '2', 2)
-DEFTREECODE (BIT_ANDTC_EXPR, "bit_andtc_expr", '2', 2)
 DEFTREECODE (BIT_NOT_EXPR, "bit_not_expr", '1', 1)
 
 /* ANDIF and ORIF allow the second operand not to be computed if the

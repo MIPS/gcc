@@ -19,6 +19,9 @@ along with GCC; see the file COPYING.  If not, write to the Free
 Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 02111-1307, USA.  */
 
+#ifndef GCC_GGC_H
+#define GCC_GGC_H
+
 /* Symbols are marked with `ggc' for `gcc gc' so as not to interfere with
    an external gc library that might be linked in.  */
 
@@ -132,7 +135,7 @@ extern void gt_pch_p_S (void *, void *, gt_pointer_operator, void *);
 extern void gt_pch_n_S (const void *);
 extern void gt_ggc_m_S (void *);
 
-/* Initialise the string pool.  */
+/* Initialize the string pool.  */
 extern void init_stringpool (void);
 
 /* A GC implementation must provide these functions.  They are internal
@@ -197,14 +200,14 @@ extern void *ggc_realloc (void *, size_t);
 extern void *ggc_calloc (size_t, size_t);
 
 #define ggc_alloc_rtx(NSLOTS)						  \
-  ((struct rtx_def *) ggc_alloc (sizeof (struct rtx_def)		  \
-				 + ((NSLOTS) - 1) * sizeof (rtunion)))
+  ((rtx) ggc_alloc (sizeof (struct rtx_def)				  \
+		    + ((NSLOTS) - 1) * sizeof (rtunion)))
 
 #define ggc_alloc_rtvec(NELT)						  \
-  ((struct rtvec_def *) ggc_alloc (sizeof (struct rtvec_def)		  \
-				   + ((NELT) - 1) * sizeof (rtx)))
+  ((rtvec) ggc_alloc (sizeof (struct rtvec_def)				  \
+		      + ((NELT) - 1) * sizeof (rtx)))
 
-#define ggc_alloc_tree(LENGTH) ((union tree_node *) ggc_alloc (LENGTH))
+#define ggc_alloc_tree(LENGTH) ((tree) ggc_alloc (LENGTH))
 
 #define htab_create_ggc(SIZE, HASH, EQ, DEL) \
   htab_create_alloc (SIZE, HASH, EQ, DEL, ggc_calloc, NULL)
@@ -219,8 +222,7 @@ extern void ggc_splay_dont_free (void *, void *);
 /* Allocate a gc-able string, and fill it with LENGTH bytes from CONTENTS.
    If LENGTH is -1, then CONTENTS is assumed to be a
    null-terminated string and the memory sized accordingly.  */
-extern const char *ggc_alloc_string	PARAMS ((const char *contents,
-						 int length));
+extern const char *ggc_alloc_string (const char *contents, int length);
 
 /* Make a copy of S, in GC-able memory.  */
 #define ggc_strdup(S) ggc_alloc_string((S), -1)
@@ -260,3 +262,5 @@ extern void stringpool_statistics (void);
 extern int ggc_min_expand_heuristic (void);
 extern int ggc_min_heapsize_heuristic (void);
 extern void init_ggc_heuristics (void);
+
+#endif

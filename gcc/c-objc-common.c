@@ -39,7 +39,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "target.h"
 #include "cgraph.h"
 
-static bool c_tree_printer (output_buffer *, text_info *);
+static bool c_tree_printer (pretty_printer *, text_info *);
 static tree inline_forbidden_p (tree *, int *, void *);
 static void expand_deferred_fns (void);
 static tree start_cdtor (int);
@@ -127,7 +127,7 @@ inline_forbidden_p (tree *nodep, int *walk_subtrees ATTRIBUTE_UNUSED,
       /* We cannot inline a nested function that jumps to a nonlocal
          label.  */
       if (TREE_CODE (t) == LABEL_DECL
-	  && DECL_CONTEXT (t) && DECL_CONTEXT (t) != fn)
+	  && !DECL_FILE_SCOPE_P (t) && DECL_CONTEXT (t) != fn)
 	return node;
 
       break;
@@ -184,7 +184,7 @@ c_cannot_inline_tree_fn (tree *fnp)
 	goto cannot_inline;
     }
 
-  if (DECL_CONTEXT (fn))
+  if (! DECL_FILE_SCOPE_P (fn))
     {
       /* If a nested function has pending sizes, we may have already
          saved them.  */
@@ -289,20 +289,43 @@ static void
 expand_deferred_fns (void)
 {
   unsigned int i;
+  bool reconsider;
 
-  for (i = 0; i < VARRAY_ACTIVE_SIZE (deferred_fns); i++)
+  do
     {
-      tree decl = VARRAY_TREE (deferred_fns, i);
-
-      if (! TREE_ASM_WRITTEN (decl))
+      reconsider = false;
+      for (i = 0; i < VARRAY_ACTIVE_SIZE (deferred_fns); i++)
 	{
-	  /* For static inline functions, delay the decision whether to
-	     emit them or not until wrapup_global_declarations.  */
-	  if (! TREE_PUBLIC (decl))
-	    DECL_DEFER_OUTPUT (decl) = 1;
+	  tree decl = VARRAY_TREE (deferred_fns, i);
+
+	  if (TREE_ASM_WRITTEN (decl))
+	    continue;
+
+	  /* "extern inline" says the symbol exists externally,
+	      which means we should *never* expand it locally 
+	      unless we're actually inlining it.  */
+	  /* ??? Why did we queue these in the first place?  */
+	  if (DECL_DECLARED_INLINE_P (decl) && DECL_EXTERNAL (decl))
+	    continue;
+	      
+	  /* With flag_keep_inline_functions, we're emitting everything,
+	     so we never need to reconsider.  */
+	  if (flag_keep_inline_functions)
+	    ;
+	  /* Must emit all public functions.  C doesn't have COMDAT
+	     functions, so we don't need to check that, like C++.  */
+	  else if (TREE_PUBLIC (decl))
+	    reconsider = true;
+	  /* Must emit if the symbol is referenced.  */
+	  else if (TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl)))
+	    reconsider = true;
+	  else
+	    continue;
+
 	  c_expand_deferred_function (decl);
 	}
     }
+  while (reconsider);
 
   deferred_fns = 0;
 }
@@ -357,6 +380,10 @@ c_objc_common_finish_file (void)
   if (pch_file)
     c_common_write_pch ();
 
+  /* If multiple translation units were built, copy information between
+     them based on linkage rules.  */
+  merge_translation_unit_decls ();
+
   if (flag_unit_at_a_time)
     {
       cgraph_finalize_compilation_unit ();
@@ -403,6 +430,7 @@ c_objc_common_finish_file (void)
    source-level entity onto BUFFER.  The meaning of the format specifiers
    is as follows:
    %D: a general decl,
+   %E: An expression,
    %F: a function declaration,
    %T: a type.
 
@@ -411,7 +439,7 @@ c_objc_common_finish_file (void)
    Please notice when called, the `%' part was already skipped by the
    diagnostic machinery.  */
 static bool
-c_tree_printer (output_buffer *buffer, text_info *text)
+c_tree_printer (pretty_printer *pp, text_info *text)
 {
   tree t = va_arg (*text->args_ptr, tree);
 
@@ -424,9 +452,17 @@ c_tree_printer (output_buffer *buffer, text_info *text)
         const char *n = DECL_NAME (t)
           ? (*lang_hooks.decl_printable_name) (t, 2)
           : "({anonymous})";
-        output_add_string (buffer, n);
+        pp_string (pp, n);
       }
       return true;
+
+    case 'E':
+       if (TREE_CODE (t) == IDENTIFIER_NODE)
+         {
+           pp_string (pp, IDENTIFIER_POINTER (t));
+           return true;
+         }
+       return false;
 
     default:
       return false;

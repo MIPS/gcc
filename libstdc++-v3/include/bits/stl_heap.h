@@ -57,8 +57,8 @@
  *  You should not attempt to use it directly.
  */
 
-#ifndef _CPP_BITS_STL_HEAP_H
-#define _CPP_BITS_STL_HEAP_H 1
+#ifndef _STL_HEAP_H
+#define _STL_HEAP_H 1
 
 namespace std
 {
@@ -79,6 +79,15 @@ namespace std
       *(__first + __holeIndex) = __value;
     }
 
+  /**
+   *  @brief  Push an element onto a heap.
+   *  @param  first  Start of heap.
+   *  @param  last   End of heap + element.
+   *  @ingroup heap
+   *
+   *  This operation pushes the element at last-1 onto the valid heap over the
+   *  range [first,last-1).  After completion, [first,last) is a valid heap.
+  */
   template<typename _RandomAccessIterator>
     inline void 
     push_heap(_RandomAccessIterator __first, _RandomAccessIterator __last)
@@ -89,12 +98,12 @@ namespace std
 	  _DistanceType;
 
       // concept requirements
-      __glibcpp_function_requires(_Mutable_RandomAccessIteratorConcept<
+      __glibcxx_function_requires(_Mutable_RandomAccessIteratorConcept<
 	    _RandomAccessIterator>)
-      __glibcpp_function_requires(_LessThanComparableConcept<_ValueType>)
+      __glibcxx_function_requires(_LessThanComparableConcept<_ValueType>)
 
-      __push_heap(__first, _DistanceType((__last - __first) - 1), _DistanceType(0), 
-		  _ValueType(*(__last - 1)));
+      std::__push_heap(__first, _DistanceType((__last - __first) - 1), _DistanceType(0), 
+		       _ValueType(*(__last - 1)));
     }
 
   template<typename _RandomAccessIterator, typename _Distance, typename _Tp, 
@@ -112,6 +121,17 @@ namespace std
       *(__first + __holeIndex) = __value;
     }
 
+  /**
+   *  @brief  Push an element onto a heap using comparison functor.
+   *  @param  first  Start of heap.
+   *  @param  last   End of heap + element.
+   *  @param  comp   Comparison functor.
+   *  @ingroup heap
+   *
+   *  This operation pushes the element at last-1 onto the valid heap over the
+   *  range [first,last-1).  After completion, [first,last) is a valid heap.
+   *  Compare operations are performed using comp.
+  */
   template<typename _RandomAccessIterator, typename _Compare>
     inline void 
     push_heap(_RandomAccessIterator __first, _RandomAccessIterator __last,
@@ -123,11 +143,11 @@ namespace std
 	  _DistanceType;
 
       // concept requirements
-      __glibcpp_function_requires(_Mutable_RandomAccessIteratorConcept<
+      __glibcxx_function_requires(_Mutable_RandomAccessIteratorConcept<
 	    _RandomAccessIterator>)
 
-      __push_heap(__first, _DistanceType((__last - __first) - 1), _DistanceType(0), 
-		  _ValueType(*(__last - 1)), __comp);
+      std::__push_heap(__first, _DistanceType((__last - __first) - 1), _DistanceType(0), 
+		       _ValueType(*(__last - 1)), __comp);
     }
 
   template<typename _RandomAccessIterator, typename _Distance, typename _Tp>
@@ -148,7 +168,7 @@ namespace std
 	*(__first + __holeIndex) = *(__first + (__secondChild - 1));
 	__holeIndex = __secondChild - 1;
       }
-      __push_heap(__first, __holeIndex, __topIndex, __value);
+      std::__push_heap(__first, __holeIndex, __topIndex, __value);
     }
 
   template<typename _RandomAccessIterator, typename _Tp>
@@ -158,9 +178,18 @@ namespace std
     {
       typedef typename iterator_traits<_RandomAccessIterator>::difference_type _Distance;
       *__result = *__first;
-      __adjust_heap(__first, _Distance(0), _Distance(__last - __first), __value);
+      std::__adjust_heap(__first, _Distance(0), _Distance(__last - __first), __value);
     }
 
+  /**
+   *  @brief  Pop an element off a heap.
+   *  @param  first  Start of heap.
+   *  @param  last   End of heap.
+   *  @ingroup heap
+   *
+   *  This operation pops the top of the heap.  The elements first and last-1
+   *  are swapped and [first,last-1) is made into a heap.
+  */
   template<typename _RandomAccessIterator>
     inline void
     pop_heap(_RandomAccessIterator __first, _RandomAccessIterator __last)
@@ -168,11 +197,11 @@ namespace std
       typedef typename iterator_traits<_RandomAccessIterator>::value_type _ValueType;
 
       // concept requirements
-      __glibcpp_function_requires(_Mutable_RandomAccessIteratorConcept<
+      __glibcxx_function_requires(_Mutable_RandomAccessIteratorConcept<
 	    _RandomAccessIterator>)
-      __glibcpp_function_requires(_LessThanComparableConcept<_ValueType>)
+      __glibcxx_function_requires(_LessThanComparableConcept<_ValueType>)
 
-      __pop_heap(__first, __last - 1, __last - 1, _ValueType(*(__last - 1)));
+      std::__pop_heap(__first, __last - 1, __last - 1, _ValueType(*(__last - 1)));
     }
 
   template<typename _RandomAccessIterator, typename _Distance,
@@ -194,7 +223,7 @@ namespace std
 	*(__first + __holeIndex) = *(__first + (__secondChild - 1));
 	__holeIndex = __secondChild - 1;
       }
-      __push_heap(__first, __holeIndex, __topIndex, __value, __comp);
+      std::__push_heap(__first, __holeIndex, __topIndex, __value, __comp);
     }
 
   template<typename _RandomAccessIterator, typename _Tp, typename _Compare>
@@ -204,23 +233,42 @@ namespace std
     {
       typedef typename iterator_traits<_RandomAccessIterator>::difference_type _Distance;
       *__result = *__first;
-      __adjust_heap(__first, _Distance(0), _Distance(__last - __first), 
-		    __value, __comp);
+      std::__adjust_heap(__first, _Distance(0), _Distance(__last - __first), 
+			 __value, __comp);
     }
 
+  /**
+   *  @brief  Pop an element off a heap using comparison functor.
+   *  @param  first  Start of heap.
+   *  @param  last   End of heap.
+   *  @param  comp   Comparison functor to use.
+   *  @ingroup heap
+   *
+   *  This operation pops the top of the heap.  The elements first and last-1
+   *  are swapped and [first,last-1) is made into a heap.  Comparisons are
+   *  made using comp.
+  */
   template<typename _RandomAccessIterator, typename _Compare>
     inline void 
     pop_heap(_RandomAccessIterator __first,
 	     _RandomAccessIterator __last, _Compare __comp)
     {
       // concept requirements
-      __glibcpp_function_requires(_Mutable_RandomAccessIteratorConcept<
+      __glibcxx_function_requires(_Mutable_RandomAccessIteratorConcept<
 	    _RandomAccessIterator>)
 
       typedef typename iterator_traits<_RandomAccessIterator>::value_type _ValueType;
-      __pop_heap(__first, __last - 1, __last - 1, _ValueType(*(__last - 1)), __comp);
+      std::__pop_heap(__first, __last - 1, __last - 1, _ValueType(*(__last - 1)), __comp);
     }
 
+  /**
+   *  @brief  Construct a heap over a range.
+   *  @param  first  Start of heap.
+   *  @param  last   End of heap.
+   *  @ingroup heap
+   *
+   *  This operation makes the elements in [first,last) into a heap.
+  */
   template<typename _RandomAccessIterator>
     void 
     make_heap(_RandomAccessIterator __first, _RandomAccessIterator __last)
@@ -231,21 +279,31 @@ namespace std
 	  _DistanceType;
 
       // concept requirements
-      __glibcpp_function_requires(_Mutable_RandomAccessIteratorConcept<
+      __glibcxx_function_requires(_Mutable_RandomAccessIteratorConcept<
 	    _RandomAccessIterator>)
-      __glibcpp_function_requires(_LessThanComparableConcept<_ValueType>)
+      __glibcxx_function_requires(_LessThanComparableConcept<_ValueType>)
 
       if (__last - __first < 2) return;
       _DistanceType __len = __last - __first;
       _DistanceType __parent = (__len - 2)/2;
 	
       while (true) {
-	__adjust_heap(__first, __parent, __len, _ValueType(*(__first + __parent)));
+	std::__adjust_heap(__first, __parent, __len, _ValueType(*(__first + __parent)));
 	if (__parent == 0) return;
 	__parent--;
       }
     }
 
+  /**
+   *  @brief  Construct a heap over a range using comparison functor.
+   *  @param  first  Start of heap.
+   *  @param  last   End of heap.
+   *  @param  comp   Comparison functor to use.
+   *  @ingroup heap
+   *
+   *  This operation makes the elements in [first,last) into a heap.
+   *  Comparisons are made using comp.
+  */
   template<typename _RandomAccessIterator, typename _Compare>
     inline void 
     make_heap(_RandomAccessIterator __first, _RandomAccessIterator __last,
@@ -257,7 +315,7 @@ namespace std
 	  _DistanceType;
 
       // concept requirements
-      __glibcpp_function_requires(_Mutable_RandomAccessIteratorConcept<
+      __glibcxx_function_requires(_Mutable_RandomAccessIteratorConcept<
 	    _RandomAccessIterator>)
 
       if (__last - __first < 2) return;
@@ -265,43 +323,61 @@ namespace std
       _DistanceType __parent = (__len - 2)/2;
 	
       while (true) {
-	__adjust_heap(__first, __parent, __len,
-	              _ValueType(*(__first + __parent)), __comp);
+	std::__adjust_heap(__first, __parent, __len,
+			   _ValueType(*(__first + __parent)), __comp);
 	if (__parent == 0) return;
 	__parent--;
       }
     }
 
+  /**
+   *  @brief  Sort a heap.
+   *  @param  first  Start of heap.
+   *  @param  last   End of heap.
+   *  @ingroup heap
+   *
+   *  This operation sorts the valid heap in the range [first,last).
+  */
   template<typename _RandomAccessIterator>
     void
     sort_heap(_RandomAccessIterator __first, _RandomAccessIterator __last)
     {
       // concept requirements
-      __glibcpp_function_requires(_Mutable_RandomAccessIteratorConcept<
+      __glibcxx_function_requires(_Mutable_RandomAccessIteratorConcept<
 	    _RandomAccessIterator>)
-      __glibcpp_function_requires(_LessThanComparableConcept<
+      __glibcxx_function_requires(_LessThanComparableConcept<
 	    typename iterator_traits<_RandomAccessIterator>::value_type>)
 
       while (__last - __first > 1)
-	pop_heap(__first, __last--);
+	std::pop_heap(__first, __last--);
     }
 
+  /**
+   *  @brief  Sort a heap using comparison functor.
+   *  @param  first  Start of heap.
+   *  @param  last   End of heap.
+   *  @param  comp   Comparison functor to use.
+   *  @ingroup heap
+   *
+   *  This operation sorts the valid heap in the range [first,last).
+   *  Comparisons are made using comp.
+  */
   template<typename _RandomAccessIterator, typename _Compare>
     void 
     sort_heap(_RandomAccessIterator __first, _RandomAccessIterator __last,
 	      _Compare __comp)
     {
       // concept requirements
-      __glibcpp_function_requires(_Mutable_RandomAccessIteratorConcept<
+      __glibcxx_function_requires(_Mutable_RandomAccessIteratorConcept<
 	    _RandomAccessIterator>)
 
       while (__last - __first > 1)
-	pop_heap(__first, __last--, __comp);
+	std::pop_heap(__first, __last--, __comp);
     }
 
 } // namespace std
 
-#endif /* _CPP_BITS_STL_HEAP_H */
+#endif /* _STL_HEAP_H */
 
 // Local Variables:
 // mode:C++

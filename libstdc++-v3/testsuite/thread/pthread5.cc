@@ -20,8 +20,8 @@
 // Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
 // USA.
 
-// { dg-do run { target *-*-freebsd* *-*-netbsd* *-*-linux* *-*-solaris* *-*-cygwin *-*-darwin* } }
-// { dg-options "-pthread" { target *-*-freebsd* *-*-netbsd* *-*-linux* } }
+// { dg-do run { target *-*-freebsd* *-*-netbsd* *-*-linux* *-*-solaris* *-*-cygwin *-*-darwin* alpha*-*-osf* } }
+// { dg-options "-pthread" { target *-*-freebsd* *-*-netbsd* *-*-linux* alpha*-*-osf* } }
 // { dg-options "-pthreads" { target *-*-solaris* } }
 
 #include <vector>
@@ -32,7 +32,7 @@
 // configured for the port, then it is picked up free from STL headers.
 
 #if __GTHREADS
-#ifdef _GLIBCPP_HAVE_UNISTD_H
+#ifdef _GLIBCXX_HAVE_UNISTD_H
 #include <unistd.h>	// To test for _POSIX_THREAD_PRIORITY_SCHEDULING
 #endif
 

@@ -20,7 +20,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 02111-1307, USA.  */
 
 /* This file contains low level functions to manipulate the CFG and
-   analyze it.  All other modules should not transform the datastructure
+   analyze it.  All other modules should not transform the data structure
    directly and use abstraction instead.  The file is supposed to be
    ordered bottom-up and should not contain any code dependent on a
    particular intermediate language (RTL or trees).
@@ -113,7 +113,8 @@ struct basic_block_def entry_exit_blocks[2]
     NULL,                       /* loop_father */
     0,				/* count */
     0,				/* frequency */
-    0				/* flags */
+    0,				/* flags */
+    NULL			/* rbi */
   },
   {
     NULL,			/* head */
@@ -134,7 +135,8 @@ struct basic_block_def entry_exit_blocks[2]
     NULL,                       /* loop_father */
     0,				/* count */
     0,				/* frequency */
-    0				/* flags */
+    0,				/* flags */
+    NULL			/* rbi */
   }
 };
 
@@ -153,7 +155,7 @@ init_flow (void)
   if (!initialized)
     {
       gcc_obstack_init (&flow_obstack);
-      flow_firstobj = (char *) obstack_alloc (&flow_obstack, 0);
+      flow_firstobj = obstack_alloc (&flow_obstack, 0);
       initialized = 1;
     }
   else
@@ -161,7 +163,7 @@ init_flow (void)
       free_alloc_pool (bb_pool);
       free_alloc_pool (edge_pool);
       obstack_free (&flow_obstack, flow_firstobj);
-      flow_firstobj = (char *) obstack_alloc (&flow_obstack, 0);
+      flow_firstobj = obstack_alloc (&flow_obstack, 0);
     }
   bb_pool = create_alloc_pool ("Basic block pool",
 			       sizeof (struct basic_block_def), 100);
@@ -634,7 +636,7 @@ dump_edge_info (FILE *file, edge e, int do_succ)
     {
       static const char * const bitnames[] = {
 	"fallthru", "ab", "abcall", "eh", "fake", "dfs_back",
-	"can_fallthru", "irreducible", "sibcall"
+	"can_fallthru", "irreducible", "sibcall", "loop_exit"
       };
       int comma = 0;
       int i, flags = e->flags;
@@ -695,7 +697,7 @@ alloc_aux_for_blocks (int size)
   /* Check whether AUX data are still allocated.  */
   else if (first_block_aux_obj)
     abort ();
-  first_block_aux_obj = (char *) obstack_alloc (&block_aux_obstack, 0);
+  first_block_aux_obj = obstack_alloc (&block_aux_obstack, 0);
   if (size)
     {
       basic_block bb;
@@ -761,7 +763,7 @@ alloc_aux_for_edges (int size)
   else if (first_edge_aux_obj)
     abort ();
 
-  first_edge_aux_obj = (char *) obstack_alloc (&edge_aux_obstack, 0);
+  first_edge_aux_obj = obstack_alloc (&edge_aux_obstack, 0);
   if (size)
     {
       basic_block bb;
@@ -817,9 +819,8 @@ verify_flow_info (void)
   basic_block bb, last_bb_seen;
   basic_block *last_visited;
 
-  last_visited = (basic_block *) xcalloc (last_basic_block + 2,
-					  sizeof (basic_block));
-  edge_checksum = (size_t *) xcalloc (last_basic_block + 2, sizeof (size_t));
+  last_visited = xcalloc (last_basic_block + 2, sizeof (basic_block));
+  edge_checksum = xcalloc (last_basic_block + 2, sizeof (size_t));
 
   /* Check bb chain & numbers.  */
   last_bb_seen = ENTRY_BLOCK_PTR;

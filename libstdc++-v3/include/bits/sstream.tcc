@@ -32,8 +32,8 @@
 // ISO C++ 14882: 27.7  String-based streams
 //
 
-#ifndef _CPP_BITS_SSTREAM_TCC
-#define _CPP_BITS_SSTREAM_TCC	1
+#ifndef _SSTREAM_TCC
+#define _SSTREAM_TCC 1
 
 #pragma GCC system_header
 
@@ -115,7 +115,7 @@ namespace std
   template <class _CharT, class _Traits, class _Alloc>
     typename basic_stringbuf<_CharT, _Traits, _Alloc>::int_type 
     basic_stringbuf<_CharT, _Traits, _Alloc>::
-    _M_underflow(bool __bump)
+    underflow()
     {
       int_type __ret = traits_type::eof();
       const bool __testin = this->_M_mode & ios_base::in;
@@ -125,11 +125,7 @@ namespace std
 	  _M_update_egptr();
 
 	  if (this->gptr() < this->egptr())
-	    {
-	      __ret = traits_type::to_int_type(*this->gptr());
-	      if (__bump)
-		this->gbump(1);
-	    }
+	    __ret = traits_type::to_int_type(*this->gptr());
 	}
       return __ret;
     }
@@ -218,7 +214,7 @@ namespace std
   extern template class basic_ostringstream<char>;
   extern template class basic_stringstream<char>;
 
-#ifdef _GLIBCPP_USE_WCHAR_T
+#ifdef _GLIBCXX_USE_WCHAR_T
   extern template class basic_stringbuf<wchar_t>;
   extern template class basic_istringstream<wchar_t>;
   extern template class basic_ostringstream<wchar_t>;

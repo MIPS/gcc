@@ -40,22 +40,6 @@ exception statement from your version. */
 #include "gnu_java_awt_peer_gtk_GtkComponentPeer.h"
 #include <gtk/gtkprivate.h>
 
-#define GTK_OBJECT_SETV(ptr, arg)                \
-  gdk_threads_enter ();                          \
-  {                                              \
-    GtkArgInfo *info = NULL;                     \
-    char *error;                                 \
-                                                 \
-    error = gtk_object_arg_get_info (GTK_OBJECT_TYPE (ptr), arg.name, &info); \
-    if (error)                                   \
-      {                                          \
-	/* assume the argument is destined for the container's only child */ \
-	ptr = gtk_container_children (GTK_CONTAINER (ptr))->data;            \
-      }                                          \
-    gtk_object_setv (GTK_OBJECT (ptr), 1, &arg); \
-  }                                              \
-  gdk_threads_leave ();                          \
-
 JNIEXPORT void JNICALL Java_gnu_java_awt_peer_gtk_GtkGenericPeer_dispose
   (JNIEnv *env, jobject obj)
 {
@@ -519,8 +503,9 @@ Java_gnu_java_awt_peer_gtk_GtkComponentPeer_set__Ljava_lang_String_2Ljava_lang_S
   arg.type = GTK_TYPE_STRING;
   arg.name = (char *) name;
   GTK_VALUE_STRING (arg) = (char *) value;
-
-  GTK_OBJECT_SETV (ptr, arg);  
+  gdk_threads_enter();
+  g_object_set(ptr, name, value, NULL);
+  gdk_threads_leave();
 
   (*env)->ReleaseStringUTFChars (env, jname, name);
   (*env)->ReleaseStringUTFChars (env, jvalue, value);
@@ -540,7 +525,9 @@ JNIEXPORT void JNICALL Java_gnu_java_awt_peer_gtk_GtkComponentPeer_set__Ljava_la
   arg.name = (char *) name;
   GTK_VALUE_BOOL (arg) = value;
 
-  GTK_OBJECT_SETV (ptr, arg);  
+  gdk_threads_enter();                          
+  g_object_set(ptr, name, value, NULL);
+  gdk_threads_leave();
 
   (*env)->ReleaseStringUTFChars (env, jname, name);
 }
@@ -559,7 +546,9 @@ JNIEXPORT void JNICALL Java_gnu_java_awt_peer_gtk_GtkComponentPeer_set__Ljava_la
   arg.name = (char *) name;
   GTK_VALUE_INT (arg) = value;
   
-  GTK_OBJECT_SETV (ptr, arg);  
+  gdk_threads_enter();                          
+  g_object_set(ptr, name, value, NULL);
+  gdk_threads_leave();
 
   (*env)->ReleaseStringUTFChars (env, jname, name);
 }
@@ -578,7 +567,9 @@ JNIEXPORT void JNICALL Java_gnu_java_awt_peer_gtk_GtkComponentPeer_set__Ljava_la
   arg.name = (char *) name;
   GTK_VALUE_FLOAT (arg) = value;
   
-  GTK_OBJECT_SETV (ptr, arg);  
+  gdk_threads_enter();                          
+  g_object_set(ptr, name, value, NULL);
+  gdk_threads_leave();
 
   (*env)->ReleaseStringUTFChars (env, jname, name);
 }
@@ -611,28 +602,11 @@ Java_gnu_java_awt_peer_gtk_GtkComponentPeer_set__Ljava_lang_String_2Ljava_lang_O
   arg.name = (char *) name;
   GTK_VALUE_OBJECT (arg) = GTK_OBJECT (ptr2);
   
-  GTK_OBJECT_SETV (ptr1, arg);  
+  gdk_threads_enter();                          
+  g_object_set(ptr1, name, ptr2, NULL);
+  gdk_threads_leave();
 
   (*env)->ReleaseStringUTFChars (env, jname, name);
-}
-
-JNIEXPORT void JNICALL Java_gnu_java_awt_peer_gtk_GtkComponentPeer_create
-  (JNIEnv *env, jobject obj, jstring jtypename)
-{
-  const char *typename;
-  gpointer widget;
-
-  typename = (*env)->GetStringUTFChars (env, jtypename, NULL);
-
-  gdk_threads_enter ();
-  gtk_button_get_type ();
-  widget = gtk_object_newv (gtk_type_from_name (typename),
-			    0, NULL);
-/*    widget = gtk_type_new (gtk_type_from_name (typename)); */
-  gdk_threads_leave ();
-
-  (*env)->ReleaseStringUTFChars (env, jtypename, typename);
-  NSA_SET_PTR (env, obj, widget);
 }
 
 JNIEXPORT void JNICALL Java_gnu_java_awt_peer_gtk_GtkComponentPeer_connectHooks
@@ -644,6 +618,10 @@ JNIEXPORT void JNICALL Java_gnu_java_awt_peer_gtk_GtkComponentPeer_connectHooks
 
   gdk_threads_enter ();
   gtk_widget_realize (GTK_WIDGET (ptr));
-  connect_awt_hook (env, obj, 1, GTK_WIDGET (ptr)->window);
+
+  if(GTK_IS_BUTTON(ptr))
+    connect_awt_hook (env, obj, 1, GTK_BUTTON(ptr)->event_window);
+  else
+    connect_awt_hook (env, obj, 1, GTK_WIDGET (ptr)->window);
   gdk_threads_leave ();
 }

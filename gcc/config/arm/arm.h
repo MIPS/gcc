@@ -763,7 +763,7 @@ extern int arm_is_6_or_7;
    supports no vector modes, cut out the complexity and fall back
    on BIGGEST_FIELD_ALIGNMENT.  */
 #ifdef IN_TARGET_LIBS
-#define BIGGEST_FIELD_ALIGNMENT BIGGEST_ALIGNMENT
+#define BIGGEST_FIELD_ALIGNMENT 64
 #else
 /* An expression for the alignment of a structure field FIELD if the
    alignment computed in the usual way is COMPUTED.  GCC uses this
@@ -1024,7 +1024,7 @@ extern const char * structure_size_string;
 /* The number of (integer) argument register available.  */
 #define NUM_ARG_REGS		4
 
-/* Return the regiser number of the N'th (integer) argument.  */
+/* Return the register number of the N'th (integer) argument.  */
 #define ARG_REGISTER(N) 	(N - 1)
 
 #if 0 /* FIXME: The ARM backend has special code to handle structure

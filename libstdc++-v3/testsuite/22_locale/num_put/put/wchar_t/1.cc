@@ -33,9 +33,9 @@ void test01()
 
   // basic construction
   locale loc_c = locale::classic();
-  locale loc_hk = __gnu_cxx_test::try_named_locale("en_HK");
-  locale loc_fr = __gnu_cxx_test::try_named_locale("fr_FR@euro");
-  locale loc_de = __gnu_cxx_test::try_named_locale("de_DE");
+  locale loc_hk = __gnu_test::try_named_locale("en_HK");
+  locale loc_fr = __gnu_test::try_named_locale("fr_FR@euro");
+  locale loc_de = __gnu_test::try_named_locale("de_DE");
   VERIFY( loc_c != loc_de );
   VERIFY( loc_hk != loc_fr );
   VERIFY( loc_hk != loc_de );
@@ -155,7 +155,7 @@ void test01()
   // Should contain an 'x'.
   VERIFY( result1.find(L'x') == 1 );
 
-#ifdef _GLIBCPP_USE_LONG_LONG
+#ifdef _GLIBCXX_USE_LONG_LONG
   long long ll1 = 9223372036854775807LL;
   long long ll2 = -9223372036854775807LL;
 

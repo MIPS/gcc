@@ -100,11 +100,12 @@ lvalue_p_1 (tree ref,
       op1_lvalue_kind = lvalue_p_1 (TREE_OPERAND (ref, 0),
 				    treat_class_rvalues_as_lvalues,
 				    allow_cast_as_lvalue);
-      if (op1_lvalue_kind 
-	  /* The "field" can be a FUNCTION_DECL or an OVERLOAD in some
-	     situations.  */
-	  && TREE_CODE (TREE_OPERAND (ref, 1)) == FIELD_DECL
-	  && DECL_C_BIT_FIELD (TREE_OPERAND (ref, 1)))
+      if (!op1_lvalue_kind 
+	  /* The "field" can be a FUNCTION_DECL or an OVERLOAD in some	
+  	     situations.  */
+ 	  || TREE_CODE (TREE_OPERAND (ref, 1)) != FIELD_DECL)
+ 	;
+      else if (DECL_C_BIT_FIELD (TREE_OPERAND (ref, 1)))
 	{
 	  /* Clear the ordinary bit.  If this object was a class
 	     rvalue we want to preserve that information.  */
@@ -112,6 +113,9 @@ lvalue_p_1 (tree ref,
 	  /* The lvalue is for a btifield.  */
 	  op1_lvalue_kind |= clk_bitfield;
 	}
+      else if (DECL_PACKED (TREE_OPERAND (ref, 1)))
+	op1_lvalue_kind |= clk_packed;
+      
       return op1_lvalue_kind;
 
     case STRING_CST:
@@ -133,10 +137,6 @@ lvalue_p_1 (tree ref,
       /* A currently unresolved scope ref.  */
     case SCOPE_REF:
       abort ();
-    case OFFSET_REF:
-      if (TREE_CODE (TREE_OPERAND (ref, 1)) == FUNCTION_DECL)
-	return clk_ordinary;
-      /* Fall through.  */
     case MAX_EXPR:
     case MIN_EXPR:
       op1_lvalue_kind = lvalue_p_1 (TREE_OPERAND (ref, 0),
@@ -177,6 +177,14 @@ lvalue_p_1 (tree ref,
 	 lvalues.  */
       return (DECL_NONSTATIC_MEMBER_FUNCTION_P (ref) 
 	      ? clk_none : clk_ordinary);
+
+    case NON_DEPENDENT_EXPR:
+      /* We must consider NON_DEPENDENT_EXPRs to be lvalues so that
+	 things like "&E" where "E" is an expression with a
+	 non-dependent type work. It is safe to be lenient because an
+	 error will be issued when the template is instantiated if "E"
+	 is not an lvalue.  */
+      return clk_ordinary;
 
     default:
       break;
@@ -364,124 +372,7 @@ get_target_expr (tree init)
   return build_target_expr_with_type (init, TREE_TYPE (init));
 }
 
-/* Recursively perform a preorder search EXP for CALL_EXPRs, making
-   copies where they are found.  Returns a deep copy all nodes transitively
-   containing CALL_EXPRs.  */
-
-tree
-break_out_calls (tree exp)
-{
-  register tree t1, t2 = NULL_TREE;
-  register enum tree_code code;
-  register int changed = 0;
-  register int i;
-
-  if (exp == NULL_TREE)
-    return exp;
-
-  code = TREE_CODE (exp);
-
-  if (code == CALL_EXPR)
-    return copy_node (exp);
-
-  /* Don't try and defeat a save_expr, as it should only be done once.  */
-    if (code == SAVE_EXPR)
-       return exp;
-
-  switch (TREE_CODE_CLASS (code))
-    {
-    default:
-      abort ();
-
-    case 'c':  /* a constant */
-    case 't':  /* a type node */
-    case 'x':  /* something random, like an identifier or an ERROR_MARK.  */
-      return exp;
-
-    case 'd':  /* A decl node */
-      return exp;
-
-    case 'b':  /* A block node */
-      {
-	/* Don't know how to handle these correctly yet.   Must do a
-	   break_out_calls on all DECL_INITIAL values for local variables,
-	   and also break_out_calls on all sub-blocks and sub-statements.  */
-	abort ();
-      }
-      return exp;
-
-    case 'e':  /* an expression */
-    case 'r':  /* a reference */
-    case 's':  /* an expression with side effects */
-      for (i = TREE_CODE_LENGTH (code) - 1; i >= 0; i--)
-	{
-	  t1 = break_out_calls (TREE_OPERAND (exp, i));
-	  if (t1 != TREE_OPERAND (exp, i))
-	    {
-	      exp = copy_node (exp);
-	      TREE_OPERAND (exp, i) = t1;
-	    }
-	}
-      return exp;
-
-    case '<':  /* a comparison expression */
-    case '2':  /* a binary arithmetic expression */
-      t2 = break_out_calls (TREE_OPERAND (exp, 1));
-      if (t2 != TREE_OPERAND (exp, 1))
-	changed = 1;
-    case '1':  /* a unary arithmetic expression */
-      t1 = break_out_calls (TREE_OPERAND (exp, 0));
-      if (t1 != TREE_OPERAND (exp, 0))
-	changed = 1;
-      if (changed)
-	{
-	  if (TREE_CODE_LENGTH (code) == 1)
-	    return build1 (code, TREE_TYPE (exp), t1);
-	  else
-	    return build (code, TREE_TYPE (exp), t1, t2);
-	}
-      return exp;
-    }
-
-}
 
-/* Construct, lay out and return the type of methods belonging to class
-   BASETYPE and whose arguments are described by ARGTYPES and whose values
-   are described by RETTYPE.  If each type exists already, reuse it.  */
-
-tree
-build_cplus_method_type (tree basetype, tree rettype, tree argtypes)
-{
-  register tree t;
-  tree ptype;
-  int hashcode;
-
-  /* Make a node of the sort we want.  */
-  t = make_node (METHOD_TYPE);
-
-  TYPE_METHOD_BASETYPE (t) = TYPE_MAIN_VARIANT (basetype);
-  TREE_TYPE (t) = rettype;
-  ptype = build_pointer_type (basetype);
-
-  /* The actual arglist for this function includes a "hidden" argument
-     which is "this".  Put it into the list of argument types.  */
-  argtypes = tree_cons (NULL_TREE, ptype, argtypes);
-  TYPE_ARG_TYPES (t) = argtypes;
-  TREE_SIDE_EFFECTS (argtypes) = 1;  /* Mark first argtype as "artificial".  */
-
-  /* If we already have such a type, use the old one and free this one.
-     Note that it also frees up the above cons cell if found.  */
-  hashcode = TYPE_HASH (basetype) + TYPE_HASH (rettype) +
-    type_hash_list (argtypes);
-
-  t = type_hash_canon (hashcode, t);
-
-  if (!COMPLETE_TYPE_P (t))
-    layout_type (t);
-
-  return t;
-}
-
 static tree
 build_cplus_array_type_1 (tree elt_type, tree index_type)
 {
@@ -551,7 +442,7 @@ build_cplus_array_type (tree elt_type, tree index_type)
    via a typedef or template type argument. [dcl.ref] No such
    dispensation is provided for qualifying a function type.  [dcl.fct]
    DR 295 queries this and the proposed resolution brings it into line
-   with qualifiying a reference.  We implement the DR.  We also behave
+   with qualifying a reference.  We implement the DR.  We also behave
    in a similar manner for restricting non-pointer types.  */
  
 tree
@@ -1064,13 +955,6 @@ build_overload (tree decl, tree chain)
   return ovl_cons (decl, chain);
 }
 
-int
-is_aggr_type_2 (tree t1, tree t2)
-{
-  if (TREE_CODE (t1) != TREE_CODE (t2))
-    return 0;
-  return IS_AGGR_TYPE (t1) && IS_AGGR_TYPE (t2);
-}
 
 #define PRINT_RING_SIZE 4
 
@@ -1666,6 +1550,30 @@ cp_tree_equal (tree t1, tree t2)
 	      && same_type_p (TREE_TYPE (TEMPLATE_PARM_DECL (t1)),
 			      TREE_TYPE (TEMPLATE_PARM_DECL (t2))));
 
+    case TEMPLATE_ID_EXPR:
+      {
+	unsigned ix;
+	tree vec1, vec2;
+	
+	if (!cp_tree_equal (TREE_OPERAND (t1, 0), TREE_OPERAND (t2, 0)))
+	  return false;
+	vec1 = TREE_OPERAND (t1, 1);
+	vec2 = TREE_OPERAND (t2, 1);
+
+	if (!vec1 || !vec2)
+	  return !vec1 && !vec2;
+	
+	if (TREE_VEC_LENGTH (vec1) != TREE_VEC_LENGTH (vec2))
+	  return false;
+
+	for (ix = TREE_VEC_LENGTH (vec1); ix--;)
+	  if (!cp_tree_equal (TREE_VEC_ELT (vec1, ix),
+			      TREE_VEC_ELT (vec2, ix)))
+	    return false;
+	
+	return true;
+      }
+      
     case SIZEOF_EXPR:
     case ALIGNOF_EXPR:
       {
@@ -1747,7 +1655,10 @@ tree
 error_type (tree arg)
 {
   tree type = TREE_TYPE (arg);
+  
   if (TREE_CODE (type) == ARRAY_TYPE)
+    ;
+  else if (TREE_CODE (type) == ERROR_MARK)
     ;
   else if (real_lvalue_p (arg))
     type = build_reference_type (lvalue_type (arg));
@@ -1851,10 +1762,8 @@ pod_type_p (tree t)
     return 1;
   if (TYPE_PTR_P (t))
     return 1; /* pointer to non-member */
-  if (TYPE_PTRMEM_P (t))
-    return 1; /* pointer to member object */
-  if (TYPE_PTRMEMFUNC_P (t))
-    return 1; /* pointer to member function */
+  if (TYPE_PTR_TO_MEMBER_P (t))
+    return 1; /* pointer to member */
   
   if (! CLASS_TYPE_P (t))
     return 0; /* other non-class type (reference or function) */
@@ -2247,7 +2156,10 @@ cp_copy_res_decl_for_inlining (tree result,
 	  /* We have a named return value; copy the name and source
 	     position so we can get reasonable debugging information, and
 	     register the return variable as its equivalent.  */
-	  if (TREE_CODE (var) == VAR_DECL)
+	  if (TREE_CODE (var) == VAR_DECL
+	      /* But not if we're initializing a variable from the
+		 enclosing function which already has its own name.  */
+	      && DECL_NAME (var) == NULL_TREE)
 	    {
 	      DECL_NAME (var) = DECL_NAME (nrv);
 	      DECL_SOURCE_LOCATION (var) = DECL_SOURCE_LOCATION (nrv);

@@ -1,23 +1,23 @@
-;;- Machine description for HP PA-RISC architecture for GNU C compiler
+;;- Machine description for HP PA-RISC architecture for GCC compiler
 ;;   Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001,
 ;;   2002, 2003 Free Software Foundation, Inc.
 ;;   Contributed by the Center for Software Science at the University
 ;;   of Utah.
 
-;; This file is part of GNU CC.
+;; This file is part of GCC.
 
-;; GNU CC is free software; you can redistribute it and/or modify
+;; GCC is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
 ;; the Free Software Foundation; either version 2, or (at your option)
 ;; any later version.
 
-;; GNU CC is distributed in the hope that it will be useful,
+;; GCC is distributed in the hope that it will be useful,
 ;; but WITHOUT ANY WARRANTY; without even the implied warranty of
 ;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ;; GNU General Public License for more details.
 
 ;; You should have received a copy of the GNU General Public License
-;; along with GNU CC; see the file COPYING.  If not, write to
+;; along with GCC; see the file COPYING.  If not, write to
 ;; the Free Software Foundation, 59 Temple Place - Suite 330,
 ;; Boston, MA 02111-1307, USA.
 
@@ -2264,9 +2264,9 @@
 
 (define_insn ""
   [(set (match_operand:SI 0 "reg_or_nonsymb_mem_operand"
-				"=r,r,r,r,r,r,Q,*q,!f,f,*TR")
+				"=r,r,r,r,r,r,Q,!*q,!f,f,*TR")
 	(match_operand:SI 1 "move_operand"
-				"A,r,J,N,K,RQ,rM,rM,!fM,*RT,f"))]
+				"A,r,J,N,K,RQ,rM,!rM,!fM,*RT,f"))]
   "(register_operand (operands[0], SImode)
     || reg_or_0_operand (operands[1], SImode))
    && ! TARGET_SOFT_FLOAT"
@@ -2288,9 +2288,9 @@
 
 (define_insn ""
   [(set (match_operand:SI 0 "reg_or_nonsymb_mem_operand"
-				"=r,r,r,r,r,r,Q,*q")
+				"=r,r,r,r,r,r,Q,!*q")
 	(match_operand:SI 1 "move_operand"
-				"A,r,J,N,K,RQ,rM,rM"))]
+				"A,r,J,N,K,RQ,rM,!rM"))]
   "(register_operand (operands[0], SImode)
     || reg_or_0_operand (operands[1], SImode))
    && TARGET_SOFT_FLOAT"
@@ -2699,8 +2699,8 @@
 }")
 
 (define_insn ""
-  [(set (match_operand:HI 0 "reg_or_nonsymb_mem_operand" "=r,r,r,r,r,Q,*q,!*f")
-	(match_operand:HI 1 "move_operand" "r,J,N,K,RQ,rM,rM,!*fM"))]
+  [(set (match_operand:HI 0 "reg_or_nonsymb_mem_operand" "=r,r,r,r,r,Q,!*q,!*f")
+	(match_operand:HI 1 "move_operand" "r,J,N,K,RQ,rM,!rM,!*fM"))]
   "register_operand (operands[0], HImode)
    || reg_or_0_operand (operands[1], HImode)"
   "@
@@ -2814,8 +2814,8 @@
 }")
 
 (define_insn ""
-  [(set (match_operand:QI 0 "reg_or_nonsymb_mem_operand" "=r,r,r,r,r,Q,*q,!*f")
-	(match_operand:QI 1 "move_operand" "r,J,N,K,RQ,rM,rM,!*fM"))]
+  [(set (match_operand:QI 0 "reg_or_nonsymb_mem_operand" "=r,r,r,r,r,Q,!*q,!*f")
+	(match_operand:QI 1 "move_operand" "r,J,N,K,RQ,rM,!rM,!*fM"))]
   "register_operand (operands[0], QImode)
    || reg_or_0_operand (operands[1], QImode)"
   "@
@@ -3137,9 +3137,9 @@
 
 (define_insn ""
   [(set (match_operand:DF 0 "reg_or_nonsymb_mem_operand"
-				"=r,r,r,r,r,Q,*q,!f,f,*TR")
+				"=r,r,r,r,r,Q,!*q,!f,f,*TR")
 	(match_operand:DF 1 "move_operand"
-				"r,J,N,K,RQ,rM,rM,!fM,*RT,f"))]
+				"r,J,N,K,RQ,rM,!rM,!fM,*RT,f"))]
   "(register_operand (operands[0], DFmode)
     || reg_or_0_operand (operands[1], DFmode))
    && ! TARGET_SOFT_FLOAT && TARGET_64BIT"
@@ -3296,9 +3296,9 @@
 
 (define_insn ""
   [(set (match_operand:DI 0 "reg_or_nonsymb_mem_operand"
-				"=r,r,r,r,r,r,Q,*q,!f,f,*TR")
+				"=r,r,r,r,r,r,Q,!*q,!f,f,*TR")
 	(match_operand:DI 1 "move_operand"
-				"A,r,J,N,K,RQ,rM,rM,!fM,*RT,f"))]
+				"A,r,J,N,K,RQ,rM,!rM,!fM,*RT,f"))]
   "(register_operand (operands[0], DImode)
     || reg_or_0_operand (operands[1], DImode))
    && ! TARGET_SOFT_FLOAT && TARGET_64BIT"
@@ -3992,9 +3992,9 @@
   (set_attr "length" "8")])
 
 (define_insn ""
-  [(set (match_operand:DI 0 "register_operand" "=r,r,q")
-	(minus:DI (match_operand:DI 1 "arith11_operand" "r,I,U")
-		  (match_operand:DI 2 "register_operand" "r,r,r")))]
+  [(set (match_operand:DI 0 "register_operand" "=r,r,!q")
+	(minus:DI (match_operand:DI 1 "arith11_operand" "r,I,!U")
+		  (match_operand:DI 2 "register_operand" "r,r,!r")))]
   "TARGET_64BIT"
   "@
    sub %1,%2,%0
@@ -4022,9 +4022,9 @@
    (set_attr "length" "4,4")])
 
 (define_insn ""
-  [(set (match_operand:SI 0 "register_operand" "=r,r,q")
-	(minus:SI (match_operand:SI 1 "arith11_operand" "r,I,S")
-		  (match_operand:SI 2 "register_operand" "r,r,r")))]
+  [(set (match_operand:SI 0 "register_operand" "=r,r,!q")
+	(minus:SI (match_operand:SI 1 "arith11_operand" "r,I,!S")
+		  (match_operand:SI 2 "register_operand" "r,r,!r")))]
   "TARGET_PA_20"
   "@
    sub %1,%2,%0
@@ -7145,6 +7145,7 @@
   [(set_attr "type" "branch")
    (set_attr "length" "4")])
 
+;;; Operands 2 and 3 are assumed to be CONST_INTs.
 (define_expand "extzv"
   [(set (match_operand 0 "register_operand" "")
 	(zero_extract (match_operand 1 "register_operand" "")
@@ -7153,21 +7154,26 @@
   ""
   "
 {
-  /* PA extraction insns don't support zero length bitfields.  */
-  if (INTVAL (operands[2]) == 0)
+  HOST_WIDE_INT len = INTVAL (operands[2]);
+  HOST_WIDE_INT pos = INTVAL (operands[3]);
+
+  /* PA extraction insns don't support zero length bitfields or fields
+     extending beyond the left or right-most bits.  Also, we reject lengths
+     equal to a word as they are better handled by the move patterns.  */
+  if (len <= 0 || len >= BITS_PER_WORD || pos < 0 || pos + len > BITS_PER_WORD)
+    FAIL;
+
+  /* From mips.md: extract_bit_field doesn't verify that our source
+     matches the predicate, so check it again here.  */
+  if (!register_operand (operands[1], VOIDmode))
     FAIL;
 
   if (TARGET_64BIT)
     emit_insn (gen_extzv_64 (operands[0], operands[1],
 			     operands[2], operands[3]));
   else
-    {
-      if (! uint5_operand (operands[2], SImode)
-	  || ! uint5_operand (operands[3], SImode))
-	FAIL;
-      emit_insn (gen_extzv_32 (operands[0], operands[1],
-			       operands[2], operands[3]));
-    }
+    emit_insn (gen_extzv_32 (operands[0], operands[1],
+			     operands[2], operands[3]));
   DONE;
 }")
 
@@ -7211,6 +7217,7 @@
   [(set_attr "type" "shift")
    (set_attr "length" "4")])
 
+;;; Operands 2 and 3 are assumed to be CONST_INTs.
 (define_expand "extv"
   [(set (match_operand 0 "register_operand" "")
 	(sign_extract (match_operand 1 "register_operand" "")
@@ -7219,21 +7226,26 @@
   ""
   "
 {
-  /* PA extraction insns don't support zero length bitfields.  */
-  if (INTVAL (operands[2]) == 0)
+  HOST_WIDE_INT len = INTVAL (operands[2]);
+  HOST_WIDE_INT pos = INTVAL (operands[3]);
+
+  /* PA extraction insns don't support zero length bitfields or fields
+     extending beyond the left or right-most bits.  Also, we reject lengths
+     equal to a word as they are better handled by the move patterns.  */
+  if (len <= 0 || len >= BITS_PER_WORD || pos < 0 || pos + len > BITS_PER_WORD)
+    FAIL;
+
+  /* From mips.md: extract_bit_field doesn't verify that our source
+     matches the predicate, so check it again here.  */
+  if (!register_operand (operands[1], VOIDmode))
     FAIL;
 
   if (TARGET_64BIT)
     emit_insn (gen_extv_64 (operands[0], operands[1],
 			    operands[2], operands[3]));
   else
-    {
-      if (! uint5_operand (operands[2], SImode)
-	  || ! uint5_operand (operands[3], SImode))
-	FAIL;
-      emit_insn (gen_extv_32 (operands[0], operands[1],
-			      operands[2], operands[3]));
-    }
+    emit_insn (gen_extv_32 (operands[0], operands[1],
+			    operands[2], operands[3]));
   DONE;
 }")
 
@@ -7277,7 +7289,7 @@
   [(set_attr "type" "shift")
    (set_attr "length" "4")])
 
-;; Only specify the mode operands 0, the rest are assumed to be word_mode.
+;;; Operands 1 and 2 are assumed to be CONST_INTs.
 (define_expand "insv"
   [(set (zero_extract (match_operand 0 "register_operand" "")
                       (match_operand 1 "uint32_operand" "")
@@ -7286,17 +7298,26 @@
   ""
   "
 {
+  HOST_WIDE_INT len = INTVAL (operands[1]);
+  HOST_WIDE_INT pos = INTVAL (operands[2]);
+
+  /* PA insertion insns don't support zero length bitfields or fields
+     extending beyond the left or right-most bits.  Also, we reject lengths
+     equal to a word as they are better handled by the move patterns.  */
+  if (len <= 0 || len >= BITS_PER_WORD || pos < 0 || pos + len > BITS_PER_WORD)
+    FAIL;
+
+  /* From mips.md: insert_bit_field doesn't verify that our destination
+     matches the predicate, so check it again here.  */
+  if (!register_operand (operands[0], VOIDmode))
+    FAIL;
+
   if (TARGET_64BIT)
     emit_insn (gen_insv_64 (operands[0], operands[1],
 			    operands[2], operands[3]));
   else
-    {
-      if (! uint5_operand (operands[2], SImode)
-	  || ! uint5_operand (operands[3], SImode))
-	FAIL;
-      emit_insn (gen_insv_32 (operands[0], operands[1],
-			      operands[2], operands[3]));
-    }
+    emit_insn (gen_insv_32 (operands[0], operands[1],
+			    operands[2], operands[3]));
   DONE;
 }")
 

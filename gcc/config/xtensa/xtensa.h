@@ -20,7 +20,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 02111-1307, USA.  */
 
 /* Get Xtensa configuration settings */
-#include "xtensa/xtensa-config.h"
+#include "xtensa-config.h"
 
 /* Standard GCC variables that we reference.  */
 extern int current_function_calls_alloca;
@@ -1482,3 +1482,13 @@ typedef struct xtensa_args {
 /* Exception handling TODO!! */
 #define DWARF_UNWIND_INFO 0
 
+/* Xtensa constant pool breaks the devices in crtstuff.c to control
+   section in where code resides.  We have to write it as asm code.  Use
+   a MOVI and let the assembler relax it -- for the .init and .fini
+   sections, the assembler knows to put the literal in the right
+   place.  */
+#define CRT_CALL_STATIC_FUNCTION(SECTION_OP, FUNC) \
+    asm (SECTION_OP "\n\
+	movi\ta8, " USER_LABEL_PREFIX #FUNC "\n\
+	callx8\ta8\n" \
+	TEXT_SECTION_ASM_OP);

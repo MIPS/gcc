@@ -45,7 +45,6 @@ typedef unsigned 		__vector __ev64_u32__;
 typedef long long 		__vector __ev64_s64__;
 typedef unsigned long long 	__vector __ev64_u64__;
 typedef float 			__vector __ev64_fs__;
-typedef int 			__vector __ev64_opaque__;
 
 #define __v2si __ev64_opaque__
 #define __v2sf __ev64_fs__
@@ -992,7 +991,7 @@ __ev_set_s16_internal (__ev64_opaque__ a, int16_t b, uint32_t pos)
 #define __ev_lower_fs_tst_eq(a, b)	__builtin_spe_evfststeq (__pred_lower, (a), (b))
 #define __ev_select_fs_tst_eq		__builtin_spe_evsel_fststeq
 
-/* SPEFSCR accesor functions.  */
+/* SPEFSCR accessor functions.  */
 
 #define __SPEFSCR_SOVH		0x80000000
 #define __SPEFSCR_OVH		0x40000000
@@ -1086,6 +1085,7 @@ __ev_set_spefscr_frmc (int rnd)
   i = __builtin_spe_mfspefscr ();
   i &= ~__SPEFSCR_FRMC;
   i |= rnd;
+  __builtin_spe_mtspefscr (i);
 }
 
 #endif /* _SPE_H */

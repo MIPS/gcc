@@ -54,15 +54,6 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #define JCF_USE_SCANDIR 0
 #endif 
 
-/* On case-insensitive file systems, file name components must be 
-   compared using "strcasecmp", if available, instead of "strcmp".
-   Assumes "config.h" has already been included.  */
-#if defined (HAVE_DOS_BASED_FILE_SYSTEM) && defined (HAVE_STRCASECMP)
-#define COMPARE_FILENAMES(X, Y) strcasecmp ((X), (Y))
-#else
-#define COMPARE_FILENAMES(X, Y) strcmp ((X), (Y))
-#endif
-
 /* On case-insensitive file systems, we need to ensure that a request
    to open a .java or .class file is honored only if the file to be
    opened is of the exact case we are asking for. In other words, we
@@ -239,6 +230,9 @@ typedef struct JCF GTY(()) {
 #define ACC_INTERFACE 0x0200
 #define ACC_ABSTRACT 0x0400
 #define ACC_STRICT 0x0800
+/* "Invisible" refers to Miranda methods inserted into an abstract
+   #class.  It is also used in the runtime.  */
+#define ACC_INVISIBLE 0x1000
 
 #define ACC_VISIBILITY (ACC_PUBLIC | ACC_PRIVATE | ACC_PROTECTED)
 

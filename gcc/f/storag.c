@@ -162,7 +162,7 @@ ffestorag_dump (ffestorag s)
    ffestorag_init_2();	*/
 
 void
-ffestorag_init_2 ()
+ffestorag_init_2 (void)
 {
   ffestorag_list_.first = ffestorag_list_.last
   = (ffestorag) &ffestorag_list_.first;
@@ -416,8 +416,7 @@ ffestorag_new (ffestoragList sl)
 {
   ffestorag s;
 
-  s = (ffestorag) malloc_new_kp (ffe_pool_program_unit (), "ffestorag",
-				 sizeof (*s));
+  s = malloc_new_kp (ffe_pool_program_unit (), "ffestorag", sizeof (*s));
   s->next = (ffestorag) &sl->first;
   s->previous = sl->last;
   s->hook = FFECOM_storageNULL;
@@ -431,7 +430,7 @@ ffestorag_new (ffestoragList sl)
 /* Report info on LOCAL non-sym-assoc'ed entities if needed.  */
 
 void
-ffestorag_report ()
+ffestorag_report (void)
 {
   ffestorag s;
 

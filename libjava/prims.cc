@@ -1,6 +1,6 @@
 // prims.cc - Code for core of runtime environment.
 
-/* Copyright (C) 1998, 1999, 2000, 2001, 2002  Free Software Foundation
+/* Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -122,11 +122,26 @@ void (*_Jv_JVMPI_Notify_THREAD_END) (JVMPI_Event *event);
 #endif
 
 
+/* Unblock a signal.  Unless we do this, the signal may only be sent
+   once.  */
+static void 
+unblock_signal (int signum)
+{
+#ifdef _POSIX_VERSION
+  sigset_t sigs;
+
+  sigemptyset (&sigs);
+  sigaddset (&sigs, signum);
+  sigprocmask (SIG_UNBLOCK, &sigs, NULL);
+#endif
+}
+
 #ifdef HANDLE_SEGV
 SIGNAL_HANDLER (catch_segv)
 {
   java::lang::NullPointerException *nullp 
     = new java::lang::NullPointerException;
+  unblock_signal (SIGSEGV);
   MAKE_THROW_FRAME (nullp);
   throw nullp;
 }
@@ -137,6 +152,7 @@ SIGNAL_HANDLER (catch_fpe)
 {
   java::lang::ArithmeticException *arithexception 
     = new java::lang::ArithmeticException (JvNewStringLatin1 ("/ by zero"));
+  unblock_signal (SIGFPE);
 #ifdef HANDLE_DIVIDE_OVERFLOW
   HANDLE_DIVIDE_OVERFLOW;
 #else
@@ -1136,4 +1152,22 @@ _Jv_remJ (jlong dividend, jlong divisor)
     return 0;
 
   return dividend % divisor;
+}
+
+
+
+// Return true if SELF_KLASS can access a field or method in
+// OTHER_KLASS.  The field or method's access flags are specified in
+// FLAGS.
+jboolean
+_Jv_CheckAccess (jclass self_klass, jclass other_klass, jint flags)
+{
+  using namespace java::lang::reflect;
+  return ((self_klass == other_klass)
+	  || ((flags & Modifier::PUBLIC) != 0)
+	  || (((flags & Modifier::PROTECTED) != 0)
+	      && other_klass->isAssignableFrom (self_klass))
+	  || (((flags & Modifier::PRIVATE) == 0)
+	      && _Jv_ClassNameSamePackage (self_klass->name,
+					   other_klass->name)));
 }

@@ -31,6 +31,7 @@ Boston, MA 02111-1307, USA.  */
 #include "c-pragma.h"
 #include "ggc.h"
 #include "langhooks.h"
+#include "hosthooks.h"
 
 struct c_pch_validity
 {
@@ -60,14 +61,11 @@ get_ident(void)
 {
   static char result[IDENT_LENGTH];
   static const char template[IDENT_LENGTH] = "gpch.011";
+  static const char c_language_chars[] = "Co+O";
   
   memcpy (result, template, IDENT_LENGTH);
-  if (c_language == clk_c)
-    result[4] = flag_objc ? 'o' : 'C';
-  else if (c_language == clk_cplusplus)
-    result[4] = flag_objc ? 'O' : '+';
-  else
-    abort ();
+  result[4] = c_language_chars[c_language];
+
   return result;
 }
 
@@ -146,6 +144,8 @@ c_common_write_pch (void)
       written += size;
     }
   free (buf);
+  /* asm_out_file can be written afterwards, so must be flushed first.  */
+  fflush (asm_out_file);
 
   gt_pch_save (pch_outfile);
   cpp_write_pch_state (parse_in, pch_outfile);
@@ -164,9 +164,6 @@ c_common_valid_pch (cpp_reader *pfile, const char *name, int fd)
   char ident[IDENT_LENGTH];
   const char *pch_ident;
   struct c_pch_validity v;
-
-  if (! allow_pch)
-    return 2;
 
   /* Perform a quick test of whether this is a valid
      precompiled header for the current language.  */
@@ -245,7 +242,7 @@ c_common_read_pch (cpp_reader *pfile, const char *name,
       return;
     }
 
-  allow_pch = 0;
+  cpp_get_callbacks (parse_in)->valid_pch = NULL;
 
   if (fread (&h, sizeof (h), 1, f) != 1)
     {
@@ -274,4 +271,16 @@ c_common_read_pch (cpp_reader *pfile, const char *name,
     return;
 
   fclose (f);
+}
+
+/* Indicate that no more PCH files should be read.  */
+
+void
+c_common_no_more_pch (void)
+{
+  if (cpp_get_callbacks (parse_in)->valid_pch)
+    {
+      cpp_get_callbacks (parse_in)->valid_pch = NULL;
+      host_hooks.gt_pch_use_address (NULL, 0);
+    }
 }

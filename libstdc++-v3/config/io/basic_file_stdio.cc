@@ -36,26 +36,30 @@
 #include <unistd.h>
 #include <errno.h>
 
-#ifdef _GLIBCPP_HAVE_SYS_IOCTL_H
+#ifdef _GLIBCXX_HAVE_SYS_IOCTL_H
 #define BSD_COMP /* Get FIONREAD on Solaris2. */
 #include <sys/ioctl.h>
 #endif
 
 // Pick up FIONREAD on Solaris 2.5.
-#ifdef _GLIBCPP_HAVE_SYS_FILIO_H
+#ifdef _GLIBCXX_HAVE_SYS_FILIO_H
 #include <sys/filio.h>
 #endif
 
-#ifdef _GLIBCPP_HAVE_POLL
+#ifdef _GLIBCXX_HAVE_POLL
 #include <poll.h>
 #endif
 
-#if defined(_GLIBCPP_HAVE_S_ISREG) || defined(_GLIBCPP_HAVE_S_IFREG)
+#ifdef _GLIBCXX_HAVE_SYS_UIO_H
+#include <sys/uio.h>
+#endif
+
+#if defined(_GLIBCXX_HAVE_S_ISREG) || defined(_GLIBCXX_HAVE_S_IFREG)
 # include <sys/stat.h>
-# ifdef _GLIBCPP_HAVE_S_ISREG
-#  define _GLIBCPP_ISREG(x) S_ISREG(x)
+# ifdef _GLIBCXX_HAVE_S_ISREG
+#  define _GLIBCXX_ISREG(x) S_ISREG(x)
 # else
-#  define _GLIBCPP_ISREG(x) (((x) & S_IFMT) == S_IFREG)
+#  define _GLIBCXX_ISREG(x) (((x) & S_IFMT) == S_IFREG)
 # endif
 #endif
 
@@ -224,16 +228,50 @@ namespace std
     while (__ret == -1L && errno == EINTR);
     return __ret;
   }
-  
-  streamoff
+
+  streamsize 
+  __basic_file<char>::xsputn_2(const char* __s1, streamsize __n1,
+			       const char* __s2, streamsize __n2)
+  {
+    streamsize __ret = 0;
+#ifdef _GLIBCXX_HAVE_WRITEV
+    struct iovec __iov[2];
+    __iov[0].iov_base = const_cast<char*>(__s1);
+    __iov[0].iov_len = __n1;
+    __iov[1].iov_base = const_cast<char*>(__s2);
+    __iov[1].iov_len = __n2;
+
+    do
+      __ret = writev(this->fd(), __iov, 2);
+    while (__ret == -1L && errno == EINTR);
+#else
+    if (__n1)
+      do
+	__ret = write(this->fd(), __s1, __n1);
+      while (__ret == -1L && errno == EINTR);
+
+    if (__ret == __n1)
+      {
+	do
+	  __ret = write(this->fd(), __s2, __n2);
+	while (__ret == -1L && errno == EINTR);
+	
+	if (__ret != -1L)
+	  __ret += __n1;
+      }
+#endif
+    return __ret;
+  }
+
+  streampos
   __basic_file<char>::seekoff(streamoff __off, ios_base::seekdir __way, 
 			      ios_base::openmode /*__mode*/)
   { return lseek(this->fd(), __off, __way); }
 
-  streamoff
-  __basic_file<char>::seekpos(streamoff __pos, ios_base::openmode /*__mode*/)
+  streampos
+  __basic_file<char>::seekpos(streampos __pos, ios_base::openmode /*__mode*/)
   { return lseek(this->fd(), __pos, ios_base::beg); }
-  
+
   int 
   __basic_file<char>::sync() 
   { return fflush(_M_cfile); }
@@ -249,7 +287,7 @@ namespace std
       return __num; 
 #endif    
 
-#ifdef _GLIBCPP_HAVE_POLL
+#ifdef _GLIBCXX_HAVE_POLL
     // Cheap test.
     struct pollfd __pfd[1];
     __pfd[0].fd = this->fd();
@@ -258,11 +296,11 @@ namespace std
       return 0;
 #endif   
 
-#if defined(_GLIBCPP_HAVE_S_ISREG) || defined(_GLIBCPP_HAVE_S_IFREG)
+#if defined(_GLIBCXX_HAVE_S_ISREG) || defined(_GLIBCXX_HAVE_S_IFREG)
     // Regular files.
     struct stat __buffer;
     int __ret = fstat(this->fd(), &__buffer);
-    if (!__ret && _GLIBCPP_ISREG(__buffer.st_mode))
+    if (!__ret && _GLIBCXX_ISREG(__buffer.st_mode))
 	return __buffer.st_size - lseek(this->fd(), 0, ios_base::cur);
 #endif
     return 0;

@@ -169,7 +169,7 @@ extern int target_flags;
    address goes in a global register.  When addressing, it's more like
    "base address plus offset", with the offset being 0..255 from the base,
    which itself can be a symbol plus an offset.  The effect is like having
-   a constant pool in global registers, code offseting from those
+   a constant pool in global registers, code offsetting from those
    registers (automatically causing a request for a suitable constant base
    address register) without having to know the specific register or the
    specific offset.  The setback is that there's a limited number of
@@ -738,7 +738,7 @@ enum reg_class
    replace with a big comment.
    The definition needs to match or be a subset of
    FUNCTION_ARG_PASS_BY_REFERENCE, since not all callers check that before
-   usage.  Watch lots of C++ test-cases fail if set to 1, for example
+   usage.  Watch lots of C++ testcases fail if set to 1, for example
    g++.dg/init/byval1.C.  */
 #define FUNCTION_ARG_CALLEE_COPIES(CUM, MODE, TYPE, NAMED) \
  mmix_function_arg_pass_by_reference (&(CUM), MODE, TYPE, NAMED)
@@ -871,7 +871,7 @@ typedef struct { int regs; int lib; } CUMULATIVE_ARGS;
    comparisons with -1 to LT and GE respectively, and LT, LTU, GE or GEU
    comparisons with 256 to 255 and LE, LEU, GT and GTU has been
    ineffective; the code path for performing the changes did not trig for
-   neither the GCC test-suite nor ghostscript-6.52 nor Knuth's mmix.tar.gz
+   neither the GCC testsuite nor ghostscript-6.52 nor Knuth's mmix.tar.gz
    itself (core GCC functionality supposedly handling it) with sources
    from 2002-06-06.  */
 

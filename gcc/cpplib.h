@@ -39,10 +39,9 @@ typedef struct cpp_string cpp_string;
 typedef struct cpp_hashnode cpp_hashnode;
 typedef struct cpp_macro cpp_macro;
 typedef struct cpp_callbacks cpp_callbacks;
-typedef struct cpp_path cpp_path;
+typedef struct cpp_dir cpp_dir;
 
 struct answer;
-struct file_name_map_list;
 
 /* The first three groups, apart from '=', can appear in preprocessor
    expressions (+= and -= are used to indicate unary + and - resp.).
@@ -124,6 +123,7 @@ struct file_name_map_list;
   OP(CPP_ATSIGN,	"@")  /* used in Objective-C */ \
 \
   TK(CPP_NAME,		SPELL_IDENT)	/* word */			\
+  TK(CPP_AT_NAME,       SPELL_IDENT)    /* @word - Objective-C */       \
   TK(CPP_NUMBER,	SPELL_LITERAL)	/* 34_be+ta  */			\
 \
   TK(CPP_CHAR,		SPELL_LITERAL)	/* 'char' */			\
@@ -132,6 +132,7 @@ struct file_name_map_list;
 \
   TK(CPP_STRING,	SPELL_LITERAL)	/* "string" */			\
   TK(CPP_WSTRING,	SPELL_LITERAL)	/* L"string" */			\
+  TK(CPP_OBJC_STRING,   SPELL_LITERAL)  /* @"string" - Objective-C */	\
   TK(CPP_HEADER_NAME,	SPELL_LITERAL)	/* <stdio.h> in #include */	\
 \
   TK(CPP_COMMENT,	SPELL_LITERAL)	/* Only if output comments.  */ \
@@ -173,7 +174,7 @@ struct cpp_string
    occupy 16 bytes on 32-bit hosts and 24 bytes on 64-bit hosts.  */
 struct cpp_token
 {
-  unsigned int line;		/* Logical line of first char of token.  */
+  fileline line;		/* Logical line of first char of token.  */
   unsigned short col;		/* Column of first char of token.  */
   ENUM_BITFIELD(cpp_ttype) type : CHAR_BIT;  /* token type */
   unsigned char flags;		/* flags - see above */
@@ -189,18 +190,18 @@ struct cpp_token
 
 /* A type wide enough to hold any multibyte source character.
    cpplib's character constant interpreter requires an unsigned type.
-   Also, a typedef for the signed equivalent.  */
-#ifndef MAX_WCHAR_TYPE_SIZE
-# define MAX_WCHAR_TYPE_SIZE WCHAR_TYPE_SIZE
-#endif
-#if CHAR_BIT * SIZEOF_INT >= MAX_WCHAR_TYPE_SIZE
+   Also, a typedef for the signed equivalent.
+   The width of this type is capped at 32 bits; there do exist targets
+   where wchar_t is 64 bits, but only in a non-default mode, and there
+   would be no meaningful interpretation for a wchar_t value greater
+   than 2^32 anyway -- the widest wide-character encoding around is
+   ISO 10646, which stops at 2^31.  */
+#if CHAR_BIT * SIZEOF_INT >= 32
 # define CPPCHAR_SIGNED_T int
+#elif CHAR_BIT * SIZEOF_LONG >= 32
+# define CPPCHAR_SIGNED_T long
 #else
-# if CHAR_BIT * SIZEOF_LONG >= MAX_WCHAR_TYPE_SIZE || !HAVE_LONG_LONG
-#  define CPPCHAR_SIGNED_T long
-# else
-#  define CPPCHAR_SIGNED_T long long
-# endif
+# error "Cannot find a least-32-bit signed integer type"
 #endif
 typedef unsigned CPPCHAR_SIGNED_T cppchar_t;
 typedef CPPCHAR_SIGNED_T cppchar_signed_t;
@@ -211,10 +212,6 @@ struct cpp_options
 {
   /* Characters between tab stops.  */
   unsigned int tabstop;
-
-  /* Map between header names and file names, used only on DOS where
-     file names are limited in length.  */
-  struct file_name_map_list *map_list;
 
   /* The language we're preprocessing.  */
   enum c_lang lang;
@@ -269,9 +266,6 @@ struct cpp_options
 
   /* Nonzero means warn if there are any trigraphs.  */
   unsigned char warn_trigraphs;
-
-  /* Nonzero means warn if #import is used.  */
-  unsigned char warn_import;
 
   /* Nonzero means warn about multicharacter charconsts.  */
   unsigned char warn_multichar;
@@ -332,6 +326,12 @@ struct cpp_options
   /* True for traditional preprocessing.  */
   unsigned char traditional;
 
+  /* Holds the name of the target (execution) character set.  */
+  const char *narrow_charset;
+
+  /* Holds the name of the target wide character set.  */
+  const char *wide_charset;
+
   /* True to warn about precompiled header files we couldn't use.  */
   bool warn_invalid_pch;
 
@@ -364,11 +364,17 @@ struct cpp_options
   /* True means chars (wide chars) are unsigned.  */
   bool unsigned_char, unsigned_wchar;
 
-  /* True if target is EBCDIC.  */
-  bool EBCDIC;
+  /* True if the most significant byte in a word has the lowest
+     address in memory.  */
+  bool bytes_big_endian;
 
   /* Nonzero means __STDC__ should have the value 0 in system headers.  */
   unsigned char stdc_0_in_system_headers;
+
+  /* Nonzero means output a directory line marker right after the
+     initial file name line marker, and before a duplicate initial
+     line marker.  */
+  bool working_directory;
 };
 
 /* Call backs to cpplib client.  */
@@ -377,6 +383,7 @@ struct cpp_callbacks
   /* Called when a new line of preprocessed output is started.  */
   void (*line_change) (cpp_reader *, const cpp_token *, int);
   void (*file_change) (cpp_reader *, const struct line_map *);
+  void (*dir_change) (cpp_reader *, const char *);
   void (*include) (cpp_reader *, unsigned int, const unsigned char *,
 		   const char *, int);
   void (*define) (cpp_reader *, unsigned int, cpp_hashnode *);
@@ -388,12 +395,12 @@ struct cpp_callbacks
 };
 
 /* Chain of directories to look for include files in.  */
-struct cpp_path
+struct cpp_dir
 {
   /* NULL-terminated singly-linked list.  */
-  struct cpp_path *next;
+  struct cpp_dir *next;
 
-  /* NAME need not be NUL-terminated once inside cpplib.  */
+  /* NAME of the directory, NUL-terminated.  */
   char *name;
   unsigned int len;
 
@@ -401,9 +408,9 @@ struct cpp_path
      "C" guards for C++.  */
   unsigned char sysp;
 
-  /* Mapping of file names for this directory for MS-DOS and
-     related platforms.  */
-  struct file_name_map *name_map;
+  /* Mapping of file names for this directory for MS-DOS and related
+     platforms.  A NULL-terminated array of (from, to) pairs.  */
+  const char **name_map;
     
   /* The C front end uses these to recognize duplicated
      directories in the search path.  */
@@ -507,7 +514,7 @@ extern void cpp_set_lang (cpp_reader *, enum c_lang);
 extern void cpp_add_dependency_target (cpp_reader *, const char *, int);
 
 /* Set the include paths.  */
-extern void cpp_set_include_chains (cpp_reader *, cpp_path *, cpp_path *, int);
+extern void cpp_set_include_chains (cpp_reader *, cpp_dir *, cpp_dir *, int);
 
 /* Call these to get pointers to the options and callback structures
    for a given reader.  These pointers are good until you call
@@ -528,6 +535,13 @@ extern const char *cpp_read_main_file (cpp_reader *, const char *);
 
 /* Set up built-ins like __FILE__.  */
 extern void cpp_init_builtins (cpp_reader *, int);
+
+/* This is called after options have been parsed, and partially
+   processed.  */
+extern void cpp_post_options (cpp_reader *);
+
+/* Set up translation to the target character set.  */
+extern void cpp_init_iconv (cpp_reader *);
 
 /* Call this to finish preprocessing.  If you requested dependency
    generation, pass an open stream to write the information to,
@@ -560,6 +574,10 @@ extern void _cpp_backup_tokens (cpp_reader *, unsigned int);
 /* Evaluate a CPP_CHAR or CPP_WCHAR token.  */
 extern cppchar_t cpp_interpret_charconst (cpp_reader *, const cpp_token *,
 					  unsigned int *, int *);
+/* Evaluate a vector of CPP_STRING or CPP_WSTRING tokens.  */
+extern bool cpp_interpret_string (cpp_reader *,
+				  const cpp_string *, size_t,
+				  cpp_string *, bool);
 
 /* Used to register macros and assertions, perhaps from the command line.
    The text is the same as the command line argument.  */
@@ -567,6 +585,9 @@ extern void cpp_define (cpp_reader *, const char *);
 extern void cpp_assert (cpp_reader *, const char *);
 extern void cpp_undef (cpp_reader *, const char *);
 extern void cpp_unassert (cpp_reader *, const char *);
+
+/* Undefine all macros and assertions.  */
+extern void cpp_undef_all (cpp_reader *);
 
 extern cpp_buffer *cpp_push_buffer (cpp_reader *, const unsigned char *,
 				    size_t, int, int);
@@ -659,8 +680,8 @@ extern void cpp_errno (cpp_reader *, int, const char *msgid);
 /* Same as cpp_error, except additionally specifies a position as a
    (translation unit) physical line and physical column.  If the line is
    zero, then no location is printed.  */
-extern void cpp_error_with_line (cpp_reader *, int, unsigned, unsigned, const char *msgid, ...)
-  ATTRIBUTE_PRINTF_5;
+extern void cpp_error_with_line (cpp_reader *, int, fileline, unsigned,
+				 const char *msgid, ...) ATTRIBUTE_PRINTF_5;
 
 /* In cpplex.c */
 extern int cpp_ideq (const cpp_token *, const char *);
@@ -692,9 +713,8 @@ extern unsigned char *cpp_quote_string (unsigned char *, const unsigned char *,
 					unsigned int);
 
 /* In cppfiles.c */
-extern int cpp_included (cpp_reader *, const char *);
+extern bool cpp_included (cpp_reader *, const char *);
 extern void cpp_make_system_header (cpp_reader *, int, int);
-extern void cpp_simplify_path (char *);
 extern bool cpp_push_include (cpp_reader *, const char *);
 extern void cpp_change_file (cpp_reader *, enum lc_reason, const char *);
 

@@ -32,6 +32,9 @@
 // ISO C++ 14882: 27.6.2  Output streams
 //
 
+#ifndef _ISTREAM_TCC
+#define _ISTREAM_TCC 1
+
 #pragma GCC system_header
 
 #include <locale>
@@ -53,13 +56,13 @@ namespace std
 	      __streambuf_type* __sb = __in.rdbuf();
 	      __int_type __c = __sb->sgetc();
 
-	      __check_facet(__in._M_ctype);
+	      const __ctype_type& __ct = __check_facet(__in._M_ctype);
 	      while (!traits_type::eq_int_type(__c, __eof)
-		     && __in._M_ctype->is(ctype_base::space, 
-					  traits_type::to_char_type(__c)))
+		     && __ct.is(ctype_base::space, 
+				traits_type::to_char_type(__c)))
 		  __c = __sb->snextc();
 
-#ifdef _GLIBCPP_RESOLVE_LIB_DEFECTS
+#ifdef _GLIBCXX_RESOLVE_LIB_DEFECTS
 //195.  Should basic_istream::sentry's constructor ever set eofbit? 
 	      if (traits_type::eq_int_type(__c, __eof))
 		__in.setstate(ios_base::eofbit);
@@ -114,7 +117,8 @@ namespace std
 	  try 
 	    {
 	      ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
-	      __check_facet(this->_M_num_get).get(*this, 0, *this, __err, __n);
+	      const __num_get_type& __ng = __check_facet(this->_M_num_get);
+	      __ng.get(*this, 0, *this, __err, __n);
 	      this->setstate(__err);
 	    }
 	  catch(...)
@@ -139,10 +143,11 @@ namespace std
 	{
 	  try 
 	    {
-	      ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
 	      long __l;
-	      __check_facet(this->_M_num_get).get(*this, 0, *this, __err, __l);
-#ifdef _GLIBCPP_RESOLVE_LIB_DEFECTS
+	      ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
+	      const __num_get_type& __ng = __check_facet(this->_M_num_get);
+	      __ng.get(*this, 0, *this, __err, __l);
+#ifdef _GLIBCXX_RESOLVE_LIB_DEFECTS
 	      // 118. basic_istream uses nonexistent num_get member functions.
 	      if (!(__err & ios_base::failbit)
 		  && (numeric_limits<short>::min() <= __l 
@@ -176,7 +181,8 @@ namespace std
 	  try 
 	    {
 	      ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
-	      __check_facet(this->_M_num_get).get(*this, 0, *this, __err, __n);
+	      const __num_get_type& __ng = __check_facet(this->_M_num_get);
+	      __ng.get(*this, 0, *this, __err, __n);
 	      this->setstate(__err);
 	    }
 	  catch(...)
@@ -201,10 +207,11 @@ namespace std
 	{
 	  try 
 	    {
-	      ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
 	      long __l;
-	      __check_facet(this->_M_num_get).get(*this, 0, *this, __err, __l);
-#ifdef _GLIBCPP_RESOLVE_LIB_DEFECTS
+	      ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
+	      const __num_get_type& __ng = __check_facet(this->_M_num_get);
+	      __ng.get(*this, 0, *this, __err, __l);
+#ifdef _GLIBCXX_RESOLVE_LIB_DEFECTS
 	      // 118. basic_istream uses nonexistent num_get member functions.
 	      if (!(__err & ios_base::failbit)
 		  && (numeric_limits<int>::min() <= __l 
@@ -238,7 +245,8 @@ namespace std
 	  try 
 	    {
 	      ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
-	      __check_facet(this->_M_num_get).get(*this, 0, *this, __err, __n);
+	      const __num_get_type& __ng = __check_facet(this->_M_num_get);
+	      __ng.get(*this, 0, *this, __err, __n);
 	      this->setstate(__err);
 	    }
 	  catch(...)
@@ -264,7 +272,8 @@ namespace std
 	  try 
 	    {
 	      ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
-	      __check_facet(this->_M_num_get).get(*this, 0, *this, __err, __n);
+	      const __num_get_type& __ng = __check_facet(this->_M_num_get);
+	      __ng.get(*this, 0, *this, __err, __n);
 	      this->setstate(__err);
 	    }
 	  catch(...)
@@ -290,7 +299,8 @@ namespace std
 	  try 
 	    {
 	      ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
-	      __check_facet(this->_M_num_get).get(*this, 0, *this, __err, __n);
+	      const __num_get_type& __ng = __check_facet(this->_M_num_get);
+	      __ng.get(*this, 0, *this, __err, __n);
 	      this->setstate(__err);
 	    }
 	  catch(...)
@@ -305,7 +315,7 @@ namespace std
       return *this;
     }
 
-#ifdef _GLIBCPP_USE_LONG_LONG
+#ifdef _GLIBCXX_USE_LONG_LONG
   template<typename _CharT, typename _Traits>
     basic_istream<_CharT, _Traits>& 
     basic_istream<_CharT, _Traits>::
@@ -317,7 +327,8 @@ namespace std
 	  try 
 	    {
 	      ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
-	      __check_facet(this->_M_num_get).get(*this, 0, *this, __err, __n);
+	      const __num_get_type& __ng = __check_facet(this->_M_num_get);
+	      __ng.get(*this, 0, *this, __err, __n);
 	      this->setstate(__err);
 	    }
 	  catch(...)
@@ -343,7 +354,8 @@ namespace std
 	  try 
 	    {
 	      ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
-	      __check_facet(this->_M_num_get).get(*this, 0, *this, __err, __n);
+	      const __num_get_type& __ng = __check_facet(this->_M_num_get);
+	      __ng.get(*this, 0, *this, __err, __n);
 	      this->setstate(__err);
 	    }
 	  catch(...)
@@ -370,7 +382,8 @@ namespace std
 	  try 
 	    {
 	      ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
-	      __check_facet(this->_M_num_get).get(*this, 0, *this, __err, __n);
+	      const __num_get_type& __ng = __check_facet(this->_M_num_get);
+	      __ng.get(*this, 0, *this, __err, __n);
 	      this->setstate(__err);
 	    }
 	  catch(...)
@@ -396,7 +409,8 @@ namespace std
 	  try 
 	    {
 	      ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
-	      __check_facet(this->_M_num_get).get(*this, 0, *this, __err, __n);
+	      const __num_get_type& __ng = __check_facet(this->_M_num_get);
+	      __ng.get(*this, 0, *this, __err, __n);
 	      this->setstate(__err);
 	    }
 	  catch(...)
@@ -422,7 +436,8 @@ namespace std
 	  try 
 	    {
 	      ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
-	      __check_facet(this->_M_num_get).get(*this, 0, *this, __err, __n);
+	      const __num_get_type& __ng = __check_facet(this->_M_num_get);
+	      __ng.get(*this, 0, *this, __err, __n);
 	      this->setstate(__err);
 	    }
 	  catch(...)
@@ -448,7 +463,8 @@ namespace std
 	  try 
 	    {
 	      ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
-	      __check_facet(this->_M_num_get).get(*this, 0, *this, __err, __n);
+	      const __num_get_type& __ng = __check_facet(this->_M_num_get);
+	      __ng.get(*this, 0, *this, __err, __n);
 	      this->setstate(__err);
 	    }
 	  catch(...)
@@ -828,7 +844,7 @@ namespace std
     basic_istream<_CharT, _Traits>::
     putback(char_type __c)
     {
-#ifdef _GLIBCPP_RESOLVE_LIB_DEFECTS
+#ifdef _GLIBCXX_RESOLVE_LIB_DEFECTS
 // 60. What is a formatted input function?
       _M_gcount = 0;
 #endif
@@ -862,7 +878,7 @@ namespace std
     basic_istream<_CharT, _Traits>::
     unget(void)
     {
-#ifdef _GLIBCPP_RESOLVE_LIB_DEFECTS
+#ifdef _GLIBCXX_RESOLVE_LIB_DEFECTS
 // 60. What is a formatted input function?
       _M_gcount = 0;
 #endif
@@ -945,7 +961,7 @@ namespace std
       // DR60.  Do not change _M_gcount.
       if (!this->fail())
 	{
-#ifdef _GLIBCPP_RESOLVE_LIB_DEFECTS
+#ifdef _GLIBCXX_RESOLVE_LIB_DEFECTS
 // 136.  seekp, seekg setting wrong streams?
 	  pos_type __err = this->rdbuf()->pubseekpos(__pos, ios_base::in);
 
@@ -965,7 +981,7 @@ namespace std
       // DR60.  Do not change _M_gcount.
       if (!this->fail())
 	{
-#ifdef _GLIBCPP_RESOLVE_LIB_DEFECTS
+#ifdef _GLIBCXX_RESOLVE_LIB_DEFECTS
 // 136.  seekp, seekg setting wrong streams?
 	  pos_type __err = this->rdbuf()->pubseekoff(__off, __dir, 
 						     ios_base::in);
@@ -1024,14 +1040,16 @@ namespace std
 	      if (__num <= 0)
 		__num = numeric_limits<streamsize>::max();
 	      
-	      const __ctype_type& __ctype = use_facet<__ctype_type>(__in.getloc());
+	      const __ctype_type& __ct = use_facet<__ctype_type>(__in.getloc());
+
 	      const int_type __eof = _Traits::eof();
 	      __streambuf_type* __sb = __in.rdbuf();
 	      int_type __c = __sb->sgetc();
 	      
 	      while (__extracted < __num - 1 
 		     && !_Traits::eq_int_type(__c, __eof)
-		     && !__ctype.is(ctype_base::space, _Traits::to_char_type(__c)))
+		     && !__ct.is(ctype_base::space, 
+				 _Traits::to_char_type(__c)))
 		{
 		  *__s++ = _Traits::to_char_type(__c);
 		  ++__extracted;
@@ -1040,7 +1058,7 @@ namespace std
 	      if (_Traits::eq_int_type(__c, __eof))
 		__in.setstate(ios_base::eofbit);
 
-#ifdef _GLIBCPP_RESOLVE_LIB_DEFECTS
+#ifdef _GLIBCXX_RESOLVE_LIB_DEFECTS
 //68.  Extractors for char* should store null at end
 	      *__s = char_type();
 #endif
@@ -1070,13 +1088,13 @@ namespace std
       typedef typename __istream_type::__ctype_type 	__ctype_type;
       typedef typename __istream_type::int_type 	__int_type;
 
-      const __ctype_type& __ctype = use_facet<__ctype_type>(__in.getloc());
+      const __ctype_type& __ct = use_facet<__ctype_type>(__in.getloc());
       const __int_type __eof = _Traits::eof();	      
       __streambuf_type* __sb = __in.rdbuf();
       __int_type __c = __sb->sgetc();
 
       while (!_Traits::eq_int_type(__c, __eof) 
-	     && __ctype.is(ctype_base::space, _Traits::to_char_type(__c)))
+	     && __ct.is(ctype_base::space, _Traits::to_char_type(__c)))
 	__c = __sb->snextc();
 
        if (_Traits::eq_int_type(__c, __eof))
@@ -1107,14 +1125,14 @@ namespace std
 	  __size_type __n;
 	  __n = __w > 0 ? static_cast<__size_type>(__w) : __str.max_size();
 
-	  const __ctype_type& __ctype = use_facet<__ctype_type>(__in.getloc());
+	  const __ctype_type& __ct = use_facet<__ctype_type>(__in.getloc());
 	  const __int_type __eof = _Traits::eof();
 	  __streambuf_type* __sb = __in.rdbuf();
 	  __int_type __c = __sb->sgetc();
 	  
 	  while (__extracted < __n 
 		 && !_Traits::eq_int_type(__c, __eof)
-		 && !__ctype.is(ctype_base::space, _Traits::to_char_type(__c)))
+		 && !__ct.is(ctype_base::space, _Traits::to_char_type(__c)))
 	    {
 	      __str += _Traits::to_char_type(__c);
 	      ++__extracted;
@@ -1124,7 +1142,7 @@ namespace std
 	    __in.setstate(ios_base::eofbit);
 	  __in.width(0);
 	}
-#ifdef _GLIBCPP_RESOLVE_LIB_DEFECTS
+#ifdef _GLIBCXX_RESOLVE_LIB_DEFECTS
 //211.  operator>>(istream&, string&) doesn't set failbit
       if (!__extracted)
 	__in.setstate (ios_base::failbit);
@@ -1158,8 +1176,7 @@ namespace std
 	  const __int_type __eof = _Traits::eof();
 	  __testdelim = _Traits::eq_int_type(__c, __idelim);
 
-	  while (__extracted <= __n 
-		 && !_Traits::eq_int_type(__c, __eof)
+	  while (__extracted <= __n && !_Traits::eq_int_type(__c, __eof)
 		 && !__testdelim)
 	    {
 	      __str += _Traits::to_char_type(__c);
@@ -1184,7 +1201,7 @@ namespace std
   // Inhibit implicit instantiations for required instantiations,
   // which are defined via explicit instantiations elsewhere.  
   // NB:  This syntax is a GNU extension.
-#if _GLIBCPP_EXTERN_TEMPLATE
+#if _GLIBCXX_EXTERN_TEMPLATE
   extern template class basic_istream<char>;
   extern template istream& ws(istream&);
   extern template istream& operator>>(istream&, char&);
@@ -1194,7 +1211,7 @@ namespace std
   extern template istream& operator>>(istream&, unsigned char*);
   extern template istream& operator>>(istream&, signed char*);
 
-#ifdef _GLIBCPP_USE_WCHAR_T
+#ifdef _GLIBCXX_USE_WCHAR_T
   extern template class basic_istream<wchar_t>;
   extern template wistream& ws(wistream&);
   extern template wistream& operator>>(wistream&, wchar_t&);
@@ -1202,3 +1219,5 @@ namespace std
 #endif
 #endif
 } // namespace std
+
+#endif

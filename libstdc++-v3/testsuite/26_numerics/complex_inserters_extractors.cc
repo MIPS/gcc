@@ -1,7 +1,7 @@
 // 2000-02-10
 // Petter Urkedal <petter@matfys.lth.se>
 
-// Copyright (C) 2000 Free Software Foundation
+// Copyright (C) 2000, 2003 Free Software Foundation
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -47,10 +47,6 @@ test_good(std::string str, R x, R y)
   VERIFY( flteq(z.real(), x) );
   VERIFY( flteq(z.imag(), y) );
   VERIFY( ch == '#' );
-  
-#ifdef DEBUG_ASSERT
-  assert(test);
-#endif
   return 0;
 }
 
@@ -58,12 +54,11 @@ template<typename R>
 int
 test_fail(std::string str)
 {
+  bool test = true;
   std::complex<R> z;
   std::istringstream iss(str);
   iss >> z;
-#ifdef DEBUG_ASSERT
-  assert(iss.fail() && !iss.bad());
-#endif
+  VERIFY( iss.fail() && !iss.bad() );
   return 0;
 }
 
@@ -113,8 +108,8 @@ void test02()
   bool test = true;
 
   // Construct locale with specialized facets.
-  typedef gnu_sstream::__numput_type numput_type;
-  typedef gnu_sstream::__numget_type numget_type;
+  typedef gnu_sstream::__num_put_type numput_type;
+  typedef gnu_sstream::__num_get_type numget_type;
   std::locale loc_c = std::locale::classic();
   std::locale loc_1(loc_c, new numput_type);
   std::locale loc_2(loc_1, new numget_type);

@@ -1,3 +1,181 @@
+2003-08-30  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* MAINTAINERS: Update my e-mail address.
+
+2003-08-28  Mohan Embar  <gnustuff@thisiscool.com>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
+2003-08-27  Daniel Jacobowitz  <drow@mvista.com>
+
+	* configure.in: Set RAW_CXX_FOR_TARGET if unset.
+	* configure: Regenerated.
+
+2003-08-27  Daniel Jacobowitz  <drow@mvista.com>
+
+	* config/no-executables.m4: New file.
+
+2003-08-23  Marek Michalkiewicz  <marekm@amelek.gda.pl>
+
+	* MAINTAINERS: Update my email address.
+
+2003-08-23  Phil Edwards  <pme@gcc.gnu.org>
+
+	* configure.in:  Use newline instead of semicolon when assuming
+	shell arguments in a for loop.
+	* configure:  Regenerated.
+
+2003-08-22  Jason Eckhardt  <jle@rice.edu>
+
+	* MAINTAINERS: Resurrect the i860 maintainer.
+
+2003-08-20  Geoffrey Keating  <geoffk@apple.com>
+
+	PR 8180
+	* configure.in: When testing with_libs and with_headers, treat
+	'no' as unset.  Based on a patch by Dan Kegel <dank@kegel.com>.
+	* configure: Regenerate.
+	
+	* configure.in (TOPLEVEL_CONFIGURE_ARGUMENTS): Quote properly for
+	make, shell, etc.
+	(baseargs): Likewise.
+	* configure: Regenerate.
+
+2003-08-20  Bernardo Innocenti  <bernie@develer.com>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
+2003-08-19  Geoffrey Keating  <geoffk@apple.com>
+
+	* configure.in: Disable libgcj for darwin not on powerpc.
+	* configure: Rebuild.
+
+2003-08-14  Alexandre Duret-Lutz  <adl@gnu.org>
+
+	* config-ml.in, symlink-tree: Add license.
+
+2003-08-03  Richard Stallman  <rms@gnu.org> 
+            Eben Moglen  <moglen@columbia.edu>
+
+	* README.SCO: New file.
+
+2003-08-01  Matt Kraai  <kraai@alumni.cmu.edu>
+
+	* Makefile.tpl (check, check-c++): Express dependencies using
+	dependencies rather than commands.
+	* Makefile.in: Regenerate.
+
+2003-08-01  Andrew Cagney  <cagney@redhat.com>
+
+	* configure.in (noconfigdirs): Do not add GDB when m32r-*-*.
+	* configure: Ditto.
+
+2003-07-31  Geoffrey Keating  <geoffk@apple.com>
+
+	* Makefile.tpl (libsubdir): Use gcc instead of gcc-lib.
+	* Makefile.in: Update.
+
+2003-07-30  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* configure.in: Enable libgcj for darwin.
+	* configure: Rebuild.
+
+2003-07-29  Phil Edwards  <pme@gcc.gnu.org>
+
+	* config-ml.in:  Use ac_configure_args directly instead of
+	ml_arguments.  Only set ml_norecursion if --no[-]recursion is
+	actually seen.
+
+2003-07-27  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* Makefile.tpl: Use 'mkinstalldirs' rather than 'mkdir' when
+	creating target and build subdirs to build all parent dirs as needed.
+	* Makefile.in: Rebuild.
+	* configure.in: Don't build dirs explicitly here.
+	* configure: Rebuild.
+
+2003-07-26  Paul Brook  <paul@nowt.org>
+
+	* MAINTAINERS (fortran 95): Add myself, Steven Bosscher and Toon Moene.
+
+2003-07-22  Alexandre Oliva  <aoliva@redhat.com>
+
+	* Makefile.tpl (all-make): Depend on intl.
+	* Makefile.in: Rebuilt.
+
+2003-07-20  Phil Edwards  <pme@gcc.gnu.org>
+
+	* install-sh:  Update to newer upstream versions (associated with
+	aclocal 1.7).
+	* mkinstalldirs:  Likewise.
+	* missing:  Likewise, plus $1Help2man -> $1 typo fix.
+
+2003-07-16  Andrew Pinski  <pinskia@gcc.gnu.org>
+
+	* MAINTAINERS: Move self from Bug database only accounts
+	to write-after-approval.
+
+2003-07-16  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* config.if: Remove unused libc_interface determination.
+
+2003-07-14  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* MAINTAINERS: Move self from write-after-approval to
+	build machinery (*.in).
+
+2003-07-13  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	PR bootstrap/11273
+	PR bootstrap/11408
+	* Makefile.tpl: Set INSTALL and friends using autoconf.  Remove
+	unused INSTALL_PROGRAM_ARGS.
+	* configure.in: Use AC_PROG_INSTALL.
+	* Makefile.in: Regenerate.
+	* configure: Regenerate.
+
+2003-07-13  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* MAINTAINERS: Alphabetize.
+
+2003-07-10  Alexandre Oliva  <aoliva@redhat.com>
+
+	* configure: Rebuilt.
+	2001-09-26  Alexandre Oliva  <aoliva@redhat.com>
+	* configure.in (noconfigdirs) [am33_2.0-*-linux*]: Don't build
+	newlib nor libgloss.
+	Wed May  9 10:07:19 2001  Alexandre Oliva  <aoliva@redhat.com>
+	* configure.in (am33_2.0-*-linux*): Added.
+
+2003-07-09  Bob Wilson  <bob.wilson@acm.org>
+
+	* configure.in: Add ${libgcj} to noconfigdirs for xtensa-*-* targets.
+	* configure: Regenerate.
+
+2003-07-07  Zack Weinberg  <zack@codesourcery.com>
+
+	* Makefile.tpl (configure-gcc): Depend on maybe-configure-intl.
+	* Makefile.in: Regenerate.
+
+2003-07-04  Zack Weinberg  <zack@codesourcery.com>
+
+	* Makefile.tpl (all-bootstrap): Depend on maybe-all-intl.
+	* Makefile.in: Regenerate.
+
+2003-07-04  H.J. Lu <hongjiu.lu@intel.com>
+
+	* Makefile.tpl: Replace PWD with PWD_COMMAND.
+	* Makefile.in: Regenerated.
+
+	* config-ml.in: Replace PWD with PWD_COMMAND.
+
+2003-07-04  Zack Weinberg  <zack@codesourcery.com>
+
+	* intl: New directory; see intl/ChangeLog for details.
+	* ABOUT-NLS, config.rpath: Import from gettext 0.12.1.
+	* Makefile.tpl: all-gcc depends on maybe-all-intl.
+	* Makefile.in: Regenerate.
+
 2003-06-27  Nathanael Nerode  <neroden@gcc.gnu.org>
 
 	* configure.in: Clean up config-lang.in handling.  Delete
@@ -33,7 +211,7 @@
 
 	* configure.in: Update testsuite_flags to new location.
 	* configure. Regenerate.
-	
+
 2003-06-18  Nathanael Nerode  <neroden@gcc.gnu.org>
 
 	* Makefile.tpl: Remove BUILD_CC stuff.
@@ -48,7 +226,7 @@
 	* MAINTAINERS (Write After Approval): Add myself.
 
 2003-06-14  H.J. Lu <hongjiu.lu@intel.com>
- 
+
 	* config.guess: Update to 2003-06-12 version.
 	* config.sub: Update to 2003-06-13 version.
 
@@ -128,7 +306,7 @@
 	* configure: Regenerate.
 
 2003-05-21  DJ Delorie  <dj@redhat.com>
-	
+
 	* Makefile.tpl (configure-target-libiberty): Depend only on gcc, not
 	newlib or libgloss.
 	* Makefile.in: Regenerate.
@@ -145,7 +323,7 @@
 2003-05-19  Nathanael Nerode  <neroden@gcc.gnu.org>
 
 	* configure.in: Switch more things to use maybe dependencies.
-	* Makefile.tpl: Switch more things to use maybe dependencies.  
+	* Makefile.tpl: Switch more things to use maybe dependencies.
 	Factor out common code from autogen IF statements.
 	* configure: Regenerate.
 	* Makefile.in: Regenerate.
@@ -199,8 +377,8 @@
 
 2003-05-02  Chris Demetriou  <cgd@broadcom.com>
 
-        * Makefile.tpl: Require "makeinfo" from texinfo 4.2 or later.
-        * Makefile.in: Regenerate.
+	* Makefile.tpl: Require "makeinfo" from texinfo 4.2 or later.
+	* Makefile.in: Regenerate.
 
 2003-05-02  Wolfgang Bangerth  <bangerth@dealii.org>
 

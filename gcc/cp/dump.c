@@ -214,7 +214,7 @@ cp_dump_tree (void* dump_info, tree t)
   if (DECL_P (t))
     {
       if (DECL_LANG_SPECIFIC (t) && DECL_LANGUAGE (t) != lang_cplusplus)
-	dump_string (di, language_to_string (DECL_LANGUAGE (t), 0));
+	dump_string (di, language_to_string (DECL_LANGUAGE (t)));
     }
 
   switch (code)
@@ -237,18 +237,13 @@ cp_dump_tree (void* dump_info, tree t)
 	}
       break;
 
-    case POINTER_TYPE:
-      if (TYPE_PTRMEM_P (t))
-	{
-	  dump_string (di, "ptrmem");
-	  dump_child ("ptd", TYPE_PTRMEM_POINTED_TO_TYPE (t));
-	  dump_child ("cls", TYPE_PTRMEM_CLASS_TYPE (t));
-	  return true;
-	}
-      break;
+    case OFFSET_TYPE:
+      dump_string (di, "ptrmem");
+      dump_child ("ptd", TYPE_PTRMEM_POINTED_TO_TYPE (t));
+      dump_child ("cls", TYPE_PTRMEM_CLASS_TYPE (t));
+      return true;
 
     case RECORD_TYPE:
-    case UNION_TYPE:
       if (TYPE_PTRMEMFUNC_P (t))
 	{
 	  dump_string (di, "ptrmem");
@@ -256,7 +251,9 @@ cp_dump_tree (void* dump_info, tree t)
 	  dump_child ("cls", TYPE_PTRMEM_CLASS_TYPE (t));
 	  return true;
 	}
+      /* Fall through.  */
 
+    case UNION_TYPE:
       /* Is it a type used as a base? */
       if (TYPE_CONTEXT (t) && TREE_CODE (TYPE_CONTEXT (t)) == TREE_CODE (t)
 	  && CLASSTYPE_AS_BASE (TYPE_CONTEXT (t)) == t)

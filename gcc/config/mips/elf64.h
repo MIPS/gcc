@@ -20,11 +20,6 @@ along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
-#undef  OBJECT_FORMAT_COFF
-#undef  EXTENDED_COFF
-
-#undef  SDB_DEBUGGING_INFO
-#define DBX_DEBUGGING_INFO 1
 #define DWARF2_DEBUGGING_INFO 1
 
 #undef  PREFERRED_DEBUGGING_TYPE
@@ -64,49 +59,11 @@ Boston, MA 02111-1307, USA.  */
 #define TYPE_ASM_OP	"\t.type\t"
 #define SIZE_ASM_OP	"\t.size\t"
 
-/* These macros generate the special .type and .size directives which
-   are used to set the corresponding fields of the linker symbol table
-   entries in an ELF object file under SVR4.  These macros also output
-   the starting labels for the relevant functions/objects.  */
-
-/* Write the extra assembler code needed to declare an object properly.  */
-
 #undef ASM_DECLARE_OBJECT_NAME
-#define ASM_DECLARE_OBJECT_NAME(FILE, NAME, DECL)			\
-  do {									\
-    HOST_WIDE_INT size;							\
-    ASM_OUTPUT_TYPE_DIRECTIVE (FILE, NAME, "object");			\
-    size_directive_output = 0;						\
-    if (!flag_inhibit_size_directive && DECL_SIZE (DECL))		\
-      {									\
-	size_directive_output = 1;					\
-	size = int_size_in_bytes (TREE_TYPE (DECL));			\
-	ASM_OUTPUT_SIZE_DIRECTIVE (FILE, NAME, size);			\
-      }									\
-    mips_declare_object (FILE, NAME, "", ":\n", 0);			\
-  } while (0)
-
-/* Output the size directive for a decl in rest_of_decl_compilation
-   in the case where we did not do so before the initializer.
-   Once we find the error_mark_node, we know that the value of
-   size_directive_output was set
-   by ASM_DECLARE_OBJECT_NAME when it was run for the same decl.  */
+#define ASM_DECLARE_OBJECT_NAME mips_declare_object_name
 
 #undef ASM_FINISH_DECLARE_OBJECT
-#define ASM_FINISH_DECLARE_OBJECT(FILE, DECL, TOP_LEVEL, AT_END)	 \
-do {									 \
-     const char *name = XSTR (XEXP (DECL_RTL (DECL), 0), 0);		 \
-     HOST_WIDE_INT size;						 \
-     if (!flag_inhibit_size_directive && DECL_SIZE (DECL)		 \
-         && ! AT_END && TOP_LEVEL					 \
-	 && DECL_INITIAL (DECL) == error_mark_node			 \
-	 && !size_directive_output)					 \
-       {								 \
-	 size_directive_output = 1;					 \
-	 size = int_size_in_bytes (TREE_TYPE (DECL));			 \
-	 ASM_OUTPUT_SIZE_DIRECTIVE (FILE, name, size);			 \
-       }								 \
-   } while (0)
+#define ASM_FINISH_DECLARE_OBJECT mips_finish_declare_object
 
 #define ASM_OUTPUT_DEF(FILE,LABEL1,LABEL2)                            \
  do { fputc ( '\t', FILE);                                            \
@@ -141,27 +98,6 @@ do {									 \
  } while (0)
 
 #define MAKE_DECL_ONE_ONLY(DECL) (DECL_WEAK (DECL) = 1)
-
-#define TARGET_ASM_UNIQUE_SECTION mips_unique_section
-
-/* A list of other sections which the compiler might be "in" at any
-   given time.  */
-#undef EXTRA_SECTIONS
-#define EXTRA_SECTIONS in_sdata
-
-#undef EXTRA_SECTION_FUNCTIONS
-#define EXTRA_SECTION_FUNCTIONS                                         \
-  SECTION_FUNCTION_TEMPLATE(sdata_section, in_sdata, SDATA_SECTION_ASM_OP)
-
-#define SECTION_FUNCTION_TEMPLATE(FN, ENUM, OP)                               \
-void FN ()                                                            \
-{                                                                     \
-  if (in_section != ENUM)                                             \
-    {                                                                 \
-      fprintf (asm_out_file, "%s\n", OP);                             \
-      in_section = ENUM;                                              \
-    }                                                                 \
-}
 
 /* On elf, we *do* have support for the .init and .fini sections, and we
    can put stuff in there to be executed before and after `main'.  We let

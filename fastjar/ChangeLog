@@ -1,3 +1,24 @@
+2003-08-13  Matthias Klose  <doko@debian.org>
+
+	* fastjar.texi: License manual under the GPL.
+	* Makefile.am: Remove reference to fdl.texi
+	* Makefile.in: Regenerate
+
+2003-07-29  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* mkinstalldirs: Import autoconf 2.57 / automake 1.7 version.
+
+2003-07-11  Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
+
+	* README: Note that FastJar is not part of GCC.
+
+2003-07-02  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	PR java/9532
+	* jartool.c (add_to_jar): Return 1 on failure to open file.
+	Split out -C case to:
+	* jartool.c (add_to_jar_with_dir): New function.
+
 2003-06-15  Nathanael Nerode  <neroden@gcc.gnu.org>
 
 	PR java/9532

@@ -1,3 +1,54 @@
+2003-08-30  Zack Weinberg  <zack@codesourcery.com>
+
+	* Makefile.in: Update substitutions to match changes to
+	configure.  Use include directives instead of @-insertions
+	to read in host and target fragments.  Add a rule to
+	regenerate ada/Makefile.
+
+2003-07-18  Neil Booth  <neil@daikokuya.co.uk>
+
+	* lang-options.h: Remove.
+	* lang.opt: Add help text.
+
+2003-07-07  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* trans.c (build_unit_elab, set_lineno): Adjust emit_line_note
+	calls.
+
+2003-07-06  Neil Booth  <neil@daikokuya.co.uk>
+
+	* misc.c (gnat_handle_option): Don't handle filenames.
+
+2003-07-04  H.J. Lu <hongjiu.lu@intel.com>
+
+	* Make-lang.in: Replace PWD with PWD_COMMAND.
+	* Makefile.adalib: Likewise.
+	* Makefile.in: Likewise.
+
+2003-07-04  Matt Kraai  <kraai@alumni.cmu.edu>
+
+	* misc.c (gnat_argv): Revert last change.
+	(gnat_handle_option, gnat_init_options): Copy arguments.
+
+2003-07-03  Neil Booth  <neil@daikokuya.co.uk>
+
+	* misc.c (gnat_argv): Make const.
+
+2003-07-02  Neil Booth  <neil@daikokuya.co.uk>
+
+	* misc.c (save_argc, save_argv): Keep non-static!
+
+2003-07-02  Neil Booth  <neil@daikokuya.co.uk>
+
+	* misc.c (save_argc, save_argv): Make static.
+	(gnat_init_options): New prototype.
+	(gnat_init_options): Update.
+
+2003-07-01  Matt Kraai  <kraai@alumni.cmu.edu>
+
+	* gnat_ug.texi: Remove unlikely characters from @vars.
+	* gnat_ug_vms.texi: Regenerate.
+
 2003-06-27  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* misc.c (record_code_position): Adjust emit_note call.
@@ -98,10 +149,10 @@ Thu Jun  5 18:33:40 CEST 2003  Jan Hubicka  <jh@suse.cz>
 
 2003-06-04  Olivier Hainque  <hainque@act-europe.fr>
 
-        PR ada/9953:
-        * 5hsystem.ads: Remove pragma Linker_Option for pthreads library,
-        and turn ZCX_By_Default back to False since the underlying support
-        is not quite there yet.
+	PR ada/9953:
+	* 5hsystem.ads: Remove pragma Linker_Option for pthreads library,
+	and turn ZCX_By_Default back to False since the underlying support
+	is not quite there yet.
 
 2003-06-01  Andreas Jaeger  <aj@suse.de>
 
@@ -129,9 +180,9 @@ Thu Jun  5 18:33:40 CEST 2003  Jan Hubicka  <jh@suse.cz>
 
 2003-05-01  Laurent Guerby <guerby@acm.org>
 
-        PR ada/10546
-        * 5iosinte.ads: Increase pthread_cond_t size to match recent
-        LinuxThread and NPTL version, merge from ACT.
+	PR ada/10546
+	* 5iosinte.ads: Increase pthread_cond_t size to match recent
+	LinuxThread and NPTL version, merge from ACT.
 
 2003-04-28  Zack Weinberg  <zack@codesourcery.com>
 
