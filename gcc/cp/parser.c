@@ -3223,7 +3223,7 @@ cp_parser_postfix_expression (parser)
       if (TREE_CODE (postfix_expression) == IDENTIFIER_NODE
 	  && cp_lexer_next_token_is_not (parser->lexer, CPP_OPEN_PAREN))
 	{
-	  /* It is not a koenig lookup function call. */
+	  /* It is not a koenig lookup function call.  */
 	  unqualified_name_lookup_error (postfix_expression);
 	  postfix_expression = error_mark_node;
 	}
@@ -8738,6 +8738,16 @@ cp_parser_init_declarator (parser,
      ptr-operator abstract-declarator [opt]
      direct-abstract-declarator
 
+   GNU Extensions:
+
+   declarator:
+     attributes [opt] direct-declarator
+     attributes [opt] ptr-operator declarator  
+
+   abstract-declarator:
+     attributes [opt] ptr-operator abstract-declarator [opt]
+     attributes [opt] direct-abstract-declarator
+     
    Returns a representation of the declarator.  If the declarator has
    the form `* declarator', then an INDIRECT_REF is returned, whose
    only operand is the sub-declarator.  Analagously, `& declarator' is
@@ -8784,15 +8794,19 @@ cp_parser_declarator (parser, abstract_p, ctor_dtor_or_conv_p)
   enum tree_code code;
   tree cv_qualifier_seq;
   tree class_type;
-  
+  tree attributes = NULL_TREE;
 
   /* Assume this is not a constructor, destructor, or type-conversion
      operator.  */
   if (ctor_dtor_or_conv_p)
     *ctor_dtor_or_conv_p = false;
 
+  if (cp_parser_allow_gnu_extensions_p (parser))
+    attributes = cp_parser_attributes_opt (parser);
+  
   /* Peek at the next token.  */
   token = cp_lexer_peek_token (parser->lexer);
+  
   /* Check for the ptr-operator production.  */
   cp_parser_parse_tentatively (parser);
   /* Parse the ptr-operator.  */
@@ -8833,6 +8847,9 @@ cp_parser_declarator (parser, abstract_p, ctor_dtor_or_conv_p)
 					      abstract_p,
 					      ctor_dtor_or_conv_p);
 
+  if (attributes)
+    declarator = tree_cons (attributes, declarator, NULL_TREE);
+  
   return declarator;
 }
 
