@@ -1,3 +1,8 @@
+2003-08-26  Jakub Jelinek  <jakub@redhat.com>
+
+	* builtins.c (expand_builtin_expect_jump): Save pending_stack_adjust
+	and restore it if returning NULL.
+
 2003-08-15  Jakub Jelinek  <jakub@redhat.com>
 
 	* c-decl.c (pushdecl): Only put decls which finish_struct will do
