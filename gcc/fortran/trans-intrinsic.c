@@ -841,11 +841,11 @@ gfc_conv_intrinsic_sign (gfc_se * se, gfc_expr * expr)
   type = TREE_TYPE (arg);
   zero = gfc_build_const (type, integer_zero_node);
 
-  testa = build (GE_EXPR, boolean_type_node, arg, zero);
-  testb = build (GE_EXPR, boolean_type_node, arg2, zero);
-  tmp = build (TRUTH_XOR_EXPR, boolean_type_node, testa, testb);
-  se->expr = build (COND_EXPR, type, tmp,
-		    build1 (NEGATE_EXPR, type, arg), arg);
+  testa = fold (build (GE_EXPR, boolean_type_node, arg, zero));
+  testb = fold (build (GE_EXPR, boolean_type_node, arg2, zero));
+  tmp = fold (build (TRUTH_XOR_EXPR, boolean_type_node, testa, testb));
+  se->expr = fold (build (COND_EXPR, type, tmp,
+			  build1 (NEGATE_EXPR, type, arg), arg));
 }
 
 
