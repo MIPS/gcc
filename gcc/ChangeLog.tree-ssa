@@ -1,7 +1,8 @@
 2003-08-21  Andrew Pinski  <pinskia@physics.uc.edu>
 
-	* tree-ssa.c (tree_ssa_useless_type_conversion): Check also the precision of 
-	the type to make sure they are really useless type conversions.
+	* tree-ssa.c (tree_ssa_useless_type_conversion): Check also the
+	precision of the type to make sure they are really useless type
+	conversions.
 
 2003-08-21  Diego Novillo  <dnovillo@redhat.com>
 
