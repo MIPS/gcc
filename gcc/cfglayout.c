@@ -35,7 +35,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 extern struct obstack flow_obstack;
 
 /* Holds the interesting trailing notes for the function.  */
-static rtx function_tail_eff_head;
+static rtx function_footer;
 
 static rtx skip_insns_after_block	PARAMS ((basic_block));
 static void record_effective_endpoints	PARAMS ((void));
@@ -48,9 +48,32 @@ static void change_scope		PARAMS ((rtx, tree, tree));
 void verify_insn_chain			PARAMS ((void));
 static void fixup_fallthru_exit_predecessor PARAMS ((void));
 static void cleanup_unconditional_jumps	PARAMS ((struct loops *));
+static rtx unlink_insn_chain PARAMS ((rtx, rtx));
+static rtx duplicate_insn_chain PARAMS ((rtx, rtx));
 
 /* Map insn uid to lexical block.  */
 static varray_type insn_scopes;
+
+static rtx
+unlink_insn_chain (first, last)
+     rtx first;
+     rtx last;
+{
+  rtx prevfirst = PREV_INSN (first);
+  rtx nextlast = NEXT_INSN (last);
+
+  PREV_INSN (first) = NULL;
+  NEXT_INSN (last) = NULL;
+  if (prevfirst)
+    NEXT_INSN (prevfirst) = nextlast;
+  if (nextlast)
+    PREV_INSN (nextlast) = prevfirst;
+  else
+    set_last_insn (prevfirst);
+  if (!prevfirst)
+    set_first_insn (nextlast);
+  return first;
+}
 
 /* Skip over inter-block insns occurring after BB which are typically
    associated with BB (e.g., barriers). If there are any such insns,
@@ -156,8 +179,6 @@ label_for_bb (bb)
 	fprintf (rtl_dump_file, "Emitting label for block %d\n", bb->index);
 
       label = block_label (bb);
-      if (bb->head == PREV_INSN (RBI (bb)->eff_head))
-	RBI (bb)->eff_head = label;
     }
 
   return label;
@@ -177,18 +198,18 @@ record_effective_endpoints ()
       basic_block bb = BASIC_BLOCK (i);
       rtx end;
 
-      RBI (bb)->eff_head = next_insn;
+      if (PREV_INSN (bb->head) && next_insn != bb->head)
+	RBI (bb)->header = unlink_insn_chain (next_insn,
+					      PREV_INSN (bb->head));
       end = skip_insns_after_block (bb);
-      RBI (bb)->eff_end = end;
-      next_insn = NEXT_INSN (end);
+      if (NEXT_INSN (bb->end) && bb->end != end)
+        RBI (bb)->footer = unlink_insn_chain (NEXT_INSN (bb->end), end);
+      next_insn = NEXT_INSN (bb->end);
     }
 
-  function_tail_eff_head = next_insn;
-  if (function_tail_eff_head)
-    {
-      NEXT_INSN (PREV_INSN (function_tail_eff_head)) = NULL;
-      set_last_insn (PREV_INSN (function_tail_eff_head));
-    }
+  function_footer = next_insn;
+  if (function_footer)
+    function_footer = unlink_insn_chain (function_footer, get_last_insn ());
 }
 
 /* Build a varray mapping INSN_UID to lexical block.  Return it.  */
@@ -336,31 +357,49 @@ scope_to_insns_finalize ()
 static void
 fixup_reorder_chain ()
 {
-  basic_block bb, last_bb;
+  basic_block bb;
   int index;
-  rtx insn;
+  rtx insn = NULL;
 
   /* First do the bulk reordering -- rechain the blocks without regard to
      the needed changes to jumps and labels.  */
 
-  for (last_bb = BASIC_BLOCK (0), bb = RBI (last_bb)->next, index = 1;
+  for (bb = BASIC_BLOCK (0), index = 0;
        bb != 0;
-       last_bb = bb, bb = RBI (bb)->next, index++)
+       bb = RBI (bb)->next, index++)
     {
-      rtx last_e = RBI (last_bb)->eff_end;
-      rtx curr_h = RBI (bb)->eff_head;
-
-      NEXT_INSN (last_e) = curr_h;
-      PREV_INSN (curr_h) = last_e;
+      if (RBI (bb)->header)
+	{
+	  if (insn)
+	    NEXT_INSN (insn) = RBI (bb)->header;
+	  else
+	    set_first_insn (RBI (bb)->header);
+	  PREV_INSN (RBI (bb)->header) = insn;
+	  insn = RBI (bb)->header;
+	  while (NEXT_INSN (insn))
+	    insn = NEXT_INSN (insn);
+	}
+      if (insn)
+	NEXT_INSN (insn) = bb->head;
+      else
+	set_first_insn (bb->head);
+      PREV_INSN (bb->head) = insn;
+      insn = bb->end;
+      if (RBI (bb)->footer)
+	{
+	  NEXT_INSN (insn) = RBI (bb)->footer;
+	  PREV_INSN (RBI (bb)->footer) = insn;
+	  while (NEXT_INSN (insn))
+	    insn = NEXT_INSN (insn);
+	}
     }
 
   if (index != n_basic_blocks)
     abort ();
 
-  insn = RBI (last_bb)->eff_end;
-  NEXT_INSN (insn) = function_tail_eff_head;
-  if (function_tail_eff_head)
-    PREV_INSN (function_tail_eff_head) = insn;
+  NEXT_INSN (insn) = function_footer;
+  if (function_footer)
+    PREV_INSN (function_footer) = insn;
 
   while (NEXT_INSN (insn))
     insn = NEXT_INSN (insn);
@@ -475,8 +514,6 @@ fixup_reorder_chain ()
       if (nb)
 	{
 	  alloc_aux_for_block (nb, sizeof (struct reorder_block_def));
-	  RBI (nb)->eff_head = nb->head;
-	  RBI (nb)->eff_end = NEXT_INSN (nb->end);
 	  RBI (nb)->visited = 1;
 	  RBI (nb)->next = RBI (bb)->next;
 	  RBI (bb)->next = nb;
@@ -689,28 +726,11 @@ cfg_layout_can_duplicate_bb_p (bb)
   return true;
 }
 
-/* Create an duplicate of the basic block BB and redirect edge E into it.  */
-
-basic_block
-cfg_layout_duplicate_bb (bb, e)
-     basic_block bb;
-     edge e;
+static rtx
+duplicate_insn_chain (from, to)
+     rtx from, to;
 {
-  rtx last = get_last_insn ();
-  rtx insn, new = NULL_RTX;
-  rtx pre_head = NULL_RTX, end = NULL_RTX;
-  edge s, n;
-  basic_block new_bb;
-  gcov_type new_count = e ? e->count : 0;
-
-  if (bb->count < new_count)
-    new_count = bb->count;
-  if (!bb->pred)
-    abort ();
-#ifdef ENABLE_CHECKING
-  if (!cfg_layout_can_duplicate_bb_p (bb))
-    abort ();
-#endif
+  rtx insn, last;
 
   /* Avoid updating of boundaries of previous basic block.  The
      note will get removed from insn stream in fixup.  */
@@ -718,10 +738,9 @@ cfg_layout_duplicate_bb (bb, e)
 
   /* Create copy at the end of INSN chain.  The chain will
      be reordered later.  */
-  for (insn = RBI (bb)->eff_head; insn != NEXT_INSN (RBI (bb)->eff_end);
-       insn = NEXT_INSN (insn))
+  for (insn = from; insn != NEXT_INSN (to); insn = NEXT_INSN (insn))
     {
-      new = NULL;
+      rtx new;
       switch (GET_CODE (insn))
 	{
 	case INSN:
@@ -744,7 +763,7 @@ cfg_layout_duplicate_bb (bb, e)
 	  break;
 
 	case BARRIER:
-	  new = emit_barrier ();
+	  emit_barrier ();
 	  break;
 
 	case NOTE:
@@ -771,10 +790,7 @@ cfg_layout_duplicate_bb (bb, e)
 	         epilogue copy.  */
 	    case NOTE_INSN_FUNCTION_BEG:
 	      /* There is always just single entry to function.  */
-	      break;
-
 	    case NOTE_INSN_BASIC_BLOCK:
-	      pre_head = get_last_insn ();
 	      break;
 
 	      /* There is no purpose to duplicate prologue.  */
@@ -790,12 +806,7 @@ cfg_layout_duplicate_bb (bb, e)
 	      abort ();
 	      break;
 	    case NOTE_INSN_REPEATED_LINE_NUMBER:
-	      {
-		rtx x = emit_note (NOTE_SOURCE_FILE (insn),
-				   NOTE_LINE_NUMBER (insn));
-		if (x)
-		  new = x;
-	      }
+	      emit_note (NOTE_SOURCE_FILE (insn), NOTE_LINE_NUMBER (insn));
 	      break;
 
 	    default:
@@ -803,23 +814,63 @@ cfg_layout_duplicate_bb (bb, e)
 		abort ();
 	      /* It is possible that no_line_number is set and the note
 	         won't be emitted.  */
-	      {
-		rtx x = emit_note (NOTE_SOURCE_FILE (insn),
-				   NOTE_LINE_NUMBER (insn));
-		if (x)
-		  new = x;
-	      }
+	      emit_note (NOTE_SOURCE_FILE (insn), NOTE_LINE_NUMBER (insn));
 	    }
 	  break;
 	default:
 	  abort ();
 	}
-      if (bb->end == insn)
-	end = get_last_insn ();
+    }
+  insn = NEXT_INSN (last);
+  delete_insn (last);
+  return insn;
+}
+
+/* Create an duplicate of the basic block BB and redirect edge E into it.  */
+
+basic_block
+cfg_layout_duplicate_bb (bb, e)
+     basic_block bb;
+     edge e;
+{
+  rtx insn;
+  edge s, n;
+  basic_block new_bb;
+  gcov_type new_count = e ? e->count : 0;
+
+  if (bb->count < new_count)
+    new_count = bb->count;
+  if (!bb->pred)
+    abort ();
+#ifdef ENABLE_CHECKING
+  if (!cfg_layout_can_duplicate_bb_p (bb))
+    abort ();
+#endif
+
+  insn = duplicate_insn_chain (bb->head, bb->end);
+  new_bb = create_basic_block (n_basic_blocks, insn ? insn : get_last_insn (),
+		 	       get_last_insn ());
+  alloc_aux_for_block (new_bb, sizeof (struct reorder_block_def));
+
+  if (RBI (bb)->header)
+    {
+      insn = RBI (bb)->header;
+      while (NEXT_INSN (insn))
+	insn = NEXT_INSN (insn);
+      insn = duplicate_insn_chain (RBI (bb)->header, insn);
+      if (insn)
+	RBI (new_bb)->header = unlink_insn_chain (insn, get_last_insn ());
     }
 
-  new_bb = create_basic_block (n_basic_blocks, NEXT_INSN (pre_head),
-		 	       NEXT_INSN (pre_head) ? end : NULL);
+  if (RBI (bb)->footer)
+    {
+      insn = RBI (bb)->footer;
+      while (NEXT_INSN (insn))
+	insn = NEXT_INSN (insn);
+      insn = duplicate_insn_chain (RBI (bb)->footer, insn);
+      if (insn)
+	RBI (new_bb)->footer = unlink_insn_chain (insn, get_last_insn ());
+    }
 
   if (bb->global_live_at_start)
     {
@@ -865,9 +916,6 @@ cfg_layout_duplicate_bb (bb, e)
   if (bb->frequency < 0)
     bb->frequency = 0;
 
-  alloc_aux_for_block (new_bb, sizeof (struct reorder_block_def));
-  RBI (new_bb)->eff_head = NEXT_INSN (last);
-  RBI (new_bb)->eff_end = get_last_insn ();
   RBI (new_bb)->original = bb;
   RBI (bb)->copy = new_bb;
   return new_bb;
@@ -886,6 +934,7 @@ cfg_layout_initialize (loops)
   cleanup_unconditional_jumps (loops);
   scope_to_insns_initialize ();
   record_effective_endpoints ();
+  verify_insn_chain ();
 }
 
 /* Finalize the changes: reorder insn list according to the sequence, enter

@@ -21,8 +21,8 @@
 /* Structure to hold information about the blocks during reordering.  */
 typedef struct reorder_block_def
 {
-  rtx eff_head;
-  rtx eff_end;
+  rtx header;
+  rtx footer;
   basic_block next;
   basic_block original;
   /* Used by loop copying.  */
