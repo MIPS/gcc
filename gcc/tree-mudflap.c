@@ -81,7 +81,7 @@ mf_mark (t)
   void **slot;
 
   if (marked_trees == NULL)
-    marked_trees = htab_create (31, htab_hash_pointer, htab_eq_pointer, NULL);
+    marked_trees = htab_create_ggc (31, htab_hash_pointer, htab_eq_pointer, NULL);
 
   slot = htab_find_slot (marked_trees, t, INSERT);
   *slot = t;

@@ -1,3 +1,7 @@
+2003-06-16  Frank Ch. Eigler  <fche@redhat.com>
+
+	* tree-mudflap.c (mf_mark): Use GC-compatible htab_create_ggc.
+
 2003-06-15  Jeff Law  <law@redhat.com>
 
 	* tree-ssa-ccp.c (visit_phi_node): If the PHI is already known
