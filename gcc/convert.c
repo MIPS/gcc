@@ -30,6 +30,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "convert.h"
 #include "toplev.h"
 #include "langhooks.h"
+#include "real.h"
 
 /* Convert EXPR to some pointer or reference type TYPE.
 
@@ -77,6 +78,27 @@ strip_float_extensions (exp)
      tree exp;
 {
   tree sub, expt, subt;
+
+  /*  For floatingg point constant look up the narrowest type that can hold
+      it properly and handle it like (type)(narrowest_type)constant.
+      This way we can optimize for instance a=a*2.0 where "a" is float
+      but 2.0 is double constant.  */
+  if (TREE_CODE (exp) == REAL_CST)
+    {
+      REAL_VALUE_TYPE orig;
+      tree type = NULL;
+
+      orig = TREE_REAL_CST (exp);
+      if (TYPE_PRECISION (TREE_TYPE (exp)) > TYPE_PRECISION (float_type_node)
+	  && exact_real_truncate (TYPE_MODE (float_type_node), &orig))
+	type = float_type_node;
+      else if (TYPE_PRECISION (TREE_TYPE (exp))
+	       > TYPE_PRECISION (double_type_node)
+	       && exact_real_truncate (TYPE_MODE (double_type_node), &orig))
+	type = double_type_node;
+      if (type)
+	return build_real (type, real_value_truncate (TYPE_MODE (type), orig));
+    }
 
   if (TREE_CODE (exp) != NOP_EXPR)
     return exp;
@@ -154,16 +176,14 @@ convert_to_real (type, expr)
 	   || fcode == BUILT_IN_CEILL
 	   || fcode == BUILT_IN_ROUND
 	   || fcode == BUILT_IN_TRUNC
-	   || fcode == BUILT_IN_NEARBYINT
-	   || fcode == BUILT_IN_FABS)
+	   || fcode == BUILT_IN_NEARBYINT)
 	  && (TYPE_MODE (type) == TYPE_MODE (double_type_node)
 	      || TYPE_MODE (type) == TYPE_MODE (float_type_node)))
 	  || ((fcode == BUILT_IN_FLOOR
 	       || fcode == BUILT_IN_CEIL
 	       || fcode == BUILT_IN_ROUND
 	       || fcode == BUILT_IN_TRUNC
-	       || fcode == BUILT_IN_NEARBYINT
-	       || fcode == BUILT_IN_FABSL)
+	       || fcode == BUILT_IN_NEARBYINT)
 	      && (TYPE_MODE (type) == TYPE_MODE (float_type_node)))))
     {
       tree arg0 = strip_float_extensions (TREE_VALUE (TREE_OPERAND (expr, 1)));
@@ -186,9 +206,11 @@ convert_to_real (type, expr)
 	/* convert (float)-x into -(float)x.  This is always safe.  */
 	case ABS_EXPR:
 	case NEGATE_EXPR:
-	  return build1 (TREE_CODE (expr), type,
-			 fold (convert_to_real (type,
-						TREE_OPERAND (expr, 0))));
+	  if (TYPE_PRECISION (type) < TYPE_PRECISION (TREE_TYPE (expr)))
+	    return build1 (TREE_CODE (expr), type,
+			   fold (convert_to_real (type,
+						  TREE_OPERAND (expr, 0))));
+	  break;
 	/* convert (outertype)((innertype0)a+(innertype1)b)
 	   into ((newtype)a+(newtype)b) where newtype
 	   is the widest mode from all of these.  */

@@ -5033,6 +5033,15 @@ fold (expr)
 	}
       else if (TREE_CODE (arg0) == NEGATE_EXPR)
 	return TREE_OPERAND (arg0, 0);
+      /* Convert -((double)float) into (double)(-float).  */
+      else if (TREE_CODE (arg0) == NOP_EXPR
+	       && TREE_CODE (type) == REAL_TYPE)
+	{
+	  tree targ0 = strip_float_extensions (arg0);
+	  if (targ0 != arg0)
+	    return convert (type, build1 (NEGATE_EXPR, TREE_TYPE (targ0), targ0));
+			   
+	}
 
       /* Convert - (a - b) to (b - a) for non-floating-point.  */
       else if (TREE_CODE (arg0) == MINUS_EXPR
@@ -5081,6 +5090,15 @@ fold (expr)
 	}
       else if (TREE_CODE (arg0) == ABS_EXPR || TREE_CODE (arg0) == NEGATE_EXPR)
 	return build1 (ABS_EXPR, type, TREE_OPERAND (arg0, 0));
+      /* Convert fabs((double)float) into (double)fabsf(float).  */
+      else if (TREE_CODE (arg0) == NOP_EXPR
+	       && TREE_CODE (type) == REAL_TYPE)
+	{
+	  tree targ0 = strip_float_extensions (arg0);
+	  if (targ0 != arg0)
+	    return convert (type, build1 (ABS_EXPR, TREE_TYPE (targ0), targ0));
+			   
+	}
       return t;
 
     case CONJ_EXPR:
@@ -5965,6 +5983,18 @@ fold (expr)
 
       if (FLOAT_TYPE_P (TREE_TYPE (arg0)))
 	{
+	  tree targ0 = strip_float_extensions (arg0);
+	  tree targ1 = strip_float_extensions (arg1);
+	  tree newtype = TREE_TYPE (targ0);
+
+	  if (TYPE_PRECISION (TREE_TYPE (targ0)) > TYPE_PRECISION (type))
+	    newtype = TREE_TYPE (targ0);
+
+	  /* Fold (double)float1 CMP (double)float2 into float1 CMP float2.  */
+	  if (TYPE_PRECISION (newtype) < TYPE_PRECISION (TREE_TYPE (arg0)))
+	    return fold (build (code, type, convert (newtype, targ0),
+				convert (newtype, targ1)));
+
 	  /* (-a) CMP (-b) -> b CMP a  */
 	  if (TREE_CODE (arg0) == NEGATE_EXPR
 	      && TREE_CODE (arg1) == NEGATE_EXPR)
