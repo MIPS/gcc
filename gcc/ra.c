@@ -341,7 +341,8 @@ static void coalesce PARAMS ((void));
 static void freeze_moves PARAMS ((struct web *));
 static void freeze PARAMS ((void));
 static void select_spill PARAMS ((void));
-static int get_free_reg PARAMS ((HARD_REG_SET, enum machine_mode));
+static int get_free_reg PARAMS ((HARD_REG_SET, HARD_REG_SET,
+				 enum machine_mode));
 static int count_long_blocks PARAMS ((HARD_REG_SET, int));
 static void colorize_one_web PARAMS ((struct web *));
 static void assign_colors PARAMS ((void));
@@ -2991,8 +2992,8 @@ select_spill (void)
    at an even hardreg, and only gives an odd begin reg if no other
    block could be found.  */
 static int
-get_free_reg (free_colors, mode)
-     HARD_REG_SET free_colors;
+get_free_reg (dont_begin_colors, free_colors, mode)
+     HARD_REG_SET dont_begin_colors, free_colors;
      enum machine_mode mode;
 {
   int c;
@@ -3002,11 +3003,19 @@ get_free_reg (free_colors, mode)
   int last_resort_reg_order = INT_MAX;
   
   for (c = 0; c < FIRST_PSEUDO_REGISTER; c++)
-    if (TEST_HARD_REG_BIT (free_colors, c) && HARD_REGNO_MODE_OK (c, mode))
+    if (!TEST_HARD_REG_BIT (dont_begin_colors, c)
+	&& TEST_HARD_REG_BIT (free_colors, c)
+	&& HARD_REGNO_MODE_OK (c, mode))
       {
 	int i, size;
 	size = HARD_REGNO_NREGS (c, mode);
 	for (i = 1; i < size && TEST_HARD_REG_BIT (free_colors, c + i); i++);
+	if (i != size)
+	  {
+	    c += i;
+	    continue;
+	  }
+	for (i = 1; i < size && HARD_REGNO_MODE_OK (c + i, mode); i++);
 	if (i == size)
 	  {
 	    if (size < 2 || (c & 1) == 0)
@@ -3053,6 +3062,24 @@ count_long_blocks (free_colors, len)
   return count;
 }
 
+static char *
+hardregset_to_string (s)
+     HARD_REG_SET s;
+{
+  static char string[FIRST_PSEUDO_REGISTER / 4 + 30];
+#if FIRST_PSEUDO_REGISTER <= HOST_BITS_PER_WIDE_INT
+  sprintf (string, "%x", s);
+#else
+  char *c = string;
+  int i = HARD_REG_SET_LONGS - 1;
+  c += sprintf (c, "{ ");
+  for (;i >= 0; i--)
+    c += sprintf (c, "%x%s", s[i], i ? ", " : "");
+  c += sprintf (c, " }");
+#endif
+  return string;
+}
+
 /* This is a little bit hairy, as it tries very hard, to not constrain
    the uncolored non-spill neighbors, which need more hardregs then
    we.  Consider a situation, 2 hardregs free for us (0 and 1),
@@ -3071,40 +3098,74 @@ colorize_one_web (web)
   HARD_REG_SET colors, conflict_colors;
   int c = -1;
   int bestc = -1;
-  int neighbor_needs = 0;
+  int neighbor_needs= 0;
   struct web *fat_neighbor = NULL;
   struct web *fats_parent = NULL;
   int num_fat = 0;
   
+  /* The bits set in conflict_colors correspond to the hardregs, at which
+     WEB may not begin.  This differs from the set of _all_ hardregs which
+     are taken by WEB's conflicts in the presence of wide webs, where only
+     some parts conflict with others.  */
   CLEAR_HARD_REG_SET (conflict_colors);
   neighbor_needs = web->add_hardregs + 1;
   for (wl = web->conflict_list; wl; wl = wl->next)
     {
       struct web *w;
-      struct web *pweb = alias (wl->t);
+      struct web *ptarget = alias (wl->t);
       struct sub_conflict *sl = wl->sub;
       w = sl ? sl->t : wl->t;
       while (w)
 	{
-	  if (pweb->type == COLORED || pweb->type == PRECOLORED)
+	  if (ptarget->type == COLORED || ptarget->type == PRECOLORED)
 	    {
-	      int size = HARD_REGNO_NREGS (pweb->color, GET_MODE (w->orig_x));
-	      i = pweb->color;
+	      struct web *source = (sl) ? sl->s : web;
+	      unsigned int tsize = HARD_REGNO_NREGS (ptarget->color,
+						     GET_MODE (w->orig_x));
+	      /* ssize is only a first guess for the size.  */
+	      unsigned int ssize = HARD_REGNO_NREGS (ptarget->color, GET_MODE
+					             (source->orig_x));
+	      unsigned int tofs = 0;
+	      unsigned int sofs = 0;
+	      /* C1 and C2 can become negative, so unsigned
+		 would be wrong.  */
+	      int c1, c2;
+
 	      if (SUBWEB_P (w)
 		  && GET_MODE_SIZE (GET_MODE (w->orig_x)) >= UNITS_PER_WORD)
-		i += SUBREG_WORD (w->orig_x);
-	      /* XXX Here for example we can test, if color+i still needs size
-		 hardregs for this mode (we looked at color above).  This
-		 would be a good consistency test.  */
-	      size = i + size;  /* size is now the end color + 1  */
-	      for (; i < size; i++)
-		SET_HARD_REG_BIT (conflict_colors, i);
+		tofs = SUBREG_WORD (w->orig_x);
+	      if (SUBWEB_P (source)
+		  && GET_MODE_SIZE (GET_MODE (source->orig_x))
+		     >= UNITS_PER_WORD)
+		  sofs = SUBREG_WORD (source->orig_x);
+	      c1 = ptarget->color + tofs - sofs - ssize + 1;
+	      c2 = ptarget->color + tofs + tsize - 1 - sofs;
+	      if (c2 >= 0)
+		{
+		  if (c1 < 0)
+		    c1 = 0;
+		  /* Because ssize was only guessed above, which influenced our
+		     begin color (c1), we need adjustment, if for that color
+		     another size would be needed.  This is done by moving
+		     c1 to a place, where the last of sources hardregs does not
+		     overlap the first of targets colors.  */
+		  while (c1 + sofs
+			 + HARD_REGNO_NREGS (c1, GET_MODE (source->orig_x)) - 1
+			 < ptarget->color + tofs)
+		    c1++;
+		  while (c1 > 0 && c1 + sofs
+			 + HARD_REGNO_NREGS (c1, GET_MODE (source->orig_x)) - 1
+			 > ptarget->color + tofs)
+		    c1--;
+		  for (; c1 <= c2; c1++)
+		    SET_HARD_REG_BIT (conflict_colors, c1);
+		}
 	    }
-	  else if (pweb->was_spilled < 0 && w->add_hardregs >= neighbor_needs)
+	  else if (ptarget->was_spilled < 0 && w->add_hardregs >= neighbor_needs)
 	    {
 	      neighbor_needs = w->add_hardregs;
 	      fat_neighbor = w;
-	      fats_parent = pweb;
+	      fats_parent = ptarget;
 	      num_fat++;
 	    }
 	  /* The next if() only gets true, if there was no wl->sub at all, in
@@ -3117,6 +3178,8 @@ colorize_one_web (web)
 	}
     }
 
+  debug_msg (0, "trying to color web %d [don't begin at %s]\n", web->id,
+             hardregset_to_string (conflict_colors));
   while (1)
     {
       int long_blocks;
@@ -3125,7 +3188,7 @@ colorize_one_web (web)
       /* Here we choose a hard-reg for the current web.  For non spill
          temporaries we first search in the hardregs for it's prefered
 	 class, then, if we found nothing appropriate, in those of the
-	 alternate class.  For spill tempraries we only search in
+	 alternate class.  For spill temporaries we only search in
 	 usable_regs of this web (which is probably larger than that of
 	 the preferred or alternate class).  All searches first try to
 	 find a non-call-clobbered hard-reg.  
@@ -3139,25 +3202,29 @@ colorize_one_web (web)
       else
         COPY_HARD_REG_SET (colors,
 			   usable_regs[reg_preferred_class (web->regno)]);
-      AND_COMPL_HARD_REG_SET (colors, conflict_colors);
+      /*AND_COMPL_HARD_REG_SET (colors, conflict_colors);*/
       COPY_HARD_REG_SET (call_clobbered, colors);
       AND_HARD_REG_SET (call_clobbered, call_used_reg_set);
 
-      c = get_free_reg (call_clobbered, PSEUDO_REGNO_MODE (web->regno));
+      c = get_free_reg (conflict_colors,
+			call_clobbered, PSEUDO_REGNO_MODE (web->regno));
       if (c < 0)
-	c = get_free_reg (colors, PSEUDO_REGNO_MODE (web->regno));
+	c = get_free_reg (conflict_colors,
+			  colors, PSEUDO_REGNO_MODE (web->regno));
       
       if (!web->use_my_regs && c < 0)
 	{
 	  IOR_HARD_REG_SET (colors, usable_regs
 			    [reg_alternate_class (web->regno)]);
-	  AND_COMPL_HARD_REG_SET (colors, conflict_colors);
+	  /*AND_COMPL_HARD_REG_SET (colors, conflict_colors);*/
 	  COPY_HARD_REG_SET (call_clobbered, colors);
 	  AND_HARD_REG_SET (call_clobbered, call_used_reg_set);
 	  
-	  c = get_free_reg (call_clobbered, PSEUDO_REGNO_MODE (web->regno));
+	  c = get_free_reg (conflict_colors,
+			    call_clobbered, PSEUDO_REGNO_MODE (web->regno));
 	  if (c < 0)
-	    c = get_free_reg (colors, PSEUDO_REGNO_MODE (web->regno));
+	    c = get_free_reg (conflict_colors,
+			      colors, PSEUDO_REGNO_MODE (web->regno));
 	}
       if (c < 0)
 	break;

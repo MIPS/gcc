@@ -1,6 +1,15 @@
 2001-06-28  Michael Matz  <matzmich@cs.tu-berlin.de>
+
+        * ra.c : (get_free_reg): New HARD_REG_SET argument.  Callers changed.
+        Use this as a set of forbidden begin hard-regs.
+        Test if all hardregs are OK for the mode (???).
+        (hardregset_to_string): New.
+        (colorize_one_web): Use it.
+        Deduce forbidden begin regs instead of non-free regs.
+
+2001-06-28  Michael Matz  <matzmich@cs.tu-berlin.de>
+
         bootstrap again (without regressions)
-        subreg changes, remembering how many insns were inserted/deleted.
  
         * ra.c : (struct web.conflict_list): New member.
         (struct sub_conflict, struct conflict): New.
