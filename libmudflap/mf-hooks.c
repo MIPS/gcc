@@ -943,6 +943,8 @@ struct pthread_info
   /* If libmudflapth allocated the stack, store its base/size.  */
   void *stack;
   size_t stack_size;
+
+  int *thread_errno;
 };
 
 
@@ -960,7 +962,7 @@ __mf_pthread_cleanup (void *arg)
   pi->dead_p = 1;
 
   if (__mf_opts.heur_std_data)
-    __mf_unregister (&errno, sizeof (errno));
+    __mf_unregister (pi->thread_errno, sizeof (int));
 
   /* Some subsequent pthread_create will garbage_collect our stack.  */
 }
@@ -974,7 +976,13 @@ __mf_pthread_spawner (void *arg)
   void *result = NULL;
 
   if (__mf_opts.heur_std_data)
-    __mf_register (&errno, sizeof (errno), __MF_TYPE_STATIC, "errno area (thread)");
+    {
+      pi->thread_errno = & errno;
+      __mf_register (pi->thread_errno, sizeof (int), __MF_TYPE_GUESS, "errno area (thread)");
+      // NB: we could use __MF_TYPE_STATIC above, but we guess that
+      // the thread errno is coming out of some dynamically allocated
+      // pool that we already know of as __MF_TYPE_HEAP.
+    }
 
   pthread_cleanup_push (& __mf_pthread_cleanup, arg);
 

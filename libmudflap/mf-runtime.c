@@ -1249,7 +1249,8 @@ __mfu_unregister (void *ptr, size_t sz)
 	
 	/* Manage the object cemetary.  */
 	if (__mf_opts.persistent_count > 0 && 
-	    old_obj->data.type != __MF_TYPE_GUESS)
+	    old_obj->data.type >= 0 && 
+	    old_obj->data.type <= __MF_TYPE_MAX_CEM)
 	  {
 	    old_obj->data.deallocated_p = 1;
 	    old_obj->left = old_obj->right = NULL;
@@ -1268,21 +1269,16 @@ __mfu_unregister (void *ptr, size_t sz)
 
 	    /* Put this object into the cemetary.  This may require this plot to
 	       be recycled, and the previous resident to be designated del_obj.  */
-	    
-	    assert (old_obj->data.type >= 0 && 
-		    old_obj->data.type <= __MF_TYPE_MAX_CEM);
 	    {
 	      unsigned row = old_obj->data.type;
 	      unsigned plot = __mf_object_dead_head [row];
 	      
 	      del_obj = __mf_object_cemetary [row][plot];
 	      __mf_object_cemetary [row][plot] = old_obj;
-
 	      plot ++;
 	      if (plot == __mf_opts.persistent_count) plot = 0;
 	      __mf_object_dead_head [row] = plot;
 	    }
-	    
 	  }
 	else
 	  del_obj = old_obj;

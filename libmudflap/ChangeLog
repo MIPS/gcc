@@ -1,3 +1,11 @@
+2003-06-19  Frank Ch. Eigler  <fche@redhat.com>
+
+	* mf-hooks.c (struct pthread_info): Add "thread_errno" field.
+	(__mf_pthread_spawner, __mf_pthread_cleanup): Use it with GUESS 
+	libmudflap object type.
+	* mf-runtime.c (__mfu_unregister): Correct cemetary logic to avoid
+	crashes on unregistering STATIC objects.
+
 2003-06-17  Frank Ch. Eigler  <fche@redhat.com>
 
 	Based on patch from Eyal Lebedinsky <eyal@eyal.emu.id.au>:
