@@ -1,3 +1,7 @@
+2004-12-16  Stan Shebs  <shebs@apple.com>
+
+	* build_gcc: Lipo in the ppc64 libstdc++ dylib if it exists.
+
 2004-12-16  Geoffrey Keating  <geoffk@apple.com>
 
 	Radar 3920294

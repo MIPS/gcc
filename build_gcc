@@ -294,8 +294,13 @@ SHARED_LIBS=`ls $DIR/dst-$BUILD-$BUILD$DEST_ROOT/lib | grep '\.dylib$'`
 for l in $SHARED_LIBS ; do
   F=$DIR/dst-$BUILD-$BUILD$DEST_ROOT/lib/$l
   if [ \! -L $F ] ; then
+    # The following bit sniffs for a ppc64 libstdc++ dylib to lipo in.
+    multi=$DIR/dst-$BUILD-$BUILD$DEST_ROOT/lib/ppc64/$l
+    if [ \! -f $multi ] ; then
+      multi=
+    fi
     if [ -f $DIR/dst-$BUILD-*$DEST_ROOT/*-apple-darwin$DARWIN_VERS/lib/$l ] ; then
-      lipo -output .$DEST_ROOT/lib/$l -create $F \
+      lipo -output .$DEST_ROOT/lib/$l -create $F $multi \
 	$DIR/dst-$BUILD-*$DEST_ROOT/*-apple-darwin$DARWIN_VERS/lib/$l || exit 1
     else
       cp -p $F .$DEST_ROOT/lib/$l || exit 1
