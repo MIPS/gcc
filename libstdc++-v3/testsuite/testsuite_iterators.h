@@ -77,7 +77,7 @@ namespace __gnu_test
       {
 	writtento = new bool[this->last - this->first];
 	for(int i = 0; i < this->last - this->first; i++)
-	  writtento = false;
+	  writtento[i] = false;
       }
 
       ~OutputContainer()
@@ -96,12 +96,13 @@ namespace __gnu_test
 	ptr(ptr_in), SharedInfo(SharedInfo_in)
       { }
 
+      template<class U>
       void
-      operator=(T& new_val)
+      operator=(U& new_val)
       {
 	ITERATOR_VERIFY(SharedInfo->writtento[ptr - SharedInfo->first] == 0);
 	SharedInfo->writtento[ptr - SharedInfo->first] = 1;
-	ptr = new_val;
+	*ptr = new_val;
       }
     };
 
@@ -149,9 +150,9 @@ namespace __gnu_test
     operator++()
     {
       ITERATOR_VERIFY(SharedInfo && ptr < SharedInfo->last);
-      ITERATOR_VERIFY(ptr>=SharedInfo->first);
+      ITERATOR_VERIFY(ptr>=SharedInfo->incrementedto);
       ptr++;
-      SharedInfo->first=ptr;
+      SharedInfo->incrementedto=ptr;
       return *this;
     }
 
@@ -423,7 +424,7 @@ namespace __gnu_test
     operator--(int)
     {
       random_access_iterator_wrapper<T> tmp = *this;
-      ++*this;
+      --*this;
       return tmp;
     }
 
@@ -444,7 +445,7 @@ namespace __gnu_test
     }
 
     random_access_iterator_wrapper
-    operator+(ptrdiff_t n)
+    operator+(ptrdiff_t n) const
     {
       random_access_iterator_wrapper<T> tmp = *this;
       return tmp += n;
@@ -455,22 +456,22 @@ namespace __gnu_test
     { return *this += -n; }
 
     random_access_iterator_wrapper
-    operator-(ptrdiff_t n)
+    operator-(ptrdiff_t n) const
     {
       random_access_iterator_wrapper<T> tmp = *this;
       return tmp -= n;
     }
 
     ptrdiff_t
-    operator-(const random_access_iterator_wrapper<T>& in)
+    operator-(const random_access_iterator_wrapper<T>& in) const
     {
       ITERATOR_VERIFY(this->SharedInfo == in.SharedInfo);
       return this->ptr - in.ptr;
     }
 
     T&
-    operator[](ptrdiff_t n)
-    { return *(this + n); }
+    operator[](ptrdiff_t n) const
+    { return *(*this + n); }
 
     bool
     operator<(const random_access_iterator_wrapper<T>& in) const

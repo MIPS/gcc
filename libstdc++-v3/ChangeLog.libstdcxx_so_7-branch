@@ -1,3 +1,69 @@
+2005-02-01  Christopher Jefferson  <chris@bubblescope.net>
+
+	* testsuite/testsuite_iterators.h (random_access_iterator_wrapper::
+	operator--) : Fix typo.
+	(OutputContainer::OutputContainer) : Correct zeroing array.
+	(WritableObject::operator==) : Fix typo.
+        (WritableObject::operator=) : make operator= templated 
+	to allow differing types to be assigned.
+	(WritableObject::operator++) : Fix checking if iterator is
+	written to multiple times.
+	(random_access_iterator_wrapper::operator+) : Add const.
+	(random_access_iterator_wrapper::operator-) : Likewise.
+	(random_access_iterator_wrapper::operator[]) : Add dereference.
+	* testsuite/ext/median.cc: New.
+	* testsuite/25_algorithms/adjacent_find/1.cc: New.
+	* testsuite/25_algorithms/adjacent_find/check_type.cc: New.
+	* testsuite/25_algorithms/search/1.cc: New.
+	* testsuite/25_algorithms/search/check_type.cc: New.
+	* testsuite/25_algorithms/unique_copy/1.cc: New.
+	* testsuite/25_algorithms/unique_copy/check_type.cc: New.
+	* testsuite/25_algorithms/partial_sort/1.cc: New.
+	* testsuite/25_algorithms/partial_sort/check_type.cc: New.
+	* testsuite/25_algorithms/partial_sort_copy/1.cc: New.
+	* testsuite/25_algorithms/partial_sort_copy/check_type.cc: New.
+	* testsuite/25_algorithms/lower_bound/1.cc: New.
+	* testsuite/25_algorithms/lower_bound/check_type.cc: New.
+	* testsuite/25_algorithms/upper_bound/1.cc: New.
+	* testsuite/25_algorithms/upper_bound/check_type.cc: New.
+	* testsuite/25_algorithms/merge/1.cc: New.
+	* testsuite/25_algorithms/merge/check_type.cc: New.
+	* testsuite/25_algorithms/inplace_merge/1.cc: New.
+	* testsuite/25_algorithms/inplace_merge/check_type.cc: New.
+	* testsuite/25_algorithms/stable_sort/1.cc: New.
+	* testsuite/25_algorithms/stable_sort/check_type.cc: New.
+	* testsuite/25_algorithms/nth_element/1.cc: New.
+	* testsuite/25_algorithms/nth_element/check_type.cc: New.
+	* testsuite/25_algorithms/equal_range/1.cc: New.
+	* testsuite/25_algorithms/equal_range/check_type.cc: New.
+	* testsuite/25_algorithms/binary_search/1.cc: New.
+	* testsuite/25_algorithms/binary_search/check_type.cc: New.
+	* testsuite/25_algorithms/includes/1.cc: New.
+	* testsuite/25_algorithms/includes/check_type.cc: New.
+	* testsuite/25_algorithms/set_union/1.cc: New.
+	* testsuite/25_algorithms/set_union/check_type.cc: New.
+	* testsuite/25_algorithms/set_intersection/1.cc: New.
+	* testsuite/25_algorithms/set_intersection/check_type.cc: New.
+	* testsuite/25_algorithms/set_difference/1.cc: New.
+	* testsuite/25_algorithms/set_difference/check_type.cc: New.
+	* testsuite/25_algorithms/set_symmetric_difference/1.cc: New.
+	* testsuite/25_algorithms/set_symmetric_difference/check_type.cc: New.	
+	* testsuite/25_algorithms/min_element/1.cc: New.
+	* testsuite/25_algorithms/min_element/check_type.cc: New.
+	* testsuite/25_algorithms/max_element/1.cc: New.
+	* testsuite/25_algorithms/max_element/check_type.cc: New.
+	* testsuite/25_algorithms/prev_permutation/1.cc: New.
+	* testsuite/25_algorithms/prev_permutation/check_type.cc: New.
+	* testsuite/25_algorithms/next_permutation/1.cc: New.
+	* testsuite/25_algorithms/next_permutation/check_type.cc: New.
+	* testsuite/25_algorithms/find_first_of/1.cc: New.
+	* testsuite/25_algorithms/find_first_of/check_type.cc: New.
+	* testsuite/25_algorithms/find_end/1.cc: New.
+	* testsuite/25_algorithms/find_end/check_type.cc: New.
+	* testsuite/25_algorithms/equal/check_type.cc: Insert iterator type.
+	* testsuite/25_algorithms/lexicographical_compare/check_type.cc:
+	Likewise.
+
 2005-01-30  Paolo Carlini  <pcarlini@suse.de>
 
         Merged to mainline at tag libstdcxx_so_7-merge-20050130.
