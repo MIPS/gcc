@@ -1,3 +1,20 @@
+2001-07-07  Michael Matz <matzmich@cs.tu-berlin.de>
+ 
+        * ra.c : (colorize_one_web): Added int argument.  Caller changed.
+        Use it to limit recoloring an unsuccessful spill attempt.
+        (hardreg2web): New.
+        (handle_asm_insn): Prepare for adding conflicts to hardreg according
+        to constraints.
+        (init_webs_parts): Also merge webs for hardregs, if they have no
+        def.
+        (parts_to_webs): Initialize hardreg2web with webs for all hardregs.
+        Adjust web->id initialization.
+        (simplify_fat_wl): New.
+        (free_all_lists): Free it.
+        (put_web): Fill it.
+        (simplify): Pop it.
+        (one_pass): Test it.
+
 2001-07-06  Michael Matz <matzmich@cs.tu-berlin.de>
  
         This makes the whole SPECint2000 (besides eon) work.

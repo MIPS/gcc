@@ -338,7 +338,7 @@ static void select_spill PARAMS ((void));
 static int get_free_reg PARAMS ((HARD_REG_SET, HARD_REG_SET,
 				 enum machine_mode));
 static int count_long_blocks PARAMS ((HARD_REG_SET, int));
-static void colorize_one_web PARAMS ((struct web *));
+static void colorize_one_web PARAMS ((struct web *, int));
 static void assign_colors PARAMS ((void));
 static void allocate_spill_web PARAMS ((struct web *));
 static void rewrite_program PARAMS ((void));
@@ -377,6 +377,7 @@ static struct visit_trace *visit_trace;  /* Indexed by UID.  */
 static unsigned int num_webs;
 static unsigned int num_subwebs;
 static struct web **id2web; /* Indexed by web id (0..num_webs-1).  */
+static struct web *hardreg2web[FIRST_PSEUDO_REGISTER];
 static struct web **def2web;
 static struct web **use2web;
 static struct move_list *wl_moves;
@@ -1217,7 +1218,7 @@ handle_asm_insn (df, insn)
       int nothing_allowed = 1;
       reg = recog_data.operand[i];
 
-      /* Look, if the constrains apply to a pseudo reg, and not to
+      /* Look, if the constraints apply to a pseudo reg, and not to
 	 e.g. a mem.  */
       while (GET_CODE (reg) == SUBREG
 	     || GET_CODE (reg) == ZERO_EXTRACT
@@ -1252,8 +1253,11 @@ handle_asm_insn (df, insn)
 	web = def2web[DF_REF_ID (link->ref)];
       else
 	web = use2web[DF_REF_ID (link->ref)];
+      reg = DF_REF_REG (link->ref);
+      if (GET_CODE (reg) == SUBREG)
+	web = find_subweb (web, reg);
 
-      /* Find the constrains, noting the allowed hardregs in allowed.  */
+      /* Find the constraints, noting the allowed hardregs in allowed.  */
       CLEAR_HARD_REG_SET (allowed);
       while (1)
 	{
@@ -1316,11 +1320,24 @@ handle_asm_insn (df, insn)
 	}
       else
 	{
+	  int c;
 	  COPY_HARD_REG_SET (conflict, usable_regs
 			     [reg_preferred_class (web->regno)]);
 	  IOR_HARD_REG_SET (conflict, usable_regs
 			    [reg_alternate_class (web->regno)]);
 	  AND_COMPL_HARD_REG_SET (conflict, allowed);
+	  /* We can't yet establish these conflicts.  Reload must go first
+	     (or better said, we must implement some functionality of reload).
+	     E.g. if some operands must match, and they need the same color
+	     we don't see yet, that they do not conflict (because they match).
+	     For us it looks like two normal references with different DEFs,
+	     so they conflict, and as they both need the same color, the
+	     graph becomes uncolorable.  */
+#if 0
+	  for (c = 0; c < FIRST_PSEUDO_REGISTER; c++)
+	    if (TEST_HARD_REG_BIT (conflict, c))
+	      record_conflict (web, hardreg2web[c]);
+#endif
 	}
       if (rtl_dump_file)
 	{
@@ -1562,19 +1579,20 @@ init_web_parts (df)
   /* We want to have only one web for each precolored register.  */
   for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)
     {
-      struct web_part *r1;
+      struct web_part *r1 = NULL;
       struct df_link *link;
-      for (link = df->regs[regno].defs; link && !link->ref; link =
-	   link->next) ;
-      if (!link)
-	continue;
-      r1 = &web_parts[DF_REF_ID (link->ref)];
+      /* Here once was a test, if there is any DEF at all, and only then to
+	 merge all the parts.  This was incorrect, we really also want to have
+	 only one web-part for hardregs, even if there is no explicit DEF.  */
       /* Link together all defs...  */
-      for (link = link->next; link; link = link->next)
+      for (link = df->regs[regno].defs; link; link = link->next)
         if (link->ref)
 	  {
 	    struct web_part *r2 = &web_parts[DF_REF_ID (link->ref)];
-	    r1 = union_web_parts (r1, r2);
+	    if (!r1)
+	      r1 = r2;
+	    else
+	      r1 = union_web_parts (r1, r2);
 	  }
       /* ... and all uses.  */
       for (link = df->regs[regno].uses; link; link = link->next)
@@ -1582,7 +1600,10 @@ init_web_parts (df)
 	  {
 	    struct web_part *r2 = &web_parts[df->def_id
 		                             + DF_REF_ID (link->ref)];
-	    r1 = union_web_parts (r1, r2);
+	    if (!r1)
+	      r1 = r2;
+	    else
+	      r1 = union_web_parts (r1, r2);
 	  }
     }
 }
@@ -1764,10 +1785,12 @@ parts_to_webs (df, part2web)
 
   num_subwebs = 0;
 
+  memset (hardreg2web, 0, sizeof (hardreg2web));
   /* For each root web part: create and initialize a new web,
      setup def2web[] and use2web[] for all defs and uses, and
      id2web for all new webs.  */
-  id2web = (struct web **) xcalloc (num_webs, sizeof (struct web *));
+  id2web = (struct web **) xcalloc (num_webs + FIRST_PSEUDO_REGISTER,
+				    sizeof (struct web *));
 
   webnum = 0;
   for (i = 0; i < df->def_id + df->use_id; i++)
@@ -1785,6 +1808,8 @@ parts_to_webs (df, part2web)
 	  web->span_insns = wp->spanned_insns;
 	  id2web[webnum] = web;
 	  webnum++;
+	  if (web->regno < FIRST_PSEUDO_REGISTER)
+	    hardreg2web[web->regno] = web;
 	}
       else
 	{
@@ -1825,6 +1850,18 @@ parts_to_webs (df, part2web)
   if (webnum != num_webs)
     abort ();
 
+  for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
+    if (!hardreg2web[i])
+      {
+	struct web *web = (struct web *) xcalloc (1, sizeof (struct web));
+	init_one_web (web, gen_rtx_REG (reg_raw_mode[i], i));
+	web->id = webnum;
+	id2web[webnum] = web;
+	webnum++;
+	hardreg2web[web->regno] = web;
+      }
+  num_webs = webnum;
+
   /* Now create all remaining artificial subwebs, i.e. those, which do
      not correspond to a real subreg in the current function's RTL, but
      which nevertheless is a target of a conflict.
@@ -1848,7 +1885,6 @@ parts_to_webs (df, part2web)
 	  {
 	    struct web *subweb = add_subweb_2 (web, cl->size, cl->word);
 	    struct web_link *wl;
-	    subweb->id = num_webs + num_subwebs;
 	    wl = (struct web_link *) xmalloc (sizeof (struct web_link));
 	    wl->web = subweb;
 	    wl->next = all_subwebs;
@@ -1861,7 +1897,9 @@ parts_to_webs (df, part2web)
 				     sizeof (struct web *));
   for (wl = all_subwebs; wl;)
     {
-      id2web[wl->web->id] = wl->web;
+      id2web[webnum] = wl->web;
+      wl->web->id = webnum;
+      webnum++;
       wl = wl->next;
       free (all_subwebs);
       all_subwebs = wl;
@@ -2388,6 +2426,7 @@ free_mem (df)
   free (all_defs_for_web);
   free (use2web);
   free (def2web);
+  free (id2web);
   free (web_parts);
   web_parts = NULL;
   free (move_handled);
@@ -2452,7 +2491,7 @@ free_dlist (list)
 
 static struct dlist *simplify_wl, *freeze_wl, *spill_wl, *simplify_spilled_wl;
 static struct dlist *coalesced_nodes, *colored_nodes, *spilled_nodes;
-static struct dlist *select_stack;
+static struct dlist *select_stack, *simplify_fat_wl;
 
 static struct dlist *mv_worklist, *mv_coalesced, *mv_constrained;
 static struct dlist *mv_frozen, *mv_active;
@@ -2462,6 +2501,7 @@ free_all_lists (void)
 {
   free_dlist (&simplify_wl);
   free_dlist (&simplify_spilled_wl);
+  free_dlist (&simplify_fat_wl);
   free_dlist (&freeze_wl);
   free_dlist (&spill_wl);
   free_dlist (&spilled_nodes);
@@ -2489,6 +2529,8 @@ put_web (web, type)
       case SIMPLIFY:
 	if (web->spill_temp)
 	  push_list (web->dlink, &simplify_spilled_wl);
+	else if (web->add_hardregs)
+	  push_list (web->dlink, &simplify_fat_wl);
 	else
 	  push_list (web->dlink, &simplify_wl);
 	break;
@@ -2643,6 +2685,8 @@ simplify (void)
 	 leads to other spills.  */
       if (simplify_wl)
 	d = pop_list (&simplify_wl);
+      else if (simplify_fat_wl)
+	d = pop_list (&simplify_fat_wl);
       else
 	d = pop_list (&simplify_spilled_wl);
       if (!d)
@@ -3153,8 +3197,9 @@ hardregset_to_string (s)
    This leads to nasty problems on register starved machines, so we try
    to avoid this.  */
 static void
-colorize_one_web (web)
+colorize_one_web (web, hard)
      struct web *web;
+     int hard;
 {
   struct conflict_link *wl;
   int i;
@@ -3246,7 +3291,7 @@ colorize_one_web (web)
 	}
     }
 
-  debug_msg (0, "trying to color web %d [don't begin at %s]\n", web->id,
+  debug_msg (0, "colorize web %d [don't begin at %s]", web->id,
              hardregset_to_string (conflict_colors));
   if (num_fat)
     {
@@ -3333,6 +3378,7 @@ colorize_one_web (web)
 		  bestc = c;
 		}
 	      SET_HARD_REG_BIT (conflict_colors, c);
+	      debug_msg (0, " avoid %d", c);
 	    }
 	  else
 	    /* We found a color which doesn't destroy a block.  */
@@ -3341,6 +3387,7 @@ colorize_one_web (web)
       else
 	break;
     }
+  debug_msg (0, " --> got %d", c < 0 ? bestc : c);
   if (bestc >= 0 && c < 0 && web->was_spilled < 0)
     {
       /* This is a non-potential-spill web, which got a color, which did
@@ -3349,9 +3396,10 @@ colorize_one_web (web)
 	 a spill temp.  */
       if (1 || web->spill_temp)
         c = bestc;
-      debug_msg (0, "  *** Non-spill web %d colored with %d, constrains"
-		 " it's neighbors\n", web->id, c);
+      debug_msg (0, " [constrains neighbors]");
     }
+  debug_msg (0, "\n");
+
   if (c < 0)
     {
       /* Guard against a simplified node being spilled.  */
@@ -3371,26 +3419,13 @@ colorize_one_web (web)
 	 
 	 if (DLIST_WEB (d)->was_spilled < 0)
 	 abort (); */
-      if (web->was_spilled < 0)
-        debug_msg (0,
-		   "  *** Web %d spilled, although it was simplified "
-		   "[free = %x, mode = %s]\n", web->id,
-#if FIRST_PSEUDO_REGISTER <= HOST_BITS_PER_WIDE_INT
-		   colors,
-#else
-		   /* Yes, yes, I know, that's not all hard-regs.  */
-		   colors[0],
-#endif
-		   GET_MODE_NAME (PSEUDO_REGNO_MODE (web->regno)));
-      if (web->spill_temp)
-        debug_msg (0,
-		   "  *** Web %d spilled, although it's a spilltemp\n",
-		   web->id);
-      if (web->was_spilled < 0 || web->spill_temp)
+      if (hard && (web->was_spilled < 0 || web->spill_temp))
 	{
 	  unsigned int loop;
 	  struct web *try = NULL;
 
+	  debug_msg (0, "  *** %d spilled, although %s ***\n",
+		     web->id, web->spill_temp ? "spilltemp" : "non-spill");
 	  /* We make two passes over our conflicts, first trying to
 	     spill those webs, which only got a color by chance, but
 	     were potential spill ones, and if that isn't enough, in a second
@@ -3422,7 +3457,8 @@ colorize_one_web (web)
 	      /* Now try to colorize us again.  Can recursively make other
 		 webs also spill, until there are no more unspilled
 		 neighbors.  */
-	      colorize_one_web (web);
+	      debug_msg (0, "  trying to spill %d\n", try->id);
+	      colorize_one_web (web, hard);
 	      if (web->type != COLORED)
 		{
 		  /* We tried recursively to spill all already colored
@@ -3431,6 +3467,16 @@ colorize_one_web (web)
 		  remove_list (try->dlink, &spilled_nodes);
 		  put_web (try, COLORED);
 		  try->color = old_c;
+		  debug_msg (0, "  spilling %d was useless\n", try->id);
+		}
+	      else
+		{
+		  debug_msg (0, "  to spill %d was a good idea\n", try->id);
+		  remove_list (try->dlink, &spilled_nodes);
+		  if (try->was_spilled > 0)
+		    colorize_one_web (try, 0);
+		  else
+		    colorize_one_web (try, hard - 1);
 		}
 	    }
 
@@ -3458,7 +3504,7 @@ assign_colors (void)
   while (select_stack)
     {
       d = pop_list (&select_stack);
-      colorize_one_web (DLIST_WEB (d));
+      colorize_one_web (DLIST_WEB (d), 1);
     }
 
   for (d = coalesced_nodes; d; d = d->next)
@@ -3497,9 +3543,9 @@ spill_coalescing (coalesce, spilled)
 	       of conflicts relies on the fact, that in the conflict list
 	       of T all of it's conflicts are noted.  This is currently not
 	       the case if T would be the target of a coalesced web, because
-	       then (in combine () above) only those conflicts where noted in
+	       then (in combine () above) only those conflicts were noted in
 	       T from the web which was coalesced into T, which at the time
-	       of combine() where not already on the SELECT stack or where
+	       of combine() were not already on the SELECT stack or were
 	       itself coalsced to something other.  */
 	    if (t->type != SPILLED || s->type != SPILLED)
 	      abort ();
@@ -3736,7 +3782,12 @@ emit_colors (df)
     {
       web = id2web[i];
       if (web->reg_rtx)
-        reg_renumber[REGNO (web->reg_rtx)] = web->color;
+	{
+	  int r = REGNO (web->reg_rtx);
+          reg_renumber[r] = web->color;
+          debug_msg (0, "Renumber pseudo %d (== web %d) to %d\n",
+		     r, web->id, reg_renumber[r]);
+	}
     }
 
   old_regs = BITMAP_XMALLOC ();
@@ -3748,10 +3799,6 @@ emit_colors (df)
       AND_COMPL_REG_SET (BASIC_BLOCK (si)->global_live_at_end, old_regs);
     }
   BITMAP_XFREE (old_regs);
-
-  if (rtl_dump_file)
-    for (i = FIRST_PSEUDO_REGISTER; i < (unsigned int) max_regno; i++)
-      debug_msg (0, "Renumber pseudo %d to %d\n", i, reg_renumber[i]);
 }
 
 /* Copy of dce.c:delete_insn_bb.  */
@@ -3844,7 +3891,7 @@ one_pass (df)
       else if (spill_wl)
 	select_spill ();
     }
-  while (simplify_wl || simplify_spilled_wl || mv_worklist
+  while (simplify_wl || simplify_fat_wl || simplify_spilled_wl || mv_worklist
 	 || freeze_wl || spill_wl);
   assign_colors ();
   if (spilled_nodes)
