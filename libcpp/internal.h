@@ -308,7 +308,7 @@ struct cpp_reader
   struct line_maps *line_table;
 
   /* The line of the '#' of the current directive.  */
-  fileline directive_line;
+  source_location directive_line;
 
   /* Memory buffers.  */
   _cpp_buff *a_buff;		/* Aligned permanent storage.  */
@@ -334,6 +334,7 @@ struct cpp_reader
 
   /* File and directory hash table.  */
   struct htab *file_hash;
+  struct htab *dir_hash;
   struct file_hash_entry *file_hash_entries;
   unsigned int file_hash_entries_allocated, file_hash_entries_used;
 
@@ -421,7 +422,7 @@ struct cpp_reader
     uchar *base;
     uchar *limit;
     uchar *cur;
-    fileline first_line;
+    source_location first_line;
   } out;
 
   /* Used for buffer overlays by cpptrad.c.  */
@@ -559,11 +560,6 @@ extern const char *_cpp_default_encoding (void);
 
 /* Utility routines and macros.  */
 #define DSC(str) (const uchar *)str, sizeof str - 1
-#define xnew(T)		(T *) xmalloc (sizeof(T))
-#define xcnew(T)	(T *) xcalloc (1, sizeof(T))
-#define xnewvec(T, N)	(T *) xmalloc (sizeof(T) * (N))
-#define xcnewvec(T, N)	(T *) xcalloc (N, sizeof(T))
-#define xobnew(O, T)	(T *) obstack_alloc (O, sizeof(T))
 
 /* These are inline functions instead of macros so we can get type
    checking.  */

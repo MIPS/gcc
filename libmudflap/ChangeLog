@@ -1,3 +1,108 @@
+2004-07-27  Ulrich Weigand  <weigand@informatik.uni-erlangen.de>
+
+	* mf-runtime.c (__mf_fini): Set mudflap_mode to mode_nop in
+	the statically linked case.
+
+2004-07-27  Frank Ch. Eigler  <fche@redhat.com>
+
+	* splay-tree.[ch]: Remove.  Merge contents into ...
+	* mf-runtime.c: ... here, renaming symbols and making all functions
+	static.  Remove unused min/max functions.
+	* Makefile.am: Forget about splay-tree.[ch].
+	* Makefile.in, testsuite/Makefile.in: Regenerated.
+
+2004-07-21  Frank Ch. Eigler  <fche@redhat.com>
+
+	* mf-runtime.c (__mfu_check): Remove mistaken mode-nop handling.
+	(__mfu_usage): Include (C) 2004.
+	* mf-hooks3.c (__mf_find_threadinfo): Don't call tracing functions
+	here.  Include a comment explaining why.
+
+2004-07-20  Frank Ch. Eigler  <fche@redhat.com>
+
+	* mf-impl.h (__mf_options): Add ignore_reads and timestamps fields.
+	* mf-runtime.c (options): Give them a name.
+	(__mf_set_default_options): Set them.
+	(__mf_insert_new_object, __mfu_unregister): Optionalize timestamps.
+	(__mf_violation): Warning cleanup.
+	* mf-impl.h (MF_VALIDATE_EXTENT): Support ignore_reads option.
+	* splay-tree.c (splay_tree_delete_helper): Remove obsolete decl.
+
+2004-07-15  Frank Ch. Eigler  <fche@redhat.com>
+
+	g++/15861
+	* mf-runtime.c (__mf_init): Make it non-static.  Tolerate
+	repeated invocation.
+
+2004-07-09  Frank Ch. Eigler  <fche@redhat.com>
+
+	Test case for g++/15861
+	* testsuite/libmudflap.c++/ctors-[12].cxx: New test case halves.
+	* testsuite/libmudflap.c++/ctors.exp: Driver.
+	* testsuite/libmudflap.c++/c++frags.exp: Elide redundant default.
+	Look only for *frag* test cases.
+
+2004-07-08  Frank Ch. Eigler  <fche@redhat.com>
+
+	ANSI C conversion, libmudflap specialization, recursion limiting.
+	* splay-tree.h (splay_tree_{de,}allocate_fn): Remove allocation_data
+	argument and indirection function pointers, update callers.
+	(splay_tree_s): Add statistics and recursion control fields
+	num_keys, max_depth, depth, rebalance_p.
+	* splay-tree.c (splay_tree_splay_helper): Track recursion depth.
+	Back out of search if it exceeds limit.
+	(splay_tree_splay): Manage recursion limiting with rebalancing as
+	needed.
+	(splay_tree_new): More initialization.
+	(splay_tree_rebalance): New function.
+	(splay_tree_foreach): Rewrite using nonrecursive logic.
+	(splay_tree_xmalloc_allocate, splay_tree_xmalloc_deallocate):
+	Remove.  Point indirect calls to mf-runtime.c's routines.
+	(splay_tree_compare_ints, splay_tree_compare_pointers): Remove unused
+	functions.
+	(splay_tree_delete, splay_tree_delete_helper): Ditto.
+	* testsuite/heap-scalestress.c: New test based on one from
+	Eyal Lebedinsky <eyal@eyal.emu.id.au>:
+
+2004-07-05  Matthias Klose  <doko@debian.org>
+
+	* libtool-version: New.
+	* Makefile.am (libmudflap_la_LDFLAGS, libmudflapth_la_LDFLAGS):
+	Use -version-info for soname.
+	* Makefile.in: Regenerate.
+	* configure.ac: Remove libtool_VERSION macro
+	* configure: Regenerate
+
+2004-07-05  Zack Weinberg  <zack@codesourcery.com>
+
+	* mf-runtime.h.in: Wrap declarations of struct __mf_cache,
+	__mf_lookup_cache, __mf_lc_mask, or __mf_lc_shift in
+	#ifndef _MUDFLAP.
+
+2004-06-29  Frank Ch. Eigler  <fche@redhat.com>
+
+	Splay tree implementation fork.
+	* splay-tree.c, splay-tree.h: Copied & modified from libiberty.
+	Use hard-coded comparison function for uintptr_t.  Remove key/value
+	deallocation logic.  Cache last splayed key for consecutive lookups.
+	* Makefile.am, Makefile.in: Use them, don't link to them.
+	* mf-runtime.c (__mf_object_tree): Adapt to simpler splay_tree_new.
+	(__mf_find_objects2): Flip successor/predecessor search sequence.
+	* ansidecl.h, libiberty.h: Removed dummy files.
+
+2004-06-29  Nick Clifton  <nickc@redhat.com>
+
+	* configure.ac (AC_CHECK_HEADERS): Add dirent.h
+	* configure: Regenerate.
+	* mf-hooks2.c: Surround uses of dirent.h with #ifdef
+	HAVE_DIRENT_H.
+	Remove spurious inclusion of <strings.h>.
+
+2004-06-29  Nick Clifton  <nickc@redhat.com>
+
+	* mf-runtime.c (pthread_join): Only apply the weak pragma if the
+	function actually exists.
+
 2004-06-25  Frank Ch. Eigler  <fche@redhat.com>
 
 	* ansidecl.h, libiberty.h: New dummy files for building splay-tree.
@@ -71,7 +176,7 @@
 	* testsuite/libmudflap.c/pass46-frag.c: Ditto.
 	* configure, Makefile, aclocal.m4, config.h.in, testsuite/Makefile.in:
 	Regenerated with autoconf 2.57 and automake 1.7.
-	
+
 2004-06-04  Per Bothner  <per@bothner.com>
 
 	* configure.in (LIBMUDFLAPTH):  Fix thinko.
@@ -205,8 +310,8 @@
 2003-11-19  Frank Ch. Eigler  <fche@redhat.com>
 
 	libstdc++/11696
-        * mf-runtime.h.in: Switch to #pragma redefine_extname for
-        symbols interposed at compile time.
+	* mf-runtime.h.in: Switch to #pragma redefine_extname for
+	symbols interposed at compile time.
 	* testsuite/libmudflap.c++/pass41-frag.cxx: New test.
 
 	libmudflap/12939
@@ -230,7 +335,7 @@
 
 	2003-07-29  Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
 
-        * configure.in: Update check for union semun.
+	* configure.in: Update check for union semun.
 
 2003-07-29  Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
 

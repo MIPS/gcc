@@ -21,6 +21,9 @@ write_entries_to_file = $(shell rm -f $(2) || :) $(shell touch $(2)) $(foreach o
 
 ## ################################################################
 
+# autoconf2.13's target_alias
+target_noncanonical = @target_noncanonical@
+
 ##
 ## What gets installed, and where.
 ##
@@ -28,7 +31,7 @@ write_entries_to_file = $(shell rm -f $(2) || :) $(shell touch $(2)) $(foreach o
 if XLIB_AWT
 cond_x_ltlibrary = lib-gnu-awt-xlib.la
 ## We require libstdc++-v3 to be in the same build tree.
-xlib_includes = -I../libstdc++-v3/include -I../libstdc++-v3/include/$(target_alias) -I$(srcdir)/../libstdc++-v3/libsupc++
+xlib_includes = -I../libstdc++-v3/include -I../libstdc++-v3/include/$(target_noncanonical) -I$(srcdir)/../libstdc++-v3/libsupc++
 else
 cond_x_ltlibrary =
 xlib_includes =
@@ -40,7 +43,7 @@ else
 cond_gtk_ltlibrary =
 endif
 
-toolexeclib_LTLIBRARIES = libgcj.la lib-org-xml-sax.la lib-org-w3c-dom.la \
+toolexeclib_LTLIBRARIES = libgcj.la libgij.la lib-org-xml-sax.la lib-org-w3c-dom.la \
     $(cond_gtk_ltlibrary) $(cond_x_ltlibrary)
 toolexecmainlib_DATA = libgcj.spec
 
@@ -57,7 +60,7 @@ propdir = $(libdir)
 
 ## For now, only on native systems.  FIXME.
 if NATIVE
-bin_PROGRAMS = jv-convert gij rmic rmiregistry
+bin_PROGRAMS = jv-convert gij grmic grmiregistry
 endif
 
 bin_SCRIPTS = addr2name.awk
@@ -68,22 +71,8 @@ bin_SCRIPTS = addr2name.awk
 ## Compilers and compilation flags.
 ##
 
-## CANADIAN is a misnomer.  Really we check to see if we must pick up
-## the tools from the path.
-if CANADIAN
-if NULL_TARGET
-## In this case, gcj is found outside the build tree.  However, zip is
-## found in the build tree.
-ZIP = $(MULTIBUILDTOP)../$(COMPPATH)/fastjar/jar
-GCJH = gcjh
-else
-ZIP = jar
-GCJH = $(target_alias)-gcjh
-endif
-else # CANADIAN
-GCJH = $(MULTIBUILDTOP)../$(COMPPATH)/gcc/gcjh
-ZIP = $(MULTIBUILDTOP)../$(COMPPATH)/fastjar/jar
-endif # CANADIAN
+GCJH = @GCJH@
+ZIP = @ZIP@
 
 ## The compiler with whatever flags we want for both -c and -C
 ## compiles.
@@ -111,6 +100,8 @@ AM_CXXFLAGS = -fno-rtti -fnon-call-exceptions $(THREADCXXFLAGS) \
 	-fdollars-in-identifiers \
 ## Detect bugs in the verifier implementation, and maybe other places.
 	-Wswitch-enum \
+## Some systems, including Linux, need this to enable > 2GB file support.
+	-D_FILE_OFFSET_BITS=64 \
 	@LIBGCJ_CXXFLAGS@ @X_CFLAGS@ $(WARNINGS) -D_GNU_SOURCE \
 	-DPREFIX="\"$(prefix)\"" -DLIBDIR="\"$(libdir)\"" \
 	-DBOOT_CLASS_PATH="\"$(jardir)/$(jar_DATA)\"" \
@@ -151,6 +142,8 @@ gtk_c_files = $(gtk_c_source_files:.c=.lo)
 javao_files = $(java_source_files:.java=.lo) \
 	$(built_java_source_files:.java=.lo)
 x_javao_files = $(x_java_source_files:.java=.lo)
+
+libgij_la_SOURCES = gij.cc
 
 libgcj_la_SOURCES = prims.cc jni.cc exception.cc \
 	resolve.cc defineclass.cc interpret.cc verify.cc \
@@ -784,29 +777,29 @@ gij_LDADD = -L$(here)/.libs libgcj.la
 ## linking this program.
 gij_DEPENDENCIES = libgcj.la libgcj.spec
 
-rmic_SOURCES =
+grmic_SOURCES =
 ## This is a dummy definition.
-EXTRA_rmic_SOURCES = $(rmi_java_source_files)
-rmic_LDFLAGS = --main=gnu.java.rmi.rmic.RMIC \
+EXTRA_grmic_SOURCES = $(rmi_java_source_files)
+grmic_LDFLAGS = --main=gnu.java.rmi.rmic.RMIC \
 	-rpath $(toolexeclibdir) -shared-libgcc $(THREADLDFLAGS)
-rmic_LINK = $(GCJLINK)
+grmic_LINK = $(GCJLINK)
 ## See jv_convert_LDADD.
-rmic_LDADD = -L$(here)/.libs libgcj.la
+grmic_LDADD = -L$(here)/.libs libgcj.la
 ## Depend on the spec file to make sure it is up to date before
 ## linking this program.
-rmic_DEPENDENCIES = libgcj.la libgcj.spec
+grmic_DEPENDENCIES = libgcj.la libgcj.spec
 
-rmiregistry_SOURCES =
+grmiregistry_SOURCES =
 ## This is a dummy definition.
-EXTRA_rmiregistry_SOURCES = $(rmi_java_source_files)
-rmiregistry_LDFLAGS = --main=gnu.java.rmi.registry.RegistryImpl \
+EXTRA_grmiregistry_SOURCES = $(rmi_java_source_files)
+grmiregistry_LDFLAGS = --main=gnu.java.rmi.registry.RegistryImpl \
 	-rpath $(toolexeclibdir) -shared-libgcc $(THREADLDFLAGS)
-rmiregistry_LINK = $(GCJLINK)
+grmiregistry_LINK = $(GCJLINK)
 ## See jv_convert_LDADD.
-rmiregistry_LDADD = -L$(here)/.libs libgcj.la
+grmiregistry_LDADD = -L$(here)/.libs libgcj.la
 ## Depend on the spec file to make sure it is up to date before
 ## linking this program.
-rmiregistry_DEPENDENCIES = libgcj.la libgcj.spec
+grmiregistry_DEPENDENCIES = libgcj.la libgcj.spec
 
 # The Unicode consortium does not permit re-distributing the file JIS0201.TXT.
 # You can get it from ftp://ftp.unicode.org/Public/MAPPINGS/EASTASIA/JIS/.
@@ -1109,6 +1102,7 @@ java/awt/geom/GeneralPath.java \
 java/awt/geom/QuadCurve2D.java \
 java/awt/image/AffineTransformOp.java \
 java/awt/image/BufferedImage.java \
+java/awt/image/ByteLookupTable.java \
 java/awt/image/ColorModel.java \
 java/awt/image/ComponentColorModel.java \
 java/awt/image/ComponentSampleModel.java \
@@ -1124,11 +1118,14 @@ java/awt/image/ImageConsumer.java \
 java/awt/image/ImageObserver.java \
 java/awt/image/ImageProducer.java \
 java/awt/image/IndexColorModel.java \
+java/awt/image/Kernel.java \
+java/awt/image/LookupTable.java \
 java/awt/image/PackedColorModel.java \
 java/awt/image/PixelInterleavedSampleModel.java \
 java/awt/image/Raster.java \
 java/awt/image/RasterOp.java \
 java/awt/image/SampleModel.java \
+java/awt/image/ShortLookupTable.java \
 java/awt/image/SinglePixelPackedSampleModel.java \
 java/awt/image/WritableRaster.java \
 java/awt/image/AreaAveragingScaleFilter.java \
@@ -1282,8 +1279,10 @@ java/beans/BeanInfo.java \
 java/beans/Beans.java \
 java/beans/Customizer.java \
 java/beans/DesignMode.java \
+java/beans/EventHandler.java \
 java/beans/EventSetDescriptor.java \
 java/beans/ExceptionListener.java \
+java/beans/Expression.java \
 java/beans/FeatureDescriptor.java \
 java/beans/IndexedPropertyDescriptor.java \
 java/beans/IntrospectionException.java \
@@ -1299,6 +1298,7 @@ java/beans/PropertyEditor.java \
 java/beans/PropertyEditorManager.java \
 java/beans/PropertyEditorSupport.java \
 java/beans/PropertyVetoException.java \
+java/beans/Statement.java \
 java/beans/SimpleBeanInfo.java \
 java/beans/VetoableChangeListener.java \
 java/beans/VetoableChangeListenerProxy.java \
@@ -1348,8 +1348,10 @@ javax/swing/plaf/basic/BasicSliderUI.java \
 javax/swing/plaf/basic/BasicSplitPaneDivider.java \
 javax/swing/plaf/basic/BasicSplitPaneUI.java \
 javax/swing/plaf/basic/BasicTabbedPaneUI.java \
+javax/swing/plaf/basic/BasicTextFieldUI.java \
 javax/swing/plaf/basic/BasicTextUI.java \
 javax/swing/plaf/basic/BasicToggleButtonUI.java \
+javax/swing/plaf/basic/BasicToolBarSeparatorUI.java \
 javax/swing/plaf/basic/BasicToolBarUI.java \
 javax/swing/plaf/basic/BasicTreeUI.java \
 javax/swing/plaf/basic/BasicViewportUI.java \
@@ -1463,6 +1465,8 @@ javax/swing/ListModel.java \
 javax/swing/ListSelectionModel.java \
 javax/swing/LookAndFeel.java \
 javax/swing/Scrollable.java \
+javax/swing/Spring.java \
+javax/swing/SpringLayout.java \
 javax/swing/SwingConstants.java \
 javax/swing/SwingUtilities.java \
 javax/swing/Timer.java \
@@ -1517,29 +1521,34 @@ javax/swing/text/AbstractDocument.java \
 javax/swing/text/AttributeSet.java \
 javax/swing/text/BadLocationException.java \
 javax/swing/text/Caret.java \
-javax/swing/text/CharacterIterator.java \
 javax/swing/text/ComponentView.java \
 javax/swing/text/DefaultCaret.java \
 javax/swing/text/DefaultEditorKit.java \
+javax/swing/text/DefaultHighlighter.java \
 javax/swing/text/Document.java \
 javax/swing/text/DocumentFilter.java \
 javax/swing/text/EditorKit.java \
 javax/swing/text/Element.java \
+javax/swing/text/FieldView.java \
 javax/swing/text/GapContent.java \
+javax/swing/text/Highlighter.java \
 javax/swing/text/JTextComponent.java \
 javax/swing/text/Keymap.java \
+javax/swing/text/LayeredHighlighter.java \
+javax/swing/text/MutableAttributeSet.java \
+javax/swing/text/NavigationFilter.java \
 javax/swing/text/PlainDocument.java \
-javax/swing/text/PlainEditorKit.java \
+javax/swing/text/PlainView.java \
 javax/swing/text/Position.java \
 javax/swing/text/Segment.java \
 javax/swing/text/Style.java \
-javax/swing/text/View.java \
-javax/swing/text/ViewFactory.java \
-javax/swing/text/MutableAttributeSet.java \
-javax/swing/text/NavigationFilter.java \
 javax/swing/text/StyledDocument.java \
 javax/swing/text/StyledEditorKit.java \
+javax/swing/text/TabExpander.java \
+javax/swing/text/TabableView.java \
 javax/swing/text/TextAction.java \
+javax/swing/text/View.java \
+javax/swing/text/ViewFactory.java \
 javax/swing/text/html/HTML.java \
 javax/swing/text/html/parser/ParserDelegator.java \
 javax/swing/tree/TreeNode.java \
@@ -1746,9 +1755,15 @@ javax/accessibility/AccessibleTable.java \
 javax/accessibility/AccessibleTableModelChange.java \
 javax/accessibility/AccessibleText.java \
 javax/accessibility/AccessibleValue.java \
+javax/imageio/IIOException.java \
 javax/imageio/ImageReader.java \
 javax/imageio/ImageTranscoder.java \
 javax/imageio/ImageWriter.java \
+javax/imageio/event/IIOReadProgressListener.java \
+javax/imageio/event/IIOReadUpdateListener.java \
+javax/imageio/event/IIOReadWarningListener.java \
+javax/imageio/event/IIOWriteProgressListener.java \
+javax/imageio/event/IIOWriteWarningListener.java \
 javax/imageio/spi/IIOServiceProvider.java \
 javax/imageio/spi/ImageInputStreamSpi.java \
 javax/imageio/spi/ImageOutputStreamSpi.java \
@@ -2264,7 +2279,6 @@ gnu/gcj/io/MimeTypes.java \
 gnu/gcj/io/SimpleSHSStream.java	\
 gnu/gcj/runtime/FileDeleter.java \
 gnu/gcj/runtime/FinalizerThread.java \
-gnu/gcj/runtime/FirstThread.java \
 gnu/gcj/runtime/JNIWeakRef.java \
 gnu/gcj/runtime/MethodRef.java \
 gnu/gcj/runtime/NameFinder.java \
@@ -2280,7 +2294,7 @@ gnu/java/io/NullOutputStream.java \
 gnu/java/io/ObjectIdentityWrapper.java \
 gnu/java/lang/ArrayHelper.java \
 gnu/java/lang/ClassHelper.java \
-gnu/java/lang/CharData.java \
+gnu/java/lang/MainThread.java \
 gnu/java/lang/reflect/TypeSignature.java \
 gnu/java/locale/Calendar.java \
 gnu/java/locale/Calendar_de.java \
@@ -2422,6 +2436,7 @@ gnu/java/locale/LocaleInformation_zh_HK.java \
 gnu/java/locale/LocaleInformation_zh_SG.java \
 gnu/java/locale/LocaleInformation_zh_TW.java \
 gnu/java/math/MPN.java \
+gnu/java/net/DefaultContentHandlerFactory.java \
 gnu/java/net/HeaderFieldHelper.java \
 gnu/java/net/PlainDatagramSocketImpl.java \
 gnu/java/net/PlainSocketImpl.java \
@@ -2498,6 +2513,8 @@ gnu/java/security/der/DEREncodingException.java \
 gnu/java/security/der/DERReader.java \
 gnu/java/security/der/DERValue.java \
 gnu/java/security/der/DERWriter.java \
+gnu/java/security/action/GetPropertyAction.java \
+gnu/java/security/action/SetAccessibleAction.java \
 gnu/java/security/provider/DefaultPolicy.java \
 gnu/java/security/provider/DSAKeyFactory.java \
 gnu/java/security/provider/DSAKeyPairGenerator.java \
@@ -2937,13 +2954,12 @@ gnu/gcj/convert/natOutput_SJIS.cc \
 gnu/gcj/io/natSimpleSHSStream.cc \
 gnu/gcj/io/shs.cc \
 gnu/gcj/runtime/natFinalizerThread.cc \
-gnu/gcj/runtime/natFirstThread.cc \
 gnu/gcj/runtime/natNameFinder.cc \
 gnu/gcj/runtime/natSharedLibLoader.cc \
 gnu/gcj/runtime/natStackTrace.cc \
 gnu/gcj/runtime/natStringBuffer.cc \
 gnu/gcj/runtime/natVMClassLoader.cc \
-gnu/java/awt/natEmbeddedWindow.cc \
+gnu/java/lang/natMainThread.cc \
 gnu/java/net/natPlainDatagramSocketImpl.cc \
 gnu/java/net/natPlainSocketImpl.cc \
 gnu/java/net/protocol/core/natCoreInputStream.cc \

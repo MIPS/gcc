@@ -1,3 +1,65 @@
+2004-07-18  Bud Davis  <bdavis9659@comcast.net>
+
+	* configure.ac: Add check for LFS support. 
+	* configure: Regenerate
+
+2004-07-11  Paul Brook  <paul@codesourcery.com>
+
+	PR fortran/16303
+	* m4/cexp.m4 (carg): Return -pi to pi.
+	* generated/exp_c?.c: Regenerate.
+
+2004-07-08  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	PR fortran/16291
+	* libgfortran/io/write.c: (write_float): Added length check.
+	Remove pointless memset calls.
+
+2004-07-04  Bud Davis  <bdavis9659@comcast.net>
+	    Paul Brook  <paul@codesourcery.com>
+
+	PR fortran/15472
+	* io/transfer.c(us_write): set recl for seq unform writes to max size.
+	* io/transfer.c(data_transfer_init): handle un-opened seq unform unit.
+	* io/unix.c(fd_alloc_w_at): handle requests at start, fd_flush at 
+	right time.
+	* io/unix.c(is_seekable): set based upon the file/device, not the
+	method being used to access it (fd or mmap).
+	* io/unix.c(fd_flush): don't set file_size if !seekable.
+	* io/unix.c(fd_truncate: ditto.
+
+2004-07-04  Janne Blomqvist  <jblomqvi@cc.hut.fi>
+	Paul Brook  <paul@codesourcery.com>
+
+	PR fortran/15280
+	PR fortran/15665
+	* libgfortran.h (gfc_strlen_type): Define.
+	* intrinsics/args.c (getarg): Rename ...
+	(getarg_i4): ... to this.
+	(getarg_i8, get_command_argument_i4, get_command_argument_i8,
+	get_command_i4, get_command_i8): New functions.
+
+2004-07-04  Matthias Klose  <doko@debian.org>
+
+	* libtool-version: New.
+	* Makefile.am (libgfortran_la_LDFLAGS): Use -version-info for soname.
+	* Makefile.in: Regenerate.
+	* configure.ac: Remove libtool_VERSION macro
+	* configure: Regenerate
+
+2004-06-30  Steve Kargl  <sgk@troutmask.apl.washington.edu>
+	    Steven Bosscher  <stevenb@suse.de>
+
+	* intrinsics/rand.c (rand): Wrap the irand() call from the previous
+	commit in prefix.
+
+2004-06-29  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+	Paul Brook  <paul@codesourcery.com>
+
+	* runtime/normalize.c (normalize_r4_i4, normalize_r8_i8): Fix
+	comments.
+	* intrinsics/rand.c (rand): Call irand() in call to normalize_r4_i4.
+
 2004-06-27  Bud Davis  <bdavis9659@comcast.net>
 
 	PR gfortran/12839

@@ -139,8 +139,12 @@ namespace __gnu_cxx
 	// See http://gcc.gnu.org/ml/libstdc++/2001-07/msg00077.html
 	size_t 	_M_chunk_size;
 
-	// The maximum number of supported threads. Our Linux 2.4.18
-	// reports 4070 in /proc/sys/kernel/threads-max
+	// The maximum number of supported threads. For
+	// single-threaded operation, use one. Maximum values will
+	// vary depending on details of the underlying system. (For
+	// instance, Linux 2.4.18 reports 4070 in
+	// /proc/sys/kernel/threads-max, while Linux 2.6.6 reports
+	// 65534)
 	size_t 	_M_max_threads;
 
 	// Each time a deallocation occurs in a threaded application
@@ -172,6 +176,17 @@ namespace __gnu_cxx
 	{ }
       };
 
+      static const _Tune
+      _S_get_options()
+      { return _S_options; }
+
+      static void
+      _S_set_options(_Tune __t)
+      { 
+	if (!_S_init)
+	  _S_options = __t;
+      }
+
     private:
       // We need to create the initial lists and set up some variables
       // before we can answer to the first request for memory.
@@ -185,17 +200,6 @@ namespace __gnu_cxx
 
       // Configuration options.
       static _Tune 	       		_S_options;
-
-      static const _Tune
-      _S_get_options()
-      { return _S_options; }
-
-      static void
-      _S_set_options(_Tune __t)
-      { 
-	if (!_S_init)
-	  _S_options = __t;
-      }
 
       // Using short int as type for the binmap implies we are never
       // caching blocks larger than 65535 with this allocator
@@ -488,8 +492,25 @@ namespace __gnu_cxx
     __mt_alloc<_Tp>::
     _S_initialize()
     {
-      if (_S_options._M_force_new)
-	return;
+      // This method is called on the first allocation (when _S_init is still
+      // false) to create the bins.
+      
+      // Ensure that the static initialization of _S_options has
+      // happened.  This depends on (a) _M_align == 0 being an invalid
+      // value that is only present at startup, and (b) the real
+      // static initialization that happens later not actually
+      // changing anything.
+      if (_S_options._M_align == 0) 
+        new (&_S_options) _Tune;
+  
+      // _M_force_new must not change after the first allocate(),
+      // which in turn calls this method, so if it's false, it's false
+      // forever and we don't need to return here ever again.
+      if (_S_options._M_force_new) 
+	{
+	  _S_init = true;
+	  return;
+	}
 
       // Calculate the number of bins required based on _M_max_bytes.
       // _S_bin_size is statically-initialized to one.

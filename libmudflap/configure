@@ -309,7 +309,7 @@ ac_includes_default="\
 # include <unistd.h>
 #endif"
 
-ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS build build_cpu build_vendor build_os host host_cpu host_vendor host_os target target_cpu target_vendor target_os INSTALL_PROGRAM INSTALL_SCRIPT INSTALL_DATA CYGPATH_W PACKAGE VERSION ACLOCAL AUTOCONF AUTOMAKE AUTOHEADER MAKEINFO AMTAR install_sh STRIP ac_ct_STRIP INSTALL_STRIP_PROGRAM mkdir_p AWK SET_MAKE am__leading_dot libtool_VERSION MAINTAINER_MODE_TRUE MAINTAINER_MODE_FALSE MAINT multi_basedir CC ac_ct_CC EXEEXT OBJEXT DEPDIR am__include am__quote AMDEP_TRUE AMDEP_FALSE AMDEPBACKSLASH CCDEPMODE am__fastdepCC_TRUE am__fastdepCC_FALSE CFLAGS CPP CPPFLAGS EGREP LN_S RANLIB ac_ct_RANLIB LIBTOOL enable_shared enable_static MF_HAVE_STDINT_H MF_HAVE_UINTPTR_T LIBMUDFLAPTH_TRUE LIBMUDFLAPTH_FALSE build_libmudflapth gcc_version toolexecdir toolexeclibdir NM ac_ct_NM SECTION_FLAGS LIBOBJS LTLIBOBJS'
+ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS build build_cpu build_vendor build_os host host_cpu host_vendor host_os target target_cpu target_vendor target_os INSTALL_PROGRAM INSTALL_SCRIPT INSTALL_DATA CYGPATH_W PACKAGE VERSION ACLOCAL AUTOCONF AUTOMAKE AUTOHEADER MAKEINFO AMTAR install_sh STRIP ac_ct_STRIP INSTALL_STRIP_PROGRAM mkdir_p AWK SET_MAKE am__leading_dot MAINTAINER_MODE_TRUE MAINTAINER_MODE_FALSE MAINT multi_basedir CC ac_ct_CC EXEEXT OBJEXT DEPDIR am__include am__quote AMDEP_TRUE AMDEP_FALSE AMDEPBACKSLASH CCDEPMODE am__fastdepCC_TRUE am__fastdepCC_FALSE CFLAGS CPP CPPFLAGS EGREP LN_S RANLIB ac_ct_RANLIB LIBTOOL enable_shared enable_static MF_HAVE_STDINT_H MF_HAVE_UINTPTR_T LIBMUDFLAPTH_TRUE LIBMUDFLAPTH_FALSE build_libmudflapth gcc_version toolexecdir toolexeclibdir NM ac_ct_NM SECTION_FLAGS LIBOBJS LTLIBOBJS'
 ac_subst_files=''
 
 # Initialize some variables set by options.
@@ -1822,10 +1822,6 @@ INSTALL_STRIP_PROGRAM="\${SHELL} \$(install_sh) -c -s"
 # some platforms.
 
 
-
-
-# For libtool versioning info, format is CURRENT:REVISION:AGE
-libtool_VERSION=1:0:0
 
 
 echo "$as_me:$LINENO: checking for --enable-version-specific-runtime-libs" >&5
@@ -3585,7 +3581,8 @@ done
 
 
 
-for ac_header in stdint.h execinfo.h signal.h dlfcn.h \
+
+for ac_header in stdint.h execinfo.h signal.h dlfcn.h dirent.h \
   netdb.h sys/ipc.h sys/sem.h sys/shm.h sys/wait.h sys/socket.h ctype.h
 do
 as_ac_Header=`echo "ac_cv_header_$ac_header" | $as_tr_sh`
@@ -5007,7 +5004,7 @@ test x"$pic_mode" = xno && libtool_flags="$libtool_flags --prefer-non-pic"
 case $host in
 *-*-irix6*)
   # Find out which ABI we are using.
-  echo '#line 5010 "configure"' > conftest.$ac_ext
+  echo '#line 5007 "configure"' > conftest.$ac_ext
   if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
   (eval $ac_compile) 2>&5
   ac_status=$?
@@ -6759,7 +6756,6 @@ s,@mkdir_p@,$mkdir_p,;t t
 s,@AWK@,$AWK,;t t
 s,@SET_MAKE@,$SET_MAKE,;t t
 s,@am__leading_dot@,$am__leading_dot,;t t
-s,@libtool_VERSION@,$libtool_VERSION,;t t
 s,@MAINTAINER_MODE_TRUE@,$MAINTAINER_MODE_TRUE,;t t
 s,@MAINTAINER_MODE_FALSE@,$MAINTAINER_MODE_FALSE,;t t
 s,@MAINT@,$MAINT,;t t

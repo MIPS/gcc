@@ -195,7 +195,6 @@ infodir = @infodir@
 install_sh = @install_sh@
 libdir = @libdir@
 libexecdir = @libexecdir@
-libtool_VERSION = @libtool_VERSION@
 localstatedir = @localstatedir@
 mandir = @mandir@
 mkdir_p = @mkdir_p@
@@ -229,6 +228,7 @@ libmudflap_la_SOURCES = \
 
 libmudflap_la_LIBADD = 
 libmudflap_la_DEPENDENCIES = $(libmudflap_la_LIBADD)
+libmudflap_la_LDFLAGS = -version-info `grep -v '^\#' $(srcdir)/libtool-version`
 libmudflapth_la_SOURCES = 
 libmudflapth_la_LIBADD = \
 	pth/mf-runtime.lo \
@@ -238,6 +238,7 @@ libmudflapth_la_LIBADD = \
 	pth/mf-hooks3.lo
 
 libmudflapth_la_DEPENDENCIES = $(libmudflapth_la_LIBADD)
+libmudflapth_la_LDFLAGS = -version-info `grep -v '^\#' $(srcdir)/libtool-version`
 
 # XXX hack alert
 # From libffi/Makefile.am
@@ -818,21 +819,10 @@ uninstall-info: uninstall-info-recursive
 	uninstall-info-am uninstall-toolexeclibLTLIBRARIES
 
 
-# Copy this out of libiberty's source tree, so it can be built here via libtool
-splay-tree.c:
-	rm -f $@
-	$(LN_S) $(srcdir)/../libiberty/splay-tree.c $@
-# Copy this so that top-level include/ does not have to be put into -I path
-splay-tree.h:
-	rm -f $@
-	$(LN_S) $(srcdir)/../include/splay-tree.h $@
-mf-runtime.lo: mf-runtime.c splay-tree.c splay-tree.h
-
 clean-local:
 	rm -f pth/*.o pth/*.lo
-	rm -f splay-tree.c splay-tree.h
 
-pth/mf-runtime.lo: mf-runtime.c mf-runtime.h mf-impl.h splay-tree.c splay-tree.h
+pth/mf-runtime.lo: mf-runtime.c mf-runtime.h mf-impl.h
 	$(LTCOMPILE) -DLIBMUDFLAPTH -c $(srcdir)/mf-runtime.c -o $@
 pth/mf-heuristics.lo: mf-heuristics.c mf-runtime.h mf-impl.h
 	$(LTCOMPILE) -DLIBMUDFLAPTH -c $(srcdir)/mf-heuristics.c -o $@

@@ -20,29 +20,20 @@ endif
 toolexeclib_LTLIBRARIES = libmudflap.la $(libmudflapth)
 include_HEADERS = mf-runtime.h
 
-# Copy this out of libiberty's source tree, so it can be built here via libtool
-splay-tree.c:
-	rm -f $@
-	$(LN_S) $(srcdir)/../libiberty/splay-tree.c $@
-# Copy this so that top-level include/ does not have to be put into -I path
-splay-tree.h:
-	rm -f $@
-	$(LN_S) $(srcdir)/../include/splay-tree.h $@
 
 libmudflap_la_SOURCES = \
 	mf-runtime.c \
 	mf-heuristics.c \
 	mf-hooks1.c \
 	mf-hooks2.c
-mf-runtime.lo: mf-runtime.c splay-tree.c splay-tree.h
 libmudflap_la_LIBADD = 
 libmudflap_la_DEPENDENCIES = $(libmudflap_la_LIBADD)
+libmudflap_la_LDFLAGS = -version-info `grep -v '^\#' $(srcdir)/libtool-version`
 
 clean-local:
 	rm -f pth/*.o pth/*.lo
-	rm -f splay-tree.c splay-tree.h
 
-pth/mf-runtime.lo: mf-runtime.c mf-runtime.h mf-impl.h splay-tree.c splay-tree.h
+pth/mf-runtime.lo: mf-runtime.c mf-runtime.h mf-impl.h
 	$(LTCOMPILE) -DLIBMUDFLAPTH -c $(srcdir)/mf-runtime.c -o $@
 pth/mf-heuristics.lo: mf-heuristics.c mf-runtime.h mf-impl.h
 	$(LTCOMPILE) -DLIBMUDFLAPTH -c $(srcdir)/mf-heuristics.c -o $@
@@ -62,7 +53,7 @@ libmudflapth_la_LIBADD = \
 	pth/mf-hooks2.lo \
 	pth/mf-hooks3.lo
 libmudflapth_la_DEPENDENCIES = $(libmudflapth_la_LIBADD)
-
+libmudflapth_la_LDFLAGS = -version-info `grep -v '^\#' $(srcdir)/libtool-version`
 
 
 # XXX hack alert

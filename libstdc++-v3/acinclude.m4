@@ -982,8 +982,8 @@ AC_DEFUN([GLIBCXX_ENABLE_CLOCALE], [
   # Probe for locale support if no specific model is specified.
   # Default to "generic".
   if test $enable_clocale_flag = auto; then
-    case x${target_os} in
-      xlinux* | xgnu* | xkfreebsd*-gnu | xknetbsd*-gnu)
+    case ${target_os} in
+      linux* | gnu* | kfreebsd*-gnu | knetbsd*-gnu)
         AC_EGREP_CPP([_GLIBCXX_ok], [
         #include <features.h>
         #if __GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ >= 2)
@@ -992,7 +992,7 @@ AC_DEFUN([GLIBCXX_ENABLE_CLOCALE], [
         ], enable_clocale_flag=gnu, enable_clocale_flag=generic)
 
         # Test for bugs early in glibc-2.2.x series
-          if test x$enable_clocale_flag = xgnu; then
+          if test $enable_clocale_flag = gnu; then
           AC_TRY_RUN([
           #define _GNU_SOURCE 1
           #include <locale.h>
@@ -1153,20 +1153,27 @@ AC_DEFUN([GLIBCXX_ENABLE_ALLOCATOR], [
   GLIBCXX_ENABLE(libstdcxx-allocator,auto,[=KIND],
     [use KIND for target std::allocator base],
     [permit new|malloc|mt|bitmap|pool|yes|no|auto])
+
   # If they didn't use this option switch, or if they specified --enable
   # with no specific model, we'll have to look for one.  If they
   # specified --disable (???), do likewise.
-  if test $enable_libstdcxx_allocator = no || test $enable_libstdcxx_allocator = yes; then
+  if test $enable_libstdcxx_allocator = no ||
+     test $enable_libstdcxx_allocator = yes;
+  then
      enable_libstdcxx_allocator=auto
   fi
 
-  # Either a known package, or "auto"
+  # Either a known package, or "auto". Auto implies the default choice
+  # for a particular platform.
   enable_libstdcxx_allocator_flag=$enable_libstdcxx_allocator
 
   # Probe for host-specific support if no specific model is specified.
   # Default to "new".
   if test $enable_libstdcxx_allocator_flag = auto; then
     case ${target_os} in
+      linux* | gnu* | kfreebsd*-gnu | knetbsd*-gnu)
+        enable_libstdcxx_allocator_flag=mt
+        ;;
       *)
         enable_libstdcxx_allocator_flag=new
         ;;
@@ -1570,6 +1577,23 @@ if test $enable_symvers != no; then
   CFLAGS=' -lgcc_s'
   AC_TRY_LINK(, [return 0;], glibcxx_shared_libgcc=yes, glibcxx_shared_libgcc=no)
   CFLAGS="$ac_save_CFLAGS"
+  if test $glibcxx_shared_libgcc = no; then
+    cat > conftest.c <<EOF
+int main (void) { return 0; }
+EOF
+changequote(,)dnl
+    glibcxx_libgcc_s_suffix=`${CC-cc} $CFLAGS $CPPFLAGS $LDFLAGS \
+			     -shared -shared-libgcc -o conftest.so \
+			     conftest.c -v 2>&1 >/dev/null \
+			     | sed -n 's/^.* -lgcc_s\([^ ]*\) .*$/\1/p'`
+changequote([,])dnl
+    rm -f conftest.c conftest.so
+    if test x${glibcxx_libgcc_s_suffix+set} = xset; then
+      CFLAGS=" -lgcc_s$glibcxx_libgcc_s_suffix"
+      AC_TRY_LINK(, [return 0;], glibcxx_shared_libgcc=yes)
+      CFLAGS="$ac_save_CFLAGS"
+    fi
+  fi
   AC_MSG_RESULT($glibcxx_shared_libgcc)
 fi
 
