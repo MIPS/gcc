@@ -1567,6 +1567,7 @@ call_operand (op, mode)
   return (GET_CODE (op) == SYMBOL_REF
 	  || (GET_CODE (op) == REG
 	      && (REGNO (op) == LINK_REGISTER_REGNUM
+	          || REGNO (op) == COUNT_REGISTER_REGNUM
 	          || REGNO (op) >= FIRST_PSEUDO_REGISTER)));
 }
 
@@ -7353,6 +7354,9 @@ rs6000_emit_cmove (dest, op, true_cond, false_cond)
       emit_insn (gen_rtx_SET (VOIDmode, temp, gen_rtx_NEG (mode, op0)));
       op0 = temp;
       break;
+
+    case LO_SUM:
+      return 0;
 
     default:
       abort ();

@@ -8022,6 +8022,9 @@ mem_loc_descriptor (rtl, mode)
       else
 	return 0;
 
+    case LO_SUM:
+      return 0;
+
     default:
       fprintf (stderr, "\nInvalid mem_loc_descriptor RTL:\n");
       print_rtl (stderr, rtl);

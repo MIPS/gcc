@@ -4836,9 +4836,11 @@ pre_edge_try_insert (edge_list, index_map)
 		    rtx insn = occr->insn;
 		    edge eg = INDEX_EDGE (edge_list, e);
 
+#if 0
 		    if (!TEST_BIT (pre_delete_map[BLOCK_FOR_INSN (insn)->index],
 				   indx))
 		      continue;
+#endif
 
 		    if ((eg->flags & EDGE_ABNORMAL) == EDGE_ABNORMAL)
 		      {

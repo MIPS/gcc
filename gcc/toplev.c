@@ -2326,7 +2326,6 @@ void
 rest_of_compilation (decl)
      tree decl;
 {
-  rtx insns;
   int tem;
   int failure = 0;
   int rebuild_label_notes_after_reload;
@@ -2407,15 +2406,13 @@ rest_of_compilation (decl)
 	    inlinable = DECL_INLINE (decl) = 1;
 	}
 
-      insns = get_insns ();
-
       /* Dump the rtl code if we are dumping rtl.  */
 
       if (open_dump_file (DFI_rtl, decl))
 	{
 	  if (DECL_SAVED_INSNS (decl))
 	    fprintf (rtl_dump_file, ";; (integrable)\n\n");
-	  close_dump_file (DFI_rtl, print_rtl, insns);
+	  close_dump_file (DFI_rtl, print_rtl, get_insns ());
 	}
 
       /* Convert from NOTE_INSN_EH_REGION style notes, and do other
@@ -2455,9 +2452,9 @@ rest_of_compilation (decl)
 	      int saved_optimize = optimize;
 
 	      optimize = 0;
-	      rebuild_jump_labels (insns);
+	      rebuild_jump_labels (get_insns ());
 	      find_exception_handler_labels ();
-	      find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
+	      find_basic_blocks (get_insns (), max_reg_num (), rtl_dump_file);
 	      cleanup_cfg (CLEANUP_PRE_SIBCALL | CLEANUP_PRE_LOOP);
 	      optimize = saved_optimize;
 
@@ -2536,10 +2533,9 @@ rest_of_compilation (decl)
   open_dump_file (DFI_sibling, decl);
 
   /* Build CFG -- for predictions based on source code.  */
-  insns = get_insns ();
-  rebuild_jump_labels (insns);
+  rebuild_jump_labels (get_insns ());
   find_exception_handler_labels ();
-  find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
+  find_basic_blocks (get_insns (), max_reg_num (), rtl_dump_file);
   
   delete_unreachable_blocks ();
 
@@ -2590,19 +2586,17 @@ rest_of_compilation (decl)
     FINALIZE_PIC;
 #endif
 
-  insns = get_insns ();
-
   /* Copy any shared structure that should not be shared.  */
-  unshare_all_rtl (current_function_decl, insns);
+  unshare_all_rtl (current_function_decl, get_insns ());
 
 #ifdef SETJMP_VIA_SAVE_AREA
   /* This must be performed before virtual register instantiation.  */
   if (current_function_calls_alloca)
-    optimize_save_area_alloca (insns);
+    optimize_save_area_alloca (get_insns ());
 #endif
 
   /* Instantiate all virtual registers.  */
-  instantiate_virtual_regs (current_function_decl, insns);
+  instantiate_virtual_regs (current_function_decl, get_insns ());
 
   open_dump_file (DFI_jump, decl);
 
@@ -2615,9 +2609,9 @@ rest_of_compilation (decl)
      before jump optimization switches branch directions.  */
   expected_value_to_br_prob ();
 
-  reg_scan (insns, max_reg_num (), 0);
-  rebuild_jump_labels (insns);
-  find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
+  reg_scan (get_insns (), max_reg_num (), 0);
+  rebuild_jump_labels (get_insns ());
+  find_basic_blocks (get_insns (), max_reg_num (), rtl_dump_file);
   if (rtl_dump_file)
     dump_flow_info (rtl_dump_file);
   cleanup_cfg ((optimize ? CLEANUP_EXPENSIVE : 0) | CLEANUP_PRE_LOOP
@@ -2625,11 +2619,11 @@ rest_of_compilation (decl)
 
   /* CFG is no longer maintained up-to-date.  */
   free_bb_for_insn ();
-  copy_loop_headers (insns);
-  purge_line_number_notes (insns);
+  copy_loop_headers (get_insns ());
+  purge_line_number_notes (get_insns ());
 
   timevar_pop (TV_JUMP);
-  close_dump_file (DFI_jump, print_rtl, insns);
+  close_dump_file (DFI_jump, print_rtl, get_insns ());
 
   /* Now is when we stop if -fsyntax-only and -Wreturn-type.  */
   if (rtl_dump_and_exit || flag_syntax_only || DECL_DEFER_OUTPUT (decl))
@@ -2647,11 +2641,11 @@ rest_of_compilation (decl)
       timevar_push (TV_TO_SSA);
       open_dump_file (DFI_ssa, decl);
 
-      find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
+      find_basic_blocks (get_insns (), max_reg_num (), rtl_dump_file);
       cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
       convert_to_ssa ();
 
-      close_dump_file (DFI_ssa, print_rtl_with_bb, insns);
+      close_dump_file (DFI_ssa, print_rtl_with_bb, get_insns ());
       timevar_pop (TV_TO_SSA);
 
       /* Perform sparse conditional constant propagation, if requested.  */
@@ -2682,10 +2676,9 @@ rest_of_compilation (decl)
 	  timevar_push (TV_SSA_DCE);
 	  open_dump_file (DFI_ssa_dce, decl);
 
-	  insns = get_insns ();
 	  ssa_eliminate_dead_code();
 
-	  close_dump_file (DFI_ssa_dce, print_rtl_with_bb, insns);
+	  close_dump_file (DFI_ssa_dce, print_rtl_with_bb, get_insns ());
 	  timevar_pop (TV_SSA_DCE);
 	}
 
@@ -2696,9 +2689,9 @@ rest_of_compilation (decl)
 
       convert_from_ssa ();
       /* New registers have been created.  Rescan their usage.  */
-      reg_scan (insns, max_reg_num (), 1);
+      reg_scan (get_insns (), max_reg_num (), 1);
 
-      close_dump_file (DFI_ussa, print_rtl_with_bb, insns);
+      close_dump_file (DFI_ussa, print_rtl_with_bb, get_insns ());
       timevar_pop (TV_FROM_SSA);
 
       ggc_collect ();
@@ -2711,7 +2704,7 @@ rest_of_compilation (decl)
   if (optimize > 0)
     {
       open_dump_file (DFI_web, decl);
-      find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
+      find_basic_blocks (get_insns (), max_reg_num (), rtl_dump_file);
       if (rtl_dump_file)
 	dump_flow_info (rtl_dump_file);
       cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP
@@ -2720,12 +2713,12 @@ rest_of_compilation (decl)
 	{
 	  timevar_push (TV_WEB);
 	  web_main ();
-	  delete_trivially_dead_insns (insns, max_reg_num ());
+	  delete_trivially_dead_insns (get_insns (), max_reg_num ());
 	  cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
 
 	  timevar_pop (TV_WEB);
 	}
-      close_dump_file (DFI_web, print_rtl_with_bb, insns);
+      close_dump_file (DFI_web, print_rtl_with_bb, get_insns ());
 
       open_dump_file (DFI_null, decl);
       if (rtl_dump_file)
@@ -2734,13 +2727,13 @@ rest_of_compilation (decl)
 
       /* Try to identify useless null pointer tests and delete them.  */
       if (flag_delete_null_pointer_checks)
-	delete_null_pointer_checks (insns);
+	delete_null_pointer_checks (get_insns ());
 
       timevar_push (TV_IFCVT);
       if_convert (0);
       timevar_pop (TV_IFCVT);
       cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
-      close_dump_file (DFI_null, print_rtl_with_bb, insns);
+      close_dump_file (DFI_null, print_rtl_with_bb, get_insns ());
     }
 
   /* Jump optimization, and the removal of NULL pointer checks, may
@@ -2753,7 +2746,7 @@ rest_of_compilation (decl)
     compute_bb_for_insn (get_max_uid ());
   timevar_pop (TV_JUMP);
 
-  close_dump_file (DFI_jump, print_rtl_with_bb, insns);
+  close_dump_file (DFI_jump, print_rtl_with_bb, get_insns ());
 
   ggc_collect ();
 
@@ -2769,14 +2762,14 @@ rest_of_compilation (decl)
 	dump_flow_info (rtl_dump_file);
       timevar_push (TV_CSE);
 
-      reg_scan (insns, max_reg_num (), 1);
+      reg_scan (get_insns (), max_reg_num (), 1);
 
-      tem = cse_main (insns, max_reg_num (), 0, rtl_dump_file);
+      tem = cse_main (get_insns (), max_reg_num (), 0, rtl_dump_file);
       if (tem)
-	rebuild_jump_labels (insns);
+	rebuild_jump_labels (get_insns ());
       purge_all_dead_edges (0);
 
-      delete_trivially_dead_insns (insns, max_reg_num ());
+      delete_trivially_dead_insns (get_insns (), max_reg_num ());
 
       /* If we are not running more CSE passes, then we are no longer
 	 expecting CSE to be run.  But always rerun it in a cheap mode.  */
@@ -2787,7 +2780,7 @@ rest_of_compilation (decl)
 
       /* Run this after jump optmizations remove all the unreachable code
 	 so that unreachable code will not keep values live.  */
-      delete_trivially_dead_insns (insns, max_reg_num ());
+      delete_trivially_dead_insns (get_insns (), max_reg_num ());
 
       /* Try to identify useless null pointer tests and delete them.  */
       if (flag_delete_null_pointer_checks || flag_thread_jumps)
@@ -2795,7 +2788,7 @@ rest_of_compilation (decl)
 	  timevar_push (TV_JUMP);
 
 	  if (flag_delete_null_pointer_checks)
-	    delete_null_pointer_checks (insns);
+	    delete_null_pointer_checks (get_insns ());
 	  /* CFG is no longer maintained up-to-date.  */
 	  timevar_pop (TV_JUMP);
 	}
@@ -2806,17 +2799,17 @@ rest_of_compilation (decl)
       compute_bb_for_insn (get_max_uid ());
 
       timevar_pop (TV_CSE);
-      close_dump_file (DFI_cse, print_rtl_with_bb, insns);
+      close_dump_file (DFI_cse, print_rtl_with_bb, get_insns ());
     }
 
   open_dump_file (DFI_addressof, decl);
 
-  purge_addressof (insns);
+  purge_addressof (get_insns ());
   if (optimize)
     purge_all_dead_edges (0);
-  reg_scan (insns, max_reg_num (), 1);
+  reg_scan (get_insns (), max_reg_num (), 1);
 
-  close_dump_file (DFI_addressof, print_rtl, insns);
+  close_dump_file (DFI_addressof, print_rtl, get_insns ());
 
   ggc_collect ();
 
@@ -2836,10 +2829,10 @@ rest_of_compilation (decl)
       flow_loops_find (&loops, LOOP_TREE);
       create_preheaders (&loops, 0);
       flow_loops_free (&loops);
-      tem = gcse_main (insns, rtl_dump_file);
-      rebuild_jump_labels (insns);
-      delete_trivially_dead_insns (insns, max_reg_num ());
-      reg_scan (insns, max_reg_num (), 1);
+      tem = gcse_main (get_insns (), rtl_dump_file);
+      rebuild_jump_labels (get_insns ());
+      delete_trivially_dead_insns (get_insns (), max_reg_num ());
+      reg_scan (get_insns (), max_reg_num (), 1);
       coalesce ();
 
       save_csb = flag_cse_skip_blocks;
@@ -2851,10 +2844,10 @@ rest_of_compilation (decl)
       if (flag_expensive_optimizations)
 	{
 	  timevar_push (TV_CSE);
-	  reg_scan (insns, max_reg_num (), 1);
-	  tem2 = cse_main (insns, max_reg_num (), 0, rtl_dump_file);
+	  reg_scan (get_insns (), max_reg_num (), 1);
+	  tem2 = cse_main (get_insns (), max_reg_num (), 0, rtl_dump_file);
 	  purge_all_dead_edges (0);
-	  delete_trivially_dead_insns (insns, max_reg_num ());
+	  delete_trivially_dead_insns (get_insns (), max_reg_num ());
 	  timevar_pop (TV_CSE);
 	  cse_not_expected = !flag_rerun_cse_after_loop;
 	}
@@ -2865,22 +2858,22 @@ rest_of_compilation (decl)
 	{
 	  tem = tem2 = 0;
 	  timevar_push (TV_JUMP);
-	  rebuild_jump_labels (insns);
+	  rebuild_jump_labels (get_insns ());
 	  cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
 	  timevar_pop (TV_JUMP);
 
 	  if (flag_expensive_optimizations)
 	    {
 	      timevar_push (TV_CSE);
-	      reg_scan (insns, max_reg_num (), 1);
-	      tem2 = cse_main (insns, max_reg_num (), 0, rtl_dump_file);
+	      reg_scan (get_insns (), max_reg_num (), 1);
+	      tem2 = cse_main (get_insns (), max_reg_num (), 0, rtl_dump_file);
 	      purge_all_dead_edges (0);
-	      delete_trivially_dead_insns (insns, max_reg_num ());
+	      delete_trivially_dead_insns (get_insns (), max_reg_num ());
 	      timevar_pop (TV_CSE);
 	    }
 	}
 
-      close_dump_file (DFI_gcse, print_rtl_with_bb, insns);
+      close_dump_file (DFI_gcse, print_rtl_with_bb, get_insns ());
       timevar_pop (TV_GCSE);
 
       ggc_collect ();
@@ -2906,32 +2899,42 @@ rest_of_compilation (decl)
 	{
 	  cleanup_barriers ();
 
-	  rebuild_jump_labels (insns);
-	  loop_optimize (insns, rtl_dump_file, 0);
+	  rebuild_jump_labels (get_insns ());
+	  loop_optimize (get_insns (), rtl_dump_file, 0);
 
 	  /* The first call to loop_optimize makes some instructions
 	     trivially dead.  We delete those instructions now in the
 	     hope that doing so will make the heuristics in loop work
 	     better and possibly speed up compilation.  */
-	  delete_trivially_dead_insns (insns, max_reg_num ());
+	  delete_trivially_dead_insns (get_insns (), max_reg_num ());
 
 	  /* The regscan pass is currently necessary as the alias
 		  analysis code depends on this information.  */
-	  reg_scan (insns, max_reg_num (), 1);
+	  reg_scan (get_insns (), max_reg_num (), 1);
 	}
       cleanup_barriers ();
-      rebuild_jump_labels (insns);
-      loop_optimize (insns, rtl_dump_file,
+      rebuild_jump_labels (get_insns ());
+      loop_optimize (get_insns (), rtl_dump_file,
 		     (flag_unroll_loops ? LOOP_UNROLL : 0) | LOOP_BCT
 		     | (flag_prefetch_loop_arrays ? LOOP_PREFETCH : 0));
 
       /* Loop can create trivially dead instructions.  */
-      delete_trivially_dead_insns (insns, max_reg_num ());
-      close_dump_file (DFI_loop, print_rtl, insns);
+      delete_trivially_dead_insns (get_insns (), max_reg_num ());
+      close_dump_file (DFI_loop, print_rtl, get_insns ());
       timevar_pop (TV_LOOP);
 
       ggc_collect ();
     }
+  {
+    rtx insn;
+    for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
+      if (GET_CODE (insn) == NOTE
+	  && (NOTE_LINE_NUMBER (insn) == NOTE_INSN_LOOP_BEG
+	      || NOTE_LINE_NUMBER (insn) == NOTE_INSN_LOOP_VTOP
+	      || NOTE_LINE_NUMBER (insn) == NOTE_INSN_LOOP_CONT
+	      || NOTE_LINE_NUMBER (insn) == NOTE_INSN_LOOP_END))
+	delete_insn (insn);
+  }
 
   /* Do control and data flow analysis; wrote some of the results to
      the dump file.  */
@@ -2939,7 +2942,7 @@ rest_of_compilation (decl)
   timevar_push (TV_FLOW);
   open_dump_file (DFI_cfg, decl);
 
-  find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
+  find_basic_blocks (get_insns (), max_reg_num (), rtl_dump_file);
   if (rtl_dump_file)
     dump_flow_info (rtl_dump_file);
   cleanup_cfg ((optimize ? CLEANUP_EXPENSIVE : 0)
@@ -2965,7 +2968,7 @@ rest_of_compilation (decl)
 	flow_loops_dump (&loops, rtl_dump_file, NULL, 0);
     }
 
-  close_dump_file (DFI_cfg, print_rtl_with_bb, insns);
+  close_dump_file (DFI_cfg, print_rtl_with_bb, get_insns ());
 
   /* Do branch profiling and static profile estimation passes.  */
   if (optimize > 0 || profile_arc_flag || flag_test_coverage
@@ -2988,7 +2991,7 @@ rest_of_compilation (decl)
 	flow_loops_dump (&loops, rtl_dump_file, NULL, 0);
 
       flow_loops_free (&loops);
-      close_dump_file (DFI_bp, print_rtl_with_bb, insns);
+      close_dump_file (DFI_bp, print_rtl_with_bb, get_insns ());
       timevar_pop (TV_BRANCH_PROB);
     }
 
@@ -3016,7 +3019,7 @@ rest_of_compilation (decl)
 	  loop_optimizer_finalize (loops, rtl_dump_file);
 	}
 
-      close_dump_file (DFI_loop, print_rtl, insns);
+      close_dump_file (DFI_loop, print_rtl, get_insns ());
       timevar_pop (TV_LOOP);
       
       cleanup_cfg (CLEANUP_EXPENSIVE);
@@ -3034,11 +3037,11 @@ rest_of_compilation (decl)
       if (flag_web)
 	{
 	  web_main ();
-	  delete_trivially_dead_insns (insns, max_reg_num ());
+	  delete_trivially_dead_insns (get_insns (), max_reg_num ());
 	}
       cleanup_cfg (CLEANUP_EXPENSIVE
 		   | (flag_thread_jumps ? CLEANUP_THREADING : 0));
-      close_dump_file (DFI_tracer, print_rtl_with_bb, insns);
+      close_dump_file (DFI_tracer, print_rtl_with_bb, get_insns ());
       timevar_pop (TV_TRACER);
 #ifdef ENABLE_CHECKING
       verify_flow_info ();
@@ -3059,7 +3062,7 @@ rest_of_compilation (decl)
       if (INSN_P (insn))
 	INSN_CODE (insn) = -1;
   }
-  reg_scan (insns, max_reg_num (), 0);
+  reg_scan (get_insns (), max_reg_num (), 0);
   cfun->rtl_form = RTL_FORM_LOW;
 
 #if 0
@@ -3072,17 +3075,17 @@ rest_of_compilation (decl)
       if (rtl_dump_file)
         dump_flow_info (rtl_dump_file);
 
-      reg_scan (insns, max_reg_num (), 1);
+      reg_scan (get_insns (), max_reg_num (), 1);
       cleanup_cfg (CLEANUP_EXPENSIVE);
       flow_loops_find (&loops, LOOP_TREE);
       create_preheaders (&loops, 0);
       flow_loops_free (&loops);
-      gcse_main (insns, rtl_dump_file);
-      rebuild_jump_labels (insns);
-      reg_scan (insns, max_reg_num (), 1);
+      gcse_main (get_insns (), rtl_dump_file);
+      rebuild_jump_labels (get_insns ());
+      reg_scan (get_insns (), max_reg_num (), 1);
       coalesce ();
 
-      close_dump_file (DFI_gcse2, print_rtl_with_bb, insns);
+      close_dump_file (DFI_gcse2, print_rtl_with_bb, get_insns ());
       timevar_pop (TV_GCSE);
 
       ggc_collect ();
@@ -3103,7 +3106,7 @@ rest_of_compilation (decl)
 	{
 	  timevar_push (TV_JUMP);
 
-	  reg_scan (insns, max_reg_num (), 0);
+	  reg_scan (get_insns (), max_reg_num (), 0);
 
 	  timevar_push (TV_IFCVT);
 	  cleanup_cfg (CLEANUP_EXPENSIVE);
@@ -3111,21 +3114,21 @@ rest_of_compilation (decl)
 	  timevar_pop(TV_IFCVT);
 
 	  timevar_pop (TV_JUMP);
-	  reg_scan (insns, max_reg_num (), 0);
-	  tem = cse_main (insns, max_reg_num (), 1, rtl_dump_file);
+	  reg_scan (get_insns (), max_reg_num (), 0);
+	  tem = cse_main (get_insns (), max_reg_num (), 1, rtl_dump_file);
 	  purge_all_dead_edges (0);
-	  delete_trivially_dead_insns (insns, max_reg_num ());
+	  delete_trivially_dead_insns (get_insns (), max_reg_num ());
 
 	  if (tem)
 	    {
 	      timevar_push (TV_JUMP);
-	      rebuild_jump_labels (insns);
+	      rebuild_jump_labels (get_insns ());
 	      cleanup_cfg (CLEANUP_EXPENSIVE);
 	      timevar_pop (TV_JUMP);
 	    }
 	}
 
-      close_dump_file (DFI_cse2, print_rtl_with_bb, insns);
+      close_dump_file (DFI_cse2, print_rtl_with_bb, get_insns ());
       timevar_pop (TV_CSE2);
 
       ggc_collect ();
@@ -3141,7 +3144,7 @@ rest_of_compilation (decl)
 #ifdef ENABLE_CHECKING
   verify_flow_info ();
 #endif
-  life_analysis (insns, rtl_dump_file, PROP_FINAL);
+  life_analysis (get_insns (), rtl_dump_file, PROP_FINAL);
   if (optimize)
     cleanup_cfg ((optimize ? CLEANUP_EXPENSIVE : 0) | CLEANUP_UPDATE_LIFE
 		 | (flag_thread_jumps ? CLEANUP_THREADING : 0));
@@ -3155,7 +3158,7 @@ rest_of_compilation (decl)
       if (extra_warnings)
 	setjmp_args_warning ();
     }
-  close_dump_file (DFI_life, print_rtl_with_bb, insns);
+  close_dump_file (DFI_life, print_rtl_with_bb, get_insns ());
 
   /* Rerun if-conversion, as life information allows more transformations
      to be done.  */
@@ -3168,7 +3171,7 @@ rest_of_compilation (decl)
       if_convert (1);
       no_new_pseudos = 1;
 
-      close_dump_file (DFI_ce, print_rtl_with_bb, insns);
+      close_dump_file (DFI_ce, print_rtl_with_bb, get_insns ());
       timevar_pop (TV_IFCVT);
     }
 
@@ -3178,7 +3181,6 @@ rest_of_compilation (decl)
       if (initialize_uninitialized_subregs ())
 	{
 	  /* Insns were inserted, so things might look a bit different.  */
-	  insns = get_insns ();
 	  update_life_info_in_dirty_blocks (UPDATE_LIFE_GLOBAL_RM_NOTES,
 					    PROP_LOG_LINKS | PROP_REG_INFO
 					    | PROP_DEATH_NOTES);
@@ -3198,7 +3200,7 @@ rest_of_compilation (decl)
       open_dump_file (DFI_combine, decl);
 
       rebuild_jump_labels_after_combine
-	= combine_instructions (insns, max_reg_num ());
+	= combine_instructions (get_insns (), max_reg_num ());
 
       /* Combining insns may have turned an indirect jump into a
 	 direct jump.  Rebuid the JUMP_LABEL fields of jumping
@@ -3206,13 +3208,13 @@ rest_of_compilation (decl)
       if (rebuild_jump_labels_after_combine)
 	{
 	  timevar_push (TV_JUMP);
-	  rebuild_jump_labels (insns);
+	  rebuild_jump_labels (get_insns ());
 	  timevar_pop (TV_JUMP);
 
 	  cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_UPDATE_LIFE);
 	}
 
-      close_dump_file (DFI_combine, print_rtl_with_bb, insns);
+      close_dump_file (DFI_combine, print_rtl_with_bb, get_insns ());
       timevar_pop (TV_COMBINE);
 
       ggc_collect ();
@@ -3229,7 +3231,7 @@ rest_of_compilation (decl)
       if_convert (1);
       no_new_pseudos = 1;
 
-      close_dump_file (DFI_ce2, print_rtl_with_bb, insns);
+      close_dump_file (DFI_ce2, print_rtl_with_bb, get_insns ());
       timevar_pop (TV_IFCVT);
     }
 
@@ -3240,10 +3242,10 @@ rest_of_compilation (decl)
       timevar_push (TV_REGMOVE);
       open_dump_file (DFI_regmove, decl);
 
-      regmove_optimize (insns, max_reg_num (), rtl_dump_file);
+      regmove_optimize (get_insns (), max_reg_num (), rtl_dump_file);
 
       cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_UPDATE_LIFE);
-      close_dump_file (DFI_regmove, print_rtl_with_bb, insns);
+      close_dump_file (DFI_regmove, print_rtl_with_bb, get_insns ());
       timevar_pop (TV_REGMOVE);
 
       ggc_collect ();
@@ -3282,7 +3284,7 @@ rest_of_compilation (decl)
 
       schedule_insns (rtl_dump_file);
 
-      close_dump_file (DFI_sched, print_rtl_with_bb, insns);
+      close_dump_file (DFI_sched, print_rtl_with_bb, get_insns ());
 
       /* Register lifetime information was updated as part of verifying
 	 the schedule.  */
@@ -3307,7 +3309,7 @@ rest_of_compilation (decl)
      jump optimizer after register allocation and reloading are finished.  */
 
   if (! register_life_up_to_date)
-    recompute_reg_usage (insns, ! optimize_size);
+    recompute_reg_usage (get_insns (), ! optimize_size);
 
   /* Allocate the reg_renumber array.  */
   allocate_reg_info (max_regno, FALSE, TRUE);
@@ -3317,7 +3319,7 @@ rest_of_compilation (decl)
 
   allocate_initial_values (reg_equiv_memory_loc);
 
-  regclass (insns, max_reg_num (), rtl_dump_file);
+  regclass (get_insns (), max_reg_num (), rtl_dump_file);
   rebuild_label_notes_after_reload = local_alloc ();
 
   timevar_pop (TV_LOCAL_ALLOC);
@@ -3329,7 +3331,7 @@ rest_of_compilation (decl)
       dump_flow_info (rtl_dump_file);
       dump_local_alloc (rtl_dump_file);
 
-      close_dump_file (DFI_lreg, print_rtl_with_bb, insns);
+      close_dump_file (DFI_lreg, print_rtl_with_bb, get_insns ());
       timevar_pop (TV_DUMP);
     }
 
@@ -3345,8 +3347,8 @@ rest_of_compilation (decl)
     failure = global_alloc (rtl_dump_file);
   else
     {
-      build_insn_chain (insns);
-      failure = reload (insns, 0);
+      build_insn_chain (get_insns ());
+      failure = reload (get_insns (), 0);
     }
 
   timevar_pop (TV_GLOBAL_ALLOC);
@@ -3357,7 +3359,7 @@ rest_of_compilation (decl)
 
       dump_global_regs (rtl_dump_file);
 
-      close_dump_file (DFI_greg, print_rtl_with_bb, insns);
+      close_dump_file (DFI_greg, print_rtl_with_bb, get_insns ());
       timevar_pop (TV_DUMP);
     }
 
@@ -3372,7 +3374,7 @@ rest_of_compilation (decl)
   if (optimize > 0)
     {
       timevar_push (TV_RELOAD_CSE_REGS);
-      reload_cse_regs (insns);
+      reload_cse_regs (get_insns ());
       timevar_pop (TV_RELOAD_CSE_REGS);
     }
 
@@ -3383,13 +3385,13 @@ rest_of_compilation (decl)
     {
       timevar_push (TV_JUMP);
 
-      rebuild_jump_labels (insns);
+      rebuild_jump_labels (get_insns ());
       purge_all_dead_edges (0);
 
       timevar_pop (TV_JUMP);
     }
 
-  close_dump_file (DFI_postreload, print_rtl_with_bb, insns);
+  close_dump_file (DFI_postreload, print_rtl_with_bb, get_insns ());
 
   /* Re-create the death notes which were deleted during reload.  */
   timevar_push (TV_FLOW2);
@@ -3409,11 +3411,11 @@ rest_of_compilation (decl)
      can be represented as RTL.  Doing so lets us schedule insns between
      it and the rest of the code and also allows delayed branch
      scheduling to operate in the epilogue.  */
-  thread_prologue_and_epilogue_insns (insns);
+  thread_prologue_and_epilogue_insns (get_insns ());
 
   if (optimize)
     {
-      life_analysis (insns, rtl_dump_file, PROP_FINAL);
+      life_analysis (get_insns (), rtl_dump_file, PROP_FINAL);
       cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_UPDATE_LIFE
 		   | (flag_crossjumping ? CLEANUP_CROSSJUMP : 0));
 
@@ -3431,7 +3433,7 @@ rest_of_compilation (decl)
 
   flow2_completed = 1;
 
-  close_dump_file (DFI_flow2, print_rtl_with_bb, insns);
+  close_dump_file (DFI_flow2, print_rtl_with_bb, get_insns ());
   timevar_pop (TV_FLOW2);
 
 #ifdef HAVE_peephole2
@@ -3442,7 +3444,7 @@ rest_of_compilation (decl)
 
       peephole2_optimize (rtl_dump_file);
 
-      close_dump_file (DFI_peephole2, print_rtl_with_bb, insns);
+      close_dump_file (DFI_peephole2, print_rtl_with_bb, get_insns ());
       timevar_pop (TV_PEEPHOLE2);
     }
 #endif
@@ -3457,7 +3459,7 @@ rest_of_compilation (decl)
       if (flag_cprop_registers)
         copyprop_hardreg_forward ();
 
-      close_dump_file (DFI_rnreg, print_rtl_with_bb, insns);
+      close_dump_file (DFI_rnreg, print_rtl_with_bb, get_insns ());
       timevar_pop (TV_RENAME_REGISTERS);
     }
 
@@ -3468,7 +3470,7 @@ rest_of_compilation (decl)
 
       if_convert (1);
 
-      close_dump_file (DFI_ce3, print_rtl_with_bb, insns);
+      close_dump_file (DFI_ce3, print_rtl_with_bb, get_insns ());
       timevar_pop (TV_IFCVT2);
     }
 #ifdef STACK_REGS
@@ -3489,7 +3491,7 @@ rest_of_compilation (decl)
 
       schedule_insns (rtl_dump_file);
 
-      close_dump_file (DFI_sched2, print_rtl_with_bb, insns);
+      close_dump_file (DFI_sched2, print_rtl_with_bb, get_insns ());
       timevar_pop (TV_SCHED2);
 
       ggc_collect ();
@@ -3505,9 +3507,9 @@ rest_of_compilation (decl)
   timevar_push (TV_REG_STACK);
   open_dump_file (DFI_stack, decl);
 
-  reg_to_stack (insns, rtl_dump_file);
+  reg_to_stack (get_insns () rtl_dump_file);
 
-  close_dump_file (DFI_stack, print_rtl_with_bb, insns);
+  close_dump_file (DFI_stack, print_rtl_with_bb, get_insns ());
   timevar_pop (TV_REG_STACK);
 
   ggc_collect ();
@@ -3528,7 +3530,7 @@ rest_of_compilation (decl)
 	  cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_POST_REGSTACK);
 	}
 
-      close_dump_file (DFI_bbro, print_rtl_with_bb, insns);
+      close_dump_file (DFI_bbro, print_rtl_with_bb, get_insns ());
       timevar_pop (TV_REORDER_BLOCKS);
     }
   compute_alignments ();
@@ -3545,7 +3547,7 @@ rest_of_compilation (decl)
 
       variable_tracking_main ();
 
-      close_dump_file (DFI_vartrack, print_rtl_with_bb, insns);
+      close_dump_file (DFI_vartrack, print_rtl_with_bb, get_insns ());
       timevar_pop (TV_VAR_TRACKING);
     }
  
@@ -3557,15 +3559,15 @@ rest_of_compilation (decl)
   timevar_push (TV_MACH_DEP);
   open_dump_file (DFI_mach, decl);
 
-  MACHINE_DEPENDENT_REORG (insns);
+  MACHINE_DEPENDENT_REORG (get_insns ());
 
-  close_dump_file (DFI_mach, print_rtl, insns);
+  close_dump_file (DFI_mach, print_rtl, get_insns ());
   timevar_pop (TV_MACH_DEP);
 
   ggc_collect ();
 #endif
 
-  purge_line_number_notes (insns);
+  purge_line_number_notes (get_insns ());
   cleanup_barriers ();
 
   /* If a scheduling pass for delayed branches is to be done,
@@ -3577,9 +3579,9 @@ rest_of_compilation (decl)
       timevar_push (TV_DBR_SCHED);
       open_dump_file (DFI_dbr, decl);
 
-      dbr_schedule (insns, rtl_dump_file);
+      dbr_schedule (get_insns (), rtl_dump_file);
 
-      close_dump_file (DFI_dbr, print_rtl, insns);
+      close_dump_file (DFI_dbr, print_rtl, get_insns ());
       timevar_pop (TV_DBR_SCHED);
 
       ggc_collect ();
@@ -3624,8 +3626,8 @@ rest_of_compilation (decl)
     fnname = XSTR (x, 0);
 
     assemble_start_function (decl, fnname);
-    final_start_function (insns, asm_out_file, optimize);
-    final (insns, asm_out_file, optimize, 0);
+    final_start_function (get_insns (), asm_out_file, optimize);
+    final (get_insns (), asm_out_file, optimize, 0);
     final_end_function ();
 
 #ifdef IA64_UNWIND_INFO
