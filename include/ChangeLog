@@ -1,3 +1,8 @@
+2003-09-23  Mike Stump  <mrs@apple.com>
+
+	* libiberty.h (set_last_pipe_input): Add hooks into piping internals.
+	(get_last_pipe_input): Likewise.
+
 2003-07-09  Bob Wilson  <bob.wilson@acm.org>
 
 	* xtensa-config.h: Undef all macros before defining them.
