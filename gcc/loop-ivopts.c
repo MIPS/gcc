@@ -350,7 +350,6 @@ detect_strength_reductions (struct loops *loops, struct ivopt_actions *actions)
 		afvrepl = kill_old_global_iv (loop, occ, &loop_fvrepls);
 		add_iv_elimination (loop, occ, arepl, afvrepl, &loop_reds);
 	      }
-
       remove_incorrect_eliminations (loop, &loop_reds, loop_repls);
 
       determine_reductions_to_perform (loop, &loop_reds, loop_repls);
@@ -2483,13 +2482,13 @@ determine_reductions_to_perform (struct loop *loop, struct str_red **reds,
       for (red = *reds, nivs = 0; red; red = red->next)
 	nivs++;
 
-      if (nivs > MANY_IVS)
+      /* First optimize in a greedy fashion.  */
+      while (decrease_by_one_iv (*reds, repls, loop_avail_regs[loop->num]))
+	continue;
+
+      if (nivs <= MANY_IVS)
 	{
-	  while (decrease_by_one_iv (*reds, repls, loop_avail_regs[loop->num]))
-	    continue;
-	}
-      else
-	{
+	  /* Try optimizing the rest of ivs now.  */
 	  rarray = xmalloc (nivs * sizeof (struct str_red *));
 	  for (red = *reds, nivs = 0; red; red = red->next)
 	    {

@@ -179,6 +179,30 @@ loop_optimizer_optimize (struct loops *loops)
   if (flag_peel_loops || flag_unroll_loops)
     unroll_and_peel_loops (loops);
 
+  /* Rerun the optimization again, to improve the induction variable usage in
+     the unrolled loops.  */
+  if (optimize >= 3 && flag_unroll_loops)
+    {
+      timevar_push (TV_IV_ANAL);
+      initialize_iv_analysis (loops);
+      analyse_induction_variables ();
+      timevar_pop (TV_IV_ANAL);
+
+      loop_avail_regs = xcalloc (loops->num, sizeof (int));
+      ivopt_actions.ivs = NULL;
+      ivopt_actions.replacements = NULL;
+      ivopt_actions.repl_final_value = NULL;
+      if (flag_strength_reduce)
+	detect_strength_reductions (loops, &ivopt_actions);
+      free (loop_avail_regs);
+
+      timevar_push (TV_IV_ANAL);
+      finalize_iv_analysis ();
+      timevar_pop (TV_IV_ANAL);
+  
+      execute_strength_reductions (loops, &ivopt_actions);
+    }
+
 #ifdef HAVE_doloop_end
   if (HAVE_doloop_end && flag_branch_on_count_reg)
     doloop_optimize_loops (loops);

@@ -4222,6 +4222,7 @@ fold_rtx (x, insn)
 		  || XEXP (y, 0) == folded_arg0)
 		break;
 
+#if 0
 	      /* Don't associate these operations if they are a PLUS with the
 		 same constant and it is a power of two.  These might be doable
 		 with a pre- or post-increment.  Similarly for two subtracts of
@@ -4237,6 +4238,7 @@ fold_rtx (x, insn)
 		      || (HAVE_POST_DECREMENT
 			  && exact_log2 (- INTVAL (const_arg1)) >= 0)))
 		break;
+#endif
 
 	      /* Compute the code used to compose the constants.  For example,
 		 A-C1-C2 is A-(C1 + C2), so if CODE == MINUS, we want PLUS.  */
