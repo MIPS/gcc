@@ -5045,6 +5045,20 @@ order to make tracer effective.
 
 Maximum number of basic blocks on path that cse considers.
 
+@item calls-threshold-global-var
+
+Number of calls used in determining the threshold for treating all
+call-clobbered variables as a single object for aliasing purposes.
+The threshold is the product of this parameter and the next one
+(done as int * size_t on the host machine; beware overflow).
+
+@item clobbered-vars-threshold-global-var
+  
+Number of variables used in determining the threshold for treating all
+call-clobbered variables as a single object for aliasing purposes.
+The threshold is the product of this parameter and the previous one
+(done as int * size_t on the host machine; beware overflow).
+
 @item ggc-min-expand
 
 GCC uses a garbage collector to manage its own memory allocation.  This

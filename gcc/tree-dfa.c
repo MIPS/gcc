@@ -45,6 +45,7 @@ Boston, MA 02111-1307, USA.  */
 #include "tree-alias-common.h"
 #include "tree-pass.h"
 #include "convert.h"
+#include "params.h"
 
 /* Build and maintain data flow information for trees.  */
 
@@ -245,7 +246,8 @@ find_referenced_vars (void)
 
      To decide whether or not to use .GLOBAL_VAR we multiply the number of
      function calls found by the number of call-clobbered variables.  If
-     that product is beyond a certain threshold, we use .GLOBAL_VAR.
+     that product is beyond a certain threshold, as determined by the
+     parameterized values shown below, we use .GLOBAL_VAR.
 
      FIXME: This heuristic should be improved.  One idea is to use several
      .GLOBAL_VARs of different types instead of a single one.  The
@@ -253,10 +255,8 @@ find_referenced_vars (void)
      all target libraries.  Compile times were found to take 1% more
      compared to using .GLOBAL_VAR.  */
   {
-    const int n_calls = 2500;
-    const size_t n_clobbers = 200;
-
-    if (walk_state.num_calls * num_call_clobbered_vars < n_calls * n_clobbers)
+    if (walk_state.num_calls * num_call_clobbered_vars 
+	 < MAX_CALLS_FOR_GLOBAL_VAR * (size_t)MAX_CLOBBERED_VARS_FOR_GLOBAL_VAR)
       global_var = NULL_TREE;
     else if (global_var)
       add_referenced_var (global_var, &walk_state);

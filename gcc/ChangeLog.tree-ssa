@@ -1,3 +1,11 @@
+2004-01-19  Dale Johannesen  <dalej@apple.com>
+
+	* params.def:  Add PARAM_MAX_CALLS_GLOBAL_VAR and
+	PARAM_MAX_CLOBBERED_VARS_GLOBAL_VAR.
+	params.h:  Ditto.
+	tree-dfa.c:  Use them.
+	doc/invoke.texi:  Document them.
+	
 2004-01-19  Jeff Law  <law@redhat.com>
 
 	* tree-flow.h: Update copyright dates.
