@@ -265,6 +265,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "flags.h"
 
 static tree analyze_scalar_evolution_1 (struct loop *, tree, tree);
+static tree resolve_mixers (struct loop *, tree);
 
 /* The cached information about a ssa name VAR, claiming that inside LOOP,
    the value of VAR can be expressed as CHREC.  */
@@ -295,7 +296,7 @@ tree chrec_top;
 tree chrec_bot;
 
 static struct loops *current_loops;
-static varray_type already_instantiated;
+static bitmap already_instantiated;
 
 static htab_t scalar_evolution_info;
 
@@ -2409,6 +2410,7 @@ analyze_scalar_evolution_in_loop (struct loop *wrto_loop, struct loop *use_loop,
   while (1)
     {
       ev = analyze_scalar_evolution (use_loop, ev);
+      ev = resolve_mixers (use_loop, ev);
 
       if (use_loop == wrto_loop)
 	return ev;
@@ -2425,10 +2427,13 @@ analyze_scalar_evolution_in_loop (struct loop *wrto_loop, struct loop *use_loop,
 }
 
 /* Analyze all the parameters of the chrec that were left under a symbolic form,
-   with respect to LOOP.  CHREC is the chrec to instantiate.  */
+   with respect to LOOP.  CHREC is the chrec to instantiate.  If
+   ALLOW_SUPERLOOP_CHRECS is true, replacing loop invariants with
+   outer loop chrecs is done.  */
 
 static tree
-instantiate_parameters_1 (struct loop *loop, tree chrec)
+instantiate_parameters_1 (struct loop *loop, tree chrec,
+			  bool allow_superloop_chrecs)
 {
   tree res, op0, op1, op2;
   basic_block def_bb;
@@ -2446,26 +2451,24 @@ instantiate_parameters_1 (struct loop *loop, tree chrec)
     case SSA_NAME:
       def_bb = bb_for_stmt (SSA_NAME_DEF_STMT (chrec));
 
-      /* A parameter, nothing to do.  */
-      if (!def_bb)
+      /* A parameter (or loop invariant and we do not want to include
+	 evolutions in outer loops), nothing to do.  */
+      if (!def_bb
+	  || (!allow_superloop_chrecs
+	      && !flow_bb_inside_loop_p (loop, def_bb)))
 	return chrec;
 
       /* Don't instantiate the SSA_NAME if it is in a mixer
 	 structure.  This is used for avoiding the instantiation of
 	 recursively defined functions, such as: 
 
-	 | a_2 -> {0, +, 1, +, a_2}_1
+	 | a_2 -> {0, +, 1, +, a_2}_1  */
 	   
-	 Note: the size of already_instantiated is proportional to
-	 the degree of the evolution function.  This is the number
-	 of parameters that have to be instantiated, and is almost
-	 all the time less than 2.  */
-      if (tree_is_in_varray_tree_p (chrec, already_instantiated))
+      if (bitmap_bit_p (already_instantiated, SSA_NAME_VERSION (chrec)))
 	{
 	  if (!flow_bb_inside_loop_p (loop, def_bb))
 	    {
-	      /* It is an invariant in LOOP, so we may keep the symbolic
-		 form.  */
+	      /* We may keep the loop invariant in symbolic form.  */
 	      return chrec;
 	    }
 	  else
@@ -2481,49 +2484,66 @@ instantiate_parameters_1 (struct loop *loop, tree chrec)
 	 the result again.  Enqueue the SSA_NAME such that it will
 	 never be instantiated twice, avoiding the cyclic
 	 instantiation in mixers.  */
-      VARRAY_PUSH_TREE (already_instantiated, chrec);
+      bitmap_set_bit (already_instantiated, SSA_NAME_VERSION (chrec));
       res = analyze_scalar_evolution (def_loop, chrec);
-      res = instantiate_parameters (loop, res);
-      VARRAY_POP (already_instantiated);
+      res = instantiate_parameters_1 (loop, res, allow_superloop_chrecs);
+      bitmap_clear_bit (already_instantiated, SSA_NAME_VERSION (chrec));
       return res;
 
     case POLYNOMIAL_CHREC:
-      op0 = instantiate_parameters (loop, CHREC_LEFT (chrec));
-      op1 = instantiate_parameters (loop, CHREC_RIGHT (chrec));
+      op0 = instantiate_parameters_1 (loop, CHREC_LEFT (chrec),
+				      allow_superloop_chrecs);
+      op1 = instantiate_parameters_1 (loop, CHREC_RIGHT (chrec),
+				      allow_superloop_chrecs);
       return build_polynomial_chrec (CHREC_VARIABLE (chrec), op0, op1);
 
     case EXPONENTIAL_CHREC:
-      op0 = instantiate_parameters (loop, CHREC_LEFT (chrec));
-      op1 = instantiate_parameters (loop, CHREC_RIGHT (chrec));
+      op0 = instantiate_parameters_1 (loop, CHREC_LEFT (chrec),
+				      allow_superloop_chrecs);
+      op1 = instantiate_parameters_1 (loop, CHREC_RIGHT (chrec),
+				      allow_superloop_chrecs);
       return build_exponential_chrec (CHREC_VARIABLE (chrec), op0, op1);
 
     case PEELED_CHREC:
-      op0 = instantiate_parameters (loop, CHREC_LEFT (chrec));
-      op1 = instantiate_parameters (loop, CHREC_RIGHT (chrec));
+      op0 = instantiate_parameters_1 (loop, CHREC_LEFT (chrec),
+				      allow_superloop_chrecs);
+      op1 = instantiate_parameters_1 (loop, CHREC_RIGHT (chrec),
+				      allow_superloop_chrecs);
       return build_peeled_chrec (CHREC_VARIABLE (chrec), op0, op1);
 
     case INTERVAL_CHREC:
-      op0 = instantiate_parameters (loop, CHREC_LOW (chrec));
-      op1 = instantiate_parameters (loop, CHREC_UP (chrec));
+      op0 = instantiate_parameters_1 (loop, CHREC_LOW (chrec),
+				      allow_superloop_chrecs);
+      op1 = instantiate_parameters_1 (loop, CHREC_UP (chrec),
+				      allow_superloop_chrecs);
       return build_interval_chrec (op0, op1);
 
     case PLUS_EXPR:
-      op0 = instantiate_parameters (loop, TREE_OPERAND (chrec, 0));
-      op1 = instantiate_parameters (loop, TREE_OPERAND (chrec, 1));
+      op0 = instantiate_parameters_1 (loop, TREE_OPERAND (chrec, 0),
+				      allow_superloop_chrecs);
+      op1 = instantiate_parameters_1 (loop, TREE_OPERAND (chrec, 1),
+				      allow_superloop_chrecs);
       return chrec_fold_plus (TREE_TYPE (chrec), op0, op1);
 
     case MINUS_EXPR:
-      op0 = instantiate_parameters (loop, TREE_OPERAND (chrec, 0));
-      op1 = instantiate_parameters (loop, TREE_OPERAND (chrec, 1));
+      op0 = instantiate_parameters_1 (loop, TREE_OPERAND (chrec, 0),
+				      allow_superloop_chrecs);
+      op1 = instantiate_parameters_1 (loop, TREE_OPERAND (chrec, 1),
+				      allow_superloop_chrecs);
       return chrec_fold_minus (TREE_TYPE (chrec), op0, op1);
 
     case MULT_EXPR:
-      op0 = instantiate_parameters (loop, TREE_OPERAND (chrec, 0));
-      op1 = instantiate_parameters (loop, TREE_OPERAND (chrec, 1));
+      op0 = instantiate_parameters_1 (loop, TREE_OPERAND (chrec, 0),
+				      allow_superloop_chrecs);
+      op1 = instantiate_parameters_1 (loop, TREE_OPERAND (chrec, 1),
+				      allow_superloop_chrecs);
       return chrec_fold_multiply (TREE_TYPE (chrec), op0, op1);
 
     case NOP_EXPR:
-      op0 = instantiate_parameters (loop, TREE_OPERAND (chrec, 0));
+    case CONVERT_EXPR:
+    case NON_LVALUE_EXPR:
+      op0 = instantiate_parameters_1 (loop, TREE_OPERAND (chrec, 0),
+				      allow_superloop_chrecs);
       return chrec_convert (TREE_TYPE (chrec), op0);
 
     default:
@@ -2533,19 +2553,26 @@ instantiate_parameters_1 (struct loop *loop, tree chrec)
   switch (TREE_CODE_LENGTH (TREE_CODE (chrec)))
     {
     case 3:
-      op0 = instantiate_parameters (loop, TREE_OPERAND (chrec, 0));
-      op1 = instantiate_parameters (loop, TREE_OPERAND (chrec, 1));
-      op2 = instantiate_parameters (loop, TREE_OPERAND (chrec, 2));
-      return build (TREE_CODE (chrec), TREE_TYPE (chrec), op0, op1, op2);
+      op0 = instantiate_parameters_1 (loop, TREE_OPERAND (chrec, 0),
+				      allow_superloop_chrecs);
+      op1 = instantiate_parameters_1 (loop, TREE_OPERAND (chrec, 1),
+				      allow_superloop_chrecs);
+      op2 = instantiate_parameters_1 (loop, TREE_OPERAND (chrec, 2),
+				      allow_superloop_chrecs);
+      return fold (build (TREE_CODE (chrec),
+			  TREE_TYPE (chrec), op0, op1, op2));
 
     case 2:
-      op0 = instantiate_parameters (loop, TREE_OPERAND (chrec, 0));
-      op1 = instantiate_parameters (loop, TREE_OPERAND (chrec, 1));
-      return build (TREE_CODE (chrec), TREE_TYPE (chrec), op0, op1);
+      op0 = instantiate_parameters_1 (loop, TREE_OPERAND (chrec, 0),
+				      allow_superloop_chrecs);
+      op1 = instantiate_parameters_1 (loop, TREE_OPERAND (chrec, 1),
+				      allow_superloop_chrecs);
+      return fold (build (TREE_CODE (chrec), TREE_TYPE (chrec), op0, op1));
 	    
     case 1:
-      op0 = instantiate_parameters (loop, TREE_OPERAND (chrec, 0));
-      return build1 (TREE_CODE (chrec), TREE_TYPE (chrec), op0);
+      op0 = instantiate_parameters_1 (loop, TREE_OPERAND (chrec, 0),
+				      allow_superloop_chrecs);
+      return fold (build1 (TREE_CODE (chrec), TREE_TYPE (chrec), op0));
 
     case 0:
       return chrec;
@@ -2577,7 +2604,7 @@ instantiate_parameters (struct loop *loop,
       fprintf (dump_file, ")\n");
     }
  
-  res = instantiate_parameters_1 (loop, chrec);
+  res = instantiate_parameters_1 (loop, chrec, true);
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
@@ -2587,6 +2614,15 @@ instantiate_parameters (struct loop *loop,
     }
   
   return res;
+}
+
+/* Similar to instantiate_parameters, but does not introduce the
+   evolutions in outer loops for LOOP invariants in CHREC.  */
+
+static tree
+resolve_mixers (struct loop *loop, tree chrec)
+{
+  return instantiate_parameters_1 (loop, chrec, false);
 }
 
 /* Entry point for the analysis of the number of iterations pass.  
@@ -2612,18 +2648,41 @@ instantiate_parameters (struct loop *loop,
 tree 
 number_of_iterations_in_loop (struct loop *loop)
 {
-  enum tree_code code;
-  tree res;
-  tree cond, test, opnd0, opnd1;
-  tree chrec0, chrec1;
+  tree res, type;
   edge exit;
+  struct tree_niter_desc niter_desc;
 
   /* Determine whether the number_of_iterations_in_loop has already
      been computed.  */
   res = loop_nb_iterations (loop);
   if (res)
     return res;
+  res = chrec_top;
   
+  /* The code in first_iteration_non_satisfying is buggy, so for
+     now play it safe.  */
+  if (!loop_exit_edges (loop))
+    goto end;
+  exit = loop_exit_edge (loop, 0);
+
+  if (!number_of_iterations_exit (loop, exit, &niter_desc))
+    goto end;
+
+  type = TREE_TYPE (niter_desc.niter);
+  if (integer_nonzerop (niter_desc.may_be_zero))
+    res = convert (type, integer_zero_node);
+  else if (integer_zerop (niter_desc.may_be_zero))
+    res = niter_desc.niter;
+  else
+    res = build (COND_EXPR, type, niter_desc.may_be_zero,
+		 convert (type, integer_zero_node),
+		 niter_desc.niter);
+
+#if 0
+  enum tree_code code;
+  tree cond, test, opnd0, opnd1;
+  tree chrec0, chrec1;
+
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "(number_of_iterations_in_loop \n");
   
@@ -2706,7 +2765,9 @@ number_of_iterations_in_loop (struct loop *loop)
     }
 
   res = first_iteration_non_satisfying (code, loop->num, chrec0, chrec1);
+#endif
 
+end:
   return set_nb_iterations_in_loop (loop, res);
 }
 
@@ -3005,8 +3066,7 @@ scev_initialize (struct loops *loops)
 
   scalar_evolution_info = htab_create (100, hash_scev_info,
 				       eq_scev_info, del_scev_info);
-  VARRAY_TREE_INIT (already_instantiated, 3, 
-		    "already_instantiated");
+  already_instantiated = BITMAP_XMALLOC ();
   
   initialize_scalar_evolutions_analyzer ();
 
@@ -3152,7 +3212,7 @@ void
 scev_finalize (void)
 {
   htab_delete (scalar_evolution_info);
-  already_instantiated = NULL;
+  BITMAP_XFREE (already_instantiated);
   current_loops = NULL;
 }
 

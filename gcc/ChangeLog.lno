@@ -1,3 +1,16 @@
+2004-05-25  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* tree-scalar-evolution.c (resolve_mixers): New function.
+	(already_instantiated): Type changed to bitmap.
+	(scev_initialize, scev_finalize): Reflect the change.
+	(analyze_scalar_evolution_in_loop): Use resolve_mixers.
+	(instantiate_parameters_1): Add possibility to just resolve mixers.
+	Fold the results.
+	(number_of_iterations_in_loop): Use number_of_iterations_exit.
+	* tree-ssa-loop-niter.c (simplify_using_outer_evolutions): New
+	function.
+	(number_of_iterations_exit): Use it.
+
 2004-05-24  Dale Johannesen  <dalej@apple.com>
 	* loop-invariant.c (find_defs):  Add DF_EQUIV_NOTES.
 

@@ -427,6 +427,56 @@ zero_iter:
   return;
 }
 
+/* Tries to simplify EXPR using the evolutions of the loop invariants
+   in the outer loops.  */
+
+static tree
+simplify_using_outer_evolutions (struct loop *loop, tree expr)
+{
+  enum tree_code code = TREE_CODE (expr);
+  bool changed;
+  tree e;
+
+  if (is_gimple_min_invariant (expr))
+    return expr;
+
+  if (code == TRUTH_OR_EXPR
+      || code == TRUTH_AND_EXPR
+      || code == COND_EXPR)
+    {
+      changed = false;
+
+      e = TREE_OPERAND (expr, 0);
+      TREE_OPERAND (expr, 0) = simplify_using_outer_evolutions (loop, e);
+      if (TREE_OPERAND (expr, 0) != e)
+	changed = true;
+
+      e = TREE_OPERAND (expr, 1);
+      TREE_OPERAND (expr, 1) = simplify_using_outer_evolutions (loop, e);
+      if (TREE_OPERAND (expr, 1) != e)
+	changed = true;
+
+      if (code == COND_EXPR)
+	{
+	  e = TREE_OPERAND (expr, 2);
+	  TREE_OPERAND (expr, 2) = simplify_using_outer_evolutions (loop, e);
+	  if (TREE_OPERAND (expr, 2) != e)
+	    changed = true;
+	}
+
+      if (changed)
+	expr = fold (expr);
+
+      return expr;
+    }
+
+  e = instantiate_parameters (loop, expr);
+  if (is_gimple_min_invariant (e))
+    return e;
+
+  return expr;
+}
+
 /* Stores description of number of iterations of LOOP derived from EXIT
    in NITER.  */
 
@@ -479,8 +529,17 @@ number_of_iterations_exit (struct loop *loop, edge exit,
   if (!simple_iv (loop, stmt, op1, &base1, &step1))
     return false;
 
+  niter->niter = NULL_TREE;
   number_of_iterations_cond (type, base0, step0, code, base1, step1,
 			     niter);
+  if (!niter->niter)
+    return false;
+
+  niter->assumptions = simplify_using_outer_evolutions (loop,
+							niter->assumptions);
+  niter->may_be_zero = simplify_using_outer_evolutions (loop,
+							niter->may_be_zero);
+  niter->niter = simplify_using_outer_evolutions (loop, niter->niter);
   return integer_onep (niter->assumptions);
 }
 
