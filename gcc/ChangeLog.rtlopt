@@ -1,3 +1,7 @@
+2003-01-23  Josef Zlomek  <zlomekj@suse.cz>
+
+	* bb-reorder.c: Remove whitespaces on the end of lines.
+
 2003-01-23  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* toplev.c (rest_of_compilation): Do not construct loop datastructure

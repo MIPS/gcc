@@ -311,7 +311,7 @@ rotate_loop (back_edge, trace, trace_n)
       else
 	{
 	  basic_block prev_bb;
-	  
+
 	  for (prev_bb = trace->first;
 	       RBI (prev_bb)->next != back_edge->dest;
 	       prev_bb = RBI (prev_bb)->next)
@@ -536,7 +536,7 @@ find_traces_1_round (branch_th, exec_th, count_th, traces, n_traces, round,
 			    {
 			      if (rtl_dump_file)
 				{
-				  fprintf (rtl_dump_file, 
+				  fprintf (rtl_dump_file,
 					   "Rotating loop %d - %d\n",
 					   best_edge->dest->index, bb->index);
 				}
@@ -555,7 +555,7 @@ find_traces_1_round (branch_th, exec_th, count_th, traces, n_traces, round,
 			       another_edge = another_edge->succ_next)
 			    if (another_edge != best_edge)
 			      break;
-				
+
 			  if (!another_edge && copy_bb_p (best_edge->dest,
 							  !optimize_size))
 			    {
@@ -629,7 +629,7 @@ find_traces_1_round (branch_th, exec_th, count_th, traces, n_traces, round,
 	  if (e->dest == EXIT_BLOCK_PTR
 	      || RBI (e->dest)->visited)
 	    continue;
-	  
+
 	  bb_index = e->dest->index;
 	  if (bb_heap[bb_index])
 	    {
@@ -685,10 +685,10 @@ copy_bb (old_bb, e, bb, trace)
     {
       int i;
       int new_size;
-      
+
       new_size = MAX (last_basic_block, new_bb->index + 1);
       new_size = GET_ARRAY_SIZE (new_size);
-      
+
       start_of_trace = xrealloc (start_of_trace, new_size * sizeof (int));
       end_of_trace = xrealloc (end_of_trace, new_size * sizeof (int));
       for (i = array_size; i < new_size; i++)
@@ -707,7 +707,7 @@ copy_bb (old_bb, e, bb, trace)
 	    }
 	}
       array_size = new_size;
-      
+
       if (rtl_dump_file)
 	{
 	  fprintf (rtl_dump_file,
@@ -747,7 +747,7 @@ bb_to_key (bb)
 	}
     }
 
-  if (priority)		
+  if (priority)
     /* The block with priority should have significantly lower key.  */
     return -(100 * BB_FREQ_MAX + 100 * priority + bb->frequency);
   return -bb->frequency;
@@ -848,7 +848,7 @@ connect_traces (n_traces, traces)
 		  && !(e->flags & EDGE_COMPLEX)
 		  && end_of_trace[si] >= 0
 		  && !connected[end_of_trace[si]]
-		  && (!best 
+		  && (!best
 		      || e->probability > best->probability
 		      || (e->probability == best->probability
 			  && traces[end_of_trace[si]].length > best_len)))
@@ -925,7 +925,7 @@ connect_traces (n_traces, traces)
 		    && !(e->flags & EDGE_COMPLEX)
 		    && (EDGE_FREQUENCY (e) >= freq_threshold)
 		    && (e->count >= count_threshold)
-		    && (!best 
+		    && (!best
 			|| e->probability > best->probability))
 		  {
 		    edge best2 = NULL;
