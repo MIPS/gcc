@@ -3739,6 +3739,78 @@ build_ra_refs_for_insn (ra_info, def_refs, use_refs, n_defs, n_uses)
   return ra_refs;
 }
 
+
+/* Build array for translation all df refs from dlink to ra_refs from
+   ra_link.
+   Return zero if error.  */
+
+static int
+df_link2ra_link (df2ra, insn, dlink, rlink)
+     struct df2ra df2ra;
+     rtx insn;
+     struct df_link *dlink;
+     struct ra_link *rlink;
+{
+  unsigned int regno;
+  int bad = 0;
+  
+  if (!link)
+    return 0;
+  
+  for (; dlink; dlink = dlink->next)
+    /* This condition shows which df ref's can't be reached by
+       ra_ref's.  */
+    if (dlink->ref
+	&& GET_MODE_CLASS (GET_MODE (DF_REF_REG (dlink->ref))) != MODE_CC
+	&& GET_CODE (PATTERN (insn)) != ASM_INPUT
+	&& GET_CODE (insn) != CALL_INSN
+	&& (DF_REF_REGNO (dlink->ref) < FIRST_PSEUDO_REGISTER
+	    ? !fixed_regs[DF_REF_REGNO (dlink->ref)]
+	    : 1))
+      {
+	struct ra_link *link;
+	struct ref *dref = dlink->ref;
+	int founded = 0;
+	regno = DF_REF_REGNO (dlink->ref);
+	
+	if (regno < FIRST_PSEUDO_REGISTER)
+	  for (link = rlink; link; link = link->next)
+	    {
+	      ra_ref *ref = link->ref;
+	      unsigned int ref_regno = RA_REF_REGNO (ref);
+		      
+	      if (ref_regno < FIRST_PSEUDO_REGISTER)
+		{
+		  int i;
+		  int nregs = HARD_REGNO_NREGS (ref_regno,
+						GET_MODE (ref->reg));
+			  
+		  for (i = 0; i < nregs; ++i)
+		    if (regno == ref_regno + i)
+		      {
+			founded = 1;
+			DF2RA (df2ra, dref) = ref;
+			break;
+		      }
+		}
+	    }
+	else
+	  for (link = rlink;link; link = link->next)
+	    {
+	      ra_ref *ref = link->ref;
+	      if (regno == REGNO (ref->reg))
+		{
+		  founded = 1;
+		  DF2RA (df2ra, dref) = ref;
+		  break;
+		}
+	    }
+	if (!founded)
+	  bad = 1;
+      }
+  return bad;
+}
+
 struct df2ra
 build_df2ra (df, ra_info)
      struct df *df;
@@ -3746,7 +3818,6 @@ build_df2ra (df, ra_info)
 {
   struct df2ra df2ra;
   rtx insn;
-  unsigned int regno;
     
   df2ra.def2def = xcalloc (df->def_id, sizeof (ra_ref *));
   df2ra.use2use = xcalloc (df->use_id, sizeof (ra_ref *));
@@ -3755,75 +3826,19 @@ build_df2ra (df, ra_info)
      for translation df ref to ra_ref.  */
   for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
     {
-      int n;
       int bad = 0;
-      struct df_link *dlink = DF_INSN_DEFS (df, insn);
 
-      for (n = 0; dlink; dlink = dlink->next)
-	/* This condition shows which df ref's can't be reached by
-	   ra_ref's.  */
-        if (dlink->ref
-	    && GET_MODE_CLASS (GET_MODE (DF_REF_REG (dlink->ref))) != MODE_CC
-	    && GET_CODE (PATTERN (insn)) != ASM_INPUT
-	    && GET_CODE (insn) != CALL_INSN
-	    && (DF_REF_REGNO (dlink->ref) < FIRST_PSEUDO_REGISTER
-		? !fixed_regs[DF_REF_REGNO (dlink->ref)]
-		: 1))
-	  {
-	    struct ref *dref = dlink->ref;
-	    int founded = 0;
-	    regno = DF_REF_REGNO (dlink->ref);
-
-	    if (RA_INSN_REFS (ra_info, insn))
-	      {
-		struct ra_link *link;
-		
-		if (regno < FIRST_PSEUDO_REGISTER)
-		  for (link = RA_INSN_DEFS (ra_info, insn);
-		       link && !founded;
-		       link = link->next)
-		    {
-		      ra_ref *ref = link->ref;
-		      unsigned int ref_regno = RA_REF_REGNO (ref);
-		      
-		      if (ref_regno < FIRST_PSEUDO_REGISTER)
-			{
-			  int i;
-			  int nregs = HARD_REGNO_NREGS (ref_regno,
-							GET_MODE (ref->reg));
-			  
-			  for (i = 0; i < nregs; ++i)
-			    if (regno == ref_regno + i)
-			      {
-				founded = 1;
-				DF2RA (dref) = ref;
-				break;
-			      }
-			}
-		    }
-		else
-		  for (link = RA_INSN_DEFS (ra_info, insn);
-		       link && !founded;
-		       link = link->next)
-		    {
-		      ra_ref *ref = link->ref;
-		      if (regno == REGNO (ref->reg))
-			{
-			  founded = 1;
-			  DF2RA (dref) = ref;
-			  break;
-			}
-		    }
-	      }
-	    if (!founded)
-	      {
-		bad = 1;
-	      }
-	  }
-      /* FIXME denisc@overta.ru  Spilling must be here.
+      if (RA_INSN_REFS (ra_info, insn))
+	{
+	  bad = df_link2ra_link (df2ra, insn, DF_INSN_DEFS (df, insn),
+				 RA_INSN_DEFS (ra_info, insn));
+	  bad |= df_link2ra_link (df2ra, insn, DF_INSN_USES (df, insn),
+				  RA_INSN_USES (ra_info, insn));
+	}
+      /* FIXME denisc@overta.ru
       if (bad)
 	{
-	  fprintf (stderr, "NONEQUAL: %d\n", regno);
+	  fprintf (stderr, "NONEQUAL: ");
 	  debug_df_insn (insn);
 	  debug_ra_insn_refs (ra_info, insn);
 	}

@@ -9643,7 +9643,7 @@ dump_web_conflicts (web)
 }
 
 void debug_hard_reg_set PARAMS ((HARD_REG_SET));
-/* Output SET to stderr.  */
+/* Output HARD_REG_SET to stderr.  */
 void
 debug_hard_reg_set (set)
      HARD_REG_SET set;
@@ -9705,7 +9705,7 @@ web_class ()
       for (i = 0; i < web->num_defs; ++i)
 	{
 	  dref = web->defs[i];
-	  rref = DF2RA (dref);
+	  rref = DF2RA (df2ra, dref);
 	  if (rref)
 	    ++class[rref->class];
 	}
@@ -9713,7 +9713,7 @@ web_class ()
       for (i = 0; i < web->num_uses; ++i)
 	{
 	  dref = web->uses[i];
-	  rref = DF2RA (dref);
+	  rref = DF2RA (df2ra, dref);
 	  if (rref)
 	    ++class[rref->class];
 	}
@@ -9730,12 +9730,12 @@ web_class ()
 	      }
 	    else if (!reg_class_subset_p (best, i))
 	      best = NO_REGS;
-/*  	    fprintf (stderr, "%s: %d ", reg_class_names[i], class[i]); */
+/*    	    fprintf (stderr, "%s: %d ", reg_class_names[i], class[i]);  */
 	  }
-      /*  fprintf (stderr, " BEST: %s\n", reg_class_names[best]); */
+/*        fprintf (stderr, " BEST: %s\n", reg_class_names[best]); */
       if (best == NO_REGS)
 	{
-	  fprintf (stderr, "Web: %d NO_REGS\n", web->id);
+    	  fprintf (stderr, "Web: %d (%d) NO_REGS\n", web->id, web->regno);
 	  best = GENERAL_REGS;
 	}
       reg_class_of_web[n] = best;
