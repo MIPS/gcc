@@ -1,3 +1,8 @@
+2003-05-15  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-ssa.c (rewrite_out_of_ssa): Don't dump the optimized
+	function after the SSA->normal pass.
+
 2003-05-14  Toon Moene  <toon@moene.indiv.nluug.nl>
 
 	* Makefile.in: Add additional -Wno-error targets for Alpha.
