@@ -1,3 +1,27 @@
+2003-02-24  Vladimir Makarov  <vmakarov@redhat.com>
+	    Richard Henderson  <rth@redhat.com>
+
+	* sched-int.h (INSN_TRAP_CLASS, WORST_CLASS): Move them from
+	sched-rgn.c.
+	(add_forward_dependence): New function prototype.
+
+	* sched-rgn.c (INSN_TRAP_CLASS, WORST_CLASS): Move them to
+	sched-init.h.
+	(CONST_BASED_ADDRESS_P, may_trap_exp, haifa_classify_insn): Move
+	them to haifa-sched.c.
+
+	* haifa-sched.c (CONST_BASED_ADDRESS_P, may_trap_exp,
+	haifa_classify_insn): Move them from sched-rgn.c.
+
+	* sched-deps.c (add_dependence): Return flag of creating a new
+	entry.
+	(add_forward_dependence): New function.
+	(compute_forward_dependences): Use the function.
+
+	* sched-ebb.c (earliest_block_with_similiar_load): New function.
+	(add_deps_for_risky_insns): New function.
+	(schedule_ebb): Call the function.
+
 2003-02-17  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* config/i386/i386.h (CLASS_CANNOT_CHANGE_MODE,
