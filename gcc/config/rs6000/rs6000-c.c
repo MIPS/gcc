@@ -37,7 +37,9 @@
 #include "target.h"
 
 static cpp_hashnode *altivec_categorize_keyword (const cpp_token *);
+static void init_vector_keywords (cpp_reader *pfile);
 /* APPLE LOCAL end AltiVec */
+
 
 /* Handle the machine specific pragma longcall.  Its syntax is
 
@@ -128,8 +130,17 @@ altivec_categorize_keyword (const cpp_token *tok)
 cpp_hashnode *
 rs6000_macro_to_expand (cpp_reader *pfile, const cpp_token *tok)
 {
+  static bool vector_keywords_init = false;
   cpp_hashnode *expand_this = tok->val.node;
-  cpp_hashnode *ident = altivec_categorize_keyword (tok);
+  cpp_hashnode *ident;
+
+  if (!vector_keywords_init)
+    {
+      init_vector_keywords (pfile);
+      vector_keywords_init = true;
+    }
+
+  ident = altivec_categorize_keyword (tok);
 
   if (ident == __vector_keyword)
     {
@@ -177,6 +188,36 @@ rs6000_macro_to_expand (cpp_reader *pfile, const cpp_token *tok)
 
   return expand_this;
 }
+
+static void
+init_vector_keywords (cpp_reader *pfile)
+{
+      /* Keywords without two leading underscores are context-sensitive, and hence
+	 implemented as conditional macros, controlled by the rs6000_macro_to_expand()
+	 function above.  */
+      __vector_keyword = cpp_lookup (pfile, DSC ("__vector"));
+      __vector_keyword->flags |= NODE_CONDITIONAL;
+
+      __pixel_keyword = cpp_lookup (pfile, DSC ("__pixel"));
+      __pixel_keyword->flags |= NODE_CONDITIONAL;
+
+      __bool_keyword = cpp_lookup (pfile, DSC ("__bool"));
+      __bool_keyword->flags |= NODE_CONDITIONAL;
+
+      vector_keyword = cpp_lookup (pfile, DSC ("vector"));
+      vector_keyword->flags |= NODE_CONDITIONAL;
+
+      pixel_keyword = cpp_lookup (pfile, DSC ("pixel"));
+      pixel_keyword->flags |= NODE_CONDITIONAL;
+
+      _Bool_keyword = cpp_lookup (pfile, DSC ("_Bool"));
+      _Bool_keyword->flags |= NODE_CONDITIONAL;
+
+      bool_keyword = cpp_lookup (pfile, DSC ("bool"));
+      bool_keyword->flags |= NODE_CONDITIONAL;
+      return;
+}
+
 /* APPLE LOCAL end AltiVec */
 
 void
@@ -194,48 +235,28 @@ rs6000_cpu_cpp_builtins (cpp_reader *pfile)
     builtin_define ("_ARCH_COM");
   if (TARGET_ALTIVEC)
     {
-      /* APPLE LOCAL AltiVec */
-      struct cpp_callbacks *cb = cpp_get_callbacks (pfile);
-
-      /* Define the AltiVec syntactic elements.  */
       builtin_define ("__ALTIVEC__");
       builtin_define ("__VEC__=10206");
 
+      /* Define the AltiVec syntactic elements.  */
       builtin_define ("__vector=__attribute__((altivec(vector__)))");
       builtin_define ("__pixel=__attribute__((altivec(pixel__))) unsigned short");
       builtin_define ("__bool=__attribute__((altivec(bool__))) unsigned");
 
       /* APPLE LOCAL begin AltiVec */
-      /* Keywords without two leading underscores are context-sensitive, and hence
-	 implemented as conditional macros, controlled by the rs6000_macro_to_expand()
-	 function above.  */
       builtin_define ("vector=vector");
-      __vector_keyword = cpp_lookup (pfile, DSC ("__vector"));
-      __vector_keyword->flags |= NODE_CONDITIONAL;
-      vector_keyword = cpp_lookup (pfile, DSC ("vector"));
-      vector_keyword->flags |= NODE_CONDITIONAL;
       builtin_define ("pixel=pixel");
-      __pixel_keyword = cpp_lookup (pfile, DSC ("__pixel"));
-      __pixel_keyword->flags |= NODE_CONDITIONAL;
-      pixel_keyword = cpp_lookup (pfile, DSC ("pixel"));
-      pixel_keyword->flags |= NODE_CONDITIONAL;
+      builtin_define ("_Bool=_Bool"); 
       builtin_define ("bool=bool");
-      builtin_define ("_Bool=_Bool");
-      __bool_keyword = cpp_lookup (pfile, DSC ("__bool"));
-      __bool_keyword->flags |= NODE_CONDITIONAL;
-      _Bool_keyword = cpp_lookup (pfile, DSC ("_Bool"));
-      _Bool_keyword->flags |= NODE_CONDITIONAL;
-      bool_keyword = cpp_lookup (pfile, DSC ("bool"));
-      bool_keyword->flags |= NODE_CONDITIONAL;
-
-      /* Enable context-sensitive macros.  */
-      cb->macro_to_expand = rs6000_macro_to_expand;
-      /* Enable '(vector signed int)(a, b, c, d)' vector literal notation.  */
-      targetm.cast_expr_as_vector_init = true;
+      init_vector_keywords (pfile);
 
       /* Indicate that the compiler supports Apple AltiVec syntax, including context-
 	 sensitive keywords.  */
       builtin_define ("__APPLE_ALTIVEC__");
+      /* Enable context-sensitive macros.  */
+      cpp_get_callbacks (pfile)->macro_to_expand = rs6000_macro_to_expand;
+      /* Enable '(vector signed int)(a, b, c, d)' vector literal notation.  */
+      targetm.cast_expr_as_vector_init = true;
       /* APPLE LOCAL end AltiVec */
     }
   if (TARGET_SPE)
@@ -268,4 +289,3 @@ rs6000_cpu_cpp_builtins (cpp_reader *pfile)
       break;
     }
 }
-
