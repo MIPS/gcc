@@ -215,7 +215,7 @@ __mf_set_default_options ()
   __mf_opts.backtrace = 4;
   __mf_opts.mudflap_mode = mode_check;
   __mf_opts.violation_mode = viol_nop;
-  __mf_opts.heur_argv_environ = 1;
+  __mf_opts.heur_std_data = 1;
 }
 
 static struct option
@@ -305,8 +305,8 @@ options [] =
      "support _start.._end heuristics",
      set_option, 1, &__mf_opts.heur_start_end},
     {"heur-argv-environ", 
-     "support argv/environ heuristics",
-     set_option, 1, &__mf_opts.heur_argv_environ},
+     "register standard library data (argv, errno, ...)",
+     set_option, 1, &__mf_opts.heur_std_data},
     {"free-queue-length", 
      "queue N deferred free() calls before performing them",
      read_integer_option, 0, &__mf_opts.free_queue_length},
@@ -612,18 +612,19 @@ void __mf_init ()
 int
 __wrap_main (int argc, char* argv[])
 {
+  extern char **environ;
   static int been_here = 0;
-  if (__mf_opts.heur_argv_environ && ! been_here)
+
+  if (__mf_opts.heur_std_data && ! been_here)
     {
-      extern char **environ;
       unsigned i;
 
       been_here = 1;
-      __mf_register (argv, sizeof(char *)*(argc+1), __MF_TYPE_GUESS, "argv[]");
+      __mf_register (argv, sizeof(char *)*(argc+1), __MF_TYPE_STATIC, "argv[]");
       for (i=0; i<argc; i++)
 	{
 	  unsigned j = strlen (argv[i]);
-	  __mf_register (argv[i], j+1, __MF_TYPE_GUESS, "argv element");
+	  __mf_register (argv[i], j+1, __MF_TYPE_STATIC, "argv element");
 	}
 
       for (i=0; ; i++)
@@ -632,14 +633,15 @@ __wrap_main (int argc, char* argv[])
 	  unsigned j;
 	  if (e == NULL) break;
 	  j = strlen (environ[i]);
-	  __mf_register (environ[i], j+1, __MF_TYPE_GUESS, "environ element");
+	  __mf_register (environ[i], j+1, __MF_TYPE_STATIC, "environ element");
 	}
-      __mf_register (environ, sizeof(char *)*(i+1), __MF_TYPE_GUESS, "environ[]");
+      __mf_register (environ, sizeof(char *)*(i+1), __MF_TYPE_STATIC, "environ[]");
 
-      /* XXX: separate heuristic flag? */
-      __mf_register (& errno, sizeof (errno),
-		      __MF_TYPE_GUESS,
-		      "errno area");
+      __mf_register (& errno, sizeof (errno), __MF_TYPE_STATIC, "errno area");
+
+      __mf_register (stdin,  sizeof (*stdin),  __MF_TYPE_STATIC, "stdin");
+      __mf_register (stdout, sizeof (*stdout), __MF_TYPE_STATIC, "stdout");
+      __mf_register (stderr, sizeof (*stderr), __MF_TYPE_STATIC, "stderr");
     }
 
 #ifdef PIC

@@ -165,7 +165,7 @@ struct __mf_options
   unsigned heur_stack_bound; /* allow current stack region */
   unsigned heur_proc_map;  /* allow & cache /proc/self/map regions.  */
   unsigned heur_start_end; /* allow _start .. _end */
-  unsigned heur_argv_environ; /* allow & cache argv[] & environ */
+  unsigned heur_std_data; /* allow & cache stdlib data */
 };
 
 

@@ -1,3 +1,27 @@
+2003-06-17  Frank Ch. Eigler  <fche@redhat.com>
+
+	Based on patch from Eyal Lebedinsky <eyal@eyal.emu.id.au>:
+	* mf-hooks.c (__mf_pthread_spawner): Register thread errno.
+	(time, strerror, fopen, fopen64, fclose, fread): New hooks.
+	(fwrite, fgetc, fgets, getc, gets, ungetc, fputc): New hooks.
+	(fputs, putc, puts, clearerr, feof, ferror, fileno): New hooks.
+	(printf, fprintf, sprintf, snprintf, vprintf, vfprintf): New hooks.
+	(vsprintf, vsnprintf, access, remove, fflush, fseek): New hooks.
+	(fseeko64, ftell, ftello64, rewind, fgetpos, fsetpos): New hooks.
+	(stat, stat64, fstat, lstat, mkfifo, setvbuf, setbuf): New hooks.
+	(setvbuf, opendir, closedir, readdir, recv, recvfrom): New hooks.
+	(recvmsg, send, sendto, sendmsg, setsockopt, getsockopt): New hooks.
+	(accept, bind, connect, gethostname, sethostname): New hooks.
+	(gethostbyname, wait, waitpid, popen, pclose, execve): New hooks.
+	(execv, execvp, system, dlopen, dlclose, dlerror, dlsym): New hooks.
+	(semop, semctl, shmctl, shmat, shmdt): New hooks.
+	* mf-runtime.h.in: Corresponding changes.
+	* mf-runtime.c (__mf_ini): Register stdio objects.  Use STATIC type.
+	(opts) Rename heur_argv_environ	to heur_std_data.
+	(__mf_wrap_main): Use STATIC type for argv/environ strings.
+	* Makefile.am: Corresponding changes.
+	* Makefile.in: Regenerated.
+
 2003-06-11  Frank Ch. Eigler  <fche@redhat.com>
 
 	* mf-heuristics.c (__mf_heuristic_check): Disable stack_bounds 

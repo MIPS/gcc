@@ -61,7 +61,86 @@ HOOKOBJS = \
  asctime-hook.lo \
  ctime-hook.lo \
  gmtime-hook.lo \
- localtime-hook.lo
+ localtime-hook.lo \
+ time-hook.lo \
+ strerror-hook.lo \
+ fopen-hook.lo \
+ fclose-hook.lo \
+ fread-hook.lo \
+ fwrite-hook.lo \
+ fgetc-hook.lo \
+ fgets-hook.lo \
+ getc-hook.lo \
+ gets-hook.lo \
+ ungetc-hook.lo \
+ fputc-hook.lo \
+ fputs-hook.lo \
+ putc-hook.lo \
+ puts-hook.lo \
+ clearerr-hook.lo \
+ feof-hook.lo \
+ ferror-hook.lo \
+ fileno-hook.lo \
+ printf-hook.lo \
+ fprintf-hook.lo \
+ sprintf-hook.lo \
+ snprintf-hook.lo \
+ vprintf-hook.lo \
+ vfprintf-hook.lo \
+ vsprintf-hook.lo \
+ vsnprintf-hook.lo \
+ access-hook.lo \
+ remove-hook.lo \
+ fflush-hook.lo \
+ fseek-hook.lo \
+ ftell-hook.lo \
+ rewind-hook.lo \
+ fgetpos-hook.lo \
+ fsetpos-hook.lo \
+ stat-hook.lo \
+ fstat-hook.lo \
+ lstat-hook.lo \
+ mkfifo-hook.lo \
+ setvbuf-hook.lo \
+ setbuf-hook.lo \
+ opendir-hook.lo \
+ closedir-hook.lo \
+ readdir-hook.lo \
+ recv-hook.lo \
+ recvfrom-hook.lo \
+ recvmsg-hook.lo \
+ send-hook.lo \
+ sendto-hook.lo \
+ sendmsg-hook.lo \
+ setsockopt-hook.lo \
+ getsockopt-hook.lo \
+ accept-hook.lo \
+ bind-hook.lo \
+ connect-hook.lo \
+ gethostname-hook.lo \
+ sethostname-hook.lo \
+ gethostbyname-hook.lo \
+ wait-hook.lo \
+ waitpid-hook.lo \
+ popen-hook.lo \
+ pclose-hook.lo \
+ execve-hook.lo \
+ execv-hook.lo \
+ execvp-hook.lo \
+ system-hook.lo \
+ dlopen-hook.lo \
+ dlerror-hook.lo \
+ dlsym-hook.lo \
+ dlclose-hook.lo \
+ fopen64-hook.lo \
+ stat64-hook.lo \
+ fseeko64-hook.lo \
+ ftello64-hook.lo \
+ semop-hook.lo \
+ semctl-hook.lo \
+ shmctl-hook.lo \
+ shmat-hook.lo \
+ shmdt-hook.lo
 
 $(HOOKOBJS): mf-hooks.c mf-runtime.h mf-impl.h
 	hook=`basename $@ -hook.lo`; \
@@ -107,7 +186,86 @@ PTHHOOKOBJS= \
  pth/ctime-hook.lo \
  pth/gmtime-hook.lo \
  pth/localtime-hook.lo \
- pth/pthreadstuff-hook.lo
+ pth/pthreadstuff-hook.lo \
+ pth/time-hook.lo \
+ pth/strerror-hook.lo \
+ pth/fopen-hook.lo \
+ pth/fclose-hook.lo \
+ pth/fread-hook.lo \
+ pth/fwrite-hook.lo \
+ pth/fgetc-hook.lo \
+ pth/fgets-hook.lo \
+ pth/getc-hook.lo \
+ pth/gets-hook.lo \
+ pth/ungetc-hook.lo \
+ pth/fputc-hook.lo \
+ pth/fputs-hook.lo \
+ pth/putc-hook.lo \
+ pth/puts-hook.lo \
+ pth/clearerr-hook.lo \
+ pth/feof-hook.lo \
+ pth/ferror-hook.lo \
+ pth/fileno-hook.lo \
+ pth/printf-hook.lo \
+ pth/fprintf-hook.lo \
+ pth/sprintf-hook.lo \
+ pth/snprintf-hook.lo \
+ pth/vprintf-hook.lo \
+ pth/vfprintf-hook.lo \
+ pth/vsprintf-hook.lo \
+ pth/vsnprintf-hook.lo \
+ pth/access-hook.lo \
+ pth/remove-hook.lo \
+ pth/fflush-hook.lo \
+ pth/fseek-hook.lo \
+ pth/ftell-hook.lo \
+ pth/rewind-hook.lo \
+ pth/fgetpos-hook.lo \
+ pth/fsetpos-hook.lo \
+ pth/stat-hook.lo \
+ pth/fstat-hook.lo \
+ pth/lstat-hook.lo \
+ pth/mkfifo-hook.lo \
+ pth/setvbuf-hook.lo \
+ pth/setbuf-hook.lo \
+ pth/opendir-hook.lo \
+ pth/closedir-hook.lo \
+ pth/readdir-hook.lo \
+ pth/recv-hook.lo \
+ pth/recvfrom-hook.lo \
+ pth/recvmsg-hook.lo \
+ pth/send-hook.lo \
+ pth/sendto-hook.lo \
+ pth/sendmsg-hook.lo \
+ pth/setsockopt-hook.lo \
+ pth/getsockopt-hook.lo \
+ pth/accept-hook.lo \
+ pth/bind-hook.lo \
+ pth/connect-hook.lo \
+ pth/gethostname-hook.lo \
+ pth/sethostname-hook.lo \
+ pth/gethostbyname-hook.lo \
+ pth/wait-hook.lo \
+ pth/waitpid-hook.lo \
+ pth/popen-hook.lo \
+ pth/pclose-hook.lo \
+ pth/execve-hook.lo \
+ pth/execv-hook.lo \
+ pth/execvp-hook.lo \
+ pth/system-hook.lo \
+ pth/dlopen-hook.lo \
+ pth/dlerror-hook.lo \
+ pth/dlsym-hook.lo \
+ pth/dlclose-hook.lo \
+ pth/fopen64-hook.lo \
+ pth/stat64-hook.lo \
+ pth/fseeko64-hook.lo \
+ pth/ftello64-hook.lo \
+ pth/semop-hook.lo \
+ pth/semctl-hook.lo \
+ pth/shmctl-hook.lo \
+ pth/shmat-hook.lo \
+ pth/shmdt-hook.lo
 
 clean-local:
 	rm -f pth/*.o pth/*.lo

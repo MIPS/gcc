@@ -9,8 +9,13 @@ XXX: libgcc license?
 
 #include "config.h"
 
+/* These attempt to coax various unix flavours to declare all our
+   needed tidbits in the system headers.  */
 #define _POSIX_SOURCE
-#define _GNU_SOURCE
+#define _GNU_SOURCE 
+#define _XOPEN_SOURCE
+#define _BSD_TYPES
+#define __EXTENSIONS__
 
 #include <string.h>
 #include <stdio.h>
@@ -953,6 +958,10 @@ __mf_pthread_cleanup (void *arg)
 {
   struct pthread_info *pi = arg;
   pi->dead_p = 1;
+
+  if (__mf_opts.heur_std_data)
+    __mf_unregister (&errno, sizeof (errno));
+
   /* Some subsequent pthread_create will garbage_collect our stack.  */
 }
 
@@ -964,7 +973,9 @@ __mf_pthread_spawner (void *arg)
   struct pthread_info *pi = arg;
   void *result = NULL;
 
-  /* XXX: register thread errno */
+  if (__mf_opts.heur_std_data)
+    __mf_register (&errno, sizeof (errno), __MF_TYPE_STATIC, "errno area (thread)");
+
   pthread_cleanup_push (& __mf_pthread_cleanup, arg);
 
   pi->self = pthread_self ();
@@ -1131,3 +1142,1229 @@ WRAPPER(int, pthread_create, pthread_t *thr, const pthread_attr_t *attr,
 
 
 #endif /* pthreadstuff */
+
+/* EL start */
+
+/* The following indicate if the result of the corresponding function
+ * should be explicitly un/registered by the wrapper
+*/
+#define MF_REGISTER_strerror		__MF_TYPE_STATIC
+#undef  MF_REGISTER_fopen
+#define MF_RESULT_SIZE_fopen		(sizeof (FILE))
+#undef  MF_REGISTER_opendir
+#define MF_RESULT_SIZE_opendir		0	/* (sizeof (DIR)) */
+#undef  MF_REGISTER_readdir
+#define MF_REGISTER_gethostbyname	__MF_TYPE_STATIC
+#undef  MF_REGISTER_gethostbyname_items
+#undef  MF_REGISTER_dlopen
+#undef  MF_REGISTER_dlerror
+#undef  MF_REGISTER_dlsym
+#define MF_REGISTER_shmat		__MF_TYPE_GUESS
+
+
+#ifdef WRAP_time
+#include <time.h>
+WRAPPER2(time_t, time, time_t *timep)
+{
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  if (NULL != timep)
+    MF_VALIDATE_EXTENT (timep, sizeof (*timep), __MF_CHECK_WRITE,
+      "time timep");
+  return time (timep);
+}
+#endif
+
+#ifdef WRAP_strerror
+WRAPPER2(char *, strerror, int errnum)
+{
+  char *p;
+  size_t n;
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  p = strerror (errnum);
+  if (NULL != p) {
+    n = strlen (p);
+    n = CLAMPADD(n, 1);
+#ifdef MF_REGISTER_strerror
+    __mf_register (p, n, MF_REGISTER_strerror, "strerror result");
+#endif
+    MF_VALIDATE_EXTENT (p, n, __MF_CHECK_WRITE, "strerror result");
+  }
+  return p;
+}
+#endif
+
+#ifdef WRAP_fopen
+WRAPPER2(FILE *, fopen, const char *path, const char *mode)
+{
+  size_t n;
+  FILE *p;
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+
+  n = strlen (path);
+  MF_VALIDATE_EXTENT (path, CLAMPADD(n, 1), __MF_CHECK_READ, "fopen path");
+
+  n = strlen (mode);
+  MF_VALIDATE_EXTENT (mode, CLAMPADD(n, 1), __MF_CHECK_READ, "fopen mode");
+
+  p = fopen (path, mode);
+  if (NULL != p) {
+#ifdef MF_REGISTER_fopen
+    __mf_register (p, sizeof (*p), MF_REGISTER_fopen, "fopen result");
+#endif
+    MF_VALIDATE_EXTENT (p, sizeof (*p), __MF_CHECK_WRITE, "fopen result");
+  }
+
+  return p;
+}
+#endif
+
+#ifdef WRAP_fopen64
+WRAPPER2(FILE *, fopen64, const char *path, const char *mode)
+{
+  size_t n;
+  FILE *p;
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+
+  n = strlen (path);
+  MF_VALIDATE_EXTENT (path, CLAMPADD(n, 1), __MF_CHECK_READ, "fopen64 path");
+
+  n = strlen (mode);
+  MF_VALIDATE_EXTENT (mode, CLAMPADD(n, 1), __MF_CHECK_READ, "fopen64 mode");
+
+  p = fopen64 (path, mode);
+  if (NULL != p) {
+#ifdef MF_REGISTER_fopen
+    __mf_register (p, sizeof (*p), MF_REGISTER_fopen, "fopen64 result");
+#endif
+    MF_VALIDATE_EXTENT (p, sizeof (*p), __MF_CHECK_WRITE, "fopen64 result");
+  }
+
+  return p;
+}
+#endif
+
+#ifdef WRAP_fclose
+WRAPPER2(int, fclose, FILE *stream)
+{
+  int resp;
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  MF_VALIDATE_EXTENT (stream, sizeof (*stream), __MF_CHECK_WRITE,
+    "fclose stream");
+  resp = fclose (stream);
+#ifdef MF_REGISTER_fopen
+  __mf_unregister (stream, sizeof (*stream));
+#endif
+
+  return resp;
+}
+#endif
+
+#ifdef WRAP_fread
+WRAPPER2(size_t, fread, void *ptr, size_t size, size_t nmemb, FILE *stream)
+{
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  MF_VALIDATE_EXTENT (stream, sizeof (*stream), __MF_CHECK_WRITE,
+    "fread stream");
+  MF_VALIDATE_EXTENT (ptr, size * nmemb, __MF_CHECK_WRITE, "fread buffer");
+  return fread (ptr, size, nmemb, stream);
+}
+#endif
+
+#ifdef WRAP_fwrite
+WRAPPER2(size_t, fwrite, const void *ptr, size_t size, size_t nmemb,
+	FILE *stream)
+{
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  MF_VALIDATE_EXTENT (stream, sizeof (*stream), __MF_CHECK_WRITE,
+    "fwrite stream");
+  MF_VALIDATE_EXTENT (ptr, size * nmemb, __MF_CHECK_READ, "fwrite buffer");
+  return fwrite (ptr, size, nmemb, stream);
+}
+#endif
+
+#ifdef WRAP_fgetc
+WRAPPER2(int, fgetc, FILE *stream)
+{
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  MF_VALIDATE_EXTENT (stream, sizeof (*stream), __MF_CHECK_WRITE,
+    "fgetc stream");
+  return fgetc (stream);
+}
+#endif
+
+#ifdef WRAP_fgets
+WRAPPER2(char *, fgets, char *s, int size, FILE *stream)
+{
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  MF_VALIDATE_EXTENT (stream, sizeof (*stream), __MF_CHECK_WRITE,
+    "fgets stream");
+  MF_VALIDATE_EXTENT (s, size, __MF_CHECK_WRITE, "fgets buffer");
+  return fgets (s, size, stream);
+}
+#endif
+
+#ifdef WRAP_getc
+WRAPPER2(int, getc, FILE *stream)
+{
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  MF_VALIDATE_EXTENT (stream, sizeof (*stream), __MF_CHECK_WRITE,
+    "getc stream");
+  return getc (stream);
+}
+#endif
+
+#ifdef WRAP_gets
+WRAPPER2(char *, gets, char *s)
+{
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  MF_VALIDATE_EXTENT (s, 1, __MF_CHECK_WRITE, "gets buffer");
+  s = gets (s);
+  if (NULL != s) {	/* better late than never */
+    size_t n = strlen (s);
+    MF_VALIDATE_EXTENT (s, CLAMPADD(n, 1), __MF_CHECK_WRITE, "gets buffer");
+  }
+  return s;
+}
+#endif
+
+#ifdef WRAP_ungetc
+WRAPPER2(int, ungetc, int c, FILE *stream)
+{
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  MF_VALIDATE_EXTENT (stream, sizeof (*stream), __MF_CHECK_WRITE,
+     "ungetc stream");
+  return ungetc (c, stream);
+}
+#endif
+
+#ifdef WRAP_fputc
+WRAPPER2(int, fputc, int c, FILE *stream)
+{
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  MF_VALIDATE_EXTENT (stream, sizeof (*stream), __MF_CHECK_WRITE,
+    "fputc stream");
+  return fputc (c, stream);
+}
+#endif
+
+#ifdef WRAP_fputs
+WRAPPER2(int, fputs, const char *s, FILE *stream)
+{
+  size_t n;
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  n = strlen (s);
+  MF_VALIDATE_EXTENT (s, CLAMPADD(n, 1), __MF_CHECK_READ, "fputs buffer");
+  MF_VALIDATE_EXTENT (stream, sizeof (*stream), __MF_CHECK_WRITE,
+    "fputs stream");
+  return fputs (s, stream);
+}
+#endif
+
+#ifdef WRAP_putc
+WRAPPER2(int, putc, int c, FILE *stream)
+{
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  MF_VALIDATE_EXTENT (stream, sizeof (*stream), __MF_CHECK_WRITE,
+    "putc stream");
+  return putc (c, stream);
+}
+#endif
+
+#ifdef WRAP_puts
+WRAPPER2(int, puts, const char *s)
+{
+  size_t n;
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  n = strlen (s);
+  MF_VALIDATE_EXTENT (s, CLAMPADD(n, 1), __MF_CHECK_READ, "puts buffer");
+  return puts (s);
+}
+#endif
+
+#ifdef WRAP_clearerr
+WRAPPER2(void, clearerr, FILE *stream)
+{
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  MF_VALIDATE_EXTENT (stream, sizeof (*stream), __MF_CHECK_WRITE,
+    "clearerr stream");
+  clearerr (stream);
+}
+#endif
+
+#ifdef WRAP_feof
+WRAPPER2(int, feof, FILE *stream)
+{
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  MF_VALIDATE_EXTENT (stream, sizeof (*stream), __MF_CHECK_WRITE,
+    "feof stream");
+  return feof (stream);
+}
+#endif
+
+#ifdef WRAP_ferror
+WRAPPER2(int, ferror, FILE *stream)
+{
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  MF_VALIDATE_EXTENT (stream, sizeof (*stream), __MF_CHECK_WRITE,
+    "ferror stream");
+  return ferror (stream);
+}
+#endif
+
+#ifdef WRAP_fileno
+#include <stdio.h>
+WRAPPER2(int, fileno, FILE *stream)
+{
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  MF_VALIDATE_EXTENT (stream, sizeof (*stream), __MF_CHECK_WRITE,
+    "fileno stream");
+  return fileno (stream);
+}
+#endif
+
+#ifdef WRAP_printf
+#include <stdio.h>
+#include <stdarg.h>
+WRAPPER2(int, printf, const char *format, ...)
+{
+  size_t n;
+  va_list ap;
+  int result;
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  n = strlen (format);
+  MF_VALIDATE_EXTENT (format, CLAMPADD(n, 1), __MF_CHECK_READ,
+    "printf format");
+  va_start (ap, format);
+  result = vprintf (format, ap);
+  va_end (ap);
+  return result;
+}
+#endif
+
+#ifdef WRAP_fprintf
+#include <stdio.h>
+#include <stdarg.h>
+WRAPPER2(int, fprintf, FILE *stream, const char *format, ...)
+{
+  size_t n;
+  va_list ap;
+  int result;
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  MF_VALIDATE_EXTENT (stream, sizeof (*stream), __MF_CHECK_WRITE,
+    "fprintf stream");
+  n = strlen (format);
+  MF_VALIDATE_EXTENT (format, CLAMPADD(n, 1), __MF_CHECK_READ,
+    "fprintf format");
+  va_start (ap, format);
+  result = vfprintf (stream, format, ap);
+  va_end (ap);
+  return result;
+}
+#endif
+
+#ifdef WRAP_sprintf
+#include <stdio.h>
+#include <stdarg.h>
+WRAPPER2(int, sprintf, char *str, const char *format, ...)
+{
+  size_t n;
+  va_list ap;
+  int result;
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  MF_VALIDATE_EXTENT (str, 1, __MF_CHECK_WRITE, "sprintf str");
+  n = strlen (format);
+  MF_VALIDATE_EXTENT (format, CLAMPADD(n, 1), __MF_CHECK_READ,
+    "sprintf format");
+  va_start (ap, format);
+  result = vsprintf (str, format, ap);
+  va_end (ap);
+  n = strlen (str);
+  MF_VALIDATE_EXTENT (str, CLAMPADD(n, 1), __MF_CHECK_WRITE, "sprintf str");
+  return result;
+}
+#endif
+
+#ifdef WRAP_snprintf
+#include <stdio.h>
+#include <stdarg.h>
+WRAPPER2(int, snprintf, char *str, size_t size, const char *format, ...)
+{
+  size_t n;
+  va_list ap;
+  int result;
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  MF_VALIDATE_EXTENT (str, size, __MF_CHECK_WRITE, "snprintf str");
+  n = strlen (format);
+  MF_VALIDATE_EXTENT (format, CLAMPADD(n, 1), __MF_CHECK_READ,
+    "snprintf format");
+  va_start (ap, format);
+  result = vsnprintf (str, size, format, ap);
+  va_end (ap);
+  return result;
+}
+#endif
+
+#ifdef WRAP_vprintf
+#include <stdio.h>
+#include <stdarg.h>
+WRAPPER2(int, vprintf,  const char *format, va_list ap)
+{
+  size_t n;
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  n = strlen (format);
+  MF_VALIDATE_EXTENT (format, CLAMPADD(n, 1), __MF_CHECK_READ,
+    "vprintf format");
+  return vprintf (format, ap);
+}
+#endif
+
+#ifdef WRAP_vfprintf
+#include <stdio.h>
+#include <stdarg.h>
+WRAPPER2(int, vfprintf, FILE *stream, const char *format, va_list ap)
+{
+  size_t n;
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  MF_VALIDATE_EXTENT (stream, sizeof (*stream), __MF_CHECK_WRITE,
+    "vfprintf stream");
+  n = strlen (format);
+  MF_VALIDATE_EXTENT (format, CLAMPADD(n, 1), __MF_CHECK_READ,
+    "vfprintf format");
+  return vfprintf (stream, format, ap);
+}
+#endif
+
+#ifdef WRAP_vsprintf
+#include <stdio.h>
+#include <stdarg.h>
+WRAPPER2(int, vsprintf, char *str, const char *format, va_list ap)
+{
+  size_t n;
+  int result;
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  MF_VALIDATE_EXTENT (str, 1, __MF_CHECK_WRITE, "vsprintf str");
+  n = strlen (format);
+  MF_VALIDATE_EXTENT (format, CLAMPADD(n, 1), __MF_CHECK_READ,
+    "vsprintf format");
+  result = vsprintf (str, format, ap);
+  n = strlen (str);
+  MF_VALIDATE_EXTENT (str, CLAMPADD(n, 1), __MF_CHECK_WRITE, "vsprintf str");
+  return result;
+}
+#endif
+
+#ifdef WRAP_vsnprintf
+#include <stdio.h>
+#include <stdarg.h>
+WRAPPER2(int, vsnprintf, char *str, size_t size, const char *format,
+	va_list ap)
+{
+  size_t n;
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  MF_VALIDATE_EXTENT (str, size, __MF_CHECK_WRITE, "vsnprintf str");
+  n = strlen (format);
+  MF_VALIDATE_EXTENT (format, CLAMPADD(n, 1), __MF_CHECK_READ,
+    "vsnprintf format");
+  return vsnprintf (str, size, format, ap);
+}
+#endif
+
+#ifdef WRAP_access
+WRAPPER2(int , access, const char *path, int mode)
+{
+  size_t n;
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  n = strlen (path);
+  MF_VALIDATE_EXTENT (path, CLAMPADD(n, 1), __MF_CHECK_READ, "access path");
+  return access (path, mode);
+}
+#endif
+
+#ifdef WRAP_remove
+WRAPPER2(int , remove, const char *path)
+{
+  size_t n;
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  n = strlen (path);
+  MF_VALIDATE_EXTENT (path, CLAMPADD(n, 1), __MF_CHECK_READ, "remove path");
+  return remove (path);
+}
+#endif
+
+#ifdef WRAP_fflush
+WRAPPER2(int, fflush, FILE *stream)
+{
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  MF_VALIDATE_EXTENT (stream, sizeof (*stream), __MF_CHECK_WRITE,
+    "fflush stream");
+  return fflush (stream);
+}
+#endif
+
+#ifdef WRAP_fseek
+WRAPPER2(int, fseek, FILE *stream, long offset, int whence)
+{
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  MF_VALIDATE_EXTENT (stream, sizeof (*stream), __MF_CHECK_WRITE,
+    "fseek stream");
+  return fseek (stream, offset, whence);
+}
+#endif
+
+#ifdef WRAP_fseeko64
+WRAPPER2(int, fseeko64, FILE *stream, off64_t offset, int whence)
+{
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  MF_VALIDATE_EXTENT (stream, sizeof (*stream), __MF_CHECK_WRITE,
+    "fseeko64 stream");
+  return fseeko64 (stream, offset, whence);
+}
+#endif
+
+#ifdef WRAP_ftell
+WRAPPER2(long, ftell, FILE *stream)
+{
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  MF_VALIDATE_EXTENT (stream, sizeof (*stream), __MF_CHECK_WRITE,
+    "ftell stream");
+  return ftell (stream);
+}
+#endif
+
+#ifdef WRAP_ftello64
+WRAPPER2(off64_t, ftello64, FILE *stream)
+{
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  MF_VALIDATE_EXTENT (stream, sizeof (*stream), __MF_CHECK_WRITE,
+    "ftello64 stream");
+  return ftello64 (stream);
+}
+#endif
+
+#ifdef WRAP_rewind
+WRAPPER2(void, rewind, FILE *stream)
+{
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  MF_VALIDATE_EXTENT (stream, sizeof (*stream), __MF_CHECK_WRITE,
+    "rewind stream");
+  rewind (stream);
+}
+#endif
+
+#ifdef WRAP_fgetpos
+WRAPPER2(int, fgetpos, FILE *stream, fpos_t *pos)
+{
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  MF_VALIDATE_EXTENT (stream, sizeof (*stream), __MF_CHECK_WRITE,
+    "fgetpos stream");
+  MF_VALIDATE_EXTENT (pos, sizeof (*pos), __MF_CHECK_WRITE, "fgetpos pos");
+  return fgetpos (stream, pos);
+}
+#endif
+
+#ifdef WRAP_fsetpos
+WRAPPER2(int, fsetpos, FILE *stream, fpos_t *pos)
+{
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  MF_VALIDATE_EXTENT (stream, sizeof (*stream), __MF_CHECK_WRITE,
+    "fsetpos stream");
+  MF_VALIDATE_EXTENT (pos, sizeof (*pos), __MF_CHECK_READ, "fsetpos pos");
+  return fsetpos (stream, pos);
+}
+#endif
+
+#ifdef WRAP_stat
+#include <sys/stat.h>
+WRAPPER2(int , stat, const char *path, struct stat *buf)
+{
+  size_t n;
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  n = strlen (path);
+  MF_VALIDATE_EXTENT (path, CLAMPADD(n, 1), __MF_CHECK_READ, "stat path");
+  MF_VALIDATE_EXTENT (buf, sizeof (*buf), __MF_CHECK_READ, "stat buf");
+  return stat (path, buf);
+}
+#endif
+
+#ifdef WRAP_stat64
+#include <sys/stat.h>
+WRAPPER2(int , stat64, const char *path, struct stat64 *buf)
+{
+  size_t n;
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  n = strlen (path);
+  MF_VALIDATE_EXTENT (path, CLAMPADD(n, 1), __MF_CHECK_READ, "stat64 path");
+  MF_VALIDATE_EXTENT (buf, sizeof (*buf), __MF_CHECK_READ, "stat64 buf");
+  return stat64 (path, buf);
+}
+#endif
+
+#ifdef WRAP_fstat
+#include <sys/stat.h>
+WRAPPER2(int , fstat, int filedes, struct stat *buf)
+{
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  MF_VALIDATE_EXTENT (buf, sizeof (*buf), __MF_CHECK_READ, "fstat buf");
+  return fstat (filedes, buf);
+}
+#endif
+
+#ifdef WRAP_lstat
+#include <sys/stat.h>
+WRAPPER2(int , lstat, const char *path, struct stat *buf)
+{
+  size_t n;
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  n = strlen (path);
+  MF_VALIDATE_EXTENT (path, CLAMPADD(n, 1), __MF_CHECK_READ, "lstat path");
+  MF_VALIDATE_EXTENT (buf, sizeof (*buf), __MF_CHECK_READ, "lstat buf");
+  return lstat (path, buf);
+}
+#endif
+
+#ifdef WRAP_mkfifo
+#include <sys/stat.h>
+WRAPPER2(int , mkfifo, const char *path, mode_t mode)
+{
+  size_t n;
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  n = strlen (path);
+  MF_VALIDATE_EXTENT (path, CLAMPADD(n, 1), __MF_CHECK_READ, "mkfifo path");
+  return mkfifo (path, mode);
+}
+#endif
+
+#ifdef WRAP_setvbuf
+WRAPPER2(int, setvbuf, FILE *stream, char *buf, int mode , size_t size)
+{
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  MF_VALIDATE_EXTENT (stream, sizeof (*stream), __MF_CHECK_WRITE,
+    "setvbuf stream");
+  if (NULL != buf)
+    MF_VALIDATE_EXTENT (buf, size, __MF_CHECK_READ, "setvbuf buf");
+  return setvbuf (stream, buf, mode, size);
+}
+#endif
+
+#ifdef WRAP_setbuf
+WRAPPER2(void, setbuf, FILE *stream, char *buf)
+{
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  MF_VALIDATE_EXTENT (stream, sizeof (*stream), __MF_CHECK_WRITE,
+    "setbuf stream");
+  if (NULL != buf)
+    MF_VALIDATE_EXTENT (buf, BUFSIZ, __MF_CHECK_READ, "setbuf buf");
+  setbuf (stream, buf);
+}
+#endif
+
+#ifdef WRAP_opendir
+#include <dirent.h>
+WRAPPER2(DIR *, opendir, const char *path)
+{
+  DIR *p;
+  size_t n;
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  n = strlen (path);
+  MF_VALIDATE_EXTENT (path, CLAMPADD(n, 1), __MF_CHECK_READ, "opendir path");
+
+  p = opendir (path);
+  if (NULL != p) {
+#ifdef MF_REGISTER_opendir
+    __mf_register (p, MF_RESULT_SIZE_opendir, MF_REGISTER_opendir,
+      "opendir result");
+#endif
+    MF_VALIDATE_EXTENT (p, MF_RESULT_SIZE_opendir, __MF_CHECK_WRITE,
+      "opendir result");
+  }
+  return p;
+}
+#endif
+
+#ifdef WRAP_closedir
+#include <dirent.h>
+WRAPPER2(int, closedir, DIR *dir)
+{
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  MF_VALIDATE_EXTENT (dir, 0, __MF_CHECK_WRITE, "closedir dir");
+#ifdef MF_REGISTER_opendir
+  __mf_unregister (dir, MF_RESULT_SIZE_opendir);
+#endif
+  return closedir (dir);
+}
+#endif
+
+#ifdef WRAP_readdir
+#include <dirent.h>
+WRAPPER2(struct dirent *, readdir, DIR *dir)
+{
+  struct dirent *p;
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  MF_VALIDATE_EXTENT (dir, 0, __MF_CHECK_READ, "readdir dir");
+  p = readdir (dir);
+  if (NULL != p) {
+#ifdef MF_REGISTER_readdir
+    __mf_register (p, sizeof (*p), MF_REGISTER_readdir, "readdir result");
+#endif
+    MF_VALIDATE_EXTENT (p, sizeof (*p), __MF_CHECK_WRITE, "readdir result");
+  }
+  return p;
+}
+#endif
+
+#ifdef WRAP_recv
+#include <sys/socket.h>
+WRAPPER2(int, recv, int s, void *buf, size_t len, int flags)
+{
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  MF_VALIDATE_EXTENT (buf, len, __MF_CHECK_WRITE, "recv buf");
+  return recv (s, buf, len, flags);
+}
+#endif
+
+#ifdef WRAP_recvfrom
+#include <sys/socket.h>
+WRAPPER2(int, recvfrom, int s, void *buf, size_t len, int flags,
+		struct sockaddr *from, socklen_t *fromlen)
+{
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  MF_VALIDATE_EXTENT (buf, len, __MF_CHECK_WRITE, "recvfrom buf");
+  MF_VALIDATE_EXTENT (from, (size_t)*fromlen, __MF_CHECK_WRITE,
+    "recvfrom from");
+  return recvfrom (s, buf, len, flags, from, fromlen);
+}
+#endif
+
+#ifdef WRAP_recvmsg
+#include <sys/socket.h>
+WRAPPER2(int, recvmsg, int s, struct msghdr *msg, int flags)
+{
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  MF_VALIDATE_EXTENT (msg, sizeof (*msg), __MF_CHECK_WRITE, "recvmsg msg");
+  return recvmsg (s, msg, flags);
+}
+#endif
+
+#ifdef WRAP_send
+#include <sys/socket.h>
+WRAPPER2(int, send, int s, const void *msg, size_t len, int flags)
+{
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  MF_VALIDATE_EXTENT (msg, len, __MF_CHECK_READ, "send msg");
+  return send (s, msg, len, flags);
+}
+#endif
+
+#ifdef WRAP_sendto
+#include <sys/socket.h>
+WRAPPER2(int, sendto, int s, const void *msg, size_t len, int flags,
+		const struct sockaddr *to, socklen_t tolen)
+{
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  MF_VALIDATE_EXTENT (msg, len, __MF_CHECK_READ, "sendto msg");
+  MF_VALIDATE_EXTENT (to, (size_t)tolen, __MF_CHECK_WRITE, "sendto to");
+  return sendto (s, msg, len, flags, to, tolen);
+}
+#endif
+
+#ifdef WRAP_sendmsg
+#include <sys/socket.h>
+WRAPPER2(int, sendmsg, int s, const void *msg, int flags)
+{
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  MF_VALIDATE_EXTENT (msg, sizeof (*msg), __MF_CHECK_READ, "sendmsg msg");
+  return sendmsg (s, msg, flags);
+}
+#endif
+
+#ifdef WRAP_setsockopt
+#include <sys/socket.h>
+WRAPPER2(int, setsockopt, int s, int level, int optname, const void *optval,
+	socklen_t optlen)
+{
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  MF_VALIDATE_EXTENT (optval, (size_t)optlen, __MF_CHECK_READ,
+    "setsockopt optval");
+  return setsockopt (s, level, optname, optval, optlen);
+}
+#endif
+
+#ifdef WRAP_getsockopt
+#include <sys/socket.h>
+WRAPPER2(int, getsockopt, int s, int level, int optname, void *optval,
+		socklen_t *optlen)
+{
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  MF_VALIDATE_EXTENT (optval, (size_t)*optlen, __MF_CHECK_WRITE,
+    "getsockopt optval");
+  return getsockopt (s, level, optname, optval, optlen);
+}
+#endif
+
+#ifdef WRAP_accept
+#include <sys/socket.h>
+WRAPPER2(int, accept, int s, struct  sockaddr *addr, socklen_t *addrlen)
+{
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  MF_VALIDATE_EXTENT (addr, (size_t)*addrlen, __MF_CHECK_WRITE, "accept addr");
+  return accept (s, addr, addrlen);
+}
+#endif
+
+#ifdef WRAP_bind
+#include <sys/socket.h>
+WRAPPER2(int, bind, int sockfd, struct  sockaddr *addr, socklen_t addrlen)
+{
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  MF_VALIDATE_EXTENT (addr, (size_t)addrlen, __MF_CHECK_WRITE, "bind addr");
+  return bind (sockfd, addr, addrlen);
+}
+#endif
+
+#ifdef WRAP_connect
+#include <sys/socket.h>
+WRAPPER2(int, connect, int sockfd, const struct sockaddr  *addr,
+	socklen_t addrlen)
+{
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  MF_VALIDATE_EXTENT (addr, (size_t)addrlen, __MF_CHECK_READ,
+    "connect addr");
+  return connect (sockfd, addr, addrlen);
+}
+#endif
+
+#ifdef WRAP_gethostname
+WRAPPER2(int, gethostname, char *name, size_t len)
+{
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  MF_VALIDATE_EXTENT (name, len, __MF_CHECK_WRITE, "gethostname name");
+  return gethostname (name, len);
+}
+#endif
+
+#ifdef WRAP_sethostname
+WRAPPER2(int, sethostname, const char *name, size_t len)
+{
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  MF_VALIDATE_EXTENT (name, len, __MF_CHECK_READ, "sethostname name");
+  return sethostname (name, len);
+}
+#endif
+
+#ifdef WRAP_gethostbyname
+#include <netdb.h>
+WRAPPER2(struct hostent *, gethostbyname, const char *name)
+{
+  struct hostent *p;
+  char **ss;
+  char *s;
+  size_t n;
+  int nreg;
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  n = strlen (name);
+  MF_VALIDATE_EXTENT (name, CLAMPADD(n, 1), __MF_CHECK_READ,
+    "gethostbyname name");
+  p = gethostbyname (name);
+  if (NULL != p) {
+#ifdef MF_REGISTER_gethostbyname
+    __mf_register (p, sizeof (*p), MF_REGISTER_gethostbyname,
+      "gethostbyname result");
+#endif
+    MF_VALIDATE_EXTENT (p, sizeof (*p), __MF_CHECK_WRITE,
+      "gethostbyname result");
+    if (NULL != (s = p->h_name)) {
+      n = strlen (s);
+      n = CLAMPADD(n, 1);
+#ifdef MF_REGISTER_gethostbyname_items
+      __mf_register (s, n, MF_REGISTER_gethostbyname_items,
+        "gethostbyname result->h_name");
+#endif
+      MF_VALIDATE_EXTENT (s, n, __MF_CHECK_WRITE,
+        "gethostbyname result->h_name");
+    }
+
+    if (NULL != (ss = p->h_aliases)) {
+      for (nreg = 1;; ++nreg) {
+        s = *ss++;
+        if (NULL == s)
+          break;
+        n = strlen (s);
+        n = CLAMPADD(n, 1);
+#ifdef MF_REGISTER_gethostbyname_items
+        __mf_register (s, n, MF_REGISTER_gethostbyname_items,
+          "gethostbyname result->h_aliases[]");
+#endif
+        MF_VALIDATE_EXTENT (s, n, __MF_CHECK_WRITE,
+          "gethostbyname result->h_aliases[]");
+      }
+      nreg *= sizeof (*p->h_aliases);
+#ifdef MF_REGISTER_gethostbyname_items
+      __mf_register (p->h_aliases, nreg, MF_REGISTER_gethostbyname_items,
+        "gethostbyname result->h_aliases");
+#endif
+      MF_VALIDATE_EXTENT (p->h_aliases, nreg, __MF_CHECK_WRITE,
+        "gethostbyname result->h_aliases");
+    }
+
+    if (NULL != (ss = p->h_addr_list)) {
+      for (nreg = 1;; ++nreg) {
+        s = *ss++;
+        if (NULL == s)
+          break;
+#ifdef MF_REGISTER_gethostbyname_items
+        __mf_register (s, p->h_length, MF_REGISTER_gethostbyname_items,
+          "gethostbyname result->h_addr_list[]");
+#endif
+        MF_VALIDATE_EXTENT (s, p->h_length, __MF_CHECK_WRITE,
+          "gethostbyname result->h_addr_list[]");
+      }
+      nreg *= sizeof (*p->h_addr_list);
+#ifdef MF_REGISTER_gethostbyname_items
+      __mf_register (p->h_addr_list, nreg, MF_REGISTER_gethostbyname_items,
+        "gethostbyname result->h_addr_list");
+#endif
+      MF_VALIDATE_EXTENT (p->h_addr_list, nreg, __MF_CHECK_WRITE,
+        "gethostbyname result->h_addr_list");
+    }
+  }
+  return p;
+}
+#endif
+
+#ifdef WRAP_wait
+#include <sys/wait.h>
+WRAPPER2(pid_t, wait, int *status)
+{
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  if (NULL != status)
+    MF_VALIDATE_EXTENT (status, sizeof (*status), __MF_CHECK_WRITE,
+      "wait status");
+  return wait (status);
+}
+#endif
+
+#ifdef WRAP_waitpid
+#include <sys/wait.h>
+WRAPPER2(pid_t, waitpid, pid_t pid, int *status, int options)
+{
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  if (NULL != status)
+    MF_VALIDATE_EXTENT (status, sizeof (*status), __MF_CHECK_WRITE,
+      "waitpid status");
+  return waitpid (pid, status, options);
+}
+#endif
+
+#ifdef WRAP_popen
+WRAPPER2(FILE *, popen, const char *command, const char *mode)
+{
+  size_t n;
+  FILE *p;
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+
+  n = strlen (command);
+  MF_VALIDATE_EXTENT (command, CLAMPADD(n, 1), __MF_CHECK_READ, "popen path");
+
+  n = strlen (mode);
+  MF_VALIDATE_EXTENT (mode, CLAMPADD(n, 1), __MF_CHECK_READ, "popen mode");
+
+  p = popen (command, mode);
+  if (NULL != p) {
+#ifdef MF_REGISTER_fopen
+    __mf_register (p, sizeof (*p), MF_REGISTER_fopen, "popen result");
+#endif
+    MF_VALIDATE_EXTENT (p, sizeof (*p), __MF_CHECK_WRITE, "popen result");
+  }
+  return p;
+}
+#endif
+
+#ifdef WRAP_pclose
+WRAPPER2(int, pclose, FILE *stream)
+{
+  int resp;
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  MF_VALIDATE_EXTENT (stream, sizeof (*stream), __MF_CHECK_WRITE,
+    "pclose stream");
+  resp = pclose (stream);
+#ifdef MF_REGISTER_fopen
+  __mf_unregister (stream, sizeof (*stream));
+#endif
+  return resp;
+}
+#endif
+
+#ifdef WRAP_execve
+WRAPPER2(int, execve, const char *path, char *const argv [],
+	char *const envp[])
+{
+  size_t n;
+  char *const *p;
+  const char *s;
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+
+  n = strlen (path);
+  MF_VALIDATE_EXTENT (path, CLAMPADD(n, 1), __MF_CHECK_READ, "execve path");
+
+  for (p = argv;;) {
+    MF_VALIDATE_EXTENT (p, sizeof (*p), __MF_CHECK_READ, "execve *argv");
+    s = *p++;
+    if (NULL == s)
+      break;
+    n = strlen (s);
+    MF_VALIDATE_EXTENT (s, CLAMPADD(n, 1), __MF_CHECK_READ, "execve **argv");
+  }
+
+  for (p = envp;;) {
+    MF_VALIDATE_EXTENT (p, sizeof (*p), __MF_CHECK_READ, "execve *envp");
+    s = *p++;
+    if (NULL == s)
+      break;
+    n = strlen (s);
+    MF_VALIDATE_EXTENT (s, CLAMPADD(n, 1), __MF_CHECK_READ, "execve **envp");
+  }
+  return execve (path, argv, envp);
+}
+#endif
+
+#ifdef WRAP_execv
+WRAPPER2(int, execv, const char *path, char *const argv [])
+{
+  size_t n;
+  char *const *p;
+  const char *s;
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+
+  n = strlen (path);
+  MF_VALIDATE_EXTENT (path, CLAMPADD(n, 1), __MF_CHECK_READ, "execv path");
+
+  for (p = argv;;) {
+    MF_VALIDATE_EXTENT (p, sizeof (*p), __MF_CHECK_READ, "execv *argv");
+    s = *p++;
+    if (NULL == s)
+      break;
+    n = strlen (s);
+    MF_VALIDATE_EXTENT (s, CLAMPADD(n, 1), __MF_CHECK_READ, "execv **argv");
+  }
+  return execv (path, argv);
+}
+#endif
+
+#ifdef WRAP_execvp
+WRAPPER2(int, execvp, const char *path, char *const argv [])
+{
+  size_t n;
+  char *const *p;
+  const char *s;
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+
+  n = strlen (path);
+  MF_VALIDATE_EXTENT (path, CLAMPADD(n, 1), __MF_CHECK_READ, "execvp path");
+
+  for (p = argv;;) {
+    MF_VALIDATE_EXTENT (p, sizeof (*p), __MF_CHECK_READ, "execvp *argv");
+    s = *p++;
+    if (NULL == s)
+      break;
+    n = strlen (s);
+    MF_VALIDATE_EXTENT (s, CLAMPADD(n, 1), __MF_CHECK_READ, "execvp **argv");
+  }
+  return execvp (path, argv);
+}
+#endif
+
+#ifdef WRAP_system
+WRAPPER2(int, system, const char *string)
+{
+  size_t n;
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  n = strlen (string);
+  MF_VALIDATE_EXTENT (string, CLAMPADD(n, 1), __MF_CHECK_READ,
+    "system string");
+  return system (string);
+}
+#endif
+
+#ifdef WRAP_dlopen
+WRAPPER2(void *, dlopen, const char *path, int flags)
+{
+  void *p;
+  size_t n;
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  n = strlen (path);
+  MF_VALIDATE_EXTENT (path, CLAMPADD(n, 1), __MF_CHECK_READ, "dlopen path");
+  p = dlopen (path, flags);
+  if (NULL != p) {
+#ifdef MF_REGISTER_dlopen
+    __mf_register (p, 0, MF_REGISTER_dlopen, "dlopen result");
+#endif
+    MF_VALIDATE_EXTENT (p, 0, __MF_CHECK_WRITE, "dlopen result");
+  }
+  return p;
+}
+#endif
+
+#ifdef WRAP_dlclose
+WRAPPER2(int, dlclose, void *handle)
+{
+  int resp;
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  MF_VALIDATE_EXTENT (handle, 0, __MF_CHECK_READ, "dlclose handle");
+  resp = dlclose (handle);
+#ifdef MF_REGISTER_dlopen
+  __mf_unregister (handle, 0);
+#endif
+  return resp;
+}
+#endif
+
+#ifdef WRAP_dlerror
+WRAPPER2(char *, dlerror)
+{
+  char *p;
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  p = dlerror ();
+  if (NULL != p) {
+    size_t n;
+    n = strlen (p);
+    n = CLAMPADD(n, 1);
+#ifdef MF_REGISTER_dlerror
+    __mf_register (p, n, MF_REGISTER_dlerror, "dlerror result");
+#endif
+    MF_VALIDATE_EXTENT (p, n, __MF_CHECK_WRITE, "dlerror result");
+  }
+  return p;
+}
+#endif
+
+#ifdef WRAP_dlsym
+WRAPPER2(void *, dlsym, void *handle, char *symbol)
+{
+  size_t n;
+  void *p;
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  MF_VALIDATE_EXTENT (handle, 0, __MF_CHECK_READ, "dlsym handle");
+  n = strlen (symbol);
+  MF_VALIDATE_EXTENT (symbol, CLAMPADD(n, 1), __MF_CHECK_READ, "dlsym symbol");
+  p = dlsym (handle, symbol);
+  if (NULL != p) {
+#ifdef MF_REGISTER_dlsym
+    __mf_register (p, 0, MF_REGISTER_dlsym, "dlsym result");
+#endif
+    MF_VALIDATE_EXTENT (p, 0, __MF_CHECK_WRITE, "dlsym result");
+  }
+  return p;
+}
+#endif
+
+#ifdef WRAP_semop
+#include <sys/ipc.h>
+#include <sys/sem.h>
+WRAPPER2(int, semop, int semid, struct sembuf *sops, unsigned nsops)
+{
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  MF_VALIDATE_EXTENT (sops, sizeof (*sops) * nsops, __MF_CHECK_READ,
+    "semop sops");
+  return semop (semid, sops, nsops);
+}
+#endif
+
+#ifdef WRAP_semctl
+#include <sys/ipc.h>
+#include <sys/sem.h>
+#if !defined(__GNU_LIBRARY__) || defined(_SEM_SEMUN_UNDEFINED)
+union semun {
+	int val;			/* value for SETVAL */
+	struct semid_ds *buf;		/* buffer for IPC_STAT, IPC_SET */
+	unsigned short int *array;	/* array for GETALL, SETALL */
+	struct seminfo *__buf;		/* buffer for IPC_INFO */
+};
+#endif
+WRAPPER2(int, semctl, int semid, int semnum, int cmd, union semun arg)
+{
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  switch (cmd) {
+  case IPC_STAT:
+    MF_VALIDATE_EXTENT (arg.buf, sizeof (*arg.buf), __MF_CHECK_WRITE,
+      "semctl buf");
+    break;
+  case IPC_SET:
+    MF_VALIDATE_EXTENT (arg.buf, sizeof (*arg.buf), __MF_CHECK_READ,
+      "semctl buf");
+    break;
+  case GETALL:
+    MF_VALIDATE_EXTENT (arg.array, sizeof (*arg.array), __MF_CHECK_WRITE,
+      "semctl array");
+  case SETALL:
+    MF_VALIDATE_EXTENT (arg.array, sizeof (*arg.array), __MF_CHECK_READ,
+      "semctl array");
+    break;
+#ifdef IPC_INFO
+  case IPC_INFO:
+    MF_VALIDATE_EXTENT (arg.__buf, sizeof (*arg.__buf), __MF_CHECK_WRITE,
+      "semctl __buf");
+    break;
+#endif
+  default:
+    break;
+  }
+  return semctl (semid, semnum, cmd, arg);
+}
+#endif
+
+#ifdef WRAP_shmctl
+#include <sys/ipc.h>
+#include <sys/shm.h>
+WRAPPER2(int, shmctl, int shmid, int cmd, struct shmid_ds *buf)
+{
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  switch (cmd) {
+  case IPC_STAT:
+    MF_VALIDATE_EXTENT (buf, sizeof (*buf), __MF_CHECK_WRITE,
+      "shmctl buf");
+    break;
+  case IPC_SET:
+    MF_VALIDATE_EXTENT (buf, sizeof (*buf), __MF_CHECK_READ,
+      "shmctl buf");
+    break;
+  default:
+    break;
+  }
+  return shmctl (shmid, cmd, buf);
+}
+#endif
+
+#ifdef WRAP_shmat
+#include <sys/ipc.h>
+#include <sys/shm.h>
+WRAPPER2(void *, shmat, int shmid, const void *shmaddr, int shmflg)
+{
+  void *p;
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  p = shmat (shmid, shmaddr, shmflg);
+#ifdef MF_REGISTER_shmat
+  if (NULL != p) {
+    struct shmid_ds buf;
+    __mf_register (p, shmctl (shmid, IPC_STAT, &buf) ? 0 : buf.shm_segsz,
+      MF_REGISTER_shmat, "shmat result");
+  }
+#endif
+  return p;
+}
+#endif
+
+#ifdef WRAP_shmdt
+#include <sys/ipc.h>
+#include <sys/shm.h>
+WRAPPER2(int, shmdt, const void *shmaddr)
+{
+  int resp;
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  resp = shmdt (shmaddr);
+#ifdef MF_REGISTER_shmat
+  __mf_unregister ((void *)shmaddr, 0);
+#endif
+  return resp;
+}
+#endif
+
