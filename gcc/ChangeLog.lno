@@ -1,3 +1,8 @@
+2004-06-23  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* tree-chrec.c (chrec_merge): Handle case when one of the arguments
+	was not analyzed yet correctly.
+
 2004-06-23  Sebastian Pop  <pop@cri.ensmp.fr>
 	
 	* tree-chrec.c (chrec_fold_automatically_generated_operands): Now

@@ -594,6 +594,11 @@ tree
 chrec_merge (tree chrec1, 
 	     tree chrec2)
 {
+  if (chrec1 == chrec_not_analyzed_yet)
+    return chrec2;
+  if (chrec2 == chrec_not_analyzed_yet)
+    return chrec1;
+
   if (chrec_contains_undetermined (chrec1)
       || chrec_contains_undetermined (chrec2))
     return chrec_dont_know;
@@ -601,11 +606,6 @@ chrec_merge (tree chrec1,
   if (chrec1 == chrec_known 
       || chrec2 == chrec_known)
     return chrec_known;
-
-  if (chrec1 == chrec_not_analyzed_yet)
-    return chrec2;
-  if (chrec2 == chrec_not_analyzed_yet)
-    return chrec1;
 
   if (operand_equal_p (chrec1, chrec2, 0))
     return chrec1;
