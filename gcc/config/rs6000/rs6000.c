@@ -14119,6 +14119,10 @@ rs6000_emit_minmax (rtx dest, enum rtx_code code, rtx op0, rtx op1)
   else
     target = emit_conditional_move (dest, c, op0, op1, mode,
 				    op1, op0, mode, 0);
+  /* APPLE LOCAL begin pragma fenv 3943021 */
+  if (flag_trapping_math && target == NULL_RTX)
+    return;
+  /* APPLE LOCAL end pragma fenv 3943021 */
   if (target == NULL_RTX)
     abort ();
   if (target != dest)

@@ -1,3 +1,11 @@
+2005-01-11  Stuart Hastings  <stuart@apple.com>
+
+        Radar 3943021
+        * gcc/config/rs6000/rs6000.md (maxsf3, minsf3, split, maxdf3, mindf3, split):
+	disable when -flag-trapping-math.
+	* gcc/config/rs6000/rs6000.c (rs6000_emit_minmax): Don't abort
+	when #pragma fenv (-ftrapping-math) causes failure.
+
 2005-01-11  Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 3903960
