@@ -1,5 +1,9 @@
 2003-08-13  Jeff Law  <law@redhat.com>
 
+	* tree-cfg.c (remove_useless_stmts_and_vars): For a COND_EXPR
+	where the condition is a variable and the ELSE clause merely
+	sets that variable to zero, remove the ELSE clause.
+
 	* tree-ssa-dom.c (optimize_stmt): Do not check the type of the
 	value returned by lookup_avail_expr.
 

@@ -1581,6 +1581,13 @@ remove_useless_stmts_and_vars (tree *first_p, int remove_unused_vars)
 	      *stmt_p = then_clause;
 	      repeat = 1;
 	    }
+	  else if (TREE_CODE (cond) == VAR_DECL)
+	    {
+	      if (TREE_CODE (else_clause) == MODIFY_EXPR
+		  && TREE_OPERAND (else_clause, 0) == cond
+		  && integer_zerop (TREE_OPERAND (else_clause, 1)))
+		COND_EXPR_ELSE (*stmt_p) = build_empty_stmt ();
+	    }
 	}
       else if (code == SWITCH_EXPR)
 	repeat |= remove_useless_stmts_and_vars (&SWITCH_BODY (*stmt_p),
