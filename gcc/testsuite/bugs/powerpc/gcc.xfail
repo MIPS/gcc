@@ -93,20 +93,20 @@
 #3665227: gcc.dg/torture/builtin-nonneg-1.c  -O3 -fomit-frame-pointer  (test for excess errors)
 #3665227: gcc.dg/torture/builtin-nonneg-1.c  -O3 -g  (test for excess errors)
 #3665227: gcc.dg/torture/builtin-nonneg-1.c  -Os  (test for excess errors)
-3665098: gcc.dg/torture/builtin-noret-1.c  -O0  (test for excess errors)
-3665098: gcc.dg/torture/builtin-noret-1.c  -O1  (test for excess errors)
-3665098: gcc.dg/torture/builtin-noret-1.c  -O2  (test for excess errors)
-3665098: gcc.dg/torture/builtin-noret-1.c  -O3 -fomit-frame-pointer  (test for excess errors)
-3665098: gcc.dg/torture/builtin-noret-1.c  -O3 -g  (test for excess errors)
-3665098: gcc.dg/torture/builtin-noret-1.c  -Os  (test for excess errors)
-3665098: gcc.dg/torture/builtin-noret-1.c  -fast  (test for excess errors)
-3665098: gcc.dg/torture/builtin-noret-2.c  -O0  (test for excess errors)
-3665098: gcc.dg/torture/builtin-noret-2.c  -O1  (test for excess errors)
-3665098: gcc.dg/torture/builtin-noret-2.c  -O2  (test for excess errors)
-3665098: gcc.dg/torture/builtin-noret-2.c  -O3 -fomit-frame-pointer  (test for excess errors)
-3665098: gcc.dg/torture/builtin-noret-2.c  -O3 -g  (test for excess errors)
-3665098: gcc.dg/torture/builtin-noret-2.c  -Os  (test for excess errors)
-3665098: gcc.dg/torture/builtin-noret-2.c  -fast  (test for excess errors)
+#3665098: gcc.dg/torture/builtin-noret-1.c  -O0  (test for excess errors)
+#3665098: gcc.dg/torture/builtin-noret-1.c  -O1  (test for excess errors)
+#3665098: gcc.dg/torture/builtin-noret-1.c  -O2  (test for excess errors)
+#3665098: gcc.dg/torture/builtin-noret-1.c  -O3 -fomit-frame-pointer  (test for excess errors)
+#3665098: gcc.dg/torture/builtin-noret-1.c  -O3 -g  (test for excess errors)
+#3665098: gcc.dg/torture/builtin-noret-1.c  -Os  (test for excess errors)
+#3665098: gcc.dg/torture/builtin-noret-1.c  -fast  (test for excess errors)
+#3665098: gcc.dg/torture/builtin-noret-2.c  -O0  (test for excess errors)
+#3665098: gcc.dg/torture/builtin-noret-2.c  -O1  (test for excess errors)
+#3665098: gcc.dg/torture/builtin-noret-2.c  -O2  (test for excess errors)
+#3665098: gcc.dg/torture/builtin-noret-2.c  -O3 -fomit-frame-pointer  (test for excess errors)
+#3665098: gcc.dg/torture/builtin-noret-2.c  -O3 -g  (test for excess errors)
+#3665098: gcc.dg/torture/builtin-noret-2.c  -Os  (test for excess errors)
+#3665098: gcc.dg/torture/builtin-noret-2.c  -fast  (test for excess errors)
 #3665227: gcc.dg/torture/builtin-power-1.c  -O0  (test for excess errors)
 #3665227: gcc.dg/torture/builtin-power-1.c  -O1  (test for excess errors)
 #3665227: gcc.dg/torture/builtin-power-1.c  -O2  (test for excess errors)
@@ -223,7 +223,7 @@
 #3649550: gcc.dg/alias-2.c  (test for warnings, line 14)
 #3636386: gcc.dg/altivec-varargs-1.c (test for excess errors)
 #3644051: gcc.dg/array-5.c (test for excess errors)
-3665098: gcc.dg/array-quals-1.c scan-assembler-not \\.data(?!\\.rel\\.ro)
+#3665098: gcc.dg/array-quals-1.c scan-assembler-not \\.data(?!\\.rel\\.ro)
 #3191432: gcc.dg/asm-fs-1.c scan-assembler-not \\*_bar
 #3191432: gcc.dg/asm-fs-1.c scan-assembler-not \\*_baz
 3191500: gcc.dg/c99-func-3.c execution test
@@ -530,7 +530,7 @@
 3665098: gcc.c-torture/compile/20021108-1.c (test for excess errors)
 3765162: gcc.c-torture/execute/20040709-2.c compilation,  -fast
 #3765528: gcc.apple/pascal-strings-2.c (test for excess errors)
-3765575: gcc.c-torture/execute/930718-1.c execution,  -fast
+#3765575: gcc.c-torture/execute/930718-1.c execution,  -fast
 #3765610: gcc.c-torture/execute/va-arg-5.c execution,  -fast
 #3765610: gcc.c-torture/execute/va-arg-6.c execution,  -fast
 3765630: gcc.c-torture/execute/ieee/compare-fp-1.c compilation,  -fast
@@ -572,5 +572,11 @@
 3846097: gcc.c-torture/execute/builtins/strcpy-2.c execution,  -fast
 3846097: gcc.c-torture/execute/builtins/strlen-3.c execution,  -fast
 3846100: gcc.dg/pr17055-1.c (test for excess errors)
-3846109: gcc.apple/altivec-2.c execution test
+#3846109: gcc.apple/altivec-2.c execution test
 3846117: gcc.dg/verbose-asm-2.c scan-assembler fpeephole=0
+3851502: ./apple-altivec-1.h  -O1  (test for excess errors)
+3851502: ./apple-altivec-1.h  -O2  (test for excess errors)
+3851502: ./apple-altivec-1.h  -O3 -fomit-frame-pointer  (test for excess errors)
+3851502: ./apple-altivec-1.h  -O3 -g  (test for excess errors)
+3851502: ./apple-altivec-1.h  -Os  (test for excess errors)
+3851502: ./apple-altivec-1.h  -fast  (test for excess errors)
