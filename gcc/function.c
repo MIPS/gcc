@@ -4758,14 +4758,16 @@ assign_parms (tree fndecl)
 
 	 Set DECL_RTL to that place.  */
 
-      if (GET_CODE (entry_parm) == PARALLEL && nominal_mode != BLKmode
-	  && XVECLEN (entry_parm, 0) > 1)
+      if (GET_CODE (entry_parm) == PARALLEL && nominal_mode != BLKmode)
 	{
 	  /* Reconstitute objects the size of a register or larger using
 	     register operations instead of the stack.  */
 	  rtx parmreg = gen_reg_rtx (nominal_mode);
+	  rtx elt0 = XEXP (XVECEXP (entry_parm, 0, 0), 0);
 
-	  if (REG_P (parmreg))
+	  if ((XVECLEN (entry_parm, 0) > 1
+	       || hard_regno_nregs[REGNO (elt0)][GET_MODE (elt0)] > 1)
+	      && REG_P (parmreg))
 	    {
 	      unsigned int regno = REGNO (parmreg);
 
