@@ -1,3 +1,9 @@
+2003-07-15  Jakub Jelinek  <jakub@redhat.com>
+
+	* expr.c (emit_block_move): Don't move anything if size is const0_rtx.
+	(clear_storage): Test against const0_rtx instead of comparing INTVAL
+	against 0.
+
 2003-07-14  Jakub Jelinek  <jakub@redhat.com>
 
 	* unwind-dw2.c (MD_FROB_UPDATE_CONTEXT): Define.

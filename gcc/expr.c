@@ -1795,7 +1795,10 @@ emit_block_move (x, y, size, method)
       set_mem_size (y, size);
     }
 
-  if (GET_CODE (size) == CONST_INT && MOVE_BY_PIECES_P (INTVAL (size), align))
+  if (size == const0_rtx)
+    ;
+  else if (GET_CODE (size) == CONST_INT
+	   && MOVE_BY_PIECES_P (INTVAL (size), align))
     move_by_pieces (x, y, INTVAL (size), align, 0);
   else if (emit_block_move_via_movstr (x, y, size, align))
     ;
@@ -3030,7 +3033,7 @@ clear_storage (object, size)
       object = protect_from_queue (object, 1);
       size = protect_from_queue (size, 0);
 
-      if (GET_CODE (size) == CONST_INT && INTVAL (size) == 0)
+      if (size == const0_rtx)
 	;
       else if (GET_CODE (size) == CONST_INT
 	  && CLEAR_BY_PIECES_P (INTVAL (size), align))
