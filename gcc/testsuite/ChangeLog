@@ -1,3 +1,80 @@
+2002-01-10  Dale Johannesen  <dalej@apple.com>
+
+	* gcc.c-torture/execute/loop-11.c: New.
+
+2002-01-08  Aldy Hernandez  <aldyh@redhat.com>
+
+        * gcc.dg/altivec-4.c: Add test for mtvscr, dssall, mfvscr, 
+	dss, lvsl, lvsr, dstt, dstst, dststt, dst.
+
+2002-01-09  Richard Henderson  <rth@redhat.com>
+
+	* gcc.c-torture/execute/20020108-1.c: Rewrite to choose the proper
+	type in which to perform the operation for each size.
+
+Wed Jan  9 16:48:33 2002  Alan Matsuoka  (alanm@redhat.com)
+
+	* gcc.c-torture/compile/20020109-2.c: New test.
+
+2002-01-09  Gwenole Beauchesne  <bgeauchesne@mandrakesoft.com>
+
+	* gcc.c-torture/execute/loop-10.c: New test.
+
+2002-01-09  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c-torture/compile/20010226-1.c: New test.
+	* gcc.c-torture/compile/20010227-1.c: New test.
+	* gcc.c-torture/compile/20010426-1.c: New test.
+	* gcc.c-torture/compile/20010510-1.c: New test.
+	* gcc.c-torture/compile/20010605-3.c: New test.
+	* gcc.c-torture/compile/20010824-1.c: New test.
+	* gcc.c-torture/execute/20010409-1.c: New test.
+	* gcc.dg/noncompile/20000901-1.c: New test.
+	* gcc.dg/20001023-1.c: New test.
+	* gcc.dg/20001101-1.c: New test.
+	* gcc.dg/20001102-1.c: New test.
+	* gcc.dg/20010207-1.c: New test.
+	* gcc.dg/20010405-1.c: New test.
+	* gcc.dg/20010822-1.c: New test.
+	* gcc.dg/20011107-1.c: New test.
+
+Wed Jan  9 14:03:20 2002  Jeffrey A Law  (law@redhat.com)
+
+	* gcc.dg/asm-fs-1.c: Disable warnings when compiling.
+
+	* gcc.c-torture/execute/strct-stdarg-1.x: New file.  Expect
+	execution failure on PA targets.
+
+2002-01-09  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c-torture/compile/20020109-1.c: New test.
+
+2002-01-08  Kazu Hirata  <kazu@hxi.com>
+
+	* gcc.c-torture/execute/20020108-1.c: New test.
+
+2002-01-08  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/20020108-1.c: New test.
+
+2002-01-08  H.J. Lu <hjl@gnu.org>
+
+	* objc.dg/special/special.exp: Add -I${srcdir}/../../libobjc
+	for header files.
+
+2002-01-08  Geoff Keating  <geoffk@redhat.com>
+
+	* gcc.dg/altivec-4.c: Make the 'char' entries signed also for
+	consistency.
+
+002-01-07  Aldy Hernandez  <aldyh@redhat.com>
+
+        * gcc.dg/altivec-4.c: Test altivec predicates.
+
+2002-01-07  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c-torture/execute/20020107-1.c: New test.
+
 2002-01-06  Craig Rodrigues  <rodrigc@gcc.gnu.org>
 
 	PR c/5279

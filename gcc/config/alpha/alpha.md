@@ -460,7 +460,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi"
    (set_attr "length" "*,*,*,8")])
 
 (define_insn "*extendsidi2_fix"
-  [(set (match_operand:DI 0 "register_operand" "=r,r,r,*f,?*f")
+  [(set (match_operand:DI 0 "register_operand" "=r,r,r,?*f,?*f")
 	(sign_extend:DI
 	  (match_operand:SI 1 "nonimmediate_operand" "r,m,*f,*f,m")))]
   "TARGET_FIX"
@@ -6523,7 +6523,9 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi"
   ""
 {
   if (TARGET_EXPLICIT_RELOCS)
-    return "ldq $28,_mcount($29)\t\t!literal!%#\;jsr $28,($28),_mcount\t\t!lituse_jsr!%#";
+    /* Note that we cannot use a lituse_jsr reloc, since _mcount
+       cannot be called via the PLT.  */
+    return "ldq $28,_mcount($29)\t\t!literal\;jsr $28,($28),_mcount";
   else
     return "lda $28,_mcount\;jsr $28,($28),_mcount";
 }

@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler, for IBM RS/6000.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2001 Free Software Foundation, Inc.
+   2000, 2001, 2002 Free Software Foundation, Inc.
    Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu)
 
 This file is part of GNU CC.
@@ -2163,12 +2163,6 @@ do {									     \
    Do not define this if the table should contain absolute addresses.  */
 #define CASE_VECTOR_PC_RELATIVE 1
 
-/* Specify the tree operation to be used to convert reals to integers.  */
-#define IMPLICIT_FIX_EXPR FIX_ROUND_EXPR
-
-/* This is the kind of divide that is easiest to do in the general case.  */
-#define EASY_DIV_EXPR TRUNC_DIV_EXPR
-
 /* Define this as 1 if `char' should by default be signed; else as 0.  */
 #define DEFAULT_SIGNED_CHAR 0
 
@@ -2954,5 +2948,34 @@ enum rs6000_builtins
   ALTIVEC_BUILTIN_VSLDOI_16QI,
   ALTIVEC_BUILTIN_VSLDOI_8HI,
   ALTIVEC_BUILTIN_VSLDOI_4SI,
-  ALTIVEC_BUILTIN_VSLDOI_4SF
+  ALTIVEC_BUILTIN_VSLDOI_4SF,
+  ALTIVEC_BUILTIN_VUPKHSB,
+  ALTIVEC_BUILTIN_VUPKHPX,
+  ALTIVEC_BUILTIN_VUPKHSH,
+  ALTIVEC_BUILTIN_VUPKLSB,
+  ALTIVEC_BUILTIN_VUPKLPX,
+  ALTIVEC_BUILTIN_VUPKLSH,
+  ALTIVEC_BUILTIN_VCMPBFP_P,
+  ALTIVEC_BUILTIN_VCMPEQFP_P,
+  ALTIVEC_BUILTIN_VCMPEQUB_P,
+  ALTIVEC_BUILTIN_VCMPEQUH_P,
+  ALTIVEC_BUILTIN_VCMPEQUW_P,
+  ALTIVEC_BUILTIN_VCMPGEFP_P,
+  ALTIVEC_BUILTIN_VCMPGTFP_P,
+  ALTIVEC_BUILTIN_VCMPGTSB_P,
+  ALTIVEC_BUILTIN_VCMPGTSH_P,
+  ALTIVEC_BUILTIN_VCMPGTSW_P,
+  ALTIVEC_BUILTIN_VCMPGTUB_P,
+  ALTIVEC_BUILTIN_VCMPGTUH_P,
+  ALTIVEC_BUILTIN_VCMPGTUW_P,
+  ALTIVEC_BUILTIN_MTVSCR,
+  ALTIVEC_BUILTIN_MFVSCR,
+  ALTIVEC_BUILTIN_DSSALL,
+  ALTIVEC_BUILTIN_DSS,
+  ALTIVEC_BUILTIN_LVSL,
+  ALTIVEC_BUILTIN_LVSR,
+  ALTIVEC_BUILTIN_DSTT,
+  ALTIVEC_BUILTIN_DSTST,
+  ALTIVEC_BUILTIN_DSTSTT,
+  ALTIVEC_BUILTIN_DST
 };

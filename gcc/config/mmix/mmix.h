@@ -953,9 +953,6 @@ const_section ()						\
 #define ASM_FILE_END(STREAM) \
  mmix_asm_file_end (STREAM)
 
-#define ASM_IDENTIFY_GCC(STREAM) \
- mmix_asm_identify_gcc (STREAM)
-
 /* While any other punctuation character but ";" would do, we prefer "%"
    or "!"; "!" is an unary operator and so will not be mistakenly included
    in correctly formed expressions.  The hash character adds mass; catches
@@ -1200,10 +1197,6 @@ const_section ()						\
    gut feeling is currently that SIGN_EXTEND wins; "int" is more frequent
    than "unsigned int", and we have signed characters.  FIXME: measure.  */
 #define LOAD_EXTEND_OP(MODE) (TARGET_ZERO_EXTEND ? ZERO_EXTEND : SIGN_EXTEND)
-
-/* Whatever.  I don't really know.  This has worked before.  It's also
-   what everybody else is using.  */
-#define EASY_DIV_EXPR TRUNC_DIV_EXPR
 
 #define MOVE_MAX 8
 

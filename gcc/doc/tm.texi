@@ -1353,13 +1353,6 @@ languages, rather than to fundamental aspects of storage layout.
 A C expression for the size in bits of the type @code{int} on the
 target machine.  If you don't define this, the default is one word.
 
-@findex MAX_INT_TYPE_SIZE
-@item MAX_INT_TYPE_SIZE
-Maximum number for the size in bits of the type @code{int} on the target
-machine.  If this is undefined, the default is @code{INT_TYPE_SIZE}.
-Otherwise, it is the constant value that is the largest value that
-@code{INT_TYPE_SIZE} can have at run-time.  This is used in @code{cpp}.
-
 @findex SHORT_TYPE_SIZE
 @item SHORT_TYPE_SIZE
 A C expression for the size in bits of the type @code{short} on the
@@ -1556,16 +1549,6 @@ If you don't define this macro, the default is the first of
 @code{"unsigned int"}, @code{"long unsigned int"}, or @code{"long long
 unsigned int"} that has as much precision as @code{long long unsigned
 int}.
-
-@findex OBJC_SELECTORS_WITHOUT_LABELS
-@item OBJC_SELECTORS_WITHOUT_LABELS
-Define this macro if the compiler can group all the selectors together
-into a vector and use just one label at the beginning of the vector.
-Otherwise, the compiler must give each selector its own assembler
-label.
-
-On certain machines, it is important to have a separate label for each
-selector because this enables the linker to eliminate duplicate selectors.
 
 @findex TARGET_PTRMEMFUNC_VBIT_LOCATION
 @item TARGET_PTRMEMFUNC_VBIT_LOCATION
@@ -3132,13 +3115,6 @@ This macro is similar to @code{INITIAL_FRAME_POINTER_OFFSET}.  It
 specifies the initial difference between the specified pair of
 registers.  This macro must be defined if @code{ELIMINABLE_REGS} is
 defined.
-
-@findex LONGJMP_RESTORE_FROM_STACK
-@item LONGJMP_RESTORE_FROM_STACK
-Define this macro if the @code{longjmp} function restores registers from
-the stack frames, rather than from those saved specifically by
-@code{setjmp}.  Certain quantities must not be kept in registers across
-a call to @code{setjmp} on such machines.
 @end table
 
 @node Stack Arguments
@@ -6268,14 +6244,6 @@ A C statement (sans semicolon) to output to the stdio stream
 is customary on your operating system, as it is in most Berkeley Unix
 systems.  This macro is used in @code{assemble_name}.
 
-@ignore @c Seems not to exist anymore.
-@findex ASM_OUTPUT_LABELREF_AS_INT
-@item ASM_OUTPUT_LABELREF_AS_INT (@var{file}, @var{label})
-Define this macro for systems that use the program @command{collect2}.
-The definition should be a C statement to output a word containing
-a reference to the label @var{label}.
-@end ignore
-
 @findex ASM_OUTPUT_SYMBOL_REF
 @item ASM_OUTPUT_SYMBOL_REF (@var{stream}, @var{sym})
 A C statement (sans semicolon) to output a reference to
@@ -7018,18 +6986,6 @@ This describes commands marking the start and the end of an exception
 region.
 
 @table @code
-@findex ASM_OUTPUT_EH_REGION_BEG
-@item ASM_OUTPUT_EH_REGION_BEG ()
-A C expression to output text to mark the start of an exception region.
-
-This macro need not be defined on most platforms.
-
-@findex ASM_OUTPUT_EH_REGION_END
-@item ASM_OUTPUT_EH_REGION_END ()
-A C expression to output text to mark the end of an exception region.
-
-This macro need not be defined on most platforms.
-
 @findex EH_FRAME_SECTION_NAME
 @item EH_FRAME_SECTION_NAME
 If defined, a C string constant for the name of the section containing
@@ -7049,26 +7005,6 @@ collection and sections cannot be marked as not to be collected.
 
 Do not define this macro unless @code{TARGET_ASM_NAMED_SECTION} is
 also defined.
-
-@findex OMIT_EH_TABLE
-@item OMIT_EH_TABLE ()
-A C expression that is nonzero if the normal exception table output
-should be omitted.
-
-This macro need not be defined on most platforms.
-
-@findex EH_TABLE_LOOKUP
-@item EH_TABLE_LOOKUP ()
-Alternate runtime support for looking up an exception at runtime and
-finding the associated handler, if the default method won't work.
-
-This macro need not be defined on most platforms.
-
-@findex DOESNT_NEED_UNWINDER
-@item DOESNT_NEED_UNWINDER
-A C expression that decides whether or not the current function needs to
-have a function unwinder generated for it.  See the file @file{except.c}
-for details on when to define this, and how.
 
 @findex MASK_RETURN_ADDR
 @item MASK_RETURN_ADDR
@@ -8143,27 +8079,11 @@ define it as the constant @code{SIGN_EXTEND} or @code{ZERO_EXTEND}.
 Define this macro if loading short immediate values into registers sign
 extends.
 
-@findex IMPLICIT_FIX_EXPR
-@item IMPLICIT_FIX_EXPR
-An alias for a tree code that should be used by default for conversion
-of floating point values to fixed point.  Normally,
-@code{FIX_ROUND_EXPR} is used.
-
 @findex FIXUNS_TRUNC_LIKE_FIX_TRUNC
 @item FIXUNS_TRUNC_LIKE_FIX_TRUNC
 Define this macro if the same instructions that convert a floating
 point number to a signed fixed point number also convert validly to an
 unsigned one.
-
-@findex EASY_DIV_EXPR
-@item EASY_DIV_EXPR
-An alias for a tree code that is the easiest kind of division to
-compile code for in the general case.  It may be
-@code{TRUNC_DIV_EXPR}, @code{FLOOR_DIV_EXPR}, @code{CEIL_DIV_EXPR} or
-@code{ROUND_DIV_EXPR}.  These four division operators differ in how
-they round the result to an integer.  @code{EASY_DIV_EXPR} is used
-when it is permissible to use any of those kinds of division and the
-choice should be made on the basis of efficiency.
 
 @findex MOVE_MAX
 @item MOVE_MAX

@@ -1,6 +1,6 @@
 /* Subroutines used for code generation on IBM RS/6000.
    Copyright (C) 1991, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 
-   2000, 2001 Free Software Foundation, Inc.
+   2000, 2001, 2002 Free Software Foundation, Inc.
    Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu)
 
 This file is part of GNU CC.
@@ -3240,6 +3240,16 @@ static const struct builtin_description bdesc_3arg[] =
   { MASK_ALTIVEC, CODE_FOR_altivec_vsldoi_4sf, "__builtin_altivec_vsldoi_4sf", ALTIVEC_BUILTIN_VSLDOI_4SF },
 };
 
+/* DST operations: void foo (void *, const int, const char).  */
+
+static const struct builtin_description bdesc_dst[] =
+{
+  { MASK_ALTIVEC, CODE_FOR_altivec_dst, "__builtin_altivec_dst", ALTIVEC_BUILTIN_DST },
+  { MASK_ALTIVEC, CODE_FOR_altivec_dstt, "__builtin_altivec_dstt", ALTIVEC_BUILTIN_DSTT },
+  { MASK_ALTIVEC, CODE_FOR_altivec_dstst, "__builtin_altivec_dstst", ALTIVEC_BUILTIN_DSTST },
+  { MASK_ALTIVEC, CODE_FOR_altivec_dststt, "__builtin_altivec_dststt", ALTIVEC_BUILTIN_DSTSTT }
+};
+
 /* Simple binary operations: VECc = foo (VECa, VECb).  */
 
 static const struct builtin_description bdesc_2arg[] =
@@ -3357,6 +3367,19 @@ static const struct builtin_description bdesc_2arg[] =
   { MASK_ALTIVEC, CODE_FOR_altivec_vsum2sws, "__builtin_altivec_vsum2sws", ALTIVEC_BUILTIN_VSUM2SWS },
   { MASK_ALTIVEC, CODE_FOR_altivec_vsumsws, "__builtin_altivec_vsumsws", ALTIVEC_BUILTIN_VSUMSWS },
   { MASK_ALTIVEC, CODE_FOR_xorv4si3, "__builtin_altivec_vxor", ALTIVEC_BUILTIN_VXOR },
+  { MASK_ALTIVEC, CODE_FOR_altivec_vcmpbfp_p, "__builtin_altivec_vcmpbfp_p", ALTIVEC_BUILTIN_VCMPBFP_P },
+  { MASK_ALTIVEC, CODE_FOR_altivec_vcmpeqfp_p, "__builtin_altivec_vcmpeqfp_p", ALTIVEC_BUILTIN_VCMPEQFP_P },
+  { MASK_ALTIVEC, CODE_FOR_altivec_vcmpequb_p, "__builtin_altivec_vcmpequb_p", ALTIVEC_BUILTIN_VCMPEQUB_P },
+  { MASK_ALTIVEC, CODE_FOR_altivec_vcmpequh_p, "__builtin_altivec_vcmpequh_p", ALTIVEC_BUILTIN_VCMPEQUH_P },
+  { MASK_ALTIVEC, CODE_FOR_altivec_vcmpequw_p, "__builtin_altivec_vcmpequw_p", ALTIVEC_BUILTIN_VCMPEQUW_P },
+  { MASK_ALTIVEC, CODE_FOR_altivec_vcmpgefp_p, "__builtin_altivec_vcmpgefp_p", ALTIVEC_BUILTIN_VCMPGEFP_P },
+  { MASK_ALTIVEC, CODE_FOR_altivec_vcmpgtfp_p, "__builtin_altivec_vcmpgtfp_p", ALTIVEC_BUILTIN_VCMPGTFP_P },
+  { MASK_ALTIVEC, CODE_FOR_altivec_vcmpgtsb_p, "__builtin_altivec_vcmpgtsb_p", ALTIVEC_BUILTIN_VCMPGTSB_P },
+  { MASK_ALTIVEC, CODE_FOR_altivec_vcmpgtsh_p, "__builtin_altivec_vcmpgtsh_p", ALTIVEC_BUILTIN_VCMPGTSH_P },
+  { MASK_ALTIVEC, CODE_FOR_altivec_vcmpgtsw_p, "__builtin_altivec_vcmpgtsw_p", ALTIVEC_BUILTIN_VCMPGTSW_P },
+  { MASK_ALTIVEC, CODE_FOR_altivec_vcmpgtub_p, "__builtin_altivec_vcmpgtub_p", ALTIVEC_BUILTIN_VCMPGTUB_P },
+  { MASK_ALTIVEC, CODE_FOR_altivec_vcmpgtuh_p, "__builtin_altivec_vcmpgtuh_p", ALTIVEC_BUILTIN_VCMPGTUH_P },
+  { MASK_ALTIVEC, CODE_FOR_altivec_vcmpgtuw_p, "__builtin_altivec_vcmpgtuw_p", ALTIVEC_BUILTIN_VCMPGTUW_P },
 };
 
 /* Simple unary operations: VECb = foo (unsigned literal) or VECb =
@@ -3375,6 +3398,12 @@ static const struct builtin_description bdesc_1arg[] =
   { MASK_ALTIVEC, CODE_FOR_altivec_vspltisb, "__builtin_altivec_vspltisb", ALTIVEC_BUILTIN_VSPLTISB },
   { MASK_ALTIVEC, CODE_FOR_altivec_vspltish, "__builtin_altivec_vspltish", ALTIVEC_BUILTIN_VSPLTISH },
   { MASK_ALTIVEC, CODE_FOR_altivec_vspltisw, "__builtin_altivec_vspltisw", ALTIVEC_BUILTIN_VSPLTISW },
+  { MASK_ALTIVEC, CODE_FOR_altivec_vupkhsb, "__builtin_altivec_vupkhsb", ALTIVEC_BUILTIN_VUPKHSB },
+  { MASK_ALTIVEC, CODE_FOR_altivec_vupkhpx, "__builtin_altivec_vupkhpx", ALTIVEC_BUILTIN_VUPKHPX },
+  { MASK_ALTIVEC, CODE_FOR_altivec_vupkhsh, "__builtin_altivec_vupkhsh", ALTIVEC_BUILTIN_VUPKHSH },
+  { MASK_ALTIVEC, CODE_FOR_altivec_vupklsb, "__builtin_altivec_vupklsb", ALTIVEC_BUILTIN_VUPKLSB },
+  { MASK_ALTIVEC, CODE_FOR_altivec_vupklpx, "__builtin_altivec_vupklpx", ALTIVEC_BUILTIN_VUPKLPX },
+  { MASK_ALTIVEC, CODE_FOR_altivec_vupklsh, "__builtin_altivec_vupklsh", ALTIVEC_BUILTIN_VUPKLSH },
 };
 
 static rtx
@@ -3389,7 +3418,11 @@ altivec_expand_unop_builtin (icode, arglist, target)
   enum machine_mode tmode = insn_data[icode].operand[0].mode;
   enum machine_mode mode0 = insn_data[icode].operand[1].mode;
 
-  if (! target
+  /* If we got invalid arguments bail out before generating bad rtl.  */
+  if (arg0 == error_mark_node)
+    return NULL_RTX;
+
+  if (target == 0
       || GET_MODE (target) != tmode
       || ! (*insn_data[icode].operand[0].predicate) (target, tmode))
     target = gen_reg_rtx (tmode);
@@ -3419,7 +3452,11 @@ altivec_expand_binop_builtin (icode, arglist, target)
   enum machine_mode mode0 = insn_data[icode].operand[1].mode;
   enum machine_mode mode1 = insn_data[icode].operand[2].mode;
 
-  if (! target
+  /* If we got invalid arguments bail out before generating bad rtl.  */
+  if (arg0 == error_mark_node || arg1 == error_mark_node)
+    return NULL_RTX;
+
+  if (target == 0
       || GET_MODE (target) != tmode
       || ! (*insn_data[icode].operand[0].predicate) (target, tmode))
     target = gen_reg_rtx (tmode);
@@ -3454,7 +3491,13 @@ altivec_expand_ternop_builtin (icode, arglist, target)
   enum machine_mode mode1 = insn_data[icode].operand[2].mode;
   enum machine_mode mode2 = insn_data[icode].operand[3].mode;
 
-  if (! target
+  /* If we got invalid arguments bail out before generating bad rtl.  */
+  if (arg0 == error_mark_node
+      || arg1 == error_mark_node
+      || arg2 == error_mark_node)
+    return NULL_RTX;
+
+  if (target == 0
       || GET_MODE (target) != tmode
       || ! (*insn_data[icode].operand[0].predicate) (target, tmode))
     target = gen_reg_rtx (tmode);
@@ -3483,9 +3526,9 @@ altivec_expand_builtin (exp, target)
   enum insn_code icode;
   tree fndecl = TREE_OPERAND (TREE_OPERAND (exp, 0), 0);
   tree arglist = TREE_OPERAND (exp, 1);
-  tree arg0, arg1;
-  rtx op0, op1, pat;
-  enum machine_mode tmode, mode0, mode1;
+  tree arg0, arg1, arg2;
+  rtx op0, op1, op2, pat;
+  enum machine_mode tmode, mode0, mode1, mode2;
   unsigned int fcode = DECL_FUNCTION_CODE (fndecl);
   
   switch (fcode)
@@ -3497,7 +3540,7 @@ altivec_expand_builtin (exp, target)
       tmode = insn_data[icode].operand[0].mode;
       mode0 = insn_data[icode].operand[1].mode;
 
-      if (! target
+      if (target == 0
 	  || GET_MODE (target) != tmode
 	  || ! (*insn_data[icode].operand[0].predicate) (target, tmode))
 	target = gen_reg_rtx (tmode);
@@ -3518,7 +3561,7 @@ altivec_expand_builtin (exp, target)
       tmode = insn_data[icode].operand[0].mode;
       mode0 = insn_data[icode].operand[1].mode;
 
-      if (! target
+      if (target == 0
 	  || GET_MODE (target) != tmode
 	  || ! (*insn_data[icode].operand[0].predicate) (target, tmode))
 	target = gen_reg_rtx (tmode);
@@ -3539,7 +3582,7 @@ altivec_expand_builtin (exp, target)
       tmode = insn_data[icode].operand[0].mode;
       mode0 = insn_data[icode].operand[1].mode;
 
-      if (! target
+      if (target == 0
 	  || GET_MODE (target) != tmode
 	  || ! (*insn_data[icode].operand[0].predicate) (target, tmode))
 	target = gen_reg_rtx (tmode);
@@ -3560,7 +3603,7 @@ altivec_expand_builtin (exp, target)
       tmode = insn_data[icode].operand[0].mode;
       mode0 = insn_data[icode].operand[1].mode;
 
-      if (! target
+      if (target == 0
 	  || GET_MODE (target) != tmode
 	  || ! (*insn_data[icode].operand[0].predicate) (target, tmode))
 	target = gen_reg_rtx (tmode);
@@ -3589,9 +3632,8 @@ altivec_expand_builtin (exp, target)
 	op1 = copy_to_mode_reg (mode1, op1);
 
       pat = GEN_FCN (icode) (op0, op1);
-      if (! pat)
-	return 0;
-      emit_insn (pat);
+      if (pat)
+	emit_insn (pat);
       return NULL_RTX;
 
     case ALTIVEC_BUILTIN_ST_INTERNAL_8hi:
@@ -3609,9 +3651,8 @@ altivec_expand_builtin (exp, target)
 	op1 = copy_to_mode_reg (mode1, op1);
 
       pat = GEN_FCN (icode) (op0, op1);
-      if (! pat)
-	return 0;
-      emit_insn (pat);
+      if (pat)
+	emit_insn (pat);
       return NULL_RTX;
 
     case ALTIVEC_BUILTIN_ST_INTERNAL_4si:
@@ -3629,9 +3670,8 @@ altivec_expand_builtin (exp, target)
 	op1 = copy_to_mode_reg (mode1, op1);
 
       pat = GEN_FCN (icode) (op0, op1);
-      if (! pat)
-	return 0;
-      emit_insn (pat);
+      if (pat)
+	emit_insn (pat);
       return NULL_RTX;
 
     case ALTIVEC_BUILTIN_ST_INTERNAL_4sf:
@@ -3649,11 +3689,102 @@ altivec_expand_builtin (exp, target)
 	op1 = copy_to_mode_reg (mode1, op1);
 
       pat = GEN_FCN (icode) (op0, op1);
+      if (pat)
+	emit_insn (pat);
+      return NULL_RTX;
+
+    case ALTIVEC_BUILTIN_MFVSCR:
+      icode = CODE_FOR_altivec_mfvscr;
+      tmode = insn_data[icode].operand[0].mode;
+
+      if (target == 0
+	  || GET_MODE (target) != tmode
+	  || ! (*insn_data[icode].operand[0].predicate) (target, tmode))
+	target = gen_reg_rtx (tmode);
+      
+      pat = GEN_FCN (icode) (target);
       if (! pat)
 	return 0;
       emit_insn (pat);
+      return target;
+
+    case ALTIVEC_BUILTIN_MTVSCR:
+      icode = CODE_FOR_altivec_mtvscr;
+      arg0 = TREE_VALUE (arglist);
+      op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
+      mode0 = insn_data[icode].operand[0].mode;
+
+      /* If we got invalid arguments bail out before generating bad rtl.  */
+      if (arg0 == error_mark_node)
+	return NULL_RTX;
+
+      if (! (*insn_data[icode].operand[0].predicate) (op0, mode0))
+	op0 = copy_to_mode_reg (mode0, op0);
+
+      pat = GEN_FCN (icode) (op0);
+      if (pat)
+	emit_insn (pat);
+      return NULL_RTX;
+      
+    case ALTIVEC_BUILTIN_DSSALL:
+      emit_insn (gen_altivec_dssall ());
+      return NULL_RTX;
+
+    case ALTIVEC_BUILTIN_DSS:
+      icode = CODE_FOR_altivec_dss;
+      arg0 = TREE_VALUE (arglist);
+      op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
+      mode0 = insn_data[icode].operand[0].mode;
+
+      /* If we got invalid arguments bail out before generating bad rtl.  */
+      if (arg0 == error_mark_node)
+	return NULL_RTX;
+
+      if (! (*insn_data[icode].operand[0].predicate) (op0, mode0))
+	op0 = copy_to_mode_reg (mode0, op0);
+
+      emit_insn (gen_altivec_dss (op0));
       return NULL_RTX;
     }
+
+  /* Handle DST variants.  */
+  d = (struct builtin_description *) bdesc_dst;
+  for (i = 0; i < sizeof (bdesc_dst) / sizeof *d; i++, d++)
+    if (d->code == fcode)
+      {
+	arg0 = TREE_VALUE (arglist);
+	arg1 = TREE_VALUE (TREE_CHAIN (arglist));
+	arg2 = TREE_VALUE (TREE_CHAIN (TREE_CHAIN (arglist)));
+	op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
+	op1 = expand_expr (arg1, NULL_RTX, VOIDmode, 0);
+	op2 = expand_expr (arg2, NULL_RTX, VOIDmode, 0);
+	mode0 = insn_data[d->icode].operand[0].mode;
+	mode1 = insn_data[d->icode].operand[1].mode;
+	mode2 = insn_data[d->icode].operand[2].mode;
+
+	/* Invalid arguments, bail out before generating bad rtl.  */
+	if (arg0 == error_mark_node
+	    || arg1 == error_mark_node
+	    || arg2 == error_mark_node)
+	  return NULL_RTX;
+
+	if (! (*insn_data[d->icode].operand[0].predicate) (op0, mode0))
+	  op0 = copy_to_mode_reg (mode0, op0);
+	if (! (*insn_data[d->icode].operand[1].predicate) (op1, mode1))
+	  op1 = copy_to_mode_reg (mode1, op1);
+
+	if (GET_CODE (op2) != CONST_INT || INTVAL (op2) > 3)
+	  {
+	    error ("argument 3 of `%s' must be a 2-bit literal", d->name);
+	    return NULL_RTX;
+	  }
+
+	pat = GEN_FCN (d->icode) (op0, op1, op2);
+	if (pat != 0)
+	  emit_insn (pat);
+
+	return NULL_RTX;
+      }
 
   /* Handle simple unary operations.  */
   d = (struct builtin_description *) bdesc_1arg;
@@ -3666,6 +3797,14 @@ altivec_expand_builtin (exp, target)
   for (i = 0; i < sizeof (bdesc_2arg) / sizeof *d; i++, d++)
     if (d->code == fcode)
       return altivec_expand_binop_builtin (d->icode, arglist, target);
+
+  /* LVS* are funky.  We initialized them differently.  */
+  if (fcode == ALTIVEC_BUILTIN_LVSL)
+    return altivec_expand_binop_builtin (CODE_FOR_altivec_lvsl,
+					 arglist, target);
+  if (fcode == ALTIVEC_BUILTIN_LVSR)
+    return altivec_expand_binop_builtin (CODE_FOR_altivec_lvsr,
+					 arglist, target);
 
   /* Handle simple ternary operations.  */
   d = (struct builtin_description *) bdesc_3arg;
@@ -3713,9 +3852,11 @@ altivec_init_builtins (void)
   tree endlink = void_list_node;
 
   tree pint_type_node = build_pointer_type (integer_type_node);
+  tree pvoid_type_node = build_pointer_type (void_type_node);
   tree pshort_type_node = build_pointer_type (short_integer_type_node);
   tree pchar_type_node = build_pointer_type (char_type_node);
   tree pfloat_type_node = build_pointer_type (float_type_node);
+
   tree v4sf_ftype_v4sf_v4sf_v16qi
     = build_function_type (V4SF_type_node,
 			   tree_cons (NULL_TREE, V4SF_type_node,
@@ -3781,6 +3922,20 @@ altivec_init_builtins (void)
     = build_function_type (V4SF_type_node,
 			   tree_cons (NULL_TREE, pfloat_type_node, endlink));
 
+  /* V8HI foo (V16QI).  */
+  tree v8hi_ftype_v16qi
+    = build_function_type (V8HI_type_node,
+			   tree_cons (NULL_TREE, V16QI_type_node, endlink));
+
+  /* void foo (void *, int, char/literal).  */
+  tree void_ftype_pvoid_int_char
+    = build_function_type (void_type_node,
+			   tree_cons (NULL_TREE, pvoid_type_node,
+				      tree_cons (NULL_TREE, integer_type_node,
+						 tree_cons (NULL_TREE,
+							    char_type_node,
+							    endlink))));
+
   /* void foo (int *, V4SI).  */
   tree void_ftype_pint_v4si
     = build_function_type (void_type_node,
@@ -3805,6 +3960,30 @@ altivec_init_builtins (void)
 			   tree_cons (NULL_TREE, pfloat_type_node,
 				      tree_cons (NULL_TREE, V4SF_type_node,
 						 endlink)));
+
+  /* void foo (V4SI).  */
+  tree void_ftype_v4si
+    = build_function_type (void_type_node,
+			   tree_cons (NULL_TREE, V4SI_type_node,
+				      endlink));
+
+  /* void foo (char).  */
+  tree void_ftype_qi
+    = build_function_type (void_type_node,
+			   tree_cons (NULL_TREE, char_type_node,
+				      endlink));
+
+  /* void foo (void).  */
+  tree void_ftype_void
+    = build_function_type (void_type_node,
+			   tree_cons (NULL_TREE, void_type_node,
+				      endlink));
+
+  /* vshort foo (void).  */
+  tree v8hi_ftype_void
+    = build_function_type (V8HI_type_node,
+			   tree_cons (NULL_TREE, void_type_node,
+				      endlink));
 
   tree v4si_ftype_v4si_v4si
     = build_function_type (V4SI_type_node,
@@ -3972,11 +4151,21 @@ altivec_init_builtins (void)
 				      tree_cons (NULL_TREE, V4SI_type_node,
 						 endlink)));
 
+  tree v4si_ftype_v16qi_v16qi
+    = build_function_type (V4SI_type_node,
+			   tree_cons (NULL_TREE, V16QI_type_node,
+				      tree_cons (NULL_TREE, V16QI_type_node,
+						 endlink)));
+
   tree v4si_ftype_v8hi_v4si
     = build_function_type (V4SI_type_node,
 			   tree_cons (NULL_TREE, V8HI_type_node,
 				      tree_cons (NULL_TREE, V4SI_type_node,
 						 endlink)));
+
+  tree v4si_ftype_v8hi
+    = build_function_type (V4SI_type_node,
+			   tree_cons (NULL_TREE, V8HI_type_node, endlink));
 
   tree int_ftype_v4si_v4si
     = build_function_type (integer_type_node,
@@ -3996,6 +4185,12 @@ altivec_init_builtins (void)
 				      tree_cons (NULL_TREE, V16QI_type_node,
 						 endlink)));
 
+  tree v16qi_ftype_int_pvoid
+    = build_function_type (V16QI_type_node,
+			   tree_cons (NULL_TREE, integer_type_node,
+				      tree_cons (NULL_TREE, pvoid_type_node,
+						 endlink)));
+
   tree int_ftype_v8hi_v8hi
     = build_function_type (integer_type_node,
 			   tree_cons (NULL_TREE, V8HI_type_node,
@@ -4010,6 +4205,12 @@ altivec_init_builtins (void)
   def_builtin (MASK_ALTIVEC, "__builtin_altivec_st_internal_8hi", void_ftype_pshort_v8hi, ALTIVEC_BUILTIN_ST_INTERNAL_8hi);
   def_builtin (MASK_ALTIVEC, "__builtin_altivec_ld_internal_16qi", v16qi_ftype_pchar, ALTIVEC_BUILTIN_LD_INTERNAL_16qi);
   def_builtin (MASK_ALTIVEC, "__builtin_altivec_st_internal_16qi", void_ftype_pchar_v16qi, ALTIVEC_BUILTIN_ST_INTERNAL_16qi);
+  def_builtin (MASK_ALTIVEC, "__builtin_altivec_mtvscr", void_ftype_v4si, ALTIVEC_BUILTIN_MTVSCR);
+  def_builtin (MASK_ALTIVEC, "__builtin_altivec_mfvscr", v8hi_ftype_void, ALTIVEC_BUILTIN_MFVSCR);
+  def_builtin (MASK_ALTIVEC, "__builtin_altivec_dssall", void_ftype_void, ALTIVEC_BUILTIN_DSSALL);
+  def_builtin (MASK_ALTIVEC, "__builtin_altivec_dss", void_ftype_qi, ALTIVEC_BUILTIN_DSS);
+  def_builtin (MASK_ALTIVEC, "__builtin_altivec_lvsl", v16qi_ftype_int_pvoid, ALTIVEC_BUILTIN_LVSL);
+  def_builtin (MASK_ALTIVEC, "__builtin_altivec_lvsr", v16qi_ftype_int_pvoid, ALTIVEC_BUILTIN_LVSR);
 
   /* Add the simple ternary operators.  */
   d = (struct builtin_description *) bdesc_3arg;
@@ -4104,6 +4305,11 @@ altivec_init_builtins (void)
       def_builtin (d->mask, d->name, type, d->code);
     }
 
+  /* Add the DST variants.  */
+  d = (struct builtin_description *) bdesc_dst;
+  for (i = 0; i < sizeof (bdesc_dst) / sizeof *d; i++, d++)
+    def_builtin (d->mask, d->name, void_ftype_pvoid_int_char, d->code);
+
   /* Add the simple binary operators.  */
   d = (struct builtin_description *) bdesc_2arg;
   for (i = 0; i < sizeof (bdesc_2arg) / sizeof *d; i++, d++)
@@ -4165,6 +4371,10 @@ altivec_init_builtins (void)
       /* vint, vchar, vint.  */
       else if (mode0 == V4SImode && mode1 == V16QImode && mode2 == V4SImode)
 	type = v4si_ftype_v16qi_v4si;
+
+      /* vint, vchar, vchar.  */
+      else if (mode0 == V4SImode && mode1 == V16QImode && mode2 == V16QImode)
+	type = v4si_ftype_v16qi_v16qi;
 
       /* vint, vshort, vint.  */
       else if (mode0 == V4SImode && mode1 == V8HImode && mode2 == V4SImode)
@@ -4239,6 +4449,10 @@ altivec_init_builtins (void)
         type = v16qi_ftype_char;
       else if (mode0 == V4SFmode && mode1 == V4SFmode)
 	type = v4sf_ftype_v4sf;
+      else if (mode0 == V8HImode && mode1 == V16QImode)
+	type = v8hi_ftype_v16qi;
+      else if (mode0 == V4SImode && mode1 == V8HImode)
+	type = v4si_ftype_v8hi;
       else
 	abort ();
 
@@ -5525,7 +5739,7 @@ print_operand (file, x, code)
       /* If X is a constant integer whose low-order 5 bits are zero,
 	 write 'l'.  Otherwise, write 'r'.  This is a kludge to fix a bug
 	 in the AIX assembler where "sri" with a zero shift count
-	 write a trash instruction.  */
+	 writes a trash instruction.  */
       if (GET_CODE (x) == CONST_INT && (INTVAL (x) & 31) == 0)
 	putc ('l', file);
       else
@@ -6145,7 +6359,7 @@ print_operand (file, x, code)
 	tmp = XEXP (x, 0);
 
 	if (GET_CODE (tmp) == REG)
-	  fprintf (file, "0, %s", reg_names[REGNO (tmp)]);
+	  fprintf (file, "0,%s", reg_names[REGNO (tmp)]);
 	else if (GET_CODE (tmp) == PLUS && GET_CODE (XEXP (tmp, 1)) == REG)
 	  {
 	    if (REGNO (XEXP (tmp, 0)) == 0)

@@ -1,12 +1,12 @@
 @c Copyright (C) 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-@c 2000, 2001 Free Software Foundation, Inc.
+@c 2000, 2001, 2002 Free Software Foundation, Inc.
 @c This is part of the GCC manual.
 @c For copying conditions, see the file gcc.texi.
 
 @ignore
 @c man begin COPYRIGHT
 Copyright @copyright{} 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997,
-1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+1998, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
 
 Permission is granted to copy, distribute and/or modify this document
 under the terms of the GNU Free Documentation License, Version 1.1 or
@@ -53,8 +53,9 @@ For instructions on reporting bugs, see
 script to report bugs is recommended.
 @c man end
 @c man begin AUTHOR
-See the Info entry for @file{gcc}, or
-@w{@uref{http://gcc.gnu.org/thanks.html}}, for contributors to GCC@.
+See the Info entry for @command{gcc}, or
+@w{@uref{http://gcc.gnu.org/onlinedocs/gcc/Contributors.html}},
+for contributors to GCC@.
 @c man end
 @end ignore
 
@@ -9245,13 +9246,14 @@ at90s2333, at90s2343, at90s4414, at90s4433, at90s4434, at90s8515,
 at90c8534, at90s8535).
 
 Instruction set avr3 is for the classic AVR core with up to 128K program
-memory space (MCU types: atmega103, atmega603).
+memory space (MCU types: atmega103, atmega603, at43usb320, at76c711).
 
 Instruction set avr4 is for the enhanced AVR core with up to 8K program
-memory space (MCU types: atmega83, atmega85).
+memory space (MCU types: atmega8, atmega83, atmega85).
 
 Instruction set avr5 is for the enhanced AVR core with up to 128K program
-memory space (MCU types: atmega161, atmega163, atmega32, at94k).
+memory space (MCU types: atmega16, atmega161, atmega163, atmega32, atmega323,
+atmega64, atmega128, at43usb355, at94k).
 
 @item -msize
 @opindex msize

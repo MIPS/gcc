@@ -382,7 +382,7 @@ int flag_use_cxa_atexit;
    arbitrary, but it exists to limit the time it takes to notice
    infinite template instantiations.  */
 
-int max_tinst_depth = 50;
+int max_tinst_depth = 500;
 
 /* Nonzero means output .vtable_{entry,inherit} for use in doing vtable gc.  */
 
@@ -2064,7 +2064,7 @@ coerce_new_type (type)
       e = 2;
       if (args && args != void_list_node)
         args = TREE_CHAIN (args);
-      error ("`operator new' takes type `size_t' (`%T') as first parameter", c_size_type_node);
+      pedwarn ("`operator new' takes type `size_t' (`%T') as first parameter", c_size_type_node);
     }
   switch (e)
   {

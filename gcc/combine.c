@@ -624,7 +624,7 @@ combine_instructions (f, nregs)
 	      /* If the linked insn has been replaced by a note, then there
 		 is no point in pursuing this chain any further.  */
 	      if (GET_CODE (link) == NOTE)
-		break;
+		continue;
 
 	      for (nextlinks = LOG_LINKS (link);
 		   nextlinks;
@@ -950,7 +950,7 @@ can_combine_p (insn, i3, pred, succ, pdest, psrc)
 	       for the SH4 port.  */
 	    case USE:
 	      /* Combining an isolated USE doesn't make sense.
-		 We depend here on combinable_i3_pat to reject them.  */
+		 We depend here on combinable_i3pat to reject them.  */
 	      /* The code below this loop only verifies that the inputs of
 		 the SET in INSN do not change.  We call reg_set_between_p
 		 to verify that the REG in the USE does not change between
