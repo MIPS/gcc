@@ -1,3 +1,30 @@
+2005-01-18  Graydon Hoare  <graydon@redhat.com>
+
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GThreadNativeMethodRunner.c:
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGlyphVector.c:
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGraphics.c:
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGraphics2D.c:
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkButtonPeer.c:
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkCheckboxPeer.c:
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkChoicePeer.c:
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkClipboard.c:
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkComponentPeer.c:
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkEvents.c:
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkFileDialogPeer.c:
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkListPeer.c:
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkMenuItemPeer.c:
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkScrollBarPeer.c:
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkTextComponentPeer.c:
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkWindowPeer.c:
+	Rewrite uses of extern variable to be function calls.
+	* jni/gtk-peer/gtkpeer.h (gdk_env): Change declaration to 
+	function, from extern variable.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkToolkit.c 
+	(gdk_env): Remove variable, add new function.
+	(java_vm): Add new variable.
+	(Java_gnu_java_awt_peer_gtk_GtkToolkit_gtkInit): Initialize
+	java_vm rather than old gdk_env variable.
+
 2005-01-18 David Gilbert <david.gilbert@object-refinery.com>
 
 	* javax/swing/DefaultListModel.java
