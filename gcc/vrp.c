@@ -197,9 +197,7 @@ static void find_operations_1		PARAMS ((rtx, rtx, void *));
 static void find_operations		PARAMS ((basic_block));
 static int delete_call_used_regs	PARAMS ((void **, void *));
 static bool compute_ranges_for_bb	PARAMS ((basic_block));
-static void compute_ranges_for_pending	PARAMS ((basic_block, sbitmap,
-						 sbitmap));
-static void compute_ranges		PARAMS ((int *));
+static void compute_ranges		PARAMS ((void));
 static bool edge_is_dead		PARAMS ((edge));
 static bool redirect_edges		PARAMS ((void));
 
@@ -1225,8 +1223,28 @@ update_outgoing_edges (bb, changed)
       if (!changed)
 	{
 	  changed = compare_register_tables (old_then, EI (then_edge)->htab);
+	  if (rtl_dump_file && changed)
+	    {
+	      fprintf (rtl_dump_file, "\nEdge %d->%d:\n",
+		       then_edge->src->index, then_edge->dest->index);
+	      fprintf (rtl_dump_file, "OLD\n");
+	      dump_all_ranges (rtl_dump_file, old_then);
+	      fprintf (rtl_dump_file, "NEW\n");
+	      dump_all_ranges (rtl_dump_file, EI (then_edge)->htab);
+	    }
 	  if (!changed)
-	    changed = compare_register_tables (old_else, EI (else_edge)->htab);
+	    {
+	      changed = compare_register_tables (old_else, EI (else_edge)->htab);
+	  if (rtl_dump_file && changed)
+	    {
+	      fprintf (rtl_dump_file, "\nEdge %d->%d:\n",
+		       else_edge->src->index, else_edge->dest->index);
+	      fprintf (rtl_dump_file, "OLD\n");
+	      dump_all_ranges (rtl_dump_file, old_else);
+	      fprintf (rtl_dump_file, "NEW\n");
+	      dump_all_ranges (rtl_dump_file, EI (else_edge)->htab);
+	    }
+	    }
 
 	  htab_delete (old_then);
 	  htab_delete (old_else);
@@ -1446,6 +1464,14 @@ compute_ranges_for_bb (bb)
     }
 
   changed = compare_register_tables (new_out, BBI (bb)->out);
+  if (rtl_dump_file && changed)
+    {
+      fprintf (rtl_dump_file, "\nBasic block %d:\n", bb->index);
+      fprintf (rtl_dump_file, "OLD\n");
+      dump_all_ranges (rtl_dump_file, BBI (bb)->out);
+      fprintf (rtl_dump_file, "NEW\n");
+      dump_all_ranges (rtl_dump_file, new_out);
+    }
 
   htab_delete (BBI (bb)->out);
   BBI (bb)->out = new_out;
@@ -1455,102 +1481,98 @@ compute_ranges_for_bb (bb)
   return changed;
 }
 
-/* Compute the effect of blocks in PENDING set, starting in BB.  Do not
-   recompute the ranges for blocks in VISITED set.
-   This function is similar to hybrid_search_sbitmap in df.c
-   but modified for different data structures.  */
+/* Compute ranges for the whole function.  */
 
 static void
-compute_ranges_for_pending (bb, visited, pending)
-     basic_block bb;
-     sbitmap visited;
-     sbitmap pending;
-{
-  bool changed;
-  edge e;
-
-  SET_BIT (visited, bb->index);
-  if (TEST_BIT (pending, bb->index))
-    {
-      /* Calculate the IN set as union of predecessor OUT sets.  */
-      if ((e = bb->pred) != NULL)
-	{
-	  copy_register_table (BBI (bb)->in, EI (e)->htab);
-	  for (e = e->pred_next; e; e = e->pred_next)
-	    union_all_ranges (BBI (bb)->in, EI (e)->htab);
-	}
-
-      changed = compute_ranges_for_bb (bb);
-      RESET_BIT (pending, bb->index);
-
-      if (changed)
-	{
-	  for (e = bb->succ; e; e = e->succ_next)
-	    {
-	      if (e->dest == EXIT_BLOCK_PTR || e->dest->index == bb->index)
-		continue;
-	      SET_BIT (pending, e->dest->index);
-	    }
-	}
-    }
-
-  for (e = bb->succ; e != 0; e = e->succ_next)
-    {
-      if (e->dest == EXIT_BLOCK_PTR || e->dest->index == bb->index)
-	continue;
-      if (!TEST_BIT (visited, e->dest->index))
-	compute_ranges_for_pending (e->dest, visited, pending);
-    }
-}
-
-/* Compute ranges for the whole function.  BB_ORDER is the order to iterate in
-   (it maps block numbers -> order).  Because this is a forward data-flow problem
-   we use the reverse completion DFS-order (rc_order).  */
-
-static void
-compute_ranges (bb_order)
-     int *bb_order;
+compute_ranges ()
 {
   fibheap_t worklist;
+  sbitmap visited, pending, in_worklist;
   basic_block bb;
-  sbitmap visited, pending;
+  edge e;
+  int *bb_order;
+  int *rc_order;
+  int i;
+  bool next_iteration;
 
-  pending = sbitmap_alloc (last_basic_block);
-  visited = sbitmap_alloc (last_basic_block);
-  sbitmap_zero (pending);
-  sbitmap_zero (visited);
+  /* Compute reverse completion order of depth first search of the CFG
+     so that the data-flow runs faster.  */
+  rc_order = (int *) xmalloc (n_basic_blocks * sizeof (int));
+  bb_order = (int *) xmalloc (last_basic_block * sizeof (int));
+  flow_depth_first_order_compute (NULL, rc_order);
+  for (i = 0; i < n_basic_blocks; i++)
+    bb_order[rc_order[i]] = i;
+  free (rc_order);
+
   worklist = fibheap_new ();
+  visited = sbitmap_alloc (last_basic_block);
+  pending = sbitmap_alloc (last_basic_block);
+  in_worklist = sbitmap_alloc (last_basic_block);
+  sbitmap_zero (pending);
+  sbitmap_zero (in_worklist);
 
   FOR_EACH_BB (bb)
     {
-      fibheap_insert (worklist, bb_order[bb->index], bb);
       SET_BIT (pending, bb->index);
     }
+  next_iteration = true;
 
-  while (sbitmap_first_set_bit (pending) != -1)
+  while (next_iteration)
     {
+      FOR_EACH_BB (bb)
+	{
+	  if (TEST_BIT (pending, bb->index))
+	    {
+	      fibheap_insert (worklist, bb_order[bb->index], bb);
+	      SET_BIT (in_worklist, bb->index);
+	    }
+	}
+
+      sbitmap_zero (visited);
+      sbitmap_zero (pending);
+      next_iteration = false;
+
       while (!fibheap_empty (worklist))
 	{
 	  bb = fibheap_extract_min (worklist);
+	  RESET_BIT (in_worklist, bb->index);
 	  if (!TEST_BIT (visited, bb->index))
-	    compute_ranges_for_pending (bb, visited, pending);
-	}
-      if (sbitmap_first_set_bit (pending) != -1)
-	{
-	  FOR_EACH_BB (bb)
 	    {
-	      fibheap_insert (worklist, bb_order[bb->index], bb);
+	      bool changed;
+
+	      SET_BIT (visited, bb->index);
+
+	      /* Calculate the IN set as union of predecessor OUT sets.  */
+	      if ((e = bb->pred) != NULL)
+		{
+		  copy_register_table (BBI (bb)->in, EI (e)->htab);
+		  for (e = e->pred_next; e; e = e->pred_next)
+		    union_all_ranges (BBI (bb)->in, EI (e)->htab);
+		}
+
+	      changed = compute_ranges_for_bb (bb);
+	      if (changed)
+		{
+		  for (e = bb->succ; e; e = e->succ_next)
+		    {
+		      if (e->dest == EXIT_BLOCK_PTR)
+			continue;
+
+		      if (TEST_BIT (visited, e->dest->index))
+			{
+			  SET_BIT (pending, e->dest->index);
+			  next_iteration = true;
+			}
+		      else if (!TEST_BIT (in_worklist, e->dest->index))
+			fibheap_insert (worklist, bb_order[e->dest->index],
+					e->dest);
+		    }
+		}
 	    }
-	  sbitmap_zero (visited);
-	}
-      else
-	{
-	  break;
 	}
     }
-  sbitmap_free (pending);
-  sbitmap_free (visited);
-  fibheap_delete (worklist);
+
+  free (bb_order);
 }
 
 /* Return true if edge E is dead (we will never go though this edge because
@@ -1792,9 +1814,6 @@ value_range_propagation ()
   bool modified;
   basic_block bb;
   edge e;
-  int *rc_order;
-  int *bb_order;
-  int i;
 
   /* Initialization.  */
   operation_pool = create_alloc_pool ("operation",
@@ -1819,22 +1838,12 @@ value_range_propagation ()
       find_operations (bb);
     }
 
-  /* Compute reverse completion order of depth first search of the CFG
-     so that the data-flow could possibly run faster.  */
-  rc_order = (int *) xmalloc (n_basic_blocks * sizeof (int));
-  bb_order = (int *) xmalloc (last_basic_block * sizeof (int));
-  flow_depth_first_order_compute (NULL, rc_order);
-  for (i = 0; i < n_basic_blocks; i++)
-    bb_order[rc_order[i]] = i;
-  free (rc_order);
-
   if (rtl_dump_file)
     {
       dump_flow_info (rtl_dump_file);
     }
 
-  compute_ranges (bb_order);
-  free (bb_order);
+  compute_ranges ();
 
   if (rtl_dump_file)
     {
