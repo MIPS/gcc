@@ -34,7 +34,7 @@
 #include "output.h"
 #include "toplev.h"
 #include "tm_p.h"
-
+#include "optabs.h"
 
 #ifndef HAVE_conditional_execution
 #define HAVE_conditional_execution 0
@@ -69,14 +69,49 @@ static int num_possible_if_blocks;
    execution.  */
 static int num_updated_if_blocks;
 
+/* # of (test || test2) blocks we looked at  */
+static int num_possible_double_test_blocks;
+
+/* # of (test || test2) blocks were converted to conditional
+   execution.  */
+static int num_updated_double_test_blocks;
+
 /* # of basic blocks that were removed.  */
 static int num_removed_blocks;
+
+/* # of basic blocks that were removed.  */
+static int num_removed_blocks_double_test;
 
 /* True if life data ok at present.  */
 static bool life_data_ok;
 
 /* The post-dominator relation on the original block numbers.  */
 static sbitmap *post_dominators;
+
+struct double_test_info
+  {
+    /* Basic blocks containins first and second test.  */
+    basic_block test1_bb, test2_bb;
+
+    /* Then_bb is basic block reached when one of tests above is true.
+       Else_bb is reached otherwise.  */
+    basic_block then_bb, else_bb;
+
+    /* If reverse is true, jump info else_bb instead of then_bb after
+       combining an condition.  */
+    bool reverse;
+
+    /* The conditions.  */
+    enum rtx_code cond1_code, cond2_code;
+    rtx cond1_op0, cond1_op1, cond2_op0, cond2_op1;
+
+    /* Probability of the first and second condition to be true.  */
+    int probability1, probability2;
+    gcov_type count1, count2;
+
+    /* Probability of the overall condition to be true.  */
+    int probability;
+  };
 
 /* Forward references.  */
 static int count_bb_insns		PARAMS ((basic_block));
@@ -99,6 +134,14 @@ static int process_if_block		PARAMS ((basic_block, basic_block,
 static void merge_if_block		PARAMS ((basic_block, basic_block,
 						 basic_block, basic_block));
 
+static rtx nonzero_test			PARAMS ((enum rtx_code, rtx, rtx));
+static rtx double_test_ior_and		PARAMS ((struct double_test_info *, rtx *));
+static rtx m1_test			PARAMS ((enum rtx_code, rtx, rtx));
+static int find_double_test_block	PARAMS ((basic_block, edge, edge));
+static bool process_double_test_block	PARAMS ((basic_block, basic_block,
+						 basic_block, basic_block,
+						 int, int));
+static bool block_side_effects_p	PARAMS ((basic_block));
 static int find_if_header		PARAMS ((basic_block));
 static int find_if_block		PARAMS ((basic_block, edge, edge));
 static int find_if_case_1		PARAMS ((basic_block, edge, edge));
@@ -1583,6 +1626,480 @@ noce_operand_ok (op)
   return ! may_trap_p (op);
 }
 
+/* Return true if block has side effects.  */
+
+static bool
+block_side_effects_p (bb)
+     basic_block bb;
+{
+  rtx insn;
+  for (insn = bb->head; insn != NEXT_INSN (bb->end); insn = NEXT_INSN (insn))
+    {
+      rtx set;
+      rtx dest;
+
+      if (!active_insn_p (insn))
+	continue;
+      set = single_set (insn);
+      if (!set)
+	return true;
+      dest = SET_DEST (set);
+      if (GET_CODE (dest) == STRICT_LOW_PART)
+	dest = XEXP (dest, 0);
+      if (GET_CODE (dest) == SUBREG)
+	dest = SUBREG_REG (dest);
+      if (dest == pc_rtx || dest == cc0_rtx)
+	continue;
+      if (!REG_P (dest))
+	return true;
+      if (!life_data_ok || UPDATE_LIFE (bb))
+	return true;
+      if (REGNO_REG_SET_P (bb->global_live_at_end, REGNO (dest)))
+	return true;
+      if (!noce_operand_ok (PATTERN (insn)))
+	return true;
+    }
+  return false;
+}
+
+/* Emit code to set register nonzero iff condition is true.  Return the
+   register.  */
+
+static rtx
+nonzero_test (cond, op0, op1)
+     enum rtx_code cond;
+     rtx op0, op1;
+{
+  rtx x;
+  enum machine_mode mode;
+  enum insn_code icode;
+
+  /* First special cases first.  */
+  if (INTEGRAL_MODE_P (GET_MODE (op0)))
+    switch (cond)
+      {
+      case NE:
+	/* Convert (a != 0) into a, (a != b) into (a ^ b).  */
+	if (op1 == const0_rtx)
+	  {
+	    rtx reg = gen_reg_rtx (GET_MODE (op0));
+
+	    /* We must move the operand to new register, as operand of
+	       first test may be clobbered while computing operand for
+	       the second.  */
+	    emit_move_insn (reg, op0);
+	    return reg;
+	  }
+	if (BRANCH_COST > 0)
+	  return expand_simple_binop (GET_MODE (op0), XOR, op0, op1, NULL_RTX, 1,
+				      OPTAB_DIRECT);
+	break;
+      case LT:
+	/* Convert (a < 0) into (a >> (bits_per_mode - 1)).  */
+	if (op1 == const0_rtx && BRANCH_COST > 0)
+	  {
+	  negative:
+	    return expand_simple_binop (GET_MODE (op0), LSHIFTRT, op0,
+				        GEN_INT (GET_MODE_BITSIZE
+						 (GET_MODE (op0)) - 1),
+					NULL_RTX, 1, OPTAB_DIRECT);
+	  }
+	break;
+      case LE:
+	/* (a <= -1) is equivalent to (a < 0).  */
+	if (op1 == constm1_rtx && BRANCH_COST > 0)
+	  goto negative;
+	break;
+      case GT:
+	/* Convert (a > -1) into (~a < 0).  */
+	if (op1 == constm1_rtx && BRANCH_COST > 1)
+	  {
+	  positive:
+	    op0 = expand_simple_unop (GET_MODE (op0), NOT, op0, NULL_RTX, 1);
+	    if (!op0)
+	      return NULL;
+	    goto negative;
+	  }
+	break;
+      case GE:
+	/* Convert (a >= 0) into (~a < 0).  */
+	if (op1 == const0_rtx && BRANCH_COST > 1)
+	  goto positive;
+	break;
+      default:
+	break;
+      }
+   /* Try m1_test and add 1 to the result.  */
+   x = m1_test (cond, op0, op1);
+   if (x)
+     return expand_simple_binop (GET_MODE (x), PLUS, x, const1_rtx, NULL_RTX,
+ 				1, OPTAB_DIRECT);
+ 
+
+   if (BRANCH_COST < 2)
+     return NULL;
+
+  /* In case target do have setcc instruction, choose mode used by the pattern.
+     Otherwise use Pmode as it will probably combine well with the other
+     test.  */
+
+  mode = Pmode;
+  icode = setcc_gen_code[(int) cond];
+  if (icode != CODE_FOR_nothing)
+    mode = insn_data[(int) icode].operand[0].mode;
+  
+  /* Use store_flag as default.  */
+  return emit_store_flag (gen_reg_rtx (mode),
+			  cond, op0, op1, VOIDmode,
+			  (cond == LTU || cond == LEU
+			   || cond == GEU || cond == GTU), 0);
+}
+
+/* Emit code to set register -1 iff condition is false.  
+   Handle only special cases we can do cheaply, as otherwise
+   the setcc instruction and | will be used instead.  */
+
+static rtx
+m1_test (cond, op0, op1)
+     enum rtx_code cond;
+     rtx op0, op1;
+{
+  /* Using AND allways adds extra instruction to compare with -1, so be
+     more strict about BRANCH_COST than nonzero_test.  */
+  if (!BRANCH_COST)
+    return NULL;
+  /* First special cases first.  */
+  if (INTEGRAL_MODE_P (GET_MODE (op0)))
+    switch (cond)
+      {
+      case NE:
+	if (op1 == constm1_rtx)
+	  {
+	    rtx reg = gen_reg_rtx (GET_MODE (op0));
+
+	    /* We must move the operand to new register, as operand of
+	       first test may be clobbered while computing operand for
+	       the second.  */
+	    emit_move_insn (reg, op0);
+	    return reg;
+	  }
+	break;
+      case GE:
+	/* Convert (a >= 0) into (a >> (bits_per_mode - 1)) != -1.  */
+	if (op1 == const0_rtx && BRANCH_COST > 1)
+	  {
+	  nonnegative:
+	    return expand_simple_binop (GET_MODE (op0), ASHIFTRT, op0,
+				        GEN_INT (GET_MODE_BITSIZE
+						 (GET_MODE (op0)) - 1),
+					NULL_RTX, 1, OPTAB_DIRECT);
+	  }
+	break;
+      case GT:
+	/* (a > -1) is equivalent to (a >= 0).  */
+	if (op1 == constm1_rtx && BRANCH_COST > 1)
+	  goto nonnegative;
+	break;
+      default:
+	break;
+      }
+  return NULL;
+}
+
+/* Attempt to convert double test of form (cond1 || cond2)
+   as (cond1 | cond2) or ((cond1 ? -1 : 0) & (cond2 ? -1 : 0)).
+
+   Return sequence containing the conditional jump.  Set TEST
+   to the code to process operand0 before it is possibly clobbered
+   by the original code copied from TEST_BB.  */
+
+static rtx
+double_test_ior_and (info, test)
+     struct double_test_info *info;
+     rtx *test;
+{
+  rtx op0, op1, res;
+  rtx insn;
+  enum machine_mode mode;
+  bool and_code = true;
+
+  if (! general_operand (info->cond1_op0, GET_MODE (info->cond1_op0))
+      || ! general_operand (info->cond1_op1, GET_MODE (info->cond1_op1))
+      || ! general_operand (info->cond2_op0, GET_MODE (info->cond2_op0))
+      || ! general_operand (info->cond2_op1, GET_MODE (info->cond2_op1)))
+    return NULL;
+
+  /* Attempt to prepare operands for & or | operation.  First try &,
+     as we make it suceed only when both tests are chaper than alternative
+     doable by |.
+
+     | has the advantage of comparing result with 0, so for instance i386 can
+     do it by one instruction, while for & we compare with -1.  */
+
+  start_sequence ();
+  op0 = m1_test (info->cond1_code, info->cond1_op0, info->cond1_op1);
+  *test = gen_sequence ();
+  end_sequence ();
+
+  if (op0)
+    {
+      start_sequence ();
+      op1 = m1_test (info->cond2_code, info->cond2_op0, info->cond2_op1);
+      if (!op1)
+	end_sequence ();
+    }
+
+  if (!op0 || !op1)
+    {
+      start_sequence ();
+      op0 = nonzero_test (info->cond1_code, info->cond1_op0, info->cond1_op1);
+      if (!op0)
+	goto fail;
+      *test = gen_sequence ();
+      end_sequence ();
+
+      start_sequence ();
+      op1 = nonzero_test (info->cond2_code, info->cond2_op0, info->cond2_op1);
+      if (!op1)
+	goto fail;
+      and_code = false;
+    }
+
+  if (GET_MODE_BITSIZE (GET_MODE (op0)) > GET_MODE_BITSIZE (GET_MODE (op1)))
+    mode = GET_MODE (op0);
+  else
+    mode = GET_MODE (op1);
+
+  res = expand_simple_binop (mode, and_code ? AND : IOR,
+			     op0, op1, NULL_RTX, !and_code, OPTAB_WIDEN);
+
+  if (!res)
+    goto fail;
+
+  emit_cmp_and_jump_insns (res, and_code ? constm1_rtx : const0_rtx,
+			   info->reverse ? EQ : NE,
+			   NULL_RTX, GET_MODE (res), and_code ? 1 : 0,
+			   block_label (info->reverse
+					? info->else_bb : info->then_bb));
+  insn = get_last_insn ();
+  mark_jump_label (PATTERN (insn), insn, 0);
+
+  insn = gen_sequence ();
+  end_sequence ();
+  return insn;
+
+  fail:
+  end_sequence ();
+  return NULL;
+}
+
+/* Attempt to reduce amount of exits from superblocks by converting
+   constructions of type (const1 || cond2) into (cond1 | cond2) when
+   profitable.  
+
+   TEST_BB is the block with first condition, TEST2_BB second condition,
+   THEN_BB is block to jump into if eighter condition is true, ELSE_BB is
+   the other block.  REVERSE1 and REVERSE2 specifies if the condition
+   in TEST_BB or TEST2_BB needs to be reversed.  */
+
+static bool
+process_double_test_block (test_bb, test2_bb, then_bb, else_bb,
+			   reverse1, reverse2)
+     basic_block test_bb;	/* Basic block test is in */
+     basic_block test2_bb;	/* Basic block second test is in */
+     basic_block then_bb;	/* Basic block for case both conditions are met */
+     basic_block else_bb;	/* Basic block other cases */
+     int reverse1, reverse2;
+{
+  struct double_test_info info;
+  rtx cond1, cond2;
+  rtx jump1, jump2;
+  rtx earliest1, earliest2;
+  rtx insn;
+  rtx first, last;
+  rtx test_insn;
+  edge fallthru_edge = FALLTHRU_EDGE (test_bb);
+  edge branch_edge = BRANCH_EDGE (test_bb);
+  edge fallthru2_edge = FALLTHRU_EDGE (test2_bb);
+  edge branch2_edge = BRANCH_EDGE (test2_bb);
+  const char *purpose;
+
+  /* Currently we support no conversions that require no new pseudos.  */
+  if (no_new_pseudos)
+    return false;
+
+  info.test1_bb = test_bb;
+  info.test2_bb = test2_bb;
+  info.then_bb = then_bb;
+  info.else_bb = else_bb;
+  info.probability1 =
+    reverse1 ? fallthru_edge->probability : branch_edge->probability;
+  info.probability2 =
+    reverse2 ? fallthru2_edge->probability : branch2_edge->probability;
+  info.probability =
+    (info.probability1 +
+     (REG_BR_PROB_BASE -
+      info.probability1) * info.probability2 / REG_BR_PROB_BASE);
+  info.count1 = reverse1 ? fallthru_edge->count : branch_edge->count;
+  info.count2 = reverse2 ? fallthru2_edge->count : branch2_edge->count;
+
+  if (rtl_dump_file)
+    {
+      fprintf (rtl_dump_file, "  probability1: %.2f probability2: %.2f overall (%.2f)\n",
+	       info.probability1 * 100.0 / REG_BR_PROB_BASE,
+	       info.probability2 * 100.0 / REG_BR_PROB_BASE,
+	       info.probability * 100.0 / REG_BR_PROB_BASE);
+    }
+
+  /* Ensure that the TEST2 block is inside same superblock.  */
+  if (info.probability1 > 2 * REG_BR_PROB_BASE / 3)
+    {
+      purpose = "too high probability of first test.";
+      goto failed;
+    }
+
+  /* If the conditional jump is more than just a conditional jump,
+     then we can not do conversion on this block.  */
+  jump1 = test_bb->end;
+  jump2 = test2_bb->end;
+  if (!onlyjump_p (jump1) || !onlyjump_p (jump2)
+      || !any_condjump_p (jump1) || !any_condjump_p (jump2))
+    {
+      purpose = "Not onlyjump.";
+      goto failed;
+    }
+
+  /* If this is not a standard conditional jump, we can't parse it.  */
+  cond1 = noce_get_condition (jump1, &earliest1);
+  if (!cond1)
+    {
+      purpose = "Can not get first condition.";
+      goto failed;
+    }
+  cond2 = noce_get_condition (jump2, &earliest2);
+  if (!cond2)
+    {
+      purpose = "Can not get second condition.";
+      goto failed;
+    }
+
+  /* We require test2_bb to contain only loads of registers temporary
+     for test2_bb, so we can be sure that moving these on common path
+     won't cause side effects.
+
+     Limit number of instructions to avoid too expensive computations.  */
+
+  if (count_bb_insns (test2_bb) >= BRANCH_COST + 2)
+    {
+      purpose = "Too many instructions in bb2.";
+      goto failed;
+    }
+  if (block_side_effects_p (test2_bb))
+    {
+      purpose = "Side effects in bb2.";
+      goto failed;
+    }
+
+  info.cond1_code = GET_CODE (cond1);
+  info.cond2_code = GET_CODE (cond2);
+  if (reverse1)
+    info.cond1_code = reversed_comparison_code (cond1, jump1);
+  if (reverse2)
+    info.cond2_code = reversed_comparison_code (cond2, jump2);
+  if (info.cond1_code == UNKNOWN || info.cond2_code == UNKNOWN)
+    return false;
+  info.cond1_op0 = XEXP (cond1, 0);
+  info.cond1_op1 = XEXP (cond1, 1);
+  info.cond2_op0 = XEXP (cond2, 0);
+  info.cond2_op1 = XEXP (cond2, 1);
+
+  info.reverse = (fallthru_edge->dest == then_bb
+		  || (fallthru_edge->dest == test2_bb
+		      && fallthru2_edge->dest == then_bb));
+
+  insn = double_test_ior_and (&info, &test_insn);
+  if (!insn)
+    {
+      purpose = "Failed to match.";
+      goto failed;
+    }
+
+  /* Fix up the flowgraph.  */
+  delete_insn (jump1);
+
+  /* Relink insns from test2 blocks, as they may compute temporaries used
+     by test.  */
+  first = (GET_CODE (test2_bb->head) == CODE_LABEL
+           ? NEXT_INSN (NEXT_INSN (test2_bb->head))
+	   : NEXT_INSN (test2_bb->head));
+  last = PREV_INSN (test2_bb->end);
+
+  emit_insn_after (test_insn, test_bb->end);
+  if (first != NEXT_INSN (last))
+    {
+      squeeze_notes (&first, &last);
+      reorder_insns (first, last, test_bb->end);
+    }
+  emit_insn_after (insn, test_bb->end);
+
+  if (fallthru_edge->dest == then_bb)
+    redirect_edge_succ (branch_edge, else_bb);
+  else if (fallthru_edge->dest == else_bb)
+    redirect_edge_succ (branch_edge, then_bb);
+  else if (fallthru_edge->dest == test2_bb)
+    {
+      if (fallthru2_edge->dest == else_bb)
+	{
+	  redirect_edge_succ (fallthru_edge, else_bb);
+	  redirect_edge_succ (branch_edge, then_bb);
+	}
+      else if (fallthru2_edge->dest == then_bb)
+	{
+	  redirect_edge_succ (fallthru_edge, then_bb);
+	  redirect_edge_succ (branch_edge, else_bb);
+	}
+      else
+	abort ();
+    }
+  else
+    abort ();
+
+  if (fallthru_edge->dest == then_bb)
+    {
+      branch_edge->probability = REG_BR_PROB_BASE - info.probability;
+      fallthru_edge->probability = info.probability;
+      branch_edge->count = test_bb->count - info.count1 - info.count2;
+      fallthru_edge->count = info.count1 + info.count2;
+    }
+  else
+    {
+      fallthru_edge->probability = REG_BR_PROB_BASE - info.probability;
+      branch_edge->probability = info.probability;
+      fallthru_edge->count = test_bb->count - info.count1 - info.count2;
+      branch_edge->count = info.count1 + info.count2;
+    }
+
+  /* The test basic block may define some pseudos used by test2.  We do not
+     want to make them appear alive anymore.  */
+  test_bb->global_live_at_end = test2_bb->global_live_at_end;
+
+  /* Delete the second test basic block.  */
+  if (test2_bb->pred != NULL_EDGE)
+    abort ();
+  flow_delete_block (test2_bb);
+  num_removed_blocks_double_test++;
+  num_updated_double_test_blocks++;
+  /* Make sure we update life info properly.  */
+  SET_UPDATE_LIFE (test_bb);
+  return true;
+
+  failed:
+  if (rtl_dump_file)
+    fprintf (rtl_dump_file, "  %s", purpose);
+  return false;
+}
+
+
 /* Given a simple IF-THEN or IF-THEN-ELSE block, attempt to convert it
    without using conditional execution.  Return TRUE if we were
    successful at converting the the block.  */
@@ -1941,6 +2458,13 @@ find_if_header (test_bb)
     /* Otherwise this must be a multiway branch of some sort.  */
     return FALSE;
 
+  /* A loop as we may cascadely update the CFG.  */
+  while (find_double_test_block (test_bb, then_edge, else_edge))
+    {
+      if (rtl_dump_file)
+	fprintf (rtl_dump_file, "Conversion succeeded.\n");
+    }
+
   if (find_if_block (test_bb, then_edge, else_edge))
     goto success;
   if (HAVE_trap && HAVE_conditional_trap
@@ -1962,6 +2486,97 @@ find_if_header (test_bb)
     fprintf (rtl_dump_file, "Conversion succeeded.\n");
   return TRUE;
 }
+
+/* Look for basic block constelation that result from
+   test1 || test2 type of conditions.  */
+static int
+find_double_test_block (test_bb, then_edge, test2_edge)
+     basic_block test_bb;
+     edge then_edge, test2_edge;
+{
+  int reverse_condition1 = 0;
+
+  /* Try both arms of the condition.  */
+  for (reverse_condition1 = 0; reverse_condition1 <= 1; reverse_condition1++)
+    {
+      edge tmp;
+      basic_block then_bb;
+      basic_block test2_bb;
+      basic_block else_bb;
+      edge then2_edge, else_edge;
+      int reverse_condition2 = 0;
+
+      /* The then_edge is falltrought edge on entry.  In case we don't
+	 reverse condition, we require it to be false.  */
+      tmp = then_edge;
+      then_edge = test2_edge;
+      test2_edge = tmp;
+
+      then_bb = then_edge->dest;
+      test2_bb = test2_edge->dest;
+
+      /* The test2 must be single basic block with the conditional jump.  */
+      if (!test2_bb->succ || !test2_bb->succ->succ_next
+	  || test2_bb->succ->succ_next->succ_next)
+	continue;
+      else_edge = test2_bb->succ;
+      then2_edge = test2_bb->succ->succ_next;
+
+      /* Avoid abnormal edges.  */
+      if (then2_edge->flags & EDGE_COMPLEX
+          || else_edge->flags & EDGE_COMPLEX)
+	continue;
+
+      /* Get the fallthru edge to be else one.  */
+      if (else_edge->flags & EDGE_FALLTHRU)
+	;
+      else if (then2_edge->flags & EDGE_FALLTHRU)
+	{
+	  tmp = then2_edge;
+	  then2_edge = else_edge;
+	  else_edge = tmp;
+	}
+      else
+	continue;
+
+      /* Find if some of edges points to the then_bb.
+	 Otherwise give up.  */
+      if (else_edge->dest == then_bb)
+	{
+	  tmp = then2_edge;
+	  then2_edge = else_edge;
+	  else_edge = tmp;
+	  reverse_condition2 = 1;
+	}
+      if (then2_edge->dest != then_bb)
+	continue;
+
+      else_bb = else_edge->dest;
+
+      /* Avoid multiple predecesors in the test2 block, as we are going
+         to remove it.  */
+      if (test2_bb->pred->pred_next)
+	continue;
+
+      if (rtl_dump_file)
+	{
+	  fprintf (rtl_dump_file,
+		   "\nDOUBLE-TEST block found, test1 %d, test2 %d, then %d, else %d\n",
+		   test_bb->index, test2_bb->index, then_bb->index,
+		   else_bb->index);
+	  fprintf (rtl_dump_file,
+		   "  reverse_condition1:%i, reverse_condition2:%i\n",
+		   reverse_condition1, reverse_condition2);
+	}
+      num_possible_double_test_blocks ++;
+      if (process_double_test_block (test_bb, test2_bb, then_bb, else_bb,
+				     reverse_condition1, reverse_condition2))
+	return TRUE;
+
+    }
+  return FALSE;
+}
+
 
 /* Determine if a given basic block heads a simple IF-THEN or IF-THEN-ELSE
    block.  If so, we'll try to convert the insns to not require the branch.
@@ -2682,6 +3297,9 @@ if_convert (x_life_data_ok)
   num_possible_if_blocks = 0;
   num_updated_if_blocks = 0;
   num_removed_blocks = 0;
+  num_possible_double_test_blocks = 0;
+  num_updated_double_test_blocks = 0;
+  num_removed_blocks_double_test = 0;
   life_data_ok = (x_life_data_ok != 0);
 
   /* Free up basic_block_for_insn so that we don't have to keep it 
@@ -2717,7 +3335,7 @@ if_convert (x_life_data_ok)
     fflush (rtl_dump_file);
 
   /* Rebuild life info for basic blocks that require it.  */
-  if (num_removed_blocks && life_data_ok)
+  if ((num_removed_blocks || num_updated_double_test_blocks) && life_data_ok)
     {
       sbitmap update_life_blocks = sbitmap_alloc (n_basic_blocks);
       sbitmap_zero (update_life_blocks);
@@ -2738,7 +3356,7 @@ if_convert (x_life_data_ok)
 	set of blocks don't let registers come live.  */
       update_life_info (update_life_blocks, UPDATE_LIFE_GLOBAL,
 			PROP_DEATH_NOTES | PROP_SCAN_DEAD_CODE
-			| PROP_KILL_DEAD_CODE);
+			| PROP_KILL_DEAD_CODE | PROP_LOG_LINKS);
 
       sbitmap_free (update_life_blocks);
     }
@@ -2756,6 +3374,18 @@ if_convert (x_life_data_ok)
       fprintf (rtl_dump_file,
 	       "%d basic blocks deleted.\n\n\n",
 	       num_removed_blocks);
+    }
+  if (rtl_dump_file && num_possible_double_test_blocks > 0)
+    {
+      fprintf (rtl_dump_file,
+	       "\n%d possible double test blocks searched.\n",
+	       num_possible_double_test_blocks);
+      fprintf (rtl_dump_file,
+	       "%d double test blocks converted.\n",
+	       num_updated_double_test_blocks);
+      fprintf (rtl_dump_file,
+	       "%d basic blocks deleted.\n\n\n",
+	       num_removed_blocks_double_test);
     }
 
 #ifdef ENABLE_CHECKING

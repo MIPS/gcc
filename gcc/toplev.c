@@ -252,8 +252,9 @@ enum dump_file_index
   DFI_tracer,
   DFI_cse2,
   DFI_life,
-  DFI_combine,
   DFI_ce,
+  DFI_combine,
+  DFI_ce2,
   DFI_regmove,
   DFI_sched,
   DFI_lreg,
@@ -262,7 +263,7 @@ enum dump_file_index
   DFI_flow2,
   DFI_peephole2,
   DFI_rnreg,
-  DFI_ce2,
+  DFI_ce3,
   DFI_sched2,
   DFI_stack,
   DFI_bbro,
@@ -300,8 +301,9 @@ struct dump_file_info dump_file[DFI_MAX] =
   { "tracer",	'T', 1, 0, 0 },
   { "cse2",	't', 1, 0, 0 },
   { "life",	'f', 1, 0, 0 },	/* Yes, duplicate enable switch.  */
-  { "combine",	'c', 1, 0, 0 },
   { "ce",	'C', 1, 0, 0 },
+  { "combine",	'c', 1, 0, 0 },
+  { "ce2",	'C', 1, 0, 0 },
   { "regmove",	'N', 1, 0, 0 },
   { "sched",	'S', 1, 0, 0 },
   { "lreg",	'l', 1, 0, 0 },
@@ -310,7 +312,7 @@ struct dump_file_info dump_file[DFI_MAX] =
   { "flow2",	'w', 1, 0, 0 },
   { "peephole2", 'z', 1, 0, 0 },
   { "rnreg",	'n', 1, 0, 0 },
-  { "ce2",	'E', 1, 0, 0 },
+  { "ce3",	'E', 1, 0, 0 },
   { "sched2",	'R', 1, 0, 0 },
   { "stack",	'k', 1, 0, 0 },
   { "bbro",	'B', 1, 0, 0 },
@@ -3075,6 +3077,21 @@ rest_of_compilation (decl)
 
   ggc_collect ();
 
+  /* Rerun if-conversion, as life information allows more transformations
+     to be done.  */
+  if (optimize > 0)
+    {
+      timevar_push (TV_IFCVT);
+      open_dump_file (DFI_ce, decl);
+
+      no_new_pseudos = 0;
+      if_convert (1);
+      no_new_pseudos = 1;
+
+      close_dump_file (DFI_ce, print_rtl_with_bb, insns);
+      timevar_pop (TV_IFCVT);
+    }
+
   /* If -opt, try combining insns through substitution.  */
 
   if (optimize > 0)
@@ -3114,13 +3131,13 @@ rest_of_compilation (decl)
   if (optimize > 0)
     {
       timevar_push (TV_IFCVT);
-      open_dump_file (DFI_ce, decl);
+      open_dump_file (DFI_ce2, decl);
 
       no_new_pseudos = 0;
       if_convert (1);
       no_new_pseudos = 1;
 
-      close_dump_file (DFI_ce, print_rtl_with_bb, insns);
+      close_dump_file (DFI_ce2, print_rtl_with_bb, insns);
       timevar_pop (TV_IFCVT);
     }
 
@@ -3355,11 +3372,11 @@ rest_of_compilation (decl)
   if (optimize > 0)
     {
       timevar_push (TV_IFCVT2);
-      open_dump_file (DFI_ce2, decl);
+      open_dump_file (DFI_ce3, decl);
 
       if_convert (1);
 
-      close_dump_file (DFI_ce2, print_rtl_with_bb, insns);
+      close_dump_file (DFI_ce3, print_rtl_with_bb, insns);
       timevar_pop (TV_IFCVT2);
     }
 #ifdef STACK_REGS

@@ -318,6 +318,21 @@ this pass.  This dump file's name is made by appending @samp{.ssadce} to
 the input file name.
 @end itemize
 
+@cindex web
+@cindex web construction pass
+@opindex fweb
+@item
+This pass constructs webs as commonly used for register allocation purposes.
+After that each web gets assigned individual pseudo. This allows our register
+allocation pass to operate on pseudos directly, but also strengthens several
+other optimization passes, such as CSE, loop optimizer and trivial dead code
+remover.
+
+@opindex dZ
+The option @option{-dZ} causes a debugging dump of the RTL code after
+this pass.  This dump file's name is made by appending @samp{.web} to
+the input file name.
+
 @cindex common subexpression elimination
 @cindex constant propagation
 @item
