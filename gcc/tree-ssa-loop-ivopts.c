@@ -84,7 +84,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "insn-config.h"
 #include "recog.h"
 #include "hashtab.h"
-#include "tree-fold-const.h"
 #include "tree-chrec.h"
 #include "tree-scalar-evolution.h"
 

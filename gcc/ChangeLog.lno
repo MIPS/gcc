@@ -1,5 +1,22 @@
 2004-06-22  Sebastian Pop  <pop@cri.ensmp.fr>
 
+	* tree-fold-const.c, tree-fold-const.h: Removed.
+	* Makefile.in (SCEV_H, tree-chrec.o): Remove tree-fold-const.h.
+	(OBJS-common): Remove tree-fold-const.o.
+	(tree-fold-const.o): Removed.
+	* gengtype.c (open_base_files): Remove tree-fold-const.h.
+	* lambda-code.c, tree-chrec.c, tree-data-ref.c, tree-dg.c, 
+	tree-elim-check.c, tree-loop-linear.c, tree-pretty-print.c, 
+	tree-scalar-evolution.c, tree-ssa-loop-ivcanon.c, 
+	tree-ssa-loop-ivopts.c, tree-ssa-loop-niter.c, tree-vectorizer.c: 
+	Don't include tree-fold-const.h.
+	* tree-chrec.c, tree-data-ref.c: Replace uses of tree_fold_* with 
+	fold (build (*, ...))
+	* tree-data-ref.c (tree_fold_gcd, tree_fold_divides_p,
+	tree_fold_bezout): Saved from deletion here.
+	
+2004-06-22  Sebastian Pop  <pop@cri.ensmp.fr>
+
 	* tree-chrec.c, tree-chrec.h, tree-data-ref.c, tree-dg.c, 
 	tree-elim-check.c, tree-scalar-evolution.c, tree-ssa-loop-niter.c, 
 	tree-vectorizer.c: Replace chrec_top with chrec_dont_know, 

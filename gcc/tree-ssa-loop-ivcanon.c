@@ -49,7 +49,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "cfgloop.h"
 #include "tree-pass.h"
 #include "ggc.h"
-#include "tree-fold-const.h"
 #include "tree-chrec.h"
 #include "tree-scalar-evolution.h"
 #include "params.h"

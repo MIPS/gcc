@@ -142,7 +142,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "timevar.h"
 #include "cfgloop.h"
 #include "cfglayout.h"
-#include "tree-fold-const.h"
 #include "expr.h"
 #include "optabs.h"
 #include "tree-chrec.h"

@@ -62,12 +62,25 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree-dump.h"
 #include "timevar.h"
 #include "cfgloop.h"
-#include "tree-fold-const.h"
 #include "tree-chrec.h"
 #include "tree-data-ref.h"
 #include "tree-scalar-evolution.h"
 #include "tree-pass.h"
 #include "flags.h"
+
+
+/* Given two integer constants A and B, determine whether "A >= B".  */
+
+static inline bool
+tree_is_ge (tree a, tree b, bool *res)
+{
+  tree cmp = fold (build (GE_EXPR, boolean_type_node, a, b));
+  if (TREE_CODE (cmp) != INTEGER_CST)
+    return false;
+
+  *res = (tree_int_cst_sgn (cmp) != 0);
+  return true;
+}
 
 /* Determines whether "CHREC0 (x) > CHREC1 (x)" for all the integers x
    such that "0 <= x < nb_iter".  When this property is statically

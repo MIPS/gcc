@@ -234,7 +234,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree-dump.h"
 #include "timevar.h"
 #include "cfgloop.h"
-#include "tree-fold-const.h"
 #include "tree-chrec.h"
 #include "tree-data-ref.h"
 #include "tree-scalar-evolution.h"

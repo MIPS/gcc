@@ -34,7 +34,6 @@
 #include "tree-dump.h"
 #include "timevar.h"
 #include "cfgloop.h"
-#include "tree-fold-const.h"
 #include "expr.h"
 #include "optabs.h"
 #include "tree-chrec.h"

@@ -30,7 +30,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "hashtab.h"
 #include "tree-flow.h"
 #include "langhooks.h"
-#include "tree-fold-const.h"
 #include "tree-chrec.h"
 #include "tree-iterator.h"
 

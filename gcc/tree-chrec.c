@@ -33,7 +33,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree.h"
 #include "diagnostic.h"
 #include "varray.h"
-#include "tree-fold-const.h"
 #include "tree-chrec.h"
 #include "tree-pass.h"
 
@@ -389,7 +388,7 @@ chrec_fold_multiply (tree type,
 	    return op0;
 	  if (integer_zerop (op1))
 	    return convert (type, integer_zero_node);
-	  return tree_fold_multiply (type, op0, op1);
+	  return fold (build (MULT_EXPR, type, op0, op1));
 	}
     }
 }
