@@ -1,3 +1,9 @@
+2004-09-27  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-flow-inline.c: gcc_assertify.
+	* tree-ssa-ccp.c (substitute_and_fold): Mark new vars
+	if RHS is handled component as well.
+
 2004-09-26  Daniel Berlin  <dberlin@dberlin.org>
 
 	* tree-flow-inline.h (get_vuse_offset_ptr): New.

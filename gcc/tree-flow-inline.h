@@ -239,10 +239,7 @@ get_def_op_ptr (def_optype defs, unsigned int index)
 static inline unsigned int *
 get_vuse_offset_ptr(vuse_optype vuses, unsigned int index)
 {
-#ifdef ENABLE_CHECKING
-  if (index >= vuses->num_vuses)
-    abort();
-#endif
+  gcc_assert (index <  vuses->num_vuses);
   return &(vuses->vuses[index].offset);
 }
 
@@ -251,10 +248,7 @@ get_vuse_offset_ptr(vuse_optype vuses, unsigned int index)
 static inline unsigned int *
 get_vuse_size_ptr(vuse_optype vuses, unsigned int index)
 {
-#ifdef ENABLE_CHECKING
-  if (index >= vuses->num_vuses)
-    abort();
-#endif
+  gcc_assert (index < vuses->num_vuses);
   return &(vuses->vuses[index].size);
 }
 /* Return the def_operand_p that is the V_MAY_DEF_RESULT for the V_MAY_DEF
@@ -284,10 +278,7 @@ get_v_may_def_op_ptr(v_may_def_optype v_may_defs, unsigned int index)
 static inline unsigned int *
 get_v_may_def_offset_ptr(v_may_def_optype v_may_defs, unsigned int index)
 {
-#ifdef ENABLE_CHECKING
-  if (index >= v_may_defs->num_v_may_defs)
-    abort();
-#endif
+  gcc_assert (index < v_may_defs->num_v_may_defs);
   return &(v_may_defs->v_may_defs[index].offset);
 }
 
@@ -296,10 +287,7 @@ get_v_may_def_offset_ptr(v_may_def_optype v_may_defs, unsigned int index)
 static inline unsigned int *
 get_v_may_def_size_ptr(v_may_def_optype v_may_defs, unsigned int index)
 {
-#ifdef ENABLE_CHECKING
-  if (index >= v_may_defs->num_v_may_defs)
-    abort();
-#endif
+  gcc_assert (index < v_may_defs->num_v_may_defs);
   return &(v_may_defs->v_may_defs[index].size);
 }
 
