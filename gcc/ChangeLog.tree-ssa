@@ -1,3 +1,10 @@
+2003-12-16  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* tree-pretty-print.c (dump_bb_header): Show block number when
+	there is no label.
+	(pp_cfg_jump): Show labels in addition to block numbers.
+	(dump_generic_bb_buff): Always call dump_bb_header.
+
 2003-12-16  Jan Hubicka  <jh@suse.cz>
 
 	* cgraphunit.c (cgraph_remove_unreachable_nodes): Fix typo;

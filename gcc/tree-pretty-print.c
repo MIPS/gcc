@@ -2082,30 +2082,46 @@ static void
 dump_bb_header (pretty_printer *buffer, basic_block bb, int indent, int flags)
 {
   edge e;
+  tree stmt;
 
-  INDENT (indent);
-  pp_string (buffer, "# BLOCK ");
-  pp_decimal_int (buffer, bb->index);
-
-  if (flags & TDF_LINENO)
+  if (flags & TDF_BLOCKS)
     {
-      block_stmt_iterator bsi;
+      INDENT (indent);
+      pp_string (buffer, "# BLOCK ");
+      pp_decimal_int (buffer, bb->index);
 
-      for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
-	if (get_lineno (bsi_stmt (bsi)) != -1)
-	  {
-	    pp_string (buffer, ", starting at line ");
-	    pp_decimal_int (buffer, get_lineno (bsi_stmt (bsi)));
-	    break;
-	  }
+      if (flags & TDF_LINENO)
+	{
+	  block_stmt_iterator bsi;
+
+	  for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+	    if (get_lineno (bsi_stmt (bsi)) != -1)
+	      {
+		pp_string (buffer, ", starting at line ");
+		pp_decimal_int (buffer, get_lineno (bsi_stmt (bsi)));
+		break;
+	      }
+	}
+      newline_and_indent (buffer, indent);
+
+      pp_string (buffer, "# PRED:");
+      pp_write_text_to_stream (buffer);
+      for (e = bb->pred; e; e = e->pred_next)
+	dump_edge_info (buffer->buffer->stream, e, 0);
+      pp_newline (buffer);
     }
-  newline_and_indent (buffer, indent);
-
-  pp_string (buffer, "# PRED:");
-  pp_write_text_to_stream (buffer);
-  for (e = bb->pred; e; e = e->pred_next)
-    dump_edge_info (buffer->buffer->stream, e, 0);
-  pp_newline (buffer);
+  else
+    {
+      stmt = first_stmt (bb);
+      if (!stmt || TREE_CODE (stmt) != LABEL_EXPR)
+	{
+	  INDENT (indent - 2);
+	  pp_string (buffer, "<bb ");
+	  pp_decimal_int (buffer, bb->index);
+	  pp_string (buffer, ">:");
+	  pp_newline (buffer);
+	}
+    }
 }
 
 /* Dumps end of basic block BB to buffer BUFFER indented by INDENT
@@ -2152,9 +2168,20 @@ dump_phi_nodes (pretty_printer *buffer, basic_block bb, int indent, int flags)
 static void
 pp_cfg_jump (pretty_printer *buffer, basic_block bb)
 {
+  tree stmt;
+
+  stmt = first_stmt (bb);
+
   pp_string (buffer, "goto <bb ");
   pp_decimal_int (buffer, bb->index);
-  pp_string (buffer, ">;");
+  pp_string (buffer, ">");
+  if (stmt && TREE_CODE (stmt) == LABEL_EXPR)
+    {
+      pp_string (buffer, " (");
+      dump_generic_node (buffer, LABEL_EXPR_LABEL (stmt), 0, 0, false);
+      pp_string (buffer, ")");
+    }
+  pp_semicolon (buffer);
 }
 
 /* Dump edges represented implicitly in basic block BB to BUFFER, indented
@@ -2192,8 +2219,7 @@ dump_generic_bb_buff (pretty_printer *buffer, basic_block bb,
   if (label_indent < 0)
     label_indent = 0;
 
-  if (flags & TDF_BLOCKS)
-    dump_bb_header (buffer, bb, indent, flags);
+  dump_bb_header (buffer, bb, indent, flags);
 
   dump_phi_nodes (buffer, bb, indent, flags);
   
