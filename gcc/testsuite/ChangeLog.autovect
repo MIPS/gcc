@@ -1,3 +1,16 @@
+2005-03-10  Ira Rosen  <irar@il.ibm.com>
+
+	* gcc.dg/vect/vect-99.c: Fail only on powerpc. Check dependence dist.
+	* gcc.dg/vect/vect-93.c: Fail on targets that do not model 
+	alignment-handling mechanisms.
+	* gcc.dg/vect/vect-ifcvt-1.c: Likewise.
+	* gcc.dg/vect/vect-reduc-1.c: Succeed only on powerpc.
+	* gcc.dg/vect/vect-reduc-2.c: Likewise.
+	* gcc.dg/vect/vect-reduc-3.c: Remove options. Add type check for target
+	* gcc.dg/vect/vect-reduc-6.c: Likewise.
+	* gcc.dg/vect/vect-reduc-4.c: Add type check.
+	* gcc.dg/vect/vect-reduc-5.c: Succeed only on powerpc.
+	
 2005-03-09  Ira Rosen  <irar@il.ibm.com>
 
 	* gcc.dg/vect/vect-99.c: New.

@@ -1,4 +1,5 @@
 /* { dg-do compile { target powerpc*-*-* } } */
+/* { dg-require-effective-target vect_int } */
 /* { dg-options "-O2 -ftree-vectorize -maltivec -fdump-tree-vect-stats -ftrapv" } */
 
 #include <stdarg.h>

@@ -1,4 +1,4 @@
-/* { dg-options "-O2 -ftree-vectorize -fdump-tree-vect-stats -maltivec" { target powerpc*-*-* } } */
+/* { dg-require-effective-target vect_int } */
 
 #include <stdarg.h>
 #include <stdio.h>
@@ -47,4 +47,4 @@ int main (void)
   return main1 (0, 15);
 }
 
-/* { dg-final { scan-tree-dump-times "vectorized 3 loops" 1 "vect" } } */
+/* { dg-final { scan-tree-dump-times "vectorized 3 loops" 1 "vect" { target powerpc*-*-* } } } */

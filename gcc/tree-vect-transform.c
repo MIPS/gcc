@@ -521,6 +521,7 @@ vect_get_vec_def_for_operand (tree op, tree stmt)
   tree def;
   int i;
   enum vect_def_type dt;
+  bool is_simple_use;
 
   if (vect_print_dump_info (REPORT_DETAILS, UNKNOWN_LOC))
     {
@@ -528,7 +529,8 @@ vect_get_vec_def_for_operand (tree op, tree stmt)
       print_generic_expr (vect_dump, op, TDF_SLIM);
     }
 
-  gcc_assert (vect_is_simple_use (op, loop_vinfo, &def_stmt, &def, &dt));
+  is_simple_use = vect_is_simple_use (op, loop_vinfo, &def_stmt, &def, &dt);
+  gcc_assert (is_simple_use);
   if (vect_print_dump_info (REPORT_DETAILS, UNKNOWN_LOC))
     {
       if (def)
@@ -552,7 +554,8 @@ vect_get_vec_def_for_operand (tree op, tree stmt)
 #endif
       /* Get the def before the loop  */
       op = PHI_ARG_DEF_FROM_EDGE (def_stmt, loop_preheader_edge (loop));
-      gcc_assert (vect_is_simple_use (op, loop_vinfo, &def_stmt, &def, &dt));
+      is_simple_use = vect_is_simple_use (op, loop_vinfo, &def_stmt, &def, &dt);
+      gcc_assert (is_simple_use);
       gcc_assert (dt == vect_constant_def || dt == vect_invariant_def);
       return op;
     }
@@ -791,6 +794,7 @@ vectorizable_reduction (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
   block_stmt_iterator exit_bsi;
   tree orig_name;
   tree scalar_type;
+  bool is_simple_use;
 
   /* Is vectorizable reduction?  */
   
@@ -823,8 +827,10 @@ vectorizable_reduction (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
   scalar_type = TREE_TYPE (scalar_dest);
 
   /* Check the first operand. It is expected to be defined inside the loop.  */
-  gcc_assert (vect_is_simple_use (op0, loop_vinfo, &def_stmt0, &def0, &dt0));
-  gcc_assert (vect_is_simple_use (op1, loop_vinfo, &def_stmt1, &def1, &dt1));
+  is_simple_use = vect_is_simple_use (op0, loop_vinfo, &def_stmt0, &def0, &dt0);
+  gcc_assert (is_simple_use);
+  is_simple_use = vect_is_simple_use (op1, loop_vinfo, &def_stmt1, &def1, &dt1);
+  gcc_assert (is_simple_use);
 #ifdef ENABLE_CHECKING
   gcc_assert (dt0 == vect_loop_def);
   gcc_assert (dt1 == vect_reduction_def);

@@ -1,3 +1,16 @@
+2005-03-10  Ira Rosen  <irar@il.ibm.com>
+
+	* tree-data-ref.c (compute_data_dependences_for_loop): Call 
+	build_classic_dist_vector with correct parameters.
+	
+	* tree-vect-analyze.c (vect_analyze_data_ref_dependence): Start 
+	loop_depth from 0. Print distance 0 message with 
+	REPORT_VECTORIZED_LOOPS level.
+
+	* tree-vect-transform.c (vect_get_vec_def_for_operand): Move call to
+	vect_is_simple_use out of gcc_assert.
+	(vectorizable_reduction): Likewise.
+
 2005-03-08  Ira Rosen  <irar@il.ibm.com>
 
 	* tree-data-ref.c (base_addr_differ_p): Check parameters.

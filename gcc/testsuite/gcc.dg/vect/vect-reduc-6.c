@@ -1,4 +1,4 @@
-/* { dg-options "-O2 -ftree-vectorize -fdump-tree-vect-stats -maltivec" { target powerpc*-*-* } } */
+/* { dg-require-effective-target vect_int } */
 
 #include <stdarg.h>
 #include <stdio.h>

@@ -1,3 +1,4 @@
+/* { dg-require-effective-target vect_int } */
 /* { dg-options "-O2 -ftree-vectorize -fdump-tree-vect-stats -maltivec -funsafe-math-optimizations" { target powerpc*-*-* } } */
 
 #include <stdarg.h>
@@ -50,4 +51,4 @@ int main (void)
 /* The min/max pattern is not detected by phiopt. 
    For now, only the summation loop is vectorized. */
 /* { dg-final { scan-tree-dump-times "vectorized 3 loops" 1 "vect" { xfail *-*-* } } } */
-/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" } } */
+/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" { target powerpc*-*-* } } } */

@@ -3542,6 +3542,7 @@ compute_data_dependences_for_loop (unsigned nb_loops,
 {
   unsigned int i;
   varray_type allrelations;
+  struct loop *loop_nest = loop;
 
   memset (&dependence_stats, 0, sizeof (dependence_stats));
 
@@ -3564,14 +3565,17 @@ compute_data_dependences_for_loop (unsigned nb_loops,
   VARRAY_GENERIC_PTR_INIT (allrelations, 1, "Data dependence relations");
   compute_all_dependences (*datarefs, &allrelations);
 
+  while (loop_nest && loop_nest->outer && loop_nest->outer->outer)
+    loop_nest = loop_nest->outer;
+
   for (i = 0; i < VARRAY_ACTIVE_SIZE (allrelations); i++)
     {
       struct data_dependence_relation *ddr;
       ddr = VARRAY_GENERIC_PTR (allrelations, i);
-      if (build_classic_dist_vector (ddr, nb_loops, loop->depth))
+      if (build_classic_dist_vector (ddr, nb_loops, loop_nest->depth))
 	{
 	  VARRAY_PUSH_GENERIC_PTR (*dependence_relations, ddr);
-	  build_classic_dir_vector (ddr, nb_loops, loop->depth);
+	  build_classic_dir_vector (ddr, nb_loops, loop_nest->depth);
 	}
     }
   if (dump_file && (dump_flags & TDF_STATS))

@@ -517,14 +517,14 @@ vect_analyze_data_ref_dependence (struct data_dependence_relation *ddr,
 				  loop_vec_info loop_vinfo)
 {
   struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
-  unsigned int loop_depth = 1;
+  int vectorization_factor = LOOP_VINFO_VECT_FACTOR (loop_vinfo);
+  unsigned int loop_depth = 0;
   struct data_reference *dra = DDR_A (ddr);
   struct data_reference *drb = DDR_B (ddr);
-  int vectorization_factor = LOOP_VINFO_VECT_FACTOR (loop_vinfo);
   stmt_vec_info stmt_info_a = vinfo_for_stmt (DR_STMT (dra));
   stmt_vec_info stmt_info_b = vinfo_for_stmt (DR_STMT (drb));
   int dist;
-  struct loop *loop_nest = loop; 
+  struct loop *loop_nest = loop;
 
   if (DDR_ARE_DEPENDENT (ddr) == chrec_known)
     return false;
@@ -556,7 +556,7 @@ vect_analyze_data_ref_dependence (struct data_dependence_relation *ddr,
       else
 	break;
     }
-  dist = DDR_DIST_VECT (ddr)[(loop_depth - 1)];
+  dist = DDR_DIST_VECT (ddr)[loop_depth];
 
   /* Same loop iteration.  */
   if (dist == 0)
@@ -565,7 +565,7 @@ vect_analyze_data_ref_dependence (struct data_dependence_relation *ddr,
       VARRAY_PUSH_GENERIC_PTR (STMT_VINFO_SAME_ALIGN_REFS (stmt_info_a), drb);
       VARRAY_PUSH_GENERIC_PTR (STMT_VINFO_SAME_ALIGN_REFS (stmt_info_b), dra);
 
-      if (vect_print_dump_info (REPORT_DETAILS, UNKNOWN_LOC))
+      if (vect_print_dump_info (REPORT_VECTORIZED_LOOPS, LOOP_LOC (loop_vinfo)))
 	fprintf (vect_dump, "dependence distance 0.");
       return false;
     }
