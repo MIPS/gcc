@@ -1,3 +1,35 @@
+2004-06-22  Dorit Naishlos <dorit@il.ibm.com>
+
+	* gcc.dg/tree-ssa-vect/tree-ssa-vect-54.c: New test.
+	* gcc.dg/tree-ssa-vect/tree-ssa-vect-55.c: New test.
+	* gcc.dg/tree-ssa-vect/tree-ssa-vect-56.c: New test.
+	* gcc.dg/tree-ssa-vect/tree-ssa-vect-57.c: New test.
+	* gcc.dg/tree-ssa-vect/tree-ssa-vect-58.c: New test.
+	* gcc.dg/tree-ssa-vect/tree-ssa-vect-59.c: New test.
+	* gcc.dg/tree-ssa-vect/tree-ssa-vect-60.c: New test.
+	* gcc.dg/tree-ssa-vect/tree-ssa-vect-61.c: New test.
+
+	* gcc.dg/tree-ssa-vect/tree-ssa-vect-40.c: Abort instead of print, and
+	remove redundant check loop in main.
+	* gcc.dg/tree-ssa-vect/tree-ssa-vect-41.c: Likewise.
+	* gcc.dg/tree-ssa-vect/tree-ssa-vect-42.c: Likewise.
+	* gcc.dg/tree-ssa-vect/tree-ssa-vect-43.c: Likewise.
+	* gcc.dg/tree-ssa-vect/tree-ssa-vect-44.c: Likewise.
+	* gcc.dg/tree-ssa-vect/tree-ssa-vect-45.c: Likewise.
+	* gcc.dg/tree-ssa-vect/tree-ssa-vect-46.c: Likewise.
+	* gcc.dg/tree-ssa-vect/tree-ssa-vect-47.c: Likewise.
+	* gcc.dg/tree-ssa-vect/tree-ssa-vect-48.c: Likewise.
+	* gcc.dg/tree-ssa-vect/tree-ssa-vect-49.c: Likewise.
+	* gcc.dg/tree-ssa-vect/tree-ssa-vect-50.c: Likewise.
+	* gcc.dg/tree-ssa-vect/tree-ssa-vect-51.c: Likewise.
+	* gcc.dg/tree-ssa-vect/tree-ssa-vect-52.c: Likewise.
+	* gcc.dg/tree-ssa-vect/tree-ssa-vect-53.c: Likewise.
+
+	* gcc.dg/tree-ssa-vect/tree-ssa-vect-40.c: Move call to bar from main1
+	to main.
+	* gcc.dg/tree-ssa-vect/tree-ssa-vect-42.c: Likewise.
+	* gcc.dg/tree-ssa-vect/tree-ssa-vect-46.c: Likewise.
+
 2004-06-22  Devang Patel  <dpatel@apple.com>
 
         * gcc.dg/tree-ssa-vect/pr16105.c: New test.

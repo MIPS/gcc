@@ -1,3 +1,8 @@
+2004-06-22  Dorit Naishlos <dorit@il.ibm.com>
+
+	* tree-vectorizer.c (vect_create_data_ref): Fix setting of mem_tag.
+	(vect_analyze_data_refs): Make sure we have a mem_tag.
+
 2004-06-22  Sebastian Pop  <pop@cri.ensmp.fr>
 
 	* tree-fold-const.c, tree-fold-const.h: Removed.

@@ -771,6 +771,18 @@ vect_create_data_ref (tree ref, tree stmt, block_stmt_iterator *bsi)
     {
       tree symbl = SSA_NAME_VAR (addr_ref);
       tree tag = get_var_ann (symbl)->type_mem_tag;
+      if (!tag)
+	{
+	  /* try to find the tag from the actual pointer used in the stmt  */
+	  tree ptr;
+	  if (TREE_CODE (ref) != INDIRECT_REF)
+	    abort ();
+	  ptr = TREE_OPERAND (ref, 0);
+	  symbl = SSA_NAME_VAR (ptr);
+          tag = get_var_ann (symbl)->type_mem_tag;
+	  if (!tag)
+	    abort ();
+	}
       get_var_ann (vect_ptr)->type_mem_tag = tag;  /* CHECKME */
     }
   
@@ -3599,6 +3611,22 @@ vect_analyze_data_refs (loop_vec_info loop_vinfo)
 	      return false;
 	    }
 	
+	  if (TREE_CODE (DR_BASE_NAME (dr)) == SSA_NAME)
+	    {
+	      tree symbl = SSA_NAME_VAR (DR_BASE_NAME (dr));
+	      tree tag = get_var_ann (symbl)->type_mem_tag;
+	      if (!tag)
+		{
+		  tree ptr = TREE_OPERAND (memref, 0);
+		  if (TREE_CODE (ptr) != SSA_NAME)
+		    return false;
+		  symbl = SSA_NAME_VAR (ptr);
+		  tag = get_var_ann (symbl)->type_mem_tag;
+		}
+	      if (!tag)  
+		return false;	
+	    }
+
 	  VARRAY_PUSH_GENERIC_PTR (*datarefs, dr);
 	  STMT_VINFO_DATA_REF (stmt_info) = dr;
 	}
