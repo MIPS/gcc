@@ -1,5 +1,5 @@
-/* JMenuBar.java --
-   Copyright (C) 2002 Free Software Foundation, Inc.
+/* JMenuBar.java -- 
+   Copyright (C) 2002, 2004  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -67,9 +67,6 @@ import javax.swing.plaf.MenuItemUI;
 
 /**
  * DOCUMENT ME!
- *
- * @author $author$
- * @version $Revision$
  */
 public class JMenuBar extends JComponent implements Accessible, MenuElement
 {

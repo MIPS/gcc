@@ -68,9 +68,6 @@ import javax.swing.plaf.PopupMenuUI;
 
 /**
  * DOCUMENT ME!
- *
- * @author $author$
- * @version $Revision: 1.3.8.2 $
  */
 public class JPopupMenu extends JComponent implements Accessible, MenuElement
 {
@@ -471,7 +468,7 @@ public class JPopupMenu extends JComponent implements Accessible, MenuElement
    */
   public boolean isVisible()
   {
-    return super.visible;
+    return super.isVisible();
   }
 
   /**
@@ -481,7 +478,7 @@ public class JPopupMenu extends JComponent implements Accessible, MenuElement
    */
   public void setVisible(boolean visible)
   {
-    super.visible = visible;
+    super.setVisible(visible);
 
     firePopupMenuWillBecomeVisible();
 
@@ -798,9 +795,6 @@ public class JPopupMenu extends JComponent implements Accessible, MenuElement
 
   /**
    * DOCUMENT ME!
-   *
-   * @author $author$
-   * @version $Revision: 1.3.8.2 $
    */
   private interface Popup
   {
@@ -822,9 +816,6 @@ public class JPopupMenu extends JComponent implements Accessible, MenuElement
 
   /**
    * DOCUMENT ME!
-   *
-   * @author $author$
-   * @version $Revision: 1.3.8.2 $
    */
   private class LightWeightPopup extends JPanel implements Popup
   {
@@ -868,9 +859,6 @@ public class JPopupMenu extends JComponent implements Accessible, MenuElement
 
   /**
    * DOCUMENT ME!
-   *
-   * @author $author$
-   * @version $Revision: 1.3.8.2 $
    */
   private class MediumWeightPopup extends Panel implements Popup
   {
@@ -893,7 +881,7 @@ public class JPopupMenu extends JComponent implements Accessible, MenuElement
      * @param width DOCUMENT ME!
      * @param heigth DOCUMENT ME!
      */
-    public void show(int x, int y, int width, int heigth)
+    public void show(int x, int y, int width, int height)
     {
       JLayeredPane layeredPane;
       layeredPane = SwingUtilities.getRootPane(invoker).getLayeredPane();
@@ -915,9 +903,6 @@ public class JPopupMenu extends JComponent implements Accessible, MenuElement
 
   /**
    * DOCUMENT ME!
-   *
-   * @author $author$
-   * @version $Revision: 1.3.8.2 $
    */
   private class HeavyWeightPopup extends JWindow implements Popup
   {
@@ -956,9 +941,6 @@ public class JPopupMenu extends JComponent implements Accessible, MenuElement
 
   /**
    * DOCUMENT ME!
-   *
-   * @author $author$
-   * @version $Revision: 1.3.8.2 $
    */
   public static class Separator extends JSeparator
   {
@@ -982,9 +964,6 @@ public class JPopupMenu extends JComponent implements Accessible, MenuElement
 
   /**
    * DOCUMENT ME!
-   *
-   * @author $author$
-   * @version $Revision: 1.3.8.2 $
    */
   protected class AccessibleJPopupMenu extends AccessibleJComponent
   {

@@ -1,5 +1,5 @@
 /* JMenuItem.java --
-   Copyright (C) 2002, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2004  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -62,9 +62,6 @@ import javax.swing.plaf.MenuItemUI;
 
 /**
  * DOCUMENT ME!
- *
- * @author $author$
- * @version $Revision: 1.2.18.3 $
  */
 public class JMenuItem extends AbstractButton implements Accessible,
                                                          MenuElement
@@ -586,9 +583,6 @@ public class JMenuItem extends AbstractButton implements Accessible,
 
   /**
    * DOCUMENT ME!
-   *
-   * @author $author$
-   * @version $Revision: 1.2.18.3 $
    */
   protected class AccessibleJMenuItem extends AccessibleAbstractButton
     implements ChangeListener

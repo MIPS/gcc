@@ -38,8 +38,6 @@ exception statement from your version. */
 package javax.swing.plaf.basic;
 
 import java.awt.event.MouseEvent;
-import javax.swing.AbstractButton;
-import javax.swing.Icon;
 import javax.swing.JComponent;
 import javax.swing.JMenuItem;
 import javax.swing.MenuElement;
@@ -51,9 +49,6 @@ import javax.swing.plaf.ComponentUI;
 
 /**
  * DOCUMENT ME!
- *
- * @author $author$
- * @version $Revision: 1.1.2.2 $
  */
 public class BasicCheckBoxMenuItemUI extends BasicMenuItemUI
 {
