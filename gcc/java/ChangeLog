@@ -1,3 +1,10 @@
+2004-11-08  Tom Tromey  <tromey@redhat.com>
+
+	* java-tree.h (soft_check_assignment_node): Removed.
+	(enum java_tree_index): Removed JTI_SOFT_CHECK_ASSIGNMENT_NODE.
+	* decl.c (java_init_decl_processing): Don't initialize
+	soft_check_assignment_node.
+
 2004-11-05  Tom Tromey  <tromey@redhat.com>
 
 	* class.c (layout_class_methods): Don't add Miranda methods when
