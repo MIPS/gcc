@@ -2216,69 +2216,6 @@ gimplify_cond_expr (tree *expr_p, tree *pre_p, tree target)
   return ret;
 }
 
-/* Gimplify lhs component access to complex types, REALPART_EXPR and
-   IMAGPART_EXPR.
-
-   For SSA renaming we require that all modifications to complex variables
-   be killing assignments.  That is, we cannot allow only a piece of a value
-   to be modified, we must create an entire new value.  Thus we rewrite
-
-	<realpart_expr x> = y
-   to
-	x = <complex_expr y <imagpart_expr x>>
-
-   and similarly for imagpart_expr.  */
-
-static enum gimplify_status gimplify_modify_expr (tree*, tree*, tree*, bool);
-
-static enum gimplify_status
-gimplify_lhs_complex_part_expr (tree *expr_p, tree *pre_p,
-				tree *post_p, bool want_value)
-{
-  tree to = TREE_OPERAND (*expr_p, 0);
-  enum gimplify_status ret1, ret2;
-  tree ctor, ctor_r, ctor_i, obj, val;
-
-  /* First, stabilize the values.  */
-  ret2 = gimplify_expr (&TREE_OPERAND (*expr_p, 1), pre_p, post_p,
-			is_gimple_val, fb_rvalue);
-  ret1 = gimplify_expr (&TREE_OPERAND (to, 0), pre_p, post_p,
-			is_gimple_lvalue, fb_lvalue);
-  if (ret1 == GS_ERROR || ret2 == GS_ERROR)
-    return GS_ERROR;
-
-  obj = TREE_OPERAND (to, 0);
-  val = TREE_OPERAND (*expr_p, 1);
-
-  /* Build the complex_expr node.  */
-  ctor_r = val;
-  ctor_i = to;
-  if (TREE_CODE (to) == REALPART_EXPR)
-    TREE_SET_CODE (to, IMAGPART_EXPR);
-  else
-    {
-      TREE_SET_CODE (to, REALPART_EXPR);
-      ctor = ctor_r, ctor_r = ctor_i, ctor_i = ctor;
-    }
-  ctor = build (COMPLEX_EXPR, TREE_TYPE (obj), ctor_r, ctor_i);
-
-  /* Build a new assignment statement and re-gimplify.  */
-  *expr_p = build (MODIFY_EXPR, TREE_TYPE (obj), obj, ctor);
-  ret1 = gimplify_modify_expr (expr_p, pre_p, post_p, false);
-  if (ret1 == GS_ERROR)
-    return GS_ERROR;
-
-  /* If we did in fact want the value, the return just that.  */
-  if (want_value)
-    {
-      append_to_statement_list (*expr_p, pre_p);
-      *expr_p = val;
-      return GS_OK;
-    }
-  else
-    return GS_ALL_DONE;
-}
-
 
 /*  Gimplify the MODIFY_EXPR node pointed by EXPR_P.
 
@@ -2310,10 +2247,6 @@ gimplify_modify_expr (tree *expr_p, tree *pre_p, tree *post_p, bool want_value)
   /* The distinction between MODIFY_EXPR and INIT_EXPR is no longer useful.  */
   if (TREE_CODE (*expr_p) == INIT_EXPR)
     TREE_SET_CODE (*expr_p, MODIFY_EXPR);
-
-  /* Need to handle lhs component access to complex values specially.  */
-  if (TREE_CODE (*to_p) == REALPART_EXPR || TREE_CODE (*to_p) == IMAGPART_EXPR)
-    return gimplify_lhs_complex_part_expr (expr_p, pre_p, post_p, want_value);
 
   ret = gimplify_expr (to_p, pre_p, post_p, is_gimple_lvalue, fb_lvalue);
   if (ret == GS_ERROR)
