@@ -1,5 +1,11 @@
 2003-12-17  Jan Hubicka  <jh@suse.cz>
 
+	Based on patch by Dale Johannesen
+	* expr.c (MOVE_RATIO, CLEAR_RATIO): Move to ...
+	* expr.h (MOVE_RATIO, CLEAR_RATIO): ... here
+
+2003-12-17  Jan Hubicka  <jh@suse.cz>
+
 	* Makefile.in (sibcall.o): Kill.
 	(tree-tailcall.o): Add except.h dependency
 	* sibcall.c: Kill.
