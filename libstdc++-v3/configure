@@ -1544,7 +1544,16 @@ if test "$build" != "$host"; then
   GLIBCXX_IS_NATIVE=false
 
 else
-  GLIBCXX_IS_NATIVE=true
+  # APPLE LOCAL begin 64-bit
+  case "$target" in
+    powerpc-apple-darwin8*)
+      GLIBCXX_IS_NATIVE=false
+      cross_compiling=yes
+      ;;
+    *)
+      GLIBCXX_IS_NATIVE=true ;;
+  esac
+  # APPLE LOCAL end 64-bit
 fi
 
 # Sets up automake.  Must come after AC_CANONICAL_SYSTEM.  Each of the
@@ -4397,7 +4406,7 @@ test x"$pic_mode" = xno && libtool_flags="$libtool_flags --prefer-non-pic"
 case $host in
 *-*-irix6*)
   # Find out which ABI we are using.
-  echo '#line 4400 "configure"' > conftest.$ac_ext
+  echo '#line 4409 "configure"' > conftest.$ac_ext
   if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
   (eval $ac_compile) 2>&5
   ac_status=$?
@@ -5018,7 +5027,7 @@ fi;
     #
     # Fake what AC_TRY_COMPILE does.  XXX Look at redoing this new-style.
     cat > conftest.$ac_ext << EOF
-#line 5021 "configure"
+#line 5030 "configure"
 struct S { ~S(); };
 void bar();
 void foo()
@@ -97505,6 +97514,9 @@ else
   GLIBCXX_TEST_ABI_TRUE='#'
   GLIBCXX_TEST_ABI_FALSE=
 fi
+
+
+
 
 cat >confcache <<\_ACEOF
 # This file is a shell script that caches the results of configure

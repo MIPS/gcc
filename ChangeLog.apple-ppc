@@ -1,3 +1,9 @@
+2004-11-27  Stan Shebs  <shebs@apple.com>
+
+	libstdc++-v3/configure.ac: Always treat Darwin 8.x targets as if they
+	were cross-compiling.
+	libstdc++-v3/configure: Regenerate.
+
 2004-11-23  Geoffrey Keating  <geoffk@apple.com>
 
 	Radar 3893528
