@@ -862,7 +862,8 @@ gimplify_decl_stmt (tree *stmt_p)
 	  tree alloc, size;
 
 	  /* This is a variable-sized decl.  Simplify its size and mark it
-	     for deferred expansion.  */
+	     for deferred expansion.  Note that mudflap depends on the format
+	     of the emitted code: see mx_register_decls().  */
 
 	  size = get_initialized_tmp_var (DECL_SIZE_UNIT (decl), &pre, &post);
 	  DECL_DEFER_OUTPUT (decl) = 1;

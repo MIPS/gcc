@@ -1,3 +1,10 @@
+2004-01-27  Frank Ch. Eigler  <fche@redhat.com>
+ 
+	* tree-mudflap.c (mx_register_decls): Support VLAs.
+	(mf_xform_derefs_1): Disable checking shortcut for VLAs.
+	* c-simplify.c (gimplify_decl_stmt): Add mudflap xref comment.
+	* gimplify.c (gimplify_bind_expr): Ditto.
+
 2004-01-27  Daniel Berlin  <dberlin@dberlin.org>
 	
 	* tree-ssa-pre.c (rename_1): Add some more comments.

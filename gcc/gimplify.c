@@ -794,7 +794,8 @@ gimplify_bind_expr (tree *expr_p, tree *pre_p)
       tree stack_save, stack_restore;
 
       /* Save stack on entry and restore it on exit.  Add a try_finally
-	 block to achieve this.  */
+	 block to achieve this.  Note that mudflap depends on the
+	 format of the emitted code: see mx_register_decls().  */
       build_stack_save_restore (&stack_save, &stack_restore);
 
       t = build (TRY_FINALLY_EXPR, void_type_node,
