@@ -38,7 +38,7 @@ extern "C" {
 #endif
   /* We add a prototype for abort here to avoid creating a dependency on
      target headers.  */
-  extern void abort();
+  extern void abort (void);
 
   typedef unsigned _Unwind_Word __attribute__((__mode__(__word__)));
   typedef signed _Unwind_Sword __attribute__((__mode__(__word__)));
@@ -245,6 +245,9 @@ extern "C" {
     {
       _Unwind_VRS_Set (context, _UVRSC_CORE, regno, _UVRSD_UINT32, &val);
     }
+
+  extern _Unwind_Reason_Code
+  __gnu_unwind_execute (_Unwind_Context * context, __gnu_unwind_state * uws);
 
   /* The dwarf unwinder doesn't understand arm/thumb state.  We assume the
      landing pad uses the same instruction set as the callsite.  */

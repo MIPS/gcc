@@ -26,8 +26,8 @@
    the Free Software Foundation, 59 Temple Place - Suite 330,
    Boston, MA 02111-1307, USA.  */
 
-#ifdef L_unwind
-
+#include "lib1funcs.asm"
+	
 .macro UNPREFIX name
 	.global SYM (\name)
 	EQUIV SYM (\name), SYM (__\name)
@@ -108,4 +108,3 @@ ARM_FUNC_START gnu_Unwind_Save_VFP
 UNWIND_WRAPPER _Unwind_RaiseException
 UNWIND_WRAPPER _Unwind_Resume
 
-#endif  /* L_unwind */

@@ -1534,10 +1534,12 @@ then
     BUILD_PREFIX_1=build-
     BUILD_CFLAGS='$(INTERNAL_CFLAGS) $(T_CFLAGS) $(CFLAGS_FOR_BUILD)'
 
-    if test "x$TARGET_SYSTEM_ROOT" = x; then
-	STMP_FIXINC=
-	STMP_FIXPROTO=
-    fi
+    # These programs are not set up to work in a Canadian cross
+    # environment.  In particular, fixincludes runs on the build machine, 
+    # but fixlib.h includes system.h, which describes properties of
+    # the host machine.
+    STMP_FIXINC=
+    STMP_FIXPROTO=
 fi
 
 # Expand extra_headers to include complete path.
