@@ -366,7 +366,7 @@ get_expr_operands (tree stmt, tree *expr_p, int flags, voperands_t prev_vops)
 	    *expr_p = build (ARRAY_REF, TREE_TYPE (expr), var,
 			     integer_zero_node);
 
-	  add_stmt_operand (&TREE_OPERAND (ptr, 0), stmt, flags, prev_vops);
+	  add_stmt_operand (expr_p, stmt, flags, prev_vops);
 	  return;
 	}
       else if (TREE_CONSTANT (ptr))
