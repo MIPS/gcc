@@ -437,12 +437,12 @@ struct ffi_ia64_trampoline_struct {
 
 #elif defined(POWERPC)
 
-#if defined(POWERPC64)
-#define FFI_CLOSURES 0
-#else
 #define FFI_CLOSURES 1
-#endif
+#ifdef POWERPC64
+#define FFI_TRAMPOLINE_SIZE 24
+#else
 #define FFI_TRAMPOLINE_SIZE 40
+#endif
 #define FFI_NATIVE_RAW_API 0
 
 #elif defined(POWERPC_DARWIN)

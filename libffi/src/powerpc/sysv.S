@@ -30,7 +30,7 @@
 #include <powerpc/asm.h>
 
 #ifndef __powerpc64__
-	.globl ffi_prep_args
+	.globl ffi_prep_args_SYSV
 ENTRY(ffi_call_SYSV)
 .LFB1:
 	/* Save the old stack pointer as AP.  */
@@ -59,9 +59,9 @@ ENTRY(ffi_call_SYSV)
 	mr	%r28,%r8	/* our AP. */
 .LCFI6:
 
-	/* Call ffi_prep_args.  */
+	/* Call ffi_prep_args_SYSV.  */
 	mr	%r4,%r1
-	bl	JUMPTARGET(ffi_prep_args)
+	bl	JUMPTARGET(ffi_prep_args_SYSV)
 
 	/* Now do the call.  */
 	/* Set up cr1 with bits 4-7 of the flags.  */

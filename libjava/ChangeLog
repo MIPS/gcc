@@ -1,3 +1,8 @@
+2003-04-12  Jakub Jelinek  <jakub@redhat.com>
+
+	* configure.host (powerpc64-*-linux*): Use libffi and gij even if
+	-m64.
+
 2003-04-08  Jakub Jelinek  <jakub@redhat.com>
 
 	* configure.host: Add powerpc64*-linux* entry.
