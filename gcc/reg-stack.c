@@ -347,12 +347,25 @@ static rtx
 next_flags_user (insn)
      rtx insn;
 {
-  insn = next_nonnote_insn (insn);
-  if (insn && GET_RTX_CLASS (GET_CODE (insn)) == 'i'
-      && reg_mentioned_p (ix86_flags_rtx, PATTERN (insn)))
-    return insn;
+  /* Search forward looking for the first use of this value. 
+     Stop at block boundaries.  */
+  /* ??? This really cries for BLOCK_END!  */
 
-  return NULL_RTX;
+  while (1)
+    {
+      insn = NEXT_INSN (insn);
+      if (!insn)
+	return NULL_RTX;
+
+      if (GET_RTX_CLASS (GET_CODE (insn)) == 'i'
+          && reg_mentioned_p (ix86_flags_rtx, PATTERN (insn)))
+        return insn;
+
+      if (GET_CODE (insn) == JUMP_INSN
+	  || GET_CODE (insn) == CODE_LABEL
+	  || GET_CODE (insn) == CALL_INSN)
+	return NULL_RTX;
+    }
 }
 
 /* Mark all registers needed for this pattern.  */
@@ -2061,7 +2074,7 @@ swap_rtx_condition (insn)
     {
       insn = next_flags_user (insn);
       if (insn == NULL_RTX)
-	abort ();
+	return 0;
       pat = PATTERN (insn);
     }
 
@@ -2083,7 +2096,8 @@ swap_rtx_condition (insn)
 	  insn = NEXT_INSN (insn);
 	  if (insn == NULL_RTX)
 	    return 0;
-	  if (reg_mentioned_p (dest, insn))
+	  if (GET_RTX_CLASS (GET_CODE (insn)) == 'i'
+	      && reg_mentioned_p (dest, insn))
 	    break;
 	  if (GET_CODE (insn) == JUMP_INSN)
 	    return 0;
@@ -2104,7 +2118,7 @@ swap_rtx_condition (insn)
       /* Now we are prepared to handle this as a normal cc0 setter.  */
       insn = next_flags_user (insn);
       if (insn == NULL_RTX)
-	abort ();
+	return 0;
       pat = PATTERN (insn);
     }
 
