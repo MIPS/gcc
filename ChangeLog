@@ -1,5 +1,7 @@
 2002-11-19  Nathanael Nerode  <neroden@gcc.gnu.org>
 
+	* Makefile.tpl: Add all-gcc: all-libiberty dependency.
+
 	* ltcf-c.sh, ltcf-gcj.sh, Makefile.tpl: Correct BUILD/HOST confusion.
 
 	* configure.in: Produce lists of subdir targets we're actually 
