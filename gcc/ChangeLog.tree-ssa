@@ -1,3 +1,9 @@
+2004-03-23  Richard Henderson  <rth@redhat.com>
+
+	PR middle-end/14694
+	* c-common.c (handle_alias_attribute): Mark aliased variables
+	to be TREE_STATIC.
+
 2004-03-23  Jeff Law  <law@redhat.com>
 
 	* tree-into-ssa.c (register_new_def): Lose unnecessary VAR argument,
