@@ -46,6 +46,8 @@ Boston, MA 02111-1307, USA.  */
 #include "target.h"
 #include "c-common.h"
 #include "timevar.h"
+#include "cgraph.h"
+#include "tree-inline.h"
 extern cpp_reader *parse_in;
 
 /* This structure contains information about the initializations
@@ -1565,6 +1567,8 @@ mark_vtable_entries (decl)
     {
       tree fnaddr = TREE_VALUE (entries);
       tree fn;
+
+      STRIP_NOPS (fnaddr);
       
       if (TREE_CODE (fnaddr) != ADDR_EXPR
 	  && TREE_CODE (fnaddr) != FDESC_EXPR)
@@ -1788,6 +1792,8 @@ output_vtable_inherit (vars)
 {
   tree parent;
   rtx child_rtx, parent_rtx;
+  if (flag_unit_at_time)
+    return;
 
   child_rtx = XEXP (DECL_RTL (vars), 0);	  /* strip the mem ref  */
 
@@ -1814,6 +1820,7 @@ maybe_emit_vtables (tree ctype)
 {
   tree vtbl;
   tree primary_vtbl;
+  bool needed = false;
 
   /* If the vtables for this class have already been emitted there is
      nothing more to do.  */
@@ -1842,6 +1849,8 @@ maybe_emit_vtables (tree ctype)
 	note_debug_info_needed (ctype);
       return 0;
     }
+  else if (TREE_PUBLIC (vtbl) && !DECL_COMDAT (vtbl))
+    needed = true;
 
   /* The ABI requires that we emit all of the vtables if we emit any
      of them.  */
@@ -1850,6 +1859,10 @@ maybe_emit_vtables (tree ctype)
       /* Write it out.  */
       import_export_vtable (vtbl, ctype, 1);
       mark_vtable_entries (vtbl);
+
+      /* If we know that DECL is needed, mark it as such for the varpool.  */
+      if (needed)
+	cgraph_varpool_mark_needed_node (cgraph_varpool_node (vtbl));
       if (TREE_TYPE (DECL_INITIAL (vtbl)) == 0)
 	store_init_value (vtbl, DECL_INITIAL (vtbl));
 
@@ -2204,7 +2217,7 @@ finish_objects (method_type, initp, body)
   /* Finish up.  */
   finish_compound_stmt (/*has_no_scope=*/0, body);
   fn = finish_function (0);
-  expand_body (fn);
+  expand_or_defer_fn (fn);
 
   /* When only doing semantic analysis, and no RTL generation, we
      can't call functions that directly emit assembly code; there is
@@ -2367,7 +2380,7 @@ finish_static_storage_duration_function (body)
 {
   /* Close out the function.  */
   finish_compound_stmt (/*has_no_scope=*/0, body);
-  expand_body (finish_function (0));
+  expand_or_defer_fn (finish_function (0));
 }
 
 /* Return the information about the indicated PRIORITY level.  If no
@@ -2747,6 +2760,28 @@ generate_ctor_and_dtor_functions_for_priority (n, data)
   return 0;
 }
 
+/* Callgraph code does not understand the member pointers.  Mark the methods
+   referenced as used.  */
+static tree
+mark_member_pointers (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
+		      void *data ATTRIBUTE_UNUSED)
+{
+  if (TREE_CODE (*tp) == PTRMEM_CST
+      && TREE_CODE (PTRMEM_CST_MEMBER (*tp)) == FUNCTION_DECL)
+    cgraph_mark_needed_node (cgraph_node (PTRMEM_CST_MEMBER (*tp)), 1);
+  return 0;
+}
+
+/* Called via LANGHOOK_CALLGRAPH_LOWER_FUNCTION.  It is supposed to lower
+   frontend specific constructs that would otherwise confuse the middle end.  */
+void
+lower_function (tree fn)
+{
+  walk_tree_without_duplicates (&DECL_SAVED_TREE (fn), mark_member_pointers,
+				NULL);
+}
+
+
 /* This routine is called from the last rule in yyparse ().
    Its job is to create all the code needed to initialize and
    destroy the global aggregates.  We do the destruction
@@ -2945,20 +2980,16 @@ finish_file ()
 	  if (!DECL_EXTERNAL (decl)
 	      && DECL_NEEDED_P (decl)
 	      && DECL_SAVED_TREE (decl)
-	      && !TREE_ASM_WRITTEN (decl))
+	      && !TREE_ASM_WRITTEN (decl)
+	      && (!flag_unit_at_time 
+		  || !cgraph_node (decl)->local.finalized))
 	    {
-	      int saved_not_really_extern;
-
-	      /* When we call finish_function in expand_body, it will
-		 try to reset DECL_NOT_REALLY_EXTERN so we save and
-		 restore it here.  */
-	      saved_not_really_extern = DECL_NOT_REALLY_EXTERN (decl);
+	      /* We will output the function; no longer consider it in this
+		 loop.  */
+	      DECL_DEFER_OUTPUT (decl) = 0;
 	      /* Generate RTL for this function now that we know we
 		 need it.  */
-	      expand_body (decl);
-	      /* Undo the damage done by finish_function.  */
-	      DECL_EXTERNAL (decl) = 0;
-	      DECL_NOT_REALLY_EXTERN (decl) = saved_not_really_extern;
+	      expand_or_defer_fn (decl);
 	      /* If we're compiling -fsyntax-only pretend that this
 		 function has been written out so that we don't try to
 		 expand it again.  */
@@ -3032,6 +3063,12 @@ finish_file ()
   /* We're done with static constructors, so we can go back to "C++"
      linkage now.  */
   pop_lang_context ();
+
+  if (flag_unit_at_time)
+    {
+      cgraph_finalize_compilation_unit ();
+      cgraph_optimize ();
+    }
 
   /* Now, issue warnings about static, but not defined, functions,
      etc., and emit debugging information.  */

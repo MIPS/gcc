@@ -1,3 +1,52 @@
+Sat Jul 19 16:55:02 CEST 2003  Jan Hubicka  <jh@suse.cz>
+	Merge from mainline:
+	Wed Jul  9 02:28:39 CEST 2003  Jan Hubicka  <jh@suse.cz>
+
+		* decl2.c (maybe_emit_vtables): Fix marking vtables as needed in
+		unit-at-a-time
+	Wed Jul  2 00:36:48 CEST 2003  Jan Hubicka  <jh@suse.cz>
+
+		* decl2.c (defer_fn): Set DECL_DEFER_OUTPUT.
+		(finish-file): Do not process function with DECL_DEFER_OUTPUT clear;
+		clear DECL_DEFER_OUTPUT once function is processed; avoid flags
+		massaging.
+
+		* cp-tree.h (DECL_NEEDED_P): Support unit-at-a-time
+		(expand_or_defer_fn): Declare.
+		(lower_function): Declare.
+		* decl.c (start_cleanup_fn): Use expand_or_defer_fn.
+		* decl2.c: Include cgraph.h and varpool.h
+		(maybe_emit_vtables):  Make explicit instantations as needed.
+		(mark_member_pointers, lower_function): New functions.
+		(finish_file): Do unit-at-a-time.
+		* method.c (synthesize_method): Use expand_or_defer_fn.
+		* optimize.c (maybe_clone_body): Use expand_or_defer_fn.
+		* parser.c (cp_parser_function_definition_after_decl): Use
+		expand_or_defer_fn.
+		* pt.c (instantiate_decl): Likewise.
+		* semantics.c: Include cgraph.h
+		(expand_or_defer_fn): Break out from ...
+		(expand_body): ... here; deal with unit-at-a-time.
+		* cp-lang.c (LANG_HOOKS_CALLGRAPH_EXPAND_FUNCTION,
+		LANG_HOOKS_CALLGRAPH_LOWER_FUNCTION): Define.
+	Tue Jun 24 13:52:34 CEST 2003  Jan Hubicka  <jh@suse.cz>
+
+		* class.c (build_vtable): Make vtables.
+		* cp-tree.h (DECL_VTABLE_OR_VTT_P): New macro.
+		* decl2.c (output_vtable_inherit): Rename to ...
+		(prepare_assemble_variable): ... this one; change interface.
+		(maybe_emit_vtables): Do not call output_vtable_inherit.
+		* cp-lang.c (LANG_HOOKS_PREPARE_ASSEMBLE_VARIABLE): Define.
+		* cp-tree.h (prepare_assemble_variable): New.
+	Mon Jun 23 19:41:27 CEST 2003  Jan Hubicka  <jh@suse.cz>
+
+		* decl.c (register_dtor_fn): Mark cleanup as used.
+		* decl2.c (mark_vtable_entries): Skip nops.
+		* rtti.c (get_tinfo_ptr): Mark tinfo as used.
+		(build_dynamic_cast_1): Likewise.
+		(tinfo_base_init): Likewise.
+		(emit_tinfo_decl): Likewise.
+
 2003-07-17  Josef Zlomek  <zlomekj@suse.cz>
 
 	PR/11559:

@@ -47,8 +47,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tm_p.h"
 #include "debug.h"
 #include "target.h"
-
 #include "cgraph.h"
+
 #ifdef XCOFF_DEBUGGING_INFO
 #include "xcoffout.h"		/* Needed for external data
 				   declarations for e.g. AIX 4.x.  */
@@ -1754,6 +1754,7 @@ assemble_label (name)
 {
   ASM_OUTPUT_LABEL (asm_out_file, name);
 }
+
 /* Set the symbol_referenced flag for ID and notify callgraph code.  */
 void
 mark_referenced (tree id)
@@ -1761,7 +1762,7 @@ mark_referenced (tree id)
   if (!TREE_SYMBOL_REFERENCED (id))
     {
       struct cgraph_node *node;
-      /*struct cgraph_varpool_node *vnode;*/
+      struct cgraph_varpool_node *vnode;
 
       if (!cgraph_global_info_ready)
 	{
@@ -1770,9 +1771,9 @@ mark_referenced (tree id)
 	    cgraph_mark_needed_node (node, 1);
 	}
 
-      /*vnode = cgraph_varpool_node_for_identifier (id);
+      vnode = cgraph_varpool_node_for_identifier (id);
       if (vnode)
-	cgraph_varpool_mark_needed_node (vnode);*/
+	cgraph_varpool_mark_needed_node (vnode);
     }
   TREE_SYMBOL_REFERENCED (id) = 1;
 }

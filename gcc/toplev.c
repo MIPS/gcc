@@ -73,6 +73,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "cfglayout.h"
 #include "cfgloop.h"
 #include "vpt.h"
+#include "cgraph.h"
 
 #if defined (DWARF2_UNWIND_INFO) || defined (DWARF2_DEBUGGING_INFO)
 #include "dwarf2out.h"
@@ -2024,7 +2025,14 @@ wrapup_global_declarations (vec, len)
 	    {
 	      bool needed = 1;
 
-	      if (TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl)))
+	      if (flag_unit_at_time
+		  && cgraph_varpool_node (decl)->finalized)
+		needed = 0;
+	      else if (flag_unit_at_time
+		       && (TREE_USED (decl)
+			   || TREE_USED (DECL_ASSEMBLER_NAME (decl))))
+		/* needed */;
+	      else if (TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl)))
 		/* needed */;
 	      else if (DECL_COMDAT (decl))
 		needed = 0;
@@ -2211,6 +2219,8 @@ compile_file ()
 
   (*lang_hooks.decls.final_write_globals)();
 
+  cgraph_varpool_assemble_pending_decls ();
+
     if (profile_arc_flag)
       /* This must occur after the loop to output deferred functions.
          Else the profiler initializer would not be emitted if all the
@@ -2323,7 +2333,13 @@ rest_of_decl_compilation (decl, asmspec, top_level, at_end)
       /* Don't output anything when a tentative file-scope definition
 	 is seen.  But at end of compilation, do output code for them.  */
       if (at_end || !DECL_DEFER_OUTPUT (decl))
-	assemble_variable (decl, top_level, at_end, 0);
+	{
+	  if (flag_unit_at_time && !cgraph_global_info_ready
+	      && TREE_CODE (decl) != FUNCTION_DECL && top_level)
+	    cgraph_varpool_finalize_decl (decl);
+	  else
+	    assemble_variable (decl, top_level, at_end, 0);
+	}
       if (decl == last_assemble_variable_decl)
 	{
 	  ASM_FINISH_DECLARE_OBJECT (asm_out_file, decl,

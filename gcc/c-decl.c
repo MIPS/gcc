@@ -1877,10 +1877,11 @@ pushdecl (x)
 	      && ! TREE_PUBLIC (x) && ! DECL_EXTERNAL (x))
 	    {
 	      /* Okay to redeclare an ANSI built-in as static.  */
-	      if (t != 0 && DECL_BUILT_IN (t))
+	      if (t != 0 && TREE_CODE (t) == FUNCTION_DECL && DECL_BUILT_IN (t))
 		;
 	      /* Okay to declare a non-ANSI built-in as anything.  */
-	      else if (t != 0 && DECL_BUILT_IN_NONANSI (t))
+	      else if (t != 0 && TREE_CODE (t) == FUNCTION_DECL
+		       && DECL_BUILT_IN_NONANSI (t))
 		;
 	      /* Okay to have global type decl after an earlier extern
 		 declaration inside a lexical block.  */
@@ -3157,6 +3158,10 @@ finish_decl (decl, init, asmspec_tree)
 	    }
 	}
     }
+
+  /* If this was marked 'used', be sure it will be output.  */
+  if (lookup_attribute ("used", DECL_ATTRIBUTES (decl)))
+    mark_referenced (DECL_ASSEMBLER_NAME (decl));
 
   if (TREE_CODE (decl) == TYPE_DECL)
     {

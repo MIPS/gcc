@@ -10472,7 +10472,7 @@ instantiate_decl (d, defer_ok)
 
       /* Finish the function.  */
       d = finish_function (0);
-      expand_body (d);
+      expand_or_defer_fn (d);
     }
 
   /* We're not deferring instantiation any more.  */

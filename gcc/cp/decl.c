@@ -9175,7 +9175,7 @@ start_cleanup_fn ()
 static void
 end_cleanup_fn ()
 {
-  expand_body (finish_function (0));
+  expand_or_defer_fn (finish_function (0));
 
   pop_from_top_level ();
 }
@@ -9222,6 +9222,7 @@ register_dtor_fn (decl)
 
   /* Call atexit with the cleanup function.  */
   cxx_mark_addressable (cleanup);
+  mark_used (cleanup);
   cleanup = build_unary_op (ADDR_EXPR, cleanup, 0);
   if (flag_use_cxa_atexit)
     {

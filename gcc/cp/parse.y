@@ -811,9 +811,9 @@ function_body:
 
 fndef:
 	  fn.def1 maybe_return_init function_body
-		{ expand_body (finish_function (0)); }
+		{ expand_or_defer_fn (finish_function (0)); }
 	| fn.def1 maybe_return_init function_try_block
-		{ expand_body (finish_function (0)); }
+		{ expand_or_defer_fn (finish_function (0)); }
 	| fn.def1 maybe_return_init error
 		{ }
 	;
@@ -2254,12 +2254,12 @@ initlist:
 pending_inline:
 	  PRE_PARSED_FUNCTION_DECL maybe_return_init function_body
 		{
-		  expand_body (finish_function (2));
+		  expand_or_defer_fn (finish_function (2));
 		  process_next_inline ($1);
 		}
 	| PRE_PARSED_FUNCTION_DECL maybe_return_init function_try_block
 		{
-		  expand_body (finish_function (2));
+		  expand_or_defer_fn (finish_function (2));
                   process_next_inline ($1);
 		}
 	| PRE_PARSED_FUNCTION_DECL maybe_return_init error
