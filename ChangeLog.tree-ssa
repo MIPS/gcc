@@ -1,3 +1,8 @@
+2004-03-26  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* configure.in: Add support for --without-libbanshee.
+	* configure: Regenerated.
+
 2004-02-17  Brian Booth  <bbooth@redhat.com>
 
 	* MAINTAINERS.tree-ssa: Add self to write after approval.
