@@ -24,6 +24,7 @@
 #include "system.h"
 #include "varray.h"
 #include "ggc.h"
+#include "hashtab.h"
 
 #define VARRAY_HDR_SIZE (sizeof (struct varray_head_tag) - sizeof (varray_data))
 
@@ -57,6 +58,56 @@ static const int uses_ggc[NUM_VARRAY_DATA] = {
   0, 0, 0, 1
 };
 
+#ifdef GATHER_STATISTICS
+
+/* Store infromation about each particular varray.  */
+struct varray_descriptor
+{
+  const char *name;
+  int allocated;
+  int created;
+  int resized;
+  int copied;
+};
+
+/* Hashtable mapping varray names to descriptors.  */
+static htab_t varray_hash;
+
+/* Hashtable helpers.  */
+static hashval_t
+hash_descriptor (const void *p)
+{
+  const struct varray_descriptor *d = p;
+  return htab_hash_pointer (d->name);
+}
+static int
+eq_descriptor (const void *p1, const void *p2)
+{
+  const struct varray_descriptor *d = p1;
+  return d->name == p2;
+}
+
+/* For given name, return descriptor, create new if needed.  */
+static struct varray_descriptor *
+varray_descriptor (const char *name)
+{
+  struct varray_descriptor **slot;
+
+  if (!varray_hash)
+    varray_hash = htab_create (10, hash_descriptor, eq_descriptor, NULL);
+
+  slot = (struct varray_descriptor **)
+    htab_find_slot_with_hash (varray_hash, name,
+		    	      htab_hash_pointer (name),
+			      1);
+  if (*slot)
+    return *slot;
+  *slot = xcalloc (sizeof (**slot), 1);
+  (*slot)->name = name;
+  return *slot;
+}
+#endif
+
 /* Allocate a virtual array with NUM_ELEMENT elements, each of which is
    ELEMENT_SIZE bytes long, named NAME.  Array elements are zeroed.  */
 varray_type
@@ -67,6 +118,12 @@ varray_init (num_elements, element_kind, name)
 {
   size_t data_size = num_elements * element_size[element_kind];
   varray_type ptr;
+#ifdef GATHER_STATISTICS
+  struct varray_descriptor *desc = varray_descriptor (name);
+
+  desc->created++;
+  desc->allocated += data_size + VARRAY_HDR_SIZE;
+#endif
   if (uses_ggc [element_kind])
     ptr = (varray_type) ggc_alloc_cleared (VARRAY_HDR_SIZE + data_size);
   else
@@ -93,6 +150,15 @@ varray_grow (va, n)
       size_t elem_size = element_size[va->type];
       size_t old_data_size = old_elements * elem_size;
       size_t data_size = n * elem_size;
+#ifdef GATHER_STATISTICS
+      struct varray_descriptor *desc = varray_descriptor (va->name);
+      varray_type oldva = va;
+
+      if (data_size > old_data_size)
+        desc->allocated += data_size - old_data_size;
+      desc->resized ++;
+#endif
+
 
       if (uses_ggc[va->type])
 	va = (varray_type) ggc_realloc (va, VARRAY_HDR_SIZE + data_size);
@@ -101,6 +167,10 @@ varray_grow (va, n)
       va->num_elements = n;
       if (n > old_elements)
 	memset (&va->data.c[old_data_size], 0, data_size - old_data_size);
+#ifdef GATHER_STATISTICS
+      if (oldva != va)
+        desc->copied++;
+#endif
     }
 
   return va;
@@ -137,3 +207,43 @@ varray_check_failed (va, n, file, line, function)
 }
 
 #endif
+
+/* Output per-varray statistics.  */
+#ifdef GATHER_STATISTICS
+struct output_info
+{
+  int count;
+  int size;
+};
+static int
+print_statistics (void **slot, void *b)
+{
+  struct varray_descriptor *d = (struct varray_descriptor *) *slot;
+  struct output_info *i = (struct output_info *) b;
+
+  if (d->allocated)
+    {
+      fprintf (stderr, "%-21s %6d %10d %7d %7d\n", d->name,
+	       d->created, d->allocated, d->resized, d->copied);
+      i->size += d->allocated;
+      i->count += d->created;
+    }
+  return 1;
+}
+#endif
+void dump_varray_statistics (void)
+{
+#ifdef GATHER_STATISTICS
+  struct output_info info;
+
+  fprintf (stderr, "\nVARRAY Kind            Count      Bytes  Resized copied\n");
+  fprintf (stderr, "-------------------------------------------------------\n");
+  info.count = 0;
+  info.size = 0;
+  htab_traverse (varray_hash, print_statistics, &info);
+  fprintf (stderr, "-------------------------------------------------------\n");
+  fprintf (stderr, "%-20s %7d %10d\n",
+	   "Total", info.count, info.size);
+  fprintf (stderr, "-------------------------------------------------------\n");
+#endif
+}
