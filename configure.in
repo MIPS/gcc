@@ -315,6 +315,7 @@ case ${with_libbanshee} in
   no)
     noconfigdirs="$noconfigdirs libbanshee" ;;
   yes|"")
+    with_libbanshee=yes
     ;;
   *)
     AC_MSG_ERROR([--with-libbanshee can only be empty, "yes" or "no" (empty defaults to "yes".])

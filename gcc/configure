@@ -12042,6 +12042,9 @@ else
   MAINT='#'
 fi
 
+echo "$as_me:$LINENO: checking whether to use libbanshee for points-to alias analysis" >&5
+echo $ECHO_N "checking whether to use libbanshee for points-to alias analysis... $ECHO_C" >&6
+
 # Check whether --with-libbanshee or --without-libbanshee was given.
 if test "${with_libbanshee+set}" = set; then
   withval="$with_libbanshee"
@@ -12070,6 +12073,8 @@ else
 	BANSHEEREBUILD=""
 	ANDER=""
 fi
+echo "$as_me:$LINENO: result: $with_libbanshee" >&5
+echo "${ECHO_T}$with_libbanshee" >&6
 
 
 

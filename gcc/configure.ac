@@ -2796,6 +2796,8 @@ else
   MAINT='#'
 fi
 AC_SUBST(MAINT)dnl
+
+AC_MSG_CHECKING([whether to use libbanshee for points-to alias analysis])
 AC_ARG_WITH(libbanshee,
 [  --with-libbanshee	  enable libbanshee],
 libbanshee="$with_libbanshee",
@@ -2817,6 +2819,7 @@ else
 	BANSHEEREBUILD=""
 	ANDER=""
 fi
+AC_MSG_RESULT($with_libbanshee)
 
 AC_SUBST(ANDER)
 AC_SUBST(BANSHEEINC)
