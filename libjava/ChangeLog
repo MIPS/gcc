@@ -1,3 +1,9 @@
+2004-06-13  Michael Koch  <konqueror@gmx.de>
+
+	* javax/swing/text/DefaultCaret.java,
+	javax/swing/text/BadLocationException.java:
+	Reformatted.
+
 2004-06-12  Thomas Fitzsimmons  <fitzsim@redhat.com>
 
 	* gnu/java/awt/peer/gtk/GtkTextAreaPeer.java (DEFAULT_ROWS,
