@@ -20,8 +20,8 @@ the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
 /* Even though we support "/", allow "\" since everybody tests both.  */
-#define DIR_SEPARATOR '\\'
-#define DIR_SEPARATOR_2 '/'
+#define DIR_SEPARATOR '/'
+#define DIR_SEPARATOR_2 '\\'
 
 /* Mingw32 does not try to hide the underlying DOS-based file system
    like Cygwin does.  */
@@ -31,3 +31,9 @@ Boston, MA 02111-1307, USA.  */
 
 #undef PATH_SEPARATOR
 #define PATH_SEPARATOR ';'
+
+#define HOST_WIDEST_INT long long
+#define HOST_BITS_PER_WIDEST_INT HOST_BITS_PER_LONGLONG
+#define HOST_WIDEST_INT_PRINT_DEC "%I64d"
+#define HOST_WIDEST_INT_PRINT_UNSIGNED "%I64u"
+#define HOST_WIDEST_INT_PRINT_HEX "0x%I64x"

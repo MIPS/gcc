@@ -7,7 +7,7 @@
 @c                                                                            o
 @c                              G N A T _ U G                                 o
 @c                                                                            o
-@c                            $Revision: 1.1.2.1 $
+@c                            $Revision: 1.1.2.2 $
 @c                                                                            o
 @c          Copyright (C) 1992-2002 Ada Core Technologies, Inc.               o
 @c                                                                            o
@@ -98,9 +98,9 @@
 @end ifset
 
 @subtitle GNAT, The GNU Ada 95 Compiler
-@subtitle Document revision level $Revision: 1.1.2.1 $
+@subtitle Document revision level $Revision: 1.1.2.2 $
 @subtitle GNAT Version 3.16w
-@subtitle Date: $Date: 2002/04/21 12:53:33 $
+@subtitle Date: $Date: 2002/05/04 03:28:06 $
 
 @author Ada Core Technologies, Inc.
 
@@ -132,7 +132,7 @@ Free Documentation License''.
 
 @end titlepage
 
-@ifinfo
+@ifnottex
 @node Top, About This Guide, (dir), (dir)
 @top GNAT User's Guide
 
@@ -156,7 +156,7 @@ GNAT, The GNU Ada 95 Compiler
 
 GNAT Version 3.16w
 
-Date: $Date: 2002/04/21 12:53:33 $
+Date: $Date: 2002/05/04 03:28:06 $
 
 Ada Core Technologies, Inc.
 
@@ -623,7 +623,7 @@ Performance Considerations
 
 * Index::
 @end menu
-@end ifinfo
+@end ifnottex
 
 @node About This Guide
 @unnumbered About This Guide

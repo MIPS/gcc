@@ -33,6 +33,8 @@ Boston, MA 02111-1307, USA.  */
     || defined(__need_ptrdiff_t) || defined(__need_NULL) \
     || defined(__need_wint_t)
 
+#ifndef RC_INVOKED
+
 /* Any one of these symbols __need_* means that GNU libc
    wants us just to define one data type.  So don't define
    the symbols that indicate this file's entire job has been done.  */
@@ -382,5 +384,6 @@ typedef __WINT_TYPE__ wint_t;
 
 #endif /* _STDDEF_H was defined this time */
 
+#endif /* not RC_INVOKED */
 #endif /* !_STDDEF_H && !_STDDEF_H_ && !_ANSI_STDDEF_H && !__STDDEF_H__
 	  || __need_XXX was not defined before */

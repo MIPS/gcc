@@ -48,11 +48,13 @@ Boston, MA 02111-1307, USA.  */
 
 #undef CPP_SPEC
 #define CPP_SPEC \
-  "-remap %(cpp_cpu) %{posix:-D_POSIX_SOURCE} %{mthreads:-D_MT} \
+  "%(cpp_cpu) %{posix:-D_POSIX_SOURCE} %{mthreads:-D_MT} \
   -D__stdcall=__attribute__((__stdcall__)) \
   -D__cdecl=__attribute__((__cdecl__)) \
+  -D__fastcall=__attribute__((__fastcall__)) \
   %{!ansi:-D_stdcall=__attribute__((__stdcall__)) \
-    -D_cdecl=__attribute__((__cdecl__))} \
+    -D_cdecl=__attribute__((__cdecl__)) \
+    -D_fastcall=__attribute__((__fastcall__))} \
   -D__declspec(x)=__attribute__((x))"
 
 
@@ -74,11 +76,15 @@ Boston, MA 02111-1307, USA.  */
 /* Include in the mingw32 libraries with libgcc */
 #undef LIBGCC_SPEC
 #define LIBGCC_SPEC \
-  "%{mthreads:-lmingwthrd} -lmingw32 -lgcc -lmoldname -lmsvcrt"
+  "%{mthreads:-lmingwthrd} -lmingw32 -lgcc -lmoldname -lmingwex -lmsvcrt"
 
 #undef STARTFILE_SPEC
 #define STARTFILE_SPEC "%{shared|mdll:dllcrt2%O%s} \
-  %{!shared:%{!mdll:crt2%O%s}} %{pg:gcrt2%O%s}"
+  %{!shared:%{!mdll:crt2%O%s}} %{pg:gcrt2%O%s} \
+  crtbegin%O%s"
+
+#undef ENDFILE_SPEC
+#define ENDFILE_SPEC "crtend%O%s"
 
 /* MS runtime does not need a separate math library.  */
 #undef MATH_LIBRARY
@@ -110,3 +116,10 @@ do {						\
    Cygwin profiling code is written. Once "fixed", we can remove this.  */
 #undef SUBTARGET_PROLOGUE
 
+/* Define as unsigned short for compatability with MS runtime.  */
+#undef WINT_TYPE
+#define WINT_TYPE "short unsigned int"
+
+/* Use Dwarf2 EH handling.  */ 
+#undef DWARF2_UNWIND_INFO
+#define DWARF2_UNWIND_INFO 1

@@ -1,0 +1,6 @@
+2002-04-3  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	* libstdc++-v3/configure.target (CPULIMITSH): Set to
+	config/os/mingw32 for i?86-*-mingw32*.
+	* libstdc++-v3/config/os/mingw32/bits/cpu_limits.h:
+	New file.

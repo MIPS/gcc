@@ -2673,6 +2673,25 @@ add_prefix (pprefix, prefix, component, priority, require_machine_suffix, warn)
   pl->next = (*prev);
   (*prev) = pl;
 }
+
+#if defined (__MINGW32__)
+static char *
+canon_filename (char *fname)
+{
+  char* p = fname;
+
+  while (*p)
+    {
+      if (*p == '/')
+	    *p = '\\';
+      p++;
+    }
+  return fname;
+}
+#else
+#define canon_filename(f) f
+#endif
+
 
 /* Execute the command specified by the arguments on the current line of spec.
    When using pipes, this includes several piped-together commands
@@ -2712,7 +2731,7 @@ execute ()
   string = find_a_file (&exec_prefixes, commands[0].prog, X_OK);
 
   if (string)
-    commands[0].argv[0] = string;
+    commands[0].argv[0] = canon_filename(string);
 
   for (n_commands = 1, i = 0; i < argbuf_index; i++)
     if (strcmp (argbuf[i], "|") == 0)
@@ -2725,7 +2744,7 @@ execute ()
 	commands[n_commands].argv = &argbuf[i + 1];
 	string = find_a_file (&exec_prefixes, commands[n_commands].prog, X_OK);
 	if (string)
-	  commands[n_commands].argv[0] = string;
+	  commands[n_commands].argv[0] = canon_filename(string);
 	n_commands++;
       }
 

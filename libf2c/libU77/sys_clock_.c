@@ -40,6 +40,11 @@ Boston, MA 02111-1307, USA.  */
 #if HAVE_UNISTD_H
 #  include <unistd.h>
 #endif
+#if defined (_WIN32)
+#  include <windows.h>
+#  undef min
+#  undef max
+#endif
 #include <errno.h>		/* for ENOSYS */
 #include "f2c.h"
 
@@ -50,7 +55,55 @@ int G77_system_clock_0 (count, count_rate, count_max)
 int G77_system_clock_0 (integer *count, integer *count_rate, integer *count_max)
 #endif
 {
-#if defined (HAVE_TIMES)
+#if defined (_WIN32)
+  /* Windows32 provides a slew of interfaces for getting time information;
+     we use the high resolution performance counters available on all ix86 
+     and Alphas. The downside is that all the information is 64bit. We
+     could use GetTickCount or timeGetTime interface, but then the resolution
+     is only 1.0e-3s. */
+
+  unsigned long long clock_freq;
+  unsigned long long cnt;
+  LARGE_INTEGER counter_val;
+  LARGE_INTEGER freq;
+  if (! QueryPerformanceFrequency (&freq))
+    {
+      errno = ENOSYS;
+      return -1;
+    }
+
+#ifdef _GNU_H_WINDOWS32_STRUCTURES
+  clock_freq = ((unsigned long long) freq.HighPart << 32)
+	       + ((unsigned) freq.LowPart);
+#else
+  clock_freq = freq.QuadPart;
+#endif
+  if (count_rate) 
+    {
+       /* the following cast is obviously dubious, but there is only so much
+          one can do with 32bit quantities. */
+      *count_rate = (unsigned long) clock_freq;
+    }
+  if (count_max)		/* optional arg present? */
+    *count_max = INT_MAX;		/* dubious */
+
+  if (! QueryPerformanceCounter (&counter_val))
+    {
+      errno = ENOSYS;
+      return -1;
+    }
+
+#ifdef _GNU_H_WINDOWS32_STRUCTURES
+  cnt = ((unsigned long long) counter_val.HighPart << 32)
+	+ ((unsigned) counter_val.LowPart);
+#else
+  cnt = counter_val.QuadPart;
+#endif
+  
+  /* another dubious cast. */
+  *count = (unsigned long) cnt;
+  return 0;
+#elif defined (HAVE_TIMES)
   struct tms buffer;
   unsigned long cnt;
   if (count_rate) {

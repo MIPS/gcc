@@ -6,7 +6,7 @@
 --                                                                          --
 --                                  B o d y                                 --
 --                                                                          --
---                             $Revision: 1.2 $
+--                             $Revision: 1.2.10.1 $
 --                                                                          --
 --         Copyright (C) 1992-2001, Free Software Foundation, Inc.          --
 --                                                                          --
@@ -403,6 +403,7 @@ package body System.Task_Primitives.Operations is
 
       if Rel_Time <= 0.0 then
          Timed_Out := True;
+         Wait_Result := 0;
       else
          Int_Rel_Time := DWORD (Rel_Time);
          Time_Out := Int_Rel_Time * 1000 +

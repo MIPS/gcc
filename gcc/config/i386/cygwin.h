@@ -32,35 +32,35 @@ Boston, MA 02111-1307, USA.  */
 #include "i386/gas.h"
 #include "dbxcoff.h"
 
-/* Augment TARGET_SWITCHES with the cygwin/no-cygwin options.  */
-#define MASK_WIN32 0x40000000 /* Use -lming32 interface */
-#define MASK_CYGWIN  0x20000000 /* Use -lcygwin interface */
-#define MASK_WINDOWS 0x10000000 /* Use windows interface */
-#define MASK_DLL     0x08000000 /* Use dll interface    */
-#define MASK_NOP_FUN_DLLIMPORT 0x20000 /* Ignore dllimport for functions */
+/* Masks for subtarget switches used by other files.  */
+#define MASK_NOP_FUN_DLLIMPORT 0x08000000 /* Ignore dllimport for functions */
+#define MASK_MS_BITFIELD_LAYOUT 0x10000000 /* Use MS bitfield layout */
 
-#define TARGET_WIN32             (target_flags & MASK_WIN32)
-#define TARGET_CYGWIN            (target_flags & MASK_CYGWIN)
-#define TARGET_WINDOWS           (target_flags & MASK_WINDOWS)
-#define TARGET_DLL               (target_flags & MASK_DLL)
+/* Used in winnt.c.  */
 #define TARGET_NOP_FUN_DLLIMPORT (target_flags & MASK_NOP_FUN_DLLIMPORT)
+/* Tell i386.c to put a target-specific specialization of
+   ms_bitfield_layout_p in struct gcc_target targetm.  */
+#define TARGET_USE_MS_BITFIELD_LAYOUT  \
+  (target_flags & MASK_MS_BITFIELD_LAYOUT)	
+
 
 #undef  SUBTARGET_SWITCHES
 #define SUBTARGET_SWITCHES \
-{ "cygwin",		  MASK_CYGWIN,					\
-  N_("Use the Cygwin interface") },					\
-{ "no-cygwin",		  MASK_WIN32,					\
-  N_("Use the Mingw32 interface") },					\
-{ "windows",		  MASK_WINDOWS, N_("Create GUI application") },	\
-{ "no-win32",		  -MASK_WIN32, N_("Don't set Windows defines") },\
-{ "win32",		  0, N_("Set Windows defines") },		\
-{ "console",		  -MASK_WINDOWS,				\
-  N_("Create console application") }, 					\
-{ "dll",		  MASK_DLL, N_("Generate code for a DLL") },	\
-{ "nop-fun-dllimport",	  MASK_NOP_FUN_DLLIMPORT,			\
-  N_("Ignore dllimport for functions") }, 				\
-{ "no-nop-fun-dllimport", -MASK_NOP_FUN_DLLIMPORT, "" }, \
-{ "threads",		  0, N_("Use Mingw-specific thread support") },
+{ "no-cygwin",		  0, N_("Use the Mingw32 interface") },	\
+{ "cygwin",		  0, N_("Use the Cygwin interface") },	\
+{ "no-win32",		  0, N_("Don't set Windows defines") },	\
+{ "win32",		  0, N_("Set Windows defines") },	\
+{ "console",		  0, N_("Create console application") },\
+{ "windows",		  0, N_("Create GUI application") },	\
+{ "dll",		  0, N_("Generate code for a DLL") },	\
+{ "nop-fun-dllimport",	  MASK_NOP_FUN_DLLIMPORT,		\
+  N_("Ignore dllimport for functions") }, 			\
+{ "no-nop-fun-dllimport", -MASK_NOP_FUN_DLLIMPORT, "" },	\
+{ "threads",		  0, N_("Use Mingw-specific thread support") },	\
+{ "no-ms-bitfields",	  -MASK_MS_BITFIELD_LAYOUT,		\
+  N_("Don't use MS bitfield layout") },				\
+{ "ms-bitfields",	  MASK_MS_BITFIELD_LAYOUT,		\
+  N_("Use MS bitfield layout") },
 
 #undef CPP_PREDEFINES
 #define CPP_PREDEFINES "-D_X86_=1 -Asystem=winnt"
@@ -106,8 +106,10 @@ Boston, MA 02111-1307, USA.  */
 #undef CPP_SPEC
 #define CPP_SPEC "%(cpp_cpu) %{posix:-D_POSIX_SOURCE} \
   -D__stdcall=__attribute__((__stdcall__)) \
+  -D__fastcall=__attribute__((__fastcall__)) \
   -D__cdecl=__attribute__((__cdecl__)) \
   %{!ansi:-D_stdcall=__attribute__((__stdcall__)) \
+    -D_fastcall=__attribute__((__fastcall__))} \
     -D_cdecl=__attribute__((__cdecl__))} \
   -D__declspec(x)=__attribute__((x)) \
   -D__i386__ -D__i386 \
@@ -124,8 +126,11 @@ Boston, MA 02111-1307, USA.  */
 #define STARTFILE_SPEC "\
   %{shared|mdll: %{mno-cygwin:" MINGW_LIBS " dllcrt2%O%s}}\
   %{!shared: %{!mdll: %{!mno-cygwin:crt0%O%s} %{mno-cygwin:" MINGW_LIBS " crt2%O%s}\
-  %{pg:gcrt0%O%s}}}\
-"
+  %{pg:gcrt0%O%s}}}   crtbegin%O%s"
+
+#undef ENDFILE_SPEC
+#define ENDFILE_SPEC "crtend%O%s"
+
 
 /* Normally, -lgcc is not needed since everything in it is in the DLL, but we
    want to allow things to be added to it when installing new versions of
@@ -287,8 +292,9 @@ extern void i386_pe_encode_section_info PARAMS ((TREE));
 /* Utility used only in this file.  */
 #define I386_PE_STRIP_ENCODING(SYM_NAME) \
   ((SYM_NAME) + ((SYM_NAME)[0] == '@' \
-		  ? ((SYM_NAME)[3] == '*' ? 4 : 3) : 0) \
-	      + ((SYM_NAME)[0] == '*' ? 1 : 0))
+		? (((SYM_NAME)[3] == '*' || (SYM_NAME)[3] == '+') \
+		   ? 4 : 3 ) : 0 ) \
+	      + (((SYM_NAME)[0] == '*' || (SYM_NAME)[0] == '+') ? 1 : 0))
 
 /* This macro gets just the user-specified name
    out of the string in a SYMBOL_REF.  Discard
@@ -315,9 +321,26 @@ do {									\
 
 /* Output a reference to a label.  */
 #undef ASM_OUTPUT_LABELREF
-#define ASM_OUTPUT_LABELREF(STREAM, NAME)  		\
-  fprintf (STREAM, "%s%s", USER_LABEL_PREFIX, 		\
-	   I386_PE_STRIP_ENCODING (NAME))		\
+#define ASM_OUTPUT_LABELREF(STREAM, NAME)		\
+do {							\
+  if (strncmp(NAME,"@i.",3) == 0)			\
+    {							\
+      if (NAME[3] == '+')				\
+        fprintf (STREAM, "__imp_@%s", 			\
+		 I386_PE_STRIP_ENCODING (NAME));	\
+      else						\
+	fprintf (STREAM, "__imp__%s", 			\
+		 I386_PE_STRIP_ENCODING (NAME));	\
+    }							\
+  else if ((NAME[0] == '+') ||				\
+	   ((NAME[0] == '@') && (NAME[3] == '+')))	\
+    fprintf (STREAM, "@%s",  				\
+             I386_PE_STRIP_ENCODING (NAME));		\
+  else							\
+    fprintf (STREAM, "%s%s", user_label_prefix, 	\
+             I386_PE_STRIP_ENCODING (NAME));		\
+} while (0)
+
 
 /* Output a common block.  */
 #undef ASM_OUTPUT_COMMON
@@ -426,7 +449,7 @@ extern void i386_pe_unique_section PARAMS ((TREE, int));
 /* DWARF2 Unwinding doesn't work with exception handling yet.  To make it
    work, we need to build a libgcc_s.dll, and dcrt0.o should be changed to
    call __register_frame_info/__deregister_frame_info.  */
-#define DWARF2_UNWIND_INFO 0
+#define DWARF2_UNWIND_INFO 1
 
 /* Don't assume anything about the header files.  */
 #define NO_IMPLICIT_EXTERN_C
@@ -466,7 +489,6 @@ extern int i386_pe_dllimport_name_p PARAMS ((const char *));
 #undef PCC_BITFIELD_TYPE_MATTERS
 #define PCC_BITFIELD_TYPE_MATTERS 1
 #define GROUP_BITFIELDS_BY_ALIGN TYPE_NATIVE(rec)
-
 
 /* Enable alias attribute support.  */
 #ifndef SET_ASM_OP
