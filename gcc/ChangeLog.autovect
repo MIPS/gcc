@@ -1,3 +1,18 @@
+2004-11-17  Daniel Berlin  <dberlin@dberlin.org>
+
+	* Makefile.in (OBJS-common): Add tree-ssa-align.o
+	(tree-ssa-align.o): Add.
+	* tree-flow.h (struct alignment_d): New.
+	(dump_align_info): Add proto.
+	(debug_align_info): Add proto.
+	* tree-optimize.c (init_tree_optimization_passes): Add
+	pass_align_info. 
+	* tree-pass.h (PROP_align): New.
+	(pass_align_analysis): New.
+	* tree-ssa-align.c: New file.
+	* tree-vectorizer.c (vect_get_ptr_offset): Copy code from
+	lno-branch, written by Ira Rosen (irar@il.ibm.com).
+	
 2004-11-12  Devang Patel  <dpatel@apple.com>
 
 	* optabs.c (vector_compare_rtx): Use tcc_comparison.

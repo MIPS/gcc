@@ -74,6 +74,14 @@ struct ptr_info_def GTY(())
      pointer will be represented by this memory tag, instead of the type
      tag computed by TBAA.  */
   tree name_mem_tag;
+
+  /*  The alignment of a pointer p is n if "(p - offset) mod n == 0". */
+  struct alignment_d
+  {
+    unsigned int n;
+    unsigned int offset;
+  } alignment;
+
 };
 
 
@@ -738,6 +746,10 @@ extern bool expr_invariant_in_loop_p (struct loop *loop, tree expr);
 /* In gimplify.c  */
 
 tree force_gimple_operand (tree, tree *, bool, tree);
+
+/* In tree-ssa-align.c  */
+extern void dump_align_info (FILE *);
+extern void debug_align_info (void);
 
 #include "tree-flow-inline.h"
 

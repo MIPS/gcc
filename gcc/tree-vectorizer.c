@@ -1268,12 +1268,44 @@ vect_debug_details (struct loop *loop)
    Compute the OFFSET modulo vector-type alignment of pointer REF in bits.  */
 
 static tree 
-vect_get_ptr_offset (tree ref ATTRIBUTE_UNUSED, 
-		     tree vectype ATTRIBUTE_UNUSED, 
-		     tree *offset ATTRIBUTE_UNUSED)
+vect_get_ptr_offset (tree ref, tree vectype, tree *offset)
 {
-  /* TODO: Use alignment information.  */
-  return NULL_TREE; 
+  unsigned int ptr_n, ptr_offset;
+
+  if (!POINTER_TYPE_P (TREE_TYPE (ref)))
+    return NULL_TREE;
+
+  if (vect_debug_details (NULL))
+    {
+      fprintf (dump_file, "alignment of pointer ");
+      print_generic_expr (dump_file, ref, TDF_SLIM);
+      fprintf (dump_file, " offset %d n %d\n ",
+	       get_ptr_info (ref)->alignment.offset,
+	       get_ptr_info (ref)->alignment.n);
+    }
+  /* The pointer is aligned to N with offset OFFSET.  */
+  ptr_offset = get_ptr_info (ref)->alignment.offset;
+  ptr_n = get_ptr_info (ref)->alignment.n;  
+		  
+  if (ptr_n/TYPE_ALIGN (vectype) >= 1 && ptr_n % TYPE_ALIGN (vectype) == 0)
+    {
+      /* Compute the offset for vectype.  */
+      ptr_offset = ptr_offset % TYPE_ALIGN (vectype);
+      /* In bits.  */
+      ptr_offset = ptr_offset * BITS_PER_UNIT;
+      *offset = fold_convert (unsigned_type_node,
+			      build_int_cst (NULL_TREE, ptr_offset));
+      return ref;
+    }
+  else 
+    {
+      if (vect_debug_details (NULL))
+	{
+	  fprintf (dump_file, "misaligned pointer access: ");
+	  print_generic_expr (dump_file, ref, TDF_SLIM);
+	}
+      return NULL_TREE;	      
+    }
 }
 
 

@@ -889,7 +889,7 @@ OBJS-common = \
  tree-chrec.o tree-scalar-evolution.o tree-data-ref.o			   \
  tree-cfg.o tree-dfa.o tree-eh.o tree-ssa.o tree-optimize.o tree-gimple.o  \
  gimplify.o tree-pretty-print.o tree-into-ssa.o          \
- tree-outof-ssa.o tree-ssa-ccp.o tree-vn.o             \
+ tree-outof-ssa.o tree-ssa-ccp.o tree-ssa-align.o tree-vn.o             \
  tree-ssa-dce.o  tree-ssa-copy.o tree-nrv.o tree-ssa-copyrename.o  \
  tree-ssa-pre.o tree-ssa-live.o tree-ssa-operands.o tree-ssa-alias.o       \
  tree-ssa-phiopt.o tree-ssa-forwprop.o tree-nested.o tree-ssa-dse.o	   \
@@ -1947,6 +1947,11 @@ tree-ssa-dce.o : tree-ssa-dce.c $(CONFIG_H) system.h errors.h $(TREE_H) \
     $(RTL_H) $(TM_P_H) $(TREE_FLOW_H) diagnostic.h $(TIMEVAR_H) $(TM_H) \
     coretypes.h $(TREE_DUMP_H) tree-pass.h $(FLAGS_H)
 tree-ssa-ccp.o : tree-ssa-ccp.c $(TREE_FLOW_H) $(CONFIG_H) \
+   $(SYSTEM_H) $(RTL_H) $(TREE_H) $(TM_P_H) $(EXPR_H) $(GGC_H) output.h \
+   diagnostic.h errors.h function.h $(TIMEVAR_H) $(TM_H) coretypes.h \
+   $(TREE_DUMP_H) $(BASIC_BLOCK_H) tree-pass.h langhooks.h \
+   tree-ssa-propagate.h
+tree-ssa-align.o : tree-ssa-align.c $(TREE_FLOW_H) $(CONFIG_H) \
    $(SYSTEM_H) $(RTL_H) $(TREE_H) $(TM_P_H) $(EXPR_H) $(GGC_H) output.h \
    diagnostic.h errors.h function.h $(TIMEVAR_H) $(TM_H) coretypes.h \
    $(TREE_DUMP_H) $(BASIC_BLOCK_H) tree-pass.h langhooks.h \

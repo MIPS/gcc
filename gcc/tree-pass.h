@@ -95,6 +95,7 @@ struct dump_file_info
 #define PROP_no_crit_edges      (1 << 7)
 #define PROP_rtl		(1 << 8)
 #define PROP_alias		(1 << 9)
+#define PROP_align              (1 << 10)
 
 #define PROP_trees \
   (PROP_gimple_any | PROP_gimple_lcf | PROP_gimple_leh)
@@ -130,6 +131,7 @@ extern struct tree_opt_pass pass_unswitch;
 extern struct tree_opt_pass pass_iv_canon;
 extern struct tree_opt_pass pass_record_bounds;
 extern struct tree_opt_pass pass_if_conversion;
+extern struct tree_opt_pass pass_align_analysis;
 extern struct tree_opt_pass pass_vectorize;
 extern struct tree_opt_pass pass_complete_unroll;
 extern struct tree_opt_pass pass_iv_optimize;
