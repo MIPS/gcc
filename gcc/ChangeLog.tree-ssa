@@ -1,3 +1,9 @@
+2004-03-04  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-ssa-alias.c (compute_flow_sensitive_aliasing): If
+	a name tag has been marked call-clobbered, also mark the
+	corresponding type tag.
+
 2004-03-04  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* tree-ssa-loop-live.c (coalesce_tpa_members): Update the root

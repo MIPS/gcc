@@ -602,11 +602,10 @@ compute_flow_sensitive_aliasing (struct alias_info *ai)
       size_t j;
       tree ptr = VARRAY_TREE (ai->processed_ptrs, i);
       ssa_name_ann_t ann = ssa_name_ann (ptr);
+      var_ann_t v_ann = var_ann (SSA_NAME_VAR (ptr));
 
       if (ann->value_escapes_p || ann->pt_anything)
 	{
-	  var_ann_t v_ann = var_ann (SSA_NAME_VAR (ptr));
-
 	  /* If PTR escapes or may point to anything, then its associated
 	     memory tags are call-clobbered.  */
 	  if (ann->name_mem_tag)
@@ -648,6 +647,13 @@ compute_flow_sensitive_aliasing (struct alias_info *ai)
       if (ann->name_mem_tag && ann->pt_vars)
 	EXECUTE_IF_SET_IN_BITMAP (ann->pt_vars, 0, j,
 	    add_may_alias (ann->name_mem_tag, referenced_var (j)));
+
+      /* If the name tag is call clobbered, so is the type tag
+	 associated with the base VAR_DECL.  */
+      if (ann->name_mem_tag
+	  && v_ann->type_mem_tag
+	  && is_call_clobbered (ann->name_mem_tag))
+	mark_call_clobbered (v_ann->type_mem_tag);
     }
 }
 
