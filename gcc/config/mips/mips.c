@@ -2682,9 +2682,6 @@ mips_move_2words (operands, insn)
   enum delay_type delay = DELAY_NONE;
   struct mips_constant_info c;
 
-  if (code1 == SIGN_EXTEND)
-    return mips_sign_extend (insn, op0, XEXP (op1, 0));
-
   while (code0 == SUBREG)
     {
       subreg_offset0 += subreg_regno_offset (REGNO (SUBREG_REG (op0)),
