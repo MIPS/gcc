@@ -1,5 +1,12 @@
 2004-06-23  Michael Koch  <konqueror@gmx.de>
 
+	* javax/swing/plaf/basic/BasicScrollPaneUI.java
+	(BasicScrollPaneUI): Implements ScrollPaneConstants.
+	* javax/swing/plaf/basic/BasicToolBarUI.java
+	(BasicToolBarUI): Implements SwingConstants.
+
+2004-06-23  Michael Koch  <konqueror@gmx.de>
+
 	* javax/swing/plaf/basic/BasicTextUI.java
 	(installUI): Call specialized install methods.
 	(installDefaults): New method.

@@ -43,11 +43,13 @@ import java.awt.Graphics;
 
 import javax.swing.JComponent;
 import javax.swing.JScrollPane;
+import javax.swing.ScrollPaneConstants;
 import javax.swing.ScrollPaneLayout;
 import javax.swing.plaf.ComponentUI;
 import javax.swing.plaf.ScrollPaneUI;
 
 public class BasicScrollPaneUI extends ScrollPaneUI
+  implements ScrollPaneConstants
 {
 
     public static ComponentUI createUI(final JComponent c) 

@@ -44,7 +44,14 @@ import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.GridLayout;
 import java.awt.Point;
+import java.awt.event.ContainerListener;
+import java.awt.event.FocusListener;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
+import java.awt.event.WindowListener;
+import java.beans.PropertyChangeListener;
 import java.util.Enumeration;
+
 import javax.swing.JFrame;
 import javax.swing.JButton;
 import javax.swing.JComponent;
@@ -52,20 +59,14 @@ import javax.swing.JToolBar;
 import javax.swing.RootPaneContainer;
 import javax.swing.UIDefaults;
 import javax.swing.UIManager;
+import javax.swing.SwingConstants;
 import javax.swing.border.Border;
 import javax.swing.event.MouseInputListener;
-
-import java.beans.PropertyChangeListener;
-import java.awt.event.ContainerListener;
-import java.awt.event.FocusListener;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
-import java.awt.event.WindowListener;
-
 import javax.swing.plaf.ComponentUI;
 import javax.swing.plaf.ToolBarUI;
 
 public class BasicToolBarUI extends ToolBarUI
+  implements SwingConstants
 {
 
   public class DragWindow
