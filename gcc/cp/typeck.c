@@ -2280,24 +2280,6 @@ build_x_component_ref (datum, component, basetype_path, protect)
 
   return t;
 }
-
-tree
-build_bounded_ptr_field_ref (bp, field_number)
-     tree bp;
-     int field_number;
-{
-  /* GKM FIXME */
-  error ("bounded pointers are unsupported");
-  abort ();
-}
-
-tree
-build_bounded_ptr_check (bp, length)
-     tree bp;
-     tree length;
-{
-  return build_bounded_ptr_field_ref (bp, 0);
-}
 
 /* Given an expression PTR for a pointer, return an expression
    for the value pointed to.
@@ -4760,39 +4742,6 @@ build_unary_op (code, xarg, noconvert)
 
   error ("%s", errstring);
   return error_mark_node;
-}
-
-/* Build a CONSTRUCTOR node containing the three components of a bounded
-   pointer, built from the bare-pointer ADDR.  This function is sometimes
-   called on the result of a build_unary_op (ADDR_EXPR ...).  if BP is
-   non-NULL, it is a bounded pointer from which to take the low_bound and
-   high_bound.  Otherwise, if BP is NULL, we use ADDR for the low_bound, and
-   construct high_bound as the sum of the low_bound and the sizeof ADDR.  */
-
-tree
-build_bounded_ptr_constructor (addr)
-     tree addr;
-{
-  /* GKM FIXME */
-  error ("bounded pointers are unsupported");
-  abort ();
-}
-
-tree
-build_bounded_ptr_constructor_2 (addr, bounds)
-     tree addr;
-     tree bounds;
-{
-  return build_bounded_ptr_constructor (addr);
-}
-
-tree
-build_bounded_ptr_constructor_3 (addr, low_bound, high_bound)
-     tree addr;
-     tree low_bound;
-     tree high_bound;
-{
-  return build_bounded_ptr_constructor (addr);
 }
 
 #if 0

@@ -3090,7 +3090,7 @@ build_tmp_function_decl ()
 
   push_parm_decl (build_tree_list (build_tree_list (decl_specs, expr_decl),
 				   build_tree_list (NULL_TREE, NULL_TREE)));
-  parms = get_parm_info (0, -1);
+  parms = get_parm_info (0);
   poplevel (0, 0, 0);
 
   decl_specs = build_tree_list (NULL_TREE, objc_object_reference);
@@ -3115,9 +3115,9 @@ hack_method_prototype (nst_methods, tmp_decl)
   TREE_SET_CODE (nst_methods, INSTANCE_METHOD_DECL);
 
   if (METHOD_ADD_ARGS (nst_methods) == objc_ellipsis_node)
-    parms = get_parm_info (0, -1); /* we have a `, ...' */
+    parms = get_parm_info (0); /* we have a `, ...' */
   else
-    parms = get_parm_info (1, -1); /* place a `void_at_end' */
+    parms = get_parm_info (1); /* place a `void_at_end' */
 
   poplevel (0, 0, 0);	/* Must be called BEFORE start_function.  */
 
@@ -7247,9 +7247,9 @@ continue_method_def ()
 
   if (METHOD_ADD_ARGS (method_context) == objc_ellipsis_node)
     /* We have a `, ...' immediately following the selector.  */
-    parmlist = get_parm_info (0, -1);
+    parmlist = get_parm_info (0);
   else
-    parmlist = get_parm_info (1, -1); /* place a `void_at_end' */
+    parmlist = get_parm_info (1); /* place a `void_at_end' */
 
   /* Set self_decl from the first argument...this global is used by
      build_ivar_reference calling build_indirect_ref.  */

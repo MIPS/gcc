@@ -216,7 +216,7 @@ open_include_file (pfile, filename)
 	{
 	  cpp_ice (pfile,
 		   "node for '%s' exists, open failed, error '%s', value %lx\n",
-		   filename, strerror (errno), nd->value);
+		   filename, strerror (errno), (unsigned long) nd->value);
 	  destroy_include_file_node (nd->value);
 	}
       splay_tree_insert (pfile->all_include_files,

@@ -4898,13 +4898,15 @@ assemble_high_bound (decl)
      tree decl;
 {
   tree high_bound = get_high_bound_decl (decl);
-  const char *name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (high_bound));
-  if (TREE_PUBLIC (decl))
-    assemble_global (name);
+  if (TREE_PUBLIC (decl) && high_bound)
+    {
+      const char *name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (high_bound));
+      assemble_global (name);
 #ifdef ASM_DECLARE_HIGH_BOUND
-  if (TREE_PUBLIC (decl) || TREE_USED (decl))
-    ASM_DECLARE_HIGH_BOUND (asm_out_file, decl);
+      if (TREE_USED (decl))
+	ASM_DECLARE_HIGH_BOUND (asm_out_file, decl);
 #endif
+    }
 }
 
 /* This determines whether or not we support link-once semantics.  */

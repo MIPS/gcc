@@ -54,7 +54,7 @@ CHILL_SRCS = $(srcdir)/ch/actions.c $(srcdir)/ch/convert.c \
  $(srcdir)/ch/lex.c $(srcdir)/ch/loop.c \
  $(srcdir)/ch/parse.c $(srcdir)/ch/satisfy.c \
  $(srcdir)/ch/tasking.c $(srcdir)/ch/timing.c $(srcdir)/ch/tree.c \
- $(srcdir)/ch/typeck.c
+ $(srcdir)/ch/typeck.c $(srcdir)/bp-stubs.c
 
 # Extra flags to pass to recursive makes.
 CHILL_FLAGS_TO_PASS = \

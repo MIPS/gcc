@@ -155,7 +155,7 @@ extern tree build_enumerator                    PARAMS ((tree, tree));
 			  ((CONST_P) ? TYPE_QUAL_CONST : 0) |	  \
 			  ((VOLATILE_P) ? TYPE_QUAL_VOLATILE : 0))
 extern int  c_decode_option                     PARAMS ((int, char **));
-extern void c_mark_varargs                      PARAMS ((int));
+extern void c_mark_varargs                      PARAMS ((void));
 extern tree check_identifier                    PARAMS ((tree, tree));
 extern void clear_parm_order                    PARAMS ((void));
 extern tree combine_parm_decls                  PARAMS ((tree, tree, int));
@@ -169,7 +169,7 @@ extern void finish_decl_top_level               PARAMS ((tree, tree, tree));
 extern tree finish_enum                         PARAMS ((tree, tree, tree));
 extern void finish_function                     PARAMS ((int));
 extern tree finish_struct                       PARAMS ((tree, tree, tree));
-extern tree get_parm_info                       PARAMS ((int, int));
+extern tree get_parm_info                       PARAMS ((int));
 extern tree getdecls                            PARAMS ((void));
 extern tree gettags                             PARAMS ((void));
 extern int  global_bindings_p                   PARAMS ((void));
@@ -212,9 +212,8 @@ extern void shadow_tag_warned                   PARAMS ((tree, int));
 extern tree start_enum                          PARAMS ((tree));
 extern int  start_function                      PARAMS ((tree, tree, tree,
 							 tree));
-extern int  start_function_decl                 PARAMS ((tree, int));
 extern tree start_decl                          PARAMS ((tree, tree, int,
-							 tree, tree, tree));
+							 tree, tree));
 extern tree start_struct                        PARAMS ((enum tree_code, tree));
 extern void store_parm_decls                    PARAMS ((void));
 extern tree xref_tag                            PARAMS ((enum tree_code, tree));

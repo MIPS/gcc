@@ -1294,7 +1294,7 @@ build_bounded_ptr_field_ref (bp, field_number)
 tree
 build_bounded_ptr_check (bp, length)
      tree bp;
-     tree length;
+     tree length ATTRIBUTE_UNUSED; /* GKM FIXME: use it! */
 {
   tree value, low_bound, high_bound, compare;
 
@@ -3613,8 +3613,7 @@ build_bounded_ptr_constructor (addr)
 /* Return nonzero if type is an array type, or is a struct or union
    type (possibly nested) that possesses a flexible array member.  An
    array, or a struct with a flexible array member might have variable
-   length, so we must refer to its bounds-checking high_bound
-   symbolically.  */
+   length, so we must refer to its high bound symbolically.  */
 
 int
 variable_high_bound_p (type)
@@ -3674,9 +3673,10 @@ tree
 get_high_bound_decl (decl)
      tree decl;
 {
-  tree high_bound, ext_id;
+  static char high_bound_suffix[] = ".gnu_bp_high_bound";
+  tree high_bound, high_bound_id;
   char const *var_name;
-  char *ext_name;
+  char *high_bound_name;
 
   if (TREE_CODE (decl) != VAR_DECL || DECL_ASSEMBLER_NAME (decl) == NULL_TREE)
     abort ();
@@ -3685,15 +3685,15 @@ get_high_bound_decl (decl)
     return DECL_ARGUMENTS (decl);
 
   var_name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
-  ext_name = alloca (strlen (var_name) + sizeof (".high_bound"));
-  sprintf (ext_name, "%s%s", var_name, ".high_bound");
-  ext_id = get_identifier (ext_name);
+  high_bound_name = alloca (strlen (var_name) + sizeof (high_bound_suffix));
+  sprintf (high_bound_name, "%s%s", var_name, high_bound_suffix);
+  high_bound_id = get_identifier (high_bound_name);
 
   high_bound = copy_node (decl);
   TREE_USED (high_bound) = 0;
   /* GKM FIXME: this doesn't handle local scope statics */
   DECL_ARGUMENTS (decl) = high_bound;
-  DECL_NAME (high_bound) = DECL_ASSEMBLER_NAME (high_bound) = ext_id;
+  DECL_NAME (high_bound) = DECL_ASSEMBLER_NAME (high_bound) = high_bound_id;
   DECL_RTL (high_bound)
     = gen_rtx_MEM (VOIDmode,
 		   gen_rtx (SYMBOL_REF, Pmode,

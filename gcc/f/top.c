@@ -912,45 +912,3 @@ ffe_terminate_4 ()
   ffetype_terminate_4 ();
   ffewhere_terminate_4 ();
 }
-
-tree
-build_bounded_ptr_field_ref (bp, field_number)
-     tree bp;
-     int field_number;
-{
-  error ("bounded pointers are unsupported");
-  abort ();
-}
-
-tree
-build_bounded_ptr_check (bp, length)
-     tree bp;
-     tree length;
-{
-  return build_bounded_ptr_field_ref (bp, 0);
-}
-
-tree
-build_bounded_ptr_constructor (addr)
-     tree addr;
-{
-  error ("bounded pointers are unsupported");
-  abort ();
-}
-
-tree
-build_bounded_ptr_constructor_2 (addr, bounds)
-     tree addr;
-     tree bounds;
-{
-  return build_bounded_ptr_constructor (addr);
-}
-
-tree
-build_bounded_ptr_constructor_3 (addr, low_bound, high_bound)
-     tree addr;
-     tree low_bound;
-     tree high_bound;
-{
-  return build_bounded_ptr_constructor (addr);
-}

@@ -163,6 +163,7 @@ F77_OBJS = \
  bad.o \
  bit.o \
  bld.o \
+ ../bp-stubs.o \
  com.o \
  data.o \
  equiv.o \

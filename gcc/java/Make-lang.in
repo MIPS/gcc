@@ -75,7 +75,7 @@ JAVA_SRCS = $(srcdir)/java/parse.y $(srcdir)/java/class.c \
   $(srcdir)/java/jcf-parse.c $(srcdir)/java/mangle.c \
   $(srcdir)/java/jcf-write.c $(srcdir)/java/buffer.c \
   $(srcdir)/java/check-init.c $(srcdir)/java/lex.c $(srcdir)/java/boehm.c \
-  $(srcdir)/java/jcf-depend.c  $(srcdir)/java/jcf-path.c
+  $(srcdir)/java/jcf-depend.c  $(srcdir)/java/jcf-path.c $(srcdir)/bp-stubs.c
 
 jc1$(exeext): $(P) $(JAVA_SRCS) $(LIBDEPS) $(BACKEND) ggc-callbacks.o
 	cd java; $(MAKE) $(LANG_FLAGS_TO_PASS) $(JAVA_FLAGS_TO_PASS) ../jc1$(exeext)

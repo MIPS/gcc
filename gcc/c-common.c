@@ -1050,9 +1050,12 @@ decl_attributes (node, attributes, prefix_attributes)
 		{
 		  tree target_high_bound = DECL_ARGUMENTS (target);
 		  tree decl_high_bound = get_high_bound_decl (decl);
-		  if (DECL_WEAK (decl))
-		    declare_weak (decl_high_bound);
-		  assemble_alias (decl_high_bound, DECL_ASSEMBLER_NAME (target_high_bound));
+		  if (decl_high_bound)
+		    {
+		      if (DECL_WEAK (decl))
+			declare_weak (decl_high_bound);
+		      assemble_alias (decl_high_bound, DECL_ASSEMBLER_NAME (target_high_bound));
+		    }
 		}
 	    }
 	  else

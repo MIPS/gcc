@@ -139,7 +139,6 @@ static tree shadowed_labels;
    Value not meaningful after store_parm_decls.  */
 
 static int c_function_varargs;
-static int c_function_varargs_boundedness;
 
 /* Set to 0 at beginning of a function definition, set to 1 if
    a return statement that specifies a return value is seen.  */
@@ -293,10 +292,9 @@ static tree lookup_tag			PARAMS ((enum tree_code, tree,
 						 struct binding_level *, int));
 static tree lookup_tag_reverse		PARAMS ((tree));
 static tree grokdeclarator		PARAMS ((tree, tree, enum decl_context,
-					       int, tree));
+						 int));
 static tree grokparms			PARAMS ((tree, int));
 static void layout_array_type		PARAMS ((tree));
-static tree push_parm_tree		PARAMS ((tree, tree, tree));
 static int c_valid_lang_attribute	PARAMS ((tree, tree, tree, tree));
 static tree c_make_fname_decl           PARAMS ((tree, const char *, int));
 
@@ -3411,7 +3409,7 @@ groktypename (typename)
     return typename;
   return grokdeclarator (TREE_VALUE (typename),
 			 TREE_PURPOSE (typename),
-			 TYPENAME, 0, NULL_TREE);
+			 TYPENAME, 0);
 }
 
 /* Return a PARM_DECL node for a given pair of specs and declarator.  */
@@ -3424,7 +3422,7 @@ groktypename_in_parm_context (typename)
     return typename;
   return grokdeclarator (TREE_VALUE (typename),
 			 TREE_PURPOSE (typename),
-			 PARM, 0, NULL_TREE);
+			 PARM, 0);
 }
 
 /* Decode a declarator in an ordinary declaration or data definition.
@@ -3443,14 +3441,13 @@ groktypename_in_parm_context (typename)
    grokfield and not through here.  */
 
 tree
-start_decl (declarator, declspecs, initialized, attributes, prefix_attributes,
-	    asmspec)
+start_decl (declarator, declspecs, initialized, attributes, prefix_attributes)
      tree declarator, declspecs;
      int initialized;
-     tree attributes, prefix_attributes, asmspec;
+     tree attributes, prefix_attributes;
 {
   register tree decl = grokdeclarator (declarator, declspecs,
-				       NORMAL, initialized, asmspec);
+				       NORMAL, initialized);
   register tree tem;
 
   if (warn_main > 0 && TREE_CODE (decl) != FUNCTION_DECL
@@ -3594,6 +3591,7 @@ finish_decl (decl, init, asmspec_tree)
 
   /* If a name was specified, get the string.   */
   if (asmspec_tree)
+    /* GKM FIXME: force named-register pointer decls to be unbounded. */
     asmspec = TREE_STRING_POINTER (asmspec_tree);
 
   /* If `start_decl' didn't like having an initialization, ignore it now.  */
@@ -3787,7 +3785,7 @@ push_parm_decl (parm)
   immediate_size_expand = 0;
 
   decl = grokdeclarator (TREE_VALUE (TREE_PURPOSE (parm)),
-			 TREE_PURPOSE (TREE_PURPOSE (parm)), PARM, 0, NULL_TREE);
+			 TREE_PURPOSE (TREE_PURPOSE (parm)), PARM, 0);
   decl_attributes (decl, TREE_VALUE (TREE_VALUE (parm)),
 		   TREE_PURPOSE (TREE_VALUE (parm)));
 
@@ -3923,18 +3921,12 @@ complete_array_type (type, initial_value, do_default)
    and `extern' are interpreted.  */
 
 static tree
-grokdeclarator (declarator, declspecs, decl_context, initialized, asmspec)
+grokdeclarator (declarator, declspecs, decl_context, initialized)
      tree declspecs;
      tree declarator;
      enum decl_context decl_context;
      int initialized;
-     tree asmspec;
 {
-#if 0 /* GKM FIXME: is this useful? */
-  tree orig_declarator = declarator;
-  tree orig_declspecs = declspecs;
-  enum decl_context orig_decl_context = decl_context;
-#endif
   int specbits = 0;
   tree spec;
   tree type = NULL_TREE;
@@ -4651,9 +4643,6 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, asmspec)
 			    | (restrictp ? TYPE_QUAL_RESTRICT : 0)
 			    | (volatilep ? TYPE_QUAL_VOLATILE : 0));
 	    }
-	  else if (asmspec && (specbits & (1 << (int) RID_REGISTER)))
-	    /* asm register variables must be unbounded.  */
-	    boundedp = 0;
 	  else
 	    boundedp = (default_pointer_type_code (type) == RECORD_TYPE);
 
@@ -5078,9 +5067,8 @@ grokparms (parms_info, funcdef_flag)
    passed with bounds.  */
 
 tree
-get_parm_info (void_at_end, varargs_boundedness)
+get_parm_info (void_at_end)
      int void_at_end;
-     int varargs_boundedness;
 {
   register tree decl, t;
   register tree types = 0;
@@ -5172,14 +5160,6 @@ get_parm_info (void_at_end, varargs_boundedness)
 
   if (void_at_end)
     types = tree_cons (NULL_TREE, void_type_node, types);
-#if 0
-  /* GKM FIXME: this is now handled by a flag bit, not an int node at
-     the end of the arglist.  */
-  else if (varargs_boundedness >= 0)
-    types = tree_cons (NULL_TREE, (varargs_boundedness
-				   ? integer_one_node
-				   : integer_zero_node), types);
-#endif
 
   return tree_cons (new_parms, tags, nreverse (types));
 }
@@ -5323,7 +5303,7 @@ grokfield (filename, line, declarator, declspecs, width)
 {
   tree value;
 
-  value = grokdeclarator (declarator, declspecs, width ? BITFIELD : FIELD, 0, NULL_TREE);
+  value = grokdeclarator (declarator, declspecs, width ? BITFIELD : FIELD, 0);
 
   finish_decl (value, NULL_TREE, NULL_TREE);
   DECL_INITIAL (value) = width;
@@ -5899,7 +5879,7 @@ start_function (declspecs, declarator, prefix_attributes, attributes)
   /* Don't expand any sizes in the return type of the function.  */
   immediate_size_expand = 0;
 
-  decl1 = grokdeclarator (declarator, declspecs, FUNCDEF, 1, NULL_TREE);
+  decl1 = grokdeclarator (declarator, declspecs, FUNCDEF, 1);
 
   /* If the declarator is not suitable for a function definition,
      cause a syntax error.  */
@@ -6117,11 +6097,9 @@ start_function (declspecs, declarator, prefix_attributes, attributes)
    to call mark_varargs directly.  */
 
 void
-c_mark_varargs (boundedness)
-     int boundedness;
+c_mark_varargs ()
 {
   c_function_varargs = 1;
-  c_function_varargs_boundedness = boundedness;
 }
 
 /* Store the parameter declarations into the current function declaration.
@@ -6487,14 +6465,6 @@ store_parm_decls ()
 	    depth = MAX_POINTER_DEPTH;
 	  if (!c_function_varargs)
 	    actual = tree_cons (NULL_TREE, void_type_node, actual);
-#if 0
-	  /* GKM FIXME: this is now handled by a flag bit, not an int
-	     node at the end of the arglist.  */
-	  else if (c_function_varargs_boundedness >= 0)
-	    actual = tree_cons (NULL_TREE, (c_function_varargs_boundedness
-					    ? integer_one_node
-					    : integer_zero_node), actual);
-#endif
 	  actual = nreverse (actual);
 
 	  /* We are going to assign a new value for the TYPE_ACTUAL_ARG_TYPES
