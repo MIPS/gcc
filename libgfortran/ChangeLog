@@ -1,3 +1,8 @@
+2004-02-07  Bud Davis  <bdavis9659@comcast.net>
+
+	* transfer.c (write_constant_string): Do not delete H's in hollerith
+	formats.
+
 2004-01-05  Andrew Pinski  <apinski@apple.com>
 
 	* configure.in: Check for csin in -lmx also.
