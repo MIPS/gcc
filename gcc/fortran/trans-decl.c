@@ -700,13 +700,10 @@ gfc_get_symbol_decl (gfc_symbol * sym)
          access then through the composite object.
          *(type_t *)&block[offset] */
 
-      decl = build (ARRAY_REF, TREE_TYPE (TREE_TYPE (sym->addr_base)),
-                    sym->addr_base, sym->addr_offset);
-      decl = build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (decl)),
-                     decl);
-
-      decl = convert(build_pointer_type (gfc_sym_type (sym)), decl);
-      decl = build1 (INDIRECT_REF, TREE_TYPE (TREE_TYPE (decl)), decl);
+      decl = gfc_build_array_ref (sym->addr_base, sym->addr_offset);
+      decl = gfc_build_addr_expr (build_pointer_type (gfc_sym_type (sym)),
+				  decl);
+      decl = gfc_build_indirect_ref (decl);
 
 #if 0
       /* TODO: output symbols in COMMON for debugging information.  */
@@ -1543,7 +1540,6 @@ gfc_trans_auto_character_variable (gfc_symbol * sym, tree fnbody)
 static tree
 gfc_trans_deferred_vars (gfc_symbol * proc_sym, tree fnbody)
 {
-  tree tmp;
   locus loc;
   gfc_symbol *sym;
 

@@ -341,6 +341,15 @@ tree gfc_get_function_decl (gfc_symbol *);
 /* Build a CALL_EXPR.  */
 tree gfc_build_function_call (tree, tree);
 
+/* Build an ADDR_EXPR.  */
+tree gfc_build_addr_expr (tree, tree);
+
+/* Build an INDIRECT_REF.  */
+tree gfc_build_indirect_ref (tree);
+
+/* Build an ARRAY_REF.  */
+tree gfc_build_array_ref (tree, tree);
+
 /* Creates an label.  Decl is artificial if label_id == NULL_TREE.  */
 tree gfc_build_label_decl (tree);
 

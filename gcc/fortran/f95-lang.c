@@ -95,7 +95,6 @@ static void gfc_init_builtin_functions (void);
 
 /* Each front end provides its own.  */
 static bool gfc_init (void);
-static bool gfc_post_options (const char **);
 static void gfc_finish (void);
 static void gfc_print_identifier (FILE *, tree, int);
 static bool gfc_mark_addressable (tree);

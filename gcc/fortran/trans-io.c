@@ -485,7 +485,7 @@ set_error_locus (stmtblock_t * block, locus * where)
   f = where->file;
   tmp = gfc_build_string_const (strlen (f->filename) + 1, f->filename);
 
-  tmp = build1 (ADDR_EXPR, pchar_type_node, tmp);
+  tmp = gfc_build_addr_expr (pchar_type_node, tmp);
   gfc_add_modify_expr (block, locus_file, tmp);
 
   line = where->lp->start_line + where->line;

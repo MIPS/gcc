@@ -240,7 +240,7 @@ gfc_conv_descriptor_dimension (tree desc, tree dim)
 	  && TREE_CODE (TREE_TYPE (TREE_TYPE (field))) == RECORD_TYPE);
 
   tmp = build (COMPONENT_REF, TREE_TYPE (field), desc, field);
-  tmp = build (ARRAY_REF, TREE_TYPE (TREE_TYPE (tmp)), tmp, dim);
+  tmp = gfc_build_array_ref (tmp, dim);
   return tmp;
 }
 
@@ -448,9 +448,7 @@ gfc_trans_allocate_array_storage (gfc_loopinfo * loop, gfc_ss_info * info,
       tmp = build_range_type (gfc_array_index_type, integer_zero_node, tmp);
       tmp = build_array_type (gfc_get_element_type (TREE_TYPE (desc)), tmp);
       tmp = gfc_create_var (tmp, "A");
-      TREE_ADDRESSABLE (tmp) = 1;
-      tmp = build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (tmp)), tmp);
-      tmp = convert (TREE_TYPE (data), tmp);
+      tmp = gfc_build_addr_expr (TREE_TYPE (data), tmp);
       info->data = gfc_evaluate_now (tmp, &loop->pre);
 
       gfc_add_modify_expr (&loop->pre, data, info->data);
@@ -608,7 +606,8 @@ gfc_put_offset_into_var (stmtblock_t * pblock, tree * poffset,
 /* Add the contents of an array to the constructor.  */
 
 static void
-gfc_trans_array_constructor_subarray (stmtblock_t * pblock, tree type,
+gfc_trans_array_constructor_subarray (stmtblock_t * pblock,
+				      tree type ATTRIBUTE_UNUSED,
 				      tree pointer, gfc_expr * expr,
 				      tree * poffset, tree * offsetvar)
 {
@@ -645,8 +644,8 @@ gfc_trans_array_constructor_subarray (stmtblock_t * pblock, tree type,
   gfc_add_block_to_block (&body, &se.pre);
 
   /* Store the value.  */
-  tmp = build1 (INDIRECT_REF, TREE_TYPE (TREE_TYPE (pointer)), pointer);
-  tmp = build (ARRAY_REF, type, tmp, *poffset);
+  tmp = gfc_build_indirect_ref (pointer);
+  tmp = gfc_build_array_ref (tmp, *poffset);
   gfc_add_modify_expr (&body, tmp, se.expr);
 
   /* Increment the offset.  */
@@ -719,9 +718,8 @@ gfc_trans_array_constructor_value (stmtblock_t * pblock, tree type,
 	      gfc_conv_expr (&se, c->expr);
 	      gfc_add_block_to_block (&body, &se.pre);
 
-	      ref = build1 (INDIRECT_REF, TREE_TYPE (TREE_TYPE (pointer)),
-			    pointer);
-	      ref = build (ARRAY_REF, type, ref, *poffset);
+	      ref = gfc_build_indirect_ref (pointer);
+	      ref = gfc_build_array_ref (ref, *poffset);
 	      gfc_add_modify_expr (&body, ref, se.expr);
 	      gfc_add_block_to_block (&body, &se.post);
 
@@ -764,21 +762,14 @@ gfc_trans_array_constructor_value (stmtblock_t * pblock, tree type,
 	      TREE_STATIC (tmp) = 1;
 	      TREE_CONSTANT (tmp) = 1;
 	      TREE_INVARIANT (tmp) = 1;
-	      TREE_ADDRESSABLE (tmp) = 1;
 	      DECL_INITIAL (tmp) = init;
 	      init = tmp;
 
 	      /* Use BUILTIN_MEMCPY to assign the values.  */
-	      if (TREE_CODE (pointer) == ADDR_EXPR)
-		tmp = TREE_OPERAND (pointer, 0);
-	      else
-	        tmp = build1 (INDIRECT_REF, TREE_TYPE (TREE_TYPE (pointer)),
-			      pointer);
-	      tmp = build (ARRAY_REF, type, tmp, *poffset);
-	      tmp = build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (tmp)),
-			    tmp);
-	      init = build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (init)),
-			     init);
+	      tmp = gfc_build_indirect_ref (pointer);
+	      tmp = gfc_build_array_ref (tmp, *poffset);
+	      tmp = gfc_build_addr_expr (NULL, tmp);
+	      init = gfc_build_addr_expr (NULL, init);
 
 	      size = TREE_INT_CST_LOW (TYPE_SIZE_UNIT (type));
 	      bound = build_int_2 (n * size, 0);
@@ -1136,9 +1127,7 @@ gfc_conv_array_data (tree descriptor)
       else
         {
           /* Descritporless arrays.  */
-          TREE_ADDRESSABLE (descriptor) = 1;
-          return build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (descriptor)),
-                         descriptor);
+	  return gfc_build_addr_expr (NULL, descriptor);
         }
     }
   else
@@ -1164,16 +1153,12 @@ gfc_conv_array_base (tree descriptor)
           if (POINTER_TYPE_P (type))
             {
               type = TREE_TYPE (type);
-              descriptor = build1 (INDIRECT_REF, type, descriptor);
+              descriptor = gfc_build_indirect_ref (descriptor);
             }
-          else
-            TREE_ADDRESSABLE (descriptor) = 1;
 
-          base = build (ARRAY_REF, gfc_get_element_type (type), descriptor,
-                        base);
-          base = build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (base)),
-			 base);
-	  base = convert (gfc_array_dataptr_type (descriptor), base);
+          base = gfc_build_array_ref (descriptor, base);
+	  base = gfc_build_addr_expr (gfc_array_dataptr_type (descriptor),
+				      base);
         }
       return base;
     }
@@ -1258,7 +1243,7 @@ gfc_conv_array_index_ref (gfc_se * se, tree pointer, tree * indices,
   tree index;
   int n;
 
-  array = build1 (INDIRECT_REF, TREE_TYPE (TREE_TYPE (pointer)), pointer);
+  array = gfc_build_indirect_ref (pointer);
 
   index = integer_zero_node;
   for (n = 0; n < dimen; n++)
@@ -1271,8 +1256,7 @@ gfc_conv_array_index_ref (gfc_se * se, tree pointer, tree * indices,
     }
 
   /* Result = data[index].  */
-  assert (TREE_CODE (TREE_TYPE (array)) == ARRAY_TYPE);
-  tmp = build (ARRAY_REF, TREE_TYPE (TREE_TYPE (array)), array, index);
+  tmp = gfc_build_array_ref (array, index);
 
   /* Check we've used the correct number of dimensions.  */
   assert (TREE_CODE (TREE_TYPE (tmp)) != ARRAY_TYPE);
@@ -1449,8 +1433,8 @@ gfc_conv_scalarized_array_ref (gfc_se * se, gfc_array_ref * ar)
      dimensions.  */
   index = fold (build (PLUS_EXPR, gfc_array_index_type, index, info->offset));
 
-  tmp = build1 (INDIRECT_REF, TREE_TYPE (TREE_TYPE (info->data)), info->data);
-  se->expr = build (ARRAY_REF, TREE_TYPE (TREE_TYPE (tmp)), tmp, index);
+  tmp = gfc_build_indirect_ref (info->data);
+  se->expr = gfc_build_array_ref (tmp, index);
 }
 
 
@@ -1536,8 +1520,8 @@ gfc_conv_array_ref (gfc_se * se, gfc_array_ref * ar)
 
   /* Access the calculated element.  */
   tmp = gfc_conv_array_base (se->expr);
-  tmp = build1 (INDIRECT_REF, TREE_TYPE (TREE_TYPE (tmp)), tmp);
-  se->expr = build (ARRAY_REF, TREE_TYPE (TREE_TYPE (tmp)), tmp, index);
+  tmp = gfc_build_indirect_ref (tmp);
+  se->expr = gfc_build_array_ref (tmp, index);
 }
 
 
@@ -2605,7 +2589,7 @@ gfc_array_allocate (gfc_se * se, gfc_ref * ref, tree pstat)
 
   /* Allocate memory to store the data.  */
   tmp = gfc_conv_descriptor_data (se->expr);
-  pointer = build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (tmp)), tmp);
+  pointer = gfc_build_addr_expr (NULL, tmp);
   pointer = gfc_evaluate_now (pointer, &se->pre);
 
   if (gfc_array_index_type == gfc_int4_type_node)
@@ -2625,9 +2609,9 @@ gfc_array_allocate (gfc_se * se, gfc_ref * ref, tree pstat)
   /* Set base = &data[offset].  */
   if (!integer_zerop (offset))
     {
-      tmp = build1 (INDIRECT_REF, TREE_TYPE (TREE_TYPE (pointer)), pointer);
-      tmp = build (ARRAY_REF, TREE_TYPE (TREE_TYPE (tmp)), tmp, offset);
-      pointer = build1 (ADDR_EXPR, TREE_TYPE (pointer), tmp);
+      tmp = gfc_build_indirect_ref (pointer);
+      tmp = gfc_build_array_ref (tmp, offset);
+      pointer = gfc_build_addr_expr (TREE_TYPE (pointer), tmp);
     }
   base = gfc_conv_descriptor_base (se->expr);
   gfc_add_modify_expr (&se->pre, base, pointer);
@@ -2654,7 +2638,7 @@ gfc_array_deallocate (tree descriptor)
   gfc_start_block (&block);
   /* Get a pointer to the data.  */
   tmp = gfc_conv_descriptor_data (descriptor);
-  tmp = build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (tmp)), tmp);
+  tmp = gfc_build_addr_expr (NULL, tmp);
   var = gfc_create_var (TREE_TYPE (tmp), "ptr");
   gfc_add_modify_expr (&block, var, tmp);
 
@@ -2928,10 +2912,9 @@ gfc_trans_auto_array_allocation (tree decl, gfc_symbol * sym, tree fnbody)
   /* Set the base of the array.  */
   if (!integer_zerop (offset))
     {
-      tmp = build1 (INDIRECT_REF, TREE_TYPE (TREE_TYPE (tmp)), tmp);
-      tmp = build (ARRAY_REF, TREE_TYPE (TREE_TYPE (tmp)), tmp, offset);
-      tmp = build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (tmp)), tmp);
-      tmp = convert (TREE_TYPE (decl), tmp);
+      tmp = gfc_build_indirect_ref (tmp);
+      tmp = gfc_build_array_ref (tmp, offset);
+      tmp = gfc_build_addr_expr (TREE_TYPE (decl), tmp);
     }
   gfc_add_modify_expr (&block, GFC_TYPE_ARRAY_OFFSET (type), tmp);
 
@@ -2980,9 +2963,9 @@ gfc_trans_g77_array (gfc_symbol * sym, tree body)
   tmp = parm;
   if (!integer_zerop (offset))
     {
-      tmp = build1 (INDIRECT_REF, TREE_TYPE (TREE_TYPE (tmp)), tmp);
-      tmp = build (ARRAY_REF, TREE_TYPE (TREE_TYPE (tmp)), tmp, offset);
-      tmp = build1 (ADDR_EXPR, TREE_TYPE (parm), tmp);
+      tmp = gfc_build_indirect_ref (tmp);
+      tmp = gfc_build_array_ref (tmp, offset);
+      tmp = gfc_build_addr_expr (TREE_TYPE (parm), tmp);
     }
   gfc_add_modify_expr (&block, GFC_TYPE_ARRAY_OFFSET (type), tmp);
 
@@ -3045,7 +3028,7 @@ gfc_trans_dummy_array_bias (gfc_symbol * sym, tree tmpdesc, tree body)
   type = TREE_TYPE (tmpdesc);
   assert (GFC_ARRAY_TYPE_P (type));
   dumdesc = GFC_DECL_SAVED_DESCRIPTOR (tmpdesc);
-  dumdesc = build1 (INDIRECT_REF, TREE_TYPE (TREE_TYPE (dumdesc)), dumdesc);
+  dumdesc = gfc_build_indirect_ref (dumdesc);
   gfc_start_block (&block);
 
   checkparm = (sym->as->type == AS_EXPLICIT && flag_bounds_check);
@@ -3227,9 +3210,9 @@ gfc_trans_dummy_array_bias (gfc_symbol * sym, tree tmpdesc, tree body)
   tmp = tmpdesc;
   if (!integer_zerop (offset))
     {
-      tmp = build1 (INDIRECT_REF, TREE_TYPE (TREE_TYPE (tmp)), tmp);
-      tmp = build (ARRAY_REF, TREE_TYPE (TREE_TYPE (tmp)), tmp, offset);
-      tmp = build1 (ADDR_EXPR, TREE_TYPE (tmpdesc), tmp);
+      tmp = gfc_build_indirect_ref (tmp);
+      tmp = gfc_build_array_ref (tmp, offset);
+      tmp = gfc_build_addr_expr (TREE_TYPE (tmpdesc), tmp);
     }
   gfc_add_modify_expr (&block, GFC_TYPE_ARRAY_OFFSET (type), tmp);
 
@@ -3271,7 +3254,7 @@ gfc_trans_dummy_array_bias (gfc_symbol * sym, tree tmpdesc, tree body)
       stmt = gfc_finish_block (&cleanup);
 	
       /* Only do the cleanup if the array was repacked.  */
-      tmp = build1 (INDIRECT_REF, TREE_TYPE (TREE_TYPE (dumdesc)), dumdesc);
+      tmp = gfc_build_indirect_ref (dumdesc);
       tmp = gfc_conv_descriptor_data (tmp);
       tmp = build (NE_EXPR, boolean_type_node, tmp, tmpdesc);
       stmt = build_v (COND_EXPR, tmp, stmt, build_empty_stmt ());
@@ -3381,17 +3364,7 @@ gfc_conv_expr_descriptor (gfc_se * se, gfc_expr * expr, gfc_ss * ss)
 	    {
 	      /* We pass full arrays directly.  This means that pointers and
 	         allocatable arrays should also work.  */
-	      if (TREE_CODE (desc) == INDIRECT_REF)
-		se->expr = TREE_OPERAND (desc, 0);
-	      else
-		{
-		  assert (is_gimple_lvalue (desc));
-		  if (is_gimple_variable (desc))
-		    TREE_ADDRESSABLE (desc) = 1;
-		  se->expr = build1 (ADDR_EXPR,
-				     build_pointer_type (TREE_TYPE (desc)),
-				     desc);
-		}
+	      se->expr = gfc_build_addr_expr (NULL, desc);
 	    }
 	  else
 	    {
@@ -3476,9 +3449,7 @@ gfc_conv_expr_descriptor (gfc_se * se, gfc_expr * expr, gfc_ss * ss)
       gfc_add_modify_expr (&loop.pre, tmp, integer_zero_node);
 
       assert (is_gimple_lvalue (desc));
-      TREE_ADDRESSABLE (desc) = 1;
-      se->expr = build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (desc)),
-			 desc);
+      se->expr = gfc_build_addr_expr (NULL, desc);
     }
   else
     {
@@ -3608,12 +3579,9 @@ gfc_conv_expr_descriptor (gfc_se * se, gfc_expr * expr, gfc_ss * ss)
 
       /* Point the data pointer at the first element in the section.  */
       tmp = gfc_conv_array_data (desc);
-      if (TREE_CODE (tmp) == INDIRECT_REF)
-	tmp = TREE_OPERAND (tmp, 0);
-      else
-	tmp = build1 (INDIRECT_REF, TREE_TYPE (TREE_TYPE (tmp)), tmp);
-      tmp = build (ARRAY_REF, TREE_TYPE (TREE_TYPE (tmp)), tmp, offset);
-      offset = build1 (ADDR_EXPR, gfc_array_dataptr_type (desc), tmp);
+      tmp = gfc_build_indirect_ref (tmp);
+      tmp = gfc_build_array_ref (tmp, offset);
+      offset = gfc_build_addr_expr (gfc_array_dataptr_type (desc), tmp);
 
       tmp = gfc_conv_descriptor_data (parm);
       gfc_add_modify_expr (&loop.pre, tmp, offset);
@@ -3622,12 +3590,9 @@ gfc_conv_expr_descriptor (gfc_se * se, gfc_expr * expr, gfc_ss * ss)
 	{
 	  /* Set the base pointer according to POINTER itself.  */
 	  tmp = gfc_conv_array_data (parm);
-	  if (TREE_CODE (tmp) == INDIRECT_REF)
-	    tmp = TREE_OPERAND (tmp, 0);
-	  else
-	    tmp = build1 (INDIRECT_REF, TREE_TYPE (TREE_TYPE (tmp)), tmp);
-	  tmp = build (ARRAY_REF, TREE_TYPE (TREE_TYPE (tmp)), tmp, base);
-	  base = build1 (ADDR_EXPR, gfc_array_dataptr_type (desc), tmp);
+	  tmp = gfc_build_indirect_ref (tmp);
+	  tmp = gfc_build_array_ref (tmp, base);
+	  base = gfc_build_addr_expr (gfc_array_dataptr_type (desc), tmp);
 
 	  tmp = gfc_conv_descriptor_base (parm);
 	  gfc_add_modify_expr (&loop.pre, tmp, base);
@@ -3643,11 +3608,7 @@ gfc_conv_expr_descriptor (gfc_se * se, gfc_expr * expr, gfc_ss * ss)
 	{
 	  /* Get a pointer to the new descriptor.  */
           if (se->want_pointer)
-            {
-              TREE_ADDRESSABLE (parm) = 1;
-              se->expr = build1 (ADDR_EXPR, build_pointer_type (parmtype),
-                                 parm);
-            }
+	    se->expr = gfc_build_addr_expr (NULL, parm);
           else
             se->expr = parm;
 	}
@@ -3684,9 +3645,7 @@ gfc_conv_array_parameter (gfc_se * se, gfc_expr * expr, gfc_ss * ss, int g77)
           && !sym->attr.allocatable && !sym->attr.in_common)
         {
           if (!sym->attr.dummy)
-	    se->expr = build1 (ADDR_EXPR,
-			       build_pointer_type (TREE_TYPE (tmp)),
-			       tmp);
+	    se->expr = gfc_build_addr_expr (NULL, tmp);
           else
             se->expr = tmp;  
 	  return;
@@ -3724,7 +3683,7 @@ gfc_conv_array_parameter (gfc_se * se, gfc_expr * expr, gfc_ss * ss, int g77)
       gfc_add_expr_to_block (&block, tmp);
 
       /* Free the temporary.  */
-      tmp = convert (void_type_node, ptr);
+      tmp = convert (pvoid_type_node, ptr);
       tmp = gfc_chainon_list (NULL_TREE, tmp);
       tmp = gfc_build_function_call (gfor_fndecl_internal_free, tmp);
       gfc_add_expr_to_block (&block, tmp);
@@ -3734,10 +3693,7 @@ gfc_conv_array_parameter (gfc_se * se, gfc_expr * expr, gfc_ss * ss, int g77)
       gfc_init_block (&block);
       /* Only if it was repacked.  This code needs to be executed before the
          loop cleanup code.  */
-      if (TREE_CODE (desc) == ADDR_EXPR)
-        tmp = TREE_OPERAND (desc, 0);
-      else
-        tmp = build1 (INDIRECT_REF, TREE_TYPE (TREE_TYPE (desc)), desc);
+      tmp = gfc_build_indirect_ref (desc);
       tmp = gfc_conv_array_data (tmp);
       tmp = build (NE_EXPR, boolean_type_node, ptr, tmp);
       tmp = build_v (COND_EXPR, tmp, stmt, build_empty_stmt ());

@@ -235,6 +235,78 @@ gfc_finish_block (stmtblock_t * stmtblock)
 }
 
 
+/* Build an ADDR_EXPR and cast the result to TYPE.  If TYPE is NULL, the
+   natural type is used.  */
+
+tree
+gfc_build_addr_expr (tree type, tree t)
+{
+  tree base_type = TREE_TYPE (t);
+  tree natural_type;
+
+  if (type && POINTER_TYPE_P (type)
+      && TREE_CODE (base_type) == ARRAY_TYPE
+      && TYPE_MAIN_VARIANT (TREE_TYPE (type))
+	 == TYPE_MAIN_VARIANT (TREE_TYPE (base_type)))
+    natural_type = type;
+  else
+    natural_type = build_pointer_type (base_type);
+
+  if (TREE_CODE (t) == INDIRECT_REF)
+    {
+      if (!type)
+	type = natural_type;
+      t = TREE_OPERAND (t, 0);
+      natural_type = TREE_TYPE (t);
+    }
+  else
+    {
+      if (DECL_P (t))
+        TREE_ADDRESSABLE (t) = 1;
+      t = build1 (ADDR_EXPR, natural_type, t);
+    }
+
+  if (type && natural_type != type)
+    t = convert (type, t);
+
+  return t;
+}
+
+
+/* Build an INDIRECT_REF with its natural type.  */
+
+tree
+gfc_build_indirect_ref (tree t)
+{
+  tree type = TREE_TYPE (t);
+  if (!POINTER_TYPE_P (type))
+    abort ();
+  type = TREE_TYPE (type);
+
+  if (TREE_CODE (t) == ADDR_EXPR)
+    return TREE_OPERAND (t, 0);
+  else
+    return build1 (INDIRECT_REF, type, t);
+}
+
+
+/* Build an ARRAY_REF with its natural type.  */
+
+tree
+gfc_build_array_ref (tree base, tree offset)
+{
+  tree type = TREE_TYPE (base);
+  if (TREE_CODE (type) != ARRAY_TYPE)
+    abort ();
+  type = TREE_TYPE (type);
+
+  if (DECL_P (base))
+    TREE_ADDRESSABLE (base) = 1;
+
+  return build (ARRAY_REF, type, base, offset);
+}
+
+
 /* Given a funcion declaration FNDECL and an argument list ARGLIST,
    build a CALL_EXPR.  */
 
@@ -244,7 +316,7 @@ gfc_build_function_call (tree fndecl, tree arglist)
   tree fn;
   tree call;
 
-  fn = build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (fndecl)), fndecl);
+  fn = gfc_build_addr_expr (NULL, fndecl);
   call = build (CALL_EXPR, TREE_TYPE (TREE_TYPE (fndecl)), fn, arglist);
   TREE_SIDE_EFFECTS (call) = 1;
 
@@ -274,10 +346,10 @@ gfc_trans_runtime_check (tree cond, tree msg, stmtblock_t * pblock)
 
   TREE_USED (msg) = 1;
 
-  tmp = build1 (ADDR_EXPR, pchar_type_node, msg);
+  tmp = gfc_build_addr_expr (pchar_type_node, msg);
   args = gfc_chainon_list (NULL_TREE, tmp);
 
-  tmp = build1 (ADDR_EXPR, pchar_type_node, gfc_strconst_current_filename);
+  tmp = gfc_build_addr_expr (pchar_type_node, gfc_strconst_current_filename);
   args = gfc_chainon_list (args, tmp);
 
   tmp = build_int_2 (input_line, 0);

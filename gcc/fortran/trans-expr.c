@@ -185,10 +185,9 @@ gfc_conv_substring (gfc_se * se, gfc_ref * ref, int kind)
       if (TYPE_STRING_FLAG (TREE_TYPE (se->expr)))
 	tmp = se->expr;
       else
-	tmp =
-	  build1 (INDIRECT_REF, TREE_TYPE (TREE_TYPE (se->expr)), se->expr);
-      tmp = build (ARRAY_REF, TREE_TYPE (TREE_TYPE (tmp)), tmp, start.expr);
-      se->expr = build1 (ADDR_EXPR, type, tmp);
+	tmp = gfc_build_indirect_ref (se->expr);
+      tmp = gfc_build_array_ref (tmp, start.expr);
+      se->expr = gfc_build_addr_expr (type, tmp);
     }
 
   /* Length = end + 1 - start.  */
@@ -234,10 +233,7 @@ gfc_conv_component_ref (gfc_se * se, gfc_ref * ref)
     }
 
   if (c->pointer && c->dimension == 0)
-    {
-      se->expr = build1 (INDIRECT_REF, TREE_TYPE (TREE_TYPE (se->expr)),
-                         se->expr);
-    }
+    se->expr = gfc_build_indirect_ref (se->expr);
 }
 
 
@@ -273,9 +269,7 @@ gfc_conv_variable (gfc_se * se, gfc_expr * expr)
 	  if (!sym->attr.dummy)
 	    {
 	      assert (TREE_CODE (se->expr) == FUNCTION_DECL);
-	      se->expr = build1 (ADDR_EXPR,
-				 build_pointer_type (TREE_TYPE (se->expr)),
-				 se->expr);
+	      se->expr = gfc_build_addr_expr (NULL, se->expr);
 	    }
 	  return;
 	}
@@ -291,10 +285,7 @@ gfc_conv_variable (gfc_se * se, gfc_expr * expr)
       /* Dereference scalar dummy variables.  */
       if (sym->attr.dummy
 	  && !(GFC_DECL_STRING (se->expr) || sym->attr.dimension))
-	{
-	  se->expr = build1 (INDIRECT_REF, TREE_TYPE (TREE_TYPE (se->expr)),
-			     se->expr);
-	}
+	se->expr = gfc_build_indirect_ref (se->expr);
 
       /* Dereference pointer variables.  */
       if ((sym->attr.pointer || sym->attr.allocatable)
@@ -303,10 +294,7 @@ gfc_conv_variable (gfc_se * se, gfc_expr * expr)
 	      || sym->attr.function
 	      || !sym->attr.dimension)
           && sym->ts.type != BT_CHARACTER)
-	{
-	  se->expr = build1 (INDIRECT_REF, TREE_TYPE (TREE_TYPE (se->expr)),
-			     se->expr);
-	}
+	se->expr = gfc_build_indirect_ref (se->expr);
 
       ref = expr->ref;
     }
@@ -358,15 +346,8 @@ gfc_conv_variable (gfc_se * se, gfc_expr * expr)
     {
       if (expr->ts.type == BT_CHARACTER)
 	gfc_conv_string_parameter (se);
-      else if (TREE_CODE (se->expr) == INDIRECT_REF)
-	se->expr = TREE_OPERAND (se->expr, 0);
-      else
-	{
-	  TREE_ADDRESSABLE (se->expr) = 1;
-	  se->expr = build1 (ADDR_EXPR,
-			     build_pointer_type (TREE_TYPE (se->expr)),
-			     se->expr);
-	}
+      else 
+	se->expr = gfc_build_addr_expr (NULL, se->expr);
     }
   if (se->ss != NULL)
     gfc_advance_se_ss_chain (se);
@@ -656,10 +637,7 @@ gfc_conv_string_tmp (gfc_se * se, tree type, tree len)
       tmp = build_range_type (gfc_array_index_type, integer_zero_node, tmp);
       tmp = build_array_type (gfc_character1_type_node, tmp);
       var = gfc_create_var (tmp, "str");
-      TREE_ADDRESSABLE (var) = 1;
-      tmp = build_pointer_type (tmp);
-      var = build1 (ADDR_EXPR, tmp, var);
-      var = convert (type, var);
+      var = gfc_build_addr_expr (type, var);
     }
   else
     {
@@ -941,8 +919,7 @@ gfc_conv_function_val (gfc_se * se, gfc_symbol * sym)
 
       tmp = sym->backend_decl;
       assert (TREE_CODE (tmp) == FUNCTION_DECL);
-      se->expr =
-	build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (tmp)), tmp);
+      se->expr = gfc_build_addr_expr (NULL, tmp);
     }
 }
 
@@ -1015,7 +992,7 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
 	  gfc_add_modify_expr (&se->pre, tmp, integer_zero_node);
 	  /* Pass the temporary as the first argument.  */
 	  tmp = info->descriptor;
-	  tmp = build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (tmp)), tmp);
+	  tmp = gfc_build_addr_expr (NULL, tmp);
 	  arglist = gfc_chainon_list (arglist, tmp);
 	}
       else if (sym->ts.type == BT_CHARACTER)
@@ -1083,9 +1060,7 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
                 {
                   /* Scalar pointer dummy args require an extra level of
                      indirection.  */
-                  parmse.expr = build1 (ADDR_EXPR,
-                      build_pointer_type (TREE_TYPE (parmse.expr)),
-                      parmse.expr);
+                  parmse.expr = gfc_build_addr_expr (NULL, parmse.expr);
                 }
             }
 	  else
@@ -1206,8 +1181,8 @@ gfc_conv_statement_function (gfc_se * se, gfc_expr * expr)
 
           type = gfc_get_character_type (fsym->ts.kind, fsym->ts.cl);
           len1 = TYPE_MAX_VALUE (TYPE_DOMAIN (type));
-          var = build1 (ADDR_EXPR, build_pointer_type (type),
-                        fsym->backend_decl);
+          var = gfc_build_addr_expr (build_pointer_type (type),
+				     fsym->backend_decl);
 
           gfc_conv_expr (&rse, args->expr);
           gfc_conv_string_parameter (&rse);
@@ -1506,7 +1481,7 @@ gfc_conv_expr_reference (gfc_se * se, gfc_expr * expr)
   gfc_add_block_to_block (&se->pre, &se->post);
 
   /* Take the address of that value.  */
-  se->expr = build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (var)), var);
+  se->expr = gfc_build_addr_expr (NULL, var);
 }
 
 
@@ -1595,7 +1570,7 @@ gfc_conv_string_parameter (gfc_se * se)
 
   if (TREE_CODE (se->expr) == STRING_CST)
     {
-      se->expr = build1 (ADDR_EXPR, pchar_type_node, se->expr);
+      se->expr = gfc_build_addr_expr (pchar_type_node, se->expr);
       return;
     }
 
@@ -1605,9 +1580,7 @@ gfc_conv_string_parameter (gfc_se * se)
       assert (TREE_CODE (se->expr) == VAR_DECL
 	      || TREE_CODE (se->expr) == COMPONENT_REF
 	      || TREE_CODE (se->expr) == PARM_DECL);
-      TREE_ADDRESSABLE (se->expr) = 1;
-      se->expr = build1 (ADDR_EXPR, build_pointer_type (type), se->expr);
-      se->expr = fold (convert (pchar_type_node, se->expr));
+      se->expr = gfc_build_addr_expr (pchar_type_node, se->expr);
     }
 
   assert (POINTER_TYPE_P (TREE_TYPE (se->expr)));

@@ -296,7 +296,6 @@ gfc_layout_local_equiv (gfc_symbol * sym)
   equiv_decl = build_decl (VAR_DECL,
                            get_identifier (equiv_name), array_type);
   DECL_COMMON (equiv_decl) = 1;
-  TREE_ADDRESSABLE (equiv_decl) = 1;
   TREE_USED (equiv_decl) = 1;
   gfc_add_decl_to_function (equiv_decl);
 

@@ -1,3 +1,16 @@
+2003-12-05  Richard Henderson  <rth@redhat.com>
+
+	* trans.c (gfc_build_addr_expr): New.
+	(gfc_build_indirect_ref, gfc_build_array_ref): New.
+	* trans.h: Declare them.
+	* trans-array.c, trans-expr.c, trans-intrinsic.c, trans-io.c,
+	trans-stmt.c, trans.c (*): Use them.
+
+	* f95-lang.c (gfc_post_options): Remove dead prototype.
+	* trans-array.c (gfc_trans_deferred_vars): Remove unused variable.
+	* trans-stmt.c (gfc_evaluate_where_mask): Fix temporary_list
+	allocation size.
+
 2003-12-01  Feng Wang  <fengwang@nudt.edu.cn>
 
 	* io.c (gfc_match_format): Check for missing format label.

@@ -959,11 +959,10 @@ gfc_conv_intrinsic_char (gfc_se * se, gfc_expr * expr)
   assert (expr->ts.kind == 1);
   type = gfc_character1_type_node;
   var = gfc_create_var (type, "char");
-  TREE_ADDRESSABLE (var) = 1;
 
   arg = convert (type, arg);
   gfc_add_modify_expr (&se->pre, var, arg);
-  se->expr = build1 (ADDR_EXPR, build_pointer_type (type), var);
+  se->expr = gfc_build_addr_expr (build_pointer_type (type), var);
   se->string_length = integer_one_node;
 }
 
@@ -1944,7 +1943,7 @@ gfc_conv_intrinsic_ichar (gfc_se * se, gfc_expr * expr)
   arg = build1 (NOP_EXPR, pchar_type_node, arg);
   type = gfc_typenode_for_spec (&expr->ts);
 
-  se->expr = build1 (INDIRECT_REF, TREE_TYPE (TREE_TYPE (arg)), arg);
+  se->expr = gfc_build_indirect_ref (arg);
   se->expr = convert (type, se->expr);
 }
 
@@ -2091,7 +2090,7 @@ gfc_conv_intrinsic_transfer (gfc_se * se, gfc_expr * expr)
     }
   else
     {
-      se->expr = build1 (INDIRECT_REF, type, ptr);
+      se->expr = gfc_build_indirect_ref (ptr);
     }
 }
 
@@ -2440,7 +2439,7 @@ gfc_conv_intrinsic_si_kind (gfc_se * se, gfc_expr * expr)
 
   args = gfc_conv_intrinsic_function_args (se, expr);
   args = TREE_VALUE (args);
-  args = build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (args)), args);
+  args = gfc_build_addr_expr (NULL, args);
   args = tree_cons (NULL_TREE, args, NULL_TREE);
   se->expr = gfc_build_function_call (gfor_fndecl_si_kind, args);
 }
@@ -2490,14 +2489,11 @@ gfc_conv_intrinsic_trim (gfc_se * se, gfc_expr * expr)
 
   type = build_pointer_type (gfc_character1_type_node);
   var = gfc_create_var (type, "pstr");
-  type = build_pointer_type (type);
-  addr = build1 (ADDR_EXPR, type, var);
-  addr = convert (ppvoid_type_node, addr);
+  addr = gfc_build_addr_expr (ppvoid_type_node, var);
   len = gfc_create_var (gfc_int4_type_node, "len");
 
   tmp = gfc_conv_intrinsic_function_args (se, expr);
-  arglist = gfc_chainon_list (arglist, build1 (ADDR_EXPR, 
-	build_pointer_type(TREE_TYPE(len)), len));
+  arglist = gfc_chainon_list (arglist, gfc_build_addr_expr (NULL, len));
   arglist = gfc_chainon_list (arglist, addr);
   arglist = chainon (arglist, tmp);
   
