@@ -778,6 +778,8 @@ basic_block loop_split_edge_with PARAMS ((edge, rtx, struct loops *));
 void force_single_succ_latches   PARAMS ((struct loops *));
 bool just_once_each_iteration_p  PARAMS ((struct loops *,struct loop *, basic_block));
 int num_loop_insns PARAMS ((struct loop *));
+bool inside_basic_block_p	PARAMS ((rtx));
+bool control_flow_insn_p		PARAMS ((rtx));
 
 #define CP_SIMPLE_PREHEADERS	1
 #define CP_INSIDE_CFGLAYOUT	2

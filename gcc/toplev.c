@@ -740,6 +740,7 @@ int flag_pedantic_errors = 0;
    global_alloc.  */
 
 int flag_schedule_insns = 0;
+static int flag_superblock_scheduling = 1;
 int flag_schedule_insns_after_reload = 0;
 
 /* The following flags have effect only for scheduling before register
@@ -1081,6 +1082,8 @@ static const lang_independent_options f_options[] =
    N_("Delete useless null pointer checks") },
   {"schedule-insns", &flag_schedule_insns, 1,
    N_("Reschedule instructions before register allocation") },
+  {"schedule-superblocks", &flag_superblock_scheduling, 1,
+   N_("When scheduling, do superblock sheduling") },
   {"schedule-insns2", &flag_schedule_insns_after_reload, 1,
    N_("Reschedule instructions after register allocation") },
   {"sched-interblock",&flag_schedule_interblock, 1,
@@ -3509,7 +3512,17 @@ rest_of_compilation (decl)
 
       split_all_insns (1);
 
-      schedule_insns (rtl_dump_file);
+      if (flag_superblock_scheduling)
+	{
+	  schedule_ebbs (rtl_dump_file);
+	  /* No liveness updating code yet, but it should be easy to do  */
+	  count_or_remove_death_notes (NULL, 1);
+	  life_analysis (get_insns (), rtl_dump_file, PROP_FINAL);
+        }
+      else
+	schedule_insns (rtl_dump_file);
+      cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_UPDATE_LIFE
+		   | (flag_crossjumping ? CLEANUP_CROSSJUMP : 0));
 
       close_dump_file (DFI_sched2, print_rtl_with_bb, get_insns ());
       timevar_pop (TV_SCHED2);

@@ -56,13 +56,11 @@ static void make_label_edge		PARAMS ((sbitmap *, basic_block,
 static void make_eh_edge		PARAMS ((sbitmap *, basic_block, rtx));
 static void find_bb_boundaries		PARAMS ((basic_block));
 static void compute_outgoing_frequencies PARAMS ((basic_block));
-static bool inside_basic_block_p	PARAMS ((rtx));
-static bool control_flow_insn_p		PARAMS ((rtx));
 
 /* Return true if insn is something that should be contained inside basic
    block.  */
 
-static bool
+bool
 inside_basic_block_p (insn)
      rtx insn;
 {
@@ -95,7 +93,7 @@ inside_basic_block_p (insn)
 /* Return true if INSN may cause control flow transfer, so it should be last in
    the basic block.  */
 
-static bool
+bool
 control_flow_insn_p (insn)
      rtx insn;
 {

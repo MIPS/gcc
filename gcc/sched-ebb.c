@@ -53,7 +53,9 @@ static const char *print_insn PARAMS ((rtx, int));
 static int rank PARAMS ((rtx, rtx));
 static int contributes_to_priority PARAMS ((rtx, rtx));
 static void compute_jump_reg_dependencies PARAMS ((rtx, regset));
-static void schedule_ebb PARAMS ((rtx, rtx));
+static basic_block schedule_ebb PARAMS ((rtx, rtx));
+static basic_block fix_basic_block_boundaries PARAMS ((int, int, rtx, rtx));
+static void add_missing_bbs PARAMS ((rtx, int, int));
 
 /* Return nonzero if there are more insns that should be scheduled.  */
 
@@ -197,18 +199,137 @@ static struct sched_info ebb_sched_info =
   0, 1
 };
 
+/* It is possible that ebb scheduling elliminated some blocks.
+   Place block from FIRST to LAST before BEFORE.  */
+
+static void
+add_missing_bbs (before, first, last)
+     rtx before;
+     int first, last;
+{
+  int i;
+
+  for (i = last; i >= first; i--)
+    {
+      before = emit_note_before (NOTE_INSN_BASIC_BLOCK, before);
+      NOTE_BASIC_BLOCK (before) = BASIC_BLOCK (i);
+      BASIC_BLOCK (i)->head = before;
+      BASIC_BLOCK (i)->end = before;
+      update_bb_for_insn (BASIC_BLOCK (i));
+    }
+}
+
+/* Fixup the CFG after EBB scheduling.  Re-recognize the basic
+   block boundaries in between HEAD and TAIL and update basic block
+   structures between BB and LAST.  */
+
+static basic_block
+fix_basic_block_boundaries (bb, last, head, tail)
+     int bb, last;
+     rtx head, tail;
+{
+  rtx insn = head;
+  rtx last_inside = BASIC_BLOCK (bb)->head;
+  rtx aftertail = NEXT_INSN (tail);
+
+  head = BASIC_BLOCK (bb)->head;
+
+  for (; insn != aftertail; insn = NEXT_INSN (insn))
+    {
+      if (GET_CODE (insn) == CODE_LABEL)
+	abort ();
+      if (inside_basic_block_p (insn))
+	{
+	  if (!last_inside)
+	    {
+	      rtx note;
+
+	      /* Re-emit the basic block note for newly found BB header.  */
+	      if (GET_CODE (insn) == CODE_LABEL)
+		{
+		  note = emit_note_after (NOTE_INSN_BASIC_BLOCK, insn);
+		  head = insn;
+		  last_inside = note;
+		}
+	      else
+		{
+		  note = emit_note_before (NOTE_INSN_BASIC_BLOCK, insn);
+		  head = note;
+		  last_inside = insn;
+		}
+	    }
+	  else
+	    last_inside = insn;
+	}
+      if (control_flow_insn_p (insn) || (insn == tail && last_inside))
+	{
+	  basic_block curr_bb = BLOCK_FOR_INSN (insn);
+	  rtx note;
+
+	  if (!control_flow_insn_p (insn))
+	    curr_bb = BASIC_BLOCK (last);
+	  if (bb == last + 1)
+	    {
+	      edge f;
+	      rtx h;
+
+	      /* An obscure special case, where we do have partially dead
+	         instruction scheduled after last control flow instruction.
+	         In this case we can create new basic block.  It is
+	         always exactly one basic block last in the sequence.  Handle
+	         it by splitting the edge and repositioning the block.
+	         This is somewhat hackish, but at least avoid cut&paste 
+
+	         Safter sollution can be to bring the code into sequence,
+	         do the split and re-emit it back in case this will ever
+	         trigger problem.  */
+	      f = BASIC_BLOCK (bb - 1)->succ;
+	      while (!(f->flags & EDGE_FALLTHRU))
+		f = f->succ_next;
+	      curr_bb = split_edge (f);
+	      h = curr_bb->head;
+	      curr_bb->head = head;
+	      curr_bb->end = insn;
+	      /* Edge splitting created missplaced BASIC_BLOCK note, kill
+	         it.  */
+	      delete_insn (h);
+	    }
+	  else
+	    {
+	      if (curr_bb->index < bb)
+		abort ();
+	      curr_bb->head = head;
+	      curr_bb->end = insn;
+	    }
+	  note = GET_CODE (head) == CODE_LABEL ? NEXT_INSN (head) : head;
+	  NOTE_BASIC_BLOCK (note) = curr_bb;
+	  update_bb_for_insn (curr_bb);
+	  add_missing_bbs (curr_bb->head, bb, curr_bb->index - 1);
+	  bb = curr_bb->index + 1;
+	  last_inside = NULL;
+	}
+    }
+  if (last != n_basic_blocks - 1)
+    add_missing_bbs (BASIC_BLOCK (last + 1)->head, bb, last);
+  return BASIC_BLOCK (bb - 1);
+}
+
 /* Schedule a single extended basic block, defined by the boundaries HEAD
    and TAIL.  */
 
-static void
+static basic_block
 schedule_ebb (head, tail)
      rtx head, tail;
 {
   int n_insns;
+  basic_block b;
   struct deps tmp_deps;
+  int first_bb = BLOCK_FOR_INSN (head) -> index;
+  int last_bb = BLOCK_FOR_INSN (tail) -> index;
 
+  verify_flow_info ();
   if (no_real_insns_p (head, tail))
-    return;
+    return BLOCK_FOR_INSN (tail);
 
   init_deps_global ();
 
@@ -268,8 +389,10 @@ schedule_ebb (head, tail)
 
   if (write_symbols != NO_DEBUG)
     restore_line_notes (head, tail);
+  b = fix_basic_block_boundaries (first_bb, last_bb, head, tail);
 
   finish_deps_global ();
+  return b;
 }
 
 /* The one entry point in this file.  DUMP_FILE is the dump file for
@@ -314,17 +437,8 @@ schedule_ebbs (dump_file)
 	      break;
 	  if (! e)
 	    break;
-	  if (GET_CODE (tail) == JUMP_INSN)
-	    {
-	      rtx x = find_reg_note (tail, REG_BR_PROB, 0);
-	      if (x)
-		{
-		  int pred_val = INTVAL (XEXP (x, 0));
-		  if (pred_val > REG_BR_PROB_BASE / 2)
-		    break;
-		}
-	    }
-
+	  if (e->probability < REG_BR_PROB_BASE * 60 / 100)
+	    break;
 	  i++;
 	}
 
@@ -342,7 +456,7 @@ schedule_ebbs (dump_file)
 	    break;
 	}
 
-      schedule_ebb (head, tail);
+      i = schedule_ebb (head, tail)->index;
     }
 
   /* It doesn't make much sense to try and update life information here - we
@@ -355,6 +469,8 @@ schedule_ebbs (dump_file)
 
   if (write_symbols != NO_DEBUG)
     rm_redundant_line_notes ();
+
+  verify_flow_info ();
 
   scope_to_insns_finalize ();
 
