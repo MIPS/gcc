@@ -1,3 +1,7 @@
+2003-10-18  Jan Hubicka  <jh@suse.cz>
+
+	* cgraphunit.c (cgraph_analyze_function):  Fix call of estimate_num_insns.
+
 2003-10-17  Kazu Hirata  <kazu@cs.umass.edu>
 
 	* ChangeLog.tree-ssa: Fix typos.
