@@ -1,3 +1,13 @@
+2004-01-17  Dorit Naishlos  <dorit@il.ibm.com>
+
+	* tree-vectorizer.c: (vect_get_name_for_new_var): Removed.
+        (vect_get_new_vect_var): New function.  Replaces above function.
+        (vect_create_index_for_array_ref): Call vect_get_new_vect_var
+        instead of vect_get_name_for_new_var.
+        (vect_create_data_ref): Likewise.
+        (vect_create_destination_var): Likewise.
+        * tree-vectorizer.h: (vect_var_kind): New enum type.
+
 2004-01-15  Sebastian Pop  <s.pop@laposte.net>
 
 	* tree-chrec.c (remove_initial_condition,

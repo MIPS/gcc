@@ -22,6 +22,13 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #ifndef GCC_TREE_VECTORIZER_H
 #define GCC_TREE_VECTORIZER_H
 
+/* Used for naming of new temporaries.  */
+enum vect_var_kind {
+  vect_simple_var,
+  vect_pointer_var
+};
+
+
 /*-----------------------------------------------------------------*/
 /* Info on vectorized defs.                                        */
 /*-----------------------------------------------------------------*/

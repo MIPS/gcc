@@ -195,7 +195,7 @@ static tree vect_create_destination_var (tree, tree);
 static tree vect_create_data_ref (tree, tree, block_stmt_iterator *);
 static tree vect_create_index_for_array_ref (tree, block_stmt_iterator *);
 static tree get_vectype_for_scalar_type (tree);
-static char *vect_get_name_for_new_var (tree);
+static tree vect_get_new_vect_var (tree , enum vect_var_kind, tree);
 
 /* General untility functions (CHECKME: where do they belong).  */
 static tree get_array_base (tree);
@@ -318,42 +318,49 @@ destroy_loop_vec_info (loop_vec_info loop_vinfo)
 }
 
 
-/* Function vect_get_name_for_new_var.
+/* Function vect_get_new_vect_var.
 
    Return a name for a new variable.
-   The current naming scheme appends the prefix "_vect_" to all the
+   The current naming scheme appends the prefix "vect_" or "vect_p" to 
    vectorizer generated variables, and uses the name of a corresponding
    scalar variable VAR if given.
 
-   CHECKME: alloca ok?
    CHECKME: naming scheme ok?  */
 
-static char *
-vect_get_name_for_new_var (tree var)
+static tree
+vect_get_new_vect_var (tree type, enum vect_var_kind var_kind, tree related_scalar_var)
 {
   const char *name = NULL;
-  const char *prefix = "_vect_";
-  const char *prefix_var = "_vect_var";
+  const char *prefix;
   int prefix_len;
-  char *vec_var_name;
+  char *vect_var_name;
+  tree new_vect_var;
 
-  if (var)
-    name = get_name (var);
+  if (var_kind == vect_simple_var)
+    prefix = "vect_"; 
+  else
+    prefix = "vect_p";
+
+  prefix_len = strlen (prefix);
+
+  if (related_scalar_var)
+    name = get_name (related_scalar_var);
 
   if (name)
     {
-      prefix_len = strlen (prefix);
-      vec_var_name = alloca (strlen (name) + prefix_len + 1);
-      sprintf (vec_var_name, "%s%s", prefix, name);
+      vect_var_name = (char *) xmalloc (strlen (name) + prefix_len + 1);
+      sprintf (vect_var_name, "%s%s", prefix, name);
     }
   else
     {
-      prefix_len = strlen (prefix_var);
-      vec_var_name = alloca (prefix_len + 1);
-      sprintf (vec_var_name, "%s", prefix_var);
+      vect_var_name = (char *) xmalloc (prefix_len + 1);
+      sprintf (vect_var_name, "%s", prefix);
     }
 
-  return vec_var_name;
+  new_vect_var = create_tmp_var (type, vect_var_name);
+
+  free (vect_var_name);
+  return new_vect_var;
 }
 
 
@@ -407,7 +414,6 @@ static tree
 vect_create_index_for_array_ref (tree stmt, block_stmt_iterator *bsi)
 {
   tree T0, T1, vec_stmt, mult_expr, new_temp;
-  char *new_name;
   stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
   struct loop *loop = STMT_VINFO_LOOP (stmt_info);
   struct data_reference *dr = STMT_VINFO_DATA_REF (stmt_info);
@@ -465,8 +471,8 @@ vect_create_index_for_array_ref (tree stmt, block_stmt_iterator *bsi)
       int vectorization_factor = LOOP_VINFO_VECT_FACTOR (loop_info);
       tree step_stmt;
 
-      new_name = vect_get_name_for_new_var (scalar_indx);
-      new_indx = create_tmp_var (unsigned_intSI_type_node, new_name);
+      new_indx = vect_get_new_vect_var (unsigned_intSI_type_node, 
+					vect_simple_var, scalar_indx);
       add_referenced_tmp_var (new_indx); 	
       bitmap_set_bit (vars_to_rename, var_ann (new_indx)->uid);
 
@@ -514,8 +520,8 @@ vect_create_index_for_array_ref (tree stmt, block_stmt_iterator *bsi)
 
   /*** create: unsigned int T0; ***/
 
-  new_name = vect_get_name_for_new_var (scalar_indx);
-  T0 = create_tmp_var (unsigned_intSI_type_node, new_name);
+  T0 = vect_get_new_vect_var (unsigned_intSI_type_node, 
+				vect_simple_var, scalar_indx);
   add_referenced_tmp_var (T0);
 
 
@@ -530,8 +536,8 @@ vect_create_index_for_array_ref (tree stmt, block_stmt_iterator *bsi)
 
   /*** create: unsigned int T1; ***/
 
-  new_name = vect_get_name_for_new_var (scalar_indx);
-  T1 = create_tmp_var (unsigned_intSI_type_node, new_name);
+  T1 = vect_get_new_vect_var (unsigned_intSI_type_node,
+                                vect_simple_var, scalar_indx);
   add_referenced_tmp_var (T1);
 
 
@@ -666,7 +672,6 @@ vect_create_data_ref (tree ref, tree stmt, block_stmt_iterator *bsi)
   tree ptr_type;
   tree array_ptr;
   tree array_base;
-  char *new_name;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
@@ -678,9 +683,8 @@ vect_create_data_ref (tree ref, tree stmt, block_stmt_iterator *bsi)
   array_base = get_array_base (ref);
 
   /*** create: vectype *p;  ***/
-  new_name = vect_get_name_for_new_var (array_base);
   ptr_type = build_pointer_type (vectype);
-  array_ptr = create_tmp_var (ptr_type, new_name);
+  array_ptr = vect_get_new_vect_var (ptr_type, vect_pointer_var, array_base);
   add_referenced_tmp_var (array_ptr);
   get_var_ann (array_ptr)->mem_tag = array_base;
 
@@ -699,8 +703,7 @@ vect_create_data_ref (tree ref, tree stmt, block_stmt_iterator *bsi)
 
   /*** create: vectype *T0; ***/
 
-  new_name = vect_get_name_for_new_var (array_base);
-  T0 = create_tmp_var (ptr_type, new_name);
+  T0 = vect_get_new_vect_var (ptr_type, vect_pointer_var, array_base);
   add_referenced_tmp_var (T0);
   get_var_ann (T0)->mem_tag = array_base;
   bitmap_set_bit (vars_to_rename, var_ann (array_base)->uid);
@@ -746,13 +749,11 @@ static tree
 vect_create_destination_var (tree scalar_dest, tree vectype)
 {
   tree vec_dest;
-  char *new_name;
 
   if (TREE_CODE (scalar_dest) != SSA_NAME)
     abort ();
 
-  new_name = vect_get_name_for_new_var (scalar_dest);
-  vec_dest = create_tmp_var (vectype, new_name);
+  vec_dest = vect_get_new_vect_var (vectype, vect_simple_var, scalar_dest);
   add_referenced_tmp_var (vec_dest);
 
   /* FIXME: introduce new type.   */
