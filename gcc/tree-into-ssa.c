@@ -1709,7 +1709,9 @@ struct tree_opt_pass pass_build_ssa =
 {
   "ssa",				/* name */
   NULL,					/* gate */
+  NULL, NULL,				/* IPA analysis */
   rewrite_all_into_ssa,			/* execute */
+  NULL, NULL,				/* IPA modification */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */

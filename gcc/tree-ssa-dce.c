@@ -918,7 +918,9 @@ struct tree_opt_pass pass_dce =
 {
   "dce",				/* name */
   gate_dce,				/* gate */
+  NULL, NULL,				/* IPA analysis */
   tree_ssa_dce,				/* execute */
+  NULL, NULL,				/* IPA modification */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
@@ -935,7 +937,9 @@ struct tree_opt_pass pass_cd_dce =
 {
   "cddce",				/* name */
   gate_dce,				/* gate */
+  NULL, NULL,				/* IPA analysis */
   tree_ssa_cd_dce,			/* execute */
+  NULL, NULL,				/* IPA modification */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */

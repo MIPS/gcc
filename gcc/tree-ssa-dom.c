@@ -437,7 +437,9 @@ struct tree_opt_pass pass_dominator =
 {
   "dom",				/* name */
   gate_dominator,			/* gate */
+  NULL, NULL,				/* IPA analysis */
   tree_ssa_dominator_optimize,		/* execute */
+  NULL, NULL,				/* IPA modification */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */

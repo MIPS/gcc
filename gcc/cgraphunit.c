@@ -203,6 +203,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "ipa_prop.h"
 #include "tree-gimple.h"
 #include "output.h"
+#include "tree-pass.h"
 
 #define INSNS_PER_CALL 10
 
@@ -549,6 +550,34 @@ cgraph_assemble_pending_functions (void)
   return output;
 }
 
+/* Compute function size and other parameters used by inlining arguments.  */
+static void
+cgraph_analyze_function_inlinability (struct cgraph_node *node)
+{
+  tree decl = node->decl;
+  struct cgraph_edge *e;
+
+  node->local.inlinable = tree_inlinable_function_p (decl);
+  node->local.self_insns = estimate_num_insns (DECL_SAVED_TREE (decl));
+  if (node->local.inlinable)
+    node->local.disregard_inline_limits
+      = lang_hooks.tree_inlining.disregard_inline_limits (decl);
+  for (e = node->callers; e; e = e->next_caller)
+    {
+      if (node->local.redefined_extern_inline)
+	e->inline_failed = N_("redefined extern inline functions are not "
+			      "considered for inlining");
+      else if (!node->local.inlinable)
+	e->inline_failed = N_("function not inlinable");
+      else
+	e->inline_failed = N_("function not considered for inlining");
+    }
+  if (flag_really_no_inline && !node->local.disregard_inline_limits)
+    node->local.inlinable = 0;
+  /* Inlining characteristics are maintained by the cgraph_mark_inline.  */
+  node->global.insns = node->local.self_insns;
+}
+
 /* DECL has been parsed.  Take it, queue it, compile it at the whim of the
    logic in effect.  If NESTED is true, then our caller cannot stand to have
    the garbage collector run at the moment.  We would need to either create
@@ -888,6 +917,7 @@ cgraph_varpool_analyze_pending_decls (void)
       tree decl = cgraph_varpool_first_unanalyzed_node->decl;
 
       cgraph_varpool_first_unanalyzed_node->analyzed = true;
+      ipa_analyze_variable (cgraph_varpool_first_unanalyzed_node);
       cgraph_varpool_first_unanalyzed_node = cgraph_varpool_first_unanalyzed_node->next_needed;
       cgraph_create_edges (NULL, DECL_INITIAL (decl));
       changed = true;
@@ -917,6 +947,7 @@ cgraph_varpool_assemble_pending_decls (void)
       cgraph_varpool_nodes_queue = cgraph_varpool_nodes_queue->next_needed;
       if (!TREE_ASM_WRITTEN (decl) && !DECL_EXTERNAL (decl))
 	{
+          ipa_modify_variable (node);
 	  assemble_variable (decl, 0, 1, 0);
 	  changed = true;
 	}
@@ -930,32 +961,19 @@ static void
 cgraph_analyze_function (struct cgraph_node *node)
 {
   tree decl = node->decl;
-  struct cgraph_edge *e;
 
   current_function_decl = decl;
 
   /* First kill forward declaration so reverse inlining works properly.  */
   cgraph_create_edges (node, DECL_SAVED_TREE (decl));
 
-  node->local.inlinable = tree_inlinable_function_p (decl);
-  node->local.self_insns = estimate_num_insns (DECL_SAVED_TREE (decl));
-  if (node->local.inlinable)
-    node->local.disregard_inline_limits
-      = lang_hooks.tree_inlining.disregard_inline_limits (decl);
-  for (e = node->callers; e; e = e->next_caller)
-    {
-      if (node->local.redefined_extern_inline)
-	e->inline_failed = N_("redefined extern inline functions are not "
-			   "considered for inlining");
-      else if (!node->local.inlinable)
-	e->inline_failed = N_("function not inlinable");
-      else
-	e->inline_failed = N_("function not considered for inlining");
-    }
-  if (flag_really_no_inline && !node->local.disregard_inline_limits)
-    node->local.inlinable = 0;
-  /* Inlining characteristics are maintained by the cgraph_mark_inline.  */
-  node->global.insns = node->local.self_insns;
+  /* Only optimization we do in non-unit-at-a-time mode is inlining.  We don't
+     use the passmanager then and instead call it directly.  Since we probably
+     don't want to add more passes like this, it should be OK.  */
+  if (!flag_unit_at_a_time)
+    cgraph_analyze_function_inlinability (node);
+  else
+    ipa_analyze_function (node);
 
   node->analyzed = true;
   current_function_decl = NULL;
@@ -1732,8 +1750,8 @@ cgraph_decide_recursive_inlining (struct cgraph_node *node)
   if (!first_call)
     return;
 
-  if (cgraph_dump_file)
-    fprintf (cgraph_dump_file, 
+  if (dump_file)
+    fprintf (dump_file, 
 	     "\nPerforming recursive inlining on %s\n",
 	     cgraph_node_name (node));
 
@@ -1771,8 +1789,8 @@ cgraph_decide_recursive_inlining (struct cgraph_node *node)
       first_call->aux = NULL;
       first_call = next;
     }
-  if (cgraph_dump_file)
-    fprintf (cgraph_dump_file, 
+  if (dump_file)
+    fprintf (dump_file, 
 	     "\n   Inlined %i times, body grown from %i to %i insns\n", n,
 	     master_clone->global.insns, node->global.insns);
 
@@ -1793,8 +1811,8 @@ cgraph_set_inline_failed (struct cgraph_node *node, const char *reason)
 {
   struct cgraph_edge *e;
 
-  if (cgraph_dump_file)
-    fprintf (cgraph_dump_file, "Inlining failed: %s\n", reason);
+  if (dump_file)
+    fprintf (dump_file, "Inlining failed: %s\n", reason);
   for (e = node->callers; e; e = e->next_caller)
     if (e->inline_failed)
       e->inline_failed = reason;
@@ -1835,16 +1853,16 @@ cgraph_decide_inlining_of_small_functions (void)
 	fibheap_insert (heap, cgraph_estimate_growth (node), node);
     }
 
-  if (cgraph_dump_file)
-    fprintf (cgraph_dump_file, "\nDeciding on smaller functions:\n");
+  if (dump_file)
+    fprintf (dump_file, "\nDeciding on smaller functions:\n");
   while (overall_insns <= max_insns && (node = fibheap_extract_min (heap)))
     {
       struct cgraph_edge *e, *next;
       int old_insns = overall_insns;
 
       heap_node[node->uid] = NULL;
-      if (cgraph_dump_file)
-	fprintf (cgraph_dump_file, 
+      if (dump_file)
+	fprintf (dump_file, 
 		 "\nConsidering %s with %i insns\n"
 		 " Estimated growth is %+i insns.\n",
 		 cgraph_node_name (node), node->global.insns,
@@ -1867,8 +1885,8 @@ cgraph_decide_inlining_of_small_functions (void)
 		  || !cgraph_check_inline_limits (e->caller, e->callee,
 			  			  &e->inline_failed))
 		{
-		  if (cgraph_dump_file)
-		    fprintf (cgraph_dump_file, " Not inlining into %s:%s.\n",
+		  if (dump_file)
+		    fprintf (dump_file, " Not inlining into %s:%s.\n",
 			     cgraph_node_name (e->caller), e->inline_failed);
 		  continue;
 		}
@@ -1881,8 +1899,8 @@ cgraph_decide_inlining_of_small_functions (void)
 		fibheap_replace_key (heap, heap_node[where->uid],
 				     cgraph_estimate_growth (where));
 
-	      if (cgraph_dump_file)
-		fprintf (cgraph_dump_file, 
+	      if (dump_file)
+		fprintf (dump_file, 
 			 " Inlined into %s which now has %i insns.\n",
 			 cgraph_node_name (e->caller),
 			 e->caller->global.insns);
@@ -1895,8 +1913,8 @@ cgraph_decide_inlining_of_small_functions (void)
          are now called more times; update keys.  */
       update_callee_keys (heap, heap_node, node);
 
-      if (cgraph_dump_file)
-	fprintf (cgraph_dump_file, 
+      if (dump_file)
+	fprintf (dump_file, 
 		 " Inlined for a net change of %+i insns.\n",
 		 overall_insns - old_insns);
     }
@@ -1926,16 +1944,16 @@ cgraph_decide_inlining (void)
 
   nnodes = cgraph_postorder (order);
 
-  if (cgraph_dump_file)
-    fprintf (cgraph_dump_file,
+  if (dump_file)
+    fprintf (dump_file,
 	     "\nDeciding on inlining.  Starting with %i insns.\n",
 	     initial_insns);
 
   for (node = cgraph_nodes; node; node = node->next)
     node->aux = 0;
 
-  if (cgraph_dump_file)
-    fprintf (cgraph_dump_file, "\nInlining always_inline functions:\n");
+  if (dump_file)
+    fprintf (dump_file, "\nInlining always_inline functions:\n");
 
   /* In the first pass mark all always_inline edges.  Do this with a priority
      so none of our later choices will make this impossible.  */
@@ -1947,8 +1965,8 @@ cgraph_decide_inlining (void)
 
       if (!node->local.disregard_inline_limits)
 	continue;
-      if (cgraph_dump_file)
-	fprintf (cgraph_dump_file,
+      if (dump_file)
+	fprintf (dump_file,
 		 "\nConsidering %s %i insns (always inline)\n",
 		 cgraph_node_name (node), node->global.insns);
       old_insns = overall_insns;
@@ -1961,14 +1979,14 @@ cgraph_decide_inlining (void)
 				  	   &e->inline_failed))
 	    continue;
 	  cgraph_mark_inline_edge (e);
-	  if (cgraph_dump_file)
-	    fprintf (cgraph_dump_file, 
+	  if (dump_file)
+	    fprintf (dump_file, 
 		     " Inlined into %s which now has %i insns.\n",
 		     cgraph_node_name (e->caller),
 		     e->caller->global.insns);
 	}
-      if (cgraph_dump_file)
-	fprintf (cgraph_dump_file, 
+      if (dump_file)
+	fprintf (dump_file, 
 		 " Inlined for a net change of %+i insns.\n",
 		 overall_insns - old_insns);
     }
@@ -1977,8 +1995,8 @@ cgraph_decide_inlining (void)
     {
       cgraph_decide_inlining_of_small_functions ();
 
-      if (cgraph_dump_file)
-	fprintf (cgraph_dump_file, "\nDeciding on functions called once:\n");
+      if (dump_file)
+	fprintf (dump_file, "\nDeciding on functions called once:\n");
 
       /* And finally decide what functions are called once.  */
 
@@ -2001,8 +2019,8 @@ cgraph_decide_inlining (void)
 		  ok = false;
 	      if (ok)
 		{
-		  if (cgraph_dump_file)
-		    fprintf (cgraph_dump_file,
+		  if (dump_file)
+		    fprintf (dump_file,
 			     "\nConsidering %s %i insns.\n"
 			     " Called once from %s %i insns.\n",
 			     cgraph_node_name (node), node->global.insns,
@@ -2015,8 +2033,8 @@ cgraph_decide_inlining (void)
 					  	  NULL))
 		    {
 		      cgraph_mark_inline (node->callers);
-		      if (cgraph_dump_file)
-			fprintf (cgraph_dump_file,
+		      if (dump_file)
+			fprintf (dump_file,
 				 " Inlined into %s which now has %i insns"
 				 " for a net change of %+i insns.\n",
 				 cgraph_node_name (node->callers->caller),
@@ -2025,8 +2043,8 @@ cgraph_decide_inlining (void)
 		    }
 		  else
 		    {
-		      if (cgraph_dump_file)
-			fprintf (cgraph_dump_file,
+		      if (dump_file)
+			fprintf (dump_file,
 				 " Inline limit reached, not inlined.\n");
 		    }
 		}
@@ -2039,8 +2057,8 @@ cgraph_decide_inlining (void)
      inline functions.  */
   cgraph_remove_unreachable_nodes (false);
 
-  if (cgraph_dump_file)
-    fprintf (cgraph_dump_file,
+  if (dump_file)
+    fprintf (dump_file,
 	     "\nInlined %i calls, eliminated %i functions, "
 	     "%i insns turned to %i insns.\n\n",
 	     ncalls_inlined, nfunctions_inlined, initial_insns,
@@ -2084,6 +2102,57 @@ cgraph_decide_inlining_incrementally (struct cgraph_node *node)
 	}
 }
 
+static void
+cgraph_apply_inline (struct cgraph_node *node)
+{
+  if (flag_inline_trees)
+    {
+      struct cgraph_edge *e;
+      for (e = node->callees; e; e = e->next_callee)
+	if (!e->inline_failed || warn_inline)
+	  break;
+      if (e)
+	optimize_inline_calls (current_function_decl);
+    }
+
+  /* We are not going to maintain the cgraph edges up to date.
+     Kill it so it won't confuse us.  */
+  while (node->callees)
+    {
+      /* In non-unit-at-a-time we must mark all referenced functions as needed.
+         */
+      if (node->callees->callee->analyzed && !flag_unit_at_a_time)
+        cgraph_mark_needed_node (node->callees->callee);
+      cgraph_remove_edge (node->callees);
+    }
+}
+
+static bool
+cgraph_gate_inlining (void)
+{
+  return flag_inline_trees;
+}
+
+struct tree_opt_pass pass_ipa_inline = 
+{
+  "inline",				/* name */
+  cgraph_gate_inlining,			/* gate */
+  cgraph_analyze_function_inlinability,	/* function analysis */
+  NULL,					/* variable analysis */
+  cgraph_decide_inlining,		/* execute */
+  cgraph_apply_inline,			/* function modification */
+  NULL,					/* variable modification */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  TV_INTEGRATION,			/* tv_id */
+  0,	                                /* properties_required */
+  PROP_trees,				/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  TODO_dump_cgraph | TODO_dump_func,	/* todo_flags_finish */
+  0					/* letter */
+};
 
 /* Return true when CALLER_DECL should be inlined into CALLEE_DECL.  */
 
@@ -2927,8 +2996,7 @@ cgraph_optimize (void)
       dump_cgraph (cgraph_dump_file);
     }
 
-  if (flag_inline_trees)
-    cgraph_decide_inlining ();
+  ipa_passes ();
   cgraph_global_info_ready = true;
   if (cgraph_dump_file)
     {

@@ -971,7 +971,9 @@ struct tree_opt_pass pass_tail_recursion =
 {
   "tailr",				/* name */
   NULL,					/* gate */
+  NULL, NULL,				/* IPA analysis */
   execute_tail_recursion,		/* execute */
+  NULL, NULL,				/* IPA modification */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
@@ -988,7 +990,9 @@ struct tree_opt_pass pass_tail_calls =
 {
   "tailc",				/* name */
   gate_tail_calls,			/* gate */
+  NULL, NULL,				/* IPA analysis */
   execute_tail_calls,			/* execute */
+  NULL, NULL,				/* IPA modification */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */

@@ -1650,7 +1650,9 @@ struct tree_opt_pass pass_lower_eh =
 {
   "eh",					/* name */
   NULL,					/* gate */
+  NULL, NULL,				/* IPA analysis */
   lower_eh_constructs,			/* execute */
+  NULL, NULL,				/* IPA modification */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */

@@ -2078,7 +2078,9 @@ struct tree_opt_pass pass_del_ssa =
 {
   "optimized",				/* name */
   NULL,					/* gate */
+  NULL, NULL,				/* IPA analysis */
   rewrite_out_of_ssa,			/* execute */
+  NULL, NULL,				/* IPA modification */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */

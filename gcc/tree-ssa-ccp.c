@@ -1221,7 +1221,9 @@ struct tree_opt_pass pass_ccp =
 {
   "ccp",				/* name */
   gate_ccp,				/* gate */
+  NULL, NULL,				/* IPA analysis */
   execute_ssa_ccp,			/* execute */
+  NULL, NULL,				/* IPA modification */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
@@ -2212,7 +2214,9 @@ struct tree_opt_pass pass_fold_builtins =
 {
   "fab",				/* name */
   NULL,					/* gate */
+  NULL, NULL,				/* IPA analysis */
   execute_fold_all_builtins,		/* execute */
+  NULL, NULL,				/* IPA modification */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */

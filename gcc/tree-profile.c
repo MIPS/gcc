@@ -601,7 +601,9 @@ struct tree_opt_pass pass_tree_profile =
 {
   "tree_profile",			/* name */
   do_tree_profiling,			/* gate */
+  NULL, NULL,				/* IPA analysis */
   tree_profiling,			/* execute */
+  NULL, NULL,				/* IPA modification */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */

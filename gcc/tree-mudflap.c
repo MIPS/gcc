@@ -1316,7 +1316,9 @@ struct tree_opt_pass pass_mudflap_1 =
 {
   "mudflap1",                           /* name */
   gate_mudflap,                         /* gate */
+  NULL, NULL,				/* IPA analysis */
   execute_mudflap_function_decls,       /* execute */
+  NULL, NULL,				/* IPA modification */
   NULL,                                 /* sub */
   NULL,                                 /* next */
   0,                                    /* static_pass_number */
@@ -1333,7 +1335,9 @@ struct tree_opt_pass pass_mudflap_2 =
 {
   "mudflap2",                           /* name */
   gate_mudflap,                         /* gate */
+  NULL, NULL,				/* IPA analysis */
   execute_mudflap_function_ops,         /* execute */
+  NULL, NULL,				/* IPA modification */
   NULL,                                 /* sub */
   NULL,                                 /* next */
   0,                                    /* static_pass_number */

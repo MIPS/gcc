@@ -80,7 +80,9 @@ struct tree_opt_pass pass_loop =
 {
   "loop",				/* name */
   gate_loop,				/* gate */
+  NULL, NULL,				/* IPA analysis */
   NULL,					/* execute */
+  NULL, NULL,				/* IPA modification */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
@@ -112,7 +114,9 @@ struct tree_opt_pass pass_loop_init =
 {
   "loopinit",				/* name */
   NULL,					/* gate */
+  NULL, NULL,				/* IPA analysis */
   tree_ssa_loop_init,			/* execute */
+  NULL, NULL,				/* IPA modification */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
@@ -146,7 +150,9 @@ struct tree_opt_pass pass_lim =
 {
   "lim",				/* name */
   gate_tree_ssa_loop_im,		/* gate */
+  NULL, NULL,				/* IPA analysis */
   tree_ssa_loop_im,			/* execute */
+  NULL, NULL,				/* IPA modification */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
@@ -180,7 +186,9 @@ struct tree_opt_pass pass_unswitch =
 {
   "unswitch",				/* name */
   gate_tree_ssa_loop_unswitch,		/* gate */
+  NULL, NULL,				/* IPA analysis */
   tree_ssa_loop_unswitch,		/* execute */
+  NULL, NULL,				/* IPA modification */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
@@ -215,7 +223,9 @@ struct tree_opt_pass pass_vectorize =
 {
   "vect",                               /* name */
   gate_tree_vectorize,                  /* gate */
+  NULL, NULL,				/* IPA analysis */
   tree_vectorize,                       /* execute */
+  NULL, NULL,				/* IPA modification */
   NULL,                                 /* sub */
   NULL,                                 /* next */
   0,                                    /* static_pass_number */
@@ -250,7 +260,9 @@ struct tree_opt_pass pass_linear_transform =
 {
   "ltrans",				/* name */
   gate_tree_linear_transform,		/* gate */
+  NULL, NULL,				/* IPA analysis */
   tree_linear_transform,       		/* execute */
+  NULL, NULL,				/* IPA modification */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
@@ -284,7 +296,9 @@ struct tree_opt_pass pass_iv_canon =
 {
   "ivcanon",				/* name */
   gate_tree_ssa_loop_ivcanon,		/* gate */
+  NULL, NULL,				/* IPA analysis */
   tree_ssa_loop_ivcanon,	       	/* execute */
+  NULL, NULL,				/* IPA modification */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
@@ -313,7 +327,9 @@ struct tree_opt_pass pass_record_bounds =
 {
   NULL,					/* name */
   NULL,					/* gate */
+  NULL, NULL,				/* IPA analysis */
   tree_ssa_loop_bounds,		       	/* execute */
+  NULL, NULL,				/* IPA modification */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
@@ -347,7 +363,9 @@ struct tree_opt_pass pass_complete_unroll =
 {
   "cunroll",				/* name */
   gate_tree_complete_unroll,		/* gate */
+  NULL, NULL,				/* IPA analysis */
   tree_complete_unroll,		       	/* execute */
+  NULL, NULL,				/* IPA modification */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
@@ -381,7 +399,9 @@ struct tree_opt_pass pass_iv_optimize =
 {
   "ivopts",				/* name */
   gate_tree_ssa_loop_ivopts,		/* gate */
+  NULL, NULL,				/* IPA analysis */
   tree_ssa_loop_ivopts,		       	/* execute */
+  NULL, NULL,				/* IPA modification */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
@@ -418,7 +438,9 @@ struct tree_opt_pass pass_loop_done =
 {
   "loopdone",				/* name */
   NULL,					/* gate */
+  NULL, NULL,				/* IPA analysis */
   tree_ssa_loop_done,			/* execute */
+  NULL, NULL,				/* IPA modification */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */

@@ -543,7 +543,9 @@ gate_forwprop (void)
 struct tree_opt_pass pass_forwprop = {
   "forwprop",			/* name */
   gate_forwprop,		/* gate */
+  NULL, NULL,				/* IPA analysis */
   tree_ssa_forward_propagate_single_use_vars,	/* execute */
+  NULL, NULL,				/* IPA modification */
   NULL,				/* sub */
   NULL,				/* next */
   0,				/* static_pass_number */

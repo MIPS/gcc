@@ -1349,7 +1349,9 @@ struct tree_opt_pass pass_expand =
 {
   "expand",		                /* name */
   NULL,                                 /* gate */
+  NULL, NULL,				/* IPA analysis */
   tree_expand_cfg,	                /* execute */
+  NULL, NULL,				/* IPA modification */
   NULL,                                 /* sub */
   NULL,                                 /* next */
   0,                                    /* static_pass_number */

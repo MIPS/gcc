@@ -127,7 +127,9 @@ struct tree_opt_pass pass_lower_cf =
 {
   "lower",				/* name */
   NULL,					/* gate */
+  NULL, NULL,				/* IPA analysis */
   lower_function_body,			/* execute */
+  NULL, NULL,				/* IPA modification */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
@@ -530,7 +532,9 @@ struct tree_opt_pass pass_remove_useless_vars =
 {
   "vars",				/* name */
   NULL,					/* gate */
+  NULL, NULL,				/* IPA analysis */
   remove_useless_vars,			/* execute */
+  NULL, NULL,				/* IPA modification */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */

@@ -1097,7 +1097,9 @@ struct tree_opt_pass pass_if_conversion =
 {
   "ifcvt",                           /* name */
   gate_tree_if_conversion,           /* gate */
+  NULL, NULL,				/* IPA analysis */
   main_tree_if_conversion,           /* execute */
+  NULL, NULL,				/* IPA modification */
   NULL,                              /* sub */
   NULL,                              /* next */
   0,                                 /* static_pass_number */

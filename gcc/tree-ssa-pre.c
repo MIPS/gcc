@@ -2078,7 +2078,9 @@ struct tree_opt_pass pass_pre =
 {
   "pre",				/* name */
   gate_pre,				/* gate */
+  NULL, NULL,				/* IPA analysis */
   do_pre,				/* execute */
+  NULL, NULL,				/* IPA modification */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
@@ -2111,7 +2113,9 @@ struct tree_opt_pass pass_fre =
 {
   "fre",				/* name */
   gate_fre,				/* gate */
+  NULL, NULL,				/* IPA analysis */
   do_fre,				/* execute */
+  NULL, NULL,				/* IPA modification */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */

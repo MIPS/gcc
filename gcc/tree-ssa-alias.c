@@ -345,7 +345,9 @@ struct tree_opt_pass pass_may_alias =
 {
   "alias",				/* name */
   NULL,					/* gate */
+  NULL, NULL,				/* IPA analysis */
   compute_may_aliases,			/* execute */
+  NULL, NULL,				/* IPA modification */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */

@@ -452,7 +452,9 @@ gate_dse (void)
 struct tree_opt_pass pass_dse = {
   "dse",			/* name */
   gate_dse,			/* gate */
+  NULL, NULL,				/* IPA analysis */
   tree_ssa_dse,			/* execute */
+  NULL, NULL,				/* IPA modification */
   NULL,				/* sub */
   NULL,				/* next */
   0,				/* static_pass_number */

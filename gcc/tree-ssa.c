@@ -1293,7 +1293,9 @@ struct tree_opt_pass pass_redundant_phi =
 {
   "redphi",				/* name */
   NULL,					/* gate */
+  NULL, NULL,				/* IPA analysis */
   kill_redundant_phi_nodes,		/* execute */
+  NULL, NULL,				/* IPA modification */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
@@ -1435,7 +1437,9 @@ struct tree_opt_pass pass_early_warn_uninitialized =
 {
   NULL,					/* name */
   gate_warn_uninitialized,		/* gate */
+  NULL, NULL,				/* IPA analysis */
   execute_early_warn_uninitialized,	/* execute */
+  NULL, NULL,				/* IPA modification */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
@@ -1452,7 +1456,9 @@ struct tree_opt_pass pass_late_warn_uninitialized =
 {
   NULL,					/* name */
   gate_warn_uninitialized,		/* gate */
+  NULL, NULL,				/* IPA analysis */
   execute_late_warn_uninitialized,	/* execute */
+  NULL, NULL,				/* IPA modification */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */

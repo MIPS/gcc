@@ -128,7 +128,9 @@ struct tree_opt_pass pass_referenced_vars =
 {
   NULL,					/* name */
   NULL,					/* gate */
+  NULL, NULL,				/* IPA analysis */
   find_referenced_vars,			/* execute */
+  NULL, NULL,				/* IPA modification */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */

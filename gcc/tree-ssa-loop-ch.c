@@ -231,7 +231,9 @@ struct tree_opt_pass pass_ch =
 {
   "ch",					/* name */
   gate_ch,				/* gate */
+  NULL, NULL,				/* IPA analysis */
   copy_loop_headers,			/* execute */
+  NULL, NULL,				/* IPA modification */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */

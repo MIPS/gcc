@@ -192,7 +192,9 @@ struct tree_opt_pass pass_build_cfg =
 {
   "cfg",				/* name */
   NULL,					/* gate */
+  NULL, NULL,				/* IPA analysis */
   execute_build_cfg,			/* execute */
+  NULL, NULL,				/* IPA modification */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
@@ -1629,7 +1631,9 @@ struct tree_opt_pass pass_remove_useless_stmts =
 {
   "useless",				/* name */
   NULL,					/* gate */
+  NULL, NULL,				/* IPA analysis */
   remove_useless_stmts,			/* execute */
+  NULL, NULL,				/* IPA modification */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
@@ -5199,7 +5203,9 @@ struct tree_opt_pass pass_split_crit_edges =
 {
   "crited",                          /* name */
   NULL,                          /* gate */
+  NULL, NULL,				/* IPA analysis */
   split_critical_edges,          /* execute */
+  NULL, NULL,				/* IPA modification */
   NULL,                          /* sub */
   NULL,                          /* next */
   0,                             /* static_pass_number */
@@ -5396,7 +5402,9 @@ struct tree_opt_pass pass_warn_function_return =
 {
   NULL,					/* name */
   NULL,					/* gate */
+  NULL, NULL,				/* IPA analysis */
   execute_warn_function_return,		/* execute */
+  NULL, NULL,				/* IPA modification */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */

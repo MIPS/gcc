@@ -389,7 +389,9 @@ struct tree_opt_pass pass_rename_ssa_copies =
 {  
   "copyrename",				/* name */
   gate_copyrename,			/* gate */
+  NULL, NULL,				/* IPA analysis */
   rename_ssa_copies,			/* execute */
+  NULL, NULL,				/* IPA modification */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */

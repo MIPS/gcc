@@ -1876,7 +1876,9 @@ struct tree_opt_pass pass_rest_of_compilation =
 {
   NULL,			                /* name */
   NULL,		                        /* gate */
+  NULL, NULL,				/* IPA analysis */
   rest_of_compilation,                  /* execute */
+  NULL, NULL,				/* IPA modification */
   NULL,                                 /* sub */
   NULL,                                 /* next */
   0,                                    /* static_pass_number */
