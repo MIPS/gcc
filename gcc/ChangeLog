@@ -1,3 +1,9 @@
+Wed Jul 17 00:19:20 CEST 2002  Jan Hubicka  <jh@suse.cz>
+
+	* i386.h (MACHINE_DEPENDENT_REORG): New macro.
+	* i386.c (x86_machine_dependent_reorg): New function.
+	* i386-protos.h (x86_machine_dependent_reorg): Declare.
+
 Tue Jul 16 12:22:44 CEST 2002  Jan Hubicka  <jh@suse.cz>
 
 	* i386.md (movss, movsd): Use xorps/xorpd for Athlon.

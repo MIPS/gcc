@@ -196,6 +196,7 @@ extern rtx ix86_expand_builtin PARAMS ((tree, rtx, rtx, enum machine_mode, int))
 #endif
 
 extern rtx ix86_tls_get_addr PARAMS ((void));
+extern void x86_machine_dependent_reorg PARAMS ((rtx));
 
 #ifdef TREE_CODE
 extern int ix86_return_pops_args PARAMS ((tree, tree, int));
