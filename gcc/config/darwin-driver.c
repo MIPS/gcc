@@ -913,12 +913,8 @@ main (int argc, const char **argv)
 #endif
 
       /* Re insert output file name.  */
-      if (!compile_only_request || output_filename)
-	{
-	  new_argv[new_argc++] = "-o";
-	  new_argv[new_argc++] = (output_filename ? 
-				  output_filename : final_output);
-	}
+      if (output_filename)
+	new_argv[new_argc++] = output_filename;
 
 #ifdef DEBUG
       debug_command_line (new_argv, new_argc);
