@@ -897,6 +897,8 @@ int align_labels_max_skip;
 int align_functions;
 int align_functions_log;
 
+int flag_midlevel_rtl = 0;
+
 /* Table of supported debugging formats.  */
 static const struct
 {
@@ -1104,6 +1106,8 @@ static const lang_independent_options f_options[] =
    N_("Create data files needed by gcov") },
   {"branch-probabilities", &flag_branch_probabilities, 1,
    N_("Use profiling information for branch probabilities") },
+  {"midlevel-rtl", &flag_midlevel_rtl, 1,
+   N_("Use midlevel RTL") },
   {"reorder-blocks", &flag_reorder_blocks, 1,
    N_("Reorder basic blocks to improve code placement") },
   {"rename-registers", &flag_rename_registers, 1,
@@ -3048,22 +3052,24 @@ rest_of_compilation (decl)
 #endif
     }
 
-
   /* Lower into lowlevel RTL now.  */
-  cfun->rtl_form = RTL_FORM_MIDLOW;
-  {
-    rtx insn;
-    int old_defer = flag_defer_pop;
+  if (flag_midlevel_rtl)
+    {
+      cfun->rtl_form = RTL_FORM_MIDLOW;
+      {
+	rtx insn;
+	int old_defer = flag_defer_pop;
 
-    flag_defer_pop = 0;
-    split_all_insns (0);
-    flag_defer_pop = old_defer;
-    for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
-      if (INSN_P (insn))
-	INSN_CODE (insn) = -1;
-  }
-  reg_scan (get_insns (), max_reg_num (), 0);
-  cfun->rtl_form = RTL_FORM_LOW;
+	flag_defer_pop = 0;
+	split_all_insns (0);
+	flag_defer_pop = old_defer;
+	for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
+	  if (INSN_P (insn))
+	    INSN_CODE (insn) = -1;
+      }
+      reg_scan (get_insns (), max_reg_num (), 0);
+      cfun->rtl_form = RTL_FORM_LOW;
+    }
 
 #if 0
   /* Perform global cse.  */
@@ -3133,6 +3139,7 @@ rest_of_compilation (decl)
 
       ggc_collect ();
     }
+
 
   cse_not_expected = 1;
 

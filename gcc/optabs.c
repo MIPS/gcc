@@ -765,7 +765,7 @@ expand_binop (mode, binoptab, op0, op1, target, unsignedp, methods)
     }
 
   if (cfun->rtl_form >= RTL_FORM_MID && binoptab->code != UNKNOWN
-      && !COMPLEX_MODE_P (GET_MODE_CLASS (mode))
+      && !COMPLEX_MODE_P (mode)
       && binoptab->code != ROTATE && binoptab->code != ROTATERT
       && binoptab->code != SMIN && binoptab->code != SMAX
       && binoptab->code != UMIN && binoptab->code != UMAX)
@@ -2154,7 +2154,7 @@ expand_unop (mode, unoptab, op0, target, unsignedp)
     target = protect_from_queue (target, 1);
 
   if (cfun->rtl_form >= RTL_FORM_MID && unoptab->code != UNKNOWN
-      && !COMPLEX_MODE_P (GET_MODE_CLASS (mode))
+      && !COMPLEX_MODE_P (mode)
       && unoptab->code != ABS)
     {
       if (!target)
@@ -3475,7 +3475,7 @@ emit_cmp_and_jump_insns (x, y, comparison, size, mode, unsignedp, label)
     comparison = unsigned_condition (comparison);
 
   if (cfun->rtl_form >= RTL_FORM_MID && mode != BLKmode && label
-      && !COMPLEX_MODE_P (GET_MODE_CLASS (mode)))
+      && !COMPLEX_MODE_P (mode))
     {
       op0 = prepare_generic_operand (op0, mode, unsignedp);
       op1 = prepare_generic_operand (op1, mode, unsignedp);

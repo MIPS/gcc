@@ -911,6 +911,8 @@ override_options ()
   SUBTARGET_OVERRIDE_OPTIONS;
 #endif
 
+  flag_midlevel_rtl = 1;
+
   if (!ix86_cpu_string && ix86_arch_string)
     ix86_cpu_string = ix86_arch_string;
   if (!ix86_cpu_string)

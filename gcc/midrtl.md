@@ -35,7 +35,8 @@
   [(set (match_operand 0 "generic_dest_operand" "")
 	(match_operator 2 "generic_unary_operator"
 	   [(match_operand 1 "generic_src_operand" "")]))]
-  "cfun->rtl_form >= RTL_FORM_MID"
+  "cfun->rtl_form >= RTL_FORM_MID
+   && !COMPLEX_MODE_P (GET_MODE (operands[0]))"
   "#"
   "cfun->rtl_form == RTL_FORM_MIDLOW"
   [(const_int 0)]
@@ -55,7 +56,8 @@
 	(match_operator 3 "generic_binary_operator"
 	   [(match_operand 1 "generic_src_operand" "")
 	    (match_operand 2 "generic_src_operand" "")]))]
-  "cfun->rtl_form >= RTL_FORM_MID"
+  "cfun->rtl_form >= RTL_FORM_MID
+   && !COMPLEX_MODE_P (GET_MODE (operands[0]))"
   "#"
   "cfun->rtl_form == RTL_FORM_MIDLOW"
   [(const_int 0)]
@@ -100,7 +102,8 @@
 			  (match_operand 1 "generic_src_operand" "")])
 		      (label_ref (match_operand 2 "" ""))
 		      (pc)))]
-  "cfun->rtl_form >= RTL_FORM_MID && GET_MODE (operands[0]) != VOIDmode"
+  "cfun->rtl_form >= RTL_FORM_MID && GET_MODE (operands[0]) != VOIDmode
+   && !COMPLEX_MODE_P (GET_MODE (operands[0]))"
   "#"
   "cfun->rtl_form == RTL_FORM_MIDLOW"
   [(const_int 0)]

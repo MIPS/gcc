@@ -6160,7 +6160,10 @@ prepare_function_start ()
   cfun->stack_alignment_needed = STACK_BOUNDARY;
   cfun->preferred_stack_boundary = STACK_BOUNDARY;
 
-  cfun->rtl_form = RTL_FORM_MID;
+  if (flag_midlevel_rtl)
+    cfun->rtl_form = RTL_FORM_MID;
+  else
+    cfun->rtl_form = RTL_FORM_LOW;
 
   /* Set if a call to setjmp is seen.  */
   current_function_calls_setjmp = 0;

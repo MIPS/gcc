@@ -656,6 +656,8 @@ extern int flag_non_call_exceptions;
 /* Nonzero means put zero initialized data in the bss section.  */
 extern int flag_zero_initialized_in_bss;
 
+extern int flag_midlevel_rtl;
+
 /* True if the given mode has a NaN representation and the treatment of
    NaN operands is important.  Certain optimizations, such as folding
    x * 0 into x, are not correct for NaN operands, and are normally
