@@ -35,6 +35,7 @@
 #include "cpplib.h"
 #include "../libcpp/internal.h"
 #include "target.h"
+#include "options.h"
 
 static cpp_hashnode *altivec_categorize_keyword (const cpp_token *);
 static void init_vector_keywords (cpp_reader *pfile);
@@ -250,9 +251,14 @@ rs6000_cpu_cpp_builtins (cpp_reader *pfile)
       builtin_define ("bool=bool");
       init_vector_keywords (pfile);
 
-      /* Indicate that the compiler supports Apple AltiVec syntax, including context-
-	 sensitive keywords.  */
-      builtin_define ("__APPLE_ALTIVEC__");
+      /* Indicate that the compiler supports Apple AltiVec syntax,
+	 including context-sensitive keywords.  */
+      if (rs6000_altivec_pim)
+	{
+	  builtin_define ("__APPLE_ALTIVEC__");
+	  builtin_define ("vec_step(T)=(sizeof (__typeof__(T)) / sizeof (__typeof__(T) __attribute__((altivec(element__)))))");
+	}
+
       /* Enable context-sensitive macros.  */
       cpp_get_callbacks (pfile)->macro_to_expand = rs6000_macro_to_expand;
       /* APPLE LOCAL end AltiVec */

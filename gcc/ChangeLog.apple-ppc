@@ -1,3 +1,42 @@
+2004-12-10  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3640156, 3877958
+	* config/rs6000/altivec.h: Skip contents of file
+	#ifdef __APPLE_ALTIVEC__, and issue a warning.
+	* config/rs6000/darwin.h (SUBTARGET_OPTION_TRANSLATE_TABLE): Do not
+	'include altivec.h' upon seeing '-faltivec'; instead, specify
+	'-maltivec-pim'.
+	* config/rs6000/rs6000-c.c: Include options.h.
+	(rs6000_cpu_cpp_builtins): Define __APPLE_ALTIVEC__ and 'vec_step'
+	macro only if '-maltivec-pim' has been specified.
+	* config/rs6000/rs6000-protos.h (rs6000_fold_builtin): New prototype.
+	* config/rs6000/rs6000.c (altivec_cov_rt_12, altivec_cov_rt_2p,
+	altivec_cov_rt_1d, altivec_ovl_resolve, altivec_convert_args,
+	rs6000_fold_builtin): New functions.
+	(rs6000_altivec_inline_etc, rs6000_altivec_pim,
+	rs6000_altivec_pim_switch): New variables.
+	(rs6000_override_options): Handle '-m(no-)altivec-pim'.
+	(vector_builtin_fns): Decorate with GTY(()) voodoo; do not reserve
+	extra space for AltiVec PIM built-ins (since they won't be stored
+	there.)
+	(TARGET_FOLD_BUILTIN): Point at rs6000_fold_builtin().
+	(enum pim_flags, struct altivec_pim_info): New data types.
+	(altivec_pim_table): New global variable.
+	(def_pim_builtin): New macro.
+	(altivec_init_builtins): If '-maltivec-pim' was specified, define 
+	AltiVec PIM operations and predicates as built-ins.
+	(rs6000_handle_altivec_attribute): Add handling for 'element__'
+	argument, which returns the element type of the vector type passed in.
+	* config/rs6000/rs6000.h (enum rs6000_builtins): Append a new range,
+	ALTIVEC_PIM__FIRST... ALTIVEC_PIM__LAST, representing built-in codes
+	for AltiVec PIM operations and predicates.
+	(TARGET_OPTIONS): Add '-m(no-)altivec-pim' option.
+	(rs6000_altivec_inline_etc, rs6000_altivec_pim,
+	rs6000_altivec_pim_switch): Forward-declare.
+	* config/rs6000/t-rs6000 (rs6000-c.o): Depend on options.h.
+	* doc/invoke.texi: Update '-faltivec' description; add description
+	for '-maltivec-pim'.
+
 2004-12-08  Mike Stump  <mrs@apple.com>
 
 	Radar 3679243

@@ -1,3 +1,9 @@
+2004-12-10  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3640156, 3877958
+	* decl.c (builtin_function_1): Do not require subsequent declarations
+	for AltiVec PIM builtins.
+
 2004-12-07  Mike Stump  <mrs@apple.com>
 
 	Radar 3603833, 3896176, 3518821.

@@ -1,3 +1,8 @@
+2004-12-10  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3640156, 3877958
+	* gcc.apple/apple-altivec-1.c, gcc.apple/apple-altivec-2.c: New.
+
 2004-12-10  Devang Patel  <dpatel@apple.com>
 
         Radar 3909961

@@ -3312,8 +3312,18 @@ builtin_function_1 (const char* name,
 
   /* Warn if a function in the namespace for users
      is used without an occasion to consider it declared.  */
-  if (name[0] != '_' || name[1] != '_')
+  /* APPLE LOCAL begin AltiVec */
+  if ((name[0] != '_' || name[1] != '_')
+#ifdef TARGET_POWERPC
+      /* AltiVec PIM builtins, even though they do not begin with
+	 underscores, need not be declared either.  */
+      && !(class == BUILT_IN_MD
+	   && code >= ALTIVEC_PIM__FIRST
+	   && code <= ALTIVEC_PIM__LAST)
+#endif /* TARGET_POWERPC */
+      )
     DECL_ANTICIPATED (decl) = 1;
+  /* APPLE LOCAL end AltiVec */
 
   /* Possibly apply some default attributes to this built-in function.  */
   if (attrs)

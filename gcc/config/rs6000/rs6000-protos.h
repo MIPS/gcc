@@ -212,6 +212,9 @@ extern void rs6000_output_dwarf_dtprel (FILE*, int, rtx);
 extern int rs6000_hard_regno_nregs (int, enum machine_mode);
 extern void rs6000_conditional_register_usage (void);
 
+/* APPLE LOCAL AltiVec */
+extern tree rs6000_fold_builtin (tree, bool);
+
 /* APPLE LOCAL CW asm blocks */
 extern const char *rs6000_cw_asm_register_name (const char *, char *);
 

@@ -266,6 +266,10 @@ static GTY(()) tree pixel_V8HI_type_node;	/* __vector __pixel */
 
 int rs6000_warn_altivec_long = 1;		/* On by default. */
 const char *rs6000_warn_altivec_long_switch;
+/* APPLE LOCAL begin AltiVec */
+int rs6000_altivec_pim = 0;
+const char *rs6000_altivec_pim_switch;
+/* APPLE LOCAL end AltiVec */
 
 const char *rs6000_traceback_name;
 static enum {
@@ -595,7 +599,11 @@ struct processor_costs ppc8540_cost = {
 };
 
 /* APPLE LOCAL AV vmul_uch --haifa.  */
-static tree vector_builtin_fns[RS6000_BUILTIN_MAX];
+/* APPLE LOCAL begin AltiVec */
+/* NB: We do not store the PIM operations/predicates in the
+   VECTOR_BUILTIN_FNS array.  */
+static GTY(()) tree vector_builtin_fns[ALTIVEC_PIM__FIRST];
+/* APPLE LOCAL end AltiVec */
 
 /* Instruction costs on POWER4 and POWER5 processors.  */
 static const
@@ -735,6 +743,15 @@ static rtx altivec_expand_predicate_builtin (enum insn_code,
 					     const char *, tree, rtx);
 static rtx altivec_expand_lv_builtin (enum insn_code, tree, rtx);
 static rtx altivec_expand_stv_builtin (enum insn_code, tree);
+/* APPLE LOCAL begin AltiVec */
+static tree altivec_cov_rt_12 (tree, tree);
+static tree altivec_cov_rt_2p (tree);
+static tree altivec_cov_rt_1d (tree);
+static struct altivec_pim_info *altivec_ovl_resolve (struct altivec_pim_info *,
+						     tree, tree);
+static tree altivec_convert_args (tree, tree);
+/* APPLE LOCAL end AltiVec */
+
 static void rs6000_parse_abi_options (void);
 static void rs6000_parse_alignment_option (void);
 static void rs6000_parse_tls_size_option (void);
@@ -972,6 +989,17 @@ static const char alt_reg_names[][8] =
 
 #undef TARGET_INIT_BUILTINS
 #define TARGET_INIT_BUILTINS rs6000_init_builtins
+
+
+/* APPLE LOCAL begin AltiVec */
+/* If we are running in Apple AltiVec (as opposed to FSF AltiVec) mode,
+   we will need to handle the Motorola PIM instructions ourselves instead
+   of relying on <altivec.h>.  The rs6000_fold_builtin() routine will
+   rewrite the PIM instructions into the __builtin... (AldyVec)
+   instructions.  */
+#undef TARGET_FOLD_BUILTIN
+#define TARGET_FOLD_BUILTIN rs6000_fold_builtin
+/* APPLE LOCAL end AltiVec */
 
 #undef TARGET_EXPAND_BUILTIN
 #define TARGET_EXPAND_BUILTIN rs6000_expand_builtin
@@ -1562,6 +1590,19 @@ rs6000_override_options (const char *default_cpu)
 	error ("invalid option `%s'", base);
       rs6000_warn_altivec_long = (base[0] != 'n');
     }
+
+  /* APPLE LOCAL begin AltiVec */
+  /* Handle -m(no-)altivec-pim.  */
+  if (rs6000_altivec_pim_switch)
+    {
+      const char *base = rs6000_altivec_pim_switch;
+      while (base[-1] != 'm') base--;
+
+      if (*rs6000_altivec_pim_switch != '\0')
+	error ("invalid option `%s'", base);
+      rs6000_altivec_pim = (base[0] != 'n');
+    }
+  /* APPLE LOCAL end AltiVec */
 
   /* Handle -mprioritize-restricted-insns option.  */
   rs6000_sched_restricted_insns_priority
@@ -6794,6 +6835,108 @@ do {								           \
 } while (0)
 /* APPLE LOCAL end AV vmul_uch --haifa.  */
 
+/* APPLE LOCAL begin AltiVec */
+/* The AltiVec PIM operations and predicates (used in Apple AltiVec mode)
+   are stored in ALTIVEC_PIM_TABLE below, each annotated with flags indicating
+   how its arguments should be matched and/or how its return type is to be
+   determined.  */
+   
+enum pim_flags
+{
+  /* CR6 predicate modifiers.  Not used for operations.  For predicates,
+     one of the following four values shall be prepended to the argument
+     list as an INTEGER_CST.  */
+
+  pim_cr6_eq = 0,	/* __CR6_EQ */
+  pim_cr6_ne = 1,	/* __CR6_EQ_REV */
+  pim_cr6_lt = 2,	/* __CR6_LT */
+  pim_cr6_ge = 3,	/* __CR6_LT_REV */
+  pim_cr6_MASK = pim_cr6_eq | pim_cr6_ne | pim_cr6_lt | pim_cr6_ge,
+
+  /* Function overload argument matching.  Operations and predicates with
+     multiple overload candidates will have multiple entries, listed
+     contiguously, in the ALTIVEC_PIM_TABLE below.  When the 
+     rs6000_fold_builtin() routine is called, it will first point at
+     the first entry.  If any of the pim_ovl_... flags is set for this
+     entry, the argument(s) to rs6000_fold_builtin() will be type-checked
+     accordingly.  If the check succeeds, the current entry will be
+     used to rewrite the PIM instruction into a __builtin instruction;
+     if the check fails, the next entry in ALTIVEC_PIM_TABLE is selected
+     and the pim_ovl_... type comparison is made again.  */
+
+  pim_ovl_16 = 4,	/* First argument must be a 16-element vector */
+  pim_ovl_16u = 8,
+  pim_ovl_8 = 12,	/* First argument must be an 8-element vector */
+  pim_ovl_8u = 16,
+  pim_ovl_8p = 20,	/* First argument must be a vector pixel */
+  pim_ovl_4 = 24,	/* First argument must be a 4-element vector */
+  pim_ovl_4u = 28,
+  pim_ovl_4f = 32,	/* First argument must be a vector float */
+  pim_ovl_16u_16u = 36, /* First two args must be unsigned 16-el vectors */
+  pim_ovl_8u_8u = 40,
+  pim_ovl_4u_4u = 44,
+  pim_ovl_pqi_2 = 48,	/* Second argument must be a pointer to QI.  */
+  pim_ovl_phi_2 = 52,	/* Second argument must be a pointer to HI.  */
+  pim_ovl_psi_2 = 56,	/* Second argument must be a pointer to SI.  */
+  pim_ovl_MASK = pim_ovl_16 | pim_ovl_16u | pim_ovl_8 | pim_ovl_8u
+		 | pim_ovl_8p | pim_ovl_4 | pim_ovl_4u | pim_ovl_4f
+		 | pim_ovl_16u_16u | pim_ovl_8u_8u | pim_ovl_4u_4u
+		 | pim_ovl_pqi_2 | pim_ovl_phi_2 | pim_ovl_psi_2,
+
+  /* Return type computation.  For some operations/predicates, the return
+     type is not always the same (in which case it will be stored
+     in the ALTIVEC_PIM_table), but rather is a function of the arguments
+     supplied.  */
+
+  pim_rt_12 = 1024,	/* Covariant with first two arguments.  */
+  pim_rt_2p = 2048,	/* Covariant with pointee of second argument.  */
+  pim_rt_1 = 3072,	/* Covariant with first argument only.  */
+  pim_rt_1d = 4096,	/* Double the vector element size of first arg.  */
+  pim_rt_MASK = pim_rt_12 | pim_rt_2p | pim_rt_1 | pim_rt_1d,
+
+  /* Argument manipulation.  Before the __builtin instructions are called,
+     the arguments may need to be rearranged.  In addition, for all
+     predicates, one of the CR6 values will be prepended to the argument
+     list (see pim_cr6_... above).  */
+
+  pim_manip_swap = 8192,	/* Swap the first two arguments.  */
+  pim_manip_dup = 16384,	/* Duplicate first argument.  */
+  pim_manip_MASK = pim_manip_swap | pim_manip_dup,
+
+  /* Mark the beginning of instruction groups.  For our purposes, an
+     instruction group is the collection of overload candidates for
+     a particular instruction or predicate.  For example, the entries
+     "vec_abss", "vec_abss.2" and "vec_abss.3" defined in 
+     altivec_init_builtins() below constitute a group, as does the
+     singleton "vec_addc" entry.  */
+
+  pim_group = 32768
+};
+
+struct altivec_pim_info GTY(())
+{
+  tree rettype;	/* Return type (unless pim_rt_... flags are used).  */
+  int insn;	/* FUNCTION_DECL_CODE of the underlying '__builtin_...'.  */
+  enum pim_flags flags;		/* See 'enum pim_flags' above.  */
+};
+
+static GTY(()) struct altivec_pim_info
+altivec_pim_table[ALTIVEC_PIM__LAST - ALTIVEC_PIM__FIRST + 1];
+
+#define def_pim_builtin(NAME, TYPE, INSN, FLAGS)			\
+do {									\
+  lang_hooks.builtin_function (NAME, int_ftype_ellipsis, pim_code,	\
+			       BUILT_IN_MD, NULL, NULL_TREE);		\
+									\
+  altivec_pim_table[pim_code - ALTIVEC_PIM__FIRST].rettype = TYPE;	\
+  altivec_pim_table[pim_code - ALTIVEC_PIM__FIRST].insn			\
+    = ALTIVEC_BUILTIN_##INSN;						\
+  altivec_pim_table[pim_code - ALTIVEC_PIM__FIRST].flags = FLAGS;	\
+									\
+  ++pim_code;								\
+} while (0)
+/* APPLE LOCAL end AltiVec */
+
 /* Simple ternary operations: VECd = foo (VECa, VECb, VECc).  */
 
 static const struct builtin_description bdesc_3arg[] =
@@ -7230,6 +7373,341 @@ static struct builtin_description bdesc_1arg[] =
   /* Place-holder.  Leave as last unary SPE builtin.  */
   { 0, CODE_FOR_spe_evsubfusiaaw, "__builtin_spe_evsubfusiaaw", SPE_BUILTIN_EVSUBFUSIAAW },
 };
+
+/* APPLE LOCAL begin AltiVec */
+/* Determine the return type from types T1 and T2 of the first two arguments.
+   This is required for some of the AltiVec PIM operations/predicates.  */
+
+static tree
+altivec_cov_rt_12 (tree t1, tree t2)
+{
+  /* NB: The ordering of the following statements is important.  Matching of more
+     specific types (e.g., 'vector pixel') should precede matching of more
+     general types, esp. if they subsume the former (e.g., 'vector of 8
+     elements').  */
+
+#define RETURN_IF_EITHER_IS(TYPE) if (t1 == TYPE || t2 == TYPE) return TYPE
+
+  RETURN_IF_EITHER_IS (unsigned_V16QI_type_node);
+  RETURN_IF_EITHER_IS (V16QI_type_node);
+  RETURN_IF_EITHER_IS (bool_V16QI_type_node);
+  RETURN_IF_EITHER_IS (unsigned_V8HI_type_node);
+  RETURN_IF_EITHER_IS (pixel_V8HI_type_node);
+  RETURN_IF_EITHER_IS (V8HI_type_node);
+  RETURN_IF_EITHER_IS (bool_V8HI_type_node);
+  RETURN_IF_EITHER_IS (unsigned_V4SI_type_node);
+  RETURN_IF_EITHER_IS (V4SF_type_node);
+  RETURN_IF_EITHER_IS (V4SI_type_node);
+  RETURN_IF_EITHER_IS (bool_V4SI_type_node);
+
+#undef RETURN_IF_EITHER_IS
+
+  return NULL_TREE;
+}
+
+/* Determine the return type from the pointee type of argument type T.
+   This is required for some of the AltiVec PIM operations/predicates.  */
+
+static tree
+altivec_cov_rt_2p (tree t)
+{
+  /* Must be a pointer.  */
+
+  if (TREE_CODE (t) != POINTER_TYPE)
+    return NULL_TREE;
+
+  t = TYPE_MAIN_VARIANT (TREE_TYPE (t));
+
+  /* For pointers to vectors, the return type is the vector itself.  */
+
+  if (TREE_CODE (t) == VECTOR_TYPE)
+    return t;
+
+  switch (TYPE_MODE (t))
+    {
+    case QImode:
+      return TYPE_UNSIGNED (t) ? unsigned_V16QI_type_node : V16QI_type_node;
+
+    case HImode:
+      return TYPE_UNSIGNED (t) ? unsigned_V8HI_type_node : V8HI_type_node;
+
+    case SImode:
+      return TYPE_UNSIGNED (t) ? unsigned_V4SI_type_node : V4SI_type_node;
+
+    case SFmode:
+      return V4SF_type_node;
+
+    default:
+      return NULL_TREE;
+    }
+}
+
+/* Determine the return type from type T by doubling the size of its
+   constituent vector elements.  This is required for some of the AltiVec
+   PIM operations/predicates.  */
+
+static tree
+altivec_cov_rt_1d (tree t)
+{
+
+  if (t == V16QI_type_node)
+    return V8HI_type_node;
+  else if (t == unsigned_V16QI_type_node)
+    return unsigned_V8HI_type_node;
+  else if (t == bool_V16QI_type_node)
+    return bool_V8HI_type_node;
+  else if (t == V8HI_type_node)
+    return V4SI_type_node;
+  else if (t == unsigned_V8HI_type_node || t == pixel_V8HI_type_node)
+    return unsigned_V4SI_type_node;
+  else if (t == bool_V8HI_type_node)
+    return bool_V4SI_type_node;
+  else
+    return NULL_TREE;  /* Invalid argument.  */
+}
+
+/* Given the types T1 and T2 of the first two arguments, and INFO pointing
+   to the first of available overload candidates (in the ALTIVEC_PIM_TABLE)
+   for an AltiVec PIM operation or predicate, select a desired overload
+   candidate by incrementing and returning INFO as appropriate.  If no
+   overload candidate is suitable, return NULL.  */
+
+static struct altivec_pim_info *
+altivec_ovl_resolve (struct altivec_pim_info *info, tree t1, tree t2)
+{
+  /* Make sure we have all the types that we need.  */
+  if (!t1 || (!t2 && (info->flags & pim_ovl_MASK) >= pim_ovl_16u_16u))
+    return 0;
+
+  /* Examine overload candidates in order, and return the first one
+     that matches.  For this scheme to work, overload candidates must
+     be ordered from most to least type-specific.  */
+  do
+    {
+      switch (info->flags & pim_ovl_MASK)
+	{
+
+#define OVL_MATCH(EXPR) if (EXPR) return info; break
+
+	case pim_ovl_16:
+	  OVL_MATCH (TYPE_MODE (t1) == V16QImode);
+
+	case pim_ovl_16u:
+	  OVL_MATCH (TYPE_MODE (t1) == V16QImode && TYPE_UNSIGNED (t1));
+
+	case pim_ovl_8:
+	  OVL_MATCH (TYPE_MODE (t1) == V8HImode);
+
+	case pim_ovl_8u:
+	  OVL_MATCH (TYPE_MODE (t1) == V8HImode && TYPE_UNSIGNED (t1));
+
+	case pim_ovl_8p:
+	  OVL_MATCH (t1 == pixel_V8HI_type_node);
+
+	case pim_ovl_4:
+	  OVL_MATCH (TYPE_MODE (t1) == V4SImode);
+
+	case pim_ovl_4u:
+	  OVL_MATCH (TYPE_MODE (t1) == V4SImode && TYPE_UNSIGNED (t1));
+
+	case pim_ovl_4f:
+	  OVL_MATCH (TYPE_MODE (t1) == V4SFmode);
+
+	case pim_ovl_16u_16u:
+	  OVL_MATCH (t1 == unsigned_V16QI_type_node
+		     || t2 == unsigned_V16QI_type_node);
+
+	case pim_ovl_8u_8u:
+	  OVL_MATCH (t1 == unsigned_V8HI_type_node
+		     || t1 == pixel_V8HI_type_node
+		     || t2 == unsigned_V8HI_type_node
+		     || t2 == pixel_V8HI_type_node);
+
+	case pim_ovl_4u_4u:
+	  OVL_MATCH (t1 == unsigned_V4SI_type_node
+		     || t2 == unsigned_V4SI_type_node);
+
+	case pim_ovl_pqi_2:
+	  OVL_MATCH (TREE_CODE (t2) == POINTER_TYPE 
+		     && (TYPE_MODE (TREE_TYPE (t2)) == QImode
+			 || TYPE_MODE (TREE_TYPE (t2)) == V16QImode));
+
+	case pim_ovl_phi_2:
+	  OVL_MATCH (TREE_CODE (t2) == POINTER_TYPE 
+		     && (TYPE_MODE (TREE_TYPE (t2)) == HImode
+			 || TYPE_MODE (TREE_TYPE (t2)) == V8HImode));
+
+	case pim_ovl_psi_2:
+	  OVL_MATCH (TREE_CODE (t2) == POINTER_TYPE 
+		     && (TYPE_MODE (TREE_TYPE (t2)) == SImode
+			 || TYPE_MODE (TREE_TYPE (t2)) == V4SImode
+			 || TYPE_MODE (TREE_TYPE (t2)) == SFmode
+			 || TYPE_MODE (TREE_TYPE (t2)) == V4SFmode));
+
+	default:	/* Catch-all.  */
+	  return info;
+
+#undef OVL_MATCH
+	}
+    }
+  while (!((++info)->flags & pim_group)); /* Advance to next candidate.  */
+
+  return NULL;  /* No suitable overload candidate found.  */
+}
+
+/* Convert each function argument in the ARGS list into a corresponding
+   type found in the TYPES list.  This must be done before calling the
+   __builtin_... AltiVec instructions, whose declared argument types may differ
+   from what was passed to rs6000_fold_builtin().  */
+
+static tree
+altivec_convert_args (tree types, tree args)
+{
+  tree t, a;
+
+  for (t = types, a = args; t && a; t = TREE_CHAIN (t), a = TREE_CHAIN (a))
+    {
+      TREE_VALUE (a) = convert (TREE_VALUE (t), TREE_VALUE (a));
+    }
+
+  return args;
+}
+
+/* The following function rewrites EXP by substituting AltiVec PIM operations
+   or predicates with built-in instructions defined above.  Type casts are
+   provided if needed.  */
+
+tree
+rs6000_fold_builtin (tree exp, bool ARG_UNUSED (ignore))
+{
+  tree fndecl, arglist, rettype;
+  tree typ1 = NULL_TREE, typ2 = NULL_TREE;
+  int fcode;
+  struct altivec_pim_info *info;
+
+  /* Bail out if not in Apple AltiVec mode.  */
+  if (!rs6000_altivec_pim)
+    return NULL_TREE;
+
+  fndecl = get_callee_fndecl (exp);
+  fcode = DECL_FUNCTION_CODE (fndecl);
+
+  /* Bail out unless we are looking at one of the AltiVec PIM
+     operations/predicates.  */
+
+  if (fcode < ALTIVEC_PIM__FIRST || fcode > ALTIVEC_PIM__LAST)
+    return NULL_TREE;
+
+  /* Point at the first (and possibly only) entry in ALTIVEC_PIM_TABLE
+     describing this PIM operation/predicate, and how to convert it to
+     a __builtin_... call.  */
+
+  info = altivec_pim_table + (fcode - ALTIVEC_PIM__FIRST);
+
+  /* Separate out the argument types for further analysis.  */
+
+  arglist = TREE_OPERAND (exp, 1);
+
+  if (arglist)
+    typ1 = TYPE_MAIN_VARIANT (TREE_TYPE (TREE_VALUE (arglist)));
+
+  if (arglist && TREE_CHAIN (arglist))
+    typ2 = TYPE_MAIN_VARIANT (TREE_TYPE (TREE_VALUE (TREE_CHAIN (arglist))));
+
+  /* Determine the return type.  */
+
+  switch (info->flags & pim_rt_MASK)
+    {
+    case pim_rt_12:
+      /* Return type is covariant with the first two arguments.  */
+      rettype = altivec_cov_rt_12 (typ1, typ2);
+      break;
+
+      /* Return type is covariant with pointee of second argument.  */
+    case pim_rt_2p:
+      rettype = altivec_cov_rt_2p (typ2);
+      break;
+
+      /* Return type is covariant with the first argument only.  */
+    case pim_rt_1:
+      rettype = typ1;
+      break;
+
+      /* Return type is covariant with first argument, but with doubled
+	 vector element sizes.  */
+    case pim_rt_1d:
+      rettype = altivec_cov_rt_1d (typ1);
+      break;
+
+    default:
+      /* Retrieve return type to use from ALTIVEC_PIM_TABLE.  */
+      rettype = info->rettype;
+    }
+
+  /* Select from a list of overloaded functions, if needed.  */
+
+  if (info->flags & pim_ovl_MASK)
+    {
+      info = altivec_ovl_resolve (info, typ1, typ2);
+
+      if (!info)
+	{
+	  /* No suitable overload candidate was found!  */
+	  rettype = NULL_TREE;  /* We use this to indicate error.  */
+	  /* Point at the first overload candidate again.  */
+	  info = altivec_pim_table + (fcode - ALTIVEC_PIM__FIRST);
+	}
+    }
+
+  /* Rearrange arguments, as needed.  */
+
+  switch (info->flags & pim_manip_MASK)
+    {
+    case pim_manip_swap:
+      if (!typ1 || !typ2)
+	rettype = NULL_TREE;
+      else
+	{
+	  tree swap = TREE_VALUE (arglist);
+
+	  TREE_VALUE (arglist) = TREE_VALUE (TREE_CHAIN (arglist));
+	  TREE_VALUE (TREE_CHAIN (arglist)) = swap;
+	}
+
+      break;
+
+    case pim_manip_dup:
+      if (!typ1 || typ2)
+	rettype = NULL_TREE;
+      else
+	TREE_CHAIN (arglist) = tree_cons (NULL_TREE, TREE_VALUE (arglist),
+					  NULL_TREE);
+
+      break;
+    }
+
+  /* For predicates, prepend the proper CR6 value to the argument list.  */
+
+  if (fcode >= ALTIVEC_PIM_VEC_ALL_EQ)
+    arglist = tree_cons (NULL_TREE,
+			 build_int_cst (NULL_TREE, info->flags & pim_cr6_MASK),
+			 arglist);
+
+  if (!rettype)
+    {
+      error ("invalid argument(s) for AltiVec operation or predicate");
+      rettype = V4SI_type_node;
+    }
+
+  /* Retrieve the underlying AltiVec __builtin_... to call, and call it.  */
+
+  fndecl = vector_builtin_fns [info->insn];
+  arglist = altivec_convert_args (TYPE_ARG_TYPES (TREE_TYPE (fndecl)),
+				  arglist);
+
+  return convert (rettype, build_function_call_expr (fndecl, arglist));
+}
+/* APPLE LOCAL end AltiVec */
 
 static rtx
 rs6000_expand_unop_builtin (enum insn_code icode, tree arglist, rtx target)
@@ -8979,6 +9457,414 @@ altivec_init_builtins (void)
       /* Record the decl. Will be used by rs6000_builtin_mask_for_store.  */
       altivec_builtin_mask_for_store = decl;
     }
+
+  /* APPLE LOCAL begin AltiVec */
+  /* If Apple AltiVec is enabled, we need to define additional builtins
+     in lieu of what <altivec.h> provides for FSF AltiVec.  */
+  if (rs6000_altivec_pim)
+    {
+      tree int_ftype_ellipsis = build_function_type (integer_type_node,
+						     NULL_TREE);
+      int pim_code = ALTIVEC_PIM__FIRST;
+
+      /* NB: For overloaded operations/predicates, the pim_... flags specify
+	     how to match up the argument types and how to determine the
+	     return type, if necessary; the rs6000_fold_builtin() routine
+	     does all this.  */
+
+      /* PIM Operations.  */
+
+      gcc_assert (pim_code == ALTIVEC_PIM_VEC_ABS);
+
+      def_pim_builtin ("vec_abs", V16QI_type_node, ABS_V16QI, pim_ovl_16 | pim_group);
+      def_pim_builtin ("vec_abs.2", V8HI_type_node, ABS_V8HI, pim_ovl_8);
+      def_pim_builtin ("vec_abs.3", V4SF_type_node, ABS_V4SF, pim_ovl_4f);
+      def_pim_builtin ("vec_abs.4", V4SI_type_node, ABS_V4SI, pim_ovl_4);
+
+      def_pim_builtin ("vec_abss", V16QI_type_node, ABSS_V16QI, pim_ovl_16 | pim_group);
+      def_pim_builtin ("vec_abss.2", V8HI_type_node, ABSS_V8HI, pim_ovl_8);
+      def_pim_builtin ("vec_abss.3", V4SI_type_node, ABSS_V4SI, pim_ovl_4);
+
+      def_pim_builtin ("vec_add", NULL_TREE, VADDUBM, pim_ovl_16 | pim_rt_12 | pim_group);
+      def_pim_builtin ("vec_add.2", NULL_TREE, VADDUHM, pim_ovl_8 | pim_rt_12);
+      def_pim_builtin ("vec_add.3", V4SF_type_node, VADDFP, pim_ovl_4f);
+      def_pim_builtin ("vec_add.4", NULL_TREE, VADDUWM, pim_ovl_4 | pim_rt_12);
+
+      def_pim_builtin ("vec_addc", unsigned_V4SI_type_node, VADDCUW, pim_group);
+
+      def_pim_builtin ("vec_adds", NULL_TREE, VADDUBS, pim_ovl_16u_16u | pim_rt_12 | pim_group);
+      def_pim_builtin ("vec_adds.2", NULL_TREE, VADDSBS, pim_ovl_16 | pim_rt_12);
+      def_pim_builtin ("vec_adds.3", NULL_TREE, VADDUHS, pim_ovl_8u_8u | pim_rt_12);
+      def_pim_builtin ("vec_adds.4", NULL_TREE, VADDSHS, pim_ovl_8 | pim_rt_12);
+      def_pim_builtin ("vec_adds.5", NULL_TREE, VADDUWS, pim_ovl_4u_4u | pim_rt_12);
+      def_pim_builtin ("vec_adds.6", NULL_TREE, VADDSWS, pim_ovl_4 | pim_rt_12);
+
+      def_pim_builtin ("vec_and", NULL_TREE, VAND, pim_rt_12 | pim_group);
+
+      def_pim_builtin ("vec_andc", NULL_TREE, VANDC, pim_rt_12 | pim_group);
+
+      def_pim_builtin ("vec_avg", NULL_TREE, VAVGUB, pim_ovl_16u | pim_rt_12 | pim_group);
+      def_pim_builtin ("vec_avg.2", NULL_TREE, VAVGSB, pim_ovl_16 | pim_rt_12);
+      def_pim_builtin ("vec_avg.3", NULL_TREE, VAVGUH, pim_ovl_8u | pim_rt_12);
+      def_pim_builtin ("vec_avg.4", NULL_TREE, VAVGSH, pim_ovl_8 | pim_rt_12);
+      def_pim_builtin ("vec_avg.5", NULL_TREE, VAVGUW, pim_ovl_4u | pim_rt_12);
+      def_pim_builtin ("vec_avg.6", NULL_TREE, VAVGSW, pim_ovl_4 | pim_rt_12);
+
+      def_pim_builtin ("vec_ceil", V4SF_type_node, VRFIP, pim_group);
+
+      def_pim_builtin ("vec_cmpb", V4SI_type_node, VCMPBFP, pim_group);
+
+      def_pim_builtin ("vec_cmpeq", bool_V16QI_type_node, VCMPEQUB, pim_ovl_16 | pim_group);
+      def_pim_builtin ("vec_cmpeq.2", bool_V8HI_type_node, VCMPEQUH, pim_ovl_8);
+      def_pim_builtin ("vec_cmpeq.3", bool_V4SI_type_node, VCMPEQFP, pim_ovl_4f);
+      def_pim_builtin ("vec_cmpeq.4", bool_V4SI_type_node, VCMPEQUW, pim_ovl_4);
+
+      def_pim_builtin ("vec_cmpge", bool_V4SI_type_node, VCMPGEFP, pim_group);
+
+      def_pim_builtin ("vec_cmpgt", bool_V16QI_type_node, VCMPGTUB, pim_ovl_16u | pim_group);
+      def_pim_builtin ("vec_cmpgt.2", bool_V16QI_type_node, VCMPGTSB, pim_ovl_16);
+      def_pim_builtin ("vec_cmpgt.3", bool_V8HI_type_node, VCMPGTUH, pim_ovl_8u);
+      def_pim_builtin ("vec_cmpgt.4", bool_V8HI_type_node, VCMPGTSH, pim_ovl_8);
+      def_pim_builtin ("vec_cmpgt.5", bool_V4SI_type_node, VCMPGTFP, pim_ovl_4f);
+      def_pim_builtin ("vec_cmpgt.6", bool_V4SI_type_node, VCMPGTUW, pim_ovl_4u);
+      def_pim_builtin ("vec_cmpgt.7", bool_V4SI_type_node, VCMPGTSW, pim_ovl_4);
+
+      def_pim_builtin ("vec_cmple", bool_V4SI_type_node, VCMPGEFP, pim_manip_swap | pim_group);
+
+      def_pim_builtin ("vec_cmplt", bool_V16QI_type_node, VCMPGTUB, pim_ovl_16u | pim_manip_swap | pim_group);
+      def_pim_builtin ("vec_cmplt.2", bool_V16QI_type_node, VCMPGTSB, pim_ovl_16 | pim_manip_swap);
+      def_pim_builtin ("vec_cmplt.3", bool_V8HI_type_node, VCMPGTUH, pim_ovl_8u | pim_manip_swap);
+      def_pim_builtin ("vec_cmplt.4", bool_V8HI_type_node, VCMPGTSH, pim_ovl_8 | pim_manip_swap);
+      def_pim_builtin ("vec_cmplt.5", bool_V4SI_type_node, VCMPGTFP, pim_ovl_4f | pim_manip_swap);
+      def_pim_builtin ("vec_cmplt.6", bool_V4SI_type_node, VCMPGTUW, pim_ovl_4u | pim_manip_swap);
+      def_pim_builtin ("vec_cmplt.7", bool_V4SI_type_node, VCMPGTSW, pim_ovl_4 | pim_manip_swap);
+
+      def_pim_builtin ("vec_ctf", V4SF_type_node, VCFUX, pim_ovl_4u | pim_group);
+      def_pim_builtin ("vec_ctf.2", V4SF_type_node, VCFSX, pim_ovl_4);
+
+      def_pim_builtin ("vec_cts", V4SI_type_node, VCTSXS, pim_ovl_4f | pim_group);
+
+      def_pim_builtin ("vec_ctu", unsigned_V4SI_type_node, VCTUXS, pim_ovl_4f | pim_group);
+
+      def_pim_builtin ("vec_dss", void_type_node, DSS, pim_group);
+
+      def_pim_builtin ("vec_dssall", void_type_node, DSSALL, pim_group);
+
+      def_pim_builtin ("vec_dst", void_type_node, DST, pim_group);
+
+      def_pim_builtin ("vec_dstst", void_type_node, DSTST, pim_group);
+
+      def_pim_builtin ("vec_dststt", void_type_node, DSTSTT, pim_group);
+
+      def_pim_builtin ("vec_dstt", void_type_node, DSTT, pim_group);
+
+      def_pim_builtin ("vec_expte", V4SF_type_node, VEXPTEFP, pim_group);
+
+      def_pim_builtin ("vec_floor", V4SF_type_node, VRFIM, pim_group);
+
+      def_pim_builtin ("vec_ld", NULL_TREE, LVX, pim_rt_2p | pim_group);
+
+      def_pim_builtin ("vec_lde", NULL_TREE, LVEBX, pim_ovl_pqi_2 | pim_rt_2p | pim_group);
+      def_pim_builtin ("vec_lde.2", NULL_TREE, LVEHX, pim_ovl_phi_2 | pim_rt_2p);
+      def_pim_builtin ("vec_lde.3", NULL_TREE, LVEWX, pim_ovl_psi_2 | pim_rt_2p);
+
+      def_pim_builtin ("vec_ldl", NULL_TREE, LVXL, pim_rt_2p | pim_group);
+
+      def_pim_builtin ("vec_loge", V4SF_type_node, VLOGEFP, pim_group);
+
+      def_pim_builtin ("vec_lvsl", unsigned_V16QI_type_node, LVSL, pim_group);
+
+      def_pim_builtin ("vec_lvsr", unsigned_V16QI_type_node, LVSR, pim_group);
+
+      def_pim_builtin ("vec_madd", V4SF_type_node, VMADDFP, pim_group);
+
+      def_pim_builtin ("vec_madds", V8HI_type_node, VMHADDSHS, pim_group);
+
+      def_pim_builtin ("vec_max", NULL_TREE, VMAXUB, pim_ovl_16u_16u | pim_rt_12 | pim_group);
+      def_pim_builtin ("vec_max.2", NULL_TREE, VMAXSB, pim_ovl_16 | pim_rt_12);
+      def_pim_builtin ("vec_max.3", NULL_TREE, VMAXUH, pim_ovl_8u_8u | pim_rt_12);
+      def_pim_builtin ("vec_max.4", NULL_TREE, VMAXSH, pim_ovl_8 | pim_rt_12);
+      def_pim_builtin ("vec_max.5", NULL_TREE, VMAXFP, pim_ovl_4f | pim_rt_12);
+      def_pim_builtin ("vec_max.6", NULL_TREE, VMAXUW, pim_ovl_4u_4u | pim_rt_12);
+      def_pim_builtin ("vec_max.7", NULL_TREE, VMAXSW, pim_ovl_4 | pim_rt_12);
+
+      def_pim_builtin ("vec_mergeh", NULL_TREE, VMRGHB, pim_ovl_16 | pim_rt_12 | pim_group);
+      def_pim_builtin ("vec_mergeh.2", NULL_TREE, VMRGHH, pim_ovl_8 | pim_rt_12);
+      def_pim_builtin ("vec_mergeh.3", NULL_TREE, VMRGHW, pim_ovl_4 | pim_rt_12);
+
+      def_pim_builtin ("vec_mergel", NULL_TREE, VMRGLB, pim_ovl_16 | pim_rt_12 | pim_group);
+      def_pim_builtin ("vec_mergel.2", NULL_TREE, VMRGLH, pim_ovl_8 | pim_rt_12);
+      def_pim_builtin ("vec_mergel.3", NULL_TREE, VMRGLW, pim_ovl_4 | pim_rt_12);
+
+      def_pim_builtin ("vec_mfvscr", unsigned_V8HI_type_node, MFVSCR, pim_group);
+
+      def_pim_builtin ("vec_min", NULL_TREE, VMINUB, pim_ovl_16u_16u | pim_rt_12 | pim_group);
+      def_pim_builtin ("vec_min.2", NULL_TREE, VMINSB, pim_ovl_16 | pim_rt_12);
+      def_pim_builtin ("vec_min.3", NULL_TREE, VMINUH, pim_ovl_8u_8u | pim_rt_12);
+      def_pim_builtin ("vec_min.4", NULL_TREE, VMINSH, pim_ovl_8 | pim_rt_12);
+      def_pim_builtin ("vec_min.5", NULL_TREE, VMINFP, pim_ovl_4f | pim_rt_12);
+      def_pim_builtin ("vec_min.6", NULL_TREE, VMINUW, pim_ovl_4u_4u | pim_rt_12);
+      def_pim_builtin ("vec_min.7", NULL_TREE, VMINSW, pim_ovl_4 | pim_rt_12);
+
+      def_pim_builtin ("vec_mladd", unsigned_V8HI_type_node, VMLADDUHM, pim_ovl_8u_8u | pim_group);
+      def_pim_builtin ("vec_mladd.2", V8HI_type_node, VMLADDUHM, pim_ovl_8);
+
+      def_pim_builtin ("vec_mradds", V8HI_type_node, VMHRADDSHS, pim_group);
+
+      def_pim_builtin ("vec_msum", unsigned_V4SI_type_node, VMSUMUBM, pim_ovl_16u | pim_group);
+      def_pim_builtin ("vec_msum.2", V4SI_type_node, VMSUMMBM, pim_ovl_16);
+      def_pim_builtin ("vec_msum.3", unsigned_V4SI_type_node, VMSUMUHM, pim_ovl_8u);
+      def_pim_builtin ("vec_msum.4", V4SI_type_node, VMSUMSHM, pim_ovl_8);
+
+      def_pim_builtin ("vec_msums", unsigned_V4SI_type_node, VMSUMUHS, pim_ovl_8u | pim_group);
+      def_pim_builtin ("vec_msums.2", V4SI_type_node, VMSUMSHS, pim_ovl_8);
+
+      def_pim_builtin ("vec_mtvscr", void_type_node, MTVSCR, pim_group);
+
+      def_pim_builtin ("vec_mule", unsigned_V8HI_type_node, VMULEUB, pim_ovl_16u | pim_group);
+      def_pim_builtin ("vec_mule.2", V8HI_type_node, VMULESB, pim_ovl_16);
+      def_pim_builtin ("vec_mule.3", unsigned_V4SI_type_node, VMULEUH, pim_ovl_8u);
+      def_pim_builtin ("vec_mule.4", V4SI_type_node, VMULESH, pim_ovl_8);
+
+      def_pim_builtin ("vec_mulo", unsigned_V8HI_type_node, VMULOUB, pim_ovl_16u | pim_group);
+      def_pim_builtin ("vec_mulo.2", V8HI_type_node, VMULOSB, pim_ovl_16);
+      def_pim_builtin ("vec_mulo.3", unsigned_V4SI_type_node, VMULOUH, pim_ovl_8u);
+      def_pim_builtin ("vec_mulo.4", V4SI_type_node, VMULOSH, pim_ovl_8);
+
+      def_pim_builtin ("vec_nmsub", V4SF_type_node, VNMSUBFP, pim_group);
+
+      def_pim_builtin ("vec_nor", NULL_TREE, VNOR, pim_rt_12 | pim_group);
+
+      def_pim_builtin ("vec_or", NULL_TREE, VOR, pim_rt_12 | pim_group);
+
+      def_pim_builtin ("vec_pack", NULL_TREE, VPKUHUM, pim_ovl_8 | pim_rt_12 | pim_group);
+      def_pim_builtin ("vec_pack.2", NULL_TREE, VPKUWUM, pim_ovl_4 | pim_rt_12);
+
+      def_pim_builtin ("vec_packpx", pixel_V8HI_type_node, VPKPX, pim_group);
+
+      def_pim_builtin ("vec_packs", unsigned_V16QI_type_node, VPKUHUS, pim_ovl_8u | pim_group);
+      def_pim_builtin ("vec_packs.2", V16QI_type_node, VPKSHSS, pim_ovl_8);
+      def_pim_builtin ("vec_packs.3", unsigned_V8HI_type_node, VPKUWUS, pim_ovl_4u);
+      def_pim_builtin ("vec_packs.4", V8HI_type_node, VPKSWSS, pim_ovl_4);
+
+      def_pim_builtin ("vec_packsu", unsigned_V16QI_type_node, VPKUHUS, pim_ovl_8u | pim_group);
+      def_pim_builtin ("vec_packsu.2", unsigned_V16QI_type_node, VPKSHUS, pim_ovl_8);
+      def_pim_builtin ("vec_packsu.3", unsigned_V8HI_type_node, VPKUWUS, pim_ovl_4u);
+      def_pim_builtin ("vec_packsu.4", unsigned_V8HI_type_node, VPKSWUS, pim_ovl_4);
+
+      def_pim_builtin ("vec_perm", V16QI_type_node, VPERM_4SI, pim_rt_12 | pim_group);
+
+      def_pim_builtin ("vec_re", NULL_TREE, VREFP, pim_group);
+
+      def_pim_builtin ("vec_rl", NULL_TREE, VRLB, pim_ovl_16 | pim_rt_1 | pim_group);
+      def_pim_builtin ("vec_rl.2", NULL_TREE, VRLH, pim_ovl_8 | pim_rt_1);
+      def_pim_builtin ("vec_rl.3", NULL_TREE, VRLW, pim_ovl_4 | pim_rt_1);
+
+      def_pim_builtin ("vec_round", V4SF_type_node, VRFIN, pim_group);
+
+      def_pim_builtin ("vec_rsqrte", V4SF_type_node, VRSQRTEFP, pim_group);
+
+      def_pim_builtin ("vec_sel", NULL_TREE, VSEL_4SI, pim_rt_1 | pim_group);
+
+      def_pim_builtin ("vec_sl", NULL_TREE, VSLB, pim_ovl_16 | pim_rt_1 | pim_group);
+      def_pim_builtin ("vec_sl.2", NULL_TREE, VSLH, pim_ovl_8 | pim_rt_1);
+      def_pim_builtin ("vec_sl.3", NULL_TREE, VSLW, pim_ovl_4 | pim_rt_1);
+
+      def_pim_builtin ("vec_sld", NULL_TREE, VSLDOI_4SI, pim_rt_1 | pim_group);
+
+      def_pim_builtin ("vec_sll", NULL_TREE, VSL, pim_rt_1 | pim_group);
+
+      def_pim_builtin ("vec_slo", NULL_TREE, VSLO, pim_rt_1 | pim_group);
+
+      def_pim_builtin ("vec_splat", V16QI_type_node, VSPLTB, pim_ovl_16 | pim_group);
+      def_pim_builtin ("vec_splat.2", V8HI_type_node, VSPLTH, pim_ovl_8);
+      def_pim_builtin ("vec_splat.3", V4SI_type_node, VSPLTW, pim_ovl_4);
+
+      def_pim_builtin ("vec_splat_s8", V16QI_type_node, VSPLTISB, pim_group);
+
+      def_pim_builtin ("vec_splat_s16", V8HI_type_node, VSPLTISH, pim_group);
+
+      def_pim_builtin ("vec_splat_s32", V4SI_type_node, VSPLTISW, pim_group);
+
+      def_pim_builtin ("vec_splat_u8", unsigned_V16QI_type_node, VSPLTISB, pim_group);
+
+      def_pim_builtin ("vec_splat_u16", unsigned_V8HI_type_node, VSPLTISH, pim_group);
+
+      def_pim_builtin ("vec_splat_u32", unsigned_V4SI_type_node, VSPLTISW, pim_group);
+
+      def_pim_builtin ("vec_sr", NULL_TREE, VSRB, pim_ovl_16 | pim_rt_1 | pim_group);
+      def_pim_builtin ("vec_sr.2", NULL_TREE, VSRH, pim_ovl_8 | pim_rt_1);
+      def_pim_builtin ("vec_sr.3", NULL_TREE, VSRW, pim_ovl_4 | pim_rt_1);
+
+      def_pim_builtin ("vec_sra", NULL_TREE, VSRAB, pim_ovl_16 | pim_rt_1 | pim_group);
+      def_pim_builtin ("vec_sra.2", NULL_TREE, VSRAH, pim_ovl_8 | pim_rt_1);
+      def_pim_builtin ("vec_sra.3", NULL_TREE, VSRAW, pim_ovl_4 | pim_rt_1);
+
+      def_pim_builtin ("vec_srl", NULL_TREE, VSR, pim_rt_1 | pim_group);
+
+      def_pim_builtin ("vec_sro", NULL_TREE, VSRO, pim_rt_1 | pim_group);
+
+      def_pim_builtin ("vec_st", void_type_node, STVX, pim_group);
+
+      def_pim_builtin ("vec_ste", void_type_node, STVEBX, pim_ovl_16 | pim_group);
+      def_pim_builtin ("vec_ste.2", void_type_node, STVEHX, pim_ovl_8);
+      def_pim_builtin ("vec_ste.3", void_type_node, STVEWX, pim_ovl_4);
+
+      def_pim_builtin ("vec_stl", void_type_node, STVXL, pim_group);
+
+      def_pim_builtin ("vec_sub", NULL_TREE, VSUBUBM, pim_ovl_16 | pim_rt_12 | pim_group);
+      def_pim_builtin ("vec_sub.2", NULL_TREE, VSUBUHM, pim_ovl_8 | pim_rt_12);
+      def_pim_builtin ("vec_sub.3", NULL_TREE, VSUBFP, pim_ovl_4f | pim_rt_12);
+      def_pim_builtin ("vec_sub.4", NULL_TREE, VSUBUWM, pim_ovl_4 | pim_rt_12);
+
+      def_pim_builtin ("vec_subc", unsigned_V4SI_type_node, VSUBCUW, pim_group);
+
+      def_pim_builtin ("vec_subs", NULL_TREE, VSUBUBS, pim_ovl_16u_16u | pim_rt_12 | pim_group);
+      def_pim_builtin ("vec_subs.2", NULL_TREE, VSUBSBS, pim_ovl_16 | pim_rt_12);
+      def_pim_builtin ("vec_subs.3", NULL_TREE, VSUBUHS, pim_ovl_8u_8u | pim_rt_12);
+      def_pim_builtin ("vec_subs.4", NULL_TREE, VSUBSHS, pim_ovl_8 | pim_rt_12);
+      def_pim_builtin ("vec_subs.5", NULL_TREE, VSUBUWS, pim_ovl_4u_4u | pim_rt_12);
+      def_pim_builtin ("vec_subs.6", NULL_TREE, VSUBSWS, pim_ovl_4 | pim_rt_12);
+
+      def_pim_builtin ("vec_sum4s", unsigned_V4SI_type_node, VSUM4UBS, pim_ovl_16u | pim_group);
+      def_pim_builtin ("vec_sum4s.2", V4SI_type_node, VSUM4SBS, pim_ovl_16);
+      def_pim_builtin ("vec_sum4s.3", V4SI_type_node, VSUM4SHS, pim_ovl_8);
+
+      def_pim_builtin ("vec_sum2s", V4SI_type_node, VSUM2SWS, pim_group);
+
+      def_pim_builtin ("vec_sums", V4SI_type_node, VSUMSWS, pim_group);
+
+      def_pim_builtin ("vec_trunc", V4SF_type_node, VRFIZ, pim_group);
+
+      def_pim_builtin ("vec_unpackh", NULL_TREE, VUPKHSB, pim_ovl_16 | pim_rt_1d | pim_group);
+      def_pim_builtin ("vec_unpackh.2", NULL_TREE, VUPKHPX, pim_ovl_8p | pim_rt_1d);
+      def_pim_builtin ("vec_unpackh.3", NULL_TREE, VUPKHSH, pim_ovl_8 | pim_rt_1d);
+
+      def_pim_builtin ("vec_unpackl", NULL_TREE, VUPKLSB, pim_ovl_16 | pim_rt_1d | pim_group);
+      def_pim_builtin ("vec_unpackl.2", NULL_TREE, VUPKLPX, pim_ovl_8p | pim_rt_1d);
+      def_pim_builtin ("vec_unpackl.3", NULL_TREE, VUPKLSH, pim_ovl_8 | pim_rt_1d);
+
+      def_pim_builtin ("vec_xor", NULL_TREE, VXOR, pim_rt_12 | pim_group);
+
+      /* PIM Predicates.  */
+
+      gcc_assert (pim_code == ALTIVEC_PIM_VEC_ALL_EQ);
+
+      def_pim_builtin ("vec_all_eq", integer_type_node, VCMPEQUB_P, pim_ovl_16 | pim_cr6_lt | pim_group);
+      def_pim_builtin ("vec_all_eq.2", integer_type_node, VCMPEQUH_P, pim_ovl_8 | pim_cr6_lt);
+      def_pim_builtin ("vec_all_eq.3", integer_type_node, VCMPEQFP_P, pim_ovl_4f | pim_cr6_lt);
+      def_pim_builtin ("vec_all_eq.4", integer_type_node, VCMPEQUW_P, pim_ovl_4 | pim_cr6_lt);
+
+      def_pim_builtin ("vec_all_ge", integer_type_node, VCMPGTUB_P, pim_ovl_16u_16u | pim_manip_swap | pim_cr6_eq | pim_group);
+      def_pim_builtin ("vec_all_ge.2", integer_type_node, VCMPGTSB_P, pim_ovl_16 | pim_manip_swap | pim_cr6_eq);
+      def_pim_builtin ("vec_all_ge.3", integer_type_node, VCMPGTUH_P, pim_ovl_8u_8u | pim_manip_swap | pim_cr6_eq);
+      def_pim_builtin ("vec_all_ge.4", integer_type_node, VCMPGTSH_P, pim_ovl_8 | pim_manip_swap | pim_cr6_eq);
+      def_pim_builtin ("vec_all_ge.5", integer_type_node, VCMPGEFP_P, pim_ovl_4f | pim_cr6_lt);
+      def_pim_builtin ("vec_all_ge.6", integer_type_node, VCMPGTUW_P, pim_ovl_4u_4u | pim_manip_swap | pim_cr6_eq);
+      def_pim_builtin ("vec_all_ge.7", integer_type_node, VCMPGTSW_P, pim_ovl_4 | pim_manip_swap | pim_cr6_eq);
+
+      def_pim_builtin ("vec_all_gt", integer_type_node, VCMPGTUB_P, pim_ovl_16u_16u | pim_cr6_lt | pim_group);
+      def_pim_builtin ("vec_all_gt.2", integer_type_node, VCMPGTSB_P, pim_ovl_16 | pim_cr6_lt);
+      def_pim_builtin ("vec_all_gt.3", integer_type_node, VCMPGTUH_P, pim_ovl_8u_8u | pim_cr6_lt);
+      def_pim_builtin ("vec_all_gt.4", integer_type_node, VCMPGTSH_P, pim_ovl_8 | pim_cr6_lt);
+      def_pim_builtin ("vec_all_gt.5", integer_type_node, VCMPGTFP_P, pim_ovl_4f | pim_cr6_lt);
+      def_pim_builtin ("vec_all_gt.6", integer_type_node, VCMPGTUW_P, pim_ovl_4u_4u | pim_cr6_lt);
+      def_pim_builtin ("vec_all_gt.7", integer_type_node, VCMPGTSW_P, pim_ovl_4 | pim_cr6_lt);
+
+      def_pim_builtin ("vec_all_in", integer_type_node, VCMPBFP_P, pim_cr6_eq | pim_group);
+
+      def_pim_builtin ("vec_all_le", integer_type_node, VCMPGTUB_P, pim_ovl_16u_16u | pim_cr6_eq | pim_group);
+      def_pim_builtin ("vec_all_le.2", integer_type_node, VCMPGTSB_P, pim_ovl_16 | pim_cr6_eq);
+      def_pim_builtin ("vec_all_le.3", integer_type_node, VCMPGTUH_P, pim_ovl_8u_8u | pim_cr6_eq);
+      def_pim_builtin ("vec_all_le.4", integer_type_node, VCMPGTSH_P, pim_ovl_8 | pim_cr6_eq);
+      def_pim_builtin ("vec_all_le.5", integer_type_node, VCMPGEFP_P, pim_ovl_4f | pim_manip_swap | pim_cr6_lt);
+      def_pim_builtin ("vec_all_le.6", integer_type_node, VCMPGTUW_P, pim_ovl_4u_4u | pim_cr6_eq);
+      def_pim_builtin ("vec_all_le.7", integer_type_node, VCMPGTSW_P, pim_ovl_4 | pim_cr6_eq);
+
+      def_pim_builtin ("vec_all_lt", integer_type_node, VCMPGTUB_P, pim_ovl_16u_16u | pim_manip_swap | pim_cr6_lt | pim_group);
+      def_pim_builtin ("vec_all_lt.2", integer_type_node, VCMPGTSB_P, pim_ovl_16 | pim_manip_swap | pim_cr6_lt);
+      def_pim_builtin ("vec_all_lt.3", integer_type_node, VCMPGTUH_P, pim_ovl_8u_8u | pim_manip_swap | pim_cr6_lt);
+      def_pim_builtin ("vec_all_lt.4", integer_type_node, VCMPGTSH_P, pim_ovl_8 | pim_manip_swap | pim_cr6_lt);
+      def_pim_builtin ("vec_all_lt.5", integer_type_node, VCMPGTFP_P, pim_ovl_4f | pim_manip_swap | pim_cr6_lt);
+      def_pim_builtin ("vec_all_lt.6", integer_type_node, VCMPGTUW_P, pim_ovl_4u_4u | pim_manip_swap | pim_cr6_lt);
+      def_pim_builtin ("vec_all_lt.7", integer_type_node, VCMPGTSW_P, pim_ovl_4 | pim_manip_swap | pim_cr6_lt);
+
+      def_pim_builtin ("vec_all_nan", integer_type_node, VCMPEQFP_P, pim_manip_dup | pim_cr6_eq | pim_group);
+
+      def_pim_builtin ("vec_all_ne", integer_type_node, VCMPEQUB_P, pim_ovl_16 | pim_cr6_eq | pim_group);
+      def_pim_builtin ("vec_all_ne.2", integer_type_node, VCMPEQUH_P, pim_ovl_8 | pim_cr6_eq);
+      def_pim_builtin ("vec_all_ne.3", integer_type_node, VCMPEQFP_P, pim_ovl_4f | pim_cr6_eq);
+      def_pim_builtin ("vec_all_ne.4", integer_type_node, VCMPEQUW_P, pim_ovl_4 | pim_cr6_eq);
+
+      def_pim_builtin ("vec_all_nge", integer_type_node, VCMPGEFP_P, pim_cr6_eq | pim_group);
+
+      def_pim_builtin ("vec_all_ngt", integer_type_node, VCMPGTFP_P, pim_cr6_eq | pim_group);
+
+      def_pim_builtin ("vec_all_nle", integer_type_node, VCMPGEFP_P, pim_manip_swap | pim_cr6_eq | pim_group);
+
+      def_pim_builtin ("vec_all_nlt", integer_type_node, VCMPGEFP_P, pim_manip_swap | pim_cr6_eq | pim_group);
+
+      def_pim_builtin ("vec_all_numeric", integer_type_node, VCMPEQFP_P, pim_manip_dup | pim_cr6_lt | pim_group);
+
+      def_pim_builtin ("vec_any_eq", integer_type_node, VCMPEQUB_P, pim_ovl_16 | pim_cr6_ne | pim_group);
+      def_pim_builtin ("vec_any_eq.2", integer_type_node, VCMPEQUH_P, pim_ovl_8 | pim_cr6_ne);
+      def_pim_builtin ("vec_any_eq.3", integer_type_node, VCMPEQFP_P, pim_ovl_4f | pim_cr6_ne);
+      def_pim_builtin ("vec_any_eq.4", integer_type_node, VCMPEQUW_P, pim_ovl_4 | pim_cr6_ne);
+
+      def_pim_builtin ("vec_any_ge", integer_type_node, VCMPGTUB_P, pim_ovl_16u_16u | pim_manip_swap | pim_cr6_ge | pim_group);
+      def_pim_builtin ("vec_any_ge.2", integer_type_node, VCMPGTSB_P, pim_ovl_16 | pim_manip_swap | pim_cr6_ge);
+      def_pim_builtin ("vec_any_ge.3", integer_type_node, VCMPGTUH_P, pim_ovl_8u_8u | pim_manip_swap | pim_cr6_ge);
+      def_pim_builtin ("vec_any_ge.4", integer_type_node, VCMPGTSH_P, pim_ovl_8 | pim_manip_swap | pim_cr6_ge);
+      def_pim_builtin ("vec_any_ge.5", integer_type_node, VCMPGEFP_P, pim_ovl_4f | pim_cr6_ne);
+      def_pim_builtin ("vec_any_ge.6", integer_type_node, VCMPGTUW_P, pim_ovl_4u_4u | pim_manip_swap | pim_cr6_ge);
+      def_pim_builtin ("vec_any_ge.7", integer_type_node, VCMPGTSW_P, pim_ovl_4 | pim_manip_swap | pim_cr6_ge);
+
+      def_pim_builtin ("vec_any_gt", integer_type_node, VCMPGTUB_P, pim_ovl_16u_16u | pim_cr6_ne | pim_group);
+      def_pim_builtin ("vec_any_gt.2", integer_type_node, VCMPGTSB_P, pim_ovl_16 | pim_cr6_ne);
+      def_pim_builtin ("vec_any_gt.3", integer_type_node, VCMPGTUH_P, pim_ovl_8u_8u | pim_cr6_ne);
+      def_pim_builtin ("vec_any_gt.4", integer_type_node, VCMPGTSH_P, pim_ovl_8 | pim_cr6_ne);
+      def_pim_builtin ("vec_any_gt.5", integer_type_node, VCMPGTFP_P, pim_ovl_4f | pim_cr6_ne);
+      def_pim_builtin ("vec_any_gt.6", integer_type_node, VCMPGTUW_P, pim_ovl_4u_4u | pim_cr6_ne);
+      def_pim_builtin ("vec_any_gt.7", integer_type_node, VCMPGTSW_P, pim_ovl_4 | pim_cr6_ne);
+
+      def_pim_builtin ("vec_any_le", integer_type_node, VCMPGTUB_P, pim_ovl_16u_16u | pim_cr6_ge | pim_group);
+      def_pim_builtin ("vec_any_le.2", integer_type_node, VCMPGTSB_P, pim_ovl_16 | pim_cr6_ge);
+      def_pim_builtin ("vec_any_le.3", integer_type_node, VCMPGTUH_P, pim_ovl_8u_8u | pim_cr6_ge);
+      def_pim_builtin ("vec_any_le.4", integer_type_node, VCMPGTSH_P, pim_ovl_8 | pim_cr6_ge);
+      def_pim_builtin ("vec_any_le.5", integer_type_node, VCMPGEFP_P, pim_ovl_4f | pim_manip_swap | pim_cr6_ne);
+      def_pim_builtin ("vec_any_le.6", integer_type_node, VCMPGTUW_P, pim_ovl_4u_4u | pim_cr6_ge);
+      def_pim_builtin ("vec_any_le.7", integer_type_node, VCMPGTSW_P, pim_ovl_4 | pim_cr6_ge);
+
+      def_pim_builtin ("vec_any_lt", integer_type_node, VCMPGTUB_P, pim_ovl_16u_16u | pim_manip_swap | pim_cr6_ne | pim_group);
+      def_pim_builtin ("vec_any_lt.2", integer_type_node, VCMPGTSB_P, pim_ovl_16 | pim_manip_swap | pim_cr6_ne);
+      def_pim_builtin ("vec_any_lt.3", integer_type_node, VCMPGTUH_P, pim_ovl_8u_8u | pim_manip_swap | pim_cr6_ne);
+      def_pim_builtin ("vec_any_lt.4", integer_type_node, VCMPGTSH_P, pim_ovl_8 | pim_manip_swap | pim_cr6_ne);
+      def_pim_builtin ("vec_any_lt.5", integer_type_node, VCMPGTFP_P, pim_ovl_4f | pim_manip_swap | pim_cr6_ne);
+      def_pim_builtin ("vec_any_lt.6", integer_type_node, VCMPGTUW_P, pim_ovl_4u_4u | pim_manip_swap | pim_cr6_ne);
+      def_pim_builtin ("vec_any_lt.7", integer_type_node, VCMPGTSW_P, pim_ovl_4 | pim_manip_swap | pim_cr6_ne);
+
+      def_pim_builtin ("vec_any_nan", integer_type_node, VCMPEQFP_P, pim_manip_dup | pim_cr6_ge | pim_group);
+
+      def_pim_builtin ("vec_any_ne", integer_type_node, VCMPEQUB_P, pim_ovl_16 | pim_cr6_ge | pim_group);
+      def_pim_builtin ("vec_any_ne.2", integer_type_node, VCMPEQUH_P, pim_ovl_8 | pim_cr6_ge);
+      def_pim_builtin ("vec_any_ne.3", integer_type_node, VCMPEQFP_P, pim_ovl_4f | pim_cr6_ge);
+      def_pim_builtin ("vec_any_ne.4", integer_type_node, VCMPEQUW_P, pim_ovl_4 | pim_cr6_ge);
+
+      def_pim_builtin ("vec_any_nge", integer_type_node, VCMPGEFP_P, pim_cr6_ge | pim_group);
+
+      def_pim_builtin ("vec_any_ngt", integer_type_node, VCMPGTFP_P, pim_cr6_ge | pim_group);
+
+      def_pim_builtin ("vec_any_nle", integer_type_node, VCMPGEFP_P, pim_manip_swap | pim_cr6_ge | pim_group);
+
+      def_pim_builtin ("vec_any_nlt", integer_type_node, VCMPGEFP_P, pim_manip_swap | pim_cr6_ge | pim_group);
+
+      def_pim_builtin ("vec_any_numeric", integer_type_node, VCMPEQFP_P, pim_manip_dup | pim_cr6_ne | pim_group);
+
+      def_pim_builtin ("vec_any_out", integer_type_node, VCMPBFP_P, pim_cr6_ne | pim_group);
+
+      gcc_assert (pim_code == ALTIVEC_PIM__LAST + 1);
+    }
+  /* APPLE LOCAL end AltiVec */
 }
 
 static void
@@ -18044,6 +18930,13 @@ rs6000_handle_altivec_attribute (tree *node, tree name, tree args,
 
   switch (altivec_type)
     {
+    /* APPLE LOCAL begin AltiVec */
+    case 'e':
+      /* Return the constituent element type.  */
+      result = (ALTIVEC_VECTOR_MODE (mode) ? TREE_TYPE (type) : type);
+      break;
+    /* APPLE LOCAL end AltiVec */
+
     case 'v':
       unsigned_p = TYPE_UNSIGNED (type);
       switch (mode)
