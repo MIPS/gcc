@@ -1738,11 +1738,11 @@ rewrite_into_ssa (bool all)
   timevar_pop (TV_TREE_SSA_OTHER);
 }
 
-/* The ssa names in NAMES_TO_RENAME may have more than one definition;
+/* The marked ssa names may have more than one definition;
    add phi nodes and rewrite them to fix this.  */
 
 void
-rewrite_ssa_into_ssa (bitmap names_to_rename)
+rewrite_ssa_into_ssa (void)
 {
   bitmap *dfs;
   basic_block bb;
@@ -1751,9 +1751,11 @@ rewrite_ssa_into_ssa (bitmap names_to_rename)
   unsigned i;
   sbitmap snames_to_rename;
   tree name;
+  bitmap to_rename;
   
-  if (bitmap_first_set_bit (names_to_rename) < 0)
+  if (!any_marked_for_rewrite_p ())
     return;
+  to_rename = marked_ssa_names ();
 
   timevar_push (TV_TREE_SSA_OTHER);
 
@@ -1798,7 +1800,7 @@ rewrite_ssa_into_ssa (bitmap names_to_rename)
 
   snames_to_rename = sbitmap_alloc (num_ssa_names);
   sbitmap_zero (snames_to_rename);
-  EXECUTE_IF_SET_IN_BITMAP (names_to_rename, 0, i,
+  EXECUTE_IF_SET_IN_BITMAP (to_rename, 0, i,
 			    SET_BIT (snames_to_rename, i));
 
   mark_def_sites_global_data.kills = sbitmap_alloc (num_ssa_names);
@@ -1825,7 +1827,7 @@ rewrite_ssa_into_ssa (bitmap names_to_rename)
       set_current_def (ssa_name (i), NULL_TREE);
 
   /* Insert PHI nodes at dominance frontiers of definition blocks.  */
-  insert_phi_nodes (dfs, names_to_rename);
+  insert_phi_nodes (dfs, to_rename);
 
   /* Rewrite all the basic blocks in the program.  */
   timevar_push (TV_TREE_SSA_REWRITE_BLOCKS);
@@ -1882,6 +1884,12 @@ rewrite_ssa_into_ssa (bitmap names_to_rename)
       free (SSA_NAME_AUX (name));
       SSA_NAME_AUX (name) = NULL;
     }
+
+  EXECUTE_IF_SET_IN_BITMAP (to_rename, 0, i,
+    {
+      release_ssa_name_force (ssa_name (i));
+    });
+  BITMAP_XFREE (to_rename);
   timevar_pop (TV_TREE_SSA_OTHER);
 }
 

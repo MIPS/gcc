@@ -4413,6 +4413,10 @@ tree_duplicate_bb (basic_block bb)
   basic_block new_bb;
   block_stmt_iterator bsi, bsi_tgt;
   tree phi;
+  def_optype defs;
+  v_may_def_optype v_may_defs;
+  v_must_def_optype v_must_defs;
+  unsigned j;
 
   new_bb = create_empty_bb (EXIT_BLOCK_PTR->prev_bb);
 
@@ -4420,7 +4424,10 @@ tree_duplicate_bb (basic_block bb)
      since the edges are not ready yet.  Keep the chain of phi nodes in
      the same order, so that we can add them later.  */
   for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
-    create_phi_node (PHI_RESULT (phi), new_bb);
+    {
+      mark_for_rewrite (PHI_RESULT (phi));
+      create_phi_node (PHI_RESULT (phi), new_bb);
+    }
   set_phi_nodes (new_bb, nreverse (phi_nodes (new_bb)));
 
   bsi_tgt = bsi_start (new_bb);
@@ -4432,6 +4439,21 @@ tree_duplicate_bb (basic_block bb)
       if (TREE_CODE (stmt) == LABEL_EXPR)
 	continue;
 
+      /* Record the definitions.  */
+      get_stmt_operands (stmt);
+
+      defs = STMT_DEF_OPS (stmt);
+      for (j = 0; j < NUM_DEFS (defs); j++)
+	mark_for_rewrite (DEF_OP (defs, j));
+
+      v_may_defs = STMT_V_MAY_DEF_OPS (stmt);
+      for (j = 0; j < NUM_V_MAY_DEFS (v_may_defs); j++)
+	mark_for_rewrite (V_MAY_DEF_RESULT (v_may_defs, j));
+
+      v_must_defs = STMT_V_MUST_DEF_OPS (stmt);
+      for (j = 0; j < NUM_V_MUST_DEFS (v_must_defs); j++)
+	mark_for_rewrite (V_MUST_DEF_OP (v_must_defs, j));
+
       copy = unshare_expr (stmt);
 
       /* Copy also the virtual operands.  */
@@ -4442,60 +4464,6 @@ tree_duplicate_bb (basic_block bb)
     }
 
   return new_bb;
-}
-
-/* Returns list of all ssa names defined in one of N_BBS basic blocks
-   BBS.  */
-
-static bitmap
-collect_defs (basic_block *bbs, unsigned n_bbs)
-{
-  unsigned i, j;
-  tree phi, stmt, op;
-  block_stmt_iterator bsi;
-  def_optype defs;
-  v_may_def_optype v_may_defs;
-  v_must_def_optype v_must_defs;
-  bitmap ret = BITMAP_XMALLOC ();
-
-  for (i = 0; i < n_bbs; i++)
-    {
-      for (bsi = bsi_start (bbs[i]); !bsi_end_p (bsi); bsi_next (&bsi))
-	{
-	  stmt = bsi_stmt (bsi);
-
-	  get_stmt_operands (stmt);
-
-	  defs = STMT_DEF_OPS (stmt);
-	  for (j = 0; j < NUM_DEFS (defs); j++)
-	    {
-	      op = DEF_OP (defs, j);
-	      bitmap_set_bit (ret, SSA_NAME_VERSION (op));
-	    }
-
-	  v_may_defs = STMT_V_MAY_DEF_OPS (stmt);
-	  for (j = 0; j < NUM_V_MAY_DEFS (v_may_defs); j++)
-	    {
-	      op = V_MAY_DEF_RESULT (v_may_defs, j);
-	      bitmap_set_bit (ret, SSA_NAME_VERSION (op));
-	    }
-
-	  v_must_defs = STMT_V_MUST_DEF_OPS (stmt);
-	  for (j = 0; j < NUM_V_MUST_DEFS (v_must_defs); j++)
-	    {
-	      op = V_MUST_DEF_OP (v_must_defs, j);
-	      bitmap_set_bit (ret, SSA_NAME_VERSION (op));
-	    }
-	}
-
-      for (phi = phi_nodes (bbs[i]); phi; phi = TREE_CHAIN (phi))
-	{
-	  op = PHI_RESULT (phi);
-	  bitmap_set_bit (ret, SSA_NAME_VERSION (op));
-	}
-    }
-
-  return ret;
 }
 
 /* Blocks in REGION_COPY array of length N_REGION were created by
@@ -4791,7 +4759,8 @@ tree_duplicate_sese_region (edge entry, edge exit,
       free_region_copy = true;
     }
 
-  definitions = collect_defs (region, n_region);
+  if (any_marked_for_rewrite_p ())
+    abort ();
 
   /* Record blocks outside the region that are duplicated by something
      inside.  */
@@ -4809,6 +4778,7 @@ tree_duplicate_sese_region (edge entry, edge exit,
     region[i]->rbi->duplicated = 0;
 
   copy_bbs (region, n_region, region_copy, &exit, 1, &exit_copy, loop);
+  definitions = marked_ssa_names ();
 
   if (copying_header)
     {
@@ -4864,6 +4834,8 @@ tree_duplicate_sese_region (edge entry, edge exit,
 
   if (free_region_copy)
     free (region_copy);
+
+  unmark_all_for_rewrite ();
   BITMAP_XFREE (definitions);
 
   return true;

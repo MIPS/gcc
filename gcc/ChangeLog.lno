@@ -1,3 +1,28 @@
+2004-08-02  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* tree-cfg.c (tree_duplicate_bb): Mark duplicated definitions.
+	(collect_defs): Removed.
+	(tree_duplicate_sese_region): Use new interface to manipulate the
+	duplicated ssa names.
+	* tree-flow.h (rewrite_ssa_into_ssa): Declaration changed.
+	* tree-into-ssa.c (rewrite_ssa_into_ssa): Use new interface to
+	manipulate the duplicated ssa names.
+	* tree-ssa-loop-manip.c (collect_defs): Removed.
+	(allocate_new_names, free_new_names,
+	tree_duplicate_loop_to_header_edge, find_uses_to_rename_use,
+	find_uses_to_rename_stmt, find_uses_to_rename,
+	rewrite_into_loop_closed_ssa, tree_duplicate_loop_to_exit):
+	Use new interface to manipulate the duplicated ssa names.
+	* tree-ssanames.c (ssa_names_to_rewrite): New variable.
+	(marked_for_rewrite_p, any_marked_for_rewrite_p, mark_for_rewrite,
+	unmark_for_rewrite, unmark_all_for_rewrite, marked_ssa_names,
+	release_ssa_name_force): New functions.
+	(release_ssa_name): Do not release ssa names that may have multiple
+	definitions.
+	* tree.h (release_ssa_name_force, mark_for_rewrite,
+	unmark_for_rewrite, unmark_all_for_rewrite, marked_for_rewrite_p,
+	any_marked_for_rewrite_p, marked_ssa_names): Declare.
+
 2004-07-30  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	PR tree-optimization/16807

@@ -2629,9 +2629,17 @@ extern void fini_ssanames (void);
 extern tree make_ssa_name (tree, tree);
 extern tree duplicate_ssa_name (tree, tree);
 extern void release_ssa_name (tree);
+extern void release_ssa_name_force (tree);
 #ifdef GATHER_STATISTICS
 extern void ssanames_print_statistics (void);
 #endif
+
+void mark_for_rewrite (tree);
+void unmark_for_rewrite (tree);
+void unmark_all_for_rewrite (void);
+bool marked_for_rewrite_p (tree);
+bool any_marked_for_rewrite_p (void);
+struct bitmap_head_def *marked_ssa_names (void);
 
 /* Return the (unique) IDENTIFIER_NODE node for a given name.
    The name is supplied as a char *.  */
