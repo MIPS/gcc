@@ -1,3 +1,21 @@
+2004-06-24  Sebastian Pop  <pop@cri.ensmp.fr>
+
+	* tree-chrec.c (chrec_fold_automatically_generated_operands, 
+	chrec_merge): 
+	Use chrec_dont_know instead of a call to chrec_contains_undetermined.
+	(tree_fold_factorial, tree_fold_binomial, chrec_evaluate): Resurrect.
+	(chrec_apply): Reinsert the cases that were removed.
+	(chrec_convert): Remove the check for NULL_TREE inserted two days ago.
+	* tree-scalar-evolution.c (follow_ssa_edge_in_rhs): As a sequel of 
+	removing the tree_fold_* functions, the analyzed trees can contain 
+	NON_LVALUE_EXPR nodes.  Use STRIP_TYPE_NOPS for avoiding these nodes.
+	(number_of_iterations_in_loop): Add the missing open parenthesis in 
+	the debugging dumps.
+	(initialize_scalar_evolutions_analyzer): Use an INTERVAL_CHREC for 
+	constructing the chrec_dont_know node.  This fixes some strange 
+	problems that arise when chrec_dont_know is an INTEGER_CST. 
+	* tree.def (INTERVAL_CHREC): Resurrect.
+
 2004-06-23  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* tree-chrec.c (chrec_merge): Handle case when one of the arguments

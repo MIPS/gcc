@@ -1108,7 +1108,9 @@ follow_ssa_edge_in_rhs (struct loop *loop,
       /* This case is under the form "rhs0 + rhs1".  */
       rhs0 = TREE_OPERAND (rhs, 0);
       rhs1 = TREE_OPERAND (rhs, 1);
-      
+      STRIP_TYPE_NOPS (rhs0);
+      STRIP_TYPE_NOPS (rhs1);
+
       if (TREE_CODE (rhs0) == SSA_NAME)
 	{
 	  if (TREE_CODE (rhs1) == SSA_NAME)
@@ -1178,6 +1180,9 @@ follow_ssa_edge_in_rhs (struct loop *loop,
       /* This case is under the form "opnd0 = rhs0 - rhs1".  */
       rhs0 = TREE_OPERAND (rhs, 0);
       rhs1 = TREE_OPERAND (rhs, 1);
+      STRIP_TYPE_NOPS (rhs0);
+      STRIP_TYPE_NOPS (rhs1);
+
       if (TREE_CODE (rhs0) == SSA_NAME)
 	{
 	  if (TREE_CODE (rhs1) == SSA_NAME)
@@ -1252,6 +1257,9 @@ follow_ssa_edge_in_rhs (struct loop *loop,
       /* This case is under the form "opnd0 = rhs0 * rhs1".  */
       rhs0 = TREE_OPERAND (rhs, 0);
       rhs1 = TREE_OPERAND (rhs, 1);
+      STRIP_TYPE_NOPS (rhs0);
+      STRIP_TYPE_NOPS (rhs1);
+
       if (TREE_CODE (rhs0) == SSA_NAME)
 	{
 	  if (TREE_CODE (rhs1) == SSA_NAME)
@@ -2152,6 +2160,9 @@ number_of_iterations_in_loop (struct loop *loop)
   if (res)
     return res;
   res = chrec_dont_know;
+
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    fprintf (dump_file, "(number_of_iterations_in_loop\n");
   
   if (!loop_exit_edges (loop))
     goto end;
@@ -2403,7 +2414,8 @@ initialize_scalar_evolutions_analyzer (void)
   if (chrec_dont_know == NULL_TREE)
     {
       chrec_not_analyzed_yet = NULL_TREE;
-      chrec_dont_know = build_int_2 (2222, 0);
+      chrec_dont_know = build (INTERVAL_CHREC, integer_type_node, 
+			       build_int_2 (2222, 0), build_int_2 (3222, 0));
       chrec_known = build_int_2 (3333, 0);
     }
 }

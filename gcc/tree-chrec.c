@@ -227,8 +227,8 @@ static inline tree
 chrec_fold_automatically_generated_operands (tree op0, 
 					     tree op1)
 {
-  if (chrec_contains_undetermined (op0)
-      || chrec_contains_undetermined (op1))
+  if (op0 == chrec_dont_know
+      || op1 == chrec_dont_know)
     return chrec_dont_know;
   
   if (op0 == chrec_known
@@ -391,6 +391,65 @@ chrec_fold_multiply (tree type,
 
 /* Operations.  */
 
+/* The factorial.  */
+ 
+static tree 
+tree_fold_factorial (tree f)
+{
+  if (tree_int_cst_sgn (f) <= 0)
+    return integer_one_node;
+  else
+    return fold 
+      (build (MULT_EXPR, integer_type_node, f, 
+	      tree_fold_factorial (fold (build (MINUS_EXPR, integer_type_node, 
+						f, integer_one_node)))));
+}
+
+/* The binomial coefficient.  */
+
+static tree 
+tree_fold_binomial (tree n,
+		    tree k)
+{
+  return fold 
+    (build (EXACT_DIV_EXPR, integer_type_node, tree_fold_factorial (n), 
+	    fold (build (MULT_EXPR, integer_type_node, 
+			 tree_fold_factorial (k),
+			 tree_fold_factorial 
+			 (fold (build (MINUS_EXPR, integer_type_node, 
+				       n, k)))))));
+}
+
+/* Helper function.  Use the Newton's interpolating formula for
+   evaluating the value of the evolution function.  */
+
+static tree 
+chrec_evaluate (unsigned var,
+		tree chrec,
+		tree n,
+		tree k)
+{
+  tree type = chrec_type (chrec);
+  tree binomial_n_k = tree_fold_binomial (n, k);
+  
+  if (TREE_CODE (chrec) == POLYNOMIAL_CHREC)
+    {
+      if (CHREC_VARIABLE (chrec) > var)
+	return chrec_evaluate (var, CHREC_LEFT (chrec), n, k);
+      
+      if (CHREC_VARIABLE (chrec) == var)
+	return chrec_fold_plus 
+	  (type, 
+	   fold (build (MULT_EXPR, type, binomial_n_k, CHREC_LEFT (chrec))),
+	   chrec_evaluate (var, CHREC_RIGHT (chrec), n, 
+			   fold (build (PLUS_EXPR, type, k, integer_one_node))));
+      
+      return fold (build (MULT_EXPR, type, binomial_n_k, chrec));
+    }
+  else
+    return fold (build (MULT_EXPR, type, binomial_n_k, chrec));
+}
+
 /* Evaluates "CHREC (X)" when the varying variable is VAR.  
    Example:  Given the following parameters, 
    
@@ -422,7 +481,7 @@ chrec_apply (unsigned var,
   
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "(chrec_apply \n");
-  
+
   if (evolution_function_is_affine_p (chrec))
     {
       /* "{a, +, b} (x)"  ->  "a + b*x".  */
@@ -436,6 +495,14 @@ chrec_apply (unsigned var,
 						    CHREC_RIGHT (chrec), x));
     }
   
+  else if (TREE_CODE (chrec) != POLYNOMIAL_CHREC)
+    res = chrec;
+  
+  else if (TREE_CODE (x) == INTEGER_CST
+	   && tree_int_cst_sgn (x) == 1)
+    /* testsuite/.../ssa-chrec-38.c.  */
+    res = chrec_evaluate (var, chrec, x, integer_zero_node);
+
   else
     res = chrec_dont_know;
   
@@ -594,18 +661,18 @@ tree
 chrec_merge (tree chrec1, 
 	     tree chrec2)
 {
-  if (chrec1 == chrec_not_analyzed_yet)
-    return chrec2;
-  if (chrec2 == chrec_not_analyzed_yet)
-    return chrec1;
-
-  if (chrec_contains_undetermined (chrec1)
-      || chrec_contains_undetermined (chrec2))
+  if (chrec1 == chrec_dont_know
+      || chrec2 == chrec_dont_know)
     return chrec_dont_know;
 
   if (chrec1 == chrec_known 
       || chrec2 == chrec_known)
     return chrec_known;
+
+  if (chrec1 == chrec_not_analyzed_yet)
+    return chrec2;
+  if (chrec2 == chrec_not_analyzed_yet)
+    return chrec1;
 
   if (operand_equal_p (chrec1, chrec2, 0))
     return chrec1;
@@ -851,8 +918,6 @@ chrec_convert (tree type,
     return chrec;
   
   ct = chrec_type (chrec);
-  if (ct == NULL_TREE)
-    return chrec_dont_know;
   if (ct == type)
     return chrec;
 
