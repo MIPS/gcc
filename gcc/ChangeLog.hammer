@@ -1,3 +1,7 @@
+Tue Feb 11 10:04:33 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+	* predict.c (choose_function_section): Choose sections correctly.
+
 Mon Feb 10 21:18:38 CET 2003  Jan Hubicka  <jh@suse.cz>
 
 	* c-decl.c (c_expand_deferred_function):  Optimize inlining.
