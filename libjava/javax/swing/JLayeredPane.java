@@ -494,6 +494,8 @@ public class JLayeredPane extends JComponent implements Accessible
     decrLayer (layer);
     componentToLayer.remove (c);
     super.remove (index);
+    revalidate();
+    repaint();
   }
 
   /**

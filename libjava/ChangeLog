@@ -1,3 +1,37 @@
+2004-06-14  Olga Rodimina  <rodimina@redhat.com>
+	
+	* javax/swing/JLayeredPane.java: 
+	(remove): Revalidate and repaint layered pane after
+	the component was removed.
+	javax/swing/JMenu.java:
+	(setVisible): Display popup menu at the user location,
+	if one was set by the user.
+	(setMenuLocation): Reimplemented. Fixed javadoc.
+	* javax/swing/JMenuBar.java: Added javadoc.
+	(BORDER_PAINTED_CHANGED_PROPERTY): New Property.
+	(MODEL_CHANGED_PROPERTY): New Property.
+	(isSelected): Implemented.
+	(setBorderPainted): Fire PropertyChangeEvent
+	if paintBorder property changes.
+	(setSelected): Implemented.
+	(setSelectionModel): Implemented.
+	* javax/swing/JPopupMenu.java: Added Javadoc
+	(pack): Implemented.
+	(setVisible): Reimplemented.
+	(show): Fixed location.
+	(JPopupMenu.LigthWeightPopup): Reimplemented to use
+	Container instead of JPanel.
+	* javax/swing/MenuSelectionManager.java: Added Javadocs.
+	(clearSelectedPath): Reimplemented to clear selectedPath
+	in reverse order.
+	(processMouseEvent): Reimplemented.
+	(setSelectedPath): Fire stateChange event indicating that
+	selected menu path has changed.
+	(getPath): Change to use ArrayList instead of Vector.
+	* javax/swing/plaf/basic/BasicMenuBarUI.java:
+	(installUI): call installKeyboardActions().
+	(uninstallUI): call uninstallKeyboardActions().
+
 2004-06-13  Michael Koch  <konqueror@gmx.de>
 
 	* javax/swing/text/DefaultCaret.java,

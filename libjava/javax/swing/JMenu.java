@@ -72,7 +72,6 @@ public class JMenu extends JMenuItem implements Accessible, MenuElement
 
   /** name for the UI delegate for this menu. */
   private static final String uiClassID = "MenuUI";
-  private static Hashtable listenerRegistry = null;
 
   /** A Popup menu associated with this menu, which pops up when menu is selected */
   private JPopupMenu popupMenu = new JPopupMenu();
@@ -83,7 +82,7 @@ public class JMenu extends JMenuItem implements Accessible, MenuElement
   /** MenuEvent */
   private MenuEvent menuEvent = new MenuEvent(this);
 
-  /*Amount of time, in milliseconds, that should pass before popupMenu 
+  /*Amount of time, in milliseconds, that should pass before popupMenu
     associated with this menu appears or disappers */
   private int delay;
 
@@ -91,7 +90,7 @@ public class JMenu extends JMenuItem implements Accessible, MenuElement
   protected WinListener popupListener;
 
   /** Location at which popup menu associated with this menu will be displayed*/
-  private Point customMenuLocation;
+  private Point menuLocation;
 
   /**
    * Creates a new JMenu object.
@@ -412,13 +411,14 @@ public class JMenu extends JMenuItem implements Accessible, MenuElement
 
   /**
    * Sets location at which popup menu should be displayed
+   * The location given is relative to this menu item
    *
    * @param x x-coordinate of the menu location
    * @param y y-coordinate of the menu location
    */
   public void setMenuLocation(int x, int y)
   {
-    popupMenu.setLocation(x, y);
+    menuLocation = new Point(x, y);
   }
 
   /**
@@ -681,7 +681,7 @@ public class JMenu extends JMenuItem implements Accessible, MenuElement
 
 	int x = 0;
 	int y = 0;
-	if (customMenuLocation == null)
+	if (menuLocation == null)
 	  {
 	    // Calculate correct position of the popup. Note that location of the popup 
 	    // passed to show() should be relative to the popup's invoker
@@ -689,14 +689,11 @@ public class JMenu extends JMenuItem implements Accessible, MenuElement
 	      y = this.getHeight();
 	    else
 	      x = this.getWidth();
+
+	    getPopupMenu().show(this, x, y);
 	  }
 	else
-	  {
-	    x = customMenuLocation.x;
-	    y = customMenuLocation.y;
-	  }
-
-	getPopupMenu().show(this, x, y);
+	  getPopupMenu().show(this, menuLocation.x, menuLocation.y);
       }
 
     else
@@ -715,7 +712,7 @@ public class JMenu extends JMenuItem implements Accessible, MenuElement
    */
   public MenuElement[] getSubElements()
   {
-      return new MenuElement[] { popupMenu };
+    return new MenuElement[] { popupMenu };
   }
 
   /**
