@@ -1,5 +1,17 @@
 2005-03-18  Diego Novillo  <dnovillo@redhat.com>
 
+	* tree-into-ssa.c (ssa_rewrite_finalize_block): Remove.
+	(ssa_register_new_def): Remove.
+	(ssa_rewrite_stmt): Remove.
+	(ssa_rewrite_phi_arguments): Remove.
+	(ssa_rewrite_initialize_block): Remove.
+	(ssa_mark_def_sites): Remove.
+	(ssa_mark_def_sites_initialize_block): Remove.
+	(ssa_mark_phi_uses): Remove.
+	(rewrite_ssa_into_ssa): Remove.
+
+2005-03-18  Diego Novillo  <dnovillo@redhat.com>
+
 	* Makefile.in (tree-into-ssa.o): Remove dependency on pointer-set.h.
 	(tree-cfg.o): Add dependency on vec.h.
 	* lambda-code.c (perfect_nestify): Mark for SSA updating any
