@@ -1,5 +1,17 @@
 2002-02-13  Geoffrey Keating  <geoffk@redhat.com>
 
+	* varasm.c (init_varasm_status): Use GC to allocate
+	'struct varasm_status' and its fields x_const_rtx_hash_table
+	and x_const_rtx_sym_hash_table.
+	(mark_varasm_status): Mark them.
+	(free_varasm_status): Use GC to free them.
+	* expr.c (init_expr): Use GC to allocate 'struct expr_status'.
+	(mark_expr_status): Mark the structure itself.
+	(free_expr_status): Use GC to free the structure.
+	* stmt.c (free_stmt_status): Use GC to free 'struct stmt_status'.
+	(mark_stmt_status): Mark the 'struct stmt_status' itself.
+	(init_stmt_for_function): Allocate the structure for GC.
+
 	* dwarf2out.c (lookup_type_die): Use TYPE_SYMTAB_DIE.
 	(equate_type_number_to_die): Likewise.
 	* tree.h (TYPE_SYMTAB_DIE): New macro.

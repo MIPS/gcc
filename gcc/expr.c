@@ -271,7 +271,7 @@ init_expr_once ()
 void
 init_expr ()
 {
-  cfun->expr = (struct expr_status *) xmalloc (sizeof (struct expr_status));
+  cfun->expr = (struct expr_status *) ggc_alloc (sizeof (struct expr_status));
 
   pending_chain = 0;
   pending_stack_adjust = 0;
@@ -289,6 +289,7 @@ mark_expr_status (p)
   if (p == NULL)
     return;
 
+  ggc_mark (p);
   ggc_mark_rtx (p->x_saveregs_value);
   ggc_mark_rtx (p->x_apply_args_value);
   ggc_mark_rtx (p->x_forced_labels);
@@ -298,7 +299,6 @@ void
 free_expr_status (f)
      struct function *f;
 {
-  free (f->expr);
   f->expr = NULL;
 }
 

@@ -3469,14 +3469,16 @@ init_varasm_status (f)
      struct function *f;
 {
   struct varasm_status *p;
-  p = (struct varasm_status *) xmalloc (sizeof (struct varasm_status));
+  p = (struct varasm_status *) ggc_alloc (sizeof (struct varasm_status));
   f->varasm = p;
   p->x_const_rtx_hash_table
     = ((struct constant_descriptor **)
-       xcalloc (MAX_RTX_HASH_TABLE, sizeof (struct constant_descriptor *)));
+       ggc_alloc_cleared (MAX_RTX_HASH_TABLE
+			  * sizeof (struct constant_descriptor *)));
   p->x_const_rtx_sym_hash_table
     = ((struct pool_constant **)
-       xcalloc (MAX_RTX_HASH_TABLE, sizeof (struct pool_constant *)));
+       ggc_alloc_cleared (MAX_RTX_HASH_TABLE
+			  * sizeof (struct pool_constant *)));
 
   p->x_first_pool = p->x_last_pool = 0;
   p->x_pool_offset = 0;
@@ -3507,6 +3509,9 @@ mark_varasm_status (p)
   if (p == NULL)
     return;
 
+  ggc_mark (p);
+  ggc_mark (p->x_const_rtx_hash_table);
+  ggc_mark (p->x_const_rtx_sym_hash_table);
   mark_pool_constant (p->x_first_pool);
   ggc_mark_rtx (p->x_const_double_chain);
 }
@@ -3538,10 +3543,6 @@ free_varasm_status (f)
 	  cd = next;
 	}
     }
-
-  free (p->x_const_rtx_hash_table);
-  free (p->x_const_rtx_sym_hash_table);
-  free (p);
 
   f->varasm = NULL;
 }

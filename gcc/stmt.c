@@ -572,11 +572,8 @@ void
 free_stmt_status (f)
      struct function *f;
 {
-  /* We're about to free the function obstack.  If we hold pointers to
-     things allocated there, then we'll try to mark them when we do
-     GC.  So, we clear them out here explicitly.  */
-  if (f->stmt)
-    free (f->stmt);
+  /* Clear the reference; all the actual freeing will be done at
+     the next GC collection.  */
   f->stmt = NULL;
 }
 
@@ -589,6 +586,7 @@ mark_stmt_status (p)
   if (p == 0)
     return;
 
+  ggc_mark (p);
   mark_block_nesting (p->x_block_stack);
   mark_cond_nesting (p->x_cond_stack);
   mark_loop_nesting (p->x_loop_stack);
@@ -611,7 +609,7 @@ init_stmt ()
 void
 init_stmt_for_function ()
 {
-  cfun->stmt = (struct stmt_status *) xmalloc (sizeof (struct stmt_status));
+  cfun->stmt = ((struct stmt_status *)ggc_alloc (sizeof (struct stmt_status)));
 
   /* We are not currently within any block, conditional, loop or case.  */
   block_stack = 0;
