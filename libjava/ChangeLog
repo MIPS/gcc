@@ -1,3 +1,30 @@
+2004-05-03  Kim Ho  <kho@redhat.com>
+
+	* gnu/java/awt/peer/gtk/GtkDialogPeer.java:
+	(getGraphics): Like GtkFramePeer, the Graphics
+	object needs to be translate to account for
+	window decorations.
+	(postMouseEvent): New method. Account for
+	translation.
+	(postExposeEvent): ditto.
+	* javax/swing/Box.java: Stubbed.
+	* javax/swing/JDialog.java: Ran through jalopy
+	to fix indentation.
+	(JDialog): Call SwingUtilities' getOwnerFrame
+	for null owners.
+	(setLayout): Check isRootPaneCheckingEnabled
+	* javax/swing/JOptionPane.java: Re-implemented.
+	* javax/swing/SwingUtilities.java:
+	(getOwnerFrame): Static method to grab a default
+	owner frame for Dialogs that don't specify owners.
+	* javax/swing/event/SwingPropertyChangeSupport.java:
+	(firePropertyChange): Fix early exit condition.
+	* javax/swing/plaf/basic/BasicLabelUI.java:
+	(paint): Avoid painting text if it is null 
+	or empty.
+	* javax/swing/plaf/basic/BasicOptionPaneUI.java:
+	Implement.
+
 2004-05-03  Olga Rodimina  <rodimina@redhat.com>
 
 	* Makefile.am: Added new file.

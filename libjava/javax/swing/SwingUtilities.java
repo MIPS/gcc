@@ -44,6 +44,7 @@ import java.awt.Container;
 import java.awt.EventQueue;
 import java.awt.Font;
 import java.awt.FontMetrics;
+import java.awt.Frame;
 import java.awt.Graphics;
 import java.awt.Insets;
 import java.awt.Point;
@@ -67,6 +68,8 @@ import javax.accessibility.AccessibleStateSet;
  */
 public class SwingUtilities implements SwingConstants
 {
+
+  private static Frame ownerFrame;
 
   /**
    * Calculates the portion of the base rectangle which is inside the
@@ -832,6 +835,19 @@ public class SwingUtilities implements SwingConstants
                                     Container p, Rectangle r)
   {
     paintComponent(g, c, p, r.x, r.y, r.width, r.height);
+  }
+  
+  /**
+   * This method returns the common Frame owner used in JDialogs
+   * when no owner is provided.
+   *
+   * @return The common Frame 
+   */
+  static Frame getOwnerFrame()
+  {
+    if (ownerFrame == null)
+      ownerFrame = new Frame();
+    return ownerFrame;
   }
   
 

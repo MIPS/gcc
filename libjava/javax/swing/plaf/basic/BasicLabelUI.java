@@ -168,7 +168,7 @@ public class BasicLabelUI extends LabelUI implements PropertyChangeListener
       vr.width = 0;
     if (vr.height < 0)
       vr.height = 0;
-
+      
     Icon icon = (b.isEnabled()) ? b.getIcon() : b.getDisabledIcon();
 
     String text = layoutCL(b, fm, b.getText(), icon, vr, ir, tr);
@@ -181,10 +181,13 @@ public class BasicLabelUI extends LabelUI implements PropertyChangeListener
 
     if (icon != null)
       icon.paintIcon(b, g, ir.x, ir.y);
-    if (b.isEnabled())
-      paintEnabledText(b, g, text, tr.x, tr.y + fm.getAscent());
-    else
-      paintDisabledText(b, g, text, tr.x, tr.y + fm.getAscent());
+    if (text != null && ! text.equals(""))
+    {
+      if (b.isEnabled())
+        paintEnabledText(b, g, text, tr.x, tr.y + fm.getAscent());
+      else
+        paintDisabledText(b, g, text, tr.x, tr.y + fm.getAscent());
+    }
     g.setFont(saved_font);
   }
 
