@@ -41,7 +41,7 @@ Boston, MA 02111-1307, USA.  */
 #include "intl.h"
 #include "tree-mudflap.h"
 #include "function.h"
-
+#include "diagnostic.h"
 
 /* I'm not real happy about this, but we need to handle gimple and
    non-gimple trees.  */
@@ -788,10 +788,14 @@ setup_one_parameter (inline_data *id, tree p, tree value,
       init_stmt = build (MODIFY_EXPR, TREE_TYPE (var), var, rhs);
       append_to_statement_list (init_stmt, init_stmts);
 
-      /* If the conversion needed to assign VALUE to VAR is not a
-	 GIMPLE expression, flag that we will need to gimplify
-	 INIT_STMTS at the end.  */
-      if (!is_gimple_rhs (rhs))
+      /* If we did not create a gimple value and we did not create a gimple
+	 cast of a gimple value, then we will need to gimplify INIT_STMTS
+	 at the end.  Note that is_gimple_cast only checks the outer
+	 tree code, not its operand.  Thus the explicit check that it's
+	 operand is a gimple value.  */
+      if (!is_gimple_val (rhs)
+	  && (!is_gimple_cast (rhs)
+	      || !is_gimple_val (TREE_OPERAND (rhs, 0))))
 	*gimplify_init_stmts_p = true;
     }
 }
@@ -1798,6 +1802,12 @@ optimize_inline_calls (tree fn)
 {
   inline_data id;
   tree prev_fn;
+
+  /* There is no point in performing inlining if errors have already
+     occurred -- and we might crash if we try to inline invalid
+     code.  */
+  if (errorcount || sorrycount)
+    return;
 
   /* Clear out ID.  */
   memset (&id, 0, sizeof (id));

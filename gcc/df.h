@@ -235,8 +235,8 @@ struct df_map
 
 extern struct df *df_init (void);
 
-extern int df_analyse (struct df *, bitmap, int);
-extern void df_analyse_subcfg (struct df *, bitmap, int);
+extern int df_analyze (struct df *, bitmap, int);
+extern void df_analyze_subcfg (struct df *, bitmap, int);
 
 extern void df_finish (struct df *);
 

@@ -50,8 +50,7 @@ Boston, MA 02111-1307, USA.  */
 
 
 /* Global variables used to communicate with passes.  */
-FILE *tree_dump_file;
-int tree_dump_flags;
+int dump_flags;
 bitmap vars_to_rename;
 
 /* The root of the compilation pass tree, once constructed.  */
@@ -280,6 +279,7 @@ init_tree_optimization_passes (void)
   NEXT_PASS (pass_referenced_vars);
   NEXT_PASS (pass_build_pta);
   NEXT_PASS (pass_build_ssa);
+  NEXT_PASS (pass_rename_ssa_copies);
   NEXT_PASS (pass_early_warn_uninitialized);
   NEXT_PASS (pass_dce);
   NEXT_PASS (pass_return);
@@ -288,20 +288,21 @@ init_tree_optimization_passes (void)
   NEXT_PASS (DUP_PASS (pass_dce));
   NEXT_PASS (pass_forwprop);
   NEXT_PASS (pass_phiopt);
-  NEXT_PASS (pass_ch);
   NEXT_PASS (pass_may_alias);
+  NEXT_PASS (pass_tail_recursion);
+  NEXT_PASS (pass_ch);
   NEXT_PASS (pass_del_pta);
   NEXT_PASS (pass_profile);
   NEXT_PASS (pass_lower_complex);
   NEXT_PASS (DUP_PASS (pass_return));
   NEXT_PASS (pass_sra);
+  NEXT_PASS (DUP_PASS (pass_rename_ssa_copies));
   NEXT_PASS (DUP_PASS (pass_dominator));
   NEXT_PASS (DUP_PASS (pass_redundant_phi));
   NEXT_PASS (DUP_PASS (pass_dce));
   NEXT_PASS (pass_dse);
   NEXT_PASS (DUP_PASS (pass_forwprop));
   NEXT_PASS (DUP_PASS (pass_phiopt));
-  NEXT_PASS (pass_tail_recursion);
   NEXT_PASS (pass_ccp);
   NEXT_PASS (DUP_PASS (pass_redundant_phi));
   NEXT_PASS (pass_fold_builtins);
@@ -319,6 +320,8 @@ init_tree_optimization_passes (void)
   NEXT_PASS (pass_late_warn_uninitialized);
   NEXT_PASS (pass_warn_function_return);
   NEXT_PASS (pass_del_ssa);
+  NEXT_PASS (pass_nrv);
+  NEXT_PASS (pass_remove_useless_vars);
   NEXT_PASS (pass_del_cfg);
   *p = NULL;
 
@@ -356,9 +359,9 @@ execute_todo (unsigned int flags)
       bitmap_clear (vars_to_rename);
     }
 
-  if ((flags & TODO_dump_func) && tree_dump_file)
+  if ((flags & TODO_dump_func) && dump_file)
     dump_function_to_file (current_function_decl,
-			   tree_dump_file, tree_dump_flags);
+			   dump_file, dump_flags);
 
   if (flags & TODO_ggc_collect)
     ggc_collect ();
@@ -394,14 +397,14 @@ execute_one_pass (struct tree_opt_pass *pass)
   /* If a dump file name is present, open it if enabled.  */
   if (pass->static_pass_number)
     {
-      tree_dump_file = dump_begin (pass->static_pass_number, &tree_dump_flags);
-      if (tree_dump_file)
+      dump_file = dump_begin (pass->static_pass_number, &dump_flags);
+      if (dump_file)
 	{
 	  const char *dname, *aname;
 	  dname = (*lang_hooks.decl_printable_name) (current_function_decl, 2);
 	  aname = (IDENTIFIER_POINTER
 		   (DECL_ASSEMBLER_NAME (current_function_decl)));
-	  fprintf (tree_dump_file, "\n;; Function %s (%s)\n\n", dname, aname);
+	  fprintf (dump_file, "\n;; Function %s (%s)\n\n", dname, aname);
 	}
     }
 
@@ -426,10 +429,10 @@ execute_one_pass (struct tree_opt_pass *pass)
   /* Close down timevar and dump file.  */
   if (pass->tv_id)
     timevar_pop (pass->tv_id);
-  if (tree_dump_file)
+  if (dump_file)
     {
-      dump_end (pass->static_pass_number, tree_dump_file);
-      tree_dump_file = NULL;
+      dump_end (pass->static_pass_number, dump_file);
+      dump_file = NULL;
     }
 
   return true;
@@ -545,11 +548,14 @@ tree_rest_of_compilation (tree fndecl, bool nested_p)
     walk_tree (&TREE_TYPE (fndecl), set_save_expr_context, fndecl,
 	       NULL);
 
+  /* Expand the variables recorded during gimple lowering.  This must
+     occur before the call to expand_function_start to ensure that
+     all used variables are expanded before we expand anything on the
+     PENDING_SIZES list.  */
+  expand_used_vars ();
+
   /* Set up parameters and prepare for return, for the function.  */
   expand_function_start (fndecl, 0);
-
-  /* Expand the variables recorded during gimple lowering.  */
-  expand_used_vars ();
 
   /* Allow language dialects to perform special processing.  */
   (*lang_hooks.rtl_expand.start) ();
@@ -658,8 +664,6 @@ tree_rest_of_compilation (tree fndecl, bool nested_p)
 	     If rest_of_compilation set this to 0, leave it 0.  */
 	  if (DECL_INITIAL (fndecl) != 0)
 	    DECL_INITIAL (fndecl) = error_mark_node;
-
-	  DECL_ARGUMENTS (fndecl) = 0;
 	}
     }
 

@@ -305,7 +305,7 @@ find_defs (struct loop *loop, basic_block *body, struct df *df)
   for (i = 0; i < loop->num_nodes; i++)
     bitmap_set_bit (blocks, body[i]->index);
 
-  df_analyse_subcfg (df, blocks, DF_UD_CHAIN);
+  df_analyze_subcfg (df, blocks, DF_UD_CHAIN);
   BITMAP_XFREE (blocks);
 }
 
@@ -341,12 +341,12 @@ create_new_invariant (struct def *def, rtx insn, bitmap depends_on,
     def->invno = inv->invno;
   VARRAY_PUSH_GENERIC_PTR_NOGC (invariants, inv);
 
-  if (rtl_dump_file)
+  if (dump_file)
     {
-      fprintf (rtl_dump_file,
+      fprintf (dump_file,
 	       "Set in insn %d is invariant (%d), cost %d, depends on ",
 	       INSN_UID (insn), inv->invno, inv->cost);
-      dump_bitmap (rtl_dump_file, inv->depends_on);
+      dump_bitmap (dump_file, inv->depends_on);
     }
 }
 
@@ -700,8 +700,8 @@ set_move_mark (unsigned invno)
     return;
   inv->move = true;
 
-  if (rtl_dump_file)
-    fprintf (rtl_dump_file, "Decided to move invariant %d\n", invno);
+  if (dump_file)
+    fprintf (dump_file, "Decided to move invariant %d\n", invno);
 
   EXECUTE_IF_SET_IN_BITMAP (inv->depends_on, 0, invno, set_move_mark (invno));
 }

@@ -34,6 +34,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree-flow.h"
 #include "tree-pass.h"
 #include "tree-dump.h"
+#include "langhooks.h"
 
 static void tree_ssa_phiopt (void);
 static bool conditional_replacement (basic_block bb, tree phi, tree arg0,
@@ -377,8 +378,8 @@ conditional_replacement (basic_block bb, tree phi, tree arg0, tree arg1)
   bsi = bsi_last (cond_block);
   bsi_remove (&bsi);
   
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-    fprintf (tree_dump_file,
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    fprintf (dump_file,
               "COND_EXPR in block %d and PHI in block %d converted to straightline code.\n",
               cond_block->index,
               bb->index);
@@ -688,8 +689,8 @@ absolute_replacement (basic_block bb, tree phi, tree arg0, tree arg1)
   bsi = bsi_last (cond_block);
   bsi_remove (&bsi);
   
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-    fprintf (tree_dump_file,
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    fprintf (dump_file,
               "COND_EXPR in block %d and PHI in block %d converted to straightline code (using ABS).\n",
               cond_block->index,
               bb->index);
@@ -865,8 +866,8 @@ value_replacement (basic_block bb, tree phi, tree arg0, tree arg1)
     }
     
   
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-    fprintf (tree_dump_file,
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    fprintf (dump_file,
               "COND_EXPR in block %d and PHI in block %d converted to straightline code.\n",
               cond_block->index,
               bb->index);

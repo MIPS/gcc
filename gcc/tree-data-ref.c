@@ -385,12 +385,12 @@ analyze_array (tree stmt,
 {
   struct data_reference *res;
 
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_DETAILS))
     {
-      fprintf (tree_dump_file, "(analyze_array \n");
-      fprintf (tree_dump_file, "  (ref = ");
-      print_generic_stmt (tree_dump_file, ref, 0);
-      fprintf (tree_dump_file, ")\n");
+      fprintf (dump_file, "(analyze_array \n");
+      fprintf (dump_file, "  (ref = ");
+      print_generic_stmt (dump_file, ref, 0);
+      fprintf (dump_file, ")\n");
     }
   
   res = ggc_alloc (sizeof (struct data_reference));
@@ -402,8 +402,8 @@ analyze_array (tree stmt,
   DR_BASE_NAME (res) = analyze_array_indexes 
     (loop_num (loop_of_stmt (stmt)), DR_ACCESS_FNS (res), ref);
 
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-    fprintf (tree_dump_file, ")\n");
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    fprintf (dump_file, ")\n");
   
   return res;
 }
@@ -557,8 +557,8 @@ subscript_dependence_tester (struct data_dependence_relation *ddr)
   struct data_reference *dra = DDR_A (ddr);
   struct data_reference *drb = DDR_B (ddr);
   
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-    fprintf (tree_dump_file, "(subscript_dependence_tester \n");
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    fprintf (dump_file, "(subscript_dependence_tester \n");
   
   for (i = 0; i < DDR_NUM_SUBSCRIPTS (ddr); i++)
     {
@@ -592,8 +592,8 @@ subscript_dependence_tester (struct data_dependence_relation *ddr)
  	}
     }
   
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-    fprintf (tree_dump_file, ")\n");
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    fprintf (dump_file, ")\n");
 }
 
 /* This is the subscript {coupling | conflict} tester (SubCT).  
@@ -644,11 +644,11 @@ subscript_dependence_tester (struct data_dependence_relation *ddr)
 static void
 subscript_coupling_tester (struct data_dependence_relation *res ATTRIBUTE_UNUSED)
 {
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-    fprintf (tree_dump_file, "(subscript_coupling_tester \n");
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    fprintf (dump_file, "(subscript_coupling_tester \n");
   
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-    fprintf (tree_dump_file, ")\n");
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    fprintf (dump_file, ")\n");
 }
 
 /* For all the subscripts, set the same value: CHREC.  */
@@ -689,15 +689,15 @@ compute_affine_dependence (struct data_dependence_relation *ddr)
   struct data_reference *dra = DDR_A (ddr);
   struct data_reference *drb = DDR_B (ddr);
   
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_DETAILS))
     {
-      fprintf (tree_dump_file, "(compute_affine_dependence (%d, %d)\n", 
+      fprintf (dump_file, "(compute_affine_dependence (%d, %d)\n", 
 	       DR_ID (dra), DR_ID (drb));
-      fprintf (tree_dump_file, "  (stmt_a = \n");
-      print_generic_expr (tree_dump_file, DR_STMT (dra), 0);
-      fprintf (tree_dump_file, ")\n  (stmt_b = \n");
-      print_generic_expr (tree_dump_file, DR_STMT (drb), 0);
-      fprintf (tree_dump_file, ")\n");
+      fprintf (dump_file, "  (stmt_a = \n");
+      print_generic_expr (dump_file, DR_STMT (dra), 0);
+      fprintf (dump_file, ")\n  (stmt_b = \n");
+      print_generic_expr (dump_file, DR_STMT (drb), 0);
+      fprintf (dump_file, ")\n");
     }
   
   /* Analyze only when the dependence relation is not yet known.  */
@@ -715,16 +715,16 @@ compute_affine_dependence (struct data_dependence_relation *ddr)
 	 "don't know".  */
       else
 	{
-	  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-	    fprintf (tree_dump_file, "I'm not smart enough for this dependence test," 
+	  if (dump_file && (dump_flags & TDF_DETAILS))
+	    fprintf (dump_file, "I'm not smart enough for this dependence test," 
 		     "please teach me what I should answer.  \n");
 	  
 	  set_all_subscripts_to (ddr, chrec_top);
 	}
     }
   
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-    fprintf (tree_dump_file, ")\n");
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    fprintf (dump_file, ")\n");
 }
 
 
@@ -782,7 +782,7 @@ find_data_references (varray_type datarefs)
 	      default:
 		debug_tree (expr);
 		/* abort (); */
-		fprintf (tree_dump_file, "Find ARRAY_REFs: abort.\n");
+		fprintf (dump_file, "Find ARRAY_REFs: abort.\n");
 		break;
 	      }
 	}
@@ -829,10 +829,10 @@ analyze_all_data_dependences (void)
   find_data_references (datarefs);
   compute_all_dependences (datarefs, dependence_relations);
   
-  if (tree_dump_file)
+  if (dump_file)
     {
-      dump_data_dependence_relations (tree_dump_file, dependence_relations);
-      fprintf (tree_dump_file, "\n\n");
+      dump_data_dependence_relations (dump_file, dependence_relations);
+      fprintf (dump_file, "\n\n");
     }
   
   varray_clear (dependence_relations);

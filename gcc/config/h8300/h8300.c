@@ -330,6 +330,10 @@ h8300_init_once (void)
     }
 }
 
+/* Return the byte register name for a register rtx X.  B should be 0
+   if you want a lower byte register.  B should be 1 if you want an
+   upper byte register.  */
+
 static const char *
 byte_reg (rtx x, int b)
 {
@@ -370,19 +374,22 @@ byte_reg (rtx x, int b)
 static void
 h8300_emit_stack_adjustment (int sign, unsigned int size)
 {
+  /* If the frame size is 0, we don't have anything to do.  */
+  if (size == 0)
+    return;
+
   /* H8/300 cannot add/subtract a large constant with a single
      instruction.  If a temporary register is available, load the
      constant to it and then do the addition.  */
   if (TARGET_H8300
       && size > 4
       && !h8300_current_function_interrupt_function_p ()
-      && !(current_function_needs_context && sign < 0))
+      && !(cfun->static_chain_decl != NULL && sign < 0))
     {
-      rtx new_sp;
       rtx r3 = gen_rtx_REG (Pmode, 3);
-      emit_insn (gen_rtx_SET (Pmode, r3, GEN_INT (sign * size)));
-      new_sp = gen_rtx_PLUS (Pmode, stack_pointer_rtx, r3);
-      emit_insn (gen_rtx_SET (Pmode, stack_pointer_rtx, new_sp));
+      emit_insn (gen_movhi (r3, GEN_INT (sign * size)));
+      emit_insn (gen_addhi3 (stack_pointer_rtx,
+			     stack_pointer_rtx, r3));
     }
   else
     {
@@ -390,8 +397,12 @@ h8300_emit_stack_adjustment (int sign, unsigned int size)
 	 splitter.  In case of H8/300, the splitter always splits the
 	 addition emitted here to make the adjustment
 	 interrupt-safe.  */
-      rtx new_sp = plus_constant (stack_pointer_rtx, sign * size);
-      emit_insn (gen_rtx_SET (Pmode, stack_pointer_rtx, new_sp));
+      if (Pmode == HImode)
+	emit_insn (gen_addhi3 (stack_pointer_rtx,
+			       stack_pointer_rtx, GEN_INT (sign * size)));
+      else
+	emit_insn (gen_addsi3 (stack_pointer_rtx,
+			       stack_pointer_rtx, GEN_INT (sign * size)));
     }
 }
 
@@ -505,8 +516,7 @@ h8300_expand_prologue (void)
     {
       /* Push fp.  */
       push (HARD_FRAME_POINTER_REGNUM);
-      emit_insn (gen_rtx_SET (Pmode, hard_frame_pointer_rtx,
-			      stack_pointer_rtx));
+      emit_move_insn (hard_frame_pointer_rtx, stack_pointer_rtx);
     }
 
   /* Push the rest of the registers in ascending order.  */
@@ -561,6 +571,9 @@ h8300_expand_prologue (void)
   /* Leave room for locals.  */
   h8300_emit_stack_adjustment (-1, round_frame_size (get_frame_size ()));
 }
+
+/* Return nonzero if we can use "rts" for the function currently being
+   compiled.  */
 
 int
 h8300_can_use_return_insn_p (void)
@@ -885,8 +898,6 @@ jump_address_operand (rtx op, enum machine_mode mode)
 
 /* Recognize valid operands for bit-field instructions.  */
 
-extern int rtx_equal_function_value_matters;
-
 int
 bit_operand (rtx op, enum machine_mode mode)
 {
@@ -908,6 +919,8 @@ bit_operand (rtx op, enum machine_mode mode)
   return (GET_CODE (op) == MEM
 	  && EXTRA_CONSTRAINT (op, 'U'));
 }
+
+/* Return nonzero if OP is a MEM suitable for bit manipulation insns.  */
 
 int
 bit_memory_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
@@ -1010,6 +1023,8 @@ function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode,
   return result;
 }
 
+/* Compute the cost of an and insn.  */
+
 static int
 h8300_and_costs (rtx x)
 {
@@ -1029,6 +1044,8 @@ h8300_and_costs (rtx x)
   return compute_logical_op_length (GET_MODE (x), operands) / 2;
 }
 
+/* Compute the cost of a shift insn.  */
+
 static int
 h8300_shift_costs (rtx x)
 {
@@ -1045,6 +1062,8 @@ h8300_shift_costs (rtx x)
   operands[3] = x;
   return compute_a_shift_length (NULL, operands) / 2;
 }
+
+/* Worker function for TARGET_RTX_COSTS.  */
 
 static bool
 h8300_rtx_costs (rtx x, int code, int outer_code, int *total)
@@ -1638,6 +1657,8 @@ h8300_initial_elimination_offset (int from, int to)
     abort ();
 }
 
+/* Worker function for RETURN_ADDR_RTX.  */
+
 rtx
 h8300_return_addr_rtx (int count, rtx frame)
 {
@@ -1789,14 +1810,14 @@ eqne_operator (rtx x, enum machine_mode mode ATTRIBUTE_UNUSED)
   return (code == EQ || code == NE);
 }
 
-/* Return nonzero if X is GT, LE, GTU, or LEU.  */
+/* Return nonzero if X is either GT or LE.  */
 
 int
 gtle_operator (rtx x, enum machine_mode mode ATTRIBUTE_UNUSED)
 {
   enum rtx_code code = GET_CODE (x);
 
-  return (code == GT || code == LE || code == GTU || code == LEU);
+  return (code == GT || code == LE);
 }
 
 /* Return nonzero if X is either GTU or LEU.  */
@@ -2085,6 +2106,8 @@ compute_mov_length (rtx *operands)
     }
 }
 
+/* Output an addition insn.  */
+
 const char *
 output_plussi (rtx *operands)
 {
@@ -2158,6 +2181,8 @@ output_plussi (rtx *operands)
     }
 }
 
+/* Compute the length of an addition insn.  */
+
 unsigned int
 compute_plussi_length (rtx *operands)
 {
@@ -2226,6 +2251,8 @@ compute_plussi_length (rtx *operands)
     }
 }
 
+/* Compute which flag bits are valid after an addition insn.  */
+
 int
 compute_plussi_cc (rtx *operands)
 {
@@ -2279,6 +2306,8 @@ compute_plussi_cc (rtx *operands)
     }
 }
 
+/* Output a logical insn.  */
+
 const char *
 output_logical_op (enum machine_mode mode, rtx *operands)
 {
@@ -2453,6 +2482,8 @@ output_logical_op (enum machine_mode mode, rtx *operands)
   return "";
 }
 
+/* Compute the length of a logical insn.  */
+
 unsigned int
 compute_logical_op_length (enum machine_mode mode, rtx *operands)
 {
@@ -2596,6 +2627,8 @@ compute_logical_op_length (enum machine_mode mode, rtx *operands)
   return length;
 }
 
+/* Compute which flag bits are valid after a logical insn.  */
+
 int
 compute_logical_op_cc (enum machine_mode mode, rtx *operands)
 {
@@ -2669,6 +2702,20 @@ compute_logical_op_cc (enum machine_mode mode, rtx *operands)
       abort ();
     }
   return cc;
+}
+
+/* Expand a conditional branch.  */
+
+void
+h8300_expand_branch (enum rtx_code code, rtx label)
+{
+  rtx tmp;
+
+  tmp = gen_rtx_fmt_ee (code, VOIDmode, cc0_rtx, const0_rtx);
+  tmp = gen_rtx_IF_THEN_ELSE (VOIDmode, tmp,
+			      gen_rtx_LABEL_REF (VOIDmode, label),
+			      pc_rtx);
+  emit_jump_insn (gen_rtx_SET (VOIDmode, pc_rtx, tmp));
 }
 
 /* Shifts.
@@ -3439,7 +3486,7 @@ h8300_shift_needs_scratch_p (int count, enum machine_mode mode)
 	  || (TARGET_H8300H && mode == SImode && count == 8));
 }
 
-/* Emit the assembler code for doing shifts.  */
+/* Output the assembler code for doing shifts.  */
 
 const char *
 output_a_shift (rtx *operands)
@@ -3593,6 +3640,8 @@ output_a_shift (rtx *operands)
     }
 }
 
+/* Count the number of assembly instructions in a string TEMPLATE.  */
+
 static unsigned int
 h8300_asm_insn_count (const char *template)
 {
@@ -3604,6 +3653,8 @@ h8300_asm_insn_count (const char *template)
 
   return count;
 }
+
+/* Compute the length of a shift insn.  */
 
 unsigned int
 compute_a_shift_length (rtx insn ATTRIBUTE_UNUSED, rtx *operands)
@@ -3753,6 +3804,8 @@ compute_a_shift_length (rtx insn ATTRIBUTE_UNUSED, rtx *operands)
     }
 }
 
+/* Compute which flag bits are valid after a shift insn.  */
+
 int
 compute_a_shift_cc (rtx insn ATTRIBUTE_UNUSED, rtx *operands)
 {
@@ -3851,13 +3904,12 @@ compute_a_shift_cc (rtx insn ATTRIBUTE_UNUSED, rtx *operands)
    output_a_rotate () at the insn emit time.  */
 
 int
-expand_a_rotate (enum rtx_code code, rtx operands[])
+expand_a_rotate (rtx operands[])
 {
   rtx dst = operands[0];
   rtx src = operands[1];
   rtx rotate_amount = operands[2];
   enum machine_mode mode = GET_MODE (dst);
-  rtx tmp;
 
   /* We rotate in place.  */
   emit_move_insn (dst, src);
@@ -3879,12 +3931,23 @@ expand_a_rotate (enum rtx_code code, rtx operands[])
       emit_label (start_label);
 
       /* Rotate by one bit.  */
-      tmp = gen_rtx_fmt_ee (code, mode, dst, const1_rtx);
-      emit_insn (gen_rtx_SET (mode, dst, tmp));
+      switch (mode)
+	{
+	case QImode:
+	  emit_insn (gen_rotlqi3_1 (dst, dst, const1_rtx));
+	  break;
+	case HImode:
+	  emit_insn (gen_rotlhi3_1 (dst, dst, const1_rtx));
+	  break;
+	case SImode:
+	  emit_insn (gen_rotlsi3_1 (dst, dst, const1_rtx));
+	  break;
+	default:
+	  abort ();
+	}
 
       /* Decrement the counter by 1.  */
-      tmp = gen_rtx_PLUS (QImode, counter, constm1_rtx);
-      emit_insn (gen_rtx_SET (VOIDmode, counter, tmp));
+      emit_insn (gen_addqi3 (counter, counter, constm1_rtx));
 
       /* If the loop counter is nonzero, we go back to the beginning
 	 of the loop.  */
@@ -3896,14 +3959,26 @@ expand_a_rotate (enum rtx_code code, rtx operands[])
   else
     {
       /* Rotate by AMOUNT bits.  */
-      tmp = gen_rtx_fmt_ee (code, mode, dst, rotate_amount);
-      emit_insn (gen_rtx_SET (mode, dst, tmp));
+      switch (mode)
+	{
+	case QImode:
+	  emit_insn (gen_rotlqi3_1 (dst, dst, rotate_amount));
+	  break;
+	case HImode:
+	  emit_insn (gen_rotlhi3_1 (dst, dst, rotate_amount));
+	  break;
+	case SImode:
+	  emit_insn (gen_rotlsi3_1 (dst, dst, rotate_amount));
+	  break;
+	default:
+	  abort ();
+	}
     }
 
   return 1;
 }
 
-/* Output rotate insns.  */
+/* Output a rotate insn.  */
 
 const char *
 output_a_rotate (enum rtx_code code, rtx *operands)
@@ -3997,7 +4072,7 @@ output_a_rotate (enum rtx_code code, rtx *operands)
 	(rotate_type == SHIFT_ASHIFT) ? SHIFT_LSHIFTRT : SHIFT_ASHIFT;
     }
 
-  /* Emit rotate insns.  */
+  /* Output rotate insns.  */
   for (bits = TARGET_H8300S ? 2 : 1; bits > 0; bits /= 2)
     {
       if (bits == 2)
@@ -4011,6 +4086,8 @@ output_a_rotate (enum rtx_code code, rtx *operands)
 
   return "";
 }
+
+/* Compute the length of a rotate insn.  */
 
 unsigned int
 compute_a_rotate_length (rtx *operands)
@@ -4066,14 +4143,15 @@ compute_a_rotate_length (rtx *operands)
    operating insn.  */
 
 int
-fix_bit_operand (rtx *operands, int what, enum rtx_code type)
+fix_bit_operand (rtx *operands, enum rtx_code code)
 {
   /* The bit_operand predicate accepts any memory during RTL generation, but
      only 'U' memory afterwards, so if this is a MEM operand, we must force
      it to be valid for 'U' by reloading the address.  */
 
-  if ((what == 0 && single_zero_operand (operands[2], QImode))
-      || (what == 1 && single_one_operand (operands[2], QImode)))
+  if (code == AND
+      ? single_zero_operand (operands[2], QImode)
+      : single_one_operand (operands[2], QImode))
     {
       /* OK to have a memory dest.  */
       if (GET_CODE (operands[0]) == MEM
@@ -4103,10 +4181,21 @@ fix_bit_operand (rtx *operands, int what, enum rtx_code type)
   operands[1] = force_reg (QImode, operands[1]);
   {
     rtx res = gen_reg_rtx (QImode);
-    emit_insn (gen_rtx_SET (VOIDmode, res,
-			    gen_rtx_fmt_ee (type, QImode,
-					    operands[1], operands[2])));
-    emit_insn (gen_rtx_SET (VOIDmode, operands[0], res));
+    switch (code)
+      {
+      case AND:
+	emit_insn (gen_andqi3_1 (res, operands[1], operands[2]));
+	break;
+      case IOR:
+	emit_insn (gen_iorqi3_1 (res, operands[1], operands[2]));
+	break;
+      case XOR:
+	emit_insn (gen_xorqi3_1 (res, operands[1], operands[2]));
+	break;
+      default:
+	abort ();
+      }
+    emit_insn (gen_movqi (operands[0], res));
   }
   return 1;
 }
@@ -4364,6 +4453,8 @@ h8300_encode_section_info (tree decl, rtx rtl, int first)
     SYMBOL_REF_FLAGS (XEXP (rtl, 0)) |= extra_flags;
 }
 
+/* Output a single-bit extraction.  */
+
 const char *
 output_simode_bld (int bild, rtx operands[])
 {
@@ -4490,6 +4581,9 @@ h8300_tiny_constant_address_p (rtx x)
     }
 
 }
+
+/* Return nonzero if ADDR1 and ADDR2 point to consecutive memory
+   locations that can be accessed as a 16-bit word.  */
 
 int
 byte_accesses_mergeable_p (rtx addr1, rtx addr2)
@@ -4668,6 +4762,32 @@ h8300_legitimate_address_p (rtx x, int strict)
 
   return 0;
 }
+
+/* Worker function for HARD_REGNO_NREGS.
+
+   We pretend the MAC register is 32bits -- we don't have any data
+   types on the H8 series to handle more than 32bits.  */
+
+int
+h8300_hard_regno_nregs (int regno ATTRIBUTE_UNUSED, enum machine_mode mode)
+{
+  return (GET_MODE_SIZE (mode) + UNITS_PER_WORD - 1) / UNITS_PER_WORD;
+}
+
+/* Worker function for HARD_REGNO_MODE_OK.  */
+
+int
+h8300_hard_regno_mode_ok (int regno, enum machine_mode mode)
+{
+  if (TARGET_H8300)
+    /* If an even reg, then anything goes.  Otherwise the mode must be
+       QI or HI.  */
+    return ((regno & 1) == 0) || (mode == HImode) || (mode == QImode);
+  else
+    /* MAC register can only be of SImode.  Otherwise, anything
+       goes.  */
+    return regno == MAC_REG ? mode == SImode : 1;
+}
 
 /* Perform target dependent optabs initialization.  */
 static void
@@ -4680,6 +4800,8 @@ h8300_init_libfuncs (void)
   set_optab_libfunc (umod_optab, HImode, "__umodhi3");
 }
 
+/* Worker function for TARGET_RETURN_IN_MEMORY.  */
+
 static bool
 h8300_return_in_memory (tree type, tree fntype ATTRIBUTE_UNUSED)
 {

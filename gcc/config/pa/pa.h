@@ -289,7 +289,7 @@ extern int target_flags;
      NULL }}
 
 #ifndef TARGET_DEFAULT
-#define TARGET_DEFAULT (MASK_GAS | MASK_JUMP_IN_DELAY)
+#define TARGET_DEFAULT (MASK_GAS | MASK_JUMP_IN_DELAY | MASK_BIG_SWITCH)
 #endif
 
 #ifndef TARGET_CPU_DEFAULT
@@ -541,10 +541,11 @@ do {								\
 /* Register in which static-chain is passed to a function.  */
 #define STATIC_CHAIN_REGNUM 29
 
-/* Register which holds offset table for position-independent
+/* Register used to address the offset table for position-independent
    data references.  */
+#define PIC_OFFSET_TABLE_REGNUM \
+  (flag_pic ? (TARGET_64BIT ? 27 : 19) : INVALID_REGNUM)
 
-#define PIC_OFFSET_TABLE_REGNUM (TARGET_64BIT ? 27 : 19)
 #define PIC_OFFSET_TABLE_REG_CALL_CLOBBERED 1
 
 /* Function to return the rtx used to save the pic offset table register
@@ -1095,7 +1096,6 @@ extern int may_call_alloca;
       emit_insn (gen_dcacheflush (start_addr, end_addr, line_length));	\
       emit_insn (gen_icacheflush (start_addr, end_addr, line_length,	\
 				  gen_reg_rtx (Pmode),			\
-				  gen_reg_rtx (Pmode),			\
 				  gen_reg_rtx (Pmode)));		\
     }									\
   else									\
@@ -1127,7 +1127,6 @@ extern int may_call_alloca;
       emit_move_insn (line_length, GEN_INT (MIN_CACHELINE_SIZE));	\
       emit_insn (gen_dcacheflush (start_addr, end_addr, line_length));	\
       emit_insn (gen_icacheflush (start_addr, end_addr, line_length,	\
-				  gen_reg_rtx (Pmode),			\
 				  gen_reg_rtx (Pmode),			\
 				  gen_reg_rtx (Pmode)));		\
     }									\
@@ -1665,8 +1664,7 @@ do { 									\
        && TREE_READONLY (DECL) && ! TREE_SIDE_EFFECTS (DECL)		\
        && (! DECL_INITIAL (DECL) || ! reloc_needed (DECL_INITIAL (DECL))) \
        && !flag_pic)							\
-   || (TREE_CODE_CLASS (TREE_CODE (DECL)) == 'c'			\
-       && !(TREE_CODE (DECL) == STRING_CST && flag_writable_strings)))
+   || (TREE_CODE_CLASS (TREE_CODE (DECL)) == 'c'))
 
 #define FUNCTION_NAME_P(NAME)  (*(NAME) == '@')
 
@@ -1989,7 +1987,7 @@ do { 									\
 #define PREDICATE_CODES							\
   {"reg_or_0_operand", {SUBREG, REG, CONST_INT, CONST_DOUBLE}},		\
   {"call_operand_address", {LABEL_REF, SYMBOL_REF, CONST_INT,		\
-			    CONST_DOUBLE, CONST, HIGH, CONSTANT_P_RTX}}, \
+			    CONST_DOUBLE, CONST, HIGH}},		 \
   {"indexed_memory_operand", {SUBREG, MEM}},				\
   {"symbolic_operand", {SYMBOL_REF, LABEL_REF, CONST}},			\
   {"symbolic_memory_operand", {SUBREG, MEM}},				\
@@ -1997,7 +1995,7 @@ do { 									\
   {"reg_or_0_or_nonsymb_mem_operand", {SUBREG, REG, MEM, CONST_INT,	\
 				       CONST_DOUBLE}},			\
   {"move_dest_operand", {SUBREG, REG, MEM}},				\
-  {"move_src_operand", {SUBREG, REG, CONSTANT_P_RTX, CONST_INT, MEM}},	\
+  {"move_src_operand", {SUBREG, REG, CONST_INT, MEM}},			\
   {"reg_or_cint_move_operand", {SUBREG, REG, CONST_INT}},		\
   {"pic_label_operand", {LABEL_REF, CONST}},				\
   {"fp_reg_operand", {REG}},						\

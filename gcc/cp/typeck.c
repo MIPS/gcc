@@ -1371,14 +1371,9 @@ decay_conversion (tree exp)
 
       if (TREE_CODE (exp) == VAR_DECL)
 	{
-	  /* ??? This is not really quite correct
-	     in that the type of the operand of ADDR_EXPR
-	     is not the target type of the type of the ADDR_EXPR itself.
-	     Question is, can this lossage be avoided?  */
-	  adr = build1 (ADDR_EXPR, ptrtype, exp);
 	  if (!cxx_mark_addressable (exp))
 	    return error_mark_node;
-	  TREE_SIDE_EFFECTS (adr) = 0;   /* Default would be, same as EXP.  */
+	  adr = build_nop (ptrtype, build_address (exp));
 	  return adr;
 	}
       /* This way is better for a COMPONENT_REF since it can
@@ -5081,52 +5076,7 @@ build_modify_expr (tree lhs, enum tree_code modifycode, tree rhs)
 			  20011220);
     }
 
-  /* Handle a cast used as an "lvalue".
-     We have already performed any binary operator using the value as cast.
-     Now convert the result to the cast type of the lhs,
-     and then true type of the lhs and store it there;
-     then convert result back to the cast type to be the value
-     of the assignment.  */
-
-  switch (TREE_CODE (lhs))
-    {
-    case NOP_EXPR:
-    case CONVERT_EXPR:
-    case FLOAT_EXPR:
-    case FIX_TRUNC_EXPR:
-    case FIX_FLOOR_EXPR:
-    case FIX_ROUND_EXPR:
-    case FIX_CEIL_EXPR:
-      {
-	tree inner_lhs = TREE_OPERAND (lhs, 0);
-	tree result;
-
-	if (TREE_CODE (TREE_TYPE (newrhs)) == ARRAY_TYPE
-	    || TREE_CODE (TREE_TYPE (newrhs)) == FUNCTION_TYPE
-	    || TREE_CODE (TREE_TYPE (newrhs)) == METHOD_TYPE
-	    || TREE_CODE (TREE_TYPE (newrhs)) == OFFSET_TYPE)
-	  newrhs = decay_conversion (newrhs);
-	
-	/* ISO C++ 5.4/1: The result is an lvalue if T is a reference
-	   type, otherwise the result is an rvalue.  */
-	if (! lvalue_p (lhs))
-	  pedwarn ("ISO C++ forbids cast to non-reference type used as lvalue");
-
-	result = build_modify_expr (inner_lhs, NOP_EXPR,
-				    cp_convert (TREE_TYPE (inner_lhs),
-						cp_convert (lhstype, newrhs)));
-	if (result == error_mark_node)
-	  return result;
-	return cp_convert (TREE_TYPE (lhs), result);
-      }
-
-    default:
-      break;
-    }
-
-  /* Now we have handled acceptable kinds of LHS that are not truly lvalues.
-     Reject anything strange now.  */
-
+  /* The left-hand side must be an lvalue.  */
   if (!lvalue_or_else (lhs, "assignment"))
     return error_mark_node;
 
@@ -5868,7 +5818,7 @@ maybe_warn_about_returning_address_of_local (tree retval)
 	}
     }
 
-  if (TREE_CODE (whats_returned) == VAR_DECL
+  if (DECL_P (whats_returned)
       && DECL_NAME (whats_returned)
       && DECL_FUNCTION_SCOPE_P (whats_returned)
       && !(TREE_STATIC (whats_returned)

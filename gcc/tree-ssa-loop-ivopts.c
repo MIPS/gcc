@@ -1777,36 +1777,36 @@ find_induction_variables (void)
   mark_bivs ();
   determine_number_of_iterations ();
 
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_DETAILS))
     {
       if (LOOP_DATA (current_loop)->niter.niter)
 	{
-	  fprintf (tree_dump_file, "  number of iterations ");
-	  print_generic_expr (tree_dump_file,
+	  fprintf (dump_file, "  number of iterations ");
+	  print_generic_expr (dump_file,
 			      LOOP_DATA (current_loop)->niter.niter,
 			      TDF_SLIM);
-	  fprintf (tree_dump_file, "\n");
+	  fprintf (dump_file, "\n");
 
-    	  fprintf (tree_dump_file, "  may be zero if ");
-    	  print_generic_expr (tree_dump_file,
+    	  fprintf (dump_file, "  may be zero if ");
+    	  print_generic_expr (dump_file,
 			      LOOP_DATA (current_loop)->niter.may_be_zero,
     			      TDF_SLIM);
-    	  fprintf (tree_dump_file, "\n");
+    	  fprintf (dump_file, "\n");
 
-    	  fprintf (tree_dump_file, "  bogus unless ");
-    	  print_generic_expr (tree_dump_file,
+    	  fprintf (dump_file, "  bogus unless ");
+    	  print_generic_expr (dump_file,
 			      LOOP_DATA (current_loop)->niter.assumptions,
     			      TDF_SLIM);
-    	  fprintf (tree_dump_file, "\n");
-    	  fprintf (tree_dump_file, "\n");
+    	  fprintf (dump_file, "\n");
+    	  fprintf (dump_file, "\n");
     	};
  
-      fprintf (tree_dump_file, "Induction variables:\n\n");
+      fprintf (dump_file, "Induction variables:\n\n");
 
       EXECUTE_IF_SET_IN_BITMAP (relevant, 0, i,
 	{
 	  if (ver_info (i)->iv)
-	    dump_iv (tree_dump_file, ver_info (i)->iv);
+	    dump_iv (dump_file, ver_info (i)->iv);
 	});
     }
 
@@ -1827,8 +1827,8 @@ record_use (tree *use_p, struct iv *iv, tree stmt, enum use_type use_type)
   use->op_p = use_p;
   use->related_cands = BITMAP_XMALLOC ();
 
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-    dump_use (tree_dump_file, use);
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    dump_use (dump_file, use);
 
   VARRAY_PUSH_GENERIC_PTR_NOGC (iv_uses, use);
 
@@ -2245,8 +2245,8 @@ find_interesting_uses (void)
   unsigned i;
   struct version_info *info;
 
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-    fprintf (tree_dump_file, "Uses:\n\n");
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    fprintf (dump_file, "Uses:\n\n");
 
   for (i = 0; i < current_loop->num_nodes; i++)
     {
@@ -2257,23 +2257,23 @@ find_interesting_uses (void)
       for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
 	find_interesting_uses_stmt (bsi_stmt (bsi));
     }
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_DETAILS))
     {
-      fprintf (tree_dump_file, "\n");
+      fprintf (dump_file, "\n");
 
       EXECUTE_IF_SET_IN_BITMAP (relevant, 0, i,
 	{
 	  info = ver_info (i);
 	  if (info->inv_id)
 	    {
-	      fprintf (tree_dump_file, "  ");
-	      print_generic_expr (tree_dump_file, info->name, TDF_SLIM);
-	      fprintf (tree_dump_file, " is invariant (%d)%s\n",
+	      fprintf (dump_file, "  ");
+	      print_generic_expr (dump_file, info->name, TDF_SLIM);
+	      fprintf (dump_file, " is invariant (%d)%s\n",
 		       info->inv_id, info->has_nonlin_use ? "" : ", eliminable");
 	    }
 	});
 
-      fprintf (tree_dump_file, "\n");
+      fprintf (dump_file, "\n");
     }
 
   free (body);
@@ -2347,22 +2347,22 @@ add_candidate_1 (tree base, tree step, bool important, enum iv_position pos,
       cand->incremented_at = incremented_at;
       VARRAY_PUSH_GENERIC_PTR_NOGC (iv_candidates, cand);
 
-      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-	dump_cand (tree_dump_file, cand);
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	dump_cand (dump_file, cand);
     }
 
   if (important && !cand->important)
     {
       cand->important = true;
-      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-	fprintf (tree_dump_file, "Candidate %d is important\n", cand->id);
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	fprintf (dump_file, "Candidate %d is important\n", cand->id);
     }
 
   if (use)
     {
       bitmap_set_bit (use->related_cands, i);
-      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-	fprintf (tree_dump_file, "Candidate %d is related to use %d\n",
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	fprintf (dump_file, "Candidate %d is related to use %d\n",
 		 cand->id, use->id);
     }
 
@@ -2941,8 +2941,8 @@ add_cost (enum machine_mode mode)
 
   costs[mode] = cost;
       
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-    fprintf (tree_dump_file, "Addition in %s costs %d\n",
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    fprintf (dump_file, "Addition in %s costs %d\n",
 	     GET_MODE_NAME (mode), cost);
   return cost;
 }
@@ -3008,8 +3008,8 @@ multiply_by_cost (HOST_WIDE_INT cst, enum machine_mode mode)
   
   cost = seq_cost (seq);
 
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-    fprintf (tree_dump_file, "Multiplication by %d in %s costs %d\n",
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    fprintf (dump_file, "Multiplication by %d in %s costs %d\n",
 	     (int) cst, GET_MODE_NAME (mode), cost);
 
   (*cached)->cost = cost;
@@ -3064,11 +3064,11 @@ get_address_cost (bool symbol_present, bool var_present,
 	}
       min_offset = -(i >> 1);
 
-      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+      if (dump_file && (dump_flags & TDF_DETAILS))
 	{
-	  fprintf (tree_dump_file, "get_address_cost:\n");
-	  fprintf (tree_dump_file, "  min offset %d\n", (int) min_offset);
-	  fprintf (tree_dump_file, "  max offset %d\n", (int) max_offset);
+	  fprintf (dump_file, "get_address_cost:\n");
+	  fprintf (dump_file, "  min offset %d\n", (int) min_offset);
+	  fprintf (dump_file, "  max offset %d\n", (int) max_offset);
 	}
 
       valid_mult = sbitmap_alloc (2 * MAX_RATIO + 1);
@@ -3085,14 +3085,14 @@ get_address_cost (bool symbol_present, bool var_present,
 	    }
 	}
 
-      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+      if (dump_file && (dump_flags & TDF_DETAILS))
 	{
-	  fprintf (tree_dump_file, "  allowed multipliers:");
+	  fprintf (dump_file, "  allowed multipliers:");
 	  for (i = -MAX_RATIO; i <= MAX_RATIO; i++)
 	    if (TEST_BIT (valid_mult, i + MAX_RATIO))
-	      fprintf (tree_dump_file, " %d", (int) i);
-	  fprintf (tree_dump_file, "\n");
-	  fprintf (tree_dump_file, "\n");
+	      fprintf (dump_file, " %d", (int) i);
+	  fprintf (dump_file, "\n");
+	  fprintf (dump_file, "\n");
 	}
     }
 
@@ -3842,34 +3842,34 @@ determine_use_iv_costs (void)
 	}
     }
 
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_DETAILS))
     {
-      fprintf (tree_dump_file, "Use-candidate costs:\n");
+      fprintf (dump_file, "Use-candidate costs:\n");
 
       for (i = 0; i < VARRAY_ACTIVE_SIZE (iv_uses); i++)
 	{
 	  use = VARRAY_GENERIC_PTR_NOGC (iv_uses, i);
 
-	  fprintf (tree_dump_file, "Use %d:\n", i);
-	  fprintf (tree_dump_file, "  cand\tcost\tdepends on\n");
+	  fprintf (dump_file, "Use %d:\n", i);
+	  fprintf (dump_file, "  cand\tcost\tdepends on\n");
 	  for (j = 0; j < use->n_map_members; j++)
 	    {
 	      if (!use->cost_map[j].cand
 		  || use->cost_map[j].cost == INFTY)
 		continue;
 
-	      fprintf (tree_dump_file, "  %d\t%d\t",
+	      fprintf (dump_file, "  %d\t%d\t",
 		       use->cost_map[j].cand->id,
 		       use->cost_map[j].cost);
 	      if (use->cost_map[j].depends_on)
-		bitmap_print (tree_dump_file,
+		bitmap_print (dump_file,
 			      use->cost_map[j].depends_on, "","");
-	      fprintf (tree_dump_file, "\n");
+	      fprintf (dump_file, "\n");
 	    }
 
-	  fprintf (tree_dump_file, "\n");
+	  fprintf (dump_file, "\n");
 	}
-      fprintf (tree_dump_file, "\n");
+      fprintf (dump_file, "\n");
     }
 }
 
@@ -3909,10 +3909,10 @@ determine_iv_costs (void)
 {
   unsigned i;
 
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_DETAILS))
     {
-      fprintf (tree_dump_file, "Candidate costs:\n");
-      fprintf (tree_dump_file, "  cand\tcost\n");
+      fprintf (dump_file, "Candidate costs:\n");
+      fprintf (dump_file, "  cand\tcost\n");
     }
 
   for (i = 0; i < VARRAY_ACTIVE_SIZE (iv_candidates); i++)
@@ -3921,12 +3921,12 @@ determine_iv_costs (void)
 
       determine_iv_cost (cand);
 
-      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-	fprintf (tree_dump_file, "  %d\t%d\n", i, cand->cost);
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	fprintf (dump_file, "  %d\t%d\n", i, cand->cost);
     }
   
-if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-      fprintf (tree_dump_file, "\n");
+if (dump_file && (dump_flags & TDF_DETAILS))
+      fprintf (dump_file, "\n");
 }
 
 /* Calculates cost for having SIZE new loop global variables.  REGS_USED is the
@@ -4025,13 +4025,13 @@ determine_set_costs (void)
      -- if U + I > A, the cost is I * PRES_COST and
         number of uses * SPILL_COST * (U + I - A) / (U + I) is added.  */
 
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_DETAILS))
     {
-      fprintf (tree_dump_file, "Global costs:\n");
-      fprintf (tree_dump_file, "  avail_regs %d\n", avail_regs);
-      fprintf (tree_dump_file, "  small_cost %d\n", small_cost);
-      fprintf (tree_dump_file, "  pres_cost %d\n", pres_cost);
-      fprintf (tree_dump_file, "  spill_cost %d\n", spill_cost);
+      fprintf (dump_file, "Global costs:\n");
+      fprintf (dump_file, "  avail_regs %d\n", avail_regs);
+      fprintf (dump_file, "  small_cost %d\n", small_cost);
+      fprintf (dump_file, "  pres_cost %d\n", pres_cost);
+      fprintf (dump_file, "  spill_cost %d\n", spill_cost);
     }
 
   n = 0;
@@ -4057,17 +4057,17 @@ determine_set_costs (void)
     });
 
   LOOP_DATA (current_loop)->regs_used = n;
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-    fprintf (tree_dump_file, "  regs_used %d\n", n);
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    fprintf (dump_file, "  regs_used %d\n", n);
 
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_DETAILS))
     {
-      fprintf (tree_dump_file, "  cost for size:\n");
-      fprintf (tree_dump_file, "  ivs\tcost\n");
+      fprintf (dump_file, "  cost for size:\n");
+      fprintf (dump_file, "  ivs\tcost\n");
       for (j = 0; j <= 2 * avail_regs; j++)
-	fprintf (tree_dump_file, "  %d\t%d\n", j,
+	fprintf (dump_file, "  %d\t%d\n", j,
 		 ivopts_global_cost_for_size (j));
-      fprintf (tree_dump_file, "\n");
+      fprintf (dump_file, "\n");
     }
 }
 
@@ -4282,36 +4282,36 @@ find_optimal_iv_set (void)
   cost = get_initial_solution (set, inv);
   if (cost == INFTY)
     {
-      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-	fprintf (tree_dump_file, "Unable to substitute for ivs, failed.\n");
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	fprintf (dump_file, "Unable to substitute for ivs, failed.\n");
       BITMAP_XFREE (inv);
       BITMAP_XFREE (set);
       return NULL;
     }
 
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_DETAILS))
     {
-      fprintf (tree_dump_file, "Initial set of candidates (cost %d): ", cost);
-      bitmap_print (tree_dump_file, set, "", "");
-      fprintf (tree_dump_file, " invariants ");
-      bitmap_print (tree_dump_file, inv, "", "");
-      fprintf (tree_dump_file, "\n");
+      fprintf (dump_file, "Initial set of candidates (cost %d): ", cost);
+      bitmap_print (dump_file, set, "", "");
+      fprintf (dump_file, " invariants ");
+      bitmap_print (dump_file, inv, "", "");
+      fprintf (dump_file, "\n");
     }
 
   while (try_improve_iv_set (set, inv, &cost))
     {
-      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+      if (dump_file && (dump_flags & TDF_DETAILS))
 	{
-	  fprintf (tree_dump_file, "Improved to (cost %d): ", cost);
-	  bitmap_print (tree_dump_file, set, "", "");
-	  fprintf (tree_dump_file, " invariants ");
-	  bitmap_print (tree_dump_file, inv, "", "");
-	  fprintf (tree_dump_file, "\n");
+	  fprintf (dump_file, "Improved to (cost %d): ", cost);
+	  bitmap_print (dump_file, set, "", "");
+	  fprintf (dump_file, " invariants ");
+	  bitmap_print (dump_file, inv, "", "");
+	  fprintf (dump_file, "\n");
 	}
     }
 
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-    fprintf (tree_dump_file, "Final cost %d\n\n", cost);
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    fprintf (dump_file, "Final cost %d\n\n", cost);
 
   for (i = 0; i < VARRAY_ACTIVE_SIZE (iv_uses); i++)
     {
@@ -4542,13 +4542,21 @@ rewrite_use_address (struct iv_use *use, struct iv_cand *cand)
       add_referenced_tmp_var (tmp_var);
       SSA_NAME_VAR (op) = tmp_var;
 
-      var = get_base_decl (*use->op_p);
+      var = get_base_address (*use->op_p);
+      if (TREE_CODE (var) == INDIRECT_REF)
+	var = TREE_OPERAND (var, 0);
+      if (TREE_CODE (var) == SSA_NAME)
+	{
+	  name = var;
+	  var = SSA_NAME_VAR (var);
+	}
+      else
+	name = NULL_TREE;
       if (var_ann (var)->type_mem_tag)
 	var = var_ann (var)->type_mem_tag;
       var_ann (tmp_var)->type_mem_tag = var;
 
-      name = get_base_var (*use->op_p);
-      if (name && TREE_CODE (name) == SSA_NAME)
+      if (name)
 	{
 	  ssa_name_ann_t ann = ssa_name_ann (name), new_ann;
 
@@ -4793,20 +4801,20 @@ tree_ssa_iv_optimize_loop (struct loop *loop)
 
   current_loop = loop;
 
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_DETAILS))
     {
-      fprintf (tree_dump_file, "Processing loop %d\n", loop->num);
-      fprintf (tree_dump_file, "  %d exits\n", LOOP_DATA (loop)->n_exits);
+      fprintf (dump_file, "Processing loop %d\n", loop->num);
+      fprintf (dump_file, "  %d exits\n", LOOP_DATA (loop)->n_exits);
       if (LOOP_DATA (loop)->single_exit)
 	{
 	  edge ex = LOOP_DATA (loop)->single_exit;
 
-	  fprintf (tree_dump_file, "  single exit %d -> %d, exit condition ",
+	  fprintf (dump_file, "  single exit %d -> %d, exit condition ",
 		   ex->src->index, ex->dest->index);
-	  print_generic_expr (tree_dump_file, last_stmt (ex->src), TDF_SLIM);
-	  fprintf (tree_dump_file, "\n");
+	  print_generic_expr (dump_file, last_stmt (ex->src), TDF_SLIM);
+	  fprintf (dump_file, "\n");
 	}
-      fprintf (tree_dump_file, "\n");
+      fprintf (dump_file, "\n");
     }
 
   /* For each ssa name determines whether it behaves as an induction variable

@@ -1390,8 +1390,8 @@ chrec_apply (unsigned var,
     abort ();
 #endif
 
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-    fprintf (tree_dump_file, "(chrec_apply \n");
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    fprintf (dump_file, "(chrec_apply \n");
   
   if (evolution_function_is_affine_p (chrec))
     {
@@ -1417,16 +1417,16 @@ chrec_apply (unsigned var,
   else
     res = chrec_top;
   
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_DETAILS))
     {
-      fprintf (tree_dump_file, "  (var = %d\n", var);
-      fprintf (tree_dump_file, ")\n  (chrec = ");
-      print_generic_expr (tree_dump_file, chrec, 0);
-      fprintf (tree_dump_file, ")\n  (x = ");
-      print_generic_expr (tree_dump_file, x, 0);
-      fprintf (tree_dump_file, ")\n  (res = ");
-      print_generic_expr (tree_dump_file, res, 0);
-      fprintf (tree_dump_file, "))\n");
+      fprintf (dump_file, "  (var = %d\n", var);
+      fprintf (dump_file, ")\n  (chrec = ");
+      print_generic_expr (dump_file, chrec, 0);
+      fprintf (dump_file, ")\n  (x = ");
+      print_generic_expr (dump_file, x, 0);
+      fprintf (dump_file, ")\n  (res = ");
+      print_generic_expr (dump_file, res, 0);
+      fprintf (dump_file, "))\n");
     }
   
   return res;
@@ -2542,8 +2542,8 @@ analyze_ziv_subscript (tree chrec_a,
 {
   tree difference;
   
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-    fprintf (tree_dump_file, "(analyze_ziv_subscript \n");
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    fprintf (dump_file, "(analyze_ziv_subscript \n");
   
   difference = chrec_fold_minus (chrec_a, chrec_b);
   
@@ -2591,8 +2591,8 @@ analyze_ziv_subscript (tree chrec_a,
       break;
     }
   
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-    fprintf (tree_dump_file, ")\n");
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    fprintf (dump_file, ")\n");
 }
 
 /* Analyze single index variable subscript.  Note that the dependence
@@ -2606,8 +2606,8 @@ analyze_siv_subscript (tree chrec_a,
 		       tree *overlaps_a, 
 		       tree *overlaps_b)
 {
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-    fprintf (tree_dump_file, "(analyze_siv_subscript \n");
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    fprintf (dump_file, "(analyze_siv_subscript \n");
   
   if (evolution_function_is_constant_p (chrec_a)
       && evolution_function_is_affine_p (chrec_b))
@@ -2630,8 +2630,8 @@ analyze_siv_subscript (tree chrec_a,
       *overlaps_b = chrec_top;
     }
   
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-    fprintf (tree_dump_file, ")\n");
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    fprintf (dump_file, ")\n");
 }
 
 /* This is a part of the SIV subscript analyzer (Single Index
@@ -2778,8 +2778,8 @@ analyze_siv_subscript_affine_affine (tree chrec_a,
 {
   tree left_a, left_b, right_a, right_b;
   
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-    fprintf (tree_dump_file, "(analyze_siv_subscript_affine_affine \n");
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    fprintf (dump_file, "(analyze_siv_subscript_affine_affine \n");
   
 #if defined ENABLE_CHECKING
   if (chrec_a == NULL_TREE
@@ -2867,17 +2867,17 @@ analyze_siv_subscript_affine_affine (tree chrec_a,
 	 &u11, &u12, 
 	 &u21, &u22);
       
-      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+      if (dump_file && (dump_flags & TDF_DETAILS))
 	{
-	  fprintf (tree_dump_file, "  (alpha = ");
-	  print_generic_expr (tree_dump_file, alpha, 0);
-	  fprintf (tree_dump_file, ")\n  (beta = ");
-	  print_generic_expr (tree_dump_file, beta, 0);
-	  fprintf (tree_dump_file, ")\n  (gamma = ");
-	  print_generic_expr (tree_dump_file, gamma, 0);
-	  fprintf (tree_dump_file, ")\n  (gcd_alpha_beta = ");
-	  print_generic_expr (tree_dump_file, gcd_alpha_beta, 0);
-	  fprintf (tree_dump_file, ")\n");
+	  fprintf (dump_file, "  (alpha = ");
+	  print_generic_expr (dump_file, alpha, 0);
+	  fprintf (dump_file, ")\n  (beta = ");
+	  print_generic_expr (dump_file, beta, 0);
+	  fprintf (dump_file, ")\n  (gamma = ");
+	  print_generic_expr (dump_file, gamma, 0);
+	  fprintf (dump_file, ")\n  (gcd_alpha_beta = ");
+	  print_generic_expr (dump_file, gcd_alpha_beta, 0);
+	  fprintf (dump_file, ")\n");
 	}
       
       /* The classic "gcd-test".  */
@@ -2988,17 +2988,17 @@ analyze_siv_subscript_affine_affine (tree chrec_a,
       *overlaps_b = chrec_top;
     }
   
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_DETAILS))
     {
-      fprintf (tree_dump_file, "  (overlaps_a = ");
-      print_generic_expr (tree_dump_file, *overlaps_a, 0);
-      fprintf (tree_dump_file, ")\n  (overlaps_b = ");
-      print_generic_expr (tree_dump_file, *overlaps_b, 0);
-      fprintf (tree_dump_file, ")\n");
+      fprintf (dump_file, "  (overlaps_a = ");
+      print_generic_expr (dump_file, *overlaps_a, 0);
+      fprintf (dump_file, ")\n  (overlaps_b = ");
+      print_generic_expr (dump_file, *overlaps_b, 0);
+      fprintf (dump_file, ")\n");
     }
   
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-    fprintf (tree_dump_file, ")\n");
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    fprintf (dump_file, ")\n");
 }
 
 /* Helper for determining whether the evolution steps of an affine
@@ -3038,8 +3038,8 @@ analyze_miv_subscript (tree chrec_a,
   */
   tree difference;
   
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-    fprintf (tree_dump_file, "(analyze_miv_subscript \n");
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    fprintf (dump_file, "(analyze_miv_subscript \n");
   
   difference = chrec_fold_minus (chrec_a, chrec_b);
   
@@ -3110,8 +3110,8 @@ analyze_miv_subscript (tree chrec_a,
       *overlaps_b = chrec_top;
     }
   
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-    fprintf (tree_dump_file, ")\n");
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    fprintf (dump_file, ")\n");
 }
 
 /* Determines the iterations for which CHREC_A is equal to CHREC_B.
@@ -3129,14 +3129,14 @@ analyze_overlapping_iterations (tree chrec_a,
 				tree *overlap_iterations_a, 
 				tree *overlap_iterations_b)
 {
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_DETAILS))
     {
-      fprintf (tree_dump_file, "(analyze_overlapping_iterations \n");
-      fprintf (tree_dump_file, "  (chrec_a = ");
-      print_generic_expr (tree_dump_file, chrec_a, 0);
-      fprintf (tree_dump_file, ")\n  chrec_b = ");
-      print_generic_expr (tree_dump_file, chrec_b, 0);
-      fprintf (tree_dump_file, ")\n");
+      fprintf (dump_file, "(analyze_overlapping_iterations \n");
+      fprintf (dump_file, "  (chrec_a = ");
+      print_generic_expr (dump_file, chrec_a, 0);
+      fprintf (dump_file, ")\n  chrec_b = ");
+      print_generic_expr (dump_file, chrec_b, 0);
+      fprintf (dump_file, ")\n");
     }
   
   if (chrec_a == NULL_TREE
@@ -3164,13 +3164,13 @@ analyze_overlapping_iterations (tree chrec_a,
     analyze_miv_subscript (chrec_a, chrec_b, 
 			   overlap_iterations_a, overlap_iterations_b);
   
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_DETAILS))
     {
-      fprintf (tree_dump_file, "  (overlap_iterations_a = ");
-      print_generic_expr (tree_dump_file, *overlap_iterations_a, 0);
-      fprintf (tree_dump_file, ")\n  (overlap_iterations_b = ");
-      print_generic_expr (tree_dump_file, *overlap_iterations_b, 0);
-      fprintf (tree_dump_file, ")\n");
+      fprintf (dump_file, "  (overlap_iterations_a = ");
+      print_generic_expr (dump_file, *overlap_iterations_a, 0);
+      fprintf (dump_file, ")\n  (overlap_iterations_b = ");
+      print_generic_expr (dump_file, *overlap_iterations_b, 0);
+      fprintf (dump_file, ")\n");
     }
 }
 

@@ -85,10 +85,10 @@ linear_transform_loops (struct loops *loops,
       before = gcc_loopnest_to_lambda_loopnest (loop_nest, &oldivs);
       if (!before)
 	continue;
-      if (tree_dump_file)
+      if (dump_file)
 	{
-	  fprintf (tree_dump_file, "Before:\n");
-	  print_lambda_loopnest (tree_dump_file, before, 'i');
+	  fprintf (dump_file, "Before:\n");
+	  print_lambda_loopnest (dump_file, before, 'i');
 	}
       trans = lambda_trans_matrix_new (LN_DEPTH (before), LN_DEPTH (before));
 #if 1
@@ -101,10 +101,10 @@ linear_transform_loops (struct loops *loops,
       LTM_MATRIX (trans)[1][1] = 2;
 #endif
       after = lambda_loopnest_transform (before, trans);
-      if (tree_dump_file)
+      if (dump_file)
 	{
-	  fprintf (tree_dump_file, "After:\n");
-	  print_lambda_loopnest (tree_dump_file, after, 'u');
+	  fprintf (dump_file, "After:\n");
+	  print_lambda_loopnest (dump_file, after, 'u');
 	}
       lambda_loopnest_to_gcc_loopnest (loop_nest, oldivs, after, trans);
     }

@@ -166,8 +166,7 @@ in the following sections.
 -trigraphs  -no-integrated-cpp  -traditional  -traditional-cpp @gol
 -fallow-single-precision  -fcond-mismatch @gol
 -fsigned-bitfields  -fsigned-char @gol
--funsigned-bitfields  -funsigned-char @gol
--fwritable-strings}
+-funsigned-bitfields  -funsigned-char}
 
 @item C++ Language Options
 @xref{C++ Dialect Options,,Options Controlling C++ Dialect}.
@@ -232,7 +231,8 @@ in the following sections.
 -Wsystem-headers  -Wtrigraphs  -Wundef  -Wuninitialized @gol
 -Wunknown-pragmas  -Wunreachable-code @gol
 -Wunused  -Wunused-function  -Wunused-label  -Wunused-parameter @gol
--Wunused-value  -Wunused-variable  -Wwrite-strings}
+-Wunused-value  -Wunused-variable  -Wwrite-strings @gol
+-Wvariadic-macros}
 
 @item C-only Warning Options
 @gccoptlist{-Wbad-function-cast  -Wmissing-declarations @gol
@@ -245,7 +245,7 @@ in the following sections.
 @gccoptlist{-d@var{letters}  -dumpspecs  -dumpmachine  -dumpversion @gol
 -fdump-unnumbered  -fdump-translation-unit@r{[}-@var{n}@r{]} @gol
 -fdump-class-hierarchy@r{[}-@var{n}@r{]} @gol
--fdump-tree-all-ssa @gol
+-fdump-tree-all @gol
 -fdump-tree-original@r{[}-@var{n}@r{]}  @gol
 -fdump-tree-optimized@r{[}-@var{n}@r{]} @gol
 -fdump-tree-inlined@r{[}-@var{n}@r{]} @gol
@@ -261,6 +261,8 @@ in the following sections.
 -fdump-tree-dse@r{[}-@var{n}@r{]} @gol
 -fdump-tree-phiopt@r{[}-@var{n}@r{]} @gol
 -fdump-tree-forwprop@r{[}-@var{n}@r{]} @gol
+-fdump-tree-copyrename@r{[}-@var{n}@r{]} @gol
+-fdump-tree-nrv @gol
 -fdump-tree-loop@r{[}-@var{n}@r{]} -fdump-tree-sra@r{[}-@var{n}@r{]} @gol
 -fdump-tree-vect@r{[}-@var{n}@r{]}@gol
 -feliminate-dwarf2-dups -feliminate-unused-debug-types @gol
@@ -313,7 +315,7 @@ in the following sections.
 -funroll-all-loops  -funroll-loops  -fpeel-loops @gol
 -funswitch-loops  -fold-unroll-loops  -fold-unroll-all-loops @gol
 -ftree-pre  -ftree-ccp  -ftree-dce  -ftree-copyprop  @gol
--ftree-dominator-opts -ftree-dse @gol
+-ftree-dominator-opts -ftree-dse -ftree-copyrename @gol
 -ftree-ch -ftree-loop-optimize -ftree-sra @gol
 -fscalar-evolutions -fall-data-deps @gol
 -ftree-vectorize @gol
@@ -499,8 +501,9 @@ in the following sections.
 -mcheck-zero-division  -mno-check-zero-division @gol
 -mmemcpy  -mno-memcpy  -mlong-calls  -mno-long-calls @gol
 -mmad  -mno-mad  -mfused-madd  -mno-fused-madd  -nocpp @gol
--mfix-sb1  -mno-fix-sb1  -mflush-func=@var{func} @gol
--mno-flush-func  -mbranch-likely  -mno-branch-likely}
+-mfix-r4000  -mno-fix-r4000  -mfix-sb1  -mno-fix-sb1 @gol
+-mflush-func=@var{func}  -mno-flush-func @gol
+-mbranch-likely  -mno-branch-likely}
 
 @emph{i386 and x86-64 Options}
 @gccoptlist{-mtune=@var{cpu-type}  -march=@var{cpu-type} @gol
@@ -509,7 +512,7 @@ in the following sections.
 -mno-fp-ret-in-387  -msoft-float  -msvr3-shlib @gol
 -mno-wide-multiply  -mrtd  -malign-double @gol
 -mpreferred-stack-boundary=@var{num} @gol
--mmmx  -msse  -msse2 -mpni -m3dnow @gol
+-mmmx  -msse  -msse2 -msse3 -m3dnow @gol
 -mthreads  -mno-align-stringops  -minline-all-stringops @gol
 -mpush-args  -maccumulate-outgoing-args  -m128bit-long-double @gol
 -m96bit-long-double  -mregparm=@var{num}  -momit-leaf-frame-pointer @gol
@@ -628,7 +631,8 @@ in the following sections.
 -metrax4  -metrax100  -mpdebug  -mcc-init  -mno-side-effects @gol
 -mstack-align  -mdata-align  -mconst-align @gol
 -m32-bit  -m16-bit  -m8-bit  -mno-prologue-epilogue  -mno-gotplt @gol
--melf  -maout  -melinux  -mlinux  -sim  -sim2}
+-melf  -maout  -melinux  -mlinux  -sim  -sim2 @gol
+-mmul-bug-workaround  -mno-mul-bug-workaround}
 
 @emph{PDP-11 Options}
 @gccoptlist{-mfpu  -msoft-float  -mac0  -mno-ac0  -m40  -m45  -m10 @gol
@@ -654,6 +658,7 @@ in the following sections.
 -malloc-cc  -mfixed-cc  -mdword  -mno-dword @gol
 -mdouble  -mno-double @gol
 -mmedia  -mno-media  -mmuladd  -mno-muladd @gol
+-mfdpic -minline-plt -mgprel-ro -multilib-library-pic -mlinked-fp @gol
 -mlibrary-pic  -macc-4 -macc-8 @gol
 -mpack  -mno-pack  -mno-eflags  -mcond-move  -mno-cond-move @gol
 -mscc  -mno-scc  -mcond-exec  -mno-cond-exec @gol
@@ -1235,17 +1240,6 @@ These options control whether a bit-field is signed or unsigned, when the
 declaration does not use either @code{signed} or @code{unsigned}.  By
 default, such a bit-field is signed, because this is consistent: the
 basic integer types such as @code{int} are signed types.
-
-@item -fwritable-strings
-@opindex fwritable-strings
-Store string constants in the writable data segment and don't uniquize
-them.  This is for compatibility with old programs which assume they can
-write into string constants.
-
-Writing into string constants is a very bad idea; ``constants'' should
-be constant.
-
-This option is deprecated.
 @end table
 
 @node C++ Dialect Options
@@ -1281,7 +1275,7 @@ the version that conforms most closely to the C++ ABI specification.
 Therefore, the ABI obtained using version 0 will change as ABI bugs
 are fixed.
 
-The default is version 1.
+The default is version 2.
 
 @item -fno-access-control
 @opindex fno-access-control
@@ -1317,8 +1311,7 @@ been added for putting variables into BSS without making them common.
 Give string constants type @code{char *} instead of type @code{const
 char *}.  By default, G++ uses type @code{const char *} as required by
 the standard.  Even if you use @option{-fno-const-strings}, you cannot
-actually modify the value of a string constant, unless you also use
-@option{-fwritable-strings}.
+actually modify the value of a string constant.
 
 This option might be removed in a future release of G++.  For maximum
 portability, you should structure your code so that it works with
@@ -2989,6 +2982,13 @@ the warning messages, use @option{-Wno-long-long}.  Flags
 @option{-Wlong-long} and @option{-Wno-long-long} are taken into account
 only when @option{-pedantic} flag is used.
 
+@item -Wvariadic-macros
+@opindex Wvariadic-macros
+@opindex Wno-variadic-macros
+Warn if variadic macros are used in pedantic ISO C90 mode, or the GNU
+alternate syntax when in pedantic ISO C99 mode.  This is default.
+To inhibit the warning messages, use @option{-Wno-variadic-macros}.
+
 @item -Wdisabled-optimization
 @opindex Wdisabled-optimization
 Warn if a requested optimization pass is disabled.  This warning does
@@ -3453,8 +3453,10 @@ Enable showing basic block boundaries (disabled in raw dumps).
 Enable showing virtual operands for every statement.
 @item lineno
 Enable showing line numbers for statements.
+@item uid
+Enable showing the unique ID (@code{DECL_UID}) for each variable.
 @item all
-Turn on all options.
+Turn on all options, except @option{raw}, @option{slim} and @option{lineno}.
 @end table
 
 The following tree dumps are possible:
@@ -3564,6 +3566,17 @@ name is made by appending @file{.phiopt} to the source file name.
 @opindex fdump-tree-forwprop
 Dump each function after forward propagating single use variables.  The file
 name is made by appending @file{.forwprop} to the source file name.
+
+@item copyrename
+@opindex fdump-tree-copyrename
+Dump each function after applying the copy rename optimization.  The file
+name is made by appending @file{.copyrename} to the source file name.
+
+@item nrv
+@opindex fdump-tree-nrv
+Dump each function after applying the named return value optimization on
+generic trees.  The file name is made by appending @file{.nrv} to the source
+file name.
 
 @item loop
 @opindex fdump-tree-loop
@@ -4374,6 +4387,12 @@ This flag is disabled by default.
 Perform scalar replacement of aggregates.  This pass replaces structure
 references with scalars to prevent committing structures to memory too
 early.  This flag is enabled by default at -O and higher.
+
+@item -ftree-copyrename
+Perform copy renaming on trees.  This pass attempts to rename compiler 
+temporaries to other variables at copy locations, usually resulting in 
+variable names which more closely resemble the original variables.  This flag 
+is enabled by default at -O and higher.
 
 @item -ftracer
 @opindex ftracer
@@ -7838,16 +7857,27 @@ names in the assembly language output using symbolic forms.
 @itemx -mno-longcall
 @opindex mlongcall
 @opindex mno-longcall
-Default to making all function calls via pointers, so that functions
-which reside further than 64 megabytes (67,108,864 bytes) from the
-current location can be called.  This setting can be overridden by the
-@code{shortcall} function attribute, or by @code{#pragma longcall(0)}.
+Default to making all function calls indirectly, using a register, so
+that functions which reside further than 32 megabytes (33,554,432
+bytes) from the current location can be called.  This setting can be
+overridden by the @code{shortcall} function attribute, or by
+@code{#pragma longcall(0)}.
 
 Some linkers are capable of detecting out-of-range calls and generating
 glue code on the fly.  On these systems, long calls are unnecessary and
 generate slower code.  As of this writing, the AIX linker can do this,
 as can the GNU linker for PowerPC/64.  It is planned to add this feature
 to the GNU linker for 32-bit PowerPC systems as well.
+
+On Darwin/PPC systems, @code{#pragma longcall} will generate ``jbsr
+callee, L42'', plus a ``branch island'' (glue code).  The two target
+addresses represent the callee and the ``branch island.'' The
+Darwin/PPC linker will prefer the first address and generate a ``bl
+callee'' if the PPC ``bl'' instruction will reach the callee directly;
+otherwise, the linker will generate ``bl L42'' to call the ``branch
+island.''  The ``branch island'' is appended to the body of the
+calling function; it computes the full 32-bit address of the callee
+and jumps to it.
 
 On Mach-O (Darwin) systems, this option directs the compiler emit to
 the glue for every direct call, and the Darwin linker decides whether
@@ -8283,24 +8313,14 @@ Use (do not use) assembler relocation operators when dealing with symbolic
 addresses.  The alternative, selected by @option{-mno-explicit-relocs},
 is to use assembler macros instead.
 
-@option{-mexplicit-relocs} is usually the default if GCC was
-configured to use an assembler that supports relocation operators.
-However, there are two exceptions:
-
-@itemize @bullet
-@item
-GCC is not yet able to generate explicit relocations for the combination
-of @option{-mabi=64} and @option{-mno-abicalls}.  This will be addressed
-in a future release.
-
-@item
-The combination of @option{-mabicalls} and @option{-fno-unit-at-a-time}
+@option{-mexplicit-relocs} is usually the default if GCC was configured
+to use an assembler that supports relocation operators.  However, the
+combination of @option{-mabicalls} and @option{-fno-unit-at-a-time}
 implies @option{-mno-explicit-relocs} unless explicitly overridden.
 This is because, when generating abicalls, the choice of relocation
 depends on whether a symbol is local or global.  In some rare cases,
 GCC will not be able to decide this until the whole compilation unit
 has been read.
-@end itemize
 
 @item -mrnames
 @itemx -mno-rnames
@@ -8363,6 +8383,20 @@ circumstances.
 Tell the MIPS assembler to not run its preprocessor over user
 assembler files (with a @samp{.s} suffix) when assembling them.
 
+@item -mfix-r4000
+@itemx -mno-fix-r4000
+@opindex mfix-r4000
+@opindex mno-fix-r4000
+Work around certain R4000 CPU errata:
+@itemize @minus
+@item
+A double-word or a variable shift may give an incorrect result if executed
+immediately after starting an integer division.
+@item
+A double-word or a variable shift may give an incorrect result if executed
+while an integer multiplication is in progress.
+@end itemize
+
 @item -mfix-sb1
 @itemx -mno-fix-sb1
 @opindex mfix-sb1
@@ -8423,11 +8457,20 @@ Intel PentiumMMX CPU based on Pentium core with MMX instruction set support.
 Intel PentiumPro CPU.
 @item pentium2
 Intel Pentium2 CPU based on PentiumPro core with MMX instruction set support.
-@item pentium3
+@item pentium3, pentium3m
 Intel Pentium3 CPU based on PentiumPro core with MMX and SSE instruction set
 support.
-@item pentium4
+@item pentium-m
+Low power version of Intel Pentium3 CPU with MMX, SSE and SSE2 instruction set
+support.  Used by Centrino notebooks.
+@item pentium4, pentium4m
 Intel Pentium4 CPU with MMX, SSE and SSE2 instruction set support.
+@item prescott
+Improved version of Intel Pentium4 CPU with MMX, SSE, SSE2 and SSE3 instruction
+set support.
+@item nocona
+Improved version of Intel Pentium4 CPU with 64-bit extensions, MMX, SSE,
+SSE2 and SSE3 instruction set support.
 @item k6
 AMD K6 CPU with MMX instruction set support.
 @item k6-2, k6-3
@@ -8697,8 +8740,8 @@ preferred alignment to @option{-mpreferred-stack-boundary=2}.
 @itemx -mno-sse
 @item -msse2
 @itemx -mno-sse2
-@item -mpni
-@itemx -mno-pni
+@item -msse3
+@itemx -mno-sse3
 @item -m3dnow
 @itemx -mno-3dnow
 @opindex mmmx
@@ -8708,7 +8751,7 @@ preferred alignment to @option{-mpreferred-stack-boundary=2}.
 @opindex m3dnow
 @opindex mno-3dnow
 These switches enable or disable the use of built-in functions that allow
-direct access to the MMX, SSE, SSE2, PNI and 3Dnow extensions of the
+direct access to the MMX, SSE, SSE2, SSE3 and 3Dnow extensions of the
 instruction set.
 
 @xref{X86 Built-in Functions}, for details of the functions enabled
@@ -8966,6 +9009,53 @@ ld.  The ld that is called is determined by the @option{--with-ld}
 configure option, gcc's program search path, and finally by the user's
 @env{PATH}.  The linker used by GCC can be printed using @samp{which
 `gcc -print-prog-name=ld`}.
+
+@item -mfdpic
+@opindex mfdpic
+
+Select the FDPIC ABI, that uses function descriptors to represent
+pointers to functions.  Without any PIC/PIE-related options, it
+implies @option{-fPIE}.  With @option{-fpic} or @option{-fpie}, it
+assumes GOT entries and small data are within a 12-bit range from the
+GOT base address; with @option{-fPIC} or @option{-fPIE}, GOT offsets
+are computed with 32 bits.
+
+@item -minline-plt
+@opindex minline-plt
+
+Enable inlining of PLT entries in function calls to functions that are
+not known to bind locally.  It has no effect without @option{-mfdpic}.
+It's enabled by default if optimizing for speed and compiling for
+shared libraries (i.e., @option{-fPIC} or @option{-fpic}), or when an
+optimization option such as @option{-O3} or above is present in the
+command line.
+
+@item -mgprel-ro
+@opindex mgprel-ro
+
+Enable the use of @code{GPREL} relocations in the FDPIC ABI for data
+that is known to be in read-only sections.  It's enabled by default,
+except for @option{-fpic} or @option{-fpie}: even though it may help
+make the global offset table smaller, it trades 1 instruction for 4.
+With @option{-fPIC} or @option{-fPIE}, it trades 3 instructions for 4,
+one of which may be shared by multiple symbols, and it avoids the need
+for a GOT entry for the referenced symbol, so it's more likely to be a
+win.  If it is not, @option{-mno-gprel-ro} can be used to disable it.
+
+@item -multilib-library-pic
+@opindex multilib-library-pic
+
+Link with the (library, not FD) pic libraries.  It's implied by
+@option{-mlibrary-pic}, as well as by @option{-fPIC} and
+@option{-fpic} without @option{-mfdpic}.  You should never have to use
+it explicitly.
+
+@item -mlinked-fp
+@opindex mlinked-fp
+
+Follow the EABI requirement of always creating a frame pointer whenever
+a stack frame is allocated.  This option is enabled by default and can
+be disabled with @option{-mno-linked-fp}.
 
 @item -mlong-calls
 @opindex mno-long-calls
@@ -10353,6 +10443,13 @@ program should be set to @var{n} bytes.
 The options @option{-metrax4} and @option{-metrax100} are synonyms for
 @option{-march=v3} and @option{-march=v8} respectively.
 
+@item -mmul-bug-workaround
+@itemx -mno-mul-bug-workaround
+@opindex mmul-bug-workaround
+@opindex mno-mul-bug-workaround
+Work around a bug in the @code{muls} and @code{mulu} instructions for CPU
+models where it applies.  This option is active by default.
+
 @item -mpdebug
 @opindex mpdebug
 Enable CRIS-specific verbose debug-related information in the assembly
@@ -10741,7 +10838,7 @@ Do not use multiply and add/subtract instructions.
 @item -mlibrary-pic
 @opindex mlibrary-pic
 
-Enable PIC support for building libraries
+Generate position-independent EABI code.
 
 @item -macc-4
 @opindex macc-4

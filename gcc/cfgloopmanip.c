@@ -1164,9 +1164,9 @@ create_preheader (struct loop *loop, int flags)
       dummy->flags |= BB_IRREDUCIBLE_LOOP;
       dummy->succ->flags |= EDGE_IRREDUCIBLE_LOOP;
     }
-  if (rtl_dump_file)
-    fprintf (rtl_dump_file, "Created preheader block for loop %i\n",
-	     loop->num);
+
+  if (dump_file)
+    fprintf (dump_file, "Created preheader block for loop %i\n", loop->num);
 
   return dummy;
 }

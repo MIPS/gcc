@@ -1,6 +1,6 @@
 /* Utility routines for data type conversion for GCC.
    Copyright (C) 1987, 1988, 1991, 1992, 1993, 1994, 1995, 1997, 1998,
-   2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -523,8 +523,7 @@ convert_to_integer (tree type, tree expr)
 		    return convert (type,
 				    fold (build (ex_form, typex,
 						 convert (typex, arg0),
-						 convert (typex, arg1),
-						 0)));
+						 convert (typex, arg1))));
 		  }
 	      }
 	  }

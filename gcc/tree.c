@@ -113,6 +113,8 @@ static void print_type_hash_statistics (void);
 static void finish_vector_type (tree);
 static tree build_vector_type_with_mode (enum machine_mode, tree);
 static int type_hash_marked_p (const void *);
+static unsigned int type_hash_list (tree, hashval_t);
+static unsigned int attribute_hash_list (tree, hashval_t);
 
 tree global_trees[TI_MAX];
 tree integer_types[itk_none];
@@ -222,7 +224,7 @@ tree_size (tree node)
    Achoo!  I got a code in the node.  */
 
 tree
-make_node (enum tree_code code)
+make_node_stat (enum tree_code code MEM_STAT_DECL)
 {
   tree t;
   int type = TREE_CODE_CLASS (code);
@@ -295,7 +297,7 @@ make_node (enum tree_code code)
   tree_node_sizes[(int) kind] += length;
 #endif
 
-  t = ggc_alloc_tree (length);
+  t = ggc_alloc_zone_stat (length, tree_zone PASS_MEM_STAT);
 
   memset (t, 0, length);
 
@@ -367,7 +369,7 @@ make_node (enum tree_code code)
    TREE_CHAIN is zero and it has a fresh uid.  */
 
 tree
-copy_node (tree node)
+copy_node_stat (tree node MEM_STAT_DECL)
 {
   tree t;
   enum tree_code code = TREE_CODE (node);
@@ -379,7 +381,7 @@ copy_node (tree node)
 #endif
 
   length = tree_size (node);
-  t = ggc_alloc_tree (length);
+  t = ggc_alloc_zone_stat (length, tree_zone PASS_MEM_STAT);
   memcpy (t, node, length);
 
   TREE_CHAIN (t) = 0;
@@ -587,7 +589,7 @@ build_complex (tree type, tree real, tree imag)
 /* Build a newly constructed TREE_VEC node of length LEN.  */
 
 tree
-make_tree_vec (int len)
+make_tree_vec_stat (int len MEM_STAT_DECL)
 {
   tree t;
   int length = (len - 1) * sizeof (tree) + sizeof (struct tree_vec);
@@ -597,9 +599,10 @@ make_tree_vec (int len)
   tree_node_sizes[(int) vec_kind] += length;
 #endif
 
-  t = ggc_alloc_tree (length);
+  t = ggc_alloc_zone_stat (length, tree_zone PASS_MEM_STAT);
 
   memset (t, 0, length);
+
   TREE_SET_CODE (t, TREE_VEC);
   TREE_VEC_LENGTH (t) = len;
 
@@ -1057,9 +1060,9 @@ nreverse (tree t)
    purpose and value fields are PARM and VALUE.  */
 
 tree
-build_tree_list (tree parm, tree value)
+build_tree_list_stat (tree parm, tree value MEM_STAT_DECL)
 {
-  tree t = make_node (TREE_LIST);
+  tree t = make_node_stat (TREE_LIST PASS_MEM_STAT);
   TREE_PURPOSE (t) = parm;
   TREE_VALUE (t) = value;
   return t;
@@ -1070,11 +1073,12 @@ build_tree_list (tree parm, tree value)
    and whose TREE_CHAIN is CHAIN.  */
 
 tree
-tree_cons (tree purpose, tree value, tree chain)
+tree_cons_stat (tree purpose, tree value, tree chain MEM_STAT_DECL)
 {
   tree node;
 
-  node = ggc_alloc_tree (sizeof (struct tree_list));
+  node = ggc_alloc_zone_stat (sizeof (struct tree_list),
+			      tree_zone PASS_MEM_STAT);
 
   memset (node, 0, sizeof (struct tree_common));
 
@@ -2257,133 +2261,6 @@ stabilize_reference_1 (tree e)
 
 /* Low-level constructors for expressions.  */
 
-/* Build an expression of code CODE, data type TYPE,
-   and operands as specified by the arguments ARG1 and following arguments.
-   Expressions and reference nodes can be created this way.
-   Constants, decls, types and misc nodes cannot be.  */
-
-tree
-build (enum tree_code code, tree tt, ...)
-{
-  tree t;
-  int length;
-  int i;
-  int fro;
-  bool constant, invariant;
-  va_list p;
-  tree node;
-
-  va_start (p, tt);
-
-  t = make_node (code);
-  length = TREE_CODE_LENGTH (code);
-  TREE_TYPE (t) = tt;
-
-  /* FIXME maybe give expr a locus here?  */
-
-  /* Below, we automatically set TREE_SIDE_EFFECTS and TREE_READONLY for the
-     result based on those same flags for the arguments.  But if the
-     arguments aren't really even `tree' expressions, we shouldn't be trying
-     to do this.  */
-  fro = first_rtl_op (code);
-
-  /* Expressions without side effects may be constant if their
-     arguments are as well.  */
-  constant = (TREE_CODE_CLASS (code) == '<'
-	      || TREE_CODE_CLASS (code) == '1'
-	      || TREE_CODE_CLASS (code) == '2'
-	      || TREE_CODE_CLASS (code) == 'c');
-  invariant = constant;
-
-  if (length == 2)
-    {
-      /* This is equivalent to the loop below, but faster.  */
-      tree arg0 = va_arg (p, tree);
-      tree arg1 = va_arg (p, tree);
-
-      TREE_OPERAND (t, 0) = arg0;
-      TREE_OPERAND (t, 1) = arg1;
-      TREE_READONLY (t) = 1;
-      if (arg0 && fro > 0)
-	{
-	  if (TREE_SIDE_EFFECTS (arg0))
-	    TREE_SIDE_EFFECTS (t) = 1;
-	  if (!TREE_READONLY (arg0))
-	    TREE_READONLY (t) = 0;
-	  if (!TREE_CONSTANT (arg0))
-	    constant = 0;
-	  if (!TREE_INVARIANT (arg0))
-	    invariant = 0;
-	}
-
-      if (arg1 && fro > 1)
-	{
-	  if (TREE_SIDE_EFFECTS (arg1))
-	    TREE_SIDE_EFFECTS (t) = 1;
-	  if (!TREE_READONLY (arg1))
-	    TREE_READONLY (t) = 0;
-	  if (!TREE_CONSTANT (arg1))
-	    constant = 0;
-	  if (!TREE_INVARIANT (arg1))
-	    invariant = 0;
-	}
-    }
-  else if (length == 1)
-    {
-      tree arg0 = va_arg (p, tree);
-
-      /* The only one-operand cases we handle here are those with side-effects.
-	 Others are handled with build1.  So don't bother checked if the
-	 arg has side-effects since we'll already have set it.
-
-	 ??? This really should use build1 too.  */
-      if (TREE_CODE_CLASS (code) != 's')
-	abort ();
-      TREE_OPERAND (t, 0) = arg0;
-    }
-  else
-    {
-      for (i = 0; i < length; i++)
-	{
-	  tree operand = va_arg (p, tree);
-
-	  TREE_OPERAND (t, i) = operand;
-	  if (operand && fro > i)
-	    {
-	      if (TREE_SIDE_EFFECTS (operand))
-		TREE_SIDE_EFFECTS (t) = 1;
-	      if (!TREE_CONSTANT (operand))
-		constant = 0;
-	      if (!TREE_INVARIANT (operand))
-		invariant = 0;
-	    }
-	}
-    }
-  va_end (p);
-
-  TREE_CONSTANT (t) = constant;
-  TREE_INVARIANT (t) = invariant;
-  
-  if (code == CALL_EXPR && !TREE_SIDE_EFFECTS (t))
-    {
-      /* Calls have side-effects, except those to const or
-	 pure functions.  */
-      i = call_expr_flags (t);
-      if (!(i & (ECF_CONST | ECF_PURE)))
-	TREE_SIDE_EFFECTS (t) = 1;
-
-      /* And even those have side-effects if their arguments do.  */
-      else for (node = TREE_OPERAND (t, 1); node; node = TREE_CHAIN (node))
-	if (TREE_SIDE_EFFECTS (TREE_VALUE (node)))
-	  {
-	    TREE_SIDE_EFFECTS (t) = 1;
-	    break;
-	  }
-    }
-
-  return t;
-}
-
 /* A helper function for build1 and constant folders.
    Set TREE_CONSTANT and TREE_INVARIANT for an ADDR_EXPR.  */
 
@@ -2421,12 +2298,33 @@ recompute_tree_invarant_for_addr_expr (tree t)
   TREE_INVARIANT (t) = ti;
 }
 
-/* Same as above, but only builds for unary operators.
-   Saves lions share of calls to `build'; cuts down use
-   of varargs, which is expensive for RISC machines.  */
+/* Build an expression of code CODE, data type TYPE, and operands as
+   specified.  Expressions and reference nodes can be created this way.
+   Constants, decls, types and misc nodes cannot be.
+
+   We define 5 non-variadic functions, from 0 to 4 arguments.  This is
+   enough for all extant tree codes.  These functions can be called 
+   directly (preferably!), but can also be obtained via GCC preprocessor
+   magic within the build macro.  */
 
 tree
-build1 (enum tree_code code, tree type, tree node)
+build0_stat (enum tree_code code, tree tt MEM_STAT_DECL)
+{
+  tree t;
+
+#ifdef ENABLE_CHECKING
+  if (TREE_CODE_LENGTH (code) != 0)
+    abort ();
+#endif
+
+  t = make_node_stat (code PASS_MEM_STAT);
+  TREE_TYPE (t) = tt;
+
+  return t;
+}
+
+tree
+build1_stat (enum tree_code code, tree type, tree node MEM_STAT_DECL)
 {
   int length = sizeof (struct tree_exp);
 #ifdef GATHER_STATISTICS
@@ -2453,20 +2351,17 @@ build1 (enum tree_code code, tree type, tree node)
 #endif
 
 #ifdef ENABLE_CHECKING
-  if (TREE_CODE_CLASS (code) == '2'
-      || TREE_CODE_CLASS (code) == '<'
-      || TREE_CODE_LENGTH (code) != 1)
+  if (TREE_CODE_LENGTH (code) != 1)
     abort ();
 #endif /* ENABLE_CHECKING */
 
-  t = ggc_alloc_tree (length);
+  t = ggc_alloc_zone_stat (length, tree_zone PASS_MEM_STAT);
 
   memset (t, 0, sizeof (struct tree_common));
 
   TREE_SET_CODE (t, code);
 
   TREE_TYPE (t) = type;
-  /* FIXME maybe give expr a locus here?  */
   SET_EXPR_LOCUS (t, NULL);
   TREE_COMPLEXITY (t) = 0;
   TREE_OPERAND (t, 0) = node;
@@ -2537,6 +2432,186 @@ build1 (enum tree_code code, tree type, tree node)
   return t;
 }
 
+#define PROCESS_ARG(N)			\
+  do {					\
+    TREE_OPERAND (t, N) = arg##N;	\
+    if (arg##N && fro > N)		\
+      {					\
+        if (TREE_SIDE_EFFECTS (arg##N))	\
+	  side_effects = 1;		\
+        if (!TREE_READONLY (arg##N))	\
+	  read_only = 0;		\
+        if (!TREE_CONSTANT (arg##N))	\
+	  constant = 0;			\
+	if (!TREE_INVARIANT (arg##N))	\
+	  invariant = 0;		\
+      }					\
+  } while (0)
+
+tree
+build2_stat (enum tree_code code, tree tt, tree arg0, tree arg1 MEM_STAT_DECL)
+{
+  bool constant, read_only, side_effects, invariant;
+  tree t;
+  int fro;
+
+#ifdef ENABLE_CHECKING
+  if (TREE_CODE_LENGTH (code) != 2)
+    abort ();
+#endif
+
+  t = make_node_stat (code PASS_MEM_STAT);
+  TREE_TYPE (t) = tt;
+
+  /* Below, we automatically set TREE_SIDE_EFFECTS and TREE_READONLY for the
+     result based on those same flags for the arguments.  But if the
+     arguments aren't really even `tree' expressions, we shouldn't be trying
+     to do this.  */
+  fro = first_rtl_op (code);
+
+  /* Expressions without side effects may be constant if their
+     arguments are as well.  */
+  constant = (TREE_CODE_CLASS (code) == '<'
+	      || TREE_CODE_CLASS (code) == '2');
+  read_only = 1;
+  side_effects = TREE_SIDE_EFFECTS (t);
+  invariant = constant;
+
+  PROCESS_ARG(0);
+  PROCESS_ARG(1);
+
+  TREE_READONLY (t) = read_only;
+  TREE_CONSTANT (t) = constant;
+  TREE_INVARIANT (t) = invariant;
+  TREE_SIDE_EFFECTS (t) = side_effects;  
+
+  return t;
+}
+
+tree
+build3_stat (enum tree_code code, tree tt, tree arg0, tree arg1,
+	     tree arg2 MEM_STAT_DECL)
+{
+  bool constant, read_only, side_effects, invariant;
+  tree t;
+  int fro;
+
+#ifdef ENABLE_CHECKING
+  if (TREE_CODE_LENGTH (code) != 3)
+    abort ();
+#endif
+
+  t = make_node_stat (code PASS_MEM_STAT);
+  TREE_TYPE (t) = tt;
+
+  fro = first_rtl_op (code);
+
+  side_effects = TREE_SIDE_EFFECTS (t);
+
+  PROCESS_ARG(0);
+  PROCESS_ARG(1);
+  PROCESS_ARG(2);
+
+  if (code == CALL_EXPR && !side_effects)
+    {
+      tree node;
+      int i;
+
+      /* Calls have side-effects, except those to const or
+	 pure functions.  */
+      i = call_expr_flags (t);
+      if (!(i & (ECF_CONST | ECF_PURE)))
+	side_effects = 1;
+
+      /* And even those have side-effects if their arguments do.  */
+      else for (node = arg1; node; node = TREE_CHAIN (node))
+	if (TREE_SIDE_EFFECTS (TREE_VALUE (node)))
+	  {
+	    side_effects = 1;
+	    break;
+	  }
+    }
+
+  TREE_SIDE_EFFECTS (t) = side_effects;  
+
+  return t;
+}
+
+tree
+build4_stat (enum tree_code code, tree tt, tree arg0, tree arg1,
+	     tree arg2, tree arg3 MEM_STAT_DECL)
+{
+  bool constant, read_only, side_effects, invariant;
+  tree t;
+  int fro;
+
+#ifdef ENABLE_CHECKING
+  if (TREE_CODE_LENGTH (code) != 4)
+    abort ();
+#endif
+
+  t = make_node_stat (code PASS_MEM_STAT);
+  TREE_TYPE (t) = tt;
+
+  fro = first_rtl_op (code);
+
+  side_effects = TREE_SIDE_EFFECTS (t);
+
+  PROCESS_ARG(0);
+  PROCESS_ARG(1);
+  PROCESS_ARG(2);
+  PROCESS_ARG(3);
+
+  TREE_SIDE_EFFECTS (t) = side_effects;  
+
+  return t;
+}
+
+/* Backup definition for non-gcc build compilers.  */
+
+tree
+(build) (enum tree_code code, tree tt, ...)
+{
+  tree t, arg0, arg1, arg2, arg3;
+  int length = TREE_CODE_LENGTH (code);
+  va_list p;
+
+  va_start (p, tt);
+  switch (length)
+    {
+    case 0:
+      t = build0 (code, tt);
+      break;
+    case 1:
+      arg0 = va_arg (p, tree);
+      t = build1 (code, tt, arg0);
+      break;
+    case 2:
+      arg0 = va_arg (p, tree);
+      arg1 = va_arg (p, tree);
+      t = build2 (code, tt, arg0, arg1);
+      break;
+    case 3:
+      arg0 = va_arg (p, tree);
+      arg1 = va_arg (p, tree);
+      arg2 = va_arg (p, tree);
+      t = build3 (code, tt, arg0, arg1, arg2);
+      break;
+    case 4:
+      arg0 = va_arg (p, tree);
+      arg1 = va_arg (p, tree);
+      arg2 = va_arg (p, tree);
+      arg3 = va_arg (p, tree);
+      t = build4 (code, tt, arg0, arg1, arg2, arg3);
+      break;
+    default:
+      abort ();
+    }
+  va_end (p);
+
+  return t;
+}
+
 /* Similar except don't specify the TREE_TYPE
    and leave the TREE_SIDE_EFFECTS as 0.
    It is permissible for arguments to be null,
@@ -2569,11 +2644,11 @@ build_nt (enum tree_code code, ...)
    Other slots are initialized to 0 or null pointers.  */
 
 tree
-build_decl (enum tree_code code, tree name, tree type)
+build_decl_stat (enum tree_code code, tree name, tree type MEM_STAT_DECL)
 {
   tree t;
 
-  t = make_node (code);
+  t = make_node_stat (code PASS_MEM_STAT);
 
 /*  if (type == error_mark_node)
     type = integer_type_node; */
@@ -2673,8 +2748,9 @@ build_type_attribute_variant (tree ttype, tree attribute)
 {
   if (! attribute_list_equal (TYPE_ATTRIBUTES (ttype), attribute))
     {
-      unsigned int hashcode;
+      hashval_t hashcode = 0;
       tree ntype;
+      enum tree_code code = TREE_CODE (ttype);
 
       ntype = copy_node (ttype);
 
@@ -2687,23 +2763,32 @@ build_type_attribute_variant (tree ttype, tree attribute)
       TYPE_NEXT_VARIANT (ntype) = 0;
       set_type_quals (ntype, TYPE_UNQUALIFIED);
 
-      hashcode = (TYPE_HASH (TREE_CODE (ntype))
-		  + TYPE_HASH (TREE_TYPE (ntype))
-		  + attribute_hash_list (attribute));
+      hashcode = iterative_hash_object (code, hashcode);
+      if (TREE_TYPE (ntype))
+	hashcode = iterative_hash_object (TYPE_HASH (TREE_TYPE (ntype)),
+					  hashcode);
+      hashcode = attribute_hash_list (attribute, hashcode);
 
       switch (TREE_CODE (ntype))
 	{
 	case FUNCTION_TYPE:
-	  hashcode += TYPE_HASH (TYPE_ARG_TYPES (ntype));
+	  hashcode = type_hash_list (TYPE_ARG_TYPES (ntype), hashcode);
 	  break;
 	case ARRAY_TYPE:
-	  hashcode += TYPE_HASH (TYPE_DOMAIN (ntype));
+	  hashcode = iterative_hash_object (TYPE_HASH (TYPE_DOMAIN (ntype)),
+					    hashcode);
 	  break;
 	case INTEGER_TYPE:
-	  hashcode += TYPE_HASH (TYPE_MAX_VALUE (ntype));
+	  hashcode = iterative_hash_object
+	    (TREE_INT_CST_LOW (TYPE_MAX_VALUE (ntype)), hashcode);
+	  hashcode = iterative_hash_object
+	    (TREE_INT_CST_HIGH (TYPE_MAX_VALUE (ntype)), hashcode);
 	  break;
 	case REAL_TYPE:
-	  hashcode += TYPE_HASH (TYPE_PRECISION (ntype));
+	  {
+	    unsigned int precision = TYPE_PRECISION (ntype);
+	    hashcode = iterative_hash_object (precision, hashcode);
+	  }
 	  break;
 	default:
 	  break;
@@ -2920,6 +3005,19 @@ set_type_quals (tree type, int type_quals)
   TYPE_RESTRICT (type) = (type_quals & TYPE_QUAL_RESTRICT) != 0;
 }
 
+/* Returns true iff cand is equivalent to base with type_quals.  */
+
+bool
+check_qualified_type (tree cand, tree base, int type_quals)
+{
+  return (TYPE_QUALS (cand) == type_quals
+	  && TYPE_NAME (cand) == TYPE_NAME (base)
+	  /* Apparently this is needed for Objective-C.  */
+	  && TYPE_CONTEXT (cand) == TYPE_CONTEXT (base)
+	  && attribute_list_equal (TYPE_ATTRIBUTES (cand),
+				   TYPE_ATTRIBUTES (base)));
+}
+
 /* Return a version of the TYPE, qualified as indicated by the
    TYPE_QUALS, if one exists.  If no qualified version exists yet,
    return NULL_TREE.  */
@@ -2929,13 +3027,14 @@ get_qualified_type (tree type, int type_quals)
 {
   tree t;
 
+  if (TYPE_QUALS (type) == type_quals)
+    return type;
+
   /* Search the chain of variants to see if there is already one there just
      like the one we need to have.  If so, use that existing one.  We must
      preserve the TYPE_NAME, since there is code that depends on this.  */
   for (t = TYPE_MAIN_VARIANT (type); t; t = TYPE_NEXT_VARIANT (t))
-    if (TYPE_QUALS (t) == type_quals && TYPE_NAME (t) == TYPE_NAME (type)
-        && TYPE_CONTEXT (t) == TYPE_CONTEXT (type)
-	&& attribute_list_equal (TYPE_ATTRIBUTES (t), TYPE_ATTRIBUTES (type)))
+    if (check_qualified_type (t, type, type_quals))
       return t;
 
   return NULL_TREE;
@@ -2990,13 +3089,14 @@ build_type_copy (tree type)
    of the individual types.  */
 
 unsigned int
-type_hash_list (tree list)
+type_hash_list (tree list, hashval_t hashcode)
 {
-  unsigned int hashcode;
   tree tail;
 
-  for (hashcode = 0, tail = list; tail; tail = TREE_CHAIN (tail))
-    hashcode += TYPE_HASH (TREE_VALUE (tail));
+  for (tail = list; tail; tail = TREE_CHAIN (tail))
+    if (TREE_VALUE (tail) != error_mark_node)
+      hashcode = iterative_hash_object (TYPE_HASH (TREE_VALUE (tail)),
+					hashcode);
 
   return hashcode;
 }
@@ -3045,7 +3145,7 @@ type_hash_hash (const void *item)
    If one is found, return it.  Otherwise return 0.  */
 
 tree
-type_hash_lookup (unsigned int hashcode, tree type)
+type_hash_lookup (hashval_t hashcode, tree type)
 {
   struct type_hash *h, in;
 
@@ -3066,7 +3166,7 @@ type_hash_lookup (unsigned int hashcode, tree type)
    for a type TYPE whose hash code is HASHCODE.  */
 
 void
-type_hash_add (unsigned int hashcode, tree type)
+type_hash_add (hashval_t hashcode, tree type)
 {
   struct type_hash *h;
   void **loc;
@@ -3146,14 +3246,14 @@ print_type_hash_statistics (void)
    by adding the hash codes of the individual attributes.  */
 
 unsigned int
-attribute_hash_list (tree list)
+attribute_hash_list (tree list, hashval_t hashcode)
 {
-  unsigned int hashcode;
   tree tail;
 
-  for (hashcode = 0, tail = list; tail; tail = TREE_CHAIN (tail))
+  for (tail = list; tail; tail = TREE_CHAIN (tail))
     /* ??? Do we want to add in TREE_VALUE too? */
-    hashcode += TYPE_HASH (TREE_PURPOSE (tail));
+    hashcode = iterative_hash_object
+      (IDENTIFIER_HASH_VALUE (TREE_PURPOSE (tail)), hashcode);
   return hashcode;
 }
 
@@ -3572,10 +3672,7 @@ associative_tree_code (enum tree_code code)
     case BIT_AND_EXPR:
     case BIT_XOR_EXPR:
     case PLUS_EXPR:
-    case MINUS_EXPR:
     case MULT_EXPR:
-    case LSHIFT_EXPR:
-    case RSHIFT_EXPR:
     case MIN_EXPR:
     case MAX_EXPR:
       return true;
@@ -3890,7 +3987,7 @@ tree
 build_array_type (tree elt_type, tree index_type)
 {
   tree t;
-  unsigned int hashcode;
+  hashval_t hashcode = 0;
 
   if (TREE_CODE (elt_type) == FUNCTION_TYPE)
     {
@@ -3912,7 +4009,8 @@ build_array_type (tree elt_type, tree index_type)
       return t;
     }
 
-  hashcode = TYPE_HASH (elt_type) + TYPE_HASH (index_type);
+  hashcode = iterative_hash_object (TYPE_HASH (elt_type), hashcode);
+  hashcode = iterative_hash_object (TYPE_HASH (index_type), hashcode);
   t = type_hash_canon (hashcode, t);
 
   if (!COMPLETE_TYPE_P (t))
@@ -3945,7 +4043,7 @@ tree
 build_function_type (tree value_type, tree arg_types)
 {
   tree t;
-  unsigned int hashcode;
+  hashval_t hashcode = 0;
 
   if (TREE_CODE (value_type) == FUNCTION_TYPE)
     {
@@ -3959,7 +4057,8 @@ build_function_type (tree value_type, tree arg_types)
   TYPE_ARG_TYPES (t) = arg_types;
 
   /* If we already have such a type, use the old one and free this one.  */
-  hashcode = TYPE_HASH (value_type) + type_hash_list (arg_types);
+  hashcode = iterative_hash_object (TYPE_HASH (value_type), hashcode);
+  hashcode = type_hash_list (arg_types, hashcode);
   t = type_hash_canon (hashcode, t);
 
   if (!COMPLETE_TYPE_P (t))
@@ -4005,7 +4104,7 @@ build_method_type_directly (tree basetype,
 {
   tree t;
   tree ptype;
-  int hashcode;
+  int hashcode = 0;
 
   /* Make a node of the sort we want.  */
   t = make_node (METHOD_TYPE);
@@ -4021,8 +4120,9 @@ build_method_type_directly (tree basetype,
 
   /* If we already have such a type, use the old one and free this one.
      Note that it also frees up the above cons cell if found.  */
-  hashcode = TYPE_HASH (basetype) + TYPE_HASH (rettype) +
-    type_hash_list (argtypes);
+  hashcode = iterative_hash_object (TYPE_HASH (basetype), hashcode);
+  hashcode = iterative_hash_object (TYPE_HASH (rettype), hashcode);
+  hashcode = type_hash_list (argtypes, hashcode);
 
   t = type_hash_canon (hashcode, t);
 
@@ -4056,7 +4156,7 @@ tree
 build_offset_type (tree basetype, tree type)
 {
   tree t;
-  unsigned int hashcode;
+  hashval_t hashcode = 0;
 
   /* Make a node of the sort we want.  */
   t = make_node (OFFSET_TYPE);
@@ -4065,7 +4165,8 @@ build_offset_type (tree basetype, tree type)
   TREE_TYPE (t) = type;
 
   /* If we already have such a type, use the old one and free this one.  */
-  hashcode = TYPE_HASH (basetype) + TYPE_HASH (type);
+  hashcode = iterative_hash_object (TYPE_HASH (basetype), hashcode);
+  hashcode = iterative_hash_object (TYPE_HASH (type), hashcode);
   t = type_hash_canon (hashcode, t);
 
   if (!COMPLETE_TYPE_P (t))
@@ -4080,7 +4181,7 @@ tree
 build_complex_type (tree component_type)
 {
   tree t;
-  unsigned int hashcode;
+  hashval_t hashcode;
 
   /* Make a node of the sort we want.  */
   t = make_node (COMPLEX_TYPE);
@@ -4089,7 +4190,7 @@ build_complex_type (tree component_type)
   set_type_quals (t, TYPE_QUALS (component_type));
 
   /* If we already have such a type, use the old one and free this one.  */
-  hashcode = TYPE_HASH (component_type);
+  hashcode = iterative_hash_object (TYPE_HASH (component_type), 0);
   t = type_hash_canon (hashcode, t);
 
   if (!COMPLETE_TYPE_P (t))

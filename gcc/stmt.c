@@ -220,8 +220,7 @@ struct nesting GTY(())
 	     conditional branch points.  */
 	  rtx last_unconditional_cleanup;
 	} GTY ((tag ("BLOCK_NESTING"))) block;
-      /* For switch (C) or case (Pascal) statements,
-	 and also for dummies (see `expand_start_case_dummy').  */
+      /* For switch (C) or case (Pascal) statements.  */
       struct nesting_case
 	{
 	  /* The insn after which the case dispatch should finally
@@ -527,9 +526,9 @@ expand_computed_goto (tree exp)
     {
       cfun->computed_goto_common_reg = copy_to_mode_reg (Pmode, x);
       cfun->computed_goto_common_label = gen_label_rtx ();
-      emit_label (cfun->computed_goto_common_label);
 
       do_pending_stack_adjust ();
+      emit_label (cfun->computed_goto_common_label);
       emit_indirect_jump (cfun->computed_goto_common_reg);
 
       current_function_has_computed_jump = 1;
@@ -1435,13 +1434,11 @@ expand_asm_operands (tree string, tree outputs, tree inputs,
   for (t = inputs; t ; t = TREE_CHAIN (t), i++)
     constraints[i] = TREE_STRING_POINTER (TREE_VALUE (TREE_PURPOSE (t)));
 
-#ifdef MD_ASM_CLOBBERS
   /* Sometimes we wish to automatically clobber registers across an asm.
      Case in point is when the i386 backend moved from cc0 to a hard reg --
      maintaining source-level compatibility means automatically clobbering
      the flags register.  */
-  MD_ASM_CLOBBERS (clobbers);
-#endif
+  clobbers = targetm.md_asm_clobbers (clobbers);
 
   /* Count the number of meaningful clobbered registers, ignoring what
      we would ignore later.  */
@@ -3294,8 +3291,8 @@ tail_recursion_args (tree actuals, tree formals)
 
   for (a = actuals, f = formals, i = 0; a && f; a = TREE_CHAIN (a), f = TREE_CHAIN (f), i++)
     {
-      if (TYPE_MAIN_VARIANT (TREE_TYPE (TREE_VALUE (a)))
-	  != TYPE_MAIN_VARIANT (TREE_TYPE (f)))
+      if (!lang_hooks.types_compatible_p (TREE_TYPE (TREE_VALUE (a)), 
+	      TREE_TYPE (f)))
 	return 0;
       if (GET_CODE (DECL_RTL (f)) != REG || DECL_MODE (f) == BLKmode)
 	return 0;
@@ -4381,32 +4378,6 @@ expand_start_case (int exit_flag, tree expr, tree type,
 
   thiscase->data.case_stmt.start = get_last_insn ();
 
-  start_cleanup_deferral ();
-}
-
-/* Start a "dummy case statement" within which case labels are invalid
-   and are not connected to any larger real case statement.
-   This can be used if you don't want to let a case statement jump
-   into the middle of certain kinds of constructs.  */
-
-void
-expand_start_case_dummy (void)
-{
-  struct nesting *thiscase = ALLOC_NESTING ();
-
-  /* Make an entry on case_stack for the dummy.  */
-
-  thiscase->desc = CASE_NESTING;
-  thiscase->next = case_stack;
-  thiscase->all = nesting_stack;
-  thiscase->depth = ++nesting_depth;
-  thiscase->exit_label = 0;
-  thiscase->data.case_stmt.case_list = 0;
-  thiscase->data.case_stmt.start = 0;
-  thiscase->data.case_stmt.nominal_type = 0;
-  thiscase->data.case_stmt.default_label = 0;
-  case_stack = thiscase;
-  nesting_stack = thiscase;
   start_cleanup_deferral ();
 }
 

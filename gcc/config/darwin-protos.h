@@ -1,5 +1,5 @@
 /* Prototypes.
-   Copyright (C) 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -64,8 +64,6 @@ extern const char *darwin_strip_name_encoding (const char *);
 #endif /* TREE_CODE */
 
 extern void machopic_finish (FILE *);
-
-extern void machopic_output_possible_stub_label (FILE *, const char*);
 
 extern void darwin_exception_section (void);
 extern void darwin_eh_frame_section (void);

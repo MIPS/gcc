@@ -140,9 +140,9 @@ void dg_create_graph (void)
       connecting_edge->ddr = ddr;
     }
 
-  if (tree_dump_file)
+  if (dump_file)
     {
-      dump_dg (tree_dump_file, tree_dump_flags);
+      dump_dg (dump_file, dump_flags);
     }
   
 }

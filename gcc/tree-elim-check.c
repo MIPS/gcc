@@ -80,8 +80,8 @@ remove_redundant_check (tree cond, bool value)
 {
   /* A dead COND_EXPR means the condition is dead. We don't change any
      flow, just replace the expression with a constant.  */
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-    fprintf (tree_dump_file, "Replacing one of the conditions.\n");
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    fprintf (dump_file, "Replacing one of the conditions.\n");
 
   if (value == true)
     COND_EXPR_COND (cond) = integer_one_node;
@@ -103,12 +103,12 @@ try_eliminate_check (tree cond)
   tree chrec0, chrec1;
   unsigned loop_nb = loop_num (loop_of_stmt (cond));
 
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_DETAILS))
     {
-      fprintf (tree_dump_file, "(try_eliminate_check \n");
-      fprintf (tree_dump_file, "  (cond = ");
-      print_generic_expr (tree_dump_file, cond, 0);
-      fprintf (tree_dump_file, ")\n");
+      fprintf (dump_file, "(try_eliminate_check \n");
+      fprintf (dump_file, "  (cond = ");
+      print_generic_expr (dump_file, cond, 0);
+      fprintf (dump_file, ")\n");
     }
   
   test = COND_EXPR_COND (cond);
@@ -122,13 +122,13 @@ try_eliminate_check (tree cond)
 	break;
       chrec0 = instantiate_parameters (loop_nb, chrec0);
       
-      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+      if (dump_file && (dump_flags & TDF_DETAILS))
 	{
-	  fprintf (tree_dump_file, "  (test = ");
-	  print_generic_expr (tree_dump_file, test, 0);
-	  fprintf (tree_dump_file, ")\n  (loop_nb = %d)\n  (chrec0 = ", loop_nb);
-	  print_generic_expr (tree_dump_file, chrec0, 0);
-	  fprintf (tree_dump_file, ")\n");
+	  fprintf (dump_file, "  (test = ");
+	  print_generic_expr (dump_file, test, 0);
+	  fprintf (dump_file, ")\n  (loop_nb = %d)\n  (chrec0 = ", loop_nb);
+	  print_generic_expr (dump_file, chrec0, 0);
+	  fprintf (dump_file, ")\n");
 	}
       
       if (prove_truth_value_ne (chrec0, integer_zero_node, &value))
@@ -154,15 +154,15 @@ try_eliminate_check (tree cond)
       chrec0 = instantiate_parameters (loop_nb, chrec0);
       chrec1 = instantiate_parameters (loop_nb, chrec1);
       
-      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+      if (dump_file && (dump_flags & TDF_DETAILS))
 	{
-	  fprintf (tree_dump_file, "  (test = ");
-	  print_generic_expr (tree_dump_file, test, 0);
-	  fprintf (tree_dump_file, ")\n  (loop_nb = %d)\n  (chrec0 = ", loop_nb);
-	  print_generic_expr (tree_dump_file, chrec0, 0);
-	  fprintf (tree_dump_file, ")\n  (chrec1 = ");
-	  print_generic_expr (tree_dump_file, chrec1, 0);
-	  fprintf (tree_dump_file, ")\n");
+	  fprintf (dump_file, "  (test = ");
+	  print_generic_expr (dump_file, test, 0);
+	  fprintf (dump_file, ")\n  (loop_nb = %d)\n  (chrec0 = ", loop_nb);
+	  print_generic_expr (dump_file, chrec0, 0);
+	  fprintf (dump_file, ")\n  (chrec1 = ");
+	  print_generic_expr (dump_file, chrec1, 0);
+	  fprintf (dump_file, ")\n");
 	}
       
       switch (TREE_CODE (test))
@@ -206,8 +206,8 @@ try_eliminate_check (tree cond)
       break;
     }
   
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-    fprintf (tree_dump_file, ")\n");
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    fprintf (dump_file, ")\n");
 }
 
 /* Compute the exit edges for all the loops.  */

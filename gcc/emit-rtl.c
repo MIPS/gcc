@@ -852,8 +852,16 @@ set_decl_incoming_rtl (tree t, rtx x)
     }
   if (GET_CODE (x) == PARALLEL)
     {
-      int i;
-      for (i = 0; i < XVECLEN (x, 0); i++)
+      int i, start;
+
+      /* Check for a NULL entry, used to indicate that the parameter goes
+	 both on the stack and in registers.  */
+      if (XEXP (XVECEXP (x, 0, 0), 0))
+	start = 0;
+      else
+	start = 1;
+
+      for (i = start; i < XVECLEN (x, 0); i++)
 	{
 	  rtx y = XVECEXP (x, 0, i);
 	  if (REG_P (XEXP (y, 0)))
@@ -1114,21 +1122,6 @@ gen_imagpart (enum machine_mode mode, rtx x)
       ("can't access imaginary part of complex value in hard register");
   else
     return gen_highpart (mode, x);
-}
-
-/* Return 1 iff X, assumed to be a SUBREG,
-   refers to the real part of the complex value in its containing reg.
-   Complex values are always stored with the real part in the first word,
-   regardless of WORDS_BIG_ENDIAN.  */
-
-int
-subreg_realpart_p (rtx x)
-{
-  if (GET_CODE (x) != SUBREG)
-    abort ();
-
-  return ((unsigned int) SUBREG_BYTE (x)
-	  < (unsigned int) GET_MODE_UNIT_SIZE (GET_MODE (SUBREG_REG (x))));
 }
 
 /* Assuming that X is an rtx (e.g., MEM, REG or SUBREG) for a value,
@@ -1452,6 +1445,40 @@ component_ref_for_mem_expr (tree ref)
 		  TREE_OPERAND (ref, 1));
 }
 
+/* Returns 1 if both MEM_EXPR can be considered equal
+   and 0 otherwise.  */
+
+int
+mem_expr_equal_p (tree expr1, tree expr2)
+{
+  if (expr1 == expr2)
+    return 1;
+
+  if (! expr1 || ! expr2)
+    return 0;
+
+  if (TREE_CODE (expr1) != TREE_CODE (expr2))
+    return 0;
+
+  if (TREE_CODE (expr1) == COMPONENT_REF)
+    return 
+      mem_expr_equal_p (TREE_OPERAND (expr1, 0),
+			TREE_OPERAND (expr2, 0))
+      && mem_expr_equal_p (TREE_OPERAND (expr1, 1), /* field decl */
+			   TREE_OPERAND (expr2, 1));
+  
+  if (TREE_CODE (expr1) == INDIRECT_REF)
+    return mem_expr_equal_p (TREE_OPERAND (expr1, 0),
+			     TREE_OPERAND (expr2, 0));
+  
+  /* Decls with different pointers can't be equal.  */
+  if (DECL_P (expr1))
+    return 0;
+
+  abort(); /* ARRAY_REFs, ARRAY_RANGE_REFs and BIT_FIELD_REFs should already
+	      have been resolved here.  */
+}
+
 /* Given REF, a MEM, and T, either the type of X or the expression
    corresponding to REF, set the memory attributes.  OBJECTP is nonzero
    if we are making a new object of this type.  BITPOS is nonzero if
@@ -1490,7 +1517,7 @@ set_mem_attributes_minus_bitpos (rtx ref, tree t, int objectp,
      front-end routine) and use it.  */
   alias = get_alias_set (t);
 
-  MEM_VOLATILE_P (ref) = TYPE_VOLATILE (type);
+  MEM_VOLATILE_P (ref) |= TYPE_VOLATILE (type);
   MEM_IN_STRUCT_P (ref) = AGGREGATE_TYPE_P (type);
   RTX_UNCHANGING_P (ref)
     |= ((lang_hooks.honor_readonly
@@ -3758,27 +3785,6 @@ find_line_note (rtx insn)
   return insn;
 }
 
-/* Like reorder_insns, but inserts line notes to preserve the line numbers
-   of the moved insns when debugging.  This may insert a note between AFTER
-   and FROM, and another one after TO.  */
-
-void
-reorder_insns_with_line_notes (rtx from, rtx to, rtx after)
-{
-  rtx from_line = find_line_note (from);
-  rtx after_line = find_line_note (after);
-
-  reorder_insns (from, to, after);
-
-  if (from_line == after_line)
-    return;
-
-  if (from_line)
-    emit_note_copy_after (from_line, after);
-  if (after_line)
-    emit_note_copy_after (after_line, to);
-}
-
 /* Remove unnecessary notes from the instruction stream.  */
 
 void
@@ -4907,17 +4913,6 @@ end_sequence (void)
   free_sequence_stack = tem;
 }
 
-/* This works like end_sequence, but records the old sequence in FIRST
-   and LAST.  */
-
-void
-end_full_sequence (rtx *first, rtx *last)
-{
-  *first = first_insn;
-  *last = last_insn;
-  end_sequence ();
-}
-
 /* Return 1 if currently emitting into a sequence.  */
 
 int
@@ -5032,7 +5027,7 @@ copy_insn_1 (rtx orig)
   RTX_FLAG (copy, used) = 0;
 
   /* We do not copy JUMP, CALL, or FRAME_RELATED for INSNs.  */
-  if (GET_RTX_CLASS (code) == 'i')
+  if (INSN_P (orig))
     {
       RTX_FLAG (copy, jump) = 0;
       RTX_FLAG (copy, call) = 0;

@@ -50,9 +50,21 @@ Boston, MA 02111-1307, USA.  */
      bb0:
        if (a COND b) goto ... else goto ...
  
-
    Similarly for the tests (x == 0), (x != 0), (x == 1) and (x != 1).
 
+   Or (assuming c1 and c2 are constants):
+
+     bb0:
+       x = a + c1;  
+       if (x EQ/NEQ c2) goto ... else goto ...
+
+   Will be transformed into:
+
+     bb0:
+        if (a EQ/NEQ (c2 - c1)) goto ... else goto ...
+
+   Similarly for x = a - c1.
+    
    In addition to eliminating the variable and the statement which assigns
    a value to the variable, we may be able to later thread the jump without
    adding insane complexity in the dominator optimizer. 
@@ -78,7 +90,7 @@ need_imm_uses_for (tree var)
 }
 
 /* Find all COND_EXPRs with a condition that is a naked SSA_NAME or
-   an equality comparison against zero or one.
+   an equality comparison against a constant.
 
    Record the identified COND_EXPRs and the SSA_NAME used in the COND_EXPR
    into a virtual array, which is returned to the caller.  Also record
@@ -96,7 +108,7 @@ record_single_argument_cond_exprs (void)
 
   vars = BITMAP_XMALLOC ();
 
-  VARRAY_TREE_INIT (retval, 10, "forward propagation objects");
+  VARRAY_TREE_INIT (retval, 10, "forward propagation vars");
 
   /* The first pass over the blocks gathers the set of variables we need
      immediate uses for as well as the set of interesting COND_EXPRs.
@@ -113,62 +125,98 @@ record_single_argument_cond_exprs (void)
 	  tree cond = COND_EXPR_COND (last);
 	  enum tree_code cond_code = TREE_CODE (cond);
 
-	  /* If the condition is a lone variable or an equality test of an
-	     SSA_NAME against zero, then we may have an optimizable case. 
+	  /* If the condition is a lone variable or an equality test of
+	     an SSA_NAME against an integral constant, then we may have an 
+	     optimizable case.
 
 	     Note these conditions also ensure the COND_EXPR has no
 	     virtual operands or other side effects.  */
 	  if (cond_code == SSA_NAME
 	      || ((cond_code == EQ_EXPR || cond_code == NE_EXPR)
 		  && TREE_CODE (TREE_OPERAND (cond, 0)) == SSA_NAME
-		  && (integer_zerop (TREE_OPERAND (cond, 1))
-		      || integer_onep (TREE_OPERAND (cond, 1)))))
+		  && TREE_CODE_CLASS (TREE_CODE (TREE_OPERAND (cond, 1))) == 'c'
+		  && INTEGRAL_TYPE_P (TREE_TYPE (TREE_OPERAND (cond, 1)))))
 	    {
 	      tree def;
 	      tree test_var;
 
+	      /* Extract the single variable used in the test into TEST_VAR.  */
 	      if (cond_code == SSA_NAME)
 		test_var = cond;
 	      else
 		test_var = TREE_OPERAND (cond, 0);
 
-	      /* Now get the defining statement for TEST_VAR and verify that
-	         it's an assignment from a relational expression or a
-	         TRUTH_NOT_EXPR and that the source operands are either
-		 SSA_NAMES or some gimple invariant.  */
+	      /* If we have already recorded this SSA_NAME as interesting,
+		 do not do so again.  */
+	      if (bitmap_bit_p (vars, SSA_NAME_VERSION (test_var)))
+		continue;
+
+	      /* Now get the defining statement for TEST_VAR and see if it
+		 something we are interested in.  */
 	      def = SSA_NAME_DEF_STMT (test_var);
 	      if (TREE_CODE (def) == MODIFY_EXPR)
 		{
 		  tree def_rhs = TREE_OPERAND (def, 1);
 
-		  if (TREE_CODE_CLASS (TREE_CODE (def_rhs)) == '<')
+		  /* If TEST_VAR is set by adding or subtracting a constant
+		     from an SSA_NAME, then it is interesting to us as we
+		     can adjust the constant in the conditional and thus
+		     eliminate the arithmetic operation.  */
+		  if (TREE_CODE (def_rhs) == PLUS_EXPR
+			 || TREE_CODE (def_rhs) == MINUS_EXPR)
 		    {
 		      tree op0 = TREE_OPERAND (def_rhs, 0);
 		      tree op1 = TREE_OPERAND (def_rhs, 1);
 
-		      /* Both operands of DEF_RHS must be SSA_NAMEs or
-			 constants.  */
-		      if ((TREE_CODE (op0) != SSA_NAME
-			   && !is_gimple_min_invariant (op0))
-			  || (TREE_CODE (op1) != SSA_NAME
-			      && !is_gimple_min_invariant (op1)))
+		      /* The first operand must be an SSA_NAME and the second
+			 operand must be a constant.  */
+		      if (TREE_CODE (op0) != SSA_NAME
+			  || TREE_CODE_CLASS (TREE_CODE (op1)) != 'c'
+			  || !INTEGRAL_TYPE_P (TREE_TYPE (op1)))
 			continue;
 		    }
-		  else if (TREE_CODE (def_rhs) == TRUTH_NOT_EXPR)
-		    {
-		      def_rhs = TREE_OPERAND (def_rhs, 0);
 
-		      /* DEF_RHS must be an SSA_NAME or constant.  */
-		      if (TREE_CODE (def_rhs) != SSA_NAME
-			  && !is_gimple_min_invariant (def_rhs))
+		  /* These cases require comparisons of a naked SSA_NAME or
+		     comparison of an SSA_NAME against zero or one.  */
+		  else if (TREE_CODE (cond) == SSA_NAME
+			   || integer_zerop (TREE_OPERAND (cond, 1))
+			   || integer_onep (TREE_OPERAND (cond, 1)))
+		    {
+		      /* If TEST_VAR is set from a relational operation
+			 between two SSA_NAMEs or a combination of an SSA_NAME
+			 and a constant, then it is interesting.  */
+		      if (TREE_CODE_CLASS (TREE_CODE (def_rhs)) == '<')
+			{
+			  tree op0 = TREE_OPERAND (def_rhs, 0);
+			  tree op1 = TREE_OPERAND (def_rhs, 1);
+
+			  /* Both operands of DEF_RHS must be SSA_NAMEs or
+			     constants.  */
+			  if ((TREE_CODE (op0) != SSA_NAME
+			       && !is_gimple_min_invariant (op0))
+			      || (TREE_CODE (op1) != SSA_NAME
+				  && !is_gimple_min_invariant (op1)))
+			    continue;
+		        }
+
+		      /* If TEST_VAR is set from a TRUTH_NOT_EXPR, then it
+			 is interesting.  */
+		      else if (TREE_CODE (def_rhs) == TRUTH_NOT_EXPR)
+			{
+			  def_rhs = TREE_OPERAND (def_rhs, 0);
+
+			  /* DEF_RHS must be an SSA_NAME or constant.  */
+			  if (TREE_CODE (def_rhs) != SSA_NAME
+			      && !is_gimple_min_invariant (def_rhs))
+			    continue;
+			}
+		      else
 			continue;
 		    }
 		  else
 		    continue;
 
-		  /* All the tests passed, record COND_EXPR and TEST_VAR
-		     as interesting.  */
-		  VARRAY_PUSH_TREE (retval, last);
+		  /* All the tests passed, record TEST_VAR as interesting.  */
 		  VARRAY_PUSH_TREE (retval, test_var);
 		  bitmap_set_bit (vars, SSA_NAME_VERSION (test_var));
 		}
@@ -178,8 +226,8 @@ record_single_argument_cond_exprs (void)
   return retval;
 }
 
-/* Given FORWPROP_DATA containing pairs of potentially optimizable COND_EXPRs
-   and the SSA_NAME used in the COND_EXPR, attempt to rewrite the condition
+/* Given FORWPROP_DATA containing SSA_NAMEs which are used in COND_EXPRs
+   that we may be able to optimize, attempt to rewrite the condition
    in each COND_EXPR to use the RHS of the statement which defines the
    SSA_NAME used in the COND_EXPR.  */
   
@@ -188,32 +236,76 @@ substitute_single_use_vars (varray_type forwprop_data)
 {
   unsigned int i;
 
-  for (i = 0; i < VARRAY_ACTIVE_SIZE (forwprop_data); i += 2)
+  for (i = 0; i < VARRAY_ACTIVE_SIZE (forwprop_data); i++)
     {
-      tree test_var = VARRAY_TREE (forwprop_data, i + 1);
+      tree test_var = VARRAY_TREE (forwprop_data, i);
       tree def = SSA_NAME_DEF_STMT (test_var);
       dataflow_t df;
-      int num_uses;
+      int j, num_uses, propagated_uses;
+      block_stmt_iterator bsi;
 
       /* Now compute the immediate uses of TEST_VAR.  */
       df = get_immediate_uses (def);
       num_uses = num_immediate_uses (df);
+      propagated_uses = 0;
 
-      /* If TEST_VAR is used precisely one time, then we may have
-         an optimizable case.  */
-      if (num_uses == 1)
+      /* If TEST_VAR is used more than once and is not a boolean set
+	 via TRUTH_NOT_EXPR with another SSA_NAME as its argument, then
+	 we can not optimize.  */
+      if (num_uses == 1
+	  || (TREE_CODE (TREE_TYPE (test_var)) == BOOLEAN_TYPE
+	      && TREE_CODE (TREE_OPERAND (def, 1)) == TRUTH_NOT_EXPR
+	      && (TREE_CODE (TREE_OPERAND (TREE_OPERAND (def, 1), 0))
+		  == SSA_NAME)))
+	;
+      else
+	continue;
+
+      /* Walk over each use and try to forward propagate the RHS of
+	 DEF into the use.  */
+      for (j = 0; j < num_uses; j++)
 	{
-	  tree cond_stmt = VARRAY_TREE (forwprop_data, i);
-	  tree cond = COND_EXPR_COND (cond_stmt);
-	  enum tree_code cond_code = TREE_CODE (cond);
-	  tree def_rhs = TREE_OPERAND (def, 1);
-	  enum tree_code def_rhs_code = TREE_CODE (def_rhs);
-	  block_stmt_iterator bsi;
+	  tree cond_stmt;
+	  tree cond;
+	  enum tree_code cond_code;
+	  tree def_rhs;
+	  enum tree_code def_rhs_code;
 	  tree new_cond;
 
-	  /* We have to handle DEF being defined by a conditional vs
-	     a TRUTH_NOT_EXPR differently...  */
-	  if (TREE_CODE_CLASS (def_rhs_code) == '<')
+	  cond_stmt = immediate_use (df, j);
+
+	  /* For now we can only propagate into COND_EXPRs.  */
+	  if (TREE_CODE (cond_stmt) != COND_EXPR) 
+	    continue;
+
+	  cond = COND_EXPR_COND (cond_stmt);
+	  cond_code = TREE_CODE (cond);
+	  def_rhs = TREE_OPERAND (def, 1);
+	  def_rhs_code = TREE_CODE (def_rhs);
+
+	  /* If the definition of the single use variable was from an
+	     arithmetic operation, then we just need to adjust the
+	     constant in the COND_EXPR_COND and update the variable tested.  */
+	  if (def_rhs_code == PLUS_EXPR || def_rhs_code == MINUS_EXPR)
+	    {
+	      tree op0 = TREE_OPERAND (def_rhs, 0);
+	      tree op1 = TREE_OPERAND (def_rhs, 1);
+	      enum tree_code new_code;
+	      tree t;
+
+	      /* If the variable was defined via X + C, then we must subtract
+		 C from the constant in the conditional.  Otherwise we add
+		 C to the constant in the conditional.  The result must fold
+		 into a valid gimple operand to be optimizable.  */
+	      new_code = def_rhs_code == PLUS_EXPR ? MINUS_EXPR : PLUS_EXPR;
+	      t = int_const_binop (new_code, TREE_OPERAND (cond, 1), op1, 0);
+	      if (!is_gimple_val (t))
+		continue;
+
+	      new_cond = build (cond_code, boolean_type_node, op0, t);
+	    }
+	  /* If the variable is defined by a conditional expression... */
+	  else if (TREE_CODE_CLASS (def_rhs_code) == '<')
 	    {
 	      /* TEST_VAR was set from a relational operator.  */
 	      tree op0 = TREE_OPERAND (def_rhs, 0);
@@ -256,33 +348,35 @@ substitute_single_use_vars (varray_type forwprop_data)
 	    }
 
 	  /* Dump details.  */
-	  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
-	      fprintf (tree_dump_file, "  Replaced '");
-	      print_generic_expr (tree_dump_file, cond, 0);
-	      fprintf (tree_dump_file, "' with '");
-	      print_generic_expr (tree_dump_file, new_cond, 0);
-	      fprintf (tree_dump_file, "'\n");
+	      fprintf (dump_file, "  Replaced '");
+	      print_generic_expr (dump_file, cond, dump_flags);
+	      fprintf (dump_file, "' with '");
+	      print_generic_expr (dump_file, new_cond, dump_flags);
+	      fprintf (dump_file, "'\n");
 	    }
 
 	  /* Replace the condition.  */
 	  COND_EXPR_COND (cond_stmt) = new_cond;
 	  modify_stmt (cond_stmt);
-
-	  /* Now delete the defining statement, unfortunately
-	     we have to find the defining statement in whatever
-	     block it might be in.  */
-	  for (bsi = bsi_start (bb_for_stmt (def));
-	       !bsi_end_p (bsi);
-	       bsi_next (&bsi))
-	    {
-	      if (def == bsi_stmt (bsi))
-		{
-		  bsi_remove (&bsi);
-		  break;
-		}
-	    }
+	  propagated_uses++;
 	}
+
+      /* If we propagated into all the uses, then we can delete DEF.
+	 Unfortunately, we have to find the defining statement in
+	 whatever block it might be in.  */
+      if (num_uses && num_uses == propagated_uses)
+	for (bsi = bsi_start (bb_for_stmt (def));
+	     !bsi_end_p (bsi);
+	     bsi_next (&bsi))
+	  {
+	    if (def == bsi_stmt (bsi))
+	      {
+		bsi_remove (&bsi);
+		break;
+	      }
+	  }
     }
 }
 

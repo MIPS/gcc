@@ -40,6 +40,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "errors.h"
 #include "ggc.h"
 #include "tree.h"
+#include "langhooks.h"
 
 /* These RTL headers are needed for basic-block.h.  */
 #include "rtl.h"
@@ -185,10 +186,10 @@ tree_ssa_ccp (void)
   finalize ();
 
   /* Debugging dumps.  */
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_DETAILS))
     {
-      dump_referenced_vars (tree_dump_file);
-      fprintf (tree_dump_file, "\n\n");
+      dump_referenced_vars (dump_file);
+      fprintf (dump_file, "\n\n");
     }
 }
 
@@ -248,8 +249,8 @@ simulate_block (basic_block block)
   if (block == EXIT_BLOCK_PTR)
     return;
 
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-    fprintf (tree_dump_file, "\nSimulating block %d\n", block->index);
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    fprintf (dump_file, "\nSimulating block %d\n", block->index);
 
   /* Always simulate PHI nodes, even if we have simulated this block
      before.  */
@@ -306,10 +307,10 @@ simulate_stmt (tree use_stmt)
 {
   basic_block use_bb = bb_for_stmt (use_stmt);
 
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_DETAILS))
     {
-      fprintf (tree_dump_file, "\nSimulating statement (from ssa_edges): ");
-      print_generic_stmt (tree_dump_file, use_stmt, 0);
+      fprintf (dump_file, "\nSimulating statement (from ssa_edges): ");
+      print_generic_stmt (dump_file, use_stmt, dump_flags);
     }
 
   if (TREE_CODE (use_stmt) == PHI_NODE)
@@ -335,8 +336,8 @@ substitute_and_fold (void)
 {
   basic_block bb;
 
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-    fprintf (tree_dump_file,
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    fprintf (dump_file,
 	     "\nSubstituing constants and folding statements\n\n");
 
   /* Substitute constants in every statement of every basic block.  */
@@ -376,10 +377,10 @@ substitute_and_fold (void)
 
 	  /* Replace the statement with its folded version and mark it
 	     folded.  */
-	  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
-	      fprintf (tree_dump_file, "Line %d: replaced ", get_lineno (stmt));
-	      print_generic_stmt (tree_dump_file, stmt, TDF_SLIM);
+	      fprintf (dump_file, "Line %d: replaced ", get_lineno (stmt));
+	      print_generic_stmt (dump_file, stmt, TDF_SLIM);
 	    }
 
 	  if (replace_uses_in (stmt, &replaced_address))
@@ -393,11 +394,11 @@ substitute_and_fold (void)
 		mark_new_vars_to_rename (stmt, vars_to_rename);
 	    }
 
-	  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
-	      fprintf (tree_dump_file, " with ");
-	      print_generic_stmt (tree_dump_file, stmt, TDF_SLIM);
-	      fprintf (tree_dump_file, "\n");
+	      fprintf (dump_file, " with ");
+	      print_generic_stmt (dump_file, stmt, TDF_SLIM);
+	      fprintf (dump_file, "\n");
 	    }
 	}
     }
@@ -421,18 +422,18 @@ visit_phi_node (tree phi)
   if (DONT_SIMULATE_AGAIN (phi))
     return;
 
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_DETAILS))
     {
-      fprintf (tree_dump_file, "\nVisiting PHI node: ");
-      print_generic_expr (tree_dump_file, phi, 0);
+      fprintf (dump_file, "\nVisiting PHI node: ");
+      print_generic_expr (dump_file, phi, dump_flags);
     }
 
   curr_val = get_value (PHI_RESULT (phi));
   switch (curr_val->lattice_val)
     {
     case VARYING:
-      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-	fprintf (tree_dump_file, "\n   Shortcircuit. Default of VARYING.");
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	fprintf (dump_file, "\n   Shortcircuit. Default of VARYING.");
       short_circuit = 1;
       break;
 
@@ -463,9 +464,9 @@ visit_phi_node (tree phi)
 	/* Compute the meet operator over all the PHI arguments. */
 	edge e = PHI_ARG_EDGE (phi, i);
 
-	if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+	if (dump_file && (dump_flags & TDF_DETAILS))
 	  {
-	    fprintf (tree_dump_file,
+	    fprintf (dump_file,
 		     "\n    Argument #%d (%d -> %d %sexecutable)\n",
 		     i, e->src->index, e->dest->index,
 		     (e->flags & EDGE_EXECUTABLE) ? "" : "not ");
@@ -489,12 +490,12 @@ visit_phi_node (tree phi)
 
 	    phi_val = cp_lattice_meet (phi_val, *rdef_val);
 
-	    if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+	    if (dump_file && (dump_flags & TDF_DETAILS))
 	      {
-		fprintf (tree_dump_file, "\t");
-		print_generic_expr (tree_dump_file, rdef, 0);
-		dump_lattice_value (tree_dump_file, "\tValue: ", *rdef_val);
-		fprintf (tree_dump_file, "\n");
+		fprintf (dump_file, "\t");
+		print_generic_expr (dump_file, rdef, dump_flags);
+		dump_lattice_value (dump_file, "\tValue: ", *rdef_val);
+		fprintf (dump_file, "\n");
 	      }
 
 	    if (phi_val.lattice_val == VARYING)
@@ -502,10 +503,10 @@ visit_phi_node (tree phi)
 	  }
       }
 
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_DETAILS))
     {
-      dump_lattice_value (tree_dump_file, "\n    PHI node value: ", phi_val);
-      fprintf (tree_dump_file, "\n\n");
+      dump_lattice_value (dump_file, "\n    PHI node value: ", phi_val);
+      fprintf (dump_file, "\n\n");
     }
 
   set_lattice_value (PHI_RESULT (phi), phi_val);
@@ -581,11 +582,11 @@ visit_stmt (tree stmt)
   if (DONT_SIMULATE_AGAIN (stmt))
     return;
 
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_DETAILS))
     {
-      fprintf (tree_dump_file, "\nVisiting statement: ");
-      print_generic_stmt (tree_dump_file, stmt, TDF_SLIM);
-      fprintf (tree_dump_file, "\n");
+      fprintf (dump_file, "\nVisiting statement: ");
+      print_generic_stmt (dump_file, stmt, TDF_SLIM);
+      fprintf (dump_file, "\n");
     }
 
   ann = stmt_ann (stmt);
@@ -758,8 +759,8 @@ add_control_edge (edge e)
 
   cfg_blocks_add (bb);
 
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-    fprintf (tree_dump_file, "Adding Destination of edge (%d -> %d) to worklist\n\n",
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    fprintf (dump_file, "Adding Destination of edge (%d -> %d) to worklist\n\n",
 	     e->src->index, e->dest->index);
 }
 
@@ -974,7 +975,7 @@ dump_lattice_value (FILE *outf, const char *prefix, value val)
       break;
     case CONSTANT:
       fprintf (outf, "%sCONSTANT ", prefix);
-      print_generic_expr (outf, val.const_val, 0);
+      print_generic_expr (outf, val.const_val, dump_flags);
       break;
     default:
       abort ();
@@ -1152,8 +1153,8 @@ initialize (void)
   /* Compute immediate uses for variables we care about.  */
   compute_immediate_uses (TDFA_USE_OPS, need_imm_uses_for);
 
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-    dump_immediate_uses (tree_dump_file);
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    dump_immediate_uses (dump_file);
 
   VARRAY_BB_INIT (cfg_blocks, 20, "cfg_blocks");
 
@@ -1323,11 +1324,11 @@ set_lattice_value (tree var, value val)
 
   if (old->lattice_val != val.lattice_val)
     {
-      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+      if (dump_file && (dump_flags & TDF_DETAILS))
 	{
-	  dump_lattice_value (tree_dump_file,
+	  dump_lattice_value (dump_file,
 			      "Lattice value changed to ", val);
-	  fprintf (tree_dump_file, ".  Adding definition to SSA edges.\n");
+	  fprintf (dump_file, ".  Adding definition to SSA edges.\n");
 	}
 
       add_var_to_ssa_edges_worklist (var);
@@ -1434,7 +1435,7 @@ maybe_fold_offset_to_array_ref (tree base, tree offset, tree orig_type)
   if (TREE_CODE (array_type) != ARRAY_TYPE)
     return NULL_TREE;
   elt_type = TREE_TYPE (array_type);
-  if (TYPE_MAIN_VARIANT (orig_type) != TYPE_MAIN_VARIANT (elt_type))
+  if (!lang_hooks.types_compatible_p (orig_type, elt_type))
     return NULL_TREE;
 	
   /* Whee.  Ignore indexing of variable sized types.  */
@@ -1487,7 +1488,7 @@ maybe_fold_offset_to_component_ref (tree record_type, tree base, tree offset,
     return NULL_TREE;
 
   /* Short-circuit silly cases.  */
-  if (TYPE_MAIN_VARIANT (record_type) == TYPE_MAIN_VARIANT (orig_type))
+  if (lang_hooks.types_compatible_p (record_type, orig_type))
     return NULL_TREE;
 
   tail_array_field = NULL_TREE;
@@ -1544,7 +1545,7 @@ maybe_fold_offset_to_component_ref (tree record_type, tree base, tree offset,
 
       /* Here we exactly match the offset being checked.  If the types match,
 	 then we can return that field.  */
-      else if (TYPE_MAIN_VARIANT (orig_type) == TYPE_MAIN_VARIANT (field_type))
+      else if (lang_hooks.types_compatible_p (orig_type, field_type))
 	{
 	  if (base_is_ptr)
 	    base = build1 (INDIRECT_REF, record_type, base);
@@ -1808,6 +1809,44 @@ fold_stmt_r (tree *expr_p, int *walk_subtrees, void *data)
       t = maybe_fold_stmt_plus (expr);
       break;
 
+    case COMPONENT_REF:
+      t = walk_tree (&TREE_OPERAND (expr, 0), fold_stmt_r, data, NULL);
+      if (t)
+  return t;
+      *walk_subtrees = 0;
+
+      /* Make sure the FIELD_DECL is actually a field in the type on
+   the lhs.  In cases with IMA it is possible that it came
+   from another, equivalent type at this point.  We have
+   already checked the equivalence in this case.
+   Match on type plus offset, to allow for unnamed fields.
+   We won't necessarily get the corresponding field for
+   unions; this is believed to be harmless.  */
+
+      if ((current_file_decl && TREE_CHAIN (current_file_decl))
+    && (DECL_FIELD_CONTEXT (TREE_OPERAND (expr, 1)) !=
+        TREE_TYPE (TREE_OPERAND (expr, 0))))
+  {
+    tree f;
+    tree orig_field = TREE_OPERAND (expr, 1);
+    tree orig_type = TREE_TYPE (orig_field);
+    for (f = TYPE_FIELDS (TREE_TYPE (TREE_OPERAND (expr, 0)));
+         f; f = TREE_CHAIN (f))
+      {
+        if (lang_hooks.types_compatible_p (TREE_TYPE (f), orig_type)
+  && tree_int_cst_compare (DECL_FIELD_BIT_OFFSET (f),
+	       DECL_FIELD_BIT_OFFSET (orig_field)) == 0
+  && tree_int_cst_compare (DECL_FIELD_OFFSET (f),
+	       DECL_FIELD_OFFSET (orig_field)) == 0)
+{
+  TREE_OPERAND (expr, 1) = f;
+  break;
+}
+      }
+    /* Fall through is an error; it will be detected in tree-sra. */
+  }
+      break;
+
     default:
       return NULL_TREE;
     }
@@ -1987,7 +2026,16 @@ get_default_value (tree var)
   value val;
   tree sym;
 
-  sym = (!DECL_P (var)) ? get_base_decl (var) : var;
+  if (TREE_CODE (var) == SSA_NAME)
+    sym = SSA_NAME_VAR (var);
+  else
+    {
+#ifdef ENABLE_CHECKING
+      if (!DECL_P (var))
+	abort ();
+#endif
+      sym = var;
+    }
 
   val.lattice_val = UNDEFINED;
   val.const_val = NULL_TREE;
@@ -2068,9 +2116,6 @@ ccp_fold_builtin (tree stmt, tree fn)
     case BUILT_IN_STRNCPY:
       strlen_arg = 2;
       break;
-    case BUILT_IN_STRCMP:
-    case BUILT_IN_STRNCMP:
-      strlen_arg = 3;
     default:
       return NULL_TREE;
     }
@@ -2091,21 +2136,35 @@ ccp_fold_builtin (tree stmt, tree fn)
 
   BITMAP_XFREE (visited);
 
+  /* FIXME.  All this code looks dangerous in the sense that it might
+     create non-gimple expressions.  */
   switch (DECL_FUNCTION_CODE (callee))
     {
     case BUILT_IN_STRLEN:
       /* Convert from the internal "sizetype" type to "size_t".  */
-      if (strlen_val[0] && size_type_node)
-	return convert (size_type_node, strlen_val[0]);
+      if (strlen_val[0]
+	  && size_type_node)
+	{
+	  tree new = convert (size_type_node, strlen_val[0]);
+
+	  /* If the result is not a valid gimple value, or not a cast
+	     of a valid gimple value, then we can not use the result.  */
+	  if (is_gimple_val (new)
+	      || (is_gimple_cast (new)
+		  && is_gimple_val (TREE_OPERAND (new, 0))))
+	    return new;
+	  else
+	    return NULL_TREE;
+	}
       return strlen_val[0];
     case BUILT_IN_STRCPY:
+      if (strlen_val[1]
+	  && is_gimple_val (strlen_val[1]))
       return simplify_builtin_strcpy (arglist, strlen_val[1]);
     case BUILT_IN_STRNCPY:
+      if (strlen_val[1]
+	  && is_gimple_val (strlen_val[1]))
       return simplify_builtin_strncpy (arglist, strlen_val[1]);
-    case BUILT_IN_STRCMP:
-      return simplify_builtin_strcmp (arglist, strlen_val[0], strlen_val[1]);
-    case BUILT_IN_STRNCMP:
-      return simplify_builtin_strncmp (arglist, strlen_val[0], strlen_val[1]);
     case BUILT_IN_FPUTS:
       return simplify_builtin_fputs (arglist,
 				     TREE_CODE (stmt) != MODIFY_EXPR, 0,
@@ -2254,20 +2313,20 @@ execute_fold_all_builtins (void)
 		continue;
 	      }
 
-	  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
-	      fprintf (tree_dump_file, "Simplified\n  ");
-	      print_generic_stmt (tree_dump_file, *stmtp, 0);
+	      fprintf (dump_file, "Simplified\n  ");
+	      print_generic_stmt (dump_file, *stmtp, dump_flags);
 	    }
 
 	  set_rhs (stmtp, result);
 	  modify_stmt (*stmtp);
 
-	  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
-	      fprintf (tree_dump_file, "to\n  ");
-	      print_generic_stmt (tree_dump_file, *stmtp, 0);
-	      fprintf (tree_dump_file, "\n");
+	      fprintf (dump_file, "to\n  ");
+	      print_generic_stmt (dump_file, *stmtp, dump_flags);
+	      fprintf (dump_file, "\n");
 	    }
 	}
     }

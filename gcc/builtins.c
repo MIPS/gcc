@@ -48,14 +48,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #define CALLED_AS_BUILT_IN(NODE) \
    (!strncmp (IDENTIFIER_POINTER (DECL_NAME (NODE)), "__builtin_", 10))
 
-/* Register mappings for target machines without register windows.  */
-#ifndef INCOMING_REGNO
-#define INCOMING_REGNO(OUT) (OUT)
-#endif
-#ifndef OUTGOING_REGNO
-#define OUTGOING_REGNO(IN) (IN)
-#endif
-
 #ifndef PAD_VARARGS_DOWN
 #define PAD_VARARGS_DOWN BYTES_BIG_ENDIAN
 #endif
@@ -101,7 +93,6 @@ static rtx expand_builtin_classify_type (tree);
 static void expand_errno_check (tree, rtx);
 static rtx expand_builtin_mathfn (tree, rtx, rtx);
 static rtx expand_builtin_mathfn_2 (tree, rtx, rtx);
-static rtx expand_builtin_constant_p (tree, enum machine_mode);
 static rtx expand_builtin_args_info (tree);
 static rtx expand_builtin_next_arg (tree);
 static rtx expand_builtin_va_start (tree);
@@ -169,6 +160,8 @@ static tree fold_builtin_strncmp (tree);
 static tree fold_builtin_signbit (tree);
 
 static tree simplify_builtin_memcmp (tree);
+static tree simplify_builtin_strcmp (tree);
+static tree simplify_builtin_strncmp (tree);
 static tree simplify_builtin_strpbrk (tree);
 static tree simplify_builtin_strstr (tree);
 static tree simplify_builtin_strchr (tree);
@@ -526,13 +519,9 @@ expand_builtin_setjmp_setup (rtx buf_addr, rtx receiver_label)
      the buffer and use the rest of it for the stack save area, which
      is machine-dependent.  */
 
-#ifndef BUILTIN_SETJMP_FRAME_VALUE
-#define BUILTIN_SETJMP_FRAME_VALUE virtual_stack_vars_rtx
-#endif
-
   mem = gen_rtx_MEM (Pmode, buf_addr);
   set_mem_alias_set (mem, setjmp_alias_set);
-  emit_move_insn (mem, BUILTIN_SETJMP_FRAME_VALUE);
+  emit_move_insn (mem, targetm.builtin_setjmp_frame_value ());
 
   mem = gen_rtx_MEM (Pmode, plus_constant (buf_addr, GET_MODE_SIZE (Pmode))),
   set_mem_alias_set (mem, setjmp_alias_set);
@@ -991,23 +980,6 @@ static enum machine_mode apply_result_mode[FIRST_PSEUDO_REGISTER];
    __builtin_apply_args.  0 indicates that the register is not
    used for calling a function.  */
 static int apply_args_reg_offset[FIRST_PSEUDO_REGISTER];
-
-/* Return the offset of register REGNO into the block returned by
-   __builtin_apply_args.  This is not declared static, since it is
-   needed in objc-act.c.  */
-
-int
-apply_args_register_offset (int regno)
-{
-  apply_args_size ();
-
-  /* Arguments are always put in outgoing registers (in the argument
-     block) if such make sense.  */
-#ifdef OUTGOING_REGNO
-  regno = OUTGOING_REGNO (regno);
-#endif
-  return apply_args_reg_offset[regno];
-}
 
 /* Return the size required for the block returned by __builtin_apply_args,
    and initialize apply_args_mode.  */
@@ -1545,32 +1517,6 @@ expand_builtin_classify_type (tree arglist)
   return GEN_INT (no_type_class);
 }
 
-/* Expand expression EXP, which is a call to __builtin_constant_p.  */
-
-static rtx
-expand_builtin_constant_p (tree arglist, enum machine_mode target_mode)
-{
-  rtx tmp;
-
-  if (arglist == 0)
-    return const0_rtx;
-  arglist = TREE_VALUE (arglist);
-
-  /* We have taken care of the easy cases during constant folding.  This
-     case is not obvious, so emit (constant_p_rtx (ARGLIST)) and let CSE
-     get a chance to see if it can deduce whether ARGLIST is constant.
-     If CSE isn't going to run, of course, don't bother waiting.  */
-
-  if (cse_not_expected)
-    return const0_rtx;
-
-  current_function_calls_constant_p = 1;
-
-  tmp = expand_expr (arglist, NULL_RTX, VOIDmode, 0);
-  tmp = gen_rtx_CONSTANT_P_RTX (target_mode, tmp);
-  return tmp;
-}
-
 /* This helper macro, meant to be used in mathfn_built_in below,
    determines which among a set of three builtin math functions is
    appropriate for a given type mode.  The `F' and `L' cases are
@@ -1763,6 +1709,14 @@ expand_builtin_mathfn (tree exp, rtx target, rtx subtarget)
     case BUILT_IN_LOGF:
     case BUILT_IN_LOGL:
       errno_set = true; builtin_optab = log_optab; break;
+    case BUILT_IN_LOG10:
+    case BUILT_IN_LOG10F:
+    case BUILT_IN_LOG10L:
+      errno_set = true; builtin_optab = log10_optab; break;
+    case BUILT_IN_LOG2:
+    case BUILT_IN_LOG2F:
+    case BUILT_IN_LOG2L:
+      errno_set = true; builtin_optab = log2_optab; break;
     case BUILT_IN_TAN:
     case BUILT_IN_TANF:
     case BUILT_IN_TANL:
@@ -4238,6 +4192,7 @@ expand_builtin_va_arg (tree valist, tree type)
 
       /* We can, however, treat "undefined" any way we please.
 	 Call abort to encourage the user to fix the program.  */
+      inform ("if this code is reached, the program will abort");
       expand_builtin_trap ();
 
       /* This is dead code, but go ahead and finish so that the
@@ -5343,6 +5298,12 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_LOG:
     case BUILT_IN_LOGF:
     case BUILT_IN_LOGL:
+    case BUILT_IN_LOG10:
+    case BUILT_IN_LOG10F:
+    case BUILT_IN_LOG10L:
+    case BUILT_IN_LOG2:
+    case BUILT_IN_LOG2F:
+    case BUILT_IN_LOG2L:
     case BUILT_IN_TAN:
     case BUILT_IN_TANF:
     case BUILT_IN_TANL:
@@ -5449,7 +5410,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
       return expand_builtin_classify_type (arglist);
 
     case BUILT_IN_CONSTANT_P:
-      return expand_builtin_constant_p (arglist, target_mode);
+      return const0_rtx;
 
     case BUILT_IN_FRAME_ADDRESS:
     case BUILT_IN_RETURN_ADDRESS:
@@ -6464,8 +6425,8 @@ real_dconstp (tree expr, const REAL_VALUE_TYPE *value)
 }
 
 /* A subroutine of fold_builtin to fold the various logarithmic
-   functions.  EXP is the CALL_EXPR of a call to a builtin log*
-   function.  VALUE is the base of the log* function.  */
+   functions.  EXP is the CALL_EXPR of a call to a builtin logN
+   function.  VALUE is the base of the logN function.  */
 
 static tree
 fold_builtin_logarithm (tree exp, const REAL_VALUE_TYPE *value)
@@ -6479,7 +6440,7 @@ fold_builtin_logarithm (tree exp, const REAL_VALUE_TYPE *value)
       tree arg = TREE_VALUE (arglist);
       const enum built_in_function fcode = builtin_mathfn_code (arg);
 	
-      /* Optimize log*(1.0) = 0.0.  */
+      /* Optimize logN(1.0) = 0.0.  */
       if (real_onep (arg))
 	return build_real (type, dconst0);
 
@@ -6504,13 +6465,10 @@ fold_builtin_logarithm (tree exp, const REAL_VALUE_TYPE *value)
 		  && (fcode == BUILT_IN_EXP2
 		      || fcode == BUILT_IN_EXP2F
 		      || fcode == BUILT_IN_EXP2L))
-	      || (value == &dconst10
-		  && (fcode == BUILT_IN_EXP10
-		      || fcode == BUILT_IN_EXP10F
-		      || fcode == BUILT_IN_EXP10L))))
+	      || (value == &dconst10 && (BUILTIN_EXP10_P (fcode)))))
 	return convert (type, TREE_VALUE (TREE_OPERAND (arg, 1)));
 
-      /* Optimize log*(func()) for various exponential functions.  We
+      /* Optimize logN(func()) for various exponential functions.  We
          want to determine the value "x" and the power "exponent" in
          order to transform logN(x**exponent) into exponent*logN(x).  */
       if (flag_unsafe_math_optimizations)
@@ -7020,12 +6978,9 @@ fold_builtin_1 (tree exp)
 		return build_real (type, r);
 	    }
 
-	  /* Optimize sqrt(exp(x)) = exp(x*0.5).  */
+	  /* Optimize sqrt(expN(x)) = expN(x*0.5).  */
 	  fcode = builtin_mathfn_code (arg);
-	  if (flag_unsafe_math_optimizations
-	      && (fcode == BUILT_IN_EXP
-		  || fcode == BUILT_IN_EXPF
-		  || fcode == BUILT_IN_EXPL))
+	  if (flag_unsafe_math_optimizations && BUILTIN_EXPONENT_P (fcode))
 	    {
 	      tree expfn = TREE_OPERAND (TREE_OPERAND (arg, 0), 0);
 	      arg = fold (build (MULT_EXPR, type,
@@ -7243,12 +7198,9 @@ fold_builtin_1 (tree exp)
 		}
 	    }
 
-	  /* Optimize pow(exp(x),y) = exp(x*y).  */
+	  /* Optimize pow(expN(x),y) = expN(x*y).  */
 	  fcode = builtin_mathfn_code (arg0);
-	  if (flag_unsafe_math_optimizations
-	      && (fcode == BUILT_IN_EXP
-		  || fcode == BUILT_IN_EXPF
-		  || fcode == BUILT_IN_EXPL))
+	  if (flag_unsafe_math_optimizations && BUILTIN_EXPONENT_P (fcode))
 	    {
 	      tree expfn = TREE_OPERAND (TREE_OPERAND (arg0, 0), 0);
 	      tree arg = TREE_VALUE (TREE_OPERAND (arg0, 1));
@@ -7258,10 +7210,7 @@ fold_builtin_1 (tree exp)
 	    }
 
 	  /* Optimize pow(sqrt(x),y) = pow(x,y*0.5).  */
-	  if (flag_unsafe_math_optimizations
-	      && (fcode == BUILT_IN_SQRT
-		  || fcode == BUILT_IN_SQRTF
-		  || fcode == BUILT_IN_SQRTL))
+	  if (flag_unsafe_math_optimizations && BUILTIN_SQRT_P (fcode))
 	    {
 	      tree narg0 = TREE_VALUE (TREE_OPERAND (arg0, 1));
 	      tree narg1 = fold (build (MULT_EXPR, type, arg1,
@@ -7479,31 +7428,6 @@ default_expand_builtin (tree exp ATTRIBUTE_UNUSED,
   return NULL_RTX;
 }
 
-/* Instantiate all remaining CONSTANT_P_RTX nodes.  */
-
-void
-purge_builtin_constant_p (void)
-{
-  rtx insn, set, arg, new, note;
-
-  for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
-    if (INSN_P (insn)
-	&& (set = single_set (insn)) != NULL_RTX
-	&& (GET_CODE (arg = SET_SRC (set)) == CONSTANT_P_RTX
-	    || (GET_CODE (arg) == SUBREG
-		&& (GET_CODE (arg = SUBREG_REG (arg))
-		    == CONSTANT_P_RTX))))
-      {
-	arg = XEXP (arg, 0);
-	new = CONSTANT_P (arg) ? const1_rtx : const0_rtx;
-	validate_change (insn, &SET_SRC (set), new, 0);
-
-	/* Remove the REG_EQUAL note from the insn.  */
-	if ((note = find_reg_note (insn, REG_EQUAL, NULL_RTX)) != 0)
-	  remove_note (insn, note);
-      }
-}
-
 /* Returns true is EXP represents data that would potentially reside
    in a readonly section.  */
 
@@ -7576,10 +7500,10 @@ simplify_builtin (tree exp, int ignore)
       val = simplify_builtin_strncpy (arglist, NULL_TREE);
       break;
     case BUILT_IN_STRCMP:
-      val = simplify_builtin_strcmp (arglist, NULL_TREE, NULL_TREE);
+      val = simplify_builtin_strcmp (arglist);
       break;
     case BUILT_IN_STRNCMP:
-      val = simplify_builtin_strncmp (arglist, NULL_TREE, NULL_TREE);
+      val = simplify_builtin_strncmp (arglist);
       break;
     case BUILT_IN_STRPBRK:
       val = simplify_builtin_strpbrk (arglist);
@@ -8067,10 +7991,10 @@ simplify_builtin_memcmp (tree arglist)
    COMPOUND_EXPR in the chain will contain the tree for the simplified
    form of the builtin function call.  */
 
-tree
-simplify_builtin_strcmp (tree arglist, tree len1, tree len2)
+static tree
+simplify_builtin_strcmp (tree arglist)
 {
-  tree arg1, arg2, fn;
+  tree arg1, arg2;
   const char *p1, *p2;
 
   if (!validate_arglist (arglist, POINTER_TYPE, POINTER_TYPE, VOID_TYPE))
@@ -8078,6 +8002,10 @@ simplify_builtin_strcmp (tree arglist, tree len1, tree len2)
 
   arg1 = TREE_VALUE (arglist);
   arg2 = TREE_VALUE (TREE_CHAIN (arglist));
+
+  /* If both arguments are equal (and not volatile), return zero.  */
+  if (operand_equal_p (arg1, arg2, 0))
+    return integer_zero_node;
 
   p1 = c_getstr (arg1);
   p2 = c_getstr (arg2);
@@ -8107,49 +8035,7 @@ simplify_builtin_strcmp (tree arglist, tree len1, tree len2)
       return fold (build (MINUS_EXPR, integer_type_node, ind1, ind2));
     }
 
-  if (!len1)
-    len1 = c_strlen (arg1, 0);
-  if (len1)
-    len1 = size_binop (PLUS_EXPR, ssize_int (1), len1);
-
-  if (!len2)
-    len2 = c_strlen (arg2, 0);
-  if (len2)
-    len2 = size_binop (PLUS_EXPR, ssize_int (1), len2);
-
-  /* If we don't have a constant length for the first, use the length
-     of the second, if we know it.  We don't require a constant for
-     this case; some cost analysis could be done if both are available
-     but neither is constant.  For now, assume they're equally cheap
-     unless one has side effects.
-
-     If both strings have constant lengths, use the smaller.  This
-     could arise if optimization results in strcpy being called with
-     two fixed strings, or if the code was machine-generated.  We should
-     add some code to the `memcmp' handler below to deal with such
-     situations, someday.  */
-
-  if (!len1 || TREE_CODE (len1) != INTEGER_CST)
-    {
-      if (len2 && !TREE_SIDE_EFFECTS (len2))
-	len1 = len2;
-      else if (len1 == 0)
-	return 0;
-    }
-  else if (len2 && TREE_CODE (len2) == INTEGER_CST
-	   && tree_int_cst_lt (len2, len1))
-    len2 = len2;
-
-  /* If both arguments have side effects, we cannot optimize.  */
-  if (TREE_SIDE_EFFECTS (len1))
-    return 0;
-
-  fn = implicit_built_in_decls[BUILT_IN_MEMCMP];
-  if (!fn)
-    return 0;
-
-  chainon (arglist, build_tree_list (NULL_TREE, len1));
-  return build_function_call_expr (fn, arglist);
+  return 0;
 }
 
 /* Simplify a call to the strncmp builtin.
@@ -8169,10 +8055,9 @@ simplify_builtin_strcmp (tree arglist, tree len1, tree len2)
    COMPOUND_EXPR in the chain will contain the tree for the simplified
    form of the builtin function call.  */
 
-tree
-simplify_builtin_strncmp (tree arglist, tree len1, tree len2)
+static tree
+simplify_builtin_strncmp (tree arglist)
 {
-  tree fn, newarglist, len = 0;
   tree arg1, arg2, arg3;
   const char *p1, *p2;
 
@@ -8185,13 +8070,20 @@ simplify_builtin_strncmp (tree arglist, tree len1, tree len2)
   arg3 = TREE_VALUE (TREE_CHAIN (TREE_CHAIN (arglist)));
 
   /* If the len parameter is zero, return zero.  */
-  if (host_integerp (arg3, 1) && tree_low_cst (arg3, 1) == 0)
+  if (integer_zerop (arg3))
     {
       /* Evaluate and ignore arg1 and arg2 in case they have
 	 side-effects.  */
       return build (COMPOUND_EXPR, integer_type_node, arg1,
 		    build (COMPOUND_EXPR, integer_type_node,
 			   arg2, integer_zero_node));
+    }
+
+  /* If arg1 and arg2 are equal (and not volatile), return zero.  */
+  if (operand_equal_p (arg1, arg2, 0))
+    {
+      /* Evaluate and ignore arg3 in case it has side-effects.  */
+      return build (COMPOUND_EXPR, integer_type_node, arg3, integer_zero_node);
     }
 
   p1 = c_getstr (arg1);
@@ -8226,41 +8118,7 @@ simplify_builtin_strncmp (tree arglist, tree len1, tree len2)
       return fold (build (MINUS_EXPR, integer_type_node, ind1, ind2));
     }
 
-  /* If c_strlen can determine an expression for one of the string
-     lengths, and it doesn't have side effects, then call
-     expand_builtin_memcmp() using length MIN(strlen(string)+1, arg3).  */
-
-  /* Perhaps one of the strings is really constant, if so prefer
-     that constant length over the other string's length.  */
-  if (p1)
-    len = len1 ? len1 : c_strlen (arg1, 0);
-  else if (p2)
-    len = len2 ? len2 : c_strlen (arg2, 0);
-
-  /* If we still don't have a len, try either string arg as long
-     as they don't have side effects.  */
-  if (!len && !TREE_SIDE_EFFECTS (arg1))
-    len = c_strlen (arg1, 0);
-  if (!len && !TREE_SIDE_EFFECTS (arg2))
-    len = c_strlen (arg2, 0);
-  /* If we still don't have a length, punt.  */
-  if (!len)
-    return 0;
-
-  fn = implicit_built_in_decls[BUILT_IN_MEMCMP];
-  if (!fn)
-    return 0;
-
-  /* Add one to the string length.  */
-  len = fold (size_binop (PLUS_EXPR, len, ssize_int (1)));
-
-  /* The actual new length parameter is MIN(len,arg3).  */
-  len = fold (build (MIN_EXPR, TREE_TYPE (len), len, arg3));
-
-  newarglist = build_tree_list (NULL_TREE, len);
-  newarglist = tree_cons (NULL_TREE, arg2, newarglist);
-  newarglist = tree_cons (NULL_TREE, arg1, newarglist);
-  return build_function_call_expr (fn, newarglist);
+  return 0;
 }
 
 /* Simplify a call to the strcat builtin.

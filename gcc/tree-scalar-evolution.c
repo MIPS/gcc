@@ -467,8 +467,8 @@ compute_overall_effect_of_inner_loop (tree version)
   struct loop *loop = loop_of_stmt (SSA_NAME_DEF_STMT (version));
   unsigned loop_nb;
   
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-    fprintf (tree_dump_file, "(compute_overall_effect_of_inner_loop \n");
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    fprintf (dump_file, "(compute_overall_effect_of_inner_loop \n");
   
   nb_iter = number_of_iterations_in_loop (loop);
   
@@ -537,8 +537,8 @@ compute_overall_effect_of_inner_loop (tree version)
   
   set_scalar_evolution_outer_value (version, res);
   
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-    fprintf (tree_dump_file, ")\n");
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    fprintf (dump_file, ")\n");
   return res;
 }
 
@@ -689,15 +689,15 @@ set_scalar_evolution (tree scalar,
   scalar_info = find_var_scev_info (scalar);
   chrec = set_scev_keep_symbolic (scalar, chrec);
   
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_DETAILS))
     {
-      fprintf (tree_dump_file, "(set_scalar_evolution \n");
-      fprintf (tree_dump_file, "  (loop_nb = %d)\n", loop_nb);
-      fprintf (tree_dump_file, "  (scalar = ");
-      print_generic_expr (tree_dump_file, scalar, 0);
-      fprintf (tree_dump_file, ")\n  (scalar_evolution = ");
-      print_generic_expr (tree_dump_file, chrec, 0);
-      fprintf (tree_dump_file, "))\n");
+      fprintf (dump_file, "(set_scalar_evolution \n");
+      fprintf (dump_file, "  (loop_nb = %d)\n", loop_nb);
+      fprintf (dump_file, "  (scalar = ");
+      print_generic_expr (dump_file, scalar, 0);
+      fprintf (dump_file, ")\n  (scalar_evolution = ");
+      print_generic_expr (dump_file, chrec, 0);
+      fprintf (dump_file, "))\n");
     }
   
   MI_LOOP_NUM (scalar_info) = loop_nb;
@@ -717,15 +717,15 @@ set_scalar_evolution_outer_value (tree scalar,
   scalar_info = find_var_scev_info (scalar);
   chrec = set_scev_keep_symbolic (scalar, chrec);
   
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_DETAILS))
     {
-      fprintf (tree_dump_file, "(set_scalar_evolution_outer_value \n");
-      fprintf (tree_dump_file, "  (loop_nb = %d)\n", loop_nb);
-      fprintf (tree_dump_file, "  (scalar = ");
-      print_generic_expr (tree_dump_file, scalar, 0);
-      fprintf (tree_dump_file, ")\n  (scalar_evolution = ");
-      print_generic_expr (tree_dump_file, chrec, 0);
-      fprintf (tree_dump_file, "))\n");
+      fprintf (dump_file, "(set_scalar_evolution_outer_value \n");
+      fprintf (dump_file, "  (loop_nb = %d)\n", loop_nb);
+      fprintf (dump_file, "  (scalar = ");
+      print_generic_expr (dump_file, scalar, 0);
+      fprintf (dump_file, ")\n  (scalar_evolution = ");
+      print_generic_expr (dump_file, chrec, 0);
+      fprintf (dump_file, "))\n");
     }
   
   MI_OUTER_LOOPS_CHREC (scalar_info) = chrec;
@@ -744,13 +744,13 @@ get_scalar_evolution (unsigned loop_nb,
   struct scev_info_str *var_info;
   tree res = NULL_TREE;
   
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_DETAILS))
     {
-      fprintf (tree_dump_file, "(get_scalar_evolution \n");
-      fprintf (tree_dump_file, "  (loop_nb = %d)\n", loop_nb);
-      fprintf (tree_dump_file, "  (scalar = ");
-      print_generic_expr (tree_dump_file, var, 0);
-      fprintf (tree_dump_file, ")\n");
+      fprintf (dump_file, "(get_scalar_evolution \n");
+      fprintf (dump_file, "  (loop_nb = %d)\n", loop_nb);
+      fprintf (dump_file, "  (scalar = ");
+      print_generic_expr (dump_file, var, 0);
+      fprintf (dump_file, ")\n");
     }
   
   switch (TREE_CODE (var))
@@ -841,11 +841,11 @@ get_scalar_evolution (unsigned loop_nb,
       break;
     }
   
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_DETAILS))
     {
-      fprintf (tree_dump_file, "  (scalar_evolution = ");
-      print_generic_expr (tree_dump_file, res, 0);
-      fprintf (tree_dump_file, "))\n");
+      fprintf (dump_file, "  (scalar_evolution = ");
+      print_generic_expr (dump_file, res, 0);
+      fprintf (dump_file, "))\n");
     }
   
   return res;
@@ -1122,15 +1122,15 @@ add_to_evolution (unsigned loop_nb,
   if (to_add == NULL_TREE)
     return chrec_before;
   
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_DETAILS))
     {
-      fprintf (tree_dump_file, "(add_to_evolution \n");
-      fprintf (tree_dump_file, "  (loop_nb = %d)\n", loop_nb);
-      fprintf (tree_dump_file, "  (chrec_before = ");
-      print_generic_expr (tree_dump_file, chrec_before, 0);
-      fprintf (tree_dump_file, ")\n  (to_add = ");
-      print_generic_expr (tree_dump_file, to_add, 0);
-      fprintf (tree_dump_file, ")\n");
+      fprintf (dump_file, "(add_to_evolution \n");
+      fprintf (dump_file, "  (loop_nb = %d)\n", loop_nb);
+      fprintf (dump_file, "  (chrec_before = ");
+      print_generic_expr (dump_file, chrec_before, 0);
+      fprintf (dump_file, ")\n  (to_add = ");
+      print_generic_expr (dump_file, to_add, 0);
+      fprintf (dump_file, ")\n");
     }
   
   switch (TREE_CODE (to_add))
@@ -1234,11 +1234,11 @@ add_to_evolution (unsigned loop_nb,
       break;
     }
   
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_DETAILS))
     {
-      fprintf (tree_dump_file, "  (res = ");
-      print_generic_expr (tree_dump_file, res, 0);
-      fprintf (tree_dump_file, "))\n");
+      fprintf (dump_file, "  (res = ");
+      print_generic_expr (dump_file, res, 0);
+      fprintf (dump_file, "))\n");
     }
   
   return res;
@@ -1257,15 +1257,15 @@ multiply_evolution (unsigned loop_nb,
   if (to_mult == NULL_TREE)
     return chrec_before;
   
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_DETAILS))
     {
-      fprintf (tree_dump_file, "(multiply_evolution \n");
-      fprintf (tree_dump_file, "  (loop_nb = %d)\n", loop_nb);
-      fprintf (tree_dump_file, "  (chrec_before = ");
-      print_generic_expr (tree_dump_file, chrec_before, 0);
-      fprintf (tree_dump_file, ")\n  (to_mult = ");
-      print_generic_expr (tree_dump_file, to_mult, 0);
-      fprintf (tree_dump_file, ")\n");
+      fprintf (dump_file, "(multiply_evolution \n");
+      fprintf (dump_file, "  (loop_nb = %d)\n", loop_nb);
+      fprintf (dump_file, "  (chrec_before = ");
+      print_generic_expr (dump_file, chrec_before, 0);
+      fprintf (dump_file, ")\n  (to_mult = ");
+      print_generic_expr (dump_file, to_mult, 0);
+      fprintf (dump_file, ")\n");
     }
   
   switch (TREE_CODE (to_mult))
@@ -1354,11 +1354,11 @@ multiply_evolution (unsigned loop_nb,
       break;
     }
   
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_DETAILS))
     {
-      fprintf (tree_dump_file, "  (res = ");
-      print_generic_expr (tree_dump_file, res, 0);
-      fprintf (tree_dump_file, "))\n");
+      fprintf (dump_file, "  (res = ");
+      print_generic_expr (dump_file, res, 0);
+      fprintf (dump_file, "))\n");
     }
   
   return res;
@@ -1374,8 +1374,8 @@ multiply_evolution (unsigned loop_nb,
 static inline tree
 cannot_analyze_loop_nb_iterations_yet (void)
 {
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-    fprintf (tree_dump_file, "  (nb_iterations cannot be determined))\n");
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    fprintf (dump_file, "  (nb_iterations cannot be determined))\n");
   
   /* Do not update the loop->nb_iterations.  */
   return chrec_top;
@@ -1391,11 +1391,11 @@ set_nb_iterations_in_loop (struct loop *loop,
      runs at least once.  */
   res = chrec_fold_plus (res, integer_one_node);
   
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_DETAILS))
     {
-      fprintf (tree_dump_file, "  (set_nb_iterations_in_loop = ");
-      print_generic_expr (tree_dump_file, res, 0);
-      fprintf (tree_dump_file, "))\n");
+      fprintf (dump_file, "  (set_nb_iterations_in_loop = ");
+      print_generic_expr (dump_file, res, 0);
+      fprintf (dump_file, "))\n");
     }
   
   loop->nb_iterations = res;
@@ -1528,8 +1528,8 @@ get_loop_exit_condition (struct loop *loop)
 {
   tree res = NULL_TREE;
   
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-    fprintf (tree_dump_file, "(get_loop_exit_condition \n  ");
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    fprintf (dump_file, "(get_loop_exit_condition \n  ");
   
   if (loop_exit_edges (loop))
     {
@@ -1543,10 +1543,10 @@ get_loop_exit_condition (struct loop *loop)
 	res = expr;
     }
   
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_DETAILS))
     {
-      print_generic_expr (tree_dump_file, res, 0);
-      fprintf (tree_dump_file, ")\n");
+      print_generic_expr (dump_file, res, 0);
+      fprintf (dump_file, ")\n");
     }
   
   return res;
@@ -2039,12 +2039,12 @@ analyze_evolution_in_loop (tree loop_phi_node,
   tree evolution_function = chrec_not_analyzed_yet;
   unsigned loop_nb = loop_num (loop_of_stmt (loop_phi_node));
   
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_DETAILS))
     {
-      fprintf (tree_dump_file, "(analyze_evolution_in_loop \n");
-      fprintf (tree_dump_file, "  (loop_phi_node = ");
-      print_generic_expr (tree_dump_file, loop_phi_node, 0);
-      fprintf (tree_dump_file, ")\n");
+      fprintf (dump_file, "(analyze_evolution_in_loop \n");
+      fprintf (dump_file, "  (loop_phi_node = ");
+      print_generic_expr (dump_file, loop_phi_node, 0);
+      fprintf (dump_file, ")\n");
     }
   
   for (i = 0; i < PHI_NUM_ARGS (loop_phi_node); i++)
@@ -2097,11 +2097,11 @@ analyze_evolution_in_loop (tree loop_phi_node,
 	}
     }
   
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_DETAILS))
     {
-      fprintf (tree_dump_file, "  (evolution_function = ");
-      print_generic_expr (tree_dump_file, evolution_function, 0);
-      fprintf (tree_dump_file, "))\n");
+      fprintf (dump_file, "  (evolution_function = ");
+      print_generic_expr (dump_file, evolution_function, 0);
+      fprintf (dump_file, "))\n");
     }
   
   return evolution_function;
@@ -2120,12 +2120,12 @@ analyze_initial_condition (tree loop_phi_node)
   int i;
   tree init_cond = chrec_not_analyzed_yet;
   
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_DETAILS))
     {
-      fprintf (tree_dump_file, "(analyze_initial_condition \n");
-      fprintf (tree_dump_file, "  (loop_phi_node = \n");
-      print_generic_expr (tree_dump_file, loop_phi_node, 0);
-      fprintf (tree_dump_file, ")\n");
+      fprintf (dump_file, "(analyze_initial_condition \n");
+      fprintf (dump_file, "  (loop_phi_node = \n");
+      print_generic_expr (dump_file, loop_phi_node, 0);
+      fprintf (dump_file, ")\n");
     }
   
   for (i = 0; i < PHI_NUM_ARGS (loop_phi_node); i++)
@@ -2180,11 +2180,11 @@ analyze_initial_condition (tree loop_phi_node)
 	}
     }
   
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_DETAILS))
     {
-      fprintf (tree_dump_file, "  (init_cond = ");
-      print_generic_expr (tree_dump_file, init_cond, 0);
-      fprintf (tree_dump_file, "))\n");
+      fprintf (dump_file, "  (init_cond = ");
+      print_generic_expr (dump_file, init_cond, 0);
+      fprintf (dump_file, "))\n");
     }
   
   return init_cond;
@@ -2323,13 +2323,13 @@ analyze_scalar_evolution (unsigned loop_nb,
 {
   tree res, def;
   
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_DETAILS))
     {
-      fprintf (tree_dump_file, "(analyze_scalar_evolution \n");
-      fprintf (tree_dump_file, "  (loop_nb = %d)\n", loop_nb);
-      fprintf (tree_dump_file, "  (scalar = ");
-      print_generic_expr (tree_dump_file, version, 0);
-      fprintf (tree_dump_file, ")\n");
+      fprintf (dump_file, "(analyze_scalar_evolution \n");
+      fprintf (dump_file, "  (loop_nb = %d)\n", loop_nb);
+      fprintf (dump_file, "  (scalar = ");
+      print_generic_expr (dump_file, version, 0);
+      fprintf (dump_file, ")\n");
     }
   
   res = get_scalar_evolution (loop_nb, version);
@@ -2380,8 +2380,8 @@ analyze_scalar_evolution (unsigned loop_nb,
       	}
     }
   
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-    fprintf (tree_dump_file, ")\n");
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    fprintf (dump_file, ")\n");
   
   return res;
 }
@@ -2535,8 +2535,8 @@ number_of_iterations_in_loop (struct loop *loop)
   if (res)
     return res;
   
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-    fprintf (tree_dump_file, "(number_of_iterations_in_loop \n");
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    fprintf (dump_file, "(number_of_iterations_in_loop \n");
   
   cond = get_loop_exit_condition (loop);
   if (cond == NULL_TREE)
@@ -2559,14 +2559,14 @@ number_of_iterations_in_loop (struct loop *loop)
 	/* KEEP_IT_SYMBOLIC.  */
 	chrec0 = opnd0;
       
-      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+      if (dump_file && (dump_flags & TDF_DETAILS))
 	{
-	  fprintf (tree_dump_file, "  (loop_nb = %d)\n", loop_nb);
-	  fprintf (tree_dump_file, "  (loop_while_expr_is_true: ");
-	  print_generic_expr (tree_dump_file, test, 0);
-	  fprintf (tree_dump_file, ")\n  (chrec0 = ");
-	  print_generic_expr (tree_dump_file, chrec0, 0);
-	  fprintf (tree_dump_file, ")\n");
+	  fprintf (dump_file, "  (loop_nb = %d)\n", loop_nb);
+	  fprintf (dump_file, "  (loop_while_expr_is_true: ");
+	  print_generic_expr (dump_file, test, 0);
+	  fprintf (dump_file, ")\n  (chrec0 = ");
+	  print_generic_expr (dump_file, chrec0, 0);
+	  fprintf (dump_file, ")\n");
 	}
       
       if (chrec_contains_undetermined (chrec0))
@@ -2601,16 +2601,16 @@ number_of_iterations_in_loop (struct loop *loop)
 	/* KEEP_IT_SYMBOLIC.  */
 	chrec1 = opnd1;
       
-      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+      if (dump_file && (dump_flags & TDF_DETAILS))
 	{
-	  fprintf (tree_dump_file, "  (loop_nb = %d)\n", loop_nb);
-	  fprintf (tree_dump_file, "  (loop_while_expr_is_true: ");
-	  print_generic_expr (tree_dump_file, test, 0);
-	  fprintf (tree_dump_file, ")\n  (chrec0 = ");
-	  print_generic_expr (tree_dump_file, chrec0, 0);
-	  fprintf (tree_dump_file, ")\n  (chrec1 = ");
-	  print_generic_expr (tree_dump_file, chrec1, 0);
-	  fprintf (tree_dump_file, ")\n");
+	  fprintf (dump_file, "  (loop_nb = %d)\n", loop_nb);
+	  fprintf (dump_file, "  (loop_while_expr_is_true: ");
+	  print_generic_expr (dump_file, test, 0);
+	  fprintf (dump_file, ")\n  (chrec0 = ");
+	  print_generic_expr (dump_file, chrec0, 0);
+	  fprintf (dump_file, ")\n  (chrec1 = ");
+	  print_generic_expr (dump_file, chrec1, 0);
+	  fprintf (dump_file, ")\n");
 	}
 	
       if (chrec_contains_undetermined (chrec0)
@@ -2690,8 +2690,8 @@ number_of_iterations_for_all_loops (varray_type *exit_conditions)
       nb_iter = number_of_iterations_in_loop (loop_of_stmt (exit_condition));
     }
   
-  if (tree_dump_file)
-    print_loop_ir (tree_dump_file);
+  if (dump_file)
+    print_loop_ir (dump_file);
 }
 
 

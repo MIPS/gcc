@@ -134,7 +134,7 @@ static void initialize_argument_information (int, struct arg_data *,
 					     struct args_size *, int, tree,
 					     tree, CUMULATIVE_ARGS *, int,
 					     rtx *, int *, int *, int *,
-					     bool);
+					     bool *, bool);
 static void compute_argument_addresses (struct arg_data *, rtx, int);
 static rtx rtx_for_function_call (tree, tree);
 static void load_register_parameters (struct arg_data *, int, rtx *, int,
@@ -1030,6 +1030,9 @@ store_unaligned_arguments_into_pseudos (struct arg_data *args, int num_actuals)
    OLD_PENDING_ADJ, MUST_PREALLOCATE and FLAGS are pointers to integer
    flags which may may be modified by this routine. 
 
+   MAY_TAILCALL is cleared if we encounter an invisible pass-by-reference
+   that requires allocation of stack space.
+
    CALL_FROM_THUNK_P is true if this call is the jump from a thunk to
    the thunked-to function.  */
 
@@ -1043,7 +1046,7 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
 				 int reg_parm_stack_space,
 				 rtx *old_stack_level, int *old_pending_adj,
 				 int *must_preallocate, int *ecf_flags,
-				 bool call_from_thunk_p)
+				 bool *may_tailcall, bool call_from_thunk_p)
 {
   /* 1 if scanning parms front to back, -1 if scanning back to front.  */
   int inc;
@@ -1156,6 +1159,7 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
 					   build_pointer_type (type),
 					   args[i].tree_value);
 	      type = build_pointer_type (type);
+	      *may_tailcall = false;
 	    }
 	  else
 	    {
@@ -1195,6 +1199,7 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
 					   build_pointer_type (type),
 					   make_tree (type, copy));
 	      type = build_pointer_type (type);
+	      *may_tailcall = false;
 	    }
 	}
 
@@ -1353,11 +1358,6 @@ compute_argument_block_size (int reg_parm_stack_space,
       args_size->constant = MAX (args_size->constant,
 				 reg_parm_stack_space);
 
-#ifdef MAYBE_REG_PARM_STACK_SPACE
-      if (reg_parm_stack_space == 0)
-	args_size->constant = 0;
-#endif
-
 #ifndef OUTGOING_REG_PARM_STACK_SPACE
       args_size->constant -= reg_parm_stack_space;
 #endif
@@ -1380,20 +1380,16 @@ precompute_arguments (int flags, int num_actuals, struct arg_data *args)
 {
   int i;
 
-  /* If this function call is cse'able, precompute all the parameters.
-     Note that if the parameter is constructed into a temporary, this will
-     cause an additional copy because the parameter will be constructed
-     into a temporary location and then copied into the outgoing arguments.
-     If a parameter contains a call to alloca and this function uses the
-     stack, precompute the parameter.  */
+  /* If this is a libcall, then precompute all arguments so that we do not
+     get extraneous instructions emitted as part of the libcall sequence.
 
-  /* If we preallocated the stack space, and some arguments must be passed
-     on the stack, then we must precompute any parameter which contains a
-     function call which will store arguments on the stack.
-     Otherwise, evaluating the parameter may clobber previous parameters
-     which have already been stored into the stack.  (we have code to avoid
-     such case by saving the outgoing stack arguments, but it results in
-     worse code)  */
+     If this target defines ACCUMULATE_OUTGOING_ARGS to true, then we must
+     precompute all arguments that contain function calls.  Otherwise,
+     computing arguments for a subcall may clobber arguments for this call.
+
+     If this target defines ACCUMULATE_OUTGOING_ARGS to false, then we only
+     need to precompute arguments that change the stack pointer, such as calls
+     to alloca, and calls that do not pop all of their arguments.  */
 
   for (i = 0; i < num_actuals; i++)
     if ((flags & ECF_LIBCALL_BLOCK)
@@ -2028,7 +2024,9 @@ expand_call (tree exp, rtx target, int ignore)
   /* Declaration of the function being called,
      or 0 if the function is computed (not known by name).  */
   tree fndecl = 0;
-  int try_tail_call = CALL_EXPR_TAILCALL (exp);
+  /* The type of the function being called.  */
+  tree fntype;
+  bool try_tail_call = CALL_EXPR_TAILCALL (exp);
   int pass;
 
   /* Register in which non-BLKmode value will be returned,
@@ -2130,11 +2128,17 @@ expand_call (tree exp, rtx target, int ignore)
      function attributes (flags) from the function decl or type node.  */
   fndecl = get_callee_fndecl (exp);
   if (fndecl)
-    flags |= flags_from_decl_or_type (fndecl);
+    {
+      fntype = TREE_TYPE (fndecl);
+      flags |= flags_from_decl_or_type (fndecl);
+    }
   else
-    flags |= flags_from_decl_or_type (TREE_TYPE (TREE_TYPE (p)));
+    {
+      fntype = TREE_TYPE (TREE_TYPE (p));
+      flags |= flags_from_decl_or_type (fntype);
+    }
 
-  struct_value = targetm.calls.struct_value_rtx (fndecl ? TREE_TYPE (fndecl) : 0, 0);
+  struct_value = targetm.calls.struct_value_rtx (fntype, 0);
 
   /* Warn if this value is an aggregate type,
      regardless of which calling convention we are using for it.  */
@@ -2168,11 +2172,7 @@ expand_call (tree exp, rtx target, int ignore)
     }
 
 #ifdef REG_PARM_STACK_SPACE
-#ifdef MAYBE_REG_PARM_STACK_SPACE
-  reg_parm_stack_space = MAYBE_REG_PARM_STACK_SPACE;
-#else
   reg_parm_stack_space = REG_PARM_STACK_SPACE (fndecl);
-#endif
 #endif
 
 #ifndef OUTGOING_REG_PARM_STACK_SPACE
@@ -2264,7 +2264,8 @@ expand_call (tree exp, rtx target, int ignore)
 		  || (ACCUMULATE_OUTGOING_ARGS
 		      && stack_arg_under_construction
 		      && structure_value_addr == virtual_outgoing_args_rtx)
-		  ? copy_addr_to_reg (structure_value_addr)
+		  ? copy_addr_to_reg (convert_memory_address 
+				      (Pmode, structure_value_addr))
 		  : structure_value_addr);
 
       actparms
@@ -2329,7 +2330,7 @@ expand_call (tree exp, rtx target, int ignore)
 				   &args_so_far, reg_parm_stack_space,
 				   &old_stack_level, &old_pending_adj,
 				   &must_preallocate, &flags,
-				   CALL_FROM_THUNK_P (exp));
+				   &try_tail_call, CALL_FROM_THUNK_P (exp));
 
   if (args_size.var)
     {
@@ -2556,10 +2557,6 @@ expand_call (tree exp, rtx target, int ignore)
       if (pass && (flags & ECF_LIBCALL_BLOCK))
 	NO_DEFER_POP;
 
-#ifdef FINAL_REG_PARM_STACK_SPACE
-      reg_parm_stack_space = FINAL_REG_PARM_STACK_SPACE (args_size.constant,
-							 args_size.var);
-#endif
       /* Precompute any arguments as needed.  */
       if (pass)
 	precompute_arguments (flags, num_actuals, args);
@@ -3532,11 +3529,7 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
   rtx struct_value = targetm.calls.struct_value_rtx (0, 0);
 
 #ifdef REG_PARM_STACK_SPACE
-#ifdef MAYBE_REG_PARM_STACK_SPACE
-  reg_parm_stack_space = MAYBE_REG_PARM_STACK_SPACE;
-#else
   reg_parm_stack_space = REG_PARM_STACK_SPACE ((tree) 0);
-#endif
 #endif
 
   /* By default, library functions can not throw.  */
@@ -3788,10 +3781,6 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
       FUNCTION_ARG_ADVANCE (args_so_far, mode, (tree) 0, 1);
     }
 
-#ifdef FINAL_REG_PARM_STACK_SPACE
-  reg_parm_stack_space = FINAL_REG_PARM_STACK_SPACE (args_size.constant,
-						     args_size.var);
-#endif
   /* If this machine requires an external definition for library
      functions, write one out.  */
   assemble_external_libcall (fun);

@@ -46,6 +46,10 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 # define TARGET_SYSTEM_ROOT NULL
 #endif
 
+#ifndef TARGET_OPTF
+#define TARGET_OPTF(ARG)
+#endif
+
 static int saved_lineno;
 
 /* CPP's options.  */
@@ -153,6 +157,7 @@ c_common_missing_argument (const char *opt, size_t code)
       error ("macro name missing after \"%s\"", opt);
       break;
 
+    case OPT_F:
     case OPT_I:
     case OPT_idirafter:
     case OPT_isysroot:
@@ -283,6 +288,10 @@ c_common_handle_option (size_t scode, const char *arg, int value)
 
     case OPT_H:
       cpp_opts->print_include_names = 1;
+      break;
+
+    case OPT_F:
+      TARGET_OPTF (xstrdup (arg));
       break;
 
     case OPT_I:
@@ -697,10 +706,6 @@ c_common_handle_option (size_t scode, const char *arg, int value)
     case OPT_fxref:
     case OPT_fvtable_gc:
       warning ("switch \"%s\" is no longer supported", option->opt_text);
-      break;
-
-    case OPT_fabi_version_:
-      flag_abi_version = value;
       break;
 
     case OPT_faccess_control:
@@ -1516,7 +1521,6 @@ set_std_c89 (int c94, int iso)
   flag_no_nonansi_builtin = iso;
   flag_isoc94 = c94;
   flag_isoc99 = 0;
-  flag_writable_strings = 0;
 }
 
 /* Set the C 99 standard (without GNU extensions if ISO).  */
@@ -1529,7 +1533,6 @@ set_std_c99 (int iso)
   flag_iso = iso;
   flag_isoc99 = 1;
   flag_isoc94 = 1;
-  flag_writable_strings = 0;
 }
 
 /* Set the C++ 98 standard (without GNU extensions if ISO).  */

@@ -410,7 +410,7 @@ rtl_gen_const_delta_profiler (struct histogram_value *value, unsigned tag,
 /* Return the file on which profile dump output goes, if any.  */
 
 static FILE *rtl_profile_dump_file (void) {
-  return rtl_dump_file;
+  return dump_file;
 }
 
 struct profile_hooks rtl_profile_hooks =

@@ -150,6 +150,9 @@ enum c_language_kind c_language = clk_c;
 #undef LANG_HOOKS_GIMPLIFY_EXPR
 #define LANG_HOOKS_GIMPLIFY_EXPR c_gimplify_expr
 
+#undef LANG_HOOKS_TYPES_COMPATIBLE_P
+#define LANG_HOOKS_TYPES_COMPATIBLE_P c_types_compatible_p
+
 /* ### When changing hooks, consider if ObjC needs changing too!! ### */
 
 /* Each front end provides its own.  */
@@ -196,6 +199,11 @@ finish_file (void)
   c_objc_common_finish_file ();
 }
 
+int
+c_types_compatible_p (tree x, tree y)
+{
+    return comptypes (TYPE_MAIN_VARIANT (x), TYPE_MAIN_VARIANT (y), 0);
+}
 static void
 c_initialize_diagnostics (diagnostic_context *context)
 {

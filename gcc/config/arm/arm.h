@@ -433,14 +433,11 @@ extern GTY(()) rtx aof_pic_label;
    destination is non-Thumb aware.  */
 #define THUMB_FLAG_CALLER_SUPER_INTERWORKING	(1 << 20)
 
-/* Nonzero means target uses VFP FP.  */
-#define ARM_FLAG_VFP		(1 << 21)
-
 /* Nonzero means to use ARM/Thumb Procedure Call Standard conventions.  */
-#define ARM_FLAG_ATPCS		(1 << 22)
+#define ARM_FLAG_ATPCS		(1 << 21)
 
 /* Fix invalid Cirrus instruction combinations by inserting NOPs.  */
-#define CIRRUS_FIX_INVALID_INSNS (1 << 23)
+#define CIRRUS_FIX_INVALID_INSNS (1 << 22)
 
 #define TARGET_APCS_FRAME		(target_flags & ARM_FLAG_APCS_FRAME)
 #define TARGET_POKE_FUNCTION_NAME	(target_flags & ARM_FLAG_POKE)
@@ -2226,7 +2223,6 @@ typedef struct
 #define THUMB_LEGITIMATE_CONSTANT_P(X)	\
  (   GET_CODE (X) == CONST_INT		\
   || GET_CODE (X) == CONST_DOUBLE	\
-  || GET_CODE (X) == CONSTANT_P_RTX     \
   || CONSTANT_ADDRESS_P (X)		\
   || flag_pic)
 
@@ -2361,15 +2357,11 @@ typedef struct
 #define ARM_LEGITIMIZE_ADDRESS(X, OLDX, MODE, WIN)	\
 do {							\
   X = arm_legitimize_address (X, OLDX, MODE);		\
-							\
-  if (memory_address_p (MODE, X))			\
-    goto WIN;						\
 } while (0)
 
-#define THUMB_LEGITIMIZE_ADDRESS(X, OLDX, MODE, WIN)		\
-do {								\
-  if (flag_pic)							\
-    (X) = legitimize_pic_address (OLDX, MODE, NULL_RTX);	\
+#define THUMB_LEGITIMIZE_ADDRESS(X, OLDX, MODE, WIN)	\
+do {							\
+  X = thumb_legitimize_address (X, OLDX, MODE);		\
 } while (0)
 
 #define LEGITIMIZE_ADDRESS(X, OLDX, MODE, WIN)		\
@@ -2378,6 +2370,9 @@ do {							\
     ARM_LEGITIMIZE_ADDRESS (X, OLDX, MODE, WIN);	\
   else							\
     THUMB_LEGITIMIZE_ADDRESS (X, OLDX, MODE, WIN);	\
+							\
+  if (memory_address_p (MODE, X))			\
+    goto WIN;						\
 } while (0)
      
 /* Go to LABEL if ADDR (a legitimate address expression)
@@ -2398,12 +2393,6 @@ do {							\
 /* Specify the machine mode that this machine uses
    for the index in the tablejump instruction.  */
 #define CASE_VECTOR_MODE Pmode
-
-/* Define as C expression which evaluates to nonzero if the tablejump
-   instruction expects the table to contain offsets from the address of the
-   table.
-   Do not define this if the table should contain absolute addresses.  */
-/* #define CASE_VECTOR_PC_RELATIVE 1 */
 
 /* signed 'char' is most compatible, but RISC OS wants it unsigned.
    unsigned is probably best, but may break some code.  */
@@ -2971,8 +2960,8 @@ enum arm_builtins
   ARM_BUILTIN_WMINUH,
   ARM_BUILTIN_WMINUB,
 
-  ARM_BUILTIN_WMULUH,
-  ARM_BUILTIN_WMULSH,
+  ARM_BUILTIN_WMULUM,
+  ARM_BUILTIN_WMULSM,
   ARM_BUILTIN_WMULUL,
 
   ARM_BUILTIN_PSADBH,

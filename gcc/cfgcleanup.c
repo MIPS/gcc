@@ -49,6 +49,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tm_p.h"
 #include "target.h"
 #include "regs.h"
+#include "expr.h"
 
 /* cleanup_cfg maintains following flags for each basic block.  */
 
@@ -87,6 +88,7 @@ static bool mark_effect (rtx, bitmap);
 static void notice_new_block (basic_block);
 static void update_forwarder_flag (basic_block);
 static int mentions_nonequal_regs (rtx *, void *);
+static void merge_memattrs (rtx, rtx);
 
 /* Set flags for newly created block.  */
 
@@ -159,8 +161,8 @@ try_simplify_condjump (basic_block cbranch_block)
   if (!invert_jump (cbranch_insn, block_label (jump_dest_block), 0))
     return false;
 
-  if (rtl_dump_file)
-    fprintf (rtl_dump_file, "Simplifying condjump %i around jump %i\n",
+  if (dump_file)
+    fprintf (dump_file, "Simplifying condjump %i around jump %i\n",
 	     INSN_UID (cbranch_insn), INSN_UID (BB_END (jump_block)));
 
   /* Success.  Update the CFG to match.  Note that after this point
@@ -349,7 +351,7 @@ thread_jump (int mode, edge e, basic_block b)
 	return NULL;
       }
 
-  cselib_init ();
+  cselib_init (false);
 
   /* First process all values computed in the source basic block.  */
   for (insn = NEXT_INSN (BB_HEAD (e->src)); insn != NEXT_INSN (BB_END (e->src));
@@ -544,8 +546,8 @@ try_forward_edges (int mode, basic_block b)
 
       if (counter >= n_basic_blocks)
 	{
-	  if (rtl_dump_file)
-	    fprintf (rtl_dump_file, "Infinite loop in BB %i.\n",
+	  if (dump_file)
+	    fprintf (dump_file, "Infinite loop in BB %i.\n",
 		     target->index);
 	}
       else if (target == first)
@@ -562,13 +564,13 @@ try_forward_edges (int mode, basic_block b)
 	  if (threaded && target != EXIT_BLOCK_PTR)
 	    {
 	      notice_new_block (redirect_edge_and_branch_force (e, target));
-	      if (rtl_dump_file)
-		fprintf (rtl_dump_file, "Conditionals threaded.\n");
+	      if (dump_file)
+		fprintf (dump_file, "Conditionals threaded.\n");
 	    }
 	  else if (!redirect_edge_and_branch (e, target))
 	    {
-	      if (rtl_dump_file)
-		fprintf (rtl_dump_file,
+	      if (dump_file)
+		fprintf (dump_file,
 			 "Forwarding edge %i->%i to %i failed.\n",
 			 b->index, e->dest->index, target->index);
 	      continue;
@@ -693,8 +695,8 @@ merge_blocks_move_predecessor_nojumps (basic_block a, basic_block b)
     reorder_insns_nobb (BB_HEAD (a), BB_END (a), PREV_INSN (BB_HEAD (b)));
   a->flags |= BB_DIRTY;
 
-  if (rtl_dump_file)
-    fprintf (rtl_dump_file, "Moved block %d before %d and merged.\n",
+  if (dump_file)
+    fprintf (dump_file, "Moved block %d before %d and merged.\n",
 	     a->index, b->index);
 
   /* Swap the records for the two blocks around.  */
@@ -747,8 +749,8 @@ merge_blocks_move_successor_nojumps (basic_block a, basic_block b)
   /* Restore the real end of b.  */
   BB_END (b) = real_b_end;
 
-  if (rtl_dump_file)
-    fprintf (rtl_dump_file, "Moved block %d after %d and merged.\n",
+  if (dump_file)
+    fprintf (dump_file, "Moved block %d after %d and merged.\n",
 	     b->index, a->index);
 
   /* Now blocks A and B are contiguous.  Merge them.  */
@@ -787,8 +789,8 @@ merge_blocks_move (edge e, basic_block b, basic_block c, int mode)
       merge_blocks (b, c);
       update_forwarder_flag (b);
 
-      if (rtl_dump_file)
-	fprintf (rtl_dump_file, "Merged %d and %d without moving.\n",
+      if (dump_file)
+	fprintf (dump_file, "Merged %d and %d without moving.\n",
 		 b_index, c_index);
 
       return b->prev_bb == ENTRY_BLOCK_PTR ? b : b->prev_bb;
@@ -861,6 +863,88 @@ merge_blocks_move (edge e, basic_block b, basic_block c, int mode)
   return NULL;
 }
 
+
+/* Removes the memory attributes of MEM expression
+   if they are not equal.  */
+
+void
+merge_memattrs (rtx x, rtx y)
+{
+  int i;
+  int j;
+  enum rtx_code code;
+  const char *fmt;
+
+  if (x == y)
+    return;
+  if (x == 0 || y == 0)
+    return;
+
+  code = GET_CODE (x);
+
+  if (code != GET_CODE (y))
+    return;
+
+  if (GET_MODE (x) != GET_MODE (y))
+    return;
+
+  if (code == MEM && MEM_ATTRS (x) != MEM_ATTRS (y))
+    {
+      if (! MEM_ATTRS (x))
+	MEM_ATTRS (y) = 0;
+      else if (! MEM_ATTRS (y))
+	MEM_ATTRS (x) = 0;
+      else 
+	{
+	  if (MEM_ALIAS_SET (x) != MEM_ALIAS_SET (y))
+	    {
+	      set_mem_alias_set (x, 0);
+	      set_mem_alias_set (y, 0);
+	    }
+	  
+	  if (! mem_expr_equal_p (MEM_EXPR (x), MEM_EXPR (y)))
+	    {
+	      set_mem_expr (x, 0);
+	      set_mem_expr (y, 0);
+	      set_mem_offset (x, 0);
+	      set_mem_offset (y, 0);
+	    }
+	  else if (MEM_OFFSET (x) != MEM_OFFSET (y))
+	    {
+	      set_mem_offset (x, 0);
+	      set_mem_offset (y, 0);
+	    }
+	  
+	  set_mem_size (x, MAX (MEM_SIZE (x), MEM_SIZE (y)));
+	  set_mem_size (y, MEM_SIZE (x));
+
+	  set_mem_align (x, MIN (MEM_ALIGN (x), MEM_ALIGN (y)));
+	  set_mem_align (y, MEM_ALIGN (x));
+	}
+    }
+  
+  fmt = GET_RTX_FORMAT (code);
+  for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
+    {
+      switch (fmt[i])
+	{
+	case 'E':
+	  /* Two vectors must have the same length.  */
+	  if (XVECLEN (x, i) != XVECLEN (y, i))
+	    return;
+
+	  for (j = 0; j < XVECLEN (x, i); j++)
+	    merge_memattrs (XVECEXP (x, i, j), XVECEXP (y, i, j));
+
+	  break;
+
+	case 'e':
+	  merge_memattrs (XEXP (x, i), XEXP (y, i));
+	}
+    }
+  return;
+}
+
 
 /* Return true if I1 and I2 are equivalent and thus can be crossjumped.  */
 
@@ -1021,6 +1105,8 @@ flow_find_cross_jump (int mode ATTRIBUTE_UNUSED, basic_block bb1,
 
       if (!insns_match_p (mode, i1, i2))
 	break;
+
+      merge_memattrs (i1, i2);
 
       /* Don't begin a cross-jump with a NOTE insn.  */
       if (INSN_P (i1))
@@ -1201,8 +1287,8 @@ outgoing_edges_match (int mode, basic_block bb1, basic_block bb2)
 	     outcomes.  */
 	  if (abs (b1->probability - prob2) > REG_BR_PROB_BASE / 2)
 	    {
-	      if (rtl_dump_file)
-		fprintf (rtl_dump_file,
+	      if (dump_file)
+		fprintf (dump_file,
 			 "Outcomes of branch in bb %i and %i differs to much (%i %i)\n",
 			 bb1->index, bb2->index, b1->probability, prob2);
 
@@ -1210,8 +1296,8 @@ outgoing_edges_match (int mode, basic_block bb1, basic_block bb2)
 	    }
 	}
 
-      if (rtl_dump_file && match)
-	fprintf (rtl_dump_file, "Conditionals in bb %i and %i match.\n",
+      if (dump_file && match)
+	fprintf (dump_file, "Conditionals in bb %i and %i match.\n",
 		 bb1->index, bb2->index);
 
       return match;
@@ -1276,8 +1362,8 @@ outgoing_edges_match (int mode, basic_block bb1, basic_block bb2)
 		  for_each_rtx (&BB_END (bb1), replace_label, &rr);
 
 		  match = insns_match_p (mode, BB_END (bb1), BB_END (bb2));
-		  if (rtl_dump_file && match)
-		    fprintf (rtl_dump_file,
+		  if (dump_file && match)
+		    fprintf (dump_file,
 			     "Tablejumps in bb %i and %i match.\n",
 			     bb1->index, bb2->index);
 
@@ -1450,14 +1536,14 @@ try_crossjump_to_edge (int mode, edge e1, edge e2)
     redirect_to = src2;
   else
     {
-      if (rtl_dump_file)
-	fprintf (rtl_dump_file, "Splitting bb %i before %i insns\n",
+      if (dump_file)
+	fprintf (dump_file, "Splitting bb %i before %i insns\n",
 		 src2->index, nmatch);
       redirect_to = split_block (src2, PREV_INSN (newpos2))->dest;
     }
 
-  if (rtl_dump_file)
-    fprintf (rtl_dump_file,
+  if (dump_file)
+    fprintf (dump_file,
 	     "Cross jumping from bb %i to bb %i; %i common insns\n",
 	     src1->index, src2->index, nmatch);
 
@@ -1678,8 +1764,8 @@ try_optimize_cfg (int mode)
 	  changed = false;
 	  iterations++;
 
-	  if (rtl_dump_file)
-	    fprintf (rtl_dump_file,
+	  if (dump_file)
+	    fprintf (dump_file,
 		     "\n\ntry_optimize_cfg iteration %i\n\n",
 		     iterations);
 
@@ -1693,8 +1779,8 @@ try_optimize_cfg (int mode)
 	      while (b->pred == NULL)
 		{
 		  c = b->prev_bb;
-		  if (rtl_dump_file)
-		    fprintf (rtl_dump_file, "Deleting block %i.\n",
+		  if (dump_file)
+		    fprintf (dump_file, "Deleting block %i.\n",
 			     b->index);
 
 		  delete_basic_block (b);
@@ -1735,8 +1821,8 @@ try_optimize_cfg (int mode)
 		      reorder_insns_nobb (label, label, bb_note);
 		      BB_HEAD (b) = bb_note;
 		    }
-		  if (rtl_dump_file)
-		    fprintf (rtl_dump_file, "Deleted label in block %i.\n",
+		  if (dump_file)
+		    fprintf (dump_file, "Deleted label in block %i.\n",
 			     b->index);
 		}
 
@@ -1751,8 +1837,8 @@ try_optimize_cfg (int mode)
 		  && (b->succ->flags & EDGE_FALLTHRU)
 		  && n_basic_blocks > 1)
 		{
-		  if (rtl_dump_file)
-		    fprintf (rtl_dump_file,
+		  if (dump_file)
+		    fprintf (dump_file,
 			     "Deleting fallthru block %i.\n",
 			     b->index);
 

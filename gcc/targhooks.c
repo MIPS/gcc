@@ -105,6 +105,14 @@ default_setup_incoming_varargs (CUMULATIVE_ARGS *ca ATTRIBUTE_UNUSED,
 {
 }
 
+/* The default implementation of TARGET_BUILTIN_SETJMP_FRAME_VALUE.  */
+
+rtx
+default_builtin_setjmp_frame_value (void)
+{
+  return virtual_stack_vars_rtx;
+}
+
 /* Generic hook that takes a CUMULATIVE_ARGS pointer and returns true.  */
 
 bool
@@ -123,14 +131,6 @@ default_pretend_outgoing_varargs_named(CUMULATIVE_ARGS *ca ATTRIBUTE_UNUSED)
 
 bool
 hook_bool_CUMULATIVE_ARGS_true (CUMULATIVE_ARGS * a ATTRIBUTE_UNUSED)
-{
-  return true;
-}
-
-/* Generic hook that takes a machine mode and returns true.  */
-
-bool
-hook_bool_machine_mode_true (enum machine_mode a ATTRIBUTE_UNUSED)
 {
   return true;
 }

@@ -134,11 +134,11 @@ void
 c_genericize (tree fndecl)
 {
   FILE *dump_file;
-  int dump_flags;
+  int local_dump_flags;
   struct cgraph_node *cgn;
 
   /* Dump the C-specific tree IR.  */
-  dump_file = dump_begin (TDI_original, &dump_flags);
+  dump_file = dump_begin (TDI_original, &local_dump_flags);
   if (dump_file)
     {
       fprintf (dump_file, "\n;; Function %s",
@@ -148,8 +148,9 @@ c_genericize (tree fndecl)
       fprintf (dump_file, ";; enabled by -%s\n", dump_flag_name (TDI_original));
       fprintf (dump_file, "\n");
 
-      if (dump_flags & TDF_RAW)
-	dump_node (DECL_SAVED_TREE (fndecl), TDF_SLIM | dump_flags, dump_file);
+      if (local_dump_flags & TDF_RAW)
+	dump_node (DECL_SAVED_TREE (fndecl),
+		   TDF_SLIM | local_dump_flags, dump_file);
       else
 	print_c_tree (dump_file, DECL_SAVED_TREE (fndecl));
       fprintf (dump_file, "\n");

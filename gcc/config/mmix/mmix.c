@@ -1008,7 +1008,6 @@ mmix_constant_address_p (rtx x)
     case SYMBOL_REF:
       return 1;
 
-    case CONSTANT_P_RTX:
     case HIGH:
       /* FIXME: Don't know how to dissect these.  Avoid them for now,
 	 except we know they're constants.  */
@@ -2498,7 +2497,7 @@ mmix_foldable_comparison_operator (rtx op, enum machine_mode mode)
   if (mode == VOIDmode)
     mode = GET_MODE (op);
 
-  if (mode == VOIDmode && GET_RTX_CLASS (GET_CODE (op)) == '<')
+  if (mode == VOIDmode && COMPARISON_P (op))
     mode = GET_MODE (XEXP (op, 0));
 
   return ((mode == CCmode || mode == DImode)
@@ -2526,13 +2525,13 @@ mmix_comparison_operator (rtx op, enum machine_mode mode)
     mode = GET_MODE (op);
 
   /* Get the mode from the first operand if we don't have one.  */
-  if (mode == VOIDmode && GET_RTX_CLASS (GET_CODE (op)) == '<')
+  if (mode == VOIDmode && COMPARISON_P (op))
     mode = GET_MODE (XEXP (op, 0));
 
   /* FIXME: This needs to be kept in sync with the tables in
      mmix_output_condition.  */
   return
-    (mode == VOIDmode && GET_RTX_CLASS (GET_CODE (op)) == '<')
+    (mode == VOIDmode && COMPARISON_P (op))
     || (mode == CC_FUNmode
 	&& (code == ORDERED || code == UNORDERED))
     || (mode == CC_FPmode

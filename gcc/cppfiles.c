@@ -109,11 +109,8 @@ struct _cpp_file
   /* If BUFFER above contains the true contents of the file.  */
   bool buffer_valid;
 
-  /* 0: file not known to be a PCH.
-     1: file is a PCH (on return from find_include_file).
-     2: file is not and never will be a valid precompiled header.
-     3: file is always a valid precompiled header.  */
-  uchar pch;
+  /* File is a PCH (on return from find_include_file).  */
+  bool pch;
 };
 
 /* A singly-linked list for all searches for a given file name, with
@@ -180,7 +177,6 @@ static void read_name_map (cpp_dir *dir);
 static char *remap_filename (cpp_reader *pfile, _cpp_file *file);
 static char *append_file_to_dir (const char *fname, cpp_dir *dir);
 static bool validate_pch (cpp_reader *, _cpp_file *file, const char *pchname);
-static bool include_pch_p (_cpp_file *file);
 static int pchf_adder (void **slot, void *data);
 static int pchf_save_compare (const void *e1, const void *e2);
 static int pchf_compare (const void *d_p, const void *e_p);
@@ -323,23 +319,58 @@ find_file_in_dir (cpp_reader *pfile, _cpp_file *file, bool *invalid_pch)
   if (CPP_OPTION (pfile, remap) && (path = remap_filename (pfile, file)))
     ;
   else
-    path = append_file_to_dir (file->name, file->dir);
+    if (file->dir->construct)
+      path = file->dir->construct (file->name, file->dir);
+    else
+      path = append_file_to_dir (file->name, file->dir);
 
-  file->path = path;
-  if (pch_open_file (pfile, file, invalid_pch))
-    return true;
-
-  if (open_file (file))
-    return true;
-
-  if (file->err_no != ENOENT)
+  if (path)
     {
-      open_file_failed (pfile, file);
-      return true;
+      file->path = path;
+      if (pch_open_file (pfile, file, invalid_pch))
+	return true;
+
+      if (open_file (file))
+	return true;
+
+      if (file->err_no != ENOENT)
+	{
+	  open_file_failed (pfile, file);
+	  return true;
+	}
+
+      free (path);
+      file->path = file->name;
+    }
+  else
+    {
+      file->err_no = ENOENT; 
+      file->path = NULL;
     }
 
-  free (path);
-  file->path = file->name;
+  return false;
+}
+
+/* Return tue iff the missing_header callback found the given HEADER.  */
+static bool
+search_path_exhausted (cpp_reader *pfile, const char *header, _cpp_file *file)
+{
+  missing_header_cb func = pfile->cb.missing_header;
+
+  /* When the regular search path doesn't work, try context dependent
+     headers search paths.  */
+  if (func
+      && file->dir == NULL)
+    {
+      if ((file->path = func (pfile, header)) != NULL)
+	{
+	  if (open_file (file))
+	    return true;
+	  free ((void *)file->path);
+	}
+      file->path = file->name;
+    }
+
   return false;
 }
 
@@ -395,6 +426,9 @@ _cpp_find_file (cpp_reader *pfile, const char *fname, cpp_dir *start_dir, bool f
       file->dir = file->dir->next;
       if (file->dir == NULL)
 	{
+	  if (search_path_exhausted (pfile, fname, file))
+	    return file;
+
 	  open_file_failed (pfile, file);
 	  if (invalid_pch)
 	    {
@@ -577,7 +611,7 @@ should_stack_file (cpp_reader *pfile, _cpp_file *file, bool import)
     return false;
 
   /* Handle PCH files immediately; don't stack them.  */
-  if (include_pch_p (file))
+  if (file->pch)
     {
       pfile->cb.read_pch (pfile, file->path, file->fd, file->pchname);
       close (file->fd);
@@ -640,8 +674,10 @@ _cpp_stack_file (cpp_reader *pfile, _cpp_file *file, bool import)
   if (!should_stack_file (pfile, file, import))
       return false;
 
-  sysp = MAX ((pfile->map ? pfile->map->sysp : 0),
-	      (file->dir ? file->dir->sysp : 0));
+  if (pfile->buffer == NULL || file->dir == NULL)
+    sysp = 0;
+  else
+    sysp = MAX (pfile->buffer->sysp,  file->dir->sysp);
 
   /* Add the file to the dependencies on its first inclusion.  */
   if (CPP_OPTION (pfile, deps.style) > !!sysp && !file->stack_count)
@@ -658,6 +694,7 @@ _cpp_stack_file (cpp_reader *pfile, _cpp_file *file, bool import)
   buffer = cpp_push_buffer (pfile, file->buffer, file->st.st_size,
 			    CPP_OPTION (pfile, preprocessed));
   buffer->file = file;
+  buffer->sysp = sysp;
 
   /* Initialize controlling macro state.  */
   pfile->mi_valid = true;
@@ -707,7 +744,8 @@ search_path_head (cpp_reader *pfile, const char *fname, int angle_brackets,
   else if (pfile->quote_ignores_source_dir)
     dir = pfile->quote_include;
   else
-    return make_cpp_dir (pfile, dir_name_of_file (file), pfile->map->sysp);
+    return make_cpp_dir (pfile, dir_name_of_file (file),
+			 pfile->buffer ? pfile->buffer->sysp : 0);
 
   if (dir == NULL)
     cpp_error (pfile, CPP_DL_ERROR,
@@ -743,20 +781,32 @@ _cpp_stack_include (cpp_reader *pfile, const char *fname, int angle_brackets,
 		    enum include_type type)
 {
   struct cpp_dir *dir;
+  _cpp_file *file;
 
   dir = search_path_head (pfile, fname, angle_brackets, type);
   if (!dir)
     return false;
 
-  return _cpp_stack_file (pfile, _cpp_find_file (pfile, fname, dir, false),
-		     type == IT_IMPORT);
+  file = _cpp_find_file (pfile, fname, dir, false);
+
+  /* Compensate for the increment in linemap_add.  In the case of a
+     normal #include, we're currently at the start of the line
+     *following* the #include.  A separate source_location for this
+     location makes no sense (until we do the LC_LEAVE), and
+     complicates LAST_SOURCE_LINE_LOCATION.  This does not apply if we
+     found a PCH file (in which case linemap_add is not called) or we
+     were included from the command-line.  */
+  if (! file->pch && file->err_no == 0 && type != IT_CMDLINE)
+    pfile->line_table->highest_location--;
+
+  return _cpp_stack_file (pfile, file, type == IT_IMPORT);
 }
 
 /* Could not open FILE.  The complication is dependency output.  */
 static void
 open_file_failed (cpp_reader *pfile, _cpp_file *file)
 {
-  int sysp = pfile->map ? pfile->map->sysp: 0;
+  int sysp = pfile->line > 1 && pfile->buffer ? pfile->buffer->sysp : 0;
   bool print_dep = CPP_OPTION (pfile, deps.style) > !!sysp;
 
   errno = file->err_no;
@@ -827,6 +877,7 @@ make_cpp_dir (cpp_reader *pfile, const char *dir_name, int sysp)
   dir->name = (char *) dir_name;
   dir->len = strlen (dir_name);
   dir->sysp = sysp;
+  dir->construct = 0;
 
   /* Store this new result in the hash table.  */
   entry = new_file_hash_entry (pfile);
@@ -936,12 +987,14 @@ void
 cpp_make_system_header (cpp_reader *pfile, int syshdr, int externc)
 {
   int flags = 0;
+  const struct line_map *map = linemap_lookup (pfile->line_table, pfile->line);
 
   /* 1 = system header, 2 = system header to be treated as C.  */
   if (syshdr)
     flags = 1 + (externc != 0);
-  _cpp_do_file_change (pfile, LC_RENAME, pfile->map->to_file,
-		       SOURCE_LINE (pfile->map, pfile->line), flags);
+  pfile->buffer->sysp = flags;
+  _cpp_do_file_change (pfile, LC_RENAME, map->to_file,
+		       SOURCE_LINE (map, pfile->line), flags);
 }
 
 /* Allow the client to change the current file.  Used by the front end
@@ -1026,8 +1079,6 @@ _cpp_compare_file_date (cpp_reader *pfile, const char *fname,
 bool
 cpp_push_include (cpp_reader *pfile, const char *fname)
 {
-  /* Make the command line directive take up a line.  */
-  pfile->line++;
   return _cpp_stack_include (pfile, fname, false, IT_CMDLINE);
 }
 
@@ -1222,13 +1273,6 @@ remap_filename (cpp_reader *pfile, _cpp_file *file)
     }
 }
 
-/* Return true if FILE is usable by PCH.  */
-static bool
-include_pch_p (_cpp_file *file)
-{
-  return file->pch & 1;
-}
-
 /* Returns true if PCHNAME is a valid PCH file for FILE.  */
 static bool
 validate_pch (cpp_reader *pfile, _cpp_file *file, const char *pchname)
@@ -1259,6 +1303,42 @@ validate_pch (cpp_reader *pfile, _cpp_file *file, const char *pchname)
 
   file->path = saved_path;
   return valid;
+}
+
+/* Get the path associated with the _cpp_file F.  The path includes
+   the base name from the include directive and the directory it was
+   found in via the search path.  */
+
+const char *
+cpp_get_path (struct _cpp_file *f)
+{
+  return f->path;
+}
+
+/* Get the cpp_buffer currently associated with the cpp_reader
+   PFILE.  */
+
+cpp_buffer *
+cpp_get_buffer (cpp_reader *pfile)
+{
+  return pfile->buffer;
+}
+
+/* Get the _cpp_file associated with the cpp_buffer B.  */
+
+_cpp_file *
+cpp_get_file (cpp_buffer *b)
+{
+  return b->file;
+}
+
+/* Get the previous cpp_buffer given a cpp_buffer B.  The previous
+   buffer is the buffer that included the given buffer.  */
+
+cpp_buffer *
+cpp_get_prev (cpp_buffer *b)
+{
+  return b->prev;
 }
 
 /* This datastructure holds the list of header files that were seen

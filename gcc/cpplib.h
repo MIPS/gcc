@@ -42,6 +42,7 @@ typedef struct cpp_callbacks cpp_callbacks;
 typedef struct cpp_dir cpp_dir;
 
 struct answer;
+struct _cpp_file;
 
 /* The first three groups, apart from '=', can appear in preprocessor
    expressions (+= and -= are used to indicate unary + and - resp.).
@@ -174,8 +175,7 @@ struct cpp_string
    occupy 16 bytes on 32-bit hosts and 24 bytes on 64-bit hosts.  */
 struct cpp_token
 {
-  fileline line;		/* Logical line of first char of token.  */
-  unsigned short col;		/* Column of first char of token.  */
+  source_location src_loc;	/* Location of first char of token.  */
   ENUM_BITFIELD(cpp_ttype) type : CHAR_BIT;  /* token type */
   unsigned char flags;		/* flags - see above */
 
@@ -379,6 +379,14 @@ struct cpp_options
   unsigned char stdc_0_in_system_headers;
 };
 
+/* Callback for header lookup for HEADER, which is the name of a
+   source file.  It is used as a method of last resort to find headers
+   that are not otherwise found during the normal include processing.
+   The return value is the malloced name of a header to try and open,
+   if any, or NULL otherwise.  This callback is called only if the
+   header is otherwise unfound.  */
+typedef const char *(*missing_header_cb)(cpp_reader *, const char *header);
+
 /* Call backs to cpplib client.  */
 struct cpp_callbacks
 {
@@ -400,6 +408,7 @@ struct cpp_callbacks
   void (*def_pragma) (cpp_reader *, unsigned int);
   int (*valid_pch) (cpp_reader *, const char *, int);
   void (*read_pch) (cpp_reader *, const char *, int, const char *);
+  missing_header_cb missing_header;
 };
 
 /* Chain of directories to look for include files in.  */
@@ -419,6 +428,12 @@ struct cpp_dir
   /* Mapping of file names for this directory for MS-DOS and related
      platforms.  A NULL-terminated array of (from, to) pairs.  */
   const char **name_map;
+
+  /* Routine to construct pathname, given the search path name and the
+     HEADER we are trying to find, return a constructed pathname to
+     try and open.  If this is NULL, the constructed pathname is as
+     constructed by append_file_to_dir.  */
+  char *(*construct) (const char *header, cpp_dir *dir);
 
   /* The C front end uses these to recognize duplicated
      directories in the search path.  */
@@ -531,7 +546,6 @@ extern void cpp_set_include_chains (cpp_reader *, cpp_dir *, cpp_dir *, int);
    through the pointer returned from cpp_get_callbacks, or set them
    with cpp_set_callbacks.  */
 extern cpp_options *cpp_get_options (cpp_reader *);
-extern const struct line_maps *cpp_get_line_maps (cpp_reader *);
 extern cpp_callbacks *cpp_get_callbacks (cpp_reader *);
 extern void cpp_set_callbacks (cpp_reader *, cpp_callbacks *);
 
@@ -539,7 +553,7 @@ extern void cpp_set_callbacks (cpp_reader *, cpp_callbacks *);
    returns the name of the original file; this is the same as the
    input file, except for preprocessed input.  This will generate at
    least one file change callback, and possibly a line change callback
-   too.  If there was an error opening the file, it returns NULL. */
+   too.  If there was an error opening the file, it returns NULL.  */
 extern const char *cpp_read_main_file (cpp_reader *, const char *);
 
 /* Set up built-ins like __FILE__.  */
@@ -587,6 +601,9 @@ extern cppchar_t cpp_interpret_charconst (cpp_reader *, const cpp_token *,
 extern bool cpp_interpret_string (cpp_reader *,
 				  const cpp_string *, size_t,
 				  cpp_string *, bool);
+extern bool cpp_interpret_string_notranslate (cpp_reader *,
+					      const cpp_string *, size_t,
+					      cpp_string *, bool);
 
 /* Used to register macros and assertions, perhaps from the command line.
    The text is the same as the command line argument.  */
@@ -689,7 +706,7 @@ extern void cpp_errno (cpp_reader *, int, const char *msgid);
 /* Same as cpp_error, except additionally specifies a position as a
    (translation unit) physical line and physical column.  If the line is
    zero, then no location is printed.  */
-extern void cpp_error_with_line (cpp_reader *, int, fileline, unsigned,
+extern void cpp_error_with_line (cpp_reader *, int, source_location, unsigned,
 				 const char *msgid, ...) ATTRIBUTE_PRINTF_5;
 
 /* In cpplex.c */
@@ -726,6 +743,10 @@ extern bool cpp_included (cpp_reader *, const char *);
 extern void cpp_make_system_header (cpp_reader *, int, int);
 extern bool cpp_push_include (cpp_reader *, const char *);
 extern void cpp_change_file (cpp_reader *, enum lc_reason, const char *);
+extern const char *cpp_get_path (struct _cpp_file *);
+extern cpp_buffer *cpp_get_buffer (cpp_reader *);
+extern struct _cpp_file *cpp_get_file (cpp_buffer *);
+extern cpp_buffer *cpp_get_prev (cpp_buffer *);
 
 /* In cpppch.c */
 struct save_macro_data;

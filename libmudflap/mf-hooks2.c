@@ -4,8 +4,31 @@
    and Graydon Hoare <graydon@redhat.com>
 
 This file is part of GCC.
-XXX: libgcc license?
-*/
+
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
+
+In addition to the permissions in the GNU General Public License, the
+Free Software Foundation gives you unlimited permission to link the
+compiled version of this file into combinations with other programs,
+and to distribute those combinations without any restriction coming
+from the use of this file.  (The General Public License restrictions
+do apply in other respects; for example, they cover modification of
+the file, and distribution when not linked into a combine
+executable.)
+
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
+
+You should have received a copy of the GNU General Public License
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
+
 
 #include "config.h"
 
@@ -49,6 +72,19 @@ XXX: libgcc license?
 /* A bunch of independent stdlib/unistd hook functions, all
    intercepted by mf-runtime.h macros.  */
 
+#ifdef __FreeBSD__
+#undef WRAP_memrchr
+#undef WRAP_memmem
+#include <dlfcn.h>
+static inline size_t (strnlen) (const char* str, size_t n)
+{
+  const char *s;
+
+  for (s = str; n && *s; ++s, --n)
+    ;
+  return (s - str);
+}
+#endif
 
 /* str*,mem*,b* */
 
@@ -669,7 +705,8 @@ WRAPPER2(char *, gets, char *s)
 {
   TRACE ("%s\n", __PRETTY_FUNCTION__);
   MF_VALIDATE_EXTENT (s, 1, __MF_CHECK_WRITE, "gets buffer");
-  s = gets (s);
+  /* Avoid link-time warning... */
+  s = fgets (s, INT_MAX, stdin);
   if (NULL != s) {	/* better late than never */
     size_t n = strlen (s);
     MF_VALIDATE_EXTENT (s, CLAMPADD(n, 1), __MF_CHECK_WRITE, "gets buffer");

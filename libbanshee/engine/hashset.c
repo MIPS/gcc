@@ -34,8 +34,8 @@
 
 #include "hashset.h"
 #include "util.h"
-#define INIT_TABLE_SIZE 2;
-#define EMPTY_KEY 0;
+#define INIT_TABLE_SIZE 2
+#define EMPTY_KEY 0
 #define UB(n) ((1<<n)-1) /* 2^n-1 */
 #define CAP(n) (1<<n)   /* 2^n */
  

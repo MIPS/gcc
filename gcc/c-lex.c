@@ -42,9 +42,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "splay-tree.h"
 #include "debug.h"
 
-/* The current line map.  */
-static const struct line_map *map;
-
 /* We may keep statistics about how long which files took to compile.  */
 static int header_time, body_time;
 static splay_tree file_info_tree;
@@ -57,6 +54,7 @@ static splay_tree file_info_tree;
 
 int pending_lang_change; /* If we need to switch languages - C++ only */
 int c_header_level;	 /* depth in C headers - C++ only */
+bool c_lex_string_translate = true; /* If we need to translate characters received.  */
 
 static tree interpret_integer (const cpp_token *, unsigned int);
 static tree interpret_float (const cpp_token *, unsigned int);
@@ -194,28 +192,27 @@ static void
 cb_line_change (cpp_reader *pfile ATTRIBUTE_UNUSED, const cpp_token *token,
 		int parsing_args)
 {
-  if (token->type == CPP_EOF || parsing_args)
-    return;
-
-  input_line = SOURCE_LINE (map, token->line);
+  if (token->type != CPP_EOF && !parsing_args)
+    {
+      source_location loc = token->src_loc;
+      const struct line_map *map = linemap_lookup (&line_table, loc);
+      input_line = SOURCE_LINE (map, loc);
+    }
 }
 
 void
 fe_file_change (const struct line_map *new_map)
 {
   if (new_map == NULL)
-    {
-      map = NULL;
-      return;
-    }
+    return;
 
   if (new_map->reason == LC_ENTER)
     {
       /* Don't stack the main buffer on the input stack;
 	 we already did in compile_file.  */
-      if (map != NULL)
+      if (! MAIN_FILE_P (new_map))
 	{
-          int included_at = SOURCE_LINE (new_map - 1, new_map->from_line - 1);
+          int included_at = LAST_SOURCE_LINE (new_map - 1);
 
 	  input_line = included_at;
 	  push_srcloc (new_map->to_file, 1);
@@ -250,20 +247,20 @@ fe_file_change (const struct line_map *new_map)
   in_system_header = new_map->sysp != 0;
   input_filename = new_map->to_file;
   input_line = new_map->to_line;
-  map = new_map;
 
   /* Hook for C++.  */
   extract_interface_info ();
 }
 
 static void
-cb_def_pragma (cpp_reader *pfile, unsigned int line)
+cb_def_pragma (cpp_reader *pfile, source_location loc)
 {
   /* Issue a warning message if we have been asked to do so.  Ignore
      unknown pragmas in system headers unless an explicit
      -Wunknown-pragmas has been given.  */
   if (warn_unknown_pragmas > in_system_header)
     {
+      const struct line_map *map = linemap_lookup (&line_table, loc);
       const unsigned char *space, *name;
       const cpp_token *s;
 
@@ -277,25 +274,27 @@ cb_def_pragma (cpp_reader *pfile, unsigned int line)
 	    name = cpp_token_as_text (pfile, s);
 	}
 
-      input_line = SOURCE_LINE (map, line);
+      input_line = SOURCE_LINE (map, loc);
       warning ("ignoring #pragma %s %s", space, name);
     }
 }
 
 /* #define callback for DWARF and DWARF2 debug info.  */
 static void
-cb_define (cpp_reader *pfile, unsigned int line, cpp_hashnode *node)
+cb_define (cpp_reader *pfile, source_location loc, cpp_hashnode *node)
 {
-  (*debug_hooks->define) (SOURCE_LINE (map, line),
+  const struct line_map *map = linemap_lookup (&line_table, loc);
+  (*debug_hooks->define) (SOURCE_LINE (map, loc),
 			  (const char *) cpp_macro_definition (pfile, node));
 }
 
 /* #undef callback for DWARF and DWARF2 debug info.  */
 static void
-cb_undef (cpp_reader *pfile ATTRIBUTE_UNUSED, unsigned int line,
+cb_undef (cpp_reader *pfile ATTRIBUTE_UNUSED, source_location loc,
 	  cpp_hashnode *node)
 {
-  (*debug_hooks->undef) (SOURCE_LINE (map, line),
+  const struct line_map *map = linemap_lookup (&line_table, loc);
+  (*debug_hooks->undef) (SOURCE_LINE (map, loc),
 			 (const char *) NODE_NAME (node));
 }
 
@@ -310,7 +309,7 @@ get_nonpadding_token (void)
   timevar_pop (TV_CPP);
 
   return tok;
-}  
+}
 
 int
 c_lex_with_flags (tree *value, unsigned char *cpp_flags)
@@ -677,7 +676,7 @@ lex_string (const cpp_token *tok, tree *valp, bool objc_string)
 	  if (tok->type == CPP_WSTRING)
 	    wide = true;
 	  obstack_grow (&str_ob, &tok->val.str, sizeof (cpp_string));
-	  
+
 	  tok = get_nonpadding_token ();
 	  if (c_dialect_objc () && tok->type == CPP_ATSIGN)
 	    {
@@ -695,7 +694,9 @@ lex_string (const cpp_token *tok, tree *valp, bool objc_string)
   if (count > 1 && !objc_string && warn_traditional && !in_system_header)
     warning ("traditional C rejects string constant concatenation");
 
-  if (cpp_interpret_string (parse_in, strs, count, &istr, wide))
+  if ((c_lex_string_translate
+       ? cpp_interpret_string : cpp_interpret_string_notranslate)
+      (parse_in, strs, count, &istr, wide))
     {
       value = build_string (istr.len, (char *)istr.text);
       free ((void *)istr.text);

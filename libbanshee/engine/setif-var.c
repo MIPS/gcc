@@ -42,7 +42,7 @@ struct sv_info
   bounds sameregion ubs;
   jcoll tlb_cache;
   gen_e_list ub_projs;
-  char *name;
+  const char *name;
   uf_element component;
 };
 
@@ -118,7 +118,7 @@ stamp sv_get_stamp(setif_var v)
   return get_info(v)->st;
 }
 
-char *sv_get_name(setif_var v)
+const char *sv_get_name(setif_var v)
 {
   return get_info(v)->name;
 }

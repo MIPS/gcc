@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2003 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2004 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -696,6 +696,9 @@ package body Exp_Ch2 is
    --  For a formal of a task entity, the formal is rewritten as a local
    --  renaming.
 
+   --  In addition, a formal that is marked volatile because it is aliased
+   --  through an address clause is rewritten as dereference as well.
+
    function Param_Entity (N : Node_Id) return Entity_Id is
    begin
       --  Simple reference case
@@ -723,6 +726,9 @@ package body Exp_Ch2 is
                   if Present (Entry_Formal (Entity (S))) then
                      return Entry_Formal (Entity (S));
                   end if;
+
+               elsif Nkind (Original_Node (N)) = N_Identifier then
+                  return Param_Entity (Original_Node (N));
                end if;
             end;
          end if;

@@ -172,9 +172,9 @@ char *ptr_to_ascii(void *ptr) {
 }
 
 /* Convert a pointer to an integer */
-int ptr_hash(void *ptr)
+long ptr_hash(void *ptr)
 {
-  return (int) ptr;
+  return (long) ptr;
 }
 
 /* Return TRUE iff ptr1 == ptr2 */

@@ -126,6 +126,8 @@ static const char * const optabs[] =
   "cos_optab->handlers[$A].insn_code = CODE_FOR_$(cos$a2$)",
   "exp_optab->handlers[$A].insn_code = CODE_FOR_$(exp$a2$)",
   "log_optab->handlers[$A].insn_code = CODE_FOR_$(log$a2$)",
+  "log10_optab->handlers[$A].insn_code = CODE_FOR_$(log10$a2$)",  
+  "log2_optab->handlers[$A].insn_code = CODE_FOR_$(log2$a2$)",  
   "tan_optab->handlers[$A].insn_code = CODE_FOR_$(tan$a2$)",
   "atan_optab->handlers[$A].insn_code = CODE_FOR_$(atan$a2$)",
   "strlen_optab->handlers[$A].insn_code = CODE_FOR_$(strlen$a$)",
@@ -220,7 +222,9 @@ gen_insn (rtx insn)
 		    /* We have to be concerned about matching "gt" and
 		       missing "gtu", e.g., so verify we have reached the
 		       end of thing we are to match.  */
-		    if (*p == 0 && *q == 0 && GET_RTX_CLASS(op) == '<')
+		    if (*p == 0 && *q == 0
+			&& (GET_RTX_CLASS (op) == RTX_COMPARE
+			    || GET_RTX_CLASS (op) == RTX_COMM_COMPARE))
 		      break;
 		  }
 

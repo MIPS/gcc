@@ -413,8 +413,8 @@ determine_invariantness_stmt (struct dom_walk_data *dw_data ATTRIBUTE_UNUSED,
   if (!bb->loop_father->outer)
     return;
 
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-    fprintf (tree_dump_file, "Basic block %d (loop %d -- depth %d):\n\n",
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    fprintf (dump_file, "Basic block %d (loop %d -- depth %d):\n\n",
 	     bb->index, bb->loop_father->num, bb->loop_father->depth);
 
   for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
@@ -444,10 +444,10 @@ determine_invariantness_stmt (struct dom_walk_data *dw_data ATTRIBUTE_UNUSED,
 	  continue;
 	}
 
-      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+      if (dump_file && (dump_flags & TDF_DETAILS))
 	{
-	  print_generic_stmt_indented (tree_dump_file, stmt, 0, 2);
-	  fprintf (tree_dump_file, "  invariant up to level %d, cost %d.\n\n",
+	  print_generic_stmt_indented (dump_file, stmt, 0, 2);
+	  fprintf (dump_file, "  invariant up to level %d, cost %d.\n\n",
 		   LIM_DATA (stmt)->max_loop->depth,
 		   LIM_DATA (stmt)->cost);
 	}
@@ -528,11 +528,11 @@ move_computations_stmt (struct dom_walk_data *dw_data ATTRIBUTE_UNUSED,
 	  continue;
 	}
 
-      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+      if (dump_file && (dump_flags & TDF_DETAILS))
 	{
-	  fprintf (tree_dump_file, "Moving statement\n");
-	  print_generic_stmt (tree_dump_file, stmt, 0);
-	  fprintf (tree_dump_file, "(cost %u) out of loop %d.\n\n",
+	  fprintf (dump_file, "Moving statement\n");
+	  print_generic_stmt (dump_file, stmt, 0);
+	  fprintf (dump_file, "(cost %u) out of loop %d.\n\n",
 		   cost, level->num);
 	}
       bsi_insert_on_edge (loop_preheader_edge (level), stmt);

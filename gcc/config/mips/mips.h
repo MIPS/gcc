@@ -169,18 +169,15 @@ extern const struct mips_cpu_info *mips_tune_info;
 #define MASK_UNINIT_CONST_IN_RODATA \
 			   0x00800000	/* Store uninitialized
 					   consts in rodata */
-#define MASK_FIX_SB1       0x01000000   /* Work around SB-1 errata.  */
+#define MASK_FIX_R4000	   0x01000000	/* Work around R4000 errata.  */
+#define MASK_FIX_R4400	   0x02000000	/* Work around R4400 errata.  */
+#define MASK_FIX_SB1	   0x04000000	/* Work around SB-1 errata.  */
 
 					/* Debug switches, not documented */
 #define MASK_DEBUG	0		/* unused */
-#define MASK_DEBUG_A	0		/* don't allow <label>($reg) addrs */
-#define MASK_DEBUG_B	0		/* GO_IF_LEGITIMATE_ADDRESS debug */
 #define MASK_DEBUG_C	0		/* don't expand seq, etc.  */
 #define MASK_DEBUG_D	0		/* don't do define_split's */
-#define MASK_DEBUG_E	0		/* function_arg debug */
-#define MASK_DEBUG_F	0		/* ??? */
 #define MASK_DEBUG_G	0		/* don't support 64 bit arithmetic */
-#define MASK_DEBUG_I	0		/* unused */
 
 					/* Dummy switches used only in specs */
 #define MASK_MIPS_TFILE	0		/* flag for mips-tfile usage */
@@ -200,14 +197,9 @@ extern const struct mips_cpu_info *mips_tune_info;
 
 					/* Debug Modes */
 #define TARGET_DEBUG_MODE	(target_flags & MASK_DEBUG)
-#define TARGET_DEBUG_A_MODE	(target_flags & MASK_DEBUG_A)
-#define TARGET_DEBUG_B_MODE	(target_flags & MASK_DEBUG_B)
 #define TARGET_DEBUG_C_MODE	(target_flags & MASK_DEBUG_C)
 #define TARGET_DEBUG_D_MODE	(target_flags & MASK_DEBUG_D)
-#define TARGET_DEBUG_E_MODE	(target_flags & MASK_DEBUG_E)
-#define TARGET_DEBUG_F_MODE	(target_flags & MASK_DEBUG_F)
 #define TARGET_DEBUG_G_MODE	(target_flags & MASK_DEBUG_G)
-#define TARGET_DEBUG_I_MODE	(target_flags & MASK_DEBUG_I)
 
 					/* Reg. Naming in .s ($21 vs. $a0) */
 #define TARGET_NAME_REGS	(target_flags & MASK_NAME_REGS)
@@ -257,6 +249,12 @@ extern const struct mips_cpu_info *mips_tune_info;
 #define TARGET_BRANCHLIKELY	(target_flags & MASK_BRANCHLIKELY)
 
 #define TARGET_FIX_SB1		(target_flags & MASK_FIX_SB1)
+
+					/* Work around R4000 errata.  */
+#define TARGET_FIX_R4000	(target_flags & MASK_FIX_R4000)
+
+					/* Work around R4400 errata.  */
+#define TARGET_FIX_R4400		(target_flags & MASK_FIX_R4400)
 
 /* True if we should use NewABI-style relocation operators for
    symbolic addresses.  This is never true for mips16 code,
@@ -322,16 +320,11 @@ extern const struct mips_cpu_info *mips_tune_info;
 /* Architecture target defines.  */
 #define TARGET_MIPS3900             (mips_arch == PROCESSOR_R3900)
 #define TARGET_MIPS4000             (mips_arch == PROCESSOR_R4000)
-#define TARGET_MIPS4100             (mips_arch == PROCESSOR_R4100)
 #define TARGET_MIPS4120             (mips_arch == PROCESSOR_R4120)
-#define TARGET_MIPS4300             (mips_arch == PROCESSOR_R4300)
-#define TARGET_MIPS4KC              (mips_arch == PROCESSOR_4KC)
-#define TARGET_MIPS5KC              (mips_arch == PROCESSOR_5KC)
 #define TARGET_MIPS5400             (mips_arch == PROCESSOR_R5400)
 #define TARGET_MIPS5500             (mips_arch == PROCESSOR_R5500)
 #define TARGET_MIPS7000             (mips_arch == PROCESSOR_R7000)
 #define TARGET_MIPS9000             (mips_arch == PROCESSOR_R9000)
-#define TARGET_SB1                  (mips_arch == PROCESSOR_SB1)
 #define TARGET_SR71K                (mips_arch == PROCESSOR_SR71000)
 
 /* Scheduling target defines.  */
@@ -344,8 +337,6 @@ extern const struct mips_cpu_info *mips_tune_info;
 #define TUNE_MIPS6000               (mips_tune == PROCESSOR_R6000)
 #define TUNE_MIPS7000               (mips_tune == PROCESSOR_R7000)
 #define TUNE_MIPS9000               (mips_tune == PROCESSOR_R9000)
-#define TUNE_SB1                    (mips_tune == PROCESSOR_SB1)
-#define TUNE_SR71K                  (mips_tune == PROCESSOR_SR71000)
 
 #define TARGET_OLDABI		    (mips_abi == ABI_32 || mips_abi == ABI_O64)
 #define TARGET_NEWABI		    (mips_abi == ABI_N32 || mips_abi == ABI_64)
@@ -605,6 +596,14 @@ extern const struct mips_cpu_info *mips_tune_info;
      N_("Work around errata for early SB-1 revision 2 cores")},		\
   {"no-fix-sb1",         -MASK_FIX_SB1,					\
      N_("Don't work around errata for early SB-1 revision 2 cores")},	\
+  {"fix-r4000",		  MASK_FIX_R4000,				\
+     N_("Work around R4000 errata")},					\
+  {"no-fix-r4000",	 -MASK_FIX_R4000,				\
+     N_("Don't work around R4000 errata")},				\
+  {"fix-r4400",		  MASK_FIX_R4400,				\
+     N_("Work around R4400 errata")},					\
+  {"no-fix-r4400",	 -MASK_FIX_R4400,				\
+     N_("Don't work around R4400 errata")},				\
   {"check-zero-division",-MASK_NO_CHECK_ZERO_DIV,			\
      N_("Trap on integer divide by zero")},				\
   {"no-check-zero-division", MASK_NO_CHECK_ZERO_DIV,			\
@@ -627,21 +626,11 @@ extern const struct mips_cpu_info *mips_tune_info;
      N_("Do not lift restrictions on GOT size") },			\
   {"debug",		  MASK_DEBUG,					\
      NULL},								\
-  {"debuga",		  MASK_DEBUG_A,					\
-     NULL},								\
-  {"debugb",		  MASK_DEBUG_B,					\
-     NULL},								\
   {"debugc",		  MASK_DEBUG_C,					\
      NULL},								\
   {"debugd",		  MASK_DEBUG_D,					\
      NULL},								\
-  {"debuge",		  MASK_DEBUG_E,					\
-     NULL},								\
-  {"debugf",		  MASK_DEBUG_F,					\
-     NULL},								\
   {"debugg",		  MASK_DEBUG_G,					\
-     NULL},								\
-  {"debugi",		  MASK_DEBUG_I,					\
      NULL},								\
   {"",			  (TARGET_DEFAULT				\
 			   | TARGET_CPU_DEFAULT				\
@@ -1928,7 +1917,7 @@ extern const enum reg_class mips_regno_to_class[];
    'd'  General (aka integer) registers
         Normally this is GR_REGS, but in mips16 mode this is M16_REGS
    'y'  General registers (in both mips16 and non mips16 mode)
-   'e'	mips16 non argument registers (M16_NA_REGS)
+   'e'	Effective address registers (general registers except $25)
    't'  mips16 temporary register ($24)
    'f'	Floating point registers
    'h'	Hi register
@@ -2185,10 +2174,6 @@ extern enum reg_class mips_char_to_class[256];
 
 #define MAX_ARGS_IN_REGISTERS (TARGET_OLDABI ? 4 : 8)
 
-/* Largest possible value of MAX_ARGS_IN_REGISTERS.  */
-
-#define BIGGEST_MAX_ARGS_IN_REGISTERS 8
-
 /* Symbolic macros for the first/last argument registers.  */
 
 #define GP_ARG_FIRST (GP_REG_FIRST + 4)
@@ -2216,8 +2201,7 @@ extern enum reg_class mips_char_to_class[256];
 
 #define FUNCTION_ARG_REGNO_P(N)					\
   ((IN_RANGE((N), GP_ARG_FIRST, GP_ARG_LAST)			\
-    || (IN_RANGE((N), FP_ARG_FIRST, FP_ARG_LAST)		\
-	&& ((N) % FP_INC == 0) && mips_abi != ABI_O64))		\
+    || (IN_RANGE((N), FP_ARG_FIRST, FP_ARG_LAST)))		\
    && !fixed_regs[N])
 
 /* This structure has to cope with two different argument allocation
@@ -2525,21 +2509,6 @@ typedef struct mips_args {
 
 #define MAX_REGS_PER_ADDRESS 1
 
-/* A C compound statement with a conditional `goto LABEL;' executed
-   if X (an RTX) is a legitimate memory address on the target
-   machine for a memory operand of mode MODE.  */
-
-#if 1
-#define GO_PRINTF(x)	fprintf(stderr, (x))
-#define GO_PRINTF2(x,y)	fprintf(stderr, (x), (y))
-#define GO_DEBUG_RTX(x) debug_rtx(x)
-
-#else
-#define GO_PRINTF(x)
-#define GO_PRINTF2(x,y)
-#define GO_DEBUG_RTX(x)
-#endif
-
 #ifdef REG_OK_STRICT
 #define GO_IF_LEGITIMATE_ADDRESS(MODE, X, ADDR)	\
 {						\
@@ -2736,6 +2705,7 @@ typedef struct mips_args {
 #define PREDICATE_CODES							\
   {"uns_arith_operand",		{ REG, CONST_INT, SUBREG, ADDRESSOF }},	\
   {"symbolic_operand",		{ CONST, SYMBOL_REF, LABEL_REF }},	\
+  {"general_symbolic_operand",	{ CONST, SYMBOL_REF, LABEL_REF }},	\
   {"global_got_operand",	{ CONST, SYMBOL_REF, LABEL_REF }},	\
   {"local_got_operand",		{ CONST, SYMBOL_REF, LABEL_REF }},	\
   {"const_arith_operand",	{ CONST_INT }},				\
@@ -3177,28 +3147,7 @@ while (0)
 
 /* This says how to define a global common symbol.  */
 
-#define ASM_OUTPUT_ALIGNED_DECL_COMMON(STREAM, DECL, NAME, SIZE, ALIGN) \
-  do {									\
-    /* If the target wants uninitialized const declarations in		\
-       .rdata then don't put them in .comm */				\
-    if (TARGET_EMBEDDED_DATA && TARGET_UNINIT_CONST_IN_RODATA		\
-	&& TREE_CODE (DECL) == VAR_DECL && TREE_READONLY (DECL)		\
-	&& (DECL_INITIAL (DECL) == 0					\
-	    || DECL_INITIAL (DECL) == error_mark_node))			\
-      {									\
-	if (TREE_PUBLIC (DECL) && DECL_NAME (DECL))			\
-	  (*targetm.asm_out.globalize_label) (STREAM, NAME);		\
-	    								\
-	readonly_data_section ();					\
-	ASM_OUTPUT_ALIGN (STREAM, floor_log2 (ALIGN / BITS_PER_UNIT));	\
-	mips_declare_object (STREAM, NAME, "", ":\n\t.space\t%u\n",	\
-	    (SIZE));							\
-      }									\
-    else								\
-	mips_declare_object (STREAM, NAME, "\n\t.comm\t", ",%u\n",	\
-	  (SIZE));							\
-  } while (0)
-
+#define ASM_OUTPUT_ALIGNED_DECL_COMMON mips_output_aligned_decl_common
 
 /* This says how to define a local common symbol (ie, not visible to
    linker).  */
@@ -3382,14 +3331,6 @@ while (0)
 
 #define DONT_ACCESS_GBLS_AFTER_EPILOGUE (TARGET_ABICALLS && !TARGET_OLDABI)
 
-
-#define DFMODE_NAN \
-	unsigned short DFbignan[4] = {0x7ff7, 0xffff, 0xffff, 0xffff}; \
-	unsigned short DFlittlenan[4] = {0xffff, 0xffff, 0xffff, 0xfff7}
-#define SFMODE_NAN \
-	unsigned short SFbignan[2] = {0x7fbf, 0xffff}; \
-	unsigned short SFlittlenan[2] = {0xffff, 0xffbf}
-
 /* Generate calls to memcpy, etc., not bcopy, etc.  */
 #define TARGET_MEM_FUNCTIONS
 

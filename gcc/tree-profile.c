@@ -158,7 +158,7 @@ static bool do_tree_profiling (void) {
 /* Return the file on which profile dump output goes, if any.  */
 
 static FILE *tree_profile_dump_file (void) {
-  return tree_dump_file;
+  return dump_file;
 }
 
 struct tree_opt_pass pass_tree_profile = 

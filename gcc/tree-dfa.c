@@ -67,12 +67,6 @@ struct dfa_stats_d
 /* State information for find_vars_r.  */
 struct walk_state
 {
-  /* Nonzero if the variables found under the current tree are written to.  */
-  int is_store : 1;
-
-  /* Nonzero if the walker is inside an INDIRECT_REF node.  */
-  int is_indirect_ref : 1;
-
   /* Hash table used to avoid adding the same variable more than once.  */
   htab_t vars_found;
 };
@@ -112,7 +106,7 @@ varray_type referenced_vars;
 static void
 find_referenced_vars (void)
 {
-  static htab_t vars_found;
+  htab_t vars_found;
   basic_block bb;
   block_stmt_iterator si;
   struct walk_state walk_state;
@@ -535,7 +529,7 @@ dump_variable (FILE *file, tree var)
       return;
     }
 
-  print_generic_expr (file, var, 0);
+  print_generic_expr (file, var, dump_flags);
   
   if (TREE_CODE (var) == SSA_NAME)
     var = SSA_NAME_VAR (var);
@@ -550,7 +544,7 @@ dump_variable (FILE *file, tree var)
   if (ann->type_mem_tag)
     {
       fprintf (file, ", type memory tag: ");
-      print_generic_expr (file, ann->type_mem_tag, 0);
+      print_generic_expr (file, ann->type_mem_tag, dump_flags);
     }
 
   if (ann->is_alias_tag)
@@ -562,19 +556,10 @@ dump_variable (FILE *file, tree var)
   if (is_call_clobbered (var))
     fprintf (file, ", call clobbered");
 
-  if (ann->is_stored)
-    fprintf (file, ", is written to");
-
-  if (ann->is_dereferenced_store)
-    fprintf (file, ", is dereferenced to store");
-
-  if (ann->is_dereferenced_load)
-    fprintf (file, ", is dereferenced to load");
-
   if (ann->default_def)
     {
       fprintf (file, ", default def: ");
-      print_generic_expr (file, ann->default_def, 0);
+      print_generic_expr (file, ann->default_def, dump_flags);
     }
 
   if (ann->may_aliases)
@@ -916,9 +901,7 @@ find_vars_r (tree *tp, int *walk_subtrees, void *data)
       tree *lhs_p = &TREE_OPERAND (t, 0);
       tree *rhs_p = &TREE_OPERAND (t, 1);
 
-      walk_state->is_store = 1;
       walk_tree (lhs_p, find_vars_r, walk_state, NULL);
-      walk_state->is_store = 0;
       walk_tree (rhs_p, find_vars_r, walk_state, NULL);
 
       /* If either side makes volatile references, mark the statement.  */
@@ -928,54 +911,11 @@ find_vars_r (tree *tp, int *walk_subtrees, void *data)
 
       return t;
     }
-  else if (TREE_CODE (t) == ASM_EXPR)
-    {
-      walk_state->is_store = 1;
-      walk_tree (&ASM_OUTPUTS (t), find_vars_r, walk_state, NULL);
-      walk_tree (&ASM_CLOBBERS (t), find_vars_r, walk_state, NULL);
-      walk_state->is_store = 0;
-      walk_tree (&ASM_INPUTS (t), find_vars_r, walk_state, NULL);
-      return t;
-    }
-  else if (TREE_CODE (t) == INDIRECT_REF)
-    {
-      walk_state->is_indirect_ref = 1;
-      walk_tree (&TREE_OPERAND (t, 0), find_vars_r, walk_state, NULL);
-
-      /* INDIRECT_REF nodes cannot be nested in GIMPLE, so there is no need
-	 of saving/restoring the state.  */
-      walk_state->is_indirect_ref = 0;
-
-      /* Keep iterating, because an INDIRECT_REF node may have more
-	 references inside (structures and arrays).  */
-      return NULL_TREE;
-    }
 
   if (SSA_VAR_P (t))
     {
       add_referenced_var (t, walk_state);
       return NULL_TREE;
-    }
-
-  /* A function call that receives pointer arguments may dereference them.
-     For every pointer 'p' in the argument to the function call, add a
-     reference to '*p'.  */
-  if (TREE_CODE (t) == CALL_EXPR)
-    {
-      tree op;
-
-      for (op = TREE_OPERAND (t, 1); op; op = TREE_CHAIN (op))
-	{
-	  tree arg = TREE_VALUE (op);
-	  if (SSA_VAR_P (arg)
-	      && POINTER_TYPE_P (TREE_TYPE (arg))
-	      && !VOID_TYPE_P (TREE_TYPE (TREE_TYPE (arg))))
-	    {
-	      walk_state->is_indirect_ref = 1;
-	      add_referenced_var (arg, walk_state);
-	      walk_state->is_indirect_ref = 0;
-	    }
-	}
     }
 
   return NULL_TREE;
@@ -987,10 +927,10 @@ find_vars_r (tree *tp, int *walk_subtrees, void *data)
    tag, add it to the POINTERS array.  These two arrays are used for
    alias analysis (See compute_alias_sets).
 
-   WALK_STATE is an array with a hash table used to avoid adding the
-   same variable more than once to its corresponding set as well as flags
-   indicating if we're processing a load or store.  Note that this function
-   assumes that VAR is a valid SSA variable.  */
+   WALK_STATE contains a hash table used to avoid adding the same
+   variable more than once to its corresponding set as well as flags
+   indicating if we're processing a load or store.  Note that this
+   function assumes that VAR is a valid SSA variable.  */
 
 static void
 add_referenced_var (tree var, struct walk_state *walk_state)
@@ -1023,28 +963,6 @@ add_referenced_var (tree var, struct walk_state *walk_state)
 	 to emit nested functions.  */
       if (DECL_NONLOCAL (var))
 	v_ann->used = 1;
-    }
-
-  /* Now, set attributes that depend on WALK_STATE.  */
-  if (walk_state == NULL)
-    return;
-
-  /* Remember if the variable has been written to.  This is important for
-     alias analysis.  If a variable and its aliases are never modified, it
-     is not interesting for the optimizers because there are no aliased
-     stores to keep track of.  */
-  if (walk_state->is_store)
-    v_ann->is_stored = 1;
-
-  /* If VAR is a pointer referenced in an INDIRECT_REF node, mark it so
-     that alias analysis creates a memory tag representing the location
-     pointed-to by pointer VAR.  */
-  if (walk_state->is_indirect_ref)
-    {
-      if (walk_state->is_store)
-	v_ann->is_dereferenced_store = 1;
-      else
-	v_ann->is_dereferenced_load = 1;
     }
 }
 
@@ -1082,7 +1000,7 @@ get_virtual_var (tree var)
 static void
 find_hidden_use_vars (tree block)
 {
-  tree sub, decl;
+  tree sub, decl, tem;
 
   /* Check all the arrays declared in the block for VLAs.
 
@@ -1097,6 +1015,21 @@ find_hidden_use_vars (tree block)
   /* Now repeat the search in any sub-blocks.  */
   for (sub = BLOCK_SUBBLOCKS (block); sub; sub = TREE_CHAIN (sub))
     find_hidden_use_vars (sub);
+
+  /* A VLA parameter may use a variable which as set from another
+     parameter to declare the size of the VLA.  We need to mark the
+     variable as having a hidden use since it is used to declare the
+     VLA parameter and that declaration is not seen by the SSA code. 
+
+     Note get_pending_sizes clears the PENDING_SIZES chain, so we
+     must restore it. */
+  tem = get_pending_sizes ();
+  put_pending_sizes (tem);
+  for (; tem; tem = TREE_CHAIN (tem))
+    {
+      int inside_vla = 1;
+      walk_tree (&TREE_VALUE (tem), find_hidden_use_vars_r, &inside_vla, NULL);
+    }
 }
 
 /* Callback for walk_tree used by find_hidden_use_vars to analyze each 
@@ -1139,9 +1072,8 @@ find_hidden_use_vars_r (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
 /* Add a temporary variable to REFERENCED_VARS.  This is similar to
    add_referenced_var, but is used by passes that need to add new temps to
    the REFERENCED_VARS array after the program has been scanned for
-   variables.  In particular, none of the annotations that depend on struct
-   walk_state will be set.  The variable will just receive a new UID and be
-   added to the REFERENCED_VARS array without checking for duplicates.  */
+   variables.  The variable will just receive a new UID and be added
+   to the REFERENCED_VARS array without checking for duplicates.  */
 
 void
 add_referenced_tmp_var (tree var)
@@ -1295,7 +1227,7 @@ discover_nonconstant_array_refs_r (tree * tp, int *walk_subtrees,
 	t = TREE_OPERAND (t, 0);
       if (TREE_CODE (t) == ARRAY_REF)
 	{
-	  t = get_base_decl (t);
+	  t = get_base_address (t);
 	  if (t && DECL_P (t))
 	    TREE_ADDRESSABLE (t) = 1;
 	}

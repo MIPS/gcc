@@ -1,3 +1,7 @@
+2004-03-20  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	Merge from tree-ssa branch (lno-merge-20040321).
+
 2004-03-20  Dorit Naishlos <dorit@il.ibm.com>
 
         * tree-vectorizer.c: (vect_init_vector): New function.

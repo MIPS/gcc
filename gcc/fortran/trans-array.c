@@ -3141,7 +3141,7 @@ gfc_trans_dummy_array_bias (gfc_symbol * sym, tree tmpdesc, tree body)
 	      /* Check (ubound(a) - lbound(a) == ubound(b) - lbound(b)).  */
 
 	      tmp = fold (build (MINUS_EXPR, gfc_array_index_type, ubound,
-				 lbound[n]));
+				 lbound));
               stride = build (MINUS_EXPR, gfc_array_index_type, dubound,
                             dlbound);
               tmp = fold (build (NE_EXPR, gfc_array_index_type, tmp, stride));

@@ -825,7 +825,7 @@ package Sinfo is
    --    This flag is set in the N_With_Clause node to indicate that a
    --    pragma Elaborate pragma appears for the with'ed units.
 
-   --  Elaborate_All_Present (Flag15-Sem)
+   --  Elaborate_All_Present (Flag14-Sem)
    --    This flag is set in the N_With_Clause node to indicate that a
    --    pragma Elaborate_All pragma appears for the with'ed units.
 
@@ -872,7 +872,7 @@ package Sinfo is
    --    generic templates, this is harmless.
 
    --  Entity_Or_Associated_Node (Node4-Sem)
-   --    A synonym for both Entity and Asasociated_Node. Used by convention
+   --    A synonym for both Entity and Associated_Node. Used by convention
    --    in the code when referencing this field in cases where it is not
    --    known whether the field contains an Entity or an Associated_Node.
 
@@ -5102,7 +5102,8 @@ package Sinfo is
       --  Last_Name (Flag6) (set to True if last name or only one name)
       --  Context_Installed (Flag13-Sem)
       --  Elaborate_Present (Flag4-Sem)
-      --  Elaborate_All_Present (Flag15-Sem)
+      --  Elaborate_All_Present (Flag14-Sem)
+      --  Private_Present (Flag15) set if with_clause has private keyword
       --  Implicit_With (Flag16-Sem)
       --  Limited_Present (Flag17)  set if LIMITED is present
       --  Limited_View_Installed (Flag18-Sem)
@@ -5111,6 +5112,7 @@ package Sinfo is
 
       --  Note: Limited_Present and Limited_View_Installed give support to
       --        Ada 0Y (AI-50217).
+      --  Similarly, Private_Present gives support to AI-50262.
 
       ----------------------
       -- With_Type clause --
@@ -6354,19 +6356,20 @@ package Sinfo is
       --  The front end also deals with specific cases that are not allowed
       --  e.g. involving unconstrained array types.
 
-      --  For the case of the standard gigi backend, this means that all
-      --  checks are done in the front-end.
+      --  However, some checks, e.g. the check for suspicious aliasing
+      --  when converting to a pointer type, can more conveniently be
+      --  performed in the back end where alias sets are known.
 
-      --  However, in the case of specialized back-ends, notably the JVM
-      --  backend for JGNAT, additional requirements and restrictions apply
+      --  In addition, for specialized back ends, notably the JVM-based
+      --  back end for JGNAT, additional requirements and restrictions apply
       --  to unchecked conversion, and these are most conveniently performed
       --  in the specialized back-end.
 
-      --  To accommodate this requirement, for such back ends, the following
-      --  special node is generated recording an unchecked conversion that
-      --  needs to be validated. The back end should post an appropriate
-      --  error message if the unchecked conversion is invalid or warrants
-      --  a special warning message.
+      --  To accommodate this requirement, the following special node is
+      --  generated recording an unchecked conversion that needs to be
+      --  validated. The back end should post an appropriate error message
+      --  error message if the unchecked conversion is invalid or a warning
+      --  message if a special warning is warranted.
 
       --  Source_Type and Target_Type point to the entities for the two
       --  types involved in the unchecked conversion instantiation that
@@ -7120,7 +7123,7 @@ package Sinfo is
      (N : Node_Id) return Boolean;    -- Flag13
 
    function Elaborate_All_Present
-     (N : Node_Id) return Boolean;    -- Flag15
+     (N : Node_Id) return Boolean;    -- Flag14
 
    function Elaborate_Present
      (N : Node_Id) return Boolean;    -- Flag4
@@ -7906,7 +7909,7 @@ package Sinfo is
      (N : Node_Id; Val : Boolean := True);    -- Flag13
 
    procedure Set_Elaborate_All_Present
-     (N : Node_Id; Val : Boolean := True);    -- Flag15
+     (N : Node_Id; Val : Boolean := True);    -- Flag14
 
    procedure Set_Elaborate_Present
      (N : Node_Id; Val : Boolean := True);    -- Flag4

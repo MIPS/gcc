@@ -1010,6 +1010,7 @@ target_gtfiles=
 . ${srcdir}/config.gcc
 
 extra_objs="${host_extra_objs} ${extra_objs}"
+extra_gcc_objs="${host_extra_gcc_objs} ${extra_gcc_objs}"
 
 # Default the target-machine variables that were not explicitly set.
 if test x"$tm_file" = x
@@ -1117,6 +1118,10 @@ if test "$host_xm_file" != "$build_xm_file"; then
 	fi
 fi
 
+# ---------
+# Threading
+# ---------
+
 # Check if a valid thread package
 case ${enable_threads_flag} in
   "" | no)
@@ -1142,6 +1147,19 @@ if test x${thread_file} = x; then
   # so use file chosen by default logic above
   thread_file=${target_thread_file}
 fi
+
+# Make gthr-default.h if we have a thread file.
+gthread_flags=
+if test $thread_file != single; then
+  rm -f gthr-default.h
+  echo "#include \"gthr-${thread_file}.h\"" > gthr-default.h
+  gthread_flags=-DHAVE_GTHR_DEFAULT
+fi
+AC_SUBST(gthread_flags)
+
+# --------
+# UNSORTED
+# --------
 
 if test x$enable___cxa_atexit = xyes || \
    test x$enable___cxa_atexit = x -a x$default_use_cxa_atexit = xyes; then
@@ -1188,6 +1206,7 @@ else
 	saved_CFLAGS="${CFLAGS}"
 	CC="${CC_FOR_BUILD}" CFLAGS="${CFLAGS_FOR_BUILD}" \
 	${realsrcdir}/configure \
+		--enable-languages=${enable_languages-all} \
 		--target=$target_alias --host=$build_alias --build=$build_alias
 	CFLAGS="${saved_CFLAGS}"
 
@@ -1558,6 +1577,10 @@ case $use_collect2 in
     ;;
 esac
 
+# ---------------------------
+# Assembler & linker features
+# ---------------------------
+
 # Identify the assembler which will work hand-in-glove with the newly
 # built GCC, so that we can examine its features.  This is the assembler
 # which will be driven by the driver program.
@@ -1622,11 +1645,11 @@ if test "x$gcc_cv_as" = x; then
 	if test "x$program_prefix" != xNONE; then
 		gcc_cv_as=${program_prefix}as$host_exeext
 	else
-		gcc_cv_as=`echo as | sed ${program_transform_name}`$host_exeext
+		gcc_cv_as=`echo as | sed "${program_transform_name}"`$host_exeext
 	fi
 
-	test_dirs="$test_prefix/lib/gcc-lib/$target_noncanonical/$gcc_version \
-		   $test_prefix/lib/gcc-lib/$target_noncanonical \
+	test_dirs="$test_prefix/libexec/gcc/$target_noncanonical/$gcc_version \
+		   $test_prefix/libexec/gcc/$target_noncanonical \
 		   /usr/lib/gcc/$target_noncanonical/$gcc_version \
 		   /usr/lib/gcc/$target_noncanonical \
 		   $test_prefix/$target_noncanonical/bin/$target_noncanonical/$gcc_version \
@@ -1678,7 +1701,9 @@ gcc_cv_ld_gld_srcdir=`echo $srcdir | sed -e 's,/gcc$,,'`/ld
 gcc_cv_ld_bfd_srcdir=`echo $srcdir | sed -e 's,/gcc$,,'`/bfd
 if test -x "$DEFAULT_LINKER"; then
 	gcc_cv_ld="$DEFAULT_LINKER"
-elif test -x "$LD"; then
+elif test -x "$LD_FOR_TARGET"; then
+        gcc_cv_ld="$LD_FOR_TARGET"
+elif test -x "$LD" && test x$host = x$target; then
 	gcc_cv_ld="$LD"
 elif test -x collect-ld$host_exeext; then
 	# Build using linker in the current directory.
@@ -1738,11 +1763,11 @@ if test "x$gcc_cv_ld" = x; then
 	if test "x$program_prefix" != xNONE; then
 		gcc_cv_ld=${program_prefix}ld$host_exeext
 	else
-		gcc_cv_ld=`echo ld | sed ${program_transform_name}`$host_exeext
+		gcc_cv_ld=`echo ld | sed "${program_transform_name}"`$host_exeext
 	fi
 
-	test_dirs="$test_prefix/lib/gcc-lib/$target_noncanonical/$gcc_version \
-		   $test_prefix/lib/gcc-lib/$target_noncanonical \
+	test_dirs="$test_prefix/libexec/gcc/$target_noncanonical/$gcc_version \
+		   $test_prefix/libexec/gcc/$target_noncanonical \
 		   /usr/lib/gcc/$target_noncanonical/$gcc_version \
 		   /usr/lib/gcc/$target_noncanonical \
 		   $test_prefix/$target_noncanonical/bin/$target_noncanonical/$gcc_version \
@@ -1794,7 +1819,7 @@ elif test -f $gcc_cv_binutils_srcdir/configure.in \
 elif test "x$program_prefix" != xNONE; then
 	gcc_cv_nm=${program_prefix}nm$host_exeext
 else
-	gcc_cv_nm=`echo nm | sed ${program_transform_name}`$host_exeext
+	gcc_cv_nm=`echo nm | sed "${program_transform_name}"`$host_exeext
 fi
 case $in_tree_nm in
   yes) AC_MSG_RESULT("newly built nm") ;;
@@ -1818,7 +1843,7 @@ elif test "x$program_prefix" != xNONE; then
 	gcc_cv_objdump=${program_prefix}objdump$host_exeext
 else
 	gcc_cv_objdump=`echo objdump | \
-		sed ${program_transform_name}`$host_exeext
+		sed "${program_transform_name}"`$host_exeext
 fi
 case $in_tree_objdump in
   yes) AC_MSG_RESULT("newly built objdump") ;;
@@ -2332,6 +2357,14 @@ case "$target" in
   [Define if your assembler supports explicit relocations.])])
     ;;
 
+  cris-*-*)
+    gcc_GAS_CHECK_FEATURE([-no-mul-bug-abort option],
+      gcc_cv_as_cris_no_mul_bug,[2,15,91],
+      [-no-mul-bug-abort], [.text],,
+      [AC_DEFINE(HAVE_AS_NO_MUL_BUG_ABORT_OPTION, 1,
+		[Define if your assembler supports the -no-mul-bug-abort option.])])
+    ;;
+
   sparc*-*-*)
     gcc_GAS_CHECK_FEATURE([.register], gcc_cv_as_sparc_register_op,,,
       [.register %g2, #scratch],,
@@ -2618,6 +2651,10 @@ if test x"$gcc_cv_ld_pie" = xyes; then
 fi
 AC_MSG_RESULT($gcc_cv_ld_pie)
 
+# --------
+# UNSORTED
+# --------
+
 if test x$with_sysroot = x && test x$host = x$target \
    && test "$prefix" != "/usr" && test "x$prefix" != "x$local_prefix" ; then
   AC_DEFINE_UNQUOTED(PREFIX_INCLUDE_DIR, "$prefix/include",
@@ -2749,15 +2786,6 @@ The following requested languages were not found:${missing_languages}
 The following languages were available: c${found_languages}])
 fi
 
-# Make gthr-default.h if we have a thread file.
-gthread_flags=
-if test $thread_file != single; then
-    rm -f gthr-default.h
-    echo "#include \"gthr-${thread_file}.h\"" > gthr-default.h
-    gthread_flags=-DHAVE_GTHR_DEFAULT
-fi
-AC_SUBST(gthread_flags)
-
 # Find out what GC implementation we want, or may, use.
 AC_ARG_WITH(gc,
 [  --with-gc={page,zone}   choose the garbage collection mechanism to use
@@ -2830,6 +2858,11 @@ AC_SUBST(ANDER)
 AC_SUBST(BANSHEEINC)
 AC_SUBST(BANSHEELIB)
 AC_SUBST(BANSHEEREBUILD)
+
+# --------------
+# Language hooks
+# --------------
+
 # Make empty files to contain the specs and options for each language.
 # Then add #include lines to for a compiler that has specs and/or options.
 
@@ -2951,6 +2984,10 @@ do
 	done
 	echo "lang.$t: $x" >> Make-hooks
 done
+
+# --------
+# UNSORTED
+# --------
 
 # Create .gdbinit.
 
@@ -3105,6 +3142,7 @@ AC_SUBST(quoted_cc_set_by_configure)
 AC_SUBST(cpp_install_dir)
 AC_SUBST(xmake_file)
 AC_SUBST(tmake_file)
+AC_SUBST(extra_gcc_objs)
 AC_SUBST(extra_headers_list)
 AC_SUBST(extra_objs)
 AC_SUBST(extra_parts)
@@ -3118,7 +3156,6 @@ AC_SUBST(gcc_version)
 AC_SUBST(gcc_version_full)
 AC_SUBST(gcc_version_trigger)
 AC_SUBST(host_exeext)
-AC_SUBST(host_extra_gcc_objs)
 AC_SUBST(host_xm_file_list)
 AC_SUBST(host_xm_include_list)
 AC_SUBST(host_xm_defines)

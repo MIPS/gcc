@@ -143,10 +143,6 @@ static GTY(()) tree truly_local_externals;
 static GTY(()) tree first_builtin_decl;
 static GTY(()) tree last_builtin_decl;
 
-/* A DECL for the current file-scope context.  */
-
-static GTY(()) tree current_file_decl;
-
 /* Set to 0 at beginning of a function definition, set to 1 if
    a return statement that specifies a return value is seen.  */
 
@@ -616,7 +612,7 @@ poplevel (int keep, int dummy ATTRIBUTE_UNUSED, int functionbody)
 	      && DECL_NAME (p)
 	      && !DECL_ARTIFICIAL (p))
 	    warning ("%Junused variable `%D'", p, p);
-	  /* fall through */
+	  /* Fall through.  */
 
 	default:
 	normal:
@@ -799,7 +795,7 @@ match_builtin_function_types (tree newtype, tree oldtype)
 
 /* Subroutine of diagnose_mismatched_decls.  Check for function type
    mismatch involving an empty arglist vs a nonempty one and give clearer
-   diagnostics. */
+   diagnostics.  */
 static void
 diagnose_arglist_conflict (tree newdecl, tree olddecl,
 			   tree newtype, tree oldtype)
@@ -975,7 +971,7 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
 	    {
 	      /* If types don't match for a built-in, throw away the
 		 built-in.  No point in calling locate_old_decl here, it
-		 won't print anything. */
+		 won't print anything.  */
 	      warning ("%Jconflicting types for built-in function '%D'",
 		       newdecl, newdecl);
 	      return false;
@@ -1021,7 +1017,7 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
   if (TREE_CODE (newdecl) == TYPE_DECL)
     {
       if (DECL_IN_SYSTEM_HEADER (newdecl) || DECL_IN_SYSTEM_HEADER (olddecl))
-	return true;  /* allow OLDDECL to continue in use */
+	return true;  /* Allow OLDDECL to continue in use.  */
       
       error ("%Jredefinition of typedef '%D'", newdecl, newdecl);
       locate_old_decl (olddecl, error);
@@ -1216,8 +1212,18 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
 	    }
 	}
     }
-  else /* VAR_DECL */
+  else /* PARM_DECL, VAR_DECL */
     {
+      /* Redeclaration of a PARM_DECL is invalid unless this is the
+	 real position of a forward-declared parameter (GCC extension).  */
+      if (TREE_CODE (newdecl) == PARM_DECL
+	  && (!TREE_ASM_WRITTEN (olddecl) || TREE_ASM_WRITTEN (newdecl)))
+	{
+	  error ("%Jredefinition of parameter '%D'", newdecl, newdecl);
+	  locate_old_decl (olddecl, error);
+	  return false;
+	}
+
       /* These bits are only type qualifiers when applied to objects.  */
       if (TREE_THIS_VOLATILE (newdecl) != TREE_THIS_VOLATILE (olddecl))
 	{
@@ -1246,10 +1252,13 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
       && warn_redundant_decls
       /* Don't warn about a function declaration followed by a
 	 definition.  */
-    && !(TREE_CODE (newdecl) == FUNCTION_DECL
-	 && DECL_INITIAL (newdecl) && !DECL_INITIAL (olddecl))
-    /* Don't warn about an extern followed by a definition.  */
-    && !(DECL_EXTERNAL (olddecl) && !DECL_EXTERNAL (newdecl)))
+      && !(TREE_CODE (newdecl) == FUNCTION_DECL
+	   && DECL_INITIAL (newdecl) && !DECL_INITIAL (olddecl))
+      /* Don't warn about an extern followed by a definition.  */
+      && !(DECL_EXTERNAL (olddecl) && !DECL_EXTERNAL (newdecl))
+      /* Don't warn about forward parameter decls.  */
+      && !(TREE_CODE (newdecl) == PARM_DECL
+	   && TREE_ASM_WRITTEN (olddecl) && !TREE_ASM_WRITTEN (newdecl)))
     {
       warning ("%Jredundant redeclaration of '%D'", newdecl, newdecl);
       warned = true;
@@ -2057,12 +2066,13 @@ define_label (location_t location, tree name)
   return label;
 }
 
-/* Return the list of declarations of the current scope.  */
+/* Return the list of declarations of the current scope.
+   This hook is optional and not implemented for C.  */
 
 tree
 getdecls (void)
 {
-  return current_scope->names;
+  return 0;
 }
 
 
@@ -3200,7 +3210,8 @@ check_bitfield_type_and_width (tree *type, tree *width, const char *orig_name)
   if (TREE_CODE (*type) == ENUMERAL_TYPE)
     {
       struct lang_type *lt = TYPE_LANG_SPECIFIC (*type);
-      if (w < min_precision (lt->enum_min, TREE_UNSIGNED (*type))
+      if (!lt 
+          || w < min_precision (lt->enum_min, TREE_UNSIGNED (*type))
 	  || w < min_precision (lt->enum_max, TREE_UNSIGNED (*type)))
 	warning ("`%s' is narrower than values of its type", name);
     }
@@ -4403,7 +4414,7 @@ grokdeclarator (tree declarator, tree declspecs,
 
 	/* It is invalid to create an `extern' declaration for a
 	   variable if there is a global declaration that is
-	   `static'.  */
+	   `static' and the global declaration is not visible.  */
 	if (extern_ref && current_scope != global_scope)
 	  {
 	    tree global_decl;
@@ -4411,6 +4422,7 @@ grokdeclarator (tree declarator, tree declspecs,
 	    global_decl = identifier_global_value (declarator);
 	    if (global_decl
 		&& TREE_CODE (global_decl) == VAR_DECL
+		&& lookup_name (declarator) != global_decl
 		&& !TREE_PUBLIC (global_decl))
 	      error ("variable previously declared `static' redeclared "
 		     "`extern'");
@@ -6163,27 +6175,6 @@ finish_function (void)
   current_function_decl = NULL;
 }
 
-/* Generate the RTL for a deferred function FNDECL.  */
-
-void
-c_expand_deferred_function (tree fndecl)
-{
-  /* DECL_INLINE or DECL_RESULT might got cleared after the inline
-     function was deferred, e.g. in duplicate_decls.  */
-  if (DECL_INLINE (fndecl) && DECL_RESULT (fndecl))
-    {
-      if (flag_inline_trees)
-	{
-	  timevar_push (TV_INTEGRATION);
-	  optimize_inline_calls (fndecl);
-	  timevar_pop (TV_INTEGRATION);
-	  dump_function (TDI_inlined, fndecl);
-	}
-      c_expand_body (fndecl);
-      current_function_decl = NULL;
-    }
-}
-
 /* Generate the RTL for the body of FNDECL.  If NESTED_P is nonzero,
    then we are already in the process of generating RTL for another
    function.  */
@@ -6283,7 +6274,7 @@ check_for_loop_decls (void)
         }
     }
 
-  for (t = getdecls (); t; t = TREE_CHAIN (t))
+  for (t = current_scope->names; t; t = TREE_CHAIN (t))
     {
       if (TREE_CODE (t) != VAR_DECL && DECL_NAME (t))
 	error ("%Jdeclaration of non-variable '%D' in 'for' loop "
@@ -6479,11 +6470,14 @@ void
 record_builtin_type (enum rid rid_index, const char *name, tree type)
 {
   tree id;
+  tree tdecl;
   if (name == 0)
     id = ridpointers[(int) rid_index];
   else
     id = get_identifier (name);
-  pushdecl (build_decl (TYPE_DECL, id, type));
+  tdecl = build_decl (TYPE_DECL, id, type);
+  pushdecl (tdecl);
+  debug_hooks->type_decl (tdecl, 0);
 }
 
 /* Build the void_list_node (void_type_node having been created).  */

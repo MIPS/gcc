@@ -98,34 +98,6 @@ delete_var_map (var_map map)
   free (map);
 }
 
-/* This routine registers an SSA versioned variable with the partition
-   manager. Any unregistered partitions may be compacted out later.  */
-
-static inline void
-register_ssa_partition (var_map map, tree ssa_var, bool is_use)
-{
-  int version;
-
-#if defined ENABLE_CHECKING
-  if (TREE_CODE (ssa_var) != SSA_NAME)
-    abort ();
-
-  if (!is_gimple_reg (SSA_NAME_VAR (ssa_var)))
-    {
-      fprintf (stderr, "Illegally registering a virtual SSA name :");
-      print_generic_expr (stderr, ssa_var, TDF_SLIM);
-      fprintf (stderr, " in the SSA->Normal phase.\n");
-      abort();
-    }
-#endif
-
-  version = SSA_NAME_VERSION (ssa_var);
-  if (is_use && map->ref_count)
-    map->ref_count[version]++;
-
-  if (map->partition_to_var[version] == NULL_TREE)
-    map->partition_to_var[SSA_NAME_VERSION (ssa_var)] = ssa_var;
-}
 
 /* This function will combine 2 partitions.  Returns the partition which 
    represents the new partition. If the two partitions cannot be combined, 

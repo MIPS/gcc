@@ -68,7 +68,7 @@ tree_ssa_loop_opt (void)
 {
   struct loops *loops;
 
-  loops = tree_loop_optimizer_init (tree_dump_file);
+  loops = tree_loop_optimizer_init (dump_file);
 
   if (loops)
     {
@@ -91,8 +91,7 @@ tree_ssa_loop_opt (void)
       tree_ssa_iv_optimize (loops);
 
       loop_optimizer_finalize (loops,
-			       (tree_dump_flags & TDF_DETAILS
-				? tree_dump_file : NULL));
+			       (dump_flags & TDF_DETAILS ? dump_file : NULL));
 
       cleanup_tree_cfg ();
     }
@@ -193,6 +192,13 @@ mark_defs_for_rewrite (basic_block bb)
     {
       var = SSA_NAME_VAR (PHI_RESULT (stmt));
       bitmap_set_bit (vars_to_rename, var_ann (var)->uid);
+
+      /* If we have a type_mem_tag, add it as well.  Due to rewriting the
+	 variable out of ssa, we lose its name tag, so we use type_mem_tag
+	 instead.  */
+      var = var_ann (var)->type_mem_tag;
+      if (var)
+	bitmap_set_bit (vars_to_rename, var_ann (var)->uid);
     }
 
   for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
@@ -206,6 +212,13 @@ mark_defs_for_rewrite (basic_block bb)
 	{
 	  var = SSA_NAME_VAR (DEF_OP (defs, i));
 	  bitmap_set_bit (vars_to_rename, var_ann (var)->uid);
+
+	  /* If we have a type_mem_tag, add it as well.  Due to rewriting the
+	     variable out of ssa, we lose its name tag, so we use type_mem_tag
+	     instead.  */
+	  var = var_ann (var)->type_mem_tag;
+	  if (var)
+	    bitmap_set_bit (vars_to_rename, var_ann (var)->uid);
 	}
 
       vdefs = VDEF_OPS (ann);
@@ -326,7 +339,7 @@ copy_loop_headers (void)
   edge preheader_edge;
   varray_type bbs_to_duplicate = NULL;
 
-  loops = tree_loop_optimizer_init (tree_dump_file);
+  loops = tree_loop_optimizer_init (dump_file);
   if (!loops)
     return;
   
@@ -376,8 +389,8 @@ copy_loop_headers (void)
 	  VARRAY_PUSH_GENERIC_PTR_NOGC (bbs_to_duplicate, preheader_edge);
 	  header->aux = &header->aux;
 
-	  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-	    fprintf (tree_dump_file,
+	  if (dump_file && (dump_flags & TDF_DETAILS))
+	    fprintf (dump_file,
 		     "Scheduled basic block %d for duplication.\n",
 		     header->index);
 

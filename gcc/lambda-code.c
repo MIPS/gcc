@@ -1040,8 +1040,8 @@ gcc_loop_to_lambda_loop (struct loop *loop, int depth,
 
   if (inductionvar == NULL || exit_cond == NULL)
     {
-      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-	fprintf (tree_dump_file, "Unable to convert loop: Cannot determine exit condition or induction variable for loop.\n");
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	fprintf (dump_file, "Unable to convert loop: Cannot determine exit condition or induction variable for loop.\n");
       return NULL;
     }
   
@@ -1051,11 +1051,11 @@ gcc_loop_to_lambda_loop (struct loop *loop, int depth,
   if (TREE_CODE (test) != LE_EXPR && TREE_CODE (test) != LT_EXPR)
     {
       
-      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+      if (dump_file && (dump_flags & TDF_DETAILS))
 	{
-	  fprintf (tree_dump_file, "Unable to convert loop: Loop exit test uses unhandled test condition:");    
-	  print_generic_stmt (tree_dump_file, test, 0);
-	  fprintf (tree_dump_file, "\n");
+	  fprintf (dump_file, "Unable to convert loop: Loop exit test uses unhandled test condition:");    
+	  print_generic_stmt (dump_file, test, 0);
+	  fprintf (dump_file, "\n");
 	}
       return NULL;
     }
@@ -1066,8 +1066,8 @@ gcc_loop_to_lambda_loop (struct loop *loop, int depth,
   if (SSA_NAME_DEF_STMT (inductionvar) == NULL_TREE)
     {
       
-      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-	fprintf (tree_dump_file, "Unable to convert loop: Cannot find PHI node for induction variable\n");
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	fprintf (dump_file, "Unable to convert loop: Cannot find PHI node for induction variable\n");
       
       return NULL;
     }
@@ -1080,8 +1080,8 @@ gcc_loop_to_lambda_loop (struct loop *loop, int depth,
       if (!uses)
 	{
 	  
-	  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-	    fprintf (tree_dump_file, "Unable to convert loop: Cannot find PHI node for induction variable\n");
+	  if (dump_file && (dump_flags & TDF_DETAILS))
+	    fprintf (dump_file, "Unable to convert loop: Cannot find PHI node for induction variable\n");
 	  
 	  return NULL;
 	}
@@ -1091,8 +1091,8 @@ gcc_loop_to_lambda_loop (struct loop *loop, int depth,
       if (TREE_CODE (phi) != PHI_NODE)
 	{
 	  
-	  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-	    fprintf (tree_dump_file, "Unable to convert loop: Cannot find PHI node for induction variable\n");  
+	  if (dump_file && (dump_flags & TDF_DETAILS))
+	    fprintf (dump_file, "Unable to convert loop: Cannot find PHI node for induction variable\n");  
 	  return NULL;
 	}
       
@@ -1103,8 +1103,8 @@ gcc_loop_to_lambda_loop (struct loop *loop, int depth,
      analyze_scalar_evolution (loop_num (loop), PHI_RESULT (phi)));
   if (!access_fn)
     {
-      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-	fprintf (tree_dump_file, "Unable to convert loop: Access function for induction variable phi is NULL\n");
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	fprintf (dump_file, "Unable to convert loop: Access function for induction variable phi is NULL\n");
       
       return NULL;
     }
@@ -1112,16 +1112,16 @@ gcc_loop_to_lambda_loop (struct loop *loop, int depth,
   step = evolution_part_in_loop_num (access_fn, loop_num (loop));
   if (!step)
     {
-      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-	fprintf (tree_dump_file, "Unable to convert loop: Cannot determine step of loop.\n");
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	fprintf (dump_file, "Unable to convert loop: Cannot determine step of loop.\n");
       
       return NULL;
     }
   if (TREE_CODE (step) != INTEGER_CST)
     {
      
-      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-	fprintf (tree_dump_file, "Unable to convert loop: Step of loop is not integer.\n");
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	fprintf (dump_file, "Unable to convert loop: Step of loop is not integer.\n");
       return NULL;
     }
   
@@ -1131,8 +1131,8 @@ gcc_loop_to_lambda_loop (struct loop *loop, int depth,
      arguments.  */
   if (PHI_NUM_ARGS (phi) != 2)
     {
-      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-	fprintf (tree_dump_file, "Unable to convert loop: PHI node for induction variable has >2 arguments\n");
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	fprintf (dump_file, "Unable to convert loop: PHI node for induction variable has >2 arguments\n");
       return NULL;
     }
 
@@ -1142,8 +1142,8 @@ gcc_loop_to_lambda_loop (struct loop *loop, int depth,
       && flow_bb_inside_loop_p (loop, PHI_ARG_EDGE (phi, 1)->src))
     {
       
-      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-	fprintf (tree_dump_file, "Unable to convert loop: PHI edges both inside loop, or both outside loop.\n");
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	fprintf (dump_file, "Unable to convert loop: PHI edges both inside loop, or both outside loop.\n");
       
       return NULL;
     }
@@ -1160,8 +1160,8 @@ gcc_loop_to_lambda_loop (struct loop *loop, int depth,
   if (!lbound)
     {
       
-      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-	fprintf (tree_dump_file, "Unable to convert loop: Cannot convert lower bound to linear expression\n");
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	fprintf (dump_file, "Unable to convert loop: Cannot convert lower bound to linear expression\n");
       
       return NULL;
     }
@@ -1173,8 +1173,8 @@ gcc_loop_to_lambda_loop (struct loop *loop, int depth,
   if (!ubound)
     {
       
-      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-	fprintf (tree_dump_file, "Unable to convert loop: Cannot convert upper bound to linear expression\n");
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	fprintf (dump_file, "Unable to convert loop: Cannot convert upper bound to linear expression\n");
       return NULL;
     }
   
@@ -1492,11 +1492,11 @@ lambda_loopnest_to_gcc_loopnest (struct loop *old_loopnest,
   block_stmt_iterator bsi;
   basic_block *bbs;
   
-  if (tree_dump_file)
+  if (dump_file)
     {
       transform = lambda_trans_matrix_inverse (transform);
-      fprintf (tree_dump_file, "Inverse of transformation matrix:\n");
-      print_lambda_trans_matrix (tree_dump_file, transform);
+      fprintf (dump_file, "Inverse of transformation matrix:\n");
+      print_lambda_trans_matrix (dump_file, transform);
     }
   temp = old_loopnest;
   VARRAY_GENERIC_PTR_INIT (new_ivs, 1, "New induction variables");
@@ -1604,14 +1604,14 @@ lambda_loopnest_to_gcc_loopnest (struct loop *old_loopnest,
 		    
 		    /* Replace the use with the result of that
 		       expression.  */
-		    if (tree_dump_file)
+		    if (dump_file)
 		      {
-			fprintf (tree_dump_file, 
+			fprintf (dump_file, 
 				 "Replacing induction variable use of ");
-			print_generic_stmt (tree_dump_file, *use, 0);
-			fprintf (tree_dump_file, " with ");
-			print_generic_stmt (tree_dump_file, newiv, 0);
-			fprintf (tree_dump_file, "\n");
+			print_generic_stmt (dump_file, *use, 0);
+			fprintf (dump_file, " with ");
+			print_generic_stmt (dump_file, newiv, 0);
+			fprintf (dump_file, "\n");
 		      }
 		    *use = newiv;
 		  }

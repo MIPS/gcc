@@ -1,4 +1,5 @@
 # Copyright (c) 1999, 2000, 2001, 2002, 2003 by Red Hat, Inc. All rights reserved.
+# Copyright 2004 Nathanael Nerode
 # 
 # THIS MATERIAL IS PROVIDED AS IS, WITH ABSOLUTELY NO WARRANTY EXPRESSED
 # OR IMPLIED.  ANY USE IS AT YOUR OWN RISK.
@@ -10,10 +11,11 @@
 # modified is included with the above copyright notice.
 #
 # Original author: Tom Tromey
+# Modified by Nathanael Nerode
 
 dnl Process this file with autoconf to produce configure.
 
-AC_PREREQ(2.13)
+AC_PREREQ(2.57)
 AC_INIT(gcj_mlc.c)
 
 # This works around the fact that libtool configuration may change LD
@@ -22,10 +24,99 @@ AC_INIT(gcj_mlc.c)
 # exported.
 ORIGINAL_LD_FOR_MULTILIBS=$LD
 
-dnl Can't be done in GC_CONFIGURE because that confuses automake. 
-AC_CONFIG_AUX_DIR(.)
+dnl Default to --enable-multilib
+AC_ARG_ENABLE(multilib,
+[  --enable-multilib       build many library versions (default)],
+[case "${enableval}" in
+  yes) multilib=yes ;;
+  no)  multilib=no ;;
+  *)   AC_MSG_ERROR(bad value ${enableval} for multilib option) ;;
+ esac], [multilib=yes])dnl
 
-GC_CONFIGURE(.)
+dnl We may get other options which we don't document:
+dnl --with-target-subdir, --with-multisrctop, --with-multisubdir
+
+dnl I needed to add the -n test to allow configuration in src directory - HB
+if test "[$]{srcdir}" = "."; then
+  if test "[$]{with_target_subdir}" != "." -a -n "[$]{with_target_subdir}"; then
+    gc_basedir="[$]{srcdir}/[$]{with_multisrctop}../."
+  else
+    gc_basedir="[$]{srcdir}/[$]{with_multisrctop}."
+  fi
+else
+  gc_basedir="[$]{srcdir}/."
+fi
+AC_SUBST(gc_basedir)
+AC_CONFIG_AUX_DIR($gc_basedir/..)
+if :; then :; else
+  # This overrides the previous occurrence for automake, but not for
+  # autoconf, which is exactly what we want.
+  AC_CONFIG_AUX_DIR(..)
+fi
+
+AC_CANONICAL_SYSTEM
+
+# Get the 'noncanonical' system names.
+sinclude(../config/acx.m4)
+_GCC_TOPLEV_NONCANONICAL_BUILD
+_GCC_TOPLEV_NONCANONICAL_HOST
+_GCC_TOPLEV_NONCANONICAL_TARGET
+
+# This works around an automake problem.
+mkinstalldirs="`cd $ac_aux_dir && ${PWDCMD-pwd}`/mkinstalldirs"
+AC_SUBST(mkinstalldirs)
+
+AM_INIT_AUTOMAKE(gc, 6.1a1, no-define)
+
+# The autoconf 2.5x version of the no-executables hack.
+sinclude(../config/no-executables.m4)
+GCC_NO_EXECUTABLES
+
+# Yak.  We must force CC and CXX to /not/ be precious variables; otherwise
+# the wrong, non-multilib-adjusted value will be used in multilibs.
+# As a side effect, we have to subst CFLAGS and CXXFLAGS ourselves.
+
+m4_rename([_AC_ARG_VAR_PRECIOUS],[real_PRECIOUS])
+m4_define([_AC_ARG_VAR_PRECIOUS],[])
+AC_PROG_CC
+AC_PROG_CXX
+m4_rename([real_PRECIOUS],[_AC_ARG_VAR_PRECIOUS])
+
+AC_SUBST(CFLAGS)
+AC_SUBST(CXXFLAGS)
+
+# Newer automakes demand CCAS and CCASFLAGS.
+: ${CCAS='$(CC)'}
+: ${CCASFLAGS='$(CFLAGS)'}
+AC_SUBST(CCAS)
+AC_SUBST(CCASFLAGS)
+
+AC_CHECK_TOOL(AS, as)
+AC_CHECK_TOOL(AR, ar)
+AC_CHECK_TOOL(RANLIB, ranlib, :)
+
+AC_PROG_INSTALL
+
+AM_MAINTAINER_MODE
+
+. [$]{srcdir}/configure.host
+
+case [$]{gc_basedir} in
+/* | [A-Za-z]:[/\\]*) gc_flagbasedir=[$]{gc_basedir} ;;
+*) gc_flagbasedir='[$](top_builddir)/'[$]{gc_basedir} ;;
+esac
+
+gc_cflags="[$]{gc_cflags} -I"'[$](top_builddir)'"/./targ-include -I[$]{gc_flagbasedir}/libc/include"
+case "${host}" in
+  *-*-cygwin32*)
+    gc_cflags="[$]{gc_cflags} -I[$]{gc_flagbasedir}/../winsup/include"
+    ;;
+esac
+
+dnl gc_cflags="[$]{gc_cflags} -fno-builtin"
+
+GC_CFLAGS=${gc_cflags}
+AC_SUBST(GC_CFLAGS)
 
 AM_PROG_LIBTOOL
 
@@ -35,18 +126,6 @@ AC_ARG_WITH(target-subdir,
                           configuring with a cross compiler])
 AC_ARG_WITH(cross-host,
 [  --with-cross-host=HOST  configuring with a cross compiler])
-
-AM_MAINTAINER_MODE
-# automake wants to see AC_EXEEXT.  But we don't need it.  And having
-# it is actually a problem, because the compiler we're passed can't
-# necessarily do a full link.  So we fool automake here.
-if false; then
-  # autoconf 2.50 runs AC_EXEEXT by default, and the macro expands
-  # to nothing, so nothing would remain between `then' and `fi' if it
-  # were not for the `:' below.
-  :
-  AC_EXEEXT
-fi
 
 AC_MSG_CHECKING([for thread model used by GCC])
 THREADS=`$CC -v 2>&1 | sed -n 's/^Thread model: //p'`
@@ -170,7 +249,7 @@ AC_MSG_RESULT($THREADLIBS)
 esac
 AC_SUBST(THREADLIBS)
 
-case "$host" in 
+case "$host" in
    powerpc-*-darwin*)
       powerpc_darwin=true
       ;;
@@ -181,7 +260,7 @@ AM_CONDITIONAL(POWERPC_DARWIN,test x$powerpc_darwin = xtrue)
 # dyld calls anyway
 case "$host" in
   *-*-darwin*) ;;
-  *) 
+  *)
     AC_CHECK_LIB(dl, dlopen, EXTRA_TEST_LIBS="$EXTRA_TEST_LIBS -ldl")
     ;;
 esac
@@ -190,7 +269,7 @@ AC_SUBST(EXTRA_TEST_LIBS)
 
 target_all=libgcjgc.la
 AC_SUBST(target_all)
-AC_SUBST(target_alias)
+AC_SUBST(target_noncanonical)
 
 dnl If the target is an eCos system, use the appropriate eCos
 dnl I/O routines.
@@ -252,7 +331,7 @@ esac
 # some variations of Power PC, where trampolines don't contain
 # executable code.
 #
-AC_MSG_CHECKING(which machine-dependent code should be used) 
+AC_MSG_CHECKING(which machine-dependent code should be used)
 machdep=
 case "$host" in
  alpha*-*-openbsd*)
@@ -277,8 +356,8 @@ case "$host" in
     ;;
  mips-nec-sysv*|mips-unknown-sysv*)
     ;;
- mips*-*-linux*) 
-    ;; 
+ mips*-*-linux*)
+    ;;
  mips-*-*)
     machdep="mips_sgi_mach_dep.lo"
     ;;
@@ -317,7 +396,7 @@ ac_is_dgux=no
 AC_CHECK_HEADER(sys/dg_sys_info.h,
 [ac_is_dgux=yes;])
 
-AC_MSG_RESULT($ac_is_dgux) 
+AC_MSG_RESULT($ac_is_dgux)
     ## :GOTCHA: we do not check anything but sys/dg_sys_info.h
 if test $ac_is_dgux = yes; then
     if test "$enable_full_debug" = "yes"; then
@@ -337,17 +416,6 @@ AC_ARG_WITH(target-subdir,
                           configuring with a cross compiler])
 AC_ARG_WITH(cross-host,
 [  --with-cross-host=HOST  configuring with a cross compiler])
-
-# automake wants to see AC_EXEEXT.  But we don't need it.  And having
-# it is actually a problem, because the compiler we're passed can't
-# necessarily do a full link.  So we fool automake here.
-if false; then
-  # autoconf 2.50 runs AC_EXEEXT by default, and the macro expands
-  # to nothing, so nothing would remain between `then' and `fi' if it
-  # were not for the `:' below.
-  :
-  AC_EXEEXT
-fi
 
 dnl As of 4.13a2, the collector will not properly work on Solaris when
 dnl built with gcc and -O.  So we remove -O in the appropriate case.
@@ -421,10 +489,10 @@ AC_ARG_ENABLE(full-debug,
 
 if test -n "$with_cross_host" &&
    test x"$with_cross_host" != x"no"; then
-  toolexecdir='$(exec_prefix)/$(target_alias)'
+  toolexecdir='$(exec_prefix)/$(target_noncanonical)'
   toolexeclibdir='$(toolexecdir)/lib'
 else
-  toolexecdir='$(libdir)/gcc-lib/$(target_alias)'
+  toolexecdir='$(libdir)/gcc-lib/$(target_noncanonical)'
   toolexeclibdir='$(libdir)'
 fi
 multi_os_directory=`$CC -print-multi-os-directory`

@@ -179,6 +179,9 @@ Common
 fPIE
 Common
 
+fabi-version=
+Common Joined UInteger
+
 falign-functions
 Common
 Align the start of functions
@@ -380,7 +383,13 @@ Perform store motion after global common subexpression elimination
 
 fgcse-las
 Common
-Perform redundant load after store elimination in global common subexpression elimination
+Perform redundant load after store elimination in global common subexpression
+elimination
+
+fgcse-after-reload
+Common
+Perform global common subexpression elimination after register allocation
+has finished.
 
 fguess-branch-probability
 Common
@@ -731,6 +740,10 @@ ftree-combine-temps
 Common
 Coalesce memory temporaries in the SSA->normal pass
 
+ftree-copyrename
+Common
+Replace SSA temporaries with better names in copies.
+
 ftree-dce
 Common
 Enable SSA dead code elimination optimization on trees
@@ -761,14 +774,6 @@ Common Joined RejectNegative
 ftree-pre
 Common
 Enable SSA-PRE optimization on trees
-
-ftree-sra
-Common
-Perform scalar replacement of aggregates
-
-ftree-ter
-Common
-Replace temporary expressions in the SSA->normal pass
 
 ftree-vectorize
 Common
@@ -825,10 +830,6 @@ Construct webs and split unrelated uses of single variable
 fwrapv
 Common
 Assume signed arithmetic overflow wraps around
-
-fwritable-strings
-Common
-Store strings in writable data section
 
 fzero-initialized-in-bss
 Common

@@ -43,6 +43,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "c-tree.h"
 #include "toplev.h"
 #include "tree-iterator.h"
+#include "hashtab.h"
 
 cpp_reader *parse_in;		/* Declared in c-pragma.h.  */
 
@@ -599,23 +600,6 @@ int flag_permissive;
    assertions and optimize accordingly, but not check them.  */
 
 int flag_enforce_eh_specs = 1;
-
-/*  The version of the C++ ABI in use.  The following values are
-    allowed:
-
-    0: The version of the ABI believed most conformant with the
-       C++ ABI specification.  This ABI may change as bugs are
-       discovered and fixed.  Therefore, 0 will not necessarily
-       indicate the same ABI in different versions of G++.
-
-    1: The version of the ABI first used in G++ 3.2.
-
-    2: The version of the ABI first used in G++ 3.4.
-
-    Additional positive integers will be assigned as new versions of
-    the ABI become the default version of the ABI.  */
-
-int flag_abi_version = 2;
 
 /* Nonzero means warn about things that will change when compiling
    with an ABI-compliant compiler.  */
@@ -1191,7 +1175,7 @@ fix_string_type (tree value)
      -Wwrite-strings says make the string constant an array of const char
      so that copying it to a non-const pointer will get a warning.
      For C++, this is the standard behavior.  */
-  if (flag_const_strings && ! flag_writable_strings)
+  if (flag_const_strings)
     {
       tree elements
 	= build_type_variant (wide_flag ? wchar_type_node : char_type_node,
@@ -1207,7 +1191,7 @@ fix_string_type (tree value)
 
   TREE_CONSTANT (value) = 1;
   TREE_INVARIANT (value) = 1;
-  TREE_READONLY (value) = ! flag_writable_strings;
+  TREE_READONLY (value) = 1;
   TREE_STATIC (value) = 1;
   return value;
 }
@@ -2833,6 +2817,49 @@ c_apply_type_quals_to_decl (int type_quals, tree decl)
     }
 }
 
+/* Hash function for the problem of multiple type definitions in
+   different files.  This must hash all types that will compare
+   equal via comptypes to the same value.  In practice it hashes
+   on some of the simple stuff and leaves the details to comptypes. */
+
+static hashval_t
+c_type_hash (const void *p)
+{
+  int i = 0;
+  int shift, size;
+  tree t = (tree)p;
+  tree t2;
+  switch (TREE_CODE (t))
+    {
+      /* For pointers, hash on pointee type plus some swizzling. */
+      case POINTER_TYPE:
+  return c_type_hash (TREE_TYPE (t)) ^ 0x3003003;
+      /* Hash on number of elements and total size.  */
+      case ENUMERAL_TYPE:
+  shift = 3;
+  t2 = TYPE_VALUES (t);
+  break;
+      case RECORD_TYPE:
+  shift = 0;
+  t2 = TYPE_FIELDS (t);
+  break;
+      case QUAL_UNION_TYPE:
+  shift = 1;
+  t2 = TYPE_FIELDS (t);
+  break;
+      case UNION_TYPE:
+  shift = 2;
+  t2 = TYPE_FIELDS (t);
+  break;
+      default:
+  abort ();
+    }
+  for (; t2; t2 = TREE_CHAIN (t2))
+    i++;
+  size = TREE_INT_CST_LOW (TYPE_SIZE (t));
+  return ((size << 24) | (i << shift));
+}
+
 /* Return the typed-based alias set for T, which may be an expression
    or a type.  Return -1 if we don't do anything special.  */
 
@@ -2840,6 +2867,8 @@ HOST_WIDE_INT
 c_common_get_alias_set (tree t)
 {
   tree u;
+  PTR *slot;
+  static htab_t type_hash_table;
 
   /* Permit type-punning when accessing a union, provided the access
      is directly through the union.  For example, this code does not
@@ -2911,6 +2940,63 @@ c_common_get_alias_set (tree t)
       if (t1 != t)
 	return get_alias_set (t1);
     }
+
+  /* Handle the case of multiple type nodes referring to "the same" type,
+     which occurs with IMA.  These share an alias set.  FIXME:  Currently only
+     C90 is handled.  (In C99 type compatibility is not transitive, which
+     complicates things mightily. The alias set splay trees can theoretically
+     represent this, but insertion is tricky when you consider all the
+     different orders things might arrive in.) */
+
+  if (c_language != clk_c || flag_isoc99)
+    return -1;
+
+  /* Save time if there's only one input file. */
+  if (!current_file_decl || TREE_CHAIN (current_file_decl) == NULL_TREE)
+    return -1;
+
+  /* Pointers need special handling if they point to any type that
+     needs special handling (below).  */
+  if (TREE_CODE (t) == POINTER_TYPE)
+    {
+      tree t2;
+      /* Find bottom type under any nested POINTERs.  */
+      for (t2 = TREE_TYPE (t); 
+     TREE_CODE (t2) == POINTER_TYPE;
+     t2 = TREE_TYPE (t2))
+  ;
+      if (TREE_CODE (t2) != RECORD_TYPE 
+    && TREE_CODE (t2) != ENUMERAL_TYPE
+    && TREE_CODE (t2) != QUAL_UNION_TYPE
+    && TREE_CODE (t2) != UNION_TYPE)
+  return -1;
+      if (TYPE_SIZE (t2) == 0)
+  return -1;
+    }
+  /* These are the only cases that need special handling.  */
+  if (TREE_CODE (t) != RECORD_TYPE 
+      && TREE_CODE (t) != ENUMERAL_TYPE
+      && TREE_CODE (t) != QUAL_UNION_TYPE
+      && TREE_CODE (t) != UNION_TYPE
+      && TREE_CODE (t) != POINTER_TYPE)
+    return -1;
+  /* Undefined? */
+  if (TYPE_SIZE (t) == 0)
+    return -1;
+
+  /* Look up t in hash table.  Only one of the compatible types within each 
+     alias set is recorded in the table.  */
+  if (!type_hash_table)
+    type_hash_table = htab_create (1021, c_type_hash,
+	    (htab_eq) lang_hooks.types_compatible_p,
+	    NULL);
+  slot = htab_find_slot (type_hash_table, t, INSERT);
+  if (*slot != NULL)
+    return TYPE_ALIAS_SET ((tree)*slot);
+  else
+    /* Our caller will assign and record (in t) a new alias set; all we need
+       to do is remember t in the hash table.  */
+    *slot = t;
 
   return -1;
 }
@@ -4904,7 +4990,13 @@ handle_alias_attribute (tree *node, tree name, tree args,
       error ("%J'%D' defined both normally and as an alias", decl, decl);
       *no_add_attrs = true;
     }
-  else if (decl_function_context (decl) == 0)
+
+  /* Note that the very first time we process a nested declaration,
+     decl_function_context will not be set.  Indeed, *would* never
+     be set except for the DECL_INITIAL/DECL_EXTERNAL frobbery that
+     we do below.  After such frobbery, pushdecl would set the context.
+     In any case, this is never what we want.  */
+  else if (decl_function_context (decl) == 0 && current_function_decl == NULL)
     {
       tree id;
 
@@ -5830,7 +5922,7 @@ c_estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
 	*count += 10;
 	break;
       }
-    /* Few special cases of expensive operations.  This is usefull
+    /* Few special cases of expensive operations.  This is useful
        to avoid inlining on functions having too many of these.  */
     case TRUNC_DIV_EXPR:
     case CEIL_DIV_EXPR:

@@ -1,3 +1,8 @@
+2004-02-24  Richard Henderson  <rth@redhat.com>
+
+	* java-gimplify.c (java_gimplify_new_array_init): Remove extra
+	argument building BLOCK.
+
 2004-02-19  Steven Bosscher  <stevenb@suse.de>
 
 	* decl.c (poplevel): Don't output nested inline functions.

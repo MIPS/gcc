@@ -192,9 +192,6 @@ struct lang_hooks_for_decls
   /* Returns the chain of decls so far in the current scope level.  */
   tree (*getdecls) (void);
 
-  /* Returns a chain of TYPE_DECLs for built-in types.  */
-  tree (*builtin_type_decls) (void);
-
   /* Returns true when we should warn for an unused global DECL.
      We will already have checked that it has static binding.  */
   bool (*warn_unused_global) (tree);
@@ -384,6 +381,11 @@ struct lang_hooks
      information that might be interesting, such as function parameter
      types in C++.  */
   const char *(*decl_printable_name) (tree decl, int verbosity);
+
+  /* This compares two types for equivalence ("compatible" in C-based languages).
+     This routine should only return 1 if it is sure.  It should not be used
+     in contexts where erroneously returning 0 causes problems.  */
+  int (*types_compatible_p) (tree x, tree y);
 
   /* Given a CALL_EXPR, return a function decl that is its target.  */
   tree (*lang_get_callee_fndecl) (tree);

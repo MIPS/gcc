@@ -116,9 +116,6 @@ struct var_ann_d GTY(())
 	   has been performed.  */
   unsigned has_hidden_use : 1;
 
-  /* Nonzero if this variable was stored/written in the function.  */
-  unsigned is_stored : 1;
-
   /* Used by the out of SSA pass to determine whether this variable has
      been seen yet or not.  */
   unsigned out_of_ssa_tag : 1;
@@ -137,12 +134,6 @@ struct var_ann_d GTY(())
   /* Nonzero if this variable was used after SSA optimizations were
      applied.  We set this when translating out of SSA form.  */
   unsigned used : 1;
-
-  /* Nonzero if this variable is a pointer that has been dereferenced in a
-     store or a load operation.  Pointers that have been dereferenced are
-     the only ones that need to have memory tags associated to them.  */
-  unsigned is_dereferenced_store : 1;
-  unsigned is_dereferenced_load : 1;
 
   /* This field indicates whether or not the variable may need PHI nodes.
      See the enum's definition for more detailed information about the
@@ -541,7 +532,6 @@ extern void redirect_immediate_uses (tree, tree);
 struct lower_data;
 extern void lower_stmt_body (tree, struct lower_data *);
 extern void expand_used_vars (void);
-extern void remove_useless_vars (void);
 extern void record_vars (tree);
 extern bool block_may_fallthru (tree block);
 
@@ -555,11 +545,10 @@ extern void debug_points_to_info (void);
 
 /* Call-back function for walk_use_def_chains().  At each reaching
    definition, a function with this prototype is called.  */
-typedef void (*walk_use_def_chains_fn) (tree, tree, void *);
+typedef bool (*walk_use_def_chains_fn) (tree, tree, void *);
 
 /* In tree-ssa.c  */
 extern void init_tree_ssa (void);
-extern void rewrite_into_ssa (bool);
 extern void rewrite_vars_out_of_ssa (bitmap);
 extern void dump_reaching_defs (FILE *);
 extern void debug_reaching_defs (void);
@@ -579,6 +568,9 @@ extern void register_new_def (tree, tree, varray_type *, varray_type);
 extern void walk_use_def_chains (tree, walk_use_def_chains_fn, void *);
 extern void kill_redundant_phi_nodes (void);
 
+/* In tree-into-ssa.c  */
+extern void rewrite_into_ssa (bool);
+
 extern unsigned int highest_ssa_version;
 
 /* In tree-ssa-pre.c  */
@@ -591,7 +583,12 @@ tree widen_bitfield (tree, tree, tree);
 /* In tree-ssa-dom.c  */
 extern void dump_dominator_optimization_stats (FILE *);
 extern void debug_dominator_optimization_stats (void);
+
+/* In tree-ssa-copy.c  */
 extern void propagate_value (tree *, tree);
+extern void replace_exp (tree *, tree);
+extern bool cprop_into_stmt (tree, varray_type);
+extern void cprop_into_successor_phis (basic_block, varray_type);
 
 /* In tree-ssa-dce.c.  */
 void tree_ssa_dce_no_cfg_changes (void);

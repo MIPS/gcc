@@ -1136,7 +1136,6 @@ movsi_source_operand (rtx op, enum machine_mode mode)
      must be done with HIGH & LO_SUM patterns.  */
   if (CONSTANT_P (op)
       && GET_CODE (op) != HIGH
-      && GET_CODE (op) != CONSTANT_P_RTX
       && !(GET_CODE (op) == CONST_INT
            && (CONST_OK_FOR_J (INTVAL (op))
                || CONST_OK_FOR_K (INTVAL (op))
@@ -3398,13 +3397,6 @@ v850_select_section (tree exp,
 	    data_section ();
 	  break;
         }
-    }
-  else if (TREE_CODE (exp) == STRING_CST)
-    {
-      if (! flag_writable_strings)
-	readonly_data_section ();
-      else
-	data_section ();
     }
   else
     readonly_data_section ();

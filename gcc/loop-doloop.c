@@ -108,8 +108,8 @@ doloop_valid_p (struct loop *loop, struct niter_desc *desc)
 	 well by the CPU.  We should generate the pessimistic code by
 	 default, and have an option, e.g. -funsafe-loops that would
 	 enable count-register loops in this case.  */
-      if (rtl_dump_file)
-	fprintf (rtl_dump_file,
+      if (dump_file)
+	fprintf (dump_file,
 		 "Doloop: Possible infinite iteration case.\n");
       return false;
     }
@@ -126,8 +126,8 @@ doloop_valid_p (struct loop *loop, struct niter_desc *desc)
 	     low-overhead looping.  */
 	  if (GET_CODE (insn) == CALL_INSN)
 	    {
-	      if (rtl_dump_file)
-		fprintf (rtl_dump_file,
+	      if (dump_file)
+		fprintf (dump_file,
 			 "Doloop: Function call in loop.\n");
 	      return false;
 	    }
@@ -138,8 +138,8 @@ doloop_valid_p (struct loop *loop, struct niter_desc *desc)
 	      && (GET_CODE (PATTERN (insn)) == ADDR_DIFF_VEC
 		  || GET_CODE (PATTERN (insn)) == ADDR_VEC))
 	    {
-	      if (rtl_dump_file)
-		fprintf (rtl_dump_file,
+	      if (dump_file)
+		fprintf (dump_file,
 			 "Doloop: Computed branch in the loop.\n");
 	      return false;
 	    }
@@ -206,14 +206,14 @@ doloop_modify (struct loop *loop, struct niter_desc *desc,
 
   jump_insn = BB_END (loop_end);
 
-  if (rtl_dump_file)
+  if (dump_file)
     {
-      fprintf (rtl_dump_file, "Doloop: Inserting doloop pattern (");
+      fprintf (dump_file, "Doloop: Inserting doloop pattern (");
       if (desc->const_iter)
-	fprintf (rtl_dump_file, HOST_WIDEST_INT_PRINT_DEC, desc->niter);
+	fprintf (dump_file, HOST_WIDEST_INT_PRINT_DEC, desc->niter);
       else
-	fputs ("runtime", rtl_dump_file);
-      fputs (" iterations).\n", rtl_dump_file);
+	fputs ("runtime", dump_file);
+      fputs (" iterations).\n", dump_file);
     }
 
   /* Discard original jump to continue loop.  The original compare
@@ -377,14 +377,14 @@ doloop_optimize (struct loop *loop)
   unsigned level, est_niter;
   struct niter_desc *desc;
 
-  if (rtl_dump_file)
-    fprintf (rtl_dump_file, "Doloop: Processing loop %d.\n", loop->num);
+  if (dump_file)
+    fprintf (dump_file, "Doloop: Processing loop %d.\n", loop->num);
 
   /* Ignore large loops.  */
   if (loop->ninsns > (unsigned) PARAM_VALUE (PARAM_MAX_DOLOOP_INSNS))
     {
-      if (rtl_dump_file)
-	fprintf (rtl_dump_file,
+      if (dump_file)
+	fprintf (dump_file,
 		 "Doloop: The loop is too large.\n");
       return false;
     }
@@ -397,8 +397,8 @@ doloop_optimize (struct loop *loop)
   /* Check that loop is a candidate for a low-overhead looping insn.  */
   if (!doloop_valid_p (loop, desc))
     {
-      if (rtl_dump_file)
-	fprintf (rtl_dump_file,
+      if (dump_file)
+	fprintf (dump_file,
 		 "Doloop: The loop is not suitable.\n");
       return false;
     }
@@ -415,8 +415,8 @@ doloop_optimize (struct loop *loop)
 
   if (est_niter < 3)
     {
-      if (rtl_dump_file)
-	fprintf (rtl_dump_file,
+      if (dump_file)
+	fprintf (dump_file,
 		 "Doloop: Too few iterations (%u) to be profitable.\n",
 		 est_niter);
       return false;
@@ -441,8 +441,8 @@ doloop_optimize (struct loop *loop)
     }
   if (! doloop_seq)
     {
-      if (rtl_dump_file)
-	fprintf (rtl_dump_file,
+      if (dump_file)
+	fprintf (dump_file,
 		 "Doloop: Target unwilling to use doloop pattern!\n");
       return false;
     }
@@ -464,8 +464,8 @@ doloop_optimize (struct loop *loop)
   if (! doloop_pat
       || ! (condition = doloop_condition_get (doloop_pat)))
     {
-      if (rtl_dump_file)
-	fprintf (rtl_dump_file,
+      if (dump_file)
+	fprintf (dump_file,
 		 "Doloop: Unrecognizable doloop pattern!\n");
       return false;
     }

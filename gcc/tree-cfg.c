@@ -176,8 +176,8 @@ build_tree_cfg (tree *tp)
 
   /* Write the flowgraph to a dot file.  */
   {
-    int dump_flags;
-    FILE *dump_file = dump_begin (TDI_dot, &dump_flags);
+    int local_dump_flags;
+    FILE *dump_file = dump_begin (TDI_dot, &local_dump_flags);
     if (dump_file)
       {
 	tree_cfg2dot (dump_file);
@@ -186,8 +186,8 @@ build_tree_cfg (tree *tp)
   }
 
   /* Dump a textual representation of the flowgraph.  */
-  if (tree_dump_file)
-    dump_tree_cfg (tree_dump_file, tree_dump_flags);
+  if (dump_file)
+    dump_tree_cfg (dump_file, dump_flags);
 }
 
 static void
@@ -929,8 +929,8 @@ tree_merge_blocks (basic_block a, basic_block b)
   block_stmt_iterator bsi;
   tree_stmt_iterator last;
 
-  if (tree_dump_file)
-    fprintf (tree_dump_file, "Merging blocks %d and %d\n", a->index, b->index);
+  if (dump_file)
+    fprintf (dump_file, "Merging blocks %d and %d\n", a->index, b->index);
 
   /* Ensure that b follows a.  */
   move_block_after (b, a);
@@ -1639,13 +1639,13 @@ remove_bb (basic_block bb)
   block_stmt_iterator i;
   location_t *loc = NULL;
 
-  if (tree_dump_file)
+  if (dump_file)
     {
-      fprintf (tree_dump_file, "Removing basic block %d\n", bb->index);
-      if (tree_dump_flags & TDF_DETAILS)
+      fprintf (dump_file, "Removing basic block %d\n", bb->index);
+      if (dump_flags & TDF_DETAILS)
 	{
-	  dump_bb (bb, tree_dump_file, 0);
-	  fprintf (tree_dump_file, "\n");
+	  dump_bb (bb, dump_file, 0);
+	  fprintf (dump_file, "\n");
 	}
     }
 
@@ -1810,6 +1810,8 @@ cleanup_control_expr_graph (basic_block bb, block_stmt_iterator bsi)
 	  if (taken_edge->probability > REG_BR_PROB_BASE)
 	    taken_edge->probability = REG_BR_PROB_BASE;
 	}
+      if (taken_edge->probability > REG_BR_PROB_BASE)
+	taken_edge->probability = REG_BR_PROB_BASE;
     }
   else
     taken_edge = bb->succ;
@@ -2947,6 +2949,9 @@ verify_expr (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
 {
   tree t = *tp, x;
 
+  if (TYPE_P (t))
+    *walk_subtrees = 0;
+
   switch (TREE_CODE (t))
     {
     case SSA_NAME:
@@ -2978,6 +2983,88 @@ verify_expr (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
       if (TREE_CODE (TREE_TYPE (x)) != BOOLEAN_TYPE)
 	{
 	  error ("non-boolean used in condition");
+	  return x;
+	}
+      break;
+
+    case NOP_EXPR:
+    case CONVERT_EXPR:
+    case FIX_TRUNC_EXPR:
+    case FIX_CEIL_EXPR:
+    case FIX_FLOOR_EXPR:
+    case FIX_ROUND_EXPR:
+    case FLOAT_EXPR:
+    case NEGATE_EXPR:
+    case ABS_EXPR:
+    case BIT_NOT_EXPR:
+    case NON_LVALUE_EXPR:
+    case TRUTH_NOT_EXPR:
+      x = TREE_OPERAND (t, 0);
+      /* We check for constants explicitly since they are not considered
+	 gimple invariants if they overflowed.  */
+      if (TREE_CODE_CLASS (TREE_CODE (x)) != 'c'
+	  && !is_gimple_val (x))
+	{
+	  error ("Invalid operand to unary operator");
+	  return x;
+	}
+      break;
+
+    case REALPART_EXPR:
+    case IMAGPART_EXPR:
+      break;
+
+    case LT_EXPR:
+    case LE_EXPR:
+    case GT_EXPR:
+    case GE_EXPR:
+    case EQ_EXPR:
+    case NE_EXPR:
+    case UNORDERED_EXPR:
+    case ORDERED_EXPR:
+    case UNLT_EXPR:
+    case UNLE_EXPR:
+    case UNGT_EXPR:
+    case UNGE_EXPR:
+    case UNEQ_EXPR:
+    case PLUS_EXPR:
+    case MINUS_EXPR:
+    case MULT_EXPR:
+    case TRUNC_DIV_EXPR:
+    case CEIL_DIV_EXPR:
+    case FLOOR_DIV_EXPR:
+    case ROUND_DIV_EXPR:
+    case TRUNC_MOD_EXPR:
+    case CEIL_MOD_EXPR:
+    case FLOOR_MOD_EXPR:
+    case ROUND_MOD_EXPR:
+    case RDIV_EXPR:
+    case EXACT_DIV_EXPR:
+    case MIN_EXPR:
+    case MAX_EXPR:
+    case LSHIFT_EXPR:
+    case RSHIFT_EXPR:
+    case LROTATE_EXPR:
+    case RROTATE_EXPR:
+    case BIT_IOR_EXPR:
+    case BIT_XOR_EXPR:
+    case BIT_AND_EXPR:
+      x = TREE_OPERAND (t, 0);
+      /* We check for constants explicitly since they are not considered
+	 gimple invariants if they overflowed.  */
+      if (TREE_CODE_CLASS (TREE_CODE (x)) != 'c'
+	  && !is_gimple_val (x))
+	{
+	  error ("Invalid operand to binary operator");
+	  return x;
+	}
+      x = TREE_OPERAND (t, 1);
+      /* We check for constants explicitly since they are not considered
+	 gimple invariants if they overflowed.  */
+      if (TREE_CODE_CLASS (TREE_CODE (x)) != 'c'
+	  && !is_gimple_val (x))
+	{
+	  error ("Invalid operand to binary operator");
 	  return x;
 	}
       break;
@@ -3887,7 +3974,7 @@ dump_function_to_file (tree fn, FILE *file, int flags)
   arg = DECL_ARGUMENTS (fn);
   while (arg)
     {
-      print_generic_expr (file, arg, 0);
+      print_generic_expr (file, arg, dump_flags);
       if (TREE_CHAIN (arg))
 	fprintf (file, ", ");
       arg = TREE_CHAIN (arg);

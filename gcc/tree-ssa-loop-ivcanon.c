@@ -231,8 +231,8 @@ loop_niter_by_eval (struct loop *loop, edge exit)
       acnd = fold (build (cmp, boolean_type_node, aval[0], aval[1]));
       if (integer_zerop (acnd))
 	{
-	  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-	    fprintf (tree_dump_file,
+	  if (dump_file && (dump_flags & TDF_DETAILS))
+	    fprintf (dump_file,
 		     "Proved that loop %d iterates %d times using brute force.\n",
 		     loop->num, i);
 	  return build_int_2 (i, 0);
@@ -292,11 +292,11 @@ create_canonical_iv (struct loop *loop, edge exit, tree niter)
   block_stmt_iterator incr_at;
   enum tree_code cmp;
 
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_DETAILS))
     {
-      fprintf (tree_dump_file, "Added canonical iv to loop %d, ", loop->num);
-      print_generic_expr (tree_dump_file, niter, TDF_SLIM);
-      fprintf (tree_dump_file, " iterations.\n");
+      fprintf (dump_file, "Added canonical iv to loop %d, ", loop->num);
+      print_generic_expr (dump_file, niter, TDF_SLIM);
+      fprintf (dump_file, " iterations.\n");
     }
 
   cond = last_stmt (exit->src);
@@ -395,8 +395,8 @@ try_unroll_loop_completely (struct loops *loops, struct loop *loop,
   COND_EXPR_COND (cond) = do_exit;
   modify_stmt (cond);
 
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-    fprintf (tree_dump_file, "Unrolled loop %d completely.\n", loop->num);
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    fprintf (dump_file, "Unrolled loop %d completely.\n", loop->num);
 
   return true;
 }
@@ -449,11 +449,11 @@ canonicalize_loop_induction_variables (struct loops *loops, struct loop *loop,
   if (TREE_CODE (niter) != INTEGER_CST)
     return;
 
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_DETAILS))
     {
-      fprintf (tree_dump_file, "Loop %d iterates ", loop->num);
-      print_generic_expr (tree_dump_file, niter, TDF_SLIM);
-      fprintf (tree_dump_file, " times.\n");
+      fprintf (dump_file, "Loop %d iterates ", loop->num);
+      print_generic_expr (dump_file, niter, TDF_SLIM);
+      fprintf (dump_file, " times.\n");
     }
 
   if (try_unroll_loop_completely (loops, loop, exit, niter, completely_unroll))

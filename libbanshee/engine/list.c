@@ -263,8 +263,8 @@ struct list *list_copy(region r, struct list *l)
 
 #include <stdio.h>
 
-void *sort_linked_list(void *p, unsigned index,
-  int (*compare)(const void *,const void *, const void *), unsigned long *pcount, const void *data)
+static void *sort_linked_list(void *p, unsigned index,
+  int (*compare)(const void *,const void *, comparator_fn), long *pcount, comparator_fn data)
 {
   unsigned base;
   unsigned long block_size;
@@ -361,15 +361,15 @@ void *sort_linked_list(void *p, unsigned index,
 
 
 
-static int compare(const void *node1, const void *node2, const void *data)
+static int compare(const void *node1, const void *node2, comparator_fn data)
 {
    comparator_fn cmp = (comparator_fn) data;
    return cmp(((struct list_node *)node1)->data,
 	      ((struct list_node *)node2)->data);
 }
+
 struct list *list_sort(struct list *l, comparator_fn cmp)
 {
-  
   long pcount;
   l->head = sort_linked_list(l->head,1,compare,&pcount, cmp);
   assert(pcount == l->length);

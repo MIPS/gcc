@@ -927,15 +927,15 @@ get_expr_operands (tree stmt, tree *expr_p, int flags, voperands_t prev_vops)
 		     PTR is an SSA_NAME with no flow-sensitive alias
 		     information.  That means that we may need to compute
 		     aliasing again.  */
-		  if (tree_dump_file
+		  if (dump_file
 		      && TREE_CODE (ptr) == SSA_NAME
 		      && ptr_ann == NULL)
 		    {
-		      fprintf (tree_dump_file,
+		      fprintf (dump_file,
 			  "NOTE: no flow-sensitive alias info for ");
-		      print_generic_expr (tree_dump_file, ptr, 0);
-		      fprintf (tree_dump_file, " in ");
-		      print_generic_stmt (tree_dump_file, stmt, 0);
+		      print_generic_expr (dump_file, ptr, dump_flags);
+		      fprintf (dump_file, " in ");
+		      print_generic_stmt (dump_file, stmt, dump_flags);
 		    }
 
 		  if (TREE_CODE (ptr) == SSA_NAME)
@@ -960,7 +960,7 @@ get_expr_operands (tree stmt, tree *expr_p, int flags, voperands_t prev_vops)
 	 cannot just abort here.  If we were absolutely certain that we
 	 do handle all valid cases, then we could just do nothing here.
 	 That seems optimistic, so attempt to do something logical... */
-      else if (TREE_CODE (ptr) == PLUS_EXPR
+      else if ((TREE_CODE (ptr) == PLUS_EXPR || TREE_CODE (ptr) == MINUS_EXPR)
 	       && TREE_CODE (TREE_OPERAND (ptr, 0)) == ADDR_EXPR
 	       && TREE_CODE (TREE_OPERAND (ptr, 1)) == INTEGER_CST)
 	{
@@ -1052,6 +1052,8 @@ get_expr_operands (tree stmt, tree *expr_p, int flags, voperands_t prev_vops)
 	  else if (!(call_flags & (ECF_CONST | ECF_NORETURN)))
 	    add_call_read_ops (stmt, prev_vops);
 	}
+      else if (!aliases_computed_p)
+	stmt_ann (stmt)->has_volatile_ops = true;
 
       return;
     }
@@ -1156,7 +1158,7 @@ add_stmt_operand (tree *var_p, tree stmt, int flags, voperands_t prev_vops)
   if (var == NULL_TREE || !SSA_VAR_P (var))
     return;
 
-  sym = get_base_decl (var);
+  sym = (TREE_CODE (var) == SSA_NAME ? SSA_NAME_VAR (var) : var);
   v_ann = var_ann (sym);
 
   /* FIXME: We currently refuse to optimize variables that have hidden uses
@@ -1167,14 +1169,14 @@ add_stmt_operand (tree *var_p, tree stmt, int flags, voperands_t prev_vops)
      the statement as having volatile operands and return.  */
   if (v_ann->has_hidden_use)
     {
-      s_ann->has_volatile_ops = 1;
+      s_ann->has_volatile_ops = true;
       return;
     }
 
   /* Don't expose volatile variables to the optimizers.  */
   if (TREE_THIS_VOLATILE (sym))
     {
-      s_ann->has_volatile_ops = 1;
+      s_ann->has_volatile_ops = true;
       return;
     }
 
@@ -1199,15 +1201,12 @@ add_stmt_operand (tree *var_p, tree stmt, int flags, voperands_t prev_vops)
 
       aliases = v_ann->may_aliases;
 
-      /* If alias information hasn't been computed yet, then addressable
-	 variables will not be an alias tag nor will they have aliases.  In
-	 this case, simply mark the statement as having volatile operands
-	 and return.  */
+      /* If alias information hasn't been computed yet, then
+	 addressable variables will not be an alias tag nor will they
+	 have aliases.  In this case, mark the statement as having
+	 volatile operands.  */
       if (!aliases_computed_p && may_be_aliased (var))
-	{
-	  s_ann->has_volatile_ops = 1;
-	  return;
-	}
+	s_ann->has_volatile_ops = true;
 
       if (aliases == NULL)
 	{
@@ -1268,7 +1267,7 @@ add_stmt_operand (tree *var_p, tree stmt, int flags, voperands_t prev_vops)
 static void
 note_addressable (tree var, stmt_ann_t s_ann)
 {
-  var = get_base_decl (var);
+  var = get_base_address (var);
   if (var && SSA_VAR_P (var))
     {
       if (s_ann->addresses_taken == NULL)

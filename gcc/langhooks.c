@@ -294,6 +294,16 @@ lhd_decl_printable_name (tree decl, int verbosity ATTRIBUTE_UNUSED)
   return IDENTIFIER_POINTER (DECL_NAME (decl));
 }
 
+/* This compares two types for equivalence ("compatible" in C-based languages).
+   This routine should only return 1 if it is sure.  It should not be used
+   in contexts where erroneously returning 0 causes problems.  */
+
+int
+lhd_types_compatible_p (tree x, tree y)
+{
+  return TYPE_MAIN_VARIANT (x) == TYPE_MAIN_VARIANT (y);
+}
+
 /* lang_hooks.tree_inlining.walk_subtrees is called by walk_tree()
    after handling common cases, but before walking code-specific
    sub-trees.  If this hook is overridden for a language, it should
@@ -575,6 +585,12 @@ lhd_callgraph_analyze_expr (tree *tp ATTRIBUTE_UNUSED,
 			    tree decl ATTRIBUTE_UNUSED)
 {
   return NULL;
+}
+
+tree
+lhd_make_node (enum tree_code code)
+{
+  return make_node (code);
 }
 
 #include "gt-langhooks.h"

@@ -21,6 +21,7 @@ rtti	 Tests for run-time type identification (typeid, dynamic_cast, etc.)
 special	 Tests requiring individual processing.
 template Tests for templates.
 tls	 Tests for support of thread-local data.
+tree-ssa Tests for Tree SSA optimizations.
 warn	 Tests for compiler warnings.
 
 other	 Tests that don't fit into one of the other categories.

@@ -490,10 +490,10 @@ verify_wide_reg (int regno, basic_block bb)
       head = NEXT_INSN (head);
     }
 
-  if (rtl_dump_file)
+  if (dump_file)
     {
-      fprintf (rtl_dump_file, "Register %d died unexpectedly.\n", regno);
-      dump_bb (bb, rtl_dump_file, 0);
+      fprintf (dump_file, "Register %d died unexpectedly.\n", regno);
+      dump_bb (bb, dump_file, 0);
     }
   abort ();
 }
@@ -510,14 +510,14 @@ verify_local_live_at_start (regset new_live_at_start, basic_block bb)
 	 registers.  The regsets should exactly match.  */
       if (! REG_SET_EQUAL_P (new_live_at_start, bb->global_live_at_start))
 	{
-	  if (rtl_dump_file)
+	  if (dump_file)
 	    {
-	      fprintf (rtl_dump_file,
+	      fprintf (dump_file,
 		       "live_at_start mismatch in bb %d, aborting\nNew:\n",
 		       bb->index);
-	      debug_bitmap_file (rtl_dump_file, new_live_at_start);
-	      fputs ("Old:\n", rtl_dump_file);
-	      dump_bb (bb, rtl_dump_file, 0);
+	      debug_bitmap_file (dump_file, new_live_at_start);
+	      fputs ("Old:\n", dump_file);
+	      dump_bb (bb, dump_file, 0);
 	    }
 	  abort ();
 	}
@@ -534,11 +534,11 @@ verify_local_live_at_start (regset new_live_at_start, basic_block bb)
 	  /* No registers should die.  */
 	  if (REGNO_REG_SET_P (bb->global_live_at_start, i))
 	    {
-	      if (rtl_dump_file)
+	      if (dump_file)
 		{
-		  fprintf (rtl_dump_file,
+		  fprintf (dump_file,
 			   "Register %d died unexpectedly.\n", i);
-		  dump_bb (bb, rtl_dump_file, 0);
+		  dump_bb (bb, dump_file, 0);
 		}
 	      abort ();
 	    }
@@ -719,8 +719,8 @@ update_life_info (sbitmap blocks, enum update_life_extent extent, int prop_flags
     }
   timevar_pop ((extent == UPDATE_LIFE_LOCAL || blocks)
 	       ? TV_LIFE_UPDATE : TV_LIFE);
-  if (ndead && rtl_dump_file)
-    fprintf (rtl_dump_file, "deleted %i dead insns\n", ndead);
+  if (ndead && dump_file)
+    fprintf (dump_file, "deleted %i dead insns\n", ndead);
   return ndead;
 }
 
@@ -824,8 +824,8 @@ delete_noop_moves (rtx f ATTRIBUTE_UNUSED)
 	    }
 	}
     }
-  if (nnoops && rtl_dump_file)
-    fprintf (rtl_dump_file, "deleted %i noop moves", nnoops);
+  if (nnoops && dump_file)
+    fprintf (dump_file, "deleted %i noop moves", nnoops);
   return nnoops;
 }
 
@@ -846,8 +846,8 @@ delete_dead_jumptables (void)
 	  && (GET_CODE (PATTERN (next)) == ADDR_VEC
 	      || GET_CODE (PATTERN (next)) == ADDR_DIFF_VEC))
 	{
-	  if (rtl_dump_file)
-	    fprintf (rtl_dump_file, "Dead jumptable %i removed\n", INSN_UID (insn));
+	  if (dump_file)
+	    fprintf (dump_file, "Dead jumptable %i removed\n", INSN_UID (insn));
 	  delete_insn (NEXT_INSN (insn));
 	  delete_insn (insn);
 	  next = NEXT_INSN (next);
@@ -867,7 +867,7 @@ notice_stack_pointer_modification_1 (rtx x, rtx pat ATTRIBUTE_UNUSED,
 	 of a push until later in flow.  See the comments in rtl.texi
 	 regarding Embedded Side-Effects on Addresses.  */
       || (GET_CODE (x) == MEM
-	  && GET_RTX_CLASS (GET_CODE (XEXP (x, 0))) == 'a'
+	  && GET_RTX_CLASS (GET_CODE (XEXP (x, 0))) == RTX_AUTOINC
 	  && XEXP (XEXP (x, 0), 0) == stack_pointer_rtx))
     current_function_sp_is_unchanging = 0;
 }
@@ -1725,8 +1725,9 @@ propagate_one_insn (struct propagate_block_info *pbi, rtx insn)
 					      current_function_return_rtx,
 					      (rtx *) 0)))
 	      {
+		enum rtx_code code = global_regs[i] ? SET : CLOBBER;
 		/* We do not want REG_UNUSED notes for these registers.  */
-		mark_set_1 (pbi, CLOBBER, regno_reg_rtx[i], cond, insn,
+		mark_set_1 (pbi, code, regno_reg_rtx[i], cond, insn,
 			    pbi->flags & ~(PROP_DEATH_NOTES | PROP_REG_INFO));
 	      }
 	}
@@ -2220,14 +2221,22 @@ insn_dead_p (struct propagate_block_info *pbi, rtx x, int call_ok,
     }
 
   /* A CLOBBER of a pseudo-register that is dead serves no purpose.  That
-     is not necessarily true for hard registers.  */
-  else if (code == CLOBBER && GET_CODE (XEXP (x, 0)) == REG
-	   && REGNO (XEXP (x, 0)) >= FIRST_PSEUDO_REGISTER
-	   && ! REGNO_REG_SET_P (pbi->reg_live, REGNO (XEXP (x, 0))))
-    return 1;
+     is not necessarily true for hard registers until after reload.  */
+  else if (code == CLOBBER)
+    {
+      if (GET_CODE (XEXP (x, 0)) == REG
+	  && (REGNO (XEXP (x, 0)) >= FIRST_PSEUDO_REGISTER
+	      || reload_completed)
+	  && ! REGNO_REG_SET_P (pbi->reg_live, REGNO (XEXP (x, 0))))
+	return 1;
+    }
 
-  /* We do not check other CLOBBER or USE here.  An insn consisting of just
-     a CLOBBER or just a USE should not be deleted.  */
+  /* ??? A base USE is a historical relic.  It ought not be needed anymore.
+     Instances where it is still used are either (1) temporary and the USE
+     escaped the pass, (2) cruft and the USE need not be emitted anymore,
+     or (3) hiding bugs elsewhere that are not properly representing data
+     flow.  */
+
   return 0;
 }
 
@@ -2365,7 +2374,7 @@ invalidate_mems_from_autoinc (rtx *px, void *data)
   rtx x = *px;
   struct propagate_block_info *pbi = data;
 
-  if (GET_RTX_CLASS (GET_CODE (x)) == 'a')
+  if (GET_RTX_CLASS (GET_CODE (x)) == RTX_AUTOINC)
     {
       invalidate_mems_from_set (pbi, XEXP (x, 0));
       return -1;
@@ -2726,10 +2735,18 @@ mark_set_1 (struct propagate_block_info *pbi, enum rtx_code code, rtx reg, rtx c
 		     in ASM_OPERANDs.  If these registers get replaced,
 		     we might wind up changing the semantics of the insn,
 		     even if reload can make what appear to be valid
-		     assignments later.  */
+		     assignments later.
+
+		     We don't build a LOG_LINK for global registers to
+		     or from a function call.  We don't want to let
+		     combine think that it knows what is going on with
+		     global registers.  */
 		  if (y && (BLOCK_NUM (y) == blocknum)
 		      && (regno_first >= FIRST_PSEUDO_REGISTER
-			  || asm_noperands (PATTERN (y)) < 0))
+			  || (asm_noperands (PATTERN (y)) < 0
+			      && ! ((GET_CODE (insn) == CALL_INSN
+				     || GET_CODE (y) == CALL_INSN)
+				    && global_regs[regno_first]))))
 		    LOG_LINKS (y) = alloc_INSN_LIST (insn, LOG_LINKS (y));
 		}
 	    }
@@ -2972,9 +2989,9 @@ ior_reg_cond (rtx old, rtx x, int add)
 {
   rtx op0, op1;
 
-  if (GET_RTX_CLASS (GET_CODE (old)) == '<')
+  if (COMPARISON_P (old))
     {
-      if (GET_RTX_CLASS (GET_CODE (x)) == '<'
+      if (COMPARISON_P (x)
 	  && REVERSE_CONDEXEC_PREDICATES_P (GET_CODE (x), GET_CODE (old))
 	  && REGNO (XEXP (x, 0)) == REGNO (XEXP (old, 0)))
 	return const1_rtx;
@@ -3067,7 +3084,7 @@ not_reg_cond (rtx x)
   x_code = GET_CODE (x);
   if (x_code == NOT)
     return XEXP (x, 0);
-  if (GET_RTX_CLASS (x_code) == '<'
+  if (COMPARISON_P (x)
       && GET_CODE (XEXP (x, 0)) == REG)
     {
       if (XEXP (x, 1) != const0_rtx)
@@ -3084,9 +3101,9 @@ and_reg_cond (rtx old, rtx x, int add)
 {
   rtx op0, op1;
 
-  if (GET_RTX_CLASS (GET_CODE (old)) == '<')
+  if (COMPARISON_P (old))
     {
-      if (GET_RTX_CLASS (GET_CODE (x)) == '<'
+      if (COMPARISON_P (x)
 	  && GET_CODE (x) == reverse_condition (GET_CODE (old))
 	  && REGNO (XEXP (x, 0)) == REGNO (XEXP (old, 0)))
 	return const0_rtx;
@@ -3177,7 +3194,7 @@ elim_reg_cond (rtx x, unsigned int regno)
 {
   rtx op0, op1;
 
-  if (GET_RTX_CLASS (GET_CODE (x)) == '<')
+  if (COMPARISON_P (x))
     {
       if (REGNO (XEXP (x, 0)) == regno)
 	return const0_rtx;
@@ -4187,7 +4204,10 @@ void
 recompute_reg_usage (rtx f ATTRIBUTE_UNUSED, int loop_step ATTRIBUTE_UNUSED)
 {
   allocate_reg_life_data ();
-  update_life_info (NULL, UPDATE_LIFE_LOCAL, PROP_REG_INFO);
+  /* distribute_notes in combiner fails to convert some of the REG_UNUSED notes
+   to REG_DEAD notes.  This causes CHECK_DEAD_NOTES in sched1 to abort.  To 
+   solve this update the DEATH_NOTES here.  */
+  update_life_info (NULL, UPDATE_LIFE_LOCAL, PROP_REG_INFO | PROP_DEATH_NOTES);
 }
 
 /* Optionally removes all the REG_DEAD and REG_UNUSED notes from a set of

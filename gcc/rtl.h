@@ -21,6 +21,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #ifndef GCC_RTL_H
 #define GCC_RTL_H
+#include "statistics.h"
 
 struct function;
 
@@ -52,6 +53,48 @@ enum rtx_code  {
 #define NUM_RTX_CODE ((int) LAST_AND_UNUSED_RTX_CODE)
 				/* The cast here, saves many elsewhere.  */
 
+/* Register Transfer Language EXPRESSIONS CODE CLASSES */
+
+enum rtx_class  {
+  /* We check bit 0-1 of some rtx class codes in the predicates below.  */
+
+  /* Bit 0 = comparison if 0, arithmetic is 1
+     Bit 1 = 1 if commutative.  */
+  RTX_COMPARE,		/* 0 */
+  RTX_COMM_COMPARE,
+  RTX_BIN_ARITH,
+  RTX_COMM_ARITH,
+
+  /* Must follow the four preceding values.  */
+  RTX_UNARY,		/* 4 */
+
+  RTX_EXTRA,
+  RTX_MATCH,
+  RTX_INSN,
+
+  /* Bit 0 = 1 if constant.  */
+  RTX_OBJ,		/* 8 */
+  RTX_CONST_OBJ,
+
+  RTX_TERNARY,
+  RTX_BITFIELD_OPS,
+  RTX_AUTOINC
+};
+
+#define RTX_OBJ_MASK (~1)
+#define RTX_OBJ_RESULT (RTX_OBJ & RTX_OBJ_MASK)
+#define RTX_COMPARE_MASK (~1)
+#define RTX_COMPARE_RESULT (RTX_COMPARE & RTX_COMPARE_MASK)
+#define RTX_ARITHMETIC_MASK (~1)
+#define RTX_ARITHMETIC_RESULT (RTX_COMM_ARITH & RTX_ARITHMETIC_MASK)
+#define RTX_BINARY_MASK (~3)
+#define RTX_BINARY_RESULT (RTX_COMPARE & RTX_BINARY_MASK)
+#define RTX_COMMUTATIVE_MASK (~2)
+#define RTX_COMMUTATIVE_RESULT (RTX_COMM_COMPARE & RTX_COMMUTATIVE_MASK)
+#define RTX_NON_COMMUTATIVE_RESULT (RTX_COMPARE & RTX_COMMUTATIVE_MASK)
+#define RTX_EXPR_FIRST (RTX_COMPARE)
+#define RTX_EXPR_LAST (RTX_UNARY)
+
 extern const unsigned char rtx_length[NUM_RTX_CODE];
 #define GET_RTX_LENGTH(CODE)		(rtx_length[(int) (CODE)])
 
@@ -61,7 +104,7 @@ extern const char * const rtx_name[NUM_RTX_CODE];
 extern const char * const rtx_format[NUM_RTX_CODE];
 #define GET_RTX_FORMAT(CODE)		(rtx_format[(int) (CODE)])
 
-extern const char rtx_class[NUM_RTX_CODE];
+extern const enum rtx_class rtx_class[NUM_RTX_CODE];
 #define GET_RTX_CLASS(CODE)		(rtx_class[(int) (CODE)])
 
 extern const unsigned char rtx_size[NUM_RTX_CODE];
@@ -286,14 +329,67 @@ struct rtvec_def GTY(()) {
   (JUMP_P (INSN) && (GET_CODE (PATTERN (INSN)) == ADDR_VEC || \
 		     GET_CODE (PATTERN (INSN)) == ADDR_DIFF_VEC))
 
+
+/* 1 if X is an insn.  */
+#define INSN_P(X)    \
+  (GET_RTX_CLASS (GET_CODE(X)) == RTX_INSN)
+
+/* 1 if X is a unary operator.  */
+
+#define UNARY_P(X)   \
+  (GET_RTX_CLASS (GET_CODE (X)) == RTX_UNARY)
+
+/* 1 if X is a binary operator.  */
+
+#define BINARY_P(X)   \
+  ((GET_RTX_CLASS (GET_CODE (X)) & RTX_BINARY_MASK) == RTX_BINARY_RESULT)
+
+/* 1 if X is an arithmetic operator.  */
+
+#define ARITHMETIC_P(X)   \
+  ((GET_RTX_CLASS (GET_CODE (X)) & RTX_ARITHMETIC_MASK)			\
+    == RTX_ARITHMETIC_RESULT)
+
+/* 1 if X is an arithmetic operator.  */
+
+#define COMMUTATIVE_ARITH_P(X)   \
+  (GET_RTX_CLASS (GET_CODE (X)) == RTX_COMM_ARITH)
+
+/* 1 if X is a commutative arithmetic operator or a comparison operator.
+   These two are sometimes selected together because it is possible to
+   swap the two operands.  */
+
+#define SWAPPABLE_OPERANDS_P(X)   \
+  ((1 << GET_RTX_CLASS (GET_CODE (X)))					\
+    & ((1 << RTX_COMM_ARITH) | (1 << RTX_COMM_COMPARE)			\
+       | (1 << RTX_COMPARE)))
+
+/* 1 if X is a non-commutative operator.  */
+
+#define NON_COMMUTATIVE_P(X)   \
+  ((GET_RTX_CLASS (GET_CODE (X)) & RTX_COMMUTATIVE_MASK)		\
+    == RTX_NON_COMMUTATIVE_RESULT)
+
+/* 1 if X is a commutative operator on integers.  */
+
+#define COMMUTATIVE_P(X)   \
+  ((GET_RTX_CLASS (GET_CODE (X)) & RTX_COMMUTATIVE_MASK)		\
+    == RTX_COMMUTATIVE_RESULT)
+
+/* 1 if X is a relational operator.  */
+
+#define COMPARISON_P(X)   \
+  ((GET_RTX_CLASS (GET_CODE (X)) & RTX_COMPARE_MASK) == RTX_COMPARE_RESULT)
+
 /* 1 if X is a constant value that is an integer.  */
 
 #define CONSTANT_P(X)   \
-  (GET_CODE (X) == LABEL_REF || GET_CODE (X) == SYMBOL_REF		\
-   || GET_CODE (X) == CONST_INT || GET_CODE (X) == CONST_DOUBLE		\
-   || GET_CODE (X) == CONST || GET_CODE (X) == HIGH			\
-   || GET_CODE (X) == CONST_VECTOR	                                \
-   || GET_CODE (X) == CONSTANT_P_RTX)
+  (GET_RTX_CLASS (GET_CODE (X)) == RTX_CONST_OBJ			\
+   || GET_CODE (X) == CONST_VECTOR)
+
+/* 1 if X can be used to represent an object.  */
+#define OBJECT_P(X)							\
+  ((GET_RTX_CLASS (GET_CODE (X)) & RTX_OBJ_MASK) == RTX_OBJ_RESULT)
 
 /* General accessor macros for accessing the fields of an rtx.  */
 
@@ -552,9 +648,6 @@ do {				\
 #define XC2EXP(RTX, N, C1, C2)      (RTL_CHECKC2 (RTX, N, C1, C2).rtx)
 
 /* ACCESS MACROS for particular fields of insns.  */
-
-/* Determines whether X is an insn.  */
-#define INSN_P(X)       (GET_RTX_CLASS (GET_CODE(X)) == 'i')
 
 /* Holds a unique number for each insn.
    These are not necessarily sequentially increasing.  */
@@ -1068,6 +1161,17 @@ enum label_kind
 #define SUBREG_BYTE(RTX) XCUINT (RTX, 1, SUBREG)
 
 /* in rtlanal.c */
+/* Return the right cost to give to an operation
+   to make the cost of the corresponding register-to-register instruction
+   N times that of a fast register-to-register instruction.  */
+#define COSTS_N_INSNS(N) ((N) * 4)
+
+/* Maximum cost of an rtl expression.  This value has the special meaning
+   not to use an rtx with this cost under any circumstances.  */
+#define MAX_COST INT_MAX
+
+extern int rtx_cost (rtx, enum rtx_code);
+extern int address_cost (rtx, enum machine_mode);
 extern unsigned int subreg_lsb (rtx);
 extern unsigned int subreg_lsb_1 (enum machine_mode, enum machine_mode,
 				  unsigned int);
@@ -1458,9 +1562,13 @@ extern rtx emit_copy_of_insn_after (rtx, rtx);
 extern void set_reg_attrs_from_mem (rtx, rtx);
 extern void set_mem_attrs_from_reg (rtx, rtx);
 extern void set_reg_attrs_for_parm (rtx, rtx);
+extern void set_reg_pointer_align (rtx, unsigned int);
+extern int mem_expr_equal_p (tree, tree);
 
 /* In rtl.c */
-extern rtx rtx_alloc (RTX_CODE);
+extern rtx rtx_alloc_stat (RTX_CODE MEM_STAT_DECL);
+#define rtx_alloc(c) rtx_alloc_stat (c MEM_STAT_INFO)
+
 extern rtvec rtvec_alloc (int);
 extern rtx copy_rtx (rtx);
 extern void dump_rtx_statistics (void);
@@ -1470,7 +1578,8 @@ extern rtx copy_rtx_if_shared (rtx);
 
 /* In rtl.c */
 extern rtx copy_most_rtx (rtx, rtx);
-extern rtx shallow_copy_rtx (rtx);
+extern rtx shallow_copy_rtx_stat (rtx MEM_STAT_DECL);
+#define shallow_copy_rtx(a) shallow_copy_rtx_stat (a MEM_STAT_INFO)
 extern int rtx_equal_p (rtx, rtx);
 
 /* In emit-rtl.c */
@@ -1513,7 +1622,6 @@ extern void start_sequence (void);
 extern void push_to_sequence (rtx);
 extern void end_sequence (void);
 extern void push_to_full_sequence (rtx, rtx);
-extern void end_full_sequence (rtx*, rtx*);
 extern rtx immed_double_const (HOST_WIDE_INT, HOST_WIDE_INT,
 			       enum machine_mode);
 
@@ -1994,25 +2102,10 @@ extern int no_new_pseudos;
 extern int rtx_to_tree_code (enum rtx_code);
 
 /* In cse.c */
-struct cse_basic_block_data;
-
-/* Return the right cost to give to an operation
-   to make the cost of the corresponding register-to-register instruction
-   N times that of a fast register-to-register instruction.  */
-#define COSTS_N_INSNS(N) ((N) * 4)
-
-/* Maximum cost of an rtl expression.  This value has the special meaning
-   not to use an rtx with this cost under any circumstances.  */
-#define MAX_COST INT_MAX
-
-extern int rtx_cost (rtx, enum rtx_code);
-extern int address_cost (rtx, enum machine_mode);
 extern int delete_trivially_dead_insns (rtx, int);
 #ifdef BUFSIZ
 extern int cse_main (rtx, int, int, FILE *);
 #endif
-extern void cse_end_of_basic_block (rtx, struct cse_basic_block_data *,
-				    int, int, int);
 extern void cse_condition_code_reg (void);
 
 /* In jump.c */
@@ -2062,7 +2155,6 @@ extern void init_emit (void);
 extern void init_emit_once (int);
 extern void push_topmost_sequence (void);
 extern void pop_topmost_sequence (void);
-extern int subreg_realpart_p (rtx);
 extern void reverse_comparison (rtx);
 extern void set_new_first_and_last_insn (rtx, rtx);
 extern void set_new_last_label_num (int);
@@ -2076,7 +2168,6 @@ extern void add_insn (rtx);
 extern void add_insn_before (rtx, rtx);
 extern void add_insn_after (rtx, rtx);
 extern void remove_insn (rtx);
-extern void reorder_insns_with_line_notes (rtx, rtx, rtx);
 extern void emit_insn_after_with_line_notes (rtx, rtx, rtx);
 extern enum rtx_code classify_insn (rtx);
 extern rtx emit (rtx);
@@ -2134,12 +2225,10 @@ extern void print_inline_rtx (FILE *, rtx, int);
 
 /* In loop.c */
 extern void init_loop (void);
-extern rtx libcall_other_reg (rtx, rtx);
 #ifdef BUFSIZ
 extern void loop_optimize (rtx, FILE *, int);
 #endif
 extern void branch_target_load_optimize (rtx, bool);
-extern void record_excess_regs (rtx, rtx, rtx *);
 
 /* In function.c */
 extern void reposition_prologue_and_epilogue_notes (rtx);
@@ -2185,6 +2274,7 @@ extern rtx fis_get_condition (rtx);
 #ifdef BUFSIZ
 extern int gcse_main (rtx, FILE *);
 extern int bypass_jumps (FILE *);
+extern void gcse_after_reload_main (rtx, FILE *);
 #endif
 
 /* In global.c */
@@ -2238,7 +2328,6 @@ extern void dbr_schedule (rtx, FILE *);
 extern void dump_local_alloc (FILE *);
 #endif
 extern int local_alloc (void);
-extern int function_invariant_p (rtx);
 
 /* In reg-stack.c */
 #ifdef BUFSIZ
@@ -2360,5 +2449,19 @@ extern void simplify_using_condition (rtx, rtx *, struct bitmap_head_def *);
 
 /* In var-tracking.c */
 extern void variable_tracking_main (void);
+
+/* In stor-layout.c.  */
+extern void get_mode_bounds (enum machine_mode, int, rtx *, rtx *);
+
+/* In loop-unswitch.c  */
+extern rtx reversed_condition (rtx);
+extern rtx compare_and_jump_seq (rtx, rtx, enum rtx_code, rtx, int, rtx);
+
+/* In loop-iv.c  */
+extern rtx canon_condition (rtx);
+extern void simplify_using_condition (rtx, rtx *, struct bitmap_head_def *);
+
+/* In ra.c.  */
+extern void reg_alloc (void);
 
 #endif /* ! GCC_RTL_H */

@@ -106,6 +106,7 @@ extern unsigned xtensa_current_frame_size;
   do {									\
     builtin_assert ("cpu=xtensa");					\
     builtin_assert ("machine=xtensa");					\
+    builtin_define ("__xtensa__");					\
     builtin_define ("__XTENSA__");					\
     builtin_define (TARGET_BIG_ENDIAN ? "__XTENSA_EB__" : "__XTENSA_EL__"); \
     if (!TARGET_HARD_FLOAT)						\
@@ -1117,11 +1118,6 @@ typedef struct xtensa_args
 /* Specify the machine mode that this machine uses
    for the index in the tablejump instruction.  */
 #define CASE_VECTOR_MODE (SImode)
-
-/* Define this if the tablejump instruction expects the table
-   to contain offsets from the address of the table.
-   Do not define this if the table should contain absolute addresses.  */
-/* #define CASE_VECTOR_PC_RELATIVE */
 
 /* Define this as 1 if 'char' should by default be signed; else as 0.  */
 #define DEFAULT_SIGNED_CHAR 0

@@ -29,7 +29,6 @@ with Debug;    use Debug;
 with Einfo;    use Einfo;
 with Errout;   use Errout;
 with Exp_Util; use Exp_Util;
-with Hostparm; use Hostparm;
 with Itypes;   use Itypes;
 with Lib.Xref; use Lib.Xref;
 with Namet;    use Namet;
@@ -285,14 +284,7 @@ package body Sem_Ch4 is
          List_Operand_Interps (Left_Opnd  (N));
          List_Operand_Interps (Right_Opnd (N));
       else
-
-         if OpenVMS then
-            Error_Msg_N (
-               "\use '/'R'E'P'O'R'T'_'E'R'R'O'R'S'='F'U'L'L for details",
-                N);
-         else
-            Error_Msg_N ("\use -gnatf for details", N);
-         end if;
+         Error_Msg_N ("\use -gnatf switch for details", N);
       end if;
    end Ambiguous_Operands;
 
@@ -4317,13 +4309,15 @@ package body Sem_Ch4 is
       Nam : Entity_Id;
       Typ : Entity_Id) return Boolean
    is
-      Actuals : constant List_Id := Parameter_Associations (N);
       Actual  : Node_Id;
       Formal  : Entity_Id;
+      Call_OK : Boolean;
 
    begin
-      Actual := First (Actuals);
+      Normalize_Actuals (N, Designated_Type (Typ), False, Call_OK);
+      Actual := First_Actual (N);
       Formal := First_Formal (Designated_Type (Typ));
+
       while Present (Actual)
         and then Present (Formal)
       loop

@@ -806,7 +806,6 @@ extern const enum reg_class reg_class_from_letter[];
    On the MCore, allow anything but a double.  */
 #define LEGITIMATE_CONSTANT_P(X) (GET_CODE(X) != CONST_DOUBLE)
 
-#define LEGITIMIZE_ADDRESS(X, OLDX, MODE, WIN)
 /* The macros REG_OK_FOR..._P assume that the arg is a REG rtx
    and check its validity for a certain class.
    We have two alternate definitions for each of them.
@@ -1126,25 +1125,6 @@ extern long mcore_current_compilation_timestamp;
         }							\
     }								\
   while (0)
-
-/* This says how to output an assembler line
-   to define an external symbol.  */
-#define ASM_OUTPUT_EXTERNAL(FILE, DECL, NAME)   \
-  do						\
-    {						\
-      fputs ("\t.import\t", (FILE));		\
-      assemble_name ((FILE), (NAME));		\
-      fputs ("\n", (FILE));			\
-    }						\
-  while (0)
-     
-#undef	ASM_OUTPUT_EXTERNAL
-/* RBE: we undefined this and let gas do it's "undefined is imported"
-   games. This is because when we use this, we get a marked 
-   reference through the call to assemble_name and this forces C++
-   inlined member functions (or any inlined function) to be instantiated
-   regardless of whether any call sites remain.
-   This makes this aspect of the compiler non-ABI compliant.  */
 
 /* This says how to output an assembler line
    to define a local common symbol....  */
