@@ -5,6 +5,14 @@
 
 2003-08-15  Jeff Law  <law@redhat.com>
 
+	* tree-cfg.c (cleanup_tree_cfg): Wipe out the dominator tree
+	if the number of basic blocks changes as a result of cfg cleanups.
+	* tree-flow.h (build_dominator_tree): Prototype.
+	* tree-ssa-dom.c (tree_ssa_dominator_optimize): Build the dominator
+	tree if it is not already available.
+	* tree-ssa.c (build_dominator_tree): New function.
+	(rewrite_into_ssa): Use it.
+
 	* gimplify.c (gimplify_expr, cases NOP_EXPR, CONVERT_EXPR): If a
 	COMPONENT_REF is wrapped with a NOP_EXPR, then force the type of
 	the COMPONENT_REF to match the accessed field.  Strip away

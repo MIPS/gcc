@@ -278,7 +278,6 @@ rewrite_into_ssa (tree fndecl, sbitmap vars)
   dominance_info idom;
   int i, rename_count;
   bool addr_expr_propagated_p;
-  basic_block bb;
   
   timevar_push (TV_TREE_SSA_OTHER);
 
@@ -321,15 +320,8 @@ rewrite_into_ssa (tree fndecl, sbitmap vars)
   /* Compute immediate dominators.  */
   idom = calculate_dominance_info (CDI_DOMINATORS);
 
-  /* Using the immediate dominators, build a dominator tree.  */
-  FOR_EACH_BB (bb)
-    {
-      /* Add BB to the set of dominator children of BB's immediate
-	 dominator.  */
-      basic_block idom_bb = get_immediate_dominator (idom, bb);
-      if (idom_bb)
-	add_dom_child (idom_bb, bb);
-    }
+  build_dominator_tree (idom);
+
   compute_dominance_frontiers (dfs, idom);
 
   /* We're finished the the immediate dominator information.  */
@@ -417,6 +409,29 @@ rewrite_into_ssa (tree fndecl, sbitmap vars)
     }
 
   timevar_pop (TV_TREE_SSA_OTHER);
+}
+
+/* Given immediate dominator information IDOM, build the dominator
+   tree.  */
+
+void
+build_dominator_tree (dominance_info idom)
+{
+  int i;
+  basic_block bb;
+
+  for (i = 0; i < n_basic_blocks; i++)
+    clear_dom_children (BASIC_BLOCK (i));
+
+  /* Using the immediate dominators, build a dominator tree.  */
+  FOR_EACH_BB (bb)
+    {
+      /* Add BB to the set of dominator children of BB's immediate
+	 dominator.  */
+      basic_block idom_bb = get_immediate_dominator (idom, bb);
+      if (idom_bb)
+	add_dom_child (idom_bb, bb);
+    }
 }
 
 /* Compute global livein information for one or more objects.

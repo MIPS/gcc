@@ -1482,8 +1482,11 @@ make_case_label_edges (basic_block bb)
 void
 cleanup_tree_cfg (void)
 {
+  int orig_n_basic_blocks = n_basic_blocks;
+
   timevar_push (TV_TREE_CLEANUP_CFG);
   pdom_info = NULL;
+
   cleanup_control_flow ();
   remove_unreachable_blocks ();
   linearize_control_structures ();
@@ -1493,6 +1496,17 @@ cleanup_tree_cfg (void)
       pdom_info = NULL;
     }
   compact_blocks ();
+
+  /* If we expunged any basic blocks, then the dominator tree is
+     no longer valid.  */
+  if (n_basic_blocks != orig_n_basic_blocks)
+    {
+      int i;
+
+      for (i = 0; i < n_basic_blocks; i++)
+	clear_dom_children (BASIC_BLOCK (i));
+    }
+
   timevar_pop (TV_TREE_CLEANUP_CFG);
 }
 

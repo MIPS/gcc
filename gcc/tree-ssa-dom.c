@@ -110,6 +110,7 @@ bool
 tree_ssa_dominator_optimize (tree fndecl)
 {
   bool found_unreachable;
+  edge e;
   bitmap unreachable_bitmap = BITMAP_XMALLOC ();
 
   timevar_push (TV_TREE_SSA_DOMINATOR_OPTS);
@@ -124,6 +125,27 @@ tree_ssa_dominator_optimize (tree fndecl)
   /* Indicate that we have not propagated any ADDR_EXPRs.  */
   addr_expr_propagated_p = false;
 
+  /* Build the dominator tree if necessary. 
+
+     We don't have a flag indicating if the dominator tree is available,
+     but we can make a very accurate approximation by checking to see if
+     the successors of the entry block have any dominator children.  If
+     they do not, then we assume that the dominator tree is not available.  */
+  for (e = ENTRY_BLOCK_PTR->succ; e; e = e->succ_next)
+    if (dom_children (e->dest))
+      break;
+
+  /* If we did not find any dominator children in the successors of the
+     entry block, then rebuild the dominator tree.  */
+  if (e == NULL)
+    {
+      dominance_info idom;
+
+      idom = calculate_dominance_info (CDI_DOMINATORS);
+      build_dominator_tree (idom);
+      free_dominance_info (idom);
+    }
+    
   /* If we prove certain blocks are unreachable, then we want to
      repeat the dominator optimization process as PHI nodes may
      have turned into copies which allows better propagation of
