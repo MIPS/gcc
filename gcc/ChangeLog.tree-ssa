@@ -1,3 +1,12 @@
+2003-11-12  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+	    Jeff Law  <law@redhat.com>
+
+	* tree-cfg.c (cfg_remove_useless_stmts): New function.
+	(cfg_remove_useless_stmts_bb): Likewise.
+	* tree-flow.h (cfg_remove_useless_stmts): Prototype.
+	* tree-ssa.c (rewrite_out_of_ssa): Use cfg_remove_useless_stmts
+	instead of remove_useless_stmts.
+
 2003-11-12  Richard Henderson  <rth@redhat.com>
 
 	* Makefile.in (OBJS-common): Add tree-iterator.o.

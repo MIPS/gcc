@@ -435,6 +435,7 @@ extern tree *last_stmt_ptr (basic_block);
 extern edge find_taken_edge (basic_block, tree);
 extern int call_expr_flags (tree);
 extern void remove_useless_stmts (tree *);
+extern void cfg_remove_useless_stmts (void);
 extern basic_block tree_split_edge (edge);
 extern edge thread_edge (edge, basic_block);
 extern basic_block label_to_block (tree);

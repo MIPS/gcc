@@ -1888,7 +1888,7 @@ rewrite_out_of_ssa (tree fndecl, enum tree_dump_index phase)
 
   /* Do some cleanups which reduce the amount of data the
      tree->rtl expanders deal with.  */
-  remove_useless_stmts (&DECL_SAVED_TREE (fndecl));
+  cfg_remove_useless_stmts ();
 
   /* Remove unnecesary variables.  */
   remove_useless_vars ();

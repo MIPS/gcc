@@ -1247,6 +1247,161 @@ remove_useless_stmts (tree *first_p)
   factored_computed_goto_label = NULL;
 }
 
+/* Remove obviously useless statements in basic block BB.  */
+
+static void
+cfg_remove_useless_stmts_bb (basic_block bb)
+{
+  block_stmt_iterator bsi;
+  tree stmt;
+  tree *gotos[2], *pstmt;
+  int n_gotos, n_rem_gotos;
+  tree cond, var = NULL_TREE, val = NULL_TREE;
+  struct var_ann_d *ann;
+
+  /* Check whether we come here from a condition, and if so, get the
+     condition.  */
+  if (bb->pred && !bb->pred->pred_next
+      && (bb->pred->flags & (EDGE_TRUE_VALUE | EDGE_FALSE_VALUE)))
+    {
+      cond = COND_EXPR_COND (last_stmt (bb->pred->src));
+      if (bb->pred->flags & EDGE_FALSE_VALUE)
+	cond = invert_truthvalue (cond);
+
+      if (TREE_CODE (cond) == VAR_DECL
+	  || TREE_CODE (cond) == PARM_DECL)
+	{
+	  var = cond;
+	  val = convert (TREE_TYPE (cond), integer_zero_node);
+	}
+      else if ((TREE_CODE (cond) == EQ_EXPR)
+	       && (TREE_CODE (TREE_OPERAND (cond, 0)) == VAR_DECL
+		   || TREE_CODE (TREE_OPERAND (cond, 0)) == PARM_DECL)
+	       && TREE_CONSTANT (TREE_OPERAND (cond, 1)))
+	{
+	  var = TREE_OPERAND (cond, 0);
+	  val = TREE_OPERAND (cond, 1);
+	}
+
+      if (var)
+	{
+	  /* Only work for normal local variables.  */
+	  ann = var_ann (var);
+	  if (!ann
+	      || ann->may_aliases
+	      || TREE_ADDRESSABLE (var))
+	    var = NULL_TREE;
+	}
+
+      /* Ignore floating point variables, since comparison behaves weird for
+	 them.  */
+      if (var
+	  && FLOAT_TYPE_P (TREE_TYPE (var)))
+	var = NULL_TREE;
+    }
+
+  for (bsi = bsi_start (bb); !bsi_end_p (bsi);)
+    {
+      stmt = bsi_stmt (bsi);
+
+      if (!var)
+	{
+	  bsi_next (&bsi);
+	  continue;
+	}
+
+      /* If the THEN/ELSE clause merely assigns a value to a variable/parameter
+	 which is already known to contain that value, then remove the useless
+	 THEN/ELSE clause.  */
+      if (TREE_CODE (stmt) == MODIFY_EXPR
+	  && TREE_OPERAND (stmt, 0) == var
+	  && operand_equal_p (val, TREE_OPERAND (stmt, 1), 1))
+	{
+	  bsi_remove (&bsi);
+	  continue;
+	}
+
+      /* Invalidate the var if we encounter something that could modify it.  */
+      if (TREE_CODE (stmt) == ASM_EXPR
+	  || TREE_CODE (stmt) == VA_ARG_EXPR
+	  || (TREE_CODE (stmt) == MODIFY_EXPR
+	      && (TREE_OPERAND (stmt, 0) == var
+		  || TREE_CODE (TREE_OPERAND (stmt, 1)) == VA_ARG_EXPR)))
+	var = NULL_TREE;
+  
+      bsi_next (&bsi);
+    }
+
+  if (!stmt)
+    return;
+
+  /* Remove useless GOTOs from COND_EXPRs.  Other useless gotos could be
+     removed by cfg cleanup, but it is not done currently, so do it here
+     also.  */
+  if (TREE_CODE (stmt) == GOTO_EXPR
+      && (bb->succ->flags & EDGE_ABNORMAL) == 0)
+    {
+      gotos[0] = &stmt;
+      n_gotos = 1;
+    }
+  else if (TREE_CODE (stmt) == COND_EXPR
+	   && (bb->succ->flags & EDGE_ABNORMAL) == 0
+	   && (bb->succ->succ_next->flags & EDGE_ABNORMAL) == 0)
+    {
+      gotos[0] = &COND_EXPR_THEN (stmt);
+      gotos[1] = &COND_EXPR_ELSE (stmt);
+      n_gotos = 2;
+    }
+  else
+    return;
+
+  n_rem_gotos = n_gotos;
+  while (n_gotos--)
+    {
+      pstmt = gotos[n_gotos];
+      stmt = *pstmt;
+
+      if (TREE_CODE (GOTO_DESTINATION (stmt)) != LABEL_DECL)
+	continue;
+
+      if (label_to_block (GOTO_DESTINATION (stmt)) != bb->next_bb)
+	continue;
+
+      *pstmt = build_empty_stmt ();
+      n_rem_gotos--;
+    }
+
+  /* The statement does nothing, remove it completely.  */
+  if (!n_rem_gotos)
+    {
+      bsi = bsi_last (bb);
+      bsi_remove (&bsi);
+
+      if (bb->succ->succ_next)
+	abort ();
+
+      bb->succ->flags &= ~(EDGE_TRUE_VALUE | EDGE_FALSE_VALUE);
+      bb->succ->flags |= EDGE_FALLTHRU;
+    }
+}
+
+/* A cfg-aware version of remove_useless_stmts_and_vars.  */
+
+void
+cfg_remove_useless_stmts (void)
+{
+  basic_block bb;
+
+#ifdef ENABLE_CHECKING
+  verify_flow_info ();
+#endif
+
+  FOR_EACH_BB (bb)
+    {
+      cfg_remove_useless_stmts_bb (bb);
+    }
+}
+
 /* Delete all unreachable basic blocks.  Return true if any unreachable
    blocks were detected and removed.  */
 
