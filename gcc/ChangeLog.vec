@@ -1,3 +1,10 @@
+2004-07-22  Ben Elliston  <bje@au.ibm.com>
+
+	* cfgcleanup.c (outgoing_edges_match): Clean up search of outgoing
+	edges.  Don't test e1 and e2 for non-null values--check the edge
+	counts instead.
+	* tree-ssa-dce.c (remove_dead_stmt): Remove erroneous VEC_pop.
+
 2004-07-22  Steven Bosscher  <stevenb@suse.de>
 
 	* ifcvt.c (find_if_case_1): Use then_bb->pred, not succ. Typo.

@@ -1185,7 +1185,7 @@ outgoing_edges_match (int mode, basic_block bb1, basic_block bb2)
   int nehedges1 = 0, nehedges2 = 0;
   edge fallthru1 = 0, fallthru2 = 0;
   edge e1, e2;
-  unsigned ix1, ix2;
+  unsigned ix;
 
   /* If BB1 has only one successor, we may be looking at either an
      unconditional jump, or a fake edge to exit.  */
@@ -1393,10 +1393,11 @@ outgoing_edges_match (int mode, basic_block bb1, basic_block bb2)
   /* Search the outgoing edges, ensure that the counts do match, find possible
      fallthru and exception handling edges since these needs more
      validation.  */
-  for (ix1 = 0, ix2 = 0;
-      (e1 = *(VEC_iterate(edge, bb1->succ, ix1))) && (e2 = *(VEC_iterate(edge, bb2->succ, ix2)));
-      ix1++, ix2++)
+  for (ix = 0; ix < MIN (EDGE_COUNT (bb1->succ), EDGE_COUNT (bb2->succ)); ix++)
     {
+      e1 = EDGE_I (bb1->succ, ix);
+      e2 = EDGE_I (bb2->succ, ix);
+
       if (e1->flags & EDGE_EH)
 	nehedges1++;
 
@@ -1410,7 +1411,7 @@ outgoing_edges_match (int mode, basic_block bb1, basic_block bb2)
     }
 
   /* If number of edges of various types does not match, fail.  */
-  if (e1 || e2
+  if (EDGE_COUNT (bb1->succ) != EDGE_COUNT (bb2->succ)
       || nehedges1 != nehedges2
       || (fallthru1 != 0) != (fallthru2 != 0))
     return false;

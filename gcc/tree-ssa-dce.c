@@ -749,7 +749,6 @@ remove_dead_stmt (block_stmt_iterator *i, basic_block bb)
       len = EDGE_COUNT (bb->succ);
       for (ix = len - 1; ix >= 1 && (e = EDGE_I (bb->succ, ix)); ix--)
 	{
-	  VEC_pop (edge, bb->succ);	
 	  remove_edge (e);
 	} 
     }
