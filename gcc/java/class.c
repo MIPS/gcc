@@ -2260,7 +2260,8 @@ layout_class_methods (tree this_class)
     dtable_count = integer_zero_node;
 
   type_name = TYPE_NAME (this_class);
-  if (CLASS_ABSTRACT (type_name) || CLASS_INTERFACE (type_name))
+  if (!flag_indirect_dispatch
+      && (CLASS_ABSTRACT (type_name) || CLASS_INTERFACE (type_name)))
     {
       /* An abstract class can have methods which are declared only in
 	 an implemented interface.  These are called "Miranda

@@ -1,3 +1,8 @@
+2004-11-05  Tom Tromey  <tromey@redhat.com>
+
+	* class.c (layout_class_methods): Don't add Miranda methods when
+	using indirect dispatch.
+
 2004-11-05  Bryce McKinlay  <mckinlay@redhat.com>
 
 	* class.c (make_class_data): Call emit_assertion_table to set the
