@@ -352,7 +352,7 @@ static void
 visit_phi_node (tree phi)
 {
   int i;
-  value phi_val, *curr_val;
+  value phi_val;
 
   /* If the PHI node has already been deemed to be VARYING, don't simulate
      it again.  */
