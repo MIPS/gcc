@@ -183,13 +183,16 @@ do {									\
    along.  -ffix-and-continue and -findirect-data is for compatibility
    for old compilers.  */
 
+/* APPLE LOCAL begin 3837840 */
+/* Supply -faltivec to compiler.  */
 #define SUBTARGET_OPTION_TRANSLATE_TABLE				\
   { "-ffix-and-continue", "-mfix-and-continue" },			\
   { "-findirect-data", "-mfix-and-continue" },				\
-  { "-faltivec", "-maltivec -include altivec.h" },			\
+  { "-faltivec", "-faltivec -maltivec -include altivec.h" },	        \
   { "-fno-altivec", "-mno-altivec" },					\
   { "-Waltivec-long-deprecated",	"-mwarn-altivec-long" },	\
   { "-Wno-altivec-long-deprecated", "-mno-warn-altivec-long" }
+/* APPLE LOCAL end 3837840 */
 
 /* Make both r2 and r3 available for allocation.  */
 #define FIXED_R2 0

@@ -484,6 +484,12 @@ falt-external-templates
 C++ ObjC++
 Change when template instances are emitted
 
+; APPLE LOCAL begin 3837840
+faltivec
+C ObjC C++ ObjC++ Var(flag_altivec,0)
+Enable Altivec
+; APPLE LOCAL end 3837840
+
 fasm
 C ObjC C++ ObjC++
 Recognize the \"asm\" keyword

@@ -2069,6 +2069,26 @@ process_options (void)
   /* The presence of IEEE signaling NaNs, implies all math can trap.  */
   if (flag_signaling_nans)
     flag_trapping_math = 1;
+
+  /* APPLE LOCAL begin 3837840 */
+  /* Disable inlining when Altivec is used.
+     Remove this when 3837835 is fixed.  */
+  if (flag_altivec)
+    {
+      if (optimize
+	  && (flag_inline_functions
+	      || flag_obey_inline
+	      || flag_inline_trees))
+	{
+	  warning ("-faltivec disables inlining. Use -fno-inline or -maltivec to disable this warning");
+ 	  flag_inline_functions = 0;
+	  flag_obey_inline = 0;
+	  flag_no_inline = 1;
+	  flag_inline_trees = 0;
+	  warn_inline = 0;
+	}
+    }
+  /* APPLE LOCAL end 3837840 */
 }
 
 /* Initialize the compiler back end.  */
