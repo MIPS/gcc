@@ -946,7 +946,7 @@ namespace _GLIBCXX_STD
        */
       reference
       front()
-      { return *this->_M_impl._M_start; }
+      { return *begin(); }
 
       /**
        *  Returns a read-only (constant) reference to the data at the first
@@ -954,7 +954,7 @@ namespace _GLIBCXX_STD
        */
       const_reference
       front() const
-      { return *this->_M_impl._M_start; }
+      { return *begin(); }
 
       /**
        *  Returns a read/write reference to the data at the last element of the
@@ -963,7 +963,7 @@ namespace _GLIBCXX_STD
       reference
       back()
       {
-	iterator __tmp = this->_M_impl._M_finish;
+	iterator __tmp = end();
 	--__tmp;
 	return *__tmp;
       }
@@ -975,7 +975,7 @@ namespace _GLIBCXX_STD
       const_reference
       back() const
       {
-	const_iterator __tmp = this->_M_impl._M_finish;
+	const_iterator __tmp = end();
 	--__tmp;
 	return *__tmp;
       }
