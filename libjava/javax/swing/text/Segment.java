@@ -1,4 +1,4 @@
-/* Segment.java -- 
+/* Segment.java --
    Copyright (C) 2002, 2004 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.

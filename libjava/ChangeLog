@@ -1,5 +1,13 @@
 2005-02-10  Michael Koch  <konqueror@gmx.de>
 
+	* javax/swing/ImageIcon.java,
+	javax/swing/UIManager.java,
+	javax/swing/text/EditorKit.java,
+	javax/swing/text/Segment.java:
+	More whitespace cleanups.
+
+2005-02-10  Michael Koch  <konqueror@gmx.de>
+
 	* gnu/java/awt/EmbeddedWindow.java,
 	gnu/java/awt/image/ImageDecoder.java,
 	gnu/java/awt/peer/gtk/GtkFileDialogPeer.java,
