@@ -1,3 +1,8 @@
+2005-02-13  Jason Merrill  <jason@redhat.com>
+
+	* cp-demangle.c (__cxa_demangle): Change resolution of ambiguous
+	arguments.
+
 2004-12-07  DJ Delorie  <dj@redhat.com>
 
 	* splay-tree.c (splay_tree_delete_helper): Redesign the logic so

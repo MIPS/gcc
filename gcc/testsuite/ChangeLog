@@ -1,3 +1,68 @@
+2005-02-21  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR c++/20028
+	* g++.dg/template/crash34.C: New.
+
+2005-02-16  Eric Christopher  <echristo@redhat.com>
+
+	PR preprocessor/19077
+	* gcc.dg/cpp/20050215-1.c: New file.
+
+2005-02-12  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/14479
+	PR c++/19487
+	* g++.dg/template/enum5.C: New test.
+
+2005-02-11  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/19666
+	* gcc/testsuite/g++.dg/other/ptrmem6.C: New test.
+
+2005-02-10  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/19755
+	* decl.c (reshape_init): Issue warnings about missing braces.
+
+2005-02-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/19579
+	* gcc.c-torture/execute/20050124-1.c: New test.
+
+2005-02-09  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/19787
+	* g++.dg/conversion/ambig1.C: New test.
+
+	PR c++/19739
+	* g++.dg/ext/attrib19.C: New test.
+
+	PR c++/19762
+	* g++.dg/template/dtor3.C: New test.
+
+2005-02-08  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/19733
+	* g++.dg/parse/crash23.C: New test.
+
+2005-02-03  Richard Guenther  <rguenth@gcc.gnu.org>
+
+	PR middle-end/19775
+
+	* gcc.dg/builtins-10.c: Disable test for
+	invalid transformation and one test we no
+	longer optimize.
+	* gcc.dg/builtins-47.c: New testcase.
+
+2005-02-01  Alexandre Oliva  <aoliva@redhat.com>
+
+	* g++.dg/parse/typename7.C: Adjust error messages.
+
+2005-01-26  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	Backport from mainline:
+	* gcc.dg/20041216-1.c: New test.
+
 2005-01-14  Jakub Jelinek  <jakub@redhat.com>
 
 	PR middle-end/19084
