@@ -730,32 +730,30 @@ bb_to_key (bb)
 {
   edge e;
 
-  int priority = 2;
+  int priority = 0;
 
   /* Do not start in probably never executed blocks.  */
   if (probably_never_executed_bb_p (bb))
     return BB_FREQ_MAX;
 
-  /* Decrease the priority if there is an unvisited predecessor.  */
-  for (e = bb->pred; e; e = e->pred_next)
-    if (!(e->flags & EDGE_DFS_BACK) && !RBI (e->src)->visited)
-      {
-	priority = 0;
-	break;
-      }
-
-  /* Increase the priority if there is a predecessor which is an end of some
-     trace.  */
+  /* Prefer blocks whose predecessor is an end of some trace
+     or whose predecessor edge is EDGE_DFS_BACK.  */
   for (e = bb->pred; e; e = e->pred_next)
     {
-      if (e->src != ENTRY_BLOCK_PTR && end_of_trace[e->src->index] >= 0)
+      if ((e->src != ENTRY_BLOCK_PTR && end_of_trace[e->src->index] >= 0)
+	  || (e->flags & EDGE_DFS_BACK))
 	{
-	  priority++;
-	  break;
+	  int edge_freq = EDGE_FREQUENCY (e);
+
+	  if (edge_freq > priority)
+	    priority = edge_freq;
 	}
     }
 
-  return -100 * BB_FREQ_MAX * priority - bb->frequency;
+  if (priority)		
+    /* The block with priority should have significantly lower key.  */
+    return -(100 * BB_FREQ_MAX + 100 * priority + bb->frequency);
+  return -bb->frequency;
 }
 
 /* Return true when the edge E from basic block BB is better than the temporary

@@ -1,5 +1,10 @@
 2003-01-15  Josef Zlomek  <zlomekj@suse.cz>
 
+	* bb-reorder.c (bb_to_key): Priority of the basic block is computed
+	in a better way.
+
+2003-01-15  Josef Zlomek  <zlomekj@suse.cz>
+
 	* var-tracking.c (attrs_list_delete): Code cleanup.
 	(attrs_list_delete_alias): Likewise.
 
