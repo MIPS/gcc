@@ -392,11 +392,11 @@
 3666982: gcc.dg/tree-ssa-chrec/ssa-chrec-27.c scan-tree-dump-times nb_iterations 26 1
 3525705: gcc.dg/format/c99-printf-1.c   (test for excess errors)
 3525705: gcc.dg/format/c99-printf-1.c  -DWIDE  (test for excess errors)
-3681611: gcc.dg/cpp/trad/builtins.c (test for excess errors)
-3681611: gcc.dg/cpp/trad/funlike-4.c (test for excess errors)
-3681611: gcc.dg/cpp/trad/literals-1.c (test for excess errors)
-3681611: gcc.dg/cpp/trad/macroargs.c (test for excess errors)
-3681611: gcc.dg/cpp/trad/strify.c (test for excess errors)
+#3681611: gcc.dg/cpp/trad/builtins.c (test for excess errors)
+#3681611: gcc.dg/cpp/trad/funlike-4.c (test for excess errors)
+#3681611: gcc.dg/cpp/trad/literals-1.c (test for excess errors)
+#3681611: gcc.dg/cpp/trad/macroargs.c (test for excess errors)
+#3681611: gcc.dg/cpp/trad/strify.c (test for excess errors)
 3681923: gcc.c-torture/execute/20040307-1.c execution,  -O1
 3681923: gcc.c-torture/execute/20040307-1.c execution,  -O2
 3681923: gcc.c-torture/execute/20040307-1.c execution,  -O3 -fomit-frame-pointer
@@ -426,7 +426,7 @@
 3691367: gcc.dg/rs6000-power2-2.c scan-assembler-not lfd
 3691367: gcc.dg/rs6000-power2-2.c scan-assembler sfq
 3672145: gcc.dg/torture/builtin-convert-2.c  -O0  (test for excess errors)
-3666982: gcc.dg/tree-ssa-vect/tree-ssa-vect-8.c scan-tree-dump-times vectorized 1 loops 1
-3666982: gcc.dg/tree-ssa-vect/tree-ssa-vect-none.c scan-tree-dump-times vectorized 0 loops 2
-3666982: gcc.dg/tree-ssa-vect/tree-ssa-vect-none.c scan-tree-dump-times vectorized 1 loops 1
+#3666982: gcc.dg/tree-ssa-vect/tree-ssa-vect-8.c scan-tree-dump-times vectorized 1 loops 1
+#3666982: gcc.dg/tree-ssa-vect/tree-ssa-vect-none.c scan-tree-dump-times vectorized 0 loops 2
+#3666982: gcc.dg/tree-ssa-vect/tree-ssa-vect-none.c scan-tree-dump-times vectorized 1 loops 1
 3691624: gcc.dg/debug/dwarf2/dwarf-die7.c scan-assembler 1.*DW_AT_inline
