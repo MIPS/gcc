@@ -1462,6 +1462,8 @@ rs6000_override_options (const char *default_cpu)
       /* APPLE LOCAL 64-bit mainline */
       /* Setting to empty string is same as "-mone-byte-bool".  */
       darwin_one_byte_bool = "";
+      /* Default to natural alignment, for better performance.  */
+      rs6000_alignment_flags = MASK_ALIGN_NATURAL;
     }
 
   /* Handle -mabi= options.  */
