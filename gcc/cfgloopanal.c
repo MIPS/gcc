@@ -467,7 +467,19 @@ create_preheader (loop, dom)
   set_immediate_dominator (dom, loop->header, dummy);
   loop->header->loop_father = loop;
   add_bb_to_loop (dummy, cloop);
+  if (rtl_dump_file)
+    fprintf (rtl_dump_file, "Created preheader block for loop %i\n",
+	     loop->num);
 
   return dummy;
 }
 
+/* Create preheader each loop.  */
+void
+create_preheaders (loops)
+     struct loops *loops;
+{
+  int i;
+  for (i = 1; i < loops->num; i++)
+    create_preheader (loops->parray[i], loops->cfg.dom);
+}

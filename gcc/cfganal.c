@@ -333,9 +333,12 @@ flow_call_edges_add (blocks)
 
 	      /* Note that the following may create a new basic block
 		 and renumber the existing basic blocks.  */
-	      e = split_block (bb, insn);
-	      if (e)
-		blocks_split++;
+	      if (insn != bb->end)
+		{
+		  e = split_block (bb, insn);
+		  if (e)
+		    blocks_split++;
+		}
 
 	      make_edge (bb, EXIT_BLOCK_PTR, EDGE_FAKE);
 	    }

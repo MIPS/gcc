@@ -700,8 +700,6 @@ extern void add_bb_to_loop PARAMS ((basic_block, struct loop *));
 extern void remove_bb_from_loops PARAMS ((basic_block));
 struct loop * find_common_loop PARAMS ((struct loop *, struct loop *));
 
-basic_block create_preheader PARAMS ((struct loop *, sbitmap *));
-
 typedef struct conflict_graph_def *conflict_graph;
 
 /* Callback function when enumerating conflicts.  The arguments are
@@ -761,6 +759,8 @@ extern void verify_dominators PARAMS ((void));
 struct loop_invariants *init_loop_invariants PARAMS ((struct loop *, struct df *));
 void free_loop_invariants	 PARAMS ((struct loop_invariants *inv));
 void test_invariants		 PARAMS ((struct loops *));
-bool loop_invariant_rtx_p PARAMS ((struct loop_invariants *, rtx, rtx));
+bool loop_invariant_rtx_p	 PARAMS ((struct loop_invariants *, rtx, rtx));
+void create_preheaders		 PARAMS ((struct loops *));
+basic_block create_preheader	 PARAMS ((struct loop *, sbitmap *));
 
 #endif /* GCC_BASIC_BLOCK_H */

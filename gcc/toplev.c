@@ -2882,6 +2882,9 @@ rest_of_compilation (decl)
 
       find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
       cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
+      flow_loops_find (&loops, LOOP_TREE);
+      create_preheaders (&loops);
+      flow_loops_free (&loops);
       tem = gcse_main (insns, rtl_dump_file);
       rebuild_jump_labels (insns);
       reg_scan (insns, max_reg_num (), 1);
@@ -3086,6 +3089,9 @@ rest_of_compilation (decl)
 
       reg_scan (insns, max_reg_num (), 1);
       cleanup_cfg (CLEANUP_EXPENSIVE);
+      flow_loops_find (&loops, LOOP_TREE);
+      create_preheaders (&loops);
+      flow_loops_free (&loops);
       gcse_main (insns, rtl_dump_file);
       rebuild_jump_labels (insns);
       reg_scan (insns, max_reg_num (), 1);
