@@ -40,6 +40,9 @@ details.  */
 
 using namespace gcj;
 
+// When true, print debugging information about class loading.
+bool gcj::verbose_class_flag;
+
 typedef unsigned int uaddr __attribute__ ((mode (pointer)));
 
 template<typename T>
@@ -1670,6 +1673,19 @@ _Jv_Linker::wait_for_state (jclass klass, int state)
 
   java::lang::Thread *save = klass->thread;
   klass->thread = self;
+
+  // Print some debugging info if requested.  Interpreted classes are
+  // handled in defineclass, so we only need to handle the two
+  // pre-compiled cases here.
+  if (gcj::verbose_class_flag
+      && (klass->state == JV_STATE_COMPILED
+	  || klass->state == JV_STATE_PRELOADING)
+      && ! _Jv_IsInterpretedClass (klass))
+    // We use a somewhat bogus test for the ABI here.
+    fprintf (stderr, "[Loaded (%s) %s]\n",
+	     (klass->state == JV_STATE_PRELOADING ? "BC-compiled"
+	      : "pre-compiled"),
+	     klass->name->chars());
 
   try
     {

@@ -68,8 +68,6 @@ details.  */
 
 using namespace gcj;
 
-bool gcj::verbose_class_flag;
-
 jclass
 java::lang::Class::forName (jstring className, jboolean initialize,
                             java::lang::ClassLoader *loader)
