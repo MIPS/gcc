@@ -4529,6 +4529,19 @@ independently and then encoded as a @code{source-name}, set the hook to
 @code{abi_cxx_edm_as_nested_source_name}.
 @end deftypevr
 
+@findex abi_cxx_dicp_default
+@findex abi_cxx_dicp_with_vbases
+@findex abi_cxx_dicp_always
+@deftypevr {Target Hook} {enum cxx_dtor_in_charge_parm} TARGET_ABI_CXX_DTOR_IN_CHARGE_PARM
+Set this hook if destructors have a vestigial in charge parameter.
+The default is @code{abi_cxx_dicp_default}, which means there is no such
+parameter.  If instead there is one for classes with virtual bases, set
+it to @code{abi_cxx_dicp_with_vbases}. If every destructor has such a
+pareter, set it to @code{abi_cxx_dicp_always}.  When present the
+parameter is passed immediately after the this parameter, and the value
+zero is passed.
+@end deftypevr
+
 @node Trampolines
 @section Trampolines for Nested Functions
 @cindex trampolines for nested functions

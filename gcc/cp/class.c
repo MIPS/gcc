@@ -3812,7 +3812,7 @@ check_methods (tree t)
    We add it here to every clone.  A better fix, which would fit with
    the mainline more cleanly, might well be to add in-charge parms to
    all abstract ctors and dtors, and then remove them (or not) in the
-   clones. All call sites would prepend a dummty in-charge arg, that
+   clones. All call sites would prepend a dummy in-charge arg, that
    gets dropped if the selected cdtor doesn't need it.  Also, we could
    add the VTT parm to the abstract ctor/dtor too, and do the same
    with that.  Then MAYBE_IN_CHARGE_X can go away.  */
@@ -3822,7 +3822,7 @@ build_clone (tree fn, tree name)
 {
   tree parms;
   tree clone;
-  bool needs_dummy_inchg = DECL_DESTRUCTOR_P (fn);
+  bool needs_dummy_inchg = false;
 
   /* Copy the function.  */
   clone = copy_decl (fn);
@@ -3838,6 +3838,21 @@ build_clone (tree fn, tree name)
   /* And it hasn't yet been deferred.  */
   DECL_DEFERRED_FN (clone) = 0;
 
+  if (DECL_DESTRUCTOR_P (fn))
+    {
+      switch (targetm.abi.cxx_dtor_in_charge_parm)
+	{
+	case abi_cxx_dicp_default:
+	  break;
+	case abi_cxx_dicp_with_vbases:
+	  needs_dummy_inchg = DECL_HAS_IN_CHARGE_PARM_P (fn);
+	  break;
+	case abi_cxx_dicp_always:
+	  needs_dummy_inchg = true;
+	  break;
+	}
+    }
+ 
   /* The base-class destructor is not virtual.  */
   if (name == base_dtor_identifier)
     {
