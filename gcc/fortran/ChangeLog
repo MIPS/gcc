@@ -1,3 +1,8 @@
+2003-10-12  Richard Henderson  <rth@redhat.com>
+
+	* f95-lang.c (gfc_define_builtin): New const_p argument.  Set
+	TREE_READONLY.  Update all callers.
+
 2003-10-12  Feng Wang  <wf_cs@yahoo.com>
 
 	* iresolve.c (gfc_resolve_cshift): Change to match implementation.
