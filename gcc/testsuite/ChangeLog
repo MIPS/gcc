@@ -1,3 +1,10 @@
+2004-03-18  Mark Mitchell  <mark@codesourcery.com>
+ 
+	* gcc.dg/local1.c: New test.
+
+	* gcc.dg/debug/dwarf2/c99-typedef1.c: New test.
+ 
+
 2004-03-07  Roger Sayle  <roger@eyesopen.com>
 
 	* gcc.c-torture/execute/20040307-1.c: New test case.
