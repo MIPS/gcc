@@ -1,3 +1,8 @@
+2004-01-07  Richard Earnshaw  <rearnsha@arm.com>
+	    Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/abi/vbase10.C: Use -mstructure-size-boundary=8 on ARM.
+
 2003-12-29  Mark Mitchell  <mark@codesourcery.com>
 
 	* g++.old-deja/g++.pt/static11.C: Correct XFAIL syntax.
