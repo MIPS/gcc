@@ -905,11 +905,13 @@ cgraph_mark_inline_edge (struct cgraph_edge *e)
 
   if (!e->callee->global.inlined && flag_unit_at_a_time)
     {
+      void **slot;
       if (!cgraph_inline_hash)
         cgraph_inline_hash = htab_create_ggc (42, htab_hash_pointer,
 					      htab_eq_pointer, NULL);
-      htab_find_slot (cgraph_inline_hash,
-		      DECL_ASSEMBLER_NAME (e->callee->decl), INSERT);
+      slot = htab_find_slot (cgraph_inline_hash,
+			     DECL_ASSEMBLER_NAME (e->callee->decl), INSERT);
+      *slot = DECL_ASSEMBLER_NAME (e->callee->decl);
     }
   e->callee->global.inlined = true;
 

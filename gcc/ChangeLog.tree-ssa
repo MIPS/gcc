@@ -1,3 +1,8 @@
+2004-02-01  Jan Hubicka  <jh@suse.cz>
+
+	* cgraphunit.c (cgraph_mark_inline_edge): Fix insertion to
+	cgraph_inline_hash.
+
 2004-01-30  Frank Ch. Eigler  <fche@redhat.com>
 
 	* common.opt: Add support for -fmudflapth, -fmudflapir.
