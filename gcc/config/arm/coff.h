@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler.
    For ARM with COFF object format.
-   Copyright (C) 1995 - 1999 Free Software Foundation, Inc.
+   Copyright (C) 1995 - 2000 Free Software Foundation, Inc.
    Contributed by Doug Evans (devans@cygnus.com).
    
 This file is part of GNU CC.
@@ -164,7 +164,7 @@ dtors_section ()						\
 
 /* Support the ctors/dtors sections for g++.  */
 
-#define INT_ASM_OP ".word"
+#define INT_ASM_OP "\t.word\t"
 
 /* A C statement (sans semicolon) to output an element in the table of
    global constructors.  */
@@ -173,7 +173,7 @@ dtors_section ()						\
   do						\
     {						\
       ctors_section ();				\
-      fprintf (STREAM, "\t%s\t ", INT_ASM_OP);	\
+      fprintf (STREAM, "%s", INT_ASM_OP);	\
       assemble_name (STREAM, NAME);		\
       fprintf (STREAM, "\n");			\
     }						\
@@ -186,7 +186,7 @@ dtors_section ()						\
   do						\
     {						\
       dtors_section ();				\
-      fprintf (STREAM, "\t%s\t ", INT_ASM_OP);	\
+      fprintf (STREAM, "%s", INT_ASM_OP);	\
       assemble_name (STREAM, NAME);		\
       fprintf (STREAM, "\n");			\
     }						\

@@ -1,5 +1,5 @@
 /* Base configuration file for all OpenBSD targets.
-   Copyright (C) 1999 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -169,9 +169,9 @@ Boston, MA 02111-1307, USA.  */
 #undef SIZE_ASM_OP
 #undef SET_ASM_OP
 
-#define TYPE_ASM_OP	".type"
-#define SIZE_ASM_OP	".size"
-#define SET_ASM_OP	".set"
+#define TYPE_ASM_OP	"\t.type\t"
+#define SIZE_ASM_OP	"\t.size\t"
+#define SET_ASM_OP	"\t.set\t"
 
 /* The following macro defines the format used to output the second
    operand of the .type assembler directive.  */
@@ -196,7 +196,7 @@ Boston, MA 02111-1307, USA.  */
 #undef ASM_DECLARE_FUNCTION_NAME
 #define ASM_DECLARE_FUNCTION_NAME(FILE, NAME, DECL)			\
   do {									\
-    fprintf (FILE, "\t%s\t", TYPE_ASM_OP);				\
+    fprintf (FILE, "%s", TYPE_ASM_OP);					\
     assemble_name (FILE, NAME);						\
     fputs (" , ", FILE);						\
     fprintf (FILE, TYPE_OPERAND_FMT, "function");			\
@@ -213,7 +213,7 @@ Boston, MA 02111-1307, USA.  */
   do {									\
     if (!flag_inhibit_size_directive)					\
       {									\
-	fprintf (FILE, "\t%s\t", SIZE_ASM_OP);				\
+	fprintf (FILE, "%s", SIZE_ASM_OP);				\
 	assemble_name (FILE, (FNAME));					\
 	fputs (" , . - ", FILE);					\
 	assemble_name (FILE, (FNAME));					\
@@ -227,7 +227,7 @@ Boston, MA 02111-1307, USA.  */
 #undef ASM_DECLARE_OBJECT_NAME
 #define ASM_DECLARE_OBJECT_NAME(FILE, NAME, DECL)			\
   do {									\
-    fprintf (FILE, "\t%s\t ", TYPE_ASM_OP);				\
+    fprintf (FILE, "%s", TYPE_ASM_OP);					\
     assemble_name (FILE, NAME);						\
     fputs (" , ", FILE);						\
     fprintf (FILE, TYPE_OPERAND_FMT, "object");				\
@@ -236,7 +236,7 @@ Boston, MA 02111-1307, USA.  */
     if (!flag_inhibit_size_directive && DECL_SIZE (DECL))		\
       {									\
 	size_directive_output = 1;					\
-	fprintf (FILE, "\t%s\t", SIZE_ASM_OP);				\
+	fprintf (FILE, "%s", SIZE_ASM_OP);				\
 	assemble_name (FILE, NAME);					\
 	fprintf (FILE, " , %d\n", int_size_in_bytes (TREE_TYPE (DECL)));\
       }									\
@@ -258,7 +258,7 @@ do {									 \
 	 && !size_directive_output)					 \
        {								 \
 	 size_directive_output = 1;					 \
-	 fprintf (FILE, "\t%s\t", SIZE_ASM_OP);			 \
+	 fprintf (FILE, "%s", SIZE_ASM_OP);				 \
 	 assemble_name (FILE, name);					 \
 	 fprintf (FILE, " , %d\n", int_size_in_bytes (TREE_TYPE (DECL)));\
        }								 \

@@ -3006,25 +3006,22 @@ mtcrf_operation (op, mode)
 {
   int count = XVECLEN (op, 0);
   int i;
-  int bitmap = 0;
   rtx src_reg;
 
   /* Perform a quick check so we don't blow up below.  */
-  if (count < 2
-      || GET_CODE (XVECEXP (op, 0, 0)) != USE
-      || GET_CODE (XEXP (XVECEXP (op, 0, 0), 0)) != CONST_INT
-      || GET_CODE (XVECEXP (op, 0, 1)) != SET
-      || GET_CODE (SET_SRC (XVECEXP (op, 0, 1))) != UNSPEC
-      || XVECLEN (SET_SRC (XVECEXP (op, 0, 1)), 0) != 2)
+  if (count < 1
+      || GET_CODE (XVECEXP (op, 0, 0)) != SET
+      || GET_CODE (SET_SRC (XVECEXP (op, 0, 0))) != UNSPEC
+      || XVECLEN (SET_SRC (XVECEXP (op, 0, 0)), 0) != 2)
     return 0;
-  src_reg = XVECEXP (SET_SRC (XVECEXP (op, 0, 1)), 0, 0);
+  src_reg = XVECEXP (SET_SRC (XVECEXP (op, 0, 0)), 0, 0);
   
   if (GET_CODE (src_reg) != REG
       || GET_MODE (src_reg) != SImode
       || ! INT_REGNO_P (REGNO (src_reg)))
     return 0;
 
-  for (i = 1; i < count; i++)
+  for (i = 0; i < count; i++)
     {
       rtx exp = XVECEXP (op, 0, i);
       rtx unspec;
@@ -3037,7 +3034,6 @@ mtcrf_operation (op, mode)
 	return 0;
       unspec = SET_SRC (exp);
       maskval = 1 << (MAX_CR_REGNO - REGNO (SET_DEST (exp)));
-      bitmap |= maskval;
       
       if (GET_CODE (unspec) != UNSPEC
 	  || XINT (unspec, 1) != 20
@@ -3047,7 +3043,7 @@ mtcrf_operation (op, mode)
 	  || INTVAL (XVECEXP (unspec, 0, 1)) != maskval)
 	return 0;
     }
-  return INTVAL (XEXP (XVECEXP (op, 0, 0), 0)) == bitmap;
+  return 1;
 }
 
 /* Return 1 for an PARALLEL suitable for lmw. */
@@ -5974,38 +5970,39 @@ rs6000_emit_epilogue(sibcall)
   if (info->cr_save_p)
     {
       rtx r12_rtx = gen_rtx_REG (SImode, 12);
+      int count = 0;
       
       if (using_mfcr_multiple)
 	{
-	  rtvec p;
-	  int mask = 0;
-	  int count = 0;
-
 	  for (i = 0; i < 8; i++)
 	    if (regs_ever_live[CR0_REGNO+i] && ! call_used_regs[CR0_REGNO+i])
-	      {
-		mask |= 1 << (7-i);
-		count++;
-	      }
+	      count++;
 	  if (count == 0)
-	    abort();
-	  
-	  p = rtvec_alloc (count + 1);
+	    abort ();
+	}
 
-	  RTVEC_ELT (p, 0) = gen_rtx_USE (VOIDmode, GEN_INT (mask));
-	  count = 1;
+      if (using_mfcr_multiple && count > 1)
+	{
+	  rtvec p;
+	  int ndx;
+	  
+	  p = rtvec_alloc (count);
+
+	  ndx = 0;
 	  for (i = 0; i < 8; i++)
 	    if (regs_ever_live[CR0_REGNO+i] && ! call_used_regs[CR0_REGNO+i])
 	      {
 		rtvec r = rtvec_alloc (2);
 		RTVEC_ELT (r, 0) = r12_rtx;
 		RTVEC_ELT (r, 1) = GEN_INT (1 << (7-i));
-		RTVEC_ELT (p, count) =
+		RTVEC_ELT (p, ndx) =
 		  gen_rtx_SET (VOIDmode, gen_rtx_REG (CCmode, CR0_REGNO+i), 
 			       gen_rtx_UNSPEC (CCmode, r, 20));
-		count++;
+		ndx++;
 	      }
 	  emit_insn (gen_rtx_PARALLEL (VOIDmode, p));
+	  if (ndx != count)
+	    abort ();
 	}
       else
 	for (i = 0; i < 8; i++)
@@ -6050,10 +6047,10 @@ rs6000_emit_epilogue(sibcall)
       else
 	p = rtvec_alloc (2);
 
-      RTVEC_ELT (p, 0) = gen_rtx_USE (VOIDmode, 
+      RTVEC_ELT (p, 0) = gen_rtx_RETURN (VOIDmode);
+      RTVEC_ELT (p, 1) = gen_rtx_USE (VOIDmode, 
 				      gen_rtx_REG (Pmode, 
 						   LINK_REGISTER_REGNUM));
-      RTVEC_ELT (p, 1) = gen_rtx_RETURN (VOIDmode);
 
       /* If we have to restore more than two FP registers, branch to the
 	 restore function.  It will return to our caller.  */
@@ -6708,10 +6705,8 @@ output_toc (file, x, labelno, mode)
 
   /* When the linker won't eliminate them, don't output duplicate
      TOC entries (this happens on AIX if there is any kind of TOC,
-     and on SVR4 under -fPIC or -mrelocatable).
-     This won't work if we are not garbage collecting, so 
-     we don't do it, sorry.  */
-  if (TARGET_TOC && ggc_p)
+     and on SVR4 under -fPIC or -mrelocatable).  */
+  if (TARGET_TOC)
     {
       struct toc_hash_struct *h;
       void * * found;
@@ -7586,11 +7581,7 @@ rs6000_encode_section_info (decl)
 	  size_t len2 = strlen (XSTR (sym_ref, 0));
 	  char *str;
 
-	  if (ggc_p)
-	    str = ggc_alloc_string (NULL, len1 + len2);
-	  else
-	    str = permalloc (len1 + len2 + 1);
-
+	  str = ggc_alloc_string (NULL, len1 + len2);
 	  str[0] = '.';
 	  str[1] = '.';
 	  memcpy (str + len1, XSTR (sym_ref, 0), len2 + 1);
@@ -7637,10 +7628,7 @@ rs6000_encode_section_info (decl)
 	  size_t len = strlen (XSTR (sym_ref, 0));
 	  char *str;
 
-	  if (ggc_p)
-	    str = ggc_alloc_string (NULL, len + 1);
-	  else
-	    str = permalloc (len + 2);
+	  str = ggc_alloc_string (NULL, len + 1);
 	  str[0] = '@';
 	  memcpy (str + 1, XSTR (sym_ref, 0), len + 1);
 

@@ -765,7 +765,11 @@ extern struct sparc_cpu_select sparc_select[];
 
 /* Width of a word, in units (bytes).  */
 #define UNITS_PER_WORD		(TARGET_ARCH64 ? 8 : 4)
+#ifdef IN_LIBGCC2
+#define MIN_UNITS_PER_WORD	UNITS_PER_WORD
+#else
 #define MIN_UNITS_PER_WORD	4
+#endif
 
 /* Now define the sizes of the C data types.  */
 
@@ -1247,8 +1251,6 @@ extern int sparc_mode_class[];
    data references.  */
 
 #define PIC_OFFSET_TABLE_REGNUM 23
-
-#define FINALIZE_PIC finalize_pic ()
 
 /* Pick a default value we can notice from override_options:
    !v9: Default is on.
@@ -2949,18 +2951,18 @@ do {									\
 #define ASM_LONGLONG	".xword"
 #define ASM_LONG	".word"
 #define ASM_SHORT	".half"
-#define ASM_BYTE_OP	".byte"
+#define ASM_BYTE_OP	"\t.byte\t"
 #define ASM_FLOAT	".single"
 #define ASM_DOUBLE	".double"
 #define ASM_LONGDOUBLE	".xxx"		/* ??? Not known (or used yet). */
 
 /* Output before read-only data.  */
 
-#define TEXT_SECTION_ASM_OP ".text"
+#define TEXT_SECTION_ASM_OP "\t.text"
 
 /* Output before writable data.  */
 
-#define DATA_SECTION_ASM_OP ".data"
+#define DATA_SECTION_ASM_OP "\t.data"
 
 /* How to refer to registers in assembler output.
    This sequence is indexed by compiler's hard-register-number (see above).  */
@@ -3106,14 +3108,14 @@ do {									\
   fprintf (FILE, "\n"))
 
 #define ASM_OUTPUT_CHAR(FILE,VALUE)  \
-( fprintf (FILE, "\t%s\t", ASM_BYTE_OP),	\
+( fprintf (FILE, "%s", ASM_BYTE_OP),	\
   output_addr_const (FILE, (VALUE)),		\
   fprintf (FILE, "\n"))
 
 /* This is how to output an assembler line for a numeric constant byte.  */
 
 #define ASM_OUTPUT_BYTE(FILE,VALUE)  \
-  fprintf (FILE, "\t%s\t0x%x\n", ASM_BYTE_OP, (VALUE))
+  fprintf (FILE, "%s0x%x\n", ASM_BYTE_OP, (VALUE))
 
 /* This is how we hook in and defer the case-vector until the end of
    the function.  */
@@ -3218,12 +3220,12 @@ do {									\
 ( (OUTPUT) = (char *) alloca (strlen ((NAME)) + 10),	\
   sprintf ((OUTPUT), "%s.%d", (NAME), (LABELNO)))
 
-#define IDENT_ASM_OP ".ident"
+#define IDENT_ASM_OP "\t.ident\t"
 
 /* Output #ident as a .ident.  */
 
 #define ASM_OUTPUT_IDENT(FILE, NAME) \
-  fprintf (FILE, "\t%s\t\"%s\"\n", IDENT_ASM_OP, NAME);
+  fprintf (FILE, "%s\"%s\"\n", IDENT_ASM_OP, NAME);
 
 /* Output code to add DELTA to the first argument, and then jump to FUNCTION.
    Used for C++ multiple inheritance.  */

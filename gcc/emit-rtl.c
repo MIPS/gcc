@@ -171,9 +171,6 @@ static rtx free_insn;
 #define last_filename (cfun->emit->x_last_filename)
 #define first_label_num (cfun->emit->x_first_label_num)
 
-/* This is where the pointer to the obstack being used for RTL is stored.  */
-extern struct obstack *rtl_obstack;
-
 static rtx make_jump_insn_raw		PARAMS ((rtx));
 static rtx make_call_insn_raw		PARAMS ((rtx));
 static rtx find_line_note		PARAMS ((rtx));
@@ -254,17 +251,7 @@ gen_rtx_CONST_INT (mode, arg)
   slot = htab_find_slot_with_hash (const_int_htab, &arg,
 				   (hashval_t) arg, INSERT);
   if (*slot == 0)
-    {
-      if (!ggc_p)
-	{
-	  push_obstacks_nochange ();
-	  end_temporary_allocation ();
-	  *slot = gen_rtx_raw_CONST_INT (VOIDmode, arg);
-	  pop_obstacks ();
-	}
-      else
-	*slot = gen_rtx_raw_CONST_INT (VOIDmode, arg);
-    }
+    *slot = gen_rtx_raw_CONST_INT (VOIDmode, arg);
 
   return (rtx) *slot;
 }
@@ -707,7 +694,8 @@ gen_lowpart_common (mode, x)
 	return gen_rtx_fmt_e (GET_CODE (x), mode, XEXP (x, 0));
     }
   else if (GET_CODE (x) == SUBREG
-	   && (GET_MODE_SIZE (mode) <= UNITS_PER_WORD
+	   && (GET_MODE_SIZE (mode) <= GET_MODE_SIZE (GET_MODE (SUBREG_REG (x)))
+	       || GET_MODE_SIZE (mode) <= UNITS_PER_WORD
 	       || GET_MODE_SIZE (mode) == GET_MODE_UNIT_SIZE (GET_MODE (x))))
     return (GET_MODE (SUBREG_REG (x)) == mode && SUBREG_WORD (x) == 0
 	    ? SUBREG_REG (x)
@@ -767,11 +755,7 @@ gen_lowpart_common (mode, x)
     {
       /* If MODE is twice the host word size, X is already the desired
 	 representation.  Otherwise, if MODE is wider than a word, we can't
-	 do this.  If MODE is exactly a word, return just one CONST_INT.
-	 If MODE is smaller than a word, clear the bits that don't belong
-	 in our mode, unless they and our sign bit are all one.  So we get
-	 either a reasonable negative value or a reasonable unsigned value
-	 for this mode.  */
+	 do this.  If MODE is exactly a word, return just one CONST_INT.  */
 
       if (GET_MODE_BITSIZE (mode) >= 2 * HOST_BITS_PER_WIDE_INT)
 	return x;
@@ -783,12 +767,11 @@ gen_lowpart_common (mode, x)
       else
 	{
 	  /* MODE must be narrower than HOST_BITS_PER_WIDE_INT.  */
-	  int width = GET_MODE_BITSIZE (mode);
 	  HOST_WIDE_INT val = (GET_CODE (x) == CONST_INT ? INTVAL (x)
 			       : CONST_DOUBLE_LOW (x));
 
 	  /* Sign extend to HOST_WIDE_INT.  */
-	  val = val << (HOST_BITS_PER_WIDE_INT - width) >> (HOST_BITS_PER_WIDE_INT - width);
+	  val = trunc_int_for_mode (val, mode);
 
 	  return (GET_CODE (x) == CONST_INT && INTVAL (x) == val ? x
 		  : GEN_INT (val));
@@ -946,10 +929,12 @@ gen_lowpart_common (mode, x)
 	  break;
 #if LONG_DOUBLE_TYPE_SIZE == 96
 	case XFmode:
+	  REAL_VALUE_TO_TARGET_LONG_DOUBLE (r, i + endian);
+	  i[3-3*endian] = 0;
 #else
 	case TFmode:
-#endif
 	  REAL_VALUE_TO_TARGET_LONG_DOUBLE (r, i);
+#endif
 	  break;
 	default:
 	  abort ();
@@ -968,13 +953,21 @@ gen_lowpart_common (mode, x)
 
 	for (c = 0; c < 4; c++)
 	  i[c] &= ~ (0L);
-      
-	return immed_double_const (i[endian * 3]
-				   | (((HOST_WIDE_INT) i[1 + endian]) << 32),
-				   i[2 - endian]
-				   | (((HOST_WIDE_INT) i[3 - endian * 3])
-				      << 32),
-				   mode);
+
+	switch (GET_MODE (x))
+	  {
+	  case SFmode:
+	  case DFmode:
+	    return immed_double_const (((unsigned long) i[endian]) |
+				       (((HOST_WIDE_INT) i[1-endian]) << 32),
+				       0, mode);
+	  default:
+	    return immed_double_const (((unsigned long) i[endian*3]) |
+				       (((HOST_WIDE_INT) i[1+endian]) << 32),
+				       ((unsigned long) i[2-endian]) |
+				       (((HOST_WIDE_INT) i[3-endian*3]) << 32),
+				       mode);
+	  }
       }
 #endif
     }
@@ -2486,15 +2479,7 @@ make_insn_raw (pattern)
 {
   register rtx insn;
 
-  /* If in RTL generation phase, see if FREE_INSN can be used.  */
-  if (!ggc_p && free_insn != 0 && rtx_equal_function_value_matters)
-    {
-      insn = free_insn;
-      free_insn = NEXT_INSN (free_insn);
-      PUT_CODE (insn, INSN);
-    }
-  else
-    insn = rtx_alloc (INSN);
+  insn = rtx_alloc (INSN);
 
   INSN_UID (insn) = cur_insn_uid++;
   PATTERN (insn) = pattern;
@@ -2921,8 +2906,6 @@ emit_insn_before (pattern, before)
 	  insn = XVECEXP (pattern, 0, i);
 	  add_insn_before (insn, before);
 	}
-      if (!ggc_p && XVECLEN (pattern, 0) < SEQUENCE_RESULT_SIZE)
-	sequence_result[XVECLEN (pattern, 0)] = pattern;
     }
   else
     {
@@ -3055,8 +3038,6 @@ emit_insn_after (pattern, after)
 	  add_insn_after (insn, after);
 	  after = insn;
 	}
-      if (!ggc_p && XVECLEN (pattern, 0) < SEQUENCE_RESULT_SIZE)
-	sequence_result[XVECLEN (pattern, 0)] = pattern;
     }
   else
     {
@@ -3216,8 +3197,6 @@ emit_insn (pattern)
 	  insn = XVECEXP (pattern, 0, i);
 	  add_insn (insn);
 	}
-      if (!ggc_p && XVECLEN (pattern, 0) < SEQUENCE_RESULT_SIZE)
-	sequence_result[XVECLEN (pattern, 0)] = pattern;
     }
   else
     {
@@ -3705,29 +3684,9 @@ gen_sequence ()
       && GET_CODE (first_insn) == INSN
       /* Don't throw away any reg notes. */
       && REG_NOTES (first_insn) == 0)
-    {
-      if (!ggc_p)
-	{
-	  NEXT_INSN (first_insn) = free_insn;
-	  free_insn = first_insn;
-	}
-      return PATTERN (first_insn);
-    }
+    return PATTERN (first_insn);
 
-  /* Put them in a vector.  See if we already have a SEQUENCE of the
-     appropriate length around.  */
-  if (!ggc_p && len < SEQUENCE_RESULT_SIZE 
-      && (result = sequence_result[len]) != 0)
-    sequence_result[len] = 0;
-  else
-    {
-      /* Ensure that this rtl goes in saveable_obstack, since we may
-	 cache it.  */
-      push_obstacks_nochange ();
-      rtl_in_saveable_obstack ();
-      result = gen_rtx_SEQUENCE (VOIDmode, rtvec_alloc (len));
-      pop_obstacks ();
-    }
+  result = gen_rtx_SEQUENCE (VOIDmode, rtvec_alloc (len));
 
   for (i = 0, tem = first_insn; tem; tem = NEXT_INSN (tem), i++)
     XVECEXP (result, 0, i) = tem;
@@ -3880,14 +3839,6 @@ copy_insn_1 (orig)
 		XVECEXP (copy, i, j) = copy_insn_1 (XVECEXP (orig, i, j));
 	    }
 	  break;
-
-	case 'b':
-	  {
-	    bitmap new_bits = BITMAP_OBSTACK_ALLOC (rtl_obstack);
-	    bitmap_copy (new_bits, XBITMAP (orig, i));
-	    XBITMAP (copy, i) = new_bits;
-	    break;
-	  }
 
 	case 't':
 	case 'w':
@@ -4111,8 +4062,7 @@ init_emit_once (line_numbers)
   virtual_cfa_rtx = gen_rtx_raw_REG (Pmode, VIRTUAL_CFA_REGNUM);
 
   /* These rtx must be roots if GC is enabled.  */
-  if (ggc_p)
-    ggc_add_rtx_root (global_rtl, GR_MAX);
+  ggc_add_rtx_root (global_rtl, GR_MAX);
 
 #ifdef INIT_EXPANDERS
   /* This is to initialize save_machine_status and restore_machine_status before
@@ -4129,8 +4079,7 @@ init_emit_once (line_numbers)
   for (i = - MAX_SAVED_CONST_INT; i <= MAX_SAVED_CONST_INT; i++)
     const_int_rtx[i + MAX_SAVED_CONST_INT] = 
       gen_rtx_raw_CONST_INT (VOIDmode, i);
-  if (ggc_p)
-    ggc_add_rtx_root (const_int_rtx, 2 * MAX_SAVED_CONST_INT + 1);
+  ggc_add_rtx_root (const_int_rtx, 2 * MAX_SAVED_CONST_INT + 1);
 
   if (STORE_FLAG_VALUE >= - MAX_SAVED_CONST_INT
       && STORE_FLAG_VALUE <= MAX_SAVED_CONST_INT)

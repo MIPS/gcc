@@ -16,17 +16,13 @@
 #define __need_wchar_t
 #define __need_wint_t
 #define __need_NULL
-#include <bits/std_cstddef.h>
-
-
-/* For use as part of glibc (native) or as part of libstdc++ (maybe
-   not glibc) */
-#if __GLIBC__ < 2 || (__GLIBC__ == 2  && __GLIBC_MINOR__ <= 1)
-# ifdef _GLIBCPP_USE_WCHAR_T
-#  include <bits/std_cwchar.h>
-typedef mbstate_t __mbstate_t;
-# endif
+#define __need_ptrdiff_t
+#ifdef __cplusplus
+# include <cstddef>
+#else
+# include <stddef.h>
 #endif
+
 
 #ifndef _WINT_T
 /* Integral type unchanged by default argument promotions that can
@@ -36,15 +32,31 @@ typedef mbstate_t __mbstate_t;
 # define _WINT_T
 typedef unsigned int wint_t;
 #endif
-#define __need_mbstate_t
-#include <bits/std_cwchar.h>
-#define _G_size_t	size_t
+
+/* For use as part of glibc (native) or as part of libstdc++ (maybe
+   not glibc) */
+#ifndef __mbstate_t_defined
+# define __mbstate_t_defined	1
+# ifdef _GLIBCPP_USE_WCHAR_T
+typedef struct
+{
+  int count;
+  wint_t value;
+}__mbstate_t;
+# endif
+#endif
+#undef __need_mbstate_t
+
+typedef size_t _G_size_t;
+
+
 #if defined _LIBC || defined _GLIBCPP_USE_WCHAR_T
 typedef struct
 {
   __off_t __pos;
   __mbstate_t __state;
 } _G_fpos_t;
+
 typedef struct
 {
   __off64_t __pos;
@@ -65,19 +77,6 @@ typedef __off64_t _G_fpos64_t;
 #if defined _LIBC || defined _GLIBCPP_USE_WCHAR_T
 # include <iconv.h>
 typedef iconv_t _G_iconv_t;
-# if 0
-/* XXX Commented out because outside glibc we have to use iconv()
-   and not gconv().  */
-typedef union
-{
-  struct __gconv_info __cd;
-  struct
-  {
-    struct __gconv_info __cd;
-    struct __gconv_step_data __data;
-  } __combined;
-} _G_iconv_t;
-# endif
 #endif
 
 typedef int _G_int16_t __attribute__ ((__mode__ (__HI__)));
@@ -130,3 +129,4 @@ typedef unsigned int _G_uint32_t __attribute__ ((__mode__ (__SI__)));
 #endif
 
 #endif	/* _G_config.h */
+

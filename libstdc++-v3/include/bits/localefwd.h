@@ -49,27 +49,27 @@ namespace std
            unsigned int _Mask = (~0u >> _Shift) >
     struct _Count_ones;
 
-  // It is preferable to use enumerators instead of integral static data
-  // members to avoid emission of superflous variables -- gdr.
   template<unsigned int _Num, unsigned int _Mask>
     struct _Count_ones<_Num, 0, _Mask> 
-    {
-      enum
-      {
-        _M_count = _Num
-      };
-    };
+    { static const unsigned int _S_count = _Num; };
+
+  template<unsigned int _Num, unsigned int _Mask>
+    const unsigned int _Count_ones<_Num, 0, _Mask>::_S_count;
 
   template<unsigned int _Num, int _Shift, unsigned int _Mask>
     struct _Count_ones 
     {
-      enum
-      {
-        _M_halfcount = _Count_ones<_Num, _Shift/2,
-                                   (_Mask^((~_Mask)>>(_Shift/2))) >::_M_count,
-        _M_count = (_M_halfcount&_Mask) + ((_M_halfcount>>_Shift)&_Mask)
-      };
+      static const unsigned int _S_halfcount =
+        _Count_ones<_Num, _Shift/2, (_Mask^((~_Mask)>>(_Shift/2))) >::_S_count;
+      static const unsigned int _S_count
+      = (_S_halfcount&_Mask) + ((_S_halfcount>>_Shift)&_Mask);
     };
+
+  template<unsigned int _Num, int _Shift, unsigned int _Mask>
+    const unsigned int _Count_ones<_Num, _Shift, _Mask>::_S_count;
+
+  template<unsigned int _Num, int _Shift, unsigned int _Mask>
+    const unsigned int _Count_ones<_Num, _Shift, _Mask>::_S_halfcount;
 
   // 22.1.1 Locale
   template<typename _Tp> class allocator;
@@ -138,9 +138,10 @@ namespace std
 #ifdef _GLIBCPP_USE_WCHAR_T
   template<> class ctype<wchar_t>;
 #endif
+
   template<typename _CharT> 
     class ctype_byname;
-  // NB: Specialized for char and wchar_t in locale_facets.h.
+  // NB: Specialized for char and wchar_t in locfacets.h.
 
   class codecvt_base;
   template<typename _InternT, typename _ExternT, typename _StateT>
@@ -149,8 +150,13 @@ namespace std
 #ifdef _GLIBCPP_USE_WCHAR_T
   template<> class codecvt<wchar_t, char, mbstate_t>;
 #endif
+
   template<typename _InternT, typename _ExternT, typename _StateT>
     class codecvt_byname;
+  template<> class codecvt_byname<char, char, mbstate_t>;
+#ifdef _GLIBCPP_USE_WCHAR_T
+  template<> class codecvt_byname<wchar_t, char, mbstate_t>;
+#endif
 
   // 22.2.2 and 22.2.3 numeric
   template<typename _CharT, typename _InIter = istreambuf_iterator<_CharT> >
@@ -205,7 +211,7 @@ namespace std
   {
   public:
     // Types:
-    typedef unsigned int category;
+    typedef int category;
 
     // Forward decls and friends:
     class facet;
@@ -225,12 +231,12 @@ namespace std
     // Category values:
     // NB much depends on the order in which these appear:
     static const category none		= 0;
-    static const category ctype 	= 1 << 0;
-    static const category numeric 	= 1 << 1;
-    static const category collate  	= 1 << 2;
-    static const category time 		= 1 << 3;
-    static const category monetary 	= 1 << 4;
-    static const category messages 	= 1 << 5;
+    static const category collate  	= 0x0100;
+    static const category ctype 	= 0x0200;
+    static const category monetary 	= 0x0400;
+    static const category numeric 	= 0x0800;
+    static const category time 		= 0x1000;
+    static const category messages 	= 0x2000;
     static const category all 		= (collate | ctype | monetary |
 				 	   numeric | time  | messages);
 
@@ -270,7 +276,7 @@ namespace std
 
     inline bool  
     operator!=(const locale& __other) const throw ()
-    { return !(this->operator==(__other));  }
+    { return !(operator==(__other));  }
 
     template<typename _Char, typename _Traits, typename _Alloc>
       bool  
@@ -294,7 +300,7 @@ namespace std
     // Current global reference locale
     static _Impl* 	_S_global;  
 
-    static const int 	_S_categories_num = _Count_ones<all>::_M_count;
+    static const int 	_S_categories_num = _Count_ones<all>::_S_count;
     static const int 	_S_facets_num = 26;
 
     explicit 
@@ -336,11 +342,11 @@ namespace std
     __vec_string* 			_M_category_names;
     bool 				_M_has_name;
     string 				_M_name;
-    static const locale::id* const 	_S_id_ctype[];
-    static const locale::id* const 	_S_id_numeric[];
     static const locale::id* const 	_S_id_collate[];
-    static const locale::id* const 	_S_id_time[];
+    static const locale::id* const 	_S_id_ctype[];
     static const locale::id* const 	_S_id_monetary[];
+    static const locale::id* const 	_S_id_numeric[];
+    static const locale::id* const 	_S_id_time[];
     static const locale::id* const 	_S_id_messages[];
     static const locale::id* const* const _S_facet_categories[];
 
@@ -361,9 +367,9 @@ namespace std
 	}
     }
 
-    _Impl(const _Impl&, size_t);
-    _Impl(const _Impl&, const string&, category, size_t);
-    _Impl(size_t, size_t, bool __has_name = false, string __name = "*");
+    _Impl(const _Impl&, size_t __refs);
+    _Impl(const _Impl&, const string&, category, size_t __refs);
+    _Impl(size_t __facets, size_t __refs, bool __has_name, string __name);
    ~_Impl() throw();
 
     void 
@@ -468,7 +474,7 @@ namespace std
       friend bool           
       has_facet(const locale&) throw ();
   public:
-    id() { };
+    id() {};
   private:
     // NB: There is no accessor for _M_index because it may be used
     // before the constructor is run; the effect of calling a member

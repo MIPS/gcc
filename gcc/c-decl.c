@@ -77,10 +77,23 @@ enum decl_context
 #ifndef WINT_TYPE
 #define WINT_TYPE "unsigned int"
 #endif
-
-/* Do GC.  */
-int ggc_p = 1;
 
+#ifndef INTMAX_TYPE
+#define INTMAX_TYPE ((INT_TYPE_SIZE == LONG_LONG_TYPE_SIZE)	\
+		     ? "int"					\
+		     : ((LONG_TYPE_SIZE == LONG_LONG_TYPE_SIZE)	\
+			? "long int"				\
+			: "long long int"))
+#endif
+
+#ifndef UINTMAX_TYPE
+#define UINTMAX_TYPE ((INT_TYPE_SIZE == LONG_LONG_TYPE_SIZE)	\
+		     ? "unsigned int"				\
+		     : ((LONG_TYPE_SIZE == LONG_LONG_TYPE_SIZE)	\
+			? "long unsigned int"			\
+			: "long long unsigned int"))
+#endif
+
 /* Nonzero if we have seen an invalid cross reference
    to a struct, union, or enum, but not yet printed the message.  */
 
@@ -403,10 +416,6 @@ int warn_cast_qual;
 
 int warn_bad_function_cast;
 
-/* Warn about functions which might be candidates for attribute noreturn.  */
-
-int warn_missing_noreturn;
-
 /* Warn about traditional constructs whose meanings changed in ANSI C.  */
 
 int warn_traditional;
@@ -484,6 +493,10 @@ int warn_float_equal = 0;
 /* Nonzero means warn about use of multicharacter literals.  */
 
 int warn_multichar = 1;
+
+/* Nonzero means warn about possible violations of sequence point rules.  */
+
+int warn_sequence_point;
 
 /* The variant of the C language being processed.  */
 
@@ -753,6 +766,10 @@ c_decode_option (argc, argv)
     warn_return_type = 1;
   else if (!strcmp (p, "-Wno-return-type"))
     warn_return_type = 0;
+  else if (!strcmp (p, "-Wsequence-point"))
+    warn_sequence_point = 1;
+  else if (!strcmp (p, "-Wno-sequence-point"))
+    warn_sequence_point = 0;
   else if (!strcmp (p, "-Wcomment"))
     ; /* cpp handles this one.  */
   else if (!strcmp (p, "-Wno-comment"))
@@ -814,6 +831,7 @@ c_decode_option (argc, argv)
       warn_format = 1;
       warn_char_subscripts = 1;
       warn_parentheses = 1;
+      warn_sequence_point = 1;
       warn_missing_braces = 1;
       /* We set this to 2 here, but 1 in -Wmain, so -ffreestanding can turn
 	 it off only if it's not explicit.  */
@@ -3133,6 +3151,11 @@ init_decl_processing ()
 
   wint_type_node =
     TREE_TYPE (IDENTIFIER_GLOBAL_VALUE (get_identifier (WINT_TYPE)));
+
+  intmax_type_node =
+    TREE_TYPE (IDENTIFIER_GLOBAL_VALUE (get_identifier (INTMAX_TYPE)));
+  uintmax_type_node =
+    TREE_TYPE (IDENTIFIER_GLOBAL_VALUE (get_identifier (UINTMAX_TYPE)));
 
   boolean_type_node = integer_type_node;
   boolean_true_node = integer_one_node;
@@ -6847,6 +6870,11 @@ c_expand_body (fndecl, nested_p)
      tree fndecl;
      int nested_p;
 {
+  /* There's no reason to do any of the work here if we're only doing
+     semantic analysis; this code just generates RTL.  */
+  if (flag_syntax_only)
+    return;
+
   /* Squirrel away our current state.  */
   if (nested_p)
     push_function_context ();
@@ -6897,9 +6925,6 @@ c_expand_body (fndecl, nested_p)
   /* Generate rtl for function exit.  */
   expand_function_end (input_filename, lineno, 0);
 
-  /* So we can tell if jump_optimize sets it to 1.  */
-  can_reach_end = 0;
-
   /* If this is a nested function, protect the local variables in the stack
      above us from being collected while we're compiling this function.  */
   if (nested_p)
@@ -6912,25 +6937,11 @@ c_expand_body (fndecl, nested_p)
   if (nested_p)
     ggc_pop_context ();
 
-  current_function_returns_null |= can_reach_end;
-
-  if (warn_missing_noreturn
-      && !TREE_THIS_VOLATILE (fndecl)
-      && !current_function_returns_null
-      && !current_function_returns_value)
-    warning ("function might be possible candidate for attribute `noreturn'");
-
-  if (TREE_THIS_VOLATILE (fndecl) && current_function_returns_null)
-    warning ("`noreturn' function does return");
-  else if (warn_return_type && can_reach_end
-	   && !VOID_TYPE_P (TREE_TYPE (TREE_TYPE (fndecl))))
-    /* If this function returns non-void and control can drop through,
-       complain.  */
-    warning ("control reaches end of non-void function");
   /* With just -W, complain only if function returns both with
      and without a value.  */
-  else if (extra_warnings
-	   && current_function_returns_value && current_function_returns_null)
+  if (extra_warnings
+      && current_function_returns_value
+      && current_function_returns_null)
     warning ("this function may return with or without a value");
 
   /* If requested, warn about function definitions where the function will
@@ -7122,17 +7133,6 @@ copy_lang_decl (decl)
   bcopy ((char *)DECL_LANG_SPECIFIC (decl), (char *)ld, 
 	 sizeof (struct lang_decl));
   DECL_LANG_SPECIFIC (decl) = ld;
-}
-
-/* Mark ARG for GC.  */
-
-void
-lang_mark_false_label_stack (arg)
-     struct label_node *arg;
-{
-  /* C doesn't use false_label_stack.  It better be NULL.  */
-  if (arg != NULL)
-    abort ();
 }
 
 /* Mark the language specific bits in T for GC.  */

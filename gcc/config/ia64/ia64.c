@@ -676,41 +676,6 @@ signed_inequality_operator (op, mode)
 	      || code == LE || code == LT));
 }
 
-/* Return 1 if OP is a call returning an HFA.  It is known to be a PARALLEL
-   and the first section has already been tested.  */
-
-int
-call_multiple_values_operation (op, mode)
-     rtx op;
-     enum machine_mode mode ATTRIBUTE_UNUSED;
-{
-  int count = XVECLEN (op, 0) - 2;
-  int i;
-  unsigned int dest_regno;
-
-  /* Perform a quick check so we don't block up below.  */
-  if (count <= 1
-      || GET_CODE (XVECEXP (op, 0, 0)) != SET
-      || GET_CODE (SET_DEST (XVECEXP (op, 0, 0))) != REG
-      || GET_CODE (SET_SRC (XVECEXP (op, 0, 0))) != CALL)
-    return 0;
-
-  dest_regno = REGNO (SET_DEST (XVECEXP (op, 0, 0)));
-
-  for (i = 1; i < count; i++)
-    {
-      rtx elt = XVECEXP (op, 0, i + 2);
-
-      if (GET_CODE (elt) != SET
-	  || GET_CODE (SET_SRC (elt)) != CALL
-	  || GET_CODE (SET_DEST (elt)) != REG
-	  || REGNO (SET_DEST (elt)) != dest_regno + i)
-	return 0;
-    }
-
-  return 1;
-}
-
 /* Return 1 if this operator is valid for predication.  */
 
 int
@@ -1043,6 +1008,98 @@ ia64_expand_compare (code, mode)
     }
 
   return gen_rtx_fmt_ee (code, mode, cmp, const0_rtx);
+}
+
+/* Emit the appropriate sequence for a call.  */
+
+void
+ia64_expand_call (retval, addr, nextarg, sibcall_p)
+     rtx retval;
+     rtx addr;
+     rtx nextarg;
+     int sibcall_p;
+{
+  rtx insn, b0, gp_save, narg_rtx;
+  int narg;
+
+  addr = XEXP (addr, 0);
+  b0 = gen_rtx_REG (DImode, R_BR (0));
+
+  if (! nextarg)
+    narg = 0;
+  else if (IN_REGNO_P (REGNO (nextarg)))
+    narg = REGNO (nextarg) - IN_REG (0);
+  else
+    narg = REGNO (nextarg) - OUT_REG (0);
+  narg_rtx = GEN_INT (narg);
+
+  if (TARGET_NO_PIC || TARGET_AUTO_PIC)
+    {
+      if (sibcall_p)
+	insn = gen_sibcall_nopic (addr, narg_rtx, b0);
+      else if (! retval)
+	insn = gen_call_nopic (addr, narg_rtx, b0);
+      else
+	insn = gen_call_value_nopic (retval, addr, narg_rtx, b0);
+      emit_call_insn (insn);
+      return;
+    }
+
+  if (sibcall_p)
+    gp_save = NULL_RTX;
+  else
+    gp_save = ia64_gp_save_reg (setjmp_operand (addr, VOIDmode));
+
+  /* If this is an indirect call, then we have the address of a descriptor.  */
+  if (! symbolic_operand (addr, VOIDmode))
+    {
+      rtx dest;
+
+      if (! sibcall_p)
+	emit_move_insn (gp_save, pic_offset_table_rtx);
+
+      dest = force_reg (DImode, gen_rtx_MEM (DImode, addr));
+      emit_move_insn (pic_offset_table_rtx,
+		      gen_rtx_MEM (DImode, plus_constant (addr, 8)));
+
+      if (sibcall_p)
+	insn = gen_sibcall_pic (dest, narg_rtx, b0);
+      else if (! retval)
+	insn = gen_call_pic (dest, narg_rtx, b0);
+      else
+	insn = gen_call_value_pic (retval, dest, narg_rtx, b0);
+      emit_call_insn (insn);
+
+      if (! sibcall_p)
+	emit_move_insn (pic_offset_table_rtx, gp_save);
+    }
+  else if (TARGET_CONST_GP)
+    {
+      if (sibcall_p)
+	insn = gen_sibcall_nopic (addr, narg_rtx, b0);
+      else if (! retval)
+	insn = gen_call_nopic (addr, narg_rtx, b0);
+      else
+	insn = gen_call_value_nopic (retval, addr, narg_rtx, b0);
+      emit_call_insn (insn);
+    }
+  else
+    {
+      if (sibcall_p)
+	emit_call_insn (gen_sibcall_pic (addr, narg_rtx, b0));
+      else
+	{
+	  emit_move_insn (gp_save, pic_offset_table_rtx);
+
+	  if (! retval)
+	    insn = gen_call_pic (addr, narg_rtx, b0);
+	  else
+	    insn = gen_call_value_pic (retval, addr, narg_rtx, b0);
+	  emit_call_insn (insn);
+
+	  emit_move_insn (pic_offset_table_rtx, gp_save);
+	}
+    }
 }
 
 /* Begin the assembly file.  */
@@ -1819,7 +1876,8 @@ ia64_expand_prologue ()
 
   /* We don't need an alloc instruction if we've used no outputs or locals.  */
   if (current_frame_info.n_local_regs == 0
-      && current_frame_info.n_output_regs == 0)
+      && current_frame_info.n_output_regs == 0
+      && current_frame_info.n_input_regs <= current_function_args_info.words)
     {
       /* If there is no alloc, but there are input registers used, then we
 	 need a .regstk directive.  */
@@ -2090,7 +2148,8 @@ ia64_expand_prologue ()
    insn to prevent such scheduling.  */
 
 void
-ia64_expand_epilogue ()
+ia64_expand_epilogue (sibcall_p)
+     int sibcall_p;
 {
   rtx insn, reg, alt_reg, ar_unat_save_reg;
   int regno, alt_regno, cfa_off;
@@ -2303,7 +2362,8 @@ ia64_expand_epilogue ()
   if (cfun->machine->ia64_eh_epilogue_bsp)
     emit_insn (gen_set_bsp (cfun->machine->ia64_eh_epilogue_bsp));
  
-  emit_jump_insn (gen_return_internal (gen_rtx_REG (DImode, BR_REG (0))));
+  if (! sibcall_p)
+    emit_jump_insn (gen_return_internal (gen_rtx_REG (DImode, BR_REG (0))));
 }
 
 /* Return 1 if br.ret can do all the work required to return from a
@@ -3030,6 +3090,7 @@ ia64_print_operand_address (stream, address)
    C	Swap and print a comparison operator.
    D	Print an FP comparison operator.
    E    Print 32 - constant, for SImode shifts as extract.
+   e    Print 64 - constant, for DImode rotates.
    F	A floating point constant 0.0 emitted as f0, or 1.0 emitted as f1, or
         a floating point register emitted normally.
    I	Invert a predicate register by adding 1.
@@ -3092,6 +3153,10 @@ ia64_print_operand (file, x, code)
 
     case 'E':
       fprintf (file, HOST_WIDE_INT_PRINT_DEC, 32 - INTVAL (x));
+      return;
+
+    case 'e':
+      fprintf (file, HOST_WIDE_INT_PRINT_DEC, 64 - INTVAL (x));
       return;
 
     case 'F':
@@ -3451,7 +3516,7 @@ ia64_asm_output_external (file, decl, name)
   save_referenced = TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl));
   if (TREE_CODE (decl) == FUNCTION_DECL)
     {
-      fprintf (file, "\t%s\t ", TYPE_ASM_OP);
+      fprintf (file, "%s", TYPE_ASM_OP);
       assemble_name (file, name);
       putc (',', file);
       fprintf (file, TYPE_OPERAND_FMT, "function");
@@ -3642,6 +3707,7 @@ struct reg_flags
   unsigned int is_branch : 1;	/* Is register used as part of a branch?  */
   unsigned int is_and : 1;	/* Is register used as part of and.orcm?  */
   unsigned int is_or : 1;	/* Is register used as part of or.andcm?  */
+  unsigned int is_sibcall : 1;	/* Is this a sibling or normal call?  */
 };
 
 static void rws_update PARAMS ((struct reg_write_state *, int,
@@ -3935,9 +4001,7 @@ rtx_needs_barrier (x, flags, pred)
 
       /* Avoid multiple register writes, in case this is a pattern with
 	 multiple CALL rtx.  This avoids an abort in rws_access_reg.  */
-      /* ??? This assumes that no rtx other than CALL/RETURN sets REG_AR_CFM,
-	 and that we don't have predicated calls/returns.  */
-      if (! rws_insn[REG_AR_CFM].write_count)
+      if (! flags.is_sibcall && ! rws_insn[REG_AR_CFM].write_count)
 	{
 	  new_flags.is_write = 1;
 	  need_barrier |= rws_access_regno (REG_RP, new_flags, pred);
@@ -3968,12 +4032,7 @@ rtx_needs_barrier (x, flags, pred)
       return need_barrier;
 
     case CLOBBER:
-#if 0
     case USE:
-      /* We must handle USE here in case it occurs within a PARALLEL.
-	 For instance, the mov ar.pfs= instruction has a USE which requires
-	 a barrier between it and an immediately preceeding alloc.  */
-#endif
       /* Clobber & use are for earlier compiler-phases only.  */
       break;
 
@@ -4096,6 +4155,7 @@ rtx_needs_barrier (x, flags, pred)
 	  break;
 
 	case 7: /* pred_rel_mutex */
+	case 9: /* pic call */
         case 12: /* mf */
         case 19: /* fetchadd_acq */
 	case 20: /* mov = ar.bsp */
@@ -4185,6 +4245,7 @@ rtx_needs_barrier (x, flags, pred)
 	  default:
 	    abort ();
 	  }
+      break;
     }
   return need_barrier;
 }
@@ -4229,6 +4290,7 @@ emit_insn_group_barriers (insns)
 
 	case CALL_INSN:
 	  flags.is_branch = 1;
+	  flags.is_sibcall = SIBLING_CALL_P (insn);
 	  memset (rws_insn, 0, sizeof (rws_insn));
 	  need_barrier = rtx_needs_barrier (PATTERN (insn), flags, 0);
 
@@ -4298,18 +4360,6 @@ emit_insn_group_barriers (insns)
 		     The second element of the vector is representative.  */
 		case CODE_FOR_doloop_end_internal:
 		  pat = XVECEXP (pat, 0, 1);
-		  break;
-
-		  /* We include ar.unat in the rtl pattern so that sched2
-		     does not move the ar.unat save/restore after/before
-		     a gr spill/fill.  However, we special case these
-		     insns based on their unspec number so as to model
-		     their precise ar.unat bit operations.  If we pass on
-		     the use/clobber of the whole ar.unat register we'll
-		     waste this effort.  */
-		case CODE_FOR_gr_spill_internal:
-		case CODE_FOR_gr_restore_internal:
-		  pat = XVECEXP (pat, 0, 0);
 		  break;
 
 		  /* Doesn't generate code.  */
@@ -4592,11 +4642,7 @@ ia64_encode_section_info (decl)
 	  size_t len = strlen (symbol_str);
 	  char *newstr;
 
-	  if (ggc_p)
-	    newstr = ggc_alloc_string (NULL, len + 1);
-	  else
-	    newstr = obstack_alloc (saveable_obstack, len + 2);
-
+	  newstr = ggc_alloc_string (NULL, len + 1);
 	  *newstr = SDATA_NAME_FLAG_CHAR;
 	  memcpy (newstr + 1, symbol_str, len + 1);
 
@@ -4609,11 +4655,8 @@ ia64_encode_section_info (decl)
      ENCODE_SECTION_INFO was first called.  Remove the '@'.*/
   else if (symbol_str[0] == SDATA_NAME_FLAG_CHAR)
     {
-      if (ggc_p)
-	XSTR (XEXP (DECL_RTL (decl), 0), 0)
-	  = ggc_alloc_string (symbol_str + 1, -1);
-      else
-        XSTR (XEXP (DECL_RTL (decl), 0), 0) = symbol_str + 1;
+      XSTR (XEXP (DECL_RTL (decl), 0), 0)
+	= ggc_alloc_string (symbol_str + 1, -1);
     }
 }
 

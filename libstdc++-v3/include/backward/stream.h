@@ -28,9 +28,9 @@
 #ifndef _CPP_BACKWARD_STREAM_H
 #define _CPP_BACKWARD_STREAM_H 1
 
-#include <iostream.h>
+#include <backward/iostream.h>
 
-#endif 
+#endif /* _CPP_BACKWARD_STREAM_H */
 
 // Local Variables:
 // mode:C++

@@ -1,3 +1,132 @@
+2000-10-13  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/20001012-1.c: New test.
+	* gcc.dg/20001012-2.c: New test.
+
+2000-10-12  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* gcc.dg/format-attr-1.c: New test.
+
+2000-10-12  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* gcc.dg/c90-printf-2.c, gcc.dg/c90-scanf-2.c: Use
+	__LONG_LONG_MAX__ instead of LLONG_MAX.
+
+2000-10-12  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* gcc.dg/c99-scanf-2.c, gcc.dg/format-ext-2.c: Test ' and I
+	scanf flags.
+	* gcc.dg/format-ext-3.c: Test mutually exclusive pairs of strftime
+	flags.
+
+2000-10-11  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* gcc.dg/sequence-pt-1.c: New test.
+
+2000-10-11  Geoff Keating  <geoffk@cygnus.com>
+
+	* gcc.c-torture/execute/20001011-1.c: New testcase.
+	Testcase provided by Zack Weinberg <zackw@stanford.edu>.
+
+2000-10-10  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/991209-1.c (stack_ptr): Use __asm, not asm, so that -ansi
+	does not error on it.
+
+2000-10-10  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/20001009-1.c: New test.
+
+Mon Oct  9 23:32:06 MET DST 2000  Jan Hubicka  <jh@suse.cz>
+
+	* gcc.c-torture/compile/20001009-1.c: Move from here ....
+	* gcc.c-torture/execute/20001009-2.c: ... to here.
+
+2000-10-09  Geoff Keating  <geoffk@cygnus.com>
+
+	* gcc.c-torture/compile/20001009-1.c: New testcase.
+	* gcc.c-torture/execute/20001009-1.c: New testcase.
+	Testcases provided by Jan Hubicka <jh@suse.cz>.
+
+2000-10-08  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* gcc.dg/c99-printf-1.c, gcc.dg/c99-scanf-1.c,
+	gcc.dg/c90-printf-2.c, gcc.dg/c90-scanf-2.c: Define intmax_t and
+	uintmax_t using <limits.h> to emulate the compiler's internal
+	logic.  No longer XFAIL %j tests.
+
+2000-10-08  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* gcc.dg/c90-printf-1.c, gcc.dg/c90-scanf-1.c,
+	gcc.dg/c99-printf-1.c, gcc.dg/c99-scanf-1.c,
+	gcc.dg/c99-strftime-1.c, gcc.dg/format-ext-3.c: Adjust error
+	regexps and details of expected handling of some bad formats.
+	* gcc.dg/format-xopen-1.c: Add test for $ format with assignment
+	suppression.
+
+2000-10-07  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* g++.old-deja/g++.eh/cond1.C, g++.old-deja/g++.other/bitfld3.C,
+	g++.old-deja/g++.other/cond5.C, g++.old-deja/g++.other/decl3.C,
+	g++.old-deja/g++.other/decl5.C, gcc.dg/cast-qual-1.c,
+	gcc.dg/return-type-1.c, gcc.dg/unused-1.c: Update URLs of messages
+	in list archives.
+
+2000-10-06  Richard Henderson  <rth@cygnus.com>
+
+	* g++.old-deja/g++.brendan/crash13.C: Pass -Wreturn-type.
+	* g++.old-deja/g++.brendan/crash52.C: Likewise.
+	* g++.old-deja/g++.jason/report.C: Likewise.
+	* g++.old-deja/g++.law/friend5.C: Likewise.
+	* g++.old-deja/g++.mike/p646.C: Likewise.  Adjust the spelling
+	of the expected warnings.
+
+2000-10-06  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.old-deja/g++.pt/enum14.C: New test.
+
+2000-10-05  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.old-deja/g++.pt/crash59.C: New test.
+
+2000-10-04  Will Cohen  <wcohen@redhat.com>
+
+	* gcc.dg/20000926-1.c: New test.
+
+2000-10-03  Geoff Keating  <geoffk@cygnus.com>
+
+	* g++.old-deja/g++.pt/memtemp77.C (main): Update demangled
+	function name for current C++ compiler.
+	Patch from Kriang Lerdsuwanakij <lerdsuwa@scf.usc.edu>.
+
+2000-09-29  Gabriel Dos Reis  <gdr@codesourcery.com>
+
+	* g++.old-deja/g++.ext/pretty3.C: Fix comparison with
+	__PRETTY_FUNCTION__.	 
+	* g++.old-deja/g++.ext/pretty2.C: Likewise.
+
+2000-09-28  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/wtr-int-type-1.c: Don't expect a warning from system headers.
+
+2000-09-26  Jakub Jelinek  <jakub@redhat.com>
+
+        * gcc.c-torture/compile/20000923-1.c: New test.
+
+2000-09-25 Theodore Papadopoulo <Theodore.Papadopoulo@sophia.inria.fr>
+
+	* g++.old-deja/g++.other/crash20.C: Make ready for libstdc++-v3.
+	* g++.old-deja/g++.pt/ttp62.C: Same.
+	* g++.old-deja/g++.other/inline14.C: Same.
+
+2000-09-24  Richard Henderson  <rth@cygnus.com>
+
+	* gcc.c-torture/execute/20000914-1.c: Declare malloc.
+
+2000-09-24  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* gcc.dg/c90-printf-1.c: Add test for wide string format.
+
 2000-09-22  Geoff Keating  <geoffk@cygnus.com>
 
 	* gcc.c-torture/compile/20000922-1.c: New file.

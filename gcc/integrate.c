@@ -444,12 +444,6 @@ save_for_inline (fndecl)
   in_nonparm_insns = 0;
   save_parm_insns (insn, first_nonparm_insn);
 
-  /* We have now allocated all that needs to be allocated permanently
-     on the rtx obstack.  Set our high-water mark, so that we
-     can free the rest of this when the time comes.  */
-
-  preserve_data ();
-
   cfun->inl_max_label_num = max_label_num ();
   cfun->inl_last_parm_insn = cfun->x_last_parm_insn;
   cfun->original_arg_vector = argvec;
@@ -1299,6 +1293,13 @@ copy_insn_list (insns, map, static_chain_value)
 		break;
 	    }
 
+	  /* Similarly if an ignored return value is clobbered.  */
+	  else if (map->inline_target == 0
+		   && GET_CODE (pattern) == CLOBBER
+		   && GET_CODE (XEXP (pattern, 0)) == REG
+		   && REG_FUNCTION_VALUE_P (XEXP (pattern, 0)))
+	    break;
+
 	  /* If this is setting the static chain rtx, omit it.  */
 	  else if (static_chain_value != 0
 		   && set != 0
@@ -1664,10 +1665,7 @@ integrate_decl_tree (let, map)
     {
       tree d;
 
-      push_obstacks_nochange ();
-      saveable_allocation ();
       d = copy_decl_for_inlining (t, map->fndecl, current_function_decl);
-      pop_obstacks ();
 
       if (DECL_RTL (t) != 0)
 	{
@@ -2776,10 +2774,6 @@ output_inline_function (fndecl)
   cfun = f;
   current_function_decl = fndecl;
   clear_emit_caches ();
-
-  /* Things we allocate from here on are part of this function, not
-     permanent.  */
-  temporary_allocation ();
 
   set_new_last_label_num (f->inl_max_label_num);
 

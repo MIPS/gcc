@@ -130,7 +130,7 @@ double nan (void);
 
 /* Test whether number is finite.  */
 #ifdef isfinite
-/* This is an ISO C99 function.  */
+/* This is an ISO C 9x function.  */
 # define FINITE_P(X) isfinite (X)
 # define FINITEF_P(X) isfinite (X)
 # define FINITEL_P(X) isfinite (X)
@@ -175,7 +175,7 @@ double nan (void);
 
 /* Test whether number is infinite.  */
 #ifdef isinf
-/* This is an ISO C99 macro.  */
+/* This is an ISO C 9x macro.  */
 # define INFINITE_P(X) isinf (X)
 # define INFINITEF_P(X) isinf (X)
 # define INFINITEL_P(X) isinf (X)
@@ -227,7 +227,16 @@ double nan (void);
 extern "C" {
 #endif
 
-/* signbit is a macro in ISO C99.  */
+#ifdef _GLIBCPP_HAVE_COMPLEX_H
+# include <complex.h>
+#else
+# include "complex-stub.h"
+#endif
+__complex__ double c_log (__complex__ double x);
+__complex__ float c_logf (__complex__ float x);
+__complex__ long double c_logl (__complex__ long double x);
+
+/* signbit is a macro in ISO C 9x.  */
 #ifndef signbit
 extern int __signbitf (float);
 extern int __signbit (double);

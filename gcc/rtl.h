@@ -1145,7 +1145,6 @@ extern rtx gen_rtx			PARAMS ((enum rtx_code,
 extern rtvec gen_rtvec			PARAMS ((int, ...));
 
 /* In other files */
-extern char *oballoc			PARAMS ((int));
 extern char *permalloc			PARAMS ((int));
 extern rtx rtx_alloc			PARAMS ((RTX_CODE));
 extern rtvec rtvec_alloc		PARAMS ((int));
@@ -1329,6 +1328,12 @@ extern void set_unique_reg_note         PARAMS ((rtx, enum reg_note, rtx));
 
 /* Functions in rtlanal.c */
 
+/* Single set is implemented as macro for performance reasons.  */
+#define single_set(I) (INSN_P (I) \
+		       ? (GET_CODE (PATTERN (I)) == SET \
+			  ? PATTERN (I) : single_set_1 (I)) \
+		       : NULL_RTX)
+
 extern int rtx_unstable_p		PARAMS ((rtx));
 extern int rtx_varies_p			PARAMS ((rtx));
 extern int rtx_addr_varies_p		PARAMS ((rtx));
@@ -1347,7 +1352,7 @@ extern int no_jumps_between_p		PARAMS ((rtx, rtx));
 extern int modified_in_p		PARAMS ((rtx, rtx));
 extern int insn_dependent_p		PARAMS ((rtx, rtx));
 extern int reg_set_p			PARAMS ((rtx, rtx));
-extern rtx single_set			PARAMS ((rtx));
+extern rtx single_set_1			PARAMS ((rtx));
 extern int multiple_sets		PARAMS ((rtx));
 extern rtx find_last_value		PARAMS ((rtx, rtx *, rtx, int));
 extern int refers_to_regno_p		PARAMS ((unsigned int, unsigned int,
@@ -1625,12 +1630,9 @@ extern int no_new_pseudos;
 extern int rtx_to_tree_code	PARAMS ((enum rtx_code));
 
 /* In tree.c */
-extern void obfree			PARAMS ((char *));
 struct obstack;
 extern void gcc_obstack_init		PARAMS ((struct obstack *));
-extern void pop_obstacks		PARAMS ((void));
-extern void push_obstacks		PARAMS ((struct obstack *,
-						struct obstack *));
+
 /* In cse.c */
 struct cse_basic_block_data;
 
@@ -1795,8 +1797,6 @@ extern void move_by_pieces		PARAMS ((rtx, rtx,
 						 unsigned int));
 
 /* In flow.c */
-extern void allocate_bb_life_data	PARAMS ((void));
-extern void allocate_reg_life_data	PARAMS ((void));
 extern void recompute_reg_usage		PARAMS ((rtx, int));
 #ifdef BUFSIZ
 extern void print_rtl_with_bb		PARAMS ((FILE *, rtx));
@@ -1941,7 +1941,6 @@ extern void init_varasm_once		PARAMS ((void));
 
 /* In rtl.c */
 extern void init_rtl			PARAMS ((void));
-extern void rtx_free			PARAMS ((rtx));
 
 #ifdef BUFSIZ
 extern int read_skip_spaces		PARAMS ((FILE *));

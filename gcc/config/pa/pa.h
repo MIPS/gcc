@@ -234,8 +234,8 @@ extern int target_flags;
 #define DBX_CONTIN_LENGTH 3000
 
 /* Only labels should ever begin in column zero.  */
-#define ASM_STABS_OP "\t.stabs"
-#define ASM_STABN_OP "\t.stabn"
+#define ASM_STABS_OP "\t.stabs\t"
+#define ASM_STABN_OP "\t.stabn\t"
 
 /* GDB always assumes the current function's frame begins at the value
    of the stack pointer upon entry to the current function.  Accessing
@@ -2014,8 +2014,7 @@ while (0)
 #define FUNCTION_OK_FOR_SIBCALL(DECL) \
   (DECL \
    && ! TARGET_64BIT \
-   && (! TREE_PUBLIC (DECL) \
-       || TREE_THIS_VOLATILE (DECL)))
+   && ! TREE_PUBLIC (DECL))
 
 #define PREDICATE_CODES							\
   {"reg_or_0_operand", {SUBREG, REG, CONST_INT}},			\

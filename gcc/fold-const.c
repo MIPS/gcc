@@ -1860,7 +1860,7 @@ size_int_type_wide (number, type)
   static int init_p = 0;
   tree t;
 
-  if (ggc_p && ! init_p)
+  if (! init_p)
     {
       ggc_add_tree_root ((tree *) size_table,
 			 sizeof size_table / sizeof (tree));
@@ -1877,20 +1877,10 @@ size_int_type_wide (number, type)
 	  if (TREE_TYPE (t) == type)
 	    return t;
 
-      if (! ggc_p)
-	{
-	  /* Make this a permanent node.  */
-	  push_obstacks_nochange ();
-	  end_temporary_allocation ();
-	}
-
       t = build_int_2 (number, 0);
       TREE_TYPE (t) = type;
       TREE_CHAIN (t) = size_table[number];
       size_table[number] = t;
-
-      if (! ggc_p)
-	pop_obstacks ();
 
       return t;
     }
@@ -5662,7 +5652,7 @@ fold (expr)
       if (! FLOAT_TYPE_P (type))
 	{
 	  if (! wins && integer_zerop (arg0))
-	    return convert (type, negate_expr (arg1));
+	    return negate_expr (convert (type, arg1));
 	  if (integer_zerop (arg1))
 	    return non_lvalue (convert (type, arg0));
 
@@ -5685,7 +5675,7 @@ fold (expr)
 	{
 	  /* Except with IEEE floating point, 0-x equals -x.  */
 	  if (! wins && real_zerop (arg0))
-	    return convert (type, negate_expr (arg1));
+	    return negate_expr (convert (type, arg1));
 	  /* Except with IEEE floating point, x-0 equals x.  */
 	  if (real_zerop (arg1))
 	    return non_lvalue (convert (type, arg0));
@@ -6974,7 +6964,12 @@ fold (expr)
 	      {
 	      case EQ_EXPR:
 		return
-		  pedantic_non_lvalue (convert (type, negate_expr (arg1)));
+		  pedantic_non_lvalue
+		    (convert (type,
+			      negate_expr
+			      (convert (TREE_TYPE (TREE_OPERAND (t, 1)),
+					arg1))));
+
 	      case NE_EXPR:
 		return pedantic_non_lvalue (convert (type, arg1));
 	      case GE_EXPR:

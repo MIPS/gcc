@@ -184,18 +184,18 @@ rdata_section ()						\
 #define ENDFILE_SPEC  "%{!mno-lsim:-lsim}"
 
 #undef  CTORS_SECTION_ASM_OP
-#define CTORS_SECTION_ASM_OP	".section\t.ctors,\"x\""
+#define CTORS_SECTION_ASM_OP	"\t.section\t.ctors,\"x\""
 #undef  DTORS_SECTION_ASM_OP
-#define DTORS_SECTION_ASM_OP	".section\t.dtors,\"x\""
+#define DTORS_SECTION_ASM_OP	"\t.section\t.dtors,\"x\""
 
-#define INT_ASM_OP ".long"
+#define INT_ASM_OP "\t.long\t"
 
 #undef  ASM_OUTPUT_CONSTRUCTOR
 #define ASM_OUTPUT_CONSTRUCTOR(STREAM, NAME) 	\
   do						\
     {						\
       ctors_section ();				\
-      fprintf (STREAM, "\t%s\t ", INT_ASM_OP);	\
+      fprintf (STREAM, "%s", INT_ASM_OP);	\
       assemble_name (STREAM, NAME);		\
       fprintf (STREAM, "\n");			\
     }						\
@@ -208,7 +208,7 @@ rdata_section ()						\
   do						\
     {						\
       dtors_section ();                   	\
-      fprintf (STREAM, "\t%s\t ", INT_ASM_OP);	\
+      fprintf (STREAM, "%s", INT_ASM_OP);	\
       assemble_name (STREAM, NAME);             \
       fprintf (STREAM, "\n");			\
     }						\

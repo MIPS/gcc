@@ -91,29 +91,29 @@ Boston, MA 02111-1307, USA.  */
 /* Output #ident as a .ident.  */
 
 #define ASM_OUTPUT_IDENT(FILE, NAME) \
-  fprintf (FILE, "\t%s\t\"%s\"\n", IDENT_ASM_OP, NAME);
+  fprintf (FILE, "%s\"%s\"\n", IDENT_ASM_OP, NAME);
 
 /* Attach a special .ident directive to the end of the file to identify
    the version of GCC which compiled this code.  The format of the
    .ident string is patterned after the ones produced by native svr4
    C compilers.  */
 
-#define IDENT_ASM_OP ".ident"
+#define IDENT_ASM_OP "\t.ident\t"
 
 #define ASM_FILE_END(FILE)				\
   do							\
     {				 			\
       if (!flag_no_ident)				\
-	fprintf ((FILE), "\t%s\t\"GCC: (GNU) %s\"\n",	\
+	fprintf ((FILE), "%s\"GCC: (GNU) %s\"\n",	\
 		 IDENT_ASM_OP, version_string);		\
     }							\
   while (0)
 
 #undef  ASM_BYTE_OP
-#define ASM_BYTE_OP	".byte"
+#define ASM_BYTE_OP	"\t.byte\t"
 
 #undef  SET_ASM_OP
-#define SET_ASM_OP	".set"
+#define SET_ASM_OP	"\t.set\t"
 
 /* This is how to begin an assembly language file.  Most svr4 assemblers want
    at least a .file directive to come first, and some want to see a .version
@@ -129,11 +129,11 @@ Boston, MA 02111-1307, USA.  */
 /* This is how to allocate empty space in some section.  The .zero
    pseudo-op is used for this on most svr4 assemblers.  */
 
-#define SKIP_ASM_OP	".zero"
+#define SKIP_ASM_OP	"\t.zero\t"
 
 #undef  ASM_OUTPUT_SKIP
 #define ASM_OUTPUT_SKIP(FILE, SIZE) \
-  fprintf (FILE, "\t%s\t%u\n", SKIP_ASM_OP, (SIZE))
+  fprintf (FILE, "%s%u\n", SKIP_ASM_OP, (SIZE))
 
 /* This is how to output an internal numbered label where
    PREFIX is the class of label and NUM is the number within the class.
@@ -173,7 +173,7 @@ Boston, MA 02111-1307, USA.  */
    make sure that the location counter for the .rodata section gets pro-
    perly re-aligned prior to the actual beginning of the jump table.  */
 
-#define ALIGN_ASM_OP ".align"
+#define ALIGN_ASM_OP "\t.align\t"
 
 #ifndef ASM_OUTPUT_BEFORE_CASE_LABEL
 #define ASM_OUTPUT_BEFORE_CASE_LABEL(FILE, PREFIX, NUM, TABLE) \
@@ -201,13 +201,13 @@ Boston, MA 02111-1307, USA.  */
    the linker seems to want the alignment of data objects
    to depend on their types.  We do exactly that here.  */
 
-#define COMMON_ASM_OP	".comm"
+#define COMMON_ASM_OP	"\t.comm\t"
 
 #undef  ASM_OUTPUT_ALIGNED_COMMON
 #define ASM_OUTPUT_ALIGNED_COMMON(FILE, NAME, SIZE, ALIGN)		\
   do									\
     {									\
-      fprintf ((FILE), "\t%s\t", COMMON_ASM_OP);			\
+      fprintf ((FILE), "%s", COMMON_ASM_OP);				\
       assemble_name ((FILE), (NAME));					\
       fprintf ((FILE), ",%u,%u\n", (SIZE), (ALIGN) / BITS_PER_UNIT);	\
     }									\
@@ -218,13 +218,13 @@ Boston, MA 02111-1307, USA.  */
    the linker seems to want the alignment of data objects
    to depend on their types.  We do exactly that here.  */
 
-#define LOCAL_ASM_OP	".local"
+#define LOCAL_ASM_OP	"\t.local\t"
 
 #undef  ASM_OUTPUT_ALIGNED_LOCAL
 #define ASM_OUTPUT_ALIGNED_LOCAL(FILE, NAME, SIZE, ALIGN)	\
   do								\
     {								\
-      fprintf ((FILE), "\t%s\t", LOCAL_ASM_OP);			\
+      fprintf ((FILE), "%s", LOCAL_ASM_OP);			\
       assemble_name ((FILE), (NAME));				\
       fprintf ((FILE), "\n");					\
       ASM_OUTPUT_ALIGNED_COMMON (FILE, NAME, SIZE, ALIGN);	\
@@ -235,14 +235,14 @@ Boston, MA 02111-1307, USA.  */
    specific value in some section.  This is the same for all known svr4
    assemblers.  */
 
-#define INT_ASM_OP		".long"
+#define INT_ASM_OP		"\t.long\t"
 
 /* This is the pseudo-op used to generate a contiguous sequence of byte
    values from a double-quoted string WITHOUT HAVING A TERMINATING NUL
    AUTOMATICALLY APPENDED.  This is the same for most svr4 assemblers.  */
 
 #undef  ASCII_DATA_ASM_OP
-#define ASCII_DATA_ASM_OP	".ascii"
+#define ASCII_DATA_ASM_OP	"\t.ascii\t"
 
 /* Support const sections and the ctors and dtors sections for g++.
    Note that there appears to be two different ways to support const
@@ -311,7 +311,7 @@ const_section ()						\
     text_section ();						\
   else if (in_section != in_const)				\
     {								\
-      fprintf (asm_out_file, "\t%s\n", CONST_SECTION_ASM_OP);	\
+      fprintf (asm_out_file, "%s\n", CONST_SECTION_ASM_OP);	\
       in_section = in_const;					\
     }								\
 }
@@ -322,7 +322,7 @@ ctors_section ()						\
 {								\
   if (in_section != in_ctors)					\
     {								\
-      fprintf (asm_out_file, "\t%s\n", CTORS_SECTION_ASM_OP);	\
+      fprintf (asm_out_file, "%s\n", CTORS_SECTION_ASM_OP);	\
       in_section = in_ctors;					\
     }								\
 }
@@ -333,7 +333,7 @@ dtors_section ()						\
 {								\
   if (in_section != in_dtors)					\
     {								\
-      fprintf (asm_out_file, "\t%s\n", DTORS_SECTION_ASM_OP);	\
+      fprintf (asm_out_file, "%s\n", DTORS_SECTION_ASM_OP);	\
       in_section = in_dtors;					\
     }								\
 }
@@ -372,6 +372,8 @@ dtors_section ()						\
 	sec = 2;						\
       								\
       name   = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (DECL));	\
+      /* Strip off any encoding in name.  */			\
+      STRIP_NAME_ENCODING (name, name);				\
       prefix = prefixes[sec][DECL_ONE_ONLY(DECL)];		\
       len    = strlen (name) + strlen (prefix);			\
       string = alloca (len + 1);				\
@@ -388,7 +390,7 @@ dtors_section ()						\
   do								\
     {								\
       ctors_section ();						\
-      fprintf (FILE, "\t%s\t ", INT_ASM_OP);			\
+      fprintf (FILE, "%s", INT_ASM_OP);				\
       assemble_name (FILE, NAME);				\
       fprintf (FILE, "\n");					\
     }								\
@@ -400,7 +402,7 @@ dtors_section ()						\
   do								\
     {								\
       dtors_section ();                   			\
-      fprintf (FILE, "\t%s\t ", INT_ASM_OP);			\
+      fprintf (FILE, "%s", INT_ASM_OP);				\
       assemble_name (FILE, NAME);              			\
       fprintf (FILE, "\n");					\
     }								\
@@ -514,8 +516,8 @@ dtors_section ()						\
    different pseudo-op names for these, they may be overridden in the
    file which includes this one.  */
 
-#define TYPE_ASM_OP	".type"
-#define SIZE_ASM_OP	".size"
+#define TYPE_ASM_OP	"\t.type\t"
+#define SIZE_ASM_OP	"\t.size\t"
 
 /* This is how we tell the assembler that a symbol is weak.  */
 
@@ -557,7 +559,7 @@ dtors_section ()						\
 #define ASM_DECLARE_FUNCTION_NAME(FILE, NAME, DECL)	\
   do							\
     {							\
-      fprintf (FILE, "\t%s\t ", TYPE_ASM_OP);		\
+      fprintf (FILE, "%s", TYPE_ASM_OP);		\
       assemble_name (FILE, NAME);			\
       putc (',', FILE);					\
       fprintf (FILE, TYPE_OPERAND_FMT, "function");	\
@@ -574,7 +576,7 @@ dtors_section ()						\
 #define ASM_DECLARE_OBJECT_NAME(FILE, NAME, DECL)		\
   do								\
     {								\
-      fprintf (FILE, "\t%s\t ", TYPE_ASM_OP);			\
+      fprintf (FILE, "%s", TYPE_ASM_OP);			\
       assemble_name (FILE, NAME);				\
       putc (',', FILE);						\
       fprintf (FILE, TYPE_OPERAND_FMT, "object");		\
@@ -586,7 +588,7 @@ dtors_section ()						\
 	  && (DECL) && DECL_SIZE (DECL))			\
 	{							\
 	  size_directive_output = 1;				\
-	  fprintf (FILE, "\t%s\t ", SIZE_ASM_OP);		\
+	  fprintf (FILE, "%s", SIZE_ASM_OP);			\
 	  assemble_name (FILE, NAME);				\
 	  putc (',', FILE);					\
 	  fprintf (FILE, HOST_WIDE_INT_PRINT_DEC,		\
@@ -616,7 +618,7 @@ dtors_section ()						\
 	  && !size_directive_output)				\
 	{							\
 	  size_directive_output = 1;				\
-	  fprintf (FILE, "\t%s\t ", SIZE_ASM_OP);		\
+	  fprintf (FILE, "%s", SIZE_ASM_OP);			\
 	  assemble_name (FILE, name);				\
 	  putc (',', FILE);					\
 	  fprintf (FILE, HOST_WIDE_INT_PRINT_DEC,		\
@@ -641,7 +643,7 @@ dtors_section ()						\
 	  ASM_GENERATE_INTERNAL_LABEL (label, "Lfe", labelno);	\
 	  ASM_OUTPUT_INTERNAL_LABEL (FILE, "Lfe", labelno);	\
 	  							\
-	  fprintf (FILE, "\t%s\t ", SIZE_ASM_OP);		\
+	  fprintf (FILE, "%s", SIZE_ASM_OP);			\
 	  assemble_name (FILE, (FNAME));			\
 	  fprintf (FILE, ",");					\
 	  assemble_name (FILE, label);				\
@@ -710,7 +712,7 @@ dtors_section ()						\
 
 #define STRING_LIMIT	((unsigned) 256)
 
-#define STRING_ASM_OP	".string"
+#define STRING_ASM_OP	"\t.string\t"
 
 /* The routine used to output NUL terminated strings.  We use a special
    version of this for most svr4 targets because doing so makes the
@@ -726,7 +728,7 @@ dtors_section ()						\
 	(const unsigned char *) (STR);			\
       register unsigned ch;				\
       							\
-      fprintf ((FILE), "\t%s\t\"", STRING_ASM_OP);	\
+      fprintf ((FILE), "%s\"", STRING_ASM_OP);		\
       							\
       for (; (ch = *_limited_str); _limited_str++)	\
         {						\
@@ -797,7 +799,7 @@ dtors_section ()						\
 	      register unsigned ch;					\
       									\
 	      if (bytes_in_chunk == 0)					\
-		fprintf ((FILE), "\t%s\t\"", ASCII_DATA_ASM_OP);	\
+		fprintf ((FILE), "%s\"", ASCII_DATA_ASM_OP);		\
       									\
 	      switch (escape = ESCAPES[ch = *_ascii_bytes])		\
 		{							\

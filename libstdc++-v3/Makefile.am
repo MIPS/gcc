@@ -29,7 +29,8 @@ MAINT_CHARSET = latin1
 INTERFACE = v3
 gxx_include_dir=$(includedir)/g++
 
-SUBDIRS = math libio src
+SUBDIRS = libio libmath libsupc++ src
+
 
 # Use $(blddir) instead of $(top_builddir) for arguments to "mkcheck"
 # because then the paths will be full pathnames, not relative
@@ -41,28 +42,6 @@ check:  $(top_builddir)/mkcheck
 check-install: $(top_builddir)/mkcheck
 	chmod +x  $(top_builddir)/mkcheck
 	$(top_builddir)/mkcheck 1 `pwd` $(top_srcdir) $(prefix)
-
-#all-local:  stamp-rebuild
-
-# This has already been sanity-checked by configure to a certain extent
-#stamp-rebuild:  $(top_builddir)/config.status
-#	if test "$(GCC_OBJDIR)" != "no"; then \
-#	(cd "$(GCC_OBJDIR)/gcc" && \
-#	 if test -f libgcc2.ready ; then \
-#	   rm -f libgcc2.ready libgcc.a libgcc2.a ; \
-#	   $(MAKE) libgcc2.a TARGET_LIBGCC2_CFLAGS='@NAMESPACES@' ; \
-#	   $(MAKE) libgcc.a ; \
-#	 else \
-#	   echo '** There does not appear to be a previously-built' ; \
-#	   echo '** library here.  Please see' ; \
-#	   echo '** <http://sourceware.cygnus.com/libstdc++/install.html>' ; \
-#	   echo '** In particular, the "Building and Installing' ; \
-#	   echo '** the library (without GCC sources)" section.' ; \
-#	   exit 1 ; \
-#	 fi \
-#	) \
-#	fi
-#	touch stamp-rebuild
 
 # Multilib support.
 MAKEOVERRIDES=
@@ -147,14 +126,4 @@ AM_MAKEFLAGS = \
 	"NM_FOR_BUILD=$(NM_FOR_BUILD)" \
 	"NM_FOR_TARGET=$(NM_FOR_TARGET)" \
 	"DESTDIR=$(DESTDIR)" \
-	"WERROR=$(WERROR)"
-
-
-
-
-
-
-
-
-
-
+	"WERROR=$(WERROR)" 

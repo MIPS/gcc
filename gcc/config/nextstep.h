@@ -237,7 +237,7 @@ Boston, MA 02111-1307, USA.  */
        fprintf (FILE, ".reference .destructors_used\n");        \
       } while (0)
 
-#define EH_FRAME_SECTION_ASM_OP ".section __TEXT,__eh_frame,regular"
+#define EH_FRAME_SECTION_ASM_OP "\t.section __TEXT,__eh_frame,regular"
 
 /* Don't output a .file directive.  That is only used by the assembler for
    error reporting.  */
@@ -290,12 +290,12 @@ extern int handle_pragma PARAMS ((int(*)(void), void (*)(int), const char *));
        else asm_fprintf (FILE, "%U%s", NAME); } while (0)
 
 #undef	ALIGN_ASM_OP
-#define ALIGN_ASM_OP		".align"
+#define ALIGN_ASM_OP		"\t.align\t"
 
 #undef	ASM_OUTPUT_ALIGN
 #define ASM_OUTPUT_ALIGN(FILE,LOG)	\
   if ((LOG) != 0)			\
-    fprintf (FILE, "\t%s %d\n", ALIGN_ASM_OP, (LOG))
+    fprintf (FILE, "%s%d\n", ALIGN_ASM_OP, (LOG))
 
 /* Ensure correct alignment of bss data.  */
 

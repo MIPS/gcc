@@ -160,7 +160,6 @@ struct cpp_string
 #define PASTE_LEFT	(1 << 4) /* If on LHS of a ## operator.  */
 #define PASTED		(1 << 5) /* The result of a ## operator.  */
 #define NAMED_OP	(1 << 6) /* C++ named operators, also "defined".  */
-#define VOID_REST	(1 << 7) /* When a rest arg gets zero actual args.  */
 
 /* A preprocessing token.  This has been carefully packed and should
    occupy 16 bytes on 32-bit hosts and 24 bytes on 64-bit hosts.  */
@@ -359,6 +358,9 @@ struct cpp_options
   /* Nonzero means don't print warning messages.  */
   unsigned char inhibit_warnings;
 
+  /* Nonzero means don't suppress warnings from system headers.  */
+  unsigned char warn_system_headers;
+
   /* Nonzero means don't print error messages.  Has no option to
      select it, but can be set by a user of cpplib (e.g. fix-header).  */
   unsigned char inhibit_errors;
@@ -457,7 +459,7 @@ struct lexer_state
      all directives apart from #define.  */
   unsigned char save_comments;
 
-  /* Nonzero to get force the lexer to skip newlines.  */
+  /* Nonzero to force the lexer to skip newlines.  */
   unsigned char skip_newlines;
 
   /* Nonzero if we're in the subroutine lex_line.  */

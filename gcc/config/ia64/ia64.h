@@ -978,8 +978,8 @@ enum reg_class
 /* A macro whose definition is the name of the class to which a valid index
    register must belong.  An index register is one used in an address where its
    value is either multiplied by a scale factor or added to another register
-   (as well as added to a displacement).  */
-#define INDEX_REG_CLASS NO_REGS
+   (as well as added to a displacement).  This is needed for POST_MODIFY.  */
+#define INDEX_REG_CLASS GENERAL_REGS
 
 /* A C expression which defines the machine-dependent operand constraint
    letters for register classes.  If CHAR is such a letter, the value should be
@@ -1004,8 +1004,9 @@ enum reg_class
 
 /* A C expression which is nonzero if register number NUM is suitable for use
    as an index register in operand addresses.  It may be either a suitable hard
-   register or a pseudo register that has been allocated such a hard reg.  */
-#define REGNO_OK_FOR_INDEX_P(NUM) 0
+   register or a pseudo register that has been allocated such a hard reg.
+   This is needed for POST_MODIFY.  */
+#define REGNO_OK_FOR_INDEX_P(NUM) REGNO_OK_FOR_BASE_P (NUM)
 
 /* A C expression that places additional restrictions on the register class to
    use when it is necessary to copy value X into a register in class CLASS.
@@ -1743,7 +1744,7 @@ do {									\
 #define LEGITIMATE_ADDRESS_DISP(R, X)					\
   (GET_CODE (X) == PLUS							\
    && rtx_equal_p (R, XEXP (X, 0))					\
-   && (GET_CODE (XEXP (X, 1)) == REG					\
+   && (LEGITIMATE_ADDRESS_REG (XEXP (X, 1))				\
        || (GET_CODE (XEXP (X, 1)) == CONST_INT				\
 	   && INTVAL (XEXP (X, 1)) >= -256				\
 	   && INTVAL (XEXP (X, 1)) < 256)))
@@ -1774,9 +1775,9 @@ do {									\
 #endif
 
 /* A C expression that is nonzero if X (assumed to be a `reg' RTX) is valid for
-   use as an index register.  */
+   use as an index register.  This is needed for POST_MODIFY.  */
 
-#define REG_OK_FOR_INDEX_P(X) 0
+#define REG_OK_FOR_INDEX_P(X) REG_OK_FOR_BASE_P (X)
 
 /* A C compound statement that attempts to replace X with a valid memory
    address for an operand of mode MODE.
@@ -1920,17 +1921,17 @@ do {									\
 /* A C expression whose value is a string containing the assembler operation
    that should precede instructions and read-only data.  */
 
-#define TEXT_SECTION_ASM_OP ".text"
+#define TEXT_SECTION_ASM_OP "\t.text"
 
 /* A C expression whose value is a string containing the assembler operation to
    identify the following data as writable initialized data.  */
 
-#define DATA_SECTION_ASM_OP ".data"
+#define DATA_SECTION_ASM_OP "\t.data"
 
 /* If defined, a C expression whose value is a string containing the assembler
    operation to identify the following data as uninitialized global data.  */
 
-#define BSS_SECTION_ASM_OP ".bss"
+#define BSS_SECTION_ASM_OP "\t.bss"
 
 /* Define this macro if jump tables (for `tablejump' insns) should be output in
    the text section, along with the assembler instructions.  */
@@ -2054,7 +2055,7 @@ do {								\
 
 #define ASM_OUTPUT_CHAR(FILE, VALUE)					\
 do {									\
-  fprintf (FILE, "\t%s\t", ASM_BYTE_OP);				\
+  fprintf (FILE, "%s", ASM_BYTE_OP);					\
   output_addr_const (FILE, (VALUE));					\
   fprintf (FILE, "\n");							\
 } while (0)
@@ -2163,7 +2164,7 @@ do {									\
    to assemble a single byte containing the number VALUE.  */
 
 #define ASM_OUTPUT_BYTE(STREAM, VALUE) \
-  fprintf (STREAM, "\t%s\t0x%x\n", ASM_BYTE_OP, (int)(VALUE) & 0xff)
+  fprintf (STREAM, "%s0x%x\n", ASM_BYTE_OP, (int)(VALUE) & 0xff)
 
 /* These macros are defined as C string constant, describing the syntax in the
    assembler for grouping arithmetic expressions.  */
@@ -2498,7 +2499,7 @@ do {									\
 
    You should define this symbol if your target supports DWARF 2 frame unwind
    information and the default definition does not work.  */
-#define EH_FRAME_SECTION_ASM_OP ".section\t.IA_64.unwind,\"aw\""
+#define EH_FRAME_SECTION_ASM_OP "\t.section\t.IA_64.unwind,\"aw\""
 
 /* A C expression that is nonzero if the normal exception table output should
    be omitted.
@@ -2605,9 +2606,9 @@ do {									\
 /* C string constants giving the pseudo-op to use for a sequence of
    2, 4, and 8 byte unaligned constants.  dwarf2out.c needs these.  */
 
-#define UNALIGNED_SHORT_ASM_OP		"data2.ua"
-#define UNALIGNED_INT_ASM_OP		"data4.ua"
-#define UNALIGNED_DOUBLE_INT_ASM_OP	"data8.ua"
+#define UNALIGNED_SHORT_ASM_OP		"\tdata2.ua\t"
+#define UNALIGNED_INT_ASM_OP		"\tdata4.ua\t"
+#define UNALIGNED_DOUBLE_INT_ASM_OP	"\tdata8.ua\t"
 
 /* We need to override the default definition for this in dwarf2out.c so that
    we can emit the necessary # postfix.  */
@@ -2697,7 +2698,6 @@ do {									\
 { "normal_comparison_operator", {EQ, NE, GT, LE, GTU, LEU}},		\
 { "adjusted_comparison_operator", {LT, GE, LTU, GEU}},			\
 { "signed_inequality_operator", {GE, GT, LE, LT}},			\
-{ "call_multiple_values_operation", {PARALLEL}},			\
 { "predicate_operator", {NE, EQ}},					\
 { "ar_lc_reg_operand", {REG}},						\
 { "ar_ccv_reg_operand", {REG}},						\

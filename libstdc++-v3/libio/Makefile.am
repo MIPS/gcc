@@ -23,47 +23,21 @@
 
 AUTOMAKE_OPTIONS = 1.3 cygnus
 
-# Passed down for cross compilers, canadian crosses.
-TOPLEVEL_INCLUDES = -I$(includedir)
-
-if GLIBCPP_NEED_LIBIO
-LIBIO_INCLUDES = \
-	-I$(top_builddir)/libio -I$(top_srcdir)/libio 
-else
-LIBIO_INCLUDES = 
-endif
-
-CONFIG_INCLUDES = \
-	-I$(top_srcdir)/@cpu_include_dir@ \
-	-I$(top_srcdir)/@ctype_include_dir@
-
-INCLUDES = \
-	-nostdinc++ -I$(top_srcdir) \
-	$(LIBIO_INCLUDES) $(CONFIG_INCLUDES) \
-	$(TOPLEVEL_INCLUDES)	
-
 noinst_LTLIBRARIES = libio.la
 
-# These bits are all figured out from configure. Look in acinclude.m4
-# or configure.in to see how they are set.
-# NB: DEBUGFLAGS have to be at the end so that -O2 can be overridden.
-AC_CFLAGS = \
-	$(WERROR) @CPU_FLAGS@ @DEBUG_FLAGS@ 
+# Use common includes from acinclude.m4/GLIBCPP_EXPORT_INCLUDES
+GLIBCPP_INCLUDE_DIR = @GLIBCPP_INCLUDE_DIR@
+C_INCLUDE_DIR = @C_INCLUDE_DIR@
+TOPLEVEL_INCLUDES = @TOPLEVEL_INCLUDES@
+LIBMATH_INCLUDES = @LIBMATH_INCLUDES@
+LIBSUPCXX_INCLUDES = @LIBSUPCXX_INCLUDES@
+LIBIO_INCLUDES = @LIBIO_INCLUDES@
+CSHADOW_INCLUDES = @CSHADOW_INCLUDES@
 
-# Need to manually set this option because AC_CXXFLAGS has to be at
-# the end of the compile line so that -O2 can be overridden as the
-# occasion call for it. (ie, --enable-debug)
-AM_CFLAGS = \
-	-D_GNU_SOURCE $(AC_CFLAGS) 
-
-COMPILE = $(CC) $(DEFS) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(CFLAGS) \
-	$(AM_CFLAGS) 
-
-LTCOMPILE = $(LIBTOOL) --mode=compile $(CC) $(DEFS) $(INCLUDES) \
-	$(AM_CPPFLAGS) \$(CPPFLAGS)  $(CFLAGS) $(AM_CFLAGS)
-
-LINK = $(LIBTOOL) --mode=link "$(CCLD)" $(CFLAGS) $(AM_CFLAGS) $(LDFLAGS) -o $@
-
+INCLUDES = \
+	-nostdinc++ \
+	-I$(top_builddir) -I$(GLIBCPP_INCLUDE_DIR) \
+	$(LIBIO_INCLUDES) $(TOPLEVEL_INCLUDES)	
 
 libio_headers = \
         libio.h libioP.h iolibio.h
@@ -71,7 +45,6 @@ libio_headers = \
 if GLIBCPP_NEED_LIBIO
 LIBIO_SRCS = \
 	filedoalloc.c genops.c fileops.c stdfiles.c c_codecvt.c
-#	filedoalloc.c genops.c fileops.c stdfiles.c cleanup.c c_codecvt.c
 else
 LIBIO_SRCS =
 endif
@@ -90,10 +63,9 @@ else
 LIBIO_XTRASRCS =
 endif
 
-
 EXTRA_DIST = iostreamP.h
 
-libio_la_LIBADD = $(LIBIO_SRCS) $(LIBIO_WSRCS) $(LIBIO_XTRASRCS)
-libio_la_DEPENDENCIES = $(libio_la_LIBADD)
 libio_la_SOURCES = $(LIBIO_SRCS) $(LIBIO_WSRCS) $(LIBIO_XTRASRCS)
 
+
+AM_CFLAGS = -D_GNU_SOURCE @DEBUG_FLAGS@ 

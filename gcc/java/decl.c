@@ -50,6 +50,8 @@ static struct binding_level *make_binding_level PARAMS ((void));
 static boolean emit_init_test_initialization PARAMS ((struct hash_entry *,
 						      hash_table_key));
 static tree create_primitive_vtable PARAMS ((const char *));
+static tree check_local_named_variable PARAMS ((tree, tree, int, int *));
+static tree check_local_unnamed_variable PARAMS ((tree, tree, tree));
 
 /* Set to non-zero value in order to emit class initilization code
    before static field references.  */
@@ -68,7 +70,7 @@ tree decl_map;
 /* A list of local variables VAR_DECLs for this method that we have seen
    debug information, but we have not reached their starting (byte) PC yet. */
 
-tree pending_local_decls = NULL_TREE;
+static tree pending_local_decls = NULL_TREE;
 
 tree throw_node [2];
 
@@ -126,7 +128,7 @@ push_jvm_slot (index, decl)
   if (DECL_LANG_SPECIFIC (decl) == NULL)
     {
       DECL_LANG_SPECIFIC (decl)
-	= (struct lang_decl *) permalloc (sizeof (struct lang_decl_var));
+	= (struct lang_decl *) ggc_alloc (sizeof (struct lang_decl_var));
       DECL_LOCAL_START_PC (decl) = 0;
       DECL_LOCAL_END_PC (decl) = DECL_CODE_LENGTH (current_function_decl);
       DECL_LOCAL_SLOT_NUMBER (decl) = index;
@@ -135,6 +137,58 @@ push_jvm_slot (index, decl)
   TREE_VEC_ELT (decl_map, index) = decl;
   return decl;
 }
+
+/* Find out if 'decl' passed in fits the defined PC location better than
+   'best'.  Return decl if it does, return best if it doesn't.  If decl
+   is returned, then updated is set to true.  */
+
+static tree
+check_local_named_variable (best, decl, pc, updated)
+     tree best;
+     tree decl;
+     int pc;
+     int *updated;
+{
+  if (pc >= DECL_LOCAL_START_PC (decl)
+      && pc < DECL_LOCAL_END_PC (decl))
+    {
+      if (best == NULL_TREE
+	  || (DECL_LOCAL_START_PC (decl) > DECL_LOCAL_START_PC (best)
+	      && DECL_LOCAL_END_PC (decl) < DECL_LOCAL_END_PC (best)))
+        {
+	  *updated = 1;
+	  return decl;
+	}
+    }
+  
+  return best;
+}
+
+/* Find the best declaration based upon type.  If 'decl' fits 'type' better
+   than 'best', return 'decl'.  Otherwise return 'best'.  */
+
+static tree
+check_local_unnamed_variable (best, decl, type)
+     tree best;
+     tree decl;
+     tree type;
+{
+    if (TREE_TYPE (decl) == type
+	|| (TREE_CODE (TREE_TYPE (decl)) == TREE_CODE (type)
+	    && TYPE_PRECISION (TREE_TYPE (decl)) <= 32
+	    && TYPE_PRECISION (type) <= 32
+	    && TREE_CODE (type) != POINTER_TYPE)
+	|| (TREE_CODE (TREE_TYPE (decl)) == POINTER_TYPE
+	    && type == ptr_type_node))
+      {
+	if (best == NULL_TREE
+	    || (TREE_TYPE (decl) == type && TREE_TYPE (best) != type))
+	  return decl;
+      }
+
+    return best;
+}
+
 
 /* Find a VAR_DECL (or PARM_DECL) at local index INDEX that has type TYPE,
    that is valid at PC (or -1 if any pc).
@@ -148,33 +202,41 @@ find_local_variable (index, type, pc)
 {
   tree decl = TREE_VEC_ELT (decl_map, index);
   tree best = NULL_TREE;
+  int found_scoped_var = 0;
 
+  /* Scan through every declaration that has been created in this slot. */
   while (decl != NULL_TREE)
     {
-      int in_range;
-      in_range = pc < 0
-	|| (pc >= DECL_LOCAL_START_PC (decl)
-	    && pc < DECL_LOCAL_END_PC (decl));
-
-      if ((TREE_TYPE (decl) == type
-	   || (TREE_CODE (TREE_TYPE (decl)) == TREE_CODE (type)
-	       && TYPE_PRECISION (TREE_TYPE (decl)) <= 32
-	       && TYPE_PRECISION (type) <= 32
-	       && TREE_CODE (type) != POINTER_TYPE)
-	   || (TREE_CODE (TREE_TYPE (decl)) == POINTER_TYPE
-	       && type == ptr_type_node))
-	   && in_range)
+       /* Variables created in give_name_to_locals() have a name and have
+ 	 a specified scope, so we can handle them specifically.  We want
+ 	 to use the specific decls created for those so they are assigned
+ 	 the right variables in the debugging information. */
+      if (DECL_NAME (decl) != NULL_TREE)
 	{
-	  if (best == NULL_TREE
-	      || (TREE_TYPE (decl) == type && TREE_TYPE (best) != type)
-	      || DECL_LOCAL_START_PC (decl) > DECL_LOCAL_START_PC (best)
-	      || DECL_LOCAL_END_PC (decl) < DECL_LOCAL_START_PC (decl))
-	    best = decl;
-	}
+	  /* This is a variable we have a name for, so it has a scope
+	     supplied in the class file.  But it only matters when we
+	     actually have a PC to use.  If pc<0, then we are asking
+	     for a stack slot and this decl won't be one of those. */
+ 	  if (pc >= 0)
+ 	    best = check_local_named_variable (best, decl, pc,
+ 					       &found_scoped_var);
+ 	}
+      /* We scan for type information unless we found a variable in the
+	 proper scope already. */
+      else if (!found_scoped_var)
+ 	{
+ 	  /* If we don't have scoping information for a variable, we use
+ 	     a different method to look it up. */
+ 	  best = check_local_unnamed_variable (best, decl, type);
+ 	}
+
       decl = DECL_LOCAL_SLOT_CHAIN (decl);
     }
+
   if (best != NULL_TREE)
     return best;
+
+  /* If we don't find a match, create one with the type passed in. */
   return push_jvm_slot (index, build_decl (VAR_DECL, NULL_TREE, type));
 }
 
@@ -852,6 +914,8 @@ init_decl_processing ()
 		     sizeof (throw_node) / sizeof (tree));
   ggc_add_tree_root (predef_filenames,
 		     sizeof (predef_filenames) / sizeof (tree));
+  ggc_add_tree_root (&decl_map, 1);
+  ggc_add_tree_root (&pending_local_decls, 1);
 }
 
 
@@ -1499,7 +1563,7 @@ copy_lang_decl (node)
   int lang_decl_size
     = TREE_CODE (node) == VAR_DECL ? sizeof (struct lang_decl_var)
     : sizeof (struct lang_decl);
-  struct lang_decl *x = (struct lang_decl *) oballoc (lang_decl_size);
+  struct lang_decl *x = (struct lang_decl *) ggc_alloc (lang_decl_size);
   bcopy ((PTR) DECL_LANG_SPECIFIC (node), (PTR) x, lang_decl_size);
   DECL_LANG_SPECIFIC (node) = x;
 }
@@ -1520,6 +1584,7 @@ give_name_to_locals (jcf)
      JCF *jcf;
 {
   int i, n = DECL_LOCALVARIABLES_OFFSET (current_function_decl);
+  int code_offset = DECL_CODE_OFFSET (current_function_decl);
   tree parm;
   pending_local_decls = NULL_TREE;
   if (n == 0)
@@ -1556,8 +1621,15 @@ give_name_to_locals (jcf)
 			 "bad PC range for debug info for local `%s'");
 	      end_pc = DECL_CODE_LENGTH (current_function_decl);
 	    }
+
+	  /* Adjust start_pc if necessary so that the local's first
+	     store operation will use the relevant DECL as a
+	     destination. Fore more information, read the leading
+	     comments for expr.c:maybe_adjust_start_pc. */
+	  start_pc = maybe_adjust_start_pc (jcf, code_offset, start_pc, slot);
+
 	  DECL_LANG_SPECIFIC (decl)
-	    = (struct lang_decl *) permalloc (sizeof (struct lang_decl_var));
+	    = (struct lang_decl *) ggc_alloc (sizeof (struct lang_decl_var));
 	  DECL_LOCAL_SLOT_NUMBER (decl) = slot;
 	  DECL_LOCAL_START_PC (decl) = start_pc;
 #if 0
@@ -1666,10 +1738,6 @@ complete_start_java_method (fndecl)
 		       emit_init_test_initialization, 0);
     }
 
-  /* Allocate further tree nodes temporarily during compilation
-     of this function only.  */
-  temporary_allocation ();
-
 #if 0
       /* If this fcn was already referenced via a block-scope `extern' decl (or
          an implicit decl), propagate certain information about the usage. */
@@ -1745,7 +1813,7 @@ start_java_method (fndecl)
 
   i = DECL_MAX_LOCALS(fndecl) + DECL_MAX_STACK(fndecl);
   decl_map = make_tree_vec (i);
-  type_map = (tree *) oballoc (i * sizeof (tree));
+  type_map = (tree *) xrealloc (type_map, i * sizeof (tree));
 
 #if defined(DEBUG_JAVA_BINDING_LEVELS)
   fprintf (stderr, "%s:\n", (*decl_printable_name) (fndecl, 2));
@@ -1824,6 +1892,59 @@ end_java_method ()
   rest_of_compilation (fndecl);
 
   current_function_decl = NULL_TREE;
-  permanent_allocation (1);
   asynchronous_exceptions = flag_asynchronous_exceptions;
+}
+
+/* Mark language-specific parts of T for garbage-collection.  */
+
+void
+lang_mark_tree (t)
+     tree t;
+{
+  if (TREE_CODE (t) == IDENTIFIER_NODE)
+    {
+      struct lang_identifier *li = (struct lang_identifier *) t;
+      ggc_mark_tree (li->global_value);
+      ggc_mark_tree (li->local_value);
+      ggc_mark_tree (li->utf8_ref);
+    }
+  else if (TREE_CODE (t) == VAR_DECL
+	   || TREE_CODE (t) == PARM_DECL)
+    {
+      struct lang_decl_var *ldv = 
+	((struct lang_decl_var *) DECL_LANG_SPECIFIC (t));
+      if (ldv)
+	{
+	  ggc_mark (ldv);
+	  ggc_mark_tree (ldv->slot_chain);
+	}
+    }
+  else if (TREE_CODE (t) == FUNCTION_DECL)
+    {
+      struct lang_decl *ld = DECL_LANG_SPECIFIC (t);
+      
+      if (ld)
+	{
+	  ggc_mark (ld);
+	  ggc_mark_tree (ld->throws_list);
+	  ggc_mark_tree (ld->function_decl_body);
+	  ggc_mark_tree (ld->called_constructor);
+	  ggc_mark_tree (ld->inner_access);
+	}
+    }
+  else if (TYPE_P (t))
+    {
+      struct lang_type *lt = TYPE_LANG_SPECIFIC (t);
+      
+      if (lt)
+	{
+	  ggc_mark (lt);
+	  ggc_mark_tree (lt->signature);
+	  ggc_mark_tree (lt->cpool_data_ref);
+	  ggc_mark_tree (lt->finit_stmt_list);
+	  ggc_mark_tree (lt->clinit_stmt_list);
+	  ggc_mark_tree (lt->ii_block);
+	  ggc_mark_tree (lt->dot_class);
+	}
+    }
 }

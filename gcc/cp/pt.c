@@ -3965,7 +3965,10 @@ lookup_template_class (d1, arglist, in_decl, context, entering_scope)
       if (TREE_CODE (template_type) == ENUMERAL_TYPE)
 	{
 	  if (!is_partial_instantiation)
-	    t = start_enum (TYPE_IDENTIFIER (template_type));
+	    {
+	      set_current_access_from_decl (TYPE_NAME (template_type));
+	      t = start_enum (TYPE_IDENTIFIER (template_type));
+	    }
 	  else
 	    /* We don't want to call start_enum for this type, since
 	       the values for the enumeration constants may involve
@@ -7145,17 +7148,20 @@ tsubst_expr (t, args, complain, in_decl)
 	    init = DECL_INITIAL (decl);
 	    decl = tsubst (decl, args, complain, in_decl);
 	    init = tsubst_expr (init, args, complain, in_decl);
-	    if (init)
-	      DECL_INITIAL (decl) = error_mark_node;
-	    /* By marking the declaration as instantiated, we avoid
-	       trying to instantiate it.  Since instantiate_decl can't
-	       handle local variables, and since we've already done
-	       all that needs to be done, that's the right thing to
-	       do.  */
-	    if (TREE_CODE (decl) == VAR_DECL)
-	      DECL_TEMPLATE_INSTANTIATED (decl) = 1;
-	    maybe_push_decl (decl);
-	    cp_finish_decl (decl, init, NULL_TREE, 0);
+	    if (decl != error_mark_node)
+	      {
+	        if (init)
+	          DECL_INITIAL (decl) = error_mark_node;
+	        /* By marking the declaration as instantiated, we avoid
+	           trying to instantiate it.  Since instantiate_decl can't
+	           handle local variables, and since we've already done
+	           all that needs to be done, that's the right thing to
+	           do.  */
+	        if (TREE_CODE (decl) == VAR_DECL)
+	          DECL_TEMPLATE_INSTANTIATED (decl) = 1;
+	        maybe_push_decl (decl);
+	        cp_finish_decl (decl, init, NULL_TREE, 0);
+	      }
 	  }
 	return decl;
       }
@@ -9064,7 +9070,7 @@ most_specialized_class (tmpl, args)
 	= get_class_bindings (TREE_VALUE (t), TREE_PURPOSE (t), args);
       if (spec_args)
 	{
-	  list = decl_tree_cons (TREE_PURPOSE (t), TREE_VALUE (t), list);
+	  list = tree_cons (TREE_PURPOSE (t), TREE_VALUE (t), list);
 	  TREE_TYPE (list) = TREE_TYPE (t);
 	}
     }
@@ -9938,6 +9944,8 @@ tsubst_enum (tag, newtag, args)
     }
 
   finish_enum (newtag);
+  DECL_SOURCE_LINE (TYPE_NAME (newtag)) = DECL_SOURCE_LINE (TYPE_NAME (tag));
+  DECL_SOURCE_FILE (TYPE_NAME (newtag)) = DECL_SOURCE_FILE (TYPE_NAME (tag));
 }
 
 /* DECL is a FUNCTION_DECL that is a template specialization.  Return

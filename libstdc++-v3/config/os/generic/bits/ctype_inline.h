@@ -34,81 +34,23 @@
 // ctype bits to be inlined go here. Non-inlinable (ie virtual do_*)
 // functions go in ctype.cc
   
-// The following definitions are portable, but insanely slow. If one
-// cares at all about performance, then specialized ctype
-// functionality should be added for the native os in question: see
-// the config/os/bits/ctype_*.h files.
-
   bool
   ctype<char>::
-  is(mask __m, char __c) const
-  { 
-    bool __ret;
-    switch (__m)
-      {
-      case space:
-	__ret = isspace(__c);
-	break;
-      case print:
-	__ret = isprint(__c);
-	break;
-      case cntrl:
-	__ret = iscntrl(__c);
-	break;
-      case upper:
-	__ret = isupper(__c);
-	break;
-      case lower:
-	__ret = islower(__c);
-	break;
-      case alpha:
-	__ret = isalpha(__c);
-	break;
-      case digit:
-	__ret = isdigit(__c);
-	break;
-      case punct:
-	__ret = ispunct(__c);
-	break;
-      case xdigit:
-	__ret = isxdigit(__c);
-	break;
-      case alnum:
-	__ret = isalnum(__c);
-	break;
-      case graph:
-	__ret = isgraph(__c);
-	break;
-      default:
-	__ret = false;
-	break;
-      }
-    return __ret;
-  }
-   
+  is(mask __m, char __c) const throw()
+  { return _M_table[(unsigned char)(__c)] & __m; }
+
   const char*
   ctype<char>::
-  is(const char* __low, const char* __high, mask* __vec) const
+  is(const char* __low, const char* __high, mask* __vec) const throw()
   {
-    const int __bitmasksize = 11; // Highest bitmask in ctype_base == 10
-    for (;__low < __high; ++__vec, ++__low)
-      {
-	mask __m = 0;
-	int __i = 0; // Lowest bitmask in ctype_base == 0
-	for (;__i < __bitmasksize; ++__i)
-	  {
-	    mask __bit = static_cast<mask>(1 << __i);
-	    if (this->is(__bit, *__low))
-	      __m |= __bit;
-	  }
-	*__vec = __m;
-      }
+    while (__low < __high)
+      *__vec++ = _M_table[(unsigned char)(*__low++)];
     return __high;
   }
 
   const char*
   ctype<char>::
-  scan_is(mask __m, const char* __low, const char* __high) const
+  scan_is(mask __m, const char* __low, const char* __high) const throw()
   {
     while (__low < __high && !this->is(__m, *__low))
       ++__low;
@@ -117,7 +59,7 @@
 
   const char*
   ctype<char>::
-  scan_not(mask __m, const char* __low, const char* __high) const
+  scan_not(mask __m, const char* __low, const char* __high) const throw()
   {
     while (__low < __high && this->is(__m, *__low) != 0)
       ++__low;

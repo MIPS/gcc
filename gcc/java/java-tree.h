@@ -173,7 +173,7 @@ extern int flag_use_boehm_gc;
 extern int flag_hash_synchronization;
 
 /* Encoding used for source files.  */
-extern char *current_encoding;
+extern const char *current_encoding;
 
 /* The Java .class file that provides main_class;  the main input file. */
 extern struct JCF *current_jcf;
@@ -602,8 +602,6 @@ extern struct CPool *outgoing_cpool;
 
 extern char *cyclic_inheritance_report;
 
-extern char *cyclic_inheritance_report;
-
 struct lang_identifier
 {
   struct tree_identifier ignore;
@@ -829,14 +827,12 @@ struct lang_decl_var
 #define TYPE_JCF(T) (TYPE_LANG_SPECIFIC(T)->jcf)
 #define TYPE_CPOOL(T) (TYPE_LANG_SPECIFIC(T)->cpool)
 #define TYPE_CPOOL_DATA_REF(T) (TYPE_LANG_SPECIFIC(T)->cpool_data_ref)
-#define MAYBE_CREATE_TYPE_TYPE_LANG_SPECIFIC(T)				\
-  if (TYPE_LANG_SPECIFIC ((T)) == NULL)					\
-    {									\
-      TYPE_LANG_SPECIFIC ((T)) = 					\
-	(struct lang_type *) xmalloc (sizeof (struct lang_type));	\
-									\
-      bzero ((char *) TYPE_LANG_SPECIFIC ((T)),				\
-	     sizeof (struct lang_type));				\
+#define MAYBE_CREATE_TYPE_TYPE_LANG_SPECIFIC(T)				 \
+  if (TYPE_LANG_SPECIFIC ((T)) == NULL)					 \
+    {									 \
+      TYPE_LANG_SPECIFIC ((T)) = 					 \
+	((struct lang_type *) 						 \
+         ggc_alloc_cleared (sizeof (struct lang_type)));		 \
     }
 
 #define TYPE_FINIT_STMT_LIST(T)  (TYPE_LANG_SPECIFIC(T)->finit_stmt_list)
@@ -1005,6 +1001,7 @@ extern void maybe_pushlevels PARAMS ((int));
 extern void maybe_poplevels PARAMS ((int));
 extern void force_poplevels PARAMS ((int));
 extern int process_jvm_instruction PARAMS ((int, const unsigned char *, long));
+extern int maybe_adjust_start_pc PARAMS ((struct JCF *, int, int, int));
 extern void set_local_type PARAMS ((int, tree));
 extern int merge_type_state PARAMS ((tree));
 extern void push_type PARAMS ((tree));
@@ -1018,6 +1015,7 @@ extern int verify_constant_pool PARAMS ((struct JCF *));
 extern void start_java_method PARAMS ((tree));
 extern void end_java_method PARAMS ((void));
 extern void give_name_to_locals PARAMS ((struct JCF *));
+extern void note_instructions PARAMS ((struct JCF *, tree));
 extern void expand_byte_code PARAMS ((struct JCF *, tree));
 extern int open_in_zip PARAMS ((struct JCF *, const char *, const char *, int));
 extern void set_constant_value PARAMS ((tree, tree));

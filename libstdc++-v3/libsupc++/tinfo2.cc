@@ -27,7 +27,7 @@
 // invalidate any other reasons why the executable file might be covered by
 // the GNU General Public License.
 
-#include <cstddef>
+#include <stddef.h>
 #include "tinfo.h"
 #include "new"			// for placement new
 

@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler.
    For ARM with ELF obj format.
-   Copyright (C) 1995 - 1999 Free Software Foundation, Inc.
+   Copyright (C) 1995 - 2000 Free Software Foundation, Inc.
    Contributed by Philip Blundell <philb@gnu.org> and
    Catherine Moore <clm@cygnus.com>
    
@@ -70,8 +70,8 @@ Boston, MA 02111-1307, USA.  */
    are used to set the corresponding fields of the linker symbol table
    entries in an ELF object file under SVR4.  These macros also output
    the starting labels for the relevant functions/objects.  */
-#define TYPE_ASM_OP     ".type"
-#define SIZE_ASM_OP     ".size"
+#define TYPE_ASM_OP     "\t.type\t"
+#define SIZE_ASM_OP     "\t.size\t"
 
 /* Write the extra assembler code needed to declare a function properly.
    Some svr4 assemblers need to also have something extra said about the
@@ -80,7 +80,7 @@ Boston, MA 02111-1307, USA.  */
   do							\
     {							\
       ARM_DECLARE_FUNCTION_NAME (FILE, NAME, DECL);     \
-      fprintf (FILE, "\t%s\t ", TYPE_ASM_OP);		\
+      fprintf (FILE, "%s", TYPE_ASM_OP);		\
       assemble_name (FILE, NAME);			\
       putc (',', FILE);					\
       fprintf (FILE, TYPE_OPERAND_FMT, "function");	\
@@ -94,7 +94,7 @@ Boston, MA 02111-1307, USA.  */
 #define ASM_DECLARE_OBJECT_NAME(FILE, NAME, DECL)		\
   do								\
     {								\
-      fprintf (FILE, "\t%s\t ", TYPE_ASM_OP);			\
+      fprintf (FILE, "%s", TYPE_ASM_OP);			\
       assemble_name (FILE, NAME);				\
       putc (',', FILE);						\
       fprintf (FILE, TYPE_OPERAND_FMT, "object");		\
@@ -103,7 +103,7 @@ Boston, MA 02111-1307, USA.  */
       if (!flag_inhibit_size_directive && DECL_SIZE (DECL))	\
         {							\
 	  size_directive_output = 1;				\
-	  fprintf (FILE, "\t%s\t ", SIZE_ASM_OP);		\
+	  fprintf (FILE, "%s", SIZE_ASM_OP);			\
 	  assemble_name (FILE, NAME);				\
 	  putc (',', FILE);					\
 	  fprintf (FILE, HOST_WIDE_INT_PRINT_DEC,		\
@@ -129,7 +129,7 @@ Boston, MA 02111-1307, USA.  */
 	  && !size_directive_output)					\
         {								\
 	  size_directive_output = 1;					\
-	  fprintf (FILE, "\t%s\t ", SIZE_ASM_OP);			\
+	  fprintf (FILE, "%s", SIZE_ASM_OP);				\
 	  assemble_name (FILE, name);					\
 	  putc (',', FILE);						\
 	  fprintf (FILE, HOST_WIDE_INT_PRINT_DEC,			\
@@ -151,7 +151,7 @@ Boston, MA 02111-1307, USA.  */
 	  labelno ++;						\
 	  ASM_GENERATE_INTERNAL_LABEL (label, "Lfe", labelno);	\
 	  ASM_OUTPUT_INTERNAL_LABEL (FILE, "Lfe", labelno);	\
-	  fprintf (FILE, "\t%s\t ", SIZE_ASM_OP);		\
+	  fprintf (FILE, "%s", SIZE_ASM_OP);			\
 	  assemble_name (FILE, (FNAME));			\
           fprintf (FILE, ",");					\
 	  assemble_name (FILE, label);				\
@@ -332,7 +332,7 @@ dtors_section ()						\
 
 /* Support the ctors/dtors sections for g++.  */
 #ifndef INT_ASM_OP
-#define INT_ASM_OP 	".word"
+#define INT_ASM_OP 	"\t.word\t"
 #endif
 
 /* A C statement (sans semicolon) to output an element in the table of
@@ -342,7 +342,7 @@ dtors_section ()						\
   do						\
     {						\
       ctors_section ();				\
-      fprintf (STREAM, "\t%s\t ", INT_ASM_OP);	\
+      fprintf (STREAM, "%s", INT_ASM_OP);	\
       assemble_name (STREAM, NAME);		\
       fprintf (STREAM, "\n");			\
     }						\
@@ -356,7 +356,7 @@ dtors_section ()						\
   do						\
     {						\
       dtors_section ();				\
-      fprintf (STREAM, "\t%s\t ", INT_ASM_OP);	\
+      fprintf (STREAM, "%s", INT_ASM_OP);	\
       assemble_name (STREAM, NAME);		\
       fprintf (STREAM, "\n");			\
     }						\

@@ -68,14 +68,13 @@ AS = @AS@
 CC = @CC@
 CPP = @CPP@
 CSHADOW_FLAGS = @CSHADOW_FLAGS@
-CSTD_INCLUDES = @CSTD_INCLUDES@
 CXX = @CXX@
 CXXCPP = @CXXCPP@
-CXX_libstdcxx = @CXX_libstdcxx@
 DEBUG_FLAGS = @DEBUG_FLAGS@
 DLLTOOL = @DLLTOOL@
 EXEEXT = @EXEEXT@
 EXTRA_CXX_FLAGS = @EXTRA_CXX_FLAGS@
+GCC_OBJDIR = @GCC_OBJDIR@
 GCJ = @GCJ@
 GCJFLAGS = @GCJFLAGS@
 GLIBCPP_CFLAGS = @GLIBCPP_CFLAGS@
@@ -100,25 +99,18 @@ VERSION = @VERSION@
 WARN_FLAGS = @WARN_FLAGS@
 WERROR = @WERROR@
 WFMT_FLAGS = @WFMT_FLAGS@
-enable_shared = @enable_shared@
-enable_static = @enable_static@
-gcc_version = @gcc_version@
 glibcpp_basedir = @glibcpp_basedir@
-gxx_include_dir = @gxx_include_dir@
-gxx_target_include_dir = @gxx_target_include_dir@
 ifGNUmake = @ifGNUmake@
 libinst_wstring_la = @libinst_wstring_la@
-libio_la = @libio_la@
-libstdcxx_interface = @libstdcxx_interface@
 
 AUTOMAKE_OPTIONS = 1.3 cygnus
 
 noinst_LTLIBRARIES = libmath.la
 
-EXTRA_LONG_DOUBLE_yes =  	hypotl.c signbitl.c
+EXTRA_LONG_DOUBLE_yes =  	ccosl.c cexpl.c c_logl.c clog10l.c cpowl.c csinhl.c 	csqrtl.c ctanhl.c ctanl.c cargl.c hypotl.c 	signbitl.c cabsl.c 
 
 
-EXTRA_DIST =  	hypot.c hypotf.c atan2f.c expf.c 	$(EXTRA_LONG_DOUBLE_yes) 
+EXTRA_DIST =  	ccos.c ccosf.c ccosh.c ccoshf.c ccoshl.c 	cexp.c cexpf.c c_log.c c_logf.c  clog10.c clog10f.c 	cpow.c cpowf.c csin.c csinf.c csinh.c csinhf.c 	csinl.c csqrt.c csqrtf.c  ctan.c ctanf.c ctanh.c 	ctanhf.c  carg.c cargf.c hypot.c hypotf.c 	atan2f.c expf.c 	$(EXTRA_LONG_DOUBLE_yes) 
 
 
 libmath_la_LIBADD =  	@LIBMATHOBJS@ 	$(EXTRA_LONG_DOUBLE_$(USE_COMPLEX_LONG_DOUBLE)) 
@@ -126,7 +118,7 @@ libmath_la_LIBADD =  	@LIBMATHOBJS@ 	$(EXTRA_LONG_DOUBLE_$(USE_COMPLEX_LONG_DOUB
 
 libmath_la_DEPENDENCIES = $(libmath_la_LIBADD)
 
-libmath_la_SOURCES =  	signbit.c signbitf.c
+libmath_la_SOURCES =  	signbit.c signbitf.c cabs.c cabsf.c 
 
 
 LINK = $(LIBTOOL) --mode=link "$(CCLD)" $(AM_CFLAGS) $(CFLAGS) $(LDFLAGS) -o $@
@@ -140,8 +132,7 @@ LIBSUPCXX_INCLUDES = @LIBSUPCXX_INCLUDES@
 LIBIO_INCLUDES = @LIBIO_INCLUDES@
 CSHADOW_INCLUDES = @CSHADOW_INCLUDES@
 
-INCLUDES =  	-I$(GLIBCPP_INCLUDE_DIR) -I$(top_builddir)/include  	$(TOPLEVEL_INCLUDES) 
-
+INCLUDES = -I$(GLIBCPP_INCLUDE_DIR) $(TOPLEVEL_INCLUDES)
 mkinstalldirs = $(SHELL) $(top_srcdir)/../mkinstalldirs
 CONFIG_HEADER = ../config.h
 CONFIG_CLEAN_FILES = 
@@ -153,7 +144,7 @@ CPPFLAGS = @CPPFLAGS@
 LDFLAGS = @LDFLAGS@
 LIBS = @LIBS@
 libmath_la_LDFLAGS = 
-libmath_la_OBJECTS =  signbit.lo signbitf.lo
+libmath_la_OBJECTS =  signbit.lo signbitf.lo cabs.lo cabsf.lo
 CFLAGS = @CFLAGS@
 COMPILE = $(CC) $(DEFS) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
 LTCOMPILE = $(LIBTOOL) --mode=compile $(CC) $(DEFS) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)

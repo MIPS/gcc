@@ -1,3 +1,39 @@
+2000-10-05  Phil Edwards  <pme@gcc.gnu.org>
+
+	* configure: Save configure arguments to gcc/configargs.h.
+
+2000-10-04  Philipp Thomas  <pthomas@suse.de>
+
+	* config.guess: Import CVS version 1.157.
+	* config.sub: Import CVS version 1.181.
+
+2000-10-04  Andris Pavenis  <pavenis@latnet.lv>
+
+	* Makefile.in (bootstrap): avoid recursion if subdir missing
+	(cross): ditto
+	(do-proto-toplev): ditto
+
+2000-09-30  Alexandre Oliva  <aoliva@redhat.com>
+
+	* Makefile.in (DEVO_SUPPORT): Added gettext.m4, libtool.m4,
+	ltcf-c.sh, ltcf-cxx.sh and ltcf-gcj.sh.
+
+	* ltconfig, ltmain.sh, libtool.m4, ltcf-cxx.sh: Updated from libtool
+	multi-language branch, to work around Solaris' /bin/sh bug.  Rebuilt
+	all affected `configure' scripts.
+
+2000-09-26  David Edelsohn  <edelsohn@gnu.org>
+
+	* config/mt-aix43 (NM_FOR_TARGET): Add -B bsd-style flag.
+
+Mon 25-Sep-2000 19:46:09 BST  Neil Booth  <neilb@earthling.net>
+
+	* MAINTAINERS: Add self as cpplib co-maintainer.
+
+2000-09-24  Aldy Hernandez  <aldyh@redhat.com>
+
+	* MAINTAINERS: Add self to Write After Approval list.
+
 2000-09-18  Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
 
 	* INSTALL/README: egcs -> GCC update.

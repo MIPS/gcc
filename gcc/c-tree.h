@@ -342,10 +342,6 @@ extern int warn_cast_qual;
 
 extern int warn_bad_function_cast;
 
-/* Warn about functions which might be candidates for attribute noreturn. */
-
-extern int warn_missing_noreturn;
-
 /* Warn about traditional constructs whose meanings changed in ANSI C.  */
 
 extern int warn_traditional;
@@ -369,6 +365,10 @@ extern int warn_missing_braces;
 /* Warn about comparison of signed and unsigned values.  */
 
 extern int warn_sign_compare;
+
+/* Warn about possible violations of sequence point rules.  */
+
+extern int warn_sequence_point;
 
 /* Warn about testing equality of floating point numbers. */
 

@@ -1,5 +1,5 @@
 /* Base configuration file for all FreeBSD targets.
-   Copyright (C) 1999 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -104,23 +104,23 @@ Boston, MA 02111-1307, USA.  */
    the version of GCC which compiled this code.  The format of the .ident
    string is patterned after the ones produced by native SVR4 C compilers.  */
 #undef IDENT_ASM_OP
-#define IDENT_ASM_OP ".ident"
+#define IDENT_ASM_OP "\t.ident\t"
 
 /* Output #ident as a .ident.  */
 #undef ASM_OUTPUT_IDENT
 #define ASM_OUTPUT_IDENT(FILE, NAME)					\
-  fprintf ((FILE), "\t%s\t\"%s\"\n", IDENT_ASM_OP, (NAME));
+  fprintf ((FILE), "%s\"%s\"\n", IDENT_ASM_OP, (NAME));
 
 #undef ASM_IDENTIFY_LANGUAGE
 #define ASM_IDENTIFY_LANGUAGE(FILE)					\
-  fprintf ((FILE), "\t%s \"GCC (%s) %s\"\n", IDENT_ASM_OP,		\
+  fprintf ((FILE), "%s\"GCC (%s) %s\"\n", IDENT_ASM_OP,			\
 	   lang_identify (), version_string)
 
 #undef ASM_FILE_END
 #define ASM_FILE_END(FILE)						\
 do {				 					\
      if (!flag_no_ident)						\
-	fprintf ((FILE), "\t%s\t\"GCC: (GNU) %s\"\n",			\
+	fprintf ((FILE), "%s\"GCC: (GNU) %s\"\n",			\
 		 IDENT_ASM_OP, version_string);				\
    } while (0)
 

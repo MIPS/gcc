@@ -882,8 +882,6 @@ struct cp_language_function
 
   tree *x_vcalls_possible_p;
 
-  struct rtx_def *x_result_rtx;
-
   int returns_value;
   int returns_null;
   int in_function_try_handler;
@@ -962,13 +960,6 @@ struct cp_language_function
    function.  */
 
 #define doing_semantic_analysis_p() (!expanding_p)
-
-/* If original DECL_RESULT of current function was a register,
-   but due to being an addressable named return value, would up
-   on the stack, this variable holds the named return value's
-   original location.  */
-
-#define original_result_rtx cp_function_chain->x_result_rtx
 
 #define in_function_try_handler cp_function_chain->in_function_try_handler
 
@@ -3130,7 +3121,7 @@ typedef enum tmpl_spec_kind {
 
 /* The various kinds of access.  BINFO_ACCESS depends on these being
    two bit quantities.  The numerical values are important; they are
-   used to initialize RTTI data structures, so chaning them changes
+   used to initialize RTTI data structures, so changing them changes
    the ABI.  */
 typedef enum access_kind {
   ak_none = 0,             /* Inaccessible.  */
@@ -4046,7 +4037,6 @@ extern void check_handlers			PARAMS ((tree));
 
 /* in expr.c */
 extern void init_cplus_expand			PARAMS ((void));
-extern void fixup_result_decl			PARAMS ((tree, struct rtx_def *));
 extern int extract_init				PARAMS ((tree, tree));
 extern tree cplus_expand_constant               PARAMS ((tree));
 

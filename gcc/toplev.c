@@ -1253,6 +1253,9 @@ documented_lang_options[] =
   { "-Wno-nested-externs", "" },
   { "-Wparentheses", "Warn about possible missing parentheses" },
   { "-Wno-parentheses", "" },
+  { "-Wsequence-point",
+    "Warn about possible violations of sequence point rules" },
+  { "-Wno-sequence-point", "" },
   { "-Wpointer-arith", "Warn about function pointer arithmetic" },
   { "-Wno-pointer-arith", "" },
   { "-Wredundant-decls",
@@ -1312,6 +1315,10 @@ target_options [] = TARGET_OPTIONS;
 /* Don't print warning messages.  -w.  */
 
 int inhibit_warnings = 0;
+
+/* Don't suppress warnings from system headers.  -Wsystem-headers.  */
+
+int warn_system_headers = 0;
 
 /* Print various extra warnings.  -W.  */
 
@@ -1407,6 +1414,10 @@ int warn_padded;
 
 int warn_disabled_optimization;
 
+/* Warn about functions which might be candidates for attribute noreturn.  */
+
+int warn_missing_noreturn;
+
 /* Likewise for -W.  */
 
 lang_independent_options W_options[] =
@@ -1416,6 +1427,7 @@ lang_independent_options W_options[] =
   {"unused-parameter", &warn_unused_parameter, 1, "Warn when a function parameter is unused" },
   {"unused-variable", &warn_unused_variable, 1, "Warn when a variable is unused" },
   {"unused-value", &warn_unused_value, 1, "Warn when an expression value is unused" },
+  {"system-headers", &warn_system_headers, 1, "Do not suppress warnings from system headers"},
   {"error", &warnings_are_errors, 1, ""},
   {"shadow", &warn_shadow, 1, "Warn when one local variable shadows another" },
   {"switch", &warn_switch, 1,
@@ -1950,9 +1962,7 @@ wrapup_global_declarations (vec, len)
 		  || TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl))))
 	    {
 	      reconsider = 1;
-	      temporary_allocation ();
 	      output_inline_function (decl);
-	      permanent_allocation (1);
 	    }
 	}
 
@@ -2212,7 +2222,7 @@ compile_file (name)
            _IOFBF, IO_BUFFER_SIZE);
 #endif
 
-  if (ggc_p && name != 0)
+  if (name != 0)
     name = ggc_alloc_string (name, strlen (name));
 
   input_filename = name;
@@ -2710,6 +2720,8 @@ rest_of_compilation (decl)
   if (cfun->x_whole_function_mode_p)
     reorder_blocks ();
 
+  init_flow ();
+
   /* If we are reconsidering an inline function
      at the end of compilation, skip the stuff for making it inline.  */
 
@@ -2833,8 +2845,7 @@ rest_of_compilation (decl)
 
   init_EXPR_INSN_LIST_cache ();
 
-  if (ggc_p)
-    ggc_collect ();
+  ggc_collect ();
 
   /* Initialize some variables used by the optimizers.  */
   init_function_for_compilation ();
@@ -2878,14 +2889,6 @@ rest_of_compilation (decl)
   if (flag_pic)
     FINALIZE_PIC;
 #endif
-
-  /* From now on, allocate rtl in current_obstack, not in saveable_obstack.
-     The call to resume_temporary_allocation near the end of this function
-     goes back to the usual state of affairs.  This must be done after
-     we've built up any unwinders for exception handling, and done
-     the FINALIZE_PIC work, if necessary.  */
-
-  rtl_in_current_obstack ();
 
   insns = get_insns ();
 
@@ -2958,8 +2961,7 @@ rest_of_compilation (decl)
 
   close_dump_file (DFI_jump, print_rtl, insns);
 
-  if (ggc_p)
-    ggc_collect ();
+  ggc_collect ();
 
   /* Perform common subexpression elimination.
      Nonzero value from `cse_main' means that jumps were simplified
@@ -3025,8 +3027,7 @@ rest_of_compilation (decl)
 
   close_dump_file (DFI_addressof, print_rtl, insns);
 
-  if (ggc_p)
-    ggc_collect ();
+  ggc_collect ();
 
   if (optimize > 0 && flag_ssa)
     {
@@ -3077,8 +3078,7 @@ rest_of_compilation (decl)
       close_dump_file (DFI_ussa, print_rtl_with_bb, insns);
       timevar_pop (TV_FROM_SSA);
 
-      if (ggc_p)
-	ggc_collect ();
+      ggc_collect ();
     }
 
   /* Perform global cse.  */
@@ -3105,8 +3105,7 @@ rest_of_compilation (decl)
       close_dump_file (DFI_gcse, print_rtl, insns);
       timevar_pop (TV_GCSE);
 
-      if (ggc_p)
-	ggc_collect ();
+      ggc_collect ();
     }
 
   /* Move constant computations out of loops.  */
@@ -3138,8 +3137,7 @@ rest_of_compilation (decl)
       close_dump_file (DFI_loop, print_rtl, insns);
       timevar_pop (TV_LOOP);
 
-      if (ggc_p)
-	ggc_collect ();
+      ggc_collect ();
     }
 
   if (optimize > 0)
@@ -3195,8 +3193,7 @@ rest_of_compilation (decl)
       close_dump_file (DFI_cse2, print_rtl, insns);
       timevar_pop (TV_CSE2);
 
-      if (ggc_p)
-	ggc_collect ();
+      ggc_collect ();
     }
 
   cse_not_expected = 1;
@@ -3211,6 +3208,7 @@ rest_of_compilation (decl)
 
   find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
   cleanup_cfg (insns);
+  check_function_return_warnings ();
 
   close_dump_file (DFI_cfg, print_rtl_with_bb, insns);
 
@@ -3258,8 +3256,7 @@ rest_of_compilation (decl)
 
   close_dump_file (DFI_life, print_rtl_with_bb, insns);
 
-  if (ggc_p)
-    ggc_collect ();
+  ggc_collect ();
 
   /* If -opt, try combining insns through substitution.  */
 
@@ -3301,8 +3298,7 @@ rest_of_compilation (decl)
       close_dump_file (DFI_combine, print_rtl_with_bb, insns);
       timevar_pop (TV_COMBINE);
 
-      if (ggc_p)
-	ggc_collect ();
+      ggc_collect ();
     }
 
   /* Rerun if-conversion, as combine may have simplified things enough to
@@ -3332,8 +3328,7 @@ rest_of_compilation (decl)
       close_dump_file (DFI_regmove, print_rtl_with_bb, insns);
       timevar_pop (TV_REGMOVE);
 
-      if (ggc_p)
-	ggc_collect ();
+      ggc_collect ();
     }
 
   /* Any of the several passes since flow1 will have munged register
@@ -3375,8 +3370,7 @@ rest_of_compilation (decl)
       close_dump_file (DFI_sched, print_rtl_with_bb, insns);
       timevar_pop (TV_SCHED);
 
-      if (ggc_p)
-	ggc_collect ();
+      ggc_collect ();
 
       /* Register lifetime information was updated as part of verifying
 	 the schedule.  */
@@ -3415,8 +3409,7 @@ rest_of_compilation (decl)
       timevar_pop (TV_DUMP);
     }
 
-  if (ggc_p)
-    ggc_collect ();
+  ggc_collect ();
 
   timevar_push (TV_GLOBAL_ALLOC);
   open_dump_file (DFI_greg, decl);
@@ -3437,8 +3430,7 @@ rest_of_compilation (decl)
   if (failure)
     goto exit_rest_of_compilation;
 
-  if (ggc_p)
-    ggc_collect ();
+  ggc_collect ();
 
   /* Do a very simple CSE pass over just the hard registers.  */
   if (optimize > 0)
@@ -3508,8 +3500,7 @@ rest_of_compilation (decl)
 #endif
 	combine_stack_adjustments ();
 
-      if (ggc_p)
-	ggc_collect ();
+      ggc_collect ();
     }
 
   flow2_completed = 1;
@@ -3566,8 +3557,7 @@ rest_of_compilation (decl)
       close_dump_file (DFI_sched2, print_rtl_with_bb, insns);
       timevar_pop (TV_SCHED2);
 
-      if (ggc_p)
-	ggc_collect ();
+      ggc_collect ();
     }
 #endif
 
@@ -3612,8 +3602,7 @@ rest_of_compilation (decl)
 
   close_dump_file (DFI_mach, print_rtl_with_bb, insns);
 
-  if (ggc_p)
-    ggc_collect ();
+  ggc_collect ();
 #endif
 
   /* If a scheduling pass for delayed branches is to be done,
@@ -3630,8 +3619,7 @@ rest_of_compilation (decl)
       close_dump_file (DFI_dbr, print_rtl_with_bb, insns);
       timevar_pop (TV_DBR_SCHED);
 
-      if (ggc_p)
-	ggc_collect ();
+      ggc_collect ();
     }
 #endif
 
@@ -3652,8 +3640,7 @@ rest_of_compilation (decl)
   close_dump_file (DFI_stack, print_rtl_with_bb, insns);
   timevar_pop (TV_REG_STACK);
 
-  if (ggc_p)
-    ggc_collect ();
+  ggc_collect ();
 #endif
 
   current_function_nothrow = nothrow_function_p ();
@@ -3696,8 +3683,7 @@ rest_of_compilation (decl)
   }
   timevar_pop (TV_FINAL);
 
-  if (ggc_p)
-    ggc_collect ();
+  ggc_collect ();
 
   /* Write DBX symbols if requested.  */
 
@@ -3750,9 +3736,6 @@ rest_of_compilation (decl)
      it runs through become garbage.  */
   clear_const_double_mem ();
 
-  /* Cancel the effect of rtl_in_current_obstack.  */
-  resume_temporary_allocation ();
-
   /* Show no temporary slots allocated.  */
   init_temp_slots ();
 
@@ -3777,8 +3760,7 @@ rest_of_compilation (decl)
     free_after_compilation (cfun);
   cfun = 0;
 
-  if (ggc_p)
-    ggc_collect ();
+  ggc_collect ();
 
   timevar_pop (TV_REST_OF_COMPILATION);
 }
@@ -4088,10 +4070,7 @@ decode_f_option (arg)
 	    = skip_leading_substring (arg, "stack-limit-symbol=")))
     {
       char *nm;
-      if (ggc_p)
-	nm = ggc_alloc_string (option_value, strlen (option_value));
-      else
-	nm = xstrdup (option_value);
+      nm = ggc_strdup (option_value);
       stack_limit_rtx = gen_rtx_SYMBOL_REF (Pmode, nm);
     }
   else if ((option_value

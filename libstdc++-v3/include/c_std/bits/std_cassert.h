@@ -1,4 +1,4 @@
-// -*- C++ -*- forwarding header.
+// -*- C++ -*- header wrapper.
 
 // Copyright (C) 1997-1999, 2000 Free Software Foundation, Inc.
 //
@@ -31,19 +31,19 @@
 // ISO C++ 14882: 19.2  Assertions
 //
 
-// Note: This is not a conforming implementation.
+#ifndef _CPP_CASSERT
+#define _CPP_CASSERT 1
 
-// No include guards on this header...
+namespace _C_legacy {
+  extern "C" {
+#   define _IN_C_LEGACY_
+#   pragma GCC system_header
+#   include_next <assert.h>
+  }
+} // namespace _C_legacy
 
-#pragma GCC system_header
-#include <assert.h>
+#undef _IN_C_LEGACY_
 
-
-
-
-
-
-
-
+#endif
 
 

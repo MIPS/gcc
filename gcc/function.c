@@ -360,7 +360,6 @@ push_function_context_to (context)
   outer_function_chain = p;
   p->fixup_var_refs_queue = 0;
 
-  save_tree_status (p);
   if (save_lang_status)
     (*save_lang_status) (p);
   if (save_machine_status)
@@ -392,7 +391,6 @@ pop_function_context_from (context)
   current_function_decl = p->decl;
   reg_renumber = 0;
 
-  restore_tree_status (p);
   restore_emit_status (p);
 
   if (restore_machine_status)
@@ -547,12 +545,6 @@ assign_stack_local_1 (mode, size, align, function)
   int bigend_correction = 0;
   int alignment;
 
-  /* Allocate in the memory associated with the function in whose frame
-     we are assigning.  */
-  if (function != cfun)
-    push_obstacks (function->function_obstack,
-		   function->function_maybepermanent_obstack);
-
   if (align == 0)
     {
       tree type;
@@ -623,9 +615,6 @@ assign_stack_local_1 (mode, size, align, function)
 
   function->x_stack_slot_list
     = gen_rtx_EXPR_LIST (VOIDmode, x, function->x_stack_slot_list);
-
-  if (function != cfun)
-    pop_obstacks ();
 
   return x;
 }
@@ -1637,7 +1626,7 @@ find_fixup_replacement (replacements, x)
 
   if (p == 0)
     {
-      p = (struct fixup_replacement *) oballoc (sizeof (struct fixup_replacement));
+      p = (struct fixup_replacement *) xmalloc (sizeof (struct fixup_replacement));
       p->old = x;
       p->new = 0;
       p->next = *replacements;
@@ -1800,6 +1789,8 @@ fixup_var_refs_insns (var, promoted_mode, unsignedp, insn, toplevel, ht)
 
 	      while (replacements)
 		{
+		  struct fixup_replacement *next;
+
 		  if (GET_CODE (replacements->new) == REG)
 		    {
 		      rtx insert_before;
@@ -1835,7 +1826,9 @@ fixup_var_refs_insns (var, promoted_mode, unsignedp, insn, toplevel, ht)
 		      emit_insn_before (seq, insert_before);
 		    }
 
-		  replacements = replacements->next;
+		  next = replacements->next;
+		  free (replacements);
+		  replacements = next;
 		}
 	    }
 
@@ -2324,7 +2317,7 @@ fixup_var_refs_1 (var, promoted_mode, loc, insn, replacements)
 	    && GET_MODE (var) == promoted_mode
 	    && x == single_set (insn))
 	  {
-	    rtx pat;
+	    rtx pat, last;
 
 	    replacement = find_fixup_replacement (replacements, SET_SRC (x));
 	    if (replacement->new)
@@ -2350,10 +2343,22 @@ fixup_var_refs_1 (var, promoted_mode, loc, insn, replacements)
 	    pat = gen_move_insn (SET_DEST (x), SET_SRC (x));
 	    if (GET_CODE (pat) == SEQUENCE)
 	      {
-		emit_insn_after (pat, insn);
-		PUT_CODE (insn, NOTE);
-		NOTE_LINE_NUMBER (insn) = NOTE_INSN_DELETED;
-		NOTE_SOURCE_FILE (insn) = 0;
+		last = emit_insn_before (pat, insn);
+
+		/* INSN might have REG_RETVAL or other important notes, so
+		   we need to store the pattern of the last insn in the
+		   sequence into INSN similarly to the normal case.  LAST
+		   should not have REG_NOTES, but we allow them if INSN has
+		   no REG_NOTES.  */
+		if (REG_NOTES (last) && REG_NOTES (insn))
+		  abort ();
+		if (REG_NOTES (last))
+		  REG_NOTES (insn) = REG_NOTES (last);
+		PATTERN (insn) = PATTERN (last);
+
+		PUT_CODE (last, NOTE);
+		NOTE_LINE_NUMBER (last) = NOTE_INSN_DELETED;
+		NOTE_SOURCE_FILE (last) = 0;
 	      }
 	    else
 	      PATTERN (insn) = pat;
@@ -2370,7 +2375,7 @@ fixup_var_refs_1 (var, promoted_mode, loc, insn, replacements)
 	    && GET_MODE (var) == promoted_mode
 	    && x == single_set (insn))
 	  {
-	    rtx pat;
+	    rtx pat, last;
 
 	    if (GET_CODE (SET_DEST (x)) == SUBREG)
 	      SET_DEST (x) = fixup_memory_subreg (SET_DEST (x), insn, 0);
@@ -2383,10 +2388,22 @@ fixup_var_refs_1 (var, promoted_mode, loc, insn, replacements)
 	    pat = gen_move_insn (SET_DEST (x), SET_SRC (x));
 	    if (GET_CODE (pat) == SEQUENCE)
 	      {
-		emit_insn_after (pat, insn);
-		PUT_CODE (insn, NOTE);
-		NOTE_LINE_NUMBER (insn) = NOTE_INSN_DELETED;
-		NOTE_SOURCE_FILE (insn) = 0;
+		last = emit_insn_before (pat, insn);
+
+		/* INSN might have REG_RETVAL or other important notes, so
+		   we need to store the pattern of the last insn in the
+		   sequence into INSN similarly to the normal case.  LAST
+		   should not have REG_NOTES, but we allow them if INSN has
+		   no REG_NOTES.  */
+		if (REG_NOTES (last) && REG_NOTES (insn))
+		  abort ();
+		if (REG_NOTES (last))
+		  REG_NOTES (insn) = REG_NOTES (last);
+		PATTERN (insn) = PATTERN (last);
+
+		PUT_CODE (last, NOTE);
+		NOTE_LINE_NUMBER (last) = NOTE_INSN_DELETED;
+		NOTE_SOURCE_FILE (last) = 0;
 	      }
 	    else
 	      PATTERN (insn) = pat;
@@ -3282,15 +3299,8 @@ insns_for_mem_walk (r, data)
 	 we process the INSNs in order, we know that if we have
 	 recorded it it must be at the front of the list.  */
       if (ifme && (!ifme->insns || XEXP (ifme->insns, 0) != ifmwi->insn))
-	{
-	  /* We do the allocation on the same obstack as is used for
-	     the hash table since this memory will not be used once
-	     the hash table is deallocated.  */
-	  push_obstacks (&ifmwi->ht->memory, &ifmwi->ht->memory);
-	  ifme->insns = gen_rtx_EXPR_LIST (VOIDmode, ifmwi->insn,
-					   ifme->insns);
-	  pop_obstacks ();
-	}
+	ifme->insns = gen_rtx_EXPR_LIST (VOIDmode, ifmwi->insn,
+					 ifme->insns);
     }
 
   return 0;
@@ -3532,13 +3542,6 @@ instantiate_decls (fndecl, valid_only)
 {
   tree decl;
 
-  if (DECL_SAVED_INSNS (fndecl))
-    /* When compiling an inline function, the obstack used for
-       rtl allocation is the maybepermanent_obstack.  Calling
-       `resume_temporary_allocation' switches us back to that
-       obstack while we process this function's parameters.  */
-    resume_temporary_allocation ();
-
   /* Process all parameters of the function.  */
   for (decl = DECL_ARGUMENTS (fndecl); decl; decl = TREE_CHAIN (decl))
     {
@@ -3555,15 +3558,6 @@ instantiate_decls (fndecl, valid_only)
 
   /* Now process all variables defined in the function or its subblocks.  */
   instantiate_decls_1 (DECL_INITIAL (fndecl), valid_only);
-
-  if (DECL_INLINE (fndecl) || DECL_DEFER_OUTPUT (fndecl))
-    {
-      /* Save all rtl allocated for this function by raising the
-	 high-water mark on the maybepermanent_obstack.  */
-      preserve_data ();
-      /* All further rtl allocation is now done in the current_obstack.  */
-      rtl_in_current_obstack ();
-    }
 }
 
 /* Subroutine of instantiate_decls: Process all decls in the given
@@ -5563,21 +5557,16 @@ trampoline_address (function)
      by expand_function_end.  */
   if (fp != 0)
     {
-      push_obstacks (fp->function_maybepermanent_obstack,
-		     fp->function_maybepermanent_obstack);
       rtlexp = make_node (RTL_EXPR);
       RTL_EXPR_RTL (rtlexp) = tramp;
       fp->x_trampoline_list = tree_cons (function, rtlexp,
 					 fp->x_trampoline_list);
-      pop_obstacks ();
     }
   else
     {
       /* Make the RTL_EXPR node temporary, not momentary, so that the
 	 trampoline_list doesn't become garbage.  */
-      int momentary = suspend_momentary ();
       rtlexp = make_node (RTL_EXPR);
-      resume_momentary (momentary);
 
       RTL_EXPR_RTL (rtlexp) = tramp;
       trampoline_list = tree_cons (function, rtlexp, trampoline_list);
@@ -6420,8 +6409,7 @@ diddle_return_value (doit, arg)
       /* If this is a BLKmode structure being returned in registers, then use
 	 the mode computed in expand_return.  */
       if (GET_MODE (outgoing) == BLKmode)
-	PUT_MODE (outgoing,
-		  GET_MODE (DECL_RTL (DECL_RESULT (current_function_decl))));
+	PUT_MODE (outgoing, GET_MODE (current_function_return_rtx));
       REG_FUNCTION_VALUE_P (outgoing) = 1;
     }
 
@@ -6531,10 +6519,8 @@ expand_function_end (filename, line, end_bindings)
 	 initializing trampolines.  */
       if (initial_trampoline == 0)
 	{
-	  end_temporary_allocation ();
 	  initial_trampoline
 	    = gen_rtx_MEM (BLKmode, assemble_trampoline_template ());
-	  resume_temporary_allocation ();
 
 	  ggc_add_rtx_root (&initial_trampoline, 1);
 	}
@@ -6634,12 +6620,20 @@ expand_function_end (filename, line, end_bindings)
 
   if (return_label)
     {
+      rtx before, after;
+
       /* Before the return label, clobber the return registers so that
          they are not propogated live to the rest of the function.  This
 	 can only happen with functions that drop through; if there had
 	 been a return statement, there would have either been a return
 	 rtx, or a jump to the return label.  */
+
+      before = get_last_insn ();
       clobber_return_register ();
+      after = get_last_insn ();
+
+      if (before != after)
+	cfun->x_clobber_return_insn = after;
 
       emit_label (return_label);
     }
@@ -6698,37 +6692,58 @@ expand_function_end (filename, line, end_bindings)
 	emit_stack_restore (SAVE_FUNCTION, tem, NULL_RTX);
       }
 
-  /* If scalar return value was computed in a pseudo-reg,
-     copy that to the hard return register.  */
-  if (DECL_RTL (DECL_RESULT (current_function_decl)) != 0
-      && GET_CODE (DECL_RTL (DECL_RESULT (current_function_decl))) == REG
-      && (REGNO (DECL_RTL (DECL_RESULT (current_function_decl)))
-	  >= FIRST_PSEUDO_REGISTER))
+  /* If scalar return value was computed in a pseudo-reg, or was a named
+     return value that got dumped to the stack, copy that to the hard
+     return register.  */
+  if (DECL_RTL (DECL_RESULT (current_function_decl)) != 0)
     {
-      rtx real_decl_result;
+      tree decl_result = DECL_RESULT (current_function_decl);
+      rtx decl_rtl = DECL_RTL (decl_result);
+
+      if (REG_P (decl_rtl)
+	  ? REGNO (decl_rtl) >= FIRST_PSEUDO_REGISTER
+	  : DECL_REGISTER (decl_result))
+	{
+	  rtx real_decl_rtl;
 
 #ifdef FUNCTION_OUTGOING_VALUE
-      real_decl_result
-	= FUNCTION_OUTGOING_VALUE (TREE_TYPE (DECL_RESULT (current_function_decl)),
-				   current_function_decl);
+	  real_decl_rtl = FUNCTION_OUTGOING_VALUE (TREE_TYPE (decl_result),
+						   current_function_decl);
 #else
-      real_decl_result
-	= FUNCTION_VALUE (TREE_TYPE (DECL_RESULT (current_function_decl)),
-			  current_function_decl);
+	  real_decl_rtl = FUNCTION_VALUE (TREE_TYPE (decl_result),
+					  current_function_decl);
 #endif
-      REG_FUNCTION_VALUE_P (real_decl_result) = 1;
-      /* If this is a BLKmode structure being returned in registers, then use
-	 the mode computed in expand_return.  */
-      if (GET_MODE (real_decl_result) == BLKmode)
-	PUT_MODE (real_decl_result,
-		  GET_MODE (DECL_RTL (DECL_RESULT (current_function_decl))));
-      emit_move_insn (real_decl_result,
-		      DECL_RTL (DECL_RESULT (current_function_decl)));
+	  REG_FUNCTION_VALUE_P (real_decl_rtl) = 1;
 
-      /* The delay slot scheduler assumes that current_function_return_rtx
-	 holds the hard register containing the return value, not a temporary
-	 pseudo.  */
-      current_function_return_rtx = real_decl_result;
+	  /* If this is a BLKmode structure being returned in registers,
+	     then use the mode computed in expand_return.  Note that if
+	     decl_rtl is memory, then its mode may have been changed, 
+	     but that current_function_return_rtx has not.  */
+	  if (GET_MODE (real_decl_rtl) == BLKmode)
+	    PUT_MODE (real_decl_rtl, GET_MODE (current_function_return_rtx));
+
+	  /* If a named return value dumped decl_return to memory, then
+	     we may need to re-do the PROMOTE_MODE signed/unsigned 
+	     extension.  */
+	  if (GET_MODE (real_decl_rtl) != GET_MODE (decl_rtl))
+	    {
+	      int unsignedp = TREE_UNSIGNED (TREE_TYPE (decl_result));
+
+#ifdef PROMOTE_FUNCTION_RETURN
+	      promote_mode (TREE_TYPE (decl_result), GET_MODE (decl_rtl),
+			    &unsignedp, 1);
+#endif
+
+	      convert_move (real_decl_rtl, decl_rtl, unsignedp);
+	    }
+	  else
+	    emit_move_insn (real_decl_rtl, decl_rtl);
+
+	  /* The delay slot scheduler assumes that current_function_return_rtx
+	     holds the hard register containing the return value, not a
+	     temporary pseudo.  */
+	  current_function_return_rtx = real_decl_rtl;
+	}
     }
 
   /* If returning a structure, arrange to return the address of the value
@@ -7405,6 +7420,7 @@ mark_function_status (p)
   ggc_mark_tree (p->x_context_display);
   ggc_mark_tree (p->x_trampoline_list);
   ggc_mark_rtx (p->epilogue_delay_list);
+  ggc_mark_rtx (p->x_clobber_return_insn);
 
   mark_temp_slot (p->x_temp_slots);
 

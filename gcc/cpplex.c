@@ -24,12 +24,9 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 Cleanups to do:-
 
-o Check line numbers assigned to all errors.
 o Distinguish integers, floats, and 'other' pp-numbers.
 o Store ints and char constants as binary values.
 o New command-line assertion syntax.
-o Work towards functions in cpperror.c taking a message level parameter.
-  If we do this, merge the common code of do_warning and do_error.
 o Comment all functions, and describe macro expansion algorithm.
 o Move as much out of header files as possible.
 o Remove single quote pairs `', and some '', from diagnostics.
@@ -44,6 +41,8 @@ o Correct pastability test for CPP_NAME and CPP_NUMBER.
 #include "cpphash.h"
 #include "symcat.h"
 
+const unsigned char *_cpp_digraph_spellings [] = {U"%:", U"%:%:", U"<:",
+						  U":>", U"<%", U"%>"};
 static const cpp_token placemarker_token = {0, 0, CPP_PLACEMARKER,
 					    0 UNION_INIT_ZERO};
 static const cpp_token eof_token = {0, 0, CPP_EOF, 0 UNION_INIT_ZERO};
@@ -53,6 +52,7 @@ static const cpp_token eof_token = {0, 0, CPP_EOF, 0 UNION_INIT_ZERO};
 #define CONTEXT_PASTER	(1 << 1) /* An argument context on RHS of ##.  */
 #define CONTEXT_RAW	(1 << 2) /* If argument tokens already expanded.  */
 #define CONTEXT_ARG	(1 << 3) /* If an argument context.  */
+#define CONTEXT_VARARGS	(1 << 4) /* If a varargs argument context.  */
 
 typedef struct cpp_context cpp_context;
 struct cpp_context
@@ -93,10 +93,6 @@ static int pop_context PARAMS ((cpp_reader *));
 static int push_macro_context PARAMS ((cpp_reader *, const cpp_token *));
 static void push_arg_context PARAMS ((cpp_reader *, const cpp_token *));
 static void free_macro_args PARAMS ((macro_args *));
-static void dump_param_spelling PARAMS ((FILE *, const cpp_toklist *,
-					 unsigned int));
-static void output_line_command PARAMS ((cpp_reader *, cpp_printer *,
-					 unsigned int));
 
 static cppchar_t handle_newline PARAMS ((cpp_buffer *, cppchar_t));
 static cppchar_t skip_escaped_newlines PARAMS ((cpp_buffer *, cppchar_t));
@@ -118,7 +114,6 @@ static void lex_line PARAMS ((cpp_reader *, cpp_toklist *));
 static void lex_token PARAMS ((cpp_reader *, cpp_token *));
 static int lex_next PARAMS ((cpp_reader *, int));
 
-static void process_directive	PARAMS ((cpp_reader *, const cpp_token *));
 static int is_macro_disabled PARAMS ((cpp_reader *, const cpp_toklist *,
 				      const cpp_token *));
 
@@ -126,8 +121,6 @@ static cpp_token *stringify_arg PARAMS ((cpp_reader *, const cpp_token *));
 static void expand_context_stack PARAMS ((cpp_reader *));
 static unsigned char * spell_token PARAMS ((cpp_reader *, const cpp_token *,
 					    unsigned char *));
-static void output_token PARAMS ((cpp_reader *, FILE *, const cpp_token *,
-				  const cpp_token *, int));
 typedef unsigned int (* speller) PARAMS ((unsigned char *, cpp_toklist *,
 					  cpp_token *));
 static cpp_token *make_string_token PARAMS ((cpp_token *, const U_CHAR *,
@@ -138,14 +131,11 @@ static const cpp_token *special_symbol PARAMS ((cpp_reader *, cpp_hashnode *,
 static cpp_token *duplicate_token PARAMS ((cpp_reader *, const cpp_token *));
 static const cpp_token *maybe_paste_with_next PARAMS ((cpp_reader *,
 						       const cpp_token *));
-static enum cpp_ttype can_paste PARAMS ((cpp_reader *, const cpp_token *,
-					 const cpp_token *, int *));
 static unsigned int prevent_macro_expansion	PARAMS ((cpp_reader *));
 static void restore_macro_expansion	PARAMS ((cpp_reader *, unsigned int));
 static cpp_token *get_temp_token	PARAMS ((cpp_reader *));
 static void release_temp_tokens		PARAMS ((cpp_reader *));
 static U_CHAR * quote_string PARAMS ((U_CHAR *, const U_CHAR *, unsigned int));
-static void process_directive PARAMS ((cpp_reader *, const cpp_token *));
 
 #define VALID_SIGN(c, prevc) \
   (((c) == '+' || (c) == '-') && \
@@ -172,10 +162,6 @@ TOKEN_LEN (token)
 
 #define IS_ARG_CONTEXT(c) ((c)->flags & CONTEXT_ARG)
 #define CURRENT_CONTEXT(pfile) ((pfile)->contexts + (pfile)->cur_context)
-#define ON_REST_ARG(c) \
- (((c)->u.list->flags & VAR_ARGS) \
-  && (c)->u.list->tokens[(c)->posn - 1].val.aux \
-      == (unsigned int) ((c)->u.list->paramc - 1))
 
 #define ASSIGN_FLAGS_AND_POS(d, s) \
   do {(d)->flags = (s)->flags & (PREV_WHITE | BOL | PASTE_LEFT); \
@@ -196,167 +182,6 @@ _cpp_token_spellings [N_TTYPES] = {TTYPE_TABLE };
 
 #undef OP
 #undef TK
-
-/* Notify the compiler proper that the current line number has jumped,
-   or the current file name has changed.  */
-
-static void
-output_line_command (pfile, print, line)
-     cpp_reader *pfile;
-     cpp_printer *print;
-     unsigned int line;
-{
-  cpp_buffer *ip = CPP_BUFFER (pfile);
-
-  if (line == 0)
-    return;
-
-  /* End the previous line of text.  */
-  if (pfile->need_newline)
-    {
-      putc ('\n', print->outf);
-      print->lineno++;
-    }
-  pfile->need_newline = 0;
-
-  if (CPP_OPTION (pfile, no_line_commands))
-    return;
-
-  /* If the current file has not changed, we can output a few newlines
-     instead if we want to increase the line number by a small amount.
-     We cannot do this if print->lineno is zero, because that means we
-     haven't output any line commands yet.  (The very first line
-     command output is a `same_file' command.)
-
-     'nominal_fname' values are unique, so they can be compared by
-     comparing pointers.  */
-  if (ip->nominal_fname == print->last_fname && print->lineno > 0
-      && line >= print->lineno && line < print->lineno + 8)
-    {
-      while (line > print->lineno)
-	{
-	  putc ('\n', print->outf);
-	  print->lineno++;
-	}
-      return;
-    }
-
-  fprintf (print->outf, "# %u \"%s\"%s\n", line, ip->nominal_fname,
-	   cpp_syshdr_flags (pfile, ip));
-
-  print->last_fname = ip->nominal_fname;
-  print->lineno = line;
-}
-
-/* Like fprintf, but writes to a printer object.  You should be sure
-   always to generate a complete line when you use this function.  */
-void
-cpp_printf VPARAMS ((cpp_reader *pfile, cpp_printer *print,
-		     const char *fmt, ...))
-{
-  va_list ap;
-#ifndef ANSI_PROTOTYPES
-  cpp_reader *pfile;
-  cpp_printer *print;
-  const char *fmt;
-#endif
-
-  VA_START (ap, fmt);
-
-#ifndef ANSI_PROTOTYPES
-  pfile = va_arg (ap, cpp_reader *);
-  print = va_arg (ap, cpp_printer *);
-  fmt = va_arg (ap, const char *);
-#endif
-
-  /* End the previous line of text.  */
-  if (pfile->need_newline)
-    {
-      putc ('\n', print->outf);
-      print->lineno++;
-    }
-  pfile->need_newline = 0;
-
-  vfprintf (print->outf, fmt, ap);
-  va_end (ap);
-}
-
-/* Scan until CPP_BUFFER (PFILE) is exhausted, discarding output.  */
-
-void
-cpp_scan_buffer_nooutput (pfile)
-     cpp_reader *pfile;
-{
-  cpp_buffer *stop = CPP_PREV_BUFFER (CPP_BUFFER (pfile));
-  const cpp_token *token;
-
-  /* In no-output mode, we can ignore everything but directives.  */
-  for (;;)
-    {
-      token = _cpp_get_token (pfile);
-
-      if (token->type == CPP_EOF)
-	{
-	  cpp_pop_buffer (pfile);
-	  if (CPP_BUFFER (pfile) == stop)
-	    break;
-	}
-
-      if (token->type == CPP_HASH && token->flags & BOL
-	  && pfile->token_list.directive)
-	{
-	  process_directive (pfile, token);
-	  continue;
-	}
-
-      _cpp_skip_rest_of_line (pfile);
-    }
-}
-
-/* Scan until CPP_BUFFER (pfile) is exhausted, writing output to PRINT.  */
-void
-cpp_scan_buffer (pfile, print)
-     cpp_reader *pfile;
-     cpp_printer *print;
-{
-  cpp_buffer *stop = CPP_PREV_BUFFER (CPP_BUFFER (pfile));
-  const cpp_token *token, *prev = 0;
-
-  for (;;)
-    {
-      token = _cpp_get_token (pfile);
-      if (token->type == CPP_EOF)
-	{
-	  cpp_pop_buffer (pfile);
-
-	  if (CPP_BUFFER (pfile) == stop)
-	    return;
-
-	  prev = 0;
-	  continue;
-	}
-
-      if (token->flags & BOL)
-	{
-	  output_line_command (pfile, print, token->line);
-	  prev = 0;
-
-	  if (token->type == CPP_HASH && pfile->token_list.directive)
-	    {
-	      process_directive (pfile, token);
-	      continue;
-	    }
-	}
-
-      if (token->type != CPP_PLACEMARKER)
-	{
-	  output_token (pfile, print->outf, token, prev, 1);
-	  pfile->need_newline = 1;
-	}
-
-      prev = token;
-    }
-}
 
 /* Helper routine used by parse_include, which can't see spell_token.
    Reinterpret the current line as an h-char-sequence (< ... >); we are
@@ -584,9 +409,6 @@ cpp_ideq (token, string)
   return !ustrcmp (token->val.node->name, (const U_CHAR *)string);
 }
 
-static const unsigned char *digraph_spellings [] = {U"%:", U"%:%:", U"<:",
-						    U":>", U"<%", U"%>"};
-
 /* Call when meeting a newline.  Returns the character after the newline
    (or carriage-return newline combination), or EOF.  */
 static cppchar_t
@@ -764,7 +586,7 @@ skip_block_comment (pfile)
      cpp_reader *pfile;
 {
   cpp_buffer *buffer = pfile->buffer;
-  cppchar_t c = EOF, prevc;
+  cppchar_t c = EOF, prevc = EOF;
 
   pfile->state.lexing_comment = 1;
   while (buffer->cur != buffer->rlimit)
@@ -1139,8 +961,7 @@ save_comment (pfile, token, from)
   unsigned int len;
   cpp_toklist *list = &pfile->token_list;
   
-#define COMMENT_START_LEN 2
-  len = pfile->buffer->cur - from + COMMENT_START_LEN;
+  len = pfile->buffer->cur - from + 1; /* + 1 for the initial '/'.  */
   _cpp_reserve_name_space (list, len);
   buffer = list->namebuf + list->name_used;
   list->name_used += len;
@@ -1149,10 +970,8 @@ save_comment (pfile, token, from)
   token->val.str.len = len;
   token->val.str.text = buffer;
 
-  /* from[-1] is '/' or '*' depending on the comment type.  */
-  *buffer++ = '/';
-  *buffer++ = from[-1];
-  memcpy (buffer, from, len - COMMENT_START_LEN);
+  buffer[0] = '/';
+  memcpy (buffer + 1, from, len - 1);
 }
 
 /* Subroutine of lex_token to handle '%'.  A little tricky, since we
@@ -1379,65 +1198,56 @@ lex_token (pfile, result)
       break;
 
     case '/':
+      /* A potential block or line comment.  */
+      comment_start = buffer->cur;
       result->type = CPP_DIV;
       c = get_effective_char (buffer);
       if (c == '=')
 	ACCEPT_CHAR (CPP_DIV_EQ);
-      else if (c == '*')
-	{
-	  comment_start = buffer->cur;
+      if (c != '/' && c != '*')
+	break;
 
-	  /* Skip_block_comment updates buffer->read_ahead.  */
+      if (c == '*')
+	{
 	  if (skip_block_comment (pfile))
 	    cpp_error_with_line (pfile, result->line, result->col,
 				 "unterminated comment");
-	  if (!pfile->state.save_comments)
-	    {
-	      result->flags |= PREV_WHITE;
-	      goto next_char;
-	    }
-
-	  /* Save the comment as a token in its own right.  */
-	  save_comment (pfile, result, comment_start);
 	}
-      else if (c == '/')
+      else
 	{
+	  if (!CPP_OPTION (pfile, cplusplus_comments)
+	      && !CPP_IN_SYSTEM_HEADER (pfile))
+	    break;
+
 	  /* We silently allow C++ comments in system headers,
 	     irrespective of conformance mode, because lots of
 	     broken systems do that and trying to clean it up in
 	     fixincludes is a nightmare.  */
-	  if (CPP_IN_SYSTEM_HEADER (pfile))
-	    goto do_line_comment;
-	  if (CPP_OPTION (pfile, cplusplus_comments))
+	  if (CPP_OPTION (pfile, c89) && CPP_PEDANTIC (pfile)
+	      && ! buffer->warned_cplusplus_comments)
 	    {
-	      if (CPP_OPTION (pfile, c89) && CPP_PEDANTIC (pfile)
-		  && ! buffer->warned_cplusplus_comments)
-		{
-		  cpp_pedwarn (pfile,
-		       "C++ style comments are not allowed in ISO C89");
-		  cpp_pedwarn (pfile,
-		       "(this will be reported only once per input file)");
-		  buffer->warned_cplusplus_comments = 1;
-		}
-
-	    do_line_comment:
-	      comment_start = buffer->cur;
-
-	      /* Skip_line_comment updates buffer->read_ahead.  */
-	      if (skip_line_comment (pfile))
-		cpp_warning_with_line (pfile, result->line, result->col,
-				       "multi-line comment");
-
-	      if (!pfile->state.save_comments)
-		{
-		  result->flags |= PREV_WHITE;
-		  goto next_char;
-		}
-
-	      /* Save the comment as a token in its own right.  */
-	      save_comment (pfile, result, comment_start);
+	      cpp_pedwarn (pfile,
+			   "C++ style comments are not allowed in ISO C89");
+	      cpp_pedwarn (pfile,
+			   "(this will be reported only once per input file)");
+	      buffer->warned_cplusplus_comments = 1;
 	    }
+
+	  /* Skip_line_comment updates buffer->read_ahead.  */
+	  if (skip_line_comment (pfile))
+	    cpp_warning_with_line (pfile, result->line, result->col,
+				   "multi-line comment");
 	}
+
+      /* Skipping the comment has updated buffer->read_ahead.  */
+      if (!pfile->state.save_comments)
+	{
+	  result->flags |= PREV_WHITE;
+	  goto next_char;
+	}
+
+      /* Save the comment as a token in its own right.  */
+      save_comment (pfile, result, comment_start);
       break;
 
     case '<':
@@ -1734,152 +1544,6 @@ lex_line (pfile, list)
   pfile->state.in_lex_line = 0;
 }
 
-/* Write the spelling of a token TOKEN, with any appropriate
-   whitespace before it, to FP.  PREV is the previous token, which
-   is used to determine if we need to shove in an extra space in order
-   to avoid accidental token paste.  If WHITE is 0, do not insert any
-   leading whitespace.  */
-static void
-output_token (pfile, fp, token, prev, white)
-     cpp_reader *pfile;
-     FILE *fp;
-     const cpp_token *token, *prev;
-     int white;
-{
-  if (white)
-    {
-      int dummy;
-
-      if (token->col && (token->flags & BOL))
-	{
-	  /* Supply enough whitespace to put this token in its original
-	     column.  Don't bother trying to reconstruct tabs; we can't
-	     get it right in general, and nothing ought to care.  (Yes,
-	     some things do care; the fault lies with them.)  */
-	  unsigned int spaces = token->col - 1;
-      
-	  while (spaces--)
-	    putc (' ', fp);
-	}
-      else if (token->flags & PREV_WHITE)
-	putc (' ', fp);
-      else
-      /* Check for and prevent accidental token pasting.
-	 In addition to the cases handled by can_paste, consider
-
-	 a + ++b - if there is not a space between the + and ++, it
-	 will be misparsed as a++ + b.  But + ## ++ doesn't produce
-	 a valid token.  */
-	if (prev
-	    && (can_paste (pfile, prev, token, &dummy) != CPP_EOF
-		|| (prev->type == CPP_PLUS && token->type == CPP_PLUS_PLUS)
-		|| (prev->type == CPP_MINUS && token->type == CPP_MINUS_MINUS)))
-	putc (' ', fp);
-    }
-
-  switch (TOKEN_SPELL (token))
-    {
-    case SPELL_OPERATOR:
-      {
-	const unsigned char *spelling;
-
-	if (token->flags & DIGRAPH)
-	  spelling = digraph_spellings[token->type - CPP_FIRST_DIGRAPH];
-	else if (token->flags & NAMED_OP)
-	  goto spell_ident;
-	else
-	  spelling = TOKEN_NAME (token);
-
-	ufputs (spelling, fp);
-      }
-      break;
-
-    case SPELL_IDENT:
-      spell_ident:
-      ufputs (token->val.node->name, fp);
-      break;
-
-    case SPELL_STRING:
-      {
-	int left, right, tag;
-	switch (token->type)
-	  {
-	  case CPP_STRING:	left = '"';  right = '"';  tag = '\0'; break;
-	  case CPP_WSTRING:	left = '"';  right = '"';  tag = 'L';  break;
-	  case CPP_OSTRING:	left = '"';  right = '"';  tag = '@';  break;
-	  case CPP_CHAR:	left = '\''; right = '\''; tag = '\0'; break;
-    	  case CPP_WCHAR:	left = '\''; right = '\''; tag = 'L';  break;
-	  case CPP_HEADER_NAME:	left = '<';  right = '>';  tag = '\0'; break;
-	  default:		left = '\0'; right = '\0'; tag = '\0'; break;
-	  }
-	if (tag) putc (tag, fp);
-	if (left) putc (left, fp);
-	fwrite (token->val.str.text, 1, token->val.str.len, fp);
-	if (right) putc (right, fp);
-      }
-      break;
-
-    case SPELL_CHAR:
-      putc (token->val.aux, fp);
-      break;
-
-    case SPELL_NONE:
-      /* Placemarker or EOF - no output.  (Macro args are handled
-         elsewhere.  */
-      break;
-    }
-}
-
-/* Dump the original user's spelling of argument index ARG_NO to the
-   macro whose expansion is LIST.  */
-static void
-dump_param_spelling (fp, list, arg_no)
-     FILE *fp;
-     const cpp_toklist *list;
-     unsigned int arg_no;
-{
-  const U_CHAR *param = list->namebuf;
-
-  while (arg_no--)
-    param += ustrlen (param) + 1;
-  ufputs (param, fp);
-}
-
-/* Output all the tokens of LIST, starting at TOKEN, to FP.  */
-void
-cpp_output_list (pfile, fp, list, token)
-     cpp_reader *pfile;
-     FILE *fp;
-     const cpp_toklist *list;
-     const cpp_token *token;
-{
-  const cpp_token *limit = list->tokens + list->tokens_used;
-  const cpp_token *prev = 0;
-  int white = 0;
-
-  while (token < limit)
-    {
-      /* XXX Find some way we can write macro args from inside
-	 output_token/spell_token.  */
-      if (token->type == CPP_MACRO_ARG)
-	{
-	  if (white && token->flags & PREV_WHITE)
-	    putc (' ', fp);
-	  if (token->flags & STRINGIFY_ARG)
-	    putc ('#', fp);
-	  dump_param_spelling (fp, list, token->val.aux);
-	}
-      else
-	output_token (pfile, fp, token, prev, white);
-      if (token->flags & PASTE_LEFT)
-	fputs (" ##", fp);
-      prev = token;
-      token++;
-      white = 1;
-    }
-}
-
-
 /* Write the spelling of a token TOKEN to BUFFER.  The buffer must
    already contain the enough space to hold the token's spelling.
    Returns a pointer to the character after the last character
@@ -1899,7 +1563,7 @@ spell_token (pfile, token, buffer)
 	unsigned char c;
 
 	if (token->flags & DIGRAPH)
-	  spelling = digraph_spellings[token->type - CPP_FIRST_DIGRAPH];
+	  spelling = _cpp_digraph_spellings[token->type - CPP_FIRST_DIGRAPH];
 	else if (token->flags & NAMED_OP)
 	  goto spell_ident;
 	else
@@ -2186,6 +1850,7 @@ is_macro_disabled (pfile, expansion, token)
       pfile->no_expand_level = context - pfile->contexts;
       next = _cpp_get_token (pfile);
       restore_macro_expansion (pfile, prev_nme);
+
       if (next->type != CPP_OPEN_PAREN)
 	{
 	  _cpp_push_token (pfile, next);
@@ -2340,9 +2005,7 @@ parse_args (pfile, hp, args)
 	{
 	  /* Duplicate the placemarker.  Then we can set its flags and
              position and safely be using more than one.  */
-	  cpp_token *pm = duplicate_token (pfile, &placemarker_token);
-	  pm->flags = VOID_REST;
-	  save_token (args, pm);
+	  save_token (args, duplicate_token (pfile, &placemarker_token));
 	  args->ends[argc] = total + 1;
 
 	  if (CPP_OPTION (pfile, c99) && CPP_PEDANTIC (pfile))
@@ -2352,7 +2015,8 @@ parse_args (pfile, hp, args)
 	}
       else
 	{
-	  cpp_error (pfile, "not enough arguments for macro \"%s\"", hp->name);
+	  cpp_error (pfile, "%u arguments is not enough for macro \"%s\"",
+		     argc, hp->name);
 	  return 1;
 	}
     }
@@ -2360,7 +2024,8 @@ parse_args (pfile, hp, args)
   else if (argc > macro->paramc
 	   && !(macro->paramc == 0 && argc == 1 && empty_argument (args, 0)))
     {
-      cpp_error (pfile, "too many arguments for macro \"%s\"", hp->name);
+      cpp_error (pfile, "%u arguments is too many for macro \"%s\"",
+		 argc, hp->name);
       return 1;
     }
 
@@ -2521,8 +2186,8 @@ duplicate_token (pfile, token)
    what the resulting token is.  Returns CPP_EOF if the tokens cannot
    be pasted, or the appropriate type for the merged token if they
    can.  */
-static enum cpp_ttype
-can_paste (pfile, token1, token2, digraph)
+enum cpp_ttype
+_cpp_can_paste (pfile, token1, token2, digraph)
      cpp_reader * pfile;
      const cpp_token *token1, *token2;
      int* digraph;
@@ -2652,6 +2317,7 @@ maybe_paste_with_next (pfile, token)
       pfile->paste_level = pfile->cur_context;
       second = _cpp_get_token (pfile);
       pfile->paste_level = 0;
+      context = CURRENT_CONTEXT (pfile);
 
       /* Ignore placemarker argument tokens (cannot be from an empty
 	 macro since macros are not expanded).  */
@@ -2663,7 +2329,7 @@ maybe_paste_with_next (pfile, token)
 	     a varargs parameter: the comma disappears if b was given
 	     no actual arguments (not merely if b is an empty
 	     argument).  */
-	  if (token->type == CPP_COMMA && second->flags & VOID_REST)
+	  if (token->type == CPP_COMMA && (context->flags & CONTEXT_VARARGS))
 	    pasted = duplicate_token (pfile, second);
 	  else
 	    pasted = duplicate_token (pfile, token);
@@ -2671,7 +2337,7 @@ maybe_paste_with_next (pfile, token)
       else
 	{
 	  int digraph = 0;
-	  enum cpp_ttype type = can_paste (pfile, token, second, &digraph);
+	  enum cpp_ttype type = _cpp_can_paste (pfile, token, second, &digraph);
 
 	  if (type == CPP_EOF)
 	    {
@@ -2682,8 +2348,7 @@ maybe_paste_with_next (pfile, token)
 		     the author probably intended the ## to trigger
 		     the special extended semantics (see above).  */
 		  if (token->type == CPP_COMMA
-		      && IS_ARG_CONTEXT (CURRENT_CONTEXT (pfile))
-		      && ON_REST_ARG (CURRENT_CONTEXT (pfile) - 1))
+		      && (context->flags & CONTEXT_VARARGS))
 		    /* no warning */;
 		  else
 		    cpp_warning (pfile,
@@ -2747,7 +2412,6 @@ maybe_paste_with_next (pfile, token)
       /* See if there is another token to be pasted onto the one we just
 	 constructed.  */
       token = pasted;
-      context = CURRENT_CONTEXT (pfile);
       /* and loop */
     }
   return token;
@@ -2928,6 +2592,9 @@ push_arg_context (pfile, token)
   context->posn = 0;
   context->level = args->level;
   context->flags = CONTEXT_ARG | CONTEXT_RAW;
+  if ((context[-1].u.list->flags & VAR_ARGS)
+      && token->val.aux + 1 == (unsigned) context[-1].u.list->paramc)
+    context->flags |= CONTEXT_VARARGS;
   context->pushed_token = 0;
 
   /* Set the flags of the first token.  There is one.  */
@@ -2981,8 +2648,8 @@ _cpp_push_token (pfile, token)
 
 /* Handle a preprocessing directive.  TOKEN is the CPP_HASH token
    introducing the directive.  */
-static void
-process_directive (pfile, token)
+void
+_cpp_process_directive (pfile, token)
      cpp_reader *pfile;
      const cpp_token *token;
 {
@@ -3022,7 +2689,7 @@ cpp_get_token (pfile)
       if (token->type == CPP_HASH && token->flags & BOL
 	  && pfile->token_list.directive)
 	{
-	  process_directive (pfile, token);
+	  _cpp_process_directive (pfile, token);
 	  continue;
 	}
 

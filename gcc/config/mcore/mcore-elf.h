@@ -71,8 +71,8 @@ while (0)
 
 /* MCore defines .long and .short to NOT force any alignment.
    This lets you misalign as much as you wish.  */
-#define	UNALIGNED_INT_ASM_OP	".long"
-#define	UNALIGNED_SHORT_ASM_OP	".short"
+#define	UNALIGNED_INT_ASM_OP	"\t.long\t"
+#define	UNALIGNED_SHORT_ASM_OP	"\t.short\t"
 
 #define EXPORTS_SECTION_ASM_OP	"\t.section .exports"
 
@@ -121,7 +121,7 @@ exports_section ()						\
           MCORE_EXPORT_NAME (FILE, NAME);		\
 	  function_section (DECL);			\
 	}						\
-      fprintf (FILE, "\t%s\t ", TYPE_ASM_OP);		\
+      fprintf (FILE, "%s", TYPE_ASM_OP);		\
       assemble_name (FILE, NAME);			\
       putc (',', FILE);					\
       fprintf (FILE, TYPE_OPERAND_FMT, "function");	\
@@ -142,7 +142,7 @@ exports_section ()						\
 	  MCORE_EXPORT_NAME (FILE, NAME);					\
           switch_to_section (save_section, (DECL));				\
         }									\
-      fprintf (FILE, "\t%s\t ", TYPE_ASM_OP);					\
+      fprintf (FILE, "%s", TYPE_ASM_OP);					\
       assemble_name (FILE, NAME);						\
       putc (',', FILE);								\
       fprintf (FILE, TYPE_OPERAND_FMT, "object");				\
@@ -151,7 +151,7 @@ exports_section ()						\
       if (!flag_inhibit_size_directive && DECL_SIZE (DECL))			\
         {									\
           size_directive_output = 1;						\
-          fprintf (FILE, "\t%s\t ", SIZE_ASM_OP);				\
+          fprintf (FILE, "%s", SIZE_ASM_OP);					\
           assemble_name (FILE, NAME);						\
           fprintf (FILE, ",%d\n",  int_size_in_bytes (TREE_TYPE (DECL)));	\
         }									\
@@ -174,7 +174,7 @@ exports_section ()						\
           && DECL_INITIAL (DECL) == error_mark_node                      \
           && !size_directive_output)                                     \
         {                                                                \
-          fprintf (FILE, "\t%s\t ", SIZE_ASM_OP);                        \
+          fprintf (FILE, "%s", SIZE_ASM_OP);                             \
           assemble_name (FILE, name);                                    \
           fprintf (FILE, ",%d\n",  int_size_in_bytes (TREE_TYPE (DECL)));\
         }                                                                \
@@ -199,8 +199,8 @@ exports_section ()						\
 #define FORCE_FINI_SECTION_ALIGN	asm ("br 1f ; .literals ; 1:")
 
 #undef  CTORS_SECTION_ASM_OP
-#define CTORS_SECTION_ASM_OP	".section\t.ctors,\"aw\""
+#define CTORS_SECTION_ASM_OP	"\t.section\t.ctors,\"aw\""
 #undef  DTORS_SECTION_ASM_OP
-#define DTORS_SECTION_ASM_OP	".section\t.dtors,\"aw\""
+#define DTORS_SECTION_ASM_OP	"\t.section\t.dtors,\"aw\""
      
 #endif /* __MCORE_ELF_H__ */

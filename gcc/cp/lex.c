@@ -200,7 +200,7 @@ make_call_declarator (target, parms, cv_qualifiers, exception_specification)
      tree target, parms, cv_qualifiers, exception_specification;
 {
   target = build_parse_node (CALL_EXPR, target, 
-			     decl_tree_cons (parms, cv_qualifiers, NULL_TREE),
+			     tree_cons (parms, cv_qualifiers, NULL_TREE),
 			     /* The third operand is really RTL.  We
 				shouldn't put anything there.  */
 			     NULL_TREE);
@@ -1616,8 +1616,8 @@ cp_make_lang_type (code)
     {
       struct lang_type *pi;
 
-      pi = (struct lang_type *) ggc_alloc (sizeof (struct lang_type));
-      bzero ((char *) pi, (int) sizeof (struct lang_type));
+      pi = ((struct lang_type *) 
+	    ggc_alloc_cleared (sizeof (struct lang_type)));
 
       TYPE_LANG_SPECIFIC (t) = pi;
       SET_CLASSTYPE_INTERFACE_UNKNOWN_X (t, interface_unknown);

@@ -50,10 +50,6 @@ extern tree global_namespace;
 
 extern int (*valid_lang_attribute) PARAMS ((tree, tree, tree, tree));
 
-/* Use garbage collection.  */
-
-int ggc_p = 1;
-
 #ifndef BOOL_TYPE_SIZE
 #ifdef SLOW_BYTE_ACCESS
 /* In the new ABI, `bool' has size and alignment `1', on all
@@ -81,6 +77,22 @@ int ggc_p = 1;
 
 #ifndef WCHAR_TYPE
 #define WCHAR_TYPE "int"
+#endif
+
+#ifndef INTMAX_TYPE
+#define INTMAX_TYPE ((INT_TYPE_SIZE == LONG_LONG_TYPE_SIZE)	\
+		     ? "int"					\
+		     : ((LONG_TYPE_SIZE == LONG_LONG_TYPE_SIZE)	\
+			? "long int"				\
+			: "long long int"))
+#endif
+
+#ifndef UINTMAX_TYPE
+#define UINTMAX_TYPE ((INT_TYPE_SIZE == LONG_LONG_TYPE_SIZE)	\
+		     ? "unsigned int"				\
+		     : ((LONG_TYPE_SIZE == LONG_LONG_TYPE_SIZE)	\
+			? "long unsigned int"			\
+			: "long long unsigned int"))
 #endif
 
 static tree grokparms				PARAMS ((tree, int));
@@ -6550,6 +6562,11 @@ init_decl_processing ()
   wchar_array_type_node
     = build_array_type (wchar_type_node, array_domain_type);
 
+  intmax_type_node =
+    TREE_TYPE (IDENTIFIER_GLOBAL_VALUE (get_identifier (INTMAX_TYPE)));
+  uintmax_type_node =
+    TREE_TYPE (IDENTIFIER_GLOBAL_VALUE (get_identifier (UINTMAX_TYPE)));
+
   if (flag_vtable_thunks)
     {
       /* Make sure we get a unique function type, so we can give
@@ -7137,8 +7154,8 @@ start_decl (declarator, declspecs, initialized, attributes, prefix_attributes)
   /* This should only be done once on the top most decl.  */
   if (have_extern_spec && !used_extern_spec)
     {
-      declspecs = decl_tree_cons (NULL_TREE, get_identifier ("extern"),
-				  declspecs);
+      declspecs = tree_cons (NULL_TREE, get_identifier ("extern"),
+			     declspecs);
       used_extern_spec = 1;
     }
 
@@ -11066,7 +11083,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
       else if (attrlist)
 	TREE_VALUE (attrlist) = chainon (inner_attrs, TREE_VALUE (attrlist));
       else
-	attrlist = build_decl_list (NULL_TREE, inner_attrs);
+	attrlist = build_tree_list (NULL_TREE, inner_attrs);
     }
 
   /* Now TYPE has the actual type.  */
@@ -13553,7 +13570,7 @@ start_function (declspecs, declarator, attrs, flags)
   /* This should only be done once on the top most decl.  */
   if (have_extern_spec && !used_extern_spec)
     {
-      declspecs = decl_tree_cons (NULL_TREE, get_identifier ("extern"), declspecs);
+      declspecs = tree_cons (NULL_TREE, get_identifier ("extern"), declspecs);
       used_extern_spec = 1;
     }
 
@@ -14038,7 +14055,6 @@ save_function_data (decl)
   /* Clear out the bits we don't need.  */
   f->base.x_stmt_tree.x_last_stmt = NULL_TREE;
   f->base.x_stmt_tree.x_last_expr_type = NULL_TREE;
-  f->x_result_rtx = NULL_RTX;
   f->x_named_label_uses = NULL;
   f->bindings = NULL;
 
@@ -14311,15 +14327,10 @@ finish_function (flags)
 
   /* Clean up.  */
   if (! nested)
-    {
-      /* Let the error reporting routines know that we're outside a
-         function.  For a nested function, this value is used in
-         pop_cp_function_context and then reset via pop_function_context.  */
-      current_function_decl = NULL_TREE;
-      /* We don't really care about obstacks, but the middle-end
-	 sometimes cares on what obstck things are located.  */
-      permanent_allocation (1);
-    }
+    /* Let the error reporting routines know that we're outside a
+       function.  For a nested function, this value is used in
+       pop_cp_function_context and then reset via pop_function_context.  */
+    current_function_decl = NULL_TREE;
 
   return fndecl;
 }
@@ -14677,8 +14688,6 @@ mark_lang_function (p)
   ggc_mark_tree (p->x_current_class_ref);
   ggc_mark_tree (p->x_eh_spec_try_block);
 
-  ggc_mark_rtx (p->x_result_rtx);
-
   mark_named_label_lists (&p->x_named_labels, &p->x_named_label_uses);
   mark_binding_level (&p->bindings);
 }
@@ -14690,14 +14699,6 @@ mark_cp_function_context (f)
      struct function *f;
 {
   mark_lang_function ((struct cp_language_function *) f->language);
-}
-
-void
-lang_mark_false_label_stack (l)
-     struct label_node *l;
-{
-  /* C++ doesn't use false_label_stack.  It better be NULL.  */
-  my_friendly_assert (l == NULL, 19990904);
 }
 
 void

@@ -1,3 +1,211 @@
+2000-10-13  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* Make-lang.in (parse.c, parse-scan.c): Create atomically.
+	
+	* Makefile.in (parse.c, parse-scan.c): Likewise.
+
+2000-10-12  Mark Mitchell  <mark@codesourcery.com>
+
+	* class.c (temporary_obstack): Remove.
+	(make_class): Don't mess with obstascks.
+	(push_class): Likewise.
+	(set_super_info): Likewise.
+	(add_method_1): Likewise.
+	(add_method): Likewise.
+	(add_field): Likewise.
+	(build_utf8_ref): Likewise.
+	(build_class_ref): Likewise.
+	(build_static_field_ref): Likewise.
+	(finish_class): Likewise.
+	(push_super_field): Likewise.
+	(layout_class): Likewise.
+	(layout_class_methods): Likewise.
+	(init_class_processing): Likewise.
+	* constants.c (get_tag_node): Likewise.
+	(build_constant_data_ref): Likewise.
+	* decl.c (ggc_p): Remove.
+	(copy_lang_decl): Use ggc_alloc.
+	(complete_start_java_method): Don't mess with obstacks.
+	(start_java_method): Likewise.
+	(end_java_method): Likewise.
+	* except.c (link_handler): Use xmalloc.
+	(free_eh_ranges): New function.
+	(method_init_exceptions): Use it.
+	(add_handler): Use xmalloc.
+	(expand_start_java_handler): Don't mess with obstacks.
+	(prepare_eh_table_type): Likewise.
+	(expand_end_java_handler): Likewise.
+	* expr.c (push_value): Likewise.
+	(create_label_decl): Likewise.
+	(build_jni_stub): Likewise.
+	(java_lang_expand_expr): Likewise.
+	(note_instructions): Use xrealloc.
+	(java_push_constant_from_pool): Don't mess with obstacks.
+	(process_jvm_instruction): Likewise.
+	* java-tree.h (cyclic_inheritance_report): Remove duplicate
+	declaration.
+	* jcf-parse.c (get_constant): Don't mess with obstacks.
+	(read_class): Likewise.
+	(jcf_parse): Likewise.
+	* lex.c (expresion_obstack): Remove.
+	(java_lex): Don't use obstack_free.
+	* parse.h (exit_java_complete_class): Don't mess with obstacks.
+	(MANGLE_OUTER_LOCAL_VARIABLE_NAME): Adjust.
+	(MANGLE_ALIAS_INITIALIZER_PARAMETER_NAME_ID): Likewise.
+	(MANGLE_ALIAS_INITIALIZER_PARAMETER_NAME_STRING): Likewise.
+	* parse.y (gaol): Add more GC roots.
+	(add_inner_class_fields): Adjust calls to MANGLE_* macros.
+	(lookup_field_wrapper): Likewise.
+	(obtain_incomplete_type): Don't mess with obstacks.
+	(build_alias_initializer_paramter_list): Adjust calls to MANGLE_*
+	macros.
+	(craft_constructor): Don't mess with obstacks.
+	(safe_layout_class): Likewise.
+	(java_complete_class): Likewise.
+	(source_end_java_method): Likewise.
+	(build_outer_field_access_methods): Likewise.
+	(build_outer_method_access_method): Likewise.
+	(maybe_build_thisn_access_method): Likewise.
+	(build_dot_class_method_invocation): Likewise.
+	(java_complete_tree): Likewise.
+	(java_complete_lhs): Likewise.
+	(do_merge_string_cste): Likewise.
+	(patch_string_cst): Likewise.
+	(array_constructor_check_entry): Likewise.
+	* typeck.c (build_java_array_type): Likewise.
+	(parse_signature_string): Likewise.
+	(build_java_signature): Likewise.
+	
+2000-10-12  Tom Tromey  <tromey@cygnus.com>
+
+	Fix for PR gcj/356:
+	* gjavah.c (add_class_decl): Don't special-case inner classes.
+	(add_namelet): Likewise.
+
+2000-10-11  Rodney Brown  <RodneyBrown@mynd.com>
+
+	* java-tree.h: Constify current_encoding.
+	* lang.c: Constify current_encoding.
+
+2000-10-10  Jeff Sturm  <jeff.sturm@appnet.com>
+
+	* jvgenmain.c (class_mangling_suffix): Omit `.'.
+	(main): Use `$' when NO_DOLLAR_IN_LABEL is not set, otherwise `.'.
+
+2000-10-10  Alexandre Petit-Bianco  <apbianco@cygnus.com>
+
+	* expr.c (java_lang_expand_expr): Reinstall 1999-08-14 Anthony's
+	patch. Fixes gcj/340.
+
+2000-10-10  Tom Tromey  <tromey@cygnus.com>
+
+	* lex.c (java_new_lexer): Initialize out_first and out_last
+	fields.
+	* lex.h (java_lexer): Added out_buffer, out_first, out_last.
+
+2000-10-07  Alexandre Petit-Bianco  <apbianco@cygnus.com>
+
+	Patch contributed by Corey Minyard.
+	* decl.c (check_local_named_variable): New function.
+	(tree check_local_unnamed_variable): Likewise.
+	(find_local_variable): Splitted. Call check_local_{un}named_variable.
+
+2000-10-07  Anthony Green  <green@redhat.com>
+
+	* class.c (layout_class): Handle case where superclass can't be
+	layed out yet.
+
+2000-10-07  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* Makefile.in (keyword.h): Refer to GNU FTP site for updated
+	gperf.
+
+2000-10-05  Tom Tromey  <tromey@cygnus.com>
+
+	* jvspec.c (jvgenmain_spec): Added `-fdollars-in-identifiers'.
+	* jvgenmain.c (class_mangling_prefix): Removed.
+	(class_mangling_suffix): New global.
+	(main): Use it.
+	* gjavah.c (cxx_keyword_subst): Mangle C++ keywords by appending
+	`$'.
+	(print_method_info): Handle overrides for static and final
+	methods.
+	(process_file): Generate declaration for class object field.
+	* class.c (cxx_keywords): New array.
+	(utf8_cmp): New function.
+	(cxx_keyword_p): New function.
+	(layout_class_method): Mangle C++ keywords by appending `$'.
+	(mangle_field): New function.
+	(mangle_class_field): Use mangle_field.  Mangle class name as
+	`class$'.
+	(mangle_static_field): Use mangle_field.
+
+Tue Oct  3 13:44:37 2000  Alexandre Petit-Bianco  <apbianco@cygnus.com>
+
+	* decl.c (find_local_variable): Removed uncessary type check and
+	fixed range check typo. From Corey Minyard.
+
+Wed Sep 13 16:06:52 2000  Alexandre Petit-Bianco  <apbianco@cygnus.com>
+
+	* decl.c (give_name_to_locals): New local `code_offset'. Call
+ 	`maybe_adjust_start_pc.'
+	* expr.c (note_instructions): New function.
+	(expand_byte_code): Don't collect insn starts here.
+	(peek_opcode_at_pc): New function.
+	(maybe_adjust_start_pc): Likewise.
+	* java-tree.h (maybe_adjust_start_pc): Declare.
+	(note_instructions): Likewise.
+	* jcf-parse.c (parse_class_file): Call `note_instructions.'
+
+Wed Sep 13 11:50:35 2000  Alexandre Petit-Bianco  <apbianco@cygnus.com>
+
+	* parse.y (field_access:): Fixed indentation.
+	(qualify_ambiguous_name): Properly qualify `this.a[b].c'.
+
+2000-09-07  Tom Tromey  <tromey@cygnus.com>
+
+	Fix for PR gcj/307:
+	* parse.y (patch_binop): Use JNUMERIC_TYPE_P, not
+	JPRIMITIVE_TYPE_P, for arithmetic operators.
+	(patch_method_invocation): Indentation fix.
+	(try_builtin_assignconv): Handle boolean specially.  Fixed typo.
+	(valid_builtin_assignconv_identity_widening_p): Handle boolean.
+	(do_unary_numeric_promotion): Cleaned up code.
+	(valid_cast_to_p): Handle boolean correctly.
+
+2000-09-27  Tom Tromey  <tromey@cygnus.com>
+
+	* lex.c (java_read_unicode): Reset bs_count when finished with
+	`\u' sequence.
+
+2000-10-01  Mark Mitchell  <mark@codesourcery.com>
+
+	Convert to GC.
+	* Make-lang.in (s-java): Don't depend on ggc-callbacks.o.
+	* Makefile.in (BACKEND): Don't include ggc-callbacks.o.
+	(typeck.o): Depend on ggc.h.
+	* class.c (add_method_1): Use GC functions for allocation.
+	(init_class_processing): Register roots.
+	* decl.c (ggc_p): Set to 1.
+	(pending_local_decls): Make it static.
+	(push_jvm_slot): Use GC functions for allocation.
+	(init_decl_processing): Register roots.
+	(give_name_to_locals): Use GC functions for allocation.
+	(lang_mark_tree): New function.
+	* java-tree.h (MAYBE_CREATE_TYPE_TYPE_LANG_SPECIFIC): Use GC
+	functions for allocation.
+	* jcf-parse.c (jcf_parse_source): Use ggc_strdup.
+	* lex.c (java_lex): Use build_string, rather than replicating it
+	inline.
+	* parse.y (goal): Add more roots.
+	(mark_parser_ctxt): New function.
+	* typeck.c: Include ggc.h.
+	
+2000-09-29  Alexandre Petit-Bianco  <apbianco@cygnus.com>
+
+	* parse.y (maybe_yank_clinit): Also keep <clinit> if its body
+	contains something else than MODIFY_EXPR.
+
 2000-09-23  Mark Mitchell  <mark@codesourcery.com>
 
 	* Make-lang.in (JAVA_SRCS): Include java-tree.h.
@@ -151,6 +359,13 @@
 	* zipfile.h (ZipDirectory): Add uncompressed_size and
 	compression_method fields.
 	* zextract.c (read_zip_archive): Collect file compression info.
+
+2000-08-11  Alexandre Petit-Bianco  <apbianco@cygnus.com>
+
+	* parse.y (variable_declarator_id:): Better error message.
+	(expression_statement:): Use YYNOT_TWICE.
+	(cast_expression:): Likewise.
+	(assignment:): Likewise.
 
 2000-08-11  Alexandre Petit-Bianco  <apbianco@cygnus.com>
 

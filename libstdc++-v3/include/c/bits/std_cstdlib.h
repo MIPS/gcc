@@ -1,6 +1,6 @@
 // -*- C++ -*- forwarding header.
 
-// Copyright (C) 2000 Free Software Foundation, Inc.
+// Copyright (C) 1997-1999 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -31,12 +31,24 @@
 // ISO C++ 14882: 20.4.6  C library
 //
 
-// Note: This is not a conforming implementation.
+// Note: this is not a conforming implementation.
 
 #ifndef _CPP_CSTDLIB
 #define _CPP_CSTDLIB 1
 
-#pragma GCC system_header
-#include <stdlib.h>
+// This keeps isanum, et al from being propagated as macros.
+#if __linux__
+#define __USE_ISOC9X 1
+#endif
 
-#endif 
+# pragma GCC system_header
+# include_next <stdlib.h>
+
+#endif // _CPP_CSTDLIB
+
+
+
+
+
+
+

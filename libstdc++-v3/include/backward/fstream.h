@@ -30,17 +30,20 @@
 
 #include <bits/std_fstream.h>
 
-using std::ifstream;
-using std::ofstream;
-using std::fstream;
+#ifdef __STL_USE_NAMESPACES
+using __STD::ifstream;
+using __STD::ofstream;
+using __STD::fstream;
 
 #ifdef _GLIBCPP_USE_WCHAR_T
-using std::wifstream;
-using std::wofstream;
-using std::wfstream;
+using __STD::wifstream;
+using __STD::wofstream;
+using __STD::wfstream;
 #endif
 
-#endif
+#endif /* __STL_USE_NAMESPACES */
+
+#endif /* _CPP_BACKWARD_FSTREAM_H */
 
 // Local Variables:
 // mode:C++

@@ -67,10 +67,11 @@ AR = @AR@
 AS = @AS@
 CC = @CC@
 CPP = @CPP@
-CPU_FLAGS = @CPU_FLAGS@
-CSHADOWFLAGS = @CSHADOWFLAGS@
+CSHADOW_FLAGS = @CSHADOW_FLAGS@
+CSHADOW_INCLUDES = @CSHADOW_INCLUDES@
 CXX = @CXX@
 CXXCPP = @CXXCPP@
+C_INCLUDE_DIR = @C_INCLUDE_DIR@
 DEBUG_FLAGS = @DEBUG_FLAGS@
 DLLTOOL = @DLLTOOL@
 EXEEXT = @EXEEXT@
@@ -80,31 +81,31 @@ GCJ = @GCJ@
 GCJFLAGS = @GCJFLAGS@
 GLIBCPP_CFLAGS = @GLIBCPP_CFLAGS@
 GLIBCPP_CXXFLAGS = @GLIBCPP_CXXFLAGS@
+GLIBCPP_INCLUDE_DIR = @GLIBCPP_INCLUDE_DIR@
+LIBIO_INCLUDES = @LIBIO_INCLUDES@
 LIBMATHOBJS = @LIBMATHOBJS@
+LIBMATH_INCLUDES = @LIBMATH_INCLUDES@
 LIBSTRINGOBJS = @LIBSTRINGOBJS@
+LIBSUPCXX_INCLUDES = @LIBSUPCXX_INCLUDES@
 LIBTOOL = @LIBTOOL@
 LN_S = @LN_S@
 MAINT = @MAINT@
 MAKEINFO = @MAKEINFO@
 OBJDUMP = @OBJDUMP@
 OBJEXT = @OBJEXT@
+OPTIMIZE_CXXFLAGS = @OPTIMIZE_CXXFLAGS@
 OPT_LDFLAGS = @OPT_LDFLAGS@
 PACKAGE = @PACKAGE@
 RANLIB = @RANLIB@
 SECTION_FLAGS = @SECTION_FLAGS@
 SECTION_LDFLAGS = @SECTION_LDFLAGS@
 STRIP = @STRIP@
-THREADDEPS = @THREADDEPS@
-THREADINCS = @THREADINCS@
-THREADLIBS = @THREADLIBS@
-THREADOBJS = @THREADOBJS@
-THREADSPEC = @THREADSPEC@
+TOPLEVEL_INCLUDES = @TOPLEVEL_INCLUDES@
 USE_COMPLEX_LONG_DOUBLE = @USE_COMPLEX_LONG_DOUBLE@
 VERSION = @VERSION@
+WARN_FLAGS = @WARN_FLAGS@
 WERROR = @WERROR@
 WFMT_FLAGS = @WFMT_FLAGS@
-cpu_include_dir = @cpu_include_dir@
-ctype_include_dir = @ctype_include_dir@
 glibcpp_basedir = @glibcpp_basedir@
 ifGNUmake = @ifGNUmake@
 libinst_wstring_la = @libinst_wstring_la@
@@ -117,29 +118,7 @@ MAINT_CHARSET = latin1
 INTERFACE = v3
 gxx_include_dir = $(includedir)/g++
 
-SUBDIRS = math libio src
-
-#all-local:  stamp-rebuild
-
-# This has already been sanity-checked by configure to a certain extent
-#stamp-rebuild:  $(top_builddir)/config.status
-#	if test "$(GCC_OBJDIR)" != "no"; then \
-#	(cd "$(GCC_OBJDIR)/gcc" && \
-#	 if test -f libgcc2.ready ; then \
-#	   rm -f libgcc2.ready libgcc.a libgcc2.a ; \
-#	   $(MAKE) libgcc2.a TARGET_LIBGCC2_CFLAGS='@NAMESPACES@' ; \
-#	   $(MAKE) libgcc.a ; \
-#	 else \
-#	   echo '** There does not appear to be a previously-built' ; \
-#	   echo '** library here.  Please see' ; \
-#	   echo '** <http://sourceware.cygnus.com/libstdc++/install.html>' ; \
-#	   echo '** In particular, the "Building and Installing' ; \
-#	   echo '** the library (without GCC sources)" section.' ; \
-#	   exit 1 ; \
-#	 fi \
-#	) \
-#	fi
-#	touch stamp-rebuild
+SUBDIRS = libio libmath libsupc++ src
 
 # Multilib support.
 MAKEOVERRIDES = 
@@ -155,7 +134,7 @@ MULTICLEAN = true
 # Work around what appears to be a GNU make bug handling MAKEFLAGS
 # values defined in terms of make variables, as is the case for CC and
 # friends when we are called from the top level Makefile.
-AM_MAKEFLAGS =  	"AR_FLAGS=$(AR_FLAGS)" 	"CC_FOR_BUILD=$(CC_FOR_BUILD)" 	"CC_FOR_TARGET=$(CC_FOR_TARGET)" 	"CFLAGS=$(CFLAGS)" 	"CXXFLAGS=$(CXXFLAGS)" 	"CFLAGS_FOR_BUILD=$(CFLAGS_FOR_BUILD)" 	"CFLAGS_FOR_TARGET=$(CFLAGS_FOR_TARGET)" 	"INSTALL=$(INSTALL)" 	"INSTALL_DATA=$(INSTALL_DATA)" 	"INSTALL_PROGRAM=$(INSTALL_PROGRAM)" 	"INSTALL_SCRIPT=$(INSTALL_SCRIPT)" 	"LDFLAGS=$(LDFLAGS)" 	"LIBCFLAGS=$(LIBCFLAGS)" 	"LIBCFLAGS_FOR_TARGET=$(LIBCFLAGS_FOR_TARGET)" 	"MAKE=$(MAKE)" 	"MAKEINFO=$(MAKEINFO) $(MAKEINFOFLAGS)" 	"PICFLAG=$(PICFLAG)" 	"PICFLAG_FOR_TARGET=$(PICFLAG_FOR_TARGET)" 	"SHELL=$(SHELL)" 	"EXPECT=$(EXPECT)" 	"RUNTEST=$(RUNTEST)" 	"RUNTESTFLAGS=$(RUNTESTFLAGS)" 	"exec_prefix=$(exec_prefix)" 	"infodir=$(infodir)" 	"libdir=$(libdir)" 	"includedir=$(includedir)" 	"prefix=$(prefix)" 	"tooldir=$(tooldir)" 	"AR=$(AR)" 	"AS=$(AS)" 	"CC=$(CC)" 	"CXX=$(CXX)" 	"LD=$(LD)" 	"LIBCFLAGS=$(LIBCFLAGS)" 	"PICFLAG=$(PICFLAG)" 	"RANLIB=$(RANLIB)" 	"NM=$(NM)" 	"NM_FOR_BUILD=$(NM_FOR_BUILD)" 	"NM_FOR_TARGET=$(NM_FOR_TARGET)" 	"DESTDIR=$(DESTDIR)" 	"WERROR=$(WERROR)"
+AM_MAKEFLAGS =  	"AR_FLAGS=$(AR_FLAGS)" 	"CC_FOR_BUILD=$(CC_FOR_BUILD)" 	"CC_FOR_TARGET=$(CC_FOR_TARGET)" 	"CFLAGS=$(CFLAGS)" 	"CXXFLAGS=$(CXXFLAGS)" 	"CFLAGS_FOR_BUILD=$(CFLAGS_FOR_BUILD)" 	"CFLAGS_FOR_TARGET=$(CFLAGS_FOR_TARGET)" 	"INSTALL=$(INSTALL)" 	"INSTALL_DATA=$(INSTALL_DATA)" 	"INSTALL_PROGRAM=$(INSTALL_PROGRAM)" 	"INSTALL_SCRIPT=$(INSTALL_SCRIPT)" 	"LDFLAGS=$(LDFLAGS)" 	"LIBCFLAGS=$(LIBCFLAGS)" 	"LIBCFLAGS_FOR_TARGET=$(LIBCFLAGS_FOR_TARGET)" 	"MAKE=$(MAKE)" 	"MAKEINFO=$(MAKEINFO) $(MAKEINFOFLAGS)" 	"PICFLAG=$(PICFLAG)" 	"PICFLAG_FOR_TARGET=$(PICFLAG_FOR_TARGET)" 	"SHELL=$(SHELL)" 	"EXPECT=$(EXPECT)" 	"RUNTEST=$(RUNTEST)" 	"RUNTESTFLAGS=$(RUNTESTFLAGS)" 	"exec_prefix=$(exec_prefix)" 	"infodir=$(infodir)" 	"libdir=$(libdir)" 	"includedir=$(includedir)" 	"prefix=$(prefix)" 	"tooldir=$(tooldir)" 	"AR=$(AR)" 	"AS=$(AS)" 	"CC=$(CC)" 	"CXX=$(CXX)" 	"LD=$(LD)" 	"LIBCFLAGS=$(LIBCFLAGS)" 	"PICFLAG=$(PICFLAG)" 	"RANLIB=$(RANLIB)" 	"NM=$(NM)" 	"NM_FOR_BUILD=$(NM_FOR_BUILD)" 	"NM_FOR_TARGET=$(NM_FOR_TARGET)" 	"DESTDIR=$(DESTDIR)" 	"WERROR=$(WERROR)" 
 
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 mkinstalldirs = $(SHELL) $(top_srcdir)/../mkinstalldirs

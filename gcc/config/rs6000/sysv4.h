@@ -644,7 +644,7 @@ extern int rs6000_pic_labelno;
 	putc ('\n', FILE);						\
       }									\
 									\
-    fprintf (FILE, "\t%s\t ", TYPE_ASM_OP);				\
+    fprintf (FILE, "%s", TYPE_ASM_OP);					\
     assemble_name (FILE, NAME);						\
     putc (',', FILE);							\
     fprintf (FILE, TYPE_OPERAND_FMT, "function");			\
@@ -738,16 +738,16 @@ extern int rs6000_pic_labelno;
 
 /* Override elfos.h definition.  */
 #undef	SKIP_ASM_OP
-#define SKIP_ASM_OP	".space"
+#define SKIP_ASM_OP	"\t.space\t"
 
 /* This says how to output assembler code to declare an
    uninitialized internal linkage data object.  Under SVR4,
    the linker seems to want the alignment of data objects
    to depend on their types.  We do exactly that here.  */
 
-#define	LOCAL_ASM_OP	".local"
+#define	LOCAL_ASM_OP	"\t.local\t"
 
-#define	LCOMM_ASM_OP	".lcomm"
+#define	LCOMM_ASM_OP	"\t.lcomm\t"
 
 /* Override elfos.h definition.  */
 #undef	ASM_OUTPUT_ALIGNED_LOCAL
@@ -762,14 +762,14 @@ do {									\
       ASM_OUTPUT_SKIP (FILE, SIZE);					\
       if (!flag_inhibit_size_directive && (SIZE) > 0)			\
 	{								\
-	  fprintf (FILE, "\t%s\t ", SIZE_ASM_OP);			\
+	  fprintf (FILE, "%s", SIZE_ASM_OP);				\
 	  assemble_name (FILE, NAME);					\
 	  fprintf (FILE, ",%d\n",  SIZE);				\
 	}								\
     }									\
   else									\
     {									\
-      fprintf (FILE, "\t%s\t", LCOMM_ASM_OP);				\
+      fprintf (FILE, "%s", LCOMM_ASM_OP);				\
       assemble_name ((FILE), (NAME));					\
       fprintf ((FILE), ",%u,%u\n", (SIZE), (ALIGN) / BITS_PER_UNIT);	\
     }									\
@@ -1007,7 +1007,7 @@ do {									\
     if (DEFAULT_ABI != ABI_SOLARIS)					\
       {									\
 	ctors_section ();						\
-	fprintf (FILE, "\t%s\t ", INT_ASM_OP);				\
+	fprintf (FILE, "%s", INT_ASM_OP);				\
 	assemble_name (FILE, NAME);					\
       }									\
     else								\
@@ -1028,7 +1028,7 @@ do {									\
     if (DEFAULT_ABI != ABI_SOLARIS)					\
       {									\
 	dtors_section ();						\
-	fprintf (FILE, "\t%s\t ", INT_ASM_OP);				\
+	fprintf (FILE, "%s", INT_ASM_OP);				\
 	assemble_name (FILE, NAME);					\
       }									\
     else								\

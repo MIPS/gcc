@@ -37,7 +37,7 @@ Boston, MA 02111-1307, USA.  */
 #undef ASM_APP_OFF
 #define ASM_APP_OFF "#NO_APP\n"
 
-#define SET_ASM_OP	".set"
+#define SET_ASM_OP	"\t.set\t"
 
 /* Use stabs instead of DWARF debug format.  */
 #undef PREFERRED_DEBUGGING_TYPE

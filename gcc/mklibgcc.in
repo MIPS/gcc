@@ -23,6 +23,11 @@
 # LIBGCC
 # MULTILIBS
 # EXTRA_MULTILIB_PARTS
+# SHLIB_EXT
+# SHLIB_LINK
+# SHLIB_MULTILIB
+# SHLIB_MKMAP
+# SHLIB_MAPFILES
 
 # Make needs VPATH to be literal.
 echo 'srcdir = @srcdir@'
@@ -49,6 +54,10 @@ EOF
   rm -f $tmp
 fi
 
+# Disable SHLIB_LINK if shared libgcc not enabled.
+if [ "@enable_shared@" = "no" ]; then
+  SHLIB_LINK=""
+fi
 
 # Build lines.
 
@@ -216,48 +225,25 @@ for file in $LIB2ADD; do
   name=`echo $file | sed -e 's/[.][cSo]$//' -e 's/[.]asm$//' -e 's/[.]txt$//'`
   oname=`echo $name | sed -e 's,.*/,,'`
 
-  if [ ${name}.txt = ${file} ]; then
-    fprime=`cat $file`
-    for f in $fprime; do
+  for ml in $MULTILIBS; do
+    dir=`echo ${ml} | sed -e 's/;.*$//' -e 's/=/$(EQ)/g'`
+    flags=`echo ${ml} | sed -e 's/^[^;]*;//' -e 's/@/ -/g'`;
+    out="libgcc/${dir}/${oname}${objext}"
+    if [ ${name}.asm = ${file} ]; then
+      flags="$flags -xassembler-with-cpp"
+    fi
 
-      lastout="stmp-dirs $file"
-      for ml in $MULTILIBS; do
-        dir=`echo ${ml} | sed -e 's/;.*$//' -e 's/=/$(EQ)/g'`
-        flags=`echo ${ml} | sed -e 's/^[^;]*;//' -e 's/@/ -/g'`;
-        out="libgcc/${dir}/${f}"
-
-	# Depend on previous out to serialize all sub-makes of this
-	# target file.  This because ./$f is used as a temporary in
-	# each case before being moved to libgcc/$dir/.
-	echo $out: $lastout
-	echo "	$make_compile" \\
-	echo '	  LIBGCC2_CFLAGS="$(LIBGCC2_CFLAGS)' $flags '" ' \\
-	echo '	  MULTILIB_CFLAGS="'$flags'"' $f
-	echo "	mv $f $out"
-
-	lastout="$out"
-      done
-
-      libgcc2_objs="$libgcc2_objs $f"
-    done
-  else
-    for ml in $MULTILIBS; do
-      dir=`echo ${ml} | sed -e 's/;.*$//' -e 's/=/$(EQ)/g'`
-      flags=`echo ${ml} | sed -e 's/^[^;]*;//' -e 's/@/ -/g'`;
-      out="libgcc/${dir}/${oname}${objext}"
-      if [ ${name}.asm = ${file} ]; then
-	flags="$flags -xassembler-with-cpp"
-      fi
-
-      echo $out: stmp-dirs $file
-      echo "	$gcc_compile" $flags -c $file -o $out
-    done
-    libgcc2_objs="$libgcc2_objs ${oname}${objext}"
-  fi
+    echo $out: stmp-dirs $file
+    echo "	$gcc_compile" $flags -c $file -o $out
+  done
+  libgcc2_objs="$libgcc2_objs ${oname}${objext}"
 done
 
+# SHLIB_MKMAP
+# SHLIB_MAPFILES
 for ml in $MULTILIBS; do
   dir=`echo ${ml} | sed -e 's/;.*$//' -e 's/=/$(EQ)/g'`
+  flags=`echo ${ml} | sed -e 's/^[^;]*;//' -e 's/@/ -/g'`;
 
   libgcc_objs=""
   for o in $libgcc1_objs; do
@@ -270,6 +256,22 @@ for ml in $MULTILIBS; do
   for o in $libgcc2_objs; do
     libgcc_objs="$libgcc_objs libgcc/${dir}/$o"
   done
+  shlib_deps="$libgcc_objs"
+
+  if [ "$SHLIB_LINK" -a "$SHLIB_MKMAP" -a -z "$mapfile" ]; then
+    mapfile="libgcc.map"
+    echo ""
+    echo "${mapfile}: $SHLIB_MKMAP $SHLIB_MAPFILES $libgcc_objs"
+    echo '	{ $(NM_FOR_TARGET) -pg'" $libgcc_objs; echo %%; cat $SHLIB_MAPFILES; } | "'$(AWK)'" -f $SHLIB_MKMAP > "'tmp-$@'
+    echo '	mv tmp-$@ $@'
+  fi
+  shlib_deps="$shlib_deps $mapfile"
+
+  # Depend on EXTRA_MULTILIB_PARTS, since that's where crtbegin/end
+  # usually are put in a true multilib situation.
+  for f in $EXTRA_MULTILIB_PARTS; do
+    shlib_deps="$shlib_deps $dir/$f"
+  done
 
   echo ""
   echo "${dir}/libgcc.a: $libgcc_objs"
@@ -278,6 +280,34 @@ for ml in $MULTILIBS; do
   echo '	if $(RANLIB_TEST_FOR_TARGET) ; then' \\
   echo '	  $(RANLIB_FOR_TARGET)' ${dir}/libgcc.a ';' \\
   echo '	else true; fi;'
+
+  if [ "$SHLIB_LINK" ]; then
+    if [ -z "$SHLIB_MULTILIB" ]; then
+      if [ "$dir" = "." ]; then
+	shlib_base_name="libgcc_s";
+      else
+	shlib_base_name=libgcc_s_`echo $dir | sed s,/,_,g`
+      fi
+      echo ""
+      echo "${dir}/${shlib_base_name}${SHLIB_EXT}: $shlib_deps"
+      echo "	$SHLIB_LINK" \
+	 | sed -e "s%@multilib_flags@%$flags%g" \
+	       -e "s%@multilib_dir@%$dir%g" \
+	       -e "s%@shlib_objs@%$libgcc_objs%g" \
+	       -e "s%@shlib_base_name@%$shlib_base_name%g" \
+	       -e "s%@shlib_map_file@%$mapfile%g"
+    elif [ "$SHLIB_MULTILIB" = "$dir" ]; then
+      shlib_base_name="libgcc_s";
+      echo ""
+      echo "${shlib_base_name}${SHLIB_EXT}: $shlib_deps"
+      echo "	$SHLIB_LINK" \
+	 | sed -e "s%@multilib_flags@%$flags%g" \
+	       -e "s%@multilib_dir@%$dir%g" \
+	       -e "s%@shlib_objs@%$libgcc_objs%g" \
+	       -e "s%@shlib_base_name@%$shlib_base_name%g" \
+	       -e "s%@shlib_map_file@%$mapfile%g"
+    fi
+  fi
 done
 
 dirs=libgcc
@@ -306,6 +336,18 @@ for ml in $MULTILIBS; do
     dirs="$dirs ${dir} libgcc/${dir}"
   fi
   all="$all ${dir}/libgcc.a"
+  if [ "$SHLIB_LINK" ]; then
+    if [ -z "$SHLIB_MULTILIB" ]; then
+      if [ "$dir" = "." ]; then
+	suff="";
+      else
+	suff=_`echo $dir | sed s,/,_,g`
+      fi
+      all="$all ${dir}/libgcc_s${suff}${SHLIB_EXT}"
+    elif [ "$SHLIB_MULTILIB" = "$dir" ]; then
+      all="$all libgcc_s${SHLIB_EXT}"
+    fi
+  fi
 done
 
 echo 'stmp-dirs: force'

@@ -67,8 +67,7 @@ AR = @AR@
 AS = @AS@
 CC = @CC@
 CPP = @CPP@
-CPU_FLAGS = @CPU_FLAGS@
-CSHADOWFLAGS = @CSHADOWFLAGS@
+CSHADOW_FLAGS = @CSHADOW_FLAGS@
 CXX = @CXX@
 CXXCPP = @CXXCPP@
 DEBUG_FLAGS = @DEBUG_FLAGS@
@@ -88,65 +87,40 @@ MAINT = @MAINT@
 MAKEINFO = @MAKEINFO@
 OBJDUMP = @OBJDUMP@
 OBJEXT = @OBJEXT@
+OPTIMIZE_CXXFLAGS = @OPTIMIZE_CXXFLAGS@
 OPT_LDFLAGS = @OPT_LDFLAGS@
 PACKAGE = @PACKAGE@
 RANLIB = @RANLIB@
 SECTION_FLAGS = @SECTION_FLAGS@
 SECTION_LDFLAGS = @SECTION_LDFLAGS@
 STRIP = @STRIP@
-THREADDEPS = @THREADDEPS@
-THREADINCS = @THREADINCS@
-THREADLIBS = @THREADLIBS@
-THREADOBJS = @THREADOBJS@
-THREADSPEC = @THREADSPEC@
 USE_COMPLEX_LONG_DOUBLE = @USE_COMPLEX_LONG_DOUBLE@
 VERSION = @VERSION@
+WARN_FLAGS = @WARN_FLAGS@
 WERROR = @WERROR@
 WFMT_FLAGS = @WFMT_FLAGS@
-cpu_include_dir = @cpu_include_dir@
-ctype_include_dir = @ctype_include_dir@
 glibcpp_basedir = @glibcpp_basedir@
 ifGNUmake = @ifGNUmake@
 libinst_wstring_la = @libinst_wstring_la@
 
 AUTOMAKE_OPTIONS = 1.3 cygnus
 
-# Passed down for cross compilers, canadian crosses.
-TOPLEVEL_INCLUDES = -I$(includedir)
-@GLIBCPP_NEED_LIBIO_TRUE@LIBIO_INCLUDES = 	-I$(top_builddir)/libio -I$(top_srcdir)/libio 
-@GLIBCPP_NEED_LIBIO_FALSE@LIBIO_INCLUDES = 
-
-CONFIG_INCLUDES =  	-I$(top_srcdir)/@cpu_include_dir@ 	-I$(top_srcdir)/@ctype_include_dir@
-
-
-INCLUDES =  	-nostdinc++ -I$(top_srcdir) 	$(LIBIO_INCLUDES) $(CONFIG_INCLUDES) 	$(TOPLEVEL_INCLUDES)	
-
-
 noinst_LTLIBRARIES = libio.la
 
-# These bits are all figured out from configure. Look in acinclude.m4
-# or configure.in to see how they are set.
-# NB: DEBUGFLAGS have to be at the end so that -O2 can be overridden.
-AC_CFLAGS =  	$(WERROR) @CPU_FLAGS@ @DEBUG_FLAGS@ 
+# Use common includes from acinclude.m4/GLIBCPP_EXPORT_INCLUDES
+GLIBCPP_INCLUDE_DIR = @GLIBCPP_INCLUDE_DIR@
+C_INCLUDE_DIR = @C_INCLUDE_DIR@
+TOPLEVEL_INCLUDES = @TOPLEVEL_INCLUDES@
+LIBMATH_INCLUDES = @LIBMATH_INCLUDES@
+LIBSUPCXX_INCLUDES = @LIBSUPCXX_INCLUDES@
+LIBIO_INCLUDES = @LIBIO_INCLUDES@
+CSHADOW_INCLUDES = @CSHADOW_INCLUDES@
 
+INCLUDES =  	-nostdinc++ 	-I$(top_builddir) -I$(GLIBCPP_INCLUDE_DIR) 	$(LIBIO_INCLUDES) $(TOPLEVEL_INCLUDES)	
 
-# Need to manually set this option because AC_CXXFLAGS has to be at
-# the end of the compile line so that -O2 can be overridden as the
-# occasion call for it. (ie, --enable-debug)
-AM_CFLAGS =  	-D_GNU_SOURCE $(AC_CFLAGS) 
-
-
-COMPILE = $(CC) $(DEFS) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(CFLAGS) 	$(AM_CFLAGS) 
-
-
-LTCOMPILE = $(LIBTOOL) --mode=compile $(CC) $(DEFS) $(INCLUDES) 	$(AM_CPPFLAGS) \$(CPPFLAGS)  $(CFLAGS) $(AM_CFLAGS)
-
-
-LINK = $(LIBTOOL) --mode=link "$(CCLD)" $(CFLAGS) $(AM_CFLAGS) $(LDFLAGS) -o $@
 
 libio_headers =          libio.h libioP.h iolibio.h
 
-#	filedoalloc.c genops.c fileops.c stdfiles.c cleanup.c c_codecvt.c
 @GLIBCPP_NEED_LIBIO_TRUE@LIBIO_SRCS = 	filedoalloc.c genops.c fileops.c stdfiles.c c_codecvt.c
 @GLIBCPP_NEED_LIBIO_FALSE@LIBIO_SRCS = 
 @GLIBCPP_NEED_WLIBIO_TRUE@LIBIO_WSRCS = 	wfiledoalloc.c wfileops.c wgenops.c
@@ -156,9 +130,9 @@ libio_headers =          libio.h libioP.h iolibio.h
 
 EXTRA_DIST = iostreamP.h
 
-libio_la_LIBADD = $(LIBIO_SRCS) $(LIBIO_WSRCS) $(LIBIO_XTRASRCS)
-libio_la_DEPENDENCIES = $(libio_la_LIBADD)
 libio_la_SOURCES = $(LIBIO_SRCS) $(LIBIO_WSRCS) $(LIBIO_XTRASRCS)
+
+AM_CFLAGS = -D_GNU_SOURCE @DEBUG_FLAGS@ 
 mkinstalldirs = $(SHELL) $(top_srcdir)/../mkinstalldirs
 CONFIG_HEADER = ../config.h
 CONFIG_CLEAN_FILES = 
@@ -170,6 +144,7 @@ CPPFLAGS = @CPPFLAGS@
 LDFLAGS = @LDFLAGS@
 LIBS = @LIBS@
 libio_la_LDFLAGS = 
+libio_la_LIBADD = 
 @GLIBCPP_NEED_WLIBIO_FALSE@@GLIBCPP_NEED_XTRA_LIBIO_FALSE@@GLIBCPP_NEED_LIBIO_FALSE@libio_la_OBJECTS = 
 @GLIBCPP_NEED_WLIBIO_FALSE@@GLIBCPP_NEED_XTRA_LIBIO_TRUE@@GLIBCPP_NEED_LIBIO_FALSE@libio_la_OBJECTS =  \
 @GLIBCPP_NEED_WLIBIO_FALSE@@GLIBCPP_NEED_XTRA_LIBIO_TRUE@@GLIBCPP_NEED_LIBIO_FALSE@iofwide.lo \
@@ -227,7 +202,10 @@ libio_la_LDFLAGS =
 @GLIBCPP_NEED_WLIBIO_TRUE@@GLIBCPP_NEED_XTRA_LIBIO_TRUE@@GLIBCPP_NEED_LIBIO_TRUE@iofopen.lo \
 @GLIBCPP_NEED_WLIBIO_TRUE@@GLIBCPP_NEED_XTRA_LIBIO_TRUE@@GLIBCPP_NEED_LIBIO_TRUE@stdio.lo
 CFLAGS = @CFLAGS@
+COMPILE = $(CC) $(DEFS) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
+LTCOMPILE = $(LIBTOOL) --mode=compile $(CC) $(DEFS) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
 CCLD = $(CC)
+LINK = $(LIBTOOL) --mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(LDFLAGS) -o $@
 DIST_COMMON =  ChangeLog Makefile.am Makefile.in
 
 

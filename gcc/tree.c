@@ -53,111 +53,9 @@ extern int _obstack_allocated_p PARAMS ((struct obstack *h, PTR obj));
 
 static void unsave_expr_now_r PARAMS ((tree));
 
-/* Tree nodes of permanent duration are allocated in this obstack.
-   They are the identifier nodes, and everything outside of
-   the bodies and parameters of function definitions.  */
+/* Objects allocated on this obstack last forever.  */
 
 struct obstack permanent_obstack;
-
-/* The initial RTL, and all ..._TYPE nodes, in a function
-   are allocated in this obstack.  Usually they are freed at the
-   end of the function, but if the function is inline they are saved.
-   For top-level functions, this is maybepermanent_obstack.
-   Separate obstacks are made for nested functions.  */
-
-struct obstack *function_maybepermanent_obstack;
-
-/* This is the function_maybepermanent_obstack for top-level functions.  */
-
-struct obstack maybepermanent_obstack;
-
-/* The contents of the current function definition are allocated
-   in this obstack, and all are freed at the end of the function.
-   For top-level functions, this is temporary_obstack.
-   Separate obstacks are made for nested functions.  */
-
-struct obstack *function_obstack;
-
-/* This is used for reading initializers of global variables.  */
-
-struct obstack temporary_obstack;
-
-/* The tree nodes of an expression are allocated
-   in this obstack, and all are freed at the end of the expression.  */
-
-struct obstack momentary_obstack;
-
-/* The tree nodes of a declarator are allocated
-   in this obstack, and all are freed when the declarator
-   has been parsed.  */
-
-static struct obstack temp_decl_obstack;
-
-/* This points at either permanent_obstack
-   or the current function_maybepermanent_obstack.  */
-
-struct obstack *saveable_obstack;
-
-/* This is same as saveable_obstack during parse and expansion phase;
-   it points to the current function's obstack during optimization.
-   This is the obstack to be used for creating rtl objects.  */
-
-struct obstack *rtl_obstack;
-
-/* This points at either permanent_obstack or the current function_obstack.  */
-
-struct obstack *current_obstack;
-
-/* This points at either permanent_obstack or the current function_obstack
-   or momentary_obstack.  */
-
-struct obstack *expression_obstack;
-
-/* Stack of obstack selections for push_obstacks and pop_obstacks.  */
-
-struct obstack_stack
-{
-  struct obstack_stack *next;
-  struct obstack *current;
-  struct obstack *saveable;
-  struct obstack *expression;
-  struct obstack *rtl;
-};
-
-struct obstack_stack *obstack_stack;
-
-/* Obstack for allocating struct obstack_stack entries.  */
-
-static struct obstack obstack_stack_obstack;
-
-/* Addresses of first objects in some obstacks.
-   This is for freeing their entire contents.  */
-char *maybepermanent_firstobj;
-char *temporary_firstobj;
-char *momentary_firstobj;
-char *temp_decl_firstobj;
-
-/* This is used to preserve objects (mainly array initializers) that need to
-   live until the end of the current function, but no further.  */
-char *momentary_function_firstobj;
-
-/* Nonzero means all ..._TYPE nodes should be allocated permanently.  */
-
-int all_types_permanent;
-
-/* Stack of places to restore the momentary obstack back to.  */
-
-struct momentary_level
-{
-  /* Pointer back to previous such level.  */
-  struct momentary_level *prev;
-  /* First object allocated within this level.  */
-  char *base;
-  /* Value of expression_obstack saved at entry to this level.  */
-  struct obstack *obstack;
-};
-
-struct momentary_level *momentary_stack;
 
 /* Table indexed by tree code giving a string containing a character
    classifying the tree code.  Possibilities are
@@ -246,10 +144,6 @@ static int next_decl_uid;
 /* Unique id for next type created.  */
 static int next_type_uid = 1;
 
-/* Pointer to function to check the format of printf, etc.  This is
-   used by the backend, e.g. builtins.c.  */
-void (*check_function_format_ptr) PARAMS ((int *, tree, tree, tree)) = 0;
-
 /* Here is how primitive or already-canonicalized types' hash
    codes are made.  */
 #define TYPE_HASH(TYPE) ((unsigned long) (TYPE) & 0777777)
@@ -308,25 +202,7 @@ tree integer_types[itk_none];
 void
 init_obstacks ()
 {
-  gcc_obstack_init (&obstack_stack_obstack);
   gcc_obstack_init (&permanent_obstack);
-
-  gcc_obstack_init (&temporary_obstack);
-  temporary_firstobj = (char *) obstack_alloc (&temporary_obstack, 0);
-  gcc_obstack_init (&momentary_obstack);
-  momentary_firstobj = (char *) obstack_alloc (&momentary_obstack, 0);
-  momentary_function_firstobj = momentary_firstobj;
-  gcc_obstack_init (&maybepermanent_obstack);
-  maybepermanent_firstobj
-    = (char *) obstack_alloc (&maybepermanent_obstack, 0);
-  gcc_obstack_init (&temp_decl_obstack);
-  temp_decl_firstobj = (char *) obstack_alloc (&temp_decl_obstack, 0);
-
-  function_obstack = &temporary_obstack;
-  function_maybepermanent_obstack = &maybepermanent_obstack;
-  current_obstack = &permanent_obstack;
-  expression_obstack = &permanent_obstack;
-  rtl_obstack = saveable_obstack = &permanent_obstack;
 
   /* Init the hash table of identifiers.  */
   bzero ((char *) hash_table, sizeof hash_table);
@@ -360,309 +236,7 @@ gcc_obstack_init (obstack)
 		  (void (*) PARAMS ((void *))) OBSTACK_CHUNK_FREE);
 }
 
-/* Save all variables describing the current status into the structure
-   *P.  This function is called whenever we start compiling one
-   function in the midst of compiling another.  For example, when
-   compiling a nested function, or, in C++, a template instantiation
-   that is required by the function we are currently compiling.
-
-   CONTEXT is the decl_function_context for the function we're about to
-   compile; if it isn't current_function_decl, we have to play some games.  */
-
-void
-save_tree_status (p)
-     struct function *p;
-{
-  p->all_types_permanent = all_types_permanent;
-  p->momentary_stack = momentary_stack;
-  p->maybepermanent_firstobj = maybepermanent_firstobj;
-  p->temporary_firstobj = temporary_firstobj;
-  p->momentary_firstobj = momentary_firstobj;
-  p->momentary_function_firstobj = momentary_function_firstobj;
-  p->function_obstack = function_obstack;
-  p->function_maybepermanent_obstack = function_maybepermanent_obstack;
-  p->current_obstack = current_obstack;
-  p->expression_obstack = expression_obstack;
-  p->saveable_obstack = saveable_obstack;
-  p->rtl_obstack = rtl_obstack;
-
-  function_maybepermanent_obstack
-    = (struct obstack *) xmalloc (sizeof (struct obstack));
-  gcc_obstack_init (function_maybepermanent_obstack);
-  maybepermanent_firstobj
-    = (char *) obstack_finish (function_maybepermanent_obstack);
-
-  function_obstack = (struct obstack *) xmalloc (sizeof (struct obstack));
-  gcc_obstack_init (function_obstack);
-
-  current_obstack = &permanent_obstack;
-  expression_obstack = &permanent_obstack;
-  rtl_obstack = saveable_obstack = &permanent_obstack;
-
-  temporary_firstobj = (char *) obstack_alloc (&temporary_obstack, 0);
-  momentary_firstobj = (char *) obstack_finish (&momentary_obstack);
-  momentary_function_firstobj = momentary_firstobj;
-}
-
-/* Restore all variables describing the current status from the structure *P.
-   This is used after a nested function.  */
-
-void
-restore_tree_status (p)
-     struct function *p;
-{
-  all_types_permanent = p->all_types_permanent;
-  momentary_stack = p->momentary_stack;
-
-  obstack_free (&momentary_obstack, momentary_function_firstobj);
-
-  /* Free saveable storage used by the function just compiled and not
-     saved.  */
-  obstack_free (function_maybepermanent_obstack, maybepermanent_firstobj);
-  if (obstack_empty_p (function_maybepermanent_obstack))
-    {
-      obstack_free (function_maybepermanent_obstack, NULL);
-      free (function_maybepermanent_obstack);
-    }
-
-  obstack_free (&temporary_obstack, temporary_firstobj);
-  obstack_free (&momentary_obstack, momentary_function_firstobj);
-
-  obstack_free (function_obstack, NULL);
-  free (function_obstack);
-
-  temporary_firstobj = p->temporary_firstobj;
-  momentary_firstobj = p->momentary_firstobj;
-  momentary_function_firstobj = p->momentary_function_firstobj;
-  maybepermanent_firstobj = p->maybepermanent_firstobj;
-  function_obstack = p->function_obstack;
-  function_maybepermanent_obstack = p->function_maybepermanent_obstack;
-  current_obstack = p->current_obstack;
-  expression_obstack = p->expression_obstack;
-  saveable_obstack = p->saveable_obstack;
-  rtl_obstack = p->rtl_obstack;
-}
 
-/* Start allocating on the temporary (per function) obstack.
-   This is done in start_function before parsing the function body,
-   and before each initialization at top level, and to go back
-   to temporary allocation after doing permanent_allocation.  */
-
-void
-temporary_allocation ()
-{
-  /* Note that function_obstack at top level points to temporary_obstack.
-     But within a nested function context, it is a separate obstack.  */
-  current_obstack = function_obstack;
-  expression_obstack = function_obstack;
-  rtl_obstack = saveable_obstack = function_maybepermanent_obstack;
-  momentary_stack = 0;
-}
-
-/* Start allocating on the permanent obstack but don't
-   free the temporary data.  After calling this, call
-   `permanent_allocation' to fully resume permanent allocation status.  */
-
-void
-end_temporary_allocation ()
-{
-  current_obstack = &permanent_obstack;
-  expression_obstack = &permanent_obstack;
-  rtl_obstack = saveable_obstack = &permanent_obstack;
-}
-
-/* Resume allocating on the temporary obstack, undoing
-   effects of `end_temporary_allocation'.  */
-
-void
-resume_temporary_allocation ()
-{
-  current_obstack = function_obstack;
-  expression_obstack = function_obstack;
-  rtl_obstack = saveable_obstack = function_maybepermanent_obstack;
-}
-
-/* While doing temporary allocation, switch to allocating in such a
-   way as to save all nodes if the function is inlined.  Call
-   resume_temporary_allocation to go back to ordinary temporary
-   allocation.  */
-
-void
-saveable_allocation ()
-{
-  /* Note that function_obstack at top level points to temporary_obstack.
-     But within a nested function context, it is a separate obstack.  */
-  expression_obstack = current_obstack = saveable_obstack;
-}
-
-/* Switch to current obstack CURRENT and maybepermanent obstack SAVEABLE,
-   recording the previously current obstacks on a stack.
-   This does not free any storage in any obstack.  */
-
-void
-push_obstacks (current, saveable)
-     struct obstack *current, *saveable;
-{
-  struct obstack_stack *p;
-
-  p = (struct obstack_stack *) obstack_alloc (&obstack_stack_obstack,
-					      (sizeof (struct obstack_stack)));
-
-  p->current = current_obstack;
-  p->saveable = saveable_obstack;
-  p->expression = expression_obstack;
-  p->rtl = rtl_obstack;
-  p->next = obstack_stack;
-  obstack_stack = p;
-
-  current_obstack = current;
-  expression_obstack = current;
-  rtl_obstack = saveable_obstack = saveable;
-}
-
-/* Save the current set of obstacks, but don't change them.  */
-
-void
-push_obstacks_nochange ()
-{
-  struct obstack_stack *p;
-
-  p = (struct obstack_stack *) obstack_alloc (&obstack_stack_obstack,
-					      (sizeof (struct obstack_stack)));
-
-  p->current = current_obstack;
-  p->saveable = saveable_obstack;
-  p->expression = expression_obstack;
-  p->rtl = rtl_obstack;
-  p->next = obstack_stack;
-  obstack_stack = p;
-}
-
-/* Pop the obstack selection stack.  */
-
-void
-pop_obstacks ()
-{
-  struct obstack_stack *p;
-
-  p = obstack_stack;
-  obstack_stack = p->next;
-
-  current_obstack = p->current;
-  saveable_obstack = p->saveable;
-  expression_obstack = p->expression;
-  rtl_obstack = p->rtl;
-
-  obstack_free (&obstack_stack_obstack, p);
-}
-
-/* Nonzero if temporary allocation is currently in effect.
-   Zero if currently doing permanent allocation.  */
-
-int
-allocation_temporary_p ()
-{
-  return current_obstack != &permanent_obstack;
-}
-
-/* Go back to allocating on the permanent obstack
-   and free everything in the temporary obstack.
-
-   FUNCTION_END is true only if we have just finished compiling a function.
-   In that case, we also free preserved initial values on the momentary
-   obstack.  */
-
-void
-permanent_allocation (function_end)
-     int function_end;
-{
-  /* Free up previous temporary obstack data */
-  obstack_free (&temporary_obstack, temporary_firstobj);
-  if (function_end)
-    {
-      obstack_free (&momentary_obstack, momentary_function_firstobj);
-      momentary_firstobj = momentary_function_firstobj;
-    }
-  else
-    obstack_free (&momentary_obstack, momentary_firstobj);
-
-  obstack_free (function_maybepermanent_obstack, maybepermanent_firstobj);
-  obstack_free (&temp_decl_obstack, temp_decl_firstobj);
-
-  current_obstack = &permanent_obstack;
-  expression_obstack = &permanent_obstack;
-  rtl_obstack = saveable_obstack = &permanent_obstack;
-}
-
-/* Save permanently everything on the maybepermanent_obstack.  */
-
-void
-preserve_data ()
-{
-  maybepermanent_firstobj
-    = (char *) obstack_alloc (function_maybepermanent_obstack, 0);
-}
-
-void
-preserve_initializer ()
-{
-  struct momentary_level *tem;
-  char *old_momentary;
-
-  temporary_firstobj
-    = (char *) obstack_alloc (&temporary_obstack, 0);
-  maybepermanent_firstobj
-    = (char *) obstack_alloc (function_maybepermanent_obstack, 0);
-
-  old_momentary = momentary_firstobj;
-  momentary_firstobj
-    = (char *) obstack_alloc (&momentary_obstack, 0);
-  if (momentary_firstobj != old_momentary)
-    for (tem = momentary_stack; tem; tem = tem->prev)
-      tem->base = momentary_firstobj;
-}
-
-/* Start allocating new rtl in current_obstack.
-   Use resume_temporary_allocation
-   to go back to allocating rtl in saveable_obstack.  */
-
-void
-rtl_in_current_obstack ()
-{
-  rtl_obstack = current_obstack;
-}
-
-/* Start allocating rtl from saveable_obstack.  Intended to be used after
-   a call to push_obstacks_nochange.  */
-
-void
-rtl_in_saveable_obstack ()
-{
-  rtl_obstack = saveable_obstack;
-}
-
-/* Allocate SIZE bytes in the current obstack
-   and return a pointer to them.
-   In practice the current obstack is always the temporary one.  */
-
-char *
-oballoc (size)
-     int size;
-{
-  return (char *) obstack_alloc (current_obstack, size);
-}
-
-/* Free the object PTR in the current obstack
-   as well as everything allocated since PTR.
-   In practice the current obstack is always the temporary one.  */
-
-void
-obfree (ptr)
-     char *ptr;
-{
-  obstack_free (current_obstack, ptr);
-}
-
 /* Allocate SIZE bytes in the permanent obstack
    and return a pointer to them.  */
 
@@ -687,204 +261,6 @@ perm_calloc (nelem, size)
   return rval;
 }
 
-/* Allocate SIZE bytes in the saveable obstack
-   and return a pointer to them.  */
-
-char *
-savealloc (size)
-     int size;
-{
-  return (char *) obstack_alloc (saveable_obstack, size);
-}
-
-/* Allocate SIZE bytes in the expression obstack
-   and return a pointer to them.  */
-
-char *
-expralloc (size)
-     int size;
-{
-  return (char *) obstack_alloc (expression_obstack, size);
-}
-
-/* Print out which obstack an object is in.  */
-
-void
-print_obstack_name (object, file, prefix)
-     char *object;
-     FILE *file;
-     const char *prefix;
-{
-  struct obstack *obstack = NULL;
-  const char *obstack_name = NULL;
-  struct function *p;
-
-  for (p = outer_function_chain; p; p = p->next)
-    {
-      if (_obstack_allocated_p (p->function_obstack, object))
-	{
-	  obstack = p->function_obstack;
-	  obstack_name = "containing function obstack";
-	}
-      if (_obstack_allocated_p (p->function_maybepermanent_obstack, object))
-	{
-	  obstack = p->function_maybepermanent_obstack;
-	  obstack_name = "containing function maybepermanent obstack";
-	}
-    }
-
-  if (_obstack_allocated_p (&obstack_stack_obstack, object))
-    {
-      obstack = &obstack_stack_obstack;
-      obstack_name = "obstack_stack_obstack";
-    }
-  else if (_obstack_allocated_p (function_obstack, object))
-    {
-      obstack = function_obstack;
-      obstack_name = "function obstack";
-    }
-  else if (_obstack_allocated_p (&permanent_obstack, object))
-    {
-      obstack = &permanent_obstack;
-      obstack_name = "permanent_obstack";
-    }
-  else if (_obstack_allocated_p (&momentary_obstack, object))
-    {
-      obstack = &momentary_obstack;
-      obstack_name = "momentary_obstack";
-    }
-  else if (_obstack_allocated_p (function_maybepermanent_obstack, object))
-    {
-      obstack = function_maybepermanent_obstack;
-      obstack_name = "function maybepermanent obstack";
-    }
-  else if (_obstack_allocated_p (&temp_decl_obstack, object))
-    {
-      obstack = &temp_decl_obstack;
-      obstack_name = "temp_decl_obstack";
-    }
-
-  /* Check to see if the object is in the free area of the obstack.  */
-  if (obstack != NULL)
-    {
-      if (object >= obstack->next_free
-	  && object < obstack->chunk_limit)
-	fprintf (file, "%s in free portion of obstack %s",
-		 prefix, obstack_name);
-      else
-	fprintf (file, "%s allocated from %s", prefix, obstack_name);
-    }
-  else
-    fprintf (file, "%s not allocated from any obstack", prefix);
-}
-
-void
-debug_obstack (object)
-     char *object;
-{
-  print_obstack_name (object, stderr, "object");
-  fprintf (stderr, ".\n");
-}
-
-/* Return 1 if OBJ is in the permanent obstack.
-   This is slow, and should be used only for debugging.
-   Use TREE_PERMANENT for other purposes.  */
-
-int
-object_permanent_p (obj)
-     tree obj;
-{
-  return _obstack_allocated_p (&permanent_obstack, obj);
-}
-
-/* Start a level of momentary allocation.
-   In C, each compound statement has its own level
-   and that level is freed at the end of each statement.
-   All expression nodes are allocated in the momentary allocation level.  */
-
-void
-push_momentary ()
-{
-  struct momentary_level *tem
-    = (struct momentary_level *) obstack_alloc (&momentary_obstack,
-						sizeof (struct momentary_level));
-  tem->prev = momentary_stack;
-  tem->base = (char *) obstack_base (&momentary_obstack);
-  tem->obstack = expression_obstack;
-  momentary_stack = tem;
-  expression_obstack = &momentary_obstack;
-}
-
-/* Set things up so the next clear_momentary will only clear memory
-   past our present position in momentary_obstack.  */
-
-void
-preserve_momentary ()
-{
-  momentary_stack->base = (char *) obstack_base (&momentary_obstack);
-}
-
-/* Free all the storage in the current momentary-allocation level.
-   In C, this happens at the end of each statement.  */
-
-void
-clear_momentary ()
-{
-  obstack_free (&momentary_obstack, momentary_stack->base);
-}
-
-/* Discard a level of momentary allocation.
-   In C, this happens at the end of each compound statement.
-   Restore the status of expression node allocation
-   that was in effect before this level was created.  */
-
-void
-pop_momentary ()
-{
-  struct momentary_level *tem = momentary_stack;
-  momentary_stack = tem->prev;
-  expression_obstack = tem->obstack;
-  /* We can't free TEM from the momentary_obstack, because there might
-     be objects above it which have been saved.  We can free back to the
-     stack of the level we are popping off though.  */
-  obstack_free (&momentary_obstack, tem->base);
-}
-
-/* Pop back to the previous level of momentary allocation,
-   but don't free any momentary data just yet.  */
-
-void
-pop_momentary_nofree ()
-{
-  struct momentary_level *tem = momentary_stack;
-  momentary_stack = tem->prev;
-  expression_obstack = tem->obstack;
-}
-
-/* Call when starting to parse a declaration:
-   make expressions in the declaration last the length of the function.
-   Returns an argument that should be passed to resume_momentary later.  */
-
-int
-suspend_momentary ()
-{
-  register int tem = expression_obstack == &momentary_obstack;
-  expression_obstack = saveable_obstack;
-  return tem;
-}
-
-/* Call when finished parsing a declaration:
-   restore the treatment of node-allocation that was
-   in effect before the suspension.
-   YES should be the value previously returned by suspend_momentary.  */
-
-void
-resume_momentary (yes)
-     int yes;
-{
-  if (yes)
-    expression_obstack = &momentary_obstack;
-}
 
 /* Init the tables indexed by tree code.
    Note that languages can add to these tables to define their own codes.  */
@@ -897,10 +273,64 @@ init_tree_codes ()
   ggc_add_string_root (&built_in_filename, 1);
 }
 
+/* Compute the number of bytes occupied by 'node'.  This routine only
+   looks at TREE_CODE and, if the code is TREE_VEC, TREE_VEC_LENGTH.  */
+size_t
+tree_size (node)
+     tree node;
+{
+  enum tree_code code = TREE_CODE (node);
+
+  switch (TREE_CODE_CLASS (code))
+    {
+    case 'd':  /* A decl node */
+      return sizeof (struct tree_decl);
+
+    case 't':  /* a type node */
+      return sizeof (struct tree_type);
+
+    case 'b':  /* a lexical block node */
+      return sizeof (struct tree_block);
+
+    case 'r':  /* a reference */
+    case 'e':  /* an expression */
+    case 's':  /* an expression with side effects */
+    case '<':  /* a comparison expression */
+    case '1':  /* a unary arithmetic expression */
+    case '2':  /* a binary arithmetic expression */
+      return (sizeof (struct tree_exp)
+	      + (TREE_CODE_LENGTH (code) - 1) * sizeof (char *));
+
+    case 'c':  /* a constant */
+      /* We can't use TREE_CODE_LENGTH for INTEGER_CST, since the number of
+	 words is machine-dependent due to varying length of HOST_WIDE_INT,
+	 which might be wider than a pointer (e.g., long long).  Similarly
+	 for REAL_CST, since the number of words is machine-dependent due
+	 to varying size and alignment of `double'.  */
+      if (code == INTEGER_CST)
+	return sizeof (struct tree_int_cst);
+      else if (code == REAL_CST)
+	return sizeof (struct tree_real_cst);
+      else
+	return (sizeof (struct tree_common)
+		+ TREE_CODE_LENGTH (code) * sizeof (char *));
+
+    case 'x':  /* something random, like an identifier.  */
+      {
+	  size_t length;
+	  length = (sizeof (struct tree_common)
+		    + TREE_CODE_LENGTH (code) * sizeof (char *));
+	  if (code == TREE_VEC)
+	    length += (TREE_VEC_LENGTH (node) - 1) * sizeof (char *);
+	  return length;
+      }
+
+    default:
+      abort ();
+    }
+}
+
 /* Return a newly allocated node of code CODE.
-   Initialize the node's unique id and its TREE_PERMANENT flag.
-   Note that if garbage collection is in use, TREE_PERMANENT will
-   always be zero - we want to eliminate use of TREE_PERMANENT.
    For decl and type nodes, some other fields are initialized.
    The rest of the node is initialized to zero.
 
@@ -912,117 +342,55 @@ make_node (code)
 {
   register tree t;
   register int type = TREE_CODE_CLASS (code);
-  register int length = 0;
-  register struct obstack *obstack = current_obstack;
+  register size_t length;
 #ifdef GATHER_STATISTICS
   register tree_node_kind kind;
 #endif
+  struct tree_common ttmp;
+  
+  /* We can't allocate a TREE_VEC without knowing how many elements
+     it will have.  */
+  if (code == TREE_VEC)
+    abort ();
+  
+  TREE_SET_CODE ((tree)&ttmp, code);
+  length = tree_size ((tree)&ttmp);
 
+#ifdef GATHER_STATISTICS
   switch (type)
     {
     case 'd':  /* A decl node */
-#ifdef GATHER_STATISTICS
       kind = d_kind;
-#endif
-      length = sizeof (struct tree_decl);
-      /* All decls in an inline function need to be saved.  */
-      if (obstack != &permanent_obstack)
-	obstack = saveable_obstack;
-
-      /* PARM_DECLs go on the context of the parent. If this is a nested
-	 function, then we must allocate the PARM_DECL on the parent's
-	 obstack, so that they will live to the end of the parent's
-	 closing brace.  This is necessary in case we try to inline the
-	 function into its parent.
-
-	 PARM_DECLs of top-level functions do not have this problem.  However,
-	 we allocate them where we put the FUNCTION_DECL for languages such as
-	 Ada that need to consult some flags in the PARM_DECLs of the function
-	 when calling it.
-
-	 See comment in restore_tree_status for why we can't put this
-	 in function_obstack.  */
-      if (code == PARM_DECL && obstack != &permanent_obstack)
-	{
-	  tree context = 0;
-	  if (current_function_decl)
-	    context = decl_function_context (current_function_decl);
-
-	  if (context)
-	    obstack
-	      = find_function_data (context)->function_maybepermanent_obstack;
-	}
       break;
 
     case 't':  /* a type node */
-#ifdef GATHER_STATISTICS
       kind = t_kind;
-#endif
-      length = sizeof (struct tree_type);
-      /* All data types are put where we can preserve them if nec.  */
-      if (obstack != &permanent_obstack)
-	obstack = all_types_permanent ? &permanent_obstack : saveable_obstack;
       break;
 
     case 'b':  /* a lexical block */
-#ifdef GATHER_STATISTICS
       kind = b_kind;
-#endif
-      length = sizeof (struct tree_block);
-      /* All BLOCK nodes are put where we can preserve them if nec.  */
-      if (obstack != &permanent_obstack)
-	obstack = saveable_obstack;
       break;
 
     case 's':  /* an expression with side effects */
-#ifdef GATHER_STATISTICS
       kind = s_kind;
-      goto usual_kind;
-#endif
+      break;
+
     case 'r':  /* a reference */
-#ifdef GATHER_STATISTICS
       kind = r_kind;
-      goto usual_kind;
-#endif
+      break;
+
     case 'e':  /* an expression */
     case '<':  /* a comparison expression */
     case '1':  /* a unary arithmetic expression */
     case '2':  /* a binary arithmetic expression */
-#ifdef GATHER_STATISTICS
       kind = e_kind;
-    usual_kind:
-#endif
-      obstack = expression_obstack;
-      /* All BIND_EXPR nodes are put where we can preserve them if nec.  */
-      if (code == BIND_EXPR && obstack != &permanent_obstack)
-	obstack = saveable_obstack;
-      length = sizeof (struct tree_exp)
-	+ (TREE_CODE_LENGTH (code) - 1) * sizeof (char *);
       break;
 
     case 'c':  /* a constant */
-#ifdef GATHER_STATISTICS
       kind = c_kind;
-#endif
-      obstack = expression_obstack;
-
-      /* We can't use TREE_CODE_LENGTH for INTEGER_CST, since the number of
-	 words is machine-dependent due to varying length of HOST_WIDE_INT,
-	 which might be wider than a pointer (e.g., long long).  Similarly
-	 for REAL_CST, since the number of words is machine-dependent due
-	 to varying size and alignment of `double'.  */
-
-      if (code == INTEGER_CST)
-	length = sizeof (struct tree_int_cst);
-      else if (code == REAL_CST)
-	length = sizeof (struct tree_real_cst);
-      else
-	length = sizeof (struct tree_common)
-	  + TREE_CODE_LENGTH (code) * sizeof (char *);
       break;
 
     case 'x':  /* something random, like an identifier.  */
-#ifdef GATHER_STATISTICS
       if (code == IDENTIFIER_NODE)
 	kind = id_kind;
       else if (code == OP_IDENTIFIER)
@@ -1031,32 +399,21 @@ make_node (code)
 	kind = vec_kind;
       else
 	kind = x_kind;
-#endif
-      length = sizeof (struct tree_common)
-	+ TREE_CODE_LENGTH (code) * sizeof (char *);
-      /* Identifier nodes are always permanent since they are
-	 unique in a compiler run.  */
-      if (code == IDENTIFIER_NODE) obstack = &permanent_obstack;
       break;
 
     default:
       abort ();
     }
 
-  if (ggc_p)
-    t = ggc_alloc_tree (length);
-  else
-    t = (tree) obstack_alloc (obstack, length);
-
-  memset ((PTR) t, 0, length);
-
-#ifdef GATHER_STATISTICS
   tree_node_counts[(int) kind]++;
   tree_node_sizes[(int) kind] += length;
 #endif
 
+  t = ggc_alloc_tree (length);
+
+  memset ((PTR) t, 0, length);
+
   TREE_SET_CODE (t, code);
-  TREE_SET_PERMANENT (t);
 
   switch (type)
     {
@@ -1084,7 +441,6 @@ make_node (code)
       TYPE_ALIGN (t) = 1;
       TYPE_USER_ALIGN (t) = 0;
       TYPE_MAIN_VARIANT (t) = t;
-      TYPE_OBSTACK (t) = obstack;
       TYPE_ATTRIBUTES (t) = NULL_TREE;
 #ifdef SET_DEFAULT_TYPE_ATTRIBUTES
       SET_DEFAULT_TYPE_ATTRIBUTES (t);
@@ -1150,58 +506,10 @@ copy_node (node)
 {
   register tree t;
   register enum tree_code code = TREE_CODE (node);
-  register int length = 0;
+  register size_t length;
 
-  switch (TREE_CODE_CLASS (code))
-    {
-    case 'd':  /* A decl node */
-      length = sizeof (struct tree_decl);
-      break;
-
-    case 't':  /* a type node */
-      length = sizeof (struct tree_type);
-      break;
-
-    case 'b':  /* a lexical block node */
-      length = sizeof (struct tree_block);
-      break;
-
-    case 'r':  /* a reference */
-    case 'e':  /* an expression */
-    case 's':  /* an expression with side effects */
-    case '<':  /* a comparison expression */
-    case '1':  /* a unary arithmetic expression */
-    case '2':  /* a binary arithmetic expression */
-      length = sizeof (struct tree_exp)
-	+ (TREE_CODE_LENGTH (code) - 1) * sizeof (char *);
-      break;
-
-    case 'c':  /* a constant */
-      /* We can't use TREE_CODE_LENGTH for INTEGER_CST, since the number of
-	 words is machine-dependent due to varying length of HOST_WIDE_INT,
-	 which might be wider than a pointer (e.g., long long).  Similarly
-	 for REAL_CST, since the number of words is machine-dependent due
-	 to varying size and alignment of `double'.  */
-      if (code == INTEGER_CST)
-	length = sizeof (struct tree_int_cst);
-      else if (code == REAL_CST)
-	length = sizeof (struct tree_real_cst);
-      else
-	length = (sizeof (struct tree_common)
-		  + TREE_CODE_LENGTH (code) * sizeof (char *));
-      break;
-
-    case 'x':  /* something random, like an identifier.  */
-      length = sizeof (struct tree_common)
-	+ TREE_CODE_LENGTH (code) * sizeof (char *);
-      if (code == TREE_VEC)
-	length += (TREE_VEC_LENGTH (node) - 1) * sizeof (char *);
-    }
-
-  if (ggc_p)
-    t = ggc_alloc_tree (length);
-  else
-    t = (tree) obstack_alloc (current_obstack, length);
+  length = tree_size (node);
+  t = ggc_alloc_tree (length);
   memcpy (t, node, length);
 
   TREE_CHAIN (t) = 0;
@@ -1212,8 +520,6 @@ copy_node (node)
   else if (TREE_CODE_CLASS (code) == 't')
     {
       TYPE_UID (t) = next_type_uid++;
-      TYPE_OBSTACK (t) = current_obstack;
-
       /* The following is so that the debug code for
 	 the copy is different from the original type.
 	 The two statements usually duplicate each other
@@ -1222,8 +528,6 @@ copy_node (node)
       TYPE_SYMTAB_POINTER (t) = 0;
       TYPE_SYMTAB_ADDRESS (t) = 0;
     }
-
-  TREE_SET_PERMANENT (t);
 
   return t;
 }
@@ -1311,10 +615,7 @@ get_identifier (text)
   id_string_size += len;
 #endif
 
-  if (ggc_p)
-    IDENTIFIER_POINTER (idp) = ggc_alloc_string (text, len);
-  else
-    IDENTIFIER_POINTER (idp) = obstack_copy0 (&permanent_obstack, text, len);
+  IDENTIFIER_POINTER (idp) = ggc_alloc_string (text, len);
 
   TREE_CHAIN (idp) = hash_table[hi];
   hash_table[hi] = idp;
@@ -1557,17 +858,10 @@ build_string (len, str)
      int len;
      const char *str;
 {
-  /* Put the string in saveable_obstack since it will be placed in the RTL
-     for an "asm" statement and will also be kept around a while if
-     deferring constant output in varasm.c.  */
-
   register tree s = make_node (STRING_CST);
 
   TREE_STRING_LENGTH (s) = len;
-  if (ggc_p)
-    TREE_STRING_POINTER (s) = ggc_alloc_string (str, len);
-  else
-    TREE_STRING_POINTER (s) = obstack_copy0 (saveable_obstack, str, len);
+  TREE_STRING_POINTER (s) = ggc_alloc_string (str, len);
 
   return s;
 }
@@ -1620,22 +914,17 @@ make_tree_vec (len)
   register tree t;
   register int length = (((len - 1 + TREE_CODE_LENGTH (TREE_VEC)) * sizeof (tree))
 			 + sizeof (struct tree_common));
-  register struct obstack *obstack = current_obstack;
 
 #ifdef GATHER_STATISTICS
   tree_node_counts[(int)vec_kind]++;
   tree_node_sizes[(int)vec_kind] += length;
 #endif
 
-  if (ggc_p)
-    t = ggc_alloc_tree (length);
-  else
-    t = (tree) obstack_alloc (obstack, length);
+  t = ggc_alloc_tree (length);
 
   memset ((PTR) t, 0, length);
   TREE_SET_CODE (t, TREE_VEC);
   TREE_VEC_LENGTH (t) = len;
-  TREE_SET_PERMANENT (t);
 
   return t;
 }
@@ -2146,36 +1435,6 @@ build_tree_list (parm, value)
   return t;
 }
 
-/* Similar, but build on the temp_decl_obstack.  */
-
-tree
-build_decl_list (parm, value)
-     tree parm, value;
-{
-  register tree node;
-  register struct obstack *ambient_obstack = current_obstack;
-
-  current_obstack = &temp_decl_obstack;
-  node = build_tree_list (parm, value);
-  current_obstack = ambient_obstack;
-  return node;
-}
-
-/* Similar, but build on the expression_obstack.  */
-
-tree
-build_expr_list (parm, value)
-     tree parm, value;
-{
-  register tree node;
-  register struct obstack *ambient_obstack = current_obstack;
-
-  current_obstack = expression_obstack;
-  node = build_tree_list (parm, value);
-  current_obstack = ambient_obstack;
-  return node;
-}
-
 /* Return a newly created TREE_LIST node whose
    purpose and value fields are PARM and VALUE
    and whose TREE_CHAIN is CHAIN.  */
@@ -2186,10 +1445,7 @@ tree_cons (purpose, value, chain)
 {
   register tree node;
 
-  if (ggc_p)
-    node = ggc_alloc_tree (sizeof (struct tree_list));
-  else
-    node = (tree) obstack_alloc (current_obstack, sizeof (struct tree_list));
+  node = ggc_alloc_tree (sizeof (struct tree_list));
 
   memset (node, 0, sizeof (struct tree_common));
 
@@ -2199,88 +1455,12 @@ tree_cons (purpose, value, chain)
 #endif
 
   TREE_SET_CODE (node, TREE_LIST);
-  TREE_SET_PERMANENT (node);
-
   TREE_CHAIN (node) = chain;
   TREE_PURPOSE (node) = purpose;
   TREE_VALUE (node) = value;
   return node;
 }
 
-/* Similar, but build on the temp_decl_obstack.  */
-
-tree
-decl_tree_cons (purpose, value, chain)
-     tree purpose, value, chain;
-{
-  register tree node;
-  register struct obstack *ambient_obstack = current_obstack;
-
-  current_obstack = &temp_decl_obstack;
-  node = tree_cons (purpose, value, chain);
-  current_obstack = ambient_obstack;
-  return node;
-}
-
-/* Similar, but build on the expression_obstack.  */
-
-tree
-expr_tree_cons (purpose, value, chain)
-     tree purpose, value, chain;
-{
-  register tree node;
-  register struct obstack *ambient_obstack = current_obstack;
-
-  current_obstack = expression_obstack;
-  node = tree_cons (purpose, value, chain);
-  current_obstack = ambient_obstack;
-  return node;
-}
-
-/* Same as `tree_cons' but make a permanent object.  */
-
-tree
-perm_tree_cons (purpose, value, chain)
-     tree purpose, value, chain;
-{
-  register tree node;
-  register struct obstack *ambient_obstack = current_obstack;
-
-  current_obstack = &permanent_obstack;
-  node = tree_cons (purpose, value, chain);
-  current_obstack = ambient_obstack;
-  return node;
-}
-
-/* Same as `tree_cons', but make this node temporary, regardless.  */
-
-tree
-temp_tree_cons (purpose, value, chain)
-     tree purpose, value, chain;
-{
-  register tree node;
-  register struct obstack *ambient_obstack = current_obstack;
-
-  current_obstack = &temporary_obstack;
-  node = tree_cons (purpose, value, chain);
-  current_obstack = ambient_obstack;
-  return node;
-}
-
-/* Same as `tree_cons', but save this node if the function's RTL is saved.  */
-
-tree
-saveable_tree_cons (purpose, value, chain)
-     tree purpose, value, chain;
-{
-  register tree node;
-  register struct obstack *ambient_obstack = current_obstack;
-
-  current_obstack = saveable_obstack;
-  node = tree_cons (purpose, value, chain);
-  current_obstack = ambient_obstack;
-  return node;
-}
 
 /* Return the size nominally occupied by an object of type TYPE
    when it resides in memory.  The value is measured in units of bytes,
@@ -3424,7 +2604,6 @@ build1 (code, type, node)
      tree type;
      tree node;
 {
-  register struct obstack *obstack = expression_obstack;
   register int length;
 #ifdef GATHER_STATISTICS
   register tree_node_kind kind;
@@ -3440,10 +2619,7 @@ build1 (code, type, node)
 
   length = sizeof (struct tree_exp);
 
-  if (ggc_p)
-    t = ggc_alloc_tree (length);
-  else
-    t = (tree) obstack_alloc (obstack, length);
+  t = ggc_alloc_tree (length);
 
   memset ((PTR) t, 0, sizeof (struct tree_common));
 
@@ -3453,8 +2629,6 @@ build1 (code, type, node)
 #endif
 
   TREE_SET_CODE (t, code);
-  TREE_SET_PERMANENT (t);
-
   TREE_TYPE (t) = type;
   TREE_COMPLEXITY (t) = 0;
   TREE_OPERAND (t, 0) = node;
@@ -3529,7 +2703,6 @@ build_parse_node VPARAMS ((enum tree_code code, ...))
 #ifndef ANSI_PROTOTYPES
   enum tree_code code;
 #endif
-  register struct obstack *ambient_obstack = expression_obstack;
   va_list p;
   register tree t;
   register int length;
@@ -3541,8 +2714,6 @@ build_parse_node VPARAMS ((enum tree_code code, ...))
   code = va_arg (p, enum tree_code);
 #endif
 
-  expression_obstack = &temp_decl_obstack;
-
   t = make_node (code);
   length = TREE_CODE_LENGTH (code);
 
@@ -3550,7 +2721,6 @@ build_parse_node VPARAMS ((enum tree_code code, ...))
     TREE_OPERAND (t, i) = va_arg (p, tree);
 
   va_end (p);
-  expression_obstack = ambient_obstack;
   return t;
 }
 
@@ -3673,10 +2843,8 @@ build_type_attribute_variant (ttype, attribute)
   if ( ! attribute_list_equal (TYPE_ATTRIBUTES (ttype), attribute))
     {
       unsigned int hashcode;
-      int type_quals = TYPE_QUALS (ttype);
       tree ntype;
 
-      push_obstacks (TYPE_OBSTACK (ttype), TYPE_OBSTACK (ttype));
       ntype = copy_node (TYPE_MAIN_VARIANT (ttype));
 
       TYPE_POINTER_TO (ntype) = 0;
@@ -3716,8 +2884,7 @@ build_type_attribute_variant (ttype, attribute)
 	}
 
       ntype = type_hash_canon (hashcode, ntype);
-      ttype = build_qualified_type (ntype, type_quals);
-      pop_obstacks ();
+      ttype = build_qualified_type (ntype, TYPE_QUALS (ttype));
     }
 
   return ttype;
@@ -4078,11 +3245,8 @@ build_type_copy (type)
      tree type;
 {
   register tree t, m = TYPE_MAIN_VARIANT (type);
-  register struct obstack *ambient_obstack = current_obstack;
 
-  current_obstack = TYPE_OBSTACK (type);
   t = copy_node (type);
-  current_obstack = ambient_obstack;
 
   TYPE_POINTER_TO (t) = 0;
   TYPE_REFERENCE_TO (t) = 0;
@@ -4242,9 +3406,6 @@ type_hash_canon (hashcode, type)
   t1 = type_hash_lookup (hashcode, type);
   if (t1 != 0)
     {
-      if (!ggc_p)
-	obstack_free (TYPE_OBSTACK (type), type);
-
 #ifdef GATHER_STATISTICS
       tree_node_counts[(int) t_kind]--;
       tree_node_sizes[(int) t_kind] -= sizeof (struct tree_type);
@@ -4253,8 +3414,7 @@ type_hash_canon (hashcode, type)
     }
 
   /* If this is a permanent type, record it for later reuse.  */
-  if (ggc_p || TREE_PERMANENT (type))
-    type_hash_add (hashcode, type);
+  type_hash_add (hashcode, type);
 
   return type;
 }
@@ -4754,9 +3914,7 @@ build_pointer_type_2 (code, to_type)
       int depth = TYPE_POINTER_DEPTH (to_type);
 
       /* We need a new one.  Put this in the same obstack as TO_TYPE.   */
-      push_obstacks (TYPE_OBSTACK (to_type), TYPE_OBSTACK (to_type));
       t = make_node (POINTER_TYPE);
-      pop_obstacks ();
 
       if (depth < MAX_POINTER_DEPTH
 	  /* Special case for the sake of signal(2): pointers to functions
@@ -4820,10 +3978,8 @@ build_reference_type (to_type)
   if (t)
     return t;
 
-  /* We need a new one.  Put this in the same obstack as TO_TYPE.   */
-  push_obstacks (TYPE_OBSTACK (to_type), TYPE_OBSTACK (to_type));
+  /* We need a new one.  */
   t = make_node (REFERENCE_TYPE);
-  pop_obstacks ();
 
   TREE_TYPE (t) = to_type;
 
@@ -4854,9 +4010,7 @@ build_index_type (maxval)
   TYPE_PRECISION (itype) = TYPE_PRECISION (sizetype);
   TYPE_MIN_VALUE (itype) = size_zero_node;
 
-  push_obstacks (TYPE_OBSTACK (itype), TYPE_OBSTACK (itype));
   TYPE_MAX_VALUE (itype) = convert (sizetype, maxval);
-  pop_obstacks ();
 
   TYPE_MODE (itype) = TYPE_MODE (sizetype);
   TYPE_SIZE (itype) = TYPE_SIZE (sizetype);
@@ -4885,10 +4039,8 @@ build_range_type (type, lowval, highval)
   if (type == NULL_TREE)
     type = sizetype;
 
-  push_obstacks (TYPE_OBSTACK (itype), TYPE_OBSTACK (itype));
   TYPE_MIN_VALUE (itype) = convert (type, lowval);
   TYPE_MAX_VALUE (itype) = highval ? convert (type, highval) : NULL;
-  pop_obstacks ();
 
   TYPE_PRECISION (itype) = TYPE_PRECISION (type);
   TYPE_MODE (itype) = TYPE_MODE (type);
@@ -5354,11 +4506,12 @@ get_narrower (op, unsignedp_ptr)
 
   if (TREE_CODE (op) == COMPONENT_REF
       /* Since type_for_size always gives an integer type.  */
-      && TREE_CODE (TREE_TYPE (op)) != REAL_TYPE)
+      && TREE_CODE (TREE_TYPE (op)) != REAL_TYPE
+      /* Ensure field is laid out already.  */
+      && DECL_SIZE (TREE_OPERAND (op, 1)) != 0)
     {
-      unsigned int innerprec
-	= TREE_INT_CST_LOW (DECL_SIZE (TREE_OPERAND (op, 1)));
-
+      unsigned HOST_WIDE_INT innerprec
+	= tree_low_cst (DECL_SIZE (TREE_OPERAND (op, 1)), 1);
       tree type = type_for_size (innerprec, TREE_UNSIGNED (op));
 
       /* We can get this structure field in a narrower type that fits it,
@@ -5582,10 +4735,6 @@ dump_tree_statistics ()
   fprintf (stderr, "(No per-node statistics)\n");
 #endif
   print_obstack_statistics ("permanent_obstack", &permanent_obstack);
-  print_obstack_statistics ("maybepermanent_obstack", &maybepermanent_obstack);
-  print_obstack_statistics ("temporary_obstack", &temporary_obstack);
-  print_obstack_statistics ("momentary_obstack", &momentary_obstack);
-  print_obstack_statistics ("temp_decl_obstack", &temp_decl_obstack);
   print_type_hash_statistics ();
   print_lang_statistics ();
 }

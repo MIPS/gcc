@@ -1,3 +1,21 @@
+2000-10-08  Philipp Thomas  <pthomas@suse.de>
+
+	* POTFILES.in: Remove the files from the nuked
+	dead ports.
+	* ChangeLog: Correct David's entry. 
+
+2000-09-28  David O'Brien  <obrien@FreeBSD.org>
+
+	* POTFILES.in: Adjust for move of freebsd.h -> freebsd-aout.h
+	* en_GB.po: Likewise.
+	* gcc.pot: Likewise.
+
+2000-09-26  Philipp Thomas  <pthomas@suse.de>
+
+	* Makefile.in.in: Remove stamp-check-pot from list
+	of default targets as checks are only possible in a 
+	complete source tree and all languages configured.
+
 2000-09-13  Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
 
 	* POTFILES.in: Remove objc/objc-parse.c.

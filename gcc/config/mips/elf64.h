@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler.  MIPS R4000 version with
    GOFAST floating point library.
-   Copyright (C) 1994, 1995, 1996, 1997, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1994, 1995, 1996, 1997, 1999, 2000 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -104,8 +104,8 @@ do {								\
 
 #undef TYPE_ASM_OP
 #undef SIZE_ASM_OP
-#define TYPE_ASM_OP	".type"
-#define SIZE_ASM_OP	".size"
+#define TYPE_ASM_OP	"\t.type\t"
+#define SIZE_ASM_OP	"\t.size\t"
 
 /* These macros generate the special .type and .size directives which
    are used to set the corresponding fields of the linker symbol table
@@ -117,7 +117,7 @@ do {								\
 #undef ASM_DECLARE_OBJECT_NAME
 #define ASM_DECLARE_OBJECT_NAME(FILE, NAME, DECL)			\
   do {									\
-    fprintf (FILE, "\t%s\t ", TYPE_ASM_OP);				\
+    fprintf (FILE, "%s", TYPE_ASM_OP);					\
     assemble_name (FILE, NAME);						\
     putc (',', FILE);							\
     fprintf (FILE, TYPE_OPERAND_FMT, "object");				\
@@ -126,7 +126,7 @@ do {								\
     if (!flag_inhibit_size_directive && DECL_SIZE (DECL))		\
       {									\
 	size_directive_output = 1;					\
-	fprintf (FILE, "\t%s\t ", SIZE_ASM_OP);				\
+	fprintf (FILE, "%s", SIZE_ASM_OP);				\
 	assemble_name (FILE, NAME);					\
 	fprintf (FILE, ",%d\n",  int_size_in_bytes (TREE_TYPE (DECL)));	\
       }									\
@@ -149,7 +149,7 @@ do {									 \
 	 && !size_directive_output)					 \
        {								 \
 	 size_directive_output = 1;					 \
-	 fprintf (FILE, "\t%s\t ", SIZE_ASM_OP);			 \
+	 fprintf (FILE, "%s", SIZE_ASM_OP);				 \
 	 assemble_name (FILE, name);					 \
 	 fprintf (FILE, ",%d\n", int_size_in_bytes (TREE_TYPE (DECL)));  \
        }								 \

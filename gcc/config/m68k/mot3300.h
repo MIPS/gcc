@@ -177,22 +177,22 @@ Boston, MA 02111-1307, USA.  */
 #define ASM_APP_OFF ""
 
 #undef TEXT_SECTION_ASM_OP
-#define TEXT_SECTION_ASM_OP "text"
+#define TEXT_SECTION_ASM_OP "\ttext"
 #undef DATA_SECTION_ASM_OP
-#define DATA_SECTION_ASM_OP "data"
+#define DATA_SECTION_ASM_OP "\tdata"
 #undef ASCII_DATA_ASM_OP
-#define	ASCII_DATA_ASM_OP "byte"
+#define	ASCII_DATA_ASM_OP "\tbyte\t"
 
 #undef SET_ASM_OP
-#define SET_ASM_OP "set"
+#define SET_ASM_OP "\tset\t"
 
 #endif /* USE_GAS */
 
 #ifdef USE_GLD
 /* Support the ctors and dtors sections for g++.  */
 
-#define CTORS_SECTION_ASM_OP	".section\t.ctors,\"x\""
-#define DTORS_SECTION_ASM_OP	".section\t.dtors,\"x\""
+#define CTORS_SECTION_ASM_OP	"\t.section\t.ctors,\"x\""
+#define DTORS_SECTION_ASM_OP	"\t.section\t.dtors,\"x\""
 
 /* A list of other sections which the compiler might be "in" at any
    given time.  */
@@ -334,7 +334,7 @@ dtors_section ()							\
    defined for reference from other files.  */
 
 #undef GLOBAL_ASM_OP
-#define GLOBAL_ASM_OP "global"
+#define GLOBAL_ASM_OP "\tglobal\t"
 #endif /* USE_GAS */
 
 /* Store in OUTPUT a string (made with alloca) containing
@@ -356,7 +356,7 @@ dtors_section ()							\
 #undef ASM_BYTE
 #define ASM_BYTE	".byte"
 #undef ASM_BYTE_OP
-#define ASM_BYTE_OP	".byte"
+#define ASM_BYTE_OP	"\t.byte\t"
 #else
 #undef ASM_LONG
 #define ASM_LONG	"long"
@@ -367,7 +367,7 @@ dtors_section ()							\
 #undef ASM_BYTE
 #define ASM_BYTE	"byte"
 #undef ASM_BYTE_OP
-#define ASM_BYTE_OP	"byte"
+#define ASM_BYTE_OP	"\tbyte\t"
 #endif /* USE_GAS */
 
 /* The sysV68 as doesn't know about double's and float's.  */
@@ -429,25 +429,25 @@ do { long l;					\
    to a multiple of 2**LOG bytes.  */
 
 #ifndef USE_GAS
-#define ALIGN_ASM_OP	"even"
+#define ALIGN_ASM_OP	"\teven"
 #else /* USE_GAS */
-#define ALIGN_ASM_OP	".even"
+#define ALIGN_ASM_OP	"\t.even"
 #endif /* USE_GAS */
 
 #undef ASM_OUTPUT_ALIGN
 #define ASM_OUTPUT_ALIGN(FILE,LOG)	\
   if ((LOG) >= 1)			\
-    fprintf (FILE, "\t%s\n", ALIGN_ASM_OP);
+    fprintf (FILE, "%s\n", ALIGN_ASM_OP);
 
 #ifndef USE_GAS
-#define SKIP_ASM_OP	"space"
+#define SKIP_ASM_OP	"\tspace\t"
 #else /* USE_GAS */
-#define SKIP_ASM_OP	".skip"
+#define SKIP_ASM_OP	"\t.skip\t"
 #endif /* USE_GAS */
 
 #undef ASM_OUTPUT_SKIP
 #define ASM_OUTPUT_SKIP(FILE,SIZE)  \
-  fprintf (FILE, "\t%s %u\n", SKIP_ASM_OP, (SIZE))
+  fprintf (FILE, "%s%u\n", SKIP_ASM_OP, (SIZE))
 
 /* Can't use ASM_OUTPUT_SKIP in text section.  */
 
@@ -476,7 +476,7 @@ do { long l;					\
 #undef ASM_OUTPUT_ASCII
 #define ASM_OUTPUT_ASCII(FILE,PTR,LEN) \
   do { register int sp = 0, lp = 0;				\
-    fprintf ((FILE), "\t%s\t", ASM_BYTE_OP);			\
+    fprintf ((FILE), "%s", ASM_BYTE_OP);			\
   loop:								\
     if ((PTR)[sp] > ' ' && ! ((PTR)[sp] & 0x80) && (PTR)[sp] != '\\')	\
       { lp += 3;						\
@@ -487,7 +487,7 @@ do { long l;					\
     if (++sp < (LEN))						\
       {	if (lp > 60)						\
 	  { lp = 0;						\
-	    fprintf ((FILE), "\n\t%s ", ASCII_DATA_ASM_OP); }	\
+	    fprintf ((FILE), "\n%s", ASCII_DATA_ASM_OP); }	\
 	else							\
 	  putc (',', (FILE));					\
 	goto loop; }						\

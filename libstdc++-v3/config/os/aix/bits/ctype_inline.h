@@ -36,12 +36,12 @@
   
   bool
   ctype<char>::
-  is(mask __m, char __c) const 
-  { return __OBJ_DATA(__lc_ctype)->mask[__c] & __m; }
+  is(mask __m, char __c) const throw()
+  { return _IS(__c, __m); }
 
   const char*
   ctype<char>::
-  is(const char* __low, const char* __high, mask* __vec) const 
+  is(const char* __low, const char* __high, mask* __vec) const throw()
   {
     while (__low < __high)
       *__vec++ = __OBJ_DATA(__lc_ctype)->mask[*__low++];
@@ -50,7 +50,7 @@
 
   const char*
   ctype<char>::
-  scan_is(mask __m, const char* __low, const char* __high) const 
+  scan_is(mask __m, const char* __low, const char* __high) const throw()
   {
     while (__low < __high && !this->is(__m, *__low))
       ++__low;
@@ -59,7 +59,7 @@
 
   const char*
   ctype<char>::
-  scan_not(mask __m, const char* __low, const char* __high) const 
+  scan_not(mask __m, const char* __low, const char* __high) const throw()
   {
     while (__low < __high && this->is(__m, *__low) != 0)
       ++__low;

@@ -110,7 +110,7 @@
    For top-level functions, this is temporary_obstack.
    Separate obstacks are made for nested functions.  */
 
-extern struct obstack *function_obstack;
+extern struct obstack flow_obstack;
 
 
 /* Structure to hold information about lexical scopes.  */
@@ -676,8 +676,8 @@ fixup_reorder_chain ()
       create_basic_block (n_basic_blocks - 1, jump_insn, jump_insn, NULL);
 
       nb = BASIC_BLOCK (n_basic_blocks - 1);
-      nb->global_live_at_start = OBSTACK_ALLOC_REG_SET (function_obstack);
-      nb->global_live_at_end = OBSTACK_ALLOC_REG_SET (function_obstack);
+      nb->global_live_at_start = OBSTACK_ALLOC_REG_SET (&flow_obstack);
+      nb->global_live_at_end = OBSTACK_ALLOC_REG_SET (&flow_obstack);
       nb->local_set = 0;
 
       COPY_REG_SET (nb->global_live_at_start, bb->global_live_at_start);
@@ -1358,6 +1358,8 @@ reorder_basic_blocks ()
   for (i = 0; i < n_basic_blocks; i++)
     BASIC_BLOCK (i)->aux = xcalloc (1, sizeof (struct reorder_block_def));
 
+  EXIT_BLOCK_PTR->aux = xcalloc (1, sizeof (struct reorder_block_def));
+
   build_scope_forest (&forest);
   remove_scope_notes ();
 
@@ -1375,6 +1377,8 @@ reorder_basic_blocks ()
 
   for (i = 0; i < n_basic_blocks; i++)
     free (BASIC_BLOCK (i)->aux);
+
+  free (EXIT_BLOCK_PTR->aux);
 
 #ifdef ENABLE_CHECKING
   verify_flow_info ();

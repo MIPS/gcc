@@ -1896,6 +1896,14 @@ do {									    \
    between two registers, you should define this macro to express the
    relative cost.  */
 
+#define BRANCH_COST 0
+/* A C expression for the cost of a branch instruction.  A value of 1
+   is the default; other values are interpreted relative to that.
+
+   Here are additional macros which do not specify precise relative
+   costs, but only that certain actions are more expensive than GCC would
+   ordinarily expect.  */
+
 #define SLOW_BYTE_ACCESS 0
 /* Define this macro as a C expression which is nonzero if accessing
    less than a word of memory (i.e. a `char' or a `short') is no
@@ -1974,15 +1982,15 @@ do {									    \
    scheduling priorities of insns.  */
 
 
-#define TEXT_SECTION_ASM_OP ".text"
+#define TEXT_SECTION_ASM_OP "\t.text"
 /* A C expression whose value is a string containing the assembler
    operation that should precede instructions and read-only data.
-   Normally `".text"' is right.  */
+   Normally `"\t.text"' is right.  */
 
-#define DATA_SECTION_ASM_OP ".data"
+#define DATA_SECTION_ASM_OP "\t.data"
 /* A C expression whose value is a string containing the assembler
    operation to identify the following data as writable initialized
-   data.  Normally `".data"' is right.  */
+   data.  Normally `"\t.data"' is right.  */
 
 #define EXTRA_SECTIONS in_progmem
 /* A list of names for sections other than the standard two, which are
@@ -2198,10 +2206,10 @@ progmem_section (void)							      \
 /* A C statement to output to the stdio stream STREAM an assembler
    instruction to assemble a single byte containing the number VALUE.  */
 
-#define ASM_BYTE_OP ".byte "
+#define ASM_BYTE_OP "\t.byte "
 /* A C string constant giving the pseudo-op to use for a sequence of
    single-byte constants.  If this macro is not defined, the default
-   is `"byte"'.  */
+   is `"\t.byte\t"'.  */
 
 #define ASM_OUTPUT_ASCII(FILE, P, SIZE)	 gas_output_ascii (FILE,P,SIZE)
 /* `ASM_OUTPUT_ASCII (STREAM, PTR, LEN)'
@@ -2284,9 +2292,9 @@ do {									\
 #undef TYPE_ASM_OP
 #undef SIZE_ASM_OP
 #undef WEAK_ASM_OP
-#define TYPE_ASM_OP	".type"
-#define SIZE_ASM_OP	".size"
-#define WEAK_ASM_OP	".weak"
+#define TYPE_ASM_OP	"\t.type\t"
+#define SIZE_ASM_OP	"\t.size\t"
+#define WEAK_ASM_OP	"\t.weak\t"
 /* Define the strings used for the special svr4 .type and .size directives.
    These strings generally do not vary from one system running svr4 to
    another, but if a given system (e.g. m88k running svr) needs to use
@@ -2305,7 +2313,7 @@ do {									\
 
 #define ASM_DECLARE_FUNCTION_NAME(FILE, NAME, DECL)	\
 do {						   	\
-     fprintf (FILE, "\t%s\t ", TYPE_ASM_OP);	   	\
+     fprintf (FILE, "%s", TYPE_ASM_OP);	   		\
      assemble_name (FILE, NAME);		   	\
      putc (',', FILE);				   	\
      fprintf (FILE, TYPE_OPERAND_FMT, "function");	\
@@ -2331,7 +2339,7 @@ do {						   	\
 	labelno++;							\
 	ASM_GENERATE_INTERNAL_LABEL (label, "Lfe", labelno);		\
 	ASM_OUTPUT_INTERNAL_LABEL (FILE, "Lfe", labelno);		\
-	fprintf (FILE, "\t%s\t ", SIZE_ASM_OP);				\
+	fprintf (FILE, "%s", SIZE_ASM_OP);				\
 	assemble_name (FILE, (FNAME));					\
         fprintf (FILE, ",");						\
 	assemble_name (FILE, label);					\
@@ -2351,7 +2359,7 @@ do {						   	\
 
 #define ASM_DECLARE_OBJECT_NAME(FILE, NAME, DECL)			  \
 do {									  \
-      fprintf (FILE, "\t%s\t ", TYPE_ASM_OP);				  \
+      fprintf (FILE, "%s", TYPE_ASM_OP);				  \
       assemble_name (FILE, NAME);					  \
       putc (',', FILE);							  \
       fprintf (FILE, TYPE_OPERAND_FMT, "object");			  \
@@ -2360,7 +2368,7 @@ do {									  \
       if (!flag_inhibit_size_directive && DECL_SIZE (DECL))		  \
 	{								  \
 	  size_directive_output = 1;					  \
-	  fprintf (FILE, "\t%s\t ", SIZE_ASM_OP);			  \
+	  fprintf (FILE, "%s", SIZE_ASM_OP);				  \
 	  assemble_name (FILE, NAME);					  \
 	  fprintf (FILE, ",%d\n",  int_size_in_bytes (TREE_TYPE (DECL))); \
     }									  \
@@ -2385,7 +2393,7 @@ do {									 \
 	 && !size_directive_output)					 \
        {								 \
 	 size_directive_output = 1;					 \
-	 fprintf (FILE, "\t%s\t ", SIZE_ASM_OP);			 \
+	 fprintf (FILE, "%s", SIZE_ASM_OP);				 \
 	 assemble_name (FILE, name);					 \
 	 fprintf (FILE, ",%d\n",  int_size_in_bytes (TREE_TYPE (DECL))); \
        }								 \
@@ -2424,7 +2432,7 @@ do {									 \
    since some versions of gas, such as 2.2 did not accept it.  */
 
 #define STRING_LIMIT	((unsigned) 64)
-#define STRING_ASM_OP	".string"
+#define STRING_ASM_OP	"\t.string\t"
 /* Some svr4 assemblers have a limit on the number of characters which
    can appear in the operand of a .string directive.  If your assembler
    has such a limitation, you should define STRING_LIMIT to reflect that

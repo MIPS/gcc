@@ -30,7 +30,7 @@
 #include <bits/std_cassert.h>
 #include <bits/std_cctype.h>
 #include <bits/std_limits.h>
-#include <bits/std_exception.h>
+#include <exception>
 #include <bits/std_stdexcept.h>
 #include <bits/std_locale.h>
 #include <bits/std_istream.h>
@@ -38,7 +38,7 @@
 #include <bits/std_vector.h>
 #include <bits/std_memory.h>      // for auto_ptr
 #ifdef _GLIBCPP_USE_WCHAR_T  
-  #include <bits/std_cwctype.h>     // for towupper, etc.
+# include <bits/std_cwctype.h>     // for towupper, etc.
 #endif
 
 namespace std {
@@ -777,7 +777,7 @@ namespace std {
   ~_Bad_use_facet() throw() { }
   
   // Platform-specific initialization code for ctype tables.
-  #include <ctype.cc>
+  #include <bits/ctype_noninline.h>
 
   locale::id ctype<char>::id;
 
@@ -952,7 +952,7 @@ namespace std {
   do_widen(const char* __low, const char* __high, wchar_t* __dest) const
   {
     mbstate_t __state;
-    memset(&__state, 0, sizeof(mbstate_t));
+    memset(static_cast<void*>(&__state), 0, sizeof(mbstate_t));
     mbsrtowcs(__dest, &__low, __high - __low, &__state);
     return __high;
   }
@@ -971,7 +971,7 @@ namespace std {
 	    char* __dest) const
   {
     mbstate_t __state;
-    memset(&__state, 0, sizeof(mbstate_t));
+    memset(static_cast<void*>(&__state), 0, sizeof(mbstate_t));
     size_t __len = __high - __low;
     size_t __conv = wcsrtombs(__dest, &__low, __len, &__state);
     if (__conv == __len)

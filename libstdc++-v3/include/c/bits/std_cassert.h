@@ -1,6 +1,6 @@
 // -*- C++ -*- forwarding header.
 
-// Copyright (C) 2000 Free Software Foundation, Inc.
+// Copyright (C) 1997-1999 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -35,5 +35,5 @@
 
 // No include guards on this header...
 
-#pragma GCC system_header
-#include <assert.h>
+# pragma GCC system_header
+# include_next <assert.h>

@@ -1410,12 +1410,12 @@ do										\
 /* A C expression whose value is a string containing the assembler operation
    that should precede instructions and read-only data.  Normally `".text"' is
    right.  */
-#define TEXT_SECTION_ASM_OP ".text"
+#define TEXT_SECTION_ASM_OP "\t.text"
 
 /* A C expression whose value is a string containing the assembler operation to
    identify the following data as writable initialized data.  Normally
    `".data"' is right.  */
-#define DATA_SECTION_ASM_OP ".data"
+#define DATA_SECTION_ASM_OP "\t.data"
 
 /* If defined, a C expression whose value is a string containing the
    assembler operation to identify the following data as
@@ -1424,7 +1424,7 @@ do										\
    uninitialized global data will be output in the data section if
    `-fno-common' is passed, otherwise `ASM_OUTPUT_COMMON' will be
    used.  */
-#define BSS_SECTION_ASM_OP ".bss"
+#define BSS_SECTION_ASM_OP "\t.bss"
 
 /*}}}*/ 
 /*{{{  The Overall Framework of an Assembler File.  */
@@ -1513,7 +1513,7 @@ do										\
 /* A C statement to output to the stdio stream STREAM an assembler instruction
    to assemble a single byte containing the number VALUE.  */
 #define ASM_OUTPUT_BYTE(STREAM, VALUE) \
-  fprintf (STREAM, "\t%s\t0x%x\n", ASM_BYTE_OP, (VALUE))
+  fprintf (STREAM, "%s0x%x\n", ASM_BYTE_OP, (VALUE))
 
 /* These macros are defined as C string constant, describing the syntax in the
    assembler for grouping arithmetic expressions.  The following definitions

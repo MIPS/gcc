@@ -1,7 +1,7 @@
 /* m68kelf support, derived from m68kv4.h */
 
 /* Target definitions for GNU compiler for mc680x0 running System V.4
-   Copyright (C) 1991, 1993 Free Software Foundation, Inc.
+   Copyright (C) 1991, 1993, 2000 Free Software Foundation, Inc.
 
    Written by Ron Guilmette (rfg@netcom.com) and Fred Fish (fnf@cygnus.com).
 
@@ -33,7 +33,7 @@ Boston, MA 02111-1307, USA.  */
 #endif
 
 #ifndef SWBEG_ASM_OP
-#define SWBEG_ASM_OP ".swbeg"
+#define SWBEG_ASM_OP "\t.swbeg\t"
 #endif
 
 /* Here are four prefixes that are used by asm_fprintf to
@@ -99,7 +99,7 @@ Boston, MA 02111-1307, USA.  */
 #undef ASM_OUTPUT_ALIGN
 #define ASM_OUTPUT_ALIGN(FILE,LOG)				\
   if ((LOG) > 0)						\
-    fprintf ((FILE), "\t%s \t%u\n", ALIGN_ASM_OP, 1 << (LOG));	\
+    fprintf ((FILE), "%s%u\n", ALIGN_ASM_OP, 1 << (LOG));	\
   else if ((LOG) > 31)						\
     abort ();
 
@@ -134,7 +134,7 @@ Boston, MA 02111-1307, USA.  */
    than ".bss", so override the definition in svr4.h */
 
 #undef BSS_ASM_OP
-#define BSS_ASM_OP	".lcomm"
+#define BSS_ASM_OP	"\t.lcomm\t"
 
 /* Register in which address to store a structure value is passed to a
    function.  The default in m68k.h is a1.  For m68k/SVR4 it is a0. */
@@ -163,7 +163,7 @@ Boston, MA 02111-1307, USA.  */
 
 #undef ASM_OUTPUT_SKIP
 #define ASM_OUTPUT_SKIP(FILE,SIZE)  \
-  fprintf (FILE, "\t%s %u\n", SPACE_ASM_OP, (SIZE))
+  fprintf (FILE, "%s%u\n", SPACE_ASM_OP, (SIZE))
 
 #if 0
 /* SVR4 m68k assembler is bitching on the `comm i,1,1' which askes for 
@@ -181,7 +181,7 @@ Boston, MA 02111-1307, USA.  */
 #define ASM_OUTPUT_ASCII(FILE,PTR,LEN)				\
 do {								\
   register int sp = 0, lp = 0, ch;				\
-  fprintf ((FILE), "\t%s ", BYTE_ASM_OP);			\
+  fprintf ((FILE), "%s", BYTE_ASM_OP);				\
   do {								\
     ch = (PTR)[sp];						\
     if (ch > ' ' && ! (ch & 0x80) && ch != '\\')		\
@@ -196,7 +196,7 @@ do {								\
       {								\
 	if ((sp % 10) == 0)					\
 	  {							\
-	    fprintf ((FILE), "\n\t%s ", BYTE_ASM_OP);		\
+	    fprintf ((FILE), "\n%s", BYTE_ASM_OP);		\
 	  }							\
 	else							\
 	  {							\
@@ -214,7 +214,7 @@ do {								\
 #define ASM_OUTPUT_CASE_END(FILE,NUM,TABLE)				\
 do {									\
   if (switch_table_difference_label_flag)				\
-    asm_fprintf ((FILE), "\t%s %LLD%d,%LL%d\n", SET_ASM_OP, (NUM), (NUM));\
+    asm_fprintf ((FILE), "%s%LLD%d,%LL%d\n", SET_ASM_OP, (NUM), (NUM));	\
   switch_table_difference_label_flag = 0;				\
 } while (0)
 
@@ -241,7 +241,7 @@ extern int switch_table_difference_label_flag;
    standard way to do switch table. */
 #undef ASM_OUTPUT_BEFORE_CASE_LABEL
 #define ASM_OUTPUT_BEFORE_CASE_LABEL(FILE,PREFIX,NUM,TABLE)		\
-  fprintf ((FILE), "\t%s &%d\n", SWBEG_ASM_OP, XVECLEN (PATTERN (TABLE), 1));
+  fprintf ((FILE), "%s&%d\n", SWBEG_ASM_OP, XVECLEN (PATTERN (TABLE), 1));
 
 /* In m68k svr4, a symbol_ref rtx can be a valid PIC operand if it is an
    operand of a function call. */
@@ -284,7 +284,7 @@ extern int switch_table_difference_label_flag;
    `-fno-common' is passed, otherwise `ASM_OUTPUT_COMMON' will be
    used.  */
 #ifndef BSS_SECTION_ASM_OP
-#define BSS_SECTION_ASM_OP	".section\t.bss"
+#define BSS_SECTION_ASM_OP	"\t.section\t.bss"
 #endif
 
 /* Like `ASM_OUTPUT_BSS' except takes the required alignment as a

@@ -420,7 +420,7 @@ safe.
 
 GNU CC implements taking the address of a nested function using a
 technique called @dfn{trampolines}.   A paper describing them is
-available as @samp{http://master.debian.org/~karlheg/Usenix88-lexic.pdf}.
+available as @uref{http://master.debian.org/~karlheg/Usenix88-lexic.pdf}.
 
 A nested function can jump to a label inherited from a containing
 function, provided the label was explicitly declared in the containing
@@ -888,6 +888,10 @@ struct line @{
 
 In standard C, you would have to give @code{contents} a length of 1, which
 means either you waste space or complicate the argument to @code{malloc}.
+
+Static initialization of the zero-length array is not allowed.  A
+warning will be generated for each initializer attempting to initialize
+the zero-length array.
 
 @node Variable Length
 @section Arrays of Variable Length

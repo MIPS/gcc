@@ -26,18 +26,18 @@ Boston, MA 02111-1307, USA.    */
 #define DBX_DEBUGGING_INFO
 #define DWARF2_DEBUGGING_INFO
 
-#undef PREFERRED_DEBUGGING_TYPE
+#undef  PREFERRED_DEBUGGING_TYPE
 #define PREFERRED_DEBUGGING_TYPE DBX_DEBUG
 
 #undef ASM_FINAL_SPEC
 
-#undef CC1_SPEC
+#undef  CC1_SPEC
 #define CC1_SPEC  "%{G*}"
 
-#undef ASM_SPEC
+#undef  ASM_SPEC
 #define ASM_SPEC  "%{G*} %{relax:-relax} %{gdwarf*:-no-mdebug}"
 
-#undef LINK_SPEC
+#undef  LINK_SPEC
 #define LINK_SPEC "-m elf64alpha %{G*} %{relax:-relax}		\
   %{O*:-O3} %{!O*:-O1}						\
   %{shared:-shared}						\
@@ -48,7 +48,7 @@ Boston, MA 02111-1307, USA.    */
     %{static:-static}}"
 
 /* Output at beginning of assembler file.  */
-#undef ASM_FILE_START
+#undef  ASM_FILE_START
 #define ASM_FILE_START(FILE)					\
 do {								\
   if (write_symbols != DWARF2_DEBUG)				\
@@ -71,18 +71,18 @@ do {								\
    .ident string is patterned after the ones produced by native svr4
    C compilers.  */
 
-#define IDENT_ASM_OP ".ident"
+#define IDENT_ASM_OP "\t.ident\t"
 
 #ifdef IDENTIFY_WITH_IDENT
 #define ASM_IDENTIFY_GCC(FILE) /* nothing */
 #define ASM_IDENTIFY_LANGUAGE(FILE)			\
- fprintf(FILE, "\t%s \"GCC (%s) %s\"\n", IDENT_ASM_OP,	\
+ fprintf(FILE, "%s\"GCC (%s) %s\"\n", IDENT_ASM_OP,	\
 	 lang_identify(), version_string)
 #else
 #define ASM_FILE_END(FILE)					\
 do {				 				\
      if (!flag_no_ident)					\
-	fprintf ((FILE), "\t%s\t\"GCC: (GNU) %s\"\n",		\
+	fprintf ((FILE), "%s\"GCC: (GNU) %s\"\n",		\
 		 IDENT_ASM_OP, version_string);			\
    } while (0)
 #endif
@@ -91,17 +91,18 @@ do {				 				\
 #define SCCS_DIRECTIVE
 
 /* Output #ident as a .ident.  */
+#undef  ASM_OUTPUT_IDENT
 #define ASM_OUTPUT_IDENT(FILE, NAME) \
-  fprintf (FILE, "\t%s\t\"%s\"\n", IDENT_ASM_OP, NAME);
+  fprintf (FILE, "%s\"%s\"\n", IDENT_ASM_OP, NAME);
 
 /* This is how to allocate empty space in some section.  The .zero
    pseudo-op is used for this on most svr4 assemblers.  */
 
-#define SKIP_ASM_OP	".zero"
+#define SKIP_ASM_OP	"\t.zero\t"
 
-#undef ASM_OUTPUT_SKIP
-#define ASM_OUTPUT_SKIP(FILE,SIZE) \
-  fprintf (FILE, "\t%s\t%u\n", SKIP_ASM_OP, (SIZE))
+#undef  ASM_OUTPUT_SKIP
+#define ASM_OUTPUT_SKIP(FILE, SIZE) \
+  fprintf (FILE, "%s%u\n", SKIP_ASM_OP, (SIZE))
 
 /* Output the label which precedes a jumptable.  Note that for all svr4
    systems where we actually generate jumptables (which is to say every
@@ -111,15 +112,15 @@ do {				 				\
    make sure that the location counter for the .rodata section gets pro-
    perly re-aligned prior to the actual beginning of the jump table.  */
 
-#define ALIGN_ASM_OP ".align"
+#define ALIGN_ASM_OP "\t.align\t"
 
 #ifndef ASM_OUTPUT_BEFORE_CASE_LABEL
-#define ASM_OUTPUT_BEFORE_CASE_LABEL(FILE,PREFIX,NUM,TABLE) \
+#define ASM_OUTPUT_BEFORE_CASE_LABEL(FILE, PREFIX, NUM, TABLE) \
   ASM_OUTPUT_ALIGN ((FILE), 2);
 #endif
 
-#undef ASM_OUTPUT_CASE_LABEL
-#define ASM_OUTPUT_CASE_LABEL(FILE,PREFIX,NUM,JUMPTABLE)		\
+#undef  ASM_OUTPUT_CASE_LABEL
+#define ASM_OUTPUT_CASE_LABEL(FILE, PREFIX, NUM, JUMPTABLE)		\
   do {									\
     ASM_OUTPUT_BEFORE_CASE_LABEL (FILE, PREFIX, NUM, JUMPTABLE)		\
     ASM_OUTPUT_INTERNAL_LABEL (FILE, PREFIX, NUM);			\
@@ -137,12 +138,12 @@ do {				 				\
    the linker seems to want the alignment of data objects
    to depend on their types.  We do exactly that here.  */
 
-#define COMMON_ASM_OP	".comm"
+#define COMMON_ASM_OP	"\t.comm\t"
 
-#undef ASM_OUTPUT_ALIGNED_COMMON
+#undef  ASM_OUTPUT_ALIGNED_COMMON
 #define ASM_OUTPUT_ALIGNED_COMMON(FILE, NAME, SIZE, ALIGN)		\
 do {									\
-  fprintf ((FILE), "\t%s\t", COMMON_ASM_OP);				\
+  fprintf ((FILE), "%s", COMMON_ASM_OP);				\
   assemble_name ((FILE), (NAME));					\
   fprintf ((FILE), ",%u,%u\n", (SIZE), (ALIGN) / BITS_PER_UNIT);	\
 } while (0)
@@ -152,21 +153,21 @@ do {									\
    the linker seems to want the alignment of data objects
    to depend on their types.  We do exactly that here.  */
 
-#undef ASM_OUTPUT_ALIGNED_LOCAL
+#undef  ASM_OUTPUT_ALIGNED_LOCAL
 #define ASM_OUTPUT_ALIGNED_LOCAL(FILE, NAME, SIZE, ALIGN)		\
 do {									\
   if ((SIZE) <= g_switch_value)						\
     sbss_section();							\
   else									\
     bss_section();							\
-  fprintf (FILE, "\t%s\t ", TYPE_ASM_OP);				\
+  fprintf (FILE, "%s", TYPE_ASM_OP);					\
   assemble_name (FILE, NAME);						\
   putc (',', FILE);							\
   fprintf (FILE, TYPE_OPERAND_FMT, "object");				\
   putc ('\n', FILE);							\
   if (!flag_inhibit_size_directive)					\
     {									\
-      fprintf (FILE, "\t%s\t ", SIZE_ASM_OP);				\
+      fprintf (FILE, "%s", SIZE_ASM_OP);				\
       assemble_name (FILE, NAME);					\
       fprintf (FILE, ",%d\n", (SIZE));					\
     }									\
@@ -178,7 +179,7 @@ do {									\
 /* This is the pseudo-op used to generate a 64-bit word of data with a
    specific value in some section.  */
 
-#define INT_ASM_OP		".quad"
+#define INT_ASM_OP		"\t.quad\t"
 
 /* Biggest alignment supported by the object file format of this
    machine.  Use this macro to limit the alignment which can be
@@ -196,8 +197,8 @@ do {									\
    values from a double-quoted string WITHOUT HAVING A TERMINATING NUL
    AUTOMATICALLY APPENDED.  This is the same for most svr4 assemblers.  */
 
-#undef ASCII_DATA_ASM_OP
-#define ASCII_DATA_ASM_OP	".ascii"
+#undef  ASCII_DATA_ASM_OP
+#define ASCII_DATA_ASM_OP	"\t.ascii\t"
 
 /* Support const sections and the ctors and dtors sections for g++.
    Note that there appears to be two different ways to support const
@@ -209,7 +210,7 @@ do {									\
 
 #define USE_CONST_SECTION	1
 
-#define CONST_SECTION_ASM_OP	".section\t.rodata"
+#define CONST_SECTION_ASM_OP	"\t.section\t.rodata"
 
 /* Define the pseudo-ops used to switch to the .ctors and .dtors sections.
 
@@ -226,13 +227,13 @@ do {									\
    errors unless the .ctors and .dtors sections are marked as writable
    via the SHF_WRITE attribute.)  */
 
-#define CTORS_SECTION_ASM_OP	".section\t.ctors,\"aw\""
-#define DTORS_SECTION_ASM_OP	".section\t.dtors,\"aw\""
+#define CTORS_SECTION_ASM_OP	"\t.section\t.ctors,\"aw\""
+#define DTORS_SECTION_ASM_OP	"\t.section\t.dtors,\"aw\""
 
 /* Handle the small data sections.  */
-#define BSS_SECTION_ASM_OP	".section\t.bss"
-#define SBSS_SECTION_ASM_OP	".section\t.sbss,\"aw\""
-#define SDATA_SECTION_ASM_OP	".section\t.sdata,\"aw\""
+#define BSS_SECTION_ASM_OP	"\t.section\t.bss"
+#define SBSS_SECTION_ASM_OP	"\t.section\t.sbss,\"aw\""
+#define SDATA_SECTION_ASM_OP	"\t.section\t.sdata,\"aw\""
 
 /* On svr4, we *do* have support for the .init and .fini sections, and we
    can put stuff in there to be executed before and after `main'.  We let
@@ -240,22 +241,22 @@ do {									\
    The definitions say how to change sections to the .init and .fini
    sections.  This is the same for all known svr4 assemblers.  */
 
-#define INIT_SECTION_ASM_OP	".section\t.init"
-#define FINI_SECTION_ASM_OP	".section\t.fini"
+#define INIT_SECTION_ASM_OP	"\t.section\t.init"
+#define FINI_SECTION_ASM_OP	"\t.section\t.fini"
 
 /* A default list of other sections which we might be "in" at any given
    time.  For targets that use additional sections (e.g. .tdesc) you
    should override this definition in the target-specific file which
    includes this file.  */
 
-#undef EXTRA_SECTIONS
+#undef  EXTRA_SECTIONS
 #define EXTRA_SECTIONS in_const, in_ctors, in_dtors, in_sbss, in_sdata
 
 /* A default list of extra section function definitions.  For targets
    that use additional sections (e.g. .tdesc) you should override this
    definition in the target-specific file which includes this file.  */
 
-#undef EXTRA_SECTION_FUNCTIONS
+#undef  EXTRA_SECTION_FUNCTIONS
 #define EXTRA_SECTION_FUNCTIONS						\
   CONST_SECTION_FUNCTION						\
   SECTION_FUNCTION_TEMPLATE(ctors_section, in_ctors, CTORS_SECTION_ASM_OP) \
@@ -268,7 +269,7 @@ extern void dtors_section		PARAMS ((void));
 extern void sbss_section		PARAMS ((void));
 extern void sdata_section		PARAMS ((void));
 
-#undef READONLY_DATA_SECTION
+#undef  READONLY_DATA_SECTION
 #define READONLY_DATA_SECTION() const_section ()
 
 #define CONST_SECTION_FUNCTION					\
@@ -308,20 +309,20 @@ void FN ()					\
 
 /* A C statement (sans semicolon) to output an element in the table of
    global constructors.  */
-#define ASM_OUTPUT_CONSTRUCTOR(FILE,NAME)				\
+#define ASM_OUTPUT_CONSTRUCTOR(FILE, NAME)				\
   do {									\
     ctors_section ();							\
-    fprintf (FILE, "\t%s\t ", INT_ASM_OP);				\
+    fprintf (FILE, "%s", INT_ASM_OP);					\
     assemble_name (FILE, NAME);						\
     fprintf (FILE, "\n");						\
   } while (0)
 
 /* A C statement (sans semicolon) to output an element in the table of
    global destructors.  */
-#define ASM_OUTPUT_DESTRUCTOR(FILE,NAME)       				\
+#define ASM_OUTPUT_DESTRUCTOR(FILE, NAME)      				\
   do {									\
     dtors_section ();                   				\
-    fprintf (FILE, "\t%s\t ", INT_ASM_OP);				\
+    fprintf (FILE, "%s", INT_ASM_OP);					\
     assemble_name (FILE, NAME);              				\
     fprintf (FILE, "\n");						\
   } while (0)
@@ -331,7 +332,7 @@ void FN ()					\
    or a constant of some sort.  RELOC indicates whether forming
    the initial value of DECL requires link-time relocations.  */
 
-#define SELECT_SECTION(DECL,RELOC)					\
+#define SELECT_SECTION(DECL, RELOC)					\
 {									\
   if (TREE_CODE (DECL) == STRING_CST)					\
     {									\
@@ -382,8 +383,9 @@ void FN ()					\
    in the case of a `const_int' rtx.  Currently, these always
    go into the const section.  */
 
-#undef SELECT_RTX_SECTION
-#define SELECT_RTX_SECTION(MODE,RTX) const_section()
+#undef  SELECT_RTX_SECTION
+#define SELECT_RTX_SECTION(MODE, RTX) \
+   const_section()
 
 /* Define the strings used for the special svr4 .type and .size directives.
    These strings generally do not vary from one system running svr4 to
@@ -391,18 +393,18 @@ void FN ()					\
    different pseudo-op names for these, they may be overridden in the
    file which includes this one.  */
 
-#define TYPE_ASM_OP	".type"
-#define SIZE_ASM_OP	".size"
+#define TYPE_ASM_OP	"\t.type\t"
+#define SIZE_ASM_OP	"\t.size\t"
 
 /* This is how we tell the assembler that a symbol is weak.  */
 
-#define ASM_WEAKEN_LABEL(FILE,NAME) \
+#define ASM_WEAKEN_LABEL(FILE, NAME) \
   do { fputs ("\t.weak\t", FILE); assemble_name (FILE, NAME); \
        fputc ('\n', FILE); } while (0)
 
 /* This is how we tell the assembler that two symbols have the same value.  */
 
-#define ASM_OUTPUT_DEF(FILE,NAME1,NAME2) \
+#define ASM_OUTPUT_DEF(FILE, NAME1, NAME2) \
   do { assemble_name(FILE, NAME1); 	 \
        fputs(" = ", FILE);		 \
        assemble_name(FILE, NAME2);	 \
@@ -434,7 +436,7 @@ void FN ()					\
 #define ASM_DECLARE_OBJECT_NAME(FILE, NAME, DECL)		\
   do {								\
     HOST_WIDE_INT size;						\
-    fprintf (FILE, "\t%s\t ", TYPE_ASM_OP);			\
+    fprintf (FILE, "%s", TYPE_ASM_OP);				\
     assemble_name (FILE, NAME);					\
     putc (',', FILE);						\
     fprintf (FILE, TYPE_OPERAND_FMT, "object");			\
@@ -445,7 +447,7 @@ void FN ()					\
 	&& (size = int_size_in_bytes (TREE_TYPE (DECL))) > 0)	\
       {								\
 	size_directive_output = 1;				\
-	fprintf (FILE, "\t%s\t ", SIZE_ASM_OP);			\
+	fprintf (FILE, "%s", SIZE_ASM_OP);			\
 	assemble_name (FILE, NAME);				\
 	fputc (',', FILE);					\
 	fprintf (FILE, HOST_WIDE_INT_PRINT_DEC, size);		\
@@ -472,7 +474,7 @@ void FN ()					\
 	&& (size = int_size_in_bytes (TREE_TYPE (DECL))) > 0)		\
       {									\
 	size_directive_output = 1;					\
-	fprintf (FILE, "\t%s\t ", SIZE_ASM_OP);				\
+	fprintf (FILE, "%s", SIZE_ASM_OP);				\
 	assemble_name (FILE, name);					\
 	fputc (',', FILE);						\
 	fprintf (FILE, HOST_WIDE_INT_PRINT_DEC, size);			\
@@ -516,10 +518,10 @@ void FN ()					\
    should define this to zero.  */
 
 #define STRING_LIMIT	((unsigned) 256)
-#define STRING_ASM_OP	".string"
+#define STRING_ASM_OP	"\t.string\t"
 
 /* GAS is the only Alpha/ELF assembler.  */
-#undef TARGET_GAS
+#undef  TARGET_GAS
 #define TARGET_GAS	(1)
 
 /* Provide a STARTFILE_SPEC appropriate for ELF.  Here we add the

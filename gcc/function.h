@@ -373,6 +373,11 @@ struct function
      needed by inner routines.  */
   rtx x_arg_pointer_save_area;
 
+  /* If the function returns non-void, we will emit a clobber of the
+     return registers just in case the user fell off the end without
+     returning a proper value.  This is that insn.  */
+  rtx x_clobber_return_insn;
+
   /* Offset to end of allocated area of stack frame.
      If stack grows down, this is the address of the last stack slot allocated.
      If stack grows up, this is the address for the next slot.  */
@@ -427,20 +432,6 @@ struct function
   /* This slot is initialized as 0 and is added to
      during the nested function.  */
   struct var_refs_queue *fixup_var_refs_queue;
-
-  /* For tree.c.  */
-  int all_types_permanent;
-  struct momentary_level *momentary_stack;
-  char *maybepermanent_firstobj;
-  char *temporary_firstobj;
-  char *momentary_firstobj;
-  char *momentary_function_firstobj;
-  struct obstack *current_obstack;
-  struct obstack *function_obstack;
-  struct obstack *function_maybepermanent_obstack;
-  struct obstack *expression_obstack;
-  struct obstack *saveable_obstack;
-  struct obstack *rtl_obstack;
 
   /* For integrate.c.  */
   int inlinable;
@@ -585,8 +576,6 @@ extern void (*restore_lang_status)	PARAMS ((struct function *));
 extern void (*free_lang_status)         PARAMS ((struct function *));
 
 /* Save and restore status information for a nested function.  */
-extern void save_tree_status		PARAMS ((struct function *));
-extern void restore_tree_status		PARAMS ((struct function *));
 extern void restore_emit_status		PARAMS ((struct function *));
 extern void free_after_parsing		PARAMS ((struct function *));
 extern void free_after_compilation	PARAMS ((struct function *));

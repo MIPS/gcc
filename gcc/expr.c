@@ -238,14 +238,8 @@ init_expr_once ()
   enum machine_mode mode;
   int num_clobbers;
   rtx mem, mem1;
-  char *free_point;
 
   start_sequence ();
-
-  /* Since we are on the permanent obstack, we must be sure we save this
-     spot AFTER we call start_sequence, since it will reuse the rtl it
-     makes.  */
-  free_point = (char *) oballoc (0);
 
   /* Try indexing by frame ptr and try by stack ptr.
      It is known that on the Convex the stack ptr isn't a valid index.
@@ -302,7 +296,6 @@ init_expr_once ()
     }
 
   end_sequence ();
-  obfree (free_point);
 }
 
 /* This is run at the start of compiling a function.  */
@@ -1005,12 +998,19 @@ convert_move (to, from, unsignedp)
       else
 	{
 #ifdef HAVE_extendpsisi2
-	  if (HAVE_extendpsisi2)
+	  if (! unsignedp && HAVE_extendpsisi2)
 	    {
 	      emit_unop_insn (CODE_FOR_extendpsisi2, to, from, UNKNOWN);
 	      return;
 	    }
 #endif /* HAVE_extendpsisi2 */
+#ifdef HAVE_zero_extendpsisi2
+	  if (unsignedp && HAVE_zero_extendpsisi2)
+	    {
+	      emit_unop_insn (CODE_FOR_zero_extendpsisi2, to, from, UNKNOWN);
+	      return;
+	    }
+#endif /* HAVE_zero_extendpsisi2 */
 	  abort ();
 	}
     }
@@ -1752,8 +1752,6 @@ emit_block_move (x, y, size, align)
 	  /* This was copied from except.c, I don't know if all this is
 	     necessary in this context or not.  */
 	  fn = get_identifier ("memcpy");
-	  push_obstacks_nochange ();
-	  end_temporary_allocation ();
 	  fntype = unbounded_ptr_type_node;
 	  fntype = build_function_type (fntype, NULL_TREE);
 	  fn = build_decl (FUNCTION_DECL, fn, fntype);
@@ -1763,7 +1761,6 @@ emit_block_move (x, y, size, align)
 	  DECL_ARTIFICIAL (fn) = 1;
 	  make_decl_rtl (fn, NULL_PTR, 1);
 	  assemble_external (fn);
-	  pop_obstacks ();
 	  default_pointer_boundedness = save_default_pointer_boundedness;
 	}
 
@@ -2520,8 +2517,6 @@ clear_storage (object, size, align)
 	      /* This was copied from except.c, I don't know if all this is
 		 necessary in this context or not.  */
 	      fn = get_identifier ("memset");
-	      push_obstacks_nochange ();
-	      end_temporary_allocation ();
 	      fntype = unbounded_ptr_type_node;
 	      fntype = build_function_type (fntype, NULL_TREE);
 	      fn = build_decl (FUNCTION_DECL, fn, fntype);
@@ -2531,7 +2526,6 @@ clear_storage (object, size, align)
 	      DECL_ARTIFICIAL (fn) = 1;
 	      make_decl_rtl (fn, NULL_PTR, 1);
 	      assemble_external (fn);
-	      pop_obstacks ();
 	      default_pointer_boundedness = save_default_pointer_boundedness;
 	    }
 
@@ -4991,8 +4985,9 @@ store_field (target, bitsize, bitpos, mode, exp, value_mode,
 	    align >>= 1;
 
 	  emit_block_move (target, temp,
-			   GEN_INT ((bitsize + BITS_PER_UNIT - 1)
-				    / BITS_PER_UNIT),
+			   bitsize == -1 ? expr_size (exp)
+			   : GEN_INT ((bitsize + BITS_PER_UNIT - 1)
+				      / BITS_PER_UNIT),
 			   align);
 
 	  return value_mode == VOIDmode ? const0_rtx : target;
@@ -5957,15 +5952,9 @@ expand_expr (exp, target, tmode, modifier)
 	    && function != inline_function_decl && function != 0)
 	  {
 	    struct function *p = find_function_data (function);
-	    /* Allocate in the memory associated with the function
-	       that the label is in.  */
-	    push_obstacks (p->function_obstack,
-			   p->function_maybepermanent_obstack);
-
 	    p->expr->x_forced_labels
 	      = gen_rtx_EXPR_LIST (VOIDmode, label_rtx (exp),
 				   p->expr->x_forced_labels);
-	    pop_obstacks ();
 	  }
 	else
 	  {
@@ -5998,11 +5987,8 @@ expand_expr (exp, target, tmode, modifier)
       if (DECL_SIZE (exp) == 0 && COMPLETE_TYPE_P (TREE_TYPE (exp))
 	  && (TREE_STATIC (exp) || DECL_EXTERNAL (exp)))
 	{
-	  push_obstacks_nochange ();
-	  end_temporary_allocation ();
 	  layout_decl (exp, 0);
 	  PUT_MODE (DECL_RTL (exp), DECL_MODE (exp));
-	  pop_obstacks ();
 	}
 
       /* Although static-storage variables start off initialized, according to
@@ -6926,8 +6912,9 @@ expand_expr (exp, target, tmode, modifier)
 		  target = assign_temp (type, 0, 1, 1);
 
 		emit_block_move (target, op0,
-				 GEN_INT ((bitsize + BITS_PER_UNIT - 1)
-					  / BITS_PER_UNIT),
+				 bitsize == -1 ? expr_size  (exp)
+				 : GEN_INT ((bitsize + BITS_PER_UNIT - 1)
+					    / BITS_PER_UNIT),
 				 BITS_PER_UNIT);
 
 		return target;
@@ -7153,7 +7140,13 @@ expand_expr (exp, target, tmode, modifier)
 	  && (TREE_CODE (TREE_OPERAND (TREE_OPERAND (exp, 0), 0))
 	      == FUNCTION_DECL)
 	  && DECL_BUILT_IN (TREE_OPERAND (TREE_OPERAND (exp, 0), 0)))
-	return expand_builtin (exp, target, subtarget, tmode, ignore);
+        {
+	  if (DECL_BUILT_IN_CLASS (TREE_OPERAND (TREE_OPERAND (exp, 0), 0))
+	      == BUILT_IN_FRONTEND)
+	    return (*lang_expand_expr) (exp, original_target, tmode, modifier);
+	  else
+	    return expand_builtin (exp, target, subtarget, tmode, ignore);
+	}
 
       /* If this call was expanded already by preexpand_calls,
 	 just return the result we got.  */

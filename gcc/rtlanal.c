@@ -22,6 +22,7 @@ Boston, MA 02111-1307, USA.  */
 
 #include "config.h"
 #include "system.h"
+#include "toplev.h"
 #include "rtl.h"
 
 static int rtx_addr_can_trap_p	PARAMS ((rtx));
@@ -842,24 +843,19 @@ insn_dependent_p_1 (x, pat, data)
    will not be used, which we ignore.  */
 
 rtx
-single_set (insn)
+single_set_1 (insn)
      rtx insn;
 {
-  rtx set;
+  rtx set = NULL;
+  int set_verified = 1;
+  rtx pat = PATTERN (insn);
   int i;
-  
-  if (! INSN_P (insn))
-    return 0;
 
-  if (GET_CODE (PATTERN (insn)) == SET)
-    return PATTERN (insn);
-  
-  else if (GET_CODE (PATTERN (insn)) == PARALLEL)
+  if (GET_CODE (pat) == PARALLEL)
     {
-      for (i = 0, set = 0; i < XVECLEN (PATTERN (insn), 0); i++)
+      for (i = 0; i < XVECLEN (pat, 0); i++)
 	{
-	  rtx sub = XVECEXP (PATTERN (insn), 0, i);
-
+	  rtx sub = XVECEXP (pat, 0, i);
 	  switch (GET_CODE (sub))
 	    {
 	    case USE:
@@ -867,24 +863,35 @@ single_set (insn)
 	      break;
 
 	    case SET:
-	      if (! find_reg_note (insn, REG_UNUSED, SET_DEST (sub))
-		  || side_effects_p (sub))
+	      /* We can consider insns having multiple sets, where all
+		 but one are dead as single set insns.  In common case
+		 only single set is present in the pattern so we want
+		 to avoid checking for REG_UNUSED notes unless neccesary.
+
+		 When we reach set first time, we just expect this is
+		 the single set we are looking for and only when more
+		 sets are found in the insn, we check them.  */
+	      if (!set_verified)
 		{
-		  if (set)
-		    return 0;
+		  if (find_reg_note (insn, REG_UNUSED, SET_DEST (set))
+		      && !side_effects_p (set))
+		    set = NULL;
 		  else
-		    set = sub;
+		    set_verified = 1;
 		}
+	      if (!set)
+		set = sub, set_verified = 0;
+	      else if (!find_reg_note (insn, REG_UNUSED, SET_DEST (sub))
+		       || side_effects_p (sub))
+		return NULL_RTX;
 	      break;
 
 	    default:
-	      return 0;
+	      return NULL_RTX;
 	    }
 	}
-      return set;
     }
-  
-  return 0;
+  return set;
 }
 
 /* Given an INSN, return nonzero if it has more than one SET, else return

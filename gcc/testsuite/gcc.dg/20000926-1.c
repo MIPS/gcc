@@ -1,4 +1,5 @@
 /* Copyright (C) 2000  Free Software Foundation.
+
    by William Cohen  <wcohen@redhat.com>  */
 
 /* { dg-do compile } */
@@ -21,6 +22,6 @@ struct PLAYBOOK playbook  =
 {
   "BookName",
   {
-    { 1, "PName0" },
-  } /* { dg-warning "(deprecated initialization)|(near initialization)" "" } */
+    { 1, "PName0" }, /* { dg-warning "excess elements in array initializer|(near initialization for `playbook.Play')" } */
+  }
 };

@@ -1,5 +1,5 @@
 /* Target definitions for GNU compiler for Intel 80386 running Interix
-   Parts Copyright (C) 1991, 1999 Free Software Foundation, Inc.
+   Parts Copyright (C) 1991, 1999, 2000 Free Software Foundation, Inc.
 
    Parts:
      by Douglas B. Rupp (drupp@cs.washington.edu).
@@ -140,7 +140,7 @@ Boston, MA 02111-1307, USA.  */
 
 #define STRING_LIMIT	((unsigned) 256)
 
-#define STRING_ASM_OP	".string"
+#define STRING_ASM_OP	"\t.string\t"
 
 /* The routine used to output NUL terminated strings.  We use a special
    version of this for most svr4 targets because doing so makes the
@@ -155,7 +155,7 @@ Boston, MA 02111-1307, USA.  */
       register const unsigned char *_limited_str =			\
         (const unsigned char *) (STR);					\
       register unsigned ch;						\
-      fprintf ((FILE), "\t%s\t\"", STRING_ASM_OP);			\
+      fprintf ((FILE), "%s\"", STRING_ASM_OP);				\
       for (; (ch = *_limited_str); _limited_str++)			\
         {								\
 	  register int escape = ESCAPES[ch];				\
@@ -265,7 +265,7 @@ Boston, MA 02111-1307, USA.  */
 
 #define USE_CONST_SECTION	1
 
-#define CONST_SECTION_ASM_OP	".section\t.rdata,\"r\""
+#define CONST_SECTION_ASM_OP	"\t.section\t.rdata,\"r\""
 
 /* Define the pseudo-ops used to switch to the .ctors and .dtors sections.
 
@@ -282,8 +282,8 @@ Boston, MA 02111-1307, USA.  */
    errors unless the .ctors and .dtors sections are marked as writable
    via the SHF_WRITE attribute.)  */
 
-#define CTORS_SECTION_ASM_OP	".section\t.ctors,\"x\""
-#define DTORS_SECTION_ASM_OP	".section\t.dtors,\"x\""
+#define CTORS_SECTION_ASM_OP	"\t.section\t.ctors,\"x\""
+#define DTORS_SECTION_ASM_OP	"\t.section\t.dtors,\"x\""
 
 /* A default list of other sections which we might be "in" at any given
    time.  For targets that use additional sections (e.g. .tdesc) you
@@ -361,7 +361,7 @@ dtors_section ()							\
 	   (DECL) && TREE_READONLY (DECL) ? "a" : "aw")
 #endif
 
-#define INT_ASM_OP		".long"
+#define INT_ASM_OP		"\t.long\t"
 
 /* The MS compilers take alignment as a number of bytes, so we do as well */
 #undef ASM_OUTPUT_ALIGN
@@ -373,7 +373,7 @@ dtors_section ()							\
 #define ASM_OUTPUT_CONSTRUCTOR(FILE,NAME)				\
   do {									\
     ctors_section ();							\
-    fprintf (FILE, "\t%s\t ", INT_ASM_OP);				\
+    fprintf (FILE, "%s", INT_ASM_OP);					\
     assemble_name (FILE, NAME);						\
     fprintf (FILE, "\n");						\
   } while (0)
@@ -383,7 +383,7 @@ dtors_section ()							\
 #define ASM_OUTPUT_DESTRUCTOR(FILE,NAME)       				\
   do {									\
     dtors_section ();                   				\
-    fprintf (FILE, "\t%s\t ", INT_ASM_OP);				\
+    fprintf (FILE, "%s", INT_ASM_OP);					\
     assemble_name (FILE, NAME);              				\
     fprintf (FILE, "\n");						\
   } while (0)
@@ -392,12 +392,12 @@ dtors_section ()							\
    ld -r (specifically -rU). */
 #define CTOR_LISTS_DEFINED_EXTERNALLY 1
 
-#define SET_ASM_OP	".set"
+#define SET_ASM_OP	"\t.set\t"
 /* Output a definition (implements alias) */
 #define ASM_OUTPUT_DEF(FILE,LABEL1,LABEL2)				\
 do									\
 {									\
-    fprintf ((FILE), "\t%s\t", SET_ASM_OP);				\
+    fprintf ((FILE), "%s", SET_ASM_OP);					\
     assemble_name (FILE, LABEL1);					\
     fprintf (FILE, ",");						\
     assemble_name (FILE, LABEL2);					\

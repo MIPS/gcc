@@ -38,20 +38,20 @@
 #ifndef _CPP_BITS_CODECVT_H
 #define _CPP_BITS_CODECVT_H	1
 
-  // XXX 
-  // __enc_traits may need to move up the locale header hierarchy,
-  // depending on if ctype ends up using it.
+#ifdef _GLIBCPP_USE_WCHAR_T
+#include <iconv.h>		// For iconv, iconv_t
+#include <langinfo.h>
+#endif
 
+namespace std
+{
+  // XXX __enc_traits may need to move up the locale header hierarchy,
+  // depending on if ctype ends up using it.
 #ifdef _GLIBCPP_USE_WCHAR_T
   // Extensions to use icov for dealing with character encodings,
   // including conversions and comparisons between various character
   // sets.  This object encapsulates data that may need to be shared between
   // char_traits, codecvt and ctype.
-
-#if _GLIBCPP_USE_SHADOW_HEADERS
-  using _C_legacy::CODESET;
-#endif
-
   class __enc_traits
   {
   public:
@@ -65,41 +65,33 @@
     // Max size of charset encoding name
     static const int 	_S_max_size = 32;
     // Name of internal character set encoding.
-    char	       	_M_int_enc[_S_max_size];
+    char	       	_M_intc_enc[_S_max_size];
     // Name of external character set encoding.
-    char  	       	_M_ext_enc[_S_max_size];
+    char  	       	_M_extc_enc[_S_max_size];
 
     // Conversion descriptor between external encoding to internal encoding.
     __desc_type		_M_in_desc;
     // Conversion descriptor between internal encoding to external encoding.
     __desc_type		_M_out_desc;
 
-    // Details the byte-order marker for the external encoding, if necessary.
-    int			_M_ext_bom;
-
-    // Details the byte-order marker for the internal encoding, if necessary.
-    int			_M_int_bom;
-
   public:
-    __enc_traits()
-    : _M_in_desc(0), _M_out_desc(0), _M_ext_bom(0), _M_int_bom(0)
+    __enc_traits() : _M_in_desc(0), _M_out_desc(0)
     {
       // __intc_end = whatever we are using internally, which is
       // UCS4 (linux) 
       // UCS2 == UNICODE  (microsoft, java, aix, whatever...)
       // XXX Currently don't know how to get this data from target system...
-      strcpy(_M_int_enc, "UCS4");
+      strcpy(_M_intc_enc, "UCS4");
 
       // __extc_end = external codeset in current locale
-      strcpy(_M_ext_enc, nl_langinfo(CODESET));
+      strcpy(_M_extc_enc, nl_langinfo(CODESET));
     }
 
-    __enc_traits(const char* __int, const char* __ext, int __ibom = 0, 
-		 int __ebom = 0)
-    : _M_in_desc(0), _M_out_desc(0), _M_ext_bom(0), _M_int_bom(0)
+    __enc_traits(const char* __int, const char* __ext)
+    : _M_in_desc(0), _M_out_desc(0)
     {
-      strncpy(_M_int_enc, __int, _S_max_size);
-      strncpy(_M_ext_enc, __ext, _S_max_size);
+      strncpy(_M_intc_enc, __int, _S_max_size);
+      strncpy(_M_extc_enc, __ext, _S_max_size);
     }
 
     // 21.1.2 traits typedefs
@@ -109,10 +101,8 @@
     // CopyConstructible types (20.1.3)
     __enc_traits(const __enc_traits& __obj)
     {
-      strncpy(_M_int_enc, __obj._M_int_enc, _S_max_size);
-      strncpy(_M_ext_enc, __obj._M_ext_enc, _S_max_size);
-      _M_ext_bom = __obj._M_ext_bom;
-      _M_int_bom = __obj._M_int_bom;
+      strncpy(_M_intc_enc, __obj._M_intc_enc, _S_max_size);
+      strncpy(_M_extc_enc, __obj._M_extc_enc, _S_max_size);
     }
 
     ~__enc_traits()
@@ -125,8 +115,8 @@
     void
     _M_init()
     {
-      _M_in_desc = iconv_open(_M_int_enc, _M_ext_enc);
-      _M_out_desc = iconv_open(_M_ext_enc, _M_int_enc);
+      _M_in_desc = iconv_open(_M_intc_enc, _M_extc_enc);
+      _M_out_desc = iconv_open(_M_extc_enc, _M_intc_enc);
       if (_M_out_desc == iconv_t(-1) || _M_in_desc == iconv_t(-1))
 	{
 	  // XXX Extended error checking.
@@ -150,19 +140,11 @@
 
    const char* 
     _M_get_internal_enc()
-    { return _M_int_enc; }
+    { return _M_intc_enc; }
 
     const char* 
     _M_get_external_enc()
-    { return _M_ext_enc; }
-
-    int 
-    _M_get_external_bom()
-    { return _M_ext_bom; }
-
-    int 
-    _M_get_internal_bom()
-    { return _M_int_bom; }
+    { return _M_extc_enc; }
   };
 #endif //_GLIBCPP_USE_WCHAR_T
 
@@ -303,7 +285,6 @@
   template<typename _InternT, typename _ExternT, typename _StateT>
     locale::id codecvt<_InternT, _ExternT, _StateT>::id;
 
-#ifdef _GLIBCPP_USE_WCHAR_T
   // partial specialization
   // This specialization takes advantage of iconv to provide code
   // conversions between a large number of character encodings.
@@ -371,19 +352,6 @@
     locale::id 
     codecvt<_InternT, _ExternT, __enc_traits>::id;
 
-  // This adaptor works around the signature problems of the second
-  // argument to iconv():  SUSv2 and others use 'const char**', but glibc 2.2
-  // uses 'char**', which is what the standard is (apparently) due to use
-  // in the future.  Using this adaptor, g++ will do the work for us.
-  template<typename _T>
-    inline size_t
-    __iconv_adaptor(size_t(*iconv_func)(iconv_t, _T, size_t*, char**, size_t*),
-                    iconv_t cd, char** inbuf, size_t* inbytesleft,
-                    char** outbuf, size_t* outbytesleft)
-    {
-      return iconv_func(cd, (_T)inbuf, inbytesleft, outbuf, outbytesleft);
-    }
-
   template<typename _InternT, typename _ExternT>
     codecvt_base::result
     codecvt<_InternT, _ExternT, __enc_traits>::
@@ -404,34 +372,10 @@
 	  
 	  // Argument list for iconv specifies a byte sequence. Thus,
 	  // all to/from arrays must be brutally casted to char*.
+	  char* __cfrom = reinterpret_cast<char*>(const_cast<intern_type*>(__from));
 	  char* __cto = reinterpret_cast<char*>(__to);
-	  char* __cfrom;
-	  size_t __conv;
-
-	  // Some encodings need a byte order marker as the first item
-	  // in the byte stream, to designate endian-ness. The default
-	  // value for the byte order marker is NULL, so if this is
-	  // the case, it's not necessary and we can just go on our
-	  // merry way.
-	  int __int_bom = __state._M_get_internal_bom();
-	  if (__int_bom)
-	    {	  
-	      size_t __size = __from_end - __from;
-	      intern_type __cfixed[__size + 1];
-	      __cfixed[0] = static_cast<intern_type>(__int_bom);
-	      char_traits<intern_type>::copy(__cfixed + 1, __from, __size);
-	      __cfrom = reinterpret_cast<char*>(__cfixed);
-	      __conv = __iconv_adaptor(iconv, *__desc, &__cfrom,
-                                        &__flen, &__cto, &__tlen); 
-	    }
-	  else
-	    {
-	      intern_type* __cfixed = const_cast<intern_type*>(__from);
-	      __cfrom = reinterpret_cast<char*>(__cfixed);
-	      __conv = __iconv_adaptor(iconv, *__desc, &__cfrom,
-                                       &__flen, &__cto, &__tlen); 
-	    }
-
+	  size_t __conv = iconv(*__desc, &__cfrom, &__flen, &__cto, &__tlen); 
+	  
 	  if (__conv != size_t(-1))
 	    {
 	      __from_next = reinterpret_cast<const intern_type*>(__cfrom);
@@ -470,8 +414,7 @@
 	  // Argument list for iconv specifies a byte sequence. Thus,
 	  // all to/from arrays must be brutally casted to char*.
 	  char* __cto = reinterpret_cast<char*>(__to);
-	  size_t __conv = __iconv_adaptor(iconv,*__desc, NULL, NULL,
-                                          &__cto, &__tlen); 
+	  size_t __conv = iconv(*__desc, NULL, NULL, &__cto, &__tlen); 
 	  
 	  if (__conv != size_t(-1))
 	    {
@@ -509,34 +452,9 @@
 	  
 	  // Argument list for iconv specifies a byte sequence. Thus,
 	  // all to/from arrays must be brutally casted to char*.
+	  char* __cfrom = reinterpret_cast<char*>(const_cast<extern_type*>(__from));
 	  char* __cto = reinterpret_cast<char*>(__to);
-	  char* __cfrom;
-	  size_t __conv;
-
-	  // Some encodings need a byte order marker as the first item
-	  // in the byte stream, to designate endian-ness. The default
-	  // value for the byte order marker is NULL, so if this is
-	  // the case, it's not necessary and we can just go on our
-	  // merry way.
-	  int __ext_bom = __state._M_get_external_bom();
-	  if (__ext_bom)
-	    {	  
-	      size_t __size = __from_end - __from;
-	      extern_type __cfixed[__size + 1];
-	      __cfixed[0] = static_cast<extern_type>(__ext_bom);
-	      char_traits<extern_type>::copy(__cfixed + 1, __from, __size);
-	      __cfrom = reinterpret_cast<char*>(__cfixed);
-	      __conv = __iconv_adaptor(iconv, *__desc, &__cfrom,
-                                       &__flen, &__cto, &__tlen); 
-	    }
-	  else
-	    {
-	      extern_type* __cfixed = const_cast<extern_type*>(__from);
-	      __cfrom = reinterpret_cast<char*>(__cfixed);
-	      __conv = __iconv_adaptor(iconv, *__desc, &__cfrom,
-                                       &__flen, &__cto, &__tlen); 
-	    }
-
+	  size_t __conv = iconv(*__desc, &__cfrom, &__flen, &__cto, &__tlen); 
 	  
 	  if (__conv != size_t(-1))
 	    {
@@ -586,7 +504,6 @@
     do_max_length() const throw()
     { return 1; }
 #endif
-#endif /* _GLIBCPP_USE_WCHAR_T */
 
   // codecvt<char, char, mbstate_t> required specialization
   template<>
@@ -701,11 +618,41 @@
     public:
       explicit 
       codecvt_byname(const char*, size_t __refs = 0) 
-      : codecvt<_InternT, _ExternT, _StateT>(__refs) { }
+      : codecvt<_InternT,_ExternT,_StateT> (__refs) { }
     protected:
       virtual 
       ~codecvt_byname() { }
     };
+
+  template<>
+    class codecvt_byname<char, char, mbstate_t>
+    : public codecvt<char, char, mbstate_t>
+    {
+    public:
+      explicit 
+      codecvt_byname(const char*, size_t __refs = 0);
+
+    protected:
+      virtual 
+      ~codecvt_byname();
+    };
+  
+#ifdef _GLIBCPP_USE_WCHAR_T
+  template<>
+    class codecvt_byname<wchar_t, char, mbstate_t>
+      : public codecvt<wchar_t, char, mbstate_t>
+    {
+    public:
+      explicit 
+      codecvt_byname(const char*, size_t __refs = 0);
+
+    protected:
+      virtual 
+      ~codecvt_byname();
+    };
+#endif
+
+} // namespace std
 
 #endif // _CPP_BITS_CODECVT_H
 

@@ -1330,14 +1330,16 @@ calculate_needs_all_insns (global)
      int global;
 {
   struct insn_chain **pprev_reload = &insns_need_reload;
-  struct insn_chain *chain;
+  struct insn_chain *chain, *next = 0;
 
   something_needs_elimination = 0;
 
   reload_insn_firstobj = (char *) obstack_alloc (&reload_obstack, 0);
-  for (chain = reload_insn_chain; chain != 0; chain = chain->next)
+  for (chain = reload_insn_chain; chain != 0; chain = next)
     {
       rtx insn = chain->insn;
+
+      next = chain->next;
 
       /* Clear out the shortcuts.  */
       chain->n_reloads = 0;
@@ -1394,6 +1396,15 @@ calculate_needs_all_insns (global)
 		  PUT_CODE (insn, NOTE);
 		  NOTE_SOURCE_FILE (insn) = 0;
 		  NOTE_LINE_NUMBER (insn) = NOTE_INSN_DELETED;
+		  /* Delete it from the reload chain */
+		  if (chain->prev)
+		    chain->prev->next = next;
+		  else
+		    reload_insn_chain = next;
+		  if (next)
+		    next->prev = chain->prev;
+		  chain->next = unused_insn_chains;
+		  unused_insn_chains = chain;
 		  continue;
 		}
 	    }
@@ -2834,9 +2845,6 @@ eliminate_regs_in_insn (insn, replace)
       abort ();
     }
 
-  if (! replace)
-    push_obstacks (&reload_obstack, &reload_obstack);
-
   if (old_set != 0 && GET_CODE (SET_DEST (old_set)) == REG
       && REGNO (SET_DEST (old_set)) < FIRST_PSEUDO_REGISTER)
     {
@@ -3136,9 +3144,6 @@ eliminate_regs_in_insn (insn, replace)
      the pre-passes.  */
   if (val && REG_NOTES (insn) != 0)
     REG_NOTES (insn) = eliminate_regs (REG_NOTES (insn), 0, REG_NOTES (insn));
-
-  if (! replace)
-    pop_obstacks ();
 
   return val;
 }

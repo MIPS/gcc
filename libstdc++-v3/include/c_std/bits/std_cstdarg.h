@@ -1,4 +1,4 @@
-// -*- C++ -*- forwarding header.
+// -*- C++ -*- header wrapper.
 
 // Copyright (C) 1997-1999, 2000 Free Software Foundation, Inc.
 //
@@ -31,17 +31,24 @@
 // ISO C++ 14882: 20.4.6  C library
 //
 
-// Note: This is not a conforming implementation.
-
 #ifndef _CPP_CSTDARG
 #define _CPP_CSTDARG 1
 
-#pragma GCC system_header
-#include <stdarg.h>
+namespace _C_legacy {
+  extern "C" {
+#     define _IN_C_LEGACY_
+#     pragma GCC system_header
+#     include_next <stdarg.h>
+  }
+} // namespace _C_legacy
 
-namespace std
-{
-  using ::va_list;
-}
+#  undef va_list
+
+namespace std {
+  using _C_legacy::va_list;
+} // namespace std
+
+# undef _IN_C_LEGACY_
 
 #endif
+

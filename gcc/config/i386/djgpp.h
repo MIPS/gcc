@@ -60,15 +60,15 @@ Boston, MA 02111-1307, USA.  */
 
 /* Define the name of the .ident op.  */
 #undef IDENT_ASM_OP
-#define IDENT_ASM_OP "\t.ident"
+#define IDENT_ASM_OP "\t.ident\t"
 
 /* Define the name of the .int op.  */
 #undef INT_ASM_OP
-#define INT_ASM_OP "\t.long"
+#define INT_ASM_OP "\t.long\t"
 
 /* Enable alias attribute support.  */
 #ifndef SET_ASM_OP
-#define SET_ASM_OP "\t.set"
+#define SET_ASM_OP "\t.set\t"
 #endif
 
 /* Define the name of the .text section.  */
@@ -266,7 +266,8 @@ dtor_section ()							\
 #define UNIQUE_SECTION(DECL,RELOC)				\
 do {								\
   int len;							\
-  char *name, *string, *prefix;					\
+  const char *name, *prefix;					\
+  char *string;							\
 								\
   name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (DECL));	\
 								\

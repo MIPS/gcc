@@ -1,5 +1,5 @@
 int b=1;
-int foo()
+main()
 {
   int a;
   int c;
@@ -8,14 +8,9 @@ int foo()
   {
     c=1;
     asm(""::"r"(c));
-    c=(signed char)a;
+    c=(char)a;
   }
   if (c!=-1)
     abort();
   return c;
-}
-int main()
-{
-  foo();
-  return 0;
 }

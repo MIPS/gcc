@@ -10,12 +10,17 @@ typedef __PTRDIFF_TYPE__ ptrdiff_t;
 
 __extension__ typedef long long int llong;
 
-/* This next definition is broken.  When GCC has a <stdint.h> and
-   an internal understanding of intmax_t, it should be
-   replaced by an include of <stdint.h> or by a definition for internal
-   macros or typedefs.
+/* This next definition is a kludge.  When GCC has a <stdint.h> it
+   should be used.
 */
-__extension__ typedef long long int intmax_t;
+#include <limits.h>
+#if INT_MAX == __LONG_LONG_MAX__
+typedef int intmax_t;
+#elif LONG_MAX == __LONG_LONG_MAX__
+typedef long intmax_t;
+#else
+__extension__ typedef long long intmax_t;
+#endif
 
 extern int printf (const char *, ...);
 

@@ -165,19 +165,19 @@ __ashrdi3 (DWtype u, word_type b)
 DWtype
 __ffsdi2 (DWtype u)
 {
-  DWunion uu, w;
+  DWunion uu;
+  UWtype word, count, add;
+
   uu.ll = u;
-  w.s.high = 0;
-  w.s.low = ffs (uu.s.low);
-  if (w.s.low != 0)
-    return w.ll;
-  w.s.low = ffs (uu.s.high);
-  if (w.s.low != 0)
-    {
-      w.s.low += BITS_PER_UNIT * sizeof (Wtype);
-      return w.ll;
-    }
-  return w.ll;
+  if (uu.s.low != 0)
+    word = uu.s.low, add = 0;
+  else if (uu.s.high != 0)
+    word = uu.s.high, add = BITS_PER_UNIT * sizeof (Wtype);
+  else
+    return 0;
+
+  count_trailing_zeros (count, word);
+  return count + add + 1;
 }
 #endif
 
@@ -315,8 +315,8 @@ __udiv_w_sdiv (UWtype *rp __attribute__ ((__unused__)),
 #define L_udivmoddi4
 #endif
 
-#ifdef L_udivmoddi4
-static const UQItype __clz_tab[] =
+#ifdef L_clz
+const UQItype __clz_tab[] =
 {
   0,1,2,2,3,3,3,3,4,4,4,4,4,4,4,4,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,
   6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,
@@ -327,6 +327,9 @@ static const UQItype __clz_tab[] =
   8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,
   8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,
 };
+#endif
+
+#ifdef L_udivmoddi4
 
 #if (defined (L_udivdi3) || defined (L_divdi3) || \
      defined (L_umoddi3) || defined (L_moddi3))
@@ -2987,7 +2990,7 @@ __default_terminate (void)
 void (*__terminate_func)(void) __attribute__ ((__noreturn__)) =
   __default_terminate;
 
-void
+void __attribute__((__noreturn__))
 __terminate (void)
 {
   (*__terminate_func)();
@@ -4178,28 +4181,3 @@ __throw ()
 #endif /* IA64_UNWIND_INFO  */
 
 #endif /* L_eh */
-
-#ifdef L_pure
-#ifndef inhibit_libc
-/* This gets us __GNU_LIBRARY__.  */
-#undef NULL /* Avoid errors if stdio.h and our stddef.h mismatch.  */
-#include <stdio.h>
-
-#ifdef __GNU_LIBRARY__
-  /* Avoid forcing the library's meaning of `write' on the user program
-     by using the "internal" name (for use within the library)  */
-#define write(fd, buf, n)	__write((fd), (buf), (n))
-#endif
-#endif /* inhibit_libc */
-
-#define MESSAGE "pure virtual method called\n"
-
-void
-__pure_virtual (void)
-{
-#ifndef inhibit_libc
-  write (2, MESSAGE, sizeof (MESSAGE) - 1);
-#endif
-  __terminate ();
-}
-#endif

@@ -1,6 +1,6 @@
 /* Definitions for Motorola 68k running Linux-based GNU systems with
    ELF format.
-   Copyright (C) 1995, 1996, 1997, 1998, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -203,13 +203,13 @@ Boston, MA 02111-1307, USA.  */
 #undef ASM_OUTPUT_ALIGN
 #define ASM_OUTPUT_ALIGN(FILE,LOG)				\
   if ((LOG) > 0)						\
-    fprintf ((FILE), "\t%s \t%u\n", ALIGN_ASM_OP, 1 << (LOG));
+    fprintf ((FILE), "%s%u\n", ALIGN_ASM_OP, 1 << (LOG));
 
 /* If defined, a C expression whose value is a string containing the
    assembler operation to identify the following data as uninitialized global
    data.  */
 
-#define BSS_SECTION_ASM_OP ".section\t.bss"
+#define BSS_SECTION_ASM_OP "\t.section\t.bss"
 
 /* A C statement (sans semicolon) to output to the stdio stream
    FILE the assembler definition of uninitialized global DECL named

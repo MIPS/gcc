@@ -32,26 +32,18 @@
 #include <new>
 #include <exception>
 
-#include "exception_support.h"
+// Exception handling hook, to mark current exception as not caught --
+// generally because we're about to rethrow it after some cleanup.
+extern "C" void __uncatch_exception (void);
 
 namespace __cxxabiv1
 {
 
-namespace 
-{
-struct uncatch_exception {
-  uncatch_exception () { p = __uncatch_exception (); }
-  ~uncatch_exception () { __recatch_exception (p); }
-
-  cp_eh_info *p;
-};
-}
-
 /* allocate and construct array */
 extern "C" void *
-__cxa_vec_new (std::size_t element_count,
-               std::size_t element_size,
-               std::size_t padding_size,
+__cxa_vec_new (size_t element_count,
+               size_t element_size,
+               size_t padding_size,
                void (*constructor) (void *),
                void (*destructor) (void *))
 {
@@ -61,21 +53,21 @@ __cxa_vec_new (std::size_t element_count,
 }
 
 extern "C" void *
-__cxa_vec_new2 (std::size_t element_count,
-                std::size_t element_size,
-                std::size_t padding_size,
+__cxa_vec_new2 (size_t element_count,
+                size_t element_size,
+                size_t padding_size,
                 void (*constructor) (void *),
                 void (*destructor) (void *),
                 void *(*alloc) (size_t),
                 void (*dealloc) (void *))
 {
-  std::size_t size = element_count * element_size + padding_size;
+  size_t size = element_count * element_size + padding_size;
   char *base = static_cast <char *> (alloc (size));
   
   if (padding_size)
     {
       base += padding_size;
-      reinterpret_cast <std::size_t *> (base)[-1] = element_count;
+      reinterpret_cast <size_t *> (base)[-1] = element_count;
     }
   try
     {
@@ -84,31 +76,29 @@ __cxa_vec_new2 (std::size_t element_count,
     }
   catch (...)
     {
-      {
-	uncatch_exception ue;
-	dealloc (base - padding_size);
-      }
+      __uncatch_exception ();
+      dealloc (base - padding_size);
       throw;
     }
   return base;
 }
 
 extern "C" void *
-__cxa_vec_new3 (std::size_t element_count,
-                std::size_t element_size,
-                std::size_t padding_size,
+__cxa_vec_new3 (size_t element_count,
+                size_t element_size,
+                size_t padding_size,
                 void (*constructor) (void *),
                 void (*destructor) (void *),
-                void *(*alloc) (std::size_t),
-                void (*dealloc) (void *, std::size_t))
+                void *(*alloc) (size_t),
+                void (*dealloc) (void *, size_t))
 {
-  std::size_t size = element_count * element_size + padding_size;
+  size_t size = element_count * element_size + padding_size;
   char *base = static_cast <char *> (alloc (size));
   
   if (padding_size)
     {
       base += padding_size;
-      reinterpret_cast <std::size_t *> (base)[-1] = element_count;
+      reinterpret_cast <size_t *> (base)[-1] = element_count;
     }
   try
     {
@@ -117,10 +107,8 @@ __cxa_vec_new3 (std::size_t element_count,
     }
   catch (...)
     {
-      {
-	uncatch_exception ue;
-	dealloc (base - padding_size, size);
-      }
+      __uncatch_exception ();
+      dealloc (base - padding_size, size);
       throw;
     }
   return base;
@@ -129,12 +117,12 @@ __cxa_vec_new3 (std::size_t element_count,
 /* construct array */
 extern "C" void
 __cxa_vec_ctor (void *array_address,
-                std::size_t element_count,
-                std::size_t element_size,
+                size_t element_count,
+                size_t element_size,
                 void (*constructor) (void *),
                 void (*destructor) (void *))
 {
-  std::size_t ix = 0;
+  size_t ix = 0;
   char *ptr = static_cast <char *> (array_address);
   
   try
@@ -145,10 +133,8 @@ __cxa_vec_ctor (void *array_address,
     }
   catch (...)
     {
-      {
-	uncatch_exception ue;
-	__cxa_vec_dtor (array_address, ix, element_size, destructor);
-      }
+      __uncatch_exception ();
+      __cxa_vec_dtor (array_address, ix, element_size, destructor);
       throw;
     }
 }
@@ -158,12 +144,12 @@ __cxa_vec_ctor (void *array_address,
 extern "C" void
 __cxa_vec_cctor (void *dest_array,
 		 void *src_array,
-		 std::size_t element_count,
-		 std::size_t element_size,
+		 size_t element_count,
+		 size_t element_size,
 		 void (*constructor) (void *, void *),
 		 void (*destructor) (void *))
 {
-  std::size_t ix = 0;
+  size_t ix = 0;
   char *dest_ptr = static_cast <char *> (dest_array);
   char *src_ptr = static_cast <char *> (src_array);
 
@@ -176,10 +162,8 @@ __cxa_vec_cctor (void *dest_array,
     }
   catch (...)
     {
-      {
-	uncatch_exception ue;
-	__cxa_vec_dtor (dest_array, ix, element_size, destructor);
-      }
+      __uncatch_exception ();
+      __cxa_vec_dtor (dest_array, ix, element_size, destructor);
       throw;
     }
 }
@@ -187,14 +171,14 @@ __cxa_vec_cctor (void *dest_array,
 /* destruct array */
 extern "C" void
 __cxa_vec_dtor (void *array_address,
-                std::size_t element_count,
-                std::size_t element_size,
+                size_t element_count,
+                size_t element_size,
                 void (*destructor) (void *))
 {
   if (destructor)
     {
       char *ptr = static_cast <char *> (array_address);
-      std::size_t ix = element_count;
+      size_t ix = element_count;
       bool unwinding = std::uncaught_exception ();
       
       ptr += element_count * element_size;
@@ -213,11 +197,8 @@ __cxa_vec_dtor (void *array_address,
             // [except.ctor]/3 If a destructor called during stack unwinding
             // exits with an exception, terminate is called.
             std::terminate ();
-	  {
-	    uncatch_exception ue;
-	    __cxa_vec_dtor (array_address, ix, element_size,
-			    destructor);
-	  }
+          __uncatch_exception ();
+          __cxa_vec_dtor (array_address, ix, element_size, destructor);
           throw;
         }
     }
@@ -226,8 +207,8 @@ __cxa_vec_dtor (void *array_address,
 /* destruct and release array */
 extern "C" void
 __cxa_vec_delete (void *array_address,
-                  std::size_t element_size,
-                  std::size_t padding_size,
+                  size_t element_size,
+                  size_t padding_size,
                   void (*destructor) (void *))
 {
   __cxa_vec_delete2 (array_address, element_size, padding_size,
@@ -237,8 +218,8 @@ __cxa_vec_delete (void *array_address,
 
 extern "C" void
 __cxa_vec_delete2 (void *array_address,
-                  std::size_t element_size,
-                  std::size_t padding_size,
+                  size_t element_size,
+                  size_t padding_size,
                   void (*destructor) (void *),
                   void (*dealloc) (void *))
 {
@@ -246,7 +227,7 @@ __cxa_vec_delete2 (void *array_address,
   
   if (padding_size)
     {
-      std::size_t element_count = reinterpret_cast <std::size_t *> (base)[-1];
+      size_t element_count = reinterpret_cast <size_t *> (base)[-1];
       base -= padding_size;
       try
         {
@@ -255,10 +236,8 @@ __cxa_vec_delete2 (void *array_address,
         }
       catch (...)
         {
-	  {
-	    uncatch_exception ue;
-	    dealloc (base);
-	  }
+          __uncatch_exception ();
+          dealloc (base);
           throw;
         }
     }
@@ -267,17 +246,17 @@ __cxa_vec_delete2 (void *array_address,
 
 extern "C" void
 __cxa_vec_delete3 (void *array_address,
-                  std::size_t element_size,
-                  std::size_t padding_size,
+                  size_t element_size,
+                  size_t padding_size,
                   void (*destructor) (void *),
-                  void (*dealloc) (void *, std::size_t))
+                  void (*dealloc) (void *, size_t))
 {
   char *base = static_cast <char *> (array_address);
-  std::size_t size = 0;
+  size_t size = 0;
   
   if (padding_size)
     {
-      std::size_t element_count = reinterpret_cast <std::size_t *> (base)[-1];
+      size_t element_count = reinterpret_cast <size_t *> (base)[-1];
       base -= padding_size;
       size = element_count * element_size + padding_size;
       try
@@ -287,10 +266,8 @@ __cxa_vec_delete3 (void *array_address,
         }
       catch (...)
         {
-	  {
-	    uncatch_exception ue;
-	    dealloc (base, size);
-	  }
+          __uncatch_exception ();
+          dealloc (base, size);
           throw;
         }
     }

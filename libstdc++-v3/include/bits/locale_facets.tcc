@@ -33,7 +33,6 @@
 #define _CPP_BITS_LOCFACETS_TCC 1
 
 #include <bits/std_cerrno.h>
-#include <bits/std_clocale.h>   // For localeconv
 #include <bits/std_cstdlib.h>   // For strof, strtold
 #include <bits/std_limits.h>    // For numeric_limits
 #include <bits/std_memory.h>    // For auto_ptr
@@ -71,11 +70,11 @@ namespace std
     use_facet(const locale& __loc)
     {
       typedef locale::_Impl::__vec_facet        __vec_facet;
+      const locale::facet* __fp = (const _Facet*)0;    // check derivation
       locale::id& __id = _Facet::id;         // check member id
       size_t __i = __id._M_index;
       __vec_facet* __facet = __loc._M_impl->_M_facets;
-      const locale::facet* __fp = (*__facet)[__i]; // check derivation
-      if (__i >= __facet->size() || __fp == 0)
+      if (__i >= __facet->size() || (__fp = (*(__facet))[__i]) == 0)
         return _Use_facet_failure_handler<_Facet>(__loc);
       return static_cast<const _Facet&>(*__fp);
     }
@@ -159,6 +158,16 @@ namespace std
     }
 
   template<typename _CharT>
+    locale::id ctype<_CharT>::id;
+
+  template<typename _CharT>
+    int _Format_cache<_CharT>::_S_pword_ix;
+
+  template<typename _CharT>
+    const char _Format_cache<_CharT>::
+    _S_literals[] = "-+xX0123456789abcdef0123456789ABCDEF";
+
+  template<typename _CharT>
     _Format_cache<_CharT>::_Format_cache()
     : _M_valid(true), _M_use_grouping(false)
     { }
@@ -233,6 +242,9 @@ namespace std
 
       return __ncp;
     }
+
+  template<typename _CharT, typename _InIter>
+    locale::id num_get<_CharT, _InIter>::id;
 
   // This member function takes an (w)istreambuf_iterator object and
   // parses it into a generic char array suitable for parsing with
@@ -671,8 +683,7 @@ namespace std
       long double __ld;
       int __p = sscanf(__xtrc, __conv, &__ld);
       if (__p
-          && static_cast<typename __traits_type::int_type>(__p)
-        != __traits_type::eof())
+          && static_cast<__traits_type::int_type>(__p) != __traits_type::eof())
         __v = __ld;
       else
         __err |= ios_base::failbit;
@@ -715,6 +726,9 @@ namespace std
       __io.flags(__fmt);
       return __beg;
     }
+
+  template <typename _CharT, typename _OutIter>
+    locale::id num_put<_CharT, _OutIter>::id;
 
   // _S_fill is specialized for ostreambuf_iterator, random access iterator.
   template <typename _CharT, typename _OutIter>
@@ -1103,6 +1117,12 @@ namespace std
       }
     }
 
+  template<typename _CharT>
+    locale::id numpunct<_CharT>::id;
+
+  template<typename _CharT>
+    locale::id collate<_CharT>::id;
+
   // Support for time_get:
   // Note that these partial specializations could, and maybe should,
   // be changed to full specializations (by eliminating the _Dummy
@@ -1172,6 +1192,9 @@ namespace std
 #endif
 
   template<typename _CharT, typename _InIter>
+    locale::id time_get<_CharT, _InIter>::id;
+
+  template<typename _CharT, typename _InIter>
     _InIter
     time_get<_CharT, _InIter>::
     do_get_weekday(iter_type __s, iter_type __end,
@@ -1224,6 +1247,27 @@ namespace std
         __err |= __io.failbit;
       return __out;
     }
+
+  template<typename _CharT, typename _OutIter>
+    locale::id time_put<_CharT, _OutIter>::id;
+
+  template<typename _CharT, typename _InIter>
+    locale::id money_get<_CharT, _InIter>::id;
+
+  template<typename _CharT, typename _OutIter>
+    locale::id money_put<_CharT, _OutIter>::id;
+
+  template<typename _CharT, bool _Intl>
+    locale::id moneypunct<_CharT, _Intl>::id;
+
+  template<typename _CharT, bool _Intl>
+    const bool moneypunct<_CharT, _Intl>::intl;
+
+  template<typename _CharT, bool _Intl>
+    const bool moneypunct_byname<_CharT, _Intl>::intl;
+
+  template<typename _CharT>
+    locale::id messages<_CharT>::id;
 } // std::
 
 #endif /* _CPP_BITS_LOCFACETS_TCC */

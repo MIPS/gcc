@@ -21,7 +21,7 @@
 ## Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
 ## USA.
 
-## $Id: Makefile.am,v 1.1.2.9 2000/08/24 21:54:42 gkm Exp $
+## $Id: Makefile.am,v 1.1.2.10 2000/09/18 17:59:24 gkm Exp $
 
 AUTOMAKE_OPTIONS = 1.3 gnits
 MAINT_CHARSET = latin1
@@ -35,91 +35,49 @@ toolexecdir = $(exec_prefix)/$(target_alias)
 toolexeclibdir = $(toolexecdir)/lib$(MULTISUBDIR)
 endif
 
+
 toolexeclib_LTLIBRARIES = libstdc++.la
 EXTRA_LTLIBRARIES = libinst-string.la libinst-wstring.la
 
 
-# Using these options is probably a good idea for thrill-seekers. Just
-# uncomment the lines below and make, everything else is ready to go... 
-# OPTIMIZE_CXXFLAGS = -O3 -fstrict-aliasing -fvtable-gc 
+# Compile flags that should be constant throughout the build, both for
+# SUBDIRS and for libstdc++-v3 in general.
+OPTIMIZE_CXXFLAGS = @OPTIMIZE_CXXFLAGS@
 
 # These bits are all figured out from configure. Look in acinclude.m4
-# or configure.in to see how they are set.
+# or configure.in to see how they are set. See GLIBCPP_EXPORT_FLAGS
 # NB: DEBUGFLAGS have to be at the end so that -O2 can be overridden.
-AC_CXXFLAGS = \
-	$(WERROR) @WFMT_FLAGS@ @CPU_FLAGS@ @EXTRA_CXX_FLAGS@ \
-	@SECTION_FLAGS@ @DEBUG_FLAGS@ 
+CONFIG_CXXFLAGS = \
+	@EXTRA_CXX_FLAGS@ @SECTION_FLAGS@ @CSHADOW_FLAGS@ @DEBUG_FLAGS@ 
 
-# Need to manually set this option because AC_CXXFLAGS has to be at
-# the end of the compile line so that -O2 can be overridden as the
-# occasion call for it. (ie, --enable-debug)
-AM_CXXFLAGS = \
-	-fno-implicit-templates $(OPTIMIZE_CXXFLAGS) \
-	-Wall -Wno-format -W -Wwrite-strings -Winline \
-	$(AC_CXXFLAGS) 
+# Warning flags to use.
+WARN_CXXFLAGS = \
+	@WARN_FLAGS@ $(WERROR) @WFMT_FLAGS@
 
-
-# Passed down for cross compilers, canadian crosses.
-TOPLEVEL_INCLUDES = -I$(includedir)
-
-if GLIBCPP_NEED_LIBIO
-LIBIO_INCLUDES = \
-	-I$(top_builddir)/libio -I$(top_srcdir)/libio 
-else
-LIBIO_INCLUDES = -I$(top_srcdir)/libio
-endif
-
-if GLIBCPP_USE_CSHADOW
-CSHADOW_INCLUDES = 
-#CSHADOW_INCLUDES = \
-#	@CSHADOWFLAGS@ -I$(top_srcdir)/shadow -I$(top_builddir)/cshadow
-else
-CSHADOW_INCLUDES =
-endif
-
-CONFIG_INCLUDES = \
-	-I$(top_srcdir)/@cpu_include_dir@ \
-	-I$(top_srcdir)/@ctype_include_dir@
+# Use common includes from acinclude.m4/GLIBCPP_EXPORT_INCLUDES
+GLIBCPP_INCLUDE_DIR = @GLIBCPP_INCLUDE_DIR@
+C_INCLUDE_DIR = @C_INCLUDE_DIR@
+TOPLEVEL_INCLUDES = @TOPLEVEL_INCLUDES@
+LIBMATH_INCLUDES = @LIBMATH_INCLUDES@
+LIBSUPCXX_INCLUDES = @LIBSUPCXX_INCLUDES@
+LIBIO_INCLUDES = @LIBIO_INCLUDES@
+CSHADOW_INCLUDES = @CSHADOW_INCLUDES@
 
 INCLUDES = \
-	-D_GNU_SOURCE -nostdinc++ $(CSHADOW_INCLUDES) -I$(top_srcdir) \
-	 $(LIBIO_INCLUDES) $(CONFIG_INCLUDES) $(TOPLEVEL_INCLUDES)	
+	-D_GNU_SOURCE -D_ISOC99_SOURCE -nostdinc++ \
+	$(CSHADOW_INCLUDES) $(LIBSUPCXX_INCLUDES) -I$(GLIBCPP_INCLUDE_DIR) \
+	$(LIBIO_INCLUDES) $(LIBMATH_INCLUDES) -I$(top_builddir) \
+	$(TOPLEVEL_INCLUDES)	
 
-
-# Need to explicitly set this so that AM_CXXFLAGS is last. (That way,
-# things like -O2 passed down from the toplevel can be overridden by
-# --enable-debug.)
-CXXCOMPILE = $(CXX) $(DEFS) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) \
-	     $(CXXFLAGS) $(AM_CXXFLAGS) 
-
-LTCXXCOMPILE = $(LIBTOOL) --mode=compile $(CXX) $(DEFS) $(INCLUDES) \
-	       $(AM_CPPFLAGS) $(CPPFLAGS) $(CXXFLAGS) $(AM_CXXFLAGS) 
-
-# We have a problem when building the shared libstdc++ object if the
-# rules automake generates would be used.  We cannot allow CXX to be used
-# in libtool since this would add -lstdc++ to the link line which of
-# course is impossible.
-CXXLINK = $(LIBTOOL) --mode=link "$(CC)" @OPT_LDFLAGS@ @SECTION_LDFLAGS@ $(AM_CXXFLAGS) $(LDFLAGS) -o $@
-
-
-headers = \
-	bits/cpp_type_traits.h \
-	bits/std_cctype.h bits/ctype_base.h bits/ctype_specializations.h \
-	bits/char_traits.h bits/codecvt.h \
+base_headers = \
+	bits/cpp_type_traits.h bits/char_traits.h bits/codecvt.h \
 	bits/basic_string.h bits/std_string.h  bits/string.tcc \
 	bits/generic_shadow.h bits/std_utility.h \
 	bits/std_complex.h \
 	bits/valarray_array.h bits/valarray_array.tcc bits/valarray_meta.h \
 	bits/std_valarray.h bits/mask_array.h bits/slice.h bits/slice_array.h \
 	bits/gslice.h bits/gslice_array.h bits/indirect_array.h \
-	bits/std_cassert.h bits/std_cwctype.h \
-	bits/std_cerrno.h bits/std_cfloat.h bits/std_climits.h \
-	bits/std_clocale.h bits/std_cmath.h \
-	bits/std_csetjmp.h bits/std_csignal.h bits/std_cstdarg.h \
-	bits/std_cstddef.h bits/std_cstdio.h bits/std_cstdlib.h \
-	bits/std_cstring.h bits/std_ctime.h bits/std_cwchar.h \
-	bits/std_typeinfo.h bits/std_new.h \
-	bits/std_exception.h bits/exception_support.h \
+	bits/exception_support.h \
 	bits/std_fstream.h bits/std_iomanip.h \
 	bits/ios_base.h bits/fpos.h bits/basic_ios.h bits/basic_ios.tcc \
 	bits/std_ios.h bits/std_iosfwd.h bits/std_iostream.h \
@@ -159,32 +117,38 @@ headers = \
 	ext/stl_bvector.h bits/stl_config.h bits/stl_construct.h \
 	ext/stl_hashtable.h ext/stl_hash_fun.h \
 	ext/hash_map ext/hash_set ext/rope ext/slist \
-	ext/tree ext/bvector \
-	shadow/assert.h shadow/ctype.h shadow/errno.h shadow/float.h \
-	shadow/libio.h \
-	shadow/limits.h shadow/locale.h shadow/math.h shadow/setjmp.h \
-	shadow/signal.h shadow/stdarg.h shadow/stddef.h shadow/stdio.h \
-	shadow/stdlib.h shadow/string.h shadow/time.h \
-	shadow/unistd.h shadow/wchar.h shadow/wctype.h \
-	shadow/bits/std_cassert.h shadow/bits/std_cctype.h \
-	shadow/bits/std_cerrno.h shadow/bits/std_cfloat.h \
-	shadow/bits/std_climits.h shadow/bits/std_clocale.h \
-	shadow/bits/std_cmath.h shadow/bits/std_csetjmp.h \
-	shadow/bits/std_csignal.h shadow/bits/std_cstdarg.h \
-	shadow/bits/std_cstddef.h shadow/bits/std_cstdio.h \
-	shadow/bits/std_cstdlib.h shadow/bits/std_cstring.h \
-	shadow/bits/std_ctime.h shadow/bits/std_cwchar.h \
-	shadow/bits/std_cwctype.h \
-	shadow/bits/wrap_libio.h shadow/bits/wrap_unistd.h \
-	shadow/sys/cdefs.h 
+	ext/tree ext/bvector 
+
+c_base_headers = \
+	bits/std_cassert.h bits/std_cctype.h bits/std_cerrno.h \
+	bits/std_cfloat.h bits/std_climits.h bits/std_clocale.h \
+	bits/std_cmath.h bits/std_csetjmp.h bits/std_csignal.h \
+	bits/std_cstdarg.h bits/std_cstddef.h bits/std_cstdio.h \
+	bits/std_cstdlib.h bits/std_cstring.h bits/std_ctime.h \
+	bits/std_cwchar.h bits/std_cwctype.h 
+
+c_shadow_headers = \
+	assert.h ctype.h errno.h float.h limits.h locale.h math.h setjmp.h \
+	signal.h stdarg.h stddef.h stdio.h stdlib.h string.h time.h wchar.h \
+	wctype.h fcntl.h libio.h iolibio.h libioP.h pthread.h iconv.h \
+	bits/wrap_libio.h bits/wrap_iolibio.h bits/wrap_libioP.h \
+	bits/wrap_iconv.h bits/wrap_fcntl.h bits/wrap_pthread.h \
+	sys/cdefs.h 
+
+if GLIBCPP_USE_CSHADOW
+c_headers = $(c_base_headers) $(c_shadow_headers)
+else
+c_headers = $(c_base_headers)
+endif
 
 std_headers = \
-	algorithm bitset cassert cctype cerrno cfloat climits clocale ciso646 \
-	cmath complex csetjmp csignal cstdarg cstddef cstdio cstdlib \
-	cstring ctime cwchar cwctype deque exception fstream functional \
+	algorithm bitset complex deque fstream functional \
 	iomanip ios iosfwd iostream istream iterator limits list locale \
-	map memory new numeric ostream queue set sstream stack stdexcept \
-	streambuf string strstream typeinfo utility valarray vector 
+	map memory numeric ostream queue set sstream stack stdexcept \
+	streambuf string strstream utility valarray vector \
+	cassert cctype cerrno cfloat climits clocale ciso646 \
+	cmath csetjmp csignal cstdarg cstddef cstdio cstdlib \
+	cstring ctime cwchar cwctype
 
 if GLIBCPP_NEED_LIBIO 
 libio_headers = \
@@ -193,13 +157,15 @@ else
 libio_headers =
 endif
 
-generated_headers = \
-	 $(top_builddir)/bits/std_limits.h $(top_builddir)/bits/c++config.h \
-	 $(top_builddir)/bits/c++threads.h $(top_builddir)/bits/c++io.h
+build_headers = \
+	$(top_builddir)/bits/std_limits.h $(top_builddir)/bits/c++config.h \
+	$(top_builddir)/bits/c++io.h $(top_builddir)/bits/c++threads.h \
+	$(top_builddir)/bits/atomicity.h $(top_builddir)/bits/os_defines.h \
+	$(top_builddir)/bits/ctype_base.h \
+	$(top_builddir)/bits/ctype_noninline.h \
+	$(top_builddir)/bits/ctype_inline.h 
 
-cpu_headers = \
-	 $(top_srcdir)/@cpu_include_dir@/bits/atomicity.h 
-
+headers = $(base_headers) $(c_headers)
 
 sources = \
 	limitsMEMBERS.cc \
@@ -213,9 +179,9 @@ sources = \
 wstring_sources = \
 	wstring-inst.cc
 
-VPATH += $(top_srcdir) $(top_srcdir)/std $(top_srcdir)/src
-VPATH += $(top_srcdir)/@ctype_include_dir@
-
+VPATH += $(top_srcdir) $(top_srcdir)/src
+VPATH += $(GLIBCPP_INCLUDE_DIR) 
+VPATH += $(GLIBCPP_INCLUDE_DIR)/std $(C_INCLUDE_DIR)
 
 # Actual sources for the distro, but don't build these.
 #EXTRA_sources = string-inst.cc 
@@ -225,7 +191,8 @@ libstdc___la_SOURCES = $(sources)
 libinst_wstring_la_SOURCES = $(wstring_sources)
 
 libstdc___la_LIBADD = \
-	../math/libmath.la ../libio/libio.la \
+	../libmath/libmath.la ../libio/libio.la \
+	../libsupc++/libsupc++convenience.la \
 	@libinst_wstring_la@
 
 libstdc___la_LDFLAGS = -version-info 3:0:0 -lm
@@ -246,7 +213,7 @@ $(libstdc___la_OBJECTS): $(CSHADOW_H)
 $(top_builddir)/stamp-cshadow: $(top_srcdir)/mkinclosure \
                                $(top_srcdir)/mkcshadow
 	$(top_srcdir)/mkinclosure \
-	"-I $(top_builddir)/../../gcc/include -I /usr/include -G machine/ansi.h" | $(top_srcdir)/mkcshadow;
+	"-I $(top_builddir)/../../gcc/include -I /usr/include -G fcntl.h unistd.h" | $(top_srcdir)/mkcshadow;
 	rm -f  $(top_builddir)/stamp-cshadow 
 	echo "done" > $(top_builddir)/stamp-cshadow 
 
@@ -263,10 +230,10 @@ install: myinstallheaders
 myinstallheaders: $(headers:%=$(myincludep)%)
 	if test -z "$(MULTISUBDIR)"; then \
 	for i in $(std_headers); do \
-	  echo "$(INSTALL_DATA) $(top_srcdir)/std/$$i $(myincludep)"; \
-	        $(INSTALL_DATA) $(top_srcdir)/std/$$i $(myincludep); \
+	  echo "$(INSTALL_DATA) $(GLIBCPP_INCLUDE_DIR)/std/$$i $(myincludep)";\
+	        $(INSTALL_DATA) $(GLIBCPP_INCLUDE_DIR)/std/$$i $(myincludep); \
 	done; \
-	for i in $(generated_headers); do \
+	for i in $(build_headers); do \
 	  echo "$(INSTALL_DATA) $$i $(myincludep)bits/"; \
 	        $(INSTALL_DATA) $$i $(myincludep)bits/; \
 	done; \
@@ -275,8 +242,6 @@ myinstallheaders: $(headers:%=$(myincludep)%)
           echo "$(INSTALL_DATA) $$i $(myincludep)"; \
                 $(INSTALL_DATA) $$i $(myincludep); \
 	done; \
-	echo "$(INSTALL_DATA) $(cpu_headers) $(myincludep)bits/"; \
-	$(INSTALL_DATA) $(cpu_headers) $(myincludep)bits/; \
 	fi;
 
 $(headers:%=$(myincludep)%): $(myincludep)%: %
@@ -286,11 +251,11 @@ $(headers:%=$(myincludep)%): $(myincludep)%: %
 	$(INSTALL_DATA) $^ $@; \
 	fi;
 
-# All the machinations with string instantiations messes up the
+# All the (now removed) machinations with string instantiations messes up the
 # automake-generated TAGS rule. Make a simple one here.
-TAGS: $(generated_headers) $(cpu_headers) 
+TAGS: $(build_headers) $(cpu_headers) 
 	etags -C $(top_srcdir)/bits/*.h $(top_srcdir)/bits/*.tcc \
-	$(generated_headers) $(cpu_headers) $(libio_headers) \
+	$(build_headers) $(libio_headers) \
 	$(top_srcdir)/src/*.cc \
 	$(top_builddir)/src/limitsMEMBERS.cc $(top_builddir)/src/c++io.cc \
 	-o $(top_builddir)/TAGS
@@ -314,6 +279,8 @@ wstring-inst.o: string-inst.cc
 wstring-inst.lo: string-inst.cc
 	$(LTCXXCOMPILE) -fimplicit-templates -c -DC=wchar_t $< -o $@
 
+
+# Alexandre put this in here for some libtool-related reason.
 all: libstdc++.INC
 libstdc++.INC: Makefile
 	$(MAKE) \
@@ -325,3 +292,39 @@ libstdc++.INC: Makefile
 
 tmp-libstdc++.INC: Makefile
 	echo -I$(top_builddir) $(INCLUDES) > $@
+
+
+# AM_CXXFLAGS needs to be in each subdirectory so that it can be
+# modified in a per-library or per-sub-library way.
+# Need to manually set this option because CONFIG_CXXFLAGS has to be at
+# the end of the compile line so that -O2 can be overridden as the
+# occasion call for it. (ie, --enable-debug)
+AM_CXXFLAGS = \
+	-fno-implicit-templates \
+	$(WARN_CXXFLAGS) \
+	$(OPTIMIZE_CXXFLAGS) \
+	$(CONFIG_CXXFLAGS) 
+
+# Need to explicitly set this so that AM_CXXFLAGS is last. In
+# addition, we don't use $(DEFS), which tries to set $(top_srcdir) as
+# an include diretory, which screws up shadow headers. (That way,
+# things like -O2 passed down from the toplevel can be overridden by
+# --enable-debug.)
+LTCXXCOMPILE = $(LIBTOOL) --mode=compile $(CXX) $(INCLUDES) \
+	       $(AM_CPPFLAGS) $(CPPFLAGS) $(CXXFLAGS) $(AM_CXXFLAGS) 
+
+# We have a problem when building the shared libstdc++ object if the
+# rules automake generates would be used.  We cannot allow CXX to be used
+# in libtool since this would add -lstdc++ to the link line which of
+# course is impossible.
+CXXLINK = $(LIBTOOL) --mode=link "$(CC)" @OPT_LDFLAGS@ @SECTION_LDFLAGS@ $(AM_CXXFLAGS) $(LDFLAGS) -o $@
+
+
+
+
+
+
+
+
+
+

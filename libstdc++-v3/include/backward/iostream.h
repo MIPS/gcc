@@ -1,3 +1,4 @@
+
 // Copyright (C) 1997-1999, 2000 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -30,27 +31,29 @@
 
 #include <bits/std_iostream.h>
 
-using std::iostream;
-using std::ostream;
-using std::istream;
-using std::ios;
-using std::streambuf;
+#ifdef __STL_USE_NAMESPACES
+using __STD::iostream;
+using __STD::ostream;
+using __STD::istream;
+using __STD::ios;
+using __STD::streambuf;
 
-using std::cout;
-using std::cin;
-using std::cerr;
-using std::clog;
+using __STD::cout;
+using __STD::cin;
+using __STD::cerr;
+using __STD::clog;
 #ifdef _GLIBCPP_USE_WCHAR_T
-using std::wcout;
-using std::wcin;
-using std::wcerr;
-using std::wclog;
+using __STD::wcout;
+using __STD::wcin;
+using __STD::wcerr;
+using __STD::wclog;
 #endif
 
-using std::endl;
-using std::ends;
+using __STD::endl;
+using __STD::ends;
+#endif /* __STL_USE_NAMESPACES */
 
-#endif
+#endif /* _CPP_BACKWARD_IOSTREAM_H */
 
 // Local Variables:
 // mode:C++

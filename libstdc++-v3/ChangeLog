@@ -1,8 +1,439 @@
+2000-10-11  Benjamin Kosnik  <bkoz@purist.soma.redhat.com>
+
+	* libsupc++/Makefile.am: Use it.
+	* libio/Makefile.am: Use it.
+	* libmath/Makefile.am: Use it.
+	* src/Makefile.am: Use it.
+	* Makefile.am (AM_MAKEFLAGS): Remove includes.
+
+	* acinclude.m4 (GLIBCPP_EXPORT_INCLUES): Move include macros here.
+	(GLIBCPP_EXPORT_FLAGS): Move CXX flag setting here.
+	* configure.in: Use it.
+
+	* mkcheck.in (SRC_DIR): Use C_INCLUDE_DIR.
+
+	* src/Makefile.am (CXXCOMPILE): Remove.
+	* src/Makefile.in: Regenerate.
+	* libsupc++/Makefile.am (CXXCOMPILE): Same here.
+	* libsupc++/Makefile.in: Regenerate.
+
+	* include/c_std/*: Merge with shadow.
+	* include/c_std/bits/*: Same.
+
+	* shadow: Remove directory.
+	* shadow/*: De-populate.
+	
+2000-10-11  Phil Edwards  <pme@sources.redhat.com>
+
+	* acinclude.m4 (GLIBCPP_CHECK_LINKER_FEATURES):  Comment out
+	  exception-throwing code for linker test.
+	* aclocal.m4:  Regenerate.
+	* configure:  Regenerate.
+
+2000-10-10  Benjamin Kosnik  <bkoz@purist.soma.redhat.com>
+
+	* Makefile.am (LIBSUPCXX_INCLUDES): Adjust.
+	* libsupc++/include: Remove
+	* libsupc++/include/*: Move to ...
+	* libsupc++: Here.
+	* libsupc++/Makefile.am (glibcppinstall_HEADERS): Install headers.
+	(glibcppinstalldir): New.
+	
+	* src/Makefile.am (c_base_headers): New.
+	(c_shadow_headers): New
+	(c_headers): New.
+	(myinstallheaders): Correct install issues.
+	* src/Makefile.in: Regenerate.
+	
+	* Makefile.am (CSHADOW_INCLUDES): Simplify.
+	* Makefile.in: Regenerate.
+	* acinclude.m4 (GLIBCPP_ENABLE_SHADOW): Add c_include_dir.
+	* aclocal.m4: Regenerate.
+	* mkcheck.in (SRC_DIR): Use it.
+	
+	* include/bits/std_stdexcept.h: And here.
+	* include/bits/std_ios.h: Change std_exception.h to exception.
+	* src/locale.cc: And here.
+	* src/locale-inst.cc: And here.
+	
+	* include/bits/valarray_array.h: And here.
+	* include/bits/stl_alloc.h: And here.
+	* include/bits/stl_algobase.h: And here.
+	* include/bits/pthread_allocimpl.h: And here.
+	* include/bits/stl_construct.h: Change to std_new.h to new.
+
+	* include/bits/locale_facets.h: Change std_typeinfo.h to typeinfo.
+
+	* src/Makefile.am (INCLUDES): Add LIBSUPCXX_INCLUDES.
+	(headers): Remove duplicated headers.
+	(std_headers): And here.
+	* src/Makefile.in: Regenerate.
+	* libsupc++/Makefile.am (LIBSUPCXX_INCLUDES): Remove.
+	* libsupc++/Makefile.in: Regenerate.
+	* Makefile.am (LIBSUPCXX_INCLUDES): Add here.
+	(AM_MAKEFLAGS): And here.
+	* Makefile.in: Regenerate.
+	* include/bits/std_typeinfo.h: Remove.
+	* include/bits/std_new.h: Remove
+	* include/bits/std_exception.h: Remove.
+	* std/new: Remove.
+	* std/typeinfo: Remove.
+	* std/exception: Remove.
+
+	* libio/_G_config.h (__need_ptrdiff_t): Add.
+	
+	* libsupc++/include/new: Change stddef.h to cstddef.
+	* libsupc++/tinfo.h: Change limits.h to climits.
+	* libsupc++/pure.cc: Comment out _GNU_LIBRARY_ bits, as this
+	renders the file uncompilable. Add copyright.
+
+	* include/c_std/bits/std_cstddef.h: Don't bring wchar_t into std
+	namespace, as it is a fundamental type.
+
+2000-10-09  Richard Henderson  <rth@cygnus.com>
+
+	* libsupc++/pure.cc: New file.
+	* libsupc++/Makefile.am (INCLUDES): Add top_builddir.
+	(sources): Add pure.cc.
+	* libsupc++/Makefile.in: Regenerate.
+
+2000-10-09  Benjamin Kosnik  <bkoz@purist.soma.redhat.com>
+
+	* docs/configopts.html: Edit.
+
+	* libio/Makefile.am (INCLUDES): Remove duplicates, simplify.
+	* libio/Makefile.in: Regenerate.
+	* libmath/Makefile.am (INCLUDES): Remove duplicates, simplify.
+	* libmath/Makefile.in: Regenerate.
+	* libsupc++/Makefile.am (INCLUDES): Remove duplicate.
+	* libsupc++/Makefile.in: Regenerate.
+
+	* Makefile.am (AM_MAKEFLAGS): Add GLIBCPP_INCLUDES,
+	TOPLEVEL_INCLUDES, LIBMATH_INCLUDES, LIBIO_INCLUDES,
+	CSHADOW_INCLUDES up here.
+	* Makefile.in: Regenerate.
+	* src/Makefile.am (CSHADOW_INCLUDES): Add include/c_std, include/c
+	for shadow headers.
+	(myinstallheaders): Change glibcpp_includedir to GLIBCPP_INCLUDES.
+	Move GLIBCPP_INCLUDES, TOPLEVEL_INCLUDES, LIBMATH_INCLUDES,
+	LIBIO_INCLUDES, CSHADOW_INCLUDES up Makefile hierarchy.
+	* src/Makefile.in: Regenerate.
+	
+	* include/c: New directory.
+	* include/c/bits/(std_cassert.h, std_cctype.h, std_cerrno.h,
+	std_cfloat.h, std_climits.h, std_clocale.h, std_cmath.h,
+	std_csetjmp.h, std_csignal.h, std_cstdarg.h, std_cstddef.h,
+	std_cstdio.h, std_cstdlib.h, std_cstring.h, std_ctime.h,
+	std_cwchar.h, std_cwctype.h): Add, moving from...
+	* include/bits: ...here.
+	* include/c_std: New directory.
+	* include/c_std/bits/*: Populate from...
+	* shadow: ...here. Remove directory.
+	
+2000-10-08   Benjamin Kosnik  <bkoz@purist.soma.redhat.com>
+
+	* libsupc++/Makefile.am (INCLUDES): Add toplevel include directory.
+	(INCLUDES): Add glibcpp_includedir.
+	* libsupc++/Makefile.in: Regenerate.
+
+	* acinclude.m4 (GLIBCPP_CHECK_OS): Link to os_defines.h.
+	* aclocal.m4: Regenerate.
+	* config/os/*/bits/os_defintes: Adjust copyright dates.
+	
+2000-10-08  Phil Edwards  <pme@sources.redhat.com>
+
+	* include/bits/c++config:  Include <bits/os_defines.h>
+	* config/os/aix/bits/os_defines.h:  New file.
+	* config/os/bsd/bits/os_defines.h:  Ditto.
+	* config/os/generic/bits/os_defines.h:  Ditto.
+	* config/os/gnu-linux/bits/os_defines.h:  Ditto.
+	* config/os/irix/bits/os_defines.h:  Ditto.
+	* config/os/newlib/bits/os_defines.h:  Ditto.
+	* config/os/solaris/solaris2.5/bits/os_defines.h:  Ditto.
+	* config/os/solaris/solaris2.6/bits/os_defines.h:  Ditto.
+	* config/os/solaris/solaris2.7/bits/os_defines.h:  Ditto.
+
+2000-10-07  David Edelsohn  <dje@watson.ibm.com> 
+	
+	* config/os/aix/bits/atomicity.h: New file.
+
+2000-10-07  Benjamin Kosnik  <bkoz@purist.soma.redhat.com>
+        
+        * acinclude.m4: Remove CPU_FLAGS
+        * libio/Makefile.am: Here too.
+        * Makefile.am: Here too.
+        
+        * src/Makefile.am (CONFIG_INCLUDES): Remove.
+        (INCLUDES): Remove CONFIG_INCLUDES.
+        (cpu_headers): Remove.
+        (myinstallheaders): Remove cpu_headers.
+        (generated_headers): Rename to build_headers.
+        (build_headers): Add atomicity.h, ctype_base.h,
+        ctype_specializations.h.
+        
+        * config/os: New directory.
+        * config/aix: Move to...
+        * config/bsd: Move to...
+        * config/generic: Move to...
+        * config/gnu-linux: Move to...
+        * config/irix: Move to...
+        * config/newlib: Move to...
+        * config/solaris: Move to...
+        * config/os/*: Here.
+
+2000-10-07  Benjamin Kosnik  <bkoz@purist.soma.redhat.com>
+
+	* acinclude.m4: Remove CPU_FLAGS
+	* libio/Makefile.am: Here too.
+	* Makefile.am: Here too.
+	
+	* src/Makefile.am (CONFIG_INCLUDES): Remove.
+	(INCLUDES): Remove CONFIG_INCLUDES.
+	(cpu_headers): Remove.
+	(myinstallheaders): Remove cpu_headers.
+	(generated_headers): Rename to build_headers.
+	(build_headers): Add atomicity.h, ctype_base.h,
+	ctype_specializations.h.
+
+	* config/os: New directory.
+	* config/aix: Move to...
+	* config/bsd: Move to...
+	* config/generic: Move to...
+	* config/gnu-linux: Move to...
+	* config/irix: Move to...
+	* config/newlib: Move to...
+	* config/solaris: Move to...
+	* config/os/*: Here.
+	
+2000-10-06  Benjamin Kosnik  <bkoz@purist.soma.redhat.com>
+
+	* src/Makefile.am: Remove OPTIMIZE_CXXFLAGS, WARN_CXXFLAGS,
+	CONFIG_CXXFLAGS from here, and move to...
+	* src/Makefile.in: Regenerate.
+	* Makefile.am: ... here. Clean.
+	(OPTIMIZE_CXXFLAGS): Move up Makefile hierarchy to here.
+	(WARN_CXXFLAGS): Same.
+	(CONFIG_CXXFLAGS): Same.
+	* Makefile.in: Regenerate.
+	* libsupc++/Makefile.am: Use top-level OPTIMIZE_CXXFLAGS,
+	WARN_CXXFLAGS, CONFIG_CXXFLAGS as part of local AM_CXXFLAGS.
+	* libsupc++/Makefile.in: Regenerate.
+		
+	Change math to libmath.
+	* math: Move to libmath, delete.
+	* libmath: New directory.
+	* libmath/*: Populate.
+	* src/Makefile.am (LIBMATH_INCLUDES): Change to libmath.
+	(libstdc___la_LIBADD): Same.
+	* src/Makefile.in: Regenerate.
+	* configure.in: Add AC_OUTPUT for libmath/Makefile.
+	* configure: Regenerate.
+	* Makefile.am (SUBDIRS): Add libmath.
+	* Makefile.in: Regenerate.
+	* README (file): Change name.
+	
+2000-10-06  Benjamin Kosnik  <bkoz@cygnus.com>
+            Richard Henderson  <rth@cygnus.com>
+	    Alexandre Oliva  <aoliva@redhat.com>
+	
+	* libsupc++: New directory.
+	* libsupc++/*: Populate.
+	* libsupc++/Makefile.am (INCLUDES): Add -I../../gcc for
+	eh-common.h, gansidecl.h.
+	* configure.in: Add in libsupc++/Makefile to AC_OUTPUT.
+	* configure: Regenerate.
+	* Makefile.am (SUBDIRS): Add libsupc++.
+	* Makefile.in: Regenerate.
+	* src/Makefile.am (libstdc___la_LIBADD): Add in libsupc++.la
+	* src/Makefile.in: Regenerate.
+	* libio/Makefile.am: Remove extraneous, confusing bits.
+	* libio/Makefile.in: Regenerate.
+	
+2000-10-05  Brent Verner  <brent@rcfile.org>
+
+        * bits/istream.tcc [basic_istream::get(basic_streambuf&)]: Removed
+	test for _M_gcount < in_avail(), as in_avail() only reports info
+	for current buffer, causing method to return at end of buffer.
+	* testsuite/27_io/istream_unformatted.cc [test07()]: New test.
+	* testsuite/27_io/istream_unformatted-3.txt: New file.
+	* testsuite/27_io/istream_unformatted-3.tst: New file.
+
+2000-10-05  Benjamin Kosnik  <bkoz@fillmore.constant.com>
+
+	* README (file): Adjust directory structures.
+	* mkcheck.in (INC_PATH): Adjust for header changes.
+
+2000-10-05  Phil Edwards  <pme@sources.redhat.com>
+
+	* acinclude.m4 (GLIBCPP_CHECK_CTYPE):  Tweaks to message texts
+	  for public relations purposes.
+	* aclocal.m4:  Regenerated.
+	* configure:  Regenerated.
+
+	* docs/ext/howto.html:  Additional explanation about hashing.
+
+2000-10-05  Benjamin Kosnik  <bkoz@cygnus.com>
+
+	* include: New directory.
+	* include/backward: New directory.
+	* include/bits: New directory.
+	* include/ext: New directory.
+	* include/std: New directory.
+	* include/*/*: Populate.
+
+	* backwards: Move to include/backwards, delete.
+	* bits: Move to include/bits, delete.
+	* ext: Move to include/ext, delete.
+	* std: Move to include/std, delete.
+	
+	* src/complex.cc: Adjust include of mathconf.
+
+	* mkc++config (BASE_H): Add include.
+
+	* src/Makefile.am: Support for topleve sources include directory.
+	(INCLUDES): Add LIBMATH_INCLUDE.
+	* src/Makefile.in: Regenerate.
+	* math/Makefile.am (INCLUDES): Append /include.
+	* math/Makefile.in: Regenerate.
+	* libio/Makefile.am (INCLUDES): Add glibcpp_includedir.
+	* libio/Makefile.in: Regenerate.
+	
+2000-10-04  Benjamin Kosnik  <bkoz@gnu.org>
+
+	* libio/_G_config.h : Re-guard the __mbstate_t declaration.
+
+2000-10-03  Benjamin Kosnik  <bkoz@purist.soma.redhat.com>
+
+	* docs/22_locale/howto.html: Add link to proto-documentation on
+	locales.
+	* docs/documentation.html: Rename links for clarity.
+
+	* src/Makefile.am (headers): Remove unistd.h, wrap_unistd.h. Add
+	fcntl.h, iolibio.h, libioP.h, pthread.h, iconv.h. 
+	* src/Makefile.in: Regenerate.
+	
+2000-10-02  Steven King  <sxking@uswest.net>
+
+        * mkcshadow: Fixed script to output proper include guard.
+        * bits/char_traits.h: Cleaned up types in char_traits<char> functions.
+        * libio/_G_config.h: Hacked to make work with shadow heraders.
+        * shadow/*: Hacked to make shadow headers work. 
+
+2000-10-02  Benjamin Kosnik  <bkoz@purist.soma.redhat.com>
+
+	Self-compile with shadow headers.
+	* acconfig.h (_GLIBCPP_USE_SHADOW_HEADERS): Define. Eventually,
+	like _GLIBCPP_USE_NAMESPACES before it, this macro will die when
+	it becomes the default way the library is built.
+	* acinclude.m4 (GLIBCPP_ENABLE_SHADOW): New macro.
+	* config/gnu-linux/bits/ctype_base.h (ctype_base): Use it.
+	* config/gnu-linux/ctype.cc (ctype): Use it.
+	
+	* src/localename.cc (locale::_Impl::_M_replace_categories): Remove
+	call to assert.
+	* src/locale.cc: Explicitly cast mbstate_t to void* in calls to
+	memset. This should not be necessary, but an ambiguous overload
+	with it in.
+
+	* shadow/bits/std_cwchar.h: Fix.
+	* shadow/wchar.h: Fix.
+
+	* config/gnu-linux/bits/ctype_base.h (ctype_base): Inject ctype
+	enums into namespace std:: for ctype_base enum. Other OS types
+	will have to do this as well.
+	* config/gnu-linux/ctype.cc (ctype): Inject ctype data into
+	namespace std, in particular __ctype_toupper, __ctype_tolower,
+	__ctype_b.
+
+	* shadow/iolibio.h: New file.
+	* shadow/bits/wrap_iolibio.h: New file.
+	* shadow/libioP.h: New file.
+	* shadow/bits/wrap_libioP.h: New file.
+	* shadow/bits/wrap_fcntl.h: New file.
+	* shadow/fcntl.h: New file.
+	* shadow/iconv.h: New file. Inject iconv names into the global
+	namespace, unmangled for the moment.
+	* shadow/bits/wrap_iconv.h: New file.
+	* shadow/unistd.h: Remove. Useless.
+	* shadow/bits/wrap_unistd.h: Remove.
+	
+	* src/Makefile.am: Take out machine-ansi.h, add fcntl.h unistd.h.
+	* src/Makefile.in: Regenerate.
+	
+	* config/c_io_libio.h (_IO_codecvt): Change to normal C++ decl.
+	
+	* shadow/libio.h: Fix.
+	* shadow/bits/wrap_libio.h: Fix.
+
+	* shadow/bits/std_clocale.h: Remove typedef struct construct,
+	which will not compile.
+	* shadow/bits/std_ctime.h: Same.
+	
+	* shadow/pthread.h: New file. Put pthreads types and functions
+	into global scope, which is probably not the correct long-term
+	solution but has to be done at the moment before libio wrappers
+	can even be started.
+	* shadow/bits/wrap_pthread.h: New file.
+
+	* bits/std_ios.h: Formatting tweak.
+	* shadow/bits/std_cstdio.h: Format. Remove extraneous bits.
+
+	* acinclude.m4 (GLIBCPP_CHECK_COMPILER_FEATURES): Add -Werror to
+	tests for compiler features.
+	* aclocal.m4: Regenerate.
+	* configure: Regenerate.
+	
+	* config/c_io_libio.cc: Remove fcntl.h include, as SEEK_SET
+	redefined.
+	* libio/libioP.h: Comment out fcntl.h include.
+
+	* shadow/math.h: Add in float and long declarations, as per ISO C9X.
+
+	* bits/c++config: Define _ISOC99_SOURCE.
+
+	* acinclude.m4 (GLIBCPP_ENABLE_SHADOW): Add -fno-builtins to
+	CSHADOWFLAGS, as well as _ISOC99_SOURCE.
+	* aclocal.m4: Regenerate.
+	* configure: Regenerate.
+	* src/Makefile.am (CSHADOW_INCLUDES): Enable, again.
+	(CSHADOW_INCLUDES): Add -I$(top_srcdir)/std before shadow include dir.
+	(CXXCOMPILE): Remove $(DEFS), which searches $(top_srcdir) before
+	std or shadow directories.
+	(LTCXXCOMPILE): Same.
+	(INCLUDES): Add $(top_builddir) before $(top_srcdir).
+	(AC_CXXFLAGS): Add CSHADOWFLAGS.
+	* src/Makefile.in: Regenerate.
+
+	* src/complex.cc (FCT): Change ::name to name.
+	* src/complexl.cc (FCT): Same. Use _GLIBCPP_USE_LONG_LONG here.
+	* src/complexf.cc (FCT): Same.
+
+	* src/complexf.cc: Remove FCT define, as things are properly
+	overloaded in the std namespace with the shadow headers.
+	* src/complexl.cc: Same.
+	* src/complex.cc: Same.
+	
+2000-09-25  Phil Edwards  <pme@sources.redhat.com>
+
+	* docs/documentation.html:  Add link to...
+	* docs/ext/howto.html:  ...this.  New dir/file, describing library
+	  extensions (both ours and SGI's).
+	* docs/faq/index.html:  Small updates.
+	* docs/faq/index.txt:  Regenerate.
+
+2000-09-25 Theodore Papadopoulo <Theodore.Papadopoulo@sophia.inria.fr>
+
+        * bits/basic_file.h (_M_open_mode): Remove extra qualifier.
+
+2000-09-25  Levente Farkas  <lfarkas@mindmaker.hu>
+
+	* ext/stl_hashtable.h (_M_copy_from): Change __copy to __local_copy.
+	
 2000-09-19  Benjamin Kosnik  <bkoz@purist.soma.redhat.com>
 
 	* src/localename.cc (locale::_Imp) : Remove typedefs.	
 	* bits/localefwd.h (locale::locale(const locale& __other, _Facet*
-	__f): Consistency check,, call _Imp ctor with refererence argument
+	__f): Consistency check, call _Imp ctor with reference argument
 	of 1.
 	* bits/localefwd.h: Change _S_num_categories to
 	_S_categories_num. Add new data member, _S_facets_num, which is

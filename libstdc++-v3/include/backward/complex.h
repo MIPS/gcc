@@ -1,3 +1,4 @@
+
 // Copyright (C) 2000 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -28,14 +29,18 @@
 #ifndef _CPP_BACKWARD_COMPLEX_H
 #define _CPP_BACKWARD_COMPLEX_H 1
 
+#include <bits/stl_config.h>
 #include <bits/std_complex.h>
 
-using std::complex;
-typedef complex<float> 		float_complex;
-typedef complex<double> 	double_complex;
-typedef complex<long double> 	long_double_complex;
+#ifdef __STL_USE_NAMESPACES
+using __STD::complex;
+#endif /* __STL_USE_NAMESPACES */
 
-#endif
+typedef complex<float> float_complex;
+typedef complex<double> double_complex;
+typedef complex<long double> long_double_complex;
+
+#endif /* _CPP_BACKWARD_COMPLEX_H */
 
 // Local Variables:
 // mode:C++

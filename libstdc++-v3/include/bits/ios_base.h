@@ -1,6 +1,6 @@
 // Iostreams base classes -*- C++ -*-
 
-// Copyright (C) 1997, 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+// Copyright (C) 1997-1999 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -40,7 +40,7 @@ namespace std {
   // as permitted (but not required) in the standard, in order to provide
   // better type safety in iostream calls.  A side effect is that
   // expressions involving them are no longer compile-time constants.
-  enum _Ios_Fmtflags { _M_ios_fmtflags_end = 1 << 16 };
+  enum _Ios_Fmtflags { _S_ios_fmtflags_end = 1<<16 };
 
   inline _Ios_Fmtflags 
   operator&(_Ios_Fmtflags __a, _Ios_Fmtflags __b)
@@ -71,7 +71,7 @@ namespace std {
   { return _Ios_Fmtflags(~static_cast<int>(__a)); }
 
 
-  enum _Ios_Openmode { _M_ios_openmode_end = 1 << 16 };
+  enum _Ios_Openmode { _S_ios_openmode_end = 1<<16 };
 
   inline _Ios_Openmode 
   operator&(_Ios_Openmode __a, _Ios_Openmode __b)
@@ -102,7 +102,7 @@ namespace std {
   { return _Ios_Openmode(~static_cast<int>(__a)); }
 
 
-  enum _Ios_Iostate { _M_ios_iostate_end = 1 << 16 };
+  enum _Ios_Iostate { _S_ios_iostate_end = 1<<16 };
 
   inline _Ios_Iostate 
   operator&(_Ios_Iostate __a, _Ios_Iostate __b)
@@ -132,13 +132,13 @@ namespace std {
   operator~(_Ios_Iostate __a)
   { return _Ios_Iostate(~static_cast<int>(__a)); }
 
-  enum _Ios_Seekdir { _M_ios_seekdir_end = 1 << 16 };
+  enum _Ios_Seekdir { _S_ios_Seekdir_end = 1<<16 };
 
   // 27.4.2  Class ios_base
   class ios_base
   {
   public:
-    
+
     // 27.4.2.1.1  Class ios_base::failure
     class failure : public exception
     {
@@ -149,10 +149,10 @@ namespace std {
       failure(const string& __str);
 
       virtual 
-      ~failure();
+      ~failure() { };
 
-      virtual const char*
-      what() const throw();
+      virtual const 
+      char* what() const throw() { return _M_name; }
       
     private:
       enum { _M_bufsize = 256 };
@@ -204,7 +204,7 @@ namespace std {
     static const seekdir cur = 		seekdir(SEEK_CUR);
     static const seekdir end = 		seekdir(SEEK_END);
 
-#ifdef _GLIBCPP_DEPRECATED
+#ifdef _GLIBCPP_DEPRICATED
     typedef int io_state;
     typedef int open_mode;
     typedef int seek_dir;
@@ -229,8 +229,9 @@ namespace std {
     streamsize 		_M_width;
     fmtflags 		_M_flags;
 
-    // 27.4.2.6  Members for callbacks
+     // 27.4.2.6  Members for callbacks
     // 27.4.2.6  ios_base callbacks
+
     struct _Callback_list
     {
       // Data Members
@@ -258,7 +259,7 @@ namespace std {
     void 
     _M_dispose_callbacks(void);
 
-    // 27.4.2.5  Members for iword/pword storage
+   // 27.4.2.5  Members for iword/pword storage
     struct _Words 
     { 
       void* 	_M_pword; 
@@ -281,11 +282,11 @@ namespace std {
     _M_init();
 
   public:
-
     // 27.4.2.1.6  Class ios_base::Init
     // Used to initialize standard streams. In theory, g++ could use
     // -finit-priority to order this stuff correctly without going
     // through these machinations. 
+
     class Init 
     {
       friend class ios_base;
@@ -294,7 +295,6 @@ namespace std {
       ~Init();
     private:
       static int 	_S_ios_base_init;
-      bool		_M_synced_with_stdio;
       filebuf* 		_M_cout;
       filebuf* 		_M_cin;
       filebuf* 		_M_cerr;
@@ -362,7 +362,7 @@ namespace std {
     static bool 
     sync_with_stdio(bool __sync = true);
 
-    // Locales:
+   // Locales:
     locale 
     imbue(const locale& __loc);
 

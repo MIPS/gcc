@@ -394,7 +394,7 @@ while (0)
 #define ASM_OUTPUT_DEF(FILE,LABEL1,LABEL2)				\
 do									\
 {									\
-    fprintf ((FILE), "\t%s\t", SET_ASM_OP);				\
+    fprintf ((FILE), "%s", SET_ASM_OP);					\
     assemble_name (FILE, LABEL1);					\
     fprintf (FILE, ",");						\
     assemble_name (FILE, LABEL2);					\
@@ -615,9 +615,9 @@ while (0)
    different pseudo-op names for these, they may be overridden in the
    file which includes this one.  */
 
-#define TYPE_ASM_OP	".type"
-#define SIZE_ASM_OP	".size"
-#define SET_ASM_OP	".set"
+#define TYPE_ASM_OP	"\t.type\t"
+#define SIZE_ASM_OP	"\t.size\t"
+#define SET_ASM_OP	"\t.set\t"
 
 /* This is how we tell the assembler that a symbol is weak.  */
 
@@ -651,7 +651,7 @@ do									     \
    HALF_PIC_DECLARE (NAME);						     \
    if (TARGET_ELF)							     \
      {									     \
-       fprintf (STREAM, "\t%s\t ", TYPE_ASM_OP);			     \
+       fprintf (STREAM, "%s", TYPE_ASM_OP);			 	    \
        assemble_name (STREAM, NAME);					     \
        putc (',', STREAM);						     \
        fprintf (STREAM, TYPE_OPERAND_FMT, "object");			     \
@@ -660,7 +660,7 @@ do									     \
        if (!flag_inhibit_size_directive && DECL_SIZE (DECL))		     \
 	 {								     \
            size_directive_output = 1;					     \
-	   fprintf (STREAM, "\t%s\t ", SIZE_ASM_OP);			     \
+	   fprintf (STREAM, "%s", SIZE_ASM_OP);				     \
 	   assemble_name (STREAM, NAME);				     \
 	   fprintf (STREAM, ",%d\n",  int_size_in_bytes (TREE_TYPE (DECL))); \
 	 }								     \
@@ -683,7 +683,7 @@ do {									 \
 	 && DECL_INITIAL (DECL) == error_mark_node			 \
 	 && !size_directive_output)					 \
        {								 \
-	 fprintf (FILE, "\t%s\t ", SIZE_ASM_OP);			 \
+	 fprintf (FILE, "%s", SIZE_ASM_OP);				 \
 	 assemble_name (FILE, name);					 \
 	 fprintf (FILE, ",%d\n",  int_size_in_bytes (TREE_TYPE (DECL))); \
        }								 \
@@ -699,7 +699,7 @@ do									\
    HALF_PIC_DECLARE (NAME);						\
    if (TARGET_ELF)							\
      {									\
-       fprintf (STREAM, "\t%s\t ", TYPE_ASM_OP);			\
+       fprintf (STREAM, "%s", TYPE_ASM_OP);				\
        assemble_name (STREAM, NAME);					\
        putc (',', STREAM);						\
        fprintf (STREAM, TYPE_OPERAND_FMT, "function");			\
@@ -729,7 +729,7 @@ do									\
 	labelno++;							\
 	ASM_GENERATE_INTERNAL_LABEL (label, "Lfe", labelno);		\
 	ASM_OUTPUT_INTERNAL_LABEL (FILE, "Lfe", labelno);		\
-	fprintf (FILE, "\t%s\t ", SIZE_ASM_OP);				\
+	fprintf (FILE, "%s", SIZE_ASM_OP);				\
 	assemble_name (FILE, (FNAME));					\
         fprintf (FILE, ",");						\
 	assemble_name (FILE, label);					\
@@ -745,7 +745,7 @@ while (0)
    .ident string is patterned after the ones produced by native svr4
    C compilers.  */
 
-#define IDENT_ASM_OP ".ident"
+#define IDENT_ASM_OP "\t.ident\t"
 
 /* Allow #sccs in preprocessor.  */
 
@@ -773,7 +773,7 @@ do									\
 	if (*fname == '/')						\
 	  fname++;							\
 									\
-	fprintf ((STREAM), "\t%s\t\"GCC: (GNU) %s %s -O%d",		\
+	fprintf ((STREAM), "%s\"GCC: (GNU) %s %s -O%d",			\
 		 IDENT_ASM_OP, version_string, fname, optimize);	\
 									\
 	if (write_symbols == PREFERRED_DEBUGGING_TYPE)			\

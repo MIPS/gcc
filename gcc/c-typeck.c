@@ -61,14 +61,13 @@ static tree build_high_bound	PARAMS ((tree));
 static tree unary_complex_lvalue	PARAMS ((enum tree_code, tree));
 static void pedantic_lvalue_warning	PARAMS ((enum tree_code));
 static tree internal_build_compound_expr PARAMS ((tree, int));
-static tree convert_for_assignment	PARAMS ((tree, tree, const char *, tree,
-					       tree, int));
+static void check_modify_expr		PARAMS ((tree, tree));
+static tree convert_for_assignment	PARAMS ((tree, tree, const char *,
+						 tree, tree, int));
+static void warn_for_assignment		PARAMS ((const char *, const char *,
+						 tree, int));
 static void diagnostic_for_assignment	PARAMS ((int, const char *, const char *,
-					       tree, int));
-#define warn_for_assignment(msgid, opname, function, argnum) \
-  diagnostic_for_assignment (0, (msgid), (opname), (function), (argnum))
-#define error_for_assignment(msgid, opname, function, argnum) \
-  diagnostic_for_assignment (1, (msgid), (opname), (function), (argnum))
+						 tree, int));
 static tree valid_compound_expr_initializer PARAMS ((tree, tree));
 static void push_string			PARAMS ((const char *));
 static void push_member_name		PARAMS ((tree));
@@ -4478,6 +4477,132 @@ build_c_cast (type, expr)
   return value;
 }
 
+/* Recursive check for expressions that break the sequence point rules
+   and so have undefined semantics (e.g. n = n++).  FIXME: if walk_tree
+   gets moved out of the C++ front end, this should probably be moved
+   to code shared between the front ends and use walk_tree.  */
+static void
+check_modify_expr (lhs, rhs)
+     tree lhs, rhs;
+{
+  tree identifier_name;   /* A VAR_DECL name on the LHS that could
+			     be the same as one on the RHS. */
+  identifier_name = NULL_TREE;
+
+  if ((lhs == NULL_TREE) || (rhs == NULL_TREE))
+    return;
+
+  switch (TREE_CODE (rhs))
+    {
+    case ERROR_MARK:
+      return;
+    case VAR_DECL:
+    case PARM_DECL:
+      identifier_name = DECL_NAME (rhs);
+      break;
+    case PREDECREMENT_EXPR:
+    case PREINCREMENT_EXPR:
+    case POSTDECREMENT_EXPR:
+    case POSTINCREMENT_EXPR:
+      {
+	tree var_decl = TREE_OPERAND (rhs, 0);
+	if (TREE_CODE (var_decl) == VAR_DECL
+	    || TREE_CODE (var_decl) == PARM_DECL)
+	  identifier_name = DECL_NAME (var_decl);
+      }
+      break;
+    case TREE_LIST:
+      {
+	tree parm = TREE_CHAIN (rhs);
+	/* Now scan all the list, e.g. indices of multi dimensional array.  */
+	while (parm)
+	  {
+	    check_modify_expr (lhs, TREE_VALUE (parm));
+	    parm = TREE_CHAIN (parm);
+	  }
+      }
+      return;
+    case NOP_EXPR:
+    case CONVERT_EXPR:
+    case NON_LVALUE_EXPR:
+      check_modify_expr (lhs, TREE_OPERAND (rhs, 0));
+      return;
+    case MODIFY_EXPR:
+      /* First check for form a = b = a++ by checking RHS.  */
+      check_modify_expr (lhs, TREE_OPERAND (rhs, 1));
+      /* Then check for a = (a = 1) + 2 and a = b[a++] = c.  */
+      if (TREE_CODE (TREE_OPERAND (rhs, 0)) == VAR_DECL
+	  || TREE_CODE (TREE_OPERAND (rhs, 0)) == PARM_DECL)
+	{
+	  identifier_name = DECL_NAME (TREE_OPERAND (rhs, 0));
+	  break;
+	}
+      else
+	{
+	  check_modify_expr (lhs, TREE_OPERAND (rhs, 0));
+	  return;
+	}
+    default:
+      /* We don't know what to do... pray check_modify_expr removes
+	 loops in the tree.  */
+      switch (TREE_CODE_CLASS (TREE_CODE (rhs)))
+	{
+	case 'r':
+	case '<':
+	case '2':
+	case 'b':
+	case '1':
+	case 'e':
+	case 's':
+	case 'x':
+	  {
+	    int lp;
+	    int max = first_rtl_op (TREE_CODE (rhs));
+	    for (lp = 0; lp < max; lp++)
+	      check_modify_expr (lhs, TREE_OPERAND (rhs, lp));
+	    return;
+	  }
+	default:
+	  return;
+	}
+      break;
+    }
+  if (identifier_name != NULL_TREE)
+    {
+      switch (TREE_CODE (lhs))
+	{
+	case ERROR_MARK:
+	  return;
+	  /* Perhaps this variable was incremented on the RHS.  */
+	case VAR_DECL:
+	case PARM_DECL:
+	  if (TREE_CODE (rhs) != VAR_DECL && TREE_CODE (rhs) != PARM_DECL)
+	    if (DECL_NAME (lhs) == identifier_name)
+	      warning ("operation on `%s' may be undefined",
+		       IDENTIFIER_POINTER (DECL_NAME (lhs)));
+	  break;
+	case PREDECREMENT_EXPR:
+	case PREINCREMENT_EXPR:
+	case POSTDECREMENT_EXPR:
+	case POSTINCREMENT_EXPR:
+	  {
+	    tree var_decl = TREE_OPERAND (lhs, 0);
+	    if (TREE_CODE (var_decl) == VAR_DECL
+		|| TREE_CODE (var_decl) == PARM_DECL)
+	      if (identifier_name == DECL_NAME (var_decl))
+		warning ("operation on `%s' may be undefined",
+			 IDENTIFIER_POINTER (DECL_NAME (var_decl)));
+	  }
+	  break;
+	default:
+	  /* To save duplicating tree traversal code swap args, and recurse.  */
+	  check_modify_expr (rhs, lhs);
+	  break;
+	}
+    }
+}
+
+
 /* Build an assignment expression of lvalue LHS from value RHS.
    MODIFYCODE is the code for a binary operator that we use
    to combine the old value of LHS with RHS to get the new value.
@@ -4639,6 +4764,11 @@ build_modify_expr (lhs, modifycode, rhs)
 				   NULL_TREE, NULL_TREE, 0);
   if (TREE_CODE (newrhs) == ERROR_MARK)
     return error_mark_node;
+
+  if (warn_sequence_point)
+    check_modify_expr (lhs, rhs);
+
+  /* Scan operands */
 
   result = build (MODIFY_EXPR, lhstype, lhs, newrhs);
   TREE_SIDE_EFFECTS (result) = 1;
@@ -4949,6 +5079,26 @@ convert_for_assignment (type, rhs, errtype, fundecl, funname, parmnum)
     error ("incompatible types in %s", errtype);
 
   return error_mark_node;
+}
+
+static void
+warn_for_assignment (msgid, opname, function, argnum)
+     const char *msgid;
+     const char *opname;
+     tree function;
+     int argnum;
+{
+  diagnostic_for_assignment (0, msgid, opname, function, argnum);
+}
+
+static void
+error_for_assignment (msgid, opname, function, argnum)
+     const char *msgid;
+     const char *opname;
+     tree function;
+     int argnum;
+{
+  diagnostic_for_assignment (1, msgid, opname, function, argnum);
 }
 
 /* Print a warning using MSGID.
@@ -7201,7 +7351,8 @@ process_init_element (value)
 	    }
 
 	  if (constructor_max_index != 0
-	      && tree_int_cst_lt (constructor_max_index, constructor_index))
+	      && (tree_int_cst_lt (constructor_max_index, constructor_index)
+		  || integer_all_onesp (constructor_max_index)))
 	    {
 	      pedwarn_init ("excess elements in array initializer");
 	      break;

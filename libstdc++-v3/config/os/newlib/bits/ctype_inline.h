@@ -36,21 +36,21 @@
   
   bool
   ctype<char>::
-  is(mask __m, char __c) const
+  is(mask __m, char __c) const throw()
   { return (_M_table + 1)[(unsigned char)(__c)] & __m; }
 
   const char*
   ctype<char>::
-  is(const char* __low, const char* __high, mask* __vec) const
+  is(const char* __low, const char* __high, mask* __vec) const throw()
   {
     while (__low < __high)
-      *__vec++ = (_M_table + 1)[(unsigned char) (*__low++)];
+      *__vec++ = (_M_table + 1)[(unsigned char)(*__low++)];
     return __high;
   }
 
   const char*
   ctype<char>::
-  scan_is(mask __m, const char* __low, const char* __high) const 
+  scan_is(mask __m, const char* __low, const char* __high) const throw()
   {
     while (__low < __high && !((_M_table + 1)[(unsigned char)(*__low)] & __m))
       ++__low;
@@ -59,7 +59,7 @@
 
   const char*
   ctype<char>::
-  scan_not(mask __m, const char* __low, const char* __high) const
+  scan_not(mask __m, const char* __low, const char* __high) const throw()
   {
     while (__low < __high 
 	   && ((_M_table + 1)[(unsigned char)(*__low)] & __m) != 0)

@@ -1,6 +1,6 @@
 // -*- C++ -*- forwarding header.
 
-// Copyright (C) 2000 Free Software Foundation, Inc.
+// Copyright (C) 1997-1999, 2000 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -31,12 +31,130 @@
 // ISO C++ 14882: <cwctype>
 //
 
-// Note: This is not a conforming implementation.
-
 #ifndef _CPP_CWCTYPE
 #define _CPP_CWCTYPE 1
 
-#pragma GCC system_header
-#include <wctype.h>
+# pragma GCC system_header
+# include_next <wctype.h>
 
-#endif 
+// Sequester the C non-inline implementations in the _C_Swamp::
+// namespace, and provide C++ inlines for them in the std:: namespace
+// where they belong.
+
+namespace std 
+{
+
+#ifdef towupper
+  inline wint_t 
+  _S_towupper_helper(wint_t __wc) { return towupper(__wc); }
+# undef towupper
+  inline wint_t 
+  towupper(wint_t __wc) { return _S_towupper_helper(__wc); }
+#endif
+
+#ifdef towlower
+  inline wint_t 
+  _S_towlower_helper(wint_t __wc) { return towlower(__wc); }
+# undef towlower
+  inline wint_t 
+  towlower(wint_t __wc) { return _S_towlower_helper(__wc); }
+#endif
+
+#ifdef iswspace
+  inline int 
+  _S_iswspace_helper(wint_t __wc) { return iswspace(__wc); }
+# undef iswspace
+  inline int 
+  iswspace(wint_t __wc) { return _S_iswspace_helper(__wc); }
+#endif
+
+#ifdef iswprint
+  inline int 
+  _S_iswprint_helper(wint_t __wc) { return iswprint(__wc); }
+# undef iswprint
+  inline int 
+  iswprint(wint_t __wc) { return _S_iswprint_helper(__wc); }
+#endif
+
+#ifdef iswcntrl
+  inline int 
+  _S_iswcntrl_helper(wint_t __wc) { return iswcntrl(__wc); }
+# undef iswcntrl
+  inline int 
+  iswcntrl(wint_t __wc) { return _S_iswcntrl_helper(__wc); }
+#endif
+
+#ifdef iswupper
+  inline int 
+  _S_iswupper_helper(wint_t __wc) { return iswupper(__wc); }
+# undef iswupper
+  inline int 
+  iswupper(wint_t __wc) { return _S_iswupper_helper(__wc); }
+#endif
+
+#ifdef iswlower
+  inline int 
+  _S_iswlower_helper(wint_t __wc) { return iswlower(__wc); }
+# undef iswlower
+  inline int 
+  iswlower(wint_t __wc) { return _S_iswlower_helper(__wc); }
+#endif
+
+#ifdef iswalpha
+  inline int 
+  _S_iswalpha_helper(wint_t __wc) { return iswalpha(__wc); }
+# undef iswalpha
+  inline int 
+  iswalpha(wint_t __wc) { return _S_iswalpha_helper(__wc); }
+#endif
+
+#ifdef iswdigit
+  inline int 
+  _S_iswdigit_helper(wint_t __wc) { return iswdigit(__wc); }
+# undef iswdigit
+  inline int 
+  iswdigit(wint_t __wc) { return _S_iswdigit_helper(__wc); }
+#endif
+
+#ifdef iswpunct
+  inline int 
+  _S_iswpunct_helper(wint_t __wc) { return iswpunct(__wc); }
+# undef iswpunct
+  inline int 
+  iswpunct(wint_t __wc) { return _S_iswpunct_helper(__wc); }
+#endif
+
+#ifdef iswxdigit
+  inline int 
+  _S_iswxdigit_helper (wint_t __wc) { return iswxdigit(__wc); }
+# undef iswxdigit
+  inline int 
+  iswxdigit(wint_t __wc) { return _S_iswxdigit_helper(__wc); }
+#endif
+
+#ifdef iswalnum
+  inline int 
+  _S_iswalnum_helper(wint_t __wc) { return iswalnum(__wc); }
+# undef iswalnum
+  inline int 
+  iswalnum(wint_t __wc) { return _S_iswalnum_helper(__wc); }
+#endif
+
+#ifdef iswgraph
+  inline int 
+  _S_iswgraph_helper(wint_t __wc) { return iswgraph(__wc); }
+# undef iswgraph
+  inline int 
+  iswgraph(wint_t __wc) { return _S_iswgraph_helper(__wc); }
+#endif
+
+} // namespace std
+
+#endif // _CPP_CWCTYPE
+
+
+
+
+
+
+

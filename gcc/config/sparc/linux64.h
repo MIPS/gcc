@@ -338,7 +338,7 @@ do {									\
 } while (0)
 
 #undef COMMON_ASM_OP
-#define COMMON_ASM_OP "\t.common"
+#define COMMON_ASM_OP "\t.common\t"
 
 /* This is how to output a definition of an internal numbered label where
    PREFIX is the class of label and NUM is the number within the class.  */
@@ -368,7 +368,7 @@ do {									\
    misnamed.  These should all refer to explicit sizes (half/word/xword?),
    anything other than short/int/long/etc.  */
 
-#define UNALIGNED_DOUBLE_INT_ASM_OP	".uaxword"
+#define UNALIGNED_DOUBLE_INT_ASM_OP	"\t.uaxword\t"
 
 /* DWARF bits.  */
 
@@ -406,7 +406,10 @@ do {									\
 #define ASM_OUTPUT_CONSTRUCTOR(FILE,NAME)				\
   do {									\
     ctors_section ();							\
-    fprintf (FILE, "\t%s\t ", TARGET_ARCH64 ? ASM_LONGLONG : INT_ASM_OP); \
+    if (TARGET_ARCH64)							\
+      fprintf (FILE, "\t%s\t ", ASM_LONGLONG);				\
+    else								\
+      fprintf (FILE, "%s", INT_ASM_OP);					\
     assemble_name (FILE, NAME);						\
     fprintf (FILE, "\n");						\
   } while (0)
@@ -417,7 +420,10 @@ do {									\
 #define ASM_OUTPUT_DESTRUCTOR(FILE,NAME)       				\
   do {									\
     dtors_section ();                   				\
-    fprintf (FILE, "\t%s\t ", TARGET_ARCH64 ? ASM_LONGLONG : INT_ASM_OP); \
+    if (TARGET_ARCH64)							\
+      fprintf (FILE, "\t%s\t ", ASM_LONGLONG);				\
+    else								\
+      fprintf (FILE, "%s", INT_ASM_OP);					\
     assemble_name (FILE, NAME);              				\
     fprintf (FILE, "\n");						\
   } while (0)

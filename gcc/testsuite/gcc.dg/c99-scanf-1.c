@@ -18,13 +18,24 @@ typedef __SIZE_TYPE__ signed_size_t;
 typedef unsigned __PTRDIFF_TYPE__ unsigned_ptrdiff_t;
 #undef signed
 
-/* These next definitions are broken.  When GCC has a <stdint.h> and
-   an internal understanding of intmax_t and uintmax_t, they should be
-   replaced by an include of <stdint.h> or by definitions for internal
-   macros or typedefs, and the corresponding xfails removed.
+/* These next definitions are kludges.  When GCC has a <stdint.h> it
+   should be used.
 */
-typedef long long int intmax_t;
-typedef unsigned long long int uintmax_t;
+#include <limits.h>
+#if INT_MAX == LLONG_MAX
+typedef int intmax_t;
+#elif LONG_MAX == LLONG_MAX
+typedef long intmax_t;
+#else
+typedef long long intmax_t;
+#endif
+#if UINT_MAX == ULLONG_MAX
+typedef unsigned int uintmax_t;
+#elif ULONG_MAX == ULLONG_MAX
+typedef unsigned long uintmax_t;
+#else
+typedef unsigned long long uintmax_t;
+#endif
 
 extern int scanf (const char *, ...);
 
@@ -47,7 +58,7 @@ foo (int *ip, unsigned int *uip, short int *hp, unsigned short int *uhp,
   */
   scanf ("%*d%*i%*o%*u%*x%*X%*a%*A%*e%*E%*f%*F%*g%*G%*s%*[abc]%*c%*p");
   scanf ("%*2d%*8s%*3c");
-  scanf ("%*n"); /* { dg-warning "suppress" "suppression of %n" } */
+  scanf ("%*n", n); /* { dg-warning "suppress" "suppression of %n" } */
   scanf ("%*hd"); /* { dg-warning "together" "suppression with length" } */
   scanf ("%2d%3i%4o%5u%6x%7X%8a%9A%10e%11E%12f%13F%14g%15G%16s%3[abc]%4c%5p",
 	 ip, ip, uip, uip, uip, uip, fp, fp, fp, fp, fp, fp, fp, fp,
@@ -102,7 +113,7 @@ foo (int *ip, unsigned int *uip, short int *hp, unsigned short int *uhp,
   scanf ("%ll[ac]", s); /* { dg-warning "length" "bad use of %ll" } */
   scanf ("%llc", s); /* { dg-warning "length" "bad use of %ll" } */
   scanf ("%llp", pp); /* { dg-warning "length" "bad use of %ll" } */
-  scanf ("%jd%ji%jo%ju%jx%jX%jn", jp, jp, ujp, ujp, ujp, ujp, jn); /* { dg-bogus "length" "bogus %j warning" { xfail *-*-* } } */
+  scanf ("%jd%ji%jo%ju%jx%jX%jn", jp, jp, ujp, ujp, ujp, ujp, jn); /* { dg-bogus "length" "bogus %j warning" { target *-*-* } } */
   scanf ("%ja", fp); /* { dg-warning "length" "bad use of %j" } */
   scanf ("%jA", fp); /* { dg-warning "length" "bad use of %j" } */
   scanf ("%je", fp); /* { dg-warning "length" "bad use of %j" } */

@@ -1,6 +1,6 @@
 // Locale support -*- C++ -*-
 
-// Copyright (C) 2000 Free Software Foundation, Inc.
+// Copyright (C) 2000 Cygnus Solutions
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -36,40 +36,38 @@
   
   bool
   ctype<char>::
-  is(mask __m, char __c) const
-  { return _M_table[__c] & __m; }
+  is(mask __m, char __c) const throw()
+  { return _M_table[(unsigned char)(__c)] & __m; }
 
   const char*
   ctype<char>::
-  is(const char* __low, const char* __high, mask* __vec) const
+  is(const char* __low, const char* __high, mask* __vec) const throw()
   {
-    const int __bitmasksize = sizeof(mask) * 8;
-    for (;__low < __high; ++__vec, ++__low)
-      {
-	mask __m = _M_table[*__low];
-	int __i = 0; // Lowest bitmask value from ctype_base.
-	while (__i < __bitmasksize && !(__m & static_cast<mask>(1 << __i)))
-	  ++__i;
-	*__vec = static_cast<mask>(1 << __i);
-      }
+    while (__low < __high)
+      *__vec++ = _M_table[(unsigned char)(*__low++)];
     return __high;
   }
 
   const char*
   ctype<char>::
-  scan_is(mask __m, const char* __low, const char* __high) const
+  scan_is(mask __m, const char* __low, const char* __high) const throw()
   {
-    while (__low < __high && !(_M_table[*__low] & __m))
+    while (__low < __high && !(_M_table[(unsigned char)(*__low)] & __m))
       ++__low;
     return __low;
   }
 
   const char*
   ctype<char>::
-  scan_not(mask __m, const char* __low, const char* __high) const
+  scan_not(mask __m, const char* __low, const char* __high) const throw()
   {
     while (__low < __high 
-	   && (_M_table[*__low] & __m) != 0)
+	   && (_M_table[(unsigned char)(*__low)] & __m) != 0)
       ++__low;
     return __low;
   }
+
+
+
+
+

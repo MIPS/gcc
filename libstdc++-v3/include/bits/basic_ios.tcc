@@ -119,15 +119,17 @@ namespace std {
     {
       // NB: This may be called more than once on the same object.
       ios_base::_M_init();
-      _M_ios_fctype = &use_facet<__ctype_type>(_M_ios_locale);
+      locale __loc = this->getloc();
+      _M_ios_fctype = &use_facet<__ctype_type>(__loc);
       // Should be filled in by ostream and istream, respectively.
-      _M_fnumput = &use_facet<__numput_type>(_M_ios_locale); 
-      _M_fnumget = &use_facet<__numget_type>(_M_ios_locale); 
+      _M_fnumput = &use_facet<__numput_type>(__loc); 
+      _M_fnumget = &use_facet<__numget_type>(__loc); 
       _M_tie = 0;
       _M_fill = this->widen(' ');
       _M_exception = goodbit;
       _M_streambuf = __sb;
-      _M_streambuf_state = __sb ? goodbit : badbit;
+      iostate __state = __sb ? goodbit : badbit;
+      _M_streambuf_state = __state;
     }
 
 } // namespace std

@@ -52,7 +52,7 @@ static void push_conditional	PARAMS ((cpp_reader *, int, int,
 static int  read_line_number	PARAMS ((cpp_reader *, int *));
 static int  strtoul_for_line	PARAMS ((const U_CHAR *, unsigned int,
 					 unsigned long *));
-
+static void do_diagnostic	PARAMS ((cpp_reader *, enum error_type));
 static const cpp_hashnode *
 	    parse_ifdef		PARAMS ((cpp_reader *, const U_CHAR *));
 static const cpp_hashnode *
@@ -383,8 +383,7 @@ do_import (pfile)
   const U_CHAR *str;
   int ab;
 
-  if (CPP_OPTION (pfile, warn_import)
-      && !CPP_IN_SYSTEM_HEADER (pfile) && !pfile->import_warning)
+  if (!pfile->import_warning && CPP_OPTION (pfile, warn_import))
     {
       pfile->import_warning = 1;
       cpp_warning (pfile,
@@ -583,16 +582,16 @@ do_line (pfile)
 }
 
 /*
- * Report an error detected by the program we are processing.
- * Use the text of the line in the error message.
- * (We use error because it prints the filename & line#.)
+ * Report a warning or error detected by the program we are
+ * processing.  Use the directive's tokens in the error message.
  */
 
 static void
-do_error (pfile)
+do_diagnostic (pfile, code)
      cpp_reader *pfile;
+     enum error_type code;
 {
-  if (_cpp_begin_message (pfile, ERROR, NULL, 0, 0))
+  if (_cpp_begin_message (pfile, code, NULL, 0, 0))
     {
       cpp_output_list (pfile, stderr, &pfile->token_list,
 		       pfile->first_directive_token);
@@ -600,21 +599,18 @@ do_error (pfile)
     }
 }
 
-/*
- * Report a warning detected by the program we are processing.
- * Use the text of the line in the warning message, then continue.
- */
+static void
+do_error (pfile)
+     cpp_reader *pfile;
+{
+  do_diagnostic (pfile, ERROR);
+}
 
 static void
 do_warning (pfile)
      cpp_reader *pfile;
 {
-  if (_cpp_begin_message (pfile, WARNING, NULL, 0, 0))
-    {
-      cpp_output_list (pfile, stderr, &pfile->token_list,
-		       pfile->first_directive_token);
-      putc ('\n', stderr);
-    }
+  do_diagnostic (pfile, WARNING);
 }
 
 /* Report program identification.  */
@@ -804,9 +800,8 @@ do_pragma_once (pfile)
 
   /* Allow #pragma once in system headers, since that's not the user's
      fault.  */
-  if (!CPP_IN_SYSTEM_HEADER (pfile))
-    cpp_warning (pfile, "#pragma once is obsolete");
-      
+  cpp_warning (pfile, "#pragma once is obsolete");
+ 
   if (CPP_PREV_BUFFER (ip) == NULL)
     cpp_warning (pfile, "#pragma once outside include file");
   else
@@ -1500,7 +1495,7 @@ cpp_push_buffer (pfile, buffer, length)
   cpp_buffer *new;
   if (++pfile->buffer_stack_depth == CPP_STACK_MAX)
     {
-      cpp_fatal (pfile, "#include nested too deep");
+      cpp_fatal (pfile, "#include nested too deeply");
       return NULL;
     }
   if (pfile->cur_context > 0)

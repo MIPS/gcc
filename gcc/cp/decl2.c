@@ -926,7 +926,7 @@ grok_x_components (specs)
   specs = strip_attrs (specs);
 
   check_tag_decl (specs);
-  t = groktypename (build_decl_list (specs, NULL_TREE)); 
+  t = groktypename (build_tree_list (specs, NULL_TREE)); 
 
   /* The only case where we need to do anything additional here is an
      anonymous union field, e.g.: `struct S { union { int i; }; };'.  */
@@ -1652,7 +1652,7 @@ grokfield (declarator, declspecs, init, asmspec_tree, attrlist)
 	 Explain that to the user.  */
       static int explained;
 
-      cp_error ("invalid data member initiailization");
+      cp_error ("invalid data member initialization");
       if (!explained)
 	{
 	  cp_error ("(use `=' to initialize static data members)");

@@ -205,7 +205,7 @@ AC_DEFUN(GLIBCPP_CHECK_COMPILER_FEATURES, [
 
   # Check for more sophisticated diagnostic control.
   AC_MSG_CHECKING([for g++ that supports -fdiagnostics-show-location=once])
-  CXXFLAGS='-fdiagnostics-show-location=once'
+  CXXFLAGS='-Werror -fdiagnostics-show-location=once'
   AC_TRY_COMPILE(, [int foo;
   ], [ac_gabydiags=yes], [ac_gabydiags=no])
   if test "$ac_test_CXXFLAGS" = set; then
@@ -221,7 +221,7 @@ AC_DEFUN(GLIBCPP_CHECK_COMPILER_FEATURES, [
 
   # Check for -ffunction-sections -fdata-sections
   AC_MSG_CHECKING([for g++ that supports -ffunction-sections -fdata-sections])
-  CXXFLAGS='-ffunction-sections -fdata-sections'
+  CXXFLAGS='-Werror -ffunction-sections -fdata-sections'
   AC_TRY_COMPILE(, [int foo;
   ], [ac_fdsections=yes], [ac_fdsections=no])
   if test "$ac_test_CXXFLAGS" = set; then
@@ -269,15 +269,18 @@ AC_DEFUN(GLIBCPP_CHECK_LINKER_FEATURES, [
     CFLAGS='-x c++  -Wl,--gc-sections'
 
     # Check for -Wl,--gc-sections
+    # XXX This test is broken at the moment, as symbols required for
+    # linking are now in libsupc++ (not built yet.....). In addition, 
+    # this test has cored on solaris in the past.
     AC_MSG_CHECKING([for ld that supports -Wl,--gc-sections])
     AC_TRY_RUN([
      int main(void) 
      {
-       try { throw 1; }
-       catch (...) { };
+       //try { throw 1; }
+       //catch (...) { };
        return 0;
      }
-    ], [ac_sectionLDflags=yes], [ac_sectionLFflags=no], [ac_sectionLDflags=yes])
+    ], [ac_sectionLDflags=yes],[ac_sectionLFflags=no], [ac_sectionLDflags=yes])
     if test "$ac_test_CFLAGS" = set; then
       CFLAGS="$ac_save_CFLAGS"
     else
@@ -583,7 +586,6 @@ AC_DEFUN(GLIBCPP_CHECK_MATH_SUPPORT, [
   dnl keep this sync'd with the one above. And if you add any new symbol,
   dnl please add the corresponding block in the @BOTTOM@ section of acconfig.h.
   dnl Check to see if certain C math functions exist.
-  dnl Check to see if certain C math functions exist.
   GLIBCPP_CHECK_MATH_DECL_AND_LINKAGE_1(_isinf)
   GLIBCPP_CHECK_MATH_DECL_AND_LINKAGE_1(_isnan)
   GLIBCPP_CHECK_MATH_DECL_AND_LINKAGE_1(_finite)
@@ -685,18 +687,14 @@ AC_DEFUN(GLIBCPP_CHECK_COMPLEX_MATH_SUPPORT, [
 ])
 
 
-dnl Check to see what architecture we are compiling for. If it's
-dnl supported, use special hand-crafted routines to provide thread
-dnl primitives. Also, if architecture-specific flags are required for 
-dnl compilation, add them here.
+dnl Check to see what architecture we are compiling for. Also, if 
+dnl architecture-specific flags are required for compilation, add them here.
 dnl 
-dnl Depending on what is found, select configure/cpu/*/bits/atomicity.h 
-dnl If not found, select configure/cpu/generic/bits/atomicity.h
-dnl
 dnl GLIBCPP_CHECK_CPU
 AC_DEFUN(GLIBCPP_CHECK_CPU, [
-    AC_MSG_CHECKING([for cpu primitives directory])
-    CPU_FLAGS=			
+    AC_MSG_CHECKING([for cpu config directory])
+# Currently unused, but could be useful.
+#    CPU_FLAGS=			
     case "${target_cpu}" in
       alpha*)
 	cpu_include_dir="config/cpu/alpha"
@@ -715,7 +713,6 @@ AC_DEFUN(GLIBCPP_CHECK_CPU, [
         ;;
       powerpc | rs6000)
 	cpu_include_dir="config/cpu/powerpc"
-    	CPU_FLAGS='-mcpu=powerpc'
         ;;
       sparc64 | ultrasparc)
 	cpu_include_dir="config/cpu/sparc/sparc64"
@@ -728,11 +725,48 @@ AC_DEFUN(GLIBCPP_CHECK_CPU, [
         ;;
     esac
     AC_MSG_RESULT($cpu_include_dir)
-    AC_SUBST(cpu_include_dir)
-    AC_SUBST(CPU_FLAGS)
 ])
 
  
+dnl Check to see what OS we are compiling for. Also, if os-specific flags 
+dnl are required for compilation, add them here.
+dnl 
+dnl GLIBCPP_CHECK_OS
+AC_DEFUN(GLIBCPP_CHECK_OS, [
+    AC_MSG_CHECKING([for os config directory])
+# Currently unused, but could be useful.
+#    OS_FLAGS=
+    case "${target_os}" in
+      aix*)
+	os_include_dir="config/os/aix"
+        ;;
+      bsd* | freebsd*)
+	os_include_dir="config/os/bsd"
+        ;;
+      linux*)
+	os_include_dir="config/os/gnu-linux"
+	;;
+      irix*)
+	os_include_dir="config/os/irix"
+	;;
+      solaris2.5*)
+	os_include_dir="config/os/solaris/solaris2.5"
+        ;;
+      solaris2.6*)
+	os_include_dir="config/os/solaris/solaris2.6"
+        ;;
+      solaris2.7* | solaris2.8*)
+	os_include_dir="config/os/solaris/solaris2.7"
+        ;;
+      *)
+	os_include_dir="config/os/generic"
+        ;;
+    esac
+    AC_MSG_RESULT($os_include_dir)
+    AC_LINK_FILES($os_include_dir/bits/os_defines.h, bits/os_defines.h)
+])
+
+
 dnl
 dnl Check to see what the underlying c library's interface to ctype looks
 dnl like. Bits of locale rely on things like isspace, toupper, etc. This
@@ -748,8 +782,8 @@ AC_DEFUN(GLIBCPP_CHECK_CTYPE, [
     dnl If doesn't match any specified, go with defaults.
     ctype_default=yes
 
-    dnl Test for <ctype> functionality -- gnu-linux
-    AC_MSG_CHECKING([<ctype> for gnu-linux ])
+    dnl Test for <ctype> functionality -- GNU/Linux
+    AC_MSG_CHECKING([<ctype> for GNU/Linux])
     AC_TRY_COMPILE([#include <ctype.h>],
     [int
     foo (int a)
@@ -759,13 +793,13 @@ AC_DEFUN(GLIBCPP_CHECK_CTYPE, [
     ctype_linux=yes, ctype_linux=no)
     AC_MSG_RESULT($ctype_linux)
     if test $ctype_linux = "yes"; then
-      ctype_include_dir="config/gnu-linux"
+      ctype_include_dir="config/os/gnu-linux"
       ctype_default=no
     fi
 
     dnl Test for <ctype> functionality -- FreeBSD 4.0
     if test $ctype_default = "yes"; then
-    AC_MSG_CHECKING([<ctype> for freebsd 4.0 ])
+    AC_MSG_CHECKING([<ctype> for FreeBSD 4.0])
     AC_TRY_COMPILE([#include <ctype.h>],
     [int
     foo (int a)
@@ -774,14 +808,14 @@ AC_DEFUN(GLIBCPP_CHECK_CTYPE, [
     ctype_bsd=yes, ctype_bsd=no)
     AC_MSG_RESULT($ctype_bsd)
     if test $ctype_bsd = "yes"; then
-      ctype_include_dir="config/bsd"
+      ctype_include_dir="config/os/bsd"
       ctype_default=no
     fi
     fi
 
     dnl Test for <ctype> functionality -- FreeBSD 3.4
     if test $ctype_default = "yes"; then
-    AC_MSG_CHECKING([<ctype> for freebsd 3.4 ])
+    AC_MSG_CHECKING([<ctype> for FreeBSD 3.4])
     AC_TRY_COMPILE([#include <ctype.h>],
     [int
     foo (int a)
@@ -790,14 +824,14 @@ AC_DEFUN(GLIBCPP_CHECK_CTYPE, [
     ctype_freebsd34=yes, ctype_freebsd34=no)
     AC_MSG_RESULT($ctype_freebsd34)
     if test $ctype_freebsd34 = "yes"; then
-      ctype_include_dir="config/bsd"
+      ctype_include_dir="config/os/bsd"
       ctype_default=no
     fi
     fi
 
-    dnl Test for <ctype> functionality -- solaris 2.6 and 2.7
+    dnl Test for <ctype> functionality -- Solaris 2.6 and up
     if test $ctype_default = "yes"; then
-    AC_MSG_CHECKING([<ctype> for solaris 2.[6,7,8] ])
+    AC_MSG_CHECKING([<ctype> for Solaris 2.6,7,8])
     AC_TRY_COMPILE([#include <ctype.h>],
     [int
     foo (int a)
@@ -815,20 +849,20 @@ AC_DEFUN(GLIBCPP_CHECK_CTYPE, [
       ctype_solaris26=yes, ctype_solaris26=no)
       AC_LANG_C
       if test $ctype_solaris26 = "yes"; then
-        ctype_include_dir="config/solaris/solaris2.6"
-        AC_MSG_RESULT("solaris2.6")
+        ctype_include_dir="config/os/solaris/solaris2.6"
+        AC_MSG_RESULT([Solaris 2.6])
         ctype_default=no
       else
-        ctype_include_dir="config/solaris/solaris2.7"
-        AC_MSG_RESULT("solaris2.[7,8]")
+        ctype_include_dir="config/os/solaris/solaris2.7"
+        AC_MSG_RESULT([Solaris 7,8])
         ctype_default=no
       fi
     fi
     fi  
 
-    dnl Test for <ctype> functionality -- solaris 2.5.1
+    dnl Test for <ctype> functionality -- Solaris 2.5.1
     if test $ctype_default = "yes"; then
-    AC_MSG_CHECKING([<ctype> for solaris 2.5.1 ])
+    AC_MSG_CHECKING([<ctype> for Solaris 2.5.1])
     AC_TRY_COMPILE([#include <ctype.h>],
     [int
     foo (int a)
@@ -837,14 +871,14 @@ AC_DEFUN(GLIBCPP_CHECK_CTYPE, [
     ctype_solaris25=yes, ctype_solaris25=no)
     AC_MSG_RESULT($ctype_solaris25)
     if test $ctype_solaris25 = "yes"; then
-      ctype_include_dir="config/solaris/solaris2.5"
+      ctype_include_dir="config/os/solaris/solaris2.5"
       ctype_default=no
     fi
     fi
 
-    dnl Test for <ctype> functionality -- aix
+    dnl Test for <ctype> functionality -- AIX
     if test $ctype_default = "yes"; then
-    AC_MSG_CHECKING([<ctype> for aix ])
+    AC_MSG_CHECKING([<ctype> for AIX])
     AC_TRY_COMPILE([#include <ctype.h>],
     [int
     foo (int a)
@@ -854,14 +888,14 @@ AC_DEFUN(GLIBCPP_CHECK_CTYPE, [
     ctype_aix=yes, ctype_aix=no)
     AC_MSG_RESULT($ctype_aix)
     if test $ctype_aix = "yes"; then
-      ctype_include_dir="config/aix"
+      ctype_include_dir="config/os/aix"
       ctype_default=no
     fi
     fi
 
     dnl Test for <ctype> functionality -- newlib
     if test $ctype_default = "yes"; then
-    AC_MSG_CHECKING([<ctype> for newlib ])
+    AC_MSG_CHECKING([<ctype> for newlib])
     AC_TRY_COMPILE([#include <ctype.h>],
     [int
     foo (int a)
@@ -876,10 +910,14 @@ AC_DEFUN(GLIBCPP_CHECK_CTYPE, [
     fi
 
     if test $ctype_default = "yes"; then
-      ctype_include_dir="config/generic"
+      ctype_include_dir="config/os/generic"
       AC_MSG_WARN("Using default ctype headers.")
     fi
-    AC_SUBST(ctype_include_dir)
+
+    AC_LINK_FILES($ctype_include_dir/bits/ctype_base.h, bits/ctype_base.h)
+    AC_LINK_FILES($ctype_include_dir/bits/ctype_inline.h, bits/ctype_inline.h)
+    AC_LINK_FILES($ctype_include_dir/bits/ctype_noninline.h, \
+    bits/ctype_noninline.h)
   ])
 ])
 
@@ -1322,16 +1360,13 @@ AC_DEFUN(GLIBCPP_ENABLE_THREADS, [
   esac
 
   dnl Check for thread package actually supported in libstdc++ 
+  THREADH=
   case "$target_thread_file" in
     no | none | single)
-      THREADS=none
+      THREADH=threads-no.h
       ;;
     posix | pthreads)
-      THREADS=posix
-      case "$target" in
-        *-*-linux*)
-	;;
-      esac
+      THREADH=threads-posix.h
       ;;
     decosf1 | irix | mach | os2 | solaris | win32 | dce | vxworks)
       AC_MSG_ERROR(thread package $THREADS not yet supported)
@@ -1340,35 +1375,30 @@ AC_DEFUN(GLIBCPP_ENABLE_THREADS, [
       AC_MSG_ERROR($THREADS is an unknown thread package)
       ;;
   esac
-  AC_MSG_RESULT($THREADS)
+  AC_MSG_RESULT($THREADH)
 
-  THREADLIBS=
-  THREADINCS=
-  THREADDEPS=
-  THREADOBJS=
-  THREADH=
-  THREADSPEC=
-  case "$THREADS" in
-    posix)
-      AC_CHECK_HEADER(pthread.h, [have_pthread_h=yes], [have_pthread_h=])
-      THREADLIBS=-lpthread
-      THREADSPEC=-lpthread
-      dnl Not presently used
-      dnl THREADOBJS=threads-posix.lo
-      THREADH=threads-posix.h
-      ;;
-    none)
-      dnl Not presently used
-      dnl THREADOBJS=threads-no.lo
-      THREADH=threads-no.h
-      ;;
-  esac
-  AC_SUBST(THREADLIBS)
-  AC_SUBST(THREADINCS)
-  AC_SUBST(THREADDEPS)
-  AC_SUBST(THREADOBJS)
-  AC_SUBST(THREADSPEC)
   AC_LINK_FILES(config/$THREADH, bits/c++threads.h)
+])
+
+
+dnl Enable atomic locking
+dnl GLIBCPP_ENABLE_ATOMICITY
+AC_DEFUN(GLIBCPP_ENABLE_ATOMICITY, [
+    AC_MSG_CHECKING([for atomicity.h])
+    case "$target" in
+      *-*-linux*)
+	ATOMICITYH=$cpu_include_dir
+	;;	
+      *-*-aix*)
+        ATOMICITYH=$os_include_dir
+	;;
+      *)
+	echo "$enable_threads is an unknown thread package" 1>&2
+	exit 1
+	;;
+    esac
+    AC_MSG_RESULT($ATOMICITYH/bits/atomicity.h)
+    AC_LINK_FILES($ATOMICITYH/bits/atomicity.h, bits/atomicity.h)
 ])
 
 
@@ -1446,18 +1476,86 @@ changequote([, ])
   AC_MSG_RESULT($enable_cshadow_headers)
 
   dnl Option parsed, now set things appropriately
-  dnl CSHADOWFLAGS is currently unused, but may be useful in the future.
+  dnl NB: these things may be duplicated in c++config.h as well.
   case "$enable_cshadow_headers" in
     yes) 
-	CSHADOWFLAGS=""
+	CSHADOW_FLAGS="-fno-builtin"
+	C_INCLUDE_DIR='$(top_srcdir)/include/c_std'
+        AC_DEFINE(_GLIBCPP_USE_SHADOW_HEADERS)
 	;;
     no)   
-	CSHADOWFLAGS=""
+	CSHADOW_FLAGS=""
+	C_INCLUDE_DIR='$(top_srcdir)/include/c'
         ;;
   esac
 
-  AC_SUBST(CSHADOWFLAGS)
+  AC_SUBST(CSHADOW_FLAGS)
+  AC_SUBST(C_INCLUDE_DIR)
   AM_CONDITIONAL(GLIBCPP_USE_CSHADOW, test "$enable_cshadow_headers" = yes)
+])
+
+dnl
+dnl Set up *_INCLUDES and *_INCLUDE_DIR variables for all sundry Makefile.am's.
+dnl
+dnl GLIBCPP_INCLUDE_DIR
+dnl C_INCLUDE_DIR
+dnl TOPLEVEL_INCLUDES
+dnl LIBMATH_INCLUDES
+dnl LIBSUPCXX_INCLUDES
+dnl LIBIO_INCLUDES
+dnl CSHADOW_INCLUDES
+dnl
+dnl GLIBCPP_EXPORT_INCLUDE
+AC_DEFUN(GLIBCPP_EXPORT_INCLUDES, [
+  # Root level of the include sources.
+  GLIBCPP_INCLUDE_DIR='$(top_srcdir)/include'
+
+  # Can either use include/c or include/c_std to grab "C" headers. This
+  # variable is set to the include directory currently in use.
+  # set with C_INCLUDE_DIR in GLIBCPP_ENABLE_SHADOW
+   
+  # Passed down for cross compilers, canadian crosses.
+  TOPLEVEL_INCLUDES='-I$(includedir)'
+
+  LIBMATH_INCLUDES='-I$(top_srcdir)/libmath'
+
+  LIBSUPCXX_INCLUDES='-I$(top_srcdir)/libsupc++'
+
+  #if GLIBCPP_NEED_LIBIO
+  LIBIO_INCLUDES='-I$(top_builddir)/libio -I$(top_srcdir)/libio'
+  #else
+  #LIBIO_INCLUDES='-I$(top_srcdir)/libio'
+  #endif
+
+  #if GLIBCPP_USE_CSHADOW
+  #  CSHADOW_INCLUDES='-I$(GLIBCPP_INCLUDE_DIR)/std -I$(C_INCLUDE_DIR) \
+  #                   -I$(top_blddir)/cshadow'
+  #else
+  CSHADOW_INCLUDES='-I$(GLIBCPP_INCLUDE_DIR)/std -I$(C_INCLUDE_DIR)'
+  #endif
+
+  # Now, export this to all the little Makefiles....
+  AC_SUBST(GLIBCPP_INCLUDE_DIR)
+  AC_SUBST(TOPLEVEL_INCLUDES)
+  AC_SUBST(LIBMATH_INCLUDES)
+  AC_SUBST(LIBSUPCXX_INCLUDES)
+  AC_SUBST(LIBIO_INCLUDES)
+  AC_SUBST(CSHADOW_INCLUDES)
+])
+
+
+dnl
+dnl Set up *_FLAGS and *FLAGS variables for all sundry Makefile.am's.
+dnl
+AC_DEFUN(GLIBCPP_EXPORT_FLAGS, [
+  # Optimization flags that are probably a good idea for thrill-seekers. Just
+  # uncomment the lines below and make, everything else is ready to go... 
+  # OPTIMIZE_CXXFLAGS = -O3 -fstrict-aliasing -fvtable-gc 
+  OPTIMIZE_CXXFLAGS=
+  AC_SUBST(OPTIMIZE_CXXFLAGS)
+
+  WARN_FLAGS='-Wall -Wno-format -W -Wwrite-strings -Winline'
+  AC_SUBST(WARN_FLAGS)
 ])
 
 
@@ -1591,3 +1689,4 @@ AC_DEFUN([AM_PROG_LIBTOOL])
 AC_DEFUN([AC_LIBTOOL_DLOPEN])
 AC_DEFUN([AC_PROG_LD])
 ])
+

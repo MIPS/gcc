@@ -85,8 +85,8 @@
 //   synchronization.  UIthreads are similar to pthreads, but are based 
 //   on an earlier version of the Posix threads standard.
 // * __STL_LONG_LONG if the compiler has long long and unsigned long long
-//   types.  (They're not in the C++ standard, but they are included
-//   in the C99 standard.)
+//   types.  (They're not in the C++ standard, but they are expected to be 
+//   included in the forthcoming C9X standard.)
 // * __STL_THREADS is defined if thread safety is needed.
 // * __STL_VOLATILE is defined to be "volatile" if threads are being
 //   used, and the empty string otherwise.
@@ -328,7 +328,7 @@
 #   endif
 # endif
 
-// Mingw32, GCC compiler using the Microsoft C runtime
+// Mingw32, egcs compiler using the Microsoft C runtime
 # if defined(__MINGW32__)
 #   define __STL_NO_DRAND48
 #   ifdef _MT
@@ -336,7 +336,7 @@
 #   endif
 # endif
 
-// Cygwin32, GCC compiler on MS Windows
+// Cygwin32, egcs compiler on MS Windows
 # if defined(__CYGWIN__)
 #   define __STL_NO_DRAND48
 # endif

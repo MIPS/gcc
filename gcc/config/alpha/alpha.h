@@ -44,11 +44,7 @@ Boston, MA 02111-1307, USA.  */
 #define SIGNED_CHAR_SPEC "%{funsigned-char:-D__CHAR_UNSIGNED__}"
 
 #define WORD_SWITCH_TAKES_ARG(STR)		\
- (!strcmp (STR, "rpath") || !strcmp (STR, "include")	\
-  || !strcmp (STR, "imacros") || !strcmp (STR, "aux-info") \
-  || !strcmp (STR, "idirafter") || !strcmp (STR, "iprefix") \
-  || !strcmp (STR, "iwithprefix") || !strcmp (STR, "iwithprefixbefore") \
-  || !strcmp (STR, "isystem"))
+ (!strcmp (STR, "rpath") || DEFAULT_WORD_SWITCH_TAKES_ARG(STR))
 
 /* Print subsidiary information on the compiler version in use.  */
 #define TARGET_VERSION
@@ -1191,8 +1187,7 @@ extern int alpha_memory_latency;
 #define FUNCTION_OK_FOR_SIBCALL(DECL)			\
   (DECL							\
    && ((TREE_ASM_WRITTEN (DECL) && !flag_pic)		\
-       || ! TREE_PUBLIC (DECL)				\
-       || (0 && TREE_THIS_VOLATILE (DECL))))
+       || ! TREE_PUBLIC (DECL)))
 
 /* Try to output insns to set TARGET equal to the constant C if it can be
    done in less than N insns.  Do all computations in MODE.  Returns the place
@@ -1948,15 +1943,15 @@ do {									\
 
 #define ASM_APP_OFF ""
 
-#define TEXT_SECTION_ASM_OP ".text"
+#define TEXT_SECTION_ASM_OP "\t.text"
 
 /* Output before read-only data.  */
 
-#define READONLY_DATA_SECTION_ASM_OP ".rdata"
+#define READONLY_DATA_SECTION_ASM_OP "\t.rdata"
 
 /* Output before writable data.  */
 
-#define DATA_SECTION_ASM_OP ".data"
+#define DATA_SECTION_ASM_OP "\t.data"
 
 /* Define an extra section for read-only data, a routine to enter it, and
    indicate that it is for read-only data.
@@ -2158,9 +2153,9 @@ literal_section ()						\
   while (0)
 
 /* To get unaligned data, we have to turn off auto alignment.  */
-#define UNALIGNED_SHORT_ASM_OP		".align 0\n\t.word"
-#define UNALIGNED_INT_ASM_OP		".align 0\n\t.long"
-#define UNALIGNED_DOUBLE_INT_ASM_OP	".align 0\n\t.quad"
+#define UNALIGNED_SHORT_ASM_OP		"\t.align 0\n\t.word\t"
+#define UNALIGNED_INT_ASM_OP		"\t.align 0\n\t.long\t"
+#define UNALIGNED_DOUBLE_INT_ASM_OP	"\t.align 0\n\t.quad\t"
 
 /* This is how to output an insn to push a register on the stack.
    It need not be very fast code.  */
@@ -2441,9 +2436,9 @@ extern long alpha_auto_offset;
    that the ALPHA assembler does not choke.  The mips-tfile program
    will correctly put the stab into the object file.  */
 
-#define ASM_STABS_OP	((TARGET_GAS) ? ".stabs" : " #.stabs")
-#define ASM_STABN_OP	((TARGET_GAS) ? ".stabn" : " #.stabn")
-#define ASM_STABD_OP	((TARGET_GAS) ? ".stabd" : " #.stabd")
+#define ASM_STABS_OP	((TARGET_GAS) ? "\t.stabs\t" : " #.stabs\t")
+#define ASM_STABN_OP	((TARGET_GAS) ? "\t.stabn\t" : " #.stabn\t")
+#define ASM_STABD_OP	((TARGET_GAS) ? "\t.stabd\t" : " #.stabd\t")
 
 /* Forward references to tags are allowed.  */
 #define SDB_ALLOW_FORWARD_REFERENCES

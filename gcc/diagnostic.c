@@ -93,7 +93,6 @@ static void output_append_r PARAMS ((output_buffer *, const char *, int));
 static void wrap_text PARAMS ((output_buffer *, const char *, const char *));
 static void maybe_wrap_text PARAMS ((output_buffer *, const char *,
                                      const char *));
-static void clear_text_info PARAMS ((output_buffer *));
 static void clear_diagnostic_info PARAMS ((output_buffer *));
 
 static void default_diagnostic_starter PARAMS ((output_buffer *,
@@ -230,8 +229,12 @@ static void
 set_real_maximum_length (buffer)
      output_buffer *buffer;
 {
-  /* If we're told not to wrap lines then do the obvious thing.  */
-  if (! output_is_line_wrapping (buffer))
+  /* If we're told not to wrap lines then do the obvious thing.  In case
+   we'll emit prefix only once per diagnostic message, it is appropriate
+  not to increase unncessarily the line-length cut-off.  */
+  if (! output_is_line_wrapping (buffer)
+      || prefixing_policy (buffer) == DIAGNOSTICS_SHOW_PREFIX_ONCE
+      || prefixing_policy (buffer) == DIAGNOSTICS_SHOW_PREFIX_NEVER)
     line_wrap_cutoff (buffer) = ideal_line_wrap_cutoff (buffer);
   else
     {
@@ -271,6 +274,19 @@ output_set_prefix (buffer, prefix)
   output_indentation (buffer) = 0;
 }
 
+/*  Return a pointer to the last character emitted in the output
+    BUFFER area.  A NULL pointer means no character available.  */
+const char *
+output_last_position (buffer)
+     const output_buffer *buffer;
+{
+  const char *p = NULL;
+  
+  if (obstack_base (&buffer->obstack) != obstack_next_free (&buffer->obstack))
+    p = ((const char *) obstack_next_free (&buffer->obstack)) - 1;
+  return p;
+}
+
 /* Free BUFFER's prefix, a previously malloc'd string.  */
 
 void
@@ -286,8 +302,8 @@ output_destroy_prefix (buffer)
 
 /* Zero out any text output so far in BUFFER.  */
 
-static void
-clear_text_info (buffer)
+void
+output_clear_message_text (buffer)
      output_buffer *buffer;
 {
   obstack_free (&buffer->obstack, obstack_base (&buffer->obstack));
@@ -350,7 +366,7 @@ void
 output_clear (buffer)
      output_buffer *buffer;
 {
-  clear_text_info (buffer);
+  output_clear_message_text (buffer);
   clear_diagnostic_info (buffer);
 }
 
@@ -358,11 +374,11 @@ output_clear (buffer)
    the BUFFERed message.  */
 
 const char *
-output_finish (buffer)
+output_finalize_message (buffer)
      output_buffer *buffer;
 {
   obstack_1grow (&buffer->obstack, '\0');
-  return (const char *) obstack_finish (&buffer->obstack);
+  return output_message_text (buffer);
 }
 
 void
@@ -635,9 +651,9 @@ output_to_stream (buffer, file)
      output_buffer *buffer;
      FILE *file;
 {
-  const char *text = output_finish (buffer);
+  const char *text = output_finalize_message (buffer);
   fputs (text, file);
-  clear_text_info (buffer);
+  output_clear_message_text (buffer);
 }
 
 /* Format a message pointed to by output_buffer_text_cursor (BUFFER) using
@@ -728,6 +744,7 @@ output_format (buffer)
             output_unsigned_decimal
               (buffer, va_arg (output_buffer_format_args (buffer),
                                unsigned int));
+          break;
           
         case 'x':
           if (long_integer)
@@ -1034,7 +1051,9 @@ int
 count_error (warningp)
      int warningp;
 {
-  if (warningp && inhibit_warnings)
+  if (warningp
+      && (inhibit_warnings
+          || (in_system_header && !warn_system_headers)))
     return 0;
 
   if (warningp && !warnings_are_errors)
