@@ -1,3 +1,38 @@
+2004-06-21  Dorit Naishlos  <DORIT@il.ibm.com>
+
+        * tree.def (MULT_UCH_EXPR): New tree code.
+        * tree-vectorizer.h (stmt_vec_info): New fields part_of_pattern,
+        related_stmt, v.vect_target_hook_for_pattern, and v.vectorized_stmt.
+        (STMT_VINFO_IN_PATTERN_P): New macro.
+        (STMT_VINFO_VEC_HOOK): New macro.
+        (STMT_VINFO_RELATED_STMT): New macro.
+        * tree-vectorizer.c (vect_pattern_recog): New function.
+        (vect_recog_mul_uch_to_uch): New function.
+        (vect_recog_mul_uch_to_uch1): New function.
+        (new_stmt_vec_info): Initialize new fields in stmt_vec_info.
+        (vect_transform_op): Call target hook recorded in STMT_VINFO_VEC_HOOK.
+        (vect_is_supportable_op): Use new field STMT_VINFO_VEC_HOOK to record
+        target support for the "mul_uch" pattern.
+        (vect_mark_relevant): Don't mark stmts involved in a pattern as
+        relevant.
+        (vect_mark_stmts_to_be_vectorized): Likewise.
+        (vect_create_data_ref): Fix alias-sets bug.
+        (vect_get_vec_def_for_operand): Call new hook support_vector_init_p.
+        * target.h (support_vmul_uch_p): New entry for target hook.
+        (build_vmul_uch): New entry for target hook.
+        (support_vector_init_p): New entry for target hook.
+        (build_vector_init): New entry for target hook.
+        * target-def.h (TARGET_VECT_SUPPORT_VMUL_UCH_P): New target hook.
+        (TARGET_VECT_BUILD_VMUL_UCH): New target hook.
+        (TARGET_VECT_SUPPORT_VECTOR_INIT_P): New target hook.
+        (TARGET_VECT_BUILD_VECTOR_INIT): New target hook.
+        * config/rs6000/rs6000.c (rs6000_support_vmul_uch_p): New function.
+        (rs6000_build_vmul_uch) New function.
+        (rs6000_support_vector_init_p) New function.
+        (get_vector_init_fns_for_type) New function.
+        (rs6000_build_vector_init) New function.
+
+
 2004-06-17  Jon Ziegler  <jonz@apple.com>
 	Radar 3691917
 	* Revert version string in gcc/version.c to as of apple-gcc-1762.

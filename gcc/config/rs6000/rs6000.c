@@ -50,6 +50,8 @@
 #include "target-def.h"
 #include "langhooks.h"
 #include "reload.h"
+/* APPLE_LOCAL AV vector_init  -haifa */
+#include "cfgloop.h"
 /* APPLE LOCAL why is this needed? */
 #include "insn-addr.h"
 #include "cfglayout.h"
@@ -473,6 +475,19 @@ static tree rs6000_build_builtin_lvsl (void);
 static tree rs6000_build_builtin_vperm (enum machine_mode);
 /* APPLE LOCAL end AV misaligned -haifa  */
 
+/* APPLE LOCAL begin AV vmul_uch -haifa  */
+static bool rs6000_support_vmul_uch_p (void);
+static tree rs6000_build_vmul_uch (tree, tree, tree, edge, 
+					block_stmt_iterator *);
+/* APPLE LOCAL end AV vmul_uch -haifa  */
+
+/* APPLE LOCAL begin AV vector_init -haifa  */
+static bool rs6000_support_vector_init_p (tree);
+static bool get_vector_init_fns_for_type (tree, tree *, tree *);
+static tree rs6000_build_vector_init (tree, tree, edge, 
+					struct bitmap_head_def *);
+/* APPLE LOCAL end AV vector_init -haifa  */
+
 /* Hash table stuff for keeping track of TOC entries.  */
 
 struct toc_hash_struct GTY(())
@@ -716,6 +731,22 @@ static const char alt_reg_names[][8] =
 #undef TARGET_VECT_BUILD_BUILTIN_VPERM
 #define TARGET_VECT_BUILD_BUILTIN_VPERM rs6000_build_builtin_vperm
 /* APPLE LOCAL end AV misaligned -haifa  */
+
+/* APPLE LOCAL begin AV vmul_uch -haifa  */
+#undef TARGET_VECT_SUPPORT_VMUL_UCH_P
+#define TARGET_VECT_SUPPORT_VMUL_UCH_P rs6000_support_vmul_uch_p
+
+#undef TARGET_VECT_BUILD_VMUL_UCH
+#define TARGET_VECT_BUILD_VMUL_UCH rs6000_build_vmul_uch
+/* APPLE LOCAL end AV vmul_uch -haifa  */
+
+/* APPLE LOCAL begin AV vector_init -haifa  */
+#undef TARGET_VECT_SUPPORT_VECTOR_INIT_P
+#define TARGET_VECT_SUPPORT_VECTOR_INIT_P rs6000_support_vector_init_p
+
+#undef TARGET_VECT_BUILD_VECTOR_INIT
+#define TARGET_VECT_BUILD_VECTOR_INIT rs6000_build_vector_init
+/* APPLE LOCAL end AV vector_init -haifa  */
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -4874,6 +4905,317 @@ rs6000_build_builtin_vperm (enum machine_mode mode)
   return decl;
 }
 /* APPLE LOCAL end AV misaligned -haifa  */
+
+
+/* APPLE LOCAL begin AV vmul_uch -haifa  */
+/* Target hook for vector_support_vmul_uch_p */
+static bool
+rs6000_support_vmul_uch_p (void)
+{
+  if (TARGET_ALTIVEC 
+      && vector_builtin_fns [ALTIVEC_BUILTIN_VMULEUB]
+      && vector_builtin_fns [ALTIVEC_BUILTIN_VMULOUB]
+      && vector_builtin_fns [ALTIVEC_BUILTIN_VPERM_16QI])
+    return true;
+  return false;
+}
+
+/*
+   Target hook for vector_build_vmul_uch.
+
+   Generate a sequence that vectorizes the following functionality:
+          uchar x' = (ushort) x;
+          uchar y' = (ushort) y; 
+          ushort prod = mul (x`, y`);
+          ushort z` = prod >> 8;
+          uchar z = (uchar) z`; 
+   This sequence is modelled by a single 'scalar_stmt' "mul_ch".
+   The function generates a vectorized sequence that multiplies two vectors
+   of unsigned chars, 'vx' and 'vy', and converts the (vector of unsigned
+   shorts) result back to a vector of unsigned chars, 'vz'. The vectorized
+   sequence will replace the 'scalar_stmt'.
+
+   The arguments are:
+   tree vx, tree vy, tree vz, tree scalar_stmt, and a block_stmt_iterator
+   that points to the place where the vectorized sequence should be
+   inserted. 
+
+   The output:
+   Generate a sequence of vectorized stmts:
+
+   S0:      mask = {0,16,2,18,4,20,6,22,8,24,10,26,12,28,14,30};
+   S1:      vz1 = vmule vx, vy;
+   S2:      vz2 = vmulo vx, vy;
+   S3:      vz = vperm (vz1, vz2, mask);
+
+   All the stmts but the last are inserted; The last stmt is returned.
+   We insert S0 in the loop preheader, we insert S1,S2 just before bsi,
+   and we return S3.  */
+
+static tree
+rs6000_build_vmul_uch (tree vx, tree vy, tree vz, edge pe, 
+					block_stmt_iterator *bsi)
+{
+  tree mule_fn, mulo_fn, vperm_fn;
+  tree arg_list;
+  tree vdest_even, vdest_odd;
+  tree vdest_even_name, vdest_odd_name;
+  tree mask, mask_name;
+  tree vectype;
+  tree t, init_val;
+  tree stmt;
+  basic_block new_bb;
+
+  mule_fn = vector_builtin_fns [ALTIVEC_BUILTIN_VMULEUB];
+  mulo_fn = vector_builtin_fns [ALTIVEC_BUILTIN_VMULOUB];
+  vperm_fn = vector_builtin_fns [ALTIVEC_BUILTIN_VPERM_16QI];
+
+  if (mule_fn == NULL_TREE || mulo_fn == NULL_TREE || vperm_fn == NULL_TREE)
+    abort ();
+
+  vectype = unsigned_V16QI_type_node;
+
+  /** mule **/
+
+  /* Build argument list.  */
+  arg_list = tree_cons (NULL_TREE, vx, NULL_TREE);
+  arg_list = tree_cons (NULL_TREE, vy, arg_list);
+
+  /* Build destination variable.  */
+  vdest_even = create_tmp_var (vectype, "veven");
+  add_referenced_tmp_var (vdest_even);
+
+  stmt = build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (mule_fn)), mule_fn);
+  stmt = build (CALL_EXPR, TREE_TYPE (TREE_TYPE (mule_fn)), stmt, arg_list, 
+		NULL_TREE);
+  stmt = build (MODIFY_EXPR, vectype, vdest_even, stmt);
+  vdest_even_name = make_ssa_name (vdest_even, stmt);
+  TREE_OPERAND (stmt, 0) = vdest_even_name;
+  bsi_insert_before (bsi, stmt, BSI_SAME_STMT);
+
+
+  /** mulo **/
+
+  /* Build argument list.  */
+  arg_list = tree_cons (NULL_TREE, vx, NULL_TREE);
+  arg_list = tree_cons (NULL_TREE, vy, arg_list);
+
+  /* Build destination variable.  */
+  vdest_odd = create_tmp_var (vectype, "vodd");
+  add_referenced_tmp_var (vdest_odd);
+
+  stmt = build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (mulo_fn)), mulo_fn);
+  stmt = build (CALL_EXPR, TREE_TYPE (TREE_TYPE (mulo_fn)), stmt, arg_list, 
+		NULL_TREE);
+  stmt = build (MODIFY_EXPR, vectype, vdest_odd, stmt);
+  vdest_odd_name = make_ssa_name (vdest_odd, stmt);
+  TREE_OPERAND (stmt, 0) = vdest_odd_name;
+  bsi_insert_before (bsi, stmt, BSI_SAME_STMT);
+
+
+  /** vperm **/
+
+  /* Prepare mask.  */
+  mask = create_tmp_var (vectype, "vmask");
+  add_referenced_tmp_var (mask);
+  t = NULL_TREE;
+  t = tree_cons (NULL_TREE, build_int_2 (30, 0), t);
+  t = tree_cons (NULL_TREE, build_int_2 (14, 0), t);
+  t = tree_cons (NULL_TREE, build_int_2 (28, 0), t);
+  t = tree_cons (NULL_TREE, build_int_2 (12, 0), t);
+  t = tree_cons (NULL_TREE, build_int_2 (26, 0), t);
+  t = tree_cons (NULL_TREE, build_int_2 (10, 0), t);
+  t = tree_cons (NULL_TREE, build_int_2 (24, 0), t);
+  t = tree_cons (NULL_TREE, build_int_2 (8, 0), t);
+  t = tree_cons (NULL_TREE, build_int_2 (22, 0), t);
+  t = tree_cons (NULL_TREE, build_int_2 (6, 0), t);
+  t = tree_cons (NULL_TREE, build_int_2 (20, 0), t);
+  t = tree_cons (NULL_TREE, build_int_2 (4, 0), t);
+  t = tree_cons (NULL_TREE, build_int_2 (18, 0), t);
+  t = tree_cons (NULL_TREE, build_int_2 (2, 0), t);
+  t = tree_cons (NULL_TREE, build_int_2 (16, 0), t);
+  t = tree_cons (NULL_TREE, build_int_2 (0, 0), t);
+  init_val = build_vector (vectype, t);
+  stmt = build (MODIFY_EXPR, vectype, mask, init_val);
+  mask_name = make_ssa_name (mask, stmt);
+  TREE_OPERAND (stmt, 0) = mask_name;
+  new_bb = bsi_insert_on_edge_immediate (pe, stmt);
+  if (new_bb)
+    add_bb_to_loop (new_bb, new_bb->pred->src->loop_father);
+
+  /* Build argument list.  */
+  arg_list = tree_cons (NULL_TREE, mask_name, NULL_TREE);
+  arg_list = tree_cons (NULL_TREE, vdest_odd_name, arg_list);
+  arg_list = tree_cons (NULL_TREE, vdest_even_name, arg_list);
+
+  stmt = build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (vperm_fn)), 
+		 vperm_fn);
+  stmt = build (CALL_EXPR, TREE_TYPE (TREE_TYPE (vperm_fn)), stmt, arg_list, 
+		NULL_TREE);
+  stmt = build (MODIFY_EXPR, vectype, vz, stmt);
+
+  return stmt;
+} 
+/* APPLE LOCAL end AV vmul_uch -haifa  */
+
+
+/* APPLE LOCAL begin AV vector_init -haifa  */
+/* Target hook for vect_support_vector_init_p  */
+static bool
+rs6000_support_vector_init_p (tree type)
+{
+  tree lve_fn, splt_fn;
+  if (TARGET_ALTIVEC && get_vector_init_fns_for_type (type, &lve_fn, &splt_fn))
+    return true;
+  return false;
+}
+
+static bool
+get_vector_init_fns_for_type (tree type, tree *lve_fn, tree *splt_fn)
+{
+  enum machine_mode m0;
+
+  m0 = TYPE_MODE (type);
+ 
+  if (TARGET_ALTIVEC)
+    {
+      if (m0 == V4SImode)
+	{
+          *lve_fn = vector_builtin_fns [ALTIVEC_BUILTIN_LVEWX];
+	  *splt_fn = vector_builtin_fns [ALTIVEC_BUILTIN_VSPLTW];
+        }
+      else if (m0 == V8HImode)
+	{
+          *lve_fn = vector_builtin_fns [ALTIVEC_BUILTIN_LVEHX];
+	  *splt_fn = vector_builtin_fns [ALTIVEC_BUILTIN_VSPLTH];
+        }
+      else if (m0 == V16QImode)
+	{
+          *lve_fn = vector_builtin_fns [ALTIVEC_BUILTIN_LVEBX];
+	  *splt_fn = vector_builtin_fns [ALTIVEC_BUILTIN_VSPLTB];
+        }
+      return (*lve_fn != NULL_TREE && *splt_fn != NULL_TREE);
+    }
+  return false;
+}
+
+
+/* Target hook for vect_build_vector_init
+
+   Generate a sequence to initialize a vector with a non-immediate value.
+
+   The arguments are: 
+   tree type - type of stmts to be generated,
+   tree def - the scalar value to be put into the vector variable,
+   edge pe - the preheader edge where this code sequence is to be inserted,
+   struct bitmap_head_def - bitmap of variables to be renamed.
+
+   Generate the following sequence:
+   aligned_var x = def;
+   type vx = vec_lde (0, &x);
+   type vy = vec_splat (vx, 0);
+
+   Insert the above sequence on the preheader edge (pe), and return vy.
+*/ 
+static tree
+rs6000_build_vector_init (tree type, tree def, edge pe, 
+			  struct bitmap_head_def *vars_to_rename)
+{
+  tree lve_fn, splt_fn;
+  tree arg_list;
+  tree vtmp;
+  tree tmp_ptr, tmp_ptr_name;
+  tree ptr_type, vptr_type;
+  tree vx, vx_name;
+  tree vy, vy_name;
+  tree addr_of;
+  tree inner_type;
+  tree stmt;
+  basic_block new_bb; 
+
+  if (!get_vector_init_fns_for_type (type, &lve_fn, &splt_fn))
+    abort ();
+
+  inner_type = TREE_TYPE (type);
+
+  /** store 'def' into an aligned variable:
+	type vtmp;
+	inner_type *tmp_ptr;
+	tmp_ptr = (inner_type *) &vtmp;
+	*tmp_ptr = def; 		     	   */ 
+
+  vtmp = create_tmp_var (type, "vtmp");
+  add_referenced_tmp_var (vtmp);
+
+  ptr_type = build_pointer_type (inner_type);
+  tmp_ptr = create_tmp_var (ptr_type, "tmp_ptr");
+  add_referenced_tmp_var (tmp_ptr);
+  get_var_ann (tmp_ptr)->type_mem_tag = vtmp;
+  bitmap_set_bit (vars_to_rename, var_ann (vtmp)->uid);
+  mark_call_clobbered (vtmp);
+ 
+  TREE_ADDRESSABLE (vtmp) = 1;
+  vptr_type = build_pointer_type (type);
+  addr_of =  build1 (ADDR_EXPR, vptr_type, vtmp);
+  stmt = build (MODIFY_EXPR, void_type_node, tmp_ptr, 
+		build1 (CONVERT_EXPR, ptr_type, addr_of));
+  tmp_ptr_name = make_ssa_name (tmp_ptr, stmt);
+  TREE_OPERAND (stmt, 0) = tmp_ptr_name;
+  new_bb = bsi_insert_on_edge_immediate (pe, stmt);
+  if (new_bb)
+    add_bb_to_loop (new_bb, new_bb->pred->src->loop_father);
+
+  stmt = build (MODIFY_EXPR, void_type_node, 
+		build1 (INDIRECT_REF, inner_type, tmp_ptr_name), def);
+  new_bb = bsi_insert_on_edge_immediate (pe, stmt);
+  if (new_bb)
+    add_bb_to_loop (new_bb, new_bb->pred->src->loop_father);
+
+
+  /** vx = lve (0, tmp_ptr) **/ 
+
+  /* Build argument list.  */
+  arg_list = tree_cons (NULL_TREE, tmp_ptr_name, NULL_TREE);
+  arg_list = tree_cons (NULL_TREE, integer_zero_node, arg_list);
+    
+  /* Build destination variable.  */
+  vx = create_tmp_var (type, "vec_init");
+  add_referenced_tmp_var (vx);
+  
+  stmt = build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (lve_fn)), lve_fn);
+  stmt = build (CALL_EXPR, TREE_TYPE (TREE_TYPE (lve_fn)), stmt, 
+		arg_list, NULL_TREE);
+  stmt = build (MODIFY_EXPR, type, vx, stmt);
+  vx_name = make_ssa_name (vx, stmt);
+  TREE_OPERAND (stmt, 0) = vx_name;
+  new_bb = bsi_insert_on_edge_immediate (pe, stmt);
+  if (new_bb)
+    add_bb_to_loop (new_bb, new_bb->pred->src->loop_father);
+
+
+  /** vy = splt (vx, 0) **/ 
+  
+  /* Build argument list.  */
+  arg_list = tree_cons (NULL_TREE, integer_zero_node, NULL_TREE);
+  arg_list = tree_cons (NULL_TREE, vx_name, arg_list);
+    
+  /* Build destination variable.  */
+  vy = create_tmp_var (type, "vec_init");
+  add_referenced_tmp_var (vy);
+  
+  stmt = build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (splt_fn)), splt_fn);
+  stmt = build (CALL_EXPR, TREE_TYPE (TREE_TYPE (splt_fn)), stmt, arg_list, 
+		NULL_TREE);
+  stmt = build (MODIFY_EXPR, type, vy, stmt);
+  vy_name = make_ssa_name (vy, stmt);
+  TREE_OPERAND (stmt, 0) = vy_name;
+  new_bb = bsi_insert_on_edge_immediate (pe, stmt);
+  if (new_bb)
+    add_bb_to_loop (new_bb, new_bb->pred->src->loop_father);
+
+  return vy_name;
+}
+/* APPLE LOCAL end AV vector_init -haifa  */
 
 
 /* Determine where to put an argument to a function.

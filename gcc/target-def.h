@@ -278,6 +278,12 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #define TARGET_VECTOR_SELECT_P 0
 #define TARGET_VECTOR_SELECT_FOR_P 0
 #define TARGET_VECTOR_SELECT_STMT 0
+/* APPLE LOCAL begin AV vmul_uch -haifa  */
+/* APPLE LOCAL begin AV vector_init -haifa  */
+#define TARGET_VECT_SUPPORT_VMUL_UCH_P 0
+#define TARGET_VECT_BUILD_VMUL_UCH 0
+#define TARGET_VECT_SUPPORT_VECTOR_INIT_P 0
+#define TARGET_VECT_BUILD_VECTOR_INIT
 
 #define TARGET_VECT                                       \
   {TARGET_VECT_SUPPORT_MISALIGNED_LOADS,                  \
@@ -289,8 +295,14 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
    TARGET_VECTOR_COMPARE_STMT,                            \
    TARGET_VECTOR_SELECT_P,                                \
    TARGET_VECTOR_SELECT_FOR_P,                            \
-   TARGET_VECTOR_SELECT_STMT}
+   TARGET_VECTOR_SELECT_STMT,				  \
+   TARGET_VECT_SUPPORT_VMUL_UCH_P,			  \
+   TARGET_VECT_BUILD_VMUL_UCH,				  \
+   TARGET_VECT_SUPPORT_VECTOR_INIT_P,			  \
+   TARGET_VECT_BUILD_VECTOR_INIT}
 
+/* APPLE LOCAL end AV vmul_uch -haifa  */
+/* APPLE LOCAL end AV vector_init -haifa  */
 /* APPLE LOCAL end AV if-conversion -dpatel  */
 /* APPLE LOCAL end AV misaligned -haifa  */
 

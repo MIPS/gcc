@@ -47,6 +47,8 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "tm.h"
 /* APPLE LOCAL AV if-conversion -dpatel  */
 #include "tree.h"
+/* APPLE LOCAL AV vmul_uch -haifa  */
+#include "tree-flow.h"
 struct gcc_target
 {
   /* Functions that output assembler for the target.  */
@@ -465,6 +467,42 @@ struct gcc_target
        Return value is vector select statement.  */
     tree (* vector_select_stmt) (tree, tree, tree, tree, tree);
 
+    /* APPLE LOCAL begin AV vmul_uch -haifa  */
+    /* True if vector "mult_uch" can be supported (see below).  */
+    bool (* support_vmul_uch_p) (void);
+
+    /* Generate a sequence that vectorizes the following functionality:
+	  uchar x' = (ushort) x;
+	  uchar y' = (ushort) y;
+	  ushort prod = mul (x`, y`);
+	  ushort z` = prod >> 8;
+	  uchar z = (uchar) z`;
+       This sequence is modelled by a single scalar_stmt "mul_uch".
+       The function generates a vectorized sequence that multiplies two vectors
+       of unsigned chars, vx and vy, and converts the (vector of unsigned 
+       shorts) result back to a vector of unsigned chars, vz. The vectorized
+       sequence will replace the scalar_stmt "mul_uch".
+       The arguments are: tree vx, tree vy, tree vz, edge pe - where code can 
+       be inserted at the loop preheader), and a block_stmt_iterator that 
+       points to the place where the vectorized sequence should be inserted. 
+       The output: Generate a sequence of vectorized stmts; all the stmts but 
+       the last are inserted either at the preheader edge or at bsi; the last 
+       stmt is returned.  */
+    tree (* build_vmul_uch) (tree, tree, tree, edge, block_stmt_iterator *);
+    /* APPLE LOCAL end AV vmul_uch -haifa  */
+
+    /* APPLE LOCAL begin AV vector_init -haifa  */
+    /* True if the target supports vector initialization with a non-immediate 
+       value, of a certain type (passed as argument).  */
+    bool (* support_vector_init_p) (tree);
+
+    /* Generate a sequence to initialize a vector with a non-immediate value.
+       The arguments are: tree vectype - type of stmts to be generated, 
+       tree def - the scalar value to be put into the vector variable,
+       edge pe - the preheader edge where this code sequence is to be inserted,
+       struct bitmap_head_def - bitmap of variables to be renamed.  */
+    tree (* build_vector_init) (tree, tree, edge, struct bitmap_head_def *);
+    /* APPLE LOCAL end AV vector_init -haifa  */
   } vect;
   /* APPLE LOCAL end AV if-conversion -dpatel  */
   /* APPLE LOCAL end AV misaligned -haifa  */

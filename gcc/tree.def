@@ -917,6 +917,11 @@ DEFTREECODE (PEELED_CHREC, "peeled_chrec", 'e', 3)
    Use the interface in tree-iterator.h to access this node.  */
 DEFTREECODE (STATEMENT_LIST, "statement_list", 'x', 0)
 
+/* APPLE LOCAL begin AV vmul_uch -haifa  */
+/* Used during vectorization to represent computation idioms.  */
+DEFTREECODE (MULT_UCH_EXPR, "mult_uch", '2', 2)
+/* APPLE LOCAL end AV vmul_uch -haifa  */
+
 /*
 Local variables:
 mode:c

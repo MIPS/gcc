@@ -64,11 +64,29 @@ typedef struct _stmt_vec_info {
      indicates whether the stmt needs to be vectorized.  */
   bool relevant;
 
+  /* APPLE LOCAL begin AV vmul_uch -haifa  */
+  /* This stmt is part of some computation idiom.  */
+  bool part_of_pattern;
+
+  /* A pointer to another stmt, that is "related" in a certain way 
+     to this stmt. For example, stmts that are involved in the same 
+     computation idiom.  */
+  tree related_stmt;
+  /* APPLE LOCAL end AV vmul_uch -haifa  */
+
   /* The vector type to be used.  */
   tree vectype;
 
-  /* The vectorized version of the stmt.  */
-  tree vectorized_stmt;
+  /* APPLE LOCAL begin AV vmul_uch -haifa  */
+  union {
+    /* The vectorized version of the stmt.  */
+    tree vectorized_stmt;
+
+    /* Target hook that vetorizer target-specific computation idioms.  */
+    tree (* vect_target_hook_for_pattern) (tree, tree, tree, edge, 
+		block_stmt_iterator *);
+  } v; 
+  /* APPLE LOCAL end AV vmul_uch -haifa  */
 
   /* Relevant only for array accesses;
      A GIMPLE stmt is expected to have at most 1 array access.  */
@@ -77,13 +95,19 @@ typedef struct _stmt_vec_info {
 } *stmt_vec_info;
 
 /* Access Functions.  */
-#define STMT_VINFO_TYPE(S)       (S)->type
-#define STMT_VINFO_STMT(S)       (S)->stmt
-#define STMT_VINFO_LOOP(S)       (S)->loop
-#define STMT_VINFO_RELEVANT_P(S) (S)->relevant
-#define STMT_VINFO_VECTYPE(S)    (S)->vectype
-#define STMT_VINFO_VEC_STMT(S)   (S)->vectorized_stmt
-#define STMT_VINFO_DATA_REF(S)   (S)->data_ref_info
+#define STMT_VINFO_TYPE(S)       	(S)->type
+#define STMT_VINFO_STMT(S)       	(S)->stmt
+#define STMT_VINFO_LOOP(S)       	(S)->loop
+#define STMT_VINFO_RELEVANT_P(S) 	(S)->relevant
+/* APPLE LOCAL begin AV vmul_uch -haifa  */
+#define STMT_VINFO_IN_PATTERN_P(S)	(S)->part_of_pattern
+#define STMT_VINFO_VEC_HOOK(S)  	(S)->v.vect_target_hook_for_pattern
+#define STMT_VINFO_RELATED_STMT(S)	(S)->related_stmt
+/* APPLE LOCAL end AV vmul_uch -haifa  */
+#define STMT_VINFO_VECTYPE(S)    	(S)->vectype
+/* APPLE LOCAL AV vmul_uch -haifa  */
+#define STMT_VINFO_VEC_STMT(S)   	(S)->v.vectorized_stmt
+#define STMT_VINFO_DATA_REF(S)   	(S)->data_ref_info
 
 static inline void set_stmt_info (stmt_ann_t ann, stmt_vec_info stmt_info);
 static inline stmt_vec_info vinfo_for_stmt (tree stmt);

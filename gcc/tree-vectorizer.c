@@ -164,6 +164,10 @@ static bool vect_analyze_data_ref_accesses (loop_vec_info);
 static bool vect_analyze_data_refs_alignment (loop_vec_info);
 static void vect_compute_data_refs_alignment (loop_vec_info);
 static bool vect_analyze_operations (loop_vec_info);
+/* APPLE LOCAL begin AV vmul_uch -haifa  */
+static void vect_pattern_recog (loop_vec_info);
+static void vect_recog_mul_uch_to_uch (loop_vec_info);
+/* APPLE LOCAL end AV vmul_uch -haifa  */
 
 /* Main code transformation functions.  */
 static void vect_transform_loop (loop_vec_info, struct loops *);
@@ -267,7 +271,11 @@ new_stmt_vec_info (tree stmt, struct loop *loop)
   STMT_VINFO_TYPE (res) = undef_vec_info_type;
   STMT_VINFO_STMT (res) = stmt;
   STMT_VINFO_LOOP (res) = loop;
-  STMT_VINFO_RELEVANT_P (res) = 0;
+  /* APPLE LOCAL begin AV vmul_uch -haifa  */
+  STMT_VINFO_RELEVANT_P (res) = false;
+  STMT_VINFO_IN_PATTERN_P (res) = false;
+  STMT_VINFO_RELATED_STMT (res) = NULL;
+  /* APPLE LOCAL end AV vmul_uch -haifa  */
   STMT_VINFO_VECTYPE (res) = NULL;
   STMT_VINFO_VEC_STMT (res) = NULL;
   STMT_VINFO_DATA_REF (res) = NULL;
@@ -758,7 +766,6 @@ vect_create_data_ref (tree ref ATTRIBUTE_UNUSED, tree stmt,
   tree array_type;
   tree base_addr;
 
-
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
       fprintf (dump_file, "create array_ref of type:\n");
@@ -804,6 +811,20 @@ vect_create_data_ref (tree ref ATTRIBUTE_UNUSED, tree stmt,
     {
       tree symbl = SSA_NAME_VAR (addr_ref);
       tree tag = get_var_ann (symbl)->type_mem_tag;
+      /* APPLE LOCAL begin AV alias-set  -haifa */
+      if (!tag)
+        {
+          /* try to find the tag from the actual pointer used in the stmt  */
+          tree ptr;
+          if (TREE_CODE (ref) != INDIRECT_REF)
+            abort ();
+          ptr = TREE_OPERAND (ref, 0); 
+          symbl = SSA_NAME_VAR (ptr); 
+          tag = get_var_ann (symbl)->type_mem_tag;
+          if (!tag)
+            abort ();
+        }
+      /* APPLE LOCAL end AV alias-set  -haifa */
       get_var_ann (vect_ptr)->type_mem_tag = tag;  /* CHECKME */
     }
 
@@ -868,7 +889,6 @@ vect_create_data_ref (tree ref ATTRIBUTE_UNUSED, tree stmt,
 			    build1 (ADDR_EXPR,
 				    build_pointer_type (TREE_TYPE (addr_ref)),
 				    array_ref)));
-
     }
   else if (TREE_CODE (addr_ref) == SSA_NAME)
     {
@@ -1071,6 +1091,17 @@ vect_get_vec_def_for_operand (tree op, tree stmt)
 	  else
 	    def = TREE_OPERAND (def_stmt, 0);
 
+	  /* APPLE LOCAL begin AV vector_init -haifa  */
+	  /* Let the target generated the vector initialization
+             code, if such hook available.  */
+	  if (targetm.vect.support_vector_init_p (vectype))
+	    {
+	      edge pe = loop_preheader_edge (STMT_VINFO_LOOP (stmt_vinfo));
+	      return targetm.vect.build_vector_init (vectype, def, pe, 
+						     vars_to_rename);
+	    }
+          /* APPLE LOCAL begin AV vector_end -haifa  */
+  
 	  for (i = nunits - 1; i >= 0; --i)
 	    {
 	      t = tree_cons (NULL_TREE, def, t);
@@ -1348,6 +1379,8 @@ vect_transform_op (tree stmt, block_stmt_iterator *bsi)
   enum tree_code code;
   tree new_temp;
   int op_type;
+  /* APPLE LOCAL AV vmul_uch -haifa  */
+  tree (* hook) (tree, tree, tree, edge, block_stmt_iterator *);
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "transform op\n");
@@ -1390,13 +1423,27 @@ vect_transform_op (tree stmt, block_stmt_iterator *bsi)
 
   /** arguments are ready. create the new vector stmt.  **/
 
-  code = TREE_CODE (operation);
-  if (op_type == binary_op)
-      vec_stmt = build (MODIFY_EXPR, vectype, vec_dest,
-			build (code, vectype, vec_oprnd0, vec_oprnd1));
+  /* APPLE LOCAL begin AV vmul_uch -haifa  */
+  /* Is this a special pattern with target specific support?  */
+  hook = STMT_VINFO_VEC_HOOK (stmt_info);
+  if (hook)
+    {
+      edge pe = loop_preheader_edge (STMT_VINFO_LOOP (stmt_info));
+      vec_stmt = (*hook) (vec_oprnd0, vec_oprnd1, vec_dest, pe, bsi); 
+      STMT_VINFO_VEC_STMT 
+	(vinfo_for_stmt (STMT_VINFO_RELATED_STMT (stmt_info))) = vec_stmt;
+    }
   else
-      vec_stmt = build (MODIFY_EXPR, vectype, vec_dest,
+  /* APPLE LOCAL end AV vmul_uch -haifa  */
+    {
+      code = TREE_CODE (operation);
+      if (op_type == binary_op)
+	vec_stmt = build (MODIFY_EXPR, vectype, vec_dest,
+			build (code, vectype, vec_oprnd0, vec_oprnd1));
+      else
+	vec_stmt = build (MODIFY_EXPR, vectype, vec_dest,
 			build1 (code, vectype, vec_oprnd0));
+    }
 
   new_temp = make_ssa_name (vec_dest, vec_stmt);
   TREE_OPERAND (vec_stmt, 0) = new_temp;
@@ -2492,6 +2539,8 @@ vect_is_supportable_op (tree stmt)
   struct loop *loop = STMT_VINFO_LOOP (stmt_info);
   /* APPLE LOCAL AV if-conversion -dpatel  */
   /* Remove local variables: i, op_type.  */
+  /* APPLE LOCAL AV vmul_uch -haifa  */
+  enum tree_code code;
 
   /* Is op? */
 
@@ -2506,15 +2555,32 @@ vect_is_supportable_op (tree stmt)
   /* This patch breaks this function into two function.
      So APPLE LOCAL markers are OK.  */
 
-  if (vect_is_supportable_operation (operation, vectype, loop))
+  /* APPLE LOCAL begin AV vmul_uch -haifa  */
+  code = TREE_CODE (operation);
+  switch (code)
     {
-      /* FORNOW: Not considering the cost.  */
+    case MULT_UCH_EXPR:
+      /* Todo: replace target hook with optab.  */
+      if (!targetm.vect.support_vmul_uch_p ())
+        return false;
+      STMT_VINFO_VEC_HOOK (vinfo_for_stmt (stmt)) =
+        targetm.vect.build_vmul_uch;
       STMT_VINFO_TYPE (stmt_info) = op_vec_info_type;
       return true;
+
+    default:
+      if (vect_is_supportable_operation (operation, vectype, loop))
+        {
+          /* FORNOW: Not considering the cost.  */
+          STMT_VINFO_TYPE (stmt_info) = op_vec_info_type;
+          return true;
+        }
+      else
+        return false;
     }
-  else
-    return false;
+  /* APPLE LOCAL end AV vmul_uch -haifa  */
 }
+
 
 /* Function vect_is_supportable_operation.
 
@@ -3536,7 +3602,6 @@ vect_compute_data_ref_alignment (struct data_reference *dr,
     }
   array_start_val = vect_get_array_first_index (ref);
 
-  
   /* Check the index of the array_ref.  */
 
   init = initial_condition (access_fn);
@@ -4156,6 +4221,17 @@ vect_mark_relevant (varray_type worklist, tree stmt)
       return;
     }
 
+  /* APPLE LOCAL begin AV vmul_uch -haifa  */
+  if (STMT_VINFO_IN_PATTERN_P (stmt_info))
+    {
+      /* leave as irrelevant, but add to worklist.  */
+      if (dump_file && (dump_flags & TDF_DETAILS))
+        fprintf (dump_file, "part of pattern.\n");
+      VARRAY_PUSH_TREE (worklist, stmt);
+      return;
+    }
+  /* APPLE LOCAL end AV vmul_uch -haifa  */
+
   STMT_VINFO_RELEVANT_P (stmt_info) = 1;
   VARRAY_PUSH_TREE (worklist, stmt);
 }
@@ -4267,7 +4343,10 @@ vect_mark_stmts_to_be_vectorized (loop_vec_info loop_vinfo)
 	    } 
 
 	  stmt_info = vinfo_for_stmt (stmt);
-	  STMT_VINFO_RELEVANT_P (stmt_info) = 0;
+
+	  /* APPLE LOCAL AV vmul_uch -haifa  */
+	  /* Not needed, done in new_stmt_vec_info.
+	  STMT_VINFO_RELEVANT_P (stmt_info) = 0; */
 
 	  if (vect_stmt_relevant_p (stmt, loop_vinfo))
 	    vect_mark_relevant (worklist, stmt);
@@ -4402,6 +4481,208 @@ vect_mark_stmts_to_be_vectorized (loop_vec_info loop_vinfo)
   varray_clear (worklist);
   return true;
 }
+
+
+/* APPLE LOCAL begin AV vmul_uch -haifa  */
+/* Function vect_recog_mul_uch_to_uch1
+
+   Try to find a pattern of multiplication of two uchars, which product is 
+   converted back to uchar, as follows: 
+   (we use 'uchar' for unsigned char and 'ushort' for unsigned short)
+   
+   uchar x' = (ushort) x;  
+   uchar y' = (ushort) y;  
+   ushort prod = mul (x`, y`);
+   ushort z` = prod >> 8;
+   uchar z = (uchar) z`;
+
+   If this pattern is detected, the stmts that are part of the pattern
+   will be marked as such, and a new stmt that represents the pattern
+   will be generated.
+*/
+
+static tree
+vect_recog_mul_uch_to_uch1 (tree stmt0_ush_to_uch)
+{   
+  struct loop *loop = STMT_VINFO_LOOP (vinfo_for_stmt (stmt0_ush_to_uch));
+  tree stmt;
+  tree oprnd0 = NULL_TREE, oprnd1, operation;
+  tree stmt1_ush_shft_8 = NULL;
+  tree stmt2_mul_ush = NULL;
+  tree stmt3_arg1_uch_to_ush = NULL;
+  tree stmt4_arg2_uch_to_ush = NULL;
+  tree pattern_stmt = NULL;
+  tree var, var_name;
+  tree arg1, arg2;
+  stmt_ann_t ann;
+
+  oprnd0 = TREE_OPERAND (TREE_OPERAND (stmt0_ush_to_uch, 1),0);
+
+  /* found stmt0; check if the def-use chain that defines this
+     stmt complies with the pattern.  */
+
+  stmt = SSA_NAME_DEF_STMT (oprnd0);  
+  if (TREE_CODE (stmt) != MODIFY_EXPR)
+    return NULL_TREE;
+  operation = TREE_OPERAND (stmt, 1);
+  if (TREE_CODE (operation) != RSHIFT_EXPR)
+    return NULL_TREE;
+  oprnd0 = TREE_OPERAND (operation, 0);
+  oprnd1 = TREE_OPERAND (operation, 1);
+  if (TREE_CODE (TREE_TYPE (oprnd0)) == INTEGER_TYPE
+      && TYPE_MAIN_VARIANT (TREE_TYPE (oprnd0)) == short_unsigned_type_node
+      && TREE_CODE (oprnd0) == SSA_NAME
+      && TREE_CODE (oprnd1) == INTEGER_CST
+      && TREE_INT_CST_HIGH (oprnd1) == 0
+      && TREE_INT_CST_LOW (oprnd1) == 8)
+    stmt1_ush_shft_8 = stmt;
+  else
+    return NULL_TREE;
+
+
+  stmt = SSA_NAME_DEF_STMT (oprnd0);  
+  if (TREE_CODE (stmt) != MODIFY_EXPR)
+    return NULL_TREE;
+  operation = TREE_OPERAND (stmt, 1);
+  if (TREE_CODE (operation) != MULT_EXPR)
+    return NULL_TREE;
+  oprnd0 = TREE_OPERAND (operation, 0);
+  oprnd1 = TREE_OPERAND (operation, 1);
+  if (TREE_CODE (TREE_TYPE (oprnd0)) == INTEGER_TYPE
+      && TYPE_MAIN_VARIANT (TREE_TYPE (oprnd0)) == short_unsigned_type_node
+      && TREE_CODE (oprnd0) == SSA_NAME
+      && TREE_CODE (TREE_TYPE (oprnd1)) == INTEGER_TYPE
+      && TYPE_MAIN_VARIANT (TREE_TYPE (oprnd1)) == short_unsigned_type_node
+      && TREE_CODE (oprnd1) == SSA_NAME)
+    stmt2_mul_ush = stmt;
+  else
+    return NULL_TREE;
+
+
+  stmt = SSA_NAME_DEF_STMT (oprnd0);  
+  if (TREE_CODE (stmt) != MODIFY_EXPR)
+    return NULL_TREE;
+  operation = TREE_OPERAND (stmt, 1);
+  if (TREE_CODE (operation) != NOP_EXPR)
+    return NULL_TREE;
+  arg1 = TREE_OPERAND (operation, 0);
+  if (TREE_CODE (TREE_TYPE (arg1)) == INTEGER_TYPE
+      && TYPE_MAIN_VARIANT (TREE_TYPE (arg1)) == unsigned_char_type_node)
+    stmt3_arg1_uch_to_ush = stmt;
+  else
+    return NULL_TREE;
+
+
+  stmt = SSA_NAME_DEF_STMT (oprnd1);  
+  if (TREE_CODE (stmt) != MODIFY_EXPR)
+    return NULL_TREE;
+  operation = TREE_OPERAND (stmt, 1);
+  if (TREE_CODE (operation) != NOP_EXPR)
+    return NULL_TREE;
+  arg2 = TREE_OPERAND (operation, 0);
+  if (TREE_CODE (TREE_TYPE (arg2)) == INTEGER_TYPE
+      && TYPE_MAIN_VARIANT (TREE_TYPE (arg2)) == unsigned_char_type_node)
+    stmt4_arg2_uch_to_ush = stmt;
+  else
+    return NULL_TREE;
+
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    fprintf (dump_file, "pattern mul_uch recognized.\n");
+
+  /* found the pattern! 
+     mark the stmts that are involved in the pattern,
+     and create a new stmt to express the pattern.  */
+
+  var = create_tmp_var (unsigned_char_type_node, "patt");
+  add_referenced_tmp_var (var);
+  var_name = make_ssa_name (var, NULL_TREE);
+  pattern_stmt = build (MODIFY_EXPR, unsigned_char_type_node, var_name,
+	build (MULT_UCH_EXPR, unsigned_char_type_node, arg1, arg2));
+  get_stmt_operands (pattern_stmt);
+  ann = stmt_ann (pattern_stmt);
+  set_stmt_info (ann, new_stmt_vec_info (pattern_stmt, loop));
+  STMT_VINFO_RELATED_STMT (vinfo_for_stmt (pattern_stmt)) = stmt0_ush_to_uch;
+  STMT_VINFO_RELEVANT_P (vinfo_for_stmt (pattern_stmt)) = true;
+
+  STMT_VINFO_IN_PATTERN_P (vinfo_for_stmt (stmt4_arg2_uch_to_ush)) = true;
+  STMT_VINFO_IN_PATTERN_P (vinfo_for_stmt (stmt3_arg1_uch_to_ush)) = true;
+  STMT_VINFO_IN_PATTERN_P (vinfo_for_stmt (stmt2_mul_ush)) = true;
+  STMT_VINFO_IN_PATTERN_P (vinfo_for_stmt (stmt1_ush_shft_8)) = true;
+  STMT_VINFO_IN_PATTERN_P (vinfo_for_stmt (stmt0_ush_to_uch)) = true;
+
+  STMT_VINFO_RELATED_STMT (vinfo_for_stmt (stmt0_ush_to_uch)) = pattern_stmt;
+
+  return pattern_stmt;
+}
+
+
+/* Function vect_mul_uch_to_uch
+
+   Try to find computation idioms.  */
+
+static void
+vect_recog_mul_uch_to_uch (loop_vec_info loop_vinfo)
+{
+  struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
+  basic_block *bbs = LOOP_VINFO_BBS (loop_vinfo);
+  unsigned int nbbs = loop->num_nodes;
+  block_stmt_iterator si;
+  tree stmt;
+  unsigned int i;
+  tree def_oprnd, oprnd0 = NULL_TREE, operation;
+  tree pattern_stmt = NULL_TREE;
+
+  for (i = 0; i < nbbs; i++)
+    {
+      basic_block bb = bbs[i];
+      for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
+        {
+          stmt = bsi_stmt (si); 
+          if (TREE_CODE (stmt) != MODIFY_EXPR)
+            continue;
+          def_oprnd = TREE_OPERAND (stmt, 0);
+          operation = TREE_OPERAND (stmt, 1);
+          if (TREE_CODE (operation) != CONVERT_EXPR)
+            continue;
+          oprnd0 = TREE_OPERAND (operation, 0);
+          if (TREE_CODE (TREE_TYPE (def_oprnd)) != INTEGER_TYPE)
+            continue;
+          if (TYPE_MAIN_VARIANT (TREE_TYPE (def_oprnd)) != unsigned_char_type_node)
+            continue;
+          if (TREE_CODE (TREE_TYPE (oprnd0)) != INTEGER_TYPE
+              || TYPE_MAIN_VARIANT (TREE_TYPE (oprnd0)) != short_unsigned_type_node)
+            continue;
+          if (TREE_CODE (oprnd0) != SSA_NAME)
+            continue;
+ 	  pattern_stmt = vect_recog_mul_uch_to_uch1 (stmt);
+	  if (pattern_stmt != NULL_TREE)
+	    {
+	      bsi_insert_before (&si, pattern_stmt, BSI_SAME_STMT);
+	      pattern_stmt = NULL_TREE;
+	    }
+        }
+    }
+}
+
+
+/* Function vect_pattern_recog
+
+   Try to find computation idioms.  */
+
+static void
+vect_pattern_recog (loop_vec_info loop_vinfo)
+{
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    fprintf (dump_file, "\n<<vect_pattern_recog>>\n");
+
+  vect_recog_mul_uch_to_uch (loop_vinfo);
+
+  /* In the future, additional idioms will be recognized here,
+     possibly through target hooks, to allow targets to recognize
+     patterns that have special architectural support.  */
+}
+/* APPLE LOCAL end AV vmul_uch -haifa  */
+
 
 /* This function analyze number of iteration LOOP executes in case 
    the it is unknown number in compile time. 
@@ -4745,6 +5026,8 @@ vect_analyze_loop (struct loop *loop)
       return NULL;
     }
 
+  /* APPLE LOCAL AV vmul_uch -haifa  */
+  vect_pattern_recog (loop_vinfo);
 
   /* Data-flow analysis to detect stmts that do not need to be vectorized.  */
 
@@ -4911,7 +5194,7 @@ vectorize_loops (struct loops *loops)
       /* Create second version of the loop in advance. This allows vectorizer
   	 to be more aggressive.  */
       vect_loop_version (loops, loop, &bb);
-       if_converted_loop = false;
+      if_converted_loop = false;
       /* APPLE LOCAL end AV if-conversion -dpatel  */
        
        flow_loop_scan (loop, LOOP_ALL);
@@ -4980,4 +5263,11 @@ vectorize_loops (struct loops *loops)
       destroy_loop_vec_info (loop_vinfo);
       loop->aux = NULL;
     }
+
+#if 1 /* DN */
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    dump_function_to_file (current_function_decl, dump_file,
+                ~(TDF_RAW | TDF_SLIM | TDF_LINENO));
+#endif
+
 }
