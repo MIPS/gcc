@@ -157,10 +157,10 @@ rank (insn1, insn2)
 
   if (bb1->count > bb2->count
       || bb1->frequency > bb2->frequency)
-    return 1;
+    return -1;
   if (bb1->count < bb2->count
       || bb1->frequency < bb2->frequency)
-    return -1;
+    return 1;
   return 0;
 }
 
