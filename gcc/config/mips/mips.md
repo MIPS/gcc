@@ -9506,18 +9506,15 @@ move\\t%0,%z4\\n\\
 	  DONE;
 	}
 
-      if (GET_MODE (operands[0]) != Pmode)
+      if (GET_MODE (operands[0]) != ptr_mode)
 	abort ();
 
       if (TARGET_ABICALLS && (mips_abi == ABI_32 || mips_abi == ABI_O64))
 	{
 	  rtx temp;
 
-	  temp = gen_reg_rtx (Pmode);
-	  if (Pmode == SImode)
-	    emit_insn (gen_cpaddsi (temp, operands[0]));
-	  else
-	    emit_insn (gen_cpadddi (temp, operands[0]));
+	  temp = gen_reg_rtx (ptr_mode);
+	  emit_insn (gen_cpadd (temp, operands[0]));
 	  operands[0] = temp;
 	}
 
@@ -9533,7 +9530,7 @@ move\\t%0,%z4\\n\\
   [(set (pc)
 	(match_operand:SI 0 "register_operand" "d"))
    (use (label_ref (match_operand 1 "" "")))]
-  "Pmode == SImode"
+  ""
   "%*j\\t%0"
   [(set_attr "type"	"jump")
    (set_attr "mode"	"none")])
@@ -9542,12 +9539,12 @@ move\\t%0,%z4\\n\\
   [(set (pc)
 	(match_operand:DI 0 "register_operand" "d"))
    (use (label_ref (match_operand 1 "" "")))]
-  "Pmode == DImode"
+  "TARGET_64BIT"
   "%*j\\t%0"
   [(set_attr "type"	"jump")
    (set_attr "mode"	"none")])
 
-(define_insn "cpaddsi"
+(define_insn "cpadd"
   [(set (match_operand:SI 0 "register_operand" "=d")
 	(plus:SI (match_operand:SI 1 "register_operand" "d")
 		 (unspec [(const_int 0)] UNSPEC_CPADD)))]
@@ -9555,15 +9552,6 @@ move\\t%0,%z4\\n\\
   "addu\t%0,%1,%+"
   [(set_attr "type" "arith")
    (set_attr "mode" "SI")])
-
-(define_insn "cpadddi"
-  [(set (match_operand:DI 0 "register_operand" "=d")
-	(plus:DI (match_operand:DI 1 "register_operand" "d")
-		 (unspec [(const_int 0)] UNSPEC_CPADD)))]
-  "TARGET_ABICALLS && (mips_abi == ABI_32 || mips_abi == ABI_O64)"
-  "daddu\t%0,%1,%+"
-  [(set_attr "type" "arith")
-   (set_attr "mode" "DI")])
 
 (define_expand "tablejump_mips161"
   [(set (pc) (plus:SI (sign_extend:SI

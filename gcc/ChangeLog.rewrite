@@ -1,3 +1,19 @@
+2003-01-14  Richard Sandiford  <rsandifo@redhat.com>
+
+	* config/mips/mips.h (TRAMPOLINE_TEMPLATE): Make size of stored
+	addresses depend on ptr_mode rather than Pmode.
+	(TRAMPOLINE_SIZE, TRAMPOLINE_ALIGNMENT): Update acoordingly.
+	(INITIALIZE_TRAMPOLINE): Rework to handle Pmode != ptr_mode.
+	(CASE_VECTOR_MODE): Use ptr_mode for !TARGET_MIPS16.
+	(ASM_OUTPUT_ADDR_VEC_ELT): Update accordingly.
+	* config/mips/mips.md (tablejump): Likewise.  Remove Pmode
+	condition for selecting cpaddsi or cpadddi: use cpadd instead.
+	(tablejump_internal1): Remove condition.
+	(tablejump_internal2): Change condition to TARGET_64BIT.
+	(cpaddsi): Rename to...
+	(cpadd): ...this.
+	(cpadddi): Remove.
+
 2003-01-09  Richard Sandiford  <rsandifo@redhat.com>
 
 	* config/mips/mips-protos.h (mips16_constant_after_function_p,

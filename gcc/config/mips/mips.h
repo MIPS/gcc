@@ -2890,7 +2890,7 @@ typedef struct mips_args {
   fprintf (STREAM, "\t.word\t0x03e00821\t\t# move   $1,$31\n");		\
   fprintf (STREAM, "\t.word\t0x04110001\t\t# bgezal $0,.+8\n");		\
   fprintf (STREAM, "\t.word\t0x00000000\t\t# nop\n");			\
-  if (Pmode == DImode)							\
+  if (ptr_mode == DImode)						\
     {									\
       fprintf (STREAM, "\t.word\t0xdfe30014\t\t# ld     $3,20($31)\n");	\
       fprintf (STREAM, "\t.word\t0xdfe2001c\t\t# ld     $2,28($31)\n");	\
@@ -2903,7 +2903,7 @@ typedef struct mips_args {
   fprintf (STREAM, "\t.word\t0x0060c821\t\t# move   $25,$3 (abicalls)\n"); \
   fprintf (STREAM, "\t.word\t0x00600008\t\t# jr     $3\n");		\
   fprintf (STREAM, "\t.word\t0x0020f821\t\t# move   $31,$1\n");		\
-  if (Pmode == DImode)							\
+  if (ptr_mode == DImode)						\
     {									\
       fprintf (STREAM, "\t.dword\t0x00000000\t\t# <function address>\n"); \
       fprintf (STREAM, "\t.dword\t0x00000000\t\t# <static chain value>\n"); \
@@ -2918,11 +2918,11 @@ typedef struct mips_args {
 /* A C expression for the size in bytes of the trampoline, as an
    integer.  */
 
-#define TRAMPOLINE_SIZE (32 + (Pmode == DImode ? 16 : 8))
+#define TRAMPOLINE_SIZE (32 + GET_MODE_SIZE (ptr_mode) * 2)
 
 /* Alignment required for trampolines, in bits.  */
 
-#define TRAMPOLINE_ALIGNMENT (Pmode == DImode ? 64 : 32)
+#define TRAMPOLINE_ALIGNMENT GET_MODE_BITSIZE (ptr_mode)
 
 /* INITIALIZE_TRAMPOLINE calls this library function to flush
    program and data caches.  */
@@ -2939,24 +2939,21 @@ typedef struct mips_args {
 
 #define INITIALIZE_TRAMPOLINE(ADDR, FUNC, CHAIN)			    \
 {									    \
-  rtx addr = ADDR;							    \
-  if (Pmode == DImode)							    \
-    {									    \
-      emit_move_insn (gen_rtx_MEM (DImode, plus_constant (addr, 32)), FUNC); \
-      emit_move_insn (gen_rtx_MEM (DImode, plus_constant (addr, 40)), CHAIN);\
-    }									    \
-  else									    \
-    {									    \
-      emit_move_insn (gen_rtx_MEM (SImode, plus_constant (addr, 32)), FUNC); \
-      emit_move_insn (gen_rtx_MEM (SImode, plus_constant (addr, 36)), CHAIN);\
-    }									    \
+  rtx func_addr, chain_addr;						    \
+									    \
+  func_addr = plus_constant (ADDR, 32);					    \
+  chain_addr = plus_constant (func_addr, GET_MODE_SIZE (ptr_mode));	    \
+  emit_move_insn (gen_rtx_MEM (ptr_mode, func_addr),			    \
+		  gen_lowpart (ptr_mode, force_reg (Pmode, FUNC)));	    \
+  emit_move_insn (gen_rtx_MEM (ptr_mode, chain_addr),			    \
+		  gen_lowpart (ptr_mode, force_reg (Pmode, CHAIN)));	    \
 									    \
   /* Flush both caches.  We need to flush the data cache in case	    \
      the system has a write-back cache.  */				    \
   /* ??? Should check the return value for errors.  */			    \
   if (mips_cache_flush_func && mips_cache_flush_func[0])		    \
     emit_library_call (gen_rtx_SYMBOL_REF (Pmode, mips_cache_flush_func),   \
-		       0, VOIDmode, 3, addr, Pmode,			    \
+		       0, VOIDmode, 3, ADDR, Pmode,			    \
 		       GEN_INT (TRAMPOLINE_SIZE), TYPE_MODE (integer_type_node),\
 		       GEN_INT (3), TYPE_MODE (integer_type_node));	    \
 }
@@ -3112,7 +3109,7 @@ typedef struct mips_args {
    overflow is no more likely than the overflow in a branch
    instruction.  Large functions can currently break in both ways.  */
 #define CASE_VECTOR_MODE \
-  (TARGET_MIPS16 ? HImode : Pmode == DImode ? DImode : SImode)
+  (TARGET_MIPS16 ? HImode : ptr_mode)
 
 /* Define as C expression which evaluates to nonzero if the tablejump
    instruction expects the table to contain offsets from the address of the
@@ -4100,7 +4097,7 @@ do {							\
 
 #define ASM_OUTPUT_ADDR_VEC_ELT(STREAM, VALUE)				\
   fprintf (STREAM, "\t%s\t%sL%d\n",					\
-	   Pmode == DImode ? ".dword" : ".word",			\
+	   ptr_mode == DImode ? ".dword" : ".word",			\
 	   LOCAL_LABEL_PREFIX,						\
 	   VALUE)
 
@@ -4115,17 +4112,17 @@ do {									\
 	     LOCAL_LABEL_PREFIX, VALUE, LOCAL_LABEL_PREFIX, REL);	\
   else if (TARGET_EMBEDDED_PIC)						\
     fprintf (STREAM, "\t%s\t%sL%d-%sLS%d\n",				\
-	     Pmode == DImode ? ".dword" : ".word",			\
+	     ptr_mode == DImode ? ".dword" : ".word",			\
 	     LOCAL_LABEL_PREFIX, VALUE, LOCAL_LABEL_PREFIX, REL);	\
   else if (mips_abi == ABI_32 || mips_abi == ABI_O64			\
 	   || (TARGET_GAS && mips_abi == ABI_N32)			\
 	   || (TARGET_GAS && mips_abi == ABI_64))			\
     fprintf (STREAM, "\t%s\t%sL%d\n",					\
-	     Pmode == DImode ? ".gpdword" : ".gpword",			\
+	     ptr_mode == DImode ? ".gpdword" : ".gpword",		\
 	     LOCAL_LABEL_PREFIX, VALUE);				\
   else									\
     fprintf (STREAM, "\t%s\t%sL%d\n",					\
-	     Pmode == DImode ? ".dword" : ".word",			\
+	     ptr_mode == DImode ? ".dword" : ".word",			\
 	     LOCAL_LABEL_PREFIX, VALUE);				\
 } while (0)
 
