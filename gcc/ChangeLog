@@ -1,3 +1,8 @@
+2003-01-04  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* genautomata.c (form_the_same_automaton_unit_lists_from_regexp):
+	Use continue instead of break if cycle is too big.
+
 2002-12-20  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* genautomata.c (check_unit_distributions_to_automata): Output at

@@ -5476,7 +5476,7 @@ process_unit_to_form_the_same_automaton_unit_lists (unit, regexp, cycle)
       if (seq->mode == rm_sequence)
 	{
 	  if (cycle >= REGEXP_SEQUENCE (seq)->regexps_num)
-	    break;
+	    continue;
 	  allof = REGEXP_SEQUENCE (seq)->regexps [cycle];
 	  if (allof->mode == rm_allof)
 	    {
@@ -5495,7 +5495,7 @@ process_unit_to_form_the_same_automaton_unit_lists (unit, regexp, cycle)
 	    break;
 	}
       else if (cycle != 0)
-	break;
+	continue;
       else if (seq->mode == rm_allof)
 	{
 	  for (k = 0; k < REGEXP_ALLOF (seq)->regexps_num; k++)
