@@ -317,6 +317,7 @@ fix_basic_block_boundaries (bb, last, head, tail)
 		       emit_barrier_after (prev_nonnote_insn (head));
 		       delete_insn (next);
 		     }
+		  insn = PREV_INSN (aftertail);
 		}
 	    }
 	  else
