@@ -1,3 +1,242 @@
+2000-04-28  Jason Merrill  <jason@casey.cygnus.com>
+
+	* tree.c (get_callee_fndecl): Extract the initial value from
+	a readonly decl.
+
+2000-04-28  Richard Henderson  <rth@cygnus.com>
+
+	* varasm.c (record_constant_1): Record the CODE_LABEL when
+	taking the address of a LABEL_REF.
+
+2000-04-28  Richard Henderson  <rth@cygnus.com>
+	    Jan Hubicka  <jh@suse.cz>
+
+	* calls.c (combine_pending_stack_adjustment_and_call): Return the
+	adjustment; don't do the stack adjust.
+	(expand_call): Call compute_argument_block_size right before
+	allocating the block; update comment; don't do alignment sanity
+	checking for sibling call; use args_size instead of
+	unadjusted_args_size before args_size is adjusted.  Use
+	combine_pending_stack_adjustment_and_call to compute stack adjust
+	for must_preallocate case.
+
+	* expr.c (push_block): Remove shadow `temp' in inner scope.
+
+2000-04-28  Jason Merrill  <jason@casey.cygnus.com>
+
+	* toplev.c (rest_of_compilation): Call 
+	note_deferral_of_defined_inline_function even if the function
+	can't be inlined.
+
+2000-04-28  Scott Bambrough  <scottb@netwinder.org>
+
+	* cpplex.c (_cpp_scan_line): Fix buffer overwrite.
+
+2000-04-28  Richard Henderson  <rth@cygnus.com>
+
+	* toplev.c (rest_of_type_compilation): Fix sdb TIMEVAR typo.
+
+2000-04-28  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* timevar.c (init_timevar): DeANSIfy function definition.
+
+2000-04-27  Alex Samuel  <samuel@codesourcery.com>
+
+	* Makefile.in (timevar.o): Depend on flags.h.
+	* timevar.c (unused_stack_instances): New variable.
+	(timevar_push): Take a timevar_stack_def from
+	unused_stack_instances if available.
+	(timevar_pop): Push the popped timevar_stack_def onto
+	unused_stack_instances.
+	(TIMEVAR_ENABLE): New macro.
+	(timevar_def): Make standalone a 1-bit field.  Add field used.
+	(get_time): Rename parameter to now.  Return after clearing it if
+	not TIMEVAR_ENABLE.
+	(init_timevar): Do nothing if not TIMEVAR_ENABLE.
+	(timevar_pop): Likewise.
+	(timevar_stop): Likewise.
+	(timevar_push): Likewise.  Mark the timing variable as used.
+	(timevar_start): Likewise.
+	(timevar_print): Do nothing if not TIMEVAR_ENABLE.  Don't print
+	timevars that were never used.
+
+2000-04-27  Mark Mitchell  <mark@codesourcery.com>
+
+	* c-commom.c (c_apply_type_quals_to_decl): REFERENCE_TYPES are
+	always TREE_READONLY.
+
+2000-04-27  Ulrich Drepper  <drepper@cygnus.com>
+
+	* i386.h (FUNCTION_BLOCK_PROFILER_EXIT): Generate mem reference
+ 	for call instruction with mode QImode.
+
+2000-04-27  Alex Samuel  <samuel@codesourcery.com>
+
+	* Makefile.in (OBJS): Add timevar.o.
+	(toplev.o): Depend on timevar.h.
+	(ggc-simple.o): Likewise.
+	(ggc-page.o): Likewise.
+	(timevar.o): New rule.
+	(timevar.h): New rule.
+
+	* timevar.h: New file.
+	* timevar.c: Likewise.
+	* timevar.def: Likewise.
+
+	* toplev.h (gc_time, parse_time, varconst_time): Remove.
+	* toplev.c: Use timevar_push and timevar_pop instead of TIMEVAR
+	throughout.
+	(TIMEVAR): Remove macro.
+	(gc_time, parse_time, varconst_time, integration_time, jump_time,
+	cse_time, gcse_time, loop_time, cse2_time, branch_prob_time,
+	flow_time, combine_time, regmove_time, sched_time,
+	local_alloc_time, global_alloc_time, flow2_time, peephole2_time,
+	sched2_time, dbr_sched_time, reorder_blocks_time,
+	rename_registers_time, shorten_branch_time, stack_reg_time,
+	to_ssa_time, from_ssa_time, final_time, symout_time, dump_time,
+	all_time): Remove.
+	(compile_file): Don't initialize time variables.  Call
+	init_timevar and start TV_TOTAL timer.  Call timevar_print instead
+	of many calls to print_time.
+	(rest_of_compilation): Add timing for reload_cse_regs.
+	(get_run_time): Removed to timevar.c.
+	(print_time): Likewise.
+	(get_run_time): Implement using TV_TOTAL time variable.
+	(print_time): Get total run time from get_run_time. 
+	* ggc-page.c (ggc_collect): Push and pop TV_GC instead of
+	computing elapsed time explicitly.
+	* ggc-simple.c (ggc_collect): Likewise.
+	(gc_time): Remove declaration.
+	
+2000-04-27  Mark Mitchell  <mark@codesourcery.com>
+
+	* calls.c (combine_pending_stack_adjustment_and_call): New function.
+	(expand_call): Use it.
+	
+2000-04-27  Jan Hubicka  <jh@suse.cz>
+
+	* flow.c (mark_set_1):  Handle MEMs in ZERO_EXTRACT/SIGN_EXTRACT
+	fields.
+
+Thu Apr 27 12:47:00 2000  Alexandre Oliva  <aoliva@cygnus.com>
+
+	* config/mn10300/mn10300.md (movhi): Simplify.  Prefer data
+	registers.
+
+Thu Apr 27 17:33:05 MET DST 2000  Jan Hubicka  <jh@suse.cz>
+
+	* function.c (epilogue_done): Pass whole insn to record_insns.
+
+Thu Apr 27 16:55:28 MET DST 2000  Jan Hubicka  <jh@suse.cz>
+
+	* cse.c (CSE_ADDRESS_COST): Remove.
+	(find_best_addr): Add new parameter "MODE", use address_cost instead
+	of CSE_ADDRESS_COST
+	(address_cost): New.
+	(fold_rtx): Update call of find_best_addr.
+	* rtl.h (address_cost): Declare.
+	* loop.c (general_induction_var): Add new parameter "MODE", use
+	address_cost instead of ADDRESS_COST
+	(init_loop): Use address_cost instead of ADDRESS_COST.
+	(check_insn_for_givs): Update call of general_induction_var.
+	(find_mem_givs): Likewise.
+	(consec_sets_giv): Likewise.
+	* config/i386/i386.h (ADDRESS_COST): Call ix86_address_cost.
+	* i386.c (ix86_address_cost): New.
+	* i386-protos.h (ix86_address_cost): Declare.
+
+Thu Apr 27 11:45:16 2000  Alexandre Oliva  <aoliva@cygnus.com>
+
+	* config/mn10300/mn10300.md (movqi): Simplify.  Prefer data
+	registers.
+
+Thu Apr 27 16:11:00 MET DST 2000  Jan Hubicka  <jh@suse.cz>
+
+	* expr.c (store_expr): Use clear_storage instead of direct memset
+	libcall.
+
+Thu Apr 27 10:36:51 2000  Alexandre Oliva  <aoliva@cygnus.com>
+
+	* config/mn10300/mn10300.c (mn10300_address_cost): Test
+	ASHIFT, AND and LABEL_REF.
+
+Thu Apr 27 15:08:46 MET DST 2000  Jan Hubicka  <jh@suse.cz>
+
+	* invoke.texi (-foptimize-sibling-calls): Fix.
+
+Thu Apr 27 14:54:22 MET DST 2000  Jan Hubicka  <jh@suse.cz>
+
+	* loop.c (load_mems)  Don't use hard registers for the hoisting.
+
+	* unroll.c (unroll_loop): Avoid overflow in the n_iterations
+	calculation; rename const_equiv array in the preconditioning code
+	from loop_unroll to loop_unroll_precondition
+
+2000-04-27  Richard Henderson  <rth@cygnus.com>
+
+	* flow.c (struct propagate_block_info): Remove new_dead, new_live;
+	add new_set.
+	(propagate_one_insn): Clear it.  Don't update reg_live here.
+	(init_propagate_block_info): Update for pbi member changes.
+	(free_propagate_block_info): Likewise.
+	(mark_set_1): Know that zero_extract, sign_extract, and 
+	strict_low_part don't kill their argument.  Alter hard subregs.
+	Update new_set for non-CLOBBER sets.  Update reg_live.
+	(find_auto_inc): Update reg_live, not new_dead.
+	(mark_used_reg): Update reg_live, not new_live.  Examine new_set
+	to determine if the reg in question was set this insn.  Only update
+	reg info with PROP_REG_INFO.
+
+2000-04-26  Richard Henderson  <rth@cygnus.com>
+
+	* flow.c (allocate_reg_life_data): Set max_regno here ...
+	(life_analysis): ... not here.
+
+	* flow.c (calculate_global_regs_live): Force stack pointer
+	live at end.
+
+2000-04-26  Richard Henderson  <rth@cygnus.com>
+
+	* jump.c (redirect_exp_1): Rework from old redirect_exp.  Never
+	commit change group changes.
+	(invert_exp_1): Similarly.
+	(redirect_exp, invert_exp): Use them.
+	(redirect_jump_1): New.
+	(invert_jump_1): New.
+	(jump_optimize_1): Remove code subsumed by condexec.c.
+	* rtl.h (invert_jump_1, redirect_jump_1): Declare.
+
+2000-04-26  Richard Henderson  <rth@cygnus.com>
+
+	* rtlanal.c (dead_or_set_regno_p): Use find_regno_note.
+
+	* genconfig.c (main): Set all HAVE_foo to 1.
+
+	* graph.c (node_data): Use GET_NOTE_INSN_NAME instead of local array.
+
+2000-04-26  Alex Samuel  <samuel@codesourcery.com>
+
+	* invoke.texi: Document -fssa flag.
+
+2000-04-26  Richard Henderson  <rth@cygnus.com>
+
+	* flow.c (count_reg_sets_1): Remove.
+	(count_reg_sets, count_reg_references): Remove.
+	(recompute_reg_usage): Implement with update_life_info.
+	Reallocate life data.
+
+2000-04-26  Richard Henderson  <rth@cygnus.com>
+
+	* flow.c (update_life_info): Consider blocks null to mean the
+	universal set.
+	(calculate_global_regs_live): Likewise.
+	(life_analysis): Do that instead of collecting all_blocks.
+
+2000-04-26  Richard Henderson  <rth@cygnus.com>
+
+	* flow.c (tidy_fallthru_edge): Don't delete the jump when it's
+	a still-valid conditional jump.
+
 2000-04-26  Richard Henderson  <rth@cygnus.com>
 
 	* jump.c (invert_jump): Always invert REG_BR_PROB.  Do it correctly.
@@ -94,8 +333,8 @@
 
 2000-04-26  Andreas Jaeger  <aj@suse.de>
 
-        * extend.texi (Function Attributes): Fix description of pure
-        attribute.
+	* extend.texi (Function Attributes): Fix description of pure
+	attribute.
 
 2000-04-26  Jason Merrill  <jason@casey.cygnus.com>
 
@@ -109,7 +348,7 @@
 
 2000-04-25  Richard Henderson  <rth@cygnus.com>
 
-        * cse.c (cse_insn): Emit barrier after unconditional jump.
+	* cse.c (cse_insn): Emit barrier after unconditional jump.
 
 	* calls.c (expand_call): Disable tail call generation once
 	rtx_equal_function_value_matters is false.
@@ -161,11 +400,11 @@
 
 2000-04-25  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
 
-        * acconfig.h (ENABLE_STD_NAMESPACE, ENABLE_CHECKING,
+	* acconfig.h (ENABLE_STD_NAMESPACE, ENABLE_CHECKING,
 	ENABLE_TREE_CHECKING, ENABLE_RTL_CHECKING, ENABLE_GC_CHECKING,
 	ENABLE_GC_ALWAYS_COLLECT): Delete entries.
 	        
-        * configure.in (ENABLE_STD_NAMESPACE, ENABLE_CHECKING,
+	* configure.in (ENABLE_STD_NAMESPACE, ENABLE_CHECKING,
 	ENABLE_TREE_CHECKING, ENABLE_RTL_CHECKING, ENABLE_GC_CHECKING,
 	ENABLE_GC_ALWAYS_COLLECT): Use three argument form of AC_DEFINE
 	for these macros.  Clean up spacing and linewraps.
@@ -11217,7 +11456,7 @@ Tue Jan  4 22:30:16 2000  Jeffrey A Law  (law@cygnus.com)
 	(SLOW_UNALIGNED_ACCESS): Define.
 	(CASE_VECTOR_MODE): Always use 32-bit offsets.
 	(ASM_FILE_END): Generate 64-bit symbol in 64-bit mode.
-	(EXTRA_SECTOIN_FUNCTIONS): Indent .csect pseudo-op.
+	(EXTRA_SECTION_FUNCTIONS): Indent .csect pseudo-op.
 	(toc_section): Likewise and .toc pseudo-op.
 	(ASM_DECLARE_FUNCTION): Likewise.  Align text more strictly in
 	64-bit mode.

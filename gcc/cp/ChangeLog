@@ -1,3 +1,24 @@
+2000-04-28  Jason Merrill  <jason@casey.cygnus.com>
+
+	* optimize.c (initialize_inlined_parameters): Call 
+	c_apply_type_quals_to_decl.  Set DECL_INITIAL.
+
+2000-04-27  Mark Mitchell  <mark@codesourcery.com>
+
+	* optimize.c (copy_body_r): Use STRIP_TYPE_NOPS when copying
+	variables.
+	(initialize_inlined_parameters): Try to avoid creating new
+	VAR_DECLs.
+
+2000-04-27  Alex Samuel  <samuel@codesourcery.com>
+
+	* lex.c (my_get_run_time): Remove.
+	(init_filename_times): Use get_run_time instead of my_get_run_time.
+	(check_newline): Likewise.
+	(dump_time_statistics): Likewise.
+	* decl2.c (finish_file): Push and pop timevar TV_VARCONST instead
+	of computing elapsed time explicitly.
+
 2000-04-26  Mark Mitchell  <mark@codesourcery.com>
 
 	* cp-tree.h (TREE_READONLY_DECL_P): Use DECL_P.

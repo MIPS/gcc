@@ -2840,7 +2840,7 @@ push_block (size, extra, below)
     anti_adjust_stack (size);
   else
     {
-      rtx temp = copy_to_mode_reg (Pmode, size);
+      temp = copy_to_mode_reg (Pmode, size);
       if (extra != 0)
 	temp = expand_binop (Pmode, add_optab, temp, GEN_INT (extra),
 			     temp, 0, OPTAB_LIB_WIDEN);
@@ -2857,7 +2857,6 @@ push_block (size, extra, below)
   if (1)
 #endif
     {
-
       /* Return the lowest stack address when STACK or ARGS grow downward and
 	 we are not aaccumulating outgoing arguments (the c4x port uses such
 	 conventions).  */
@@ -3933,6 +3932,7 @@ store_expr (exp, target, want_value)
 		= size_binop (MIN_EXPR,
 			      make_tree (sizetype, size),
 			      size_int (TREE_STRING_LENGTH (exp)));
+	      int align = TYPE_ALIGN (TREE_TYPE (exp));
 	      rtx copy_size_rtx = expand_expr (copy_size, NULL_RTX,
 					       VOIDmode, 0);
 	      rtx label = 0;
@@ -3951,6 +3951,9 @@ store_expr (exp, target, want_value)
 		{
 		  addr = plus_constant (addr, TREE_STRING_LENGTH (exp));
 		  size = plus_constant (size, - TREE_STRING_LENGTH (exp));
+		  align = MIN (align, (BITS_PER_UNIT
+				       * (INTVAL (copy_size_rtx)
+					  & - INTVAL (copy_size_rtx))));
 		}
 	      else
 		{
@@ -3963,10 +3966,12 @@ store_expr (exp, target, want_value)
 				       copy_size_rtx, NULL_RTX, 0,
 				       OPTAB_LIB_WIDEN);
 
+		  align = BITS_PER_UNIT;
 		  label = gen_label_rtx ();
 		  emit_cmp_and_jump_insns (size, const0_rtx, LT, NULL_RTX,
 					   GET_MODE (size), 0, 0, label);
 		}
+	      align = MIN (align, expr_align (copy_size));
 
 	      if (size != const0_rtx)
 		{
@@ -3977,22 +3982,7 @@ store_expr (exp, target, want_value)
 				       size, TYPE_MODE (sizetype),
  				       GEN_INT (MEMORY_USE_WO), 
 				       TYPE_MODE (integer_type_node));
-#ifdef TARGET_MEM_FUNCTIONS
-		  emit_library_call (memset_libfunc, 0, VOIDmode, 3,
-				     addr, ptr_mode,
-				     const0_rtx, TYPE_MODE (integer_type_node),
-				     convert_to_mode (TYPE_MODE (sizetype),
-						      size,
-						      TREE_UNSIGNED (sizetype)),
-				     TYPE_MODE (sizetype));
-#else
-		  emit_library_call (bzero_libfunc, 0, VOIDmode, 2,
-				     addr, ptr_mode,
-				     convert_to_mode (TYPE_MODE (integer_type_node),
-						      size,
-						      TREE_UNSIGNED (integer_type_node)),
-				     TYPE_MODE (integer_type_node));
-#endif
+		  clear_storage (gen_rtx_MEM (BLKmode, addr), size, align);
 		}
 
 	      if (label)

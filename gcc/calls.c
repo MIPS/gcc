@@ -210,6 +210,8 @@ static int special_function_p			PARAMS ((tree, int));
 static int flags_from_decl_or_type 		PARAMS ((tree));
 static rtx try_to_integrate			PARAMS ((tree, tree, rtx,
 							 int, tree, rtx));
+static int combine_pending_stack_adjustment_and_call
+                                                PARAMS ((int, struct args_size *, int));
 
 #ifdef REG_PARM_STACK_SPACE
 static rtx save_fixed_argument_area	PARAMS ((int, rtx, int *, int *));
@@ -1855,6 +1857,62 @@ try_to_integrate (fndecl, actparms, target, ignore, type, structure_value_addr)
   return (rtx) (HOST_WIDE_INT) - 1;
 }
 
+/* We need to pop PENDING_STACK_ADJUST bytes.  But, if the arguments
+   wouldn't fill up an even multiple of PREFERRED_UNIT_STACK_BOUNDARY
+   bytes, then we would need to push some additional bytes to pad the
+   arguments.  So, we compute an adjust to the stack pointer for an
+   amount that will leave the stack under-aligned by UNADJUSTED_ARGS_SIZE
+   bytes.  Then, when the arguments are pushed the stack will be perfectly
+   aligned.  ARGS_SIZE->CONSTANT is set to the number of bytes that should
+   be popped after the call.  Returns the adjustment.  */
+
+static int
+combine_pending_stack_adjustment_and_call (unadjusted_args_size,
+					   args_size,
+					   preferred_unit_stack_boundary)
+     int unadjusted_args_size;
+     struct args_size *args_size;
+     int preferred_unit_stack_boundary;
+{
+  /* The number of bytes to pop so that the stack will be
+     under-aligned by UNADJUSTED_ARGS_SIZE bytes.  */
+  HOST_WIDE_INT adjustment;
+  /* The alignment of the stack after the arguments are pushed, if we
+     just pushed the arguments without adjust the stack here.  */
+  HOST_WIDE_INT unadjusted_alignment;
+
+  unadjusted_alignment 
+    = ((stack_pointer_delta + unadjusted_args_size)
+       % preferred_unit_stack_boundary);
+
+  /* We want to get rid of as many of the PENDING_STACK_ADJUST bytes
+     as possible -- leaving just enough left to cancel out the
+     UNADJUSTED_ALIGNMENT.  In other words, we want to ensure that the
+     PENDING_STACK_ADJUST is non-negative, and congruent to
+     -UNADJUSTED_ALIGNMENT modulo the PREFERRED_UNIT_STACK_BOUNDARY.  */
+
+  /* Begin by trying to pop all the bytes.  */
+  unadjusted_alignment 
+    = (unadjusted_alignment 
+       - (pending_stack_adjust % preferred_unit_stack_boundary));
+  adjustment = pending_stack_adjust;
+  /* Push enough additional bytes that the stack will be aligned
+     after the arguments are pushed.  */
+  if (unadjusted_alignment >= 0)
+    adjustment -= preferred_unit_stack_boundary - unadjusted_alignment;
+  else
+    adjustment += unadjusted_alignment;
+  
+  /* Now, sets ARGS_SIZE->CONSTANT so that we pop the right number of
+     bytes after the call.  The right number is the entire
+     PENDING_STACK_ADJUST less our ADJUSTMENT plus the amount required
+     by the arguments in the first place.  */
+  args_size->constant 
+    = pending_stack_adjust - adjustment + unadjusted_args_size;
+
+  return adjustment;
+}
+
 /* Generate all the code for a function call
    and return an rtx for its value.
    Store the value in TARGET (specified as an rtx) if convenient.
@@ -1966,7 +2024,10 @@ expand_call (exp, target, ignore)
   rtx call_fusage;
   register tree p;
   register int i;
-  int preferred_stack_boundary;
+  /* The alignment of the stack, in bits.  */
+  HOST_WIDE_INT preferred_stack_boundary;
+  /* The alignment of the stack, in bytes.  */
+  HOST_WIDE_INT preferred_unit_stack_boundary;
 
   /* The value of the function call can be put in a hard register.  But
      if -fcheck-memory-usage, code which invokes functions (and thus
@@ -2207,11 +2268,13 @@ expand_call (exp, target, ignore)
   if (fndecl && DECL_NAME (fndecl))
     name = IDENTIFIER_POINTER (DECL_NAME (fndecl));
 
+  /* Figure out the amount to which the stack should be aligned.  */
 #ifdef PREFERRED_STACK_BOUNDARY
   preferred_stack_boundary = PREFERRED_STACK_BOUNDARY;
 #else
   preferred_stack_boundary = STACK_BOUNDARY;
 #endif
+  preferred_unit_stack_boundary = preferred_stack_boundary / BITS_PER_UNIT;
 
   /* Ensure current function's preferred stack boundary is at least
      what we need.  We don't have to increase alignment for recursive
@@ -2439,19 +2502,9 @@ expand_call (exp, target, ignore)
 	  sibcall_failure = 1;
 	}
 
-      /* Compute the actual size of the argument block required.  The variable
-	 and constant sizes must be combined, the size may have to be rounded,
-	 and there may be a minimum required size.  When generating a sibcall
-	 pattern, do not round up, since we'll be re-using whatever space our
-	 caller provided.  */
-      unadjusted_args_size
-	= compute_argument_block_size (reg_parm_stack_space, &args_size,
-				       (pass == 0 ? 0
-					: preferred_stack_boundary));
-
       /* If the callee pops its own arguments, then it must pop exactly
 	 the same number of arguments as the current function.  */
-      if (RETURN_POPS_ARGS (fndecl, funtype, unadjusted_args_size)
+      if (RETURN_POPS_ARGS (fndecl, funtype, args_size.constant)
 	  != RETURN_POPS_ARGS (current_function_decl,
 			       TREE_TYPE (current_function_decl),
 			       current_function_args_size))
@@ -2483,14 +2536,25 @@ expand_call (exp, target, ignore)
       if (flags & (ECF_CONST | ECF_PURE | ECF_MALLOC))
 	start_sequence ();
 
+      /* Compute the actual size of the argument block required.  The variable
+	 and constant sizes must be combined, the size may have to be rounded,
+	 and there may be a minimum required size.  When generating a sibcall
+	 pattern, do not round up, since we'll be re-using whatever space our
+	 caller provided.  */
+      unadjusted_args_size
+	= compute_argument_block_size (reg_parm_stack_space, &args_size,
+				       (pass == 0 ? 0
+					: preferred_stack_boundary));
+
       old_stack_allocated =  stack_pointer_delta - pending_stack_adjust;
+
       /* The argument block when performing a sibling call is the
          incoming argument block.  */
       if (pass == 0)
 	argblock = virtual_incoming_args_rtx;
+
       /* If we have no actual push instructions, or shouldn't use them,
 	 make space for all args right now.  */
-
       else if (args_size.var != 0)
 	{
 	  if (old_stack_level == 0)
@@ -2579,20 +2643,36 @@ expand_call (exp, target, ignore)
 		  if (inhibit_defer_pop == 0)
 		    {
 		      /* Try to reuse some or all of the pending_stack_adjust
-			 to get this space.  Maybe we can avoid any pushing.  */
-		      if (needed > pending_stack_adjust)
+			 to get this space.  */
+		      needed
+			= (combine_pending_stack_adjustment_and_call 
+			   (unadjusted_args_size,
+			    &args_size,
+			    preferred_unit_stack_boundary));
+
+		      /* combine_pending_stack_adjustment_and_call computes
+			 an adjustment before the arguments are allocated.
+			 Account for them and see whether or not the stack
+			 needs to go up or down.  */
+		      needed = unadjusted_args_size - needed;
+
+		      if (needed < 0)
 			{
-			  needed -= pending_stack_adjust;
-			  pending_stack_adjust = 0;
-			}
-		      else
-			{
-			  pending_stack_adjust -= needed;
+			  /* We're releasing stack space.  */
+			  /* ??? We can avoid any adjustment at all if we're
+			     already aligned.  FIXME.  */
+			  pending_stack_adjust = -needed;
+			  do_pending_stack_adjust ();
 			  needed = 0;
 			}
+		      else 
+			/* We need to allocate space.  We'll do that in
+			   push_block below.  */
+			pending_stack_adjust = 0;
 		    }
-		  /* Special case this because overhead of `push_block' in this
-		     case is non-trivial.  */
+
+		  /* Special case this because overhead of `push_block' in
+		     this case is non-trivial.  */
 		  if (needed == 0)
 		    argblock = virtual_outgoing_args_rtx;
 		  else
@@ -2608,35 +2688,41 @@ expand_call (exp, target, ignore)
 		  argblock = copy_to_reg (argblock);
 
 		  /* The save/restore code in store_one_arg handles all
-		     cases except one:
-		     a constructor call (including a C function returning
-		     a BLKmode struct) to initialize an argument.  */
+		     cases except one: a constructor call (including a C
+		     function returning a BLKmode struct) to initialize
+		     an argument.  */
 		  if (stack_arg_under_construction)
 		    {
 #ifndef OUTGOING_REG_PARM_STACK_SPACE
-		      rtx push_size = GEN_INT (reg_parm_stack_space + args_size.constant);
+		      rtx push_size = GEN_INT (reg_parm_stack_space
+					       + args_size.constant);
 #else
 		      rtx push_size = GEN_INT (args_size.constant);
 #endif
 		      if (old_stack_level == 0)
 			{
-			  emit_stack_save (SAVE_BLOCK, &old_stack_level, NULL_RTX);
+			  emit_stack_save (SAVE_BLOCK, &old_stack_level,
+					   NULL_RTX);
 			  old_pending_adj = pending_stack_adjust;
 			  pending_stack_adjust = 0;
-			  /* stack_arg_under_construction says whether a stack arg is
-			     being constructed at the old stack level.  Pushing the stack
-			     gets a clean outgoing argument block.  */
-			  old_stack_arg_under_construction = stack_arg_under_construction;
+			  /* stack_arg_under_construction says whether a stack
+			     arg is being constructed at the old stack level.
+			     Pushing the stack gets a clean outgoing argument
+			     block.  */
+			  old_stack_arg_under_construction
+			    = stack_arg_under_construction;
 			  stack_arg_under_construction = 0;
 			  /* Make a new map for the new argument list.  */
-			  stack_usage_map = (char *)alloca (highest_outgoing_arg_in_use);
+			  stack_usage_map = (char *)
+			    alloca (highest_outgoing_arg_in_use);
 			  bzero (stack_usage_map, highest_outgoing_arg_in_use);
 			  highest_outgoing_arg_in_use = 0;
 			}
-		      allocate_dynamic_stack_space (push_size, NULL_RTX, BITS_PER_UNIT);
+		      allocate_dynamic_stack_space (push_size, NULL_RTX,
+						    BITS_PER_UNIT);
 		    }
-		  /* If argument evaluation might modify the stack pointer, copy the
-		     address of the argument list to a register.  */
+		  /* If argument evaluation might modify the stack pointer,
+		     copy the address of the argument list to a register.  */
 		  for (i = 0; i < num_actuals; i++)
 		    if (args[i].pass_on_stack)
 		      {
@@ -2657,20 +2743,16 @@ expand_call (exp, target, ignore)
 	{
 	  /* When the stack adjustment is pending, we get better code
 	     by combining the adjustments.  */
-	  if (pending_stack_adjust && ! (flags & (ECF_CONST | ECF_PURE))
+	  if (pending_stack_adjust 
+	      && ! (flags & (ECF_CONST | ECF_PURE))
 	      && ! inhibit_defer_pop)
 	    {
-	      int adjust;
-	      args_size.constant = (unadjusted_args_size
-				    + ((pending_stack_adjust
-					+ args_size.constant
-					- unadjusted_args_size)
-				       % (preferred_stack_boundary
-					  / BITS_PER_UNIT)));
-	      adjust = (pending_stack_adjust - args_size.constant
-		        + unadjusted_args_size);
-	      adjust_stack (GEN_INT (adjust));
-	      pending_stack_adjust = 0;
+	      pending_stack_adjust
+		= (combine_pending_stack_adjustment_and_call 
+		   (unadjusted_args_size,
+		    &args_size,
+		    preferred_unit_stack_boundary));
+	      do_pending_stack_adjust ();
 	    }
 	  else if (argblock == 0)
 	    anti_adjust_stack (GEN_INT (args_size.constant
@@ -2805,8 +2887,8 @@ expand_call (exp, target, ignore)
 	 now!  */
 
 #ifdef PREFERRED_STACK_BOUNDARY
-      /* Stack must to be properly aligned now.  */
-      if (stack_pointer_delta & (preferred_stack_boundary / BITS_PER_UNIT - 1))
+      /* Stack must be properly aligned now.  */
+      if (pass && stack_pointer_delta % preferred_unit_stack_boundary)
 	abort();
 #endif
 
@@ -3710,7 +3792,7 @@ emit_library_call_value_1 (retval, orgfun, value, fn_type, outmode, nargs, p)
 	    ? hard_libcall_value (outmode) : NULL_RTX);
 
 #ifdef PREFERRED_STACK_BOUNDARY
-  /* Stack must to be properly aligned now.  */
+  /* Stack must be properly aligned now.  */
   if (stack_pointer_delta & (PREFERRED_STACK_BOUNDARY / BITS_PER_UNIT - 1))
     abort();
 #endif
