@@ -506,6 +506,7 @@ const int x86_sse_partial_reg_dependency = m_PENT4 | m_PPRO;
 const int x86_sse_partial_regs = m_ATHLON_K8;
 const int x86_sse_typeless_stores = m_ATHLON_K8;
 const int x86_sse_load0_by_pxor = m_PPRO | m_PENT4;
+const int x86_use_ffreep = m_ATHLON_K8;
 
 /* In case the avreage insn count for single function invocation is
    lower than this constant, emit fast (but longer) prologue and

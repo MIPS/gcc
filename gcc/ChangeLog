@@ -1,3 +1,11 @@
+Sun Nov 24 10:38:04 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* i386.c (x86_use_ffreep): New global variable.
+	* i386.h (x86_use_frfeep): Declare
+	(TARGET_USE_FFREEP): New macro
+	* i386.md  (movs?f*): Use freep when asked for.
+	(push?f): Remove dead code.
+
 2002-11-23  H.J. Lu <hjl@gnu.org>
 
 	* aclocal.m4: Include ../config/accross.m4.
