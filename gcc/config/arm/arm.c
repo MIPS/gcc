@@ -173,7 +173,7 @@ static bool arm_cxx_cdtor_returns_this (void);
 static bool arm_cxx_key_method_may_be_inline (void);
 static bool arm_cxx_export_class_data (void);
 static const char * arm_cxx_unwind_resume_name (void);
-static const char * arm_cxx_atexit_name (void);
+static bool arm_cxx_use_aeabi_atexit (void);
 static void arm_init_libfuncs (void);
 
 
@@ -290,8 +290,8 @@ static void arm_init_libfuncs (void);
 #undef TARGET_CXX_KEY_METHOD_MAY_BE_INLINE
 #define TARGET_CXX_KEY_METHOD_MAY_BE_INLINE arm_cxx_key_method_may_be_inline
 
-#undef TARGET_CXX_ATEXIT_NAME
-#define TARGET_CXX_ATEXIT_NAME arm_cxx_atexit_name
+#undef TARGET_CXX_USE_AEABI_ATEXIT
+#define TARGET_CXX_USE_AEABI_ATEXIT arm_cxx_use_aeabi_atexit
 
 #undef TARGET_CXX_EXPORT_CLASS_DATA
 #define TARGET_CXX_EXPORT_CLASS_DATA arm_cxx_export_class_data
@@ -14680,16 +14680,13 @@ arm_cxx_export_class_data (void)
 }
 
 
-/* The EABI wants us to use __aeabi_atexit for registering static object
+/* The EABI says __aeabi_atexit should be used to register static
    destructors.  */
 
-static const char *
-arm_cxx_atexit_name (void)
+static bool
+arm_cxx_use_aeabi_atexit (void)
 {
-  if (TARGET_AAPCS_BASED)
-    return "__aeabi_atexit";
-  else
-    return default_cxx_atexit_name ();
+  return TARGET_AAPCS_BASED;
 }
 
 

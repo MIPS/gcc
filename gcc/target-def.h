@@ -402,8 +402,8 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #define TARGET_CXX_UNWIND_RESUME_NAME default_unwind_resume_name
 #endif
 
-#ifndef TARGET_CXX_ATEXIT_NAME
-#define TARGET_CXX_ATEXIT_NAME default_cxx_atexit_name
+#ifndef TARGET_CXX_USE_AEABI_ATEXIT
+#define TARGET_CXX_USE_AEABI_ATEXIT hook_bool_void_false
 #endif
 
 #define TARGET_CXX				\
@@ -416,7 +416,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
     TARGET_CXX_KEY_METHOD_MAY_BE_INLINE,	\
     TARGET_CXX_EXPORT_CLASS_DATA, 		\
     TARGET_CXX_UNWIND_RESUME_NAME,		\
-    TARGET_CXX_ATEXIT_NAME			\
+    TARGET_CXX_USE_AEABI_ATEXIT			\
   }
 
 /* The whole shebang.  */

@@ -479,7 +479,9 @@ struct gcc_target
     const char * (*unwind_resume_name) (void);
     /* Returns the name of the function used to register static object
        destructors.  */
-    const char * (*atexit_name) (void);
+    /* Returns true if __aeabi_atexit should be used to register static
+       destructors.  */
+    bool (*use_aeabi_atexit) (void);
   } cxx;
 
   /* Leave the boolean fields at the end.  */

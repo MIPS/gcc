@@ -1,3 +1,19 @@
+2004-11-16  Paul Brook  <paul@codesourcery.com>
+
+	* target-def.h (TARGET_CXX_ATEXIT_NAME): Remove.
+	(TARGET_CXX_USE_AEABI_ATEXIT): Define.
+	* target.h (struct gcc_target): Remove cxx.atexit_name.
+	Add cxx.use_aeabi_atexit.
+	* targhooks.c (default_cxx_atexit_name): Remove.
+	* targhooks.h (default_cxx_atexit_name): Remove prototype.
+	* config/arm/arm.c (arm_cxx_atexit_name): Remove.
+	(arm_cxx_use_aeabi_atexit): New function.
+	(TARGET_CXX_ATEXIT_NAME): Remove.
+	(TARGET_CXX_USE_AEABI_ATEXIT): New function.
+	* doc/tm.texi: Document TARGET_CXX_USE_AEABI_ATEXIT.
+	* cp/decl.c (get_atexit_node): Reorder arguments for __aeabi_atexit.
+	(register_dtor_fn): Ditto.
+
 2004-11-05  Paul Brook  <paul@codesourcery.com>
 
 	* target-def.h (TARGET_CXX_ATEXIT_NAME): Define.
