@@ -1,3 +1,98 @@
+2005-01-28  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/tr1/type_traits (is_function): Minor consistency tweaks.
+
+2005-01-28  Geoffrey Keating  <geoffk@apple.com>
+
+	* testsuite/lib/libstdc++.exp (libstdc++_init): Search the path
+	for the compiler.  Don't set cxxflags.
+	(v3_target_compile): Search for libv3test.a relative to $objdir.
+	(lsearch_all_inline): New.
+	(lsearch_all_inline_not): New.
+	(v3-list-tests): Rewrite to not need generated files.
+	* testsuite/Makefile.am (IGNORE_WCHAR_T): New.
+	(IGNORE_THREAD): New.
+	(TESTS_TO_IGNORE): New.
+	(site.exp): Set tests_to_ignore, cxxflags.
+	* aclocal.m4: Regenerate.
+	* Makefile.in: Regenerate.
+	* libmath/Makefile.in: Likewise.
+	* libsupc++/Makefile.in: Likewise.
+	* po/Makefile.in: Likewise.
+	* src/Makefile.in: Likewise.
+	* testsuite/Makefile.in: Likewise.
+
+2005-01-28  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/tr1/type_traits: Implement is_empty.
+	* testsuite/tr1/4_metaprogramming/type_properties/is_empty/
+	is_empty.cc: New.
+	* testsuite/tr1/4_metaprogramming/type_properties/is_empty/
+	typedefs.cc: Likewise.
+
+	* include/tr1/type_traits (__is_abstract_helper): Simplify a bit.
+
+2005-01-28  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/tr1/type_traits: Implement is_abstract, by exploiting the
+	resolution of DR core/337.
+	* testsuite/testsuite_tr1.h: Add AbstractClass.
+	* testsuite/tr1/4_metaprogramming/type_properties/is_abstract/
+	is_abstract.cc: New.
+	* testsuite/tr1/4_metaprogramming/type_properties/is_abstract/
+	typedefs.cc: Likewise.
+	
+	* include/tr1/type_traits (is_function): Rewrite, use the conversion
+	F& -> F* instead, thus avoiding problems with abstract classes.
+	* testsuite/tr1/4_metaprogramming/primary_type_categories/
+	is_function/is_function.cc: Add a test for tricky AbstractClass.
+
+2005-01-26  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/ext/mt_allocator.h
+	(struct __per_type_pool_policy<,, false>::_S_get_pool,
+	struct __per_type_pool_policy<,, true>::_S_get_pool): Scale
+	_M_chunk_size too with sizeof(_Tp), otherwise the allocator
+	breaks down as soon as sizeof(_Tp) >~ _S_chunk_size / 128;
+	reduce to 64 the multiplier for _M_max_bytes (safer wrt
+	_Binmap_type being a short); trivial reformattings.
+	* testsuite/ext/mt_allocator/check_allocate_big_per_type.cc: New.
+
+2005-01-26  Paolo Carlini  <pcarlini@suse.de>
+
+	* acinclude.m4 ([GLIBCXX_ENABLE_C99]): Add ac_c99_complex
+	to the final test for enable_c99, thus robustifying it; remove
+	duplicate final test on ac_99_math.
+	* configure: Regenerate.
+
+	* include/std/std_complex.h: Remove usages of the dead
+	_GLIBCXX_BUGGY_COMPLEX macro.
+
+	* testsuite/26_numerics/cmath/19322.cc: Protect with
+	_GLIBCXX_USE_C99_MATH instead of the stronger _GLIBCXX_USE_C99,
+	since only C99 math facilities are involved.
+	* testsuite/26_numerics/cmath/c99_classification_macros_c++.cc:
+	Likewise.
+
+2005-01-25  Loren J. Rittle  <ljrittle@acm.org>
+
+	* acinclude.m4 (GLIBCXX_ENABLE_CLOCALE): Map FreeBSD to darwin
+	instead of generic.  Change autoconf report to "darwin or freebsd".
+	* configure: Regenerate.
+	* config/os/bsd/freebsd/ctype_inline.h (ctype<wchar_t>::do_is): Add.
+	(ctype<wchar_t>::do_scan_is): Likewise.
+	(ctype<wchar_t>::do_scan_not): Likewise.
+
+2005-01-25  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* acinclude.m4 (GLIBCXX_ENABLE_C99): Test for complex math
+	functions, and enable _GLIBCXX_USE_C99_COMPLEX_MATH if they exist.
+	* acconfig.h: Add _GLIBCXX_USE_C99_COMPLEX_MATH.
+	* config.h.in: Regenerate.
+	* configure: Regenerate.
+	* include/std/std_complex.h: Protect complex builtins with
+	_GLIBCXX_USE_C99_COMPLEX_MATH.
+
 2005-01-24  Paolo Carlini  <pcarlini@suse.de>
 
 	* include/tr1/type_traits: Implement is_signed and is_unsigned.
