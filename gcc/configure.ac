@@ -3152,6 +3152,9 @@ else
   fi
 fi
 
+AC_ARG_VAR(GMPLIBS,[How to link GMP])
+AC_ARG_VAR(GMPINC,[How to find GMP include files])
+
 # Configure the subdirectories
 # AC_CONFIG_SUBDIRS($subdirs)
 

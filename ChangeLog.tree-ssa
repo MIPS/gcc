@@ -1,3 +1,9 @@
+2004-04-17  Paul Brook  <paul@codesourcery.com>
+
+	* Makefile.tmp (EXTRA_HOST_FLAGS): Remove GMPLIBS and GMPINC.
+	(configure-gcc): Set GMPLIBS and GMPINC.
+	* Makefile.in: Regenerate.
+
 2004-04-14  Paul Brook  <paul@codesourcery.com>
 
 	* Makefile.tmp (HOST_GMPLIBS, HOST_GMPINC): New variables.

@@ -481,9 +481,7 @@ EXTRA_HOST_FLAGS = \
 	'LD=$(LD)' \
 	'NM=$(NM)' \
 	'RANLIB=$(RANLIB)' \
-	'WINDRES=$(WINDRES)' \
-	'GMPLIBS=$(HOST_GMPLIBS)' \
-	'GMPINC=$(HOST_GMPINC)'
+	'WINDRES=$(WINDRES)'
 
 FLAGS_TO_PASS = $(BASE_FLAGS_TO_PASS) $(EXTRA_HOST_FLAGS)
 
@@ -24475,6 +24473,8 @@ configure-gcc:
 	WINDRES="$(WINDRES)"; export WINDRES; \
 	OBJCOPY="$(OBJCOPY)"; export OBJCOPY; \
 	OBJDUMP="$(OBJDUMP)"; export OBJDUMP; \
+	GMPLIBS="$(HOST_GMPLIBS)"; export GMPLIBS; \
+	GMPINC="$(HOST_GMPINC)"; export GMPINC; \
 	echo Configuring in gcc; \
 	cd gcc || exit 1; \
 	case $(srcdir) in \

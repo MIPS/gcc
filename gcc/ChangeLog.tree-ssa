@@ -1,3 +1,9 @@
+2004-04-17  Paul Brook  <paul@codesourcery.com>
+
+	* Makefile.in: Set GMPLIBS and GMPINC.
+	* configure.ac: Add GMPLIBS and GMPINC.
+	* configure: Regenerate.
+
 2004-04-16  Andrew MacLeod  <amacleod@redhat.com>
 
 	* common.opt (ftree-lrs): New common option.
