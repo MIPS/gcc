@@ -1585,7 +1585,7 @@ df.o : df.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
    $(BASIC_BLOCK_H) df.h $(FIBHEAP_H)
 var-tracking.o : var-tracking.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
     $(RTL_H) hard-reg-set.h $(BASIC_BLOCK_H) $(TREE_H) output.h sbitmap.h \
-    $(FIBHEAP_H) $(HASHTAB_H)
+    alloc-pool.h $(FIBHEAP_H) $(HASHTAB_H)
 conflict.o : conflict.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(OBSTACK_H) \
    $(HASHTAB_H) $(RTL_H) hard-reg-set.h $(BASIC_BLOCK_H)
 profile.o : profile.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) $(TREE_H) \

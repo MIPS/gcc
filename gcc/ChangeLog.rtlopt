@@ -1,6 +1,21 @@
 2003-02-02  Josef Zlomek  <zlomekj@suse.cz>
 
-	* var-tracking: Updated some comments and names.
+	* Makefile.in (var-tracking.o): Added dependency on alloc-pool.h.
+	* var-tracking.c: Fix some comments.
+	(attrs_pool): New variable.
+	(var_pool): New variable.
+	(variable_htab_free): New function.
+	(attrs_*_*): Use pool_alloc instead of xmalloc and pool_free instead of
+	free.
+	(set_location_part): Likewise.
+	(var_tracking_initialize): Create alloc pools, del_f for variable_htab
+	is variable_htab_free now.
+	(var_tracking_finalize): Delete variable_htab and alloc pools.
+	(variable_tracking_main): Remove debug dump.
+
+2003-02-02  Josef Zlomek  <zlomekj@suse.cz>
+
+	* var-tracking.c: Updated some comments and names.
 
 2003-02-01  Josef Zlomek  <zlomekj@suse.cz>
 

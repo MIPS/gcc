@@ -27,6 +27,7 @@
 #include "basic-block.h"
 #include "output.h"
 #include "sbitmap.h"
+#include "alloc-pool.h"
 #include "fibheap.h"
 #include "hashtab.h"
 
@@ -46,7 +47,7 @@ enum scan_operation
   SO_SKIP	/* Skip current node, and scan and store its internals.  */
 };
 
-/* Where shall the note be emitted? BEFORE or AFTER the instruction.  */
+/* Where shall the note be emitted?  BEFORE or AFTER the instruction.  */
 enum where_emit_note
 {
   EMIT_NOTE_BEFORE_INSN,
@@ -180,11 +181,18 @@ static htab_t variable_htab;
 /* Get the pointer to the BB's information specific to var-tracking pass.  */
 #define VTI(BB) ((var_tracking_info) (BB)->aux)
 
+/* Alloc pool for struct attrs_def.  */
+static alloc_pool attrs_pool;
+
+/* Alloc pool for struct variable_def.  */
+static alloc_pool var_pool;
+
 /* Local function prototypes.  */
 static hashval_t mem_htab_hash		PARAMS ((const void *));
 static int mem_htab_eq			PARAMS ((const void *, const void *));
 static hashval_t variable_htab_hash	PARAMS ((const void *));
 static int variable_htab_eq		PARAMS ((const void *, const void *));
+static void variable_htab_free		PARAMS ((void *));
 
 static void init_attrs_list_set		PARAMS ((attrs *));
 static void attrs_list_clear		PARAMS ((attrs *));
@@ -286,6 +294,15 @@ variable_htab_eq (x, y)
   return (VARIABLE_HASH_VAL (v->decl) == VARIABLE_HASH_VAL (decl));
 }
 
+/* Free the element of VARIABLE_HTAB (struct variable_def).  */
+
+static void
+variable_htab_free (var)
+     void *var;
+{
+  pool_free (var_pool, var);
+}
+
 /* Initialize the set (array) SET of attrs to empty lists.  */
 
 static void
@@ -309,7 +326,7 @@ attrs_list_clear (listp)
   for (list = *listp; list; list = next)
     {
       next = list->next;
-      free (list);
+      pool_free (attrs_pool, list);
     }
   *listp = NULL;
 }
@@ -339,7 +356,7 @@ attrs_list_insert (listp, decl, offset, loc)
 {
   attrs list;
 
-  list = xmalloc (sizeof (*list));
+  list = pool_alloc (attrs_pool);
   list->loc = loc;
   list->decl = decl;
   list->offset = offset;
@@ -366,7 +383,7 @@ attrs_list_delete (listp, decl, offset)
 	    prev->next = next;
 	  else
 	    *listp = next;
-	  free (list);
+	  pool_free (attrs_pool, list);
 	}
       else
 	prev = list;
@@ -385,7 +402,7 @@ attrs_list_copy (dstp, src)
   attrs_list_clear (dstp);
   for (; src; src = src->next)
     {
-      n = xmalloc (sizeof (*n));
+      n = pool_alloc (attrs_pool);
       n->loc = src->loc;
       n->decl = src->decl;
       n->offset = src->offset;
@@ -446,7 +463,7 @@ attrs_htab_insert (htab, mem)
 						  MEM_HASH_VAL (mem), INSERT);
     }
 
-  list = xmalloc (sizeof (*list));
+  list = pool_alloc (attrs_pool);
   list->loc = mem;
   list->decl = MEM_EXPR (mem);
   list->offset = MEM_OFFSET (mem) ? INTVAL (MEM_OFFSET (mem)) : 0;
@@ -490,7 +507,7 @@ attrs_htab_delete (htab, mem)
 		prev->next = next;
 	      else
 		*listp = next;
-	      free (list);
+	      pool_free (attrs_pool, list);
 	    }
 	  else
 	    prev = list;
@@ -566,7 +583,7 @@ attrs_htab_copy_1 (slot, data)
 					     MEM_HASH_VAL (src->loc), INSERT);
   for (; src; src = src->next)
     {
-      list = xmalloc (sizeof (*list));
+      list = pool_alloc (attrs_pool);
       list->loc = src->loc;
       list->decl = src->decl;
       list->offset = src->offset;
@@ -614,7 +631,7 @@ attrs_htab_union_1 (slot, data)
 	  break;
       if (!list)
 	{
-	  list = xmalloc (sizeof (*list));
+	  list = pool_alloc (attrs_pool);
 	  list->loc = src->loc;
 	  list->decl = src->decl;
 	  list->offset = src->offset;
@@ -655,7 +672,7 @@ attrs_htab_cleanup (slot)
   for (list = (attrs) slot; list; list = next)
     {
       next = list->next;
-      free (list);
+      pool_free (attrs_pool, list);
     }
 }
 
@@ -691,7 +708,7 @@ track_expr_p (expr)
   return 1;
 }
 
-/* Scan rtx X for registers and memory references. Other parameters are
+/* Scan rtx X for registers and memory references.  Other parameters are
    in struct scan_for_locations_data passed in DATA.  */
 
 static int
@@ -1060,7 +1077,7 @@ dump_attrs ()
     }
 }
 
-/* Emit the NOTE_INSN_VAR_LOCATION for variable VAR. WHERE specifies
+/* Emit the NOTE_INSN_VAR_LOCATION for variable VAR.  WHERE specifies
    whether the note shall be emitted before of after instruction INSN.  */
 
 static void
@@ -1110,9 +1127,9 @@ note_insn_var_location_emit (insn, where, var)
     abort ();
 }
 
-/* Set the part of variable's location. The variable part is specified
+/* Set the part of variable's location.  The variable part is specified
    by variable's declaration DECL and offset OFFSET and the part's location
-   by LOC. The INSN and WHERE parameters specify where the note will be emitted
+   by LOC.  The INSN and WHERE parameters specify where the note will be emitted
    (see note_insn_var_location_emit).  */
 
 static void
@@ -1130,7 +1147,7 @@ set_location_part (decl, offset, loc, insn, where)
     {
       void **slot;
       /* Create new variable information.  */
-      var = xmalloc (sizeof (*var));
+      var = pool_alloc (var_pool);
       var->decl = decl;
       var->n_location_parts = 0;
 
@@ -1177,7 +1194,7 @@ set_location_part (decl, offset, loc, insn, where)
     }
 }
 
-/* Delete the part of variable's location. The variable part is specified
+/* Delete the part of variable's location.  The variable part is specified
    by variable's declaration DECL and offset OFFSET.
    The INSN and WHERE parameters specify where the note will be emitted
    (see note_insn_var_location_emit).  */
@@ -1263,7 +1280,7 @@ emit_note_if_var_changed (slot, aux)
 
 /* Delete the location part of variable corresponding to LOC from all
    register locations (in LISTS) and memory locations (in HTAB) and emit
-   notes before/after (parameter WHERE) INSN. The location part which
+   notes before/after (parameter WHERE) INSN.  The location part which
    has the same decl and offset as LOC is deleted from HTAB only when
    DELETE_LOC_FROM_HTAB is true.  */
 
@@ -1570,7 +1587,13 @@ var_tracking_initialize ()
 				       attrs_htab_cleanup);
     }
 
-  variable_htab = htab_create (37, variable_htab_hash, variable_htab_eq, free);
+  attrs_pool = create_alloc_pool ("attrs_def pool",
+				  sizeof (struct attrs_def), 1024);
+  var_pool = create_alloc_pool ("variable_def pool",
+				sizeof (struct variable_def), 64);
+  variable_htab = htab_create (37, variable_htab_hash, variable_htab_eq,
+			       variable_htab_free);
+
 }
 
 /* Free the data structures needed for variable tracking.  */
@@ -1594,6 +1617,9 @@ var_tracking_finalize ()
       htab_delete (VTI (bb)->mem_out);
     }
   free_aux_for_blocks ();
+  htab_delete (variable_htab);
+  free_alloc_pool (attrs_pool);
+  free_alloc_pool (var_pool);
 }
 
 /* The entry point to variable tracking pass.  */
@@ -1614,14 +1640,7 @@ variable_tracking_main ()
   flow_depth_first_order_compute (NULL, rc_order);
   for (i = 0; i < n_basic_blocks; i++)
     bb_order[rc_order[i]] = i;
-
-  if (rtl_dump_file)
-    {
-      fprintf (rtl_dump_file, "RC order: \n");
-      for (i = 0; i < n_basic_blocks; i++)
-	fprintf (rtl_dump_file, "%d ", rc_order[i]);
-      fprintf (rtl_dump_file, "\n");
-    }
+  free (rc_order);
 
   iterative_dataflow (bb_order);
   var_tracking_emit_notes ();
@@ -1632,7 +1651,6 @@ variable_tracking_main ()
       dump_flow_info (rtl_dump_file);
     }
 
-  free (rc_order);
   free (bb_order);
   var_tracking_finalize ();
 }
