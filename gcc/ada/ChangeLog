@@ -1,3 +1,16 @@
+2004-12-23  Eric Botcazou  <ebotcazou@libertysurf.fr>
+ 
+	* trans.c (Attribute_to_gnu): Adjust call to get_inner_reference.
+	* utils2.c (build_unary_op): Likewise.
+
+2004-12-22  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
+
+	* trans.c (mark_visited): Set TYPE_SIZES_GIMPLIFIED.
+
+2004-12-19  Richard Henderson  <rth@redhat.com>
+
+	* trans.c (gigi): Update gimplify_body call.
+
 2004-12-09  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* decl.c (gnat_substitute_in_type): Remove SET_TYPE case.

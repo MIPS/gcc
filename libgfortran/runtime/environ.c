@@ -37,7 +37,7 @@ Boston, MA 02111-1307, USA.  */
  * but other variables are checked during execution of the user's
  * program. */
 
-options_t options;
+options_t options = { };
 
 extern char **environ;
 
@@ -551,7 +551,7 @@ check_buffered (int n)
     return 0;
 
   strcpy (name, "GFORTRAN_UNBUFFERED_");
-  strcat (name, itoa (n));
+  strcat (name, gfc_itoa (n));
 
   v.name = name;
   v.value = 2;

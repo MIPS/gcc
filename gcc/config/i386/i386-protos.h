@@ -125,11 +125,14 @@ extern void i386_output_dwarf_dtprel (FILE*, int, rtx);
 extern void ix86_expand_clear (rtx);
 extern void ix86_expand_move (enum machine_mode, rtx[]);
 extern void ix86_expand_vector_move (enum machine_mode, rtx[]);
+extern void ix86_expand_vector_move_misalign (enum machine_mode, rtx[]);
 extern void ix86_expand_binary_operator (enum rtx_code,
 					 enum machine_mode, rtx[]);
 extern int ix86_binary_operator_ok (enum rtx_code, enum machine_mode, rtx[]);
 extern void ix86_expand_unary_operator (enum rtx_code, enum machine_mode,
 					rtx[]);
+extern void ix86_expand_fp_absneg_operator (enum rtx_code, enum machine_mode,
+					    rtx[]);
 extern int ix86_unary_operator_ok (enum rtx_code, enum machine_mode, rtx[]);
 extern int ix86_match_ccmode (rtx, enum machine_mode);
 extern rtx ix86_expand_compare (enum rtx_code, rtx *, rtx *);

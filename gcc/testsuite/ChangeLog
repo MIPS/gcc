@@ -1,3 +1,456 @@
+2004-12-28  Richard Henderson  <rth@redhat.com>
+
+	* objc.dg/stabs-1.m: Disable for alpha.
+
+2004-12-27  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/19149
+	* g++.dg/parse/error23.C: New test.
+
+2004-12-27  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* gfortran.dg/g77/f90-intrinsic-bit.f: New.
+
+	PR fortran/19032
+	* gfortran.dg/intrinsic_modulo_1.f90: New.
+	* gfortran.fortran-torture/execute/intrinsic_mod_ulo.f90: Add
+	tests with divisor -1.
+
+2004-12-27  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/opt/temp1.C (memcpy): Return a value.
+
+	PR c++/19148
+	* g++.dg/expr/cond7.C: New test.
+
+2004-12-27  Paul Brook  <paul@codesourcery.com>
+
+	* gfortran.dg/g77/select_no_compile.f: Remove.
+
+2004-12-27  Richard Henderson  <rth@redhat.com>
+
+	* gcc.dg/vect/vect-27a.c, gcc.dg/vect/vect-29a.c,
+	gcc.dg/vect/vect-48a.c, gcc.dg/vect/vect-56a.c,
+	gcc.dg/vect/vect-72a.c, gcc.dg/vect/vect-77a.c: Remove.
+
+2004-12-26  Richard Henderson  <rth@redhat.com>
+
+	* gcc.dg/compat/compat-common.h (CINT, CDBL): Use multiplication
+	by 1i instead of token pasting.
+
+2004-12-26  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR tree-optimization/17578
+	* gcc.c-torture/execute/ieee/compare-fp-3.x: Append -fno-trapping-math
+	to additional_flags.
+	* gcc.c-torture/execute/ieee/compare-fp-4.x: Likewise.
+
+2004-12-25  Richard Henderson  <rth@redhat.com>
+
+	* lib/target-supports.exp (check_effective_target_vect_no_bitwise):
+	Remove Alpha.
+
+2004-12-25  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* gcc.dg/pr17055-1.c (dg-options): Add -fno-common to options on
+	hppa*-*-hpux*.
+	* gcc.dg/pr17957.c (dg-options): Likewise.
+	* gcc.dg/struct-ret-1.c: Add prototype for abort.
+	* gcc.dg/tree-ssa/asm-2.c, gcc.dg/tree-ssa/asm-3.c: Use register 1
+	instead of 0 on __hppa__.
+	* gcc.dg/tree-ssa/loop-1.c (dg-final): Check for five instances of
+	"foo,%r" on hppa*-*-*.
+
+2004-12-23  Bud Davis  <bdavis9659@comcast.net>
+
+	PR fortran/19071
+	* gfortran.dg/complex_write.f90: New test.
+ 
+2004-12-23  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/17595
+	* g++.dg/parse/pragma2.C: New test.
+
+	* g++.dg/opt/temp1.C: Make memcpy actually copy bytes.
+
+2004-12-23  Alexandre Oliva  <aoliva@redhat.com>
+
+	* gcc.dg/empty2.c: Add missing dg-warning.
+
+2004-12-23  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/17413
+	* g++.dg/template/local4.C: New test.
+	* g++.dg/template/crash19.C: Add dg-error marker.
+
+	* g++.dg/template/crash31.C: Correct embedded PR number.
+
+2004-12-23  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/16405
+	* g++.dg/opt/temp1.C: Add do-run marker.
+
+2004-12-23  Alexandre Oliva  <aoliva@redhat.com>
+
+	* g++.dg/template/spec19.C: New.
+
+2004-12-23  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR target/16819
+	* gcc.dg/empty2.c: New.
+
+2004-12-23  Richard Henderson  <rth@redhat.com>
+
+	* lib/target-supports.exp (check_effective_target_vect_no_align): 
+	Remove i?86 and x86-64.
+
+2004-12-23  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/16405
+	* g++.dg/opt/temp1.C: New test.
+
+2004-12-23  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+
+	PR c++/18733
+	* g++.dg/template/friend33.C: New testcase.
+
+2004-12-22  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/18464
+	* g++.dg/template/cond5.C: New test.
+
+	PR c++/18492
+	* g++.dg/inherit/thunk3.C: New test.
+
+	PR c++/11224
+	* g++.dg/warn/Wunused-9.C: New test.
+	
+2004-12-22  Janis Johnson  <janis187@us.ibm.com>
+
+	* lib/gcc-dg.exp (dg-skip-if): Fix the flags compared against.
+
+2004-12-22  Jan Beulich  <jbeulich@novell.com>
+
+	* gcc.dg/20040813-1.c: Skip for *-*-netware*.
+
+2004-12-21  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/18378
+	* g++.dg/ext/packed8.C: New test.
+
+	PR c++/13268
+	* g++.dg/template/crash31.C: New test.
+	
+	PR c++/19034
+	* g++.dg/template/crash30.C: New test.
+
+2004-12-21  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR C++/18984
+	* g++.dg/eh/ctor3.C: New test.
+
+2004-12-21  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* objc.dg/stabs-1.m: Allow section name to be quoted and
+	assembly label to begin with '.LL'.
+
+2004-12-21  Janis Johnson  <janis187@us.ibm.com>
+
+	* gcc.dg/vect/vect.exp
+	(check_effective_target_lp64_or_vect_no_align): New.
+	* gcc.dg/vect/vect-77.c: Use it.
+	* gcc.dg/vect/vect-78.c: Use it.
+
+	* lib/target-supports.exp
+	(check_effective_target_vect_no_max,
+	check_effective_target_vect_no_bitwise,
+	check_effective_target_vect_no_align): New.
+	* gcc.dg/vect/vect-13.c: Use them.
+	* gcc.dg/vect/vect-17.c: Ditto.
+	* gcc.dg/vect/vect-18.c: Ditto.
+	* gcc.dg/vect/vect-19.c: Ditto.
+	* gcc.dg/vect/vect-20.c: Ditto.
+	* gcc.dg/vect/vect-27.c: Ditto.
+	* gcc.dg/vect/vect-29.c: Ditto.
+	* gcc.dg/vect/vect-44.c: Ditto.
+	* gcc.dg/vect/vect-48.c: Ditto.
+	* gcc.dg/vect/vect-50.c: Ditto.
+	* gcc.dg/vect/vect-52.c: Ditto.
+	* gcc.dg/vect/vect-54.c: Ditto.
+	* gcc.dg/vect/vect-56.c: Ditto.
+	* gcc.dg/vect/vect-58.c: Ditto.
+	* gcc.dg/vect/vect-60.c: Ditto.
+	* gcc.dg/vect/vect-72.c: Ditto.
+	* gcc.dg/vect/vect-80.c: Ditto.
+
+2004-12-21  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/14075
+	* g++.dg/init/string1.C: New.
+
+	PR c++/18975
+	* g++.dg/other/synth1.C: New.
+
+2004-12-21  James A. Morrison  <phython@gcc.gnu.org>
+
+	PR c/18963
+	* gcc.dg/pr18963-1.c: New test.
+
+2004-12-21  James A. Morrison  <phython@gcc.gnu.org>
+
+	PR c/18596
+	* gcc.dg/funcdef-storage-1.c (foo): Remove.
+	* gcc.dg/pr18596-1.c: Use dg-error.
+	(dg-options): Use -fno-unit-at-a-time.
+	* gcc.dg/pr18596-2.c: New test.
+	* gcc.dg/pr18596-3.c: New test.
+	
+2004-12-20  Roger Sayle  <roger@eyesopen.com>
+
+	PR middle-end/18683
+	* g++.dg/opt/pr18683-1.C: New test case.
+
+2004-12-20  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR other/19093
+	* g++.dg/opt/max1.C: Fix for 64bit targets.
+
+2004-12-20  Matt Austern  <austern@apple.com>
+
+	PR c++/19044
+	* g++.dg/ext/builtin6.C: New
+	
+2004-12-20  Diego Novillo  <dnovillo@redhat.com>
+
+	PR tree-optimization/19080
+	* gcc.c-torture/compile/pr19080.c: New test.
+
+2004-12-20  Steven Bosscher  <stevenb@suse.de>
+
+	* gcc.dg/20041219-1.c: New test.
+
+2004-12-19  Roger Sayle  <roger@eyesopen.com>
+
+	PR middle-end/19068
+	* g++.dg/opt/max1.C: New test case.
+
+2004-12-18  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/fdata-sections-1.c: New test.
+
+2004-12-18  Roger Sayle  <roger@eyesopen.com>
+
+	PR middle-end/18548
+	* gcc.dg/max-1.c: New test case.
+
+2004-12-18  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c-torture/execute/20041218-1.c: New test.
+
+2004-12-17  Diego Novillo  <dnovillo@redhat.com>
+
+	* gcc.dg/pr18501.c: New test.
+	* gcc.dg/uninit-5.c: XFAIL.
+	* gcc.dg/uninit-9.c: XFAIL.
+
+2004-12-17  Dale Johannesen  <dalej@apple.com>
+
+	* gcc.dg/20041213-1.c:  New.
+
+2004-12-17  Ziemowit Laski  <zlaski@apple.com>
+
+	* objc.dg/stabs-1.m: Allow assembly label to begin
+	with a dot ('.').
+
+2004-12-17  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c-torture/execute/20041213-1.c: Move...
+	* gcc.c-torture/execute/ieee/20041213-1.c: ...to here.
+
+2004-12-17  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/18721
+	* g++.dg/lookup/conv-5.C: New.
+
+2004-12-16  Ziemowit Laski  <zlaski@apple.com>
+
+	* objc.dg/stabs-1.m: New test.
+
+2004-12-16  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* gcc.dg/visibility-c.c: Change compile to
+	assemble for the test.
+
+2004-12-16  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR target/19041
+	* gcc.dg/visibility-c.c: New test.
+
+2004-12-16  Roger Sayle  <roger@eyesopen.com>
+
+	PR middle-end/18493
+	* gcc.dg/switch-8.c: New test case.
+
+2004-12-16  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/18905
+	* g++.dg/template/init4.C: New.
+	* g++.dg/opt/static3.C: Enable optimizer.
+
+2004-12-16  Wolfgang Bangerth  <bangerth@dealii.com>
+
+	* g++.dg/other/complex1.C: New test.
+
+2004-12-15  Alan Modra  <amodra@bigpond.net.au>
+
+	* g++.dg/opt/inline9.C: New test.
+
+2004-12-15  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/18993
+	* gfotran.dg/nullify_1.f: New test.
+
+2004-12-15  Richard Henderson  <rth@redhat.com>
+
+	* gcc.target/i386/i386.exp: New harness.
+	* gcc.target/i386/vect-args.c: New.
+
+2004-12-15  David Edelsohn  <edelsohn@gnu.org>
+
+	* gcc.dg/20040813-1.c: Skip for *-*-aix*.
+
+2004-12-15  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/18825
+	* g++.dg/template/friend32.C: New test.
+
+2004-12-15  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* cpp/pragma-once-1.c: New test.
+	* cpp/pragma-once-1b.h: Likewise.
+	* cpp/pragma-once-1c.h: Likewise.
+	* cpp/pragma-once-1d.h: Likewise.
+	* cpp/inc/pragma-once-1a.h: Likewise.
+
+2004-12-15  Bud Davis  <bdavis9659@comcast.net>
+            Steven G. Kargle  <kargls@comcast.net>
+
+	PR fortran/17597
+	* gfortran.dg/list_read_3.f90: New test.
+
+2004-12-15  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/ftrapv-2.c: New test.
+
+2004-12-15  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/18981
+	* g++.dg/template/typename9.C: New test.
+
+2004-12-14  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/18738
+	* g++.dg/template/typename8.C: New test.
+	* g++.dg/parse/friend2.C: Tweak error message.
+
+2004-12-14  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* gcc.c-torture/20041214-1.c: New test.
+
+2004-12-14  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR c++/18965
+	* g++.dg/init/array17.C: New test.
+
+2004-12-14  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/18793
+	* g++.dg/init/aggr3.C: New test.
+
+2004-12-14  Janis Johnson  <janis187@us.ibm.com
+
+	* gcc.dg/altivec-types-1.c: New test.
+	* gcc.dg/altivec-types-2.c: New test.
+	* gcc.dg/altivec-types-3.c: New test.
+	* gcc.dg/altivec-types-4.c: New test.
+	* g++.dg/ext/altivec-types-1.C: New test.
+	* g++.dg/ext/altivec-types-2.C: New test.
+	* g++.dg/ext/altivec-types-3.C: New test.
+	* g++.dg/ext/altivec-types-4.C: New test.
+
+2004-12-14  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/18951
+	* gcc.c-torture/execute/20041213-1.c: New test.
+
+2004-12-14  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/18949
+	* g++.dg/template/cast1.C: New.
+
+2004-12-13  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* gcc.c-torture/execute/20041213-2.c: New test.
+
+2004-12-13  Richard Henderson  <rth@redhat.com>
+
+	* gcc.dg/i386-sse-10.c: Fix typo in options.
+
+2004-12-13  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR c++/18968
+	* g++.dg/opt/pr18968.C: New test.
+
+2004-12-13  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/18925
+	* g++.dg/ext/visibility/staticdatamem.C: New test.
+
+2004-12-13  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* gcc.target/xstormy16/below100.S: Remove DOS line endings.
+
+2004-12-13  Roger Sayle  <roger@eyesopen.com>
+
+	PR rtl-optimization/18928
+	* gcc.dg/pr18928-1.c: New test case.
+
+2004-12-13  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR tree-opt/16951
+	* gcc.c-torture/compile/20041211-1.c: New.
+
+2004-12-12  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR middle-end/17564
+	* gcc.c-torture/execute/20041212-1.c: New test.
+
+2004-12-12  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/18869
+	* gfortran.dg/common_1.f90: New test.
+
+2004-12-12  Steven G. Kargl  <kargls@comcast.net>
+	Paul Brook  <paul@codesourcery.com>
+
+	PR fortran/16222
+	* gfortran.dg/real_do_1.f90: New test.
+
+2004-12-12  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR tree-opt/18040
+	* g++.dg/opt/ptrmem6.C: New test.
+
+2004-12-11  Roger Sayle  <roger@eyesopen.com>
+
+	PR middle-end/18921
+	* gcc.dg/pr18921-1.c: New test case.
+
+2004-12-11  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/17175
+	* gfortran.dg/scale_1.f90: New test.
+
 2004-12-10  Andrew Pinski  <pinskia@physics.uc.edu>
 
 	PR middle-end/18903

@@ -85,9 +85,10 @@ genericize_eh_spec_block (tree *stmt_p)
 static void
 gimplify_if_stmt (tree *stmt_p)
 {
-  tree stmt, then_, else_;
+  tree stmt, cond, then_, else_;
 
   stmt = *stmt_p;
+  cond = IF_COND (stmt);
   then_ = THEN_CLAUSE (stmt);
   else_ = ELSE_CLAUSE (stmt);
 
@@ -96,7 +97,12 @@ gimplify_if_stmt (tree *stmt_p)
   if (!else_)
     else_ = build_empty_stmt ();
 
-  stmt = build3 (COND_EXPR, void_type_node, IF_COND (stmt), then_, else_);
+  if (integer_nonzerop (cond) && !TREE_SIDE_EFFECTS (else_))
+    stmt = then_;
+  else if (integer_zerop (cond) && !TREE_SIDE_EFFECTS (then_))
+    stmt = else_;
+  else
+    stmt = build3 (COND_EXPR, void_type_node, cond, then_, else_);
   *stmt_p = stmt;
 }
 
@@ -285,7 +291,7 @@ cp_genericize_r (tree *stmt_p, int *walk_subtrees, void *data)
     }
 
   /* Other than invisiref parms, don't walk the same tree twice.  */
-  if (pointer_set_insert (p_set, stmt))
+  if (pointer_set_contains (p_set, stmt))
     {
       *walk_subtrees = 0;
       return NULL_TREE;
@@ -309,14 +315,13 @@ cp_genericize_r (tree *stmt_p, int *walk_subtrees, void *data)
      to lower this construct before scanning it, so we need to lower these
      before doing anything else.  */
   else if (TREE_CODE (stmt) == CLEANUP_STMT)
-    {
-      *stmt_p = build2 (CLEANUP_EH_ONLY (stmt) ? TRY_CATCH_EXPR
-					       : TRY_FINALLY_EXPR,
-			void_type_node,
-			CLEANUP_BODY (stmt),
-			CLEANUP_EXPR (stmt));
-      pointer_set_insert (p_set, *stmt_p);
-    }
+    *stmt_p = build2 (CLEANUP_EH_ONLY (stmt) ? TRY_CATCH_EXPR
+					     : TRY_FINALLY_EXPR,
+		      void_type_node,
+		      CLEANUP_BODY (stmt),
+		      CLEANUP_EXPR (stmt));
+
+  pointer_set_insert (p_set, *stmt_p);
   
   return NULL;
 }
@@ -329,17 +334,19 @@ cp_genericize (tree fndecl)
 
   /* Fix up the types of parms passed by invisible reference.  */
   for (t = DECL_ARGUMENTS (fndecl); t; t = TREE_CHAIN (t))
-    {
-      gcc_assert (!DECL_BY_REFERENCE (t));
-      if (TREE_ADDRESSABLE (TREE_TYPE (t)))
-	{
-	  gcc_assert (DECL_ARG_TYPE (t) != TREE_TYPE (t));
-	  TREE_TYPE (t) = DECL_ARG_TYPE (t);
-	  DECL_BY_REFERENCE (t) = 1;
-	  TREE_ADDRESSABLE (t) = 0;
-	  relayout_decl (t);
-	}
-    }
+    if (TREE_ADDRESSABLE (TREE_TYPE (t)))
+      {
+	/* If a function's arguments are copied to create a thunk,
+	   then DECL_BY_REFERENCE will be set -- but the type of the
+	   argument will be a pointer type, so we will never get
+	   here.  */
+	gcc_assert (!DECL_BY_REFERENCE (t));
+	gcc_assert (DECL_ARG_TYPE (t) != TREE_TYPE (t));
+	TREE_TYPE (t) = DECL_ARG_TYPE (t);
+	DECL_BY_REFERENCE (t) = 1;
+	TREE_ADDRESSABLE (t) = 0;
+	relayout_decl (t);
+      }
 
   /* Do the same for the return value.  */
   if (TREE_ADDRESSABLE (TREE_TYPE (DECL_RESULT (fndecl))))

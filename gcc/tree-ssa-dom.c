@@ -578,6 +578,16 @@ thread_across_edge (struct dom_walk_data *walk_data, edge e)
     {
       tree src = PHI_ARG_DEF_FROM_EDGE (phi, e);
       tree dst = PHI_RESULT (phi);
+
+      /* If the desired argument is not the same as this PHI's result 
+	 and it is set by a PHI in this block, then we can not thread
+	 through this block.  */
+      if (src != dst
+	  && TREE_CODE (src) == SSA_NAME
+	  && TREE_CODE (SSA_NAME_DEF_STMT (src)) == PHI_NODE
+	  && bb_for_stmt (SSA_NAME_DEF_STMT (src)) == e->dest)
+	return;
+
       record_const_or_copy (dst, src);
       register_new_def (dst, &block_defs_stack);
     }
@@ -681,7 +691,7 @@ thread_across_edge (struct dom_walk_data *walk_data, edge e)
       if (SSA_NAME_VAR (cached_lhs) != SSA_NAME_VAR (lhs))
 	break;
 
-      /* If CACHED_LHS does not represent the current value of the undering
+      /* If CACHED_LHS does not represent the current value of the underlying
 	 variable in CACHED_LHS/LHS, then we can not ignore this statement.  */
       if (var_ann (SSA_NAME_VAR (lhs))->current_def != cached_lhs)
 	break;
@@ -704,22 +714,6 @@ thread_across_edge (struct dom_walk_data *walk_data, edge e)
 	  || TREE_CODE (stmt) == SWITCH_EXPR))
     {
       tree cond, cached_lhs;
-      edge e1;
-      edge_iterator ei;
-
-      /* Do not forward entry edges into the loop.  In the case loop
-	 has multiple entry edges we may end up in constructing irreducible
-	 region.  
-	 ??? We may consider forwarding the edges in the case all incoming
-	 edges forward to the same destination block.  */
-      if (!e->flags & EDGE_DFS_BACK)
-	{
-	  FOR_EACH_EDGE (e1, ei, e->dest->preds)
-	    if (e1->flags & EDGE_DFS_BACK)
-	      break;
-	  if (e1)
-	    return;
-	}
 
       /* Now temporarily cprop the operands and try to find the resulting
 	 expression in the hash tables.  */
@@ -990,7 +984,7 @@ dom_opt_finalize_block (struct dom_walk_data *walk_data, basic_block bb)
 {
   tree last;
 
-  /* If we are at a leaf node in the dominator graph, see if we can thread
+  /* If we are at a leaf node in the dominator tree, see if we can thread
      the edge from BB through its successor.
 
      Do this before we remove entries from our equivalence tables.  */
@@ -1205,8 +1199,10 @@ record_equivalences_from_phis (basic_block bb)
 	{
 	  tree t = PHI_ARG_DEF (phi, i);
 
-	  /* Ignore alternatives which are the same as our LHS.  */
-	  if (operand_equal_for_phi_arg_p (lhs, t))
+	  /* Ignore alternatives which are the same as our LHS.  Since
+	     LHS is a PHI_RESULT, it is known to be a SSA_NAME, so we
+	     can simply compare pointers.  */
+	  if (lhs == t)
 	    continue;
 
 	  /* If we have not processed an alternative yet, then set
@@ -2485,9 +2481,9 @@ record_edge_info (basic_block bb)
 		    }
 		}
 
-	      if (is_gimple_min_invariant (op0)
-		  && (TREE_CODE (op1) == SSA_NAME
-		       || is_gimple_min_invariant (op1)))
+	      else if (is_gimple_min_invariant (op0)
+		       && (TREE_CODE (op1) == SSA_NAME
+			   || is_gimple_min_invariant (op1)))
 		{
 		  tree inverted = invert_truthvalue (cond);
 		  struct edge_info *edge_info;
@@ -2511,9 +2507,9 @@ record_edge_info (basic_block bb)
 		    }
 		}
 
-	      if (TREE_CODE (op0) == SSA_NAME
-		  && (is_gimple_min_invariant (op1)
-		      || TREE_CODE (op1) == SSA_NAME))
+	      else if (TREE_CODE (op0) == SSA_NAME
+		       && (is_gimple_min_invariant (op1)
+			   || TREE_CODE (op1) == SSA_NAME))
 		{
 		  tree inverted = invert_truthvalue (cond);
 		  struct edge_info *edge_info;

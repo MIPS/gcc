@@ -30,21 +30,21 @@ void test01()
   using std::tr1::is_array;
   using namespace __gnu_test;
 
-  VERIFY( (test_category<is_array, int[2], true>()) );
-  VERIFY( (test_category<is_array, int[], true>()) );
-  VERIFY( (test_category<is_array, int[2][3], true>()) );
-  VERIFY( (test_category<is_array, int[][3], true>()) );
-  VERIFY( (test_category<is_array, float*[2], true>()) );
-  VERIFY( (test_category<is_array, float*[], true>()) );
-  VERIFY( (test_category<is_array, float*[2][3], true>()) );
-  VERIFY( (test_category<is_array, float*[][3], true>()) );
-  VERIFY( (test_category<is_array, ClassType[2], true>()) );
-  VERIFY( (test_category<is_array, ClassType[], true>()) );
-  VERIFY( (test_category<is_array, ClassType[2][3], true>()) );
-  VERIFY( (test_category<is_array, ClassType[][3], true>()) );
+  VERIFY( (test_category<is_array, int[2]>(true)) );
+  VERIFY( (test_category<is_array, int[]>(true)) );
+  VERIFY( (test_category<is_array, int[2][3]>(true)) );
+  VERIFY( (test_category<is_array, int[][3]>(true)) );
+  VERIFY( (test_category<is_array, float*[2]>(true)) );
+  VERIFY( (test_category<is_array, float*[]>(true)) );
+  VERIFY( (test_category<is_array, float*[2][3]>(true)) );
+  VERIFY( (test_category<is_array, float*[][3]>(true)) );
+  VERIFY( (test_category<is_array, ClassType[2]>(true)) );
+  VERIFY( (test_category<is_array, ClassType[]>(true)) );
+  VERIFY( (test_category<is_array, ClassType[2][3]>(true)) );
+  VERIFY( (test_category<is_array, ClassType[][3]>(true)) );
 
   // Sanity check.
-  VERIFY( (test_category<is_array, ClassType, false>()) );
+  VERIFY( (test_category<is_array, ClassType>(false)) );
 }
 
 int main()

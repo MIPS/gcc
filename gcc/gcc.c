@@ -1715,7 +1715,11 @@ init_spec (void)
 			    "-lgcc",
 			    "-lgcc_eh"
 #ifdef USE_LIBUNWIND_EXCEPTIONS
+# ifdef HAVE_LD_STATIC_DYNAMIC
+			    " %{!static:-Bstatic} -lunwind %{!static:-Bdynamic}"
+# else
 			    " -lunwind"
+# endif
 #endif
 			    );
 
@@ -6548,7 +6552,6 @@ main (int argc, const char **argv)
 	{
 	  delete_failure_queue ();
 	  error_count++;
-	  break;
 	}
       /* If this compilation succeeded, don't delete those files later.  */
       clear_failure_queue ();

@@ -94,8 +94,6 @@ typedef struct inline_data
   /* Nonzero if we are currently within the cleanup for a
      TARGET_EXPR.  */
   int in_target_cleanup_p;
-  /* A list of the functions current function has inlined.  */
-  varray_type inlined_fns;
   /* We use the same mechanism to build clones that we do to perform
      inlining.  However, there are a few places where we need to
      distinguish between those two situations.  This flag is true if
@@ -655,6 +653,22 @@ copy_body (inline_data *id)
   return body;
 }
 
+/* Return true if VALUE is an ADDR_EXPR of an automatic variable
+   defined in function FN, or of a data member thereof.  */
+
+static bool
+self_inlining_addr_expr (tree value, tree fn)
+{
+  tree var;
+
+  if (TREE_CODE (value) != ADDR_EXPR)
+    return false;
+
+  var = get_base_address (TREE_OPERAND (value, 0));
+	      
+  return var && lang_hooks.tree_inlining.auto_var_in_fn_p (var, fn);
+}
+
 static void
 setup_one_parameter (inline_data *id, tree p, tree value, tree fn,
 		     tree *init_stmts, tree *vars, bool *gimplify_init_stmts_p)
@@ -679,7 +693,13 @@ setup_one_parameter (inline_data *id, tree p, tree value, tree fn,
 	 It is not big deal to prohibit constant propagation here as
 	 we will constant propagate in DOM1 pass anyway.  */
       if (is_gimple_min_invariant (value)
-	  && lang_hooks.types_compatible_p (TREE_TYPE (value), TREE_TYPE (p)))
+	  && lang_hooks.types_compatible_p (TREE_TYPE (value), TREE_TYPE (p))
+	  /* We have to be very careful about ADDR_EXPR.  Make sure
+	     the base variable isn't a local variable of the inlined
+	     function, e.g., when doing recursive inlining, direct or
+	     mutually-recursive or whatever, which is why we don't
+	     just test whether fn == current_function_decl.  */
+	  && ! self_inlining_addr_expr (value, fn))
 	{
 	  insert_decl_map (id, p, value);
 	  return;
@@ -797,7 +817,7 @@ initialize_inlined_parameters (inline_data *id, tree args, tree static_chain,
     }
 
   if (gimplify_init_stmts_p)
-    gimplify_body (&init_stmts, current_function_decl);
+    gimplify_body (&init_stmts, current_function_decl, false);
 
   declare_inline_vars (bind_expr, vars);
   return init_stmts;
@@ -1546,19 +1566,6 @@ expand_call_inline (tree *tp, int *walk_subtrees, void *data)
      recursing into it.  */
   VARRAY_PUSH_TREE (id->fns, fn);
 
-  /* Record the function we are about to inline if optimize_function
-     has not been called on it yet and we don't have it in the list.  */
-  if (! DECL_INLINED_FNS (fn))
-    {
-      int i;
-
-      for (i = VARRAY_ACTIVE_SIZE (id->inlined_fns) - 1; i >= 0; i--)
-	if (VARRAY_TREE (id->inlined_fns, i) == fn)
-	  break;
-      if (i < 0)
-	VARRAY_PUSH_TREE (id->inlined_fns, fn);
-    }
-
   /* Return statements in the function body will be replaced by jumps
      to the RET_LABEL.  */
   id->ret_label = build_decl (LABEL_DECL, NULL_TREE, NULL_TREE);
@@ -1604,8 +1611,11 @@ expand_call_inline (tree *tp, int *walk_subtrees, void *data)
   splay_tree_delete (id->decl_map);
   id->decl_map = st;
 
-  /* The new expression has side-effects if the old one did.  */
-  TREE_SIDE_EFFECTS (expr) = TREE_SIDE_EFFECTS (t);
+  /* Although, from the semantic viewpoint, the new expression has
+     side-effects only if the old one did, it is not possible, from
+     the technical viewpoint, to evaluate the body of a function
+     multiple times without serious havoc.  */
+  TREE_SIDE_EFFECTS (expr) = 1;
 
   tsi_link_before (&id->tsi, expr, TSI_SAME_STMT);
 
@@ -1744,7 +1754,6 @@ optimize_inline_calls (tree fn)
 {
   inline_data id;
   tree prev_fn;
-  tree ifn;
 
   /* There is no point in performing inlining if errors have already
      occurred -- and we might crash if we try to inline invalid
@@ -1769,9 +1778,6 @@ optimize_inline_calls (tree fn)
 
   prev_fn = lang_hooks.tree_inlining.add_pending_fn_decls (&id.fns, prev_fn);
 
-  /* Create the list of functions this call will inline.  */
-  VARRAY_TREE_INIT (id.inlined_fns, 32, "inlined_fns");
-
   /* Keep track of the low-water mark, i.e., the point where the first
      real inlining is represented in ID.FNS.  */
   id.first_inlined_fn = VARRAY_ACTIVE_SIZE (id.fns);
@@ -1783,11 +1789,6 @@ optimize_inline_calls (tree fn)
 
   /* Clean up.  */
   htab_delete (id.tree_pruner);
-  ifn = make_tree_vec (VARRAY_ACTIVE_SIZE (id.inlined_fns));
-  if (VARRAY_ACTIVE_SIZE (id.inlined_fns))
-    memcpy (&TREE_VEC_ELT (ifn, 0), &VARRAY_TREE (id.inlined_fns, 0),
-	    VARRAY_ACTIVE_SIZE (id.inlined_fns) * sizeof (tree));
-  DECL_INLINED_FNS (fn) = ifn;
 
 #ifdef ENABLE_CHECKING
     {

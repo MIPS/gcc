@@ -53,10 +53,25 @@ Boston, MA 02111-1307, USA.  */
     st_write(), an error inhibits any data from actually being
     transferred.  */
 
-gfc_unit *current_unit;
+extern void transfer_integer (void *, int);
+export_proto(transfer_integer);
+
+extern void transfer_real (void *, int);
+export_proto(transfer_real);
+
+extern void transfer_logical (void *, int);
+export_proto(transfer_logical);
+
+extern void transfer_character (void *, int);
+export_proto(transfer_character);
+
+extern void transfer_complex (void *, int);
+export_proto(transfer_complex);
+
+gfc_unit *current_unit = NULL;
 static int sf_seen_eor = 0;
 
-char scratch[SCRATCH_SIZE];
+char scratch[SCRATCH_SIZE] = { };
 static char *line_buffer = NULL;
 
 static unit_advance advance_status;
@@ -147,7 +162,7 @@ read_sf (int *length)
 
       /* If we have a line without a terminating \n, drop through to
 	 EOR below.  */
-      if (readlen < 1 & n == 0)
+      if (readlen < 1 && n == 0)
 	{
 	  generate_error (ERROR_END, NULL);
 	  return NULL;
@@ -410,16 +425,16 @@ formatted_transfer (bt type, void *p, int len)
   if (type == BT_COMPLEX)
     type = BT_REAL;
 
-  /* If reversion has occurred and there is another real data item,
-     then we have to move to the next record.  */
-
-  if (g.reversion_flag && n > 0)
-    {
-      g.reversion_flag = 0;
-      next_record (0);
-    }
   for (;;)
     {
+      /* If reversion has occurred and there is another real data item,
+         then we have to move to the next record.  */
+      if (g.reversion_flag && n > 0)
+        {
+          g.reversion_flag = 0;
+          next_record (0);
+        }
+
       consume_data_flag = 1 ;
       if (ioparm.library_return != LIBRARY_OK)
 	break;
@@ -812,11 +827,12 @@ transfer_complex (void *p, int kind)
 static void
 us_read (void)
 {
-  gfc_offset *p;
+  char *p;
   int n;
+  gfc_offset i;
 
   n = sizeof (gfc_offset);
-  p = (gfc_offset *) salloc_r (current_unit->s, &n);
+  p = salloc_r (current_unit->s, &n);
 
   if (p == NULL || n != sizeof (gfc_offset))
     {
@@ -824,7 +840,8 @@ us_read (void)
       return;
     }
 
-  current_unit->bytes_left = *p;
+  memcpy (&i, p, sizeof (gfc_offset));
+  current_unit->bytes_left = i;
 }
 
 
@@ -834,11 +851,11 @@ us_read (void)
 static void
 us_write (void)
 {
-  gfc_offset *p;
+  char *p;
   int length;
 
   length = sizeof (gfc_offset);
-  p = (gfc_offset *) salloc_w (current_unit->s, &length);
+  p = salloc_w (current_unit->s, &length);
 
   if (p == NULL)
     {
@@ -846,7 +863,7 @@ us_write (void)
       return;
     }
 
-  *p = 0;			/* Bogus value for now.  */
+  memset (p, '\0', sizeof (gfc_offset));	/* Bogus value for now.  */
   if (sfree (current_unit->s) == FAILURE)
     generate_error (ERROR_OS, NULL);
 
@@ -1270,7 +1287,7 @@ next_record_w (int done)
       if (p == NULL)
 	goto io_error;
 
-      *((gfc_offset *) p) = m;
+      memcpy (p, &m, sizeof (gfc_offset));
       if (sfree (current_unit->s) == FAILURE)
 	goto io_error;
 
@@ -1281,7 +1298,7 @@ next_record_w (int done)
       if (p == NULL)
 	generate_error (ERROR_OS, NULL);
 
-      *((gfc_offset *) p) = m;
+      memcpy (p, &m, sizeof (gfc_offset));
       if (sfree (current_unit->s) == FAILURE)
 	goto io_error;
 
@@ -1433,12 +1450,18 @@ iolength_transfer_init (void)
    it must still be a runtime library call so that we can determine
    the iolength for dynamic arrays and such.  */
 
+extern void st_iolength (void);
+export_proto(st_iolength);
+
 void
 st_iolength (void)
 {
   library_start ();
   iolength_transfer_init ();
 }
+
+extern void st_iolength_done (void);
+export_proto(st_iolength_done);
 
 void
 st_iolength_done (void)
@@ -1448,6 +1471,9 @@ st_iolength_done (void)
 
 
 /* The READ statement.  */
+
+extern void st_read (void);
+export_proto(st_read);
 
 void
 st_read (void)
@@ -1481,6 +1507,8 @@ st_read (void)
       }
 }
 
+extern void st_read_done (void);
+export_proto(st_read_done);
 
 void
 st_read_done (void)
@@ -1489,6 +1517,8 @@ st_read_done (void)
   library_end ();
 }
 
+extern void st_write (void);
+export_proto(st_write);
 
 void
 st_write (void)
@@ -1497,6 +1527,8 @@ st_write (void)
   data_transfer_init (0);
 }
 
+extern void st_write_done (void);
+export_proto(st_write_done);
 
 void
 st_write_done (void)
@@ -1566,6 +1598,21 @@ st_set_nml_var (void * var_addr, char * var_name, int var_name_len,
        t2->next = nml;
     }
 }
+
+extern void st_set_nml_var_int (void *, char *, int, int);
+export_proto(st_set_nml_var_int);
+
+extern void st_set_nml_var_float (void *, char *, int, int);
+export_proto(st_set_nml_var_float);
+
+extern void st_set_nml_var_char (void *, char *, int, int, gfc_charlen_type);
+export_proto(st_set_nml_var_char);
+
+extern void st_set_nml_var_complex (void *, char *, int, int);
+export_proto(st_set_nml_var_complex);
+
+extern void st_set_nml_var_log (void *, char *, int, int);
+export_proto(st_set_nml_var_log);
 
 void
 st_set_nml_var_int (void * var_addr, char * var_name, int var_name_len,

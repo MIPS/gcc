@@ -1,3 +1,108 @@
+2004-12-29  Steven G. Kargl  <kargls@comcast.net>
+
+	* gfortran.h (gfc_case): fix typo in comment.
+
+2004-12-27  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de> 
+
+	* trans-intrinsic.c (gfc_conv_intrinsic_ishft): Change to
+	logical	shift.  Call fold.  Remove 0-bit shift shortcut.
+	(gfc_conv_intrinsic_ishftc): Convert first argument to at least
+	4 bytes bits.  Convert 2nd and 3rd argument to 4 bytes.  Convert
+	result if width(arg 1) < 4 bytes.  Call fold.
+
+	PR fortran/19032
+	* trans-intrinsic.c (gfc_conv_intrinsic_mod): Update comment
+	in front of function to match the standard.  Correct handling
+	of MODULO.
+
+2004-12-27  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* trans-expr.c (gfc_conv_cst_int_power): Only check for
+	flag_unsafe_math_optimizations if we have a float type.
+
+2004-12-23  Steven G. Kargl  <kargls@comcast.net>
+
+	* gfortran.texi: Fix typo.
+
+2004-12-16  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* trans-intrinsic.c (build_fixbound_expr): Clarify comment, fix
+	comment typo.
+
+2004-12-15  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/18993
+	* match.c (gfc_match_if): Don't explicitly skip optional whitespace.
+	(gfc_match_nullify): Make sure that ')' is in front of the end of
+	statement.
+
+	* scanner.c (skip_fixed_comments): Fix typo in comment preceding
+	function.
+
+2004-12-14  Richard Henderson  <rth@redhat.com>
+
+	* gfortran.h (gfc_expr.function.name): Make const.
+	(gfc_iresolve_init_1, gfc_iresolve_done_1): Remove.
+	(gfc_get_string): Update prototype.
+	* iresolve.c: Include tree.h.
+	(string_node, HASH_SIZE, string_head, hash): Remove.
+	(gfc_get_string): Use vsnprintf, get_identifier.
+	(free_strings, gfc_iresolve_init_1, gfc_iresolve_done_1): Remove.
+	* misc.c (gfc_init_1): Don't call gfc_iresolve_init_1.
+	(gfc_done_1): Don't call gfc_iresolve_done_1.
+	* module.c (mio_allocated_string): Take and return const char *,
+	instead of modifying char**.
+	(mio_expr): Update to match.
+	* resolve.c (pure_function): Constify name argument.
+	(resolve_function): Constify name.
+	* trans-intrinsic.c (gfc_conv_intrinsic_function): Likewise.
+
+2004-12-12  Richard Henderson  <rth@redhat.com>
+
+	* iresolve.c (gfc_resolve_all, gfc_resolve_any, gfc_resolve_count,
+	gfc_resolve_cshift, gfc_resolve_dot_product, gfc_resolve_eoshift,
+	gfc_resolve_matmul, gfc_resolve_maxloc, gfc_resolve_maxval,
+	gfc_resolve_minloc, gfc_resolve_minval, gfc_resolve_pack,
+	gfc_resolve_product, gfc_resolve_reshape, gfc_resolve_shape,
+	gfc_resolve_spread, gfc_resolve_sum, gfc_resolve_transpose,
+	gfc_resolve_unpack: Use PREFIX.
+
+2004-12-12  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/18869
+	* match.c (gfc_match_common): Skip whitespace.
+
+2004-12-12  Steven G. Kargl  <kargls@comcast.net>
+
+	PR fortran/16581
+	* check.c (gfc_check_iand, gfc_check_ibclr, gfc_check_ibits,
+	gfc_check_ibset, gfc_check_ieor, gfc_check_ior): Remove default
+	integer kind check; Issue error for -std=f95 when needed.
+	* intrinsic.c (add_functions): Change ieor from GFC_STD_GNU to
+	GFC_STD_F95.
+	* iresolve.c (gfc_resolve_iand, gfc_resolve_ieor, gfc_resolve_ior):
+	Promote arguments to same kind.
+
+2004-12-12  Steven G. Kargl  <kargls@comcast.net>
+	Paul Brook  <paul@codesourcery.com>
+
+	PR fortran/16222
+	* resolve.c (gfc_resolve_iterator_expr): New function.
+	(gfc_resolve_iterator): Use it.  Add real_ok argument.  Convert
+	start, end and stride to correct type.
+	(resolve_code): Pass extra argument.
+	* array.c (resolve_array_list): Pass extra argument.
+	* gfortran.h (gfc_resolve): Add prototype.
+	* trans-stmt.c (gfc_trans_do): Remove redundant type conversions.
+	Handle real type iterators.
+
+2004-12-11  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/17175
+	* iresolve.c (gfc_resolve_scale): Convert 'I' argument if not of
+	same kind as C's 'int'.
+	(gfc_resolve_set_exponent): Convert 'I' argument if not of kind 4.
+
 2004-12-08  Richard Henderson  <rth@redhat.com>
 
 	* intrinsic.c (gfc_convert_type_warn): Propagate the input shape

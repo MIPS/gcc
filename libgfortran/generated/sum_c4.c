@@ -24,8 +24,12 @@ Boston, MA 02111-1307, USA.  */
 #include <assert.h>
 #include "libgfortran.h"
 
+
+extern void sum_c4 (gfc_array_c4 *, gfc_array_c4 *, index_type *);
+export_proto(sum_c4);
+
 void
-__sum_c4 (gfc_array_c4 * retarray, gfc_array_c4 *array, index_type *pdim)
+sum_c4 (gfc_array_c4 *retarray, gfc_array_c4 *array, index_type *pdim)
 {
   index_type count[GFC_MAX_DIMENSIONS - 1];
   index_type extent[GFC_MAX_DIMENSIONS - 1];
@@ -144,8 +148,14 @@ __sum_c4 (gfc_array_c4 * retarray, gfc_array_c4 *array, index_type *pdim)
     }
 }
 
+
+extern void msum_c4 (gfc_array_c4 *, gfc_array_c4 *, index_type *,
+					       gfc_array_l4 *);
+export_proto(msum_c4);
+
 void
-__msum_c4 (gfc_array_c4 * retarray, gfc_array_c4 * array, index_type *pdim, gfc_array_l4 * mask)
+msum_c4 (gfc_array_c4 * retarray, gfc_array_c4 * array,
+				  index_type *pdim, gfc_array_l4 * mask)
 {
   index_type count[GFC_MAX_DIMENSIONS - 1];
   index_type extent[GFC_MAX_DIMENSIONS - 1];

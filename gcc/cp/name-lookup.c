@@ -2480,9 +2480,7 @@ pushdecl_class_level (tree x)
 	  input_location = save_location;
 	}
     }
-  timevar_pop (TV_NAME_LOOKUP);
-
-  return is_valid;
+  POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, is_valid);
 }
 
 /* Return the BINDING (if any) for NAME in SCOPE, which is a class
@@ -4649,7 +4647,7 @@ pushtag (tree name, tree type, int globalize)
 	  d = maybe_process_template_type_declaration (type,
 						       globalize, b);
 	  if (d == error_mark_node)
-	    return error_mark_node;
+	    POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, error_mark_node);
 
 	  if (b->kind == sk_class)
 	    {

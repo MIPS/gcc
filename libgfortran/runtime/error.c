@@ -48,8 +48,11 @@ Boston, MA 02111-1307, USA.  */
  * that files that report loci and those that do not can be linked
  * together without reporting an erroneous position. */
 
-char *filename;
-unsigned line;
+char *filename = 0;
+iexport_data(filename);
+
+unsigned line = 0;
+iexport_data(line);
 
 static char buffer[32];		/* buffer for integer/ascii conversions */
 
@@ -57,7 +60,7 @@ static char buffer[32];		/* buffer for integer/ascii conversions */
 /* Returns a pointer to a static buffer. */
 
 char *
-itoa (int64_t n)
+gfc_itoa (int64_t n)
 {
   int negative;
   char *p;
@@ -174,7 +177,7 @@ st_printf (const char *format, ...)
 	  break;
 
 	case 'd':
-	  q = itoa (va_arg (arg, int));
+	  q = gfc_itoa (va_arg (arg, int));
 	  count = strlen (q);
 
 	  p = salloc_w (s, &count);
@@ -251,7 +254,7 @@ st_sprintf (char *buffer, const char *format, ...)
 	  break;
 
 	case 'd':
-	  p = itoa (va_arg (arg, int));
+	  p = gfc_itoa (va_arg (arg, int));
 	  count = strlen (p);
 
 	  memcpy (buffer, p, count);
@@ -332,6 +335,7 @@ runtime_error (const char *message)
   st_printf ("Fortran runtime error: %s\n", message);
   sys_exit (2);
 }
+iexport(runtime_error);
 
 
 /* void internal_error()-- These are this-can't-happen errors

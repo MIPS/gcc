@@ -637,7 +637,6 @@ clear_call_clobbered (tree var)
   ssa_ro_call_cache_valid = false;
 }
 
-
 /* Mark variable VAR as being non-addressable.  */
 static inline void
 mark_non_addressable (tree var)

@@ -50,6 +50,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
  ((((HOST_WIDE_INT) low) < 0) ? ((HOST_WIDE_INT) -1) : ((HOST_WIDE_INT) 0))
 
 static rtx neg_const_int (enum machine_mode, rtx);
+static bool plus_minus_operand_p (rtx);
 static int simplify_plus_minus_op_data_cmp (const void *, const void *);
 static rtx simplify_plus_minus (enum rtx_code, enum machine_mode, rtx,
 				rtx, int);
@@ -336,7 +337,7 @@ simplify_replace_rtx (rtx x, rtx old_rtx, rtx new_rtx)
 	}
       else if (code == REG)
 	{
-	  if (REG_P (old_rtx) && REGNO (x) == REGNO (old_rtx))
+	  if (rtx_equal_p (x, old_rtx))
 	    return new_rtx;
 	}
       break;
@@ -1567,12 +1568,8 @@ simplify_binary_operation (enum rtx_code code, enum machine_mode mode,
 	     and subtle programs can break if operations are associated.  */
 
 	  if (INTEGRAL_MODE_P (mode)
-	      && (GET_CODE (op0) == PLUS || GET_CODE (op0) == MINUS
-		  || GET_CODE (op1) == PLUS || GET_CODE (op1) == MINUS
-		  || (GET_CODE (op0) == CONST
-		      && GET_CODE (XEXP (op0, 0)) == PLUS)
-		  || (GET_CODE (op1) == CONST
-		      && GET_CODE (XEXP (op1, 0)) == PLUS))
+	      && (plus_minus_operand_p (op0)
+		  || plus_minus_operand_p (op1))
 	      && (tem = simplify_plus_minus (code, mode, op0, op1, 0)) != 0)
 	    return tem;
 
@@ -1724,12 +1721,8 @@ simplify_binary_operation (enum rtx_code code, enum machine_mode mode,
 	     and subtle programs can break if operations are associated.  */
 
 	  if (INTEGRAL_MODE_P (mode)
-	      && (GET_CODE (op0) == PLUS || GET_CODE (op0) == MINUS
-		  || GET_CODE (op1) == PLUS || GET_CODE (op1) == MINUS
-		  || (GET_CODE (op0) == CONST
-		      && GET_CODE (XEXP (op0, 0)) == PLUS)
-		  || (GET_CODE (op1) == CONST
-		      && GET_CODE (XEXP (op1, 0)) == PLUS))
+	      && (plus_minus_operand_p (op0)
+		  || plus_minus_operand_p (op1))
 	      && (tem = simplify_plus_minus (code, mode, op0, op1, 0)) != 0)
 	    return tem;
 
@@ -2677,6 +2670,18 @@ simplify_plus_minus (enum rtx_code code, enum machine_mode mode, rtx op0,
   return result;
 }
 
+/* Check whether an operand is suitable for calling simplify_plus_minus.  */
+static bool
+plus_minus_operand_p (rtx x)
+{
+  return GET_CODE (x) == PLUS
+         || GET_CODE (x) == MINUS
+	 || (GET_CODE (x) == CONST
+	     && GET_CODE (XEXP (x, 0)) == PLUS
+	     && CONSTANT_P (XEXP (XEXP (x, 0), 0))
+	     && CONSTANT_P (XEXP (XEXP (x, 0), 1)));
+}
+
 /* Like simplify_binary_operation except used for relational operators.
    MODE is the mode of the result. If MODE is VOIDmode, both operands must
    not also be VOIDmode.
@@ -2768,10 +2773,13 @@ simplify_relational_operation (enum rtx_code code, enum machine_mode mode,
 
    MODE is the mode of the result, while CMP_MODE specifies in which
    mode the comparison is done in, so it is the mode of the operands.  */
-rtx
+
+static rtx
 simplify_relational_operation_1 (enum rtx_code code, enum machine_mode mode,
 				 enum machine_mode cmp_mode, rtx op0, rtx op1)
 {
+  enum rtx_code op0code = GET_CODE (op0);
+
   if (GET_CODE (op1) == CONST_INT)
     {
       if (INTVAL (op1) == 0 && COMPARISON_P (op0))
@@ -2793,6 +2801,21 @@ simplify_relational_operation_1 (enum rtx_code code, enum machine_mode mode,
 					        XEXP (op0, 0), XEXP (op0, 1));
 	    }
 	}
+    }
+
+  /* (eq/ne (plus x cst1) cst2) simplifies to (eq/ne x (cst2 - cst1))  */
+  if ((code == EQ || code == NE)
+      && (op0code == PLUS || op0code == MINUS)
+      && CONSTANT_P (op1)
+      && CONSTANT_P (XEXP (op0, 1))
+      && (INTEGRAL_MODE_P (cmp_mode) || flag_unsafe_math_optimizations))
+    {
+      rtx x = XEXP (op0, 0);
+      rtx c = XEXP (op0, 1);
+
+      c = simplify_gen_binary (op0code == PLUS ? MINUS : PLUS,
+			       cmp_mode, op1, c);
+      return simplify_gen_relational (code, mode, cmp_mode, x, c);
     }
 
   return NULL_RTX;

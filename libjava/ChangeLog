@@ -1,3 +1,32 @@
+2004-12-20  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/natClassLoader.cc (_Jv_RegisterClassHookDefault):
+	Re-enable duplicate class registration error.
+
+	* testsuite/libjava.jar/jar.exp (gcj_jar_interpret): Updated.
+	* testsuite/libjava.verify/verify.exp (gcj_verify_run): Updated.
+	* testsuite/libjava.jni/jni.exp (gcj_jni_test_one): Updated.
+	* testsuite/lib/libjava.exp (libjava_find_spec): Don't use
+	get_multilibs.
+	(libjava_find_gij): Likewise.  Changed return result if gij not
+	found.
+	(test_libjava_from_javac): Updated.
+
+	PR java/15001
+	* testsuite/libjava.jni/iface.c: New file.
+	* testsuite/libjava.jni/iface.out: New file.
+	* testsuite/libjava.jni/iface.java: New file.
+
+2004-12-19  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* include/config.h.in: Regenerate.
+
+2004-12-10  Andrew Haley  <aph@redhat.com>
+
+	PR java/15001
+	* java/lang/reflect/natMethod.cc (_Jv_CallAnyMethodA): Look up
+	abstract methods by name.
+
 2004-12-08  Ranjit Mathew  <rmathew@hotmail.com>
 
 	* java/util/IdentityHashMap.java (put): Replace mistaken use

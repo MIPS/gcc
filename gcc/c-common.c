@@ -755,7 +755,10 @@ fname_as_string (int pretty_p)
       strname.len = len - 1;
 
       if (cpp_interpret_string (parse_in, &strname, 1, &cstr, false))
-	return (char *) cstr.text;
+	{
+	  XDELETEVEC (namep);
+	  return (char *) cstr.text;
+	}
     }
   else
     namep = xstrdup (name);
@@ -3218,6 +3221,26 @@ c_common_nodes_and_builtins (void)
     mudflap_init ();
 
   main_identifier_node = get_identifier ("main");
+}
+
+/* Look up the function in built_in_decls that corresponds to DECL
+   and set ASMSPEC as its user assembler name.  DECL must be a
+   function decl that declares a builtin. */
+
+void
+set_builtin_user_assembler_name (tree decl, const char *asmspec)
+{
+  tree builtin;
+  gcc_assert (TREE_CODE (decl) == FUNCTION_DECL
+	      && DECL_BUILT_IN_CLASS (decl) == BUILT_IN_NORMAL
+	      && asmspec != 0);
+
+  builtin = built_in_decls [DECL_FUNCTION_CODE (decl)];
+  set_user_assembler_name (builtin, asmspec);
+  if (DECL_FUNCTION_CODE (decl) == BUILT_IN_MEMCPY)
+    init_block_move_fn (asmspec);
+  else if (DECL_FUNCTION_CODE (decl) == BUILT_IN_MEMSET)
+    init_block_clear_fn (asmspec);
 }
 
 tree

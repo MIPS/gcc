@@ -3102,7 +3102,7 @@ optimize_bit_field_compare (enum tree_code code, tree compare_type,
      do anything if the inner expression is a PLACEHOLDER_EXPR since we
      then will no longer be able to replace it.  */
   linner = get_inner_reference (lhs, &lbitsize, &lbitpos, &offset, &lmode,
-				&lunsignedp, &lvolatilep);
+				&lunsignedp, &lvolatilep, false);
   if (linner == lhs || lbitsize == GET_MODE_BITSIZE (lmode) || lbitsize < 0
       || offset != 0 || TREE_CODE (linner) == PLACEHOLDER_EXPR)
     return 0;
@@ -3112,7 +3112,7 @@ optimize_bit_field_compare (enum tree_code code, tree compare_type,
      /* If this is not a constant, we can only do something if bit positions,
 	sizes, and signedness are the same.  */
      rinner = get_inner_reference (rhs, &rbitsize, &rbitpos, &offset, &rmode,
-				   &runsignedp, &rvolatilep);
+				   &runsignedp, &rvolatilep, false);
 
      if (rinner == rhs || lbitpos != rbitpos || lbitsize != rbitsize
 	 || lunsignedp != runsignedp || offset != 0
@@ -3288,7 +3288,7 @@ decode_field_reference (tree exp, HOST_WIDE_INT *pbitsize,
     }
 
   inner = get_inner_reference (exp, pbitsize, pbitpos, &offset, pmode,
-			       punsignedp, pvolatilep);
+			       punsignedp, pvolatilep, false);
   if ((inner == exp && and_mask == 0)
       || *pbitsize < 0 || offset != 0
       || TREE_CODE (inner) == PLACEHOLDER_EXPR)
@@ -5876,7 +5876,8 @@ fold_single_bit_test (enum tree_code code, tree arg0, tree arg1,
 	 operations as unsigned.  If we must use the AND, we have a choice.
 	 Normally unsigned is faster, but for some machines signed is.  */
 #ifdef LOAD_EXTEND_OP
-      ops_unsigned = (LOAD_EXTEND_OP (operand_mode) == SIGN_EXTEND ? 0 : 1);
+      ops_unsigned = (LOAD_EXTEND_OP (operand_mode) == SIGN_EXTEND 
+		      && !flag_syntax_only) ? 0 : 1;
 #else
       ops_unsigned = 1;
 #endif
@@ -6023,27 +6024,27 @@ fold_widened_comparison (enum tree_code code, tree type, tree arg0, tree arg1)
     {
     case EQ_EXPR:
       if (above || below)
-	return constant_boolean_node (false, type);
+	return omit_one_operand (type, integer_zero_node, arg0);
       break;
 
     case NE_EXPR:
       if (above || below)
-	return constant_boolean_node (true, type);
+	return omit_one_operand (type, integer_one_node, arg0);
       break;
 
     case LT_EXPR:
     case LE_EXPR:
       if (above)
-	return constant_boolean_node (true, type);
+	return omit_one_operand (type, integer_one_node, arg0);
       else if (below)
-	return constant_boolean_node (false, type);;
+	return omit_one_operand (type, integer_zero_node, arg0);
 
     case GT_EXPR:
     case GE_EXPR:
       if (above)
-	return constant_boolean_node (false, type);
+	return omit_one_operand (type, integer_zero_node, arg0);
       else if (below)
-	return constant_boolean_node (true, type);;
+	return omit_one_operand (type, integer_one_node, arg0);
 
     default:
       break;
@@ -6404,10 +6405,11 @@ fold (tree expr)
 	      && ! VOID_TYPE_P (TREE_OPERAND (tem, 2))
 	      && (TREE_TYPE (TREE_OPERAND (TREE_OPERAND (tem, 1), 0))
 		  == TREE_TYPE (TREE_OPERAND (TREE_OPERAND (tem, 2), 0)))
-	      && ! (INTEGRAL_TYPE_P (TREE_TYPE (tem))
-		    && (INTEGRAL_TYPE_P
-			(TREE_TYPE (TREE_OPERAND (TREE_OPERAND (tem, 1), 0))))
-		    && TYPE_PRECISION (TREE_TYPE (tem)) <= BITS_PER_WORD))
+	      && (! (INTEGRAL_TYPE_P (TREE_TYPE (tem))
+		     && (INTEGRAL_TYPE_P
+			 (TREE_TYPE (TREE_OPERAND (TREE_OPERAND (tem, 1), 0))))
+		     && TYPE_PRECISION (TREE_TYPE (tem)) <= BITS_PER_WORD)
+		  || flag_syntax_only))
 	    tem = build1 (code, type,
 			  build3 (COND_EXPR,
 				  TREE_TYPE (TREE_OPERAND
@@ -6614,6 +6616,7 @@ fold (tree expr)
 	      change = (cst == 0);
 #ifdef LOAD_EXTEND_OP
 	      if (change
+		  && !flag_syntax_only
 		  && (LOAD_EXTEND_OP (TYPE_MODE (TREE_TYPE (and0)))
 		      == ZERO_EXTEND))
 		{
@@ -9553,6 +9556,13 @@ multiple_of_p (tree type, tree top, tree bottom)
 
   switch (TREE_CODE (top))
     {
+    case BIT_AND_EXPR:
+      /* Bitwise and provides a power of two multiple.  If the mask is
+	 a multiple of BOTTOM then TOP is a multiple of BOTTOM.  */
+      if (!integer_pow2p (bottom))
+	return 0;
+      /* FALLTHRU */
+
     case MULT_EXPR:
       return (multiple_of_p (type, TREE_OPERAND (top, 0), bottom)
 	      || multiple_of_p (type, TREE_OPERAND (top, 1), bottom));
@@ -10788,6 +10798,21 @@ fold_build_cleanup_point_expr (tree type, tree expr)
      it with a cleanup point expression.  */
   if (!TREE_SIDE_EFFECTS (expr))
     return expr;
+
+  /* If the expression is a return, check to see if the expression inside the
+     return has no side effects or the right hand side of the modify expression
+     inside the return. If either don't have side effects set we don't need to
+     wrap the expression in a cleanup point expression.  Note we don't check the
+     left hand side of the modify because it should always be a return decl.  */
+  if (TREE_CODE (expr) == RETURN_EXPR)
+    {
+      tree op = TREE_OPERAND (expr, 0);
+      if (!op || !TREE_SIDE_EFFECTS (op))
+        return expr;
+      op = TREE_OPERAND (op, 1);
+      if (!TREE_SIDE_EFFECTS (op))
+        return expr;
+    }
   
   return build1 (CLEANUP_POINT_EXPR, type, expr);
 }
@@ -11023,7 +11048,8 @@ split_address_to_core_and_offset (tree exp,
   if (TREE_CODE (exp) == ADDR_EXPR)
     {
       core = get_inner_reference (TREE_OPERAND (exp, 0), &bitsize, pbitpos,
-				  poffset, &mode, &unsignedp, &volatilep);
+				  poffset, &mode, &unsignedp, &volatilep,
+				  false);
 
       if (TREE_CODE (core) == INDIRECT_REF)
 	core = TREE_OPERAND (core, 0);

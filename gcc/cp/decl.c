@@ -2431,8 +2431,7 @@ define_label (location_t location, tree name)
       check_previous_gotos (decl);
     }
 
-  timevar_pop (TV_NAME_LOOKUP);
-  return decl;
+  POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, decl);
 }
 
 struct cp_switch
@@ -2669,15 +2668,7 @@ make_typename_type (tree context, tree name, enum tag_types tag_type,
       return error_mark_node;
     }
   gcc_assert (TREE_CODE (name) == IDENTIFIER_NODE);
-
-  if (TREE_CODE (context) == NAMESPACE_DECL)
-    {
-      /* We can get here from typename_sub0 in the explicit_template_type
-	 expansion.  Just fail.  */
-      if (complain & tf_error)
-	error ("no class template named %q#T in %q#T", name, context);
-      return error_mark_node;
-    }
+  gcc_assert (TYPE_P (context));
 
   if (!dependent_type_p (context)
       || currently_open_class (context))
@@ -3523,7 +3514,8 @@ check_tag_decl (cp_decl_specifier_seq *declspecs)
       return NULL_TREE;
     }
 
-  if (TYPE_P (declspecs->type)
+  if (declspecs->type
+      && TYPE_P (declspecs->type)
       && ((TREE_CODE (declspecs->type) != TYPENAME_TYPE
 	   && IS_AGGR_TYPE (declspecs->type))
 	  || TREE_CODE (declspecs->type) == ENUMERAL_TYPE))
@@ -4604,6 +4596,12 @@ check_initializer (tree decl, tree init, int flags, tree *cleanup)
 	  if (TREE_CODE (init) != TREE_VEC)
 	    {
 	      init_code = store_init_value (decl, init);
+	      if (pedantic && TREE_CODE (type) == ARRAY_TYPE
+		  && DECL_INITIAL (decl)
+		  && TREE_CODE (DECL_INITIAL (decl)) == STRING_CST
+		  && PAREN_STRING_LITERAL_P (DECL_INITIAL (decl)))
+		warning ("array %qD initialized by parenthesized string literal %qE",
+			 decl, DECL_INITIAL (decl));
 	      init = NULL;
 	    }
 	}
@@ -4652,7 +4650,12 @@ make_rtl_for_nonlocal_decl (tree decl, tree init, const char* asmspec)
 	  DECL_HARD_REGISTER (decl) = 1;
 	}
       else
-	set_user_assembler_name (decl, asmspec);
+	{
+	  if (TREE_CODE (decl) == FUNCTION_DECL
+	      && DECL_BUILT_IN_CLASS (decl) == BUILT_IN_NORMAL)
+	    set_builtin_user_assembler_name (decl, asmspec);
+	  set_user_assembler_name (decl, asmspec);
+	}
     }
 
   /* Handle non-variables up front.  */
@@ -4861,6 +4864,7 @@ cp_finish_decl (tree decl, tree init, tree asmspec_tree, int flags)
 	  && !DECL_PRETTY_FUNCTION_P (decl)
 	  && !dependent_type_p (TREE_TYPE (decl)))
 	maybe_deduce_size_from_array_init (decl, init);
+      
       goto finish_end;
     }
 
@@ -5309,8 +5313,8 @@ expand_static_init (tree decl, tree init)
   if (DECL_FUNCTION_SCOPE_P (decl))
     {
       /* Emit code to perform this initialization but once.  */
-      tree if_stmt, inner_if_stmt = NULL_TREE;
-      tree then_clause, inner_then_clause = NULL_TREE;
+      tree if_stmt = NULL_TREE, inner_if_stmt = NULL_TREE;
+      tree then_clause = NULL_TREE, inner_then_clause = NULL_TREE;
       tree guard, guard_addr, guard_addr_list;
       tree acquire_fn, release_fn, abort_fn;
       tree flag, begin;
@@ -5349,10 +5353,16 @@ expand_static_init (tree decl, tree init)
       /* Create the guard variable.  */
       guard = get_guard (decl);
 
-      /* Begin the conditional initialization.  */
-      if_stmt = begin_if_stmt ();
-      finish_if_stmt_cond (get_guard_cond (guard), if_stmt);
-      then_clause = begin_compound_stmt (BCS_NO_SCOPE);
+      /* This optimization isn't safe on targets with relaxed memory
+	 consistency.  On such targets we force synchronization in
+	 __cxa_guard_acquire.  */
+      if (!targetm.relaxed_ordering || !flag_threadsafe_statics)
+	{
+	  /* Begin the conditional initialization.  */
+	  if_stmt = begin_if_stmt ();
+	  finish_if_stmt_cond (get_guard_cond (guard), if_stmt);
+	  then_clause = begin_compound_stmt (BCS_NO_SCOPE);
+	}
 
       if (flag_threadsafe_statics)
 	{
@@ -5415,9 +5425,12 @@ expand_static_init (tree decl, tree init)
 	  finish_if_stmt (inner_if_stmt);
 	}
 
-      finish_compound_stmt (then_clause);
-      finish_then_clause (if_stmt);
-      finish_if_stmt (if_stmt);
+      if (!targetm.relaxed_ordering || !flag_threadsafe_statics)
+	{
+	  finish_compound_stmt (then_clause);
+	  finish_then_clause (if_stmt);
+	  finish_if_stmt (if_stmt);
+	}
     }
   else
     static_aggregates = tree_cons (init, decl, static_aggregates);
@@ -6215,7 +6228,7 @@ compute_array_index_type (tree name, tree size)
   STRIP_TYPE_NOPS (size);
 
   /* It might be a const variable or enumeration constant.  */
-  size = decl_constant_value (size);
+  size = integral_constant_value (size);
 
   /* Normally, the array-bound will be a constant.  */
   if (TREE_CODE (size) == INTEGER_CST)
@@ -6742,7 +6755,7 @@ grokdeclarator (const cp_declarator *declarator,
       && ! (ctype && !declspecs->any_specifiers_p))
     {
       error ("declaration of %qD as non-function", dname);
-      return void_type_node;
+      return error_mark_node;
     }
 
   /* Anything declared one level down from the top level
@@ -9048,6 +9061,8 @@ grok_op_properties (tree decl, int friendp, bool complain)
   return ok;
 }
 
+/* Return a string giving the keyword associate with CODE.  */
+
 static const char *
 tag_name (enum tag_types code)
 {
@@ -9058,9 +9073,11 @@ tag_name (enum tag_types code)
     case class_type:
       return "class";
     case union_type:
-      return "union ";
+      return "union";
     case enum_type:
       return "enum";
+    case typename_type:
+      return "typename";
     default:
       gcc_unreachable ();
     }
@@ -9106,7 +9123,8 @@ check_elaborated_type_specifier (enum tag_types tag_code,
      In other words, the only legitimate declaration to use in the
      elaborated type specifier is the implicit typedef created when
      the type is declared.  */
-  else if (!DECL_IMPLICIT_TYPEDEF_P (decl))
+  else if (!DECL_IMPLICIT_TYPEDEF_P (decl)
+	   && tag_code != typename_type)
     {
       error ("using typedef-name %qD after %qs", decl, tag_name (tag_code));
       cp_error_at ("%qD has a previous declaration here", decl);
@@ -9114,14 +9132,16 @@ check_elaborated_type_specifier (enum tag_types tag_code,
     }
   else if (TREE_CODE (type) != RECORD_TYPE
 	   && TREE_CODE (type) != UNION_TYPE
-	   && tag_code != enum_type)
+	   && tag_code != enum_type
+	   && tag_code != typename_type)
     {
       error ("%qT referred to as %qs", type, tag_name (tag_code));
       cp_error_at ("%qT has a previous declaration here", type);
       return error_mark_node;
     }
   else if (TREE_CODE (type) != ENUMERAL_TYPE
-	   && tag_code == enum_type)
+	   && tag_code == enum_type
+	   && tag_code != typename_type)
     {
       error ("%qT referred to as enum", type);
       cp_error_at ("%qT has a previous declaration here", type);
@@ -9793,7 +9813,7 @@ build_enumerator (tree name, tree value, tree enumtype)
       /* Validate and default VALUE.  */
       if (value != NULL_TREE)
 	{
-	  value = decl_constant_value (value);
+	  value = integral_constant_value (value);
 
 	  if (TREE_CODE (value) == INTEGER_CST)
 	    {

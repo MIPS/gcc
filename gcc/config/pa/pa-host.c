@@ -22,8 +22,13 @@
 #include "system.h"
 #include "coretypes.h"
 #include <sys/mman.h>
+#include <unistd.h>
 #include "hosthooks.h"
 #include "hosthooks-def.h"
+
+#ifndef MAP_FAILED
+#define MAP_FAILED (void *)-1L
+#endif
 
 static void *pa_gt_pch_get_address (size_t, int);
 static int pa_gt_pch_use_address (void *, size_t, int, size_t);
@@ -70,11 +75,11 @@ pa_gt_pch_get_address (size_t size, int fd)
    It's not possibly to reliably mmap a file using MAP_PRIVATE to
    a specific START address on either hpux or linux.  First we see
    if mmap with MAP_PRIVATE works.  If it does, we are off to the
-   races.  If it doesn't, we try an anonymous MAP_PRIVATE since the
+   races.  If it doesn't, we try an anonymous private mmap since the
    kernel is more likely to honor the BASE address in anonymous maps.
-   We then mmap the file to an arbitrary location and copy the data
-   to the anonymous private map.  This assumes of course that we
-   don't need to change the PCH data after the file is created.
+   We then copy the data to the anonymous private map.  This assumes
+   of course that we don't need to change the data in the PCH file
+   after it is created.
 
    This approach obviously causes a performance penalty but there is
    little else we can do given the current PCH implementation.  */
@@ -82,7 +87,7 @@ pa_gt_pch_get_address (size_t size, int fd)
 static int
 pa_gt_pch_use_address (void *base, size_t size, int fd, size_t offset)
 {
-  void *addr, *faddr;
+  void *addr;
 
   /* We're called with size == 0 if we're not planning to load a PCH
      file at all.  This allows the hook to free any static space that
@@ -91,8 +96,7 @@ pa_gt_pch_use_address (void *base, size_t size, int fd, size_t offset)
     return -1;
 
   /* Try to map the file with MAP_PRIVATE.  */
-  addr = mmap (base, size, PROT_READ | PROT_WRITE,
-	       MAP_PRIVATE, fd, offset);
+  addr = mmap (base, size, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, offset);
 
   if (addr == base)
     return 1;
@@ -100,20 +104,30 @@ pa_gt_pch_use_address (void *base, size_t size, int fd, size_t offset)
   if (addr != (void *) MAP_FAILED)
     munmap (addr, size);
 
+  /* Try to make an anonymous private mmap at the desired location.  */
   addr = mmap (base, size, PROT_READ | PROT_WRITE,
 	       MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 
   if (addr != base)
+    {
+      if (addr != (void *) MAP_FAILED)
+        munmap (addr, size);
+      return -1;
+    }
+
+  if (lseek (fd, offset, SEEK_SET) == (off_t)-1)
     return -1;
 
-  faddr = mmap (NULL, size, PROT_READ, MAP_PRIVATE,
-		fd, offset);
+  while (size)
+    {
+      ssize_t nbytes;
 
-  if (faddr == (void *) MAP_FAILED)
-    return -1;
-
-  memcpy (addr, faddr, size);
-  munmap (faddr, size);
+      nbytes = read (fd, base, MIN (size, SSIZE_MAX));
+      if (nbytes <= 0)
+        return -1;
+      base = (char *) base + nbytes;
+      size -= nbytes;
+    }
 
   return 1;
 }

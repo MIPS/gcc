@@ -1442,9 +1442,16 @@ asm_emit_uninitialised (tree decl, const char *name,
 	destination = asm_dest_common;
     }
 
+  if (destination != asm_dest_common)
+    {
+      resolve_unique_section (decl, 0, flag_data_sections);
+      /* Custom sections don't belong here.  */
+      if (DECL_SECTION_NAME (decl))
+        return false;
+    }
+
   if (destination == asm_dest_bss)
     globalize_decl (decl);
-  resolve_unique_section (decl, 0, flag_data_sections);
 
   if (flag_shared_data)
     {
@@ -1625,16 +1632,6 @@ assemble_variable (tree decl, int top_level ATTRIBUTE_UNUSED,
   if (DECL_PRESERVE_P (decl))
     targetm.asm_out.mark_decl_preserved (name);
 
-  /* Output any data that we will need to use the address of.  */
-  if (DECL_INITIAL (decl) == error_mark_node)
-    reloc = contains_pointers_p (TREE_TYPE (decl)) ? 3 : 0;
-  else if (DECL_INITIAL (decl))
-    {
-      reloc = compute_reloc_for_constant (DECL_INITIAL (decl));
-      output_addressed_constants (DECL_INITIAL (decl));
-    }
-  resolve_unique_section (decl, reloc, flag_data_sections);
-
   /* Handle uninitialized definitions.  */
 
   /* If the decl has been given an explicit section name, then it
@@ -1688,7 +1685,17 @@ assemble_variable (tree decl, int top_level ATTRIBUTE_UNUSED,
   if (TREE_PUBLIC (decl) && DECL_NAME (decl))
     globalize_decl (decl);
 
+  /* Output any data that we will need to use the address of.  */
+  if (DECL_INITIAL (decl) == error_mark_node)
+    reloc = contains_pointers_p (TREE_TYPE (decl)) ? 3 : 0;
+  else if (DECL_INITIAL (decl))
+    {
+      reloc = compute_reloc_for_constant (DECL_INITIAL (decl));
+      output_addressed_constants (DECL_INITIAL (decl));
+    }
+
   /* Switch to the appropriate section.  */
+  resolve_unique_section (decl, reloc, flag_data_sections);
   variable_section (decl, reloc);
 
   /* dbxout.c needs to know this.  */
@@ -1882,11 +1889,24 @@ mark_decl_referenced (tree decl)
      which do not need to be marked.  */
 }
 
-/* Output to FILE a reference to the assembler name of a C-level name NAME.
-   If NAME starts with a *, the rest of NAME is output verbatim.
-   Otherwise NAME is transformed in an implementation-defined way
-   (usually by the addition of an underscore).
-   Many macros in the tm file are defined to call this function.  */
+/* Output to FILE (an assembly file) a reference to NAME.  If NAME
+   starts with a *, the rest of NAME is output verbatim.  Otherwise
+   NAME is transformed in a target-specific way (usually by the
+   addition of an underscore).  */
+
+void
+assemble_name_raw (FILE *file, const char *name)
+{
+  if (name[0] == '*')
+    fputs (&name[1], file);
+  else
+    ASM_OUTPUT_LABELREF (file, name);
+}
+
+/* Like assemble_name_raw, but should be used when NAME might refer to
+   an entity that is also represented as a tree (like a function or
+   variable).  If NAME does refer to such an entity, that entity will
+   be marked as referenced.  */
 
 void
 assemble_name (FILE *file, const char *name)
@@ -1900,10 +1920,7 @@ assemble_name (FILE *file, const char *name)
   if (id)
     mark_referenced (id);
 
-  if (name[0] == '*')
-    fputs (&name[1], file);
-  else
-    ASM_OUTPUT_LABELREF (file, name);
+  assemble_name_raw (file, name);
 }
 
 /* Allocate SIZE bytes writable static space with a gensym name
@@ -3004,6 +3021,7 @@ force_const_mem (enum machine_mode mode, rtx x)
   /* Construct the MEM.  */
   desc->mem = def = gen_const_mem (mode, symbol);
   set_mem_attributes (def, lang_hooks.types.type_for_mode (mode, 0), 1);
+  set_mem_align (def, align);
 
   /* If we're dropping a label to the constant pool, make sure we
      don't delete it.  */
@@ -5197,7 +5215,7 @@ default_internal_label (FILE *stream, const char *prefix,
 {
   char *const buf = alloca (40 + strlen (prefix));
   ASM_GENERATE_INTERNAL_LABEL (buf, prefix, labelno);
-  ASM_OUTPUT_LABEL (stream, buf);
+  ASM_OUTPUT_INTERNAL_LABEL (stream, buf);
 }
 
 /* This is the default behavior at the beginning of a file.  It's

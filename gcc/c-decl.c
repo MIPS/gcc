@@ -1191,12 +1191,24 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
       else if (TREE_CODE (newdecl) == FUNCTION_DECL && DECL_INITIAL (newdecl)
 	       && TYPE_MAIN_VARIANT (TREE_TYPE (oldtype)) == void_type_node
 	       && TYPE_MAIN_VARIANT (TREE_TYPE (newtype)) == integer_type_node
-	       && C_FUNCTION_IMPLICIT_INT (newdecl))
+	       && C_FUNCTION_IMPLICIT_INT (newdecl) && !DECL_INITIAL (olddecl))
 	{
 	  pedwarn ("%Jconflicting types for %qD", newdecl, newdecl);
 	  /* Make sure we keep void as the return type.  */
 	  TREE_TYPE (newdecl) = *newtypep = newtype = oldtype;
 	  C_FUNCTION_IMPLICIT_INT (newdecl) = 0;
+	  pedwarned = true;
+	}
+      /* Permit void foo (...) to match an earlier call to foo (...) with
+	 no declared type (thus, implicitly int).  */
+      else if (TREE_CODE (newdecl) == FUNCTION_DECL
+	       && TYPE_MAIN_VARIANT (TREE_TYPE (newtype)) == void_type_node
+	       && TYPE_MAIN_VARIANT (TREE_TYPE (oldtype)) == integer_type_node
+	       && C_DECL_IMPLICIT (olddecl) && !DECL_INITIAL (olddecl))
+	{
+	  pedwarn ("%Jconflicting types for %qD", newdecl, newdecl);
+	  /* Make sure we keep void as the return type.  */
+	  TREE_TYPE (olddecl) = *oldtypep = oldtype = newtype;
 	  pedwarned = true;
 	}
       else
@@ -2055,30 +2067,6 @@ pushdecl (tree x)
 		    /*nested=*/false);
 	      nested = true;
 	    }
-	}
-    }
-  /* Similarly, a declaration of a function with static linkage at
-     block scope must be checked against any existing declaration
-     of that function at file scope.  */
-  else if (TREE_CODE (x) == FUNCTION_DECL && scope != file_scope
-	   && !TREE_PUBLIC (x) && !DECL_INITIAL (x))
-    {
-      if (warn_nested_externs && !DECL_IN_SYSTEM_HEADER (x))
-	warning ("nested static declaration of %qD", x);
-
-      while (b && !B_IN_FILE_SCOPE (b))
-	b = b->shadowed;
-
-      if (b && same_translation_unit_p (x, b->decl)
-	  && duplicate_decls (x, b->decl))
-	{
-	  bind (name, b->decl, scope, /*invisible=*/false, /*nested=*/true);
-	  return b->decl;
-	}
-      else
-	{
-	  bind (name, x, file_scope, /*invisible=*/true, /*nested=*/false);
-	  nested = true;
 	}
     }
 
@@ -2952,6 +2940,8 @@ start_decl (struct c_declarator *declarator, struct c_declspecs *declspecs,
 
   decl = grokdeclarator (declarator, declspecs,
 			 NORMAL, initialized, NULL);
+  if (!decl)
+    return 0;
 
   deprecated_state = DEPRECATED_NORMAL;
 
@@ -3221,14 +3211,7 @@ finish_decl (tree decl, tree init, tree asmspec_tree)
   if (TREE_CODE (decl) == FUNCTION_DECL && asmspec)
     {
       if (DECL_BUILT_IN_CLASS (decl) == BUILT_IN_NORMAL)
-	{
-	  tree builtin = built_in_decls [DECL_FUNCTION_CODE (decl)];
-	  set_user_assembler_name (builtin, asmspec);
-	   if (DECL_FUNCTION_CODE (decl) == BUILT_IN_MEMCPY)
-	     init_block_move_fn (asmspec);
-	   else if (DECL_FUNCTION_CODE (decl) == BUILT_IN_MEMSET)
-	     init_block_clear_fn (asmspec);
-	 }
+	set_builtin_user_assembler_name (decl, asmspec);
       set_user_assembler_name (decl, asmspec);
     }
 
@@ -4072,6 +4055,12 @@ grokdeclarator (const struct c_declarator *declarator,
 		  }
 		else
 		  {
+		    /* Arrange for the SAVE_EXPR on the inside of the
+		       MINUS_EXPR, which allows the -1 to get folded
+		       with the +1 that happens when building TYPE_SIZE.  */
+		    if (size_varies)
+		      size = variable_size (size);
+
 		    /* Compute the maximum valid index, that is, size
 		       - 1.  Do the calculation in index_type, so that
 		       if it is a variable the computations will be
@@ -4095,8 +4084,6 @@ grokdeclarator (const struct c_declarator *declarator,
 			continue;
 		      }
 		    
-		    if (size_varies)
-		      itype = variable_size (itype);
 		    itype = build_index_type (itype);
 		  }
 	      }
@@ -4428,14 +4415,9 @@ grokdeclarator (const struct c_declarator *declarator,
       }
     else if (TREE_CODE (type) == FUNCTION_TYPE)
       {
-	decl = build_decl (FUNCTION_DECL, declarator->u.id, type);
-	decl = build_decl_attribute_variant (decl, decl_attr);
-
 	if (storage_class == csc_register || threadp)
 	  {
 	    error ("invalid storage class for function %qs", name);
-	    if (DECL_INITIAL (decl) != NULL_TREE)
-	      DECL_INITIAL (decl) = error_mark_node;
 	   }
 	else if (current_scope != file_scope)
 	  {
@@ -4449,13 +4431,18 @@ grokdeclarator (const struct c_declarator *declarator,
 		if (pedantic)
 		  pedwarn ("invalid storage class for function %qs", name);
 	      }
-	    if (storage_class == csc_static)
+	    else if (storage_class == csc_static)
 	      {
 	        error ("invalid storage class for function %qs", name);
-		if (DECL_INITIAL (decl) != NULL_TREE)
-		  DECL_INITIAL (decl) = error_mark_node;
+	        if (funcdef_flag)
+		  storage_class = declspecs->storage_class = csc_none;
+		else
+		  return 0;
 	      }
 	  }
+
+	decl = build_decl (FUNCTION_DECL, declarator->u.id, type);
+	decl = build_decl_attribute_variant (decl, decl_attr);
 
 	DECL_LANG_SPECIFIC (decl) = GGC_CNEW (struct lang_decl);
 
@@ -5385,6 +5372,12 @@ finish_struct (tree t, tree fieldlist, tree attributes)
   /* Finish debugging output for this type.  */
   rest_of_type_compilation (t, toplevel);
 
+  /* If we're inside a function proper, i.e. not file-scope and not still
+     parsing parameters, then arrange for the size of a variable sized type
+     to be bound now.  */
+  if (cur_stmt_list && variably_modified_type_p (t, NULL))
+    add_stmt (build_stmt (DECL_EXPR, build_decl (TYPE_DECL, NULL, t)));
+
   return t;
 }
 
@@ -6213,8 +6206,11 @@ store_parm_decls (void)
   DECL_SAVED_TREE (fndecl) = push_stmt_list ();
 
   /* ??? Insert the contents of the pending sizes list into the function
-     to be evaluated.  This just changes mis-behavior until assign_parms
-     phase ordering problems are resolved.  */
+     to be evaluated.  The only reason left to have this is
+	void foo(int n, int array[n++])
+     because we throw away the array type in favor of a pointer type, and
+     thus won't naturally see the SAVE_EXPR containing the increment.  All
+     other pending sizes would be handled by gimplify_parameters.  */
   {
     tree t;
     for (t = nreverse (get_pending_sizes ()); t ; t = TREE_CHAIN (t))

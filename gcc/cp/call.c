@@ -428,8 +428,7 @@ null_ptr_cst_p (tree t)
 
      A null pointer constant is an integral constant expression
      (_expr.const_) rvalue of integer type that evaluates to zero.  */
-  if (DECL_INTEGRAL_CONSTANT_VAR_P (t))
-    t = decl_constant_value (t);
+  t = integral_constant_value (t);
   if (t == null_node
       || (CP_INTEGRAL_TYPE_P (TREE_TYPE (t)) && integer_zerop (t)))
     return true;
@@ -2334,10 +2333,18 @@ any_strictly_viable (struct z_candidate *cands)
   return false;
 }
 
+/* OBJ is being used in an expression like "OBJ.f (...)".  In other
+   words, it is about to become the "this" pointer for a member
+   function call.  Take the address of the object.  */
+
 static tree
 build_this (tree obj)
 {
-  /* Fix this to work on non-lvalues.  */
+  /* In a template, we are only concerned about the type of the
+     expression, so we can take a shortcut.  */
+  if (processing_template_decl)
+    return build_address (obj);
+
   return build_unary_op (ADDR_EXPR, obj, 0);
 }
 
@@ -4227,12 +4234,11 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
     case ck_identity:
       if (type_unknown_p (expr))
 	expr = instantiate_type (totype, expr, tf_error | tf_warning);
-      /* Convert a non-array constant variable to its underlying value, unless we
-	 are about to bind it to a reference, in which case we need to
+      /* Convert a constant to its underlying value, unless we are
+	 about to bind it to a reference, in which case we need to
 	 leave it as an lvalue.  */
-      if (inner >= 0
-	  && TREE_CODE (TREE_TYPE (expr)) != ARRAY_TYPE)
-	expr = decl_constant_value (expr);
+      if (inner >= 0)
+	expr = integral_constant_value (expr);
       if (convs->check_copy_constructor_p)
 	check_constructor_callable (totype, expr);
       return expr;
@@ -4290,13 +4296,12 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
 	if (convs->need_temporary_p || !lvalue_p (expr))
 	  {
 	    tree type = convs->u.next->type;
+	    cp_lvalue_kind lvalue = real_lvalue_p (expr);
 
 	    if (!CP_TYPE_CONST_NON_VOLATILE_P (TREE_TYPE (ref_type)))
 	      {
 		/* If the reference is volatile or non-const, we
 		   cannot create a temporary.  */
-		cp_lvalue_kind lvalue = real_lvalue_p (expr);
-		
 		if (lvalue & clk_bitfield)
 		  error ("cannot bind bitfield %qE to %qT",
 			 expr, ref_type);
@@ -4305,6 +4310,20 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
 			 expr, ref_type);
 		else
 		  error ("cannot bind rvalue %qE to %qT", expr, ref_type);
+		return error_mark_node;
+	      }
+	    /* If the source is a packed field, and we must use a copy
+	       constructor, then building the target expr will require
+	       binding the field to the reference parameter to the
+	       copy constructor, and we'll end up with an infinite
+	       loop.  If we can use a bitwise copy, then we'll be
+	       OK.  */
+	    if ((lvalue & clk_packed) 
+		&& CLASS_TYPE_P (type) 
+		&& !TYPE_HAS_TRIVIAL_INIT_REF (type))
+	      {
+		error ("cannot bind packed field %qE to %qT",
+		       expr, ref_type);
 		return error_mark_node;
 	      }
 	    expr = build_target_expr_with_type (expr, type);

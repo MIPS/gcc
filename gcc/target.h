@@ -286,13 +286,6 @@ struct gcc_target
   struct vectorize
   {
     /* The following member value is a pointer to a function called
-       by te vectorizer, and when expanding a MISALIGNED_INDIRECT_REF
-       expression.  If the hook returns true (false) then a move* pattern
-       to/from memory can (cannot) be generated for this mode even if the
-       memory location is unaligned.  */
-    bool (* misaligned_mem_ok) (enum machine_mode);
-
-    /* The following member value is a pointer to a function called
        by the vectorizer, and return the decl of the target builtin
        function.  */
     tree (* builtin_mask_for_load) (void);
@@ -604,6 +597,10 @@ struct gcc_target
 
   /* True if #pragma extern_prefix is to be supported.  */
   bool handle_pragma_extern_prefix;
+
+  /* True if the target is allowed to reorder memory accesses unless
+     synchronization is explicitly requested.  */
+  bool relaxed_ordering;
 
   /* Leave the boolean fields at the end.  */
 };

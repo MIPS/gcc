@@ -31,16 +31,16 @@ void test01()
   using namespace __gnu_test;
 
   // Positive tests.
-  VERIFY( (test_property<is_const, const int, true>()) );
-  VERIFY( (test_property<is_const, const volatile int, true>()) );
-  VERIFY( (test_property<is_const, cClassType, true>()) );
-  VERIFY( (test_property<is_const, cvClassType, true>()) );
+  VERIFY( (test_property<is_const, const int>(true)) );
+  VERIFY( (test_property<is_const, const volatile int>(true)) );
+  VERIFY( (test_property<is_const, cClassType>(true)) );
+  VERIFY( (test_property<is_const, cvClassType>(true)) );
 
   // Negative tests.
-  VERIFY( (test_property<is_const, int, false>()) );
-  VERIFY( (test_property<is_const, volatile int, false>()) );
-  VERIFY( (test_property<is_const, ClassType, false>()) );
-  VERIFY( (test_property<is_const, vClassType, false>()) );
+  VERIFY( (test_property<is_const, int>(false)) );
+  VERIFY( (test_property<is_const, volatile int>(false)) );
+  VERIFY( (test_property<is_const, ClassType>(false)) );
+  VERIFY( (test_property<is_const, vClassType>(false)) );
 }
 
 int main()

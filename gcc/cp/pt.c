@@ -1738,7 +1738,15 @@ check_explicit_specialization (tree declarator,
   tree dname = DECL_NAME (decl);
   tmpl_spec_kind tsk;
 
-  tsk = current_tmpl_spec_kind (template_count);
+  if (is_friend)
+    {
+      if (!processing_specialization)
+	tsk = tsk_none;
+      else
+	tsk = tsk_excessive_parms;
+    }
+  else
+    tsk = current_tmpl_spec_kind (template_count);
 
   switch (tsk)
     {
@@ -2051,6 +2059,10 @@ check_explicit_specialization (tree declarator,
 		  DECL_SOURCE_LOCATION (tmpl) = DECL_SOURCE_LOCATION (decl);
 		  DECL_SOURCE_LOCATION (DECL_TEMPLATE_RESULT (tmpl))
 		    = DECL_SOURCE_LOCATION (decl);
+		  /* We want to use the argument list specified in the
+		     definition, not in the original declaration.  */
+		  DECL_ARGUMENTS (DECL_TEMPLATE_RESULT (tmpl))
+		    = DECL_ARGUMENTS (decl);
 		}
 	      return tmpl;
 	    }
@@ -3310,37 +3322,23 @@ fold_non_dependent_expr (tree expr)
    For instance, it could be a VAR_DECL with a constant initializer.
    Extract the innest constant expression.
    
-   This is basically a more powerful version of decl_constant_value, which
-   can be used also in templates where initializers can maintain a
-   syntactic rather than semantic form (even if they are non-dependent, for
-   access-checking purposes).  */
+   This is basically a more powerful version of
+   integral_constant_value, which can be used also in templates where
+   initializers can maintain a syntactic rather than semantic form
+   (even if they are non-dependent, for access-checking purposes).  */
 
 tree
 fold_decl_constant_value (tree expr)
 {
   while (true)
     {
-      tree const_expr = decl_constant_value (expr);
-      /* In a template, the initializer for a VAR_DECL may not be
-	 marked as TREE_CONSTANT, in which case decl_constant_value
-	 will not return the initializer.  Handle that special case
-	 here.  */
-      if (expr == const_expr
-	  && TREE_CODE (expr) == VAR_DECL
-	  && DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (expr)
-	  && CP_TYPE_CONST_NON_VOLATILE_P (TREE_TYPE (expr))
-	  /* DECL_INITIAL can be NULL if we are processing a
-	     variable initialized to an expression involving itself.
-	     We know it is initialized to a constant -- but not what
-	     constant, yet.  */
-	  && DECL_INITIAL (expr))
-	const_expr = DECL_INITIAL (expr);
+      tree const_expr = integral_constant_value (expr);
       if (expr == const_expr)
 	break;
       expr = fold_non_dependent_expr (const_expr);
     }
 
-    return expr;
+  return expr;
 }
 
 /* Subroutine of convert_nontype_argument. Converts EXPR to TYPE, which
@@ -5098,9 +5096,6 @@ static tree
 tsubst_friend_function (tree decl, tree args)
 {
   tree new_friend;
-  location_t saved_loc = input_location;
-
-  input_location = DECL_SOURCE_LOCATION (decl);
 
   if (TREE_CODE (decl) == FUNCTION_DECL 
       && DECL_TEMPLATE_INSTANTIATION (decl)
@@ -5135,8 +5130,7 @@ tsubst_friend_function (tree decl, tree args)
 				       &new_args, 
 				       /*need_member_template=*/0,
 				       TREE_VEC_LENGTH (args));
-      new_friend = instantiate_template (tmpl, new_args, tf_error);
-      goto done;
+      return instantiate_template (tmpl, new_args, tf_error);
     }
 
   new_friend = tsubst (decl, args, tf_error | tf_warning, NULL_TREE);
@@ -5299,19 +5293,40 @@ tsubst_friend_function (tree decl, tree args)
 	  new_friend = old_decl;
 	}
     }
-  else if (COMPLETE_TYPE_P (DECL_CONTEXT (new_friend)))
+  else
     {
-      /* Check to see that the declaration is really present, and,
-	 possibly obtain an improved declaration.  */
-      tree fn = check_classfn (DECL_CONTEXT (new_friend), 
-			       new_friend, NULL_TREE);
-      
-      if (fn)
-	new_friend = fn;
+      tree context = DECL_CONTEXT (new_friend);
+      bool dependent_p;
+
+      /* In the code
+	   template <class T> class C {
+	     template <class U> friend void C1<U>::f (); // case 1
+	     friend void C2<T>::f ();			 // case 2
+	   };
+	 we only need to make sure CONTEXT is a complete type for
+	 case 2.  To distinguish between the two cases, we note that
+	 CONTEXT of case 1 remains dependent type after tsubst while
+	 this isn't true for case 2.  */
+      ++processing_template_decl;
+      dependent_p = dependent_type_p (context);
+      --processing_template_decl;
+
+      if (!dependent_p
+	  && !complete_type_or_else (context, NULL_TREE))
+	return error_mark_node;
+
+      if (COMPLETE_TYPE_P (context))
+	{
+	  /* Check to see that the declaration is really present, and,
+	     possibly obtain an improved declaration.  */
+	  tree fn = check_classfn (context,
+				   new_friend, NULL_TREE);
+
+	  if (fn)
+	    new_friend = fn;
+	}
     }
 
- done:
-  input_location = saved_loc;
   return new_friend;
 }
 
@@ -5815,6 +5830,12 @@ instantiate_class_template (tree type)
 	    {
 	      /* Build new DECL_FRIENDLIST.  */
 	      tree r;
+
+	      /* The the file and line for this declaration, to
+		 assist in error message reporting.  Since we
+		 called push_tinst_level above, we don't need to
+		 restore these.  */
+	      input_location = DECL_SOURCE_LOCATION (t);
 
 	      if (TREE_CODE (t) == TEMPLATE_DECL)
 		{
@@ -6962,7 +6983,7 @@ tsubst (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 	   in that we want to fold it as much as possible.  */
 	max = tsubst_template_arg (omax, args, complain, in_decl);
 	if (!processing_template_decl)
-	  max = decl_constant_value (max);
+	  max = integral_constant_value (max);
 
 	if (integer_zerop (omax))
 	  {
@@ -7665,7 +7686,7 @@ tsubst_copy (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 	  return t;
 	/* If ARGS is NULL, then T is known to be non-dependent.  */
 	if (args == NULL_TREE)
-	  return decl_constant_value (t);
+	  return integral_constant_value (t);
 
 	/* Unfortunately, we cannot just call lookup_name here.
 	   Consider:
@@ -8395,8 +8416,11 @@ tsubst_copy_and_build (tree t,
 
 	if (REFERENCE_REF_P (t))
 	  {
-	    gcc_assert (TREE_CODE (TREE_TYPE (r)) == REFERENCE_TYPE);
-	    r = convert_from_reference (r);
+	    /* A type conversion to reference type will be enclosed in
+	       such an indirect ref, but the substitution of the cast
+	       will have also added such an indirect ref.  */
+	    if (TREE_CODE (TREE_TYPE (r)) == REFERENCE_TYPE)
+	      r = convert_from_reference (r);
 	  }
 	else
 	  r = build_x_indirect_ref (r, "unary *");
@@ -8902,9 +8926,7 @@ check_instantiated_args (tree tmpl, tree args, tsubst_flags_t complain)
 
 	  if (nt)
 	    {
-	      if (!(complain & tf_error))
-		/*OK*/;
-	      else if (TYPE_ANONYMOUS_P (nt))
+	      if (TYPE_ANONYMOUS_P (nt))
 		error ("%qT uses anonymous type", t);
 	      else
 		error ("%qT uses local type %qT", t, nt);
@@ -10290,7 +10312,7 @@ unify (tree tparms, tree targs, tree parm, tree arg, int strict)
     case CONST_DECL:
       if (DECL_TEMPLATE_PARM_P (parm))
 	return unify (tparms, targs, DECL_INITIAL (parm), arg, strict);
-      if (arg != decl_constant_value (parm)) 
+      if (arg != integral_constant_value (parm)) 
 	return 1;
       return 0;
 

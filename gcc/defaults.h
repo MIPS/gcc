@@ -145,6 +145,15 @@ do { fputs (integer_asm_op (POINTER_SIZE / BITS_PER_UNIT, TRUE), FILE); \
   do { assemble_name ((FILE), (NAME)); fputs (":\n", (FILE)); } while (0)
 #endif
 
+/* Output the definition of a compiler-generated label named NAME.  */
+#ifndef ASM_OUTPUT_INTERNAL_LABEL
+#define ASM_OUTPUT_INTERNAL_LABEL(FILE,NAME)	\
+  do {						\
+    assemble_name_raw ((FILE), (NAME));		\
+    fputs (":\n", (FILE));			\
+  } while (0)
+#endif
+
 /* This is how to output a reference to a user-level label named NAME.  */
 
 #ifndef ASM_OUTPUT_LABELREF
@@ -336,6 +345,18 @@ do { fputs (integer_asm_op (POINTER_SIZE / BITS_PER_UNIT, TRUE), FILE); \
 #if defined (TARGET_ASM_NAMED_SECTION) && SUPPORTS_WEAK
 #ifndef JCR_SECTION_NAME
 #define JCR_SECTION_NAME ".jcr"
+#endif
+#endif
+
+/* This decision to use a .jcr section can be overridden by defining
+   USE_JCR_SECTION to 0 in target file.  This is necessary if target
+   can define JCR_SECTION_NAME but does not have crtstuff or
+   linker support for .jcr section.  */
+#ifndef TARGET_USE_JCR_SECTION
+#ifdef JCR_SECTION_NAME
+#define TARGET_USE_JCR_SECTION 1
+#else
+#define TARGET_USE_JCR_SECTION 0
 #endif
 #endif
 

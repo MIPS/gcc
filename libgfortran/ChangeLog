@@ -1,3 +1,101 @@
+2004-12-27  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* libgfortran/libgfortran.h (GFC_UINTEGER_1, GFC_UINTEGER_2): 
+	Define.
+	* intrinsics/ishftc.c: Update copyright years.
+	(ishftc8): Change 'shift' and 'size' to GFC_INTEGER_4.
+	* intrinsics/mvbits.c: Correct non-ASCII character in my name.
+	Add implementations for GFC_INTEGER_1 and GFC_INTEGER_2.
+
+2004-12-23  Bud Davis  <bdavis9659@comcast.net>
+
+	PR fortran/19071
+	* io/tranfer.c (formatted_transfer): moved check for 
+	format reversion inside the processing loop.
+
+2004-12-19  Aaron W. LaFramboise  <aaronavay62@aaronwl.com>
+
+	PR libfortran/19074
+	* libgfortran.h (itoa): Rename to gfc_itoa.
+	* io/write.c (itoa): Same.
+	* runtime/environ.c (itoa): Same.
+	* runtime/error.c (itoa): Same.
+
+2004-12-15  Bud Davis  <bdavis9659@comcast.net>
+            Steven G. Kargl  <kargls@comcast.net>
+
+	PR fortran/17597
+	* io/list_read.c (read_real): do not push back a comma when
+	it delimits a real value without a decimal point
+
+2004-12-14  Steve Ellcey  <sje@cup.hp.com>
+
+	* libgfortran/io/transfer.c (us_read): Use memcpy/memset
+	instead of assignment to fill unaligned buffer.
+	(us_write): Ditto.
+	(next_record_w): Ditto.
+
+2004-12-14  Steven G. Kargl  <kargls@comcast.net>
+
+	PR libfortran/18966
+	* gfortran.h: typedef GFC_INTEGER_1 and GFC_INTEGER_2
+	* intrinsics/cshift0.c (cshift0_1,cshift0_2): New functions.
+	* intrinsics/eoshift0.c (eoshift0_1,eoshift0_2): New functions.
+	* intrinsics/eoshift2.c (eoshift2_1,eoshift2_2): New functions.
+
+2004-12-13  David Edelsohn  <edelsohn@gnu.org>
+
+	* io/transfer.c (read_sf): Change bitwise "and" to logical "and".
+
+2004-12-12  Richard Henderson  <rth@redhat.com>
+
+	* intrinsics/cshift0.c, intrinsics/eoshift0.c, intrinsics/eoshift2.c,
+	intrinsics/pack_generic.c, intrinsics/reshape_generic.c,
+	intrinsics/spread_generic.c, intrinsics/transpose_generic.c,
+	intrinsics/unpack_generic.c, m4/cshift1.m4, m4/dotprod.m4,
+	m4/dotprodc.m4, m4/dotprodl.m4, m4/eoshift1.m4, m4/eoshift3.m4,
+	m4/iforeach.m4, m4/ifunction.m4, m4/matmul.m4, m4/matmull.m4,
+	m4/reshape.m4, m4/shape.m4, m4/transpose.m4: Use standard prefix
+	instead of "__".
+	* generated/*: Rebuild.
+
+2004-12-12  Richard Henderson  <rth@redhat.com>
+
+	* acinclude.m4 (LIBGFOR_CHECK_ATTRIBUTE_VISIBILITY): New.
+	(LIBGFOR_CHECK_ATTRIBUTE_DLLEXPORT): New.
+	(LIBGFOR_CHECK_ATTRIBUTE_ALIAS): New.
+	* configure.ac: Use them.
+	* configure, config.h.in, aclocal.m4: Rebuild.
+	* libgfortran.h (prefix): Remove.
+	(PREFIX, IPREFIX): New.
+	(sym_rename, sym_rename1, sym_rename2): New.
+	(internal_proto, export_proto, export_proto_np): New.
+	(iexport_proto, iexport): New.
+	(iexport_data_proto, iexport_data): New.
+	* intrinsics/abort.c, intrinsics/args.c, intrinsics/associated.c,
+	intrinsics/cpu_time.c, intrinsics/cshift0.c,
+	intrinsics/date_and_time.c, intrinsics/env.c, intrinsics/eoshift0.c,
+	intrinsics/eoshift2.c, intrinsics/etime.c, intrinsics/exit.c,
+	intrinsics/flush.c, intrinsics/fnum.c, intrinsics/getXid.c,
+	intrinsics/getcwd.c, intrinsics/ishftc.c, intrinsics/mvbits.c,
+	intrinsics/pack_generic.c, intrinsics/rand.c, intrinsics/random.c,
+	intrinsics/reshape_generic.c, intrinsics/size.c,
+	intrinsics/spread_generic.c, intrinsics/stat.c,
+	intrinsics/string_intrinsics.c, intrinsics/system.c,
+	intrinsics/system_clock.c, intrinsics/transpose_generic.c,
+	intrinsics/umask.c, intrinsics/unlink.c, intrinsics/unpack_generic.c,
+	io/backspace.c, io/close.c, io/endfile.c, io/inquire.c, io/io.h,
+	io/open.c, io/rewind.c, io/transfer.c, libgfortran.h, m4/cshift1.m4,
+	m4/dotprod.m4, m4/dotprodc.m4, m4/dotprodl.m4, m4/eoshift1.m4,
+	m4/eoshift3.m4, m4/exponent.m4, m4/fraction.m4, m4/iforeach.m4,
+	m4/ifunction.m4, m4/matmul.m4, m4/matmull.m4, m4/nearest.m4,
+	m4/pow.m4, m4/reshape.m4, m4/set_exponent.m4, m4/shape.m4,
+	m4/transpose.m4, runtime/environ.c, runtime/error.c,
+	runtime/in_pack_generic.c, runtime/in_unpack_generic.c,
+	runtime/main.c, runtime/memory.c, runtime/pause.c, runtime/select.c,
+	runtime/stop.c: Use them to mark symbols internal or external.
+	* generated/*: Rebuild.
+
 2004-12-09  David Edelsohn  <edelsohn@gnu.org>
 
 	PR bootstrap/18895
