@@ -1721,7 +1721,8 @@ colorize_one_web (struct web *web, int hard)
 				    "  to spill %d was a good idea\n",
 				    try->id);
 		      remove_list (try->dlink, &WEBS(SPILLED));
-		      unsplit_web (try);
+		      if (flag_ra_split_webs)
+			unsplit_web (try);
 		      if (try->was_spilled)
 			colorize_one_web (try, 0);
 		      else
@@ -1773,7 +1774,7 @@ colorize_one_web (struct web *web, int hard)
       web->color = -1;
     }
   /* Try to split WEB, but only if we didn't find _any_ color for us.  */
-  if (web->type == SPILLED && bestc < 0)
+  if (flag_ra_split_webs && web->type == SPILLED && bestc < 0)
     find_splits (web);
 }
 
@@ -1963,7 +1964,8 @@ try_recolor_web (struct web *web)
 	      /* Allow webs to be spilled.  */
 	      if (web2->spill_temp == 0 || web2->spill_temp == 2)
 		web2->was_spilled = 1;
-	      unsplit_web (web2);
+	      if (flag_ra_split_webs)
+		unsplit_web (web2);
 	      colorize_one_web (web2, 1);
 	      if (web2->type == SPILLED)
 		cost += web2->spill_cost;
@@ -2189,8 +2191,9 @@ check_colors (void)
 	    if (aweb->color >= web2->color + nregs2
 	        || web2->color >= aweb->color + nregs)
 	      continue;
-	    if (bitmap_bit_p (split_around[aweb->id], web2->id)
-		|| bitmap_bit_p (split_around[web2->id], aweb->id))
+	    if (flag_ra_split_webs
+		&& (bitmap_bit_p (split_around[aweb->id], web2->id)
+		    || bitmap_bit_p (split_around[web2->id], aweb->id)))
 	      continue;
 	    /*abort ();*/
 	  }
@@ -2216,8 +2219,10 @@ check_colors (void)
 		if ((tcol + tofs >= scol + sofs + ssize)
 		    || (scol + sofs >= tcol + tofs + tsize))
 		  continue;
-		if (bitmap_bit_p (split_around[aweb->id], alias(wl->t)->id)
-		    || bitmap_bit_p (split_around[alias (wl->t)->id], aweb->id))
+		if (flag_ra_split_webs
+		    && (bitmap_bit_p (split_around[aweb->id], alias(wl->t)->id)
+			|| bitmap_bit_p (split_around[alias (wl->t)->id],
+					 aweb->id)))
 		  continue;
 		/*abort ();*/
 	      }
@@ -3103,7 +3108,8 @@ ra_colorize_graph (struct df *df)
       extended_coalesce_2 ();
     }
 
-  init_split_costs ();
+  if (flag_ra_split_webs)
+    init_split_costs ();
 
   /* Now build the select stack.  */
   do

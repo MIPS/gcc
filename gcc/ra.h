@@ -565,6 +565,8 @@ extern int flag_ra_improved_spilling;
    Chaintin style spilling (only at deaths).  */
 extern int flag_ra_ir_spilling;
 
+extern int flag_ra_split_webs;
+
 /* Nonzero if we use optimistic coalescing, zero for iterated
    coalescing.  */
 extern int flag_ra_optimistic_coalescing;

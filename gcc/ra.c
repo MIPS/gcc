@@ -173,6 +173,7 @@ int flag_ra_dump_only_costs = 0;
 int flag_ra_biased = 0;
 int flag_ra_improved_spilling = 0;
 int flag_ra_ir_spilling = 0;
+int flag_ra_split_webs = 0;
 int flag_ra_optimistic_coalescing = 0;
 int flag_ra_break_aliases = 0;
 int flag_ra_merge_spill_costs = 0;
@@ -425,7 +426,8 @@ free_mem (struct df *df ATTRIBUTE_UNUSED)
 {
   free_insn_info ();
   ra_build_free ();
-  free_split_costs ();
+  if (flag_ra_split_webs)
+    free_split_costs ();
 }
 
 /* Free all memory allocated for the register allocator.  Used, when
@@ -995,12 +997,17 @@ reg_alloc (void)
   flag_ra_spill_every_use = 0;
   flag_ra_improved_spilling = 1;
   flag_ra_ir_spilling = 0;
+  flag_ra_split_webs = 1;
   flag_ra_break_aliases = 0;
   flag_ra_optimistic_coalescing = 1;
   flag_ra_merge_spill_costs = 1;
   if (flag_ra_optimistic_coalescing)
     flag_ra_break_aliases = 1;
   flag_ra_dump_notes = 0;
+  if (max_reg_num () > 9000)
+    flag_ra_split_webs = 0;
+  if (flag_ra_ir_spilling && flag_ra_split_webs)
+    abort ();
   make_insns_structurally_valid ();
 
   /* Allocate the global df structure.  */

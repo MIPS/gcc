@@ -2151,7 +2151,8 @@ actual_spill (int spill_p ATTRIBUTE_UNUSED)
   delete_useless_defs ();
   BITMAP_XFREE (useless_defs);
   split_webs = BITMAP_XMALLOC ();
-  insert_splits (new_deaths);
+  if (flag_ra_split_webs)
+    insert_splits (new_deaths);
   sbitmap_free (insns_with_deaths);
   insns_with_deaths = sbitmap_alloc (get_max_uid ());
   death_insns_max_uid = get_max_uid ();

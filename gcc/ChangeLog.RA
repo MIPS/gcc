@@ -1,5 +1,15 @@
 2003-10-13  Michael Matz  <matz@suse.de>
 
+	* ra.c (flag_ra_split_webs): New.
+	(free_mem): Use it.
+	(reg_alloc): Set it (with cutoff).
+	* ra.h (flag_ra_split_webs): Declare.
+	* ra-rewrite.c (actual_spill): Use it.
+	* ra-colorize.c (colorize_one_web, try_recolor_web, check_colors,
+	ra_colorize_graph): Ditto.
+
+2003-10-13  Michael Matz  <matz@suse.de>
+
 	* pre-reload.c (prefer_swapped): Change exit test to not
 	apply BLOCK_FOR_INSN on barriers.
 
