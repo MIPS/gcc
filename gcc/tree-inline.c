@@ -1216,17 +1216,6 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
     case STATEMENT_LIST:
     case ERROR_MARK:
     case NON_LVALUE_EXPR:
-      break;
-    /* We don't account constants for now.  Assume that the cost is amortized
-       by operations that do use them.  We may re-consider this decision once
-       we are able to optimize the tree before estimating it's size and break
-       out static initializers.  */
-    case IDENTIFIER_NODE:
-    case INTEGER_CST:
-    case REAL_CST:
-    case COMPLEX_CST:
-    case VECTOR_CST:
-    case STRING_CST:
     case ENTRY_VALUE_EXPR:
     case FDESC_EXPR:
     case VA_ARG_EXPR:
@@ -1242,6 +1231,17 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
     case EPHI_NODE:
     case EEXIT_NODE:
     case PHI_NODE:
+      break;
+    /* We don't account constants for now.  Assume that the cost is amortized
+       by operations that do use them.  We may re-consider this decision once
+       we are able to optimize the tree before estimating it's size and break
+       out static initializers.  */
+    case IDENTIFIER_NODE:
+    case INTEGER_CST:
+    case REAL_CST:
+    case COMPLEX_CST:
+    case VECTOR_CST:
+    case STRING_CST:
       *walk_subtrees = 0;
       return NULL;
     /* Reconginze assignments of large structures and constructors of
