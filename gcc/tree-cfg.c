@@ -399,7 +399,7 @@ make_loop_expr_blocks (loop_p, next_block_link, entry)
   tree_stmt_iterator si;
   tree loop = *loop_p;
   
-  entry->flags |= BB_COMPOUND_ENTRY | BB_CONTROL_EXPR | BB_LOOP_CONTROL_EXPR;
+  entry->flags |= BB_CONTROL_EXPR | BB_LOOP_CONTROL_EXPR;
 
   /* Determine NEXT_BLOCK_LINK for statements inside the LOOP_EXPR body.
      Note that in the case of a loop, NEXT_BLOCK_LINK should be the
@@ -443,7 +443,7 @@ make_cond_expr_blocks (cond_p, next_block_link, entry)
 {
   tree_stmt_iterator si;
   tree cond = *cond_p;
-  entry->flags |= BB_COMPOUND_ENTRY | BB_CONTROL_EXPR;
+  entry->flags |= BB_CONTROL_EXPR;
 
   /* Determine NEXT_BLOCK_LINK for statements inside the COND_EXPR body.  */
   si = tsi_start (cond_p);
@@ -474,7 +474,7 @@ make_switch_expr_blocks (switch_e_p, next_block_link, entry)
 {
   tree_stmt_iterator si;
   tree switch_e = *switch_e_p;
-  entry->flags |= BB_COMPOUND_ENTRY | BB_CONTROL_EXPR;
+  entry->flags |= BB_CONTROL_EXPR;
 
   /* Determine NEXT_BLOCK_LINK for statements inside the COND_EXPR body.  */
   si = tsi_start (switch_e_p);
@@ -554,7 +554,7 @@ set_parent_stmt (stmt_p, parent_stmt)
 /* Add statement pointed by STMT_P to basic block BB.  PARENT_STMT is the
    entry statement to the control structure holding *STMT_P.  If parent
    is passed a NULL, this routine will try to pick up the parent from the 
-   frist stmt in the block.  */
+   first statement in the block.  */
 
 static inline void
 add_stmt_to_bb (stmt_p, bb, parent)
@@ -564,15 +564,17 @@ add_stmt_to_bb (stmt_p, bb, parent)
 {
   set_bb_for_stmt (*stmt_p, bb);
 
-  /* Try to determine the parent if there isnt one.  */
+  /* Try to determine the parent if there isn't one.  */
   if (parent == NULL && bb->head_tree_p != NULL)
     parent = parent_stmt (*bb->head_tree_p);
 
   set_parent_stmt (stmt_p, parent);
 }
 
-/* Add statement pointed by STMT_P to basic block BB.  PARENT_STMT is the
-   entry statement to the control structure holding *STMT_P.  */
+
+/* Add statement pointed by STMT_P to basic block BB and update BB's
+   boundaries accordingly.  PARENT_STMT is the entry statement to the
+   control structure holding *STMT_P.  */
 
 static inline void
 append_stmt_to_bb (stmt_p, bb, parent)
@@ -850,9 +852,9 @@ make_goto_expr_edges (bb)
 
   goto_t = last_stmt (bb);
 
-  /* If the last statement is not a GOTO (ie, it is a RETURN_EXPR, CALL_EXPR
-     or MODIFY_EXPR, then the edge is an abnormal edge resulting from
-     a nonlocal goto.  */
+  /* If the last statement is not a GOTO (i.e., it is a RETURN_EXPR,
+     CALL_EXPR or MODIFY_EXPR, then the edge is an abnormal edge resulting
+     from a nonlocal goto.  */
   if (TREE_CODE (goto_t) != GOTO_EXPR)
     {
       dest = error_mark_node;
@@ -976,7 +978,7 @@ remove_unreachable_block (bb)
 {
   varray_type subblocks;
 
-  if (bb->flags & BB_COMPOUND_ENTRY)
+  if (bb->flags & BB_CONTROL_EXPR)
     {
       /* Before removing an entry block for a compound structure,
          make sure that all its subblocks are unreachable as well.
@@ -1147,10 +1149,11 @@ find_subblocks (bb)
 
   VARRAY_BB_INIT (subblocks, 5, "subblocks");
 
-  if (bb->flags & BB_COMPOUND_ENTRY)
+  if (bb->flags & BB_CONTROL_EXPR)
     {
-      /* Note: This assumes that all the blocks inside a compound a control
-	 structure are consecutive in the linked list of blocks.  */
+      /* FIXME: This assumes that all the blocks inside a compound a control
+	 structure are consecutive in the linked list of blocks.  This is
+	 only true when the flow graph is initially built.  */
       child_bb = bb->next_bb;
       while (child_bb != EXIT_BLOCK_PTR && is_parent (bb, child_bb))
 	{
@@ -1302,25 +1305,14 @@ cleanup_control_flow ()
   basic_block bb;
 
   FOR_EACH_BB (bb)
-    {
-      enum tree_code code;
-      tree t;
-
-      t = last_stmt (bb);
-      if (t == NULL_TREE)
-        continue;
-
-      if (bb->flags & BB_CONTROL_EXPR
-	  && bb->flags & BB_COMPOUND_ENTRY)
-	{
-	  code = TREE_CODE (t);
-
-	  if (code == COND_EXPR)
-	    cleanup_cond_expr_graph (bb);
-	  else if (code == SWITCH_EXPR)
-	    cleanup_switch_expr_graph (bb);
-	}
-    }
+    if (bb->flags & BB_CONTROL_EXPR)
+      {
+	enum tree_code code = TREE_CODE (last_stmt (bb));
+	if (code == COND_EXPR)
+	  cleanup_cond_expr_graph (bb);
+	else if (code == SWITCH_EXPR)
+	  cleanup_switch_expr_graph (bb);
+      }
 }
 
       
@@ -1358,7 +1350,7 @@ cleanup_cond_expr_graph (bb)
 	      tree phi;
 
 	      /* Remove the appropriate PHI alternative in the
-	         target block for each unexecutable edge.  */
+	         target block for each non executable edge.  */
 	      for (phi = phi_nodes (e->dest); phi; phi = TREE_CHAIN (phi))
 		remove_phi_arg (phi, e->dest);
 	      remove_edge (e);
@@ -1448,7 +1440,7 @@ disconnect_unreachable_case_labels (bb)
 	      tree phi;
 
 	      /* Remove the appropriate PHI alternative in the
-	         target block for each unexecutable edge.  */
+	         target block for each non executable edge.  */
 	      for (phi = phi_nodes (e->dest); phi; phi = TREE_CHAIN (phi))
 		remove_phi_arg (phi, e->src);
 	      remove_edge (e);
@@ -2285,7 +2277,7 @@ bsi_init (tp, bb)
 
   i.tp = tp;
   i.context = NULL_TREE;
-  /* If the first stmt is empty, get the next non-empty one.  */
+  /* If the first statement is empty, get the next non-empty one.  */
   if (i.tp != NULL)
     {
       stmt = bsi_stmt (i);

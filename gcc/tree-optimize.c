@@ -85,12 +85,12 @@ optimize_function_tree (fndecl)
 	tree_ssa_dce (fndecl);
     }
 
-  /* Debugging dump after optimization.  */
-  dump_function (TDI_optimized, fndecl);
-
   if (n_basic_blocks > 0 && ! (errorcount || sorrycount))
     {
       /* Rewrite the function out of SSA form.  */
       rewrite_out_of_ssa (fndecl);
     }
+
+  /* Debugging dump after optimization.  */
+  dump_function (TDI_optimized, fndecl);
 }

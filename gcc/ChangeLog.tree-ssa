@@ -1,3 +1,11 @@
+2003-03-28  Diego Novillo  <dnovillo@redhat.com>
+
+	* basic-block.h (BB_COMPOUND_ENTRY): Remove.  Update all users
+	everywhere.
+	* tree-cfg.c: Minor fixes to various comments.
+	* tree-optimize.c (optimize_function_tree): Dump optimized function
+	after SSA->normal conversion.
+
 2003-03-26  Daniel Berlin  <dberlin@dberlin.org>
 
 	* tree-ssa-pre.c:  Implement open64 renaming algorithm.
