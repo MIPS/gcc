@@ -1667,7 +1667,7 @@ maybe_create_global_var (struct alias_info *ai)
 static bool
 may_alias_p (tree ptr, HOST_WIDE_INT mem_alias_set,
 	     tree var, HOST_WIDE_INT var_alias_set,
-	     bool alias_set_only)
+	     bool alias_set_only ATTRIBUTE_UNUSED)
 {
   tree mem;
   var_ann_t m_ann;
@@ -1715,6 +1715,7 @@ may_alias_p (tree ptr, HOST_WIDE_INT mem_alias_set,
       return false;
     }
 
+#if 0
   /* Kenny: Is this correct? */
   /* If var is a record or union type, ptr cannot point into var
      unless there is some operation explicit address operation in the
@@ -1781,6 +1782,7 @@ may_alias_p (tree ptr, HOST_WIDE_INT mem_alias_set,
  	  }
       }
   }
+#endif
 
   alias_stats.alias_mayalias++;
   return true;
