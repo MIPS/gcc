@@ -1,5 +1,14 @@
 2003-02-23  Richard Sandiford  <rsandifo@redhat.com>
 
+	* config/mips/mips.h (TARGET_SPLIT_CALLS): New macro.
+	* config/mips/mips.md (call_split): New insn.
+	(call_value_split, call_value_multiple_split): New insns.
+	(call_internal): Turn into a define_insn_and_split.  Split the
+	instruction into a call and $gp load if TARGET_SPLIT_CALLS.
+	(call_value_internal, call_value_multiple_internal): Likewise.
+
+2003-02-23  Richard Sandiford  <rsandifo@redhat.com>
+
 	* config/mips/mips.c (mips_reloc_string): Return "%got(" for
 	RELOC_GOT_PAGE and RELOC_GOT_DISP if !TARGET_NEWABI.
 	(mips_encode_section_info): Don't take symbol visibility into

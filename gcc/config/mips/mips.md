@@ -9943,14 +9943,32 @@ ld\\t%2,%1-%S1(%2)\;daddu\\t%2,%2,$31\\n\\t%*j\\t%2"
   DONE;
 })
 
-(define_insn "call_internal"
+(define_insn_and_split "call_internal"
   [(call (mem:SI (match_operand 0 "call_insn_operand" "cS"))
 	 (match_operand 1 "" "i"))
    (clobber (reg:SI 31))]
   ""
   "%*jal\\t%0"
+  "reload_completed && TARGET_SPLIT_CALLS"
+  [(const_int 0)]
+  {
+    emit_call_insn (gen_call_split (operands[0], operands[1]));
+    emit_insn (gen_exception_receiver ());
+    DONE;
+  }
   [(set_attr "type"	"call")
    (set_attr "mode"	"none")])
+
+(define_insn "call_split"
+  [(call (mem:SI (match_operand 0 "call_insn_operand" "c"))
+	 (match_operand 1 "" "i"))
+   (clobber (reg:SI 31))
+   (const_int 1)]
+  "TARGET_SPLIT_CALLS"
+  "%*jalr\\t%0"
+  [(set_attr "type" "call")
+   (set_attr "mode" "none")
+   (set_attr "macro_calls" "no")])
 
 (define_expand "call_value"
   [(parallel [(set (match_operand 0 "" "")
@@ -9964,17 +9982,37 @@ ld\\t%2,%1-%S1(%2)\;daddu\\t%2,%2,$31\\n\\t%*j\\t%2"
   DONE;
 })
 
-(define_insn "call_value_internal"
+(define_insn_and_split "call_value_internal"
   [(set (match_operand 0 "register_operand" "=df")
         (call (mem:SI (match_operand 1 "call_insn_operand" "cS"))
               (match_operand 2 "" "i")))
    (clobber (reg:SI 31))]
   ""
   "%*jal\\t%1"
+  "reload_completed && TARGET_SPLIT_CALLS"
+  [(const_int 0)]
+  {
+    emit_call_insn (gen_call_value_split (operands[0], operands[1],
+					  operands[2]));
+    emit_insn (gen_exception_receiver ());
+    DONE;
+  }
   [(set_attr "type"	"call")
    (set_attr "mode"	"none")])
 
-(define_insn "call_value_multiple_internal"
+(define_insn "call_value_split"
+  [(set (match_operand 0 "register_operand" "=df")
+        (call (mem:SI (match_operand 1 "call_insn_operand" "c"))
+              (match_operand 2 "" "i")))
+   (clobber (reg:SI 31))
+   (const_int 1)]
+  "TARGET_SPLIT_CALLS"
+  "%*jalr\\t%1"
+  [(set_attr "type" "call")
+   (set_attr "mode" "none")
+   (set_attr "macro_calls" "no")])
+
+(define_insn_and_split "call_value_multiple_internal"
   [(set (match_operand 0 "register_operand" "=df")
         (call (mem:SI (match_operand 1 "call_insn_operand" "cS"))
               (match_operand 2 "" "i")))
@@ -9984,8 +10022,31 @@ ld\\t%2,%1-%S1(%2)\;daddu\\t%2,%2,$31\\n\\t%*j\\t%2"
    (clobber (reg:SI 31))]
   ""
   "%*jal\\t%1"
+  "reload_completed && TARGET_SPLIT_CALLS"
+  [(const_int 0)]
+  {
+    emit_call_insn (gen_call_value_multiple_split (operands[0], operands[1],
+						   operands[2], operands[3]));
+    emit_insn (gen_exception_receiver ());
+    DONE;
+  }
   [(set_attr "type"	"call")
    (set_attr "mode"	"none")])
+
+(define_insn "call_value_multiple_split"
+  [(set (match_operand 0 "register_operand" "=df")
+        (call (mem:SI (match_operand 1 "call_insn_operand" "c"))
+              (match_operand 2 "" "i")))
+   (set (match_operand 3 "register_operand" "=df")
+	(call (mem:SI (match_dup 1))
+	      (match_dup 2)))
+   (clobber (reg:SI 31))
+   (const_int 1)]
+  "TARGET_SPLIT_CALLS"
+  "%*jalr\\t%1"
+  [(set_attr "type" "call")
+   (set_attr "mode" "none")
+   (set_attr "macro_calls" "no")])
 
 ;; Call subroutine returning any type.
 

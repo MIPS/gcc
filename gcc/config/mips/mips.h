@@ -326,6 +326,14 @@ extern void		sbss_section PARAMS ((void));
 #define TARGET_FILE_SWITCHING \
   (TARGET_GP_OPT && ! TARGET_GAS && ! TARGET_MIPS16)
 
+/* True if the call patterns should be split into a jalr followed by
+   an instruction to restore $gp.  This is only ever true for SVR4 PIC,
+   in which $gp is call-clobbered.  It is only safe to split the load
+   from the call when every use of $gp is explicit.  */
+
+#define TARGET_SPLIT_CALLS \
+  (TARGET_EXPLICIT_RELOCS && TARGET_ABICALLS && !TARGET_NEWABI)
+
 /* We must disable the function end stabs when doing the file switching trick,
    because the Lscope stabs end up in the wrong place, making it impossible
    to debug the resulting code.  */
