@@ -1,3 +1,12 @@
+2003-12-03  Richard Henderson  <rth@redhat.com>
+
+	* tree-simple.c (is_gimple_min_invariant): Disallow offset of
+	address of a scalar.
+
+	* c-parse.in (primary): Set STMT_LINENO on STMT_EXPR.
+	* c-simplify.c (gimplify_stmt_expr): Be prepared for last_stmt
+	to be null.
+
 2003-12-03  Daniel Berlin  <dberlin@dberlin.org>
 	
 	Fix PR 13177
