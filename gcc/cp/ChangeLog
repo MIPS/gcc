@@ -1,3 +1,19 @@
+2004-01-21  Mike Stump  <mrs@apple.com>
+
+	* lex.c (lang_clear_identifier): Don't clear symbol table as we
+	use a conditional symbol table.
+
+	* lang-specs.h: Simplify and allow -server to be the default.
+
+	* decl.c (init_cxx_decl_processing_once): Allow options to
+	initialized more than once.
+	(init_cxx_decl_processing_eachsrc): Likewise.
+	* lex.c (init_cxx_once): Likewise.
+	(init_cxx_eachsrc): Likewise.
+	(extract_interface_info): Likewise.
+
+	* cp-lang.c (LANG_HOOKS_FINISH_SERVER): Add.
+
 2003-12-15  Per Bothner  <pbothner@apple.com>
 
 	* decl.c (setup_globals):  ANSI-fy function header.

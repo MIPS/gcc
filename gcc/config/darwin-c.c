@@ -47,6 +47,7 @@ static void add_system_framework_path (char *);
 static const char *find_subframework_header (cpp_reader *pfile, const char *header);
 static void darwin_register_frameworks_real (int);
 static void add_framework_path_real (char *path);
+static void reinit_frameworks (void);
 
 typedef struct align_stack
 {
@@ -405,9 +406,22 @@ static const char *framework_defaults [] =
   };
 
 
+static void reinit_frameworks ()
+{
+  if (num_frameworks)
+    {
+      num_frameworks = 0;
+      max_frameworks = 0;
+      free (frameworks_in_use);
+      frameworks_in_use = 0;
+    }
+}
+
 static void
 darwin_register_frameworks_real (int stdinc)
 {
+  reinit_frameworks ();
+
   if (stdinc)
     {
       size_t i;

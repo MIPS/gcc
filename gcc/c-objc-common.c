@@ -163,7 +163,9 @@ init_c_objc_common_once (void)
 
   INIT_STATEMENT_CODES (stmt_codes);
 
-  if ((server_mode >= 0 && server_mode != 1)
+  reset_cpp_hashnodes ();
+
+  if (server_mode >= 2
       /* In this case we must write #define and #undef debug information
 	 into the assembler file.  But that hasn't been opened yet.  When
 	 using the compile server, we have to write out the debug information
@@ -177,7 +179,15 @@ init_c_objc_common_once (void)
   init_c_common_once ();
   if (parse_in->do_note_macros)
     {
-      cb_exit_fragment (parse_in, builtins_fragment);
+      static int first = 1;
+      if (first)
+	{
+	  cb_exit_fragment (parse_in, builtins_fragment);
+	  first = 0;
+	}
+      else
+	synthetic_exit_fragment (parse_in, builtins_fragment);
+      
       /* This should be folded into cb_exit_fragment?!  */
       parse_in->current_fragment = NULL;
     }

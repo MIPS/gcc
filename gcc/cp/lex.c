@@ -383,6 +383,7 @@ init_cp_pragma (void)
 void
 init_cxx_once (void)
 {
+  static int first_time = 1;
   static const enum tree_code stmt_codes[] = {
     c_common_stmt_codes,
     cp_stmt_codes
@@ -390,6 +391,7 @@ init_cxx_once (void)
 
   INIT_STATEMENT_CODES (stmt_codes);
 
+  /* ICK!  We need one builtuns_fragment that is once per server and one that is once per unit.  */
   if (server_mode >= 0 && server_mode != 1)
     create_builtins_fragment ();
 
@@ -398,50 +400,60 @@ init_cxx_once (void)
      debugging.*/
   push_srcloc ("<internal>", 0);
 
-  init_reswords ();
-  init_tree ();
-  init_cp_semantics ();
-  init_operators ();
-  init_method ();
-  init_error ();
+  if (first_time)
+    {
+      init_reswords ();
+      init_tree ();
+      init_cp_semantics ();
+      init_operators ();
+      init_method ();
+      init_error ();
+    }
 
   current_function_decl = NULL;
 
-  class_type_node = build_int_2 (class_type, 0);
-  TREE_TYPE (class_type_node) = class_type_node;
-  ridpointers[(int) RID_CLASS] = class_type_node;
+  if (first_time)
+    {
+      class_type_node = build_int_2 (class_type, 0);
+      TREE_TYPE (class_type_node) = class_type_node;
+      ridpointers[(int) RID_CLASS] = class_type_node;
 
-  record_type_node = build_int_2 (record_type, 0);
-  TREE_TYPE (record_type_node) = record_type_node;
-  ridpointers[(int) RID_STRUCT] = record_type_node;
+      record_type_node = build_int_2 (record_type, 0);
+      TREE_TYPE (record_type_node) = record_type_node;
+      ridpointers[(int) RID_STRUCT] = record_type_node;
 
-  union_type_node = build_int_2 (union_type, 0);
-  TREE_TYPE (union_type_node) = union_type_node;
-  ridpointers[(int) RID_UNION] = union_type_node;
+      union_type_node = build_int_2 (union_type, 0);
+      TREE_TYPE (union_type_node) = union_type_node;
+      ridpointers[(int) RID_UNION] = union_type_node;
 
-  enum_type_node = build_int_2 (enum_type, 0);
-  TREE_TYPE (enum_type_node) = enum_type_node;
-  ridpointers[(int) RID_ENUM] = enum_type_node;
+      enum_type_node = build_int_2 (enum_type, 0);
+      TREE_TYPE (enum_type_node) = enum_type_node;
+      ridpointers[(int) RID_ENUM] = enum_type_node;
+    }
 
   init_cxx_decl_processing_once ();
 
-  /* Create the built-in __null node.  */
-  null_node = build_int_2 (0, 0);
-  TREE_TYPE (null_node) = c_common_type_for_size (POINTER_SIZE, 0);
-  ridpointers[RID_NULL] = null_node;
+  if (first_time)
+    {
+      /* Create the built-in __null node.  */
+      null_node = build_int_2 (0, 0);
+      TREE_TYPE (null_node) = c_common_type_for_size (POINTER_SIZE, 0);
+      ridpointers[RID_NULL] = null_node;
+    }
 
   init_c_common_once ();
 
-  init_cp_pragma ();
+  if (first_time)
+    init_cp_pragma ();
 
   if (parse_in->do_note_macros)
     {
-      parse_in->do_note_macros = 0;
       cb_exit_fragment (parse_in, builtins_fragment);
       parse_in->current_fragment = NULL;
     }
 
   pop_srcloc ();
+  first_time = 0;
 }
 
 int
@@ -449,8 +461,10 @@ lang_clear_identifier (cpp_reader *pfile ATTRIBUTE_UNUSED,
 		       cpp_hashnode *node, void *v ATTRIBUTE_UNUSED)
 {
   tree tnode = HT_IDENT_TO_GCC_IDENT (node);
+#if 0
   IDENTIFIER_NAMESPACE_BINDINGS (tnode) = NULL;
   IDENTIFIER_BINDING (tnode) = NULL;
+#endif
   reset_hashnode (node);
 
   return 1;
@@ -463,7 +477,10 @@ lang_clear_identifier (cpp_reader *pfile ATTRIBUTE_UNUSED,
 bool
 init_cxx_eachsrc (void)
 {
+#if 0
+  /* This is too late to clear the cpp symbol table, cpp builtins are done before this.  */
   init_cxx_decl_processing_eachsrc ();
+#endif
 
   interface_unknown = 1;
 
@@ -484,6 +501,9 @@ void
 extract_interface_info (void)
 {
   struct c_fileinfo *finfo = 0;
+
+  if (input_filename == 0)
+    return;
 
   if (flag_alt_external_templates)
     {

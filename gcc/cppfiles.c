@@ -77,6 +77,10 @@ struct _cpp_file_data
 
   /* If BUFFER above contains the true contents of the file.  */
   bool buffer_valid;
+
+  /* A generation counter, used to determine when to re-read files, so
+     that we can avoid excess system calls.  */
+  int generation;
 };
 
 /* This structure represents a file searched for by CPP, whether it
@@ -190,6 +194,36 @@ static char *remap_filename (cpp_reader *pfile, _cpp_file *file);
 static char *append_file_to_dir (const char *fname, cpp_dir *dir);
 static bool validate_pch (cpp_reader *, _cpp_file *file, const char *pchname);
 static bool include_pch_p (_cpp_file *file);
+static bool file_modified  (struct stat st1, struct stat st2);
+
+/* Return false if the file hasn't been modified, otherwise return
+   true.  */
+
+static bool file_modified  (struct stat st1, struct stat st2)
+{
+  if (st1.st_mtimespec.tv_sec != st2.st_mtimespec.tv_sec
+      || st1.st_mtimespec.tv_nsec != st2.st_mtimespec.tv_nsec
+      || st1.st_ctimespec.tv_sec != st2.st_ctimespec.tv_sec    
+      || st1.st_ctimespec.tv_nsec != st2.st_ctimespec.tv_nsec
+      || st1.st_size != st2.st_size)
+    return true;
+  return false;
+}
+
+/* A counter to determine when we can avoid re-opening files and
+   restating them, as those operations take time.  */
+
+static int generation = 0;
+
+/* This routine is called when files should be checked against the
+   filesystem to ensure they are still up-to-date.  A good compromise
+   is once every output file.  */
+
+void
+cpp_notice_updates (void)
+{
+  ++generation;
+}
 
 /* Given a filename in FILE->PATH, with the empty string interpreted
    as <stdin>, open it.
@@ -256,6 +290,17 @@ open_file (cpp_reader *pfile, _cpp_file *file)
 		  data = xcalloc (1, sizeof (_cpp_file_data));
 		  file->data = data;
 		}
+	      else
+		{
+		  /* If a file was modified, we arrange to re-read
+		     it.  */
+		  if (file_modified (st, data->st))
+		    {
+		      /* This will re-read the file.  */
+		      data->buffer_valid = false;
+		    }
+		}
+	      data->generation = generation;
 	      data->st = st;
 	      data->fd = fd;
 	      file->err_no = 0;
@@ -470,7 +515,12 @@ _cpp_find_file (cpp_reader *pfile, const char *fname, cpp_dir *start_dir, bool f
 
   /* First check the cache before we resort to memory allocation.  */
   entry = search_cache (*hash_slot, start_dir);
-  if (entry)
+  if (entry
+      /* But don't reuse a PCH file that has been read once.  We have
+	 to revalidate for new command line flags and possibly a new
+	 pchname.  */
+      && ! (include_pch_p (entry->u.file)
+	    && entry->u.file->data->fd == -1))
     return entry->u.file;
 
   file = make_cpp_file (pfile, start_dir, fname);
@@ -516,6 +566,8 @@ _cpp_find_file (cpp_reader *pfile, const char *fname, cpp_dir *start_dir, bool f
       /* Cache for START_DIR too, sharing the _cpp_file structure.  */
       free ((char *) file->name);
       free (file);
+      if (file->data)
+	entry->u.file->data->fd = file->data->fd;
       file = entry->u.file;
     }
   else
@@ -623,6 +675,7 @@ read_file_guts (cpp_reader *pfile, _cpp_file *file)
   data->buffer = buf;
   data->st.st_size = total;
   data->buffer_valid = true;
+  data->generation = generation;
 
   if (pfile->cb.exit_fragment != NULL)
     {
@@ -647,6 +700,46 @@ read_file_guts (cpp_reader *pfile, _cpp_file *file)
   return true;
 }
 
+/* Determine if a file has been modified.  If it has, the file will be
+   re-read.  */
+
+static bool
+file_changed (cpp_reader *pfile, _cpp_file *file)
+{
+  struct stat st;
+
+  /* We avoid checking file modification times very often.  */
+  if (file->data->generation == generation)
+    return false;
+
+  if (file->data->fd == -1)
+    {
+      /* open_file will check for modifications to the file.  */
+      if (!open_file (pfile, file))
+	{
+	  /* If we can't open a file, force it to be re-opened.  */
+	  return true;
+	}
+
+      /* open_file clears buffer_valid if the file was modified.  */
+      if (file->data->buffer_valid)
+	return false;
+    }
+  else if (fstat (file->data->fd, &st) == 0)
+    {
+      if (! file_modified (file->data->st, st))
+	{
+	  /* Conserve open files.  */
+	  close (file->data->fd);
+	  file->data->fd = -1;
+	  return false;
+	}
+      /* We can leave the file open, as we are going to re-read
+	 it.  */
+    }
+  return true;
+}
+
 /* Convenience wrapper around read_file_guts that opens the file if
    necessary and closes the file descriptor after reading.  FILE must
    have been passed through find_file() at some stage.  */
@@ -656,10 +749,8 @@ read_file (cpp_reader *pfile, _cpp_file *file)
   _cpp_file_data *data = file->data;
   /* If we already have its contents in memory, succeed immediately.  */
   if (data->buffer_valid)
-#if 0
-    if (! cached_version_is_current_according_to_stat (file))
-#endif
-    return true;
+    if (! file_changed (pfile, file))
+      return true;
 
   data = file->data;
 
@@ -831,10 +922,6 @@ _cpp_stack_file (cpp_reader *pfile, _cpp_file *file, bool import)
   /* Generate the call back.  */
   _cpp_do_file_change (pfile, LC_ENTER, file->path, 1, sysp);
 
-  if (CPP_OPTION (pfile, lang) == CLK_GNUCXX
-      || CPP_OPTION (pfile, lang) == CLK_CXX98)
-    _cpp_start_fragment (pfile);
-
   return true;
 }
 
@@ -853,9 +940,7 @@ purge_fragments (_cpp_file_data *data)
   while (fragment != NULL)
     {
       cpp_fragment *next = fragment->next;
-      if (fragment->macro_notes != NULL)
-	free (fragment->macro_notes);
-      free ((PTR) fragment);
+      delete_fragment (fragment);
       fragment = next;
     }
   data->fragments = NULL;
@@ -1244,7 +1329,15 @@ _cpp_pop_file_buffer (cpp_reader *pfile, _cpp_file *file)
 
   if (data && !data->buffer_valid)
     {
+#if 1
+      /* MERGE I don't think this is necessary anymore */
+      if (data->buffer == NULL
+	  /* In C++, we can reuse main file fragments as well.  */
+	  && ! (CPP_OPTION (pfile, lang) == CLK_GNUCXX
+ 	  || CPP_OPTION (pfile, lang) == CLK_CXX98))
+#else
       if (data->buffer)
+#endif
 	{
 	  free ((void *) data->buffer);
 	  data->buffer = NULL;

@@ -3896,7 +3896,7 @@ TEST_TARGET = cpplib.o cpplex.o cppmacro.o cppexp.o cppfiles.o cpptrad.o   \
  alias.o bb-reorder.o builtins.o caller-save.o calls.o		  	   \
  cfg.o cfganal.o cfgbuild.o cfgcleanup.o cfglayout.o cfgloop.o		   \
  cfgloopanal.o cfgloopmanip.o loop-init.o loop-unswitch.o loop-unroll.o	   \
- cfgrtl.o combine.o conflict.o convert.o coverage.o cse.o cselib.o 	   \
+ cfgrtl.o combine.o conflict.o convert.o cse.o cselib.o 	   \
  dbxout.o debug.o df.o diagnostic.o dojump.o doloop.o dominance.o	   \
  dwarf2asm.o dwarf2out.o emit-rtl.o except.o explow.o			   \
  expmed.o expr.o final.o flow.o fold-const.o function.o gcse.o		   \
@@ -3912,14 +3912,24 @@ TEST_TARGET = cpplib.o cpplex.o cppmacro.o cppexp.o cppfiles.o cpptrad.o   \
  stor-layout.o stringpool.o timevar.o tracer.o tree.o tree-dump.o	   \
  unroll.o varasm.o varray.o version.o xcoffout.o			   \
  alloc-pool.o et-forest.o cfghooks.o bt-load.o pretty-print.o
-#bitmap.o insn-attrtab.o insn-extract.o insn-opinit.o insn-output.o insn-peep.o insn-recog.o rtl.o intl.o
-#vmsdbgout.o dwarfout.o
+# This one needs tighter lex syncing with fragment reuse
+# coverage.o
+# bitmap.o insn-attrtab.o insn-extract.o insn-opinit.o insn-output.o insn-peep.o insn-recog.o rtl.o intl.o
+# vmsdbgout.o dwarfout.o
+
+.PHONY: save-objs
+save-objs:
+	mkdir -p save-objs
+	mv $(TEST_TARGET) save-objs
+
+unsave-objs: test-clean
+	mv save-objs/* .
 
 test-clean: source.list
 	rm -f $(TEST_TARGET) ./cc1-server
 
 start-server:
-	stage2/cc1 -fserver $(BOOT_CFLAGS) -Werror $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES)  -isystem include -isystem stage2/include -quiet
+	stage2/cc1 -fserver
 
 source.list: Makefile
 	rm -f source.list

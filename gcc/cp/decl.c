@@ -2900,23 +2900,13 @@ init_cxx_decl_processing_once (void)
 {
   tree void_ftype;
   tree void_ftype_ptr;
+  static int first = 1;
 
-  /* Create all the identifiers we need.  */
-  initialize_predefined_identifiers ();
-
-  /* Fill in back-end hooks.  */
-  lang_missing_noreturn_ok_p = &cp_missing_noreturn_ok_p;
-
-  /* Create the global variables.  */
-  push_to_top_level ();
-
-  current_function_decl = NULL_TREE;
-  current_binding_level = NULL;
-  /* Enter the global namespace.  */
-  my_friendly_assert (global_namespace == NULL_TREE, 375);
-  global_namespace = build_lang_decl (NAMESPACE_DECL, global_scope_name,
-                                      void_type_node);
-  current_lang_name = NULL_TREE;
+  if (first)
+    {
+      /* Create all the identifiers we need.  */
+      initialize_predefined_identifiers ();
+    }
 
   /* Adjust various flags based on command-line settings.  */
   if (!flag_permissive)
@@ -2931,6 +2921,26 @@ init_cxx_decl_processing_once (void)
       flag_inline_trees = 2;
       flag_inline_functions = 0;
     }
+
+  if (! first)
+    {
+      return;
+    }
+
+  /* Fill in back-end hooks.  */
+  lang_missing_noreturn_ok_p = &cp_missing_noreturn_ok_p;
+
+  /* Create the global variables.  */
+  push_to_top_level ();
+
+  current_function_decl = NULL_TREE;
+  current_binding_level = NULL;
+
+  /* Enter the global namespace.  */
+  global_namespace = build_lang_decl (NAMESPACE_DECL, global_scope_name,
+				      void_type_node);
+
+  current_lang_name = NULL_TREE;
 
   /* Force minimum function alignment if using the least significant
      bit of function pointers to store the virtual bit.  */
@@ -3092,6 +3102,8 @@ init_cxx_decl_processing_once (void)
      say -fwritable-strings?  */
   if (flag_writable_strings)
     flag_const_strings = 0;
+
+  first = 0;
 }
 
 void setup_globals (void)
@@ -3103,8 +3115,14 @@ void setup_globals (void)
 void
 init_cxx_decl_processing_eachsrc (void)
 {
-  /* We use a conditional symbol table, so there isn't anything
-     special we need to do here.  */
+  static int c_init_decl_done = 0;
+
+ /* We use a conditional symbol table, so there isn't anything special
+     we need to do here besides resetting the cpp symbol table.  */
+  if (c_init_decl_done++ != 0 && server_mode != 1)
+    {
+      reset_cpp_hashnodes ();
+    }
 }
 
 /* Generate an initializer for a function naming variable from

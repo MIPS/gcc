@@ -238,7 +238,7 @@ static int save_temps_flag;
 static int use_pipes;
 
 #ifdef ENABLE_SERVER
-static int use_server;
+static int use_server = 1;
 static int kill_server;
 static int kill_servercp;
 #endif
@@ -379,8 +379,6 @@ static void clear_args (void);
 static void fatal_error (int);
 #ifdef ENABLE_SERVER
 static int get_server_socket (const char *, bool);
-static void write_input_request (const char *, int, int);
-static void write_input_requests (int);
 static void write_switch_fds_request (int, int, int);
 static void write_output_request (const char *, int);
 #endif
@@ -785,7 +783,7 @@ static const char *cpp_unique_options =
  %{MMD:-MMD %{!o:%b.d}%{o*:%.d%*}}\
  %{M} %{MM} %{MF*} %{MG} %{MP} %{MQ*} %{MT*}\
  %{!E:%{!M:%{!MM:%{MD|MMD:%{o*:-MQ %*}}}}}\
- %{trigraphs} %{remap} %{g3:-dD} %{H} %C %{D*&U*&A*} %{i*} %Z %{!server:%i}\
+ %{trigraphs} %{remap} %{g3:-dD} %{H} %C %{D*&U*&A*} %{i*} %Z %i\
  %{E|M|MM:%W{o*}}";
 
 /* This contains cpp options which are common with cc1_options and are passed
@@ -804,8 +802,8 @@ static const char *cpp_debug_options = "%{d*}";
 /* NB: This is shared amongst all front-ends.  */
 static const char *cc1_options =
 "%{pg:%{fomit-frame-pointer:%e-pg and -fomit-frame-pointer are incompatible}}\
- %1 %{!Q:-quiet} %{!server:-dumpbase %B} %{d*} %{m*} %{a*}\
- %{!server:-auxbase%{c|S:%{o*:-strip %*}%{!o*: %b}}%{!c:%{!S: %b}}}\
+ %1 %{!Q:-quiet} -dumpbase %B %{d*} %{m*} %{a*}\
+ -auxbase%{c|S:%{o*:-strip %*}%{!o*: %b}}%{!c:%{!S: %b}}\
  %{g*} %{O*} %{W*&pedantic*} %{w} %{std*} %{ansi}\
  %{v:-version} %{pg:-p} %{p} %{f*} %{undef}\
  %{Qn:-fno-ident} %{--help:--help}\
@@ -949,7 +947,7 @@ static const struct compiler default_compilers[] =
 		    cc1 -fpreprocessed %{save-temps:%b.i} %{!save-temps:%g.i} \
 			%(cc1_options)}\
 	  %{!save-temps:%{!traditional-cpp:%{!no-integrated-cpp:\
-		%{!server:cc1} %{server:@.cc1} %(cpp_unique_options) %(cc1_options)}}}\
+		@.cc1 %(cpp_unique_options) %(cc1_options)}}}\
         %{!fsyntax-only:%(invoke_as)}}}}", 0},
   {"-",
    "%{!E:%e-E required when input is from standard input}\
@@ -2752,7 +2750,6 @@ pexecute_server (const char *string,
     pfatal_with_name ("(socket write)");
   obstack_free (&obstack, base);
 
-  write_input_requests (sock);
   write_output_request (asm_name, sock);
   *server_socketp = sock;
   return 0;
@@ -2917,6 +2914,12 @@ execute (void)
     {
       char *errmsg_fmt, *errmsg_arg;
       const char *string = commands[i].argv[0];
+
+      if (use_server == 0 && string[0] == '@' && string[1] == '.')
+	{
+	  commands[i].argv[0] += 2;
+	  string = commands[i].argv[0];
+	}
 
       commands[i].server_socket = -1;
 #ifdef ENABLE_SERVER
@@ -3726,10 +3729,18 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 	report_times = 1;
       else if (strcmp (argv[i], "-pipe") == 0)
 	{
-	  /* -pipe has to go into the switches array as well as
-	     setting a flag.  */
-	  use_pipes = 1;
-	  n_switches++;
+	  /* Need a way to turn off -pipe for the compile server.
+	     use_server isn't set yet, and we can't delay unsetting
+	     use_pipes, this increases fragment reused by allowing
+	     more fragments to be valid, as we use ftell on the asm
+	     file to check to see if we can reuse fragments.  */
+	  if (0)
+	    {
+	      /* -pipe has to go into the switches array as well as
+		 setting a flag.  */
+	      use_pipes = 1;
+	      n_switches++;
+	    }
 	}
 #ifdef ENABLE_SERVER
       else if (strcmp (argv[i], "-server") == 0)
@@ -5889,6 +5900,50 @@ process_brace_body (const char *p, const char *atom, const char *end_atom,
 }
 
 #ifdef ENABLE_SERVER
+static void
+start_server (const char *);
+
+/* Start up a compile server of the appropriate type.  This is called
+   when one is not already running.  */
+
+static void
+start_server (const char *prog)
+{
+  char *buf;
+  /* Try starting server... */
+  char *s = find_a_file (&exec_prefixes, prog, X_OK, 0);
+  if (s == NULL)
+    pfatal_with_name ("finding compiler");
+
+  buf = alloca (strlen (s) + 10);
+  sprintf (buf, "'%s' -fserver &", s);
+  system (buf);
+
+  /* Hum...  We need to let the compiler server start up and start
+     accepting connections...  how long should be wait?
+
+     How about we have -fserver fork and have the parent return after
+     the child has started and is hot, then we can return when system
+     completes.  */
+  sleep (1);
+}
+
+static void
+xread (int fd, char *buf, size_t len)
+{
+  if ((size_t)read (fd, buf, len) != len)
+    pfatal_with_name ("read");
+}
+
+static void
+waitforgo (int sock)
+{
+  char buf[1];
+  xread (sock, buf, 1);
+  if (buf[0] != 'G')
+    pfatal_with_name ("protocol violation");
+}
+
 /* Contact a compile server.  If loadbalancer is true, then contact
    the load balancer instead.  */
 
@@ -5898,6 +5953,7 @@ get_server_socket (const char *prog, bool loadbalancer)
   struct sockaddr_un server;
   char buf[1];
   int sock;
+  int server_started = 0;
 
   if (reuse_server_sockets && server_socket >= 0)
     {
@@ -5912,16 +5968,22 @@ get_server_socket (const char *prog, bool loadbalancer)
   server.sun_family = AF_UNIX;
   sprintf (server.sun_path, ".%s-server", prog);
 
-  if (connect (sock,
-	       (struct sockaddr *) &server,
-	       sizeof(struct sockaddr_un)) < 0)
+  while (connect (sock,
+		  (struct sockaddr *) &server,
+		  sizeof(struct sockaddr_un)) < 0)
     {
-#if 0
-      ... try starting server ...;
-#endif
-      close (sock);
-      pfatal_with_name ("connecting stream socket");
+      if (server_started)
+	{
+	  close (sock);
+	  pfatal_with_name ("connecting stream socket");
+	}
+      start_server (prog);
+      server_started = 1;
     }
+#define DARWIN_JAG_BUG 1
+#ifdef DARWIN_JAG_BUG
+  waitforgo (sock);
+#endif
   if (loadbalancer)
     buf[0] = 'L';
   else
@@ -5941,23 +6003,6 @@ get_server_socket (const char *prog, bool loadbalancer)
 }
 
 static void
-write_input_request (const char *filename, int filename_length, int fd)
-{
-  int wlen;
-  void *base;
-  obstack_grow (&obstack, "I\000", 2);
-  obstack_grow (&obstack, filename, filename_length);
-  obstack_grow (&obstack, "\000\n", 2);
-  base = obstack_base (&obstack);
-  wlen = obstack_object_size (&obstack);
-  if (((char*)base)[0] == 0)
-    pfatal_with_name ("bad write, was 0");
-  if (write (fd, base, wlen) != wlen)
-    pfatal_with_name ("(socket write)");
-  obstack_free (&obstack, base);
-}
-
-static void
 write_output_request (const char *filename, int fd)
 {
   int filename_length = strlen (filename);
@@ -5971,23 +6016,6 @@ write_output_request (const char *filename, int fd)
   if (write (fd, base, wlen) != wlen)
     pfatal_with_name ("(socket write)");
   obstack_free (&obstack, base);
-}
-
-static void
-write_input_requests (int sock)
-{
-  if (combine_inputs)
-    {
-      int j;
-      for (j = 0; (int) j < n_infiles; j++)
-	write_input_request (infiles[j].name,
-			     strlen (infiles[j].name),
-			     sock);
-    }
-  else
-    {
-      write_input_request (input_filename, input_filename_length, sock);
-    }
 }
 
 static void
@@ -6020,21 +6048,11 @@ send_fd (int fd, int sock)
 }
 
 static void
-xread (int fd, char *buf, size_t len)
-{
-  if ((size_t)read (fd, buf, len) != len)
-    pfatal_with_name ("read");
-}
-
-static void
 write_switch_fds_request (int sock, int input_desc, int output_desc)
 {
-  char buf[1];
   if (write (sock, "D\n", 2) != 2)
     pfatal_with_name ("(socket write)");
-  xread (sock, buf, 1);
-  if (buf[0] != 'G')
-    pfatal_with_name ("nope");
+  waitforgo (sock);
   send_fd (input_desc, sock);
   send_fd (output_desc, sock);
   send_fd (2, sock);

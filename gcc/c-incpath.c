@@ -59,6 +59,16 @@ static struct cpp_dir *tails[4];
 static bool quote_ignores_source_dir;
 enum { REASON_QUIET = 0, REASON_NOENT, REASON_DUP, REASON_DUP_SYS };
 
+/* Reinitialize for next compile.  */
+
+void
+reinit_incpath ()
+{
+  memset (heads, 0, sizeof (heads));
+  memset (tails, 0, sizeof (tails));
+  quote_ignores_source_dir = false;
+}
+
 /* Free an element of the include chain, possibly giving a reason.  */
 static void
 free_path (struct cpp_dir *path, int reason)

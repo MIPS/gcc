@@ -380,8 +380,27 @@ c_common_read_pch (cpp_reader *pfile, const char *name,
 
   cpp_prepare_state (pfile, &smd);
 
-  gt_pch_restore (f);
-
+  {
+    static int first = 1;
+    static long pos;
+    
+    if (first)
+      gt_pch_restore (f);
+    if (server_mode == 2)
+      {
+	if (first)
+	  {
+	    if (lang_hooks.uses_conditional_symtab)
+	      first = 0;
+	    pos = ftell (f);
+	    if (pos == -1)
+	      abort ();
+	  }
+	else
+	  if (fseek (f, pos, SEEK_SET) != 0)
+	    abort ();
+      }
+  }
   if (cpp_read_state (pfile, name, f, smd) != 0)
     return;
 
@@ -395,7 +414,12 @@ c_common_no_more_pch (void)
 {
   if (cpp_get_callbacks (parse_in)->valid_pch)
     {
+      static int first = 1;
       cpp_get_callbacks (parse_in)->valid_pch = NULL;
-      host_hooks.gt_pch_use_address (NULL, 0);
+      if (first)
+	{
+	  host_hooks.gt_pch_use_address (NULL, 0);
+	  first = 0;
+	}
     }
 }

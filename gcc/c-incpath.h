@@ -22,5 +22,6 @@ extern void register_include_chains (cpp_reader *, const char *,
 				     const char *, int, int, int);
 extern void add_system_path (struct cpp_dir *);
 extern void add_bracket_path (struct cpp_dir *);
+extern void reinit_incpath (void);
 
 enum { QUOTE = 0, BRACKET, SYSTEM, AFTER };

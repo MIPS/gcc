@@ -108,6 +108,7 @@ static void add_prefixed_path (const char *, size_t);
 static void push_command_line_include (void);
 static void cb_file_change (cpp_reader *, const struct line_map *);
 static bool finish_options (void);
+static void reinit_copts (void);
 
 #ifndef STDC_0_IN_SYSTEM_HEADERS
 #define STDC_0_IN_SYSTEM_HEADERS 0
@@ -121,6 +122,7 @@ static struct deferred_opt
   enum opt_code code;
   const char *arg;
 } *deferred_opts;
+static size_t max_deferred = 0;
 
 /* Complain that switch CODE expects an argument but none was
    provided.  OPT was the command-line option.  Return FALSE to get
@@ -178,6 +180,8 @@ c_common_missing_argument (const char *opt, size_t code)
 static void
 defer_opt (enum opt_code code, const char *arg)
 {
+  if (deferred_count >= max_deferred)
+    abort ();
   deferred_opts[deferred_count].code = code;
   deferred_opts[deferred_count].arg = arg;
   deferred_count++;
@@ -189,6 +193,9 @@ c_common_init_options (unsigned int argc, const char **argv ATTRIBUTE_UNUSED)
 {
   static const unsigned int lang_flags[] = {CL_C, CL_ObjC, CL_CXX, CL_ObjCXX};
   unsigned int result;
+  static int first = 1;
+
+  reinit_copts ();
 
 #ifdef TARGET_C_INIT
   TARGET_C_INIT;
@@ -206,12 +213,16 @@ c_common_init_options (unsigned int argc, const char **argv ATTRIBUTE_UNUSED)
       diagnostic_prefixing_rule (global_dc) = DIAGNOSTICS_SHOW_PREFIX_ONCE;
     }
 
-  parse_in = cpp_create_reader (c_dialect_cxx () ? CLK_GNUCXX: CLK_GNUC89,
-				ident_hash);
+  if (first)
+    {
+      parse_in = cpp_create_reader (c_dialect_cxx () ? CLK_GNUCXX: CLK_GNUC89,
+				    ident_hash);
 
-  cpp_opts = cpp_get_options (parse_in);
-  cpp_opts->dollars_in_ident = DOLLARS_IN_IDENTIFIERS;
-  cpp_opts->objc = c_dialect_objc ();
+      cpp_opts = cpp_get_options (parse_in);
+      cpp_opts->dollars_in_ident = DOLLARS_IN_IDENTIFIERS;
+      cpp_opts->objc = c_dialect_objc ();
+      first = 0;
+    }
 
   /* Reset to avoid warnings on internal definitions.  We set it just
      before passing on command-line options to cpplib.  */
@@ -222,6 +233,7 @@ c_common_init_options (unsigned int argc, const char **argv ATTRIBUTE_UNUSED)
   warn_pointer_arith = c_dialect_cxx ();
 
   deferred_opts = xmalloc (argc * sizeof (struct deferred_opt));
+  max_deferred = argc;
 
   result = lang_flags[c_language];
 
@@ -1112,12 +1124,10 @@ c_common_post_options (const char **pfilename ATTRIBUTE_UNUSED)
   /* kludge - should be moved */
   cpp_post_options (parse_in);
 
-  cpp_find_main_file (parse_in, *pfilename);
+  finish_options ();
 
   if (flag_preprocess_only)
     {
-      finish_options ();
-
       preprocess_file (parse_in);
       return true;
     }
@@ -1132,10 +1142,30 @@ c_common_post_options (const char **pfilename ATTRIBUTE_UNUSED)
   return false;
 }
 
+/* Reinitialize for next compile.  */
+
+static void
+reinit_copts ()
+{
+  verbose = false;
+
+  if (deferred_opts)
+    {
+      free (deferred_opts);
+      deferred_opts = 0;
+      deferred_count = 0;
+      include_cursor = 0;
+      max_deferred = 0;
+    }
+
+  reinit_incpath ();
+}
+
 /* Front end initialization common to C, ObjC and C++.  */
 void
 init_c_common_once (void)
 {
+  static int first = 1;
   /* Set up preprocessor arithmetic.  Must be done after call to
      c_common_nodes_and_builtins for type nodes to be good.  */
   cpp_opts->precision = TYPE_PRECISION (intmax_type_node);
@@ -1161,7 +1191,11 @@ init_c_common_once (void)
       cpp_get_callbacks (parse_in)->avoid_new_fragment = cb_avoid_new_fragment;
     }
 
-  init_pragma ();
+  if (first)
+    {
+      init_pragma ();
+      first = 0;
+    }
 
   if (cpp_opts->deps.style == DEPS_NONE)
     check_deps_environment_vars ();
@@ -1208,11 +1242,21 @@ init_c_common_once (void)
   if (warn_missing_format_attribute && !warn_format)
     warning ("-Wmissing-format-attribute ignored without -Wformat");
 
+#if 0
+  /* This has to be done before the builtins are injected.  */
+  reset_cpp_hashnodes ();
+#endif
+
   if (!cpp_opts->preprocessed)
     {
+      static int first = 1;
       cpp_change_file (parse_in, LC_ENTER, _("<built-in>"));
-      cpp_init_builtins (parse_in, flag_hosted);
-      c_cpp_builtins (parse_in); 
+      if (first)
+	{
+	  cpp_init_builtins (parse_in, flag_hosted);
+	  c_cpp_builtins (parse_in); 
+	  first = 0;
+	}
 
       /* We're about to send user input to cpplib, so make it warn for
 	 things that we previously (when we sent it internal definitions)
@@ -1241,7 +1285,10 @@ init_c_common_once (void)
 bool
 init_c_common_eachsrc (void)
 {
+#if 0
+  /* This is new location of finish_options in Per's code.  */
   finish_options ();
+#endif
 
   input_line = saved_lineno;
 
@@ -1259,8 +1306,20 @@ c_common_parse_file (int set_yydebug ATTRIBUTE_UNUSED)
   warning ("YYDEBUG not defined");
 #endif
 
+  /* Per moved this one to init_c_common_eachsrc  */
+#if 0
+  finish_options (input_filename);
+#endif
+
+#if 0
+  /* Not necessary, at end of finish_options */
+  push_command_line_include ();
+#endif
+
   (*debug_hooks->start_source_file) (input_line, input_filename);
 
+  if (1 /* first file */)
+    pch_init ();
   c_parse_file ();
   free_parser_stacks ();
 
@@ -1431,6 +1490,7 @@ add_prefixed_path (const char *suffix, size_t chain)
 static bool
 finish_options (void)
 {
+  const char *tif = input_filename;
 #if 0
   /* MERGE ? They moved this in here, can we move it back? */
   this_input_filename = tif;
@@ -1476,6 +1536,10 @@ finish_options (void)
     }
 
   include_cursor = 0;
+#if 1
+  /* Was here, Per moved it. */
+  cpp_find_main_file (parse_in, tif);
+#endif
   push_command_line_include ();
   return true;
 }
@@ -1515,8 +1579,10 @@ cb_file_change (cpp_reader *pfile ATTRIBUTE_UNUSED,
   else
     fe_file_change (new_map);
 
+#if 0
   if (new_map == 0 || (new_map->reason == LC_LEAVE && MAIN_FILE_P (new_map)))
     push_command_line_include ();
+#endif
 }
 
 /* Set the C 89 standard (with 1994 amendments if C94, without GNU

@@ -447,6 +447,11 @@ cpp_post_options (cpp_reader *pfile)
   /* Mark named operators before handling command line macros.  */
   if (CPP_OPTION (pfile, cplusplus) && CPP_OPTION (pfile, operator_names))
     mark_named_operators (pfile);
+
+  /* We arrange to recheck for modified files once per output file.
+     Between output files, we don't recheck the modification times of
+     files for improved performance.  */
+  cpp_notice_updates ();
 }
 
 /* Setup for processing input from the file named FNAME, or stdin if
@@ -489,6 +494,10 @@ void
 cpp_push_main_file (cpp_reader *pfile)
 {
   _cpp_stack_file (pfile, pfile->main_file, false);
+
+  if (CPP_OPTION (pfile, lang) == CLK_GNUCXX
+      || CPP_OPTION (pfile, lang) == CLK_CXX98)
+    _cpp_start_fragment (pfile);
 
   /* For foo.i, read the original filename foo.c now, for the benefit
      of the front ends.  */

@@ -468,6 +468,59 @@ add_input_filename (const char *filename)
   in_fnames[num_in_fnames - 1] = filename;
 }
 
+/* Any option that can change, we have to re-initialize here.  */
+
+void
+reinit_opts ()
+{
+  pedantic = 0;
+  profile_flag = 0;
+  flag_pedantic_errors = 0;
+  quiet_flag = 0;
+  version_flag = false;
+  inhibit_warnings = false;
+  optimize_size = 0;
+  optimize = 0;
+  flag_defer_pop = 0;
+  flag_thread_jumps = 0;
+  flag_delayed_branch = 0;
+  flag_omit_frame_pointer = 0;
+  flag_guess_branch_prob = 0;
+  flag_cprop_registers = 0;
+  flag_loop_optimize = 0;
+  flag_crossjumping = 0;
+  flag_if_conversion = 0;
+  flag_if_conversion2 = 0;
+  flag_optimize_sibling_calls = 0;
+  flag_cse_follow_jumps = 0;
+  flag_cse_skip_blocks = 0;
+  flag_gcse = 0;
+  flag_expensive_optimizations = 0;
+  flag_strength_reduce = 0;
+  flag_rerun_cse_after_loop = 0;
+  flag_rerun_loop_opt = 0;
+  flag_caller_saves = 0;
+  flag_force_mem = 0;
+  flag_peephole2 = 0;
+  flag_schedule_insns = 0;
+  flag_schedule_insns_after_reload = 0;
+  flag_regmove = 0;
+  flag_strict_aliasing = 0;
+  flag_delete_null_pointer_checks = 0;
+  flag_reorder_blocks = 0;
+  flag_reorder_functions = 0;
+  flag_unit_at_a_time = 0;
+  flag_inline_functions = 0;
+  flag_rename_registers = 0;
+  flag_unswitch_loops = 0;
+  flag_web = 0;
+  align_loops = 0;
+  align_jumps = 0;
+  align_labels = 0;
+  align_functions = 0;
+  flag_reorder_blocks = 0;
+}
+
 /* Parse command line options and set default flag values.  Do minimal
    options processing.  */
 void
@@ -475,10 +528,18 @@ decode_options (unsigned int argc, const char **argv)
 {
   unsigned int i, lang_mask;
 
+  reinit_opts ();
+
   /* Perform language-specific options initialization.  */
   lang_mask = (*lang_hooks.init_options) (argc, argv);
 
-  lang_hooks.initialize_diagnostics (global_dc);
+  {
+    static int first = 1;
+    if (first) {
+      lang_hooks.initialize_diagnostics (global_dc);
+      first = 0;
+    }
+  }
 
   /* Scan to see what optimization level has been specified.  That will
      determine the default value of many flags.  */

@@ -1598,6 +1598,8 @@ wrapup_global_declarations (tree *vec, int len)
 	{
 	  decl = vec[i];
 
+	  DECL_NEWEST_DUPLICATE (decl);
+
 	  if (TREE_ASM_WRITTEN (decl) || DECL_EXTERNAL (decl))
 	    continue;
 
@@ -1646,7 +1648,9 @@ wrapup_global_declarations (tree *vec, int len)
 			   || DECL_ARTIFICIAL (decl)))
 		needed = 0;
 
-	      if (needed)
+	      /* Don't infinitely loop when we have written out the
+		 decl already.  */
+	      if (needed && ! TREE_ASM_WRITTEN (decl))
 		{
 		  reconsider = 1;
 		  rest_of_decl_compilation (decl, NULL, 1, 1);
@@ -4532,8 +4536,6 @@ lang_dependent_init (void)
      debug output.  */
   (*debug_hooks->init) (main_input_filename);
 
-  lang_hooks.pch_init ();
-
   timevar_pop (TV_SYMOUT);
 
   return 1;
@@ -4617,20 +4619,25 @@ finalize (void)
 static void
 init_compile_once (void)
 {
+  static int first = 1;
   /* The bulk of the command line switch processing.  */
   process_options ();
 
   if (server_mode < 0 && num_in_fnames > 1)
     server_mode = 0;
 
-  init_emit_once (debug_info_level == DINFO_LEVEL_NORMAL
-		  || debug_info_level == DINFO_LEVEL_VERBOSE
+  if (first)
+    {
+      init_emit_once (debug_info_level == DINFO_LEVEL_NORMAL
+		      || debug_info_level == DINFO_LEVEL_VERBOSE
 #ifdef VMS_DEBUGGING_INFO
-		    /* Enable line number info for traceback.  */
-		    || debug_info_level > DINFO_LEVEL_NONE
+		      /* Enable line number info for traceback.  */
+		      || debug_info_level > DINFO_LEVEL_NONE
 #endif
-		    || flag_test_coverage
-		    || warn_notreached);
+		      || flag_test_coverage
+		      || warn_notreached);
+      first = 0;
+    }
 
   (*lang_hooks.init_once) ();
 }
@@ -4747,6 +4754,7 @@ server_get_command (int fd, char **bufp, int *posp, int *limp, int *blenp)
 	  {
 	    if (buf[0] == 0)
 	      {
+		fatal_error ("kernel bug in 10.2.x, fixed in 10.3");
 		/* This looks to be a kernel bug with Jaguar.  */
 		fprintf (stderr, "bad read, got 0, assuming I\n");
 		buf[0] = 'I';
@@ -4927,6 +4935,15 @@ pop_fd (void)
 static int
 get_job (const char *);
 
+static void
+waitforgo (int sock)
+{
+  char buf[1];
+  xread (sock, buf, 1);
+  if (buf[0] != 'G')
+    fatal_error ("protocol violation");
+}
+
 /* Get a job from the load balancer.  */
 
 static int
@@ -4956,6 +4973,10 @@ get_job (const char *prog)
 	return -1;
       fatal_error ("connecting stream socket: %m");
     }
+#define DARWIN_JAG_BUG 1
+#ifdef DARWIN_JAG_BUG
+  waitforgo (sock);
+#endif
   xwrite (sock, "S", 1);
 
   /* Wait here until the load balancer says go.  */
@@ -5005,6 +5026,10 @@ get_request_from_load_balancer (int *sockp)
       } while (fd < 0 && errno == EINTR);
       if (fd < 0)
 	fatal_error ("can't connect to client socket: %m");
+#define DARWIN_JAG_BUG 1
+#ifdef DARWIN_JAG_BUG
+      xwrite (fd, "G", 1);
+#endif
       xread (fd, xbuf, 1);
 
       switch (xbuf[0])
@@ -5188,18 +5213,39 @@ server_loop (void)
 	  char *fname = command_buffer + 2;
 	  fname [asm_name_length] = 0;
 	  memcpy (abuf, fname, asm_name_length+1);
+	  if (asm_file_name)
+	    free ((void*)asm_file_name);
 	  asm_file_name = abuf;
 	  if (! quiet_flag)
 	    fprintf (stderr, "Assembler file: '%s'\n", asm_file_name);
 
-	  do_compile ();
+	  save_argv = server_argv;
+
+	  /* Parse the options and do minimal processing; basically just
+	     enough to default flags appropriately.  */
+	  decode_options (server_argc, server_argv);
+
+	  randomize ();
+
+	  /* Exit early if we can (e.g. -help).  */
+	  if (!exit_after_options)
+	    {
+	      init_compile_once ();
+
+	      /* If an error has already occurred, give up.  */
+	      if (! errorcount)
+		{
+		  do_compile ();
+		}
+	    }
 
 	  for (i = num_in_fnames;  --i >= 0; )
 	    {
 	      const char *name = in_fnames[i];
-	      free ((void*) name);
 	      in_fnames[i] = NULL;
+	      free ((void*) name);
 	    }
+	  free (in_fnames);
 	  in_fnames = NULL;
 	  num_in_fnames = 0;
 	  if (old_fd[0] != -1)
@@ -5208,6 +5254,11 @@ server_loop (void)
 	  xbuf[0] = (errorcount || sorrycount ? FATAL_EXIT_CODE
 		     : SUCCESS_EXIT_CODE);
 	  xwrite (fd, xbuf, 1);
+#define DARWIN_JAG_BUG2 1
+#ifdef DARWIN_JAG_BUG2
+	  close (fd);
+	  fd = -1;
+#endif
 	  /* This is for testing, to get the server to stop with each
 	     error that should not be an error.  Eventually, this
 	     should be removed when the server works well.  */
@@ -5328,6 +5379,16 @@ toplev_main (unsigned int argc, const char **argv)
 
   /* Initialization of GCC's environment, and diagnostics.  */
   general_init (argv[0]);
+
+  /* Should just be == 2.  */
+  if (argc >= 2 && strcmp (argv[1], "-fserver") == 0)
+    server_mode = 2;
+
+  if (server_mode > 0)
+    {
+      server_loop ();
+      return 0;
+    }
 
   /* Parse the options and do minimal processing; basically just
      enough to default flags appropriately.  */

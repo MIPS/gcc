@@ -1,3 +1,118 @@
+2004-01-21  Mike Stump  <mrs@apple.com>
+
+	Move options processing from server command line to client command
+	line, default server starting to on.
+
+	* c-pch.c (c_common_read_pch): Allow options to initialized more
+	than once.
+	(c_common_no_more_pch): Don't unmap more than once, as other
+	compilation units can reuse the PCH state as is.
+
+	* c-opts.c (max_deferred): Add.
+	(defer_opt): Add bounds check.
+	(c_common_init_options): Allow options to initialized more than
+	once.
+	(c_common_post_options): Likewise.
+	(reinit_copts): Likewise.
+	(init_c_common_once): Likewise.
+	(c_common_parse_file): Likewise.
+	(c_common_parse_file): Moved pch-init to here.
+	(finish_options): Allow options to initialized more than once.
+
+	* c-objc-common.c (init_c_objc_common_once): Allow options to
+	initialized more than once.
+
+	* c-incpath.h (reinit_incpath): Add.
+
+	* c-incpath.c (reinit_incpath): Add.
+
+	* c-decl.c (init_c_decl_processing_eachsrc): Don't
+	reset_cpp_hashnodes.
+	(init_c_decl_processing_once): Allow options to initialized more
+	than once.
+
+	* c-common.h (synthetic_exit_fragment): Add.
+
+	* c-common.c (create_builtins_fragment): Allow options to
+	initialized more than once.
+	(gather_fragment_statistics): Always output fragment stats, for now.
+	(reset_cpp_hashnodes): Allow options to initialized more than
+	once.
+	(synthetic_exit_fragment): Add.
+	(create_output_fragment): Only create output fragments when in
+	sever mode 2.
+	(end_output_fragment): Likewise.
+	(create_output_fragment): Set the name of the fragment.
+	(create_cmdline_fragment): Add.
+	(end_cmdline_fragment): Add.
+	(init_cmdline_fragment): Add.
+	(activate_cmdline_fragment): Add.
+
+	* toplev.c (wrapup_global_declarations): Call
+	DECL_NEWEST_DUPLICATE on decl.
+	(wrapup_global_declarations): Don't infinitely loop if the decl
+	has been written out already.
+	(lang_dependent_init): Move pch_init from here.
+	(init_compile_once): Allow options to initialized more than once.
+	(server_loop): Free asm_file_name and input filenames.
+	(server_loop): Allow options to initialized more than once.
+	(toplev_main): Allow options to initialized more than once.
+
+	* opts.c (reinit_opts): Add.
+	(decode_options): Allow options to initialized more than once.
+
+	* objc/lang-specs.h: Simplify and allow -server to be the default.
+
+	* Makefile.in (TEST_TARGET): Remove coverage.o, as it cannot be
+	processed twice.
+	(start-server): Remove unneeded arguments.
+
+	* gcc.c: Default server to on.
+	(write_input_request): Remove.
+	(write_input_requests): Remove.
+	(cpp_unique_options): Simplify and allow -server to be the default.
+	(cc1_options): Likewise.
+	(default_compilers): Likewise.
+	(execute): Add code to allow -server to be the default.
+	(start_server): Add.
+	(waitforgo): Add.
+	(get_server_socket): Add compile server starting.
+	(write_switch_fds_request): Use waitforgo.
+
+	(process_command): Don't -pipe, as it defeats snarf-n-barf of asm
+	for fragments.
+
+	(pexecute_server): Remove call to write_input_requests as we now
+	handle them normally.
+
+	* cpplib.h (cpp_notice_updates): Add.
+
+	* cppinit.c (cpp_push_main_file): We start a new fragment for C++
+	for the main file.
+
+	* cppfiles.c (struct _cpp_file_data): Add generation.
+	(generation): Add.
+	(file_modified): Add.
+	(cpp_notice_updates): Add.
+	(open_file): Notice when a file has been modified.
+	(_cpp_find_file): Don't reuse a PCH file that has been read once.
+	(_cpp_find_file): If we re-validate the PCH file, reuse the fd.
+	(read_file_guts): Track the generation number of file that are
+	read.
+	(file_changed): Add.
+	(read_file): Notice when a file has been modified.
+	(_cpp_stack_file): Remove fragment starting code, as it is now
+	redundant with normal fragment processing.
+	(purge_fragments): Use delete_fragment.
+	(_cpp_pop_file_buffer): Add code to allow C++ to reuse the main
+	file.
+
+	* config/darwin-c.c (reinit_frameworks): Add.
+	(darwin_register_frameworks_real): Use reinit_frameworks to
+	reinitialize framework processing.
+
+	* c-common.c (reset_hashnode): Also clear NODE_DIAGNOSTIC.
+
 2003-12-17  Per Bothner  <pbothner@apple.com>
 
 	* c-decl.c (lang_clear_identifier):  Clear the DECL_RTL of the id's
@@ -151,15 +266,6 @@
 	(cb_enter_fragment):  Set it.
 	* c-objc-common.c (init_c_objc_common_eachsrc):  Clear it.
 	* c-parse.in (program):  Use it in checking for empty source file.
-
-2003-11-10  Mike Stump  <mrs@apple.com>
-
-      * c-pch.c (c_common_no_more_pch): Don't unmap more than once, as
-     other compilation units can reuse the PCH state as is.
-
-2003-10-30  Mike Stump  <mrs@apple.com>
-
-      * c-common.c (reset_hashnode): Also clear NODE_DIAGNOSTIC.
 
 2003-12-02  Mike Stump  <mrs@apple.com>
 

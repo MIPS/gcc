@@ -552,7 +552,12 @@ init_c_decl_processing_eachsrc (void)
 	{
 	  global_scope->tags = NULL_TREE;
 	  global_scope->names = NULL_TREE;
+#if 0
+	  /* This is wrong, we've installed cmd line -D stuff and we
+	     can't undo them, as they aren't builtin and those are the
+	     only ones that survive.  */
 	  reset_cpp_hashnodes ();
+#endif
 	}
   }
 
@@ -2436,9 +2441,13 @@ init_c_decl_processing_once (void)
   tree endlink;
   tree ptr_ftype_void, ptr_ftype_ptr;
   location_t save_loc = input_location;
+  static int first = 1;
 
-  /* Adds some ggc roots, and reserved words for c-parse.in.  */
-  c_parse_init ();
+  if (first)
+    {
+      /* Adds some ggc roots, and reserved words for c-parse.in.  */
+      c_parse_init ();
+    }
 
   scope_freelist = NULL;
 
@@ -2451,24 +2460,28 @@ init_c_decl_processing_once (void)
   input_location.file = "<internal>";
   input_location.line = 0;
 
-  build_common_tree_nodes (flag_signed_char);
+  if (first)
+    {
+      build_common_tree_nodes (flag_signed_char);
 
-  c_common_nodes_and_builtins ();
+      c_common_nodes_and_builtins ();
 
-  /* In C, comparisons and TRUTH_* expressions have type int.  */
-  truthvalue_type_node = integer_type_node;
-  truthvalue_true_node = integer_one_node;
-  truthvalue_false_node = integer_zero_node;
+      /* In C, comparisons and TRUTH_* expressions have type int.  */
+      truthvalue_type_node = integer_type_node;
+      truthvalue_true_node = integer_one_node;
+      truthvalue_false_node = integer_zero_node;
 
-  /* Even in C99, which has a real boolean type.  */
-  pushdecl (build_decl (TYPE_DECL, get_identifier ("_Bool"),
-			boolean_type_node));
+      /* Even in C99, which has a real boolean type.  */
+      pushdecl (build_decl (TYPE_DECL, get_identifier ("_Bool"),
+			    boolean_type_node));
 
-  endlink = void_list_node;
-  ptr_ftype_void = build_function_type (ptr_type_node, endlink);
-  ptr_ftype_ptr
-    = build_function_type (ptr_type_node,
-			   tree_cons (NULL_TREE, ptr_type_node, endlink));
+      endlink = void_list_node;
+      ptr_ftype_void = build_function_type (ptr_type_node, endlink);
+      ptr_ftype_ptr
+	= build_function_type (ptr_type_node,
+			       tree_cons (NULL_TREE, ptr_type_node, endlink));
+      first = 0;
+    }
 
   input_location = save_loc;
 

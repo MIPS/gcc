@@ -767,6 +767,7 @@ extern const char *cpp_get_path (struct _cpp_file *);
 extern cpp_buffer *cpp_get_buffer (cpp_reader *);
 extern struct _cpp_file *cpp_get_file (cpp_buffer *);
 extern cpp_buffer *cpp_get_prev (cpp_buffer *);
+extern void cpp_notice_updates (void);
 
 /* In cpppch.c */
 struct save_macro_data;

@@ -4308,23 +4308,18 @@ extern void register_fragment_dependency PARAMS ((struct c_include_fragment*));
 void
 create_builtins_fragment (void)
 {
-  struct c_include_fragment* st;
-  cpp_fragment *fragment;
-  fragment = xcalloc (1, sizeof (cpp_fragment));
-  fragment->name = "<built-in>";
-  parse_in->current_fragment = fragment;
-  st = alloc_include_fragment ();
-  C_FRAGMENT (fragment) = st;
-  st->valid = 1;
-  st->name = fragment->name;
-  current_c_fragment = st;
-  if (builtins_fragment)
+  if (builtins_fragment == 0)
     {
-      delete_fragment (builtins_fragment);
-      builtins_fragment = 0;
+      builtins_fragment = xcalloc (1, sizeof (cpp_fragment));
+      builtins_fragment->name = "<built-in>";
+      builtins_c_fragment = alloc_include_fragment ();
+      C_FRAGMENT (builtins_fragment) = builtins_c_fragment;
+      builtins_c_fragment->valid = 1;
+      builtins_c_fragment->name = builtins_fragment->name;
     }
-  builtins_fragment = fragment;
-  builtins_c_fragment = st;
+  parse_in->current_fragment = builtins_fragment;
+  current_c_fragment = builtins_c_fragment;
+
   parse_in->do_note_macros = 1;
   track_declarations = 1;
 }
@@ -4415,7 +4410,7 @@ process_undo_buffer (void)
    current fragment.  At the end of the fragment, the data gets
    copied into the fragment.  (It would be cleaner to store this information
    in the fragment directly, but that is less efficient because we don't
-   know the buffer size needed until teh end of the fragment.)  */
+   know the buffer size needed until the end of the fragment.)  */
 static GTY(()) tree fragment_bindings_stack;
 
 /* The active size of fragment_bindings_stack. */
@@ -4518,7 +4513,7 @@ register_fragment_dependency (struct c_include_fragment* used)
 }
 
 #define warn_fragment_invalidation (! quiet_flag)
-#define gather_fragment_statistics (! quiet_flag)
+#define gather_fragment_statistics (! quiet_flag || 1)
 
 int track_dependencies;
 int track_declarations;
@@ -4531,7 +4526,7 @@ int currently_nested;
 void
 reset_hashnode (cpp_hashnode *node)
 {
-  node->flags &= ~ NODE_POISONED; /* ??? also clear NODE_DIAGNOSTIC? */
+  node->flags &= ~ (NODE_POISONED | NODE_DIAGNOSTIC);
   if (node->type == NT_MACRO && !(node->flags & NODE_BUILTIN))
     {
       cpp_macro *macro = node->value.macro;
@@ -4551,10 +4546,13 @@ reset_cpp_hashnodes (void)
   /* Reset cpplib's macros and start a new file.  */
   cpp_undef_all (parse_in);
 #endif
-  cpp_forall_identifiers (parse_in, lang_clear_identifier, NULL);
-  cpp_restore_macros (parse_in, builtins_fragment);
-  restore_fragment_bindings (builtins_c_fragment->bindings);
-  /*  parse_in->buffer = NULL;*/
+  if (builtins_fragment || lang_hooks.uses_conditional_symtab)
+    {
+      cpp_forall_identifiers (parse_in, lang_clear_identifier, NULL);
+      cpp_restore_macros (parse_in, builtins_fragment);
+      restore_fragment_bindings (builtins_c_fragment->bindings);
+      /*  parse_in->buffer = NULL;*/
+    }
 }
 
 void
@@ -4820,12 +4818,37 @@ xfseek (FILE *fp, long offset, int whence) {
   return r;
 }
 
+/* Like a normal fragment end, except we do less processing.  */
+
+void
+synthetic_exit_fragment (cpp_reader *reader, cpp_fragment *fragment ATTRIBUTE_UNUSED)
+{
+  /* This is a synthetic exit, as we don't really want to change anything about
+     the fragment.  */
+  reader->do_note_macros = 0;
+  track_declarations = 0;
+  track_dependencies = 0;
+  if (reader->macro_notes_count)
+    {
+      warning ("defined macros in builtins not protected by cmdline fragment");
+      free (reader->macro_notes);
+      reader->macro_notes_count = 0;
+    }
+  current_c_fragment = NULL;
+  if (fragment_bindings_end)
+    {
+      warning ("declarations in builtins not protected by cmdline fragment");
+      save_fragment_bindings ();
+    }
+  current_fragment_deps_end = 0;
+}
+
 /* Called by cpplib at the end of a fragment (though not if cb_enter_fragment
    returned true).  Save remembered bindings with the fragment for
    future re-use. */
 
 void
-cb_exit_fragment (cpp_reader *reader ATTRIBUTE_UNUSED,
+cb_exit_fragment (cpp_reader *reader,
 		  cpp_fragment *fragment)
 {
   struct c_include_fragment* st = C_FRAGMENT (fragment);
@@ -4982,13 +5005,15 @@ create_output_fragment (void)
   cpp_fragment *fragment;
   if (!lang_hooks.uses_conditional_symtab)
     return;
-  /* FIXME check server_mode! */
+  if (server_mode != 2)
+    return;
   fragment = xcalloc (1, sizeof (cpp_fragment));
   fragment->name = "<built-in>";
   parse_in->current_fragment = fragment;
   st = alloc_include_fragment ();
   C_FRAGMENT (fragment) = st;
   st->valid = 1;
+  st->name = fragment->name;
   st->include_timestamp = main_timestamp;
   current_c_fragment = st;
   output_fragment = fragment;
@@ -5002,6 +5027,8 @@ void
 end_output_fragment (void)
 {
   if (!lang_hooks.uses_conditional_symtab)
+    return;
+  if (server_mode != 2)
     return;
   /* Fold these into cb_exit_fragment as well?!  */
   if (C_FRAGMENT (output_fragment) != current_c_fragment)
@@ -5029,6 +5056,60 @@ activate_output_fragment (void)
 {
   if (output_c_fragment != NULL)
     output_c_fragment->include_timestamp = main_timestamp;
+}
+
+static GTY(()) struct c_include_fragment *cmdline_c_fragment = 0;
+
+/* Create a fragment used for the cmdline declarations. */
+
+void
+create_cmdline_fragment (void)
+{
+  struct c_include_fragment* st;
+  cpp_fragment *fragment;
+  if (server_mode != 2)
+    return;
+  fragment = xcalloc (1, sizeof (cpp_fragment));
+  fragment->name = "<built-in>";
+  parse_in->current_fragment = fragment;
+  st = alloc_include_fragment ();
+  C_FRAGMENT (fragment) = st;
+  st->valid = 1;
+  st->name = fragment->name;
+  st->include_timestamp = main_timestamp;
+  current_c_fragment = st;
+  cmdline_c_fragment = st;
+  parse_in->do_note_macros = 1;
+  track_declarations = 1;
+}
+
+/* End the output fragment.  */
+
+void
+end_cmdline_fragment (void)
+{
+  if (server_mode != 2)
+    return;
+  /* Fold these into cb_exit_fragment as well?!  */
+  if (C_FRAGMENT (parse_in->current_fragment) != current_c_fragment)
+    abort ();
+  cb_exit_fragment (parse_in, parse_in->current_fragment);
+  parse_in->current_fragment = NULL;
+}
+
+void init_cmdline_fragment ()
+{
+  cmdline_c_fragment = 0;
+}
+
+/* Update the cmdline fragment timestamp so that it is valid for this
+   translation unit.  */
+
+void
+activate_cmdline_fragment (void)
+{
+  if (cmdline_c_fragment != NULL)
+    cmdline_c_fragment->include_timestamp = main_timestamp;
 }
 
 /* Handle extra debugging of C tree nodes.  */
