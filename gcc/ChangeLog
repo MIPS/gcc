@@ -1,3 +1,10 @@
+2000-01-09  Philip Blundell  <philb@gnu.org>
+
+	* config/arm/arm.c (output_return_instruction): Use `ldr' rather
+	than `ldm' with only one register.
+	* config/arm/arm.md (push_multi): Use `str' rather than `stm' with 
+	only one register.
+
 Sat Dec 18 05:29:29 1999  Scott Bambrough  <scottb@netwinder.org>
 
 	* config/arm/linux-elf.h: Change all instances of 
