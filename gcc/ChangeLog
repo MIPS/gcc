@@ -1,5 +1,21 @@
 2002-06-08  Jason Merrill  <jason@redhat.com>
 
+	* tree-simple.c (is_simple_rhs): Remove condexpr rule.
+	(is_simple_compref_lhs): Remove &ID.idlist rule.
+	(is_simple_relop): New fn.
+	(is_simple_binary_expr, is_simple_condexpr): Use it.
+	* tree-simple.h: Declare it.
+
+	* c-simplify.c (create_tmp_var): Refuse to create an array temp.
+	(simple_tmp_var_p): New fn.
+	(simplify_lvalue_expr): Use it; make sure we don't return a temp.
+	* tree-simple.h: Declare it.
+
+	* c-pretty-print.c (dump_c_node) [ARRAY_REF]: Wrap array in parens
+	as needed.
+	(dump_c_node) [ARRAY_TYPE]: Don't try to print an unknown
+	dimension.
+
 	* tree-simple.c (is_simple_arraybase): New function.
 	(is_simple_arrayref): Use it to check the array base again.
 	* tree-simple.h: Add declaration.

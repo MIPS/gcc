@@ -117,12 +117,6 @@ Boston, MA 02111-1307, USA.  */
       rhs
 	      : binary_expr
 	      | unary_expr
-	      | condexpr		=> Original grammar does not allow
-					   conditional expressions.
-					   Allowing them here, leads to
-					   less code being generated when
-					   simplifying IF/WHILE/DO
-					   conditionals.
 
       unary_expr
 	      : simp_expr
@@ -156,17 +150,29 @@ Boston, MA 02111-1307, USA.  */
       unop
 	      : '+'
 	      | '-'
+	      | '!'
+	      | '~'
 
       binop
 	      : relop
 	      | '-'
 	      | '+'
-	      ....
+	      | '/'
+	      | '*'
+	      | '%'
+	      | '&'
+	      | '|'
+	      | '<<'
+	      | '>>'
+	      | '^'
 
       relop
 	      : '<'
 	      | '<='
-	      ...
+	      | '>'
+	      | '>='
+	      | '=='
+	      | '!='
 
       condexpr
 	      : val
@@ -200,8 +206,6 @@ Boston, MA 02111-1307, USA.  */
 
       compref
 	      : '(' '*' ID ')' '.' idlist
-	      : '&' ID '.' idlist	=> Original grammar does not allow
-					   this.
 	      | idlist
 
      ----------------------------------------------------------------------  */
@@ -393,12 +397,7 @@ is_simple_expr (t)
 
       rhs
 	      : binary_expr
-	      | unary_expr
-	      | condexpr	=> Original grammar does not allow
-				   conditional expressions on RHS.
-				   However, allowing them lets us generate
-				   fewer code when simplifying IF/WHILE/DO
-				   structures.  */
+	      | unary_expr  */
 
 int
 is_simple_rhs (t)
@@ -408,8 +407,7 @@ is_simple_rhs (t)
     return 1;
 
   return (is_simple_binary_expr (t)
-          || is_simple_unary_expr (t)
-	  || is_simple_condexpr (t));
+          || is_simple_unary_expr (t));
 }
 
 /* }}} */
@@ -460,6 +458,27 @@ is_simple_modify_expr_lhs (t)
 
 /* }}} */
 
+/** {{{ is_simple_relop ()
+
+    Return true if CODE is designates a SIMPLE relop:
+
+      relop
+	      : '<'
+	      | '<='
+	      ...  */
+    
+bool
+is_simple_relop (code)
+     enum tree_code code;
+{
+  return (TREE_CODE_CLASS (code) == '<'
+	  || code == TRUTH_AND_EXPR
+	  || code == TRUTH_OR_EXPR
+	  || code == TRUTH_XOR_EXPR);
+}
+
+/* }}} */
+
 /** {{{ is_simple_binary_expr ()
 
     Return nonzero if T is a SIMPLE binary expression:
@@ -480,7 +499,8 @@ is_simple_binary_expr (t)
       || TREE_CODE (t) == NON_LVALUE_EXPR)
     return is_simple_binary_expr (TREE_OPERAND (t, 0));
 
-  return (TREE_CODE_CLASS (TREE_CODE (t)) == '2'
+  return ((TREE_CODE_CLASS (TREE_CODE (t)) == '2'
+	   || is_simple_relop (TREE_CODE (t)))
 	  && is_simple_val (TREE_OPERAND (t, 0))
 	  && is_simple_val (TREE_OPERAND (t, 1)));
 }
@@ -509,10 +529,7 @@ is_simple_condexpr (t)
     return is_simple_condexpr (TREE_OPERAND (t, 0));
 
   return (is_simple_val (t)
-	  || ((TREE_CODE_CLASS (TREE_CODE (t)) == '<'
-	       || TREE_CODE (t) == TRUTH_AND_EXPR
-	       || TREE_CODE (t) == TRUTH_OR_EXPR
-	       || TREE_CODE (t) == TRUTH_XOR_EXPR)
+	  || (is_simple_relop (TREE_CODE (t))
 	      && is_simple_val (TREE_OPERAND (t, 0))
 	      && is_simple_val (TREE_OPERAND (t, 1))));
 }
@@ -828,7 +845,6 @@ is_simple_arrayref (t)
 
       compref
 	      : '(' '*' ID ')' '.' idlist
-	      : '&' ID '.' idlist
 	      | idlist
 
       idlist
@@ -864,8 +880,6 @@ is_simple_compref_lhs (t)
   /* Allow ID, *ID or a SIMPLE component reference on the LHS.  */
   return (is_simple_id (t)
 	  || (TREE_CODE (t) == INDIRECT_REF
-	      && is_simple_id (TREE_OPERAND (t, 0)))
-	  || (TREE_CODE (t) == ADDR_EXPR
 	      && is_simple_id (TREE_OPERAND (t, 0)))
 	  || is_simple_compref (t));
 }

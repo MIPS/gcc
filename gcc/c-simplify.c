@@ -1816,6 +1816,10 @@ simplify_lvalue_expr (expr_p, pre_p, post_p, stmt)
     }
   else
     abort ();
+
+  /* If we end up with a temporary variable, we've done something wrong.  */
+  if (simple_tmp_var_p (*expr_p))
+    abort ();
 }
 
 /* }}} */
@@ -2083,10 +2087,9 @@ create_tmp_var (type)
 
   ASM_FORMAT_PRIVATE_NAME (tmp_name, "T", id_num++);
 
-  /* If the type is an array, use TYPE_POINTER_TO to create a valid pointer
-     that can be used in the LHS of an assignment.  */
+  /* If the type is an array, something is wrong.  */
   if (TREE_CODE (type) == ARRAY_TYPE)
-    type = TYPE_POINTER_TO (TREE_TYPE (type));
+    abort ();
 
   tmp_var = build_decl (VAR_DECL, get_identifier (tmp_name), type);
 
@@ -2110,9 +2113,22 @@ create_tmp_var (type)
 
 /* }}} */
 
+/** {{{ simple_tmp_var_p ()
+
+    Returns true if T is a SIMPLE temporary variable, false otherwise.  */
+
+bool
+simple_tmp_var_p (t)
+     tree t;
+{
+  /* FIXME this could trigger for other local artificials, too.  */
+  return (TREE_CODE (t) == VAR_DECL && DECL_ARTIFICIAL (t)
+	  && !TREE_STATIC (t) && !DECL_EXTERNAL (t));
+}
+
 /** {{{ make_type_writable ()
 
-    Change the flags for the type of the node T to make it writtable.  */
+    Change the flags for the type of the node T to make it writable.  */
 
 static void 
 make_type_writable (t)

@@ -297,9 +297,10 @@ dump_c_node (buffer, node, spc)
 	while (tmp && TREE_CODE (tmp) == ARRAY_TYPE)
 	  {
 	    output_add_character (buffer, '[');
-	    output_decimal (buffer,
-			    TREE_INT_CST_LOW (TYPE_SIZE (tmp)) / 
-			    TREE_INT_CST_LOW (TYPE_SIZE (TREE_TYPE (tmp))));
+	    if (TYPE_SIZE (tmp))
+	      output_decimal (buffer,
+			      TREE_INT_CST_LOW (TYPE_SIZE (tmp)) / 
+			      TREE_INT_CST_LOW (TYPE_SIZE (TREE_TYPE (tmp))));
 	    output_add_character (buffer, ']');
 	    tmp = TREE_TYPE (tmp);
 	  }
@@ -520,7 +521,11 @@ dump_c_node (buffer, node, spc)
 
     case ARRAY_REF:
       op0 = TREE_OPERAND (node, 0);
+      if (op_prio (op0) < op_prio (node))
+	output_add_character (buffer, '(');
       dump_c_node (buffer, op0, spc);
+      if (op_prio (op0) < op_prio (node))
+	output_add_character (buffer, ')');
       output_add_character (buffer, '[');
       dump_c_node (buffer, TREE_OPERAND (node, 1), spc);
       output_add_character (buffer, ']');
