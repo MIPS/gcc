@@ -1,5 +1,10 @@
 2005-02-21  Dale Johannesen  <dalej@apple.com>
 
+	Radar 4015820 (missing piece)
+	* objcp/objcp-lang.c:  Use objc_gimplify_expr.
+
+2005-02-21  Dale Johannesen  <dalej@apple.com>
+
 	Radar 4015820
 	* objc/objc-act.c (objc_gimplify_expr):  New.
 	* objc/objc-lang.c (LANG_HOOKS_GIMPLIFY_EXPR):  Use it.
