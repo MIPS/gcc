@@ -1,3 +1,7 @@
+2005-02-14  Mark Wielaard  <mark@klomp.org>
+
+	* java/awt/BasicStroke.java (hashCode): Check for null dash.
+
 2005-02-14  Michael Koch  <konqueror@gmx.de>
 
 	* gnu/java/awt/peer/gtk/GtkArg.java,
