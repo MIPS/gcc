@@ -1,3 +1,7 @@
+2004-08-18  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/rs6000/crtsavres.asm (.fres): Add .align 2.
+
 2004-07-07  H.J. Lu  <hongjiu.lu@intel.com>
 
 	PR c++/16276

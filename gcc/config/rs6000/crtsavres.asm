@@ -358,6 +358,7 @@ FUNC_END(_savef14)
 
 /* Routines for restoring floating point registers, called by the compiler.  */
 
+	.align 2
 .fres:
 FUNC_START(_restf14)	lfd	14,-144(1)	/* restore fp registers */
 FUNC_START(_restf15)	lfd	15,-136(1)
