@@ -1,3 +1,7 @@
+2004-02-20  Devang Patel <dpatel@apple.com>
+
+	* testsuite/gcc.dg/tree-ssa-vect/tree-ssa-vect-3.c: New test.
+
 2004-02-16  Devang Patel <dpatel@apple.com>
 
         * gcc.dg/tree-ssa-chrec/20040216-1.c: New test.

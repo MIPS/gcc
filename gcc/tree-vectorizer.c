@@ -2006,6 +2006,13 @@ vect_analyze_data_ref_dependence (struct data_reference *dra,
 
   if (!array_base_name_differ_p (dra, drb))
     {
+      enum data_dependence_direction ddd =
+	ddg_direction_between_stmts (DR_STMT (dra), DR_STMT (drb), 
+				      loop_num (loop_of_stmt (DR_STMT (dra))));
+
+      if (ddd == dir_independent)
+	return true;
+
       if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
 	fprintf (tree_dump_file, 
 		"vect_analyze_data_ref_dependence: same base\n");

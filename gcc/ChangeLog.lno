@@ -1,5 +1,10 @@
 2004-02-20  Devang Patel  <dpatel@apple.com>
 
+	* tree-vectorizer.c (vect_analyze_data_ref_dependence): Use
+        ddg_direction_between_stmts ().
+
+2004-02-20  Devang Patel  <dpatel@apple.com>
+
 	* tree-data-ref.h (data_dependence_direction): Add new member 
 	dir_independent.
         * tree-dg.h (tree-data-ref.h): Include.
