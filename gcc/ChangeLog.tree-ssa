@@ -1,5 +1,9 @@
 2003-06-23  Jeff Law  <law@redhat.com>
 
+	* tree-cfg.c (remove_useless_stmts_and_vars): If the body of a
+	TRY_CATCH_EXPR is empty, then the entire TRY_CATCH_EXPR can
+	be safely removed.
+
 	* tree-cfg.c (find_contained_blocks): Renamed from
 	find_contained_blocks_and_edge_targets.  Remove targets
 	bitmap argument and no longer record targets of edges.

@@ -1483,15 +1483,21 @@ remove_useless_stmts_and_vars (tree *first_p)
 	    }
 
 	  /* If the body of a TRY_FINALLY is empty, then we can emit
-	     the FINALLY block without the enclosing TRY_FINALLY_EXPR.
+	     the FINALLY block without the enclosing TRY_FINALLY_EXPR.  */
 
-	     I don't think this is safe with TRY_CATCH_EXPR.  Consider
-	     if the CATCH block of a TRY_CATCH_EXPR is reached from
-	     outside the TRY_CATCH_EXPR via a GOTO.  */
 	  else if (code == TRY_FINALLY_EXPR
 		   && IS_EMPTY_STMT (TREE_OPERAND (*stmt_p, 0)))
 	    {
 	      *stmt_p = TREE_OPERAND (*stmt_p, 1);
+	      repeat = 1;
+	    }
+
+	  /* If the body of a TRY_CATCH_EXPR is empty, then we can
+	     throw away the entire TRY_CATCH_EXPR.  */
+	  else if (code == TRY_CATCH_EXPR
+		   && IS_EMPTY_STMT (TREE_OPERAND (*stmt_p, 0)))
+	    {
+	      *stmt_p = build_empty_stmt ();
 	      repeat = 1;
 	    }
 	}
