@@ -1,3 +1,9 @@
+2003-01-28  Diego Novillo  <dnovillo@redhat.com>
+
+	* timevar.def (TV_TREE_SSA_REWRITE_BLOCKS): Adjust legend.
+	* tree-ssa.c (rewrite_into_ssa): Use TV_TREE_SSA_REWRITE_BLOCKS.
+	(mark_def_sites): Add comment.
+
 2003-01-28  Jeff Law <law@redhat.com>
 
 	* ssa.c (compute_dominance_frontiers_1): Use get_dominated_by

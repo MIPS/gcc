@@ -234,9 +234,9 @@ rewrite_into_ssa (fndecl)
   insert_phi_nodes (dfs);
 
   /* Rewrite all the basic blocks in the program.  */
-  timevar_push (TV_TREE_BUILD_SSA);
+  timevar_push (TV_TREE_SSA_REWRITE_BLOCKS);
   rewrite_block (ENTRY_BLOCK_PTR);
-  timevar_pop (TV_TREE_BUILD_SSA);
+  timevar_pop (TV_TREE_SSA_REWRITE_BLOCKS);
 
   /* Free allocated memory.  */
   sbitmap_vector_free (dfs);
@@ -280,8 +280,9 @@ mark_def_sites (idom)
      in the function.  */
   FOR_EACH_BB (bb)
     {
+      /* Add BB to the set of dominator children of BB's immediate
+	 dominator.  */
       basic_block idom_bb = get_immediate_dominator (idom, bb);
-
       if (idom_bb)
 	add_dom_child (idom_bb, bb);
 
