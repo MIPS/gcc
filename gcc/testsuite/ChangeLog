@@ -1,3 +1,13 @@
+2002-11-11  Franz Sirl  <Franz.Sirl-kernel@lauterbach.com>
+
+	PR c/8467
+	* gcc.c-torture/execute/20021111-1.c
+
+2002-11-11  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/7788
+	* g++.dg/rtti/crash1.C: New test.
+
 2002-11-10  Jakub Jelinek  <jakub@redhat.com>
 
 	* gcc.dg/20021029-1.c: New test.

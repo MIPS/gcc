@@ -1,3 +1,37 @@
+2002-11-11  Janis Johnson  <janis187@us.ibm.com>
+
+	* doc/contrib.texi: Merge in the list from the libstdc++ web pages.
+
+2002-11-11  Franz Sirl  <Franz.Sirl-kernel@lauterbach.com>
+
+	PR c/8467
+	* stmt.c (tail_recursion_args): Handle DECL_MODE differing from the
+	mode of DECL_RTL case.
+
+2002-11-11  Neil Booth  <neil@daikokuya.co.uk>
+
+	PR preprocessor/4890
+	* tradcpp.c (output_line_command): When leaving a file,
+	system_include_depth has not yet been decremented.
+
+2002-11-10  Joel Sherrill <joel@gcc.gnu.org>
+
+	* config/m68k/t-crtstuff (crti.o): Use this...
+	($(T)crti.o): ... instead.
+	(crtn.o): Use this...
+	($(T)crtn.o): ... instead.
+
+2002-11-10  Ralf Corsepius <corepiu@faw.uni-ulm.de>
+
+	* config/mips/mips.md (movdi_usd): Use %z1 in place of %1.
+
+2002-11-11  Graham Stott  <graham.stott@btinternet.com>
+	    Jan Hubicka  <jh@suse.cz>
+
+	PR 8502
+	* cfgrtl.c (try_redirect_by_replacing_jump): Do not kill computed
+	jumps post reload.
+
 2002-11-10  Jakub Jelinek  <jakub@redhat.com>
 
 	* varasm.c (output_addressed_constants) [MINUS_EXPR]: Clear reloc if
