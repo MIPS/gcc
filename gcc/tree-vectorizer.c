@@ -208,10 +208,16 @@ static tree get_vectype_for_scalar_type (tree);
 static tree vect_get_new_vect_var (tree, enum vect_var_kind, const char *);
 static tree vect_get_vec_def_for_operand (tree, tree);
 static tree vect_init_vector (tree, tree);
+/* APPLE LOCAL begin -haifa  */
+static tree vect_build_symbl_bound (tree n, int vf, struct loop * loop);
+static basic_block vect_gen_if_guard (edge, tree, basic_block, edge);
+/* APPLE LOCAL end -haifa  */
 
 /* Utility functions for loop duplication.  */
 static basic_block vect_tree_split_edge (edge);
-static void vect_update_initial_conditions_of_duplicated_loop (loop_vec_info, tree);
+/* APPLE LOCAL -haifa  */
+static void vect_update_initial_conditions_of_duplicated_loop (loop_vec_info, 
+						   tree, basic_block, edge, edge);
 
 /* General untility functions (CHECKME: where do they belong).  */
 static tree get_array_base (tree);
@@ -463,11 +469,8 @@ vect_create_index_for_array_ref (tree stmt, block_stmt_iterator *bsi,
   /* APPLE LOCAL AV misaligned -haifa  */
   int step_val;
   tree init, step;
-  loop_vec_info loop_info = loop->aux;
-  int vectorization_factor = LOOP_VINFO_VECT_FACTOR (loop_info);
   bool ok;
   int array_first_index;
-  int vec_init_val;
   tree indx_before_incr, indx_after_incr;
 
   if (TREE_CODE (expr) != ARRAY_REF)
@@ -511,13 +514,7 @@ vect_create_index_for_array_ref (tree stmt, block_stmt_iterator *bsi,
   if (!ok)
     abort ();
   /* APPLE LOCAL AV misaligned -haifa  */
-  vec_init_val = array_first_index +
-	(*init_val - array_first_index)/vectorization_factor;
-
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    fprintf (dump_file, "vec_init_indx = %d\n", vec_init_val);
-
-  init = build_int_2 (vec_init_val, 0);
+  init = integer_zero_node;
   step = integer_one_node;
 
   /* CHECKME: assuming that bsi_insert is used with BSI_NEW_STMT */
@@ -1426,6 +1423,203 @@ vect_transform_stmt (tree stmt, block_stmt_iterator *bsi)
   return is_store;
 }
 
+/* APPLE LOCAL begin -haifa */
+
+/* This function generate the following statements:
+
+ ni_name = number of iterations loop executes
+ ratio = ni_name / vf
+ ratio_mult_vf_name = ratio * vf
+
+ and locate them at the loop preheder edge.  */
+
+static void
+vect_generate_tmps_on_preheader (loop_vec_info loop_vinfo, tree *ni_name_p,
+                                 tree *ratio_mult_vf_name_p, tree *ratio_p)
+{
+
+  edge pe;
+  basic_block new_bb;
+  tree stmt, var, ni, ni_name;
+  tree ratio;
+  tree ratio_mult_vf_name, ratio_mult_vf;
+  struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
+
+  int vf, i = -1;
+
+  /* Generate temporary variable that contains
+     number of iterations loop executes.  */
+
+  ni = LOOP_VINFO_SYMB_NUM_OF_ITERS(loop_vinfo);
+  var = create_tmp_var (TREE_TYPE (ni), "niters");
+  add_referenced_tmp_var (var);
+
+  ni_name = force_gimple_operand (ni, &stmt, false, var);
+  pe = loop_preheader_edge (loop);
+  new_bb = bsi_insert_on_edge_immediate (pe, stmt);
+  if (new_bb)
+    add_bb_to_loop (new_bb, new_bb->pred->src->loop_father);
+
+  /* ratio = ni / vf  */
+
+  vf = LOOP_VINFO_VECT_FACTOR (loop_vinfo);
+  ratio = vect_build_symbl_bound (ni_name, vf, loop);
+
+  /* Update initial conditions of loop copy.  */
+
+  /* ratio_mult_vf = ration * vf;  */
+
+  /* vf is power of 2; thus if vf = 2^k, then n/vf = n >> k.   */
+  while (vf)
+    {
+      vf = vf >> 1;
+      i++;
+    }
+
+  ratio_mult_vf = create_tmp_var (TREE_TYPE (ni), "ratio_mult_vf");
+  add_referenced_tmp_var (ratio_mult_vf);
+
+  ratio_mult_vf_name = make_ssa_name (ratio_mult_vf, NULL_TREE);
+
+  stmt = build (MODIFY_EXPR, void_type_node, ratio_mult_vf_name,
+                build (LSHIFT_EXPR, TREE_TYPE (ratio),
+                       ratio, build_int_2(i,0)));
+
+  SSA_NAME_DEF_STMT (ratio_mult_vf_name) = stmt;
+
+  pe = loop_preheader_edge (loop);
+  new_bb = bsi_insert_on_edge_immediate (pe, stmt);
+  if (new_bb)
+    add_bb_to_loop (new_bb, new_bb->pred->src->loop_father);
+
+  *ni_name_p = ni_name;
+  *ratio_mult_vf_name_p = ratio_mult_vf_name;
+  *ratio_p = ratio;
+
+  return;
+}
+
+/* This function:
+
+        1. splits EE edge generating new bb
+        2. locates the following statement as last statement of new bb:
+
+            if ( COND )
+              goto EXIT_BB.
+            else
+              goto EE->dest (as it was before split).
+
+        3. updates phis of EXIT_BB with
+           values comming from false edge
+
+   The function also updates phis of EXIT_BB.
+
+   We suppose that  E->dest == EXIT_BB and
+   that EE is preheader edge of loop.  */
+
+
+static basic_block
+vect_gen_if_guard (edge ee, tree cond, basic_block exit_bb, edge e)
+{
+  tree cond_expr;
+  tree then_clause,else_clause;
+  basic_block new_bb;
+  edge true_edge, false_edge;
+  tree phi, phi1;
+  basic_block header_of_loop;
+  int num_elem1, num_elem2;
+  edge e0;
+  
+  block_stmt_iterator interm_bb_last_bsi;
+  
+  new_bb = vect_tree_split_edge (ee); 
+  if(!new_bb)
+    {
+      if (dump_file && (dump_flags & TDF_DETAILS))
+        {
+          fprintf (dump_file, "\nFailed to generate new_bb.\n");
+        }
+      abort ();
+    }
+
+  
+  header_of_loop = new_bb->succ->dest;
+  
+  then_clause = build1 (GOTO_EXPR, void_type_node, tree_block_label (exit_bb));
+  else_clause = build1 (GOTO_EXPR, void_type_node,
+                        tree_block_label (header_of_loop));
+  cond_expr = build (COND_EXPR, void_type_node, cond, then_clause, else_clause);
+
+  /* Insert condition as a last statement in new bb. */
+  interm_bb_last_bsi = bsi_last (new_bb);
+  bsi_insert_after (&interm_bb_last_bsi, cond_expr, BSI_NEW_STMT);   
+
+  /* Remember old edge to update phis.  */
+  e0 = new_bb->succ;
+
+  /* Remove edge from new bb to header of loop.  */  
+  remove_edge (e0);
+
+  /* Generate new edges according to condition.  */
+  true_edge = make_edge (new_bb, exit_bb, EDGE_TRUE_VALUE);
+  set_immediate_dominator (CDI_DOMINATORS, exit_bb, new_bb);
+  false_edge = make_edge (new_bb, header_of_loop, EDGE_FALSE_VALUE);
+  set_immediate_dominator (CDI_DOMINATORS, header_of_loop, new_bb);
+   
+  /* Update phis in loop header as coming from false edge.  */
+  for (phi = phi_nodes (header_of_loop); phi; phi = TREE_CHAIN (phi))
+    {
+      int i;
+      num_elem1 = PHI_NUM_ARGS (phi);
+      for (i = 0; i < num_elem1; i++)
+        if (PHI_ARG_EDGE (phi, i) == e0)
+          {
+            PHI_ARG_EDGE (phi, i) = false_edge;
+            break;
+          }
+    }
+
+  /* Update phis of exit bb as coming from true_edge.  */
+  for (phi = phi_nodes (exit_bb); phi; phi = TREE_CHAIN (phi))
+    {
+      int i;
+      num_elem1 = PHI_NUM_ARGS (phi);
+      for (i = 0; i < num_elem1; i++)
+        {
+          if (PHI_ARG_EDGE (phi, i) == e)
+            {
+              tree def = PHI_ARG_DEF (phi, i);
+              for (phi1 = phi_nodes (header_of_loop); phi1; phi1 = TREE_CHAIN (phi1))
+                {
+                  int k;
+                  num_elem2 = PHI_NUM_ARGS (phi1);
+                  for (k = 0; k < num_elem2; k++)
+                    {
+                      if (PHI_ARG_DEF (phi1, k) == def)
+                        {
+                          int j;
+                          for (j = 0; j < num_elem2; j++)
+                            {
+                              if (PHI_ARG_EDGE (phi1, j) == false_edge)
+                                {
+                                  tree def1 = PHI_ARG_DEF (phi1, j);
+                                  add_phi_arg (&phi, def1, true_edge);
+                                  break;
+                                }
+                            }
+                          break;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+  return new_bb;
+}
+
+/* APPLE LOCAL end -haifa  */
+
 /* This funciton generates stmt 
    
    tmp = n / vf;
@@ -1479,33 +1673,44 @@ vect_build_symbl_bound (tree n, int vf, struct loop * loop)
    When loop is vectorized, its IVs not always preseved so 
    that to be used for initialization of loop copy (second loop). 
    Here we use access functions of IVs and number of iteration 
-   loop executes in order to bring IVs to correct position.  */
+   loop executes in order to bring IVs to correct position.  
+
+   Function also update phis of epilog loop header and NEW_LOOP_EXIT->dest.  */
 
 static void 
 vect_update_initial_conditions_of_duplicated_loop (loop_vec_info loop_vinfo, 
-						   tree niters)
+						   tree niters, 
+						   basic_block new_loop_header,
+						   edge new_loop_latch, 
+						   edge new_loop_exit)
 {
   struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo); 
   /* Preheader edge of duplicated loop.  */
   edge pe;
   edge latch = loop_latch_edge (loop);
-  basic_block dloop_header;
   tree phi;
-  
-  pe = loop->exit_edges[0]->dest->succ;
-  dloop_header = pe->dest;
+  /* APPLE LOCAL begin -haifa  */
+  block_stmt_iterator interm_bb_last_bsi;
+  basic_block intermediate_bb = loop->exit_edges[0]->dest;
+  edge inter_bb_true_edge;
+  basic_block exit_bb;
 
+  /* Find edge from intermediate bb to new loop header.  */
+  pe = find_edge (loop->exit_edges[0]->dest, new_loop_header);
+  inter_bb_true_edge = find_edge (intermediate_bb, new_loop_exit->dest);
+  exit_bb = new_loop_exit->dest;
+  /* APPLE LOCAL end -haifa  */
   for (phi = phi_nodes (loop->header); phi; phi = TREE_CHAIN (phi))
     {
       tree access_fn = NULL;
       tree evolution_part;
       tree init_expr;
       tree step_expr;
-      /* APPLE LOCAL AV while -haifa  */
+      /* APPLE LOCAL begin AV while -haifa  */
       tree var, stmt, ni, ni_name;
-      basic_block new_bb;
-      int i, num_elem1, num_elem2;
-      tree phi1;
+      int i, j, k, m, num_elem1, num_elem2, num_elem3;
+      /* APPLE LOCAL end AV while -haifa  */
+      tree phi1, phi2;
 
 
       /* Skip virtual phi's. The data dependences that are associated with
@@ -1538,37 +1743,56 @@ vect_update_initial_conditions_of_duplicated_loop (loop_vec_info loop_vinfo,
       var = create_tmp_var (TREE_TYPE (init_expr), "tmp");
       add_referenced_tmp_var (var);
       ni_name = force_gimple_operand (ni, &stmt, false, var);
-      /* APPLE LOCAL end AV while -haifa  */
-      new_bb = bsi_insert_on_edge_immediate (pe, stmt);
 
-      /* We should not generate new bb here, only use already existing one.  */
-      if (new_bb)
-	abort ();            
+      /* Insert stmt into intermediate bb before condition.  */
+      interm_bb_last_bsi = bsi_last (intermediate_bb);
+      bsi_insert_before (&interm_bb_last_bsi, stmt, BSI_NEW_STMT);
 
-      /* Fix phi expressions in duplicated loop.   */
+            /* Fix phi expressions in duplicated loop.   */
       num_elem1 = PHI_NUM_ARGS (phi);
       for (i = 0; i < num_elem1; i++)
-	if (PHI_ARG_EDGE (phi, i) == latch)
-	  {
-	    tree def;
-	    
-	    def = PHI_ARG_DEF (phi, i);
-	    for (phi1 = phi_nodes (dloop_header); phi1; phi1 = TREE_CHAIN (phi1))
-	      {
-		num_elem2 = PHI_NUM_ARGS (phi1);
-		for (i = 0; i < num_elem2; i++)
-		  if (PHI_ARG_DEF (phi1, i) == def)
-		    {
-		      /* APPLE LOCAL AV while -haifa  */
-		      PHI_ARG_DEF (phi1, i) = ni_name;
-		      PHI_ARG_EDGE (phi1, i) = pe;
-		      break;
- 		    }		    
-	      }
-	    break;
-	  }
+        if (PHI_ARG_EDGE (phi, i) == latch)
+          {
+            tree def;
+
+            def = PHI_ARG_DEF (phi, i);
+            for (phi1 = phi_nodes (new_loop_header); phi1; phi1 = TREE_CHAIN (phi1))
+              {
+                num_elem2 = PHI_NUM_ARGS (phi1);
+                for (j = 0; j < num_elem2; j++)
+                  if (PHI_ARG_DEF (phi1, i) == def)
+                    {
+                      for (k = 0; k < num_elem2; k++)
+                        if (PHI_ARG_EDGE (phi1, k) == new_loop_latch)
+                          {
+                            tree def1 = PHI_ARG_DEF (phi1, k);
+                            for (phi2 = phi_nodes (exit_bb); phi2; phi2 = TREE_CHAIN (phi2))
+                              {
+                                num_elem3 = PHI_NUM_ARGS (phi2);
+                                for (m = 0; m < num_elem3; m++)
+                                  {
+                                    if (PHI_ARG_DEF (phi2, m) == def1 &&
+                                        PHI_ARG_EDGE (phi2, m) == new_loop_exit)
+                                      {
+                                        add_phi_arg (&phi2, ni_name, inter_bb_true_edge);
+                                        break;
+                                      }
+                                  }
+                              }
+                          }
+
+                      PHI_ARG_DEF (phi1, j) = ni_name;
+                      PHI_ARG_EDGE (phi1, j) = pe;
+
+                      break;
+                    }
+              }
+            break;
+          }
+      /* APPLE LOCAL end AV while -haifa  */
     }
 }
+
 
 /* Split edge EDGE_IN.  Return the new block.
    Abort on abnormal edges.  */
@@ -1706,7 +1930,7 @@ vect_transform_loop (loop_vec_info loop_vinfo, struct loops *loops)
   int vectorization_factor = LOOP_VINFO_VECT_FACTOR (loop_vinfo);
   block_stmt_iterator si;
   int i;
-  tree var = NULL, ratio = NULL;
+  tree ratio = NULL;
   
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "\n<<vec_transform_loop>>\n");
@@ -1721,70 +1945,93 @@ vect_transform_loop (loop_vec_info loop_vinfo, struct loops *loops)
   if ( LOOP_VINFO_NITERS (loop_vinfo) == -1 && 
        LOOP_VINFO_SYMB_NUM_OF_ITERS (loop_vinfo) != NULL )
     {
+      /* APPLE LOCAL begin -haifa  */
+      /* Lots of changes in this block.  */
+      basic_block inter_bb, exit_bb, prolog_bb;
+      tree ni_name, ratio_mult_vf_name;
+      basic_block new_loop_header;
+      tree cond;
+      int vf;
+      edge e, exit_ep, phead_epilog, ee;
 
-      edge ee,pe;
-      basic_block new_bb;
-      tree stmt, ni, ni_name;
-      tree ratio_mult_vf, ratio_mult_vf_name;
-      int vf, i = -1;
+      /* Remember exit bb before duplication.  */
+      exit_bb = loop->exit_edges[0]->dest;
 
-      tree_duplicate_loop_to_exit (loop, loops);
+      /* Duplicate loop. 
+         New (epilog) loop is concatenated to the exit of original loop.  */
+      tree_duplicate_loop_to_exit (loop, loops); 
 
-      /* FORNOW: Only loops with one exit are handled. */
-      ee = loop->exit_edges[0];
-      new_bb = vect_tree_split_edge(ee);
-      if (new_bb)
-	loop->exit_edges[0] = new_bb->pred;
-      else
-      if (dump_file && (dump_flags & TDF_DETAILS))
-	{
-	  fprintf (dump_file, "\nFailed to generate emply bb after loop.\n");
-	  abort ();
-	}
-      /* Generate temporary variable that contains 
-         number of iterations loop executes.  */
-      ni = LOOP_VINFO_SYMB_NUM_OF_ITERS(loop_vinfo);
-      var = create_tmp_var (TREE_TYPE (ni), "niters");
-      add_referenced_tmp_var (var);
+      new_loop_header = loop->exit_edges[0]->dest;
 
-      ni_name = force_gimple_operand (ni, &stmt, false, var);
-      pe = loop_preheader_edge (loop);
-      new_bb = bsi_insert_on_edge_immediate (pe, stmt);
-      if (new_bb)
-	add_bb_to_loop (new_bb, new_bb->pred->src->loop_father);
-      
-      /* ratio = ni / vf  */
+      /* Generate the following variables on the preheader of original loop:
 
+         ni_name = number of iteration the original loop executes
+         ratio = ni_name / vf
+         ration_mult_vf_name = ration * vf
+      */
+      vect_generate_tmps_on_preheader (loop_vinfo, &ni_name, 
+                                       &ratio_mult_vf_name, &ratio);
+
+      /* Update loop info.  */
+      loop->pre_header = loop_preheader_edge (loop)->src;
+      loop->pre_header_edges[0] = loop_preheader_edge (loop);
+
+      /* Build conditional expr before epilog loop.  */
+      cond = build (EQ_EXPR, boolean_type_node, ratio_mult_vf_name, ni_name);
+
+      /* Find exit edge of epilog loop.  */
+      exit_ep = find_edge (new_loop_header, exit_bb);
+
+      /* Generate intermediate bb between original loop and epilog loop
+         with guard if statement:
+
+         if ( ni_name == ratio_mult_vf_name ) skip epilog loop.  */
+      inter_bb = vect_gen_if_guard (loop->exit_edges[0], cond, exit_bb, exit_ep);
+
+      loop->exit_edges[0] = inter_bb->pred;
+
+      /* Build conditional expr before loop to be vectorized.  */
       vf = LOOP_VINFO_VECT_FACTOR (loop_vinfo);
-      ratio = vect_build_symbl_bound (ni_name, vf, loop);
-       
-      /* Update initial conditions of loop copy.  */
-       
-      /* ratio_mult_vf = ration * vf;  */
+      cond = build (LT_EXPR, boolean_type_node, ni_name, build_int_2 (vf,0));
 
-      /* vf is power of 2; thus if vf = 2^k, then n/vf = n >> k.   */
-      while (vf)
-	{
-	  vf = vf >> 1;
-	  i++;
-	}
+      /* Find preheader edge of epilog loop.  */
+      phead_epilog = find_edge (inter_bb, new_loop_header);
 
-      ratio_mult_vf = create_tmp_var (TREE_TYPE (ni), "ratio_mult_vf");
-      add_referenced_tmp_var (ratio_mult_vf);
 
-      ratio_mult_vf_name = make_ssa_name (ratio_mult_vf, NULL_TREE);
+      /* Generate new bb before original loop
+         with guard if statement:
 
-      stmt = build (MODIFY_EXPR, void_type_node, ratio_mult_vf_name,
-		build (LSHIFT_EXPR, TREE_TYPE (ratio),
-		       ratio, build_int_2(i,0)));
+         if ( ni_name < vf) goto epilog loop.  */
+      prolog_bb = vect_gen_if_guard (loop->pre_header_edges[0], cond,
+                                     new_loop_header, phead_epilog);
 
-      SSA_NAME_DEF_STMT (ratio_mult_vf_name) = stmt;
+      loop->pre_header = prolog_bb;
 
-      new_bb = bsi_insert_on_edge_immediate (pe, stmt);
-      if (new_bb)
-	add_bb_to_loop (new_bb, new_bb->pred->src->loop_father);
+      /* Find loop preheader edge of original loop.  */
+      loop->pre_header_edges[0] = find_edge (prolog_bb, loop->header);
 
-      vect_update_initial_conditions_of_duplicated_loop (loop_vinfo, ratio_mult_vf_name);
+
+      /* Find true edge of first if stmt.  */
+      for (ee = prolog_bb->succ; ee; ee = ee->succ_next)
+        if(ee->dest != loop->header)
+          break;
+
+      if (!ee)
+        abort ();
+
+      /* Find new loop latch edge. */
+      for (e = new_loop_header->pred; e; e = e->pred_next)
+        if(e != ee && e != phead_epilog)
+          break;
+
+      if (!e)
+        abort ();
+
+      /* Update IVs of original loop as if they were advanced
+         by ratio_mult_vf_name steps. Locate them in intermediate bb befroe if stmt.  */
+      vect_update_initial_conditions_of_duplicated_loop (loop_vinfo, ratio_mult_vf_name,
+                                                         new_loop_header, e, exit_ep);
+      /* APPLE LOCAL endn -haifa  */
     }
 
   /* CHECKME: FORNOW the vectorizer supports only loops which body consist
@@ -3565,6 +3812,17 @@ vect_analyze_loop_with_symbolic_num_of_iters (tree *symb_num_of_iters,
   
   niters = number_of_iterations_in_loop (loop);
 
+  /* APPLE LOCAL begin -haifa  */
+  if (niters == NULL_TREE || niters == chrec_top)
+    {
+      struct tree_niter_desc niter_desc;
+      if (number_of_iterations_exit
+                (loop, loop_exit_edge (loop, 0), &niter_desc))
+        niters = build (PLUS_EXPR, TREE_TYPE (niter_desc.niter), 
+		niter_desc.niter, integer_one_node);
+    }
+  /* APPLE LOCAL end -haifa  */
+
   if (niters == chrec_top)
     {
       if (dump_file && (dump_flags & TDF_DETAILS))
@@ -3663,23 +3921,61 @@ static tree
 vect_get_loop_niters (struct loop *loop, int *number_of_iterations)
 {
   tree niters;
+  /* APPLE LOCAL begin -haifa  */
+  tree loop_exit;
+  bool analyzable_loop_bound = false;
+  /* APPLE LOCAL end -haifa  */
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "\n<<get_loop_niters>>\n");
 
-  niters = number_of_iterations_in_loop (loop);
+  /* APPLE LOCAL begin -haifa  */
+  loop_exit = get_loop_exit_condition (loop);
 
-  if (niters != NULL_TREE
-      && TREE_CODE (niters) == INTEGER_CST)
+  /* First, use the scev information about the number of iterations.  */
+  niters = number_of_iterations_in_loop (loop);
+  if (niters != NULL_TREE && niters != chrec_top)
     {
-      *number_of_iterations = TREE_INT_CST_LOW (niters);
+      if (dump_file && (dump_flags & TDF_DETAILS))
+        {
+          fprintf (dump_file, "scev niters: ");
+          print_generic_expr (dump_file, niters, TDF_SLIM);
+        }
+
+      if (TREE_CODE (niters) == INTEGER_CST)
+        *number_of_iterations = TREE_INT_CST_LOW (niters);
 
       if (dump_file && (dump_flags & TDF_DETAILS))
-        fprintf (dump_file, "get_loop_niters: %d.\n",
-		*number_of_iterations);
+        fprintf (dump_file, "scev niters: %d\n", *number_of_iterations);
+      analyzable_loop_bound = true;
+    }
+  else
+    {
+      struct tree_niter_desc niter_desc;
+      if (number_of_iterations_exit
+                (loop, loop_exit_edge (loop, 0), &niter_desc))
+        {
+          if (dump_file && (dump_flags & TDF_DETAILS))
+            {
+              fprintf (dump_file, "number_of_iterations_exit: ");
+              print_generic_expr (dump_file, niter_desc.niter, TDF_SLIM);
+            }
+
+          if (TREE_CODE (niter_desc.niter) == INTEGER_CST)
+            {
+              int niters  = TREE_INT_CST_LOW (niter_desc.niter);
+              *number_of_iterations = niters + 1;
+
+              if (dump_file && (dump_flags & TDF_DETAILS))
+                fprintf (dump_file,
+                  "number_of_iterations_exit: %d\n", *number_of_iterations);
+            }
+          analyzable_loop_bound = true;
+        }
     }
 
-  return get_loop_exit_condition (loop);
+  return loop_exit;
+  /* APPLE LOCAL end -haifa  */
 }
 
 

@@ -1,3 +1,15 @@
+2004-06-12  Dorit Naishlos  <DORIT@il.ibm.com>
+	    Olga Golovanevsky  <OLGA@il.ibm.com>
+	    Ayal Zaks  <ZAKS@il.ibm.com>
+
+	* tree-vectorize.c (vect_build_symbl_bound, vect_gen_if_guard): New.
+	(vect_create_index_for_array_ref): Use integer_zer_node as init.
+	(vect_update_initial_conditions_of_duplicated_loop): Update phis of epilog
+	loop header and new loop exit destination.
+	(vect_transform_loop): Remove code that now belongs to
+	vect_generate_tmps_on_preheader () function. Use
+	vect_gen_if_guard function twice.
+
 2004-06-11  Dale Johannesen  <dalej.@apple.com>
 	* tree-ssa-loop-niter.c (number-of_iterations_cond): Apply Zdenek's
 	patch from 5/28 lno-branch.

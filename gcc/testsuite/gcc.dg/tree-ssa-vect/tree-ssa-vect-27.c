@@ -53,5 +53,6 @@ int main (void)
   return main1 ();
 }
 
-/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" { xfail *-*-* } } } */
+/* APPLE LOCAL -haifa  */
+/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" } } */
 
