@@ -1,6 +1,6 @@
 /* Perform simple optimizations to clean up the result of reload.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -410,6 +410,8 @@ reload_cse_simplify_operands (rtx insn, rtx testreg)
 	 right, so avoid the problem here.  Likewise if we have a constant
          and the insn pattern doesn't tell us the mode we need.  */
       if (GET_CODE (recog_data.operand[i]) == CODE_LABEL
+	  || (GET_CODE (recog_data.operand[i]) == NOTE
+	      && NOTE_LINE_NUMBER (recog_data.operand[i]) == NOTE_INSN_DELETED_LABEL)
 	  || (CONSTANT_P (recog_data.operand[i])
 	      && recog_data.operand_mode[i] == VOIDmode))
 	continue;

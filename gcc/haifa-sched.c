@@ -1,6 +1,6 @@
 /* Instruction scheduling pass.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com) Enhanced by,
    and currently maintained by, Jim Wilson (wilson@cygnus.com)
 
@@ -2563,8 +2563,8 @@ schedule_block (int b, int rgn_n_insns)
 					       insn, can_issue_more);
 	  /* A naked CLOBBER or USE generates no instruction, so do
 	     not count them against the issue rate.  */
-	  else if (GET_CODE (PATTERN (insn)) != USE
-		   && GET_CODE (PATTERN (insn)) != CLOBBER)
+	  else if (INSN_P (insn) && (GET_CODE (PATTERN (insn)) != USE
+				     && GET_CODE (PATTERN (insn)) != CLOBBER))
 	    can_issue_more--;
 
 	  advance = schedule_insn (insn, &ready, clock_var);

@@ -1,3 +1,57 @@
+2005-03-28  Daniel Jacobowitz  <dan@codesourcery.com>
+	    Phil Blundell  <philb@gnu.org>
+
+	* configure.ac: Add test for ARM TLS support.
+	* configure: Regenerated.
+	* haifa-sched.c (schedule_block): Only count INSNs.
+	* jump.c (duplicate_loop_exit_test): Check targetm.cannot_copy_insn_p.
+	* postreload.c (reload_cse_simplify_operands): Handle deleted labels.
+	* config/arm/arm-protos.h (legitimize_tls_address)
+	(thumb_legitimize_address, tls_symbolic_operand, arm_tls_operand_p)
+	(tls_mentioned_p, arm_output_addr_const_extra): New prototypes.
+	(thumb_legitimize_pic_address): Delete.
+	* config/arm/arm.c: Include "gt-arm.h".
+	(arm_cannot_copy_insn_p, load_tls_operand)
+	(pcrel_constant_p, get_tls_get_addr, arm_load_tp)
+	(legitimize_tls_address, thumb_legitimize_address)
+	(arm_tls_operand_p, tls_symbolic_operand, move_input_operand)
+	(tls_mentioned_p, arm_init_tls_builtins)
+	(arm_emit_tls_decoration, arm_output_addr_const_extra): New functions.
+	(TARGET_CANNOT_COPY_INSN_P, TARGET_CANNOT_FORCE_CONST_MEM): Define.
+	(target_thread_switch, target_thread_pointer): New.
+	(arm_pic_register): Change to unsigned.
+	(arm_override_options): Handle -mtp=.
+	(legitimize_pic_address): Ignore UNSPECs.
+	(arm_legitimate_address_p): Handle TLS and pcrel symbols.
+	(thumb_legitimate_address_p): Handle TLS and pcrel symbols.
+	(arm_legitimize_address): Handle TLS.
+	(arm_regno_class): Handle RETURN_REG.
+	(arm_init_builtins): Call arm_init_tls_builtins.
+	(arm_expand_builtin): Handle ARM_BUILTIN_THREAD_POINTER.
+	(arm_encode_section_info): Call default_encode_section_info.
+	* config/arm/arm.h (target_thread_switch): Add declaration.
+	(TARGET_HARD_TP, TARGET_SOFT_TP, TARGET_LINUX_TP): Define.
+	(TARGET_OPTIONS): Add -mtp=.
+	(enum arm_tp_type): New.
+	(target_thread_pointer): Add declaration.
+	(enum reg_class, REG_CLASS_NAMES, REG_CLASS_CONTENTS)
+	(REG_CLASS_FROM_LETTER): Add RETURN_REG.
+	(LEGITIMATE_CONSTANT_P): Handle TLS.
+	(THUMB_LEGITIMIZE_ADDRESS): Call thumb_legitimize_address.
+	(arm_pic_register): Change type to unsigned.
+	(LEGITIMATE_PIC_OPERAND_P): Handle TLS.
+	(OUTPUT_ADDR_CONST_EXTRA): Call arm_output_addr_const_extra.
+	(PREDICATE_CODES): Add move_input_operand.
+	(enum arm_builtins): Add ARM_BUILTIN_THREAD_POINTER.
+	* config/arm/arm.md: Add UNSPEC_TLS.
+	(movsi): Handle TLS.
+	(arm_movsi_insn, thumb_movsi_insn): Use move_input_operand.
+	(pic_add_dot_plus_four, pic_add_dot_plus_eight): Allow for
+	non-PIC.
+	(tls_load_dot_plus_four, tls_load_dot_plus_eight): New insns
+	and new peepholes to create them.
+	(load_tp_hard, load_tp_soft): New insns.
+
 2005-03-22  Mark Mitchell  <mark@codesourcery.com>
 
 	Merge from mainline.
