@@ -1669,22 +1669,7 @@ class LightweightDispatcher implements Serializable
         MouseEvent me = (MouseEvent) e;
 
         acquireComponentForMouseEvent(me);
-	  
-	// If the event is a drag, then we have to dispatch 
-	// to the component who was last pressed. We can't
-	// use mouseEventTarget since the target should
-	// still be able to move. (For mouse move events).
-	if (e.getID() == MouseEvent.MOUSE_DRAGGED && 
-	    pressedComponent != null && 
-	    pressedComponent.isShowing())
-	{
-	  MouseEvent newEvt = 
-	    SwingUtilities.convertMouseEvent(nativeContainer, me,
-	                                     pressedComponent);
-          pressedComponent.dispatchEvent(newEvt);
-	  return e.isConsumed();
-	}
-
+	
         // Avoid dispatching ENTERED and EXITED events twice.
         if (mouseEventTarget != null
             && mouseEventTarget.isShowing()
