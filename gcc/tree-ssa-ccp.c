@@ -766,8 +766,6 @@ replace_vuses_in (tree stmt, bool *replaced_addresses_p,
 	     all have the same value.  */
 	  return true;
 	}
-      else
-	return false;
     }
 
   /* Otherwise, the values for every VUSE operand must be other

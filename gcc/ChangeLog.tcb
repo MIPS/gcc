@@ -1,5 +1,10 @@
 2004-10-19  Diego Novillo  <dnovillo@redhat.com>
 
+	* tree-ssa-ccp.c (replace_vuses_in): Revert inadvertent
+	early return.
+
+2004-10-19  Diego Novillo  <dnovillo@redhat.com>
+
 	* common.opt (-ftree-store-copy-prop): New flag.
 	* opts.c (decode_options): Enable STORE-COPY-PROP at O2.
 	* timevar.def (TV_TREE_STORE_COPY_PROP): Define.
