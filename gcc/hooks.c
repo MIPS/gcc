@@ -55,6 +55,10 @@ hook_bool_bool_false (bool a ATTRIBUTE_UNUSED)
   return false;
 }
 
+void
+hook_void_int (int b ATTRIBUTE_UNUSED)
+{
+}
 
 /* Generic hook that takes (tree, int) and does nothing.  */
 void
@@ -70,6 +74,11 @@ hook_void_FILEptr_constcharptr (FILE *a ATTRIBUTE_UNUSED, const char *b ATTRIBUT
 
 void
 hook_void_constcharptr (const char *a ATTRIBUTE_UNUSED)
+{
+}
+
+void
+hook_void_charptr (char *a ATTRIBUTE_UNUSED)
 {
 }
 

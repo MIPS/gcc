@@ -305,6 +305,14 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 #define TARGET_MACHINE_DEPENDENT_REORG 0
 
+#ifndef TARGET_EXTRA_INCLUDES
+#define TARGET_EXTRA_INCLUDES hook_void_int
+#endif
+
+#ifndef TARGET_OPTF
+#define TARGET_OPTF hook_void_charptr
+#endif
+
 /* The whole shebang.  */
 #define TARGET_INITIALIZER			\
 {						\
@@ -345,6 +353,8 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
   TARGET_TERMINATE_DW2_EH_FRAME_INFO,		\
   TARGET_ASM_FILE_START_APP_OFF,		\
   TARGET_ASM_FILE_START_FILE_DIRECTIVE,		\
+  TARGET_EXTRA_INCLUDES,			\
+  TARGET_OPTF,					\
 }
 
 #include "hooks.h"

@@ -1361,5 +1361,24 @@ darwin_file_end ()
     }
 }
 
+void (*darwin_register_frameworks_cb)(int);
+
+void
+darwin_register_frameworks (int stdinc)
+{
+  if (darwin_register_frameworks_cb)
+    darwin_register_frameworks_cb (stdinc);
+}
+
+
+void (*add_framework_path_cb) (char *path);
+
+void
+add_framework_path (char *path)
+{
+  if (add_framework_path_cb)
+    add_framework_path_cb (path);
+}
+
 #include "gt-darwin.h"
 

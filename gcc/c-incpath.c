@@ -21,6 +21,8 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
+#include "machmode.h"
+#include "target.h"
 #include "tm.h"
 #include "cpplib.h"
 #include "prefix.h"
@@ -303,21 +305,42 @@ split_quote_chain (void)
 void
 add_path (char *path, int chain, int cxx_aware)
 {
-  struct cpp_dir *p;
+  cpp_dir *p;
 
-  p = xmalloc (sizeof (struct cpp_dir));
+  p = xmalloc (sizeof (cpp_dir));
   p->next = NULL;
   p->name = path;
   if (chain == SYSTEM || chain == AFTER)
     p->sysp = 1 + !cxx_aware;
   else
     p->sysp = 0;
+  p->construct = 0;
 
   if (tails[chain])
     tails[chain]->next = p;
   else
     heads[chain] = p;
   tails[chain] = p;
+}
+
+void
+add_system_path (cpp_dir *p)
+{
+  if (tails[SYSTEM])
+    tails[SYSTEM]->next = p;
+  else
+    heads[SYSTEM] = p;
+  tails[SYSTEM] = p;
+}
+
+void
+add_bracket_path (cpp_dir *p)
+{
+  if (tails[BRACKET])
+    tails[BRACKET]->next = p;
+  else
+    heads[BRACKET] = p;
+  tails[BRACKET] = p;
 }
 
 /* Exported function to handle include chain merging, duplicate
@@ -346,6 +369,9 @@ register_include_chains (cpp_reader *pfile, const char *sysroot,
   /* Finally chain on the standard directories.  */
   if (stdinc)
     add_standard_paths (sysroot, iprefix, cxx_stdinc);
+
+  if (targetm.extra_includes)
+    targetm.extra_includes (stdinc);
 
   merge_include_chains (pfile, verbose);
 

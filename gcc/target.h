@@ -386,6 +386,12 @@ struct gcc_target
   /* True if output_file_directive should be called for main_input_filename
      at the beginning of assembly output.  */
   bool file_start_file_directive;
+
+  /* Do extra includes processing.  STDINC is false iff -nostdinc was given.  */
+  void (*extra_includes) (int);
+
+  /* Do -F processing.  */
+  void (*opt_f_processing) (char *);
 };
 
 extern struct gcc_target targetm;

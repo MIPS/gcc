@@ -33,12 +33,14 @@ bool hook_bool_rtx_false (rtx);
 bool hook_bool_rtx_int_int_intp_false (rtx, int, int, int *);
 bool hook_bool_constcharptr_size_t_false (const char *, size_t);
 
+void hook_void_int (int);
 void hook_void_tree_int (tree, int);
 void hook_void_void (void);
 void hook_void_FILEptr_constcharptr (FILE *, const char *);
 void hook_void_tree (tree);
 void hook_void_tree_treeptr (tree, tree *);
 void hook_void_constcharptr (const char *);
+void hook_void_charptr (char *);
 
 int hook_int_tree_tree_1 (tree, tree);
 int hook_int_rtx_0 (rtx);

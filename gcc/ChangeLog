@@ -1,3 +1,53 @@
+2003-08-26  Mike Stump  <mrs@apple.com>
+
+	Add framework support for darwin.
+
+	* c-incpath.c (add_path): Use a consistent style for cpp_dir.
+          Initialize p->construct to 0.
+	(add_system_path, add_bracket_path): New.
+	(register_include_chains): Add use of extra_includes callback.
+	* c-incpath.h (add_system_path, add_bracket_path): New.
+	* c-opts.c (c_common_missing_argument,
+          c_common_handle_option): Add -F argument processing.
+	  (c_common_init_options): Use TARGET_C_INIT.
+	* c.opt: Add -F argument processing.
+	* gcc.c (trad_capable_cpp): Add -F argument processing.
+	* cppfiles.c (find_file_in_dir): Update to use construct callback.
+	(search_path_exhausted, cpp_get_path, cpp_get_buffer,
+	cpp_get_prev): New.
+	(find_file): Use search_path_exhausted.
+	(make_cpp_dir): Initialize construct to 0.
+	* cpplib.h (missing_header_cb, missing_header, construct,
+	  cpp_get_path, cpp_get_buffer, cpp_get_file, cpp_get_prev): New.
+	* target-def.h: (TARGET_EXTRA_INCLUDES, TARGET_OPTF): New.
+	(TARGET_INITIALIZER): Add TARGET_EXTRA_INCLUDES and TARGET_OPTF.
+	* target.h (struct gcc_target): Add extra_includes and opt_f_processing.
+	* hooks.c (hook_void_int, hook_void_charptr): Add.
+	* hooks.h (hook_void_int, hook_void_charptr): Add.
+	* Makefile.in (c-incpath.o) : Add $(TARGET_H) and
+          $(MACHMODE_H) dependencies.
+	  (c-opts.o): Likewise.
+	  (ifcvt.o): Use $(TARGET_H) instead of target.h.
+	* fix-header: Include target.h and target-def.h and define targetm.
+
+	* config/darwin-c.c (using_frameworks, find_subframework_file,
+          find_subframework_header, add_system_framework_path,
+          frameworks_in_use, num_frameworks, max_frameworks,
+          add_framework, find_framework, struct framework_header,
+          framework_header_dirs, framework_construct_pathname,
+          find_subframework_file, add_system_framework_path,
+          add_framework_path_real, framework_defaults,
+          darwin_register_frameworks_real, find_subframework_header,
+          darwin_init): Add.
+	* config/darwin.c (darwin_register_frameworks_cb,
+          darwin_register_frameworks, add_framework_path_cb,
+          add_framework_path): Add.
+	* config/darwin.h (TARGET_EXTRA_INCLUDES, TARGET_F_OPT,
+          TARGET_C_INIT): New.
+	  (TARGET_OPTION_TRANSLATE_TABLE): Add -framework support.
+	  (CPP_SPEC): Add __APPLE_CC__ support.
+	* t-darwin (darwin-c.o): Add c-incpath.h dependency.
+
 2003-08-28  Per Bothner  <pbothner@apple.com>
 
 	* cpplib.c (_cpp_restore_macro):  Rename to cpp_restore_macros,
