@@ -1,3 +1,8 @@
+2004-04-30  Richard Henderson  <rth@redhat.com>
+
+	* builtins.c (validate_arglist): Don't reject side effects.
+	(simplify_builtin_strcpy): Do reject side effects in length.
+
 2004-04-30  Jeff Law  <law@redhat.com>
 
         * tree-outof-ssa.c (eliminate_build): Move code which verifies

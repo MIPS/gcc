@@ -7768,8 +7768,7 @@ validate_arglist (tree arglist, ...)
 	     match the specified code, return false.  Otherwise continue
 	     checking any remaining arguments.  */
 	  if (arglist == 0
-	      || code != TREE_CODE (TREE_TYPE (TREE_VALUE (arglist)))
-	      || TREE_SIDE_EFFECTS (TREE_VALUE (arglist)))
+	      || code != TREE_CODE (TREE_TYPE (TREE_VALUE (arglist))))
 	    goto end;
 	  break;
 	}
@@ -8193,6 +8192,8 @@ simplify_builtin_strcpy (tree arglist, tree len)
     {
       len = c_strlen (TREE_VALUE (TREE_CHAIN (arglist)), 1);
       if (!len)
+	return 0;
+      if (TREE_SIDE_EFFECTS (len))
 	return 0;
     }
 
