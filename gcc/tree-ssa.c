@@ -1638,6 +1638,7 @@ rewrite_out_of_ssa (tree fndecl)
   var_map map;
   tree phi, next;
   elim_graph g;
+  int repeat, first_iteration;
   tree_live_info_p liveinfo;
 
   timevar_push (TV_TREE_SSA_TO_NORMAL);
@@ -1762,8 +1763,15 @@ rewrite_out_of_ssa (tree fndecl)
 
   /* Do some cleanups which reduce the amount of data the
      tree->rtl expanders deal with.  */
-  remove_useless_stmts_and_vars (&DECL_SAVED_TREE (fndecl), true);
-
+  first_iteration = 1;
+  do
+    {
+      repeat = remove_useless_stmts_and_vars (&DECL_SAVED_TREE (fndecl),
+					      first_iteration);
+      first_iteration = 0;
+    }
+  while (repeat);
+  
   /* Flush out flow graph and SSA data.  */
   delete_tree_ssa (fndecl);
   delete_tree_cfg ();
