@@ -1,3 +1,8 @@
+2004-10-07  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR tree-opt/17671
+	* gcc.dg/tree-ssa/phi-opt-[1-4].c: New tests.
+
 2004-09-21  Diego Novillo  <dnovillo@redhat.com>
 
 	* gcc.dg/tree-ssa/20030530-2.c: Update dump file to scan.
