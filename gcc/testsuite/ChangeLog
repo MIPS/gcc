@@ -1,3 +1,30 @@
+2002-07-03  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/6706
+	* g++.dg/debug/debug6.C: New test.
+	* g++.dg/debug/debug7.C: New test.
+
+2002-07-03  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/6944
+	* g++.dg/init/array4.C: New test.
+	* g++.dg/init/array5.C: New test.
+
+2002-07-02  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/6716
+	* g++.dg/template/instantiate1.C: New test.
+
+2002-07-01  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/7112
+	* g++.dg/template/sizeof1.C: New test.
+
+2002-07-01  Hans-Peter Nilsson  <hp@axis.com>
+
+	PR target/7177
+	* gcc.c-torture/compile/20020701-1.c: New test.
+
 2002-06-27  Neil Booth  <neil@daikokuya.co.uk>
 
 	* gcc.dg/Wunknownprag.c: New tests.

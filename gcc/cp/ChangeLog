@@ -1,3 +1,45 @@
+2002-07-05  Jim Wilson  <wilson@redhat.com>
+
+	* decl.c (mark_named_label_lists): Add missing & in call to
+	mark_binding_level.
+
+2002-07-05  Jason Merrill  <jason@redhat.com>
+
+	* cvt.c (cp_convert_to_pointer): Call force_fit_type for null
+	pointers.
+
+	PR optimization/7145
+	* tree.c (cp_copy_res_decl_for_inlining): Also copy DECL_INITIAL.
+
+2002-05-18  Jason Merrill  <jason@redhat.com>
+
+	PR c++/6611
+	* decl2.c (import_export_decl): If we clear
+	DECL_NOT_REALLY_EXTERN, make sure DECL_EXTERNAL is set.
+
+2002-07-03  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/6944
+	* init.c (build_aggr_init): Remove qualifiers of init before calling
+	build_vec_init.
+	(build_vec_init): Flatten multi-dimensional array during cleanup.
+	(build_vec_delete_1): Abort if the type of each element is array.
+
+2002-07-02  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/6716
+	* pt.c (can_complete_type_without_circularity): New function.
+	(instantiate_class_template): Use it.
+	* typeck2.c (incomplete_type_error): Improve error message
+	due to incomplete fields.
+
+2002-07-01  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/7112
+	* mangle.c (write_expression): Add mangling for sizeof when
+	applied to a type.
+	* operators.def: Remove stale comment.
+
 2002-06-27  Mark Mitchell  <mark@codesourcery.com>
 
 	PR c++/6695
