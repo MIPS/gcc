@@ -7181,6 +7181,24 @@ fold (tree expr)
 	    return integer_one_node;
 	}
 
+      /* If this is an equality comparison of the address of two non-weak
+	 symbols, then we know the result.  */
+      if ((code == EQ_EXPR || code == NE_EXPR)
+	  && TREE_CODE (arg0) == ADDR_EXPR
+	  && DECL_P (TREE_OPERAND (arg0, 0))
+	  && ! DECL_WEAK (TREE_OPERAND (arg0, 0))
+	  && TREE_CODE (arg1) == ADDR_EXPR
+	  && DECL_P (TREE_OPERAND (arg1, 0))
+	  && ! DECL_WEAK (TREE_OPERAND (arg1, 0)))
+	{
+	  if (code == EQ_EXPR)
+	    return (operand_equal_p (arg0, arg1, 0)
+		    ? integer_one_node : integer_zero_node);
+	  else
+	    return (operand_equal_p (arg0, arg1, 0)
+		    ? integer_zero_node : integer_one_node);
+	}
+
       if (FLOAT_TYPE_P (TREE_TYPE (arg0)))
 	{
 	  tree targ0 = strip_float_extensions (arg0);

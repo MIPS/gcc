@@ -1,3 +1,8 @@
+2004-02-26  Jeff Law  <law@redhat.com>
+
+	* fold-const.c (fold): An equality comparison of the address of
+	two non-weak variables has known compile-time result.
+
 2004-02-26  Andrew Pinski  <pinskia@physics.uc.edu>
 
 	* tree-ssa-phiopt.c (conditional_replacement): 
