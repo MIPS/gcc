@@ -1,3 +1,9 @@
+2003-07-24  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-dfa.c (cleanup_operand_arrays): New local function.  Remove
+	superfluous VUSE operands.
+	(get_stmt_operands): Call it.
+
 2003-07-24  Jason Merrill  <jason@redhat.com>
 
 	* gimplify.c (gimple_boolify): New fn.

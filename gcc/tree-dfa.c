@@ -119,6 +119,7 @@ struct dfa_stats_d dfa_stats;
 
 
 /* Local functions.  */
+static void cleanup_operand_arrays (stmt_ann_t);
 static void get_expr_operands (tree, tree *, int, voperands_t);
 static void collect_dfa_stats (struct dfa_stats_d *);
 static tree collect_dfa_stats_r (tree *, int *, void *);
@@ -248,20 +249,7 @@ get_stmt_operands (tree stmt)
       break;
     }
 
-  /* Resize the operand arrays.  */
-  if (ann->ops && ann->ops->use_ops)
-    VARRAY_GROW (ann->ops->use_ops, VARRAY_ACTIVE_SIZE (ann->ops->use_ops));
-
-  if (ann->vops)
-    {
-      if (ann->vops->vdef_ops)
-	VARRAY_GROW (ann->vops->vdef_ops,
-		     VARRAY_ACTIVE_SIZE (ann->vops->vdef_ops));
-
-      if (ann->vops->vuse_ops)
-	VARRAY_GROW (ann->vops->vuse_ops,
-		     VARRAY_ACTIVE_SIZE (ann->vops->vuse_ops));
-    }
+  cleanup_operand_arrays (ann);
 
   /* Clear the modified bit for STMT.  Subsequent calls to
      get_stmt_operands for this statement will do nothing until the
@@ -1190,6 +1178,88 @@ create_stmt_ann (tree t)
   t->common.ann = (tree_ann) ann;
 
   return ann;
+}
+
+
+/* Resize operand arrays to their active size and remove superfluous VUSE
+   operands.  */
+
+static void
+cleanup_operand_arrays (stmt_ann_t ann)
+{
+  /* Resize the operand arrays.  */
+  if (ann->ops && ann->ops->use_ops)
+    VARRAY_GROW (ann->ops->use_ops, VARRAY_ACTIVE_SIZE (ann->ops->use_ops));
+
+  if (ann->vops == NULL)
+    return;
+
+  if (ann->vops->vdef_ops)
+    VARRAY_GROW (ann->vops->vdef_ops,
+		  VARRAY_ACTIVE_SIZE (ann->vops->vdef_ops));
+
+  if (ann->vops->vuse_ops)
+    {
+      /* Remove superfluous VUSE operands.  If the statement already has a
+	 VDEF operation for a variable 'a', then a VUSE for 'a' is not
+	 needed because VDEFs imply a VUSE of the variable.  For instance,
+	 suppose that variable 'a' is aliased:
+
+		    # VUSE <a_2>
+		    # a_3 = VDEF <a_2>
+		    a = a + 1;
+
+	The VUSE <a_2> is superfluous because it is implied by the VDEF
+	operation.  */
+      if (ann->vops->vdef_ops)
+	{
+	  size_t i, j;
+	  varray_type new_vuse_ops;
+
+	  VARRAY_TREE_INIT (new_vuse_ops,
+			    VARRAY_ACTIVE_SIZE (ann->vops->vuse_ops),
+			    "vuse_ops");
+	  for (i = 0; i < VARRAY_ACTIVE_SIZE (ann->vops->vuse_ops); i++)
+	    {
+	      bool found = false;
+	      for (j = 0; j < VARRAY_ACTIVE_SIZE (ann->vops->vdef_ops); j++)
+		{
+		  tree vuse_var, vdef_var;
+		  tree vuse = VARRAY_TREE (ann->vops->vuse_ops, i);
+		  tree vdef = VDEF_OP (VARRAY_TREE (ann->vops->vdef_ops, j));
+
+		  if (TREE_CODE (vuse) == SSA_NAME)
+		    vuse_var = SSA_NAME_VAR (vuse);
+		  else
+		    vuse_var = vuse;
+
+		  if (TREE_CODE (vdef) == SSA_NAME)
+		    vdef_var = SSA_NAME_VAR (vdef);
+		  else
+		    vdef_var = vdef;
+
+		if (vuse_var == vdef_var)
+		  {
+		    found = true;
+		    break;
+		  }
+		}
+
+	      if (!found)
+		VARRAY_PUSH_TREE (new_vuse_ops,
+				  VARRAY_TREE (ann->vops->vuse_ops, i));
+	    }
+
+	  if (VARRAY_ACTIVE_SIZE (new_vuse_ops) > 0)
+	    ann->vops->vuse_ops = new_vuse_ops;
+	  else
+	    ann->vops->vuse_ops = NULL;
+	}
+
+      if (ann->vops->vuse_ops)
+	VARRAY_GROW (ann->vops->vuse_ops,
+		      VARRAY_ACTIVE_SIZE (ann->vops->vuse_ops));
+    }
 }
 
 
