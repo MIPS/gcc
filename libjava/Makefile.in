@@ -248,11 +248,11 @@ EXTRA_libgcj_la_SOURCES = boehm.cc nogc.cc posix-threads.cc no-threads.cc \
 
 libgcj_la_DEPENDENCIES = libgcj-@gcc_version@.jar $(javao_files) \
 	$(c_files) $(extra_cc_files) $(GCOBJS) $(THREADOBJS) \
-       $(PLATFORMOBJS) $(LIBLTDL) $(LIBFFI) $(ZLIBS) $(GCLIBS)
+       $(PLATFORMOBJS) $(LIBLTDL) $(LIBFFI) $(ZLIBS) $(GCLIBS) $(propertyo_files)
 
 
 libgcj_la_LIBADD = $(javao_files) $(c_files) $(extra_cc_files) $(GCOBJS) \
-	$(THREADOBJS) $(PLATFORMOBJS)
+	$(THREADOBJS) $(PLATFORMOBJS) $(propertyo_files)
 
 # Include THREADLIBS here to ensure that the correct version of
 # certain linuxthread functions get linked:
@@ -464,13 +464,20 @@ all_java_source_files = \
 
 all_java_class_files = $(all_java_source_files:.java=.class)
 
+property_files = \
+gnu/regexp/MessagesBundle.properties \
+gnu/regexp/MessagesBundle_fr.properties 
+
+
+propertyo_files = $(property_files:.properties=.properties.lo) 
+
 # Note: The libtool objects are removed by mostlyclean-local
 # because of command-line-length issues.
 MOSTLYCLEANFILES = $(nat_headers) $(x_nat_headers)
 
 CLEANFILES = libgcj-@gcc_version@.jar
 
-SUFFIXES = .class .java .h
+SUFFIXES = .class .java .h .properties
 
 ordinary_nat_headers = $(ordinary_java_source_files:.java=.h) \
 	$(built_java_source_files:.java=.h)
@@ -2078,6 +2085,30 @@ gnu/java/nio/charset/UTF_16Decoder.java \
 gnu/java/nio/charset/UTF_16Encoder.java \
 gnu/java/nio/charset/UTF_16LE.java \
 gnu/java/nio/charset/UTF_8.java \
+gnu/regexp/CharIndexed.java \
+gnu/regexp/CharIndexedCharArray.java \
+gnu/regexp/CharIndexedInputStream.java \
+gnu/regexp/CharIndexedString.java \
+gnu/regexp/CharIndexedStringBuffer.java \
+gnu/regexp/RE.java \
+gnu/regexp/REException.java \
+gnu/regexp/REFilterInputStream.java \
+gnu/regexp/REMatch.java \
+gnu/regexp/REMatchEnumeration.java \
+gnu/regexp/RESyntax.java \
+gnu/regexp/REToken.java \
+gnu/regexp/RETokenAny.java \
+gnu/regexp/RETokenBackRef.java \
+gnu/regexp/RETokenChar.java \
+gnu/regexp/RETokenEnd.java \
+gnu/regexp/RETokenEndSub.java \
+gnu/regexp/RETokenOneOf.java \
+gnu/regexp/RETokenPOSIX.java \
+gnu/regexp/RETokenRange.java \
+gnu/regexp/RETokenRepeated.java \
+gnu/regexp/RETokenStart.java \
+gnu/regexp/RETokenWordBoundary.java \
+gnu/regexp/UncheckedRE.java \
 gnu/java/security/Engine.java \
 gnu/java/security/OID.java \
 gnu/java/security/der/BitString.java \
@@ -3392,23 +3423,36 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/gnu/javax/rmi/CORBA/StubDelegateImpl.P \
 .deps/gnu/javax/rmi/CORBA/UtilDelegateImpl.P \
 .deps/gnu/javax/rmi/CORBA/ValueHandlerImpl.P \
-.deps/gnu/javax/rmi/PortableServer.P .deps/interpret.P \
-.deps/java/applet/Applet.P .deps/java/applet/AppletContext.P \
-.deps/java/applet/AppletStub.P .deps/java/applet/AudioClip.P \
-.deps/java/awt/AWTError.P .deps/java/awt/AWTEvent.P \
-.deps/java/awt/AWTEventMulticaster.P .deps/java/awt/AWTException.P \
-.deps/java/awt/AWTKeyStroke.P .deps/java/awt/AWTPermission.P \
-.deps/java/awt/ActiveEvent.P .deps/java/awt/Adjustable.P \
-.deps/java/awt/AlphaComposite.P .deps/java/awt/AttributeValue.P \
-.deps/java/awt/BasicStroke.P .deps/java/awt/BorderLayout.P \
-.deps/java/awt/BufferCapabilities.P .deps/java/awt/Button.P \
-.deps/java/awt/Canvas.P .deps/java/awt/CardLayout.P \
-.deps/java/awt/Checkbox.P .deps/java/awt/CheckboxGroup.P \
-.deps/java/awt/CheckboxMenuItem.P .deps/java/awt/Choice.P \
-.deps/java/awt/Color.P .deps/java/awt/ColorPaintContext.P \
-.deps/java/awt/Component.P .deps/java/awt/ComponentOrientation.P \
-.deps/java/awt/Composite.P .deps/java/awt/CompositeContext.P \
-.deps/java/awt/Container.P \
+.deps/gnu/javax/rmi/PortableServer.P .deps/gnu/regexp/CharIndexed.P \
+.deps/gnu/regexp/CharIndexedCharArray.P \
+.deps/gnu/regexp/CharIndexedInputStream.P \
+.deps/gnu/regexp/CharIndexedString.P \
+.deps/gnu/regexp/CharIndexedStringBuffer.P .deps/gnu/regexp/RE.P \
+.deps/gnu/regexp/REException.P .deps/gnu/regexp/REFilterInputStream.P \
+.deps/gnu/regexp/REMatch.P .deps/gnu/regexp/REMatchEnumeration.P \
+.deps/gnu/regexp/RESyntax.P .deps/gnu/regexp/REToken.P \
+.deps/gnu/regexp/RETokenAny.P .deps/gnu/regexp/RETokenBackRef.P \
+.deps/gnu/regexp/RETokenChar.P .deps/gnu/regexp/RETokenEnd.P \
+.deps/gnu/regexp/RETokenEndSub.P .deps/gnu/regexp/RETokenOneOf.P \
+.deps/gnu/regexp/RETokenPOSIX.P .deps/gnu/regexp/RETokenRange.P \
+.deps/gnu/regexp/RETokenRepeated.P .deps/gnu/regexp/RETokenStart.P \
+.deps/gnu/regexp/RETokenWordBoundary.P .deps/gnu/regexp/UncheckedRE.P \
+.deps/interpret.P .deps/java/applet/Applet.P \
+.deps/java/applet/AppletContext.P .deps/java/applet/AppletStub.P \
+.deps/java/applet/AudioClip.P .deps/java/awt/AWTError.P \
+.deps/java/awt/AWTEvent.P .deps/java/awt/AWTEventMulticaster.P \
+.deps/java/awt/AWTException.P .deps/java/awt/AWTKeyStroke.P \
+.deps/java/awt/AWTPermission.P .deps/java/awt/ActiveEvent.P \
+.deps/java/awt/Adjustable.P .deps/java/awt/AlphaComposite.P \
+.deps/java/awt/AttributeValue.P .deps/java/awt/BasicStroke.P \
+.deps/java/awt/BorderLayout.P .deps/java/awt/BufferCapabilities.P \
+.deps/java/awt/Button.P .deps/java/awt/Canvas.P \
+.deps/java/awt/CardLayout.P .deps/java/awt/Checkbox.P \
+.deps/java/awt/CheckboxGroup.P .deps/java/awt/CheckboxMenuItem.P \
+.deps/java/awt/Choice.P .deps/java/awt/Color.P \
+.deps/java/awt/ColorPaintContext.P .deps/java/awt/Component.P \
+.deps/java/awt/ComponentOrientation.P .deps/java/awt/Composite.P \
+.deps/java/awt/CompositeContext.P .deps/java/awt/Container.P \
 .deps/java/awt/ContainerOrderFocusTraversalPolicy.P \
 .deps/java/awt/Cursor.P .deps/java/awt/DefaultFocusTraversalPolicy.P \
 .deps/java/awt/DefaultKeyboardFocusManager.P .deps/java/awt/Dialog.P \
@@ -4722,7 +4766,7 @@ OBJECTS = $(libgcj_la_OBJECTS) $(lib_org_xml_sax_la_OBJECTS) $(lib_org_w3c_dom_l
 
 all: all-redirect
 .SUFFIXES:
-.SUFFIXES: .S .c .cc .class .h .java .lo .o .obj .s
+.SUFFIXES: .S .c .cc .class .h .java .lo .o .obj .properties .s
 $(srcdir)/Makefile.in: @MAINTAINER_MODE_TRUE@ Makefile.am $(top_srcdir)/configure.in $(ACLOCAL_M4) 
 	cd $(top_srcdir) && $(AUTOMAKE) --foreign Makefile
 
@@ -5271,6 +5315,9 @@ $(gtk_c_headers): $(gtk_awt_peer_sources)
 	@input=`echo $@ | sed -e 's,jniinclude/,,' -e 's,_,.,g' -e 's,.h$$,,'`; \
 	echo "$(GCJH) -jni -d jniinclude -classpath '' -bootclasspath $(top_builddir) $$input"; \
 	$(GCJH) -jni -d jniinclude -classpath '' -bootclasspath $(top_builddir) $$input
+
+%.properties.lo: %.properties
+	$(GCJCOMPILE) -o $@ -c $< -Wc,--resource,`echo $@ | sed "s/\.lo$$//"`
 
 # Compile all classfiles in one go.
 

@@ -1,3 +1,48 @@
+2004-07-09  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/regexp/CharIndexedInputStream.java:
+	Reordered imports to match classpath.
+
+2004-05-15  Mark Wielaard  <mark@klomp.org>
+
+	* gnu/regexp/CharIndexedReader.java: Removed.
+	* gnu/regexp/REFilterReader.java: Likewise.
+	* gnu/regexp/RETokenLookAhead.java: Likewise.
+	* Makefile.am (ordinary_java_source_files): Remove above classes.
+	* Makefile.in: Regenerated.
+
+2004-04-22  Dalibor Topic  <robilad@kaffe.org>
+
+	* java/util/regex/Matcher.java,
+	java/util/regex/Pattern.java:
+	Cleaned up imports.
+
+2004-03-08  Anthony Green  <green@redhat.com>
+
+	* Makefile.am: Build property resource files into libgcj.
+	* Makefile.in: Rebuilt.
+	* java/util/regex/Matcher.java, java/util/regex/Pattern.java,
+	java/util/regex/PatternSyntaxException.java,
+	gnu/regexp/CharIndexed.java,
+	gnu/regexp/CharIndexedCharArray.java,
+	gnu/regexp/CharIndexedInputStream.java,
+	gnu/regexp/CharIndexedReader.java,
+	gnu/regexp/CharIndexedString.java,
+	gnu/regexp/CharIndexedStringBuffer.java, gnu/regexp/RE.java,
+	gnu/regexp/REException.java,
+	gnu/regexp/REFilterInputStream.java,
+	gnu/regexp/REFilterReader.java, gnu/regexp/REMatch.java,
+	gnu/regexp/REMatchEnumeration.java, gnu/regexp/RESyntax.java,
+	gnu/regexp/REToken.java, gnu/regexp/RETokenAny.java,
+	gnu/regexp/RETokenBackRef.java, gnu/regexp/RETokenChar.java,
+	gnu/regexp/RETokenEnd.java, gnu/regexp/RETokenEndSub.java,
+	gnu/regexp/RETokenLookAhead.java,
+	gnu/regexp/RETokenOneOf.java, gnu/regexp/RETokenPOSIX.java,
+	gnu/regexp/RETokenRange.java, gnu/regexp/RETokenRepeated.java,
+	gnu/regexp/RETokenStart.java,
+	gnu/regexp/RETokenWordBoundary.java,
+	gnu/regexp/UncheckedRE.java: Files merged from GNU Classpath.
+
 2004-05-19  Anthony Green  <green@redhat.com>
 
 	* Makefile.am: Define JAVA_EXT_DIRS.
