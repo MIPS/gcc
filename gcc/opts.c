@@ -594,10 +594,9 @@ decode_options (unsigned int argc, const char **argv)
 
   /* Initialize whether `char' is signed.  */
   flag_signed_char = DEFAULT_SIGNED_CHAR;
-#ifdef DEFAULT_SHORT_ENUMS
-  /* Initialize how much space enums occupy, by default.  */
-  flag_short_enums = DEFAULT_SHORT_ENUMS;
-#endif
+  /* Set this to a special "uninitialized" value.  The actual default is set
+     after target options have been processed.  */
+  flag_short_enums = 2;
 
   /* Initialize target_flags before OPTIMIZATION_OPTIONS so the latter can
      modify it.  */
