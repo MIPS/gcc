@@ -16364,6 +16364,7 @@ cp_parser_cw_asm_operand (cp_parser *parser)
 static tree
 cp_parser_cw_asm_postfix_expression (cp_parser *parser, bool address_p)
 {
+  bool for_offsetof = false;
   cp_token *token;
   enum rid keyword;
   cp_id_kind idk = CP_ID_KIND_NONE;
@@ -16556,8 +16557,7 @@ cp_parser_cw_asm_postfix_expression (cp_parser *parser, bool address_p)
 	    bool dependent_p;
 	    bool template_p;
 	    tree scope = NULL_TREE;
-	    /* APPLE LOCAL MERGE FIXME comment out so no unused warning */
-            /*  enum cpp_ttype token_type = token->type; */
+            enum cpp_ttype token_type = token->type;
 
 	    /* If this is a `->' operator, dereference the pointer.  */
 	    if (token->type == CPP_DEREF)
@@ -16668,19 +16668,13 @@ cp_parser_cw_asm_postfix_expression (cp_parser *parser, bool address_p)
 	       object on the left-hand side of the `.' or `->'
 	       operator.  */
 	    parser->context->object_type = NULL_TREE;
-	    /* APPLE LOCAL begin MERGE FIXME offsetof flag no longer exists */
-#if (0)
-	    /* These operators may not appear in constant-expressions.  */
-	    if (/* The "->" operator is allowed in the implementation
-		   of "offsetof".  The "." operator may appear in the
-		   name of the member.  */
-		!parser->in_offsetof_p
-		&& (cp_parser_non_integral_constant_expression 
-		    (parser,
-		     token_type == CPP_DEREF ? "'->'" : "`.'")))
+
+	    /* Outside of offsetof, these operators may not appear in
+	       constant-expressions.  */
+	    if (!for_offsetof
+		&& (cp_parser_non_integral_constant_expression
+		    (parser, token_type == CPP_DEREF ? "'->'" : "`.'")))
 	      postfix_expression = error_mark_node;
-#endif
-	    /* APPLE LOCAL end MERGE FIXME offsetof flag no longer exists */
 	  }
 	  break;
 
