@@ -207,28 +207,10 @@ public abstract class AbstractDocument
     return content.getString(offset, length);
   }
 
-  public void getText(int offset, int length, Segment txt)
+  public void getText(int offset, int length, Segment segment)
     throws BadLocationException
   {
-    String a = getText(offset, length);
-
-    if (a == null)
-      {
-	txt.offset = 0;
-	txt.count = 0;
-	txt.array = new char[0];
-
-	return;
-      }
-
-    txt.offset = offset;
-    txt.count = length;
-
-    char[] chars = new char[a.length()];
-
-    a.getChars(0, a.length(), chars, 0);
-
-    txt.array = chars;
+    content.getChars(offset, length, segment);
   }
 
   public void insertString(int offset, String text, AttributeSet attributes)

@@ -1,5 +1,19 @@
 2004-08-12  Michael Koch  <konqueror@gmx.de>
 
+	* javax/swing/text/AbstractDocument.java
+	(getText): Simplified.
+	* javax/swing/text/Segment.java
+	(current): New field.
+	(current): Reimplemented.
+	(first): Likewise.
+	(getIndex): Likewise.
+	(last): Likewise.
+	(next): Likewise.
+	(previous): Likewise.
+	(setIndex): Likewise.
+
+2004-08-12  Michael Koch  <konqueror@gmx.de>
+
 	* javax/swing/plaf/basic/BasicButtonUI.java
 	(defaultTextIconGap): Made protected.
 	(defaultTextShiftOffset): Likewise.
