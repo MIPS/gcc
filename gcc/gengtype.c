@@ -588,16 +588,18 @@ adjust_field_tree_exp (t, opt)
     {
       pair_p old_flds = flds;
       pair_p subfields = NULL;
-      int rindex;
+      int r_index;
       const char *sname;
       
-      for (rindex = 0; rindex < data[i].first_rtl + data[i].num_rtl; rindex++)
+      for (r_index = 0; 
+	   r_index < data[i].first_rtl + data[i].num_rtl; 
+	   r_index++)
 	{
 	  pair_p old_subf = subfields;
 	  subfields = xmalloc (sizeof (*subfields));
 	  subfields->next = old_subf;
-	  subfields->name = xasprintf ("[%d]", rindex);
-	  if (rindex < data[i].first_rtl)
+	  subfields->name = xasprintf ("[%d]", r_index);
+	  if (r_index < data[i].first_rtl)
 	    subfields->type = t->u.a.p;
 	  else
 	    subfields->type = create_pointer (find_structure ("rtx_def", 0));

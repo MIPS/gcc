@@ -1,3 +1,7 @@
+2002-07-06  Geoffrey Keating  <geoffk@redhat.com>
+
+	* gengtype.c (adjust_field_tree_exp): Don't name a variable 'rindex'.
+
 2002-07-04  Geoffrey Keating  <geoffk@redhat.com>
 
 	* rtl.c: Update comment describing rtx_format.
