@@ -1,3 +1,9 @@
+2005-02-21  Paolo Bonzini  <bonzini@gnu.org>
+	Stuart Hastings  <stuart@apple.com>
+
+	* simplify-rtx.c (simplify_unary_operation): Add a missing
+	"break" statement.
+
 2005-02-15  Andy Hutchinson  <HutchinsonAndy@netscape.net>
 
 	PR target/19924
