@@ -567,7 +567,6 @@ gcse_main (f, file)
   end_alias_analysis ();
   allocate_reg_info (max_reg_num (), FALSE, FALSE);
 
-  /* Store motion disabled until it is fixed.  */
   if (!optimize_size && flag_gcse_sm)
     store_motion ();
   /* Record where pseudo-registers are set.  */
