@@ -1,3 +1,12 @@
+2004-11-23  Michael Koch  <konqueror@gmx.de>
+
+	* java/awt/Component.java:
+	Fixed argument names to match javadocs.
+	(setFont): Rewritten set property first and then fire event.
+	(setLocale): Likewise.
+	* javax/swing/text/JTextComponent.java
+	(setEditable): Likewise.
+
 2004-11-22  Jerry Quinn  <jlquinn@optonline.net>
 
 	* java/awt/Button.java
