@@ -1,3 +1,15 @@
+2004-04-21  Olga Rodimina  <rodimina@redhat.com>
+
+	* javax/swing/MenuSelectionManager.java
+	(componentForPoint): Added new method. 
+	(defaultManager): New Method. Implemented.
+	(getSelectedPath): Ditto.
+	(isComponentPartOfCurrentMenu): Ditto.
+	(processKeyEvent): Added new method.
+	(processMouseEvent): New Method. Implemented.
+	(setSelectedPath): Ditto.
+	(getPath): Ditto.
+
 2004-04-19  Kim Ho  <kho@redhat.com>
 
 	* java/awt/Container.java: 
