@@ -1,5 +1,11 @@
 2003-01-29  Diego Novillo  <dnovillo@redhat.com>
 
+	* tree-cfg.c (make_blocks): Do not start a new block if the
+	previous statement and the current statement are labels of the same
+	kind.
+
+2003-01-29  Diego Novillo  <dnovillo@redhat.com>
+
 	* tree-cfg.c (parent_array): Make file local.
 	(label_to_block_map): New file local variable.
 	(build_tree_cfg): Initialize label_to_block_map.

@@ -197,6 +197,7 @@ make_blocks (first_p, parent_block)
   basic_block bb;
   bool start_new_block;
   gimple_stmt_iterator i;
+  tree stmt;
 
   if (first_p == NULL
       || *first_p == empty_stmt_node
@@ -205,12 +206,14 @@ make_blocks (first_p, parent_block)
 
   bb = NULL;
   start_new_block = true;
+  stmt = NULL_TREE;
   for (i = gsi_start (first_p); !gsi_end_p (i); gsi_step (&i))
     {
-      tree stmt;
+      tree prev_stmt;
       enum tree_code code;
       tree *container = gsi_container (i);
 
+      prev_stmt = stmt;
       stmt = gsi_stmt (i);
 
       /* Set the block for the container of non-executable statements.  */
@@ -230,7 +233,18 @@ make_blocks (first_p, parent_block)
 	 sub-graph for a control statement, we will always need to start a
 	 new block, and by then it will be too late to figure it out.  */
       if (stmt_starts_bb_p (stmt))
-	start_new_block = true;
+	{
+	  /* LABEL_EXPRs and CASE_LABEL_EXPRs start a new basic block only
+	     if the previous statement we processed wasn't a label of the
+	     same type.  This prevents the creation of consecutive blocks
+	     that have nothing but a single label.  */
+	  if ((code == LABEL_EXPR || code == CASE_LABEL_EXPR)
+	      && prev_stmt
+	      && code == TREE_CODE (prev_stmt))
+	    start_new_block = false;
+	  else
+	    start_new_block = true;
+	}
 
       if (code == BIND_EXPR)
 	make_bind_expr_blocks (container, parent_block);
