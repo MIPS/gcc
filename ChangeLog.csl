@@ -1,6 +1,6 @@
 2004-10-12  Mark Mitchell <mark@codesourcery.com>
 
-	gcc/gcc.c (do_spec_1): Do not add a -L path for a directory in
+	* gcc/gcc.c (do_spec_1): Do not add a -L path for a directory in
 	the prefix list if we have already added a multilib directory
 	based on that path.
 	(main): Do not add MD_EXEC_PREFIX to the list of directories to
