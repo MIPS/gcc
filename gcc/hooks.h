@@ -42,5 +42,5 @@ bool default_can_output_mi_thunk_no_vcall
   PARAMS ((tree, HOST_WIDE_INT, HOST_WIDE_INT, tree));
 bool hook_bool_tree_tree_false PARAMS ((tree, tree));
 rtx hook_rtx_rtx_null PARAMS ((rtx));
-
+extern const char *hook_constcharptr_tree_null PARAMS ((tree));
 #endif

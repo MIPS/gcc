@@ -2265,6 +2265,7 @@ extern tree build_index_2_type		PARAMS ((tree, tree));
 extern tree build_array_type		PARAMS ((tree, tree));
 extern tree build_function_type		PARAMS ((tree, tree));
 extern tree build_function_type_list	PARAMS ((tree, ...));
+extern tree build_method_type_directly	PARAMS ((tree, tree, tree));
 extern tree build_method_type		PARAMS ((tree, tree));
 extern tree build_offset_type		PARAMS ((tree, tree));
 extern tree build_complex_type		PARAMS ((tree));
@@ -2986,6 +2987,8 @@ extern void print_obstack_name		PARAMS ((char *, FILE *,
 extern void expand_function_end		PARAMS ((const char *, int, int));
 extern void expand_function_start	PARAMS ((tree, int));
 extern void expand_pending_sizes        PARAMS ((tree));
+extern tree make_vector			PARAMS ((enum machine_mode, tree, int));
+extern tree reconstruct_complex_type	PARAMS ((tree, tree));
 
 extern int real_onep			PARAMS ((tree));
 extern int real_twop			PARAMS ((tree));

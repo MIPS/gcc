@@ -122,7 +122,6 @@ static int type_hash_eq PARAMS ((const void *, const void *));
 static hashval_t type_hash_hash PARAMS ((const void *));
 static void print_type_hash_statistics PARAMS((void));
 static void finish_vector_type PARAMS((tree));
-static tree make_vector PARAMS ((enum machine_mode, tree, int));
 static int type_hash_marked_p PARAMS ((const void *));
 
 tree global_trees[TI_MAX];
@@ -3771,42 +3770,58 @@ build_function_type_list VPARAMS ((tree return_type, ...))
   return args;
 }
 
-/* Construct, lay out and return the type of methods belonging to class
-   BASETYPE and whose arguments and values are described by TYPE.
-   If that type exists already, reuse it.
-   TYPE must be a FUNCTION_TYPE node.  */
+/* Build a METHOD_TYPE for a member of BASETYPE.  The RETTYPE (a TYPE)
+   and ARGTYPES (a TREE_LIST) are the return type and arguments types
+   for the method.  An implicit additional parameter (of type
+   pointer-to-BASETYPE) is added to the ARGTYPES.  */
 
 tree
-build_method_type (basetype, type)
-     tree basetype, type;
+build_method_type_directly (basetype, rettype, argtypes)
+     tree basetype, rettype, argtypes;
 {
   tree t;
-  unsigned int hashcode;
+  tree ptype;
+  int hashcode;
 
   /* Make a node of the sort we want.  */
   t = make_node (METHOD_TYPE);
 
-  if (TREE_CODE (type) != FUNCTION_TYPE)
-    abort ();
-
   TYPE_METHOD_BASETYPE (t) = TYPE_MAIN_VARIANT (basetype);
-  TREE_TYPE (t) = TREE_TYPE (type);
+  TREE_TYPE (t) = rettype;
+  ptype = build_pointer_type (basetype);
 
   /* The actual arglist for this function includes a "hidden" argument
      which is "this".  Put it into the list of argument types.  */
+  argtypes = tree_cons (NULL_TREE, ptype, argtypes);
+  TYPE_ARG_TYPES (t) = argtypes;
 
-  TYPE_ARG_TYPES (t)
-    = tree_cons (NULL_TREE,
-		 build_pointer_type (basetype), TYPE_ARG_TYPES (type));
+  /* If we already have such a type, use the old one and free this one.
+     Note that it also frees up the above cons cell if found.  */
+  hashcode = TYPE_HASH (basetype) + TYPE_HASH (rettype) +
+    type_hash_list (argtypes);
 
-  /* If we already have such a type, use the old one and free this one.  */
-  hashcode = TYPE_HASH (basetype) + TYPE_HASH (type);
   t = type_hash_canon (hashcode, t);
 
   if (!COMPLETE_TYPE_P (t))
     layout_type (t);
 
   return t;
+}
+
+/* Construct, lay out and return the type of methods belonging to class
+   BASETYPE and whose arguments and values are described by TYPE.
+   If that type exists already, reuse it.
+   TYPE must be a FUNCTION_TYPE node.  */
+
+tree
+build_method_type (tree basetype, tree type)
+{
+  if (TREE_CODE (type) != FUNCTION_TYPE)
+    abort ();
+
+  return build_method_type_directly (basetype, 
+				     TREE_TYPE (type),
+				     TYPE_ARG_TYPES (type));
 }
 
 /* Construct, lay out and return the type of offsets to a value
@@ -4868,10 +4883,56 @@ build_common_tree_nodes_2 (short_double)
   V1DI_type_node = make_vector (V1DImode, intDI_type_node, 0);
 }
 
+/* HACK.  GROSS.  This is absolutely disgusting.  I wish there was a
+   better way.
+
+   If we requested a pointer to a vector, build up the pointers that
+   we stripped off while looking for the inner type.  Similarly for
+   return values from functions.
+
+   The argument TYPE is the top of the chain, and BOTTOM is the
+   new type which we will point to.  */
+
+tree
+reconstruct_complex_type (tree type, tree bottom)
+{
+  tree inner, outer;
+
+  if (POINTER_TYPE_P (type))
+    {
+      inner = reconstruct_complex_type (TREE_TYPE (type), bottom);
+      outer = build_pointer_type (inner);
+    }
+  else if (TREE_CODE (type) == ARRAY_TYPE)
+    {
+      inner = reconstruct_complex_type (TREE_TYPE (type), bottom);
+      outer = build_array_type (inner, TYPE_DOMAIN (type));
+    }
+  else if (TREE_CODE (type) == FUNCTION_TYPE)
+    {
+      inner = reconstruct_complex_type (TREE_TYPE (type), bottom);
+      outer = build_function_type (inner, TYPE_ARG_TYPES (type));
+    }
+  else if (TREE_CODE (type) == METHOD_TYPE)
+    {
+      inner = reconstruct_complex_type (TREE_TYPE (type), bottom);
+      outer = build_method_type_directly (TYPE_METHOD_BASETYPE (type),
+					  inner, 
+					  TYPE_ARG_TYPES (type));
+    }
+  else
+    return bottom;
+
+  TREE_READONLY (outer) = TREE_READONLY (type);
+  TREE_THIS_VOLATILE (outer) = TREE_THIS_VOLATILE (type);
+
+  return outer;
+}
+
 /* Returns a vector tree node given a vector mode, the inner type, and
    the signness.  */
 
-static tree
+tree
 make_vector (mode, innertype, unsignedp)
      enum machine_mode mode;
      tree innertype;

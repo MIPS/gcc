@@ -275,6 +275,11 @@ struct gcc_target
   rtx (* expand_builtin) PARAMS ((tree exp, rtx target, rtx subtarget,
 				  enum machine_mode mode, int ignore));
 
+  /* For a vendor-specific fundamental TYPE, return a pointer to
+     a statically-allocated string containing the C++ mangling for
+     TYPE.  In all other cases, return NULL.  */
+  const char * (* mangle_fundamental_type) (tree type);
+
   /* Given a decl, a section name, and whether the decl initializer
      has relocs, choose attributes for the section.  */
   /* ??? Should be merged with SELECT_SECTION and UNIQUE_SECTION.  */

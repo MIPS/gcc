@@ -135,3 +135,10 @@ hook_rtx_rtx_null (x)
 {
   return 0;
 }
+
+/* Generic hook that takes a tree and returns a NULL string.  */
+const char *
+hook_constcharptr_tree_null (tree t ATTRIBUTE_UNUSED)
+{
+  return NULL;
+}
