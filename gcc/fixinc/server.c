@@ -384,7 +384,7 @@ server_setup ()
   signal( SIGPIPE, sig_handler );
   signal( SIGALRM, sig_handler );
 
-  fputs ("trap : INT\n", server_pair.pfWrite);
+  fputs ("trap : 1\n", server_pair.pfWrite);
   fflush (server_pair.pfWrite);
   p_cur_dir = getcwd ((char *) NULL, MAXPATHLEN + 1);
 }
