@@ -34,7 +34,6 @@ extern int q_constraint PARAMS ((rtx));
 extern int const0_operand PARAMS ((rtx, enum machine_mode));
 extern int consttable_operand PARAMS ((rtx, enum machine_mode));
 extern int larl_operand PARAMS ((rtx, enum machine_mode));
-extern int fp_operand PARAMS ((rtx, enum machine_mode));
 extern int s_operand PARAMS ((rtx, enum machine_mode));
 extern int s_imm_operand PARAMS ((rtx, enum machine_mode));
 extern int bras_sym_operand PARAMS ((rtx, enum machine_mode));
@@ -66,6 +65,7 @@ extern void s390_load_address PARAMS ((rtx, rtx));
 extern void s390_expand_movstr PARAMS ((rtx, rtx, rtx));
 extern void s390_expand_clrstr PARAMS ((rtx, rtx));
 extern void s390_expand_cmpstr PARAMS ((rtx, rtx, rtx, rtx));
+extern rtx s390_return_addr_rtx PARAMS ((int, rtx));
 
 extern void s390_output_symbolic_const PARAMS ((FILE *, rtx));
 extern void print_operand_address PARAMS ((FILE *, rtx));

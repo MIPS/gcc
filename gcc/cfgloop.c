@@ -608,6 +608,10 @@ make_forwarder_block (bb, redirect_latch, redirect_nonlatch, except,
 
   insn = PREV_INSN (first_insn_after_basic_block_note (bb));
 
+  /* For empty block split_block will return NULL.  */
+  if (bb->end == insn)
+    emit_note_after (NOTE_INSN_DELETED, insn);
+
   fallthru = split_block (bb, insn);
   dummy = fallthru->src;
   bb = fallthru->dest;

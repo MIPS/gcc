@@ -235,11 +235,12 @@ enum dump_file_index
   DFI_cfg,
   DFI_bp,
   DFI_loop2,
+  DFI_ce1,
   DFI_tracer,
   DFI_cse2,
   DFI_life,
   DFI_combine,
-  DFI_ce,
+  DFI_ce2,
   DFI_regmove,
   DFI_sched,
   DFI_lreg,
@@ -248,7 +249,7 @@ enum dump_file_index
   DFI_flow2,
   DFI_peephole2,
   DFI_rnreg,
-  DFI_ce2,
+  DFI_ce3,
   DFI_sched2,
   DFI_stack,
   DFI_bbro,
@@ -281,6 +282,7 @@ static struct dump_file_info dump_file[DFI_MAX] =
   { "addressof", 'F', 0, 0, 0 },
   { "gcse",	'G', 1, 0, 0 },
   { "loop",	'L', 1, 0, 0 },
+  { "ce1",	'C', 1, 0, 0 },
   { "cfg",	'f', 1, 0, 0 },
   { "bp",	'b', 1, 0, 0 },
   { "loop2",	'L', 1, 0, 0 },
@@ -288,7 +290,7 @@ static struct dump_file_info dump_file[DFI_MAX] =
   { "cse2",	't', 1, 0, 0 },
   { "life",	'f', 1, 0, 0 },	/* Yes, duplicate enable switch.  */
   { "combine",	'c', 1, 0, 0 },
-  { "ce",	'C', 1, 0, 0 },
+  { "ce2",	'C', 1, 0, 0 },
   { "regmove",	'N', 1, 0, 0 },
   { "sched",	'S', 1, 0, 0 },
   { "lreg",	'l', 1, 0, 0 },
@@ -297,7 +299,7 @@ static struct dump_file_info dump_file[DFI_MAX] =
   { "flow2",	'w', 1, 0, 0 },
   { "peephole2", 'z', 1, 0, 0 },
   { "rnreg",	'n', 1, 0, 0 },
-  { "ce2",	'E', 1, 0, 0 },
+  { "ce3",	'E', 1, 0, 0 },
   { "sched2",	'R', 1, 0, 0 },
   { "stack",	'k', 1, 0, 0 },
   { "bbro",	'B', 1, 0, 0 },
@@ -2333,6 +2335,17 @@ rest_of_decl_compilation (decl, asmspec, top_level, at_end)
       timevar_pop (TV_SYMOUT);
     }
 #endif
+#ifdef DWARF2_DEBUGGING_INFO
+  else if ((write_symbols == DWARF2_DEBUG
+	   || write_symbols == VMS_AND_DWARF2_DEBUG)
+	   && top_level
+	   && TREE_CODE (decl) == TYPE_DECL)
+    {
+      timevar_push (TV_SYMOUT);
+      dwarf2out_decl (decl);
+      timevar_pop (TV_SYMOUT);
+    }
+#endif
 }
 
 /* Called after finishing a record, union or enumeral type.  */
@@ -3004,18 +3017,36 @@ rest_of_compilation (decl)
       close_dump_file (DFI_bp, print_rtl_with_bb, insns);
       timevar_pop (TV_BRANCH_PROB);
     }
+  if (optimize >= 0)
+    {
+      open_dump_file (DFI_ce1, decl);
+      if (flag_if_conversion)
+	{
+	  timevar_push (TV_IFCVT);
+	  if (rtl_dump_file)
+	    dump_flow_info (rtl_dump_file);
+	  cleanup_cfg (CLEANUP_EXPENSIVE);
+	  reg_scan (insns, max_reg_num (), 0);
+	  if_convert (0);
+	  timevar_pop (TV_IFCVT);
+	}
+      timevar_push (TV_JUMP);
+      cleanup_cfg (CLEANUP_EXPENSIVE);
+      reg_scan (insns, max_reg_num (), 0);
+      timevar_pop (TV_JUMP);
+      close_dump_file (DFI_ce1, print_rtl_with_bb, get_insns ());
+    }
   if (flag_tracer)
     {
       timevar_push (TV_TRACER);
       open_dump_file (DFI_tracer, decl);
       if (rtl_dump_file)
 	dump_flow_info (rtl_dump_file);
-      cleanup_cfg (CLEANUP_EXPENSIVE);
       tracer ();
       cleanup_cfg (CLEANUP_EXPENSIVE);
+      reg_scan (insns, max_reg_num (), 0);
       close_dump_file (DFI_tracer, print_rtl_with_bb, get_insns ());
       timevar_pop (TV_TRACER);
-      reg_scan (get_insns (), max_reg_num (), 0);
     }
 
   /* Perform loop optimalizations.  */
@@ -3046,6 +3077,7 @@ rest_of_compilation (decl)
 
       
       cleanup_cfg (CLEANUP_EXPENSIVE);
+      reg_scan (insns, max_reg_num (), 0);
       if (rtl_dump_file)
 	dump_flow_info (rtl_dump_file);
       close_dump_file (DFI_loop2, print_rtl_with_bb, get_insns ());
@@ -3059,39 +3091,22 @@ rest_of_compilation (decl)
       open_dump_file (DFI_cse2, decl);
       if (rtl_dump_file)
 	dump_flow_info (rtl_dump_file);
+      /* CFG is no longer maintained up-to-date.  */
+      tem = cse_main (insns, max_reg_num (), 1, rtl_dump_file);
+      purge_all_dead_edges (0);
+      delete_trivially_dead_insns (insns, max_reg_num ());
 
-      if (flag_rerun_cse_after_loop)
+      if (tem)
 	{
 	  timevar_push (TV_JUMP);
-
-	  reg_scan (insns, max_reg_num (), 0);
-
-	  timevar_push (TV_IFCVT);
+	  rebuild_jump_labels (insns);
 	  cleanup_cfg (CLEANUP_EXPENSIVE);
-	  if (flag_if_conversion)
-	    if_convert (0);
-	  timevar_pop (TV_IFCVT);
-
 	  timevar_pop (TV_JUMP);
-	  /* CFG is no longer maintained up-to-date.  */
-	  reg_scan (insns, max_reg_num (), 0);
-	  tem = cse_main (insns, max_reg_num (), 1, rtl_dump_file);
-	  purge_all_dead_edges (0);
-	  delete_trivially_dead_insns (insns, max_reg_num ());
-
-	  if (tem)
-	    {
-	      timevar_push (TV_JUMP);
-	      rebuild_jump_labels (insns);
-	      cleanup_cfg (CLEANUP_EXPENSIVE);
-	      timevar_pop (TV_JUMP);
-	    }
 	}
-
+      reg_scan (insns, max_reg_num (), 0);
       close_dump_file (DFI_cse2, print_rtl_with_bb, insns);
-      timevar_pop (TV_CSE2);
-
       ggc_collect ();
+      timevar_pop (TV_CSE2);
     }
 
   cse_not_expected = 1;
@@ -3171,13 +3186,13 @@ rest_of_compilation (decl)
   if (flag_if_conversion)
     {
       timevar_push (TV_IFCVT);
-      open_dump_file (DFI_ce, decl);
+      open_dump_file (DFI_ce2, decl);
 
       no_new_pseudos = 0;
       if_convert (1);
       no_new_pseudos = 1;
 
-      close_dump_file (DFI_ce, print_rtl_with_bb, insns);
+      close_dump_file (DFI_ce2, print_rtl_with_bb, insns);
       timevar_pop (TV_IFCVT);
     }
 
@@ -3453,11 +3468,11 @@ rest_of_compilation (decl)
   if (flag_if_conversion2)
     {
       timevar_push (TV_IFCVT2);
-      open_dump_file (DFI_ce2, decl);
+      open_dump_file (DFI_ce3, decl);
 
       if_convert (1);
 
-      close_dump_file (DFI_ce2, print_rtl_with_bb, insns);
+      close_dump_file (DFI_ce3, print_rtl_with_bb, insns);
       timevar_pop (TV_IFCVT2);
     }
 #ifdef STACK_REGS

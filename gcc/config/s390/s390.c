@@ -54,7 +54,8 @@ static int s390_adjust_priority PARAMS ((rtx, int));
 static void s390_select_rtx_section PARAMS ((enum machine_mode, rtx, 
 					     unsigned HOST_WIDE_INT));
 static void s390_encode_section_info PARAMS ((tree, int));
-static void s390_output_mi_thunk PARAMS ((FILE *, tree, HOST_WIDE_INT, tree));
+static void s390_output_mi_thunk PARAMS ((FILE *, tree, HOST_WIDE_INT,
+					  HOST_WIDE_INT, tree));
 
 #undef  TARGET_ASM_ALIGNED_HI_OP
 #define TARGET_ASM_ALIGNED_HI_OP "\t.word\t"
@@ -83,6 +84,8 @@ static void s390_output_mi_thunk PARAMS ((FILE *, tree, HOST_WIDE_INT, tree));
 
 #undef TARGET_ASM_OUTPUT_MI_THUNK
 #define TARGET_ASM_OUTPUT_MI_THUNK s390_output_mi_thunk
+#undef TARGET_ASM_CAN_OUTPUT_MI_THUNK
+#define TARGET_ASM_CAN_OUTPUT_MI_THUNK hook_bool_tree_hwi_hwi_tree_true
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -604,7 +607,7 @@ s390_single_hi (op, mode, def)
 {
   if (GET_CODE (op) == CONST_INT)
     {
-      unsigned HOST_WIDE_INT value;
+      unsigned HOST_WIDE_INT value = 0;
       int n_parts = GET_MODE_SIZE (mode) / 2;
       int i, part = -1;
 
@@ -630,7 +633,7 @@ s390_single_hi (op, mode, def)
   else if (GET_CODE (op) == CONST_DOUBLE
            && GET_MODE (op) == VOIDmode)
     {
-      unsigned HOST_WIDE_INT value;
+      unsigned HOST_WIDE_INT value = 0;
       int n_parts = GET_MODE_SIZE (mode) / 2;
       int i, part = -1;
 
@@ -707,7 +710,7 @@ s390_single_qi (op, mode, def)
 {
   if (GET_CODE (op) == CONST_INT)
     {
-      unsigned HOST_WIDE_INT value;
+      unsigned HOST_WIDE_INT value = 0;
       int n_parts = GET_MODE_SIZE (mode);
       int i, part = -1;
 
@@ -733,7 +736,7 @@ s390_single_qi (op, mode, def)
   else if (GET_CODE (op) == CONST_DOUBLE
            && GET_MODE (op) == VOIDmode)
     {
-      unsigned HOST_WIDE_INT value;
+      unsigned HOST_WIDE_INT value = 0;
       int n_parts = GET_MODE_SIZE (mode);
       int i, part = -1;
 
@@ -811,6 +814,8 @@ optimization_options (level, size)
      int level ATTRIBUTE_UNUSED;
      int size ATTRIBUTE_UNUSED;
 {
+  /* ??? There are apparently still problems with -fcaller-saves.  */
+  flag_caller_saves = 0;
 }
 
 void
@@ -929,24 +934,6 @@ larl_operand (op, mode)
     return 1;
 
   return 0;
-}
-
-/* Return true if OP is a valid FP-Register.
-   OP is the current operation.
-   MODE is the current operation mode.  */
-
-int
-fp_operand (op, mode)
-     register rtx op;
-     enum machine_mode mode;
-{
-  register enum rtx_code code = GET_CODE (op);
-  if (! check_mode (op, &mode))
-    return 0;
-  if (code == REG && REGNO_OK_FOR_FP_P (REGNO (op)))
-    return 1;
-  else
-    return 0;
 }
 
 /* Helper routine to implement s_operand and s_imm_operand.
@@ -1610,8 +1597,20 @@ s390_decompose_address (addr, out)
       /* Allow integer constant in range.  */
       if (GET_CODE (disp) == CONST_INT)
         {
-          if (INTVAL (disp) < 0 || INTVAL (disp) >= 4096)
-              return FALSE;
+	  /* If the argument pointer is involved, the displacement will change
+	     later anyway as the argument pointer gets eliminated.  This could
+	     make a valid displacement invalid, but it is more likely to make
+	     an invalid displacement valid, because we sometimes access the
+	     register save area via negative offsets to the arg pointer.
+	     Thus we don't check the displacement for validity here.  If after
+	     elimination the displacement turns out to be invalid after all,
+	     this is fixed up by reload in any case.  */
+	  if ((base && REGNO (base) == ARG_POINTER_REGNUM)
+	      || (indx && REGNO (indx) == ARG_POINTER_REGNUM))
+	    ;
+
+	  else if (INTVAL (disp) < 0 || INTVAL (disp) >= 4096)
+	    return FALSE;
         }
 
       /* In the small-PIC case, the linker converts @GOT12 
@@ -4369,6 +4368,31 @@ s390_machine_dependent_reorg (first)
 }
 
 
+/* Return an RTL expression representing the value of the return address
+   for the frame COUNT steps up from the current frame.  FRAME is the
+   frame pointer of that frame.  */
+
+rtx
+s390_return_addr_rtx (count, frame)
+     int count;
+     rtx frame;
+{
+  rtx addr;
+
+  /* For the current frame, we use the initial value of RETURN_REGNUM.
+     This works both in leaf and non-leaf functions.  */
+
+  if (count == 0)
+    return get_hard_reg_initial_val (Pmode, RETURN_REGNUM);
+
+  /* For frames farther back, we read the stack slot where the
+     corresponding RETURN_REGNUM value was saved.  */
+
+  addr = plus_constant (frame, RETURN_REGNUM * UNITS_PER_WORD);
+  addr = memory_address (Pmode, addr);
+  return gen_rtx_MEM (Pmode, addr);
+} 
+
 /* Find first call clobbered register unsused in a function.
    This could be used as base register in a leaf function
    or for holding the return address before epilogue.  */
@@ -4793,7 +4817,7 @@ s390_emit_epilogue ()
 {
   struct s390_frame frame;
   rtx frame_pointer, return_reg;
-  int area_bottom, area_top, offset;
+  int area_bottom, area_top, offset = 0;
   rtvec p;
 
   /* Compute frame_info.  */
@@ -4915,7 +4939,7 @@ s390_emit_epilogue ()
 	  if (i == STACK_POINTER_REGNUM 
               || i == RETURN_REGNUM
               || i == BASE_REGISTER 
-              || (flag_pic && i == PIC_OFFSET_TABLE_REGNUM))
+              || (flag_pic && i == (int)PIC_OFFSET_TABLE_REGNUM))
 	    continue;
 
 	  if (global_regs[i])
@@ -5587,77 +5611,200 @@ s390_encode_section_info (decl, first)
     }
 }
 
+/* Output thunk to FILE that implements a C++ virtual function call (with
+   multiple inheritance) to FUNCTION.  The thunk adjusts the this pointer 
+   by DELTA, and unless VCALL_OFFSET is zero, applies an additional adjustment
+   stored at VCALL_OFFSET in the vtable whose address is located at offset 0
+   relative to the resulting this pointer.  */
+
 static void
-s390_output_mi_thunk (file, thunk, delta, function)
+s390_output_mi_thunk (file, thunk, delta, vcall_offset, function)
      FILE *file;
      tree thunk ATTRIBUTE_UNUSED;
      HOST_WIDE_INT delta;
+     HOST_WIDE_INT vcall_offset;
      tree function;
 {
-  if (TARGET_64BIT)                                                           
-    {                                                                         
-      if (flag_pic)                                                           
-        {                                                                     
-          fprintf (file, "\tlarl  1,0f\n");                                   
-          fprintf (file, "\tagf   %d,0(1)\n",                                 
-                   aggregate_value_p (TREE_TYPE                               
-                                      (TREE_TYPE (function))) ? 3 :2 );       
-          fprintf (file, "\tlarl  1,");                                       
-          assemble_name (file, XSTR (XEXP (DECL_RTL (function), 0), 0));      
-          fprintf (file, "@GOTENT\n");                                        
-          fprintf (file, "\tlg    1,0(1)\n");                                 
-          fprintf (file, "\tbr    1\n");                                      
-          fprintf (file, "0:\t.long  ");	                              
-          fprintf (file, HOST_WIDE_INT_PRINT_DEC, (delta));                   
-          fprintf (file, "\n");			                              
-        }                                                                     
-      else                                                                    
-        {                                                                     
-          fprintf (file, "\tlarl  1,0f\n");                                   
-          fprintf (file, "\tagf   %d,0(1)\n",                                 
-          aggregate_value_p (TREE_TYPE                                        
-                             (TREE_TYPE (function))) ? 3 :2 );                
-          fprintf (file, "\tjg  ");                                           
-          assemble_name (file, XSTR (XEXP (DECL_RTL (function), 0), 0));      
-          fprintf (file, "\n");                                               
-          fprintf (file, "0:\t.long  ");		                      
-          fprintf (file, HOST_WIDE_INT_PRINT_DEC, (delta));                   
-          fprintf (file, "\n");			                              
-        }                                                                     
-    }                                                                         
-  else                                                                        
-    {                                                                         
-      if (flag_pic)                                                           
-        {                                                                     
-          fprintf (file, "\tbras  1,0f\n");                                   
-          fprintf (file, "\t.long _GLOBAL_OFFSET_TABLE_-.\n");                
-          fprintf (file, "\t.long  ");                                        
-          assemble_name (file, XSTR (XEXP (DECL_RTL (function), 0), 0));      
-          fprintf (file, "@GOT\n");                                           
-          fprintf (file, "\t.long  ");		                              
-          fprintf (file, HOST_WIDE_INT_PRINT_DEC, (delta));                   
-          fprintf (file, "\n");			                              
-          fprintf (file, "0:\tal  %d,8(1)\n",                                 
-                   aggregate_value_p (TREE_TYPE                               
-                                      (TREE_TYPE (function))) ? 3 : 2 );      
-          fprintf (file, "\tl     0,4(1)\n");                                 
-          fprintf (file, "\tal    1,0(1)\n");                                 
-          fprintf (file, "\talr   1,0\n");                                    
-          fprintf (file, "\tl     1,0(1)\n");                                 
-          fprintf (file, "\tbr    1\n");                                      
-        } else {                                                              
-          fprintf (file, "\tbras  1,0f\n");                                   
-          fprintf (file, "\t.long  ");                                        
-          assemble_name (file, XSTR (XEXP (DECL_RTL (function), 0), 0));      
-          fprintf (file, "-.\n");                                             
-          fprintf (file, "\t.long  ");		                              
-          fprintf (file, HOST_WIDE_INT_PRINT_DEC, (delta));                   
-          fprintf (file, "\n");			                              
-          fprintf (file, "0:\tal  %d,4(1)\n",                                 
-                   aggregate_value_p (TREE_TYPE                               
-                                      (TREE_TYPE (function))) ? 3 : 2 );      
-          fprintf (file, "\tal    1,0(1)\n");                                 
-          fprintf (file, "\tbr    1\n");                                      
-       }                                                                      
-    }                                                                         
+  rtx op[9];
+
+  /* Operand 0 is the target function.  */
+  op[0] = XEXP (DECL_RTL (function), 0);
+  if (flag_pic && !SYMBOL_REF_FLAG (op[0]))
+    {
+      op[0] = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, op[0]), 113);
+      op[0] = gen_rtx_CONST (Pmode, op[0]);
+    }
+
+  /* Operand 1 is the 'this' pointer.  */
+  if (aggregate_value_p (TREE_TYPE (TREE_TYPE (function))))
+    op[1] = gen_rtx_REG (Pmode, 3);
+  else
+    op[1] = gen_rtx_REG (Pmode, 2);
+
+  /* Operand 2 is the delta.  */
+  op[2] = GEN_INT (delta);
+
+  /* Operand 3 is the vcall_offset.  */
+  op[3] = GEN_INT (vcall_offset);
+
+  /* Operand 4 is the temporary register.  */
+  op[4] = gen_rtx_REG (Pmode, 1);
+
+  /* Operands 5 to 8 can be used as labels.  */
+  op[5] = NULL_RTX;
+  op[6] = NULL_RTX;
+  op[7] = NULL_RTX;
+  op[8] = NULL_RTX;
+
+  /* Generate code.  */
+  if (TARGET_64BIT)
+    {
+      /* Setup literal pool pointer if required.  */
+      if (!CONST_OK_FOR_LETTER_P (delta, 'K')
+	  || !CONST_OK_FOR_LETTER_P (vcall_offset, 'K'))
+	{
+	  op[5] = gen_label_rtx ();
+	  output_asm_insn ("larl\t%4,%5", op);
+	}
+
+      /* Add DELTA to this pointer.  */
+      if (delta)
+	{
+	  if (CONST_OK_FOR_LETTER_P (delta, 'J'))
+	    output_asm_insn ("la\t%1,%2(%1)", op);
+	  else if (CONST_OK_FOR_LETTER_P (delta, 'K'))
+	    output_asm_insn ("aghi\t%1,%2", op);
+	  else
+	    {
+	      op[6] = gen_label_rtx ();
+	      output_asm_insn ("agf\t%1,%6-%5(%4)", op);
+	    }
+	}
+
+      /* Perform vcall adjustment.  */
+      if (vcall_offset)
+	{
+	  if (CONST_OK_FOR_LETTER_P (vcall_offset, 'J'))
+	    {
+	      output_asm_insn ("lg\t%4,0(%1)", op);
+	      output_asm_insn ("ag\t%1,%3(%4)", op);
+	    }
+	  else if (CONST_OK_FOR_LETTER_P (vcall_offset, 'K'))
+	    {
+	      output_asm_insn ("lghi\t%4,%3", op);
+	      output_asm_insn ("ag\t%4,0(%1)", op);
+	      output_asm_insn ("ag\t%1,0(%4)", op);
+	    }
+	  else
+	    {
+	      op[7] = gen_label_rtx ();
+	      output_asm_insn ("llgf\t%4,%7-%5(%4)", op);
+	      output_asm_insn ("ag\t%4,0(%1)", op);
+	      output_asm_insn ("ag\t%1,0(%4)", op);
+	    }
+	}
+        
+      /* Jump to target.  */
+      output_asm_insn ("jg\t%0", op);
+
+      /* Output literal pool if required.  */
+      if (op[5])
+	{
+	  output_asm_insn (".align\t4", op);
+	  ASM_OUTPUT_INTERNAL_LABEL (file, "L", CODE_LABEL_NUMBER (op[5]));
+	}
+      if (op[6])
+	{
+	  ASM_OUTPUT_INTERNAL_LABEL (file, "L", CODE_LABEL_NUMBER (op[6]));
+	  output_asm_insn (".long\t%2", op);
+	}
+      if (op[7])
+	{
+	  ASM_OUTPUT_INTERNAL_LABEL (file, "L", CODE_LABEL_NUMBER (op[7]));
+	  output_asm_insn (".long\t%3", op);
+	}
+    }
+  else
+    {
+      /* Setup base pointer if required.  */
+      if (!vcall_offset
+	  || !CONST_OK_FOR_LETTER_P (delta, 'K')
+	  || !CONST_OK_FOR_LETTER_P (vcall_offset, 'K'))
+	{
+	  op[5] = gen_label_rtx ();
+	  output_asm_insn ("basr\t%4,0", op);
+	  ASM_OUTPUT_INTERNAL_LABEL (file, "L", CODE_LABEL_NUMBER (op[5]));
+	}
+
+      /* Add DELTA to this pointer.  */
+      if (delta)
+	{
+	  if (CONST_OK_FOR_LETTER_P (delta, 'J'))
+	    output_asm_insn ("la\t%1,%2(%1)", op);
+	  else if (CONST_OK_FOR_LETTER_P (delta, 'K'))
+	    output_asm_insn ("ahi\t%1,%2", op);
+	  else
+	    {
+	      op[6] = gen_label_rtx ();
+	      output_asm_insn ("a\t%1,%6-%5(%4)", op);
+	    }
+	}
+
+      /* Perform vcall adjustment.  */
+      if (vcall_offset)
+        {
+	  if (CONST_OK_FOR_LETTER_P (vcall_offset, 'J'))
+	    {
+	      output_asm_insn ("lg\t%4,0(%1)", op);
+	      output_asm_insn ("a\t%1,%3(%4)", op);
+	    }
+	  else if (CONST_OK_FOR_LETTER_P (vcall_offset, 'K'))
+	    {
+	      output_asm_insn ("lhi\t%4,%3", op);
+	      output_asm_insn ("a\t%4,0(%1)", op);
+	      output_asm_insn ("a\t%1,0(%4)", op);
+	    }
+	  else
+	    {
+	      op[7] = gen_label_rtx ();
+	      output_asm_insn ("l\t%4,%7-%5(%4)", op);
+	      output_asm_insn ("a\t%4,0(%1)", op);
+	      output_asm_insn ("a\t%1,0(%4)", op);
+	    }
+
+	  /* We had to clobber the base pointer register.
+	     Re-setup the base pointer (with a different base).  */
+	  op[5] = gen_label_rtx ();
+	  output_asm_insn ("basr\t%4,0", op);
+	  ASM_OUTPUT_INTERNAL_LABEL (file, "L", CODE_LABEL_NUMBER (op[5]));
+	}
+
+      /* Jump to target.  */
+      op[8] = gen_label_rtx ();
+      if (!flag_pic)
+	output_asm_insn ("l\t%4,%8-%5(%4)", op);
+      else
+	output_asm_insn ("a\t%4,%8-%5(%4)", op);
+      output_asm_insn ("br\t%4", op);
+
+      /* Output literal pool.  */
+      output_asm_insn (".align\t4", op);
+      ASM_OUTPUT_INTERNAL_LABEL (file, "L", CODE_LABEL_NUMBER (op[8]));
+      if (!flag_pic)
+	output_asm_insn (".long\t%0", op);
+      else
+	output_asm_insn (".long\t%0-%5", op);
+
+      if (op[6])
+	{
+	  ASM_OUTPUT_INTERNAL_LABEL (file, "L", CODE_LABEL_NUMBER (op[6]));
+	  output_asm_insn (".long\t%2", op);
+	}
+      if (op[7])
+	{
+	  ASM_OUTPUT_INTERNAL_LABEL (file, "L", CODE_LABEL_NUMBER (op[7]));
+	  output_asm_insn (".long\t%3", op);
+	}
+    }
 }
+
