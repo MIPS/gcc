@@ -153,37 +153,6 @@ assign_luids (basic_block bb)
     }
 }
 
-/* Returns the byte for taking the least significant OUTER_MODE subreg of
-   INNER_MODE.  */
-
-static unsigned
-lowpart_byte (enum machine_mode outer_mode, enum machine_mode inner_mode)
-{
-  unsigned offset = 0;
-
-  if (WORDS_BIG_ENDIAN)
-    offset = GET_MODE_SIZE (inner_mode) - GET_MODE_SIZE (outer_mode);
-
-  if (BYTES_BIG_ENDIAN != WORDS_BIG_ENDIAN
-      && GET_MODE_SIZE (outer_mode) < UNITS_PER_WORD)
-    {
-      /* We must swap the positions inside the word.  */
-      offset = (offset + UNITS_PER_WORD - GET_MODE_SIZE (outer_mode)
-		- 2 * (offset % UNITS_PER_WORD));
-    }
-
-  return offset;
-}
-
-/* Checks whether subreg EXPR takes the least significant part of EXPR.  */
-
-static bool
-lowpart_subreg_p (rtx expr)
-{
-  return SUBREG_BYTE (expr) == lowpart_byte (GET_MODE (expr),
-					     GET_MODE (SUBREG_REG (expr)));
-}
-
 /* Generates a subreg to get the least significant part of EXPR (in mode
    INNER_MODE) to OUTER_MODE.  */
 
@@ -192,7 +161,7 @@ lowpart_subreg (enum machine_mode outer_mode, rtx expr,
 		enum machine_mode inner_mode)
 {
   return simplify_gen_subreg (outer_mode, expr, inner_mode,
-			      lowpart_byte (outer_mode, inner_mode));
+			      subreg_lowpart_offset (outer_mode, inner_mode));
 }
 
 /* Checks whether REG is a well-behaved register.  */
@@ -204,7 +173,7 @@ simple_reg_p (rtx reg)
 
   if (GET_CODE (reg) == SUBREG)
     {
-      if (!lowpart_subreg_p (reg))
+      if (!subreg_lowpart_p (reg))
 	return false;
       reg = SUBREG_REG (reg);
     }
@@ -301,7 +270,7 @@ mark_single_set (rtx insn, rtx set)
   return def;
 }
 
-/* Marks set register REG as wrong, unless it is equal to EXCEPT.  */
+/* Invalidate register REG unless it is equal to EXCEPT.  */
 
 static void
 kill_sets (rtx reg, rtx by ATTRIBUTE_UNUSED, void *except)
@@ -391,7 +360,7 @@ iv_get_reaching_def (rtx insn, rtx reg)
 
   if (GET_CODE (reg) == SUBREG)
     {
-      if (!lowpart_subreg_p (reg))
+      if (!subreg_lowpart_p (reg))
 	return const0_rtx;
       reg = SUBREG_REG (reg);
     }
@@ -697,7 +666,7 @@ get_biv_step_1 (rtx insn, rtx reg,
 
   if (GET_CODE (next) == SUBREG)
     {
-      if (!lowpart_subreg_p (next))
+      if (!subreg_lowpart_p (next))
 	return false;
 
       nextr = SUBREG_REG (next);
@@ -912,7 +881,7 @@ iv_analyse_op (rtx insn, rtx op, struct rtx_iv *iv)
 
   if (GET_CODE (op) == SUBREG)
     {
-      if (!lowpart_subreg_p (op))
+      if (!subreg_lowpart_p (op))
 	return false;
 
       if (!iv_analyse_op (insn, SUBREG_REG (op), iv))
@@ -975,7 +944,7 @@ iv_analyse (rtx insn, rtx def, struct rtx_iv *iv)
 
   if (GET_CODE (def) == SUBREG)
     {
-      if (!lowpart_subreg_p (def))
+      if (!subreg_lowpart_p (def))
 	return false;
 
       if (!iv_analyse (insn, SUBREG_REG (def), iv))
@@ -1024,7 +993,7 @@ iv_analyse (rtx insn, rtx def, struct rtx_iv *iv)
       switch (code)
 	{
 	case SUBREG:
-	  if (!lowpart_subreg_p (rhs))
+	  if (!subreg_lowpart_p (rhs))
 	    goto end;
 	  op0 = rhs;
 	  break;
@@ -1148,9 +1117,12 @@ get_iv_value (struct rtx_iv *iv, rtx iteration)
   if (iv->first_special)
     abort ();
 
-  val = simplify_gen_binary (PLUS, iv->extend_mode, iv->base,
-			     simplify_gen_binary (MULT, iv->extend_mode,
-						  iv->step, iteration));
+  if (iv->step != const0_rtx && iteration != const0_rtx)
+    val = simplify_gen_binary (PLUS, iv->extend_mode, iv->base,
+			       simplify_gen_binary (MULT, iv->extend_mode,
+						    iv->step, iteration));
+  else
+    val = iv->base;
 
   if (iv->extend_mode == iv->mode)
     return val;
@@ -1351,6 +1323,15 @@ simplify_using_assignment (rtx insn, rtx *expr, regset altered)
     ret = true;
 
   note_stores (PATTERN (insn), mark_altered, altered);
+  if (GET_CODE (insn) == CALL_INSN)
+    {
+      int i;
+
+      /* Kill all call clobbered registers.  */
+      for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
+	if (TEST_HARD_REG_BIT (regs_invalidated_by_call, i))
+	  SET_REGNO_REG_SET (altered, i);
+    }
 
   if (ret)
     return;
@@ -1400,7 +1381,8 @@ implies_p (rtx a, rtx b)
 
 /* Canonicalizes COND so that
 
-   (1) If an operand is a constant, it will be the second operand.
+   (1) Ensure that operands are ordered according to
+       swap_commutative_operands_p.
    (2) (LE x const) will be replaced with (LT x <const+1>) and similarly
        for GE, GEU, and LEU.  */
 
@@ -1410,13 +1392,13 @@ canon_condition (rtx cond)
   rtx tem;
   rtx op0, op1;
   enum rtx_code code;
+  enum machine_mode mode;
 
   code = GET_CODE (cond);
   op0 = XEXP (cond, 0);
   op1 = XEXP (cond, 1);
 
-  /* If constant is first, put it last.  */
-  if (CONSTANT_P (op0))
+  if (swap_commutative_operands_p (op0, op1))
     {
       code = swap_condition (code);
       tem = op0;
@@ -1424,14 +1406,20 @@ canon_condition (rtx cond)
       op1 = tem;
     }
 
+  mode = GET_MODE (op0);
+  if (mode == VOIDmode)
+    mode = GET_MODE (op1);
+  if (mode == VOIDmode)
+    abort ();
+
   if (GET_CODE (op1) == CONST_INT
-      && GET_MODE (op0) != VOIDmode
-      && GET_MODE_BITSIZE (GET_MODE (op0)) <= HOST_BITS_PER_WIDE_INT)
+      && GET_MODE_CLASS (mode) != MODE_CC
+      && GET_MODE_BITSIZE (mode) <= HOST_BITS_PER_WIDE_INT)
     {
       HOST_WIDE_INT const_val = INTVAL (op1);
       unsigned HOST_WIDE_INT uconst_val = const_val;
       unsigned HOST_WIDE_INT max_val
-	= (unsigned HOST_WIDE_INT) GET_MODE_MASK (GET_MODE (op0));
+	= (unsigned HOST_WIDE_INT) GET_MODE_MASK (mode);
 
       switch (code)
 	{
@@ -1446,17 +1434,17 @@ canon_condition (rtx cond)
 	  if ((HOST_WIDE_INT) (const_val & max_val)
 	      != (((HOST_WIDE_INT) 1
 		   << (GET_MODE_BITSIZE (GET_MODE (op0)) - 1))))
-	    code = GT, op1 = gen_int_mode (const_val - 1, GET_MODE (op0));
+	    code = GT, op1 = gen_int_mode (const_val - 1, mode);
 	  break;
 
 	case LEU:
 	  if (uconst_val < max_val)
-	    code = LTU, op1 = gen_int_mode (uconst_val + 1, GET_MODE (op0));
+	    code = LTU, op1 = gen_int_mode (uconst_val + 1, mode);
 	  break;
 
 	case GEU:
 	  if (uconst_val != 0)
-	    code = GTU, op1 = gen_int_mode (uconst_val - 1, GET_MODE (op0));
+	    code = GTU, op1 = gen_int_mode (uconst_val - 1, mode);
 	  break;
 
 	default:
@@ -1935,6 +1923,10 @@ iv_number_of_iterations (struct loop *loop, rtx insn, rtx condition,
   if (iv1.extend_mode == VOIDmode)
     iv1.mode = iv1.extend_mode = mode;
 
+  if (GET_MODE_BITSIZE (iv0.extend_mode) > HOST_BITS_PER_WIDE_INT
+      || GET_MODE_BITSIZE (iv1.extend_mode) > HOST_BITS_PER_WIDE_INT)
+    goto fail;
+
   /* Check condition and normalize it.  */
 
   switch (cond)
@@ -1965,6 +1957,7 @@ iv_number_of_iterations (struct loop *loop, rtx insn, rtx condition,
     goto fail;
 
   comp_mode = iv0.extend_mode;
+  mode = iv0.mode;
   size = GET_MODE_BITSIZE (mode);
   get_mode_bounds (mode, (cond == LE || cond == LT), &mmin, &mmax);
 

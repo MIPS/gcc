@@ -480,8 +480,8 @@ scale_loop_frequencies (struct loop *loop, int num, int den)
    accordingly. Everything between them plus LATCH_EDGE destination must
    be dominated by HEADER_EDGE destination, and back-reachable from
    LATCH_EDGE source.  HEADER_EDGE is redirected to basic block SWITCH_BB,
-   FALLTHRU_EDGE (SWITCH_BB) to original destination of LATCH_EDGE and
-   BRANCH_EDGE (SWITCH_BB) to original destination of HEADER_EDGE.
+   FALLTHRU_EDGE (SWITCH_BB) to original destination of HEADER_EDGE and
+   BRANCH_EDGE (SWITCH_BB) to original destination of LATCH_EDGE.
    Returns newly created loop.  */
 
 struct loop *

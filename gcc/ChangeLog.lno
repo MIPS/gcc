@@ -1,3 +1,20 @@
+2004-02-27  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* cfgloopmanip.c (loopify): Fix comment.
+	* loop-iv.c (lowpart_byte, lowpart_subreg_p): Removed.
+	(lowpart_subreg, simple_reg_p, iv_get_reaching_def, get_biv_step_1,
+	iv_analyse_op, iv_analyse, get_iv_value): Use standard subreg
+	manipulation functions.
+	(simplify_using_assignment): Handle hardregs correctly.
+	(canon_condition): Use swap_commutative_operands_p.
+	(iv_number_of_iterations): Avoid overflow.
+	* loop-unroll.c (unroll_loop_runtime_iterations): Pass additional
+	argument to compare_and_jump_seq.
+	* loop-unswitch.c (unswitch_loop, may_unswitch_on,
+	unswitch_single_loop, compare_and_jump_seq): Handle comparisons of
+	ccmode registers.
+	* rtl.h (compare_and_jump_seq): Declaration changed.
+
 2004-02-25  Dorit Naishlos <dorit@il.ibm.com>
 
         * tree-vectorizer.h (assignment_vec_info_type): New enum value for

@@ -931,7 +931,7 @@ unroll_loop_runtime_iterations (struct loops *loops, struct loop *loop)
 
       preheader = loop_split_edge_with (loop_preheader_edge (loop), NULL_RTX);
       branch_code = compare_and_jump_seq (copy_rtx (niter), GEN_INT (j), EQ,
-					  block_label (preheader), p);
+					  block_label (preheader), p, NULL_RTX);
 
       swtch = loop_split_edge_with (swtch->pred, branch_code);
       set_immediate_dominator (CDI_DOMINATORS, preheader, swtch);
@@ -948,7 +948,7 @@ unroll_loop_runtime_iterations (struct loops *loops, struct loop *loop)
       swtch = ezc_swtch;
       preheader = loop_split_edge_with (loop_preheader_edge (loop), NULL_RTX);
       branch_code = compare_and_jump_seq (copy_rtx (niter), const0_rtx, EQ,
-					  block_label (preheader), p);
+					  block_label (preheader), p, NULL_RTX);
 
       swtch = loop_split_edge_with (swtch->succ, branch_code);
       set_immediate_dominator (CDI_DOMINATORS, preheader, swtch);

@@ -79,32 +79,58 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
   with handling this case.  */
 
 static struct loop *unswitch_loop (struct loops *, struct loop *,
-				   basic_block, rtx);
+				   basic_block, rtx, rtx);
 static void unswitch_single_loop (struct loops *, struct loop *, rtx, int);
-static rtx may_unswitch_on (basic_block, struct loop *);
+static rtx may_unswitch_on (basic_block, struct loop *, rtx *);
 
 /* Prepare a sequence comparing OP0 with OP1 using COMP and jumping to LABEL if
-   true, with probability PROB.  */
+   true, with probability PROB.  If CINSN is not NULL, it is the insn to copy
+   in order to create a jump.  */
 
 rtx
-compare_and_jump_seq (rtx op0, rtx op1, enum rtx_code comp, rtx label, int prob)
+compare_and_jump_seq (rtx op0, rtx op1, enum rtx_code comp, rtx label, int prob,
+		      rtx cinsn)
 {
-  rtx seq, jump;
+  rtx seq, jump, cond;
   enum machine_mode mode;
 
-  start_sequence ();
-  op0 = force_operand (op0, NULL_RTX);
-  op1 = force_operand (op1, NULL_RTX);
   mode = GET_MODE (op0);
   if (mode == VOIDmode)
     mode = GET_MODE (op1);
-  do_compare_rtx_and_jump (op0, op1, comp, 0,
-			   mode, NULL_RTX, NULL_RTX, label);
-  jump = get_last_insn ();
+
+  start_sequence ();
+  if (GET_MODE_CLASS (mode) == MODE_CC)
+    {
+      /* A hack -- there seems to be no easy generic way how to make a
+	 conditional jump from a ccmode comparison.  */
+      if (!cinsn)
+	abort ();
+      cond = XEXP (SET_SRC (pc_set (cinsn)), 0);
+      if (GET_CODE (cond) != comp
+	  || !rtx_equal_p (op0, XEXP (cond, 0))
+	  || !rtx_equal_p (op1, XEXP (cond, 1)))
+	abort ();
+      emit_jump_insn (copy_insn (PATTERN (cinsn)));
+      jump = get_last_insn ();
+      JUMP_LABEL (jump) = JUMP_LABEL (cinsn);
+      LABEL_NUSES (JUMP_LABEL (jump))++;
+      redirect_jump (jump, label, 0);
+    }
+  else
+    {
+      if (cinsn)
+	abort ();
+
+      op0 = force_operand (op0, NULL_RTX);
+      op1 = force_operand (op1, NULL_RTX);
+      do_compare_rtx_and_jump (op0, op1, comp, 0,
+			       mode, NULL_RTX, NULL_RTX, label);
+      jump = get_last_insn ();
+      JUMP_LABEL (jump) = label;
+      LABEL_NUSES (label)++;
+    }
   REG_NOTES (jump) = gen_rtx_EXPR_LIST (REG_BR_PROB, GEN_INT (prob),
 					REG_NOTES (jump));
-  JUMP_LABEL (jump) = label;
-  LABEL_NUSES (label)++;
   seq = get_insns ();
   end_sequence ();
 
@@ -142,14 +168,16 @@ unswitch_loops (struct loops *loops)
 }
 
 /* Checks whether we can unswitch LOOP on condition at end of BB -- one of its
-   basic blocks (for what it means see comments below).  */
+   basic blocks (for what it means see comments below).  In case condition
+   compares loop invariant cc mode register, return the jump in CINSN.  */
 
 static rtx
-may_unswitch_on (basic_block bb, struct loop *loop)
+may_unswitch_on (basic_block bb, struct loop *loop, rtx *cinsn)
 {
   rtx test, at, insn, op[2];
   struct rtx_iv iv;
   unsigned i;
+  enum machine_mode mode;
 
   /* BB must end in a simple conditional jump.  */
   if (!bb->succ || !bb->succ->succ_next || bb->succ->succ_next->succ_next)
@@ -189,6 +217,22 @@ may_unswitch_on (basic_block bb, struct loop *loop)
       op[i] = get_iv_value (&iv, const0_rtx);
     }
 
+  mode = GET_MODE (op[0]);
+  if (mode == VOIDmode)
+    mode = GET_MODE (op[1]);
+  if (GET_MODE_CLASS (mode) == MODE_CC)
+    {
+      if (at != BB_END (bb))
+	return NULL_RTX;
+
+      *cinsn = BB_END (bb);
+      if (!rtx_equal_p (op[0], XEXP (test, 0))
+	  || !rtx_equal_p (op[1], XEXP (test, 1)))
+	return NULL_RTX;
+
+      return test;
+    }
+
   return canon_condition (gen_rtx_fmt_ee (GET_CODE (test), SImode,
 					  op[0], op[1]));
 }
@@ -218,7 +262,7 @@ unswitch_single_loop (struct loops *loops, struct loop *loop,
   basic_block *bbs;
   struct loop *nloop;
   unsigned i;
-  rtx cond, rcond, conds, rconds, acond;
+  rtx cond, rcond, conds, rconds, acond, cinsn = NULL_RTX;
   int repeat;
   edge e;
 
@@ -278,7 +322,7 @@ unswitch_single_loop (struct loops *loops, struct loop *loop,
       bbs = get_loop_body (loop);
       iv_analysis_loop_init (loop);
       for (i = 0; i < loop->num_nodes; i++)
-	if ((cond = may_unswitch_on (bbs[i], loop)))
+	if ((cond = may_unswitch_on (bbs[i], loop, &cinsn)))
 	  break;
 
       if (i == loop->num_nodes)
@@ -324,13 +368,13 @@ unswitch_single_loop (struct loops *loops, struct loop *loop,
     fprintf (rtl_dump_file, ";; Unswitching loop\n");
 
   /* Unswitch the loop on this condition.  */
-  nloop = unswitch_loop (loops, loop, bbs[i], cond);
+  nloop = unswitch_loop (loops, loop, bbs[i], cond, cinsn);
   if (!nloop)
-  abort ();
+    abort ();
 
   /* Invoke itself on modified loops.  */
-  unswitch_single_loop (loops, nloop, conds, num + 1);
-  unswitch_single_loop (loops, loop, rconds, num + 1);
+  unswitch_single_loop (loops, nloop, rconds, num + 1);
+  unswitch_single_loop (loops, loop, conds, num + 1);
 
   free_EXPR_LIST_node (conds);
   if (rcond)
@@ -341,11 +385,12 @@ unswitch_single_loop (struct loops *loops, struct loop *loop,
    unswitching of innermost loops.  UNSWITCH_ON must be executed in every
    iteration, i.e. it must dominate LOOP latch.  COND is the condition
    determining which loop is entered.  Returns NULL if impossible, new loop
-   otherwise.  The new loop is entered if COND is true.  */
+   otherwise.  The new loop is entered if COND is true.  If CINSN is not
+   NULL, it is the insn in that COND is compared.  */
 
 static struct loop *
 unswitch_loop (struct loops *loops, struct loop *loop, basic_block unswitch_on,
-	       rtx cond)
+	       rtx cond, rtx cinsn)
 {
   edge entry, latch_edge, true_edge, false_edge, e;
   basic_block switch_bb, unswitch_on_alt, src;
@@ -385,8 +430,8 @@ unswitch_loop (struct loops *loops, struct loop *loop, basic_block unswitch_on,
 
   /* Record the block with condition we unswitch on.  */
   unswitch_on_alt = unswitch_on->rbi->copy;
-  true_edge = BRANCH_EDGE (unswitch_on);
-  false_edge = FALLTHRU_EDGE (unswitch_on_alt);
+  true_edge = BRANCH_EDGE (unswitch_on_alt);
+  false_edge = FALLTHRU_EDGE (unswitch_on);
   latch_edge = loop->latch->rbi->copy->succ;
 
   /* Create a block with the condition.  */
@@ -394,7 +439,7 @@ unswitch_loop (struct loops *loops, struct loop *loop, basic_block unswitch_on,
   switch_bb = create_empty_bb (EXIT_BLOCK_PTR->prev_bb);
   seq = compare_and_jump_seq (XEXP (cond, 0), XEXP (cond, 1), GET_CODE (cond),
 			      block_label (true_edge->dest),
-			      prob);
+			      prob, cinsn);
   emit_insn_after (seq, BB_END (switch_bb));
   e = make_edge (switch_bb, true_edge->dest, 0);
   e->probability = prob;
