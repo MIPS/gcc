@@ -92,7 +92,7 @@ static tree get_value_for (tree, htab_t);
 static void set_value_for (tree, tree, htab_t);
 static hashval_t var_value_hash (const void *);
 static int var_value_eq (const void *, const void *);
-static tree lookup_avail_expr (tree, varray_type *, htab_t);
+static tree lookup_avail_expr (tree, varray_type *, htab_t, bool);
 static tree get_eq_expr_value (tree, int, varray_type *, htab_t);
 static hashval_t avail_expr_hash (const void *);
 static int avail_expr_eq (const void *, const void *);
@@ -101,6 +101,8 @@ static void record_cond_is_false (tree, varray_type *, htab_t);
 static void record_cond_is_true (tree, varray_type *, htab_t);
 static void thread_edge (edge, basic_block);
 static void mark_new_vars_to_rename (tree, sbitmap);
+static tree update_rhs_and_lookup_avail_expr (tree, tree, varray_type *,
+					      htab_t, stmt_ann_t, bool);
 
 /* Optimize function FNDECL based on the dominator tree.  This does
    simple const/copy propagation and redundant expression elimination using
@@ -573,9 +575,9 @@ optimize_block (basic_block bb, tree parent_block_last_stmt, int edge_flags,
 	 see if we know which arm will be taken.  */
       if (stmt && TREE_CODE (stmt) == COND_EXPR)
 	{
-	  tree cached_lhs = lookup_avail_expr (stmt,
-					       &block_avail_exprs,
-					       const_and_copies);
+	  tree cached_lhs = lookup_avail_expr (stmt, &block_avail_exprs,
+					       const_and_copies, false);
+
 	  if (cached_lhs)
 	    {
 	      edge taken_edge = find_taken_edge (bb->succ->dest, cached_lhs);
@@ -692,7 +694,7 @@ record_cond_is_true (tree cond,
   tree stmt;
 
   stmt = build (MODIFY_EXPR, boolean_type_node, integer_one_node, cond);
-  lookup_avail_expr (stmt, block_avail_exprs_p, const_and_copies);
+  lookup_avail_expr (stmt, block_avail_exprs_p, const_and_copies, true);
 }
 
 /* Enter a statement into the available expression hash table indicating
@@ -706,7 +708,7 @@ record_cond_is_false (tree cond,
   tree stmt;
 
   stmt = build (MODIFY_EXPR, boolean_type_node, integer_zero_node, cond);
-  lookup_avail_expr (stmt, block_avail_exprs_p, const_and_copies);
+  lookup_avail_expr (stmt, block_avail_exprs_p, const_and_copies, true);
 }
 
 /* Optimize the statement pointed by iterator SI into SSA form. 
@@ -888,7 +890,9 @@ optimize_stmt (block_stmt_iterator si, varray_type *block_avail_exprs_p,
 	 reaching definition for the variable defined by this statement.  */
       tree cached_lhs = lookup_avail_expr (stmt,
 					   block_avail_exprs_p,
-					   const_and_copies);
+					   const_and_copies,
+					   (TREE_CODE (stmt) == MODIFY_EXPR
+					    ? true : false));
 
       if (TREE_CODE (stmt) == MODIFY_EXPR)
 	def = TREE_OPERAND (stmt, 0);
@@ -1049,7 +1053,8 @@ optimize_stmt (block_stmt_iterator si, varray_type *block_avail_exprs_p,
 
 	      /* Finally enter the statement into the available expression
 		table.  */
-	      lookup_avail_expr (new, block_avail_exprs_p, const_and_copies);
+	      lookup_avail_expr (new, block_avail_exprs_p,
+				const_and_copies, true);
 	    }
 	}
 
@@ -1084,16 +1089,16 @@ optimize_stmt (block_stmt_iterator si, varray_type *block_avail_exprs_p,
 
 	  cond = build (GT_EXPR, boolean_type_node, op, integer_zero_node);
 	  cond = build (COND_EXPR, void_type_node, cond, NULL, NULL);
-	  val = lookup_avail_expr (cond, block_avail_exprs_p, const_and_copies);
+	  val = lookup_avail_expr (cond, block_avail_exprs_p,
+				   const_and_copies, false);
 
 	  /* Also try with GE_EXPR if we did not get a hit with GT_EXPR.  */
 	  if (! val || ! integer_onep (val))
 	    {
 	      cond = build (GE_EXPR, boolean_type_node, op, integer_zero_node);
 	      cond = build (COND_EXPR, void_type_node, cond, NULL, NULL);
-	      val = lookup_avail_expr (cond,
-				       block_avail_exprs_p,
-				       const_and_copies);
+	      val = lookup_avail_expr (cond, block_avail_exprs_p,
+				       const_and_copies, true);
 	    }
 	    
 	  if (val && integer_onep (val))
@@ -1110,29 +1115,11 @@ optimize_stmt (block_stmt_iterator si, varray_type *block_avail_exprs_p,
 			   fold (build (MINUS_EXPR, TREE_TYPE (op1),
 					op1, integer_one_node)));
 
-	      /* Remove the old entry from the hash table.  */
-	      if (may_optimize_p)
-		htab_remove_elt (avail_exprs, stmt);
-
-	      /* Now update the RHS of the assignment to use the new node.  */
-	      TREE_OPERAND (stmt, 1) = t;
-
-	      if (may_optimize_p)
-		{
-		  /* Now force the updated statement into the hash table.  */
-		  lookup_avail_expr (stmt,
-				     block_avail_exprs_p,
-				     const_and_copies);
-
-		  /* Annoyingly we now have two entries for this statement in
-		     BLOCK_AVAIL_EXPRs.  Luckily we can just pop off the newest
-		     entry.  */
-		  VARRAY_POP (*block_avail_exprs_p);
-		}
-
-	      /* And make sure we record the fact that we modified this
-	         statement.  */
-	      ann->modified = 1;
+	      update_rhs_and_lookup_avail_expr (stmt, t,
+						block_avail_exprs_p,
+						const_and_copies,
+						ann,
+						may_optimize_p);
 	    }
         }
 
@@ -1146,7 +1133,8 @@ optimize_stmt (block_stmt_iterator si, varray_type *block_avail_exprs_p,
 	  cond = build (LT_EXPR, boolean_type_node, op,
 			convert (type, integer_zero_node));
 	  cond = build (COND_EXPR, void_type_node, cond, NULL, NULL);
-	  val = lookup_avail_expr (cond, block_avail_exprs_p, const_and_copies);
+	  val = lookup_avail_expr (cond, block_avail_exprs_p,
+				   const_and_copies, false);
 
 	  if (! val
 	      || (! integer_onep (val) && ! integer_zerop (val)))
@@ -1154,9 +1142,8 @@ optimize_stmt (block_stmt_iterator si, varray_type *block_avail_exprs_p,
 	      cond = build (LE_EXPR, boolean_type_node, op,
 			    convert (type, integer_zero_node));
 	      cond = build (COND_EXPR, void_type_node, cond, NULL, NULL);
-	      val = lookup_avail_expr (cond,
-				       block_avail_exprs_p,
-				       const_and_copies);
+	      val = lookup_avail_expr (cond, block_avail_exprs_p,
+				       const_and_copies, false);
 	    }
 	    
 	  if (val
@@ -1169,29 +1156,11 @@ optimize_stmt (block_stmt_iterator si, varray_type *block_avail_exprs_p,
 	      else
 		t = op;
 
-	      /* Remove the old entry from the hash table.  */
-	      if (may_optimize_p)
-		htab_remove_elt (avail_exprs, stmt);
-
-	      /* Now update the RHS of the assignment to use the new node.  */
-	      TREE_OPERAND (stmt, 1) = t;
-
-	      if (may_optimize_p)
-		{
-		  /* Now force the updated statement into the hash table.  */
-		  lookup_avail_expr (stmt,
-				     block_avail_exprs_p,
-				     const_and_copies);
-
-		  /* Annoyingly we now have two entries for this statement in
-		     BLOCK_AVAIL_EXPRs.  Luckily we can just pop off the newest
-		     entry.  */
-		  VARRAY_POP (*block_avail_exprs_p);
-		}
-
-	      /* And make sure we record the fact that we modified this
-	         statement.  */
-	      ann->modified = 1;
+	      update_rhs_and_lookup_avail_expr (stmt, t,
+						block_avail_exprs_p,
+						const_and_copies,
+						ann,
+						may_optimize_p);
 	    }
         }
     }
@@ -1223,6 +1192,64 @@ optimize_stmt (block_stmt_iterator si, varray_type *block_avail_exprs_p,
     }
 
   return may_have_exposed_new_symbols;
+}
+
+/* Replace the RHS of STMT with NEW_RHS.  If RHS can be found in the
+   available expression hashtable, then return the LHS from the hash
+   table.
+
+   If INSERT is true, then we also update the available expression
+   hash table to account for the changes made to STMT.  */
+
+static tree
+update_rhs_and_lookup_avail_expr (tree stmt, tree new_rhs, 
+				  varray_type *block_avail_exprs_p,
+				  htab_t const_and_copies,
+				  stmt_ann_t ann,
+				  bool insert)
+{
+  tree cached_lhs = NULL;
+
+  /* Remove the old entry from the hash table.  */
+  if (insert)
+    htab_remove_elt (avail_exprs, stmt);
+
+  /* Now update the RHS of the assignment.  */
+  TREE_OPERAND (stmt, 1) = new_rhs;
+
+  /* Now lookup the updated statement in the hash table.  */
+  cached_lhs = lookup_avail_expr (stmt, block_avail_exprs_p,
+				  const_and_copies, insert);
+
+  /* We have now called lookup_avail_expr twice with two different
+     versions of this same statement, once in optimize_stmt, once here.
+
+     We know the call in optimize_stmt did not find an existing entry
+     in the hash table, so a new entry was created.  At the same time
+     this statement was pushed onto the BLOCK_AVAIL_EXPRS varray. 
+
+     If this call failed to find an existing entry on the hash table,
+     then the new version of this statement was entered into the
+     hash table.  And this statement was pushed onto BLOCK_AVAIL_EXPR
+     for the second time.  So there are two copies on BLOCK_AVAIL_EXPRs
+
+     If this call succeeded, we still have one copy of this statement
+     on the BLOCK_AVAIL_EXPRs varray.
+
+     For both cases, we need to pop the most recent entry off the
+     BLOCK_AVAIL_EXPRs varray.  For the case where we never found this
+     statement in the hash tables, that will leave precisely one
+     copy of this statement on BLOCK_AVAIL_EXPRs.  For the case where
+     we found a copy of this statement in the second hash table lookup
+     we want _no_ copies of this statement in BLOCK_AVAIL_EXPRs.  */
+  if (insert)
+    VARRAY_POP (*block_avail_exprs_p);
+
+  /* And make sure we record the fact that we modified this
+     statement.  */
+  ann->modified = 1;
+
+  return cached_lhs;
 }
 
 /* Hashing and equality functions for VAR_VALUE_D.  */
@@ -1302,36 +1329,27 @@ set_value_for (tree var, tree value, htab_t table)
 static tree
 lookup_avail_expr (tree stmt,
 		   varray_type *block_avail_exprs_p,
-		   htab_t const_and_copies)
+		   htab_t const_and_copies,
+		   bool insert)
 {
   void **slot;
   tree rhs;
   tree lhs;
   tree temp;
-  int insert;
 
   /* For a COND_EXPR, the expression we care about is in operand 0, not
      operand 1.  Also note that for a COND_EXPR, we merely want to see if
      we have the expression in the hash table, we do not want to create
      a new entry in the hash table.  */
   if (TREE_CODE (stmt) == COND_EXPR)
-    {
-      rhs = TREE_OPERAND (stmt, 0);
-      insert = 0;
-    }
+    rhs = TREE_OPERAND (stmt, 0);
   /* For RETURN_EXPR, we want the RHS of the MODIFY_EXPR in operand 0
      of the RETURN_EXPR.  */
   else if (TREE_CODE (stmt) == RETURN_EXPR
 	   && TREE_OPERAND (stmt, 0))
-    {
-      rhs = TREE_OPERAND (TREE_OPERAND (stmt, 0), 1);
-      insert = 1;
-    }
+    rhs = TREE_OPERAND (TREE_OPERAND (stmt, 0), 1);
   else
-    {
-      rhs = TREE_OPERAND (stmt, 1);
-      insert = 1;
-    }
+    rhs = TREE_OPERAND (stmt, 1);
 
   /* Don't bother remembering constant assignments and copy operations.
      Constants and copy operations are handled by the constant/copy propagator

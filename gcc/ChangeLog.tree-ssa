@@ -26,6 +26,12 @@
 
 2003-09-18  Jeff Law  <law@redhat.com>
 
+	* tree-ssa-dom.c (lookup_avail_expr): New argument which indicates
+	if the expression should be entered into the hash table.  All
+	callers updated.
+	(update_rhs_and_lookup_avail_expr): New function factored out
+	of optimize_stmt.
+
 	* tree.h (commutative_tree_code, associative_tree_code): Declare
 	* tree.c (commutative_tree_code, associative_tree_code): New
 	functions.
