@@ -1,3 +1,8 @@
+2004-05-07  Steven Bosscher  <stevenb@suse.de>
+
+	* expr.c (do_jump): If TREE_CONSTANT_OVERFLOW is set, don't
+	trust integer_zerop.  Just expand both branches.
+
 2004-05-05  Michael Matz  <matz@suse.de>
 
 	Backport from mainline
