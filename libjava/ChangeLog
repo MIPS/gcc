@@ -1,3 +1,7 @@
+2004-10-04  Jerry Quinn  <jlquinn@optonline.net>
+
+	* java/awt/image/BufferedImageFilter.java: Implement.
+
 2004-09-30  Graydon Hoare  <graydon@redhat.com>
 
 	* Makefile.am
