@@ -35,3 +35,5 @@ typedef struct reorder_block_def
 
 extern void cfg_layout_initialize	PARAMS ((void));
 extern void cfg_layout_finalize		PARAMS ((void));
+extern bool cfg_layout_can_duplicate_bb_p PARAMS ((basic_block));
+extern basic_block cfg_layout_duplicate_bb PARAMS ((basic_block, edge));

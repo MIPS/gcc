@@ -81,7 +81,7 @@ static void free_scope_tree		PARAMS ((scope));
 static void cleanup_unconditional_jumps	PARAMS ((void));
 void dump_scope_tree			PARAMS ((FILE *, scope));
 static void dump_scope_tree_1		PARAMS ((FILE *, scope, int));
-static basic_block fixup_fallthru_exit_predecesor PARAMS ((void));
+static void fixup_fallthru_exit_predecesor PARAMS ((void));
 
 void verify_insn_chain			PARAMS ((void));
 void change_scope			PARAMS ((rtx, scope, scope));
@@ -775,7 +775,7 @@ cleanup_unconditional_jumps ()
 
 /* The block falling trought to exit must be last in the reordered
    chain.  Make it happen so.  */
-static basic_block
+static void
 fixup_fallthru_exit_predecesor ()
 {
   edge e;
@@ -795,6 +795,218 @@ fixup_fallthru_exit_predecesor ()
       RBI (c)->next = bb;
       RBI (bb)->next = NULL;
     }
+}
+
+/* Return true in case it is possible to duplicate the basic block BB.  */
+
+bool
+cfg_layout_can_duplicate_bb_p (bb)
+     basic_block bb;
+{
+  rtx next;
+  edge s;
+
+  if (bb == EXIT_BLOCK_PTR || bb == ENTRY_BLOCK_PTR)
+    return false;
+
+  /* Duplicating fallthru block to exit would require adding an jump
+     and splitting the real last BB.  */
+  for (s = bb->succ; s; s = s->succ_next)
+    if (s->dest == EXIT_BLOCK_PTR && s->flags & EDGE_FALLTHRU)
+       return false;
+
+  /* Do not attempt to duplicate tablejumps, as we need to unshare
+     the dispatch table.  This is dificult to do, as the instructions
+     computing jump destination may be hoisted outside the basic block.  */
+  if (GET_CODE (bb->end) == JUMP_INSN && JUMP_LABEL (bb->end)
+      && (next = next_nonnote_insn (JUMP_LABEL (bb->end)))
+      && GET_CODE (next) == JUMP_INSN
+      && (GET_CODE (PATTERN (next)) == ADDR_VEC
+	  || GET_CODE (PATTERN (next)) == ADDR_DIFF_VEC))
+    return false;
+  return true;
+}
+
+/* Create an duplicate of the basic block BB and redirect edge E into it.  */
+
+basic_block
+cfg_layout_duplicate_bb (bb, e)
+     basic_block bb;
+     edge e;
+{
+  rtx last = get_last_insn ();
+  rtx insn, new = NULL_RTX;
+  rtx pre_head, end;
+  edge s, n;
+  basic_block new_bb;
+
+  if (!bb->pred || !bb->pred->pred_next)
+    abort ();
+#ifdef ENABLE_CHECKING
+  if (!cfg_layout_can_duplicate_bb_p (bb))
+    abort ();
+#endif
+
+  /* Create copy at the end of INSN chain.  The chain will
+     be reordered later.  */
+  for (insn = RBI (bb)->eff_head; insn != NEXT_INSN (RBI (bb)->eff_end);
+       insn = NEXT_INSN (insn))
+    {
+      switch (GET_CODE (insn))
+	{
+	case INSN:
+	  new = emit_insn (copy_insn (PATTERN (insn)));
+	  VARRAY_GROW (insn_scope, INSN_UID (new));
+	  INSN_SCOPE (new) = INSN_SCOPE (insn);
+	  if (REG_NOTES (insn))
+	    REG_NOTES (new) = copy_insn (REG_NOTES (insn));
+	  break;
+
+	case JUMP_INSN:
+	  /* Avoid copying of dispatch tables.  We never duplicate
+	     tablejumps, so this can hit only in case the table got
+	     moved far from original jump.  */
+	  if (GET_CODE (PATTERN (insn)) == ADDR_VEC
+	      || GET_CODE (PATTERN (insn)) == ADDR_DIFF_VEC)
+	    abort ();
+	  new = emit_jump_insn (copy_insn (PATTERN (insn)));
+	  VARRAY_GROW (insn_scope, INSN_UID (new));
+	  INSN_SCOPE (new) = INSN_SCOPE (insn);
+	  if (REG_NOTES (insn))
+	    REG_NOTES (new) = copy_insn (REG_NOTES (insn));
+	  mark_jump_label (PATTERN (new), new, 0);
+	  if (JUMP_LABEL (new))
+	    LABEL_NUSES (JUMP_LABEL (new))++;
+	  break;
+
+	case CALL_INSN:
+	  new = emit_call_insn (copy_insn (PATTERN (insn)));
+	  VARRAY_GROW (insn_scope, INSN_UID (new));
+	  INSN_SCOPE (new) = INSN_SCOPE (insn);
+	  if (REG_NOTES (insn))
+	    REG_NOTES (new) = copy_insn (REG_NOTES (insn));
+	  if (CALL_INSN_FUNCTION_USAGE (insn))
+	    CALL_INSN_FUNCTION_USAGE (new)
+	      = copy_insn (CALL_INSN_FUNCTION_USAGE (insn));
+	  SIBLING_CALL_P (new) = SIBLING_CALL_P (insn);
+	  CONST_OR_PURE_CALL_P (new) = CONST_OR_PURE_CALL_P (insn);
+	  break;
+
+	case CODE_LABEL:
+	  break;
+
+	case BARRIER:
+	  new = emit_barrier ();
+	  break;
+
+	case NOTE:
+	  switch (NOTE_LINE_NUMBER (insn))
+	    {
+	    case NOTE_INSN_LOOP_VTOP:
+	    case NOTE_INSN_LOOP_CONT:
+	    case NOTE_INSN_LOOP_BEG:
+	    case NOTE_INSN_LOOP_END:
+	      /* Strip down the loop notes - we don't really want to keep
+	         them consistent in loop copies.  */
+	    case NOTE_INSN_DELETED:
+	    case NOTE_INSN_DELETED_LABEL:
+	      /* No problem to strip these.  */
+	    case NOTE_INSN_EPILOGUE_BEG:
+	    case NOTE_INSN_FUNCTION_END:
+	      /* Debug code expect these notes to exist just once.
+	         Keep them in the master copy.
+	         ??? It probably makes more sense to duplicate them for each
+	         epilogue copy.  */
+	    case NOTE_INSN_FUNCTION_BEG:
+	      /* There is always just single entry to function.  */
+	      break;
+
+	    case NOTE_INSN_BASIC_BLOCK:
+	      pre_head = get_last_insn ();
+	      break;
+
+	    case NOTE_INSN_PROLOGUE_END:
+	      /* There is no purpose to duplicate prologue.  */
+	    case NOTE_INSN_BLOCK_BEG:
+	    case NOTE_INSN_BLOCK_END:
+	      /* The BLOCK_BEG/BLOCK_END notes should be eliminated when BB
+	         reordering is in the progress.  */
+	    case NOTE_INSN_EH_REGION_BEG:
+	    case NOTE_INSN_EH_REGION_END:
+	    case NOTE_INSN_RANGE_BEG:
+	    case NOTE_INSN_RANGE_END:
+	      /* Should never exist at BB duplication time.  */
+	      abort ();
+	      break;
+
+	    default:
+	      if (NOTE_LINE_NUMBER (insn) < 0)
+		abort ();
+	      /* It is possible that no_line_number is set and the note
+		 won't be emitted.  */
+	      {
+		rtx x = emit_note (NOTE_SOURCE_FILE (insn),
+				   NOTE_LINE_NUMBER (insn));
+		if (x)
+		  new = x;
+	      }
+	    }
+	  break;
+	default:
+	  abort ();
+	}
+      if (bb->end == insn)
+	end = new;
+    }
+
+  new_bb = create_basic_block (n_basic_blocks, NEXT_INSN (pre_head), end);
+
+  if (bb->global_live_at_start)
+    {
+      new_bb->global_live_at_start = OBSTACK_ALLOC_REG_SET (&flow_obstack);
+      new_bb->global_live_at_end = OBSTACK_ALLOC_REG_SET (&flow_obstack);
+      COPY_REG_SET (new_bb->global_live_at_start, bb->global_live_at_start);
+      COPY_REG_SET (new_bb->global_live_at_end, bb->global_live_at_end);
+    }
+
+  new_bb->loop_depth = bb->loop_depth;
+  new_bb->flags = bb->flags;
+  for (s = bb->succ; s; s = s->succ_next)
+    {
+      n = (edge) xcalloc (1, sizeof (*n));
+      n_edges++;
+      n->src = new_bb;
+      n->dest = s->dest;
+      n->flags = s->flags;
+      n->probability = s->probability;
+      if (bb->count)
+	n->count = s->count * e->count / bb->count;
+      else
+	n->count = 0;
+      n->succ_next = new_bb->succ;
+      new_bb->succ = n;
+      n->pred_next = n->dest->pred;
+      n->dest->pred = n;
+    }
+
+  new_bb->count = e->count;
+  new_bb->frequency = EDGE_FREQUENCY (e);
+  bb->count -= e->count;
+  bb->frequency -= EDGE_FREQUENCY (e);
+
+  /* Avoid redirect_edge_and_branch from overactive optimizing.  */
+  new_bb->index = n_basic_blocks + 1;
+  if (e->flags & EDGE_FALLTHRU)
+    redirect_edge_succ (e, new_bb);
+  else
+    redirect_edge_and_branch (e, new_bb);
+  new_bb->index = n_basic_blocks - 1;
+
+  alloc_aux_for_block (new_bb, sizeof (struct reorder_block_def));
+  RBI (new_bb)->eff_head = NEXT_INSN (last);
+  RBI (new_bb)->eff_end = get_last_insn ();
+  RBI (new_bb)->scope = RBI (bb)->scope;
+  return new_bb;
 }
 
 /* Main entry point to this module - initialize the datastructures for
