@@ -116,7 +116,7 @@
 	(GFC_DECL_PACKED_ARRAY, GFC_DECL_PARTIAL_PACKED_ARRAY,
 	GFC_DECL_ASSIGN): Renumber flags.
 
-2003-04-05  Paul Brook  <paul@codesourcery.com>
+2004-04-05  Paul Brook  <paul@codesourcery.com>
 
 	PR 13252
 	PR 14081
@@ -177,7 +177,7 @@
 	* trans-types.c (gfc_is_nodesc_array): Ditto
 	* lang.opt (fg77-calls): Remove.
 
-2003-04-04  Paul Brook  <paul@codesourcery.com>
+2004-04-04  Paul Brook  <paul@codesourcery.com>
 
 	* trans-array.c (OFFSET_FIELD): Rename from BASE_FIELD.
 	(gfc_conv_descriptor_base): Rename ...
