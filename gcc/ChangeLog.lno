@@ -1,3 +1,10 @@
+2004-01-30  Devang Patel  <dpatel@apple.com>
+
+	* cfgloopmanip.c (loopify): Always redirect switch_bb's BRANCH_EDGE,
+	however redirect FALLTHRU_EDGE only if asked.
+	* tree-ssa-loop-manip.c (tree_ssa_loop_version): Update FALLTHRU_EDGE
+	pending stmts.
+
 2004-01-29  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* tree-ssa-loop-ivopts.c (find_optimal_iv_set_1, compute_iv_set_cost):

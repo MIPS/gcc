@@ -511,14 +511,14 @@ loopify (struct loops *loops, edge latch_edge, edge header_edge,
 
   /* Redirect edges.  */
   loop_redirect_edge (latch_edge, loop->header);
-  loop_redirect_edge (FALLTHRU_EDGE (switch_bb), succ_bb);
+  loop_redirect_edge (BRANCH_EDGE (switch_bb), succ_bb);
 
   /* During loop versioning, one of the switch_bb edge is already properly
      set. Do not redirect it again unless redirect_all_edges is true.  */
   if (redirect_all_edges)
     {
       loop_redirect_edge (header_edge, switch_bb);
-      loop_redirect_edge (BRANCH_EDGE (switch_bb), loop->header); 
+      loop_redirect_edge (FALLTHRU_EDGE (switch_bb), loop->header); 
      
       /* Update dominators.  */
       set_immediate_dominator (CDI_DOMINATORS, switch_bb, pred_bb);
