@@ -303,14 +303,14 @@ thread_jump (mode, e, b)
   /* Later we should clear nonequal of dead registers.  So far we don't
      have life information in cfg_cleanup.  */
   if (failed)
-    goto failed;
+    goto failed_exit;
 
   /* In case liveness information is available, we need to prove equivalence
      only of the live values.  */
   if (mode & CLEANUP_UPDATE_LIFE)
     AND_REG_SET (nonequal, b->global_live_at_end);
 
-  EXECUTE_IF_SET_IN_REG_SET (nonequal, 0, i, goto failed;);
+  EXECUTE_IF_SET_IN_REG_SET (nonequal, 0, i, goto failed_exit;);
 
   BITMAP_XFREE (nonequal);
   cselib_finish ();
@@ -320,7 +320,7 @@ thread_jump (mode, e, b)
   else
     return FALLTHRU_EDGE (b);
 
-failed:
+failed_exit:
   BITMAP_XFREE (nonequal);
   cselib_finish ();
   return NULL;
