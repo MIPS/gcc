@@ -1,3 +1,7 @@
+2004-07-17  Michael Koch  <konqueror@gmx.de>
+
+	* java/awt/event/InvocationEvent.java
+
 2004-07-16  Graydon Hoare  <graydon@redhat.com>
 
 	* javax/swing/plaf/basic/BasicSplitPaneUI.java: Minor layout fixes.
