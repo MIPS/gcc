@@ -137,7 +137,7 @@ static void get_indirect_ref_operands (tree, tree, int);
 static void get_call_expr_operands (tree, tree);
 static inline void append_def (tree *);
 static inline void append_use (tree *);
-static void append_v_may_def (tree, unsigned HOST_WIDE_INT, unsigned HOST_WIDE_INT);
+static void append_v_may_def (tree, unsigned int, unsigned int);
 static void append_v_must_def (tree);
 static void add_call_clobber_ops (tree);
 static void add_call_read_ops (tree);
@@ -775,7 +775,7 @@ append_use (tree *use_p)
 /* Add a new virtual may def for variable VAR to the build array.  */
 
 static inline void
-append_v_may_def (tree var, unsigned HOST_WIDE_INT offset, unsigned HOST_WIDE_INT size)
+append_v_may_def (tree var, unsigned int offset, unsigned int size)
 {
   unsigned i;
   if (size == 0)

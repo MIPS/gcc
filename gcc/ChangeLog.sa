@@ -1,3 +1,15 @@
+2004-09-12  Daniel Berlin  <dberlin@site>
+
+	* Makefile.in (tree-ssa-structalias.o): New file.
+	(tree-ssa-structalias.o): New.
+	* tree-optimize.c (init_tree_optimization_passes): Add build_pta,
+	del_pta.
+	* tree-pass.h (pass_build_pta, pass_del_pta): New.
+	* tree-ssa-structalias.c: New file.
+	* tree-ssa-structalias.h: Ditto
+	* tree-ssa-operands.c (append_v_may_def): Use unsigned int, not 
+	unsigned HOST_WIDE_INT, for now.
+
 2004-09-02  Daniel Berlin  <dberlin@dberlin.org>
 
 	* tree-flow-inline.h (get_v_may_def_offset_ptr): New function.
