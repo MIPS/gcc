@@ -1,5 +1,7 @@
 2004-02-06  Richard Henderson  <rth@redhat.com>
 
+	* tree-pretty-print.c (dump_generic_node): Render NON_LVALUE_EXPR.
+
         * tree-ssa-dom.c (local_fold): New.
         (thread_across_edge, simplify_rhs_and_lookup_avail_expr,
         find_equivalent_equality_comparison): Use it.
