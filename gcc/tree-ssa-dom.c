@@ -261,7 +261,8 @@ optimize_block (basic_block bb, tree parent_block_last_stmt, int edge_flags)
      creates an equivalence we can record into the const_and_copies table.  */
   for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
     if (PHI_NUM_ARGS (phi) == 1
-	&& TREE_CODE (PHI_ARG_DEF (phi, 0)) == SSA_NAME
+	&& (TREE_CODE (PHI_ARG_DEF (phi, 0)) == SSA_NAME
+	    || TREE_CONSTANT (PHI_ARG_DEF (phi, 0)))
 	&& may_propagate_copy (PHI_RESULT (phi), PHI_ARG_DEF (phi, 0)))
       set_value_for (PHI_RESULT (phi), PHI_ARG_DEF (phi, 0), const_and_copies);
 
@@ -286,12 +287,12 @@ optimize_block (basic_block bb, tree parent_block_last_stmt, int edge_flags)
 		  if (! SSA_VAR_P (*orig_p))
 		    break;
 
-		  /* FIXME.  We should be able to propagate constants into
-		     PHI nodes in the not too distant future.  */
 		  new = get_value_for (*orig_p, const_and_copies);
+		  /* We want to allow copy propagation as well as constant
+		     propagation.  */
 		  if (new
-		      && TREE_CODE (new) == SSA_NAME
-		      && may_propagate_copy (new, *orig_p))
+		      && (TREE_CODE (new) == SSA_NAME || TREE_CONSTANT (new))
+		      && may_propagate_copy (*orig_p, new))
 		    *orig_p = new;
 		  break;
 		}

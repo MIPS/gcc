@@ -7,6 +7,13 @@
 
 2003-07-28  Jeff Law  <law@redhat.com>
 
+	* tree-ssa-dom.c (optimize_block): If a PHI has a single argument
+	that is a constant, then that creates a useful equivalence.
+	Propagate constant values into PHI nodes.
+ 
+	* tree-flow-inline.h (may_propagate_copy): Allow RHS to be a
+	constant.
+
 	* tree-dfa.c (compute_immediate_uses_for): Do not assume that
 	PHI arguments are SSA_NAMEs.
 	* tree-ssa-dce.c (process_worklist): Likewise.

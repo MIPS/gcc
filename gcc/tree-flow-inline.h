@@ -540,7 +540,8 @@ static inline bool
 may_propagate_copy (tree dest, tree orig)
 {
   return (!SSA_NAME_OCCURS_IN_ABNORMAL_PHI (dest)
-	  && !SSA_NAME_OCCURS_IN_ABNORMAL_PHI (orig)
+	  && (TREE_CONSTANT (orig)
+	      || !SSA_NAME_OCCURS_IN_ABNORMAL_PHI (orig))
 	  && !DECL_HARD_REGISTER (SSA_NAME_VAR (dest)));
 }
 
