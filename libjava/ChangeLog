@@ -1,5 +1,11 @@
 2004-10-31  Jerry Quinn  <jlquinn@optonline.net>
 
+	* java/awt/image/BandCombineOp.java: New class.
+	* Makefile.am: Add BandCombineOp.
+	* Makefile.in: Regenerate.
+
+2004-10-31  Jerry Quinn  <jlquinn@optonline.net>
+
 	* java/awt/image/LookupOp.java: New class.
 	* Makefile.am: Add LookupOp.
 	* Makefile.in: Regenerate.
