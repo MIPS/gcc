@@ -13,6 +13,7 @@ package java.lang;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.StringTokenizer;
 
 /**
  * @author Tom Tromey <tromey@cygnus.com>
@@ -30,15 +31,15 @@ public class Runtime
 {
   public Process exec (String prog) throws IOException
   {
-    String[] a = new String[1];
-    a[0] = prog;
-    return exec (a, null);
+    return exec (prog, null);
   }
 
   public Process exec (String prog, String[] envp) throws IOException
   {
-    String[] a = new String[1];
-    a[0] = prog;
+    StringTokenizer st = new StringTokenizer(prog);
+    String[] a = new String[st.countTokens ()];
+    for (int i = 0; i < a.length; i++)
+      a[i] = st.nextToken ();
     return exec (a, envp);
   }
 
@@ -52,8 +53,7 @@ public class Runtime
     SecurityManager s = System.getSecurityManager();
     if (s != null)
       s.checkExec(progarray[0]);
-    // FIXME.
-    return null;
+    return new ConcreteProcess (progarray, envp);
   }
 
   private final static void checkExit (int status)
@@ -94,18 +94,8 @@ public class Runtime
       s.checkLink(lib);
   }
 
-  public synchronized void load (String pathname)
-  {
-    checkLink (pathname);
-    // FIXME.
-    throw new UnsatisfiedLinkError ("Runtime.load not implemented");
-  }
-  public synchronized void loadLibrary (String libname)
-  {
-    checkLink (libname);
-    // FIXME.
-    throw new UnsatisfiedLinkError ("Runtime.loadLibrary not implemented");
-  }
+  public native void load (String pathname);
+  public native void loadLibrary (String libname);
 
   public native void runFinalization ();
 
@@ -122,10 +112,13 @@ public class Runtime
   public native void traceInstructions (boolean on);
   public native void traceMethodCalls (boolean on);
 
+  // A helper for the constructor.
+  private final native void init ();
+
   // The sole constructor.
   private Runtime ()
   {
-    finalize_on_exit = false;
+    init ();
   }
 
   // Private data.

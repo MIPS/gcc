@@ -14,14 +14,12 @@ details.  */
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
-#ifdef HANDLE_SEGV
-#include <signal.h>
-#endif
 
 #pragma implementation "java-array.h"
 
 #include <cni.h>
 #include <jvm.h>
+#include <java-signal.h>
 
 #include <java/lang/Class.h>
 #include <java/lang/Runtime.h>
@@ -30,6 +28,7 @@ details.  */
 #include <java/lang/ThreadGroup.h>
 #include <java/lang/FirstThread.h>
 #include <java/lang/ArrayIndexOutOfBoundsException.h>
+#include <java/lang/ArithmeticException.h>
 #include <java/lang/ClassFormatError.h>
 #include <java/lang/ClassCastException.h>
 #include <java/lang/NegativeArraySizeException.h>
@@ -40,6 +39,10 @@ details.  */
 #include <java/lang/reflect/Modifier.h>
 #include <java/io/PrintStream.h>
 
+#ifdef USE_LTDL
+#include <ltdl.h>
+#endif
+
 #define ObjectClass _CL_Q34java4lang6Object
 extern java::lang::Class ObjectClass;
 
@@ -49,6 +52,30 @@ static java::lang::OutOfMemoryError *no_memory;
 
 // Largest representable size_t.
 #define SIZE_T_MAX ((size_t) (~ (size_t) 0))
+
+
+
+#ifdef HANDLE_SEGV
+static java::lang::NullPointerException *nullp;
+SIGNAL_HANDLER (catch_segv)
+{
+  MAKE_THROW_FRAME;
+  _Jv_Throw (nullp);
+}
+#endif
+
+#ifdef HANDLE_FPE
+static java::lang::ArithmeticException *arithexception;
+SIGNAL_HANDLER (catch_fpe)
+{
+#ifdef HANDLE_DIVIDE_OVERFLOW
+  HANDLE_DIVIDE_OVERFLOW;
+#else
+  MAKE_THROW_FRAME;
+#endif
+  _Jv_Throw (arithexception);
+}
+#endif
 
 
 
@@ -74,7 +101,7 @@ _Jv_equalUtf8Consts (Utf8Const* a, Utf8Const *b)
 }
 
 /* True iff A is equal to STR.
-   HASH is STR->hashCode().
+   HASH is STR->hashCode().  
 */
 
 jboolean
@@ -426,20 +453,6 @@ _Jv_NewMultiArray (jclass array_type, jint dimensions, ...)
 
 
 
-#ifdef HANDLE_SEGV
-
-static java::lang::NullPointerException *nullp;
-
-static void
-catch_segv (int)
-{
-  // Don't run `new' in a signal handler, so we always throw the same
-  // null pointer exception.
-  _Jv_Throw (nullp);
-}
-
-#endif /* HANDLE_SEGV */
-
 class _Jv_PrimClass : public java::lang::Class
 {
 public:
@@ -560,17 +573,14 @@ static java::lang::Thread *main_thread;
 void
 JvRunMain (jclass klass, int argc, const char **argv)
 {
-#ifdef HANDLE_SEGV
-  nullp = new java::lang::NullPointerException ();
-
-  struct sigaction act;
-  act.sa_handler = catch_segv;
-  sigemptyset (&act.sa_mask);
-  act.sa_flags = 0;
-  sigaction (SIGSEGV, &act, NULL);
-#endif
+  INIT_SEGV;
+  INIT_FPE;
 
   no_memory = new java::lang::OutOfMemoryError;
+
+#ifdef USE_LTDL
+  LTDL_SET_PRELOADED_SYMBOLS ();
+#endif
 
   arg_vec = JvConvertArgv (argc - 1, argv + 1);
   main_group = new java::lang::ThreadGroup (23);

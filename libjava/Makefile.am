@@ -12,10 +12,17 @@ endif
 ## What gets installed, and where.
 ##
 
+## Install a library built with a cross compiler in tooldir, not
+## libdir.
+if USE_LIBDIR
+toolexeclibdir = $(libdir)
+else
 toolexecdir = $(exec_prefix)/$(target_alias)
 toolexeclibdir = $(toolexecdir)/lib$(MULTISUBDIR)
+endif
 
-toolexeclib_LIBRARIES = libgcj.a
+toolexeclib_LTLIBRARIES = libgcj.la
+toolexeclib_DATA = libgcj.spec
 data_DATA = libgcj.zip
 
 ## For now, only on native systems.
@@ -53,6 +60,8 @@ GCJH = $(MULTIBUILDTOP)../$(COMPPATH)/gcc/gcjh$(EXEEXT)
 ZIP = $(MULTIBUILDTOP)../$(COMPPATH)/zip/zip$(EXEEXT)
 endif # CANADIAN
 
+GCJCOMPILE = CLASSPATH=$(here) $(LIBTOOL) --mode=compile $(GCJ) -fassume-compiled $(JC1FLAGS) -c
+
 JAVAC = $(GCJ) -C
 
 EH_COMMON_INCLUDE = @EH_COMMON_INCLUDE@
@@ -68,7 +77,8 @@ endif
 JCFLAGS = -g
 JC1FLAGS = -g @LIBGCJ_JAVAFLAGS@
 
-INCLUDES = -Iinclude -I$(top_srcdir)/include $(GCINCS) $(THREADINCS) $(EH_COMMON_INCLUDE)
+INCLUDES = -Iinclude -I$(top_srcdir)/include $(GCINCS) $(THREADINCS) \
+	$(EH_COMMON_INCLUDE) $(ZINCS)
 
 
 ## ################################################################
@@ -78,19 +88,23 @@ INCLUDES = -Iinclude -I$(top_srcdir)/include $(GCINCS) $(THREADINCS) $(EH_COMMON
 ##
 
 ## Objects from C++ sources in subdirs.
-nat_files = $(nat_source_files:.cc=.o)
+nat_files = $(nat_source_files:.cc=.lo)
 ## Objects from C sources in subdirs.
-c_files = $(c_source_files:.c=.o)
+c_files = $(c_source_files:.c=.lo)
 ## Objects from Java sources in subdirs.
-javao_files = $(java_source_files:.java=.o)
+javao_files = $(java_source_files:.java=.lo) \
+	$(built_java_source_files:.java=.lo)
 
-libgcj_a_SOURCES = prims.cc jni.cc exception.cc
-EXTRA_libgcj_a_SOURCES = boehm.cc nogc.cc posix-threads.cc no-threads.cc \
-	$(c_source_files) $(java_source_files)
-libgcj_a_DEPENDENCIES = libgcj.zip $(javao_files) $(nat_files) \
+libgcj_la_SOURCES = prims.cc jni.cc exception.cc
+EXTRA_libgcj_la_SOURCES = boehm.cc nogc.cc posix-threads.cc no-threads.cc \
+	$(c_source_files) $(java_source_files) $(built_java_source_files)
+libgcj_la_DEPENDENCIES = libgcj.zip $(javao_files) $(nat_files) \
 	$(c_files) $(GCOBJS) $(THREADOBJS)
-libgcj_a_LIBADD = $(javao_files) $(nat_files) $(c_files) $(GCOBJS) \
+libgcj_la_LIBADD = $(javao_files) $(nat_files) $(c_files) $(GCOBJS) \
 	$(THREADOBJS)
+libgcj_la_LDFLAGS = -rpath $(toolexeclibdir) \
+## The mysterious backslash is consumed by make.
+	-version-info `grep -v '^\#' $(srcdir)/libtool-version`
 
 ## Make the .class files depend on the .zip file.  This seems
 ## backwards, but is right.  This doesn't catch all the .class files,
@@ -100,6 +114,14 @@ libgcj_a_LIBADD = $(javao_files) $(nat_files) $(c_files) $(GCOBJS) \
 ## hand-maintained headers.
 $(java_source_files:.java=.class): libgcj.zip
 
+## FIXME: this isn't really correct.
+$(built_java_source_files:.java=.class): $(built_java_source_files)
+## This little nastiness is here so that the backquoted stuff in the
+## GCJ definition can be correctly expanded, if required.
+	javac="$(JAVAC)"; \
+	$$javac $(JCFLAGS) -classpath $(here):`cd $(srcdir) && /bin/pwd` \
+	  -d $(here) $?
+
 ## We have the zip file depend on the java sources and not the class
 ## files, because we don't know the names of all the class files.
 ## FIXME: this method fails in a peculiar case: if libgcj.zip is
@@ -107,6 +129,9 @@ $(java_source_files:.java=.class): libgcj.zip
 ## `make libgcj.zip' will not rebuilt foo.class.  That's because
 ## libgcj.zip is not out-of-date with respect to foo.java.
 libgcj.zip: $(java_source_files)
+## FIXME: this ought to depend on built_java_source_files, but right
+## now it can't.  Ugly.
+	$(MAKE) $(built_java_source_files:.java=.class)
 ## This little nastiness is here so that the backquoted stuff in the
 ## GCJ definition can be correctly expanded, if required.
 	javac="$(JAVAC)"; cd $(srcdir); \
@@ -114,38 +139,42 @@ libgcj.zip: $(java_source_files)
 	    $(subst $(srcdir)/,,$?)
 	-@rm -f libgcj.zip
 ## Note that we explicitly want to include directory information.
-	$(ZIP) -r libgcj java -n .class -i '*.class' -i '*/'
+	$(ZIP) -r libgcj java gnu -n .class -i '*.class' -i '*/'
 
 MOSTLYCLEANFILES = $(javao_files) $(nat_files) $(nat_headers) $(c_files)
-CLEANFILES = libgcj.zip $(class_files)
+CLEANFILES = libgcj.zip
+
+clean-local:
+## We just remove every .class file that was created.
+	find . -name '*.class' -print | xargs rm -f
 
 SUFFIXES = .class .java .h
 
-.class.o:
-	CLASSPATH=$(here) $(CC) -fassume-compiled $(JC1FLAGS) -c -o $@ $<
+.class.lo:
+	$(GCJCOMPILE) -o $@ $<
 
-.java.o:
-	CLASSPATH=$(here) $(GCJ) -fassume-compiled $(JC1FLAGS) -c -o $@ $<
+.java.lo:
+	$(GCJCOMPILE) -o $@ $<
 
 ## This is GNU make specific.  For the .o files in subdirs, use a
 ## special rule.  The standard automake rule can't be overridden (this
 ## is a bug in automake), and it also won't put the .o files into
 ## subdirs.  FIXME.
-$(nat_files): %.o: %.cc
-	$(CXXCOMPILE) -c -o $@ $<
+$(nat_files): %.lo: %.cc
+	$(LTCXXCOMPILE) -c -o $@ $<
 
-$(nat_files) $(GCOBJS) $(THREADOBJS) $(libgcj_a_OBJECTS): \
-		include/config.h $(nat_headers)
+$(nat_files) $(GCOBJS) $(THREADOBJS) $(libgcj_la_OBJECTS): \
+		include/config.h include/java-signal.h $(nat_headers)
 
 ## FIXME: GNU make.
-$(c_files): %.o: %.c
-	$(COMPILE) -c -o $@ $<
+$(c_files): %.lo: %.c
+	$(LTCOMPILE) -c -o $@ $<
 
 $(c_files): java/lang/fdlibm.h java/lang/ieeefp.h java/lang/mprec.h
 
 ## FIXME: GNU make.
-$(javao_files): %.o: %.java
-	CLASSPATH=$(here) $(GCJ) -fassume-compiled $(JC1FLAGS) -c -o $@ $<
+$(javao_files): %.lo: %.java
+	$(GCJCOMPILE) -o $@ $<
 
 ## ################################################################
 
@@ -158,7 +187,8 @@ $(javao_files): %.o: %.java
 	$(GCJH) -classpath $(top_builddir) $(basename $<)
 
 ## Header files used when compiling some of the nat* files.
-nat_headers = $(ordinary_java_source_files:.java=.h)
+nat_headers = $(ordinary_java_source_files:.java=.h) \
+	$(built_java_source_files:.java=.h)
 
 $(nat_headers): libgcj.zip
 
@@ -210,8 +240,8 @@ java/lang/reflect/Method.h: java/lang/reflect/Method.class libgcj.zip
 NM = nm
 
 ## Try to make sure our library doesn't stomp the namespace.
-maintainer-check: libgcj.a
-	$(NM) libgcj.a | grep ' T ' \
+maintainer-check: libgcj.la
+	$(NM) .libs/libgcj.a | grep ' T ' \
 ## Anything with `4java' is assumed to be from .java source.
 	  | grep -v '4java' \
 ## Anything with Jv is ok.
@@ -248,43 +278,76 @@ CONVERT_DIR = gnu/gcj/convert
 
 jv_convert_SOURCES =
 EXTRA_jv_convert_SOURCES = $(convert_source_files)
-jv_convert_LDFLAGS = --main=gnu.gcj.convert.Convert
-jv_convert_LINK = $(GCJ) $(JC1FLAGS) $(LDFLAGS) -o jv-convert
-jv_convert_LDADD = $(convert_source_files:.java=.o) -L. $(GCLIBS) $(THREADLIBS)
-jv_convert_DEPENDENCIES = $(convert_source_files:.java=.o) \
-	$(GCDEPS) $(THREADDEPS) libgcj.a
+## We need -nodefaultlibs because we want to avoid gcj's `-lgcj'.  We
+## need this because we are explicitly using libtool to link using the
+## `.la' file.
+jv_convert_LDFLAGS = --main=gnu.gcj.convert.Convert \
+	-rpath $(toolexeclibdir)
+jv_convert_LINK = $(LIBTOOL) --mode=link $(GCJ) $(JC1FLAGS) $(LDFLAGS) \
+	-o jv-convert
+## We explicitly link in the libraries we need.  This way we don't
+## need -nodefaultlibs, so we can still rely on gcj picking up the
+## system libraries we need (via the specs file).
+## We need the -L so that gcj can find libgcj with `-lgcj'.
+## FIXME: should be _libs on some systems.
+jv_convert_LDADD = $(convert_source_files:.java=.lo) libgcj.la \
+	$(GCLIBS) $(THREADLIBS) $(ZLIBS) -L$(here)/.libs
+## Depend on the spec file to make sure it is up to date before
+## linking this program.
+jv_convert_DEPENDENCIES = $(convert_source_files:.java=.lo) \
+	$(GCDEPS) $(THREADDEPS) $(ZDEPS) libgcj.la libgcj.spec
+
+# The Unicode consortium does not permit re-distributing the file JIS0201.TXT.
+# You can get it from ftp://ftp.unicode.org/Public/MAPPINGS/EASTASIA/JIS/.
+
+$(srcdir)/$(CONVERT_DIR)/JIS0201.h:  # $(CONVERT_DIR)/JIS0201.TXT
+	echo '/* This file is automatically generated from Unicode tables */' > tmp-0201; \
+	tr  -d '\r' <$(CONVERT_DIR)/JIS0201.TXT \
+	| sed -n -e 's|\(0x..\).*\(0x....\).*#\(.*\)$$|MAP(0x00, \1, \2)  /*\3 */|p' \
+	>> tmp-0201; \
+	mv tmp-0201 $(srcdir)/$(CONVERT_DIR)/JIS0201.h
 
 # The Unicode consortium does not permit re-distributing the file JIS0208.TXT.
 # You can get it from ftp://ftp.unicode.org/Public/MAPPINGS/EASTASIA/JIS/.
 
-$(srcdir)/$(CONVERT_DIR)/JIS0208.h:  # JIS0208.TXT
-	echo '/* This file is autoamtically generated from Unicode tables */' > tmp-0208; \
-	sed -n -e 's|\(0x....\).*0x\(..\)\(..\).*\(0x....\).*#\(.*\).$$|MAP(0x\2, 0x\3, \4)  /*\5 */|p' \
-		<JIS0208.TXT >> tmp-0208; \
+$(srcdir)/$(CONVERT_DIR)/JIS0208.h:  # $(CONVERT_DIR)/JIS0208.TXT
+	echo '/* This file is automatically generated from Unicode tables */' > tmp-0208; \
+	tr  -d '\r' <$(CONVERT_DIR)/JIS0208.TXT \
+	| sed -n -e 's|\(0x....\).*0x\(..\)\(..\).*\(0x....\).*#\(.*\)$$|MAP(0x\2, 0x\3, \4)  /*\5 */|p' \
+	>> tmp-0208; \
 	mv tmp-0208 $(srcdir)/$(CONVERT_DIR)/JIS0208.h
 
 # The Unicode consortium does not permit re-distributing the file JIS0212.TXT.
 # You can get it from ftp://ftp.unicode.org/Public/MAPPINGS/EASTASIA/JIS/.
 
-$(srcdir)/$(CONVERT_DIR)/JIS0212.h:  # JIS0212.TXT
-	echo '/* This file is autoamtically generated from Unicode tables */' > tmp-0212; \
-	sed -n -e 's|0x\(..\)\(..\).*\(0x....\).*#\(.*\).$$|MAP(0x\1, 0x\2, \3)  /*\4 */|p' \
-		<JIS0212.TXT >> tmp-0212; \
+$(srcdir)/$(CONVERT_DIR)/JIS0212.h:  # $(CONVERT_DIR)/JIS0212.TXT
+	echo '/* This file is automatically generated from Unicode tables */' > tmp-0212; \
+	tr  -d '\r' <$(CONVERT_DIR)/JIS0212.TXT \
+	| sed -n -e 's|0x\(..\)\(..\).*\(0x....\).*#\(.*\)$$|MAP(0x\1, 0x\2, \3)  /*\4 */|p' \
+	>> tmp-0212; \
 	mv tmp-0212 $(srcdir)/$(CONVERT_DIR)/JIS0212.h
 
 
 gen_from_JIS_SOURCES =
 EXTRA_gen_from_JIS_SOURCES = $(srcdir)/$(CONVERT_DIR)/gen-from-JIS.c \
+		$(srcdir)/$(CONVERT_DIR)/make-trie.c \
+		$(srcdir)/$(CONVERT_DIR)/JIS0201.h \
 		$(srcdir)/$(CONVERT_DIR)/JIS0208.h \
 		$(srcdir)/$(CONVERT_DIR)/JIS0212.h
-gen_from_JIS_LDADD = $(CONVERT_DIR)/gen-from-JIS.o
-gen_from_JIS_DEPENDENCIES = $(CONVERT_DIR)/gen-from-JIS.o
+gen_from_JIS_LDADD = $(CONVERT_DIR)/gen-from-JIS.o $(CONVERT_DIR)/make-trie.o
+gen_from_JIS_DEPENDENCIES = $(CONVERT_DIR)/gen-from-JIS.o \
+		$(CONVERT_DIR)/make-trie.o
 
 $(CONVERT_DIR)/gen-from-JIS.o: $(srcdir)/$(CONVERT_DIR)/gen-from-JIS.c \
+		$(srcdir)/$(CONVERT_DIR)/JIS0201.h \
 		$(srcdir)/$(CONVERT_DIR)/JIS0208.h \
 		$(srcdir)/$(CONVERT_DIR)/JIS0212.h
 	$(COMPILE) -c -o $(CONVERT_DIR)/gen-from-JIS.o \
 		$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.c
+
+$(CONVERT_DIR)/make-trie.o: $(srcdir)/$(CONVERT_DIR)/make-trie.c
+	$(COMPILE) -c -o $(CONVERT_DIR)/make-trie.o \
+		$(srcdir)/$(CONVERT_DIR)/make-trie.c
 
 if NATIVE
 if MAINTAINER_MODE
@@ -294,6 +357,9 @@ $(srcdir)/$(CONVERT_DIR)/JIS0208_to_Unicode.cc: ./gen-from-JIS$(EXEEXT)
 
 $(srcdir)/$(CONVERT_DIR)/JIS0212_to_Unicode.cc: ./gen-from-JIS$(EXEEXT)
 	 ./gen-from-JIS JIS0212>$(srcdir)/$(CONVERT_DIR)/JIS0212_to_Unicode.cc
+
+$(srcdir)/$(CONVERT_DIR)/Unicode_to_JIS.cc: ./gen-from-JIS$(EXEEXT)
+	 ./gen-from-JIS toJIS>$(srcdir)/$(CONVERT_DIR)/Unicode_to_JIS.cc
 
 endif # MAINTAINER_MODE
 endif # NATIVE
@@ -310,15 +376,66 @@ gnu/gcj/convert/BytesToUnicode.java \
 gnu/gcj/convert/Convert.java \
 gnu/gcj/convert/Input_8859_1.java \
 gnu/gcj/convert/Input_EUCJIS.java \
+gnu/gcj/convert/Input_JavaSrc.java \
+gnu/gcj/convert/Input_SJIS.java \
 gnu/gcj/convert/Input_UTF8.java	\
 gnu/gcj/convert/Output_8859_1.java \
+gnu/gcj/convert/Output_EUCJIS.java \
 gnu/gcj/convert/Output_JavaSrc.java \
+gnu/gcj/convert/Output_SJIS.java \
 gnu/gcj/convert/Output_UTF8.java \
 gnu/gcj/convert/UnicodeToBytes.java
 
 ## List of all .java files for which the .h file is maintained by
 ## hand.
 special_java_source_files = java/lang/Class.java java/lang/Object.java
+
+awt_java_source_files = \
+java/awt/AWTEvent.java \
+java/awt/BorderLayout.java \
+java/awt/Component.java \
+java/awt/Container.java \
+java/awt/Dimension.java \
+java/awt/Event.java \
+java/awt/Font.java \
+java/awt/Frame.java \
+java/awt/LayoutManager.java \
+java/awt/LayoutManager2.java \
+java/awt/Menu.java \
+java/awt/MenuBar.java \
+java/awt/MenuItem.java \
+java/awt/MenuComponent.java \
+java/awt/MenuContainer.java \
+java/awt/Point.java \
+java/awt/Rectangle.java \
+java/awt/Shape.java \
+java/awt/TextArea.java \
+java/awt/TextComponent.java \
+java/awt/Toolkit.java \
+java/awt/Window.java \
+java/awt/event/ActionEvent.java \
+java/awt/event/ActionListener.java \
+java/awt/event/ComponentEvent.java \
+java/awt/event/InputEvent.java \
+java/awt/event/KeyEvent.java \
+java/awt/event/KeyListener.java \
+java/awt/event/TextEvent.java \
+java/awt/event/TextListener.java \
+java/awt/event/WindowAdapter.java \
+java/awt/event/WindowEvent.java \
+java/awt/event/WindowListener.java \
+java/awt/geom/Point2D.java \
+java/awt/geom/Dimension2D.java \
+java/awt/peer/ComponentPeer.java \
+java/awt/peer/ContainerPeer.java \
+java/awt/peer/FramePeer.java \
+java/awt/peer/WindowPeer.java
+
+# $(awt_java_source_files)
+
+## Java files which are created by configure and thus are in the build
+## directory.
+built_java_source_files = java/lang/ConcreteProcess.java
 
 ## List of all .java files to be compiled.  Please keep this list
 ## alphabetical.  Please put files from gnu/gcj/convert into
@@ -332,8 +449,12 @@ gnu/gcj/text/LocaleData_en.java	\
 gnu/gcj/text/LocaleData_en_US.java \
 gnu/gcj/text/SentenceBreakIterator.java	\
 gnu/gcj/text/WordBreakIterator.java \
+gnu/gcj/protocol/file/Connection.java \
+gnu/gcj/protocol/file/Handler.java \
 gnu/gcj/protocol/http/Connection.java \
 gnu/gcj/protocol/http/Handler.java \
+gnu/gcj/RawData.java \
+gnu/gcj/util/EnumerationChain.java \
 java/io/BufferedInputStream.java \
 java/io/BufferedOutputStream.java \
 java/io/BufferedReader.java \
@@ -470,11 +591,16 @@ java/net/BindException.java \
 java/net/ConnectException.java \
 java/net/ContentHandler.java \
 java/net/ContentHandlerFactory.java \
+java/net/DatagramPacket.java \
+java/net/DatagramSocket.java \
+java/net/DatagramSocketImpl.java \
 java/net/FileNameMap.java \
 java/net/HttpURLConnection.java \
 java/net/InetAddress.java \
 java/net/MalformedURLException.java \
+java/net/MulticastSocket.java \
 java/net/NoRouteToHostException.java \
+java/net/PlainDatagramSocketImpl.java \
 java/net/PlainSocketImpl.java \
 java/net/ProtocolException.java	\
 java/net/ServerSocket.java \
@@ -482,15 +608,23 @@ java/net/Socket.java \
 java/net/SocketException.java \
 java/net/SocketImpl.java \
 java/net/SocketImplFactory.java	\
+java/net/SocketOptions.java \
 java/net/URL.java \
 java/net/URLConnection.java \
+java/net/URLDecoder.java \
+java/net/URLEncoder.java \
 java/net/URLStreamHandler.java \
 java/net/URLStreamHandlerFactory.java \
 java/net/UnknownHostException.java \
 java/net/UnknownServiceException.java \
+java/security/MessageDigest.java \
+java/security/NoSuchAlgorithmException.java \
 java/text/BreakIterator.java \
 java/text/CharacterIterator.java \
 java/text/ChoiceFormat.java \
+java/text/CollationElementIterator.java \
+java/text/CollationKey.java \
+java/text/Collator.java \
 java/text/DateFormat.java \
 java/text/DateFormatSymbols.java \
 java/text/DecimalFormat.java \
@@ -501,6 +635,7 @@ java/text/MessageFormat.java \
 java/text/NumberFormat.java \
 java/text/ParseException.java \
 java/text/ParsePosition.java \
+java/text/RuleBasedCollator.java \
 java/text/SimpleDateFormat.java	\
 java/text/StringCharacterIterator.java \
 java/util/BitSet.java \
@@ -521,6 +656,7 @@ java/util/NoSuchElementException.java \
 java/util/Observable.java \
 java/util/Observer.java	\
 java/util/Properties.java \
+java/util/PropertyResourceBundle.java \
 java/util/Random.java \
 java/util/ResourceBundle.java \
 java/util/SimpleTimeZone.java \
@@ -531,13 +667,21 @@ java/util/TooManyListenersException.java \
 java/util/Vector.java \
 java/util/zip/Adler32.java \
 java/util/zip/CRC32.java \
+java/util/zip/CheckedInputStream.java \
+java/util/zip/CheckedOutputStream.java \
 java/util/zip/Checksum.java \
+java/util/zip/DataFormatException.java \
 java/util/zip/Deflater.java \
 java/util/zip/DeflaterOutputStream.java	\
+java/util/zip/GZIPInputStream.java \
+java/util/zip/GZIPOutputStream.java \
+java/util/zip/Inflater.java \
+java/util/zip/InflaterInputStream.java	\
 java/util/zip/ZipConstants.java	\
 java/util/zip/ZipEntry.java \
 java/util/zip/ZipException.java	\
 java/util/zip/ZipFile.java \
+java/util/zip/ZipInputStream.java \
 java/util/zip/ZipOutputStream.java
 
 java_source_files = $(ordinary_java_source_files) $(special_java_source_files)
@@ -558,18 +702,42 @@ c_source_files = \
   java/lang/e_sqrt.c      java/lang/s_scalbn.c    java/lang/sf_rint.c     \
   java/lang/k_cos.c       java/lang/s_sin.c
 
+#java/awt/natToolkit.cc
+
 ## This lists all the C++ source files in subdirectories.
-nat_source_files = java/lang/natObject.cc java/lang/natClass.cc	\
-java/lang/natString.cc java/lang/natDouble.cc java/lang/natRuntime.cc \
-java/lang/natSystem.cc java/lang/natThread.cc java/io/natFile.cc \
-java/io/natFileDescriptor.cc java/util/natDate.cc \
-java/util/natGregorianCalendar.cc java/lang/natFirstThread.cc \
-java/lang/natCharacter.cc java/lang/natMath.cc java/lang/natFloat.cc \
-java/lang/reflect/natField.cc java/net/natInetAddress.cc \
-java/net/natPlainSocketImpl.cc java/lang/reflect/natMethod.cc \
-java/lang/reflect/natArray.cc gnu/gcj/convert/natInput_EUCJIS.cc \
+nat_source_files = \
 gnu/gcj/convert/JIS0208_to_Unicode.cc \
-gnu/gcj/convert/JIS0212_to_Unicode.cc
+gnu/gcj/convert/JIS0212_to_Unicode.cc \
+gnu/gcj/convert/Unicode_to_JIS.cc \
+gnu/gcj/convert/natInput_EUCJIS.cc \
+gnu/gcj/convert/natInput_SJIS.cc \
+gnu/gcj/convert/natOutput_EUCJIS.cc \
+gnu/gcj/convert/natOutput_SJIS.cc \
+java/io/natFile.cc \
+java/io/natFileDescriptor.cc \
+java/lang/natCharacter.cc \
+java/lang/natClass.cc \
+java/lang/natConcreteProcess.cc \
+java/lang/natDouble.cc \
+java/lang/natFirstThread.cc \
+java/lang/natFloat.cc \
+java/lang/natMath.cc \
+java/lang/natObject.cc \
+java/lang/natRuntime.cc	\
+java/lang/natString.cc \
+java/lang/natSystem.cc \
+java/lang/natThread.cc \
+java/lang/reflect/natArray.cc \
+java/lang/reflect/natField.cc \
+java/lang/reflect/natMethod.cc \
+java/net/natInetAddress.cc \
+java/net/natPlainDatagramSocketImpl.cc \
+java/net/natPlainSocketImpl.cc \
+java/text/natCollator.cc \
+java/util/natDate.cc \
+java/util/natGregorianCalendar.cc \
+java/util/zip/natDeflater.cc \
+java/util/zip/natInflater.cc
 
 ## ################################################################
 
@@ -591,6 +759,7 @@ AM_MAKEFLAGS = \
 	"INSTALL_DATA=$(INSTALL_DATA)" \
 	"INSTALL_PROGRAM=$(INSTALL_PROGRAM)" \
 	"INSTALL_SCRIPT=$(INSTALL_SCRIPT)" \
+	"JC1FLAGS=$(JC1FLAGS)" \
 	"LDFLAGS=$(LDFLAGS)" \
 	"LIBCFLAGS=$(LIBCFLAGS)" \
 	"LIBCFLAGS_FOR_TARGET=$(LIBCFLAGS_FOR_TARGET)" \

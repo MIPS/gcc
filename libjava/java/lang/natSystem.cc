@@ -34,6 +34,10 @@ details.  */
 #endif
 #include <errno.h>
 
+#ifdef HAVE_UNAME
+#include <sys/utsname.h>
+#endif
+
 #include <cni.h>
 #include <jvm.h>
 #include <java/lang/System.h>
@@ -44,6 +48,9 @@ details.  */
 #include <java/util/Properties.h>
 #include <java/io/PrintStream.h>
 #include <java/io/InputStream.h>
+
+#define SystemClass _CL_Q34java4lang6System
+extern java::lang::Class SystemClass;
 
 
 
@@ -113,15 +120,57 @@ java::lang::System::arraycopy (jobject src, jint src_offset,
   const bool prim = src_comp->isPrimitive();
   if (prim || dst_comp->isAssignableFrom(src_comp) || src == dst)
     {
-      const size_t size = prim ? src_comp->size() 
-	: sizeof elements((jobjectArray)src)[0];
+      const size_t size = (prim ? src_comp->size()
+			   : sizeof elements((jobjectArray)src)[0]);
 
-      // We need a particular type to get the pointer to the data.  So
-      // we choose bytes.
-      char *src_elts = (((char *) elements ((jbyteArray) src))
-			+ src_offset * size);
-      char *dst_elts = (((char *) elements ((jbyteArray) dst))
-			+ dst_offset * size);
+      // In an ideal world we would do this via a virtual function in
+      // __JArray.  However, we can't have virtual functions in
+      // __JArray due to the need to copy an array's virtual table in
+      // _Jv_FindArrayClass.
+      // We can't just pick a single subtype of __JArray to use due to
+      // alignment concerns.
+      char *src_elts = NULL;
+      if (! prim)
+	src_elts = (char *) elements ((jobjectArray) src);
+      else if (src_comp == JvPrimClass (byte))
+	src_elts = (char *) elements ((jbyteArray) src);
+      else if (src_comp == JvPrimClass (short))
+	src_elts = (char *) elements ((jshortArray) src);
+      else if (src_comp == JvPrimClass (int))
+	src_elts = (char *) elements ((jintArray) src);
+      else if (src_comp == JvPrimClass (long))
+	src_elts = (char *) elements ((jlongArray) src);
+      else if (src_comp == JvPrimClass (boolean))
+	src_elts = (char *) elements ((jbooleanArray) src);
+      else if (src_comp == JvPrimClass (char))
+	src_elts = (char *) elements ((jcharArray) src);
+      else if (src_comp == JvPrimClass (float))
+	src_elts = (char *) elements ((jfloatArray) src);
+      else if (src_comp == JvPrimClass (double))
+	src_elts = (char *) elements ((jdoubleArray) src);
+      src_elts += size * src_offset;
+
+      char *dst_elts = NULL;
+      if (! prim)
+	dst_elts = (char *) elements ((jobjectArray) dst);
+      else if (dst_comp == JvPrimClass (byte))
+	dst_elts = (char *) elements ((jbyteArray) dst);
+      else if (dst_comp == JvPrimClass (short))
+	dst_elts = (char *) elements ((jshortArray) dst);
+      else if (dst_comp == JvPrimClass (int))
+	dst_elts = (char *) elements ((jintArray) dst);
+      else if (dst_comp == JvPrimClass (long))
+	dst_elts = (char *) elements ((jlongArray) dst);
+      else if (dst_comp == JvPrimClass (boolean))
+	dst_elts = (char *) elements ((jbooleanArray) dst);
+      else if (dst_comp == JvPrimClass (char))
+	dst_elts = (char *) elements ((jcharArray) dst);
+      else if (dst_comp == JvPrimClass (float))
+	dst_elts = (char *) elements ((jfloatArray) dst);
+      else if (dst_comp == JvPrimClass (double))
+	dst_elts = (char *) elements ((jdoubleArray) dst);
+      dst_elts += size * dst_offset;
+
       // We don't bother trying memcpy.  It can't be worth the cost of
       // the check.
       memmove ((void *) dst_elts, (void *) src_elts, count * size);
@@ -172,27 +221,35 @@ java::lang::System::identityHashCode (jobject obj)
   return _Jv_HashCode (obj);
 }
 
+#ifndef DEFAULT_FILE_ENCODING
+#define DEFAULT_FILE_ENCODING "8859_1"
+#endif
+static char *default_file_encoding = DEFAULT_FILE_ENCODING;
+
 void
 java::lang::System::init_properties (void)
 {
-  if (prop_init)
-    return;
-  prop_init = true;
+  {
+    // We only need to synchronize around this gatekeeper.
+    JvSynchronize sync (&SystemClass);
+    if (prop_init)
+      return;
+    prop_init = true;
+  }
 
   properties = new java::util::Properties ();
   // A convenience define.
 #define SET(Prop,Val) \
 	properties->put(JvNewStringLatin1 (Prop), JvNewStringLatin1 (Val))
-  SET ("java.version", "FIXME");
+  SET ("java.version", VERSION);
   SET ("java.vendor", "Cygnus Solutions");
-  SET ("java.vendor.url", "http://www.cygnus.com/");
+  SET ("java.vendor.url", "http://sourceware.cygnus.com/java/");
+  SET ("java.class.version", GCJVERSION);
+  // FIXME: how to set these given location-independence?
   // SET ("java.home", "FIXME");
-  // SET ("java.class.version", "FIXME");
   // SET ("java.class.path", "FIXME");
-  SET ("os.name", "FIXME");
-  SET ("os.arch", "FIXME");
-  SET ("os.version", "FIXME");
-  SET ("file.encoding", "8859_1");  // FIXME
+  SET ("file.encoding", default_file_encoding);
+
 #ifdef WIN32
   SET ("file.separator", "\\");
   SET ("path.separator", ";");
@@ -203,6 +260,22 @@ java::lang::System::init_properties (void)
   SET ("path.separator", ":");
   SET ("line.separator", "\n");
 #endif
+
+#ifdef HAVE_UNAME
+  struct utsname u;
+  if (! uname (&u))
+    {
+      SET ("os.name", u.sysname);
+      SET ("os.arch", u.machine);
+      SET ("os.version", u.release);
+    }
+  else
+    {
+      SET ("os.name", "unknown");
+      SET ("os.arch", "unknown");
+      SET ("os.version", "unknown");
+    }
+#endif /* HAVE_UNAME */
 
 #ifdef HAVE_PWD_H
   uid_t user_id = getuid ();
@@ -227,7 +300,7 @@ java::lang::System::init_properties (void)
       buf_r = (char *) _Jv_AllocBytes (len_r);
     }
 #else
-  struct passwd *pwd_entry = getpwuid (user_id);
+  pwd_entry = getpwuid (user_id);
 #endif /* HAVE_GETPWUID_R */
 
   if (pwd_entry != NULL)

@@ -1,4 +1,4 @@
-// natClass.cc - Implementation of java.lang.Class native methods.
+// natInetAddress.cc
 
 /* Copyright (C) 1998, 1999  Cygnus Solutions
 
@@ -64,14 +64,14 @@ java::net::InetAddress::aton (jstring host)
   if (inet_aton (hostname, &laddr))
     {
       bytes = (char*) &laddr;
-      len = 4;
+      blen = 4;
     }
 #elif defined(HAVE_INET_ADDR)
   in_addr_t laddr = inet_addr (hostname);
   if (laddr != (in_addr_t)(-1))
     {
       bytes = (char*) &laddr;
-      len = 4;
+      blen = 4;
     }
 #endif
 #ifdef HAVE_INET_PTON
@@ -79,12 +79,12 @@ java::net::InetAddress::aton (jstring host)
   if (len == 0 && inet_pton (AF_INET6, hostname, inet6_addr) > 0)
     {
       bytes = inet6_addr;
-      len = 16;
+      blen = 16;
     }
 #endif
   if (blen == 0)
     return NULL;
-  jbyteArray result = JvNewByteArray (len);
+  jbyteArray result = JvNewByteArray (blen);
   memcpy (elements (result), bytes, blen);
   return result;
 }
@@ -97,7 +97,15 @@ java::net::InetAddress::lookup (jstring host, java::net::InetAddress* iaddr,
   struct hostent *hptr = NULL;
 #if defined (HAVE_GETHOSTBYNAME_R) || defined (HAVE_GETHOSTBYADDR_R)
   struct hostent hent_r;
+#if defined (__GLIBC__) 
+  // FIXME: in glibc, gethostbyname_r returns NETDB_INTERNAL to herr and
+  // ERANGE to errno if the buffer size is too small, rather than what is 
+  // expected here. We work around this by setting a bigger buffer size and 
+  // hoping that it is big enough.
+  char fixed_buffer[1024];
+#else
   char fixed_buffer[200];
+#endif
   char *buffer_r = fixed_buffer;
   int size_r = sizeof (fixed_buffer);
 #endif
@@ -114,8 +122,8 @@ java::net::InetAddress::lookup (jstring host, java::net::InetAddress* iaddr,
       JvGetStringUTFRegion (host, 0, host->length(), hostname);
       buf[len] = '\0';
 #ifdef HAVE_GETHOSTBYNAME_R
-      int herr = ERANGE;
-      while (hptr == NULL && herr == ERANGE)
+      int herr = 0;
+      while (true)
 	{
 	  int ok;
 #ifdef GETHOSTBYNAME_R_RETURNS_INT
@@ -130,6 +138,8 @@ java::net::InetAddress::lookup (jstring host, java::net::InetAddress* iaddr,
 	      size_r *= 2;
 	      buffer_r = (char *) _Jv_AllocBytesChecked (size_r);
 	    }
+	  else
+	    break;
 	}
 #else
       // FIXME: this is insufficient if some other piece of code calls
@@ -154,15 +164,15 @@ java::net::InetAddress::lookup (jstring host, java::net::InetAddress* iaddr,
       else if (len == 16)
 	{
 	  val = (char *) &chars;
-	  type = AF_INET16;
+	  type = AF_INET6;
 	}
 #endif /* HAVE_INET6 */
       else
 	JvFail ("unrecognized size");
 
 #ifdef HAVE_GETHOSTBYADDR_R
-      int herr = ERANGE;
-      while (hptr == NULL && herr == ERANGE)
+      int herr = 0;
+      while (true)
 	{
 	  int ok;
 #ifdef GETHOSTBYADDR_R_RETURNS_INT
@@ -178,6 +188,8 @@ java::net::InetAddress::lookup (jstring host, java::net::InetAddress* iaddr,
 	      size_r *= 2;
 	      buffer_r = (char *) _Jv_AllocBytesChecked (size_r);
 	    }
+	  else 
+	    break;
 	}
 #else /* HAVE_GETHOSTBYADDR_R */
       // FIXME: this is insufficient if some other piece of code calls
@@ -188,7 +200,8 @@ java::net::InetAddress::lookup (jstring host, java::net::InetAddress* iaddr,
     }
   if (hptr != NULL)
     {
-      host = JvNewStringUTF (hptr->h_name);
+      if (!all)
+        host = JvNewStringUTF (hptr->h_name);
       java::lang::SecurityException *ex = checkConnect (host);
       if (ex != NULL)
 	{
@@ -233,13 +246,13 @@ java::net::InetAddress::lookup (jstring host, java::net::InetAddress* iaddr,
     {
       if (iaddrs[i] == NULL)
 	iaddrs[i] = new java::net::InetAddress (NULL, NULL);
-      if (i == 0)
-	iaddrs[0]->hostname = host;
+      if (iaddrs[i]->hostname == NULL)
+        iaddrs[i]->hostname = host;
       if (iaddrs[i]->address == NULL)
 	{
 	  char *bytes = hptr->h_addr_list[i];
-	  iaddr->address = JvNewByteArray (hptr->h_length);
-	  memcpy (elements (iaddr->address), bytes, hptr->h_length);
+	  iaddrs[i]->address = JvNewByteArray (hptr->h_length);
+	  memcpy (elements (iaddrs[i]->address), bytes, hptr->h_length);
 	}
     }
   return result;
@@ -257,7 +270,7 @@ java::net::InetAddress::getLocalHostname ()
 #elif HAVE_UNAME
   struct utsname stuff;
   if (uname (&stuff) != 0)
-    return NULL:
+    return NULL;
   chars = stuff.nodename;
 #else
   return NULL;

@@ -16,6 +16,8 @@ LIBGCJ_CONFIGURE(.)
 
 AM_CONFIG_HEADER(include/config.h)
 
+AM_PROG_LIBTOOL
+
 if test -z "$with_target_subdir" || test "$with_target_subdir" = "."; then
    COMPPATH=.
 else
@@ -53,9 +55,11 @@ TARGET_ECOS="$with_ecos"
 case "$TARGET_ECOS" in
    no)
       FILE_DESCRIPTOR=natFileDescriptorPosix.cc
+      PROCESS=Posix
       ;;
    *)
       FILE_DESCRIPTOR=natFileDescriptorEcos.cc
+      PROCESS=Ecos
       AC_DEFINE(ECOS)
       ;;
 esac
@@ -74,6 +78,22 @@ test -d java || mkdir java
 test -d java/io || mkdir java/io
 AC_LINK_FILES(java/io/$FILE_DESCRIPTOR, java/io/natFileDescriptor.cc)
 
+dnl Likewise for ConcreteProcess.java and natConcreteProcess.cc.
+test -d java/lang || mkdir java/lang
+AC_LINK_FILES(java/lang/${PROCESS}Process.java, java/lang/ConcreteProcess.java)
+AC_LINK_FILES(java/lang/nat${PROCESS}Process.cc, java/lang/natConcreteProcess.cc)
+
+SYSTEMSPEC=
+AC_SUBST(SYSTEMSPEC)
+
+AC_ARG_WITH(system-zlib,
+[  --with-system-zlib               Use installed libz])
+ZLIBSPEC=
+AC_SUBST(ZLIBSPEC)
+
+dnl FIXME: this should be _libs on some hosts.
+libsubdir=.libs
+
 dnl Allow the GC to be disabled.  Can be useful when debugging.
 AC_MSG_CHECKING([for garbage collector to use])
 AC_ARG_ENABLE(java-gc,
@@ -86,23 +106,27 @@ GCLIBS=
 GCINCS=
 GCDEPS=
 GCOBJS=
+GCSPEC=
 case "$GC" in
  boehm)
     AC_MSG_RESULT(boehm)
-    GCLIBS='-L$(top_builddir)/../boehm-gc -lgcjgc'
-    GCDEPS='$(top_builddir)/../boehm-gc/libgcjgc.a'
+    GCDEPS='$(top_builddir)/../boehm-gc/libgcjgc.la'
+    # We include the path to the boehm-gc build directory.
+    # See Makefile.am to understand why.
+    GCLIBS="$GCDEPS -L\$(here)/../boehm-gc/$libsubdir"
     GCINCS='-I$(top_srcdir)/../boehm-gc -I$(top_builddir)/../boehm-gc'
+    GCSPEC='-lgcjgc'
     dnl We also want to pick up some cpp flags required when including
     dnl boehm-config.h.  Yuck.
     GCINCS="$GCINCS `cat ../boehm-gc/boehm-cflags`"
-    GCOBJS=boehm.o
+    GCOBJS=boehm.lo
     GCHDR=boehm-gc.h
     dnl The POSIX thread support needs to know this.
     AC_DEFINE(HAVE_BOEHM_GC)
     ;;
  no)
     AC_MSG_RESULT(none)
-    GCOBJS=nogc.o
+    GCOBJS=nogc.lo
     GCHDR=no-gc.h
     ;;
  *)
@@ -113,6 +137,7 @@ AC_SUBST(GCLIBS)
 AC_SUBST(GCINCS)
 AC_SUBST(GCDEPS)
 AC_SUBST(GCOBJS)
+AC_SUBST(GCSPEC)
 AC_LINK_FILES(include/$GCHDR, include/java-gc.h)
 
 
@@ -138,7 +163,9 @@ if test "$THREADS" = yes; then
        THREADS=win32
        ;;
     *-*-irix*)
-       THREADS=irix
+       # FIXME: for now, choose POSIX, because we implement that.
+       # Later, choose irix threads.
+       THREADS=posix
        ;;
     *-*-solaris*)
        # FIXME: for now, choose POSIX, because we implement that.
@@ -180,10 +207,12 @@ THREADINCS=
 THREADDEPS=
 THREADOBJS=
 THREADH=
+THREADSPEC=
 case "$THREADS" in
  posix)
     THREADLIBS=-lpthread
-    THREADOBJS=posix-threads.o
+    THREADSPEC=-lpthread
+    THREADOBJS=posix-threads.lo
     THREADH=posix-threads.h
     # MIT pthreads doesn't seem to have the mutexattr functions.
     # But for now we don't check for it.  We just assume you aren't
@@ -192,15 +221,18 @@ case "$THREADS" in
     ;;
 
  qt)
-    THREADLIBS='-L$(top_builddir)/../qthreads -lgcjcoop'
-    THREADOBJS=quick-threads.o
+    THREADDEPS='$(top_builddir)/../qthreads/libgcjcoop.la'
+    # We include the path to the qthreads build directory.
+    # See Makefile.am to understand why.
+    THREADLIBS="$THREADDEPS -L\$(here)/../qthreads/$libsubdir"
+    THREADSPEC='-lgcjcoop'
+    THREADOBJS=quick-threads.lo
     THREADINCS='-I$(top_srcdir)/../qthreads'
     THREADH=quick-threads.h
-    THREADDEPS='$(top_builddir)/../qthreads/libgcjcoop.a'
     ;;
 
  none)
-    THREADOBJS=no-threads.o
+    THREADOBJS=no-threads.lo
     THREADH=no-threads.h
     ;;
 esac
@@ -209,6 +241,7 @@ AC_SUBST(THREADLIBS)
 AC_SUBST(THREADINCS)
 AC_SUBST(THREADDEPS)
 AC_SUBST(THREADOBJS)
+AC_SUBST(THREADSPEC)
 
 AM_CONDITIONAL(USING_GCC, test "$GCC" = yes)
 
@@ -246,11 +279,16 @@ if test -n "${with_cross_host}"; then
    dnl We also assume we are using gcc, which provides alloca.
    AC_DEFINE(HAVE_ALLOCA)
 
+   ZLIBSPEC=-lgcj
+
    # If Canadian cross, then don't pick up tools from the build
    # directory.
    if test "$build" != "$with_cross_host"; then
       CANADIAN=yes
       EH_COMMON_INCLUDE=
+      GCJ="${target_alias}/gcj"
+   else
+      GCJ=
    fi
 else
    # Some POSIX thread systems don't have pthread_mutexattr_settype.
@@ -287,6 +325,11 @@ else
    save_LIBS="$LIBS"
    LIBS="$LIBS $THREADLIBS"
    AC_CHECK_FUNCS(pthread_mutexattr_settype pthread_mutexattr_setkind_np sched_yield)
+   # Look for sched_yield.  Sometimes it is in the posix4 library.
+   AC_CHECK_FUNCS(sched_yield, , [
+     AC_CHECK_LIB(posix4, sched_yield, [
+       AC_DEFINE(HAVE_SCHED_YIELD)
+       THREADLIBS="$THREADLIBS -lposix4"])])
    LIBS="$save_LIBS"
 
    # We require a way to get the time.
@@ -310,17 +353,113 @@ else
       AC_MSG_ERROR([memcpy is required])
    fi
 
-   test -d "$libgcj_basedir/../gcc/java" || {
+   # Some library-finding code we stole from Tcl.
+   #--------------------------------------------------------------------
+   #	Check for the existence of the -lsocket and -lnsl libraries.
+   #	The order here is important, so that they end up in the right
+   #	order in the command line generated by make.  Here are some
+   #	special considerations:
+   #	1. Use "connect" and "accept" to check for -lsocket, and
+   #	   "gethostbyname" to check for -lnsl.
+   #	2. Use each function name only once:  can't redo a check because
+   #	   autoconf caches the results of the last check and won't redo it.
+   #	3. Use -lnsl and -lsocket only if they supply procedures that
+   #	   aren't already present in the normal libraries.  This is because
+   #	   IRIX 5.2 has libraries, but they aren't needed and they're
+   #	   bogus:  they goof up name resolution if used.
+   #	4. On some SVR4 systems, can't use -lsocket without -lnsl too.
+   #	   To get around this problem, check for both libraries together
+   #	   if -lsocket doesn't work by itself.
+   #--------------------------------------------------------------------
+
+   AC_CACHE_CHECK([for socket libraries], gcj_cv_lib_sockets,
+    [gcj_cv_lib_sockets=
+     gcj_checkBoth=0
+     unset ac_cv_func_connect
+     AC_CHECK_FUNC(connect, gcj_checkSocket=0, gcj_checkSocket=1)
+     if test "$gcj_checkSocket" = 1; then
+	 unset ac_cv_func_connect
+	 AC_CHECK_LIB(socket, main, gcj_cv_lib_sockets="-lsocket",
+		      gcj_checkBoth=1)
+     fi
+     if test "$gcj_checkBoth" = 1; then
+	 gcj_oldLibs=$LIBS
+	 LIBS="$LIBS -lsocket -lnsl"
+	 unset ac_cv_func_accept
+	 AC_CHECK_FUNC(accept,
+		       [gcj_checkNsl=0
+			gcj_cv_lib_sockets="-lsocket -lnsl"])
+	 unset ac_cv_func_accept
+	 LIBS=$gcj_oldLibs
+     fi
+     unset ac_cv_func_gethostbyname
+     gcj_oldLibs=$LIBS
+     LIBS="$LIBS $gcj_cv_lib_sockets"
+     AC_CHECK_FUNC(gethostbyname, ,
+		   [AC_CHECK_LIB(nsl, main,
+				 [gcj_cv_lib_sockets="$gcj_cv_lib_sockets -lnsl"])])
+     unset ac_cv_func_gethostbyname
+     LIBS=$gcj_oldLIBS
+   ])
+   SYSTEMSPEC="$SYSTEMSPEC $gcj_cv_lib_sockets"
+
+   if test "$with_system_zlib" = yes; then
+      AC_CHECK_LIB(z, deflate, ZLIBSPEC=-lz, ZLIBSPEC=-lzgcj)
+   else
+      ZLIBSPEC=-lzgcj
+   fi
+
+   # On Solaris, and maybe other architectures, the Boehm collector
+   # requires -ldl.
+   if test "$GC" = boehm; then
+      AC_CHECK_LIB(dl, main, SYSTEMSPEC="$SYSTEMSPEC -ldl")
+   fi
+
+   if test -d "$libgcj_basedir/../gcc/java"; then
+      GCJ=
+   else
       CANADIAN=yes
       NULL_TARGET=yes
-   }
+      GCJ=gcj
+   fi
 fi
+
+ZLIBS=
+ZDEPS=
+ZINCS=
+if test "x$ZLIBSPEC" = "x-lzgcj"; then
+   # We include the path to the zlib build directory.
+   # See Makefile.am to understand why.
+   ZDEPS='$(top_builddir)/../zlib/libzgcj.la'
+   ZLIBS="$ZDEPS -L\$(here)/../zlib/$libsubdir"
+   ZINCS='-I$(top_srcdir)/../zlib'
+else
+   ZLIBS="$ZLIBSPEC"
+fi
+AC_SUBST(ZLIBS)
+AC_SUBST(ZDEPS)
+AC_SUBST(ZINCS)
 
 AM_CONDITIONAL(CANADIAN, test "$CANADIAN" = yes)
 AM_CONDITIONAL(NULL_TARGET, test "$NULL_TARGET" = yes)
 AM_CONDITIONAL(NATIVE, test "$CANADIAN" = no || test "$NULL_TARGET" = yes)
-
+AM_CONDITIONAL(USE_LIBDIR, test -z "$with_cross_host")
 AC_SUBST(EH_COMMON_INCLUDE)
+
+# Determine gcj version number.
+if test "$GCJ" = ""; then
+   if test -z "${with_multisubdir}"; then
+      builddotdot=.
+   else
+      builddotdot=`echo ${with_multisubdir} | sed -e 's:[^/][^/]*:..:g'`
+   fi
+   dir="`cd ${builddotdot}/../../gcc && pwd`"
+   GCJ="$dir/gcj -B$dir/"
+fi
+changequote(<<,>>)
+gcjvers="`$GCJ -v 2>&1 | sed -n 's/^.*version \([^ ]*\).*$/\1/p'`"
+changequote([,])
+AC_DEFINE_UNQUOTED(GCJVERSION, "$gcjvers")
 
 AC_SUBST(AM_RUNTESTFLAGS)
 
@@ -362,6 +501,20 @@ AC_FUNC_ALLOCA
 
 AC_CHECK_PROGS(PERL, perl, false)
 
+case "${host}" in
+  i?86-*-linux*)
+    SIGNAL_HANDLER=include/i386-signal.h
+	;;
+  sparc-sun-solaris*)
+    SIGNAL_HANDLER=include/sparc-signal.h
+	;;
+  *)
+    SIGNAL_HANDLER=include/default-signal.h
+	;;
+esac
+
+AC_LINK_FILES($SIGNAL_HANDLER, include/java-signal.h)
+
 if test "${multilib}" = "yes"; then
   multilib_arg="--enable-multilib"
 else
@@ -371,7 +524,7 @@ fi
 here=`pwd`
 AC_SUBST(here)
 
-AC_OUTPUT(Makefile testsuite/Makefile,
+AC_OUTPUT(Makefile libgcj.spec testsuite/Makefile,
 [if test -n "$CONFIG_FILES"; then
   ac_file=Makefile . ${libgcj_basedir}/../config-ml.in
 fi],

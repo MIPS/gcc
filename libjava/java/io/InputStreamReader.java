@@ -44,9 +44,9 @@ public class InputStreamReader extends Reader
 
   private InputStreamReader(InputStream in, BytesToUnicode decoder)
   {
-    super(in);
-    this.in = in instanceof BufferedInputStream  ? (BufferedInputStream) in
-      : new BufferedInputStream(in, 250);
+    super((this.in = (in instanceof BufferedInputStream
+		      ? (BufferedInputStream) in
+		      : new BufferedInputStream(in, 250))));
     converter = decoder;
     converter.setInput(this.in.buf, 0, 0);
   }
@@ -111,6 +111,8 @@ public class InputStreamReader extends Reader
 	  }
 	else
 	  {
+	    if (length == 0)
+	      return 0;
 	    for (;;)
 	      {
 		in.mark(1);
@@ -138,6 +140,11 @@ public class InputStreamReader extends Reader
 	if (work == null)
 	  {
 	    work = new char[100];
+	    wpos = 0;
+	    wcount = 0;
+	  }
+	else if (wavail == 0)
+	  {
 	    wpos = 0;
 	    wcount = 0;
 	  }

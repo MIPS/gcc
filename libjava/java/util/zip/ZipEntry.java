@@ -19,7 +19,7 @@ package java.util.zip;
  * Status:  Believed complete and correct.
  */
 
-public class ZipEntry
+public class ZipEntry implements ZipConstants
 {
   // These values were determined using a simple test program.
   public static final int STORED = 0;
@@ -33,11 +33,16 @@ public class ZipEntry
   String name;
   long size = -1;
   long time = -1;
+  long relativeOffset = -1;
 
   ZipEntry next;
 
   public ZipEntry (String name)
   {
+    if (name == null)
+      throw new NullPointerException ();
+    if (name.length() > 65535)
+      throw new IllegalArgumentException ();
     this.name = name;
   }
 
@@ -68,17 +73,76 @@ public class ZipEntry
     return false;
   }
 
-  public void setComment (String comment) { this.comment = comment; }
+  public void setComment (String comment)
+  {
+    if (comment != null && comment.length() > 65535)
+      throw new IllegalArgumentException ();
+    this.comment = comment;
+  }
 
-  public void setCrc (long crc) { this.crc = crc; }
+  public void setCrc (long crc) 
+  {
+    if (crc < 0 || crc > 0xffffffff)
+      throw new IllegalArgumentException ();
+    this.crc = crc;
+  }
 
-  public void setExtra (byte[] extra) { this.extra = extra; }
+  public void setExtra (byte[] extra)
+  {
+    if (extra != null && extra.length > 65535)
+      throw new IllegalArgumentException ();
+    this.extra = extra;
+  }
 
-  public void setMethod(int method) { this.method = method; }
+  public void setMethod (int method)
+  {
+    if (method != DEFLATED && method != STORED)
+      throw new IllegalArgumentException ();
+    this.method = method;
+  }
 
-  public void setSize (long size) { this.size = size; }
+  public void setSize (long size)
+  {
+    if (size < 0 || size > 0xffffffff)
+      throw new IllegalArgumentException ();
+    this.size = size;
+  }
 
-  public void setTime (long time) { this.time = time; }
+  public void setTime (long time)
+  {
+    this.time = time;
+  }
+
+  private final static short[] daysToMonthStart = {
+    //Jan Feb Mar    Apr      May         Jun         Jul
+    0,    31, 31+28, 2*31+28, 2*31+28+30, 3*31+28+30, 3*31+28+2*30,
+    // Aug        Sep           Oct           Nov           Dec
+    4*31+28+2*30, 5*31+28+2*30, 5*31+28+3*30, 6*31+28+3*30, 6*31+28+4*30};
+
+  /** Convert a DOS-style type value to milliseconds since 1970. */
+  static long timeFromDOS (int date, int time)
+  {
+    int sec = 2 * (time & 0x1f);
+    int min = (time >> 5) & 0x3f;
+    int hrs = (time >> 11) & 0x1f;
+    int day = date & 0x1f;
+    int mon = ((date >> 5) & 0xf) - 1;
+    int year = ((date >> 9) & 0x7f) + 10;  /* Since 1970. */
+
+    // Guard against invalid or missing date causing IndexOutOfBoundsException.
+    if (mon < 0 || mon > 11)
+      return -1;
+
+    long mtime = (((hrs * 60) + min) * 60 + sec) * 1000;
+
+    // Leap year calculations are rather trivial in this case ...
+    int days = 365 * year + ((year+1)>>2);
+    days += daysToMonthStart[mon];
+    if ((year & 3) == 0 && mon > 1)
+      days++;
+    days += day;
+    return (days * 24*60*60L + ((hrs * 60) + min) * 60 + sec) * 1000L;
+  }
 
   public String toString () { return name; }
 }

@@ -79,11 +79,40 @@ proc libjava_init { args } {
     set libjava_initialized 1
 }
 
-# Compute arguments needed for compiler.
-proc libjava_arguments {} {
+# Find a library.  We know where libtool puts the actual libraries,
+# and we look there.  The implementation is fairly hacky.  We can't
+# compile with -nodefaultlibs, because that will also eliminate the
+# system libraries we need.  In order to have gcj still work, it must
+# find the appropriate libraries so we must add -L options for their
+# paths.  However we can't simply use those libraries; we still need
+# libtool for linking.
+proc libjava_find_lib {dir name} {
+    global base_dir
+    set gp [get_multilibs]
+    foreach sub {.libs _libs} {
+	if {$gp != ""} {
+	    if {[file exists $gp/$dir/$sub/lib${name}.a]} then {
+		return "$gp/$dir/lib${name}.la -L$gp/$dir/$sub"
+	    }
+	}
+	set lib [findfile $base_dir/../../$dir/$sub/lib${name}.a \
+		   "$base_dir/../../$dir/lib${name}.la -L$base_dir/../../$dir/$sub" \
+		   ""]
+	if {$lib != ""} {
+	    return $lib
+	}
+    }
+    return ""
+}
+
+# Compute arguments needed for compiler.  MODE is a libtool mode:
+# either compile or link.
+proc libjava_arguments {{mode compile}} {
     global base_dir
     global LIBJAVA
     global LIBGC
+    global LIBQTHREADS
+    global LIBZ
     global srcdir subdir objdir
     global TOOL_OPTIONS
     global GCJ_UNDER_TEST
@@ -93,47 +122,25 @@ proc libjava_arguments {} {
     if [info exists LIBJAVA] {
 	set libjava $LIBJAVA;
     } else {
-	set gp [get_multilibs];
-	if { $gp != "" } {
-	    if [file exists "$gp/libjava/libgcj.a"] {
-		set libjava "-L$gp/libjava -lgcj";
-	    }
-	}
-	if ![info exists libjava] {
-	  set libjava [findfile $base_dir/../../libjava/libgcj.a "-L$base_dir/../../libjava -lgcj" -lgcj]
-	}
+	set libjava [libjava_find_lib libjava gcj]
     }
 
     if [info exists LIBGC] {
 	set libgc $LIBGC;
     } else {
-	set gp [get_multilibs];
-	if { $gp != "" } {
-	    if [file exists "$gp/boehm-gc/libgcjgc.a"] {
-		set libgc "-L$gp/boehm-gc -lgcjgc";
-	    }
-	}
-	if ![info exists libgc] {
-	  set libgc [findfile $base_dir/../../boehm-gc/libgcjgc.a \
-		       "-L$base_dir/../../boehm-gc -lgcjgc" \
-		       {}]
-	}
+	set libgc [libjava_find_lib boehm-gc gcjgc]
     }
 
     if [info exists LIBQTHREADS] {
 	set libqthreads $LIBQTHREADS
     } else {
-	set gp [get_multilibs]
-	if { $gp != "" } {
-	    if [file exists "$gp/qthreads/libgcjcoop.a"] {
-		set libqthreads "-L$gp/qthreads -lgcjcoop";
-	    }
-	}
-	if ![info exists libqthreads] {
-	    set libqthreads [findfile $base_dir/../../qthreads/libgcjcoop.a \
-			       "-L$base_dir/../../qthreads -lgcjcoop" \
-			       {}]
-	}
+	set libqthreads [libjava_find_lib qthreads gcjcoop]
+    }
+
+    if [info exists LIBZ] {
+	set libz $LIBZ
+    } else {
+	set libz [libjava_find_lib zlib zgcj]
     }
 
     # FIXME: there's no way to determine whether -lpthread is
@@ -143,6 +150,7 @@ proc libjava_arguments {} {
     verbose "using LIBJAVA = $libjava" 2
     verbose "using LIBGC = $libgc" 2
     verbose "using LIBQTHREADS = $libqthreads" 2
+    verbose "using LIBZ = $libz" 2
     set args ""
 
     # Basically we want to build up a colon separated path list from
@@ -179,6 +187,7 @@ proc libjava_arguments {} {
     lappend args "libs=$libjava";
     lappend args "libs=$libgc";
     lappend args "libs=$libqthreads"
+    lappend args "libs=$libz"
     lappend args debug
 
     if { [target_info needs_status_wrapper]!="" && [info exists gluefile] } {
@@ -189,7 +198,17 @@ proc libjava_arguments {} {
     if [info exists TOOL_OPTIONS] {
 	lappend args "additional_flags=$TOOL_OPTIONS"
     }
-    lappend args "compiler=$GCJ_UNDER_TEST"
+
+    # Search for libtool.  We need it to link.
+    set d [absolute $objdir]
+    foreach x {. .. ../.. ../../..} {
+	if {[file exists $d/$x/libtool]} then {
+	    # We have to run silently to avoid DejaGNU lossage.
+	    lappend args \
+	      "compiler=$d/$x/libtool --silent --mode=$mode $GCJ_UNDER_TEST"
+	    break
+	}
+    }
 
     return $args
 }
@@ -215,7 +234,7 @@ proc test_libjava_from_source { options srcfile compile_args inpfile resultfile 
         return
     }
 
-    set args [libjava_arguments]
+    set args [libjava_arguments link]
     # Add the --main flag
     lappend args "additional_flags=--main=[file rootname [file tail $srcfile]]"
     if { $compile_args != "" } {
@@ -228,12 +247,16 @@ proc test_libjava_from_source { options srcfile compile_args inpfile resultfile 
 	set errname "$errname $compile_args"
     }
 
-    if { [target_compile $srcfile "$executable" executable $args] != "" } {
+    set x [target_compile $srcfile "$executable" executable $args]
+    if { $x != "" } {
+	verbose "target_compile failed: $x" 2
 	fail "$errname compilation from source"
-	setup_xfail "*-*-*"
-	fail "$errname execution from source compiled test"
-	setup_xfail "*-*-*"
-	fail "$errname output from source compiled test"
+	if {$exec_args != "no-exec"} {
+	    setup_xfail "*-*-*"
+	    fail "$errname execution from source compiled test"
+	    setup_xfail "*-*-*"
+	    fail "$errname output from source compiled test"
+	}
 	return;
     }
     pass "$errname compilation from source"
@@ -313,10 +336,12 @@ proc test_libjava_from_javac { options srcfile compile_args inpfile resultfile e
 	fail "$errname byte compilation"
 	setup_xfail "*-*-*"
 	fail "$errname compilation from bytecode"
-	setup_xfail "*-*-*"
-	fail "$errname execution from bytecode->native test"
-	setup_xfail "*-*-*"
-	fail "$errname output from bytecode->native test"
+	if {$exec_args != "no-exec"} {
+	    setup_xfail "*-*-*"
+	    fail "$errname execution from bytecode->native test"
+	    setup_xfail "*-*-*"
+	    fail "$errname output from bytecode->native test"
+	}
 	return
     }
     pass "$errname byte compilation"
@@ -342,11 +367,9 @@ proc test_libjava_from_javac { options srcfile compile_args inpfile resultfile e
 	set class_files [join [split [string trim $class_out]] ".class "].class
     }
 
-    # Initial arguments.
-    set args [libjava_arguments]
-
     # Usually it is an error for a test program not to have a `main'
     # method.  However, for no-exec tests it is ok.
+    set largs {}
     if {$main_name == ""} {
 	if {$exec_args != "no-exec"} {
 	    perror "No `main' given in program $errname"
@@ -354,12 +377,18 @@ proc test_libjava_from_javac { options srcfile compile_args inpfile resultfile e
 	} else {
 	    set type object
 	    set executable [file rootname [file tail $srcfile]].o
+	    set mode compile
 	}
     } else {
 	set type executable
-	lappend args "additional_flags=--main=$main_name"
+	lappend largs "additional_flags=--main=$main_name"
 	set executable "${objdir}/$main_name"
+	set mode link
     }
+
+    # Initial arguments.
+    set args [libjava_arguments $mode]
+    eval lappend args $largs
 
     if { $compile_args != "" } {
 	lappend args "additional_flags=$compile_args"
@@ -369,7 +398,10 @@ proc test_libjava_from_javac { options srcfile compile_args inpfile resultfile e
 	set errname "$errname $compile_args"
     }
 
-    if { [target_compile $class_files "$executable" $type $args] != "" } {
+    verbose "compilation command = $args" 2
+    set x [target_compile $class_files "$executable" $type $args]
+    if { $x != "" } {
+	verbose "target_compile failed: $x" 2
 	fail "$errname compilation from bytecode"
 	setup_xfail "*-*-*"
 	if {$exec_args != "no-exec"} {
