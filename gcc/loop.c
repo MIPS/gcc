@@ -358,6 +358,9 @@ static int insert_loop_mem PROTO((rtx *, void *));
 static int replace_loop_mem PROTO((rtx *, void *));
 static int replace_label PROTO((rtx *, void *));
 
+static rtx loop_emit_jump_insn_before PROTO((rtx, rtx, rtx));
+static rtx loop_emit_jump_insn_after PROTO((rtx, rtx, rtx));
+
 typedef struct rtx_and_int {
   rtx r;
   int i;
@@ -8389,15 +8392,7 @@ check_dbra_loop (loop_end, insn_count, loop_start, loop_info)
 				       XEXP (jump_label, 0));
 	      tem = gen_sequence ();
 	      end_sequence ();
-	      emit_jump_insn_before (tem, loop_end);
-
-	      for (tem = PREV_INSN (loop_end);
-		   tem && GET_CODE (tem) != JUMP_INSN;
-		   tem = PREV_INSN (tem))
-		;
-
-	      if (tem)
-		JUMP_LABEL (tem) = XEXP (jump_label, 0);
+	      loop_emit_jump_insn_before (tem, loop_end, XEXP (jump_label, 0));
 
 	      if (nonneg)
 		{
@@ -8671,7 +8666,7 @@ fixup_decr_loop_info (loop_info, bl, loop_start, loop_end, inner_set)
      deleted as a dead reg). */
   delete_insn (inner_set);
 
-  emit_jump_insn_before (p, loop_end);
+  loop_emit_jump_insn_before (p, loop_end, XEXP (jump_label, 0));
 
   delete_insn (outer_decr_insn);
 
@@ -8690,7 +8685,8 @@ fixup_decr_loop_info (loop_info, bl, loop_start, loop_end, inner_set)
 				   JUMP_LABEL (outer_jump_insn));
 	  p = gen_sequence ();
 	  end_sequence ();
-	  emit_jump_insn_after (p, outer_jump_insn);
+	  loop_emit_jump_insn_after (p, outer_jump_insn,
+				     JUMP_LABEL (outer_jump_insn));
 	  delete_insn (outer_compare_insn);
 	  if (outer_compare_insn != outer_jump_insn)
 	    delete_insn (outer_jump_insn);
@@ -8718,7 +8714,6 @@ check_decr_loop (loop_end, insn_count, loop_start, loop_info)
   int compare_with_prev = 0;
   rtx inner_set;
   rtx initial_jump_label = NULL_RTX;
-  rtx original_initial_value;
 
   /* If there is more than one exit from the loop, we can't optimize
      it. */
@@ -8763,7 +8758,6 @@ check_decr_loop (loop_end, insn_count, loop_start, loop_info)
 
   if (! bl)
     {
-      rtx p;
       /* The loop test may be of the form
 	 tmp = a;
 	 a--;
@@ -8936,7 +8930,7 @@ check_decr_loop (loop_end, insn_count, loop_start, loop_info)
 			   XEXP (jump_label, 0));   
   insn = gen_sequence ();
   end_sequence ();
-  emit_jump_insn_before (insn, loop_end);
+  loop_emit_jump_insn_before (insn, loop_end, XEXP (jump_label, 0));
 
   if (bl->initial_test_jump)
     {
@@ -8953,7 +8947,8 @@ check_decr_loop (loop_end, insn_count, loop_start, loop_info)
 			       initial_jump_label);
       insn = gen_sequence ();
       end_sequence ();
-      insn = emit_jump_insn_before (insn, initial_compare);
+      insn = loop_emit_jump_insn_before (insn, initial_compare,
+					 initial_jump_label);
       delete_insn (bl->initial_test_jump);
       if (bl->initial_test_jump != initial_compare)
 	delete_insn (initial_compare);
@@ -10119,9 +10114,9 @@ instrument_loop_bct (loop_start, loop_end, loop_num_iterations)
       /* Insert new comparison on the count register instead of the
 	 old one, generating the needed BCT pattern (that will be
 	 later recognized by assembly generation phase).  */
-      emit_jump_insn_before (gen_decrement_and_branch_on_count (counter_reg,
-								start_label),
-			     loop_end);
+      loop_emit_jump_insn_before
+	(gen_decrement_and_branch_on_count (counter_reg, start_label),
+	 loop_end, start_label);
       LABEL_NUSES (start_label)++;
     }
 
@@ -10559,3 +10554,40 @@ replace_label (x, data)
   return 0;
 }
 
+/* Like emit_jump_insn_before, except initialize the jump insn's
+   JUMP_LABEL to LABEL.  */
+
+static rtx
+loop_emit_jump_insn_before (insn, before, label)
+     rtx insn, before, label;
+{
+  rtx p, ret;
+
+  ret = emit_jump_insn_before (insn, before);
+  for (p = ret; p ; p = NEXT_INSN (p))
+    if (GET_CODE (p) == JUMP_INSN)
+      {
+	JUMP_LABEL (p) = label;
+	return ret;
+      }
+  abort ();
+}
+
+/* Like emit_jump_insn_after, except initialize the jump insn's
+   JUMP_LABEL to LABEL.  */
+
+static rtx
+loop_emit_jump_insn_after (insn, after, label)
+     rtx insn, after, label;
+{
+  rtx p, ret;
+
+  ret = emit_jump_insn_after (insn, after);
+  for (p = NEXT_INSN (after); p ; p = NEXT_INSN (p))
+    if (GET_CODE (p) == JUMP_INSN)
+      {
+	JUMP_LABEL (p) = label;
+	return ret;
+      }
+  abort ();
+}
