@@ -37,12 +37,15 @@ exception statement from your version. */
 
 package javax.swing.text;
 
+import java.io.Serializable;
 import java.util.Dictionary;
 import java.util.Enumeration;
 import java.util.EventListener;
 import java.util.Vector;
+
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
+import javax.swing.event.EventListenerList;
 import javax.swing.event.UndoableEditEvent;
 import javax.swing.event.UndoableEditListener;
 import javax.swing.tree.TreeNode;
@@ -50,20 +53,14 @@ import javax.swing.undo.UndoableEdit;
 
 
 public abstract class AbstractDocument
-  implements Document
+  implements Document, Serializable
 {
-  Vector doc_list = new Vector();
-  Vector undo_list = new Vector();
-
-  // these still need to be implemented by a derived class:
-  public abstract Element getParagraphElement(int pos);
-
-  public abstract Element getDefaultRootElement();
-
   // some inner classes sun says I should have:
   abstract class AbstractElement
     implements Element, TreeNode
   {
+    private static final long serialVersionUID = 1265312733007397733L;
+    
     int count;
     int offset;
     AttributeSet attr;
@@ -151,6 +148,8 @@ public abstract class AbstractDocument
 
   class BranchElement extends AbstractElement
   {
+    private static final long serialVersionUID = -8595176318868717313L;
+    
     public BranchElement(Element e, AttributeSet a, int s, int end)
     {
       super(e, a);
@@ -201,6 +200,8 @@ public abstract class AbstractDocument
   class DefaultDocumentEvent
     implements DocumentEvent
   {
+    private static final long serialVersionUID = -7406103236022413522L;
+    
     public int len;
     public int off;
 
@@ -232,10 +233,13 @@ public abstract class AbstractDocument
 
   static class ElementEdit
   {
+    private static final long serialVersionUID = -1216620962142928304L;
   }
 
   class LeafElement extends AbstractElement
   {
+    private static final long serialVersionUID = 5115368706941283802L;
+    
     LeafElement(Element e, AttributeSet a, int s, int end)
     {
       super(e, a);
@@ -267,27 +271,34 @@ public abstract class AbstractDocument
     }
   }
 
+  private static final long serialVersionUID = -116069779446114664L;
+
+  protected static final String BAD_LOCATION = "document location failure";
+
+  public static final String BidiElementName = "bidi level";
+  public static final String ContentElementName = "content";
+  public static final String ParagraphElementName = "paragraph";
+  public static final String SectionElementName = "section";
+  public static final String ElementNameAttribute = "$ename";
+  
   Content content;
 
-  AbstractDocument(Content doc)
+  protected AbstractDocument(Content doc)
+  {
+    this(doc, null);
+  }
+
+  protected AbstractDocument(Content doc, AttributeContext context)
   {
     content = doc;
   }
 
-  /********************************************************
-   *
-   *  the meat:
-   *
-   ***********/
-  public void addDocumentListener(DocumentListener listener)
-  {
-    doc_list.addElement(listener);
-  }
+  protected EventListenerList listenerList = new EventListenerList();
 
-  public void addUndoableEditListener(UndoableEditListener listener)
-  {
-    undo_list.addElement(listener);
-  }
+  // these still need to be implemented by a derived class:
+  public abstract Element getParagraphElement(int pos);
+
+  public abstract Element getDefaultRootElement();
 
   protected Element createBranchElement(Element parent, AttributeSet a)
   {
@@ -312,23 +323,39 @@ public abstract class AbstractDocument
       };
   }
 
-  protected void fireChangedUpdate(DocumentEvent e)
+  protected void fireChangedUpdate(DocumentEvent event)
   {
+    DocumentListener[] listeners = getDocumentListeners();
+
+    for (int index = 0; index < listeners.length; ++index)
+      listeners[index].changedUpdate(event);
   }
 
-  protected void fireInsertUpdate(DocumentEvent e)
+  protected void fireInsertUpdate(DocumentEvent event)
   {
+    DocumentListener[] listeners = getDocumentListeners();
+
+    for (int index = 0; index < listeners.length; ++index)
+      listeners[index].insertUpdate(event);
   }
 
-  protected void fireRemoveUpdate(DocumentEvent e)
+  protected void fireRemoveUpdate(DocumentEvent event)
   {
+    DocumentListener[] listeners = getDocumentListeners();
+
+    for (int index = 0; index < listeners.length; ++index)
+      listeners[index].removeUpdate(event);
   }
 
-  protected void fireUndoableEditUpdate(UndoableEditEvent e)
+  protected void fireUndoableEditUpdate(UndoableEditEvent event)
   {
+    UndoableEditListener[] listeners = getUndoableEditListeners();
+    
+    for (int index = 0; index < listeners.length; ++index)
+      listeners[index].undoableEditHappened(event);
   }
 
-  int getAsynchronousLoadPriority()
+  public int getAsynchronousLoadPriority()
   {
     return 0;
   }
@@ -338,7 +365,7 @@ public abstract class AbstractDocument
     return null;
   }
 
-  Element getBidiRootElement()
+  public Element getBidiRootElement()
   {
     return null;
   }
@@ -370,7 +397,7 @@ public abstract class AbstractDocument
 
   public EventListener[] getListeners(Class listenerType)
   {
-    return null;
+    return listenerList.getListeners(listenerType);
   }
 
   public Object getProperty(Object key)
@@ -460,12 +487,64 @@ public abstract class AbstractDocument
   {
   }
 
-  public void removeDocumentListener(DocumentListener listener)
+  /**
+   * Adds a <code>DocumentListener</code> object to this document.
+   *
+   * @param listener the listener to add
+   */
+  public void addDocumentListener(DocumentListener listener)
   {
+    listenerList.add(DocumentListener.class, listener);
   }
 
+  /**
+   * Removes a <code>DocumentListener</code> object from this document.
+   *
+   * @param listener the listener to remove
+   */
+  public void removeDocumentListener(DocumentListener listener)
+  {
+    listenerList.remove(DocumentListener.class, listener);
+  }
+
+  /**
+   * Returns add added <code>DocumentListener</code> objects.
+   *
+   * @return an array of listeners
+   */
+  public DocumentListener[] getDocumentListeners()
+  {
+    return (DocumentListener[]) getListeners(DocumentListener.class);
+  }
+
+  /**
+   * Adds a <code>UndoableEditListener</code> object to this document.
+   *
+   * @param listener the listener to add
+   */
+  public void addUndoableEditListener(UndoableEditListener listener)
+  {
+    listenerList.add(UndoableEditListener.class, listener);
+  }
+
+  /**
+   * Removes a <code>UndoableEditListener</code> object from this document.
+   *
+   * @param listener the listener to remove
+   */
   public void removeUndoableEditListener(UndoableEditListener listener)
   {
+    listenerList.remove(UndoableEditListener.class, listener);
+  }
+
+  /**
+   * Returns add added <code>UndoableEditListener</code> objects.
+   *
+   * @return an array of listeners
+   */
+  public UndoableEditListener[] getUndoableEditListeners()
+  {
+    return (UndoableEditListener[]) getListeners(UndoableEditListener.class);
   }
 
   protected void removeUpdate(DefaultDocumentEvent chng)
@@ -476,11 +555,11 @@ public abstract class AbstractDocument
   {
   }
 
-  void setAsynchronousLoadPriority(int p)
+  public void setAsynchronousLoadPriority(int p)
   {
   }
 
-  void setDocumentProperties(Dictionary x)
+  public void setDocumentProperties(Dictionary x)
   {
   }
 

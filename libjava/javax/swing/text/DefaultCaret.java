@@ -44,15 +44,28 @@ import java.awt.Rectangle;
 import java.awt.event.FocusListener;
 import java.awt.event.MouseListener;
 import java.awt.event.MouseMotionListener;
-import java.util.Vector;
+import java.util.EventListener;
+
+import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
+import javax.swing.event.EventListenerList;
 
 
 public class DefaultCaret extends Rectangle
   implements Caret, FocusListener, MouseListener, MouseMotionListener
 {
+  protected ChangeEvent changeEvent = new ChangeEvent(this);
+  protected EventListenerList listenerList = new EventListenerList();
+  
   Color color = new Color(0, 0, 0);
   JTextComponent parent;
+  Point magic = null;
+  int mark = 0;
+  boolean vis_sel = true;
+  int blink = 500;
+  int dot = 0;
+  boolean vis = true;
+
 
   public void mouseDragged(java.awt.event.MouseEvent evt)
   {
@@ -90,12 +103,10 @@ public class DefaultCaret extends Rectangle
   {
   }
 
-  // caret methods:
   public void deinstall(JTextComponent c)
   {
     parent.removeFocusListener(this);
     parent.removeMouseListener(this);
-
     parent = null;
   }
 
@@ -107,8 +118,6 @@ public class DefaultCaret extends Rectangle
     repaint();
   }
 
-  Point magic = null;
-
   public void setMagicCaretPosition(Point p)
   {
     magic = p;
@@ -119,14 +128,10 @@ public class DefaultCaret extends Rectangle
     return magic;
   }
 
-  int mark = 0;
-
   public int getMark()
   {
     return mark;
   }
-
-  boolean vis_sel = true;
 
   public void setSelectionVisible(boolean v)
   {
@@ -151,20 +156,39 @@ public class DefaultCaret extends Rectangle
     g.drawLine(x, y, x, y + height);
   }
 
-  Vector changes = new Vector();
-
-  public void addChangeListener(ChangeListener l)
+  public EventListener[] getListeners(Class listenerType)
   {
-    changes.addElement(l);
+    return listenerList.getListeners(listenerType);
   }
 
-  public void removeChangeListener(ChangeListener l)
+  public void addChangeListener(ChangeListener listener)
   {
-    changes.removeElement(l);
+    listenerList.add(ChangeListener.class, listener);
   }
 
-  int blink = 500;
+  public void removeChangeListener(ChangeListener listener)
+  {
+    listenerList.remove(ChangeListener.class, listener);
+  }
 
+  public ChangeListener[] getChangeListeners()
+  {
+    return (ChangeListener[]) getListeners(ChangeListener.class);
+  }
+
+  protected void fireStateChanged()
+  {
+    ChangeListener[] listeners = getChangeListeners();
+
+    for (int index = 0; index < listeners.length; ++index)
+      listeners[index].stateChanged(changeEvent);
+  }
+
+  protected final JTextComponent getComponent()
+  {
+    return parent;
+  }
+  
   public int getBlinkRate()
   {
     return blink;
@@ -174,8 +198,6 @@ public class DefaultCaret extends Rectangle
   {
     blink = rate;
   }
-
-  int dot = 0;
 
   public int getDot()
   {
@@ -192,8 +214,6 @@ public class DefaultCaret extends Rectangle
     this.dot = dot;
     repaint();
   }
-
-  boolean vis = true;
 
   public boolean isVisible()
   {

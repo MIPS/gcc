@@ -1,5 +1,57 @@
 2004-06-16  Michael Koch  <konqueror@gmx.de>
 
+	* javax/swing/event/UndoableEditListener.java: Reformatted.
+	* javax/swing/text/AbstractDocument.java
+	(AbstractDocument): Implements java.io.Serializable.
+	(doc_list): Removed.
+	(undo_list): Removed.
+	(AbstractElement.serialVerionUID): New field.
+	(BranchElement.serialVerionUID): Likewise.
+	(DefaultDocumentEvent.serialVerionUID): Likewise.
+	(ElementEdit.serialVerionUID): Likewise.
+	(LeafElement.serialVerionUID): Likewise.
+	(serialVerionUID): Likewise.
+	(BAD_LOCATION): New constant.
+	(BidiElementName): Likewise.
+	(ContentElementName): Likewise.
+	(ParagraphElementName): Likewise.
+	(SectionElementName): Likewise.
+	(ElementNameAttribute): Likewise.
+	(AbstractDocument): Made protected.
+	(AbstractDocument): New construtor.
+	(listenerList): New field.
+	(fireChangedUpdate): Implemented.
+	(fireInsertUpdate): Likewise.
+	(fireRemoveUpdate): Likewise.
+	(fireUndoableEditUpdate): Likewise.
+	(getListeners): Likewise.
+	(addDocumentListener): Likewise.
+	(removeDocumentListener): Likewise.
+	(addUndoableEditListener): Likewise.
+	(removeUndoableEditListener): Likewise.
+	(getDocumentListeners): New method.
+	(getUndoableEditListeners): Likewise.
+	(getAsynchronousLoadPriority): Made public.
+	(getBidiRootElement): Likewise.
+	(setAsynchronousLoadPriority): Likewise.
+	(setDocumentProperties): Likewise.
+	* javax/swing/text/BadLocationException.java
+	(serialVerionUID): New field.
+	* javax/swing/text/DefaultCaret.java
+	(changeEvent): New field.
+	(listenerList): Likewise.
+	(changes): Removed.
+	(addChangeListener): Reimplemented.
+	(removeChangeListener): Likewise.
+	(getListeners): New method.
+	(getChangeListeners): Likwise.
+	(getComponent): Likewise.
+	* javax/swing/text/GapContent.java
+	(GapContent): Implements java.io.Serializable.
+	(serialVerionUID): New field.
+
+2004-06-16  Michael Koch  <konqueror@gmx.de>
+
 	* javax/swing/JTree.java
 	(treeModel): New field.
 	(JTree): New constructors, one existing one made public.

@@ -39,6 +39,8 @@ package javax.swing.text;
 
 public class BadLocationException extends Exception
 {
+  private static final long serialVersionUID = -7712259886815656766L;
+  
   int offset;
 
   /**

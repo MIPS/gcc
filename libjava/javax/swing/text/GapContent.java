@@ -37,15 +37,17 @@ exception statement from your version. */
 
 package javax.swing.text;
 
+import java.io.Serializable;
 
 // too lazy to make a real gapcontent.
 // lets just use a stringbuffer instead.
 import javax.swing.undo.UndoableEdit;
 
-
 public class GapContent
-  implements AbstractDocument.Content
+  implements AbstractDocument.Content, Serializable
 {
+  private static final long serialVersionUID = 8374645204155842629L;
+    
   StringBuffer buf = new StringBuffer();
 
   public GapContent()
