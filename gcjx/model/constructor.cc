@@ -38,7 +38,7 @@ model_constructor::model_constructor (model_constructor *other,
 }
 
 model_constructor::model_constructor (model_constructor *other)
-  : model_method (get_location (), other->get_declaring_class ()),
+  : model_method (other->get_location (), other->get_declaring_class ()),
     other_this (NULL)
 {
 }

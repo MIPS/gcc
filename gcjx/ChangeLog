@@ -1,5 +1,10 @@
 2005-03-26  Tom Tromey  <tromey@redhat.com>
 
+	* model/constructor.cc (model_constructor): Copy location of other
+	constructor.
+
+2005-03-26  Tom Tromey  <tromey@redhat.com>
+
 	* model/class.hh (model_class::resolve_members): Now public.
 
 2005-03-26  Tom Tromey  <tromey@redhat.com>
