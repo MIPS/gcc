@@ -4167,7 +4167,7 @@ gate_scev (void)
 
 struct tree_opt_pass pass_scev = 
 {
-  "scev",				/* name */
+  NULL,                                 /* name */
   gate_scev,				/* gate */
   NULL,					/* execute */
   NULL,					/* sub */
@@ -4205,7 +4205,7 @@ gate_scev_anal (void)
 
 struct tree_opt_pass pass_scev_anal = 
 {
-  "scev-anal",				/* name */
+  "scev",				/* name */
   gate_scev_anal,			/* gate */
   scev_anal,				/* execute */
   NULL,					/* sub */

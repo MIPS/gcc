@@ -1,3 +1,8 @@
+2004-01-21  Sebastian Pop  <s.pop@laposte.net>
+
+	* tree-scalar-evolution.c (pass_scev): Don't use a name.
+	(pass_scev_anal): Named this pass "scev".
+
 2004-01-21  Dorit Naishlos <dorit@il.ibm.com>
 
 	* Makefile.in: (tree-vectorizer.o): Add dependency on real.h.
