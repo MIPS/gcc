@@ -3366,8 +3366,6 @@ duplicate_decls (newdecl, olddecl)
 	DECL_VIRTUAL_CONTEXT (newdecl) = DECL_VIRTUAL_CONTEXT (olddecl);
       if (DECL_CONTEXT (olddecl))
 	DECL_CONTEXT (newdecl) = DECL_CONTEXT (olddecl);
-      if (DECL_PENDING_INLINE_INFO (newdecl) == 0)
-	DECL_PENDING_INLINE_INFO (newdecl) = DECL_PENDING_INLINE_INFO (olddecl);
       DECL_STATIC_CONSTRUCTOR (newdecl) |= DECL_STATIC_CONSTRUCTOR (olddecl);
       DECL_STATIC_DESTRUCTOR (newdecl) |= DECL_STATIC_DESTRUCTOR (olddecl);
       DECL_PURE_VIRTUAL_P (newdecl) |= DECL_PURE_VIRTUAL_P (olddecl);
@@ -3614,17 +3612,26 @@ duplicate_decls (newdecl, olddecl)
 		      olddecl);
 
 	  SET_DECL_TEMPLATE_SPECIALIZATION (olddecl);
+
+	  /* [temp.expl.spec/14] We don't inline explicit specialization
+	     just because the primary template says so.  */
 	}
-      DECL_DECLARED_INLINE_P (newdecl) |= DECL_DECLARED_INLINE_P (olddecl);
+      else
+	{
+	  if (DECL_PENDING_INLINE_INFO (newdecl) == 0)
+	    DECL_PENDING_INLINE_INFO (newdecl) = DECL_PENDING_INLINE_INFO (olddecl);
 
-      /* If either decl says `inline', this fn is inline, unless its
-         definition was passed already.  */
-      if (DECL_INLINE (newdecl) && DECL_INITIAL (olddecl) == NULL_TREE)
-	DECL_INLINE (olddecl) = 1;
-      DECL_INLINE (newdecl) = DECL_INLINE (olddecl);
+	  DECL_DECLARED_INLINE_P (newdecl) |= DECL_DECLARED_INLINE_P (olddecl);
 
-      DECL_UNINLINABLE (newdecl) = DECL_UNINLINABLE (olddecl)
-	= (DECL_UNINLINABLE (newdecl) || DECL_UNINLINABLE (olddecl));
+	  /* If either decl says `inline', this fn is inline, unless 
+	     its definition was passed already.  */
+	  if (DECL_INLINE (newdecl) && DECL_INITIAL (olddecl) == NULL_TREE)
+	    DECL_INLINE (olddecl) = 1;
+	  DECL_INLINE (newdecl) = DECL_INLINE (olddecl);
+
+	  DECL_UNINLINABLE (newdecl) = DECL_UNINLINABLE (olddecl)
+	    = (DECL_UNINLINABLE (newdecl) || DECL_UNINLINABLE (olddecl));
+	}
 
       /* Preserve abstractness on cloned [cd]tors.  */
       DECL_ABSTRACT (newdecl) = DECL_ABSTRACT (olddecl);
@@ -5652,6 +5659,11 @@ make_typename_type (context, name, complain)
 	      return error_mark_node;
 	    }
 
+	  if (complain & tf_parsing)
+	    type_access_control (context, tmpl);
+	  else
+	    enforce_access (context, tmpl);
+
 	  return lookup_template_class (tmpl,
 					TREE_OPERAND (fullname, 1),
 					NULL_TREE, context,
@@ -5672,6 +5684,11 @@ make_typename_type (context, name, complain)
 	  t = lookup_field (context, name, 0, 1);
 	  if (t)
 	    {
+	      if (complain & tf_parsing)
+		type_access_control (context, t);
+	      else
+		enforce_access (context, t);
+
 	      if (DECL_ARTIFICIAL (t) || !(complain & tf_keep_type_decl))
 		t = TREE_TYPE (t);
 	      if (IMPLICIT_TYPENAME_P (t))
@@ -5698,7 +5715,6 @@ make_typename_type (context, name, complain)
 	error ("no type named `%#T' in `%#T'", name, context);
       return error_mark_node;
     }
-
 
   return build_typename_type (context, name, fullname,  NULL_TREE);
 }
@@ -5739,8 +5755,10 @@ make_unbound_class_template (context, name, complain)
 	  return error_mark_node;
 	}
       
-      if (!enforce_access (context, tmpl))
-	return error_mark_node;
+      if (complain & tf_parsing)
+	type_access_control (context, tmpl);
+      else
+	enforce_access (context, tmpl);
 
       return tmpl;
     }
@@ -6659,10 +6677,6 @@ builtin_function_1 (name, type, context, code, class, libname, attrs)
   DECL_BUILT_IN_CLASS (decl) = class;
   DECL_FUNCTION_CODE (decl) = code;
   DECL_CONTEXT (decl) = context;
-
-  /* The return builtins leave the current function.  */
-  if (code == BUILT_IN_RETURN || code == BUILT_IN_EH_RETURN)
-    TREE_THIS_VOLATILE (decl) = 1;
 
   pushdecl (decl);
 
@@ -8429,9 +8443,8 @@ start_cleanup_fn ()
     {
       tree parmdecl;
 
-      parmdecl = build_decl (PARM_DECL, NULL_TREE, ptr_type_node);
+      parmdecl = cp_build_parm_decl (NULL_TREE, ptr_type_node);
       DECL_CONTEXT (parmdecl) = fndecl;
-      DECL_ARG_TYPE (parmdecl) = ptr_type_node;
       TREE_USED (parmdecl) = 1;
       DECL_ARGUMENTS (fndecl) = parmdecl;
     }
@@ -11305,7 +11318,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 
       for (args = TYPE_ARG_TYPES (type); args; args = TREE_CHAIN (args))
 	{
-	  tree decl = build_decl (PARM_DECL, NULL_TREE, TREE_VALUE (args));
+	  tree decl = cp_build_parm_decl (NULL_TREE, TREE_VALUE (args));
 
 	  TREE_CHAIN (decl) = decls;
 	  decls = decl;
@@ -11449,17 +11462,10 @@ friend declaration requires class-key, i.e. `friend %#T'",
 
     if (decl_context == PARM)
       {
-	decl = build_decl (PARM_DECL, declarator, type);
+	decl = cp_build_parm_decl (declarator, type);
 
 	bad_specifiers (decl, "parameter", virtualp, quals != NULL_TREE,
 			inlinep, friendp, raises != NULL_TREE);
-
-	/* Compute the type actually passed in the parmlist,
-	   for the case where there is no prototype.
-	   (For example, shorts and chars are passed as ints.)
-	   When there is a prototype, this is overridden later.  */
-
-	DECL_ARG_TYPE (decl) = type_promotes_to (type);
       }
     else if (decl_context == FIELD)
       {
@@ -12145,11 +12151,6 @@ grokparms (first_parm)
 			  decl, ptr ? "pointer" : "reference", t);
 	    }
 
-	  DECL_ARG_TYPE (decl) = TREE_TYPE (decl);
-	  if (PROMOTE_PROTOTYPES
-	      && INTEGRAL_TYPE_P (type)
-	      && TYPE_PRECISION (type) < TYPE_PRECISION (integer_type_node))
-	    DECL_ARG_TYPE (decl) = integer_type_node;
 	  if (!any_error && init)
 	    init = check_default_argument (decl, init);
 	  else
@@ -14009,7 +14010,7 @@ finish_destructor_body ()
   if (DECL_VIRTUAL_P (current_function_decl))
     {
       tree if_stmt;
-      tree virtual_size = c_sizeof (current_class_type);
+      tree virtual_size = cxx_sizeof (current_class_type);
 
       /* [class.dtor]
 

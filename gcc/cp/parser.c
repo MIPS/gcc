@@ -299,10 +299,7 @@ cp_lexer_new_from_tokens (cp_token_block *tokens)
   /* Create the lexer.  */
   lexer = cp_lexer_new (/*main_lexer_p=*/false);
 
-  /* Destroy the old buffer.  */
-  free (lexer->buffer);
-
-  /* Create a new one, appropriately sized.  */
+  /* Create a new buffer, appropriately sized.  */
   num_tokens = 0;
   for (block = tokens; block != NULL; block = block->next)
     num_tokens += block->num_tokens;
@@ -2095,11 +2092,14 @@ cp_parser_translation_unit (parser)
    literal:
      __null
 
-   Returns a representation of the expression.  For an id-expression
-   which is a qualified-id, the representation returned is a
-   SCOPE_REF.  The first operand gives the qualifying class or
-   namespace.  The second operand is the declaration (or set of
-   overloaded functions) to which the qualified name resolved.  
+   Returns a representation of the expression.  
+
+   For an id-expression which is a qualified-id, the representation
+   returned is either a SCOPE_REF (if the qualifying name is a
+   namespace) or an OFFSET_ERF (if the qualifying name is a type).
+   The first operand gives the qualifying class or namespace.  The
+   second operand is the declaration (or set of overloaded functions)
+   to which the qualified name resolved.
 
    *IDK indicates what kind of id-expression (if any) was present.  */
 
@@ -2463,15 +2463,21 @@ cp_parser_primary_expression (parser, idk)
 		return build_min_nt (LOOKUP_EXPR, id_expression);
 	      }
 
-	    /* Create an OFFSET_REF to refer to a non-static member.
-	       (If the DECL is actually a static member,
-	       build_offset_ref will just return it.)  In a template,
-	       a qualified name lookup will result in a SCOPE_REF
-	       being returned from cp_parser_lookup_name, so there's
-	       no reason to form another one here.  */
-	    if (parser->scope 
-		&& TREE_CODE (decl) != SCOPE_REF)
-	      return build_offset_ref (parser->scope, decl);
+	    if (parser->scope && TREE_CODE (decl) != SCOPE_REF)
+	      {
+		if (TYPE_P (parser->scope))
+		  {
+		    /* Create an OFFSET_REF to refer to a non-static member.
+		       (If the DECL is actually a static member,
+		       build_offset_ref will just return it.)  In a
+		       template, a qualified name lookup will result in a
+		       SCOPE_REF being returned from cp_parser_lookup_name,
+		       so there's no reason to form another one here.  */
+		    return build_offset_ref (parser->scope, decl);
+		  }
+		else
+		  return build_nt (SCOPE_REF, parser->scope, decl);
+	      }
 	    else
 	      return hack_identifier (decl, id_expression);
 	  }
@@ -3246,22 +3252,12 @@ cp_parser_postfix_expression (parser)
 	    /* Look for the closing `)'.  */
 	    cp_parser_require (parser, CPP_CLOSE_PAREN, "`)'");
 
-	    /* If this is a call to a function that was specified as a
-	       qualified-id, handle it specially.  The old parser had
-	       a number of bizarre hacks for dealing with function
-	       calls.  Until we rework build_x_function_call, we are
-	       stuck with the old approach.  
-
-	       The right thing to do is to resolve the name above (see
-	       the FIXME after the handling of primary-expression
-	       above), and then have finish_call_expr handle all the
-	       semantic analysis required.  The parser's job should
-	       only be to determine that this is a call.  
-
-	       FIXME: Do as suggested.  */
 	    if (idk == CP_PARSER_ID_KIND_QUALIFIED)
+	      /* If the function name was explicitly qualified, no
+		 dynamic binding takes place.  */
 	      postfix_expression
-		= finish_qualified_call_expr (postfix_expression, args);
+		= finish_call_expr (postfix_expression, args,
+				    /*disallow_virtual=*/true);
 	    else if (idk == CP_PARSER_ID_KIND_UNQUALIFIED)
 	      {
 		tree identifier;
@@ -3279,13 +3275,17 @@ cp_parser_postfix_expression (parser)
 				  : postfix_expression);
 		  }
 		
+		/* Do Koenig lookup.  */
+		postfix_expression = do_identifier (identifier, 2, args);
 		postfix_expression
-		  = finish_call_expr (identifier, args, /*koenig=*/1);
+		  = finish_call_expr (postfix_expression, args, 
+				      /*diallow_virtual=*/false);
 	      }
 	    else if (idk == CP_PARSER_ID_KIND_TEMPLATE_ID
 		     || idk == CP_PARSER_ID_KIND_NONE)
 	      postfix_expression 
-		= finish_call_expr (postfix_expression, args, /*koenig=*/0);
+		= finish_call_expr (postfix_expression, args, 
+				    /*disallow_virtual=*/false);
 	    else
 	      abort ();
 

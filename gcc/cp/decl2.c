@@ -331,10 +331,6 @@ int flag_conserve_space;
 
 int flag_access_control = 1;
 
-/* Nonzero if we want to understand the operator names, i.e. 'bitand'.  */
-
-int flag_operator_names = 1;
-
 /* Nonzero if we want to check the return value of new and avoid calling
    constructors if it is a null pointer.  */
 
@@ -420,7 +416,6 @@ lang_f_options[] =
   {"implicit-templates", &flag_implicit_templates, 1},
   {"ms-extensions", &flag_ms_extensions, 1},
   {"nonansi-builtins", &flag_no_nonansi_builtin, 0},
-  {"operator-names", &flag_operator_names, 1},
   {"optional-diags", &flag_optional_diags, 1},
   {"permissive", &flag_permissive, 1},
   {"repo", &flag_use_repository, 1},
@@ -509,16 +504,15 @@ cxx_decode_option (argc, argv)
 	  return 1;
 	}
 
-      if (!strcmp (p, "handle-exceptions")
-	  || !strcmp (p, "no-handle-exceptions"))
+      if (!strcmp (positive_option, "handle-exceptions"))
 	warning ("-fhandle-exceptions has been renamed to -fexceptions (and is now on by default)");
-      else if (! strcmp (p, "alt-external-templates"))
+      else if (!strcmp (p, "alt-external-templates"))
 	{
 	  flag_external_templates = 1;
 	  flag_alt_external_templates = 1;
           cp_deprecated ("-falt-external-templates");
 	}
-      else if (! strcmp (p, "no-alt-external-templates"))
+      else if (!strcmp (p, "no-alt-external-templates"))
 	flag_alt_external_templates = 0;
       else if (!strcmp (p, "repo"))
 	{
@@ -540,6 +534,8 @@ cxx_decode_option (argc, argv)
 	  warning ("-fname-mangling-version is no longer supported");
 	  return 1;
 	}
+      else if ((option_value = skip_leading_substring (p, "no-builtin-")))
+	disable_builtin_function (option_value);
       else if (dump_switch_p (p))
 	;
       else 
@@ -651,14 +647,6 @@ cxx_decode_option (argc, argv)
 	warn_nontemplate_friend = setting;
       else if (!strcmp (p, "deprecated"))
         warn_deprecated = setting;
-      else if (!strcmp (p, "comment"))
-	;			/* cpp handles this one.  */
-      else if (!strcmp (p, "comments"))
-	;			/* cpp handles this one.  */
-      else if (!strcmp (p, "trigraphs"))
-	;			/* cpp handles this one.  */
-      else if (!strcmp (p, "import"))
-	;			/* cpp handles this one.  */
       else if (!strcmp (p, "all"))
 	{
 	  warn_return_type = setting;
@@ -809,6 +797,19 @@ grok_x_components (specs)
   finish_member_declaration (build_decl (FIELD_DECL, NULL_TREE, t)); 
 }
 
+/* Build a PARM_DECL with NAME and TYPE, and set DECL_ARG_TYPE
+   appropriately.  */
+
+tree
+cp_build_parm_decl (name, type)
+     tree name;
+     tree type;
+{
+  tree parm = build_decl (PARM_DECL, name, type);
+  DECL_ARG_TYPE (parm) = type_passed_as (type);
+  return parm;
+}
+
 /* Returns a PARM_DECL for a parameter of the indicated TYPE, with the
    indicated NAME.  */
 
@@ -817,14 +818,11 @@ build_artificial_parm (name, type)
      tree name;
      tree type;
 {
-  tree parm;
-
-  parm = build_decl (PARM_DECL, name, type);
+  tree parm = cp_build_parm_decl (name, type);
   DECL_ARTIFICIAL (parm) = 1;
   /* All our artificial parms are implicitly `const'; they cannot be
      assigned to.  */
   TREE_READONLY (parm) = 1;
-  DECL_ARG_TYPE (parm) = type;
   return parm;
 }
 
@@ -2867,16 +2865,13 @@ start_static_storage_duration_function ()
   VARRAY_PUSH_TREE (ssdf_decls, ssdf_decl);
 
   /* Create the argument list.  */
-  initialize_p_decl = build_decl (PARM_DECL,
-				  get_identifier (INITIALIZE_P_IDENTIFIER),
-				  integer_type_node);
+  initialize_p_decl = cp_build_parm_decl
+    (get_identifier (INITIALIZE_P_IDENTIFIER), integer_type_node);
   DECL_CONTEXT (initialize_p_decl) = ssdf_decl;
-  DECL_ARG_TYPE (initialize_p_decl) = integer_type_node;
   TREE_USED (initialize_p_decl) = 1;
-  priority_decl = build_decl (PARM_DECL, get_identifier (PRIORITY_IDENTIFIER),
-			      integer_type_node);
+  priority_decl = cp_build_parm_decl
+    (get_identifier (PRIORITY_IDENTIFIER), integer_type_node);
   DECL_CONTEXT (priority_decl) = ssdf_decl;
-  DECL_ARG_TYPE (priority_decl) = integer_type_node;
   TREE_USED (priority_decl) = 1;
 
   TREE_CHAIN (initialize_p_decl) = priority_decl;
@@ -3592,14 +3587,7 @@ reparse_absdcl_as_expr (type, decl)
   /* recurse */
   decl = reparse_absdcl_as_expr (type, TREE_OPERAND (decl, 0));
 
-  decl = build_x_function_call (decl, NULL_TREE, current_class_ref);
-
-  if (TREE_CODE (decl) == CALL_EXPR
-      && (! TREE_TYPE (decl)
-          || TREE_CODE (TREE_TYPE (decl)) != VOID_TYPE))
-    decl = require_complete_type (decl);
-
-  return decl;
+  return finish_call_expr (decl, NULL_TREE, /*disallow_virtual=*/false);
 }
 
 /* This is something of the form `int ((int)(int)(int)1)' that has turned
@@ -3652,7 +3640,8 @@ reparse_absdcl_as_casts (decl, expr)
   return expr;
 }
 
-/* Given plain tree nodes for an expression, build up the full semantics.  */
+/* T is the parse tree for an expression.  Return the expression after
+   performing semantic analysis.  */
 
 tree
 build_expr_from_tree (t)
@@ -3676,9 +3665,29 @@ build_expr_from_tree (t)
 	return do_identifier (TREE_OPERAND (t, 0), 0, NULL_TREE);
 
     case TEMPLATE_ID_EXPR:
-      return (lookup_template_function
-	      (build_expr_from_tree (TREE_OPERAND (t, 0)),
-	       build_expr_from_tree (TREE_OPERAND (t, 1))));
+      {
+	tree template;
+	tree args;
+	tree object;
+
+	template = build_expr_from_tree (TREE_OPERAND (t, 0));
+	args = build_expr_from_tree (TREE_OPERAND (t, 1));
+	
+	if (TREE_CODE (template) == COMPONENT_REF)
+	  {
+	    object = TREE_OPERAND (template, 0);
+	    template = TREE_OPERAND (template, 1);
+	  }
+	else
+	  object = NULL_TREE;
+
+	template = lookup_template_function (template, args);
+	if (object)
+	  return build (COMPONENT_REF, TREE_TYPE (template), 
+			object, template);
+	else
+	  return template;
+      }
 
     case INDIRECT_REF:
       return build_x_indirect_ref
@@ -3780,7 +3789,7 @@ build_expr_from_tree (t)
 	if (!TYPE_P (r))
 	  return TREE_CODE (t) == SIZEOF_EXPR ? expr_sizeof (r) : c_alignof_expr (r);
 	else
-	  return TREE_CODE (t) == SIZEOF_EXPR ? c_sizeof (r) : c_alignof (r);
+	  return cxx_sizeof_or_alignof_type (r, TREE_CODE (t), true);
       }
 
     case MODOP_EXPR:
@@ -3886,9 +3895,18 @@ build_expr_from_tree (t)
               name = do_identifier (id, 0, args);
             }
           else if (TREE_CODE (name) == TEMPLATE_ID_EXPR
-	      || ! really_overloaded_fn (name))
+		   || ! really_overloaded_fn (name))
 	    name = build_expr_from_tree (name);
-	  return build_x_function_call (name, args, current_class_ref);
+
+	  if (TREE_CODE (name) == OFFSET_REF)
+	    return build_offset_ref_call_from_tree (name, args);
+	  if (TREE_CODE (name) == COMPONENT_REF)
+	    return finish_object_call_expr (TREE_OPERAND (name, 1),
+					    TREE_OPERAND (name, 0),
+					    args);
+	  name = convert_from_reference (name);
+	  return build_call_from_tree (name, args, 
+				       /*disallow_virtual=*/false);
 	}
 
     case COND_EXPR:
@@ -3991,6 +4009,105 @@ build_expr_from_tree (t)
     default:
       return t;
     }
+}
+
+/* FN is an OFFSET_REF indicating the function to call in parse-tree
+   form; it has not yet been semantically analyzed.  ARGS are the
+   arguments to the function.  They have already been semantically
+   analzyed.  */
+
+tree
+build_offset_ref_call_from_tree (tree fn, tree args)
+{
+  tree object_addr;
+
+  my_friendly_assert (TREE_CODE (fn) == OFFSET_REF, 20020725);
+
+  /* A qualified name corresponding to a non-static member
+     function or a pointer-to-member is represented as an 
+     OFFSET_REF.  
+
+     For both of these function calls, FN will be an OFFSET_REF.
+
+	struct A { void f(); };
+	void A::f() { (A::f) (); } 
+
+	struct B { void g(); };
+	void (B::*p)();
+	void B::g() { (this->*p)(); }  */
+
+  /* This code is not really correct (for example, it does not
+     handle the case that `A::f' is overloaded), but it is
+     historically how we have handled this situation.  */
+  object_addr = build_unary_op (ADDR_EXPR, TREE_OPERAND (fn, 0), 0);
+  if (TREE_CODE (TREE_OPERAND (fn, 1)) == FIELD_DECL)
+    fn = resolve_offset_ref (fn);
+  else
+    {
+      fn = TREE_OPERAND (fn, 1);
+      fn = get_member_function_from_ptrfunc (&object_addr, fn);
+    }
+  args = tree_cons (NULL_TREE, object_addr, args);
+  return build_function_call (fn, args);
+}
+
+/* FN indicates the function to call.  Name resolution has been
+   performed on FN.  ARGS are the arguments to the function.  They
+   have already been semantically analyzed.  DISALLOW_VIRTUAL is true
+   if the function call should be determined at compile time, even if
+   FN is virtual.  */
+
+tree
+build_call_from_tree (tree fn, tree args, bool disallow_virtual)
+{
+  tree template_args;
+  tree template_id;
+  tree f;
+  
+  /* Check to see that name lookup has already been performed.  */
+  my_friendly_assert (TREE_CODE (fn) != OFFSET_REF, 20020725);
+  my_friendly_assert (TREE_CODE (fn) != SCOPE_REF, 20020725);
+
+  /* In the future all of this should be eliminated.  Instead,
+     name-lookup for a member function should simply return a
+     baselink, instead of a FUNCTION_DECL, TEMPLATE_DECL, or
+     TEMPLATE_ID_EXPR.  */
+
+  if (TREE_CODE (fn) == TEMPLATE_ID_EXPR)
+    {
+      template_id = fn;
+      template_args = TREE_OPERAND (fn, 1);
+      fn = TREE_OPERAND (fn, 0);
+    }
+  else
+    template_id = NULL_TREE;
+
+  f = (TREE_CODE (fn) == OVERLOAD) ? get_first_fn (fn) : fn;
+  /* Make sure we have a baselink (rather than simply a
+     FUNCTION_DECL) for a member function.  */
+  if (current_class_type
+      && ((TREE_CODE (f) == FUNCTION_DECL
+	   && DECL_FUNCTION_MEMBER_P (f))
+	  || (DECL_FUNCTION_TEMPLATE_P (f) 
+	      && DECL_FUNCTION_MEMBER_P (f))))
+    {
+      f = lookup_member (current_class_type, DECL_NAME (f), 
+			 /*protect=*/1, /*want_type=*/0);
+      if (f)
+	fn = f;
+    }
+
+  if (template_id)
+    {
+      if (BASELINK_P (fn))
+	  BASELINK_FUNCTIONS (fn) = build_nt (TEMPLATE_ID_EXPR, 
+					      BASELINK_FUNCTIONS (fn),
+					      template_args);
+      else
+	fn = template_id;
+    }
+
+  return finish_call_expr (fn, args, disallow_virtual);
 }
 
 /* This is something of the form `int (*a)++' that has turned out to be an

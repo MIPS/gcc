@@ -1486,72 +1486,43 @@ comp_target_parms (parms1, parms2)
   return warn_contravariance ? -1 : 1;
 }
 
-/* Compute the value of the `sizeof' operator.  */
-
 tree
-c_sizeof (type)
+cxx_sizeof_or_alignof_type (type, op, complain)
      tree type;
+     enum tree_code op;
+     int complain;
 {
-  enum tree_code code = TREE_CODE (type);
-  tree size;
+  enum tree_code type_code;
+  tree value;
+  const char *op_name;
 
+  my_friendly_assert (op == SIZEOF_EXPR || op == ALIGNOF_EXPR, 20020720);
   if (processing_template_decl)
-    return build_min_nt (SIZEOF_EXPR, type);
+    return build_min_nt (op, type);
+  
+  op_name = operator_name_info[(int) op].name;
+  
+  if (TREE_CODE (type) == REFERENCE_TYPE)
+    type = TREE_TYPE (type);
+  type_code = TREE_CODE (type);
 
-  if (code == FUNCTION_TYPE)
+  if (type_code == METHOD_TYPE)
     {
-      if (pedantic || warn_pointer_arith)
-	pedwarn ("ISO C++ forbids applying `sizeof' to a function type");
-      size = size_one_node;
+      if (complain && (pedantic || warn_pointer_arith))
+	pedwarn ("invalid application of `%s' to a member function", op_name);
+      value = size_one_node;
     }
-  else if (code == METHOD_TYPE)
+  else if (type_code == OFFSET_TYPE)
     {
-      if (pedantic || warn_pointer_arith)
-	pedwarn ("ISO C++ forbids applying `sizeof' to a member function");
-      size = size_one_node;
+      if (complain)
+	error ("invalid application of `%s' to non-static member", op_name);
+      value = size_zero_node;
     }
-  else if (code == VOID_TYPE)
-    {
-      if (pedantic || warn_pointer_arith)
-	pedwarn ("ISO C++ forbids applying `sizeof' to type `void' which is an incomplete type");
-      size = size_one_node;
-    }
-  else if (code == ERROR_MARK)
-    size = size_one_node;
   else
-    {
-      /* ARM $5.3.2: ``When applied to a reference, the result is the
-	 size of the referenced object.'' */
-      if (code == REFERENCE_TYPE)
-	type = TREE_TYPE (type);
+    value = c_sizeof_or_alignof_type (complete_type (type), op, complain);
 
-      if (code == OFFSET_TYPE)
-	{
-	  error ("`sizeof' applied to non-static member");
-	  size = size_zero_node;
-	}
-      else if (!COMPLETE_TYPE_P (complete_type (type)))
-	{
-	  error ("`sizeof' applied to incomplete type `%T'", type);
-	  size = size_zero_node;
-	}
-      else
-	/* Convert in case a char is more than one unit.  */
-	size = size_binop (CEIL_DIV_EXPR, TYPE_SIZE_UNIT (type),
-			   size_int (TYPE_PRECISION (char_type_node)
-				     / BITS_PER_UNIT));
-    }
-
-  /* SIZE will have an integer type with TYPE_IS_SIZETYPE set.
-     TYPE_IS_SIZETYPE means that certain things (like overflow) will
-     never happen.  However, this node should really have type
-     `size_t', which is just a typedef for an ordinary integer type.  */
-  size = fold (build1 (NOP_EXPR, c_size_type_node, size));
-  my_friendly_assert (!TYPE_IS_SIZETYPE (TREE_TYPE (size)), 
-		      20001021);
-  return size;
+  return value;
 }
-
 
 tree
 expr_sizeof (e)
@@ -1582,44 +1553,9 @@ expr_sizeof (e)
   if (e == error_mark_node)
     return e;
 
-  return c_sizeof (TREE_TYPE (e));
+  return cxx_sizeof (TREE_TYPE (e));
 }
   
-tree
-c_sizeof_nowarn (type)
-     tree type;
-{
-  enum tree_code code = TREE_CODE (type);
-  tree size;
-
-  if (code == FUNCTION_TYPE
-      || code == METHOD_TYPE
-      || code == VOID_TYPE
-      || code == ERROR_MARK)
-    size = size_one_node;
-  else
-    {
-      if (code == REFERENCE_TYPE)
-	type = TREE_TYPE (type);
-
-      if (!COMPLETE_TYPE_P (type))
-	size = size_zero_node;
-      else
-	/* Convert in case a char is more than one unit.  */
-	size = size_binop (CEIL_DIV_EXPR, TYPE_SIZE_UNIT (type),
-			   size_int (TYPE_PRECISION (char_type_node)
-				     / BITS_PER_UNIT));
-    }
-
-  /* SIZE will have an integer type with TYPE_IS_SIZETYPE set.
-     TYPE_IS_SIZETYPE means that certain things (like overflow) will
-     never happen.  However, this node should really have type
-     `size_t', which is just a typedef for an ordinary integer type.  */
-  size = fold (build1 (NOP_EXPR, c_size_type_node, size));
-  my_friendly_assert (!TYPE_IS_SIZETYPE (TREE_TYPE (size)), 
-		      20001021);
-  return size;
-}
 
 /* Perform the array-to-pointer and function-to-pointer conversions
    for EXP.  
@@ -2519,309 +2455,6 @@ build_array_ref (array, idx)
   }
 }
 
-/* Build a function call to function FUNCTION with parameters PARAMS.
-   PARAMS is a list--a chain of TREE_LIST nodes--in which the
-   TREE_VALUE of each node is a parameter-expression.  The PARAMS do
-   not include any object pointer that may be required.  FUNCTION's
-   data type may be a function type or a pointer-to-function.
-
-   For C++: If FUNCTION's data type is a TREE_LIST, then the tree list
-   is the list of possible methods that FUNCTION could conceivably
-   be.  If the list of methods comes from a class, then it will be
-   a list of lists (where each element is associated with the class
-   that produced it), otherwise it will be a simple list (for
-   functions overloaded in global scope).
-
-   In the first case, TREE_VALUE (function) is the head of one of those
-   lists, and TREE_PURPOSE is the name of the function.
-
-   In the second case, TREE_PURPOSE (function) is the function's
-   name directly.
-
-   DECL is the class instance variable, usually CURRENT_CLASS_REF.
-
-   When calling a TEMPLATE_DECL, we don't require a complete return
-   type.  */
-
-tree
-build_x_function_call (function, params, decl)
-     tree function, params, decl;
-{
-  tree type;
-  tree template_id = NULL_TREE;
-  int is_method;
-
-  if (function == error_mark_node)
-    return error_mark_node;
-
-  if (processing_template_decl)
-    return build_min_nt (CALL_EXPR, function, params, NULL_TREE);
-
-  /* Save explicit template arguments if found */
-  if (TREE_CODE (function) == TEMPLATE_ID_EXPR)
-    {
-      template_id = function;
-      function = TREE_OPERAND (function, 0);
-    }
-
-  type = TREE_TYPE (function);
-
-  if (TREE_CODE (type) == OFFSET_TYPE
-      && TREE_TYPE (type) == unknown_type_node
-      && TREE_CODE (function) == TREE_LIST
-      && TREE_CHAIN (function) == NULL_TREE)
-    {
-      /* Undo (Foo:bar)()...  */
-      type = TYPE_OFFSET_BASETYPE (type);
-      function = TREE_VALUE (function);
-      my_friendly_assert (TREE_CODE (function) == TREE_LIST, 999);
-      my_friendly_assert (TREE_CHAIN (function) == NULL_TREE, 999);
-      function = TREE_VALUE (function);
-      if (TREE_CODE (function) == OVERLOAD)
-	function = OVL_FUNCTION (function);
-      my_friendly_assert (TREE_CODE (function) == FUNCTION_DECL, 999);
-      function = DECL_NAME (function);
-      return build_method_call (decl, function, params,
-				TYPE_BINFO (type), LOOKUP_NORMAL);
-    }
-    
-  if (TREE_CODE (function) == OFFSET_REF
-      && TREE_CODE (type) != METHOD_TYPE)
-    function = resolve_offset_ref (function);
-
-  if ((TREE_CODE (function) == FUNCTION_DECL
-       && DECL_STATIC_FUNCTION_P (function))
-      || (DECL_FUNCTION_TEMPLATE_P (function)
-	  && DECL_STATIC_FUNCTION_P (DECL_TEMPLATE_RESULT (function))))
-      return build_member_call (DECL_CONTEXT (function), 
-				template_id 
-				? template_id : DECL_NAME (function), 
-				params);
-
-  is_method = ((TREE_CODE (function) == TREE_LIST
-		&& current_class_type != NULL_TREE
-		&& (IDENTIFIER_CLASS_VALUE (TREE_PURPOSE (function))
-		    == function))
-	       || (TREE_CODE (function) == OVERLOAD
-		   && DECL_FUNCTION_MEMBER_P (OVL_CURRENT (function)))
-	       || TREE_CODE (function) == IDENTIFIER_NODE
-	       || TREE_CODE (type) == METHOD_TYPE
-	       || TYPE_PTRMEMFUNC_P (type));
-
-  /* A friend template.  Make it look like a toplevel declaration.  */
-  if (! is_method && TREE_CODE (function) == TEMPLATE_DECL)
-    function = ovl_cons (function, NULL_TREE);
-
-  /* Handle methods, friends, and overloaded functions, respectively.  */
-  if (is_method)
-    {
-      tree basetype = NULL_TREE;
-
-      if (TREE_CODE (function) == OVERLOAD)
-	function = OVL_CURRENT (function);
-
-      if (TREE_CODE (function) == FUNCTION_DECL
-	  || DECL_FUNCTION_TEMPLATE_P (function))
-	{
-	  basetype = DECL_CONTEXT (function);
-
-	  if (DECL_NAME (function))
-	    function = DECL_NAME (function);
-	  else
-	    function = TYPE_IDENTIFIER (DECL_CONTEXT (function));
-	}
-      else if (TREE_CODE (function) == TREE_LIST)
-	{
-	  my_friendly_assert (TREE_CODE (TREE_VALUE (function))
-			      == FUNCTION_DECL, 312);
-	  basetype = DECL_CONTEXT (TREE_VALUE (function));
-	  function = TREE_PURPOSE (function);
-	}
-      else if (TREE_CODE (function) != IDENTIFIER_NODE)
-	{
-	  if (TREE_CODE (function) == OFFSET_REF)
-	    {
-	      if (TREE_OPERAND (function, 0))
-		decl = TREE_OPERAND (function, 0);
-	    }
-	  /* Call via a pointer to member function.  */
-	  if (decl == NULL_TREE)
-	    {
-	      error ("pointer to member function called, but not in class scope");
-	      return error_mark_node;
-	    }
-	  /* What other type of POINTER_TYPE could this be? */
-	  if (TREE_CODE (TREE_TYPE (function)) != POINTER_TYPE
-	      && ! TYPE_PTRMEMFUNC_P (TREE_TYPE (function))
-	      && TREE_CODE (function) != OFFSET_REF)
-	    function = build (OFFSET_REF, TREE_TYPE (type), NULL_TREE,
-			      function);
-	  goto do_x_function;
-	}
-
-      /* this is an abbreviated method call.
-         must go through here in case it is a virtual function.
-	 @@ Perhaps this could be optimized.  */
-
-      if (basetype && (! current_class_type
-		       || ! DERIVED_FROM_P (basetype, current_class_type)))
-	return build_member_call (basetype, function, params);
-
-      if (decl == NULL_TREE)
-	{
-	  if (current_class_type == NULL_TREE)
-	    {
-	      error ("object missing in call to method `%D'", function);
-	      return error_mark_node;
-	    }
-	  /* Yow: call from a static member function.  */
-	  decl = build_dummy_object (current_class_type);
-	}
-
-      /* Put back explicit template arguments, if any.  */
-      if (template_id)
-        function = template_id;
-      return build_method_call (decl, function, params,
-				NULL_TREE, LOOKUP_NORMAL);
-    }
-  else if (TREE_CODE (function) == COMPONENT_REF
-	   && type == unknown_type_node)
-    {
-      /* Undo what we did in build_component_ref.  */
-      decl = TREE_OPERAND (function, 0);
-      function = TREE_OPERAND (function, 1);
-
-      if (TREE_CODE (function) == OVERLOAD
- 	  && TREE_TYPE (function) != unknown_type_node)
- 	/* It was a conversion operator. We can't use DECL_NAME, as
- 	   that might refer to a templated function.  */
-	function = mangle_conv_op_name_for_type (TREE_TYPE (function));
-      else if (TREE_CODE (function) == TEMPLATE_ID_EXPR)
-	{
-	  my_friendly_assert (!template_id, 20011228);
-
-	  template_id = function;
-	}
-      else
-	{
-	  function = DECL_NAME (OVL_CURRENT (function));
-
-	  if (template_id)
-	    {
-	      TREE_OPERAND (template_id, 0) = function;
-	      function = template_id;
-	    }
-	}
-
-      return build_method_call (decl, function, params,
-				NULL_TREE, LOOKUP_NORMAL);
-    }
-  else if (really_overloaded_fn (function))
-    {
-      if (OVL_FUNCTION (function) == NULL_TREE)
-	{
-	  error ("function `%D' declared overloaded, but no definitions appear with which to resolve it?!?",
-		    TREE_PURPOSE (function));
-	  return error_mark_node;
-	}
-      else
-	{
-	  /* Put back explicit template arguments, if any.  */
-	  if (template_id)
-	    function = template_id;
-	  return build_new_function_call (function, params);
-	}
-    }
-  else
-    /* Remove a potential OVERLOAD around it */
-    function = OVL_CURRENT (function);
-
- do_x_function:
-  if (TREE_CODE (function) == OFFSET_REF)
-    {
-      /* If the component is a data element (or a virtual function), we play
-	 games here to make things work.  */
-      tree decl_addr;
-
-      if (TREE_OPERAND (function, 0))
-	decl = TREE_OPERAND (function, 0);
-      else
-	decl = current_class_ref;
-
-      decl_addr = build_unary_op (ADDR_EXPR, decl, 0);
-
-      /* Sigh.  OFFSET_REFs are being used for too many things.
-	 They're being used both for -> and ->*, and we want to resolve
-	 the -> cases here, but leave the ->*.  We could use
-	 resolve_offset_ref for those, too, but it would call
-         get_member_function_from_ptrfunc and decl_addr wouldn't get
-         updated properly.  Nasty.  */
-      if (TREE_CODE (TREE_OPERAND (function, 1)) == FIELD_DECL)
-	function = resolve_offset_ref (function);
-      else
-	function = TREE_OPERAND (function, 1);
-
-      function = get_member_function_from_ptrfunc (&decl_addr, function);
-      params = tree_cons (NULL_TREE, decl_addr, params);
-      return build_function_call (function, params);
-    }
-
-  type = TREE_TYPE (function);
-  if (type != error_mark_node)
-    {
-      if (TREE_CODE (type) == REFERENCE_TYPE)
-	type = TREE_TYPE (type);
-
-      if (IS_AGGR_TYPE (type))
-	return build_opfncall (CALL_EXPR, LOOKUP_NORMAL, function, params, NULL_TREE);
-    }
-
-  if (is_method)
-    {
-      tree fntype = TREE_TYPE (function);
-      tree ctypeptr = NULL_TREE;
-
-      /* Explicitly named method?  */
-      if (TREE_CODE (function) == FUNCTION_DECL)
-	ctypeptr = build_pointer_type (DECL_CLASS_CONTEXT (function));
-      /* Expression with ptr-to-method type?  It could either be a plain
-	 usage, or it might be a case where the ptr-to-method is being
-	 passed in as an argument.  */
-      else if (TYPE_PTRMEMFUNC_P (fntype))
-	{
-	  tree rec = TYPE_METHOD_BASETYPE (TREE_TYPE
-					   (TYPE_PTRMEMFUNC_FN_TYPE (fntype)));
-	  ctypeptr = build_pointer_type (rec);
-	}
-      /* Unexpected node type?  */
-      else
-	abort ();
-      if (decl == NULL_TREE)
-	{
-	  if (current_function_decl
-	      && DECL_STATIC_FUNCTION_P (current_function_decl))
-	    error ("invalid call to member function needing `this' in static member function scope");
-	  else
-	    error ("pointer to member function called, but not in class scope");
-	  return error_mark_node;
-	}
-      if (TREE_CODE (TREE_TYPE (decl)) != POINTER_TYPE
-	  && ! TYPE_PTRMEMFUNC_P (TREE_TYPE (decl)))
-	{
-	  tree binfo = lookup_base (TREE_TYPE (decl), TREE_TYPE (ctypeptr),
-				    ba_check, NULL);
-	  
-	  decl = build_unary_op (ADDR_EXPR, decl, 0);
-	  decl = build_base_path (PLUS_EXPR, decl, binfo, 1);
-	}
-      else
-	decl = build_c_cast (ctypeptr, decl);
-      params = tree_cons (NULL_TREE, decl, params);
-    }
-
-  return build_function_call (function, params);
-}
-
 /* Resolve a pointer to member function.  INSTANCE is the object
    instance to use, if the member points to a virtual member.
 
@@ -3176,11 +2809,7 @@ convert_arguments (typelist, values, fndecl, flags)
 	      parmval = convert_for_initialization
 		(NULL_TREE, type, val, flags,
 		 "argument passing", fndecl, i);
-	      if (PROMOTE_PROTOTYPES
-		  && INTEGRAL_TYPE_P (type)
-		  && (TYPE_PRECISION (type)
-		      < TYPE_PRECISION (integer_type_node)))
-		parmval = default_conversion (parmval);
+	      parmval = convert_for_arg_passing (type, parmval);
 	    }
 
 	  if (parmval == error_mark_node)
@@ -4408,7 +4037,7 @@ build_unary_op (code, xarg, noconvert)
 			  ((code == PREINCREMENT_EXPR
 			    || code == POSTINCREMENT_EXPR)
 			   ? "increment" : "decrement"), argtype);
-	    inc = c_sizeof_nowarn (TREE_TYPE (argtype));
+	    inc = cxx_sizeof_nowarn (TREE_TYPE (argtype));
 	  }
 	else
 	  inc = integer_one_node;
@@ -4996,7 +4625,7 @@ build_static_cast (type, expr)
 				   LOOKUP_COMPLAIN, NULL_TREE)));
 
   if (IS_AGGR_TYPE (type))
-    return build_cplus_new (type, (build_method_call
+    return build_cplus_new (type, (build_special_member_call
 				   (NULL_TREE, complete_ctor_identifier, 
 				    build_tree_list (NULL_TREE, expr),
 				    TYPE_BINFO (type), LOOKUP_NORMAL)));
@@ -5499,9 +5128,10 @@ build_modify_expr (lhs, modifycode, rhs)
 	/* Do the default thing */;
       else
 	{
-	  result = build_method_call (lhs, complete_ctor_identifier,
-				      build_tree_list (NULL_TREE, rhs),
-				      TYPE_BINFO (lhstype), LOOKUP_NORMAL);
+	  result = build_special_member_call (lhs, complete_ctor_identifier,
+					      build_tree_list (NULL_TREE, rhs),
+					      TYPE_BINFO (lhstype), 
+					      LOOKUP_NORMAL);
 	  if (result == NULL_TREE)
 	    return error_mark_node;
 	  return result;

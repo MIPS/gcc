@@ -61,7 +61,7 @@ struct diagnostic_context;
       ICS_ELLIPSIS_FLAG (in _CONV)
       BINFO_ACCESS (in BINFO)
    2: IDENTIFIER_OPNAME_P.
-      TYPE_POLYMORHPIC_P (in _TYPE)
+      TYPE_POLYMORPHIC_P (in _TYPE)
       ICS_THIS_FLAG (in _CONV)
       BINDING_HAS_LEVEL_P (in CPLUS_BINDING)
       BINFO_LOST_PRIMARY_P (in BINFO)
@@ -385,10 +385,25 @@ struct tree_overload GTY(())
   (TREE_CODE (NODE) == TREE_LIST && TREE_LANG_FLAG_1 (NODE))
 #define SET_BASELINK_P(NODE) \
   (TREE_LANG_FLAG_1 (NODE) = 1)
+/* The BINFO indicated the base from which the BASELINK_FUNCTIONS came.  */
+#define BASELINK_BINFO(NODE) \
+  (TREE_PURPOSE (NODE))
 /* The functions referred to by the BASELINK; either a FUNCTION_DECL
    or an OVERLOAD.  */
 #define BASELINK_FUNCTIONS(NODE) \
   (TREE_VALUE (NODE))
+/* The BINFO in which the search for the functions indicated by this baselink 
+   began.  This base is used to determine the accessibility of functions 
+   selected by overload resolution.  */
+#define BASELINK_ACCESS_BINFO(NODE) \
+  (TREE_TYPE (NODE))
+/* For a type-conversion operator, the BASELINK_OPTYPE indicates the type
+   to which the conversion should occur.  This value is important if
+   the BASELINK_FUNCTIONS include a template conversion operator --
+   the BASELINK_OPTYPE can be used to determine what type the user
+   requested.  */
+#define BASELINK_OPTYPE(NODE) \
+  (TREE_CHAIN (NODE))
 
 #define WRAPPER_ZC(NODE) (((struct tree_wrapper*)WRAPPER_CHECK (NODE))->z_c)
 
@@ -954,10 +969,6 @@ extern int flag_no_asm;
 /* Nonzero means don't recognize any extended keywords.  */
 
 extern int flag_no_gnu_keywords;
-
-/* Nonzero means recognize the named operators from C++98.  */
-
-extern int flag_operator_names;
 
 /* For environments where you can use GNU binutils (as, ld in particular).  */
 
@@ -1748,29 +1759,36 @@ struct lang_type GTY(())
 
 /* Accessor macros for the vfield slots in structures.  */
 
-/* The virtual function pointer fields that this type contains.  For a
-   vfield defined just for this class, or from a primary base, the
-   TREE_PURPOSE is NULL.  Otherwise, the TREE_PURPOSE is the BINFO for
-   the class containing the vfield.  The TREE_VALUE is the class where
-   the vfield was first defined.  */
+/* List of virtual table fields that this type contains (both the primary
+   and secondaries). The TREE_VALUE is the class type where the vtable
+   field was introduced. For a vtable field inherited from the primary
+   base, or introduced by this class, the TREE_PURPOSE is NULL. For
+   other vtable fields (those from non-primary bases), the
+   TREE_PURPOSE is the BINFO of the base through which the vtable was
+   inherited.  */
 #define CLASSTYPE_VFIELDS(NODE) (LANG_TYPE_CLASS_CHECK (NODE)->vfields)
 
-/* Get the assoc info that caused this vfield to exist.  */
+/* Get the BINFO that introduced this vtable into the hierarchy (will
+   be NULL for those created at this level, or from a primary
+   hierarchy).  */
 #define VF_BINFO_VALUE(NODE) TREE_PURPOSE (NODE)
 
-/* Get that same information as a _TYPE.  */
+/* Get the TYPE that introduced this vtable into the hierarchy (always
+   non-NULL).  */
 #define VF_BASETYPE_VALUE(NODE) TREE_VALUE (NODE)
 
-/* Get the value of the top-most type dominating the non-`normal' vfields.  */
+/* Accessor macros for the BINFO_VIRTUALS list. */
 #define VF_DERIVED_VALUE(NODE) \
-  (VF_BINFO_VALUE (NODE) ? BINFO_TYPE (VF_BINFO_VALUE (NODE)) : NULL_TREE)
+   (VF_BINFO_VALUE (NODE) ? BINFO_TYPE (VF_BINFO_VALUE (NODE)) : NULL_TREE)
 
 /* The number of bytes by which to adjust the `this' pointer when
-   calling this virtual function.  */
+   calling this virtual function.  Subtract this value from the this
+   pointer. Always non-NULL, might be constant zero though. */
 #define BV_DELTA(NODE) (TREE_PURPOSE (NODE))
 
 /* If non-NULL, the vtable index at which to find the vcall offset
-   when calling this virtual function.  */
+   when calling this virtual function.  Add the value at that vtable
+   index to the this pointer.  */
 #define BV_VCALL_INDEX(NODE) (TREE_TYPE (NODE))
 
 /* The function to call.  */
@@ -3202,8 +3220,10 @@ typedef enum tsubst_flags_t {
   tf_ignore_bad_quals = 1 << 3, /* ignore bad cvr qualifiers */
   tf_keep_type_decl = 1 << 4,	/* retain typedef type decls
 				   (make_typename_type use) */
-  tf_ptrmem_ok = 1 << 5      /* pointers to member ok (internal
+  tf_ptrmem_ok = 1 << 5,     /* pointers to member ok (internal
 				instantiate_type use) */
+  tf_parsing = 1 << 6	     /* called from parser
+				(make_typename_type use) */
 } tsubst_flags_t;
 
 /* The kind of checking we can do looking in a class hierarchy. */
@@ -3379,7 +3399,6 @@ extern GTY(()) varray_type local_classes;
 #endif	/* NO_DOLLAR_IN_LABEL */
 
 #define THIS_NAME "this"
-#define FILE_FUNCTION_PREFIX_LEN 9
 #define CTOR_NAME "__ct"
 #define DTOR_NAME "__dt"
 
@@ -3687,6 +3706,8 @@ extern int sufficient_parms_p                   PARAMS ((tree));
 extern tree type_decays_to			PARAMS ((tree));
 extern tree build_user_type_conversion		PARAMS ((tree, tree, int));
 extern tree build_new_function_call		PARAMS ((tree, tree));
+extern tree build_new_method_call               (tree, tree, tree, tree, int);
+extern tree build_special_member_call           (tree, tree, tree, tree, int);
 extern tree build_new_op			PARAMS ((enum tree_code, int, tree, tree, tree));
 extern tree build_op_delete_call		PARAMS ((enum tree_code, tree, tree, int, tree));
 extern int can_convert				PARAMS ((tree, tree));
@@ -3697,6 +3718,9 @@ extern tree convert_default_arg                 PARAMS ((tree, tree, tree, int))
 extern tree convert_arg_to_ellipsis             PARAMS ((tree));
 extern tree build_x_va_arg                      PARAMS ((tree, tree));
 extern tree cxx_type_promotes_to		PARAMS ((tree));
+extern tree type_passed_as                      PARAMS ((tree));
+extern tree convert_for_arg_passing             PARAMS ((tree, tree));
+extern tree cp_convert_parm_for_inlining        PARAMS ((tree, tree, tree));
 extern int is_properly_derived_from             PARAMS ((tree, tree));
 extern tree initialize_reference                PARAMS ((tree, tree));
 extern tree strip_top_quals                     PARAMS ((tree));
@@ -3960,6 +3984,8 @@ extern void finish_file				PARAMS ((void));
 extern tree reparse_absdcl_as_expr		PARAMS ((tree, tree));
 extern tree reparse_absdcl_as_casts		PARAMS ((tree, tree));
 extern tree build_expr_from_tree		PARAMS ((tree));
+extern tree build_offset_ref_call_from_tree     (tree, tree);
+extern tree build_call_from_tree                (tree, tree, bool);
 extern tree reparse_decl_as_expr		PARAMS ((tree, tree));
 extern tree finish_decl_parsing			PARAMS ((tree));
 extern void set_decl_namespace                  PARAMS ((tree, tree, int));
@@ -3978,6 +4004,7 @@ extern void mark_used				PARAMS ((tree));
 extern tree handle_class_head			(enum tag_types, tree, tree, tree, int, int *);
 extern tree lookup_arg_dependent                PARAMS ((tree, tree, tree));
 extern void finish_static_data_member_decl      PARAMS ((tree, tree, tree, int));
+extern tree cp_build_parm_decl                  PARAMS ((tree, tree));
 extern tree build_artificial_parm               PARAMS ((tree, tree));
 extern tree get_guard                           PARAMS ((tree));
 extern tree get_guard_cond                      PARAMS ((tree));
@@ -4238,6 +4265,7 @@ extern tree unmarked_vtable_pathp               PARAMS ((tree, void *));
 extern tree find_vbase_instance                 PARAMS ((tree, tree));
 extern tree binfo_for_vbase                     PARAMS ((tree, tree));
 extern tree binfo_via_virtual                   PARAMS ((tree, tree));
+extern tree build_baselink                      (tree, tree, tree, tree);
 
 /* in semantics.c */
 extern void init_cp_semantics                   PARAMS ((void));
@@ -4290,13 +4318,12 @@ extern void finish_subobject                    PARAMS ((tree));
 extern tree finish_parenthesized_expr           PARAMS ((tree));
 extern tree begin_stmt_expr                     PARAMS ((void));
 extern tree finish_stmt_expr                    PARAMS ((tree));
-extern tree finish_call_expr                    PARAMS ((tree, tree, int));
+extern tree finish_call_expr                    (tree, tree, bool);
 extern tree finish_increment_expr               PARAMS ((tree, enum tree_code));
 extern tree finish_this_expr                    PARAMS ((void));
 extern tree finish_object_call_expr             PARAMS ((tree, tree, tree));
 extern tree finish_qualified_object_call_expr   PARAMS ((tree, tree, tree));
 extern tree finish_pseudo_destructor_expr       (tree, tree, tree);
-extern tree finish_qualified_call_expr          PARAMS ((tree, tree));
 extern tree finish_unary_op_expr                PARAMS ((enum tree_code, tree));
 extern tree finish_id_expr                      PARAMS ((tree));
 extern tree finish_compound_literal             (tree, tree);
@@ -4439,7 +4466,8 @@ extern int compparms				PARAMS ((tree, tree));
 extern int comp_cv_qualification                PARAMS ((tree, tree));
 extern int comp_cv_qual_signature               PARAMS ((tree, tree));
 extern tree expr_sizeof				PARAMS ((tree));
-extern tree c_sizeof_nowarn			PARAMS ((tree));
+extern tree cxx_sizeof_or_alignof_type    PARAMS ((tree, enum tree_code, int));
+#define cxx_sizeof_nowarn(T) cxx_sizeof_or_alignof_type (T, SIZEOF_EXPR, false)
 extern tree inline_conversion			PARAMS ((tree));
 extern tree decay_conversion			PARAMS ((tree));
 extern tree build_object_ref			PARAMS ((tree, tree, tree));
@@ -4449,7 +4477,6 @@ extern tree build_x_component_ref		PARAMS ((tree, tree, tree));
 extern tree build_x_indirect_ref		PARAMS ((tree, const char *));
 extern tree build_indirect_ref			PARAMS ((tree, const char *));
 extern tree build_array_ref			PARAMS ((tree, tree));
-extern tree build_x_function_call		PARAMS ((tree, tree, tree));
 extern tree get_member_function_from_ptrfunc	PARAMS ((tree *, tree));
 extern tree build_function_call_real		PARAMS ((tree, tree, int, int));
 extern tree build_function_call_maybe		PARAMS ((tree, tree));
@@ -4485,6 +4512,8 @@ extern tree merge_types				PARAMS ((tree, tree));
 extern tree check_return_expr                   PARAMS ((tree));
 #define cp_build_binary_op(code, arg1, arg2) \
   build_binary_op(code, arg1, arg2, 1)
+#define cxx_sizeof(T)  cxx_sizeof_or_alignof_type (T, SIZEOF_EXPR, true)
+#define cxx_alignof(T) cxx_sizeof_or_alignof_type (T, ALIGNOF_EXPR, true)
 
 /* in typeck2.c */
 extern void cxx_incomplete_type_diagnostic	PARAMS ((tree, tree, int));
@@ -4496,9 +4525,6 @@ extern tree error_not_base_type			PARAMS ((tree, tree));
 extern tree binfo_or_else			PARAMS ((tree, tree));
 extern void readonly_error			PARAMS ((tree, const char *, int));
 extern int abstract_virtuals_error		PARAMS ((tree, tree));
-
-#define my_friendly_assert(EXP, N) (void) \
- (((EXP) == 0) ? (fancy_abort (__FILE__, __LINE__, __FUNCTION__), 0) : 0)
 
 extern tree force_store_init_value		PARAMS ((tree, tree));
 extern tree store_init_value			PARAMS ((tree, tree));

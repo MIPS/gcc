@@ -33,10 +33,6 @@ Boston, MA 02111-1307, USA.  */
 #include "output.h"
 #include "ggc.h"
 #include "toplev.h"
-
-#define obstack_chunk_alloc xmalloc
-#define obstack_chunk_free free
-
 #include "stack.h"
 
 /* Obstack used for remembering decision points of breadth-first.  */
@@ -314,6 +310,7 @@ lookup_base (t, base, access, kind_ptr)
      base_kind *kind_ptr;
 {
   tree binfo = NULL;		/* The binfo we've found so far. */
+  tree t_binfo = NULL;
   base_kind bk;
   
   if (t == error_mark_node || base == error_mark_node)
@@ -322,13 +319,21 @@ lookup_base (t, base, access, kind_ptr)
 	*kind_ptr = bk_not_base;
       return error_mark_node;
     }
-  my_friendly_assert (TYPE_P (t) && TYPE_P (base), 20011127);
+  my_friendly_assert (TYPE_P (base), 20011127);
   
+  if (!TYPE_P (t))
+    {
+      t_binfo = t;
+      t = BINFO_TYPE (t);
+    }
+  else 
+    t_binfo = TYPE_BINFO (t);
+
   /* Ensure that the types are instantiated.  */
   t = complete_type (TYPE_MAIN_VARIANT (t));
   base = complete_type (TYPE_MAIN_VARIANT (base));
   
-  bk = lookup_base_r (TYPE_BINFO (t), base, access & ~ba_quiet,
+  bk = lookup_base_r (t_binfo, base, access & ~ba_quiet,
 		      0, 0, 0, &binfo);
 
   switch (bk)
@@ -971,8 +976,8 @@ friend_accessible_p (scope, decl, binfo)
   return 0;
 }
 
-/* Perform access control on TYPE_DECL VAL, which was looked up in TYPE.
-   This is fairly complex, so here's the design:
+/* Perform access control on TYPE_DECL or TEMPLATE_DECL VAL, which was
+   looked up in TYPE.  This is fairly complex, so here's the design:
 
    The lang_extdef nonterminal sets type_lookups to NULL_TREE before we
      start to process a top-level declaration.
@@ -995,7 +1000,8 @@ void
 type_access_control (type, val)
      tree type, val;
 {
-  if (val == NULL_TREE || TREE_CODE (val) != TYPE_DECL
+  if (val == NULL_TREE
+      || (TREE_CODE (val) != TEMPLATE_DECL && TREE_CODE (val) != TYPE_DECL)
       || ! DECL_CLASS_SCOPE_P (val))
     return;
 
@@ -1364,6 +1370,32 @@ lookup_field_r (binfo, data)
   return NULL_TREE;
 }
 
+/* Return a "baselink" which BASELINK_BINFO, BASELINK_ACCESS_BINFO,
+   BASELINK_FUNCTIONS, and BASELINK_OPTYPE set to BINFO, ACCESS_BINFO,
+   FUNCTIONS, and OPTYPE respectively.  */
+
+tree
+build_baselink (tree binfo, tree access_binfo, tree functions, tree optype)
+{
+  tree baselink;
+
+  my_friendly_assert (TREE_CODE (functions) == FUNCTION_DECL
+		      || TREE_CODE (functions) == TEMPLATE_DECL
+		      || TREE_CODE (functions) == TEMPLATE_ID_EXPR
+		      || TREE_CODE (functions) == OVERLOAD,
+		      20020730);
+  my_friendly_assert (!optype || TYPE_P (optype), 20020730);
+
+  baselink = build_tree_list (NULL_TREE, NULL_TREE);
+  SET_BASELINK_P (baselink);
+  BASELINK_BINFO (baselink) = binfo;
+  BASELINK_ACCESS_BINFO (baselink) = access_binfo;
+  BASELINK_FUNCTIONS (baselink) = functions;
+  BASELINK_OPTYPE (baselink) = optype;
+
+  return baselink;
+}
+
 /* Look for a member named NAME in an inheritance lattice dominated by
    XBASETYPE.  If PROTECT is 0 or two, we do not check access.  If it is
    1, we enforce accessibility.  If PROTECT is zero, then, for an
@@ -1473,19 +1505,9 @@ lookup_member (xbasetype, name, protect, want_type)
 						TREE_TYPE (rval)));
 
   if (rval && is_overloaded_fn (rval)) 
-    {
-      /* Note that the binfo we put in the baselink is the binfo where
-	 we found the functions, which we need for overload
-	 resolution, but which should not be passed to enforce_access;
-	 rather, enforce_access wants a binfo which refers to the
-	 scope in which we started looking for the function.  This
-	 will generally be the binfo passed into this function as
-	 xbasetype.  */
-
-      rval = tree_cons (rval_binfo, rval, NULL_TREE);
-      SET_BASELINK_P (rval);
-    }
-
+    rval = build_baselink (rval_binfo, basetype_path, rval,
+			   (IDENTIFIER_TYPENAME_P (name)
+			   ? TREE_TYPE (name): NULL_TREE));
   return rval;
 }
 
