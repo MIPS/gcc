@@ -71,11 +71,66 @@ struct opt_stats_d
   long num_re;
 };
 
+/* Value range propagation record.  Each time we encounter a conditional
+   of the form SSA_NAME COND CONST we create a new vrp_element to record
+   how the condition affects the possible values SSA_NAME may have.
+
+   Each record contains the condition tested (COND), and the the range of
+   values the variable may legitimately have if COND is true.  Note the
+   range of values may be a smaller range than COND specifies if we have
+   recorded other ranges for this variable.  Each record also contains the
+   block in which the range was recorded for invalidation purposes.
+
+   Note that the current known range is computed lazily.  This allows us
+   to avoid the overhead of computing ranges which are never queried.
+
+   When we encounter a conditional, we look for records which constrain
+   the SSA_NAME used in the condition.  In some cases those records allow
+   us to determine the condition's result at compile time.  In other cases
+   they may allow us to simplify the condition.
+
+   We also use value ranges to do things like transform signed div/mod
+   operations into unsigned div/mod or to simplify ABS_EXPRs. 
+
+   Simple experiments have shown these optimizations to not be all that
+   useful on switch statements (much to my surprise).  So switch statement
+   optimizations are not performed.
+
+   Note carefully we do not propagate information through each statement
+   in the block.  ie, if we know variable X has a value defined of
+   [0, 25] and we encounter Y = X + 1, we do not track a value range
+   for Y (which would be [1, 26] if we cared).  Similarly we do not
+   constrain values as we encounter narrowing typecasts, etc.  */
+
+struct vrp_element
+{
+  /* The highest and lowest values the variable in COND may contain when
+     COND is true.  Note this may not necessarily be the same values
+     tested by COND if the same variable was used in earlier conditionals. 
+
+     Note this is computed lazily and thus can be NULL indicating that
+     the values have not been computed yet.  */
+  tree low;
+  tree high;
+
+  /* The actual conditional we recorded.  This is needed since we compute
+     ranges lazily.  */
+  tree cond;
+
+  /* The basic block where this record was created.  We use this to determine
+     when to remove records.  */
+  basic_block bb;
+};
+
 static struct opt_stats_d opt_stats;
 
 /* Redirections scheduled by jump threading.   */
 static varray_type edges_to_redirect;
 static varray_type redirection_targets;
+
+/* A virtual array holding value range records for the variable indentified
+   by the index, SSA_VERSION.  */
+static varray_type vrp_data;
 
 /* Local functions.  */
 static void optimize_block (basic_block, tree, int, sbitmap, bool *);
@@ -83,7 +138,8 @@ static bool optimize_stmt (block_stmt_iterator, varray_type *, bool *);
 static inline tree get_value_for (tree, varray_type);
 static inline void set_value_for (tree, tree, varray_type);
 static tree lookup_avail_expr (tree, varray_type *, varray_type, bool);
-static tree get_eq_expr_value (tree, int, varray_type *, varray_type);
+static tree get_eq_expr_value (tree, int, varray_type *, varray_type,
+			       basic_block, varray_type);
 static hashval_t avail_expr_hash (const void *);
 static int avail_expr_eq (const void *, const void *);
 static void htab_statistics (FILE *, htab_t);
@@ -97,6 +153,8 @@ static tree simplify_rhs_and_lookup_avail_expr (tree, varray_type *,
 static tree simplify_cond_and_lookup_avail_expr (tree, varray_type *,
 						 varray_type, stmt_ann_t, int);
 static tree find_equivalent_equality_comparison (tree);
+static void record_range (tree, basic_block, varray_type);
+static bool extract_range_from_cond (tree, tree *, tree *, int *);
 
 /* Optimize function FNDECL based on the dominator tree.  This does
    simple const/copy propagation and redundant expression elimination using
@@ -148,6 +206,7 @@ tree_ssa_dominator_optimize (tree fndecl, sbitmap vars_to_rename,
   VARRAY_TREE_INIT (const_and_copies, next_ssa_version, "const_and_copies");
   VARRAY_EDGE_INIT (edges_to_redirect, 20, "edges_to_redirect");
   VARRAY_BB_INIT (redirection_targets, 20, "redirection_targets");
+  VARRAY_GENERIC_PTR_INIT (vrp_data, next_ssa_version, "vrp_data");
 
   /* If we prove certain blocks are unreachable, then we want to
      repeat the dominator optimization process as PHI nodes may
@@ -326,6 +385,7 @@ optimize_block (basic_block bb, tree parent_block_last_stmt, int edge_flags,
   varray_type block_avail_exprs;
   varray_type block_const_and_copies;
   varray_type stmts_to_rescan;
+  varray_type vrp_variables;
   bitmap children;
   unsigned long i;
   block_stmt_iterator si;
@@ -344,6 +404,12 @@ optimize_block (basic_block bb, tree parent_block_last_stmt, int edge_flags,
   VARRAY_TREE_INIT (block_avail_exprs, 20, "block_avail_exprs");
   VARRAY_TREE_INIT (block_const_and_copies, 2, "block_const_and_copies");
   VARRAY_TREE_INIT (stmts_to_rescan, 20, "stmts_to_rescan");
+
+  /* VRP_VARIABLES stores all the variables which have their values
+     constrainted by an operation in this block.  Right now only
+     conditionals constrain values.  Other operations may constrain
+     values in the future.  */
+  VARRAY_TREE_INIT (vrp_variables, 2, "vrp_variables");
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "\n\nOptimizing block #%d\n\n", bb->index);
@@ -366,7 +432,9 @@ optimize_block (basic_block bb, tree parent_block_last_stmt, int edge_flags,
     eq_expr_value = get_eq_expr_value (parent_block_last_stmt,
 				       (edge_flags & EDGE_TRUE_VALUE) != 0,
 				       &block_avail_exprs,
-				       const_and_copies);
+				       const_and_copies,
+				       bb,
+				       vrp_variables);
   /* Similarly when the parent block ended in a SWITCH_EXPR.  */
   else if (parent_block_last_stmt
 	   && TREE_CODE (parent_block_last_stmt) == SWITCH_EXPR
@@ -675,6 +743,38 @@ optimize_block (basic_block bb, tree parent_block_last_stmt, int edge_flags,
       set_value_for (dest, prev_value, const_and_copies);
     }
 
+  /* Remove VRP records associated with this basic block.  They are no
+     longer valid.
+
+     To be efficient, we note which variables have had their values
+     constrained in this block.  So walk over each variable in the
+     VRP_VARIABLEs array.  */
+  while (VARRAY_ACTIVE_SIZE (vrp_variables) > 0)
+    {
+      tree var = VARRAY_TOP_TREE (vrp_variables);
+
+      /* Each variable has a stack of value range records.  We want to
+	 invalidate those associated with our basic block.  So we walk
+	 the array backwards popping off records associated with our
+	 block.  Once we hit a record not associated with our block
+	 we are done.  */
+      varray_type var_vrp_records = VARRAY_GENERIC_PTR (vrp_data,
+							SSA_NAME_VERSION (var));
+
+      while (VARRAY_ACTIVE_SIZE (var_vrp_records) > 0)
+	{
+	  struct vrp_element *element
+	    = (struct vrp_element *)VARRAY_TOP_GENERIC_PTR (var_vrp_records);
+
+	  if (element->bb != bb)
+	    break;
+  
+	  VARRAY_POP (var_vrp_records);
+	}
+
+      VARRAY_POP (vrp_variables);
+    }
+
   /* Re-scan operands in all statements that may have had new symbols
      exposed.  */
   while (VARRAY_ACTIVE_SIZE (stmts_to_rescan) > 0)
@@ -873,19 +973,9 @@ simplify_rhs_and_lookup_avail_expr (tree stmt,
 
       cond = build (GT_EXPR, boolean_type_node, op, integer_zero_node);
       cond = build (COND_EXPR, void_type_node, cond, NULL, NULL);
-      val = lookup_avail_expr (cond, block_avail_exprs_p,
-			       const_and_copies, false);
+      val = simplify_cond_and_lookup_avail_expr (cond, block_avail_exprs_p,
+						 const_and_copies, NULL, false);
 
-      /* Also try with GE_EXPR if we did not get a hit with
-         GT_EXPR.  */
-      if (! val || ! integer_onep (val))
-	{
-	  cond = build (GE_EXPR, boolean_type_node, op, integer_zero_node);
-	  cond = build (COND_EXPR, void_type_node, cond, NULL, NULL);
-	  val = lookup_avail_expr (cond, block_avail_exprs_p,
-				   const_and_copies, false);
-	}
-	    
       if (val && integer_onep (val))
 	{
 	  tree t;
@@ -918,18 +1008,9 @@ simplify_rhs_and_lookup_avail_expr (tree stmt,
       cond = build (LT_EXPR, boolean_type_node, op,
 		    convert (type, integer_zero_node));
       cond = build (COND_EXPR, void_type_node, cond, NULL, NULL);
-      val = lookup_avail_expr (cond, block_avail_exprs_p,
-			       const_and_copies, false);
+      val = simplify_cond_and_lookup_avail_expr (cond, block_avail_exprs_p,
+						 const_and_copies, NULL, false);
 
-      if (! val || (! integer_onep (val) && ! integer_zerop (val)))
-	{
-	  cond = build (LE_EXPR, boolean_type_node, op,
-			convert (type, integer_zero_node));
-	  cond = build (COND_EXPR, void_type_node, cond, NULL, NULL);
-	  val = lookup_avail_expr (cond, block_avail_exprs_p,
-				   const_and_copies, false);
-	}
-	    
       if (val && (integer_onep (val) || integer_zerop (val)))
 	{
 	  tree t;
@@ -1002,6 +1083,10 @@ find_equivalent_equality_comparison (tree cond)
 	  tree def_rhs_inner_type = TREE_TYPE (def_rhs_inner);
 	  tree new;
 
+	  if (TYPE_PRECISION (def_rhs_inner_type)
+	      > TYPE_PRECISION (TREE_TYPE (def_rhs)))
+	    return NULL;
+
 	  /* What we want to prove is that if we convert OP1 to
 	     the type of the object inside the NOP_EXPR that the
 	     result is still equivalent to SRC. 
@@ -1041,6 +1126,12 @@ simplify_cond_and_lookup_avail_expr (tree stmt,
 
       if (TREE_CODE (op0) == SSA_NAME && TREE_CONSTANT (op1))
 	{
+	  int limit;
+	  tree low, high, cond_low, cond_high;
+	  int lowequal, highequal, swapped, no_overlap, subset, cond_inverted;
+	  varray_type vrp_records;
+	  struct vrp_element *element;
+
 	  /* First see if we have test of an SSA_NAME against a constant
 	     where the SSA_NAME is defined by an earlier typecast which
 	     is irrelevant when performing tests against the given
@@ -1062,7 +1153,190 @@ simplify_cond_and_lookup_avail_expr (tree stmt,
 						const_and_copies, insert);
 		  if (new_cond)
 		    return new_cond;
+
+		  /* The operands have changed, so update op0 and op1.  */
+		  op0 = TREE_OPERAND (cond, 0);
+		  op1 = TREE_OPERAND (cond, 1);
 		}
+	    }
+
+	  /* Consult the value range records for this variable (if they exist)
+	     to see if we can eliminate or simplify this conditional. 
+
+	     Note two tests are necessary to determine no records exist.
+	     First we have to see if the virtual array exists, if it 
+	     exists, then we have to check its active size. 
+
+	     Also note the vast majority of conditionals are not testing
+	     a variable which has had its range constrained by an earlier
+	     conditional.  So this filter avoids a lot of unnecessary work.  */
+	  vrp_records = VARRAY_GENERIC_PTR (vrp_data, SSA_NAME_VERSION (op0));
+	  if (vrp_records == NULL)
+	    return NULL;
+
+	  limit = VARRAY_ACTIVE_SIZE (vrp_records);
+
+	  /* If we have no value range records for this variable, or we are
+	     unable to extract a range for this condition, then there is
+	     nothing to do.  */
+	  if (limit == 0
+	      || ! extract_range_from_cond (cond, &cond_high,
+					    &cond_low, &cond_inverted))
+	    return NULL;
+
+	  /* We really want to avoid unnecessary computations of range
+	     info.  So all ranges are computed lazily; this avoids a
+	     lot of unnecessary work.  ie, we record the conditional,
+	     but do not process how it constrains the variable's 
+	     potential values until we know that processing the condition
+	     could be helpful.
+
+	     However, we do not want to have to walk a potentially long
+	     list of ranges, nor do we want to compute a variable's
+	     range more than once for a given path.
+
+	     Luckily, each time we encounter a conditional that can not
+	     be otherwise optimized we will end up here and we will
+	     compute the necessary range information for the variable
+	     used in this condition.
+
+	     Thus you can conclude that there will never be more than one
+	     conditional associated with a variable which has not been
+	     processed.  So we never need to merge more than one new
+	     conditional into the current range. 
+
+	     These properties also help us avoid unnecessary work.  */
+	   element
+	     = (struct vrp_element *)VARRAY_GENERIC_PTR (vrp_records, limit - 1);
+
+	  if (element->high && element->low)
+	    {
+	      /* The last element has been processed, so there is no range
+		 merging to do, we can simply use the high/low values
+		 recorded in the last element.  */
+	      low = element->low;
+	      high = element->high;
+	    }
+	  else
+	    {
+	      tree tmp_high, tmp_low;
+	      int dummy;
+
+	      /* The last element has not been processed.  Process it now.  */
+	      extract_range_from_cond (element->cond, &tmp_high,
+				       &tmp_low, &dummy);
+	  
+	      /* If this is the only element, then no merging is necessary, 
+		 the high/low values from extract_range_from_cond are all
+		 we need.  */
+	      if (limit == 1)
+		{
+		  low = tmp_low;
+		  high = tmp_high;
+		}
+	      else
+		{
+		  /* Get the high/low value from the previous element.  */
+		  struct vrp_element *prev
+		    = (struct vrp_element *)VARRAY_GENERIC_PTR (vrp_records,
+								limit - 2);
+		  low = prev->low;
+		  high = prev->high;
+
+		  /* Merge in this element's range with the range from the
+		     previous element.
+
+		     The low value for the merged range is the maximum of
+		     the previous low value and the low value of this record.
+
+		     Simlarly the high value for the merged range is the
+		     minimum of the previous high value and the high value of
+		     this record.  */
+		  low = fold (build (MAX_EXPR, TREE_TYPE (low),
+				     low, tmp_low));
+		  high = fold (build (MIN_EXPR, TREE_TYPE (high),
+				      high, tmp_high));
+
+		}
+
+	      /* And record the computed range.  */
+	      element->low = low;
+	      element->high = high;
+
+	    }
+
+	  /* After we have constrained this variable's potential values,
+	     we try to determine the result of the given conditional.
+
+	     To simplify later tests, first determine if the current
+	     low value is the same low value as the conditional.
+	     Similarly for the current high value and the high value
+	     for the conditional.  */
+	  lowequal = integer_onep (fold (build (EQ_EXPR, boolean_type_node,
+						low, cond_low)));
+	  highequal = integer_onep (fold (build (EQ_EXPR, boolean_type_node,
+						 high, cond_high)));
+
+	  if (lowequal && highequal)
+	    return (cond_inverted ? boolean_false_node : boolean_true_node);
+
+	  /* To simplify the overlap/subset tests below we may want
+	     to swap the two ranges so that the larger of the two
+	     ranges occurs "first".  */
+	  swapped = 0;
+	  if (integer_onep (fold (build (GT_EXPR, boolean_type_node,
+					 low, cond_low)))
+	      || (lowequal 
+		  && integer_onep (fold (build (GT_EXPR, boolean_type_node,
+						high, cond_high)))))
+	    {
+	      tree temp;
+
+	      swapped = 1;
+	      temp = low;
+	      low = cond_low;
+	      cond_low = temp;
+	      temp = high;
+	      high = cond_high;
+	      cond_high = temp;
+	    }
+
+	  /* Now determine if there is no overlap in the ranges
+	     or if the second range is a subset of the first range.  */
+	  no_overlap = integer_onep (fold (build (LT_EXPR,
+						   boolean_type_node,
+						   high, cond_low)));
+	  subset = integer_onep (fold (build (LE_EXPR, boolean_type_node,
+					      cond_high, high)));
+
+	  /* If there was no overlap in the ranges, then this conditional
+	     always has a false value (unless we had to invert this
+	     conditional, in which case it always has a true value).  */
+	  if (no_overlap)
+	    return (cond_inverted ? boolean_true_node : boolean_false_node);
+
+	  /* If the current range is a subset of the condition's range,
+	     then this conditional always has a true value (unless we
+	     had to invert this conditional, in which case it always
+	     has a true value).  */
+	  if (subset && swapped)
+	    return (cond_inverted ? boolean_false_node : boolean_true_node);
+
+	  /* We were unable to determine the result of the conditional.
+	     However, we may be able to simplify the conditional.  First
+	     merge the ranges in the same manner as range merging above.  */
+	  low = fold (build (MAX_EXPR, TREE_TYPE (low), low, cond_low));
+	  high = fold (build (MIN_EXPR, TREE_TYPE (high), high, cond_high));
+	  
+	  /* If the range has converged to a single point, then turn this
+	     into an equality comparison.  */
+	  if (TREE_CODE (cond) != EQ_EXPR
+	      && TREE_CODE (cond) != NE_EXPR
+	      && integer_onep (fold (build (EQ_EXPR, boolean_type_node,
+					    high, low))))
+	    {
+	      TREE_SET_CODE (cond, EQ_EXPR);
+	      TREE_OPERAND (cond, 1) = high;
 	    }
 	}
     }
@@ -1656,6 +1930,105 @@ lookup_avail_expr (tree stmt,
   return lhs;
 }
 
+/* Given a condition COND, record into HI_P, LO_P and INVERTED_P the
+   range of values that result in the conditional having a true value.
+
+   Return true if we are successful in extracting a range from COND and
+   false if we are unsuccessful.  */
+
+static bool
+extract_range_from_cond (tree cond, tree *hi_p, tree *lo_p, int *inverted_p)
+{
+  tree op1 = TREE_OPERAND (cond, 1);
+  tree high, low, type;
+  int inverted;
+  
+  /* Experiments have shown that it's rarely, if ever useful to
+     record ranges for enumerations.  Presumably this is due to
+     the fact that they're rarely used directly.  They are typically
+     cast into an integer type and used that way.  */
+  if (TREE_CODE (TREE_TYPE (op1)) != INTEGER_TYPE)
+    return 0;
+
+  type = TREE_TYPE (op1);
+
+  switch (TREE_CODE (cond))
+    {
+    case EQ_EXPR:
+      high = low = op1;
+      inverted = 0;
+      break;
+
+    case NE_EXPR:
+      high = low = op1;
+      inverted = 1;
+      break;
+
+    case GE_EXPR:
+      low = op1;
+      high = TYPE_MAX_VALUE (type);
+      inverted = 0;
+      break;
+
+    case GT_EXPR:
+      low = fold (build (PLUS_EXPR, TREE_TYPE (op1), op1, integer_one_node));
+      high = TYPE_MAX_VALUE (type);
+      inverted = 0;
+      break;
+
+    case LE_EXPR:
+      high = op1;
+      low = TYPE_MIN_VALUE (type);
+      inverted = 0;
+      break;
+
+    case LT_EXPR:
+      high = fold (build (MINUS_EXPR, TREE_TYPE (op1), op1, integer_one_node));
+      low = TYPE_MIN_VALUE (type);
+      inverted = 0;
+      break;
+
+    default:
+      return 0;
+    }
+
+  *hi_p = high;
+  *lo_p = low;
+  *inverted_p = inverted;
+  return 1;
+}
+
+/* Record a range created by COND for basic block BB.  */
+
+static void
+record_range (tree cond, basic_block bb, varray_type vrp_variables)
+{
+  /* We explicitly ignore NE_EXPRs.  They rarely allow for meaningful
+     range optimizations and significantly compliciate the implementation.  */
+  if (TREE_CODE_CLASS (TREE_CODE (cond)) == '<'
+      && TREE_CODE (cond) != NE_EXPR
+      && TREE_CODE (TREE_TYPE (TREE_OPERAND (cond, 1))) == INTEGER_TYPE)
+    {
+      struct vrp_element *element = ggc_alloc (sizeof (struct vrp_element));
+      int ssa_version = SSA_NAME_VERSION (TREE_OPERAND (cond, 0));
+
+      varray_type vrp_records = VARRAY_GENERIC_PTR (vrp_data, ssa_version);
+
+      element->low = NULL;
+      element->high = NULL;
+      element->cond = cond;
+      element->bb = bb;
+
+      if (vrp_records == NULL)
+	{
+	  VARRAY_GENERIC_PTR_INIT (vrp_records, 2, "vrp records");
+	  VARRAY_GENERIC_PTR (vrp_data, ssa_version) = vrp_records;
+	}
+      
+      VARRAY_PUSH_GENERIC_PTR (vrp_records, element);
+      VARRAY_PUSH_TREE (vrp_variables, TREE_OPERAND (cond, 0));
+    }
+}
 
 /* Given a conditional statement IF_STMT, return the assignment 'X = Y'
    known to be true depending on which arm of IF_STMT is taken.
@@ -1675,39 +2048,14 @@ lookup_avail_expr (tree stmt,
 
 static tree
 get_eq_expr_value (tree if_stmt, int true_arm, varray_type *block_avail_exprs_p,
-		   varray_type const_and_copies)
+		   varray_type const_and_copies, basic_block bb,
+		   varray_type vrp_variables)
 {
   tree cond, value;
 
   cond = COND_EXPR_COND (if_stmt);
+  value = NULL;
 
-  /* If we have a comparison expression, then record its result into
-     the available expression table.  */
-  if (TREE_CODE_CLASS (TREE_CODE (cond)) == '<')
-    {
-      /* When we find an available expression in the hash table, we replace
-	 the expression with the LHS of the statement in the hash table.
-
-	 So, we want to build statements such as "1 = <condition>" on the
-	 true arm and "0 = <condition>" on the false arm.  That way if we
-	 find the expression in the table, we will replace it with its
-	 known constant value.  Also insert inversions of the result and
-	 condition into the hash table.  */
-      if (true_arm)
-	{
-	  record_cond_is_true (cond, block_avail_exprs_p, const_and_copies);
-	  record_cond_is_false (invert_truthvalue (cond),
-				block_avail_exprs_p,
-				const_and_copies);
-	}
-      else
-	{
-	  record_cond_is_true (invert_truthvalue (cond),
-			       block_avail_exprs_p,
-			       const_and_copies);
-	  record_cond_is_false (cond, block_avail_exprs_p, const_and_copies);
-	}
-    }
 
   /* If the conditional is a single variable 'X', return 'X = 1' for
      the true arm and 'X = 0' on the false arm.   */
@@ -1715,31 +2063,59 @@ get_eq_expr_value (tree if_stmt, int true_arm, varray_type *block_avail_exprs_p,
     return build (MODIFY_EXPR, TREE_TYPE (cond), cond,
 		  (true_arm ? integer_one_node : integer_zero_node));
 
-  /* If the conditional is of the form 'X == Y', return 'X = Y' for the
-     true arm.  */
-  else if (true_arm
-	   && TREE_CODE (cond) == EQ_EXPR
-	   && TREE_CODE (TREE_OPERAND (cond, 0)) == SSA_NAME
-	   && (is_unchanging_value (TREE_OPERAND (cond, 1))
-	       || TREE_CODE (TREE_OPERAND (cond, 1)) == SSA_NAME))
-    value = build (MODIFY_EXPR, TREE_TYPE (cond),
-		   TREE_OPERAND (cond, 0),
-		   TREE_OPERAND (cond, 1));
+  /* If we have a comparison expression, then record its result into
+     the available expression table.  */
+  if (TREE_CODE_CLASS (TREE_CODE (cond)) == '<')
+    {
+      tree op0 = TREE_OPERAND (cond, 0);
+      tree op1 = TREE_OPERAND (cond, 1);
 
-  /* If the conditional is of the form 'X != Y', return 'X = Y' for the
-     false arm.  */
-  else if (! true_arm
-	   && TREE_CODE (cond) == NE_EXPR
-	   && TREE_CODE (TREE_OPERAND (cond, 0)) == SSA_NAME
-	   && (is_unchanging_value (TREE_OPERAND (cond, 1))
-	       || TREE_CODE (TREE_OPERAND (cond, 1)) == SSA_NAME))
-    value = build (MODIFY_EXPR, TREE_TYPE (cond),
-		   TREE_OPERAND (cond, 0),
-		   TREE_OPERAND (cond, 1));
+      if (TREE_CODE (op0) == SSA_NAME
+	  && (is_unchanging_value (op1) || TREE_CODE (op1) == SSA_NAME))
+	{
+	  tree inverted = invert_truthvalue (cond);
 
-  /* Return nothing for any other conditional.  */
-  else
-    value = NULL_TREE;
+	  /* When we find an available expression in the hash table, we replace
+	     the expression with the LHS of the statement in the hash table.
+
+	     So, we want to build statements such as "1 = <condition>" on the
+	     true arm and "0 = <condition>" on the false arm.  That way if we
+	     find the expression in the table, we will replace it with its
+	     known constant value.  Also insert inversions of the result and
+	     condition into the hash table.  */
+	  if (true_arm)
+	    {
+	      record_cond_is_true (cond, block_avail_exprs_p, const_and_copies);
+	      record_cond_is_false (inverted,
+				    block_avail_exprs_p,
+				    const_and_copies);
+
+	      if (TREE_CONSTANT (op1))
+		record_range (cond, bb, vrp_variables);
+
+		/* If the conditional is of the form 'X == Y', return 'X = Y'
+		   for the true arm.  */
+	      if (TREE_CODE (cond) == EQ_EXPR)
+		value = build (MODIFY_EXPR, TREE_TYPE (cond), op0, op1);
+	    }
+	  else
+	    {
+
+	      record_cond_is_true (inverted, 
+				   block_avail_exprs_p,
+				   const_and_copies);
+	      record_cond_is_false (cond, block_avail_exprs_p, const_and_copies);
+
+	      if (TREE_CONSTANT (op1))
+		record_range (inverted, bb, vrp_variables);
+
+		/* If the conditional is of the form 'X != Y', return 'X = Y'
+		   for the false arm.  */
+	      if (TREE_CODE (cond) == NE_EXPR)
+		value = build (MODIFY_EXPR, TREE_TYPE (cond), op0, op1);
+	    }
+	}
+    }
 
   return value;
 }

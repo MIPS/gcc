@@ -1,3 +1,21 @@
+2003-09-30  Jeff Law  <law@redhat.com>
+
+	* tree-ssa-dom.c (record_range): New function.
+	(extract_range_from_cond): Likewise.
+	(tree_ssa_dominator_optimize): Initialize the vrp_data varray.
+	(optimize_block): Initialize the vrp_variables varray.  Wipe
+	appropriate entries from the VRP varrays when done processing a block.
+	(get_eq_expr_value): Accept new argument "bb".  Call record_range
+	appropriately.  Refactor code to avoid useless work.
+	(simplify_cond_and_lookup_avail_expr): Use value range records to
+	simplify conditions.
+	(simplify_rhs_and_lookup_avail_expr): When simplifying ABS_EXPR,
+	DIV_EXPR and MOD_EXPR, use simplify_cond_and_lookup_avail_expr
+	to determine the range of the given variable.
+
+	* tree-ssa-dom.c (find_equivalent_equality_comparison): Do not
+	look through a typecast which narrows a value.
+
 2003-09-30  Paul Brook  <paul@nowt.org>
 
 	* Makefile.in: Add rules for check-gfortran.
