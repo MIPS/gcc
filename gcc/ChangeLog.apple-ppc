@@ -1,5 +1,9 @@
 2004-11-16  Dale Johannesen  <dalej@apple.com>
 
+	* tree-ssa.c (flush_pending_stmts):  New.
+
+2004-11-16  Dale Johannesen  <dalej@apple.com>
+
 	* config/rs6000/rs6000.c (rs6000_override_options):
 	Put -ftree-loop-linear into -fast.
 
