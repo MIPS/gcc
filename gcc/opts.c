@@ -548,6 +548,7 @@ decode_options (unsigned int argc, const char **argv)
       flag_ivcanon = 1;
       flag_ivopts = 1;
       flag_tree_vectorize = 0;
+      flag_tree_loop_linear = 0;
       flag_tree_pre = 1;
       flag_tree_elim_checks = 0;
       flag_tree_ter = 1;
@@ -1519,6 +1520,10 @@ common_handle_option (size_t scode, const char *arg,
 
     case OPT_ftree_elim_checks:
       flag_tree_elim_checks = value;
+      break;
+
+    case OPT_ftree_loop_linear:
+      flag_tree_loop_linear = value;
       break;
 
     case OPT_ftree_vectorize:
