@@ -4566,8 +4566,7 @@ do_spec (const char *spec)
    and use a temp file instead if that would happen.  */
 
 static const char *
-check_basename_derived_file (string)
-  const char *string;
+check_basename_derived_file (const char *string)
 {
   int suffix_length, string_length;
   const char *suffix;
