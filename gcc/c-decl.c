@@ -909,8 +909,8 @@ match_builtin_function_types (tree oldtype, tree newtype)
    in the same binding contour.
    Prints an error message if appropriate.
 
-   If safely possible, alter OLDDECL to look like NEWDECL, and return 1.
-   Otherwise, return 0.
+   Merge information from OLDDECL info NEWDECL.  If the same level, return 1
+   to tell our call to chain in NEWDECL after OLDDECL.
 
    When DIFFERENT_BINDING_LEVEL is true, NEWDECL is an external declaration,
    and OLDDECL is in an outer scope and should thus not be changed.  */
@@ -1044,8 +1044,6 @@ duplicate_decls (tree newdecl, tree olddecl, int different_binding_level,
 	      types_match = comptypes (newtype, trytype, comptype_flags);
 	      if (types_match)
 		oldtype = trytype;
-	      if (! different_binding_level)
-		TREE_TYPE (olddecl) = oldtype;
 	    }
 	}
       if (!types_match)
@@ -1375,25 +1373,16 @@ duplicate_decls (tree newdecl, tree olddecl, int different_binding_level,
       tree write_olddecl = different_binding_level ? newdecl : olddecl;
 
       /* Merge the data types specified in the two decls.  */
-      if (TREE_CODE (newdecl) != FUNCTION_DECL || !DECL_BUILT_IN (olddecl))
-	{
-	  if (different_binding_level)
-	    {
-	      if (TYPE_ARG_TYPES (oldtype) != 0
-		  && TYPE_ARG_TYPES (newtype) == 0)
-		TREE_TYPE (newdecl) = common_type (newtype, oldtype);
-	      else
-		TREE_TYPE (newdecl)
-		  = build_type_attribute_variant
-		    (newtype,
-		     merge_attributes (TYPE_ATTRIBUTES (newtype),
-				       TYPE_ATTRIBUTES (oldtype)));
-	    }
-	  else
-	    TREE_TYPE (newdecl)
-	      = TREE_TYPE (olddecl)
-		= common_type (newtype, oldtype);
-	}
+      if (different_binding_level
+	  && (TYPE_ARG_TYPES (oldtype) == 0
+	      || TYPE_ARG_TYPES (newtype) != 0))
+	TREE_TYPE (newdecl)
+	  = build_type_attribute_variant
+	  (newtype,
+	   merge_attributes (TYPE_ATTRIBUTES (newtype),
+			     TYPE_ATTRIBUTES (oldtype)));
+      else
+	TREE_TYPE (newdecl) = common_type (newtype, oldtype);
 
       /* Lay the type out, unless already done.  */
       if (oldtype != TREE_TYPE (newdecl))
@@ -1504,6 +1493,7 @@ duplicate_decls (tree newdecl, tree olddecl, int different_binding_level,
   if (TREE_CODE (newdecl) == FUNCTION_DECL)
     {
       TREE_PUBLIC (newdecl) &= TREE_PUBLIC (olddecl);
+#if 0
       /* This is since we don't automatically
 	 copy the attributes of NEWDECL into OLDDECL.  */
       /* No need to worry about different_binding_level here because
@@ -1512,32 +1502,28 @@ duplicate_decls (tree newdecl, tree olddecl, int different_binding_level,
       /* If this clears `static', clear it in the identifier too.  */
       if (! TREE_PUBLIC (olddecl))
 	TREE_PUBLIC (DECL_NAME (olddecl)) = 0;
+#endif
     }
   if (DECL_EXTERNAL (newdecl))
     {
-      if (! different_binding_level || different_tu)
-	{
-	  /* Don't mess with these flags on local externs; they remain
-	     external even if there's a declaration at file scope which
-	     isn't.  */
-	  TREE_STATIC (newdecl) = TREE_STATIC (olddecl);
-	  DECL_EXTERNAL (newdecl) = DECL_EXTERNAL (olddecl);
-	}
+      /* Don't mess with these flags on local externs; they remain
+	 external even if there's a declaration at file scope which
+	 isn't.  */
+      TREE_STATIC (newdecl) = TREE_STATIC (olddecl);
+      DECL_EXTERNAL (newdecl) = DECL_EXTERNAL (olddecl);
+
       /* An extern decl does not override previous storage class.  */
       TREE_PUBLIC (newdecl) = TREE_PUBLIC (olddecl);
-      if (! DECL_EXTERNAL (newdecl))
+      if (! DECL_EXTERNAL (olddecl))
 	{
 	  DECL_CONTEXT (newdecl) = DECL_CONTEXT (olddecl);
+#if 0
 	  /* If we have two non-EXTERNAL file-scope decls that are
 	     the same, only one of them should be written out.  */
 	  if (different_tu)
 	    TREE_ASM_WRITTEN (newdecl) = 1;
+#endif
 	}
-    }
-  else
-    {
-      TREE_STATIC (olddecl) = TREE_STATIC (newdecl);
-      TREE_PUBLIC (olddecl) = TREE_PUBLIC (newdecl);
     }
 
   if (TREE_CODE (newdecl) == FUNCTION_DECL)
@@ -1573,11 +1559,7 @@ duplicate_decls (tree newdecl, tree olddecl, int different_binding_level,
 	     or if we have a function definition.  */
 	  if (! types_match || new_is_definition)
 	    {
-	      if (! different_binding_level)
-		{
-		  TREE_TYPE (olddecl) = TREE_TYPE (newdecl);
-		  DECL_BUILT_IN_CLASS (olddecl) = NOT_BUILT_IN;
-		}
+	      DECL_BUILT_IN_CLASS (newdecl) = NOT_BUILT_IN;
 	    }
 	  else
 	    {
@@ -1622,33 +1604,15 @@ duplicate_decls (tree newdecl, tree olddecl, int different_binding_level,
 	    DECL_INLINE (newdecl) = 1;
 	}
     }
+  TREE_USED (newdecl) = TREE_USED (olddecl);
+  TREE_ASM_WRITTEN (newdecl) = TREE_ASM_WRITTEN (olddecl);
+#if 0
+  TREE_STATIC (newdecl) = TREE_STATIC (olddecl);
+  TREE_PUBLIC (newdecl) = TREE_PUBLIC (olddecl);
+  DECL_EXTERNAL (newdecl) = DECL_EXTERNAL (olddecl);
+#endif
   if (different_binding_level)
     return 0;
-
-  /* Copy most of the decl-specific fields of NEWDECL into OLDDECL.
-     But preserve OLDDECL's DECL_UID.  */
-  {
-    unsigned olddecl_uid = DECL_UID (olddecl);
-
-    memcpy ((char *) olddecl + sizeof (struct tree_common),
-	    (char *) newdecl + sizeof (struct tree_common),
-	    sizeof (struct tree_decl) - sizeof (struct tree_common));
-    DECL_UID (olddecl) = olddecl_uid;
-  }
-
-  /* NEWDECL contains the merged attribute lists.
-     Update OLDDECL to be the same.  */
-  DECL_ATTRIBUTES (olddecl) = DECL_ATTRIBUTES (newdecl);
-
-  /* If OLDDECL had its DECL_RTL instantiated, re-invoke make_decl_rtl
-     so that encode_section_info has a chance to look at the new decl
-     flags and attributes.  */
-  if (DECL_RTL_SET_P (olddecl)
-      && (TREE_CODE (olddecl) == FUNCTION_DECL
-	  || (TREE_CODE (olddecl) == VAR_DECL
-	      && TREE_STATIC (olddecl))))
-    make_decl_rtl (olddecl, NULL);
-
   return 1;
 }
 
@@ -1845,8 +1809,23 @@ pushdecl (tree x)
 		    SCOPE_LIST_APPEND (scope, parms, old);
 		    break;
 		  }
+	      return old;
 	    }
-	  return old;
+
+	  if (server_mode >= 0 && server_mode != 1
+	      && scope == global_scope)
+	    {
+	      SET_DECL_FRAGMENT (x, current_c_fragment);
+	      note_fragment_binding_1 (x);
+	      register_decl_dependency (old);
+	    }
+	  IDENTIFIER_SYMBOL_VALUE (name) = x;
+	  /* Link new decl immediately after old one. */
+	  TREE_CHAIN (x) = TREE_CHAIN (old);
+	  TREE_CHAIN (old) = x;
+	  if (scope->names_last == old)
+	    scope->names_last = x;
+	  return x;
 	}
       if (DECL_EXTERNAL (x) || scope == global_scope)
 	{
@@ -1856,11 +1835,7 @@ pushdecl (tree x)
 	     incompatible types, the behavior is undefined).  */
 	  tree ext = any_external_decl (name);
 	  if (ext)
-	    {
-	      if (duplicate_decls (x, ext, scope != global_scope, 
-				   false))
-		x = copy_node (ext);
-	    }
+	    (void) duplicate_decls (x, ext, scope != global_scope, false);
 	  else
 	    record_external_decl (x);
 	}
@@ -7010,13 +6985,19 @@ c_write_global_declarations(void)
       tree globals = BLOCK_VARS (DECL_INITIAL (link));
       int len = list_length (globals);
       tree *vec = xmalloc (sizeof (tree) * len);
-      int i;
       tree decl;
       
       /* Process the decls in the order they were written.  */
 
-      for (i = 0, decl = globals; i < len; i++, decl = TREE_CHAIN (decl))
-	vec[i] = decl;
+      for (len = 0, decl = globals;  decl != NULL_TREE; )
+	{
+	  tree next = TREE_CHAIN (decl);
+	  /* A newer duplicate declaration was linked in following the older
+	     one.  We want the new declaration; skip the old one. */
+	  if (next == NULL || DECL_NAME (next) != DECL_NAME (decl))
+	    vec[len++] = decl;
+	  decl = next;
+	}
       
       wrapup_global_declarations (vec, len);
       

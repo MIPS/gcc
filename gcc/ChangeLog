@@ -1,5 +1,12 @@
 2003-11-07  Per Bothner  <pbothner@apple.com>
 
+	* c-decl.c (duplicate_decls):  Don't modify olddecl.  Instead, merge
+	olddecl's info into newdecl.
+	(pushdecl):  Return (except for PARM_DECL) the new decl.
+	(c_write_global_declarations):  Skip old declaration.
+
+2003-11-07  Per Bothner  <pbothner@apple.com>
+
 	* c-decl.c (start_struct):  Increment currently_nested.
 	(finish_struct):  Decrement currently_nested.
 
