@@ -1,3 +1,8 @@
+2005-01-14  Stuart Hastings  <stuart@apple.com>
+
+	Radar 3943021
+	* gcc.apple/fenv-minmax-1.c: New.
+
 2005-01-11  Ziemowit Laski  <zlaski@apple.com>
 
 	Radar 3918079
