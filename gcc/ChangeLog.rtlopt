@@ -1,3 +1,11 @@
+Fri Jan  3 15:27:04 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+	* athlon.md (athlon_ssecmp*): Handle ssecomi as well.
+	* i386.md (type attribute): Add ssecomi.
+	(unit, memory, prefix attributes): Handle ssecomi.
+	(cvt?2? patterns): Fix athlon_decode attribute
+	(comi patterns): Set attribute to ssecomi.
+
 Thu Jan  2 20:41:23 CET 2003  Jan Hubicka  <jh@suse.cz>
 
 	* i386.md (*mul*): FIx constraints; remove confused comment; fix
