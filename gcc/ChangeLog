@@ -1,3 +1,27 @@
+2003-10-29  Mike Stump  <mrs@apple.com>
+
+	* c-common.c (builtins_c_fragment): Mark for PCH.
+	(output_c_fragment): Likewise.
+	(current_fragment_deps_end): Likewise.
+	(include_fragments): Add.
+	(restore_fragment): Add code to output remembered asm code
+	associated with the fragment.
+	(cb_enter_fragment): Use FRAGMENT_CHAIN instead of TREE_CHAIN.
+	Add code to remember the start of the asm code output.
+	(xfseek): Add.
+	(cb_exit_fragment): Add code to save off the asm code that was
+	output during fragment processing.
+	* c-common.h (FRAGMENT_CHAIN): Add.
+	(FRAGMENT_GLOBAL_CHAIN): Add.
+	(alloc_include_fragment): 
+	* ggc-common.c (gt_pch_note_object): Allow the static types of
+	GTY(()) variables to not match, so that we can have
+	subclass/superclasses.
+	* tree.h (SET_DECL_FRAGMENT): No cast needed anymore, the types are
+	now correct.
+	* tree.h (tree_decl): Make defining_fragment be a c_include_fragment.
+	(c_include_fragment): Add asm_buf and asm_file_startpos.
+
 2003-10-29  Per Bothner  <pbothner@apple.com>
 
 	* function.c (init_function_once):  Reset funcdef_no.

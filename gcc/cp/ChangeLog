@@ -1,3 +1,10 @@
+2003-10-29  Mike Stump  <mrs@apple.com>
+
+	* lang-specs.h: Use the server for PCH compiles.
+
+	* parser.c (cp_parser_translation_unit): Arrange for toplevel
+	decls to not be nested.
+
 2003-10-03  Mike Stump  <mrs@apple.com>
 
 	* decl2.c (import_export_class): Never export/import vtables

@@ -1617,7 +1617,7 @@ struct tree_type GTY(())
 
 /* Set the fragment that contains the definition of DECL. */
 #define SET_DECL_FRAGMENT(DECL, FRAGMENT) \
-  (DECL_CHECK (DECL)->decl.defining_fragment = (tree) (FRAGMENT))
+  (DECL_CHECK (DECL)->decl.defining_fragment = (FRAGMENT))
 
 struct function;
 
@@ -1626,7 +1626,7 @@ struct tree_decl GTY(())
   struct tree_common common;
   location_t locus;
   /* FIXME make part of locus - or of context! */
-  tree defining_fragment;
+  struct c_include_fragment *defining_fragment;
   unsigned int uid;
   tree size;
   ENUM_BITFIELD(machine_mode) mode : 8;
@@ -1726,7 +1726,7 @@ struct tree_decl GTY(())
   struct lang_decl *lang_specific;
 };
 
-/* This contains language-specific information correspodniong to
+/* This contains language-specific information corresponding to
    a given cpp_fragment. */
 
 struct c_include_fragment GTY(())
@@ -1745,6 +1745,8 @@ struct c_include_fragment GTY(())
     in that element. */
   tree uses_fragments;
   tree bindings;
+  tree asm_buf;
+  long asm_file_startpos;
 };
 
 enum tree_node_structure_enum {

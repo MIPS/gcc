@@ -748,7 +748,7 @@ _cpp_stack_file (cpp_reader *pfile, _cpp_file *file, bool import)
 static void
 purge_fragments (_cpp_file *inc)
 {
-  cpp_fragment *fragment = inc->fragments;;
+  cpp_fragment *fragment = inc->fragments;
   while (fragment != NULL)
     {
       cpp_fragment *next = fragment->next;

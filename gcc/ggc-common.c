@@ -259,9 +259,21 @@ gt_pch_note_object (void *obj, void *note_ptr_cookie,
 			      INSERT);
   if (*slot != NULL)
     {
+#if 0
       if ((*slot)->note_ptr_fn != note_ptr_fn
 	  || (*slot)->note_ptr_cookie != note_ptr_cookie)
 	abort ();
+#else
+      /* The static type of two pointers that point to the same
+	 location need not be the same.  What we want to do, is
+	 base<->super conversions, union conversions and so on...
+
+         This case happens as c_include_struct is a tree in the
+	 TREE_CHAIN and a c_include_fragment* in
+	 defining_fragment.  */
+      if ((*slot)->note_ptr_cookie != note_ptr_cookie)
+	abort ();
+#endif
       return 0;
     }
 

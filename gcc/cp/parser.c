@@ -2133,7 +2133,9 @@ cp_parser_translation_unit (cp_parser* parser)
 {
   while (true)
     {
+      --currently_nested;
       cp_parser_declaration_seq_opt (parser);
+      ++currently_nested;
 
       /* If there are no tokens left then all went well.  */
       if (cp_lexer_next_token_is (parser->lexer, CPP_EOF))

@@ -4170,14 +4170,19 @@ c_tree_size (enum tree_code code)
    are whose at index from 0 to current_fragment_deps_end (exclusive). */
 static GTY (()) tree current_fragment_deps_stack;
 /* The number of elements in current_include_deps_stack that are in use. */
-static int current_fragment_deps_end;
+static GTY(()) int current_fragment_deps_end;
 
 /* Special pseudo-fragment providing the <built-in> declarations. */
 struct cpp_fragment *builtins_fragment;
 
+/* A chain of all include fragments so they are all live, as we have
+   pointers from cpplib allocated fragments and we need these to live
+   until those references go away.  */
+tree include_fragments;
+
 /* The c_include_fragment corresponding to builtins_fragment.
    Equivalent to C_FRAGMENT (builtins_fragment), but we need this for gc. */
-struct c_include_fragment *builtins_c_fragment;
+GTY(()) struct c_include_fragment *builtins_c_fragment;
 
 extern void register_fragment_dependency PARAMS ((struct c_include_fragment*));
 
@@ -4417,9 +4422,17 @@ reset_cpp_hashnodes ()
 void
 restore_fragment (cpp_fragment *fragment)
 {
+  tree asm_buf;
   cpp_do_macro_callbacks (parse_in, fragment);
   cpp_restore_macros (parse_in, fragment);
   restore_fragment_bindings (C_FRAGMENT (fragment)->bindings);
+  asm_buf = C_FRAGMENT (fragment)->asm_buf;
+  if (asm_buf)
+    {
+      long size = TREE_STRING_LENGTH (asm_buf);
+      if (fwrite (TREE_STRING_POINTER (asm_buf), size, 1, asm_out_file) != 1)
+	fatal_error ("can't write %s: %m", asm_file_name);
+    }
 }
 
 /* FIXME - This is to work around header file bugs that prevent good
@@ -4555,7 +4568,7 @@ cb_enter_fragment (reader, fragment, name, line)
 	  st->valid = 0;
 	  st->include_timestamp = ++c_timestamp;
 	  /* Save other fragments so we can reuse them.  */
-	  TREE_CHAIN (st) = (tree)C_FRAGMENT (fragment);
+	  FRAGMENT_CHAIN (st) = (tree)C_FRAGMENT (fragment);
 	  C_FRAGMENT (fragment) = st;
 	}
       st->uses_fragments = NULL_TREE;
@@ -4566,6 +4579,11 @@ cb_enter_fragment (reader, fragment, name, line)
       current_fragment_deps_end = 0;
       fragment_bindings_end = 0;
       st->read_timestamp = st->include_timestamp;
+      st->asm_buf = NULL_TREE;
+      if (asm_out_file)
+	st->asm_file_startpos = ftell (asm_out_file);
+      else
+	st->asm_file_startpos = 0;
       reader->do_note_macros = 1;
     }
   current_c_fragment = st;
@@ -4593,6 +4611,16 @@ save_fragment_bindings ()
     }
   fragment_bindings_end = 0;
   return bindings;
+}
+
+int xfseek (FILE *, long, int);
+
+int
+xfseek (FILE *fp, long offset, int whence) {
+  int r;
+  if ((r=fseek (fp, offset, whence)) == -1)
+    fatal_error ("can't seek %s: %m", asm_file_name);
+  return r;
 }
 
 /* Called by cpplib at the end of a fragment (though not if cb_enter_fragment
@@ -4651,7 +4679,44 @@ cb_exit_fragment (reader, fragment)
 	  st->valid = 0;
 	}
       else
-	st->valid = 1;
+	{
+	  long len;
+
+	  long asm_file_endpos;
+	  char *buf;
+	  st->valid = 1;
+
+	  if (asm_out_file)
+	    asm_file_endpos = ftell (asm_out_file);
+	  else 
+	    asm_file_endpos = -1;
+	  len = asm_file_endpos - st->asm_file_startpos;
+	  st->asm_buf = NULL_TREE;
+
+	  if (asm_file_endpos != -1
+	      && st->asm_file_startpos != -1)
+	    {
+	      if (len)
+		{
+		  buf = xmalloc (len);
+		  fflush (asm_out_file);
+		  xfseek (asm_out_file, st->asm_file_startpos, SEEK_SET);
+		  if (fread (buf, len, 1, asm_out_file) != 1)
+		    fatal_error ("can't read %s: %m", asm_file_name);
+		  st->asm_buf = build_string (len, buf);
+		  free (buf);
+
+		  /* asm_out_file can be written afterwards, so must be flushed first.  */
+		  fflush (asm_out_file);
+		}
+	    }
+	  else
+	    {
+	      /* We cannot reuse a fragment if there was assembly output to two different files, or
+		 if we could not use ftell.  */
+	      st->valid = 0;
+	    }
+	}
     }
 #if 0
   fprintf(stderr, "(pop deps start:%d end:%d for %s ret:%s)\n",
@@ -4662,7 +4727,7 @@ cb_exit_fragment (reader, fragment)
 
 /* These are used to track builtin decls for an output fragment.  */
 
-static struct c_include_fragment *output_c_fragment;
+static GTY(()) struct c_include_fragment *output_c_fragment = 0;
 static cpp_fragment* output_fragment;
 
 /* Create a fragment used for the per output file <built-in> declarations. */

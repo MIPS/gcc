@@ -184,14 +184,17 @@ extern size_t c_tree_size (enum tree_code code);
 #define DECL_FRAGMENT(DECL) \
   ((struct c_include_fragment *) DECL_CHECK (DECL)->decl.defining_fragment)
 
-/* We hsould convert uses of the above, into the below and remove the
+/* We should convert uses of the above, into the below and remove the
    above and rename.  */
 #define DECL_FRAGMENTT(DECL) \
-  (DECL_CHECK (DECL)->decl.defining_fragment)
+  ((tree)(DECL_CHECK (DECL)->decl.defining_fragment))
 
 /* Get the c_include_fragment corresponding to a cpp_fragment. */
 #define C_FRAGMENT(FRAG) \
   (* (struct c_include_fragment **) &(FRAG)->start_marker)
+
+#define FRAGMENT_CHAIN(F) (TREE_TYPE (F))
+#define FRAGMENT_GLOBAL_CHAIN(F) (TREE_CHAIN (F))
 
 extern int main_timestamp;
 extern int c_timestamp;
@@ -1349,10 +1352,18 @@ extern void pp_file_change (const struct line_map *);
 
 static inline struct c_include_fragment *alloc_include_fragment (void);
 
+extern GTY(()) tree include_fragments;
+
 static inline struct c_include_fragment *
 alloc_include_fragment ()
 {
-  return (struct c_include_fragment *) make_node (INCLUDE_FRAGMENT);
+  tree f = make_node (INCLUDE_FRAGMENT);
+  /* We chain them all together so GC doesn't get rid of them as we
+     have outstanding pointers from cpp_fragments that are not
+     controlled by GC.  */
+  FRAGMENT_GLOBAL_CHAIN (f) = include_fragments;
+  include_fragments = f;
+  return (struct c_include_fragment *) f;
 }
 
 #endif /* ! GCC_C_COMMON_H */
