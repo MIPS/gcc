@@ -1,3 +1,8 @@
+Tue Dec 10 20:34:42 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* cfg.c (dump_flow_info): Move regalloc and reg-scan data dump to ...
+	* local-alloc.c (dump_local_alloc): ... here
+
 2002-12-08  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* cfgloopanal.c (mark_irreducible_loops): Fix.
