@@ -1,7 +1,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-char volatile *foo (unsigned i)
+
+char volatile *
+__attribute__((noinline))
+foo (unsigned i)
 {
   char volatile buffer[10];
   char volatile *k = i ? & buffer[i] : NULL; /* defeat addr-of-local-returned warning */

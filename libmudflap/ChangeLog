@@ -1,3 +1,8 @@
+2003-12-07  Richard Henderson  <rth@redhat.com>
+
+	* testsuite/libmudflap.c/fail23-frag.c (main): Adjust addend to 11.
+	* testsuite/libmudflap.c/fail27-frag.c (foo): Mark noinline.
+
 2003-12-06  Andrew Pinski <apinski@apple.com>
 
 	partial PR libmudflap/12670

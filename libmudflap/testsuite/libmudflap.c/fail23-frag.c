@@ -6,7 +6,7 @@ char zoo [10];
 
 int main ()
 {
-int i = strlen ("twelve") + strlen ("zero") + strlen ("seventeen");
+int i = strlen ("012345") + strlen ("6789") + strlen ("01"); /* 11 */
 zoo[i] = 'a';
 return 0;
 }
