@@ -1,12 +1,36 @@
+2004-04-15  Geoffrey Keating  <geoffk@apple.com>
+
+	* Makefile.in (stree.o): Use hashtab.h.
+	* stree.c: Add some comments.
+	(struct tree_stree_mapping): New.
+	(tree_stree_hash): New.
+	(stree_tree_hash): New.
+	(tree_stree_eq): New.
+	(tree_mapping): New.
+	(tree_i_mapping): New.
+	(set_tree_for_s_tree): New.
+	(get_tree_for_s_tree): New.
+	(sti_s_tree): New.
+	(sti_tree): New.
+	(build_s_tree): Convert trees to s-tree indexes before storing.
+	Add support for storing s-tree indexes.
+	* stree.h (set_tree_for_s_tree): Add prototype.
+	(get_tree_for_s_tree): Likewise.
+	(sti_tree): Likewise.
+	(sti_s_tree): Likewise.
+	(sti_tree): Remove.
+	(ST_STREE): New.
+
 2004-04-13  Matt Austern  <austern@apple.com
+
 	* stree.h (struct s_tree_i_or_tree): Remove.
-	
+
 2004-03-08  Matt Austern  <austern@apple.com>
-        * ChangeLog.stree: New.
+
+	* ChangeLog.stree: New.
 	* Makefile.in: Add stree.[ch] to the build.
 	* stree.c: New.
 	* stree.h: New.
-	
 
 Local Variables:
 mode: change-log

@@ -34,10 +34,18 @@ typedef unsigned long s_tree_i;
 /* Given an s_tree_i, return the corresponding tree.  */
 extern tree s_tree_to_tree (tree, s_tree_i);
 
+/* Remember that T is the tree for ST.  */
+extern void set_tree_for_s_tree (s_tree_i st, tree t);
+
+/* Return the tree for ST, or NULL if there is no tree exists yet.  */
+extern tree get_tree_for_s_tree (s_tree_i st);
+
 /* Parse a s_tree.  */
 typedef unsigned char * s_tree_iter;
 extern void get_s_tree_iter (s_tree_iter *, s_tree_i);
 extern tree sti_const_int_tree (s_tree_iter *);
+extern tree sti_tree (s_tree_iter *ti);
+extern s_tree_i sti_s_tree (s_tree_iter *ti);
 
 static inline unsigned char
 sti_uchar (s_tree_iter *ti)
@@ -47,20 +55,12 @@ sti_uchar (s_tree_iter *ti)
   return u;
 }
 
-static inline tree
-sti_tree (s_tree_iter *ti)
-{
-  tree t;
-  memcpy (&t, *ti, sizeof (tree));
-  *ti += sizeof (tree);
-  return t;
-}
-
 /* Build a s-tree.  */
 enum {
   ST_LAST,
   ST_TREE,
-  ST_TREE_INT
+  ST_TREE_INT,
+  ST_STREE
 };
 
 extern s_tree_i build_s_tree (unsigned char, ...);

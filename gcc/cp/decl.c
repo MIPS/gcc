@@ -9909,10 +9909,18 @@ enum cp_stree {
   STREE_ENUM_CONSTANT = 1
 };
 
+/* Convert S to a tree.  S is an s-tree found by looking up the
+   IDENTIFIER_NODE NAME.  */
+
 tree
 s_tree_to_tree (tree name, s_tree_i s)
 {
   s_tree_iter si;
+  tree result;
+
+  result = get_tree_for_s_tree (s);
+  if (result != NULL_TREE)
+    return result;
   
   get_s_tree_iter (&si, s);
 
@@ -9927,7 +9935,7 @@ s_tree_to_tree (tree name, s_tree_i s)
 	value = sti_const_int_tree (&si);
 	if (enumtype == enum_data.current_type)
 	  {
-	    tree decl;
+	    bool found;
 	    tree context;
 	    tree li;
 	    
@@ -9935,34 +9943,35 @@ s_tree_to_tree (tree name, s_tree_i s)
 	    if (!context)
 	      context = current_namespace;
 
-	    decl = build_decl (CONST_DECL, name, enumtype);
-	    DECL_CONTEXT (decl) = FROB_CONTEXT (context);
-	    TREE_CONSTANT (decl) = TREE_READONLY (decl) = 1;
-	    DECL_INITIAL (decl) = value;
+	    result = build_decl (CONST_DECL, name, enumtype);
+	    DECL_CONTEXT (result) = FROB_CONTEXT (context);
+	    TREE_CONSTANT (result) = TREE_READONLY (result) = 1;
+	    DECL_INITIAL (result) = value;
 
+	    found = false;
 	    for (li = TYPE_VALUES (enumtype); li; li = TREE_CHAIN (li))
 	      if (TREE_CODE (TREE_VALUE (li)) != CONST_DECL
 		  && tree_int_cst_equal (TREE_VALUE (li), value))
 		{
-		  TREE_VALUE (li) = decl;
-		  return decl;
+		  TREE_VALUE (li) = result;
+		  found = true;
+		  break;
 		}
-	    abort ();
+	    if (! found)
+	      abort ();
 	  }
 	else
 	  {
 	    tree value_type;
-	    tree decl;
 	    
 	    value_type = TREE_TYPE (TREE_VALUE (TYPE_VALUES (enumtype)));
 	    value = copy_node (value);
 	    TREE_TYPE (value) = enumtype;
 
-	    decl = build_decl (CONST_DECL, name, enumtype);
-	    DECL_CONTEXT (decl) = FROB_CONTEXT (TYPE_CONTEXT (enumtype));
-	    TREE_CONSTANT (decl) = TREE_READONLY (decl) = 1;
-	    DECL_INITIAL (decl) = value;
-	    return decl;
+	    result = build_decl (CONST_DECL, name, enumtype);
+	    DECL_CONTEXT (result) = FROB_CONTEXT (TYPE_CONTEXT (enumtype));
+	    TREE_CONSTANT (result) = TREE_READONLY (result) = 1;
+	    DECL_INITIAL (result) = value;
 	  }
       }
       break;
@@ -9970,6 +9979,9 @@ s_tree_to_tree (tree name, s_tree_i s)
     default:
       abort ();
     }
+
+  set_tree_for_s_tree (s, result);
+  return result;
 }
 
 /* Build and install a CONST_DECL for an enumeration constant of the

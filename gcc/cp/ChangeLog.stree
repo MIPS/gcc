@@ -1,11 +1,18 @@
+2004-04-15  Geoffrey Keating  <geoffk@apple.com>
+
+	* decl.c (s_tree_to_tree): Add comment.  Remember s-tree index
+	to tree mapping, and re-use it if necessary.
+	
 2004-04-13  Matt Austern  <austern@apple.com>
+
 	* name-lookup.h (cxx_binding): Use union for value field.
 	(CXX_BINDING_VALUE): New.
 	(CXX_BINDING_SET_VALUE): New.
 	(CXX_BINDING_VALUE_S): New.
 	(CXX_BINDING_SET_VALUE_S): New.
 	(binding_value_tree): Change tree->stree conversion to use union.
-	* name-lookup.c (cxx_binding_Make): Use new cxx_binding accessor macros.
+	* name-lookup.c (cxx_binding_Make): Use new cxx_binding accessor
+	macros.
 	(pop_binding): Likewise.
 	(supplement_binding): Likewise.
 	(push_s_decl): Likewise.
@@ -25,7 +32,7 @@
 	(qualified_lookup_using_namespace): Likewise.
 	(lookup_name_real): Likewise.
 	* decl.c (poplevel): Use new cxx_binding accessor macros.
-	
+
 2004-03-08  Matt Austern  <austern@apple.com>
 
 	* ChangeLog.stree: New.
