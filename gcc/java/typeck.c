@@ -83,22 +83,24 @@ convert_ieee_real_to_integer (tree type, tree expr)
   tree result;
   expr = save_expr (expr);
 
-  result = build (COND_EXPR, type,
-		  build (NE_EXPR, boolean_type_node, expr, expr),
-		  convert (type, integer_zero_node),
-		  convert_to_integer (type, expr));
-		  
-  result = build (COND_EXPR, type, 
-		  build (LE_EXPR, boolean_type_node, expr, 
-			 convert (TREE_TYPE (expr), TYPE_MIN_VALUE (type))),
-		  TYPE_MIN_VALUE (type),
-		  result);
-
-  result = build (COND_EXPR, type,
-		  build (GE_EXPR, boolean_type_node, expr, 
-			 convert (TREE_TYPE (expr), TYPE_MAX_VALUE (type))),	
-		  TYPE_MAX_VALUE (type),
-		  result);
+  result = fold (build3 (COND_EXPR, type,
+			 fold (build2 (NE_EXPR, boolean_type_node, expr, expr)),
+			 convert (type, integer_zero_node),
+			 convert_to_integer (type, expr)));
+  
+  result = fold (build3 (COND_EXPR, type, 
+			 fold (build2 (LE_EXPR, boolean_type_node, expr, 
+				       convert (TREE_TYPE (expr), 
+						TYPE_MIN_VALUE (type)))),
+			 TYPE_MIN_VALUE (type),
+			 result));
+  
+  result = fold (build3 (COND_EXPR, type,
+			 fold (build2 (GE_EXPR, boolean_type_node, expr, 
+				       convert (TREE_TYPE (expr), 
+						TYPE_MAX_VALUE (type)))),
+			 TYPE_MAX_VALUE (type),
+			 result));
 
   return result;
 }  
@@ -131,8 +133,9 @@ convert (tree type, tree expr)
     return fold (convert_to_boolean (type, expr));
   if (code == INTEGER_TYPE)
     {
-      if (! flag_unsafe_math_optimizations
-	  && ! flag_emit_class_files
+      if ((really_constant_p (expr)
+	   || (! flag_unsafe_math_optimizations
+	       && ! flag_emit_class_files))
 	  && TREE_CODE (TREE_TYPE (expr)) == REAL_TYPE
 	  && TARGET_FLOAT_FORMAT == IEEE_FLOAT_FORMAT)
 	return fold (convert_ieee_real_to_integer (type, expr));
@@ -354,8 +357,7 @@ build_prim_array_type (tree element_type, HOST_WIDE_INT length)
 
   if (length != -1)
     {
-      tree max_index = build_int_2 (length - 1, (0 == length ? -1 : 0));
-      TREE_TYPE (max_index) = sizetype;
+      tree max_index = build_int_cst (sizetype, length - 1);
       index = build_index_type (max_index);
     }
   return build_array_type (element_type, index);
@@ -504,7 +506,7 @@ parse_signature_type (const unsigned char **ptr, const unsigned char *limit)
 	      break;
 	  }
 	*ptr = str+1;
-	type = lookup_class (unmangle_classname (start, str - start));
+	type = lookup_class (unmangle_classname ((const char *) start, str - start));
 	break;
       }
     default:
@@ -779,8 +781,8 @@ shallow_find_method (tree searched_class, int flags, tree method_name,
    lookup_do.  */
 static tree
 find_method_in_superclasses (tree searched_class, int flags, 
-			     tree method_name, 
-	     tree signature, tree (*signature_builder) (tree))
+                             tree method_name, tree signature,
+                             tree (*signature_builder) (tree))
 {
   tree klass;
   for (klass = CLASSTYPE_SUPER (searched_class); klass != NULL_TREE;
@@ -800,18 +802,16 @@ find_method_in_superclasses (tree searched_class, int flags,
    for a method matching METHOD_NAME and signature SIGNATURE.  A
    private helper for lookup_do.  */
 static tree
-find_method_in_interfaces (tree searched_class, int flags, tree method_name, 
-	     tree signature, tree (*signature_builder) (tree))
+find_method_in_interfaces (tree searched_class, int flags, tree method_name,
+                           tree signature, tree (*signature_builder) (tree))
 {
   int i;
-  int interface_len = 
-    TREE_VEC_LENGTH (TYPE_BINFO_BASETYPES (searched_class)) - 1;
+  tree binfo, base_binfo;
 
-  for (i = interface_len; i > 0; i--)
+  for (binfo = TYPE_BINFO (searched_class), i = 1;
+       BINFO_BASE_ITERATE (binfo, i, base_binfo); i++)
     {
-      tree child = 
-	TREE_VEC_ELT (TYPE_BINFO_BASETYPES (searched_class), i);
-      tree iclass = BINFO_TYPE (child);
+      tree iclass = BINFO_TYPE (base_binfo);
       tree method;
 	  
       /* If the superinterface hasn't been loaded yet, do so now.  */
@@ -823,7 +823,7 @@ find_method_in_interfaces (tree searched_class, int flags, tree method_name,
       /* First, we look in ICLASS.  If that doesn't work we'll
 	 recursively look through all its superinterfaces.  */
       method = shallow_find_method (iclass, flags, method_name, 
-					 signature, signature_builder);      
+				    signature, signature_builder);      
       if (method != NULL_TREE)
 	return method;
   

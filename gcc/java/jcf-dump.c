@@ -91,7 +91,7 @@ int this_class_index = 0;
 
 int class_access_flags = 0;
 
-/* Print in format similar to javap.  VERY IMCOMPLETE. */
+/* Print in format similar to javap.  VERY INCOMPLETE. */
 int flag_javap_compatible = 0;
 
 static void print_access_flags (FILE *, uint16, char);
@@ -1080,7 +1080,7 @@ main (int argc, char** argv)
 		  if (jcf->read_end - jcf->read_ptr < total_length)
 		    jcf_trim_old_input (jcf);
 		  JCF_FILL (jcf, total_length);
-		  filename = jcf->read_ptr;
+		  filename = (const char *) jcf->read_ptr;
 		  JCF_SKIP (jcf, filename_length);
 		  JCF_SKIP (jcf, extra_length);
 		  if (filename_length > 0

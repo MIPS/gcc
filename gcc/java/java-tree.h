@@ -48,22 +48,19 @@ struct JCF;
       SUPPRESS_UNREACHABLE_ERROR (for other _EXPR nodes)
       ANONYMOUS_CLASS_P (in RECORD_TYPE)
       ARG_FINAL_P (in TREE_LIST)
-   1: CLASS_HAS_SUPER_FLAG (in TREE_VEC).
-      IS_A_CLASSFILE_NAME (in IDENTIFIER_NODE)
+   1: IS_A_CLASSFILE_NAME (in IDENTIFIER_NODE)
       COMPOUND_ASSIGN_P (in EXPR (binop_*))
       LOCAL_CLASS_P (in RECORD_TYPE)
       BLOCK_IS_IMPLICIT (in BLOCK)
-      JAVA_FILE_P (in TREE_LIST in current_file_list)
    2: RETURN_MAP_ADJUSTED (in TREE_VEC).
       QUALIFIED_P (in IDENTIFIER_NODE)
       PRIMARY_P (in EXPR_WITH_FILE_LOCATION)
       MODIFY_EXPR_FROM_INITIALIZATION_P (in MODIFY_EXPR)
       CLASS_METHOD_CHECKED_P (in RECORD_TYPE) 
-      CLASS_FILE_P (in TREE_LIST in current_file_list)
+      CLASS_FILE_P (in a TRANSLATION_UNIT_DECL in current_file_list)
    3: IS_AN_IMPORT_ON_DEMAND_P (in IDENTIFIER_NODE)
       RESOLVE_PACKAGE_NAME_P (in EXPR_WITH_FILE_LOCATION)
       SWITCH_HAS_DEFAULT (in SWITCH_EXPR)
-      ZIP_FILE_P (in TREE_LIST in current_file_list)
       HAS_FINALIZER (in RECORD_TYPE)
    4: IS_A_COMMAND_LINE_FILENAME_P (in IDENTIFIER_NODE)
       RESOLVE_TYPE_NAME_P (in EXPR_WITH_FILE_LOCATION)
@@ -122,12 +119,14 @@ struct JCF;
 
 /* True if the class whose TYPE_BINFO this is has a superclass.
    (True of all classes except Object.) */
-#define CLASS_HAS_SUPER_FLAG(BINFO) TREE_LANG_FLAG_1 (TREE_VEC_CHECK (BINFO))
-#define CLASS_HAS_SUPER(TYPE) CLASS_HAS_SUPER_FLAG (TYPE_BINFO (TYPE))
+#define CLASS_HAS_SUPER_FLAG(BINFO) BINFO_FLAG_1 (BINFO)
+#define CLASS_HAS_SUPER(TYPE) \
+  (TYPE_BINFO (TYPE) && CLASS_HAS_SUPER_FLAG (TYPE_BINFO (TYPE)))
 
 /* Return the supertype of class TYPE, or NULL_TREE is it has none. */
-#define CLASSTYPE_SUPER(TYPE) (CLASS_HAS_SUPER (TYPE) ? \
-  BINFO_TYPE (TREE_VEC_ELT (TYPE_BINFO_BASETYPES (TYPE), 0)) : NULL_TREE)
+#define CLASSTYPE_SUPER(TYPE) (CLASS_HAS_SUPER (TYPE) \
+  ? BINFO_TYPE (BINFO_BASE_BINFO (TYPE_BINFO (TYPE), 0)) \
+  : NULL_TREE)
 
 /* True if the class we are compiling is a .java source file;
    false if it is a .class bytecode file. */
@@ -151,9 +150,6 @@ extern int compiling_from_source;
 /* List of all class DECLs seen so far.  */
 #define all_class_list \
   java_global_trees[JTI_ALL_CLASS_LIST]
-
-/* List of all class filenames seen so far.  */
-#define all_class_filename java_global_trees [JTI_ALL_CLASS_FILENAME]
 
 /* List of virtual decls referred to by this translation unit, used to
    generate virtual method offset symbol table.  */
@@ -181,9 +177,6 @@ extern int flag_jni;
 /* When nonzero, report the now deprecated empty statements.  */
 
 extern int flag_extraneous_semicolon;
-
-/* When nonzero, report use of deprecated classes, methods, or fields.  */
-extern int flag_deprecated;
 
 /* When nonzero, always check for a non gcj generated classes archive.  */
 
@@ -421,7 +414,6 @@ enum java_tree_index
   JTI_CURRENT_CLASS,
   JTI_OUTPUT_CLASS,
   JTI_ALL_CLASS_LIST,
-  JTI_ALL_CLASS_FILENAME,
 
   JTI_PREDEF_FILENAMES,
 
@@ -779,7 +771,7 @@ union lang_tree_node
 /* Number of local variable slots needed for the arguments of this function. */
 #define DECL_ARG_SLOT_COUNT(DECL) \
   (DECL_LANG_SPECIFIC(DECL)->u.f.arg_slot_count)
-/* Line number of end of function. */
+/* Source location of end of function. */
 #define DECL_FUNCTION_LAST_LINE(DECL) (DECL_LANG_SPECIFIC(DECL)->u.f.last_line)
 /* Information on declaration location */
 #define DECL_FUNCTION_WFL(DECL)  (DECL_LANG_SPECIFIC(DECL)->u.f.wfl)
@@ -919,8 +911,8 @@ union lang_tree_node
 /* Safely tests whether FIELD_INNER_ACCESS exists or not. */
 #define FIELD_INNER_ACCESS_P(DECL) \
   DECL_LANG_SPECIFIC (DECL) && FIELD_INNER_ACCESS (DECL)
-/* True if a final variable was initialized upon its declaration,
-   or (if a field) in an initializer.  Set after definite assignment. */
+/* True if a final field was initialized upon its declaration
+   or in an initializer.  Set after definite assignment.  */
 #define DECL_FIELD_FINAL_IUD(NODE)  (DECL_LANG_SPECIFIC (NODE)->u.v.final_iud)
 /* The original WFL of a final variable. */
 #define DECL_FIELD_FINAL_WFL(NODE)  (DECL_LANG_SPECIFIC(NODE)->u.v.wfl)
@@ -928,6 +920,8 @@ union lang_tree_node
 #define DECL_OWNER(NODE)            (DECL_LANG_SPECIFIC(NODE)->u.v.owner)
 /* True if NODE is a local variable final. */
 #define LOCAL_FINAL_P(NODE) (DECL_LANG_SPECIFIC (NODE) && DECL_FINAL (NODE))
+/* True if a final local variable was initialized upon its declaration.  */
+#define DECL_LOCAL_FINAL_IUD(NODE)  (DECL_LANG_SPECIFIC (NODE)->u.v.final_iud)
 /* True if NODE is a final field. */
 #define FINAL_VARIABLE_P(NODE) (FIELD_FINAL (NODE) && !FIELD_STATIC (NODE))
 /* True if NODE is a class final field. */
@@ -979,7 +973,9 @@ struct lang_decl_func GTY(())
   int max_locals;
   int max_stack;
   int arg_slot_count;
-  int last_line; 		/* End line number for a function decl */
+  /* A temporary lie for the sake of ggc.  Actually, last_line is
+     only a source_location if USE_MAPPED_LOCATION.  FIXME.  */
+  source_location last_line;	/* End line number for a function decl */
   tree wfl;			/* Information on the original location */
   tree throws_list;		/* Exception specified by `throws' */
   tree function_decl_body;	/* Hold all function's statements */
@@ -1215,7 +1211,6 @@ extern tree getdecls (void);
 extern void pushlevel (int);
 extern tree poplevel (int,int, int);
 extern void insert_block (tree);
-extern void set_block (tree);
 extern tree pushdecl (tree);
 extern void java_init_decl_processing (void);
 extern void java_dup_lang_specific_decl (tree);
@@ -1282,6 +1277,7 @@ extern int get_access_flags_from_decl (tree);
 extern int interface_of_p (tree, tree);
 extern int inherits_from_p (tree, tree);
 extern int common_enclosing_context_p (tree, tree);
+extern int common_enclosing_instance_p (tree, tree);
 extern int enclosing_context_p (tree, tree);
 extern tree build_result_decl (tree);
 extern void emit_handlers (void);
@@ -1290,13 +1286,12 @@ extern tree get_method_index (tree decl);
 extern void make_class_data (tree);
 extern void register_class (void);
 extern int alloc_name_constant (int, tree);
-extern void emit_register_classes (void);
+extern void emit_register_classes (tree *);
 extern tree emit_symbol_table (tree, tree, tree, tree, tree, int);
 extern void lang_init_source (int);
 extern void write_classfile (tree);
 extern char *print_int_node (tree);
-extern void parse_error_context (tree cl, const char *, ...)
-  ATTRIBUTE_PRINTF_2;
+extern void parse_error_context (tree cl, const char *msgid, ...);
 extern void finish_class (void);
 extern void java_layout_seen_class_methods (void);
 extern void check_for_initialization (tree, tree);
@@ -1381,22 +1376,19 @@ extern tree decl_constant_value (tree);
 
 extern void java_mark_class_local (tree);
 
-#if defined(RTX_CODE) && defined (HAVE_MACHINE_MODES)
-struct rtx_def * java_expand_expr (tree, rtx, enum machine_mode, int, rtx *); 
-#endif
 extern void java_inlining_merge_static_initializers (tree, void *);
 extern void java_inlining_map_static_initializers (tree, void *);
 
 extern void compile_resource_data (const char *name, const char *buffer, int);
 extern void compile_resource_file (const char *, const char *);
-extern void write_resource_constructor (void);
-extern void init_resource_processing (void);
+extern void write_resource_constructor (tree *);
 extern tree build_java_empty_stmt (void);
 extern tree add_stmt_to_compound (tree, tree, tree);
 extern tree java_add_stmt (tree);
 extern tree java_add_local_var (tree decl);
 extern tree *get_stmts (void);
 extern void register_exception_range(struct eh_range *, int, int);
+
 extern void finish_method (tree);
 extern void java_expand_body (tree);
 
@@ -1406,6 +1398,11 @@ extern tree make_catch_class_record (tree, tree);
 extern tree emit_catch_table (tree);
 
 extern void gen_indirect_dispatch_tables (tree type);
+extern int split_qualified_name (tree *left, tree *right, tree source);
+extern int in_same_package (tree, tree);
+
+extern tree builtin_function (const char *, tree, int, enum built_in_class,
+			      const char *, tree);
 
 #define DECL_FINAL(DECL) DECL_LANG_FLAG_3 (DECL)
 
@@ -1427,9 +1424,7 @@ extern void gen_indirect_dispatch_tables (tree type);
 #define METHOD_INVISIBLE(DECL) \
   (DECL_LANG_SPECIFIC (FUNCTION_DECL_CHECK (DECL))->u.f.invisible)
 
-#define JAVA_FILE_P(NODE) TREE_LANG_FLAG_2 (NODE)
 #define CLASS_FILE_P(NODE) TREE_LANG_FLAG_3 (NODE)
-#define ZIP_FILE_P(NODE) TREE_LANG_FLAG_4 (NODE)
 
 /* Other predicates on method decls  */
 
@@ -1481,11 +1476,11 @@ extern void gen_indirect_dispatch_tables (tree type);
 /* The number of virtual methods in this class's dispatch table.
    Does not include initial two dummy entries (one points to the
    Class object, and the other is for G++ -fvtable-thunks compatibility). */
-#define TYPE_NVIRTUALS(TYPE) TYPE_BINFO_VIRTUALS (TYPE)
+#define TYPE_NVIRTUALS(TYPE) BINFO_VIRTUALS (TYPE_BINFO (TYPE))
 
 /* A TREE_VEC (indexed by DECL_VINDEX) containing this class's
    virtual methods. */
-#define TYPE_VTABLE(TYPE) TYPE_BINFO_VTABLE(TYPE)
+#define TYPE_VTABLE(TYPE) BINFO_VTABLE(TYPE_BINFO (TYPE))
 
 /* Use CLASS_LOADED_P? FIXME */
 #define CLASS_COMPLETE_P(DECL) DECL_LANG_FLAG_2 (DECL) 
@@ -1723,16 +1718,6 @@ extern tree *type_map;
    scope of TYPE_DECL.  */
 #define DECL_INNER_CLASS_LIST(NODE) DECL_INITIAL (TYPE_DECL_CHECK (NODE))
 
-/* Build a IDENTIFIER_NODE for a file name we're considering. Since
-   all_class_filename is a registered root, putting this identifier
-   in a TREE_LIST it holds keeps this node alive.  */
-#define BUILD_FILENAME_IDENTIFIER_NODE(F, S)		\
-  if (!((F) = maybe_get_identifier ((S))))		\
-    {							\
-      (F) = get_identifier ((S));			\
-      tree_cons ((F), NULL_TREE, all_class_filename);	\
-    }
-
 /* Add a FIELD_DECL to RECORD_TYPE RTYPE.
    The field has name NAME (a char*), and type FTYPE.
    Unless this is the first field, FIELD most hold the previous field.
@@ -1817,21 +1802,21 @@ while (0)
 #define BLOCK_EMPTY_P(NODE) \
   (TREE_CODE (NODE) == BLOCK && BLOCK_EXPR_BODY (NODE) == empty_stmt_node)
 
-#define BUILD_MONITOR_ENTER(WHERE, ARG)				\
-  {								\
-    (WHERE) = build (CALL_EXPR, int_type_node,			\
-		     build_address_of (soft_monitorenter_node),	\
-		     build_tree_list (NULL_TREE, (ARG)), 	\
-		     NULL_TREE);				\
-    TREE_SIDE_EFFECTS (WHERE) = 1;				\
+#define BUILD_MONITOR_ENTER(WHERE, ARG)					\
+  {									\
+    (WHERE) = build3 (CALL_EXPR, int_type_node,				\
+		      build_address_of (soft_monitorenter_node),	\
+		      build_tree_list (NULL_TREE, (ARG)),	 	\
+		      NULL_TREE);					\
+    TREE_SIDE_EFFECTS (WHERE) = 1;					\
   }
 
 #define BUILD_MONITOR_EXIT(WHERE, ARG)				\
   {								\
-    (WHERE) = build (CALL_EXPR, int_type_node,			\
-		     build_address_of (soft_monitorexit_node),	\
-		     build_tree_list (NULL_TREE, (ARG)),	\
-		     NULL_TREE);				\
+    (WHERE) = build3 (CALL_EXPR, int_type_node,			\
+		      build_address_of (soft_monitorexit_node),	\
+		      build_tree_list (NULL_TREE, (ARG)),	\
+		      NULL_TREE);				\
     TREE_SIDE_EFFECTS (WHERE) = 1;				\
   }
 
@@ -1884,19 +1869,29 @@ enum
 #undef EXPR_WFL_NODE
 #define EXPR_WFL_NODE(NODE) \
   TREE_OPERAND (EXPR_WITH_FILE_LOCATION_CHECK (NODE), 0)
-#undef EXPR_WFL_FILENAME_NODE
-#define EXPR_WFL_FILENAME_NODE(NODE) \
-  TREE_OPERAND (EXPR_WITH_FILE_LOCATION_CHECK (NODE), 1)
-#define EXPR_WFL_FILENAME(NODE) \
-  IDENTIFIER_POINTER (EXPR_WFL_FILENAME_NODE (NODE))
-/* ??? Java uses this in all expressions.  */
+#ifdef USE_MAPPED_LOCATION
+#define EXPR_WFL_LINECOL(NODE) ((NODE)->exp.locus)
+#define EXPR_WFL_FILENAME(NODE) EXPR_FILENAME (NODE)
+#define EXPR_WFL_LINENO(NODE) EXPR_LINENO (NODE)
+extern tree build_expr_wfl              PARAMS ((tree, source_location));
+extern tree expr_add_location           PARAMS ((tree, source_location, bool));
+#define build_unknown_wfl(NODE) build_expr_wfl(NODE, UNKNOWN_LOCATION)
+#else
 #define EXPR_WFL_LINECOL(NODE) (EXPR_CHECK (NODE)->exp.complexity)
 #define EXPR_WFL_LINENO(NODE) (EXPR_WFL_LINECOL (NODE) >> 12)
 #define EXPR_WFL_COLNO(NODE) (EXPR_WFL_LINECOL (NODE) & 0xfff)
+#undef EXPR_WFL_FILENAME_NODE
+#define EXPR_WFL_FILENAME_NODE(NODE) \
+  TREE_OPERAND (EXPR_WITH_FILE_LOCATION_CHECK (NODE), 2)
+#define EXPR_WFL_FILENAME(NODE) \
+  IDENTIFIER_POINTER (EXPR_WFL_FILENAME_NODE (NODE))
+/* ??? Java uses this in all expressions.  */
 #define EXPR_WFL_SET_LINECOL(NODE, LINE, COL) \
   (EXPR_WFL_LINECOL(NODE) = ((LINE) << 12) | ((COL) & 0xfff))
 
 extern tree build_expr_wfl              PARAMS ((tree, const char *, int, int));
+#define build_unknown_wfl(NODE) build_expr_wfl(NODE, NULL, 0, 0)
+#endif
 
 extern void java_genericize		PARAMS ((tree));
 extern int java_gimplify_expr		PARAMS ((tree *, tree *, tree *));
