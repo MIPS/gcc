@@ -235,6 +235,11 @@ public class JSpinner extends JComponent
   public static class NumberEditor extends DefaultEditor
   {
     /**
+     * For compatability with Sun's JDK
+     */
+    private static final long serialVersionUID = 3791956183098282942L;
+
+    /**
      * Creates a new NumberEditor object.
      *
      * @param spinner DOCUMENT ME!
