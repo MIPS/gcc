@@ -69,6 +69,11 @@ static bool cfg_altered;
    this bitmap.  */
 static sbitmap vars_to_rename;
 
+/* Nonzero if we should thread jumps through blocks which contain PHI
+   nodes.  This is not safe once we have performed any transformation
+   which extends the lifetime of variables.  */
+static int thread_through_phis;
+
 /* Statistics for dominator optimizations.  */
 struct opt_stats_d
 {
@@ -203,6 +208,9 @@ static void dom_opt_initialize_block (struct dom_walk_data *,
 				      basic_block, tree);
 static void dom_opt_walk_stmts (struct dom_walk_data *, basic_block, tree);
 static void cprop_into_phis (struct dom_walk_data *, basic_block, tree);
+static void tree_ssa_dominator_optimize_1 (tree, enum tree_dump_index,
+					   timevar_id_t);
+static void thread_jumps_walk_stmts (struct dom_walk_data *, basic_block, tree);
 
 /* Return the value associated with variable VAR in TABLE.  */
 
@@ -222,6 +230,47 @@ set_value_for (tree var, tree value)
 }
 
 
+
+/* Thread jumps in FNDECL based on equivalences created by walking the
+   dominator tree.
+
+   Fundamentally this optimization changes the dominator tree in ways
+   that other optimizers care about.  Furthermore, if we thread a jump
+   through a block with PHI nodes, then we need to re-rewrite all the
+   variables appearing in those PHI nodes.
+
+   The need to be able to re-rewrite those variables means that this
+   jump threading optimization must be run before we make any transformations
+   which could extend the lifetime of any variable or replace a use of a 
+   variable with a constant.  Thus this optimizer is the first optimizer we
+   run once we are in SSA form and this optimizer is responsible for updaing
+   the SSA form if transformations are made.
+
+   A more limited form of this optimizer is run as part of the main dominator
+   optimizer which does not make transformations which require the ability to
+   re-rewrite variables.  Specifically the later version of this optimizer
+   does not thread through blocks with PHI nodes.
+
+   PHASE indicates which dump file from the DUMP_FILES array to use when
+   dumping debugging information.  */
+
+void
+tree_ssa_dominator_thread_jumps (tree fndecl, enum tree_dump_index phase)
+{
+  /* Indicate that we can thread through blocks with PHI nodes.  */
+  thread_through_phis = 1;
+
+  /* The jump threader will always perform any necessary rewriting, so
+     we do not expose VAR_TO_RENAME to our caller, we just allocate and
+     deallocate one here.  */
+  vars_to_rename = sbitmap_alloc (num_referenced_vars);
+  sbitmap_zero (vars_to_rename);
+
+  tree_ssa_dominator_optimize_1 (fndecl, phase, TV_TREE_SSA_THREAD_JUMPS);
+
+  sbitmap_free (vars_to_rename);
+}
+
 /* Optimize function FNDECL based on the dominator tree.  This does
    simple const/copy propagation and redundant expression elimination using
    value numbering.
@@ -237,10 +286,35 @@ void
 tree_ssa_dominator_optimize (tree fndecl, sbitmap vars,
 			     enum tree_dump_index phase)
 {
+  /* Indicate we can not thread through blocks with PHI nodes.  */
+  thread_through_phis = 0;
+
+  /* Once we have the ability to attach pass-global data to the dominator
+     walker datastructure this (along with other pass-global data) should
+     move into that structure.  */
+  vars_to_rename = vars;
+
+  tree_ssa_dominator_optimize_1 (fndecl, phase, TV_TREE_SSA_DOMINATOR_OPTS);
+}
+
+/* Common driver for dominator based jump threading, redundancy elimination
+   and const/copy propagation. 
+
+   Optimize function FNDECL based on a walk through the dominator tree.
+
+   PHASE indicates which dump file from the DUMP_FILES array to use when
+   dumping debugging information.  */
+
+static void
+tree_ssa_dominator_optimize_1 (tree fndecl,
+			       enum tree_dump_index phase,
+			       timevar_id_t timevar)
+{
+  basic_block bb;
   edge e;
   struct dom_walk_data walk_data;
 
-  timevar_push (TV_TREE_SSA_DOMINATOR_OPTS);
+  timevar_push (timevar);
 
   /* Set up debugging dump files.  */
   dump_file = dump_begin (phase, &dump_flags);
@@ -256,16 +330,22 @@ tree_ssa_dominator_optimize (tree fndecl, sbitmap vars,
 
   /* Setup callbacks for the generic dominator tree walker.  */
   walk_data.before_dom_children_before_stmts = dom_opt_initialize_block;
-  walk_data.before_dom_children_walk_stmts = dom_opt_walk_stmts;
-  walk_data.before_dom_children_after_stmts = cprop_into_phis;
-  walk_data.after_dom_children_after_stmts = dom_opt_finalize_block;
-  walk_data.after_dom_children_walk_stmts = NULL;
   walk_data.after_dom_children_before_stmts = NULL;
+  walk_data.after_dom_children_walk_stmts = NULL;
+  walk_data.after_dom_children_after_stmts = dom_opt_finalize_block;
 
-  /* Once we have the ability to attach pass-global data to the dominator
-     walker datastructure this (along with other pass-global data) should
-     move into that structure.  */
-  vars_to_rename = vars;
+  /* Customize walker based on whether or not we are threading jumps
+     through blocks with PHI nodes or not.  */
+  if (thread_through_phis)
+    {
+      walk_data.before_dom_children_walk_stmts = thread_jumps_walk_stmts;
+      walk_data.before_dom_children_after_stmts = NULL;
+    }
+  else
+    {
+      walk_data.before_dom_children_walk_stmts = dom_opt_walk_stmts;
+      walk_data.before_dom_children_after_stmts = cprop_into_phis;
+    }
 
   /* Build the dominator tree if necessary. 
 
@@ -276,6 +356,11 @@ tree_ssa_dominator_optimize (tree fndecl, sbitmap vars,
   for (e = ENTRY_BLOCK_PTR->succ; e; e = e->succ_next)
     if (dom_children (e->dest))
       break;
+
+  /* Reset block_forwardable in each block's annotation.  We use that
+     attribute when threading through COND_EXPRs.  */
+  FOR_EACH_BB (bb)
+    bb_ann (bb)->forwardable = 1;
 
   /* If we did not find any dominator children in the successors of the
      entry block, then rebuild the dominator tree.  */
@@ -371,7 +456,7 @@ tree_ssa_dominator_optimize (tree fndecl, sbitmap vars,
   VARRAY_FREE (edges_to_redirect);
   VARRAY_FREE (redirection_targets);
 
-  timevar_pop (TV_TREE_SSA_DOMINATOR_OPTS);
+  timevar_pop (timevar);
 }
 
 
@@ -385,14 +470,31 @@ thread_edge (edge e, basic_block dest)
   tree label, goto_stmt, stmt;
   basic_block bb = e->src, new_bb;
   int flags = e->flags;
+  tree phi;
 
+#ifdef ENABLE_CHECKING
   if (e != bb->succ
       || bb->succ->succ_next)
     abort ();
 
+  if (! thread_through_phis
+      && (phi_nodes (e->dest) || phi_nodes (dest)))
+    abort ();
+#endif
+
   /* Remove EDGE_FALLTHRU from the edge (by convention, control edges are
      not fallthru).  */
   flags &= ~EDGE_FALLTHRU;
+
+  /* If there are PHI nodes at the original destination, then we need to
+     re-rename the variables referenced by those PHI nodes.
+
+     Since we only thread through blocks with PHI nodes before doing
+     any kind of propagation or redundancy elimination, we know that
+     all the PHI arguments are different versions of the same variable,
+     so we only need to mark the underlying variable for PHI_RESULT.  */
+  for (phi = phi_nodes (e->dest); phi; phi = TREE_CHAIN (phi))
+    SET_BIT (vars_to_rename, var_ann (SSA_NAME_VAR (PHI_RESULT (phi)))->uid);
 
   /* We need a label at our final destination.  If it does not already exist,
      create it.  */
@@ -420,8 +522,6 @@ thread_edge (edge e, basic_block dest)
       GOTO_DESTINATION (stmt) = label;
       new_bb = NULL;
     }
-
-  /* Update/insert PHI nodes as necessary.  */
 
   /* Now update the edges in the CFG.  */
   if (dump_file && (dump_flags & TDF_DETAILS))
@@ -453,26 +553,53 @@ thread_through_successor (basic_block bb, varray_type *block_avail_exprs)
   /* If we have a single successor, then we may be able to thread
      the edge out of our block to a destination of our successor.
 
-     To simplify the initial implementation we require that
-     our successor have no PHI nodes.  */
-  if (bb->succ && bb->succ->succ_next == NULL && ! phi_nodes (bb->succ->dest))
+     Only thread through a successor with PHI nodes if explicitly asked to.  */
+  if (bb->succ && bb->succ->succ_next == NULL
+      && (thread_through_phis || ! phi_nodes (bb->succ->dest)))
     {
-      block_stmt_iterator i = bsi_start (bb->succ->dest);
-      tree stmt;
+      block_stmt_iterator bsi = bsi_start (bb->succ->dest);
+      tree stmt = NULL;
 
-      /* Get the successor's first real statement.  */
-      while (! bsi_end_p (i)
-	     && (IS_EMPTY_STMT (bsi_stmt (i))
-		 || TREE_CODE (bsi_stmt (i)) == LABEL_EXPR))
-	bsi_next (&i);
-      stmt = bsi_end_p (i) ? NULL : bsi_stmt (i);
+      /* Walk past any empty statements and labels.  */
+      while (! bsi_end_p (bsi)
+	     && (stmt = bsi_stmt (bsi))
+	     && (IS_EMPTY_STMT (stmt)
+		 || TREE_CODE (stmt) == LABEL_EXPR))
+	bsi_next (&bsi);
 
-      /* If the successor's first real statement is a COND_EXPR, then
-	 see if we know which arm will be taken.  */
+      /* If we stopped at a COND_EXPR, then see if we know which arm will
+	 be taken.  */
       if (stmt && TREE_CODE (stmt) == COND_EXPR)
 	{
-	  tree cached_lhs = lookup_avail_expr (stmt, block_avail_exprs, false);
+	  tree cached_lhs;
+	  unsigned int i;
 
+	  /* If we are threading through PHIs, then make sure that none
+	     of the PHIs set results which are used by the conditional.
+
+	     Otherwise this optimization would short-circuit loops.  */
+	  if (thread_through_phis)
+	    {
+	      varray_type table;
+
+	      get_stmt_operands (stmt);
+	      table = use_ops (stmt_ann (stmt));
+
+	      for (i = 0; table && i < VARRAY_ACTIVE_SIZE (table); i++)
+		{
+		  tree *op_p = VARRAY_TREE_PTR (table, i);
+		  tree def_stmt = SSA_NAME_DEF_STMT (*op_p);
+	
+		  /* See if this operand is defined by a PHI node in
+		     BB's successor.  If it is, then we can not thread
+		     this jump.  */
+		  if (TREE_CODE (def_stmt) == PHI_NODE
+		      && bb_for_stmt (def_stmt) == bb->succ->dest)
+		    return;
+		}
+	    }
+
+	  cached_lhs = lookup_avail_expr (stmt, block_avail_exprs, false);
 	  if (cached_lhs)
 	    {
 	      edge taken_edge = find_taken_edge (bb->succ->dest, cached_lhs);
@@ -484,6 +611,15 @@ thread_through_successor (basic_block bb, varray_type *block_avail_exprs)
 		 bypass the conditional at our original destination.  */
 	      if (dest && ! phi_nodes (dest))
 		{
+		  basic_block forwards_to;
+		  int saved_forwardable = bb_ann (bb)->forwardable;
+
+		  bb_ann (bb)->forwardable = 0;
+
+		  forwards_to = tree_block_forwards_to (dest);
+
+		  bb_ann (bb)->forwardable = saved_forwardable;
+		  dest = (forwards_to ? forwards_to : dest);
 		  VARRAY_PUSH_EDGE (edges_to_redirect, bb->succ);
 		  VARRAY_PUSH_BB (redirection_targets, dest);
 		}
@@ -693,7 +829,7 @@ record_equivalences_from_incoming_edge (basic_block bb,
 
   /* If we have a single predecessor, then extract EDGE_FLAGS from
      our single incoming edge.  Otherwise clear EDGE_FLAGS and
-     PAREND_BLOCK_LAST_STMT since they're not needed.  */
+     PARENT_BLOCK_LAST_STMT since they're not needed.  */
   if (bb->pred && !bb->pred->pred_next)
     {
       edge_flags = bb->pred->flags;
@@ -846,6 +982,61 @@ dom_opt_walk_stmts (struct dom_walk_data *walk_data,
 	 find it again.  */
       if (optimize_stmt (si, &bd->avail_exprs))
 	VARRAY_PUSH_TREE (bd->stmts_to_rescan, bsi_stmt (si));
+    }
+}
+
+/* Alternate statement walker for jump threading.  The primary difference
+   between this walker and the previous one is we merely want to record
+   equivalences, not take action on them.  So instead of calling
+   optimize_stmt, we just enter the appropriate equivalences into the
+   hash tables.  */
+
+static void
+thread_jumps_walk_stmts (struct dom_walk_data *walk_data,
+			 basic_block bb,
+			 tree parent_block_last_stmt ATTRIBUTE_UNUSED)
+{
+  block_stmt_iterator si;
+
+  /* Examine each statement within the basic block.  */
+  for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
+    {
+      struct dom_walk_block_data *bd
+	= VARRAY_TOP_GENERIC_PTR (walk_data->block_data_stack);
+      tree stmt = bsi_stmt (si);
+      int may_optimize_p;
+      varray_type vdefs;
+
+      /* Check for redundant computations.  Do this optimization only
+	 for assignments that have no volatile ops and conditionals.  */
+
+      /* This is a simpler test than the one in optimize_stmt because
+	 we only care about recording equivalences for assignments.
+         RETURN_EXPRs, COND_EXPRs, and SWITCH_EXPRs can be ignored.  */
+      may_optimize_p = (!stmt_ann (stmt)->has_volatile_ops
+			&& TREE_CODE (stmt) == MODIFY_EXPR
+			&& ! TREE_SIDE_EFFECTS (TREE_OPERAND (stmt, 1)));
+
+      vdefs = vdef_ops (stmt_ann (stmt));
+
+      /* Tighten the set of RHS expressions we can enter into the hash
+	 tables.  Specifically, we can not enter the RHS into the hash
+	 table if the LHS is not an SSA_NAME, the LHS occurs in an
+	 abnormal PHI, or if the statement makes aliased stores
+	 (in addition to all the conditions for may_optimize_p).  */
+      if (may_optimize_p
+	  && TREE_CODE (TREE_OPERAND (stmt, 0)) == SSA_NAME
+	  && ! SSA_NAME_OCCURS_IN_ABNORMAL_PHI (TREE_OPERAND (stmt, 0))
+	  && ! stmt_ann (stmt)->makes_aliased_stores
+	  && ! vdefs)
+	lookup_avail_expr (stmt, &bd->avail_exprs, true);
+
+      /* Even if we couldn't enter LHS = RHS into the expression hash tables,
+	 this statement may still generate other equivalences.  For example,
+	 an aliased store can indicate that a pointer has a nonzero value.  */
+      if (TREE_CODE (stmt) == MODIFY_EXPR)
+	record_equivalences_from_stmt (stmt, &bd->avail_exprs,
+				       may_optimize_p, stmt_ann (stmt));
     }
 }
 

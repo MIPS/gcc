@@ -3511,6 +3511,7 @@ enum tree_dump_index
   /* Optimization passes.  The ordering and numbering of these phases must
      be the same as the one in optimize_function_tree().  */
   TDI_ssa_1,
+  TDI_thread_jumps,
   TDI_dom_1,
   TDI_ssa_2,
   TDI_dce_1,

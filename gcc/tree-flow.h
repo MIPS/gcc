@@ -445,6 +445,7 @@ extern basic_block label_to_block (tree);
 extern bool cleanup_cond_expr_graph (basic_block, tree);
 extern bool cleanup_switch_expr_graph (basic_block, tree);
 extern void tree_optimize_tail_calls (void);
+extern basic_block tree_block_forwards_to (basic_block bb);
 
 /* In tree-dfa.c  */
 void find_referenced_vars (tree);
@@ -514,6 +515,7 @@ bool fold_stmt (tree *);
 tree widen_bitfield (tree, tree, tree);
 
 /* In tree-ssa-dom.c  */
+extern void tree_ssa_dominator_thread_jumps (tree, enum tree_dump_index);
 extern void tree_ssa_dominator_optimize (tree, sbitmap, enum tree_dump_index);
 extern void dump_dominator_optimization_stats (FILE *);
 extern void debug_dominator_optimization_stats (void);

@@ -138,7 +138,6 @@ static bool blocks_unreachable_p (bitmap);
 static void remove_blocks (bitmap);
 static void cleanup_control_flow (void);
 static void thread_unconditional_jumps (void);
-static basic_block tree_block_forwards_to (basic_block bb);
 static bool disconnect_unreachable_case_labels (basic_block, tree);
 static edge find_taken_edge_cond_expr (basic_block, tree);
 static edge find_taken_edge_switch_expr (basic_block, tree);
@@ -2144,7 +2143,7 @@ remove_stmt (tree *stmt_p, bool remove_annotations)
    transfers control to a new destination).  If BB is a forwarding block,
    then return the ultimate destination.  */
 
-static basic_block
+basic_block
 tree_block_forwards_to (basic_block bb)
 {
   block_stmt_iterator bsi;
