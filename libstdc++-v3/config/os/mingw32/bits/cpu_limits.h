@@ -180,13 +180,13 @@ template <class __dummy>
 #define __glibcpp_long_double_has_denorm denorm_present
 #define __glibcpp_long_double_has_denorm_loss true
 #define __glibcpp_long_double_infinity \
-	_iec559_consts<bool>::_S_InfL.double_val
+	_iec559_consts<bool>::_S_InfL.ldouble_val
 #define __glibcpp_long_double_quiet_NaN \
-	_iec559_consts<bool>::_S_QNaNL.double_val
+	_iec559_consts<bool>::_S_QNaNL.ldouble_val
 #define __glibcpp_long_double_signaling_NaN \
-	_iec559_consts<bool>::_S_SNaNL.double_val
+	_iec559_consts<bool>::_S_SNaNL.ldouble_val
 #define __glibcpp_long_double_denorm_min \
-	_iec559_consts<bool>::_S_DenormL.double_val
+	_iec559_consts<bool>::_S_DenormL.ldouble_val
 #define __glibcpp_long_double_is_iec559 true
 #define __glibcpp_long_double_is_bounded true
 #define __glibcpp_long_double_is_modulo false
