@@ -1,5 +1,6 @@
-// -*- C++ -*- 
-// Copyright (C) 2000, 2001 Free Software Foundation
+// -*- C++ -*- Common throw conditions.
+// Copyright (C) 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001 
+// Free Software Foundation
 //
 // This file is part of GNU CC.
 //
@@ -16,8 +17,8 @@
 // You should have received a copy of the GNU General Public License
 // along with GNU CC; see the file COPYING.  If not, write to
 // the Free Software Foundation, 59 Temple Place - Suite 330,
-// Boston, MA 02111-1307, USA.
-//
+// Boston, MA 02111-1307, USA. 
+
 // As a special exception, you may use this file as part of a free software
 // library without restriction.  Specifically, if other files instantiate
 // templates or use macros or inline functions from this file, or you compile
@@ -27,25 +28,29 @@
 // invalidate any other reasons why the executable file might be covered by
 // the GNU General Public License.
 
-#include <bits/c++config.h>
+#include "typeinfo"
+#include "exception"
+#include <cstddef>
 #include "unwind-cxx.h"
+#include "exception_defines.h"
 
-#ifdef _GLIBCPP_HAVE_UNISTD_H
-# include <unistd.h>
-# define writestr(str)	write(2, str, sizeof(str) - 1)
-# ifdef __GNU_LIBRARY__
-  /* Avoid forcing the library's meaning of `write' on the user program
-     by using the "internal" name (for use within the library).  */
-/*#  define write(fd, buf, n)	__write((fd), (buf), (n))*/
-# endif
-#else
-# include <stdio.h>
-# define writestr(str)	fputs(str, stderr)
-#endif
 
 extern "C" void
-__cxa_pure_virtual (void)
+__cxa_bad_cast ()
 {
-  writestr ("pure virtual method called\n");
-  std::terminate ();
+#ifdef __EXCEPTIONS  
+  throw std::bad_cast();
+#else
+  std::abort();
+#endif
+}
+
+extern "C" void
+__cxa_bad_typeid ()
+{
+#ifdef __EXCEPTIONS  
+  throw std::bad_typeid();
+#else
+  std::abort();
+#endif
 }
