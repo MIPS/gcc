@@ -1,3 +1,8 @@
+Sat Dec  7 18:14:54 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* i386.c (ix86_expand_int_movcc):  Use force_operand instead of constructing
+	insn directly.
+
 Sat Dec  7 16:37:13 CET 2002  Jan Hubicka  <jh@suse.cz>
 
 	* Merge from mainline (hammer-3_3-20020712 tag)
