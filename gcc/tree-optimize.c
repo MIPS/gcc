@@ -112,8 +112,6 @@ optimize_function_tree (tree fndecl, tree *chain)
       /* Perform dominator optimizations.  */
       if (flag_tree_dom)
 	{
-	  tree_ssa_dominator_thread_jumps (fndecl, TDI_thread_jumps);
-
 	  bitmap_clear (vars_to_rename);
 	  tree_ssa_dominator_optimize (fndecl, vars_to_rename, TDI_dom_1);
 

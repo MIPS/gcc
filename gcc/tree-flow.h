@@ -533,7 +533,6 @@ bool fold_stmt (tree *);
 tree widen_bitfield (tree, tree, tree);
 
 /* In tree-ssa-dom.c  */
-extern void tree_ssa_dominator_thread_jumps (tree, enum tree_dump_index);
 extern void tree_ssa_dominator_optimize (tree, bitmap, enum tree_dump_index);
 extern void dump_dominator_optimization_stats (FILE *);
 extern void debug_dominator_optimization_stats (void);
