@@ -111,6 +111,7 @@ static void tree_merge_blocks (basic_block, basic_block);
 static bool tree_can_merge_blocks_p (basic_block, basic_block);
 static void remove_bb (basic_block);
 static bool cleanup_control_flow (void);
+static bool cleanup_control_expr_graph (basic_block, block_stmt_iterator);
 static edge find_taken_edge_cond_expr (basic_block, tree);
 static edge find_taken_edge_switch_expr (basic_block, tree);
 static tree find_case_label_for_value (tree, tree);
@@ -1626,7 +1627,7 @@ cleanup_control_flow (void)
 /* Disconnect an unreachable block in the control expression starting
    at block BB.  */
 
-bool
+static bool
 cleanup_control_expr_graph (basic_block bb, block_stmt_iterator bsi)
 {
   edge taken_edge;
@@ -1718,27 +1719,25 @@ find_taken_edge (basic_block bb, tree val)
 static edge
 find_taken_edge_cond_expr (basic_block bb, tree val)
 {
-  bool always_false;
-  bool always_true;
-  edge e;
+  edge true_edge, false_edge;
 
-  /* Determine which branch of the if() will be taken.  */
-  always_false = integer_zerop (val);
-  always_true = integer_nonzerop (val);
+  extract_true_false_edges_from_block (bb, &true_edge, &false_edge);
 
-  /* If VAL is a constant but it can't be reduced to a 0 or a 1, then
+  /* If both edges of the branch lead to the same basic block, it doesn't
+     matter which edge is taken.  */
+  if (true_edge->dest == false_edge->dest)
+    return true_edge;
+
+  /* Otherwise, try to determine which branch of the if() will be taken.
+     If VAL is a constant but it can't be reduced to a 0 or a 1, then
      we don't really know which edge will be taken at runtime.  This
-     may happen when comparing addresses (e.g., if (&var1 == 4))  */
-  if (!always_false && !always_true)
+     may happen when comparing addresses (e.g., if (&var1 == 4)).  */
+  if (integer_nonzerop (val))
+    return true_edge;
+  else if (integer_zerop (val))
+    return false_edge;
+  else
     return NULL;
-
-  for (e = bb->succ; e; e = e->succ_next)
-    if (((e->flags & EDGE_TRUE_VALUE) && always_true)
-	|| ((e->flags & EDGE_FALSE_VALUE) && always_false))
-      return e;
-
-  /* There always should be an edge that is taken.  */
-  abort ();
 }
 
 /* Given a constant value VAL and the entry block BB to a SWITCH_EXPR

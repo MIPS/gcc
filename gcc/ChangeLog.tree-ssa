@@ -1,3 +1,10 @@
+2004-02-16  Steven Bosscher  <stevenb@suse.de>
+
+	* tree-flow.h (cleanup_control_expr_graph): Don't declare here.
+	* tree-cfg.c (cleanup_control_expr_graph): Make static.
+	(find_edge_taken_cond_expr): Return an edge if the true and false
+	edges of a branch lead to the same basic block.
+
 2004-02-13  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-phinodes.c (resize_phi_node): Do not use ggc_realloc to
@@ -721,7 +728,7 @@
 
 2004-01-21  Dale Johannesen  <dalej@apple.com>
 	 
-	* tree-ssa-dfa.c:  Fix comment.
+	* tree-dfa.c: Fix comment.
 
 2004-01-21  Richard Henderson  <rth@redhat.com>
 

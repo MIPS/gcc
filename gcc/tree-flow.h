@@ -468,7 +468,6 @@ extern edge find_taken_edge (basic_block, tree);
 extern void cfg_remove_useless_stmts (void);
 extern edge thread_edge (edge, basic_block);
 extern basic_block label_to_block (tree);
-extern bool cleanup_control_expr_graph (basic_block, block_stmt_iterator);
 extern void tree_optimize_tail_calls (bool, enum tree_dump_index);
 extern edge tree_block_forwards_to (basic_block bb);
 extern void bsi_insert_on_edge (edge, tree);
