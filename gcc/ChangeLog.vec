@@ -1,3 +1,8 @@
+2004-07-26  Ben Elliston  <bje@au.ibm.com>
+
+	* bb-reorder.c (connect_traces): Use distinct iterator variables
+	when nesting FOR_EACH_EDGE loops (ix vs. ix2).
+
 2004-07-26  Andrew Pinski  <pinskia@physics.uc.edu>
 
 	* bb-reorder.c (fix_up_fall_thru_edges): Fix up when there is no edge

@@ -929,7 +929,6 @@ connect_traces (int n_traces, struct trace *traces)
       int t2;
       edge e, best;
       int best_len;
-      unsigned ix;
 
       /* If we are partitioning hot/cold basic blocks, check to see
 	 if all the hot traces have been connected.  If so, go back
@@ -966,6 +965,7 @@ connect_traces (int n_traces, struct trace *traces)
       /* Find the predecessor traces.  */
       for (t2 = t; t2 > 0;)
 	{
+	  unsigned ix;
 	  best = NULL;
 	  best_len = 0;
 	  FOR_EACH_EDGE (e, traces[t2].first->pred, ix)
@@ -1012,6 +1012,7 @@ connect_traces (int n_traces, struct trace *traces)
       /* Find the successor traces.  */
       while (1)
 	{
+	  unsigned ix;
 	  /* Find the continuation of the chain.  */
 	  best = NULL;
 	  best_len = 0;
@@ -1051,6 +1052,7 @@ connect_traces (int n_traces, struct trace *traces)
 	  else
 	    {
 	      /* Try to connect the traces by duplication of 1 block.  */
+	      unsigned ix, ix2;
 	      edge e2;
 	      basic_block next_bb = NULL;
 	      bool try_copy = false;
@@ -1076,7 +1078,7 @@ connect_traces (int n_traces, struct trace *traces)
 			continue;
 		      }
 
-		    FOR_EACH_EDGE (e2, e->dest->succ, ix)
+		    FOR_EACH_EDGE (e2, e->dest->succ, ix2)
 		      {
 			int di = e2->dest->index;
 
