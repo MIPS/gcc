@@ -1129,6 +1129,7 @@ java/awt/geom/CubicCurve2D.java \
 java/awt/geom/FlatteningPathIterator.java \
 java/awt/geom/GeneralPath.java \
 java/awt/geom/QuadCurve2D.java \
+java/awt/image/BandedSampleModel.java \
 java/awt/image/BufferedImage.java \
 java/awt/image/ByteLookupTable.java \
 java/awt/image/ColorModel.java \
