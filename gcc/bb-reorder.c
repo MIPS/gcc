@@ -94,10 +94,19 @@ static unsigned int *copy_bb_p_visited;
 /* The size of the previous array.  */
 static int copy_bb_p_visited_size;
 
+/* Original number (before duplications) of basic blocks.  */
+static int original_n_basic_blocks;
+
+/* Which trace is the bb start of (-1 means it is not a start of a trace).  */
+static int *start_of_trace;
+
 struct trace
 {
   /* First and last basic block of the trace.  */
   basic_block first, last;
+
+  /* Predecessor and successor trace.  */
+  int pred, succ;
 
   /* The round of the STC creation which this trace was found in.  */
   int round;
@@ -127,7 +136,6 @@ find_traces ()
   struct trace *traces;
   basic_block bb0;
   fibheap_t heap;
-  int *start_of_trace;
   bool *connected;
   int last_trace;
 
@@ -135,6 +143,12 @@ find_traces ()
      in an original (not duplicated) basic block.  */
   traces = xmalloc (n_basic_blocks * sizeof(struct trace));
   n_traces = 0;
+
+  /* We need to know fast whether the basic block is the start of a trace.  */
+  original_n_basic_blocks = n_basic_blocks;
+  start_of_trace = xmalloc (original_n_basic_blocks * sizeof(int));
+  for (i = 0; i < original_n_basic_blocks; i++)
+    start_of_trace[i] = -1;
 
   /* Find the traces.  */
   bb0 = BASIC_BLOCK (0);
@@ -165,51 +179,76 @@ find_traces ()
       fflush (rtl_dump_file);
     }
 
-  /* Mark each bb which is a start of a trace.  */
-  start_of_trace = xmalloc (n_basic_blocks * sizeof(int));
-  for (i = 0; i < n_basic_blocks; i++)
-    start_of_trace[i] = -1;
-  for (i = 0; i < n_traces; i++)
-    start_of_trace[traces[i].first->index] = i;
-
+  /* Set the start_of_trace for new basic blocks.  */
+  if (n_basic_blocks > original_n_basic_blocks)
+    {
+      start_of_trace = xrealloc (start_of_trace, n_basic_blocks * sizeof(int));
+      for (i = original_n_basic_blocks; i < n_basic_blocks; i++)
+	start_of_trace[i] = -1;
+      for (i = 0; i < n_traces; i++)
+	if (traces[i].first->index >= original_n_basic_blocks)
+	  start_of_trace[traces[i].first->index] = i;
+    }
+  
+  if (rtl_dump_file)
+    {
+      fprintf (rtl_dump_file, "Traces:\n");
+      for (i = 0; i < n_traces; i++)
+	fprintf (rtl_dump_file, "%d pred %d succ %d\n", i, traces[i].pred,
+		 traces[i].succ);
+      fprintf (rtl_dump_file, "Starts of traces: \n");
+      for (i = 0; i < n_basic_blocks; i++)
+	if (start_of_trace[i] >= 0)
+	  fprintf (rtl_dump_file, "bb %d trace %d\n", i, start_of_trace[i]);
+    }
+  
   /* Connect traces.  */
   connected = xcalloc (n_traces, sizeof (bool));
   last_trace = -1;
   for (i = 0; i < n_traces; i++)
     {
-      if (!connected[i])
+      int t = i;
+
+      if (!connected[t])
 	{
 	  edge e, best;
 
-	  /* Connect actual trace to a chain of already connected traces.  */
-	  if (last_trace >= 0)
-	    RBI (traces[last_trace].last)->next = traces[i].first;
-	  connected[i] = true;
-	  last_trace = i;
-
-	  /* Connect a chain of traces that concur.  */
 	  for (;;)
 	    {
-	      int next_trace;
+	      /* Find the start of a chain of traces preconnected during trace
+		 finding.  */
+	      while (traces[t].pred >= 0)
+		t = traces[t].pred;
 
+	      /* Connect the traces.  */
+	      for (;;)
+	      {
+		if (last_trace >= 0)
+		  RBI (traces[last_trace].last)->next = traces[t].first;
+		connected[t] = true;
+		last_trace = t;
+		if (traces[t].succ < 0)
+		  break;
+		t = traces[t].succ;
+	      }
+
+	      /* Find the continuation of the chain.  */
 	      best = NULL;
-	      for (e = traces[i].last->succ; e; e = e->succ_next)
-		{
-		  if (e->dest != EXIT_BLOCK_PTR
-		      && (e->flags & EDGE_CAN_FALLTHRU)
-		      && start_of_trace[e->dest->index] >= 0
-		      && !connected[start_of_trace[e->dest->index]]
-		      && (!best || e->probability > best->probability))
-		    best = e;
+	      for (e = traces[t].last->succ; e; e = e->succ_next)
+	      {
+		if (e->dest != EXIT_BLOCK_PTR
+		    && (e->flags & EDGE_CAN_FALLTHRU)
+		    && start_of_trace[e->dest->index] >= 0
+		    && !connected[start_of_trace[e->dest->index]]
+		    && traces[start_of_trace[e->dest->index]].pred < 0
+		    && (!best || e->probability > best->probability))
+		  best = e;
 		}
 
 	      if (!best)
 		break;
 
-	      next_trace = start_of_trace[best->dest->index];
-	      RBI (traces[last_trace].last)->next = traces[next_trace].first;
-	      connected[next_trace] = true;
-	      last_trace = next_trace;
+	      t = start_of_trace[best->dest->index];
 	    }
 	}
     }
@@ -272,6 +311,8 @@ find_traces_1_round (branch_th, exec_th, traces, n_traces, round, heap,
       trace = traces + *n_traces;
       trace->first = bb;
       trace->last = bb;
+      trace->pred = -1;
+      trace->succ = -1;
       trace->round = round;
       (*n_traces)++;
 
@@ -449,6 +490,22 @@ find_traces_1_round (branch_th, exec_th, traces, n_traces, round, heap,
 		}
 	      else if (RBI (best_edge->dest)->visited)
 		{
+		  if (best_edge->dest->index > 0 
+		      && best_edge->dest->index < original_n_basic_blocks
+		      && start_of_trace[best_edge->dest->index] >= 0)
+		    {
+		      int succ = start_of_trace[best_edge->dest->index];
+
+		      /* Link the traces.  */
+		      trace->succ = succ;
+		      traces[succ].pred = *n_traces - 1;
+		      start_of_trace[best_edge->dest->index] = -1;
+
+		      /* Terminate the trace.  */
+		      trace->last = bb;
+		      break;
+		    }
+
 		  bb = duplicate_basic_block (best_edge->dest, best_edge, bb,
 					*n_traces);
 		}
@@ -502,6 +559,8 @@ find_traces_1_round (branch_th, exec_th, traces, n_traces, round, heap,
 	    }
 	}
       while (best_edge);
+      if (trace->first->index < original_n_basic_blocks)
+	start_of_trace[trace->first->index] = *n_traces - 1;
     }
 
   fibheap_delete (*heap);
