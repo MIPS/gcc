@@ -1,3 +1,8 @@
+Sat Dec  7 22:29:47 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* i386.c (ix86_expand_int_movcc):  Use force_operand instead of constructing
+	insn directly.
+
 2002-12-06  Per Bothner  <pbothner@apple.com>
 
 	* cpplib.h (NODE_MACRO_ARG):  New flag.
