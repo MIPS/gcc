@@ -759,19 +759,20 @@ compute_outgoing_frequencies (basic_block b)
   if (b->succ && b->succ->succ_next && !b->succ->succ_next->succ_next)
     {
       rtx note = find_reg_note (BB_END (b), REG_BR_PROB, NULL);
-      int probability;
 
-      if (!note)
-	return;
+      if (note)
+	{
+	  int probability = INTVAL (XEXP (note, 0));
 
-      probability = INTVAL (XEXP (note, 0));
-      e = BRANCH_EDGE (b);
-      e->probability = probability;
-      e->count = ((b->count * probability + REG_BR_PROB_BASE / 2)
-		  / REG_BR_PROB_BASE);
-      f = FALLTHRU_EDGE (b);
-      f->probability = REG_BR_PROB_BASE - probability;
-      f->count = b->count - e->count;
+	  e = BRANCH_EDGE (b);
+	  e->probability = probability;
+	  e->count = ((b->count * probability + REG_BR_PROB_BASE / 2)
+		      / REG_BR_PROB_BASE);
+	  f = FALLTHRU_EDGE (b);
+	  f->probability = REG_BR_PROB_BASE - probability;
+	  f->count = b->count - e->count;
+	  return;
+	}
     }
 
   if (b->succ && !b->succ->succ_next)
@@ -779,6 +780,15 @@ compute_outgoing_frequencies (basic_block b)
       e = b->succ;
       e->probability = REG_BR_PROB_BASE;
       e->count = b->count;
+      return;
+    }
+  if (flag_guess_branch_prob && b->succ)
+    {
+      guess_outgoing_edge_probabilities (b);
+      if (b->count)
+	for (e = b->succ; e; e = e->succ_next)
+	  e->count = ((b->count * e->probability + REG_BR_PROB_BASE / 2)
+		      / REG_BR_PROB_BASE);
     }
 }
 

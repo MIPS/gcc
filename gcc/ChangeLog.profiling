@@ -1,5 +1,15 @@
 2004-04-19  Jan Hubicka  <jh@suse.cz>
 
+	* basic-block.h (guess_outgoing_edge_probabilities): Declare.
+	* cfgbuild.c (compute_outgoing_frequencies): Use it.
+	* predict.c (bb_estimate_probability_locally): Break out from ...
+	(estimate_probability): ... this one.
+	(guess_outgoing_edge_probabilities): New function.
+	(set_even_probabilities): Break out from ...
+	(combine_predictions_for_bb): ... here.
+
+2004-04-19  Jan Hubicka  <jh@suse.cz>
+
 	* predict.c (counts_to_freqs): Make global.
 	(tree_estimate_probability): Bail out when profile has been read.
 	* predict.h (counts_to_freqs): Declare.
