@@ -1,0 +1,32 @@
+# Don't use system libunwind library on IA-64 GLIBC based system,
+# but make _Unwind_* symbols unversioned, so that created programs
+# are usable even when libgcc_s uses libunwind.
+LIB2ADDEH += $(srcdir)/config/ia64/fde-glibc.c
+LIB2ADDEH += $(srcdir)/config/ia64/unwind-shared-ia64.c
+LIB2ADDEHSTATIC = $(srcdir)/config/ia64/unwind-ia64.c $(srcdir)/unwind-sjlj.c \
+  $(srcdir)/unwind-c.c $(srcdir)/gthr-gnat.c $(srcdir)/config/ia64/fde-glibc.c
+LIB2ADDEHSHARED = $(srcdir)/config/ia64/unwind-shared-ia64.c $(srcdir)/unwind-sjlj.c \
+  $(srcdir)/unwind-c.c $(srcdir)/gthr-gnat.c $(srcdir)/config/ia64/fde-glibc.c
+SHLIB_MAPFILES += $(srcdir)/config/ia64/libgcc-ia64-no-libunwind.ver
+SHLIB_MKMAP = $(srcdir)/config/ia64/mkmap-symver-multi.awk
+
+SHLIB_LINK = $(GCC_FOR_TARGET) $(LIBGCC2_CFLAGS) -shared -nodefaultlibs \
+	-Wl,--soname=$(SHLIB_SONAME) \
+	-Wl,--version-script=$(SHLIB_MAP) \
+	-o $(SHLIB_NAME).tmp @multilib_flags@ $(SHLIB_OBJS) -lc && \
+	rm -f $(SHLIB_SOLINK) && \
+	if [ -f $(SHLIB_NAME) ]; then \
+	  mv -f $(SHLIB_NAME) $(SHLIB_NAME).`basename $(STAGE_PREFIX)`; \
+	else true; fi && \
+	gcc -O2 -o $(SHLIB_NAME).tweak $(srcdir)/config/ia64/change-symver.c -lelf && \
+	./$(SHLIB_NAME).tweak $(SHLIB_NAME).tmp GCC_3.4.2 _GLOBAL_ \
+	_Unwind_GetGR _Unwind_RaiseException _Unwind_GetRegionStart _Unwind_SetIP \
+	_Unwind_GetIP _Unwind_GetLanguageSpecificData _Unwind_Resume \
+	_Unwind_DeleteException _Unwind_SetGR _Unwind_ForcedUnwind \
+	_Unwind_Backtrace _Unwind_FindEnclosingFunction _Unwind_GetCFA \
+	_Unwind_Resume_or_Rethrow _Unwind_GetBSP && \
+	rm -f $(SHLIB_NAME).tweak && \
+	mv $(SHLIB_NAME).tmp $(SHLIB_NAME) && \
+	$(LN_S) $(SHLIB_NAME) $(SHLIB_SOLINK)
+
+TARGET_LIBGCC2_CFLAGS += -DUSE_SYMVER_GLOBAL

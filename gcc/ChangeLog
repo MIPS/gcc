@@ -1,3 +1,18 @@
+2004-11-15  Jakub Jelinek  <jakub@redhat.com>
+
+	* config.gcc (ia64*-*-linux*): If native and libelf is installed,
+	use ia64/t-glibc-no-libunwind instead of the other t-*unwind*
+	fragments.
+	* config/ia64/t-glibc-no-libunwind: New file.
+	* config/ia64/change-symver.c: New file.
+	* config/ia64/unwind-ia64.c: If USE_SYMVER_GLOBAL and SHARED,
+	define _Unwind_* to __symverglobal_Unwind_*.
+	(alias): Undefine.
+	(symverglobal): Define.  Use it on _Unwind_*.
+	* config/ia64/mkmap-symver-multi.awk: New file.
+	* config/ia64/unwind-shared-ia64.c: New file.
+	* config/ia64/libgcc-ia64-no-libunwind.ver: New file.
+
 2004-11-14  Andrew Pinski  <pinskia@physics.uc.edu>
 
 	PR objc/18406
