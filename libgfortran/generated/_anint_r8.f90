@@ -21,9 +21,9 @@
 !This file is machine generated.
 
 
-elemental function specific__aint_ (parm)
-   unknown (kind=), intent (in) :: parm
-   unknown (kind=) :: specific__aint_
+elemental function specific__anint_r8 (parm)
+   real (kind=8), intent (in) :: parm
+   real (kind=8) :: specific__anint_r8
 
-   specific__aint_ = aint (parm)
+   specific__anint_r8 = anint (parm)
 end function
