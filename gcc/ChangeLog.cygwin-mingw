@@ -1,5 +1,9 @@
 2002-06-28  Christopher Faylor  <cgf@redhat.com>
 
+	* config.gcc: Use new common makefile stub for cygwin and mingw32.
+
+2002-06-28  Christopher Faylor  <cgf@redhat.com>
+
 	* config/i386/t-cygming: New makefile stub.
 	* config/i386/t-cygwin: Assume existence of new makefile stub.
 	* config/i386/t-mingw32: Ditto.
