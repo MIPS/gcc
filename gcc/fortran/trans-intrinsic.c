@@ -1370,6 +1370,10 @@ gfc_conv_intrinsic_minmaxloc (gfc_se * se, gfc_expr * expr, int op)
 
   assert (loop.dimen == 1);
 
+  /* Initialize the position to the first element.  This is neccessary
+     when all the values are equal to the limit.  */
+  gfc_add_modify_expr (&loop.pre, pos, loop.from[0]);
+      
   gfc_mark_ss_chain_used (arrayss, 1);
   if (maskss)
     gfc_mark_ss_chain_used (maskss, 1);

@@ -1,3 +1,6 @@
+2003-11-06  Paul Brook  <paul@nowt.org>
+
+	* trans-intrinsic.c (gfc_conv_intrinsics_minmaxloc): Initialize pos.
 
 2003-11-02  Canqun Yang  <canqun@nudt.edu.cn>
 
