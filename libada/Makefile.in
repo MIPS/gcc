@@ -30,7 +30,6 @@ INSTALL_PROGRAM = @INSTALL_PROGRAM@
 
 # Nonstandard autoconf-set variables.
 enable_shared = @enable_shared@
-exeext=@host_exeext@
 LN_S=@LN_S@
 target_noncanonical=@target_noncanonical@
 

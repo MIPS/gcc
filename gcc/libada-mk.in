@@ -21,7 +21,7 @@
 # libada needs some information from the GCC configure file at the moment,
 # and this exists to transfer that information in as clean a way as possible.
 
-host_exeext=@host_exeext@
+exeext=@host_exeext@
 libdir=@libdir@
 gcc_version=@gcc_version@
 NOCOMMON_FLAG=@nocommon_flag@

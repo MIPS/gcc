@@ -1,5 +1,7 @@
 2004-03-31  Nathanael Nerode  <neroden@gcc.gnu.org>
 
+	* Makefile.in: Don't set exeext; it's set in gcc/libada-mk.
+
 	* Makefile.in: Call gcc/ada/Makefile directly, not through
 	the intermediary of gcc/Makefile.  Incorporate all necessary parts
 	of rules from gcc/ada/Make-lang.in.  Get needed bits of GCC
