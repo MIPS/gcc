@@ -3511,8 +3511,7 @@ rest_of_compilation (decl)
     {
       life_analysis (insns, rtl_dump_file, PROP_FINAL);
       cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_UPDATE_LIFE
-		   | (flag_crossjumping && !flag_trace_scheduling
-		      ? CLEANUP_CROSSJUMP : 0));
+		   | (flag_crossjumping ? CLEANUP_CROSSJUMP : 0));
 
       /* This is kind of a heuristic.  We need to run combine_stack_adjustments
          even for machines with possibly nonzero RETURN_POPS_ARGS
@@ -3583,9 +3582,15 @@ rest_of_compilation (decl)
 	 and write some more of the results to dump file.  */
 
       split_all_insns (1);
+      cleanup_cfg (CLEANUP_EXPENSIVE);
 
       if (flag_superblock_scheduling)
 	{
+	  if (!flag_trace_scheduling)
+	    reorder_basic_blocks ();
+	  else
+	    tracer ();
+	  cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_UPDATE_LIFE);
 	  schedule_ebbs (rtl_dump_file);
 	  /* No liveness updating code yet, but it should be easy to do  */
 	  count_or_remove_death_notes (NULL, 1);
@@ -5205,7 +5210,7 @@ process_options ()
   if (flag_asynchronous_unwind_tables)
     flag_unwind_tables = 1;
   if (flag_trace_scheduling)
-    flag_tracer = flag_superblock_scheduling = 1;
+    flag_superblock_scheduling = 1;
   if (flag_superblock_scheduling)
     flag_schedule_insns_after_reload = 1;
 

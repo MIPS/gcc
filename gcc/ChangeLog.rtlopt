@@ -1,3 +1,7 @@
+Mon Dec 23 19:39:34 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* toplev.c (rest_of_compilation): Form superblocks just before the scheduling.
+
 Mon Dec 23 14:56:07 CET 2002  Jan Hubicka  <jh@suse.cz>
 
 	* emit-rtl.c (reg_attrs_htab): New static variable.
