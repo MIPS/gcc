@@ -619,7 +619,10 @@ mark_def_sites (struct dom_walk_data *walk_data,
       ops = vdef_ops (ann);
       for (i = 0; ops && i < NUM_VDEFS (ops); i++)
         {
-          if (prepare_operand_for_rename (&VDEF_OP (ops, i), &uid))
+	  size_t dummy;
+
+          if (prepare_operand_for_rename (&VDEF_OP (ops, i), &uid)
+	      && prepare_operand_for_rename (&VDEF_RESULT (ops, i), &dummy))
 	    {
 	      VDEF_RESULT (ops, i) = VDEF_OP (ops, i);
 

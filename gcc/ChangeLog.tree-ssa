@@ -4,6 +4,9 @@
 
 2003-12-03  Jeff Law  <law@redhat.com>
 
+	* tree-ssa.c (mark_def_sites): Call prepare_operand_for_rename
+	on the VDEF_RESULT as well, providing a dummy uid argument.
+
 	* tree-phinodes.c: Include rtl.h for ceil_log2.
 	(ideal_phi_node_len): New function.
 	(resize_phi_node): Make static.
