@@ -872,9 +872,6 @@ public abstract class JComponent extends Container implements Serializable
    */
   protected Graphics getComponentGraphics(Graphics g)
   {    
-    if (debugGraphicsOptions != DebugGraphics.NONE_OPTION)
-      g = new DebugGraphics(g, this);
-    
     Graphics g2 = g.create();
     g2.setFont(this.getFont());
     g2.setColor(this.getForeground());
