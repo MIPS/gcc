@@ -5,6 +5,9 @@
 
 2003-03-19  Jeff Law  <law@redhat.com>
 
+        * tree-ssa-dom.c (simplify_rhs_and_lookup_avail_expr): Fix typo.
+        Eliminate unnecessary test of VAL.
+
 	* tree-dfa.c (find_hidden_use_vars): Also look inside the
 	PENDING_SIZES list for hidden uses.
 	* tree-optimize.c (tree_rest_of_compilation): Expand used variables

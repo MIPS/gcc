@@ -1794,7 +1794,7 @@ simplify_rhs_and_lookup_avail_expr (struct dom_walk_data *walk_data,
 
 	  if (! dummy_cond)
 	    {
-	      dummy_cond = build (GT_EXPR, boolean_type_node,
+	      dummy_cond = build (LT_EXPR, boolean_type_node,
 				  op, integer_zero_node);
 	      dummy_cond = build (COND_EXPR, void_type_node,
 				  dummy_cond, NULL, NULL);
@@ -1817,7 +1817,7 @@ simplify_rhs_and_lookup_avail_expr (struct dom_walk_data *walk_data,
 	{
 	  tree t;
 
-	  if (val && integer_onep (val))
+	  if (integer_onep (val))
 	    t = build1 (NEGATE_EXPR, TREE_TYPE (op), op);
 	  else
 	    t = op;
