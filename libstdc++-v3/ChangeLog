@@ -1,3 +1,194 @@
+2002-11-24  Paolo Carlini  <pcarlini@unitus.it>
+
+	* src/locale.cc (locale::locale(const char*)):
+	Trivial cosmetic tweaks.
+
+2002-11-22  Laszlo Ersek  <erseklaszlo@chello.hu>
+            Paolo Carlini  <pcarlini@unitus.it>
+
+	PR libstdc++/8645
+	* include/bits/stl_tree.h (_Rb_tree_rebalance_for_erase):
+	Don't check that __w->_M_left != 0 and __w->_M_right != 0
+	when they can't be otherwise.
+
+2002-11-21  Phil Edwards  <pme@gcc.gnu.org>
+
+	* docs/html/documentation.html:  Fix broken/thinko'd URL.
+
+2002-11-21  Phil Edwards  <pme@gcc.gnu.org>
+
+	* docs/doxygen/run_doxygen:  Tighter search expression for sed.
+	* docs/doxygen/stdheader.cc:  Handle the case of good headers.
+
+2002-11-21  Phil Edwards  <pme@gcc.gnu.org>
+
+	* acinclude.m4:  Uniform formatting.
+	* configure.in:  Warn when generic atomicity.h is used.
+	* configure.target:  Fix comment.
+	* aclocal.m4, configure:  Regenerate.
+
+2002-11-21  Phil Edwards  <pme@gcc.gnu.org>
+
+	* include/bits/streambuf.tcc (basic_streambuf::sputbackc):  Prefix
+	"this->" to call to pbackfail.
+
+2002-11-21  Phil Edwards  <pme@gcc.gnu.org>
+
+	* docs/doxygen/style.css:  Update.
+	* docs/doxygen/user.cfg.in:  Update.
+	* docs/html/documentation.html:  Regenerate.
+	* docs/html/17_intro/howto.html:  Tweak I/O sentry entry.
+	* docs/html/27_io/howto.html:  New section on headers.
+	* docs/html/faq/index.html:  Add i386 threading entry.
+	* docs/html/faq/index.txt:  Regenerate.
+
+	* docs/html/ext/lwg-active.html, docs/html/ext/lwg-defects.html:
+	Import R23.
+
+2002-11-21  Phil Edwards  <pme@gcc.gnu.org>
+
+	* docs/doxygen/TODO:  Note change in clause 27 docs.
+	* include/bits/basic_ios.h, include/bits/fpos.h,
+	include/bits/ios_base.h, include/bits/stl_deque.h,
+	include/bits/stl_iterator_base_types.h, include/std/std_fstream.h,
+	include/std/std_iomanip.h, include/std/std_iosfwd.h,
+	include/std/std_iostream.h, include/std/std_istream.h,
+	include/std/std_ostream.h, include/std/std_sstream.h,
+	include/std/std_streambuf.h:  Doxygenate all I/O entities.
+
+2002-11-20  Benjamin Kosnik  <bkoz@redhat.com>
+            Jonathan Lennox  <lennox@cs.columbia.edu>
+
+	* include/bits/streambuf.tcc (__copy_streambufs):
+	Revert previous fix for the interactive half of
+	libstdc++/6745, use _M_buf_size_opt to set dynamically
+	the correct buffer size.
+
+2002-11-20  Jonathan Wakely  <redi@gcc.gnu.org>
+
+	* docs/html/21_strings/howto.html: Fix example code, cite Gaby's
+	explanation of "<unknown type>" error with toupper/tolower.
+	* docs/html/22_locale/howto.html: Be more consistent with
+	example in 21_strings.
+
+2002-11-19  John Gustafsson  <forgoil@rsn.bth.se>
+
+	* docs/html/20_util/howto.html: Fix typo.
+
+2002-11-18  Jonathan Lennox  <lennox@cs.columbia.edu>
+
+	* include/bits/streambuf.tcc (__copy_streambufs): verify
+	__sbin->gptr() + __bufsize < __sbin->egptr() before using.
+	* testsuite/27_io/ostream_inserter_other.cc (test_buffer_4): Add.
+	(test05): Use test_buffer_4.  Delete unused ostringstream
+	variables.
+
+2002-11-18  Paolo Carlini  <pcarlini@unitus.it>
+
+	PR libstdc++/6745 (continued)
+	* include/bits/streambuf.tcc (__copy_streambufs):
+	Deal with interactive input by using isatty as in the
+	fix for libstdc++/8399.
+
+2002-11-17  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/linker-map.gnu: Export _S_construct even if size_t is
+	unsigned long.  Collapse std::codecvt<char>::codecvt(size_t)
+	and std::codecvt<wchar_t>::codecvt(size_t) into one export pattern.
+
+2002-11-15  Benjamin Kosnik  <bkoz@redhat.com>
+            Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	PR libstdc++/8230
+	* include/bits/stl_alloc.h: Use builtin_expect for the most
+	obvious limit checks.
+	(__default_alloc_template::allocate): Check for null, throw
+	bad_alloc.
+	* include/bits/vector.tcc: Formatting tweaks.
+	* include/bits/stl_vector.h: Same.	
+	* testsuite/20_util/allocator_members.cc (test02): Add.
+	* testsuite/23_containers/vector_capacity.cc (test03): Add.
+	
+2002-11-15  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* src/ios.cc [_GLIBCPP_HAVE_UNISTD_H]: Include unistd.h.
+
+2002-11-15  Paolo Carlini  <pcarlini@unitus.it>
+            Loren J. Rittle  <ljrittle@acm.org>
+
+	PR libstdc++/8399
+	* acinclude.m4
+	(GLIBCPP_CHECK_UNISTD_DECL_AND_LINKAGE_1): New macro to
+	check for unistd.h functions.
+	(GLIBCPP_CHECK_UNISTD_SUPPORT): New macro, check for isatty
+	in unistd.h.
+	* configure.in: Call here.
+	* src/ios.cc (ios_base::Init::_S_ios_create(bool)):
+	Use _GLIBCPP_HAVE_ISATTY: ifdef, in case of interactive
+	input __in_size = 1 even when sync_with_stdio is false;
+	otherwise fall back to __in_size = 1.
+	* aclocal.m4: Regenerate.
+	* config.h.in: Regenerate.
+	* configure: Regenerate.
+
+2002-11-13  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* acconfig.h (HAVE_DRAND48): Add.
+	(HAVE_GETPAGESIZE): Add.
+	(HAVE_SETENV): Add.	
+	(HAVE_SIGSETJMP): Add.		
+	* config.h.in: Regenerate.
+	* configure: Regenerate.
+	
+2002-11-13  John David Anglin  <dave@hiauly1.hia.nrc.ca>
+
+	* config/os/hpux/os_defines.h (_GLIBCPP_INST_ATOMICITY_LOCK): Define
+	on hppa when there is no weak support.
+
+2002-11-13  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/8230
+	* include/bits/vector.tcc (vector::reserve): Throw length_error if
+	requested size is bigger than max_size().
+	* include/bits/stl_bvector.h (vector<bool>::reserve): Same.
+	* testsuite/23_containers/vector_capacity.cc (test02): Add.
+	
+2002-11-13  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* config/linker-map.gnu: Export all _S_construct.
+
+2002-11-13  Loren J. Rittle  <ljrittle@acm.org>
+
+	PR libstdc++/7445
+	* src/locale.cc (std::locale::classic()): Weaken locking protocol.
+
+2002-11-13  Jonathan Wakely  <redi@gcc.gnu.org>
+
+	* docs/html/install.html, docs/html/22_locale/locale.html: HTML fix.
+
+2002-11-11  Benjamin Kosnik  <bkoz@redhat.com>
+ 
+        PR libstdc++/6746
+        * include/bits/fstream.tcc (filebuf::open): Set input pointers.
+	* config/io/basic_file_stdio.cc (__basic_file::_M_open_mode): Set
+	__p_mode as well.
+	(__basic_file::open): Set to non-block for input.
+	* testsuite/27_io/istream_unformatted.cc (test12): Add.
+	(test13): Same.
+	
+2002-11-11  Jonathan Wakely <redi@gcc.gnu.org>
+
+	* docs/html/17_intro/howto.html: Make "chapter 22 notes" a link.
+	* docs/html/faq/index.html: Mention that GCC ships with a newer
+	version of the library than the last snapshot. Make "see below" a
+	link. Add missing <html> tag.
+	* docs/html/faq/index.txt: Regenerate.
+	* docs/html/22_locale/locale.html, docs/html/22_locale/messages.html,
+	docs/html/23_containers/howto.html, docs/html/24_iterators/howto.html,
+	docs/html/25_algorithms/howto.html, docs/html/26_numerics/howto.html,
+	docs/html/27_io/howto.html, docs/html/ext/howto.html,
+	docs/html/ext/sgiexts.html: Add missing <html> tag.
+
 2002-11-07  Phil Edwards  <pme@gcc.gnu.org>
             Richard Earnshaw  <rearnsha@arm.com>
 

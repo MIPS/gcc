@@ -153,7 +153,7 @@ extern int ix86_attr_length_address_default PARAMS ((rtx));
 
 extern enum machine_mode ix86_fp_compare_mode PARAMS ((enum rtx_code));
 
-extern int x86_64_sign_extended_value PARAMS ((rtx, int));
+extern int x86_64_sign_extended_value PARAMS ((rtx));
 extern int x86_64_zero_extended_value PARAMS ((rtx));
 extern rtx ix86_libcall_value PARAMS ((enum machine_mode));
 extern bool ix86_function_value_regno_p PARAMS ((int));
@@ -184,6 +184,7 @@ extern void ix86_set_move_mem_attrs PARAMS ((rtx, rtx, rtx, rtx, rtx));
 extern void emit_i387_cw_initialization PARAMS ((rtx, rtx));
 extern bool ix86_fp_jump_nontrivial_p PARAMS ((enum rtx_code));
 extern void x86_order_regs_for_local_alloc PARAMS ((void));
+extern void x86_function_profiler PARAMS ((FILE *, int));
 
 
 #ifdef TREE_CODE

@@ -48,8 +48,8 @@ set_constant_entry (cpool, index, tag, value)
   if (cpool->data == NULL)
     {
       cpool->capacity = 100;
-      cpool->tags = (uint8*) ggc_alloc (sizeof(uint8) * cpool->capacity);
-      cpool->data = ggc_alloc (sizeof (union cpool_entry) * cpool->capacity);
+      cpool->tags = ggc_alloc (sizeof(uint8) * cpool->capacity);
+      cpool->data = ggc_alloc (sizeof(union cpool_entry) * cpool->capacity);
       cpool->count = 1;
     }
   if (index >= cpool->capacity)
@@ -57,10 +57,10 @@ set_constant_entry (cpool, index, tag, value)
       cpool->capacity *= 2;
       if (index >= cpool->capacity)
 	cpool->capacity = index + 10;
-      cpool->tags = (uint8*) ggc_realloc (cpool->tags,
-					  sizeof(uint8) * cpool->capacity);
+      cpool->tags = ggc_realloc (cpool->tags, 
+				 sizeof(uint8) * cpool->capacity);
       cpool->data = ggc_realloc (cpool->data,
-				 sizeof (union cpool_entry) * cpool->capacity);
+				 sizeof(union cpool_entry) * cpool->capacity);
     }
   if (index >= cpool->count)
     cpool->count = index + 1;

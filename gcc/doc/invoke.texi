@@ -551,7 +551,7 @@ in the following sections.
 
 @emph{H8/300 Options}
 @gccoptlist{
--mrelax  -mh  -ms  -mint32  -malign-300}
+-mrelax  -mh  -ms  -mn  -mint32  -malign-300}
 
 @emph{SH Options}
 @gccoptlist{
@@ -4252,9 +4252,10 @@ collector's heap should be allowed to expand between collections.
 Tuning this may improve compilation speed; it has no effect on code
 generation.
 
-The default is 30%.  Setting this parameter to zero causes a full
-collection to occur at every opportunity.  This is extremely slow, but
-can be useful for debugging.
+The default is 30%.  Setting this parameter and
+@option{ggc-min-heapsize} to zero causes a full collection to occur at
+every opportunity.  This is extremely slow, but can be useful for
+debugging.
 
 @item ggc-min-heapsize
 
@@ -4265,7 +4266,9 @@ tuning this may improve compilation speed, and has no effect on code
 generation.
 
 The default is 4096 (four megabytes).  Setting this parameter very large
-effectively disables garbage collection.
+effectively disables garbage collection.  Setting this parameter and
+@option{ggc-min-expand} to zero causes a full collection to occur at
+every opportunity.  
 
 @end table
 @end table
@@ -4974,6 +4977,27 @@ passed to the actual C++ compiler (@samp{cc1plus}).
 Substitute the variable part of a matched option.  See below.
 Note that each comma in the substituted string is replaced by
 a single space.
+
+@item %:@var{function}(@var{args})
+Call the named function @var{function}, passing it @var{args}.
+@var{args} is first processed as a nested spec string, then split
+into an argument vector in the usual fashion.  The function returns
+a string which is processed as if it had appeared literally as part
+of the current spec.
+
+The following built-in spec functions are provided:
+
+@table @code
+@item @code{if-exists}
+The @code{if-exists} spec function takes one argument, an absolute
+pathname to a file.  If the file exists, @code{if-exists} returns the
+pathname.  Here is a small example of its usage:
+
+@smallexample
+*startfile:
+crt0%O%s %:if-exists(crti%O%s) crtbegin%O%s
+@end smallexample
+@end table
 
 @item %@{@code{S}@}
 Substitutes the @code{-S} switch, if that switch was given to GCC@.
@@ -8618,6 +8642,11 @@ Generate code for the H8/300H@.
 @item -ms
 @opindex ms
 Generate code for the H8S@.
+
+@item -mn
+@opindex mn
+Generate code for the H8S and H8/300H in the normal mode.  This switch
+must be used either with -mh or -ms.
 
 @item -ms2600
 @opindex ms2600

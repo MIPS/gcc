@@ -39,6 +39,9 @@ Boston, MA 02111-1307, USA.  */
       if (TARGET_LONG64)				\
 	builtin_define ("__LONG64");			\
 							\
+      if (TARGET_ABICALLS)				\
+	builtin_define ("__ABICALLS__");		\
+							\
       if (mips_abi == ABI_EABI)				\
 	builtin_define ("__mips_eabi");			\
       else if (mips_abi == ABI_N32)			\
@@ -157,8 +160,9 @@ Boston, MA 02111-1307, USA.  */
 #define NETBSD_ENTRY_POINT "__start"
 
 #undef SUBTARGET_ASM_SPEC
-#define SUBTARGET_ASM_SPEC						\
-  "%{!fno-PIC:%{!fno-pic:-KPIC}}"
+#define SUBTARGET_ASM_SPEC \
+  "%{!mno-abicalls: \
+     %{!fno-PIC:%{!fno-pic:-KPIC}}}"
 
 
 /* -G is incompatible with -KPIC which is the default, so only allow objects

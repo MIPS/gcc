@@ -1474,9 +1474,10 @@ duplicate_decls (newdecl, olddecl, different_binding_level)
 	 inline, make sure we emit debug info for the inline before we
 	 throw it away, in case it was inlined into a function that hasn't
 	 been written out yet.  */
-      if (new_is_definition && DECL_INITIAL (olddecl) && TREE_USED (olddecl))
+      if (new_is_definition && DECL_INITIAL (olddecl))
 	{
-	  (*debug_hooks->outlining_inline_function) (olddecl);
+	  if (TREE_USED (olddecl))
+	    (*debug_hooks->outlining_inline_function) (olddecl);
 
 	  /* The new defn must not be inline.  */
 	  DECL_INLINE (newdecl) = 0;
@@ -3543,7 +3544,15 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
 		    }
 		}
 	      else if (specbits & (1 << (int) i))
-		error ("duplicate `%s'", IDENTIFIER_POINTER (id));
+		{
+		  if (i == RID_CONST || i == RID_VOLATILE || i == RID_RESTRICT)
+		    {
+		      if (!flag_isoc99)
+			pedwarn ("duplicate `%s'", IDENTIFIER_POINTER (id));
+		    }
+		  else
+		    error ("duplicate `%s'", IDENTIFIER_POINTER (id));
+		}
 
 	      /* Diagnose "__thread extern".  Recall that this list
 		 is in the reverse order seen in the text.  */
