@@ -211,7 +211,7 @@ find_tail_calls (basic_block bb, struct tailcall *act, struct tailcall **ret)
       break;
     }
 
-  /* Unless we found soumething that stops the search, recurse to the
+  /* Unless we found something that stops the search, recurse to the
      predecessors.  */
   if (!found)
     {

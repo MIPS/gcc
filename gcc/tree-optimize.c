@@ -561,7 +561,7 @@ tree_rest_of_compilation (tree fndecl, bool nested_p)
       DECL_ARGUMENTS (fndecl) = cfun->saved_args;
 
       /* When not in unit-at-a-time mode, we must preserve out of line copy
-	 representing node before inlining.  Restore original ougoing edges
+	 representing node before inlining.  Restore original outgoing edges
 	 using clone we created earlier.  */
       if (!flag_unit_at_a_time)
 	{

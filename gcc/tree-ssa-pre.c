@@ -533,7 +533,7 @@ is_injuring_def (struct expr_info *ei, tree inj)
      || a2 != a3)
      return false
 
-     Or, in english,  if either the assigned-to variable in
+     Or, in English,  if either the assigned-to variable in
      the injury is different from the first variable in the
      expression, or the incremented variable is different from the
      first variable in the expression, punt.

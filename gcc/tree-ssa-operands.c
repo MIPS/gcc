@@ -103,7 +103,7 @@ check_optype_freelist (size_t num ATTRIBUTE_UNUSED)
   return vec;
 #endif
 }
-/* Return a vector of contguous memory of a specified size.  */
+/* Return a vector of contiguous memory of a specified size.  */
 
 
 static inline void

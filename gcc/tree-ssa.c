@@ -2629,7 +2629,7 @@ rewrite_vars_out_of_ssa (bitmap vars)
 			 definition statement yet.  */
 		      new_name = make_ssa_name (result, phi);
 
-		      /* Now create the copy statemenet.  */
+		      /* Now create the copy statement.  */
 		      copy = build (MODIFY_EXPR, TREE_TYPE (arg),
 				    new_name, PHI_ARG_DEF (phi, i));
 
@@ -2707,7 +2707,7 @@ rewrite_out_of_ssa (void)
      tree->rtl expanders deal with.  */
   cfg_remove_useless_stmts ();
 
-  /* Remove unnecesary variables.  */
+  /* Remove unnecessary variables.  */
   remove_useless_vars ();
 
   /* Flush out flow graph and SSA data.  */
@@ -3240,7 +3240,7 @@ insert_phi_nodes_for (tree var, bitmap *dfs)
  
      Experimentation showed that once we get more than 8 phi vector
      entries that moving to a fully-pruned implementation is comparable
-     to semi-pruned.  32 showed up as the threshhold which maximized
+     to semi-pruned.  32 showed up as the threshold which maximized
      overall compile-time performance. 
 
      Note that as this number gets larger, the potential for the

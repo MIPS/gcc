@@ -570,7 +570,7 @@ thread_across_edge (edge e)
       /* Do not forward entry edges into the loop.  In the case loop
 	 has multiple entry edges we may end up in constructing irreducible
 	 region.  
-	 ??? We may consider forwarding the edges in the case all incomming
+	 ??? We may consider forwarding the edges in the case all incoming
 	 edges forward to the same destination block.  */
       if (!e->flags & EDGE_DFS_BACK)
 	{
@@ -2440,7 +2440,7 @@ lookup_avail_expr (tree stmt, varray_type *block_avail_exprs_p, bool insert)
   if (slot)
     return boolean_false_node;
 
-  /* Finaly try to find the expression in the main expression hash table.  */
+  /* Finally try to find the expression in the main expression hash table.  */
   slot = htab_find_slot (avail_exprs, stmt, (insert ? INSERT : NO_INSERT));
   if (slot == NULL)
     return NULL_TREE;

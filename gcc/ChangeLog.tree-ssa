@@ -1,3 +1,15 @@
+2004-01-15  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* tree-cfg.c: Fix comment typos.
+	* tree-eh.c: Likewise.
+	* tree-inline.c: Likewise.
+	* tree-optimize.c: Likewise.
+	* tree-ssa.c: Likewise.
+	* tree-ssa-dom.c: Likewise.
+	* tree-ssa-operands.c: Likewise.
+	* tree-ssa-pre.c: Likewise.
+	* tree-tailcall.c: Likewise.
+
 2004-01-14  Jan Hubicka  <jh@suse.cz>
 
 	* basic-block.h: Include predict.h

@@ -235,7 +235,7 @@ factor_computed_gotos (void)
       if (last == factored_computed_goto)
 	continue;
 
-      /* If the last statement is a compted goto, factor it.  */
+      /* If the last statement is a computed goto, factor it.  */
       if (computed_goto_p (last))
 	{
 	  tree assignment;

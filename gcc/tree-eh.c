@@ -850,7 +850,7 @@ honor_protect_cleanup_actions (struct leh_state *outer_state,
 
 /* A subroutine of lower_try_finally.  We have determined that there is
    no fallthru edge out of the finally block.  This means that there is
-   no outgoing edge corresponding to any incomming edge.  Restructure the
+   no outgoing edge corresponding to any incoming edge.  Restructure the
    try_finally node for this special case.  */
 
 static void
@@ -1158,7 +1158,7 @@ lower_try_finally_switch (struct leh_state *state, struct leh_tf_state *tf)
 
   append_to_statement_list (finally, tf->top_p);
 
-  /* Redirect each incomming goto edge.  */
+  /* Redirect each incoming goto edge.  */
   q = tf->goto_queue;
   qe = q + tf->goto_queue_active;
   j = last_case_index + tf->may_return;
@@ -1215,7 +1215,7 @@ lower_try_finally_switch (struct leh_state *state, struct leh_tf_state *tf)
    First, if this is Java, then the finally block contains code
    written by the user.  It has line numbers associated with it,
    so duplicating the block means it's difficult to set a breakpoint.
-   Since controling code generation via -g is verboten, we simply
+   Since controlling code generation via -g is verboten, we simply
    never duplicate code without optimization.
 
    Second, we'd like to prevent egregious code growth.  One way to
