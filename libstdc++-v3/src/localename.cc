@@ -171,18 +171,17 @@ namespace std
 	  }
 	else
 	  {
-	    const char* __beg = __s;
+	    const char* __end = __s;
 	    for (size_t __i = 0; 
 		 __i < _S_categories_size + _S_extra_categories_size; ++__i)
 	      {
-		__beg = strchr(__beg, '=') + 1;
-		const char* __end = strchr(__beg, ';');
+		const char* __beg = strchr(__end + 1, '=') + 1;
+		__end = strchr(__beg, ';');
 		if (!__end)
 		  __end = __s + __len;
-		char* __new = new char[__end - __beg + 1];
-		memcpy(__new, __beg, __end - __beg);
-		__new[__end - __beg] = '\0';
-		_M_names[__i] = __new;
+		_M_names[__i] = new char[__end - __beg + 1];
+		memcpy(_M_names[__i], __beg, __end - __beg);
+		_M_names[__i][__end - __beg] = '\0';
 	      }
 	  }
 
