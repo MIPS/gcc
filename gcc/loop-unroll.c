@@ -1019,7 +1019,7 @@ decide_unroll_stupid (loops, loop, flags)
      struct loop *loop;
      int flags;
 {
-  unsigned nunroll, nunroll_by_av;
+  unsigned nunroll, nunroll_by_av, i;
 
   if (!(flags & UAP_UNROLL_ALL))
     {
@@ -1076,8 +1076,11 @@ decide_unroll_stupid (loops, loop, flags)
       return;
     }
 
+  /* Success; now force nunroll to be power of 2.  */
+  for (i = 1; 2 * i <= nunroll; i *= 2);
+
   loop->lpt_decision.decision = LPT_UNROLL_STUPID;
-  loop->lpt_decision.times = nunroll - 1;
+  loop->lpt_decision.times = i - 1;
 }
 
 /* Unroll a LOOP.  */
