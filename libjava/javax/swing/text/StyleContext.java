@@ -55,7 +55,6 @@ import java.util.Hashtable;
 public class StyleContext 
     implements Serializable, AbstractDocument.AttributeContext
 {
-
   public class NamedStyle
     implements Serializable, Style
   {
@@ -368,7 +367,6 @@ public class StyleContext
     }
   }
 
-
   // FIXME: official javadocs suggest that these might be more usefully
   // implemented using a WeakHashMap, but not sure if that works most
   // places or whether it really matters anyways.
@@ -377,6 +375,8 @@ public class StyleContext
   // shared across all StyleContexts. I think so, but it's not clear in
   // docs. revert to non-shared if you think it matters.
 
+  public static final String DEFAULT_STYLE = "default";
+  
   static Hashtable sharedAttributeSets = new Hashtable();
   static Hashtable sharedFonts = new Hashtable();
 

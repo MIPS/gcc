@@ -42,6 +42,9 @@ import java.beans.PropertyChangeEvent;
 
 import javax.swing.JComponent;
 import javax.swing.plaf.ComponentUI;
+import javax.swing.text.Element;
+import javax.swing.text.PlainView;
+import javax.swing.text.View;
 
 public class BasicTextAreaUI extends BasicTextUI
 {
@@ -52,6 +55,11 @@ public class BasicTextAreaUI extends BasicTextUI
 
   public BasicTextAreaUI()
   {
+  }
+
+  public View create(Element elem)
+  {
+    return new PlainView(elem);
   }
 
   protected String getPropertyPrefix()

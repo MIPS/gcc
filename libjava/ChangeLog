@@ -1,5 +1,14 @@
 2004-08-30  Michael Koch  <konqueror@gmx.de>
 
+	* javax/swing/plaf/basic/BasicTextAreaUI.java
+	(create): New method.
+	* javax/swing/text/DefaultHighlighter.java
+	(DefaultHighlightPainter.debugRect): Removed.
+	* javax/swing/text/StyleContext.java
+	(DEFAULT_STYLE): New field.
+
+2004-08-30  Michael Koch  <konqueror@gmx.de>
+
 	* javax/swing/plaf/basic/BasicLookAndFeel.java
 	(initComponentDefaults): Add keybindings for selection.backward and
 	selection-forward for text components.

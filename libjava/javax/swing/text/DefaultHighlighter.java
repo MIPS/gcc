@@ -66,13 +66,6 @@ public class DefaultHighlighter extends LayeredHighlighter
       return color;
     }
 
-    private void debugRect(String text, Rectangle rect)
-    {
-      System.out.println(text);
-      System.out.println("   x: " + rect.x + ", y: " + rect.y);
-      System.out.println("   width: " + rect.width + ", height: " + rect.height);
-    }
-    
     private void paintHighlight(Graphics g, Rectangle rect)
     {
       g.fillRect(rect.x, rect.y, rect.width, rect.height);
