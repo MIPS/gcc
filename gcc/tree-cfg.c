@@ -747,7 +747,7 @@ remove_tree_bb (bb)
     }
 
   /* Unmap all the instructions in the block.  */
-  for (i = gsi_start_bb (bb); !gsi_after_end (i); gsi_step (&i))
+  for (i = gsi_start_bb (bb); !gsi_after_end (i); gsi_step_bb (&i))
     set_bb_for_stmt (gsi_stmt (i), NULL);
 
   /* Remove the edges into and out of this block.  */

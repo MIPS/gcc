@@ -1,9 +1,14 @@
+2002-10-31  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-cfg.c (remove_tree_bb): Don't walk beyond the end of the
+	basic block.
+
 2002-10-26  Daniel Berlin  <dberlin@dberlin.org>
 
 	* flags.h: Remove flag_tree_points_to from here.
 	* toplev.c: Include tree-alias-common.h.
-	  (flag_tree_points_to): Now of type enum pta_type, rather than
-	  int. 
+	(flag_tree_points_to): Now of type enum pta_type, rather than
+	int. 
 	(lang_independent_options): Remove flag_tree_points_to.
 	(display_help): Display help for tree-points-to here.
 	(decode_f_option): Allow selecting of points-to algorithm.
