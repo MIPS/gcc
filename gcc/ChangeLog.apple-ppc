@@ -1,5 +1,9 @@
 2004-06-25  Dale Johannesen  <dalej@apple.com>
 
+	* objc/Make-lang.in: use $(srcdir)/../move-if-change.
+
+2004-06-25  Dale Johannesen  <dalej@apple.com>
+
 	* Makefile.in: replace $(SHELL) ${srcdir}/mkinstalldirs
 	with $(mkinstalldirs) throughout.
 
