@@ -1,3 +1,46 @@
+2003-08-29  Mike Stump  <mrs@apple.com>
+
+	* Makefile.in (opts.o): Add missing dependency on langhooks.h.
+	(explow.o): Likewise.
+
+2003-08-29  Mike Stump  <mrs@apple.com>
+
+	* config/darwin.h (CC1PLUS_SPEC): Add support for __private_extern__.
+
+2003-08-29  Mike Stump  <mrs@apple.com>
+
+	* c.opt: Add -fpascal-strings -arch -header-mapfile -Wmost and
+	-Wno-four-char-constants to enable easier testing.  We'll probably
+	remove these before merging the compile server back.
+	* c-opts.c (c_common_handle_option): Add handling for OPT_arch,
+	OPT_header_mapfile OPT_fpascal-strings OPT_Wmost and
+	OPT_Wfour_char_constants..
+	
+2003-08-29  Mike Stump  <mrs@apple.com>
+
+	* c-opts.c (cb_file_change): Move push_command_line_include
+	processing from here...
+	(c_common_post_options): to here to fix -include.  Reset
+	input_line here so we don't leak line numbes from the -include
+	headers from the command line.
+	(init_c_common_once): Move pch_init from here...
+	* toplev.c (lang_dependent_init): to here, as a hook.
+	(do_compile): Don't need to reset input_filename anymore, instead,
+	push_srcloc to set it.
+	(lang_dependent_init): Set dump_base_name, even if there are
+	no input files.
+	* c-lang.c (LANG_HOOKS_INIT_PCH): Add.
+	* cp/cp-lang.c (LANG_HOOKS_INIT_PCH): Add.
+	* langhooks-def.h (LANG_HOOKS_INIT_PCH): Add.
+	(LANG_HOOKS_INITIALIZER): Add LANG_HOOKS_INIT_PCH.
+	* langhooks.h (struct land_hooks): Add pch_init.
+	* objc/objc-lang.c (LANG_HOOKS_INIT_PCH): Add.
+	
+2003-08-29  Mike Stump  <mrs@apple.com>
+
+	* Added http://gcc.gnu.org/ml/gcc/2003-08/msg01145.html to unstick
+	pch.
+	
 2003-08-26  Mike Stump  <mrs@apple.com>
 
 	Add framework support for darwin.

@@ -176,6 +176,9 @@ Boston, MA 02111-1307, USA.  */
 #undef	CPP_SPEC
 #define CPP_SPEC "%{static:%{!dynamic:-D__STATIC__}}%{!static:-D__DYNAMIC__} -D__APPLE_CC__=666"
 
+#undef CC1PLUS_SPEC
+#define CC1PLUS_SPEC "-D__private_extern__=extern"
+
 /* This is mostly a clone of the standard LINK_COMMAND_SPEC, plus
    precomp, libtool, and fat build additions.  Also we
    don't specify a second %G after %L because libSystem is

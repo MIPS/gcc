@@ -244,6 +244,9 @@ struct lang_hooks
   /* Called at the end of compilation, as a finalizer.  */
   void (*finish) (void);
 
+  /* Called to initialize pch.  */
+  void (*pch_init) (void);
+
   /* Parses the entire file.  The argument is nonzero to cause bison
      parsers to dump debugging information during parsing.  */
   void (*parse_file) (int);

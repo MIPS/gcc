@@ -4298,7 +4298,12 @@ lang_dependent_init (void)
     aux_base_name = "gccaux";
 
   if (dump_base_name == NULL)
-    dump_base_name = in_fnames[0];
+    {
+      if (num_in_fnames > 0)
+	dump_base_name = in_fnames[0];
+      else
+	dump_base_name = "NONAME";
+    }
   main_input_filename = input_filename = dump_base_name;
 
   /* Set up the back-end if requested.  */
@@ -4329,6 +4334,8 @@ lang_dependent_init (void)
   /* Now we have the correct original filename, we can initialize
      debug output.  */
   (*debug_hooks->init) (main_input_filename);
+
+  lang_hooks.pch_init ();
 
   timevar_pop (TV_SYMOUT);
 
@@ -4442,7 +4449,9 @@ do_compile (void)
   for (i = 0;  i < num_in_fnames;  i++)
     {
       const char *filename = in_fnames[i];
-      main_input_filename = input_filename = filename;
+      main_input_filename = filename;
+
+      push_srcloc (main_input_filename, 1);
 
       if (flag_unit_at_a_time)
 	{
@@ -4464,6 +4473,8 @@ do_compile (void)
 	  cgraph_dump_file = NULL;
 	  close_dump_file (DFI_cgraph, NULL, NULL_RTX);
 	}
+
+      pop_srcloc ();
     }
   if (! no_backend)
     compile_file_finish ();

@@ -206,7 +206,8 @@ static void
 cb_line_change (cpp_reader *pfile ATTRIBUTE_UNUSED, const cpp_token *token,
 		int parsing_args ATTRIBUTE_UNUSED)
 {
-  src_lineno = SOURCE_LINE (map, token->line);
+  if (map)
+    src_lineno = SOURCE_LINE (map, token->line);
 }
 
 static void

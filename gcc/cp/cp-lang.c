@@ -52,6 +52,8 @@ static void cxx_initialize_diagnostics (diagnostic_context *);
 #define LANG_HOOKS_INIT init_cxx_eachsrc
 #undef LANG_HOOKS_FINISH
 #define LANG_HOOKS_FINISH cxx_finish
+#undef LANG_HOOKS_INIT_PCH
+#define LANG_HOOKS_INIT_PCH pch_init
 #undef LANG_HOOKS_CLEAR_BINDING_STACK
 #define LANG_HOOKS_CLEAR_BINDING_STACK pop_everything
 #undef LANG_HOOKS_INIT_OPTIONS

@@ -795,6 +795,13 @@ c_common_handle_option (size_t scode, const char *arg, int value)
       flag_elide_constructors = value;
       break;
 
+    case OPT_arch:
+    case OPT_header_mapfile:
+    case OPT_fpascal_strings:
+    case OPT_Wmost:
+    case OPT_Wfour_char_constants:
+      break;
+
     case OPT_fenforce_eh_specs:
       flag_enforce_eh_specs = value;
       break;
@@ -1083,6 +1090,9 @@ c_common_post_options (const char **pfilename)
 
   *pfilename = cpp_read_main_file (parse_in, *pfilename);
 
+  /* Do this just after processing the main file.  */
+  push_command_line_include ();
+
   if (flag_preprocess_only)
     {
       preprocess_file (parse_in);
@@ -1090,6 +1100,7 @@ c_common_post_options (const char **pfilename)
     }
 
   saved_lineno = input_line;
+  input_line = 0;
 
   /* If an error has occurred in cpplib, note it so we fail
      immediately.  */
@@ -1177,8 +1188,6 @@ init_c_common_once ()
     error ("too many filenames given.  Type %s --help for usage",
 	   progname);
 #endif
-
-  pch_init();
 }
 
 bool
@@ -1421,10 +1430,6 @@ finish_options ()
     }
 
   include_cursor = 0;
-#if 0
-  main_input_filename = tif;
-  push_command_line_include ();
-#endif
 }
 
 /* Give CPP the next file given by -include, if any.  */
@@ -1459,9 +1464,6 @@ cb_file_change (cpp_reader *pfile ATTRIBUTE_UNUSED,
     pp_file_change (new_map);
   else
     fe_file_change (new_map);
-
-  if (new_map != NULL && new_map->reason == LC_LEAVE && MAIN_FILE_P (new_map))
-    push_command_line_include ();
 }
 
 /* Set the C 89 standard (with 1994 amendments if C94, without GNU

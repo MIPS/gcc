@@ -800,4 +800,24 @@ w
 C ObjC C++ ObjC++
 ; Documented in common.opt
 
+fpascal-strings
+C C++ ObjC ObjC++
+Enable pascal strings
+
+Wmost
+C C++ ObjC ObjC++
+Enable most warnings
+
+Wfour-char-constants
+C C++ ObjC ObjC++
+Enable pascal strings
+
+arch
+C C++ ObjC ObjC++ Joined Separate
+Enable arch
+
+header-mapfile
+C C++ ObjC ObjC++ Joined Separate
+Enable header-mapfile
+
 ; This comment is to ensure we retain the blank line above.

@@ -41,6 +41,8 @@ enum c_language_kind c_language = clk_objc;
 #define LANG_HOOKS_INIT init_objc_eachsrc
 #undef LANG_HOOKS_FINISH
 #define LANG_HOOKS_FINISH c_common_finish
+#undef LANG_HOOKS_INIT_PCH
+#define LANG_HOOKS_INIT_PCH pch_init
 #undef LANG_HOOKS_INIT_OPTIONS
 #define LANG_HOOKS_INIT_OPTIONS c_common_init_options
 #undef LANG_HOOKS_HANDLE_OPTION
