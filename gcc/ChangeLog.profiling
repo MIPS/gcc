@@ -1,5 +1,11 @@
 2004-03-16  Jan Hubicka  <jh@suse.cz>
 
+	* cfgexpand.c (expand_block): DO not expand COND_EXPR twice;
+	fix profile updating.
+	(construct_init_block, construct_exit_block): Fix profile updating.
+
+2004-03-16  Jan Hubicka  <jh@suse.cz>
+
 	* opts.c (common_handle_option): Disable value profilng until it is
 	updated for tree-ssa.
 

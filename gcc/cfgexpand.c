@@ -98,7 +98,6 @@ expand_block (basic_block bb, FILE * dump_file)
 
       /* Expand this statement, then evaluate the resulting RTL and
 	 fixup the CFG accordingly.  */
-      (*lang_hooks.rtl_expand.stmt) (stmt);
       switch (TREE_CODE (stmt))
 	{
 	case COND_EXPR:
@@ -112,6 +111,12 @@ expand_block (basic_block bb, FILE * dump_file)
 	    tree else_exp = COND_EXPR_ELSE (stmt);
 
 	    extract_true_false_edges_from_block (bb, &true_edge, &false_edge);
+	    if (EXPR_LOCUS (stmt))
+	      {
+		emit_line_note (*(EXPR_LOCUS (stmt)));
+		if (cfun->dont_emit_block_notes)
+		  record_block_change (TREE_BLOCK (stmt));
+	      }
 
 	    /* These flags have no purpose in RTL land.  */
 	    true_edge->flags &= ~EDGE_TRUE_VALUE;
@@ -170,6 +175,7 @@ expand_block (basic_block bb, FILE * dump_file)
 	case CALL_EXPR:
 	case MODIFY_EXPR:
 	case RETURN_EXPR:
+          (*lang_hooks.rtl_expand.stmt) (stmt);
 	  for (last = NEXT_INSN (last); last; last = NEXT_INSN (last))
 	    {
 	      if (GET_CODE (last) == CALL_INSN && SIBLING_CALL_P (last))
@@ -207,6 +213,7 @@ expand_block (basic_block bb, FILE * dump_file)
 	  break;
 
 	default:
+          (*lang_hooks.rtl_expand.stmt) (stmt);
 	  break;
 	}
     }
@@ -252,14 +259,18 @@ construct_init_block (void)
   init_block = create_basic_block (NEXT_INSN (get_insns ()),
 				   get_last_insn (),
 				   ENTRY_BLOCK_PTR);
+  init_block->frequency = ENTRY_BLOCK_PTR->frequency;
+  init_block->count = ENTRY_BLOCK_PTR->count;
   if (e)
     {
       first_block = e->dest;
       redirect_edge_succ (e, init_block);
-      make_edge (init_block, first_block, EDGE_FALLTHRU);
+      e = make_edge (init_block, first_block, EDGE_FALLTHRU);
     }
   else
-    make_edge (init_block, EXIT_BLOCK_PTR, EDGE_FALLTHRU);
+    e = make_edge (init_block, EXIT_BLOCK_PTR, EDGE_FALLTHRU);
+  e->probability = REG_BR_PROB_BASE;
+  e->count = ENTRY_BLOCK_PTR->count;
 
   update_bb_for_insn (init_block);
   return init_block;
@@ -303,13 +314,17 @@ construct_exit_block (void)
   if (head == end)
     return;
   exit_block = create_basic_block (NEXT_INSN (head), end, EXIT_BLOCK_PTR->prev_bb);
+  exit_block->frequency = EXIT_BLOCK_PTR->frequency;
+  exit_block->count = EXIT_BLOCK_PTR->count;
   for (e = EXIT_BLOCK_PTR->pred; e; e = next)
     {
       next = e->pred_next;
       if (!(e->flags & EDGE_ABNORMAL))
         redirect_edge_succ (e, exit_block);
     }
-  make_edge (exit_block, EXIT_BLOCK_PTR, EDGE_FALLTHRU);
+  e = make_edge (exit_block, EXIT_BLOCK_PTR, EDGE_FALLTHRU);
+  e->probability = REG_BR_PROB_BASE;
+  e->count = EXIT_BLOCK_PTR->count;
   update_bb_for_insn (exit_block);
 }
 
