@@ -1071,11 +1071,13 @@ read_rtx (infile)
 		}
 	      else if (c == '"')
 		break;
+
 	      obstack_1grow (rtl_obstack, c);
 	    }
 
 	  obstack_1grow (rtl_obstack, 0);
 	  stringbuf = (char *) obstack_finish (rtl_obstack);
+
 	  if (saw_paren)
 	    {
 	      c = read_skip_spaces (infile);

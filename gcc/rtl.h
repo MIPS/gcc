@@ -1417,7 +1417,6 @@ extern rtx const_int_rtx[MAX_SAVED_CONST_INT * 2 + 1];
 #define const0_rtx	(const_int_rtx[MAX_SAVED_CONST_INT])
 #define const1_rtx	(const_int_rtx[MAX_SAVED_CONST_INT+1])
 #define const2_rtx	(const_int_rtx[MAX_SAVED_CONST_INT+2])
-#define const5_rtx	(const_int_rtx[MAX_SAVED_CONST_INT+5])
 #define constm1_rtx	(const_int_rtx[MAX_SAVED_CONST_INT-1])
 extern rtx const_true_rtx;
 

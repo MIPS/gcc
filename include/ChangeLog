@@ -45,10 +45,6 @@ Tue May 30 16:53:34 2000  Andrew Cagney  <cagney@b1.cygnus.com>
 
 	* libiberty.h (basename): Likewise.
 
-2000-05-18  Greg McGary  <greg@mcgary.org>
-
-	* libiberty.h (ARRAY_SIZE): New macro.
-
 2000-05-06  Zack Weinberg  <zack@wolery.cumb.org>
 
  	* ansidecl.h: #define __extension__ to nothing if
