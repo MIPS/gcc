@@ -1,14 +1,328 @@
-2003-05-13  Release Manager
+2003-06-10  Andrew Haley  <aph@redhat.com>
 
-	* GCC 3.3 Released.
+	* langhooks-def.h (LANG_HOOKS_DECL_OK_FOR_SIBCALL): New.
+	(LANG_HOOKS_DECLS): Add LANG_HOOKS_DECL_OK_FOR_SIBCALL.
+	(lhd_decl_ok_for_sibcall): New.
+	* langhooks.c (lhd_decl_ok_for_sibcall): New.
+	* langhooks.h (lang_hooks_for_decls.ok_for_sibcall): New field.
+	* calls.c (expand_call): Check lang_hook before generating a
+	sibcall.
 
-2003-05-13  Release Manager
+2003-06-09  Richard Henderson  <rth@redhat.com>
 
-	* GCC 3.3 Released.
+	2003-05-11  Ulrich Weigand  <uweigand@de.ibm.com>
+        * except.c (EH_RETURN_STACKADJ_RTX): Do not define.
+        (EH_RETURN_HANDLER_RTX): Likewise.
+        (expand_builtin_eh_return): Do not copy stack adjustment
+        if EH_RETURN_STACKADJ_RTX is not defined.
+        (expand_eh_return): Likewise.  Also, do not pass stack
+        adjustment as argument to the eh_return pattern.
+        * except.h (MUST_USE_SJLJ_EXCEPTIONS): Do not define just
+        because EH_RETURN_STACKADJ_RTX is not defined.
+        * unwind-dw.c (uw_update_context_1): If EH_RETURN_STACKADJ_RTX
+        is not defined, treat stack pointer like a regular register.
+        (uw_init_context_1): Set up fake initial stack pointer register.
+        (uw_install_context_1): Do not compute stack adjustment if
+        EH_RETURN_STACKADJ_RTX is not defined.
 
-2003-05-13  Release Manager
+        * config/i386/i386.md ("eh_return"): Remove first argument.
+        * config/mips/mips.md ("eh_return"): Likewise.
+        * config/rs6000/rs6000.md ("eh_return"): Likewise.
+        * config/sh/sh.md ("eh_return"): Likewise.
 
-	* GCC 3.3 Released.
+        * config/s390/s390.h (EH_RETURN_STACKADJ_RTX): Remove.
+
+2003-06-08  Richard Henderson  <rth@redhat.com>
+
+	* stmt.c (expand_asm_operands): Re-word warning.
+
+2003-06-08  Richard Henderson  <rth@redhat.com>
+
+        * expr.h (EXPAND_MEMORY): New.
+        * expr.c (expand_expr): Check it.
+        * stmt.c (expand_asm_operands): Provide it when the constraint
+        requires a memory.  Warn for memory input constraints without
+        a memory operand.
+
+2003-06-07  Richard Henderson  <rth@redhat.com>
+
+	* c-common.c (cb_register_builtins): Define __EXCEPTIONS for C also.
+
+2003-06-07  Kelley Cook  <kelleycook@wideopenwest.com>
+
+	* configure.in (HAVE_LD_RO_RW_SECTION_MIXING): Remove quotes in
+	section names.
+	* configure: Regenerate.
+
+2003-06-07  Alan Modra  <amodra@bigpond.net.au>
+
+	* config/rs6000/linux64.h (CRT_CALL_STATIC_FUNCTION): Define.
+
+2003-06-06  James E Wilson  <wilson@tuliptree.org>
+
+	PR inline-asm/10890
+	* reload1.c (merge_assigned_reloads): Abort only if two reloads have
+	different in fields.
+
+2003-06-06  Richard Earnshaw  <rearnsha@arm.com>
+
+	PR target/11052
+	* ifcvt.c (noce_process_if_block): Fail if the destination has
+	side-effects.
+
+2003-06-06  Dan Kegel  <dank@kegel.com>
+	    Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	PR target/10331
+	* config/sh/t-linux (STMP_FIXPROTO): Define.
+
+	PR target/11096
+	* config/sh/linux.h (CPLUSPLUS_CPP_SPEC): Redefine so to include
+	-D_GNU_SOURCE.
+
+2003-06-05  David Miller  <davem@redhat.com>
+            Richard Henderson  <rth@redhat.com>
+
+        * optabs.c (HAVE_conditional_trap): Provide default.
+        (gen_conditional_trap): Likewise.
+        (init_optabs): Merge init_traps.
+        (gen_cond_trap): Use prepare_operand.  Restructure and avoid ifdef.
+
+2003-06-05  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* doc/md.texi (Machine Constraints): Correct the meaning of
+	constraints related to floating-point registers on SPARC.
+
+2003-06-05  Eric Botcazou  <ebotcazou@libertysurf.fr>
+            Paolo Bonzini  <bonzini@gnu.org>
+
+	PR target/10663
+	* configure.in (HAVE_LD_RO_RW_SECTION_MIXING): Redirect
+	assembler and linker output to /dev/null.
+	Use a 'sed' construct instead of 'grep -A1'.
+	* configure: Regenerate.
+
+2003-06-04  David Edelsohn  <edelsohn@gnu.org>
+
+	* doc/install.texi (*-ibm-aix*): Native as and ld required
+	to bootstrap on AIX 5L.
+
+2003-06-04  Richard Henderson  <rth@redhat.com>
+
+	* c-common.c (handle_cleanup_attribute): New.
+	(c_common_attributes): Add it.
+	* c-decl.c (finish_decl): Honor the cleanup attribute.
+	* doc/extend.texi (Variable Attributes): Document it.
+
+	* unwind-c.c: New file.
+	* Makefile.in (LIB2ADDEH): Add it.
+	* config/t-darwin, config/t-linux, config/t-linux-gnulibc1,
+	config/ia64/t-ia64: Likewise.
+
+2003-06-04  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR optimization/11018
+	* config/sparc/sparc.c (sparc_v8plus_shift): Use which_alternative
+	consistently to decide whether the scratch register is really
+	required.
+
+2003-06-04  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR optimization/10876
+	* config/sparc/sparc.h (CONST_OK_FOR_LETTER): Add
+	new 'O' constraint for constant 4096.
+	(CONST_DOUBLE_OK_FOR_LETTER_P): Likewise.
+	* config/sparc/sparc.md (adddi3 expander): Canonicalize pattern.
+	Do not transform into MINUS insn for constant 4096.
+	(*adddi3_sp64 insn): Canonicalize pattern. Add new alternative
+	for constant 4096 as third operand.
+	(addsi3 expander): Remove.
+	(*addsi3 insn): Rename into 'addsi3'. Canonicalize pattern. Add
+	new alternative for constant 4096 as third operand.
+	(subdi3 expander): Do not transform into PLUS insn for constant 4096.
+	(*subdi3_sp64 insn): Add new alternative for constant 4096 as third
+	operand.
+	(subsi3 expander): Remove.
+	(*subsi3 insn): Rename into 'subsi3'. Add new alternative for
+	constant 4096 as third operand.
+	* doc/md.texi (Machine Constraints): Document new 'O' constraint for
+	the SPARC port.
+
+2003-06-03  Richard Henderson  <rth@redhat.com>
+
+	* unwind.inc (_Unwind_Resume_or_Rethrow): Fix return type.
+	* unwind.h (_Unwind_Resume_or_Rethrow): Update.
+	(_Unwind_SjLj_Resume_or_Rethrow): Likewise.
+
+2003-06-03  Douglas B Rupp  <rupp@gnat.com>
+
+	* Makefile.in (TEXI_GCC_FILES): Remove vms.texi entry.
+	* doc/gcc.texi: Remove vms.texi section.
+	* doc/vms.texi: Remove obsolete file.
+
+2003-06-03  Richard Henderson  <rth@redhat.com>
+
+	PR target/10673
+        * config/i386/i386.c (ix86_split_long_move): Fix base register
+        mode for XFmode splits for TARGET_64BIT.
+
+2003-06-02  Kazuhiro Inaoka  <inaoka.kazuhiro@renesas.com>
+
+        * gcc/config.gcc Add support multilib parts for m32rx processor.
+
+2003-06-01  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR target/11044
+	* config/i386/i386.md (length attribute): Set length to 4
+	for instructions of type "fcmp".
+
+2003-06-01  Josef Zlomek  <zlomekj@suse.cz>
+
+	* rtl.def (CONST_DOUBLE): Update comment.
+
+2003-06-01  Seth Arnold  <sarnold@wirex.com>
+            Aldy Hernandez  <aldyh@redhat.com>
+
+	PR10871	    
+	* config/rs6000/rs6000.c (rs6000_stack_info): Do not add
+	vrsave_size twice.
+
+2003-05-31  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* doc/install.texi (mips-sgi-irix5): Add missing
+	HTML <hr> marker.
+
+2003-05-31  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* doc/md.texi (Machine Constraints): Document
+	missing SPARC constraints.
+
+2003-05-31  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* doc/md.texi (Automaton pipeline description): Use
+	"type" instead of "cpu" as the attribute in the examples.
+
+2003-05-30  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* config/mips/mips.h (SUBTARGET_ASM_DEBUGGING_SPEC): Move
+	-mdebug/-no-mdebug switches ...
+	(MDEBUG_ASM_SPEC): ... here.
+	Use only with gas.
+	(EXTRA_SPECS): Initialize mdebug_asm_spec.
+	(CONSTANT_ADDRESS_P): Allow native IRIX 6 O32 assembler.
+
+2003-05-29  Gabriel Dos Reis <gdr@integrable-solutions.net>
+
+	* diagnostic.h (output_verbatim): Remove printf attribute.
+	(verbatim): Likewise.
+	* diagnostic.c (output_pointer): New function.
+	(output_format): Use it.  Handle %p format specifier.
+
+2003-05-27  Denis Chertykov  <denisc@overta.ru>
+
+	* cselib.c (cselib_invalidate_regno): Abort if hardreg have a
+	VOIDmode.
+	* cselib.c (cselib_process_insn): Pass reg_raw_mode for hardreg in
+	call of cselib_invalidate_regno.
+
+2003-05-25  Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
+
+	* doc/contrib.texi (Contributors): Update Kean Johnston.
+
+Fri May 23 21:19:31 CEST 2003  Jan Hubicka  <jh@suse.cz>
+			       Andreas Jaeger  <aj@suse.de>
+
+	* i386.h (TARGET_CPU_CPP_BUILTINS): Define __amd64 and __amd64__;
+	do not use assertion.
+
+Fri May 23 20:55:39 CEST 2003  Jan Hubicka  <jh@suse.cz>
+
+	* i386.md (sse_loadss, sse_loadss_1, sse2_loadsd, sse2_loadsd_1):
+	Rewrite
+
+2003-05-23  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* doc/install.texi: Remove sparc64-*-*. Add sparc64-*-solaris2*.
+	Document sparcv9-*-solaris2* as a synonym for sparc64-*-solaris2*.
+
+2003-05-22  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR bootstrap/10805
+	* doc/install.texi (sparc-sun-solaris2.7): Document bootstrap
+	failure with Sun assembler 5.0 Alpha 03/27/98.
+
+2003-03-21  Loren James Rittle  <ljrittle@acm.org>
+
+	* config/sparc/freebsd.h (CPP_CPU64_DEFAULT_SPEC): Add -D__sparcv9
+	-D__sparc__ to match system compiler convention.
+
+2003-05-20  Kevin Ryde <user42@zip.com.au>
+	    Wolfgang Bangerth <bangerth@dealii.org>
+
+	PR c/10355
+	* doc/extend.texi: Put a warning into the documentation
+	of attribute regparm.
+
+2003-05-20  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* config/s390/s390.md ("*iordi3_oi"): Do not mark commutative.
+	("*iorsi3_oi"): Likewise.
+
+2003-05-19  John David Anglin  <dave.anglin@nrc-gnrc.gc.ca>
+
+	* pa/milli64.S ($$mulI): Fix typo.
+
+2003-05-19  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* hashtable.h (struct ht_identifier): Add new field "hash_value".
+	* hashtable.c (ht_lookup): Use it.
+	(ht_expand): Likewise.  Avoid doing the same computation twice.
+	* tree.h (IDENTIFIER_HASH_VALUE): New macro.
+
+2003-05-19  Nick Clifton  <nickc@redhat.com>
+
+	* config/arm/arm.c (use_return_insn): Do not use a single return
+	instruction for interrupt handlers which have to create a stack
+	frame.
+	(arm_expand_prologue): Do not pre-bias the return address of
+	interrupt handlers which create a stack frame.
+
+2003-05-19  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	Backport from mainline:
+
+	2003-05-10  Alexander Aganichev  <aaganichev@yandex.ru>
+
+	* config/i386/i386.h (MODES_TIEABLE_P): Fix typo.
+
+2003-05-16  Wolfgang Bangerth <bangerth@dealii.org>
+
+	* doc/bugreport.texi: Remove most of the preface of the
+	bugs section.
+
+2003-05-16  Nick Clifton  <nickc@redhat.com>
+
+	* config/mcore/mcore.md (jump): Use emit_jump_insn to generate the
+	jump insn.
+
+2003-05-15  Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
+
+	* doc/invoke.texi (Warning Options): Mark -Wmissing-declarations
+	as a C only option.
+
+2003-05-15  Wolfgang Bangerth <bangerth@dealii.org>
+
+	* doc/bugreport.texi: Remove most of the bug reporting
+	instructions and merge them into bugs.html.
+
+2003-05-14  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* sparc.c (print_operand): Fix uninitialized warning.
+
+2003-05-14  Mark Mitchell  <mark@codesourcery.com>
+
+	* version.c: Reset to prerelease format.
+	* doc/include/gcc-common.texi: Update version number.
 
 2003-05-13  Release Manager
 
@@ -117,10 +431,10 @@
 	* unwind.h: Declare them.
 	* libgcc-std.ver (GCC_3.3): Export them.
 
-2003-05-02  Steven Bosscher  <steven@gcc.gnu.org>
+2003-05-02  Steven Bosscher  <steven@gcc.gnu.org>
 
 	* tree-inline.c (find_alloca_call):
-	Use walk_tree_without_duplicates, instead of walk_tree.
+	Use walk_tree_without_duplicates, instead of walk_tree.
 	(find_builtin_longjmp_call): Ditto.
 	* c-objc-common.c (c_cannot_inline_fn): Ditto.
 

@@ -1,10 +1,16 @@
-2003-05-13  Release Manager
+2003-06-02  Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
 
-	* GCC 3.3 Released.
+	* gcc_release (build_diffs): Add diagnostics in case we cannot
+	generate a specific diff file.
 
-2003-05-13  Release Manager
+2003-05-20  Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
 
-	* GCC 3.3 Released.
+	* gcc_release (upload_files): Put diff files into a "diffs"
+	subdirectory.
+
+2003-05-18  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* gcc_release: GNU CC -> GCC.
 
 2003-05-13  Release Manager
 

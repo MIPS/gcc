@@ -1811,6 +1811,18 @@ check_explicit_specialization (declarator, decl, template_count, flags)
 	      return instantiate_template (tmpl, targs);
 	    }
 
+	  /* If we thought that the DECL was a member function, but it
+	     turns out to be specializing a static member function,
+	     make DECL a static member function as well.  We also have
+	     to adjust last_function_parms to avoid confusing
+	     start_function later.  */
+	  if (DECL_STATIC_FUNCTION_P (tmpl)
+	      && DECL_NONSTATIC_MEMBER_FUNCTION_P (decl))
+	    {
+	      revert_static_member_fn (decl);
+	      last_function_parms = TREE_CHAIN (last_function_parms);
+	    }
+
 	  /* If this is a specialization of a member template of a
 	     template class.  In we want to return the TEMPLATE_DECL,
 	     not the specialization of it.  */
@@ -1819,16 +1831,6 @@ check_explicit_specialization (declarator, decl, template_count, flags)
 	      SET_DECL_TEMPLATE_SPECIALIZATION (tmpl);
 	      DECL_INITIAL (DECL_TEMPLATE_RESULT (tmpl)) = NULL_TREE;
 	      return tmpl;
-	    }
-
-	  /* If we thought that the DECL was a member function, but it
-	     turns out to be specializing a static member function,
-	     make DECL a static member function as well.  */
-	  if (DECL_STATIC_FUNCTION_P (tmpl)
-	      && DECL_NONSTATIC_MEMBER_FUNCTION_P (decl))
-	    {
-	      revert_static_member_fn (decl);
-	      last_function_parms = TREE_CHAIN (last_function_parms);
 	    }
 
 	  /* Set up the DECL_TEMPLATE_INFO for DECL.  */
@@ -5266,7 +5268,7 @@ instantiate_class_template (type)
       TYPE_FIELDS (type) = TYPE_FIELDS (pattern);
       TYPE_METHODS (type) = TYPE_METHODS (pattern);
       CLASSTYPE_DECL_LIST (type) = CLASSTYPE_DECL_LIST (pattern);
-      CLASSTYPE_TAGS (type) = CLASSTYPE_TAGS (pattern);
+      CLASSTYPE_NESTED_UDTS (type) = CLASSTYPE_NESTED_UDTS (pattern);
       CLASSTYPE_VBASECLASSES (type) = CLASSTYPE_VBASECLASSES (pattern);
       
       /* Pretend that the type is complete, so that we will look
@@ -5360,6 +5362,10 @@ instantiate_class_template (type)
   if (ANON_AGGR_TYPE_P (pattern))
     SET_ANON_AGGR_TYPE_P (type);
 
+  if (DECL_CLASS_SCOPE_P (TYPE_MAIN_DECL (pattern)))
+    /* First instantiate our enclosing class.  */
+    complete_type (TYPE_CONTEXT (type));
+
   if (TYPE_BINFO_BASETYPES (pattern))
     {
       tree base_list = NULL_TREE;
@@ -5428,7 +5434,7 @@ instantiate_class_template (type)
 	{
 	  if (TYPE_P (t))
 	    {
-	      /* Build new CLASSTYPE_TAGS.  */
+	      /* Build new CLASSTYPE_NESTED_UDTS.  */
 
 	      tree tag = t;
 	      tree name = TYPE_IDENTIFIER (tag);
@@ -5521,10 +5527,10 @@ instantiate_class_template (type)
 		  /* If it is a TYPE_DECL for a class-scoped ENUMERAL_TYPE,
 		     such a thing will already have been added to the field
 		     list by tsubst_enum in finish_member_declaration in the
-		     CLASSTYPE_TAGS case above.  */
+		     CLASSTYPE_NESTED_UDTS case above.  */
 		  if (!(TREE_CODE (r) == TYPE_DECL
 			&& TREE_CODE (TREE_TYPE (r)) == ENUMERAL_TYPE
-			&& TYPE_CONTEXT (TREE_TYPE (r)) == type))
+			&& DECL_ARTIFICIAL (r)))
 		    {
 		      set_current_access_from_decl (r);
 		      finish_member_declaration (r);
@@ -9379,6 +9385,9 @@ mark_decl_instantiated (result, extern_p)
        set correctly by tsubst.  */
     TREE_PUBLIC (result) = 1;
 
+  /* This might have been set by an earlier implicit instantiation.  */
+  DECL_COMDAT (result) = 0;
+
   if (! extern_p)
     {
       DECL_INTERFACE_KNOWN (result) = 1;
@@ -9887,6 +9896,18 @@ mark_class_instantiated (t, extern_p)
     }
 }     
 
+/* Called from do_type_instantiation through binding_table_foreach to
+   do recursive instantiation for the type bound in ENTRY.   */
+static void
+bt_instantiate_type_proc (binding_entry entry, void *data)
+{
+  tree storage = *(tree *) data;
+
+  if (IS_AGGR_TYPE (entry->type)
+      && !uses_template_parms (CLASSTYPE_TI_ARGS (entry->type)))
+    do_type_instantiation (TYPE_MAIN_DECL (entry->type), storage, 0);
+}
+
 /* Perform an explicit instantiation of template class T.  STORAGE, if
    non-null, is the RID for extern, inline or static.  COMPLAIN is
    nonzero if this is called from the parser, zero if called recursively,
@@ -10027,10 +10048,9 @@ do_type_instantiation (t, storage, complain)
 	    instantiate_decl (tmp, /*defer_ok=*/1);
 	}
 
-    for (tmp = CLASSTYPE_TAGS (t); tmp; tmp = TREE_CHAIN (tmp))
-      if (IS_AGGR_TYPE (TREE_VALUE (tmp))
-	  && !uses_template_parms (CLASSTYPE_TI_ARGS (TREE_VALUE (tmp))))
-	do_type_instantiation (TYPE_MAIN_DECL (TREE_VALUE (tmp)), storage, 0);
+    if (CLASSTYPE_NESTED_UDTS (t))
+      binding_table_foreach (CLASSTYPE_NESTED_UDTS (t),
+                             bt_instantiate_type_proc, &storage);
   }
 }
 
@@ -10237,10 +10257,11 @@ instantiate_decl (d, defer_ok)
 
   code_pattern = DECL_TEMPLATE_RESULT (td);
 
-  if (DECL_NAMESPACE_SCOPE_P (d) && !DECL_INITIALIZED_IN_CLASS_P (d))
+  if ((DECL_NAMESPACE_SCOPE_P (d) && !DECL_INITIALIZED_IN_CLASS_P (d))
+      || DECL_TEMPLATE_SPECIALIZATION (td))
     /* In the case of a friend template whose definition is provided
        outside the class, we may have too many arguments.  Drop the
-       ones we don't need.  */
+       ones we don't need.  The same is true for specializations.  */
     args = get_innermost_template_args
       (gen_args, TMPL_PARMS_DEPTH  (DECL_TEMPLATE_PARMS (td)));
   else

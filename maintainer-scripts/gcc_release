@@ -11,20 +11,20 @@
 #
 # Copyright (c) 2001, 2002 Free Software Foundation.
 #
-# This file is part of GNU CC.
+# This file is part of GCC.
 #
-# GNU CC is free software; you can redistribute it and/or modify
+# GCC is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation; either version 2, or (at your option)
 # any later version.
 #
-# GNU CC is distributed in the hope that it will be useful,
+# GCC is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with GNU CC; see the file COPYING.  If not, write to
+# along with GCC; see the file COPYING.  If not, write to
 # the Free Software Foundation, 59 Temple Place - Suite 330,
 # Boston, MA 02111-1307, USA.
 #
@@ -292,7 +292,11 @@ build_diffs() {
   for f in gcc gcc-ada gcc-g++ gcc-g77 gcc-java gcc-objc gcc-testsuite gcc-core; do
     old_tar=${old_dir}/${f}-${old_vers}.tar.gz
     new_tar=${WORKING_DIRECTORY}/${f}-${RELEASE}.tar.gz
-    if [ -e $old_tar ] && [ -e $new_tar ]; then
+    if [ ! -e $old_tar ]; then
+      inform "$old_tar not found; not generating diff file"
+    elif [ ! -e $new_tar ]; then
+      inform "$new_tar not found; not generating diff file"
+    else
       build_diff $old_tar gcc-${old_vers} $new_tar gcc-${RELEASE} \
         ${f}-${old_vers}-${RELEASE}.diff.gz
     fi
@@ -326,20 +330,30 @@ upload_files() {
 
   # Make sure the directory exists on the server.
   if [ $LOCAL -eq 0 ]; then
-    ${SSH} -l ${GCC_USERNAME} ${GCC_HOSTNAME} mkdir ${FTP_PATH}
+    ${SSH} -l ${GCC_USERNAME} ${GCC_HOSTNAME} \
+      mkdir -p "${FTP_PATH}/diffs"
     UPLOAD_PATH="${GCC_USERNAME}@${GCC_HOSTNAME}:${FTP_PATH}"
   else
-    mkdir -p "${FTP_PATH}" \
+    mkdir -p "${FTP_PATH}/diffs" \
       || error "Could not create \`${FTP_PATH}'"
     UPLOAD_PATH=${FTP_PATH}
   fi
 
+  # Then copy files to their respective (sub)directories.
   for x in gcc*.gz gcc*.bz2; do
     if [ -e ${x} ]; then
       # Make sure the file will be readable on the server.
       chmod a+r ${x}
       # Copy it.
-      ${SCP} ${x} ${UPLOAD_PATH} || error "Could not upload ${x}"
+      case ${x} in
+        *.diff.*)
+          SUBDIR="diffs/";
+          ;;
+        *)
+          SUBDIR="";
+      esac
+      ${SCP} ${x} ${UPLOAD_PATH}/${SUBDIR} \
+        || error "Could not upload ${x}"
     fi
   done
 }

@@ -1,3 +1,77 @@
+2003-06-10  Richard Henderson  <rth@redhat.com>
+
+        * gcc.dg/asm-7.c: Adjust expected warning text.
+
+2003-06-08  Richard Henderson  <rth@redhat.com>
+
+        * gcc.dg/20011029-2.c: Fix the array reference.
+        * gcc.dg/asm-7.c: New.
+
+2003-06-08  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/11039
+	* g++.dg/warn/implicit-typename2.C: New test.
+	* g++.dg/warn/implicit-typename3.C: New test.
+
+2003-06-04  Richard Henderson  <rth@redhat.com>
+
+	* gcc.dg/cleanup-1.c: New.
+	* gcc.dg/cleanup-2.c: New.
+	* gcc.dg/cleanup-3.c: New.
+	* gcc.dg/cleanup-4.c: New.
+	* gcc.dg/cleanup-5.c: New.
+	* gcc.dg/cleanup-6.c: New.
+	* gcc.dg/cleanup-7.c: New.
+
+2003-06-04  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/ultrasp9.c: New test.
+
+2003-06-04  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.c-torture/compile/20030604-1.c: New test.
+	* gcc.dg/sparc-constant-1.c: New test.
+
+2003-06-03  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/10940
+	* g++.dg/template/spec10.C: New test.
+
+2003-06-01  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/i386-loop-3.c: New test.
+
+2003-05-31  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/10956
+	* g++.dg/template/spec9.C: New test.
+
+2003-05-25  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/10849
+	* g++.dg/template/access10.C: New test.
+
+2003-05-24  Eric Botcazou  <ebotcazou@libertysurf.fr>
+            Kaveh R. Ghazi <ghazi@caip.rutgers.edu>
+
+	* gcc.c-torture/compile/simd-5.x: XFAIL on SPARC64.
+
+2003-05-23  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/10682
+	* g++.dg/template/instantiate4.C: New test.
+
+2003-05-16  Matthias Klose  <doko@debian.org>
+
+	* parse/crash2.C: Use "(parse|syntax)" error.
+
+	Backport from mainline
+
+	2003-03-17  Zack Weinberg  <zack@codesourcery.com>
+
+		* objc.dg/naming-1.m: Use "(parse|syntax)" error.
+		* objc.dg/naming-2.m: Likewise.
+
 2003-05-13  Release Manager
 
 	* GCC 3.3 Released.

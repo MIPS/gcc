@@ -1,3 +1,7 @@
+Wed Jun 11 20:53:03 CEST 2003  Jan Hubicka  <jh@suse.cz>
+
+	* Merge (hammer-3_3-merge-20030611)
+
 2003-06-11  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* cfgloopanal.c (variable_initial_value): Fix.
