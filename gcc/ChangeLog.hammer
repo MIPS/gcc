@@ -1,3 +1,7 @@
+2003-12-08  Jan Hubicka  <jh@suse.cz>
+
+	* i386.md (cmpstr expander): Obey TARGET_INLINE_ALL_STRINGOPS
+
 2003-12-06  Jan Hubicka  <jh@suse.cz>
 
 	* unwind-pe.h (read_uleb128): Fix handling of large values
