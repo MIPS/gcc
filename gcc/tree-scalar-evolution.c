@@ -1532,14 +1532,15 @@ unify_peeled_chrec (tree loop_phi_node, tree a, tree b)
 	 finally, return the unified chrec: {0, +, 1} for "x".  */
       tree stmt, var;
       block_stmt_iterator incr_at;
+      bool insert_after;
       basic_block bb;
 
       if (dump_file && (dump_flags & TDF_DETAILS))
 	fprintf (dump_file, "UNIFIED_one_more\n");
 
-      incr_at = bsi_last (EDGE_PRED (loop->latch, 0)->src);
-      create_iv (a, CHREC_RIGHT (chrec_b), NULL, loop, &incr_at, false, &var, 
-		 NULL);
+      standard_iv_increment_position (loop, &incr_at, &insert_after);
+      create_iv (a, CHREC_RIGHT (chrec_b), NULL, loop, &incr_at, insert_after, 
+		 &var, NULL);
 
       stmt = build2 (MODIFY_EXPR, void_type_node, PHI_RESULT (loop_phi_node), 
 		     var);

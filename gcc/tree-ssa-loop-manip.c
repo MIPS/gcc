@@ -504,7 +504,7 @@ standard_iv_increment_position (struct loop *loop, block_stmt_iterator *bsi,
       || (last && TREE_CODE (last) != LABEL_EXPR))
     {
       *bsi = bsi_last (latch);
-      *insert_after = true;
+      *insert_after = !last || !stmt_ends_bb_p (last);
     }
   else
     {
