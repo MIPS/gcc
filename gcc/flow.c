@@ -1836,18 +1836,18 @@ init_propagate_block_info (basic_block bb, regset live, regset local_set,
       int i;
 
       /* Identify the successor blocks.  */
-      bb_true = bb->succ->dest;
-      if (bb->succ->succ_next != NULL)
+      bb_true = EDGE_SUCC (bb, 0)->dest;
+      if (EDGE_COUNT (bb->succs) > 1)
 	{
-	  bb_false = bb->succ->succ_next->dest;
+	  bb_false = EDGE_SUCC (bb, 1)->dest;
 
-	  if (bb->succ->flags & EDGE_FALLTHRU)
+	  if (EDGE_SUCC (bb, 0)->flags & EDGE_FALLTHRU)
 	    {
 	      basic_block t = bb_false;
 	      bb_false = bb_true;
 	      bb_true = t;
 	    }
-	  else if (! (bb->succ->succ_next->flags & EDGE_FALLTHRU))
+	  else if (! (EDGE_SUCC (bb, 1)->flags & EDGE_FALLTHRU))
 	    abort ();
 	}
       else

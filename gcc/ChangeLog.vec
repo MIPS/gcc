@@ -1,3 +1,7 @@
+2004-08-31  Ben Elliston  <bje@au.ibm.com>
+
+	* flow.c (init_propagate_block_info): Convert to vec usage.
+
 2004-08-31  Steven Bosscher  <stevenb@suse.de>
 
 	* gcse.c (remove_reachable_equiv_notes): Use an edge_stack.
