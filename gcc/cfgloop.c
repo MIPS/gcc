@@ -634,6 +634,7 @@ update_latch_info (basic_block jump)
   HEADER_BLOCK (jump) = 0;
   alloc_aux_for_edge (jump->pred, sizeof (int));
   LATCH_EDGE (jump->pred) = 0;
+  set_immediate_dominator (CDI_DOMINATORS, jump, jump->pred->src);
 }
 
 /* A callback for make_forwarder block, to redirect all edges except for
@@ -665,9 +666,6 @@ canonicalize_loop_headers (void)
   basic_block header;
   edge e;
 
-  /* Compute the dominators.  */
-  calculate_dominance_info (CDI_DOMINATORS);
-
   alloc_aux_for_blocks (sizeof (int));
   alloc_aux_for_edges (sizeof (int));
 
@@ -696,8 +694,6 @@ canonicalize_loop_headers (void)
       else
 	HEADER_BLOCK (header) = num_latches;
     }
-
-  free_dominance_info (CDI_DOMINATORS);
 
   if (HEADER_BLOCK (ENTRY_BLOCK_PTR->succ->dest))
     {
@@ -770,6 +766,10 @@ canonicalize_loop_headers (void)
 
   free_aux_for_blocks ();
   free_aux_for_edges ();
+
+#ifdef ENABLE_CHECKING
+  verify_dominators (CDI_DOMINATORS);
+#endif
 }
 
 /* Find all the natural loops in the function and save in LOOPS structure and
@@ -806,11 +806,11 @@ flow_loops_find (struct loops *loops, int flags)
   dfs_order = NULL;
   rc_order = NULL;
 
+  /* Ensure that the dominators are computed.  */
+  calculate_dominance_info (CDI_DOMINATORS);
+
   /* Join loops with shared headers.  */
   canonicalize_loop_headers ();
-
-  /* Compute the dominators.  */
-  calculate_dominance_info (CDI_DOMINATORS);
 
   /* Count the number of loop headers.  This should be the
      same as the number of natural loops.  */
@@ -938,10 +938,6 @@ flow_loops_find (struct loops *loops, int flags)
 	flow_loop_scan (loops->parray[i], flags);
 
       loops->num = num_loops;
-    }
-  else
-    {
-      free_dominance_info (CDI_DOMINATORS);
     }
 
   sbitmap_free (headers);
