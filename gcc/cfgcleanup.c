@@ -349,7 +349,7 @@ thread_jump (mode, e, b)
   BITMAP_XFREE (nonequal);
   cselib_finish ();
   if ((comparison_dominates_p (code1, code2) != 0)
-      != (XEXP (SET_SRC (set2), 0) == pc_rtx))
+      != (XEXP (SET_SRC (set2), 1) == pc_rtx))
     return BRANCH_EDGE (b);
   else
     return FALLTHRU_EDGE (b);
@@ -1116,10 +1116,14 @@ outgoing_edges_match (mode, bb1, bb2)
 	  /* Fail if the difference in probabilities is
 	     greater than 5%.  */
 	  if (abs (b1->probability - prob2) > REG_BR_PROB_BASE / 20
+#if 0
 	      && (b1->probability < REG_BR_PROB_BASE * 0.1
 		  || b1->probability > REG_BR_PROB_BASE * 0.9)
 	      && (prob2 < REG_BR_PROB_BASE * 0.1
 		  || prob2 > REG_BR_PROB_BASE * 0.9))
+#else
+		  )
+#endif
 	    {
 	      if (rtl_dump_file)
 		fprintf (rtl_dump_file,
