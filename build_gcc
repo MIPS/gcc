@@ -290,7 +290,26 @@ for l in $SHARED_LIBS ; do
     ln -s $l .$DEST_ROOT/lib/$F1 || exit 1
     for t in $TARGETS ; do
       ln -s ../../../$F1 .$DEST_ROOT/lib/gcc/$t-apple-darwin/$VERS/$F0 \
-	|| exit 1
+        || exit 1
+    done
+
+
+    # Now that we've lipo'ed things together, change the install name
+    # to match the official path.  The destination should always be
+    # shorter than the full name, so this should always work.  The
+    # install name should be the symlink with the major version number
+    # so that apps using the library (and the install name) will link
+    # against the symlink and get the latest version.
+    # Also change dependent library names so that libstdc++.6.0.2.dylib
+    # (for example) links against libgcc.1.dylib to avoid link errors.
+
+    install_name_tool -id $DEST_ROOT/lib/$F1 .$DEST_ROOT/lib/$l
+
+    for subl in $SHARED_LIBS ; do
+      SUBF=$DIR/dst-$BUILD-$BUILD$DEST_ROOT/lib/$subl
+      if [ \! -L $SUBF ] ; then
+        install_name_tool -change $DEST_ROOT/lib/$l $DEST_ROOT/lib/$F1 $SUBF
+      fi
     done
   fi
 done  
