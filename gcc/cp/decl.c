@@ -1,6 +1,6 @@
 /* Process declarations and variables for C++ compiler.
    Copyright (C) 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003, 2004  Free Software Foundation, Inc.
+   2001, 2002, 2003, 2004, 2005  Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -61,10 +61,6 @@ static int ambi_op_p (enum tree_code);
 static int unary_op_p (enum tree_code);
 static void push_local_name (tree);
 static tree grok_reference_init (tree, tree, tree, tree *);
-static tree grokfndecl (tree, tree, tree, tree, tree, int,
-			enum overload_flags, cp_cv_quals,
-			tree, int, int, int, int, int, int, tree, 
-			tree *);
 static tree grokvardecl (tree, tree, const cp_decl_specifier_seq *,
 			 int, int, tree);
 static void record_unknown_type (tree, const char *);
@@ -1938,6 +1934,15 @@ duplicate_decls (tree newdecl, tree olddecl)
       DECL_VISIBILITY_SPECIFIED (newdecl) = 1;
     }
 
+  /* The DECL_LANG_SPECIFIC information in OLDDECL will be replaced
+     with that from NEWDECL below.  */
+  if (DECL_LANG_SPECIFIC (olddecl))
+    {
+      gcc_assert (DECL_LANG_SPECIFIC (olddecl) 
+		  != DECL_LANG_SPECIFIC (newdecl));
+      ggc_free (DECL_LANG_SPECIFIC (olddecl));
+    }
+
   if (TREE_CODE (newdecl) == FUNCTION_DECL)
     {
       int function_size;
@@ -1998,6 +2003,11 @@ duplicate_decls (tree newdecl, tree olddecl)
 	  || (TREE_CODE (olddecl) == VAR_DECL
 	      && TREE_STATIC (olddecl))))
     make_decl_rtl (olddecl);
+
+  /* The NEWDECL will no longer be needed.  Because every out-of-class
+     declaration of a member results in a call to duplicate_decls,
+     freeing these nodes represents in a significant savings.  */
+  ggc_free (newdecl);
 
   return olddecl;
 }
@@ -3514,7 +3524,8 @@ check_tag_decl (cp_decl_specifier_seq *declspecs)
       return NULL_TREE;
     }
 
-  if (TYPE_P (declspecs->type)
+  if (declspecs->type
+      && TYPE_P (declspecs->type)
       && ((TREE_CODE (declspecs->type) != TYPENAME_TYPE
 	   && IS_AGGR_TYPE (declspecs->type))
 	  || TREE_CODE (declspecs->type) == ENUMERAL_TYPE))
@@ -3672,13 +3683,13 @@ start_decl (const cp_declarator *declarator,
             int initialized,
             tree attributes,
             tree prefix_attributes, 
-	    bool *pop_scope_p)
+	    tree *pushed_scope_p)
 {
   tree decl;
   tree type, tem;
   tree context;
 
-  *pop_scope_p = false;
+  *pushed_scope_p = NULL_TREE;
  
   /* This should only be done once on the top most decl.  */
   if (have_extern_spec)
@@ -3710,11 +3721,13 @@ start_decl (const cp_declarator *declarator,
   context = DECL_CONTEXT (decl);
 
   if (context)
-    *pop_scope_p = push_scope (context);
+    {
+      *pushed_scope_p = push_scope (context);
   
-  /* We are only interested in class contexts, later.  */
-  if (context && TREE_CODE (context) == NAMESPACE_DECL)
-    context = NULL_TREE;
+      /* We are only interested in class contexts, later.  */
+      if (TREE_CODE (context) == NAMESPACE_DECL)
+	context = NULL_TREE;
+    }
 
   if (initialized)
     /* Is it valid for this decl to have an initializer at all?
@@ -5312,8 +5325,8 @@ expand_static_init (tree decl, tree init)
   if (DECL_FUNCTION_SCOPE_P (decl))
     {
       /* Emit code to perform this initialization but once.  */
-      tree if_stmt, inner_if_stmt = NULL_TREE;
-      tree then_clause, inner_then_clause = NULL_TREE;
+      tree if_stmt = NULL_TREE, inner_if_stmt = NULL_TREE;
+      tree then_clause = NULL_TREE, inner_then_clause = NULL_TREE;
       tree guard, guard_addr, guard_addr_list;
       tree acquire_fn, release_fn, abort_fn;
       tree flag, begin;
@@ -5352,10 +5365,16 @@ expand_static_init (tree decl, tree init)
       /* Create the guard variable.  */
       guard = get_guard (decl);
 
-      /* Begin the conditional initialization.  */
-      if_stmt = begin_if_stmt ();
-      finish_if_stmt_cond (get_guard_cond (guard), if_stmt);
-      then_clause = begin_compound_stmt (BCS_NO_SCOPE);
+      /* This optimization isn't safe on targets with relaxed memory
+	 consistency.  On such targets we force synchronization in
+	 __cxa_guard_acquire.  */
+      if (!targetm.relaxed_ordering || !flag_threadsafe_statics)
+	{
+	  /* Begin the conditional initialization.  */
+	  if_stmt = begin_if_stmt ();
+	  finish_if_stmt_cond (get_guard_cond (guard), if_stmt);
+	  then_clause = begin_compound_stmt (BCS_NO_SCOPE);
+	}
 
       if (flag_threadsafe_statics)
 	{
@@ -5418,9 +5437,12 @@ expand_static_init (tree decl, tree init)
 	  finish_if_stmt (inner_if_stmt);
 	}
 
-      finish_compound_stmt (then_clause);
-      finish_then_clause (if_stmt);
-      finish_if_stmt (if_stmt);
+      if (!targetm.relaxed_ordering || !flag_threadsafe_statics)
+	{
+	  finish_compound_stmt (then_clause);
+	  finish_then_clause (if_stmt);
+	  finish_if_stmt (if_stmt);
+	}
     }
   else
     static_aggregates = tree_cons (init, decl, static_aggregates);
@@ -5590,6 +5612,8 @@ bad_specifiers (tree object,
    CHECK is 1 if we must find this method in CTYPE, 0 if we should
    not look, and -1 if we should not call `grokclassfn' at all.
 
+   SFK is the kind of special function (if any) for the new function.
+
    Returns `NULL_TREE' if something goes wrong, after issuing
    applicable error messages.  */
 
@@ -5607,6 +5631,7 @@ grokfndecl (tree ctype,
             int friendp,
             int publicp,
             int inlinep,
+	    special_function_kind sfk,
             int funcdef_flag,
             int template_count,
             tree in_namespace,
@@ -5817,14 +5842,13 @@ grokfndecl (tree ctype,
   if (check < 0)
     return decl;
 
-  if (flags == NO_SPECIAL && ctype && constructor_name_p (declarator, ctype))
-    DECL_CONSTRUCTOR_P (decl) = 1;
-
-  /* Function gets the ugly name, field gets the nice one.  This call
-     may change the type of the function (because of default
-     parameters)!  */
   if (ctype != NULL_TREE)
-    grokclassfn (ctype, decl, flags, quals);
+    {
+      if (sfk == sfk_constructor)
+	DECL_CONSTRUCTOR_P (decl) = 1;
+
+      grokclassfn (ctype, decl, flags, quals);
+    }
 
   decl = check_explicit_specialization (orig_declarator, decl,
 					template_count,
@@ -5869,7 +5893,7 @@ grokfndecl (tree ctype,
       if (old_decl)
 	{
 	  tree ok;
-	  bool pop_p;
+	  tree pushed_scope;
 
 	  /* Since we've smashed OLD_DECL to its
 	     DECL_TEMPLATE_RESULT, we must do the same to DECL.  */
@@ -5878,10 +5902,10 @@ grokfndecl (tree ctype,
 
 	  /* Attempt to merge the declarations.  This can fail, in
 	     the case of some invalid specialization declarations.  */
-	  pop_p = push_scope (ctype);
+	  pushed_scope = push_scope (ctype);
 	  ok = duplicate_decls (decl, old_decl);
-	  if (pop_p)
-	    pop_scope (ctype);
+	  if (pushed_scope)
+	    pop_scope (pushed_scope);
 	  if (!ok)
 	    {
 	      error ("no %q#D member function declared in class %qT",
@@ -6317,9 +6341,8 @@ get_scope_of_declarator (const cp_declarator *declarator)
   /* If the declarator-id is a SCOPE_REF, the scope in which the
      declaration occurs is the first operand.  */
   if (declarator
-      && declarator->u.id.name
-      && TREE_CODE (declarator->u.id.name) == SCOPE_REF)
-    return TREE_OPERAND (declarator->u.id.name, 0);
+      && declarator->u.id.qualifying_scope)
+    return declarator->u.id.qualifying_scope;
 
   /* Otherwise, the declarator is not a qualified name; the entity will
      be declared in the current scope.  */
@@ -6618,26 +6641,15 @@ grokdeclarator (const cp_declarator *declarator,
 
 	case cdk_id:
 	  {
-	    tree decl = id_declarator->u.id.name;
+	    tree qualifying_scope = id_declarator->u.id.qualifying_scope;
+	    tree decl = id_declarator->u.id.unqualified_name;
 	    if (!decl)
 	      break;
-	    if (TREE_CODE (decl) == SCOPE_REF)
+	    if (qualifying_scope)
 	      {
-		tree qualifying_scope = TREE_OPERAND (decl, 0);
-
-		/* It is valid to write:
-
-		   class C { void f(); };
-		   typedef C D;
-		   void D::f();
-
-		 The standard is not clear about whether `typedef const C D' is
-		 legal; as of 2002-09-15 the committee is considering
-		 that question.  EDG 3.0 allows that syntax.
-		 Therefore, we do as well.  */
-		if (qualifying_scope && TYPE_P (qualifying_scope))
+		if (TYPE_P (qualifying_scope))
 		  {
-		    ctype = TYPE_MAIN_VARIANT (qualifying_scope);
+		    ctype = qualifying_scope;
 		    if (innermost_code != cdk_function
 			&& current_class_type
 			&& !UNIQUELY_DERIVED_FROM_P (ctype,
@@ -6645,13 +6657,11 @@ grokdeclarator (const cp_declarator *declarator,
 		      {
 			error ("type %qT is not derived from type %qT",
 			       ctype, current_class_type);
-			ctype = NULL_TREE;
+			return error_mark_node;
 		      }
-		    TREE_OPERAND (decl, 0) = ctype;
 		  }
 		else if (TREE_CODE (qualifying_scope) == NAMESPACE_DECL)
 		  in_namespace = qualifying_scope;
-		decl = TREE_OPERAND (decl, 1);
 	      }
 	    if (TREE_CODE (decl) == BASELINK)
 	      decl = BASELINK_FUNCTIONS (decl);
@@ -7115,9 +7125,9 @@ grokdeclarator (const cp_declarator *declarator,
 		{
 		  /* Avoid trying to get an operand off an identifier node.  */
 		  if (declarator->kind != cdk_id)
-		    tmp = declarator->declarator->u.id.name;
+		    tmp = declarator->declarator->u.id.unqualified_name;
 		  else
-		    tmp = declarator->u.id.name;
+		    tmp = declarator->u.id.unqualified_name;
 		  op = IDENTIFIER_OPNAME_P (tmp);
 		  if (IDENTIFIER_TYPENAME_P (tmp))
 		    {
@@ -7182,9 +7192,7 @@ grokdeclarator (const cp_declarator *declarator,
     unqualified_id = NULL_TREE;
   else
     {
-      unqualified_id = id_declarator->u.id.name;
-      if (TREE_CODE (unqualified_id) == SCOPE_REF)
-	unqualified_id = TREE_OPERAND (unqualified_id, 1);
+      unqualified_id = id_declarator->u.id.unqualified_name;
       if (TREE_CODE (unqualified_id) == BASELINK)
 	unqualified_id = BASELINK_FUNCTIONS (unqualified_id);
       switch (TREE_CODE (unqualified_id))
@@ -7479,17 +7487,13 @@ grokdeclarator (const cp_declarator *declarator,
   /* If DECLARATOR is non-NULL, we know it is a cdk_id declarator;
      otherwise, we would not have exited the loop above.  */
   if (declarator
-      && TREE_CODE (declarator->u.id.name) == SCOPE_REF
-      /* If the qualifying scope was invalid, it will have been set to
-	 NULL_TREE above.  */
-      && TREE_OPERAND (declarator->u.id.name, 0)
-      && TYPE_P (TREE_OPERAND (declarator->u.id.name, 0)))
+      && declarator->u.id.qualifying_scope
+      && TYPE_P (declarator->u.id.qualifying_scope))
     {
       tree t;
 
-      ctype = TREE_OPERAND (declarator->u.id.name, 0);
-      if (TYPE_P (ctype))
-	ctype = TYPE_MAIN_VARIANT (ctype);
+      ctype = declarator->u.id.qualifying_scope;
+      ctype = TYPE_MAIN_VARIANT (ctype);
       t = ctype;
       while (t != NULL_TREE && CLASS_TYPE_P (t))
 	{
@@ -7527,7 +7531,7 @@ grokdeclarator (const cp_declarator *declarator,
 	}
       else if (TREE_CODE (type) == FUNCTION_TYPE)
 	{
-	  tree sname = TREE_OPERAND (declarator->u.id.name, 1);
+	  tree sname = declarator->u.id.unqualified_name;
 
 	  if (TREE_CODE (sname) == IDENTIFIER_NODE
 	      && NEW_DELETE_OPNAME_P (sname))
@@ -7975,6 +7979,7 @@ grokdeclarator (const cp_declarator *declarator,
 			       unqualified_id,
 			       virtualp, flags, quals, raises,
 			       friendp ? -1 : 0, friendp, publicp, inlinep,
+			       sfk,
 			       funcdef_flag, template_count, in_namespace, attrlist);
 	    if (decl == NULL_TREE)
 	      return decl;
@@ -8021,8 +8026,9 @@ grokdeclarator (const cp_declarator *declarator,
 			       parms,
 			       unqualified_id,
 			       virtualp, flags, quals, raises,
-			       friendp ? -1 : 0, friendp, 1, 0, funcdef_flag,
-			       template_count, in_namespace, attrlist);
+			       friendp ? -1 : 0, friendp, 1, 0, sfk,
+			       funcdef_flag, template_count, in_namespace, 
+			       attrlist); 
 	    if (decl == NULL_TREE)
 	      return NULL_TREE;
 	  }
@@ -8207,7 +8213,7 @@ grokdeclarator (const cp_declarator *declarator,
 	decl = grokfndecl (ctype, type, original_name, parms, unqualified_id,
 			   virtualp, flags, quals, raises,
 			   1, friendp,
-			   publicp, inlinep, funcdef_flag,
+			   publicp, inlinep, sfk, funcdef_flag,
 			   template_count, in_namespace, attrlist);
 	if (decl == NULL_TREE)
 	  return NULL_TREE;
@@ -10631,12 +10637,19 @@ finish_function (int flags)
     {
       if (DECL_MAIN_P (current_function_decl))
 	{
-	  /* Make it so that `main' always returns 0 by default.  */
+	  tree stmt;
+
+	  /* Make it so that `main' always returns 0 by default (or
+	     1 for VMS).  */
 #if VMS_TARGET
-	  finish_return_stmt (integer_one_node);
+	  stmt = finish_return_stmt (integer_one_node);
 #else
-	  finish_return_stmt (integer_zero_node);
+	  stmt = finish_return_stmt (integer_zero_node);
 #endif
+	  /* Hack.  We don't want the middle-end to warn that this
+	     return is unreachable, so put the statement on the
+	     special line 0.  */
+	  annotate_with_file_line (stmt, input_filename, 0);
 	}
 
       /* Finish dealing with exception specifiers.  */

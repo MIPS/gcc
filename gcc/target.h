@@ -537,6 +537,12 @@ struct gcc_target
        the caller.  It is never called for TYPE requiring constructors.  */
     bool (* callee_copies) (CUMULATIVE_ARGS *ca, enum machine_mode mode,
 			    tree type, bool named);
+
+    /* Return zero for arguments passed entirely on the stack or entirely
+       in registers.  If passed in both, return the number of bytes passed
+       in registers; the balance is therefore passed on the stack.  */
+    int (* arg_partial_bytes) (CUMULATIVE_ARGS *ca, enum machine_mode mode,
+			       tree type, bool named);
   } calls;
 
   /* Functions specific to the C++ frontend.  */
@@ -597,6 +603,10 @@ struct gcc_target
 
   /* True if #pragma extern_prefix is to be supported.  */
   bool handle_pragma_extern_prefix;
+
+  /* True if the target is allowed to reorder memory accesses unless
+     synchronization is explicitly requested.  */
+  bool relaxed_ordering;
 
   /* Leave the boolean fields at the end.  */
 };

@@ -147,6 +147,8 @@ static rtx arm_expand_binop_builtin (enum insn_code, tree, rtx);
 static rtx arm_expand_unop_builtin (enum insn_code, tree, rtx, int);
 static rtx arm_expand_builtin (tree, rtx, rtx, enum machine_mode, int);
 static void emit_constant_insn (rtx cond, rtx pattern);
+static int arm_arg_partial_bytes (CUMULATIVE_ARGS *, enum machine_mode,
+				  tree, bool);
 
 #ifndef ARM_PE
 static void arm_encode_section_info (tree, rtx, int);
@@ -272,6 +274,8 @@ static unsigned HOST_WIDE_INT arm_shift_truncation_mask (enum machine_mode);
 #define TARGET_PROMOTE_PROTOTYPES arm_promote_prototypes
 #undef TARGET_PASS_BY_REFERENCE
 #define TARGET_PASS_BY_REFERENCE arm_pass_by_reference
+#undef TARGET_ARG_PARTIAL_BYTES
+#define TARGET_ARG_PARTIAL_BYTES arm_arg_partial_bytes
 
 #undef TARGET_STRUCT_VALUE_RTX
 #define TARGET_STRUCT_VALUE_RTX arm_struct_value_rtx
@@ -1084,7 +1088,7 @@ arm_override_options (void)
   else if (target_float_switch)
     {
       /* This is a bit of a hack to avoid needing target flags for these.  */
-      if (target_float_switch[1] == 'h')
+      if (target_float_switch[0] == 'h')
 	arm_float_abi = ARM_FLOAT_ABI_HARD;
       else
 	arm_float_abi = ARM_FLOAT_ABI_SOFT;
@@ -2292,8 +2296,10 @@ arm_return_in_memory (tree type)
 {
   HOST_WIDE_INT size;
 
-  if (!AGGREGATE_TYPE_P (type))
-    /* All simple types are returned in registers.  */
+  if (!AGGREGATE_TYPE_P (type) &&
+      !(TARGET_AAPCS_BASED && TREE_CODE (type) == COMPLEX_TYPE))
+    /* All simple types are returned in registers.
+       For AAPCS, complex types are treated the same as aggregates.  */
     return 0;
 
   size = int_size_in_bytes (type);
@@ -2525,6 +2531,23 @@ arm_function_arg (CUMULATIVE_ARGS *pcum, enum machine_mode mode,
     return NULL_RTX;
 
   return gen_rtx_REG (mode, pcum->nregs);
+}
+
+static int
+arm_arg_partial_bytes (CUMULATIVE_ARGS *pcum, enum machine_mode mode,
+		       tree type, bool named ATTRIBUTE_UNUSED)
+{
+  int nregs = pcum->nregs;
+
+  if (arm_vector_mode_supported_p (mode))
+    return 0;
+
+  if (NUM_ARG_REGS > nregs
+      && (NUM_ARG_REGS < nregs + ARM_NUM_REGS2 (mode, type))
+      && pcum->can_split)
+    return (NUM_ARG_REGS - nregs) * UNITS_PER_WORD;
+
+  return 0;
 }
 
 /* Variable sized types are passed by reference.  This is a GCC

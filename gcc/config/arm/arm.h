@@ -395,9 +395,9 @@ extern GTY(()) rtx aof_pic_label;
    N_("Specify the register to be used for PIC addressing"), 0},	\
   {"abi=", &target_abi_name, N_("Specify an ABI"), 0},			\
   {"soft-float", &target_float_switch,					\
-   N_("Alias for -mfloat-abi=soft"), 0},				\
+   N_("Alias for -mfloat-abi=soft"), "s"},				\
   {"hard-float", &target_float_switch,					\
-   N_("Alias for -mfloat-abi=hard"), 0}					\
+   N_("Alias for -mfloat-abi=hard"), "h"}				\
 }
 
 /* Support for a compile-time default CPU, et cetera.  The rules are:
@@ -1742,16 +1742,6 @@ typedef struct
    indeed make it pass in the stack if necessary).  */
 #define FUNCTION_ARG(CUM, MODE, TYPE, NAMED) \
   arm_function_arg (&(CUM), (MODE), (TYPE), (NAMED))
-
-/* For an arg passed partly in registers and partly in memory,
-   this is the number of registers used.
-   For args passed entirely in registers or entirely in memory, zero.  */
-#define FUNCTION_ARG_PARTIAL_NREGS(CUM, MODE, TYPE, NAMED)	        \
-  (arm_vector_mode_supported_p (MODE) ? 0 :				\
-       NUM_ARG_REGS > (CUM).nregs				        \
-   && (NUM_ARG_REGS < ((CUM).nregs + ARM_NUM_REGS2 (MODE, TYPE))	\
-   && (CUM).can_split)						        \
-   ?   NUM_ARG_REGS - (CUM).nregs : 0)
 
 /* Initialize a variable CUM of type CUMULATIVE_ARGS
    for a call to a function whose data type is FNTYPE.

@@ -43,6 +43,7 @@ Boston, MA 02111-1307, USA.  */
 #include "tree-mudflap.h"
 #include "function.h"
 #include "diagnostic.h"
+#include "debug.h"
 
 /* I'm not real happy about this, but we need to handle gimple and
    non-gimple trees.  */
@@ -1569,6 +1570,7 @@ expand_call_inline (tree *tp, int *walk_subtrees, void *data)
      to the RET_LABEL.  */
   id->ret_label = build_decl (LABEL_DECL, NULL_TREE, NULL_TREE);
   DECL_ARTIFICIAL (id->ret_label) = 1;
+  DECL_IGNORED_P (id->ret_label) = 1;
   DECL_CONTEXT (id->ret_label) = VARRAY_TREE (id->fns, 0);
   insert_decl_map (id, id->ret_label, id->ret_label);
 
@@ -1639,6 +1641,12 @@ expand_call_inline (tree *tp, int *walk_subtrees, void *data)
      The easiest solution is to simply recalculate TREE_SIDE_EFFECTS for
      the toplevel expression.  */
   recalculate_side_effects (expr);
+  
+  /* Output the inlining info for this abstract function, since it has been
+     inlined.  If we don't do this now, we can lose the information about the
+     variables in the function when the blocks get blown away as soon as we
+     remove the cgraph node.  */
+  (*debug_hooks->outlining_inline_function) (edge->callee->decl);
 
   /* Update callgraph if needed.  */
   cgraph_remove_node (edge->callee);
