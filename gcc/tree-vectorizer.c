@@ -818,7 +818,7 @@ vect_create_data_ref (tree stmt, block_stmt_iterator *bsi)
   array_type = build_array_type (vectype, 0);
   TYPE_ALIGN (array_type) = TYPE_ALIGN (TREE_TYPE (addr_ref)); /* CHECKME */
   new_base = build1 (INDIRECT_REF, array_type, TREE_OPERAND (vec_stmt, 0)); 
-  data_ref = build (ARRAY_REF, vectype, new_base, idx);
+  data_ref = build (ARRAY_REF, vectype, new_base, idx, NULL_TREE, NULL_TREE);
 
   if (vect_debug_details (NULL))
     {

@@ -1,3 +1,8 @@
+2004-07-19  Dorit Naishlos  <dorit@il.ibm.com>
+
+	* tree-vectorizer.c (vect_create_data_ref): Added arguments when
+	building and ARRAY_REF expression.
+
 2004-07-18  Sebastian Pop  <pop@cri.ensmp.fr>
 
 	Merge from mainline (lno-merge-20040718).
