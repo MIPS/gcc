@@ -1769,7 +1769,7 @@ bool
 flag_apple_kext_p (void) {
   return flag_apple_kext;
 }
-/* APPLE LOCAL begin KEXT */
+/* APPLE LOCAL end KEXT */
 
 /* APPLE LOCAL begin constant cfstrings */
 int darwin_constant_cfstrings = 0;

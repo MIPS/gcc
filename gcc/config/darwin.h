@@ -112,9 +112,9 @@ Boston, MA 02111-1307, USA.  */
    architecture.  */
    
 #define TARGET_OPTION_TRANSLATE_TABLE \
-/* APPLE LOCAL begin KEXT terminated-vtables */ \
+/* APPLE LOCAL KEXT terminated-vtables */ \
   { "-fterminated-vtables", "-fapple-kext" }, \
-/* APPLE LOCAL begin KEXT indirect-virtual-calls --sts */ \
+/* APPLE LOCAL KEXT indirect-virtual-calls --sts */ \
   { "-findirect-virtual-calls", "-fapple-kext" }, \
   { "-all_load", "-Zall_load" },  \
   { "-allowable_client", "-Zallowable_client" },  \
