@@ -1,3 +1,125 @@
+2004-10-25  Paolo Carlini  <pcarlini@suse.de>
+	
+	* include/bits/basic_string.h (_Rep::_M_is_safe): Move to
+	basic_string as _M_disjunct, adjust to take only __s.
+	* include/bits/basic_string.tcc: Adjust consistently callers. 
+
+2004-10-25  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/basic_string.tcc (assign(const _CharT*, size_type)):
+	Adjust bit missing from the previous commit.
+
+2004-10-25  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR other/18138
+	* testsuite/lib/libstdc++.exp: Accept more than one multilib libgcc.
+
+2004-10-25  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/basic_string.h (_Rep::_M_is_safe, _M_check_length,
+	_M_move, _M_copy, _M_assign): New, use througout.
+	(operator+=(_CharT)): Define in terms of push_back.
+	(append(const basic_string&)): Define here, inline, and simplify,
+	don't use the full _M_replace_safe.
+	(append(size_type, _CharT)): Likewise, don't use _M_replace_aux.
+	(push_back): Likewise.
+	(assign(const basic_string&)): Define here, inline.
+	* include/bits/basic_string.tcc (append(const _CharT* s, size_type):
+	Fix: when s points inside the _Rep, upon reallocation (reserve) we
+	were copying from deallocated memory.
+	(append(const basic_string&, size_type, size_type)): Simplify,
+	don't use _M_replace_safe.
+	(replace(size_type, size_type, const _CharT*, size_type)): Slightly
+	tweak.
+	(reserve): Likewise.
+	* testsuite/21_strings/basic_string/append/char/2.cc: New.
+	* testsuite/21_strings/basic_string/append/char/3.cc: Likewise.
+	* testsuite/21_strings/basic_string/append/wchar_t/2.cc: Likewise.
+	* testsuite/21_strings/basic_string/append/wchar_t/3.cc: Likewise.
+
+	* testsuite/21_strings/basic_string/assign/char/3.cc: Remove junk.
+	* testsuite/21_strings/basic_string/assign/wchar_t/3.cc: Likewise.
+
+2004-10-23  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* testsuite/ext/mt_allocator/deallocate_global-2.c:
+	s/value_t/value_type/. s/traits_t/traits_type/.
+	s/policy_t/policy_type/. s/allocator_t/allocator_type/.
+	s/string_t/string_type/. s/list_t/list_type/.
+	* testsuite/ext/mt_allocator/deallocate_global-4.cc: Likewise.
+	* testsuite/ext/mt_allocator/deallocate_global_thread-1.cc: Likewise.
+	* testsuite/ext/mt_allocator/deallocate_global_thread-3.cc: Likewise.
+	* testsuite/ext/mt_allocator/deallocate_local-2.cc: Likewise.
+	* testsuite/ext/mt_allocator/deallocate_local-4.cc: Likewise.
+	* testsuite/ext/mt_allocator/deallocate_local_thread-1.cc: Likewise.
+	* testsuite/ext/mt_allocator/deallocate_local_thread-3.cc: Likewise.
+
+2004-10-21  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/tr1/array (array): Make safe for zero-sized arrays.
+	(array::end): Return one past the end.
+	(array::at): Use __throw_out_of_range, include functexcept.h.
+	(operator==): Implement.
+	(operator!=): Same.
+	(operator<): Same.
+	(operator>): Same.
+	(operator>=): Same.
+	(operator<=): Same.
+	* testsuite/tr1/6_containers/array/capacity/(empty.cc,
+	max_size.cc, size.cc): New.
+	* testsuite/tr1/6_containers/array/comparison_operators/(equal.cc,
+	greater.cc, greater_or_equal.cc, less.cc, less_or_equal.cc,
+	not_equal): New.
+	* testsuite/tr1/6_containers/array/cons/aggregate_initialization.cc: 
+	New.
+	* testsuite/tr1/6_containers/array/element_access/at_out_of_range.cc: 
+	New.
+	* testsuite/tr1/6_containers/array/iterators/end_is_one_past.cc: New.
+	* testsuite/tr1/6_containers/array/requirements/(contiguous.cc,
+	instantiate, typedefs, zero_size_arrays): New.
+
+2004-10-21  Paolo Carlini  <pcarlini@suse.de>
+	    Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/bits/basic_string.h (_M_set_length_and_sharable): New.
+	* include/bits/basic_string.tcc (_S_construct, assign(const _CharT*,
+	size_type), _M_mutate, _M_clone): Use it.
+	(_Rep::_S_create): Don't set/call _M_length/_M_set_sharable here.
+
+2004-10-21  Paolo Carlini  <pcarlini@suse.de>
+	    Dhruv Matani  <dhruvbird@gmx.net>
+	    Nathan Myers  <ncm@cantrip.org>
+
+	* include/bits/vector.tcc (_M_insert_aux, _M_fill_insert,
+	_M_range_insert): Check at the outset that we are not trying
+	to exceed max_size, then deal properly with __len overflows.
+	* testsuite/23_containers/vector/modifiers/insert/1.cc: New.
+	
+	* testsuite/testsuite_allocator.h: Remove redundant include.
+
+2004-10-20  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/ext/bitmap_allocator.h (allocate): Throw std::bad_alloc
+	when n > max_size().
+	* include/ext/malloc_allocator.h (allocate): Likewise.
+	* include/ext/mt_allocator.h (allocate): Likewise.
+	* include/ext/new_allocator.h (allocate): Likewise.
+	* include/ext/array_allocator.h: Use __throw_bad_alloc().
+	* include/ext/pool_allocator.h: Use __builtin_expect.
+	* testsuite/ext/array_allocator/check_allocate_max_size.cc: New.
+	* testsuite/ext/bitmap_allocator/check_allocate_max_size.cc: Likewise.
+	* testsuite/ext/malloc_allocator/check_allocate_max_size.cc: Likewise.
+	* testsuite/ext/mt_allocator/check_allocate_max_size.cc: Likewise.
+	* testsuite/ext/new_allocator/check_allocate_max_size.cc: Likewise.
+	* testsuite/ext/pool_allocator/check_allocate_max_size.cc: Likewise.
+	* testsuite/testsuite_allocator.h (check_allocate_max_size): New test.
+
+2004-10-19  Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/performance/20_util/allocator/list_sort_search.cc:
+	Include <ext/new_allocator.h>.
+	* testsuite/performance/20_util/allocator/map_mt_find.cc: Likewise.
+
 2004-10-18  Paolo Carlini  <pcarlini@suse.de>
 
 	* include/bits/basic_string.tcc (_M_mutate): Do not reallocate
