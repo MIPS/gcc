@@ -15123,6 +15123,7 @@ x86_machine_dependent_reorg (first)
 	delete_insn (ret);
       }
   }
+  k8_avoid_jump_misspredicts (first);
 }
 
 /* Return nonzero when QImode register that must be represented via REX prefix
