@@ -1,3 +1,10 @@
+2003-11-18  Jeff Law  <law@redhat.com>
+
+	* tree-ssa-dom.c (thread_across_edge): Lose block_avail_exprs argument.
+	Callers updated.  Pass NULL for block_avail_exprs in call to
+	lookup_avail_expr.  Record both the condition and the inverted
+	condition when threading across an edge.
+ 
 2003-11-18  Richard Henderson  <rth@redhat.com>
 
 	* tree-ssa.c (tree_ssa_useless_type_conversion): Use TYPE_MAIN_VARIANT

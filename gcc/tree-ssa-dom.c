@@ -201,7 +201,7 @@ static void record_equivalences_from_incoming_edge (basic_block, tree,
 static bool eliminate_redundant_computations (tree, varray_type *, stmt_ann_t);
 static void record_equivalences_from_stmt (tree, varray_type *,
 					   int, stmt_ann_t);
-static void thread_across_edge (edge, varray_type *);
+static void thread_across_edge (edge);
 static void dom_opt_finalize_block (struct dom_walk_data *, basic_block, tree);
 static void dom_opt_initialize_block (struct dom_walk_data *,
 				      basic_block, tree);
@@ -486,7 +486,7 @@ tree_ssa_dominator_optimize_1 (tree fndecl,
    jump which has a known value when reached via BB.  */
 
 static void
-thread_across_edge (edge e, varray_type *block_avail_exprs)
+thread_across_edge (edge e)
 {
   /* If we have a single successor, then we may be able to thread
      the edge out of our block to a destination of our successor.
@@ -528,7 +528,7 @@ thread_across_edge (edge e, varray_type *block_avail_exprs)
 		}
 	    }
 
-	  cached_lhs = lookup_avail_expr (stmt, block_avail_exprs, false);
+	  cached_lhs = lookup_avail_expr (stmt, NULL, false);
 	  if (cached_lhs)
 	    {
 	      edge taken_edge = find_taken_edge (e->dest, cached_lhs);
@@ -633,7 +633,7 @@ dom_opt_finalize_block (struct dom_walk_data *walk_data,
       && (! dom_children (bb)
 	  || ! bitmap_bit_p (dom_children (bb), bb->succ->dest->index)))
     {
-      thread_across_edge (bb->succ, NULL);
+      thread_across_edge (bb->succ);
     }
   else if ((last = last_stmt (bb))
 	   && TREE_CODE (last) == COND_EXPR
@@ -646,6 +646,7 @@ dom_opt_finalize_block (struct dom_walk_data *walk_data,
     {
       edge e = bb->succ;
       edge true_edge, false_edge;
+      tree cond, inverted;
 
       if (e->flags & EDGE_TRUE_VALUE)
 	{
@@ -658,14 +659,18 @@ dom_opt_finalize_block (struct dom_walk_data *walk_data,
 	  true_edge = e->succ_next;
 	}
 
+      cond = COND_EXPR_COND (last);
+      inverted = invert_truthvalue (cond);
+
       /* If the THEN arm is the end of a dominator tree, then try to thread
 	 through its edge.  */
       if (! dom_children (bb)
 	  || ! bitmap_bit_p (dom_children (bb), true_edge->dest->index))
 	{
 	  unsigned limit = VARRAY_ACTIVE_SIZE (bd->avail_exprs);
-	  record_cond_is_true (COND_EXPR_COND (last), &bd->avail_exprs);
-	  thread_across_edge (true_edge, NULL);
+	  record_cond_is_true (cond, &bd->avail_exprs);
+	  record_cond_is_false (inverted, &bd->avail_exprs);
+	  thread_across_edge (true_edge);
 	  if (limit != VARRAY_ACTIVE_SIZE (bd->avail_exprs))
 	    {
 	      htab_remove_elt (avail_exprs, VARRAY_TOP_TREE (bd->avail_exprs));
@@ -678,8 +683,9 @@ dom_opt_finalize_block (struct dom_walk_data *walk_data,
 	  || ! bitmap_bit_p (dom_children (bb), false_edge->dest->index))
 	{
 	  unsigned limit = VARRAY_ACTIVE_SIZE (bd->avail_exprs);
-	  record_cond_is_false (COND_EXPR_COND (last), &bd->avail_exprs);
-	  thread_across_edge (false_edge, NULL);
+	  record_cond_is_false (cond, &bd->avail_exprs);
+	  record_cond_is_true (inverted, &bd->avail_exprs);
+	  thread_across_edge (false_edge);
 	  if (limit != VARRAY_ACTIVE_SIZE (bd->avail_exprs))
 	    {
 	      htab_remove_elt (avail_exprs, VARRAY_TOP_TREE (bd->avail_exprs));
