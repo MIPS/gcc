@@ -1,5 +1,10 @@
 2004-04-30  Paul Brook  <paul@codesourcery.com>
 
+	* config.gcc: Simplify arm --with-{cpu,tune} test.
+	* config/arm/arm-cores.def: Document whitespace restrictions.
+
+2004-04-30  Paul Brook  <paul@codesourcery.com>
+
 	* config.gcc: Default ep9312 to hard-float.
 	* config/arm/arm-cores.def: Add ARCH field.
 	* config/arm/arm.c (FL_FOR_ARCH*): Define.
