@@ -2,7 +2,7 @@
 // { dg-do compile }
 // { dg-options "-O -fdump-tree-optimized" }
 
-extern "C" int printf (const char *, ...);
+extern void blah() throw();
 
 int i, j, k;
 
@@ -11,7 +11,7 @@ int main()
   try
     {
       ++i;
-      printf ("foo\n");
+      blah();
       ++j;
     }
   catch (...)
