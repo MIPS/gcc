@@ -1,3 +1,12 @@
+2004-10-26  Devang Patel  <dpatel@apple.com>
+
+	Radar 3760592
+
+	Backport from mainline.
+	2004-10-21  Dndrew Pinksi  <pinskia@physics.uc.edu>
+	* c-opts.c (push_command_line_include): Use the current file
+	name instead of the main one.
+
 2004-10-26  Matt Austern  <austern@apple.com>
 
 	* ginclude/tgmath.h (fabs): Fix typo (complex abs is cabs, not cfabs)
