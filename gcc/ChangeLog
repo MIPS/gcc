@@ -1,3 +1,27 @@
+2002-10-16  Richard Sandiford  <rsandifo@redhat.com>
+	    Michael Meissner  <meissner@redhat.com>
+
+	* config/mips/mips.h (ISA_HAS_MACC): True for normal-mode vr4120 code.
+	* config/mips/mips.md (mulsi3_mult3): Add a define_peephole2 to
+	mop up unnecessarly moves through LO.
+	(*mul_acc_si): Remove vr5400 and vr5500 handling from here.
+	(*macc): New pattern for ISA_HAS_MACC.  Add define_peephole2s to
+	change mtlo/macc sequences into mul/add sequences when a three-
+	address mul is available.
+	(*macc2): New pattern.  Add a define_peephole2 to generate it.
+	(*mul_sub_si): Fix contraint for operand 5.
+	(*muls): Use in 32-bit code as well.
+	(*msac): Likewise.  Use msub instead of msac in vr5500 code
+	if the destination is LO.  Remove duplicate define_split.
+	(*muls_di): Use only in 32-bit code.  Adjust rtl accordingly.
+	(*msac_di): Likewise.  Fix formatting.
+	(smulsi3_highpart, umulsi3_highpart): Use mulhi in 32-bit code too.
+	(*xmulsi3_highpart_internal): Use only if !ISA_HAS_MULHI.
+	(*xmulsi3_highpart_mulhi): Use even if !TARGET_64BIT.
+	(*xmulsi3_neg_highpart_mulhi): Likewise.
+	(*mul_acc_64bit_di): Remove.
+	(*mul_acc_di): Use only in 32-bit code.  Handle ISA_HAS_MACC as well.
+
 2002-10-14  Richard Sandiford  <rsandifo@redhat.com>
 
 	* config/mips/vr.h (DRIVER_SELF_SPECS): Define.

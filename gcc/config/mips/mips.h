@@ -873,7 +873,8 @@ extern void		sbss_section PARAMS ((void));
                                  )
 /* ISA has three operand multiply instructions that  the result
    from a 4th operand and puts the result in an accumulator.  */
-#define ISA_HAS_MACC            (TARGET_MIPS5400                        \
+#define ISA_HAS_MACC            ((TARGET_MIPS4120 && !TARGET_MIPS16)	\
+                                 || TARGET_MIPS5400                     \
                                  || TARGET_MIPS5500                     \
                                  || TARGET_SR71K                        \
                                  )
