@@ -1,3 +1,8 @@
+2003-11-03  Jan Hubicka  <jh@suse.cz>
+
+	* tree-cfg.c (tree_try_redirect_by_replacing_jump): Do not use
+	succesor_block.
+
 2003-11-03  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* tree-pretty-print.c (dump_block_info): Add flags parameter.

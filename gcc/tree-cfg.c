@@ -3828,9 +3828,9 @@ tree_try_redirect_by_replacing_jump (edge e, basic_block target)
   stmt = bsi_stmt (b);
 
   if (TREE_CODE (stmt) == COND_EXPR || TREE_CODE (stmt) == SWITCH_EXPR
-      || (TREE_CODE (stmt) == GOTO_EXPR && target == successor_block (src)))
+      || (TREE_CODE (stmt) == GOTO_EXPR && target == src->next_bb))
     {
-      if (target == successor_block (src))
+      if (target == src->next_bb)
 	{
 	  flags = EDGE_FALLTHRU;
           bsi_remove (&b);
