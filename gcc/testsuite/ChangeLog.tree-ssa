@@ -1,3 +1,13 @@
+2003-06-11  Jeff Law  <law@redhat.com>
+
+	* gcc.c-torture/compile/20030530-2.c: Move to...
+	* gcc.c-torture/gcc.dg/tree-ssa/20030530-2.c: Here.  Use dg
+	and scan-tree-output framework.  Verify that redundant expressions
+	are removed.
+	* gcc.c-torture/gcc.dg/tree-ssa/tree-ssa.exp: New driver.
+	* lib/gcc.dg.exp: Load scantree.exp.
+	* lib/scantree.exp: New library of routines to scan tree dumps.
+
 2003-06-03  Diego Novillo  <dnovillo@redhat.com>
 
 	* gcc.c-torture/execute/builtins/string-4.x: Expect
