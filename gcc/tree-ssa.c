@@ -99,25 +99,42 @@ struct GTY(()) var_value_d
   tree value;
 };
 
-/* Used to hold all the components requires to do SSA PHI elimination.  */
+/* Used to hold all the components requires to do SSA PHI elimination.
+   The implementation of the node list and pred/succ list has been changed
+   to a simple linear list of nodes and edges represented as pairs of nodes.
 
+   The predecessor and successor list.  Nodes are enterd in pairs, where
+   [0] ->PRED, [1]->SUCC.  All the even indexes in the array represent 
+   predecessors, all the odd elements are successors. 
+   
+   Rationale:
+   When implemented as bitmaps, very large programs SSA->Normal times were 
+   being dominated by clearing the interference graph.
+
+   Typically this list of edges is extremely small since it only includes 
+   PHI results and uses from a single edge which have not coalesced with 
+   each other. This means no virtual PHI nodes are included, and empirical
+   evidence suggests that the number of edges rarely exceed 3, and in a 
+   bootstrap of GCC, the maximum size encountered was 7. THis also limits 
+   the number of possible nodes that are involved to rarely more than 6, 
+   and in the bootstrap of gcc, the maximum number of nodes encountered
+   was 12.  */
+ 
 typedef struct _elim_graph
 {
   /* Size of the elimination vectors.  */
   int size;
-  /* Number of nodes entered into the elimination graph.  */
-  int num_nodes;
-  /* The actual nodes in the elimination graph.  */
-  tree *nodes;
-  /* The predecessor and successor list.  */
-  bitmap *pred;
-  bitmap *succ;
+
+  /* List of nodes in the elimination graph.  */
+  varray_type nodes;
+  /*  The predecessor and successor edge list. */
+  varray_type edge_list;
 
   /* Visited vector.  */
   sbitmap visited;
+
   /* Stack for visited nodes.  */
-  int *stack;
-  int top_of_stack;
+  varray_type stack;
   
   /* The variable partition map.  */
   var_map map;
@@ -170,10 +187,15 @@ static void htab_statistics (FILE *, htab_t);
 static tree create_temp (tree);
 static void insert_copy_on_edge (edge, tree, tree);
 static elim_graph new_elim_graph (int);
-static void delete_elim_graph (elim_graph);
-static void clear_elim_graph (elim_graph);
-static void eliminate_name (elim_graph, tree);
-static int eliminate_build (elim_graph, basic_block, int);
+static inline void delete_elim_graph (elim_graph);
+static inline void clear_elim_graph (elim_graph);
+static inline int elim_graph_size (elim_graph);
+static inline void elim_graph_add_node (elim_graph, tree);
+static inline void elim_graph_add_edge (elim_graph, int, int);
+static inline int elim_graph_remove_succ_edge (elim_graph, int);
+
+static inline void eliminate_name (elim_graph, tree);
+static void eliminate_build (elim_graph, basic_block, int);
 static void elim_forward (elim_graph, int);
 static int elim_unvisited_predecessor (elim_graph, int);
 static void elim_backward (elim_graph, int);
@@ -921,61 +943,113 @@ insert_copy_on_edge (edge e, tree dest, tree src)
 static elim_graph
 new_elim_graph (int size)
 {
-  int x;
   elim_graph g = (elim_graph) xmalloc (sizeof (struct _elim_graph));
 
-  g->size = size;
-  g->nodes = (tree *) xmalloc (sizeof (tree) * size);
-
-  g->pred = (bitmap *) xmalloc (sizeof (bitmap) * size);
-  g->succ= (bitmap *) xmalloc (sizeof (bitmap) * size);
-  for (x = 0; x < size; x++)
-    {
-      g->pred[x] = BITMAP_XMALLOC ();
-      g->succ[x] = BITMAP_XMALLOC ();
-    }
-  g->visited = sbitmap_alloc (size);
-  g->stack = (int *) xmalloc (sizeof (int) * size);
-
-  VARRAY_TREE_INIT (g->const_copies, 20, "Constant Copies");
+  VARRAY_TREE_INIT (g->nodes, 30, "Elimination Node List");
+  VARRAY_TREE_INIT (g->const_copies, 20, "Elimination Constant Copies");
+  VARRAY_INT_INIT (g->edge_list, 20, "Elimination Edge List");
+  VARRAY_INT_INIT (g->stack, 30, " Elimination Stack");
   
+  g->visited = sbitmap_alloc (size);
+
   return g;
 }
 
-static void
+
+/* Empty the elimination graph.  */
+static inline void
 clear_elim_graph (elim_graph g)
 {
-  int x;
-  int size = g->size;
-
-  g->num_nodes = 0;
-  memset (g->nodes, 0, sizeof (tree) * size);
-  for (x = 0; x < size; x++)
-    {
-      bitmap_clear (g->pred[x]);
-      bitmap_clear (g->succ[x]);
-    }
+  VARRAY_POP_ALL (g->nodes);
+  VARRAY_POP_ALL (g->edge_list);
 }
+
 
 /* Delete an elimination graph.  */
-static void
+static inline void
 delete_elim_graph (elim_graph g)
 {
-  int x;
-  free (g->stack);
   sbitmap_free (g->visited);
-
-  for (x = g->size - 1; x >= 0 ; x--)
-    {
-      BITMAP_XFREE (g->succ[x]);
-      BITMAP_XFREE (g->pred[x]);
-    }
-  free (g->succ);
-  free (g->pred);
-
-  free (g->nodes);
   free (g);
 }
+
+
+/* Return the number of nodes in the graph.  */
+static inline int
+elim_graph_size (elim_graph g)
+{
+  return VARRAY_ACTIVE_SIZE (g->nodes);
+}
+
+
+/* Add a node to the graph, if it doesn't exist already.  */
+static inline void 
+elim_graph_add_node (elim_graph g, tree node)
+{
+  int x;
+  for (x = 0; x < elim_graph_size (g); x++)
+    if (VARRAY_TREE (g->nodes, x) == node)
+      return;
+  VARRAY_PUSH_TREE (g->nodes, node);
+}
+
+
+/* Add an edge to the graph.  */
+static inline void
+elim_graph_add_edge (elim_graph g, int pred, int succ)
+{
+  VARRAY_PUSH_INT (g->edge_list, pred);
+  VARRAY_PUSH_INT (g->edge_list, succ);
+}
+
+
+/* Remove an edge from the graph for which node is the predecessor, and
+   return the successor node.  -1 is returned if there is no such edge.  */
+static inline int
+elim_graph_remove_succ_edge (elim_graph g, int node)
+{
+  int y;
+  unsigned x;
+  for (x = 0; x < VARRAY_ACTIVE_SIZE (g->edge_list); x += 2)
+    if (VARRAY_INT (g->edge_list, x) == node)
+      {
+        VARRAY_INT (g->edge_list, x) = -1;
+	y = VARRAY_INT (g->edge_list, x + 1);
+	VARRAY_INT (g->edge_list, x + 1) = -1;
+	return y;
+      }
+  return -1;
+}
+
+/* Find all the nodes which are successors to NODE in the edge list.  */
+#define FOR_EACH_ELIM_GRAPH_SUCC(GRAPH, NODE, VAR, CODE)		\
+do {									\
+  unsigned x_;								\
+  int y_;								\
+  for (x_ = 0; x_ < VARRAY_ACTIVE_SIZE ((GRAPH)->edge_list); x_ += 2)	\
+    {									\
+      y_ = VARRAY_INT ((GRAPH)->edge_list, x_);				\
+      if (y_ != (NODE))							\
+        continue;							\
+      (VAR) = VARRAY_INT ((GRAPH)->edge_list, x_ + 1);			\
+      CODE;								\
+    }									\
+} while (0)
+
+/* Find all the nodes which are predecessors of NODE in the edge list.  */
+#define FOR_EACH_ELIM_GRAPH_PRED(GRAPH, NODE, VAR, CODE)		\
+do {									\
+  unsigned x_;								\
+  int y_;								\
+  for (x_ = 0; x_ < VARRAY_ACTIVE_SIZE ((GRAPH)->edge_list); x_ += 2)	\
+    {									\
+      y_ = VARRAY_INT ((GRAPH)->edge_list, x_ + 1);			\
+      if (y_ != (NODE))							\
+        continue;							\
+      (VAR) = VARRAY_INT ((GRAPH)->edge_list, x_);			\
+      CODE;								\
+    }									\
+} while (0)
 
 /* The following procedures implement the out of SSA algorithm detailed in 
    the Morgan Book pages 176-186.  */
@@ -983,36 +1057,22 @@ delete_elim_graph (elim_graph g)
 
 /* Add T to the elimination graph.  */
 
-static void
+static inline void
 eliminate_name (elim_graph g, tree T)
 {
-  int version = var_to_partition (g->map, T);
-
-  /* If this is the first time a node is added, clear the graph.
-     Delaying it until here prevents clearing all the vectors
-     until it is known for sure that they are going to be used.  */
-
-  if (g->num_nodes == 0)
-    clear_elim_graph (g);
-
-  if (g->nodes[version] == NULL)
-    {
-      g->nodes[version] = T;
-      g->num_nodes++;
-    }
+  elim_graph_add_node (g, T);
 }
 
 /* Build the auxiliary graph.  */
 
-static int
+static void
 eliminate_build (elim_graph g, basic_block B, int i)
 {
   tree phi;
   tree T0, Ti;
   int p0, pi;
-  int edges = 0;
 
-  g->num_nodes = 0;
+  clear_elim_graph (g);
   
   for (phi = phi_nodes (B); phi; phi = TREE_CHAIN (phi))
     {
@@ -1045,13 +1105,10 @@ eliminate_build (elim_graph g, basic_block B, int i)
 	      eliminate_name (g, Ti);
 	      p0 = var_to_partition (g->map, T0);
 	      pi = var_to_partition (g->map, Ti);
-	      bitmap_set_bit (g->pred[pi], p0);
-	      bitmap_set_bit (g->succ[p0], pi);
-	      edges++;
+	      elim_graph_add_edge (g, p0, pi);
 	    }
 	}
     }
-  return edges;
 }
 
 /* Push successors onto the stack depth first.  */
@@ -1061,13 +1118,12 @@ elim_forward (elim_graph g, int T)
 {
   int S;
   SET_BIT (g->visited, T);
-  EXECUTE_IF_SET_IN_BITMAP (g->succ[T], 0, S,
+  FOR_EACH_ELIM_GRAPH_SUCC (g, T, S,
     {
       if (!TEST_BIT (g->visited, S))
         elim_forward (g, S);
     });
-  g->stack[g->top_of_stack] = T;
-  g->top_of_stack++;
+  VARRAY_PUSH_INT (g->stack, T);
 }
 
 
@@ -1077,7 +1133,7 @@ static int
 elim_unvisited_predecessor (elim_graph g, int T)
 {
   int P;
-  EXECUTE_IF_SET_IN_BITMAP (g->pred[T], 0, P,
+  FOR_EACH_ELIM_GRAPH_PRED (g, T, P, 
     {
       if (!TEST_BIT (g->visited, P))
         return 1;
@@ -1092,7 +1148,7 @@ elim_backward (elim_graph g, int T)
 {
   int P;
   SET_BIT (g->visited, T);
-  EXECUTE_IF_SET_IN_BITMAP (g->pred[T], 0, P,
+  FOR_EACH_ELIM_GRAPH_PRED (g, T, P, 
     {
       if (!TEST_BIT (g->visited, P))
         {
@@ -1118,7 +1174,7 @@ elim_create (elim_graph g, int T)
     {
       U = create_temp (partition_to_var (g->map, T));
       insert_copy_on_edge (g->e, U, partition_to_var (g->map, T));
-      EXECUTE_IF_SET_IN_BITMAP (g->pred[T], 0, P,
+      FOR_EACH_ELIM_GRAPH_PRED (g, T, P, 
 	{
 	  if (!TEST_BIT (g->visited, P))
 	    {
@@ -1129,11 +1185,10 @@ elim_create (elim_graph g, int T)
     }
   else
     {
-      S = bitmap_first_set_bit (g->succ[T]);
+      S = elim_graph_remove_succ_edge (g, T);
       if (S != -1)
 	{
 	  SET_BIT (g->visited, T);
-	  bitmap_clear_bit (g->succ[T], S);
 	  insert_copy_on_edge (g->e, 
 			       partition_to_var (g->map, T), 
 			       partition_to_var (g->map, S));
@@ -1148,7 +1203,7 @@ static void
 eliminate_phi (edge e, int i, elim_graph g)
 {
   int num_nodes = 0;
-  int x, limit;
+  int x;
   basic_block B = e->dest;
 
 #if defined ENABLE_CHECKING
@@ -1158,29 +1213,34 @@ eliminate_phi (edge e, int i, elim_graph g)
     abort ();
 #endif
 
+  /* Abnormal edges already have everything coalesced, or the coalescer
+     would have aborted.  */
+  if (e->flags & EDGE_ABNORMAL)
+    return;
+
   num_nodes = num_var_partitions (g->map);
   g->e = e;
 
-  x = eliminate_build (g, B, i);
+  eliminate_build (g, B, i);
 
-  if (g->num_nodes != 0)
+  if (elim_graph_size (g) != 0)
     {
       sbitmap_zero (g->visited);
-      g->top_of_stack = 0;
+      VARRAY_POP_ALL (g->stack);
 
-      limit = g->num_nodes;
-      for (x = 0; limit; x++)
-	 if (g->nodes[x])
-	   {
-	     limit--;
-	     if (!TEST_BIT (g->visited, x))
-	       elim_forward (g, x);
-	   }
+      for (x = 0; x < elim_graph_size (g); x++)
+        {
+	  tree var = VARRAY_TREE (g->nodes, x);
+	  int p = var_to_partition (g->map, var);
+	  if (!TEST_BIT (g->visited, p))
+	    elim_forward (g, p);
+	}
        
       sbitmap_zero (g->visited);
-      while (g->top_of_stack > 0)
+      while (VARRAY_ACTIVE_SIZE (g->stack) > 0)
 	{
-	  x = g->stack[--(g->top_of_stack)];
+	  x = VARRAY_TOP_INT (g->stack);
+	  VARRAY_POP (g->stack);
 	  if (!TEST_BIT (g->visited, x))
 	    elim_create (g, x);
 	}
@@ -1656,7 +1716,10 @@ rewrite_out_of_ssa (tree fndecl, enum tree_dump_index phase)
   eliminate_extraneous_phis (map);
 
   /* Shrink the map to include only referenced variables.  */
-  compact_var_map (map, VARMAP_NORMAL);
+  if (flag_tree_combine_temps)
+    compact_var_map (map, VARMAP_NORMAL);
+  else
+    compact_var_map (map, VARMAP_NO_SINGLE_DEFS);
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     dump_var_map (dump_file, map);
@@ -1668,6 +1731,8 @@ rewrite_out_of_ssa (tree fndecl, enum tree_dump_index phase)
       fprintf (dump_file, "After Coalescing:\n");
       dump_var_map (dump_file, map);
     }
+  if (!flag_tree_combine_temps)
+    compact_var_map (map, VARMAP_NORMAL);
 
   /* This is the final var list, so assign real variables to the different
      partitions.  */

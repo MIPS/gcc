@@ -163,16 +163,16 @@ typedef struct tree_live_info_d
   var_map map;
 
   /* Bitmap indicating which partitions are global.  */
-  sbitmap global;
+  bitmap global;
 
   /* Bitmap of live on entry blocks for partition elements.  */
-  sbitmap *livein;
+  bitmap *livein;
 
   /* Number of basic blocks when live on exit calculated.  */
   int num_blocks;
 
   /* Bitmap of what variables are live on exit for a basic blocks.  */
-  sbitmap *liveout;
+  bitmap *liveout;
 } *tree_live_info_p;
 
 
@@ -186,8 +186,8 @@ extern void delete_tree_live_info (tree_live_info_p);
 extern void dump_live_info (FILE *, tree_live_info_p, int);
 
 static inline int partition_is_global (tree_live_info_p, int);
-static inline sbitmap live_entry_blocks (tree_live_info_p, int);
-static inline sbitmap live_on_exit (tree_live_info_p, basic_block);
+static inline bitmap live_entry_blocks (tree_live_info_p, int);
+static inline bitmap live_on_exit (tree_live_info_p, basic_block);
 static inline var_map live_var_map (tree_live_info_p);
 static inline void live_merge_and_clear (tree_live_info_p, int, int);
 static inline void make_live_on_entry (tree_live_info_p, basic_block, int);
@@ -198,10 +198,10 @@ partition_is_global (tree_live_info_p live, int p)
   if (!live->global)
     abort ();
 
-  return TEST_BIT (live->global, p);
+  return bitmap_bit_p (live->global, p);
 }
 
-static inline sbitmap
+static inline bitmap
 live_entry_blocks (tree_live_info_p live, int p)
 {
   if (!live->livein)
@@ -210,7 +210,7 @@ live_entry_blocks (tree_live_info_p live, int p)
   return live->livein[p];
 }
 
-static inline sbitmap
+static inline bitmap
 live_on_exit (tree_live_info_p live, basic_block bb)
 {
   if (!live->liveout)
@@ -233,15 +233,15 @@ live_var_map (tree_live_info_p live)
 static inline void 
 live_merge_and_clear (tree_live_info_p live, int p1, int p2)
 {
-  sbitmap_a_or_b (live->livein[p1], live->livein[p1], live->livein[p2]);
-  sbitmap_zero (live->livein[p2]);
+  bitmap_a_or_b (live->livein[p1], live->livein[p1], live->livein[p2]);
+  bitmap_zero (live->livein[p2]);
 }
 
 static inline void 
 make_live_on_entry (tree_live_info_p live, basic_block bb , int p)
 {
-  SET_BIT (live->livein[p], bb->index);
-  SET_BIT (live->global, p);
+  bitmap_set_bit (live->livein[p], bb->index);
+  bitmap_set_bit (live->global, p);
 }
 
 /* A tree_partition_associator object is a base structure which allows
