@@ -1391,13 +1391,13 @@ finish_pseudo_destructor_expr (object, scope, destructor)
     {
       if (scope == error_mark_node)
 	{
-	  cp_error ("invalid qualifying scope in pseudo-destructor name");
+	  error ("invalid qualifying scope in pseudo-destructor name");
 	  return error_mark_node;
 	}
       
       if (!same_type_p (TREE_TYPE (object), destructor))
 	{
-	  cp_error ("`%E' is not of type `%T'", object, destructor);
+	  error ("`%E' is not of type `%T'", object, destructor);
 	  return error_mark_node;
 	}
     }
@@ -1939,24 +1939,10 @@ finish_class_definition (t, attributes, semi, pop_scope_p)
 	note_got_semicolon (t);
     }
 
-  if (! semi)
-    check_for_missing_semicolon (t); 
   if (pop_scope_p)
     pop_scope (CP_DECL_CONTEXT (TYPE_MAIN_DECL (t)));
-  if (current_scope () == current_function_decl)
-    do_pending_defargs ();
 
   return t;
-}
-
-/* Finish processing the default argument expressions cached during
-   the processing of a class definition.  */
-
-void
-begin_inline_definitions ()
-{
-  if (current_scope () == current_function_decl)
-    do_pending_inlines ();
 }
 
 /* Finish processing the declaration of a member class template

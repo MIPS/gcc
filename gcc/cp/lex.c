@@ -491,7 +491,6 @@ cxx_init (filename)
   input_filename = "<internal>";
 
   init_reswords ();
-  init_spew ();
   init_tree ();
   init_cp_semantics ();
   init_operators ();

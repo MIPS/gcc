@@ -1812,8 +1812,10 @@ cp_parser_error (parser, message)
 {
   /* Remember that we have issued an error.  */
   cp_parser_simulate_error (parser);
-  /* Output the MESSAGE.  */
-  error (message);
+  /* Output the MESSAGE -- unless we're parsing tentatively.  */
+  if (cp_parser_parsing_tentatively (parser) 
+      && !cp_parser_committed_to_tentative_parse (parser))
+    error (message);
 }
 
 /* If we are parsing tentatively, remember that an error has occurred
@@ -6298,11 +6300,9 @@ cp_parser_ctor_initializer_opt (parser)
      ctor-initializer.  */
   if (cp_lexer_next_token_is_not (parser->lexer, CPP_COLON))
     {
-      /* Do default initialization of any bases and members.  (Note
-	 that setup_vtbl_ptr will not take any action if this function
-	 is not a constructor or destructor, so we do not need to
-	 check that explicitly here.)  */
-      setup_vtbl_ptr (NULL_TREE, NULL_TREE);
+      /* Do default initialization of any bases and members.  */
+      if (DECL_CONSTRUCTOR_P (current_function_decl))
+	finish_mem_initializers (NULL_TREE);
 
       return false;
     }
@@ -6964,7 +6964,7 @@ cp_parser_type_parameter (parser)
 	else
 	  identifier = NULL_TREE;
 	/* Create the template parameter.  */
-	parameter = finish_template_template_parm (class_type,
+	parameter = finish_template_template_parm (class_type_node,
 						   identifier);
 						   
 	/* If the next token is an `=', then there is a
@@ -10666,6 +10666,8 @@ cp_parser_class_head (parser,
     }
   else
     {
+      int new_type_p;
+
       /* Given:
 
 	    template <typename T> struct S { struct T };
@@ -10683,7 +10685,10 @@ cp_parser_class_head (parser,
 
       type = TREE_TYPE (handle_class_head (class_key, 
 					   nested_name_specifier,
-					   type));
+					   type,
+					   /*attributes=*/NULL_TREE,
+					   /*defn_p=*/1,
+					   &new_type_p));
       *nested_name_specifier_p = true;
     }
 
@@ -12593,7 +12598,7 @@ cp_parser_constructor_declarator_p (parser)
    with an unprocessed DEFAULT_ARG.  We can only parse the DEFAULT_ARG
    when all enclosing classes are completed.  If TYPE is the type of a
    FUNCTION_DECL, it does not need to be marked here -- FUNCTION_DECLS
-   are dealt with anyway.  */
+   are dealt with elsewhere.  */
 
 void
 cp_parser_save_default_arg_type (parser, type)
@@ -13457,6 +13462,14 @@ yyparse ()
   the_parser = NULL;
 
   return error_occurred;
+}
+
+/* Clean up after parsing the entire translation unit.  */
+
+void
+free_parser_stacks ()
+{
+  /* Nothing to do.  */
 }
 
 /* This variable must be provided by every front end.  */

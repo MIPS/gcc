@@ -840,8 +840,6 @@ struct saved_scope GTY(())
 
 extern GTY(()) struct saved_scope *scope_chain;
 
-struct unparsed_text;
-
 /* Global state pertinent to the current function.  */
 
 struct language_function GTY(())
@@ -868,7 +866,6 @@ struct language_function GTY(())
   varray_type x_local_names;
 
   const char *cannot_inline;
-  struct unparsed_text *unparsed_inlines;
 };
 
 /* The current C++-specific per-function global variables.  */
@@ -4317,7 +4314,6 @@ extern tree finish_parmlist                     PARAMS ((tree, int));
 extern tree begin_class_definition              PARAMS ((tree));
 extern tree finish_class_definition             PARAMS ((tree, tree, int, int));
 extern void finish_default_args                 PARAMS ((void));
-extern void begin_inline_definitions            PARAMS ((void));
 extern tree finish_member_class_template        PARAMS ((tree));
 extern void finish_template_decl                PARAMS ((tree));
 extern tree finish_template_type                PARAMS ((tree, tree, int));
@@ -4342,19 +4338,6 @@ extern void clear_out_block                     PARAMS ((void));
 extern tree begin_global_stmt_expr              PARAMS ((void));
 extern tree finish_global_stmt_expr             PARAMS ((tree));
 extern tree check_template_template_default_arg (tree);
-
-/* in spew.c */
-extern void init_spew				PARAMS ((void));
-extern int peekyylex				PARAMS ((void));
-extern tree arbitrate_lookup			PARAMS ((tree, tree, tree));
-extern tree frob_opname                         PARAMS ((tree));
-extern void maybe_snarf_defarg			PARAMS ((void));
-extern void add_defarg_fn			PARAMS ((tree));
-extern void do_pending_defargs			PARAMS ((void));
-extern void done_pending_defargs		PARAMS ((void));
-extern void unprocessed_defarg_fn               PARAMS ((tree));
-extern void replace_defarg			PARAMS ((tree, tree));
-extern void end_input				PARAMS ((void));
 
 /* in tree.c */
 extern void lang_check_failed			PARAMS ((const char *, int,

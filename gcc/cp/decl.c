@@ -6020,7 +6020,6 @@ check_for_out_of_scope_variable (tree decl)
 
    If PREFER_TYPE is > 0, we prefer TYPE_DECLs or namespaces.
    If PREFER_TYPE is > 1, we reject non-type decls (e.g. namespaces).
-   If PREFER_TYPE is -2, we're being called from yylex(). (UGLY)
    Otherwise we prefer non-TYPE_DECLs.
 
    If NONCLASS is non-zero, we don't look for the NAME in class scope,
@@ -6034,7 +6033,6 @@ lookup_name_real (name, prefer_type, nonclass, namespaces_only)
   tree t;
   tree val = NULL_TREE;
   int yylex = 0;
-  tree from_obj = NULL_TREE;
   int flags;
   int val_is_implicit_typename = 0;
 
@@ -6042,81 +6040,9 @@ lookup_name_real (name, prefer_type, nonclass, namespaces_only)
   if (only_namespace_names)
     namespaces_only = 1;
 
-  if (prefer_type == -2)
-    {
-      extern int looking_for_typename;
-      tree type = NULL_TREE;
-
-      yylex = 1;
-      prefer_type = looking_for_typename;
-
-      flags = lookup_flags (prefer_type, namespaces_only);
-      /* If the next thing is '<', class templates are types. */
-      if (looking_for_template)
-        flags |= LOOKUP_TEMPLATES_EXPECTED;
-
-      if (got_scope)
-	type = got_scope;
-      else if (got_object != error_mark_node)
-	type = got_object;
-
-      if (type)
-	{
-	  if (type == error_mark_node)
-	    return error_mark_node;
-	  if (TREE_CODE (type) == TYPENAME_TYPE && TREE_TYPE (type))
-	    type = TREE_TYPE (type);
-
-	  if (TYPE_P (type))
-	    type = complete_type (type);
-
-	  if (TREE_CODE (type) == VOID_TYPE)
-	    type = global_namespace;
-
-	  if (TREE_CODE (type) != NAMESPACE_DECL
-	      && (!IS_AGGR_TYPE (type)
-		  || TREE_CODE (type) == TEMPLATE_TYPE_PARM
-		  || TREE_CODE (type) == BOUND_TEMPLATE_TEMPLATE_PARM
-		  || TREE_CODE (type) == TYPENAME_TYPE))
-	    /* Someone else will give an error about this if needed.  */
-	    val = NULL_TREE;
-	  else if (type == current_class_type)
-	    val = IDENTIFIER_CLASS_VALUE (name);
-	  else 
-	    {
-	      val = lookup_qualified_name (type, name, prefer_type, flags);
-	      if (TREE_CODE (type) == NAMESPACE_DECL && !val)
-		return NULL_TREE;
-	      else if (TYPE_P (type))
-		{
-		  type_access_control (type, val);
-		  
-		  /* Restore the containing TYPENAME_TYPE if we looked
-		     through it before.  */
-		  if (got_scope && got_scope != type
-		      && val && TREE_CODE (val) == TYPE_DECL
-		      && TREE_CODE (TREE_TYPE (val)) == TYPENAME_TYPE)
-		    TYPE_CONTEXT (TREE_TYPE (val)) = got_scope;
-		}
-	    }
-	}
-      else
-	val = NULL_TREE;
-
-      if (got_scope)
-	goto done;
-      else if (got_object && val)
-	{
-	  from_obj = val;
-	  val = NULL_TREE;
-	}
-    }
-  else
-    {
-      flags = lookup_flags (prefer_type, namespaces_only);
-      /* If we're not parsing, we need to complain. */
-      flags |= LOOKUP_COMPLAIN;
-    }
+  flags = lookup_flags (prefer_type, namespaces_only);
+  /* If we're not parsing, we need to complain. */
+  flags |= LOOKUP_COMPLAIN;
 
   /* First, look in non-namespace scopes.  */
 
@@ -6170,33 +6096,12 @@ lookup_name_real (name, prefer_type, nonclass, namespaces_only)
 	}
     }
 
- done:
   if (val)
     {
-      /* This should only warn about types used in qualified-ids.  */
-      if (from_obj && from_obj != val)
-	{
-	  if (looking_for_typename && TREE_CODE (from_obj) == TYPE_DECL
-	      && TREE_CODE (val) == TYPE_DECL
-	      && ! same_type_p (TREE_TYPE (from_obj), TREE_TYPE (val)))
-	    pedwarn ("\
-lookup of `%D' in the scope of `%#T' (`%#D') \
-does not match lookup in the current scope (`%#D')",
-			name, got_object, from_obj, val);
-
-	  /* We don't change val to from_obj if got_object depends on
-	     template parms because that breaks implicit typename for
-	     destructor calls.  */
-	  if (! uses_template_parms (got_object))
-	    val = from_obj;
-	}
-
       /* If we have a single function from a using decl, pull it out.  */
       if (TREE_CODE (val) == OVERLOAD && ! really_overloaded_fn (val))
 	val = OVL_FUNCTION (val);
     }
-  else if (from_obj)
-    val = from_obj;
 
   return val;
 }
@@ -9088,9 +8993,6 @@ grokfndecl (ctype, type, declarator, orig_declarator, virtualp, flags, quals,
 	}
     }
 
-  if (has_default_arg)
-    add_defarg_fn (decl);
-
   if (funcdef_flag)
     /* Make the init_value nonzero so pushdecl knows this is not
        tentative.  error_mark_node is replaced later with the BLOCK.  */
@@ -10938,17 +10840,6 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 	    /* ANSI says that `const int foo ();'
 	       does not make the function foo const.  */
 	    type = build_function_type (type, arg_types);
-
-	    {
-	      tree t;
-	      for (t = arg_types; t; t = TREE_CHAIN (t))
-		if (TREE_PURPOSE (t)
-		    && TREE_CODE (TREE_PURPOSE (t)) == DEFAULT_ARG)
-		  {
-		    add_defarg_fn (type);
-		    break;
-		  }
-	    }
 	  }
 	  break;
 
