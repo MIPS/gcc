@@ -1956,6 +1956,9 @@ configure-build-libiberty:
 	$(SHELL) $(srcdir)/mkinstalldirs $(BUILD_SUBDIR)/libiberty ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	build_alias="$(build_alias)"; export build_alias; \
+	host_alias="$(build_alias)"; export host_alias; \
+	target_alias="$(build_alias)"; export target_alias; \
 	AR="$(AR_FOR_BUILD)"; export AR; \
 	AS="$(AS_FOR_BUILD)"; export AS; \
 	CC="$(CC_FOR_BUILD)"; export CC; \
@@ -2031,6 +2034,9 @@ configure-ash:
 	[ -d ash ] || mkdir ash; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	build_alias="$(build_alias)"; export build_alias; \
+	host_alias="$(host_alias)"; export host_alias; \
+	target_alias="$(target_alias)"; export target_alias; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
 	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
@@ -2296,6 +2302,9 @@ configure-autoconf:
 	[ -d autoconf ] || mkdir autoconf; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	build_alias="$(build_alias)"; export build_alias; \
+	host_alias="$(host_alias)"; export host_alias; \
+	target_alias="$(target_alias)"; export target_alias; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
 	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
@@ -2561,6 +2570,9 @@ configure-automake:
 	[ -d automake ] || mkdir automake; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	build_alias="$(build_alias)"; export build_alias; \
+	host_alias="$(host_alias)"; export host_alias; \
+	target_alias="$(target_alias)"; export target_alias; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
 	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
@@ -2826,6 +2838,9 @@ configure-bash:
 	[ -d bash ] || mkdir bash; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	build_alias="$(build_alias)"; export build_alias; \
+	host_alias="$(host_alias)"; export host_alias; \
+	target_alias="$(target_alias)"; export target_alias; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
 	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
@@ -3091,6 +3106,9 @@ configure-bfd:
 	[ -d bfd ] || mkdir bfd; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	build_alias="$(build_alias)"; export build_alias; \
+	host_alias="$(host_alias)"; export host_alias; \
+	target_alias="$(target_alias)"; export target_alias; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
 	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
@@ -3356,6 +3374,9 @@ configure-opcodes:
 	[ -d opcodes ] || mkdir opcodes; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	build_alias="$(build_alias)"; export build_alias; \
+	host_alias="$(host_alias)"; export host_alias; \
+	target_alias="$(target_alias)"; export target_alias; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
 	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
@@ -3621,6 +3642,9 @@ configure-binutils:
 	[ -d binutils ] || mkdir binutils; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	build_alias="$(build_alias)"; export build_alias; \
+	host_alias="$(host_alias)"; export host_alias; \
+	target_alias="$(target_alias)"; export target_alias; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
 	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
@@ -3886,6 +3910,9 @@ configure-bison:
 	[ -d bison ] || mkdir bison; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	build_alias="$(build_alias)"; export build_alias; \
+	host_alias="$(host_alias)"; export host_alias; \
+	target_alias="$(target_alias)"; export target_alias; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
 	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
@@ -4154,6 +4181,9 @@ configure-byacc:
 	[ -d byacc ] || mkdir byacc; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	build_alias="$(build_alias)"; export build_alias; \
+	host_alias="$(host_alias)"; export host_alias; \
+	target_alias="$(target_alias)"; export target_alias; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
 	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
@@ -4422,6 +4452,9 @@ configure-bzip2:
 	[ -d bzip2 ] || mkdir bzip2; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	build_alias="$(build_alias)"; export build_alias; \
+	host_alias="$(host_alias)"; export host_alias; \
+	target_alias="$(target_alias)"; export target_alias; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
 	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
@@ -4687,6 +4720,9 @@ configure-dejagnu:
 	[ -d dejagnu ] || mkdir dejagnu; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	build_alias="$(build_alias)"; export build_alias; \
+	host_alias="$(host_alias)"; export host_alias; \
+	target_alias="$(target_alias)"; export target_alias; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
 	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
@@ -4952,6 +4988,9 @@ configure-diff:
 	[ -d diff ] || mkdir diff; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	build_alias="$(build_alias)"; export build_alias; \
+	host_alias="$(host_alias)"; export host_alias; \
+	target_alias="$(target_alias)"; export target_alias; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
 	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
@@ -5217,6 +5256,9 @@ configure-dosutils:
 	[ -d dosutils ] || mkdir dosutils; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	build_alias="$(build_alias)"; export build_alias; \
+	host_alias="$(host_alias)"; export host_alias; \
+	target_alias="$(target_alias)"; export target_alias; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
 	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
@@ -5478,6 +5520,9 @@ configure-etc:
 	[ -d etc ] || mkdir etc; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	build_alias="$(build_alias)"; export build_alias; \
+	host_alias="$(host_alias)"; export host_alias; \
+	target_alias="$(target_alias)"; export target_alias; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
 	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
@@ -5743,6 +5788,9 @@ configure-fastjar:
 	[ -d fastjar ] || mkdir fastjar; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	build_alias="$(build_alias)"; export build_alias; \
+	host_alias="$(host_alias)"; export host_alias; \
+	target_alias="$(target_alias)"; export target_alias; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
 	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
@@ -6011,6 +6059,9 @@ configure-fileutils:
 	[ -d fileutils ] || mkdir fileutils; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	build_alias="$(build_alias)"; export build_alias; \
+	host_alias="$(host_alias)"; export host_alias; \
+	target_alias="$(target_alias)"; export target_alias; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
 	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
@@ -6276,6 +6327,9 @@ configure-findutils:
 	[ -d findutils ] || mkdir findutils; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	build_alias="$(build_alias)"; export build_alias; \
+	host_alias="$(host_alias)"; export host_alias; \
+	target_alias="$(target_alias)"; export target_alias; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
 	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
@@ -6541,6 +6595,9 @@ configure-find:
 	[ -d find ] || mkdir find; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	build_alias="$(build_alias)"; export build_alias; \
+	host_alias="$(host_alias)"; export host_alias; \
+	target_alias="$(target_alias)"; export target_alias; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
 	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
@@ -6806,6 +6863,9 @@ configure-flex:
 	[ -d flex ] || mkdir flex; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	build_alias="$(build_alias)"; export build_alias; \
+	host_alias="$(host_alias)"; export host_alias; \
+	target_alias="$(target_alias)"; export target_alias; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
 	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
@@ -7074,6 +7134,9 @@ configure-gas:
 	[ -d gas ] || mkdir gas; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	build_alias="$(build_alias)"; export build_alias; \
+	host_alias="$(host_alias)"; export host_alias; \
+	target_alias="$(target_alias)"; export target_alias; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
 	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
@@ -7339,6 +7402,9 @@ configure-gawk:
 	[ -d gawk ] || mkdir gawk; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	build_alias="$(build_alias)"; export build_alias; \
+	host_alias="$(host_alias)"; export host_alias; \
+	target_alias="$(target_alias)"; export target_alias; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
 	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
@@ -7604,6 +7670,9 @@ configure-gettext:
 	[ -d gettext ] || mkdir gettext; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	build_alias="$(build_alias)"; export build_alias; \
+	host_alias="$(host_alias)"; export host_alias; \
+	target_alias="$(target_alias)"; export target_alias; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
 	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
@@ -7869,6 +7938,9 @@ configure-gnuserv:
 	[ -d gnuserv ] || mkdir gnuserv; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	build_alias="$(build_alias)"; export build_alias; \
+	host_alias="$(host_alias)"; export host_alias; \
+	target_alias="$(target_alias)"; export target_alias; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
 	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
@@ -8134,6 +8206,9 @@ configure-gprof:
 	[ -d gprof ] || mkdir gprof; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	build_alias="$(build_alias)"; export build_alias; \
+	host_alias="$(host_alias)"; export host_alias; \
+	target_alias="$(target_alias)"; export target_alias; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
 	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
@@ -8399,6 +8474,9 @@ configure-gzip:
 	[ -d gzip ] || mkdir gzip; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	build_alias="$(build_alias)"; export build_alias; \
+	host_alias="$(host_alias)"; export host_alias; \
+	target_alias="$(target_alias)"; export target_alias; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
 	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
@@ -8664,6 +8742,9 @@ configure-hello:
 	[ -d hello ] || mkdir hello; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	build_alias="$(build_alias)"; export build_alias; \
+	host_alias="$(host_alias)"; export host_alias; \
+	target_alias="$(target_alias)"; export target_alias; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
 	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
@@ -8929,6 +9010,9 @@ configure-indent:
 	[ -d indent ] || mkdir indent; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	build_alias="$(build_alias)"; export build_alias; \
+	host_alias="$(host_alias)"; export host_alias; \
+	target_alias="$(target_alias)"; export target_alias; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
 	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
@@ -9194,6 +9278,9 @@ configure-intl:
 	[ -d intl ] || mkdir intl; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	build_alias="$(build_alias)"; export build_alias; \
+	host_alias="$(host_alias)"; export host_alias; \
+	target_alias="$(target_alias)"; export target_alias; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
 	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
@@ -9459,6 +9546,9 @@ configure-tcl:
 	[ -d tcl ] || mkdir tcl; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	build_alias="$(build_alias)"; export build_alias; \
+	host_alias="$(host_alias)"; export host_alias; \
+	target_alias="$(target_alias)"; export target_alias; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
 	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
@@ -9710,6 +9800,9 @@ configure-itcl:
 	[ -d itcl ] || mkdir itcl; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	build_alias="$(build_alias)"; export build_alias; \
+	host_alias="$(host_alias)"; export host_alias; \
+	target_alias="$(target_alias)"; export target_alias; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
 	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
@@ -9975,6 +10068,9 @@ configure-ld:
 	[ -d ld ] || mkdir ld; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	build_alias="$(build_alias)"; export build_alias; \
+	host_alias="$(host_alias)"; export host_alias; \
+	target_alias="$(target_alias)"; export target_alias; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
 	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
@@ -10240,6 +10336,9 @@ configure-libgui:
 	[ -d libgui ] || mkdir libgui; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	build_alias="$(build_alias)"; export build_alias; \
+	host_alias="$(host_alias)"; export host_alias; \
+	target_alias="$(target_alias)"; export target_alias; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
 	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
@@ -10505,6 +10604,9 @@ configure-libbanshee:
 	[ -d libbanshee ] || mkdir libbanshee; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	build_alias="$(build_alias)"; export build_alias; \
+	host_alias="$(host_alias)"; export host_alias; \
+	target_alias="$(target_alias)"; export target_alias; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
 	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
@@ -10766,6 +10868,9 @@ configure-libiberty:
 	[ -d libiberty ] || mkdir libiberty; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	build_alias="$(build_alias)"; export build_alias; \
+	host_alias="$(host_alias)"; export host_alias; \
+	target_alias="$(target_alias)"; export target_alias; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
 	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
@@ -11031,6 +11136,9 @@ configure-libtool:
 	[ -d libtool ] || mkdir libtool; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	build_alias="$(build_alias)"; export build_alias; \
+	host_alias="$(host_alias)"; export host_alias; \
+	target_alias="$(target_alias)"; export target_alias; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
 	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
@@ -11296,6 +11404,9 @@ configure-m4:
 	[ -d m4 ] || mkdir m4; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	build_alias="$(build_alias)"; export build_alias; \
+	host_alias="$(host_alias)"; export host_alias; \
+	target_alias="$(target_alias)"; export target_alias; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
 	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
@@ -11561,6 +11672,9 @@ configure-make:
 	[ -d make ] || mkdir make; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	build_alias="$(build_alias)"; export build_alias; \
+	host_alias="$(host_alias)"; export host_alias; \
+	target_alias="$(target_alias)"; export target_alias; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
 	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
@@ -11826,6 +11940,9 @@ configure-mmalloc:
 	[ -d mmalloc ] || mkdir mmalloc; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	build_alias="$(build_alias)"; export build_alias; \
+	host_alias="$(host_alias)"; export host_alias; \
+	target_alias="$(target_alias)"; export target_alias; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
 	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
@@ -12087,6 +12204,9 @@ configure-patch:
 	[ -d patch ] || mkdir patch; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	build_alias="$(build_alias)"; export build_alias; \
+	host_alias="$(host_alias)"; export host_alias; \
+	target_alias="$(target_alias)"; export target_alias; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
 	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
@@ -12352,6 +12472,9 @@ configure-perl:
 	[ -d perl ] || mkdir perl; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	build_alias="$(build_alias)"; export build_alias; \
+	host_alias="$(host_alias)"; export host_alias; \
+	target_alias="$(target_alias)"; export target_alias; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
 	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
@@ -12617,6 +12740,9 @@ configure-prms:
 	[ -d prms ] || mkdir prms; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	build_alias="$(build_alias)"; export build_alias; \
+	host_alias="$(host_alias)"; export host_alias; \
+	target_alias="$(target_alias)"; export target_alias; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
 	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
@@ -12882,6 +13008,9 @@ configure-rcs:
 	[ -d rcs ] || mkdir rcs; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	build_alias="$(build_alias)"; export build_alias; \
+	host_alias="$(host_alias)"; export host_alias; \
+	target_alias="$(target_alias)"; export target_alias; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
 	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
@@ -13147,6 +13276,9 @@ configure-readline:
 	[ -d readline ] || mkdir readline; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	build_alias="$(build_alias)"; export build_alias; \
+	host_alias="$(host_alias)"; export host_alias; \
+	target_alias="$(target_alias)"; export target_alias; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
 	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
@@ -13412,6 +13544,9 @@ configure-release:
 	[ -d release ] || mkdir release; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	build_alias="$(build_alias)"; export build_alias; \
+	host_alias="$(host_alias)"; export host_alias; \
+	target_alias="$(target_alias)"; export target_alias; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
 	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
@@ -13669,6 +13804,9 @@ configure-recode:
 	[ -d recode ] || mkdir recode; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	build_alias="$(build_alias)"; export build_alias; \
+	host_alias="$(host_alias)"; export host_alias; \
+	target_alias="$(target_alias)"; export target_alias; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
 	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
@@ -13934,6 +14072,9 @@ configure-sed:
 	[ -d sed ] || mkdir sed; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	build_alias="$(build_alias)"; export build_alias; \
+	host_alias="$(host_alias)"; export host_alias; \
+	target_alias="$(target_alias)"; export target_alias; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
 	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
@@ -14199,6 +14340,9 @@ configure-send-pr:
 	[ -d send-pr ] || mkdir send-pr; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	build_alias="$(build_alias)"; export build_alias; \
+	host_alias="$(host_alias)"; export host_alias; \
+	target_alias="$(target_alias)"; export target_alias; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
 	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
@@ -14464,6 +14608,9 @@ configure-shellutils:
 	[ -d shellutils ] || mkdir shellutils; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	build_alias="$(build_alias)"; export build_alias; \
+	host_alias="$(host_alias)"; export host_alias; \
+	target_alias="$(target_alias)"; export target_alias; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
 	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
@@ -14729,6 +14876,9 @@ configure-sid:
 	[ -d sid ] || mkdir sid; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	build_alias="$(build_alias)"; export build_alias; \
+	host_alias="$(host_alias)"; export host_alias; \
+	target_alias="$(target_alias)"; export target_alias; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
 	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
@@ -14994,6 +15144,9 @@ configure-sim:
 	[ -d sim ] || mkdir sim; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	build_alias="$(build_alias)"; export build_alias; \
+	host_alias="$(host_alias)"; export host_alias; \
+	target_alias="$(target_alias)"; export target_alias; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
 	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
@@ -15259,6 +15412,9 @@ configure-tar:
 	[ -d tar ] || mkdir tar; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	build_alias="$(build_alias)"; export build_alias; \
+	host_alias="$(host_alias)"; export host_alias; \
+	target_alias="$(target_alias)"; export target_alias; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
 	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
@@ -15524,6 +15680,9 @@ configure-texinfo:
 	[ -d texinfo ] || mkdir texinfo; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	build_alias="$(build_alias)"; export build_alias; \
+	host_alias="$(host_alias)"; export host_alias; \
+	target_alias="$(target_alias)"; export target_alias; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
 	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
@@ -15785,6 +15944,9 @@ configure-textutils:
 	[ -d textutils ] || mkdir textutils; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	build_alias="$(build_alias)"; export build_alias; \
+	host_alias="$(host_alias)"; export host_alias; \
+	target_alias="$(target_alias)"; export target_alias; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
 	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
@@ -16050,6 +16212,9 @@ configure-time:
 	[ -d time ] || mkdir time; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	build_alias="$(build_alias)"; export build_alias; \
+	host_alias="$(host_alias)"; export host_alias; \
+	target_alias="$(target_alias)"; export target_alias; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
 	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
@@ -16315,6 +16480,9 @@ configure-uudecode:
 	[ -d uudecode ] || mkdir uudecode; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	build_alias="$(build_alias)"; export build_alias; \
+	host_alias="$(host_alias)"; export host_alias; \
+	target_alias="$(target_alias)"; export target_alias; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
 	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
@@ -16580,6 +16748,9 @@ configure-wdiff:
 	[ -d wdiff ] || mkdir wdiff; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	build_alias="$(build_alias)"; export build_alias; \
+	host_alias="$(host_alias)"; export host_alias; \
+	target_alias="$(target_alias)"; export target_alias; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
 	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
@@ -16845,6 +17016,9 @@ configure-zip:
 	[ -d zip ] || mkdir zip; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	build_alias="$(build_alias)"; export build_alias; \
+	host_alias="$(host_alias)"; export host_alias; \
+	target_alias="$(target_alias)"; export target_alias; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
 	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
@@ -17113,6 +17287,9 @@ configure-zlib:
 	[ -d zlib ] || mkdir zlib; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	build_alias="$(build_alias)"; export build_alias; \
+	host_alias="$(host_alias)"; export host_alias; \
+	target_alias="$(target_alias)"; export target_alias; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
 	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
@@ -17370,6 +17547,9 @@ configure-gdb:
 	[ -d gdb ] || mkdir gdb; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	build_alias="$(build_alias)"; export build_alias; \
+	host_alias="$(host_alias)"; export host_alias; \
+	target_alias="$(target_alias)"; export target_alias; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
 	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
@@ -17635,6 +17815,9 @@ configure-expect:
 	[ -d expect ] || mkdir expect; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	build_alias="$(build_alias)"; export build_alias; \
+	host_alias="$(host_alias)"; export host_alias; \
+	target_alias="$(target_alias)"; export target_alias; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
 	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
@@ -17900,6 +18083,9 @@ configure-guile:
 	[ -d guile ] || mkdir guile; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	build_alias="$(build_alias)"; export build_alias; \
+	host_alias="$(host_alias)"; export host_alias; \
+	target_alias="$(target_alias)"; export target_alias; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
 	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
@@ -18165,6 +18351,9 @@ configure-tk:
 	[ -d tk ] || mkdir tk; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	build_alias="$(build_alias)"; export build_alias; \
+	host_alias="$(host_alias)"; export host_alias; \
+	target_alias="$(target_alias)"; export target_alias; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
 	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
@@ -18430,6 +18619,9 @@ configure-tix:
 	[ -d tix ] || mkdir tix; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	build_alias="$(build_alias)"; export build_alias; \
+	host_alias="$(host_alias)"; export host_alias; \
+	target_alias="$(target_alias)"; export target_alias; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
 	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
@@ -18695,6 +18887,9 @@ configure-libtermcap:
 	[ -d libtermcap ] || mkdir libtermcap; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	build_alias="$(build_alias)"; export build_alias; \
+	host_alias="$(host_alias)"; export host_alias; \
+	target_alias="$(target_alias)"; export target_alias; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
 	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
@@ -18900,6 +19095,9 @@ configure-utils:
 	[ -d utils ] || mkdir utils; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	build_alias="$(build_alias)"; export build_alias; \
+	host_alias="$(host_alias)"; export host_alias; \
+	target_alias="$(target_alias)"; export target_alias; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
 	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
@@ -19174,6 +19372,9 @@ configure-target-libstdc++-v3: $(TARGET_SUBDIR)/libstdc++-v3/multilib.out
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(SET_LIB_PATH) \
+	build_alias="$(build_alias)"; export build_alias; \
+	host_alias="$(target_alias)"; export host_alias; \
+	target_alias="$(target_alias)"; export target_alias; \
 	AR="$(AR_FOR_TARGET)"; export AR; \
 	AS="$(AS_FOR_TARGET)"; export AS; \
 	CC="$(CC_FOR_TARGET)"; export CC; \
@@ -19454,6 +19655,9 @@ configure-target-libmudflap: $(TARGET_SUBDIR)/libmudflap/multilib.out
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(SET_LIB_PATH) \
+	build_alias="$(build_alias)"; export build_alias; \
+	host_alias="$(target_alias)"; export host_alias; \
+	target_alias="$(target_alias)"; export target_alias; \
 	AR="$(AR_FOR_TARGET)"; export AR; \
 	AS="$(AS_FOR_TARGET)"; export AS; \
 	CC="$(CC_FOR_TARGET)"; export CC; \
@@ -19733,6 +19937,9 @@ configure-target-newlib: $(TARGET_SUBDIR)/newlib/multilib.out
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(SET_LIB_PATH) \
+	build_alias="$(build_alias)"; export build_alias; \
+	host_alias="$(target_alias)"; export host_alias; \
+	target_alias="$(target_alias)"; export target_alias; \
 	AR="$(AR_FOR_TARGET)"; export AR; \
 	AS="$(AS_FOR_TARGET)"; export AS; \
 	CC="$(CC_FOR_TARGET)"; export CC; \
@@ -20012,6 +20219,9 @@ configure-target-libf2c: $(TARGET_SUBDIR)/libf2c/multilib.out
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(SET_LIB_PATH) \
+	build_alias="$(build_alias)"; export build_alias; \
+	host_alias="$(target_alias)"; export host_alias; \
+	target_alias="$(target_alias)"; export target_alias; \
 	AR="$(AR_FOR_TARGET)"; export AR; \
 	AS="$(AS_FOR_TARGET)"; export AS; \
 	CC="$(CC_FOR_TARGET)"; export CC; \
@@ -20291,6 +20501,9 @@ configure-target-libgfortran: $(TARGET_SUBDIR)/libgfortran/multilib.out
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(SET_LIB_PATH) \
+	build_alias="$(build_alias)"; export build_alias; \
+	host_alias="$(target_alias)"; export host_alias; \
+	target_alias="$(target_alias)"; export target_alias; \
 	AR="$(AR_FOR_TARGET)"; export AR; \
 	AS="$(AS_FOR_TARGET)"; export AS; \
 	CC="$(CC_FOR_TARGET)"; export CC; \
@@ -20570,6 +20783,9 @@ configure-target-libobjc: $(TARGET_SUBDIR)/libobjc/multilib.out
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(SET_LIB_PATH) \
+	build_alias="$(build_alias)"; export build_alias; \
+	host_alias="$(target_alias)"; export host_alias; \
+	target_alias="$(target_alias)"; export target_alias; \
 	AR="$(AR_FOR_TARGET)"; export AR; \
 	AS="$(AS_FOR_TARGET)"; export AS; \
 	CC="$(CC_FOR_TARGET)"; export CC; \
@@ -20849,6 +21065,9 @@ configure-target-libtermcap: $(TARGET_SUBDIR)/libtermcap/multilib.out
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(SET_LIB_PATH) \
+	build_alias="$(build_alias)"; export build_alias; \
+	host_alias="$(target_alias)"; export host_alias; \
+	target_alias="$(target_alias)"; export target_alias; \
 	AR="$(AR_FOR_TARGET)"; export AR; \
 	AS="$(AS_FOR_TARGET)"; export AS; \
 	CC="$(CC_FOR_TARGET)"; export CC; \
@@ -21090,6 +21309,9 @@ configure-target-winsup: $(TARGET_SUBDIR)/winsup/multilib.out
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(SET_LIB_PATH) \
+	build_alias="$(build_alias)"; export build_alias; \
+	host_alias="$(target_alias)"; export host_alias; \
+	target_alias="$(target_alias)"; export target_alias; \
 	AR="$(AR_FOR_TARGET)"; export AR; \
 	AS="$(AS_FOR_TARGET)"; export AS; \
 	CC="$(CC_FOR_TARGET)"; export CC; \
@@ -21369,6 +21591,9 @@ configure-target-libgloss: $(TARGET_SUBDIR)/libgloss/multilib.out
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(SET_LIB_PATH) \
+	build_alias="$(build_alias)"; export build_alias; \
+	host_alias="$(target_alias)"; export host_alias; \
+	target_alias="$(target_alias)"; export target_alias; \
 	AR="$(AR_FOR_TARGET)"; export AR; \
 	AS="$(AS_FOR_TARGET)"; export AS; \
 	CC="$(CC_FOR_TARGET)"; export CC; \
@@ -21644,6 +21869,9 @@ configure-target-libiberty: $(TARGET_SUBDIR)/libiberty/multilib.out
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(SET_LIB_PATH) \
+	build_alias="$(build_alias)"; export build_alias; \
+	host_alias="$(target_alias)"; export host_alias; \
+	target_alias="$(target_alias)"; export target_alias; \
 	AR="$(AR_FOR_TARGET)"; export AR; \
 	AS="$(AS_FOR_TARGET)"; export AS; \
 	CC="$(CC_FOR_TARGET)"; export CC; \
@@ -21923,6 +22151,9 @@ configure-target-gperf: $(TARGET_SUBDIR)/gperf/multilib.out
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(SET_LIB_PATH) \
+	build_alias="$(build_alias)"; export build_alias; \
+	host_alias="$(target_alias)"; export host_alias; \
+	target_alias="$(target_alias)"; export target_alias; \
 	AR="$(AR_FOR_TARGET)"; export AR; \
 	AS="$(AS_FOR_TARGET)"; export AS; \
 	CC="$(CC_FOR_TARGET)"; export CC; \
@@ -22202,6 +22433,9 @@ configure-target-examples: $(TARGET_SUBDIR)/examples/multilib.out
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(SET_LIB_PATH) \
+	build_alias="$(build_alias)"; export build_alias; \
+	host_alias="$(target_alias)"; export host_alias; \
+	target_alias="$(target_alias)"; export target_alias; \
 	AR="$(AR_FOR_TARGET)"; export AR; \
 	AS="$(AS_FOR_TARGET)"; export AS; \
 	CC="$(CC_FOR_TARGET)"; export CC; \
@@ -22473,6 +22707,9 @@ configure-target-libffi: $(TARGET_SUBDIR)/libffi/multilib.out
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(SET_LIB_PATH) \
+	build_alias="$(build_alias)"; export build_alias; \
+	host_alias="$(target_alias)"; export host_alias; \
+	target_alias="$(target_alias)"; export target_alias; \
 	AR="$(AR_FOR_TARGET)"; export AR; \
 	AS="$(AS_FOR_TARGET)"; export AS; \
 	CC="$(CC_FOR_TARGET)"; export CC; \
@@ -22752,6 +22989,9 @@ configure-target-libjava: $(TARGET_SUBDIR)/libjava/multilib.out
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(SET_LIB_PATH) \
+	build_alias="$(build_alias)"; export build_alias; \
+	host_alias="$(target_alias)"; export host_alias; \
+	target_alias="$(target_alias)"; export target_alias; \
 	AR="$(AR_FOR_TARGET)"; export AR; \
 	AS="$(AS_FOR_TARGET)"; export AS; \
 	CC="$(CC_FOR_TARGET)"; export CC; \
@@ -23032,6 +23272,9 @@ configure-target-zlib: $(TARGET_SUBDIR)/zlib/multilib.out
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(SET_LIB_PATH) \
+	build_alias="$(build_alias)"; export build_alias; \
+	host_alias="$(target_alias)"; export host_alias; \
+	target_alias="$(target_alias)"; export target_alias; \
 	AR="$(AR_FOR_TARGET)"; export AR; \
 	AS="$(AS_FOR_TARGET)"; export AS; \
 	CC="$(CC_FOR_TARGET)"; export CC; \
@@ -23333,6 +23576,9 @@ configure-target-boehm-gc: $(TARGET_SUBDIR)/boehm-gc/multilib.out
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(SET_LIB_PATH) \
+	build_alias="$(build_alias)"; export build_alias; \
+	host_alias="$(target_alias)"; export host_alias; \
+	target_alias="$(target_alias)"; export target_alias; \
 	AR="$(AR_FOR_TARGET)"; export AR; \
 	AS="$(AS_FOR_TARGET)"; export AS; \
 	CC="$(CC_FOR_TARGET)"; export CC; \
@@ -23612,6 +23858,9 @@ configure-target-qthreads: $(TARGET_SUBDIR)/qthreads/multilib.out
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(SET_LIB_PATH) \
+	build_alias="$(build_alias)"; export build_alias; \
+	host_alias="$(target_alias)"; export host_alias; \
+	target_alias="$(target_alias)"; export target_alias; \
 	AR="$(AR_FOR_TARGET)"; export AR; \
 	AS="$(AS_FOR_TARGET)"; export AS; \
 	CC="$(CC_FOR_TARGET)"; export CC; \
@@ -23891,6 +24140,9 @@ configure-target-rda: $(TARGET_SUBDIR)/rda/multilib.out
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(SET_LIB_PATH) \
+	build_alias="$(build_alias)"; export build_alias; \
+	host_alias="$(target_alias)"; export host_alias; \
+	target_alias="$(target_alias)"; export target_alias; \
 	AR="$(AR_FOR_TARGET)"; export AR; \
 	AS="$(AS_FOR_TARGET)"; export AS; \
 	CC="$(CC_FOR_TARGET)"; export CC; \
@@ -24170,6 +24422,9 @@ configure-target-libada: $(TARGET_SUBDIR)/libada/multilib.out
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(SET_LIB_PATH) \
+	build_alias="$(build_alias)"; export build_alias; \
+	host_alias="$(target_alias)"; export host_alias; \
+	target_alias="$(target_alias)"; export target_alias; \
 	AR="$(AR_FOR_TARGET)"; export AR; \
 	AS="$(AS_FOR_TARGET)"; export AS; \
 	CC="$(CC_FOR_TARGET)"; export CC; \
@@ -24457,6 +24712,9 @@ configure-gcc:
 	[ -d gcc ] || mkdir gcc; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	build_alias="$(build_alias)"; export build_alias; \
+	host_alias="$(host_alias)"; export host_alias; \
+	target_alias="$(target_alias)"; export target_alias; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
 	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
@@ -24881,6 +25139,9 @@ configure-stage1-gcc:
 	mv stage1-gcc gcc ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	build_alias="$(build_alias)"; export build_alias; \
+	host_alias="$(host_alias)"; export host_alias; \
+	target_alias="$(target_alias)"; export target_alias; \
 	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
 	TOPLEVEL_CONFIGURE_ARGUMENTS="$(TOPLEVEL_CONFIGURE_ARGUMENTS)"; export TOPLEVEL_CONFIGURE_ARGUMENTS; \
 	CC="$(CC)"; export CC; \
@@ -24953,6 +25214,9 @@ configure-stage2-gcc: all-stage1-gcc
 	mv stage1-gcc prev-gcc ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	build_alias="$(build_alias)"; export build_alias; \
+	host_alias="$(host_alias)"; export host_alias; \
+	target_alias="$(target_alias)"; export target_alias; \
 	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
 	TOPLEVEL_CONFIGURE_ARGUMENTS="$(TOPLEVEL_CONFIGURE_ARGUMENTS)"; export TOPLEVEL_CONFIGURE_ARGUMENTS; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
@@ -25025,6 +25289,9 @@ configure-stage3-gcc: all-stage2-gcc
 	mv stage2-gcc prev-gcc ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	build_alias="$(build_alias)"; export build_alias; \
+	host_alias="$(host_alias)"; export host_alias; \
+	target_alias="$(target_alias)"; export target_alias; \
 	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
 	TOPLEVEL_CONFIGURE_ARGUMENTS="$(TOPLEVEL_CONFIGURE_ARGUMENTS)"; export TOPLEVEL_CONFIGURE_ARGUMENTS; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \

@@ -702,6 +702,9 @@ configure-build-[+module+]:
 	$(SHELL) $(srcdir)/mkinstalldirs $(BUILD_SUBDIR)/[+module+] ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	build_alias="$(build_alias)"; export build_alias; \
+	host_alias="$(build_alias)"; export host_alias; \
+	target_alias="$(build_alias)"; export target_alias; \
 	AR="$(AR_FOR_BUILD)"; export AR; \
 	AS="$(AS_FOR_BUILD)"; export AS; \
 	CC="$(CC_FOR_BUILD)"; export CC; \
@@ -777,6 +780,9 @@ configure-[+module+]:
 	[ -d [+module+] ] || mkdir [+module+]; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	build_alias="$(build_alias)"; export build_alias; \
+	host_alias="$(host_alias)"; export host_alias; \
+	target_alias="$(target_alias)"; export target_alias; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
 	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
@@ -912,6 +918,9 @@ configure-target-[+module+]: $(TARGET_SUBDIR)/[+module+]/multilib.out
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(SET_LIB_PATH) \
+	build_alias="$(build_alias)"; export build_alias; \
+	host_alias="$(target_alias)"; export host_alias; \
+	target_alias="$(target_alias)"; export target_alias; \
 	AR="$(AR_FOR_TARGET)"; export AR; \
 	AS="$(AS_FOR_TARGET)"; export AS; \
 	CC="$(CC_FOR_TARGET)"; export CC; \
@@ -1072,6 +1081,9 @@ configure-gcc:
 	[ -d gcc ] || mkdir gcc; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	build_alias="$(build_alias)"; export build_alias; \
+	host_alias="$(host_alias)"; export host_alias; \
+	target_alias="$(target_alias)"; export target_alias; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
 	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
@@ -1333,6 +1345,9 @@ configure-stage1-gcc:
 	mv stage1-gcc gcc ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	build_alias="$(build_alias)"; export build_alias; \
+	host_alias="$(host_alias)"; export host_alias; \
+	target_alias="$(target_alias)"; export target_alias; \
 	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
 	TOPLEVEL_CONFIGURE_ARGUMENTS="$(TOPLEVEL_CONFIGURE_ARGUMENTS)"; export TOPLEVEL_CONFIGURE_ARGUMENTS; \
 	CC="$(CC)"; export CC; \
@@ -1405,6 +1420,9 @@ configure-stage2-gcc: all-stage1-gcc
 	mv stage1-gcc prev-gcc ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	build_alias="$(build_alias)"; export build_alias; \
+	host_alias="$(host_alias)"; export host_alias; \
+	target_alias="$(target_alias)"; export target_alias; \
 	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
 	TOPLEVEL_CONFIGURE_ARGUMENTS="$(TOPLEVEL_CONFIGURE_ARGUMENTS)"; export TOPLEVEL_CONFIGURE_ARGUMENTS; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
@@ -1477,6 +1495,9 @@ configure-stage3-gcc: all-stage2-gcc
 	mv stage2-gcc prev-gcc ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	build_alias="$(build_alias)"; export build_alias; \
+	host_alias="$(host_alias)"; export host_alias; \
+	target_alias="$(target_alias)"; export target_alias; \
 	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
 	TOPLEVEL_CONFIGURE_ARGUMENTS="$(TOPLEVEL_CONFIGURE_ARGUMENTS)"; export TOPLEVEL_CONFIGURE_ARGUMENTS; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
