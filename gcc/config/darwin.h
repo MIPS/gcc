@@ -469,7 +469,8 @@ do {					\
 /* #define ENDFILE_SPEC "" */
 
 /* Default Darwin ASM_SPEC, very simple.  */
-#define ASM_SPEC "-arch %(darwin_arch)"
+#define ASM_SPEC "-arch %(darwin_arch) \
+  %{Zforce_cpusubtype_ALL:-force_cpusubtype_ALL}"
 
 /* We use Dbx symbol format.  */
 

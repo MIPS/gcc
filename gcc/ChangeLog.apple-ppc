@@ -1,3 +1,8 @@
+2004-12-08  Devang Patel  <dpatel@apple.com>
+	
+	Radar 3903799
+	* config/darwin.h (ASM_SPEC): Supply -force_cpusubtype_ALL.
+
 2004-12-07  Dale Johannesen  <dalej@apple.com>
 
 	Radar 3888787
