@@ -211,6 +211,8 @@
 3904186: g++.dg/pch/uninst.C -g assembly comparison
 3904186: g++.dg/pch/uninst.C -O2 -g assembly comparison
 3904186: g++.dg/pch/uninst.C -O2 assembly comparison
+3973957: g++.dg/ext/visibility/fvisibility-inlines-hidden.C (test for excess errors)
+3973957: g++.dg/ext/visibility/fvisibility-inlines-hidden.C scan-hidden private_extern[ \t_]*_ZN3Foo6methodEv
 #
 3961370: g++.dg/ext/visibility/fvisibility-override1.C (test for excess errors)
 3961370: g++.dg/ext/visibility/fvisibility-override1.C scan-assembler \\.internal.*Foo.methodEv
