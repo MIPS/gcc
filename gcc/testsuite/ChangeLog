@@ -1,3 +1,8 @@
+2003-03-17  Zack Weinberg  <zack@codesourcery.com>
+
+	* objc.dg/naming-1.m: Use "(parse|syntax) error".
+	* objc.dg/naming-2.m: Likewise.
+
 2003-05-15  J"orn Rennecke <joern.rennecke@superh.com>
 
 	* gcc.c-torture/execute/builtins/string-asm-1.c: Take
