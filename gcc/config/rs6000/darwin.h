@@ -107,9 +107,6 @@ do {									\
 	  error ("invalid option `%s'", base);				\
 	darwin_fix_and_continue = (base[0] != 'n');			\
       }									\
-    /* APPLE LOCAL long double default size --mrs */			\
-    if (rs6000_long_double_size_string == 0)				\
-      rs6000_long_double_type_size = 128;				\
   }									\
   if (TARGET_64BIT && ! TARGET_POWERPC64)				\
     {									\
