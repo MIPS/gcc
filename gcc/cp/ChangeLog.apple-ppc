@@ -1,5 +1,10 @@
 2005-01-18  Ziemowit Laski  <zlaski@apple.com>
 
+	* parser.c (cp_parser_cw_identifier): Reapply change
+	just reverted.
+
+2005-01-18  Ziemowit Laski  <zlaski@apple.com>
+
 	* parser.c (cp_parser_cw_identifier): Revert change
 	from 2005-01-14.
 

@@ -16346,6 +16346,7 @@ cp_parser_cw_identifier (cp_parser* parser)
       case CPP_OR_EQ: s="or_eq"; break;
       case CPP_XOR: s="xor"; break;
       case CPP_XOR_EQ: s="xor_eq"; break;
+      default: break;
       }
 
       /* The above list is the entire list of named operators.  We
