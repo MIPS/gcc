@@ -112,8 +112,10 @@
    program.
 
    Do not define this macro if it does not need to do anything.  */
-
+			
+#ifndef SUBTARGET_EXTRA_SPECS
 #define SUBTARGET_EXTRA_SPECS
+#endif
 
 #define EXTRA_SPECS							\
   { "cpp_default",		CPP_DEFAULT_SPEC },			\

@@ -88,7 +88,7 @@ CONFIGFLAGS="--disable-checking \
   --disable-libmudflap \
   --mandir=\${prefix}/share/man \
   --enable-languages=c,objc,c++ --disable-libada \
-  --program-transform-name=/^[cg][^.-]*$/s/$/-$MAJ_VERS/ \
+  --program-transform-name=/^[cg][^+.-]*$/s/$/-$MAJ_VERS/ \
   --with-gxx-include-dir=\${prefix}/include/gcc/darwin/$MAJ_VERS/c++ \
   --build=$BUILD-apple-darwin"
 
@@ -106,6 +106,7 @@ fi
 if [ -z "$SYSCTL" ]; then
   SYSCTL=2
 fi
+
 # The $LOCAL_MAKEFLAGS variable can be used to override $MAKEFLAGS.
 MAKEFLAGS=${LOCAL_MAKEFLAGS-"-j $SYSCTL"}
 
@@ -247,7 +248,9 @@ lipo -output .$DEST_ROOT/bin/gcov-$MAJ_VERS -create \
 # The fully-named drivers, which have the same target on every host.
 for t in $TARGETS ; do
   lipo -output .$DEST_ROOT/bin/$t-apple-darwin-gcc-$VERS -create \
-    $DIR/dst-*-$t$DEST_ROOT/bin/$t-apple-darwin-gcc-$VERS || exit 1
+    $DIR/dst-*-$t$DEST_ROOT/bin/$t-apple-darwin-gcc || exit 1
+  lipo -output .$DEST_ROOT/bin/$t-apple-darwin-g++-$VERS -create \
+    $DIR/dst-*-$t$DEST_ROOT/bin/$t-apple-darwin-g++ || exit 1
 done
 
 # lib
@@ -310,6 +313,39 @@ for h in `echo [^C]*` ; do
       exit 1
   done
 done
+
+# Build driver-driver using fully-named drivers
+for t in $TARGETS ; do
+    $DEST_DIR$DEST_ROOT/bin/$t-apple-darwin-gcc-$VERS                          \
+	$ORIG_SRC_DIR/gcc/config/darwin-driver.c                               \
+	-DPDN="\"-apple-darwin-gcc-$VERS\""                                    \
+	-DIL="\"$DEST_ROOT/bin/\"" -I  $ORIG_SRC_DIR/include                   \
+	-I  $ORIG_SRC_DIR/gcc -I  $ORIG_SRC_DIR/gcc/config                     \
+	-liberty -L$DIR/dst-$BUILD-$t$DEST_ROOT/lib/                           \
+	-L$DIR/dst-$BUILD-$t$DEST_ROOT/$t-apple-darwin/lib/                    \
+	-o $DEST_DIR/$DEST_ROOT/bin/tmp-$t-gcc-$MAJ_VERS || exit 1
+
+    $DEST_DIR$DEST_ROOT/bin/$t-apple-darwin-gcc-$VERS                          \
+	$ORIG_SRC_DIR/gcc/config/darwin-driver.c                               \
+	-DPDN="\"-apple-darwin-g++-$VERS\""                                    \
+	-DIL="\"$DEST_ROOT/bin/\"" -I  $ORIG_SRC_DIR/include                   \
+	-I  $ORIG_SRC_DIR/gcc -I  $ORIG_SRC_DIR/gcc/config                     \
+	-liberty -L$DIR/dst-$BUILD-$t$DEST_ROOT/lib/                           \
+	-L$DIR/dst-$BUILD-$t$DEST_ROOT/$t-apple-darwin/lib/                    \
+	-o $DEST_DIR/$DEST_ROOT/bin/tmp-$t-g++-$MAJ_VERS || exit 1
+done
+
+lipo -output $DEST_DIR/$DEST_ROOT/bin/gcc-$MAJ_VERS -create \
+  $DEST_DIR/$DEST_ROOT/bin/tmp-*-gcc-$MAJ_VERS || exit 1
+
+lipo -output $DEST_DIR/$DEST_ROOT/bin/g++-$MAJ_VERS -create \
+  $DEST_DIR/$DEST_ROOT/bin/tmp-*-g++-$MAJ_VERS || exit 1
+
+ln $DEST_DIR/$DEST_ROOT/bin/g++-$MAJ_VERS $DEST_DIR/$DEST_ROOT/bin/c++-$MAJ_VERS || exit 1
+
+rm $DEST_DIR/$DEST_ROOT/bin/tmp-*-gcc-$MAJ_VERS || exit 1 
+rm $DEST_DIR/$DEST_ROOT/bin/tmp-*-g++-$MAJ_VERS || exit 1
+
 
 ########################################
 # Save the source files and objects needed for debugging

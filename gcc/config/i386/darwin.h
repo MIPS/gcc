@@ -53,15 +53,26 @@ Boston, MA 02111-1307, USA.  */
 /* APPLE LOCAL AltiVec */
 #define CPP_ALTIVEC_SPEC "%<faltivec"
 
-#define ASM_SPEC "-arch i686 \
+#define ASM_SPEC "%(darwin_arch_spec)\
   -force_cpusubtype_ALL \
   %{Zforce_cpusubtype_ALL:-force_cpusubtype_ALL} \
   %{!Zforce_cpusubtype_ALL:%{mmmx:-force_cpusubtype_ALL}\
 			   %{msse:-force_cpusubtype_ALL}\
 			   %{msse2:-force_cpusubtype_ALL}}"
 
+#define DARWIN_ARCH_SPEC                       \
+"%{march=i386: %{!Zdynamiclib:-arch i386} %{Zdynamiclib:-arch_only i386}}      \
+ %{march=i486: %{!Zdynamiclib:-arch i486} %{Zdynamiclib:-arch_only i486}}      \
+ %{march=i586: %{!Zdynamiclib:-arch i586} %{Zdynamiclib:-arch_only i586}}      \
+ %{march=pentium: %{!Zdynamiclib:-arch pentium} %{Zdynamiclib:-arch_only pentium}}    \
+ %{march=pentiumpro: %{!Zdynamiclib:-arch pentpro} %{Zdynamiclib:-arch_only pentpro}} \
+ %{march=i686: %{!Zdynamiclib:-arch i686} %{Zdynamiclib:-arch_only i686}}             \
+ %{march=pentium3: %{!Zdynamiclib:-arch pentIIm3} %{Zdynamiclib:-arch_only pentIIm3}} \
+ %{!mcpu*:%{!march*:%{!Zdynamiclib:-arch i686} %{Zdynamiclib:-arch_only i686}}} "
+
 #undef SUBTARGET_EXTRA_SPECS
 #define SUBTARGET_EXTRA_SPECS			\
+  { "darwin_arch_spec", DARWIN_ARCH_SPEC },     \
   { "darwin_arch", "i686" },
 
 /* Use the following macro for any Darwin/x86-specific command-line option

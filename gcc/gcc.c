@@ -285,38 +285,6 @@ static const struct modify_target
 modify_target[] = MODIFY_TARGET_NAME;
 #endif
 
-/* APPLE LOCAL begin fat builds */
-
-/* This is a mapping of arch strings to strings that config.guess map to. */
-#define MAX_CONFIG_MAPS 2
-struct arch_config_out
-{
-  const char *arch_name;
-  const char *config_string;
-} arch_config_map[MAX_CONFIG_MAPS] = { 
-  {"ppc", "powerpc"},
-  {"i386", "i686" }
-};
-
-/* Limit to a small number, which is OK because there aren't many.  */
-#define MAX_ARCHES 10
-
-struct arch_out
-{
-  const char *name;
-  const char *config_string;
-  const char *merge_file;
-} arches[MAX_ARCHES];
-
-int num_arches;
-
-int current_arch;
-
-/* Default name to use in the -final_output linker flag in case the -o
-   flag is absent.  */
-char *final_output = "a.out";
-/* APPLE LOCAL end fat builds */
-
 /* The number of errors that have occurred; the link phase will not be
    run if this is nonzero.  */
 static int error_count = 0;
@@ -415,9 +383,6 @@ static const char *convert_filename (const char *, int, int);
 
 static const char *if_exists_spec_function (int, const char **);
 static const char *if_exists_else_spec_function (int, const char **);
-/* APPLE LOCAL begin fat builds */
-static void set_new_arch (const char *);
-/* APPLE LOCAL end fat builds */
 
 /* The Specs Language
 
@@ -515,17 +480,6 @@ or with constant text in a single argument.
  %s     current argument is the name of a library or startup file of some sort.
         Search for that file in a standard list of directories
 	and substitute the full name found.
- APPLE LOCAL begin fat builds
- %f     marks the argument following the %f as the "output file" of this
-        compilation for multi-architecture builds.  This puts the argument
-        into the sequence of arguments that %F will substitute later.
-
- %F     substitutes the names of all the intermediate architecture files,
-        with spaces automatically placed around them.  You should write spaces
-        around the %F as well or the results are undefined.
-        %F is for use in the specs for running the architecture merger.
- %T     substitutes the name of the current architecture.
- APPLE LOCAL end fat builds
  %eSTR  Print STR as an error message.  STR is terminated by a newline.
         Use this when inconsistent options are detected.
  %nSTR  Print STR as a notice.  STR is terminated by a newline.
@@ -593,10 +547,6 @@ or with constant text in a single argument.
 	  combined with !, ., and * as above binding stronger than the OR.
 	  If %* appears in X, all of the alternatives must be starred, and
 	  only the first matching alternative is substituted.
- APPLE LOCAL begin fat builds
- %{@:X} substitutes X, but only if processing multiple architectures.
- %{!@:X} substitutes X, but only if NOT processing multiple architectures.
- APPLE LOCAL end fat builds
  %{S:X;   if S was given to CC, substitutes X;
    T:Y;   else if T was given to CC, substitutes Y;
     :D}   else substitutes D.  There can be as many clauses as you need.
@@ -825,22 +775,6 @@ static const char *startfile_prefix_spec = STARTFILE_PREFIX_SPEC;
 static const char *sysroot_suffix_spec = SYSROOT_SUFFIX_SPEC;
 static const char *sysroot_hdrs_suffix_spec = SYSROOT_HEADERS_SUFFIX_SPEC;
 
-/* APPLE LOCAL begin fat builds */
-/* The spec for running the architecture merger.  This is run whenever
-   compiling multiple architectures and the output is a .o or an
-   executable. */
-/* APPLE LCOAL Symbol Separation */
-/* Add fsave-repository constructs for Symbol Separation */
-static char *ofile_merge_spec = "\
-%{!fdump=*:%{!M:%{!MM:%{!E:%{!S:\
-  lipo -create %F%{c:%W{o}%{!o:%{!fsave-repository*:-o %w%b%O} %{fsave-repository*:-o %w%i%O}}}\
-                 %{!c:%{!fsave-repository*:-o %w%u%O} %{fsave-repository*:-o %w%i%O}}\n}}}}}";
-
-static char *exec_merge_spec = "\
-%{!fdump=*:%{!M:%{!MM:%{!E:%{!S:%{!c:lipo -create %F \
-				  %{o}%{!o:-o a.out}\n}}}}}}}";
-/* APPLE LOCAL end fat builds */
-
 /* Standard options to cpp, cc1, and as, to reduce duplication in specs.
    There should be no need to override these in target dependent files,
    but we need to copy them to the specs file so that newer versions
@@ -894,12 +828,6 @@ static const char *cpp_debug_options = "%{d*}";
 
 /* NB: This is shared amongst all front-ends.  */
 static const char *cc1_options =
-/* APPLE LOCAL begin fat builds */
-/* Note that -arch %T must precede %{m*} in this spec list so that
-   toplev.c knows to ignore incompatible -m options for a given
-   architecture when multiple architectures are specified.  */
-"%{@:-arch %T}"
-/* APPLE LOCAL end fat builds */
 /* APPLE LOCAL constant cfstrings */
 /* APPLE LOCAL Symbol Separation */
 /* Add fsave-repository construct for Symbol Separation */
@@ -923,16 +851,14 @@ static const char *cc1_options =
 
 static const char *asm_options =
 /* APPLE LOCAL -fast */
-/* APPLE LOCAL fat builds */
 /* APPLE LOCAL Symbol Separation */
 /* Add fsave-repository constructs for Symbol Separation */
 "%a %Y \
  %{fast:-force_cpusubtype_ALL}\
  %{fastf:-force_cpusubtype_ALL}\
  %{fastcp:-force_cpusubtype_ALL}\
- %{@:-o %f%u%O}\
- %{!@:%{c:%W{o*}%{!o*:%{!fsave-repository*:-o %w%b%O} %{fsave-repository*:-o %w%i%O}}}\
-      %{!c:%{!fsave-repository*:-o %d%w%u%O} %{fsave-repository*:%W{o*}%{!o*:-o %w%i%O}}}}";
+ %{c:%W{o*}%{!o*:%{!fsave-repository*:-o %w%b%O} %{fsave-repository*:-o %w%i%O}}}\
+    %{!c:%{!fsave-repository*:-o %d%w%u%O} %{fsave-repository*:%W{o*}%{!o*:-o %w%i%O}}}";
 
 static const char *invoke_as =
 #ifdef AS_NEEDS_DASH_FOR_PIPED_INPUT
@@ -1059,8 +985,6 @@ static const struct compiler default_compilers[] =
    /* cc1 has an integrated ISO C preprocessor.  We should invoke the
       external preprocessor if -save-temps is given.  */
      "%{E|M|MM:%(trad_capable_cpp) %(cpp_options) %(cpp_debug_options)}\
-      "/* APPLE LOCAL fat builds */"\
-      %{E|S:%{@:%e-E and -S are not allowed with multiple -arch flags}}\
       "/* APPLE LOCAL cpp-precomp compatibility */"\
       %{precomp:%ecpp-precomp not supported}%{no-cpp-precomp:}%{Wno-precomp:}\
       %{!E:%{!M:%{!MM:\
@@ -1176,10 +1100,6 @@ static const struct option_map option_map[] =
  {
    {"--all-warnings", "-Wall", 0},
    {"--ansi", "-ansi", 0},
-   /* APPLE LOCAL begin fat builds */
-   {"--arch", "-arch", "a"},
-   {"--arch_multiple", "-arch_multiple", 0},
-   /* APPLE LOCAL end fat builds */
    {"--assemble", "-S", 0},
    {"--assert", "-A", "a"},
    {"--classpath", "-fclasspath=", "aj"},
@@ -2477,8 +2397,7 @@ build_search_list (struct path_prefix *paths, const char *prefix,
 	      || is_directory (pprefix->prefix, machine_suffix, 0)))
 	{
 	  if (!first_time)
-	    /* APPLE LOCAL fat builds readability */
-	    obstack_1grow (&collect_obstack, '\n'/*PATH_SEPARATOR*/);
+	    obstack_1grow (&collect_obstack, PATH_SEPARATOR);
 
 	  first_time = FALSE;
 	  obstack_grow (&collect_obstack, pprefix->prefix, len);
@@ -2491,8 +2410,7 @@ build_search_list (struct path_prefix *paths, const char *prefix,
 	      || is_directory (pprefix->prefix, just_machine_suffix, 0)))
 	{
 	  if (! first_time)
-	    /* APPLE LOCAL fat builds readability */
-	    obstack_1grow (&collect_obstack, '\n'/*PATH_SEPARATOR*/);
+	    obstack_1grow (&collect_obstack, PATH_SEPARATOR);
 
 	  first_time = FALSE;
 	  obstack_grow (&collect_obstack, pprefix->prefix, len);
@@ -2503,8 +2421,7 @@ build_search_list (struct path_prefix *paths, const char *prefix,
       if (! pprefix->require_machine_suffix)
 	{
 	  if (! first_time)
-	    /* APPLE LOCAL fat builds readability */
-	    obstack_1grow (&collect_obstack, '\n'/*PATH_SEPARATOR*/);
+	    obstack_1grow (&collect_obstack, PATH_SEPARATOR);
 
 	  first_time = FALSE;
 	  obstack_grow (&collect_obstack, pprefix->prefix, len);
@@ -3102,19 +3019,12 @@ See %s for instructions.",
    1 if the switch is true in a conditional spec,
    -1 if false (overridden by a later switch)
    -2 if this switch should be ignored (used in %<S)
-   APPLE LOCAL begin fat builds
-   -3 if this switch should be ignored now and restored later.
-      (used in %{!<s} for fat builds)
-   APPLE LOCAL end fat builds
    The `validated' field is nonzero if any spec has looked at this switch;
    if it remains zero at the end of the run, it must be meaningless.  */
 
 #define SWITCH_OK       0
 #define SWITCH_FALSE   -1
 #define SWITCH_IGNORE  -2
-/* APPLE LOCAL fat builds */
-/* Ignore now and restore later */
-#define SWITCH_IGNORE_RESTORE  -3
 #define SWITCH_LIVE     1
 
 struct switchstr
@@ -3346,35 +3256,6 @@ add_linker_option (const char *option, int len)
   linker_options [n_linker_options - 1] = save_string (option, len);
 }
 
-/* APPLE LOCAL begin fat builds */
-
-static void
-set_new_arch (const char *name)
-{
-  int i;
-
-  for (i = 0; i < num_arches; i++)
-    if (strcmp (arches[i].name, name) == 0)
-      return;
-
-  if (num_arches + 1 >= MAX_ARCHES)
-    fatal ("more than %d architectures specified", MAX_ARCHES);
-  arches[num_arches].name = name;
-
-  for (i = 0; i < MAX_CONFIG_MAPS; i++)
-    if (strcmp (arch_config_map[i].arch_name, name) == 0)
-      {
-	arches[num_arches++].config_string = arch_config_map[i].config_string;
-	return;
-      }
-
-  /* If we reached here, there is no config mapping for the arch name. Just
-     set them to be the same. */
-  arches[num_arches++].config_string = name;
-}
-
-/* APPLE LOCAL end fat builds */
-
 /* Create the vector `switches' and its contents.
    Store its length in `n_switches'.  */
 
@@ -3719,17 +3600,6 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 	  add_assembler_option ("--target-help", 13);
 	  add_linker_option ("--target-help", 13);
 	}
-      /* APPLE LOCAL begin fat builds */
-      else if (strcmp (argv[i], "-arch") == 0)
-	{
-	  int a;
-
-	  if (++i >= argc)
-	    fatal ("argument to `-arch' is missing");
-	  
-	  set_new_arch (argv[i]);
-	}
-      /* APPLE LOCAL end fat builds */
       else if (! strcmp (argv[i], "-pass-exit-codes"))
 	{
 	  pass_exit_codes = 1;
@@ -4064,11 +3934,6 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 	      else
 		argv[i] = convert_filename (argv[i], ! have_c, 0);
 #endif
-	      /* APPLE LOCAL begin fat builds */
-	      if (p[1] == '\0')
-		/* Name to use in the -final_output linker flag.  */
-		final_output = argv[i + 1];
-	      /* APPLE LOCAL end fat builds */
 	      goto normal_switch;
 
 	    default:
@@ -4278,10 +4143,6 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 	;
       else if (! strncmp (argv[i], "-Wp,", 4))
 	;
-      /* APPLE LOCAL begin fat builds */
-      else if (strcmp (argv[i], "-arch") == 0)
-	++i;
-      /* APPLE LOCAL end fat builds */
       else if (! strcmp (argv[i], "-pass-exit-codes"))
 	;
       else if (! strcmp (argv[i], "-print-search-dirs"))
@@ -4573,9 +4434,7 @@ set_collect_gcc_options (void)
       first_time = FALSE;
 
       /* Ignore elided switches.  */
-      /* APPLE LOCAL fat builds */
-      if (switches[i].live_cond == SWITCH_IGNORE 
-          || switches[i].live_cond == SWITCH_IGNORE_RESTORE)
+      if (switches[i].live_cond == SWITCH_IGNORE)
 	continue;
 
       obstack_grow (&collect_obstack, "'-", 2);
@@ -4643,12 +4502,6 @@ static int delete_this_arg;
    is the output file name of this compilation.  */
 static int this_is_output_file;
 
-/* APPLE LOCAL begin fat builds */
-/* Nonzero means %f has been seen; the next arg to be terminated
-   is the output file name of the compilation of this architecture.  */
-static int this_is_arch_merge_file;
-/* APPLE LOCAL end fat builds */
-
 /* APPLE LOCAL begin %b/save-temps can clobber input file (radar 2871891) ilr */
 /* Nonzero if %b or %B has been seen; the next arg to be terminated
    is a temp file based on the input file's basename.  This has
@@ -4677,8 +4530,6 @@ do_spec (const char *spec)
 {
   int value;
 
-  /* APPLE LOCAL fat builds */
-  this_is_arch_merge_file = 0;
   /* APPLE LOCAL %b/save-temps can clobber input file (radar 2871891) ilr */
   this_is_basename_derived_file = 0;
 
@@ -4934,17 +4785,11 @@ do_spec_1 (const char *spec, int inswitch, const char *soft_matched_part)
 	    else if (this_is_library_file)
 	    /* APPLE LOCAL end %b/save-temps can clobber input file (radar 2871891) ilr */
 	      string = find_file (string);
-	    /* APPLE LOCAL fat builds */
 	    /* APPLE LOCAL %b/save-temps can clobber input file (radar 2871891) ilr */
 	    store_arg (string, delete_this_arg, this_is_output_file 
-	    			                || this_is_arch_merge_file
 	    			                || this_is_basename_derived_file);
 	    if (this_is_output_file)
 	      outfiles[input_file_number] = string;
-	    /* APPLE LOCAL begin fat builds */
-            else if (this_is_arch_merge_file)
-              arches[current_arch].merge_file = string;
-	    /* APPLE LOCAL end fat builds */
 	  }
 	arg_going = 0;
 
@@ -4975,8 +4820,6 @@ do_spec_1 (const char *spec, int inswitch, const char *soft_matched_part)
 	arg_going = 0;
 	delete_this_arg = 0;
 	this_is_output_file = 0;
-	/* APPLE LOCAL fat builds */
-	this_is_arch_merge_file = 0;
 	/* APPLE LOCAL %b/save-temps can clobber input file (radar 2871891) ilr */
 	this_is_basename_derived_file = 0;
 	this_is_library_file = 0;
@@ -4995,17 +4838,11 @@ do_spec_1 (const char *spec, int inswitch, const char *soft_matched_part)
 	    else if (this_is_library_file)
 	    /* APPLE LOCAL end %b/save-temps can clobber input file (radar 2871891) ilr */
 	      string = find_file (string);
-	    /* APPLE LOCAL fat builds */
 	    /* APPLE LOCAL radar 2871891 - %b/%B & -save-temps can clobber input file ilr */
 	    store_arg (string, delete_this_arg, this_is_output_file 
-	    			                || this_is_arch_merge_file
 	    			                || this_is_basename_derived_file);
 	    if (this_is_output_file)
 	      outfiles[input_file_number] = string;
-	    /* APPLE LOCAL begin fat builds */
-            else if (this_is_arch_merge_file)
-              arches[current_arch].merge_file = string;
-	    /* APPLE LOCAL end fat builds */
 	  }
 
 	/* Use pipe */
@@ -5026,24 +4863,16 @@ do_spec_1 (const char *spec, int inswitch, const char *soft_matched_part)
 	    else if (this_is_library_file)
 	    /* APPLE LOCAL end %b/save-temps can clobber input file (radar 2871891) ilr */
 	      string = find_file (string);
-	    /* APPLE LOCAL fat builds */
 	    /* APPLE LOCAL %b/save-temps can clobber input file (radar 2871891) ilr */
 	    store_arg (string, delete_this_arg, this_is_output_file 
-	    			                || this_is_arch_merge_file
 	    			                || this_is_basename_derived_file);
 	    if (this_is_output_file)
 	      outfiles[input_file_number] = string;
-	    /* APPLE LOCAL begin fat builds */
-            else if (this_is_arch_merge_file)
-              arches[current_arch].merge_file = string;
-	    /* APPLE LOCAL end fat builds */
 	  }
 	/* Reinitialize for a new argument.  */
 	arg_going = 0;
 	delete_this_arg = 0;
 	this_is_output_file = 0;
-	/* APPLE LOCAL fat builds */
-	this_is_arch_merge_file = 0;
 	/* APPLE LOCAL %b/save-temps can clobber input file (radar 2871891) ilr */
 	this_is_basename_derived_file = 0;
 	this_is_library_file = 0;
@@ -5501,13 +5330,6 @@ do_spec_1 (const char *spec, int inswitch, const char *soft_matched_part)
 	      for (i = 0; i < max; i++)
 		if (outfiles[i])
 		  store_arg (outfiles[i], 0, 0);
-	      /* APPLE LOCAL begin fat builds */
-              if (num_arches > 1)
-                {
-                  store_arg ("-final_output", 0, 0);
-                  store_arg (final_output, 0, 0);
-                }
-	      /* APPLE LOCAL end fat builds */
 	      break;
 	    }
 
@@ -5519,28 +5341,6 @@ do_spec_1 (const char *spec, int inswitch, const char *soft_matched_part)
 	  case 's':
 	    this_is_library_file = 1;
 	    break;
-
-	    /* APPLE LOCAL begin fat builds */
-	  case 'f':
-	    this_is_arch_merge_file = 1;
-	    break;
-	  case 'F':
-            {
-              int a;
-              for (a = 0; a < num_arches; ++a)
-		{
-		  store_arg ("-arch", 0, 0);
-		  store_arg (arches[a].name, 0, 0);
-		  store_arg ((arches[a].merge_file ? arches[a].merge_file : "???"), 0, 0);
-		}
-            }
-	    break;
-	  case 'T':
-	    obstack_grow (&obstack, arches[current_arch].name,
-			  strlen (arches[current_arch].name));
-            arg_going = 1;
-	    break;
-	    /* APPLE LOCAL end fat builds */
 
 	  case 'V':
 	    outfiles[input_file_number] = NULL;
@@ -6445,9 +6245,7 @@ check_live_switch (int switchnum, int prefix_length)
 static void
 give_switch (int switchnum, int omit_first_word)
 {
-  /* APPLE LOCAL fat builds */
-  if (switches[switchnum].live_cond == SWITCH_IGNORE
-      ||switches[switchnum].live_cond == SWITCH_IGNORE_RESTORE)
+  if (switches[switchnum].live_cond == SWITCH_IGNORE)
     return;
 
   if (!omit_first_word)
@@ -6737,22 +6535,8 @@ main (int argc, const char **argv)
   memcpy (compilers, default_compilers, sizeof default_compilers);
   n_compilers = n_default_compilers;
 
-  /* APPLE LOCAL begin fat builds */
-#ifdef DEFAULT_TARGET_ARCH
-  if (num_arches == 0) {
-    set_new_arch (DEFAULT_TARGET_ARCH);
-  }
-#else
-  #error Must have a DEFAULT_TARGET_ARCH!
-#endif
-  /* APPLE LOCAL end fat builds */
-
   /* Read specs from a file if there is one.  */
 
-  /* APPLE LOCAL begin fat builds */
-  spec_machine = concat (arches[0].config_string,
-			 strchr (DEFAULT_TARGET_MACHINE, '-'), NULL);
-  /* APPLE LOCAL end fat builds */
   machine_suffix = concat (spec_machine, dir_separator_str,
 			   spec_version, dir_separator_str, NULL);
   just_machine_suffix = concat (spec_machine, dir_separator_str, NULL);
@@ -7237,61 +7021,11 @@ main (int argc, const char **argv)
 	  else if (!capital_e_flag || assembly_input || !combine_inputs)
 	  /* APPLE LOCAL end IMA */
 	    {
-              /* APPLE LOCAL begin fat builds */
-	      /* Clear all the merge file names, in preparation for a
-		 %F in the merge spec.  */
-	      int j;
-       	      for (current_arch = 0; current_arch < num_arches; ++current_arch)
-		arches[current_arch].merge_file = NULL;
-	      for (current_arch = 0; current_arch < num_arches; ++current_arch)
-		{
-		  if (num_arches > 1)
-		    {
-		      machine_suffix = concat (arches[current_arch]
-						     .config_string,
-					       strchr (DEFAULT_TARGET_MACHINE,
-						       '-'),
-					       dir_separator_str, spec_version,
-					       dir_separator_str, NULL);
-		      just_machine_suffix = concat (arches[current_arch]
-							  .config_string,
-						    strchr (DEFAULT_TARGET_MACHINE,
-							    '-'),
-						    dir_separator_str, NULL);
-		      specs_file = find_a_file (&startfile_prefixes,
-						"specs", R_OK, 0);
-		      /* Read the specs file unless it is a default one.  */
-		      if (specs_file != 0 && strcmp (specs_file, "specs"))
-			read_specs (specs_file, FALSE);
-		      else
-			fatal ("cannot read specs file for arch `%s'",
-			       arches[current_arch].name);
-		    }
-		  value = do_spec (input_file_compiler->spec);
-		  /* APPLE LOCAL begin IMI */
-              	  infiles[i].compiled = TRUE;
-              	  /* APPLE LOCAL end IMI */
-		  if (value < 0)
-		    {
-		      this_file_error = 1;
-		      break;
-		    }
-                  /* Restore any ignore_restore {!<S} switches */
-                  for (j = 0; j < n_switches; j++)
-                    if (switches[j].live_cond == SWITCH_IGNORE_RESTORE)
-                      switches[j].live_cond = SWITCH_LIVE;                  
-		}
-	      /* APPLE LOCAL end fat builds */
+	      value = do_spec (input_file_compiler->spec);
+	      infiles[i].compiled = true; 
+	      if (value < 0)
+		this_file_error = 1;
 	    }
-	  /* APPLE LOCAL begin fat builds */
-	  /* Do lipo-ing on object files or precomps.  */
-	  if (num_arches > 1 && !this_file_error)
-	    {
-              value = do_spec (ofile_merge_spec);
-              if (value < 0)
-                this_file_error = 1;
-	    }
-	  /* APPLE LOCAL end fat builds */
 	}
 
       /* If this file's name does not contain a recognized suffix,
@@ -7351,38 +7085,12 @@ main (int argc, const char **argv)
       putenv_from_prefixes (&exec_prefixes, "COMPILER_PATH");
       putenv_from_prefixes (&startfile_prefixes, LIBRARY_PATH_ENV);
 
-      /* APPLE LOCAL begin fat builds */
-      /* Clear all the merge file names, in preparation for a %F in the
-	 merge spec.  */
-      for (current_arch = 0; current_arch < num_arches; ++current_arch)
-	arches[current_arch].merge_file = NULL;
-      for (current_arch = 0; current_arch < num_arches; ++current_arch)
-	{
-	  machine_suffix = concat (arches[current_arch].config_string,
-				   strchr (DEFAULT_TARGET_MACHINE,
-					   '-'),
-				   dir_separator_str, spec_version,
-				   dir_separator_str, NULL);
-	  value = do_spec (link_command_spec);
-	  if (value < 0)
-	    {
-	      error_count = 1;
-	      break;
-	    }
-	}
-      /* APPLE LOCAL end fat builds */
+      value = do_spec (link_command_spec);
+      if (value < 0)
+        error_count = 1;
+
       linker_was_run = (tmp != execution_count);
     }
-
-  /* APPLE LOCAL begin fat builds */
-  /* Run the merger after linking all architectures. */
-  if (num_arches > 1 && error_count == 0)
-    {
-      value = do_spec (exec_merge_spec);
-      if (value < 0)
-	error_count = 1;
-    }
-  /* APPLE LOCAL end fat builds */
 
   /* If options said don't run linker,
      complain about input files to be given to the linker.  */

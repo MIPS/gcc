@@ -103,12 +103,26 @@ do {									\
    -force_cpusubtype_ALL if any are seen.  Radar 3492132 against the
    assembler is asking for a .machine directive so we could get this
    really right.  */
-#define ASM_SPEC "-arch ppc \
+#define ASM_SPEC " %(darwin_arch_spec)\
   %{Zforce_cpusubtype_ALL:-force_cpusubtype_ALL} \
-  %{!Zforce_cpusubtype_ALL:%{maltivec|mcpu=*|mpowerpc64:-force_cpusubtype_ALL}}"
+  %{!Zforce_cpusubtype_ALL:%{maltivec|faltivec:-force_cpusubtype_ALL}}"
+
+/* APPLE LOCAL begin 3492132 */
+#define DARWIN_ARCH_SPEC                                        \
+"%{mcpu=601: %{!Zdynamiclib:-arch ppc601} %{Zdynamiclib:-arch_only ppc601}}    \
+ %{mcpu=603: %{!Zdynamiclib:-arch ppc603} %{Zdynamiclib:-arch_only ppc603}}    \
+ %{mcpu=604: %{!Zdynamiclib:-arch ppc604} %{Zdynamiclib:-arch_only ppc604}}    \
+ %{mcpu=604e: %{!Zdynamiclib:-arch ppc604e} %{Zdynamiclib:-arch_only ppc604}}  \
+ %{mcpu=750: %{!Zdynamiclib:-arch ppc750} %{Zdynamiclib:-arch_only ppc750}}    \
+ %{mcpu=7400: %{!Zdynamiclib:-arch ppc7400} %{Zdynamiclib:-arch_only ppc7400}} \
+ %{mcpu=7450: %{!Zdynamiclib:-arch ppc7450} %{Zdynamiclib:-arch_only ppc7450}} \
+ %{mcpu=970: %{!Zdynamiclib:-arch ppc970} %{Zdynamiclib:-arch_only ppc970}}    \
+ %{!mcpu*:%{!march*:%{!Zdynamiclib:-arch ppc} %{Zdynamiclib:-arch_only ppc}}}  "
+/* APPLE LOCAL end 3492132 */
 
 #undef SUBTARGET_EXTRA_SPECS
 #define SUBTARGET_EXTRA_SPECS			\
+  { "darwin_arch_spec",	DARWIN_ARCH_SPEC },     \
   { "darwin_arch", "ppc" },
 
 /* The "-faltivec" option should have been called "-maltivec" all along.  */

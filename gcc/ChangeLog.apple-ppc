@@ -1,3 +1,30 @@
+2004-04-22  Devang Patel  <dpatel@apple.com>
+
+	Radar 3401402 and 3511029
+
+	Remove FAT Build support from gcc.c
+
+	* gcc.c (struct arch_config_out): Remove.
+	(struct arch_out): Remove.
+	(num_arches, curent_arch, final_output): Remove.
+	(set_new_arch): Remove.
+	(%T support): Remove.
+	(%f support): Remove.
+	(%F support): Remove.
+	('@' support in specs): Remove.
+	(ofile_merge_spec): Remove.
+	(exec_merge_spec): Remove.
+	(build_search_list): Remove fat builds readibility change.
+	(SWITCH_IGNORE_RESTORE): Remove.
+	(-arch support): Remove.
+	* config/darwin.h (LINK_COMMAND_SPEC): Remove -arch*. Add %(darwin_arch_spec).
+	* confiig/i386/darwin.h (ASM_SPEC): Add %(darwin_arch_spec).
+	(DARWIN_ARCH_SPEC): New.
+	* confiig/rs6000/darwin.h (ASM_SPEC): Add %(darwin_arch_spec).
+	(DARWIN_ARCH_SPEC): New.
+	* config/rs6000/rs6000.h (SUBTARGET_EXTRA_SPECS): Surround it with #ifndef.
+	* config/darwin-driver.c: New file.
+
 2004-04-20  Geoffrey Keating  <geoffk@apple.com>
 
 	* c-cppbuiltin.c (define__GNUC__): Better precision and more

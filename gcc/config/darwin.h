@@ -212,8 +212,7 @@ Boston, MA 02111-1307, USA.  */
 #define LINK_COMMAND_SPEC "\
 %{!foutput-dbg*:%{!fdump=*:%{!fsyntax-only:%{!precomp:%{!c:%{!M:%{!MM:%{!E:%{!S:\
     %{!Zdynamiclib:%(linker)}%{Zdynamiclib:/usr/bin/libtool} \
-    %{!Zdynamiclib:-arch %T %{@:-arch_multiple}} \
-    %{Zdynamiclib:-arch_only %T} \
+    %(darwin_arch_spec) \
     %l %X %{d} %{s} %{t} %{Z} \
     %{!Zdynamiclib:%{A} %{e*} %{m} %{N} %{n} %{r} %{u*} %{x} %{z}} \
     %{@:-o %f%u.out}%{!@:%{o*}%{!o:-o a.out}} \
@@ -295,7 +294,7 @@ Boston, MA 02111-1307, USA.  */
    %{pagezero_size*} %{segs_read_*} %{seglinkedit} %{noseglinkedit}  \
    %{sectalign*} %{sectobjectsymbols*} %{segcreate*} %{whyload} \
    %{whatsloaded} %{dylinker_install_name*} \
-   %{dylinker} %{Mach} "
+   %{dylinker} %{Mach} " 
 
 
 /* Machine dependent libraries.  */
