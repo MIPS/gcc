@@ -464,10 +464,23 @@ int pedantic = 0;
 
 int in_system_header = 0;
 
-/* Don't print functions as they are compiled and don't print
-   times taken by the various passes.  -quiet.  */
+/* Don't print functions as they are compiled.  -quiet.  */
 
 int quiet_flag = 0;
+
+/* Print times taken by the various passes.  -ftime-report.  */
+
+int time_report = 0;
+
+/* Print memory still in use at end of compilation (which may have little
+   to do with peak memory consumption).  -fmem-report.  */
+
+int mem_report = 0;
+
+/* Non-zero means to collect statistics which might be expensive
+   and to print them when we are done.  */
+int flag_detailed_statistics = 0;
+
 
 /* -f flags.  */
 
@@ -1128,7 +1141,11 @@ lang_independent_options f_options[] =
   {"bounds-check", &flag_bounds_check, 1,
    "Generate code to check bounds before dereferencing pointers and arrays" },
   {"single-precision-constant", &flag_single_precision_constant, 1,
-  "Convert floating point constant to single precision constant"}
+   "Convert floating point constant to single precision constant"},
+  {"time-report", &time_report, 1,
+   "Report time taken by each compiler pass at end of run"},
+  {"mem-report", &mem_report, 1,
+   "Report on permanent memory allocation at end of run"},
 };
 
 /* Table of language-specific options.  */
@@ -2107,6 +2124,9 @@ compile_file (name)
   if (dump_base_name == 0)
     dump_base_name = name ? name : "gccdump";
 
+  if (! quiet_flag)
+    time_report = 1;
+
   /* Start timing total execution time.  */
 
   init_timevar ();
@@ -2471,6 +2491,9 @@ compile_file (name)
 	  }
     }
 
+  if (mem_report)
+    ggc_print_statistics ();
+
   /* Free up memory for the benefit of leak detectors.  */
   free_reg_info ();
 
@@ -2649,6 +2672,10 @@ rest_of_compilation (decl)
   int register_life_up_to_date;
 
   timevar_push (TV_REST_OF_COMPILATION);
+
+  /* Now that we're out of the frontend, we shouldn't have any more
+     CONCATs anywhere.  */
+  generating_concat_p = 0;
 
   /* When processing delayed functions, prepare_function_start() won't
      have been run to re-initialize it.  */
@@ -3758,7 +3785,7 @@ display_help ()
   printf (_("  -fcall-saved-<register> Mark <register> as being preserved across functions\n"));
   printf (_("  -finline-limit=<number> Limits the size of inlined functions to <number>\n"));
   printf (_("  -fmessage-length=<number> Limits diagnostics messages lengths to <number> characters per line.  0 suppresses line-wrapping\n"));
-  printf (_("  -fdiagnostics-show-location=[once | never] Indicates how often source location information should be emitted, as prefix, at the beginning of diagnostics when line-wrapping\n"));
+  printf (_("  -fdiagnostics-show-location=[once | every-line] Indicates how often source location information should be emitted, as prefix, at the beginning of diagnostics when line-wrapping\n"));
 
   for (i = ARRAY_SIZE (f_options); i--;)
     {

@@ -88,6 +88,7 @@ static const char *parm_to_string		PARAMS ((int, int));
 static const char *type_to_string		PARAMS ((tree, int));
 
 static void dump_type PARAMS ((tree, enum tree_string_flags));
+static void dump_typename PARAMS ((tree, enum tree_string_flags));
 static void dump_simple_decl PARAMS ((tree, tree, enum tree_string_flags));
 static void dump_decl PARAMS ((tree, enum tree_string_flags));
 static void dump_template_decl PARAMS ((tree, enum tree_string_flags));
@@ -473,22 +474,21 @@ dump_type (t, flags)
       break;
 
     case TEMPLATE_TEMPLATE_PARM:
-      if (!TEMPLATE_TEMPLATE_PARM_TEMPLATE_INFO (t))
-	{
-	  /* For parameters inside template signature. */
-	  if (TYPE_IDENTIFIER (t))
-	    OB_PUTID (TYPE_IDENTIFIER (t));
-	  else
-	    OB_PUTS ("{anonymous template template parameter}");
-	}
+      /* For parameters inside template signature. */
+      if (TYPE_IDENTIFIER (t))
+	OB_PUTID (TYPE_IDENTIFIER (t));
       else
-	{
-	  tree args = TYPE_TI_ARGS (t);
-	  OB_PUTID (TYPE_IDENTIFIER (t));
-	  OB_PUTC ('<');
-          dump_template_argument_list (args, flags);
-	  OB_END_TEMPLATE_ID ();
-	}
+	OB_PUTS ("{anonymous template template parameter}");
+      break;
+
+    case BOUND_TEMPLATE_TEMPLATE_PARM:
+      {
+	tree args = TYPE_TI_ARGS (t);
+	OB_PUTID (TYPE_IDENTIFIER (t));
+	OB_PUTC ('<');
+        dump_template_argument_list (args, flags);
+	OB_END_TEMPLATE_ID ();
+      }
       break;
 
     case TEMPLATE_TYPE_PARM:
@@ -515,9 +515,7 @@ dump_type (t, flags)
     }
     case TYPENAME_TYPE:
       OB_PUTS ("typename ");
-      dump_type (TYPE_CONTEXT (t), flags & ~TS_AGGR_TAGS);
-      OB_PUTS ("::");
-      dump_decl (TYPENAME_TYPE_FULLNAME (t), flags);
+      dump_typename (t, flags);
       break;
 
     case TYPEOF_TYPE:
@@ -535,6 +533,24 @@ dump_type (t, flags)
       OB_PUTS ("{type error}");
       break;
     }
+}
+
+/* Dump a TYPENAME_TYPE. We need to notice when the context is itself
+   a TYPENAME_TYPE.  */
+
+static void
+dump_typename (t, flags)
+     tree t;
+     enum tree_string_flags flags;
+{
+  tree ctx = TYPE_CONTEXT (t);
+  
+  if (TREE_CODE (ctx) == TYPENAME_TYPE)
+    dump_typename (ctx, flags);
+  else
+    dump_type (ctx, flags & ~TS_AGGR_TAGS);
+  OB_PUTS ("::");
+  dump_decl (TYPENAME_TYPE_FULLNAME (t), flags);
 }
 
 /* Return the name of the supplied aggregate, or enumeral type.  */
@@ -715,6 +731,7 @@ dump_type_prefix (t, flags)
     case RECORD_TYPE:
     case TEMPLATE_TYPE_PARM:
     case TEMPLATE_TEMPLATE_PARM:
+    case BOUND_TEMPLATE_TEMPLATE_PARM:
     case TREE_LIST:
     case TYPE_DECL:
     case TREE_VEC:
@@ -808,6 +825,7 @@ dump_type_suffix (t, flags)
     case RECORD_TYPE:
     case TEMPLATE_TYPE_PARM:
     case TEMPLATE_TEMPLATE_PARM:
+    case BOUND_TEMPLATE_TEMPLATE_PARM:
     case TREE_LIST:
     case TYPE_DECL:
     case TREE_VEC:

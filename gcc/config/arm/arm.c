@@ -1895,7 +1895,7 @@ legitimize_pic_address (orig, mode, reg)
 
       if (reg == 0)
 	{
-	  if (reload_in_progress || reload_completed)
+	  if (no_new_pseudos)
 	    abort ();
 	  else
 	    reg = gen_reg_rtx (Pmode);
@@ -1938,7 +1938,7 @@ legitimize_pic_address (orig, mode, reg)
 
       if (reg == 0)
 	{
-	  if (reload_in_progress || reload_completed)
+	  if (no_new_pseudos)
 	    abort ();
 	  else
 	    reg = gen_reg_rtx (Pmode);
@@ -1959,7 +1959,7 @@ legitimize_pic_address (orig, mode, reg)
 	     test the index for the appropriate mode.  */
 	  GO_IF_LEGITIMATE_INDEX (mode, 0, offset, win);
 
-	  if (! reload_in_progress && ! reload_completed)
+	  if (! no_new_pseudos)
 	    offset = force_reg (Pmode, offset);
 	  else
 	    abort ();
@@ -8062,6 +8062,9 @@ arm_final_prescan_insn (insn)
 		      break;
 		    }
 		}
+	      else
+		fail = TRUE;	/* Unrecognized jump (eg epilogue).  */
+
 	      break;
 
 	    case INSN:

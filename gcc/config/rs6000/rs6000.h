@@ -742,8 +742,7 @@ extern int rs6000_debug_arg;		/* debug argument handling */
 /* True if register is an integer register.  */
 #define INT_REGNO_P(N) ((N) <= 31 || (N) == ARG_POINTER_REGNUM)
 
-/* True if register is the temporary memory location used for int/float
-   conversion.  */
+/* True if register is the XER register.  */
 #define XER_REGNO_P(N) ((N) == XER_REGNO)
 
 /* Return number of consecutive hard regs needed starting at reg REGNO
@@ -930,14 +929,7 @@ extern int rs6000_debug_arg;		/* debug argument handling */
    So make a class for registers valid as base registers.
 
    Also, cr0 is the only condition code register that can be used in
-   arithmetic insns, so make a separate class for it.
-
-   There is a special 'register' (76), which is not a register, but a
-   placeholder for memory allocated to convert between floating point and
-   integral types.  This works around a problem where if we allocate memory
-   with allocate_stack_{local,temp} and the function is an inline function, the
-   memory allocated will clobber memory in the caller.  So we use a special
-   register, and if that is used, we allocate stack space for it.  */
+   arithmetic insns, so make a separate class for it.  */
 
 enum reg_class
 {
@@ -1013,17 +1005,17 @@ enum reg_class
    reg number REGNO.  This could be a conditional expression
    or could index an array.  */
 
-#define REGNO_REG_CLASS(REGNO)		\
- ((REGNO) == 0 ? GENERAL_REGS		\
-  : (REGNO) < 32 ? BASE_REGS		\
-  : FP_REGNO_P (REGNO) ? FLOAT_REGS	\
-  : (REGNO) == 68 ? CR0_REGS		\
-  : CR_REGNO_P (REGNO) ? CR_REGS	\
-  : (REGNO) == 64 ? MQ_REGS		\
-  : (REGNO) == 65 ? LINK_REGS		\
-  : (REGNO) == 66 ? CTR_REGS		\
-  : (REGNO) == 67 ? BASE_REGS		\
-  : (REGNO) == 76 ? XER_REGS		\
+#define REGNO_REG_CLASS(REGNO)			\
+ ((REGNO) == 0 ? GENERAL_REGS			\
+  : (REGNO) < 32 ? BASE_REGS			\
+  : FP_REGNO_P (REGNO) ? FLOAT_REGS		\
+  : (REGNO) == CR0_REGNO ? CR0_REGS		\
+  : CR_REGNO_P (REGNO) ? CR_REGS		\
+  : (REGNO) == MQ_REGNO ? MQ_REGS		\
+  : (REGNO) == LINK_REGISTER_REGNUM ? LINK_REGS	\
+  : (REGNO) == COUNT_REGISTER_REGNUM ? CTR_REGS	\
+  : (REGNO) == ARG_POINTER_REGNUM ? BASE_REGS	\
+  : (REGNO) == XER_REGNO ? XER_REGS		\
   : NO_REGS)
 
 /* The class value for index registers, and the one for base regs.  */
@@ -2283,18 +2275,19 @@ do {									     \
    For the RS/6000, we need separate modes when unsigned (logical) comparisons
    are being done and we need a separate mode for floating-point.  We also
    use a mode for the case when we are comparing the results of two
-   comparisons.  */
+   comparisons, as then only the EQ bit is valid in the register.  */
 
 #define EXTRA_CC_MODES		\
     CC(CCUNSmode,  "CCUNS")	\
     CC(CCFPmode,   "CCFP")	\
     CC(CCEQmode,   "CCEQ")
 
-/* Given a comparison code (EQ, NE, etc.) and the first operand of a COMPARE,
-   return the mode to be used for the comparison.  For floating-point, CCFPmode
-   should be used.  CCUNSmode should be used for unsigned comparisons.
-   CCEQmode should be used when we are doing an inequality comparison on
-   the result of a comparison. CCmode should be used in all other cases.  */
+/* Given a comparison code (EQ, NE, etc.) and the first operand of a
+   COMPARE, return the mode to be used for the comparison.  For
+   floating-point, CCFPmode should be used.  CCUNSmode should be used
+   for unsigned comparisons.  CCEQmode should be used when we are
+   doing an inequality comparison on the result of a
+   comparison.  CCmode should be used in all other cases.  */
 
 #define SELECT_CC_MODE(OP,X,Y) \
   (GET_MODE_CLASS (GET_MODE (X)) == MODE_FLOAT ? CCFPmode	\
@@ -2728,54 +2721,57 @@ do {									\
 
 /* Define the codes that are matched by predicates in rs6000.c.  */
 
-#define PREDICATE_CODES						\
-  {"short_cint_operand", {CONST_INT}},				\
-  {"u_short_cint_operand", {CONST_INT}},			\
-  {"non_short_cint_operand", {CONST_INT}},			\
-  {"gpc_reg_operand", {SUBREG, REG}},				\
-  {"cc_reg_operand", {SUBREG, REG}},				\
-  {"cc_reg_not_cr0_operand", {SUBREG, REG}},			\
-  {"reg_or_short_operand", {SUBREG, REG, CONST_INT}}, 		\
-  {"reg_or_neg_short_operand", {SUBREG, REG, CONST_INT}},	\
-  {"reg_or_u_short_operand", {SUBREG, REG, CONST_INT}}, 	\
-  {"reg_or_cint_operand", {SUBREG, REG, CONST_INT}}, 		\
-  {"reg_or_arith_cint_operand", {SUBREG, REG, CONST_INT}}, 	\
+#define PREDICATE_CODES							   \
+  {"short_cint_operand", {CONST_INT}},					   \
+  {"u_short_cint_operand", {CONST_INT}},				   \
+  {"non_short_cint_operand", {CONST_INT}},				   \
+  {"gpc_reg_operand", {SUBREG, REG}},					   \
+  {"cc_reg_operand", {SUBREG, REG}},					   \
+  {"cc_reg_not_cr0_operand", {SUBREG, REG}},				   \
+  {"reg_or_short_operand", {SUBREG, REG, CONST_INT}},			   \
+  {"reg_or_neg_short_operand", {SUBREG, REG, CONST_INT}},		   \
+  {"reg_or_u_short_operand", {SUBREG, REG, CONST_INT}},			   \
+  {"reg_or_cint_operand", {SUBREG, REG, CONST_INT}},			   \
+  {"reg_or_arith_cint_operand", {SUBREG, REG, CONST_INT}},		   \
   {"reg_or_logical_cint_operand", {SUBREG, REG, CONST_INT, CONST_DOUBLE}}, \
-  {"got_operand", {SYMBOL_REF, CONST, LABEL_REF}},		\
-  {"got_no_const_operand", {SYMBOL_REF, LABEL_REF}},		\
-  {"easy_fp_constant", {CONST_DOUBLE}},				\
-  {"reg_or_mem_operand", {SUBREG, MEM, REG}},			\
-  {"lwa_operand", {SUBREG, MEM, REG}},				\
-  {"volatile_mem_operand", {MEM}},				\
-  {"offsettable_mem_operand", {MEM}},				\
-  {"mem_or_easy_const_operand", {SUBREG, MEM, CONST_DOUBLE}},	\
-  {"add_operand", {SUBREG, REG, CONST_INT}},			\
-  {"non_add_cint_operand", {CONST_INT}},			\
-  {"and_operand", {SUBREG, REG, CONST_INT}},			\
-  {"and64_operand", {SUBREG, REG, CONST_INT, CONST_DOUBLE}},	\
-  {"logical_operand", {SUBREG, REG, CONST_INT, CONST_DOUBLE}},	\
-  {"non_logical_cint_operand", {CONST_INT, CONST_DOUBLE}},	\
-  {"mask_operand", {CONST_INT}},				\
-  {"mask64_operand", {CONST_INT, CONST_DOUBLE}},		\
-  {"rldic_operand", {CONST_INT, CONST_DOUBLE}},			\
-  {"count_register_operand", {REG}},				\
-  {"xer_operand", {REG}},					\
-  {"call_operand", {SYMBOL_REF, REG}},				\
-  {"current_file_function_operand", {SYMBOL_REF}},		\
-  {"input_operand", {SUBREG, MEM, REG, CONST_INT, 		\
-		     CONST_DOUBLE, SYMBOL_REF}}, 		\
-  {"load_multiple_operation", {PARALLEL}},			\
-  {"store_multiple_operation", {PARALLEL}},			\
-  {"branch_comparison_operator", {EQ, NE, LE, LT, GE,		\
-				  GT, LEU, LTU, GEU, GTU,	\
-				  UNORDERED, ORDERED,		\
-				  UNEQ, LTGT,			\
-				  UNGE, UNGT, UNLE, UNLT}},	\
-  {"scc_comparison_operator", {EQ, NE, LE, LT, GE,		\
-			       GT, LEU, LTU, GEU, GTU}},	\
-  {"trap_comparison_operator", {EQ, NE, LE, LT, GE,		\
-				GT, LEU, LTU, GEU, GTU}},	\
-  {"boolean_operator", {AND, IOR, XOR}},			\
+  {"got_operand", {SYMBOL_REF, CONST, LABEL_REF}},			   \
+  {"got_no_const_operand", {SYMBOL_REF, LABEL_REF}},			   \
+  {"easy_fp_constant", {CONST_DOUBLE}},					   \
+  {"reg_or_mem_operand", {SUBREG, MEM, REG}},				   \
+  {"lwa_operand", {SUBREG, MEM, REG}},					   \
+  {"volatile_mem_operand", {MEM}},					   \
+  {"offsettable_mem_operand", {MEM}},					   \
+  {"mem_or_easy_const_operand", {SUBREG, MEM, CONST_DOUBLE}},		   \
+  {"add_operand", {SUBREG, REG, CONST_INT}},				   \
+  {"non_add_cint_operand", {CONST_INT}},				   \
+  {"and_operand", {SUBREG, REG, CONST_INT}},				   \
+  {"and64_operand", {SUBREG, REG, CONST_INT, CONST_DOUBLE}},		   \
+  {"logical_operand", {SUBREG, REG, CONST_INT, CONST_DOUBLE}},		   \
+  {"non_logical_cint_operand", {CONST_INT, CONST_DOUBLE}},		   \
+  {"mask_operand", {CONST_INT}},					   \
+  {"mask64_operand", {CONST_INT, CONST_DOUBLE}},			   \
+  {"rldic_operand", {CONST_INT, CONST_DOUBLE}},				   \
+  {"count_register_operand", {REG}},					   \
+  {"xer_operand", {REG}},						   \
+  {"call_operand", {SYMBOL_REF, REG}},					   \
+  {"current_file_function_operand", {SYMBOL_REF}},			   \
+  {"input_operand", {SUBREG, MEM, REG, CONST_INT,			   \
+		     CONST_DOUBLE, SYMBOL_REF}},			   \
+  {"load_multiple_operation", {PARALLEL}},				   \
+  {"store_multiple_operation", {PARALLEL}},				   \
+  {"branch_comparison_operator", {EQ, NE, LE, LT, GE,			   \
+				  GT, LEU, LTU, GEU, GTU,		   \
+				  UNORDERED, ORDERED,			   \
+				  UNGE, UNLE }},			   \
+  {"branch_positive_comparison_operator", {EQ, LT, GT, LTU, GTU,	   \
+					   UNORDERED }},		   \
+  {"scc_comparison_operator", {EQ, NE, LE, LT, GE,			   \
+			       GT, LEU, LTU, GEU, GTU,			   \
+			       UNORDERED, ORDERED,			   \
+			       UNGE, UNLE }},				   \
+  {"trap_comparison_operator", {EQ, NE, LE, LT, GE,			   \
+				GT, LEU, LTU, GEU, GTU}},		   \
+  {"boolean_operator", {AND, IOR, XOR}},				   \
   {"boolean_or_operator", {IOR, XOR}},
 
 /* uncomment for disabling the corresponding default options */

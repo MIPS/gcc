@@ -36,6 +36,123 @@ Boston, MA 02111-1307, USA.  */
 #include "output.h"
 #include "timevar.h"
 
+/* If non-NULL, the address of a language-specific function for
+   expanding statements.  */
+void (*lang_expand_stmt) PARAMS ((tree));
+
+static tree prune_unused_decls PARAMS ((tree *, int *, void *));
+
+/* Create an empty statement tree rooted at T.  */
+
+void
+begin_stmt_tree (t)
+     tree *t;
+{
+  /* We create a trivial EXPR_STMT so that last_tree is never NULL in
+     what follows.  We remove the extraneous statement in
+     finish_stmt_tree.  */
+  *t = build_nt (EXPR_STMT, void_zero_node);
+  last_tree = *t;
+  last_expr_type = NULL_TREE;
+}
+
+/* T is a statement.  Add it to the statement-tree.  */
+
+void
+add_stmt (t)
+     tree t;
+{
+  /* Add T to the statement-tree.  */
+  TREE_CHAIN (last_tree) = t;
+  last_tree = t;
+  /* When we expand a statement-tree, we must know whether or not the
+     statements are full-expresions.  We record that fact here.  */
+  STMT_IS_FULL_EXPR_P (last_tree) = stmts_are_full_exprs_p ();
+}
+
+/* Remove declarations of internal variables that are not used from a
+   stmt tree.  To qualify, the variable must have a name and must have
+   a zero DECL_SOURCE_LINE.  We tried to remove all variables for
+   which TREE_USED was false, but it turns out that there's tons of
+   variables for which TREE_USED is false but that are still in fact
+   used.  */
+
+static tree
+prune_unused_decls (tp, walk_subtrees, data)
+     tree *tp;
+     int *walk_subtrees ATTRIBUTE_UNUSED;
+     void *data ATTRIBUTE_UNUSED;
+{
+  tree t = *tp;
+
+  if (t == NULL_TREE)
+    {
+      *walk_subtrees = 0;
+      return NULL_TREE;
+    }
+
+  if (TREE_CODE (t) == DECL_STMT)
+    {
+      tree d = DECL_STMT_DECL (t);
+      if (!TREE_USED (d) && DECL_NAME (d) && DECL_SOURCE_LINE (d) == 0)
+	{
+	  *tp = TREE_CHAIN (t);
+	  /* Recurse on the new value of tp, otherwise we will skip
+	     the next statement.  */
+	  return prune_unused_decls (tp, walk_subtrees, data);
+	}
+    }
+  else if (TREE_CODE (t) == SCOPE_STMT)
+    {
+      /* Remove all unused decls from the BLOCK of this SCOPE_STMT.  */
+      tree block = SCOPE_STMT_BLOCK (t);
+
+      if (block)
+	{
+	  tree *vp;
+
+	  for (vp = &BLOCK_VARS (block); *vp; )
+	    {
+	      tree v = *vp;
+	      if (! TREE_USED (v) && DECL_NAME (v) && DECL_SOURCE_LINE (v) == 0)
+		*vp = TREE_CHAIN (v);  /* drop */
+	      else
+		vp = &TREE_CHAIN (v);  /* advance */
+	    }
+	  /* If there are now no variables, the entire BLOCK can be dropped.
+	     (This causes SCOPE_NULLIFIED_P (t) to be true.)  */
+	  if (BLOCK_VARS (block) == NULL_TREE)
+	    SCOPE_STMT_BLOCK (t) = NULL_TREE;
+	}
+    }
+  return NULL_TREE;
+}
+
+/* Finish the statement tree rooted at T.  */
+
+void
+finish_stmt_tree (t)
+     tree *t;
+{
+  tree stmt;
+  
+  /* Remove the fake extra statement added in begin_stmt_tree.  */
+  stmt = TREE_CHAIN (*t);
+  *t = stmt;
+  last_tree = NULL_TREE;
+
+  /* Remove unused decls from the stmt tree.  */
+  walk_stmt_tree (t, prune_unused_decls, NULL);
+
+  if (cfun)
+    {
+      /* The line-number recorded in the outermost statement in a function
+	 is the line number of the end of the function.  */
+      STMT_LINENO (stmt) = lineno;
+      STMT_LINENO_FOR_FN_P (stmt) = 1;
+    }
+}
+
 /* Build a generic statement based on the given type of node and
    arguments. Similar to `build_nt', except that we set
    TREE_COMPLEXITY to be the current line number.  */
@@ -530,15 +647,110 @@ genrtl_decl_cleanup (decl, cleanup)
     expand_decl_cleanup (decl, cleanup);
 }
 
+/* We're about to expand T, a statement.  Set up appropriate context
+   for the substitution.  */
+
+void
+prep_stmt (t)
+     tree t;
+{
+  if (!STMT_LINENO_FOR_FN_P (t))
+    lineno = STMT_LINENO (t);
+  current_stmt_tree ()->stmts_are_full_exprs_p = STMT_IS_FULL_EXPR_P (t);
+}
+
 /* Generate the RTL for the statement T, its substatements, and any
    other statements at its nesting level. */
 
-tree
+void
 expand_stmt (t)
      tree t;
 {
-  tree rval;
-  rval = lang_expand_stmt (t);
-  return rval;
+  while (t && t != error_mark_node)
+    {
+      int saved_stmts_are_full_exprs_p;
+
+      /* Set up context appropriately for handling this statement.  */
+      saved_stmts_are_full_exprs_p = stmts_are_full_exprs_p ();
+      prep_stmt (t);
+
+      switch (TREE_CODE (t))
+	{
+	case RETURN_STMT:
+	  genrtl_return_stmt (RETURN_EXPR (t));
+	  break;
+
+	case EXPR_STMT:
+	  genrtl_expr_stmt (EXPR_STMT_EXPR (t));
+	  break;
+
+	case DECL_STMT:
+	  genrtl_decl_stmt (t);
+	  break;
+
+	case FOR_STMT:
+	  genrtl_for_stmt (t);
+	  break;
+
+	case WHILE_STMT:
+	  genrtl_while_stmt (t);
+	  break;
+
+	case DO_STMT:
+	  genrtl_do_stmt (t);
+	  break;
+
+	case IF_STMT:
+	  genrtl_if_stmt (t);
+	  break;
+
+	case COMPOUND_STMT:
+	  genrtl_compound_stmt (t);
+	  break;
+
+	case BREAK_STMT:
+	  genrtl_break_stmt ();
+	  break;
+
+	case CONTINUE_STMT:
+	  genrtl_continue_stmt ();
+	  break;
+
+	case SWITCH_STMT:
+	  genrtl_switch_stmt (t);
+	  break;
+
+	case CASE_LABEL:
+	  genrtl_case_label (CASE_LOW (t), CASE_HIGH (t));
+	  break;
+
+	case LABEL_STMT:
+	  expand_label (LABEL_STMT_LABEL (t));
+	  break;
+
+	case GOTO_STMT:
+	  genrtl_goto_stmt (GOTO_DESTINATION (t));
+	  break;
+
+	case ASM_STMT:
+	  genrtl_asm_stmt (ASM_CV_QUAL (t), ASM_STRING (t),
+			   ASM_OUTPUTS (t), ASM_INPUTS (t), ASM_CLOBBERS (t));
+	  break;
+
+	default:
+	  if (lang_expand_stmt)
+	    (*lang_expand_stmt) (t);
+	  else 
+	    abort ();
+	  break;
+	}
+
+      /* Restore saved state.  */
+      current_stmt_tree ()->stmts_are_full_exprs_p = 
+	saved_stmts_are_full_exprs_p;
+
+      /* Go on to the next statement in this scope.  */
+      t = TREE_CHAIN (t);
+    }
 }
 

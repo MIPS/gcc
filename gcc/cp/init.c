@@ -1228,11 +1228,11 @@ build_aggr_init (exp, init, flags)
   TREE_TYPE (exp) = TYPE_MAIN_VARIANT (type);
   begin_init_stmts (&stmt_expr, &compound_stmt);
   destroy_temps = stmts_are_full_exprs_p ();
-  current_stmt_tree->stmts_are_full_exprs_p = 0;
+  current_stmt_tree ()->stmts_are_full_exprs_p = 0;
   expand_aggr_init_1 (TYPE_BINFO (type), exp, exp,
 		      init, LOOKUP_NORMAL|flags);
   stmt_expr = finish_init_stmts (stmt_expr, compound_stmt);
-  current_stmt_tree->stmts_are_full_exprs_p = destroy_temps;
+  current_stmt_tree ()->stmts_are_full_exprs_p = destroy_temps;
   TREE_TYPE (exp) = type;
   TREE_READONLY (exp) = was_const;
   TREE_THIS_VOLATILE (exp) = was_volatile;
@@ -1390,7 +1390,7 @@ is_aggr_type (type, or_else)
 
   if (! IS_AGGR_TYPE (type)
       && TREE_CODE (type) != TEMPLATE_TYPE_PARM
-      && TREE_CODE (type) != TEMPLATE_TEMPLATE_PARM)
+      && TREE_CODE (type) != BOUND_TEMPLATE_TEMPLATE_PARM)
     {
       if (or_else)
 	cp_error ("`%T' is not an aggregate type", type);
@@ -1422,7 +1422,7 @@ get_aggr_from_typedef (name, or_else)
 
   if (! IS_AGGR_TYPE (type)
       && TREE_CODE (type) != TEMPLATE_TYPE_PARM
-      && TREE_CODE (type) != TEMPLATE_TEMPLATE_PARM)
+      && TREE_CODE (type) != BOUND_TEMPLATE_TEMPLATE_PARM)
     {
       if (or_else)
 	cp_error ("type `%T' is of non-aggregate type", type);
@@ -1624,21 +1624,6 @@ build_offset_ref (type, name)
   if (processing_template_decl || uses_template_parms (type))
     return build_min_nt (SCOPE_REF, type, name);
 
-  /* Handle namespace names fully here.  */
-  if (TREE_CODE (type) == NAMESPACE_DECL)
-    {
-      t = lookup_namespace_name (type, name);
-      if (t != error_mark_node && ! type_unknown_p (t))
-	{
-	  mark_used (t);
-	  t = convert_from_reference (t);
-	}
-      return t;
-    }
-
-  if (type == NULL_TREE || ! is_aggr_type (type, 1))
-    return error_mark_node;
-
   if (TREE_CODE (name) == TEMPLATE_ID_EXPR)
     {
       /* If the NAME is a TEMPLATE_ID_EXPR, we are looking at
@@ -1665,6 +1650,30 @@ build_offset_ref (type, name)
 
       my_friendly_assert (TREE_CODE (name) == IDENTIFIER_NODE, 0);
     }
+
+  if (type == NULL_TREE)
+    return error_mark_node;
+  
+  /* Handle namespace names fully here.  */
+  if (TREE_CODE (type) == NAMESPACE_DECL)
+    {
+      t = lookup_namespace_name (type, name);
+      if (t == error_mark_node)
+        return t;
+      if (TREE_CODE (orig_name) == TEMPLATE_ID_EXPR)
+        /* Reconstruct the TEMPLATE_ID_EXPR.  */
+        t = build (TEMPLATE_ID_EXPR, TREE_TYPE (t),
+                   t, TREE_OPERAND (orig_name, 1));
+      if (! type_unknown_p (t))
+	{
+	  mark_used (t);
+	  t = convert_from_reference (t);
+	}
+      return t;
+    }
+
+  if (! is_aggr_type (type, 1))
+    return error_mark_node;
 
   if (TREE_CODE (name) == BIT_NOT_EXPR)
     {
@@ -1812,7 +1821,7 @@ resolve_offset_ref (exp)
       base = current_class_ref;
     }
 
-  if (BASELINK_P (member))
+  if (BASELINK_P (member) || TREE_CODE (member) == TEMPLATE_ID_EXPR)
     return build_unary_op (ADDR_EXPR, exp, 0);
   
   if (TREE_CODE (TREE_TYPE (member)) == METHOD_TYPE)
@@ -1824,7 +1833,7 @@ resolve_offset_ref (exp)
       
       return build_unary_op (ADDR_EXPR, exp, 0);
     }
-
+  
   if ((TREE_CODE (member) == VAR_DECL
        && ! TYPE_PTRMEMFUNC_P (TREE_TYPE (member))
        && ! TYPE_PTRMEM_P (TREE_TYPE (member)))
@@ -2864,7 +2873,7 @@ build_vec_init (decl, base, maxindex, init, from_array)
 
   begin_init_stmts (&stmt_expr, &compound_stmt);
   destroy_temps = stmts_are_full_exprs_p ();
-  current_stmt_tree->stmts_are_full_exprs_p = 0;
+  current_stmt_tree ()->stmts_are_full_exprs_p = 0;
   rval = get_temp_regvar (ptype, 
 			  cp_convert (ptype, default_conversion (base)));
   base = get_temp_regvar (ptype, rval);
@@ -3026,9 +3035,9 @@ build_vec_init (decl, base, maxindex, init, from_array)
 	}
       else
 	{
-	  current_stmt_tree->stmts_are_full_exprs_p = 1;
+	  current_stmt_tree ()->stmts_are_full_exprs_p = 1;
 	  finish_expr_stmt (elt_init);
-	  current_stmt_tree->stmts_are_full_exprs_p = 0;
+	  current_stmt_tree ()->stmts_are_full_exprs_p = 0;
 	}
 
       finish_expr_stmt (build_modify_expr
@@ -3078,7 +3087,7 @@ build_vec_init (decl, base, maxindex, init, from_array)
   finish_expr_stmt (rval);
 
   stmt_expr = finish_init_stmts (stmt_expr, compound_stmt);
-  current_stmt_tree->stmts_are_full_exprs_p = destroy_temps;
+  current_stmt_tree ()->stmts_are_full_exprs_p = destroy_temps;
   return stmt_expr;
 }
 

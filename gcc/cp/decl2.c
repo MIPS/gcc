@@ -368,10 +368,6 @@ int flag_labels_ok;
 
 int flag_ms_extensions;
 
-/* Non-zero means to collect statistics which might be expensive
-   and to print them when we are done.  */
-int flag_detailed_statistics;
-
 /* C++ specific flags.  */   
 /* Zero means that `this' is a *const.  This gives nice behavior in the
    2.0 world.  1 gives 1.2-compatible behavior.  2 gives Spring behavior.
@@ -601,6 +597,8 @@ lang_decode_option (argc, argv)
 
   if (!strcmp (p, "-ftraditional") || !strcmp (p, "-traditional"))
     /* ignore */;
+  else if (!strcmp (p, "-lang-c++"))
+    /* ignore - cpplib needs to see this */;
   else if (p[0] == '-' && p[1] == 'f')
     {
       /* Some kind of -f option.
@@ -922,7 +920,6 @@ void
 grok_x_components (specs)
      tree specs;
 {
-  struct pending_inline **p;
   tree t;
 
   specs = strip_attrs (specs);
@@ -937,13 +934,6 @@ grok_x_components (specs)
 
   fixup_anonymous_aggr (t);
   finish_member_declaration (build_decl (FIELD_DECL, NULL_TREE, t)); 
-
-  /* Ignore any inline function definitions in the anonymous union
-     since an anonymous union may not have function members.  */
-  p = &pending_inlines;
-  for (; *p; *p = (*p)->next)
-    if (DECL_CONTEXT ((*p)->fndecl) != t)
-      break;
 }
 
 /* Returns a PARM_DECL for a parameter of the indicated TYPE, with the
@@ -1597,12 +1587,15 @@ finish_static_data_member_decl (decl, init, asmspec_tree, flags)
   /* Static consts need not be initialized in the class definition.  */
   if (init != NULL_TREE && TYPE_NEEDS_CONSTRUCTING (TREE_TYPE (decl)))
     {
-      static int explanation = 0;
+      static int explained = 0;
 	  
       error ("initializer invalid for static member with constructor");
-      if (explanation++ == 0)
-	error ("(you really want to initialize it separately)");
-      init = 0;
+      if (!explained)
+        {
+	  error ("(an out of class initialization is required)");
+	  explained = 1;
+	}
+      init = NULL_TREE;
     }
   /* Force the compiler to know when an uninitialized static const
      member is being used.  */
@@ -1656,13 +1649,13 @@ grokfield (declarator, declspecs, init, asmspec_tree, attrlist)
 	    };
 	    
 	 Explain that to the user.  */
-      static int explained_p;
+      static int explained;
 
       cp_error ("invalid data member initiailization");
-      if (!explained_p)
+      if (!explained)
 	{
-	  cp_error ("use `=' to initialize static data members");
-	  explained_p = 1;
+	  cp_error ("(use `=' to initialize static data members)");
+	  explained = 1;
 	}
 
       declarator = TREE_OPERAND (declarator, 0);
@@ -2043,7 +2036,7 @@ constructor_name_full (thing)
      tree thing;
 {
   if (TREE_CODE (thing) == TEMPLATE_TYPE_PARM
-      || TREE_CODE (thing) == TEMPLATE_TEMPLATE_PARM
+      || TREE_CODE (thing) == BOUND_TEMPLATE_TEMPLATE_PARM
       || TREE_CODE (thing) == TYPENAME_TYPE)
     thing = TYPE_NAME (thing);
   else if (IS_AGGR_TYPE_CODE (TREE_CODE (thing)))
@@ -3044,8 +3037,8 @@ finish_objects (method_type, initp, body)
   const char *fnname;
   tree fn;
 
-  /* Finish up. */
-  finish_compound_stmt(/*has_no_scope=*/0, body);
+  /* Finish up.  */
+  finish_compound_stmt (/*has_no_scope=*/0, body);
   fn = finish_function (0);
   expand_body (fn);
 
@@ -4860,7 +4853,9 @@ arg_assoc_template_arg (k, arg)
      contribute to the set of associated namespaces.  ]  */
 
   /* Consider first template template arguments.  */
-  if (TREE_CODE (arg) == TEMPLATE_DECL)
+  if (TREE_CODE (arg) == TEMPLATE_TEMPLATE_PARM)
+    return 0;
+  else if (TREE_CODE (arg) == TEMPLATE_DECL)
     {
       tree ctx = CP_DECL_CONTEXT (arg);
 
@@ -4976,7 +4971,7 @@ arg_assoc_type (k, type)
       /* Associate the return type. */
       return arg_assoc_type (k, TREE_TYPE (type));
     case TEMPLATE_TYPE_PARM:
-    case TEMPLATE_TEMPLATE_PARM:
+    case BOUND_TEMPLATE_TEMPLATE_PARM:
       return 0;
     case TYPENAME_TYPE:
       return 0;
@@ -5042,6 +5037,9 @@ arg_assoc (k, n)
       tree ctx;
       tree arg;
 
+      if (TREE_CODE (template) == COMPONENT_REF)
+        template = TREE_OPERAND (template, 1);
+      
       /* First, the template.  There may actually be more than one if
 	 this is an overloaded function template.  But, in that case,
 	 we only need the first; all the functions will be in the same

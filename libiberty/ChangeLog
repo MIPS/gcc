@@ -1,3 +1,86 @@
+2000-09-06  Alex Samuel  <samuel@codesourcery.com>
+
+	* cp-demangle.c (status_allocation_failed): Rearrange whitespace.
+	(demangle_type): Handle substitution candidates correctly in the
+	face of special substitutions.
+
+2000-09-05  Alex Samuel  <samuel@codesourcery.com>
+
+	* cp-demangle.c (demangle_encoding): Rename variable.
+	(demangle_name): Rename parameter.  Handle return type
+	suppression.
+	(demangle_nested_name): Rename parameter.
+	(demangle_prefix): Likewise.  Change return type suppression.
+	(demangle_unqualified_name): Add parameter.  Flag constructors and
+	conversion operators.
+	(demangle_special_name): Fix comment.
+	(demangle_type): Rename variable.
+	(demangle_bare_function_type): Check for missing return type and
+	parameter. 
+	(demangle_class_enum_type): Rename parameter.
+	(demangle_discriminator): Fix misspelling in comment.
+
+2000-08-31  DJ Delorie  <dj@redhat.com>
+
+	* configure.in (Cygwin): special case cygwin only when we're
+	building cygwin, not when we're hosting cygwin.
+
+2000-09-04  Alex Samuel  <samuel@codesourcery.com>
+
+	* cp-demangle.c (demangle_template_arg): Eat an `E' after an
+	<expression>. 
+	
+2000-09-04  Alex Samuel  <samuel@codesourcery.com>
+
+	* cp-demangle.c (demangle_type_ptr): Increment position past
+	pointer and reference characters.
+
+2000-09-04  Alex Samuel  <samuel@codesourcery.com>
+
+	* cp-demangle.c (demangle_nv_offset): New function.
+	(demangle_v_offset): Likewise.
+	(demangle_call_offset): Likewise.
+	(demangle_special_name): Update thunk demangling to comply with
+	ABI changes.
+	
+2000-09-03  Alex Samuel  <samuel@codesourcery.com>
+
+	* cp-demangle.c (ANONYMOUS_NAMESPACE_PREFIX): New macro.
+	(substitution_def): Remove template_parm_number.
+	(NOT_TEMPLATE_PARM): Remove.
+	(result_insert_string): New macro.
+	(result_insert): Likewise.
+	(result_insert_char): Likewise.
+	(substitution_add): Remove last parameter.  Don't store template
+	parm number. 
+	(BFT_NO_RETURN_TYPE): Define as NULL.
+	(demangle_encoding): Adjust call to demangle_bare_function_type.
+	(demangle_name): Adjust substitution.  Adjust call to
+	substitution_add. 
+	(demangle_prefix): Adjust call to substitution_add.
+	(demangle_identifier): Handle anonymous namespaces.
+	(demangle_operator_name): Change demangling of vendor-extended
+	operator to match ABI changes.
+	(demangle_type_ptr): Change parameters.  Make recursive.  Handle
+	substitutions here.  
+	(demangle_type): Adjust calls to demangle_template_param,
+	substitution_add, and demangle_type_ptr.  Fix substitution of
+	templated types.
+	(demangle_function_type): Change parameter to a pointer.
+	(demangle_bare_function_type): Likewise.  Adjust insertion point.
+	(demangle_template_param): Remove last parameter.
+	(demangle_expr_primary): Remove unused variable.  Adjust call to
+	demangle_template_param. 
+	(is_mangled_char): Accept `$' and `.'.
+	* cplus-dem.c (gnu_new_abi_symbol_characters): Add '$' and '.'.
+	* dyn-string.c (dyn_string_insert_char): New function.
+
+2000-08-31  Hans-Peter Nilsson  <hp@axis.com>
+
+	* testsuite/demangle-expected: Add nine tests for
+	underscore-after-number followed by five tests for name-signature
+	delimiter.
+
 2000-08-28  Richard Henderson  <rth@cygnus.com>
 
 	* Makefile.in (md5.o): Depend on config.h.
@@ -83,6 +166,20 @@
 	* Makefile.in (rename.o, waitpid.o): Depend on config.h
 	* rename.c: Include config.h, unistd.h
 	* waitpid.c: Include config.h, sys/wait.h
+
+2000-07-24  Hans-Peter Nilsson  <hp@axis.com>
+
+	* cplus-dem.c (work_stuff_copy_to_from): New.
+	(delete_non_B_K_work_stuff): New.
+	(delete_work_stuff): New.
+	(mop_up): Break out work_stuff partly destruction to
+	delete_non_B_K_work_stuff.
+	(iterate_demangle_function): New.
+	(demangle_prefix): Call iterate_demangle_function instead of
+	demangle_function_name.  Leave handling of name-signature
+	__-delimiters to iterate_demangle_function.
+	(demangle_integral_value): Strip an optional
+	following underscore cautiously.  Handle negative numbers.
 
 2000-07-24  Daniel Berlin <dberlin@redhat.com>
 

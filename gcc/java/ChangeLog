@@ -1,3 +1,41 @@
+2000-09-06  Tom Tromey  <tromey@cygnus.com>
+
+	* lang-specs.h: Also recognize `-femit-class-files'.
+
+2000-09-02  Anthony Green  <green@redhat.com>
+
+	* jcf-io.c: Include zlib.h.
+	(open_in_zip): Read compressed class file archives.
+	* zipfile.h (ZipDirectory): Add uncompressed_size and
+	compression_method fields.
+	* zextract.c (read_zip_archive): Collect file compression info.
+
+2000-08-11  Alexandre Petit-Bianco  <apbianco@cygnus.com>
+
+	* parse.y (do_merge_string_cste): New locals. Create new
+	STRING_CSTs each time, use memcpy. Fixes gcj/311.
+
+2000-08-07  Hans Boehm  <boehm@acm.org>
+
+	* boehm.c (mark_reference_fields): Set marking bits for all words in
+	a multiple-word record.
+	(get_boehm_type_descriptor): Use the procedure marking descriptor for
+	java.lang.Class.
+	
+2000-08-31  Mike Stump  <mrs@wrs.com>
+
+	* Make-lang.in (jc1$(exeext), gcjh$(exeext), jv-scan$(exeext),
+	jcf-dump$(exeext)): Make parallel safe.
+
+2000-08-29  Zack Weinberg  <zack@wolery.cumb.org>
+
+	* jcf-parse.c (set_source_filename): Constify a char *.
+	* jcf-write.c (append_innerclasses_attribute,
+	make_class_file_name): Constify a char *.  Don't recycle a
+	variable for an unrelated purpose.
+	* parse.y: (build_alias_initializer_parameter_list): Constify a char *.
+	(breakdown_qualified): Do not modify IDENTIFIER_POINTER strings.
+
 2000-08-29  Alexandre Petit-Bianco  <apbianco@cygnus.com>
 
 	* expr.c (can_widen_reference_to): Fixed indentation.
@@ -25,6 +63,13 @@
         
 	* lang-specs.h: Do not process -o or run the assembler if
 	-fsyntax-only.
+
+2000-08-16  Andrew Haley  <aph@cygnus.com>
+
+	* typeck.c (build_java_array_type): Rewrite code to do array
+	alignment.  Take into account back-end macros when aligning array
+	data.  Remove setting of TYPE_USER_ALIGN; Java doesn't allow the
+	user to set alignment. Fixes gcj/252 and 160.
 
 2000-08-09  Tom Tromey  <tromey@cygnus.com>
 

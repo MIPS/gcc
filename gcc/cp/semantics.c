@@ -50,12 +50,14 @@ static tree maybe_convert_cond PARAMS ((tree));
 static tree simplify_aggr_init_exprs_r PARAMS ((tree *, int *, void *));
 static void deferred_type_access_control PARAMS ((void));
 static void emit_associated_thunks PARAMS ((tree));
-
-/* Record the fact that STMT was the last statement added to the
-   statement tree.  */
-
-#define SET_LAST_STMT(stmt) \
-  (current_stmt_tree->x_last_stmt = (stmt))
+static void genrtl_try_block PARAMS ((tree));
+static void genrtl_handler PARAMS ((tree));
+static void genrtl_catch_block PARAMS ((tree));
+static void genrtl_ctor_stmt PARAMS ((tree));
+static void genrtl_subobject PARAMS ((tree));
+static tree genrtl_do_poplevel PARAMS ((void));
+static void genrtl_named_return_value PARAMS ((void));
+static void cp_expand_stmt PARAMS ((tree));
 
 /* When parsing a template, LAST_TREE contains the last statement
    parsed.  These are chained together through the TREE_CHAIN field,
@@ -63,11 +65,11 @@ static void emit_associated_thunks PARAMS ((tree));
    bottom-up.  This macro makes LAST_TREE the indicated SUBSTMT of
    STMT.  */
 
-#define RECHAIN_STMTS(stmt, substmt)	\
-  do {					\
-    substmt = TREE_CHAIN (stmt);	\
-    TREE_CHAIN (stmt) = NULL_TREE;	\
-    SET_LAST_STMT (stmt);		\
+#define RECHAIN_STMTS(stmt, substmt)		\
+  do {						\
+    substmt = TREE_CHAIN (stmt);		\
+    TREE_CHAIN (stmt) = NULL_TREE;		\
+    last_tree = stmt;				\
   } while (0)
 
 /* Finish processing the COND, the SUBSTMT condition for STMT.  */
@@ -107,7 +109,19 @@ set_current_function_name_declared (i)
 int
 stmts_are_full_exprs_p ()
 {
-  return current_stmt_tree->stmts_are_full_exprs_p;
+  return current_stmt_tree ()->stmts_are_full_exprs_p;
+}
+
+/* Returns the stmt_tree (if any) to which statements are currently
+   being added.  If there is no active statement-tree, NULL is
+   returned.  */
+
+stmt_tree
+current_stmt_tree ()
+{
+  return (cfun 
+	  ? &cfun->language->x_stmt_tree 
+	  : &scope_chain->x_stmt_tree);
 }
 
 /* One if we have already declared __FUNCTION__ (and related
@@ -169,20 +183,6 @@ do_pushlevel ()
     }
 }
 
-/* T is a statement.  Add it to the statement-tree.  */
-
-void
-add_tree (t)
-     tree t;
-{
-  /* Add T to the statement-tree.  */
-  TREE_CHAIN (last_tree) = t;
-  SET_LAST_STMT (t);
-  /* When we expand a statement-tree, we must know whether or not the
-     statements are full-expresions.  We record that fact here.  */
-  STMT_IS_FULL_EXPR_P (last_tree) = stmts_are_full_exprs_p ();
-}
-
 /* Finish a goto-statement.  */
 
 void
@@ -206,7 +206,7 @@ finish_goto_stmt (destination)
   
   check_goto (destination);
 
-  add_tree (build_stmt (GOTO_STMT, destination));
+  add_stmt (build_stmt (GOTO_STMT, destination));
 }
 
 /* COND is the condition-expression for an if, while, etc.,
@@ -250,7 +250,7 @@ finish_expr_stmt (expr)
       if (!processing_template_decl)
 	expr = break_out_cleanups (expr);
       
-      add_tree (build_stmt (EXPR_STMT, expr));
+      add_stmt (build_stmt (EXPR_STMT, expr));
     }
 
   finish_stmt ();
@@ -270,7 +270,7 @@ begin_if_stmt ()
   tree r;
   do_pushlevel ();
   r = build_stmt (IF_STMT, NULL_TREE, NULL_TREE, NULL_TREE);
-  add_tree (r);
+  add_stmt (r);
   return r;
 }
 
@@ -294,7 +294,7 @@ finish_then_clause (if_stmt)
      tree if_stmt;
 {
   RECHAIN_STMTS (if_stmt, THEN_CLAUSE (if_stmt));
-  SET_LAST_STMT (if_stmt);
+  last_tree = if_stmt;
   return if_stmt;
 }
 
@@ -345,7 +345,7 @@ begin_while_stmt ()
 {
   tree r;
   r = build_stmt (WHILE_STMT, NULL_TREE, NULL_TREE);
-  add_tree (r);
+  add_stmt (r);
   do_pushlevel ();
   return r;
 }
@@ -381,7 +381,7 @@ tree
 begin_do_stmt ()
 {
   tree r = build_stmt (DO_STMT, NULL_TREE, NULL_TREE);
-  add_tree (r);
+  add_stmt (r);
   return r;
 }
 
@@ -439,7 +439,7 @@ finish_return_stmt (expr)
 	  return;
 	}
     }
-  add_tree (build_stmt (RETURN_STMT, expr));
+  add_stmt (build_stmt (RETURN_STMT, expr));
   finish_stmt ();
 }
 
@@ -453,7 +453,7 @@ begin_for_stmt ()
   r = build_stmt (FOR_STMT, NULL_TREE, NULL_TREE, 
 		  NULL_TREE, NULL_TREE);
   NEW_FOR_SCOPE_P (r) = flag_new_for_scope > 0;
-  add_tree (r);
+  add_stmt (r);
   if (NEW_FOR_SCOPE_P (r))
     {
       do_pushlevel ();
@@ -520,7 +520,7 @@ finish_for_stmt (for_stmt)
 void
 finish_break_stmt ()
 {
-  add_tree (build_stmt (BREAK_STMT));
+  add_stmt (build_stmt (BREAK_STMT));
 }
 
 /* Finish a continue-statement.  */
@@ -528,7 +528,7 @@ finish_break_stmt ()
 void
 finish_continue_stmt ()
 {
-  add_tree (build_stmt (CONTINUE_STMT));
+  add_stmt (build_stmt (CONTINUE_STMT));
 }
 
 /* Begin a switch-statement.  Returns a new SWITCH_STMT if
@@ -539,7 +539,7 @@ begin_switch_stmt ()
 {
   tree r;
   r = build_stmt (SWITCH_STMT, NULL_TREE, NULL_TREE);
-  add_tree (r);
+  add_stmt (r);
   do_pushlevel ();
   return r;
 }
@@ -592,7 +592,7 @@ finish_case_label (low_value, high_value)
 {
   /* Add a representation for the case label to the statement
      tree.  */
-  add_tree (build_stmt (CASE_LABEL, low_value, high_value));
+  add_stmt (build_stmt (CASE_LABEL, low_value, high_value));
   /* And warn about crossing initializations, etc.  */
   if (!processing_template_decl)
     define_case_label ();
@@ -600,7 +600,8 @@ finish_case_label (low_value, high_value)
 
 /* Generate the RTL for T, which is a TRY_BLOCK. */
 
-void genrtl_try_block (t)
+static void 
+genrtl_try_block (t)
      tree t;
 {
   if (CLEANUP_P (t))
@@ -611,15 +612,17 @@ void genrtl_try_block (t)
     }
   else
     {
-      if (FN_TRY_BLOCK_P (t)) {
-	if (! current_function_parms_stored)
-	  store_parm_decls ();
-	expand_start_early_try_stmts ();
-      }
-      else {
-	emit_line_note (input_filename, lineno);
-	expand_start_try_stmts ();
-      }
+      if (FN_TRY_BLOCK_P (t)) 
+	{
+	  if (! current_function_parms_stored)
+	    store_parm_decls ();
+	  expand_start_early_try_stmts ();
+	} 
+      else 
+	{
+	  emit_line_note (input_filename, lineno);
+	  expand_start_try_stmts ();
+	}
 
       expand_stmt (TRY_STMTS (t));
 
@@ -648,7 +651,7 @@ tree
 begin_try_block ()
 {
   tree r = build_stmt (TRY_BLOCK, NULL_TREE, NULL_TREE);
-  add_tree (r);
+  add_stmt (r);
   return r;
 }
 
@@ -659,7 +662,7 @@ begin_function_try_block ()
 {
   tree r = build_stmt (TRY_BLOCK, NULL_TREE, NULL_TREE);
   FN_TRY_BLOCK_P (r) = 1;
-  add_tree (r);
+  add_stmt (r);
   return r;
 }
 
@@ -737,7 +740,7 @@ finish_function_handler_sequence (try_block)
 
 /* Generate the RTL for T, which is a HANDLER. */
 
-void
+static void
 genrtl_handler (t)
      tree t;
 {
@@ -760,7 +763,7 @@ begin_handler ()
 {
   tree r;
   r = build_stmt (HANDLER, NULL_TREE, NULL_TREE);
-  add_tree (r);
+  add_stmt (r);
   do_pushlevel ();
   return r;
 }
@@ -797,7 +800,7 @@ finish_handler_parms (decl, handler)
 
 /* Generate the RTL for a CATCH_BLOCK. */
 
-void
+static void
 genrtl_catch_block (type)
      tree type;
 {
@@ -812,7 +815,7 @@ void
 begin_catch_block (type)
      tree type;
 {
-  add_tree (build (START_CATCH_STMT, type));
+  add_stmt (build (START_CATCH_STMT, type));
 }
 
 /* Finish a handler, which may be given by HANDLER.  The BLOCKs are
@@ -831,7 +834,7 @@ finish_handler (blocks, handler)
 
 /* Generate the RTL for T, which is a CTOR_STMT. */
 
-void
+static void
 genrtl_ctor_stmt (t)
      tree t;
 {
@@ -860,7 +863,7 @@ begin_compound_stmt (has_no_scope)
   if (last_tree && TREE_CODE (last_tree) == TRY_BLOCK)
     is_try = 1;
 
-  add_tree (r);
+  add_stmt (r);
   if (has_no_scope)
     COMPOUND_STMT_NO_SCOPE (r) = 1;
 
@@ -956,7 +959,7 @@ finish_asm_stmt (cv_qualifier, string, output_operands,
   r = build_stmt (ASM_STMT, cv_qualifier, string,
 		  output_operands, input_operands,
 		  clobbers);
-  add_tree (r);
+  add_stmt (r);
 }
 
 /* Finish a label with the indicated NAME.  */
@@ -966,7 +969,7 @@ finish_label_stmt (name)
      tree name;
 {
   tree decl = define_label (input_filename, lineno, name);
-  add_tree (build_stmt (LABEL_STMT, decl));
+  add_stmt (build_stmt (LABEL_STMT, decl));
 }
 
 /* Finish a series of declarations for local labels.  G++ allows users
@@ -992,12 +995,12 @@ add_decl_stmt (decl)
 
   /* We need the type to last until instantiation time.  */
   decl_stmt = build_stmt (DECL_STMT, decl);
-  add_tree (decl_stmt); 
+  add_stmt (decl_stmt); 
 }
 
 /* Generate the RTL for a SUBOBJECT. */
 
-void 
+static void 
 genrtl_subobject (cleanup)
      tree cleanup;
 {
@@ -1013,7 +1016,7 @@ finish_subobject (cleanup)
      tree cleanup;
 {
   tree r = build_stmt (SUBOBJECT, cleanup);
-  add_tree (r);
+  add_stmt (r);
 }
 
 /* When DECL goes out of scope, make sure that CLEANUP is executed.  */
@@ -1023,61 +1026,36 @@ finish_decl_cleanup (decl, cleanup)
      tree decl;
      tree cleanup;
 {
-  add_tree (build_stmt (CLEANUP_STMT, decl, cleanup));
+  add_stmt (build_stmt (CLEANUP_STMT, decl, cleanup));
 }
 
 /* Generate the RTL for a RETURN_INIT. */
 
-void
-genrtl_named_return_value (return_id, init)
-     tree return_id, init;
+static void
+genrtl_named_return_value ()
 {
   tree decl;
-  /* Clear this out so that finish_named_return_value can set it
-     again.  */
-  DECL_NAME (DECL_RESULT (current_function_decl)) = NULL_TREE;
 
   decl = DECL_RESULT (current_function_decl);
-  if (pedantic)
-    /* Give this error as many times as there are occurrences,
-       so that users can use Emacs compilation buffers to find
-       and fix all such places.  */
-    pedwarn ("ISO C++ does not permit named return values");
 
-  if (return_id != NULL_TREE)
+  emit_local_var (decl);
+
+  /* If this named return value comes in a register, put it in a
+     pseudo-register.  */
+  if (DECL_REGISTER (decl))
     {
-      if (DECL_NAME (decl) == NULL_TREE)
-	{
-	  DECL_NAME (decl) = return_id;
-	  DECL_ASSEMBLER_NAME (decl) = return_id;
-	}
-      else
-	{
-	  cp_error ("return identifier `%D' already in place", return_id);
-	  return;
-	}
+      original_result_rtx = DECL_RTL (decl);
+      /* Note that the mode of the old DECL_RTL may be wider than the
+	 mode of DECL_RESULT, depending on the calling conventions for
+	 the processor.  For example, on the Alpha, a 32-bit integer
+	 is returned in a DImode register -- the DECL_RESULT has
+	 SImode but the DECL_RTL for the DECL_RESULT has DImode.  So,
+	 here, we use the mode the back-end has already assigned for
+	 the return value.  */
+      DECL_RTL (decl) = gen_reg_rtx (GET_MODE (original_result_rtx));
+      if (TREE_ADDRESSABLE (decl))
+	put_var_into_stack (decl);
     }
-
-  /* Can't let this happen for constructors.  */
-  if (DECL_CONSTRUCTOR_P (current_function_decl))
-    {
-      error ("can't redefine default return value for constructors");
-      return;
-    }
-
-  /* If we have a named return value, put that in our scope as well.  */
-  if (DECL_NAME (decl) != NULL_TREE)
-    {
-      /* Let `cp_finish_decl' know that this initializer is ok.  */
-      DECL_INITIAL (decl) = init;
-      cp_finish_decl (decl, init, NULL_TREE, 0);
-      store_return_init (decl);
-    }
-
-  /* Don't use tree-inlining for functions with named return values.
-     That doesn't work properly because we don't do any translation of
-     the RETURN_INITs when they are copied.  */
-  DECL_UNINLINABLE (current_function_decl) = 1;
 }
 
 /* Bind a name and initialization to the return value of
@@ -1089,11 +1067,12 @@ finish_named_return_value (return_id, init)
 {
   tree decl = DECL_RESULT (current_function_decl);
 
+  /* Give this error as many times as there are occurrences, so that
+     users can use Emacs compilation buffers to find and fix all such
+     places.  */
   if (pedantic)
-    /* Give this error as many times as there are occurrences,
-       so that users can use Emacs compilation buffers to find
-       and fix all such places.  */
     pedwarn ("ISO C++ does not permit named return values");
+  cp_deprecated ("the named return value extension");
 
   if (return_id != NULL_TREE)
     {
@@ -1123,7 +1102,13 @@ finish_named_return_value (return_id, init)
       DECL_INITIAL (decl) = init;
       if (doing_semantic_analysis_p ())
 	pushdecl (decl);
-      add_tree (build_stmt (RETURN_INIT, return_id, init));
+      if (!processing_template_decl) 
+	{
+	  cp_finish_decl (decl, init, NULL_TREE, 0);
+	  add_stmt (build_stmt (RETURN_INIT, NULL_TREE, NULL_TREE));
+	}
+      else
+	add_stmt (build_stmt (RETURN_INIT, return_id, init));
     }
 
   /* Don't use tree-inlining for functions with named return values.
@@ -1209,7 +1194,7 @@ setup_vtbl_ptr (member_init_list, base_init_list)
   if (DECL_CONSTRUCTOR_P (current_function_decl))
     {
       if (processing_template_decl)
-	add_tree (build_min_nt
+	add_stmt (build_min_nt
 		  (CTOR_INITIALIZER,
 		   member_init_list, base_init_list));
       else
@@ -1219,7 +1204,7 @@ setup_vtbl_ptr (member_init_list, base_init_list)
 	  /* Mark the beginning of the constructor.  */
 	  ctor_stmt = build_stmt (CTOR_STMT);
 	  CTOR_BEGIN_P (ctor_stmt) = 1;
-	  add_tree (ctor_stmt);
+	  add_stmt (ctor_stmt);
 	  
 	  /* And actually initialize the base-classes and members.  */
 	  emit_base_init (member_init_list, base_init_list);
@@ -1316,7 +1301,7 @@ add_scope_stmt (begin_p, partial_p)
     }
 
   /* Add the new statement to the statement-tree.  */
-  add_tree (ss);
+  add_stmt (ss);
 
   return top;
 }
@@ -1408,7 +1393,7 @@ finish_stmt_expr (rtl_expr)
   
   /* Remove the compound statement from the tree structure; it is
      now saved in the STMT_EXPR.  */
-  SET_LAST_STMT (rtl_expr);
+  last_tree = rtl_expr;
   TREE_CHAIN (last_tree) = NULL_TREE;
 
   /* If we created a statement-tree for this statement-expression,
@@ -2058,8 +2043,7 @@ finish_class_definition (t, attributes, semi, pop_scope_p)
 void
 begin_inline_definitions ()
 {
-  if (pending_inlines 
-      && current_scope () == current_function_decl)
+  if (current_scope () == current_function_decl)
     do_pending_inlines ();
 }
 
@@ -2241,183 +2225,51 @@ finish_typeof (expr)
   return TREE_TYPE (expr);
 }
 
-/* Create an empty statement tree rooted at T.  */
-
-void
-begin_stmt_tree (t)
-     tree *t;
-{
-  /* We create a trivial EXPR_STMT so that last_tree is never NULL in
-     what follows.  We remove the extraneous statement in
-     finish_stmt_tree.  */
-  *t = build_nt (EXPR_STMT, void_zero_node);
-  SET_LAST_STMT (*t);
-  last_expr_type = NULL_TREE;
-}
-
-/* Finish the statement tree rooted at T.  */
-
-void
-finish_stmt_tree (t)
-     tree *t;
-{
-  tree stmt;
-  
-  /* Remove the fake extra statement added in begin_stmt_tree.  */
-  stmt = TREE_CHAIN (*t);
-  *t = stmt;
-  SET_LAST_STMT (NULL_TREE);
-
-  if (cfun)
-    {
-      /* The line-number recorded in the outermost statement in a function
-	 is the line number of the end of the function.  */
-      STMT_LINENO (stmt) = lineno;
-      STMT_LINENO_FOR_FN_P (stmt) = 1;
-    }
-}
-
-/* We're about to expand T, a statement.  Set up appropriate context
-   for the substitution.  */
-
-void
-prep_stmt (t)
-     tree t;
-{
-  if (!STMT_LINENO_FOR_FN_P (t))
-    lineno = STMT_LINENO (t);
-  current_stmt_tree->stmts_are_full_exprs_p = STMT_IS_FULL_EXPR_P (t);
-}
-
 /* Generate RTL for the statement T, and its substatements, and any
    other statements at its nesting level.  */
 
-tree
-lang_expand_stmt (t)
+static void
+cp_expand_stmt (t)
      tree t;
 {
-  tree rval = NULL_TREE;
-
-  while (t && t != error_mark_node)
+  switch (TREE_CODE (t))
     {
-      int saved_stmts_are_full_exprs_p;
+    case CLEANUP_STMT:
+      genrtl_decl_cleanup (CLEANUP_DECL (t), CLEANUP_EXPR (t));
+      break;
 
-      /* Assume we'll have nothing to return.  */
-      rval = NULL_TREE;
+    case START_CATCH_STMT:
+      genrtl_catch_block (TREE_TYPE (t));
+      break;
 
-      /* Set up context appropriately for handling this statement.  */
-      saved_stmts_are_full_exprs_p = stmts_are_full_exprs_p ();
-      prep_stmt (t);
+    case CTOR_STMT:
+      genrtl_ctor_stmt (t);
+      break;
 
-      switch (TREE_CODE (t))
-	{
-	case RETURN_STMT:
-	  genrtl_return_stmt (RETURN_EXPR (t));
-	  break;
+    case TRY_BLOCK:
+      genrtl_try_block (t);
+      break;
 
-	case EXPR_STMT:
-	  genrtl_expr_stmt (EXPR_STMT_EXPR (t));
-	  break;
+    case HANDLER:
+      genrtl_handler (t);
+      break;
 
-	case DECL_STMT:
-	  genrtl_decl_stmt (t);
-	  break;
+    case SUBOBJECT:
+      genrtl_subobject (SUBOBJECT_CLEANUP (t));
+      break;
 
-	case CLEANUP_STMT:
-	  genrtl_decl_cleanup (CLEANUP_DECL (t), CLEANUP_EXPR (t));
-	  break;
+    case SCOPE_STMT:
+      genrtl_scope_stmt (t);
+      break;
 
-	case START_CATCH_STMT:
-	  genrtl_catch_block (TREE_TYPE (t));
-	  break;
+    case RETURN_INIT:
+      genrtl_named_return_value ();
+      break;
 
-	case CTOR_STMT:
-	  genrtl_ctor_stmt (t);
-	  break;
-
-	case FOR_STMT:
-	  genrtl_for_stmt (t);
-	  break;
-
-	case WHILE_STMT:
-	  genrtl_while_stmt (t);
-	  break;
-
-	case DO_STMT:
-	  genrtl_do_stmt (t);
-	  break;
-
-	case IF_STMT:
-	  genrtl_if_stmt (t);
-	  break;
-
-	case COMPOUND_STMT:
-	  genrtl_compound_stmt (t);
-	  break;
-
-	case BREAK_STMT:
-	  genrtl_break_stmt ();
-	  break;
-
-	case CONTINUE_STMT:
-	  genrtl_continue_stmt ();
-	  break;
-
-	case SWITCH_STMT:
-	  genrtl_switch_stmt (t);
-	  break;
-
-	case CASE_LABEL:
-	  genrtl_case_label (CASE_LOW (t), CASE_HIGH (t));
-	  break;
-
-	case LABEL_STMT:
-	  expand_label (LABEL_STMT_LABEL (t));
-	  break;
-
-	case GOTO_STMT:
-	  genrtl_goto_stmt (GOTO_DESTINATION (t));
-	  break;
-
-	case ASM_STMT:
-	  genrtl_asm_stmt (ASM_CV_QUAL (t), ASM_STRING (t),
-			   ASM_OUTPUTS (t), ASM_INPUTS (t), ASM_CLOBBERS (t));
-	  break;
-
-	case TRY_BLOCK:
-	  genrtl_try_block (t);
-	  break;
-
-	case HANDLER:
-	  genrtl_handler (t);
-	  break;
-
-	case SUBOBJECT:
-	  genrtl_subobject (SUBOBJECT_CLEANUP (t));
-	  break;
-
-	case SCOPE_STMT:
-	  genrtl_scope_stmt (t);
-	  break;
-
-	case RETURN_INIT:
-	  genrtl_named_return_value (TREE_OPERAND (t, 0), 
-				     TREE_OPERAND (t, 1));
-	  break;
-
-	default:
-	  my_friendly_abort (19990810);
-	  break;
-	}
-
-      /* Restore saved state.  */
-      current_stmt_tree->stmts_are_full_exprs_p = saved_stmts_are_full_exprs_p;
-
-      /* Go on to the next statement in this scope.  */
-      t = TREE_CHAIN (t);
+    default:
+      my_friendly_abort (19990810);
+      break;
     }
-
-  return rval;
 }
 
 /* Called from expand_body via walk_tree.  Replace all AGGR_INIT_EXPRs
@@ -2580,7 +2432,9 @@ expand_body (fn)
     }
 
   /* Replace AGGR_INIT_EXPRs with appropriate CALL_EXPRs.  */
-  walk_tree (&DECL_SAVED_TREE (fn), simplify_aggr_init_exprs_r, NULL);
+  walk_tree_without_duplicates (&DECL_SAVED_TREE (fn),
+				simplify_aggr_init_exprs_r,
+				NULL);
 
   /* If this is a constructor or destructor body, we have to clone it
      under the new ABI.  */
@@ -2688,4 +2542,12 @@ expand_body (fn)
   extract_interface_info ();
 
   timevar_pop (TV_EXPAND);
+}
+
+/* Perform initialization related to this module.  */
+
+void
+init_cp_semantics ()
+{
+  lang_expand_stmt = cp_expand_stmt;
 }

@@ -1,3 +1,36 @@
+2000-09-06  Alexandre Oliva  <aoliva@redhat.com>
+
+	* Makefile.in (all-zlib): Added dummy target.
+
+	* ltconfig, ltmain.sh, libtool.m4, ltcf-c.sh, ltcf-cxx.sh,
+	ltcf-gcj.sh: Updated from libtool multi-language branch.
+
+2000-09-05  Alexandre Oliva  <aoliva@redhat.com>
+
+	* Makefile.in (all-bootstrap): Added all-texinfo and all-zlib.
+	(bootstrap*): Depend on all-bootstrap.
+
+2000-09-05  Philipp Thomas  <pthomas@suse.de>
+
+	* config.guess: Import CVS version 1.156.
+	* config.sub: Import CVS version 1.179.
+
+2000-09-02  Anthony Green  <green@cygnus.com>
+
+	* Makefile.in (all-gcc): Depend on all-zlib.
+	(CLEAN_MODULES): Add clean-zlib.
+	(ALL_MODULES): Add all-zlib.
+	* configure.in (host_libs): Add zlib.
+
+2000-09-02  Alexandre Oliva  <aoliva@redhat.com>, DJ Delorie  <dj@redhat.com>
+
+	* configure.in (FLAGS_FOR_TARGET): Use -nostdinc even for Canadian
+	crosses, but add gcc/include to the header search path for them.
+
+2000-08-04  David E. O'Brien  <obrien@FreeBSD.org>
+
+	* MAINTAINERS: Add self to Write After Approval list.
+
 2000-08-27  Franz Sirl  <Franz.Sirl-kernel@lauterbach.com>
 
 	* config.guess: Import CVS version 1.152.

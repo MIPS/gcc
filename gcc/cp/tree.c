@@ -26,7 +26,6 @@ Boston, MA 02111-1307, USA.  */
 #include "tree.h"
 #include "cp-tree.h"
 #include "flags.h"
-#include "hashtab.h"
 #include "rtl.h"
 #include "toplev.h"
 #include "ggc.h"
@@ -43,7 +42,6 @@ static cp_lvalue_kind lvalue_p_1 PARAMS ((tree, int));
 static tree no_linkage_helper PARAMS ((tree *, int *, void *));
 static tree build_srcloc PARAMS ((const char *, int));
 static void mark_list_hash PARAMS ((void *));
-static int statement_code_p PARAMS ((enum tree_code));
 static tree mark_local_for_remap_r PARAMS ((tree *, int *, void *));
 static tree cp_unsave_r PARAMS ((tree *, int *, void *));
 static void cp_unsave PARAMS ((tree *));
@@ -51,6 +49,7 @@ static tree build_target_expr PARAMS ((tree, tree));
 static tree count_trees_r PARAMS ((tree *, int *, void *));
 static tree verify_stmt_tree_r PARAMS ((tree *, int *, void *));
 static tree find_tree_r PARAMS ((tree *, int *, void *));
+extern int cp_statement_code_p PARAMS ((enum tree_code));
 
 /* If REF is an lvalue, returns the kind of lvalue that REF is.
    Otherwise, returns clk_none.  If TREAT_CLASS_RVALUES_AS_LVALUES is
@@ -1072,33 +1071,18 @@ is_aggr_type_2 (t1, t2)
 
 /* Returns non-zero if CODE is the code for a statement.  */
 
-static int
-statement_code_p (code)
+int
+cp_statement_code_p (code)
      enum tree_code code;
 {
   switch (code)
     {
-    case EXPR_STMT:
-    case COMPOUND_STMT:
-    case DECL_STMT:
-    case IF_STMT:
-    case FOR_STMT:
-    case WHILE_STMT:
-    case DO_STMT:
-    case RETURN_STMT:
-    case BREAK_STMT:
-    case CONTINUE_STMT:
-    case SWITCH_STMT:
-    case GOTO_STMT:
-    case LABEL_STMT:
-    case ASM_STMT:
     case SUBOBJECT:
     case CLEANUP_STMT:
     case START_CATCH_STMT:
     case CTOR_STMT:
     case SCOPE_STMT:
     case CTOR_INITIALIZER:
-    case CASE_LABEL:
     case RETURN_INIT:
     case TRY_BLOCK:
     case HANDLER:
@@ -1176,7 +1160,8 @@ build_exception_variant (type, raises)
   return v;
 }
 
-/* Given a TEMPLATE_TEMPLATE_PARM node T, create a new one together with its 
+/* Given a TEMPLATE_TEMPLATE_PARM or BOUND_TEMPLATE_TEMPLATE_PARM
+   node T, create a new one together with its 
    lang_specific field and its corresponding *_DECL node.
    If NEWARGS is not NULL_TREE, this parameter is bound with new set of
    arguments.  */
@@ -1189,9 +1174,9 @@ copy_template_template_parm (t, newargs)
   tree decl = TYPE_NAME (t);
   tree t2;
 
-  t2 = make_aggr_type (TEMPLATE_TEMPLATE_PARM);
   if (newargs == NULL_TREE)
     {
+      t2 = make_aggr_type (TREE_CODE (t));
       decl = copy_decl (decl);
 
       /* No need to copy these.  */
@@ -1201,6 +1186,7 @@ copy_template_template_parm (t, newargs)
     }
   else
     {
+      t2 = make_aggr_type (BOUND_TEMPLATE_TEMPLATE_PARM);
       decl = build_decl (TYPE_DECL, DECL_NAME (decl), NULL_TREE);
 
       /* These nodes have to be created to reflect new TYPE_DECL and template
@@ -1222,30 +1208,44 @@ copy_template_template_parm (t, newargs)
 /* Apply FUNC to all the sub-trees of TP in a pre-order traversal.
    FUNC is called with the DATA and the address of each sub-tree.  If
    FUNC returns a non-NULL value, the traversal is aborted, and the
-   value returned by FUNC is returned.  */
+   value returned by FUNC is returned.  If HTAB is non-NULL it is used
+   to record the nodes visited, and to avoid visiting a node more than
+   once.  */
 
 tree 
-walk_tree (tp, func, data)
+walk_tree (tp, func, data, htab)
      tree *tp;
      walk_tree_fn func;
      void *data;
+     htab_t htab;
 {
   enum tree_code code;
   int walk_subtrees;
   tree result;
   
-#define WALK_SUBTREE(NODE)			\
-  do						\
-    {						\
-      result = walk_tree (&(NODE), func, data);	\
-      if (result)				\
-	return result;				\
-    }						\
+#define WALK_SUBTREE(NODE)				\
+  do							\
+    {							\
+      result = walk_tree (&(NODE), func, data, htab);	\
+      if (result)					\
+	return result;					\
+    }							\
   while (0)
 
   /* Skip empty subtrees.  */
   if (!*tp)
     return NULL_TREE;
+
+  if (htab) {
+    void **slot;
+    /* Don't walk the same tree twice, if the user has requested that we
+       avoid doing so. */
+    if (htab_find (htab, *tp))
+      return NULL_TREE;
+    /* If we haven't already seen this node, add it to the table. */
+    slot = htab_find_slot (htab, *tp, INSERT);
+    *slot = *tp;
+  }
 
   /* Call the function.  */
   walk_subtrees = 1;
@@ -1304,7 +1304,8 @@ walk_tree (tp, func, data)
 	      WALK_SUBTREE (DECL_SIZE_UNIT (DECL_STMT_DECL (*tp)));
 	    }
 
-	  WALK_SUBTREE (TREE_CHAIN (*tp));
+	  /* This can be tail-recursion optimized if we write it this way.  */
+	  return walk_tree (&TREE_CHAIN (*tp), func, data, htab);
 	}
 
       /* We didn't find what we were looking for.  */
@@ -1329,6 +1330,7 @@ walk_tree (tp, func, data)
     case STRING_CST:
     case DEFAULT_ARG:
     case TEMPLATE_TEMPLATE_PARM:
+    case BOUND_TEMPLATE_TEMPLATE_PARM:
     case TEMPLATE_PARM_INDEX:
     case TEMPLATE_TYPE_PARM:
     case REAL_TYPE:
@@ -1420,6 +1422,24 @@ walk_tree (tp, func, data)
 #undef WALK_SUBTREE
 }
 
+/* Like walk_tree, but does not walk duplicate nodes more than 
+   once.  */
+
+tree 
+walk_tree_without_duplicates (tp, func, data)
+     tree *tp;
+     walk_tree_fn func;
+     void *data;
+{
+  tree result;
+  htab_t htab;
+
+  htab = htab_create (37, htab_hash_pointer, htab_eq_pointer, NULL);
+  result = walk_tree (tp, func, data, htab);
+  htab_delete (htab);
+  return result;
+}
+
 /* Called from count_trees via walk_tree.  */
 
 static tree
@@ -1440,7 +1460,7 @@ count_trees (t)
      tree t;
 {
   int n_trees = 0;
-  walk_tree (&t, count_trees_r, &n_trees);
+  walk_tree_without_duplicates (&t, count_trees_r, &n_trees);
   return n_trees;
 }  
 
@@ -1480,7 +1500,7 @@ verify_stmt_tree (t)
 {
   htab_t statements;
   statements = htab_create (37, htab_hash_pointer, htab_eq_pointer, NULL);
-  walk_tree (&t, verify_stmt_tree_r, &statements);
+  walk_tree (&t, verify_stmt_tree_r, &statements, NULL);
   htab_delete (statements);
 }
 
@@ -1505,7 +1525,7 @@ find_tree (t, x)
      tree t;
      tree x;
 {
-  return walk_tree (&t, find_tree_r, x);
+  return walk_tree_without_duplicates (&t, find_tree_r, x);
 }
 
 /* Passed to walk_tree.  Checks for the use of types with no linkage.  */
@@ -1538,7 +1558,7 @@ no_linkage_check (t)
   if (processing_template_decl)
     return NULL_TREE;
 
-  t = walk_tree (&t, no_linkage_helper, NULL);
+  t = walk_tree_without_duplicates (&t, no_linkage_helper, NULL);
   if (t != error_mark_node)
     return t;
   return NULL_TREE;
@@ -1581,7 +1601,8 @@ copy_tree_r (tp, walk_subtrees, data)
       if (TREE_CODE (*tp) == SCOPE_STMT)
 	SCOPE_STMT_BLOCK (*tp) = NULL_TREE;
     }
-  else if (code == TEMPLATE_TEMPLATE_PARM)
+  else if (code == TEMPLATE_TEMPLATE_PARM
+	   || code == BOUND_TEMPLATE_TEMPLATE_PARM)
     /* These must be copied specially.  */
     *tp = copy_template_template_parm (*tp, NULL_TREE);
   else if (TREE_CODE_CLASS (code) == 't')
@@ -1649,13 +1670,15 @@ bot_manip (tp, walk_subtrees, data)
   splay_tree target_remap = ((splay_tree) data);
   tree t = *tp;
 
-  if (TREE_CODE (t) != TREE_LIST && ! TREE_SIDE_EFFECTS (t))
+  if (TREE_CONSTANT (t))
     {
-      /* There can't be any TARGET_EXPRs below this point.  */
+      /* There can't be any TARGET_EXPRs or their slot variables below
+         this point.  We used to check !TREE_SIDE_EFFECTS, but then we
+         failed to copy an ADDR_EXPR of the slot VAR_DECL.  */
       *walk_subtrees = 0;
       return NULL_TREE;
     }
-  else if (TREE_CODE (t) == TARGET_EXPR)
+  if (TREE_CODE (t) == TARGET_EXPR)
     {
       tree u;
 
@@ -1667,13 +1690,8 @@ bot_manip (tp, walk_subtrees, data)
 	}
       else 
 	{
-	  tree var;
-
-	  u = copy_node (t);
-	  var = build (VAR_DECL, TREE_TYPE (t));
-	  DECL_CONTEXT (var) = current_function_decl;
-	  layout_decl (var, 0);
-	  TREE_OPERAND (u, 0) = var;
+	  u = build_target_expr_with_type
+	    (break_out_target_exprs (TREE_OPERAND (t, 1)), TREE_TYPE (t));
 	}
 
       /* Map the old variable to the new one.  */
@@ -1735,8 +1753,8 @@ break_out_target_exprs (t)
     target_remap = splay_tree_new (splay_tree_compare_pointers, 
 				   /*splay_tree_delete_key_fn=*/NULL, 
 				   /*splay_tree_delete_value_fn=*/NULL);
-  walk_tree (&t, bot_manip, target_remap);
-  walk_tree (&t, bot_replace, target_remap);
+  walk_tree (&t, bot_manip, target_remap, NULL);
+  walk_tree (&t, bot_replace, target_remap, NULL);
 
   if (!--target_remap_count)
     {
@@ -1849,6 +1867,8 @@ get_type_decl (t)
     return t;
   if (TYPE_P (t))
     return TYPE_STUB_DECL (t);
+  if (t == error_mark_node)
+    return t;
   
   my_friendly_abort (42);
 
@@ -2375,6 +2395,7 @@ init_tree ()
 {
   make_lang_type_fn = cp_make_lang_type;
   lang_unsave = cp_unsave;
+  lang_statement_code_p = cp_statement_code_p;
   ggc_add_root (list_hash_table, 
 		ARRAY_SIZE (list_hash_table),
 		sizeof (struct list_hash *),
@@ -2517,10 +2538,10 @@ cp_unsave (tp)
   st = splay_tree_new (splay_tree_compare_pointers, NULL, NULL);
 
   /* Walk the tree once figuring out what needs to be remapped.  */
-  walk_tree (tp, mark_local_for_remap_r, st);
+  walk_tree (tp, mark_local_for_remap_r, st, NULL);
 
   /* Walk the tree again, copying, remapping, and unsaving.  */
-  walk_tree (tp, cp_unsave_r, st);
+  walk_tree (tp, cp_unsave_r, st, NULL);
 
   /* Clean up.  */
   splay_tree_delete (st);

@@ -205,7 +205,9 @@ const enum machine_mode class_narrowest_mode[(int) MAX_MODE_CLASS] = {
     /* MODE_PARTIAL_INT */	PQImode,
     /* MODE_CC */		CCmode,
     /* MODE_COMPLEX_INT */	CQImode,
-    /* MODE_COMPLEX_FLOAT */	QCmode
+    /* MODE_COMPLEX_FLOAT */	QCmode,
+    /* MODE_VECTOR_INT */	V2QImode,
+    /* MODE_VECTOR_FLOAT */	V2SFmode
 };
 
 
@@ -277,7 +279,7 @@ const char * const reg_note_name[] =
   "REG_LABEL", "REG_DEP_ANTI", "REG_DEP_OUTPUT", "REG_BR_PROB",
   "REG_EXEC_COUNT", "REG_NOALIAS", "REG_SAVE_AREA", "REG_BR_PRED",
   "REG_FRAME_RELATED_EXPR", "REG_EH_CONTEXT", "REG_EH_REGION",
-  "REG_EH_RETHROW", "REG_SAVE_NOTE", "REG_MAYBE_DEAD"
+  "REG_EH_RETHROW", "REG_SAVE_NOTE", "REG_MAYBE_DEAD", "REG_NORETURN"
 };
 
 static void fatal_with_file_and_line PARAMS ((FILE *, const char *, ...))
@@ -578,6 +580,9 @@ shallow_copy_rtx (orig)
 
 /* This is 1 until after the rtl generation pass.  */
 int rtx_equal_function_value_matters;
+
+/* Nonzero when we are generating CONCATs.  */
+int generating_concat_p;
 
 /* Return 1 if X and Y are identical-looking rtx's.
    This is the Lisp function EQUAL for rtx arguments.  */

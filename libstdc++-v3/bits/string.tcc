@@ -53,6 +53,17 @@ namespace std
     basic_string<_CharT, _Traits, _Alloc>::
     _Rep::_S_max_size = (((npos - sizeof(_Rep))/sizeof(_CharT)) - 1) / 4;
 
+  template<typename _CharT, typename _Traits, typename _Alloc>
+    const basic_string<_CharT, _Traits, _Alloc>::size_type
+    basic_string<_CharT, _Traits, _Alloc>::npos;
+
+  // Linker sets _S_empty_rep_storage to all 0s (one reference, empty string)
+  // at static init time (before static ctors are run).
+  template<typename _CharT, typename _Traits, typename _Alloc>
+    basic_string<_CharT, _Traits, _Alloc>::size_type
+    basic_string<_CharT, _Traits, _Alloc>::_S_empty_rep_storage[
+    (sizeof(_Rep) + sizeof(_CharT) + sizeof(size_type) - 1)/sizeof(size_type)];
+
   // NB: This is the special case for Input Iterators, used in
   // istreambuf_iterators, etc.
   // Input Iterators have a cost structure very different from
@@ -396,13 +407,6 @@ namespace std
       return 2 * (__s <= 16 ? 16 : __s) < __r;
     }
   
-  // Linker sets _S_empty_rep_storage to all 0s (one reference, empty string)
-  // at static init time (before static ctors are run).
-  template<typename _CharT, typename _Traits, typename _Alloc>
-    basic_string<_CharT, _Traits, _Alloc>::size_type
-    basic_string<_CharT, _Traits, _Alloc>::_S_empty_rep_storage[
-    (sizeof(_Rep) + sizeof(_CharT) + sizeof(size_type) - 1)/sizeof(size_type)];
-
   template<typename _CharT, typename _Traits, typename _Alloc>
     void
     basic_string<_CharT, _Traits, _Alloc>::resize(size_type __n, _CharT __c)
@@ -420,10 +424,10 @@ namespace std
     template<typename _InputIter>
       basic_string<_CharT, _Traits, _Alloc>&
       basic_string<_CharT, _Traits, _Alloc>::
-      _M_replace(iterator __i1, iterator __i2, _InputIter __j1, 
-		 _InputIter __j2, input_iterator_tag)
+      _M_replace(iterator __i1, iterator __i2, _InputIter __k1, 
+		 _InputIter __k2, input_iterator_tag)
       {
-	basic_string __s(__j1, __j2);
+	basic_string __s(__k1, __k2);
 	return this->replace(__i1, __i2, __s._M_ibegin(), __s._M_iend());
       }
 
@@ -431,19 +435,19 @@ namespace std
     template<typename _ForwardIter>
       basic_string<_CharT, _Traits, _Alloc>&
       basic_string<_CharT, _Traits, _Alloc>::
-      _M_replace(iterator __i1, iterator __i2, _ForwardIter __j1, 
-		 _ForwardIter __j2, forward_iterator_tag)
+      _M_replace(iterator __i1, iterator __i2, _ForwardIter __k1, 
+		 _ForwardIter __k2, forward_iterator_tag)
       {
 	size_type __dold = __i2 - __i1;
 	size_type __dmax = this->max_size();
-	size_type __dnew = static_cast<size_type>(distance(__j1, __j2));
+	size_type __dnew = static_cast<size_type>(distance(__k1, __k2));
 
 	__LENGTHERROR(__dmax <= __dnew);
 	size_type __off = __i1 - _M_ibegin();
 	_M_mutate(__off, __dold, __dnew);
 	// Invalidated __i1, __i2
 	if (__dnew)
-	  _S_copy_chars(_M_data() + __off, __j1, __j2);
+	  _S_copy_chars(_M_data() + __off, __k1, __k2);
 	
 	return *this;
       }

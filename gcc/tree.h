@@ -682,6 +682,9 @@ struct tree_int_cst
   struct tree_common common;
   struct rtx_def *rtl;	/* acts as link to register transfer language
 			   (rtl) info */
+  /* A sub-struct is necessary here because the function `const_hash'
+     wants to scan both words as a unit and taking the address of the
+     sub-struct yields the properly inclusive bounded pointer.  */
   struct {
     unsigned HOST_WIDE_INT low;
     HOST_WIDE_INT high;
@@ -746,7 +749,7 @@ struct tree_identifier
 {
   struct tree_common common;
   int length;
-  char *pointer;
+  const char *pointer;
 };
 
 /* In a TREE_LIST node.  */
@@ -1101,9 +1104,14 @@ struct tree_block
    useful for choosing default boundedness of function arguments for
    non-prototype function decls and for varargs/stdarg lists.  */
 #define TYPE_AMBIENT_BOUNDEDNESS(TYPE) \
-  (FUNCTION_TYPE_CHECK (TYPE)->type.transparent_union_flag)
+  (TYPE_CHECK (TYPE)->type.transparent_union_flag)
 
+/* Pointer depth >= 2 characterizes an interface that is too complex
+   for automatically-mediated mixing of bounded and unbounded pointer
+   code.  */
 #define MAX_POINTER_DEPTH 2
+/* In an ARRAY_TYPE node, this is a special marker that forces gcc
+   to create an unbounded pointer internally to va_list.  */
 #define VA_LIST_POINTER_DEPTH 3
 
 struct tree_type
@@ -2128,6 +2136,7 @@ extern tree type_hash_canon		PARAMS ((unsigned int, tree));
    on any boundary that may be needed.  */
 
 extern void layout_decl			PARAMS ((tree, unsigned));
+extern void relayout_decl		PARAMS ((tree));
 
 /* Return the mode for data of a given size SIZE and mode class CLASS.
    If LIMIT is nonzero, then don't use modes bigger than MAX_FIXED_MODE_SIZE.

@@ -725,6 +725,9 @@ AC_DEFUN(GLIBCPP_CHECK_CPU, [
       arm*)
 	cpu_include_dir="config/cpu/arm"
         ;;
+      ia64)
+	cpu_include_dir="config/cpu/ia64"
+	;;
       i386)
 	cpu_include_dir="config/cpu/i386"
 	;;
@@ -1246,6 +1249,10 @@ AC_DEFUN(GLIBCPP_ENABLE_CSTDIO, [
   	    AC_MSG_RESULT($glibc_satisfactory)
 	    ;;
         esac
+
+	# XXX at the moment, admit defeat and force the recompilation
+        # XXX of glibc even on glibc-2.2 systems, because libio is not synched.
+        glibc_satisfactory=no	
 
   	if test x$glibc_satisfactory = x"yes"; then
 	  need_libio=no

@@ -543,7 +543,10 @@ enum reg_note
      a value which might not be used later, and if so it's OK to delete
      the insn.  Normally, deleting any insn in the prologue is an error. 
      At present the parameter is unused and set to (const_int 0).  */
-  REG_MAYBE_DEAD
+  REG_MAYBE_DEAD,
+
+  /* Indicates that a call does not return.  */
+  REG_NORETURN
 };
 
 /* The base value for branch probability notes.  */
@@ -797,6 +800,8 @@ extern const char * const note_insn_name[NOTE_INSN_MAX - NOTE_INSN_BIAS];
 #define ASM_OPERANDS_INPUT_CONSTRAINT_VEC(RTX) XCVEC ((RTX), 4, ASM_OPERANDS)
 #define ASM_OPERANDS_INPUT(RTX, N) XCVECEXP ((RTX), 3, (N), ASM_OPERANDS)
 #define ASM_OPERANDS_INPUT_LENGTH(RTX) XCVECLEN ((RTX), 3, ASM_OPERANDS)
+#define ASM_OPERANDS_INPUT_CONSTRAINT_EXP(RTX, N) \
+			XCVECEXP ((RTX), 4, (N), ASM_OPERANDS)
 #define ASM_OPERANDS_INPUT_CONSTRAINT(RTX, N) \
 			XSTR (XCVECEXP ((RTX), 4, (N), ASM_OPERANDS), 0)
 #define ASM_OPERANDS_INPUT_MODE(RTX, N)  \
@@ -1101,6 +1106,9 @@ extern const char * const note_insn_name[NOTE_INSN_MAX - NOTE_INSN_BIAS];
    integrate.c.
    This is 1 until after the rtl generation pass.  */
 extern int rtx_equal_function_value_matters;
+
+/* Nonzero when we are generating CONCATs.  */
+extern int generating_concat_p;
 
 /* Generally useful functions.  */
 

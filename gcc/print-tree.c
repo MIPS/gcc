@@ -513,7 +513,8 @@ print_node (file, prefix, node, indent)
       else if (TREE_CODE (node) == ARRAY_TYPE
 	       && TYPE_NONALIASED_COMPONENT (node))
 	fputs (" nonaliased-component", file);
-      else if (TREE_CODE (node) == FUNCTION_TYPE
+      else if ((TREE_CODE (node) == FUNCTION_TYPE
+		|| TREE_CODE (node) == METHOD_TYPE)
 	       && TYPE_AMBIENT_BOUNDEDNESS (node))
 	fputs (" ambient-boundedness", file);
 

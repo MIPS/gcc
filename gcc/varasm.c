@@ -166,7 +166,7 @@ static void output_constructor		PARAMS ((tree, int));
 static void mark_weak_decls		PARAMS ((void *));
 #endif
 #ifdef ASM_WEAKEN_LABEL
-static void remove_from_pending_weak_list PARAMS ((tree));
+static void remove_from_pending_weak_list	PARAMS ((tree));
 #endif
 #ifdef ASM_OUTPUT_BSS
 static void asm_output_bss		PARAMS ((FILE *, tree, const char *, int, int));
@@ -177,7 +177,7 @@ static void asm_output_aligned_bss	PARAMS ((FILE *, tree, const char *,
 						 int, int));
 #endif
 #endif /* BSS_SECTION_ASM_OP */
-static char *prefix_function_name	PARAMS ((char *, int));
+static tree prefix_function_name	PARAMS ((const char *, int));
 static void mark_pool_constant          PARAMS ((struct pool_constant *));
 static void mark_pool_sym_hash_table	PARAMS ((struct pool_sym **));
 static void mark_const_hash_entry	PARAMS ((void *));
@@ -528,13 +528,17 @@ exception_section ()
 
 /* GKM FIXME: handle CHKR & BP prefixes separately. */
 
-static char *
+static tree
 prefix_function_name (name, boundedp)
-     char *name;
+     const char *name;
      int boundedp;
 {
+  tree id;
   char *new_name;
   size_t prefix_len = 0;
+
+  if (*name == '*')
+    name++;
 
   if (boundedp)
     {
@@ -544,22 +548,24 @@ prefix_function_name (name, boundedp)
 	   but thunks should be defined when !flag_bounded_pointers.  */
 	/* When explicitly defining a thunk, the source code name
 	   already has the BP_PREFIX, so don't add another. */
-	return name;
+	return get_identifier (name);
       prefix_len += BP_PREFIX_SIZE;
     }
   if (flag_prefix_function_name)
     prefix_len += CHKR_PREFIX_SIZE;
       
-  new_name = ggc_alloc_string (NULL, strlen (name) + prefix_len + 1);
+  new_name = alloca (strlen (name) + prefix_len + 1);
   *new_name = 0;
 
   if (flag_prefix_function_name)
     strcat (new_name, CHKR_PREFIX);
   if (boundedp)
     strcat (new_name, BP_PREFIX);
-
   strcat (new_name, name);
-  return new_name;
+
+  id = get_identifier (new_name);
+  TREE_BOUNDED (id) = boundedp;
+  return id;
 }
 
 /* Create the rtl to represent a function, for a function definition.
@@ -570,48 +576,9 @@ void
 make_function_rtl (decl)
      tree decl;
 {
-  char *name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
-  int boundedp = FUNC_DECL_BOUNDED_P (decl);
+  const char *name;
 
-  /* Rename a nested function to avoid conflicts, unless it's a member of
-     a local class, in which case the class name is already unique.  */
-  if (decl_function_context (decl) != 0
-      && ! TYPE_P (DECL_CONTEXT (decl))
-      && DECL_INITIAL (decl) != 0
-      && DECL_RTL (decl) == 0)
-    {
-      char *label;
-
-      name = IDENTIFIER_POINTER (DECL_NAME (decl));
-      ASM_FORMAT_PRIVATE_NAME (label, name, var_labelno);
-      name = ggc_alloc_string (label, -1);
-      var_labelno++;
-    }
-  else if ((boundedp || flag_prefix_function_name)
-	   && !TREE_BOUNDED (DECL_ASSEMBLER_NAME (decl)))
-    {
-      /* GKM FIXME: handle CHKR & BP prefixes separately. */
-      name = prefix_function_name (name, boundedp);
-      DECL_ASSEMBLER_NAME (decl) = get_identifier (name);
-      TREE_BOUNDED (DECL_ASSEMBLER_NAME (decl)) = 1;
-    }
-
-  if (DECL_RTL (decl) == 0)
-    {
-      DECL_ASSEMBLER_NAME (decl) = get_identifier (name);
-      DECL_RTL (decl)
-	= gen_rtx_MEM (DECL_MODE (decl),
-		       gen_rtx_SYMBOL_REF (Pmode, name));
-
-      /* Optionally set flags or add text to the name to record
-	 information such as that it is a function name.  If the name
-	 is changed, the macro ASM_OUTPUT_LABELREF will have to know
-	 how to strip this information.  */
-#ifdef ENCODE_SECTION_INFO
-      ENCODE_SECTION_INFO (decl);
-#endif
-    }
-  else
+  if (DECL_RTL (decl) != 0)
     {
       /* ??? Another way to do this would be to do what halfpic.c does
 	 and maintain a hashed table of such critters.  */
@@ -624,7 +591,42 @@ make_function_rtl (decl)
       if (REDO_SECTION_INFO_P (decl))
 	ENCODE_SECTION_INFO (decl);
 #endif
+      return;
     }
+
+  name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
+
+  /* Rename a nested function to avoid conflicts, unless it's a member of
+     a local class, in which case the class name is already unique.  */
+  if (decl_function_context (decl) != 0
+      && ! TYPE_P (DECL_CONTEXT (decl))
+      && DECL_INITIAL (decl) != 0
+      && DECL_RTL (decl) == 0)
+    {
+      char *label;
+      ASM_FORMAT_PRIVATE_NAME (label, name, var_labelno);
+      var_labelno++;
+      DECL_ASSEMBLER_NAME (decl) = get_identifier (label);
+      name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
+    }
+  else if ((FUNC_DECL_BOUNDED_P (decl) || flag_prefix_function_name)
+	   && !TREE_BOUNDED (DECL_ASSEMBLER_NAME (decl)))
+    {
+      DECL_ASSEMBLER_NAME (decl) = prefix_function_name (name, FUNC_DECL_BOUNDED_P (decl));
+      name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
+    }
+
+  DECL_RTL (decl)
+    = gen_rtx_MEM (DECL_MODE (decl),
+		   gen_rtx_SYMBOL_REF (Pmode, name));
+
+  /* Optionally set flags or add text to the name to record
+     information such as that it is a function name.  If the name
+     is changed, the macro ASM_OUTPUT_LABELREF will have to know
+     how to strip this information.  */
+#ifdef ENCODE_SECTION_INFO
+  ENCODE_SECTION_INFO (decl);
+#endif
 }
 
 /* For implicit function declarations and for K&R-style function
@@ -638,31 +640,26 @@ void
 remake_function_rtl (decl)
      tree decl;
 {
-  char *name;
-  int boundedp = -1;
+  const char *name;
+  tree id = NULL_TREE;
 
-  if (!DECL_ASSEMBLER_NAME (decl))
+  if (! DECL_ASSEMBLER_NAME (decl))
     abort ();
 
   name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
   if (FUNC_DECL_BOUNDED_P (decl))
-    {
-      name = prefix_function_name (name, 1);
-      boundedp = 1;
-    }
+    id = prefix_function_name (name, 1);
   else if (TREE_BOUNDED (DECL_ASSEMBLER_NAME (decl)))
     {
-      name += (sizeof (BP_PREFIX) - 1);
-      boundedp = 0;
+      id = get_identifier (name + sizeof (BP_PREFIX) - 1);
+      TREE_BOUNDED (id) = 0;
     }
-  if (boundedp >= 0)
-    {
-      DECL_ASSEMBLER_NAME (decl) = get_identifier (name);
-      TREE_BOUNDED (DECL_ASSEMBLER_NAME (decl)) = boundedp;
+  else
+    return;
 
-      if (DECL_RTL (decl))
-	XSTR (XEXP (DECL_RTL (decl), 0), 0) = name;
-    }
+  DECL_ASSEMBLER_NAME (decl) = id;
+  if (DECL_RTL (decl))
+    XSTR (XEXP (DECL_RTL (decl), 0), 0) = IDENTIFIER_POINTER (id);
 }
 
 /* Given NAME, a putative register name, discard any customary prefixes.  */
@@ -754,54 +751,54 @@ make_decl_rtl (decl, asmspec, top_level)
      const char *asmspec;
      int top_level;
 {
-  register char *name = 0;
+  const char *name = 0;
+  const char *new_name = 0;
   int reg_number;
-
-  reg_number = decode_reg_name (asmspec);
-
-  if (DECL_ASSEMBLER_NAME (decl) != NULL_TREE)
-    name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
-
-  if (reg_number == -2)
-    {
-      /* ASMSPEC is given, and not the name of a register.  */
-      size_t len = strlen (asmspec);
-
-      name = ggc_alloc_string (NULL, len + 1);
-      name[0] = '*';
-      memcpy (&name[1], asmspec, len + 1);
-    }
 
   /* For a duplicate declaration, we can be called twice on the
      same DECL node.  Don't discard the RTL already made.  */
-  if (DECL_RTL (decl) == 0)
+  if (DECL_RTL (decl) != 0)
+    {
+      /* If the old RTL had the wrong mode, fix the mode.  */
+      if (GET_MODE (DECL_RTL (decl)) != DECL_MODE (decl))
+	{
+	  rtx rtl = DECL_RTL (decl);
+	  PUT_MODE (rtl, DECL_MODE (decl));
+	}
+
+      /* ??? Another way to do this would be to do what halfpic.c does
+	 and maintain a hashed table of such critters.  */
+      /* ??? Another way to do this would be to pass a flag bit to
+	 ENCODE_SECTION_INFO saying whether this is a new decl or not.  */
+      /* Let the target reassign the RTL if it wants.
+	 This is necessary, for example, when one machine specific
+	 decl attribute overrides another.  */
+#ifdef REDO_SECTION_INFO_P
+      if (REDO_SECTION_INFO_P (decl))
+	ENCODE_SECTION_INFO (decl);
+#endif
+      return;
+    }
+
+  new_name = name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
+
+  reg_number = decode_reg_name (asmspec);
+
+  if (TREE_CODE (decl) != FUNCTION_DECL && DECL_REGISTER (decl))
     {
       /* First detect errors in declaring global registers.  */
-      if (TREE_CODE (decl) != FUNCTION_DECL
-	  && DECL_REGISTER (decl) && reg_number == -1)
-	error_with_decl (decl,
-			 "register name not specified for `%s'");
-      else if (TREE_CODE (decl) != FUNCTION_DECL
-	       && DECL_REGISTER (decl) && reg_number < 0)
-	error_with_decl (decl,
-			 "invalid register name for `%s'");
-      else if ((reg_number >= 0 || reg_number == -3)
-	       && (TREE_CODE (decl) == FUNCTION_DECL
-		   && ! DECL_REGISTER (decl)))
-	error_with_decl (decl,
-			 "register name given for non-register variable `%s'");
-      else if (TREE_CODE (decl) != FUNCTION_DECL
-	       && DECL_REGISTER (decl)
-	       && TYPE_MODE (TREE_TYPE (decl)) == BLKmode)
+      if (reg_number == -1)
+	error_with_decl (decl, "register name not specified for `%s'");
+      else if (reg_number < 0)
+	error_with_decl (decl, "invalid register name for `%s'");
+      else if (TYPE_MODE (TREE_TYPE (decl)) == BLKmode)
 	error_with_decl (decl,
 			 "data type of `%s' isn't suitable for a register");
-      else if (TREE_CODE (decl) != FUNCTION_DECL && DECL_REGISTER (decl)
-	       && ! HARD_REGNO_MODE_OK (reg_number,
-					TYPE_MODE (TREE_TYPE (decl))))
+      else if (! HARD_REGNO_MODE_OK (reg_number, TYPE_MODE (TREE_TYPE (decl))))
 	error_with_decl (decl,
-			 "register number for `%s' isn't suitable for data type");
+			 "register specified for `%s' isn't suitable for data type");
       /* Now handle properly declared static register variables.  */
-      else if (TREE_CODE (decl) != FUNCTION_DECL && DECL_REGISTER (decl))
+      else
 	{
 	  int nregs;
 
@@ -835,99 +832,83 @@ make_decl_rtl (decl, asmspec, top_level)
 	      while (nregs > 0)
 		globalize_reg (reg_number + --nregs);
 	    }
-	}
-      /* Specifying a section attribute on a variable forces it into a
-         non-.bss section, and thus it cannot be common. */
-      else if (TREE_CODE (decl) == VAR_DECL
-	       && DECL_SECTION_NAME (decl) != NULL_TREE
-	       && DECL_INITIAL (decl) == NULL_TREE
-	       && DECL_COMMON (decl))
-          DECL_COMMON (decl) = 0;
 
-      /* Now handle ordinary static variables and functions (in memory).
-	 Also handle vars declared register invalidly.  */
-      if (DECL_RTL (decl) == 0)
-	{
-	  int boundedp = FUNC_DECL_BOUNDED_P (decl);
-	  /* Can't use just the variable's own name for a variable
-	     whose scope is less than the whole file, unless it's a member
-	     of a local class (which will already be unambiguous).
-	     Concatenate a distinguishing number.  */
-	  if (!top_level && !TREE_PUBLIC (decl)
-	      && ! (DECL_CONTEXT (decl) && TYPE_P (DECL_CONTEXT (decl)))
-	      && asmspec == 0)
-	    {
-	      char *label;
-
-	      ASM_FORMAT_PRIVATE_NAME (label, name, var_labelno);
-	      name = ggc_alloc_string (label, -1);
-	      var_labelno++;
-	    }
-
-	  if (name == 0)
-	    abort ();
-
-	  if (TREE_CODE (decl) == FUNCTION_DECL
-	      && (boundedp || flag_prefix_function_name)
-	      && !TREE_BOUNDED (DECL_ASSEMBLER_NAME (decl)))
-	    {
-	      /* GKM FIXME: handle CHKR & BP prefixes separately. */
-	      int starp = (name[0] == '*');
-	      name = prefix_function_name (starp ? name + 1 : name, boundedp);
-	      DECL_ASSEMBLER_NAME (decl) = get_identifier (name);
-	      TREE_BOUNDED (DECL_ASSEMBLER_NAME (decl)) = 1;
-	      /* GKM FIXME: should we prepend star back onto name ??? */
-	    }
-	  else
-	    {
-	      /* If this variable is to be treated as volatile, show its
-		 tree node has side effects.   */
-	      if ((flag_volatile_global && TREE_CODE (decl) == VAR_DECL
-		   && TREE_PUBLIC (decl))
-		  || ((flag_volatile_static && TREE_CODE (decl) == VAR_DECL
-		       && (TREE_PUBLIC (decl) || TREE_STATIC (decl)))))
-		TREE_SIDE_EFFECTS (decl) = 1;
-
-	      DECL_ASSEMBLER_NAME (decl)
-		= get_identifier (name[0] == '*' ? name + 1 : name);
-	    }
-
-	  DECL_RTL (decl) = gen_rtx_MEM (DECL_MODE (decl),
-					 gen_rtx_SYMBOL_REF (Pmode, name));
-
-	  if (TREE_CODE (decl) != FUNCTION_DECL)
-	    set_mem_attributes (DECL_RTL (decl), decl, 1);
-
-	  /* Optionally set flags or add text to the name to record information
-	     such as that it is a function name.
-	     If the name is changed, the macro ASM_OUTPUT_LABELREF
-	     will have to know how to strip this information.  */
-#ifdef ENCODE_SECTION_INFO
-	  ENCODE_SECTION_INFO (decl);
-#endif
+	  /* As a register variable, it has no section.  */
+	  return;
 	}
     }
-  else
+
+  /* Now handle ordinary static variables and functions (in memory).
+     Also handle vars declared register invalidly.  */
+
+  if (reg_number >= 0 || reg_number == -3)
+    error_with_decl (decl,
+		     "register name given for non-register variable `%s'");
+
+  /* Specifying a section attribute on a variable forces it into a
+     non-.bss section, and thus it cannot be common. */
+  if (TREE_CODE (decl) == VAR_DECL
+      && DECL_SECTION_NAME (decl) != NULL_TREE
+      && DECL_INITIAL (decl) == NULL_TREE
+      && DECL_COMMON (decl))
+    DECL_COMMON (decl) = 0;
+
+  /* Can't use just the variable's own name for a variable
+     whose scope is less than the whole file, unless it's a member
+     of a local class (which will already be unambiguous).
+     Concatenate a distinguishing number.  */
+  if (!top_level && !TREE_PUBLIC (decl)
+      && ! (DECL_CONTEXT (decl) && TYPE_P (DECL_CONTEXT (decl)))
+      && asmspec == 0)
     {
-      /* If the old RTL had the wrong mode, fix the mode.  */
-      if (GET_MODE (DECL_RTL (decl)) != DECL_MODE (decl))
-	{
-	  rtx rtl = DECL_RTL (decl);
-	  PUT_MODE (rtl, DECL_MODE (decl));
-	}
-
-      /* ??? Another way to do this would be to do what halfpic.c does
-	 and maintain a hashed table of such critters.  */
-      /* ??? Another way to do this would be to pass a flag bit to
-	 ENCODE_SECTION_INFO saying whether this is a new decl or not.  */
-      /* Let the target reassign the RTL if it wants.
-	 This is necessary, for example, when one machine specific
-	 decl attribute overrides another.  */
-#ifdef REDO_SECTION_INFO_P
-      if (REDO_SECTION_INFO_P (decl))
-	ENCODE_SECTION_INFO (decl);
-#endif
+      char *label;
+      ASM_FORMAT_PRIVATE_NAME (label, name, var_labelno);
+      var_labelno++;
+      new_name = label;
     }
+
+  /* ASMSPEC is given, and not the name of a register.  */
+  else if (reg_number == -2)
+    new_name = asmspec;
+
+  /* When -fprefix-function-name is used, the functions
+     names are prefixed.  Only nested function names are not
+     prefixed.  */
+  else if (TREE_CODE (decl) == FUNCTION_DECL
+	   && (FUNC_DECL_BOUNDED_P (decl) || flag_prefix_function_name)
+	   && ! TREE_BOUNDED (DECL_ASSEMBLER_NAME (decl)))
+    {
+      DECL_ASSEMBLER_NAME (decl)
+	= prefix_function_name (name, FUNC_DECL_BOUNDED_P (decl));
+      new_name = name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
+    }
+
+  if (name != new_name)
+    {
+      DECL_ASSEMBLER_NAME (decl) = get_identifier (new_name);
+      name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
+    }
+
+  /* If this variable is to be treated as volatile, show its
+     tree node has side effects.   */
+  if ((flag_volatile_global && TREE_CODE (decl) == VAR_DECL
+       && TREE_PUBLIC (decl))
+      || ((flag_volatile_static && TREE_CODE (decl) == VAR_DECL
+	   && (TREE_PUBLIC (decl) || TREE_STATIC (decl)))))
+    TREE_SIDE_EFFECTS (decl) = 1;
+
+  DECL_RTL (decl) = gen_rtx_MEM (DECL_MODE (decl),
+				 gen_rtx_SYMBOL_REF (Pmode, name));
+  if (TREE_CODE (decl) != FUNCTION_DECL)
+    set_mem_attributes (DECL_RTL (decl), decl, 1);
+
+  /* Optionally set flags or add text to the name to record information
+     such as that it is a function name.
+     If the name is changed, the macro ASM_OUTPUT_LABELREF
+     will have to know how to strip this information.  */
+#ifdef ENCODE_SECTION_INFO
+  ENCODE_SECTION_INFO (decl);
+#endif
 }
 
 /* Make the rtl for variable VAR be volatile.
@@ -4211,7 +4192,7 @@ initializer_constant_valid_p (value, endtype)
 
       /* Allow (int) &foo provided int is as wide as a pointer.  */
       if (INTEGRAL_TYPE_P (TREE_TYPE (value))
-	  && POINTER_TYPE_P (TREE_TYPE (TREE_OPERAND (value, 0)))
+	  && MAYBE_BOUNDED_INDIRECT_TYPE_P (TREE_TYPE (TREE_OPERAND (value, 0)))
 	  && (TYPE_PRECISION (TREE_TYPE (value))
 	      >= TYPE_PRECISION (TREE_TYPE (TREE_OPERAND (value, 0)))))
 	return initializer_constant_valid_p (TREE_OPERAND (value, 0),
@@ -4456,11 +4437,12 @@ output_constructor (exp, size)
      tree exp;
      int size;
 {
+  tree type = TREE_TYPE (exp);
   register tree link, field = 0;
-  HOST_WIDE_INT min_index = 0;
+  tree min_index = 0;
   /* Number of bytes output or skipped so far.
      In other words, current position within the constructor.  */
-  int total_bytes = 0;
+  HOST_WIDE_INT total_bytes = 0;
   /* Non-zero means BYTE contains part of a byte, to be output.  */
   int byte_buffer_in_use = 0;
   register int byte = 0;
@@ -4468,13 +4450,12 @@ output_constructor (exp, size)
   if (HOST_BITS_PER_WIDE_INT < BITS_PER_UNIT)
     abort ();
 
-  if (TREE_CODE (TREE_TYPE (exp)) == RECORD_TYPE)
-    field = TYPE_FIELDS (TREE_TYPE (exp));
+  if (TREE_CODE (type) == RECORD_TYPE)
+    field = TYPE_FIELDS (type);
 
-  if (TREE_CODE (TREE_TYPE (exp)) == ARRAY_TYPE
-      && TYPE_DOMAIN (TREE_TYPE (exp)) != 0)
-    min_index
-      = TREE_INT_CST_LOW (TYPE_MIN_VALUE (TYPE_DOMAIN (TREE_TYPE (exp))));
+  if (TREE_CODE (type) == ARRAY_TYPE
+      && TYPE_DOMAIN (type) != 0)
+    min_index = TYPE_MIN_VALUE (TYPE_DOMAIN (type));
 
   /* As LINK goes through the elements of the constant,
      FIELD goes through the structure fields, if the constant is a structure.
@@ -4493,17 +4474,14 @@ output_constructor (exp, size)
       tree val = TREE_VALUE (link);
       tree index = 0;
 
-      /* the element in a union constructor specifies the proper field.  */
+      /* The element in a union constructor specifies the proper field
+	 or index.  */
+      if ((TREE_CODE (type) == RECORD_TYPE || TREE_CODE (type) == UNION_TYPE
+	   || TREE_CODE (type) == QUAL_UNION_TYPE)
+	  && TREE_PURPOSE (link) != 0)
+	field = TREE_PURPOSE (link);
 
-      if (TREE_CODE (TREE_TYPE (exp)) == RECORD_TYPE
-	  || TREE_CODE (TREE_TYPE (exp)) == UNION_TYPE)
-	{
-	  /* if available, use the type given by link */
-	  if (TREE_PURPOSE (link) != 0)
-	    field = TREE_PURPOSE (link);
-	}
-
-      if (TREE_CODE (TREE_TYPE (exp)) == ARRAY_TYPE)
+      else if (TREE_CODE (type) == ARRAY_TYPE)
 	index = TREE_PURPOSE (link);
 
       /* Eliminate the marker that makes a cast not be an lvalue.  */
@@ -4513,10 +4491,11 @@ output_constructor (exp, size)
       if (index && TREE_CODE (index) == RANGE_EXPR)
 	{
 	  register int fieldsize
-	    = int_size_in_bytes (TREE_TYPE (TREE_TYPE (exp)));
-	  HOST_WIDE_INT lo_index = TREE_INT_CST_LOW (TREE_OPERAND (index, 0));
-	  HOST_WIDE_INT hi_index = TREE_INT_CST_LOW (TREE_OPERAND (index, 1));
+	    = int_size_in_bytes (TREE_TYPE (type));
+	  HOST_WIDE_INT lo_index = tree_low_cst (TREE_OPERAND (index, 0), 0);
+	  HOST_WIDE_INT hi_index = tree_low_cst (TREE_OPERAND (index, 1), 0);
 	  HOST_WIDE_INT index;
+
 	  for (index = lo_index; index <= hi_index; index++)
 	    {
 	      /* Output the element's initial value.  */
@@ -4536,12 +4515,11 @@ output_constructor (exp, size)
 	  register int fieldsize;
 	  /* Since this structure is static,
 	     we know the positions are constant.  */
-	  HOST_WIDE_INT bitpos = field ? int_byte_position (field) : 0;
+	  HOST_WIDE_INT pos = field ? int_byte_position (field) : 0;
 
 	  if (index != 0)
-	    bitpos
-	      = (tree_low_cst (TYPE_SIZE_UNIT (TREE_TYPE (val)), 1)
-		* (tree_low_cst (index, 0) - min_index));
+	    pos = (tree_low_cst (TYPE_SIZE_UNIT (TREE_TYPE (val)), 1)
+		   * (tree_low_cst (index, 0) - tree_low_cst (min_index, 0)));
 
 	  /* Output any buffered-up bit-fields preceding this element.  */
 	  if (byte_buffer_in_use)
@@ -4554,31 +4532,24 @@ output_constructor (exp, size)
 	  /* Advance to offset of this element.
 	     Note no alignment needed in an array, since that is guaranteed
 	     if each element has the proper size.  */
-	  if ((field != 0 || index != 0) && bitpos != total_bytes)
+	  if ((field != 0 || index != 0) && pos != total_bytes)
 	    {
-	      assemble_zeros (bitpos - total_bytes);
-	      total_bytes = bitpos;
+	      assemble_zeros (pos - total_bytes);
+	      total_bytes = pos;
 	    }
-          else if (field != 0 && DECL_PACKED (field))
-            {
-               /* Some assemblers automaticallly align a datum according to
-                  its size if no align directive is specified.  The datum,
-                  however, may be declared with 'packed' attribute, so we
-                  have to disable such a feature.  */
 
-               ASM_OUTPUT_ALIGN (asm_out_file, 0);
-            }
+          else if (field != 0 && DECL_PACKED (field))
+	    /* Some assemblers automaticallly align a datum according to its
+	       size if no align directive is specified.  The datum, however,
+	       may be declared with 'packed' attribute, so we have to disable
+	       such a feature.  */
+	    ASM_OUTPUT_ALIGN (asm_out_file, 0);
 
 	  /* Determine size this element should occupy.  */
 	  if (field)
-	    {
-	      if (TREE_CODE (DECL_SIZE_UNIT (field)) != INTEGER_CST)
-		abort ();
-
-	      fieldsize = TREE_INT_CST_LOW (DECL_SIZE_UNIT (field));
-	    }
+	    fieldsize = tree_low_cst (DECL_SIZE_UNIT (field), 1);
 	  else
-	    fieldsize = int_size_in_bytes (TREE_TYPE (TREE_TYPE (exp)));
+	    fieldsize = int_size_in_bytes (TREE_TYPE (type));
 
 	  /* Output the element's initial value.  */
 	  if (val == 0)
@@ -4639,8 +4610,8 @@ output_constructor (exp, size)
 	      int this_time;
 	      int shift;
 	      HOST_WIDE_INT value;
-	      int next_byte = next_offset / BITS_PER_UNIT;
-	      int next_bit = next_offset % BITS_PER_UNIT;
+	      HOST_WIDE_INT next_byte = next_offset / BITS_PER_UNIT;
+	      HOST_WIDE_INT next_bit = next_offset % BITS_PER_UNIT;
 
 	      /* Advance from byte to byte
 		 within this element when necessary.  */
@@ -4661,6 +4632,7 @@ output_constructor (exp, size)
 		     first (of the bits that are significant)
 		     and put them into bytes from the most significant end.  */
 		  shift = end_offset - next_offset - this_time;
+
 		  /* Don't try to take a bunch of bits that cross
 		     the word boundary in the INTEGER_CST. We can
 		     only select bits from the LOW or HIGH part
@@ -4674,9 +4646,7 @@ output_constructor (exp, size)
 
 		  /* Now get the bits from the appropriate constant word.  */
 		  if (shift < HOST_BITS_PER_WIDE_INT)
-		    {
-		      value = TREE_INT_CST_LOW (val);
-		    }
+		    value = TREE_INT_CST_LOW (val);
 		  else if (shift < 2 * HOST_BITS_PER_WIDE_INT)
 		    {
 		      value = TREE_INT_CST_HIGH (val);
@@ -4684,6 +4654,7 @@ output_constructor (exp, size)
 		    }
 		  else
 		    abort ();
+
 		  /* Get the result. This works only when:
 		     1 <= this_time <= HOST_BITS_PER_WIDE_INT.  */
 		  byte |= (((value >> shift)
@@ -4723,16 +4694,19 @@ output_constructor (exp, size)
 			    & (((HOST_WIDE_INT) 2 << (this_time - 1)) - 1))
 			   << next_bit);
 		}
+
 	      next_offset += this_time;
 	      byte_buffer_in_use = 1;
 	    }
 	}
     }
+
   if (byte_buffer_in_use)
     {
       ASM_OUTPUT_BYTE (asm_out_file, byte);
       total_bytes++;
     }
+
   if (total_bytes < size)
     assemble_zeros (size - total_bytes);
 }
@@ -4744,7 +4718,7 @@ output_constructor (exp, size)
 int
 add_weak (decl, value)
      tree decl;
-     char *value;
+     const char *value;
 {
   struct weak_syms *weak;
 
@@ -4810,9 +4784,9 @@ weak_finish ()
 	{
 	  if (t->decl)
 	    {
-	      char *name = (DECL_P (t->decl)
-			    ? IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (t->decl))
-			    : IDENTIFIER_POINTER (t->decl));
+	      const char *name = (DECL_P (t->decl)
+				  ? IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (t->decl))
+				  : IDENTIFIER_POINTER (t->decl));
 	      ASM_WEAKEN_LABEL (asm_out_file, name);
 	      if (t->value)
 		ASM_OUTPUT_DEF (asm_out_file, name, t->value);
@@ -4903,8 +4877,7 @@ assemble_high_bound (decl)
       const char *name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (high_bound));
       assemble_global (name);
 #ifdef ASM_DECLARE_HIGH_BOUND
-      if (TREE_USED (decl))
-	ASM_DECLARE_HIGH_BOUND (asm_out_file, decl);
+      ASM_DECLARE_HIGH_BOUND (asm_out_file, decl);
 #endif
     }
 }

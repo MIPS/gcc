@@ -3585,8 +3585,6 @@ build_decl (code, name, type)
   DECL_NAME (t) = name;
   DECL_ASSEMBLER_NAME (t) = name;
   TREE_TYPE (t) = type;
-  if (type && code != FUNCTION_DECL)
-    TREE_BOUNDED (t) = BOUNDED_POINTER_TYPE_P (type);
 
   if (code == VAR_DECL || code == PARM_DECL || code == RESULT_DECL)
     layout_decl (t, 0);
@@ -3854,7 +3852,7 @@ is_attribute_p (attr, ident)
      tree ident;
 {
   int ident_len, attr_len;
-  char *p;
+  const char *p;
 
   if (TREE_CODE (ident) != IDENTIFIER_NODE)
     return 0;
@@ -5043,8 +5041,11 @@ build_function_type (value_type, arg_types)
       boundedp |= TYPE_BOUNDED (type);
     }
   if (arg_types_0 && (!arg_types || TREE_CODE (arg_types) == INTEGER_CST))
-    /* Assume the worst for stdarg/varargs functions.  */
-    depth = MAX_POINTER_DEPTH;
+    {
+      /* Assume the worst for stdarg/varargs functions.  */
+      depth = MAX_POINTER_DEPTH;
+      boundedp |= default_pointer_boundedness;
+    }
 
   TYPE_POINTER_DEPTH (t) = depth;
   TYPE_BOUNDED (t) = boundedp;

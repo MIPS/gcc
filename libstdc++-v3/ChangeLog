@@ -1,3 +1,112 @@
+2000-09-06  Richard Henderson  <rth@cygnus.com>
+	    Benjamin Kosnik  <bkoz@cygnus.com>
+
+	* acinclude.m4 (GLIBCPP_CHECK_CPU): Add ia64 support.
+	* aclocal.m4: Regenerate.
+	* configure: Regenerate.
+	* config/cpu/ia64: New directory.
+	* config/cpu/ia64/bits: New directory.
+	* config/cpu/ia64/bits/atomicity.h: New file.
+	
+2000-09-06  Benjamin Kosnik  <bkoz@purist.soma.redhat.com>
+	
+	* acinclude.m4 (GLIBCPP_ENABLE_CSTDIO): Force glibc_satisfactory
+	to no, so that libstdc++-v3's libio will be built on glibc-2.2
+	systems. 
+	* aclocal.m4: Regenerate.
+	* configure: Regenerate.
+	* */Makefile.in: Regenerate.
+
+	* bits/std_cwctype.h: Put in temporary hack to work around -O2 +
+	glibc 2.1.x unsigned errors. Or disable -Werror by default...
+
+	* testsuite/23_containers/vector_element_access.cc: New file.
+	* bits/stl_config.h (__STL_THROW_RANGE_ERRORS): Define.
+
+2000-09-06  Levente Farkas  <lfarkas@mindmaker.hu>
+
+	* bits/string.tcc: Fix up more parameter names.
+
+2000-09-06  Alexandre Oliva  <aoliva@redhat.com>
+
+	* configure: Rebuilt with new libtool.m4.
+
+2000-09-01  Benjamin Kosnik  <bkoz@cygnus.com>
+
+	* src/locale-inst.cc: Remove pre-instantiation of unicode
+	codecvt types. Now unnecessary, as locale header now correct.
+
+2000-08-31  Benjamin Kosnik  <bkoz@cygnus.com>
+
+	* bits/locale_facets.tcc (_S_build_float_format): Move ...	
+	* src/locale.cc: Here.		
+	* bits/locale_facets.tcc (num_get::_M_extract): Clean up generic
+	definition. Move specialization to ...
+	* src/locale.cc: Here.	
+	* bits/locale_facets.tcc: Move _Format_cache specializations to ...
+	* src/locale.cc: Here.
+	* bits/locale_facets.tcc: Move use_facet<ctype> specializations to ...
+	* src/locale.cc: Here.
+
+	* bits/std_locale.h: Note that locale_facets.tcc should be
+	included here, for standards conformance. It may increase
+	compile times though. For the time being, enable.
+	* testsuite/22_locale/facet.cc: New file, some parts commented out
+	for the time being.
+
+	* mkcheck.in: Append total time to test summary file.
+
+	* bits/sbuf_iter.h : Formatting tweaks.
+
+	Clean up static const data member definitions.
+	* src/locale.cc: Add definitions for all missing locale,
+	locale::_Imp, and locale::id static data members.
+	(ctype<char>): Add table_size define.
+	(money_base): Add _S_default_pattern, uglify.
+	* bits/localefwd.h: Add definitions for static members of _Count_ones.
+	* bits/locale_facets.h: Tweaks.
+	* bits/locale_facets.tcc: Tweaks.	
+	* bits/string.tcc: Add definition for npos.
+	* bits/ios_base.h: Tweaks.
+	* bits/ios_base.h (ios_base::Init::_M_ios_base_init): Change to
+	_S_ios_base_init.
+	* src/ios.cc: And here. Add _S_local_words definition.
+	Add definitions for __ios_flags const static data.
+	* src/codecvt.cc: Same for __enc_traits.
+	* src/locale-inst.cc: Remove money_base data member definition
+	here.
+
+2000-08-30  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/22_locale/ctype_wchar_t_members.cc (test01): New file.
+
+	* docs/22_locale/codecvt.html: Re-number.
+	* docs/22_locale/howto.html: Add entry for ctype
+	documentation. Add entry for Nathan's introduction to locales
+	paper.
+	* docs/22_locale/ctype.html: New file. In progress...
+
+	* docs/22_locale/codecvt.html: Formatting cleanups.
+	* src/locale.cc (ctype<wchar_t>::do_is): Fix thinko.
+
+2000-08-30  Phil Edwards  <pme@sources.redhat.com>
+
+	* docs/22_locale/codecvt.html:  Behind-the-scenes ASCII->HTML
+	  tweaks for certain browsers.
+
+2000-08-29  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* bits/locale_facets.h (ctype<char>): Remove __table_type.
+	Add include for bits/std_cwctype.h, for wctype_t.
+	* src/locale.cc (ctype<wchar_t>): Implement.
+	* config/gnu-linux/bits/ctype_base.h (ctype_base): Remove mask
+	typedef, instead name enum.
+	* config/gnu-linux/bits/ctype_specializations.h: Tweak.
+	* config/gnu-linux/ctype.cc: Tweak.	
+	* testsuite/22_locale/ctype.cc: Tweak.
+	
+	* bits/codecvt.h (__enc_traits): Uglify names.
+	
 2000-08-28  Benjamin Kosnik  <bkoz@purist.soma.redhat.com>
 
 	* docs/22_locale/codecvt.html: Add more bits, format. 

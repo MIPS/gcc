@@ -1012,6 +1012,7 @@ comptypes (t1, t2, strict)
   switch (TREE_CODE (t1))
     {
     case TEMPLATE_TEMPLATE_PARM:
+    case BOUND_TEMPLATE_TEMPLATE_PARM:
       if (TEMPLATE_TYPE_IDX (t1) != TEMPLATE_TYPE_IDX (t2)
 	  || TEMPLATE_TYPE_LEVEL (t1) != TEMPLATE_TYPE_LEVEL (t2))
 	return 0;
@@ -1019,8 +1020,7 @@ comptypes (t1, t2, strict)
 	      (DECL_TEMPLATE_PARMS (TEMPLATE_TEMPLATE_PARM_TEMPLATE_DECL (t1)),
 	       DECL_TEMPLATE_PARMS (TEMPLATE_TEMPLATE_PARM_TEMPLATE_DECL (t2))))
 	return 0;
-      if (!TEMPLATE_TEMPLATE_PARM_TEMPLATE_INFO (t1) 
-	  && ! TEMPLATE_TEMPLATE_PARM_TEMPLATE_INFO (t2))
+      if (TREE_CODE (t1) == TEMPLATE_TEMPLATE_PARM)
 	return 1;
       /* Don't check inheritance.  */
       strict = COMPARE_STRICT;
@@ -1030,7 +1030,7 @@ comptypes (t1, t2, strict)
     case UNION_TYPE:
       if (TYPE_TEMPLATE_INFO (t1) && TYPE_TEMPLATE_INFO (t2)
 	  && (TYPE_TI_TEMPLATE (t1) == TYPE_TI_TEMPLATE (t2)
-	      || TREE_CODE (t1) == TEMPLATE_TEMPLATE_PARM))
+	      || TREE_CODE (t1) == BOUND_TEMPLATE_TEMPLATE_PARM))
 	val = comp_template_args (TYPE_TI_ARGS (t1),
 				  TYPE_TI_ARGS (t2));
     look_hard:
@@ -1096,8 +1096,9 @@ comptypes (t1, t2, strict)
 	&& TEMPLATE_TYPE_LEVEL (t1) == TEMPLATE_TYPE_LEVEL (t2);
 
     case TYPENAME_TYPE:
-      if (TYPE_IDENTIFIER (t1) != TYPE_IDENTIFIER (t2))
-	return 0;
+      if (cp_tree_equal (TYPENAME_TYPE_FULLNAME (t1),
+                         TYPENAME_TYPE_FULLNAME (t2)) < 1)
+        return 0;
       return same_type_p (TYPE_CONTEXT (t1), TYPE_CONTEXT (t2));
 
     case COMPLEX_TYPE:

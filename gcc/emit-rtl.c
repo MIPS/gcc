@@ -539,8 +539,9 @@ gen_reg_rtx (mode)
   if (no_new_pseudos)
     abort ();
 
-  if (GET_MODE_CLASS (mode) == MODE_COMPLEX_FLOAT
-      || GET_MODE_CLASS (mode) == MODE_COMPLEX_INT)
+  if (generating_concat_p
+      && (GET_MODE_CLASS (mode) == MODE_COMPLEX_FLOAT
+	  || GET_MODE_CLASS (mode) == MODE_COMPLEX_INT))
     {
       /* For complex modes, don't make a single pseudo.
 	 Instead, make a CONCAT of two pseudos.
@@ -3912,10 +3913,10 @@ copy_insn_1 (orig)
     }
   else if (code == ASM_OPERANDS)
     {
-      orig_asm_operands_vector = XVEC (orig, 3);
-      copy_asm_operands_vector = XVEC (copy, 3);
-      orig_asm_constraints_vector = XVEC (orig, 4);
-      copy_asm_constraints_vector = XVEC (copy, 4);
+      orig_asm_operands_vector = ASM_OPERANDS_INPUT_VEC (orig);
+      copy_asm_operands_vector = ASM_OPERANDS_INPUT_VEC (copy);
+      orig_asm_constraints_vector = ASM_OPERANDS_INPUT_CONSTRAINT_VEC (orig);
+      copy_asm_constraints_vector = ASM_OPERANDS_INPUT_CONSTRAINT_VEC (copy);
     }
 
   return copy;

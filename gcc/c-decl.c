@@ -504,7 +504,9 @@ c_decode_option (argc, argv)
   strings_processed = 0;
 #endif /* ! USE_CPPLIB */
 
-  if (!strcmp (p, "-ftraditional") || !strcmp (p, "-traditional"))
+  if (!strcmp (p, "-lang-objc"))
+    c_language = clk_objective_c;
+  else if (!strcmp (p, "-ftraditional") || !strcmp (p, "-traditional"))
     {
       flag_traditional = 1;
       flag_writable_strings = 1;
@@ -846,10 +848,18 @@ print_lang_identifier (file, node, indent)
   print_node (file, "implicit", IDENTIFIER_IMPLICIT_DECL (node), indent + 4);
   print_node (file, "error locus", IDENTIFIER_ERROR_LOCUS (node), indent + 4);
   print_node (file, "limbo value", IDENTIFIER_LIMBO_VALUE (node), indent + 4);
+  if (C_IS_RESERVED_WORD (node))
+    {
+      tree rid = ridpointers[C_RID_CODE (node)];
+      indent_to (file, indent + 4);
+      fprintf (file, "rid ");
+      fprintf (file, HOST_PTR_PRINTF, (void *)rid);
+      fprintf (file, " \"%s\"", IDENTIFIER_POINTER (rid));
+    }
 }
 
 /* Hook called at end of compilation to assume 1 elt
-   for a top-level array decl that wasn't complete before.  */
+   for a top-level tentative array defn that wasn't complete before.  */
 
 void
 finish_incomplete_decl (decl)
@@ -860,10 +870,10 @@ finish_incomplete_decl (decl)
       tree type = TREE_TYPE (decl);
       if (type != error_mark_node
 	  && TREE_CODE (type) == ARRAY_TYPE
+	  && ! DECL_EXTERNAL (decl)
 	  && TYPE_DOMAIN (type) == 0)
 	{
-	  if (! DECL_EXTERNAL (decl))
-	    warning_with_decl (decl, "array `%s' assumed to have one element");
+	  warning_with_decl (decl, "array `%s' assumed to have one element");
 
 	  complete_array_type (type, NULL_TREE, 1);
 
@@ -2458,7 +2468,7 @@ pushdecl (x)
 		   /* No shadow warnings for vars made for inlining.  */
 		   && ! DECL_FROM_INLINE (x))
 	    {
-	      char *id = IDENTIFIER_POINTER (name);
+	      const char *id = IDENTIFIER_POINTER (name);
 
 	      if (TREE_CODE (x) == PARM_DECL
 		  && current_binding_level->level_chain->parm_flag)
@@ -2579,7 +2589,7 @@ void
 implicit_decl_warning (id)
      tree id;
 {
-  char *name = IDENTIFIER_POINTER (id);
+  const char *name = IDENTIFIER_POINTER (id);
   if (mesg_implicit_function_declaration == 2)
     error ("implicit declaration of function `%s'", name);
   else if (mesg_implicit_function_declaration == 1)
@@ -2915,6 +2925,7 @@ lookup_name (name)
      tree name;
 {
   register tree val;
+
   if (current_binding_level != global_binding_level
       && IDENTIFIER_LOCAL_VALUE (name))
     val = IDENTIFIER_LOCAL_VALUE (name);
@@ -3035,6 +3046,7 @@ init_decl_processing ()
   if (flag_traditional && TREE_UNSIGNED (t))
     t = signed_type (t);
 
+  c_size_type_node = t;
   set_sizetype (t);
 
   /* Create the widest literal types.  */
@@ -3207,7 +3219,11 @@ init_decl_processing ()
 
   pedantic_lvalues = pedantic;
 
-  /* Create the global bindings for __FUNCTION__ and __PRETTY_FUNCTION__.  */
+  /* Create the global bindings for __FUNCTION__, __PRETTY_FUNCTION__,
+     and __func__.  */
+  function_id_node = get_identifier ("__FUNCTION__");
+  pretty_function_id_node = get_identifier ("__PRETTY_FUNCTION__");
+  func_id_node = get_identifier ("__func__");
   make_fname_decl = c_make_fname_decl;
   declare_function_name ();
 
@@ -3239,7 +3255,7 @@ init_decl_processing ()
    delayed emission of static data, we mark the decl as emitted
    so it is not placed in the output.  Anything using it must therefore pull
    out the STRING_CST initializer directly.  This does mean that these names
-   are string merging candidates, which C99 does not permit.  */
+   are string merging candidates, which is wrong for C99's __func__.  FIXME.  */
 
 static tree
 c_make_fname_decl (id, name, type_dep)
@@ -3591,8 +3607,16 @@ finish_decl (decl, init, asmspec_tree)
 
   /* If a name was specified, get the string.   */
   if (asmspec_tree)
-    /* GKM FIXME: force named-register pointer decls to be unbounded. */
     asmspec = TREE_STRING_POINTER (asmspec_tree);
+
+  if (DECL_REGISTER (decl) && asmspec && decode_reg_name (asmspec) >= 0
+      && TREE_BOUNDED (decl) && BOUNDED_POINTER_TYPE_P (type))
+    {
+      /* Reconstitute the decl as an unbounded pointer, as required in
+         order to fit into a machine register.  */
+      type = TREE_TYPE (decl) = TYPE_UNBOUNDED_TYPE (type);
+      relayout_decl (decl);
+    }
 
   /* If `start_decl' didn't like having an initialization, ignore it now.  */
 
@@ -4018,7 +4042,6 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
 
   for (spec = declspecs; spec; spec = TREE_CHAIN (spec))
     {
-      register int i;
       register tree id = TREE_VALUE (spec);
 
       if (id == ridpointers[(int) RID_INT])
@@ -4026,29 +4049,29 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
       if (id == ridpointers[(int) RID_CHAR])
 	explicit_char = 1;
 
-      if (TREE_CODE (id) == IDENTIFIER_NODE)
-	for (i = (int) RID_FIRST_MODIFIER; i < (int) RID_MAX; i++)
-	  {
-	    if (ridpointers[i] == id)
-	      {
-		if (i == (int) RID_LONG && specbits & (1 << i))
-		  {
-		    if (longlong)
-		      error ("`long long long' is too long for GCC");
-		    else
-		      {
-			if (pedantic && !flag_isoc99 && ! in_system_header
-			    && warn_long_long)
-			  pedwarn ("ISO C89 does not support `long long'");
-			longlong = 1;
-		      }
-		  }
-		else if (specbits & (1 << i))
-		  pedwarn ("duplicate `%s'", IDENTIFIER_POINTER (id));
-		specbits |= 1 << i;
-		goto found;
-	      }
-	  }
+      if (TREE_CODE (id) == IDENTIFIER_NODE && C_IS_RESERVED_WORD (id))
+	{
+	  enum rid i = C_RID_CODE (id);
+	  if (i <= RID_LAST_MODIFIER)
+	    {
+	      if (i == RID_LONG && specbits & (1<<i))
+		{
+		  if (longlong)
+		    error ("`long long long' is too long for GCC");
+		  else
+		    {
+		      if (pedantic && !flag_isoc99 && ! in_system_header
+			  && warn_long_long)
+			pedwarn ("ISO C89 does not support `long long'");
+		      longlong = 1;
+		    }
+		}
+	      else if (specbits & (1 << i))
+		pedwarn ("duplicate `%s'", IDENTIFIER_POINTER (id));
+	      specbits |= 1 << i;
+	      goto found;
+	    }
+	}
       if (type)
 	error ("two or more data types in declaration of `%s'", name);
       /* Actual typedefs come to us as TYPE_DECL nodes.  */
@@ -4609,22 +4632,27 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
 		{
 		  tree qualifier = TREE_VALUE (typemodlist);
 
-		  if (qualifier == ridpointers[(int) RID_CONST])
-		    constp++;
-		  else if (qualifier == ridpointers[(int) RID_VOLATILE])
-		    volatilep++;
-		  else if (qualifier == ridpointers[(int) RID_RESTRICT])
-		    restrictp++;
-		  else if (qualifier == ridpointers[(int) RID_BOUNDED])
-		    xboundedp++;
-		  else if (qualifier == ridpointers[(int) RID_UNBOUNDED])
-		    xunboundedp++;
-		  else if (!erred)
+		  if (C_IS_RESERVED_WORD (qualifier))
 		    {
-		      erred = 1;
-		      error ("invalid type modifier within pointer declarator");
+		      if (C_RID_CODE (qualifier) == RID_CONST)
+			constp++;
+		      else if (C_RID_CODE (qualifier) == RID_VOLATILE)
+			volatilep++;
+		      else if (C_RID_CODE (qualifier) == RID_RESTRICT)
+			restrictp++;
+		      else if (C_RID_CODE (qualifier) == RID_BOUNDED)
+			xboundedp++;
+		      else if (C_RID_CODE (qualifier) == RID_UNBOUNDED)
+			xunboundedp++;
+		      else
+			erred++;
 		    }
+		  else
+		    erred++;
 		}
+
+	      if (erred)
+		error ("invalid type modifier within pointer declarator");
 	      if (constp > 1 && ! flag_isoc99)
 		pedwarn ("duplicate `const'");
 	      if (volatilep > 1 && ! flag_isoc99)
@@ -6848,8 +6876,9 @@ finish_function (nested)
    that keep track of the progress of compilation of the current function.
    Used for nested functions.  */
 
-struct language_function
+struct c_language_function
 {
+  struct language_function base;
   tree named_labels;
   tree shadowed_labels;
   int returns_value;
@@ -6866,9 +6895,10 @@ void
 push_c_function_context (f)
      struct function *f;
 {
-  struct language_function *p;
-  p = (struct language_function *) xmalloc (sizeof (struct language_function));
-  f->language = p;
+  struct c_language_function *p;
+  p = ((struct c_language_function *) 
+       xmalloc (sizeof (struct c_language_function)));
+  f->language = (struct language_function *) p;
 
   p->named_labels = named_labels;
   p->shadowed_labels = shadowed_labels;
@@ -6885,7 +6915,8 @@ void
 pop_c_function_context (f)
      struct function *f;
 {
-  struct language_function *p = f->language;
+  struct c_language_function *p 
+    = (struct c_language_function *) f->language;
   tree link;
 
   /* Bring back all the labels that were shadowed.  */
@@ -6921,7 +6952,8 @@ void
 mark_c_function_context (f)
      struct function *f;
 {
-  struct language_function *p = f->language;
+  struct c_language_function *p 
+    = (struct c_language_function *) f->language;
 
   if (p == 0)
     return;
@@ -6984,6 +7016,16 @@ int
 stmts_are_full_exprs_p ()
 {
   return 0;
+}
+
+/* Returns the stmt_tree (if any) to which statements are currently
+   being added.  If there is no active statement-tree, NULL is
+   returned.  */
+
+stmt_tree
+current_stmt_tree ()
+{
+  return cfun ? &cfun->language->x_stmt_tree : NULL;
 }
 
 /* Nonzero if TYPE is an anonymous union or struct type.  Always 0 in
@@ -7073,17 +7115,6 @@ do_case (low_value, high_value)
     }
 }
 
-/* Language specific handler of tree nodes used when generating RTL
-   from a tree.  */
-
-tree
-lang_expand_stmt (t)
-     tree t ATTRIBUTE_UNUSED;
-{
-  abort ();
-  return NULL_TREE;
-}
-
 /* Accessor to set the 'current_function_name_declared' flag.  */
 
 void
@@ -7116,4 +7147,10 @@ c_valid_lang_attribute (attr_name, attr_args, decl, type)
       return 1;
     }
   return 0;
+}
+
+/* Dummy function in place of callback used by C++.  */
+void
+extract_interface_info ()
+{
 }

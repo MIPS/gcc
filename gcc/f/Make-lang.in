@@ -184,8 +184,7 @@ F77_SRCS = \
  $(srcdir)/f/version.c \
  $(srcdir)/f/version.h \
  $(srcdir)/f/where.c \
- $(srcdir)/f/where.h \
- $(srcdir)/bp-stubs.c
+ $(srcdir)/f/where.h
 
 f771$(exeext): $(P) $(F77_SRCS) $(LIBDEPS) $(BACKEND)
 	touch lang-f77

@@ -169,8 +169,8 @@ static void mark_binding_level PARAMS ((void *));
 static void mark_named_label_lists PARAMS ((void *, void *));
 static void mark_cp_function_context PARAMS ((struct function *));
 static void mark_saved_scope PARAMS ((void *));
-static void mark_lang_function PARAMS ((struct language_function *));
-static void mark_stmt_tree PARAMS ((struct stmt_tree *));
+static void mark_lang_function PARAMS ((struct cp_language_function *));
+static void mark_stmt_tree PARAMS ((stmt_tree));
 static void save_function_data PARAMS ((tree));
 static void check_function_type PARAMS ((tree));
 static void destroy_local_var PARAMS ((tree));
@@ -200,7 +200,6 @@ tree error_mark_list;
 
    C++ extensions
 	tree wchar_decl_node;
-	tree void_zero_node;
 
 	tree vtable_entry_type;
 	tree delta_type_node;
@@ -268,13 +267,6 @@ int in_std;
 
 /* Expect only namespace names now. */
 static int only_namespace_names;
-
-/* If original DECL_RESULT of current function was a register,
-   but due to being an addressable named return value, would up
-   on the stack, this variable holds the named return value's
-   original location.  */
-
-#define original_result_rtx cp_function_chain->x_result_rtx
 
 /* Used only for jumps to as-yet undefined labels, since jumps to
    defined labels can have their validity checked immediately.  */
@@ -2460,7 +2452,7 @@ struct saved_scope *scope_chain;
 
 static void
 mark_stmt_tree (st)
-     struct stmt_tree *st;
+     stmt_tree st;
 {
   ggc_mark_tree (st->x_last_stmt);
   ggc_mark_tree (st->x_last_expr_type);
@@ -3471,7 +3463,7 @@ duplicate_decls (newdecl, olddecl)
 	DECL_VIRTUAL_CONTEXT (newdecl) = DECL_VIRTUAL_CONTEXT (olddecl);
       if (DECL_CONTEXT (olddecl))
 	DECL_CONTEXT (newdecl) = DECL_CONTEXT (olddecl);
-      if (DECL_PENDING_INLINE_INFO (newdecl) == (struct pending_inline *)0)
+      if (DECL_PENDING_INLINE_INFO (newdecl) == 0)
 	DECL_PENDING_INLINE_INFO (newdecl) = DECL_PENDING_INLINE_INFO (olddecl);
       DECL_STATIC_CONSTRUCTOR (newdecl) |= DECL_STATIC_CONSTRUCTOR (olddecl);
       DECL_STATIC_DESTRUCTOR (newdecl) |= DECL_STATIC_DESTRUCTOR (olddecl);
@@ -5227,8 +5219,7 @@ define_case_label ()
       warning ("where case label appears here");
       if (!explained)
 	{
-	  warning ("(enclose actions of previous case statements requiring");
-	  warning ("destructors in their own binding contours.)");
+	  warning ("(enclose actions of previous case statements requiring destructors in their own scope.)");
 	  explained = 1;
 	}
     }
@@ -5925,7 +5916,7 @@ lookup_name_real (name, prefer_type, nonclass, namespaces_only)
 	    }
 	  else if (! IS_AGGR_TYPE (type)
 		   || TREE_CODE (type) == TEMPLATE_TYPE_PARM
-		   || TREE_CODE (type) == TEMPLATE_TEMPLATE_PARM
+		   || TREE_CODE (type) == BOUND_TEMPLATE_TEMPLATE_PARM
 		   || TREE_CODE (type) == TYPENAME_TYPE)
 	    /* Someone else will give an error about this if needed.  */
 	    val = NULL_TREE;
@@ -6156,7 +6147,7 @@ end_only_namespace_names ()
 }
 
 /* Push the declarations of builtin types into the namespace.
-   RID_INDEX, if < CP_RID_MAX is the index of the builtin type
+   RID_INDEX is the index of the builtin type
    in the array RID_POINTERS.  NAME is the name used when looking
    up the builtin type.  TYPE is the _TYPE node for the builtin type.  */
 
@@ -6169,7 +6160,7 @@ record_builtin_type (rid_index, name, type)
   tree rname = NULL_TREE, tname = NULL_TREE;
   tree tdecl = NULL_TREE;
 
-  if ((int) rid_index < (int) CP_RID_MAX)
+  if ((int) rid_index < (int) RID_MAX)
     rname = ridpointers[(int) rid_index];
   if (name)
     tname = get_identifier (name);
@@ -6180,7 +6171,7 @@ record_builtin_type (rid_index, name, type)
     {
       tdecl = pushdecl (build_decl (TYPE_DECL, tname, type));
       set_identifier_type_value (tname, NULL_TREE);
-      if ((int) rid_index < (int) CP_RID_MAX)
+      if ((int) rid_index < (int) RID_MAX)
 	/* Built-in types live in the global namespace. */
 	SET_IDENTIFIER_GLOBAL_VALUE (tname, tdecl);
     }
@@ -6223,7 +6214,7 @@ record_builtin_java_type (name, size)
       TYPE_PRECISION (type) = - size;
       layout_type (type);
     }
-  record_builtin_type (CP_RID_MAX, name, type);
+  record_builtin_type (RID_MAX, name, type);
   decl = TYPE_NAME (type);
 
   /* Suppress generate debug symbol entries for these types,
@@ -6379,27 +6370,27 @@ init_decl_processing ()
   record_builtin_type (RID_SIGNED, NULL_PTR, integer_type_node);
   record_builtin_type (RID_LONG, "long int", long_integer_type_node);
   record_builtin_type (RID_UNSIGNED, "unsigned int", unsigned_type_node);
-  record_builtin_type (CP_RID_MAX, "long unsigned int",
+  record_builtin_type (RID_MAX, "long unsigned int",
 		       long_unsigned_type_node);
-  record_builtin_type (CP_RID_MAX, "unsigned long", long_unsigned_type_node);
-  record_builtin_type (CP_RID_MAX, "long long int",
+  record_builtin_type (RID_MAX, "unsigned long", long_unsigned_type_node);
+  record_builtin_type (RID_MAX, "long long int",
 		       long_long_integer_type_node);
-  record_builtin_type (CP_RID_MAX, "long long unsigned int",
+  record_builtin_type (RID_MAX, "long long unsigned int",
 		       long_long_unsigned_type_node);
-  record_builtin_type (CP_RID_MAX, "long long unsigned",
+  record_builtin_type (RID_MAX, "long long unsigned",
 		       long_long_unsigned_type_node);
   record_builtin_type (RID_SHORT, "short int", short_integer_type_node);
-  record_builtin_type (CP_RID_MAX, "short unsigned int",
+  record_builtin_type (RID_MAX, "short unsigned int",
 		       short_unsigned_type_node); 
-  record_builtin_type (CP_RID_MAX, "unsigned short",
+  record_builtin_type (RID_MAX, "unsigned short",
 		       short_unsigned_type_node);
 
   ptrdiff_type_node
     = TREE_TYPE (IDENTIFIER_GLOBAL_VALUE (get_identifier (PTRDIFF_TYPE)));
 
   /* Define both `signed char' and `unsigned char'.  */
-  record_builtin_type (CP_RID_MAX, "signed char", signed_char_type_node);
-  record_builtin_type (CP_RID_MAX, "unsigned char", unsigned_char_type_node);
+  record_builtin_type (RID_MAX, "signed char", signed_char_type_node);
+  record_builtin_type (RID_MAX, "unsigned char", unsigned_char_type_node);
 
   /* `unsigned long' is the standard type for sizeof.
      Note that stddef.h uses `unsigned long',
@@ -6462,7 +6453,7 @@ init_decl_processing ()
   signed_size_zero_node = build_int_2 (0, 0);
   record_builtin_type (RID_FLOAT, NULL_PTR, float_type_node);
   record_builtin_type (RID_DOUBLE, NULL_PTR, double_type_node);
-  record_builtin_type (CP_RID_MAX, "long double", long_double_type_node);
+  record_builtin_type (RID_MAX, "long double", long_double_type_node);
 
   pushdecl (build_decl (TYPE_DECL, get_identifier ("complex int"),
 			complex_integer_type_node));
@@ -6479,17 +6470,13 @@ init_decl_processing ()
   void_list_node = build_tree_list (NULL_TREE, void_type_node);
   TREE_PARMLIST (void_list_node) = 1;
 
-  /* Used for expressions that do nothing, but are not errors.  */
-  void_zero_node = build_int_2 (0, 0);
-  TREE_TYPE (void_zero_node) = void_type_node;
-
   string_type_node = build_pointer_type (char_type_node);
   const_string_type_node
     = build_pointer_type (build_qualified_type (char_type_node,
 						TYPE_QUAL_CONST));
   empty_except_spec = build_tree_list (NULL_TREE, NULL_TREE);
 #if 0
-  record_builtin_type (CP_RID_MAX, NULL_PTR, string_type_node);
+  record_builtin_type (RID_MAX, NULL_PTR, string_type_node);
 #endif
 
   /* Make a type to be the domain of a few array types
@@ -6604,16 +6591,16 @@ init_decl_processing ()
       vtable_entry_type = build_qualified_type (vtable_entry_type,
 						TYPE_QUAL_CONST);
     }
-  record_builtin_type (CP_RID_MAX, VTBL_PTR_TYPE, vtable_entry_type);
+  record_builtin_type (RID_MAX, VTBL_PTR_TYPE, vtable_entry_type);
 
   vtbl_type_node
     = build_cplus_array_type (vtable_entry_type, NULL_TREE);
   layout_type (vtbl_type_node);
   vtbl_type_node = build_qualified_type (vtbl_type_node, TYPE_QUAL_CONST);
-  record_builtin_type (CP_RID_MAX, NULL_PTR, vtbl_type_node);
+  record_builtin_type (RID_MAX, NULL_PTR, vtbl_type_node);
   vtbl_ptr_type_node = build_pointer_type (vtable_entry_type);
   layout_type (vtbl_ptr_type_node);
-  record_builtin_type (CP_RID_MAX, NULL_PTR, vtbl_ptr_type_node);
+  record_builtin_type (RID_MAX, NULL_PTR, vtbl_ptr_type_node);
 
   std_node = build_decl (NAMESPACE_DECL,
 			 flag_honor_std 
@@ -6671,6 +6658,10 @@ init_decl_processing ()
     flag_weak = 0;
 
   /* Create the global bindings for __FUNCTION__ and __PRETTY_FUNCTION__.  */
+  function_id_node = get_identifier ("__FUNCTION__");
+  pretty_function_id_node = get_identifier ("__PRETTY_FUNCTION__");
+  func_id_node = get_identifier ("__func__");
+
   make_fname_decl = cp_make_fname_decl;
   declare_function_name ();
 
@@ -7966,15 +7957,12 @@ initialize_local_var (decl, init, flags)
 	{
 	  int saved_stmts_are_full_exprs_p;
 
-	  emit_line_note (DECL_SOURCE_FILE (decl),
-			  DECL_SOURCE_LINE (decl));
+	  my_friendly_assert (building_stmt_tree (), 20000906);
 	  saved_stmts_are_full_exprs_p = stmts_are_full_exprs_p ();
-	  current_stmt_tree->stmts_are_full_exprs_p = 1;
-	  if (building_stmt_tree ())
-	    finish_expr_stmt (build_aggr_init (decl, init, flags));
-	  else
-	    genrtl_expr_stmt (build_aggr_init (decl, init, flags));
-	  current_stmt_tree->stmts_are_full_exprs_p = saved_stmts_are_full_exprs_p;
+	  current_stmt_tree ()->stmts_are_full_exprs_p = 1;
+	  finish_expr_stmt (build_aggr_init (decl, init, flags));
+	  current_stmt_tree ()->stmts_are_full_exprs_p = 
+	    saved_stmts_are_full_exprs_p;
 	}
 
       /* Set this to 0 so we can tell whether an aggregate which was
@@ -8089,7 +8077,9 @@ cp_finish_decl (decl, init, asmspec_tree, flags)
     return;
   
   /* Add this declaration to the statement-tree.  */
-  if (building_stmt_tree () && at_function_scope_p ())
+  if (building_stmt_tree () 
+      && at_function_scope_p ()
+      && TREE_CODE (decl) != RESULT_DECL)
     add_decl_stmt (decl);
 
   if (TYPE_HAS_MUTABLE_P (type))
@@ -8212,8 +8202,7 @@ cp_finish_decl (decl, init, asmspec_tree, flags)
 	    {
 	      /* If we're not building RTL, then we need to do so
 		 now.  */
-	      if (!building_stmt_tree ())
-		emit_local_var (decl);
+	      my_friendly_assert (building_stmt_tree (), 20000906);
 	      /* Initialize the variable.  */
 	      initialize_local_var (decl, init, flags);
 	      /* Clean up the variable.  */
@@ -9828,7 +9817,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 
 	    next = 0;
 
-	    if (is_rid (dname))
+	    if (C_IS_RESERVED_WORD (dname))
 	      {
 		cp_error ("declarator-id missing; using reserved word `%D'",
 			  dname);
@@ -9872,7 +9861,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 		       && TREE_CODE (TREE_OPERAND (decl, 1)) == INDIRECT_REF)
 		ctype = cname;
 	      else if (TREE_CODE (cname) == TEMPLATE_TYPE_PARM
-		       || TREE_CODE (cname) == TEMPLATE_TEMPLATE_PARM)
+		       || TREE_CODE (cname) == BOUND_TEMPLATE_TEMPLATE_PARM)
 		{
 		  cp_error ("`%T::%D' is not a valid declarator", cname,
 			    TREE_OPERAND (decl, 1));
@@ -11978,7 +11967,8 @@ check_default_argument (decl, arg)
 
      The keyword `this' shall not be used in a default argument of a
      member function.  */
-  var = walk_tree (&arg, local_variable_p_walkfn, NULL);
+  var = walk_tree_without_duplicates (&arg, local_variable_p_walkfn, 
+				      NULL);
   if (var)
     {
       cp_error ("default argument `%E' uses local variable `%D'",
@@ -12493,7 +12483,7 @@ grok_op_properties (decl, virtualp, friendp)
 		    if (IS_AGGR_TYPE (arg)
 			|| TREE_CODE (arg) == ENUMERAL_TYPE
 			|| TREE_CODE (arg) == TEMPLATE_TYPE_PARM
-			|| TREE_CODE (arg) == TEMPLATE_TEMPLATE_PARM)
+			|| TREE_CODE (arg) == BOUND_TEMPLATE_TEMPLATE_PARM)
 		      goto foundaggr;
 		  }
 	      cp_error
@@ -12800,7 +12790,7 @@ xref_tag (code_type_node, name, globalize)
     t = IDENTIFIER_TYPE_VALUE (name);
 
   if (t && TREE_CODE (t) != code && TREE_CODE (t) != TEMPLATE_TYPE_PARM
-      && TREE_CODE (t) != TEMPLATE_TEMPLATE_PARM)
+      && TREE_CODE (t) != BOUND_TEMPLATE_TEMPLATE_PARM)
     t = NULL_TREE;
 
   if (! globalize)
@@ -13046,7 +13036,7 @@ xref_basetypes (code_type_node, name, ref, binfo)
 	  || (TREE_CODE (basetype) != RECORD_TYPE
 	      && TREE_CODE (basetype) != TYPENAME_TYPE
 	      && TREE_CODE (basetype) != TEMPLATE_TYPE_PARM
-	      && TREE_CODE (basetype) != TEMPLATE_TEMPLATE_PARM))
+	      && TREE_CODE (basetype) != BOUND_TEMPLATE_TEMPLATE_PARM))
 	{
 	  cp_error ("base type `%T' fails to be a struct or class type",
 		    TREE_VALUE (binfo));
@@ -13282,7 +13272,7 @@ finish_enum (enumtype)
     {
       tree scope = current_scope ();
       if (scope && TREE_CODE (scope) == FUNCTION_DECL)
-	add_tree (build_min (TAG_DEFN, enumtype));
+	add_stmt (build_min (TAG_DEFN, enumtype));
     }
   else
     {
@@ -13872,10 +13862,11 @@ start_function (declspecs, declarator, attrs, flags)
     cplus_decl_attributes (decl1, NULL_TREE, attrs);
 
   if (!building_stmt_tree ())
-    {
-      GNU_xref_function (decl1, current_function_parms);
-      make_function_rtl (decl1);
-    }
+    GNU_xref_function (decl1, current_function_parms);
+
+  /* We need to do this even if we aren't expanding yet so that
+     assemble_external works.  */
+  make_function_rtl (decl1);
 
   /* Promote the value to int before returning it.  */
   if (C_PROMOTING_INTEGER_TYPE_P (restype))
@@ -14067,31 +14058,6 @@ store_parm_decls ()
     current_eh_spec_try_block = expand_start_eh_spec ();
 }
 
-/* Bind a name and initialization to the return value of
-   the current function.  */
-
-void
-store_return_init (decl)
-     tree decl;
-{
-  /* If this named return value comes in a register, put it in a
-     pseudo-register.  */
-  if (DECL_REGISTER (decl))
-    {
-      original_result_rtx = DECL_RTL (decl);
-      /* Note that the mode of the old DECL_RTL may be wider than the
-	 mode of DECL_RESULT, depending on the calling conventions for
-	 the processor.  For example, on the Alpha, a 32-bit integer
-	 is returned in a DImode register -- the DECL_RESULT has
-	 SImode but the DECL_RTL for the DECL_RESULT has DImode.  So,
-	 here, we use the mode the back-end has already assigned for
-	 the return value.  */
-      DECL_RTL (decl) = gen_reg_rtx (GET_MODE (original_result_rtx));
-      if (TREE_ADDRESSABLE (decl))
-	put_var_into_stack (decl);
-    }
-}
-
 
 /* We have finished doing semantic analysis on DECL, but have not yet
    generated RTL for its body.  Save away our current state, so that
@@ -14101,7 +14067,7 @@ static void
 save_function_data (decl)
      tree decl;
 {
-  struct language_function *f;
+  struct cp_language_function *f;
 
   /* Save the language-specific per-function data so that we can
      get it back when we really expand this function.  */
@@ -14109,15 +14075,15 @@ save_function_data (decl)
 		      19990908);
 
   /* Make a copy.  */
-  f = ((struct language_function *)
-       xmalloc (sizeof (struct language_function)));
+  f = ((struct cp_language_function *)
+       xmalloc (sizeof (struct cp_language_function)));
   bcopy ((char *) cp_function_chain, (char *) f,
-	 sizeof (struct language_function));
+	 sizeof (struct cp_language_function));
   DECL_SAVED_FUNCTION_DATA (decl) = f;
 
   /* Clear out the bits we don't need.  */
-  f->x_stmt_tree.x_last_stmt = NULL_TREE;
-  f->x_stmt_tree.x_last_expr_type = NULL_TREE;
+  f->base.x_stmt_tree.x_last_stmt = NULL_TREE;
+  f->base.x_stmt_tree.x_last_expr_type = NULL_TREE;
   f->x_result_rtx = NULL_RTX;
   f->x_named_label_uses = NULL;
   f->bindings = NULL;
@@ -14139,7 +14105,7 @@ finish_constructor_body ()
 {
   /* Any return from a constructor will end up here.  */
   if (ctor_label)
-    add_tree (build_stmt (LABEL_STMT, ctor_label));
+    add_stmt (build_stmt (LABEL_STMT, ctor_label));
 
   /* Clear CTOR_LABEL so that finish_return_stmt knows to really
      generate the return, rather than a goto to CTOR_LABEL.  */
@@ -14148,7 +14114,7 @@ finish_constructor_body ()
      constructor to a return of `this'.  */
   finish_return_stmt (NULL_TREE);
   /* Mark the end of the constructor.  */
-  add_tree (build_stmt (CTOR_STMT));
+  add_stmt (build_stmt (CTOR_STMT));
 }
 
 /* At the end of every destructor we generate code to restore virtual
@@ -14167,7 +14133,7 @@ finish_destructor_body ()
   compound_stmt = begin_compound_stmt (/*has_no_scope=*/0);
 
   /* Any return from a destructor will end up here.  */
-  add_tree (build_stmt (LABEL_STMT, dtor_label));
+  add_stmt (build_stmt (LABEL_STMT, dtor_label));
 
   /* Generate the code to call destructor on base class.  If this
      destructor belongs to a class with virtual functions, then set
@@ -14543,6 +14509,18 @@ finish_function (flags)
 	note_debug_info_needed (ctype);
 #endif
 
+      /* If this function is marked with the constructor attribute,
+	 add it to the list of functions to be called along with
+	 constructors from static duration objects.  */
+      if (DECL_STATIC_CONSTRUCTOR (fndecl))
+	static_ctors = tree_cons (NULL_TREE, fndecl, static_ctors);
+
+      /* If this function is marked with the destructor attribute,
+	 add it to the list of functions to be called along with
+	 destructors from static duration objects.  */
+      if (DECL_STATIC_DESTRUCTOR (fndecl))
+	static_dtors = tree_cons (NULL_TREE, fndecl, static_dtors);
+
       if (DECL_NAME (DECL_RESULT (fndecl)))
 	returns_value |= can_reach_end;
       else
@@ -14597,11 +14575,6 @@ finish_function (flags)
       for (t = DECL_ARGUMENTS (fndecl); t; t = TREE_CHAIN (t))
 	DECL_RTL (t) = DECL_INCOMING_RTL (t) = NULL_RTX;
     }
-
-  if (DECL_STATIC_CONSTRUCTOR (fndecl))
-    static_ctors = tree_cons (NULL_TREE, fndecl, static_ctors);
-  if (DECL_STATIC_DESTRUCTOR (fndecl))
-    static_dtors = tree_cons (NULL_TREE, fndecl, static_dtors);
 
   /* Clean up.  */
   if (! nested)
@@ -14953,10 +14926,10 @@ static void
 push_cp_function_context (f)
      struct function *f;
 {
-  struct language_function *p
-    = ((struct language_function *)
-       xcalloc (1, sizeof (struct language_function)));
-  f->language = p;
+  struct cp_language_function *p
+    = ((struct cp_language_function *)
+       xcalloc (1, sizeof (struct cp_language_function)));
+  f->language = (struct language_function *) p;
 
   /* It takes an explicit call to expand_body to generate RTL for a
      function.  */
@@ -14964,7 +14937,7 @@ push_cp_function_context (f)
 
   /* Whenever we start a new function, we destroy temporaries in the
      usual way.  */
-  current_stmt_tree->stmts_are_full_exprs_p = 1;
+  current_stmt_tree ()->stmts_are_full_exprs_p = 1;
 }
 
 /* Free the language-specific parts of F, now that we've finished
@@ -14983,7 +14956,7 @@ pop_cp_function_context (f)
 
 static void
 mark_lang_function (p)
-     struct language_function *p;
+     struct cp_language_function *p;
 {
   if (!p)
     return;
@@ -14998,7 +14971,7 @@ mark_lang_function (p)
   ggc_mark_rtx (p->x_result_rtx);
 
   mark_named_label_lists (&p->x_named_labels, &p->x_named_label_uses);
-  mark_stmt_tree (&p->x_stmt_tree);
+  mark_stmt_tree (&p->base.x_stmt_tree);
   mark_binding_level (&p->bindings);
 }
 
@@ -15008,7 +14981,7 @@ static void
 mark_cp_function_context (f)
      struct function *f;
 {
-  mark_lang_function (f->language);
+  mark_lang_function ((struct cp_language_function *) f->language);
 }
 
 void

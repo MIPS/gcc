@@ -19,6 +19,9 @@ along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
+#ifndef GCC_C_COMMON_H
+#define GCC_C_COMMON_H
+
 /* Usage of TREE_LANG_FLAG_?:
    0: COMPOUND_STMT_NO_SCOPE (in COMPOUND_STMT).
       TREE_NEGATED_INT (in INTEGER_CST).
@@ -33,51 +36,71 @@ Boston, MA 02111-1307, USA.  */
    4: SCOPE_PARTIAL_P (in SCOPE_STMT)
 */
 
-/* Reserved identifiers.  */
+/* Reserved identifiers.  This is the union of all the keywords for C,
+   C++, and Objective C.  All the type modifiers have to be in one
+   block at the beginning, because they are used as mask bits.  There
+   are 27 type modifiers; if we add many more we will have to redesign
+   the mask mechanism.  */
 
 enum rid
 {
-  RID_UNUSED,
-  RID_INT,
-  RID_CHAR,
-  RID_FLOAT,
-  RID_DOUBLE,
-  RID_VOID,
-  RID_UNUSED1,
+  /* Modifiers: */
+  /* C, in empirical order of frequency. */
+  RID_STATIC = 0,
+  RID_UNSIGNED, RID_LONG,    RID_CONST, RID_EXTERN,
+  RID_REGISTER, RID_TYPEDEF, RID_SHORT, RID_INLINE,
+  RID_VOLATILE, RID_SIGNED,  RID_AUTO,  RID_RESTRICT,
 
-  /* The first seven are in the order of most frequently used,
-     as emiprically determined.  */
-  RID_FIRST_MODIFIER,
-  RID_EXTERN = RID_FIRST_MODIFIER,
-  RID_CONST,
-  RID_LONG,
-  RID_TYPEDEF,
-  RID_UNSIGNED,
-  RID_SHORT,
-  RID_INLINE,
-  RID_AUTO,
-  RID_STATIC,
-  RID_REGISTER,
-  RID_SIGNED,
-  RID_RESTRICT,
-  RID_VOLATILE,
-  RID_BOUNDED,
-  RID_UNBOUNDED,
-  RID_NOALIAS,
-  RID_COMPLEX,
+  /* C extensions */
+  RID_BOUNDED, RID_UNBOUNDED, RID_COMPLEX,
 
-  RID_IN,
-  RID_OUT,
-  RID_INOUT,
-  RID_BYCOPY,
-  RID_BYREF,
-  RID_ONEWAY,
-  RID_ID,
+  /* C++ */
+  RID_FRIEND, RID_VIRTUAL, RID_EXPLICIT, RID_EXPORT, RID_MUTABLE,
 
-  RID_MAX
+  /* ObjC */
+  RID_IN, RID_OUT, RID_INOUT, RID_BYCOPY, RID_BYREF, RID_ONEWAY,
+
+  /* C */
+  RID_INT,     RID_CHAR,   RID_FLOAT,    RID_DOUBLE, RID_VOID,
+  RID_ENUM,    RID_STRUCT, RID_UNION,    RID_IF,     RID_ELSE,
+  RID_WHILE,   RID_DO,     RID_FOR,      RID_SWITCH, RID_CASE,
+  RID_DEFAULT, RID_BREAK,  RID_CONTINUE, RID_RETURN, RID_GOTO,
+  RID_SIZEOF,
+
+  /* C extensions */
+  RID_ASM,       RID_TYPEOF,   RID_ALIGNOF,  RID_ATTRIBUTE,  RID_VA_ARG,
+  RID_EXTENSION, RID_IMAGPART, RID_REALPART, RID_LABEL,      RID_PTR_LOW,
+  RID_PTR_HIGH,  RID_PTR_VALUE,
+
+  /* C++ */
+  RID_BOOL,     RID_WCHAR,    RID_CLASS,
+  RID_PUBLIC,   RID_PRIVATE,  RID_PROTECTED,
+  RID_TEMPLATE, RID_NULL,     RID_CATCH,
+  RID_DELETE,   RID_FALSE,    RID_NAMESPACE,
+  RID_NEW,      RID_OPERATOR, RID_THIS,
+  RID_THROW,    RID_TRUE,     RID_TRY,
+  RID_TYPENAME, RID_TYPEID,   RID_USING,
+
+  /* casts */
+  RID_CONSTCAST, RID_DYNCAST, RID_REINTCAST, RID_STATCAST,
+
+  /* alternate spellings */
+  RID_AND, RID_AND_EQ, RID_NOT, RID_NOT_EQ,
+  RID_OR,  RID_OR_EQ,  RID_XOR, RID_XOR_EQ,
+  RID_BITAND, RID_BITOR, RID_COMPL,
+
+  /* Objective C */
+  RID_ID,          RID_AT_ENCODE,    RID_AT_END,
+  RID_AT_CLASS,    RID_AT_ALIAS,     RID_AT_DEFS,
+  RID_AT_PRIVATE,  RID_AT_PROTECTED, RID_AT_PUBLIC,
+  RID_AT_PROTOCOL, RID_AT_SELECTOR,  RID_AT_INTERFACE,
+  RID_AT_IMPLEMENTATION,
+
+  RID_MAX,
+
+  RID_FIRST_MODIFIER = RID_STATIC,
+  RID_LAST_MODIFIER = RID_ONEWAY
 };
-
-#define NORID RID_UNUSED
 
 /* The elements of `ridpointers' are identifier nodes for the reserved
    type names and storage classes.  It is indexed by a RID_... value.  */
@@ -91,6 +114,7 @@ enum c_tree_index
     CTI_SIGNED_WCHAR_TYPE,
     CTI_UNSIGNED_WCHAR_TYPE,
     CTI_WINT_TYPE,
+    CTI_C_SIZE_TYPE, /* For format checking only.  */
     CTI_SIGNED_SIZE_TYPE, /* For format checking only.  */
     CTI_UNSIGNED_PTRDIFF_TYPE, /* For format checking only.  */
     CTI_WIDEST_INT_LIT_TYPE,
@@ -118,6 +142,13 @@ enum c_tree_index
     CTI_G77_LONGINT_TYPE,
     CTI_G77_ULONGINT_TYPE,
 
+    /* These are not types, but we have to look them up all the time.  */
+    CTI_FUNCTION_ID,
+    CTI_PRETTY_FUNCTION_ID,
+    CTI_FUNC_ID,
+
+    CTI_VOID_ZERO,
+
     CTI_MAX
 };
 
@@ -125,6 +156,7 @@ enum c_tree_index
 #define signed_wchar_type_node		c_global_trees[CTI_SIGNED_WCHAR_TYPE]
 #define unsigned_wchar_type_node	c_global_trees[CTI_UNSIGNED_WCHAR_TYPE]
 #define wint_type_node			c_global_trees[CTI_WINT_TYPE]
+#define c_size_type_node		c_global_trees[CTI_C_SIZE_TYPE]
 #define signed_size_type_node		c_global_trees[CTI_SIGNED_SIZE_TYPE]
 #define unsigned_ptrdiff_type_node	c_global_trees[CTI_UNSIGNED_PTRDIFF_TYPE]
 #define widest_integer_literal_type_node c_global_trees[CTI_WIDEST_INT_LIT_TYPE]
@@ -153,6 +185,13 @@ enum c_tree_index
 #define g77_longint_type_node		c_global_trees[CTI_G77_LONGINT_TYPE]
 #define g77_ulongint_type_node		c_global_trees[CTI_G77_ULONGINT_TYPE]
 
+#define function_id_node		c_global_trees[CTI_FUNCTION_ID]
+#define pretty_function_id_node		c_global_trees[CTI_PRETTY_FUNCTION_ID]
+#define func_id_node			c_global_trees[CTI_FUNC_ID]
+
+/* A node for `((void) 0)'.  */
+#define void_zero_node                  c_global_trees[CTI_VOID_ZERO]
+
 extern tree c_global_trees[CTI_MAX];
 
 typedef enum c_language_kind
@@ -163,6 +202,71 @@ typedef enum c_language_kind
   clk_objective_c  /* Objective C */
 } 
 c_language_kind;
+
+/* Information about a statement tree.  */
+
+struct stmt_tree_s {
+  /* The last statement added to the tree.  */
+  tree x_last_stmt;
+  /* The type of the last expression statement.  (This information is
+     needed to implement the statement-expression extension.)  */
+  tree x_last_expr_type;
+  /* In C++, Non-zero if we should treat statements as full
+     expressions.  In particular, this variable is no-zero if at the
+     end of a statement we should destroy any temporaries created
+     during that statement.  Similarly, if, at the end of a block, we
+     should destroy any local variables in this block.  Normally, this
+     variable is non-zero, since those are the normal semantics of
+     C++.
+
+     However, in order to represent aggregate initialization code as
+     tree structure, we use statement-expressions.  The statements
+     within the statement expression should not result in cleanups
+     being run until the entire enclosing statement is complete.  
+
+     This flag has no effect in C.  */
+  int stmts_are_full_exprs_p; 
+};
+
+typedef struct stmt_tree_s *stmt_tree;
+
+/* Global state pertinent to the current function.  Some C dialects
+   extend this structure with additional fields.  */
+
+struct language_function {
+  /* While we are parsing the function, this contains information
+     about the statement-tree that we are building.  */
+  struct stmt_tree_s x_stmt_tree;
+};
+
+/* When building a statement-tree, this is the last statement added to
+   the tree.  */
+
+#define last_tree (current_stmt_tree ()->x_last_stmt)
+
+/* The type of the last expression-statement we have seen.  */
+
+#define last_expr_type (current_stmt_tree ()->x_last_expr_type)
+
+/* The type of a function that walks over tree structure.  */
+
+typedef tree (*walk_tree_fn)                    PARAMS ((tree *, 
+							 int *, 
+							 void *));
+
+extern stmt_tree current_stmt_tree              PARAMS ((void));
+extern void begin_stmt_tree                     PARAMS ((tree *));
+extern void add_stmt				PARAMS ((tree));
+extern void finish_stmt_tree                    PARAMS ((tree *));
+
+extern int statement_code_p                     PARAMS ((enum tree_code));
+extern int (*lang_statement_code_p)             PARAMS ((enum tree_code));
+extern tree walk_stmt_tree			PARAMS ((tree *,
+							 walk_tree_fn,
+							 void *));
+extern void prep_stmt                           PARAMS ((tree));
+extern void (*lang_expand_stmt)                 PARAMS ((tree));
+extern void expand_stmt                         PARAMS ((tree));
 
 /* The variant of the C language being processed.  Each C language
    front-end defines this variable.  */
@@ -303,8 +407,13 @@ extern tree build_va_arg			PARAMS ((tree, tree));
 extern int self_promoting_args_p		PARAMS ((tree));
 extern tree simple_type_promotes_to		PARAMS ((tree));
 
-/* These macros provide convenient access to the various _STMT nodes
-   created when parsing template declarations.  */
+/* These macros provide convenient access to the various _STMT nodes.  */
+
+/* Nonzero if this statement should be considered a full-expression,
+   i.e., if temporaries created during this statement should have
+   their destructors run at the end of this statement.  (In C, this
+   will always be false, since there are no destructors.)  */
+#define STMT_IS_FULL_EXPR_P(NODE) TREE_LANG_FLAG_1 ((NODE))
 
 /* IF_STMT accessors. These give access to the condtion of the if
    statement, the then block of the if statement, and the else block
@@ -479,8 +588,6 @@ extern int anon_aggr_type_p                     PARAMS ((tree));
 extern void emit_local_var                      PARAMS ((tree));
 extern void make_rtl_for_local_static           PARAMS ((tree));
 extern tree expand_cond                         PARAMS ((tree));
-extern tree expand_stmt                         PARAMS ((tree));
-extern tree lang_expand_stmt                    PARAMS ((tree));
 extern void c_expand_return			PARAMS ((tree));
 extern tree c_expand_start_case			PARAMS ((tree));
 extern void do_case				PARAMS ((tree, tree));
@@ -510,3 +617,23 @@ extern tree default_conversion                  PARAMS ((tree));
    Given two compatible ANSI C types, returns the merged type.  */
 
 extern tree common_type                         PARAMS ((tree, tree));
+
+extern tree expand_tree_builtin                 PARAMS ((tree, tree, tree));
+
+/* Hook currently used only by the C++ front end to reset internal state
+   after entering or leaving a header file.  */
+extern void extract_interface_info		PARAMS ((void));
+
+/* Information recorded about each file examined during compilation.  */
+
+struct c_fileinfo
+{
+  int time;	/* Time spent in the file.  */
+  short interface_only;		/* Flags - used only by C++ */
+  short interface_unknown;
+};
+
+struct c_fileinfo *get_fileinfo			PARAMS ((const char *));
+extern void dump_time_statistics		PARAMS ((void));
+
+#endif

@@ -1,3 +1,94 @@
+2000-09-07  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* gcc.dg/format-ext-3.c: Test %#b and %#h as formats that should
+	be accepted.
+
+2000-09-07  Catherine Moore  <clm@redhat.com>
+
+        * gcc.c-torture/execute/unroll-1.c: New test.
+
+2000-09-06  Zack Weinberg  <zack@wolery.cumb.org>
+
+	* g++.old-deja/g++.benjamin/13478.C: Put meaningful tags on
+	ERROR markers.
+	* g++.old-deja/g++.brendan/crash8.C: Move ERROR marker up one line.
+	* gcc.dg/c99-array-nonobj-1.c: Don't expect func[] cases to fail.
+	* gcc.dg/wtr-label-1.c: Don't use unconstrained .* in error regexps.
+	* gcc.dg/wtr-suffix-1.c: Correct error regexps.
+	* gcc.dg/cpp/unc1.c, gcc.dg/cpp/unc2.c, gcc.dg/cpp/unc3.c:
+	Preprocess only.
+	* gcc.dg/cpp/unc4.c: Adjust line number in dg-error line.
+	* gcc.dg/noncompile/const-ll-1.c: Generalize error regexp.
+
+2000-09-06  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.old-deja/g++.pt/deduct2.C: New test.
+
+2000-09-06  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.old-deja/g++.pt/parms2.C: New test.
+
+2000-09-06  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.old-deja/g++.pt/crash58.C: New test.
+
+2000-09-06  Greg McGary  <greg@mcgary.org>
+
+	* gcc.c-torture/20000906.c: New test.
+	* gcc.c-torture/20000906.x: Expect failure for ix86 at `-O2'.
+
+2000-09-05  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/wtr-int-type-1.c: Fix for 64-bit platforms.
+
+2000-09-04  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.old-deja/g++.pt/crash57.C: New test.
+
+2000-09-04  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.old-deja/g++.pt/crash56.C: New test.
+
+2000-09-04  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.old-deja/g++.pt/koenig1.C: New test.
+
+2000-09-04  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/20000904-1.c: New test.
+
+2000-09-04  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/cpp/paste8.c: New test.
+
+2000-09-01  Alexandre Oliva  <aoliva@redhat.com>
+
+	* gcc.c-torture/compile/20000827-1.c: New test.
+
+2000-09-01  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* gcc.dg/format-diag-1.c: New test.
+
+2000-09-01  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* gcc.dg/c90-printf-1.c, gcc.dg/c90-printf-2.c,
+	gcc.dg/c90-scanf-1.c, gcc.dg/c90-scanf-2.c, gcc.dg/c99-printf-1.c,
+	gcc.dg/c99-scanf-1.c, gcc.dg/format-ext-1.c,
+	gcc.dg/format-ext-2.c, gcc.dg/format-xopen-1.c,
+	gcc.dg/formatz-1.c: Adjust warning regular expressions.
+
+2000-09-01  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.old-deja/g++.other/nested4.C: New test.
+
+2000-09-01  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.old-deja/g++.ns/scoped1.C: New test.
+
+2000-08-30  Alexandre Oliva  <aoliva@redhat.com>
+
+	* lib/g++.exp: Support testing already-installed GCC.
+
 2000-08-29  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
 
 	* wtr-label-1.c, wtr-suffix-1.c: New tests.
@@ -246,7 +337,7 @@ Sun Aug  6 11:41:51 2000  Ovidiu Predescu  <ovidiu@cup.hp.com>
 
 2000-08-05  Zack Weinberg  <zack@wolery.cumb.org>
 
-	* gcc.c-torture/execute/20000731-1.x: Delete.  
+	* gcc.c-torture/execute/20000731-1.x: Delete.
 
 2000-08-04  Zack Weinberg  <zack@wolery.cumb.org>
 

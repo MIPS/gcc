@@ -309,6 +309,7 @@ layout_decl (decl, known_align)
      size in bytes from the size in bits.  If we have already set the mode,
      don't set it again since we can be called twice for FIELD_DECLs.  */
 
+  TREE_BOUNDED (decl) = BOUNDED_INDIRECT_TYPE_P (type);
   TREE_UNSIGNED (decl) = TREE_UNSIGNED (type);
   if (DECL_MODE (decl) == VOIDmode)
     DECL_MODE (decl) = TYPE_MODE (type);
@@ -402,6 +403,17 @@ layout_decl (decl, known_align)
 			       larger_than_size);
 	}
     }
+}
+
+/* Redo layout_decl, to reflect a change in DECL_TYPE.  */
+
+void
+relayout_decl (decl)
+     tree decl;
+{
+  DECL_MODE (decl) = VOIDmode;
+  DECL_SIZE (decl) = DECL_SIZE_UNIT (decl) = 0;
+  layout_decl (decl, 0);
 }
 
 /* Begin laying out type T, which may be a RECORD_TYPE, UNION_TYPE, or
@@ -998,7 +1010,7 @@ finalize_record_size (rli)
 
 	  if (TYPE_NAME (rli->t))
 	    {
-	      char *name;
+	      const char *name;
 
 	      if (TREE_CODE (TYPE_NAME (rli->t)) == IDENTIFIER_NODE)
 		name = IDENTIFIER_POINTER (TYPE_NAME (rli->t));

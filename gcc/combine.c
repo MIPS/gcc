@@ -6002,7 +6002,7 @@ make_extraction (mode, inner, pos, pos_rtx, len,
 
 	  /* Prefer ZERO_EXTENSION, since it gives more information to
 	     backends.  */
-	  if (rtx_cost (temp, SET) < rtx_cost (temp1, SET))
+	  if (rtx_cost (temp, SET) <= rtx_cost (temp1, SET))
 	    return temp;
 	  return temp1;
 	}
@@ -6218,7 +6218,7 @@ make_extraction (mode, inner, pos, pos_rtx, len,
 	{
 	  rtx temp1 = gen_rtx_SIGN_EXTEND (pos_mode, pos_rtx);
 
-	  /* Preffer ZERO_EXTENSION, since it gives more information to
+	  /* Prefer ZERO_EXTENSION, since it gives more information to
 	     backends.  */
 	  if (rtx_cost (temp1, SET) < rtx_cost (temp, SET))
 	    temp = temp1;
@@ -12036,6 +12036,7 @@ distribute_notes (notes, from_insn, i3, i2, elim_i2, elim_i1)
 
 	case REG_EH_REGION:
 	case REG_EH_RETHROW:
+	case REG_NORETURN:
 	  /* These notes must remain with the call.  It should not be
 	     possible for both I2 and I3 to be a call.  */
 	  if (GET_CODE (i3) == CALL_INSN)

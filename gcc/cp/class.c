@@ -153,7 +153,7 @@ static void check_bases PARAMS ((tree, int *, int *, int *));
 static void check_bases_and_members PARAMS ((tree, int *));
 static tree create_vtable_ptr PARAMS ((tree, int *, int *, tree *, tree *));
 static void layout_class_type PARAMS ((tree, int *, int *, tree *, tree *));
-static void fixup_pending_inline PARAMS ((struct pending_inline *));
+static void fixup_pending_inline PARAMS ((tree));
 static void fixup_inline_methods PARAMS ((tree));
 static void set_primary_base PARAMS ((tree, tree, int *));
 static void propagate_binfo_offsets PARAMS ((tree, tree));
@@ -855,7 +855,8 @@ build_secondary_vtable (binfo, for_type)
   tree new_decl;
   tree offset;
   tree path = binfo;
-  char *buf, *buf2;
+  char *buf;
+  const char *buf2;
   char joiner = '_';
   int i;
 
@@ -4448,15 +4449,12 @@ create_vtable_ptr (t, empty_p, vfuns_p,
    complete.  */
 
 static void
-fixup_pending_inline (info)
-     struct pending_inline *info;
+fixup_pending_inline (fn)
+     tree fn;
 {
-  if (info)
+  if (DECL_PENDING_INLINE_INFO (fn))
     {
-      tree args;
-      tree fn = info->fndecl;
-
-      args = DECL_ARGUMENTS (fn);
+      tree args = DECL_ARGUMENTS (fn);
       while (args)
 	{
 	  DECL_CONTEXT (args) = fn;
@@ -4486,13 +4484,13 @@ fixup_inline_methods (type)
 
   /* Do inline member functions.  */
   for (; method; method = TREE_CHAIN (method))
-    fixup_pending_inline (DECL_PENDING_INLINE_INFO (method));
+    fixup_pending_inline (method);
 
   /* Do friends.  */
   for (method = CLASSTYPE_INLINE_FRIENDS (type); 
        method; 
        method = TREE_CHAIN (method))
-    fixup_pending_inline (DECL_PENDING_INLINE_INFO (TREE_VALUE (method)));
+    fixup_pending_inline (TREE_VALUE (method));
   CLASSTYPE_INLINE_FRIENDS (type) = NULL_TREE;
 }
 
@@ -5267,7 +5265,7 @@ finish_struct (t, attributes)
     {
       tree scope = current_scope ();
       if (scope && TREE_CODE (scope) == FUNCTION_DECL)
-	add_tree (build_min (TAG_DEFN, t));
+	add_stmt (build_min (TAG_DEFN, t));
     }
 
   return t;
@@ -5425,6 +5423,10 @@ init_class_processing ()
   access_public_virtual_node = build_int_2 (4 | ak_public, 0);
   access_protected_virtual_node = build_int_2 (4 | ak_protected, 0);
   access_private_virtual_node = build_int_2 (4 | ak_private, 0);
+
+  ridpointers[(int) RID_PUBLIC] = access_public_node;
+  ridpointers[(int) RID_PRIVATE] = access_private_node;
+  ridpointers[(int) RID_PROTECTED] = access_protected_node;
 }
 
 /* Set current scope to NAME. CODE tells us if this is a
@@ -5643,7 +5645,7 @@ push_nested_class (type, modify)
       || TREE_CODE (type) == NAMESPACE_DECL
       || ! IS_AGGR_TYPE (type)
       || TREE_CODE (type) == TEMPLATE_TYPE_PARM
-      || TREE_CODE (type) == TEMPLATE_TEMPLATE_PARM)
+      || TREE_CODE (type) == BOUND_TEMPLATE_TEMPLATE_PARM)
     return;
   
   context = DECL_CONTEXT (TYPE_MAIN_DECL (type));
@@ -5964,13 +5966,20 @@ resolve_address_of_overloaded_function (target_type,
   /* Good, exactly one match.  Now, convert it to the correct type.  */
   fn = TREE_PURPOSE (matches);
 
-  if (TREE_CODE (TREE_TYPE (fn)) == METHOD_TYPE
+  if (DECL_NONSTATIC_MEMBER_FUNCTION_P (fn)
       && !ptrmem && !flag_ms_extensions)
     {
+      static int explained;
+      
       if (!complain)
         return error_mark_node;
 
       cp_pedwarn ("assuming pointer to member `%D'", fn);
+      if (!explained)
+        {
+          cp_pedwarn ("(a pointer to member can only be formed with `&%E')", fn);
+          explained = 1;
+        }
     }
   mark_used (fn);
 

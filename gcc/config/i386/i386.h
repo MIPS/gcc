@@ -1324,7 +1324,8 @@ typedef struct ix86_args {
    If we are returning floats on the register stack, we cannot make
    sibling calls to functions that return floats.  (The stack adjust
    instruction will wind up after the sibcall jump, and not be executed.) */
-#define FUNCTION_OK_FOR_SIBCALL(DECL) (DECL \
+#define FUNCTION_OK_FOR_SIBCALL(DECL) \
+  (DECL \
    && (! flag_pic || ! TREE_PUBLIC (DECL)) \
    && (! TARGET_FLOAT_RETURNS_IN_80387 \
        || ! FLOAT_MODE_P (TYPE_MODE (TREE_TYPE (TREE_TYPE (DECL)))) \
@@ -1977,22 +1978,14 @@ while (0)
 	unsigned HOST_WIDE_INT value = INTVAL (XEXP (X, 1));		\
 	int nbits = 0;							\
 									\
-	if (value == 2)							\
-	  TOPLEVEL_COSTS_N_INSNS (ix86_cost->add);			\
-	if (value == 4 || value == 8)					\
-	  TOPLEVEL_COSTS_N_INSNS (ix86_cost->lea);			\
-									\
 	while (value != 0)						\
 	  {								\
 	    nbits++;							\
 	    value >>= 1;						\
 	  } 								\
 									\
-	if (nbits == 1)							\
-	  TOPLEVEL_COSTS_N_INSNS (ix86_cost->shift_const);		\
-	else								\
-	  TOPLEVEL_COSTS_N_INSNS (ix86_cost->mult_init			\
-			          + nbits * ix86_cost->mult_bit);	\
+	TOPLEVEL_COSTS_N_INSNS (ix86_cost->mult_init			\
+			        + nbits * ix86_cost->mult_bit);		\
       }									\
     else			/* This is arbitrary */			\
       TOPLEVEL_COSTS_N_INSNS (ix86_cost->mult_init			\
@@ -2108,7 +2101,7 @@ while (0)
    lifetimes.  */
 
 #define ADDRESS_COST(RTX) \
-  ix86_address_cost (x)
+  ix86_address_cost (RTX)
 
 /* A C expression for the cost of moving data from a register in class FROM to
    one in class TO.  The classes are expressed using the enumeration values

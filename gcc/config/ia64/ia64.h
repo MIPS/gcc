@@ -1479,7 +1479,7 @@ do {									\
 /* Output at beginning of assembler file.  */
 
 #define ASM_FILE_START(FILE) \
-  ia64_file_start (FILE)
+  emit_safe_across_calls (FILE)
 
 /* A C compound statement that outputs the assembler code for a thunk function,
    used to implement C++ virtual function calls with multiple inheritance.  */
@@ -1693,18 +1693,6 @@ do {									\
    will be overridden by libgcc2.c.  We avoid this by using different names
    for lib1funcs.asm modules, e.g. __divdi3 vs _divdi3.  Since lib1funcs.asm
    goes into libgcc.a first, the linker will find it first.  */
-
-/* Define this macro as a C statement that declares additional library routines
-   renames existing ones.  */
-
-/* ??? Disable the SImode divide routines for now.  */
-#define INIT_TARGET_OPTABS \
-do {									\
-  sdiv_optab->handlers[(int) SImode].libfunc = 0;			\
-  udiv_optab->handlers[(int) SImode].libfunc = 0;			\
-  smod_optab->handlers[(int) SImode].libfunc = 0;			\
-  umod_optab->handlers[(int) SImode].libfunc = 0;			\
-} while (0)
 
 /* Define this macro if GNU CC should generate calls to the System V (and ANSI
    C) library functions `memcpy' and `memset' rather than the BSD functions

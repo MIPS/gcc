@@ -558,6 +558,30 @@
 	cmp/eq	%1,%0
 	cmp/eq	%1,%0")
 
+(define_insn "cmpeqsi_ior_t"
+  [(set (reg:SI 18)
+	(ior:SI (reg:SI 18)
+		(eq:SI (match_operand:SI 0 "arith_reg_operand" "r,z,r")
+		       (match_operand:SI 1 "arith_operand" "N,rI,r"))))]
+  ""
+  "@
+	bt .+4\;tst	%0,%0
+	bt .+4\;cmp/eq	%1,%0
+	bt .+4\;cmp/eq	%1,%0"
+  [(set_attr "length" "4")])
+
+(define_insn "cmpeqsi_and_t"
+  [(set (reg:SI 18)
+	(and:SI (reg:SI 18)
+		(eq:SI (match_operand:SI 0 "arith_reg_operand" "r,z,r")
+		       (match_operand:SI 1 "arith_operand" "N,rI,r"))))]
+  ""
+  "@
+	bf .+4\;tst	%0,%0
+	bf .+4\;cmp/eq	%1,%0
+	bf .+4\;cmp/eq	%1,%0"
+  [(set_attr "length" "4")])
+
 (define_insn "cmpgtsi_t"
   [(set (reg:SI 18) (gt:SI (match_operand:SI 0 "arith_reg_operand" "r,r")
 			   (match_operand:SI 1 "arith_reg_or_0_operand" "r,N")))]
@@ -636,11 +660,9 @@
 			   (match_operand:DI 1 "arith_reg_or_0_operand" "N,r")))]
   "reload_completed"
   [(set (reg:SI 18) (eq:SI (match_dup 2) (match_dup 3)))
-   (set (pc) (if_then_else (eq (reg:SI 18) (const_int 0))
-			   (label_ref (match_dup 6))
-			   (pc)))
-   (set (reg:SI 18) (eq:SI (match_dup 4) (match_dup 5)))
-   (match_dup 6)]
+   (set (reg:SI 18)
+	(and:SI (reg:SI 18)
+		(eq:SI (match_dup 4) (match_dup 5))))]
   "
 {
   operands[2]
@@ -654,7 +676,6 @@
 		      + (TARGET_LITTLE_ENDIAN ? 1 : 0)));
   operands[4] = gen_lowpart (SImode, operands[0]);
   operands[5] = gen_lowpart (SImode, operands[1]);
-  operands[6] = gen_label_rtx ();
 }")
 
 (define_insn "cmpgtdi_t"
@@ -3274,6 +3295,22 @@
 		      (const_string "single") (const_string "double")))
    (set_attr "needs_delay_slot" "yes")])
 
+;; This is a pc-rel call, using bsrf, for use with PIC.
+
+(define_insn "calli_pcrel"
+  [(call (mem:SI (match_operand:SI 0 "arith_reg_operand" "r"))
+	 (match_operand 1 "" ""))
+   (use (reg:SI 48))
+   (use (match_operand 2 "" ""))
+   (clobber (reg:SI 17))]
+  ""
+  "bsrf	%0\\n%O2:%#"
+  [(set_attr "type" "call")
+   (set (attr "fp_mode")
+	(if_then_else (eq_attr "fpu_single" "yes")
+		      (const_string "single") (const_string "double")))
+   (set_attr "needs_delay_slot" "yes")])
+
 (define_insn "call_valuei"
   [(set (match_operand 0 "" "=rf")
 	(call (mem:SI (match_operand:SI 1 "arith_reg_operand" "r"))
@@ -3288,13 +3325,44 @@
 		      (const_string "single") (const_string "double")))
    (set_attr "needs_delay_slot" "yes")])
 
+(define_insn "call_valuei_pcrel"
+  [(set (match_operand 0 "" "=rf")
+	(call (mem:SI (match_operand:SI 1 "arith_reg_operand" "r"))
+	      (match_operand 2 "" "")))
+   (use (reg:SI 48))
+   (use (match_operand 3 "" ""))
+   (clobber (reg:SI 17))]
+  ""
+  "bsrf	%1\\n%O3:%#"
+  [(set_attr "type" "call")
+   (set (attr "fp_mode")
+	(if_then_else (eq_attr "fpu_single" "yes")
+		      (const_string "single") (const_string "double")))
+   (set_attr "needs_delay_slot" "yes")])
+
 (define_expand "call"
   [(parallel [(call (mem:SI (match_operand 0 "arith_reg_operand" ""))
 			    (match_operand 1 "" ""))
 	      (use (reg:SI 48))
 	      (clobber (reg:SI 17))])]
   ""
-  "operands[0] = force_reg (SImode, XEXP (operands[0], 0));")
+  "
+if (flag_pic && ! TARGET_SH1 && ! flag_unroll_loops
+    && GET_CODE (operands[0]) == MEM
+    && GET_CODE (XEXP (operands[0], 0)) == SYMBOL_REF)
+  {
+    rtx reg = gen_reg_rtx (SImode), lab = gen_label_rtx ();
+
+    if (SYMBOL_REF_FLAG (XEXP (operands[0], 0)))
+      emit_insn (gen_sym_label2reg (reg, XEXP (operands[0], 0), lab));
+    else
+      emit_insn (gen_symPLT_label2reg (reg, XEXP (operands[0], 0), lab));
+    operands[0] = reg;
+    emit_call_insn (gen_calli_pcrel (operands[0], operands[1], lab));
+    DONE;
+  }
+else
+  operands[0] = force_reg (SImode, XEXP (operands[0], 0));")
 
 (define_expand "call_value"
   [(parallel [(set (match_operand 0 "arith_reg_operand" "")
@@ -3303,7 +3371,24 @@
 	      (use (reg:SI 48))
 	      (clobber (reg:SI 17))])]
   ""
-  "operands[1] = force_reg (SImode, XEXP (operands[1], 0));")
+  "
+if (flag_pic && ! TARGET_SH1 && ! flag_unroll_loops
+    && GET_CODE (operands[1]) == MEM
+    && GET_CODE (XEXP (operands[1], 0)) == SYMBOL_REF)
+  {
+    rtx reg = gen_reg_rtx (SImode), lab = gen_label_rtx ();
+
+    if (SYMBOL_REF_FLAG (XEXP (operands[1], 0)))
+      emit_insn (gen_sym_label2reg (reg, XEXP (operands[1], 0), lab));
+    else
+      emit_insn (gen_symPLT_label2reg (reg, XEXP (operands[1], 0), lab));
+    operands[1] = reg;
+    emit_call_insn (gen_call_valuei_pcrel (operands[0], operands[1],
+					   operands[2], lab));
+    DONE;
+  }
+else
+  operands[1] = force_reg (SImode, XEXP (operands[1], 0));")
 
 (define_insn "indirect_jump"
   [(set (pc)
@@ -3396,6 +3481,74 @@
   "mova	%O0,r0"
   [(set_attr "in_delay_slot" "no")
    (set_attr "type" "arith")])
+
+(define_expand "GOTaddr2picreg"
+  [(set (reg:SI 0) (const (unspec [(const (unspec [(match_dup 1)] 6))] 1)))
+  (set (match_dup 0) (const (unspec [(match_dup 1)] 6)))
+  (set (match_dup 0) (plus:SI (match_dup 0) (reg:SI 0)))]
+  "" "
+{
+  operands[0] = pic_offset_table_rtx;
+  current_function_uses_pic_offset_table = 1;
+  operands[1] = gen_rtx_SYMBOL_REF (VOIDmode, GOT_SYMBOL_NAME);
+}
+")
+
+(define_expand "sym_label2reg"
+  [(set (match_operand:SI 0 "" "")
+	(const (minus:SI
+		(unspec [(match_operand:SI 1 "" "")] 6)
+		(const (plus:SI (label_ref (match_operand:SI 2 "" ""))
+				(const_int 2))))))]
+  "" "")
+
+(define_expand "symGOT2reg"
+  [(set (match_operand:SI 0 "" "")
+        (const (unspec [(match_operand:SI 1 "" "")] 7)))
+  (set (match_dup 0) (plus:SI (match_dup 0) (match_dup 2)))
+  (set (match_dup 0) (mem:SI (match_dup 0)))]
+  ""
+  "
+{
+  operands[2] = pic_offset_table_rtx;
+  current_function_uses_pic_offset_table = 1;
+}")
+
+(define_expand "symGOTOFF2reg"
+  [(set (match_operand:SI 0 "" "")
+	(const (unspec [(match_operand:SI 1 "" "")] 8)))
+  (set (match_dup 0) (plus:SI (match_dup 0) (match_dup 2)))]
+  ""
+  "
+{
+  operands[2] = pic_offset_table_rtx;
+  current_function_uses_pic_offset_table = 1;
+}")
+
+(define_expand "symPLT_label2reg"
+  [(set (match_operand:SI 0 "" "")
+	(const (minus:SI
+		(plus:SI (pc)
+			 (unspec [(match_operand:SI 1 "" "")] 9))
+		(const (plus:SI (label_ref (match_operand:SI 2 "" ""))
+				(const_int 2))))))
+   (use (match_dup 2))]
+  ;; Even though the PIC register is not really used by the call
+  ;; sequence in which this is expanded, the PLT code assumes the PIC
+  ;; register is set, so we must not skip its initialization.  Since
+  ;; we only use this expand as part of calling sequences, and never
+  ;; to take the address of a function, this is the best point to
+  ;; insert the (use).  Using the PLT to take the address of a
+  ;; function would be wrong, not only because the PLT entry could
+  ;; then be called from a function that doesn't initialize the PIC
+  ;; register to the proper GOT, but also because pointers to the same
+  ;; function might not compare equal, should they be set by different
+  ;; shared libraries.
+  "" "
+{
+  operands[2] = pic_offset_table_rtx;
+  current_function_uses_pic_offset_table = 1;
+}")
 
 ;; case instruction for switch statements.
 
@@ -3891,6 +4044,9 @@
 {
   operands[1] = get_fpscr_rtx ();
   operands[2] = gen_rtx_SYMBOL_REF (SImode, \"__fpscr_values\");
+  if (flag_pic)
+    operands[2] = legitimize_pic_address (operands[2], SImode,
+					  no_new_pseudos ? operands[0] : 0);
 }")
 
 (define_expand "fpu_switch1"
@@ -3902,6 +4058,9 @@
 {
   operands[1] = get_fpscr_rtx ();
   operands[2] = gen_rtx_SYMBOL_REF (SImode, \"__fpscr_values\");
+  if (flag_pic)
+    operands[2] = legitimize_pic_address (operands[2], SImode,
+					  no_new_pseudos ? operands[0] : 0);
   operands[3] = no_new_pseudos ? operands[0] : gen_reg_rtx (SImode);
 }")
 

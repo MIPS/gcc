@@ -319,11 +319,16 @@ The elements are indexed from zero.
 @tindex ARRAY_TYPE
 @tindex RECORD_TYPE
 @tindex UNION_TYPE
+@tindex UNKNOWN_TYPE
+@tindex OFFSET_TYPE
+@tindex TYPENAME_TYPE
+@tindex TYPEOF_TYPE
 @findex CP_TYPE_QUALS
 @findex TYPE_UNQUALIFIED
 @findex TYPE_QUAL_CONST
 @findex TYPE_QUAL_VOLATILE
 @findex TYPE_QUAL_RESTRICT
+@findex TYPE_MAIN_VARIANT
 @cindex qualified type
 @findex TYPE_SIZE
 @findex TYPE_ALIGN
@@ -331,6 +336,12 @@ The elements are indexed from zero.
 @findex TYPE_ARG_TYPES
 @findex TYPE_METHOD_BASETYPE
 @findex TYPE_PTRMEM_P
+@findex TYPE_OFFSET_BASETYPE
+@findex TREE_TYPE
+@findex TYPE_CONTEXT
+@findex TYPE_NAME
+@findex TYPENAME_TYPE_FULLNAME
+@findex TYPE_FIELDS
 
 All C++ types have corresponding tree nodes.  However, you should not
 assume that there is exactly one tree node corresponding to each C++
@@ -431,13 +442,13 @@ for which the @code{BOUNDED_INDIRECT_TYPE_P} predicate holds.
 This predicate holds if hte argument type is a @code{POINTER_TYPE}
 or if it is a @code{RECORD_TYPE} node for which the
 @code{BOUNDED_INDIRECT_TYPE_P} predicate holds and the
-@code{TYPE_BOUNDED_SUBTYPE} node is a @code{POINTER_TYPE}.
+@code{TYPE_UNBOUNDED_TYPE} node is a @code{POINTER_TYPE}.
 
 @item XREFERENCE_TYPE_P
 This predicate holds if hte argument type is a @code{REFERENCE_TYPE}
 or if it is a @code{RECORD_TYPE} node for which the
 @code{BOUNDED_INDIRECT_TYPE_P} predicate holds and the
-@code{TYPE_BOUNDED_SUBTYPE} node is a @code{REFERENCE_TYPE}.
+@code{TYPE_UNBOUNDED_TYPE} node is a @code{REFERENCE_TYPE}.
 @end ftable
 
 Detailed below are the various kinds of types, and the macros that can
@@ -548,14 +559,42 @@ then this type is a pointer-to-member type.  In that case, the
 @code{TYPE_PTRMEMFUNC_FN_TYPE} is a @code{POINTER_TYPE} pointing to a
 @code{METHOD_TYPE}.  The @code{METHOD_TYPE} is the type of a function
 pointed to by the pointer-to-member function.  If
-@code{BOUNDED_INDIRECT_TYPE_P} holds, then this type is a bounded
-indirect type.  In that case, @code{TYPE_BOUNDED_SUBTYPE} is the basic
+@code{TYPE_PTRMEMFUNC_P} does not hold, this type is a class type.
+If @code{BOUNDED_INDIRECT_TYPE_P} holds, then this type is a bounded
+indirect type.  In that case, @code{TYPE_UNBOUNDED_TYPE} is the basic
 @code{POINTER_TYPE} or @code{REFERENCE_TYPE}, and
-@code{TYPE_BOUNDED_VALUE}, @code{TYPE_BOUNDED_BASE} and
-@code{TYPE_BOUNDED_EXTENT} are the three @code{FIELD_DECL} members of
-the enclosing @code{RECORD_TYPE}.  If neither @code{TYPE_PTRMEMFUNC_P}
-nor @code{BOUNDED_INDIRECT_TYPE_P} holds, this type is a class type.
+@code{BOUNDED_PTR_VALUE_FIELD}, @code{BOUNDED_PTR_LOW_BOUND_FIELD} and
+@code{BOUNDED_PTR_HIGH_BOUND_FIELD} are the three @code{FIELD_DECL}
+members of the enclosing @code{RECORD_TYPE}.  If neither
+@code{TYPE_PTRMEMFUNC_P} nor @code{BOUNDED_INDIRECT_TYPE_P} holds, this
+type is a class type.
 For more information, see @pxref{Classes}.
+
+@item UNKNOWN_TYPE
+This node is used to represent a type the knowledge of which is
+unsufficiant for a sound processing.
+
+@item OFFSET_TYPE
+This node is used to represent a data member; for example a
+pointer-to-data-member is represented by a @code{POINTER_TYPE} whose
+@code{TREE_TYPE} is an @code{OFFSET_TYPE}.  For a data member @code{X::m}
+the @code{TYPE_OFFSET_BASETYPE} is @code{X} and the @code{TREE_TYPE} is
+the type of @code{m}.
+
+@item TYPENAME_TYPE
+Used to represent a construct of the form @code{typename T::A}.  The
+@code{TYPE_CONTEXT} is @code{T}; the @code{TYPE_NAME} is an
+@code{IDENTIFIER_NODE} for @code{A}. If the type is specified via a
+template-id, then @code{TYPENAME_TYPE_FULLNAME} yields a
+@code{TEMPLATE_ID_EXPR}.  The @code{TREE_TYPE} is non-@code{NULL} if the
+node is implicitly generated in support for the implicit typename
+extension; in which case the @code{TREE_TYPE} is a type node for the
+base-class.
+
+@item TYPEOF_TYPE
+Used to represent the @code{__typeof__} extension.  The
+@code{TYPE_FIELDS} is the expression the type of which is being
+represented. 
 
 @item UNION_TYPE
 Used to represent @code{union} types.  For more information, @pxref{Classes}.
