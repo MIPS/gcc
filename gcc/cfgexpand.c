@@ -46,7 +46,24 @@ add_reg_br_prob_note (FILE *dump_file, rtx last, int probability)
 {
   for (last = NEXT_INSN (last); last && NEXT_INSN (last); last = NEXT_INSN (last))
     if (GET_CODE (last) == JUMP_INSN)
-      goto failed;
+      {
+	/* It is common to emit condjump-around-jump sequence when we don't know
+	   how to reverse the conditional.  Special case this.  */
+	if (!any_condjump_p (last)
+	    || GET_CODE (NEXT_INSN (last)) != JUMP_INSN
+	    || !simplejump_p (NEXT_INSN (last))
+	    || GET_CODE (NEXT_INSN (NEXT_INSN (last))) != BARRIER
+	    || GET_CODE (NEXT_INSN (NEXT_INSN (NEXT_INSN (last)))) != CODE_LABEL
+	    || NEXT_INSN (NEXT_INSN (NEXT_INSN (NEXT_INSN (last)))))
+	  goto failed;
+	if (find_reg_note (last, REG_BR_PROB, 0))
+	  abort ();
+	REG_NOTES (last)
+	  = gen_rtx_EXPR_LIST (REG_BR_PROB,
+			       GEN_INT (REG_BR_PROB_BASE - probability),
+			       REG_NOTES (last));
+	return;
+      }
   if (!last || GET_CODE (last) != JUMP_INSN || !any_condjump_p (last))
       goto failed;
   if (find_reg_note (last, REG_BR_PROB, 0))
@@ -216,11 +233,19 @@ expand_block (basic_block bb, FILE * dump_file)
 		  for (e = bb->succ; e; e = e->succ_next)
 		    if (!(e->flags & (EDGE_ABNORMAL | EDGE_EH)))
 		      {
+			if (e->dest != EXIT_BLOCK_PTR)
+			  {
+			    e->dest->count -= e->count;
+			    e->dest->frequency -= EDGE_FREQUENCY (e);
+			    if (e->dest->count < 0)
+			      e->dest->count = 0;
+			    if (e->dest->frequency < 0)
+			      e->dest->frequency = 0;
+			  }
 			count += e->count;
 			probability += e->probability;
 			remove_edge (e);
 		      }
-
 
 		  /* This is somewhat ugly:  the call_expr expander often emits instructions
 		     after the sibcall (to perform the function return).  These confuse the 
