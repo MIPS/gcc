@@ -3,28 +3,28 @@
    Free Software Foundation, Inc.
    Contributed by Richard Earnshaw (rearnsha@armltd.co.uk).
    
-This file is part of GNU CC.
+   This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+   GCC is free software; you can redistribute it and/or modify it
+   under the terms of the GNU General Public License as published
+   by the Free Software Foundation; either version 2, or (at your
+   option) any later version.
 
-GNU CC is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+   GCC is distributed in the hope that it will be useful, but WITHOUT
+   ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+   or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
+   License for more details.
 
-You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+   You should have received a copy of the GNU General Public License
+   along with GCC; see the file COPYING.  If not, write to
+   the Free Software Foundation, 59 Temple Place - Suite 330,
+   Boston, MA 02111-1307, USA.  */
 
 #ifndef ARM_OS_NAME
 #define ARM_OS_NAME "(generic)"
 #endif
 
-/* The text to go at the start of the assembler file */
+/* The text to go at the start of the assembler file.  */
 #ifndef ASM_FILE_START
 #define ASM_FILE_START(STREAM)		    \
 {					    \
@@ -52,7 +52,7 @@ Boston, MA 02111-1307, USA.  */
 
 /* Note: If USER_LABEL_PREFIX or LOCAL_LABEL_PREFIX are changed,
    make sure that this change is reflected in the function
-   coff_arm_is_local_label_name() in bfd/coff-arm.c  */
+   coff_arm_is_local_label_name() in bfd/coff-arm.c.  */
 #ifndef REGISTER_PREFIX
 #define REGISTER_PREFIX 	""
 #endif
@@ -73,7 +73,10 @@ Boston, MA 02111-1307, USA.  */
   "r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7",  \
   "r8", "r9", "sl", "fp", "ip", "sp", "lr", "pc",  \
   "f0", "f1", "f2", "f3", "f4", "f5", "f6", "f7",  \
-  "cc", "sfp", "afp"		   		   \
+  "cc", "sfp", "afp",		   		   \
+  "mv0",  "mv1",   "mv2",  "mv3",  "mv4",   "mv5", \
+  "mv6",  "mv7",   "mv8",  "mv9",  "mv10",  "mv11",\
+  "mv12", "mv13",  "mv14", "mv15"		   \
 }
 #endif
 
@@ -98,11 +101,75 @@ Boston, MA 02111-1307, USA.  */
   {"r12", 12},	/* ip */			\
   {"r13", 13},	/* sp */			\
   {"r14", 14},	/* lr */			\
-  {"r15", 15}	/* pc */			\
+  {"r15", 15},	/* pc */			\
+  {"mvf0", 27},					\
+  {"mvf1", 28},					\
+  {"mvf2", 29},					\
+  {"mvf3", 30},					\
+  {"mvf4", 31},					\
+  {"mvf5", 32},					\
+  {"mvf6", 33},					\
+  {"mvf7", 34},					\
+  {"mvf8", 35},					\
+  {"mvf9", 36},					\
+  {"mvf10", 37},				\
+  {"mvf11", 38},				\
+  {"mvf12", 39},				\
+  {"mvf13", 40},				\
+  {"mvf14", 41},				\
+  {"mvf15", 42},				\
+  {"mvd0", 27},					\
+  {"mvd1", 28},					\
+  {"mvd2", 29},					\
+  {"mvd3", 30},					\
+  {"mvd4", 31},					\
+  {"mvd5", 32},					\
+  {"mvd6", 33},					\
+  {"mvd7", 34},					\
+  {"mvd8", 35},					\
+  {"mvd9", 36},					\
+  {"mvd10", 37},				\
+  {"mvd11", 38},				\
+  {"mvd12", 39},				\
+  {"mvd13", 40},				\
+  {"mvd14", 41},				\
+  {"mvd15", 42},				\
+  {"mvfx0", 27},				\
+  {"mvfx1", 28},				\
+  {"mvfx2", 29},				\
+  {"mvfx3", 30},				\
+  {"mvfx4", 31},				\
+  {"mvfx5", 32},				\
+  {"mvfx6", 33},				\
+  {"mvfx7", 34},				\
+  {"mvfx8", 35},				\
+  {"mvfx9", 36},				\
+  {"mvfx10", 37},				\
+  {"mvfx11", 38},				\
+  {"mvfx12", 39},				\
+  {"mvfx13", 40},				\
+  {"mvfx14", 41},				\
+  {"mvfx15", 42},				\
+  {"mvdx0", 27},				\
+  {"mvdx1", 28},				\
+  {"mvdx2", 29},				\
+  {"mvdx3", 30},				\
+  {"mvdx4", 31},				\
+  {"mvdx5", 32},				\
+  {"mvdx6", 33},				\
+  {"mvdx7", 34},				\
+  {"mvdx8", 35},				\
+  {"mvdx9", 36},				\
+  {"mvdx10", 37},				\
+  {"mvdx11", 38},				\
+  {"mvdx12", 39},				\
+  {"mvdx13", 40},				\
+  {"mvdx14", 41},				\
+  {"mvdx15", 42}				\
 }
 #endif
 
-/* Arm Assembler barfs on dollars */
+/* Arm Assembler barfs on dollars.  */
 #define DOLLARS_IN_IDENTIFIERS 0
 
 #ifndef NO_DOLLAR_IN_LABEL
@@ -110,7 +177,7 @@ Boston, MA 02111-1307, USA.  */
 #endif
 
 /* Generate DBX debugging information.  riscix.h will undefine this because
-   the native assembler does not support stabs. */
+   the native assembler does not support stabs.  */
 #define DBX_DEBUGGING_INFO 1
 
 /* Acorn dbx moans about continuation chars, so don't use any.  */
@@ -190,7 +257,7 @@ Boston, MA 02111-1307, USA.  */
   while (0)
 #endif
 
-/* Output a common block */
+/* Output a common block.  */
 #ifndef ASM_OUTPUT_COMMON
 #define ASM_OUTPUT_COMMON(STREAM, NAME, SIZE, ROUNDED)	\
   do							\

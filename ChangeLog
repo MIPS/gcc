@@ -1,7 +1,59 @@
+2003-02-21  James E Wilson  <wilson@tuliptree.org>
+
+	* MAINTAINERS: Update my email address.
+
+2003-02-21  Zack Weinberg  <zack@codesourcery.com>
+
+	* MAINTAINERS: Add self to blanket write privs. section.
+
+2003-02-20  Sean McNeil  <sean@blue.mcneil.com>
+
+	* Makefile.tpl: Add definition of CPPFLAGS to pass into
+	configure-target-* as some target builds may require additional
+	flags for preprocessor tests.
+	* Makefile.in: Regenerated.
+
+2003-02-19  Alexandre Oliva  <aoliva@redhat.com>
+
+	* libtool.m4 (LD): Append -melf* option to LD on IRIX with GNU ld.
+	* ltconfig: Handle it.
+	* ltcf-cxx.sh: Use with_gnu_ld passed as a shell variable instead of
+	auto-detecting it.
+
+	* ltcf-cxx.sh: Replace $linker_flags with $compiler_flags wherever
+	it is used as argument to $CC.
+	* ltcf-gcj.sh: Likewise.
+
+	* configure.in: Introduce --enable-maintainer-mode.
+	* configure: Rebuilt.
+	* Makefile.tpl (Makefile.in, configure): Enable dependencies only
+	for maintainer mode.
+	* Makefile.in: Rebuilt.
+
+2003-02-18  Jason Merrill  <jason@redhat.com>
+
+	* Makefile.tpl (check-c++): Allow parallelism.
+
+2003-02-16  Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
+
+	* MAINTAINERS: Remove John Carr (who never actually had access to
+	gcc.gnu.org).
+
+2003-02-15  Geoffrey Keating  <geoffk@apple.com>
+
+	* configure.in (*-*-darwin*): Rename from powerpc*-*-darwin*,
+	don't configure target-libobjc.
+	* configure: Regenerate.
+
+2003-02-14  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* Makefile.tpl (RANLIB): Define.
+	* Makefile.in: Regenerate.
+
 2003-02-08  Laurynas Biveinis  <laurynas.biveinis@mif.vu.lt>
 
 	* MAINTAINERS: Update my email.
-	
+
 2003-02-06  Keith R Seitz  <keiths@redhat.com>
 
 	* Makefile.def: Remove "snavigator", "grep", and "db" modules.
@@ -39,7 +91,7 @@
 
 2003-01-29  Andreas Tobler  <a.tobler@schweiz.ch>
 
-        * MAINTAINERS: Add myself to write-after-approval list.
+	* MAINTAINERS: Add myself to write-after-approval list.
 
 2003-01-27  Phil Edwards  <pme@gcc.gnu.org>
 
@@ -131,7 +183,7 @@
 	* configure.in (GDB_TK): Add tcl directories conditional on
 	gdb/gdbtk directory being present.
 	* configure: Regenerate.
-	
+
 2003-01-04 John David Anglin  <dave.anglin@nrc.ca>
 
 	* configure.in (LD): Improve test for gcc.  Try to set LD to the ld used
@@ -211,12 +263,12 @@
 
 	* configure: Fix stupid bug where RANLIB was mistakenly included.
 
-	* configure.in: Rename (buildargs, hostargs, targargs) to 
+	* configure.in: Rename (buildargs, hostargs, targargs) to
 	(build_configargs, host_configargs, target_configargs).
 
 	* configure.in: Move logic out of sed statement.
 
-	* configure: Remove unneeded 'export's.  Make CC_FOR_TARGET, 
+	* configure: Remove unneeded 'export's.  Make CC_FOR_TARGET,
 	CXX_FOR_TARGET, GCJ_FOR_TARGET substituted in configure.in only.
 
 2002-12-25  Svein E. Seldal  <Svein.Seldal@solidas.com>

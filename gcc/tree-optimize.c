@@ -34,7 +34,6 @@ Boston, MA 02111-1307, USA.  */
 #include "basic-block.h"
 #include "flags.h"
 #include "tree-flow.h"
-#include "tree-dchain.h"
 #include "tree-dump.h"
 #include "timevar.h"
 

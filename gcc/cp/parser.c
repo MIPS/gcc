@@ -4031,6 +4031,7 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p)
 	    parser->scope = NULL_TREE;
 	    parser->qualifying_scope = NULL_TREE;
 	    parser->object_scope = NULL_TREE;
+	    idk = CP_PARSER_ID_KIND_NONE;
 	    /* Enter the scope corresponding to the type of the object
 	       given by the POSTFIX_EXPRESSION.  */
 	    if (!dependent_p 
@@ -4095,6 +4096,12 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p)
                    Even though "t" is dependent, "X::f" is not and has 
 		   except that for a BASELINK there is no need to
 		   include scope information.  */
+
+		/* But we do need to remember that there was an explicit
+		   scope for virtual function calls.  */
+		if (parser->scope)
+		  idk = CP_PARSER_ID_KIND_QUALIFIED;
+
 		if (name != error_mark_node 
 		    && !BASELINK_P (name)
 		    && parser->scope)
@@ -4125,7 +4132,6 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p)
 	       object on the left-hand side of the `.' or `->'
 	       operator.  */
 	    parser->context->object_type = NULL_TREE;
-	    idk = CP_PARSER_ID_KIND_NONE;
 	  }
 	  break;
 
@@ -12411,22 +12417,13 @@ cp_parser_base_clause (cp_parser* parser)
 static tree
 cp_parser_base_specifier (cp_parser* parser)
 {
-  static const tree *const access_nodes[][2] =
-  {
-    /* This ordering must match the access_kind enumeration.  */
-    {&access_default_node,   &access_default_virtual_node},
-    {&access_public_node,    &access_public_virtual_node},
-    {&access_protected_node, &access_protected_virtual_node},
-    {&access_private_node,   &access_private_virtual_node}
-  };
   cp_token *token;
   bool done = false;
   bool virtual_p = false;
   bool duplicate_virtual_error_issued_p = false;
   bool duplicate_access_error_issued_p = false;
   bool class_scope_p, template_p;
-  access_kind access = ak_none;
-  tree access_node;
+  tree access = access_default_node;
   tree type;
 
   /* Process the optional `virtual' and `access-specifier'.  */
@@ -12458,16 +12455,15 @@ cp_parser_base_specifier (cp_parser* parser)
 	case RID_PRIVATE:
 	  /* If more than one access specifier appears, issue an
 	     error.  */
-	  if (access != ak_none && !duplicate_access_error_issued_p)
+	  if (access != access_default_node
+	      && !duplicate_access_error_issued_p)
 	    {
 	      cp_parser_error (parser,
 			       "more than one access specifier in base-specified");
 	      duplicate_access_error_issued_p = true;
 	    }
 
-	  access = ((access_kind) 
-		    tree_low_cst (ridpointers[(int) token->keyword],
-				  /*pos=*/1));
+	  access = ridpointers[(int) token->keyword];
 
 	  /* Consume the access-specifier.  */
 	  cp_lexer_consume_token (parser->lexer);
@@ -12480,9 +12476,6 @@ cp_parser_base_specifier (cp_parser* parser)
 	}
     }
 
-  /* Map `virtual_p' and `access' onto one of the access tree-nodes.  */
-  access_node = *access_nodes[access][virtual_p];
-  
   /* Look for the optional `::' operator.  */
   cp_parser_global_scope_opt (parser, /*current_scope_valid_p=*/false);
   /* Look for the nested-name-specifier.  The simplest way to
@@ -12518,7 +12511,7 @@ cp_parser_base_specifier (cp_parser* parser)
   if (type == error_mark_node)
     return error_mark_node;
 
-  return finish_base_specifier (access_node, TREE_TYPE (type));
+  return finish_base_specifier (TREE_TYPE (type), access, virtual_p);
 }
 
 /* Exception handling [gram.exception] */

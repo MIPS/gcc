@@ -5350,8 +5350,7 @@ init_emit ()
 					   * sizeof (unsigned char));
 
   regno_reg_rtx
-    = (rtx *) ggc_alloc_cleared (f->emit->regno_pointer_align_length
-				 * sizeof (rtx));
+    = (rtx *) ggc_alloc (f->emit->regno_pointer_align_length * sizeof (rtx));
 
   /* Put copies of all the hard registers into regno_reg_rtx.  */
   memcpy (regno_reg_rtx,
@@ -5718,6 +5717,7 @@ emit_copy_of_insn_after (insn, after)
       XEXP (note1, 0) = p;
       XEXP (note2, 0) = new;
     }
+  INSN_CODE (new) = INSN_CODE (insn);
   return new;
 }
 

@@ -574,6 +574,11 @@ comptypes (type1, type2)
 	val = 1;
       break;
 
+    case VECTOR_TYPE:
+      /* The target might allow certain vector types to be compatible.  */
+      val = (*targetm.vector_types_compatible) (t1, t2);
+      break;
+
     default:
       break;
     }
@@ -3766,8 +3771,11 @@ build_c_cast (type, expr)
 		    get_alias_set (TREE_TYPE (type))))
 	    warning ("dereferencing type-punned pointer will break strict-aliasing rules");
 	}
-      
+
       ovalue = value;
+      /* Replace a nonvolatile const static variable with its value.  */
+      if (optimize && TREE_CODE (value) == VAR_DECL)
+	value = decl_constant_value (value);
       value = convert (type, value);
 
       /* Ignore any integer overflow caused by the cast.  */
@@ -4062,6 +4070,10 @@ convert_for_assignment (type, rhs, errtype, fundecl, funname, parmnum)
       rhs = build1 (NOP_EXPR, type, rhs);
       return rhs;
     }
+  /* Some types can interconvert without explicit casts.  */
+  else if (codel == VECTOR_TYPE && coder == VECTOR_TYPE
+	   && (*targetm.vector_types_compatible) (type, rhstype))
+    return convert (type, rhs);
   /* Arithmetic types all interconvert, and enum is treated like int.  */
   else if ((codel == INTEGER_TYPE || codel == REAL_TYPE 
 	    || codel == ENUMERAL_TYPE || codel == COMPLEX_TYPE

@@ -688,11 +688,6 @@ enum reg_note
      return.  */
   REG_BR_PROB,
 
-  /* REG_EXEC_COUNT is attached to the first insn of each basic block, and
-     the first insn after each CALL_INSN.  It indicates how many times this
-     block was executed.  */
-  REG_EXEC_COUNT,
-
   /* Attached to a call insn; indicates that the call is malloc-like and
      that the pointer returned cannot alias anything else.  */
   REG_NOALIAS,
@@ -2172,7 +2167,7 @@ extern void create_profiler		PARAMS ((void));
 
 /* In reg-stack.c */
 #ifdef BUFSIZ
-extern void reg_to_stack		PARAMS ((rtx, FILE *));
+extern bool reg_to_stack		PARAMS ((rtx, FILE *));
 #endif
 
 /* In fold-const.c */

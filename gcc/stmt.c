@@ -539,10 +539,23 @@ expand_computed_goto (exp)
 #endif
 
   emit_queue ();
-  do_pending_stack_adjust ();
-  emit_indirect_jump (x);
 
-  current_function_has_computed_jump = 1;
+  if (! cfun->computed_goto_common_label)
+    {
+      cfun->computed_goto_common_reg = copy_to_mode_reg (Pmode, x);
+      cfun->computed_goto_common_label = gen_label_rtx ();
+      emit_label (cfun->computed_goto_common_label);
+  
+      do_pending_stack_adjust ();
+      emit_indirect_jump (cfun->computed_goto_common_reg);
+
+      current_function_has_computed_jump = 1;
+    }
+  else
+    {
+      emit_move_insn (cfun->computed_goto_common_reg, x);
+      emit_jump (cfun->computed_goto_common_label);
+    }
 }
 
 /* Handle goto statements and the labels that they can go to.  */
@@ -2815,8 +2828,11 @@ expand_continue_loop (whichloop)
   /* Emit information for branch prediction.  */
   rtx note;
 
-  note = emit_note (NULL, NOTE_INSN_PREDICTION);
-  NOTE_PREDICTION (note) = NOTE_PREDICT (PRED_CONTINUE, IS_TAKEN);
+  if (flag_guess_branch_prob)
+    {
+      note = emit_note (NULL, NOTE_INSN_PREDICTION);
+      NOTE_PREDICTION (note) = NOTE_PREDICT (PRED_CONTINUE, IS_TAKEN);
+    }
   clear_last_expr ();
   if (whichloop == 0)
     whichloop = loop_stack;
@@ -3008,7 +3024,8 @@ expand_value_return (val)
   rtx return_reg;
   enum br_predictor pred;
 
-  if ((pred = return_prediction (val)) != PRED_NO_PREDICTION)
+  if (flag_guess_branch_prob
+      && (pred = return_prediction (val)) != PRED_NO_PREDICTION)
     {
       /* Emit information for branch prediction.  */
       rtx note;

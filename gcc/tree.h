@@ -1,6 +1,6 @@
 /* Front-end tree definitions for GNU compiler.
    Copyright (C) 1989, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002 Free Software Foundation, Inc.
+   2001, 2002, 2003 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -202,11 +202,11 @@ struct tree_common GTY(())
            TREE_LIST or TREE_VEC
        ASM_VOLATILE_P in
            ASM_EXPR
+       EXPR_WFL_EMIT_LINE_NOTE in
+           EXPR_WITH_FILE_LOCATION
 
    private_flag:
 
-       TREE_VIA_PRIVATE in
-           TREE_LIST or TREE_VEC
        TREE_PRIVATE in
            ..._DECL
        CALL_EXPR_HAS_RETURN_SLOT_ADDR in
@@ -214,9 +214,6 @@ struct tree_common GTY(())
 
    protected_flag:
 
-       TREE_VIA_PROTECTED in
-           TREE_LIST
-	   TREE_VEC
        TREE_PROTECTED in
            BLOCK
 	   ..._DECL
@@ -620,20 +617,6 @@ extern void ephi_node_elt_check_failed PARAMS ((int, int, const char *,
    accessible from outside this module was previously seen
    for this name in an inner scope.  */
 #define TREE_PUBLIC(NODE) ((NODE)->common.public_flag)
-
-/* Nonzero for TREE_LIST or TREE_VEC node means that the path to the
-   base class is via a `public' declaration, which preserves public
-   fields from the base class as public.  */
-#define TREE_VIA_PUBLIC(NODE) ((NODE)->common.public_flag)
-
-/* Ditto, for `private' declarations.  */
-#define TREE_VIA_PRIVATE(NODE) ((NODE)->common.private_flag)
-
-/* Nonzero for TREE_LIST or TREE_VEC node means that the path to the
-   base class is via a `protected' declaration, which preserves
-   protected fields from the base class as protected.
-   OVERLOADED.  */
-#define TREE_VIA_PROTECTED(NODE) ((NODE)->common.protected_flag)
 
 /* In any expression, nonzero means it has side effects or reevaluation
    of the whole expression could produce a different value.
@@ -1630,7 +1613,16 @@ struct tree_type GTY(())
    vtable where the offset to the virtual base can be found.  */
 #define BINFO_VPTR_FIELD(NODE) TREE_VEC_ELT (NODE, 5)
 
-#define BINFO_ELTS 6
+/* Indicates the accesses this binfo has to its bases. The values are
+   access_public_node, access_protected_node or access_private_node.
+   If this array is not present, public access is implied.  */
+#define BINFO_BASEACCESSES(NODE) TREE_VEC_ELT ((NODE), 6)
+#define BINFO_BASEACCESS(NODE,N) TREE_VEC_ELT (BINFO_BASEACCESSES(NODE), (N))
+
+/* Number of language independent elements in a binfo.  Languages may
+   add additional trailing elements.  */
+
+#define BINFO_ELTS 7
 
 /* Slot used to build a chain that represents a use of inheritance.
    For example, if X is derived from Y, and Y is derived from Z,
@@ -1796,10 +1788,6 @@ struct tree_type GTY(())
   (DECL_CHECK (NODE2)->decl.rtl = DECL_CHECK (NODE1)->decl.rtl)
 /* The DECL_RTL for NODE, if it is set, or NULL, if it is not set.  */
 #define DECL_RTL_IF_SET(NODE) (DECL_RTL_SET_P (NODE) ? DECL_RTL (NODE) : NULL)
-
-/* Holds an INSN_LIST of all of the live ranges in which the variable
-   has been moved to a possibly different register.  */
-#define DECL_LIVE_RANGE_RTL(NODE) (DECL_CHECK (NODE)->decl.live_range_rtl)
 
 /* For PARM_DECL, holds an RTL for the stack slot or register
    where the data was actually passed.  */
@@ -2151,7 +2139,6 @@ struct tree_decl GTY(())
   tree section_name;
   tree attributes;
   rtx rtl;	/* RTL representation for object.  */
-  rtx live_range_rtl;
 
   /* In FUNCTION_DECL, if it is inline, holds the saved insn chain.
      In FIELD_DECL, is DECL_FIELD_BIT_OFFSET.
@@ -2333,6 +2320,11 @@ extern GTY(()) tree global_trees[TI_MAX];
 #define bitsize_unit_node		global_trees[TI_BITSIZE_UNIT]
 
 #define empty_stmt_node 		global_trees[TI_EMPTY_STMT]
+
+/* Base access nodes.  */
+#define access_public_node		NULL_TREE
+#define access_protected_node		size_zero_node
+#define access_private_node		size_one_node
 
 #define null_pointer_node		global_trees[TI_NULL_POINTER]
 
@@ -3227,7 +3219,19 @@ extern void rrotate_double	PARAMS ((unsigned HOST_WIDE_INT, HOST_WIDE_INT,
 					 HOST_WIDE_INT, unsigned int,
 					 unsigned HOST_WIDE_INT *,
 					 HOST_WIDE_INT *));
+
+extern int div_and_round_double		PARAMS ((enum tree_code, int,
+						 unsigned HOST_WIDE_INT,
+						 HOST_WIDE_INT,
+						 unsigned HOST_WIDE_INT,
+						 HOST_WIDE_INT,
+						 unsigned HOST_WIDE_INT *,
+						 HOST_WIDE_INT *,
+						 unsigned HOST_WIDE_INT *,
+						 HOST_WIDE_INT *));
+
 extern int operand_equal_p	PARAMS ((tree, tree, int));
+extern tree omit_one_operand	PARAMS ((tree, tree, tree));
 extern tree invert_truthvalue	PARAMS ((tree));
 
 /* In builtins.c */

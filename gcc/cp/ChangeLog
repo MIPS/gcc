@@ -1,3 +1,284 @@
+2003-02-21  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/9749
+	* decl.c (grokdeclarator): Do not allow parameters with variably
+	modified types.
+
+2003-02-21  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* search.c (bfs_walk_grow): Remove. Fold into ...
+	(bfs_walk): ... here, fix fencepost error. Fix merge lossage
+	in previous patch.
+
+2003-02-20  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/9729
+	* mangle.c (mangle_conv_op_name_for_type): Issue an error message
+	when the G++ 3.2 ABI prevents correct compilation.
+
+2003-02-20  Nathan Sidwell  <nathan@codesourcery.com>
+
+	Change base class access representation. Share virtual base
+	binfos.
+	* cp/call.c (build_special_member_call): Remove binfo_for_vbase
+	call.
+	* cp/class.c (build_base_path): Likewise.
+	(build_primary_vtable): Adjust BINFO_NEW_VTABLE_MARKED use.
+	(build_secondary_vtable): Remove FOR_TYPE arg. Adjust.
+	(make_new_vtable): Adjust.
+	(force_canonical_binfo_r): Delete.
+	(force_canonical_binfo): Delete.
+	(mark_primary_virtual_base): Delete.
+	(dfs_unshared_virtual_bases): Delete.
+	(mark_primary_bases): Adjust.
+	(maybe_warn_about_overly_private_class): Adjust.
+	(dfs_base_derived_from): Delete.
+	(base_derived_from): Follow the inheritance chain.
+	(struct find_final_overrider_data): Add vpath member.
+	(dfs_find_final_overrider): Adjust.
+	(dfs_find_final_overrider_q, dfs_find_final_overrider_post): New.
+	(find_final_overrider): Adjust.
+	(update_vtable_entry_for_fn): Adjust.
+	(modify_all_vtables): Adjust.
+	(walk_subobject_offsets): Adjust.
+	(layout_nonempty_base_or_field): Adjust.
+	(layout_empty_base): Remove last parameter. Adjust.
+	(build_base_field): Adjust.
+	(build_base_fields): Adjust.
+	(propagate_binfo_offsets): Remove last parameter. Adjust.
+	(dfs_set_offset_for_unshared_vbases): Delete.
+	(layout_virtual_bases): Adjust.
+	(finish_struct_1): Adjust.
+	(init_class_processing): Don't init access nodes.
+	(dfs_get_primary_binfo): Delete.
+	(get_primary_binfo): Adjust.
+	(dump_class_hierarchy_r): Remove most derived arg, add IGO
+	parameter. Adjust.
+	(dump_class_hierarchy): Adjust.
+	(finish_vtbls): Adjust.
+	(get_original_base): Delete.
+	(build_vtt_inits): Adjust.
+	(dfs_build_secondary_vptr_vtt_inits): Adjust.
+	(dfs_ctor_vtable_bases_queue_p): Adjust.
+	(build_ctor_vtbl_group): Adjust.
+	(dfs_accumulate_vtbl_inits): Adjust.
+	(build_vtbl_initializer): Adjust.
+	(build_vbase_offset_vtbl_entries): Adjust.
+	(add_vcall_offset_vtbl_entries_1): Adjust.
+	* cp/cp-tree.h (CPTI_ACCESS_*): Remove.
+	(access_*_node): Remove.
+	(CANONICAL_BINFO): Delete.
+	(BINFO_UNSHARED_MARKED): Remove.
+	(BINFO_MARKED): Set LANG_FLAG_0 directly.
+	(SET_BINFO_MARKED, CLEAR_BINFO_MARKED): Delete.
+	(BINFO_VTABLE_PATH_MARKED): Set LANG_FLAG_3 directly.
+	(SET_BINFO_VTABLE_PATH_MARKED, CLEAR_BINFO_VTABLE_PATH_MARKED):
+	Delete.
+	(BINFO_NEW_VTABLE_MARKED): Set LANG_FLAG_4 directly.
+	(SET_BINFO_NEW_VTABLE_MARKED): Adjust.
+	(SET_BINFO_PUSHDECLS_MARKED, CLEAR_BINFO_PUSHDECLS_MARKED):
+	Delete.
+	(BINFO_DEPENDENT_BASE_P): New.
+	(dfs_walk, dfs_walk_real): Queue function takes derived binfo and
+	index.
+	(markedp, unmarkedp): Adjust.
+	(dfs_unmarked_real_bases_queue_p, dfs_marked_real_bases_queue_p,
+	dfs_skip_vbases, marked_vtable_pathp, unmarked_vtable_pathp,
+	find_vbase_instance, binfo_for_vbase): Delete.
+	(copied_binfo, original_binfo): Declare.
+	(finish_base_specifier): Add virtual_p arg.
+	(unshare_base_binfos): Delete.
+	(copy_base_binfos): Declare.
+	(reverse_path): Delete.
+	* cp/decl.c (xref_basetypes): Access and virtuality passed
+	differently. Don't copy direct base binfos here. Call
+	copy_base_binfos.
+	* cp/init.c (dfs_initialize_vtbl_ptrs): Adjust.
+	(initialize_vtbl_ptrs): Adjust.
+	(expand_member_init): Adjust.
+	* cp/parser.c (cp_parser_base_specifier): Adjust.
+	* cp/pt.c (instantiate_class_template): Adjust.
+	(get_template_base_recursive): Adjust.
+	* cp/rtti.c (get_pseudo_ti_init): Adjust.
+	(get_pseudo_ti_desc): Adjust.
+	* cp/tree.c (unshare_base_binfos): Rename to ...
+	(copy_base_binfos): ... here, reimplement.
+	(make_binfo): Set BINFO_DEPENDENT_BASE_P.
+	(reverse_path): Remove.
+	* cp/typeck.c (get_delta_difference): Adjust error messages.
+	* cp/semantics.c (finish_base_specifier): Add virtual arg, adjust.
+	* cp/search.c (lookup_base_r): Adjust.
+	(dynamic_cast_base_recurse): Adjust.
+	(canonical_binfo): Remove.
+	(dfs_canonical_queue): Remove.
+	(dfs_assert_unmarked_p): Remove.
+	(assert_canonical_unmarked): Remove.
+	(shared_marked_p, shared_unmarked_p): Remove.
+	(BINFO_ACCESS, SET_BINFO_ACCESS): Use TREE_PUBLIC & TREE_PRIVATE.
+	(dfs_access_in_type): Adjust.
+	(access_in_type): Adjust.
+	(dfs_accessible_queue_p): Adjust.
+	(dfs_accessible_p): Adjust.
+	(is_subobject_of_p_1, is_subobject_of_p): Remove.
+	(struct lookup_field_info): Remove from_dep_base_p field.
+	(lookup_field_queue_p): Adjust, test BINFO_DEPENDENT_BASE_P.
+	(lookup_field_r): Remove dependent base code.
+	(lookup_member): Likewise.
+	(dfs_walk, dfs_walk_real): Add access arg to queue fn.
+	(dfs_unmarked_real_bases_queue_p): Remove.
+	(dfs_marked_real_bases_queue_p): Remove.
+	(dfs_skip_vbases): Remove.
+	(dfs_get_pure_virtuals): Adjust.
+	(markedp, unmarkedp): Adjust.
+	(marked_vtable_pathp, unmarked_vtable_pathp): Remove.
+	(marked_pushdecls_p, unmarked_pushdecls_p): Adjust.
+	(dfs_unmark): Adjust.
+	(dfs_get_vbase_types):Remove.
+	(dfs_build_inheritance_graph_order): Remove.
+	(get_vbase_types): Remove
+	(dfs_find_vbase_instance): Remove.
+	(find_vbase_instance): Remove.
+	(dfs_debug_unmarkedp): Adjust.
+	(dependent_base_p): Remove.
+	(dfs_push_type_decls): Adjust.
+	(dfs_push_decls): Adjust.
+	(dfs_no_overlap_yet): Adjust.
+	(copied_binfo): New function.
+	(original_binfo): New function.
+	(binfo_for_vbase): Remove.
+
+2003-02-18  Zack Weinberg  <zack@codesourcery.com>
+
+	* cp/search.c (grow_bfs_bases): New subroutine of bfs_walk.
+	(bfs_walk): Rewritten using circular queue of BINFO_BASETYPES
+	vectors, for speed.
+
+2003-02-18  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/9704
+	* class.c (layout_class_type): In the 3.2 ABI, take into account
+	trailing bit fields when computing CLASSTYPE_SIZE_UNIT.
+
+2003-02-18  Matt Austern <austern@apple.com>
+	
+	* cp/cp-lang.c: Change lang hooks so that final_write_globals does
+	nothing for C++.
+	* cp/decl.c (wrapup_globals_for_namespace): Remove special
+	handling of global namespace.
+	
+2003-02-18  Geoffrey Keating  <geoffk@apple.com>
+
+	* cp-tree.h (rid_to_yy): Delete.
+	(C_RID_YYCODE): Delete.
+	(finish_file): Delete redundant declaration.
+
+2003-02-18  Jason Merrill  <jason@redhat.com>
+
+	PR c++/9623
+	* decl.c (reshape_init): Don't mess with initializer labels.
+
+2003-02-18  Ben Elliston  <bje@redhat.com>
+
+	PR other/7350
+	* decl.c (duplicate_decls): Fix typo in comment.
+
+2003-02-17  Michael Elizabeth Chastain <mec@shout.net>
+
+	PR debug/9717
+	* class.c (build_base_field): Mark fields for base classes with
+	DECL_IGNORED_P.
+
+2003-02-17  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/9457
+	* pt.c (tsubst_copy_and_build) [CONSTRUCTOR]: Substitute
+	CONSTRUCTOR_ELTS only once.
+
+2003-02-16  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/9459
+	* error.c (dump_type_prefix): Handle TYPEOF_TYPE.
+	(dump_type_suffix): Likewise.
+
+2003-02-14  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* search.c: ANSIfy function declarations and definitions.
+	* cp-tree.h (lookup_field, lookup_member): Last parameter is a bool.
+	* call.c (build_method_call, resolve_scoped_fn_name,
+	build_java_interface_fn_ref): Adjust lookup_field, lookup_member
+	calls.
+	* class.c (handle_using_decl): Likewise.
+	* decl.c (make_typename_type, make_unmound_class_template,
+	start_decl, compute_array_index_type): Likewise.
+	* decl2.c (build_expr_from_tree, build_call_from_tree): Likewise.
+	* init.c (expand_member_init, build_member_call): Likewise.
+	* pt.c (tsubst_copy, tsubst_copy_and_build, do_decl_instantiation,
+	resolve_typename_type): Likewise.
+	* typeck.c (lookup_destructor, finish_class_member_access_exprm
+	build_prememfunc_access_expr): Likewise.
+
+2003-02-13  Gabriel Dos Reis <gdr@integrable-solutions.net>
+
+	* decl2.c: Include "timevar.h".
+	(namespace_ancestor): Time name lookup.
+	(add_using_namespace): Likewise.
+	(lookup_using_namespace): Likewise.
+	(qualified_lookup_using_namespace): Likewise.
+	(decl_namespace): Likewise.
+	(lookup_arg_dependent): Likewise.
+	* lex.c (do_identifier): Likewise.
+	(do_scoped_id): Likewise.
+	* pt.c (lookup_template_class): Likewise.
+
+2003-02-14   Andrew Pinski <pinskia@physics.uc.edu>
+
+        * decl.c: (define_label): Fix warning for return 0 instead of NULL.
+	
+2003-02-13  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* decl.c: Include "timevar.h".
+	(poplevel): Time name lookup.
+	(find_binding): Likewise.
+	(push_namespace): Likewise.
+	(pop_nested_namespace): Likewise.
+	(store_bindings): Likewise.
+	(maybe_push_to_top_level): Likewise.
+	(pop_from_top_level): Likewise.
+	(push_local_name): Likewise.
+	(pushtag): Likewise.
+	(pushdecl): Likewise.
+	(pushdecl_with_scope): Likewise.
+	(pushdecl_namespace_level): Likewise.
+	(pushdecl_top_level): Likewise.
+	(pushdecl_class_level): Likewise.
+	(push_class_level_binding): Likewise.
+	(push_using_decl): Likewise.
+	(push_using_directive): Likewise.
+	(push_overloaded_decl): Likewise.
+	(lookup_label): Likewise.
+	(define_label): Likewise.
+	(lookup_tag): Likewise.
+	(lookup_tag_reverse): Likewise.
+	(lookup_namespace_name): Likewise.
+	(select_decl): Likewise.
+	(unqualified_namespace_lookup): Likewise.
+	(lookup_name_real): Likewise.
+	(lookup_name_current_level): Likewise.
+	(lookup_type_current_level): Likewise.
+	(maybe_inject_for_scope_var): Likewise.
+	(xref_tag): Likewise.
+
+	* Make-lang.in (cp/decl.o): Add dependency on timevar.h
+	
+2003-02-12  Phil Edwards  <pme@gcc.gnu.org>
+
+	* decl.c (build_enumerator):  Remove unneeded test.
+
+2003-02-09  Dan Nicolaescu  <dann@ics.uci.edu>
+
+	* cp-tree.h (struct lang_type_header): Make all fields unsigned
+	char.
+
 2003-02-03  Mark Mitchell  <mark@codesourcery.com>
 
 	PR c++/7129

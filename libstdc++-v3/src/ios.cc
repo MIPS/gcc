@@ -1,6 +1,6 @@
 // Iostreams base classes -*- C++ -*-
 
-// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002
+// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -159,11 +159,12 @@ namespace std
   void
   ios_base::Init::_S_ios_create(bool __sync)
   {
-    int __out_size = __sync ? 0 : static_cast<int>(BUFSIZ);
+    size_t __out_size = __sync ? 0 : static_cast<size_t>(BUFSIZ);
 #ifdef _GLIBCPP_HAVE_ISATTY
-    int __in_size = (__sync || isatty (0)) ? 1 : static_cast<int>(BUFSIZ);
+    size_t __in_size =
+      (__sync || isatty (0)) ? 1 : static_cast<size_t>(BUFSIZ);
 #else
-    int __in_size = 1;
+    size_t __in_size = 1;
 #endif
 
     // NB: The file globals.cc creates the four standard files
@@ -301,7 +302,7 @@ namespace std
     return __old;
   }
 
-  ios_base::ios_base() : _M_callbacks(0), _M_word(0)
+  ios_base::ios_base() : _M_callbacks(0), _M_word(0), _M_locale_cache(0)
   {
     // Do nothing: basic_ios::init() does it.  
     // NB: _M_callbacks and _M_word must be zero for non-initialized

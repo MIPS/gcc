@@ -4031,6 +4031,7 @@ lookup_template_class (d1, arglist, in_decl, context, entering_scope, complain)
   tree template = NULL_TREE, parmlist;
   tree t;
 
+  timevar_push (TV_NAME_LOOKUP);
   if (TREE_CODE (d1) == IDENTIFIER_NODE)
     {
       if (IDENTIFIER_VALUE (d1) 
@@ -4086,7 +4087,7 @@ lookup_template_class (d1, arglist, in_decl, context, entering_scope, complain)
     {
       if (complain & tf_error)
         error ("`%T' is not a template", d1);
-      return error_mark_node;
+      POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, error_mark_node);
     }
 
   if (TREE_CODE (template) != TEMPLATE_DECL
@@ -4102,7 +4103,7 @@ lookup_template_class (d1, arglist, in_decl, context, entering_scope, complain)
           if (in_decl)
 	    cp_error_at ("for template declaration `%D'", in_decl);
 	}
-      return error_mark_node;
+      POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, error_mark_node);
     }
 
   if (DECL_TEMPLATE_TEMPLATE_PARM_P (template))
@@ -4137,10 +4138,10 @@ lookup_template_class (d1, arglist, in_decl, context, entering_scope, complain)
       arglist2 = coerce_template_parms (parmlist, arglist, template,
                                         complain, /*require_all_args=*/1);
       if (arglist2 == error_mark_node)
-	return error_mark_node;
+        POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, error_mark_node);
 
       parm = bind_template_template_parm (TREE_TYPE (template), arglist2);
-      return parm;
+      POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, parm);
     }
   else 
     {
@@ -4227,7 +4228,7 @@ lookup_template_class (d1, arglist, in_decl, context, entering_scope, complain)
 
       if (arglist == error_mark_node)
 	/* We were unable to bind the arguments.  */
-	return error_mark_node;
+	POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, error_mark_node);
 
       /* In the scope of a template class, explicit references to the
 	 template class refer to the type of the template, not any
@@ -4264,7 +4265,7 @@ lookup_template_class (d1, arglist, in_decl, context, entering_scope, complain)
 	    }
 	}
       if (found)
-        return found;
+        POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, found);
 
       for (tp = &DECL_TEMPLATE_INSTANTIATIONS (template);
 	   *tp;
@@ -4280,7 +4281,7 @@ lookup_template_class (d1, arglist, in_decl, context, entering_scope, complain)
 	      = DECL_TEMPLATE_INSTANTIATIONS (template);
 	    DECL_TEMPLATE_INSTANTIATIONS (template) = found;
 
-	    return TREE_VALUE (found);
+	    POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, TREE_VALUE (found));
 	  }
 
       /* This type is a "partial instantiation" if any of the template
@@ -4296,7 +4297,7 @@ lookup_template_class (d1, arglist, in_decl, context, entering_scope, complain)
 	  found = xref_tag_from_type (TREE_TYPE (template),
 				      DECL_NAME (template),
 				      /*globalize=*/1);
-	  return found;
+	  POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, found);
 	}
       
       context = tsubst (DECL_CONTEXT (template), arglist,
@@ -4452,8 +4453,9 @@ lookup_template_class (d1, arglist, in_decl, context, entering_scope, complain)
 	   code that generates debugging information will crash.  */
 	DECL_IGNORED_P (TYPE_STUB_DECL (t)) = 1;
 
-      return t;
+      POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, t);
     }
+  timevar_pop (TV_NAME_LOOKUP);
 }
 
 struct pair_fn_data 
@@ -5146,7 +5148,8 @@ instantiate_class_template (type)
 {
   tree template, args, pattern, t, member;
   tree typedecl;
-
+  tree pbinfo;
+  
   if (type == error_mark_node)
     return error_mark_node;
 
@@ -5277,10 +5280,13 @@ instantiate_class_template (type)
   if (ANON_AGGR_TYPE_P (pattern))
     SET_ANON_AGGR_TYPE_P (type);
 
-  if (TYPE_BINFO_BASETYPES (pattern))
+  pbinfo = TYPE_BINFO (pattern);
+  
+  if (BINFO_BASETYPES (pbinfo))
     {
       tree base_list = NULL_TREE;
-      tree pbases = TYPE_BINFO_BASETYPES (pattern);
+      tree pbases = BINFO_BASETYPES (pbinfo);
+      tree paccesses = BINFO_BASEACCESSES (pbinfo);
       int i;
 
       /* Substitute into each of the bases to determine the actual
@@ -5292,33 +5298,15 @@ instantiate_class_template (type)
 	  tree pbase;
 
 	  pbase = TREE_VEC_ELT (pbases, i);
+	  access = TREE_VEC_ELT (paccesses, i);
 
 	  /* Substitute to figure out the base class.  */
 	  base = tsubst (BINFO_TYPE (pbase), args, tf_error, NULL_TREE);
 	  if (base == error_mark_node)
 	    continue;
-
-	  /* Calculate the correct access node.  */
-	  if (TREE_VIA_VIRTUAL (pbase)) 
-	    {
-	      if (TREE_VIA_PUBLIC (pbase))
-		access = access_public_virtual_node;
-	      else if (TREE_VIA_PROTECTED (pbase))
-		access = access_protected_virtual_node;
-	      else 
-		access = access_private_virtual_node;
-	    }
-	  else
-	    {
-	      if (TREE_VIA_PUBLIC (pbase))
-		access = access_public_node;
-	      else if (TREE_VIA_PROTECTED (pbase))
-		access = access_protected_node;
-	      else 
-		access = access_private_node;
-	    }
-
+	  
 	  base_list = tree_cons (access, base, base_list);
+	  TREE_VIA_VIRTUAL (base_list) = TREE_VIA_VIRTUAL (pbase);
 	}
 
       /* The list is now in reverse order; correct that.  */
@@ -7176,7 +7164,7 @@ tsubst_copy (t, args, complain, in_decl)
 	  ctx = tsubst_aggr_type (DECL_CONTEXT (t), args, complain, in_decl,
 				  /*entering_scope=*/1);
 	  if (ctx != DECL_CONTEXT (t))
-	    return lookup_field (ctx, DECL_NAME (t), 0, 0);
+	    return lookup_field (ctx, DECL_NAME (t), 0, false);
 	}
       return t;
 
@@ -8166,7 +8154,7 @@ tsubst_copy_and_build (t, args, complain, in_decl)
 		&& (TREE_CODE ((id = TREE_OPERAND (name, 0)))
 		    == IDENTIFIER_NODE)
 		&& (!current_class_type
-		    || !lookup_member (current_class_type, id, 0, 0)))
+		    || !lookup_member (current_class_type, id, 0, false)))
 	      {
 		/* Do Koenig lookup if there are no class members.  */
 		name = do_identifier (id, copy_args);
@@ -8290,8 +8278,7 @@ tsubst_copy_and_build (t, args, complain, in_decl)
 	   initializers as they are identifier nodes which will be
 	   looked up by digest_init.  */
 	purpose_p = !(type && IS_AGGR_TYPE (type));
-	for (elts = tsubst_copy (CONSTRUCTOR_ELTS (t), args, complain,
-				 in_decl);
+	for (elts = CONSTRUCTOR_ELTS (t);
 	     elts;
 	     elts = TREE_CHAIN (elts))
 	  {
@@ -9162,7 +9149,7 @@ get_template_base_recursive (tparms, targs, parm,
       /* When searching for a non-virtual, we cannot mark virtually
 	 found binfos.  */
       if (! this_virtual)
-	SET_BINFO_MARKED (base_binfo);
+	BINFO_MARKED (base_binfo) = 1;
       
       rval = get_template_base_recursive (tparms, targs,
 					  parm,
@@ -10235,7 +10222,7 @@ do_decl_instantiation (tree decl, tree storage)
 	 VAR_DECLs so we do the lookup here.  Probably, grokdeclarator
 	 should handle VAR_DECLs as it currently handles
 	 FUNCTION_DECLs.  */
-      result = lookup_field (DECL_CONTEXT (decl), DECL_NAME (decl), 0, 0);
+      result = lookup_field (DECL_CONTEXT (decl), DECL_NAME (decl), 0, false);
       if (!result || TREE_CODE (result) != VAR_DECL)
 	{
 	  error ("no matching template for `%D' found", decl);
@@ -11546,7 +11533,7 @@ resolve_typename_type (tree type, bool only_current_p)
      longer be considered a dependent type.  */
   push_scope (scope);
   /* Look up the declaration.  */
-  decl = lookup_member (scope, name, /*protect=*/0, /*want_type=*/1);
+  decl = lookup_member (scope, name, /*protect=*/0, /*want_type=*/true);
   /* Obtain the set of qualifiers applied to the TYPE.  */
   quals = cp_type_quals (type);
   /* For a TYPENAME_TYPE like "typename X::template Y<T>", we want to

@@ -114,6 +114,7 @@ static void finalize PARAMS ((void));
 static void set_target_switch PARAMS ((const char *));
 
 static void crash_signal PARAMS ((int)) ATTRIBUTE_NORETURN;
+static void setup_core_dumping PARAMS ((void));
 static void compile_file PARAMS ((void));
 static void display_help PARAMS ((void));
 static void display_target_options PARAMS ((void));
@@ -254,9 +255,9 @@ enum dump_file_index
   DFI_peephole2,
   DFI_rnreg,
   DFI_ce3,
+  DFI_bbro,
   DFI_sched2,
   DFI_stack,
-  DFI_bbro,
   DFI_mach,
   DFI_dbr,
   DFI_MAX
@@ -305,9 +306,9 @@ static struct dump_file_info dump_file[DFI_MAX] =
   { "peephole2", 'z', 1, 0, 0 },
   { "rnreg",	'n', 1, 0, 0 },
   { "ce3",	'E', 1, 0, 0 },
+  { "bbro",	'B', 1, 0, 0 },
   { "sched2",	'R', 1, 0, 0 },
   { "stack",	'k', 1, 0, 0 },
-  { "bbro",	'B', 1, 0, 0 },
   { "mach",	'M', 1, 0, 0 },
   { "dbr",	'd', 0, 0, 0 },
 };
@@ -596,7 +597,7 @@ int flag_finite_math_only = 0;
 /* Zero means that floating-point math operations cannot generate a
    (user-visible) trap.  This is the case, for example, in nonstop
    IEEE 754 arithmetic.  Trapping conditions include division by zero,
-   overflow, underflow, invalid and inexact, but does not include 
+   overflow, underflow, invalid and inexact, but does not include
    operations on signaling NaNs (see below).  */
 
 int flag_trapping_math = 1;
@@ -744,6 +745,13 @@ int flag_pedantic_errors = 0;
 
 int flag_schedule_insns = 0;
 int flag_schedule_insns_after_reload = 0;
+
+/* When flag_schedule_insns_after_reload is set, use EBB scheduler.  */
+int flag_sched2_use_superblocks = 0;
+
+/* When flag_schedule_insns_after_reload is set, construct traces and EBB
+   scheduler.  */
+int flag_sched2_use_traces = 0;
 
 /* The following flags have effect only for scheduling before register
    allocation:
@@ -909,6 +917,10 @@ int flag_ip = 0;
 /* Nonzero if we perform superblock formation.  */
 int flag_tracer = 0;
 
+/* Nonzero if we perform whole unit at a time compilation.  */
+
+int flag_unit_at_a_time = 0;
+
 /* Values of the -falign-* flags: how much to align labels in code.
    0 means `use default', 1 means `don't align'.
    For each variable, there is an _log variant which is the power
@@ -1015,6 +1027,8 @@ static const lang_independent_options f_options[] =
    N_("Optimize sibling and tail recursive calls") },
   {"tracer", &flag_tracer, 1,
    N_("Perform superblock formation via tail duplication") },
+  {"unit-at-a-time", &flag_unit_at_a_time, 1,
+   N_("Compile whole compilation unit at a time") },
   {"cse-follow-jumps", &flag_cse_follow_jumps, 1,
    N_("When running CSE, follow jumps to their targets") },
   {"cse-skip-blocks", &flag_cse_skip_blocks, 1,
@@ -1099,6 +1113,10 @@ static const lang_independent_options f_options[] =
    N_("Allow speculative motion of some loads") },
   {"sched-spec-load-dangerous",&flag_schedule_speculative_load_dangerous, 1,
    N_("Allow speculative motion of more loads") },
+  {"sched2-use-superblocks", &flag_sched2_use_superblocks, 1,
+   N_("If scheduling post reload, do superblock sheduling") },
+  {"sched2-use-traces", &flag_sched2_use_traces, 1,
+   N_("If scheduling post reload, do trace sheduling") },
   {"branch-count-reg",&flag_branch_on_count_reg, 1,
    N_("Replace add,compare,branch with branch on count reg") },
   {"pic", &flag_pic, 1,
@@ -1736,6 +1754,29 @@ crash_signal (signo)
   internal_error ("%s", strsignal (signo));
 }
 
+/* Arrange to dump core on error.  (The regular error message is still
+   printed first, except in the case of abort().)  */
+
+static void
+setup_core_dumping ()
+{
+#ifdef SIGABRT
+  signal (SIGABRT, SIG_DFL);
+#endif
+#if defined(HAVE_SETRLIMIT)
+  {
+    struct rlimit rlim;
+    if (getrlimit (RLIMIT_CORE, &rlim) != 0)
+      fatal_io_error ("getting core file size maximum limit");
+    rlim.rlim_cur = rlim.rlim_max;
+    if (setrlimit (RLIMIT_CORE, &rlim) != 0)
+      fatal_io_error ("setting core file size limit to maximum");
+  }
+#endif
+  diagnostic_abort_on_error (global_dc);
+}
+
+
 /* Strip off a legitimate source ending from the input string NAME of
    length LEN.  Rather than having to know the names used by all of
    our front ends, we strip off an ending of a period followed by
@@ -1946,8 +1987,10 @@ wrapup_global_declarations (vec, len)
     {
       decl = vec[i];
 
-      /* We're not deferring this any longer.  */
-      DECL_DEFER_OUTPUT (decl) = 0;
+      /* We're not deferring this any longer.  Assignment is
+	 conditional to avoid needlessly dirtying PCH pages. */
+      if (DECL_DEFER_OUTPUT (decl) != 0)
+	DECL_DEFER_OUTPUT (decl) = 0;
 
       if (TREE_CODE (decl) == VAR_DECL && DECL_SIZE (decl) == 0)
 	(*lang_hooks.finish_incomplete_decl) (decl);
@@ -2154,8 +2197,6 @@ pop_srcloc ()
 static void
 compile_file ()
 {
-  tree globals;
-
   /* Initialize yet another pass.  */
 
   init_final (main_input_filename);
@@ -2178,37 +2219,13 @@ compile_file ()
   if (flag_syntax_only)
     return;
 
-  globals = (*lang_hooks.decls.getdecls) ();
-
-  /* Really define vars that have had only a tentative definition.
-     Really output inline functions that must actually be callable
-     and have not been output so far.  */
-
-  {
-    int len = list_length (globals);
-    tree *vec = (tree *) xmalloc (sizeof (tree) * len);
-    int i;
-    tree decl;
-
-    /* Process the decls in reverse order--earliest first.
-       Put them into VEC from back to front, then take out from front.  */
-
-    for (i = 0, decl = globals; i < len; i++, decl = TREE_CHAIN (decl))
-      vec[len - i - 1] = decl;
-
-    wrapup_global_declarations (vec, len);
+  (*lang_hooks.decls.final_write_globals)();
 
     if (profile_arc_flag)
       /* This must occur after the loop to output deferred functions.
          Else the profiler initializer would not be emitted if all the
          functions in this compilation unit were deferred.  */
       create_profiler ();
-
-    check_global_declarations (vec, len);
-
-    /* Clean up.  */
-    free (vec);
-  }
 
   /* Write out any pending weak symbol declarations.  */
 
@@ -2416,7 +2433,6 @@ rest_of_compilation (decl)
   int tem;
   int failure = 0;
   int rebuild_label_notes_after_reload;
-  int register_life_up_to_date;
 
   timevar_push (TV_REST_OF_COMPILATION);
 
@@ -2632,9 +2648,12 @@ rest_of_compilation (decl)
   delete_unreachable_blocks ();
 
   /* Turn NOTE_INSN_PREDICTIONs into branch predictions.  */
-  timevar_push (TV_BRANCH_PROB);
-  note_prediction_to_br_prob ();
-  timevar_pop (TV_BRANCH_PROB);
+  if (flag_guess_branch_prob)
+    {
+      timevar_push (TV_BRANCH_PROB);
+      note_prediction_to_br_prob ();
+      timevar_pop (TV_BRANCH_PROB);
+    }
 
   /* We may have potential sibling or tail recursion sites.  Select one
      (of possibly multiple) methods of performing the call.  */
@@ -2715,21 +2734,25 @@ rest_of_compilation (decl)
   timevar_push (TV_JUMP);
   /* Turn NOTE_INSN_EXPECTED_VALUE into REG_BR_PROB.  Do this
      before jump optimization switches branch directions.  */
-  expected_value_to_br_prob ();
+  if (flag_guess_branch_prob)
+    expected_value_to_br_prob ();
 
   reg_scan (insns, max_reg_num (), 0);
   rebuild_jump_labels (insns);
   find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
+  delete_trivially_dead_insns (insns, max_reg_num ());
   if (rtl_dump_file)
     dump_flow_info (rtl_dump_file);
   cleanup_cfg ((optimize ? CLEANUP_EXPENSIVE : 0) | CLEANUP_PRE_LOOP
 	       | (flag_thread_jumps ? CLEANUP_THREADING : 0));
 
-  /* CFG is no longer maintained up-to-date.  */
-  free_bb_for_insn ();
-  copy_loop_headers (insns);
+  if (optimize)
+    {
+      free_bb_for_insn ();
+      copy_loop_headers (insns);
+      find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
+    }
   purge_line_number_notes (insns);
-  find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
 
   timevar_pop (TV_JUMP);
   close_dump_file (DFI_jump, print_rtl, insns);
@@ -3076,7 +3099,7 @@ rest_of_compilation (decl)
       close_dump_file (DFI_bp, print_rtl_with_bb, insns);
       timevar_pop (TV_BRANCH_PROB);
     }
-  if (optimize >= 0)
+  if (optimize > 0)
     {
       open_dump_file (DFI_ce1, decl);
       if (flag_if_conversion)
@@ -3271,10 +3294,6 @@ rest_of_compilation (decl)
      description to add extra information not needed previously.  */
   split_all_insns (1);
 
-  /* Any of the several passes since flow1 will have munged register
-     lifetime data a bit.  */
-  register_life_up_to_date = 0;
-
 #ifdef OPTIMIZE_MODE_SWITCHING
   timevar_push (TV_MODE_SWITCH);
 
@@ -3284,6 +3303,11 @@ rest_of_compilation (decl)
 
   timevar_pop (TV_MODE_SWITCH);
 #endif
+
+  /* Any of the several passes since flow1 will have munged register
+     lifetime data a bit.  We need it to be up to date for scheduling
+     (see handling of reg_known_equiv in init_alias_analysis).  */
+  recompute_reg_usage (insns, !optimize_size);
 
   timevar_push (TV_SCHED);
 
@@ -3301,10 +3325,6 @@ rest_of_compilation (decl)
       schedule_insns (rtl_dump_file);
 
       close_dump_file (DFI_sched, print_rtl_with_bb, insns);
-
-      /* Register lifetime information was updated as part of verifying
-	 the schedule.  */
-      register_life_up_to_date = 1;
     }
 #endif
   timevar_pop (TV_SCHED);
@@ -3323,9 +3343,6 @@ rest_of_compilation (decl)
 
      RUN_JUMP_AFTER_RELOAD records whether or not we need to rerun the
      jump optimizer after register allocation and reloading are finished.  */
-
-  if (! register_life_up_to_date)
-    recompute_reg_usage (insns, ! optimize_size);
 
   if (flag_new_regalloc)
     {
@@ -3535,6 +3552,28 @@ rest_of_compilation (decl)
     split_all_insns (1);
 #endif
 
+  if (optimize > 0)
+    {
+      timevar_push (TV_REORDER_BLOCKS);
+      open_dump_file (DFI_bbro, decl);
+
+      /* Last attempt to optimize CFG, as scheduling, peepholing and insn
+	 splitting possibly introduced more crossjumping opportunities. */
+      cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_UPDATE_LIFE
+		   | (flag_crossjumping ? CLEANUP_CROSSJUMP : 0));
+
+      if (flag_sched2_use_traces && flag_schedule_insns_after_reload)
+        tracer ();
+      if (flag_reorder_blocks)
+	reorder_basic_blocks ();
+      if (flag_reorder_blocks
+	  || (flag_sched2_use_traces && flag_schedule_insns_after_reload))
+	  cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_UPDATE_LIFE);
+
+      close_dump_file (DFI_bbro, print_rtl_with_bb, insns);
+      timevar_pop (TV_REORDER_BLOCKS);
+    }
+
 #ifdef INSN_SCHEDULING
   if (optimize > 0 && flag_schedule_insns_after_reload)
     {
@@ -3546,7 +3585,16 @@ rest_of_compilation (decl)
 
       split_all_insns (1);
 
-      schedule_insns (rtl_dump_file);
+      if (flag_sched2_use_superblocks || flag_sched2_use_traces)
+	{
+	  schedule_ebbs (rtl_dump_file);
+	  /* No liveness updating code yet, but it should be easy to do.
+	     reg-stack recompute the liveness when needed for now.  */
+	  count_or_remove_death_notes (NULL, 1);
+	  cleanup_cfg (CLEANUP_EXPENSIVE);
+	}
+      else
+        schedule_insns (rtl_dump_file);
 
       close_dump_file (DFI_sched2, print_rtl_with_bb, insns);
       timevar_pop (TV_SCHED2);
@@ -3564,33 +3612,22 @@ rest_of_compilation (decl)
   timevar_push (TV_REG_STACK);
   open_dump_file (DFI_stack, decl);
 
-  reg_to_stack (insns, rtl_dump_file);
+  if (reg_to_stack (insns, rtl_dump_file) && optimize)
+    {
+      if (cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_POST_REGSTACK
+		       | (flag_crossjumping ? CLEANUP_CROSSJUMP : 0))
+	  && flag_reorder_blocks)
+	{
+	  reorder_basic_blocks ();
+	  cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_POST_REGSTACK);
+	}
+    }
 
   close_dump_file (DFI_stack, print_rtl_with_bb, insns);
   timevar_pop (TV_REG_STACK);
 
   ggc_collect ();
 #endif
-  if (optimize > 0)
-    {
-      timevar_push (TV_REORDER_BLOCKS);
-      open_dump_file (DFI_bbro, decl);
-
-      /* Last attempt to optimize CFG, as scheduling, peepholing and insn
-	 splitting possibly introduced more crossjumping opportunities.
-	 Except that we can't actually run crossjumping without running
-	 another DCE pass, which we can't do after reg-stack.  */
-      cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_POST_REGSTACK
-		   | (flag_crossjumping ? CLEANUP_CROSSJUMP : 0));
-      if (flag_reorder_blocks)
-	{
-	  reorder_basic_blocks ();
-	  cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_POST_REGSTACK);
-	}
-
-      close_dump_file (DFI_bbro, print_rtl_with_bb, insns);
-      timevar_pop (TV_REORDER_BLOCKS);
-    }
   compute_alignments ();
 
   /* CFG is no longer maintained up-to-date.  */
@@ -4003,6 +4040,9 @@ decode_d_option (arg)
 	break;
       case 'D':	/* These are handled by the preprocessor.  */
       case 'I':
+	break;
+      case 'H':
+	setup_core_dumping();
 	break;
 
       default:
@@ -4439,7 +4479,7 @@ independent_decode_option (argc, argv)
 
 	  if (argv[1][0])
 	    dump_base_name = argv[1];
-	  
+
 	  return 2;
 	}
       else
@@ -4519,7 +4559,7 @@ independent_decode_option (argc, argv)
 
 	  if (argv[1][0])
 	    aux_base_name = argv[1];
-	  
+
 	  return 2;
 	}
       else if (!strcmp (arg, "auxbase-strip"))
@@ -4533,7 +4573,7 @@ independent_decode_option (argc, argv)
 	      if (argv[1][0])
 		aux_base_name = argv[1];
 	    }
-	  
+
 	  return 2;
 	}
       else
@@ -4638,6 +4678,8 @@ print_version (file, indent)
      FILE *file;
      const char *indent;
 {
+  fnotice (file, "GGC heuristics: --param ggc-min-expand=%d --param ggc-min-heapsize=%d\n",
+	   PARAM_VALUE (GGC_MIN_EXPAND), PARAM_VALUE (GGC_MIN_HEAPSIZE));
 #ifndef __VERSION__
 #define __VERSION__ "[?]"
 #endif
@@ -4891,6 +4933,9 @@ parse_options_and_default_flags (argc, argv)
 
   /* Register the language-independent parameters.  */
   add_params (lang_independent_params, LAST_PARAM);
+
+  /* This must be done after add_params but before argument processing.  */
+  init_ggc_heuristics();
 
   /* Perform language-specific options initialization.  */
   (*lang_hooks.init_options) ();
@@ -5167,6 +5212,11 @@ process_options ()
   if (flag_asynchronous_unwind_tables)
     flag_unwind_tables = 1;
 
+  /* Disable unit-at-a-time mode for frontends not supporting callgraph
+     interface.  */
+  if (flag_unit_at_a_time && ! lang_hooks.callgraph.expand_function)
+    flag_unit_at_a_time = 0;
+
   /* Warn about options that are not supported on this machine.  */
 #ifndef INSN_SCHEDULING
   if (flag_schedule_insns || flag_schedule_insns_after_reload)
@@ -5201,7 +5251,7 @@ process_options ()
 	print_switch_values (stderr, 0, MAX_LINE, "", " ", "\n");
     }
 
-  if (! quiet_flag)
+  if (! quiet_flag  || flag_detailed_statistics)
     time_report = 1;
 
   if (flag_syntax_only)
@@ -5344,7 +5394,7 @@ lang_dependent_init (name)
 {
   if (dump_base_name == 0)
     dump_base_name = name ? name : "gccdump";
-  
+
   /* Front-end initialization.  This hook can assume that GC,
      identifier hashes etc. are set up, but debug initialization is
      not done yet.  This routine must return the original filename
@@ -5467,7 +5517,7 @@ do_compile ()
   else if (filename)
     {
       char *name = xstrdup (lbasename (filename));
-      
+
       aux_base_name = name;
       strip_off_ending (name, strlen (name));
     }

@@ -86,6 +86,8 @@ tree lhd_tree_inlining_convert_parm_for_inlining PARAMS ((tree, tree, tree));
 /* Declarations for tree simplification hooks.  */
 int lhd_simplify_expr			     PARAMS ((tree *, tree *, tree *));
 
+void write_global_declarations PARAMS ((void));
+
 #define LANG_HOOKS_NAME			"GNU unknown"
 #define LANG_HOOKS_IDENTIFIER_SIZE	sizeof (struct lang_identifier)
 #define LANG_HOOKS_INIT			lhd_do_nothing
@@ -169,6 +171,14 @@ int lhd_simplify_expr			     PARAMS ((tree *, tree *, tree *));
   LANG_HOOKS_TREE_INLINING_CONVERT_PARM_FOR_INLINING \
 } \
 
+#define LANG_HOOKS_CALLGRAPH_LOWER_FUNCTION NULL
+#define LANG_HOOKS_CALLGRAPH_EXPAND_FUNCTION NULL
+
+#define LANG_HOOKS_CALLGRAPH_INITIALIZER { \
+  LANG_HOOKS_CALLGRAPH_LOWER_FUNCTION, \
+  LANG_HOOKS_CALLGRAPH_EXPAND_FUNCTION, \
+} \
+
 #define LANG_HOOKS_FUNCTION_INITIALIZER {	\
   LANG_HOOKS_FUNCTION_INIT,			\
   LANG_HOOKS_FUNCTION_FINAL,			\
@@ -217,6 +227,7 @@ int lhd_tree_dump_type_quals			PARAMS ((tree));
 #define LANG_HOOKS_PUSHDECL	pushdecl
 #define LANG_HOOKS_GETDECLS	getdecls
 #define LANG_HOOKS_WARN_UNUSED_GLOBAL_DECL lhd_warn_unused_global_decl
+#define LANG_HOOKS_WRITE_GLOBALS write_global_declarations
 
 #define LANG_HOOKS_DECLS { \
   LANG_HOOKS_PUSHLEVEL, \
@@ -226,7 +237,8 @@ int lhd_tree_dump_type_quals			PARAMS ((tree));
   LANG_HOOKS_SET_BLOCK, \
   LANG_HOOKS_PUSHDECL, \
   LANG_HOOKS_GETDECLS, \
-  LANG_HOOKS_WARN_UNUSED_GLOBAL_DECL \
+  LANG_HOOKS_WARN_UNUSED_GLOBAL_DECL, \
+  LANG_HOOKS_WRITE_GLOBALS \
 }
 
 /* The whole thing.  The structure is defined in langhooks.h.  */
@@ -270,6 +282,7 @@ int lhd_tree_dump_type_quals			PARAMS ((tree));
   LANG_HOOKS_FORMAT_ATTRIBUTE_TABLE, \
   LANG_HOOKS_FUNCTION_INITIALIZER, \
   LANG_HOOKS_TREE_INLINING_INITIALIZER, \
+  LANG_HOOKS_CALLGRAPH_INITIALIZER, \
   LANG_HOOKS_TREE_DUMP_INITIALIZER, \
   LANG_HOOKS_DECLS, \
   LANG_HOOKS_FOR_TYPES_INITIALIZER, \

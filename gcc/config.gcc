@@ -259,6 +259,9 @@ strongarm*-*-*)
 arm*-*-*)
 	cpu_type=arm
 	;;
+ep9312*-*-*)
+	cpu_type=arm
+	;;
 xscale-*-*)
 	cpu_type=arm
 	;;
@@ -700,7 +703,7 @@ arm*-*-rtems*)
 	  thread_file='rtems'
 	fi
 	;;
-arm*-*-elf)
+arm*-*-elf | ep9312-*-elf)
 	tm_file="dbxelf.h elfos.h arm/unknown-elf.h arm/elf.h arm/aout.h arm/arm.h"
 	tmake_file=arm/t-arm-elf
 	;;
@@ -1651,14 +1654,14 @@ m68k-*-sysv4*)			# Motorola m68k's running system V.4
 m68k-*-linux*aout*)		# Motorola m68k's running GNU/Linux
 				# with a.out format
 	tm_file=m68k/linux-aout.h
-	tmake_file="t-linux-aout m68k/t-linux-aout"
+	tmake_file="t-linux-aout"
 	gnu_ld=yes
 	;;
 m68k-*-linux*libc1)		# Motorola m68k's running GNU/Linux
 				# with ELF format using the
 				# GNU/Linux C library 5
 	tm_file=m68k/linux.h
-	tmake_file="t-slibgcc-elf-ver t-linux t-linux-gnulibc1 m68k/t-linux"
+	tmake_file="t-slibgcc-elf-ver t-linux t-linux-gnulibc1"
 	extra_parts="crtbegin.o crtbeginS.o crtend.o crtendS.o"
 	gnu_ld=yes
 	;;
@@ -1666,7 +1669,7 @@ m68k-*-linux*)		# Motorola m68k's running GNU/Linux
 				# with ELF format using glibc 2
 				# aka the GNU/Linux C library 6.
 	tm_file=m68k/linux.h
-	tmake_file="t-slibgcc-elf-ver t-linux m68k/t-linux"
+	tmake_file="t-slibgcc-elf-ver t-linux"
 	;;
 m68k-*-psos*)
 	tmake_file=m68k/t-m68kbare
@@ -2790,6 +2793,7 @@ arm*-*-*)
 		| xarm7m | xarm7dm | xarm7dmi | xarm[79]tdmi \
 		| xarm7100 | xarm7500 | xarm7500fe | xarm810 \
 		| xxscale \
+		| xep9312 \
 		| xstrongarm | xstrongarm110 | xstrongarm1100)
 			target_cpu_default2="TARGET_CPU_$with_cpu"
 			;;
@@ -2805,6 +2809,11 @@ arm*-*-*)
 				echo "Unknown cpu used with --with-cpu=$with_cpu" 1>&2
 				exit 1
 			fi
+			;;
+	esac
+	case $machine in
+		9ep9312-*-*)
+			target_cpu_default2="TARGET_CPU_9ep9312"
 			;;
 	esac
 	;;

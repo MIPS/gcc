@@ -48,11 +48,11 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "timevar.h"
 #include "c-common.h"
 #include "c-pragma.h"
-#include "tree-dchain.h"
 #include "langhooks.h"
 #include "tree-mudflap.h"
 #include "diagnostic.h"
 #include "tree-dump.h"
+#include "cgraph.h"
 
 /* In grokdeclarator, distinguish syntactic contexts of declarators.  */
 enum decl_context
@@ -287,7 +287,7 @@ static tree grokdeclarator		PARAMS ((tree, tree, enum decl_context,
 static tree grokparms			PARAMS ((tree, int));
 static void layout_array_type		PARAMS ((tree));
 static tree c_make_fname_decl           PARAMS ((tree, int));
-static void c_expand_body               PARAMS ((tree, int, int));
+static void c_expand_body_1             PARAMS ((tree, int));
 static void warn_if_shadowing		PARAMS ((tree, tree));
 static bool flexible_array_type_p	PARAMS ((tree));
 
@@ -1148,6 +1148,12 @@ duplicate_decls (newdecl, olddecl, different_binding_level)
 	    }
 	}
       error_with_decl (olddecl, "previous declaration of `%s'");
+
+      /* This is safer because the initializer might contain references
+	 to variables that were declared between olddecl and newdecl. This
+	 will make the initializer invalid for olddecl in case it gets
+	 assigned to olddecl below.  */
+      DECL_INITIAL (newdecl) = 0;
     }
   /* TLS cannot follow non-TLS declaration.  */
   else if (TREE_CODE (olddecl) == VAR_DECL && TREE_CODE (newdecl) == VAR_DECL
@@ -6424,10 +6430,73 @@ finish_function (nested, can_defer_p)
   lineno = saved_lineno;
   input_filename = saved_filename;
 
+  if (flag_unit_at_a_time)
+    {
+      cgraph_finalize_function (fndecl, DECL_SAVED_TREE (fndecl));
+      current_function_decl = NULL;
+      return;
+    }
+
   if (! nested)
     {
-      /* Generate RTL for the body of this function.  */
-      c_expand_body (fndecl, nested, can_defer_p);
+      /* Function is parsed.
+	 Generate RTL for the body of this function or defer
+	 it for later expansion.  */
+      int uninlinable = 1;
+      FILE *dump_file;
+      int dump_flags;
+
+      /* Dump the function call graph.  */
+      dump_file = dump_begin (TDI_xml, &dump_flags);
+      if (dump_file)
+	{
+	  /* Dump the function call graph.  */
+	  print_call_graph (dump_file, fndecl);
+	  dump_end (TDI_xml, dump_file);
+	}
+
+      /* There's no reason to do any of the work here if we're only doing
+	 semantic analysis; this code just generates RTL.  */
+      if (flag_syntax_only)
+	{
+	  current_function_decl = NULL;
+	  DECL_SAVED_TREE (fndecl) = NULL_TREE;
+	  return;
+	}
+
+      if (flag_inline_trees)
+	{
+	  /* First, cache whether the current function is inlinable.  Some
+	     predicates depend on cfun and current_function_decl to
+	     function completely.  */
+	  timevar_push (TV_INTEGRATION);
+	  uninlinable = ! tree_inlinable_function_p (fndecl);
+	  
+	  if (! uninlinable && can_defer_p
+	      /* Save function tree for inlining.  Should return 0 if the
+		 language does not support function deferring or the
+		 function could not be deferred.  */
+	      && defer_fn (fndecl))
+	    {
+	      /* Let the back-end know that this function exists.  */
+	      (*debug_hooks->deferred_inline_function) (fndecl);
+	      timevar_pop (TV_INTEGRATION);
+	      current_function_decl = NULL;
+	      return;
+	    }
+	  
+	  /* Then, inline any functions called in it.  */
+	  optimize_inline_calls (fndecl);
+	  timevar_pop (TV_INTEGRATION);
+	}
+
+      c_expand_body (fndecl);
+
+      if (uninlinable)
+	{
+	  /* Allow the body of the function to be garbage collected.  */
+	  DECL_SAVED_TREE (fndecl) = NULL_TREE;
+	}
 
       /* Let the error reporting routines know that we're outside a
 	 function.  For a nested function, this value is used in
@@ -6446,7 +6515,13 @@ c_expand_deferred_function (fndecl)
      function was deferred, e.g. in duplicate_decls.  */
   if (DECL_INLINE (fndecl) && DECL_RESULT (fndecl))
     {
-      c_expand_body (fndecl, 0, 0);
+      if (flag_inline_trees)
+	{
+	  timevar_push (TV_INTEGRATION);
+	  optimize_inline_calls (fndecl);
+	  timevar_pop (TV_INTEGRATION);
+	}
+      c_expand_body (fndecl);
       current_function_decl = NULL;
     }
 }
@@ -6457,53 +6532,10 @@ c_expand_deferred_function (fndecl)
    generation of RTL.  */
 
 static void
-c_expand_body (fndecl, nested_p, can_defer_p)
+c_expand_body_1 (fndecl, nested_p)
      tree fndecl;
-     int nested_p, can_defer_p;
+     int nested_p;
 {
-  int uninlinable = 1;
-  FILE *dump_file;
-  int dump_flags;
-
-  /* Dump the function call graph.  */
-  dump_file = dump_begin (TDI_xml, &dump_flags);
-  if (dump_file)
-    {
-      /* Dump the function call graph.  */
-      print_call_graph (dump_file, fndecl);
-      dump_end (TDI_xml, dump_file);
-    }
-
-  /* There's no reason to do any of the work here if we're only doing
-     semantic analysis; this code just generates RTL.  */
-  if (flag_syntax_only)
-    return;
-
-  if (flag_inline_trees)
-    {
-      /* First, cache whether the current function is inlinable.  Some
-         predicates depend on cfun and current_function_decl to
-         function completely.  */
-      timevar_push (TV_INTEGRATION);
-      uninlinable = ! tree_inlinable_function_p (fndecl);
-      
-      if (! uninlinable && can_defer_p
-	  /* Save function tree for inlining.  Should return 0 if the
-             language does not support function deferring or the
-             function could not be deferred.  */
-	  && defer_fn (fndecl))
-	{
-	  /* Let the back-end know that this function exists.  */
-	  (*debug_hooks->deferred_inline_function) (fndecl);
-          timevar_pop (TV_INTEGRATION);
-	  return;
-	}
-      
-      /* Then, inline any functions called in it.  */
-      optimize_inline_calls (fndecl);
-      timevar_pop (TV_INTEGRATION);
-    }
-
   timevar_push (TV_EXPAND);
 
   if (nested_p)
@@ -6518,8 +6550,11 @@ c_expand_body (fndecl, nested_p, can_defer_p)
   /* Initialize the RTL code for the function.  */
   current_function_decl = fndecl;
   input_filename = TREE_FILENAME (fndecl);
+#if 0
   make_decl_rtl (fndecl, NULL);
+#endif
   init_function_start (fndecl, input_filename, TREE_LINENO (fndecl));
+  lineno = TREE_LINENO (fndecl);
 
   /* This function is being processed in whole-function mode.  */
   cfun->x_whole_function_mode_p = 1;
@@ -6572,12 +6607,6 @@ c_expand_body (fndecl, nested_p, can_defer_p)
     expand_stmt (DECL_SAVED_TREE (fndecl));
   else
     expand_expr_stmt_value (DECL_SAVED_TREE (fndecl), 0, 0);
-
-  if (uninlinable && !flag_ip)
-    {
-      /* Allow the body of the function to be garbage collected.  */
-      DECL_SAVED_TREE (fndecl) = NULL_TREE;
-    }
 
   /* We hard-wired immediate_size_expand to zero above.
      expand_function_end will decrement this variable.  So, we set the
@@ -6674,6 +6703,15 @@ c_expand_body (fndecl, nested_p, can_defer_p)
     /* Return to the enclosing function.  */
     pop_function_context ();
   timevar_pop (TV_EXPAND);
+}
+
+/* Like c_expand_body_1 but only for unnested functions.  */
+
+void
+c_expand_body (fndecl)
+     tree fndecl;
+{
+  c_expand_body_1 (fndecl, 0);
 }
 
 /* Check the declarations given in a for-loop for satisfying the C99
@@ -6917,7 +6955,7 @@ c_expand_decl (decl)
   else if (TREE_CODE (decl) == FUNCTION_DECL
 	   && DECL_CONTEXT (decl) == current_function_decl
 	   && DECL_SAVED_TREE (decl))
-    c_expand_body (decl, /*nested_p=*/1, /*can_defer_p=*/0);
+    c_expand_body_1 (decl, 1);
   else if (TREE_CODE (decl) == LABEL_DECL 
 	   && C_DECLARED_LABEL_FLAG (decl))
     declare_nonlocal_label (decl);

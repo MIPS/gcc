@@ -3,22 +3,22 @@
    Contributed by Richard Earnshaw (rearnsha@arm.com)
    Minor hacks by Nick Clifton (nickc@cygnus.com)
 
-This file is part of GNU CC.
+   This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+   GCC is free software; you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation; either version 2, or (at your option)
+   any later version.
 
-GNU CC is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+   GCC is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+   You should have received a copy of the GNU General Public License
+   along with GCC; see the file COPYING.  If not, write to
+   the Free Software Foundation, 59 Temple Place - Suite 330,
+   Boston, MA 02111-1307, USA.  */
 
 #ifndef GCC_ARM_PROTOS_H
 #define GCC_ARM_PROTOS_H
@@ -94,6 +94,11 @@ extern int    logical_binary_operator	PARAMS ((rtx, enum machine_mode));
 extern int    multi_register_push	PARAMS ((rtx, enum machine_mode));
 extern int    load_multiple_operation	PARAMS ((rtx, enum machine_mode));
 extern int    store_multiple_operation	PARAMS ((rtx, enum machine_mode));
+extern int    cirrus_fp_register	PARAMS ((rtx, enum machine_mode));
+extern int    cirrus_general_operand	PARAMS ((rtx, enum machine_mode));
+extern int    cirrus_register_operand	PARAMS ((rtx, enum machine_mode));
+extern int    cirrus_shift_const	PARAMS ((rtx, enum machine_mode));
+extern int    cirrus_memory_offset	PARAMS ((rtx));
 
 extern int    symbol_mentioned_p	PARAMS ((rtx));
 extern int    label_mentioned_p		PARAMS ((rtx));
@@ -144,12 +149,11 @@ extern int    arm_is_longcall_p 	PARAMS ((rtx, int, int));
 extern rtx    arm_function_arg		PARAMS ((CUMULATIVE_ARGS *,
 						enum machine_mode, tree, int));
 extern void   arm_init_cumulative_args	PARAMS ((CUMULATIVE_ARGS *, tree, rtx,
-						int));
+						tree));
 extern rtx    arm_va_arg                PARAMS ((tree, tree));
 extern int    arm_function_arg_pass_by_reference PARAMS ((CUMULATIVE_ARGS *,
 							 enum machine_mode,
 						         tree, int));
-
 #endif
 
 #if defined AOF_ASSEMBLER 

@@ -473,3 +473,32 @@ lhd_simplify_expr (expr_p, pre_p, post_p)
 {
   return 0;
 }
+
+/* lang_hooks.decls.final_write_globals: perform final processing on
+   global variables. */
+void
+write_global_declarations ()
+{
+  /* Really define vars that have had only a tentative definition.
+     Really output inline functions that must actually be callable
+     and have not been output so far.  */
+
+  tree globals = (*lang_hooks.decls.getdecls) ();
+  int len = list_length (globals);
+  tree *vec = (tree *) xmalloc (sizeof (tree) * len);
+  int i;
+  tree decl;
+
+  /* Process the decls in reverse order--earliest first.
+     Put them into VEC from back to front, then take out from front.  */
+
+  for (i = 0, decl = globals; i < len; i++, decl = TREE_CHAIN (decl))
+    vec[len - i - 1] = decl;
+
+  wrapup_global_declarations (vec, len);
+
+  check_global_declarations (vec, len);
+
+    /* Clean up.  */
+  free (vec);
+}

@@ -38,6 +38,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "langhooks.h"
 #include "tree-mudflap.h"
 #include "target.h"
+#include "cgraph.h"
 
 static bool c_tree_printer PARAMS ((output_buffer *, text_info *));
 static tree inline_forbidden_p PARAMS ((tree *, int *, void *));
@@ -368,7 +369,13 @@ c_objc_common_finish_file ()
   if (pch_file)
     c_common_write_pch ();
 
-  expand_deferred_fns ();
+  if (flag_unit_at_a_time)
+    {
+      cgraph_finalize_compilation_unit ();
+      cgraph_optimize ();
+    }
+  else
+    expand_deferred_fns ();
 
   if (flag_mudflap)
     mudflap_finish_file ();

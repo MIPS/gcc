@@ -58,6 +58,15 @@ struct lang_hooks_for_tree_inlining
 							 union tree_node *));
 };
 
+struct lang_hooks_for_callgraph
+{
+  /* Function passed as argument is needed and will be compiled.
+     Lower the representation so the calls are explicit.  */
+  void (*lower_function) PARAMS ((union tree_node *));
+  /* Produce RTL for function passed as argument.  */
+  void (*expand_function) PARAMS ((union tree_node *));
+};
+
 /* Lang hooks for management of language-specific data or status
    when entering / leaving functions etc.  */
 struct lang_hooks_for_functions
@@ -167,6 +176,10 @@ struct lang_hooks_for_decls
   /* Returns true when we should warn for an unused global DECL.
      We will already have checked that it has static binding.  */
   bool (*warn_unused_global) PARAMS ((tree));
+
+  /* Obtain a list of globals and do final output on them at end
+     of compilation */
+  void (*final_write_globals) PARAMS ((void));
 };
 
 /* Language-specific hooks.  See langhooks-def.h for defaults.  */
@@ -356,6 +369,8 @@ struct lang_hooks
   struct lang_hooks_for_functions function;
 
   struct lang_hooks_for_tree_inlining tree_inlining;
+
+  struct lang_hooks_for_callgraph callgraph;
 
   struct lang_hooks_for_tree_dump tree_dump;
 

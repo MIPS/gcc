@@ -1,3 +1,190 @@
+2003-02-21  Jerry Quinn  <jlquinn@optonline.net>
+
+        * include/bits/locale_facets.tcc (_M_convert_float): Replace
+	numpunct facet accesses with data from __locale_cache.
+
+2003-02-20  Phil Edwards  <pme@gcc.gnu.org>
+
+	* docs/html/faq/index.html (3.9):  New note, wchar_t on FreeBSD.
+	* docs/html/faq/index.txt:  Regenerate.
+
+2003-02-20  Phil Edwards  <pme@gcc.gnu.org>
+
+	* config/linker-map.gnu:  Also export locking symbols needed for the
+	generic atomicity.h case.
+
+2003-02-20  Alexandre Oliva  <aoliva@redhat.com>
+
+	* configure.in: Propagate ORIGINAL_LD_FOR_MULTILIBS to
+	config.status.
+	* configure: Rebuilt.
+
+2003-02-19  Paolo Carlini  <pcarlini@unitus.it>
+
+	* include/bits/sstream.tcc (overflow): According to
+	27.7.1.3, p5, actual output is performed by sputc(c).
+
+2003-02-19  Phil Edwards  <pme@gcc.gnu.org>
+
+	PR libstdc++/9582
+	* include/bits/stl_alloc.h:  Remove all traces of assert().
+
+2003-02-18  Paolo Carlini  <pcarlini@unitus.it>
+
+	* include/std/std_sstream.h (str()): the size of the
+	current string may be different from the initial one
+	whenever _M_out_end > _M_out_beg.
+	* testsuite/27_io/stringbuf_members.cc (test07): Add.
+
+2003-02-18  Paolo Carlini  <pcarlini@unitus.it>
+
+	PR libstdc++/9582
+	* include/bits/stl_alloc.h (__pool_alloc::allocate): Remove assert.
+
+2003-02-17  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/bits/basic_ios.tcc (copyfmt): Copy locale data as well.
+	* testsuite/27_io/ios_members.cc (test03): New.
+
+2003-02-17  Jerry Quinn  <jlquinn@optonline.net>
+
+	* include/bits/basic_ios.h (basic_ios::_M_cache_locale): Declare.
+	(basic_ios::_M_cache_facets): Move into above.
+	* include/bits/basic_ios.tcc (basic_ios::copyfmt): Rebuild locale
+	cache.
+	(basic_ios::imbue): Force locale cache to be built.
+	(basic_ios::_M_init): Create and initialize locale cache.
+	* include/bits/ios_base.h (__locale_cache_base): Declare.
+	(ios_base::_M_locale_cache): New.
+	(ios_base::_M_cache): Define.
+	* include/bits/locale_facets.h:	(__num_base): Fix comment.  Add
+	_S_end.
+        (__locale_cache_base,__locale_cache<_CharT>):  New classes.
+	(__locale_cache<char>, __locale_cache<wchar_t>): New specializations.
+	* include/bits/locale_facets.tcc (num_put::_M_convert_int): Use locale
+	cache literal string, grouping flag, thousands separator.
+	(__locale_cache<_CharT>::__locale_cache): New.
+	(__locale_cache<_CharT>::_M_init): New.
+	* src/ios.cc: Clear _M_locale_cache in constructor.
+	* src/locale-inst.cc (__locale_cache<char>, __locale_cache<_char_t>):
+	New.
+
+2003-02-17  Paolo Carlini  <pcarlini@unitus.it>
+
+	* src/locale-inst.cc: Do not include <cassert>.
+	* src/locale.cc: Likewise.
+
+2003-02-17  Paolo Carlini  <pcarlini@unitus.it>
+
+	PR libstdc++/9580
+	* include/std/std_fstream.h: Declare underflow and uflow
+	specializations, change generic definitions to do nothing.
+	* src/fstream.cc: Add underflow and uflow specializations.
+
+2003-02-17  Paolo Carlini  <pcarlini@unitus.it>
+
+	PR libstdc++/9169
+	* include/bits/fstream.tcc (_M_convert_to_external):
+	Deal correctly with noconv, as prescribed by 27.8.1.4,p8.
+	* testsuite/27_io/filebuf_virtuals.cc (test10): Add.
+
+2003-02-13  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/bits/c++config (_GLIBCPP_EXTERN_TEMPLATE): Define.
+	* include/bits/basic_ios.tcc: Guard use of extern template.
+	* include/std/std_iomanip.h: Same.
+	* include/bits/streambuf.tcc: Same.
+	* include/bits/stl_alloc.h: Same.
+	* include/bits/locale_facets.tcc: Same.
+	* include/bits/ostream.tcc: Same.
+	* include/bits/istream.tcc: Same.
+	* include/bits/fstream.tcc: Same.
+	* include/bits/basic_string.tcc: Same.
+
+2003-02-13  Paolo Carlini  <pcarlini@unitus.it>
+
+	* include/bits/ostream.tcc (sentry::sentry): Improve
+	performance-wise the fix for libstdc++/9563.
+
+2003-02-12  Phil Edwards  <pme@gcc.gnu.org>
+
+	* config/cpu/generic/atomicity.h (_Atomic_add_mutex):  Fix declaration.
+	(_GLIBCPP_NEED_GENERIC_MUTEX):  Define for this file.
+	(_Atomic_add_mutex_once, __gthread_atomic_add_mutex_once):  Declare
+	when we don't have static mutex initialization.
+	(__exchange_and_add):  Use _Atomic_add_mutex_once.
+	* src/misc-inst.cc:  Definitions of all the above.
+
+2003-02-12  Paolo Carlini  <pcarlini@unitus.it>
+
+	PR libstdc++/9563
+	* include/bits/ostream.tcc (sentry::sentry): Check
+	the state of the stream after the preparation.
+	* testsuite/27_io/ostream_sentry.cc (test02): Add.
+
+2003-02-11  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/Makefile.am (stamp-std-precompile): Add rule.
+	* include/Makefile.in: Regenerated.
+	
+2003-02-11 Jerry Quinn  <jlquinn@optonline.net>
+           Benjamin Kosnik  <benjamin@redhat.com>
+	
+	* include/bits/locale_facets.h (__num_base): Add _S_atoms_out.
+	Add indexes into this array.
+	(__num_base::_S_atoms): To _S_atoms_in.
+	(num_put::_M_insert): Rename to _M_pad.
+	(num_put::_M_convert_int): Adjust remove __mod, __modl arguments.
+	(num_put::_M_widen_int): Rename to _M_group_int.
+	(num_put::_M_widen_float): Rename to _M_group_float.	
+	* include/bits/locale_facets.tcc (__int_to_char): New inline
+	function and adapter functions.
+	(num_put::_M_group_int): Streamline.
+	(num_put::_M_group_float): Streamline.	
+	(num_put::_M_convert_int): Remove unused parameter names. Choose
+	large enough buffer for text.  Use __int_to_char instead of
+	__convert_from_v.  Formatted text is now at the end of the buffer.
+	(num_put::_M_convert_float): Preliminary fixups.
+	* src/locale-inst.cc (__convert_from_v<long long>): Add ifdef.
+	(__int_to_char<unsigned long long>): Same.
+	(__int_to_char<char, unsigned long>): New.
+	(__int_to_char<char, unsigned long long>): New.
+	(__int_to_char<wchar_t, unsigned long>): New.
+	(__int_to_char<wchar_t, unsigned long long>): New.
+	
+2003-02-11  Scott Snyder  <snyder@fnal.gov>
+
+	PR libstdc++/9659
+	* include/bits/fstream.tcc (seekoff): Avoid operator+
+	for pos_type.
+
+2003-02-11  Paolo Carlini  <pcarlini@unitus.it>
+
+	PR libstdc++/9320
+	* include/ext/stdio_filebuf.h
+	(stdio_filebuf(int, std::ios_base::openmode, bool, int_type),
+	stdio_filebuf(std::__c_file*, std::ios_base::openmode, int_type)):
+	Change to take a __size parameter of type size_t, not
+	of type (template parameter dependent) int_type.
+	* src/ios.cc (ios_base::Init::_S_ios_create): Change type of
+	size vars to size_t.
+	* testsuite/ext/stdio_filebuf.cc: Add.
+
+2003-02-11  Paolo Carlini  <pcarlini@unitus.it>
+            Petur Runolfsson  <peturr02@ru.is>
+
+	PR libstdc++/9318
+	* include/bits/streambuf.tcc (__copy_streambufs):
+	Don't conditionalize the copy to __testput.
+	* testsuite/27_io/streambuf_members.cc (test09, test10): Add.
+
+2002-02-11  DJ Delorie  <dj@redhat.com>
+
+	* acinclude.m4: Check for native targets that can't link at
+	this point in the build.
+	* aclocal.m4: Regenerate.
+	* configure: Regenerate.
+
 2003-02-08  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
 
 	* hppa/atomicity.h (__Atomicity_lock<__inst>::_S_atomicity_lock):

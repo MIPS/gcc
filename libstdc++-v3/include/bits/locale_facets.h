@@ -161,6 +161,7 @@ namespace std
       return __s;
     }
 
+
   // 22.2.1.1  Template class ctype
   // Include host and configuration specific ctype enums for ctype_base.
   #include <bits/ctype_base.h>
@@ -527,14 +528,38 @@ namespace std
   // 22.2.1.5  Template class codecvt
   #include <bits/codecvt.h>
 
-
   // 22.2.2  The numeric category.
   class __num_base 
   {
+  public:
+    // NB: Code depends on the order of _S_atoms_out elements.
+    // Below are the indices into _S_atoms_out.
+    enum 
+      {  
+        _S_minus, 
+        _S_plus, 
+        _S_x, 
+        _S_X, 
+        _S_digits,
+        _S_digits_end = _S_digits + 16,
+        _S_udigits = _S_digits_end,  
+        _S_udigits_end = _S_udigits + 16,
+        _S_e = _S_digits + 14,  // For scientific notation, 'e'
+        _S_E = _S_udigits + 14, // For scientific notation, 'E'
+	_S_end = _S_udigits_end
+      };
+    
+    // A list of valid numeric literals for output.  This array
+    // contains chars that will be passed through the current locale's
+    // ctype<_CharT>.widen() and then used to render numbers.
+    // For the standard "C" locale, this is
+    // "-+xX0123456789abcdef0123456789ABCDEF".
+    static const char* _S_atoms_out;
+
   protected:
     // String literal of acceptable (narrow) input, for num_get.
     // "0123456789eEabcdfABCDF"
-    static const char _S_atoms[];
+    static const char* _S_atoms_in;
 
     enum 
     {  
@@ -827,7 +852,6 @@ namespace std
       // Types:
       typedef _CharT       	char_type;
       typedef _OutIter     	iter_type;
-
       static locale::id		id;
 
       explicit 
@@ -877,22 +901,24 @@ namespace std
         _M_convert_float(iter_type, ios_base& __io, char_type __fill, 
 			 char __mod, _ValueT __v) const;
 
+      void
+      _M_group_float(const string& __grouping, char_type __sep, 
+		     const char_type* __p, char_type* __new, char_type* __cs,
+		     int& __len) const;
+
       template<typename _ValueT>
         iter_type
         _M_convert_int(iter_type, ios_base& __io, char_type __fill, 
-		       char __mod, char __modl, _ValueT __v) const;
+		       _ValueT __v) const;
 
-      iter_type
-      _M_widen_float(iter_type, ios_base& __io, char_type __fill, char* __cs, 
-		     int __len) const;
+      void
+      _M_group_int(const string& __grouping, char_type __sep, 
+		   ios_base& __io, char_type* __new, char_type* __cs, 
+		   int& __len) const;
 
-      iter_type
-      _M_widen_int(iter_type, ios_base& __io, char_type __fill, char* __cs, 
-		   int __len) const;
-
-      iter_type
-      _M_insert(iter_type, ios_base& __io, char_type __fill, 
-		const char_type* __ws, int __len) const;
+      void
+      _M_pad(char_type __fill, streamsize __w, ios_base& __io, 
+	     char_type* __new, const char_type* __cs, int& __len) const;
 
       virtual 
       ~num_put() { };
@@ -1907,6 +1933,75 @@ namespace std
     inline _CharT 
     tolower(_CharT __c, const locale& __loc)
     { return use_facet<ctype<_CharT> >(__loc).tolower(__c); }
+
+
+  // __locale_cache holds the information extracted from the
+  // numpunct<> and moneypunct<> facets in a form optimized for
+  // parsing and formatting.  It is stored as an
+  // auto_ptr<__locale_cache_base> member of ios_base and directly
+  // accessed via a casting to the derived __locale_cache<_CharT> in
+  // parameterized facets.
+  // The intent twofold: to avoid the costs of creating a locale
+  // object and to avoid calling the virtual functions in a locale's
+  // facet to look up data.
+  class __locale_cache_base
+  {
+  public:
+    virtual
+    ~__locale_cache_base() { }
+  };
+
+  template<typename _CharT>
+    class __locale_cache : public __locale_cache_base
+    {
+      // Types:
+      typedef _CharT               	char_type;
+      typedef char_traits<_CharT>       traits_type;
+      typedef basic_string<_CharT>	string_type;
+
+    public: 
+      // Data Members:
+
+      // A list of valid numeric literals: for the standard "C"
+      // locale, this is "-+xX0123456789abcdef0123456789ABCDEF".  This
+      // array contains the chars after having been passed through the
+      // current locale's ctype<_CharT>.widen().
+      _CharT                    _M_literals[__num_base::_S_end];
+
+      // The sign used to separate decimal values: for standard US
+      // locales, this would usually be: "."  Abstracted from
+      // numpunct::decimal_point().
+      _CharT                    _M_decimal_point;
+
+      // The sign used to separate groups of digits into smaller
+      // strings that the eye can parse with less difficulty: for
+      // standard US locales, this would usually be: "," Abstracted
+      // from numpunct::thousands_sep().
+      _CharT                    _M_thousands_sep;
+      
+      // However the US's "false" and "true" are translated.  From
+      // numpunct::truename() and numpunct::falsename(), respectively.
+      string_type 		_M_truename;
+      string_type 		_M_falsename;
+
+      // If we are checking groupings. This should be equivalent to
+      // numpunct::groupings().size() != 0
+      bool                      _M_use_grouping;
+
+      // If we are using numpunct's groupings, this is the current
+      // grouping string in effect (from numpunct::grouping()).
+      string                    _M_grouping;
+
+      __locale_cache() : _M_use_grouping(false) 
+      { };
+
+      __locale_cache& 
+      operator=(const __locale_cache& __lc);
+
+      // Make sure the cache is built before the first use.
+      void 
+      _M_init(const locale&);
+    };
 } // namespace std
 
 #endif

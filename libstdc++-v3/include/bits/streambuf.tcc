@@ -1,6 +1,6 @@
 // Stream buffer classes -*- C++ -*-
 
-// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002
+// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -203,10 +203,9 @@ namespace std
       streamsize __ret = 0;
       streamsize __bufsize = __sbin->in_avail();
       streamsize __xtrct;
-      bool __testput = __sbout->_M_mode & ios_base::out;
       try 
 	{
-	  while (__testput && __bufsize != -1)
+	  while (__bufsize != -1)
   	    {
  	      if (__bufsize != 0 && __sbin->gptr() != NULL
 		  && __sbin->gptr() + __bufsize <= __sbin->egptr()) 
@@ -246,6 +245,7 @@ namespace std
   // Inhibit implicit instantiations for required instantiations,
   // which are defined via explicit instantiations elsewhere.  
   // NB:  This syntax is a GNU extension.
+#if _GLIBCPP_EXTERN_TEMPLATE
   extern template class basic_streambuf<char>;
   extern template
     streamsize
@@ -258,6 +258,7 @@ namespace std
     streamsize
     __copy_streambufs(basic_ios<wchar_t>&, basic_streambuf<wchar_t>*,
 		      basic_streambuf<wchar_t>*); 
+#endif
 #endif
 } // namespace std
 

@@ -1,6 +1,6 @@
 /* Fold a constant sub-tree into a single node for C-compiler
-   Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 2002,
-   1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
+   2000, 2001, 2002, 2003 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -63,6 +63,7 @@ static void encode		PARAMS ((HOST_WIDE_INT *,
 static void decode		PARAMS ((HOST_WIDE_INT *,
 					 unsigned HOST_WIDE_INT *,
 					 HOST_WIDE_INT *));
+static bool negate_expr_p	PARAMS ((tree));
 static tree negate_expr		PARAMS ((tree));
 static tree split_tree		PARAMS ((tree, enum tree_code, tree *, tree *,
 					 tree *, int));
@@ -79,7 +80,6 @@ static enum tree_code compcode_to_comparison PARAMS ((int));
 static int truth_value_p	PARAMS ((enum tree_code));
 static int operand_equal_for_comparison_p PARAMS ((tree, tree, tree));
 static int twoval_comparison_p	PARAMS ((tree, tree *, tree *, int *));
-static tree omit_one_operand	PARAMS ((tree, tree, tree));
 static tree pedantic_omit_one_operand PARAMS ((tree, tree, tree));
 static tree distribute_bit_expr PARAMS ((enum tree_code, tree, tree, tree));
 static tree make_bit_field_ref	PARAMS ((tree, tree, int, int, int));
@@ -108,6 +108,7 @@ static tree unextend		PARAMS ((tree, int, int, tree));
 static tree fold_truthop	PARAMS ((enum tree_code, tree, tree, tree));
 static tree optimize_minmax_comparison PARAMS ((tree));
 static tree extract_muldiv	PARAMS ((tree, tree, enum tree_code, tree));
+static tree extract_muldiv_1	PARAMS ((tree, tree, enum tree_code, tree));
 static tree strip_compound_expr PARAMS ((tree, tree));
 static int multiple_of_p	PARAMS ((tree, tree, tree));
 static tree constant_boolean_node PARAMS ((int, tree));
@@ -838,6 +839,55 @@ div_and_round_double (code, uns,
   return overflow;
 }
 
+/* Determine whether an expression T can be cheaply negated using
+   the function negate_expr.  */
+
+static bool
+negate_expr_p (t)
+     tree t;
+{
+  unsigned HOST_WIDE_INT val;
+  unsigned int prec;
+  tree type;
+
+  if (t == 0)
+    return false;
+
+  type = TREE_TYPE (t);
+
+  STRIP_SIGN_NOPS (t);
+  switch (TREE_CODE (t))
+    {
+    case INTEGER_CST:
+      if (TREE_UNSIGNED (type))
+	return false;
+
+      /* Check that -CST will not overflow type.  */
+      prec = TYPE_PRECISION (type);
+      if (prec > HOST_BITS_PER_WIDE_INT)
+	{
+	  if (TREE_INT_CST_LOW (t) != 0)
+	    return true;
+	  prec -= HOST_BITS_PER_WIDE_INT;
+	  val = TREE_INT_CST_HIGH (t);
+	}
+      else
+	val = TREE_INT_CST_LOW (t);
+      if (prec < HOST_BITS_PER_WIDE_INT)
+	val &= ((unsigned HOST_WIDE_INT) 1 << prec) - 1;
+      return val != ((unsigned HOST_WIDE_INT) 1 << (prec - 1));
+
+    case REAL_CST:
+    case NEGATE_EXPR:
+    case MINUS_EXPR:
+      return true;
+
+    default:
+      break;
+    }
+  return false;
+}
+
 /* Given T, an expression, return the negation of T.  Allow for T to be
    null, in which case return null.  */
 
@@ -2211,7 +2261,7 @@ eval_subst (arg, old0, new0, old1, new1)
    If OMITTED has side effects, we must evaluate it.  Otherwise, just do
    the conversion of RESULT to TYPE.  */
 
-static tree
+tree
 omit_one_operand (type, result, omitted)
      tree type, result, omitted;
 {
@@ -4052,6 +4102,31 @@ extract_muldiv (t, c, code, wide_type)
      enum tree_code code;
      tree wide_type;
 {
+  /* To avoid exponential search depth, refuse to allow recursion past
+     three levels.  Beyond that (1) it's highly unlikely that we'll find
+     something interesting and (2) we've probably processed it before
+     when we built the inner expression.  */
+
+  static int depth;
+  tree ret;
+
+  if (depth > 3)
+    return NULL;
+
+  depth++;
+  ret = extract_muldiv_1 (t, c, code, wide_type);
+  depth--;
+
+  return ret;
+}
+
+static tree
+extract_muldiv_1 (t, c, code, wide_type)
+     tree t;
+     tree c;
+     enum tree_code code;
+     tree wide_type;
+{
   tree type = TREE_TYPE (t);
   enum tree_code tcode = TREE_CODE (t);
   tree ctype = (wide_type != 0 && (GET_MODE_SIZE (TYPE_MODE (wide_type))
@@ -4259,6 +4334,14 @@ extract_muldiv (t, c, code, wide_type)
 	  && TREE_CODE (TREE_OPERAND (t, 1)) == INTEGER_CST
 	  && integer_zerop (const_binop (TRUNC_MOD_EXPR, op1, c, 0)))
 	return omit_one_operand (type, integer_zero_node, op0);
+
+      /* Arrange for the code below to simplify two constants first.  */
+      if (TREE_CODE (op1) == INTEGER_CST && TREE_CODE (op0) != INTEGER_CST)
+	{
+	  tree tmp = op0;
+	  op0 = op1;
+	  op1 = tmp;
+	}
 
       /* ... fall through ...  */
 
@@ -4562,6 +4645,10 @@ fold_real_zero_addition_p (type, addend, negate)
      int negate;
 {
   if (!real_zerop (addend))
+    return false;
+
+  /* Don't allow the fold with -fsignaling-nans.  */
+  if (HONOR_SNANS (TYPE_MODE (type)))
     return false;
 
   /* Allow the fold if zeros aren't signed, or their sign isn't important.  */
@@ -6073,13 +6160,14 @@ fold (expr)
       /* A - (-B) -> A + B */
       if (TREE_CODE (arg1) == NEGATE_EXPR)
 	return fold (build (PLUS_EXPR, type, arg0, TREE_OPERAND (arg1, 0)));
-      /* (-A) - CST -> (-CST) - A   for floating point (what about ints ?)  */
-      if (TREE_CODE (arg0) == NEGATE_EXPR && TREE_CODE (arg1) == REAL_CST)
-	return
-	  fold (build (MINUS_EXPR, type,
-		       build_real (TREE_TYPE (arg1),
-				   REAL_VALUE_NEGATE (TREE_REAL_CST (arg1))),
-		       TREE_OPERAND (arg0, 0)));
+      /* (-A) - B -> (-B) - A  where B is easily negated and we can swap.  */
+      if (TREE_CODE (arg0) == NEGATE_EXPR
+	  && FLOAT_TYPE_P (type)
+	  && negate_expr_p (arg1)
+	  && (! TREE_SIDE_EFFECTS (arg0) || TREE_CONSTANT (arg1))
+	  && (! TREE_SIDE_EFFECTS (arg1) || TREE_CONSTANT (arg0)))
+	return fold (build (MINUS_EXPR, type, negate_expr (arg1),
+			    TREE_OPERAND (arg0, 0)));
 
       if (! FLOAT_TYPE_P (type))
 	{

@@ -37,6 +37,7 @@ Boston, MA 02111-1307, USA.  */
 #include "hashtab.h"
 #include "splay-tree.h"
 #include "langhooks.h"
+#include "cgraph.h"
 
 /* 0 if we should not perform inlining.
    1 if we should expand functions calls inline at the tree level.
@@ -94,6 +95,8 @@ typedef struct inline_data
   /* Hash table used to prevent walk_tree from visiting the same node
      umpteen million times.  */
   htab_t tree_pruner;
+  /* Decl of function we are inlining into.  */
+  tree decl;
 } inline_data;
 
 /* Prototypes.  */
@@ -1047,6 +1050,13 @@ expand_call_inline (tp, walk_subtrees, data)
   /* For accounting, subtract one for the saved call/ret.  */
   id->inlined_stmts += DECL_NUM_STMTS (fn) - 1;
 
+  /* Update callgraph if needed.  */
+  if (id->decl && flag_unit_at_a_time)
+    {
+      cgraph_remove_call (id->decl, fn);
+      cgraph_create_edges (id->decl, *inlined_body);
+    }
+
   /* Recurse into the body of the just inlined function.  */
   expand_calls_inline (inlined_body, id);
   VARRAY_POP (id->fns);
@@ -1094,6 +1104,7 @@ optimize_inline_calls (fn)
   /* Clear out ID.  */
   memset (&id, 0, sizeof (id));
 
+  id.decl = fn;
   /* Don't allow recursion into FN.  */
   VARRAY_TREE_INIT (id.fns, 32, "fns");
   VARRAY_PUSH_TREE (id.fns, fn);

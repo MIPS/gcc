@@ -1449,7 +1449,8 @@ commit_one_edge_insertion (e, watch_calls)
   else if (GET_CODE (last) == JUMP_INSN)
     abort ();
 
-  find_sub_basic_blocks (bb);
+  /* Mark the basic block for find_sub_basic_blocks.  */
+  bb->aux = &bb->aux;
 }
 
 /* Update the CFG for all queued instructions.  */
@@ -1458,6 +1459,8 @@ void
 commit_edge_insertions ()
 {
   basic_block bb;
+  sbitmap blocks;
+  bool changed = false;
 
 #ifdef ENABLE_CHECKING
   verify_flow_info ();
@@ -1471,9 +1474,30 @@ commit_edge_insertions ()
 	{
 	  next = e->succ_next;
 	  if (e->insns)
-	    commit_one_edge_insertion (e, false);
+	    {
+	       changed = true;
+	       commit_one_edge_insertion (e, false);
+	    }
 	}
     }
+
+  if (!changed)
+    return;
+
+  blocks = sbitmap_alloc (last_basic_block);
+  sbitmap_zero (blocks);
+  FOR_EACH_BB (bb)
+    if (bb->aux)
+      {
+        SET_BIT (blocks, bb->index);
+	/* Check for forgotten bb->aux values before commit_edge_insertions
+	   call.  */
+	if (bb->aux != &bb->aux)
+	  abort ();
+	bb->aux = NULL;
+      }
+  find_many_sub_basic_blocks (blocks);
+  sbitmap_free (blocks);
 }
 
 /* Update the CFG for all queued instructions, taking special care of inserting
@@ -1483,6 +1507,8 @@ void
 commit_edge_insertions_watch_calls ()
 {
   basic_block bb;
+  sbitmap blocks;
+  bool changed = false;
 
 #ifdef ENABLE_CHECKING
   verify_flow_info ();
@@ -1496,9 +1522,30 @@ commit_edge_insertions_watch_calls ()
 	{
 	  next = e->succ_next;
 	  if (e->insns)
-	    commit_one_edge_insertion (e, true);
+	    {
+	      changed = true;
+	      commit_one_edge_insertion (e, true);
+	    }
 	}
     }
+
+  if (!changed)
+    return;
+
+  blocks = sbitmap_alloc (last_basic_block);
+  sbitmap_zero (blocks);
+  FOR_EACH_BB (bb)
+    if (bb->aux)
+      {
+        SET_BIT (blocks, bb->index);
+	/* Check for forgotten bb->aux values before commit_edge_insertions
+	   call.  */
+	if (bb->aux != &bb->aux)
+	  abort ();
+	bb->aux = NULL;
+      }
+  find_many_sub_basic_blocks (blocks);
+  sbitmap_free (blocks);
 }
 
 /* Print out one basic block with live information at start and end.  */
@@ -2008,9 +2055,7 @@ verify_flow_info ()
 	    if (x == bb->end)
 	      break;
 
-	    if (GET_CODE (x) == JUMP_INSN
-		|| GET_CODE (x) == CODE_LABEL
-		|| GET_CODE (x) == BARRIER)
+	    if (control_flow_insn_p (x))
 	      {
 		error ("in basic block %d:", bb->index);
 		fatal_insn ("flow control insn inside a basic block", x);
