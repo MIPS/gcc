@@ -4,8 +4,6 @@
 /* Program to test the vector_size attribute.  This needs to run on a
    target that has vectors, so use AltiVec.  */
 
-#define vector __attribute__((vector_size(16)))
-
 vector int foobar;
 
 /* Only floats and integrals allowed.  We don't care if they map to SIs.  */

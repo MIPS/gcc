@@ -1,8 +1,6 @@
 /* { dg-do compile { target powerpc*-*-* } } */
 /* { dg-options "-maltivec -O0 -Wall" } */
 
-#define vector __attribute__((vector_size(16)))
-
 static int __attribute__((mode(V4SI))) x, y;
 
 static vector signed int i,j;
