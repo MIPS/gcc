@@ -1,3 +1,10 @@
+2004-04-30  Jeff Law  <law@redhat.com>
+
+        * tree-outof-ssa.c (eliminate_build): Move code which verifies
+        that all of a PHI's arguments do not have a partition if the
+        result does not have a partition from here to...
+        (rewrite_trees): Here.
+
 2004-04-24  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* tree-cfg.c (factored_computed_goto_label,
