@@ -1,5 +1,9 @@
 2004-11-07  Jerry Quinn  <jlquinn@optonline.net>
 
+	* java/awt/MenuItem.java (AccessibleAWTMenuItem): Implement.
+
+2004-11-07  Jerry Quinn  <jlquinn@optonline.net>
+
 	* java/awt/Choice.java (AccessibleAWTChoice): Implement.
 
 2004-11-06  Jerry Quinn  <jlquinn@optonline.net>
