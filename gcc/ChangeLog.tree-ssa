@@ -1,3 +1,13 @@
+2003-04-06  Andrew MacLeod  <amacleod@redhat.com>
+
+	* tree-cfg.c (push_bsi): New. Push a block_stmt_iterator onto a stack.
+	(pop_bsi): New. Pop a block_stmt_iterator off a stack.
+	* tree-flow-inline.h (struct bsi_list_d): Block iterator stack struct.
+	(new_bsi_list): Start a new bsi stack.
+	(empty_bsi_stack): Is stack empty.
+	(FOR_EACH_BSI_IN_REVERSE): Macro for processing bsi's in reverse.
+	(FOR_EACH_STMT_IN_REVERSE): Macro for processing stmt's in reverse.
+
 2003-04-06  Andreas Jaeger  <aj@suse.de>
 
 	* treelang/treetree.c (tree_code_create_function_initial): Replace

@@ -3126,6 +3126,60 @@ bsi_insert_on_edge (e, stmt)
   
 }
 
+/* These 2 routines are used to process BSI's in reverse within a block.
+   When there is a decent implementation of bsi_prev, we can get rid of 
+   these forever!  */
+
+/* Push another block_stmt_iterator onto the stack.  */
+void 
+push_bsi (list, bsi)
+     bsi_list_p *list;
+     block_stmt_iterator bsi;
+{
+  bsi_list_p tmp;
+  if (*list == NULL)
+    {
+      *list = new_bsi_list ();
+      (*list)->bsi[0] = bsi;
+    }
+  else
+    {
+      if ((*list)->curr_index == (BSI_NUM_ELEMENTS - 1))
+        {
+	  tmp = new_bsi_list ();
+	  tmp->bsi[0] = bsi;
+	  tmp->next = *list;
+	  *list = tmp;
+	}
+      else
+        {
+	  (*list)->bsi[++((*list)->curr_index)] = bsi;
+	}
+    }
+}
+
+/* Pop a block_stmt_iterator off the stack.  */
+block_stmt_iterator
+pop_bsi (list)
+     bsi_list_p *list;
+{
+  block_stmt_iterator bsi;
+  bsi_list_p tmp;
+  if (!list)
+    abort ();
+    
+  tmp = *list;
+  bsi = tmp->bsi[(tmp->curr_index)--];
+  if (tmp->curr_index< 0)
+    {
+      tmp = *list;
+      *list = (*list)->next;
+      free (tmp);
+    }
+  return bsi;
+}
+
+
 /* Replace the statement pointed by TP1 with the statement pointed by TP2.
    Note that this function will not replace COMPOUND_EXPR nodes, only
    individual statements.
