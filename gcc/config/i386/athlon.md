@@ -43,11 +43,21 @@
 ;;       \  /    \  |   /           fadd  fmul  fstore
 ;;       imul  load/store (2x)      fadd  fmul  fstore
 
-(define_automaton "athlon,athlon_load,athlon_mult,athlon_fp")
-(define_cpu_unit "athlon-decode0" "athlon")
-(define_cpu_unit "athlon-decode1" "athlon")
-(define_cpu_unit "athlon-decode2" "athlon")
-(define_cpu_unit "athlon-decodev" "athlon")
+(define_automaton "athlon_agu,athlon_decode,athlon_load,athlon_mult,athlon_fp,athlon_ieu")
+
+;; Model of decoder includes on-chip scheduler simplified into FIFO, so the
+;; scheduler can see partly the independency between decoding and instruction
+;; issue.  The cycle0 of modeled pipe is not the cycle when instruction is
+;; decoded, but it is the time when instruction is issued minus 4. 
+;; Decoding happends at earliest available stage of the 4 cycle queue.
+;;
+;; The model depends heavily on the fact that genautomata attempts to apply
+;; the allocation in deterministic automata in the order they are written in
+;; machine description.
+
+(define_cpu_unit "athlon-decode0" "athlon_decode")
+(define_cpu_unit "athlon-decode1" "athlon_decode")
+(define_cpu_unit "athlon-decode2" "athlon_decode")
 ;; Model the fact that double decoded instruction may take 2 cycles
 ;; to decode when decoder2 and decoder0 in next cycle
 ;; is used (this is needed to allow troughput of 1.5 double decoded
@@ -62,42 +72,74 @@
 ;; too. Vector decoded instructions then can't be issued when
 ;; modeled as consuming decoder0+decoder1+decoder2.
 ;; We solve that by specialized vector decoder unit and exclusion set.
-(presence_set "athlon-decode2" "athlon-decode0")
-(exclusion_set "athlon-decodev" "athlon-decode0,athlon-decode1,athlon-decode2")
-(define_reservation "athlon-vector" "nothing,athlon-decodev")
-(define_reservation "athlon-direct0" "nothing,athlon-decode0")
-(define_reservation "athlon-direct" "nothing,
-				     (athlon-decode0 | athlon-decode1
-				     | athlon-decode2)")
+
+;; Eat the free decoders in current cycle.  Used before vector decoded
+;; instructions to avoid later instructions from being decoded in the
+;; left out decoder from current cycle.
+(define_reservation "athlon-decodebubble" "(athlon-decode1+athlon-decode2)|athlon-decode2|nothing")
+
+;; Vector decoder is modelled as consuming all three units together.
+(define_reservation "athlon-decodev" "athlon-decode0+athlon-decode1+athlon-decode2")
+
+;; Issue vector/direct/double instruction in the current cycle.
+(define_reservation "athlon-vectornow" "athlon-decodebubble,athlon-decodev")
+(define_reservation "athlon-direct0now" "athlon-decodebubble,athlon-decode0")
+(define_reservation "athlon-directnow" "nothing,
+					(athlon-decode0 | athlon-decode1
+					| athlon-decode2)")
 ;; Double instructions behaves like two direct instructions.
-(define_reservation "athlon-double" "((athlon-decode2, athlon-decode0)
-				     | (nothing,(athlon-decode0 + athlon-decode1))
-				     | (nothing,(athlon-decode1 + athlon-decode2)))")
+(define_reservation "athlon-doublenow" "((athlon-decode2, athlon-decode0)
+					| (nothing,(athlon-decode0 + athlon-decode1))
+					| (nothing,(athlon-decode1 + athlon-decode2)))")
+(define_reservation "athlon-vector" "((athlon-vectornow,nothing,nothing,nothing)
+				     | (nothing,athlon-vectornow,nothing,nothing)
+				     | (nothing,nothing,athlon-vectornow,nothing)
+				     | (nothing,nothing,nothing,athlon-vectornow))")
+;; Call is vector decoded insn, but the real effect is seen after returning
+;; from the call.  Pesimistically expect the FIFO to be empty.
+(define_reservation "athlon-vectorcall" "((athlon-vectornow,athlon-decodev,athlon-decodev,athlon-decodev)
+				     | (nothing,athlon-vectornow,athlon-decodev,athlon-decodev)
+				     | (nothing,nothing,athlon-vectornow,athlon-decodev)
+				     | (nothing,nothing,nothing,athlon-vectornow))")
+(define_reservation "athlon-direct0" "((athlon-direct0now,nothing,nothing,nothing)
+				     | (nothing,athlon-direct0now,nothing,nothing)
+				     | (nothing,nothing,athlon-direct0now,nothing)
+				     | (nothing,nothing,nothing,athlon-direct0now))")
+(define_reservation "athlon-direct" "((athlon-directnow,nothing,nothing,nothing)
+				     | (nothing,athlon-directnow,nothing,nothing)
+				     | (nothing,nothing,athlon-directnow,nothing)
+				     | (nothing,nothing,nothing,athlon-directnow))")
+(define_reservation "athlon-double" "((athlon-doublenow,nothing,nothing,nothing)
+				     | (nothing,athlon-doublenow,nothing,nothing)
+				     | (nothing,nothing,athlon-doublenow,nothing)
+				     | (nothing,nothing,nothing,athlon-doublenow))")
+(define_reservation "athlon-initialdecoder" "(athlon-decodev,athlon-decodev,athlon-decodev,athlon-decodev,athlon-decodev)")
 
-;; Agu and ieu unit results in extremly large automatons and
-;; in our approximation they are hardly filled in.  Only ieu
-;; unit can, as issue rate is 3 and agu unit is always used
-;; first in the insn reservations.  Skip the models.
-
-;(define_cpu_unit "athlon-ieu0" "athlon_ieu")
-;(define_cpu_unit "athlon-ieu1" "athlon_ieu")
-;(define_cpu_unit "athlon-ieu2" "athlon_ieu")
-;(define_reservation "athlon-ieu" "(athlon-ieu0 | athlon-ieu1 | athlon-ieu2)")
-(define_reservation "athlon-ieu" "nothing")
-(define_cpu_unit "athlon-ieu0" "athlon")
-;(define_cpu_unit "athlon-agu0" "athlon_agu")
-;(define_cpu_unit "athlon-agu1" "athlon_agu")
-;(define_cpu_unit "athlon-agu2" "athlon_agu")
-;(define_reservation "athlon-agu" "(athlon-agu0 | athlon-agu1 | athlon-agu2)")
-(define_reservation "athlon-agu" "nothing,nothing")
+(define_cpu_unit "athlon-ieu0" "athlon_ieu")
+(define_cpu_unit "athlon-ieu1" "athlon_ieu")
+(define_cpu_unit "athlon-ieu2" "athlon_ieu")
+(define_reservation "athlon-ieu" "(athlon-ieu0 | athlon-ieu1 | athlon-ieu2)")
+;(define_reservation "athlon-ieu" "nothing")
+;(define_cpu_unit "athlon-ieu0" "athlon")
+(define_cpu_unit "athlon-agu0" "athlon_agu")
+(define_cpu_unit "athlon-agu1" "athlon_agu")
+(define_cpu_unit "athlon-agu2" "athlon_agu")
+(define_reservation "athlon-agu" "(athlon-agu0 | athlon-agu1 | athlon-agu2)")
+;(define_reservation "athlon-agu" "nothing,nothing")
 
 (define_cpu_unit "athlon-mult" "athlon_mult")
 
 (define_cpu_unit "athlon-load0" "athlon_load")
 (define_cpu_unit "athlon-load1" "athlon_load")
 (define_reservation "athlon-load" "athlon-agu,
-				   (athlon-load0 | athlon-load1)")
-(define_reservation "athlon-store" "nothing")
+				   (athlon-load0 | (athlon-load1)),nothing")
+(define_reservation "athlon-doubleload" "(athlon-load0 + athlon-load1)")
+(define_reservation "athlon-orderingload" "athlon-agu,
+				   ((athlon-load0 + athlon-load1) | (athlon-load1)),athlon-doubleload")
+;; Stores occupy same slots in the queue as loads, so probably 2 loads can't
+;; happen in parallel with 2 stores.
+(define_reservation "athlon-store" "((athlon-load0) | athlon-load1)")
+(define_reservation "athlon-fpustore" "((athlon-agu,athlon-store)+athlon-fstore)")
 
 ;; The three fp units are fully pipelined with latency of 3
 (define_cpu_unit "athlon-fadd" "athlon_fp")
@@ -107,30 +149,36 @@
 (define_reservation "athlon-faddmul" "(athlon-fadd | athlon-fmul)")
 
 
+;; Instruction to bring decoder state into the "completely empty" state at
+;; the beggining of basic block.
+(define_insn_reservation "athlon_init" 0
+			 (and (eq_attr "cpu" "athlon,k8")
+			      (eq_attr "type" "initpipe"))
+			 "athlon-initialdecoder")
 ;; Jump instructions are executed in the branch unit compltetely transparent to us
 (define_insn_reservation "athlon_branch" 0
 			 (and (eq_attr "cpu" "athlon,k8")
 			      (eq_attr "type" "ibr"))
-			 "athlon-direct")
-(define_insn_reservation "athlon_call" 0
+			 "athlon-direct,athlon-ieu")
+(define_insn_reservation "athlon_call" 2
 			 (and (eq_attr "cpu" "athlon,k8")
 			      (eq_attr "type" "call,callv"))
-			 "athlon-vector")
+			 "athlon-vectorcall,athlon-ieu")
 
 ;; Latency of push operation is 3 cycles, but ESP value is available
 ;; earlier
 (define_insn_reservation "athlon_push" 2
 			 (and (eq_attr "cpu" "athlon,k8")
 			      (eq_attr "type" "push"))
-			 "athlon-direct,nothing,athlon-store")
+			 "athlon-direct,athlon-agu,athlon-store")
 (define_insn_reservation "athlon_pop" 4
 			 (and (eq_attr "cpu" "athlon,k8")
 			      (eq_attr "type" "pop"))
-			 "athlon-vector,athlon-ieu,athlon-load")
+			 "athlon-vector,athlon-load,athlon-ieu")
 (define_insn_reservation "athlon_pop_k8" 3
 			 (and (eq_attr "cpu" "k8")
 			      (eq_attr "type" "pop"))
-			 "athlon-double,athlon-ieu,athlon-load")
+			 "athlon-double,(athlon-ieu+athlon-load)")
 (define_insn_reservation "athlon_leave" 3
 			 (and (eq_attr "cpu" "athlon")
 			      (eq_attr "type" "leave"))
@@ -144,42 +192,42 @@
 (define_insn_reservation "athlon_lea" 2
 			 (and (eq_attr "cpu" "athlon,k8")
 			      (eq_attr "type" "lea"))
-			 "athlon-direct,athlon-agu")
+			 "athlon-direct,athlon-agu,nothing")
 
 ;; Mul executes in special multiplier unit attached to IEU0
 (define_insn_reservation "athlon_imul" 5
 			 (and (eq_attr "cpu" "athlon")
 			      (and (eq_attr "type" "imul")
 				   (eq_attr "memory" "none,unknown")))
-			 "athlon-vector,athlon-ieu0,athlon-mult,nothing,nothing,athlon-ieu0")
+			 "athlon-vector,athlon-ieu0,athlon-mult,nothing,nothing,athlon-ieu0+athlon-ieu1")
 ;; ??? Widening multiply is vector or double.
 (define_insn_reservation "athlon_imul_k8_DI" 4
 			 (and (eq_attr "cpu" "k8")
 			      (and (eq_attr "type" "imul")
 				   (and (eq_attr "mode" "DI")
 					(eq_attr "memory" "none,unknown"))))
-			 "athlon-direct0,athlon-ieu0,athlon-mult,nothing,athlon-ieu0")
+			 "athlon-direct0,athlon-ieu0,athlon-mult,nothing,athlon-ieu0+athlon-ieu1")
 (define_insn_reservation "athlon_imul_k8" 3
 			 (and (eq_attr "cpu" "k8")
 			      (and (eq_attr "type" "imul")
 				   (eq_attr "memory" "none,unknown")))
-			 "athlon-direct0,athlon-ieu0,athlon-mult,athlon-ieu0")
+			 "athlon-direct0,athlon-ieu0,athlon-mult,athlon-ieu0+athlon-ieu1")
 (define_insn_reservation "athlon_imul_mem" 8
 			 (and (eq_attr "cpu" "athlon")
 			      (and (eq_attr "type" "imul")
 				   (eq_attr "memory" "load,both")))
-			 "athlon-vector,athlon-load,athlon-ieu,athlon-mult,nothing,nothing,athlon-ieu")
+			 "athlon-vector,athlon-load,athlon-ieu0,athlon-mult,nothing,nothing,athlon-ieu0+athlon-ieu1")
 (define_insn_reservation "athlon_imul_mem_k8_DI" 7
 			 (and (eq_attr "cpu" "k8")
 			      (and (eq_attr "type" "imul")
 				   (and (eq_attr "mode" "DI")
 					(eq_attr "memory" "load,both"))))
-			 "athlon-vector,athlon-load,athlon-ieu,athlon-mult,nothing,athlon-ieu")
+			 "athlon-vector,athlon-load,athlon-ieu0,athlon-mult,nothing,athlon-ieu0")
 (define_insn_reservation "athlon_imul_mem_k8" 6
 			 (and (eq_attr "cpu" "k8")
 			      (and (eq_attr "type" "imul")
 				   (eq_attr "memory" "load,both")))
-			 "athlon-vector,athlon-load,athlon-ieu,athlon-mult,athlon-ieu")
+			 "athlon-vector,athlon-load,athlon-ieu0,athlon-mult,athlon-ieu0")
 
 ;; Idiv can not execute in parallel with other instructions.  Dealing with it
 ;; as with short latency vector instruction is good approximation avoiding
@@ -192,19 +240,19 @@
 			 (and (eq_attr "cpu" "athlon,k8")
 			      (and (eq_attr "type" "idiv")
 				   (eq_attr "memory" "none,unknown")))
-			 "athlon-vector,athlon-ieu*6")
+			 "athlon-vector,athlon-ieu0*6")
 (define_insn_reservation "athlon_idiv_mem" 9
 			 (and (eq_attr "cpu" "athlon,k8")
 			      (and (eq_attr "type" "idiv")
 				   (eq_attr "memory" "load,both")))
-			 "athlon-vector,athlon-load,athlon-ieu*6")
+			 "athlon-vector,athlon-load,athlon-ieu0*6")
 ;; The paralelism of string instructions is not documented.  Model it same way
 ;; as idiv to create smaller automata.  This probably does not matter much.
 (define_insn_reservation "athlon_str" 6
 			 (and (eq_attr "cpu" "athlon,k8")
 			      (and (eq_attr "type" "str")
 				   (eq_attr "memory" "load,both,store")))
-			 "athlon-vector,athlon-load,athlon-ieu*6")
+			 "athlon-vector,athlon-load,athlon-ieu0*6")
 
 (define_insn_reservation "athlon_idirect" 1
 			 (and (eq_attr "cpu" "athlon,k8")
@@ -245,28 +293,28 @@
 			      (and (eq_attr "athlon_decode" "direct")
 				   (and (eq_attr "unit" "integer,unknown")
 					(eq_attr "memory" "both"))))
-			 "athlon-direct,athlon-load,athlon-ieu,
+			 "athlon-direct,athlon-orderingload,athlon-ieu+athlon-doubleload,
 			  athlon-store")
 (define_insn_reservation "athlon_ivector_both" 6
 			 (and (eq_attr "cpu" "athlon,k8")
 			      (and (eq_attr "athlon_decode" "vector")
 				   (and (eq_attr "unit" "integer,unknown")
 					(eq_attr "memory" "both"))))
-			 "athlon-vector,athlon-load,athlon-ieu,athlon-ieu,
+			 "athlon-vector,athlon-orderingload,athlon-ieu+athlon-doubleload,athlon-ieu+athlon-doubleload,
 			  athlon-store")
 (define_insn_reservation "athlon_idirect_store" 1
 			 (and (eq_attr "cpu" "athlon,k8")
 			      (and (eq_attr "athlon_decode" "direct")
 				   (and (eq_attr "unit" "integer,unknown")
 					(eq_attr "memory" "store"))))
-			 "athlon-direct,athlon-ieu,
+			 "athlon-direct,(athlon-ieu+athlon-agu),
 			  athlon-store")
 (define_insn_reservation "athlon_ivector_store" 2
 			 (and (eq_attr "cpu" "athlon,k8")
 			      (and (eq_attr "athlon_decode" "vector")
 				   (and (eq_attr "unit" "integer,unknown")
 					(eq_attr "memory" "store"))))
-			 "athlon-vector,athlon-ieu,athlon-ieu,
+			 "athlon-vector,(athlon-ieu+athlon-agu),athlon-ieu+athlon-doubleload,
 			  athlon-store")
 
 ;; Athlon floatin point unit
@@ -275,49 +323,49 @@
 			      (and (eq_attr "type" "fmov")
 				   (and (eq_attr "memory" "load")
 					(eq_attr "mode" "XF"))))
-			 "athlon-vector,athlon-fany")
+			 "athlon-vector,athlon-load,athlon-fany")
 (define_insn_reservation "athlon_fldxf_k8" 13
 			 (and (eq_attr "cpu" "k8")
 			      (and (eq_attr "type" "fmov")
 				   (and (eq_attr "memory" "load")
 					(eq_attr "mode" "XF"))))
-			 "athlon-vector,athlon-fany")
+			 "athlon-vector,athlon-load,athlon-fany")
 (define_insn_reservation "athlon_fld" 6
 			 (and (eq_attr "cpu" "athlon")
 			      (and (eq_attr "type" "fmov")
 				   (eq_attr "memory" "load")))
-			 "athlon-direct,athlon-fany,nothing,athlon-load")
+			 "athlon-direct,athlon-load,athlon-fany")
 (define_insn_reservation "athlon_fld_k8" 4
 			 (and (eq_attr "cpu" "k8")
 			      (and (eq_attr "type" "fmov")
 				   (eq_attr "memory" "load")))
-			 "athlon-direct,athlon-fany,athlon-load")
+			 "athlon-direct,athlon-load,athlon-fany")
 (define_insn_reservation "athlon_fstxf" 10
 			 (and (eq_attr "cpu" "athlon")
 			      (and (eq_attr "type" "fmov")
 				   (and (eq_attr "memory" "store,both")
 					(eq_attr "mode" "XF"))))
-			 "athlon-vector,athlon-fstore")
+			 "athlon-vector,athlon-fpustore")
 (define_insn_reservation "athlon_fstxf_k8" 8
 			 (and (eq_attr "cpu" "k8")
 			      (and (eq_attr "type" "fmov")
 				   (and (eq_attr "memory" "store,both")
 					(eq_attr "mode" "XF"))))
-			 "athlon-vector,athlon-fstore")
+			 "athlon-vector,athlon-fpustore")
 (define_insn_reservation "athlon_fst" 4
 			 (and (eq_attr "cpu" "athlon")
 			      (and (eq_attr "type" "fmov")
 				   (eq_attr "memory" "store,both")))
-			 "athlon-direct,athlon-fstore,nothing,athlon-store")
+			 "athlon-direct,athlon-fpustore")
 (define_insn_reservation "athlon_fst_k8" 2
 			 (and (eq_attr "cpu" "k8")
 			      (and (eq_attr "type" "fmov")
 				   (eq_attr "memory" "store,both")))
-			 "athlon-direct,athlon-fstore,athlon-store")
+			 "athlon-direct,athlon-fpustore")
 (define_insn_reservation "athlon_fist" 4
 			 (and (eq_attr "cpu" "athlon,k8")
 			      (eq_attr "type" "fistp"))
-			 "athlon-direct,athlon-fstore,nothing")
+			 "athlon-direct,athlon-fpustore")
 (define_insn_reservation "athlon_fmov" 2
 			 (and (eq_attr "cpu" "athlon,k8")
 			      (eq_attr "type" "fmov"))
@@ -419,49 +467,51 @@
 			 (and (eq_attr "cpu" "athlon,k8")
 			      (eq_attr "type" "fcmp"))
 			 "athlon-direct,athlon-fadd")
-(define_insn_reservation "athlon_fxch" 2
-			 (and (eq_attr "cpu" "athlon,k8")
-			      (eq_attr "type" "fxch"))
-			 "athlon-direct,athlon-fany")
+;;  Never seen by the scheduler.
+;;(define_insn_reservation "athlon_fxch" 2
+;;			 (and (eq_attr "cpu" "athlon,k8")
+;;			      (eq_attr "type" "fxch"))
+;;			 "athlon-direct,athlon-fany")
+;;
 ;; Athlon handle MMX operations in the FPU unit with shorter latencies
 (define_insn_reservation "athlon_movlpd_load" 4
 			 (and (eq_attr "cpu" "athlon,k8")
 			      (and (eq_attr "type" "ssemov")
 				   (match_operand:DF 1 "memory_operand" "")))
-			 "athlon-direct,athlon-load")
+			 "athlon-direct,athlon-load,athlon-fany")
 (define_insn_reservation "athlon_movaps_load" 4
 			 (and (eq_attr "cpu" "athlon,k8")
 			      (and (eq_attr "type" "ssemov")
 				   (and (eq_attr "mode" "V4SF,V2DF,TI")
 					(eq_attr "memory" "load"))))
-			 "athlon-double,athlon-load")
+			 "athlon-double,athlon-load,athlon-fany")
 (define_insn_reservation "athlon_movss_load" 3
 			 (and (eq_attr "cpu" "athlon,k8")
 			      (and (eq_attr "type" "ssemov")
 				   (and (eq_attr "mode" "SF,DI")
 					(eq_attr "memory" "load"))))
-			 "athlon-double,athlon-load")
+			 "athlon-double,athlon-load,athlon-fany")
 (define_insn_reservation "athlon_mmxsseld" 4
 			 (and (eq_attr "cpu" "athlon,k8")
 			      (and (eq_attr "type" "mmxmov,ssemov")
 				   (eq_attr "memory" "load")))
-			 "athlon-direct,athlon-fany,athlon-load")
+			 "athlon-direct,athlon-load,athlon-fany")
 (define_insn_reservation "athlon_mmxssest" 3
 			 (and (eq_attr "cpu" "k8")
 			      (and (eq_attr "type" "mmxmov,ssemov")
 				   (and (eq_attr "mode" "V4SF,V2DF,TI")
 					(eq_attr "memory" "store,both"))))
-			 "athlon-double,athlon-store")
+			 "athlon-double,athlon-fpustore")
 (define_insn_reservation "athlon_mmxssest_k8" 2
 			 (and (eq_attr "cpu" "athlon,k8")
 			      (and (eq_attr "type" "mmxmov,ssemov")
 				   (eq_attr "memory" "store,both")))
-			 "athlon-direct,athlon-store")
+			 "athlon-direct,athlon-fpustore")
 (define_insn_reservation "athlon_movaps" 2
 			 (and (eq_attr "cpu" "k8")
 			      (and (eq_attr "type" "ssemov")
 				   (eq_attr "mode" "V4SF,V2DF")))
-			 "athlon-double,athlon-faddmul,athlon-faddmul")
+			 "athlon-double,(athlon-faddmul+athlon-faddmul)")
 (define_insn_reservation "athlon_mmxssemov" 2
 			 (and (eq_attr "cpu" "athlon,k8")
 			      (eq_attr "type" "mmxmov,ssemov"))
@@ -504,12 +554,21 @@
 			 (and (eq_attr "cpu" "k8")
 			      (eq_attr "type" "sselog"))
 			 "athlon-double,athlon-fmul")
-(define_insn_reservation "athlon_ssecmp_load" 5
+(define_insn_reservation "athlon_ssecomi_load" 5
+			 (and (eq_attr "cpu" "athlon,k8")
+			      (and (eq_attr "type" "ssecomi")
+				   (eq_attr "memory" "load")))
+			 "athlon-vector,athlon-load,athlon-fadd")
+(define_insn_reservation "athlon_ssecomi" 3
+			 (and (eq_attr "cpu" "athlon,k8")
+			      (eq_attr "type" "ssecomi"))
+			 "athlon-vector,athlon-fadd")
+(define_insn_reservation "athlon_ssecmp_load" 4
 			 (and (eq_attr "cpu" "athlon,k8")
 			      (and (eq_attr "type" "ssecmp")
 				   (and (eq_attr "mode" "SF,DF")
 					(eq_attr "memory" "load"))))
-			 "athlon-vector,athlon-load,athlon-fadd")
+			 "athlon-direct,athlon-load,athlon-fadd")
 (define_insn_reservation "athlon_ssecmp" 2
 			 (and (eq_attr "cpu" "athlon,k8")
 			      (and (eq_attr "type" "ssecmp")
@@ -519,12 +578,12 @@
 			 (and (eq_attr "cpu" "athlon")
 			      (and (eq_attr "type" "ssecmp")
 				   (eq_attr "memory" "load")))
-			 "athlon-vector,athlon-fadd")
+			 "athlon-vector,athlon-load,athlon-fadd")
 (define_insn_reservation "athlon_ssecmpvector_load_k8" 5
 			 (and (eq_attr "cpu" "k8")
 			      (and (eq_attr "type" "ssecmp")
 				   (eq_attr "memory" "load")))
-			 "athlon-double,athlon-fadd")
+			 "athlon-double,athlon-load,athlon-fadd")
 (define_insn_reservation "athlon_ssecmpvector" 3
 			 (and (eq_attr "cpu" "athlon")
 			      (eq_attr "type" "ssecmp"))

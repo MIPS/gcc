@@ -1,3 +1,13 @@
+Sun Dec 29 11:20:31 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* athlon.md: Reorganize to match reality better.
+	* i386.md  (ix86_issue_rate): Set to 6 for Athlon and K8.
+	(ix86_sched_init): Issue the initialization insn.
+	(ia32_multipass_dfa_lookahead): Set to 6 for athlon/k8.
+	* i386.md (type attribute): add ssecomi and initpipe
+	(initpipe): New insn.
+	(comi patterns): Update type.
+
 Sat Dec 28 16:59:04 CET 2002  Jan Hubicka  <jh@suse.cz>
 
 	* genautomata.c: Merge from itanium branch.

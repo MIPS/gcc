@@ -45,6 +45,7 @@ Boston, MA 02111-1307, USA.  */
 #include "target.h"
 #include "target-def.h"
 #include "langhooks.h"
+#include "sched-int.h"
 
 #ifndef CHECK_STACK_LIMIT
 #define CHECK_STACK_LIMIT (-1)
@@ -11402,9 +11403,10 @@ ix86_issue_rate ()
 
     case PROCESSOR_PENTIUMPRO:
     case PROCESSOR_PENTIUM4:
-    case PROCESSOR_ATHLON:
-    case PROCESSOR_K8:
       return 3;
+    case PROCESSOR_K8:
+    case PROCESSOR_ATHLON:
+      return 6;
 
     default:
       return 1;
@@ -11686,6 +11688,12 @@ ix86_sched_init (dump, sched_verbose, veclen)
      int sched_verbose ATTRIBUTE_UNUSED;
      int veclen ATTRIBUTE_UNUSED;
 {
+  if (TARGET_ATHLON_K8)
+    {
+      rtx insn = emit_insn (gen_init_pipe ());
+      state_transition (curr_state, insn);
+      delete_insn (insn);
+    }
   memset (&ix86_sched_data, 0, sizeof (ix86_sched_data));
 }
 
@@ -11906,6 +11914,8 @@ ia32_multipass_dfa_lookahead ()
 {
   if (ix86_cpu == PROCESSOR_PENTIUM)
     return 2;
+  else if (TARGET_ATHLON_K8)
+    return 6;
   else
    return 0;
 }
