@@ -103,13 +103,15 @@ debug_print (const char *fmt, ...)
    subroutine is exited via `goto' or `athrow' and not `ret'.
 
    In some other areas the JVM specification is (mildly) incorrect,
-   but we still implement what is specified.  For instance, you cannot
+   so we diverge.  For instance, you cannot
    violate type safety by allocating an object with `new' and then
    failing to initialize it, no matter how one branches or where one
    stores the uninitialized reference.  See "Improving the official
    specification of Java bytecode verification" by Alessandro Coglio.
-   Similarly, there's no real point in enforcing that padding bytes or
-   the mystery byte of invokeinterface must be 0, but we do that too.
+
+   Note that there's no real point in enforcing that padding bytes or
+   the mystery byte of invokeinterface must be 0, but we do that
+   regardless.
 
    The verifier is currently neither completely lazy nor eager when it
    comes to loading classes.  It tries to represent types by name when
@@ -1203,31 +1205,6 @@ state_check_this_initialized (state *s)
     verify_fail ("`this' is uninitialized");
 }
 
-/* Throw an exception if there is an uninitialized object on the
-   stack or in a local variable.  EXCEPTION_SEMANTICS controls
-   whether we're using backwards-branch or exception-handing
-   semantics.  */
-static void 
-state_check_no_uninitialized_objects (state *s, int max_locals,
-				      bool exception_semantics)
-{
-  int i;
-  if (! exception_semantics)
-    {
-      for (i = 0; i < s->stacktop; ++i)
-	if (type_isreference (&s->stack[i]) 
-	    && ! type_initialized (&s->stack[i]))
-	  verify_fail ("uninitialized object on stack");
-    }
-
-  for (i = 0; i < max_locals; ++i)
-    if (type_isreference (&s->locals[i])
-	&& ! type_initialized (&s->locals[i]))
-      verify_fail ("uninitialized object in local variable");
-
-  state_check_this_initialized (s);
-}
-
 /* Set type of `this'.  */
 static void
 state_set_this_type (state *s, type *k)
@@ -1619,9 +1596,10 @@ static void
 push_jump (int offset)
 {
   int npc = compute_jump (offset);
-  if (npc < vfr->PC)
-    state_check_no_uninitialized_objects (vfr->current_state, 
-				    vfr->current_method->max_locals, false);
+  /* According to the JVM Spec, we need to check for uninitialized
+     objects here.  However, this does not actually affect type
+     safety, and the Eclipse java compiler generates code that
+     violates this constraint.  */
   merge_into (npc, vfr->current_state);
 }
 
@@ -1629,8 +1607,10 @@ static void
 push_exception_jump (type t, int pc)
 {
   state s;
-  state_check_no_uninitialized_objects (vfr->current_state,
-					vfr->current_method->max_locals, true);
+  /* According to the JVM Spec, we need to check for uninitialized
+     objects here.  However, this does not actually affect type
+     safety, and the Eclipse java compiler generates code that
+     violates this constraint.  */
   copy_state_with_stack (&s, vfr->current_state, 
 			 vfr->current_method->max_stack,
 			 vfr->current_method->max_locals);
@@ -1700,9 +1680,10 @@ handle_ret_insn (int index)
   if (npc >= vfr->current_method->code_length)
     verify_fail ("fell off end");
 
-  if (npc < vfr->PC)
-    state_check_no_uninitialized_objects (vfr->current_state, 
-      vfr->current_method->max_locals, false);
+  /* According to the JVM Spec, we need to check for uninitialized
+     objects here.  However, this does not actually affect type
+     safety, and the Eclipse java compiler generates code that
+     violates this constraint.  */
   merge_into (npc, vfr->current_state);
   invalidate_pc ();
 }
@@ -1712,10 +1693,10 @@ static void handle_jsr_insn (int offset)
   type ret_addr;
   int npc = compute_jump (offset);
 
-  if (npc < vfr->PC)
-    state_check_no_uninitialized_objects (vfr->current_state,
-					  vfr->current_method->max_locals,
-					  false);
+  /* According to the JVM Spec, we need to check for uninitialized
+     objects here.  However, this does not actually affect type
+     safety, and the Eclipse java compiler generates code that
+     violates this constraint.  */
 
   /* Modify our state as appropriate for entry into a subroutine.  */
   ret_addr = make_type (return_address_type);

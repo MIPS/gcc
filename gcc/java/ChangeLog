@@ -1,5 +1,12 @@
 2004-11-01  Tom Tromey  <tromey@redhat.com>
 
+	* verify-impl.c (push_jump): Removed check for uninitialized
+	objects.
+	(push_exception_jump): Likewise.
+	(handle_ret_insn): Likewise.
+	(handle_jsr_insn): Likewise.
+	(state_check_no_uninitialized_objects): Removed.
+
 	* decl.c (check_local_unnamed_variable): Recognize
 	promoted-to-int parameters when using the new verifier.
 	* expr.c (expand_java_arraystore): Explicitly request array type
