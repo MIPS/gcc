@@ -1,5 +1,13 @@
 2003-01-21  Josef Zlomek  <zlomekj@suse.cz>
 
+	* var-tracking.c (VARIABLE_P): Replaced by ...
+	(track_expr_p): ... this.
+	(scan_for_locations, compute_bb_dataflow, process_bb): Use
+	track_expr_p instead of VARIABLE_P.
+	(set_location_part): Abort if there are many location parts.
+
+2003-01-21  Josef Zlomek  <zlomekj@suse.cz>
+
 	* sreal.c (sreal_mul): Remove superfluous rounding.
 
 2003-01-16  Josef Zlomek  <zlomekj@suse.cz>

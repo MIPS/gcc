@@ -176,11 +176,6 @@ typedef struct variable_def
 /* The hashtable of STRUCT VARIABLE_DEF.  */
 static htab_t variable_htab;
 
-/* Is DECL a named variable or parameter of function?  */
-#define VARIABLE_P(DECL) ((TREE_CODE (DECL) == VAR_DECL			\
-			   || TREE_CODE (DECL) == PARM_DECL)		\
-			  && DECL_NAME (DECL))
-
 /* Hash function for MEM_IN and MEM_OUT.  */
 #define MEM_HASH_VAL(mem) ((size_t) MEM_ALIAS_SET (mem))
 
@@ -219,6 +214,7 @@ static void attrs_htab_union		PARAMS ((htab_t, htab_t));
 static void attrs_htab_clear		PARAMS ((htab_t));
 static void attrs_htab_cleanup		PARAMS ((void *));
 
+static bool track_expr_p		PARAMS ((tree));
 static int scan_for_locations		PARAMS ((rtx *, void *));
 static bool compute_bb_dataflow		PARAMS ((basic_block));
 static void hybrid_search		PARAMS ((basic_block, sbitmap,
@@ -683,6 +679,38 @@ attrs_htab_cleanup (slot)
     }
 }
 
+/* Shall EXPR be tracked?  */
+
+static bool
+track_expr_p (expr)
+     tree expr;
+{
+  rtx rtx;
+
+  /* If EXPR is not a parameter or a variable do not track it.  */
+  if (TREE_CODE (expr) != VAR_DECL || TREE_CODE (expr) != PARM_DECL)
+    return 0;
+ 
+  /* It also must have a name...  */
+  if (!DECL_NAME (expr))
+    return 0;
+  
+  /* ... and a RTL assigned to it.  */
+  rtx = DECL_RTL (expr);
+  if (!rtx)
+    return 0;
+    
+  /* If RTX is a memory it should not be very large (because it would be an array
+     or struct).  */
+  if (GET_CODE (rtx) == MEM)
+    {
+      if (MEM_SIZE (rtx) && INTVAL (MEM_SIZE (rtx)) > MAX_LOC_PARTS)
+	return 0;
+    }
+ 
+  return 1;
+}
+
 /* Scan rtx X for registers and memory references. Other parameters are
    in struct scan_for_locations_data passed in DATA.  */
 
@@ -716,7 +744,7 @@ scan_for_locations (x, data)
 	      return 0;
 
 	    case MEM:
-	      if (MEM_EXPR (*x) && VARIABLE_P (MEM_EXPR (*x)))
+	      if (MEM_EXPR (*x) && track_expr_p (MEM_EXPR (*x)))
 		VTI (bb)->n_locs++;
 	      /* Continue traversing.  */
 	      return 0;
@@ -757,7 +785,7 @@ scan_for_locations (x, data)
 	      return -1;
 
 	    case MEM:
-	      if (MEM_EXPR (*x) && VARIABLE_P (MEM_EXPR (*x)))
+	      if (MEM_EXPR (*x) && track_expr_p (MEM_EXPR (*x)))
 		{
 		  l = VTI (bb)->locs + VTI (bb)->n_locs++;
 		  l->loc = *x;
@@ -824,7 +852,7 @@ compute_bb_dataflow (bb)
 	  if (VTI (bb)->locs[i].type == LT_PARAM
 	      || VTI (bb)->locs[i].type == LT_SET_DEST)
 	    {
-	      if (REG_EXPR (loc) && VARIABLE_P (REG_EXPR (loc)))
+	      if (REG_EXPR (loc) && track_expr_p (REG_EXPR (loc)))
 		{
 		  attrs_list_insert (&out[REGNO (loc)], REG_EXPR (loc),
 				     REG_OFFSET (loc), loc);
@@ -843,7 +871,7 @@ compute_bb_dataflow (bb)
 	}
       else if (GET_CODE (loc) == MEM
 	       && MEM_EXPR (loc)
-	       && VARIABLE_P (MEM_EXPR (loc)))
+	       && track_expr_p (MEM_EXPR (loc)))
 	{
 	  int j;
 	  tree decl = MEM_EXPR (loc);
@@ -1163,7 +1191,7 @@ set_location_part (decl, offset, loc, insn, where)
     {
       /* Did not find the part, create new one.  */
       if (var->n_location_parts >= MAX_LOC_PARTS)
-	return;
+	abort ();
       var->n_location_parts++;
       var->location_part[k].offset = offset;
       var->location_part[k].loc = NULL;
@@ -1346,7 +1374,7 @@ process_bb (bb)
 		  if (l->decl != decl || l->offset != offset)
 		    delete_location_part (l->decl, l->offset, insn, where);
 		attrs_list_clear (&reg[REGNO (loc)]);
-		if (decl && VARIABLE_P (decl))
+		if (decl && track_expr_p (decl))
 		  {
 		    set_location_part (decl, offset, loc, insn, where);
 		    attrs_list_insert (&reg[REGNO (loc)], decl, offset, loc);
@@ -1365,7 +1393,7 @@ process_bb (bb)
 	}
       else if (GET_CODE (loc) == MEM
 	       && MEM_EXPR (loc)
-	       && VARIABLE_P (MEM_EXPR (loc)))
+	       && track_expr_p (MEM_EXPR (loc)))
 	{
 	  enum where_emit_note where = EMIT_NOTE_AFTER_INSN;
 	  tree decl = MEM_EXPR (loc);
