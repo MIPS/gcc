@@ -1,3 +1,10 @@
+2005-01-31  Ira Rosen  <irar@il.ibm.com>
+
+	* gcc.dg/vect/vect-39.c: New test.
+	* gcc.dg/vect/vect-81.c: New test.
+	* gcc.dg/vect/vect-84.c: New test.
+	* gcc.dg/vect/vect-94.c: New test.
+
 2004-12-20  Sebastian Pop  <pop@cri.ensmp.fr>
 
 	* gcc.dg/tree-ssa/pr17100.c: New test.
