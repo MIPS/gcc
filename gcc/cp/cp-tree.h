@@ -385,6 +385,10 @@ struct tree_overload GTY(())
   (TREE_CODE (NODE) == TREE_LIST && TREE_LANG_FLAG_1 (NODE))
 #define SET_BASELINK_P(NODE) \
   (TREE_LANG_FLAG_1 (NODE) = 1)
+/* The functions referred to by the BASELINK; either a FUNCTION_DECL
+   or an OVERLOAD.  */
+#define BASELINK_FUNCTIONS(NODE) \
+  (TREE_VALUE (NODE))
 
 #define WRAPPER_ZC(NODE) (((struct tree_wrapper*)WRAPPER_CHECK (NODE))->z_c)
 
@@ -2546,6 +2550,17 @@ extern int flag_new_for_scope;
 #define ARITHMETIC_TYPE_P(TYPE) \
   (CP_INTEGRAL_TYPE_P (TYPE) || TREE_CODE (TYPE) == REAL_TYPE)
 
+/* [basic.types]
+
+   Arithmetic types, enumeration types, pointer types, and
+   pointer-to-member types, are collectively called scalar types.  */
+#define SCALAR_TYPE_P(TYPE)			\
+  (ARITHMETIC_TYPE_P (TYPE)			\
+   || TREE_CODE (TYPE) == ENUMERAL_TYPE		\
+   || TYPE_PTR_P (TYPE)				\
+   || TYPE_PTRMEM_P (TYPE)			\
+   || TYPE_PTRMEMFUNC_P (TYPE))
+
 /* Nonzero for _TYPE means that the _TYPE defines
    at least one constructor.  */
 #define TYPE_HAS_CONSTRUCTOR(NODE) (TYPE_LANG_FLAG_1 (NODE))
@@ -3812,6 +3827,7 @@ extern void begin_only_namespace_names          PARAMS ((void));
 extern void end_only_namespace_names            PARAMS ((void));
 extern tree namespace_ancestor			PARAMS ((tree, tree));
 extern tree unqualified_namespace_lookup	PARAMS ((tree, int, tree *));
+extern tree check_for_out_of_scope_variable     (tree);
 extern int  lookup_using_namespace              PARAMS ((tree, tree, tree, tree, int, tree *));
 extern int  qualified_lookup_using_namespace    PARAMS ((tree, tree, tree, int));
 extern tree build_library_fn			PARAMS ((tree, tree));
@@ -3840,9 +3856,9 @@ extern int copy_fn_p				PARAMS ((tree));
 extern void grok_special_member_properties	PARAMS ((tree));
 extern int grok_ctor_properties			PARAMS ((tree, tree));
 extern void grok_op_properties			PARAMS ((tree, int));
-extern tree xref_tag				PARAMS ((tree, tree, int));
+extern tree xref_tag				(enum tag_types, tree, tree, bool);
 extern tree xref_tag_from_type			PARAMS ((tree, tree, int));
-extern void xref_basetypes			PARAMS ((tree, tree, tree, tree));
+extern void xref_basetypes			PARAMS ((tree, tree));
 extern tree start_enum				PARAMS ((tree));
 extern void finish_enum				PARAMS ((tree));
 extern void build_enumerator			PARAMS ((tree, tree, tree));
@@ -3939,7 +3955,7 @@ extern tree do_class_using_decl			PARAMS ((tree));
 extern void do_using_directive			PARAMS ((tree));
 extern void check_default_args			PARAMS ((tree));
 extern void mark_used				PARAMS ((tree));
-extern tree handle_class_head			PARAMS ((tree, tree, tree, int, int *));
+extern tree handle_class_head			(enum tag_types, tree, tree, tree, int, int *);
 extern tree lookup_arg_dependent                PARAMS ((tree, tree, tree));
 extern void finish_static_data_member_decl      PARAMS ((tree, tree, tree, int));
 extern tree build_artificial_parm               PARAMS ((tree, tree));
@@ -4044,7 +4060,7 @@ extern void note_list_got_semicolon		PARAMS ((tree));
 extern void do_pending_lang_change		PARAMS ((void));
 extern void see_typename			PARAMS ((void));
 extern tree do_identifier			PARAMS ((tree, int, tree));
-extern tree do_scoped_id			PARAMS ((tree, int));
+extern tree do_scoped_id			PARAMS ((tree, tree));
 extern tree identifier_typedecl_value		PARAMS ((tree));
 extern tree build_lang_decl			PARAMS ((enum tree_code, tree, tree));
 extern void retrofit_lang_decl			PARAMS ((tree));
@@ -4174,6 +4190,7 @@ extern void init_search_processing		PARAMS ((void));
 extern void reinit_search_statistics		PARAMS ((void));
 extern tree current_scope			PARAMS ((void));
 extern int at_function_scope_p                  PARAMS ((void));
+extern bool at_class_scope_p                    (void);
 extern tree context_for_name_lookup		PARAMS ((tree));
 extern tree lookup_conversions			PARAMS ((tree));
 extern tree binfo_for_vtable			PARAMS ((tree));
@@ -4261,6 +4278,7 @@ extern tree finish_pseudo_destructor_call_expr  PARAMS ((tree, tree, tree));
 extern tree finish_qualified_call_expr          PARAMS ((tree, tree));
 extern tree finish_unary_op_expr                PARAMS ((enum tree_code, tree));
 extern tree finish_id_expr                      PARAMS ((tree));
+extern tree finish_fname                        (tree);
 extern void save_type_access_control		PARAMS ((tree));
 extern void reset_type_access_control           PARAMS ((void));
 extern void decl_type_access_control		PARAMS ((tree));
@@ -4292,6 +4310,7 @@ extern void expand_body                         PARAMS ((tree));
 extern tree nullify_returns_r		      PARAMS ((tree *, int *, void *));
 extern void do_pushlevel                        PARAMS ((void));
 extern tree do_poplevel                         PARAMS ((void));
+extern void begin_mem_initializers              (void);
 extern void finish_mem_initializers             PARAMS ((tree));
 extern void setup_vtbl_ptr			PARAMS ((tree, tree));
 extern void clear_out_block                     PARAMS ((void));
@@ -4341,6 +4360,7 @@ extern tree make_binfo				PARAMS ((tree, tree, tree, tree));
 extern tree reverse_path			PARAMS ((tree));
 extern int count_functions			PARAMS ((tree));
 extern int is_overloaded_fn			PARAMS ((tree));
+extern tree get_overloaded_fn                   PARAMS ((tree));
 extern tree get_first_fn			PARAMS ((tree));
 extern int bound_pmf_p				PARAMS ((tree));
 extern tree ovl_cons                            PARAMS ((tree, tree));
@@ -4417,7 +4437,7 @@ extern tree decay_conversion			PARAMS ((tree));
 extern tree build_object_ref			PARAMS ((tree, tree, tree));
 extern tree build_component_ref_1		PARAMS ((tree, tree, int));
 extern tree build_component_ref			PARAMS ((tree, tree, tree, int));
-extern tree build_x_component_ref		PARAMS ((tree, tree, tree, int));
+extern tree build_x_component_ref		PARAMS ((tree, tree, tree));
 extern tree build_x_indirect_ref		PARAMS ((tree, const char *));
 extern tree build_indirect_ref			PARAMS ((tree, const char *));
 extern tree build_array_ref			PARAMS ((tree, tree));

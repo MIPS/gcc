@@ -1063,6 +1063,15 @@ finish_named_return_value (return_id, init)
   DECL_UNINLINABLE (current_function_decl) = 1;
 }
 
+/* Begin processing a mem-initializer-list.  */
+
+void
+begin_mem_initializers ()
+{
+  if (! DECL_CONSTRUCTOR_P (current_function_decl))
+    error ("only constructors take base initializers");
+}
+
 /* The INIT_LIST is a list of mem-initializers, in the order they were
    written by the user.  The TREE_VALUE of each node is a list of
    initializers for a particular subobject.  The TREE_PURPOSE is a
@@ -1435,6 +1444,20 @@ finish_id_expr (expr)
   if (TREE_TYPE (expr) == error_mark_node)
     expr = error_mark_node;
   return expr;
+}
+
+/* Return the declaration for the function-name variable indicated by
+   ID.  */
+
+tree
+finish_fname (tree id)
+{
+  tree decl;
+  
+  decl = fname_decl (C_RID_CODE (id), id);
+  if (processing_template_decl)
+    decl = build_min_nt (LOOKUP_EXPR, DECL_NAME (decl));
+  return decl;
 }
 
 static tree current_type_lookups;
@@ -2025,9 +2048,7 @@ check_multiple_declarators ()
      We don't just use PROCESSING_TEMPLATE_DECL for the first
      condition since that would disallow the perfectly legal code, 
      like `template <class T> struct S { int i, j; };'.  */
-  tree scope = current_scope ();
-
-  if (scope && TREE_CODE (scope) == FUNCTION_DECL)
+  if (at_function_scope_p ())
     /* It's OK to write `template <class T> void f() { int i, j;}'.  */
     return;
      

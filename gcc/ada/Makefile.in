@@ -114,7 +114,7 @@ AR_FLAGS = rc
 RANLIB = ranlib
 # Test to use to see whether ranlib exists on the system.
 RANLIB_TEST = [ -f /usr/bin/ranlib -o -f /bin/ranlib ]
-SHELL = /bin/sh
+SHELL = @SHELL@
 PWD = $${PWDCMD-pwd}
 # How to copy preserving the date
 INSTALL_DATA_DATE = cp -p
@@ -1569,7 +1569,7 @@ endif
 # gnatmake/link  tools cannot always be built with gnatmake/link for bootstrap 
 # reasons: gnatmake should be built with a recent compiler, a recent compiler
 # may not generate ALI files compatible with an old gnatmake so it is important
-# to be able to build gnatmake without a version of gnartmake around. Once 
+# to be able to build gnatmake without a version of gnatmake around. Once 
 # everything has been compiled once, gnatmake can be recompiled with itself 
 # (see target gnattools1-re) 
 gnattools1: ../stamp-tools ../stamp-gnatlib

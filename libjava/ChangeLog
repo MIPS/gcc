@@ -1,3 +1,57 @@
+2002-06-24  Tom Tromey  <tromey@redhat.com>
+
+	* java/net/natPlainDatagramSocketImpl.cc (BooleanClass): Removed.
+	(IntegerClass): Likewise.
+	* java/lang/natClass.cc (CloneableClass): Removed.
+	(ObjectClass, ErrorClass, ClassClass, MethodClass, FieldClass,
+	ConstructorClass): Likewise.
+	* java/lang/natClassLoader.cc (CloneableClass): Removed.
+	(ObjectClass, ClassClass, VMClassLoaderClass, ClassLoaderClass,
+	SerializableClass): Likewise.
+	* java/lang/reflect/natMethod.cc (BooleanClass): Removed.
+	(VoidClass, ByteClass, ShortClass, CharacterClass, IntegerClass,
+	LongClass, FloatClass, DoubleClass): Likewise.
+
+	* verify.cc (branch_prepass): Updated for change to exception
+	handler type.
+	(verify_instructions_0): Likewise.
+	* defineclass.cc (handleCodeAttribute): Initialize `prepared'.
+	(handleExceptionTableEntry): Updated for change to exception
+	handler type.
+	* java/lang/Class.h (Class): Removed _Jv_InterpMethodInvocation.
+	* include/java-interp.h (_Jv_InterpMethodInvocation): Removed.
+	(union _Jv_InterpPC): New.
+	(class _Jv_InterpException): Changed types to _Jv_InterpPC.
+	(class _Jv_InterpMethod): Added new `prepared' field.
+	(class _Jv_InterpMethod): Added `compile' method.  Removed
+	`continue1' and `find_exception'.  Changed arguments to `run'.
+	* interpret.cc (union insn_slot): New.
+	(find_exception): Removed.
+	(run_normal): Removed most logic.
+	(run_synch_object): Likewise; also, use JvSynchronize.
+	(run_synch_class): Likewise.
+	(run): Removed.
+	(continue1): Renamed as `run'.  Compile bytecode if required.
+	Add new code to allow refinement of direct-threaded code at
+	runtime.  Handle exceptions.
+	(SAVE_PC): Removed.
+	(compile): New method.
+	(SET_ONE, SET_INSN, SET_INT, SET_DATUM): New defines.
+	(NULLARRAYCHECK): Don't use SAVE_PC.
+	(pc_t): New typedef.
+	(TAKE_GOTO, GET1S, GET1U, GET2U, AVAL1U, AVAL2U, AVAL2UP,
+	SKIP_GOTO, GOTO_VAL, PCVAL, AMPAMP): New macros.
+
+2002-06-23  Tom Tromey  <tromey@redhat.com>
+
+	* configure: Rebuilt.
+	* configure.in (INTERPRETER): New subst.
+	(AM_RUNTESTFLAGS): Don't subst.
+
+	* Makefile.in: Rebuilt.
+	* Makefile.am ($(srcdir)/java/lang/Object.h,
+	$(srcdir)/java/lang/Class.h): Added dummy targets.
+
 2002-06-21  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
 
 	Reformat JDBC classes and add new JDK 1.4 classes and methods.

@@ -987,7 +987,7 @@ determine_specialization (template_id, decl, targs_out,
 
   /* Check for baselinks. */
   if (BASELINK_P (fns))
-    fns = TREE_VALUE (fns);
+    fns = BASELINK_FUNCTIONS (fns);
 
   if (!is_overloaded_fn (fns))
     {
@@ -4836,7 +4836,7 @@ tsubst_friend_class (friend_tmpl, args)
       if (TREE_CODE (context) == NAMESPACE_DECL)
 	push_nested_namespace (context);
       else
-	push_nested_class (context, 2);
+	push_nested_class (tsubst (context, args, tf_none, NULL_TREE), 2);
     }
 
   /* First, we look for a class template.  */
@@ -5150,13 +5150,7 @@ instantiate_class_template (type)
 
       /* Now call xref_basetypes to set up all the base-class
 	 information.  */
-      xref_basetypes (TREE_CODE (pattern) == RECORD_TYPE
-		      ? (CLASSTYPE_DECLARED_CLASS (pattern)
-			 ? class_type_node : record_type_node)
-		      : union_type_node,
-		      DECL_NAME (TYPE_NAME (pattern)),
-		      type,
-		      base_list);
+      xref_basetypes (type, base_list);
     }
 
   /* Now that our base classes are set up, enter the scope of the

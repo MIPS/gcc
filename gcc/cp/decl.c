@@ -5921,6 +5921,65 @@ warn_about_implicit_typename_lookup (typename, binding)
     }
 }
 
+/* Check to see whether or not DECL is a variable that would have been
+   in scope under the ARM, but is not in scope under the ANSI/ISO
+   standard.  If so, issue an error message.  If name lookup would
+   work in both cases, but return a different result, this function
+   returns the result of ANSI/ISO lookup.  Otherwise, it returns
+   DECL.  */
+
+tree
+check_for_out_of_scope_variable (tree decl)
+{
+  tree shadowed;
+
+  /* We only care about out of scope variables.  */
+  if (!(TREE_CODE (decl) == VAR_DECL && DECL_DEAD_FOR_LOCAL (decl)))
+    return decl;
+
+  shadowed = DECL_SHADOWED_FOR_VAR (decl);
+  while (shadowed != NULL_TREE && TREE_CODE (shadowed) == VAR_DECL
+	 && DECL_DEAD_FOR_LOCAL (shadowed))
+    shadowed = DECL_SHADOWED_FOR_VAR (shadowed);
+  if (!shadowed)
+    shadowed = IDENTIFIER_NAMESPACE_VALUE (DECL_NAME (decl));
+  if (shadowed)
+    {
+      if (!DECL_ERROR_REPORTED (decl))
+	{
+	  warning ("name lookup of `%D' changed",
+		      DECL_NAME (decl));
+	  cp_warning_at ("  matches this `%D' under ISO standard rules",
+			 shadowed);
+	  cp_warning_at ("  matches this `%D' under old rules", decl);
+	  DECL_ERROR_REPORTED (decl) = 1;
+	}
+      return shadowed;
+    }
+
+  /* If we have already complained about this declaration, there's no
+     need to do it again.  */
+  if (DECL_ERROR_REPORTED (decl))
+    return decl;
+
+  DECL_ERROR_REPORTED (decl) = 1;
+  if (TYPE_HAS_NONTRIVIAL_DESTRUCTOR (TREE_TYPE (decl)))
+    {
+      error ("name lookup of `%D' changed for new ISO `for' scoping",
+	     DECL_NAME (decl));
+      cp_error_at ("  cannot use obsolete binding at `%D' because it has a destructor", decl);
+      return error_mark_node;
+    }
+  else
+    {
+      pedwarn ("name lookup of `%D' changed for new ISO `for' scoping",
+	       DECL_NAME (decl));
+      cp_pedwarn_at ("  using obsolete binding at `%D'", decl);
+    }
+
+  return decl;
+}
+
 /* Look up NAME in the current binding level and its superiors in the
    namespace of variables, functions and typedefs.  Return a ..._DECL
    node of some kind representing its definition if there is only one
@@ -6528,8 +6587,9 @@ cxx_init_decl_processing ()
     tree ptr_ftype_sizetype;
 
     push_namespace (std_identifier);
-    bad_alloc_type_node = xref_tag
-      (class_type_node, get_identifier ("bad_alloc"), 1);
+    bad_alloc_type_node 
+      = xref_tag (class_type, get_identifier ("bad_alloc"), 
+		  /*attributes=*/NULL_TREE, 1);
     pop_namespace ();
     ptr_ftype_sizetype 
       = build_function_type (ptr_type_node,
@@ -12670,29 +12730,14 @@ tag_name (code)
    scope.)  */
 
 tree
-xref_tag (code_type_node, name, globalize)
-     tree code_type_node;
-     tree name;
-     int globalize;
+xref_tag (enum tag_types tag_code, tree name, tree attributes, 
+	  bool globalize)
 {
-  enum tag_types tag_code;
   enum tree_code code;
   register tree ref, t;
   struct cp_binding_level *b = current_binding_level;
-  tree attributes = NULL_TREE;
   tree context = NULL_TREE;
 
-  /* If we are called from the parser, code_type_node will sometimes be a
-     TREE_LIST.  This indicates that the user wrote
-     "class __attribute__ ((foo)) bar".  Extract the attributes so we can
-     use them later.  */
-  if (TREE_CODE (code_type_node) == TREE_LIST)
-    {
-      attributes = TREE_PURPOSE (code_type_node);
-      code_type_node = TREE_VALUE (code_type_node);
-    }
-
-  tag_code = (enum tag_types) tree_low_cst (code_type_node, 1);
   switch (tag_code)
     {
     case record_type:
@@ -12903,18 +12948,17 @@ xref_tag_from_type (old, id, globalize)
      tree old, id;
      int globalize;
 {
-  tree code_type_node;
+  enum tag_types tag_kind;
 
   if (TREE_CODE (old) == RECORD_TYPE)
-    code_type_node = (CLASSTYPE_DECLARED_CLASS (old)
-		      ? class_type_node : record_type_node);
+    tag_kind = (CLASSTYPE_DECLARED_CLASS (old) ? class_type : record_type);
   else
-    code_type_node = union_type_node;
+    tag_kind  = union_type;
 
   if (id == NULL_TREE)
     id = TYPE_IDENTIFIER (old);
 
-  return xref_tag (code_type_node, id, globalize);
+  return xref_tag (tag_kind, id, /*attributes=*/NULL_TREE, globalize);
 }
 
 /* REF is a type (named NAME), for which we have just seen some
@@ -12924,9 +12968,7 @@ xref_tag_from_type (old, id, globalize)
    struct, or union.  */
 
 void
-xref_basetypes (code_type_node, name, ref, binfo)
-     tree code_type_node;
-     tree name ATTRIBUTE_UNUSED;
+xref_basetypes (ref, binfo)
      tree ref;
      tree binfo;
 {
@@ -12938,20 +12980,13 @@ xref_basetypes (code_type_node, name, ref, binfo)
   int i, len;
   enum tag_types tag_code;
 
-  /* If we are called from the parser, code_type_node will sometimes be a
-     TREE_LIST.  This indicates that the user wrote
-     "class __attribute__ ((foo)) bar".  Extract the attributes so that
-     tree_low_cst doesn't crash.  */
-  if (TREE_CODE (code_type_node) == TREE_LIST)
-    code_type_node = TREE_VALUE (code_type_node);
-
-  tag_code = (enum tag_types) tree_low_cst (code_type_node, 1);
-
-  if (tag_code == union_type)
+  if (TREE_CODE (ref) == UNION_TYPE)
     {
       error ("derived union `%T' invalid", ref);
       return;
     }
+
+  tag_code = (CLASSTYPE_DECLARED_CLASS (ref) ? class_type : record_type);
 
   len = list_length (binfo);
 
@@ -13171,11 +13206,8 @@ finish_enum (enumtype)
      postponed until the template is instantiated.  */
   if (processing_template_decl)
     {
-      tree scope = current_scope ();
-      if (scope && TREE_CODE (scope) == FUNCTION_DECL)
+      if (at_function_scope_p ())
 	add_stmt (build_min (TAG_DEFN, enumtype));
-
-
       return;
     }
 
@@ -14132,7 +14164,7 @@ finish_function (flags)
       if (DECL_MAIN_P (current_function_decl))
 	{
 	  /* Make it so that `main' always returns 0 by default.  */
-#ifdef VMS_TARGET
+#if VMS_TARGET
 	  finish_return_stmt (integer_one_node);
 #else
 	  finish_return_stmt (integer_zero_node);

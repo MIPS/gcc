@@ -12,12 +12,11 @@ ORIGINAL_LD_FOR_MULTILIBS=$LD
 
 PACKAGE=libstdc++
 AC_SUBST(PACKAGE)
-# For typical GNU versioning info, format is MAJOR.MINOR.MICRO
-release_VERSION=3.1.1
-AC_SUBST(release_VERSION)
 # For libtool versioning info, format is CURRENT:REVISION:AGE
 libtool_VERSION=4:1:0
 AC_SUBST(libtool_VERSION)
+
+GLIBCPP_TOPREL_CONFIGURE
 
 # Gets build, host, target, *_vendor, *_cpu, *_os, etc.
 #
@@ -357,9 +356,9 @@ GLIBCPP_ENABLE_SYMVERS([yes])
 # Propagate the target-specific source directories through the build chain.
 # (Nothing currently uses cpu_include_dir directly; only ATOMICITYH and
 # CPULIMITSH [might] use it, and they only get used here.)
-OS_INC_SRCDIR=config/${os_include_dir}/bits
-ATOMICITY_INC_SRCDIR=config/${ATOMICITYH}/bits
-CPU_LIMITS_INC_SRCDIR=config/${CPULIMITSH}/bits
+OS_INC_SRCDIR=config/${os_include_dir}
+ATOMICITY_INC_SRCDIR=config/${ATOMICITYH}
+CPU_LIMITS_INC_SRCDIR=config/${CPULIMITSH}
 AC_SUBST(OS_INC_SRCDIR)
 AC_SUBST(ATOMICITY_INC_SRCDIR)
 AC_SUBST(CPU_LIMITS_INC_SRCDIR)
@@ -375,9 +374,6 @@ if test "${multilib}" = "yes"; then
 else
   multilib_arg=
 fi
-
-# Needed so that g++ can find the correct include subdir automatically.
-INTERFACE=v3
 
 # Export all the install information
 GLIBCPP_EXPORT_INSTALL_INFO

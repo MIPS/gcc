@@ -1,3 +1,87 @@
+2002-06-27  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/6695
+	* pt.c (tsubst_friend_class): Substitute into the context of the
+	friend before using it.
+
+2002-06-26  Mark Mitchell  <mark@codesourcery.com>
+
+	* cp-tree.h (xref_tag): Change prototype.
+	(handle_class_head): Likewise.
+	(build_x_component_ref): Likewise.
+	* decl.c (cxx_init_decl_processing): Adjust call to xref_tag.
+	(xref_tag): Take attributes as a separate parameter.
+	(xref_tag_from_type): Adjust call to xref_tag.
+	* decl2.c (build_expr_from_tree): Adjust call to
+	build_x_component_ref.
+	(handle_class_head): Take attributes as a separate parameter.
+	* parse.y (parse_xref_tag): New function.
+	(parse_handle_class_head): Likewise.
+	(primary): Use parse_xref_tag.
+	(class_head_decl): Use parse_handle_class_head.
+	(class_head_defn): Likewise.
+	* rtti.c (init_rtti_processing): Adjust call to xref_tag.
+	(build_dynamic_cast_1): Likewise.
+	(create_pseudo_type_info): Likewise.
+	(emit_support_tinfos): Likewise.
+	* typeck.c (build_object_ref): Adjust call to
+	build_x_component_ref.
+	(build_x_component_ref): Remove protect parameter.
+	
+2002-06-25  Mark Mitchell  <mark@codesourcery.com>
+
+	* call.c (build_op_delete_call): Use BASELINK_FUNCTIONS.
+	* class.c (handle_using_decl): Likewise.
+	(instantiate_type): Likewise.
+	* cp-tree.h (BASELINK_FUNCTIONS): New macro.
+	(xref_basetypes): Change prototype.
+	(begin_mem_initializers): New function.
+	(get_overloaded_fn): Likewise.
+	* decl.c (xref_basetypes): Simplify.
+	* error.c (dump_expr): Use BASELINK_FUNCTIONS.
+	* init.c (build_offset_ref): Likewise.
+	* parse.y (base_init): Use begin_mem_initializers().
+	(structsp): Adjust call to xref_basetypes.
+	* pt.c (determine_specialization): Use BASELINK_FUNCTIONS.
+	(instantiate_class_template): Adjust call to xref_basetypes.
+	* semantics.c (begin_mem_initializers): New function.
+	* tree.c (is_overloaded_fn): Use BASELINK_FUNCTIONS.
+	(really_overlaoded_fn): Likewise.
+	(get_overloaded_fn): New function.'
+	(get_first_fn): USe BASELINK_FUNCTIONS.
+	
+2002-06-24  Mark Mitchell  <mark@codesourcery.com>
+
+	* cp-tree.h (SCALAR_TYPE_P): New macro.
+	(check_for_out_of_scope_variable): New function.
+	(at_class_scope_p): Likewise.
+	(finish_fname): Likewise.
+	* class.c (finish_struct): Use at_function_scope_p.
+	* decl.c (check_for_out_of_scope_variable): New function, split
+	out from do_identifier.
+	(finish_enum): Use at_function_scope_p.
+	* lex.c (do_identifier): Use check_for_out_of_scope_variable.
+	* parse.y (VAR_FUNC_NAME): Give it <ttype>.  Use finish_fname.
+	(primary): Use at_function_scope_p.
+	* search.c (at_class_scope_p): New function.
+	* semantics.c (finish_fname): Likewise.
+	(check_multiple_declarators): Use at_function_scope_p.
+	
+2002-06-23  Mark Mitchell  <mark@codesourcery.com>
+
+	* parse.y (parse_scoped_id): New function.
+	(primary): Use it.
+	* cp-tree.h (do_scoped_id): Adjust declaration.
+	* lex.c (do_scoped_id): Remove call to yylex.
+	* decl2.c (build_expr_from_tree): Adjust use of do_scoped_id.
+	* typeck2.c (add_exception_specifier): Use tree_cons, rather than
+	expanding it inline.
+	
+2002-06-23  Matt Thomas  <matt@3am-software.com>
+
+	* decl.c (finish_function): Change "#ifdef VMS_TARGET" to
+	"#if VMS_TARGET".
+
 2002-06-21  Andreas Jaeger  <aj@suse.de>
 
 	* Make-lang.in (cp/cp-simplify.o): New.

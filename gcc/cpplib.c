@@ -284,9 +284,7 @@ static void
 prepare_directive_trad (pfile)
      cpp_reader *pfile;
 {
-  if (pfile->directive == &dtable[T_DEFINE])
-    CUR (pfile->context) = pfile->buffer->cur;
-  else
+  if (pfile->directive != &dtable[T_DEFINE])
     {
       bool no_expand = (pfile->directive
 			&& ! (pfile->directive->flags & EXPAND));
@@ -390,10 +388,6 @@ _cpp_handle_directive (pfile, indented)
 		   "style of line directive is a GCC extension");
     }
 
-  pfile->directive = dir;
-  if (CPP_OPTION (pfile, traditional))
-    prepare_directive_trad (pfile);
-
   if (dir)
     {
       /* If we have a directive that is not an opening conditional,
@@ -444,17 +438,12 @@ _cpp_handle_directive (pfile, indented)
 		   cpp_token_as_text (pfile, dname));
     }
 
-  if (dir)
-    {
-      /* If we are processing a `#define' directive and we have been
-	 requested to expand comments into macros, then re-enable
-	 saving of comments.  */
-      if (dir == &dtable[T_DEFINE])
-	pfile->state.save_comments =
-	  ! CPP_OPTION (pfile, discard_comments_in_macro_exp);
+  pfile->directive = dir;
+  if (CPP_OPTION (pfile, traditional))
+    prepare_directive_trad (pfile);
 
-      (*pfile->directive->handler) (pfile);
-    }
+  if (dir)
+    (*pfile->directive->handler) (pfile);
   else if (skip == 0)
     _cpp_backup_tokens (pfile, 1);
 
@@ -504,16 +493,7 @@ lex_macro_node (pfile)
      In C++, it may not be any of the "named operators" either,
      per C++98 [lex.digraph], [lex.key].
      Finally, the identifier may not have been poisoned.  (In that case
-     the lexer has issued the error message for us.)
-
-     Note that if we're copying comments into macro expansions, we
-     could encounter comment tokens here, so eat them all up first.  */
-
-  if (! CPP_OPTION (pfile, discard_comments_in_macro_exp))
-    {
-      while (token->type == CPP_COMMENT)
-	token = _cpp_lex_token (pfile);
-    }
+     the lexer has issued the error message for us.)  */
 
   if (token->type == CPP_NAME)
     {
@@ -547,6 +527,11 @@ do_define (pfile)
 
   if (node)
     {
+      /* If we have been requested to expand comments into macros,
+	 then re-enable saving of comments.  */
+      pfile->state.save_comments =
+	! CPP_OPTION (pfile, discard_comments_in_macro_exp);
+
       if (_cpp_create_definition (pfile, node))
 	if (pfile->cb.define)
 	  (*pfile->cb.define) (pfile, pfile->directive_line, node);
@@ -705,6 +690,9 @@ do_include_common (pfile, type)
 	    (*pfile->cb.include) (pfile, pfile->directive_line,
 				  pfile->directive->name, header);
 
+	  /* Revert to the correct line if traditional.  */
+	  if (CPP_OPTION (pfile, traditional))
+	    pfile->line = pfile->saved_line;
 	  _cpp_execute_include (pfile, header, type);
 	}
     }
@@ -1934,9 +1922,6 @@ cpp_push_buffer (pfile, buffer, len, from_stage3, return_at_eof)
 
   pfile->buffer = new;
 
-  if (CPP_OPTION (pfile, traditional))
-    _cpp_set_trad_context (pfile);
-
   return new;
 }
 
@@ -1981,9 +1966,6 @@ _cpp_pop_buffer (pfile)
 	    _cpp_maybe_push_include_file (pfile);
 	}
     }
-
-  if (pfile->buffer && CPP_OPTION (pfile, traditional))
-    _cpp_set_trad_context (pfile);
 }
 
 /* Enter all recognised directives in the hash table.  */
