@@ -564,7 +564,7 @@ void
 load_class (tree class_or_name, int verbose)
 {
   tree name, saved;
-  int class_loaded;
+  int class_loaded = 0;
 
   /* We've already failed, don't try again.  */
   if (TREE_CODE (class_or_name) == RECORD_TYPE
@@ -583,6 +583,7 @@ load_class (tree class_or_name, int verbose)
     name = DECL_NAME (TYPE_NAME (class_or_name));
 
   saved = name;
+  
   while (1)
     {
       char *separator;
@@ -591,11 +592,11 @@ load_class (tree class_or_name, int verbose)
       if (IDENTIFIER_CLASS_VALUE (name) != NULL_TREE)
 	{
 	  tree type_decl = IDENTIFIER_CLASS_VALUE (name);
-	  if ((class_loaded = CLASS_LOADED_P (TREE_TYPE (type_decl))))
+	  if (CLASS_PARSED_P (TREE_TYPE (type_decl)))
 	    break;
 	}
-
-      if ((class_loaded = read_class (name)))
+	
+      if (read_class (name))
 	break;
 
       /* We failed loading name. Now consider that we might be looking
@@ -613,6 +614,13 @@ load_class (tree class_or_name, int verbose)
 	break;
     }
 
+  {
+    /* have we found the class we're looking for?  */
+    tree type_decl = IDENTIFIER_CLASS_VALUE (saved);
+    tree type = type_decl ? TREE_TYPE (type_decl) : NULL;
+    class_loaded = type && CLASS_PARSED_P (type);
+  }	      
+  
   if (!class_loaded)
     {
       if (flag_verify_invocations || ! flag_indirect_dispatch

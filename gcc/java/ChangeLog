@@ -1,3 +1,8 @@
+2004-08-06  Andrew Haley  <aph@redhat.com>
+
+	* jcf-parse.c (load_class): Check that we really have loaded the
+	class we're looking for.
+
 2004-07-19  Andrew Haley  <aph@redhat.com>
 
 	* verify.c (verify_jvm_instructions): Comment change only.
