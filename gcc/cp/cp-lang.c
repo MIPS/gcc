@@ -147,6 +147,8 @@ static bool cxx_warn_unused_global_decl PARAMS ((tree));
 #define LANG_HOOKS_INCOMPLETE_TYPE_ERROR cxx_incomplete_type_error
 #undef LANG_HOOKS_TYPE_PROMOTES_TO
 #define LANG_HOOKS_TYPE_PROMOTES_TO cxx_type_promotes_to
+#undef LANG_HOOKS_SIMPLIFY_FUNCTION_TREE
+#define LANG_HOOKS_SIMPLIFY_FUNCTION_TREE cp_simplify_function_tree
 
 /* Each front end provides its own hooks, for toplev.c.  */
 const struct lang_hooks lang_hooks = LANG_HOOKS_INITIALIZER;

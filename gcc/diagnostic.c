@@ -1446,3 +1446,12 @@ warn_deprecated_use (node)
 	warning ("type is deprecated");
     }
 }
+
+/* Dump the contents of an output_buffer on stderr.  */
+
+void 
+debug_output_buffer (buffer)
+     output_buffer *buffer;
+{
+  fprintf (stderr, "%s", output_message_text (buffer));
+}

@@ -4501,6 +4501,9 @@ extern tree mangle_ref_init_variable            PARAMS ((tree));
 /* in dump.c */
 extern int cp_dump_tree                         PARAMS ((void *, tree));
 
+/* in cp-simplify.c */
+extern int cp_simplify_function_tree		PARAMS ((tree));
+
 /* -- end of C++ */
 
 #endif /* ! GCC_CP_TREE_H */

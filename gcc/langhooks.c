@@ -421,3 +421,13 @@ lhd_tree_dump_type_quals (t)
 {
   return TYPE_QUALS (t);
 }
+
+/* lang_hooks.simplify_function_tree re-writes the body of function FNDECL
+   into SIMPLE form.  */
+
+int
+lhd_simplify_function_tree (fndecl)
+     tree fndecl ATTRIBUTE_UNUSED;
+{
+  return 0;
+}

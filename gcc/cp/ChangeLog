@@ -1,3 +1,7 @@
+2002-06-21  Andreas Jaeger  <aj@suse.de>
+
+	* Make-lang.in (cp/cp-simplify.o): New.
+
 2002-06-19  Akim Demaille  <akim@epita.fr>
 
 	* parse.y (TYPENAME): Rename as tTYPENAME to avoid the clash with
@@ -6,6 +10,17 @@
 	* parse.y (explicit_instantiation): Add empty action to override
 	the default $$ = $1 where it introduces a type clash.
 
+2002-06-18  Jason Merrill  <jason@redhat.com>
+
+	* cp-simplify.c: New file.
+	* Make-lang.in: Add it.
+	* cp-tree.h: Declare cp_simplify_function_tree.
+	* cp-lang.c (LANG_HOOKS_SIMPLIFY_FUNCTION_TREE): Define.
+	* optimize.c (optimize_function): Call tree optimizers (but not yet).
+
+	* semantics.c (begin_for_stmt): Push the 'for' scope before
+	adding the FOR_STMT.
+	
 2002-06-14  Jason Merrill  <jason@redhat.com>
 
 	* semantics.c (begin_for_stmt): Push the 'for' scope before

@@ -122,6 +122,7 @@ struct tree_common GTY(())
 {
   tree chain;
   tree type;
+  PTR GTY ((skip (""))) aux;
 
   ENUM_BITFIELD(tree_code) code : 8;
 
@@ -3071,6 +3072,14 @@ enum tree_dump_index
   TDI_optimized,		/* dump each function after optimizing it */
   TDI_inlined,			/* dump each function after inlining
 				   within it.  */
+  TDI_cfg,			/* dump the flowgraph for each function.  */
+  TDI_dot,			/* create a dot graph file for each 
+				   function's flowgraph.  */
+  TDI_ssa_pre,                  /* dump SSA pre information for each function.  */
+  TDI_ssa,			/* dump SSA information for each function.  */
+  TDI_simple,			/* dump each function before and after 
+				   simplifying it.  */
+  TDI_xml,                      /* dump function call graph.  */
   TDI_end
 };
 
@@ -3079,6 +3088,10 @@ enum tree_dump_index
    values, extend the DUMP_OPTIONS array in tree-dump.c */
 #define TDF_ADDRESS	(1 << 0)	/* dump node addresses */
 #define TDF_SLIM	(1 << 1)	/* don't go wild following links */
+#define TDF_UNPARSE	(1 << 2)	/* unparse the function */
+#define TDF_DETAILS	(1 << 3)	/* show how each statement is simplified */
+#define TDF_REFS	(1 << 0)	/* dump ssa variable refs */
+#define TDF_RDEFS	(1 << 1)	/* dump reaching definitions */
 
 typedef struct dump_info *dump_info_p;
 

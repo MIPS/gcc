@@ -43,9 +43,12 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "cpplib.h"
 #include "target.h"
 #include "debug.h"
+#include "tree-optimize.h"
 #include "timevar.h"
 #include "c-common.h"
 #include "c-pragma.h"
+#include "tree-dchain.h"
+#include "langhooks.h"
 
 /* In grokdeclarator, distinguish syntactic contexts of declarators.  */
 enum decl_context
@@ -6802,6 +6805,19 @@ c_expand_body (fndecl, nested_p, can_defer_p)
 {
   int uninlinable = 1;
 
+  /* Dump the function call graph.  */
+  {  
+    FILE *dumpfile;
+    int dump_flags;
+    dumpfile = dump_begin (TDI_xml, &dump_flags);
+    if (dumpfile)
+      {
+	/* Dump the function call graph.  */
+	print_call_graph (dumpfile, fndecl);
+	dump_end (TDI_xml, dumpfile);
+      }
+  }
+
   /* There's no reason to do any of the work here if we're only doing
      semantic analysis; this code just generates RTL.  */
   if (flag_syntax_only)
@@ -6861,6 +6877,16 @@ c_expand_body (fndecl, nested_p, can_defer_p)
   /* If this is a varargs function, inform function.c.  */
   if (c_function_varargs)
     mark_varargs ();
+
+  /* Simplify the function.  Don't try to optimize the function if
+     simplification failed.  */
+  if (!flag_disable_simple
+      && (*lang_hooks.simplify_function_tree) (fndecl))
+    {
+      /* Invoke the SSA tree optimizer.  */
+      if (flag_tree_ssa)
+	optimize_function_tree (fndecl);
+    }
 
   /* Set up parameters and prepare for return, for the function.  */
   expand_function_start (fndecl, 0);

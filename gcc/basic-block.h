@@ -233,6 +233,12 @@ typedef struct basic_block_def {
 #define BB_REACHABLE		4
 #define BB_VISITED		8
 
+/* Block contains a control flow expression.  */
+#define BB_CONTROL_EXPR		8
+
+/* Block is the entry block to a control statement but contains no code.  */
+#define BB_CONTROL_ENTRY	16
+
 /* Number of basic blocks in the current function.  */
 
 extern int n_basic_blocks;
