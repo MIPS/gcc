@@ -6180,7 +6180,10 @@ attr_length_millicode_call (insn, length)
      rtx insn;
      int length;
 {
-  unsigned long distance = total_code_bytes + INSN_ADDRESSES (INSN_UID (insn));
+  unsigned long distance = -1;
+
+  if (INSN_ADDRESSES_SET_P ())
+    distance = total_code_bytes + INSN_ADDRESSES (INSN_UID (insn));
 
   if (distance < total_code_bytes)
     distance = -1;
@@ -6363,7 +6366,10 @@ attr_length_call (insn, sibcall)
      rtx insn;
      int sibcall;
 {
-  unsigned long distance = total_code_bytes + INSN_ADDRESSES (INSN_UID (insn));
+  unsigned long distance = -1;
+
+  if (INSN_ADDRESSES_SET_P ())
+     distance = total_code_bytes + INSN_ADDRESSES (INSN_UID (insn));
 
   if (distance < total_code_bytes)
     distance = -1;
