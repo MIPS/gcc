@@ -760,6 +760,8 @@ track_expr_p (expr)
      or struct).  */
   if (GET_CODE (decl_rtl) == MEM)
     {
+      if (GET_MODE (decl_rtl) == BLKmode)
+	return 0;
       if (MEM_SIZE (decl_rtl) && INTVAL (MEM_SIZE (decl_rtl)) > MAX_LOC_PARTS)
 	return 0;
     }

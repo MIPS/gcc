@@ -1,3 +1,7 @@
+2003-02-19  Josef Zlomek  <zlomekj@suse.cz>
+
+	* var-tracking.c (track_expr_p): Do not track BLKmode memory.
+
 2003-02-14  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* gcse-store.c (build_store_vectors): Fix.
