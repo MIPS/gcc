@@ -3322,6 +3322,9 @@ prepare_generic_operand (x, mode, unsignedp)
   if (GET_MODE (x) != VOIDmode && GET_MODE (x) != mode)
     x = convert_modes (mode, GET_MODE (x), x, unsignedp);
 
+  if (!generic_src_operand (x, mode))
+    x = copy_to_mode_reg (mode, x);
+
   return x;
 }
 
