@@ -1,3 +1,434 @@
+2004-10-21  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/NetworkInterface.java,
+	java/text/Format.java,
+	javax/security/auth/x500/X500Principal.java,
+	javax/security/auth/x500/X500PrivateCredential.java,
+	javax/security/cert/X509CertBridge.java,
+	javax/security/sasl/Sasl.java,
+	javax/sql/XAConnection.java:
+	Import cleanup.
+
+2004-10-21  Michael Koch  <konqueror@gmx.de>
+
+	* javax/net/ssl/HandshakeCompletedEvent.java,
+	javax/net/ssl/KeyManagerFactory.java,
+	javax/net/ssl/SSLContext.java,
+	javax/net/ssl/SSLServerSocketFactory.java,
+	javax/net/ssl/SSLSession.java,
+	javax/net/ssl/SSLSocketFactory.java,
+	javax/net/ssl/TrustManagerFactory.java:
+	Import cleanup.
+
+2004-10-21  Michael Koch  <konqueror@gmx.de>
+
+	* javax/naming/directory/BasicAttribute.java,
+	javax/naming/directory/BasicAttributes.java,
+	javax/naming/directory/InitialDirContext.java,
+	javax/naming/event/NamingEvent.java,
+	javax/naming/ldap/ControlFactory.java,
+	javax/naming/ldap/ExtendedRequest.java,
+	javax/naming/ldap/InitialLdapContext.java,
+	javax/naming/ldap/LdapReferralException.java,
+	javax/naming/spi/DirObjectFactory.java,
+	javax/naming/spi/DirStateFactory.java,
+	javax/naming/spi/DirectoryManager.java,
+	javax/naming/spi/InitialContextFactory.java,
+	javax/naming/spi/InitialContextFactoryBuilder.java,
+	javax/naming/spi/NamingManager.java,
+	javax/naming/spi/ObjectFactory.java,
+	javax/naming/spi/ObjectFactoryBuilder.java,
+	javax/naming/spi/StateFactory.java:
+	Import cleanup.
+
+2004-10-21  Michael Koch  <konqueror@gmx.de>
+
+	* javax/crypto/Cipher.java,
+	javax/crypto/EncryptedPrivateKeyInfo.java,
+	javax/crypto/ExemptionMechanism.java,
+	javax/crypto/KeyAgreement.java,
+	javax/crypto/KeyGenerator.java,
+	javax/crypto/Mac.java,
+	javax/crypto/SecretKeyFactory.java,
+	javax/crypto/SecretKeyFactorySpi.java,
+	javax/crypto/spec/SecretKeySpec.java:
+	Import cleanup.
+
+2004-10-21  Michael Koch  <konqueror@gmx.de>
+
+	* java/security/AlgorithmParameterGenerator.java,
+	java/security/AlgorithmParameters.java,
+	java/security/AlgorithmParametersSpi.java,
+	java/security/AllPermission.java,
+	java/security/BasicPermission.java,
+	java/security/Certificate.java,
+	java/security/CodeSource.java,
+	java/security/DigestInputStream.java,
+	java/security/DigestOutputStream.java,
+	java/security/GuardedObject.java,
+	java/security/KeyFactory.java,
+	java/security/KeyFactorySpi.java,
+	java/security/KeyPairGenerator.java,
+	java/security/KeyStore.java,
+	java/security/KeyStoreSpi.java,
+	java/security/Permissions.java,
+	java/security/Security.java,
+	java/security/Signature.java,
+	java/security/UnresolvedPermission.java,
+	java/security/cert/CertPathBuilder.java,
+	java/security/cert/CertPathValidator.java,
+	java/security/cert/CertStore.java,
+	java/security/cert/Certificate.java,
+	java/security/cert/CertificateFactory.java,
+	java/security/cert/PolicyQualifierInfo.java,
+	java/security/cert/TrustAnchor.java,
+	java/security/cert/X509CRL.java,
+	java/security/cert/X509CRLSelector.java,
+	java/security/cert/X509CertSelector.java:
+	Import cleanup.
+
+2004-10-21  Michael Koch  <konqueror@gmx.de>
+
+	* java/rmi/MarshalledObject.java,
+	java/rmi/Naming.java,
+	java/rmi/activation/Activatable.java,
+	java/rmi/activation/ActivationGroup.java,
+	java/rmi/activation/ActivationGroupDesc.java,
+	java/rmi/activation/ActivationInstantiator.java,
+	java/rmi/activation/ActivationMonitor.java,
+	java/rmi/activation/ActivationSystem.java,
+	java/rmi/activation/Activator.java,
+	java/rmi/registry/LocateRegistry.java,
+	java/rmi/registry/Registry.java,
+	java/rmi/server/LogStream.java,
+	java/rmi/server/ObjID.java,
+	java/rmi/server/RMIClientSocketFactory.java,
+	java/rmi/server/RMIServerSocketFactory.java,
+	java/rmi/server/RMISocketFactory.java,
+	java/rmi/server/RemoteCall.java,
+	java/rmi/server/RemoteServer.java,
+	java/rmi/server/ServerRef.java,
+	java/rmi/server/UID.java,
+	java/rmi/server/UnicastRemoteObject.java:
+	Import cleanup.
+
+2004-10-21  Tom Tromey  <tromey@redhat.com>
+
+	* java/util/zip/InflaterInputStream.java (fill): Don't throw an
+	exception if we hit EOF of `in'.
+	(read): Handle case where inflating returns -1.
+
+2004-10-21  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* gnu/java/nio/channels/natFileChannelPosix.cc
+	(FileChannelImpl::available): Call FIONREAD ioctl with 'int *'
+	argument instead of 'long *'.
+
+2004-10-21  Tom Tromey  <tromey@redhat.com>
+
+	* java/util/ResourceBundle.java (tryBundle): Also ignore
+	ClassCastException.
+
+2004-10-21  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	* configure.ac (SIGNAL_HANDLER): Set to include/sh-signal.h
+	for all sh*-*-linux* targets.
+	* configure: Regenerate.
+	* include/sh-signal.h: New file.
+
+2004-10-21  Kazuhiro Inaoka  <inaoka.kazuhiro@renesas.com>
+
+	* java/lang/ieeefp.h: Add m32r support.
+
+2004-10-20  Andreas Schwab  <schwab@suse.de>
+
+	* java/lang/natClass.cc (_Jv_LayoutVTableMethods): Cast pointers
+	to uaddr, not int.
+	* java/lang/natClassLoader.cc (_Jv_PrepareCompiledClass):
+	Likewise.
+
+2004-10-20  Michael Koch  <konqueror@gmx.de>
+
+	* javax/print/attribute/standard/ColorSupported.java,
+	javax/print/attribute/standard/Compression.java,
+	javax/print/attribute/standard/Copies.java,
+	javax/print/attribute/standard/CopiesSupported.java,
+	javax/print/attribute/standard/DateTimeAtCompleted.java,
+	javax/print/attribute/standard/DateTimeAtCreation.java,
+	javax/print/attribute/standard/DateTimeAtProcessing.java,
+	javax/print/attribute/standard/DocumentName.java,
+	javax/print/attribute/standard/Fidelity.java,
+	javax/print/attribute/standard/Finishings.java,
+	javax/print/attribute/standard/JobHoldUntil.java,
+	javax/print/attribute/standard/JobImpressions.java,
+	javax/print/attribute/standard/JobImpressionsCompleted.java,
+	javax/print/attribute/standard/JobImpressionsSupported.java,
+	javax/print/attribute/standard/JobKOctets.java,
+	javax/print/attribute/standard/JobKOctetsProcessed.java,
+	javax/print/attribute/standard/JobKOctetsSupported.java,
+	javax/print/attribute/standard/JobMediaSheets.java,
+	javax/print/attribute/standard/JobMediaSheetsCompleted.java,
+	javax/print/attribute/standard/JobMediaSheetsSupported.java,
+	javax/print/attribute/standard/JobMessageFromOperator.java,
+	javax/print/attribute/standard/JobName.java,
+	javax/print/attribute/standard/JobOriginatingUserName.java,
+	javax/print/attribute/standard/JobPriority.java,
+	javax/print/attribute/standard/JobPrioritySupported.java,
+	javax/print/attribute/standard/JobSheets.java,
+	javax/print/attribute/standard/JobState.java,
+	javax/print/attribute/standard/JobStateReason.java,
+	javax/print/attribute/standard/JobStateReasons.java,
+	javax/print/attribute/standard/Media.java,
+	javax/print/attribute/standard/MultipleDocumentHandling.java,
+	javax/print/attribute/standard/NumberOfDocuments.java,
+	javax/print/attribute/standard/NumberOfInterveningJobs.java,
+	javax/print/attribute/standard/NumberUp.java,
+	javax/print/attribute/standard/NumberUpSupported.java,
+	javax/print/attribute/standard/OrientationRequested.java,
+	javax/print/attribute/standard/OutputDeviceAssigned.java,
+	javax/print/attribute/standard/PDLOverrideSupported.java,
+	javax/print/attribute/standard/PageRanges.java,
+	javax/print/attribute/standard/PagesPerMinute.java,
+	javax/print/attribute/standard/PagesPerMinuteColor.java,
+	javax/print/attribute/standard/PrintQuality.java,
+	javax/print/attribute/standard/PrinterInfo.java,
+	javax/print/attribute/standard/PrinterIsAcceptingJobs.java,
+	javax/print/attribute/standard/PrinterLocation.java,
+	javax/print/attribute/standard/PrinterMakeAndModel.java,
+	javax/print/attribute/standard/PrinterMessageFromOperator.java,
+	javax/print/attribute/standard/PrinterMoreInfo.java,
+	javax/print/attribute/standard/PrinterMoreInfoManufacturer.java,
+	javax/print/attribute/standard/PrinterName.java,
+	javax/print/attribute/standard/PrinterStateReason.java,
+	javax/print/attribute/standard/PrinterStateReasons.java,
+	javax/print/attribute/standard/PrinterURI.java,
+	javax/print/attribute/standard/ReferenceUriSchemesSupported.java,
+	javax/print/attribute/standard/RequestingUserName.java:
+	Reorganized imports and removed redundant final modifiers.
+
+2004-10-20  Michael Koch  <konqueror@gmx.de>
+
+	* javax/security/sasl/SaslClient.java,
+	javax/security/sasl/SaslClientFactory.java,
+	javax/security/sasl/SaslException.java,
+	javax/security/sasl/SaslServer.java,
+	javax/security/sasl/SaslServerFactory.java:
+	Remvoed CVS tags.
+
+2004-10-20  Michael Koch  <konqueror@gmx.de>
+
+	* javax/security/auth/login/NullConfiguration.java,
+	javax/security/auth/x500/X500Principal.java,
+	javax/security/cert/X509Certificate.java,
+	javax/security/sasl/AuthenticationException.java,
+	javax/security/sasl/AuthorizeCallback.java,
+	javax/security/sasl/RealmCallback.java,
+	javax/security/sasl/RealmChoiceCallback.java,
+	javax/security/sasl/Sasl.java,
+	javax/security/sasl/SaslClient.java,
+	javax/security/sasl/SaslClientFactory.java,
+	javax/security/sasl/SaslException.java,
+	javax/security/sasl/SaslServer.java,
+	javax/security/sasl/SaslServerFactory.java:
+	Cleaned up import statements and copyright notices.
+
+2004-10-20  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/rmi/rmic/RMIC.java: Reformatted.
+
+2004-10-20  Michael Koch  <konqueror@gmx.de>
+
+	* java/sql/Timestamp.java,
+	java/text/AttributedCharacterIterator.java,
+	java/text/AttributedString.java,
+	java/util/zip/CheckedOutputStream.java,
+	java/util/zip/DeflaterOutputStream.java,
+	java/util/zip/ZipFile.java,
+	javax/crypto/Cipher.java,
+	javax/crypto/ExemptionMechanismException.java,
+	javax/crypto/SecretKey.java,
+	javax/crypto/SecretKeyFactory.java,
+	javax/naming/directory/ModificationItem.java,
+	javax/naming/directory/SearchControls.java,
+	javax/naming/event/NamingListener.java,
+	javax/naming/ldap/Control.java,
+	javax/naming/ldap/ExtendedResponse.java,
+	javax/net/ssl/SSLSocketFactory.java:
+	Reorganized imports and fixed copyright headers.
+
+2004-10-20  Michael Koch  <konqueror@gmx.de>
+
+	* java/util/logging/ConsoleHandler.java,
+	java/util/logging/ErrorManager.java,
+	java/util/logging/FileHandler.java,
+	java/util/logging/Filter.java,
+	java/util/logging/Formatter.java,
+	java/util/logging/Handler.java,
+	java/util/logging/Level.java,
+	java/util/logging/LogManager.java,
+	java/util/logging/LogRecord.java,
+	java/util/logging/Logger.java,
+	java/util/logging/LoggingPermission.java,
+	java/util/logging/MemoryHandler.java,
+	java/util/logging/SimpleFormatter.java,
+	java/util/logging/SocketHandler.java,
+	java/util/logging/StreamHandler.java,
+	java/util/logging/XMLFormatter.java:
+	Standardized copyrigth header.
+
+2004-10-20  Michael Koch  <konqueror@gmx.de>
+
+	* java/security/AlgorithmParameterGenerator.java,
+	java/security/AlgorithmParameters.java,
+	java/security/DigestInputStream.java,
+	java/security/Identity.java,
+	java/security/KeyFactory.java,
+	java/security/KeyPairGenerator.java,
+	java/security/KeyStore.java,
+	java/security/MessageDigest.java,
+	java/security/MessageDigestSpi.java,
+	java/security/Policy.java,
+	java/security/SecureRandom.java,
+	java/security/Security.java,
+	java/security/Signature.java,
+	java/security/SignatureSpi.java,
+	java/security/cert/CertPathBuilder.java,
+	java/security/cert/CertPathValidator.java,
+	java/security/cert/CertStore.java,
+	java/security/cert/Certificate.java,
+	java/security/cert/CertificateFactory.java,
+	java/security/cert/PolicyQualifierInfo.java,
+	java/security/cert/TrustAnchor.java,
+	java/security/cert/X509CRL.java,
+	java/security/cert/X509CRLEntry.java,
+	java/security/cert/X509Certificate.java,
+	java/security/spec/RSAMultiPrimePrivateCrtKeySpec.java:
+	Import statements reorganized, some little formatting issues,
+	used java-style array declarations, added comments in empty catch
+	blocks.
+
+2004-10-18  Jeroen Frijters  <jeroen@frijters.net>
+
+	* java/security/Security.java
+	(static): Use AccessController.doPrivileged to get system property.
+
+2004-10-18  Sven de Marothy  <sven@physto.se>
+
+	* java/nio/ByteBufferHelper.java
+	(putDouble): Use Double.toRawLongBits instead.
+
+2004-10-18  Mark Wielaard  <mark@klomp.org>
+	Andrew Haley  <aph@redhat.com>
+
+	* testsuite/libjava.lang/ExtraClassLoader.java: New.
+
+2004-10-18  Andrew Haley  <aph@redhat.com>
+
+	PR java/18036:
+	* gnu/gcj/runtime/natStackTrace.cc (fillInStackTrace): Reorganize
+	and correct logic used to find interpreter.
+	
+2004-10-18  Jeroen Frijters  <jeroen@frijters.net>
+
+	* java/util/logging/LogManager.java
+	(findAncestor): Fixed IndexOutOfBoundsException.
+
+2004-10-18  Michael Koch  <konqueror@gmx.de>
+
+	* java/io/BufferedInputStream.java: Fixed @author tag.
+	(read): Simplified expression.
+	(read): Merged javadoc a bit more.
+	(read): Renamed 'remain' to 'totalBytesRead'.
+	* java/io/DataInputStream.java,
+	java/io/DataOutputStream.java,
+	java/io/ObjectInputStream.java,
+	java/io/ObjectOutputStream.java:
+	Reworked modifier order.
+
+2004-10-18  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/Inet4Address.java: Merged file header and javadocs.
+	* java/net/Inet6Address.java: Likewise.
+	* java/net/InetAddress.java
+	(getCanonicalHostName): Create Inet4Address object instead of
+	InetAddress and add comment regarding IPv6.
+	(toString): Simplified.
+
+2004-10-18  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/net/protocol/http/Connection.java,
+	java/nio/MappedByteBufferImpl.java,
+	java/text/RuleBasedCollator.java,
+	java/util/ResourceBundle.java:
+	Reworked import statements.
+
+2004-10-18  Jeroen Frijters  <jeroen@frijters.net>
+
+	* java/security/IdentityScope.java
+	(systemScope): Removed useless initializer.
+	* java/security/Policy.java
+	(currentPolicy): Likewise.
+
+2004-10-18  Michael Koch  <konqueror@gmx.de>
+
+	* java/lang/System.java: Revert accidential change.
+
+2004-10-18  Michael Koch  <konqueror@gmx.de>
+
+	* java/lang/Math.java,
+	java/lang/Package.java,
+	java/lang/Runtime.java,
+	java/lang/StrictMath.java,
+	java/lang/System.java,
+	java/lang/Thread.java,
+	java/lang/ThreadLocal.java,
+	java/lang/Void.java:
+	Reworked import statements, HTML in javadocs and modifier orders.
+
+2004-10-18  Jeroen Frijters  <jeroen@frijters.net>
+
+	* java/util/Timer.java
+	(nr): Removed useless initializer.
+	* java/util/logging/LogRecord.java
+	(lastSeqNum): Likewise.
+	* javax/naming/spi/NamingManager.java
+	(icfb, ofb): Likewise.
+
+2004-10-18  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/net/PlainDatagramSocketImpl.java:
+	Reworked import statements.
+	* gnu/java/security/provider/DSAParameters.java:
+	Fixed copyrigth years.
+	* java/net/JarURLConnection.java:
+	Fixed HTML in @author tags.
+	
+
+2004-10-18  Michael Koch  <konqueror@gmx.de>
+
+	* java/rmi/activation/ActivationSystem.java
+	(SYSTEM_PORT): Initialize with correct port number.
+
+2004-10-18  Michael Koch  <konqueror@gmx.de>
+
+	* java/lang/reflect/Proxy.java: Improved javadocs.
+
+2004-10-18  Michael Koch  <konqueror@gmx.de>
+
+	* java/lang/reflect/AccessibleObject.java
+	(checkPermission): Removed redundant final modifier.
+	(secureSetAccessible): Likewise.
+	* java/lang/reflect/Proxy.java:
+	Reworked import statements.
+	(generate): Removed redundant final modifier.
+	* java/lang/reflect/ReflectPermission.java:
+	Reorder package declaration and import statement.
+
+2004-10-18  Jeroen Frijters  <jeroen@frijters.net>
+
+	* java/lang/reflect/Proxy.java
+	(count): Removed useless initializer.
+
 2004-10-17  Michael Koch  <konqueror@gmx.de>
 
 	* java/net/BindException.java,

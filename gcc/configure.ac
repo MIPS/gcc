@@ -1024,6 +1024,8 @@ AC_SUBST(LIBICONV_DEP)
 
 AM_LC_MESSAGES
 
+AM_LANGINFO_CODESET
+
 # We will need to find libiberty.h and ansidecl.h
 saved_CFLAGS="$CFLAGS"
 CFLAGS="$CFLAGS -I${srcdir} -I${srcdir}/../include"
@@ -2697,7 +2699,7 @@ foo:	nop
 	mfcr 3,128';;
       *-*-darwin*) conftest_s='	.text
 	mfcr r3,128';;
-      *)       conftest_s='	.machine power4
+      *) conftest_s='	.machine power4
 	.text
 	mfcr 3,128';;
     esac

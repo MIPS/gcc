@@ -885,6 +885,8 @@ expand_gimple_cond_expr (basic_block bb, tree stmt)
       jumpif (pred, label_rtx (GOTO_DESTINATION (then_exp)));
       add_reg_br_prob_note (dump_file, last, true_edge->probability);
       maybe_dump_rtl_for_tree_stmt (stmt, last);
+      if (EXPR_LOCUS (then_exp))
+	emit_line_note (*(EXPR_LOCUS (then_exp)));
       return NULL;
     }
   if (TREE_CODE (else_exp) == GOTO_EXPR && IS_EMPTY_STMT (then_exp))
@@ -892,6 +894,8 @@ expand_gimple_cond_expr (basic_block bb, tree stmt)
       jumpifnot (pred, label_rtx (GOTO_DESTINATION (else_exp)));
       add_reg_br_prob_note (dump_file, last, false_edge->probability);
       maybe_dump_rtl_for_tree_stmt (stmt, last);
+      if (EXPR_LOCUS (else_exp))
+	emit_line_note (*(EXPR_LOCUS (else_exp)));
       return NULL;
     }
   gcc_assert (TREE_CODE (then_exp) == GOTO_EXPR
@@ -921,6 +925,9 @@ expand_gimple_cond_expr (basic_block bb, tree stmt)
   update_bb_for_insn (new_bb);
 
   maybe_dump_rtl_for_tree_stmt (stmt, last2);
+  
+  if (EXPR_LOCUS (else_exp))
+    emit_line_note (*(EXPR_LOCUS (else_exp)));
 
   return new_bb;
 }

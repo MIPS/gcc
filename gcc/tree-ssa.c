@@ -1093,7 +1093,8 @@ replace_immediate_uses (tree var, tree repl)
 	 with a new expression.  Since the current def-use machinery
 	 does not return pointers to statements, we call fold_stmt
 	 with the address of a local temporary, if that call changes
-	 the temporary then we fall on our swords.
+	 the temporary then we fallback on looking for a proper
+	 pointer to STMT by scanning STMT's basic block.
 
 	 Note that all this will become unnecessary soon.  This
 	 pass is being replaced with a proper copy propagation pass
@@ -1103,7 +1104,11 @@ replace_immediate_uses (tree var, tree repl)
 	  tree tmp = stmt;
 	  fold_stmt (&tmp);
 	  if (tmp != stmt)
-	    abort ();
+	    {
+	      block_stmt_iterator si = bsi_for_stmt (stmt);
+	      bsi_replace (&si, tmp, true);
+	      stmt = bsi_stmt (si);
+	    }
 	}
 
       /* If REPL is a pointer, it may have different memory tags associated

@@ -1,3 +1,16 @@
+2004-10-19  Aaron W. LaFramboise  <aaronavay62@aaronwl.com>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
+2004-10-19  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* MAINTAINERS: Remove from Write After Approval those that are
+	already maintainers.
+
+2004-10-19  Sebastian Pop  <pop@cri.ensmp.fr>
+
+	* MAINTAINERS:  Update my email address.
+
 2004-10-12  Kelley Cook  <kcook@gcc.gnu.org>
 
 	* configure.in (*-*-cygwin*): Supress warning if newlib not present.

@@ -1,3 +1,135 @@
+2004-10-22  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/18095
+	* g++.dg/parse/crash18.C: New.
+	* g++.dg/parse/crash19.C: New.
+
+2004-10-22  Aaron W. LaFramboise  <aaronavay62@aaronwl.com>
+
+	* g++.dg/ext/dllimport1.C: Move dg-warnings.
+	* g++.dg/ext/dllimport2.C: Same.
+	* g++.dg/ext/dllimport8.C: Same.
+
+2004-10-21  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/10841
+	* g++.dg/conversion/cast1.C: New test.
+	* g++.dg/overload/pmf1.C: Adjust error marker.
+
+2004-10-21  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR objc/17923
+	* objc.dg/const-str-7.m: New test.
+
+2004-10-20  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	* g++.dg/template/memfriend11.C: Fix comment typo.
+	* g++.dg/template/memfriend14.C: Likewise.
+
+2004-10-20  Richard Henderson  <rth@redhat.com>
+
+	* gcc.dg/cleanup-10.c, gcc.dg/cleanup-11.c, gcc.dg/cleanup-8.c,
+	gcc.dg/cleanup-9.c: Use -fnon-call-exceptions, not
+	-fasynchronous-unwind-tables.
+
+2004-10-20  Richard Henderson  <rth@redhat.com>
+
+	* gcc.c-torture/unsorted/call386.c (foo): Fix return type.
+	(main): Return success.
+	* gcc.c-torture/unsorted/subcc.c (foo, bar): Fix return types.
+	(main): Return success.
+
+2004-10-20  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/13495
+	* g++.dg/template/memfriend9.C: New test.
+	* g++.dg/template/memfriend10.C: Likewise.
+	* g++.dg/template/memfriend11.C: Likewise.
+	* g++.dg/template/memfriend12.C: Likewise.
+	* g++.dg/template/memfriend13.C: Likewise.
+	* g++.dg/template/memfriend14.C: Likewise.
+	* g++.dg/template/memfriend15.C: Likewise.
+	* g++.dg/template/memfriend16.C: Likewise.
+	* g++.dg/template/memfriend17.C: Likewise.
+	* g++.old-deja/g++.pt/friend44.C: Remove bogus error.
+
+2004-10-20  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.dg/conversion/dr195.C: New.
+	* g++.old-deja/g++.mike/p10148.C: Remove ill-formed cast.
+
+2004-10-20  Ben Elliston  <bje@au.ibm.com>
+	    Devang Patel  <dpatel@apple.com>
+
+	* gcc.dg/tree-ssa/ifc-20040816-2.c: Use integer arithmetic instead
+	of floating point arithmetic, which could trap.
+
+2004-10-19  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/14035
+	* g++.dg/conversion/reinterpret1.C: Adjust error markers.
+	* g++.dg/conversion/const2.C: New test.
+	* g++.dg/expr/reinterpret2.C: New test.
+	* g++.dg/expr/reinterpret3.C: New test.
+	* g++.dg/expr/cast2.C: New test.
+	* g++.dg/expr/copy1.C: New test.
+	* g++.dg/other/conversion1.C: Change error message.
+	* g++.dg/parse/comma1.C: Use __extension__ to allow casts from
+	function pointers to void *.
+	* g++.old-deja/g++.mike/p10148.C: Likewise.
+
+2004-10-19  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/smod-1.c: Pass -mtune=i486 only on x86.
+
+2004-10-19  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR c++/18047
+
+	* g++.dg/parse/expr3.C: New test.
+
+2004-10-18  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/smod-1.c: New test.
+
+2004-10-18  Ziemowit Laski  <zlaski@apple.com>
+
+	* objc.dg/method-14.m: New test.
+
+2004-10-18  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* gcc.c-torture/compile/pr17529.c: Fix test for non x86.
+	Also xfail as the patch was reverted.
+
+2004-10-18  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR middle-end/16973
+	* gcc.dg/pr16973.c: New test.
+
+2004-10-18  Diego Novillo  <dnovillo@redhat.com>
+
+	PR tree-optimization/17656
+	* testsuite/gcc.c-torture/compile/pr17656.c: New test.
+
+2004-10-18  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.dg/eh/shadow1.C: New.
+
+2004-10-18  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c-torture/compile/20041018-1.c: New test.
+
+2004-10-18  Ben Elliston  <bje@au.ibm.com>
+
+	* gcc.dg/ppc-sdata-1.c: Update to consider the possibility of the
+	compiler referring to register 0 when accessing sdata.  The linker
+	now patches things up.
+
+2004-10-17  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR c/17529
+	* gcc.c-torture/compile/pr17529.c: New test.
+
 2004-10-17  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
 
 	PR c++/17743

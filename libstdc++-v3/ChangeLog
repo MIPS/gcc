@@ -1,3 +1,96 @@
+2004-10-21  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/tr1/array (array): Make safe for zero-sized arrays.
+	(array::end): Return one past the end.
+	(array::at): Use __throw_out_of_range, include functexcept.h.
+	(operator==): Implement.
+	(operator!=): Same.
+	(operator<): Same.
+	(operator>): Same.
+	(operator>=): Same.
+	(operator<=): Same.
+	* testsuite/tr1/6_containers/array/capacity/(empty.cc,
+	max_size.cc, size.cc): New.
+	* testsuite/tr1/6_containers/array/comparison_operators/(equal.cc,
+	greater.cc, greater_or_equal.cc, less.cc, less_or_equal.cc,
+	not_equal): New.
+	* testsuite/tr1/6_containers/array/cons/aggregate_initialization.cc: 
+	New.
+	* testsuite/tr1/6_containers/array/element_access/at_out_of_range.cc: 
+	New.
+	* testsuite/tr1/6_containers/array/iterators/end_is_one_past.cc: New.
+	* testsuite/tr1/6_containers/array/requirements/(contiguous.cc,
+	instantiate, typedefs, zero_size_arrays): New.
+
+2004-10-21  Paolo Carlini  <pcarlini@suse.de>
+	    Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/bits/basic_string.h (_M_set_length_and_sharable): New.
+	* include/bits/basic_string.tcc (_S_construct, assign(const _CharT*,
+	size_type), _M_mutate, _M_clone): Use it.
+	(_Rep::_S_create): Don't set/call _M_length/_M_set_sharable here.
+
+2004-10-21  Paolo Carlini  <pcarlini@suse.de>
+	    Dhruv Matani  <dhruvbird@gmx.net>
+	    Nathan Myers  <ncm@cantrip.org>
+
+	* include/bits/vector.tcc (_M_insert_aux, _M_fill_insert,
+	_M_range_insert): Check at the outset that we are not trying
+	to exceed max_size, then deal properly with __len overflows.
+	* testsuite/23_containers/vector/modifiers/insert/1.cc: New.
+	
+	* testsuite/testsuite_allocator.h: Remove redundant include.
+
+2004-10-20  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/ext/bitmap_allocator.h (allocate): Throw std::bad_alloc
+	when n > max_size().
+	* include/ext/malloc_allocator.h (allocate): Likewise.
+	* include/ext/mt_allocator.h (allocate): Likewise.
+	* include/ext/new_allocator.h (allocate): Likewise.
+	* include/ext/array_allocator.h: Use __throw_bad_alloc().
+	* include/ext/pool_allocator.h: Use __builtin_expect.
+	* testsuite/ext/array_allocator/check_allocate_max_size.cc: New.
+	* testsuite/ext/bitmap_allocator/check_allocate_max_size.cc: Likewise.
+	* testsuite/ext/malloc_allocator/check_allocate_max_size.cc: Likewise.
+	* testsuite/ext/mt_allocator/check_allocate_max_size.cc: Likewise.
+	* testsuite/ext/new_allocator/check_allocate_max_size.cc: Likewise.
+	* testsuite/ext/pool_allocator/check_allocate_max_size.cc: Likewise.
+	* testsuite/testsuite_allocator.h (check_allocate_max_size): New test.
+
+2004-10-19  Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/performance/20_util/allocator/list_sort_search.cc:
+	Include <ext/new_allocator.h>.
+	* testsuite/performance/20_util/allocator/map_mt_find.cc: Likewise.
+
+2004-10-18  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/basic_string.tcc (_M_mutate): Do not reallocate
+	unnecessarily when _M_rep() == &_S_empty_rep() and __new_size
+	== capacity() (== 0): is ok to just leave everything unchanged.
+
+	* include/bits/basic_string.h: Minor formatting fixes.
+	* include/bits/basic_string.tcc: Likewise.
+
+2004-10-17  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/ext/mt_allocator.h (__pool::_M_get_align): New.
+	(__mt_alloc::allocate): Use it.
+	* src/mt_allocator.cc (__pool::_M_reclaim_block): Use it.
+	(__pool::_M_reserve_block): Simplify block allocation.
+	
+2004-10-17  Dhruv Matani  <dhruvbird@gmx.net>
+	    Paolo Carlini  <pcarlini@suse.de>
+		
+	* include/ext/bitmap_allocator.h: Change unsigned int -> size_t: this
+	makes the code 64-bit correct and also fixes (together with using at
+	the beginning a bitmap 2 * size_t bytes wide) alignment issues: now
+	8 is guaranteed, easily tunable to 16 via _BALLOC_ALIGN_BYTES.
+	Fix pthread-rope7.cc fail by nulling out __mini_vector<> destructor.
+	* src/bitmap_allocator.cc: Change to size_t.
+	* config/linker-map.gnu: Adjust.
+
 2004-10-16  Benjamin Kosnik  <bkoz@redhat.com>
 
 	* include/tr1/array: Don't use layout_type.

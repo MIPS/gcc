@@ -205,7 +205,27 @@ namespace __gnu_test
       a.deallocate(NULL, 1);
       a.deallocate(NULL, 10);
     }
+
+  template<typename Alloc>
+    bool 
+    check_allocate_max_size()
+    {
+      Alloc a;
+      try
+	{
+	  a.allocate(a.max_size() + 1);
+	}
+      catch(std::bad_alloc&)
+	{
+	  return true;
+	}
+      catch(...)
+	{
+	  throw;
+	}
+      throw;
+    }
+
 }; // namespace __gnu_test
 
 #endif // _GLIBCXX_TESTSUITE_ALLOCATOR_H
-

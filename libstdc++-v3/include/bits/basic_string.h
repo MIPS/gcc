@@ -193,6 +193,15 @@ namespace std
 	_M_set_sharable()
         { this->_M_refcount = 0; }
 
+	void
+	_M_set_length_and_sharable(size_type __n)
+	{ 
+	  this->_M_set_sharable();  // One reference.
+	  this->_M_length = __n;
+	  this->_M_refdata()[__n] = _S_terminal; // grrr. (per 21.3.4)
+	  // You cannot leave those LWG people alone for a second.
+	}
+
 	_CharT*
 	_M_refdata() throw()
 	{ return reinterpret_cast<_CharT*>(this + 1); }
@@ -271,10 +280,12 @@ namespace std
       // For the internal use we have functions similar to `begin'/`end'
       // but they do not call _M_leak.
       iterator
-      _M_ibegin() const { return iterator(_M_data()); }
+      _M_ibegin() const
+      { return iterator(_M_data()); }
 
       iterator
-      _M_iend() const { return iterator(_M_data() + this->size()); }
+      _M_iend() const
+      { return iterator(_M_data() + this->size()); }
 
       void
       _M_leak()    // for use in begin() & non-const op[]
@@ -527,16 +538,19 @@ namespace std
       ///  Returns the number of characters in the string, not including any
       ///  null-termination.
       size_type
-      size() const { return _M_rep()->_M_length; }
+      size() const
+      { return _M_rep()->_M_length; }
 
       ///  Returns the number of characters in the string, not including any
       ///  null-termination.
       size_type
-      length() const { return _M_rep()->_M_length; }
+      length() const
+      { return _M_rep()->_M_length; }
 
       /// Returns the size() of the largest possible %string.
       size_type
-      max_size() const { return _Rep::_S_max_size; }
+      max_size() const
+      { return _Rep::_S_max_size; }
 
       /**
        *  @brief  Resizes the %string to the specified number of characters.
@@ -562,14 +576,16 @@ namespace std
        *  setting them to 0.
        */
       void
-      resize(size_type __n) { this->resize(__n, _CharT()); }
+      resize(size_type __n)
+      { this->resize(__n, _CharT()); }
 
       /**
        *  Returns the total number of characters that the %string can hold
        *  before needing to allocate more memory.
        */
       size_type
-      capacity() const { return _M_rep()->_M_capacity; }
+      capacity() const
+      { return _M_rep()->_M_capacity; }
 
       /**
        *  @brief  Attempt to preallocate enough memory for specified number of
@@ -595,13 +611,15 @@ namespace std
        *  Erases the string, making it empty.
        */
       void
-      clear() { _M_mutate(0, this->size(), 0); }
+      clear()
+      { _M_mutate(0, this->size(), 0); }
 
       /**
        *  Returns true if the %string is empty.  Equivalent to *this == "".
        */
       bool
-      empty() const { return this->size() == 0; }
+      empty() const
+      { return this->size() == 0; }
 
       // Element access:
       /**
@@ -684,7 +702,8 @@ namespace std
        *  @return  Reference to this string.
        */
       basic_string&
-      operator+=(const basic_string& __str) { return this->append(__str); }
+      operator+=(const basic_string& __str)
+      { return this->append(__str); }
 
       /**
        *  @brief  Append a C string.
@@ -692,7 +711,8 @@ namespace std
        *  @return  Reference to this string.
        */
       basic_string&
-      operator+=(const _CharT* __s) { return this->append(__s); }
+      operator+=(const _CharT* __s)
+      { return this->append(__s); }
 
       /**
        *  @brief  Append a character.
@@ -700,7 +720,8 @@ namespace std
        *  @return  Reference to this string.
        */
       basic_string&
-      operator+=(_CharT __c) { return this->append(size_type(1), __c); }
+      operator+=(_CharT __c)
+      { return this->append(size_type(1), __c); }
 
       /**
        *  @brief  Append a string to this string.
@@ -1447,7 +1468,8 @@ namespace std
        *  happen.
       */
       const _CharT*
-      c_str() const { return _M_data(); }
+      c_str() const
+      { return _M_data(); }
 
       /**
        *  @brief  Return const pointer to contents.
@@ -1456,13 +1478,15 @@ namespace std
        *  happen.
       */
       const _CharT*
-      data() const { return _M_data(); }
+      data() const
+      { return _M_data(); }
 
       /**
        *  @brief  Return copy of allocator used to construct this string.
       */
       allocator_type
-      get_allocator() const { return _M_dataplus; }
+      get_allocator() const
+      { return _M_dataplus; }
 
       /**
        *  @brief  Find position of a C substring.
