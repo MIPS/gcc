@@ -1,3 +1,7 @@
+2004-11-17  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/URL.java (URL): Handle case when argument is null.
+
 2004-11-11  Gary Benson  <gbenson@redhat.com>
 
 	* java/awt/Window.java (setLocationRelativeTo): New stub.
