@@ -1,3 +1,10 @@
+2004-08-05  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/10378
+	* include/bits/stl_alloc.h (allocator::construct,
+	__allocator::construct): Implement resolution of DR 402 [Ready].
+	* include/bits/stl_construct.h (_Construct): Likewise.
+
 2004-08-01  Paolo Carlini  <pcarlini@suse.de>
 
 	PR libstdc++/12791

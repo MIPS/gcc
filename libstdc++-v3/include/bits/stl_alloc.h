@@ -1,6 +1,6 @@
 // Allocators -*- C++ -*-
 
-// Copyright (C) 2001, 2002, 2003 Free Software Foundation, Inc.
+// Copyright (C) 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -685,7 +685,11 @@ namespace std
       size_type
       max_size() const throw() { return size_t(-1) / sizeof(_Tp); }
 
-      void construct(pointer __p, const _Tp& __val) { new(__p) _Tp(__val); }
+      // _GLIBCXX_RESOLVE_LIB_DEFECTS
+      // 402. wrong new expression in [some_]allocator::construct
+      void construct(pointer __p, const _Tp& __val)
+      { ::new(__p) _Tp(__val); }
+
       void destroy(pointer __p) { __p->~_Tp(); }
     };
 
@@ -779,9 +783,12 @@ namespace std
       
       size_type
       max_size() const throw() { return size_t(-1) / sizeof(_Tp); }
-      
+
+      // _GLIBCXX_RESOLVE_LIB_DEFECTS
+      // 402. wrong new expression in [some_]allocator::construct      
       void
-      construct(pointer __p, const _Tp& __val) { new(__p) _Tp(__val); }
+      construct(pointer __p, const _Tp& __val)
+      { ::new(__p) _Tp(__val); }
       
       void
       destroy(pointer __p) { __p->~_Tp(); }
