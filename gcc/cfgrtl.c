@@ -2342,7 +2342,6 @@ hoist_insn_after (insn, after, val, new)
 {
   rtx pat;
   int i;
-  rtx new_insn = NULL_RTX;
   rtx note;
 
   insn = emit_copy_of_insn_after (insn, after);
@@ -2391,7 +2390,7 @@ hoist_insn_after (insn, after, val, new)
   if (!apply_change_group ())
     abort ();
 
-  return new_insn;
+  return insn;
 }
 
 rtx
