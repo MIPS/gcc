@@ -671,7 +671,9 @@ update_life_info (blocks, extent, prop_flags)
 					      | PROP_KILL_DEAD_CODE));
 	    }
 
-	  if (! changed || ! cleanup_cfg (CLEANUP_EXPENSIVE))
+	  if (! changed
+	      || ! (prop_flags & PROP_ALLOW_CFG_CHANGES)
+	      || ! cleanup_cfg (CLEANUP_EXPENSIVE))
 	    break;
 	}
 
