@@ -1,5 +1,13 @@
 2004-02-03  Richard Henderson  <rth@redhat.com>
 
+	* gcc.dg/tree-ssa/20040204-1.c: Rename from ssa-ccp-5.c.
+	Look at .optimized output.  XFAIL.
+	* gcc.dg/tree-ssa/ssa-ccp-11.c: XFAIL.
+	* gcc.dg/tree-ssa/ssa-ccp-3.c: XFAIL.
+	* gcc.dg/tree-ssa/ssa-ccp-4.c: Remove.
+	* gcc.dg/tree-ssa/ssa-ccp-6.c: Remove.
+	* gcc.dg/tree-ssa/ssa-ccp-8.c: Remove.
+
 	* gcc.dg/tree-ssa/20030731-1.c: XFAIL.
 	* gcc.dg/tree-ssa/20030814-6.c: XFAIL.
 	* gcc.dg/tree-ssa/20031106-1.c: XFAIL.
