@@ -1,3 +1,9 @@
+2003-09-17  Jeff Law  <law@redhat.com>
+
+	* gcc.dg/tree-ssa/20030917-1.c: New test.
+
+	* gcc.dg/tree-ssa/20030807-8.c: Update.
+
 2003-09-14  Paul Brook  <paul@nowt.org>
 
 	* gfortran.fortran-torture/der_init.f90: Also test arrays.

@@ -48,6 +48,5 @@ output_location_lists (die)
       output_loc_list (AT_loc_list (d_attr));
 }
 
-/* There should be exactly two IF conditionals, one in the AT_loc_list
-   function and another in output_location_lists.  */
-/* { dg-final { scan-tree-dump-times "if " 2 "ssa"} } */
+/* There should be exactly one IF conditional, in output_location_lists.  */
+/* { dg-final { scan-tree-dump-times "if " 1 "ssa"} } */
