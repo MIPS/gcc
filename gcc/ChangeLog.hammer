@@ -1,3 +1,8 @@
+2003-12-06  Jan Hubicka  <jh@suse.cz>
+
+	* unwind-pe.h (read_uleb128): Fix handling of large values
+	(read_sleb128): Fix handling of large values
+
 2003-12-05  Jan Hubicka  <jh@suse.cz>
 
 	* calls.c (try_to_integrate): Adjust is HOST_WIDE_INT.
