@@ -504,6 +504,9 @@ const int x86_sse_partial_reg_dependency = m_PENT4 | m_PPRO;
    parts insetad of whole registers, so we may maintain just lower part of
    scalar values in proper format leaving the upper part undefined.  */
 const int x86_sse_partial_regs = m_ATHLON_K8;
+/* Athlon optimizes partial-register FPS special case, thus avoiding the
+   need for extra instructions beforehand  */
+const int x86_sse_partial_regs_for_cvtsd2ss = 0;
 const int x86_sse_typeless_stores = m_ATHLON_K8;
 const int x86_sse_load0_by_pxor = m_PPRO | m_PENT4;
 const int x86_use_ffreep = m_ATHLON_K8;

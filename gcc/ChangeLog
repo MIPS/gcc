@@ -1,3 +1,11 @@
+Wed Nov 27 20:34:13 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* i386.c (x86_sse_partial_regs_for_cvtsd2ss): New.
+	* i386.h (x86_sse_partial_regs_for_cvtsd2ss): Declare.
+	(TARGET_SSE_PARTIAL_REGS_FOR_CVTSD2SS): New macro.
+	* i386.md (truncdfsf patterns and splitters): Use
+	TARGET_SSE_PARTIAL_REGS_FOR_CVTSD2SS
+
 2002-11-26  Kaz Kojima  <kkojima@gcc.gnu.org>
 
         * config/sh/lib1funcs.asm (FUNC, ENDFUNC0, ENDFUNC): New macros.
