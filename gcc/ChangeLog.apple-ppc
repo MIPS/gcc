@@ -1,3 +1,27 @@
+2004-10-27  Geoffrey Keating  <geoffk@apple.com>
+
+	* c-common.c (handle_weak_import_attribute): Delete.
+	(c_common_attribute_table): Remove 'weak_import'.
+	* c-decl.c (start_function): Remove local change for weak_import.
+	* dbxout.c (dbxout_source_file): Remove local change for
+	hot/cold partitioning, sync with FSF GCC.
+	* dmp-tree.c (print_decl): Remove local change for weak_import.
+	* idebug.c: Remove local change for weak_import.
+	* rtl.h (struct rtx_def): Remove local change for weak_import.
+	(SYMBOL_REF_WEAK_IMPORT): Delete.
+	* tree.h (DECL_WEAK_IMPORT): Delete.
+	(IDENTIFIER_WEAK_IMPORT): Delete.
+	(struct tree_decl): Delete weak_import_flag.
+	(enum attribute_flags): Delete ATTR_FLAG_FUNCTION_DEF.
+	* varasm.c (merge_weak): Remove local change for weak_import.
+	* config/darwin.c (machopic_output_indirection): Remove local change
+	for weak_import.
+	(darwin_set_section_for_var_p): Do nothing if symbol is weak.
+	* config/rs6000/rs6000.c (find_weak_imports): Delete.
+	(rs6000_assemble_integer): Remove local change for weak_import.
+	(local_label_unique_number): Delete.
+	(macho_branch_islands): Remove local change for weak_import.
+
 2004-10-26  Geoffrey Keating  <geoffk@apple.com>
 
 	Radar 3840704

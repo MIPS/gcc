@@ -2224,13 +2224,6 @@ struct tree_binfo GTY (())
 /* Used to indicate that this DECL has weak linkage.  */
 #define DECL_WEAK(NODE) (DECL_CHECK (NODE)->decl.weak_flag)
 
-/* APPLE LOCAL begin weak import (Radar 2809704) --ilr */
-/* Used to indicate that this DECL has weak-import linkage.  */
-#define DECL_WEAK_IMPORT(NODE) (DECL_CHECK (NODE)->decl.weak_import_flag)
-/* The same information in IDENTIFIERs.  */
-#define IDENTIFIER_WEAK_IMPORT(NODE) (IDENTIFIER_NODE_CHECK (NODE)->common.unsigned_flag)
-/* APPLE LOCAL end weak import (Radar 2809704) --ilr */
-
 /* APPLE LOCAL handling duplicate decls across files */
 #define DECL_DUPLICATE_DECL(NODE) (DECL_CHECK (NODE)->decl.duplicate_decl)
 
@@ -2400,8 +2393,6 @@ struct tree_decl GTY(())
   unsigned lang_flag_6 : 1;
   unsigned lang_flag_7 : 1;
 
-  /* APPLE LOCAL weak import (Radar 2809704) --ilr */
-  unsigned weak_import_flag : 1;
   /* APPLE LOCAL duplicate decls in multiple files. */
   unsigned duplicate_decl : 1;
   unsigned possibly_inlined : 1;
@@ -3051,10 +3042,6 @@ enum attribute_flags
      name indicates known behavior, and should be silently ignored if they
      are not in fact compatible with the function type.  */
   ATTR_FLAG_BUILT_IN = 16
-  /* APPLE LOCAL begin weak import (Radar 2809704) --ilr */
-  /* The attributes are being applied to a function definition.  */
-  ,ATTR_FLAG_FUNCTION_DEF = 16
-  /* APPLE LOCAL end weak import --ilr */
 };
 
 /* Default versions of target-overridable functions.  */

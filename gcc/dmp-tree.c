@@ -627,10 +627,6 @@ print_decl (file, annotation, node, indent)
 #endif
       if (DECL_WEAK (node))
         fputs (" weak", file);
-      /* APPLE LOCAL begin weak import (Radar 2809704) --ilr */
-      if (DECL_WEAK_IMPORT (node))
-	fputs (" weak_import", file);
-      /* APPLE LOCAL end weak import --ilr */
       
       if (DECL_LANG_FLAG_0 (node)
           || DECL_LANG_FLAG_1 (node)

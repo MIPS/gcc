@@ -1267,12 +1267,26 @@ comments, after the declaration.
 
 @c APPLE LOCAL begin AltiVec
 @item -faltivec
-Enable the AltiVec language extensions, as defined in Motorola's AltiVec
-PIM.  This includes the recognition of @code{vector} and @code{pixel} as
-(context-dependent) keywords, the definition of built-in functions such
-as @code{vec_add}, and other extensions.  Note that unlike the option
-@samp{-maltivec}, the extensions do not require the inclusion of any
-special header files.  (APPLE ONLY)
+Enable the AltiVec language extensions, as defined in Motorola's
+AltiVec PIM, for backwards compatibility with previous Apple versions
+of GCC.  This includes the recognition of @code{vector} and
+@code{pixel} as (context-dependent) keywords, the definition of
+built-in functions such as @code{vec_add}, and other extensions.  Note
+that unlike the option @samp{-maltivec}, the extensions do not require
+the inclusion of any special header files.  (APPLE ONLY)
+
+Use of this flag should be avoided, and the functionality it supplies
+should be invoked by passing @option{-maltivec} or @option{-mcpu=G4} and
+using @code{#include <altivec.h>} in your source file.
+
+This flag may disable some optimisations unless @option{-maltivec} or
+@option{-mcpu=G4} is also passed.
+
+The flag brings the AltiVec intrinsics into the compilation by
+behaving as if @option{-include altivec.h} was passed.  A consequence
+of this is that if a precompiled header is to be used with this flag, the
+header should be included with @option{-include} before this flag appears
+on the command line.
 @c APPLE LOCAL end AltiVec
 
 @c APPLE LOCAL begin CW asm blocks

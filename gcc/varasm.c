@@ -576,13 +576,19 @@ asm_output_aligned_bss (FILE *file, tree decl ATTRIBUTE_UNUSED,
 void
 function_section (tree decl)
 {
+#ifdef USE_SELECT_SECTION_FOR_FUNCTIONS
+  bool unlikely = scan_ahead_for_unlikely_executed_note (get_insns());
+  
+  targetm.asm_out.select_section (decl, unlikely, DECL_ALIGN (decl));
+#else
   if (scan_ahead_for_unlikely_executed_note (get_insns()))
     unlikely_text_section ();
   else if (decl != NULL_TREE
 	   && DECL_SECTION_NAME (decl) != NULL_TREE)
     named_section (decl, (char *) 0, 0);
   else
-    text_section (); 
+    text_section ();
+#endif
 }
 
 /* Switch to read-only data section associated with function DECL.  */
@@ -968,8 +974,6 @@ make_decl_rtl (tree decl)
 
   x = gen_rtx_SYMBOL_REF (Pmode, name);
   SYMBOL_REF_WEAK (x) = DECL_WEAK (decl);
-  /* APPLE LOCAL weak import */
-  SYMBOL_REF_WEAK_IMPORT (x) = DECL_WEAK_IMPORT (decl);
   SYMBOL_REF_DECL (x) = decl;
 
   x = gen_rtx_MEM (DECL_MODE (decl), x);
@@ -4288,16 +4292,6 @@ merge_weak (tree newdecl, tree olddecl)
     /* OLDDECL was weak, but NEWDECL was not explicitly marked as
        weak.  Just update NEWDECL to indicate that it's weak too.  */
     mark_weak (newdecl);
-
-  /* APPLE LOCAL begin weak import (Radar 2809704) --ilr */
-  if (DECL_WEAK_IMPORT (olddecl) != DECL_WEAK_IMPORT (newdecl))
-    {
-      if (! DECL_EXTERNAL (olddecl) && ! DECL_EXTERNAL (newdecl))
-	warning (
-		 "%Jinconsistent weak_import attribute with previous declaration of `%D'", newdecl, olddecl);
-      DECL_WEAK_IMPORT (newdecl) = 1;
-    }
-  /* APPLE LOCAL end weak import --ilr */
 }
 
 /* Declare DECL to be a weak symbol.  */

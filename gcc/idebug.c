@@ -318,8 +318,6 @@ fn_1( DECL_STATIC_CONSTRUCTOR, int, tree )
 fn_1( DECL_STATIC_DESTRUCTOR, int, tree )
 fn_1( DECL_ARTIFICIAL, int, tree )
 fn_1( DECL_WEAK, int, tree )
-/* APPLE LOCAL weak import (Radar 2809704) --ilr */
-fn_1( DECL_WEAK_IMPORT, int, tree )
 fn_1( DECL_ONE_ONLY, int, tree )
 fn_1( DECL_COMDAT, int, tree )
 fn_1( DECL_NO_INSTRUMENT_FUNCTION_ENTRY_EXIT, int, tree )

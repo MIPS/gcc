@@ -11472,47 +11472,6 @@ print_operand_address (FILE *file, rtx x)
     abort ();
 }
 
-/* APPLE LOCAL begin weak import */
-static void
-find_weak_imports (rtx x)
-{
-  /* Patterns accepted here follow output_addr_const in final.c.  */
-  switch ( GET_CODE (x))
-    {
-      case CONST:
-      case ZERO_EXTEND:
-      case SIGN_EXTEND:
-      case SUBREG:
-	find_weak_imports (XEXP (x, 0));
-	break;
- 
-      case CONST_INT:
-      case CONST_DOUBLE:
-      case CODE_LABEL:
-      case LABEL_REF:
-      default:
-	break;
-
-      case PLUS:
-      case MINUS:
-	find_weak_imports (XEXP (x, 0));
-	find_weak_imports (XEXP (x, 1));
-	break;
-
-      case SYMBOL_REF:
-	if ( SYMBOL_REF_WEAK_IMPORT (x))
-	  {
-	    fprintf (asm_out_file, "\t.weak_reference ");
-	    assemble_name (asm_out_file, XSTR (x, 0));
-	    fprintf (asm_out_file, "\n");
-	    /* Attempt to prevent multiple weak_reference directives. */
-	    SYMBOL_REF_WEAK_IMPORT (x) = 0;
-	  }
-	break;
-    }
-}
-/* APPLE LOCAL end weak import */
-
 /* Target hook for assembling integer objects.  The PowerPC version has
    to handle fixup entries for relocatable code if RELOCATABLE_NEEDS_FIXUP
    is defined.  It also needs to handle DI-mode objects on 64-bit
@@ -11572,9 +11531,6 @@ rs6000_assemble_integer (rtx x, unsigned int size, int aligned_p)
 	}
     }
 #endif /* RELOCATABLE_NEEDS_FIXUP */
-  /* APPLE LOCAL weak import */
-  if (DEFAULT_ABI == ABI_DARWIN)
-    find_weak_imports (x);
   return default_assemble_integer (x, size, aligned_p);
 }
 
@@ -17372,14 +17328,12 @@ rs6000_initialize_trampoline (rtx addr, rtx fnaddr, rtx cxt)
 const struct attribute_spec rs6000_attribute_table[] =
 {
   /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler } */
-  /* APPLE LOCAL begin double destructor */
-#ifdef SUBTARGET_ATTRIBUTE_TABLE
-  SUBTARGET_ATTRIBUTE_TABLE,
-#endif
-  /* APPLE LOCAL end double destructor */
   { "altivec",   1, 1, false, true,  false, rs6000_handle_altivec_attribute },
   { "longcall",  0, 0, false, true,  true,  rs6000_handle_longcall_attribute },
   { "shortcall", 0, 0, false, true,  true,  rs6000_handle_longcall_attribute },
+#ifdef SUBTARGET_ATTRIBUTE_TABLE
+  SUBTARGET_ATTRIBUTE_TABLE,
+#endif
   { NULL,        0, 0, false, false, false, NULL }
 };
 
@@ -17704,8 +17658,6 @@ rs6000_fatal_bad_address (rtx op)
 #if TARGET_MACHO
 
 static tree branch_island_list = 0;
-/* APPLE LOCAL weak import */
-static int local_label_unique_number = 0;
 
 #define BRANCH_ISLAND_LABEL_NAME(BRANCH_ISLAND)     TREE_VALUE (BRANCH_ISLAND)
 #define BRANCH_ISLAND_FUNCTION_NAME(BRANCH_ISLAND)  TREE_PURPOSE (BRANCH_ISLAND)
@@ -17741,11 +17693,6 @@ macho_branch_islands (void)
   char tmp_buf[512];
   tree branch_island;
 
-  /* APPLE LOCAL weak import */
-  char *local_label_0;
-  const char *non_lazy_pointer_name, *unencoded_non_lazy_pointer_name;
-  int length;
-
   for (branch_island = branch_island_list;
        branch_island;
        branch_island = TREE_CHAIN (branch_island))
@@ -17755,8 +17702,6 @@ macho_branch_islands (void)
       const char *name  =
 	IDENTIFIER_POINTER (BRANCH_ISLAND_FUNCTION_NAME (branch_island));
       char name_buf[512];
-      /* APPLE LOCAL weak import */
-      rtx sym_ref = 0;
       /* Cheap copy of the details from the Darwin ASM_OUTPUT_LABELREF().  */
       if (name[0] == '*' || name[0] == '&')
 	strcpy (name_buf, name+1);
@@ -17772,62 +17717,8 @@ macho_branch_islands (void)
 	fprintf (asm_out_file, "\t.stabd 68,0," HOST_WIDE_INT_PRINT_UNSIGNED "\n",
 		 BRANCH_ISLAND_LINE_NUMBER(branch_island));
 #endif /* DBX_DEBUGGING_INFO || XCOFF_DEBUGGING_INFO */
-      /* APPLE LOCAL begin weak import */
-      /* If PIC and the callee has no stub, do an indirect call through a
-	 non-lazy-pointer.  'save_world' expects a parameter in R11;
-	 theh dyld_stub_binding_helper (part of the Mach-O stub
-	 interface) expects a different parameter in R11.  This is
-	 effectively a "non-lazy stub."  By-the-way, a
-	 "non-lazy-pointer" is a .long that gets coalesced with others
-	 of the same value, so one NLP suffices for an entire
-	 application.  */
-      /* MERGE FIXME this doesn't work yet */
-      if (0 && flag_pic
-	  && machopic_classify_symbol (sym_ref) == MACHOPIC_UNDEFINED_FUNCTION)
+      if (flag_pic)
 	{
-	  /* This is the address of the non-lazy pointer; load from it
-	     to get the address we want.  */
-	  non_lazy_pointer_name = machopic_indirection_name (sym_ref, false);
-	  machopic_validate_stub_or_non_lazy_ptr (non_lazy_pointer_name);
-	  unencoded_non_lazy_pointer_name =
-	    (*targetm.strip_name_encoding) (non_lazy_pointer_name);
-	  length = strlen (name);
-	  local_label_0 = alloca (length + 32);
-	  /* Cheap copy of the details from the Darwin ASM_OUTPUT_LABELREF().  */
-	  if (name[0] == '*' || name[0] == '&')
-	    strcpy (name_buf, name+1);
-	  else
-	    {
-	      name_buf[0] = '_';
-	      strcpy (name_buf+1, name);
-	    }
-
-	  sprintf (local_label_0, "%s_%d_pic", name_buf, local_label_unique_number);
-	  local_label_unique_number++;
-	  strcpy (tmp_buf, "\n");
-	  strcat (tmp_buf, label);
-	  strcat (tmp_buf, "\tmflr r0\n");
-	  strcat (tmp_buf, "\tbcl 20,31,");
-	  strcat (tmp_buf, "\tbcl 20,31,%s\n");
-	  strcat (tmp_buf, local_label_0);
-	  strcat (tmp_buf, ":\n");
-	  strcat (tmp_buf, "\tmflr r12\n");
-	  strcat (tmp_buf, "\taddis r12,r12,ha16(");
-	  strcat (tmp_buf, non_lazy_pointer_name);
-	  strcat (tmp_buf, "-");
-	  strcat (tmp_buf, local_label_0);
-	  strcat (tmp_buf, ")\n\tlwz r12,lo16(");
-	  strcat (tmp_buf, non_lazy_pointer_name);
-	  strcat (tmp_buf, "-");
-	  strcat (tmp_buf, local_label_0);
-	  strcat (tmp_buf, ")(r12)\n");
-	  strcat (tmp_buf, "\tmtlr r0\n");
-	  strcat (tmp_buf, "\tmtctr r12\n");
-	  strcat (tmp_buf, "\tbctr\n");
-	}
-      else if (flag_pic)
-	{
-	/* APPLE LOCAL end weak import */
 	  strcat (tmp_buf, ":\n\tmflr r0\n\tbcl 20,31,");
 	  strcat (tmp_buf, label);
 	  strcat (tmp_buf, "_pic\n");

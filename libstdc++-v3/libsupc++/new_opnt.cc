@@ -42,7 +42,7 @@ using std::bad_alloc;
 extern "C" void *malloc (std::size_t);
 extern new_handler __new_handler;
 
-void *
+__attribute__((weak)) void *
 operator new (std::size_t sz, const std::nothrow_t&) throw()
 {
   void *p;

@@ -5792,9 +5792,7 @@ start_function (struct c_declspecs *declspecs, struct c_declarator *declarator,
   if (decl1 == 0)
     return 0;
 
-  /* APPLE LOCAL begin weak import (Radar 2809704) --ilr */
-  decl_attributes (&decl1, attributes, (int)ATTR_FLAG_FUNCTION_DEF);
-  /* APPLE LOCAL end weak import --ilr */
+  decl_attributes (&decl1, attributes, 0);
 
   if (DECL_DECLARED_INLINE_P (decl1)
       && DECL_UNINLINABLE (decl1)

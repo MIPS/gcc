@@ -636,9 +636,6 @@ static tree handle_deprecated_attribute (tree *, tree, tree, int,
 /* APPLE LOCAL begin "unavailable" attribute (Radar 2809697) --ilr */
 static tree handle_unavailable_attribute (tree *, tree, tree, int,  bool *);
 /* APPLE LOCAL end "unavailable" attribute --ilr */
-/* APPLE LOCAL begin weak import (Radar 2809704) --ilr */
-static tree handle_weak_import_attribute (tree *, tree, tree, int, bool *);
-/* APPLE LOCAL end weak import --ilr */
 static tree handle_vector_size_attribute (tree *, tree, tree, int,
 					  bool *);
 static tree handle_nonnull_attribute (tree *, tree, tree, int, bool *);
@@ -714,10 +711,6 @@ const struct attribute_spec c_common_attribute_table[] =
   { "unavailable",            0, 0, false, false, false,
 			      handle_unavailable_attribute },
   /* APPLE LOCAL end "unavailable" attribute --ilr */
-  /* APPLE LOCAL begin weak import (Radar 2809704) --ilr */
-  { "weak_import",            0, 0, true, false, false,
-			      handle_weak_import_attribute },
-  /* APPLE LOCAL end weak import --ilr */
   { "vector_size",	      1, 1, false, true, false,
 			      handle_vector_size_attribute },
   { "visibility",	      1, 1, false, false, false,
@@ -5054,33 +5047,6 @@ handle_unavailable_attribute (tree *node, tree name,
   return NULL_TREE;
 }
 /* APPLE LOCAL end "unavailable" attribute --ilr */
-
-/* APPLE LOCAL begin weak import (Radar 2809704) --ilr */
-/* Handle a "weak_import" attribute; arguments as in
-   struct attribute_spec.handler.  If FLAGS contains
-   ATTR_FLAG_FUNCTION_DEF then the attribute is on a
-   function definition which is not allowed.  Only 
-   function prototypes and extern data definitions
-   are allowed.  */
-   
-static tree
-handle_weak_import_attribute (tree *node, tree name,
-			      tree args ATTRIBUTE_UNUSED,
-			      int flags ATTRIBUTE_UNUSED,
-			      bool *no_add_attrs)
-{
-  /* See FIXME comment in c_common_attribute_table.  */
-  if ((flags & (int) ATTR_FLAG_FUNCTION_DEF) == 0 && DECL_EXTERNAL (*node))
-    DECL_WEAK_IMPORT (*node) = 1;
-  else
-    {
-      warning ("`%s' attribute ignored", IDENTIFIER_POINTER (name));
-      *no_add_attrs = true;
-    }
-    
-  return NULL_TREE;
-}
-/* APPLE LOCAL end weak import --ilr */
 
 /* Handle a "vector_size" attribute; arguments as in
    struct attribute_spec.handler.  */

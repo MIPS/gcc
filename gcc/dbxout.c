@@ -794,14 +794,10 @@ dbxout_source_file (FILE *file, const char *filename)
       output_quoted_string (file, filename);
       /* APPLE LOCAL STABS SOL address suppression (radar 3109828) */
       fprintf (asmfile, ",%d,0,0,0\n", N_SOL);
-      /* APPLE LOCAL begin hot/cold partitioning  */
-      if ((current_function_decl != NULL_TREE
-	   && DECL_SECTION_NAME (current_function_decl) != NULL_TREE)
-	  || flag_reorder_blocks_and_partition)
+      if (current_function_decl != NULL_TREE)
 	; /* Don't change section amid function.  */
       else
 	text_section ();
-      /* APPLE LOCAL end hot/cold partitioning  */
       targetm.asm_out.internal_label (file, "Ltext", source_label_number);
       source_label_number++;
       lastfile = filename;

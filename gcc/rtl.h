@@ -191,8 +191,6 @@ struct rtx_def GTY((chain_next ("RTX_NEXT (&%h)"),
      1 in a CALL_INSN if it is a sibling call.
      1 in a SET that is for a return.
      In a CODE_LABEL, part of the two-bit alternate entry field.  */
-  /* APPLE LOCAL weak import
-     SYMBOL_REF_WEAK_IMPORT in a SYMBOL_REF.  */
   unsigned int jump : 1;
   /* In a CODE_LABEL, part of the two-bit alternate entry field.
      1 in a MEM if it cannot trap.  */
@@ -1214,12 +1212,6 @@ do {						\
 /* 1 if RTX is a symbol_ref for a weak symbol.  */
 #define SYMBOL_REF_WEAK(RTX)						\
   (RTL_FLAG_CHECK1("SYMBOL_REF_WEAK", (RTX), SYMBOL_REF)->return_val)
-
-/* APPLE LOCAL begin weak import */
-/* 1 means a SYMBOL_REF is weak import. */
-#define SYMBOL_REF_WEAK_IMPORT(RTX)					\
-  (RTL_FLAG_CHECK1("SYMBOL_REF_WEAK", (RTX), SYMBOL_REF)->jump)
-/* APPLE LOCAL end weak import */
 
 /* The tree (decl or constant) associated with the symbol, or null.  */
 #define SYMBOL_REF_DECL(RTX)	X0TREE ((RTX), 2)

@@ -1,3 +1,8 @@
+2004-10-27  Geoffrey Keating  <geoffk@apple.com>
+
+	* inclhack.def (darwin_gcc4_breakage): New.
+	* fixincl.x: Regenerate.
+
 2004-09-17  Roger Sayle  <roger@eyesopen.com>
 
 	* inclhack.def (linux_ia64_ucontext): New fix.
