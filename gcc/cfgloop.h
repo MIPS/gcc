@@ -515,6 +515,7 @@ extern void loop_optimizer_optimize (struct loops *);
 extern void loop_optimizer_finalize (struct loops *, FILE *);
 
 /* Optimization passes.  */
+extern void copy_loop_headers (void);
 extern void unswitch_loops (struct loops *);
 
 enum

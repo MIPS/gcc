@@ -1,5 +1,18 @@
 2003-07-20  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
+	* cfglayout.c (cleanup_unconditional_jumps): Work correctly
+	when there is no dominance info.
+	* cfgloop.c (flow_loops_cfg_dump): Ditto.
+	* cfgloop.h (copy_loop_headers): Declare.
+	* cfgloopmanip.c: Ansify.
+	(copy_loop_headers, should_duplicate_loop_header_p): New functions.
+	* jump.c (next_nonnote_insn_in_loop, duplicate_loop_exit_test,
+	copy_loop_headers): Remove.
+	* rtl.h (copy_loop_headers): Remove declaration.
+	* toplev.c (rest_of_compilation): Invoke new copy_loop_headers.
+
+2003-07-20  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
 	* algebraic.c (equal_when_iteration_zero_p, substitute_into_expr):
 	Cleanup handling of substitution for iteration.
 	(simplify_alg_expr_one_level, substitute_into_expr): Support

@@ -59,7 +59,7 @@ flow_loops_cfg_dump (loops, file)
   int i;
   basic_block bb;
 
-  if (! loops->num || ! file || ! loops->cfg.dom)
+  if (! loops->num || ! file)
     return;
 
   FOR_EACH_BB (bb)

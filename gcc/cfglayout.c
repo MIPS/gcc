@@ -665,13 +665,15 @@ cleanup_unconditional_jumps (loops)
 		  if (bb->loop_father->latch == bb)
 		    bb->loop_father->latch = bb->pred->src;
 
-		  if (get_immediate_dominator
-		      (loops->cfg.dom, bb->succ->dest) == bb)
-		    set_immediate_dominator
-		      (loops->cfg.dom, bb->succ->dest, bb->pred->src);
-
+		  if (loops->cfg.dom)
+		    {
+		      if (get_immediate_dominator (loops->cfg.dom,
+						   bb->succ->dest) == bb)
+			set_immediate_dominator (loops->cfg.dom,
+						 bb->succ->dest, bb->pred->src);
+		      delete_from_dominance_info (loops->cfg.dom, bb);
+		    }
 		  remove_bb_from_loops (bb);
-		  delete_from_dominance_info (loops->cfg.dom, bb);
 		}
 
 	      e = redirect_edge_succ_nodup (bb->pred, bb->succ->dest);

@@ -2814,9 +2814,8 @@ rest_of_compilation (decl)
 
   if (optimize)
     {
-      free_bb_for_insn ();
-      copy_loop_headers (insns);
-      find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
+      copy_loop_headers ();
+      cleanup_cfg (CLEANUP_PRE_LOOP);
     }
   purge_line_number_notes (insns);
 
