@@ -4996,6 +4996,7 @@ ix86_attr_length_default (insn)
     case TYPE_FOP1:
     case TYPE_FMUL:
     case TYPE_FDIV:
+    case TYPE_FSGN:
     case TYPE_FPSPC:
     case TYPE_FCMOV:
     case TYPE_IBR:
@@ -5182,6 +5183,12 @@ ix86_adjust_cost (insn, link, dep_insn, cost)
       /* ??? Compares pair with jump/setcc.  */
       if (ix86_flags_dependant (insn, dep_insn, insn_type))
 	cost = 0;
+
+      /* Floating point stores require value to be ready one cycle ealier.  */
+      if (insn_type == TYPE_FMOV 
+	  && get_attr_memory (insn) == MEMORY_STORE
+	  && !ix86_agi_dependant (insn, dep_insn, insn_type))
+	cost += 1;
       break;
 
     case PROCESSOR_PENTIUMPRO:
