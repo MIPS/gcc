@@ -1,4 +1,9 @@
-2004-04-22  Bu Davis  <bdavis9659@comcast.net>
+2004-04-23  Bud Davis  <bdavis9659@comcast.net>
+
+	PR fortran/15113
+	* io/read.c(read_a): Handle field width > destination and no field width.
+
+2004-04-22  Bud Davis  <bdavis9659@comcast.net>
 
 	PR fortran/14906
 	* io/format.c (format_item): gracefully handle a ')'

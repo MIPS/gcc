@@ -1,3 +1,8 @@
+2004-04-24  Bud Davis  <bdavis9659@comcast.net>
+
+	PR fortran/15113
+	* gfortran.fortran-torture/execute/a_edit_1.f90: Add new test.
+
 2004-04-23  Andrew Pinski  <pinskia@physics.uc.edu>
 
 	* gcc.c-torture/execute/20040423-1.c: New test.
