@@ -231,6 +231,8 @@ tracer ()
     return;
   cfg_layout_initialize ();
   mark_dfs_back_edges ();
+  if (rtl_dump_file)
+    dump_flow_info (rtl_dump_file);
   construct_traces ();
   layout_traces ();
   if (rtl_dump_file)

@@ -663,7 +663,7 @@ propagate_freq (head)
   BLOCK_INFO (head)->frequency = 1;
   for (; bb; bb = nextbb)
     {
-      double cyclic_probability = 0, frequency = 0;
+      volatile double cyclic_probability = 0, frequency = 0;
 
       nextbb = BLOCK_INFO (bb)->next;
       BLOCK_INFO (bb)->next = NULL;

@@ -271,9 +271,9 @@ enum dump_file_index
   DFI_gcse,
   DFI_loop,
   DFI_cfg,
+  DFI_bp,
   DFI_tracer,
   DFI_cse2,
-  DFI_bp,
   DFI_life,
   DFI_combine,
   DFI_ce,
@@ -318,9 +318,9 @@ struct dump_file_info dump_file[DFI_MAX] =
   { "gcse",	'G', 1, 0, 0 },
   { "loop",	'L', 1, 0, 0 },
   { "cfg",	'f', 1, 0, 0 },
+  { "bp",	'b', 1, 0, 0 },
   { "tracer",	'T', 1, 0, 0 },
   { "cse2",	't', 1, 0, 0 },
-  { "bp",	'b', 1, 0, 0 },
   { "life",	'f', 1, 0, 0 },	/* Yes, duplicate enable switch.  */
   { "combine",	'c', 1, 0, 0 },
   { "ce",	'C', 1, 0, 0 },
@@ -3215,6 +3215,8 @@ rest_of_compilation (decl)
 
       branch_prob ();
 
+      if (rtl_dump_file)
+        dump_flow_info (rtl_dump_file);
       close_dump_file (DFI_bp, print_rtl_with_bb, insns);
       timevar_pop (TV_BRANCH_PROB);
     }
@@ -3224,9 +3226,10 @@ rest_of_compilation (decl)
       open_dump_file (DFI_bp, decl);
 
       /* Estimate using heuristics if no profiling info is available.  */
-      if (flag_guess_branch_prob)
-	estimate_probability (&loops);
+      estimate_probability (&loops);
 
+      if (rtl_dump_file)
+        dump_flow_info (rtl_dump_file);
       close_dump_file (DFI_bp, print_rtl_with_bb, insns);
       timevar_pop (TV_BRANCH_PROB);
     }
