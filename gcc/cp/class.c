@@ -123,7 +123,7 @@ static void finish_struct_methods (tree);
 static void maybe_warn_about_overly_private_class (tree);
 static int method_name_cmp (const void *, const void *);
 static int resort_method_name_cmp (const void *, const void *);
-static void add_implicitly_declared_members (tree, int, int, int);
+static void add_implicitly_declared_members (tree, int, int);
 static tree fixed_type_or_null (tree, int *, int *);
 static tree resolve_address_of_overloaded_function (tree, tree, tsubst_flags_t,
 						    bool, tree);
@@ -133,13 +133,13 @@ static tree build_vtbl_initializer (tree, tree, tree, tree, int *);
 static int count_fields (tree);
 static int add_fields_to_record_type (tree, struct sorted_fields_type*, int);
 static void check_bitfield_decl (tree);
-static void check_field_decl (tree, tree, int *, int *, int *, int *);
-static void check_field_decls (tree, tree *, int *, int *, int *);
+static void check_field_decl (tree, tree, int *, int *, int *);
+static void check_field_decls (tree, tree *, int *, int *);
 static tree *build_base_field (record_layout_info, tree, splay_tree, tree *);
 static void build_base_fields (record_layout_info, splay_tree, tree *);
 static void check_methods (tree);
 static void remove_zero_width_bit_fields (tree);
-static void check_bases (tree, int *, int *, int *);
+static void check_bases (tree, int *, int *);
 static void check_bases_and_members (tree);
 static tree create_vtable_ptr (tree, tree *);
 static void include_empty_classes (record_layout_info);
@@ -408,7 +408,18 @@ build_simple_base_path (tree expr, tree binfo)
 
   if (d_binfo == NULL_TREE)
     {
+      tree temp;
+      
       gcc_assert (TYPE_MAIN_VARIANT (TREE_TYPE (expr)) == type);
+      
+      /* Transform `(a, b).x' into `(*(a, &b)).x', `(a ? b : c).x'
+     	 into `(*(a ?  &b : &c)).x', and so on.  A COND_EXPR is only
+     	 an lvalue in the frontend; only _DECLs and _REFs are lvalues
+     	 in the backend.  */
+      temp = unary_complex_lvalue (ADDR_EXPR, expr);
+      if (temp)
+	expr = build_indirect_ref (temp, NULL);
+
       return expr;
     }
 
@@ -421,8 +432,27 @@ build_simple_base_path (tree expr, tree binfo)
     if (TREE_CODE (field) == FIELD_DECL
 	&& DECL_FIELD_IS_BASE (field)
 	&& TREE_TYPE (field) == type)
-      return build_class_member_access_expr (expr, field,
-					     NULL_TREE, false);
+      {
+	/* We don't use build_class_member_access_expr here, as that
+	   has unnecessary checks, and more importantly results in
+	   recursive calls to dfs_walk_once.  */
+	int type_quals = cp_type_quals (TREE_TYPE (expr));
+
+	expr = build3 (COMPONENT_REF,
+		       cp_build_qualified_type (type, type_quals),
+		       expr, field, NULL_TREE);
+	expr = fold_if_not_in_template (expr);
+	
+	/* Mark the expression const or volatile, as appropriate.
+	   Even though we've dealt with the type above, we still have
+	   to mark the expression itself.  */
+	if (type_quals & TYPE_QUAL_CONST)
+	  TREE_READONLY (expr) = 1;
+	if (type_quals & TYPE_QUAL_VOLATILE)
+	  TREE_THIS_VOLATILE (expr) = 1;
+	
+	return expr;
+      }
 
   /* Didn't find the base field?!?  */
   gcc_unreachable ();
@@ -1177,14 +1207,12 @@ handle_using_decl (tree using_decl, tree t)
     alter_access (t, fdecl, access);
 }
 
-/* Run through the base classes of T, updating
-   CANT_HAVE_DEFAULT_CTOR_P, CANT_HAVE_CONST_CTOR_P, and
-   NO_CONST_ASN_REF_P.  Also set flag bits in T based on properties of
-   the bases.  */
+/* Run through the base classes of T, updating CANT_HAVE_CONST_CTOR_P,
+   and NO_CONST_ASN_REF_P.  Also set flag bits in T based on
+   properties of the bases.  */
 
 static void
 check_bases (tree t,
-             int* cant_have_default_ctor_p,
              int* cant_have_const_ctor_p,
              int* no_const_asn_ref_p)
 {
@@ -1217,18 +1245,6 @@ check_bases (tree t,
       if (TYPE_HAS_ASSIGN_REF (basetype)
 	  && !TYPE_HAS_CONST_ASSIGN_REF (basetype))
 	*no_const_asn_ref_p = 1;
-      /* Similarly, if the base class doesn't have a default
-	 constructor, then the derived class won't have an
-	 automatically generated default constructor.  */
-      if (TYPE_HAS_CONSTRUCTOR (basetype)
-	  && ! TYPE_HAS_DEFAULT_CONSTRUCTOR (basetype))
-	{
-	  *cant_have_default_ctor_p = 1;
-	  if (! TYPE_HAS_CONSTRUCTOR (t))
-            pedwarn ("base %qT with only non-default constructor in class "
-                     "without a constructor",
-                     basetype);
-	}
 
       if (BINFO_VIRTUAL_P (base_binfo))
 	/* A virtual base does not effect nearly emptiness.  */
@@ -1996,6 +2012,9 @@ update_vtable_entry_for_fn (tree t, tree binfo, tree fn, tree* virtuals,
          also be converting to the return type of FN, we have to
          combine the two conversions here.  */
       tree fixed_offset, virtual_offset;
+
+      over_return = TREE_TYPE (over_return);
+      base_return = TREE_TYPE (base_return);
       
       if (DECL_THUNK_P (fn))
 	{
@@ -2011,32 +2030,47 @@ update_vtable_entry_for_fn (tree t, tree binfo, tree fn, tree* virtuals,
 	   overriding function. We will want the vbase offset from
 	   there.  */
 	virtual_offset = binfo_for_vbase (BINFO_TYPE (virtual_offset),
-					  TREE_TYPE (over_return));
-      else if (!same_type_p (TREE_TYPE (over_return),
-			     TREE_TYPE (base_return)))
+					  over_return);
+      else if (!same_type_ignoring_top_level_qualifiers_p
+	       (over_return, base_return))
 	{
 	  /* There was no existing virtual thunk (which takes
-	     precedence).  */
-	  tree thunk_binfo;
-	  base_kind kind;
-	  
-	  thunk_binfo = lookup_base (TREE_TYPE (over_return),
-				     TREE_TYPE (base_return),
-				     ba_check | ba_quiet, &kind);
+	     precedence).  So find the binfo of the base function's
+	     return type within the overriding function's return type.
+	     We cannot call lookup base here, because we're inside a
+	     dfs_walk, and will therefore clobber the BINFO_MARKED
+	     flags.  Fortunately we know the covariancy is valid (it
+	     has already been checked), so we can just iterate along
+	     the binfos, which have been chained in inheritance graph
+	     order.  Of course it is lame that we have to repeat the
+	     search here anyway -- we should really be caching pieces
+	     of the vtable and avoiding this repeated work.  */
+	  tree thunk_binfo, base_binfo;
 
-	  if (thunk_binfo && (kind == bk_via_virtual
-			      || !BINFO_OFFSET_ZEROP (thunk_binfo)))
+	  /* Find the base binfo within the overriding function's
+	     return type.  */
+	  for (base_binfo = TYPE_BINFO (base_return),
+	       thunk_binfo = TYPE_BINFO (over_return);
+	       !SAME_BINFO_TYPE_P (BINFO_TYPE (thunk_binfo),
+				   BINFO_TYPE (base_binfo));
+	       thunk_binfo = TREE_CHAIN (thunk_binfo))
+	    continue;
+
+	  /* See if virtual inheritance is involved.  */
+	  for (virtual_offset = thunk_binfo;
+	       virtual_offset;
+	       virtual_offset = BINFO_INHERITANCE_CHAIN (virtual_offset))
+	    if (BINFO_VIRTUAL_P (virtual_offset))
+	      break;
+	  
+	  if (virtual_offset || !BINFO_OFFSET_ZEROP (thunk_binfo))
 	    {
 	      tree offset = convert (ssizetype, BINFO_OFFSET (thunk_binfo));
 
-	      if (kind == bk_via_virtual)
+	      if (virtual_offset)
 		{
-		  /* We convert via virtual base. Find the virtual
-		     base and adjust the fixed offset to be from there.  */
-		  while (!BINFO_VIRTUAL_P (thunk_binfo))
-		    thunk_binfo = BINFO_INHERITANCE_CHAIN (thunk_binfo);
-
-		  virtual_offset = thunk_binfo;
+		  /* We convert via virtual base.  Adjust the fixed
+		     offset to be from there.  */
 		  offset = size_diffop
 		    (offset, convert
 		     (ssizetype, BINFO_OFFSET (virtual_offset)));
@@ -2455,16 +2489,14 @@ maybe_add_class_template_decl_list (tree type, tree t, int friend_p)
 }
 
 /* Create default constructors, assignment operators, and so forth for
-   the type indicated by T, if they are needed.
-   CANT_HAVE_DEFAULT_CTOR, CANT_HAVE_CONST_CTOR, and
-   CANT_HAVE_CONST_ASSIGNMENT are nonzero if, for whatever reason, the
-   class cannot have a default constructor, copy constructor taking a
-   const reference argument, or an assignment operator taking a const
-   reference, respectively.  */
+   the type indicated by T, if they are needed.  CANT_HAVE_CONST_CTOR,
+   and CANT_HAVE_CONST_ASSIGNMENT are nonzero if, for whatever reason,
+   the class cannot have a default constructor, copy constructor
+   taking a const reference argument, or an assignment operator taking
+   a const reference, respectively.  */
 
 static void
 add_implicitly_declared_members (tree t, 
-                                 int cant_have_default_ctor,
 				 int cant_have_const_cctor,
 				 int cant_have_const_assignment)
 {
@@ -2517,7 +2549,7 @@ add_implicitly_declared_members (tree t,
     }
 
   /* Default constructor.  */
-  if (! TYPE_HAS_CONSTRUCTOR (t) && ! cant_have_default_ctor)
+  if (! TYPE_HAS_CONSTRUCTOR (t))
     {
       TYPE_HAS_DEFAULT_CONSTRUCTOR (t) = 1;
       CLASSTYPE_LAZY_DEFAULT_CTOR (t) = 1;
@@ -2665,7 +2697,6 @@ static void
 check_field_decl (tree field,
                   tree t,
                   int* cant_have_const_ctor,
-		  int* cant_have_default_ctor,
                   int* no_const_asn_ref,
 		  int* any_default_members)
 {
@@ -2684,8 +2715,7 @@ check_field_decl (tree field,
       for (fields = TYPE_FIELDS (type); fields; fields = TREE_CHAIN (fields))
 	if (TREE_CODE (fields) == FIELD_DECL && !DECL_C_BIT_FIELD (field))
 	  check_field_decl (fields, t, cant_have_const_ctor,
-			    cant_have_default_ctor, no_const_asn_ref,
-			    any_default_members);
+			    no_const_asn_ref, any_default_members);
     }
   /* Check members with class type for constructors, destructors,
      etc.  */
@@ -2721,10 +2751,6 @@ check_field_decl (tree field,
 
       if (!TYPE_HAS_CONST_ASSIGN_REF (type))
 	*no_const_asn_ref = 1;
-
-      if (TYPE_HAS_CONSTRUCTOR (type)
-	  && ! TYPE_HAS_DEFAULT_CONSTRUCTOR (type))
-	*cant_have_default_ctor = 1;
     }
   if (DECL_INITIAL (field) != NULL_TREE)
     {
@@ -2747,10 +2773,6 @@ check_field_decl (tree field,
      EMPTY_P
        The class is empty, i.e., contains no non-static data members.
 
-     CANT_HAVE_DEFAULT_CTOR_P
-       This class cannot have an implicitly generated default
-       constructor.
-
      CANT_HAVE_CONST_CTOR_P
        This class cannot have an implicitly generated copy constructor
        taking a const reference.
@@ -2767,7 +2789,6 @@ check_field_decl (tree field,
 
 static void
 check_field_decls (tree t, tree *access_decls,
-		   int *cant_have_default_ctor_p, 
 		   int *cant_have_const_ctor_p,
 		   int *no_const_asn_ref_p)
 {
@@ -2911,7 +2932,6 @@ check_field_decls (tree t, tree *access_decls,
 	     aggregate, initialization by a brace-enclosed list) is the
 	     only way to initialize nonstatic const and reference
 	     members.  */
-	  *cant_have_default_ctor_p = 1;
 	  TYPE_HAS_COMPLEX_ASSIGN_REF (t) = 1;
 
 	  if (! TYPE_HAS_CONSTRUCTOR (t) && CLASSTYPE_NON_AGGREGATE (t)
@@ -2959,7 +2979,6 @@ check_field_decls (tree t, tree *access_decls,
 	     aggregate, initialization by a brace-enclosed list) is the
 	     only way to initialize nonstatic const and reference
 	     members.  */
-	  *cant_have_default_ctor_p = 1;
 	  TYPE_HAS_COMPLEX_ASSIGN_REF (t) = 1;
 
 	  if (! TYPE_HAS_CONSTRUCTOR (t) && CLASSTYPE_NON_AGGREGATE (t)
@@ -2988,7 +3007,6 @@ check_field_decls (tree t, tree *access_decls,
       else
 	check_field_decl (x, t,
 			  cant_have_const_ctor_p,
-			  cant_have_default_ctor_p, 
 			  no_const_asn_ref_p,
 			  &any_default_members);
     }
@@ -3487,7 +3505,7 @@ layout_empty_base (tree binfo, tree eoc, splay_tree offsets)
   return atend;
 }
 
-/* Layout the the base given by BINFO in the class indicated by RLI.
+/* Layout the base given by BINFO in the class indicated by RLI.
    *BASE_ALIGN is a running maximum of the alignments of
    any base class.  OFFSETS gives the location of empty base
    subobjects.  T is the most derived type.  Return nonzero if the new
@@ -4014,25 +4032,21 @@ type_requires_array_cookie (tree type)
 static void
 check_bases_and_members (tree t)
 {
-  /* Nonzero if we are not allowed to generate a default constructor
-     for this case.  */
-  int cant_have_default_ctor;
   /* Nonzero if the implicitly generated copy constructor should take
      a non-const reference argument.  */
   int cant_have_const_ctor;
-  /* Nonzero if the the implicitly generated assignment operator
+  /* Nonzero if the implicitly generated assignment operator
      should take a non-const reference argument.  */
   int no_const_asn_ref;
   tree access_decls;
 
   /* By default, we use const reference arguments and generate default
      constructors.  */
-  cant_have_default_ctor = 0;
   cant_have_const_ctor = 0;
   no_const_asn_ref = 0;
 
   /* Check all the base-classes.  */
-  check_bases (t, &cant_have_default_ctor, &cant_have_const_ctor,
+  check_bases (t, &cant_have_const_ctor,
 	       &no_const_asn_ref);
 
   /* Check all the method declarations.  */
@@ -4043,7 +4057,6 @@ check_bases_and_members (tree t)
      as check_field_decls depends on TYPE_HAS_NONTRIVIAL_DESTRUCTOR
      being set appropriately.  */
   check_field_decls (t, &access_decls,
-		     &cant_have_default_ctor,
 		     &cant_have_const_ctor,
 		     &no_const_asn_ref);
 
@@ -4068,7 +4081,7 @@ check_bases_and_members (tree t)
     |= TYPE_HAS_ASSIGN_REF (t) || TYPE_CONTAINS_VPTR_P (t);
 
   /* Synthesize any needed methods.  */
-  add_implicitly_declared_members (t, cant_have_default_ctor,
+  add_implicitly_declared_members (t,
 				   cant_have_const_ctor,
 				   no_const_asn_ref);
 
@@ -5098,6 +5111,7 @@ finish_struct (tree t, tree attributes)
 
       finish_struct_methods (t);
       TYPE_SIZE (t) = bitsize_zero_node;
+      TYPE_SIZE_UNIT (t) = size_zero_node;
 
       /* We need to emit an error message if this type was used as a parameter
 	 and it is an abstract type, even if it is a template. We construct
@@ -7666,8 +7680,8 @@ build_rtti_vtbl_entries (tree binfo, vtbl_init_data* vid)
   *vid->last_init = build_tree_list (NULL_TREE, init);
   vid->last_init = &TREE_CHAIN (*vid->last_init);
 
-  /* Add the offset-to-top entry.  It comes earlier in the vtable that
-     the the typeinfo entry.  Convert the offset to look like a
+  /* Add the offset-to-top entry.  It comes earlier in the vtable than
+     the typeinfo entry.  Convert the offset to look like a
      function pointer, so that we can put it in the vtable.  */
   init = build_nop (vfunc_ptr_type_node, offset);
   *vid->last_init = build_tree_list (NULL_TREE, init);

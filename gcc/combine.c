@@ -1276,7 +1276,7 @@ can_combine_p (rtx insn, rtx i3, rtx pred ATTRIBUTE_UNUSED, rtx succ,
 
 	  /* If the clobber represents an earlyclobber operand, we must not
 	     substitute an expression containing the clobbered register.
-	     As we do not analyse the constraint strings here, we have to
+	     As we do not analyze the constraint strings here, we have to
 	     make the conservative assumption.  However, if the register is
 	     a fixed hard reg, the clobber cannot represent any operand;
 	     we leave it up to the machine description to either accept or
@@ -11886,7 +11886,6 @@ distribute_notes (rtx notes, rtx from_insn, rtx i3, rtx i2)
 	    }
 	  break;
 
-	case REG_ALWAYS_RETURN:
 	case REG_NORETURN:
 	case REG_SETJMP:
 	  /* These notes must remain with the call.  It should not be

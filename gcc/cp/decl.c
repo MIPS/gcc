@@ -1913,7 +1913,8 @@ redeclaration_error_message (tree newdecl, tree olddecl)
       /* If this is a pure function, its olddecl will actually be
 	 the original initialization to `0' (which we force to call
 	 abort()).  Don't complain about redefinition in this case.  */
-      if (DECL_LANG_SPECIFIC (olddecl) && DECL_PURE_VIRTUAL_P (olddecl))
+      if (DECL_LANG_SPECIFIC (olddecl) && DECL_PURE_VIRTUAL_P (olddecl)
+	  && DECL_INITIAL (olddecl) == NULL_TREE)
 	return 0;
 
       /* If both functions come from different namespaces, this is not
@@ -4175,6 +4176,7 @@ reshape_init (tree type, tree *initp)
   tree old_init_value;
   tree new_init;
   bool brace_enclosed_p;
+  bool string_init_p;
 
   old_init = *initp;
   old_init_value = (TREE_CODE (*initp) == TREE_LIST
@@ -4238,6 +4240,7 @@ reshape_init (tree type, tree *initp)
       return old_init;
     }
 
+  string_init_p = false;
   if (TREE_CODE (old_init_value) == STRING_CST
       && TREE_CODE (type) == ARRAY_TYPE
       && char_type_p (TYPE_MAIN_VARIANT (TREE_TYPE (type))))
@@ -4252,6 +4255,7 @@ reshape_init (tree type, tree *initp)
       /* Move past the initializer.  */
       *initp = TREE_CHAIN (old_init);
       TREE_CHAIN (old_init) = NULL_TREE;
+      string_init_p = true;
     }
   else
     {
@@ -4358,7 +4362,7 @@ reshape_init (tree type, tree *initp)
     {
       if (brace_enclosed_p)
 	error ("too many initializers for %qT", type);
-      else if (warn_missing_braces)
+      else if (warn_missing_braces && !string_init_p)
 	warning ("missing braces around initializer");
     }
 
@@ -4748,9 +4752,6 @@ cp_finish_decl (tree decl, tree init, tree asmspec_tree, int flags)
   if (type == error_mark_node)
     goto finish_end;
 
-  if (TYPE_HAS_MUTABLE_P (type))
-    TREE_READONLY (decl) = 0;
-
   if (processing_template_decl)
     {
       /* Add this declaration to the statement-tree.  */
@@ -4797,16 +4798,13 @@ cp_finish_decl (tree decl, tree init, tree asmspec_tree, int flags)
     ttype = target_type (type);
 
 
-  /* Currently, GNU C++ puts constants in text space, making them
-     impossible to initialize.  In the future, one would hope for
-     an operating system which understood the difference between
-     initialization and the running of a program.  */
-  if (! DECL_EXTERNAL (decl) && TREE_READONLY (decl))
+  /* A reference will be modified here, as it is initialized.  */
+  if (! DECL_EXTERNAL (decl) 
+      && TREE_READONLY (decl)
+      && TREE_CODE (type) == REFERENCE_TYPE)
     {
       was_readonly = 1;
-      if (TYPE_NEEDS_CONSTRUCTING (type)
-	  || TREE_CODE (type) == REFERENCE_TYPE)
-	TREE_READONLY (decl) = 0;
+      TREE_READONLY (decl) = 0;
     }
 
   if (TREE_CODE (decl) == VAR_DECL)
@@ -5929,8 +5927,7 @@ grokvardecl (tree type,
 	 declare an entity with linkage.
 
 	 Only check this for public decls for now.  */
-      tree t1 = TREE_TYPE (decl);
-      tree t = no_linkage_check (t1, /*relaxed_p=*/false);
+      tree t = no_linkage_check (TREE_TYPE (decl), /*relaxed_p=*/false);
       if (t)
 	{
 	  if (TYPE_ANONYMOUS_P (t))
@@ -5938,31 +5935,26 @@ grokvardecl (tree type,
 	      if (DECL_EXTERN_C_P (decl))
 		/* Allow this; it's pretty common in C.  */
 		  ;
-	      else if (same_type_ignoring_top_level_qualifiers_p(t1, t))
-	        /* This is something like "enum { a = 3 } x;", which is
-		   well formed.  The enum doesn't have "a name with no
-		   linkage", because it has no name.  See closed CWG issue
-		   132.
-
-		   Note that while this construct is well formed in C++03
-		   it is likely to become ill formed in C++0x.  See open
-		   CWG issue 389 and related issues.  */
-		;
 	      else
 		{
-		  /* It's a typedef referring to an anonymous type.  */
-		  pedwarn ("non-local variable %q#D uses anonymous type",
+		  /* DRs 132, 319 and 389 seem to indicate types with
+		     no linkage can only be used to declare extern "C"
+		     entities.  Since it's not always an error in the
+		     ISO C++ 90 Standard, we only issue a warning.  */
+		  warning ("non-local variable %q#D uses anonymous type",
 			   decl);
 		  if (DECL_ORIGINAL_TYPE (TYPE_NAME (t)))
-		    cp_pedwarn_at ("%q#D does not refer to the unqualified "
-                                   "type, so it is not used for linkage",
+		    cp_warning_at ("%q#D does not refer to the unqualified "
+				   "type, so it is not used for linkage",
 				   TYPE_NAME (t));
 		}
 	    }
 	  else
-	    pedwarn ("non-local variable %q#D uses local type %qT", decl, t);
+	    warning ("non-local variable %q#D uses local type %qT", decl, t);
 	}
     }
+  else
+    DECL_INTERFACE_KNOWN (decl) = 1;
 
   return decl;
 }
@@ -6930,6 +6922,20 @@ grokdeclarator (const cp_declarator *declarator,
     error ("qualifiers are not allowed on declaration of %<operator %T%>",
            ctor_return_type);
 
+  if (TREE_CODE (type) == FUNCTION_TYPE 
+      && type_quals != TYPE_UNQUALIFIED)
+    {
+      /* This was an error in C++98 (cv-qualifiers cannot be added to
+         a function type), but DR 295 makes the code well-formed by
+         dropping the extra qualifiers. */
+      if (pedantic)
+        {
+          tree bad_type = build_qualified_type (type, type_quals);
+          pedwarn ("ignoring %qV qualifiers added to function type %qT",
+                   bad_type, type);
+        }
+      type_quals = TYPE_UNQUALIFIED;
+    }
   type_quals |= cp_type_quals (type);
   type = cp_build_qualified_type_real
     (type, type_quals, ((typedef_decl && !DECL_ARTIFICIAL (typedef_decl)
@@ -7291,6 +7297,7 @@ grokdeclarator (const cp_declarator *declarator,
 	      }
 
 	    type = build_function_type (type, arg_types);
+            type = cp_build_qualified_type (type, quals);
 	  }
 	  break;
 
@@ -7323,7 +7330,15 @@ grokdeclarator (const cp_declarator *declarator,
 	      && (TREE_CODE (type) == FUNCTION_TYPE
 		  || (quals && TREE_CODE (type) == METHOD_TYPE)))
 	    {
-	      tree dummy = build_decl (TYPE_DECL, NULL_TREE, type);
+	      tree dummy;
+	      
+              /* If the type is a FUNCTION_TYPE, pick up the
+                 qualifiers from that function type. No other
+                 qualifiers may be supplied. */
+              if (TREE_CODE (type) == FUNCTION_TYPE)
+                quals = cp_type_quals (type);
+
+	      dummy = build_decl (TYPE_DECL, NULL_TREE, type);
 	      grok_method_quals (declarator->u.pointer.class_type,
 				 dummy, quals);
 	      type = TREE_TYPE (dummy);
@@ -7347,6 +7362,9 @@ grokdeclarator (const cp_declarator *declarator,
 			 declarator->u.pointer.class_type);
 		  type = build_pointer_type (type);
 		}
+	      else if (declarator->u.pointer.class_type == error_mark_node)
+		/* We will already have complained.  */
+		type = error_mark_node;
 	      else
 		type = build_ptrmem_type (declarator->u.pointer.class_type,
 					  type);
@@ -7617,11 +7635,12 @@ grokdeclarator (const cp_declarator *declarator,
 	{
 	  if (ctype == NULL_TREE)
 	    {
-	      if (TREE_CODE (type) != METHOD_TYPE)
-		error ("%Jinvalid type qualifier for non-member function type",
-		       decl);
-	      else
+              if (TREE_CODE (type) == METHOD_TYPE)
 		ctype = TYPE_METHOD_BASETYPE (type);
+              /* Any qualifiers on a function type typedef have
+                 already been dealt with. */
+              else if (TREE_CODE (type) == FUNCTION_TYPE)
+                quals = TYPE_UNQUALIFIED;
 	    }
 	  if (ctype != NULL_TREE)
 	    grok_method_quals (ctype, decl, quals);
@@ -7664,6 +7683,23 @@ grokdeclarator (const cp_declarator *declarator,
 	}
 
       parms = nreverse (decls);
+
+      if (decl_context != TYPENAME)
+        {
+          /* A cv-qualifier-seq shall only be part of the function type
+             for a non-static member function. [8.3.5/4 dcl.fct] */ 
+          if (cp_type_quals (type) != TYPE_UNQUALIFIED
+              && (current_class_type == NULL_TREE || staticp) )
+            {
+              error ("qualified function types cannot be used to declare %s functions",
+                     (staticp? "static member" : "free"));
+              type = TYPE_MAIN_VARIANT (type);
+            }
+          
+          /* The qualifiers on the function type become the qualifiers on
+             the non-static member function. */
+          quals |= cp_type_quals (type);
+        }
     }
 
   /* If this is a type name (such as, in a cast or sizeof),
@@ -8199,7 +8235,7 @@ grokdeclarator (const cp_declarator *declarator,
        when processing a template; we'll do this for the instantiated
        declaration based on the type of DECL.  */
     if (!processing_template_decl)
-      c_apply_type_quals_to_decl (type_quals, decl);
+      cp_apply_type_quals_to_decl (type_quals, decl);
 
     return decl;
   }
@@ -9983,7 +10019,7 @@ start_preparsed_function (tree decl1, tree attrs, int flags)
       DECL_IGNORED_P (resdecl) = 1;
       DECL_RESULT (decl1) = resdecl;
 
-      c_apply_type_quals_to_decl (cp_type_quals (restype), resdecl);
+      cp_apply_type_quals_to_decl (cp_type_quals (restype), resdecl);
     }
 
   /* Initialize RTL machinery.  We cannot do this until
@@ -10906,9 +10942,11 @@ complete_vars (tree type)
       if (same_type_p (type, TREE_PURPOSE (*list)))
 	{
 	  tree var = TREE_VALUE (*list);
+	  tree type = TREE_TYPE (var);
 	  /* Complete the type of the variable.  The VAR_DECL itself
 	     will be laid out in expand_expr.  */
-	  complete_type (TREE_TYPE (var));
+	  complete_type (type);
+	  cp_apply_type_quals_to_decl (cp_type_quals (type), var);
 	  /* Remove this entry from the list.  */
 	  *list = TREE_CHAIN (*list);
 	}
@@ -11077,7 +11115,22 @@ cxx_comdat_group (tree decl)
   /* For all other DECLs, the COMDAT group is the mangled name of the
      declaration itself.  */
   else
-    name = DECL_ASSEMBLER_NAME (decl);
+    {
+      while (DECL_THUNK_P (decl))
+	{
+	  /* If TARGET_USE_LOCAL_THUNK_ALIAS_P, use_thunk puts the thunk
+	     into the same section as the target function.  In that case
+	     we must return target's name.  */
+	  tree target = THUNK_TARGET (decl);
+	  if (TARGET_USE_LOCAL_THUNK_ALIAS_P (target)
+	      && DECL_SECTION_NAME (target) != NULL
+	      && DECL_ONE_ONLY (target))
+	    decl = target;
+	  else
+	    break;
+	}
+      name = DECL_ASSEMBLER_NAME (decl);
+    }
 
   return IDENTIFIER_POINTER (name);
 }

@@ -1516,8 +1516,12 @@ extern int split_branch_probability;
 extern rtx split_insns (rtx, rtx);
 
 /* In simplify-rtx.c  */
+extern rtx simplify_const_unary_operation (enum rtx_code, enum machine_mode,
+					   rtx, enum machine_mode);
 extern rtx simplify_unary_operation (enum rtx_code, enum machine_mode, rtx,
 				     enum machine_mode);
+extern rtx simplify_const_binary_operation (enum rtx_code, enum machine_mode,
+					    rtx, rtx);
 extern rtx simplify_binary_operation (enum rtx_code, enum machine_mode, rtx,
 				      rtx);
 extern rtx simplify_ternary_operation (enum rtx_code, enum machine_mode,
@@ -2019,7 +2023,7 @@ extern rtx move_by_pieces (rtx, rtx, unsigned HOST_WIDE_INT,
 			   unsigned int, int);
 
 /* In flow.c */
-extern void recompute_reg_usage (rtx, int);
+extern void recompute_reg_usage (void);
 extern int initialize_uninitialized_subregs (void);
 extern void delete_dead_jumptables (void);
 extern void print_rtl_with_bb (FILE *, rtx);
@@ -2095,8 +2099,7 @@ enum libcall_type
   LCT_PURE_MAKE_BLOCK = 4,
   LCT_NORETURN = 5,
   LCT_THROW = 6,
-  LCT_ALWAYS_RETURN = 7,
-  LCT_RETURNS_TWICE = 8
+  LCT_RETURNS_TWICE = 7
 };
 
 extern void emit_library_call (rtx, enum libcall_type, enum machine_mode, int,

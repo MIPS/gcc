@@ -269,7 +269,7 @@ int flag_pcc_struct_return = DEFAULT_PCC_STRUCT_RETURN;
    1 means wide ranges of inputs must work for complex divide.
    2 means C99-like requirements for complex multiply and divide.  */
 
-int flag_complex_method = 0;
+int flag_complex_method = 1;
 
 /* Nonzero means that we don't want inlining by virtue of -fno-inline,
    not just because the tree inliner turned us off.  */
@@ -1948,14 +1948,16 @@ process_options (void)
   /* The presence of IEEE signaling NaNs, implies all math can trap.  */
   if (flag_signaling_nans)
     flag_trapping_math = 1;
+
+  /* With -fcx-limited-range, we do cheap and quick complex arithmetic.  */
+  if (flag_cx_limited_range)
+    flag_complex_method = 0;
 }
 
 /* Initialize the compiler back end.  */
 static void
 backend_init (void)
 {
-  init_adjust_machine_modes ();
-
   init_emit_once (debug_info_level == DINFO_LEVEL_NORMAL
 		  || debug_info_level == DINFO_LEVEL_VERBOSE
 #ifdef VMS_DEBUGGING_INFO
@@ -2092,6 +2094,11 @@ do_compile (void)
   /* Don't do any more if an error has already occurred.  */
   if (!errorcount)
     {
+      /* This must be run always, because it is needed to compute the FP
+	 predefined macros, such as __LDBL_MAX__, for targets using non
+	 default FP formats.  */
+      init_adjust_machine_modes ();
+
       /* Set up the back-end if requested.  */
       if (!no_backend)
 	backend_init ();

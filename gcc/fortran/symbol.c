@@ -179,8 +179,7 @@ gfc_merge_new_implicit (gfc_typespec * ts)
 }
 
 
-/* Given a symbol, return a pointer to the typespec for it's default
-   type.  */
+/* Given a symbol, return a pointer to the typespec for its default type.  */
 
 gfc_typespec *
 gfc_get_default_type (gfc_symbol * sym, gfc_namespace * ns)
@@ -214,9 +213,12 @@ gfc_set_default_type (gfc_symbol * sym, int error_flag, gfc_namespace * ns)
 
   if (ts->type == BT_UNKNOWN)
     {
-      if (error_flag)
-	gfc_error ("Symbol '%s' at %L has no IMPLICIT type", sym->name,
-		   &sym->declared_at);
+      if (error_flag && !sym->attr.untyped)
+	{
+	  gfc_error ("Symbol '%s' at %L has no IMPLICIT type",
+		     sym->name, &sym->declared_at);
+	  sym->attr.untyped = 1; /* Ensure we only give an error once.  */
+	}
 
       return FAILURE;
     }
@@ -483,9 +485,9 @@ check_used (symbol_attribute * attr, const char * name, locus * where)
 
 
 /* Used to prevent changing the attributes of a symbol after it has been
-   used.  This check is only done from dummy variable as only these can be
+   used.  This check is only done for dummy variables as only these can be
    used in specification expressions.  Applying this to all symbols causes
-   error when we reach the body of a contained function.  */
+   an error when we reach the body of a contained function.  */
 
 static int
 check_done (symbol_attribute * attr, locus * where)
@@ -684,7 +686,7 @@ gfc_add_dummy (symbol_attribute * attr, const char *name, locus * where)
   if (check_used (attr, name, where))
     return FAILURE;
 
-  /* Duplicate dummy arguments are allow due to ENTRY statements.  */
+  /* Duplicate dummy arguments are allowed due to ENTRY statements.  */
   attr->dummy = 1;
   return check_conflict (attr, name, where);
 }
@@ -836,7 +838,7 @@ gfc_add_generic (symbol_attribute * attr, const char *name, locus * where)
 }
 
 
-/* Flavors are special because some flavors are not what fortran
+/* Flavors are special because some flavors are not what Fortran
    considers attributes and can be reaffirmed multiple times.  */
 
 try
@@ -1102,7 +1104,7 @@ gfc_copy_attr (symbol_attribute * dest, symbol_attribute * src, locus * where)
     goto fail;
 
   /* The subroutines that set these bits also cause flavors to be set,
-     and that has already happened in the original, so don't let to
+     and that has already happened in the original, so don't let it
      happen again.  */
   if (src->external)
     dest->external = 1;
@@ -1147,7 +1149,7 @@ gfc_add_component (gfc_symbol * sym, const char *name, gfc_component ** componen
       tail = p;
     }
 
-  /* Allocate new component */
+  /* Allocate a new component.  */
   p = gfc_get_component ();
 
   if (tail == NULL)
@@ -1155,7 +1157,7 @@ gfc_add_component (gfc_symbol * sym, const char *name, gfc_component ** componen
   else
     tail->next = p;
 
-  strcpy (p->name, name);
+  p->name = gfc_get_string (name);
   p->loc = gfc_current_locus;
 
   *component = p;
@@ -1194,20 +1196,23 @@ switch_types (gfc_symtree * st, gfc_symbol * from, gfc_symbol * to)
    have to have a derived type in a parent unit.  We find the node in
    the other namespace and point the symtree node in this namespace to
    that node.  Further reference to this name point to the correct
-   node.  If we can't find the node in a parent namespace, then have
+   node.  If we can't find the node in a parent namespace, then we have
    an error.
 
    This subroutine takes a pointer to a symbol node and returns a
    pointer to the translated node or NULL for an error.  Usually there
    is no translation and we return the node we were passed.  */
 
-static gfc_symtree *
-gfc_use_ha_derived (gfc_symbol * sym)
+gfc_symbol *
+gfc_use_derived (gfc_symbol * sym)
 {
   gfc_symbol *s, *p;
   gfc_typespec *t;
   gfc_symtree *st;
   int i;
+
+  if (sym->components != NULL)
+    return sym;               /* Already defined.  */
 
   if (sym->ns->parent == NULL)
     goto bad;
@@ -1251,28 +1256,12 @@ gfc_use_ha_derived (gfc_symbol * sym)
      namelists, common lists and interface lists.  */
   gfc_free_symbol (sym);
 
-  return st;
+  return s;
 
 bad:
   gfc_error ("Derived type '%s' at %C is being used before it is defined",
 	     sym->name);
   return NULL;
-}
-
-
-gfc_symbol *
-gfc_use_derived (gfc_symbol * sym)
-{
-  gfc_symtree *st;
-
-  if (sym->components != NULL)
-    return sym;			/* Already defined */
-
-  st = gfc_use_ha_derived (sym);
-  if (st)
-    return st->n.sym;
-  else
-    return NULL;
 }
 
 
@@ -1534,7 +1523,7 @@ done:
    the internal subprograms must be read before we can start
    generating code for the host.
 
-   Given the tricky nature of the fortran grammar, we must be able to
+   Given the tricky nature of the Fortran grammar, we must be able to
    undo changes made to a symbol table if the current interpretation
    of a statement is found to be incorrect.  Whenever a symbol is
    looked up, we make a copy of it and link to it.  All of these
@@ -1545,10 +1534,11 @@ done:
    this case, that symbol has been used as a host associated variable
    at some previous time.  */
 
-/* Allocate a new namespace structure.  */
+/* Allocate a new namespace structure.  Copies the implicit types from
+   PARENT if PARENT_TYPES is set.  */
 
 gfc_namespace *
-gfc_get_namespace (gfc_namespace * parent)
+gfc_get_namespace (gfc_namespace * parent, int parent_types)
 {
   gfc_namespace *ns;
   gfc_typespec *ts;
@@ -1570,7 +1560,7 @@ gfc_get_namespace (gfc_namespace * parent)
       ns->set_flag[i - 'a'] = 0;
       ts = &ns->default_type[i - 'a'];
 
-      if (ns->parent != NULL)
+      if (parent_types && ns->parent != NULL)
 	{
 	  /* Copy parent settings */
 	  *ts = ns->parent->default_type[i - 'a'];
@@ -1623,7 +1613,7 @@ gfc_new_symtree (gfc_symtree ** root, const char *name)
   gfc_symtree *st;
 
   st = gfc_getmem (sizeof (gfc_symtree));
-  strcpy (st->name, name);
+  st->name = gfc_get_string (name);
 
   gfc_insert_bbt (root, st, compare_symtree);
   return st;
@@ -1639,7 +1629,7 @@ delete_symtree (gfc_symtree ** root, const char *name)
 
   st0 = gfc_find_symtree (*root, name);
 
-  strcpy (st.name, name);
+  st.name = gfc_get_string (name);
   gfc_delete_bbt (root, &st, compare_symtree);
 
   gfc_free (st0);
@@ -1684,7 +1674,7 @@ gfc_get_uop (const char *name)
   st = gfc_new_symtree (&gfc_current_ns->uop_root, name);
 
   uop = st->n.uop = gfc_getmem (sizeof (gfc_user_op));
-  strcpy (uop->name, name);
+  uop->name = gfc_get_string (name);
   uop->access = ACCESS_UNKNOWN;
   uop->ns = gfc_current_ns;
 
@@ -1753,7 +1743,7 @@ gfc_new_symbol (const char *name, gfc_namespace * ns)
   if (strlen (name) > GFC_MAX_SYMBOL_LEN)
     gfc_internal_error ("new_symbol(): Symbol name too long");
 
-  strcpy (p->name, name);
+  p->name = gfc_get_string (name);
   return p;
 }
 
@@ -1764,7 +1754,7 @@ static void
 ambiguous_symbol (const char *name, gfc_symtree * st)
 {
 
-  if (st->n.sym->module[0])
+  if (st->n.sym->module)
     gfc_error ("Name '%s' at %C is an ambiguous reference to '%s' "
 	       "from module '%s'", name, st->n.sym->name, st->n.sym->module);
   else
@@ -2257,7 +2247,7 @@ void
 gfc_symbol_init_2 (void)
 {
 
-  gfc_current_ns = gfc_get_namespace (NULL);
+  gfc_current_ns = gfc_get_namespace (NULL, 0);
 }
 
 
@@ -2372,7 +2362,7 @@ gfc_symbol_state(void) {
 /* Search a tree for the global symbol.  */
 
 gfc_gsymbol *
-gfc_find_gsymbol (gfc_gsymbol *symbol, char *name)
+gfc_find_gsymbol (gfc_gsymbol *symbol, const char *name)
 {
   gfc_gsymbol *s;
 
@@ -2409,7 +2399,7 @@ gsym_compare (void * _s1, void * _s2)
 /* Get a global symbol, creating it if it doesn't exist.  */
 
 gfc_gsymbol *
-gfc_get_gsymbol (char *name)
+gfc_get_gsymbol (const char *name)
 {
   gfc_gsymbol *s;
 

@@ -65,7 +65,6 @@ typedef struct priority_info_s {
 
 static void mark_vtable_entries (tree);
 static bool maybe_emit_vtables (tree);
-static tree build_anon_union_vars (tree);
 static bool acceptable_java_type (tree);
 static tree start_objects (int, int);
 static void finish_objects (int, int, tree);
@@ -299,7 +298,7 @@ grokclassfn (tree ctype, tree function, enum overload_flags flags,
       this_quals |= TYPE_QUAL_CONST;
       qual_type = cp_build_qualified_type (type, this_quals);
       parm = build_artificial_parm (this_identifier, qual_type);
-      c_apply_type_quals_to_decl (this_quals, parm);
+      cp_apply_type_quals_to_decl (this_quals, parm);
       TREE_CHAIN (parm) = DECL_ARGUMENTS (function);
       DECL_ARGUMENTS (function) = parm;
     }
@@ -878,7 +877,16 @@ grokfield (const cp_declarator *declarator,
 	value = push_template_decl (value);
 
       if (attrlist)
-	cplus_decl_attributes (&value, attrlist, 0);
+	{
+	  /* Avoid storing attributes in template parameters:
+	     tsubst is not ready to handle them.  */
+	  tree type = TREE_TYPE (value);
+	  if (TREE_CODE (type) == TEMPLATE_TYPE_PARM
+	      || TREE_CODE (type) == BOUND_TEMPLATE_TEMPLATE_PARM)
+	    sorry ("applying attributes to template parameters is not implemented");
+	  else
+	    cplus_decl_attributes (&value, attrlist, 0);
+	}
 
       return value;
     }
@@ -1063,14 +1071,13 @@ cplus_decl_attributes (tree *decl, tree attributes, int flags)
     SET_IDENTIFIER_TYPE_VALUE (DECL_NAME (*decl), TREE_TYPE (*decl));
 }
 
-/* Walks through the namespace- or function-scope anonymous union OBJECT,
-   building appropriate ALIAS_DECLs.  Returns one of the fields for use in
-   the mangled name.  */
+/* Walks through the namespace- or function-scope anonymous union
+   OBJECT, with the indicated TYPE, building appropriate ALIAS_DECLs.
+   Returns one of the fields for use in the mangled name.  */
 
 static tree
-build_anon_union_vars (tree object)
+build_anon_union_vars (tree type, tree object)
 {
-  tree type = TREE_TYPE (object);
   tree main_decl = NULL_TREE;
   tree field;
 
@@ -1118,7 +1125,7 @@ build_anon_union_vars (tree object)
 	  decl = pushdecl (decl);
 	}
       else if (ANON_AGGR_TYPE_P (TREE_TYPE (field)))
-	decl = build_anon_union_vars (ref);
+	decl = build_anon_union_vars (TREE_TYPE (field), ref);
       else
 	decl = 0;
 
@@ -1158,7 +1165,7 @@ finish_anon_union (tree anon_union_decl)
       return;
     }
 
-  main_decl = build_anon_union_vars (anon_union_decl);
+  main_decl = build_anon_union_vars (type, anon_union_decl);
   if (main_decl == NULL_TREE)
     {
       warning ("anonymous union with no members");
@@ -2430,7 +2437,7 @@ do_static_initialization (tree decl, tree init)
   if (init)
     finish_expr_stmt (init);
 
-  /* If we're using __cxa_atexit, register a a function that calls the
+  /* If we're using __cxa_atexit, register a function that calls the
      destructor for the object.  */
   if (flag_use_cxa_atexit)
     finish_expr_stmt (register_dtor_fn (decl));
@@ -3161,9 +3168,20 @@ mark_used (tree decl)
       && DECL_ARTIFICIAL (decl) 
       && !DECL_THUNK_P (decl)
       && ! DECL_INITIAL (decl)
-      /* Kludge: don't synthesize for default args.  */
+      /* Kludge: don't synthesize for default args.  Unfortunately this
+	 rules out initializers of namespace-scoped objects too, but
+	 it's sort-of ok if the implicit ctor or dtor decl keeps
+	 pointing to the class location.  */
       && current_function_decl)
     {
+      /* Put the function definition at the position where it is needed,
+	 rather than within the body of the class.  That way, an error
+	 during the generation of the implicit body points at the place
+	 where the attempt to generate the function occurs, giving the
+	 user a hint as to why we are attempting to generate the
+	 function.  */
+      DECL_SOURCE_LOCATION (decl) = input_location;
+
       synthesize_method (decl);
       /* If we've already synthesized the method we don't need to
 	 instantiate it, so we can return right away.  */

@@ -408,7 +408,8 @@ typedef struct
 
   unsigned in_namelist:1, in_common:1;
   unsigned function:1, subroutine:1, generic:1;
-  unsigned implicit_type:1;	/* Type defined via implicit rules */
+  unsigned implicit_type:1;	/* Type defined via implicit rules.  */
+  unsigned untyped:1;           /* No implicit type could be found.  */
 
   /* Function/subroutine attributes */
   unsigned sequence:1, elemental:1, pure:1, recursive:1;
@@ -539,7 +540,7 @@ gfc_array_spec;
 /* Components of derived types.  */
 typedef struct gfc_component
 {
-  char name[GFC_MAX_SYMBOL_LEN + 1];
+  const char *name;
   gfc_typespec ts;
 
   int pointer, dimension;
@@ -570,7 +571,7 @@ gfc_formal_arglist;
 /* The gfc_actual_arglist structure is for actual arguments.  */
 typedef struct gfc_actual_arglist
 {
-  char name[GFC_MAX_SYMBOL_LEN + 1];
+  const char *name;
   /* Alternate return label when the expr member is null.  */
   struct gfc_st_label *label;
 
@@ -635,7 +636,7 @@ gfc_interface;
 /* User operator nodes.  These are like stripped down symbols.  */
 typedef struct
 {
-  char name[GFC_MAX_SYMBOL_LEN + 1];
+  const char *name;
 
   gfc_interface *operator;
   struct gfc_namespace *ns;
@@ -651,8 +652,8 @@ gfc_user_op;
 
 typedef struct gfc_symbol
 {
-  char name[GFC_MAX_SYMBOL_LEN + 1];	/* Primary name, before renaming */
-  char module[GFC_MAX_SYMBOL_LEN + 1];	/* Module this symbol came from */
+  const char *name;	/* Primary name, before renaming */
+  const char *module;	/* Module this symbol came from */
   locus declared_at;
 
   gfc_typespec ts;
@@ -743,7 +744,7 @@ gfc_entry_list;
 typedef struct gfc_symtree
 {
   BBT_HEADER (gfc_symtree);
-  char name[GFC_MAX_SYMBOL_LEN + 1];
+  const char *name;
   int ambiguous;
   union
   {
@@ -1002,7 +1003,7 @@ gfc_resolve_f;
 
 typedef struct gfc_intrinsic_sym
 {
-  char name[GFC_MAX_SYMBOL_LEN + 1], lib_name[GFC_MAX_SYMBOL_LEN + 1];
+  const char *name, *lib_name;
   gfc_intrinsic_arg *formal;
   gfc_typespec ts;
   int elemental, pure, generic, specific, actual_ok, standard;
@@ -1043,15 +1044,11 @@ typedef struct gfc_expr
   int rank;
   mpz_t *shape;		/* Can be NULL if shape is unknown at compile time */
 
-  gfc_intrinsic_op operator;
-
   /* Nonnull for functions and structure constructors */
   gfc_symtree *symtree;
 
-  gfc_user_op *uop;
   gfc_ref *ref;
 
-  struct gfc_expr *op1, *op2;
   locus where;
 
   union
@@ -1066,6 +1063,14 @@ typedef struct gfc_expr
       mpfr_t r, i;
     }
     complex;
+
+    struct
+    {
+      gfc_intrinsic_op operator;
+      gfc_user_op *uop;
+      struct gfc_expr *op1, *op2;
+    }
+    op;
 
     struct
     {
@@ -1551,6 +1556,7 @@ void gfc_arith_done_1 (void);
 int gfc_validate_kind (bt, int, bool);
 extern int gfc_index_integer_kind;
 extern int gfc_default_integer_kind;
+extern int gfc_max_integer_kind;
 extern int gfc_default_real_kind;
 extern int gfc_default_double_kind;
 extern int gfc_default_character_kind;
@@ -1619,7 +1625,7 @@ void gfc_free_st_label (gfc_st_label *);
 void gfc_define_st_label (gfc_st_label *, gfc_sl_type, locus *);
 try gfc_reference_st_label (gfc_st_label *, gfc_sl_type);
 
-gfc_namespace *gfc_get_namespace (gfc_namespace *);
+gfc_namespace *gfc_get_namespace (gfc_namespace *, int);
 gfc_symtree *gfc_new_symtree (gfc_symtree **, const char *);
 gfc_symtree *gfc_find_symtree (gfc_symtree *, const char *);
 gfc_user_op *gfc_get_uop (const char *);
@@ -1649,8 +1655,8 @@ void gfc_save_all (gfc_namespace *);
 
 void gfc_symbol_state (void);
 
-gfc_gsymbol *gfc_get_gsymbol (char *);
-gfc_gsymbol *gfc_find_gsymbol (gfc_gsymbol *, char *);
+gfc_gsymbol *gfc_get_gsymbol (const char *);
+gfc_gsymbol *gfc_find_gsymbol (gfc_gsymbol *, const char *);
 
 /* intrinsic.c */
 extern int gfc_init_expr;
@@ -1659,7 +1665,7 @@ extern int gfc_init_expr;
    by placing it into a special module that is otherwise impossible to
    read or write.  */
 
-#define gfc_intrinsic_symbol(SYM) strcpy (SYM->module, "(intrinsic)")
+#define gfc_intrinsic_symbol(SYM) SYM->module = gfc_get_string ("(intrinsic)")
 
 void gfc_intrinsic_init_1 (void);
 void gfc_intrinsic_done_1 (void);

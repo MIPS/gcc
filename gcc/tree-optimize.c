@@ -212,7 +212,7 @@ static struct tree_opt_pass pass_init_datastructures =
 static void
 register_one_dump_file (struct tree_opt_pass *pass, int n)
 {
-  char *dot_name, *flag_name;
+  char *dot_name, *flag_name, *glob_name;
   char num[10];
 
   /* See below in next_pass_1.  */
@@ -225,13 +225,15 @@ register_one_dump_file (struct tree_opt_pass *pass, int n)
   if (pass->properties_provided & PROP_trees)
     {
       flag_name = concat ("tree-", pass->name, num, NULL);
-      pass->static_pass_number = dump_register (dot_name, flag_name,
+      glob_name = concat ("tree-", pass->name, NULL);
+      pass->static_pass_number = dump_register (dot_name, flag_name, glob_name,
                                                 TDF_TREE, n + TDI_tree_all, 0);
     }
   else
     {
       flag_name = concat ("rtl-", pass->name, num, NULL);
-      pass->static_pass_number = dump_register (dot_name, flag_name,
+      glob_name = concat ("rtl-", pass->name, NULL);
+      pass->static_pass_number = dump_register (dot_name, flag_name, glob_name,
                                                 TDF_RTL, n, pass->letter);
     }
 }
@@ -345,7 +347,6 @@ init_tree_optimization_passes (void)
 
   p = &pass_all_optimizations.sub;
   NEXT_PASS (pass_referenced_vars);
-  NEXT_PASS (pass_maybe_create_global_var);
   NEXT_PASS (pass_build_ssa);
   NEXT_PASS (pass_may_alias);
   NEXT_PASS (pass_rename_ssa_copies);
@@ -362,6 +363,10 @@ init_tree_optimization_passes (void)
   NEXT_PASS (pass_ch);
   NEXT_PASS (pass_profile);
   NEXT_PASS (pass_sra);
+  /* FIXME: SRA may generate arbitrary gimple code, exposing new
+     aliased and call-clobbered variables.  As mentioned below,
+     pass_may_alias should be a TODO item.  */
+  NEXT_PASS (pass_may_alias);
   NEXT_PASS (pass_rename_ssa_copies);
   NEXT_PASS (pass_dominator);
   NEXT_PASS (pass_redundant_phi);
@@ -658,7 +663,7 @@ tree_rest_of_compilation (tree fndecl)
   bitmap_obstack_initialize (NULL);
   bitmap_obstack_initialize (&reg_obstack); /* FIXME, only at RTL generation*/
   
-  vars_to_rename = BITMAP_XMALLOC ();
+  vars_to_rename = BITMAP_ALLOC (NULL);
   
   /* Perform all tree transforms and optimizations.  */
   execute_pass_list (all_passes);

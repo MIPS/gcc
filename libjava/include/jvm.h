@@ -278,6 +278,7 @@ private:
 
 public:
 
+  static bool has_field_p (jclass, _Jv_Utf8Const *);
   static void print_class_loaded (jclass);
   static void resolve_class_ref (jclass, jclass *);
   static void wait_for_state(jclass, int);
@@ -521,6 +522,9 @@ extern void _Jv_JNI_Init (void);
 /* Get or set the per-thread JNIEnv used by the invocation API.  */
 _Jv_JNIEnv *_Jv_GetCurrentJNIEnv ();
 void _Jv_SetCurrentJNIEnv (_Jv_JNIEnv *);
+
+/* Free a JNIEnv. */
+void _Jv_FreeJNIEnv (_Jv_JNIEnv *);
 
 /* Free a JNIEnv. */
 void _Jv_FreeJNIEnv (_Jv_JNIEnv *);

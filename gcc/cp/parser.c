@@ -9580,7 +9580,7 @@ cp_parser_simple_type_specifier (cp_parser* parser,
    typedef-name:
      identifier
 
-   Returns a TYPE_DECL for the the type.  */
+   Returns a TYPE_DECL for the type.  */
 
 static tree
 cp_parser_type_name (cp_parser* parser)
@@ -11107,15 +11107,8 @@ cp_parser_direct_declarator (cp_parser* parser,
 		bounds = fold_non_dependent_expr (bounds);
 	      /* Normally, the array bound must be an integral constant
 		 expression.  However, as an extension, we allow VLAs
-		 in function scopes.  And, we allow type-dependent
-		 expressions in templates; sometimes we don't know for
-		 sure whether or not something is a valid integral
-		 constant expression until instantiation time.  (It
-		 doesn't make sense to check for value-dependency, as
-		 an expression is only value-dependent when it is a
-		 constant expression.)  */  
-	      else if (!type_dependent_expression_p (bounds)
-		       && !at_function_scope_p ())
+		 in function scopes.  */  
+	      else if (!at_function_scope_p ())
 		{
 		  error ("array bound is not an integer constant");
 		  bounds = error_mark_node;
@@ -12849,9 +12842,17 @@ cp_parser_class_head (cp_parser* parser,
     CLASSTYPE_DECLARED_CLASS (type) = (class_key == class_type);
   cp_parser_check_class_key (class_key, type);
 
+  /* If this type was already complete, and we see another definition,
+     that's an error.  */
+  if (type != error_mark_node && COMPLETE_TYPE_P (type))
+    {
+      error ("redefinition of %q#T", type);
+      cp_error_at ("previous definition of %q#T", type);
+      type = error_mark_node;
+    }
+
   /* We will have entered the scope containing the class; the names of
-     base classes should be looked up in that context.  For example,
-     given:
+     base classes should be looked up in that context.  For example:
 
        struct A { struct B {}; struct C; };
        struct A::C : B {};
@@ -14332,7 +14333,7 @@ cp_parser_lookup_name (cp_parser *parser, tree name,
 	     lookup_member, we must enter the scope here.  */
 	  if (dependent_p)
 	    pushed_scope = push_scope (parser->scope);
-	  /* If the PARSER->SCOPE is a a template specialization, it
+	  /* If the PARSER->SCOPE is a template specialization, it
 	     may be instantiated during name lookup.  In that case,
 	     errors may be issued.  Even if we rollback the current
 	     tentative parse, those errors are valid.  */
@@ -15286,9 +15287,10 @@ cp_parser_late_parsing_for_member (cp_parser* parser, tree member_function)
       tokens = DECL_PENDING_INLINE_INFO (member_function);
       DECL_PENDING_INLINE_INFO (member_function) = NULL;
       DECL_PENDING_INLINE_P (member_function) = 0;
-      /* If this was an inline function in a local class, enter the scope
-	 of the containing function.  */
-      function_scope = decl_function_context (member_function);
+      
+      /* If this is a local class, enter the scope of the containing
+	 function.  */
+      function_scope = current_function_decl;
       if (function_scope)
 	push_function_context_to (function_scope);
 
