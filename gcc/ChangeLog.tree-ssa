@@ -1,5 +1,11 @@
 2003-01-29  Diego Novillo  <dnovillo@redhat.com>
 
+	* Makefile.in (ssa.o): Add dependency on $(TIMEVAR_H).
+	* timevar.def (TV_DOM_FRONTIERS): Define.
+	* ssa.c (compute_dominance_frontiers): Use.
+
+2003-01-29  Diego Novillo  <dnovillo@redhat.com>
+
 	* tree-ssa-dce.c (remove_dead_stmt): Fix uninitialized use
 	warning.
 

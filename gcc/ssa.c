@@ -50,6 +50,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "basic-block.h"
 #include "output.h"
 #include "ssa.h"
+#include "timevar.h"
 
 /* TODO:
 
@@ -582,6 +583,9 @@ compute_dominance_frontiers (frontiers, idom)
 {
   basic_block bb, *cached_idoms;
   sbitmap done = sbitmap_alloc (last_basic_block);
+
+  timevar_push (TV_DOM_FRONTIERS);
+
   sbitmap_vector_zero (frontiers, last_basic_block);
   sbitmap_zero (done);
 
@@ -594,6 +598,8 @@ compute_dominance_frontiers (frontiers, idom)
 
   free (cached_idoms);
   sbitmap_free (done);
+
+  timevar_pop (TV_DOM_FRONTIERS);
 }
 
 /* Computing the Iterated Dominance Frontier:
