@@ -923,8 +923,7 @@ expand_stmt_toplev (tree t)
 /* Determine whether expression EXP contains a potentially
    reachable label.  */
 tree
-find_reachable_label (exp)
-     tree exp;
+find_reachable_label (tree exp)
 {
   location_t saved_loc = input_location;
   tree ret = walk_tree (&exp, find_reachable_label_1, NULL, NULL);
