@@ -1,3 +1,9 @@
+2004-11-28  James A. Morrison  <ja2morri@csclub.uwaterloo.ca>
+
+	PR ada/18302
+	* ada/acats/run_all.sh (target_run): Run test through run_test.expect.
+	* ada/acats/run_test.expect: Expect script for ACATS tests.
+
 2005-01-25  Paolo Bonzini  <bonzini@gnu.org>
 
 	* gcc.dg/i386-ssefn-1.c, gcc.dg/i386-ssefn-2.c, gcc.dg/i386-ssefn-3.c,
