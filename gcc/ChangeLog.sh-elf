@@ -1,3 +1,25 @@
+2004-06-17  J"orn Rennecke <joern.rennecke@superh.com>
+
+	* config.gcc: Properly set sh_multilibs for sh64*.  Merge
+	sh*-*-netbsd* configurations into sh-elf configurations.
+	* config/sh/elf.h (SUBTARGET_ASM_ISA_SPEC): Use ASM_ISA_DEFAULT_SPEC.
+	* config/sh/netbsd-elf.h: Update code which sets TARGET_VERSION_CPU.
+	(LINK_DEFAULT_CPU_EMUL): Don't redefine.
+	(NO_PROFILE_COUNTERS): Define to 1.
+	* config/sh/sh.h (ASM_ISA_SPEC_DEFAULT, ASM_ISA_DEFAULT_SPEC):  Define.
+	* config/sh/sh64.h (ASM_SPEC, LINK_DEFAULT_CPU_EMUL): Don't redefine.
+	(TARGET_DEFAULT): Likewise.
+	* config/sh/t-netbsd (MULTILIB_OPTIONS): Don't append to.
+	(MULTILIB_DIRNAMES, MULTILIB_MATCHES, MULTILIB_EXCEPTIONS): Don't zap.
+	* config/sh/t-netbsd-sh5-64 (MULTILIB_OPTIONS): Don't redefine.
+	(MULTILIB_MATCHES): Don't zap.
+	(MULTILIB_DIRNAMES): Use MULTILIB_RAW_DIRNAMES.
+	* config/sh/t-sh64 (MULTILIB_OPTIONS): Don't redefine.
+	(MULTILIB_MATCHES, MULTILIB_EXCEPTIONS): Don't zap.
+	(MULTILIB_RAW_DIRNAMES): Define.
+	(MULTILIB_DIRNAMES): Use it.
+	* config/sh/t-netbsd-sh5, config/sh/t-le, config/sh/t-le: Delete.
+
 2004-06-16  Kaz Kojima  <kkojima@gcc.gnu.org>
 
 	* config/sh/t-linux (MULTILIB_OPTIONS): Remove.

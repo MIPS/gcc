@@ -1684,7 +1684,9 @@ s390x-ibm-tpf*)
 	tmake_file="t-slibgcc-elf-ver s390/t-crtstuff s390/t-tpf"
 	;;
 sh-*-elf* | sh[12346l]*-*-elf* | sh*-*-kaos* | \
-  sh-*-linux* | sh[346lbe]*-*-linux*)
+  sh-*-linux* | sh[346lbe]*-*-linux* | \
+  sh-*-netbsdelf* | shl*-*-netbsdelf* | sh5-*-netbsd* | sh5l*-*-netbsd* | \
+   sh64-*-netbsd* | sh64l*-*-netbsd*)
 	tmake_file="${tmake_file} sh/t-sh sh/t-elf"
 	if test x${with_endian} = x; then
 		case ${target} in
@@ -1692,7 +1694,7 @@ sh-*-elf* | sh[12346l]*-*-elf* | sh*-*-kaos* | \
 		shbe-*-* | sheb-*-*)		   with_endian=big,little ;;
 		sh[1234]l* | sh[34]*-*-linux*)	   with_endian=little ;;
 		shl* | sh64l* | sh*-*-linux* | \
-		  sh-superh-elf)		   with_endian=little,big ;;
+		  sh5l* | sh-superh-elf)	   with_endian=little,big ;;
 		sh[1234]*-*-*)			   with_endian=big ;;
 		*)				   with_endian=big,little ;;
 		esac
@@ -1705,15 +1707,32 @@ sh-*-elf* | sh[12346l]*-*-elf* | sh*-*-kaos* | \
 	case ${with_endian} in
 	little*)	tm_file="sh/little.h ${tm_file}" ;;
 	esac
-	tm_file="${tm_file} dbxelf.h elfos.h svr4.h sh/elf.h"
+	tm_file="${tm_file} dbxelf.h elfos.h"
+	case ${target} in
+	sh*-*-netbsd*)	;;
+	*)		tm_file="${tm_file} svr4.h" ;;
+	esac
+	tm_file="${tm_file} sh/elf.h"
 	case ${target} in
 	sh*-*-linux*)	tmake_file="${tmake_file} sh/t-linux"
 			tm_file="${tm_file} sh/linux.h" ;;
 	sh*-*-kaos*)	tm_file="${tm_file} sh/embed-elf.h kaos.h sh/kaos-sh.h"
 			;;
+	sh*-*-netbsd*)	tm_file="${tm_file} netbsd.h netbsd-elf.h sh/netbsd-elf.h" ;;
 	*)		tm_file="${tm_file} sh/embed-elf.h" ;;
 	esac
 	case ${target} in
+	sh5*-*-netbsd*)
+		# SHmedia, 32-bit ABI
+		tmake_file="${tmake_file} sh/t-sh64 sh/t-netbsd"
+		;;
+	sh64*-netbsd*)
+		# SHmedia, 64-bit ABI
+		tmake_file="${tmake_file} sh/t-sh64 sh/t-netbsd sh/t-netbsd-sh5-64"
+		;;
+	*-*-netbsd)
+                tmake_file="${tmake_file} sh/t-netbsd"
+		;;
 	sh64*)
 		tmake_file="${tmake_file} sh/t-sh64"
 		tm_file="${tm_file} sh/sh64.h"
@@ -1722,13 +1741,14 @@ sh-*-elf* | sh[12346l]*-*-elf* | sh*-*-kaos* | \
 	esac
 	# sed el/eb endian suffixes away to avoid confusion with sh[23]e
 	case `echo ${target} | sed 's/e[lb]-/-/'` in
-	sh64*)			sh_cpu_target=sh5-32media ;;
+	sh64*-*-netbsd*)	sh_cpu_target=sh5-64media ;;
+	sh64* | sh5*-*-netbsd*)	sh_cpu_target=sh5-32media ;;
 	sh4_single_only*)	sh_cpu_target=sh4-single-only ;;
 	sh4_single*)		sh_cpu_target=sh4-single ;;
 	sh4_nofpu*)		sh_cpu_target=sh4-nofpu ;;
 	sh4* | sh-superh-*)	sh_cpu_target=sh4 ;;
 	sh3e*)			sh_cpu_target=sh3e ;;
-	sh3*)			sh_cpu_target=sh3 ;;
+	sh*-*-netbsd* | sh3*)	sh_cpu_target=sh3 ;;
 	sh2e*)			sh_cpu_target=sh2e ;;
 	sh2*)			sh_cpu_target=sh2 ;;
 	*)			sh_cpu_target=sh1 ;;
@@ -1746,8 +1766,10 @@ sh-*-elf* | sh[12346l]*-*-elf* | sh*-*-kaos* | \
 	if test x${sh_multilibs} = x ; then
 		case ${target} in
 		sh[1234]*)	sh_multilibs=${sh_cpu_target} ;;
+		sh64* | sh5*)	sh_multilibs=m5-32media,m5-32media-nofpu,m5-compact,m5-compact-nofpu,m5-64media,m5-64media-nofpu ;;
 		sh-superh-*)	sh_multilibs=m4,m4-single,m4-single-only,m4-nofpu ;;
 		sh*-*-linux*)	sh_multilibs=m1,m3e,m4 ;;
+		sh*-*-netbsd*)	sh_multilibs=m3,m3e,m4 ;;
 		*) sh_multilibs=m1,m2,m2e,m4,m4-single,m4-single-only ;;
 		esac
 	fi
@@ -1782,39 +1804,6 @@ sh-*-rtemscoff*)
 sh-*-rtems*)
 	tmake_file="sh/t-sh sh/t-elf t-rtems"
 	tm_file="${tm_file} dbxelf.h elfos.h svr4.h sh/elf.h sh/embed-elf.h sh/rtemself.h rtems.h"
-	;;
-sh-*-netbsdelf* | shl*-*-netbsdelf* | sh5-*-netbsd* | sh5l*-*-netbsd* | \
-  sh64-*-netbsd* | sh64l*-*-netbsd*)
-	tm_file="${tm_file} dbxelf.h elfos.h sh/elf.h netbsd.h netbsd-elf.h sh/netbsd-elf.h"
-	tmake_file="${tmake_file} sh/t-sh sh/t-elf"
-	case ${target} in
-	sh*l*-*)
-		tm_file="sh/little.h ${tm_file}"
-		tmake_file="${tmake_file} sh/t-le"
-		;;
-	*)
-		tmake_file="${tmake_file} sh/t-be"
-		;;
-	esac
-	case ${target} in
-	sh5*-*)
-		# SHmedia, 32-bit ABI
-		# ??? This used to also set the SH3_BIT?
-		target_cpu_default="SELECT_SH5_32MEDIA"
-		tmake_file="${tmake_file} sh/t-sh64 sh/t-netbsd-sh5"
-		;;
-	sh64*-*)
-		# SHmedia, 64-bit ABI
-		target_cpu_default="SELECT_SH5_64MEDIA"
-		tmake_file="${tmake_file} sh/t-sh64 sh/t-netbsd-sh5 sh/t-netbsd-sh5-64"
-		;;
-	*)
-		# SH3, software floating point
-		target_cpu_default="SELECT_SH3"
-		tmake_file="${tmake_file} sh/t-netbsd"
-		;;
-	esac
-	tm_defines=${tm_defines}' SH_MULTILIB_CPU_DEFAULT={\"'`echo $target_cpu_default|sed s/SELECT_SH/m/|tr A-Z_ a-z-`'\"'
 	;;
 sh-wrs-vxworks)
 	tmake_file="$tmake_file sh/t-sh sh/t-elf sh/t-vxworks"

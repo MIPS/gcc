@@ -511,11 +511,20 @@ extern int target_flags;
 #if TARGET_CPU_DEFAULT & SH5_BIT
 #if TARGET_CPU_DEFAULT & SH_E_BIT
 #define LINK_DEFAULT_CPU_EMUL "32"
+#if TARGET_CPU_DEFAULT & SH1_BIT
+#define ASM_ISA_SPEC_DEFAULT "--isa=SHcompact"
 #else
+#define ASM_ISA_SPEC_DEFAULT "--isa=SHmedia --abi=32"
+#endif /* SH1_BIT */
+#else /* !SH_E_BIT */
 #define LINK_DEFAULT_CPU_EMUL "64"
+#define ASM_ISA_SPEC_DEFAULT "--isa=SHmedia --abi=64"
 #endif /* SH_E_BIT */
-#else
+#define ASM_ISA_DEFAULT_SPEC \
+" %{!m1:%{!m2*:%{!m3*:%{!m4*:%{!m5*:" ASM_ISA_SPEC_DEFAULT "}}}}}"
+#else /* !SH5_BIT */
 #define LINK_DEFAULT_CPU_EMUL ""
+#define ASM_ISA_DEFAULT_SPEC ""
 #endif /* SH5_BIT */
 
 #define SUBTARGET_LINK_EMUL_SUFFIX ""
