@@ -1440,7 +1440,7 @@ vect_can_force_dr_alignment_p (tree decl, unsigned int alignment)
        PREFERRED_STACK_BOUNDARY is honored by all translation units.
        However, until someone implements forced stack alignment, SSE
        isn't really usable without this.  */   
-    return (alignment <= PREFERRED_STACK_BOUNDARY);
+    return (alignment <= (unsigned int) PREFERRED_STACK_BOUNDARY);
 }
 
 

@@ -1,3 +1,9 @@
+2004-08-25  Sebastian Pop  <pop@cri.ensmp.fr>
+
+	* tree-vectorizer.c (vect_can_force_dr_alignment_p):
+	Temporarily cast PREFERRED_STACK_BOUNDARY to unsigned, until
+	the next merge.
+
 2004-08-23  Dorit Naishlos <dorit@il.ibm.com>
 
         * tree-vectorizer.h (struct _loop_vec_info): Field num_iters is now
