@@ -1,3 +1,21 @@
+2004-08-14  Michael Koch  <konqueror@gmx.de>
+
+	* javax/swing/text/PlainView.java
+	(selectedColor): New field.
+	(unselectedColor): Likewise.
+	(font): Likewise.
+	(updateMetrics): New method.
+	(lineToRect): Likewise.
+	(modelToView): Likewise.
+	(drawSelectedText): Use color from JTextComponent ad draw with
+	Utilities class.
+	(drawUnselectedText): Likewise.
+	(paint): Initialize helper fields.
+	* javax/swing/text/View.java
+	(getChildAllocation): New method.
+	(getViewIndex): Likewise.
+	(getToolTipText): Likewise.
+
 2004-08-13  Michael Koch  <konqueror@gmx.de>
 
 	* javax/swing/text/Utilities.java
