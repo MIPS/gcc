@@ -68,7 +68,7 @@ VERS=`sed -n -e '/version_string/s/.*\"\([^ \"]*\)[ \"].*/\1/p' \
 
 # This isn't a parameter either, it's the major version of the compiler
 # to be built.  It's VERS but only up to the second '.' (if there is one).
-MAJ_VERS=`echo $VERS | sed 's/\([0-9]*\.[0-9]*\)\..*/\1/'`
+MAJ_VERS=`echo $VERS | sed 's/\([0-9]*\.[0-9]*\)[.-].*/\1/'`
 
 ########################################
 # Run the build.
