@@ -1,3 +1,18 @@
+2003-04-23  Jeff Law  <law@redhat.com>
+
+	* tree-ssa.c (struct def_blocks_d): Add new field phi_insertion_points.
+	(compute_global_livein): Accept varray rather than bitmaps.  Callers
+	updated.  Rewrite to compute global life information for all the
+	objects in the varray in parallel.
+	(insert_phis_for_deferred_variables): New function.
+	(insert_phi_nodes_for): New argument DEF_MAPs.  When an object
+	crosses the threshold for using fully pruned PHI insertions,
+	push it on the def_maps varray for deferred processing.
+	(insert_phi_nodes): Initialize def_maps.  Pass it to
+	insert_phi_nodes_for.  Drain the def_maps varray as it grows.
+	Also drain any residual objects in def_maps.  Zero def_maps
+	when complete.
+
 2003-04-21  Jeff Law  <law@redhat.com>
 
 	* tree-cfg.c (find_contained_blocks_and_edge_targets): New function.
