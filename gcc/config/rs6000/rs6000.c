@@ -4157,6 +4157,10 @@ function_arg_padding (mode, type)
 	return upward;
     }
 
+  /* SFmode parameters are padded upwards.  */
+  if (mode == SFmode)
+    return upward;
+
   /* This is the default definition.  */
   return (! BYTES_BIG_ENDIAN
 	  ? upward
