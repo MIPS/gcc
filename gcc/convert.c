@@ -79,7 +79,7 @@ strip_float_extensions (exp)
 {
   tree sub, expt, subt;
 
-  /*  For floatingg point constant look up the narrowest type that can hold
+  /*  For floating point constant look up the narrowest type that can hold
       it properly and handle it like (type)(narrowest_type)constant.
       This way we can optimize for instance a=a*2.0 where "a" is float
       but 2.0 is double constant.  */
@@ -186,16 +186,16 @@ convert_to_real (type, expr)
 	       || fcode == BUILT_IN_NEARBYINT)
 	      && (TYPE_MODE (type) == TYPE_MODE (float_type_node)))))
     {
-      tree arg0 = strip_float_extensions (TREE_VALUE (TREE_OPERAND (expr, 1)));
-      tree newtype = type;
-      tree arglist;
       tree fn = mathfn_built_in (type, fcode);
+
       if (fn)
 	{
-	  arglist = build_tree_list (NULL_TREE, fold (convert_to_real (newtype, arg0)));
-	  expr = build_function_call_expr (fn, arglist);
-	  if (newtype == type)
-	    return expr;
+	  tree arg0 = strip_float_extensions (TREE_VALUE (TREE_OPERAND (expr,
+					  				1)));
+	  tree arglist = build_tree_list (NULL_TREE,
+			  		  fold (convert_to_real (type, arg0)));
+
+	  return build_function_call_expr (fn, arglist);
 	}
     }
 

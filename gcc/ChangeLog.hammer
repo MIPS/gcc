@@ -1,3 +1,7 @@
+Sun Jan 26 15:44:39 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+	* convert.c:  Fix merge differences.
+
 2003-01-25  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* config/i386/i386-protos.h (function_arg_pass_by_reference): Declare.
@@ -7,7 +11,7 @@
 
 Thu Jan 23 16:52:55 CET 2003  Jan Hubicka  <jh@suse.cz>
 
-	* Merge from mainline (hammer-3_3-merge-20032301 tag.)
+	* Merge from 3.3-branch (hammer-3_3-merge-20032301 tag.)
 
 2003-01-16  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
@@ -15,7 +19,7 @@ Thu Jan 23 16:52:55 CET 2003  Jan Hubicka  <jh@suse.cz>
 
 Sun Jan 12 15:17:43 CET 2003  Jan Hubicka  <jh@suse.cz>
 
-	* Merge from mainline (hammer-3_3-merge-20031201 tag.)
+	* Merge from 3.3-branch (hammer-3_3-merge-20031201 tag.)
 
 Sat Jan 11 21:06:53 CET 2003  Jan Hubicka  <jh@suse.cz>
 
