@@ -1,3 +1,13 @@
+2004-09-02  Olga Golovanevsky <olga@il.ibm.com>
+
+	* tree-vectorizer.c (get_phi_node_for_def): Removed.
+	(update_phi_nodes_for_guard, tree_duplicate_loop_to_edge_cfg): Updated.
+	(tree_duplicate_loop_to_edge): Updated.
+	(vect_generate_tmps_on_preheader): Treating also case of constant. 
+	(vect_transform_loop): Treating also case of constant 
+	non-divisibale by VF.
+	(vect_analyze_operations): Remove redundant check.
+
 2004-09-02  Daniel Berlin  <dberlin@dberlin.org>
 	
 	* lambda-code.c (gcc_loop_to_lambda_loop): Handle GT_EXPR and GE_EXPR.

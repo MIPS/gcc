@@ -224,9 +224,8 @@ static void copy_phi_nodes (struct loop *loop, struct loop *new_loop,
 			    bool after);
 static void update_phis_for_duplicate_loop (struct loop *loop,
 					    struct loop *new_loop, bool after);
-static tree get_phi_node_for_def (tree def, basic_block bb);
-static void update_phi_nodes_for_guard (edge entry_e, edge exit_e, edge skip_e,
-					edge skip_cousin_e);
+static void update_phi_nodes_for_guard (edge guard_true_edge, 
+					struct loop * loop);  
 static void make_loop_iterate_ntimes (struct loop *loop, tree niters,
 				      tree begin_label, tree exit_label);
 static struct loop *tree_duplicate_loop_to_edge_cfg (struct loop *loop, 
@@ -509,78 +508,60 @@ update_phis_for_duplicate_loop (struct loop *loop,
 
 }
 
+/* Update PHI nodes for a guard of the LOOP.   
 
-static tree
-get_phi_node_for_def (tree def, basic_block bb)
-{
-  tree phi;
+   LOOP is supposed to have preheader bb at which guard condition is located.
+   The true edge of this condition skips the LOOP and ends 
+   at destination of only LOOP exit. Loop exit bb is suppose to be empty 
+   (created by this transformation) bb with one successor. 
+   
+   This function creates phi nodes at LOOP exit bb. These phis need to be 
+   created as a result of adding true edge comming from guard. 
+   
+   FORNOW: Only phis for which there are phi nodes at the header of the LOOP
+   are created. Here we use the assumption that after the LOOP there is no 
+   uses of defs generated in LOOP.  
+   
+   After the phis creation, function updates values of phi nodes from 
+   the LOOP exit successor bb.  */
 
-  for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
-    if (SSA_NAME_VAR (PHI_RESULT (phi)) == SSA_NAME_VAR (def))
-      return phi;
-      
-  return NULL_TREE;
-}
-
-
-/* Update PHI nodes for a guard.  ENTRY_E is the edge on which we
-   have the PHI nodes for the entry to the guarded area, EXIT_E is
-   edge having the PHI nodes of the exit from the guarded area.
-   SKIP_E is the skip edge.  We assume that SKIP_E->dest has exactly
-   one additional predecessor edge.  */
 static void
-update_phi_nodes_for_guard (edge entry_e, edge exit_e, edge skip_e,
-		            edge skip_cousin_e)
+update_phi_nodes_for_guard (edge guard_true_edge, struct loop * loop)  
 {
-  tree phi_x, phi_e;
-  basic_block exit_bb = exit_e->dest;
-  basic_block entry_bb = entry_e->dest;
+  tree phi, phi1;
 
-  /* Go over the PHI nodes of the ENTRY_BB comming from ENTRY_E, search for
-     definitions of the same variable (not SSA name) in EXIT_BB comming from
-     EXIT_E, if found add a new PHI with a new ssa_name to SKIP_E->dist
-     with def equal to the one on ENTRY_E and with edge equal to SKIP_E,
-     then update the EXIT_E PHI arg to be the result of the newly
-     created PHI.  */
-  for (phi_e = phi_nodes (entry_bb); phi_e; phi_e = TREE_CHAIN (phi_e))
+  for (phi = phi_nodes (loop->header); phi; phi = TREE_CHAIN (phi))
       {
-      tree new_phi;
-      int phi_arg;
+	tree new_phi;
+	tree phi_arg;
   
-      /* Now find the PHI node of the definition.  */
+	/* Generate new phi node.  */
+	new_phi = create_phi_node (SSA_NAME_VAR (PHI_RESULT (phi)), 
+			           loop->exit_edges[0]->dest);
 
-      phi_x = get_phi_node_for_def (PHI_RESULT (phi_e), exit_bb);
-  
-      if (!phi_x)
-      	continue;
-  
-      /* We know that phi_e results reaches on skip edge and
-         phi_x result reaches on the other edge.
-         NOTE: in the below case create_phi_node creates
-         a new SSA name for the PHI result.  */
-      new_phi = get_phi_node_for_def (PHI_RESULT (phi_e), skip_e->dest);
-      if (!new_phi)
-        new_phi = create_phi_node (SSA_NAME_VAR (PHI_RESULT (phi_e)), 
-			           skip_e->dest);			           
-      if ((phi_arg = phi_arg_from_edge (phi_e, entry_e)) < 0)
-  	continue;
+	/* Add argument comming from guard true edge.  */
+	phi_arg = PHI_ARG_DEF_FROM_EDGE (phi, loop->entry_edges[0]);
+	add_phi_arg (&new_phi, phi_arg, guard_true_edge);
+
+	/* Add argument comming from loop exit edge.  */
+	phi_arg = PHI_ARG_DEF_FROM_EDGE (phi, loop->latch->succ);			           
+	add_phi_arg (&new_phi, phi_arg, loop->exit_edges[0]);
       
-      add_phi_arg (&new_phi, PHI_ARG_DEF (phi_e, phi_arg), skip_e);
-  
-      if (exit_e == skip_cousin_e)
-        continue;
-
-      if ((phi_arg = phi_arg_from_edge (phi_x, exit_e)) < -1)
-        continue;
-      add_phi_arg (&new_phi, PHI_ARG_DEF (phi_x, phi_arg), skip_cousin_e);
-
-      /* Now change the PHI arg reaching on EXIT_E to be the result
-         of the new PHI.  */
-      SET_USE (PHI_ARG_DEF_PTR (phi_x, phi_arg),
-	       PHI_RESULT (new_phi));
-    }       
+	/* Update all phi nodes at the loop exit successor.  */
+	for (phi1 = phi_nodes (loop->exit_edges[0]->dest->succ->dest); phi1; phi1 = TREE_CHAIN (phi1))
+	  {
+	    tree old_arg; 
+ 
+	    old_arg = PHI_ARG_DEF_FROM_EDGE (phi1, loop->exit_edges[0]->dest->succ);
+	    if (old_arg == phi_arg)
+	      {	
+		
+		SET_PHI_ARG_DEF (phi1, phi_arg_from_edge (phi1, loop->exit_edges[0]->dest->succ),
+				 PHI_RESULT (new_phi)); 
+	      }
+	  }
+      }       
 }
-
 
 /* Make the LOOP iterate niter times, it does so by adding a new IV
    that starts at zero bumbed by one and its limit is niters.  */
@@ -648,6 +629,9 @@ tree_duplicate_loop_to_edge_cfg (struct loop *loop, struct loops *loops, edge e)
   unsigned i, nexit_edges, n = loop->num_nodes;
   bool at_exit;
   edge *exit_edges;
+  bool was_imm_dom;
+  basic_block exit_dest; 
+  tree phi, phi_arg;
 
   exit_edges = get_loop_exit_edges (loop, &nexit_edges);
   if (nexit_edges != 1)
@@ -700,6 +684,11 @@ tree_duplicate_loop_to_edge_cfg (struct loop *loop, struct loops *loops, edge e)
       return NULL;
     }
 
+  exit_dest = exit_edges[0]->dest;
+  was_imm_dom = (get_immediate_dominator 
+		       (CDI_DOMINATORS, exit_dest) == loop->header ? 
+		       true : false);
+
   new_bbs = xmalloc (sizeof (basic_block) * loop->num_nodes);
 
   copy_bbs (bbs, n, new_bbs, NULL, 0, NULL, NULL);
@@ -716,11 +705,30 @@ tree_duplicate_loop_to_edge_cfg (struct loop *loop, struct loops *loops, edge e)
       free (bbs);
       return NULL;
     }
- 
+
+  /* Duplicating phi args at exit bbs as comming 
+     also from exit of duplicated loop.  */
+  for (phi = phi_nodes (exit_dest); phi; phi = TREE_CHAIN (phi))
+    {
+      phi_arg = PHI_ARG_DEF_FROM_EDGE (phi, exit_edges[0]);
+      if (phi_arg)
+	{
+	  edge new_loop_exit_edge;
+	  if (new_loop->header->succ->dest == new_loop->latch)
+	    new_loop_exit_edge = new_loop->header->succ->succ_next;
+	  else
+	    new_loop_exit_edge = new_loop->header->succ;
+  
+	  add_phi_arg (&phi, phi_arg, new_loop_exit_edge);	
+	}
+    }    
+         
   if (at_exit) /* Add the loop copy at exit.  */
     {
       redirect_edge_and_branch_force (e, new_loop->header);
       set_immediate_dominator (CDI_DOMINATORS, new_loop->header, e->src);
+      if (was_imm_dom)
+	set_immediate_dominator (CDI_DOMINATORS, exit_dest, new_loop->header);
     }
   else /* Add the copy at entry.  */
     {
@@ -849,7 +857,7 @@ tree_duplicate_loop_to_edge (struct loop *loop, struct loops *loops,
   tree pre_condition;
   bitmap definitions;
   tree first_loop_begin, first_loop_exit;
-  basic_block exit_bb;
+  basic_block exit_bb, new_bb;
   basic_block pre_header_bb;
 
   if (any_marked_for_rewrite_p ())
@@ -872,6 +880,10 @@ tree_duplicate_loop_to_edge (struct loop *loop, struct loops *loops,
   /* 1. Generate a copy of LOOP and put it on E (entry or exit).  */
   if (!(new_loop = tree_duplicate_loop_to_edge_cfg (loop, loops, e)))
     return NULL;
+
+  /* There is need to initialize cfg_hooks. Then when calling 
+   cfg_hooks->split_edge the function tree_split_edge is actually called.  */
+  tree_register_cfg_hooks ();
 
   /* Get all the definitions that happen inside the loop.  */
   definitions = marked_ssa_names ();
@@ -933,17 +945,21 @@ tree_duplicate_loop_to_edge (struct loop *loop, struct loops *loops,
   exit_e = exit_bb->pred;
   pre_header_bb = split_edge (entry_e);
   add_bb_to_loop (pre_header_bb, first_loop->outer);
+  flow_loop_scan (first_loop, LOOP_ALL);
 
   new_e = add_loop_guard_on_edge (pre_header_bb, pre_condition, exit_e);
-  update_phi_nodes_for_guard (loop_preheader_edge (first_loop),
-  			      loop_preheader_edge (second_loop), new_e, exit_e);
+  update_phi_nodes_for_guard (new_e, first_loop);
   flow_loop_scan (first_loop, LOOP_ALL);
   flow_loop_scan (second_loop, LOOP_ALL);
   /* Build the guard for intering the second loop - put it on exit
-     from the first loop. The guard is always the exit condition of the
-     first loop.  */
-  entry_e = exit_bb->succ;
-  exit_e = get_loop_exit_edges (second_loop, &nexit_edges) [0];  
+     from the first loop.  */
+
+  /* Generate empty bb at the exit from the second loop.  */
+  exit_e = get_loop_exit_edges (second_loop, &nexit_edges) [0];
+  new_bb = split_edge (exit_e);
+  add_bb_to_loop (new_bb, second_loop->outer);
+  flow_loop_scan (second_loop, LOOP_ALL);
+  exit_e = get_loop_exit_edges (second_loop, &nexit_edges) [0];
 
   /* If FIRST_NITERS == NITERS SKIP second loop.  */
   pre_condition = build (EQ_EXPR, boolean_type_node,
@@ -951,7 +967,7 @@ tree_duplicate_loop_to_edge (struct loop *loop, struct loops *loops,
 
   /* pre_condition = invert_truthvalue (COND_EXPR_COND (cond_stmt)); */
   new_e = add_loop_guard_on_edge (exit_bb, pre_condition, exit_e);
-  update_phi_nodes_for_guard (entry_e, exit_e, new_e, exit_e);
+  update_phi_nodes_for_guard (new_e, second_loop);
   flow_loop_scan (first_loop, LOOP_ALL);
   flow_loop_scan (second_loop, LOOP_ALL);
 
@@ -2468,8 +2484,17 @@ vect_generate_tmps_on_preheader (loop_vec_info loop_vinfo, tree *ni_name_p,
   ni = LOOP_VINFO_SYMB_NUM_OF_ITERS(loop_vinfo);
   var = create_tmp_var (TREE_TYPE (ni), "niters");
   add_referenced_tmp_var (var);
+  if (TREE_CODE (ni) == INTEGER_CST)
+    {
+      /* This case is generated when treating a known loop bound 
+	 non-divisible by VF. This we cannot use force_gimple_operand.  */
+      stmt = build (MODIFY_EXPR, void_type_node, var, ni);
+      ni_name = make_ssa_name (var, stmt);
+      TREE_OPERAND (stmt, 0) = ni_name;
+    }
+  else
+      ni_name = force_gimple_operand (ni, &stmt, false, var);
 
-  ni_name = force_gimple_operand (ni, &stmt, false, var);
   pe = loop_preheader_edge (loop);
   new_bb = bsi_insert_on_edge_immediate (pe, stmt);
   if (new_bb)
@@ -2814,6 +2839,23 @@ vect_transform_loop (loop_vec_info loop_vinfo, struct loops *loops)
       vect_transform_for_unknown_loop_bound (loop_vinfo, &ratio, loops);
     }
 
+  /* FORNOW: we'll treat the case where niters is constant and 
+     
+                        niters % vf != 0
+
+     in the way similar to one with symbolic niters. 
+     For this we'll generate variable which value is equal to niters.  */
+
+  if (LOOP_VINFO_NITERS_KNOWN_P (loop_vinfo) 
+      && LOOP_VINFO_NITERS (loop_vinfo) % vectorization_factor != 0)
+    {
+      LOOP_VINFO_SYMB_NUM_OF_ITERS (loop_vinfo) = build_int_2 (LOOP_VINFO_NITERS (loop_vinfo), 0);
+      LOOP_VINFO_NITERS (loop_vinfo) = -1;
+
+      vect_transform_for_unknown_loop_bound (loop_vinfo, &ratio, loops);
+
+    }
+
   /* 1) Make sure the loop header has exactly two entries
      2) Make sure we have a preheader basic block.  */
 
@@ -3104,8 +3146,6 @@ vect_analyze_operations (loop_vec_info loop_vinfo)
     }
   LOOP_VINFO_VECT_FACTOR (loop_vinfo) = vectorization_factor;
 
-  /* FORNOW: handle only cases where the loop bound divides by the
-     vectorization factor.  */
 
   if (vect_debug_details (NULL))
     fprintf (dump_file, 
@@ -3116,16 +3156,7 @@ vect_analyze_operations (loop_vec_info loop_vinfo)
       && !LOOP_VINFO_SYMB_NUM_OF_ITERS(loop_vinfo)) 
     {
       if (vect_debug_stats (loop) || vect_debug_details (loop))
-	fprintf (dump_file, "not vectorized: Unknown loop bound.");
-      return false;
-    }
-
-  if (LOOP_VINFO_NITERS_KNOWN_P (loop_vinfo) 
-      && LOOP_VINFO_NITERS (loop_vinfo) % vectorization_factor != 0)
-    {
-      if (vect_debug_stats (loop) || vect_debug_details (loop))
-        fprintf (dump_file, "not vectorized: loop bound doesn't divided by %d.",
-		 vectorization_factor);
+	fprintf (dump_file, "not vectorized: Complicated loop bound.");
       return false;
     }
 

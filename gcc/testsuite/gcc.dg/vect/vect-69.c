@@ -54,32 +54,19 @@ int main1 ()
     }
 
   /* 2. aligned */
-  for (i = 3; i < N-3; i++)
+  for (i = 3; i < N-1; i++)
     {
       tmp1[2].a.n[1][2][i] = 6;
     }
 
   /* check results:  */
-  for (i = 3; i < N-3; i++)
+  for (i = 3; i < N-1; i++)
     {
       if (tmp1[2].a.n[1][2][i] != 6)
         abort ();
     }
 
-  /* 3. unaligned */
-  for (i = 0; i < N; i++)
-    {
-      tmp1[1].e.n[1][2][i] = 7;
-    }
-
-  /* check results:  */
-  for (i = 0; i <N; i++)
-    {
-      if (tmp1[1].e.n[1][2][i] != 7)
-        abort ();
-    }
-
-  /* 4. aligned */
+  /* 3. aligned */
   for (i = 0; i < N; i++)
     {
       for (j = 0; j < N; j++)
@@ -98,7 +85,7 @@ int main1 ()
 	}
     }
 
-  /* 5. unaligned */
+  /* 4. unaligned */
   for (i = 0; i < N-4; i++)
     {
       for (j = 0; j < N-4; j++)
