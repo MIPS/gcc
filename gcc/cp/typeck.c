@@ -532,10 +532,16 @@ composite_pointer_type (tree t1, tree t2, tree arg1, tree arg2,
       class1 = TREE_TYPE (t1);
       class2 = TREE_TYPE (t2);
 
-      if (DERIVED_FROM_P (class1, class2))
+      /* APPLE LOCAL begin Objective-C++ */
+      if (DERIVED_FROM_P (class1, class2) || 
+	  (c_dialect_objc () && objc_comptypes (class1, class2, 0) == 1))
+      /* APPLE LOCAL end Objective-C++ */
 	t2 = (build_pointer_type 
 	      (cp_build_qualified_type (class1, TYPE_QUALS (class2))));
-      else if (DERIVED_FROM_P (class2, class1))
+      /* APPLE LOCAL begin Objective-C++ */
+      else if (DERIVED_FROM_P (class2, class1) ||
+	       (c_dialect_objc () && objc_comptypes (class2, class1, 0) == 1))
+      /* APPLE LOCAL end Objective-C++ */
 	t1 = (build_pointer_type 
 	      (cp_build_qualified_type (class2, TYPE_QUALS (class1))));
       else
