@@ -1,3 +1,8 @@
+2003-08-21  Jason Merrill  <jason@redhat.com>
+
+	* tree-inline.c (copy_body_r): Don't convert when stripping &*.
+	Fix thinko in stripping *&.
+
 2003-08-21  Diego Novillo  <dnovillo@redhat.com>
             Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 

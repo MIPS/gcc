@@ -464,7 +464,13 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
 	      value = (tree) n->value;
 	      if (TREE_CODE (value) == INDIRECT_REF)
 		{
-		  *tp = convert (TREE_TYPE (*tp), TREE_OPERAND (value, 0));
+		  /* Assume that the argument types properly match the
+		     parameter types.  We can't compare them well enough
+		     without a comptypes langhook, and we don't want to
+		     call convert and introduce a NOP_EXPR to convert
+		     between two equivalent types (i.e. that only differ
+		     in use of typedef names).  */
+		  *tp = TREE_OPERAND (value, 0);
 		  return copy_body_r (tp, walk_subtrees, data);
 		}
 	    }
@@ -483,7 +489,7 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
 	      STRIP_NOPS (value);
 	      if (TREE_CODE (value) == ADDR_EXPR)
 		{
-		  *tp = (tree) n->value;
+		  *tp = TREE_OPERAND (value, 0);
 		  return copy_body_r (tp, walk_subtrees, data);
 		}
 	    }
