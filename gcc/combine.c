@@ -1650,7 +1650,8 @@ try_combine (i3, i2, i1, new_direct_jump_p)
 	    abort ();
 
 	  lo &= ~(UWIDE_SHIFT_LEFT_BY_BITS_PER_WORD (1) - 1);
-	  lo |= INTVAL (SET_SRC (PATTERN (i3)));
+	  lo |= (INTVAL (SET_SRC (PATTERN (i3))) 
+		 & (UWIDE_SHIFT_LEFT_BY_BITS_PER_WORD (1) - 1));
 	}
       else if (HOST_BITS_PER_WIDE_INT == BITS_PER_WORD)
 	hi = INTVAL (SET_SRC (PATTERN (i3)));
@@ -7990,7 +7991,14 @@ nonzero_bits (x, mode)
 	  return nonzero_bits (tem, mode);
 	}
       else if (nonzero_sign_valid && reg_nonzero_bits[REGNO (x)])
-	return reg_nonzero_bits[REGNO (x)] & nonzero;
+	{
+	  unsigned HOST_WIDE_INT mask = reg_nonzero_bits[REGNO (x)];
+
+	  if (GET_MODE_BITSIZE (GET_MODE (x)) < mode_width)
+	    /* We don't know anything about the upper bits.  */
+	    mask |= GET_MODE_MASK (mode) ^ GET_MODE_MASK (GET_MODE (x));
+	  return nonzero & mask;
+	}
       else
 	return nonzero;
 
@@ -8385,7 +8393,8 @@ num_sign_bit_copies (x, mode)
       if (tem != 0)
 	return num_sign_bit_copies (tem, mode);
 
-      if (nonzero_sign_valid && reg_sign_bit_copies[REGNO (x)] != 0)
+      if (nonzero_sign_valid && reg_sign_bit_copies[REGNO (x)] != 0
+	  && GET_MODE_BITSIZE (GET_MODE (x)) == bitwidth)
 	return reg_sign_bit_copies[REGNO (x)];
       break;
 
@@ -12128,6 +12137,25 @@ distribute_notes (notes, from_insn, i3, i2, elim_i2, elim_i1)
 		place2 = i2;
 	      else
 		place = i2;
+	    }
+
+	  /* Don't attach REG_LABEL note to a JUMP_INSN which has
+	     JUMP_LABEL already.  Instead, decrement LABEL_NUSES.  */
+	  if (place && GET_CODE (place) == JUMP_INSN && JUMP_LABEL (place))
+	    {
+	      if (JUMP_LABEL (place) != XEXP (note, 0))
+		abort ();
+	      if (GET_CODE (JUMP_LABEL (place)) == CODE_LABEL)
+		LABEL_NUSES (JUMP_LABEL (place))--;
+	      place = 0;
+	    }
+	  if (place2 && GET_CODE (place2) == JUMP_INSN && JUMP_LABEL (place2))
+	    {
+	      if (JUMP_LABEL (place2) != XEXP (note, 0))
+		abort ();
+	      if (GET_CODE (JUMP_LABEL (place2)) == CODE_LABEL)
+		LABEL_NUSES (JUMP_LABEL (place2))--;
+	      place2 = 0;
 	    }
 	  break;
 

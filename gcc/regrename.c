@@ -611,7 +611,7 @@ scan_rtx_address (insn, loc, class, action, mode)
 	if (locI)
 	  scan_rtx_address (insn, locI, INDEX_REG_CLASS, action, mode);
 	if (locB)
-	  scan_rtx_address (insn, locB, BASE_REG_CLASS, action, mode);
+	  scan_rtx_address (insn, locB, MODE_BASE_REG_CLASS (mode), action, mode);
 	return;
       }
 
@@ -629,7 +629,8 @@ scan_rtx_address (insn, loc, class, action, mode)
       break;
 
     case MEM:
-      scan_rtx_address (insn, &XEXP (x, 0), BASE_REG_CLASS, action,
+      scan_rtx_address (insn, &XEXP (x, 0),
+			MODE_BASE_REG_CLASS (GET_MODE (x)), action,
 			GET_MODE (x));
       return;
 
@@ -683,7 +684,8 @@ scan_rtx (insn, loc, class, action, type, earlyclobber)
       return;
 
     case MEM:
-      scan_rtx_address (insn, &XEXP (x, 0), BASE_REG_CLASS, action,
+      scan_rtx_address (insn, &XEXP (x, 0),
+			MODE_BASE_REG_CLASS (GET_MODE (x)), action,
 			GET_MODE (x));
       return;
 
@@ -984,15 +986,20 @@ struct value_data_entry
 struct value_data
 {
   struct value_data_entry e[FIRST_PSEUDO_REGISTER];
+  unsigned int max_value_regs;
 };
 
 static void kill_value_regno PARAMS ((unsigned, struct value_data *));
 static void kill_value PARAMS ((rtx, struct value_data *));
+static void set_value_regno PARAMS ((unsigned, enum machine_mode,
+				     struct value_data *));
 static void init_value_data PARAMS ((struct value_data *));
 static void kill_clobbered_value PARAMS ((rtx, rtx, void *));
 static void kill_set_value PARAMS ((rtx, rtx, void *));
 static int kill_autoinc_value PARAMS ((rtx *, void *));
 static void copy_value PARAMS ((rtx, rtx, struct value_data *));
+static bool mode_change_ok PARAMS ((enum machine_mode, enum machine_mode,
+				    unsigned int));
 static rtx find_oldest_value_reg PARAMS ((enum reg_class, unsigned int,
 					    enum machine_mode,
 					    struct value_data *));
@@ -1054,11 +1061,44 @@ kill_value (x, vd)
     {
       unsigned int regno = REGNO (x);
       unsigned int n = HARD_REGNO_NREGS (regno, GET_MODE (x));
-      unsigned int i;
+      unsigned int i, j;
 
+      /* Kill the value we're told to kill.  */
       for (i = 0; i < n; ++i)
 	kill_value_regno (regno + i, vd);
+
+      /* Kill everything that overlapped what we're told to kill.  */
+      if (regno < vd->max_value_regs)
+	j = 0;
+      else
+	j = regno - vd->max_value_regs;
+      for (; j < regno; ++j)
+	{
+	  if (vd->e[j].mode == VOIDmode)
+	    continue;
+	  n = HARD_REGNO_NREGS (regno, vd->e[j].mode);
+	  if (j + n > regno)
+	    for (i = 0; i < n; ++i)
+	      kill_value_regno (j + i, vd);
+	}
     }
+}
+
+/* Remember that REGNO is valid in MODE.  */
+
+static void
+set_value_regno (regno, mode, vd)
+     unsigned int regno;
+     enum machine_mode mode;
+     struct value_data *vd;
+{
+  unsigned int nregs;
+
+  vd->e[regno].mode = mode;
+
+  nregs = HARD_REGNO_NREGS (regno, mode);
+  if (nregs > vd->max_value_regs)
+    vd->max_value_regs = nregs;
 }
 
 /* Initialize VD such that there are no known relationships between regs.  */
@@ -1074,6 +1114,7 @@ init_value_data (vd)
       vd->e[i].oldest_regno = i;
       vd->e[i].next_regno = INVALID_REGNUM;
     }
+  vd->max_value_regs = 0;
 }
 
 /* Called through note_stores.  If X is clobbered, kill its value.  */
@@ -1102,7 +1143,7 @@ kill_set_value (x, set, data)
   if (GET_CODE (set) != CLOBBER && REG_P (x))
     {
       kill_value (x, vd);
-      vd->e[REGNO (x)].mode = GET_MODE (x);
+      set_value_regno (REGNO (x), GET_MODE (x), vd);
     }
 }
 
@@ -1122,7 +1163,7 @@ kill_autoinc_value (px, data)
     {
       x = XEXP (x, 0);
       kill_value (x, vd);
-      vd->e[REGNO (x)].mode = Pmode;
+      set_value_regno (REGNO (x), Pmode, vd);
       return -1;
     }
 
@@ -1160,7 +1201,7 @@ copy_value (dest, src, vd)
      assign it now and assume the value came from an input argument
      or somesuch.  */
   if (vd->e[sr].mode == VOIDmode)
-    vd->e[sr].mode = vd->e[dr].mode;
+    set_value_regno (sr, vd->e[dr].mode, vd);
 
   /* Link DR at the end of the value chain used by SR.  */
 
@@ -1173,6 +1214,25 @@ copy_value (dest, src, vd)
 #ifdef ENABLE_CHECKING
   validate_value_data (vd);
 #endif
+}
+
+/* Return true if a mode change from ORIG to NEW is allowed for REGNO.  */
+
+static bool
+mode_change_ok (orig_mode, new_mode, regno)
+     enum machine_mode orig_mode, new_mode;
+     unsigned int regno ATTRIBUTE_UNUSED;
+{
+  if (GET_MODE_SIZE (orig_mode) < GET_MODE_SIZE (new_mode))
+    return false;
+
+#ifdef CLASS_CANNOT_CHANGE_MODE
+  if (TEST_HARD_REG_BIT (reg_class_contents[CLASS_CANNOT_CHANGE_MODE], regno)
+      && CLASS_CANNOT_CHANGE_MODE_P (orig_mode, new_mode))
+    return false;
+#endif
+
+  return true;
 }
 
 /* Find the oldest copy of the value contained in REGNO that is in
@@ -1189,8 +1249,9 @@ find_oldest_value_reg (class, regno, mode, vd)
   unsigned int i;
 
   for (i = vd->e[regno].oldest_regno; i != regno; i = vd->e[i].next_regno)
-    if (vd->e[i].mode == mode
-	&& TEST_HARD_REG_BIT (reg_class_contents[class], i))
+    if (TEST_HARD_REG_BIT (reg_class_contents[class], i)
+	&& (vd->e[i].mode == mode
+	    || mode_change_ok (vd->e[i].mode, mode, regno)))
       return gen_rtx_REG (mode, i);
 
   return NULL_RTX;
@@ -1317,8 +1378,9 @@ replace_oldest_value_addr (loc, class, mode, insn, vd)
 	  changed |= replace_oldest_value_addr (locI, INDEX_REG_CLASS, mode,
 					        insn, vd);
 	if (locB)
-	  changed |= replace_oldest_value_addr (locB, BASE_REG_CLASS, mode,
-					        insn, vd);
+	  changed |= replace_oldest_value_addr (locB,
+						MODE_BASE_REG_CLASS (mode),
+						mode, insn, vd);
 	return changed;
       }
 
@@ -1363,7 +1425,8 @@ replace_oldest_value_mem (x, insn, vd)
      rtx insn;
      struct value_data *vd;
 {
-  return replace_oldest_value_addr (&XEXP (x, 0), BASE_REG_CLASS,
+  return replace_oldest_value_addr (&XEXP (x, 0),
+				    MODE_BASE_REG_CLASS (GET_MODE (x)),
 				    GET_MODE (x), insn, vd);
 }
 
@@ -1425,6 +1488,11 @@ copyprop_hardreg_forward_1 (bb, vd)
       /* Kill all auto-incremented values.  */
       /* ??? REG_INC is useless, since stack pushes aren't done that way.  */
       for_each_rtx (&PATTERN (insn), kill_autoinc_value, vd);
+
+      /* Kill all early-clobbered operands.  */
+      for (i = 0; i < n_ops; i++)
+	if (recog_op_alt[i][alt].earlyclobber)
+	  kill_value (recog_data.operand[i], vd);
 
       /* Special-case plain move instructions, since we may well
 	 be able to do the move from a different register class.  */
@@ -1562,6 +1630,7 @@ copyprop_hardreg_forward ()
       /* ??? Ought to use more intelligent queueing of blocks.  */
       if (bb->pred
 	  && ! bb->pred->pred_next 
+	  && ! (bb->pred->flags & (EDGE_ABNORMAL_CALL | EDGE_EH))
 	  && bb->pred->src->index != ENTRY_BLOCK
 	  && bb->pred->src->index < b)
 	all_vd[b] = all_vd[bb->pred->src->index];

@@ -5793,18 +5793,19 @@ highest_pow2_factor (exp)
     {
     case INTEGER_CST:
       /* If the integer is expressable in a HOST_WIDE_INT, we can find the
-	 lowest bit that's a one.  If the result is zero, pessimize by
-	 returning 1.  This is overly-conservative, but such things should not
-	 happen in the offset expressions that we are called with.  If
-	 the constant overlows, we some erroneous program, so return
-	 BIGGEST_ALIGNMENT to avoid any later ICE.  */
-      if (TREE_CONSTANT_OVERFLOW (exp))
+	 lowest bit that's a one.  If the result is zero, return
+	 BIGGEST_ALIGNMENT.  We need to handle this case since we can find it
+	 in a COND_EXPR, a MIN_EXPR, or a MAX_EXPR.  If the constant overlows,
+	 we have an erroneous program, so return BIGGEST_ALIGNMENT to avoid any
+	 later ICE.  */
+      if (TREE_CONSTANT_OVERFLOW (exp)
+	  || integer_zerop (exp))
 	return BIGGEST_ALIGNMENT;
       else if (host_integerp (exp, 0))
 	{
 	  c0 = tree_low_cst (exp, 0);
 	  c0 = c0 < 0 ? - c0 : c0;
-	  return c0 != 0 ? c0 & -c0 : 1;
+	  return c0 & -c0;
 	}
       break;
 
@@ -8480,21 +8481,30 @@ expand_expr (exp, target, tmode, modifier)
 		   || GET_CODE (op0) == CONCAT || GET_CODE (op0) == ADDRESSOF
 		   || GET_CODE (op0) == PARALLEL)
 	    {
-	      /* If this object is in a register, it must can't be BLKmode.  */
-	      tree inner_type = TREE_TYPE (TREE_OPERAND (exp, 0));
-	      tree nt = build_qualified_type (inner_type,
-					      (TYPE_QUALS (inner_type)
-					       | TYPE_QUAL_CONST));
-	      rtx memloc = assign_temp (nt, 1, 1, 1);
-
-	      if (GET_CODE (op0) == PARALLEL)
-		/* Handle calls that pass values in multiple non-contiguous
-		   locations.  The Irix 6 ABI has examples of this.  */
-		emit_group_store (memloc, op0, int_size_in_bytes (inner_type));
+	      /* If the operand is a SAVE_EXPR, we can deal with this by
+		 forcing the SAVE_EXPR into memory.  */
+	      if (TREE_CODE (TREE_OPERAND (exp, 0)) == SAVE_EXPR)
+		{
+		  put_var_into_stack (TREE_OPERAND (exp, 0));
+		  op0 = SAVE_EXPR_RTL (TREE_OPERAND (exp, 0));
+		}
 	      else
-		emit_move_insn (memloc, op0);
+		{
+		  /* If this object is in a register, it can't be BLKmode.  */
+		  tree inner_type = TREE_TYPE (TREE_OPERAND (exp, 0));
+		  rtx memloc = assign_temp (inner_type, 1, 1, 1);
 
-	      op0 = memloc;
+		  if (GET_CODE (op0) == PARALLEL)
+		    /* Handle calls that pass values in multiple
+		       non-contiguous locations.  The Irix 6 ABI has examples
+		       of this.  */
+		    emit_group_store (memloc, op0, 
+				      int_size_in_bytes (inner_type));
+		  else
+		    emit_move_insn (memloc, op0);
+		  
+		  op0 = memloc;
+		}
 	    }
 
 	  if (GET_CODE (op0) != MEM)
@@ -10233,6 +10243,14 @@ do_store_flag (exp, target, mode, only_cheap)
     return (((result == const0_rtx && ! invert)
 	     || (result != const0_rtx && invert))
 	    ? const0_rtx : const1_rtx);
+
+  /* The code of RESULT may not match CODE if compare_from_rtx
+     decided to swap its operands and reverse the original code.
+
+     We know that compare_from_rtx returns either a CONST_INT or
+     a new comparison code, so it is safe to just extract the
+     code from RESULT.  */
+  code = GET_CODE (result);
 
   label = gen_label_rtx ();
   if (bcc_gen_fctn[(int) code] == 0)

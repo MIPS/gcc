@@ -283,7 +283,7 @@ enum dump_file_index
 	"       H JK   OPQ   UV  YZ"
 */
 
-struct dump_file_info dump_file[DFI_MAX] =
+static struct dump_file_info dump_file[DFI_MAX] =
 {
   { "rtl",	'r', 0, 0, 0 },
   { "sibling",  'i', 0, 0, 0 },
@@ -953,10 +953,10 @@ debug_args[] =
 
 typedef struct
 {
-  const char *string;
-  int *variable;
-  int on_value;
-  const char *description;
+  const char *const string;
+  int *const variable;
+  const int on_value;
+  const char *const description;
 }
 lang_independent_options;
 
@@ -987,7 +987,7 @@ static const param_info lang_independent_params[] = {
     if `-fSTRING' is seen as an option.
    (If `-fno-STRING' is seen as an option, the opposite value is stored.)  */
 
-lang_independent_options f_options[] =
+static const lang_independent_options f_options[] =
 {
   {"eliminate-dwarf2-dups", &flag_eliminate_dwarf2_dups, 1,
    N_("Perform DWARF2 duplicate elimination") },
@@ -1012,11 +1012,11 @@ lang_independent_options f_options[] =
   {"cse-skip-blocks", &flag_cse_skip_blocks, 1,
    N_("When running CSE, follow conditional jumps") },
   {"expensive-optimizations", &flag_expensive_optimizations, 1,
-   N_("Perform a number of minor, expensive optimisations") },
+   N_("Perform a number of minor, expensive optimizations") },
   {"thread-jumps", &flag_thread_jumps, 1,
-   N_("Perform jump threading optimisations") },
+   N_("Perform jump threading optimizations") },
   {"strength-reduce", &flag_strength_reduce, 1,
-   N_("Perform strength reduction optimisations") },
+   N_("Perform strength reduction optimizations") },
   {"unroll-loops", &flag_unroll_loops, 1,
    N_("Perform loop unrolling when iteration count is known") },
   {"unroll-all-loops", &flag_unroll_all_loops, 1,
@@ -1030,7 +1030,7 @@ lang_independent_options f_options[] =
   {"writable-strings", &flag_writable_strings, 1,
    N_("Store strings in writable data section") },
   {"peephole", &flag_no_peephole, 0,
-   N_("Enable machine specific peephole optimisations") },
+   N_("Enable machine specific peephole optimizations") },
   {"force-mem", &flag_force_mem, 1,
    N_("Copy memory operands into registers before using") },
   {"force-addr", &flag_force_addr, 1,
@@ -1066,9 +1066,9 @@ lang_independent_options f_options[] =
   {"gcse-sm", &flag_gcse_sm, 1,
    N_("Perform store motion after global subexpression elimination") },
   {"rerun-cse-after-loop", &flag_rerun_cse_after_loop, 1,
-   N_("Run CSE pass after loop optimisations") },
+   N_("Run CSE pass after loop optimizations") },
   {"rerun-loop-opt", &flag_rerun_loop_opt, 1,
-   N_("Run the loop optimiser twice") },
+   N_("Run the loop optimizer twice") },
   {"delete-null-pointer-checks", &flag_delete_null_pointer_checks, 1,
    N_("Delete useless null pointer checks") },
   {"pretend-float", &flag_pretend_float, 1,
@@ -1121,9 +1121,9 @@ lang_independent_options f_options[] =
   {"verbose-asm", &flag_verbose_asm, 1,
    N_("Add extra commentry to assembler output") },
   {"gnu-linker", &flag_gnu_linker, 1,
-   N_("Output GNU ld formatted global initialisers") },
+   N_("Output GNU ld formatted global initializers") },
   {"regmove", &flag_regmove, 1,
-   N_("Enables a register move optimisation") },
+   N_("Enables a register move optimization") },
   {"optimize-register-move", &flag_regmove, 1,
    N_("Do the full regmove optimization pass") },
   {"pack-struct", &flag_pack_struct, 1,
@@ -1210,7 +1210,7 @@ documented_lang_options[] =
 
   { "-fsigned-bitfields", "" },
   { "-funsigned-bitfields",
-    N_("Make bitfields by unsigned by default") },
+    N_("Make bit-fields by unsigned by default") },
   { "-fno-signed-bitfields", "" },
   { "-fno-unsigned-bitfields","" },
   { "-fsigned-char", 
@@ -1228,10 +1228,10 @@ documented_lang_options[] =
 
   { "-fasm", "" },
   { "-fno-asm", 
-    N_("Do not recognise the 'asm' keyword") },
+    N_("Do not recognize the 'asm' keyword") },
   { "-fbuiltin", "" },
   { "-fno-builtin", 
-    N_("Do not recognise any built in functions") },
+    N_("Do not recognize any built in functions") },
   { "-fhosted", 
     N_("Assume normal C execution environment") },
   { "-fno-hosted", "" },
@@ -1314,7 +1314,7 @@ documented_lang_options[] =
     N_("Warn about suspicious declarations of main") },
   { "-Wno-main", "" },
   { "-Wmissing-braces",
-    N_("Warn about possibly missing braces around initialisers") },
+    N_("Warn about possibly missing braces around initializers") },
   { "-Wno-missing-braces", "" },
   { "-Wmissing-declarations",
     N_("Warn about global funcs without previous declarations") },
@@ -1483,7 +1483,7 @@ int warn_missing_noreturn;
 
 /* Likewise for -W.  */
 
-lang_independent_options W_options[] =
+static const lang_independent_options W_options[] =
 {
   {"unused-function", &warn_unused_function, 1,
    N_("Warn when a function is unused") },
@@ -2715,7 +2715,6 @@ rest_of_compilation (decl)
         dump_flow_info (rtl_dump_file);
       cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP
  		   | (flag_thread_jumps ? CLEANUP_THREADING : 0));
-
       if (flag_web)
 	{
 	  timevar_push (TV_WEB);
@@ -2796,14 +2795,17 @@ rest_of_compilation (decl)
       delete_trivially_dead_insns (insns, max_reg_num (), 1);
 
       /* Try to identify useless null pointer tests and delete them.  */
-      if (flag_delete_null_pointer_checks)
+      if (flag_delete_null_pointer_checks || flag_thread_jumps)
 	{
 	  timevar_push (TV_JUMP);
 
-	  cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
+	  cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP
+		       | (flag_thread_jumps ? CLEANUP_THREADING : 0));
 
-	  delete_null_pointer_checks (insns);
-	  purge_all_dead_edges (0);
+	  if (flag_delete_null_pointer_checks)
+	    delete_null_pointer_checks (insns);
+	  /* CFG is no longer maintained up-to-date.  */
+	  free_bb_for_insn ();
 	  timevar_pop (TV_JUMP);
 	}
 
@@ -3665,8 +3667,8 @@ display_help ()
 		f_options[i].string, _(description));
     }
 
-  printf (_("  -O[number]              Set optimisation level to [number]\n"));
-  printf (_("  -Os                     Optimise for space rather than speed\n"));
+  printf (_("  -O[number]              Set optimization level to [number]\n"));
+  printf (_("  -Os                     Optimize for space rather than speed\n"));
   for (i = LAST_PARAM; i--;)
     {
       const char *description = compiler_params[i].help;
@@ -4335,6 +4337,30 @@ independent_decode_option (argc, argv)
 	return decode_W_option (arg + 1);
       break;
 
+    case 'a':
+      if (!strncmp (arg, "aux-info", 8))
+	{
+	  if (arg[8] == '\0')
+	    {
+	      if (argc == 1)
+		return 0;
+
+	      aux_info_file_name = argv[1];
+	      flag_gen_aux_info = 1;
+	      return 2;
+	    }
+	  else if (arg[8] == '=')
+	    {
+	      aux_info_file_name = arg + 9;
+	      flag_gen_aux_info = 1;
+	    }
+	  else
+	    return 0;
+	}
+      else
+	return 0;
+      break;
+
     case 'o':
       if (arg[1] == 0)
 	{
@@ -4721,7 +4747,7 @@ parse_options_and_default_flags (argc, argv)
       flag_omit_frame_pointer = 1;
 #endif
       flag_guess_branch_prob = 1;
-      flag_cprop_registers = 1;
+      /* flag_cprop_registers = 1; */
     }
 
   if (optimize >= 2)
@@ -5243,6 +5269,8 @@ toplev_main (argc, argv)
      int argc;
      char **argv;
 {
+  hex_init ();
+
   /* Initialization of GCC's environment, and diagnostics.  */
   general_init (argv [0]);
 

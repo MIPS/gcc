@@ -501,7 +501,7 @@ fi
 
 # Is pod2man recent enough to regenerate manpages?
 AC_MSG_CHECKING([for recent Pod::Man])
-if perl -e 'use 1.10 Pod::Man' >/dev/null 2>&1; then
+if (perl -e 'use 1.10 Pod::Man') >/dev/null 2>&1; then
   AC_MSG_RESULT(yes)
   GENERATED_MANPAGES=generated-manpages		AC_SUBST(GENERATED_MANPAGES)
 else
@@ -1018,6 +1018,7 @@ then
 	cc_set_by_configure="\$(CC)"
 	quoted_cc_set_by_configure="\$(CC)"
 	stage_prefix_set_by_configure="\$(STAGE_PREFIX)"
+	quoted_stage_prefix_set_by_configure="\$(STAGE_PREFIX)"
 else
 	rm -f symtest.tem
 	if cp -p $srcdir/gcc.c symtest.tem 2>/dev/null
@@ -1029,6 +1030,7 @@ else
 	cc_set_by_configure="\`case '\$(CC)' in stage*) echo '\$(CC)' | sed -e 's|stage|../stage|g';; *) echo '\$(CC)';; esac\`"
 	quoted_cc_set_by_configure="\\\`case '\\\$(CC)' in stage*) echo '\\\$(CC)' | sed -e 's|stage|../stage|g';; *) echo '\\\$(CC)';; esac\\\`"
 	stage_prefix_set_by_configure="\`case '\$(STAGE_PREFIX)' in stage*) echo '\$(STAGE_PREFIX)' | sed -e 's|stage|../stage|g';; *) echo '\$(STAGE_PREFIX)';; esac\`"
+	quoted_stage_prefix_set_by_configure="\\\`case '\\\$(STAGE_PREFIX)' in stage*) echo '\\\$(STAGE_PREFIX)' | sed -e 's|stage|../stage|g';; *) echo '\\\$(STAGE_PREFIX)';; esac\\\`"
 fi
 rm -f symtest.tem
 
@@ -1255,6 +1257,95 @@ if test x$gcc_cv_gas_major_version != x -a x$gcc_cv_gas_minor_version != x; then
   AC_MSG_RESULT("newly built gas")
 else
   AC_MSG_RESULT($gcc_cv_as)
+fi
+
+# Figure out what linker we will be using.
+AC_MSG_CHECKING(what linker to use)
+gcc_cv_ld=
+gcc_cv_gld_major_version=
+gcc_cv_gld_minor_version=
+gcc_cv_ld_gld_srcdir=`echo $srcdir | sed -e 's,/gcc$,,'`/ld
+gcc_cv_ld_bfd_srcdir=`echo $srcdir | sed -e 's,/gcc$,,'`/bfd
+if test -x "$DEFAULT_LINKER"; then
+	gcc_cv_ld="$DEFAULT_LINKER"
+elif test -x "$LD"; then
+	gcc_cv_ld="$LD"
+elif test -x ld$host_exeext; then
+	# Build using linker in the current directory.
+	gcc_cv_ld=./ld$host_exeext
+elif test -f $gcc_cv_ld_gld_srcdir/configure.in -a -f ../ld/Makefile; then
+	# Single tree build which includes ld.
+	for f in $gcc_cv_ld_bfd_srcdir/configure $gcc_cv_ld_gld_srcdir/configure $gcc_cv_ld_gld_srcdir/configure.in $gcc_cv_ld_gld_srcdir/Makefile.in
+	do
+changequote(,)dnl
+		gcc_cv_gld_version=`grep '^VERSION=[0-9]*\.[0-9]*' $f`
+changequote([,])dnl
+		if test x$gcc_cv_gld_version != x; then
+			break
+		fi
+	done
+changequote(,)dnl
+	gcc_cv_gld_major_version=`expr "$gcc_cv_gld_version" : "VERSION=\([0-9]*\)"`
+	gcc_cv_gld_minor_version=`expr "$gcc_cv_gld_version" : "VERSION=[0-9]*\.\([0-9]*\)"`
+changequote([,])dnl
+fi
+
+if test "x$gcc_cv_ld" = x -a x$host = x$target; then
+	# Native build.
+	# Search the same directories that the installed compiler will
+	# search.  Else we may find the wrong linker and lose.  If we
+	# do not find a suitable linker binary, then try the user's
+	# path.
+	#
+	# Also note we have to check MD_EXEC_PREFIX before checking the
+	# user's path.  Unfortunately, there is no good way to get at the
+	# value of MD_EXEC_PREFIX here.  So we do a brute force search
+	# through all the known MD_EXEC_PREFIX values.  Ugh.  This needs
+	# to be fixed as part of the make/configure rewrite too.
+
+	if test "x$exec_prefix" = xNONE; then
+		if test "x$prefix" = xNONE; then
+			test_prefix=/usr/local
+		else
+			test_prefix=$prefix
+		fi
+	else
+		test_prefix=$exec_prefix
+	fi
+
+	# If the loop below does not find an linker, then use whatever
+	# one we can find in the users's path.
+	# user's path.
+	gcc_cv_ld=ld$host_exeext
+
+	test_dirs="$test_prefix/lib/gcc-lib/$target/$gcc_version \
+		   $test_prefix/lib/gcc-lib/$target \
+		   /usr/lib/gcc/$target/$gcc_version \
+		   /usr/lib/gcc/$target \
+		   $test_prefix/$target/bin/$target/$gcc_version \
+		   $test_prefix/$target/bin \
+		   /usr/libexec \
+		   /usr/ccs/gcc \
+		   /usr/ccs/bin \
+		   /udk/usr/ccs/bin \
+		   /bsd43/usr/lib/cmplrs/cc \
+		   /usr/cross64/usr/bin \
+		   /usr/lib/cmplrs/cc \
+		   /sysv/usr/lib/cmplrs/cc \
+		   /svr4/usr/lib/cmplrs/cc \
+		   /usr/bin"
+
+	for dir in $test_dirs; do
+		if test -f $dir/ld$host_exeext; then
+			gcc_cv_ld=$dir/ld$host_exeext
+			break;
+		fi
+	done
+fi
+if test x$gcc_cv_gld_major_version != x -a x$gcc_cv_gld_minor_version != x; then
+  AC_MSG_RESULT("newly built ld")
+else
+  AC_MSG_RESULT($gcc_cv_ld)
 fi
 
 # Figure out what nm we will be using.
@@ -1533,7 +1624,49 @@ if test x"$gcc_cv_as_shf_merge" = xyes; then
 fi
 AC_MSG_RESULT($gcc_cv_as_shf_merge)
 
-case "$target" in 
+case "$target" in
+  # All TARGET_ABI_OSF targets.
+  alpha*-*-osf* | alpha*-*-linux* | alpha*-*-*bsd*)
+    AC_CACHE_CHECK([assembler supports explicit relocations],
+	gcc_cv_as_explicit_relocs, [
+	gcc_cv_as_explicit_relocs=unknown
+	if test x$gcc_cv_gas_major_version != x \
+		-a x$gcc_cv_gas_minor_version != x
+	then
+	   if test "$gcc_cv_gas_major_version" -eq 2 \
+	           -a "$gcc_cv_gas_minor_version" -ge 12 \
+	           -o "$gcc_cv_gas_major_version" -gt 2; then
+	      gcc_cv_as_explicit_relocs=yes
+	   fi
+	elif test x$gcc_cv_as != x; then
+	    cat > conftest.s << 'EOF'
+	.set nomacro
+	.text
+	extbl	$3, $2, $3	!lituse_bytoff!1
+	ldq	$2, a($29)	!literal!1
+	ldq	$4, b($29)	!literal!2
+	ldq_u	$3, 0($2)	!lituse_base!1
+	ldq	$27, f($29)	!literal!5
+	jsr	$26, ($27), f	!lituse_jsr!5
+	ldah	$29, 0($26)	!gpdisp!3
+	lda	$0, c($29)	!gprel
+	ldah	$1, d($29)	!gprelhigh
+	lda	$1, d($1)	!gprellow
+	lda	$29, 0($29)	!gpdisp!3
+EOF
+	    if $gcc_cv_as -o conftest.o conftest.s > /dev/null 2>&1; then
+		gcc_cv_as_explicit_relocs=yes
+	    else
+		gcc_cv_as_explicit_relocs=no
+	    fi
+	    rm -f conftest.s conftest.o
+	fi
+    ])
+    if test "x$gcc_cv_as_explicit_relocs" = xyes; then
+	AC_DEFINE(HAVE_AS_EXPLICIT_RELOCS, 1,
+		[Define if your assembler supports explicit relocations.])
+    fi
+    ;;
   sparc*-*-*)
     AC_CACHE_CHECK([assembler .register pseudo-op support],
 	gcc_cv_as_register_pseudo_op, [
@@ -1571,6 +1704,25 @@ case "$target" in
     if test "x$gcc_cv_as_relax_opt" = xyes; then
 	AC_DEFINE(HAVE_AS_RELAX_OPTION, 1,
 		[Define if your assembler supports -relax option.])
+    fi
+
+    AC_CACHE_CHECK([assembler and linker support unaligned pc related relocs],
+	gcc_cv_as_sparc_ua_pcrel, [
+	gcc_cv_as_sparc_ua_pcrel=unknown
+	if test x$gcc_cv_as != x -a x$gcc_cv_ld != x; then
+	    gcc_cv_as_sparc_ua_pcrel=no
+	    echo ".text; foo: nop; .data; .align 4; .byte 0; .uaword %r_disp32(foo)" > conftest.s
+	    if $gcc_cv_as -K PIC -o conftest.o conftest.s > /dev/null 2>&1; then
+		if $gcc_cv_ld -o conftest conftest.o -G > /dev/null 2>&1; then
+		    gcc_cv_as_sparc_ua_pcrel=yes
+		fi
+	    fi
+	    rm -f conftest.s conftest.o conftest
+	fi
+    ])
+    if test "x$gcc_cv_as_sparc_ua_pcrel" = xyes; then
+	AC_DEFINE(HAVE_AS_SPARC_UA_PCREL, 1,
+		[Define if your assembler and linker support unaligned PC relative relocs.])
     fi
 
     case "$tm_file" in
@@ -1800,6 +1952,24 @@ if test x"$gcc_cv_as_gstabs_flag" = xyes; then
 fi
 AC_MSG_RESULT($gcc_cv_as_gstabs_flag)
 
+AC_MSG_CHECKING(linker PT_GNU_EH_FRAME support)
+gcc_cv_ld_eh_frame_hdr=no
+if test x$gcc_cv_gld_major_version != x -a x$gcc_cv_gld_minor_version != x; then
+  if test "$gcc_cv_gld_major_version" -eq 2 -a "$gcc_cv_gld_minor_version" -ge 12 -o "$gcc_cv_gld_major_version" -gt 2 && grep 'EMUL = elf' ../ld/Makefile > /dev/null; then
+    gcc_cv_ld_eh_frame_hdr=yes
+  fi
+elif test x$gcc_cv_ld != x; then
+	# Check if linker supports --eh-frame-hdr option
+	if $gcc_cv_ld --help 2>/dev/null | grep eh-frame-hdr > /dev/null; then
+		gcc_cv_ld_eh_frame_hdr=yes
+	fi
+fi
+if test x"$gcc_cv_ld_eh_frame_hdr" = xyes; then
+	AC_DEFINE(HAVE_LD_EH_FRAME_HDR, 1,
+[Define if your linker supports --eh-frame-hdr option.])
+fi
+AC_MSG_RESULT($gcc_cv_ld_eh_frame_hdr)
+
 if test "$prefix" != "/usr" && test "$prefix" != "/usr/local" ; then
   AC_DEFINE_UNQUOTED(PREFIX_INCLUDE_DIR, "$prefix/include")
 fi
@@ -1994,12 +2164,9 @@ all_languages=
 all_boot_languages=
 all_compilers=
 all_stagestuff=
-all_diff_excludes=
 all_outputs='Makefile intl/Makefile fixinc/Makefile gccbug mklibgcc'
 # List of language makefile fragments.
 all_lang_makefiles=
-all_headers=
-all_lib2funcs=
 
 # Add the language fragments.
 # Languages are added via two mechanisms.  Some information must be
@@ -2019,10 +2186,7 @@ do
 		boot_language=
 		compilers=
 		stagestuff=
-		diff_excludes=
-		headers=
 		outputs=
-		lib2funcs=
 		. ${srcdir}/$s/config-lang.in
 		if test "x$language" = x
 		then
@@ -2040,10 +2204,7 @@ do
 		fi
 		all_compilers="$all_compilers $compilers"
 		all_stagestuff="$all_stagestuff $stagestuff"
-		all_diff_excludes="$all_diff_excludes $diff_excludes"
-		all_headers="$all_headers $headers"
 		all_outputs="$all_outputs $outputs"
-		all_lib2funcs="$all_lib2funcs $lib2funcs"
 	fi
 done
 
@@ -2176,11 +2337,8 @@ ${CONFIG_SHELL-/bin/sh} $srcdir/configure.frag $srcdir "$subdirs" "$dep_host_xma
 AC_SUBST(subdirs)
 AC_SUBST(all_boot_languages)
 AC_SUBST(all_compilers)
-AC_SUBST(all_diff_excludes)
-AC_SUBST(all_headers)
 AC_SUBST(all_lang_makefiles)
 AC_SUBST(all_languages)
-AC_SUBST(all_lib2funcs)
 AC_SUBST(all_stagestuff)
 AC_SUBST(build_exeext)
 AC_SUBST(build_install_headers_dir)
@@ -2220,6 +2378,7 @@ AC_SUBST(objc_boehm_gc)
 AC_SUBST(out_file)
 AC_SUBST(out_object_file)
 AC_SUBST(stage_prefix_set_by_configure)
+AC_SUBST(quoted_stage_prefix_set_by_configure)
 AC_SUBST(symbolic_link)
 AC_SUBST(thread_file)
 AC_SUBST(tm_file_list)
@@ -2228,6 +2387,7 @@ AC_SUBST(tm_p_file_list)
 AC_SUBST(tm_p_file)
 AC_SUBST(xm_file)
 AC_SUBST(xm_defines)
+AC_SUBST(target_alias)
 AC_SUBST(c_target_objs)
 AC_SUBST(cxx_target_objs)
 AC_SUBST(target_cpu_default)

@@ -218,10 +218,6 @@ int (*lang_statement_code_p)           PARAMS ((enum tree_code));
    any action required right before expand_function_end is called.  */
 void (*lang_expand_function_end)       PARAMS ((void));
 
-/* If this variable is defined to a non-NULL value, it will be called
-   after the file has been completely parsed.  */
-void (*back_end_hook) PARAMS ((tree));
-
 /* Nonzero means the expression being parsed will never be evaluated.
    This is a count, since unevaluated expressions can nest.  */
 int skip_evaluation;
@@ -647,9 +643,9 @@ combine_strings (strings)
 static int is_valid_printf_arglist PARAMS ((tree));
 static rtx c_expand_builtin PARAMS ((tree, rtx, enum machine_mode, enum expand_modifier));
 static rtx c_expand_builtin_printf PARAMS ((tree, rtx, enum machine_mode,
-					    enum expand_modifier, int));
+					    enum expand_modifier, int, int));
 static rtx c_expand_builtin_fprintf PARAMS ((tree, rtx, enum machine_mode,
-					     enum expand_modifier, int));
+					     enum expand_modifier, int, int));
 
 /* Print a warning if a constant expression had overflow in folding.
    Invoke this function on every expression that the language
@@ -3593,14 +3589,28 @@ c_expand_builtin (exp, target, tmode, modifier)
     {
     case BUILT_IN_PRINTF:
       target = c_expand_builtin_printf (arglist, target, tmode,
-					modifier, ignore);
+					modifier, ignore,/*unlocked=*/ 0);
+      if (target)
+	return target;
+      break;
+
+    case BUILT_IN_PRINTF_UNLOCKED:
+      target = c_expand_builtin_printf (arglist, target, tmode,
+					modifier, ignore,/*unlocked=*/ 1);
       if (target)
 	return target;
       break;
 
     case BUILT_IN_FPRINTF:
       target = c_expand_builtin_fprintf (arglist, target, tmode,
-					 modifier, ignore);
+					 modifier, ignore,/*unlocked=*/ 0);
+      if (target)
+	return target;
+      break;
+
+    case BUILT_IN_FPRINTF_UNLOCKED:
+      target = c_expand_builtin_fprintf (arglist, target, tmode,
+					 modifier, ignore,/*unlocked=*/ 1);
       if (target)
 	return target;
       break;
@@ -3653,15 +3663,18 @@ is_valid_printf_arglist (arglist)
 /* If the arguments passed to printf are suitable for optimizations,
    we attempt to transform the call.  */
 static rtx
-c_expand_builtin_printf (arglist, target, tmode, modifier, ignore)
+c_expand_builtin_printf (arglist, target, tmode, modifier, ignore, unlocked)
      tree arglist;
      rtx target;
      enum machine_mode tmode;
      enum expand_modifier modifier;
      int ignore;
+     int unlocked;
 {
-  tree fn_putchar = built_in_decls[BUILT_IN_PUTCHAR],
-    fn_puts = built_in_decls[BUILT_IN_PUTS];
+  tree fn_putchar = unlocked ?
+    built_in_decls[BUILT_IN_PUTCHAR_UNLOCKED] : built_in_decls[BUILT_IN_PUTCHAR];
+  tree fn_puts = unlocked ?
+    built_in_decls[BUILT_IN_PUTS_UNLOCKED] : built_in_decls[BUILT_IN_PUTS];
   tree fn, format_arg, stripped_string;
 
   /* If the return value is used, or the replacement _DECL isn't
@@ -3754,15 +3767,18 @@ c_expand_builtin_printf (arglist, target, tmode, modifier, ignore)
 /* If the arguments passed to fprintf are suitable for optimizations,
    we attempt to transform the call.  */
 static rtx
-c_expand_builtin_fprintf (arglist, target, tmode, modifier, ignore)
+c_expand_builtin_fprintf (arglist, target, tmode, modifier, ignore, unlocked)
      tree arglist;
      rtx target;
      enum machine_mode tmode;
      enum expand_modifier modifier;
      int ignore;
+     int unlocked;
 {
-  tree fn_fputc = built_in_decls[BUILT_IN_FPUTC],
-    fn_fputs = built_in_decls[BUILT_IN_FPUTS];
+  tree fn_fputc = unlocked ?
+    built_in_decls[BUILT_IN_FPUTC_UNLOCKED] : built_in_decls[BUILT_IN_FPUTC];
+  tree fn_fputs = unlocked ?
+    built_in_decls[BUILT_IN_FPUTS_UNLOCKED] : built_in_decls[BUILT_IN_FPUTS];
   tree fn, format_arg, stripped_string;
 
   /* If the return value is used, or the replacement _DECL isn't

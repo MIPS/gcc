@@ -637,9 +637,11 @@ extern tree strip_array_types                   PARAMS ((tree));
    the given label statement.  */
 #define LABEL_STMT_LABEL(NODE)  TREE_OPERAND (LABEL_STMT_CHECK (NODE), 0)
 
-/* COMPOUND_LITERAL_EXPR accessor.  */
-#define COMPOUND_LITERAL_EXPR_DECL(NODE)		\
+/* COMPOUND_LITERAL_EXPR accessors.  */
+#define COMPOUND_LITERAL_EXPR_DECL_STMT(NODE)		\
   TREE_OPERAND (COMPOUND_LITERAL_EXPR_CHECK (NODE), 0)
+#define COMPOUND_LITERAL_EXPR_DECL(NODE)			\
+  DECL_STMT_DECL (COMPOUND_LITERAL_EXPR_DECL_STMT (NODE))
 
 /* Nonzero if this SCOPE_STMT is for the beginning of a scope.  */
 #define SCOPE_BEGIN_P(NODE) \
@@ -812,12 +814,6 @@ extern tree finish_label_address_expr		PARAMS ((tree));
 /* Same function prototype, but the C and C++ front ends have
    different implementations.  Used in c-common.c.  */
 extern tree lookup_label			PARAMS ((tree));
-
-/* If this variable is defined to a non-NULL value, it will be called
-   after the file has been completely parsed.  The argument will be
-   the GLOBAL_NAMESPACE in C++, or the list of top-level declarations
-   in C.  */
-extern void (*back_end_hook) PARAMS ((tree));
 
 /* enum expand_modified is in expr.h, as is the macro below.  */
 

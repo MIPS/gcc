@@ -155,9 +155,9 @@ INSTALL_HEADERS_DIR = @build_install_headers_dir@
 # Header files that are made available under the same name
 # to programs compiled with GCC.
 USER_H = $(srcdir)/ginclude/stdarg.h $(srcdir)/ginclude/stddef.h \
-    $(srcdir)/ginclude/varargs.h $(srcdir)/ginclude/proto.h \
+    $(srcdir)/ginclude/varargs.h \
     $(srcdir)/ginclude/stdbool.h $(srcdir)/ginclude/iso646.h \
-    $(EXTRA_HEADERS) $(LANG_EXTRA_HEADERS)
+    $(EXTRA_HEADERS)
 
 # The GCC to use for compiling libgcc.a, enquire, and crt*.o.
 # Usually the one we just built.
@@ -642,8 +642,6 @@ INCLUDES = -I. -I$(@D) -I$(srcdir) -I$(srcdir)/$(@D) \
 # These next lines are overridden by configure.
 LANG_MAKEFILES = @all_lang_makefiles@
 LANG_STAGESTUFF = @all_stagestuff@
-LANG_DIFF_EXCLUDES = @all_diff_excludes@
-LANG_EXTRA_HEADERS = @all_headers@
 
 # Flags to pass to recursive makes.
 # CC is set by configure.  Hosts without symlinks need special handling
@@ -693,7 +691,7 @@ PREPEND_DOTDOT_TO_RELATIVE_PATHS = sed \
 	-e 's|%||g'
 SUBDIR_FLAGS_TO_PASS = $(ORDINARY_FLAGS_TO_PASS) \
 	"CC=`echo @quoted_cc_set_by_configure@ | $(PREPEND_DOTDOT_TO_RELATIVE_PATHS)`" \
-	"STAGE_PREFIX=`echo @stage_prefix_set_by_configure@ | $(PREPEND_DOTDOT_TO_RELATIVE_PATHS)`"
+	"STAGE_PREFIX=`echo @quoted_stage_prefix_set_by_configure@ | $(PREPEND_DOTDOT_TO_RELATIVE_PATHS)`"
 #
 # Lists of files for various purposes.
 
@@ -1110,6 +1108,15 @@ $(T)crtendS.o: crtstuff.c $(GCC_PASSES) $(TCONFIG_H) auto-host.h \
 	  -c $(srcdir)/crtstuff.c -DCRT_END -DCRTSTUFFS_O \
 	  -o $(T)crtendS$(objext)
 
+# This is a version of crtbegin for -static links.
+$(T)crtbeginT.o: crtstuff.c $(GCC_PASSES) $(TCONFIG_H) auto-host.h \
+  gbl-ctors.h stmp-int-hdrs tsystem.h
+	$(GCC_FOR_TARGET) $(GCC_CFLAGS) $(INCLUDES) $(MULTILIB_CFLAGS) -g0 \
+	  -finhibit-size-directive -fno-inline-functions \
+	  -fno-exceptions $(CRTSTUFF_T_CFLAGS) @inhibit_libc@ \
+	  -c $(srcdir)/crtstuff.c -DCRT_BEGIN -DCRTSTUFFT_O \
+	  -o $(T)crtbeginT$(objext)
+
 # Compile the start modules crt0.o and mcrt0.o that are linked with
 # every program
 crt0.o: s-crt0 ; @true
@@ -1152,15 +1159,15 @@ c-decl.o : c-decl.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(RTL_H) $(C_TREE_H) \
 c-typeck.o : c-typeck.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(C_TREE_H) \
     $(TARGET_H) flags.h intl.h output.h $(EXPR_H) $(RTL_H) toplev.h $(TM_P_H)
 c-lang.o : c-lang.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(C_TREE_H) \
-    $(GGC_H) toplev.h function.h $(VARRAY_H) \
-    $(RTL_H) $(EXPR_H) langhooks.h langhooks-def.h
+    langhooks.h langhooks-def.h
 c-lex.o : c-lex.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(RTL_H) c-lex.h \
     debug.h $(C_TREE_H) \
     c-pragma.h input.h intl.h flags.h toplev.h output.h \
     mbchar.h $(CPPLIB_H) $(EXPR_H) $(TM_P_H)
 c-objc-common.o : c-objc-common.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) \
     $(C_TREE_H) $(RTL_H) insn-config.h integrate.h $(EXPR_H) $(C_TREE_H) \
-    flags.h toplev.h tree-inline.h diagnostic.h integrate.h
+    flags.h toplev.h tree-inline.h diagnostic.h integrate.h $(VARRAY_H) \
+    $(GGC_H)
 c-aux-info.o : c-aux-info.c  $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(C_TREE_H) \
     flags.h toplev.h
 c-convert.o : c-convert.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) flags.h toplev.h
@@ -2238,52 +2245,68 @@ stmp-fixproto: fixhdr.ready fixproto stmp-int-hdrs
 docdir = $(srcdir)/doc
 
 doc: $(BUILD_INFO) $(GENERATED_MANPAGES) gccbug
-info: $(docdir)/cpp.info $(docdir)/gcc.info lang.info $(docdir)/cppinternals.info
+info: $(docdir)/cpp.info $(docdir)/gcc.info $(docdir)/gccint.info lang.info $(docdir)/cppinternals.info
 
 $(docdir)/cpp.info: $(docdir)/cpp.texi $(docdir)/include/fdl.texi
 	cd $(srcdir) && $(MAKEINFO) $(MAKEINFOFLAGS) -I doc -I doc/include -o doc/cpp.info doc/cpp.texi
 
-$(docdir)/gcc.info: $(docdir)/gcc.texi $(docdir)/extend.texi \
-	 $(docdir)/install-old.texi  $(docdir)/invoke.texi $(docdir)/md.texi \
-	 $(docdir)/c-tree.texi $(docdir)/rtl.texi $(docdir)/tm.texi \
-	 $(docdir)/gcov.texi $(docdir)/contrib.texi $(docdir)/objc.texi \
-	 $(docdir)/include/fdl.texi $(docdir)/include/gpl.texi \
-	 $(docdir)/include/funding.texi $(docdir)/bugreport.texi \
-	 $(docdir)/contribute.texi $(docdir)/frontends.texi \
-	 $(docdir)/service.texi $(docdir)/standards.texi \
-	 $(docdir)/trouble.texi $(docdir)/vms.texi $(docdir)/configterms.texi \
-	 $(docdir)/fragments.texi $(docdir)/hostconfig.texi \
-	 $(docdir)/gnu.texi $(docdir)/interface.texi \
-	 $(docdir)/makefile.texi $(docdir)/passes.texi \
-	 $(docdir)/portability.texi $(docdir)/collect2.texi \
-	 $(docdir)/configfiles.texi $(docdir)/headerdirs.texi
+$(docdir)/gcc.info: $(docdir)/gcc.texi $(docdir)/include/gcc-common.texi \
+	 $(docdir)/frontends.texi $(docdir)/standards.texi \
+	 $(docdir)/invoke.texi $(docdir)/extend.texi $(docdir)/md.texi \
+	 $(docdir)/objc.texi $(docdir)/gcov.texi $(docdir)/trouble.texi \
+	 $(docdir)/bugreport.texi $(docdir)/service.texi \
+	 $(docdir)/contribute.texi $(docdir)/vms.texi \
+	 $(docdir)/include/funding.texi $(docdir)/gnu.texi \
+	 $(docdir)/include/gpl.texi $(docdir)/include/fdl.texi \
+	 $(docdir)/contrib.texi
 	cd $(srcdir) && $(MAKEINFO) $(MAKEINFOFLAGS) -I doc -I doc/include -o doc/gcc.info doc/gcc.texi
+
+$(docdir)/gccint.info: $(docdir)/gccint.texi \
+	 $(docdir)/include/gcc-common.texi $(docdir)/contribute.texi \
+	 $(docdir)/makefile.texi $(docdir)/configterms.texi \
+	 $(docdir)/portability.texi $(docdir)/interface.texi \
+	 $(docdir)/passes.texi $(docdir)/c-tree.texi \
+	 $(docdir)/rtl.texi $(docdir)/md.texi $(docdir)/tm.texi \
+	 $(docdir)/hostconfig.texi $(docdir)/fragments.texi \
+	 $(docdir)/configfiles.texi $(docdir)/collect2.texi \
+	 $(docdir)/headerdirs.texi $(docdir)/include/funding.texi \
+	 $(docdir)/gnu.texi $(docdir)/include/gpl.texi \
+	 $(docdir)/include/fdl.texi $(docdir)/contrib.texi
+	cd $(srcdir) && $(MAKEINFO) $(MAKEINFOFLAGS) -I doc -I doc/include -o doc/gccint.info doc/gccint.texi
 
 $(docdir)/cppinternals.info: $(docdir)/cppinternals.texi
 	cd $(srcdir) && $(MAKEINFO) $(MAKEINFOFLAGS) -I doc -I doc/include -o doc/cppinternals.info \
 		doc/cppinternals.texi
 
-dvi: gcc.dvi cpp.dvi lang.dvi cppinternals.dvi
+dvi: gcc.dvi gccint.dvi cpp.dvi lang.dvi cppinternals.dvi
 
 # This works with GNU Make's default rule.
 cpp.dvi: $(docdir)/cpp.texi $(docdir)/include/fdl.texi
 	$(TEXI2DVI) -I $(docdir) -I $(docdir)/include $(docdir)/cpp.texi
 
-gcc.dvi: $(docdir)/gcc.texi $(docdir)/extend.texi $(docdir)/install-old.texi \
-	 $(docdir)/invoke.texi $(docdir)/md.texi $(docdir)/c-tree.texi \
-	 $(docdir)/rtl.texi $(docdir)/tm.texi $(docdir)/gcov.texi \
-	 $(docdir)/contrib.texi $(docdir)/objc.texi \
-	 $(docdir)/include/fdl.texi $(docdir)/include/gpl.texi \
-	 $(docdir)/include/funding.texi $(docdir)/bugreport.texi \
-	 $(docdir)/contribute.texi $(docdir)/frontends.texi \
-	 $(docdir)/service.texi $(docdir)/standards.texi \
-	 $(docdir)/trouble.texi $(docdir)/vms.texi $(docdir)/configterms.texi \
-	 $(docdir)/fragments.texi $(docdir)/hostconfig.texi \
-	 $(docdir)/gnu.texi $(docdir)/interface.texi \
-	 $(docdir)/makefile.texi $(docdir)/passes.texi \
-	 $(docdir)/portability.texi $(docdir)/collect2.texi \
-	 $(docdir)/configfiles.texi $(docdir)/headerdirs.texi
+gcc.dvi: $(docdir)/gcc.texi $(docdir)/include/gcc-common.texi \
+	 $(docdir)/frontends.texi $(docdir)/standards.texi \
+	 $(docdir)/invoke.texi $(docdir)/extend.texi $(docdir)/md.texi \
+	 $(docdir)/objc.texi $(docdir)/gcov.texi $(docdir)/trouble.texi \
+	 $(docdir)/bugreport.texi $(docdir)/service.texi \
+	 $(docdir)/contribute.texi $(docdir)/vms.texi \
+	 $(docdir)/include/funding.texi $(docdir)/gnu.texi \
+	 $(docdir)/include/gpl.texi $(docdir)/include/fdl.texi \
+	 $(docdir)/contrib.texi
 	$(TEXI2DVI) -I $(docdir) -I $(docdir)/include $(docdir)/gcc.texi
+
+gccint.dvi: $(docdir)/gccint.texi \
+	 $(docdir)/include/gcc-common.texi $(docdir)/contribute.texi \
+	 $(docdir)/makefile.texi $(docdir)/configterms.texi \
+	 $(docdir)/portability.texi $(docdir)/interface.texi \
+	 $(docdir)/passes.texi $(docdir)/c-tree.texi \
+	 $(docdir)/rtl.texi $(docdir)/md.texi $(docdir)/tm.texi \
+	 $(docdir)/hostconfig.texi $(docdir)/fragments.texi \
+	 $(docdir)/configfiles.texi $(docdir)/collect2.texi \
+	 $(docdir)/headerdirs.texi $(docdir)/include/funding.texi \
+	 $(docdir)/gnu.texi $(docdir)/include/gpl.texi \
+	 $(docdir)/include/fdl.texi $(docdir)/contrib.texi
+	$(TEXI2DVI) -I $(docdir) -I $(docdir)/include $(docdir)/gccint.texi
 
 cppinternals.dvi: $(docdir)/cppinternals.texi
 	$(TEXI2DVI) -I $(docdir) -I $(docdir)/include $(docdir)/cppinternals.texi
@@ -2393,7 +2416,7 @@ mostlyclean: $(INTL_MOSTLYCLEAN) lang.mostlyclean
 # that don't exist in the distribution.
 INTL_CLEAN = intl.clean
 clean: mostlyclean $(INTL_CLEAN) lang.clean
-	-rm -f libgcc.a libgcc_s$(SHLIB_EXT) libgcc_s$(SHLIB_EXT).1
+	-rm -f libgcc.a libgcc_eh.a libgcc_s$(SHLIB_EXT) libgcc_s$(SHLIB_EXT).1
 	-rm -f config.h tconfig.h hconfig.h tm_p.h
 	-rm -f cs-*
 	-rm -rf libgcc
@@ -2468,7 +2491,7 @@ maintainer-clean:
 	-rm -f c-parse.y c-parse.c c-parse.output TAGS
 	-rm -f cpp.??s cpp.*aux
 	-rm -f gcc.??s gcc.*aux
-	-rm -f $(docdir)/cpp.info* $(docdir)/gcc.info*
+	-rm -f $(docdir)/cpp.info* $(docdir)/gcc.info* $(docdir)/gccint.info*
 	-rm -f $(docdir)/cppinternals.info*
 	-rm -f $(docdir)/gcov.1 $(docdir)/cpp.1 $(docdir)/gcc.1
 	-rm -f $(docdir)/fsf-funding.7 $(docdir)/gfdl.7 $(docdir)/gpl.7
@@ -2614,17 +2637,17 @@ install-driver: installdirs xgcc$(exeext)
 # to do the install.
 install-info: doc installdirs lang.install-info
 	-rm -f $(infodir)/cpp.info* $(infodir)/gcc.info*
-	-rm -f $(infodir)/cppinternals.info*
+	-rm -f $(infodir)/cppinternals.info* $(infodir)/gccint.info*
 	if [ -f $(docdir)/gcc.info ]; then \
 	  for f in $(docdir)/cpp.info* $(docdir)/gcc.info* \
-		$(docdir)/cppinternals.info*; do \
+		$(docdir)/cppinternals.info* $(docdir)/gccint.info*; do \
 	    realfile=`echo $$f | sed -e 's|.*/\([^/]*\)$$|\1|'`; \
 	    $(INSTALL_DATA) $$f $(infodir)/$$realfile; \
 	  done; \
 	else true; fi
 	-if $(SHELL) -c 'install-info --version' >/dev/null 2>&1; then \
 	  if [ -f $(infodir)/dir ] ; then \
-	    for f in cpp.info gcc.info cppinternals.info; do \
+	    for f in cpp.info gcc.info gccint.info cppinternals.info; do \
 		if [ -f $(infodir)/$$f ]; then \
 		  install-info --dir-file=$(infodir)/dir $(infodir)/$$f; \
 		else true; fi; \
@@ -2632,7 +2655,7 @@ install-info: doc installdirs lang.install-info
 	  else true; fi; \
 	else true; fi;
 	-chmod a-x $(infodir)/cpp.info* $(infodir)/gcc.info*
-	-chmod a-x $(infodir)/cppinternals.info*
+	-chmod a-x $(infodir)/cppinternals.info* $(infodir)/gccint.info*
 
 # Install the man pages.
 install-man: installdirs $(GENERATED_MANPAGES) lang.install-man
@@ -2776,7 +2799,7 @@ uninstall: intl.uninstall lang.uninstall $(UNINSTALL_CPP)
 	-rm -rf $(man1dir)/protoize$(man1ext)
 	-rm -rf $(man1dir)/unprotoize$(man1ext)
 	-rm -f $(infodir)/cpp.info* $(infodir)/gcc.info*
-	-rm -f $(infodir)/cppinternals.info*
+	-rm -f $(infodir)/cppinternals.info* $(infodir)/gccint.info*
 #
 # These targets are for the dejagnu testsuites. The file site.exp
 # contains global variables that all the testsuites will use.
@@ -3150,11 +3173,15 @@ stage1-start:
 	-if [ -f as$(exeext) ] ; then (cd stage1 && $(LN_S) ../as$(exeext) .) ; else true ; fi
 	-if [ -f ld$(exeext) ] ; then (cd stage1 && $(LN_S) ../ld$(exeext) .) ; else true ; fi
 	-if [ -f collect-ld$(exeext) ] ; then (cd stage1 && $(LN_S) ../collect-ld$(exeext) .) ; else true ; fi
-	-rm -f stage1/libgcc.a
+	-rm -f stage1/libgcc.a stage1/libgcc_eh.a
 	-cp libgcc.a stage1
 	-if $(RANLIB_TEST_FOR_TARGET) ; then \
 	  $(RANLIB_FOR_TARGET) stage1/libgcc.a; \
 	else true; fi
+	-if [ -f libgcc_eh.a ] ; then cp libgcc_eh.a stage1; \
+	  if $(RANLIB_TEST_FOR_TARGET) ; then \
+	   $(RANLIB_FOR_TARGET) stage1/libgcc_eh.a; \
+	  else true; fi; fi
 	-for f in .. $(EXTRA_MULTILIB_PARTS); do if [ x$${f} != x.. ]; then \
 	  cp stage1/$${f} . ; \
 	else true; \
@@ -3175,11 +3202,15 @@ stage2-start:
 	-if [ -f as$(exeext) ] ; then (cd stage2 && $(LN_S) ../as$(exeext) .) ; else true ; fi
 	-if [ -f ld$(exeext) ] ; then (cd stage2 && $(LN_S) ../ld$(exeext) .) ; else true ; fi
 	-if [ -f collect-ld$(exeext) ] ; then (cd stage2 && $(LN_S) ../collect-ld$(exeext) .) ; else true ; fi
-	-rm -f stage2/libgcc.a
+	-rm -f stage2/libgcc.a stage2/libgcc_eh.a
 	-cp libgcc.a stage2
 	-if $(RANLIB_TEST_FOR_TARGET) ; then \
 	  $(RANLIB_FOR_TARGET) stage2/libgcc.a; \
 	else true; fi
+	-if [ -f libgcc_eh.a ] ; then cp libgcc_eh.a stage2; \
+	  if $(RANLIB_TEST_FOR_TARGET) ; then \
+	   $(RANLIB_FOR_TARGET) stage2/libgcc_eh.a; \
+	  else true; fi; fi
 	-for f in .. $(EXTRA_MULTILIB_PARTS); do if [ x$${f} != x.. ]; then \
 	  cp stage2/$${f} . ; \
 	else true; \
@@ -3200,11 +3231,15 @@ stage3-start:
 	-if [ -f as$(exeext) ] ; then (cd stage3 && $(LN_S) ../as$(exeext) .) ; else true ; fi
 	-if [ -f ld$(exeext) ] ; then (cd stage3 && $(LN_S) ../ld$(exeext) .) ; else true ; fi
 	-if [ -f collect-ld$(exeext) ] ; then (cd stage3 && $(LN_S) ../collect-ld$(exeext) .) ; else true ; fi
-	-rm -f stage3/libgcc.a
+	-rm -f stage3/libgcc.a stage3/libgcc_eh.a
 	-cp libgcc.a stage3
 	-if $(RANLIB_TEST_FOR_TARGET) ; then \
 	  $(RANLIB_FOR_TARGET) stage3/libgcc.a; \
 	else true; fi
+	-if [ -f libgcc_eh.a ] ; then cp libgcc_eh.a stage3; \
+	  if $(RANLIB_TEST_FOR_TARGET) ; then \
+	   $(RANLIB_FOR_TARGET) stage3/libgcc_eh.a; \
+	  else true; fi; fi
 	-for f in .. $(EXTRA_MULTILIB_PARTS); do if [ x$${f} != x.. ]; then \
 	  cp stage3/$${f} . ; \
 	else true; \
@@ -3225,11 +3260,15 @@ stage4-start:
 	-if [ -f as$(exeext) ] ; then (cd stage4 && $(LN_S) ../as$(exeext) .) ; else true ; fi
 	-if [ -f ld$(exeext) ] ; then (cd stage4 && $(LN_S) ../ld$(exeext) .) ; else true ; fi
 	-if [ -f collect-ld$(exeext) ] ; then (cd stage4 && $(LN_S) ../collect-ld$(exeext) .) ; else true ; fi
-	-rm -f stage4/libgcc.a
+	-rm -f stage4/libgcc.a stage4/libgcc_eh.a
 	-cp libgcc.a stage4
 	-if $(RANLIB_TEST_FOR_TARGET) ; then \
 	  $(RANLIB_FOR_TARGET) stage4/libgcc.a; \
 	else true; fi
+	-if [ -f libgcc_eh.a ] ; then cp libgcc_eh.a stage4; \
+	  if $(RANLIB_TEST_FOR_TARGET) ; then \
+	   $(RANLIB_FOR_TARGET) stage4/libgcc_eh.a; \
+	  else true; fi; fi
 	-for f in .. $(EXTRA_MULTILIB_PARTS); do if [ x$${f} != x.. ]; then \
 	  cp stage4/$${f} . ; \
 	else true; \

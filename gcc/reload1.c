@@ -323,10 +323,10 @@ static struct elim_table *reg_eliminate = 0;
 
 /* This is an intermediate structure to initialize the table.  It has
    exactly the members provided by ELIMINABLE_REGS.  */
-static struct elim_table_1
+static const struct elim_table_1
 {
-  int from;
-  int to;
+  const int from;
+  const int to;
 } reg_eliminate_1[] =
 
 /* If a set of eliminable registers was specified, define the table from it.
@@ -1363,7 +1363,8 @@ maybe_fix_stack_asms ()
 		  break;
 
 		case 'p':
-		  cls = (int) reg_class_subunion[cls][(int) BASE_REG_CLASS];
+		  cls = (int) reg_class_subunion[cls]
+		    [(int) MODE_BASE_REG_CLASS (VOIDmode)];
 		  break;
 
 		case 'g':
@@ -3485,7 +3486,7 @@ init_elim_table ()
 {
   struct elim_table *ep;
 #ifdef ELIMINABLE_REGS
-  struct elim_table_1 *ep1;
+  const struct elim_table_1 *ep1;
 #endif
 
   if (!reg_eliminate)

@@ -1685,7 +1685,8 @@ copy_insn_notes (insns, map, eh_region_offset)
 	      next = XEXP (note, 1);
 	      if (REG_NOTE_KIND (note) == REG_LABEL)
 	        remove_note (new_insn, note);
-	      else if (REG_NOTE_KIND (note) == REG_EH_REGION)
+	      else if (REG_NOTE_KIND (note) == REG_EH_REGION
+		       && INTVAL (XEXP (note, 0)) > 0)
 	        XEXP (note, 0) = GEN_INT (INTVAL (XEXP (note, 0))
 					  + eh_region_offset);
 	    }
@@ -2266,6 +2267,13 @@ copy_rtx_and_substitute (orig, map, for_lhs)
       PUT_MODE (copy, mode);
       XEXP (copy, 0) = copy_rtx_and_substitute (XEXP (orig, 0), map, 0);
       MEM_COPY_ATTRIBUTES (copy, orig);
+
+      /* If inlining and this is not for the LHS, turn off RTX_UNCHANGING_P
+	 since this may be an indirect reference to a parameter and the
+	 actual may not be readonly.  */
+      if (inlining && !for_lhs)
+	RTX_UNCHANGING_P (copy) = 0;
+
       return copy;
 
     default:

@@ -1,29 +1,10 @@
 \input texinfo  @c -*-texinfo-*-
 @c %**start of header
 @setfilename gcc.info
-@c @setfilename usegcc.info
-@c @setfilename portgcc.info
-@c To produce the full manual, use the "gcc.info" setfilename, and
-@c make sure the following do NOT begin with '@c' (and the @clear lines DO)
-@set INTERNALS
-@set USING
-@c To produce a user-only manual, use the "usegcc.info" setfilename, and
-@c make sure the following does NOT begin with '@c':
-@c @clear INTERNALS
-@c To produce a porter-only manual, use the "portgcc.info" setfilename,
-@c and make sure the following does NOT begin with '@c':
-@c @clear USING
-
-@c (For FSF printing, turn on smallbook, comment out finalout below;
-@c that is all that is needed.)
-
-@c 6/27/96 FSF DO wants smallbook fmt for 1st bound edition.
-@c @smallbook
-
-@c i also commented out the finalout command, so if there *are* any
-@c overfulls, you'll (hopefully) see the rectangle in the right hand
-@c margin. -mew 15june93
-@c @finalout
+@c INTERNALS is used by md.texi to determine whether to include the
+@c whole of that file, in the internals manual, or only the part
+@c dealing with constraints, in the user manual.
+@clear INTERNALS
 
 @c NOTE: checks/things to do:
 @c
@@ -41,37 +22,9 @@
 @c
 @c anything else?                       --mew 10feb93
 
-@macro gcctabopt{body}
-@code{\body\}
-@end macro
-@macro gccoptlist{body}
-@smallexample
-\body\
-@end smallexample
-@end macro
-@c Makeinfo handles the above macro OK, TeX needs manual line breaks;
-@c they get lost at some point in handling the macro.  But if @macro is
-@c used here rather than @alias, it produces double line breaks.
-@iftex
-@alias gol = *
-@end iftex
-@ifnottex
-@macro gol
-@end macro
-@end ifnottex
+@include gcc-common.texi
 
-@ifset INTERNALS
-@ifset USING
-@settitle Using and Porting the GNU Compiler Collection (GCC)
-@end ifset
-@end ifset
-@c seems reasonable to assume at least one of INTERNALS or USING is set...
-@ifclear INTERNALS
-@settitle Using the GNU Compiler Collection
-@end ifclear
-@ifclear USING
-@settitle Porting the GNU Compiler Collection
-@end ifclear
+@settitle Using the GNU Compiler Collection (GCC)
 
 @c Create a separate index for command line options.
 @defcodeindex op
@@ -107,31 +60,22 @@
 \global\setfont\defbf\ttbshape{10}{\magstep1}
 @end tex
 
+@macro copyrightnotice
+Copyright @copyright{} 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
+1999, 2000, 2001 Free Software Foundation, Inc.
+@end macro
 @ifnottex
 @dircategory Programming
 @direntry
 * gcc: (gcc).                  The GNU Compiler Collection.
 @end direntry
-@ifset INTERNALS
-@ifset USING
-This file documents the use and the internals of the GNU compiler.
-@end ifset
-@end ifset
-@ifclear USING
-This file documents the internals of the GNU compiler.
-@end ifclear
-@ifclear INTERNALS
-This file documents the use of the GNU compiler.
-@end ifclear
+This file documents the use of the GNU compilers.
 @sp 1
 Published by the Free Software Foundation@*
 59 Temple Place - Suite 330@*
 Boston, MA 02111-1307 USA
 @sp 1
-@c When you update the list of years below, search for copyright{} and
-@c update the other copy too.
-Copyright (C) 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-1999, 2000, 2001 Free Software Foundation, Inc.
+@copyrightnotice{}
 @sp 1
 Permission is granted to copy, distribute and/or modify this document
 under the terms of the GNU Free Documentation License, Version 1.1 or
@@ -153,41 +97,30 @@ included in the section entitled ``GNU Free Documentation License''.
 @end ifnottex
 
 @setchapternewpage odd
-@c @finalout
 @titlepage
-@ifset INTERNALS
-@ifset USING
-@center @titlefont{Using and Porting the GNU Compiler Collection}
-
-@end ifset
-@end ifset
-@ifclear INTERNALS
-@title Using the GNU Compiler Collection
-@end ifclear
-@ifclear USING
-@title Porting the GNU Compiler Collection
-@end ifclear
+@center @titlefont{Using the GNU Compiler Collection}
 @sp 2
 @center Richard M. Stallman
 @sp 3
-@center Last updated 22 June 2001
+@center Last updated 7 December 2001
 @sp 1
-@c The version number appears five times more in this file.
 
-@center for GCC 3.1
+@center for GCC @value{version-GCC}
 @page
 @vskip 0pt plus 1filll
-Copyright @copyright{} 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1998,
-1999, 2000, 2001  Free Software Foundation, Inc.
+@copyrightnotice{}
 @sp 2
-For GCC Version 3.1@*
+For GCC Version @value{version-GCC}@*
 @sp 1
 Published by the Free Software Foundation @*
 59 Temple Place---Suite 330@*
 Boston, MA 02111-1307, USA@*
 Last printed April, 1998.@*
 Printed copies are available for $50 each.@*
+@c Update this ISBN when printing a new edition.
+@ifset FSFPRINT
 ISBN 1-882114-37-X
+@end ifset
 @sp 1
 Permission is granted to copy, distribute and/or modify this document
 under the terms of the GNU Free Documentation License, Version 1.1 or
@@ -215,27 +148,15 @@ texts being (a) (see below), and with the Back-Cover Texts being (b)
 @top Introduction
 @cindex introduction
 
-@ifset INTERNALS
-@ifset USING
-This manual documents how to run and port the GNU
-compiler, as well as its new features and incompatibilities, and how to
-report bugs.  It corresponds to GCC version 3.1.
-@end ifset
-@end ifset
-
-@ifclear INTERNALS
-This manual documents how to run the GNU compiler,
-as well as its new features and incompatibilities, and how to report
-bugs.  It corresponds to GCC version 3.1.
-@end ifclear
-@ifclear USING
-This manual documents how to port the GNU compiler,
-as well as its new features and incompatibilities, and how to report
-bugs.  It corresponds to GCC version 3.1.
-@end ifclear
+This manual documents how to use the GNU compilers,
+as well as their features and incompatibilities, and how to report
+bugs.  It corresponds to GCC version @value{version-GCC}.
+The internals of the GNU compilers, including how to port them to new
+targets and some information about how to write front ends for new
+languages, are documented in a separate manual.  @xref{Top,,
+Introduction, gccint, GNU Compiler Collection (GCC) Internals}.
 
 @menu
-@ifset USING
 * G++ and GCC::     You can compile C or C++ programs.
 * Standards::       Language standards supported by GCC.
 * Invoking GCC::    Command options supported by @samp{gcc}.
@@ -249,22 +170,6 @@ bugs.  It corresponds to GCC version 3.1.
 * Service::         How to find suppliers of support for GCC.
 * Contributing::    How to contribute to testing and developing GCC.
 * VMS::             Using GCC on VMS.
-* Makefile::        Additional Makefile and configure information.
-@end ifset
-@ifset INTERNALS
-* Portability::     Goals of GCC's portability features.
-* Interface::       Function-call interface of GCC output.
-* Passes::          Order of passes, what they do, and what each file is for.
-* Trees::           The source representation used by the C and C++ front ends.
-* RTL::             The intermediate representation that most passes work on.
-* Machine Desc::    How to write machine description instruction patterns.
-* Target Macros::   How to write the machine description C macros and functions.
-* Config::          Writing the @file{xm-@var{machine}.h} file.
-* Fragments::       Writing the @file{t-@var{target}} and @file{x-@var{host}} files.
-* Configuration Files::  Files created by running @code{configure}.
-* Collect2::        How @code{collect2} works; how it finds @code{ld}.
-* Header Dirs::     Understanding the standard header file directories.
-@end ifset
 
 * Funding::         How to help assure funding for free software.
 * GNU Project::     The GNU Project and GNU/Linux.
@@ -278,55 +183,20 @@ bugs.  It corresponds to GCC version 3.1.
 * Index::	    Index of concepts and symbol names.
 @end menu
 
-@ifset USING
-
 @include frontends.texi
-
 @include standards.texi
-
 @include invoke.texi
-
 @include extend.texi
-
 @include objc.texi
-
 @include gcov.texi
-
 @include trouble.texi
-
 @include bugreport.texi
-
 @include service.texi
-
 @include contribute.texi
-
 @include vms.texi
 
-@include makefile.texi
-
-@include configterms.texi
-
-@end ifset
-
-@ifset INTERNALS
-@include portability.texi
-@include interface.texi
-@include passes.texi
-@include c-tree.texi
-@include rtl.texi
-@include md.texi
-@include tm.texi
-@include hostconfig.texi
-@include fragments.texi
-@include configfiles.texi
-@include collect2.texi
-@include headerdirs.texi
-@end ifset
-
 @include funding.texi
-
 @include gnu.texi
-
 @include gpl.texi
 
 @c ---------------------------------------------------------------------

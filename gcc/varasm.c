@@ -140,7 +140,6 @@ static HOST_WIDE_INT const_alias_set;
 
 static const char *strip_reg_name	PARAMS ((const char *));
 static int contains_pointers_p		PARAMS ((tree));
-static void assemble_real_1		PARAMS ((PTR));
 static void decode_addr_const		PARAMS ((tree, struct addr_const *));
 static int const_hash			PARAMS ((tree));
 static int compare_constant		PARAMS ((tree,
@@ -1980,146 +1979,112 @@ min_align (a, b)
   return (a | b) & -(a | b);
 }
 
+/* Return the assembler directive for creating a given kind of integer
+   object.  SIZE is the number of bytes in the object and ALIGNED_P
+   indicates whether it is known to be aligned.  Return NULL if the
+   assembly dialect has no such directive.
+
+   The returned string should be printed at the start of a new line and
+   be followed immediately by the object's initial value.  */
+
+const char *
+integer_asm_op (size, aligned_p)
+     int size;
+     int aligned_p;
+{
+  struct asm_int_op *ops;
+
+  if (aligned_p)
+    ops = &targetm.asm_out.aligned_op;
+  else
+    ops = &targetm.asm_out.unaligned_op;
+
+  switch (size)
+    {
+    case 1:
+      return targetm.asm_out.byte_op;
+    case 2:
+      return ops->hi;
+    case 4:
+      return ops->si;
+    case 8:
+      return ops->di;
+    case 16:
+      return ops->ti;
+    default:
+      return NULL;
+    }
+}
+
+/* Use directive OP to assemble an integer object X.  Print OP at the
+   start of the line, followed immediately by the value of X.  */
+
+void
+assemble_integer_with_op (op, x)
+     const char *op;
+     rtx x;
+{
+  fputs (op, asm_out_file);
+  output_addr_const (asm_out_file, x);
+  fputc ('\n', asm_out_file);
+}
+
+/* The default implementation of the asm_out.integer target hook.  */
+
+bool
+default_assemble_integer (x, size, aligned_p)
+     rtx x ATTRIBUTE_UNUSED;
+     unsigned int size ATTRIBUTE_UNUSED;
+     int aligned_p ATTRIBUTE_UNUSED;
+{
+  const char *op = integer_asm_op (size, aligned_p);
+  return op && (assemble_integer_with_op (op, x), true);
+}
+
 /* Assemble the integer constant X into an object of SIZE bytes.  ALIGN is
    the alignment of the integer in bits.  Return 1 if we were able to output
    the constant, otherwise 0.  If FORCE is non-zero, abort if we can't output
    the constant.  */
 
-int
+bool
 assemble_integer (x, size, align, force)
      rtx x;
      unsigned int size;
      unsigned int align;
      int force;
 {
-  /* First try to use the standard 1, 2, 4, 8, and 16 byte
-     ASM_OUTPUT... macros.  */
+  int aligned_p;
 
-  if (align >= MIN (size * BITS_PER_UNIT, BIGGEST_ALIGNMENT))
-    switch (size)
-      {
-#ifdef ASM_OUTPUT_CHAR
-      case 1:
-	ASM_OUTPUT_CHAR (asm_out_file, x);
-	return 1;
-#endif
-#ifdef ASM_OUTPUT_SHORT
-      case 2:
-	ASM_OUTPUT_SHORT (asm_out_file, x);
-	return 1;
-#endif
-#ifdef ASM_OUTPUT_INT
-      case 4:
-	ASM_OUTPUT_INT (asm_out_file, x);
-	return 1;
-#endif
-#ifdef ASM_OUTPUT_DOUBLE_INT
-      case 8:
-	ASM_OUTPUT_DOUBLE_INT (asm_out_file, x);
-	return 1;
-#endif
-#ifdef ASM_OUTPUT_QUADRUPLE_INT
-      case 16:
-	ASM_OUTPUT_QUADRUPLE_INT (asm_out_file, x);
-	return 1;
-#endif
-      }
-  else
-    {
-      const char *asm_op = NULL;
+  aligned_p = (align >= MIN (size * BITS_PER_UNIT, BIGGEST_ALIGNMENT));
 
-      /* ??? This isn't quite as flexible as the ASM_OUTPUT_INT type hooks.
-	 At present powerpc-eabi can't jump -mrelocatable hoops, so you can
-	 get assembler errors from symbolic references in packed structs.  */
-      switch (size)
-	{
-#ifdef UNALIGNED_SHORT_ASM_OP
-	case 2:
-	  asm_op = UNALIGNED_SHORT_ASM_OP;
-	  break;
-#endif
-#ifdef UNALIGNED_INT_ASM_OP
-	case 4:
-	  asm_op = UNALIGNED_INT_ASM_OP;
-	  break;
-#endif
-#ifdef UNALIGNED_DOUBLE_INT_ASM_OP
-	case 8:
-	  asm_op = UNALIGNED_DOUBLE_INT_ASM_OP;
-	  break;
-#endif
-	}
+  /* See if the target hook can handle this kind of object.  */
+  if ((*targetm.asm_out.integer) (x, size, aligned_p))
+    return true;
 
-      if (asm_op)
-	{
-	  fputs (asm_op, asm_out_file);
-	  output_addr_const (asm_out_file, x);
-	  fputc ('\n', asm_out_file);
-	  return 1;
-	}
-    }
-
-  /* If we couldn't do it that way, there are two other possibilities: First,
-     if the machine can output an explicit byte and this is a 1 byte constant,
-     we can use ASM_OUTPUT_BYTE.  */
-
-#ifdef ASM_OUTPUT_BYTE
-  if (size == 1 && GET_CODE (x) == CONST_INT)
-    {
-      ASM_OUTPUT_BYTE (asm_out_file, INTVAL (x));
-      return 1;
-    }
-#endif
-
-  /* If SIZE is larger than a single word, try to output the constant
-     one word at a time.  */
-
-  if (size > UNITS_PER_WORD)
-    {
-      enum machine_mode mode
-	= mode_for_size (size * BITS_PER_UNIT, MODE_INT, 0);
-      unsigned align2 = min_align (align, BITS_PER_WORD);
-      unsigned int i;
-
-      for (i = 0; i < size / UNITS_PER_WORD; i++)
-	{
-	  rtx word = operand_subword (x, i, 0, mode);
-	  if (word == 0)
-	    break;
-	  if (! assemble_integer (word, UNITS_PER_WORD, align2, 0))
-	    break;
-	}
-
-      if (i == size / UNITS_PER_WORD)
-	return 1;
-      /* If we output at least one word and then could not finish,
-	 there is no valid way to continue.  */
-      if (i > 0)
-	abort ();
-    }
-
-  /* If unaligned, and this is a constant, emit it one byte at a time.  */
-  if (align < size * BITS_PER_UNIT)
+  /* If the object is a multi-byte one, try splitting it up.  Split
+     it into words it if is multi-word, otherwise split it into bytes.  */
+  if (size > 1)
     {
       enum machine_mode omode, imode;
-      unsigned int i;
+      unsigned int subalign;
+      unsigned int subsize, i;
 
-      omode = mode_for_size (BITS_PER_UNIT, MODE_INT, 0);
+      subsize = size > UNITS_PER_WORD? UNITS_PER_WORD : 1;
+      subalign = MIN (align, subsize * BITS_PER_UNIT);
+      omode = mode_for_size (subsize * BITS_PER_UNIT, MODE_INT, 0);
       imode = mode_for_size (size * BITS_PER_UNIT, MODE_INT, 0);
 
-      for (i = 0; i < size; i++)
+      for (i = 0; i < size; i += subsize)
 	{
-	  rtx byte = simplify_subreg (omode, x, imode, i);
-	  if (byte == 0)
-	    break;
-	  if (! assemble_integer (byte, 1, BITS_PER_UNIT, 0))
+	  rtx partial = simplify_subreg (omode, x, imode, i);
+	  if (!partial || !assemble_integer (partial, subsize, subalign, 0))
 	    break;
 	}
-
       if (i == size)
-	return 1;
-      /* If we output at least one byte and then could not finish,
-	 there is no valid way to continue.  */
+	return true;
+
+      /* If we've printed some of it, but not all of it, there's no going
+	 back now.  */
       if (i > 0)
 	abort ();
     }
@@ -2127,89 +2092,88 @@ assemble_integer (x, size, align, force)
   if (force)
     abort ();
 
-  return 0;
+  return false;
 }
 
-/* Assemble the floating-point constant D into an object of size MODE.  */
-struct assemble_real_args
-{
-  REAL_VALUE_TYPE *d;
-  enum machine_mode mode;
-};
-
-static void
-assemble_real_1 (p)
-     PTR p;
-{
-  struct assemble_real_args *args = (struct assemble_real_args *) p;
-  REAL_VALUE_TYPE *d = args->d;
-  enum machine_mode mode = args->mode;
-
-  switch (mode)
-    {
-#ifdef ASM_OUTPUT_BYTE_FLOAT
-    case QFmode:
-      ASM_OUTPUT_BYTE_FLOAT (asm_out_file, *d);
-      break;
-#endif
-#ifdef ASM_OUTPUT_SHORT_FLOAT
-    case HFmode:
-      ASM_OUTPUT_SHORT_FLOAT (asm_out_file, *d);
-      break;
-#endif
-#ifdef ASM_OUTPUT_THREE_QUARTER_FLOAT
-    case TQFmode:
-      ASM_OUTPUT_THREE_QUARTER_FLOAT (asm_out_file, *d);
-      break;
-#endif
-#ifdef ASM_OUTPUT_FLOAT
-    case SFmode:
-      ASM_OUTPUT_FLOAT (asm_out_file, *d);
-      break;
-#endif
-
-#ifdef ASM_OUTPUT_DOUBLE
-    case DFmode:
-      ASM_OUTPUT_DOUBLE (asm_out_file, *d);
-      break;
-#endif
-
-#ifdef ASM_OUTPUT_LONG_DOUBLE
-    case XFmode:
-    case TFmode:
-      ASM_OUTPUT_LONG_DOUBLE (asm_out_file, *d);
-      break;
-#endif
-
-    default:
-      abort ();
-    }
-}
-
 void
 assemble_real (d, mode, align)
      REAL_VALUE_TYPE d;
      enum machine_mode mode;
      unsigned int align;
 {
-  struct assemble_real_args args;
-  args.d = &d;
-  args.mode = mode;
+  long data[4];
+  long l;
+  unsigned int nalign = min_align (align, 32);
 
-  /* We cannot emit unaligned floating point constants.  This is slightly
-     complicated in that we don't know what "unaligned" means exactly.  */
-#ifdef BIGGEST_FIELD_ALIGNMENT
-  if (align >= BIGGEST_FIELD_ALIGNMENT)
-    ;
-  else
-#endif
-  if (align < GET_MODE_ALIGNMENT (mode))
-    abort ();
+  switch (BITS_PER_UNIT)
+    {
+    case 8:
+      switch (mode)
+	{
+	case SFmode:
+	  REAL_VALUE_TO_TARGET_SINGLE (d, l);
+	  assemble_integer (GEN_INT (l), 4, align, 1);
+	  break;
+	case DFmode:
+	  REAL_VALUE_TO_TARGET_DOUBLE (d, data);
+	  assemble_integer (GEN_INT (data[0]), 4, align, 1);
+	  assemble_integer (GEN_INT (data[1]), 4, nalign, 1);
+	  break;
+	case XFmode:
+	  REAL_VALUE_TO_TARGET_LONG_DOUBLE (d, data);
+	  assemble_integer (GEN_INT (data[0]), 4, align, 1);
+	  assemble_integer (GEN_INT (data[1]), 4, nalign, 1);
+	  assemble_integer (GEN_INT (data[2]), 4, nalign, 1);
+	  break;
+	case TFmode:
+	  REAL_VALUE_TO_TARGET_LONG_DOUBLE (d, data);
+	  assemble_integer (GEN_INT (data[0]), 4, align, 1);
+	  assemble_integer (GEN_INT (data[1]), 4, nalign, 1);
+	  assemble_integer (GEN_INT (data[2]), 4, nalign, 1);
+	  assemble_integer (GEN_INT (data[3]), 4, nalign, 1);
+	  break;
+	default:
+	  abort ();
+	}
+      break;
 
-  if (do_float_handler (assemble_real_1, (PTR) &args))
-    return;
+    case 16:
+      switch (mode)
+	{
+	case HFmode:
+	  REAL_VALUE_TO_TARGET_SINGLE (d, l);
+	  assemble_integer (GEN_INT (l), 2, align, 1);
+	  break;
+	case TQFmode:
+	  REAL_VALUE_TO_TARGET_DOUBLE (d, data);
+	  assemble_integer (GEN_INT (data[0]), 2, align, 1);
+	  assemble_integer (GEN_INT (data[1]), 1, nalign, 1);
+	  break;
+	default:
+	  abort ();
+	}
+      break;
 
-  internal_error ("floating point trap outputting a constant");
+    case 32:
+      switch (mode)
+	{
+	case QFmode:
+	  REAL_VALUE_TO_TARGET_SINGLE (d, l);
+	  assemble_integer (GEN_INT (l), 1, align, 1);
+	  break;
+	case HFmode:
+	  REAL_VALUE_TO_TARGET_DOUBLE (d, data);
+	  assemble_integer (GEN_INT (data[0]), 1, align, 1);
+	  assemble_integer (GEN_INT (data[1]), 1, nalign, 1);
+	  break;
+	default:
+	  abort ();
+	}
+      break;
+
+    default:
+      abort ();
+    }
 }
 
 /* Here we combine duplicate floating constants to make
@@ -3162,7 +3126,7 @@ record_constant_1 (exp)
 	tree new = (*lang_hooks.expand_constant) (exp);
 
 	if (new != exp)
-          record_constant_1 (exp);
+          record_constant_1 (new);
 	return;
       }
     }

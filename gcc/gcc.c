@@ -186,6 +186,13 @@ static int print_help_list;
 
 static int verbose_flag;
 
+/* Flag indicating whether we should ONLY print the command and
+   arguments (like verbose_flag) without executing the command.
+   Displayed arguments are quoted so that the generated command
+   line is suitable for execution.  This is intended for use in
+   shell scripts to capture the driver-generated command line.  */
+static int verbose_only_flag;
+
 /* Flag indicating to print target specific command line options.  */
 
 static int target_help_flag;
@@ -227,7 +234,7 @@ static const char *cross_compile = "0";
    switch.  The only case we support now is simply appending or deleting a
    string to or from the end of the first part of the configuration name.  */
 
-const struct modify_target
+static const struct modify_target
 {
   const char *const sw;
   const enum add_del {ADD, DELETE} add_del;
@@ -316,7 +323,7 @@ static void clear_args			PARAMS ((void));
 static void fatal_error			PARAMS ((int));
 #ifdef ENABLE_SHARED_LIBGCC
 static void init_gcc_specs              PARAMS ((struct obstack *,
-						 const char *,
+						 const char *, const char *,
 						 const char *));
 #endif
 #if defined(HAVE_TARGET_OBJECT_SUFFIX) || defined(HAVE_TARGET_EXECUTABLE_SUFFIX)
@@ -1409,28 +1416,36 @@ static struct spec_list *specs = (struct spec_list *) 0;
 
 #ifdef ENABLE_SHARED_LIBGCC
 static void
-init_gcc_specs (obstack, shared_name, static_name)
+init_gcc_specs (obstack, shared_name, static_name, eh_name)
      struct obstack *obstack;
      const char *shared_name;
      const char *static_name;
+     const char *eh_name;
 {
   char buffer[128];
+  const char *p;
 
   /* If we see -shared-libgcc, then use the shared version.  */
   sprintf (buffer, "%%{shared-libgcc:%s %s}", shared_name, static_name);
   obstack_grow (obstack, buffer, strlen (buffer));
   /* If we see -static-libgcc, then use the static version.  */
-  sprintf (buffer, "%%{static-libgcc:%s}", static_name);
+  sprintf (buffer, "%%{static-libgcc:%s %s}", static_name, eh_name);
   obstack_grow (obstack, buffer, strlen (buffer));
-  /* Otherwise, if we see -shared, then use the shared version.  */
-  sprintf (buffer,
-	   "%%{!shared-libgcc:%%{!static-libgcc:%%{shared:%s %s}}}", 
-	   shared_name, static_name);
+  /* Otherwise, if we see -shared, then use the shared version
+     if using EH registration routines or static version without
+     exception handling routines otherwise.  */
+  p = "%{!shared-libgcc:%{!static-libgcc:%{shared:";
+  obstack_grow (obstack, p, strlen (p));
+#ifdef LINK_EH_SPEC
+  sprintf (buffer, "%s}}}", static_name);
+#else
+  sprintf (buffer, "%s %s}}}", shared_name, static_name);
+#endif
   obstack_grow (obstack, buffer, strlen (buffer));
   /* Otherwise, use the static version.  */
   sprintf (buffer, 
-	   "%%{!shared-libgcc:%%{!static-libgcc:%%{!shared:%s}}}", 
-	   static_name);
+	   "%%{!shared-libgcc:%%{!static-libgcc:%%{!shared:%s %s}}}", 
+	   static_name, eh_name);
   obstack_grow (obstack, buffer, strlen (buffer));
 }
 #endif /* ENABLE_SHARED_LIBGCC */
@@ -1448,7 +1463,7 @@ init_spec ()
     return;			/* Already initialized.  */
 
   if (verbose_flag)
-    notice ("Using builtin specs.\n");
+    notice ("Using built-in specs.\n");
 
 #ifdef EXTRA_SPECS
   extra_specs = (struct spec_list *)
@@ -1518,7 +1533,8 @@ init_spec ()
 			    "-lgcc_s%M"
 #endif
 			    ,
-			    "-lgcc");
+			    "-lgcc",
+			    "-lgcc_eh");
 	    p += 5;
 	    in_sep = 0;
 	  }
@@ -1533,7 +1549,8 @@ init_spec ()
 			    "-lgcc_s%M"
 #endif
 			    ,
-			    "libgcc.a%s");
+			    "libgcc.a%s",
+			    "libgcc_eh.a%s");
 	    p += 10;
 	    in_sep = 0;
 	  }
@@ -1557,6 +1574,12 @@ init_spec ()
     obstack_grow0 (&obstack, asm_spec, strlen (asm_spec));
     asm_spec = obstack_finish (&obstack);
   }
+#endif
+#ifdef LINK_EH_SPEC
+  /* Prepend LINK_EH_SPEC to whatever link_spec we had before.  */
+  obstack_grow (&obstack, LINK_EH_SPEC, sizeof(LINK_EH_SPEC) - 1);
+  obstack_grow0 (&obstack, link_spec, strlen (link_spec));
+  link_spec = obstack_finish (&obstack);
 #endif
 
   specs = sl;
@@ -2726,8 +2749,24 @@ execute ()
 	{
 	  const char *const *j;
 
-	  for (j = commands[i].argv; *j; j++)
-	    fprintf (stderr, " %s", *j);
+     	  if (verbose_only_flag)
+     	    {
+	      for (j = commands[i].argv; *j; j++)
+		{
+		  const char *p;
+		  fprintf (stderr, " \"");
+		  for (p = *j; *p; ++p)
+		    {
+		      if (*p == '"' || *p == '\\' || *p == '$')
+			fputc ('\\', stderr);
+		      fputc (*p, stderr);
+		    }
+		  fputc ('"', stderr);
+		}
+     	    }
+     	  else
+	    for (j = commands[i].argv; *j; j++)
+	      fprintf (stderr, " %s", *j);
 
 	  /* Print a pipe symbol after all but the last command.  */
 	  if (i + 1 != n_commands)
@@ -2735,6 +2774,8 @@ execute ()
 	  fprintf (stderr, "\n");
 	}
       fflush (stderr);
+      if (verbose_only_flag != 0)
+        return 0;
 #ifdef DEBUG
       notice ("\nGo ahead? (y or n) ");
       fflush (stderr);
@@ -3012,12 +3053,13 @@ display_help ()
   fputs (_("  -save-temps              Do not delete intermediate files\n"), stdout);
   fputs (_("  -pipe                    Use pipes rather than intermediate files\n"), stdout);
   fputs (_("  -time                    Time the execution of each subprocess\n"), stdout);
-  fputs (_("  -specs=<file>            Override builtin specs with the contents of <file>\n"), stdout);
+  fputs (_("  -specs=<file>            Override built-in specs with the contents of <file>\n"), stdout);
   fputs (_("  -std=<standard>          Assume that the input sources are for <standard>\n"), stdout);
   fputs (_("  -B <directory>           Add <directory> to the compiler's search paths\n"), stdout);
   fputs (_("  -b <machine>             Run gcc for target <machine>, if installed\n"), stdout);
   fputs (_("  -V <version>             Run gcc version number <version>, if installed\n"), stdout);
   fputs (_("  -v                       Display the programs invoked by the compiler\n"), stdout);
+  fputs (_("  -###                     Like -v but options quoted and commands not executed\n"), stdout);
   fputs (_("  -E                       Preprocess only; do not compile, assemble or link\n"), stdout);
   fputs (_("  -S                       Compile only; do not assemble or link\n"), stdout);
   fputs (_("  -c                       Compile and assemble, but do not link\n"), stdout);
@@ -3025,7 +3067,7 @@ display_help ()
   fputs (_("\
   -x <language>            Specify the language of the following input files\n\
                            Permissable languages include: c c++ assembler none\n\
-                           'none' means revert to the default behaviour of\n\
+                           'none' means revert to the default behavior of\n\
                            guessing the language based on the file's extension\n\
 "), stdout);
 
@@ -3452,6 +3494,15 @@ process_command (argc, argv)
 	}
       else if (strcmp (argv[i], "-time") == 0)
 	report_times = 1;
+      else if (strcmp (argv[i], "-###") == 0)
+	{
+	  /* This is similar to -v except that there is no execution
+	     of the commands and the echoed arguments are quoted.  It
+	     is intended for use in shell scripts to capture the
+	     driver-generated command line.  */
+	  verbose_only_flag++;
+	  verbose_flag++;
+	}
       else if (argv[i][0] == '-' && argv[i][1] != 0)
 	{
 	  const char *p = &argv[i][1];
@@ -3870,6 +3921,8 @@ process_command (argc, argv)
 	  else if (report_times)
 	    error ("warning: -pipe ignored because -time specified");
 	}
+      else if (strcmp (argv[i], "-###") == 0)
+	;
       else if (argv[i][0] == '-' && argv[i][1] != 0)
 	{
 	  const char *p = &argv[i][1];
@@ -4077,6 +4130,8 @@ static int basename_length;
 static int suffixed_basename_length;
 static const char *input_basename;
 static const char *input_suffix;
+static struct stat input_stat;
+static int input_stat_set;
 
 /* The compiler used to process the current input file.  */
 static struct compiler *input_file_compiler;
@@ -4442,12 +4497,6 @@ do_spec_1 (spec, inswitch, soft_matched_part)
 	  case 'g':
 	  case 'u':
 	  case 'U':
-	    if (save_temps_flag)
-	      {
-		obstack_grow (&obstack, input_basename, basename_length);
-		delete_this_arg = 0;
-	      }
-	    else
 	      {
 		struct temp_name *t;
 		int suffix_length;
@@ -4475,6 +4524,54 @@ do_spec_1 (spec, inswitch, soft_matched_part)
 				TARGET_OBJECT_SUFFIX);
 		      }
 		    suffix_length += strlen (TARGET_OBJECT_SUFFIX);
+		  }
+		
+		/* If the input_filename has the same suffix specified
+		   for the %g, %u, or %U, and -save-temps is specified,
+		   we could end up using that file as an intermediate
+		   thus clobbering the user's source file (.e.g.,
+		   gcc -save-temps foo.s would clobber foo.s with the
+		   output of cpp0).  So check for this condition and
+		   generate a temp file as the intermediate.  */
+		   
+		if (save_temps_flag)
+		  {
+		    temp_filename_length = basename_length + suffix_length;
+		    temp_filename = alloca (temp_filename_length + 1);
+		    strncpy ((char *) temp_filename, input_basename, basename_length);
+		    strncpy ((char *) temp_filename + basename_length, suffix,
+		    	     suffix_length);
+		    *((char *) temp_filename + temp_filename_length) = '\0';
+		    if (strcmp (temp_filename, input_filename) != 0)
+		      {
+		      	struct stat st_temp;
+		      	
+		      	/* Note, set_input() resets input_stat_set to 0.  */
+		      	if (input_stat_set == 0)
+		      	  {
+		      	    input_stat_set = stat (input_filename, &input_stat);
+		      	    if (input_stat_set >= 0)
+		      	      input_stat_set = 1;
+		      	  }
+		      	  
+		      	/* If we have the stat for the input_filename
+		      	   and we can do the stat for the temp_filename
+		      	   then the they could still refer to the same
+		      	   file if st_dev/st_ino's are the same.  */
+		      	
+			if (input_stat_set != 1
+			    || stat (temp_filename, &st_temp) < 0
+			    || input_stat.st_dev != st_temp.st_dev
+			    || input_stat.st_ino != st_temp.st_ino)
+ 		      	  {
+			    temp_filename = save_string (temp_filename,
+							 temp_filename_length + 1);
+			    obstack_grow (&obstack, temp_filename,
+			    			    temp_filename_length);
+			    arg_going = 1;
+			    break;
+			  }
+		      }
 		  }
 
 		/* See if we already have an association of %g/%u/%U and
@@ -4930,7 +5027,7 @@ do_spec_1 (spec, inswitch, soft_matched_part)
 	      /* Catch the case where a spec string contains something like
 		 '%{foo:%*}'.  ie there is no * in the pattern on the left
 		 hand side of the :.  */
-	      error ("spec failure: '%%*' has not been initialised by pattern match");
+	      error ("spec failure: '%%*' has not been initialized by pattern match");
 	    break;
 
 	    /* Process a string found as the value of a spec given by name.
@@ -5082,7 +5179,7 @@ do_spec_1 (spec, inswitch, soft_matched_part)
 	    break;
 
 	  default:
-	    error ("spec failure: unrecognised spec option '%c'", c);
+	    error ("spec failure: unrecognized spec option '%c'", c);
 	    break;
 	  }
 	break;
@@ -5618,6 +5715,11 @@ set_input (filename)
     }
   else
     input_suffix = "";
+  
+  /* If a spec for 'g', 'u', or 'U' is seen with -save-temps then
+     we will need to do a stat on the input_filename.  The
+     INPUT_STAT_SET signals that the stat is needed.  */
+  input_stat_set = 0;
 }
 
 /* On fatal signals, delete all the temporary files.  */

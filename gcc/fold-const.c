@@ -1170,13 +1170,7 @@ real_hex_to_f (s, mode)
     {
       if (ISXDIGIT (c))
 	{
-	  k = c & CHARMASK;
-	  if (k >= 'a' && k <= 'f')
-	    k = k - 'a' + 10;
-	  else if (k >= 'A')
-	    k = k - 'A' + 10;
-	  else
-	    k = k - '0';
+	  k = hex_value (c & CHARMASK);
 
 	  if ((high & 0xf0000000) == 0)
 	    {
@@ -1388,7 +1382,7 @@ negate_expr (t)
       break;
     }
 
-  return convert (type, build1 (NEGATE_EXPR, TREE_TYPE (t), t));
+  return convert (type, fold (build1 (NEGATE_EXPR, TREE_TYPE (t), t)));
 }
 
 /* Split a tree IN into a constant, literal and variable parts that could be
@@ -3117,7 +3111,7 @@ optimize_bit_field_compare (code, compare_type, lhs, rhs)
 					convert (unsigned_type, rhs),
 					size_int (lbitsize), 0)))
 	{
-	  warning ("comparison is always %d due to width of bitfield",
+	  warning ("comparison is always %d due to width of bit-field",
 		   code == NE_EXPR);
 	  return convert (compare_type,
 			  (code == NE_EXPR
@@ -3130,7 +3124,7 @@ optimize_bit_field_compare (code, compare_type, lhs, rhs)
 			      size_int (lbitsize - 1), 0);
       if (! integer_zerop (tem) && ! integer_all_onesp (tem))
 	{
-	  warning ("comparison is always %d due to width of bitfield",
+	  warning ("comparison is always %d due to width of bit-field",
 		   code == NE_EXPR);
 	  return convert (compare_type,
 			  (code == NE_EXPR
