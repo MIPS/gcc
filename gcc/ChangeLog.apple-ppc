@@ -1,3 +1,7 @@
+2005-03-31  Dale Johannesen  <dalej@apple.com>
+
+	* print-tree.c (print_node):  Handle STATEMENT_LIST (mainline).
+
 2005-03-29  Dale Johannesen  <dalej@apple.com>
 
 	Radar 3955567
