@@ -1,3 +1,19 @@
+2004-01-06  Ira Rosen  <irar@il.ibm.com>
+
+	* tree-vectorizer.c (vect_get_ptr_offset): Return value in bytes.
+	(vect_analyze_offset_expr): Use size arithmetics. Reorganize the code.
+	(vect_get_base_and_offset): Use size arithmetics. Call
+	handled_component_p.
+	(vect_create_addr_base_for_vector_ref): Add comment.
+	(vect_create_data_ref_ptr): Use TYPE_SIZE_UNIT.
+	(vectorizable_load): Use size arithmetics.
+	(vect_gen_niters_for_prolog_loop): Test for INTEGER_CST.
+	(vect_compute_data_ref_alignment): Use size arithmetics.
+	(vect_analyze_data_ref_access): Use tree_int_cst_compare and
+	TYPE_SIZE_UNIT.
+	(vect_analyze_pointer_ref_access): Use size arithmetics.
+	(vect_get_memtag_and_dr): Use size arithmetics.
+
 2004-12-30  Sebastian Pop  <pop@cri.ensmp.fr>
 
 	* version.c (version_string): Automatically update the name of 
