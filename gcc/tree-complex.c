@@ -23,6 +23,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "coretypes.h"
 #include "tree.h"
 #include "tm.h"
+#include "basic-block.h"
+#include "function.h"
 #include "tree-flow.h"
 #include "tree-gimple.h"
 #include "tree-iterator.h"

@@ -25,6 +25,7 @@ Boston, MA 02111-1307, USA.  */
 #include "bitmap.h"
 #include "hard-reg-set.h"
 #include "basic-block.h"
+#include "function.h"
 #include "hashtab.h"
 #include "tree-gimple.h"
 #include "tree-ssa-operands.h"

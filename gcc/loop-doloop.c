@@ -28,6 +28,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "expr.h"
 #include "hard-reg-set.h"
 #include "basic-block.h"
+#include "function.h"
 #include "toplev.h"
 #include "tm_p.h"
 #include "cfgloop.h"

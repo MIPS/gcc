@@ -27,6 +27,7 @@ Boston, MA 02111-1307, USA.  */
 #include "varray.h"
 #include "ggc.h"
 #include "basic-block.h"
+#include "function.h"
 #include "tree-flow.h"
 #include "toplev.h"
 

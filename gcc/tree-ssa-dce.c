@@ -55,6 +55,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tm_p.h"
 #include "hard-reg-set.h"
 #include "basic-block.h"
+#include "function.h"
 
 #include "tree.h"
 #include "diagnostic.h"

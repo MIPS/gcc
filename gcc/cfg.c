@@ -61,7 +61,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "toplev.h"
 #include "tm_p.h"
 #include "obstack.h"
-#include "alloc-pool.h"
 #include "timevar.h"
 #include "ggc.h"
 
@@ -69,28 +68,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 struct obstack flow_obstack;
 static char *flow_firstobj;
-
-/* Number of basic blocks in the current function.  */
-
-int n_basic_blocks;
-
-/* First free basic block number.  */
-
-int last_basic_block;
-
-/* Number of edges in the current function.  */
-
-int n_edges;
-
-/* The basic block array.  */
-
-varray_type basic_block_info;
-
-/* The special entry and exit blocks.  */
-basic_block ENTRY_BLOCK_PTR, EXIT_BLOCK_PTR;
-
-/* Memory alloc pool for bb member rbi.  */
-alloc_pool rbi_pool;
 
 void debug_flow_info (void);
 static void free_edge (edge);
@@ -116,9 +93,9 @@ init_flow (void)
       flow_firstobj = obstack_alloc (&flow_obstack, 0);
     }
 
-  ENTRY_BLOCK_PTR = ggc_alloc_cleared (sizeof (*ENTRY_BLOCK_PTR));
+  ENTRY_BLOCK_PTR = ggc_alloc_cleared (sizeof (struct basic_block_def));
   ENTRY_BLOCK_PTR->index = ENTRY_BLOCK;
-  EXIT_BLOCK_PTR = ggc_alloc_cleared (sizeof (*EXIT_BLOCK_PTR));
+  EXIT_BLOCK_PTR = ggc_alloc_cleared (sizeof (struct basic_block_def));
   EXIT_BLOCK_PTR->index = EXIT_BLOCK;
   ENTRY_BLOCK_PTR->next_bb = EXIT_BLOCK_PTR;
   EXIT_BLOCK_PTR->prev_bb = ENTRY_BLOCK_PTR;
@@ -184,24 +161,6 @@ alloc_block (void)
   return bb;
 }
 
-/* Create memory pool for rbi_pool.  */
-
-void
-alloc_rbi_pool (void)
-{
-  rbi_pool = create_alloc_pool ("rbi pool", 
-				sizeof (struct reorder_block_def),
-				n_basic_blocks + 2);
-}
-
-/* Free rbi_pool.  */
-
-void
-free_rbi_pool (void)
-{
-  free_alloc_pool (rbi_pool);
-}
-
 /* Initialize rbi (the structure containing data used by basic block
    duplication and reordering) for the given basic block.  */
 
@@ -210,8 +169,7 @@ initialize_bb_rbi (basic_block bb)
 {
   if (bb->rbi)
     abort ();
-  bb->rbi = pool_alloc (rbi_pool);
-  memset (bb->rbi, 0, sizeof (struct reorder_block_def));
+  bb->rbi = ggc_alloc_cleared (sizeof (struct reorder_block_def));
 }
 
 /* Link block B to chain after AFTER.  */

@@ -27,6 +27,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "rtl.h"
 #include "hard-reg-set.h"
 #include "basic-block.h"
+#include "function.h"
 #include "insn-config.h"
 #include "recog.h"
 #include "toplev.h"

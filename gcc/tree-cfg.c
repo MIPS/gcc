@@ -52,10 +52,6 @@ Boston, MA 02111-1307, USA.  */
 /* Initial capacity for the basic block array.  */
 static const int initial_cfg_capacity = 20;
 
-/* Mapping of labels to their associated blocks.  This can greatly speed up
-   building of the CFG in code with lots of gotos.  */
-static GTY(()) varray_type label_to_block_map;
-
 /* CFG statistics.  */
 struct cfg_stats_d
 {
@@ -121,9 +117,6 @@ build_tree_cfg (tree *tp)
 {
   /* Register specific tree functions.  */
   tree_register_cfg_hooks ();
-
-  /* Initialize rbi_pool.  */
-  alloc_rbi_pool ();
 
   /* Initialize the basic block array.  */
   init_flow ();
@@ -2289,7 +2282,7 @@ dump_cfg_stats (FILE *file)
 {
   static long max_num_merged_labels = 0;
   unsigned long size, total = 0;
-  long n_edges;
+  long num_edges;
   basic_block bb;
   const char * const fmt_str   = "%-30s%-13s%12s\n";
   const char * const fmt_str_1 = "%-30s%13lu%11lu%c\n";
@@ -2310,16 +2303,16 @@ dump_cfg_stats (FILE *file)
   fprintf (file, fmt_str_1, "Basic blocks", n_basic_blocks, SCALE (size),
 	   LABEL (size));
 
-  n_edges = 0;
+  num_edges = 0;
   FOR_EACH_BB (bb)
     {
       edge e;
       for (e = bb->succ; e; e = e->succ_next)
-	n_edges++;
+	num_edges++;
     }
-  size = n_edges * sizeof (struct edge_def);
+  size = num_edges * sizeof (struct edge_def);
   total += size;
-  fprintf (file, fmt_str_1, "Edges", n_edges, SCALE (size), LABEL (size));
+  fprintf (file, fmt_str_1, "Edges", num_edges, SCALE (size), LABEL (size));
 
   size = n_basic_blocks * sizeof (struct bb_ann_d);
   total += size;
@@ -2673,8 +2666,6 @@ delete_tree_cfg_annotations (void)
     free_blocks_annotations ();
   free_dominance_info (CDI_DOMINATORS);
 
-  label_to_block_map = NULL;
-  free_rbi_pool ();
   FOR_EACH_BB (bb)
     bb->rbi = NULL;
 }
@@ -4761,4 +4752,3 @@ struct tree_opt_pass pass_warn_function_return =
   0					/* todo_flags_finish */
 };
 
-#include "gt-tree-cfg.h"

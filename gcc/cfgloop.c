@@ -25,6 +25,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "rtl.h"
 #include "hard-reg-set.h"
 #include "basic-block.h"
+#include "function.h"
 #include "toplev.h"
 #include "cfgloop.h"
 #include "flags.h"
@@ -1019,7 +1020,7 @@ get_loop_body_in_dom_order (const struct loop *loop)
 
 /* Gets exit edges of a LOOP, returning their number in N_EDGES.  */
 edge *
-get_loop_exit_edges (const struct loop *loop, unsigned int *n_edges)
+get_loop_exit_edges (const struct loop *loop, unsigned int *num_edges)
 {
   edge *edges, e;
   unsigned i, n;
@@ -1035,7 +1036,7 @@ get_loop_exit_edges (const struct loop *loop, unsigned int *n_edges)
       if (!flow_bb_inside_loop_p (loop, e->dest))
 	n++;
   edges = xmalloc (n * sizeof (edge));
-  *n_edges = n;
+  *num_edges = n;
   n = 0;
   for (i = 0; i < loop->num_nodes; i++)
     for (e = body[i]->succ; e; e = e->succ_next)

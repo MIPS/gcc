@@ -1115,16 +1115,14 @@ cfg_layout_duplicate_bb (basic_block bb)
 }
 
 /* Main entry point to this module - initialize the data structures for
-   CFG layout changes.  It keeps LOOPS up-to-date if not null.  */
+   CFG layout changes.  It keeps LOOPS up-to-date if not null.
+   Our algorithm depends on fact that there are no dead jumptables
+   around the code.  */
 
 void
 cfg_layout_initialize (void)
 {
   basic_block bb;
-
-  /* Our algorithm depends on fact that there are no dead jumptables
-     around the code.  */
-  alloc_rbi_pool ();
 
   FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, NULL, next_bb)
     initialize_bb_rbi (bb);
@@ -1183,7 +1181,6 @@ cfg_layout_finalize (void)
   verify_insn_chain ();
 #endif
 
-  free_rbi_pool ();
   FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, NULL, next_bb)
     bb->rbi = NULL;
 
@@ -1247,7 +1244,7 @@ end:
 
 void
 copy_bbs (basic_block *bbs, unsigned n, basic_block *new_bbs,
-	  edge *edges, unsigned n_edges, edge *new_edges,
+	  edge *edges, unsigned num_edges, edge *new_edges,
 	  struct loop *base)
 {
   unsigned i, j;
@@ -1286,7 +1283,7 @@ copy_bbs (basic_block *bbs, unsigned n, basic_block *new_bbs,
     }
 
   /* Redirect edges.  */
-  for (j = 0; j < n_edges; j++)
+  for (j = 0; j < num_edges; j++)
     new_edges[j] = NULL;
   for (i = 0; i < n; i++)
     {
@@ -1295,7 +1292,7 @@ copy_bbs (basic_block *bbs, unsigned n, basic_block *new_bbs,
 
       for (e = new_bb->succ; e; e = e->succ_next)
 	{
-	  for (j = 0; j < n_edges; j++)
+	  for (j = 0; j < num_edges; j++)
 	    if (edges[j] && edges[j]->src == bb && edges[j]->dest == e->dest)
 	      new_edges[j] = e;
 

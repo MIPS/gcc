@@ -6258,6 +6258,7 @@ allocate_struct_function (tree fndecl)
   tree fntype = fndecl ? TREE_TYPE (fndecl) : NULL_TREE;
 
   cfun = ggc_alloc_cleared (sizeof (struct function));
+  cfun->cfg = ggc_alloc_cleared (sizeof (struct control_flow_graph));
 
   max_parm_reg = LAST_VIRTUAL_REGISTER + 1;
 

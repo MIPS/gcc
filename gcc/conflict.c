@@ -34,6 +34,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "rtl.h"
 #include "hard-reg-set.h"
 #include "basic-block.h"
+#include "function.h"
 
 /* A register conflict graph is an undirected graph containing nodes
    for some or all of the regs used in a function.  Arcs represent
