@@ -10,6 +10,8 @@
 
 	* cfgcleanup.c (try_forward_edges): Revert previous commit.
 
+	* version.c: Add edge-vector-branch special version and merge tag.
+
 2004-07-30  Steven Bosscher  <stevenb@suse.de>
 
 	* cfgexpand.c (expand_block): Decrement the iterator if
