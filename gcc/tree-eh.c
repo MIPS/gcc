@@ -32,6 +32,7 @@ Boston, MA 02111-1307, USA.  */
 #include "tree-dump.h"
 #include "tree-inline.h"
 #include "timevar.h"
+#include "errors.h"
 
 
 /* HACK */

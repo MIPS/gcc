@@ -1,3 +1,8 @@
+2003-09-18  Diego Novillo  <dnovillo@redhat.com>
+
+	* Makefile.in (tree-eh.o): Add dependency on errors.h
+	* tree-eh.c: Include errors.h
+
 2003-09-17  Richard Henderson  <rth@redhat.com>
 
 	* tree-cfg.c (remove_useless_stmts_and_vars): Revert last change.
@@ -9,8 +14,8 @@
 
 2003-09-17  Daniel Berlin  <dberlin@dberlin.org>
 
-        * tree-ssa-pre.c (pick_ssa_name): New function.
-        (code_motion): Use it.
+	* tree-ssa-pre.c (pick_ssa_name): New function.
+	(code_motion): Use it.
 
 2003-09-17  Richard Henderson  <rth@redhat.com>
 
