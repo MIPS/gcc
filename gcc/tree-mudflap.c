@@ -835,23 +835,23 @@ mudflap_enqueue_decl (tree obj)
 
   if (COMPLETE_TYPE_P (TREE_TYPE (obj)))
     {
-      FILE *dump_file;
-      int dump_flags;
+      FILE *tree_dump_file;
+      int tree_dump_flags;
       tree object_size;
 
       mf_mark (obj);
 
       object_size = size_in_bytes (TREE_TYPE (obj));
 
-      dump_file = dump_begin (TDI_mudflap1, &dump_flags);
-      if (dump_file)
+      tree_dump_file = dump_begin (TDI_mudflap1, &tree_dump_flags);
+      if (tree_dump_file)
         {
-          fprintf (dump_file, "enqueue_decl obj=`");
-          print_generic_expr (dump_file, obj, 0);
-          fprintf (dump_file, "' size=");
-          print_generic_expr (dump_file, object_size, 0);
-          fprintf (dump_file, "\n");
-          dump_end (TDI_mudflap1, dump_file);
+          fprintf (tree_dump_file, "enqueue_decl obj=`");
+          print_generic_expr (tree_dump_file, obj, 0);
+          fprintf (tree_dump_file, "' size=");
+          print_generic_expr (tree_dump_file, object_size, 0);
+          fprintf (tree_dump_file, "\n");
+          dump_end (TDI_mudflap1, tree_dump_file);
         }
 
       /* NB: the above condition doesn't require TREE_USED or
@@ -895,18 +895,18 @@ mudflap_enqueue_constant (tree obj)
     object_size = size_in_bytes (TREE_TYPE (obj));
 
   {
-    FILE *dump_file;
-    int dump_flags;
+    FILE *tree_dump_file;
+    int tree_dump_flags;
 
-    dump_file = dump_begin (TDI_mudflap1, &dump_flags);
-    if (dump_file)
+    tree_dump_file = dump_begin (TDI_mudflap1, &tree_dump_flags);
+    if (tree_dump_file)
       {
-        fprintf (dump_file, "enqueue_constant obj=`");
-        print_generic_expr (dump_file, obj, 0);
-        fprintf (dump_file, "' size=");
-        print_generic_expr (dump_file, object_size, 0);
-        fprintf (dump_file, "\n");
-        dump_end (TDI_mudflap1, dump_file);
+        fprintf (tree_dump_file, "enqueue_constant obj=`");
+        print_generic_expr (tree_dump_file, obj, 0);
+        fprintf (tree_dump_file, "' size=");
+        print_generic_expr (tree_dump_file, object_size, 0);
+        fprintf (tree_dump_file, "\n");
+        dump_end (TDI_mudflap1, tree_dump_file);
       }
   }
 

@@ -34,8 +34,8 @@ Boston, MA 02111-1307, USA.  */
 #include "except.h"
 
 /* Dump files and flags.  */
-static FILE *dump_file;		/* CFG dump file. */
-static int dump_flags;		/* CFG dump flags.  */
+static FILE *tree_dump_file;		/* CFG dump file. */
+static int tree_dump_flags;		/* CFG dump flags.  */
 
 /* A structure that describes the tailcall.  */
 
@@ -256,11 +256,11 @@ eliminate_tail_call (struct tailcall *t)
   stmt = bsi_stmt (t->call_bsi);
   bb = t->call_block;
 
-  if (dump_file && (dump_flags & TDF_DETAILS))
+  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
     {
-      fprintf (dump_file, "Eliminated tail recursion in bb %d : ", bb->index);
-      print_generic_stmt (dump_file, stmt, TDF_SLIM);
-      fprintf (dump_file, "\n");
+      fprintf (tree_dump_file, "Eliminated tail recursion in bb %d : ", bb->index);
+      print_generic_stmt (tree_dump_file, stmt, TDF_SLIM);
+      fprintf (tree_dump_file, "\n");
     }
 
   if (TREE_CODE (stmt) == MODIFY_EXPR)
@@ -348,11 +348,11 @@ optimize_tail_call (struct tailcall *t, bool *phis_constructed,
       if (TREE_CODE (stmt) != CALL_EXPR)
 	abort ();
       CALL_EXPR_TAILCALL (stmt) = 1;
-      if (dump_file && (dump_flags & TDF_DETAILS))
+      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
         {
-	  fprintf (dump_file, "Found tail call ");
-	  print_generic_expr (dump_file, stmt, 0);
-	  fprintf (dump_file, " in bb %i", t->call_block->index);
+	  fprintf (tree_dump_file, "Found tail call ");
+	  print_generic_expr (tree_dump_file, stmt, 0);
+	  fprintf (tree_dump_file, " in bb %i", t->call_block->index);
 	}
     }
   return false;
@@ -373,7 +373,7 @@ tree_optimize_tail_calls (bool opt_tailcalls, enum tree_dump_index pass)
     return;
   if (opt_tailcalls)
     opt_tailcalls = suitable_for_tail_call_opt_p ();
-  dump_file = dump_begin (pass, &dump_flags);
+  tree_dump_file = dump_begin (pass, &tree_dump_flags);
 
   common.return_block = NULL;
   common.ret_variable = NULL_TREE;
@@ -400,9 +400,9 @@ tree_optimize_tail_calls (bool opt_tailcalls, enum tree_dump_index pass)
       cleanup_tree_cfg ();
     }
 
-  if (dump_file)
+  if (tree_dump_file)
     {
-      dump_function_to_file (current_function_decl, dump_file, dump_flags);
-      dump_end (pass, dump_file);
+      dump_function_to_file (current_function_decl, tree_dump_file, tree_dump_flags);
+      dump_end (pass, tree_dump_file);
     }
 }

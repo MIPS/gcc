@@ -52,8 +52,8 @@ Boston, MA 02111-1307, USA.  */
 static const int initial_cfg_capacity = 20;
 
 /* Dump files and flags.  */
-static FILE *dump_file;		/* CFG dump file. */
-static int dump_flags;		/* CFG dump flags.  */
+static FILE *tree_dump_file;		/* CFG dump file. */
+static int tree_dump_flags;		/* CFG dump flags.  */
 
 /* Mapping of labels to their associated blocks.  This can greatly speed up
    building of the CFG in code with lots of gotos.  */
@@ -178,19 +178,19 @@ build_tree_cfg (tree *fnbody)
   if (n_basic_blocks > 0)
     {
       /* Write the flowgraph to a dot file.  */
-      dump_file = dump_begin (TDI_dot, &dump_flags);
-      if (dump_file)
+      tree_dump_file = dump_begin (TDI_dot, &tree_dump_flags);
+      if (tree_dump_file)
 	{
-	  tree_cfg2dot (dump_file);
-	  dump_end (TDI_dot, dump_file);
+	  tree_cfg2dot (tree_dump_file);
+	  dump_end (TDI_dot, tree_dump_file);
 	}
 
       /* Dump a textual representation of the flowgraph.  */
-      dump_file = dump_begin (TDI_cfg, &dump_flags);
-      if (dump_file)
+      tree_dump_file = dump_begin (TDI_cfg, &tree_dump_flags);
+      if (tree_dump_file)
 	{
-	  dump_tree_cfg (dump_file, dump_flags);
-	  dump_end (TDI_cfg, dump_file);
+	  dump_tree_cfg (tree_dump_file, tree_dump_flags);
+	  dump_end (TDI_cfg, tree_dump_file);
 	}
     }
 }
@@ -1396,17 +1396,17 @@ remove_bb (basic_block bb)
   block_stmt_iterator i;
   location_t *loc = NULL;
 
-  dump_file = dump_begin (TDI_cfg, &dump_flags);
-  if (dump_file)
+  tree_dump_file = dump_begin (TDI_cfg, &tree_dump_flags);
+  if (tree_dump_file)
     {
-      fprintf (dump_file, "Removing basic block %d\n", bb->index);
-      if (dump_flags & TDF_DETAILS)
+      fprintf (tree_dump_file, "Removing basic block %d\n", bb->index);
+      if (tree_dump_flags & TDF_DETAILS)
 	{
-	  dump_bb (bb, dump_file, 0);
-	  fprintf (dump_file, "\n");
+	  dump_bb (bb, tree_dump_file, 0);
+	  fprintf (tree_dump_file, "\n");
 	}
-      dump_end (TDI_cfg, dump_file);
-      dump_file = NULL;
+      dump_end (TDI_cfg, tree_dump_file);
+      tree_dump_file = NULL;
     }
 
   /* Remove all the instructions in the block.  */

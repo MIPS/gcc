@@ -43,8 +43,8 @@ Boston, MA 02111-1307, USA.  */
 /* This file implements optimizations on the dominator tree.  */
 
 /* Dump file and flags.  */
-static FILE *dump_file;
-static int dump_flags;
+static FILE *tree_dump_file;
+static int tree_dump_flags;
 
 /* Hash table with expressions made available during the renaming process.
    When an assignment of the form X_i = EXPR is found, the statement is
@@ -307,7 +307,7 @@ tree_ssa_dominator_optimize (tree fndecl, bitmap vars,
   vars_to_rename = vars;
 
   /* Set up debugging dump files.  */
-  dump_file = dump_begin (phase, &dump_flags);
+  tree_dump_file = dump_begin (phase, &tree_dump_flags);
 
   /* Create our hash tables.  */
   avail_exprs = htab_create (1024, avail_expr_hash, avail_expr_eq, NULL);
@@ -467,8 +467,8 @@ tree_ssa_dominator_optimize (tree fndecl, bitmap vars,
 	      e = VARRAY_EDGE (redirection_edges, i);
 	      tgt = VARRAY_EDGE (redirection_edges, i + 1)->dest;
 
-	      if (dump_file && (dump_flags & TDF_DETAILS))
-		fprintf (dump_file, "  Threaded jump %d --> %d to %d\n",
+	      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+		fprintf (tree_dump_file, "  Threaded jump %d --> %d to %d\n",
 			 e->src->index, e->dest->index, tgt->index);
 
 	      src = e->src;
@@ -478,9 +478,9 @@ tree_ssa_dominator_optimize (tree fndecl, bitmap vars,
 	      /* Updating the dominance information would be nontrivial.  */
 	      free_dominance_info (CDI_DOMINATORS);
 	      
-	      if ((dump_file && (dump_flags & TDF_DETAILS))
+	      if ((tree_dump_file && (tree_dump_flags & TDF_DETAILS))
     		  && e->src != src)
-		fprintf (dump_file, "    basic block %d created\n",
+		fprintf (tree_dump_file, "    basic block %d created\n",
 			 e->src->index);
 	    }
 
@@ -528,12 +528,12 @@ tree_ssa_dominator_optimize (tree fndecl, bitmap vars,
   cleanup_tree_cfg ();
 
   /* Debugging dumps.  */
-  if (dump_file)
+  if (tree_dump_file)
     {
-      if (dump_flags & TDF_STATS)
-	dump_dominator_optimization_stats (dump_file);
-      dump_function_to_file (fndecl, dump_file, dump_flags);
-      dump_end (phase, dump_file);
+      if (tree_dump_flags & TDF_STATS)
+	dump_dominator_optimization_stats (tree_dump_file);
+      dump_function_to_file (fndecl, tree_dump_file, tree_dump_flags);
+      dump_end (phase, tree_dump_file);
     }
 
   htab_delete (avail_exprs);
@@ -696,8 +696,8 @@ dom_opt_initialize_block (struct dom_walk_data *walk_data,
 			  basic_block bb,
 			  tree parent_block_last_stmt)
 {
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    fprintf (dump_file, "\n\nOptimizing block #%d\n\n", bb->index);
+  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+    fprintf (tree_dump_file, "\n\nOptimizing block #%d\n\n", bb->index);
 
   record_equivalences_from_incoming_edge (walk_data, bb,
 					  parent_block_last_stmt);
@@ -1824,15 +1824,15 @@ cprop_into_stmt (tree stmt)
 		opt_stats.num_copy_prop++;
 
 	      /* Dump details.  */
-	      if (dump_file && (dump_flags & TDF_DETAILS))
+	      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
 		{
-		  fprintf (dump_file, "  Replaced '");
-		  print_generic_expr (dump_file, *op_p, 0);
-		  fprintf (dump_file, "' with %s '",
+		  fprintf (tree_dump_file, "  Replaced '");
+		  print_generic_expr (tree_dump_file, *op_p, 0);
+		  fprintf (tree_dump_file, "' with %s '",
 			   (TREE_CODE (val) != SSA_NAME
 			      ? "constant" : "variable"));
-		  print_generic_expr (dump_file, val, 0);
-		  fprintf (dump_file, "'\n");
+		  print_generic_expr (tree_dump_file, val, 0);
+		  fprintf (tree_dump_file, "'\n");
 		}
 
 	      /* If VAL is an ADDR_EXPR or a constant of pointer type, note
@@ -2011,13 +2011,13 @@ eliminate_redundant_computations (struct dom_walk_data *walk_data,
       && (TREE_CODE (cached_lhs) != SSA_NAME
 	  || may_propagate_copy (cached_lhs, *expr_p)))
     {
-      if (dump_file && (dump_flags & TDF_DETAILS))
+      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
 	{
-	  fprintf (dump_file, "  Replaced redundant expr '");
-	  print_generic_expr (dump_file, *expr_p, 0);
-	  fprintf (dump_file, "' with '");
-	  print_generic_expr (dump_file, cached_lhs, 0);
-	   fprintf (dump_file, "'\n");
+	  fprintf (tree_dump_file, "  Replaced redundant expr '");
+	  print_generic_expr (tree_dump_file, *expr_p, 0);
+	  fprintf (tree_dump_file, "' with '");
+	  print_generic_expr (tree_dump_file, cached_lhs, 0);
+	   fprintf (tree_dump_file, "'\n");
 	}
 
       opt_stats.num_re++;
@@ -2217,11 +2217,11 @@ optimize_stmt (struct dom_walk_data *walk_data, block_stmt_iterator si)
   opt_stats.num_stmts++;
   may_have_exposed_new_symbols = false;
 
-  if (dump_file && (dump_flags & TDF_DETAILS))
+  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
     {
-      fprintf (dump_file, "Optimizing statement ");
-      print_generic_stmt (dump_file, stmt, TDF_SLIM);
-      fprintf (dump_file, "\n");
+      fprintf (tree_dump_file, "Optimizing statement ");
+      print_generic_stmt (tree_dump_file, stmt, TDF_SLIM);
+      fprintf (tree_dump_file, "\n");
     }
 
   /* Const/copy propagate into USES, VUSES and the RHS of VDEFs.  */

@@ -129,8 +129,8 @@ static basic_block cfg_blocks_get (void);
 static bool need_imm_uses_for (tree var);
 
 /* Debugging dumps.  */
-static FILE *dump_file;
-static int dump_flags;
+static FILE *tree_dump_file;
+static int tree_dump_flags;
 
 
 /* Main entry point for SSA Conditional Constant Propagation.  FNDECL is
@@ -149,7 +149,7 @@ tree_ssa_ccp (tree fndecl, bitmap vars_to_rename, enum tree_dump_index phase)
   timevar_push (TV_TREE_CCP);
 
   /* Initialize debugging dumps.  */
-  dump_file = dump_begin (phase, &dump_flags);
+  tree_dump_file = dump_begin (phase, &tree_dump_flags);
 
   initialize ();
 
@@ -192,17 +192,17 @@ tree_ssa_ccp (tree fndecl, bitmap vars_to_rename, enum tree_dump_index phase)
   finalize ();
 
   /* Debugging dumps.  */
-  if (dump_file)
+  if (tree_dump_file)
     {
-      if (dump_flags & TDF_DETAILS)
+      if (tree_dump_flags & TDF_DETAILS)
 	{
-	  dump_referenced_vars (dump_file);
-	  fprintf (dump_file, "\n\n");
-	  fprintf (dump_file, "\n");
+	  dump_referenced_vars (tree_dump_file);
+	  fprintf (tree_dump_file, "\n\n");
+	  fprintf (tree_dump_file, "\n");
 	}
 
-      dump_function_to_file (fndecl, dump_file, dump_flags);
-      dump_end (phase, dump_file);
+      dump_function_to_file (fndecl, tree_dump_file, tree_dump_flags);
+      dump_end (phase, tree_dump_file);
     }
 
   timevar_pop (TV_TREE_CCP);
@@ -240,8 +240,8 @@ simulate_block (basic_block block)
   if (block == EXIT_BLOCK_PTR)
     return;
 
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    fprintf (dump_file, "\nSimulating block %d\n", block->index);
+  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+    fprintf (tree_dump_file, "\nSimulating block %d\n", block->index);
 
   /* Always simulate PHI nodes, even if we have simulated this block
      before.  */
@@ -298,10 +298,10 @@ simulate_stmt (tree use_stmt)
 {
   basic_block use_bb = bb_for_stmt (use_stmt);
 
-  if (dump_file && (dump_flags & TDF_DETAILS))
+  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
     {
-      fprintf (dump_file, "\nSimulating statement (from ssa_edges): ");
-      print_generic_stmt (dump_file, use_stmt, 0);
+      fprintf (tree_dump_file, "\nSimulating statement (from ssa_edges): ");
+      print_generic_stmt (tree_dump_file, use_stmt, 0);
     }
 
   if (TREE_CODE (use_stmt) == PHI_NODE)
@@ -327,8 +327,8 @@ substitute_and_fold (bitmap vars_to_rename)
 {
   basic_block bb;
 
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    fprintf (dump_file, "\nSubstituing constants and folding statements\n\n");
+  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+    fprintf (tree_dump_file, "\nSubstituing constants and folding statements\n\n");
 
   /* Substitute constants in every statement of every basic block.  */
   FOR_EACH_BB (bb)
@@ -367,10 +367,10 @@ substitute_and_fold (bitmap vars_to_rename)
 
 	  /* Replace the statement with its folded version and mark it
 	     folded.  */
-	  if (dump_file && (dump_flags & TDF_DETAILS))
+	  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
 	    {
-	      fprintf (dump_file, "Line %d: replaced ", get_lineno (stmt));
-	      print_generic_stmt (dump_file, stmt, TDF_SLIM);
+	      fprintf (tree_dump_file, "Line %d: replaced ", get_lineno (stmt));
+	      print_generic_stmt (tree_dump_file, stmt, TDF_SLIM);
 	    }
 
 	  if (replace_uses_in (stmt, &replaced_address))
@@ -381,11 +381,11 @@ substitute_and_fold (bitmap vars_to_rename)
 		mark_new_vars_to_rename (stmt, vars_to_rename);
 	    }
 
-	  if (dump_file && (dump_flags & TDF_DETAILS))
+	  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
 	    {
-	      fprintf (dump_file, " with ");
-	      print_generic_stmt (dump_file, stmt, TDF_SLIM);
-	      fprintf (dump_file, "\n");
+	      fprintf (tree_dump_file, " with ");
+	      print_generic_stmt (tree_dump_file, stmt, TDF_SLIM);
+	      fprintf (tree_dump_file, "\n");
 	    }
 	}
     }
@@ -408,17 +408,17 @@ visit_phi_node (tree phi)
   if (DONT_SIMULATE_AGAIN (phi))
     return;
 
-  if (dump_file && (dump_flags & TDF_DETAILS))
+  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
     {
-      fprintf (dump_file, "\nVisiting PHI node: ");
-      print_generic_expr (dump_file, phi, 0);
+      fprintf (tree_dump_file, "\nVisiting PHI node: ");
+      print_generic_expr (tree_dump_file, phi, 0);
     }
 
   curr_val = get_value (PHI_RESULT (phi));
   if (curr_val->lattice_val == VARYING)
     {
-      if (dump_file && (dump_flags & TDF_DETAILS))
-	fprintf (dump_file, "\n   Shortcircuit. Default of VARYING.");
+      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+	fprintf (tree_dump_file, "\n   Shortcircuit. Default of VARYING.");
       short_circuit = 1;
     }
   else
@@ -443,9 +443,9 @@ visit_phi_node (tree phi)
 	/* Compute the meet operator over all the PHI arguments. */
 	edge e = PHI_ARG_EDGE (phi, i);
 
-	if (dump_file && (dump_flags & TDF_DETAILS))
+	if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
 	  {
-	    fprintf (dump_file, "\n    Argument #%d (%d -> %d %sexecutable)\n",
+	    fprintf (tree_dump_file, "\n    Argument #%d (%d -> %d %sexecutable)\n",
 		    i, e->src->index, e->dest->index,
 		    (e->flags & EDGE_EXECUTABLE) ? "" : "not ");
 	  }
@@ -468,12 +468,12 @@ visit_phi_node (tree phi)
 
 	    phi_val = cp_lattice_meet (phi_val, *rdef_val);
 
-	    if (dump_file && (dump_flags & TDF_DETAILS))
+	    if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
 	      {
-		fprintf (dump_file, "\t");
-		print_generic_expr (dump_file, rdef, 0);
-		dump_lattice_value (dump_file, "\tValue: ", *rdef_val);
-		fprintf (dump_file, "\n");
+		fprintf (tree_dump_file, "\t");
+		print_generic_expr (tree_dump_file, rdef, 0);
+		dump_lattice_value (tree_dump_file, "\tValue: ", *rdef_val);
+		fprintf (tree_dump_file, "\n");
 	      }
 
 	    if (phi_val.lattice_val == VARYING)
@@ -481,10 +481,10 @@ visit_phi_node (tree phi)
 	  }
       }
 
-  if (dump_file && (dump_flags & TDF_DETAILS))
+  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
     {
-      dump_lattice_value (dump_file, "\n    PHI node value: ", phi_val);
-      fprintf (dump_file, "\n\n");
+      dump_lattice_value (tree_dump_file, "\n    PHI node value: ", phi_val);
+      fprintf (tree_dump_file, "\n\n");
     }
 
   set_lattice_value (PHI_RESULT (phi), phi_val);
@@ -560,11 +560,11 @@ visit_stmt (tree stmt)
   if (DONT_SIMULATE_AGAIN (stmt))
     return;
 
-  if (dump_file && (dump_flags & TDF_DETAILS))
+  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
     {
-      fprintf (dump_file, "\nVisiting statement: ");
-      print_generic_stmt (dump_file, stmt, TDF_SLIM);
-      fprintf (dump_file, "\n");
+      fprintf (tree_dump_file, "\nVisiting statement: ");
+      print_generic_stmt (tree_dump_file, stmt, TDF_SLIM);
+      fprintf (tree_dump_file, "\n");
     }
 
   ann = stmt_ann (stmt);
@@ -738,8 +738,8 @@ add_control_edge (edge e)
 
   cfg_blocks_add (bb);
 
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    fprintf (dump_file, "Adding Destination of edge (%d -> %d) to worklist\n\n",
+  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+    fprintf (tree_dump_file, "Adding Destination of edge (%d -> %d) to worklist\n\n",
 	     e->src->index, e->dest->index);
 }
 
@@ -936,22 +936,22 @@ evaluate_stmt (tree stmt)
     }
 
   /* Debugging dumps.  */
-  if (dump_file && (dump_flags & TDF_DETAILS))
+  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
     {
-      fprintf (dump_file, "Statement evaluates to ");
-      print_generic_stmt (dump_file, simplified, TDF_SLIM);
-      fprintf (dump_file, " which is ");
+      fprintf (tree_dump_file, "Statement evaluates to ");
+      print_generic_stmt (tree_dump_file, simplified, TDF_SLIM);
+      fprintf (tree_dump_file, " which is ");
       if (val.lattice_val == CONSTANT)
 	{
-	  fprintf (dump_file, "constant ");
-	  print_generic_expr (dump_file, simplified, 0);
+	  fprintf (tree_dump_file, "constant ");
+	  print_generic_expr (tree_dump_file, simplified, 0);
 	}
       else if (val.lattice_val == VARYING)
-	fprintf (dump_file, "not a constant");
+	fprintf (tree_dump_file, "not a constant");
       else if (val.lattice_val == UNDEFINED)
-	fprintf (dump_file, "undefined");
+	fprintf (tree_dump_file, "undefined");
 
-      fprintf (dump_file, "\n");
+      fprintf (tree_dump_file, "\n");
     }
 
   return val;
@@ -1145,8 +1145,8 @@ initialize (void)
   /* Compute immediate uses for variables we care about.  */
   compute_immediate_uses (TDFA_USE_OPS, need_imm_uses_for);
 
-  if (dump_file && dump_flags & TDF_DETAILS)
-    dump_immediate_uses (dump_file);
+  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+    dump_immediate_uses (tree_dump_file);
 
   VARRAY_BB_INIT (cfg_blocks, 20, "cfg_blocks");
 
@@ -1284,8 +1284,8 @@ def_to_undefined (tree var)
 
   if (value->lattice_val != UNDEFINED)
     {
-      if (dump_file && (dump_flags & TDF_DETAILS))
-	fprintf (dump_file, "Lattice value changed.  Adding definition to SSA edges.\n");
+      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+	fprintf (tree_dump_file, "Lattice value changed.  Adding definition to SSA edges.\n");
 
       add_var_to_ssa_edges_worklist (var);
       value->lattice_val = UNDEFINED;
@@ -1303,8 +1303,8 @@ def_to_varying (tree var)
 
   if (value->lattice_val != VARYING)
     {
-      if (dump_file && (dump_flags & TDF_DETAILS))
-	fprintf (dump_file, "Lattice value changed.  Adding definition to SSA edges.\n");
+      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+	fprintf (tree_dump_file, "Lattice value changed.  Adding definition to SSA edges.\n");
 
       add_var_to_ssa_edges_worklist (var);
       value->lattice_val = VARYING;
@@ -1331,11 +1331,11 @@ set_lattice_value (tree var, value val)
       if (old_val->lattice_val != CONSTANT
 	  || !(simple_cst_equal (old_val->const_val, val.const_val)) == 1)
 	{
-	  if (dump_file && (dump_flags & TDF_DETAILS))
+	  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
 	    {
-	      fprintf (dump_file, "Lattice value changed to ");
-	      print_generic_expr (dump_file, val.const_val, 0);
-	      fprintf (dump_file, ".  Adding definition to SSA edges.\n");
+	      fprintf (tree_dump_file, "Lattice value changed to ");
+	      print_generic_expr (tree_dump_file, val.const_val, 0);
+	      fprintf (tree_dump_file, ".  Adding definition to SSA edges.\n");
 	    }
 
           add_var_to_ssa_edges_worklist (var);

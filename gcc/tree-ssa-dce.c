@@ -65,8 +65,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 
 /* Debugging dumps.  */
-static FILE *dump_file;
-static int dump_flags;
+static FILE *tree_dump_file;
+static int tree_dump_flags;
 
 static varray_type worklist;
 
@@ -136,11 +136,11 @@ mark_necessary (tree def, tree stmt)
   if (necessary_p (stmt))
     return;
 
-  if (dump_file && (dump_flags & TDF_DETAILS))
+  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
     {
-      fprintf (dump_file, "Marking useful stmt: ");
-      print_generic_stmt (dump_file, stmt, TDF_SLIM);
-      fprintf (dump_file, "\n");
+      fprintf (tree_dump_file, "Marking useful stmt: ");
+      print_generic_stmt (tree_dump_file, stmt, TDF_SLIM);
+      fprintf (tree_dump_file, "\n");
     }
 
   NECESSARY (stmt) = 1;
@@ -153,12 +153,12 @@ mark_necessary (tree def, tree stmt)
 static void
 print_stats (void)
 {
-  if (dump_file && (dump_flags & (TDF_STATS|TDF_DETAILS)))
+  if (tree_dump_file && (tree_dump_flags & (TDF_STATS|TDF_DETAILS)))
     {
       float percg;
 
       percg = ((float) stats.removed / (float) stats.total) * 100;
-      fprintf (dump_file, "Removed %d of %d statements (%d%%)\n",
+      fprintf (tree_dump_file, "Removed %d of %d statements (%d%%)\n",
 			  stats.removed, stats.total, (int) percg);
 
       if (stats.total_phis == 0)
@@ -166,7 +166,7 @@ print_stats (void)
       else
 	percg = ((float) stats.removed_phis / (float) stats.total_phis) * 100;
 
-      fprintf (dump_file, "Removed %d of %d PHI nodes (%d%%)\n",
+      fprintf (tree_dump_file, "Removed %d of %d PHI nodes (%d%%)\n",
 			  stats.removed_phis, stats.total_phis, (int) percg);
     }
 }
@@ -335,11 +335,11 @@ process_worklist (void)
       i = VARRAY_TOP_TREE (worklist);
       VARRAY_POP (worklist);
 
-      if (dump_file && (dump_flags & TDF_DETAILS))
+      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
 	{
-	  fprintf (dump_file, "processing: ");
-	  print_generic_stmt (dump_file, i, TDF_SLIM);
-	  fprintf (dump_file, "\n");
+	  fprintf (tree_dump_file, "processing: ");
+	  print_generic_stmt (tree_dump_file, i, TDF_SLIM);
+	  fprintf (tree_dump_file, "\n");
 	}
 
       if (TREE_CODE (i) == PHI_NODE)
@@ -454,11 +454,11 @@ remove_dead_phis (basic_block bb)
 	{
 	  tree next = TREE_CHAIN (phi);
 
-	  if (dump_file && (dump_flags & TDF_DETAILS))
+	  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
 	    {
-	      fprintf (dump_file, "Deleting : ");
-	      print_generic_stmt (dump_file, phi, TDF_SLIM);
-	      fprintf (dump_file, "\n");
+	      fprintf (tree_dump_file, "Deleting : ");
+	      print_generic_stmt (tree_dump_file, phi, TDF_SLIM);
+	      fprintf (tree_dump_file, "\n");
 	    }
 
 	  remove_phi_node (phi, prev, bb);
@@ -479,11 +479,11 @@ remove_dead_phis (basic_block bb)
 static bool
 should_remove_dead_stmt (tree t)
 {
-  if (dump_file && (dump_flags & TDF_DETAILS))
+  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
     {
-      fprintf (dump_file, "Deleting : ");
-      print_generic_stmt (dump_file, t, TDF_SLIM);
-      fprintf (dump_file, "\n");
+      fprintf (tree_dump_file, "Deleting : ");
+      print_generic_stmt (tree_dump_file, t, TDF_SLIM);
+      fprintf (tree_dump_file, "\n");
     }
 
   stats.removed++;
@@ -495,11 +495,11 @@ should_remove_dead_stmt (tree t)
       COND_EXPR_COND (t) = integer_zero_node;
       modify_stmt (t);
 
-      if (dump_file && (dump_flags & TDF_DETAILS))
+      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
 	{
-	  fprintf (dump_file, "   by replacing the condition with 0:\n");
-	  print_generic_stmt (dump_file, t, TDF_SLIM);
-	  fprintf (dump_file, "\n");
+	  fprintf (tree_dump_file, "   by replacing the condition with 0:\n");
+	  print_generic_stmt (tree_dump_file, t, TDF_SLIM);
+	  fprintf (tree_dump_file, "\n");
 	}
 
       return false;
@@ -536,18 +536,18 @@ tree_ssa_dce (tree fndecl, enum tree_dump_index phase)
   processed = sbitmap_alloc (highest_ssa_version + 1);
   sbitmap_zero (processed);
 
-  /* Initialize dump_file for debugging dumps.  */
-  dump_file = dump_begin (phase, &dump_flags);
+  /* Initialize tree_dump_file for debugging dumps.  */
+  tree_dump_file = dump_begin (phase, &tree_dump_flags);
 
   find_useful_stmts ();
 
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    fprintf (dump_file, "\nProcessing worklist:\n");
+  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+    fprintf (tree_dump_file, "\nProcessing worklist:\n");
 
   process_worklist ();
 
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    fprintf (dump_file, "\nEliminating unnecessary instructions:\n");
+  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+    fprintf (tree_dump_file, "\nEliminating unnecessary instructions:\n");
 
   sbitmap_free (processed);
 
@@ -555,11 +555,11 @@ tree_ssa_dce (tree fndecl, enum tree_dump_index phase)
   cleanup_tree_cfg ();
 
   /* Debugging dumps.  */
-  if (dump_file)
+  if (tree_dump_file)
     {
-      dump_function_to_file (fndecl, dump_file, dump_flags);
+      dump_function_to_file (fndecl, tree_dump_file, tree_dump_flags);
       print_stats ();
-      dump_end (phase, dump_file);
+      dump_end (phase, tree_dump_file);
     }
 
   timevar_pop (TV_TREE_DCE);

@@ -108,8 +108,8 @@ struct walk_state
 
 
 /* Debugging dumps.  */
-static FILE *dump_file;
-static int dump_flags;
+static FILE *tree_dump_file;
+static int tree_dump_flags;
 
 /* Data and functions shared with tree-ssa.c.  */
 struct dfa_stats_d dfa_stats;
@@ -941,7 +941,7 @@ compute_may_aliases (tree fndecl, bitmap vars_to_rename,
   memset (&alias_stats, 0, sizeof (alias_stats));
 
   /* Debugging dumps.  */
-  dump_file = dump_begin (phase, &dump_flags);
+  tree_dump_file = dump_begin (phase, &tree_dump_flags);
   
   /* Remove the ADDRESSABLE flag from every call-clobbered variable whose
      address is not needed anymore.  This is caused by the propagation of
@@ -965,15 +965,15 @@ compute_may_aliases (tree fndecl, bitmap vars_to_rename,
     }
 
   /* Debugging dumps.  */
-  if (dump_file)
+  if (tree_dump_file)
     {
-      if (dump_flags & TDF_STATS)
-	dump_alias_stats (dump_file);
+      if (tree_dump_flags & TDF_STATS)
+	dump_alias_stats (tree_dump_file);
 
-      dump_alias_info (dump_file);
-      dump_referenced_vars (dump_file);
-      dump_function_to_file (fndecl, dump_file, dump_flags);
-      dump_end (TDI_alias, dump_file);
+      dump_alias_info (tree_dump_file);
+      dump_referenced_vars (tree_dump_file);
+      dump_function_to_file (fndecl, tree_dump_file, tree_dump_flags);
+      dump_end (TDI_alias, tree_dump_file);
     }
 
   /* Deallocate memory used by aliasing data structures.  */
@@ -1417,10 +1417,10 @@ promote_call_clobbered_vars (bitmap vars_to_rename)
 	  bitmap_set_bit (vars_to_rename, var_ann (var)->uid);
 
 	  /* Debugging dumps.  */
-	  if (dump_file && (dump_flags & TDF_DETAILS))
+	  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
 	    {
-	      fprintf (dump_file, "Removing ADDRESSABLE flag from variable ");
-	      print_generic_expr (dump_file, var, 0);
+	      fprintf (tree_dump_file, "Removing ADDRESSABLE flag from variable ");
+	      print_generic_expr (tree_dump_file, var, 0);
 	    }
 	}
     }

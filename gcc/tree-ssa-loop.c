@@ -35,8 +35,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "timevar.h"
 
 /* Dump file and flags.  */
-static FILE *dump_file;
-static int dump_flags;
+static FILE *tree_dump_file;
+static int tree_dump_flags;
 
 /* The main entry into loop optimization pass.  PHASE indicates which dump file
    from the DUMP_FILES array to use when dumping debugging information.
@@ -51,17 +51,17 @@ tree_ssa_loop_opt (tree fndecl ATTRIBUTE_UNUSED,
   /* Does nothing for now except for checking that we are able to build the
      loops.  */
 
-  dump_file = dump_begin (phase, &dump_flags);
+  tree_dump_file = dump_begin (phase, &tree_dump_flags);
 
   timevar_push (TV_TREE_LOOP);
-  loops = loop_optimizer_init (dump_file);
+  loops = loop_optimizer_init (tree_dump_file);
   loop_optimizer_finalize (loops,
-			   (dump_flags & TDF_DETAILS) ? dump_file : NULL);
+			   (tree_dump_flags & TDF_DETAILS) ? tree_dump_file : NULL);
   timevar_pop (TV_TREE_LOOP);
 
-  if (dump_file)
+  if (tree_dump_file)
     {
-      dump_function_to_file (fndecl, dump_file, dump_flags);
-      dump_end (phase, dump_file);
+      dump_function_to_file (fndecl, tree_dump_file, tree_dump_flags);
+      dump_end (phase, tree_dump_file);
     }
 }

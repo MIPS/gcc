@@ -58,8 +58,8 @@ Boston, MA 02111-1307, USA.  */
 
 
 /* Dump file and flags.  */
-static FILE *dump_file;
-static int dump_flags;
+static FILE *tree_dump_file;
+static int tree_dump_flags;
 
 /* Workstack for computing PHI node insertion points.  */
 static GTY (()) varray_type work_stack = NULL;
@@ -341,7 +341,7 @@ rewrite_into_ssa (tree fndecl, bitmap vars, enum tree_dump_index phase)
   timevar_push (TV_TREE_SSA_OTHER);
 
   /* Debugging dumps.  */
-  dump_file = dump_begin (phase, &dump_flags);
+  tree_dump_file = dump_begin (phase, &tree_dump_flags);
 
   /* Initialize the array of variables to rename.  */
   vars_to_rename = vars;
@@ -438,16 +438,16 @@ rewrite_into_ssa (tree fndecl, bitmap vars, enum tree_dump_index phase)
   timevar_pop (TV_TREE_SSA_REWRITE_BLOCKS);
 
   /* Debugging dumps.  */
-  if (dump_file)
+  if (tree_dump_file)
     {
-      if (dump_flags & TDF_STATS)
+      if (tree_dump_flags & TDF_STATS)
 	{
-	  dump_dfa_stats (dump_file);
-	  dump_tree_ssa_stats (dump_file);
+	  dump_dfa_stats (tree_dump_file);
+	  dump_tree_ssa_stats (tree_dump_file);
 	}
 
-      dump_function_to_file (fndecl, dump_file, dump_flags);
-      dump_end (phase, dump_file);
+      dump_function_to_file (fndecl, tree_dump_file, tree_dump_flags);
+      dump_end (phase, tree_dump_file);
     }
 
   /* Free allocated memory.  */
@@ -828,8 +828,8 @@ rewrite_initialize_block (struct dom_walk_data *walk_data,
   struct rewrite_block_data *bd
     = (struct rewrite_block_data *)VARRAY_TOP_GENERIC_PTR (walk_data->block_data_stack);
 
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    fprintf (dump_file, "\n\nRenaming block #%d\n\n", bb->index);
+  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+    fprintf (tree_dump_file, "\n\nRenaming block #%d\n\n", bb->index);
 
   /* Step 1.  Register new definitions for every PHI node in the block.
      Conceptually, all the PHI nodes are executed in parallel and each PHI
@@ -978,14 +978,14 @@ insert_copy_on_edge (edge e, tree dest, tree src)
   if (TREE_CODE (src) == VAR_DECL || TREE_CODE (src) == PARM_DECL)
     set_is_used (src);
 
-  if (dump_file && (dump_flags & TDF_DETAILS))
+  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
     {
-      fprintf (dump_file,
+      fprintf (tree_dump_file,
 	       "Inserting a copy on edge BB%d->BB%d :",
 	       e->src->index,
 	       e->dest->index);
-      print_generic_expr (dump_file, copy, dump_flags);
-      fprintf (dump_file, "\n");
+      print_generic_expr (tree_dump_file, copy, tree_dump_flags);
+      fprintf (tree_dump_file, "\n");
     }
 
   bsi_insert_on_edge (e, copy);
@@ -1423,10 +1423,10 @@ coalesce_abnormal_edges (var_map map, conflict_graph graph, root_var_p rv)
 		    /* Now map the partitions back to their real variables.  */
 		    var = partition_to_var (map, x);
 		    tmp = partition_to_var (map, y);
-		    if (dump_file 
-			&& (dump_flags & TDF_DETAILS))
+		    if (tree_dump_file 
+			&& (tree_dump_flags & TDF_DETAILS))
 		      {
-			print_exprs_edge (dump_file, e, "ABNORMAL: Coalescing ",
+			print_exprs_edge (tree_dump_file, e, "ABNORMAL: Coalescing ",
 					  var, " and ", tmp);
 		      }
 		    if (var_union (map, var, tmp) == NO_PARTITION)
@@ -1522,9 +1522,9 @@ coalesce_ssa_name (var_map map)
 	      abort ();
 	    }
 
-	  if (dump_file && (dump_flags & TDF_DETAILS))
+	  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
 	    {
-	      print_exprs (dump_file, "Must coalesce ", 
+	      print_exprs (tree_dump_file, "Must coalesce ", 
 			   partition_to_var (map, x),
 			   " with the root variable ", var, ".\n");
 	    }
@@ -1538,12 +1538,12 @@ coalesce_ssa_name (var_map map)
   /* Coalesce partitions live across abnormal edges.  */
   coalesce_abnormal_edges (map, graph, rv);
 
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    dump_var_map (dump_file, map);
+  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+    dump_var_map (tree_dump_file, map);
 
   /* Coalesce partitions of a root variable wherever possible.  */
   coalesce_tpa_members (rv, graph, map, NULL, 
-			((dump_flags & TDF_DETAILS) ? dump_file : NULL));
+			((tree_dump_flags & TDF_DETAILS) ? tree_dump_file : NULL));
 
   root_var_delete (rv);
   conflict_graph_delete (graph);
@@ -1579,11 +1579,11 @@ assign_vars (var_map map)
 	     the variable as assigned.  */
 	  ann = var_ann (var);
 	  ann->out_of_ssa_tag = 1;
-	  if (dump_file && (dump_flags & TDF_DETAILS))
+	  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
 	    {
-	      fprintf (dump_file, "partition %d has variable ", x);
-	      print_generic_expr (dump_file, var, TDF_SLIM);
-	      fprintf (dump_file, " assigned to it.\n");
+	      fprintf (tree_dump_file, "partition %d has variable ", x);
+	      print_generic_expr (tree_dump_file, var, TDF_SLIM);
+	      fprintf (tree_dump_file, " assigned to it.\n");
 	    }
 
 	}
@@ -1611,19 +1611,19 @@ assign_vars (var_map map)
 	      continue;
 	    }
 
-	  if (dump_file && (dump_flags & TDF_DETAILS))
-	    print_exprs (dump_file, "Overlap :  '", t, "'  conflicts with  '",
+	  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+	    print_exprs (tree_dump_file, "Overlap :  '", t, "'  conflicts with  '",
 			 var, "");
 
 	  var = create_temp (t);
 	  change_partition_var (map, var, rep);
 	  ann = var_ann (var);
 
-	  if (dump_file && (dump_flags & TDF_DETAILS))
+	  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
 	    {
-	      fprintf (dump_file, "'     New temp:  '");
-	      print_generic_expr (dump_file, var, TDF_SLIM);
-	      fprintf (dump_file, "'\n");
+	      fprintf (tree_dump_file, "'     New temp:  '");
+	      print_generic_expr (tree_dump_file, var, TDF_SLIM);
+	      fprintf (tree_dump_file, "'\n");
 	    }
 	}
     }
@@ -1768,44 +1768,44 @@ coalesce_vars (var_map map, tree_live_info_p liveinfo)
   /* Re-calculate live on exit info.  */
   calculate_live_on_exit (liveinfo);
 
-  if (dump_file && (dump_flags & TDF_DETAILS))
+  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
     {
-      fprintf (dump_file, "Live range info for variable memory coalescing.\n");
-      dump_live_info (dump_file, liveinfo, LIVEDUMP_ALL);
+      fprintf (tree_dump_file, "Live range info for variable memory coalescing.\n");
+      dump_live_info (tree_dump_file, liveinfo, LIVEDUMP_ALL);
 
-      fprintf (dump_file, "Coalesce list from phi nodes:\n");
-      dump_coalesce_list (dump_file, cl);
+      fprintf (tree_dump_file, "Coalesce list from phi nodes:\n");
+      dump_coalesce_list (tree_dump_file, cl);
     }
 
 
   tv = type_var_init (map);
-  if (dump_file)
-    type_var_dump (dump_file, tv);
+  if (tree_dump_file)
+    type_var_dump (tree_dump_file, tv);
   type_var_compact (tv);
-  if (dump_file)
-    type_var_dump (dump_file, tv);
+  if (tree_dump_file)
+    type_var_dump (tree_dump_file, tv);
 
   graph = build_tree_conflict_graph (liveinfo, tv, cl);
 
   type_var_decompact (tv);
-  if (dump_file && (dump_flags & TDF_DETAILS))
+  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
     {
-      fprintf (dump_file, "type var list now looks like:n");
-      type_var_dump (dump_file, tv);
+      fprintf (tree_dump_file, "type var list now looks like:n");
+      type_var_dump (tree_dump_file, tv);
 
-      fprintf (dump_file, "Coalesce list after conflict graph build:\n");
-      dump_coalesce_list (dump_file, cl);
+      fprintf (tree_dump_file, "Coalesce list after conflict graph build:\n");
+      dump_coalesce_list (tree_dump_file, cl);
     }
 
   sort_coalesce_list (cl);
-  if (dump_file && (dump_flags & TDF_DETAILS))
+  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
     {
-      fprintf (dump_file, "Coalesce list after sorting:\n");
-      dump_coalesce_list (dump_file, cl);
+      fprintf (tree_dump_file, "Coalesce list after sorting:\n");
+      dump_coalesce_list (tree_dump_file, cl);
     }
 
   coalesce_tpa_members (tv, graph, map, cl, 
-			((dump_flags & TDF_DETAILS) ? dump_file : NULL));
+			((tree_dump_flags & TDF_DETAILS) ? tree_dump_file : NULL));
 
   type_var_delete (tv);
   delete_coalesce_list (cl);
@@ -2489,8 +2489,8 @@ remove_ssa_form (FILE *dump, var_map map, int flags)
   FILE *save;
   tree *values = NULL;
 
-  save = dump_file;
-  dump_file = dump;
+  save = tree_dump_file;
+  tree_dump_file = dump;
 
   /* If we are not combining temps, dont calculate live ranges fo variables
      with only one SSA version.  */
@@ -2499,15 +2499,15 @@ remove_ssa_form (FILE *dump, var_map map, int flags)
   else
     compact_var_map (map, VARMAP_NORMAL);
 
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    dump_var_map (dump_file, map);
+  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+    dump_var_map (tree_dump_file, map);
 
   liveinfo = coalesce_ssa_name (map);
 
-  if (dump_file && (dump_flags & TDF_DETAILS))
+  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
     {
-      fprintf (dump_file, "After Coalescing:\n");
-      dump_var_map (dump_file, map);
+      fprintf (tree_dump_file, "After Coalescing:\n");
+      dump_var_map (tree_dump_file, map);
     }
 
   /* Make sure even single occurrence variables are in the list now.  */
@@ -2517,26 +2517,26 @@ remove_ssa_form (FILE *dump, var_map map, int flags)
   /* Assign real variables to the partitions now.  */
   assign_vars (map);
 
-  if (dump_file && (dump_flags & TDF_DETAILS))
+  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
     {
-      fprintf (dump_file, "After Root variable replacement:\n");
-      dump_var_map (dump_file, map);
+      fprintf (tree_dump_file, "After Root variable replacement:\n");
+      dump_var_map (tree_dump_file, map);
     }
 
   if (flags & SSANORM_PERFORM_TER)
     {
       values = find_replaceable_exprs (map);
-      if (values && dump_file && (dump_flags & TDF_DETAILS))
-	dump_replaceable_exprs (dump_file, values);
+      if (values && tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+	dump_replaceable_exprs (tree_dump_file, values);
     }
    
   if ((flags & SSANORM_COMBINE_TEMPS) && liveinfo)
     {
       coalesce_vars (map, liveinfo);
-      if (dump_file && (dump_flags & TDF_DETAILS))
+      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
 	{
-	  fprintf (dump_file, "After variable memory coalescing:\n");
-	  dump_var_map (dump_file, map);
+	  fprintf (tree_dump_file, "After variable memory coalescing:\n");
+	  dump_var_map (tree_dump_file, map);
 	}
     }
   
@@ -2560,7 +2560,7 @@ remove_ssa_form (FILE *dump, var_map map, int flags)
 	}
     }
 
-  dump_file = save;
+  tree_dump_file = save;
 }
 
 /* Take a subset of the variables (VARS) in the current function out of SSA
@@ -2658,7 +2658,7 @@ rewrite_vars_out_of_ssa (bitmap vars)
 
       /* Now that we have all the partitions registered, translate the
 	 appropriate variables out of SSA form.  */
-      remove_ssa_form (dump_file, map, 0);
+      remove_ssa_form (tree_dump_file, map, 0);
 
       /* And finally, reset the out_of_ssa flag for each of the vars
 	 we just took out of SSA form.  */
@@ -2672,7 +2672,7 @@ rewrite_vars_out_of_ssa (bitmap vars)
 
 /* Take function FNDECL out of SSA form.
 
-   PHASE indicates which dump file from the DUMP_FILES array to use when
+   PHASE indicates which dump file from the TREE_DUMP_FILES array to use when
    dumping debugging information.  */
 
 void
@@ -2684,12 +2684,12 @@ rewrite_out_of_ssa (tree fndecl, enum tree_dump_index phase)
 
   timevar_push (TV_TREE_SSA_TO_NORMAL);
 
-  dump_file = dump_begin (phase, &dump_flags);
+  tree_dump_file = dump_begin (phase, &tree_dump_flags);
 
   eliminate_virtual_phis ();
 
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    dump_tree_cfg (dump_file, dump_flags & ~TDF_DETAILS);
+  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+    dump_tree_cfg (tree_dump_file, tree_dump_flags & ~TDF_DETAILS);
 
   if (flag_tree_ter)
     var_flags = SSA_VAR_MAP_REF_COUNT;
@@ -2701,10 +2701,10 @@ rewrite_out_of_ssa (tree fndecl, enum tree_dump_index phase)
   if (flag_tree_ter)
     ssa_flags |= SSANORM_PERFORM_TER;
 
-  remove_ssa_form (dump_file, map, ssa_flags);
+  remove_ssa_form (tree_dump_file, map, ssa_flags);
 
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    dump_tree_cfg (dump_file, dump_flags & ~TDF_DETAILS);
+  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+    dump_tree_cfg (tree_dump_file, tree_dump_flags & ~TDF_DETAILS);
 
   /* Do some cleanups which reduce the amount of data the
      tree->rtl expanders deal with.  */
@@ -2714,10 +2714,10 @@ rewrite_out_of_ssa (tree fndecl, enum tree_dump_index phase)
   remove_useless_vars ();
 
   /* Debugging dumps.  */
-  if (dump_file)
+  if (tree_dump_file)
     {
-      dump_function_to_file (fndecl, dump_file, dump_flags & ~TDF_VOPS);
-      dump_end (phase, dump_file);
+      dump_function_to_file (fndecl, tree_dump_file, tree_dump_flags & ~TDF_VOPS);
+      dump_end (phase, tree_dump_file);
     }
 
   /* Flush out flow graph and SSA data.  */
@@ -3261,11 +3261,11 @@ rewrite_stmt (block_stmt_iterator si, varray_type *block_defs_p)
   ann = stmt_ann (stmt);
   ssa_stats.num_stmts++;
 
-  if (dump_file && (dump_flags & TDF_DETAILS))
+  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
     {
-      fprintf (dump_file, "Renaming statement ");
-      print_generic_stmt (dump_file, stmt, TDF_SLIM);
-      fprintf (dump_file, "\n");
+      fprintf (tree_dump_file, "Renaming statement ");
+      print_generic_stmt (tree_dump_file, stmt, TDF_SLIM);
+      fprintf (tree_dump_file, "\n");
     }
 
 #if defined ENABLE_CHECKING

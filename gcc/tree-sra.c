@@ -67,8 +67,8 @@ static void scalarize_return_expr (block_stmt_iterator *);
 static void scalarize_tree_list (tree, block_stmt_iterator *);
 
 /* Local variables.  */
-static FILE *dump_file;
-static int dump_flags;
+static FILE *tree_dump_file;
+static int tree_dump_flags;
 
 /* The set of aggregate variables that are candidates for scalarization.  */
 static sbitmap sra_candidates;
@@ -167,22 +167,22 @@ can_be_scalarized_p (tree var)
 
   if (!is_gimple_non_addressable (var))
     {
-      if (dump_file && (dump_flags & TDF_DETAILS))
+      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
 	{
-	  fprintf (dump_file, "Cannot scalarize variable ");
-	  print_generic_expr (dump_file, var, 0);	 
-	  fprintf (dump_file, " because it must live in memory\n");
+	  fprintf (tree_dump_file, "Cannot scalarize variable ");
+	  print_generic_expr (tree_dump_file, var, 0);	 
+	  fprintf (tree_dump_file, " because it must live in memory\n");
 	}
       return false;
     }
 
   if (TREE_THIS_VOLATILE (var))
     {
-      if (dump_file && (dump_flags & TDF_DETAILS))
+      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
 	{
-	  fprintf (dump_file, "Cannot scalarize variable ");
-	  print_generic_expr (dump_file, var, 0);	 
-	  fprintf (dump_file, " because it is declared volatile\n");
+	  fprintf (tree_dump_file, "Cannot scalarize variable ");
+	  print_generic_expr (tree_dump_file, var, 0);	 
+	  fprintf (tree_dump_file, " because it is declared volatile\n");
 	}
       return false;
     }
@@ -196,14 +196,14 @@ can_be_scalarized_p (tree var)
 
       if (AGGREGATE_TYPE_P (TREE_TYPE (field)))
 	{
-	  if (dump_file && (dump_flags & TDF_DETAILS))
+	  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
 	    {
-	      fprintf (dump_file, "Cannot scalarize variable ");
-	      print_generic_expr (dump_file, var, 0);	 
-	      fprintf (dump_file,
+	      fprintf (tree_dump_file, "Cannot scalarize variable ");
+	      print_generic_expr (tree_dump_file, var, 0);	 
+	      fprintf (tree_dump_file,
 		       " because it contains an aggregate type field, ");
-	      print_generic_expr (dump_file, field, 0);
-	      fprintf (dump_file, "\n");
+	      print_generic_expr (tree_dump_file, field, 0);
+	      fprintf (tree_dump_file, "\n");
 	    }
 	  return false;
 	}
@@ -214,14 +214,14 @@ can_be_scalarized_p (tree var)
 	 to mask them properly.  */
       if (DECL_BIT_FIELD (field))
 	{
-	  if (dump_file && (dump_flags & TDF_DETAILS))
+	  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
 	    {
-	      fprintf (dump_file, "Cannot scalarize variable ");
-	      print_generic_expr (dump_file, var, 0);	 
-	      fprintf (dump_file,
+	      fprintf (tree_dump_file, "Cannot scalarize variable ");
+	      print_generic_expr (tree_dump_file, var, 0);	 
+	      fprintf (tree_dump_file,
 		       " because it contains a bit-field, ");
-	      print_generic_expr (dump_file, field, 0);
-	      fprintf (dump_file, "\n");
+	      print_generic_expr (tree_dump_file, field, 0);
+	      fprintf (tree_dump_file, "\n");
 	    }
 	  return false;
 	}
@@ -231,13 +231,13 @@ can_be_scalarized_p (tree var)
 	 26_numerics/complex_inserters_extractors.cc.  */
       if (TREE_CODE (TREE_TYPE (field)) == COMPLEX_TYPE)
 	{
-	  if (dump_file && (dump_flags & TDF_DETAILS))
+	  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
 	    {
-	      fprintf (dump_file, "Cannot scalarize variable ");
-	      print_generic_expr (dump_file, var, 0);
-	      fprintf (dump_file, " because it contains a __complex__ field, ");
-	      print_generic_expr (dump_file, field, 0);
-	      fprintf (dump_file, "\n");
+	      fprintf (tree_dump_file, "Cannot scalarize variable ");
+	      print_generic_expr (tree_dump_file, var, 0);
+	      fprintf (tree_dump_file, " because it contains a __complex__ field, ");
+	      print_generic_expr (tree_dump_file, field, 0);
+	      fprintf (tree_dump_file, "\n");
 	    }
 	  return false;
 	}
@@ -245,11 +245,11 @@ can_be_scalarized_p (tree var)
       nfields++;
       if (nfields > MAX_NFIELDS_FOR_SRA)
 	{
-	  if (dump_file && (dump_flags & TDF_DETAILS))
+	  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
 	    {
-	      fprintf (dump_file, "Cannot scalarize variable ");
-	      print_generic_expr (dump_file, var, 0);	 
-	      fprintf (dump_file,
+	      fprintf (tree_dump_file, "Cannot scalarize variable ");
+	      print_generic_expr (tree_dump_file, var, 0);	 
+	      fprintf (tree_dump_file,
 		       " because it contains more than %d fields\n", 
 		       MAX_NFIELDS_FOR_SRA);
 	    }
@@ -883,7 +883,7 @@ tree_sra (tree fndecl, bitmap vars, enum tree_dump_index phase)
 
   timevar_push (TV_TREE_SRA);
 
-  dump_file = dump_begin (phase, &dump_flags);
+  tree_dump_file = dump_begin (phase, &tree_dump_flags);
 
   /* Initialize local variables.  */
   sra_candidates = sbitmap_alloc (num_referenced_vars);
@@ -920,16 +920,16 @@ tree_sra (tree fndecl, bitmap vars, enum tree_dump_index phase)
     }
 
   /* Debugging dumps.  */
-  if (dump_file)
+  if (tree_dump_file)
     {
-      if (sra_map && 1/*(dump_flags & TDF_DETAILS)*/)
+      if (sra_map && 1/*(tree_dump_flags & TDF_DETAILS)*/)
 	{
 	  size_t i, j;
 	  tree f;
 	  const char *fname =
 	    (*lang_hooks.decl_printable_name) (current_function_decl, 2);
 
-	  fprintf (dump_file, "Scalar replacements for %s:\n\n", fname);
+	  fprintf (tree_dump_file, "Scalar replacements for %s:\n\n", fname);
 	  for (i = 0; i < old_num_referenced_vars; i++)
 	    {
 	      if (sra_map[i])
@@ -943,8 +943,8 @@ tree_sra (tree fndecl, bitmap vars, enum tree_dump_index phase)
 
 		      if (sra_map[i][j])
 			{
-			  print_generic_expr (dump_file, referenced_var (i), 0);
-			  fprintf (dump_file, ".%s -> %s\n",
+			  print_generic_expr (tree_dump_file, referenced_var (i), 0);
+			  fprintf (tree_dump_file, ".%s -> %s\n",
 				   get_name (f),
 				   get_name (sra_map[i][j]));
 			}
@@ -952,13 +952,13 @@ tree_sra (tree fndecl, bitmap vars, enum tree_dump_index phase)
 		      j++;
 		    }
 
-		  fprintf (dump_file, "\n");
+		  fprintf (tree_dump_file, "\n");
 		}
 	    }
 	}
 
-      dump_function_to_file (fndecl, dump_file, dump_flags);
-      dump_end (phase, dump_file);
+      dump_function_to_file (fndecl, tree_dump_file, tree_dump_flags);
+      dump_end (phase, tree_dump_file);
     }
 
   /* Free allocated memory.  */
