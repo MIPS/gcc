@@ -1930,28 +1930,21 @@ namespace std
     do_get_year(iter_type __beg, iter_type __end, ios_base& __io, 
 		ios_base::iostate& __err, tm* __tm) const
     {
-      locale __loc = __io.getloc();
+      const locale& __loc = __io._M_getloc();
       const ctype<_CharT>& __ctype = use_facet<ctype<_CharT> >(__loc); 
 
-      char_type __c = *__beg;
       size_t __i = 0;
-      string __digits;
-      while (__i < 4 && __beg != __end && __ctype.is(ctype_base::digit, __c))
+      int __value = 0;
+      for (; __beg != __end && __i < 4; ++__beg, ++__i)
 	{
-	  __digits += __ctype.narrow(__c, 0);
-	  __c = *(++__beg);
-	  ++__i;
+	  const char __c = __ctype.narrow(*__beg, '*');
+	  if (__c >= '0' && __c <= '9')
+	    __value = __value * 10 + (__c - '0');
+	  else
+	    break;
 	}
       if (__i == 2 || __i == 4)
-	{
-	  long __l;
-	  __convert_to_v(__digits.c_str(), __l, __err, _S_c_locale);
-	  if (!(__err & ios_base::failbit) && __l <= INT_MAX)
-	    {
-	      __l = __i == 2 ? __l : __l - 1900; 
-	      __tm->tm_year = static_cast<int>(__l);
-	    }
-	}
+	__tm->tm_year = __i == 2 ? __value : __value - 1900;
       else
 	__err |= ios_base::failbit;
       if (__beg == __end)
