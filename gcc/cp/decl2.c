@@ -4042,8 +4042,18 @@ build_expr_from_tree (t)
 	  }
 
 	if (TREE_CODE (field) == IDENTIFIER_NODE)
-	  field = lookup_member (TREE_TYPE (object), field, 
-				 /*protect=*/1, /*want_type=*/0);
+	  {
+	    /* FIXME: Share code with parser.c here to look up name in
+	       both the context of the object and in the enclosing
+	       context.  */
+	    field = lookup_member (TREE_TYPE (object), field, 
+				   /*protect=*/1, /*want_type=*/0);
+	    /* Check the accessibility of the member.  If it is an
+	       overloaded function, accessibility will be checked
+	       after overload resolution.  */
+	    if (DECL_P (field))
+	      enforce_access (TREE_TYPE (object), field);
+	  }
 	else if (TREE_CODE (field) == TEMPLATE_ID_EXPR
 		 && (TREE_CODE (TREE_OPERAND (field, 0)) 
 		     == IDENTIFIER_NODE))

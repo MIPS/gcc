@@ -2,8 +2,8 @@
 // GROUPS passed enums
 enum fig {
     figgy,
-    pudding,
-}; // ERROR - comma
+    pudding, // ERROR - comma
+}; 
 
 class X {
 public:

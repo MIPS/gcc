@@ -4,9 +4,9 @@ struct X {
 };
 
 void
-X::f (int i = 4, char x = 'r')
-{ }				// ERROR - duplicate default args
+X::f (int i = 4, char x = 'r') // ERROR - duplicate default args
+{ }				
 
 void
-X::g (int i = 9, char x = 's')
-{ }				// ERROR - duplicate default args
+X::g (int i = 9, char x = 's') // ERROR - duplicate default args
+{ }				

@@ -94,7 +94,6 @@ static bool typename_compare PARAMS ((hash_table_key, hash_table_key));
 static void push_binding PARAMS ((tree, tree, struct binding_level*));
 static int add_binding PARAMS ((tree, tree));
 static void pop_binding PARAMS ((tree, tree));
-static tree local_variable_p_walkfn PARAMS ((tree *, int *, void *));
 static tree find_binding PARAMS ((tree, tree));
 static tree select_decl PARAMS ((tree, int));
 static int lookup_flags PARAMS ((int, int));
@@ -7981,6 +7980,9 @@ cp_finish_decl (decl, init, asmspec_tree, flags)
   const char *asmspec = NULL;
   int was_readonly = 0;
 
+  if (decl == error_mark_node)
+    return;
+
   if (! decl)
     {
       if (init)
@@ -11616,19 +11618,6 @@ nonstatic_local_decl_p (t)
 	  || TREE_CODE (t) == RESULT_DECL);
 }
 
-/* Like local_variable_p, but suitable for use as a tree-walking
-   function.  */
-
-static tree
-local_variable_p_walkfn (tp, walk_subtrees, data)
-     tree *tp;
-     int *walk_subtrees ATTRIBUTE_UNUSED;
-     void *data ATTRIBUTE_UNUSED;
-{
-  return ((local_variable_p (*tp) && !DECL_ARTIFICIAL (*tp))
-	  ? *tp : NULL_TREE);
-}
-
 /* Check that ARG, which is a default-argument expression for a
    parameter DECL, is legal.  Returns ARG, or ERROR_MARK_NODE, if
    something goes wrong.  DECL may also be a _TYPE node, rather than a
@@ -11639,7 +11628,6 @@ check_default_argument (decl, arg)
      tree decl;
      tree arg;
 {
-  tree var;
   tree decl_type;
 
   if (TREE_CODE (arg) == DEFAULT_ARG)
@@ -11685,22 +11673,6 @@ check_default_argument (decl, arg)
 	cp_error ("default argument for parameter of type `%T' has type `%T'",
 		  decl_type, TREE_TYPE (arg));
 
-      return error_mark_node;
-    }
-
-  /* [dcl.fct.default]
-
-     Local variables shall not be used in default argument
-     expressions.
-
-     The keyword `this' shall not be used in a default argument of a
-     member function.  */
-  var = walk_tree_without_duplicates (&arg, local_variable_p_walkfn,
-				      NULL);
-  if (var)
-    {
-      cp_error ("default argument `%E' uses local variable `%D'",
-		arg, var);
       return error_mark_node;
     }
 

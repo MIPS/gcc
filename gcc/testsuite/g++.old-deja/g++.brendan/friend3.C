@@ -5,8 +5,8 @@ class B {
    friend class A;
 
    enum {
-      bEnum = 1,
-   }; // ERROR - comma
+      bEnum = 1, // ERROR - comma
+   }; 
 
    int bArray[ bEnum ];
 
