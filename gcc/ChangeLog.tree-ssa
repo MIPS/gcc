@@ -1,3 +1,12 @@
+2003-11-22  Jeff Law  <law@redhat.com>
+
+	* tree-ssa-names.c (release_ssa_name): Use SSA_NAME_IN_FREE_LIST
+	instead of checking SSA_NAME_DEF_STMT being null.
+	* tree.h (SSA_NAME_DEF_STMT): Use chain field rather than the
+	def_stmt field.
+	(SSA_NAME_OCCURS_IN_ABNORMAL_PHI): Use existing flag from tree_common.
+	(SSA_NAME_IN_FREE_LIST): Define.
+	(struct tree_ssa_name): Kill DEF_STMT and OCCURS_IN_ABNORMAL_PHI fields.                                                                                
 2003-11-22  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* tree-pretty-print.c (dump_generic_node): Remove superfluous ';'.

@@ -263,7 +263,7 @@ struct tree_common GTY(())
 
        TREE_ASM_WRITTEN in
            VAR_DECL, FUNCTION_DECL, RECORD_TYPE, UNION_TYPE, QUAL_UNION_TYPE
-	   BLOCK
+	   BLOCK, SSA_NAME
 
    used_flag:
 
@@ -691,7 +691,9 @@ extern void tree_operand_check_failed (int, enum tree_code,
    to be compiled separately.
    Nonzero in a RECORD_TYPE, UNION_TYPE, QUAL_UNION_TYPE or ENUMERAL_TYPE
    if the sdb debugging info for the type has been written.
-   In a BLOCK node, nonzero if reorder_blocks has already seen this block.  */
+   In a BLOCK node, nonzero if reorder_blocks has already seen this block. 
+   In an SSA_NAME node, nonzero if the SSA_NAME occurs in an abnormal
+   PHI node.  */
 #define TREE_ASM_WRITTEN(NODE) ((NODE)->common.asm_written_flag)
 
 /* Nonzero in a _DECL if the name is used in its scope.
@@ -713,7 +715,10 @@ extern void tree_operand_check_failed (int, enum tree_code,
    of this type is aligned at least to the alignment of the type, even if it
    doesn't appear that it is.  We see this, for example, in object-oriented
    languages where a tag field may show this is an object of a more-aligned
-   variant of the more generic type.  */
+   variant of the more generic type.
+
+   In an SSA_NAME node, nonzero if the SSA_NAME node is on the SSA_NAME
+   freelist.  */
 #define TYPE_ALIGN_OK(NODE) (TYPE_CHECK (NODE)->common.nothrow_flag)
 
 /* Used in classes in C++.  */
@@ -1012,27 +1017,39 @@ struct tree_exp GTY(())
     operands[1];
 };
 
-/* SSA_NAME accessors.  SSA_NAME_VAR returns the variable being
-   referenced.  SSA_NAME_DEF_STMT returns the statement that defines
-   this reference.  */
+/* SSA_NAME accessors.  */
+
+/* Returns the variable being referenced.  Once released, this is the
+   only field that can be relied upon.  */
 #define SSA_NAME_VAR(NODE)	SSA_NAME_CHECK (NODE)->ssa_name.var
-#define SSA_NAME_DEF_STMT(NODE)	SSA_NAME_CHECK (NODE)->ssa_name.def_stmt
+
+/* Returns the statement which defines this reference.   Note that
+   we use the same field when chaining SSA_NAME nodes together on
+   the SSA_NAME freelist.  */
+#define SSA_NAME_DEF_STMT(NODE)	SSA_NAME_CHECK (NODE)->common.chain
+
+/* Returns the SSA version number of this SSA name.  Note that in
+   tree SSA, version numbers are not per variable and may be recycled.  */
 #define SSA_NAME_VERSION(NODE)	SSA_NAME_CHECK (NODE)->ssa_name.version
+
+/* Nonzero if this SSA name occurs in an abnormal PHI.  SSA_NAMES are
+   never output, so we can safely use the ASM_WRITTEN_FLAG for this
+   status bit.  */
 #define SSA_NAME_OCCURS_IN_ABNORMAL_PHI(NODE) \
-    SSA_NAME_CHECK (NODE)->ssa_name.occurs_in_abnormal_phi
+    SSA_NAME_CHECK (NODE)->common.asm_written_flag
+
+/* Nonzero if this SSA_NAME expression is currently on the freelist of
+   SSA_NAMES.  Using NOTHROW_FLAG seems reasonably safe since throwing
+   has no meaning for an SSA_NAME.  */
+#define SSA_NAME_IN_FREE_LIST(NODE) \
+    SSA_NAME_CHECK (NODE)->common.nothrow_flag
 
 struct tree_ssa_name GTY(())
 {
   struct tree_common common;
 
-  /* Nonzero if the SSA name occurs in an abnormal PHI.  */
-  unsigned occurs_in_abnormal_phi : 1;
-
   /* _DECL wrapped by this SSA name.  */
   tree var;
-
-  /* Statement that creates this SSA name.  */
-  tree def_stmt;
 
   /* SSA version number.  */
   unsigned int version;

@@ -158,18 +158,23 @@ make_ssa_name (tree var, tree stmt)
    it may be reused. 
 
    Note it is assumed that no calls to make_ssa_name will be made
-   until all uses of the ssa name are released.  */
+   until all uses of the ssa name are released and that the only
+   use of the SSA_NAME expression is to check its SSA_NAME_VAR.  All
+   other fields must be assumed clobbered.  */
 
 void
 release_ssa_name (tree var)
 {
   /* release_ssa_name can be called multiple times on a single SSA_NAME.
      However, it should only end up on our free list one time.   We
-     wipe SSA_NAME_DEF_STMT to indicate that we have put the node on the
-     free list.  */
-  if (SSA_NAME_DEF_STMT (var) != NULL)
+     keep a status bit in the SSA_NAME node itself to indicate it has
+     been put on the free list. 
+
+     Note that once on the freelist you can not reference the SSA_NAME's
+     defining statement.  */
+  if (! SSA_NAME_IN_FREE_LIST (var))
     {
-      SSA_NAME_DEF_STMT (var) = NULL;
+      SSA_NAME_IN_FREE_LIST (var) = 1;
       TREE_CHAIN (var) = free_ssanames;
       free_ssanames = var;
     }
