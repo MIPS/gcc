@@ -1,5 +1,9 @@
 2003-12-03  Jan Hubicka  <jh@suse.cz>
 
+	* calls.c:  Reorganize to get 64bit arguments working.
+
+2003-12-03  Jan Hubicka  <jh@suse.cz>
+
 	* i386.c (classify_argument): Make it 64bit clean.
 
 2003-12-01  James E Wilson  <wilson@specifixinc.com>

@@ -135,8 +135,13 @@ struct arg_data
    clobbering any stack already set up.  */
 static char *stack_usage_map;
 
+/* Maximal size of stack_usage_map array.
+   We never nest anything except for implicitly constructed library calls
+   so even small value is enough.  */
+#define STACK_USAGE_MAP_MAX 256
+
 /* Size of STACK_USAGE_MAP.  */
-static int highest_outgoing_arg_in_use;
+static HOST_WIDE_INT highest_outgoing_arg_in_use;
 
 /* A bitmap of virtual-incoming stack space.  Bit is set if the corresponding
    stack location's tail call argument has been already stored into the stack.
@@ -191,8 +196,8 @@ static void emit_call_1		PARAMS ((rtx, tree, tree, HOST_WIDE_INT,
 static void precompute_register_parameters	PARAMS ((int,
 							 struct arg_data *,
 							 int *));
-static int store_one_arg	PARAMS ((struct arg_data *, rtx, int, int,
-					 int));
+static int store_one_arg	PARAMS ((struct arg_data *, rtx, int, HOST_WIDE_INT,
+					 HOST_WIDE_INT));
 static void store_unaligned_arguments_into_pseudos PARAMS ((struct arg_data *,
 							    int));
 static int finalize_must_preallocate		PARAMS ((int, int,
@@ -231,8 +236,10 @@ static int combine_pending_stack_adjustment_and_call
 static tree fix_unsafe_tree		PARAMS ((tree));
 
 #ifdef REG_PARM_STACK_SPACE
-static rtx save_fixed_argument_area	PARAMS ((int, rtx, int *, int *));
-static void restore_fixed_argument_area	PARAMS ((rtx, rtx, int, int));
+static rtx save_fixed_argument_area	PARAMS ((int, rtx, HOST_WIDE_INT *,
+						 HOST_WIDE_INT *));
+static void restore_fixed_argument_area	PARAMS ((rtx, rtx, HOST_WIDE_INT,
+						 HOST_WIDE_INT));
 #endif
 
 /* If WHICH is 1, return 1 if EXP contains a call to the built-in function
@@ -949,10 +956,10 @@ save_fixed_argument_area (reg_parm_stack_space, argblock,
 			  low_to_save, high_to_save)
      int reg_parm_stack_space;
      rtx argblock;
-     int *low_to_save;
-     int *high_to_save;
+     HOST_WIDE_INT *low_to_save;
+     HOST_WIDE_INT *high_to_save;
 {
-  int i;
+  HOST_WIDE_INT i;
   rtx save_area = NULL_RTX;
 
   /* Compute the boundary of the that needs to be saved, if any.  */
@@ -963,6 +970,7 @@ save_fixed_argument_area (reg_parm_stack_space, argblock,
 #endif
     {
       if (i >= highest_outgoing_arg_in_use
+	  || i >= STACK_USAGE_MAP_MAX
 	  || stack_usage_map[i] == 0)
 	continue;
 
@@ -974,7 +982,7 @@ save_fixed_argument_area (reg_parm_stack_space, argblock,
 
   if (*low_to_save >= 0)
     {
-      int num_to_save = *high_to_save - *low_to_save + 1;
+      HOST_WIDE_INT num_to_save = *high_to_save - *low_to_save + 1;
       enum machine_mode save_mode
 	= mode_for_size (num_to_save * BITS_PER_UNIT, MODE_INT, 1);
       rtx stack_area;
@@ -1018,8 +1026,8 @@ static void
 restore_fixed_argument_area (save_area, argblock, high_to_save, low_to_save)
      rtx save_area;
      rtx argblock;
-     int high_to_save;
-     int low_to_save;
+     HOST_WIDE_INT high_to_save;
+     HOST_WIDE_INT low_to_save;
 {
   enum machine_mode save_mode = GET_MODE (save_area);
 #ifdef ARGS_GROW_DOWNWARD
@@ -1832,9 +1840,9 @@ try_to_integrate (fndecl, actparms, target, ignore, type, structure_value_addr)
 {
   rtx temp;
   rtx before_call;
-  int i;
+  HOST_WIDE_INT i;
   rtx old_stack_level = 0;
-  int reg_parm_stack_space = 0;
+  HOST_WIDE_INT reg_parm_stack_space = 0;
 
 #ifdef REG_PARM_STACK_SPACE
 #ifdef MAYBE_REG_PARM_STACK_SPACE
@@ -1864,7 +1872,9 @@ try_to_integrate (fndecl, actparms, target, ignore, type, structure_value_addr)
 	     makes any calls.  */
 
 	  for (i = reg_parm_stack_space - 1; i >= 0; i--)
-	    if (i < highest_outgoing_arg_in_use && stack_usage_map[i] != 0)
+	    if (i < highest_outgoing_arg_in_use
+		&& i < STACK_USAGE_MAP_MAX
+		&& stack_usage_map[i] != 0)
 	      break;
 
 	  if (stack_arg_under_construction || i >= 0)
@@ -2220,7 +2230,7 @@ expand_call (exp, target, ignore)
 #ifdef REG_PARM_STACK_SPACE
   /* Define the boundary of the register parm stack space that needs to be
      save, if any.  */
-  int low_to_save = -1, high_to_save;
+  HOST_WIDE_INT low_to_save = -1, high_to_save;
   rtx save_area = 0;		/* Place that it is saved */
 #endif
 
@@ -2789,7 +2799,7 @@ expand_call (exp, target, ignore)
 	     in the area reserved for register arguments, which may be part of
 	     the stack frame.  */
 
-	  int needed = adjusted_args_size.constant;
+	  HOST_WIDE_INT needed = adjusted_args_size.constant;
 
 	  /* Store the maximum argument space used.  It will be pushed by
 	     the prologue (if ACCUMULATE_OUTGOING_ARGS, or stack overflow
@@ -2822,7 +2832,10 @@ expand_call (exp, target, ignore)
 		     the part that is the responsibility of the caller.  */
 		  needed += reg_parm_stack_space;
 #endif
-
+		  /* Ensure that nested function calls never use large operands.  */
+		  if (needed >= STACK_USAGE_MAP_MAX
+		      && initial_highest_arg_in_use >= STACK_USAGE_MAP_MAX)
+		    abort ();
 #ifdef ARGS_GROW_DOWNWARD
 		  highest_outgoing_arg_in_use = MAX (initial_highest_arg_in_use,
 						     needed + 1);
@@ -2830,16 +2843,22 @@ expand_call (exp, target, ignore)
 		  highest_outgoing_arg_in_use = MAX (initial_highest_arg_in_use,
 						     needed);
 #endif
-		  stack_usage_map
-		    = (char *) alloca (highest_outgoing_arg_in_use);
+
+		  if (highest_outgoing_arg_in_use > STACK_USAGE_MAP_MAX)
+		    stack_usage_map = alloca (STACK_USAGE_MAP_MAX);
+		  else
+		    stack_usage_map = alloca (highest_outgoing_arg_in_use);
 
 		  if (initial_highest_arg_in_use)
 		    memcpy (stack_usage_map, initial_stack_usage_map,
-			    initial_highest_arg_in_use);
+			    initial_highest_arg_in_use > STACK_USAGE_MAP_MAX
+			    ? STACK_USAGE_MAP_MAX : initial_highest_arg_in_use);
 
-		  if (initial_highest_arg_in_use != highest_outgoing_arg_in_use)
+		  if (initial_highest_arg_in_use < STACK_USAGE_MAP_MAX
+		      && initial_highest_arg_in_use != highest_outgoing_arg_in_use)
 		    memset (&stack_usage_map[initial_highest_arg_in_use], 0,
-			   (highest_outgoing_arg_in_use
+			   ((highest_outgoing_arg_in_use > STACK_USAGE_MAP_MAX
+			     ? STACK_USAGE_MAP_MAX : highest_outgoing_arg_in_use)
 			    - initial_highest_arg_in_use));
 		  needed = 0;
 
@@ -2913,6 +2932,7 @@ expand_call (exp, target, ignore)
 #endif
 		      if (old_stack_level == 0)
 			{
+			  int size;
 			  emit_stack_save (SAVE_BLOCK, &old_stack_level,
 					   NULL_RTX);
 			  old_pending_adj = pending_stack_adjust;
@@ -2925,9 +2945,12 @@ expand_call (exp, target, ignore)
 			    = stack_arg_under_construction;
 			  stack_arg_under_construction = 0;
 			  /* Make a new map for the new argument list.  */
-			  stack_usage_map = (char *)
-			    alloca (highest_outgoing_arg_in_use);
-			  memset (stack_usage_map, 0, highest_outgoing_arg_in_use);
+			  if (highest_outgoing_arg_in_use > STACK_USAGE_MAP_MAX)
+			    size = STACK_USAGE_MAP_MAX;
+			  else
+			    size = highest_outgoing_arg_in_use;
+			  stack_usage_map = alloca (size);
+			  memset (stack_usage_map, 0, size);
 			  highest_outgoing_arg_in_use = 0;
 			}
 		      allocate_dynamic_stack_space (push_size, NULL_RTX,
@@ -3539,7 +3562,7 @@ emit_library_call_value_1 (retval, orgfun, value, fn_type, outmode, nargs, p)
 #ifdef REG_PARM_STACK_SPACE
   /* Define the boundary of the register parm stack space that needs to be
      save, if any.  */
-  int low_to_save = -1, high_to_save = 0;
+  HOST_WIDE_INT low_to_save = -1, high_to_save = 0;
   rtx save_area = 0;            /* Place that it is saved.  */
 #endif
 
@@ -3867,6 +3890,10 @@ emit_library_call_value_1 (retval, orgfun, value, fn_type, outmode, nargs, p)
 	 is the responsibility of the caller.  */
       needed += reg_parm_stack_space;
 #endif
+      /* Ensure that nested function calls never use large operands.  */
+      if (needed >= STACK_USAGE_MAP_MAX
+	  && initial_highest_arg_in_use >= STACK_USAGE_MAP_MAX)
+	abort ();
 
 #ifdef ARGS_GROW_DOWNWARD
       highest_outgoing_arg_in_use = MAX (initial_highest_arg_in_use,
@@ -3875,15 +3902,22 @@ emit_library_call_value_1 (retval, orgfun, value, fn_type, outmode, nargs, p)
       highest_outgoing_arg_in_use = MAX (initial_highest_arg_in_use,
 					 needed);
 #endif
-      stack_usage_map = (char *) alloca (highest_outgoing_arg_in_use);
+      if (highest_outgoing_arg_in_use > STACK_USAGE_MAP_MAX)
+	stack_usage_map = alloca (STACK_USAGE_MAP_MAX);
+      else
+	stack_usage_map = alloca (highest_outgoing_arg_in_use);
 
       if (initial_highest_arg_in_use)
 	memcpy (stack_usage_map, initial_stack_usage_map,
-		initial_highest_arg_in_use);
+		initial_highest_arg_in_use > STACK_USAGE_MAP_MAX
+		? STACK_USAGE_MAP_MAX : initial_highest_arg_in_use);
 
-      if (initial_highest_arg_in_use != highest_outgoing_arg_in_use)
+      if (initial_highest_arg_in_use < STACK_USAGE_MAP_MAX
+	  && initial_highest_arg_in_use != highest_outgoing_arg_in_use)
 	memset (&stack_usage_map[initial_highest_arg_in_use], 0,
-	       highest_outgoing_arg_in_use - initial_highest_arg_in_use);
+	       ((highest_outgoing_arg_in_use > STACK_USAGE_MAP_MAX
+		 ? STACK_USAGE_MAP_MAX : highest_outgoing_arg_in_use)
+		- initial_highest_arg_in_use));
       needed = 0;
 
       /* We must be careful to use virtual regs before they're instantiated,
@@ -3935,6 +3969,7 @@ emit_library_call_value_1 (retval, orgfun, value, fn_type, outmode, nargs, p)
 #endif
 	{
 	  if (count >= highest_outgoing_arg_in_use
+	      || count >= STACK_USAGE_MAP_MAX
 	      || stack_usage_map[count] == 0)
 	    continue;
 
@@ -3993,7 +4028,7 @@ emit_library_call_value_1 (retval, orgfun, value, fn_type, outmode, nargs, p)
       rtx val = argvec[argnum].value;
       rtx reg = argvec[argnum].reg;
       int partial = argvec[argnum].partial;
-      int lower_bound = 0, upper_bound = 0, i;
+      HOST_WIDE_INT lower_bound = 0, upper_bound = 0, i;
 
       if (! (reg != 0 && partial == 0))
 	{
@@ -4060,8 +4095,9 @@ emit_library_call_value_1 (retval, orgfun, value, fn_type, outmode, nargs, p)
 			  reg_parm_stack_space, ARGS_SIZE_RTX (alignment_pad));
 
 	  /* Now mark the segment we just used.  */
-	  if (ACCUMULATE_OUTGOING_ARGS)
-	    for (i = lower_bound; i < upper_bound; i++)
+	  if (ACCUMULATE_OUTGOING_ARGS && lower_bound < STACK_USAGE_MAP_MAX)
+	    for (i = lower_bound; i < upper_bound && i < STACK_USAGE_MAP_MAX;
+		 i++)
 	      stack_usage_map[i] = 1;
 
 	  NO_DEFER_POP;
@@ -4390,14 +4426,14 @@ store_one_arg (arg, argblock, flags, variable_size, reg_parm_stack_space)
      struct arg_data *arg;
      rtx argblock;
      int flags;
-     int variable_size ATTRIBUTE_UNUSED;
-     int reg_parm_stack_space;
+     HOST_WIDE_INT variable_size ATTRIBUTE_UNUSED;
+     HOST_WIDE_INT reg_parm_stack_space;
 {
   tree pval = arg->tree_value;
   rtx reg = 0;
   int partial = 0;
   int used = 0;
-  int i, lower_bound = 0, upper_bound = 0;
+  HOST_WIDE_INT i, lower_bound = 0, upper_bound = 0;
   int sibcall_failure = 0;
 
   if (TREE_CODE (pval) == ERROR_MARK)
@@ -4681,8 +4717,9 @@ store_one_arg (arg, argblock, flags, variable_size, reg_parm_stack_space)
 
   /* Mark all slots this store used.  */
   if (ACCUMULATE_OUTGOING_ARGS && !(flags & ECF_SIBCALL)
-      && argblock && ! variable_size && arg->stack)
-    for (i = lower_bound; i < upper_bound; i++)
+      && argblock && ! variable_size && arg->stack
+      && lower_bound < STACK_USAGE_MAP_MAX)
+    for (i = lower_bound; i < upper_bound && i < STACK_USAGE_MAP_MAX; i++)
       stack_usage_map[i] = 1;
 
   /* Once we have pushed something, pops can't safely
