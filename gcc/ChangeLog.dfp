@@ -1,3 +1,7 @@
+2005-03-14  Ben Elliston  <bje@au.ibm.com>
+
+	* config/i386/i386-modes.def: Add SDmode, DDmode, and TDmode.
+
 2005-03-11  Jon Grimm  <jgrimm2@us.ibm.com>
 
 	* c-lex.c (interpret_float): Decode dfp types from cpplib provided
