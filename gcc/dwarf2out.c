@@ -3099,7 +3099,8 @@ static void dwarf2out_end_block		PARAMS ((unsigned, unsigned));
 static bool dwarf2out_ignore_block	PARAMS ((tree));
 static void dwarf2out_global_decl	PARAMS ((tree));
 static void dwarf2out_abstract_function PARAMS ((tree));
-
+static void dwarf2out_var_location      PARAMS ((rtx));
+static void dwarf2out_begin_function    PARAMS ((tree));
 /* The debug hooks structure.  */
 
 const struct gcc_debug_hooks dwarf2_debug_hooks =
@@ -3117,7 +3118,7 @@ const struct gcc_debug_hooks dwarf2_debug_hooks =
   dwarf2out_begin_prologue,
   debug_nothing_int,		/* end_prologue */
   dwarf2out_end_epilogue,
-  debug_nothing_tree,		/* begin_function */
+  dwarf2out_begin_function,
   debug_nothing_int,		/* end_function */
   dwarf2out_decl,		/* function_decl */
   dwarf2out_global_decl,
@@ -3126,7 +3127,8 @@ const struct gcc_debug_hooks dwarf2_debug_hooks =
      emitting the abstract description of inline functions until
      something tries to reference them.  */
   dwarf2out_abstract_function,	/* outlining_inline_function */
-  debug_nothing_rtx		/* label */
+  debug_nothing_rtx,		/* label */
+  dwarf2out_var_location
 };
 
 /* NOTE: In the comments in this file, many references are made to
@@ -3342,6 +3344,22 @@ static unsigned decl_die_table_in_use;
 /* Size (in elements) of increments by which we may expand the
    decl_die_table.  */
 #define DECL_DIE_TABLE_INCREMENT 256
+
+struct var_loc_node
+{
+  rtx var_loc_note;
+  const char *label;
+  struct var_loc_node *next;
+};
+/* Unique label counter.  */
+static unsigned int loclabel_num = 0;
+/* Table of decl location linked lists.  */
+static struct var_loc_node **decl_loc_table;
+/* Number of elements in the decl_loc_table that are allocated.  */
+static unsigned decl_loc_table_allocated;
+/* Number of elements in the decl_loc_table that are in use.  */
+static unsigned decl_loc_table_in_use;
+#define DECL_LOC_TABLE_INCREMENT 256
 
 /* A pointer to the base of a table of references to declaration
    scopes.  This table is a display which tracks the nesting
@@ -5137,6 +5155,18 @@ lookup_decl_die (decl)
 
   return (decl_id < decl_die_table_in_use ? decl_die_table[decl_id] : NULL);
 }
+static struct var_loc_node * lookup_decl_loc PARAMS ((tree));
+static void add_var_loc_to_decl PARAMS ((tree, struct var_loc_node *));
+
+/* Return the var_loc list associated with a given declaration.  */
+static inline struct var_loc_node *
+lookup_decl_loc (decl)
+     tree decl;
+{
+  unsigned decl_id = DECL_UID (decl);
+  
+  return (decl_id < decl_loc_table_in_use ? decl_loc_table[decl_id] : NULL);
+}
 
 /* Equate a DIE to a particular declaration.  */
 
@@ -5168,6 +5198,58 @@ equate_decl_number_to_die (decl, decl_die)
     decl_die_table_in_use = (decl_id + 1);
 
   decl_die_table[decl_id] = decl_die;
+}
+
+/* Add a variable location node to the linked list for DECL.  */
+static void
+add_var_loc_to_decl (decl, loc)
+     tree decl;
+     struct var_loc_node *loc;
+{
+  unsigned int decl_id = DECL_UID (decl);
+  unsigned int num_allocated;
+  struct var_loc_node *temp;
+  if (decl_id >= decl_loc_table_allocated)
+    {
+      num_allocated
+        = ((decl_id + 1 + DECL_LOC_TABLE_INCREMENT - 1)
+           / DECL_LOC_TABLE_INCREMENT)
+          * DECL_LOC_TABLE_INCREMENT;
+
+      decl_loc_table
+        = (struct var_loc_node **) xrealloc (decl_loc_table,
+                                   sizeof (struct var_loc_node *) * num_allocated);
+
+      memset ((char *) &decl_loc_table[decl_loc_table_allocated], 0,
+             (num_allocated - decl_loc_table_allocated) * sizeof (struct var_loc_node *));
+      decl_loc_table_allocated = num_allocated;
+    }
+
+
+  if (decl_id >= decl_loc_table_in_use)
+    decl_loc_table_in_use = (decl_id + 1);
+  temp = decl_loc_table[decl_id];
+  if (!temp)
+    {
+      decl_loc_table[decl_id] = loc;
+      loc->next = NULL;
+    }
+  else
+    {
+      /* Get to the end of the list */
+      while (temp->next != NULL)
+	temp = temp->next;
+      /* If the current location is the same as the end of the list,
+	 just extend the range of the location at the end of the
+	 list.  */ 
+      if (rtx_equal_p (NOTE_VAR_LOCATION_LOC (temp->var_loc_note), NOTE_VAR_LOCATION_LOC (loc->var_loc_note)))
+	temp->label = loc->label;
+      else
+	temp->next = loc;
+    }
+  /*
+    loc->next = decl_loc_table[decl_id];
+    decl_loc_table[decl_id] = loc;*/
 }
 
 /* Keep track of the number of spaces used to indent the
@@ -6219,28 +6301,30 @@ output_loc_list (list_head)
 
   ASM_OUTPUT_LABEL (asm_out_file, list_head->ll_symbol);
 
-  /* ??? This shouldn't be needed now that we've forced the
-     compilation unit base address to zero when there is code
-     in more than one section.  */
-  if (strcmp (curr->section, ".text") == 0)
-    {
-      /* dw2_asm_output_data will mask off any extra bits in the ~0.  */
-      dw2_asm_output_data (DWARF2_ADDR_SIZE, ~(unsigned HOST_WIDE_INT) 0,
-			   "Location list base address specifier fake entry");
-      dw2_asm_output_offset (DWARF2_ADDR_SIZE, curr->section,
-			     "Location list base address specifier base");
-    }
-
+  /* Since we force the compilation unit base address to zero when there is code
+     in more than one section, if it's not in the .text section, use
+     absolute addresses, rather than a base selection entry.  */
   for (curr = list_head; curr != NULL; curr=curr->dw_loc_next)
     {
       unsigned long size;
-
-      dw2_asm_output_delta (DWARF2_ADDR_SIZE, curr->begin, curr->section,
-			    "Location list begin address (%s)",
-			    list_head->ll_symbol);
-      dw2_asm_output_delta (DWARF2_ADDR_SIZE, curr->end, curr->section,
-			    "Location list end address (%s)",
-			    list_head->ll_symbol);
+      if (separate_line_info_table_in_use == 0)
+	{
+	  dw2_asm_output_delta (DWARF2_ADDR_SIZE, curr->begin, curr->section,
+				"Location list begin address (%s)",
+				list_head->ll_symbol);
+	  dw2_asm_output_delta (DWARF2_ADDR_SIZE, curr->end, curr->section,
+				"Location list end address (%s)",
+				list_head->ll_symbol);
+	}
+      else
+	{
+	  dw2_asm_output_addr (DWARF2_ADDR_SIZE, curr->begin,
+			       "Location list begin address (%s)",
+			       list_head->ll_symbol);
+	  dw2_asm_output_addr (DWARF2_ADDR_SIZE, curr->end, 
+			       "Location list end address (%s)",
+			       list_head->ll_symbol);
+	}
       size = size_of_locs (curr->expr);
       
       /* Output the block length for this list of location operations.  */
@@ -7920,6 +8004,8 @@ mem_loc_descriptor (rtl, mode)
 	return 0;
 
     default:
+      fprintf (stderr, "\nInvalid mem_loc_descriptor RTL:\n");
+      print_rtl (stderr, rtl);
       abort ();
     }
 
@@ -7990,7 +8076,33 @@ loc_descriptor (rtl)
     case CONCAT:
       loc_result = concat_loc_descriptor (XEXP (rtl, 0), XEXP (rtl, 1));
       break;
-
+    case VAR_LOCATION:
+      /* Single part */
+      if (GET_CODE (XEXP (rtl, 1)) != PARALLEL)	
+	{
+	  loc_result = loc_descriptor (XEXP (XEXP (rtl, 1), 0));
+	}
+      /* Multiple parts */
+      else
+	{
+	  rtvec par_elems = XVEC (XEXP (rtl, 1), 0);
+	  int num_elem = GET_NUM_ELEM (par_elems);
+	  enum machine_mode mode = GET_MODE (XEXP (RTVEC_ELT (par_elems, 0), 0));
+	  int i;
+	  /* Create the first one, so we have something to add to */
+	  loc_result = loc_descriptor (XEXP (RTVEC_ELT (par_elems, 0), 0));
+	  add_loc_descr (&loc_result, new_loc_descr (DW_OP_piece, GET_MODE_SIZE (mode), 0));
+	  for (i = 1; i < num_elem; i++)
+	    {
+	      dw_loc_descr_ref temp = NULL;
+	      temp = loc_descriptor (XEXP (RTVEC_ELT (par_elems, i), 0));
+	      add_loc_descr (&loc_result, temp);
+	      mode = GET_MODE (XEXP (RTVEC_ELT (par_elems, i), 0));
+	      add_loc_descr (&loc_result, new_loc_descr (DW_OP_piece, GET_MODE_SIZE (mode), 0));
+	      
+	    }
+	}  
+      break;
     default:
       abort ();
     }
@@ -8972,12 +9084,54 @@ add_location_or_const_value_attribute (die, decl)
      tree decl;
 {
   rtx rtl;
-
+  struct var_loc_node *multiloc;
   if (TREE_CODE (decl) == ERROR_MARK)
     return;
   else if (TREE_CODE (decl) != VAR_DECL && TREE_CODE (decl) != PARM_DECL)
     abort ();
 
+  multiloc = lookup_decl_loc (decl);
+  if (multiloc && multiloc->next)
+    {     
+      const char * secname;
+      const char *endname;
+      dw_loc_list_ref list;
+      
+      
+      if (DECL_SECTION_NAME (decl))
+	secname = TREE_STRING_POINTER (DECL_SECTION_NAME (decl));
+      else if (DECL_SECTION_NAME (current_function_decl))
+	secname = TREE_STRING_POINTER (DECL_SECTION_NAME (current_function_decl));
+      else
+	secname = TEXT_SECTION_NAME;
+     
+      list = new_loc_list (loc_descriptor (NOTE_VAR_LOCATION (multiloc->var_loc_note)), 
+			   multiloc->label, multiloc->next->label, secname, 1);
+      multiloc = multiloc->next;
+      while (multiloc->next)
+	{
+	  add_loc_descr_to_loc_list (&list, loc_descriptor (NOTE_VAR_LOCATION (multiloc->var_loc_note)), 
+				     multiloc->label, multiloc->next->label, secname);
+	  multiloc = multiloc->next;
+	}
+      if (multiloc)
+        {
+	  char label_id[MAX_ARTIFICIAL_LABEL_BYTES];
+
+	  if (separate_line_info_table_in_use == 0)
+	    endname = text_end_label;
+	  else
+	    {
+	      ASM_GENERATE_INTERNAL_LABEL (label_id, FUNC_END_LABEL,
+					   current_funcdef_number);
+	      endname = ggc_strdup (label_id);
+	    }
+	    add_loc_descr_to_loc_list (&list, loc_descriptor (NOTE_VAR_LOCATION (multiloc->var_loc_note)), 
+				       multiloc->label, endname, secname);
+	}
+      add_AT_loc_list (die, DW_AT_location, list);
+      return;      
+    }
   rtl = rtl_for_decl_location (decl);
   if (rtl == NULL_RTX)
     return;
@@ -11812,7 +11966,39 @@ init_file_table ()
   file_table.in_use = 1;
   file_table.last_lookup_index = 0;
 }
+/* Called by the final INSN scan whenever we see a var location.  We
+   use it to drop labels in the right places, and throw the location in
+   our lookup table.  */
+static void
+dwarf2out_var_location (loc_note)
+     rtx loc_note;
+{
+  char loclabel[MAX_ARTIFICIAL_LABEL_BYTES];
+  struct var_loc_node *newloc;
+  if (!DECL_P (NOTE_VAR_LOCATION_DECL (loc_note)))
+    return;
+  newloc = xcalloc (1, sizeof (struct var_loc_node));
+  ASM_GENERATE_INTERNAL_LABEL (loclabel, "LVL", loclabel_num++);
+  ASM_OUTPUT_LABEL (asm_out_file, loclabel);  
+  newloc->label = ggc_strdup (loclabel);
+  newloc->var_loc_note = loc_note;
 
+  add_var_loc_to_decl (NOTE_VAR_LOCATION_DECL (loc_note), newloc);
+						
+}
+/* We need to reset the locations at the beginning of each
+   function. We can't do this in the end_function hook, because the
+   declarations that use the locations won't have been outputted when
+   that hook is called.  */
+
+static void
+dwarf2out_begin_function (unused)
+     tree unused ATTRIBUTE_UNUSED;
+{
+  decl_loc_table_in_use = 0;
+  memset (decl_loc_table, 0, sizeof (struct var_loc_node *) 
+	  * decl_loc_table_allocated);
+}
 /* Output a label to mark the beginning of a source code line entry
    and record information relating to this source line, in
    'line_info_table' for later output of the .debug_line section.  */
@@ -12002,6 +12188,12 @@ dwarf2out_init (main_input_filename)
     = (dw_die_ref *) xcalloc (DECL_DIE_TABLE_INCREMENT, sizeof (dw_die_ref));
   decl_die_table_allocated = DECL_DIE_TABLE_INCREMENT;
   decl_die_table_in_use = 0;
+
+  /* Allocate the initial hunk of the decl_loc_table.  */
+  decl_loc_table
+    = (struct var_loc_node **) xcalloc (DECL_LOC_TABLE_INCREMENT, sizeof (struct var_loc_node *));
+  decl_loc_table_allocated = DECL_LOC_TABLE_INCREMENT;
+  decl_loc_table_in_use = 0;
 
   /* Allocate the initial hunk of the decl_scope_table.  */
   VARRAY_TREE_INIT (decl_scope_table, 256, "decl_scope_table");

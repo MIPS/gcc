@@ -1916,6 +1916,9 @@ final_scan_insn (insn, file, optimize, prescan, nopeepholes)
 	case NOTE_INSN_RANGE_END:
 	case NOTE_INSN_LIVE:
 	case NOTE_INSN_EXPECTED_VALUE:
+                break;
+      case NOTE_INSN_VAR_LOCATION:
+        (*debug_hooks->var_location) (insn);
 	  break;
 
 	case NOTE_INSN_BASIC_BLOCK:

@@ -328,7 +328,8 @@ const struct gcc_debug_hooks sdb_debug_hooks =
   sdbout_global_decl,		/* global_decl */
   debug_nothing_tree,		/* deferred_inline_function */
   debug_nothing_tree,		/* outlining_inline_function */
-  sdbout_label
+  sdbout_label,
+  debug_nothing_rtx             /* var location */
 };
 
 #if 0

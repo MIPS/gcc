@@ -243,6 +243,7 @@ enum dump_file_index
   DFI_sched2,
   DFI_stack,
   DFI_bbro,
+  DFI_vartrack,
   DFI_mach,
   DFI_dbr,
   DFI_MAX
@@ -254,7 +255,7 @@ enum dump_file_index
    Remaining -d letters:
 
 	"              o q         "
-	"       H JK   OPQ   UV  YZ"
+      "       H JK   OPQ   U   YZ"
 */
 
 static struct dump_file_info dump_file[DFI_MAX] =
@@ -294,6 +295,7 @@ static struct dump_file_info dump_file[DFI_MAX] =
   { "sched2",	'R', 1, 0, 0 },
   { "stack",	'k', 1, 0, 0 },
   { "bbro",	'B', 1, 0, 0 },
+  { "vartrack",     'V', 1, 0, 0 },
   { "mach",	'M', 1, 0, 0 },
   { "dbr",	'd', 0, 0, 0 },
 };
@@ -3578,6 +3580,22 @@ rest_of_compilation (decl)
     }
   compute_alignments ();
 
+  /* Because of debugging and bootstrapping the variable tracking is being
+     run everytime now. The final version should be run only if compiling
+     with debug info.  Is the condition correct?  */
+  if (debug_info_level >= DINFO_LEVEL_NORMAL && optimize > 0)
+    {
+      /* Track the variables, ie. compute where the variable is stored
+       in each position in function.  */
+      timevar_push (TV_VAR_TRACKING);
+      open_dump_file (DFI_vartrack, decl);
+
+      variable_tracking_main ();
+
+      close_dump_file (DFI_vartrack, print_rtl_with_bb, insns);
+      timevar_pop (TV_VAR_TRACKING);
+    }
+ 
   /* CFG is no longer maintained up-to-date.  */
   free_bb_for_insn ();
 

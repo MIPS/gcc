@@ -351,7 +351,8 @@ const struct gcc_debug_hooks dbx_debug_hooks =
   dbxout_global_decl,		/* global_decl */
   debug_nothing_tree,		/* deferred_inline_function */
   debug_nothing_tree,		/* outlining_inline_function */
-  debug_nothing_rtx		/* label */
+  debug_nothing_rtx,		/* label */
+  debug_nothing_rtx		/* var location */
 };
 #endif /* DBX_DEBUGGING_INFO  */
 

@@ -726,8 +726,9 @@ OBJS = alias.o bb-reorder.o bitmap.o builtins.o caller-save.o calls.o	\
  sbitmap.o sched-deps.o sched-ebb.o sched-rgn.o sched-vis.o sdbout.o	\
  sibcall.o simplify-rtx.o ssa.o ssa-ccp.o ssa-dce.o stmt.o	\
  stor-layout.o stringpool.o timevar.o toplev.o tree.o tree-dump.o 	\
- tree-inline.o unroll.o unroll-new.o varasm.o varray.o version.o	\
- vmsdbgout.o xcoffout.o tracer.o web.o cfgloopanal.o coalesce.o		\
+ tree-inline.o unroll.o unroll-new.o varasm.o varray.o version.o 	\
+ vmsdbgout.o xcoffout.o tracer.o web.o cfgloopanal.o coalesce.o 	\
+ var-tracking.o \
  $(GGC) $(out_object_file) $(EXTRA_OBJS)
 
 BACKEND = main.o libbackend.a
@@ -1476,6 +1477,9 @@ ssa-ccp.o : ssa-ccp.c $(CONFIG_H) system.h $(RTL_H) hard-reg-set.h \
 df.o : df.c $(CONFIG_H) system.h $(RTL_H) insn-config.h $(RECOG_H) \
    function.h $(REGS_H) $(OBSTACK_H) hard-reg-set.h $(BASIC_BLOCK_H) df.h \
    $(FIBHEAP_H)
+var-tracking.o : var-tracking.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) \
+    hard-reg-set.h $(BASIC_BLOCK_H) $(TREE_H) output.h sbitmap.h $(FIBHEAP_H) \
+    $(HASHTAB_H)
 conflict.o : conflict.c $(CONFIG_H) $(SYSTEM_H) $(OBSTACK_H) $(HASHTAB_H) \
    $(RTL_H) hard-reg-set.h $(BASIC_BLOCK_H)
 profile.o : profile.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) flags.h \

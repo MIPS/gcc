@@ -649,6 +649,7 @@ extern const char * const reg_note_name[];
 #define NOTE_BASIC_BLOCK(INSN)	XCBBDEF (INSN, 3, NOTE)
 #define NOTE_EXPECTED_VALUE(INSN) XCEXP (INSN, 3, NOTE)
 #define NOTE_PREDICTION(INSN)   XCINT (INSN, 3, NOTE)
+#define NOTE_VAR_LOCATION(INSN) XCEXP (INSN, 3, NOTE)
 
 /* In a NOTE that is a line number, this is the line number.
    Other kinds of NOTEs are identified by negative numbers here.  */
@@ -663,6 +664,12 @@ extern const char * const reg_note_name[];
 #define NOTE_PREDICTION_ALG(INSN)   (XCINT(INSN, 3, NOTE)>>8)
 #define NOTE_PREDICTION_FLAGS(INSN) (XCINT(INSN, 3, NOTE)&0xff)
 #define NOTE_PREDICT(ALG,FLAGS)     ((ALG<<8)+(FLAGS))
+
+/* Variable declaration and the location of a variable.  */
+#define NOTE_VAR_LOCATION_DECL(INSN)  (XCTREE (XCEXP (INSN, 3, NOTE), 0, \
+                                       VAR_LOCATION))
+#define NOTE_VAR_LOCATION_LOC(INSN)   (XCEXP (XCEXP (INSN, 3, NOTE), 1, \
+                                       VAR_LOCATION))
 
 /* Codes that appear in the NOTE_LINE_NUMBER field
    for kinds of notes that are not line numbers.
@@ -757,6 +764,9 @@ enum insn_note
 
   /* Mark return invocation.  */
   NOTE_INSN_RETURN,
+
+  /* The location of a variable.  */
+  NOTE_INSN_VAR_LOCATION,
 
   NOTE_INSN_MAX
 };
@@ -2007,6 +2017,9 @@ extern void web_main			PARAMS ((void));
 
 /* In coalesce.c */
 void coalesce				PARAMS ((void));
+
+/* In var-tracking.c */
+extern void variable_tracking_main    PARAMS ((void));
 
 
 /* In global.c */
