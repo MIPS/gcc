@@ -1196,9 +1196,8 @@ rewrite_stmt (si, block_defs_p, block_avail_exprs_p)
 
   /* If the statement has been modified with constant replacements,
       fold its RHS before checking for redundant computations.  */
-  if (def_p && ann->modified)
-    TREE_OPERAND (stmt, 1) = fold (TREE_OPERAND (stmt, 1));
-
+  if (ann->modified)
+    fold_stmt (stmt);
 
   /* Step 2.  Check for redundant computations.  Do this optimization only
      for assignments that make no calls and have no aliased nor volatile

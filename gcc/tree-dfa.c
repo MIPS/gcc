@@ -451,10 +451,10 @@ get_expr_operands (stmt, expr_p, flags, prev_vops)
 	    }
 	}
 
-      /* If the called function is neither pure nor const, we create a
-	 definition of GLOBAL_VAR and mark the statement as a clobbering
-	 statement.  */
-      if (may_clobber)
+      /* If the called function is neither pure nor const and there are
+	 call clobbered variables, create a definition of GLOBAL_VAR and
+	 mark the statement as a clobbering statement.  */
+      if (may_clobber && num_call_clobbered_vars > 0)
 	{
 	  stmt_ann (stmt)->makes_clobbering_call = may_clobber;
 	  add_stmt_operand (&global_var, stmt, opf_is_def|opf_force_vop,

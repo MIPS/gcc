@@ -454,6 +454,7 @@ extern void tree_perform_ssapre		PARAMS ((tree));
 
 /* In tree-ssa-ccp.c  */
 void tree_ssa_ccp			PARAMS ((tree));
+void fold_stmt				PARAMS ((tree));
 
 
 /* In tree-ssa-dce.c  */

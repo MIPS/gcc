@@ -118,7 +118,6 @@ static void dump_lattice_value		PARAMS ((FILE *, const char *, value));
 static tree widen_bitfield		PARAMS ((tree, tree, tree));
 static bool replace_uses_in		PARAMS ((tree));
 static latticevalue likely_value	PARAMS ((tree));
-static void fold_stmt			PARAMS ((tree));
 static tree get_rhs			PARAMS ((tree));
 static void set_rhs			PARAMS ((tree, tree));
 static value *get_value			PARAMS ((tree));
@@ -1174,7 +1173,7 @@ likely_value (stmt)
 
 /* Fold statement STMT.  */
 
-static void
+void
 fold_stmt (stmt)
      tree stmt;
 {
