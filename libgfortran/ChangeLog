@@ -1,5 +1,11 @@
 2003-10-29  Toon Moene  <toon@moene.indiv.nluug.nl>
 
+	PR fortran/12703
+	* runtime/memory.c (allocate_size): Allow allocation
+	of zero-sized objects.
+
+2003-10-29  Toon Moene  <toon@moene.indiv.nluug.nl>
+
 	PR fortran/12701
 	* open.c (new_unit): Open without a file name opens
 	a file with name fort.<unit>.

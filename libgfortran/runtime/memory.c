@@ -267,14 +267,6 @@ allocate_size (void **mem, size_t size, GFC_INTEGER_4 * stat)
 {
   malloc_t *newmem;
 
-  /* Don't try to allocate 0 bytes.  Should never happen anyway.  */
-
-  if (size == 0)
-    {
-      runtime_error ("ALLOCATE: Cannot allocate 0 bytes.");
-      abort ();
-    }
-
   if (!mem)
     runtime_error ("Internal: NULL mem pointer in ALLOCATE.");
 
