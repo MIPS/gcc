@@ -127,6 +127,8 @@ sharedstatedir = @sharedstatedir@
 sysconfdir = @sysconfdir@
 target_alias = @target_alias@
 
+AM_CFLAGS = -std=gnu99
+
 lib_LTLIBRARIES = libgfortran.la libgfortranbegin.la
 
 libgfortranbegin_la_SOURCES = fmain.c
@@ -353,20 +355,42 @@ generated/in_unpack_i4.c \
 generated/in_unpack_i8.c
 
 
+i_exponent_c = \
+generated/exponent_r4.c \
+generated/exponent_r8.c
+
+
+i_fraction_c = \
+generated/fraction_r4.c \
+generated/fraction_r8.c
+
+
+i_nearest_c = \
+generated/nearest_r4.c \
+generated/nearest_r8.c
+
+
+i_set_exponent_c = \
+generated/set_exponent_r4.c \
+generated/set_exponent_r8.c
+
+
 m4_files = m4/iparm.m4 m4/ifunction.m4 m4/iforeach.m4 m4/types.m4 m4/all.m4 \
     m4/any.m4 m4/count.m4 m4/maxloc0.m4 m4/maxloc1.m4 m4/maxval.m4 \
     m4/minloc0.m4 m4/minloc1.m4 m4/minval.m4 m4/product.m4 m4/sum.m4 \
     m4/dotprod.m4 m4/dotprodl.m4 m4/matmul.m4 m4/matmull.m4 \
     m4/ctrig.m4 m4/cexp.m4 m4/chyp.m4 m4/mtype.m4 \
     m4/specific.m4 m4/specific2.m4 m4/head.m4 m4/shape.m4 m4/reshape.m4 \
-    m4/transpose.m4 m4/eoshift1.m4 m4/eoshift3.m4
+    m4/transpose.m4 m4/eoshift1.m4 m4/eoshift3.m4 m4/exponent.m4 \
+    m4/fraction.m4 m4/nearest.m4 m4/set_exponent.m4
 
 
 gfor_built_src = $(i_all_c) $(i_any_c) $(i_count_c) $(i_maxloc0_c) \
     $(i_maxloc1_c) $(i_maxval_c) $(i_minloc0_c) $(i_minloc1_c) $(i_minval_c) \
     $(i_product_c) $(i_sum_c) $(i_dotprod_c) $(i_dotprodl_c) $(i_matmul_c) \
     $(i_matmull_c) $(i_transpose_c) $(i_shape_c) $(i_eoshift1_c) \
-    $(i_eoshift3_c) $(i_cshift1_c) $(i_reshape_c) $(in_pack_c) $(in_unpack_c)
+    $(i_eoshift3_c) $(i_cshift1_c) $(i_reshape_c) $(in_pack_c) $(in_unpack_c) \
+    $(i_exponent_c) $(i_fraction_c) $(i_nearest_c) $(i_set_exponent_c)
 
 
 
@@ -540,25 +564,30 @@ am__objects_21 = cshift1_4.lo cshift1_8.lo
 am__objects_22 = reshape_i4.lo reshape_i8.lo
 am__objects_23 = in_pack_i4.lo in_pack_i8.lo
 am__objects_24 = in_unpack_i4.lo in_unpack_i8.lo
-am__objects_25 = $(am__objects_2) $(am__objects_3) $(am__objects_4) \
+am__objects_25 = exponent_r4.lo exponent_r8.lo
+am__objects_26 = fraction_r4.lo fraction_r8.lo
+am__objects_27 = nearest_r4.lo nearest_r8.lo
+am__objects_28 = set_exponent_r4.lo set_exponent_r8.lo
+am__objects_29 = $(am__objects_2) $(am__objects_3) $(am__objects_4) \
 	$(am__objects_5) $(am__objects_6) $(am__objects_7) \
 	$(am__objects_8) $(am__objects_9) $(am__objects_10) \
 	$(am__objects_11) $(am__objects_12) $(am__objects_13) \
 	$(am__objects_14) $(am__objects_15) $(am__objects_16) \
 	$(am__objects_17) $(am__objects_18) $(am__objects_19) \
 	$(am__objects_20) $(am__objects_21) $(am__objects_22) \
-	$(am__objects_23) $(am__objects_24)
-am__objects_26 = backspace.lo close.lo endfile.lo format.lo inquire.lo \
+	$(am__objects_23) $(am__objects_24) $(am__objects_25) \
+	$(am__objects_26) $(am__objects_27) $(am__objects_28)
+am__objects_30 = backspace.lo close.lo endfile.lo format.lo inquire.lo \
 	list_read.lo lock.lo open.lo read.lo rewind.lo transfer.lo \
 	unit.lo unix.lo write.lo
-am__objects_27 = associated.lo abort.lo cpu_time.lo cshift0.lo \
+am__objects_31 = associated.lo abort.lo cpu_time.lo cshift0.lo \
 	eoshift0.lo eoshift2.lo ishftc.lo pack_generic.lo size.lo \
 	spread_generic.lo string_intrinsics.lo random.lo \
 	reshape_generic.lo reshape_packed.lo selected_kind.lo \
 	transpose_generic.lo unpack_generic.lo in_pack_generic.lo \
 	in_unpack_generic.lo
-am__objects_28 =
-am__objects_29 = _abs_r4.lo _abs_r8.lo _exp_r4.lo _exp_r8.lo _exp_c4.lo \
+am__objects_32 =
+am__objects_33 = _abs_r4.lo _abs_r8.lo _exp_r4.lo _exp_r8.lo _exp_c4.lo \
 	_exp_c8.lo _log_r4.lo _log_r8.lo _log_c4.lo _log_c8.lo \
 	_log10_r4.lo _log10_r8.lo _sqrt_r4.lo _sqrt_r8.lo _sqrt_c4.lo \
 	_sqrt_c8.lo _asin_r4.lo _asin_r8.lo _acos_r4.lo _acos_r8.lo \
@@ -567,13 +596,13 @@ am__objects_29 = _abs_r4.lo _abs_r8.lo _exp_r4.lo _exp_r8.lo _exp_c4.lo \
 	_tan_r4.lo _tan_r8.lo _sinh_r4.lo _sinh_r8.lo _cosh_r4.lo \
 	_cosh_r8.lo _tanh_r4.lo _tanh_r8.lo _conjg_c4.lo _conjg_c8.lo \
 	_aint_r4.lo _aint_r8.lo _anint_r4.lo _anint_r8.lo
-am__objects_30 = _sign_i4.lo _sign_i8.lo _sign_r4.lo _sign_r8.lo \
+am__objects_34 = _sign_i4.lo _sign_i8.lo _sign_r4.lo _sign_r8.lo \
 	_dim_i4.lo _dim_i8.lo _dim_r4.lo _dim_r8.lo _atan2_r4.lo \
 	_atan2_r8.lo _mod_i4.lo _mod_i8.lo _mod_r4.lo _mod_r8.lo
-am__objects_31 = $(am__objects_29) $(am__objects_30) dprod_r8.lo
-am_libgfortran_la_OBJECTS = $(am__objects_1) $(am__objects_25) \
-	$(am__objects_26) $(am__objects_27) $(am__objects_28) \
-	$(am__objects_31)
+am__objects_35 = $(am__objects_33) $(am__objects_34) dprod_r8.lo
+am_libgfortran_la_OBJECTS = $(am__objects_1) $(am__objects_29) \
+	$(am__objects_30) $(am__objects_31) $(am__objects_32) \
+	$(am__objects_35)
 libgfortran_la_OBJECTS = $(am_libgfortran_la_OBJECTS)
 libgfortranbegin_la_LIBADD =
 am_libgfortranbegin_la_OBJECTS = fmain.lo
@@ -606,8 +635,11 @@ am__depfiles_maybe = depfiles
 @AMDEP_TRUE@	./$(DEPDIR)/eoshift3_4.Plo \
 @AMDEP_TRUE@	./$(DEPDIR)/eoshift3_8.Plo ./$(DEPDIR)/error.Plo \
 @AMDEP_TRUE@	./$(DEPDIR)/exp_c4.Plo ./$(DEPDIR)/exp_c8.Plo \
-@AMDEP_TRUE@	./$(DEPDIR)/fmain.Plo ./$(DEPDIR)/format.Plo \
-@AMDEP_TRUE@	./$(DEPDIR)/hyp_c4.Plo ./$(DEPDIR)/hyp_c8.Plo \
+@AMDEP_TRUE@	./$(DEPDIR)/exponent_r4.Plo \
+@AMDEP_TRUE@	./$(DEPDIR)/exponent_r8.Plo ./$(DEPDIR)/fmain.Plo \
+@AMDEP_TRUE@	./$(DEPDIR)/format.Plo ./$(DEPDIR)/fraction_r4.Plo \
+@AMDEP_TRUE@	./$(DEPDIR)/fraction_r8.Plo ./$(DEPDIR)/hyp_c4.Plo \
+@AMDEP_TRUE@	./$(DEPDIR)/hyp_c8.Plo \
 @AMDEP_TRUE@	./$(DEPDIR)/in_pack_generic.Plo \
 @AMDEP_TRUE@	./$(DEPDIR)/in_pack_i4.Plo \
 @AMDEP_TRUE@	./$(DEPDIR)/in_pack_i8.Plo \
@@ -657,8 +689,10 @@ am__depfiles_maybe = depfiles
 @AMDEP_TRUE@	./$(DEPDIR)/minloc1_8_r8.Plo \
 @AMDEP_TRUE@	./$(DEPDIR)/minval_i4.Plo ./$(DEPDIR)/minval_i8.Plo \
 @AMDEP_TRUE@	./$(DEPDIR)/minval_r4.Plo ./$(DEPDIR)/minval_r8.Plo \
-@AMDEP_TRUE@	./$(DEPDIR)/open.Plo ./$(DEPDIR)/pack_generic.Plo \
-@AMDEP_TRUE@	./$(DEPDIR)/pause.Plo ./$(DEPDIR)/product_c4.Plo \
+@AMDEP_TRUE@	./$(DEPDIR)/nearest_r4.Plo \
+@AMDEP_TRUE@	./$(DEPDIR)/nearest_r8.Plo ./$(DEPDIR)/open.Plo \
+@AMDEP_TRUE@	./$(DEPDIR)/pack_generic.Plo ./$(DEPDIR)/pause.Plo \
+@AMDEP_TRUE@	./$(DEPDIR)/product_c4.Plo \
 @AMDEP_TRUE@	./$(DEPDIR)/product_c8.Plo \
 @AMDEP_TRUE@	./$(DEPDIR)/product_i4.Plo \
 @AMDEP_TRUE@	./$(DEPDIR)/product_i8.Plo \
@@ -670,6 +704,8 @@ am__depfiles_maybe = depfiles
 @AMDEP_TRUE@	./$(DEPDIR)/reshape_i8.Plo \
 @AMDEP_TRUE@	./$(DEPDIR)/reshape_packed.Plo \
 @AMDEP_TRUE@	./$(DEPDIR)/rewind.Plo ./$(DEPDIR)/select.Plo \
+@AMDEP_TRUE@	./$(DEPDIR)/set_exponent_r4.Plo \
+@AMDEP_TRUE@	./$(DEPDIR)/set_exponent_r8.Plo \
 @AMDEP_TRUE@	./$(DEPDIR)/shape_i4.Plo ./$(DEPDIR)/shape_i8.Plo \
 @AMDEP_TRUE@	./$(DEPDIR)/size.Plo ./$(DEPDIR)/spread_generic.Plo \
 @AMDEP_TRUE@	./$(DEPDIR)/stop.Plo ./$(DEPDIR)/string.Plo \
@@ -818,8 +854,12 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/error.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/exp_c4.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/exp_c8.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/exponent_r4.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/exponent_r8.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/fmain.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/format.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/fraction_r4.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/fraction_r8.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/hyp_c4.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/hyp_c8.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/in_pack_generic.Plo@am__quote@
@@ -882,6 +922,8 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/minval_i8.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/minval_r4.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/minval_r8.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/nearest_r4.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/nearest_r8.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/open.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pack_generic.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pause.Plo@am__quote@
@@ -899,6 +941,8 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/reshape_packed.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/rewind.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/select.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/set_exponent_r4.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/set_exponent_r8.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/shape_i4.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/shape_i8.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/size.Plo@am__quote@
@@ -4256,6 +4300,270 @@ in_unpack_i8.lo: generated/in_unpack_i8.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o in_unpack_i8.lo `test -f 'generated/in_unpack_i8.c' || echo '$(srcdir)/'`generated/in_unpack_i8.c
 
+exponent_r4.o: generated/exponent_r4.c
+@am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT exponent_r4.o -MD -MP -MF "$(DEPDIR)/exponent_r4.Tpo" \
+@am__fastdepCC_TRUE@	  -c -o exponent_r4.o `test -f 'generated/exponent_r4.c' || echo '$(srcdir)/'`generated/exponent_r4.c; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/exponent_r4.Tpo" "$(DEPDIR)/exponent_r4.Po"; \
+@am__fastdepCC_TRUE@	else rm -f "$(DEPDIR)/exponent_r4.Tpo"; exit 1; \
+@am__fastdepCC_TRUE@	fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='generated/exponent_r4.c' object='exponent_r4.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	depfile='$(DEPDIR)/exponent_r4.Po' tmpdepfile='$(DEPDIR)/exponent_r4.TPo' @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o exponent_r4.o `test -f 'generated/exponent_r4.c' || echo '$(srcdir)/'`generated/exponent_r4.c
+
+exponent_r4.obj: generated/exponent_r4.c
+@am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT exponent_r4.obj -MD -MP -MF "$(DEPDIR)/exponent_r4.Tpo" \
+@am__fastdepCC_TRUE@	  -c -o exponent_r4.obj `if test -f 'generated/exponent_r4.c'; then $(CYGPATH_W) 'generated/exponent_r4.c'; else $(CYGPATH_W) '$(srcdir)/generated/exponent_r4.c'; fi`; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/exponent_r4.Tpo" "$(DEPDIR)/exponent_r4.Po"; \
+@am__fastdepCC_TRUE@	else rm -f "$(DEPDIR)/exponent_r4.Tpo"; exit 1; \
+@am__fastdepCC_TRUE@	fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='generated/exponent_r4.c' object='exponent_r4.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	depfile='$(DEPDIR)/exponent_r4.Po' tmpdepfile='$(DEPDIR)/exponent_r4.TPo' @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o exponent_r4.obj `if test -f 'generated/exponent_r4.c'; then $(CYGPATH_W) 'generated/exponent_r4.c'; else $(CYGPATH_W) '$(srcdir)/generated/exponent_r4.c'; fi`
+
+exponent_r4.lo: generated/exponent_r4.c
+@am__fastdepCC_TRUE@	if $(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT exponent_r4.lo -MD -MP -MF "$(DEPDIR)/exponent_r4.Tpo" \
+@am__fastdepCC_TRUE@	  -c -o exponent_r4.lo `test -f 'generated/exponent_r4.c' || echo '$(srcdir)/'`generated/exponent_r4.c; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/exponent_r4.Tpo" "$(DEPDIR)/exponent_r4.Plo"; \
+@am__fastdepCC_TRUE@	else rm -f "$(DEPDIR)/exponent_r4.Tpo"; exit 1; \
+@am__fastdepCC_TRUE@	fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='generated/exponent_r4.c' object='exponent_r4.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	depfile='$(DEPDIR)/exponent_r4.Plo' tmpdepfile='$(DEPDIR)/exponent_r4.TPlo' @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o exponent_r4.lo `test -f 'generated/exponent_r4.c' || echo '$(srcdir)/'`generated/exponent_r4.c
+
+exponent_r8.o: generated/exponent_r8.c
+@am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT exponent_r8.o -MD -MP -MF "$(DEPDIR)/exponent_r8.Tpo" \
+@am__fastdepCC_TRUE@	  -c -o exponent_r8.o `test -f 'generated/exponent_r8.c' || echo '$(srcdir)/'`generated/exponent_r8.c; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/exponent_r8.Tpo" "$(DEPDIR)/exponent_r8.Po"; \
+@am__fastdepCC_TRUE@	else rm -f "$(DEPDIR)/exponent_r8.Tpo"; exit 1; \
+@am__fastdepCC_TRUE@	fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='generated/exponent_r8.c' object='exponent_r8.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	depfile='$(DEPDIR)/exponent_r8.Po' tmpdepfile='$(DEPDIR)/exponent_r8.TPo' @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o exponent_r8.o `test -f 'generated/exponent_r8.c' || echo '$(srcdir)/'`generated/exponent_r8.c
+
+exponent_r8.obj: generated/exponent_r8.c
+@am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT exponent_r8.obj -MD -MP -MF "$(DEPDIR)/exponent_r8.Tpo" \
+@am__fastdepCC_TRUE@	  -c -o exponent_r8.obj `if test -f 'generated/exponent_r8.c'; then $(CYGPATH_W) 'generated/exponent_r8.c'; else $(CYGPATH_W) '$(srcdir)/generated/exponent_r8.c'; fi`; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/exponent_r8.Tpo" "$(DEPDIR)/exponent_r8.Po"; \
+@am__fastdepCC_TRUE@	else rm -f "$(DEPDIR)/exponent_r8.Tpo"; exit 1; \
+@am__fastdepCC_TRUE@	fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='generated/exponent_r8.c' object='exponent_r8.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	depfile='$(DEPDIR)/exponent_r8.Po' tmpdepfile='$(DEPDIR)/exponent_r8.TPo' @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o exponent_r8.obj `if test -f 'generated/exponent_r8.c'; then $(CYGPATH_W) 'generated/exponent_r8.c'; else $(CYGPATH_W) '$(srcdir)/generated/exponent_r8.c'; fi`
+
+exponent_r8.lo: generated/exponent_r8.c
+@am__fastdepCC_TRUE@	if $(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT exponent_r8.lo -MD -MP -MF "$(DEPDIR)/exponent_r8.Tpo" \
+@am__fastdepCC_TRUE@	  -c -o exponent_r8.lo `test -f 'generated/exponent_r8.c' || echo '$(srcdir)/'`generated/exponent_r8.c; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/exponent_r8.Tpo" "$(DEPDIR)/exponent_r8.Plo"; \
+@am__fastdepCC_TRUE@	else rm -f "$(DEPDIR)/exponent_r8.Tpo"; exit 1; \
+@am__fastdepCC_TRUE@	fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='generated/exponent_r8.c' object='exponent_r8.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	depfile='$(DEPDIR)/exponent_r8.Plo' tmpdepfile='$(DEPDIR)/exponent_r8.TPlo' @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o exponent_r8.lo `test -f 'generated/exponent_r8.c' || echo '$(srcdir)/'`generated/exponent_r8.c
+
+fraction_r4.o: generated/fraction_r4.c
+@am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT fraction_r4.o -MD -MP -MF "$(DEPDIR)/fraction_r4.Tpo" \
+@am__fastdepCC_TRUE@	  -c -o fraction_r4.o `test -f 'generated/fraction_r4.c' || echo '$(srcdir)/'`generated/fraction_r4.c; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/fraction_r4.Tpo" "$(DEPDIR)/fraction_r4.Po"; \
+@am__fastdepCC_TRUE@	else rm -f "$(DEPDIR)/fraction_r4.Tpo"; exit 1; \
+@am__fastdepCC_TRUE@	fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='generated/fraction_r4.c' object='fraction_r4.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	depfile='$(DEPDIR)/fraction_r4.Po' tmpdepfile='$(DEPDIR)/fraction_r4.TPo' @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o fraction_r4.o `test -f 'generated/fraction_r4.c' || echo '$(srcdir)/'`generated/fraction_r4.c
+
+fraction_r4.obj: generated/fraction_r4.c
+@am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT fraction_r4.obj -MD -MP -MF "$(DEPDIR)/fraction_r4.Tpo" \
+@am__fastdepCC_TRUE@	  -c -o fraction_r4.obj `if test -f 'generated/fraction_r4.c'; then $(CYGPATH_W) 'generated/fraction_r4.c'; else $(CYGPATH_W) '$(srcdir)/generated/fraction_r4.c'; fi`; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/fraction_r4.Tpo" "$(DEPDIR)/fraction_r4.Po"; \
+@am__fastdepCC_TRUE@	else rm -f "$(DEPDIR)/fraction_r4.Tpo"; exit 1; \
+@am__fastdepCC_TRUE@	fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='generated/fraction_r4.c' object='fraction_r4.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	depfile='$(DEPDIR)/fraction_r4.Po' tmpdepfile='$(DEPDIR)/fraction_r4.TPo' @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o fraction_r4.obj `if test -f 'generated/fraction_r4.c'; then $(CYGPATH_W) 'generated/fraction_r4.c'; else $(CYGPATH_W) '$(srcdir)/generated/fraction_r4.c'; fi`
+
+fraction_r4.lo: generated/fraction_r4.c
+@am__fastdepCC_TRUE@	if $(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT fraction_r4.lo -MD -MP -MF "$(DEPDIR)/fraction_r4.Tpo" \
+@am__fastdepCC_TRUE@	  -c -o fraction_r4.lo `test -f 'generated/fraction_r4.c' || echo '$(srcdir)/'`generated/fraction_r4.c; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/fraction_r4.Tpo" "$(DEPDIR)/fraction_r4.Plo"; \
+@am__fastdepCC_TRUE@	else rm -f "$(DEPDIR)/fraction_r4.Tpo"; exit 1; \
+@am__fastdepCC_TRUE@	fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='generated/fraction_r4.c' object='fraction_r4.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	depfile='$(DEPDIR)/fraction_r4.Plo' tmpdepfile='$(DEPDIR)/fraction_r4.TPlo' @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o fraction_r4.lo `test -f 'generated/fraction_r4.c' || echo '$(srcdir)/'`generated/fraction_r4.c
+
+fraction_r8.o: generated/fraction_r8.c
+@am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT fraction_r8.o -MD -MP -MF "$(DEPDIR)/fraction_r8.Tpo" \
+@am__fastdepCC_TRUE@	  -c -o fraction_r8.o `test -f 'generated/fraction_r8.c' || echo '$(srcdir)/'`generated/fraction_r8.c; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/fraction_r8.Tpo" "$(DEPDIR)/fraction_r8.Po"; \
+@am__fastdepCC_TRUE@	else rm -f "$(DEPDIR)/fraction_r8.Tpo"; exit 1; \
+@am__fastdepCC_TRUE@	fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='generated/fraction_r8.c' object='fraction_r8.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	depfile='$(DEPDIR)/fraction_r8.Po' tmpdepfile='$(DEPDIR)/fraction_r8.TPo' @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o fraction_r8.o `test -f 'generated/fraction_r8.c' || echo '$(srcdir)/'`generated/fraction_r8.c
+
+fraction_r8.obj: generated/fraction_r8.c
+@am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT fraction_r8.obj -MD -MP -MF "$(DEPDIR)/fraction_r8.Tpo" \
+@am__fastdepCC_TRUE@	  -c -o fraction_r8.obj `if test -f 'generated/fraction_r8.c'; then $(CYGPATH_W) 'generated/fraction_r8.c'; else $(CYGPATH_W) '$(srcdir)/generated/fraction_r8.c'; fi`; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/fraction_r8.Tpo" "$(DEPDIR)/fraction_r8.Po"; \
+@am__fastdepCC_TRUE@	else rm -f "$(DEPDIR)/fraction_r8.Tpo"; exit 1; \
+@am__fastdepCC_TRUE@	fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='generated/fraction_r8.c' object='fraction_r8.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	depfile='$(DEPDIR)/fraction_r8.Po' tmpdepfile='$(DEPDIR)/fraction_r8.TPo' @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o fraction_r8.obj `if test -f 'generated/fraction_r8.c'; then $(CYGPATH_W) 'generated/fraction_r8.c'; else $(CYGPATH_W) '$(srcdir)/generated/fraction_r8.c'; fi`
+
+fraction_r8.lo: generated/fraction_r8.c
+@am__fastdepCC_TRUE@	if $(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT fraction_r8.lo -MD -MP -MF "$(DEPDIR)/fraction_r8.Tpo" \
+@am__fastdepCC_TRUE@	  -c -o fraction_r8.lo `test -f 'generated/fraction_r8.c' || echo '$(srcdir)/'`generated/fraction_r8.c; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/fraction_r8.Tpo" "$(DEPDIR)/fraction_r8.Plo"; \
+@am__fastdepCC_TRUE@	else rm -f "$(DEPDIR)/fraction_r8.Tpo"; exit 1; \
+@am__fastdepCC_TRUE@	fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='generated/fraction_r8.c' object='fraction_r8.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	depfile='$(DEPDIR)/fraction_r8.Plo' tmpdepfile='$(DEPDIR)/fraction_r8.TPlo' @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o fraction_r8.lo `test -f 'generated/fraction_r8.c' || echo '$(srcdir)/'`generated/fraction_r8.c
+
+nearest_r4.o: generated/nearest_r4.c
+@am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT nearest_r4.o -MD -MP -MF "$(DEPDIR)/nearest_r4.Tpo" \
+@am__fastdepCC_TRUE@	  -c -o nearest_r4.o `test -f 'generated/nearest_r4.c' || echo '$(srcdir)/'`generated/nearest_r4.c; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/nearest_r4.Tpo" "$(DEPDIR)/nearest_r4.Po"; \
+@am__fastdepCC_TRUE@	else rm -f "$(DEPDIR)/nearest_r4.Tpo"; exit 1; \
+@am__fastdepCC_TRUE@	fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='generated/nearest_r4.c' object='nearest_r4.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	depfile='$(DEPDIR)/nearest_r4.Po' tmpdepfile='$(DEPDIR)/nearest_r4.TPo' @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o nearest_r4.o `test -f 'generated/nearest_r4.c' || echo '$(srcdir)/'`generated/nearest_r4.c
+
+nearest_r4.obj: generated/nearest_r4.c
+@am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT nearest_r4.obj -MD -MP -MF "$(DEPDIR)/nearest_r4.Tpo" \
+@am__fastdepCC_TRUE@	  -c -o nearest_r4.obj `if test -f 'generated/nearest_r4.c'; then $(CYGPATH_W) 'generated/nearest_r4.c'; else $(CYGPATH_W) '$(srcdir)/generated/nearest_r4.c'; fi`; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/nearest_r4.Tpo" "$(DEPDIR)/nearest_r4.Po"; \
+@am__fastdepCC_TRUE@	else rm -f "$(DEPDIR)/nearest_r4.Tpo"; exit 1; \
+@am__fastdepCC_TRUE@	fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='generated/nearest_r4.c' object='nearest_r4.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	depfile='$(DEPDIR)/nearest_r4.Po' tmpdepfile='$(DEPDIR)/nearest_r4.TPo' @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o nearest_r4.obj `if test -f 'generated/nearest_r4.c'; then $(CYGPATH_W) 'generated/nearest_r4.c'; else $(CYGPATH_W) '$(srcdir)/generated/nearest_r4.c'; fi`
+
+nearest_r4.lo: generated/nearest_r4.c
+@am__fastdepCC_TRUE@	if $(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT nearest_r4.lo -MD -MP -MF "$(DEPDIR)/nearest_r4.Tpo" \
+@am__fastdepCC_TRUE@	  -c -o nearest_r4.lo `test -f 'generated/nearest_r4.c' || echo '$(srcdir)/'`generated/nearest_r4.c; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/nearest_r4.Tpo" "$(DEPDIR)/nearest_r4.Plo"; \
+@am__fastdepCC_TRUE@	else rm -f "$(DEPDIR)/nearest_r4.Tpo"; exit 1; \
+@am__fastdepCC_TRUE@	fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='generated/nearest_r4.c' object='nearest_r4.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	depfile='$(DEPDIR)/nearest_r4.Plo' tmpdepfile='$(DEPDIR)/nearest_r4.TPlo' @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o nearest_r4.lo `test -f 'generated/nearest_r4.c' || echo '$(srcdir)/'`generated/nearest_r4.c
+
+nearest_r8.o: generated/nearest_r8.c
+@am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT nearest_r8.o -MD -MP -MF "$(DEPDIR)/nearest_r8.Tpo" \
+@am__fastdepCC_TRUE@	  -c -o nearest_r8.o `test -f 'generated/nearest_r8.c' || echo '$(srcdir)/'`generated/nearest_r8.c; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/nearest_r8.Tpo" "$(DEPDIR)/nearest_r8.Po"; \
+@am__fastdepCC_TRUE@	else rm -f "$(DEPDIR)/nearest_r8.Tpo"; exit 1; \
+@am__fastdepCC_TRUE@	fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='generated/nearest_r8.c' object='nearest_r8.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	depfile='$(DEPDIR)/nearest_r8.Po' tmpdepfile='$(DEPDIR)/nearest_r8.TPo' @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o nearest_r8.o `test -f 'generated/nearest_r8.c' || echo '$(srcdir)/'`generated/nearest_r8.c
+
+nearest_r8.obj: generated/nearest_r8.c
+@am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT nearest_r8.obj -MD -MP -MF "$(DEPDIR)/nearest_r8.Tpo" \
+@am__fastdepCC_TRUE@	  -c -o nearest_r8.obj `if test -f 'generated/nearest_r8.c'; then $(CYGPATH_W) 'generated/nearest_r8.c'; else $(CYGPATH_W) '$(srcdir)/generated/nearest_r8.c'; fi`; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/nearest_r8.Tpo" "$(DEPDIR)/nearest_r8.Po"; \
+@am__fastdepCC_TRUE@	else rm -f "$(DEPDIR)/nearest_r8.Tpo"; exit 1; \
+@am__fastdepCC_TRUE@	fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='generated/nearest_r8.c' object='nearest_r8.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	depfile='$(DEPDIR)/nearest_r8.Po' tmpdepfile='$(DEPDIR)/nearest_r8.TPo' @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o nearest_r8.obj `if test -f 'generated/nearest_r8.c'; then $(CYGPATH_W) 'generated/nearest_r8.c'; else $(CYGPATH_W) '$(srcdir)/generated/nearest_r8.c'; fi`
+
+nearest_r8.lo: generated/nearest_r8.c
+@am__fastdepCC_TRUE@	if $(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT nearest_r8.lo -MD -MP -MF "$(DEPDIR)/nearest_r8.Tpo" \
+@am__fastdepCC_TRUE@	  -c -o nearest_r8.lo `test -f 'generated/nearest_r8.c' || echo '$(srcdir)/'`generated/nearest_r8.c; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/nearest_r8.Tpo" "$(DEPDIR)/nearest_r8.Plo"; \
+@am__fastdepCC_TRUE@	else rm -f "$(DEPDIR)/nearest_r8.Tpo"; exit 1; \
+@am__fastdepCC_TRUE@	fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='generated/nearest_r8.c' object='nearest_r8.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	depfile='$(DEPDIR)/nearest_r8.Plo' tmpdepfile='$(DEPDIR)/nearest_r8.TPlo' @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o nearest_r8.lo `test -f 'generated/nearest_r8.c' || echo '$(srcdir)/'`generated/nearest_r8.c
+
+set_exponent_r4.o: generated/set_exponent_r4.c
+@am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT set_exponent_r4.o -MD -MP -MF "$(DEPDIR)/set_exponent_r4.Tpo" \
+@am__fastdepCC_TRUE@	  -c -o set_exponent_r4.o `test -f 'generated/set_exponent_r4.c' || echo '$(srcdir)/'`generated/set_exponent_r4.c; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/set_exponent_r4.Tpo" "$(DEPDIR)/set_exponent_r4.Po"; \
+@am__fastdepCC_TRUE@	else rm -f "$(DEPDIR)/set_exponent_r4.Tpo"; exit 1; \
+@am__fastdepCC_TRUE@	fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='generated/set_exponent_r4.c' object='set_exponent_r4.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	depfile='$(DEPDIR)/set_exponent_r4.Po' tmpdepfile='$(DEPDIR)/set_exponent_r4.TPo' @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o set_exponent_r4.o `test -f 'generated/set_exponent_r4.c' || echo '$(srcdir)/'`generated/set_exponent_r4.c
+
+set_exponent_r4.obj: generated/set_exponent_r4.c
+@am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT set_exponent_r4.obj -MD -MP -MF "$(DEPDIR)/set_exponent_r4.Tpo" \
+@am__fastdepCC_TRUE@	  -c -o set_exponent_r4.obj `if test -f 'generated/set_exponent_r4.c'; then $(CYGPATH_W) 'generated/set_exponent_r4.c'; else $(CYGPATH_W) '$(srcdir)/generated/set_exponent_r4.c'; fi`; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/set_exponent_r4.Tpo" "$(DEPDIR)/set_exponent_r4.Po"; \
+@am__fastdepCC_TRUE@	else rm -f "$(DEPDIR)/set_exponent_r4.Tpo"; exit 1; \
+@am__fastdepCC_TRUE@	fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='generated/set_exponent_r4.c' object='set_exponent_r4.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	depfile='$(DEPDIR)/set_exponent_r4.Po' tmpdepfile='$(DEPDIR)/set_exponent_r4.TPo' @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o set_exponent_r4.obj `if test -f 'generated/set_exponent_r4.c'; then $(CYGPATH_W) 'generated/set_exponent_r4.c'; else $(CYGPATH_W) '$(srcdir)/generated/set_exponent_r4.c'; fi`
+
+set_exponent_r4.lo: generated/set_exponent_r4.c
+@am__fastdepCC_TRUE@	if $(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT set_exponent_r4.lo -MD -MP -MF "$(DEPDIR)/set_exponent_r4.Tpo" \
+@am__fastdepCC_TRUE@	  -c -o set_exponent_r4.lo `test -f 'generated/set_exponent_r4.c' || echo '$(srcdir)/'`generated/set_exponent_r4.c; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/set_exponent_r4.Tpo" "$(DEPDIR)/set_exponent_r4.Plo"; \
+@am__fastdepCC_TRUE@	else rm -f "$(DEPDIR)/set_exponent_r4.Tpo"; exit 1; \
+@am__fastdepCC_TRUE@	fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='generated/set_exponent_r4.c' object='set_exponent_r4.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	depfile='$(DEPDIR)/set_exponent_r4.Plo' tmpdepfile='$(DEPDIR)/set_exponent_r4.TPlo' @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o set_exponent_r4.lo `test -f 'generated/set_exponent_r4.c' || echo '$(srcdir)/'`generated/set_exponent_r4.c
+
+set_exponent_r8.o: generated/set_exponent_r8.c
+@am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT set_exponent_r8.o -MD -MP -MF "$(DEPDIR)/set_exponent_r8.Tpo" \
+@am__fastdepCC_TRUE@	  -c -o set_exponent_r8.o `test -f 'generated/set_exponent_r8.c' || echo '$(srcdir)/'`generated/set_exponent_r8.c; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/set_exponent_r8.Tpo" "$(DEPDIR)/set_exponent_r8.Po"; \
+@am__fastdepCC_TRUE@	else rm -f "$(DEPDIR)/set_exponent_r8.Tpo"; exit 1; \
+@am__fastdepCC_TRUE@	fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='generated/set_exponent_r8.c' object='set_exponent_r8.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	depfile='$(DEPDIR)/set_exponent_r8.Po' tmpdepfile='$(DEPDIR)/set_exponent_r8.TPo' @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o set_exponent_r8.o `test -f 'generated/set_exponent_r8.c' || echo '$(srcdir)/'`generated/set_exponent_r8.c
+
+set_exponent_r8.obj: generated/set_exponent_r8.c
+@am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT set_exponent_r8.obj -MD -MP -MF "$(DEPDIR)/set_exponent_r8.Tpo" \
+@am__fastdepCC_TRUE@	  -c -o set_exponent_r8.obj `if test -f 'generated/set_exponent_r8.c'; then $(CYGPATH_W) 'generated/set_exponent_r8.c'; else $(CYGPATH_W) '$(srcdir)/generated/set_exponent_r8.c'; fi`; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/set_exponent_r8.Tpo" "$(DEPDIR)/set_exponent_r8.Po"; \
+@am__fastdepCC_TRUE@	else rm -f "$(DEPDIR)/set_exponent_r8.Tpo"; exit 1; \
+@am__fastdepCC_TRUE@	fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='generated/set_exponent_r8.c' object='set_exponent_r8.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	depfile='$(DEPDIR)/set_exponent_r8.Po' tmpdepfile='$(DEPDIR)/set_exponent_r8.TPo' @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o set_exponent_r8.obj `if test -f 'generated/set_exponent_r8.c'; then $(CYGPATH_W) 'generated/set_exponent_r8.c'; else $(CYGPATH_W) '$(srcdir)/generated/set_exponent_r8.c'; fi`
+
+set_exponent_r8.lo: generated/set_exponent_r8.c
+@am__fastdepCC_TRUE@	if $(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT set_exponent_r8.lo -MD -MP -MF "$(DEPDIR)/set_exponent_r8.Tpo" \
+@am__fastdepCC_TRUE@	  -c -o set_exponent_r8.lo `test -f 'generated/set_exponent_r8.c' || echo '$(srcdir)/'`generated/set_exponent_r8.c; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/set_exponent_r8.Tpo" "$(DEPDIR)/set_exponent_r8.Plo"; \
+@am__fastdepCC_TRUE@	else rm -f "$(DEPDIR)/set_exponent_r8.Tpo"; exit 1; \
+@am__fastdepCC_TRUE@	fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='generated/set_exponent_r8.c' object='set_exponent_r8.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	depfile='$(DEPDIR)/set_exponent_r8.Plo' tmpdepfile='$(DEPDIR)/set_exponent_r8.TPlo' @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o set_exponent_r8.lo `test -f 'generated/set_exponent_r8.c' || echo '$(srcdir)/'`generated/set_exponent_r8.c
+
 backspace.o: io/backspace.c
 @am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT backspace.o -MD -MP -MF "$(DEPDIR)/backspace.Tpo" \
 @am__fastdepCC_TRUE@	  -c -o backspace.o `test -f 'io/backspace.c' || echo '$(srcdir)/'`io/backspace.c; \
@@ -6403,6 +6711,18 @@ uninstall-am: uninstall-info-am uninstall-libLTLIBRARIES
 
 @MAINTAINER_MODE_TRUE@$(in_unpack_c): m4/in_unpack.m4 $(I_M4_DEPS)
 @MAINTAINER_MODE_TRUE@	m4 -Dfile=$@ -I$(srcdir)/m4 in_unpack.m4 > $@
+
+@MAINTAINER_MODE_TRUE@$(in_exponent_c): m4/exponent.m4 m4/mtype.m4
+@MAINTAINER_MODE_TRUE@	m4 -Dfile=$@ -I$(srcdir)/m4 exponent.m4 > $@
+
+@MAINTAINER_MODE_TRUE@$(in_fraction_c): m4/fraction.m4 m4/mtype.m4
+@MAINTAINER_MODE_TRUE@	m4 -Dfile=$@ -I$(srcdir)/m4 fraction.m4 > $@
+
+@MAINTAINER_MODE_TRUE@$(in_nearest_c): m4/nearest.m4 m4/mtype.m4
+@MAINTAINER_MODE_TRUE@	m4 -Dfile=$@ -I$(srcdir)/m4 nearest.m4 > $@
+
+@MAINTAINER_MODE_TRUE@$(in_set_exponent_c): m4/set_exponent.m4 m4/mtype.m4
+@MAINTAINER_MODE_TRUE@	m4 -Dfile=$@ -I$(srcdir)/m4 set_exponent.m4 > $@
 
 @MAINTAINER_MODE_TRUE@$(gfor_math_trig_c): m4/ctrig.m4 m4/mtype.m4
 @MAINTAINER_MODE_TRUE@	m4 -Dfile=$@ -I$(srcdir)/m4 ctrig.m4 > $@
