@@ -1,3 +1,12 @@
+2002-11-04  Zack Weinberg  <zack@codesourcery.com>
+
+	* gthr-vxworks.h: Rewritten from scratch.
+	* config/vxlib.c: New file.
+	* config/t-vxworks: Add config/vxlib.c to LIB2FUNCS_EXTRA.
+	* config/rs6000/t-vxworks: Add config/vxlib.c to
+	LIB2FUNCS_EXTRA here too, because of clash with
+	config/rs6000/t-ppccomm.
+
 2002-11-03  Roger Sayle  <roger@eyesopen.com>
 
 	* real.c (real_sqrt): New function to calculate square roots.
