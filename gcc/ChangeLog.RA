@@ -1,3 +1,10 @@
+2003-10-06  Michael Matz  <matz@suse.de>
+
+	* df.c (df_ref_search_cached): Don't check but set DF_REF_LOC.
+	Fix formatting.
+	* ra-build.c (parts_to_webs_1): Add abort for one (now impossible)
+	case.
+
 2003-10-31  Michael Matz  <matz@suse.de>
 
 	* df.c (df_ref_search_cached): Also check DF_REF_STRIPPED.

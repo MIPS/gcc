@@ -739,15 +739,19 @@ df_ref_search_cached (struct df *df, rtx reg, rtx *loc, rtx insn,
   for (; link; link = link->next)
     {
       this_ref = link->ref;
+      /* We don't check 'loc' for equality.  Some of the methods to change
+	 insns actually reorder operands (like swapping them) which changes
+	 the location but not the interesting content.  We want to reuse
+	 also those refs.  */
       if (DF_REF_FLAGS (this_ref) & DF_REF_DELETED
           && DF_REF_REG (this_ref) == reg
-	  && DF_REF_LOC (this_ref) == loc
 	  && DF_REF_INSN (this_ref) == insn
 	  && DF_REF_TYPE (this_ref) == ref_type
-          && (DF_REF_FLAGS (this_ref)
-	      & (DF_REF_READ_WRITE | DF_REF_MODE_CHANGE
-		 | DF_REF_COMPARE_RELATED | DF_REF_STRIPPED)) == ref_flags)
+          && ref_flags == (DF_REF_FLAGS (this_ref)
+			    & (DF_REF_READ_WRITE | DF_REF_MODE_CHANGE
+			       | DF_REF_COMPARE_RELATED | DF_REF_STRIPPED)))
 	{
+	  DF_REF_LOC (this_ref) = loc;
 	  DF_REF_FLAGS (this_ref) &= ~DF_REF_DELETED;
 	  return this_ref;
 	}

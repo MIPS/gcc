@@ -1995,6 +1995,7 @@ parts_to_webs_1 (struct df *df, struct web_link **copy_webs,
 	{
 	  unsigned int count, r;
 	  struct ref **refs, **dfrefs;
+	  abort ();
 	  if (i < def_id)
 	    count = web->num_defs, refs = web->defs, dfrefs = df->defs;
 	  else
