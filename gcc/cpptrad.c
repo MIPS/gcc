@@ -716,7 +716,7 @@ scan_out_logical_line (pfile, macro)
 		  else if (is_idstart (*cur))
 		    /* Check whether we know this directive, but don't
 		       advance.  */
-		    do_it = lex_identifier (pfile, cur)->directive_index > 0;
+		    do_it = lex_identifier (pfile, cur)->is_directive;
 
 		  if (do_it || CPP_OPTION (pfile, lang) != CLK_ASM)
 		    {

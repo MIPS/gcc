@@ -478,8 +478,10 @@ enum builtin_type
 struct cpp_hashnode
 {
   struct ht_identifier ident;
-  int directive_index : 8;		/* Index into directive table.
-					   If negative, a NODE_OPERATOR. */
+  unsigned int is_directive : 1;
+  unsigned int directive_index : 7;	/* If is_directive, 
+					   then index into directive table.
+					   Otherwise, a NODE_OPERATOR. */
   unsigned char rid_code;		/* Rid code - for front ends.  */
   ENUM_BITFIELD(node_type) type : 8;	/* CPP node type.  */
   unsigned char flags;			/* CPP flags.  */

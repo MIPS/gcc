@@ -1,3 +1,14 @@
+2002-12-10  Per Bothner  <pbothner@apple.com>
+
+	* cpplib.h (struct cpp_hashnode):  Split a non-portably-signed field
+	directive_index into an unsigned field and a new is_directive field.
+	* cppinit.c (mark_named_operators):  Update to set new fields.
+	* cpplex.c (_cpp_lex_direct):  Now directive_field is unsigned.
+	* cpplib.c [_cpp_handle_directive]:   Test is_directive field.
+	No longer need to subtract 1 from directive_index.
+	(_cpp_init_directives):  No longer need to add 1 to directive_index.
+	* cpptrad.c (scan_out_logical_line):  Use is_directive field.
+
 2002-12-10  Roger Sayle  <roger@eyesopen.com>
 
 	* builtins.c (fold_builtin): Remove -funsafe-math-optimizations

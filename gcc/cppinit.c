@@ -712,7 +712,8 @@ mark_named_operators (pfile)
     {
       cpp_hashnode *hp = cpp_lookup (pfile, b->name, b->len);
       hp->flags |= NODE_OPERATOR;
-      hp->directive_index = - b->value;
+      hp->is_directive = 0;
+      hp->directive_index = b->value;
     }
 }
 
