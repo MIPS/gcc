@@ -1,3 +1,12 @@
+2004-01-16  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-alias-common.c (get_alias_var): Handle BIT_FIELD_REF.
+	(find_func_aliases): Ditto.
+  	Update for fact that basic component_refs are no longer 
+	is_gimple_variable.
+	(create_fun_alias_var): Set DECL_CONTEXT on our faked declarations.
+	(pass_del_pta): PTA dumps info on delete, so it needs a name.
+
 2004-01-16  Steven Bosscher  <stevenb@suse.de>
 
 	* tree-optimize.c (init_tree_optimization_passes): Run DCE
