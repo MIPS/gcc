@@ -1,3 +1,8 @@
+2003-02-25  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* sched-ebb.c (add_deps_for_risky_insns): Fix a typo for
+	PFREE_CANDIDATE.
+
 2003-02-24  Richard Henderson  <rth@redhat.com>
 
 	* config/i386/i386.c (struct ix86_address): Add seg.

@@ -298,7 +298,7 @@ add_deps_for_risky_insns (head, tail)
 	    if (flag_schedule_speculative_load)
 	      {
 		bb = earliest_block_with_similiar_load (last_block, insn);
-		if (!bb)
+		if (bb)
 		  bb = bb->aux;
 		if (!bb)
 		  break;
