@@ -155,6 +155,13 @@ proc c-binary-expression {operation op1 op2} {
     return $result
 }
 
+# Return the most appropriate C type (_Decimal32, etc) for this test.
+# Unconditionally return _Decimal32 for now.
+
+proc c-decimal-type {} {
+    return "_Decimal32"
+}
+
 # Create a C program file (named using ID) containing a test for a
 # binary OPERATION on OP1 and OP2 that expects RESULT and CONDITIONS.
 
@@ -163,20 +170,19 @@ proc make-c-test {testcase id operation result conditions op1 {op2 "NONE"}} {
     set filename [file rootname $testcase]-${id}.c
     set outfd [open $filename w]
 
-#     puts $outfd [c-test-preamble $id]
-#     puts $outfd "  _Decimal32 d;"
-#     puts $outfd ""
-#     puts $outfd "  /* Set the rounding mode.  */"
-#     puts $outfd "  assert (fsetround ([c-rounding-mode $directives(rounding)]) == 0);"
-#     puts $outfd ""
-#     if {[string compare $op2 NONE] == 0} {
-# 	puts $outfd "  d = [c-unary-expression $operation $op1];"
-#     } else {
-# 	puts $outfd "  d = [c-binary-expression $operation $op1 $op2];"
-#     }
-#     puts $outfd "  return (d == $result);"
-#     puts $outfd [c-test-postamble $id]
-    puts $outfd "int main () \{ return 0; \}"
+    puts $outfd [c-test-preamble $id]
+    puts $outfd "  [c-decimal-type];"
+    puts $outfd ""
+    puts $outfd "  /* Set the rounding mode.  */"
+    puts $outfd "  assert (fsetround ([c-rounding-mode $directives(rounding)]) == 0);"
+    puts $outfd ""
+    if {[string compare $op2 NONE] == 0} {
+	puts $outfd "  d = [c-unary-expression $operation $op1];"
+    } else {
+	puts $outfd "  d = [c-binary-expression $operation $op1 $op2];"
+    }
+    puts $outfd "  return (d == $result);"
+    puts $outfd [c-test-postamble $id]
     close $outfd
     return $filename
 }

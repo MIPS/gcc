@@ -1,5 +1,10 @@
 2005-02-28  Ben Elliston  <bje@au.ibm.com>
 
+	* gcc.misc-tests/dectest.exp (c-decimal-type): New proc.
+	(make-c-test): Produce a more comprehensive C program.
+
+2005-02-28  Ben Elliston  <bje@au.ibm.com>
+
 	* gcc.misc-tests/dfp.exp: Rename from this ..
 	* gcc.misc-tests/dectest.exp: .. to this.
 
