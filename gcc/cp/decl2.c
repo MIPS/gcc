@@ -47,6 +47,8 @@ Boston, MA 02111-1307, USA.  */
 #include "cpplib.h"
 #include "target.h"
 #include "c-common.h"
+#include "tree-mudflap.h"
+
 extern cpp_reader *parse_in;
 
 /* This structure contains information about the initializations
@@ -2714,6 +2716,10 @@ finish_file ()
   timevar_push (TV_VARCONST);
 
   emit_support_tinfos ();
+
+  /* Emit mudflap static registration function.  */
+  if (flag_mudflap)
+    mudflap_finish_file ();
   
   do 
     {

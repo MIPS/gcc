@@ -1,3 +1,15 @@
+2003-01-13  Frank Ch. Eigler  <fche@redhat.com>
+
+	Front-end generalization.
+	* Makefile.in (C_AND_OBJC_OBJS): Add c-mudflap.o and dependencies.
+	* tree-mudflap.c: Don't include "c-tree.h" any more.
+	(mf_init_extern_trees): Divert to mflang_lookup_decl().
+	(mf_enqueue_register_call, mf_flush_enqueued_calls): Move and rename
+	these functions.
+	* tree-mudflap.h: Declare new mflang_* routines.
+	* c-mudflap.c: New file with C front-end mflang_* routines.
+	* tree-nomudflap.c (*): Call internal_error instead of abort.
+
 2003-01-07  Steven Bosscher  <s.bosscher@student.tudelft.nl>
 
 	* Makefile.in (check-g95): New test target.

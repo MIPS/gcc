@@ -36,6 +36,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "hashtab.h"
 #include "debug.h"
 #include "tree-inline.h"
+#include "tree-mudflap.h"
 #include "flags.h"
 #include "langhooks.h"
 #include "diagnostic.h"
@@ -84,6 +85,16 @@ optimize_function (tree fn)
     {
       /* Debugging dump after simplification.  */
       dump_function (TDI_simple, fn);
+
+      if (flag_mudflap)
+	{
+	  mudflap_c_function (fn);
+
+	  /* Simplify mudflap instrumentation.  FIXME  Long term: Would it
+	     be better for mudflap to simplify each tree as it generates
+	     them?  */
+	  simplify_function_tree (fn);
+	}
 
       /* Invoke the SSA tree optimizer.  */
       if (optimize >= 1 && 0)

@@ -1,3 +1,11 @@
+2003-01-13  Frank Ch. Eigler  <fche@redhat.com>
+
+	Prototype C++ mudflap support.
+	* Make-lang.in (CXX_OBJS): Add cp/cp-mudflap.o and dependencies.
+	* cp-mudflap.c: New file with C++ front-end mflang_* routines.
+	* decl2.c (finish_file): Divert to mudflap if appropriate.
+	* optimize.c (optimize_function): Ditto.
+
 2003-01-02  Jason Merrill  <jason@redhat.com>
 
 	* Make-lang.in (CXX_C_OBJS): Replace old-tree-inline.o with

@@ -58,7 +58,7 @@ mudflap_enqueue_decl (obj, label)
      tree obj ATTRIBUTE_UNUSED;
      const char *label ATTRIBUTE_UNUSED;
 {
-  abort ();
+  internal_error ("mudflap: this language is not supported");
 }
 
 
@@ -67,7 +67,7 @@ mudflap_enqueue_constant (obj, label)
      tree obj ATTRIBUTE_UNUSED;
      const char *label ATTRIBUTE_UNUSED;
 {
-  abort ();
+  internal_error ("mudflap: this language is not supported");
 }
 
 
@@ -77,7 +77,7 @@ mudflap_enqueue_constant (obj, label)
 void 
 mudflap_finish_file ()
 {
-  abort ();
+  internal_error ("mudflap: this language is not supported");
 }
 
 

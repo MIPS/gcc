@@ -738,7 +738,7 @@ CXX_TARGET_OBJS=@cxx_target_objs@
 C_AND_OBJC_OBJS = attribs.o c-errors.o c-lex.o c-pragma.o c-decl.o c-typeck.o \
   c-convert.o c-aux-info.o c-common.o c-opts.o c-format.o c-semantics.o \
   c-objc-common.o c-dump.o libcpp.a $(C_TARGET_OBJS) \
-  c-simplify.o c-call-graph.o tree-mudflap.o c-pretty-print.o
+  c-simplify.o c-call-graph.o tree-mudflap.o c-mudflap.o c-pretty-print.o
 
 # Language-specific object files for C.
 C_OBJS = c-parse.o c-lang.o $(C_AND_OBJC_OBJS)
@@ -1460,6 +1460,9 @@ c-call-graph.o : c-call-graph.c $(CONFIG_H) $(SYSTEM_H) $(C_TREE_H) \
 tree-simple.o : tree-simple.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(EXPR_H) \
 	$(RTL_H) tree-simple.h $(TM_H) coretypes.h
 tree-mudflap.o : $(CONFIG_H) errors.h $(SYSTEM_H) $(TREE_H) tree-inline.h \
+   $(C_TREE_H) $(C_COMMON_H) tree-simple.h diagnostic.h $(HASHTAB_H) \
+   output.h varray.h langhooks.h tree-mudflap.h $(TM_H) coretypes.h
+c-mudflap.o : $(CONFIG_H) errors.h $(SYSTEM_H) $(TREE_H) tree-inline.h \
    $(C_TREE_H) $(C_COMMON_H) tree-simple.h diagnostic.h $(HASHTAB_H) \
    output.h varray.h langhooks.h tree-mudflap.h $(TM_H) coretypes.h
 tree-nomudflap.o : $(CONFIG_H) errors.h $(SYSTEM_H) $(TREE_H) tree-inline.h \
