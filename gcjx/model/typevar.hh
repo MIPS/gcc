@@ -1,6 +1,6 @@
 // A type variable.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -32,6 +32,12 @@ class model_type_variable : public model_class
   std::list<ref_forwarding_type> bounds;
 
   void resolve_hook (resolution_scope *);
+
+  void compute_descriptor ()
+  {
+    // We override this method to avoid crashes if our superclass'
+    // method is called.  There's no sensible value here however.    
+  }
 
 public:
 
