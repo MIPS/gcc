@@ -1,3 +1,18 @@
+2004-08-10  Graydon Hoare  <graydon@redhat.com>
+
+	* javax/swing/text/SimpleAttributeSet.java: New file.
+	* javax/swing/text/StyleConstants.java: New file.
+	* javax/swing/text/StyleContext.java: New file.
+	* javax/swing/text/TabSet.java: New file.
+	* javax/swing/text/TabStop.java: New file.
+	* javax/swing/text/AbstactDocument.java:
+	(AbstractElement): Implement attribute support.
+	* javax/swing/text/AttributeSet.java
+	(NameAttribute): New static field.
+	(ResolveAttribute): New static field.
+	* Makefile.am: Update for new files.
+	* Makefile.in: Regenerate.
+
 2004-08-09  Craig Black  <craig.black@aonix.com>
 
 	* gnu/java/awt/peer/gtk/GdkGraphics.java 

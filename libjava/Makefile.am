@@ -1329,6 +1329,7 @@ javax/swing/plaf/basic/BasicSliderUI.java \
 javax/swing/plaf/basic/BasicSplitPaneDivider.java \
 javax/swing/plaf/basic/BasicSplitPaneUI.java \
 javax/swing/plaf/basic/BasicTabbedPaneUI.java \
+javax/swing/plaf/basic/BasicTableUI.java \
 javax/swing/plaf/basic/BasicTextFieldUI.java \
 javax/swing/plaf/basic/BasicTextUI.java \
 javax/swing/plaf/basic/BasicToggleButtonUI.java \
@@ -1522,9 +1523,14 @@ javax/swing/text/PlainDocument.java \
 javax/swing/text/PlainView.java \
 javax/swing/text/Position.java \
 javax/swing/text/Segment.java \
+javax/swing/text/SimpleAttributeSet.java \
 javax/swing/text/Style.java \
+javax/swing/text/StyleConstants.java \
+javax/swing/text/StyleContext.java \
 javax/swing/text/TabableView.java \
 javax/swing/text/TabExpander.java \
+javax/swing/text/TabSet.java \
+javax/swing/text/TabStop.java \
 javax/swing/text/View.java \
 javax/swing/text/ViewFactory.java \
 javax/swing/text/MutableAttributeSet.java \

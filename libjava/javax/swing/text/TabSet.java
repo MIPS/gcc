@@ -1,5 +1,5 @@
-/* AttributeSet.java -- 
-   Copyright (C) 2002, 2004 Free Software Foundation, Inc.
+/* TabSet.java --
+   Copyright (C) 2004 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -37,36 +37,64 @@ exception statement from your version. */
 
 package javax.swing.text;
 
-import java.util.Enumeration;
+public class TabSet
+{
+  TabStop[] tabs;
 
-public interface AttributeSet
-{ 
-  static interface CharacterAttribute
+  public TabSet(TabStop[] t) 
   {
+    tabs = t;
+  }
+ 
+  public TabStop getTab(int i) 
+  {
+    return tabs[i];
   }
 
-  static interface ColorAttribute
+  public TabStop getTabAfter(float location) 
   {
+    int idx = getTabIndexAfter(location);
+    if (idx == -1)
+      return null;
+    else
+      return tabs[idx];        
   }
 
-  static interface FontAttribute
+  public int getTabCount() 
   {
+    return tabs.length;
   }
 
-  static interface ParagraphAttribute
+  public int getTabIndex(TabStop tab) 
   {
+    for (int i = 0; i < tabs.length; ++i)
+      if (tabs[i] == tab)
+        return i;
+    return -1;
   }
 
-  static Object NameAttribute = StyleConstants.NameAttribute;
-  static Object ResolveAttribute = StyleConstants.ResolveAttribute;
+  public int getTabIndexAfter(float location) 
+  {
+    int idx = -1;
+    for (int i = 0; i < tabs.length; ++i)
+      {
+        if (location < tabs[i].getPosition())
+          idx = i;
+      }
+    return idx;
+  }
 
-  boolean containsAttribute(Object name, Object value);
-  boolean containsAttributes(AttributeSet attributes);
-  AttributeSet copyAttributes();
-  Object getAttribute(Object key);
-  int getAttributeCount();
-  Enumeration getAttributeNames();
-  AttributeSet getResolveParent();
-  boolean isDefined(Object attrName);
-  boolean isEqual(AttributeSet attr);     
+  public String toString()
+  {
+    StringBuffer sb = new StringBuffer();
+    sb.append("[");
+    for (int i = 0; i < tabs.length; ++i)
+      {
+        if (i != 0)
+          sb.append(" - ");
+        sb.append(tabs[i].toString());
+      }
+    sb.append("]");
+    return sb.toString();
+  }
 }

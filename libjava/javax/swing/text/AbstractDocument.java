@@ -63,17 +63,20 @@ public abstract class AbstractDocument
   public static final String ParagraphElementName = "paragraph";
   public static final String SectionElementName = "section";
   public static final String ElementNameAttribute = "$ename";
+
   Content content;
+  AttributeContext context;
   protected EventListenerList listenerList = new EventListenerList();
 
   protected AbstractDocument(Content doc)
   {
-    this(doc, null);
+    this(doc, StyleContext.getDefaultStyleContext());
   }
 
-  protected AbstractDocument(Content doc, AttributeContext context)
+  protected AbstractDocument(Content doc, AttributeContext ctx)
   {
     content = doc;
+    context = ctx;
   }
 
   // these still need to be implemented by a derived class:
@@ -145,7 +148,7 @@ public abstract class AbstractDocument
 
   protected AttributeContext getAttributeContext()
   {
-    return null;
+    return context;
   }
 
   public Element getBidiRootElement()
@@ -375,47 +378,51 @@ public abstract class AbstractDocument
   }
 
   public abstract class AbstractElement
-    implements Element, TreeNode, Serializable
+    implements Element, MutableAttributeSet, TreeNode, Serializable
   {
     private static final long serialVersionUID = 1265312733007397733L;
     int count;
     int offset;
-    AttributeSet attr;
-    Vector elts = new Vector();
-    String name;
-    Element parent;
-    Vector kids = new Vector();
+
+    AttributeSet attributes;
+
+    Element element_parent;
+    Vector element_children;
+
     TreeNode tree_parent;
+    Vector tree_children;
 
     public AbstractElement(Element p, AttributeSet s)
     {
-      parent = p;
-      attr = s;
+      element_parent = p;
+      attributes = s;
     }
+
+    // TreeNode implementation
 
     public Enumeration children()
     {
-      return kids.elements();
+      return java.util.Collections.enumeration(tree_children);
     }
-
+      
     public boolean getAllowsChildren()
     {
       return true;
     }
-
+      
     public TreeNode getChildAt(int index)
     {
-      return (TreeNode) kids.elementAt(index);
+      return (TreeNode) tree_children.get(index);
     }
-
+      
     public int getChildCount()
     {
-      return kids.size();
+      return tree_children.size();
     }
-
+      
     public int getIndex(TreeNode node)
     {
-      return kids.indexOf(node);
+      return tree_children.indexOf(node);
     }
 
     public TreeNode getParent()
@@ -423,39 +430,123 @@ public abstract class AbstractDocument
       return tree_parent;
     }
 
+    public abstract boolean isLeaf();
+
+
+    // MutableAttributeSet suppoer
+
+    public void addAttribute(Object name, Object value)
+    {
+      attributes = getAttributeContext().addAttribute(attributes, name, value);
+    }
+
+    public void addAttributes(AttributeSet attrs)
+    {
+      attributes = getAttributeContext().addAttributes(attributes, attrs);
+    }
+
+    public void removeAttribute(Object name)
+    {
+      attributes = getAttributeContext().removeAttribute(attributes, name);
+    }
+
+    public void removeAttributes(AttributeSet attrs)
+    {
+      attributes = getAttributeContext().removeAttributes(attributes, attrs);
+    }
+
+    public void removeAttributes(Enumeration names)
+    {
+      attributes = getAttributeContext().removeAttributes(attributes, names);
+    }
+
+    public void setResolveParent(AttributeSet parent)
+    {
+      attributes = getAttributeContext().addAttribute(attributes, ResolveAttribute, parent);
+    }
+
+
+    // AttributeSet interface support
+
+    public boolean containsAttribute(Object name, Object value)
+    {
+      return attributes.containsAttribute(name, value);
+    }
+
+    public boolean containsAttributes(AttributeSet attrs)
+    {
+      return attributes.containsAttributes(attrs);
+    }
+
+    public AttributeSet copyAttributes()
+    {
+      return attributes.copyAttributes();
+    }
+
+    public Object getAttribute(Object key)
+    {
+      return attributes.getAttribute(key);
+    }
+
+    public int getAttributeCount()
+    {
+      return attributes.getAttributeCount();
+    }
+      
+    public Enumeration getAttributeNames()
+    {
+      return attributes.getAttributeNames();
+    }
+      
+    public AttributeSet getResolveParent()
+    {
+      return attributes.getResolveParent();
+    }
+
+    public boolean isDefined(Object attrName)
+    {
+      return attributes.isDefined(attrName);
+    }
+      
+    public boolean isEqual(AttributeSet attrs) 
+    {
+      return attributes.isEqual(attrs);
+    }
+
+    // Element interface support
+
     public AttributeSet getAttributes()
     {
-      return attr;
+      return attributes;
     }
 
     public Document getDocument()
     {
       return AbstractDocument.this;
     }
-
+      
     public Element getElement(int index)
     {
-      return (Element) elts.elementAt(index);
+      return (Element) element_children.get(index);
     }
-
+      
     public String getName()
     {
-      return name;
+      return (String) getAttribute(NameAttribute);
     }
-
+      
     public Element getParentElement()
     {
-      return parent;
+      return element_parent;
     }
-
-    public abstract boolean isLeaf();
-
+      
+      
     public abstract int getEndOffset();
-
+      
     public abstract int getElementCount();
-
+      
     public abstract int getElementIndex(int offset);
-
+      
     public abstract int getStartOffset();
   }
 

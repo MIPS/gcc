@@ -1007,6 +1007,7 @@ javax/swing/plaf/basic/BasicSliderUI.java \
 javax/swing/plaf/basic/BasicSplitPaneDivider.java \
 javax/swing/plaf/basic/BasicSplitPaneUI.java \
 javax/swing/plaf/basic/BasicTabbedPaneUI.java \
+javax/swing/plaf/basic/BasicTableUI.java \
 javax/swing/plaf/basic/BasicTextFieldUI.java \
 javax/swing/plaf/basic/BasicTextUI.java \
 javax/swing/plaf/basic/BasicToggleButtonUI.java \
@@ -1200,9 +1201,14 @@ javax/swing/text/PlainDocument.java \
 javax/swing/text/PlainView.java \
 javax/swing/text/Position.java \
 javax/swing/text/Segment.java \
+javax/swing/text/SimpleAttributeSet.java \
 javax/swing/text/Style.java \
+javax/swing/text/StyleConstants.java \
+javax/swing/text/StyleContext.java \
 javax/swing/text/TabableView.java \
 javax/swing/text/TabExpander.java \
+javax/swing/text/TabSet.java \
+javax/swing/text/TabStop.java \
 javax/swing/text/View.java \
 javax/swing/text/ViewFactory.java \
 javax/swing/text/MutableAttributeSet.java \
@@ -3142,6 +3148,7 @@ javax/swing/plaf/basic/BasicSliderUI.lo \
 javax/swing/plaf/basic/BasicSplitPaneDivider.lo \
 javax/swing/plaf/basic/BasicSplitPaneUI.lo \
 javax/swing/plaf/basic/BasicTabbedPaneUI.lo \
+javax/swing/plaf/basic/BasicTableUI.lo \
 javax/swing/plaf/basic/BasicTextFieldUI.lo \
 javax/swing/plaf/basic/BasicTextUI.lo \
 javax/swing/plaf/basic/BasicToggleButtonUI.lo \
@@ -3270,9 +3277,12 @@ javax/swing/text/JTextComponent.lo javax/swing/text/Keymap.lo \
 javax/swing/text/LayeredHighlighter.lo \
 javax/swing/text/PlainDocument.lo javax/swing/text/PlainView.lo \
 javax/swing/text/Position.lo javax/swing/text/Segment.lo \
-javax/swing/text/Style.lo javax/swing/text/TabableView.lo \
-javax/swing/text/TabExpander.lo javax/swing/text/View.lo \
-javax/swing/text/ViewFactory.lo javax/swing/text/MutableAttributeSet.lo \
+javax/swing/text/SimpleAttributeSet.lo javax/swing/text/Style.lo \
+javax/swing/text/StyleConstants.lo javax/swing/text/StyleContext.lo \
+javax/swing/text/TabableView.lo javax/swing/text/TabExpander.lo \
+javax/swing/text/TabSet.lo javax/swing/text/TabStop.lo \
+javax/swing/text/View.lo javax/swing/text/ViewFactory.lo \
+javax/swing/text/MutableAttributeSet.lo \
 javax/swing/text/NavigationFilter.lo javax/swing/text/StyledDocument.lo \
 javax/swing/text/StyledEditorKit.lo javax/swing/text/TextAction.lo \
 javax/swing/text/html/HTML.lo \
@@ -5322,6 +5332,7 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/javax/swing/plaf/basic/BasicSplitPaneDivider.P \
 .deps/javax/swing/plaf/basic/BasicSplitPaneUI.P \
 .deps/javax/swing/plaf/basic/BasicTabbedPaneUI.P \
+.deps/javax/swing/plaf/basic/BasicTableUI.P \
 .deps/javax/swing/plaf/basic/BasicTextFieldUI.P \
 .deps/javax/swing/plaf/basic/BasicTextUI.P \
 .deps/javax/swing/plaf/basic/BasicToggleButtonUI.P \
@@ -5359,11 +5370,14 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/javax/swing/text/NavigationFilter.P \
 .deps/javax/swing/text/PlainDocument.P \
 .deps/javax/swing/text/PlainView.P .deps/javax/swing/text/Position.P \
-.deps/javax/swing/text/Segment.P .deps/javax/swing/text/Style.P \
+.deps/javax/swing/text/Segment.P \
+.deps/javax/swing/text/SimpleAttributeSet.P \
+.deps/javax/swing/text/Style.P .deps/javax/swing/text/StyleConstants.P \
+.deps/javax/swing/text/StyleContext.P \
 .deps/javax/swing/text/StyledDocument.P \
 .deps/javax/swing/text/StyledEditorKit.P \
-.deps/javax/swing/text/TabExpander.P \
-.deps/javax/swing/text/TabableView.P \
+.deps/javax/swing/text/TabExpander.P .deps/javax/swing/text/TabSet.P \
+.deps/javax/swing/text/TabStop.P .deps/javax/swing/text/TabableView.P \
 .deps/javax/swing/text/TextAction.P .deps/javax/swing/text/View.P \
 .deps/javax/swing/text/ViewFactory.P .deps/javax/swing/text/html/HTML.P \
 .deps/javax/swing/text/html/parser/ParserDelegator.P \
