@@ -1,3 +1,7 @@
+2004-11-13  Stan Shebs  <shebs@apple.com>
+
+	* fixincludes/fixinc.in: Revive 64-bit bandaid.
+
 2004-11-12  Matt Austern  <austern@apple.com>
 
 	* build_gcc: don't install more_hdrs/assert.h on Tiger systems.

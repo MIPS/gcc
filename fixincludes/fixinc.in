@@ -488,6 +488,10 @@ if $LINKS; then
   done 2> /dev/null
 fi
 
+echo want to mkdir $LIB/machine
+mkdir $LIB/machine
+sed -e 's/defined *(__ppc__)/defined (__ppc__) || defined (__ppc64__)/' /usr/include/machine/limits.h >$LIB/machine/limits.h
+
 if test $VERBOSE -gt 0
 then echo fixincludes is done ; fi
 
