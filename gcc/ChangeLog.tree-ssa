@@ -1,3 +1,13 @@
+2004-03-07  Jeff Law  <law@redhat.com>
+
+	* tree-ssa-dom.c: (get_eq_expr_value): Fix typo when comparing a
+	boolean against a constant.
+	* tree-ssa-forwprop.c (record_single_argument_cond_exprs): Do not
+	record the same SSA_NAME more than once.  Only record the SSA_NAME
+	tested, not the COND_EXPR.
+	(substitute_single_use_vars): Substitute booleans which are
+	set from a TRUTH_NOT_EXPR even if they have more than one use site.
+
 2004-03-05  Jeff Law  <law@redhat.com>
 
         * tree-ssa-dce.c (remove_dead_stmt): Clear PENDING_STMT after

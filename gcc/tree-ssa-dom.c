@@ -2889,7 +2889,8 @@ get_eq_expr_value (tree if_stmt,
       tree op1 = TREE_OPERAND (cond, 1);
 
       /* Special case comparing booleans against a constant as we know
-	 the value of op0 on both arms of the branch.  */
+	 the value of OP0 on both arms of the branch.  ie, we can record
+	 an equivalence for OP0 rather than COND.  */
       if ((TREE_CODE (cond) == EQ_EXPR || TREE_CODE (cond) == NE_EXPR)
 	  && TREE_CODE (op0) == SSA_NAME
 	  && TREE_CODE (TREE_TYPE (op0)) == BOOLEAN_TYPE
@@ -2907,7 +2908,7 @@ get_eq_expr_value (tree if_stmt,
 	      else
 		retval.src = boolean_false_node;
 	    }
-	  retval.dst = cond;
+	  retval.dst = op0;
 	  return retval;
 	}
 

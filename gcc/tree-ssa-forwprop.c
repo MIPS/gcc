@@ -108,7 +108,7 @@ record_single_argument_cond_exprs (void)
 
   vars = BITMAP_XMALLOC ();
 
-  VARRAY_TREE_INIT (retval, 10, "forward propagation objects");
+  VARRAY_TREE_INIT (retval, 10, "forward propagation vars");
 
   /* The first pass over the blocks gathers the set of variables we need
      immediate uses for as well as the set of interesting COND_EXPRs.
@@ -145,6 +145,11 @@ record_single_argument_cond_exprs (void)
 		test_var = cond;
 	      else
 		test_var = TREE_OPERAND (cond, 0);
+
+	      /* If we have already recorded this SSA_NAME as interesting,
+		 do not do so again.  */
+	      if (bitmap_bit_p (vars, SSA_NAME_VERSION (test_var)))
+		continue;
 
 	      /* Now get the defining statement for TEST_VAR and see if it
 		 something we are interested in.  */
@@ -211,9 +216,7 @@ record_single_argument_cond_exprs (void)
 		  else
 		    continue;
 
-		  /* All the tests passed, record COND_EXPR and TEST_VAR
-		     as interesting.  */
-		  VARRAY_PUSH_TREE (retval, last);
+		  /* All the tests passed, record TEST_VAR as interesting.  */
 		  VARRAY_PUSH_TREE (retval, test_var);
 		  bitmap_set_bit (vars, SSA_NAME_VERSION (test_var));
 		}
@@ -223,8 +226,8 @@ record_single_argument_cond_exprs (void)
   return retval;
 }
 
-/* Given FORWPROP_DATA containing pairs of potentially optimizable COND_EXPRs
-   and the SSA_NAME used in the COND_EXPR, attempt to rewrite the condition
+/* Given FORWPROP_DATA containing SSA_NAMEs which are used in COND_EXPRs
+   that we may be able to optimize, attempt to rewrite the condition
    in each COND_EXPR to use the RHS of the statement which defines the
    SSA_NAME used in the COND_EXPR.  */
   
@@ -233,28 +236,52 @@ substitute_single_use_vars (varray_type forwprop_data)
 {
   unsigned int i;
 
-  for (i = 0; i < VARRAY_ACTIVE_SIZE (forwprop_data); i += 2)
+  for (i = 0; i < VARRAY_ACTIVE_SIZE (forwprop_data); i++)
     {
-      tree test_var = VARRAY_TREE (forwprop_data, i + 1);
+      tree test_var = VARRAY_TREE (forwprop_data, i);
       tree def = SSA_NAME_DEF_STMT (test_var);
       dataflow_t df;
-      int num_uses;
+      int j, num_uses, propagated_uses;
+      block_stmt_iterator bsi;
 
       /* Now compute the immediate uses of TEST_VAR.  */
       df = get_immediate_uses (def);
       num_uses = num_immediate_uses (df);
+      propagated_uses = 0;
 
-      /* If TEST_VAR is used precisely one time, then we may have
-         an optimizable case.  */
-      if (num_uses == 1)
+      /* If TEST_VAR is used more than once and is not a boolean set
+	 via TRUTH_NOT_EXPR with another SSA_NAME as its argument, then
+	 we can not optimize.  */
+      if (num_uses == 1
+	  || (TREE_CODE (TREE_TYPE (test_var)) == BOOLEAN_TYPE
+	      && TREE_CODE (TREE_OPERAND (def, 1)) == TRUTH_NOT_EXPR
+	      && (TREE_CODE (TREE_OPERAND (TREE_OPERAND (def, 1), 0))
+		  == SSA_NAME)))
+	;
+      else
+	continue;
+
+      /* Walk over each use and try to forward propagate the RHS of
+	 DEF into the use.  */
+      for (j = 0; j < num_uses; j++)
 	{
-	  tree cond_stmt = VARRAY_TREE (forwprop_data, i);
-	  tree cond = COND_EXPR_COND (cond_stmt);
-	  enum tree_code cond_code = TREE_CODE (cond);
-	  tree def_rhs = TREE_OPERAND (def, 1);
-	  enum tree_code def_rhs_code = TREE_CODE (def_rhs);
-	  block_stmt_iterator bsi;
+	  tree cond_stmt;
+	  tree cond;
+	  enum tree_code cond_code;
+	  tree def_rhs;
+	  enum tree_code def_rhs_code;
 	  tree new_cond;
+
+	  cond_stmt = immediate_use (df, j);
+
+	  /* For now we can only propagate into COND_EXPRs.  */
+	  if (TREE_CODE (cond_stmt) != COND_EXPR) 
+	    continue;
+
+	  cond = COND_EXPR_COND (cond_stmt);
+	  cond_code = TREE_CODE (cond);
+	  def_rhs = TREE_OPERAND (def, 1);
+	  def_rhs_code = TREE_CODE (def_rhs);
 
 	  /* If the definition of the single use variable was from an
 	     arithmetic operation, then we just need to adjust the
@@ -333,21 +360,23 @@ substitute_single_use_vars (varray_type forwprop_data)
 	  /* Replace the condition.  */
 	  COND_EXPR_COND (cond_stmt) = new_cond;
 	  modify_stmt (cond_stmt);
-
-	  /* Now delete the defining statement, unfortunately
-	     we have to find the defining statement in whatever
-	     block it might be in.  */
-	  for (bsi = bsi_start (bb_for_stmt (def));
-	       !bsi_end_p (bsi);
-	       bsi_next (&bsi))
-	    {
-	      if (def == bsi_stmt (bsi))
-		{
-		  bsi_remove (&bsi);
-		  break;
-		}
-	    }
+	  propagated_uses++;
 	}
+
+      /* If we propagated into all the uses, then we can delete DEF.
+	 Unfortunately, we have to find the defining statement in
+	 whatever block it might be in.  */
+      if (num_uses && num_uses == propagated_uses)
+	for (bsi = bsi_start (bb_for_stmt (def));
+	     !bsi_end_p (bsi);
+	     bsi_next (&bsi))
+	  {
+	    if (def == bsi_stmt (bsi))
+	      {
+		bsi_remove (&bsi);
+		break;
+	      }
+	  }
     }
 }
 
