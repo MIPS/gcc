@@ -1,3 +1,13 @@
+2004-09-15  Daniel Berlin  <dberlin@dberlin.org>
+
+	* lambda-code.c (perfect_nestify): Factor out test whether
+	we can handle this loop into separate function.
+	Call it.
+	(can_convert_to_perfect_nest): New function.
+	(replace_uses_of_x_with_y): Add modify_stmt call.
+	* tree-loop-linear.c (linear_transform_loops): Call
+	rewrite_into_loop_closed_ssa and free_df.
+
 2004-09-15  Andrew Pinski  <apinski@apple.com>
 
 	* tree-loop-linear.c (linear_transform_loops): Continue when

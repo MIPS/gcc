@@ -255,7 +255,7 @@ linear_transform_loops (struct loops *loops)
       lambda_trans_matrix trans;
       bool problem = false;
       
-      if (loop_nest)
+      if (!loop_nest)
 	continue;
       
       flow_loop_scan (loop_nest, LOOP_ALL);
@@ -362,4 +362,6 @@ linear_transform_loops (struct loops *loops)
       free_dependence_relations (dependence_relations);
       free_data_refs (datarefs);
     }  
+  free_df ();
+  rewrite_into_loop_closed_ssa ();
 }

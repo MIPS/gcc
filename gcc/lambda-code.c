@@ -43,6 +43,11 @@
 #include "varray.h"
 #include "lambda.h"
 
+
+static bool perfect_nestify (struct loops *, 
+			     struct loop *, varray_type, varray_type, 
+			     varray_type, varray_type);
+
 /* This loop nest code generation is based on non-singular matrix
    math.  */
 
@@ -1065,10 +1070,6 @@ invariant_in_loop (struct loop *loop, tree op)
   return false;
 }
 
-static bool perfect_nestify (struct loops *, 
-			     struct loop *, varray_type, varray_type, 
-			     varray_type, varray_type);
-
 
 /* Generate a lambda loop from a gcc loop.
    TODO: Get rid of most of this code in favor of
@@ -2002,7 +2003,10 @@ replace_uses_of_x_with_y (tree stmt, tree x, tree y)
   for (i = 0; i < NUM_USES (uses); i++)
     {
       if (USE_OP (uses, i) == x)
-	SET_USE_OP (uses, i, y);
+        {
+	  SET_USE_OP (uses, i, y);
+	  modify_stmt (stmt);
+	}
     }
 }
 
@@ -2021,13 +2025,69 @@ stmt_uses_op (tree stmt, tree op)
   return false;
 }
 
+/* Return TRUE if LOOP is an imperfect nest that we can convert to a perfect
+   one.  LOOPIVS is a vector of induction variables, one per loop.  
+   ATM, we only handle imperfect nests of depth 2, where all of the statements
+   occur after the inner loop.  */
+
+static bool
+can_convert_to_perfect_nest (struct loop *loop,
+			     varray_type loopivs)
+{
+  basic_block *bbs;
+  tree exit_condition;
+  size_t i;
+  block_stmt_iterator bsi;
+
+  /* Can't handle triply nested+ loops yet.  */
+  if (!loop->inner || loop->inner->inner)
+    return false;
+
+  /* Make sure we can move all the statements we are going to 
+     need to move to make this a perfect nest before we go on a witchhunt.  */
+  bbs = get_loop_body (loop);
+  exit_condition = get_loop_exit_condition (loop);
+  for (i = 0; i < loop->num_nodes; i++)
+    {
+      if (bbs[i]->loop_father == loop)
+	{
+	  for (bsi = bsi_start (bbs[i]); !bsi_end_p (bsi); bsi_next (&bsi))
+	    { 
+	      size_t j;
+	      tree stmt = bsi_stmt (bsi);
+	      if (stmt == exit_condition
+		  || not_interesting_stmt (stmt)
+		  || stmt_is_bumper_for_loop (loop, stmt))
+		continue;
+	      /* If the statement uses inner loop ivs, we can't convert it.  */
+	      for (j = 1; j < VARRAY_ACTIVE_SIZE (loopivs); j++)
+		if (stmt_uses_op (stmt, VARRAY_TREE (loopivs, j)))
+		  {
+		    free (bbs);
+		    return false;
+		  }
+	      /* If the bb of a statement we care about isn't dominated by 
+		 the header of the inner loop, then we are also can't
+		 convert it*/
+	      if (!dominated_by_p (CDI_DOMINATORS,
+				   bb_for_stmt (stmt), 
+				   loop->inner->header))
+		{
+		  free (bbs);
+		  return false;
+		}
+	    }
+	}
+    }	  
+  return true;
+}
 /* Transform the loop nest into a perfect nest, if possible.
    LOOPS is the current struct loops *
    LOOP is the loop nest to transform into a perfect nest
    LBOUNDS are the lower bounds for the loops to transform
    UBOUNDS are the upper bounds for the loops to transform
    STEPS is the STEPS for the loops to transform.
-   OLDIVS is the induction variables for the loops to transform.
+   LOOPIVS is the induction variables for the loops to transform.
    
    Basically, for the case of
 
@@ -2063,7 +2123,7 @@ perfect_nestify (struct loops *loops,
 		 varray_type lbounds,
 		 varray_type ubounds,
 		 varray_type steps,
-		 varray_type oldivs)
+		 varray_type loopivs)
 {
   basic_block *bbs;
   tree exit_condition;
@@ -2078,12 +2138,11 @@ perfect_nestify (struct loops *loops,
   tree stmt;
   tree ivvar, ivvarinced;
   varray_type phis;
-  /* Can't handle triply nested+ loops yet.  */
-  if (!loop->inner || loop->inner->inner)
+  VARRAY_TREE_INIT (phis, 1, "Phis");
+
+  if (!can_convert_to_perfect_nest (loop, loopivs))
     return false;
 
-  VARRAY_TREE_INIT (phis, 1, "Phis");
-  
   /* Create the new loop */
 
   olddest = loop->single_exit->dest;
@@ -2146,7 +2205,6 @@ perfect_nestify (struct loops *loops,
   add_bb_to_loop (bodybb, newloop);
   add_bb_to_loop (headerbb, newloop);
   add_bb_to_loop (preheaderbb, olddest->loop_father);
-  flow_loop_scan (newloop, LOOP_ALL);
 
   /* Create the new iv.  */
   ivvar = create_tmp_var (integer_type_node, "perfectiv");
@@ -2177,34 +2235,7 @@ perfect_nestify (struct loops *loops,
   /* Finally, move the statements from the old loop to the new.
      XXX:  Note that we don't handle moving statements that occur before the
      old inner loop right now.  That is a TODO.  */
-  bbs = get_loop_body (loop);
-  exit_condition = get_loop_exit_condition (loop);
-  for (i = 0; i < loop->num_nodes; i++)
-    {
-      if (bbs[i]->loop_father == loop)
-	{
-	  for (bsi = bsi_start (bbs[i]); !bsi_end_p (bsi); bsi_next (&bsi))
-	    { 
-	      size_t j;
-	      tree stmt = bsi_stmt (bsi);
-	      if (stmt == exit_condition
-		  || not_interesting_stmt (stmt)
-		  || stmt_is_bumper_for_loop (loop, stmt))
-		continue;
-	      /* If the statement uses inner loop ivs, we == screwed.  */
-	      for (j = 1; j < VARRAY_ACTIVE_SIZE (oldivs); j++)
-		if (stmt_uses_op (stmt, VARRAY_TREE (oldivs, j)))
-		  return false;
-	      /* If the bb of a statement we care about isn't dominated by 
-		 the header of the inner loop, then we are also screwed. */
-	      if (!dominated_by_p (CDI_DOMINATORS,
-				   bb_for_stmt (stmt), 
-				   loop->inner->header))
-		return false;
-	    }
-	}
-    }	  
-  for (i = 0; i < loop->num_nodes; i++)
+   for (i = 0; i < loop->num_nodes; i++)
     {
       block_stmt_iterator tobsi = bsi_last (bodybb);
       if (bbs[i]->loop_father == loop)
@@ -2223,7 +2254,7 @@ perfect_nestify (struct loops *loops,
 		  continue;
 		}
 	      replace_uses_of_x_with_y (stmt, 
-					VARRAY_TREE (oldivs, 0),
+					VARRAY_TREE (loopivs, 0),
 					ivvar);
 	      bsi_move_before (&bsi, &tobsi);
 	    }
@@ -2233,7 +2264,7 @@ perfect_nestify (struct loops *loops,
   free_dominance_info (CDI_DOMINATORS);
   calculate_dominance_info (CDI_DOMINATORS);
   flow_loops_find (loops, LOOP_ALL);
-  return true;
+  return perfect_nest_p (loop);
 }
 
 /* Return true if TRANS is a legal transformation matrix that respects

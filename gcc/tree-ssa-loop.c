@@ -471,7 +471,7 @@ struct tree_opt_pass pass_linear_transform =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func | TODO_write_loop_closed,                	/* todo_flags_finish */
+  TODO_dump_func,                	/* todo_flags_finish */
   0					/* letter */
 };
 
