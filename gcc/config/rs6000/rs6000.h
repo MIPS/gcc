@@ -1566,14 +1566,17 @@ typedef struct rs6000_args
 #define SETUP_INCOMING_VARARGS(CUM,MODE,TYPE,PRETEND_SIZE,NO_RTL) \
   setup_incoming_varargs (&CUM, MODE, TYPE, &PRETEND_SIZE, NO_RTL)
 
-/* If defined, is a C expression that produces the machine-specific
-   code for a call to `__builtin_saveregs'.  This code will be moved
-   to the very beginning of the function, before any parameter access
-   are made.  The return value of this function should be an RTX that
-   contains the value to use as the return of `__builtin_saveregs'.  */
+/* Define the `__builtin_va_list' type for the ABI.  */
+#define BUILD_VA_LIST_TYPE(VALIST) \
+  (VALIST) = rs6000_build_va_list ()
 
-#define EXPAND_BUILTIN_SAVEREGS() \
-  rs6000_expand_builtin_saveregs ()
+/* Implement `va_start' for varargs and stdarg.  */
+#define EXPAND_BUILTIN_VA_START(stdarg, valist, nextarg) \
+  rs6000_va_start (stdarg, valist, nextarg)
+
+/* Implement `va_arg'.  */
+#define EXPAND_BUILTIN_VA_ARG(valist, type) \
+  rs6000_va_arg (valist, type)
 
 /* This macro generates the assembly code for function entry.
    FILE is a stdio stream to output the code to.
@@ -2552,11 +2555,12 @@ extern int rs6000_trunc_used;
 /* If we are referencing a function that is static or is known to be
    in this file, make the SYMBOL_REF special.  We can use this to indicate
    that we can branch to this function without emitting a no-op after the
-   call.  */
+   call.  Do not set this flag if the function is weakly defined. */
 
 #define ENCODE_SECTION_INFO(DECL)  \
   if (TREE_CODE (DECL) == FUNCTION_DECL			\
-      && (TREE_ASM_WRITTEN (DECL) || ! TREE_PUBLIC (DECL))) \
+      && (TREE_ASM_WRITTEN (DECL) || ! TREE_PUBLIC (DECL)) \
+      && !DECL_WEAK (DECL)) \
     SYMBOL_REF_FLAG (XEXP (DECL_RTL (DECL), 0)) = 1;
 
 /* Indicate that jump tables go in the text section.  */
@@ -2751,7 +2755,7 @@ extern int toc_initialized;
 
 #define RS6000_OUTPUT_BASENAME(FILE, NAME)	\
   {						\
-    char *_p;					\
+    const char *_p;				\
 						\
     STRIP_NAME_ENCODING (_p, (NAME));		\
     assemble_name ((FILE), _p);			\
@@ -2762,7 +2766,7 @@ extern int toc_initialized;
 #define STRIP_NAME_ENCODING(VAR,NAME)					\
   do									\
     {									\
-      char *_name = (NAME);						\
+      const char *_name = (NAME);					\
       int _len;								\
       if (_name[0] == '*')						\
 	_name++;							\
@@ -2771,9 +2775,10 @@ extern int toc_initialized;
 	(VAR) = _name;							\
       else								\
 	{								\
-	  (VAR) = (char *) alloca (_len + 1);				\
-	  strcpy ((VAR), _name);					\
-	  (VAR)[_len - 4] = '\0';					\
+	  char *_new_name = (char *) alloca (_len + 1);			\
+	  strcpy (_new_name, _name);					\
+	  _new_name[_len - 4] = '\0';					\
+	  (VAR) = _new_name;						\
 	}								\
     }									\
   while (0)
@@ -3297,7 +3302,9 @@ extern struct rtx_def *function_arg ();
 extern int function_arg_partial_nregs ();
 extern int function_arg_pass_by_reference ();
 extern void setup_incoming_varargs ();
-extern struct rtx_def *rs6000_expand_builtin_saveregs ();
+extern union tree_node *rs6000_va_list ();
+extern void rs6000_va_start ();
+extern struct rtx_def *rs6000_va_arg ();
 extern struct rtx_def *rs6000_stack_temp ();
 extern int expand_block_move ();
 extern int load_multiple_operation ();

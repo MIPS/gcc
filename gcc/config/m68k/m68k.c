@@ -24,6 +24,7 @@ Boston, MA 02111-1307, USA.  */
 #include "system.h"
 #include "tree.h"
 #include "rtl.h"
+#include "function.h"
 #include "regs.h"
 #include "hard-reg-set.h"
 #include "real.h"
@@ -243,10 +244,10 @@ output_function_prologue (stream, size)
 	      /* asm_fprintf() cannot handle %. */
 #ifdef MOTOROLA
 	      asm_fprintf (stream, "\tsubq.w %0I8,%Rsp\n\tsubq.w %0I%d,%Rsp\n",
-			   fsize + 4);
+			   fsize + 4 - 8);
 #else
 	      asm_fprintf (stream, "\tsubqw %0I8,%Rsp\n\tsubqw %0I%d,%Rsp\n",
-			   fsize + 4);
+			   fsize + 4 - 8);
 #endif
 	    }
 	  else 
@@ -791,10 +792,10 @@ output_function_epilogue (stream, size)
 	  /* asm_fprintf() cannot handle %. */
 #ifdef MOTOROLA
 	  asm_fprintf (stream, "\taddq.w %0I8,%Rsp\n\taddq.w %0I%d,%Rsp\n",
-		       fsize + 4);
+		       fsize + 4 - 8);
 #else
 	  asm_fprintf (stream, "\taddqw %0I8,%Rsp\n\taddqw %0I%d,%Rsp\n",
-		       fsize + 4);
+		       fsize + 4 - 8);
 #endif
 	}
       else

@@ -33,6 +33,7 @@ Boston, MA 02111-1307, USA.  */
 #include "insn-attr.h"
 #include "flags.h"
 #include "recog.h"
+#include "function.h"
 #include "expr.h"
 #include "obstack.h"
 #include "tree.h"
@@ -895,7 +896,7 @@ int
 uses_local_reg_p (x)
      rtx x;
 {
-  char *fmt;
+  const char *fmt;
   int i, j;
 
   switch (GET_CODE (x))

@@ -299,16 +299,17 @@ extern void i386_pe_encode_section_info ();
 #undef  STRIP_NAME_ENCODING
 #define STRIP_NAME_ENCODING(VAR,SYMBOL_NAME)				\
 do {									\
-  char *_p;								\
-  char *_name = I386_PE_STRIP_ENCODING (SYMBOL_NAME);			\
+  const char *_p;							\
+  const char *_name = I386_PE_STRIP_ENCODING (SYMBOL_NAME);		\
   for (_p = _name; *_p && *_p != '@'; ++_p)				\
     ;									\
   if (*_p == '@')							\
     {									\
       int _len = _p - _name;						\
-      (VAR) = (char *) alloca (_len + 1);				\
-      strncpy ((VAR), _name, _len);					\
-      (VAR)[_len] = '\0';						\
+      char *_new_name = (char *) alloca (_len + 1);			\
+      strncpy (_new_name, _name, _len);					\
+      _new_name[_len] = '\0';						\
+      (VAR) = _new_name;						\
     }									\
   else									\
     (VAR) = _name;							\
@@ -457,6 +458,11 @@ do {									\
 /* Declare the type properly for any external libcall.  */
 #define ASM_OUTPUT_EXTERNAL_LIBCALL(FILE, FUN) \
   i386_pe_declare_function_type (FILE, XSTR (FUN, 0), 1)
+
+/* This says out to put a global symbol in the BSS section. */
+#undef ASM_OUTPUT_ALIGNED_BSS
+#define ASM_OUTPUT_ALIGNED_BSS(FILE, DECL, NAME, SIZE, ALIGN) \
+  asm_output_aligned_bss ((FILE), (DECL), (NAME), (SIZE), (ALIGN))
 
 /* Output function declarations at the end of the file.  */
 #define ASM_FILE_END(FILE) \

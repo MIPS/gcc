@@ -41,7 +41,7 @@ Boston, MA 02111-1307, USA.  */
 #undef TARGET_DEFAULT
 #define TARGET_DEFAULT \
   (MASK_V9 + MASK_PTR64 + MASK_64BIT /* + MASK_HARD_QUAD */ \
-   + MASK_STACK_BIAS + MASK_APP_REGS + MASK_EPILOGUE + MASK_FPU)
+   + MASK_STACK_BIAS + MASK_EPILOGUE + MASK_FPU)
 #endif
 
 /* Output at beginning of assembler file.  */
@@ -135,10 +135,12 @@ Boston, MA 02111-1307, USA.  */
 #define SPARC_DEFAULT_CMODEL CM_MEDLOW
 
 #undef WCHAR_TYPE
-#define WCHAR_TYPE "long int"
-   
+#define WCHAR_TYPE "int"
+
 #undef WCHAR_TYPE_SIZE
-#define WCHAR_TYPE_SIZE BITS_PER_WORD
+#define WCHAR_TYPE_SIZE 32
+
+#undef MAX_WCHAR_TYPE_SIZE
 
 #undef LONG_DOUBLE_TYPE_SIZE
 #define LONG_DOUBLE_TYPE_SIZE 128
@@ -225,7 +227,9 @@ Boston, MA 02111-1307, USA.  */
 %{mcypress:-mcpu=cypress} \
 %{msparclite:-mcpu=sparclite} %{mf930:-mcpu=f930} %{mf934:-mcpu=f934} \
 %{mv8:-mcpu=v8} %{msupersparc:-mcpu=supersparc} \
-%{m64:-mptr64 -mcpu=ultrasparc -mstack-bias} \
+%{m64:-mptr64 -mstack-bias \
+  %{!mcpu*:%{!mcypress:%{!msparclite:%{!mf930:%{!mf934:%{!mv8:%{!msupersparc:-mcpu=ultrasparc}}}}}}} \
+  %{!mno-vis:%{!mcpu=v9:-mvis}}} \
 "
 #else
 #define CC1_SPEC "\
@@ -233,7 +237,9 @@ Boston, MA 02111-1307, USA.  */
 %{mcypress:-mcpu=cypress} \
 %{msparclite:-mcpu=sparclite} %{mf930:-mcpu=f930} %{mf934:-mcpu=f934} \
 %{mv8:-mcpu=v8} %{msupersparc:-mcpu=supersparc} \
-%{m32:-mptr32 -mcpu=cypress -mno-stack-bias} \
+%{m32:-mptr32 -mno-stack-bias \
+  %{!mcpu*:%{!mcypress:%{!msparclite:%{!mf930:%{!mf934:%{!mv8:%{!msupersparc:-mcpu=cypress}}}}}}}} \
+%{!mno-vis:%{!m32:%{!mcpu=v9:-mvis}}} \
 "
 #endif
 

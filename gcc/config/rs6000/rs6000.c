@@ -31,9 +31,9 @@ Boston, MA 02111-1307, USA.  */
 #include "insn-attr.h"
 #include "flags.h"
 #include "recog.h"
-#include "expr.h"
 #include "obstack.h"
 #include "tree.h"
+#include "expr.h"
 #include "except.h"
 #include "function.h"
 #include "output.h"
@@ -292,7 +292,7 @@ rs6000_override_options (default_cpu)
 		break;
 	      }
 
-	  if (i == ptt_size)
+	  if (j == ptt_size)
 	    error ("bad value (%s) for %s switch", ptr->string, ptr->name);
 	}
     }
@@ -515,8 +515,8 @@ short_cint_operand (op, mode)
      register rtx op;
      enum machine_mode mode ATTRIBUTE_UNUSED;
 {
-  return ((GET_CODE (op) == CONST_INT
-	   && (unsigned HOST_WIDE_INT) (INTVAL (op) + 0x8000) < 0x10000));
+  return (GET_CODE (op) == CONST_INT
+	  && CONST_OK_FOR_LETTER_P (INTVAL (op), 'I'));
 }
 
 /* Similar for a unsigned D field.  */
@@ -527,7 +527,7 @@ u_short_cint_operand (op, mode)
      enum machine_mode mode ATTRIBUTE_UNUSED;
 {
   return (GET_CODE (op) == CONST_INT
-	   && (INTVAL (op) & (~ (HOST_WIDE_INT) 0xffff)) == 0);
+	  && CONST_OK_FOR_LETTER_P (INTVAL (op), 'K'));
 }
 
 /* Return 1 if OP is a CONST_INT that cannot fit in a signed D field.  */
@@ -663,19 +663,14 @@ num_insns_constant_wide (value)
      HOST_WIDE_INT value;
 {
   /* signed constant loadable with {cal|addi} */
-  if (((unsigned HOST_WIDE_INT)value + 0x8000) < 0x10000)
+  if (CONST_OK_FOR_LETTER_P (value, 'I'))
     return 1;
 
-#if HOST_BITS_PER_WIDE_INT == 32
   /* constant loadable with {cau|addis} */
-  else if ((value & 0xffff) == 0)
+  else if (CONST_OK_FOR_LETTER_P (value, 'L'))
     return 1;
 
-#else
-  /* constant loadable with {cau|addis} */
-  else if ((value & 0xffff) == 0 && (value & ~0xffffffff) == 0)
-    return 1;
-
+#if HOST_BITS_PER_WIDE_INT == 64
   else if (TARGET_64BIT)
     {
       HOST_WIDE_INT low  = value & 0xffffffff;
@@ -880,7 +875,7 @@ mem_or_easy_const_operand (op, mode)
 }
 
 /* Return 1 if the operand is either a non-special register or an item
-   that can be used as the operand of an SI add insn.  */
+   that can be used as the operand of a `mode' add insn.  */
 
 int
 add_operand (op, mode)
@@ -889,7 +884,7 @@ add_operand (op, mode)
 {
   return (reg_or_short_operand (op, mode)
 	  || (GET_CODE (op) == CONST_INT
-	      && (INTVAL (op) & (~ (HOST_WIDE_INT) 0xffff0000)) == 0));
+	      && CONST_OK_FOR_LETTER_P (INTVAL(op), 'L')));
 }
 
 /* Return 1 if OP is a constant but not a valid add_operand.  */
@@ -901,7 +896,7 @@ non_add_cint_operand (op, mode)
 {
   return (GET_CODE (op) == CONST_INT
 	  && (unsigned HOST_WIDE_INT) (INTVAL (op) + 0x8000) >= 0x10000
-	  && (INTVAL (op) & (~ (HOST_WIDE_INT) 0xffff0000)) != 0);
+	  && ! CONST_OK_FOR_LETTER_P (INTVAL(op), 'L'));
 }
 
 /* Return 1 if the operand is a non-special register or a constant that
@@ -914,8 +909,10 @@ logical_operand (op, mode)
 {
   return (gpc_reg_operand (op, mode)
 	  || (GET_CODE (op) == CONST_INT
-	      && ((INTVAL (op) & (~ (HOST_WIDE_INT) 0xffff)) == 0
-		  || (INTVAL (op) & (~ (HOST_WIDE_INT) 0xffff0000)) == 0)));
+	      && ((INTVAL (op) & GET_MODE_MASK (mode)
+		   & (~ (HOST_WIDE_INT) 0xffff)) == 0
+		  || (INTVAL (op) & GET_MODE_MASK (mode)
+		      & (~ (HOST_WIDE_INT) 0xffff0000)) == 0)));
 }
 
 /* Return 1 if C is a constant that is not a logical operand (as
@@ -924,11 +921,13 @@ logical_operand (op, mode)
 int
 non_logical_cint_operand (op, mode)
      register rtx op;
-     enum machine_mode mode ATTRIBUTE_UNUSED;
+     enum machine_mode mode;
 {
   return (GET_CODE (op) == CONST_INT
-	  && (INTVAL (op) & (~ (HOST_WIDE_INT) 0xffff)) != 0
-	  && (INTVAL (op) & (~ (HOST_WIDE_INT) 0xffff0000)) != 0);
+	  && (INTVAL (op) & GET_MODE_MASK (mode) &
+	      (~ (HOST_WIDE_INT) 0xffff)) != 0
+	  && (INTVAL (op) & GET_MODE_MASK (mode) &
+	      (~ (HOST_WIDE_INT) 0xffff0000)) != 0);
 }
 
 /* Return 1 if C is a constant that can be encoded in a 32-bit mask on the
@@ -1118,7 +1117,7 @@ call_operand (op, mode)
 
 
 /* Return 1 if the operand is a SYMBOL_REF for a function known to be in
-   this file.  */
+   this file and the function is not weakly defined. */
 
 int
 current_file_function_operand (op, mode)
@@ -1127,7 +1126,8 @@ current_file_function_operand (op, mode)
 {
   return (GET_CODE (op) == SYMBOL_REF
 	  && (SYMBOL_REF_FLAG (op)
-	      || op == XEXP (DECL_RTL (current_function_decl), 0)));
+	      || (op == XEXP (DECL_RTL (current_function_decl), 0)
+	          && !DECL_WEAK (current_function_decl))));
 }
 
 
@@ -1198,7 +1198,7 @@ small_data_operand (op, mode)
      enum machine_mode mode ATTRIBUTE_UNUSED;
 {
 #if TARGET_ELF
-  rtx sym_ref, const_part;
+  rtx sym_ref;
 
   if (rs6000_sdata == SDATA_NONE || rs6000_sdata == SDATA_DATA)
     return 0;
@@ -1679,8 +1679,8 @@ setup_incoming_varargs (cum, mode, type, pretend_size, no_rtl)
 {
   CUMULATIVE_ARGS next_cum;
   int reg_size = TARGET_32BIT ? 4 : 8;
-  rtx save_area;
-  int first_reg_offset;
+  rtx save_area, mem;
+  int first_reg_offset, set;
 
   if (DEFAULT_ABI == ABI_V4 || DEFAULT_ABI == ABI_SOLARIS)
     {
@@ -1718,12 +1718,16 @@ setup_incoming_varargs (cum, mode, type, pretend_size, no_rtl)
 	first_reg_offset += RS6000_ARG_SIZE (TYPE_MODE (type), type, 1);
     }
 
+  set = get_varargs_alias_set ();
   if (!no_rtl && first_reg_offset < GP_ARG_NUM_REG)
     {
+      mem = gen_rtx_MEM (BLKmode,
+		         plus_constant (save_area,
+					first_reg_offset * reg_size)),
+      MEM_ALIAS_SET (mem) = set;
+
       move_block_from_reg
-	(GP_ARG_MIN_REG + first_reg_offset,
-	 gen_rtx_MEM (BLKmode,
-		      plus_constant (save_area, first_reg_offset * reg_size)),
+	(GP_ARG_MIN_REG + first_reg_offset, mem,
 	 GP_ARG_NUM_REG - first_reg_offset,
 	 (GP_ARG_NUM_REG - first_reg_offset) * UNITS_PER_WORD);
 
@@ -1751,8 +1755,9 @@ setup_incoming_varargs (cum, mode, type, pretend_size, no_rtl)
 
       while (fregno <= FP_ARG_V4_MAX_REG)
 	{
-	  emit_move_insn (gen_rtx_MEM (DFmode, plus_constant (save_area, off)),
-			  gen_rtx_REG (DFmode, fregno));
+	  mem = gen_rtx_MEM (DFmode, plus_constant (save_area, off));
+          MEM_ALIAS_SET (mem) = set;
+	  emit_move_insn (mem, gen_rtx_REG (DFmode, fregno));
 	  fregno++;
 	  off += 8;
 	}
@@ -1760,97 +1765,255 @@ setup_incoming_varargs (cum, mode, type, pretend_size, no_rtl)
       emit_label (lab);
     }
 }
-
-/* If defined, is a C expression that produces the machine-specific
-   code for a call to `__builtin_saveregs'.  This code will be moved
-   to the very beginning of the function, before any parameter access
-   are made.  The return value of this function should be an RTX that
-   contains the value to use as the return of `__builtin_saveregs'.
 
-   On the Power/PowerPC return the address of the area on the stack
-   used to hold arguments.  Under AIX, this includes the 8 word register
-   save area. 
+/* Create the va_list data type.  */
 
-   Under V.4, things are more complicated.  We do not have access to
-   all of the virtual registers required for va_start to do its job,
-   so we construct the va_list in its entirity here, and reduce va_start
-   to a block copy.  This is similar to the way we do things on Alpha.  */
-
-struct rtx_def *
-rs6000_expand_builtin_saveregs ()
+tree
+rs6000_build_va_list ()
 {
-  rtx block, mem_gpr_fpr, mem_reg_save_area, mem_overflow, tmp;
-  tree fntype;
-  int stdarg_p;
-  HOST_WIDE_INT words, gpr, fpr;
+  tree f_gpr, f_fpr, f_ovf, f_sav, record;
+  tree uchar_type_node;
 
+  /* Only SVR4 needs something special.  */
   if (DEFAULT_ABI != ABI_V4 && DEFAULT_ABI != ABI_SOLARIS)
-    return virtual_incoming_args_rtx;
+    return ptr_type_node;
 
-  fntype = TREE_TYPE (current_function_decl);
-  stdarg_p = (TYPE_ARG_TYPES (fntype) != 0
-	      && (TREE_VALUE (tree_last (TYPE_ARG_TYPES (fntype)))
-		  != void_type_node));
+  record = make_node (RECORD_TYPE);
+  uchar_type_node = make_unsigned_type (CHAR_TYPE_SIZE);
+  
+  f_gpr = build_decl (FIELD_DECL, get_identifier ("gpr"), uchar_type_node);
+  f_fpr = build_decl (FIELD_DECL, get_identifier ("fpr"), uchar_type_node);
+  f_ovf = build_decl (FIELD_DECL, get_identifier ("overflow_arg_area"),
+		      ptr_type_node);
+  f_sav = build_decl (FIELD_DECL, get_identifier ("reg_save_area"),
+		      ptr_type_node);
 
-  /* Allocate the va_list constructor.  */
-  block = assign_stack_local (BLKmode, 3 * UNITS_PER_WORD, BITS_PER_WORD);
-  RTX_UNCHANGING_P (block) = 1;
-  RTX_UNCHANGING_P (XEXP (block, 0)) = 1;
+  DECL_FIELD_CONTEXT (f_gpr) = record;
+  DECL_FIELD_CONTEXT (f_fpr) = record;
+  DECL_FIELD_CONTEXT (f_ovf) = record;
+  DECL_FIELD_CONTEXT (f_sav) = record;
 
-  mem_gpr_fpr = change_address (block, word_mode, XEXP (block, 0));
-  mem_overflow = change_address (block, ptr_mode, 
-			         plus_constant (XEXP (block, 0),
-						UNITS_PER_WORD));
-  mem_reg_save_area = change_address (block, ptr_mode, 
-				      plus_constant (XEXP (block, 0),
-						     2 * UNITS_PER_WORD));
+  TYPE_FIELDS (record) = f_gpr;
+  TREE_CHAIN (f_gpr) = f_fpr;
+  TREE_CHAIN (f_fpr) = f_ovf;
+  TREE_CHAIN (f_ovf) = f_sav;
 
-  /* Construct the two characters of `gpr' and `fpr' as a unit.  */
+  layout_type (record);
+
+  /* The correct type is an array type of one element.  */
+  return build_array_type (record, build_index_type (size_zero_node));
+}
+
+/* Implement va_start.  */
+
+void
+rs6000_va_start (stdarg_p, valist, nextarg)
+     int stdarg_p;
+     tree valist;
+     rtx nextarg;
+{
+  HOST_WIDE_INT words, n_gpr, n_fpr;
+  tree f_gpr, f_fpr, f_ovf, f_sav;
+  tree gpr, fpr, ovf, sav, t;
+
+  /* Only SVR4 needs something special.  */
+  if (DEFAULT_ABI != ABI_V4 && DEFAULT_ABI != ABI_SOLARIS)
+    {
+      std_expand_builtin_va_start (stdarg_p, valist, nextarg);
+      return;
+    }
+
+  f_gpr = TYPE_FIELDS (va_list_type_node);
+  f_fpr = TREE_CHAIN (f_gpr);
+  f_ovf = TREE_CHAIN (f_fpr);
+  f_sav = TREE_CHAIN (f_ovf);
+
+  gpr = build (COMPONENT_REF, TREE_TYPE (f_gpr), valist, f_gpr);
+  fpr = build (COMPONENT_REF, TREE_TYPE (f_fpr), valist, f_fpr);
+  ovf = build (COMPONENT_REF, TREE_TYPE (f_ovf), valist, f_ovf);
+  sav = build (COMPONENT_REF, TREE_TYPE (f_sav), valist, f_sav);
+
+  /* Count number of gp and fp argument registers used.  */
   words = current_function_args_info.words;
-  gpr = current_function_args_info.sysv_gregno - GP_ARG_MIN_REG;
-  fpr = current_function_args_info.fregno - FP_ARG_MIN_REG;
+  n_gpr = current_function_args_info.sysv_gregno - GP_ARG_MIN_REG;
+  n_fpr = current_function_args_info.fregno - FP_ARG_MIN_REG;
 
-  /* Varargs has the va_dcl argument, but we don't count it.  */
-  if (!stdarg_p)
-    {
-      if (gpr > GP_ARG_NUM_REG)
-        words -= 1;
-      else
-        gpr -= 1;
-    }
+  if (TARGET_DEBUG_ARG)
+    fprintf (stderr, "va_start: words = %d, n_gpr = %d, n_fpr = %d\n",
+	     words, n_gpr, n_fpr);
 
-  if (BYTES_BIG_ENDIAN)
-    {
-      HOST_WIDE_INT bits = gpr << 8 | fpr;
-      if (HOST_BITS_PER_WIDE_INT >= BITS_PER_WORD)
-        tmp = GEN_INT (bits << (BITS_PER_WORD - 16));
-      else
-	{
-	  bits <<= BITS_PER_WORD - HOST_BITS_PER_WIDE_INT - 16;
-	  tmp = immed_double_const (0, bits, word_mode);
-	}
-    }
-  else
-    tmp = GEN_INT (fpr << 8 | gpr);
+  t = build (MODIFY_EXPR, TREE_TYPE (gpr), gpr, build_int_2 (n_gpr, 0));
+  TREE_SIDE_EFFECTS (t) = 1;
+  expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
 
-  emit_move_insn (mem_gpr_fpr, tmp);
+  t = build (MODIFY_EXPR, TREE_TYPE (fpr), fpr, build_int_2 (n_fpr, 0));
+  TREE_SIDE_EFFECTS (t) = 1;
+  expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
 
   /* Find the overflow area.  */
-  tmp = expand_binop (Pmode, add_optab, virtual_incoming_args_rtx,
-		      GEN_INT (words * UNITS_PER_WORD),
-		      mem_overflow, 0, OPTAB_WIDEN);
-  if (tmp != mem_overflow)
-    emit_move_insn (mem_overflow, tmp);
+  t = make_tree (TREE_TYPE (ovf), virtual_incoming_args_rtx);
+  if (words != 0)
+    t = build (PLUS_EXPR, TREE_TYPE (ovf), t,
+	       build_int_2 (words * UNITS_PER_WORD, 0));
+  t = build (MODIFY_EXPR, TREE_TYPE (ovf), ovf, t);
+  TREE_SIDE_EFFECTS (t) = 1;
+  expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
 
   /* Find the register save area.  */
-  tmp = expand_binop (Pmode, add_optab, virtual_stack_vars_rtx,
-		      GEN_INT (-RS6000_VARARGS_SIZE),
-		      mem_reg_save_area, 0, OPTAB_WIDEN);
-  if (tmp != mem_reg_save_area)
-    emit_move_insn (mem_reg_save_area, tmp);
+  t = make_tree (TREE_TYPE (sav), virtual_stack_vars_rtx);
+  t = build (PLUS_EXPR, TREE_TYPE (sav), t,
+	     build_int_2 (-RS6000_VARARGS_SIZE, -1));
+  t = build (MODIFY_EXPR, TREE_TYPE (sav), sav, t);
+  TREE_SIDE_EFFECTS (t) = 1;
+  expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
+}
 
-  /* Return the address of the va_list constructor.  */
-  return XEXP (block, 0);
+/* Implement va_arg.  */
+
+rtx
+rs6000_va_arg (valist, type)
+     tree valist, type;
+{
+  tree f_gpr, f_fpr, f_ovf, f_sav;
+  tree gpr, fpr, ovf, sav, reg, t, u;
+  int indirect_p, size, rsize, n_reg, sav_ofs, sav_scale;
+  rtx lab_false, lab_over, addr_rtx, r;
+
+  /* Only SVR4 needs something special.  */
+  if (DEFAULT_ABI != ABI_V4 && DEFAULT_ABI != ABI_SOLARIS)
+    return std_expand_builtin_va_arg (valist, type);
+
+  f_gpr = TYPE_FIELDS (va_list_type_node);
+  f_fpr = TREE_CHAIN (f_gpr);
+  f_ovf = TREE_CHAIN (f_fpr);
+  f_sav = TREE_CHAIN (f_ovf);
+
+  gpr = build (COMPONENT_REF, TREE_TYPE (f_gpr), valist, f_gpr);
+  fpr = build (COMPONENT_REF, TREE_TYPE (f_fpr), valist, f_fpr);
+  ovf = build (COMPONENT_REF, TREE_TYPE (f_ovf), valist, f_ovf);
+  sav = build (COMPONENT_REF, TREE_TYPE (f_sav), valist, f_sav);
+
+  size = int_size_in_bytes (type);
+  rsize = (size + UNITS_PER_WORD - 1) / UNITS_PER_WORD;
+
+  if (AGGREGATE_TYPE_P (type) || TYPE_MODE (type) == TFmode)
+    {
+      /* Aggregates and long doubles are passed by reference.  */
+      indirect_p = 1;
+      reg = gpr;
+      n_reg = 1;
+      sav_ofs = 0;
+      sav_scale = 4;
+      size = rsize = UNITS_PER_WORD;
+    }
+  else if (FLOAT_TYPE_P (type) && ! TARGET_SOFT_FLOAT)
+    {
+      /* FP args go in FP registers, if present.  */
+      indirect_p = 0;
+      reg = fpr;
+      n_reg = 1;
+      sav_ofs = 8*4;
+      sav_scale = 8;
+    }
+  else
+    {
+      /* Otherwise into GP registers.  */
+      indirect_p = 0;
+      reg = gpr;
+      n_reg = rsize;
+      sav_ofs = 0;
+      sav_scale = 4;
+    }
+
+  /*
+   * Pull the value out of the saved registers ...
+   */
+
+  lab_false = gen_label_rtx ();
+  lab_over = gen_label_rtx ();
+  addr_rtx = gen_reg_rtx (Pmode);
+
+  emit_cmp_and_jump_insns (expand_expr (reg, NULL_RTX, QImode, EXPAND_NORMAL),
+			   GEN_INT (8 - n_reg + 1),
+			   GE, const1_rtx, QImode, 1, 1, lab_false);
+
+  /* Long long is aligned in the registers.  */
+  if (n_reg > 1)
+    {
+      u = build (BIT_AND_EXPR, TREE_TYPE (reg), reg,
+		 build_int_2 (n_reg - 1, 0));
+      u = build (PLUS_EXPR, TREE_TYPE (reg), reg, u);
+      u = build (MODIFY_EXPR, TREE_TYPE (reg), reg, u);
+      TREE_SIDE_EFFECTS (u) = 1;
+      expand_expr (u, const0_rtx, VOIDmode, EXPAND_NORMAL);
+    }
+
+  if (sav_ofs)
+    t = build (PLUS_EXPR, ptr_type_node, sav, build_int_2 (sav_ofs, 0));
+  else
+    t = sav;
+
+  u = build (POSTINCREMENT_EXPR, TREE_TYPE (reg), reg, build_int_2 (n_reg, 0));
+  TREE_SIDE_EFFECTS (u) = 1;
+
+  u = build1 (CONVERT_EXPR, integer_type_node, u);
+  TREE_SIDE_EFFECTS (u) = 1;
+
+  u = build (MULT_EXPR, integer_type_node, u, build_int_2 (sav_scale, 0));
+  TREE_SIDE_EFFECTS (u) = 1;
+
+  t = build (PLUS_EXPR, ptr_type_node, t, u);
+  TREE_SIDE_EFFECTS (t) = 1;
+
+  r = expand_expr (t, addr_rtx, Pmode, EXPAND_NORMAL);
+  if (r != addr_rtx)
+    emit_move_insn (addr_rtx, r);
+
+  emit_jump_insn (gen_jump (lab_over));
+  emit_barrier ();
+  emit_label (lab_false);
+
+  /*
+   * ... otherwise out of the overflow area.
+   */
+
+  /* Make sure we don't find reg 7 for the next int arg.  */
+  if (n_reg > 1)
+    {
+      t = build (MODIFY_EXPR, TREE_TYPE (reg), reg, build_int_2 (8, 0));
+      TREE_SIDE_EFFECTS (t) = 1;
+      expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
+    }
+
+  /* Care for on-stack alignment if needed.  */
+  if (rsize <= 1)
+    t = ovf;
+  else
+    {
+      t = build (PLUS_EXPR, TREE_TYPE (ovf), ovf, build_int_2 (7, 0));
+      t = build (BIT_AND_EXPR, TREE_TYPE (t), t, build_int_2 (-8, -1));
+    }
+  t = save_expr (t);
+
+  r = expand_expr (t, addr_rtx, Pmode, EXPAND_NORMAL);
+  if (r != addr_rtx)
+    emit_move_insn (addr_rtx, r);
+
+  t = build (PLUS_EXPR, TREE_TYPE (t), t, build_int_2 (size, 0));
+  t = build (MODIFY_EXPR, TREE_TYPE (ovf), ovf, t);
+  TREE_SIDE_EFFECTS (t) = 1;
+  expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
+
+  emit_label (lab_over);
+
+  if (indirect_p)
+    {
+      r = gen_rtx_MEM (Pmode, addr_rtx);
+      MEM_ALIAS_SET (r) = get_varargs_alias_set ();
+      emit_move_insn (addr_rtx, r);
+    }
+
+  return addr_rtx;
 }
 
 /* Generate a memory reference for expand_block_move, copying volatile,
@@ -2474,7 +2637,7 @@ ccr_bit (op, scc_p)
 
 struct rtx_def *
 rs6000_got_register (value)
-     rtx value;
+     rtx value ATTRIBUTE_UNUSED;
 {
   /* The second flow pass currently (June 1999) can't update regs_ever_live
      without disturbing other parts of the compiler, so update it here to
@@ -2627,7 +2790,7 @@ print_operand (file, x, code)
       if (! INT_P (x))
 	output_operand_lossage ("invalid %%b value");
 
-      fprintf (file, "%d", INT_LOWPART (x) & 0xffff);
+      fprintf (file, HOST_WIDE_INT_PRINT_DEC, INT_LOWPART (x) & 0xffff);
       return;
 
     case 'B':
@@ -2713,7 +2876,7 @@ print_operand (file, x, code)
       /* If constant, output low-order five bits.  Otherwise,
 	 write normally. */
       if (INT_P (x))
-	fprintf (file, "%d", INT_LOWPART (x) & 31);
+	fprintf (file, HOST_WIDE_INT_PRINT_DEC, INT_LOWPART (x) & 31);
       else
 	print_operand (file, x, 0);
       return;
@@ -2722,7 +2885,7 @@ print_operand (file, x, code)
       /* If constant, output low-order six bits.  Otherwise,
 	 write normally. */
       if (INT_P (x))
-	fprintf (file, "%d", INT_LOWPART (x) & 63);
+	fprintf (file, HOST_WIDE_INT_PRINT_DEC, INT_LOWPART (x) & 63);
       else
 	print_operand (file, x, 0);
       return;
@@ -2759,7 +2922,7 @@ print_operand (file, x, code)
       if (! INT_P (x))
 	output_operand_lossage ("invalid %%k value");
 
-      fprintf (file, "%d", ~ INT_LOWPART (x));
+      fprintf (file, HOST_WIDE_INT_PRINT_DEC, ~ INT_LOWPART (x));
       return;
 
     case 'L':
@@ -2903,7 +3066,7 @@ print_operand (file, x, code)
       if (! INT_P (x))
 	output_operand_lossage ("invalid %%s value");
 
-      fprintf (file, "%d", (32 - INT_LOWPART (x)) & 31);
+      fprintf (file, HOST_WIDE_INT_PRINT_DEC, (32 - INT_LOWPART (x)) & 31);
       return;
 
     case 'S':
@@ -3006,7 +3169,8 @@ print_operand (file, x, code)
       if (! INT_P (x))
 	output_operand_lossage ("invalid %%u value");
 
-      fprintf (file, "0x%x", (INT_LOWPART (x) >> 16) & 0xffff);
+      fprintf (file, HOST_WIDE_INT_PRINT_HEX, 
+	       (INT_LOWPART (x) >> 16) & 0xffff);
       return;
 
     case 'v':
@@ -3076,7 +3240,8 @@ print_operand (file, x, code)
       /* If constant, low-order 16 bits of constant, signed.  Otherwise, write
 	 normally.  */
       if (INT_P (x))
-	fprintf (file, "%d", ((INT_LOWPART (x) & 0xffff) ^ 0x8000) - 0x8000);
+	fprintf (file, HOST_WIDE_INT_PRINT_DEC, 
+		 ((INT_LOWPART (x) & 0xffff) ^ 0x8000) - 0x8000);
       else
 	print_operand (file, x, 0);
       return;
@@ -3085,7 +3250,7 @@ print_operand (file, x, code)
       /* If constant, low-order 16 bits of constant, unsigned.
 	 Otherwise, write normally.  */
       if (INT_P (x))
-	fprintf (file, "%d", INT_LOWPART (x) & 0xffff);
+	fprintf (file, HOST_WIDE_INT_PRINT_DEC, INT_LOWPART (x) & 0xffff);
       else
 	print_operand (file, x, 0);
       return;
@@ -3221,7 +3386,10 @@ print_operand_address (file, x)
 		 reg_names[ REGNO (XEXP (x, 1)) ]);
     }
   else if (GET_CODE (x) == PLUS && GET_CODE (XEXP (x, 1)) == CONST_INT)
-    fprintf (file, "%d(%s)", INTVAL (XEXP (x, 1)), reg_names[ REGNO (XEXP (x, 0)) ]);
+    {
+      fprintf (file, HOST_WIDE_INT_PRINT_DEC, INTVAL (XEXP (x, 1)));
+      fprintf (file, "(%s)", reg_names[ REGNO (XEXP (x, 0)) ]);
+    }
 #if TARGET_ELF
   else if (GET_CODE (x) == LO_SUM && GET_CODE (XEXP (x, 0)) == REG
            && CONSTANT_P (XEXP (x, 1)))
@@ -3477,7 +3645,14 @@ rs6000_stack_info ()
 
   /* Calculate which registers need to be saved & save area size */
   info_ptr->first_gp_reg_save = first_reg_to_save ();
-  info_ptr->gp_size = reg_size * (32 - info_ptr->first_gp_reg_save);
+  /* Assume that we will have to save PIC_OFFSET_TABLE_REGNUM, 
+     even if it currently looks like we won't.  */
+  if (flag_pic == 1 
+      && (abi == ABI_V4 || abi == ABI_SOLARIS)
+      && info_ptr->first_gp_reg_save > PIC_OFFSET_TABLE_REGNUM)
+    info_ptr->gp_size = reg_size * (32 - PIC_OFFSET_TABLE_REGNUM);
+  else
+    info_ptr->gp_size = reg_size * (32 - info_ptr->first_gp_reg_save);
 
   info_ptr->first_fp_reg_save = first_fp_reg_to_save ();
   info_ptr->fp_size = 8 * (64 - info_ptr->first_fp_reg_save);
@@ -3839,7 +4014,7 @@ rs6000_output_load_toc_table (file, reg)
       if (rs6000_pic_func_labelno != rs6000_pic_labelno)
 	{
 	  const char *init_ptr = TARGET_32BIT ? ".long" : ".quad";
-	  char *buf_ptr;
+	  const char *buf_ptr;
 
 	  ASM_OUTPUT_INTERNAL_LABEL (file, "LCL", rs6000_pic_labelno);
 
@@ -4774,7 +4949,7 @@ output_toc (file, x, labelno)
 {
   char buf[256];
   char *name = buf;
-  char *real_name;
+  const char *real_name;
   rtx base = x;
   int offset = 0;
 
@@ -5649,7 +5824,7 @@ rs6000_longcall_ref (call_ref)
 
 void
 rs6000_select_rtx_section (mode, x)
-     enum machine_mode mode;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
      rtx x;
 {
   if (ASM_OUTPUT_SPECIAL_POOL_ENTRY_P (x))
@@ -5726,7 +5901,8 @@ rs6000_encode_section_info (decl)
   if (TREE_CODE (decl) == FUNCTION_DECL)
     {
       rtx sym_ref = XEXP (DECL_RTL (decl), 0);
-      if (TREE_ASM_WRITTEN (decl) || ! TREE_PUBLIC (decl))
+      if ((TREE_ASM_WRITTEN (decl) || ! TREE_PUBLIC (decl))
+          && !DECL_WEAK (decl))
 	SYMBOL_REF_FLAG (sym_ref) = 1;
 
       if (DEFAULT_ABI == ABI_AIX || DEFAULT_ABI == ABI_NT)
@@ -5761,17 +5937,17 @@ rs6000_encode_section_info (decl)
 
       if ((size > 0 && size <= g_switch_value)
 	  || (name
-	      && ((len == sizeof (".sdata")-1
+	      && ((len == sizeof (".sdata") - 1
 		   && strcmp (name, ".sdata") == 0)
-		  || (len == sizeof (".sdata2")-1
+		  || (len == sizeof (".sdata2") - 1
 		      && strcmp (name, ".sdata2") == 0)
-		  || (len == sizeof (".sbss")-1
+		  || (len == sizeof (".sbss") - 1
 		      && strcmp (name, ".sbss") == 0)
-		  || (len == sizeof (".sbss2")-1
+		  || (len == sizeof (".sbss2") - 1
 		      && strcmp (name, ".sbss2") == 0)
-		  || (len == sizeof (".PPC.EMB.sdata0")-1
+		  || (len == sizeof (".PPC.EMB.sdata0") - 1
 		      && strcmp (name, ".PPC.EMB.sdata0") == 0)
-		  || (len == sizeof (".PPC.EMB.sbss0")-1
+		  || (len == sizeof (".PPC.EMB.sbss0") - 1
 		      && strcmp (name, ".PPC.EMB.sbss0") == 0))))
 	{
 	  rtx sym_ref = XEXP (DECL_RTL (decl), 0);

@@ -30,6 +30,7 @@ Boston, MA 02111-1307, USA.  */
 #include "flags.h"
 #include "insn-flags.h"
 #include "expr.h"
+#include "function.h"
 #include "regs.h"
 #include "hard-reg-set.h"
 #include "output.h"
@@ -2384,7 +2385,7 @@ regs_used (x, is_dest)
      rtx x; int is_dest;
 {
   enum rtx_code code;
-  char *fmt;
+  const char *fmt;
   int i, used = 0;
 
   if (! x)
@@ -3122,7 +3123,10 @@ machine_dependent_reorg (first)
 			  rtx note
 			    = find_regno_note (last_float_move, REG_UNUSED, 0);
 
-			  PUT_MODE (note, REG_INC);
+			  /* If we are not optimizing, then there may not be
+			     a note.  */
+			  if (note)
+			    PUT_MODE (note, REG_INC);
 
 			  *last_float_addr = r0_inc_rtx;
 			}
@@ -4727,7 +4731,7 @@ mark_use (x, reg_set_block)
       break;
     default:
       {
-	char *fmt = GET_RTX_FORMAT (code);
+	const char *fmt = GET_RTX_FORMAT (code);
 	int i, j;
 	for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
 	  {

@@ -31,6 +31,7 @@ Boston, MA 02111-1307, USA.  */
 #include "insn-attr.h"
 #include "flags.h"
 #include "tree.h"
+#include "function.h"
 #include "expr.h"
 #include "insn-config.h"
 #include "recog.h"
@@ -120,7 +121,7 @@ int
 symbol_mentioned_p (x)
      rtx x;
 {
-  register char * fmt;
+  register const char * fmt;
   register int i;
 
   if (GET_CODE (x) == SYMBOL_REF)
@@ -149,7 +150,7 @@ int
 label_mentioned_p (x)
      rtx x;
 {
-  register char * fmt;
+  register const char * fmt;
   register int i;
 
   if (GET_CODE (x) == LABEL_REF)

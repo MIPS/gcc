@@ -34,6 +34,7 @@ Boston, MA 02111-1307, USA.  */
 #include "output.h"
 #include "insn-attr.h"
 #include "flags.h"
+#include "function.h"
 #include "expr.h"
 #include "recog.h"
 #include "toplev.h"
@@ -141,6 +142,8 @@ int sparc_align_loops;
 int sparc_align_jumps;
 int sparc_align_funcs;
 
+char sparc_hard_reg_printed[8];
+
 struct sparc_cpu_select sparc_select[] =
 {
   /* switch	name,		tune	arch */
@@ -213,8 +216,11 @@ sparc_override_options ()
     /* TEMIC sparclet */
     { "tsc701",     PROCESSOR_TSC701, MASK_ISA, MASK_SPARCLET },
     { "v9",         PROCESSOR_V9, MASK_ISA, MASK_V9 },
-    /* TI ultrasparc */
-    { "ultrasparc", PROCESSOR_ULTRASPARC, MASK_ISA, MASK_V9 },
+    /* TI ultrasparc I, II, IIi */
+    { "ultrasparc", PROCESSOR_ULTRASPARC, MASK_ISA, MASK_V9
+    /* Although insns using %y are deprecated, it is a clear win on current
+       ultrasparcs. */
+    						    |MASK_DEPRECATED_V8_INSNS },
     { 0, 0, 0, 0 }
   };
   struct cpu_table *cpu;
@@ -1289,7 +1295,7 @@ sparc_emit_set_symbolic_const64 (op0, op1, temp1)
 	 or	%temp4, %temp5, %reg  */
 
       /* Getting this right wrt. reloading is really tricky.
-	 We _MUST_ have a seperate temporary at this point,
+	 We _MUST_ have a separate temporary at this point,
 	 if we don't barf immediately instead of generating
 	 incorrect code.  */
       if (temp1 == op0)
@@ -1332,7 +1338,7 @@ sparc_emit_set_symbolic_const64 (op0, op1, temp1)
       else
 	{
 	  /* Getting this right wrt. reloading is really tricky.
-	     We _MUST_ have a seperate temporary at this point,
+	     We _MUST_ have a separate temporary at this point,
 	     so we barf immediately instead of generating
 	     incorrect code.  */
 	  if (temp1 == op0)
@@ -2669,7 +2675,7 @@ mem_min_alignment (mem, desired)
 	  /* Check if the compiler has recorded some information
 	     about the alignment of the base REG.  If reload has
 	     completed, we already matched with proper alignments.  */
-	  if (((regno_pointer_align != NULL
+	  if (((current_function != 0
 		&& REGNO_POINTER_ALIGN (regno) >= desired)
 	       || reload_completed)
 	      && ((INTVAL (offset) & (desired - 1)) == 0))
@@ -3105,6 +3111,32 @@ build_big_number (file, num, reg)
     }
 }
 
+/* Output any necessary .register pseudo-ops.  */
+void
+sparc_output_scratch_registers (file)
+     FILE *file;
+{
+#ifdef HAVE_AS_REGISTER_PSEUDO_OP
+  int i;
+
+  if (TARGET_ARCH32)
+    return;
+
+  /* Check if %g[2367] were used without
+     .register being printed for them already.  */
+  for (i = 2; i < 8; i++)
+    {
+      if (regs_ever_live [i]
+	  && ! sparc_hard_reg_printed [i])
+	{
+	  sparc_hard_reg_printed [i] = 1;
+	  fprintf (file, "\t.register\t%%g%d, #scratch\n", i);
+	}
+      if (i == 3) i = 5;
+    }
+#endif
+}
+
 /* Output code for the function prologue.  */
 
 void
@@ -3113,6 +3145,8 @@ output_function_prologue (file, size, leaf_function)
      int size;
      int leaf_function;
 {
+  sparc_output_scratch_registers (file);
+
   /* Need to use actual_fsize, since we are also allocating
      space for our callee (and our own register save area).  */
   actual_fsize = compute_frame_size (size, leaf_function);
@@ -5846,6 +5880,8 @@ sparc_flat_output_function_prologue (file, size)
   char *sp_str = reg_names[STACK_POINTER_REGNUM];
   unsigned long gmask = current_frame_info.gmask;
 
+  sparc_output_scratch_registers (file);
+
   /* This is only for the human reader.  */
   fprintf (file, "\t%s#PROLOGUE# 0\n", ASM_COMMENT_START);
   fprintf (file, "\t%s# vars= %ld, regs= %d/%d, args= %d, extra= %ld\n",
@@ -7767,7 +7803,7 @@ sparc_block_profiler(file, blockno)
       assemble_name (file, LPBX);
       fputs ("),%g2\n", file);
   
-      fputs ("\tor\t%o0,%lo(", file);
+      fputs ("\tor\t%o2,%lo(", file);
       assemble_name (file, LPBX);
       fputs ("),%g2\n", file);
   

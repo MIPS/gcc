@@ -31,6 +31,7 @@ Boston, MA 02111-1307, USA.  */
 #include "output.h"
 #include "insn-attr.h"
 #include "tree.h"
+#include "function.h"
 #include "expr.h"
 #include "flags.h"
 
@@ -571,7 +572,7 @@ global_symbolic_reference_mentioned_p (op, f)
      rtx op;
      int f;
 {
-  register char *fmt;
+  register const char *fmt;
   register int i;
 
   if (GET_CODE (op) == SYMBOL_REF)
@@ -610,7 +611,7 @@ int
 symbolic_reference_mentioned_p (op)
      rtx op;
 {
-  register char *fmt;
+  register const char *fmt;
   register int i;
 
   if (GET_CODE (op) == SYMBOL_REF || GET_CODE (op) == LABEL_REF)

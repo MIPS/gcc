@@ -155,7 +155,6 @@ extern enum m88k_instruction classify_integer ();
 
 extern int target_flags;			/* -m compiler switches */
 extern int frame_pointer_needed;		/* current function has a FP */
-extern int current_function_pretend_args_size;	/* args size without ... */
 extern int flag_delayed_branch;			/* -fdelayed-branch */
 extern int flag_pic;				/* -fpic */
 extern char * reg_names[];
@@ -191,26 +190,11 @@ extern char * reg_names[];
    Redefined in sysv3.h, sysv4.h, dgux.h, and luna.h.  */
 #define CPP_PREDEFINES "-Dm88000 -Dm88k -Dunix -D__CLASSIFY_TYPE__=2"
 
-#define TARGET_VERSION fprintf (stderr, " (%s%s)", \
-				VERSION_INFO1, VERSION_INFO2)
+#define TARGET_VERSION fprintf (stderr, " (%s)", VERSION_INFO1)
 
-/* Print subsidiary information on the compiler version in use.
-   Redefined in sysv4.h, and luna.h.  */
-#define VERSION_INFO1	"m88k, "
-#ifndef VERSION_INFO2
-#define VERSION_INFO2   "$Revision: 1.14 $"
+#ifndef VERSION_INFO1
+#define VERSION_INFO1	"m88k"
 #endif
-
-#ifndef VERSION_STRING
-#define VERSION_STRING  version_string
-#ifdef __STDC__
-#define TM_RCS_ID      "@(#)" __FILE__ " $Revision: 1.14 $ " __DATE__
-#else
-#define TM_RCS_ID      "$What: <@(#) m88k.h,v	1.1.1.2.2.2> $"
-#endif  /* __STDC__ */
-#else
-#define TM_RCS_ID      "@(#)" __FILE__ " " VERSION_INFO2 " " __DATE__
-#endif  /* VERSION_STRING */
 
 /* Run-time compilation parameters selecting different hardware subsets.  */
 
@@ -1591,7 +1575,7 @@ extern struct rtx_def *m88k_va_arg ();
    `short' in a prototype should actually be passed as an
    `int'.  In addition to avoiding errors in certain cases of
    mismatch, it also makes for better code on certain machines.  */
-#define PROMOTE_PROTOTYPES
+#define PROMOTE_PROTOTYPES 1
 
 /* Define this macro if a float function always returns float
    (even in traditional mode).  Redefined in luna.h.  */

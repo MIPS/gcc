@@ -36,6 +36,7 @@ Boston, MA 02111-1307, USA.  */
 #include "expr.h"
 #include "obstack.h"
 #include "tree.h"
+#include "function.h"
 
 #define min(A,B)	((A) < (B) ? (A) : (B))
 #define max(A,B)	((A) > (B) ? (A) : (B))
@@ -74,7 +75,7 @@ static int
 unsigned_comparisons_p (x)
      rtx x;
 {
-  register char *fmt;
+  register const char *fmt;
   register int len, i;
   register enum rtx_code code = GET_CODE (x);
 
@@ -1437,7 +1438,7 @@ hash_rtx (x)
   register unsigned int hash = (((int) GET_CODE (x) << 10)
 				+ ((int) GET_MODE (x) << 20));
   register int i;
-  register char *fmt = GET_RTX_FORMAT (GET_CODE (x));
+  register const char *fmt = GET_RTX_FORMAT (GET_CODE (x));
 
   for (i = 0; i < GET_RTX_LENGTH (GET_CODE (x)); i++)
     if (fmt[i] == 'e')

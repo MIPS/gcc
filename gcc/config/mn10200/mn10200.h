@@ -898,7 +898,7 @@ do { char dstr[30];					\
 #undef ASM_OUTPUT_LABELREF
 #define ASM_OUTPUT_LABELREF(FILE, NAME)	          \
   do {                                            \
-  char* real_name;                                \
+  const char* real_name;                          \
   STRIP_NAME_ENCODING (real_name, (NAME));        \
   fprintf (FILE, "_%s", real_name);               \
   } while (0)           
@@ -1069,9 +1069,7 @@ extern void notice_update_cc ();
 extern int call_address_operand ();
 extern enum reg_class secondary_reload_class ();
 extern char *emit_a_shift ();
-extern int current_function_needs_context;
 extern char *output_tst ();
 extern int extendpsi_operand ();
-extern int rtx_equal_function_value_matters;
 extern struct rtx_def *zero_dreg;
 extern struct rtx_def *zero_areg;

@@ -35,9 +35,8 @@ Boston, MA 02111-1307, USA.  */
 #include "conditions.h"
 #include "insn-flags.h"
 #include "output.h"
+#include "function.h"
 #include "insn-attr.h"
-
-extern char *rtx_name[];
 
 mypr (s, a1, a2, a3, a4, a5)
      char *s;
@@ -52,7 +51,7 @@ myprcode (i)
   if (i < 0 || i > 90)
     fprintf (stderr, "code = %d\n", i);
   else
-    fprintf (stderr, "code = %s\n", rtx_name[i]);
+    fprintf (stderr, "code = %s\n", GET_RTX_NAME(i));
 }
 
 myabort (i)

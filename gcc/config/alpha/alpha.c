@@ -231,11 +231,6 @@ override_options ()
 	  alpha_cpu = PROCESSOR_EV6;
 	  target_flags |= MASK_BWX | MASK_MAX | MASK_FIX;
 	  target_flags &= ~ (MASK_CIX);
-
-	  /* Except for EV6 pass 1 (not released), we always have 
-	     precise arithmetic traps.  Which means we can do 
-	     software completion without minding trap shadows.  */
-	  alpha_tp = ALPHA_TP_PROG;
 	}
       else
 	error ("bad value `%s' for -mcpu switch", alpha_cpu_string);
@@ -248,6 +243,14 @@ override_options ()
     {
       warning ("fp software completion requires -mtrap-precision=i");
       alpha_tp = ALPHA_TP_INSN;
+    }
+
+  if (alpha_cpu == PROCESSOR_EV6)
+    {
+      /* Except for EV6 pass 1 (not released), we always have precise
+	 arithmetic traps.  Which means we can do software completion
+	 without minding trap shadows.  */
+      alpha_tp = ALPHA_TP_PROG;
     }
 
   if (TARGET_FLOAT_VAX)
@@ -2682,7 +2685,7 @@ print_operand (file, x, code)
     case '\'':
       /* Generates trap-mode suffix for instructions that accept the su
 	 suffix only (cmpt et al).  */
-      if (alpha_tp == ALPHA_TP_INSN)
+      if (alpha_fptm >= ALPHA_FPTM_SU)
 	fputs ("su", file);
       break;
 
@@ -4243,7 +4246,7 @@ summarize_insn (x, sum, set)
      struct shadow_summary *sum;
      int set;
 {
-  char *format_ptr;
+  const char *format_ptr;
   int i, j;
 
   if (x == 0)

@@ -27,7 +27,6 @@ Boston, MA 02111-1307, USA.  */
 
 extern char    *asm_file_name;
 extern char	call_used_regs[];
-extern int	current_function_calls_alloca;
 extern char    *language_string;
 extern int	may_call_alloca;
 extern char   **save_argv;
@@ -1497,7 +1496,7 @@ do {							\
    avoiding errors in certain cases of mismatch, it also makes for
    better code on certain machines. */
 
-#define PROMOTE_PROTOTYPES
+#define PROMOTE_PROTOTYPES 1
 
 /* Define if operations between registers always perform the operation
    on the full register even if a narrower mode is specified.  */
@@ -2086,6 +2085,12 @@ extern enum reg_class	mips_secondary_reload_class ();
       ? CLASS_UNITS (MODE, 8)						\
       : 2 * CLASS_UNITS (MODE, 8))					\
    : CLASS_UNITS (MODE, UNITS_PER_WORD))
+
+/* If defined, gives a class of registers that cannot be used as the
+   operand of a SUBREG that changes the size of the object.  */
+
+#define CLASS_CANNOT_CHANGE_SIZE					\
+  (TARGET_FLOAT64 && ! TARGET_64BIT ? FP_REGS : NO_REGS)
 
 /* If defined, this is a C expression whose value should be
    nonzero if the insn INSN has the effect of mysteriously

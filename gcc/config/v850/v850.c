@@ -35,6 +35,7 @@ Boston, MA 02111-1307, USA.  */
 #include "flags.h"
 #include "recog.h"
 #include "expr.h"
+#include "function.h"
 #include "obstack.h"
 #include "toplev.h"
 
@@ -508,8 +509,10 @@ print_operand (file, x, code)
 	  fprintf (file, reg_names[REGNO (x) + 1]);
 	  break;
 	case MEM:
-	  print_operand_address (file,
-				 XEXP (adj_offsettable_operand (x, 4), 0));
+	  x = XEXP (adj_offsettable_operand (x, 4), 0);
+	  print_operand_address (file, x);
+	  if (GET_CODE (x) == CONST_INT)
+	    fprintf (file, "[r0]");
 	  break;
 	  
 	default:
@@ -1508,8 +1511,6 @@ compute_frame_size (size, p_reg_saved)
      int size;
      long *p_reg_saved;
 {
-  extern int current_function_outgoing_args_size;
-
   return (size
 	  + compute_register_save_size (p_reg_saved)
 	  + current_function_outgoing_args_size);

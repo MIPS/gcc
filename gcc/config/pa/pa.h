@@ -563,7 +563,8 @@ int lhs_lshift_cint_operand ();
    The floating point registers are 64 bits wide. Snake fp regs are 32
    bits wide */
 #define HARD_REGNO_NREGS(REGNO, MODE)					\
-  (!TARGET_PA_11 && FP_REGNO_P (REGNO) ? 1				\
+  (FP_REGNO_P (REGNO)							\
+   ? (!TARGET_PA_11 ? 1 : (GET_MODE_SIZE (MODE) + 4 - 1) / 4)		\
    : ((GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD))
 
 /* Value is 1 if hard register REGNO can hold a value of machine-mode MODE.
@@ -574,6 +575,8 @@ int lhs_lshift_cint_operand ();
    /* On 1.0 machines, don't allow wide non-fp modes in fp regs. */	\
    : !TARGET_PA_11 && FP_REGNO_P (REGNO)				\
      ? GET_MODE_SIZE (MODE) <= 4 || GET_MODE_CLASS (MODE) == MODE_FLOAT	\
+   : FP_REGNO_P (REGNO)							\
+     ? GET_MODE_SIZE (MODE) <= 4 || ((REGNO) & 1) == 0			\
    /* Make wide modes be in aligned registers. */			\
    : GET_MODE_SIZE (MODE) <= UNITS_PER_WORD || ((REGNO) & 1) == 0)
 
@@ -783,8 +786,10 @@ int zdepi_cint_p ();
 /* Return the maximum number of consecutive registers
    needed to represent mode MODE in a register of class CLASS.  */
 #define CLASS_MAX_NREGS(CLASS, MODE)					\
-  (!TARGET_PA_11 && ((CLASS) == FP_REGS || (CLASS) == FPUPPER_REGS) ? 1 :				\
-   ((GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD))
+  ((CLASS) == FP_REGS || (CLASS) == FPUPPER_REGS			\
+   ? (!TARGET_PA_11 ? 1 : (GET_MODE_SIZE (MODE) + 4 - 1) / 4)		\
+   : ((GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD))
+
 
 /* Stack layout; function entry, exit and calling.  */
 
@@ -1069,7 +1074,7 @@ extern struct rtx_def *hppa_compare_op0, *hppa_compare_op1;
 extern enum cmp_type hppa_branch_type;
 
 #define ASM_OUTPUT_MI_THUNK(FILE, THUNK_FNDECL, DELTA, FUNCTION) \
-{ char *target_name = XSTR (XEXP (DECL_RTL (FUNCTION), 0), 0); \
+{ const char *target_name = XSTR (XEXP (DECL_RTL (FUNCTION), 0), 0); \
   STRIP_NAME_ENCODING (target_name, target_name); \
   output_function_prologue (FILE, 0); \
   if (VAL_14_BITS_P (DELTA)) \
@@ -1116,7 +1121,6 @@ extern enum cmp_type hppa_branch_type;
    No definition is equivalent to always zero.  */
 
 extern int may_call_alloca;
-extern int current_function_pretend_args_size;
 
 #define EXIT_IGNORE_STACK	\
  (get_frame_size () != 0	\
@@ -1132,11 +1136,6 @@ extern int current_function_pretend_args_size;
    It should use the frame pointer only.  This is mandatory because
    of alloca; we also take advantage of it to omit stack adjustments
    before returning.  */
-
-/* This declaration is needed due to traditional/ANSI
-   incompatibilities which cannot be #ifdefed away
-   because they occur inside of macros.  Sigh.  */
-extern union tree_node *current_function_decl;
 
 #define FUNCTION_EPILOGUE(FILE, SIZE)			\
   output_function_epilogue (FILE, SIZE)
@@ -1583,6 +1582,79 @@ extern struct rtx_def *hppa_legitimize_address ();
   else					\
     readonly_data_section ();
 
+/* On hpux10, the linker will give an error if we have a reference
+   in the read-only data section to a symbol defined in a shared
+   library.  Therefore, expressions that might require a reloc can
+   not be placed in the read-only data section.  */
+#define SELECT_SECTION(EXP,RELOC) \
+  if (TREE_CODE (EXP) == VAR_DECL \
+      && TREE_READONLY (EXP) \
+      && !TREE_THIS_VOLATILE (EXP) \
+      && DECL_INITIAL (EXP) \
+      && (DECL_INITIAL (EXP) == error_mark_node \
+          || TREE_CONSTANT (DECL_INITIAL (EXP))) \
+      && !RELOC) \
+    readonly_data_section (); \
+  else if (TREE_CODE_CLASS (TREE_CODE (EXP)) == 'c' \
+	   && !(TREE_CODE (EXP) == STRING_CST && flag_writable_strings) \
+	   && !RELOC) \
+    readonly_data_section (); \
+  else \
+    data_section ();
+   
+/* Define this macro if references to a symbol must be treated
+   differently depending on something about the variable or
+   function named by the symbol (such as what section it is in).
+
+   The macro definition, if any, is executed immediately after the
+   rtl for DECL or other node is created.
+   The value of the rtl will be a `mem' whose address is a
+   `symbol_ref'.
+
+   The usual thing for this macro to do is to a flag in the
+   `symbol_ref' (such as `SYMBOL_REF_FLAG') or to store a modified
+   name string in the `symbol_ref' (if one bit is not enough
+   information).
+
+   On the HP-PA we use this to indicate if a symbol is in text or
+   data space.  Also, function labels need special treatment. */
+
+#define TEXT_SPACE_P(DECL)\
+  (TREE_CODE (DECL) == FUNCTION_DECL					\
+   || (TREE_CODE (DECL) == VAR_DECL					\
+       && TREE_READONLY (DECL) && ! TREE_SIDE_EFFECTS (DECL)		\
+       && (! DECL_INITIAL (DECL) || ! reloc_needed (DECL_INITIAL (DECL))) \
+       && !flag_pic)							\
+   || (TREE_CODE_CLASS (TREE_CODE (DECL)) == 'c'			\
+       && !(TREE_CODE (DECL) == STRING_CST && flag_writable_strings)))
+
+#define FUNCTION_NAME_P(NAME) \
+(*(NAME) == '@' || (*(NAME) == '*' && *((NAME) + 1) == '@'))
+
+#define ENCODE_SECTION_INFO(DECL)\
+do							\
+  { if (TEXT_SPACE_P (DECL))				\
+      {	rtx _rtl;					\
+	if (TREE_CODE (DECL) == FUNCTION_DECL		\
+	    || TREE_CODE (DECL) == VAR_DECL)		\
+	  _rtl = DECL_RTL (DECL);			\
+	else						\
+	  _rtl = TREE_CST_RTL (DECL);			\
+	SYMBOL_REF_FLAG (XEXP (_rtl, 0)) = 1;		\
+	if (TREE_CODE (DECL) == FUNCTION_DECL)		\
+	  hppa_encode_label (XEXP (DECL_RTL (DECL), 0), 0);\
+      }							\
+  }							\
+while (0)
+
+/* Store the user-specified part of SYMBOL_NAME in VAR.
+   This is sort of inverse to ENCODE_SECTION_INFO.  */
+
+#define STRIP_NAME_ENCODING(VAR,SYMBOL_NAME)	\
+  (VAR) = ((SYMBOL_NAME)  + ((SYMBOL_NAME)[0] == '*' ?	\
+			     1 + (SYMBOL_NAME)[1] == '@'\
+			     : (SYMBOL_NAME)[0] == '@'))
+
 /* Specify the machine mode that this machine uses
    for the index in the tablejump instruction.  */
 #define CASE_VECTOR_MODE (TARGET_BIG_SWITCH ? TImode : DImode)
@@ -1628,7 +1700,7 @@ extern struct rtx_def *hppa_legitimize_address ();
 #define STORE_FLAG_VALUE 1
 
 /* When a prototype says `char' or `short', really pass an `int'.  */
-#define PROMOTE_PROTOTYPES
+#define PROMOTE_PROTOTYPES 1
 
 /* Specify the machine mode that pointers have.
    After generation of rtl, the compiler makes no further distinction
@@ -1879,6 +1951,27 @@ extern struct rtx_def *hppa_legitimize_address ();
        fprintf (FILE, "\t.word 0x%lx\n", l);				\
      } while (0)
 
+/* This is how to output an assembler line defining an `int' constant. 
+
+   This is made more complicated by the fact that functions must be
+   prefixed by a P% as well as code label references for the exception
+   table -- otherwise the linker chokes.  */
+
+#define ASM_OUTPUT_INT(FILE,VALUE)  \
+{ fputs ("\t.word ", FILE);			\
+  if (function_label_operand (VALUE, VOIDmode))	\
+    fputs ("P%", FILE);				\
+  output_addr_const (FILE, (VALUE));		\
+  fputs ("\n", FILE);}
+
+/* Likewise for double integers.  */
+#define ASM_OUTPUT_DOUBLE_INT(FILE,VALUE)  \
+{ fputs ("\t.dword ", FILE);			\
+  if (function_label_operand (VALUE, VOIDmode))	\
+    fputs ("P%", FILE);				\
+  output_addr_const (FILE, (VALUE));		\
+  fputs ("\n", FILE);}
+
 /* Likewise for `short' and `char' constants.  */
 
 #define ASM_OUTPUT_SHORT(FILE,VALUE)  \
@@ -1895,6 +1988,18 @@ extern struct rtx_def *hppa_legitimize_address ();
 
 #define ASM_OUTPUT_BYTE(FILE,VALUE)  \
   fprintf (FILE, "\t.byte 0x%x\n", (VALUE))
+
+#define ASM_GLOBALIZE_LABEL(FILE, NAME)					\
+  do {									\
+    /* We only handle DATA objects here, functions are globalized in	\
+       ASM_DECLARE_FUNCTION_NAME.  */					\
+    if (! FUNCTION_NAME_P (NAME))					\
+      {									\
+	fputs ("\t.EXPORT ", FILE);					\
+	assemble_name (FILE, NAME);					\
+	fputs (",DATA\n", FILE);					\
+      }									\
+  } while (0)
 
 #define ASM_OUTPUT_ASCII(FILE, P, SIZE)  \
   output_ascii ((FILE), (P), (SIZE))

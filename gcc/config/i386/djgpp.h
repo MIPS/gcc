@@ -33,6 +33,16 @@ Boston, MA 02111-1307, USA.  */
 
 #include "i386/gas.h"
 
+/* If defined, a C expression whose value is a string containing the
+   assembler operation to identify the following data as
+   uninitialized global data.  If not defined, and neither
+   `ASM_OUTPUT_BSS' nor `ASM_OUTPUT_ALIGNED_BSS' are defined,
+   uninitialized global data will be output in the data section if
+   `-fno-common' is passed, otherwise `ASM_OUTPUT_COMMON' will be
+   used.  */
+#undef BSS_SECTION_ASM_OP
+#define BSS_SECTION_ASM_OP "\t.section\t.bss"
+
 /* Enable alias attribute support.  */
 #ifndef SET_ASM_OP
 #define SET_ASM_OP "\t.set"
@@ -151,6 +161,11 @@ dtor_section ()							\
 #undef ASM_OUTPUT_ALIGN
 #define ASM_OUTPUT_ALIGN(FILE,LOG) \
   if ((LOG) != 0) fprintf ((FILE), "\t.p2align %d\n", LOG)
+
+/* This is how to output a global symbol in the BSS section.  */
+#undef ASM_OUTPUT_ALIGNED_BSS
+#define ASM_OUTPUT_ALIGNED_BSS(FILE, DECL, NAME, SIZE, ALIGN) \
+  asm_output_aligned_bss ((FILE), (DECL), (NAME), (SIZE), (ALIGN))
 
 /* djgpp has atexit ().  */
 #undef HAVE_ATEXIT

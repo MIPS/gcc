@@ -634,7 +634,7 @@ extern enum reg_class arc_regno_reg_class[];
 /* Function argument passing.  */
 
 /* When a prototype says `char' or `short', really pass an `int'.  */
-#define PROMOTE_PROTOTYPES
+#define PROMOTE_PROTOTYPES 1
 
 /* If defined, the maximum amount of space required for outgoing
    arguments will be computed and placed into the variable
@@ -699,7 +699,6 @@ extern enum reg_class arc_regno_reg_class[];
    varargs function we want to treat the last named arg (which is
    `__builtin_va_alist') as unnamed.
    This macro is only used in this file.  */
-extern int current_function_varargs;
 #define PASS_IN_REG_P(CUM, MODE, TYPE, NAMED) \
 ((!current_function_varargs || (NAMED))					\
  && (CUM) < MAX_ARC_PARM_REGS						\
