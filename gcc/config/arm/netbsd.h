@@ -37,7 +37,7 @@ Boston, MA 02111-1307, USA.  */
 #define SUBTARGET_CPU_DEFAULT TARGET_CPU_arm6
 
 /* Default is to use APCS-32 mode.  */
-#define TARGET_DEFAULT (ARM_FLAG_APCS_32 | ARM_FLAG_SOFT_FLOAT)
+#define TARGET_DEFAULT (ARM_FLAG_APCS_32 | ARM_FLAG_SOFT_FLOAT | ARM_FLAG_APCS_FRAME)
 
 #include "arm/aout.h"
 

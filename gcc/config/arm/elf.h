@@ -1,6 +1,6 @@
-/* Definitions of target machine for GNU compiler,
-   for ARM with ELF obj format.
-   Copyright (C) 1995, 1996, 1997, 1998, 1999 Free Software Foundation, Inc.
+/* Definitions of target machine for GNU compiler.
+   For ARM with ELF obj format.
+   Copyright (C) 1995 - 1999 Free Software Foundation, Inc.
    Contributed by Philip Blundell <philb@gnu.org> and
    Catherine Moore <clm@cygnus.com>
    
@@ -145,6 +145,26 @@ Boston, MA 02111-1307, USA.  */
     }								\
   while (0)
 
+/* For aliases of functions we use .thumb_set instead.  */
+#define ASM_OUTPUT_DEF_FROM_DECLS(FILE, DECL1, DECL2)		\
+  do						   		\
+    {								\
+      char * LABEL1 = XSTR (XEXP (DECL_RTL (decl), 0), 0);	\
+      char * LABEL2 = IDENTIFIER_POINTER (DECL2);		\
+								\
+      if (TARGET_THUMB && TREE_CODE (DECL1) == FUNCTION_DECL)	\
+	{							\
+	  fprintf (FILE, "\t.thumb_set ");			\
+	  assemble_name (FILE, LABEL1);			   	\
+	  fprintf (FILE, ",");			   		\
+	  assemble_name (FILE, LABEL2);		   		\
+	  fprintf (FILE, "\n");					\
+	}							\
+      else							\
+	ASM_OUTPUT_DEF (FILE, LABEL1, LABEL2);			\
+    }								\
+  while (0)
+
 /* Define this macro if jump tables (for `tablejump' insns) should be
    output in the text section, along with the assembler instructions.
    Otherwise, the readonly data section is used.  */
@@ -152,7 +172,8 @@ Boston, MA 02111-1307, USA.  */
 
 #ifndef ASM_SPEC
 #define ASM_SPEC "%{mbig-endian:-EB} %{mcpu=*:-m%*} %{march=*:-m%*} \
- %{mapcs-*:-mapcs-%*} %{mthumb-interwork:-mthumb-interwork} %{mapcs-float:mfloat}"
+ %{mapcs-*:-mapcs-%*} %{mthumb-interwork:-mthumb-interwork} \
+ %{mapcs-float:mfloat}"
 #endif
 
 #ifndef LINK_SPEC
@@ -165,17 +186,18 @@ Boston, MA 02111-1307, USA.  */
 #endif
 
 #ifndef TARGET_DEFAULT
-#define TARGET_DEFAULT (ARM_FLAG_SOFT_FLOAT | ARM_FLAG_APCS_32)
+#define TARGET_DEFAULT (ARM_FLAG_SOFT_FLOAT | ARM_FLAG_APCS_32 | ARM_FLAG_APCS_FRAME)
 #endif
 
 #ifndef MULTILIB_DEFAULTS
-#define MULTILIB_DEFAULTS { "mlittle-endian", "msoft-float", "mapcs-32", "mno-thumb-interwork" }
+#define MULTILIB_DEFAULTS \
+  { "mlittle-endian", "msoft-float", "mapcs-32", "mno-thumb-interwork", "fno-leading-underscore" }
 #endif
 
-/* Setting this to 32 produces more efficient code, but the value set in previous
-   versions of this toolchain was 8, which produces more compact structures. The
-   command line option -mstructure_size_boundary=<n> can be used to change this
-   value.  */
+/* Setting this to 32 produces more efficient code, but the value set in
+   previous versions of this toolchain was 8, which produces more compact
+   structures. The command line option -mstructure_size_boundary=<n> can be
+   used to change this value.  */
 #undef  STRUCTURE_SIZE_BOUNDARY
 #define STRUCTURE_SIZE_BOUNDARY arm_structure_size_boundary
 
@@ -284,30 +306,48 @@ extern int arm_structure_size_boundary;
 #endif
 
 #ifndef CTORS_SECTION_FUNCTION
-#define CTORS_SECTION_FUNCTION 						\
-void									\
-ctors_section ()							\
-{									\
-  if (in_section != in_ctors)						\
-    {									\
-      fprintf (asm_out_file, "%s\n", CTORS_SECTION_ASM_OP);		\
-      in_section = in_ctors;						\
-    }									\
+#define CTORS_SECTION_FUNCTION 					\
+void								\
+ctors_section ()						\
+{								\
+  if (in_section != in_ctors)					\
+    {								\
+      fprintf (asm_out_file, "%s\n", CTORS_SECTION_ASM_OP);	\
+      in_section = in_ctors;					\
+    }								\
 }
 #endif
 
 #ifndef DTORS_SECTION_FUNCTION
-#define DTORS_SECTION_FUNCTION 						\
-void									\
-dtors_section ()							\
-{									\
-  if (in_section != in_dtors)						\
-    {									\
-      fprintf (asm_out_file, "%s\n", DTORS_SECTION_ASM_OP);		\
-      in_section = in_dtors;						\
-    }									\
+#define DTORS_SECTION_FUNCTION 					\
+void								\
+dtors_section ()						\
+{								\
+  if (in_section != in_dtors)					\
+    {								\
+      fprintf (asm_out_file, "%s\n", DTORS_SECTION_ASM_OP);	\
+      in_section = in_dtors;					\
+    }								\
 }
 #endif
+
+/* A C statement to output something to the assembler file to switch to
+   section NAME for object DECL which is either a FUNCTION_DECL, a VAR_DECL
+   or NULL_TREE.  */
+#undef  ASM_OUTPUT_SECTION_NAME
+#define ASM_OUTPUT_SECTION_NAME(STREAM, DECL, NAME, RELOC)        	\
+  do									\
+    {								  	\
+      if ((DECL) && TREE_CODE (DECL) == FUNCTION_DECL)		  	\
+	fprintf (STREAM, "\t.section %s,\"ax\",%%progbits\n", NAME);	\
+      else if ((DECL) && DECL_READONLY_SECTION (DECL, RELOC))	  	\
+	fprintf (STREAM, "\t.section %s,\"a\"\n", NAME);		\
+      else if (! strncmp (NAME, ".bss", 4))      			\
+	fprintf (STREAM, "\t.section %s,\"aw\",%%nobits\n", NAME);	\
+      else							 	\
+	fprintf (STREAM, "\t.section %s,\"aw\"\n", NAME);	  	\
+    }									\
+  while (0)
 
 /* Support the ctors/dtors sections for g++.  */
 #ifndef INT_ASM_OP
@@ -370,4 +410,4 @@ dtors_section ()							\
 #define ASM_OUTPUT_ALIGN(STREAM, POWER)  \
   fprintf (STREAM, "\t.align\t%d\n", POWER)
 
-#include "arm/aout.h"
+#include "aout.h"

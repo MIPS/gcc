@@ -1,7 +1,6 @@
-/* Definitions for ARM running Linux-based GNU systems 
-   using ELF with old binutils.
+/* Definitions for StrongARM systems using COFF
    Copyright (C) 1999 Free Software Foundation, Inc.
-   Contributed by Philip Blundell <Philip.Blundell@pobox.com>
+   Contributed by Catherine Moore <clm@cygnus.com>
 
 This file is part of GNU CC.
 
@@ -20,8 +19,13 @@ along with this program; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
-/* Unfortunately, owing to various historical accidents, version 2.9.4
-   and newer of GNU binutils are not quite compatible with the old 
-   (2.9.1-based) toolset.  This tells linux-elf.h to generate specs
-   appropriate for the older versions.  */
-#define SUBTARGET_OLD_LINKER
+/* Run-time Target Specification.  */
+#ifndef SUBTARGET_CPU_DEFAULT
+#define SUBTARGET_CPU_DEFAULT 		TARGET_CPU_strongarm
+#endif
+
+#include "coff.h"
+
+#undef  TARGET_VERSION
+#define TARGET_VERSION	fputs (" (StrongARM/COFF)", stderr);
+

@@ -23,8 +23,7 @@ Boston, MA 02111-1307, USA.  */
 
 #define LIB_SPEC "-lc"
 
-#define CPP_PREDEFINES \
-    "-Darm -D__semi__ -Acpu(arm) -Amachine(arm)"
+#define SUBTARGET_CPP_SPEC "-D__semi__"
 
 #define ASM_SPEC "%{mbig-endian:-EB}"
 
@@ -32,9 +31,9 @@ Boston, MA 02111-1307, USA.  */
 
 #define TARGET_VERSION fputs (" (ARM/semi-hosted)", stderr);
 
-#define TARGET_DEFAULT ARM_FLAG_APCS_32
+#define TARGET_DEFAULT (ARM_FLAG_APCS_32 | ARM_FLAG_APCS_FRAME)
 
 #include "arm/aout.h"
-
-#undef CPP_APCS_PC_DEFAULT_SPEC
+    
+#undef  CPP_APCS_PC_DEFAULT_SPEC
 #define CPP_APCS_PC_DEFAULT_SPEC "-D__APCS_32__"
