@@ -1,5 +1,10 @@
 2004-12-28  Jerry Quinn  <jlquinn@optonline.net>
 
+	* java/awt/List.java: Implement AccessibleAWTList,
+	AccessibleAWTListChild.
+
+2004-12-28  Jerry Quinn  <jlquinn@optonline.net>
+
 	* java/awt/Choice.java: Add implements declaration for
 	Accessible.
 
