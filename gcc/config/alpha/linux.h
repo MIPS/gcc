@@ -56,6 +56,9 @@ SUB_CPP_PREDEFINES
 /* Define this so that all GNU/Linux targets handle the same pragmas.  */
 #define HANDLE_PRAGMA_PACK_PUSH_POP
 
+#define LINK_GCC_C_SEQUENCE_SPEC \
+  "%{static:--start-group} %G %L %{static:--end-group}%{!static:%G}"
+
 /* Do code reading to identify a signal frame, and set the frame
    state data appropriately.  See unwind-dw2.c for the structs.  */
 

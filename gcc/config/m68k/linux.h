@@ -403,3 +403,6 @@ do {									\
 			 SECTION_DEBUG					\
 			 | (trampolines_created ? SECTION_CODE : 0));	\
   } while (0)
+
+#define LINK_GCC_C_SEQUENCE_SPEC \
+  "%{static:--start-group} %G %L %{static:--end-group}%{!static:%G}"

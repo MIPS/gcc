@@ -93,3 +93,6 @@ Boston, MA 02111-1307, USA.  */
 		       %{!p:%{profile:gcrt1.o%s} \
 			 %{!profile:crt1.o%s}}}} \
    crti.o%s %{!shared:crtbegin.o%s} %{shared:crtbeginS.o%s}"
+
+#define LINK_GCC_C_SEQUENCE_SPEC \
+  "%{static:--start-group} %G %L %{static:--end-group}%{!static:%G}"
