@@ -168,41 +168,23 @@ c-parse.o-warn = -Wno-error
 # flex output may yield harmless "no previous prototype" warnings
 gengtype-lex.o-warn = -Wno-error
 # These files need -Wno-error because the gimplifier triggers hard to fix
-# warnings when converting to GIMPLE form.  The warnings are triggered when
-# the gimplifier re-writes va_start with a temporary instead of using the
-# last named argument of the function.
-alias.o-warn = -Wno-error
+# warnings when converting to GIMPLE form.  The warnings are triggered because
+# moving the condition into the loop prevents the loop optimizer from
+# recognizing that the loop will always be executed at least once.  We need
+# a new loop optimizer.
 bitmap.o-warn = -Wno-error
-builtins.o-warn = -Wno-error
 caller-save.o-warn = -Wno-error
 combine.o-warn = -Wno-error
-cfgrtl.o-warn = -Wno-error
-cse.o-warn = -Wno-error
 c-semantics.o-warn = -Wno-error
-c-typeck.o-warn = -Wno-error
-dwarf2out.o-warn = -Wno-error
 emit-rtl.o-warn = -Wno-error
 expr.o-warn = -Wno-error
 fold-const.o-warn = -Wno-error
-ifcvt.o-warn = -Wno-error
 genattrtab.o-warn = -Wno-error
-jump.o-warn = -Wno-error
-local-alloc.o-warn = -Wno-error
-ra-build.o-warn = -Wno-error
-simplify-rtx.o-warn = -Wno-error
-sched-vis.o-warn = -Wno-error
-stmt.o-warn = -Wno-error
 regmove.o-warn = -Wno-error
 reload1.o-warn = -Wno-error
-reload.o-warn = -Wno-error
-rtlanal.o-warn = -Wno-error
 tree.o-warn = -Wno-error
 varasm.o-warn = -Wno-error
-f/com.o-warn = -Wno-error
-f/equiv.o-warn = -Wno-error
 f/expr.o-warn = -Wno-error
-f/intrin.o-warn = -Wno-error
-f/where.o-warn = -Wno-error
 # The warning for 'prev_file_name' in profile.c is odd.  The variable *is*
 # initialized before being used.
 profile.o-warn = -Wno-error
@@ -3769,6 +3751,7 @@ cleanstrap:
 unstrap:
 	-rm -rf stage[234]* stage_last
 	$(MAKE) unstage1
+	-rm -f stage_last
 
 # Differs from cleanstrap in that it starts from the earlier stage1 build,
 # not from scratch.
