@@ -599,29 +599,6 @@ build_method_call (instance, name, parms, basetype_path, flags)
       return build_min_nt (METHOD_CALL_EXPR, name, instance, parms, NULL_TREE);
     }
 
-  /* This is the logic that magically deletes the second argument to
-     operator delete, if it is not needed.  */
-  if (name == ansi_opname[(int) DELETE_EXPR] && list_length (parms)==2)
-    {
-      tree save_last = TREE_CHAIN (parms);
-
-      /* get rid of unneeded argument */
-      TREE_CHAIN (parms) = NULL_TREE;
-      if (build_method_call (instance, name, parms, basetype_path,
-			     (LOOKUP_SPECULATIVELY|flags) & ~LOOKUP_COMPLAIN))
-	{
-	  /* If it finds a match, return it.  */
-	  return build_method_call (instance, name, parms, basetype_path, flags);
-	}
-      /* If it doesn't work, two argument delete must work */
-      TREE_CHAIN (parms) = save_last;
-    }
-  /* We already know whether it's needed or not for vec delete.  */
-  else if (name == ansi_opname[(int) VEC_DELETE_EXPR]
-	   && TYPE_LANG_SPECIFIC (TREE_TYPE (instance))
-	   && ! TYPE_VEC_DELETE_TAKES_SIZE (TREE_TYPE (instance)))
-    TREE_CHAIN (parms) = NULL_TREE;
-
   if (TREE_CODE (name) == BIT_NOT_EXPR)
     {
       if (parms)
@@ -2461,7 +2438,11 @@ build_object_call (obj, args)
       return error_mark_node;
     }
 
-  if (DECL_NAME (cand->fn) == ansi_opname [CALL_EXPR])
+  /* Since cand->fn will be a type, not a function, for a conversion
+     function, we must be careful not to unconditionally look at
+     DECL_NAME here.  */
+  if (TREE_CODE (cand->fn) == FUNCTION_DECL
+      && DECL_NAME (cand->fn) == ansi_opname [CALL_EXPR])
     return build_over_call (cand, mem_args, LOOKUP_NORMAL);
 
   obj = convert_like (TREE_VEC_ELT (cand->convs, 0), obj);
@@ -2776,9 +2757,19 @@ build_new_op (code, flags, arg1, arg2, arg3)
     conv = TREE_OPERAND (conv, 0);
   arg1 = convert_like (conv, arg1);
   if (arg2)
-    arg2 = convert_like (TREE_VEC_ELT (cand->convs, 1), arg2);
+    {
+      conv = TREE_VEC_ELT (cand->convs, 1);
+      if (TREE_CODE (conv) == REF_BIND)
+        conv = TREE_OPERAND (conv, 0);
+      arg2 = convert_like (conv, arg2);
+    }
   if (arg3)
-    arg3 = convert_like (TREE_VEC_ELT (cand->convs, 2), arg3);
+    {
+      conv = TREE_VEC_ELT (cand->convs, 2);
+      if (TREE_CODE (conv) == REF_BIND)
+        conv = TREE_OPERAND (conv, 0);
+      arg3 = convert_like (conv, arg3);
+    }
 
 builtin:
   switch (code)
@@ -4341,8 +4332,8 @@ joust (cand1, cand2, warn)
 	   != DECL_CONSTRUCTOR_P (cand2->fn))
 	  /* Don't warn if the two conv ops convert to the same type...  */
 	  || (! DECL_CONSTRUCTOR_P (cand1->fn)
-	      && ! same_type_p (TREE_TYPE (cand1->second_conv),
-				TREE_TYPE (cand2->second_conv)))))
+	      && ! same_type_p (TREE_TYPE (TREE_TYPE (cand1->fn)),
+				TREE_TYPE (TREE_TYPE (cand2->fn))))))
     {
       int comp = compare_ics (cand1->second_conv, cand2->second_conv);
       if (comp != winner)

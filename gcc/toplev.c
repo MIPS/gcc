@@ -375,6 +375,8 @@ typedef rtx (*lang_expand_expr_t)
 
 lang_expand_expr_t lang_expand_expr = 0;
 
+tree (*lang_expand_constant) PROTO((tree)) = 0;
+
 /* Pointer to function to finish handling an incomplete decl at the
    end of compilation.  */
 
@@ -4868,7 +4870,6 @@ main (argc, argv)
       flag_schedule_insns_after_reload = 1;
 #endif
       flag_regmove = 1;
-      flag_strict_aliasing = 1;
     }
 
   if (optimize >= 3)
@@ -5245,7 +5246,7 @@ main (argc, argv)
 		      else
 			level = 2;
 
-		      if (da_len > 1 && !strncmp (str, "gdwarf", da_len))
+		      if (da_len > 1 && *p && !strncmp (str, "gdwarf", da_len))
 			{
 			  error ("use -gdwarf -g%d for DWARF v1, level %d",
 				 level, level);

@@ -63,8 +63,6 @@ extern tree global_namespace;
 extern void (*print_error_function) PROTO((char *));
 extern int (*valid_lang_attribute) PROTO ((tree, tree, tree, tree));
 
-/* Stack of places to restore the search obstack back to.  */
-   
 /* Obstack used for remembering local class declarations (like
    enums and static (const) members.  */
 #include "stack.h"
@@ -2420,6 +2418,7 @@ struct saved_scope {
   tree previous_class_type, previous_class_values;
   int processing_specialization;
   int processing_explicit_instantiation;
+  char *class_cache_firstobj;
 };
 static struct saved_scope *current_saved_scope;
 
@@ -2537,6 +2536,7 @@ maybe_push_to_top_level (pseudo)
   s->processing_template_decl = processing_template_decl;
   s->previous_class_type = previous_class_type;
   s->previous_class_values = previous_class_values;
+  s->class_cache_firstobj = class_cache_firstobj;
   s->processing_specialization = processing_specialization;
   s->processing_explicit_instantiation = processing_explicit_instantiation;
 
@@ -2552,6 +2552,7 @@ maybe_push_to_top_level (pseudo)
   shadowed_labels = NULL_TREE;
   minimal_parse_mode = 0;
   previous_class_type = previous_class_values = NULL_TREE;
+  class_cache_firstobj = 0;
   processing_specialization = 0;
   processing_explicit_instantiation = 0;
   current_template_parms = NULL_TREE;
@@ -2623,6 +2624,7 @@ pop_from_top_level ()
   previous_class_values = s->previous_class_values;
   processing_specialization = s->processing_specialization;
   processing_explicit_instantiation = s->processing_explicit_instantiation;
+  class_cache_firstobj = s->class_cache_firstobj;
 
   free (s);
 
@@ -3514,7 +3516,8 @@ duplicate_decls (newdecl, olddecl)
 	  TREE_TYPE (olddecl) = build_exception_variant (newtype,
 							 TYPE_RAISES_EXCEPTIONS (oldtype));
 
-	  if ((pedantic || ! DECL_IN_SYSTEM_HEADER (olddecl))
+	  if ((pedantic || (! DECL_IN_SYSTEM_HEADER (olddecl)
+	  		    && ! DECL_IN_SYSTEM_HEADER (newdecl)))
 	      && DECL_SOURCE_LINE (olddecl) != 0
 	      && flag_exceptions
 	      && ! compexcepttypes (TREE_TYPE (newdecl), TREE_TYPE (olddecl)))
@@ -4151,8 +4154,10 @@ pushdecl (x)
 
 	  /* Warn if shadowing an argument at the top level of the body.  */
 	  else if (oldlocal != NULL_TREE && !DECL_EXTERNAL (x)
-	      && TREE_CODE (oldlocal) == PARM_DECL
-	      && TREE_CODE (x) != PARM_DECL)
+		   && TREE_CODE (oldlocal) == PARM_DECL
+		   /* Don't complain if it's from an enclosing function.  */
+		   && DECL_CONTEXT (oldlocal) == current_function_decl
+		   && TREE_CODE (x) != PARM_DECL)
 	    {
 	      /* Go to where the parms should be and see if we
 		 find them there.  */
@@ -4443,7 +4448,7 @@ push_class_level_binding (name, x)
      IDENTIFIER_CLASS_VALUE.  */
   if (push_class_binding (name, x))
     {
-      maybe_push_cache_obstack ();
+      push_cache_obstack ();
       class_binding_level->class_shadowed
 	= tree_cons (name, IDENTIFIER_CLASS_VALUE (name),
 		     class_binding_level->class_shadowed);
@@ -5812,6 +5817,7 @@ lookup_name_real (name, prefer_type, nonclass, namespaces_only)
 	    {
 	      struct tree_binding b;
 	      val = binding_init (&b);
+	      flags |= LOOKUP_COMPLAIN;
 	      if (!qualified_lookup_using_namespace (name, type, val, flags))
 		return NULL_TREE;
 	      val = select_decl (val, flags);
@@ -7336,6 +7342,13 @@ start_decl (declarator, declspecs, initialized, attributes, prefix_attributes)
       DECL_INITIAL (decl) = error_mark_node;
     }
 
+#ifdef SET_DEFAULT_DECL_ATTRIBUTES
+  SET_DEFAULT_DECL_ATTRIBUTES (decl, attributes);
+#endif
+  
+  /* Set attributes here so if duplicate decl, will have proper attributes.  */
+  cplus_decl_attributes (decl, attributes, prefix_attributes);
+
   if (context && TYPE_SIZE (complete_type (context)) != NULL_TREE)
     {
       push_nested_class (context, 2);
@@ -7392,13 +7405,6 @@ start_decl (declarator, declspecs, initialized, attributes, prefix_attributes)
 	cp_pedwarn ("declaration of `%#D' outside of class is not definition",
 		    decl);
     }
-
-#ifdef SET_DEFAULT_DECL_ATTRIBUTES
-  SET_DEFAULT_DECL_ATTRIBUTES (decl, attributes);
-#endif
-  
-  /* Set attributes here so if duplicate decl, will have proper attributes.  */
-  cplus_decl_attributes (decl, attributes, prefix_attributes);
 
   /* Add this decl to the current binding level, but not if it
      comes from another scope, e.g. a static member variable.
@@ -8128,7 +8134,7 @@ cp_finish_decl (decl, init, asmspec_tree, need_pop, flags)
 	      else if (! DECL_ARTIFICIAL (decl))
 		{
 		  cp_warning_at ("sorry: semantics of inline function static data `%#D' are wrong (you'll wind up with multiple copies)", decl);
-		  cp_warning_at ("  you can work around this by removing the initializer"), decl;
+		  cp_warning_at ("  you can work around this by removing the initializer", decl);
 		}
 	    }
 	}
@@ -8504,6 +8510,8 @@ expand_static_init (decl, init)
 	{
 	  tree cleanup, fcall;
 	  static tree Atexit = 0;
+	  int saved_flag_access_control;
+
 	  if (Atexit == 0)
 	    {
 	      tree atexit_fndecl, PFV, pfvlist;
@@ -8530,13 +8538,31 @@ expand_static_init (decl, init)
 	     so that any access checks will be done relative to the
 	     current scope, rather than the scope of the anonymous
 	     function.  */
-	  fcall = build_cleanup (decl);
+	  build_cleanup (decl);
+
+	  /* Now start the function.  */
 	  cleanup = start_anon_func ();
+
+	  /* Now, recompute the cleanup.  It may contain SAVE_EXPRs
+	     that refer to the original function, rather than the
+	     anonymous one.  That will make the back-end think that
+	     nested functions are in use, which causes confusion.  */
+	  saved_flag_access_control = flag_access_control;
+	  flag_access_control = 0;
+	  fcall = build_cleanup (decl);
+	  flag_access_control = saved_flag_access_control;
+
+	  /* Finish off the function.  */
 	  expand_expr_stmt (fcall);
 	  end_anon_func ();
+
+	  /* Call atexit with the cleanup function.  */
 	  mark_addressable (cleanup);
 	  cleanup = build_unary_op (ADDR_EXPR, cleanup, 0);
-	  fcall = build_function_call (Atexit, expr_tree_cons (NULL_TREE, cleanup, NULL_TREE));
+	  fcall = build_function_call (Atexit, 
+				       expr_tree_cons (NULL_TREE, 
+						       cleanup, 
+						       NULL_TREE));
 	  expand_expr_stmt (fcall);
 	}
 
@@ -8558,7 +8584,7 @@ expand_static_init (decl, init)
 
 /* Make TYPE a complete type based on INITIAL_VALUE.
    Return 0 if successful, 1 if INITIAL_VALUE can't be deciphered,
-   2 if there was no information (in which case assume 1 if DO_DEFAULT).  */
+   2 if there was no information (in which case assume 0 if DO_DEFAULT).  */
 
 int
 complete_array_type (type, initial_value, do_default)
@@ -8567,7 +8593,10 @@ complete_array_type (type, initial_value, do_default)
 {
   register tree maxindex = NULL_TREE;
   int value = 0;
-
+  
+  /* Allocate on the same obstack as TYPE.  */
+  push_obstacks (TYPE_OBSTACK (type), TYPE_OBSTACK (type));
+  
   if (initial_value)
     {
       /* Note MAXINDEX  is really the maximum index,
@@ -8615,23 +8644,28 @@ complete_array_type (type, initial_value, do_default)
   if (maxindex)
     {
       tree itype;
+      tree domain;
 
-      TYPE_DOMAIN (type) = build_index_type (maxindex);
+      domain = build_index_type (maxindex);
+      TYPE_DOMAIN (type) = domain;
+
       if (! TREE_TYPE (maxindex))
-	TREE_TYPE (maxindex) = TYPE_DOMAIN (type);
+	TREE_TYPE (maxindex) = domain;
       if (initial_value)
         itype = TREE_TYPE (initial_value);
       else
 	itype = NULL;
       if (itype && !TYPE_DOMAIN (itype))
-	TYPE_DOMAIN (itype) = TYPE_DOMAIN (type);
+	TYPE_DOMAIN (itype) = domain;
       /* The type of the main variant should never be used for arrays
 	 of different sizes.  It should only ever be completed with the
 	 size of the array.  */
       if (! TYPE_DOMAIN (TYPE_MAIN_VARIANT (type)))
-	TYPE_DOMAIN (TYPE_MAIN_VARIANT (type)) = TYPE_DOMAIN (type);
+	TYPE_DOMAIN (TYPE_MAIN_VARIANT (type)) = domain;
     }
 
+  pop_obstacks();
+  
   /* Lay out the type now that we can get the real answer.  */
 
   layout_type (type);
@@ -10319,7 +10353,8 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 	      continue;
 
 	    /* VC++ spells a zero-sized array with [].  */
-	    if (size == NULL_TREE && decl_context == FIELD && ! staticp)
+	    if (size == NULL_TREE && decl_context == FIELD && !	staticp
+		&& ! RIDBIT_SETP (RID_TYPEDEF, specbits))
 	      size = integer_zero_node;
 
 	    if (size)
@@ -10355,10 +10390,8 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 			  size = t;
 		      }
 
-		    itype = make_node (INTEGER_TYPE);
-		    TYPE_MIN_VALUE (itype) = size_zero_node;
-		    TYPE_MAX_VALUE (itype) = build_min
-		      (MINUS_EXPR, sizetype, size, integer_one_node);
+		    itype = build_index_type (build_min
+		      (MINUS_EXPR, sizetype, size, integer_one_node));
 		    goto dont_grok_size;
 		  }
 
@@ -11017,18 +11050,17 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 	  && TREE_CODE (TYPE_NAME (type)) == TYPE_DECL
 	  && ANON_AGGRNAME_P (TYPE_IDENTIFIER (type)))
 	{
+	  tree oldname = TYPE_NAME (type);
+	  tree t;
+
 	  /* FIXME: This is bogus; we should not be doing this for
 	            cv-qualified types.  */
 
-	  /* For anonymous structs that are cv-qualified, need to use
-             TYPE_MAIN_VARIANT so that name will mangle correctly. As
-             type not referenced after this block, don't bother
-             resetting type to original type, ie. TREE_TYPE (decl). */
-	  type = TYPE_MAIN_VARIANT (type);
-
 	  /* Replace the anonymous name with the real name everywhere.  */
 	  lookup_tag_reverse (type, declarator);
-	  TYPE_NAME (type) = decl;
+	  for (t = TYPE_MAIN_VARIANT (type); t; t = TYPE_NEXT_VARIANT (t))
+	    if (TYPE_NAME (t) == oldname)
+	      TYPE_NAME (t) = decl;
 
 	  if (TYPE_LANG_SPECIFIC (type))
 	    TYPE_WAS_ANONYMOUS (type) = 1;

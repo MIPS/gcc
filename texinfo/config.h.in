@@ -236,19 +236,14 @@
 /* Define if you have the <values.h> header file.  */
 #undef HAVE_VALUES_H
 
+/* Define if you have the <zlib.h> header file.  */
+#undef HAVE_ZLIB_H
+
 /* Define if you have the bsd library (-lbsd).  */
 #undef HAVE_LIBBSD
 
 /* Define if you have the i library (-li).  */
 #undef HAVE_LIBI
-
-/* Define if you have the z library (-lz).  */
-#undef HAVE_LIBZ
-
-/* For gettext (NLS) */
-#include <libintl.h>
-#define _(String) gettext (String)
-#define N_(String) (String)
 
 
 /* Leave that blank line there!!  Autoheader needs it.

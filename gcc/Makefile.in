@@ -68,9 +68,10 @@ ALLOCA_FINISH = true
 # TCFLAGS is used for compilations with the GCC just built.
 XCFLAGS =
 TCFLAGS =
-CFLAGS = -g @stage1_warn_cflags@
+# -W -Wall warnings are disabled for releases.
+CFLAGS = -g
 BOOT_CFLAGS = -O2 $(CFLAGS)
-WARN_CFLAGS = -W -Wall
+#WARN_CFLAGS = -W -Wall
 # These exists to be overridden by the x-* and t-* files, respectively.
 X_CFLAGS =
 T_CFLAGS =
@@ -166,7 +167,7 @@ INSTALL_ASSERT_H = install-assert-h
 # The GCC to use for compiling libgcc2.a, enquire, and libgcc1-test.
 # Usually the one we just built.
 # Don't use this as a dependency--use $(GCC_PASSES) or $(GCC_PARTS).
-GCC_FOR_TARGET = ./xgcc -B./ -B$(build_tooldir)/bin/
+GCC_FOR_TARGET = ./xgcc -B$(build_tooldir)/bin/ -B./ -I$(build_tooldir)/include
 
 # This is used instead of ALL_CFLAGS when compiling with GCC_FOR_TARGET.
 # It omits XCFLAGS, and specifies -B./.
@@ -393,6 +394,9 @@ EXTRA_HEADERS =@extra_headers_list@
 
 # Set this to `collect2' to enable use of collect2.
 USE_COLLECT2 = @will_use_collect2@
+# If we might be using collect2, then this variable will be set to
+# -DUSE_COLLECT2.  toplev.c, collect2.c and libgcc2.c all need to
+# if we may be using collect2.
 MAYBE_USE_COLLECT2 = @maybe_use_collect2@
 # It is convenient for configure to add the assignment at the beginning,
 # so don't override it here.
@@ -1067,7 +1071,7 @@ libgcc2.a: libgcc2.c libgcc2.ready $(CONFIG_H) $(FPBIT) $(DPBIT) $(LIB2ADD) \
 	do \
 	  echo $${name}; \
 	  $(GCC_FOR_TARGET) $(LIBGCC2_CFLAGS) $(INCLUDES) -c -DL$${name} \
-	      $(srcdir)/libgcc2.c -o $${name}$(objext); \
+	      $(MAYBE_USE_COLLECT2) $(srcdir)/libgcc2.c -o $${name}$(objext); \
 	  if [ $$? -eq 0 ] ; then true; else exit 1; fi; \
 	  $(AR_FOR_TARGET) $(AR_FLAGS_FOR_TARGET) tmplibgcc2.a $${name}$(objext); \
 	  rm -f $${name}$(objext); \
@@ -1242,6 +1246,11 @@ stmp-multilib-sub:
 	then (cd tmpcopy; $(AR_FOR_TARGET) x ../$(LIBGCC1)); \
 	else true; \
 	fi
+# Some versions of ar (specifically the one in RISC/os 5.x), create an
+# unwritable table of contents file, and then print an error message when
+# the second ar command tries to overwrite this file.  To avoid the error
+# message from ar, we make sure all files are writable.
+	-(cd tmpcopy; chmod +w * > /dev/null 2>&1)
 	(cd tmpcopy; $(AR_FOR_TARGET) x ../$(LIBGCC2))
 	(cd tmpcopy; $(AR_FOR_TARGET) $(AR_FLAGS_FOR_TARGET) ../tmplibgcc.a *$(objext))
 	rm -rf libgcc2.a tmpcopy
@@ -1472,7 +1481,7 @@ stmt.o : stmt.c $(CONFIG_H) system.h $(RTL_H) $(TREE_H) flags.h function.h  \
    loop.h $(RECOG_H) toplev.h output.h varray.h
 except.o : except.c $(CONFIG_H) system.h $(RTL_H) $(TREE_H) flags.h \
    function.h insn-flags.h $(EXPR_H) $(REGS_H) hard-reg-set.h \
-   insn-config.h $(RECOG_H) output.h except.h toplev.h
+   insn-config.h $(RECOG_H) output.h except.h toplev.h intl.h
 expr.o : expr.c $(CONFIG_H) system.h $(RTL_H) $(TREE_H) flags.h function.h \
    $(REGS_H) insn-flags.h insn-codes.h $(EXPR_H) insn-config.h $(RECOG_H) \
    output.h typeclass.h hard-reg-set.h toplev.h hard-reg-set.h except.h

@@ -1,3 +1,54 @@
+Sun Oct 24 23:54:10 PDT 1999 Jeff Law  (law@cygnus.com)
+
+	* gcc-2.95.2 Released.
+
+Mon Aug 16 01:29:24 PDT 1999 Jeff Law  (law@cygnus.com)
+
+	* gcc-2.95.1 Released.
+
+Wed Jul 28 21:39:31 PDT 1999 Jeff Law  (law@cygnus.com)
+
+	* gcc-2.95 Released.
+
+Sun Jul 25 23:40:51 PDT 1999 Jeff Law  (law@cygnus.com)
+
+	* gcc-2.95 Released.
+
+1999-07-01  Alexandre Oliva  <oliva@dcc.unicamp.br>
+
+	* configure.in (zlib.h, libz): Disable checks.
+	* configure, config.h.in: Updated.
+
+Thu Jul  1 01:44:00 1999  Philippe De Muyter  <phdm@macqel.be>
+
+	* acconfig.h (_, N_): Macros removed.
+	* lib/system.h (_, N_): Macro definitions moved here.
+	* config.h.in: File regenerated.
+
+Tue Jun 29 03:20:33 1999  Jeffrey A Law  (law@cygnus.com)
+
+	* config.h.in: Rebuilt.
+
+Thu Jun 24 22:05:20 1999  Jeffrey A Law  (law@cygnus.com)
+
+	* Makefile.am (SUBDIRS): Remove util again.
+	* Makefile.in: Rebuilt.
+
+Wed Jun  2 00:47:03 1999  Philippe De Muyter  <phdm@macqel.be>
+
+	* acconfig.h (libintl.h): Does not include this file here because
+	it will define `NULL' before the system files have got any chance
+	to define it.
+	* intl/explodename.c (stdlib.h): Include this file only if we have it.
+
+Sun May 30 16:10:06 1999  Richard Henderson  <rth@cygnus.com>
+
+	* config.guess, config.sub: Use toplevel file.
+
+Wed May 26 19:30:00 1999  Mark Klein <mklein@dis.com>
+        
+	* makeinfo/makeinfo.c: Add HAVE_LC_MESSAGES around setlocale call.
+
 1999-02-24  Alexandre Oliva  <oliva@dcc.unicamp.br>
 
 	* lib/Makefile.in: Regen dependencies.
