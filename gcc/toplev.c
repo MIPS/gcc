@@ -760,10 +760,6 @@ int flag_unwind_tables = 0;
 
 int flag_asynchronous_unwind_tables = 0;
 
-/* Nonzero means allow for forced unwinding.  */
-
-int flag_forced_unwind_exceptions;
-
 /* Nonzero means don't place uninitialized global data in common storage
    by default.  */
 
@@ -1143,8 +1139,6 @@ static const lang_independent_options f_options[] =
    N_("Generate unwind tables exact at each instruction boundary") },
   {"non-call-exceptions", &flag_non_call_exceptions, 1,
    N_("Support synchronous non-call exceptions") },
-  {"forced-unwind-exceptions", &flag_forced_unwind_exceptions, 1,
-   N_("Support forced unwinding, e.g. for thread cancellation") },
   {"profile-arcs", &profile_arc_flag, 1,
    N_("Insert arc based program profiling code") },
   {"test-coverage", &flag_test_coverage, 1,
@@ -2100,7 +2094,11 @@ check_global_declarations (vec, len)
 
       /* Warn about static fns or vars defined but not used.  */
       if (((warn_unused_function && TREE_CODE (decl) == FUNCTION_DECL)
-	   || (warn_unused_variable && TREE_CODE (decl) == VAR_DECL))
+	   /* We don't warn about "static const" variables because the
+	      "rcs_id" idiom uses that construction.  */
+	   || (warn_unused_variable
+	       && TREE_CODE (decl) == VAR_DECL && ! TREE_READONLY (decl)))
+	  && ! DECL_IN_SYSTEM_HEADER (decl)
 	  && ! TREE_USED (decl)
 	  /* The TREE_USED bit for file-scope decls is kept in the identifier,
 	     to handle multiple external decls in different scopes.  */

@@ -1,3 +1,7 @@
+Tue May 20 12:12:42 CEST 2003  Jan Hubicka  <jh@suse.cz>
+
+	* Merge from 3.3-branch (gcc_3_3_release)
+
 Sat May 10 21:17:37 CEST 2003  Jan Hubicka  <jh@suse.cz>
 
 	* fold-const.c (fold):  Fix fp compare optimization.

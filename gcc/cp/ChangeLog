@@ -1,3 +1,31 @@
+2003-05-13  Release Manager
+
+	* GCC 3.3 Released.
+
+2003-05-13  Release Manager
+
+	* GCC 3.3 Released.
+
+2003-05-13  Release Manager
+
+	* GCC 3.3 Released.
+
+2003-05-13  Release Manager
+
+	* GCC 3.3 Released.
+
+2003-05-02  Richard Henderson  <rth@redhat.com>
+
+	PR c++/10570
+        * cfns.gperf: Comment out POSIX thread cancellation points,
+        plus abort and raise.
+        * cfns.h: Regenerate.
+
+2003-05-01  Mark Mitchell  <mark@codesourcery.com>
+
+	* decl2.c (comdat_linkage): Don't externalize explicit
+	instantiations.
+
 2003-04-29  Mark Mitchell  <mark@codesourcery.com>
 
 	PR c++/10551
