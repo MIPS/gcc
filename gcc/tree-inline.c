@@ -1786,6 +1786,36 @@ clone_body (tree clone, tree fn, void *arg_map)
   TREE_CHAIN (DECL_SAVED_TREE (clone)) = copy_body (&id);
 }
 
+/* Save duplicate of body in FN.  MAP is used to pass around splay tree
+   used to update arguments in restore_body.  */
+tree
+save_body (tree fn, tree *arg_copy)
+{
+  inline_data id;
+  tree body, *parg;
+
+  memset (&id, 0, sizeof (id));
+  VARRAY_TREE_INIT (id.fns, 1, "fns");
+  VARRAY_PUSH_TREE (id.fns, fn);
+  id.decl_map = splay_tree_new (splay_tree_compare_pointers, NULL, NULL);
+  *arg_copy = DECL_ARGUMENTS (fn);
+  for (parg = arg_copy; *parg; parg = &TREE_CHAIN (*parg))
+    {
+      tree new = copy_node (*parg);
+      insert_decl_map (&id, *parg, new);
+      TREE_CHAIN (new) = TREE_CHAIN (*parg);
+      *parg = new;
+    }
+  insert_decl_map (&id, DECL_RESULT (fn), DECL_RESULT (fn));
+
+  /* Actually copy the body.  */
+  body = copy_body (&id);
+
+  /* Clean up.  */
+  splay_tree_delete (id.decl_map);
+  return body;
+}
+
 /* Apply FUNC to all the sub-trees of TP in a pre-order traversal.
    FUNC is called with the DATA and the address of each sub-tree.  If
    FUNC returns a non-NULL value, the traversal is aborted, and the

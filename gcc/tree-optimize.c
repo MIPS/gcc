@@ -266,7 +266,7 @@ void
 tree_rest_of_compilation (tree fndecl, bool nested_p)
 {
   location_t saved_loc;
-  tree saved_tree = NULL, chain;
+  tree saved_tree = NULL, saved_args = NULL, chain;
 
   timevar_push (TV_EXPAND);
 
@@ -294,7 +294,7 @@ tree_rest_of_compilation (tree fndecl, bool nested_p)
      such as exception handling.  */
   if (DECL_INLINE (fndecl) && flag_inline_trees)
     {
-      saved_tree = lhd_unsave_expr_now (DECL_SAVED_TREE (fndecl));
+      saved_tree = save_body (fndecl, &saved_args);
       /* ??? We're saving this value here on the stack.  Don't gc it.  */
       nested_p = true;
     }
@@ -435,6 +435,7 @@ tree_rest_of_compilation (tree fndecl, bool nested_p)
       /* We might need the body of this function so that we can expand
          it inline somewhere else.  */
       DECL_SAVED_TREE (fndecl) = saved_tree;
+      DECL_ARGUMENTS (fndecl) = saved_args;
     }
 
   /* If possible, obliterate the body of the function so that it can
