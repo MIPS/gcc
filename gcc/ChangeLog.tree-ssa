@@ -1,5 +1,17 @@
 2003-11-07  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
+	* basic-block.h (create_bb): Declaration changed.
+	* tree-cfg.c (create_bb): Enable creating a block on specified place.
+	(make_blocks, tree_split_edge, tree_make_forwarder_block): Use it.
+	(tree_verify_flow_info): Check bbs are in the correct order.
+
+	* tree-cfg.c (find_unreachable_blocks): Remove now incorrect comments.
+
+	* tree-ssa.c (rewrite_out_of_ssa): Don't remove annotations from
+	statements before the final dump.
+
+2003-11-07  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
 	* tree-tailcall.c (struct tailcall): New.
 	(bb_optimize_tail_calls, find_tail_call_p): Removed.
 	(eliminate_tail_call): Get the tailcall from the struct tailcall.

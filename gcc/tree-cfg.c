@@ -422,7 +422,7 @@ make_blocks (tree *first_p, basic_block bb)
 	 so now.  */
       if (start_new_block || stmt_starts_bb_p (stmt, prev_stmt))
 	{
-	  bb = create_bb ();
+	  bb = create_bb (NULL);
 	  start_new_block = false;
 	}
 
@@ -484,10 +484,10 @@ prepend_stmt_to_bb (tree *stmt_p, basic_block bb)
 }
 
 
-/* Create and return a new basic block.  */
+/* Create and return a new basic block after bb AFTER.  */
 
 basic_block
-create_bb (void)
+create_bb (basic_block after)
 {
   basic_block bb;
 
@@ -499,10 +499,9 @@ create_bb (void)
   bb->flags = BB_NEW;
 
   /* Add the new block to the linked list of blocks.  */
-  if (n_basic_blocks > 0)
-    link_block (bb, BASIC_BLOCK (n_basic_blocks - 1));
-  else
-    link_block (bb, ENTRY_BLOCK_PTR);
+  if (!after)
+    after = EXIT_BLOCK_PTR->prev_bb;
+  link_block (bb, after);
 
   /* Grow the basic block array if needed.  */
   if ((size_t) n_basic_blocks == VARRAY_SIZE (basic_block_info))
@@ -1280,14 +1279,10 @@ remove_unreachable_blocks (void)
 
   find_unreachable_blocks ();
 
-  /* Remove unreachable blocks in reverse.  That will expose more unnecessary
-     COMPOUND_EXPRs that we can remove.  */
   for (i = last_basic_block - 1; i >= 0; i--)
     {
       bb = BASIC_BLOCK (i);
 
-      /* The block may have been removed in a previous iteration if it was
-	 inside an unreachable control structure.  */
       if (bb == NULL)
 	continue;
 
@@ -3468,7 +3463,7 @@ tree_split_edge (edge edge_in)
     abort ();
 
   dest = edge_in->dest;
-  new_bb = create_bb ();
+  new_bb = create_bb (edge_in->src);
   create_block_annotation (new_bb);
   redirect_edge_succ  (edge_in, new_bb);
   new_edge = make_edge (new_bb, dest, 0);
@@ -3496,9 +3491,10 @@ static int
 tree_verify_flow_info (void)
 {
   int err = 0;
-  basic_block bb;
+  basic_block bb, abb;
   block_stmt_iterator bsi;
   tree stmt;
+  tree_stmt_iterator tsi;
 
   FOR_EACH_BB (bb)
     {
@@ -3522,6 +3518,34 @@ tree_verify_flow_info (void)
 	}
     }
 
+  /* Check that order of basic blocks is the same as the order of code.  */
+  bb = ENTRY_BLOCK_PTR->next_bb;
+  if (bb == EXIT_BLOCK_PTR
+      || !bb->head_tree_p)
+    return err;
+
+  for (tsi = tsi_start (bb->head_tree_p); !tsi_end_p (tsi); tsi_next (&tsi))
+    {
+      if (IS_EMPTY_STMT (tsi_stmt (tsi)))
+	continue;
+ 
+      abb = bb_for_stmt (tsi_stmt (tsi));
+      if (!abb)
+	continue;
+
+      if (abb != bb)
+	{
+	  if (abb != bb->next_bb)
+	    {
+	      fprintf (stderr, "Block missordering after bb %d\n",
+		       bb->index);
+	      err = 1;
+	    }
+
+	  bb = abb;
+	}
+    }
+
   return err;
 }
 
@@ -3540,7 +3564,7 @@ tree_make_forwarder_block (basic_block bb, int redirect_latch,
   basic_block dummy;
 
   /* Create the new basic block.  */
-  dummy = create_bb ();
+  dummy = create_bb (NULL);
   create_block_annotation (dummy);
   dummy->count = bb->count;
   dummy->frequency = bb->frequency;

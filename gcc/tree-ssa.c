@@ -1890,17 +1890,17 @@ rewrite_out_of_ssa (tree fndecl, enum tree_dump_index phase)
      tree->rtl expanders deal with.  */
   remove_useless_stmts_and_vars (&DECL_SAVED_TREE (fndecl), true);
 
-  /* Flush out flow graph and SSA data.  */
-  delete_tree_ssa (fndecl);
-  delete_var_map (map);
-  timevar_pop (TV_TREE_SSA_TO_NORMAL);
-
   /* Debugging dumps.  */
   if (dump_file)
     {
       dump_cfg_function_to_file (fndecl, dump_file, dump_flags);
       dump_end (phase, dump_file);
     }
+
+  /* Flush out flow graph and SSA data.  */
+  delete_tree_ssa (fndecl);
+  delete_var_map (map);
+  timevar_pop (TV_TREE_SSA_TO_NORMAL);
 }
 
 
