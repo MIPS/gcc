@@ -1,3 +1,20 @@
+2004-02-23  Jeff Law  <law@redhat.com>
+
+	* Makefile.in (OBJC-common): Add tree-ssa-copy.o.
+	(tree-ssa-copy.o): Add dependencies.
+	* tree-flow.h (propagate_value, replace_exp): Prototype.
+	(cprop_into_stmt, cprop_into_successor_phis): Likewise.
+	* tree-ssa-copy.c: New file, most functions copied from tree-ssa-dom.c
+	(cprop_into_stmt): Handle pointer & reference types better.
+	* tree-ssa-dom.c (opt_stats_d): Kill uninteresting stats.
+	(dump_dominator_optimization_stats): Corresponding changes.
+	(cprop_into_stmt): Moved into tree-ssa-copy.c.
+	(propagate_value): Likewise.
+	(cprop_into_phis): Simplify using code fromi tree-ssa-copy.c.
+	(optimize_stmt): Pass additional argument to cprop_into_stmt.
+	* tree-ssa-pre.c (generate_expr_as_of_bb): Use replace_exp.
+	(generate_vops_as_of_bb): Similarly.
+
 2004-02-21  Jan Hubicka  <jh@suse.cz>
 
 	* cgraphunit.c (decide_is_function_needed): Nested functions of extern

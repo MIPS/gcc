@@ -1223,7 +1223,7 @@ generate_expr_as_of_bb (tree expr, basic_block pred, basic_block bb)
 	    {
 	      int opnum = opnum_of_phi (phi, pred->index);
 	      tree p = PHI_ARG_DEF (phi, opnum);
-	      *vp = p;
+	      replace_exp (vp, p);
 	      if (!phi_ssa_name_p (p))
 		replaced_constants = true;
 	      break;
@@ -1258,7 +1258,7 @@ generate_vops_as_of_bb (tree expr, basic_block pred, basic_block bb)
 	    {
 	      int opnum = opnum_of_phi (phi, pred->index);
 	      tree p = PHI_ARG_DEF (phi, opnum);
-	      *VUSE_OP_PTR (vuses, i) = p;
+	      replace_exp (VUSE_OP_PTR (vuses, i), p);
 	      break;
 	    }
 	}
