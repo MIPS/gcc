@@ -46,9 +46,15 @@
 //   which starts at zero, increments on instance construction, and decrements
 //   on instance destruction.  "assert_count(n)" can be called to VERIFY()
 //   that the count equals N.
+//
+// 4) gnu_char, gnu_char_traits, abstract character classes and
+// char_traits specializations for testing instantiations.
 
 #ifndef _GLIBCPP_TESTSUITE_HOOKS_H
 #define _GLIBCPP_TESTSUITE_HOOKS_H
+
+#include <bits/c++config.h>
+#include <cstddef>
 
 #ifdef DEBUG_ASSERT
 # include <cassert>
@@ -56,8 +62,6 @@
 #else
 # define VERIFY(fn) test &= (fn)
 #endif
-
-#include <bits/c++config.h>
 
 // Defined in GLIBCPP_CONFIGURE_TESTSUITE.
 #ifndef _GLIBCPP_MEM_LIMITS
@@ -81,25 +85,33 @@ void
 __set_testsuite_memlimit(float __size = MEMLIMIT_MB)
 {
     struct rlimit r;
-    r.rlim_cur = (rlim_t)(__size * 1048576);
+    rlim_t limit = (rlim_t)(__size * 1048576);
 
     // Heap size, seems to be common.
 #if _GLIBCPP_HAVE_MEMLIMIT_DATA
+    getrlimit(RLIMIT_DATA, &r);
+    r.rlim_cur = limit;
     setrlimit(RLIMIT_DATA, &r);
 #endif
 
     // Resident set size.
 #if _GLIBCPP_HAVE_MEMLIMIT_RSS
+    getrlimit(RLIMIT_RSS, &r);
+    r.rlim_cur = limit;
     setrlimit(RLIMIT_RSS, &r);
 #endif
 
     // Mapped memory (brk + mmap).
 #if _GLIBCPP_HAVE_MEMLIMIT_VMEM
+    getrlimit(RLIMIT_VMEM, &r);
+    r.rlim_cur = limit;
     setrlimit(RLIMIT_VMEM, &r);
 #endif
 
     // Virtual memory.
 #if _GLIBCPP_HAVE_MEMLIMIT_AS
+    getrlimit(RLIMIT_AS, &r);
+    r.rlim_cur = limit;
     setrlimit(RLIMIT_AS, &r);
 #endif
 }
@@ -122,6 +134,80 @@ struct gnu_counting_struct
 
 gnu_counting_struct::size_type  gnu_counting_struct::count = 0;
 
+struct gnu_char
+{
+  unsigned long c;
+};
+
+struct gnu_int
+{
+  unsigned long i;
+};
+
+struct gnu_state
+{
+  unsigned long l;
+  unsigned long l2;
+};
+
+// char_traits specialization
+namespace std
+{
+  template<class _CharT>
+    struct char_traits;
+
+  template<>
+    struct char_traits<gnu_char>
+    {
+      typedef gnu_char 		char_type;
+      typedef gnu_int  		int_type;
+      typedef long 		pos_type;
+      typedef unsigned long 	off_type;
+      typedef gnu_state 	state_type;
+      
+      static void 
+      assign(char_type& __c1, const char_type& __c2);
+
+      static bool 
+      eq(const char_type& __c1, const char_type& __c2);
+
+      static bool 
+      lt(const char_type& __c1, const char_type& __c2);
+
+      static int 
+      compare(const char_type* __s1, const char_type* __s2, size_t __n);
+
+      static size_t
+      length(const char_type* __s);
+
+      static const char_type* 
+      find(const char_type* __s, size_t __n, const char_type& __a);
+
+      static char_type* 
+      move(char_type* __s1, const char_type* __s2, size_t __n);
+
+      static char_type* 
+      copy(char_type* __s1, const char_type* __s2, size_t __n);
+
+      static char_type* 
+      assign(char_type* __s, size_t __n, char_type __a);
+
+      static char_type 
+      to_char_type(const int_type& __c);
+
+      static int_type 
+      to_int_type(const char_type& __c);
+
+      static bool 
+      eq_int_type(const int_type& __c1, const int_type& __c2);
+
+      static int_type 
+      eof();
+
+      static int_type 
+      not_eof(const int_type& __c);
+    };
+} // namespace std
 
 #endif // _GLIBCPP_TESTSUITE_HOOKS_H
 

@@ -6,7 +6,7 @@
  *                                                                          *
  *                          C Implementation File                           *
  *                                                                          *
- *                            $Revision: 1.1 $
+ *                            $Revision: 1.1.16.1 $
  *                                                                          *
  *          Copyright (C) 1992-2001, Free Software Foundation, Inc.         *
  *                                                                          *
@@ -28,7 +28,7 @@
  * file might be covered by the  GNU Public License.                        *
  *                                                                          *
  * GNAT was originally developed  by the GNAT team at  New York University. *
- * It is now maintained by Ada Core Technologies Inc (http://www.gnat.com). *
+ * Extensive contributions were provided by Ada Core Technologies Inc.      *
  *                                                                          *
  ****************************************************************************/
 
@@ -58,6 +58,10 @@ __gnat_duration_to_timeval (long sec, long usec, void *t)
 #include <sys/times.h>
 #else
 #include <sys/time.h>
+#endif
+
+#if defined(__MINGW32__)
+#include <winsock.h> /* for timeval */
 #endif
 
 void

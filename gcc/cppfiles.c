@@ -41,17 +41,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
       at least one readable NUL byte after the end of the file's
       contents.  This is true for all tested operating systems when
       the file size is not an exact multiple of the page size.  */
-#  ifndef __CYGWIN__
-#   define SHOULD_MMAP(size, pagesize) TEST_THRESHOLD (size, pagesize)
-#  else
-#   define WIN32_LEAN_AND_MEAN
-#   include <windows.h>
-    /* Cygwin can't correctly emulate mmap under Windows 9x style systems so
-       disallow use of mmap on those systems.  Windows 9x does not zero fill
-       memory at EOF and beyond, as required.  */
-#   define SHOULD_MMAP(size, pagesize) ((GetVersion() & 0x80000000) \
-    					? 0 : TEST_THRESHOLD (size, pagesize))
-#  endif
+#  define SHOULD_MMAP(size, pagesize) TEST_THRESHOLD (size, pagesize)
 # endif
 
 #else  /* No MMAP_FILE */

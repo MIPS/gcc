@@ -43,8 +43,15 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    but not yet categorized in any way.  The seen_objects list has had
    it's pc_begin and count fields initialized at minimum, and is sorted
    by decreasing value of pc_begin.  */
+#if !(defined (__MINGW32__ ) || defined (__CYGWIN__))
 static struct object *unseen_objects;
 static struct object *seen_objects;
+#else
+extern void** __w32_sharedptr_unseen_objects;
+extern void** __w32_sharedptr_seen_objects;
+#define unseen_objects  (*(struct object**)( __w32_sharedptr_unseen_objects))
+#define seen_objects    (*(struct object**)( __w32_sharedptr_seen_objects))
+#endif
 
 #ifdef __GTHREAD_MUTEX_INIT
 static __gthread_mutex_t object_mutex = __GTHREAD_MUTEX_INIT;

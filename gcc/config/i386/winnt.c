@@ -44,10 +44,13 @@ Boston, MA 02111-1307, USA.  */
 
 static tree associated_type PARAMS ((tree));
 const char * gen_stdcall_suffix PARAMS ((tree));
-int i386_pe_dllexport_p PARAMS ((tree));
-int i386_pe_dllimport_p PARAMS ((tree));
-void i386_pe_mark_dllexport PARAMS ((tree));
-void i386_pe_mark_dllimport PARAMS ((tree));
+const char * gen_fastcall_suffix PARAMS ((tree));
+static int i386_pe_dllexport_p PARAMS ((tree));
+static int i386_pe_dllimport_p PARAMS ((tree));
+static void i386_pe_mark_dllexport PARAMS ((tree));
+static void i386_pe_mark_dllimport PARAMS ((tree));
+static void i386_pe_unmark_dllimport PARAMS ((tree));
+static int i386_pe_fastcall_name_p PARAMS ((const char *));
 
 /* Handle a "dllimport" or "dllexport" attribute;
    arguments as in struct attribute_spec.handler.  */
@@ -113,8 +116,10 @@ associated_type (decl)
   if (TREE_CODE (TREE_TYPE (decl)) == METHOD_TYPE)
     {
       /* Artificial methods are not affected by the import/export status of
-	 their class unless they are virtual.  */
-      if (! DECL_ARTIFICIAL (decl) || DECL_VINDEX (decl))
+	 their class unless they are virtual . Why?  
+         This test does not appear necessary, and causes problems with
+	 non-virtual thunks generated for methods in derived classes. */
+/*    if (! DECL_ARTIFICIAL (decl) || DECL_VINDEX (decl))  */
 	t = TREE_TYPE (TREE_VALUE (TYPE_ARG_TYPES (TREE_TYPE (decl))));
     }
   else if (DECL_CONTEXT (decl)
@@ -126,11 +131,12 @@ associated_type (decl)
 
 /* Return non-zero if DECL is a dllexport'd object.  */
 
-int
+static int
 i386_pe_dllexport_p (decl)
      tree decl;
 {
   tree exp;
+  tree context;
 
   if (TREE_CODE (decl) != VAR_DECL
       && TREE_CODE (decl) != FUNCTION_DECL)
@@ -140,10 +146,16 @@ i386_pe_dllexport_p (decl)
     return 1;
 
   /* Class members get the dllexport status of their class.  */
-  if (associated_type (decl))
+  context = associated_type (decl);
+  if (context)
     {
       exp = lookup_attribute ("dllexport",
-			      TYPE_ATTRIBUTES (associated_type (decl)));
+			      TYPE_ATTRIBUTES (context));
+      if (exp)
+	return 1;
+
+      exp = lookup_attribute ("dllexport",
+			      TREE_TYPE (context));
       if (exp)
 	return 1;
     }
@@ -153,11 +165,12 @@ i386_pe_dllexport_p (decl)
 
 /* Return non-zero if DECL is a dllimport'd object.  */
 
-int
+static int
 i386_pe_dllimport_p (decl)
      tree decl;
 {
   tree imp;
+  tree context;
 
   if (TREE_CODE (decl) == FUNCTION_DECL
       && TARGET_NOP_FUN_DLLIMPORT)
@@ -166,15 +179,54 @@ i386_pe_dllimport_p (decl)
   if (TREE_CODE (decl) != VAR_DECL
       && TREE_CODE (decl) != FUNCTION_DECL)
     return 0;
+
+  /* We ignore the attribute for inline functions. */
+  if (TREE_CODE (decl) == FUNCTION_DECL 
+      && DECL_INITIAL (decl) 
+      && DECL_INLINE (decl) 
+      && TREE_CODE (TREE_TYPE (decl)) != METHOD_TYPE)
+    {
+      return 0;
+    }
+  
+  /* Also turn off importing C++ virtual methods to able to create 
+     vtables using thunks. 
+     
+     FIXME: However, since there is no way to tell if the type is 
+     really virtual at this point (the declaration of the method in 
+     a derived class may not have the virtual keyword), we just turn 
+     off all methods at the expense of slight performance penalty.  */
+  if (TREE_CODE (TREE_TYPE (decl)) == METHOD_TYPE)
+    {
+      return 0;
+    }
+
+  /* Likewise for vtables. */
+  if (TREE_CODE (decl) == VAR_DECL && DECL_VIRTUAL_P (decl))
+    {
+      return 0;
+    }
+
   imp = lookup_attribute ("dllimport", DECL_ATTRIBUTES (decl));
   if (imp)
     return 1;
 
   /* Class members get the dllimport status of their class.  */
-  if (associated_type (decl))
+  context = associated_type (decl);
+  if (context)
     {
+      /* Don't use context to mark initialized variables as dllimport. */
+      if (TREE_CODE (decl) == VAR_DECL
+          && (DECL_INITIAL (decl)
+              &&  !TYPE_NEEDS_CONSTRUCTING (TREE_TYPE (decl))))
+        return 0;
       imp = lookup_attribute ("dllimport",
-			      TYPE_ATTRIBUTES (associated_type (decl)));
+			      TYPE_ATTRIBUTES (context));
+      if (imp)
+	return 1;
+
+      imp = lookup_attribute ("dllimport",
+			      TREE_TYPE (context));
       if (imp)
 	return 1;
     }
@@ -203,7 +255,7 @@ i386_pe_dllimport_name_p (symbol)
 /* Mark a DECL as being dllexport'd.
    Note that we override the previous setting (eg: dllimport).  */
 
-void
+static void
 i386_pe_mark_dllexport (decl)
      tree decl;
 {
@@ -220,10 +272,32 @@ i386_pe_mark_dllexport (decl)
     oldname = XSTR (XEXP (rtlname, 0), 0);
   else
     abort ();
+
   if (i386_pe_dllimport_name_p (oldname))
-    oldname += 9;
+    {
+      /* dllexport wins when dll linkage spec is inconsistent.  */
+      warning_with_decl 
+	(decl, "inconsistent dll linkage for `%s'. dllexport assumed.");
+      oldname += 3;
+      DECL_NON_ADDR_CONST_P (decl) = 0;
+    }
+  else if (i386_pe_dllimport_p (decl))
+    {
+      /* The decl still has the dllimport attribute, but subsequently
+         been marked dllexport, and of course dllexport wins as usual. */
+      warning_with_decl 
+	(decl, "inconsistent dll linkage for `%s'. dllexport assumed.");
+    }
   else if (i386_pe_dllexport_name_p (oldname))
     return; /* already done */
+
+  /* Exported symbols cannot be static.  */
+  if ((TREE_CODE (decl) == VAR_DECL || TREE_CODE (decl) == FUNCTION_DECL)
+      && ! DECL_EXTERNAL (decl) && ! TREE_PUBLIC (decl))
+    {
+      error_with_decl (decl, "static symbol `%s' is marked dllexport");
+      return;
+    }
 
   newname = alloca (strlen (oldname) + 4);
   sprintf (newname, "@e.%s", oldname);
@@ -238,9 +312,23 @@ i386_pe_mark_dllexport (decl)
     gen_rtx (SYMBOL_REF, Pmode, IDENTIFIER_POINTER (idp));
 }
 
+/* Unmark a DECL previously marked as being dllimport'd.  */
+
+static void
+i386_pe_unmark_dllimport (decl)
+     tree decl;
+{
+  const char *oldname = XSTR (XEXP (XEXP (DECL_RTL (decl), 0), 0), 0);
+  tree idp = get_identifier (oldname + 3);
+  rtx newrtl = gen_rtx (SYMBOL_REF, Pmode, IDENTIFIER_POINTER (idp));
+
+  XEXP (DECL_RTL (decl), 0) = newrtl;
+  DECL_NON_ADDR_CONST_P (decl) = 0;
+}
+
 /* Mark a DECL as being dllimport'd.  */
 
-void
+static void
 i386_pe_mark_dllimport (decl)
      tree decl;
 {
@@ -259,26 +347,56 @@ i386_pe_mark_dllimport (decl)
     abort ();
   if (i386_pe_dllexport_name_p (oldname))
     {
-      error ("`%s' declared as both exported to and imported from a DLL",
-             IDENTIFIER_POINTER (DECL_NAME (decl)));
+      /* Dllexport has won over dllimport by the overriding rules. */
       return;
     }
   else if (i386_pe_dllimport_name_p (oldname))
     {
+      /* Method definitions get turned into dllexport instead (that's an 
+         MSVC rule, sorry).  */
+      if (TREE_CODE (TREE_TYPE (decl)) == METHOD_TYPE
+	  && DECL_INITIAL (decl) && ! DECL_INLINE (decl))
+        {
+	  i386_pe_mark_dllexport (decl);
+	  return;
+	}
+
+      /* Likewise for C++ static data members. */
+      if (TREE_CODE (decl) == VAR_DECL 
+          && TREE_STATIC (decl) && TREE_PUBLIC (decl))
+	{
+	  i386_pe_mark_dllexport (decl);
+	  return;
+	}
+
+      /* And for C++ static methods. */
+      if (TREE_CODE (decl) == FUNCTION_DECL 
+	  && associated_type (decl)
+	  && DECL_INITIAL (decl) && ! DECL_INLINE (decl))
+	{
+	  i386_pe_mark_dllexport (decl);
+	  return;
+	}
+
+      /* Cannot define an imported function, unless it's inline.  */
+      if (TREE_CODE (decl) == FUNCTION_DECL 
+	  && DECL_INITIAL (decl) && ! DECL_INLINE (decl))
+	{
+	  error_with_decl 
+	    (decl, "function `%s' definition is marked dllimport");
+	  i386_pe_unmark_dllimport (decl);
+	  return;
+	}
+
       /* Already done, but force correct linkage since the redeclaration 
          might have omitted explicit extern.  Sigh.  */
-      if (TREE_CODE (decl) == VAR_DECL
-	  /* ??? Is this test for vtables needed?  */
-	  && !DECL_VIRTUAL_P (decl))
+      if (TREE_CODE (decl) == VAR_DECL)
 	{
 	  DECL_EXTERNAL (decl) = 1;
 	  TREE_PUBLIC (decl) = 1;
 	}
       return;
     }
-
-  /* ??? One can well ask why we're making these checks here,
-     and that would be a good question.  */
 
   /* Imported variables can't be initialized. Note that C++ classes
      are marked initial, so we need to check.  */
@@ -290,28 +408,36 @@ i386_pe_mark_dllimport (decl)
       error_with_decl (decl, "initialized variable `%s' is marked dllimport");
       return;
     }
-  /* Nor can they be static.  */
-  if (TREE_CODE (decl) == VAR_DECL
-      /* ??? Is this test for vtables needed?  */
-      && !DECL_VIRTUAL_P (decl)
-      && 0 /*???*/)
+
+  /* Nor can they be static, unless it's static method.  */
+  if (((TREE_CODE (decl) == FUNCTION_DECL 
+        && TREE_CODE (TREE_TYPE (decl)) != METHOD_TYPE)
+       || TREE_CODE (decl) == VAR_DECL)
+      && ! DECL_EXTERNAL (decl) && ! TREE_PUBLIC (decl))
     {
-      error_with_decl (decl, "static variable `%s' is marked dllimport");
+      error_with_decl (decl, "static symbol `%s' is marked dllimport");
       return;
     }
 
+  /* Nor can you define an imported function. */
+  if ((TREE_CODE (decl) == FUNCTION_DECL 
+       && TREE_CODE (TREE_TYPE (decl)) != METHOD_TYPE)
+      && DECL_INITIAL (decl) && ! DECL_INLINE (decl))
+    {
+      error_with_decl (decl, "function `%s' definition is marked dllimport");
+      return;
+    }
+  
   /* `extern' needn't be specified with dllimport.
      Specify `extern' now and hope for the best.  Sigh.  */
-  if (TREE_CODE (decl) == VAR_DECL
-      /* ??? Is this test for vtables needed?  */
-      && !DECL_VIRTUAL_P (decl))
+  if (TREE_CODE (decl) == VAR_DECL)
     {
       DECL_EXTERNAL (decl) = 1;
       TREE_PUBLIC (decl) = 1;
     }
-
-  newname = alloca (strlen (oldname) + 11);
-  sprintf (newname, "@i._imp__%s", oldname);
+  
+  newname = alloca (strlen (oldname) + 4);
+  sprintf (newname, "@i.%s", oldname);
 
   /* We pass newname through get_identifier to ensure it has a unique
      address.  RTL processing can sometimes peek inside the symbol ref
@@ -326,6 +452,46 @@ i386_pe_mark_dllimport (decl)
 
   /* Can't treat a pointer to this as a constant address */
   DECL_NON_ADDR_CONST_P (decl) = 1;
+}
+
+/* Return string which is the former assembler name modified with a 
+   prefix consisting of a plus (+) and a suffix consisting of an
+   atsign (@) followed by the number of bytes of arguments.
+   The leading plus (+) is later replaced by an atsign (@). This
+   trick is used because leading atsigns are already used internally. */
+
+const char *
+gen_fastcall_suffix (decl)
+  tree decl;
+{
+  int total = 0;
+  /* ??? This probably should use XSTR (XEXP (DECL_RTL (decl), 0), 0) instead
+     of DECL_ASSEMBLER_NAME.  */
+  const char *asmname = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
+  char *newsym;
+
+  if (TYPE_ARG_TYPES (TREE_TYPE (decl)))
+    if (TREE_VALUE (tree_last (TYPE_ARG_TYPES (TREE_TYPE (decl))))
+        == void_type_node)
+      {
+	tree formal_type = TYPE_ARG_TYPES (TREE_TYPE (decl));
+
+	while (TREE_VALUE (formal_type) != void_type_node)
+	  {
+	    int parm_size
+	      = TREE_INT_CST_LOW (TYPE_SIZE (TREE_VALUE (formal_type)));
+	    /* Must round up to include padding.  This is done the same
+	       way as in store_one_arg.  */
+	    parm_size = ((parm_size + PARM_BOUNDARY - 1)
+			 / PARM_BOUNDARY * PARM_BOUNDARY);
+	    total += parm_size;
+	    formal_type = TREE_CHAIN (formal_type);
+	  }
+      }
+
+  newsym = xmalloc (strlen (asmname) + 11);
+  sprintf (newsym, "+%s@%d", asmname, total/BITS_PER_UNIT);
+  return IDENTIFIER_POINTER (get_identifier (newsym));
 }
 
 /* Return string which is the former assembler name modified with a 
@@ -382,10 +548,16 @@ i386_pe_encode_section_info (decl)
     }
 
   if (TREE_CODE (decl) == FUNCTION_DECL)
-    if (lookup_attribute ("stdcall",
-			  TYPE_ATTRIBUTES (TREE_TYPE (decl))))
-      XEXP (DECL_RTL (decl), 0) = 
-	gen_rtx (SYMBOL_REF, Pmode, gen_stdcall_suffix (decl));
+    {
+      if (lookup_attribute ("stdcall",
+			    TYPE_ATTRIBUTES (TREE_TYPE (decl))))
+        XEXP (DECL_RTL (decl), 0) = 
+	  gen_rtx (SYMBOL_REF, Pmode, gen_stdcall_suffix (decl));
+      else if (lookup_attribute ("fastcall",
+				 TYPE_ATTRIBUTES (TREE_TYPE (decl))))
+        XEXP (DECL_RTL (decl), 0) =
+	  gen_rtx (SYMBOL_REF, Pmode, gen_fastcall_suffix (decl));
+    }
 
   /* Mark the decl so we can tell from the rtl whether the object is
      dllexport'd or dllimport'd.  */
@@ -396,7 +568,7 @@ i386_pe_encode_section_info (decl)
     i386_pe_mark_dllimport (decl);
   /* It might be that DECL has already been marked as dllimport, but a
      subsequent definition nullified that.  The attribute is gone but
-     DECL_RTL still has @i._imp__foo.  We need to remove that. Ditto
+     DECL_RTL still has @i.foo.  We need to remove that. Ditto
      for the DECL_NON_ADDR_CONST_P flag.  */
   else if ((TREE_CODE (decl) == FUNCTION_DECL
 	    || TREE_CODE (decl) == VAR_DECL)
@@ -406,13 +578,7 @@ i386_pe_encode_section_info (decl)
 	   && GET_CODE (XEXP (XEXP (DECL_RTL (decl), 0), 0)) == SYMBOL_REF
 	   && i386_pe_dllimport_name_p (XSTR (XEXP (XEXP (DECL_RTL (decl), 0), 0), 0)))
     {
-      const char *oldname = XSTR (XEXP (XEXP (DECL_RTL (decl), 0), 0), 0);
-      tree idp = get_identifier (oldname + 9);
-      rtx newrtl = gen_rtx (SYMBOL_REF, Pmode, IDENTIFIER_POINTER (idp));
-
-      XEXP (DECL_RTL (decl), 0) = newrtl;
-
-      DECL_NON_ADDR_CONST_P (decl) = 0;
+      i386_pe_unmark_dllimport (decl);
 
       /* We previously set TREE_PUBLIC and DECL_EXTERNAL.
 	 We leave these alone for now.  */
@@ -636,6 +802,15 @@ i386_pe_record_exported_symbol (name, is_data)
   export_head = p;
 }
 
+/* Return non-zero if SYMBOL is marked as being fascall.  */
+
+static int
+i386_pe_fastcall_name_p (symbol)
+     const char *symbol;
+{
+  return symbol[0] == '+' || (symbol[0] == '@' && symbol[3] == '+');
+}
+
 /* This is called at the end of assembly.  For each external function
    which has not been defined, we output a declaration now.  We also
    output the .drectve section.  */
@@ -668,7 +843,8 @@ i386_pe_asm_file_end (file)
       drectve_section ();
       for (q = export_head; q != NULL; q = q->next)
 	{
-	  fprintf (file, "\t.ascii \" -export:%s%s\"\n",
+ 	  fprintf (file, "\t.ascii \" -export:%s%s%s\"\n",
+ 		   (i386_pe_fastcall_name_p(q->name)) ? "@" : "",
 		   I386_PE_STRIP_ENCODING (q->name),
 		   (q->is_data) ? ",data" : "");
 	}

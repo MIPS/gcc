@@ -222,6 +222,7 @@ extern const int x86_add_esp_4, x86_add_esp_8, x86_sub_esp_4, x86_sub_esp_8;
 extern const int x86_partial_reg_dependency, x86_memory_mismatch_stall;
 extern const int x86_accumulate_outgoing_args, x86_prologue_using_move;
 extern const int x86_epilogue_using_move, x86_decompose_lea;
+extern const int x86_arch_always_fancy_math_387;
 extern int x86_prefetch_sse;
 
 #define TARGET_USE_LEAVE (x86_use_leave & CPUMASK)
@@ -523,12 +524,10 @@ extern int ix86_arch;
 #define CPP_CPU_DEFAULT_SPEC "-D__tune_i686__ -D__tune_pentiumpro__"
 #endif
 #if TARGET_CPU_DEFAULT == TARGET_CPU_DEFAULT_pentium2
-#define CPP_CPU_DEFAULT_SPEC "-D__tune_i686__ -D__tune_pentiumpro__\
--D__tune_pentium2__"
+#define CPP_CPU_DEFAULT_SPEC "-D__tune_i686__ -D__tune_pentiumpro__ -D__tune_pentium2__"
 #endif
 #if TARGET_CPU_DEFAULT == TARGET_CPU_DEFAULT_pentium3
-#define CPP_CPU_DEFAULT_SPEC "-D__tune_i686__ -D__tune_pentiumpro__\
--D__tune_pentium2__ -D__tune_pentium3__"
+#define CPP_CPU_DEFAULT_SPEC "-D__tune_i686__ -D__tune_pentiumpro__ -D__tune_pentium2__ -D__tune_pentium3__"
 #endif
 #if TARGET_CPU_DEFAULT == TARGET_CPU_DEFAULT_pentium4
 #define CPP_CPU_DEFAULT_SPEC "-D__tune_pentium4__"
@@ -608,7 +607,7 @@ extern int ix86_arch;
 %{mcpu=athlon-4|mcpu=athlon-xp|mcpu=athlon-mp:\
 -D__tune_athlon_sse__ }\
 %{mcpu=pentium4:-D__tune_pentium4__ }\
-%{march=athlon-tbird|march=athlon-xp|march=athlon-mp|march=pentium3|march=pentium4:\
+%{march=athlon-xp|march=athlon-mp|march=pentium3|march=pentium4:\
 -D__SSE__ }\
 %{march=pentium-mmx|march=k6|march=k6-2|march=k6-3\
 |march=athlon|march=athlon-tbird|march=athlon-4|march=athlon-xp\
@@ -780,12 +779,15 @@ extern int ix86_arch;
 /* The published ABIs say that doubles should be aligned on word
    boundaries, so lower the aligment for structure fields unless
    -malign-double is set.  */
-/* BIGGEST_FIELD_ALIGNMENT is also used in libobjc, where it must be
-   constant.  Use the smaller value in that context.  */
-#ifndef IN_TARGET_LIBS
-#define BIGGEST_FIELD_ALIGNMENT (TARGET_64BIT ? 128 : (TARGET_ALIGN_DOUBLE ? 64 : 32))
-#else
+
+/* ??? Blah -- this macro is used directly by libobjc.  Since it
+   supports no vector modes, cut out the complexity and fall back
+   on BIGGEST_FIELD_ALIGNMENT.  */
+#ifdef IN_TARGET_LIBS
 #define BIGGEST_FIELD_ALIGNMENT 32
+#else
+#define ADJUST_FIELD_ALIGN(FIELD, COMPUTED) \
+   x86_field_alignment (FIELD, COMPUTED)
 #endif
 
 /* If defined, a C expression to compute the alignment given to a
@@ -957,7 +959,7 @@ do {									\
         call_used_regs[i] = (call_used_regs[i]				\
 			     & (TARGET_64BIT ? 2 : 1)) != 0;		\
       }									\
-    if (flag_pic)							\
+    if (PIC_OFFSET_TABLE_REGNUM != INVALID_REGNUM)			\
       {									\
 	fixed_regs[PIC_OFFSET_TABLE_REGNUM] = 1;			\
 	call_used_regs[PIC_OFFSET_TABLE_REGNUM] = 1;			\
@@ -1133,11 +1135,11 @@ do {									\
 #define STATIC_CHAIN_REGNUM (TARGET_64BIT ? FIRST_REX_INT_REG + 10 - 8 : 2)
 
 /* Register to hold the addressing base for position independent
-   code access to data items.
-   We don't use PIC pointer for 64bit mode.  Define the regnum to
-   dummy value to prevent gcc from pessimizing code dealing with EBX.
- */
-#define PIC_OFFSET_TABLE_REGNUM (TARGET_64BIT ? INVALID_REGNUM : 3)
+   code access to data items.  We don't use PIC pointer for 64bit
+   mode.  Define the regnum to dummy value to prevent gcc from
+   pessimizing code dealing with EBX.  */
+#define PIC_OFFSET_TABLE_REGNUM \
+  (TARGET_64BIT || !flag_pic ? INVALID_REGNUM : 3)
 
 /* Register in which address to store a structure value
    arrives in the function.  On the 386, the prologue
@@ -1335,7 +1337,7 @@ enum reg_class
 #define SSE_REG_P(N) (REG_P (N) && SSE_REGNO_P (REGNO (N)))
 
 #define SSE_FLOAT_MODE_P(MODE) \
-  ((TARGET_SSE_MATH && (MODE) == SFmode) || (TARGET_SSE2 && (MODE) == DFmode))
+  ((TARGET_SSE && (MODE) == SFmode) || (TARGET_SSE2 && (MODE) == DFmode))
 
 #define MMX_REGNO_P(N) ((N) >= FIRST_MMX_REG && (N) <= LAST_MMX_REG)
 #define MMX_REG_P(XOP) (REG_P (XOP) && MMX_REGNO_P (REGNO (XOP)))
@@ -1664,6 +1666,7 @@ typedef struct ix86_args {
   int words;			/* # words passed so far */
   int nregs;			/* # registers available for passing */
   int regno;			/* next available register number */
+  int fastcall;		/* fastcall calling convention is used */
   int sse_words;		/* # sse words passed so far */
   int sse_nregs;		/* # sse registers available for passing */
   int sse_regno;		/* next available sse register number */
@@ -2348,7 +2351,7 @@ do {								\
 /* When a prototype says `char' or `short', really pass an `int'.
    (The 386 can't easily push less than an int.)  */
 
-#define PROMOTE_PROTOTYPES 1
+#define PROMOTE_PROTOTYPES (!TARGET_64BIT)
 
 /* A macro to update M and UNSIGNEDP when an object whose type is
    TYPE and which has the specified mode and signedness is to be

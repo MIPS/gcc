@@ -1,0 +1,53 @@
+2002-08-20  David Billinghurst <David.Billinghurst@riotinto.com>
+
+	Backport of mainline change of 2002-05-05
+	* acinclude.m4: Run AC_EXEEXT.
+	* aclocal.m4, configure: Regenerate.
+
+2002-08-06  Christopher Faylor  <cgf@redhat.com>
+
+	* Makefile.am: Use GCJ definition to derive gcjh.
+	* Makefile.in: Regenerate.
+	* configure.in: Handle more canadian cross issues with determining
+	correct gcj.
+	* configure: Regenerate.
+
+2002-07-28  Christopher Faylor  <cgf@redhat.com>
+
+	* configure.in: Use GCJ environment variable if it is specified.  Don't
+	test for /proc/self when cross-compiling.
+	* configure: Regenerate
+	* Makefile.in: Ditto.
+	* gcj/Makefile.in: Ditto.
+	* include/Makefile.in: Ditto.
+	* testsuite/Makefile.in: Ditto.
+
+2002-07-10  Christopher Faylor  <cgf@redhat.com>
+
+	* Makefile.am (AM_MAKEFLAGS): Add includedir to list.
+	* Makefile.in (AM_MAKEFLAGS): Regenerate.
+	* configure.in: Fix if test which used '&&'.
+	* configure: Regenerate.
+
+2002-07-08  Christopher Faylor  <cgf@redhat.com>
+
+	* configure.in: Invalidate cross-compilation assumption.
+	* configure: Regenerate.
+	* acinclude.m4: Fix several unguarded use of variables in test
+	statements.
+	* aclocal.m4: Regenerate.
+
+2002-06-09  David Billinghurst <David.Billinghurst@riotinto.com>
+
+	2002-05-29  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+	* configure.host: Disable hash synchronization and slow_pthread_self
+	for cygwin.
+
+2002-06-09  David Billinghurst <David.Billinghurst@riotinto.com>
+
+	* java/net/natPlainSocketImpl.cc:  Include <sys/ioctl.h>
+	
+2002-06-09  David Billinghurst <David.Billinghurst@riotinto.com>
+	
+	* java/lang/natSystem.cc: Use _timezone on cygwin. Simplified
+	version of mainline patch.

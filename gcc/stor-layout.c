@@ -669,7 +669,8 @@ place_union_field (rli, field)
 #endif
 
 #ifdef ADJUST_FIELD_ALIGN
-  desired_align = ADJUST_FIELD_ALIGN (field, desired_align);
+  if (! DECL_USER_ALIGN (field))
+    desired_align = ADJUST_FIELD_ALIGN (field, desired_align);
 #endif
 
   TYPE_USER_ALIGN (rli->t) |= DECL_USER_ALIGN (field);
@@ -683,10 +684,15 @@ place_union_field (rli, field)
      entire union to have `int' alignment.  */
   if (PCC_BITFIELD_TYPE_MATTERS && DECL_BIT_FIELD_TYPE (field))
     {
-      rli->record_align = MAX (rli->record_align, 
-			       TYPE_ALIGN (TREE_TYPE (field)));
-      rli->unpadded_align = MAX (rli->unpadded_align,
-				 TYPE_ALIGN (TREE_TYPE (field)));
+      unsigned int type_align = TYPE_ALIGN (TREE_TYPE (field));
+
+#ifdef ADJUST_FIELD_ALIGN
+      if (! TYPE_USER_ALIGN (TREE_TYPE (field)))
+	type_align = ADJUST_FIELD_ALIGN (field, type_align);
+#endif
+      rli->record_align = MAX (rli->record_align, type_align);
+      rli->unpadded_align = MAX (rli->unpadded_align, type_align);
+      TYPE_USER_ALIGN (rli->t) |= TYPE_USER_ALIGN (TREE_TYPE (field));
     }
 #endif
 
@@ -783,7 +789,8 @@ place_field (rli, field)
 #endif
 
 #ifdef ADJUST_FIELD_ALIGN
-  desired_align = ADJUST_FIELD_ALIGN (field, desired_align);
+  if (! user_align)
+    desired_align = ADJUST_FIELD_ALIGN (field, desired_align);
 #endif
 
   /* Record must have at least as much alignment as any field.
@@ -792,14 +799,20 @@ place_field (rli, field)
   if ((* targetm.ms_bitfield_layout_p) (rli->t)
       && type != error_mark_node
       && DECL_BIT_FIELD_TYPE (field)
-      && ! integer_zerop (TYPE_SIZE (type))
-      && integer_zerop (DECL_SIZE (field)))
+      && ! integer_zerop (TYPE_SIZE (type)))
     {
-      if (rli->prev_field
-	  && DECL_BIT_FIELD_TYPE (rli->prev_field)
-	  && ! integer_zerop (DECL_SIZE (rli->prev_field)))
+      /* Here, the alignment of the underlying type of a bitfield can
+	 affect the alignment of a record; even a zero-sized field
+	 can do this.  The alignment should be to the alignment of
+	 the type, except that for zero-size bitfields this only
+	 applies if there was an immediately prior, non-zero-size
+	 bitfield.  (That's the way it is, experimentally.) */
+      if (! integer_zerop (DECL_SIZE (field))
+	  || (rli->prev_field
+	      && DECL_BIT_FIELD_TYPE (rli->prev_field)
+	      && ! integer_zerop (DECL_SIZE (rli->prev_field))))
 	{
-	  rli->record_align = MAX (rli->record_align, desired_align);
+	  rli->record_align = MAX (rli->record_align, TYPE_ALIGN(type));
 	  rli->unpacked_align = MAX (rli->unpacked_align, TYPE_ALIGN (type));
 	}
       else
@@ -827,6 +840,11 @@ place_field (rli, field)
 	{
 	  unsigned int type_align = TYPE_ALIGN (type);
 
+#ifdef ADJUST_FIELD_ALIGN
+	  if (! TYPE_USER_ALIGN (type))
+	    type_align = ADJUST_FIELD_ALIGN (field, type_align);
+#endif
+
 	  if (maximum_field_alignment != 0)
 	    type_align = MIN (type_align, maximum_field_alignment);
 	  else if (DECL_PACKED (field))
@@ -836,6 +854,7 @@ place_field (rli, field)
 	  rli->unpadded_align = MAX (rli->unpadded_align, DECL_ALIGN (field));
 	  if (warn_packed)
 	    rli->unpacked_align = MAX (rli->unpacked_align, TYPE_ALIGN (type));
+	  user_align |= TYPE_USER_ALIGN (type);
 	}
     }
   else
@@ -915,6 +934,11 @@ place_field (rli, field)
       HOST_WIDE_INT offset = tree_low_cst (rli->offset, 0);
       HOST_WIDE_INT bit_offset = tree_low_cst (rli->bitpos, 0);
 
+#ifdef ADJUST_FIELD_ALIGN
+      if (! TYPE_USER_ALIGN (type))
+	type_align = ADJUST_FIELD_ALIGN (field, type_align);
+#endif
+
       /* A bit field may not span more units of alignment of its type
 	 than its type itself.  Advance to next boundary if necessary.  */
       if ((((offset * BITS_PER_UNIT + bit_offset + field_size +
@@ -923,6 +947,8 @@ place_field (rli, field)
 	   - (offset * BITS_PER_UNIT + bit_offset) / type_align)
 	  > tree_low_cst (TYPE_SIZE (type), 1) / type_align)
 	rli->bitpos = round_up (rli->bitpos, type_align);
+
+      user_align |= TYPE_USER_ALIGN (type);
     }
 #endif
 
@@ -944,6 +970,11 @@ place_field (rli, field)
       HOST_WIDE_INT offset = tree_low_cst (rli->offset, 0);
       HOST_WIDE_INT bit_offset = tree_low_cst (rli->bitpos, 0);
 
+#ifdef ADJUST_FIELD_ALIGN
+      if (! TYPE_USER_ALIGN (type))
+	type_align = ADJUST_FIELD_ALIGN (field, type_align);
+#endif
+
       if (maximum_field_alignment != 0)
 	type_align = MIN (type_align, maximum_field_alignment);
       /* ??? This test is opposite the test in the containing if
@@ -959,6 +990,8 @@ place_field (rli, field)
 	  != ((offset * BITS_PER_UNIT + bit_offset + field_size - 1)
 	      / type_align))
 	rli->bitpos = round_up (rli->bitpos, type_align);
+
+      user_align |= TYPE_USER_ALIGN (type);
     }
 #endif
 
@@ -1582,8 +1615,13 @@ layout_type (type)
 	    && (TYPE_MODE (TREE_TYPE (type)) != BLKmode
 		|| TYPE_NO_FORCE_BLK (TREE_TYPE (type))))
 	  {
-	    TYPE_MODE (type)
-	      = mode_for_size_tree (TYPE_SIZE (type), MODE_INT, 1);
+	    /* One-element arrays get the component type's mode.  */
+	    if (simple_cst_equal (TYPE_SIZE (type),
+				  TYPE_SIZE (TREE_TYPE (type))))
+	      TYPE_MODE (type) = TYPE_MODE (TREE_TYPE (type));
+	    else
+	      TYPE_MODE (type)
+		= mode_for_size_tree (TYPE_SIZE (type), MODE_INT, 1);
 
 	    if (TYPE_MODE (type) != BLKmode
 		&& STRICT_ALIGNMENT && TYPE_ALIGN (type) < BIGGEST_ALIGNMENT
