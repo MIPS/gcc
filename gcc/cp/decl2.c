@@ -2736,6 +2736,9 @@ finish_file ()
   if (! global_bindings_p () || current_class_type || decl_namespace_list)
     return;
 
+  if (pch_file)
+    c_common_write_pch ();
+
   /* Otherwise, GDB can get confused, because in only knows
      about source for LINENO-1 lines.  */
   lineno -= 1;

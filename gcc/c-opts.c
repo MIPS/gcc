@@ -79,7 +79,7 @@ static void handle_OPT_d PARAMS ((const char *));
 
 #define COMMAND_LINE_OPTIONS						     \
   OPT("-help",                  CL_ALL,   OPT__help)			     \
-  OPT("-output-pch=",		CL_ALL | CL_JOINED, OPT__output_pch)	     \
+  OPT("-output-pch=",		CL_ALL | CL_ARG, OPT__output_pch)	     \
   OPT("C",                      CL_ALL,   OPT_C)			     \
   OPT("CC",                     CL_ALL,   OPT_CC)			     \
   OPT("E",			CL_ALL,   OPT_E)			     \

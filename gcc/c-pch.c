@@ -79,7 +79,7 @@ pch_init ()
 }
 
 void
-c_write_pch ()
+c_common_write_pch ()
 {
   char *buf;
   off_t asm_file_end;
@@ -119,7 +119,7 @@ c_write_pch ()
 }
 
 int
-c_valid_pch (pfile, name, fd)
+c_common_valid_pch (pfile, name, fd)
      cpp_reader *pfile;
      const char *name;
      int fd;
@@ -169,7 +169,7 @@ c_valid_pch (pfile, name, fd)
 }
 
 void
-c_read_pch (pfile, fd)
+c_common_read_pch (pfile, fd)
      cpp_reader *pfile;
      int fd;
 {

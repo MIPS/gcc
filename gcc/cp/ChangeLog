@@ -1,3 +1,8 @@
+2002-08-27  Geoffrey Keating  <geoffk@redhat.com>
+
+	* decl2.c (finish_file): Call c_common_write_pch.
+	* Make-lang.in (CXX_C_OBJS): Add c-pch.o.
+
 2002-08-17  Geoffrey Keating  <geoffk@redhat.com>
 
 	* g++spec.c (lang_specific_driver): Treat .h files as C++ header

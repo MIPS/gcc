@@ -1239,11 +1239,11 @@ extern void dump_time_statistics		PARAMS ((void));
 extern int c_dump_tree				PARAMS ((void *, tree));
 
 extern void pch_init				PARAMS ((void));
-extern int c_valid_pch				PARAMS ((cpp_reader *pfile,
+extern int c_common_valid_pch			PARAMS ((cpp_reader *pfile,
 							 const char *name,
 							 int fd));
-extern void c_read_pch				PARAMS ((cpp_reader *pfile,
+extern void c_common_read_pch			PARAMS ((cpp_reader *pfile,
 							 int fd));
-extern void c_write_pch				PARAMS ((void));
+extern void c_common_write_pch			PARAMS ((void));
 
 #endif /* ! GCC_C_COMMON_H */

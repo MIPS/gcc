@@ -345,7 +345,7 @@ c_objc_common_finish_file ()
   expand_deferred_fns ();
 
   if (pch_file)
-    c_write_pch ();
+    c_common_write_pch ();
 
   if (static_ctors)
     {
