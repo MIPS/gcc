@@ -2380,7 +2380,7 @@ find_if_block (ce_info)
   if (then_succ != NULL_EDGE
       && (then_succ->succ_next != NULL_EDGE
           || (then_succ->flags & EDGE_COMPLEX)
-	  || (flow2_completed && tablejump_p (then_bb->end))))
+	  || (flow2_completed && tablejump_p (then_bb->end, NULL, NULL))))
     return FALSE;
 
   /* If the THEN block has no successors, conditional execution can still
@@ -2428,7 +2428,7 @@ find_if_block (ce_info)
 	   && else_bb->pred->pred_next == NULL_EDGE
 	   && else_succ->succ_next == NULL_EDGE
 	   && ! (else_succ->flags & EDGE_COMPLEX)
-	   && ! (flow2_completed && tablejump_p (else_bb->end)))
+	   && ! (flow2_completed && tablejump_p (else_bb->end, NULL, NULL)))
     join_bb = else_succ->dest;
 
   /* Otherwise it is not an IF-THEN or IF-THEN-ELSE combination.  */

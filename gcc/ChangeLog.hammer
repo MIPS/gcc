@@ -1,3 +1,10 @@
+2003-08-27  Josef Zlomek  <zlomekj@suse.cz>
+
+        * cfgcleanup.c (merge_blocks_move_successor_nojumps): Use tablejump_p.
+	* ifcvt.c (find_if_block): Added 2 arguments to tablejump_p.
+	* jump.c (tablejump_p): Added 2 arguments.
+	* rtl.h (tablejump_p): Likewise.
+
 2003-08-26  Josef Zlomek  <zlomekj@suse.cz>
 
 	* cse.c (count_reg_usage): Count register usage also for
