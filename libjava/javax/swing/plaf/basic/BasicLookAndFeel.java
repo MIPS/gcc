@@ -501,7 +501,7 @@ public abstract class BasicLookAndFeel extends LookAndFeel
       "MenuBar.windowBindings", new Object[] {
         "F10", "takeFocus"
       },
-      "MenuItem.acceleratorDelimiter", "+",
+      "MenuItem.acceleratorDelimiter", "-",
       "MenuItem.acceleratorFont", new FontUIResource("Dialog", Font.PLAIN, 12),
       "MenuItem.acceleratorForeground", new ColorUIResource(Color.black),
       "MenuItem.acceleratorSelectionForeground", new ColorUIResource(Color.white),
