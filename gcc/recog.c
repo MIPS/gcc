@@ -561,7 +561,7 @@ validate_replace_rtx_1 (loc, from, to, object)
 	  && rtx_equal_p (SUBREG_REG (x), from))
 	{
 	  if (GET_MODE (x) == GET_MODE (SUBREG_REG (to))
-	      && SUBREG_WORD (x) == 0 && SUBREG_WORD (to) == 0)
+	      && SUBREG_BYTE (x) == 0 && SUBREG_BYTE (to) == 0)
 	    {
 	      validate_change (object, loc, SUBREG_REG (to), 1);
 	      return;
@@ -569,7 +569,7 @@ validate_replace_rtx_1 (loc, from, to, object)
 
 	  validate_change (object, loc,
 			   gen_rtx_SUBREG (GET_MODE (x), SUBREG_REG (to),
-					   SUBREG_WORD (x) + SUBREG_WORD (to)), 1);
+					   SUBREG_BYTE(x) + SUBREG_BYTE (to)), 1);
 	  return;
 	}
 

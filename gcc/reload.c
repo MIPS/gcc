@@ -791,7 +791,7 @@ reload_inner_reg_of_subreg (x, mode)
     return 0;
 
   /* If INNER is not ok for MODE, then INNER will need reloading.  */
-  if (! HARD_REGNO_MODE_OK (SUBREG_REGNO (inner), mode))
+  if (! HARD_REGNO_MODE_OK (SUBREG_REGNO (x), mode))
     return 1;
 
   /* If the outer part is a word or smaller, INNER larger than a

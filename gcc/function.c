@@ -3409,17 +3409,10 @@ purge_single_hard_subreg_set (pattern)
 {
   rtx reg = SET_DEST (pattern);
   enum machine_mode mode = GET_MODE (SET_DEST (pattern));
-  int word = 0;
 		  
-  while (GET_CODE (reg) == SUBREG)
+  if (GET_CODE (reg) == SUBREG && REGNO (reg) < FIRST_PSEUDO_REGISTER)
     {
-      word += SUBREG_WORD (reg);
-      reg = SUBREG_REG (reg);
-    }
-	      
-  if (REGNO (reg) < FIRST_PSEUDO_REGISTER)
-    {
-      reg = gen_rtx_REG (mode, REGNO (reg) + word);
+      reg = gen_rtx_REG (mode, SUBREG_REGNO (reg));
       SET_DEST (pattern) = reg;
     }
 }

@@ -1,3 +1,12 @@
+2000-09-30  Andrew MacLeod  <amacleod@redhat.com>
+
+	* function.c (purge_single_hard_subreg_set): Dont use SUBREG_WORD.
+	* recog.c (validate_replace_rtx_1): Use SUBREG_BYTE.
+	* reload.c (reload_inner_reg_of_subreg): SUBREG_REGNO should be used
+	on the entire subreg rtx.
+	* config/i960/i960.md (zero_extendqihi2): SUBREG's are byte offsets.
+	* config/m68hc11/m68hc11.c (m68hc11_gen_lowpart): Don't use SUBREG_WORD.
+
 Sun Sep 24 09:15:48 2000  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
 
 	* expr.c (store_field): If BITSIZE is negative, use size of type.
