@@ -1,3 +1,355 @@
+2002-05-29  Richard Henderson  <rth@redhat.com>
+
+	* config/i386/i386.c (output_pic_addr_const): Lowercase rip.
+	(print_operand_address): Only add rip for symbolic addresses
+	for which we do not have another relocation type.
+
+2002-08-28  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/alpha/alpha.c (alpha_encode_section_info): Check static and
+	visibility before DECL_EXTERNAL.
+
+2002-09-03  Jakub Jelinek  <jakub@redhat.com>
+
+	Revert:
+	2002-08-28  Jason Merrill  <jason@redhat.com>
+	* c-common.c (c_expand_expr) [STMT_EXPR]: If the last expression is
+	a VAR_DECL with RTL that matches the target, just return that RTL.
+
+	2002-08-28  Daniel Berlin  <dberlin@dberlin.org>
+	* tree-inline.c (expand_call_inline): Make the statement
+	expression we generate have a COMPOUND_STMT.
+
+	2002-08-22  Jason Merrill  <jason@redhat.com>
+	* langhooks-def.h (LANG_HOOKS_EXPR_SIZE): New macro.
+	* langhooks.c (lhd_expr_size): Define default.
+	* langhooks.h (struct lang_hooks): Add expr_size.
+	* explow.c (expr_size): Call it.
+	(int_expr_size): New fn.
+	* expr.h: Declare it.
+	* expr.c (expand_expr) [CONSTRUCTOR]: Use it to calculate how 
+	much to store.
+
+2002-08-23  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/alpha/alpha.c (alpha_encode_section_info): Use
+	MODULE_LOCAL_P.
+
+2002-08-14  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* doc/invoke.texi (-a): Remove documentation.
+	(-fprofile-arcs): Remove reference to -a, -ax options.
+	* doc/gcov.texi (Gcov Data Files): Data might be merged.
+
+Wed Jul 10 19:12:41 CEST 2002  Janis Johnson  <janis187@us.ibm.com>
+
+	* loop.c (emit_prefetch_instructions): Small fix.
+
+Sat Aug 10 19:56:31 CEST 2002  Jan Hubicka  <jh@suse.cz>
+
+	* i386.c (classify_argument): Fix computing of field's offsets.
+
+2002-08-21  Richard Henderson  <rth@redhat.com>
+
+	* config/i386/i386-protos.h (i386_output_dwarf_dtprel): Add
+	prototype.
+	* config/i386/i386.c (i386_output_dwarf_dtprel): New.
+	* config/i386/i386.h (ASM_OUTPUT_DWARF_DTPREL): Define.
+	* dwarf2.h (DW_OP_GNU_push_tls_address): Add.
+	(DW_OP_lo_user): Define to 0xe0.
+	* dwarf2out.c (INTERNAL_DW_OP_tls_addr): Define.
+	(dwarf_stack_op_name, sizeof_loc_descr): Handle a few more OPs.
+	(output_loc_operands): Handle INTERNAL_DW_OP_tls_addr.
+	(loc_descriptor_from_tree): Handle DECL_THREAD_LOCAL variables.
+	(add_AT_location_description): Pass descr instead of rtl.
+	(add_location_or_const_value_attribute, add_bound_info,
+	gen_subprogram_die): Adjust its callers.
+	(rtl_for_decl_location): Avoid constant pool references.
+
+2002-08-08  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/i386/i386.c (legitimate_constant_p): UNSPEC_TP is not
+	legitimate constant.
+	(legitimate_pic_operand_p): Neither pic operand.
+	(legitimate_address_p): But legitimate address.
+	(get_thread_pointer): Generate MEM/u instead of CONST around
+	UNSPEC_TP.
+	(print_operand): Remove printing of UNSPEC_TP.
+	(print_operand_address): And print it here.
+
+2002-05-22  Richard Henderson  <rth@redhat.com>
+
+	* varasm.c (default_section_type_flags): Handle tls data and
+	default sections.
+
+2002-03-15  Jason Merrill  <jason@redhat.com>
+
+	* varasm.c (assemble_variable): Call resolve_unique_section before
+	checking DECL_SECTION_NAME.
+
+2002-08-06  Aldy Hernandez  <aldyh@redhat.com>
+
+	* c-decl.c (duplicate_decls): Error out for incompatible TLS
+	declarations.
+
+2002-05-17  Richard Sandiford  <rsandifo@redhat.com>
+
+	* expr.c (force_operand): Fix reversed move.
+
+Sat May  4 13:20:54 CEST 2002  Jan Hubicka  <jh@suse.cz>
+
+	* expr.c (force_operand): Use expand_simple_* to handle more
+	cases.
+
+2002-08-07  Jakub Jelinek  <jakub@redhat.com>
+
+	* tree-inline.c (remap_decl): Make sure DECL_TOO_LATE is clear for
+	remapped labels.
+
+2002-08-05  Jakub Jelinek  <jakub@redhat.com>
+
+	* fold-const.c (associate_trees): Only optimize NEGATE_EXPR in one
+	of the operands into MINUS_EXPR if code is PLUS_EXPR.
+
+2002-07-30  Jakub Jelinek  <jakub@redhat.com>
+
+	* expr.c (expand_expr) [ADDR_EXPR]: Force addresses of thread-local
+	variables into pseudo.
+
+2002-07-31  Jakub Jelinek  <jakub@redhat.com>
+
+	* varasm.c (assemble_visibility): Strip name encoding.
+
+2002-05-28  Richard Henderson  <rth@redhat.com>
+
+	* flow.c (calculate_global_regs_live): Rename call_used to
+	invalidated_by_call.  Initialize from regs_invalidated_by_call
+	instead of call_used_regs.
+
+2002-07-11  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/7242
+	* config/i386/i386.h (CPP_CPUCOMMON_SPEC): Fix typo.
+
+2002-07-11  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/7241
+	* dwarf2out.c (base_type_die): Use DW_ATE_*_char even if main
+	variant is char_type_node and type name is char.
+
+2002-06-11  Richard Henderson  <rth@redhat.com>
+
+	* caller-save.c (init_caller_save): Clear INSN_CODE each iteration.
+
+2002-06-20  Jakub Jelinek  <jakub@redhat.com>
+
+	* emit-rtl.c (init_emit_once): Register static_regno_reg_rtx
+	with GC.
+	* alias.c (init_alias_once): Register static_reg_base_value
+	with GC.
+
+2002-06-13  Jeffrey Law  <law@redhat.com>
+
+	* rs6000.c (rs6000_frame_related): Avoid unwanted sharing
+	of hard registers.
+
+	* emit-rtl.c (static_regno_reg_rtx): Define.
+	(init_emit_once): Initialize static_regno_reg_rtx.
+	(init_emit): Copy static_regno_reg_rtx into regno_reg_rtx instead
+	of building new hard reg objects once per function.
+	(gen_rtx_REG): Try to share hard regs.
+	* regclass.c (init_fake_stack_mems): New function broken out from
+	init_regs.
+	* rtl.h (init_fake_stack_mems): Declare.
+	* toplev.c (lang_independent_init): Call init_regs before
+	init_emit_once.  Call init_fake_stack_mems after init_emit_once.
+
+	* alias.c (argument_registers): Remove.
+	(init_alias_once): Initialize static_reg_base_value here.  Remove
+	initialization of argument_registers.
+	(init_alias_once_per_function): Remove.
+	(init_alias_analysis): Copy all the entries from static_reg_base_value
+	into new_reg_base_value all at once.
+	* rtl.h (init_alias_once_per_function): Remove declaration.
+	* function.c (prepare_function_start): Do not call
+	init_alias_once_per_function.
+
+	* caller-save.c (init_caller_save): Use gen_rtx_INSN instead of
+	starting a sequence and emitting an INSN.
+
+2002-06-11  Jeffrey Law <law@redhat.com>
+
+	* caller-save.c (init_caller_save): Move creation of SAVEINSN
+	and RESTINSN into into the scope of the sequence.
+
+	* loop.c (loop_regs_scan): Avoid useless generation of REG objects.
+
+2002-06-10  Jeffrey Law  <law@redhat.com>
+
+	* alias.c (static_reg_base_value): New to hold RTL for
+	items allocated once per function for the aliasing code.
+	(init_alias_once_per_function): Initialize static_reg_base_value.
+	(init_alias_analysis): Avoid throw-away allocations of RTL by
+	using pre-computed values in static_reg_base_value.
+	* function.c (prepare_function_start): Call
+	init_alias_once_per_function appropriately.
+	* rtl.h (init_alias_once_per_function): Declare.
+	* caller-save (init_caller_save): Restructure slightly to
+	avoid lots of silly RTL generation.
+	* expr.c (init_expr_once): Likewise.
+	* reload1.c (reload_cse_regs_1): Allocate throw-away register
+	RTL object here.  Pass it into children.
+	(reload_cse_simplify_operands): Use passed-in register RTL
+	object.
+	(reload_cse_simplify): Pass through throw-away register
+	RTL object.
+
+2002-06-07  Jeff Law  <law@redhat.com>
+
+	* emit-rtl.c (init_emit): Add hard registers to regno_reg_rtx.
+	* combine.c (move_deaths): Use regno_reg_rtx for hard regs rather
+	than creating a new register.
+	(distribute_notes): Likewise.
+	* df.c (df_reg_use_gen): Likewise.
+	(df_reg_clobber_gen): Likewise.
+	(df_ref_record): Likewise.
+	* expr.c (use_regs): Likewise.
+	* flow.c (propagate_one_insn): Likewise.
+	(mark_set_1): Likewise.
+	(mark_used_reg): Likewise.
+	* reload.c (emit_reload_insns): Likewise.
+
+2002-03-12  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* c-common.c (c_tree_code_type, c_tree_code_length,
+	c_tree_code_name, add_c_tree_codes): Delete.
+	* c-common.h (add_c_tree_codes): Delete.
+	* c-lang.c (tree_code_type, tree_code_length, tree_code_name):
+	Define.
+	* c-objc-common.c (c_objc_common_init): Don't call
+	add_c_tree_codes, instead set lang_unsafe_for_reeval.
+	* objc/objc-act.c (objc_tree_code_type, objc_tree_code_length,
+	objc_tree_code_name, add_objc_tree_codes): Delete.
+	(objc_init): Don't call add_objc_tree_codes.
+	* objc/objc-lang.c (tree_code_type, tree_code_length,
+	tree_code_name): Define.
+	* toplev.c (lang_independent_init): Don't set
+	tree_code_length[IDENTIFIER_NODE].
+	* tree.c (tree_code_type, tree_code_length, tree_code_name):
+	Delete definitions, moved to language front-ends.
+	* tree.def (IDENTIFIER_NODE): Hardwire the length.
+	* tree.h (tree_code_type, tree_code_length, tree_code_name):
+	Const-ify.
+	(tree_code_length): Change type to unsigned char.
+
+2002-05-30  Richard Henderson  <rth@redhat.com>
+
+	* defaults.h (TARGET_ALLOWS_PROFILING_WITHOUT_FRAME_POINTER): Kill.
+	* toplev.c (process_options): Don't check it.
+	* doc/tm.texi: Don't document it.
+	* config/i386/linux.h (SUBTARGET_FRAME_POINTER_REQUIRED): New.
+	(TARGET_ALLOWS_PROFILING_WITHOUT_FRAME_POINTER): Kill.
+	* config/i386/i386.c (ix86_frame_pointer_required): Suppress leaf
+	frame pointer optimization if current_function_profile.
+
+2002-05-31  Jakub Jelinek  <jakub@redhat.com>
+
+	PR optimization/6842
+	* combine.c (combine_simplify_rtx) [SUBREG]: Don't ICE if VOIDmode
+	operand subreg cannot be simplified.
+
+2002-06-04  Richard Henderson  <rth@redhat.com>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	* config/i386/i386.c (USE_HIDDEN_LINKONCE): New.
+	(ix86_asm_file_end): If USE_HIDDEN_LINKONCE, emit get_pc thunks
+	into linkonce sections.
+	(load_pic_register): Set up pic_label_name for it.
+
+2002-05-29  Richard Henderson  <rth@redhat.com>
+
+	* config/i386/biarch64.h (TARGET_64BIT_DEFAULT): Define with value.
+	(TARGET_BI_ARCH): Likewise.
+	* config/i386/i386.h: Test TARGET_64BIT_DEFAULT by value.
+	(TARGET_SWITCHES): Combine target defaults here not in TARGET_DEFAULT.
+	(TARGET_64BIT_DEFAULT): Default to 0.
+	(TARGET_DEFAULT): Default to MASK_OMIT_LEAF_FRAME_POINTER.
+
+2002-06-04  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c-torture/compile/20020604-1.c: New test.
+
+2002-05-15  Jakub Jelinek  <jakub@redhat.com>
+
+	* fold-const.c (fold): Fix a typo.
+
+Mon May  6 18:03:11 CEST 2002  Jan Hubicka  <jh@suse.cz>
+
+	* i386.c (q_regs_operand): Use ANY_QI_REGS_P.
+
+2002-05-05  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/sparc/sparc.md (ashlsi3): If shift count is const1_rtx,
+	use add instead of shift.
+	(ashldi3_sp64): Likewise.
+	(ashlsi3_const1, ashldi3_const1): Remove.
+	* config/sparc/sparc.h (PREDICATE_CODES): Add const1_operand.
+	* config/sparc/sparc.c (const1_operand): New.
+
+Tue Apr 30 19:30:49 CEST 2002  Jan Hubicka  <jh@suse.cz>
+
+	* loop.c (canonicalize_condition): Truncate to proper mode.
+
+2002-03-06  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/i386/i386.h (REDO_SECTION_INFO_P): Define.
+
+2002-03-02  Richard Henderson  <rth@redhat.com>
+
+	* config/i386/i386.h (ENCODE_SECTION_INFO): MODULE_LOCAL_P applies
+	to functions as well.
+
+2002-03-02  Richard Henderson  <rth@redhat.com>
+
+	* attribs.c (handle_visibility_attribute): Don't call
+	assemble_visibility.
+	* varasm.c (maybe_assemble_visibility): New.
+	(assemble_start_function, assemble_variable, assemble_alias): Use it.
+
+2002-02-26  Jakub Jelinek  <jakub@redhat.com>
+
+	* attribs.c (c_common_attribute_table): Add visibility.
+	(handle_visibility_attribute): New function.
+	* varasm.c (assemble_visibility): New function.
+	* output.h (assemble_visibility): Add prototype.
+	* tree.h (MODULE_LOCAL_P): Define.
+	* crtstuff.c (__dso_handle): Use visibility attribute.
+	* config/i386/i386.h (ENCODE_SECTION_INFO): Set SYMBOL_REF_FLAG
+	for MODULE_LOCAL_P symbols too.
+	* config/ia64/ia64.c (ia64_encode_section_info): Handle
+	MODULE_LOCAL_P symbols the same way as local symbols.
+	Add SDATA_NAME_FLAG_CHAR even if decl was explicitely forced
+	into .sdata/.sbss by the user.
+	* doc/extend.texi (Function Attributes): Document visibility
+	attribute.
+
+2001-10-31  Jakub Jelinek  <jakub@redhat.com>
+
+	* frame.c (fde_merge): Choose just one from FDEs for the
+	same function in erratic array.
+
+2001-10-12  Jakub Jelinek  <jakub@redhat.com>
+
+	* tree-inline.c (initialize_inlined_parameters): Fail if less
+	arguments are passed than expected.
+	(expand_call_inline): Cleanup if initialize_inlined_parameters
+	fails.
+
+2001-10-12  Jakub Jelinek  <jakub@redhat.com>
+
+	* unwind-dw2.c (frame_state_296): New type.
+	(__frame_state_for): Add compatibility code with early gcc-2.96-RH.
+
 2002-09-01  Alexandre Oliva  <aoliva@redhat.com>
 
 	* c-tree.h (skip_evaluation): Move declaration...

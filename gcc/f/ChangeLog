@@ -1,3 +1,8 @@
+2002-03-12  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* com.c (tree_code_type, tree_code_length, tree_code_name):
+	Define.
+
 2002-08-30  Alan Modra  <amodra@bigpond.net.au>
 
 	* target.h (FFETARGET_32bit_longs): Don't define for powerpc64 or
