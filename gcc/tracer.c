@@ -1,5 +1,5 @@
 /* The tracer pass for the GNU compiler.
-   Contributed by Jan Hubicka, SuSe labs.
+   Contributed by Jan Hubicka, SuSE Labs.
    Copyright (C) 2001 Free Software Foundation, Inc.
 
    This file is part of GCC.
@@ -19,17 +19,18 @@
    Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    02111-1307, USA.  */
 
-/* This pass performs the tail dupplication needed for superblock formation.
-   For more infromation see:
+/* This pass performs the tail duplication needed for superblock formation.
+   For more information see:
 
      Design and Analysis of Profile-Based Optimization in Compaq's
      Compilation Tools for Alpha; Journal of Instruction-Level
      Parallelism 3 (2000) 1-25
 
-   Unlike the Compaq's implementation we don't do the loop peeling as most
-   probably better job can be done by special pass and we don't need to worry
-   too much about the code size implications as the tail duplicates are
-   crossjumped again if optimizations are not performed.  */
+   Unlike Compaq's implementation we don't do the loop peeling as most
+   probably a better job can be done by a special pass and we don't
+   need to worry too much about the code size implications as the tail
+   duplicates are crossjumped again if optimizations are not
+   performed.  */
 
 
 #include "config.h"
@@ -177,7 +178,7 @@ construct_traces ()
 /* Connect the traces into linear seuqence.  At the moment we attempt to keep
    the original order as much as possible, but the algorithm may be made smarter
    later if needed.  BB reordering pass should void most of the benefits of such
-   chagne tought.  */
+   change though.  */
 
 static void
 layout_traces ()
