@@ -171,7 +171,7 @@ struct varuse
 {
   struct exprref_common common;
 
-  /* Definition chain.  */
+  /* Definition chain (immediate reaching definition).  */
   union varref_def *chain;
 
   /* Definitions reaching this use.  */
@@ -234,13 +234,13 @@ typedef union varref_def *varref;
 #define EXPRREF_SAVE(r) (r)->ecommon.save
 #define EXPRREF_RELOAD(r) (r)->ecommon.reload
 
-/* Return nonzero if R is a ghost definition.  Ghost definitions are
+/* Return nonzero if R is a default definition.  Default definitions are
    artificially created in the first basic block of the program.  They
    provide a convenient way of checking if a variable is used without being
    assigned a value first.  Their presence is not required, but they save
    the code from having to consider special cases like nil PHI node
    arguments.  */
-#define IS_GHOST_DEF(R)			\
+#define IS_DEFAULT_DEF(R)		\
     (R					\
      && VARREF_TYPE (R) == VARDEF	\
      && VARREF_EXPR (R) == NULL_TREE	\
@@ -248,9 +248,9 @@ typedef union varref_def *varref;
      && VARREF_BB (R)->index == 0)
 
 /* Return nonzero if R is an artificial definition (currently, a PHI term
-   or a ghost definition).  */
+   or a default definition).  */
 #define IS_ARTIFICIAL_REF(R)	\
-    (IS_GHOST_DEF (R) || VARREF_TYPE (R) == VARPHI)
+    (IS_DEFAULT_DEF (R) || VARREF_TYPE (R) == VARPHI)
 
 
 /* Tree annotations stored in tree_common.aux.  */
@@ -264,8 +264,12 @@ struct tree_ann_def
      SIMPLE expression, list of references made in this expression.  */
   ref_list refs;
 
-  /* Most recent definition for this symbol.  Used when placing FUD
-     chains.  */
+  /* For _DECL trees this is the most recent definition for this symbol.
+     Used when placing FUD chains.  For assignment expressions, this is the
+     VARDEF being defined on the LHS of the assignment.  Note that
+     assignments may define more than one symbol (e.g., a.b = 5 defines
+     'a.b' and 'a').  However, in this case currdef only holds the VARDEF
+     D for which VARREF_SYM (D) == TREE_OPERAND (assignment, 0).  */
   varref currdef;
 
   /* Immediately enclosing compound statement to which this tree belongs.  */
@@ -304,12 +308,14 @@ union header_blocks
   basic_block do_cond_bb;
 };
 
-ref_list create_ref_list (void);
-void empty_ref_list (ref_list);
-void delete_ref_list (ref_list);
-void add_ref_to_list_end (ref_list, varref);
-void add_ref_to_list_begin (ref_list, varref);
-void remove_ref_from_list (ref_list, varref);
+/* Functions to manipulate lists of references (ref_list).  */
+ref_list create_ref_list PARAMS ((void));
+void empty_ref_list PARAMS ((ref_list));
+void delete_ref_list PARAMS ((ref_list));
+void add_ref_to_list_end PARAMS ((ref_list, varref));
+void add_ref_to_list_begin PARAMS ((ref_list, varref));
+void remove_ref_from_list PARAMS ((ref_list, varref));
+
 
 #define FOR_REF_BETWEEN(REF, TMP, FROM, TO, DIR)		\
   if (FROM) \

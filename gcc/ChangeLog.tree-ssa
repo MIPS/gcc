@@ -1,5 +1,50 @@
 2002-08-22  Diego Novillo  <dnovillo@redhat.com>
 
+	* tree-dfa.c (find_refs_in_stmt): Look for VARUSE references in
+	initialization expressions.
+	(find_refs_in_expr): Reformat.
+	(remove_ref_from_list): Optimize for the common case of removing
+	the head or the tail of the list.
+	(add_ref_to_list_end): Reformat comment.
+	(create_ref): Store the reference to LHS of assignment expressions.
+	(dump_varref): Also dump immediate uses of PHI nodes.
+	* tree-flow.h (IS_GHOST_DEF): Rename to IS_DEFAULT_DEF.  Update all
+	callers everywhere.
+	(struct tree_ann_def): Update comments for field 'currdef'.
+	* tree-ssa-ccp.c (ssa_edges): Change type to ref_list.
+	(SSA_NAME): Remove.
+	(initialize): New function
+	(finalize): New function.
+	(visit_expression): Rename to visit_expression_for.  Update all
+	callers.
+	(visit_condexpr_for): New function.
+	(visit_assignment): Rename to visit_assignment_for.  Update all
+	callers.
+	(examine_flow_edges): Rename to simulate_block.  Update all
+	callers.
+	(follow_def_use_chains): Rename to simulate_def_use_chains.  Update
+	all callers.
+	(evaluate_expr_for): Rename to evaluate_expr.  Change argument to
+	'tree'.
+	(set_lattice_value): New function.
+	(tree_ssa_ccp): Change main loop to visit flow_edges and ssa_edges
+	alternately.
+	(visit_phi_node): Do not set the lattice value to UNDEFINED when we
+	find a non-executable edge.
+	(visit_expression_for): Default definitions for PARM_DECLs are
+	assigned a VARYING value.
+	Default definitions for any other local variables are assigned an
+	UNDEFINED value.
+	Clobber VARDEFs that are not the LHS of an assignment.
+	Clobber VARDEFs that initialize non-const static variables.
+	* tree-ssa.c (search_fud_chains): Set up def-use edges for PHI
+	nodes and regular definitions.
+
+	* tree.c (simple_cst_equal): Call simple_cst_list_equal to compare
+	CONSTRUCTOR_ELTS pointers.
+
+2002-08-22  Diego Novillo  <dnovillo@redhat.com>
+
 	* c-pretty-print.c (buffer): New file local variable.
 	(initialized): New file local variable.
 	(print_c_tree): Don't call init_output_buffer.  Call
@@ -27,7 +72,8 @@
 
 2002-08-20  Daniel Berlin  <dberlin@dberlin.org>
 
-	* tree-alias-steen.h (struct tree_alias_ops): Add flag for interprocedural.
+	* tree-alias-steen.h (struct tree_alias_ops): Add flag for 
+	interprocedural.
 
 	* tree-alias-steen.c (steen_alias_ops): Set interprocedural to 0
 	for now.

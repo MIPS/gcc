@@ -189,8 +189,12 @@ find_refs_in_stmt (t, bb)
     case DECL_STMT:
       if (TREE_CODE (DECL_STMT_DECL (t)) == VAR_DECL
 	  && DECL_INITIAL (DECL_STMT_DECL (t)))
-	find_refs_in_expr (&DECL_STMT_DECL (t), VARDEF, bb, t,
-			   DECL_STMT_DECL (t));
+	{
+	  find_refs_in_expr (&DECL_INITIAL (DECL_STMT_DECL (t)), VARUSE, bb, t,
+	                     DECL_INITIAL (DECL_STMT_DECL (t)));
+	  find_refs_in_expr (&DECL_STMT_DECL (t), VARDEF, bb, t,
+			     DECL_STMT_DECL (t));
+	}
       break;
 
     case CLEANUP_STMT:
@@ -264,9 +268,9 @@ find_refs_in_expr (expr_p, ref_type, bb, parent_stmt, parent_expr)
   /* If this reference is associated with a non SIMPLE expression, then we
      mark the parent expression non SIMPLE.  This will cause all the
      references associated with this expression to be marked as VARDEFs.  */
-  if (parent_expr &&
-      TREE_ANN (expr) &&
-      (TREE_FLAGS (expr) & TF_NOT_SIMPLE))
+  if (parent_expr
+      && TREE_ANN (expr)
+      && (TREE_FLAGS (expr) & TF_NOT_SIMPLE))
     get_tree_ann (parent_expr)->flags |= TF_NOT_SIMPLE;
 
   code = TREE_CODE (expr);
@@ -545,24 +549,32 @@ remove_ref_from_list (list, ref)
      varref ref;
 {
   struct ref_list_node *tmp;
+
   if (!list || !list->first || !list->last)
     return;
-  for (tmp = list->first; tmp; tmp = tmp->next)
+
+  if (ref == list->first->ref)
+    tmp = list->first;
+  else if (ref == list->last->ref)
+    tmp = list->last;
+  else
     {
-      if (tmp->ref == ref)
-	{
-	  if (tmp == list->first)
-	    list->first = tmp->next;
-	  if (tmp == list->last)
-	    list->last = tmp->prev;
-	  if (tmp->next)
-	    tmp->next->prev = tmp->prev;
-	  if (tmp->prev)
-	    tmp->prev->next = tmp->next;
-	  free (tmp);
-	  return;
-	}
+      for (tmp = list->first; tmp; tmp = tmp->next)
+	if (tmp->ref == ref)
+	  break;
     }
+
+  if (tmp == list->first)
+    list->first = tmp->next;
+  if (tmp == list->last)
+    list->last = tmp->prev;
+  if (tmp->next)
+    tmp->next->prev = tmp->prev;
+  if (tmp->prev)
+    tmp->prev->next = tmp->next;
+
+  free (tmp);
+  return;
 }
 
 
@@ -618,7 +630,7 @@ add_ref_to_list_end (list, ref)
     
    BB, PARENT_STMT, PARENT_EXPR and OPERAND_P give the exact location of the
       reference.  PARENT_STMT, PARENT_EXPR and OPERAND_P can be NULL in the
-      case of artificial references (PHI nodes, ghost definitions, etc).  */
+      case of artificial references (PHI nodes, default definitions, etc).  */
 
 varref
 create_ref (sym, ref_type, bb, parent_stmt, parent_expr, operand_p)
@@ -702,10 +714,19 @@ create_ref (sym, ref_type, bb, parent_stmt, parent_expr, operand_p)
      Make sure that PHI terms are added at the beginning of the list,
      otherwise FUD chaining will fail to link local uses to the PHI term in
      this basic block.  */
-  if (ref_type == VARPHI || ref_type == EXPRPHI || IS_GHOST_DEF (ref))
+  if (ref_type == VARPHI || ref_type == EXPRPHI || IS_DEFAULT_DEF (ref))
     add_ref_to_list_begin (get_bb_ann (bb)->refs, ref);
   else
     add_ref_to_list_end (get_bb_ann (bb)->refs, ref);
+
+  /* If PARENT_EXPR is an assignment and SYM is the LHS of that assignment,
+     then store REF in TREE_CURRDEF.  */
+  if (parent_expr
+      && (TREE_CODE (parent_expr) == MODIFY_EXPR
+          || TREE_CODE (parent_expr) == INIT_EXPR)
+      && TREE_OPERAND (parent_expr, 0) == sym)
+    TREE_CURRDEF (parent_expr) = ref;
+
 
   return ref;
 }
@@ -945,10 +966,21 @@ dump_varref (outf, prefix, ref, indent, details)
   /* Dump specific contents for the different types of references.  */
   if (details)
     {
-      if (VARREF_TYPE (ref) == VARPHI && VARDEF_PHI_CHAIN (ref))
+      if (VARREF_TYPE (ref) == VARPHI)
 	{
-	  fputs (" phi-args:\n", outf);
-	  dump_varref_array (outf, prefix, VARDEF_PHI_CHAIN (ref), indent + 4, 0);
+	  if (VARDEF_PHI_CHAIN (ref))
+	    {
+	      fputs (" phi-args:\n", outf);
+	      dump_varref_array (outf, prefix, VARDEF_PHI_CHAIN (ref),
+		                 indent + 4, 0);
+	    }
+
+	  if (VARDEF_IMM_USES (ref))
+	    {
+	      fputs ("    immediate uses:\n", outf);
+	      dump_varref_list (outf, prefix, VARDEF_IMM_USES (ref),
+				indent + 4, 0);
+	    }
 	}
       else if (VARREF_TYPE (ref) == EXPRPHI && EXPRPHI_PHI_CHAIN (ref))
 	{

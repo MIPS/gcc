@@ -81,9 +81,9 @@ tree_build_ssa ()
   dfs = sbitmap_vector_alloc (last_basic_block, last_basic_block);
   compute_dominance_frontiers (dfs, idom);
 
-  /* Insert default definitions (a.k.a. ghost definitions) for all the
-     symbols referenced in the function.  This allows the identification of
-     variables that have been used without a preceding definition.
+  /* Insert default definitions for all the symbols referenced in the
+     function.  This allows the identification of variables that have been
+     used without a preceding definition.
 
      These definitions do not affect code generation, they are associated
      with no statement or expression (to distinguish them from actual
@@ -245,7 +245,6 @@ search_fud_chains (bb, idom)
      basic_block bb;
      dominance_info idom;
 {
-
   edge e;
   basic_block child_bb;
   struct ref_list_node *tmp;
@@ -270,16 +269,15 @@ search_fud_chains (bb, idom)
 
       if (VARREF_TYPE (ref) == VARUSE)
 	{
-	  VARUSE_CHAIN (ref) = currdef;
-
-	  /* Besides setting a link back to our immediate reaching
-	     definition, we want to link that definition to its immediate
-	     use.
-
-	     If this use (ref) has a current definition (currdef), add
-	     'ref' to the list of uses immediately reached by 'currdef'.  */
-	  if (currdef)
+	  /* Set up a def-use chain between CURRDEF (the immediately
+	     reaching definition for REF) and REF.  Each definition may
+	     have more than one immediate use.  */
+	  if (currdef && VARUSE_CHAIN (ref) != currdef)
 	    add_ref_to_list_end (VARDEF_IMM_USES (currdef), ref);
+
+
+	  /* Set up a use-def chain between REF and CURRDEF.  */
+	  VARUSE_CHAIN (ref) = currdef;
 	}
       else if (VARREF_TYPE (ref) == VARDEF || VARREF_TYPE (ref) == VARPHI)
 	{
@@ -326,6 +324,9 @@ search_fud_chains (bb, idom)
 	    {
 	      VARRAY_PUSH_GENERIC_PTR (VARDEF_PHI_CHAIN (phi), currdef);
 	      VARRAY_PUSH_BB (VARDEF_PHI_CHAIN_BB (phi), bb);
+
+	      /* Set a def-use edge between CURRDEF and this PHI node.  */
+	      add_ref_to_list_end (VARDEF_IMM_USES (currdef), phi);
 	    }
 	}
     }
@@ -490,32 +491,32 @@ analyze_rdefs ()
 	  || TREE_ADDRESSABLE (sym))
 	continue;
 
-      /* For each use of SYM, if the use is reached by SYM's ghost
+      /* For each use of SYM, if the use is reached by SYM's default
 	 definition, then the symbol may have been used uninitialized in
 	 the function.  */
       FOR_EACH_REF (use, tmp, TREE_REFS (sym))
 	{
-	  int found_ghost;
+	  int found_default;
 	  varref def;
 	  struct ref_list_node *tmp2;
 
 	  if (VARREF_TYPE (use) != VARUSE)
 	    continue;
 
-	  /* Check all the reaching definitions looking for the ghost
+	  /* Check all the reaching definitions looking for the default
 	     definition.  */
-	  found_ghost = 0;
+	  found_default = 0;
 	  FOR_EACH_REF (def, tmp2, VARUSE_RDEFS (use))
 	    {
-	      if (IS_GHOST_DEF (def))
-		found_ghost = 1;
+	      if (IS_DEFAULT_DEF (def))
+		found_default = 1;
 	    }
 
-	  /* If we found a ghost definition for SYM, then the reference may
-	     be accessing an uninitialized symbol.  If the ghost def is the
+	  /* If we found a default definition for SYM, then the reference may
+	     be accessing an uninitialized symbol.  If the default def is the
 	     only reaching definition, then the symbol _is_ used
 	     uninitialized.  Otherwise it _may_ be used uninitialized.  */
-	  if (found_ghost)
+	  if (found_default)
 	    {
 	      prep_stmt (VARREF_STMT (use));
 	      if (VARUSE_RDEFS (use)->last == VARUSE_RDEFS (use)->first)
@@ -604,7 +605,7 @@ is_upward_exposed (sym, bb_set, exclude_init_decl)
 	    {
 	      basic_block def_bb = VARREF_BB (def);
 
-	      if (IS_GHOST_DEF (def)
+	      if (IS_DEFAULT_DEF (def)
 		  || (exclude_init_decl
 		      && TREE_CODE (VARREF_STMT (def)) == DECL_STMT)
 		  || ! TEST_BIT (bb_set, def_bb->index))
