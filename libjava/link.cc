@@ -83,7 +83,7 @@ _Jv_Linker::resolve_field (_Jv_Field *field, java::lang::ClassLoader *loader)
   if (! field->isResolved ())
     {
       _Jv_Utf8Const *sig = (_Jv_Utf8Const*)field->type;
-      field->type = _Jv_FindClassFromSignature (sig->data, loader);
+      field->type = _Jv_FindClassFromSignature (sig->chars(), loader);
       field->flags &= ~_Jv_FIELD_UNRESOLVED_FLAG;
     }
 }
@@ -105,17 +105,15 @@ _Jv_Linker::resolve_pool_entry (jclass klass, int index)
 	_Jv_Utf8Const *name = pool->data[index].utf8;
 
 	jclass found;
-	if (name->data[0] == '[')
-	  found = _Jv_FindClassFromSignature (&name->data[0],
+	if (name->first() == '[')
+	  found = _Jv_FindClassFromSignature (name->chars(),
 					      klass->loader);
 	else
 	  found = _Jv_FindClass (name, klass->loader);
 
 	if (! found)
 	  {
-	    jstring str = _Jv_NewStringUTF (name->data);
-	    // This exception is specified in JLS 2nd Ed, section 5.1.
-	    throw new java::lang::NoClassDefFoundError (str);
+	    throw new java::lang::NoClassDefFoundError (name->toString());
 	  }
 
 	// Check accessibility, but first strip array types as
@@ -176,7 +174,7 @@ _Jv_Linker::resolve_pool_entry (jclass klass, int index)
 	jclass field_type = 0;
 
 	if (owner->loader != klass->loader)
-	  field_type = _Jv_FindClassFromSignature (field_type_name->data,
+	  field_type = _Jv_FindClassFromSignature (field_type_name->chars(),
 						   klass->loader);
       
 	_Jv_Field* the_field = 0;
@@ -226,7 +224,7 @@ _Jv_Linker::resolve_pool_entry (jclass klass, int index)
 	    sb->append(JvNewStringLatin1("field "));
 	    sb->append(owner->getName());
 	    sb->append(JvNewStringLatin1("."));
-	    sb->append(_Jv_NewStringUTF(field_name->data));
+	    sb->append(_Jv_NewStringUTF(field_name->chars()));
 	    sb->append(JvNewStringLatin1(" was not found."));
 	    throw
 	      new java::lang::IncompatibleClassChangeError (sb->toString());
@@ -330,9 +328,9 @@ _Jv_Linker::resolve_pool_entry (jclass klass, int index)
 	    sb->append(JvNewStringLatin1("method "));
 	    sb->append(owner->getName());
 	    sb->append(JvNewStringLatin1("."));
-	    sb->append(_Jv_NewStringUTF(method_name->data));
+	    sb->append(_Jv_NewStringUTF(method_name->chars()));
 	    sb->append(JvNewStringLatin1(" with signature "));
-	    sb->append(_Jv_NewStringUTF(method_signature->data));
+	    sb->append(_Jv_NewStringUTF(method_signature->chars()));
 	    sb->append(JvNewStringLatin1(" was not found."));
 	    throw new java::lang::NoSuchMethodError (sb->toString());
 	  }
@@ -370,8 +368,7 @@ _Jv_Linker::resolve_class_ref (jclass klass, jclass *classref)
 	  ret = _Jv_FindClass (name, klass->loader);
 	  if (! ret)
 	    {
-	      jstring str = _Jv_NewStringUTF (name->data);
-	      throw new java::lang::NoClassDefFoundError (str);
+	      throw new java::lang::NoClassDefFoundError (name->toString());
 	    }
 	}
       else
@@ -407,8 +404,8 @@ _Jv_SearchMethodInClass (jclass cls, jclass klass,
 	  sb->append(JvNewStringLatin1(": "));
 	  sb->append(cls->getName());
 	  sb->append(JvNewStringLatin1("."));
-	  sb->append(_Jv_NewStringUTF(method_name->data));
-	  sb->append(_Jv_NewStringUTF(method_signature->data));
+	  sb->append(_Jv_NewStringUTF(method_name->chars()));
+	  sb->append(_Jv_NewStringUTF(method_signature->chars()));
 	  throw new java::lang::IllegalAccessError (sb->toString());
 	}
     }
@@ -613,9 +610,9 @@ _Jv_Linker::generate_itable (jclass klass, _Jv_ifaces *ifaces,
 jstring
 _Jv_GetMethodString (jclass klass, _Jv_Utf8Const *name)
 {
-  jstring r = JvNewStringUTF (klass->name->data);
+  jstring r = klass->name->toString();
   r = r->concat (JvNewStringUTF ("."));
-  r = r->concat (JvNewStringUTF (name->data));
+  r = r->concat (name->toString());
   return r;
 }
 
@@ -657,7 +654,7 @@ _Jv_Linker::append_partial_itable (jclass klass, jclass iface,
 	    break;
 	}
 
-      if (meth && (meth->name->data[0] == '<'))
+      if (meth && (meth->name->first() == '<'))
 	{
 	  // leave a placeholder in the itable for hidden init methods.
           itable[pos] = NULL;	
@@ -809,7 +806,7 @@ _Jv_Linker::link_symbol_table (jclass klass)
   klass->otable->state = 1;
 
   if (debug_link)
-    fprintf (stderr, "Fixing up otable in %s:\n", klass->name->data);
+    fprintf (stderr, "Fixing up otable in %s:\n", klass->name->chars());
   for (index = 0;
        (sym = klass->otable_syms[index]).class_name != NULL;
        ++index)
@@ -817,7 +814,7 @@ _Jv_Linker::link_symbol_table (jclass klass)
       jclass target_class = _Jv_FindClass (sym.class_name, klass->loader);
       _Jv_Method *meth = NULL;            
 
-      const _Jv_Utf8Const *signature = sym.signature;
+      _Jv_Utf8Const *signature = sym.signature;
 
       {
 	static char *bounce = (char *)_Jv_ThrowNoSuchMethodError;
@@ -827,12 +824,11 @@ _Jv_Linker::link_symbol_table (jclass klass)
 
       if (target_class == NULL)
 	throw new java::lang::NoClassDefFoundError 
-	  (_Jv_NewStringUTF (sym.class_name->data));
+	  (_Jv_NewStringUTF (sym.class_name->chars()));
 
       // We're looking for a field or a method, and we can tell
       // which is needed by looking at the signature.
-      if (signature->length >= 2
-	  && signature->data[0] == '(')
+      if (signature->first() == '(' && signature->len() >= 2)
 	{
 	  // Looks like someone is trying to invoke an interface method
 	  if (target_class->isInterface())
@@ -863,12 +859,12 @@ _Jv_Linker::link_symbol_table (jclass klass)
 	    }
 	  if (debug_link)
 	    fprintf (stderr, "  offsets[%d] = %d (class %s@%p : %s(%s))\n",
-		     index,
-		     klass->otable->offsets[index],
-		     (const char*)target_class->name->data,
+		     (int)index,
+		     (int)klass->otable->offsets[index],
+		     (const char*)target_class->name->chars(),
 		     target_class,
-		     (const char*)sym.name->data,
-		     (const char*)signature->data);
+		     (const char*)sym.name->chars(),
+		     (const char*)signature->chars());
 	  continue;
 	}
 
@@ -901,11 +897,11 @@ _Jv_Linker::link_symbol_table (jclass klass)
 		the_field = field;
 		if (debug_link)
 		  fprintf (stderr, "  offsets[%d] = %d (class %s@%p : %s)\n",
-			   index,
-			   field->u.boffset,
-			   (const char*)cls->name->data,
+			   (int)index,
+			   (int)field->u.boffset,
+			   (const char*)cls->name->chars(),
 			   cls,
-			   (const char*)field->name->data);
+			   (const char*)field->name->chars());
 		goto end_of_field_search;
 	      }
 	  }
@@ -937,7 +933,7 @@ _Jv_Linker::link_symbol_table (jclass klass)
     {
       jclass target_class = _Jv_FindClass (sym.class_name, klass->loader);
       _Jv_Method *meth = NULL;            
-      const _Jv_Utf8Const *signature = sym.signature;
+      _Jv_Utf8Const *signature = sym.signature;
 
       // ??? Setting this pointer to null will at least get us a
       // NullPointerException
@@ -945,12 +941,11 @@ _Jv_Linker::link_symbol_table (jclass klass)
       
       if (target_class == NULL)
 	throw new java::lang::NoClassDefFoundError 
-	  (_Jv_NewStringUTF (sym.class_name->data));
+	  (_Jv_NewStringUTF (sym.class_name->chars()));
       
       // We're looking for a static field or a static method, and we
       // can tell which is needed by looking at the signature.
-      if (signature->length >= 2
-	  && signature->data[0] == '(')
+      if (signature->first() == '(' && signature->len() >= 2)
 	{
  	  // If the target class does not have a vtable_method_count yet, 
 	  // then we can't tell the offsets for its methods, so we must lay 
@@ -981,10 +976,10 @@ _Jv_Linker::link_symbol_table (jclass klass)
 		    fprintf (stderr, "  addresses[%d] = %p (class %s@%p : %s(%s))\n",
 			     index,
 			     &klass->atable->addresses[index],
-			     (const char*)target_class->name->data,
+			     (const char*)target_class->name->chars(),
 			     klass,
-			     (const char*)sym.name->data,
-			     (const char*)signature->data);
+			     (const char*)sym.name->chars(),
+			     (const char*)signature->chars());
 		}
 	    }
 	  else
@@ -1052,7 +1047,7 @@ _Jv_Linker::link_symbol_table (jclass klass)
        ++index)
     {
       jclass target_class = _Jv_FindClass (sym.class_name, klass->loader);
-      const _Jv_Utf8Const *signature = sym.signature;
+      _Jv_Utf8Const *signature = sym.signature;
 
       jclass cls;
       int i;
@@ -1063,19 +1058,19 @@ _Jv_Linker::link_symbol_table (jclass klass)
       if (found)
 	{
 	  klass->itable->addresses[index * 2] = cls;
-	  klass->itable->addresses[index * 2 + 1] = (void *) i;
+	  klass->itable->addresses[index * 2 + 1] = (void *)(intptr_t) i;
 	  if (debug_link)
 	    {
 	      fprintf (stderr, "  interfaces[%d] = %p (interface %s@%p : %s(%s))\n",
 		       index,
 		       klass->itable->addresses[index * 2],
-		       (const char*)cls->name->data,
+		       (const char*)cls->name->chars(),
 		       cls,
-		       (const char*)sym.name->data,
-		       (const char*)signature->data);
+		       (const char*)sym.name->chars(),
+		       (const char*)signature->chars());
 	      fprintf (stderr, "            [%d] = offset %d\n",
 		       index + 1,
-		       (int)klass->itable->addresses[index * 2 + 1]);
+		       (int)(intptr_t)klass->itable->addresses[index * 2 + 1]);
 	    }
 
 	}
@@ -1525,7 +1520,7 @@ _Jv_Linker::add_miranda_methods (jclass base, jclass iface_class)
 	{
  	  _Jv_Method *meth = &interface->methods[j];
 	  // Don't bother with <clinit>.
-	  if (meth->name->data[0] == '<')
+	  if (meth->name->first() == '<')
 	    continue;
 	  _Jv_Method *new_meth = _Jv_LookupDeclaredMethod (base, meth->name,
 							   meth->signature);

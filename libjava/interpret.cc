@@ -66,6 +66,21 @@ static void throw_class_format_error (jstring msg)
 static void throw_class_format_error (char *msg)
 	__attribute__ ((__noreturn__));
 
+#ifdef DIRECT_THREADED
+// Lock to ensure that methods are not compiled concurrently.
+// We could use a finer-grained lock here, however it is not safe to use
+// the Class monitor as user code in another thread could hold it.
+static _Jv_Mutex_t compile_mutex;
+
+void
+_Jv_InitInterpreter()
+{
+  _Jv_MutexInit (&compile_mutex);
+}
+#else
+void _Jv_InitInterpreter() {}
+#endif
+
 extern "C" double __ieee754_fmod (double,double);
 
 // This represents a single slot in the "compiled" form of the
@@ -1045,9 +1060,14 @@ _Jv_InterpMethod::run (void *retp, ffi_raw *args)
 #define PCVAL(unionval) unionval.p
 #define AMPAMP(label) &&label
 
-  // Compile if we must.
+  // Compile if we must. NOTE: Double-check locking.
   if (prepared == NULL)
-    compile (insn_target);
+    {
+      _Jv_MutexLock (&compile_mutex);
+      if (prepared == NULL)
+	compile (insn_target);
+      _Jv_MutexUnlock (&compile_mutex);
+    }
   pc = (insn_slot *) prepared;
 
 #else
@@ -1170,7 +1190,7 @@ _Jv_InterpMethod::run (void *retp, ffi_raw *args)
 	ffi_cif *cif = &rmeth->cif;
 	ffi_raw *raw = (ffi_raw*) sp;
 
-	jdouble rvalue;
+	_Jv_value rvalue;
 
 #if FFI_NATIVE_RAW_API
 	/* We assume that this is only implemented if it's correct	*/
@@ -1186,11 +1206,11 @@ _Jv_InterpMethod::run (void *retp, ffi_raw *args)
 	 * so those are checked before the switch */
 	if (rtype == FFI_TYPE_POINTER)
 	  {
-	    PUSHA (*(jobject*)&rvalue);
+	    PUSHA (rvalue.object_value);
 	  }
 	else if (rtype == FFI_TYPE_SINT32)
 	  {
-	    PUSHI (*(jint*)&rvalue);
+	    PUSHI (rvalue.int_value);
 	  }
 	else if (rtype == FFI_TYPE_VOID)
 	  {
@@ -1201,36 +1221,27 @@ _Jv_InterpMethod::run (void *retp, ffi_raw *args)
 	    switch (rtype)
 	      {
 	      case FFI_TYPE_SINT8:
-		{
-		  jbyte value = (*(jint*)&rvalue) & 0xff;
-		  PUSHI (value);
-		}
+		PUSHI ((jbyte)(rvalue.int_value & 0xff));
 		break;
 
 	      case FFI_TYPE_SINT16:
-		{
-		  jshort value = (*(jint*)&rvalue) & 0xffff;
-		  PUSHI (value);
-		}
+		PUSHI ((jshort)(rvalue.int_value & 0xffff));
 		break;
 
 	      case FFI_TYPE_UINT16:
-		{
-		  jint value = (*(jint*)&rvalue) & 0xffff;
-		  PUSHI (value);
-		}
+		PUSHI (rvalue.int_value & 0xffff);
 		break;
 
 	      case FFI_TYPE_FLOAT:
-		PUSHF (*(jfloat*)&rvalue);
+	        PUSHF (rvalue.float_value);
 		break;
 
 	      case FFI_TYPE_DOUBLE:
-		PUSHD (rvalue);
+	        PUSHD (rvalue.double_value);
 		break;
 
 	      case FFI_TYPE_SINT64:
-		PUSHL (*(jlong*)&rvalue);
+	        PUSHL (rvalue.long_value);
 		break;
 
 	      default:
@@ -2422,37 +2433,37 @@ _Jv_InterpMethod::run (void *retp, ffi_raw *args)
 	    switch (type->size_in_bytes)
 	      {
 	      case 1:
-		PUSHI (*(jbyte*) (field->u.addr));
+		PUSHI (*field->u.byte_addr);
 		newinsn = AMPAMP (getstatic_resolved_1);
 		break;
 
 	      case 2:
 		if (type == JvPrimClass (char))
 		  {
-		    PUSHI(*(jchar*) (field->u.addr));
+		    PUSHI (*field->u.char_addr);
 		    newinsn = AMPAMP (getstatic_resolved_char);
 		  }
 		else
 		  {
-		    PUSHI(*(jshort*) (field->u.addr));
+		    PUSHI (*field->u.short_addr);
 		    newinsn = AMPAMP (getstatic_resolved_short);
 		  }
 		break;
 
 	      case 4:
-		PUSHI(*(jint*) (field->u.addr));
+	        PUSHI(*field->u.int_addr);
 		newinsn = AMPAMP (getstatic_resolved_4);
 		break;
 
 	      case 8:
-		PUSHL(*(jlong*) (field->u.addr));
+	        PUSHL(*field->u.long_addr);
 		newinsn = AMPAMP (getstatic_resolved_8);
 		break;
 	      }
 	  }
 	else
 	  {
-	    PUSHA(*(jobject*) (field->u.addr));
+	    PUSHA(*field->u.object_addr);
 	    newinsn = AMPAMP (getstatic_resolved_obj);
 	  }
 
@@ -2508,42 +2519,43 @@ _Jv_InterpMethod::run (void *retp, ffi_raw *args)
 	NULLCHECK(obj);
 
 	void *newinsn = NULL;
+	_Jv_value *val = (_Jv_value *) ((char *)obj + field_offset);
 	if (type->isPrimitive ())
 	  {
 	    switch (type->size_in_bytes)
 	      {
 	      case 1:
-		PUSHI (*(jbyte*) ((char*)obj + field_offset));
+	        PUSHI (val->byte_value);
 		newinsn = AMPAMP (getfield_resolved_1);
 		break;
 
 	      case 2:
 		if (type == JvPrimClass (char))
 		  {
-		    PUSHI (*(jchar*) ((char*)obj + field_offset));
+		    PUSHI (val->char_value);
 		    newinsn = AMPAMP (getfield_resolved_char);
 		  }
 		else
 		  {
-		    PUSHI (*(jshort*) ((char*)obj + field_offset));
+		    PUSHI (val->short_value);
 		    newinsn = AMPAMP (getfield_resolved_short);
 		  }
 		break;
 
 	      case 4:
-		PUSHI (*(jint*) ((char*)obj + field_offset));
+		PUSHI (val->int_value);
 		newinsn = AMPAMP (getfield_resolved_4);
 		break;
 
 	      case 8:
-		PUSHL(*(jlong*) ((char*)obj + field_offset));
+	        PUSHL (val->long_value);
 		newinsn = AMPAMP (getfield_resolved_8);
 		break;
 	      }
 	  }
 	else
 	  {
-	    PUSHA(*(jobject*) ((char*)obj + field_offset));
+	    PUSHA (val->object_value);
 	    newinsn = AMPAMP (getfield_resolved_obj);
 	  }
 
@@ -2625,7 +2637,7 @@ _Jv_InterpMethod::run (void *retp, ffi_raw *args)
 	      case 1:
 		{
 		  jint value = POPI();
-		  *(jbyte*) (field->u.addr) = value;
+		  *field->u.byte_addr = value;
 		  newinsn = AMPAMP (putstatic_resolved_1);
 		  break;
 		}
@@ -2633,7 +2645,7 @@ _Jv_InterpMethod::run (void *retp, ffi_raw *args)
 	      case 2:
 		{
 		  jint value = POPI();
-		  *(jchar*) (field->u.addr) = value;
+		  *field->u.char_addr = value;
 		  newinsn = AMPAMP (putstatic_resolved_2);
 		  break;
 		}
@@ -2641,7 +2653,7 @@ _Jv_InterpMethod::run (void *retp, ffi_raw *args)
 	      case 4:
 		{
 		  jint value = POPI();
-		  *(jint*) (field->u.addr) = value;
+		  *field->u.int_addr = value;
 		  newinsn = AMPAMP (putstatic_resolved_4);
 		  break;
 		}
@@ -2649,7 +2661,7 @@ _Jv_InterpMethod::run (void *retp, ffi_raw *args)
 	      case 8:
 		{
 		  jlong value = POPL();
-		  *(jlong*) (field->u.addr) = value;
+		  *field->u.long_addr = value;
 		  newinsn = AMPAMP (putstatic_resolved_8);
 		  break;
 		}
@@ -2658,7 +2670,7 @@ _Jv_InterpMethod::run (void *retp, ffi_raw *args)
 	else
 	  {
 	    jobject value = POPA();
-	    *(jobject*) (field->u.addr) = value;
+	    *field->u.object_addr = value;
 	    newinsn = AMPAMP (putstatic_resolved_obj);
 	  }
 
@@ -3151,6 +3163,10 @@ _Jv_InterpMethod::run (void *retp, ffi_raw *args)
 	    LOADI (wide);
 	    NEXT_INSN;
 
+	  case op_fload:
+	    LOADF (wide);
+	    NEXT_INSN;
+
 	  case op_aload:
 	    LOADA (wide);
 	    NEXT_INSN;
@@ -3447,7 +3463,7 @@ int
 _Jv_count_arguments (_Jv_Utf8Const *signature,
 		     jboolean staticp)
 {
-  unsigned char *ptr = (unsigned char*) signature->data;
+  unsigned char *ptr = (unsigned char*) signature->chars();
   int arg_count = staticp ? 0 : 1;
 
   /* first, count number of arguments */
@@ -3478,7 +3494,7 @@ init_cif (_Jv_Utf8Const* signature,
 	  ffi_type **arg_types,
 	  ffi_type **rtype_p)
 {
-  unsigned char *ptr = (unsigned char*) signature->data;
+  unsigned char *ptr = (unsigned char*) signature->chars();
 
   int arg_index = 0;		// arg number
   int item_count = 0;		// stack-item count
@@ -3511,7 +3527,7 @@ init_cif (_Jv_Utf8Const* signature,
   ffi_type *rtype = get_ffi_type_from_signature (ptr);
 
   ptr = skip_one_type (ptr);
-  if (ptr != (unsigned char*)signature->data + signature->length)
+  if (ptr != (unsigned char*)signature->chars() + signature->len())
     throw_internal_error ("did not find end of signature");
 
   if (ffi_prep_cif (cif, FFI_DEFAULT_ABI,

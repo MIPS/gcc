@@ -1,6 +1,6 @@
 // boehm.cc - interface between libjava and Boehm GC.
 
-/* Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004  Free Software Foundation
+/* Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -9,6 +9,25 @@ Libgcj License.  Please consult the file "LIBGCJ_LICENSE" for
 details.  */
 
 #include <config.h>
+
+extern "C"
+{
+#include <gc_config.h>
+
+// Set GC_DEBUG before including gc.h!
+#ifdef LIBGCJ_GC_DEBUG
+# define GC_DEBUG
+#endif
+
+#include <gc_mark.h>
+#include <gc_gcj.h>
+#include <javaxfc.h>  // GC_finalize_all declaration.  
+
+#ifdef THREAD_LOCAL_ALLOC
+# define GC_REDIRECT_TO_LOCAL
+# include <gc_local_alloc.h>
+#endif
+};
 
 #include <stdio.h>
 #include <limits.h>
@@ -20,41 +39,14 @@ details.  */
 #include <java/lang/reflect/Modifier.h>
 #include <java-interp.h>
 
-// More nastiness: the GC wants to define TRUE and FALSE.  We don't
-// need the Java definitions (themselves a hack), so we undefine them.
-#undef TRUE
-#undef FALSE
-
-extern "C"
-{
-#include <private/gc_pmark.h>
-#include <gc_gcj.h>
-
-#ifdef THREAD_LOCAL_ALLOC
-# define GC_REDIRECT_TO_LOCAL
-# include <gc_local_alloc.h>
-#endif
-
-  // These aren't declared in any Boehm GC header.
-  void GC_finalize_all (void);
-  ptr_t GC_debug_generic_malloc (size_t size, int k, GC_EXTRA_PARAMS);
-
-  // From boehm's misc.c 
-  void GC_enable();
-  void GC_disable();
-};
-
-#define MAYBE_MARK(Obj, Top, Limit, Source)  \
+#define MAYBE_MARK(Obj, Top, Limit, Source, Exit)  \
 	Top=GC_MARK_AND_PUSH((GC_PTR)Obj, Top, Limit, (GC_PTR *)Source)
 
 // `kind' index used when allocating Java arrays.
 static int array_kind_x;
 
 // Freelist used for Java arrays.
-static ptr_t *array_free_list;
-
-// Lock used to protect access to Boehm's GC_enable/GC_disable functions.
-static _Jv_Mutex_t disable_gc_mutex;
+static void * *array_free_list;
 
 
 
@@ -62,15 +54,14 @@ static _Jv_Mutex_t disable_gc_mutex;
 // object.  We use `void *' arguments and return, and not what the
 // Boehm GC wants, to avoid pollution in our headers.
 void *
-_Jv_MarkObj (void *addr, void *msp, void *msl, void * /* env */)
+_Jv_MarkObj (void *addr, void *msp, void *msl, void * env)
 {
-  mse *mark_stack_ptr = (mse *) msp;
-  mse *mark_stack_limit = (mse *) msl;
-  jobject obj = (jobject) addr;
+  struct GC_ms_entry *mark_stack_ptr = (struct GC_ms_entry *)msp;
+  struct GC_ms_entry *mark_stack_limit = (struct GC_ms_entry *)msl;
 
-  // FIXME: if env is 1, this object was allocated through the debug
-  // interface, and addr points to the beginning of the debug header.
-  // In that case, we should really add the size of the header to addr.
+  if (env == (void *)1) /* Object allocated with debug allocator.	*/
+    addr = (GC_PTR)GC_USR_PTR_FROM_BASE(addr);
+  jobject obj = (jobject) addr;
 
   _Jv_VTable *dt = *(_Jv_VTable **) addr;
   // The object might not yet have its vtable set, or it might
@@ -82,16 +73,16 @@ _Jv_MarkObj (void *addr, void *msp, void *msl, void * /* env */)
   if (__builtin_expect (! dt || !(dt -> get_finalizer()), false))
     return mark_stack_ptr;
   jclass klass = dt->clas;
-  ptr_t p;
+  GC_PTR p;
 
 # ifndef JV_HASH_SYNCHRONIZATION
     // Every object has a sync_info pointer.
-    p = (ptr_t) obj->sync_info;
-    MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, obj);
+    p = (GC_PTR) obj->sync_info;
+    MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, obj, o1label);
 # endif
   // Mark the object's class.
-  p = (ptr_t) klass;
-  MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, obj);
+  p = (GC_PTR) klass;
+  MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, obj, o2label);
 
   if (__builtin_expect (klass == &java::lang::Class::class$, false))
     {
@@ -109,36 +100,34 @@ _Jv_MarkObj (void *addr, void *msp, void *msl, void * /* env */)
       // of our root set.		- HB
       jclass c = (jclass) addr;
 
-      p = (ptr_t) c->name;
-      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c);
-      p = (ptr_t) c->superclass;
-      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c);
+      p = (GC_PTR) c->name;
+      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c, c3label);
+      p = (GC_PTR) c->superclass;
+      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c, c4label);
       for (int i = 0; i < c->constants.size; ++i)
 	{
 	  /* FIXME: We could make this more precise by using the tags -KKT */
-	  p = (ptr_t) c->constants.data[i].p;
-	  MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c);
+	  p = (GC_PTR) c->constants.data[i].p;
+	  MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c, c5label);
 	}
 
 #ifdef INTERPRETER
       if (_Jv_IsInterpretedClass (c))
 	{
-	  p = (ptr_t) c->constants.tags;
-	  MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c);
-	  p = (ptr_t) c->constants.data;
-	  MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c);
+	  p = (GC_PTR) c->constants.tags;
+	  MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c, c5alabel);
+	  p = (GC_PTR) c->constants.data;
+	  MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c, c5blabel);
+	  p = (GC_PTR) c->vtable;
+	  MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c, c5clabel);
 	}
 #endif
-
-      // The vtable might be allocated even for compiled code.
-      p = (ptr_t) c->vtable;
-      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c);
 
       // If the class is an array, then the methods field holds a
       // pointer to the element class.  If the class is primitive,
       // then the methods field holds a pointer to the array class.
-      p = (ptr_t) c->methods;
-      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c);
+      p = (GC_PTR) c->methods;
+      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c, c6label);
 
       // The vtable might have been set, but the rest of the class
       // could still be uninitialized.  If this is the case, then
@@ -153,31 +142,35 @@ _Jv_MarkObj (void *addr, void *msp, void *msl, void * /* env */)
 	  // points to a methods structure.
 	  for (int i = 0; i < c->method_count; ++i)
 	    {
-	      p = (ptr_t) c->methods[i].name;
-	      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c);
-	      p = (ptr_t) c->methods[i].signature;
-	      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c);
+	      p = (GC_PTR) c->methods[i].name;
+	      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c,
+			     cm1label);
+	      p = (GC_PTR) c->methods[i].signature;
+	      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c,
+			     cm2label);
 	    }
 	}
 
       // Mark all the fields.
-      p = (ptr_t) c->fields;
-      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c);
+      p = (GC_PTR) c->fields;
+      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c, c8label);
       for (int i = 0; i < c->field_count; ++i)
 	{
 	  _Jv_Field* field = &c->fields[i];
 
-	  p = (ptr_t) field->name;
-	  MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c);
-	  p = (ptr_t) field->type;
-	  MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c);
+#ifndef COMPACT_FIELDS
+	  p = (GC_PTR) field->name;
+	  MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c, c8alabel);
+#endif
+	  p = (GC_PTR) field->type;
+	  MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c, c8blabel);
 
 	  // For the interpreter, we also need to mark the memory
 	  // containing static members
 	  if ((field->flags & java::lang::reflect::Modifier::STATIC))
 	    {
-	      p = (ptr_t) field->u.addr;
-	      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c);
+	      p = (GC_PTR) field->u.addr;
+	      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c, c8clabel);
 
 	      // also, if the static member is a reference,
 	      // mark also the value pointed to.  We check for isResolved
@@ -186,111 +179,70 @@ _Jv_MarkObj (void *addr, void *msp, void *msl, void * /* env */)
 	      if (JvFieldIsRef (field) && field->isResolved()) 
 		{
 		  jobject val = *(jobject*) field->u.addr;
-		  p = (ptr_t) val;
-		  MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c);
+		  p = (GC_PTR) val;
+		  MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit,
+			      c, c8elabel);
 		}
 	    }
 	}
 
-      p = (ptr_t) c->vtable;
-      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c);
-      p = (ptr_t) c->interfaces;
-      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c);
+      p = (GC_PTR) c->vtable;
+      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c, c9label);
+      p = (GC_PTR) c->interfaces;
+      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c, cAlabel);
       for (int i = 0; i < c->interface_count; ++i)
 	{
-	  p = (ptr_t) c->interfaces[i];
-	  MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c);
+	  p = (GC_PTR) c->interfaces[i];
+	  MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c, cClabel);
 	}
-      p = (ptr_t) c->loader;
-      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c);
-
-      // The dispatch tables can be allocated at runtime.
-      p = (ptr_t) c->ancestors;
-      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c);
-      if (c->idt)
-	{
-	  p = (ptr_t) c->idt;
-	  MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c);
-
-	  if (c->isInterface())
-	    {
-	      p = (ptr_t) c->idt->iface.ioffsets;
-	      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c->idt);
-	    }
-	  else if (! c->isPrimitive())
-	    {
-	      // This field is only valid for ordinary classes.
-	      p = (ptr_t) c->idt->cls.itable;
-	      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c->idt);
-	    }
-	}
-
-      p = (ptr_t) c->arrayclass;
-      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c);
-      p = (ptr_t) c->protectionDomain;
-      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c);
-      p = (ptr_t) c->hack_signers;
-      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c);
-      p = (ptr_t) c->aux_info;
-      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c);
+      p = (GC_PTR) c->loader;
+      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c, cBlabel);
+      p = (GC_PTR) c->arrayclass;
+      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c, cDlabel);
+      p = (GC_PTR) c->protectionDomain;
+      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c, cPlabel);
+      p = (GC_PTR) c->hack_signers;
+      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c, cSlabel);
+      p = (GC_PTR) c->aux_info;
+      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c, cTlabel);
 
 #ifdef INTERPRETER
       if (_Jv_IsInterpretedClass (c))
 	{
 	  _Jv_InterpClass* ic = (_Jv_InterpClass*) c->aux_info;
 
-	  p = (ptr_t) ic->interpreted_methods;
-	  MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, ic);
+	  p = (GC_PTR) ic->interpreted_methods;
+	  MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, ic, cElabel);
 
 	  for (int i = 0; i < c->method_count; i++)
 	    {
-	      // The interpreter installs a heap-allocated trampoline
-	      // here, so we'll mark it.
-	      p = (ptr_t) c->methods[i].ncode;
-	      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c);
+	      p = (GC_PTR) ic->interpreted_methods[i];
+	      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, ic, \
+			  cFlabel);
 
-	      using namespace java::lang::reflect;
-
-	      // Mark the direct-threaded code.  Note a subtlety here:
-	      // when we add Miranda methods to a class, we don't
-	      // resize its interpreted_methods array.  If we try to
-	      // reference one of these methods, we may crash.
-	      // However, we know these are all abstract, and we know
-	      // that abstract methods have nothing useful in this
-	      // array.  So, we skip all abstract methods to avoid the
-	      // problem.  FIXME: this is pretty obscure, it may be
-	      // better to add a methods to the execution engine and
-	      // resize the array.
-	      if ((c->methods[i].accflags & Modifier::ABSTRACT) != 0)
-		continue;
-
-	      p = (ptr_t) ic->interpreted_methods[i];
-	      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, ic);
-
-	      if ((c->methods[i].accflags & Modifier::NATIVE) != 0)
-		{
-		  _Jv_JNIMethod *jm
-		    = (_Jv_JNIMethod *) ic->interpreted_methods[i];
-		  if (jm)
-		    {
-		      p = (ptr_t) jm->jni_arg_types;
-		      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, p);
-		    }
-		}
-	      else
+	      // Mark the direct-threaded code.
+	      if ((c->methods[i].accflags
+		   & java::lang::reflect::Modifier::NATIVE) == 0)
 		{
 		  _Jv_InterpMethod *im
 		    = (_Jv_InterpMethod *) ic->interpreted_methods[i];
 		  if (im)
 		    {
-		      p = (ptr_t) im->prepared;
-		      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, ic);
+		      p = (GC_PTR) im->prepared;
+		      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, ic, \
+				  cFlabel);
 		    }
 		}
+
+	      // The interpreter installs a heap-allocated trampoline
+	      // here, so we'll mark it.
+	      p = (GC_PTR) c->methods[i].ncode;
+	      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c,
+			  cm3label);
 	    }
 
-	  p = (ptr_t) ic->field_initializers;
-	  MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, ic);
+	  p = (GC_PTR) ic->field_initializers;
+	  MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, ic, cGlabel);
 	  
 	}
 #endif
@@ -316,8 +268,9 @@ _Jv_MarkObj (void *addr, void *msp, void *msl, void * /* env */)
 	      if (JvFieldIsRef (field))
 		{
 		  jobject val = JvGetObjectField (obj, field);
-		  p = (ptr_t) val;
-		  MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, obj);
+		  p = (GC_PTR) val;
+		  MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit,
+			      obj, elabel);
 		}
 	      field = field->getNextField ();
 	    }
@@ -332,10 +285,13 @@ _Jv_MarkObj (void *addr, void *msp, void *msl, void * /* env */)
 // array (of objects).  We use `void *' arguments and return, and not
 // what the Boehm GC wants, to avoid pollution in our headers.
 void *
-_Jv_MarkArray (void *addr, void *msp, void *msl, void * /*env*/)
+_Jv_MarkArray (void *addr, void *msp, void *msl, void * env)
 {
-  mse *mark_stack_ptr = (mse *) msp;
-  mse *mark_stack_limit = (mse *) msl;
+  struct GC_ms_entry *mark_stack_ptr = (struct GC_ms_entry *)msp;
+  struct GC_ms_entry *mark_stack_limit = (struct GC_ms_entry *)msl;
+
+  if (env == (void *)1) /* Object allocated with debug allocator.	*/
+    addr = (void *)GC_USR_PTR_FROM_BASE(addr);
   jobjectArray array = (jobjectArray) addr;
 
   _Jv_VTable *dt = *(_Jv_VTable **) addr;
@@ -345,22 +301,22 @@ _Jv_MarkArray (void *addr, void *msp, void *msl, void * /*env*/)
   if (__builtin_expect (! dt || !(dt -> get_finalizer()), false))
     return mark_stack_ptr;
   jclass klass = dt->clas;
-  ptr_t p;
+  GC_PTR p;
 
 # ifndef JV_HASH_SYNCHRONIZATION
     // Every object has a sync_info pointer.
-    p = (ptr_t) array->sync_info;
-    MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, array);
+    p = (GC_PTR) array->sync_info;
+    MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, array, e1label);
 # endif
   // Mark the object's class.
-  p = (ptr_t) klass;
-  MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, &(dt -> clas));
+  p = (GC_PTR) klass;
+  MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, &(dt -> clas), o2label);
 
   for (int i = 0; i < JvGetArrayLength (array); ++i)
     {
       jobject obj = elements (array)[i];
-      p = (ptr_t) obj;
-      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, array);
+      p = (GC_PTR) obj;
+      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, array, e2label);
     }
 
   return mark_stack_ptr;
@@ -408,7 +364,7 @@ _Jv_BuildGCDescr(jclass self)
 	      // If we find a field outside the range of our bitmap,
 	      // fall back to procedure marker. The bottom 2 bits are
 	      // reserved.
-	      if (off >= bits_per_word - 2)
+	      if (off >= (unsigned)bits_per_word - 2)
 		return (void *) (GCJ_DEFAULT_DESCR);
 	      desc |= 1ULL << (bits_per_word - off - 1);
 	    }
@@ -436,12 +392,44 @@ _Jv_AllocBytes (jsize size)
   return r;
 }
 
+#ifdef LIBGCJ_GC_DEBUG
+
+void *
+_Jv_AllocObj (jsize size, jclass klass)
+{
+  return GC_GCJ_MALLOC (size, klass->vtable);
+}
+
+void *
+_Jv_AllocPtrFreeObj (jsize size, jclass klass)
+{
+#ifdef JV_HASH_SYNCHRONIZATION
+  void * obj = GC_MALLOC_ATOMIC(size);
+  *((_Jv_VTable **) obj) = klass->vtable;
+#else
+  void * obj = GC_GCJ_MALLOC(size, klass->vtable);
+#endif
+  return obj;
+}
+
+#endif /* LIBGCJ_GC_DEBUG */
+// In the non-debug case, the above two functions are defined
+// as inline functions in boehm-gc.h.  In the debug case we
+// really want to take advantage of the definitions in gc_gcj.h.
+
 // Allocate space for a new Java array.
 // Used only for arrays of objects.
 void *
 _Jv_AllocArray (jsize size, jclass klass)
 {
   void *obj;
+
+#ifdef LIBGCJ_GC_DEBUG
+  // There isn't much to lose by scanning this conservatively.
+  // If we didn't, the mark proc would have to understand that
+  // it needed to skip the header.
+  obj = GC_MALLOC(size);
+#else
   const jsize min_heap_addr = 16*1024;
   // A heuristic.  If size is less than this value, the size
   // stored in the array can't possibly be misinterpreted as
@@ -449,12 +437,6 @@ _Jv_AllocArray (jsize size, jclass klass)
   // completely conservatively, since no misidentification can
   // take place.
   
-#ifdef GC_DEBUG
-  // There isn't much to lose by scanning this conservatively.
-  // If we didn't, the mark proc would have to understand that
-  // it needed to skip the header.
-  obj = GC_MALLOC(size);
-#else
   if (size < min_heap_addr) 
     obj = GC_MALLOC(size);
   else 
@@ -532,25 +514,48 @@ _Jv_GCSetMaximumHeapSize (size_t size)
   GC_set_max_heap_size ((GC_word) size);
 }
 
+// From boehm's misc.c 
+extern "C" void GC_enable();
+extern "C" void GC_disable();
+
 void
 _Jv_DisableGC (void)
 {
-  _Jv_MutexLock (&disable_gc_mutex); 
   GC_disable();
-  _Jv_MutexUnlock (&disable_gc_mutex); 
 }
 
 void
 _Jv_EnableGC (void)
 {
-  _Jv_MutexLock (&disable_gc_mutex); 
   GC_enable();
-  _Jv_MutexUnlock (&disable_gc_mutex); 
 }
 
 static void * handle_out_of_memory(size_t)
 {
   _Jv_ThrowNoMemory();
+}
+
+static void
+gcj_describe_type_fn(void *obj, char *out_buf)
+{
+  _Jv_VTable *dt = *(_Jv_VTable **) obj;
+
+  if (! dt /* Shouldn't happen */)
+    {
+      strcpy(out_buf, "GCJ (bad)");
+      return;
+    }
+  jclass klass = dt->clas;
+  if (!klass /* shouldn't happen */)
+    {
+      strcpy(out_buf, "GCJ (bad)");
+      return;
+    }
+  jstring name = klass -> getName();
+  size_t len = name -> length();
+  if (len >= GC_TYPE_DESCR_LEN) len = GC_TYPE_DESCR_LEN - 1;
+  JvGetStringUTFRegion (name, 0, len, out_buf);
+  out_buf[len] = '\0';
 }
 
 void
@@ -563,6 +568,8 @@ _Jv_InitGC (void)
 
   // Configure the collector to use the bitmap marking descriptors that we
   // stash in the class vtable.
+  // We always use mark proc descriptor 0, since the compiler knows
+  // about it.
   GC_init_gcj_malloc (0, (void *) _Jv_MarkObj);  
 
   // Cause an out of memory error to be thrown from the allocators,
@@ -573,23 +580,14 @@ _Jv_InitGC (void)
 
   // We use a different mark procedure for object arrays. This code 
   // configures a different object `kind' for object array allocation and
-  // marking. FIXME: see above.
-  array_free_list = (ptr_t *) GC_generic_malloc_inner ((MAXOBJSZ + 1)
-						       * sizeof (ptr_t),
-						       PTRFREE);
-  memset (array_free_list, 0, (MAXOBJSZ + 1) * sizeof (ptr_t));
+  // marking.
+  array_free_list = GC_new_free_list();
+  proc = GC_new_proc((GC_mark_proc)_Jv_MarkArray);
+  array_kind_x = GC_new_kind(array_free_list, GC_MAKE_PROC (proc, 0), 0, 1);
 
-  proc = GC_n_mark_procs++;
-  GC_mark_procs[proc] = (GC_mark_proc) _Jv_MarkArray;
-
-  array_kind_x = GC_n_kinds++;
-  GC_obj_kinds[array_kind_x].ok_freelist = array_free_list;
-  GC_obj_kinds[array_kind_x].ok_reclaim_list = 0;
-  GC_obj_kinds[array_kind_x].ok_descriptor = GC_MAKE_PROC (proc, 0);
-  GC_obj_kinds[array_kind_x].ok_relocate_descr = FALSE;
-  GC_obj_kinds[array_kind_x].ok_init = TRUE;
-
-  _Jv_MutexInit (&disable_gc_mutex);
+  /* Arrange to have the GC print Java class names in backtraces, etc. 	*/
+  GC_register_describe_type_fn(GC_gcj_kind, gcj_describe_type_fn);
+  GC_register_describe_type_fn(GC_gcj_debug_kind, gcj_describe_type_fn);
 }
 
 #ifdef JV_HASH_SYNCHRONIZATION
