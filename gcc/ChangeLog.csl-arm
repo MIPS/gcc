@@ -1,5 +1,9 @@
 2005-01-27  Paul Brook  <paul@codesourcery.com>
 
+	* config/arm/arm.c (arm_init_libfuncs): Clear mod optabs.
+
+2005-01-27  Paul Brook  <paul@codesourcery.com>
+
 	* config/arm/arm.h (ARM_EABI_UNWIND_TABLES): Fix logic.
 
 2005-01-27  Paul Brook  <paul@codesourcery.com>
