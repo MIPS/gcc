@@ -47,11 +47,6 @@ INSN_NOTE (BLOCK_END)
 INSN_NOTE (LOOP_BEG)
 INSN_NOTE (LOOP_END)
 
-/* Generated at the place in a loop that `continue' jumps to.  */
-INSN_NOTE (LOOP_CONT)
-/* Generated at the start of a duplicated exit test.  */
-INSN_NOTE (LOOP_VTOP)
-
 /* This note indicates the start of the real body of the function,
    i.e. the point just after all of the parms have been moved into
    their homes, etc.  */
@@ -97,12 +92,5 @@ INSN_NOTE (BASIC_BLOCK)
    should be moved to the UNLIKELY_EXECUTED_TEXT_SECTION.  FIXME: Make
    this a bit on the basic block structure. */
 INSN_NOTE (UNLIKELY_EXECUTED_CODE)
-
-/* Mark that a block shouldn't be scheduled.  This is currently used
-   in modulo scheduling. Modulo scheduling adds this note to the
-   blocks of the modulo-scheduled loops to disable scheduling them in
-   the later traditional scheduling passes.  FIXME: Make this a bit on
-   the basic block structure.  */
-INSN_NOTE (DISABLE_SCHED_OF_BLOCK)
 
 #undef INSN_NOTE

@@ -555,7 +555,11 @@ const int x86_unroll_strlen = m_486 | m_PENT | m_PPRO | m_ATHLON_K8 | m_K6;
 const int x86_cmove = m_PPRO | m_ATHLON_K8 | m_PENT4 | m_NOCONA;
 const int x86_3dnow_a = m_ATHLON_K8;
 const int x86_deep_branch = m_PPRO | m_K6 | m_ATHLON_K8 | m_PENT4 | m_NOCONA;
-const int x86_branch_hints = m_PENT4 | m_NOCONA;
+/* Branch hints were put in P4 based on simulation result. But
+   after P4 was made, no performance benefit was observed with
+   branch hints. It also increases the code size. As the result,
+   icc never generates branch hints.  */
+const int x86_branch_hints = 0;
 const int x86_use_sahf = m_PPRO | m_K6 | m_PENT4 | m_NOCONA;
 const int x86_partial_reg_stall = m_PPRO;
 const int x86_use_loop = m_K6;
@@ -903,6 +907,7 @@ static tree ix86_build_builtin_va_list (void);
 static void ix86_setup_incoming_varargs (CUMULATIVE_ARGS *, enum machine_mode,
 					 tree, int *, int);
 static tree ix86_gimplify_va_arg (tree, tree, tree *, tree *);
+static bool ix86_vector_mode_supported_p (enum machine_mode);
 
 static int ix86_address_cost (rtx);
 static bool ix86_cannot_force_const_mem (rtx);
@@ -1098,6 +1103,9 @@ static void init_ext_80387_constants (void);
 
 #undef TARGET_GIMPLIFY_VA_ARG_EXPR
 #define TARGET_GIMPLIFY_VA_ARG_EXPR ix86_gimplify_va_arg
+
+#undef TARGET_VECTOR_MODE_SUPPORTED_P
+#define TARGET_VECTOR_MODE_SUPPORTED_P ix86_vector_mode_supported_p
 
 #ifdef SUBTARGET_INSERT_ATTRIBUTES
 #undef TARGET_INSERT_ATTRIBUTES
@@ -1870,7 +1878,7 @@ ix86_function_regparm (tree type, tree decl)
   return regparm;
 }
 
-/* Return true if EAX is live at the start of the function.  Used by 
+/* Return true if EAX is live at the start of the function.  Used by
    ix86_expand_prologue to determine if we need special help before
    calling allocate_stack_worker.  */
 
@@ -1926,7 +1934,8 @@ ix86_return_pops_args (tree fundecl, tree funtype, int size)
 
   /* Lose any fake structure return argument if it is passed on the stack.  */
   if (aggregate_value_p (TREE_TYPE (funtype), fundecl)
-      && !TARGET_64BIT)
+      && !TARGET_64BIT
+      && !KEEP_AGGREGATE_RETURN_POINTER)
     {
       int nregs = ix86_function_regparm (funtype, fundecl);
 
@@ -3287,12 +3296,12 @@ ix86_va_start (tree valist, rtx nextarg)
 	     (int) words, (int) n_gpr, (int) n_fpr);
 
   t = build (MODIFY_EXPR, TREE_TYPE (gpr), gpr,
-	     build_int_cst (NULL_TREE, n_gpr * 8, 0));
+	     build_int_cst (NULL_TREE, n_gpr * 8));
   TREE_SIDE_EFFECTS (t) = 1;
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
 
   t = build (MODIFY_EXPR, TREE_TYPE (fpr), fpr,
-	     build_int_cst (NULL_TREE, n_fpr * 16 + 8*REGPARM_MAX, 0));
+	     build_int_cst (NULL_TREE, n_fpr * 16 + 8*REGPARM_MAX));
   TREE_SIDE_EFFECTS (t) = 1;
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
 
@@ -3300,7 +3309,7 @@ ix86_va_start (tree valist, rtx nextarg)
   t = make_tree (TREE_TYPE (ovf), virtual_incoming_args_rtx);
   if (words != 0)
     t = build (PLUS_EXPR, TREE_TYPE (ovf), t,
-	       build_int_cst (NULL_TREE, words * UNITS_PER_WORD, 0));
+	       build_int_cst (NULL_TREE, words * UNITS_PER_WORD));
   t = build (MODIFY_EXPR, TREE_TYPE (ovf), ovf, t);
   TREE_SIDE_EFFECTS (t) = 1;
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
@@ -3420,7 +3429,7 @@ ix86_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
       if (needed_intregs)
 	{
 	  t = build_int_cst (TREE_TYPE (gpr),
-			     (REGPARM_MAX - needed_intregs + 1) * 8, 0);
+			     (REGPARM_MAX - needed_intregs + 1) * 8);
 	  t = build2 (GE_EXPR, boolean_type_node, gpr, t);
 	  t2 = build1 (GOTO_EXPR, void_type_node, lab_false);
 	  t = build (COND_EXPR, void_type_node, t, t2, NULL_TREE);
@@ -3430,7 +3439,7 @@ ix86_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
 	{
 	  t = build_int_cst (TREE_TYPE (fpr),
 			     (SSE_REGPARM_MAX - needed_sseregs + 1) * 16
-			     + REGPARM_MAX * 8, 0);
+			     + REGPARM_MAX * 8);
 	  t = build2 (GE_EXPR, boolean_type_node, fpr, t);
 	  t2 = build1 (GOTO_EXPR, void_type_node, lab_false);
 	  t = build (COND_EXPR, void_type_node, t, t2, NULL_TREE);
@@ -3461,7 +3470,7 @@ ix86_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
 	  t = build1 (ADDR_EXPR, build_pointer_type (type), temp);
 	  t = build2 (MODIFY_EXPR, void_type_node, addr, t);
 	  gimplify_and_add (t, pre_p);
-	  
+
 	  for (i = 0; i < XVECLEN (container, 0); i++)
 	    {
 	      rtx slot = XVECEXP (container, 0, i);
@@ -3501,14 +3510,14 @@ ix86_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
       if (needed_intregs)
 	{
 	  t = build2 (PLUS_EXPR, TREE_TYPE (gpr), gpr,
-		      build_int_cst (NULL_TREE, needed_intregs * 8, 0));
+		      build_int_cst (NULL_TREE, needed_intregs * 8));
 	  t = build2 (MODIFY_EXPR, TREE_TYPE (gpr), gpr, t);
 	  gimplify_and_add (t, pre_p);
 	}
       if (needed_sseregs)
 	{
 	  t = build2 (PLUS_EXPR, TREE_TYPE (fpr), fpr,
-		      build_int_cst (NULL_TREE, needed_sseregs * 16, 0));
+		      build_int_cst (NULL_TREE, needed_sseregs * 16));
 	  t = build2 (MODIFY_EXPR, TREE_TYPE (fpr), fpr, t);
 	  gimplify_and_add (t, pre_p);
 	}
@@ -3529,9 +3538,9 @@ ix86_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
     {
       HOST_WIDE_INT align = FUNCTION_ARG_BOUNDARY (VOIDmode, type) / 8;
       t = build (PLUS_EXPR, TREE_TYPE (ovf), ovf,
-		 build_int_cst (NULL_TREE, align - 1, 0));
+		 build_int_cst (NULL_TREE, align - 1));
       t = build (BIT_AND_EXPR, TREE_TYPE (t), t,
-		 build_int_cst (NULL_TREE, -align, -1));
+		 build_int_cst (NULL_TREE, -align));
     }
   gimplify_expr (&t, pre_p, NULL, is_gimple_val, fb_rvalue);
 
@@ -3539,7 +3548,7 @@ ix86_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
   gimplify_and_add (t2, pre_p);
 
   t = build2 (PLUS_EXPR, TREE_TYPE (t), t,
-	      build_int_cst (NULL_TREE, rsize * UNITS_PER_WORD, 0));
+	      build_int_cst (NULL_TREE, rsize * UNITS_PER_WORD));
   t = build2 (MODIFY_EXPR, TREE_TYPE (ovf), ovf, t);
   gimplify_and_add (t, pre_p);
 
@@ -4875,54 +4884,43 @@ darwin_local_data_pic (rtx disp)
 bool
 legitimate_constant_p (rtx x)
 {
-  rtx inner;
-
   switch (GET_CODE (x))
     {
-    case SYMBOL_REF:
-      /* TLS symbols are not constant.  */
-      if (tls_symbolic_operand (x, Pmode))
-	return false;
-      break;
-
     case CONST:
-      inner = XEXP (x, 0);
+      x = XEXP (x, 0);
 
-      /* Offsets of TLS symbols are never valid.
-	 Discourage CSE from creating them.  */
-      if (GET_CODE (inner) == PLUS
-	  && tls_symbolic_operand (XEXP (inner, 0), Pmode))
-	return false;
-
-      if (GET_CODE (inner) == PLUS)
+      if (GET_CODE (x) == PLUS)
 	{
-	  if (GET_CODE (XEXP (inner, 1)) != CONST_INT)
+	  if (GET_CODE (XEXP (x, 1)) != CONST_INT)
 	    return false;
-	  inner = XEXP (inner, 0);
+	  x = XEXP (x, 0);
 	}
 
-      if (TARGET_MACHO && darwin_local_data_pic (inner))
+      if (TARGET_MACHO && darwin_local_data_pic (x))
 	return true;
 
-      if (GET_CODE (inner) == MINUS)
-	{
-	  if (GET_CODE (XEXP (inner, 1)) != CONST_INT)
-	    return false;
-	  inner = XEXP (inner, 0);
-	}
-
       /* Only some unspecs are valid as "constants".  */
-      if (GET_CODE (inner) == UNSPEC)
-	switch (XINT (inner, 1))
+      if (GET_CODE (x) == UNSPEC)
+	switch (XINT (x, 1))
 	  {
 	  case UNSPEC_TPOFF:
 	  case UNSPEC_NTPOFF:
-	    return local_exec_symbolic_operand (XVECEXP (inner, 0, 0), Pmode);
+	    return local_exec_symbolic_operand (XVECEXP (x, 0, 0), Pmode);
 	  case UNSPEC_DTPOFF:
-	    return local_dynamic_symbolic_operand (XVECEXP (inner, 0, 0), Pmode);
+	    return local_dynamic_symbolic_operand (XVECEXP (x, 0, 0), Pmode);
 	  default:
 	    return false;
 	  }
+
+      /* We must have drilled down to a symbol.  */
+      if (!symbolic_operand (x, Pmode))
+	return false;
+      /* FALLTHRU */
+
+    case SYMBOL_REF:
+      /* TLS symbols are never valid.  */
+      if (tls_symbolic_operand (x, Pmode))
+	return false;
       break;
 
     default:
@@ -7176,22 +7174,79 @@ output_387_binary_op (rtx insn, rtx *operands)
   return buf;
 }
 
-/* Output code to initialize control word copies used by
-   trunc?f?i patterns.  NORMAL is set to current control word, while ROUND_DOWN
-   is set to control word rounding downwards.  */
+/* Output code to initialize control word copies used by trunc?f?i and
+   rounding patterns.  CURRENT_MODE is set to current control word,
+   while NEW_MODE is set to new control word.  */
+
 void
-emit_i387_cw_initialization (rtx normal, rtx round_down)
+emit_i387_cw_initialization (rtx current_mode, rtx new_mode, int mode)
 {
   rtx reg = gen_reg_rtx (HImode);
 
-  emit_insn (gen_x86_fnstcw_1 (normal));
-  emit_move_insn (reg, normal);
+  emit_insn (gen_x86_fnstcw_1 (current_mode));
+  emit_move_insn (reg, current_mode);
+
   if (!TARGET_PARTIAL_REG_STALL && !optimize_size
       && !TARGET_64BIT)
-    emit_insn (gen_movsi_insv_1 (reg, GEN_INT (0xc)));
+    {
+      switch (mode)
+	{
+	case I387_CW_FLOOR:
+	  /* round down toward -oo */
+	  emit_insn (gen_movsi_insv_1 (reg, GEN_INT (0x4)));
+	  break;
+
+	case I387_CW_CEIL:
+	  /* round up toward +oo */
+	  emit_insn (gen_movsi_insv_1 (reg, GEN_INT (0x8)));
+	  break;
+
+	case I387_CW_TRUNC:
+	  /* round toward zero (truncate) */
+	  emit_insn (gen_movsi_insv_1 (reg, GEN_INT (0xc)));
+	  break;
+ 
+	case I387_CW_MASK_PM:
+	  /* mask precision exception for nearbyint() */
+	  emit_insn (gen_iorhi3 (reg, reg, GEN_INT (0x0020)));
+	  break;
+
+	default:
+	  abort();
+	}
+    }
   else
-    emit_insn (gen_iorhi3 (reg, reg, GEN_INT (0xc00)));
-  emit_move_insn (round_down, reg);
+    {
+      switch (mode)
+	{
+	case I387_CW_FLOOR:
+	  /* round down toward -oo */
+	  emit_insn (gen_andhi3 (reg, reg, GEN_INT (~0x0c00)));
+	  emit_insn (gen_iorhi3 (reg, reg, GEN_INT (0x0400)));
+	  break;
+
+	case I387_CW_CEIL:
+	  /* round up toward +oo */
+	  emit_insn (gen_andhi3 (reg, reg, GEN_INT (~0x0c00)));
+	  emit_insn (gen_iorhi3 (reg, reg, GEN_INT (0x0800)));
+	  break;
+
+	case I387_CW_TRUNC:
+	  /* round toward zero (truncate) */
+	  emit_insn (gen_iorhi3 (reg, reg, GEN_INT (0x0c00)));
+	  break;
+
+	case I387_CW_MASK_PM:
+	  /* mask precision exception for nearbyint() */
+	  emit_insn (gen_iorhi3 (reg, reg, GEN_INT (0x0020)));
+	  break;
+
+	default:
+	  abort();
+	}
+    }
+
+  emit_move_insn (new_mode, reg);
 }
 
 /* Output code for INSN to convert a float to a signed int.  OPERANDS
@@ -10239,7 +10294,7 @@ ix86_expand_movmem (rtx dst, rtx src, rtx count_exp, rtx align_exp)
 				       GEN_INT ((count >> (size == 4 ? 2 : 3))
 						& (TARGET_64BIT ? -1 : 0x3fffffff)));
 	  countreg = ix86_zero_extend_to_Pmode (countreg);
-	  
+
 	  destexp = gen_rtx_ASHIFT (Pmode, countreg,
 				    GEN_INT (size == 4 ? 2 : 3));
 	  srcexp = gen_rtx_PLUS (Pmode, destexp, srcreg);
@@ -14106,7 +14161,7 @@ ix86_rtx_costs (rtx x, int code, int outer_code, int *total)
 	      if (is_mulwiden)
 	        op0 = XEXP (op0, 0), mode = GET_MODE (op0);
 	    }
-  
+
   	  *total = COSTS_N_INSNS (ix86_cost->mult_init[MODE_INDEX (mode)]
 			          + nbits * ix86_cost->mult_bit)
 	           + rtx_cost (op0, outer_code) + rtx_cost (op1, outer_code);
@@ -14583,8 +14638,8 @@ x86_output_mi_thunk (FILE *file ATTRIBUTE_UNUSED,
 	if (TARGET_MACHO)
 	  {
 	    rtx sym_ref = XEXP (DECL_RTL (function), 0);
-	    tmp = (gen_rtx_SYMBOL_REF 
-		   (Pmode, 
+	    tmp = (gen_rtx_SYMBOL_REF
+		   (Pmode,
 		    machopic_indirection_name (sym_ref, /*stub_p=*/true)));
 	    tmp = gen_rtx_MEM (QImode, tmp);
 	    xops[0] = tmp;
@@ -14923,13 +14978,13 @@ ix86_expand_vector_init (rtx target, rtx vals)
   int elt_size = GET_MODE_SIZE (GET_MODE_INNER (mode));
   int n_elts = (GET_MODE_SIZE (mode) / elt_size);
   int i;
-  
+
   for (i = n_elts - 1; i >= 0; i--)
     if (GET_CODE (XVECEXP (vals, 0, i)) != CONST_INT
 	&& GET_CODE (XVECEXP (vals, 0, i)) != CONST_DOUBLE)
       break;
 
-  /* Few special cases first...  
+  /* Few special cases first...
      ... constants are best loaded from constant pool.  */
   if (i < 0)
     {
@@ -15003,6 +15058,26 @@ ix86_expand_vector_init (rtx target, rtx vals)
     }
 }
 
+/* Implements target hook vector_mode_supported_p.  */
+static bool
+ix86_vector_mode_supported_p (enum machine_mode mode)
+{
+  if (TARGET_SSE
+      && VALID_SSE_REG_MODE (mode))
+    return true;
+
+  else if (TARGET_MMX
+	   && VALID_MMX_REG_MODE (mode))
+    return true;
+
+  else if (TARGET_3DNOW
+	   && VALID_MMX_REG_MODE_3DNOW (mode))
+    return true;
+
+  else
+    return false;
+}
+
 /* Worker function for TARGET_MD_ASM_CLOBBERS.
 
    We do this in the new i386 backend to maintain source compatibility
@@ -15011,12 +15086,12 @@ ix86_expand_vector_init (rtx target, rtx vals)
 static tree
 ix86_md_asm_clobbers (tree clobbers)
 {
-  clobbers = tree_cons (NULL_TREE, build_string (5, "flags"),	
-			clobbers);				
-  clobbers = tree_cons (NULL_TREE, build_string (4, "fpsr"),	
-			clobbers);				
-  clobbers = tree_cons (NULL_TREE, build_string (7, "dirflag"),	
-			clobbers);				
+  clobbers = tree_cons (NULL_TREE, build_string (5, "flags"),
+			clobbers);
+  clobbers = tree_cons (NULL_TREE, build_string (4, "fpsr"),
+			clobbers);
+  clobbers = tree_cons (NULL_TREE, build_string (7, "dirflag"),
+			clobbers);
   return clobbers;
 }
 
@@ -15064,17 +15139,17 @@ ix86_emit_fp_unordered_jump (rtx label)
     {
       emit_insn (gen_x86_sahf_1 (reg));
 
-      temp = gen_rtx_REG (CCmode, FLAGS_REG); 
+      temp = gen_rtx_REG (CCmode, FLAGS_REG);
       temp = gen_rtx_UNORDERED (VOIDmode, temp, const0_rtx);
     }
   else
     {
       emit_insn (gen_testqi_ext_ccno_0 (reg, GEN_INT (0x04)));
 
-      temp = gen_rtx_REG (CCNOmode, FLAGS_REG); 
+      temp = gen_rtx_REG (CCNOmode, FLAGS_REG);
       temp = gen_rtx_NE (VOIDmode, temp, const0_rtx);
     }
-  
+
   temp = gen_rtx_IF_THEN_ELSE (VOIDmode, temp,
 			      gen_rtx_LABEL_REF (VOIDmode, label),
 			      pc_rtx);
@@ -15111,5 +15186,5 @@ void ix86_emit_i387_log1p (rtx op0, rtx op1)
 
   emit_label (label2);
 }
-     
+
 #include "gt-i386.h"

@@ -136,7 +136,7 @@ lvalue_p_1 (tree ref,
 
       /* A currently unresolved scope ref.  */
     case SCOPE_REF:
-      abort ();
+      gcc_unreachable ();
     case MAX_EXPR:
     case MIN_EXPR:
       op1_lvalue_kind = lvalue_p_1 (TREE_OPERAND (ref, 0),
@@ -329,7 +329,7 @@ build_target_expr_with_type (tree init, tree type)
 {
   tree slot;
 
-  my_friendly_assert (!VOID_TYPE_P (type), 20040130);
+  gcc_assert (!VOID_TYPE_P (type));
 
   if (TREE_CODE (init) == TARGET_EXPR)
     return init;
@@ -357,7 +357,7 @@ force_target_expr (tree type, tree init)
 {
   tree slot;
 
-  my_friendly_assert (!VOID_TYPE_P (type), 20040130);
+  gcc_assert (!VOID_TYPE_P (type));
 
   slot = build_local_temp (type);
   return build_target_expr (slot, init);
@@ -475,7 +475,7 @@ cp_build_qualified_type_real (tree type,
 	{
 	  /* Make a new array type, just like the old one, but with the
 	     appropriately qualified element type.  */
-	  t = build_type_copy (type);
+	  t = build_variant_type_copy (type);
 	  TREE_TYPE (t) = element_type;
 	}
 
@@ -616,8 +616,8 @@ copy_binfo (tree binfo, tree type, tree t, tree *igo_prev, int virt)
       int ix;
       tree base_binfo;
 
-      my_friendly_assert (!BINFO_DEPENDENT_BASE_P (binfo), 20040712);
-      my_friendly_assert (type == BINFO_TYPE (binfo), 20040714);
+      gcc_assert (!BINFO_DEPENDENT_BASE_P (binfo));
+      gcc_assert (type == BINFO_TYPE (binfo));
 
       BINFO_OFFSET (new_binfo) = BINFO_OFFSET (binfo);
       BINFO_VIRTUALS (new_binfo) = BINFO_VIRTUALS (binfo);
@@ -630,7 +630,7 @@ copy_binfo (tree binfo, tree type, tree t, tree *igo_prev, int virt)
 	{
 	  tree new_base_binfo;
 
-	  my_friendly_assert (!BINFO_DEPENDENT_BASE_P (base_binfo), 20040713);
+	  gcc_assert (!BINFO_DEPENDENT_BASE_P (base_binfo));
 	  new_base_binfo = copy_binfo (base_binfo, BINFO_TYPE (base_binfo),
 				       t, igo_prev,
 				       BINFO_VIRTUAL_P (base_binfo));
@@ -806,17 +806,14 @@ int
 count_functions (tree t)
 {
   int i;
+  
   if (TREE_CODE (t) == FUNCTION_DECL)
     return 1;
-  else if (TREE_CODE (t) == OVERLOAD)
-    {
-      for (i = 0; t; t = OVL_CHAIN (t))
-	i++;
-      return i;
-    }
-
-  abort ();
-  return 0;
+  gcc_assert (TREE_CODE (t) == OVERLOAD);
+  
+  for (i = 0; t; t = OVL_CHAIN (t))
+    i++;
+  return i;
 }
 
 int
@@ -850,7 +847,7 @@ really_overloaded_fn (tree x)
 tree
 get_first_fn (tree from)
 {
-  my_friendly_assert (is_overloaded_fn (from), 9);
+  gcc_assert (is_overloaded_fn (from));
   /* A baselink is also considered an overloaded function.  */
   if (BASELINK_P (from))
     from = BASELINK_FUNCTIONS (from);
@@ -925,8 +922,7 @@ cxx_printable_name (tree decl, int v)
 	ring_counter += 1;
       if (ring_counter == PRINT_RING_SIZE)
 	ring_counter = 0;
-      if (decl_ring[ring_counter] == current_function_decl)
-	abort ();
+      gcc_assert (decl_ring[ring_counter] != current_function_decl);
     }
 
   if (print_ring[ring_counter])
@@ -952,7 +948,7 @@ build_exception_variant (tree type, tree raises)
       return v;
 
   /* Need to build a new variant.  */
-  v = build_type_copy (type);
+  v = build_variant_type_copy (type);
   TYPE_RAISES_EXCEPTIONS (v) = raises;
   return v;
 }
@@ -1026,8 +1022,7 @@ verify_stmt_tree_r (tree* tp,
 
   /* If this statement is already present in the hash table, then
      there is a circularity in the statement tree.  */
-  if (htab_find (*statements, t))
-    abort ();
+  gcc_assert (!htab_find (*statements, t));
 
   slot = htab_find_slot (*statements, t, INSERT);
   *slot = t;
@@ -1381,13 +1376,8 @@ get_type_decl (tree t)
     return t;
   if (TYPE_P (t))
     return TYPE_STUB_DECL (t);
-  if (t == error_mark_node)
-    return t;
-
-  abort ();
-
-  /* Stop compiler from complaining control reaches end of non-void function.  */
-  return 0;
+  gcc_assert (t == error_mark_node);
+  return t;
 }
 
 /* Returns the namespace that contains DECL, whether directly or
@@ -1594,7 +1584,7 @@ cp_tree_equal (tree t1, tree t2)
       return same_type_p (t1, t2);
     }
 
-  my_friendly_assert (0, 20030617);
+  gcc_unreachable ();
   return false;
 }
 
@@ -1786,7 +1776,7 @@ handle_java_interface_attribute (tree* node,
       return NULL_TREE;
     }
   if (!(flags & (int) ATTR_FLAG_TYPE_IN_PLACE))
-    *node = build_type_copy (*node);
+    *node = build_variant_type_copy (*node);
   TYPE_JAVA_INTERFACE (*node) = 1;
 
   return NULL_TREE;
@@ -2264,6 +2254,19 @@ stabilize_expr (tree exp, tree* initp)
   return exp;
 }
 
+/* Add NEW, an expression whose value we don't care about, after the
+   similar expression ORIG.  */
+
+tree
+add_stmt_to_compound (tree orig, tree new)
+{
+  if (!new || !TREE_SIDE_EFFECTS (new))
+    return orig;
+  if (!orig || !TREE_SIDE_EFFECTS (orig))
+    return new;
+  return build2 (COMPOUND_EXPR, void_type_node, orig, new);
+}
+
 /* Like stabilize_expr, but for a call whose args we want to
    pre-evaluate.  */
 
@@ -2276,21 +2279,15 @@ stabilize_call (tree call, tree *initp)
   if (call == error_mark_node)
     return;
 
-  if (TREE_CODE (call) != CALL_EXPR
-      && TREE_CODE (call) != AGGR_INIT_EXPR)
-    abort ();
+  gcc_assert (TREE_CODE (call) == CALL_EXPR
+	      || TREE_CODE (call) == AGGR_INIT_EXPR);
 
   for (t = TREE_OPERAND (call, 1); t; t = TREE_CHAIN (t))
     if (TREE_SIDE_EFFECTS (TREE_VALUE (t)))
       {
 	tree init;
 	TREE_VALUE (t) = stabilize_expr (TREE_VALUE (t), &init);
-	if (!init)
-	  /* Nothing.  */;
-	else if (inits)
-	  inits = build2 (COMPOUND_EXPR, void_type_node, inits, init);
-	else
-	  inits = init;
+	inits = add_stmt_to_compound (inits, init);
       }
 
   *initp = inits;
@@ -2318,6 +2315,8 @@ stabilize_init (tree init, tree *initp)
 	t = TREE_OPERAND (t, 1);
       if (TREE_CODE (t) == TARGET_EXPR)
 	t = TARGET_EXPR_INITIAL (t);
+      if (TREE_CODE (t) == COMPOUND_EXPR)
+	t = expr_last (t);
       if (TREE_CODE (t) == CONSTRUCTOR
 	  && CONSTRUCTOR_ELTS (t) == NULL_TREE)
 	{

@@ -51,7 +51,7 @@ Boston, MA 02111-1307, USA.  */
    get_stmt_operands() in the primary entry point. 
 
    The operand tree is the parsed by the various get_* routines which look 
-   through the stmt tree for the occurence of operands which may be of 
+   through the stmt tree for the occurrence of operands which may be of 
    interest, and calls are made to the append_* routines whenever one is 
    found.  There are 5 of these routines, each representing one of the 
    5 types of operands. Defs, Uses, Virtual Uses, Virtual May Defs, and 
@@ -114,10 +114,14 @@ static GTY (()) varray_type build_vuses;
 /* Array for building all the v_must_def operands.  */
 static GTY (()) varray_type build_v_must_defs;
 
+
 #ifdef ENABLE_CHECKING
 /* Used to make sure operand construction is working on the proper stmt.  */
 tree check_build_stmt;
 #endif
+
+def_operand_p NULL_DEF_OPERAND_P = { NULL };
+use_operand_p NULL_USE_OPERAND_P = { NULL };
 
 static void note_addressable (tree, stmt_ann_t);
 static void get_expr_operands (tree, tree *, int);
@@ -286,6 +290,16 @@ init_ssa_operands (void)
 void
 fini_ssa_operands (void)
 {
+  ggc_free (build_defs);
+  ggc_free (build_uses);
+  ggc_free (build_v_may_defs);
+  ggc_free (build_vuses);
+  ggc_free (build_v_must_defs);
+  build_defs = NULL;
+  build_uses = NULL;
+  build_v_may_defs = NULL;
+  build_vuses = NULL;
+  build_v_must_defs = NULL;
 }
 
 
@@ -610,7 +624,6 @@ finalize_ssa_vuses (vuse_optype *old_ops_p)
 
   return vuse_ops;
 }
-
 
 /* Return a new v_must_def operand vector for STMT, comparing to OLD_OPS_P.  */
 
@@ -1115,6 +1128,12 @@ get_expr_operands (tree stmt, tree *expr_p, int flags)
       get_call_expr_operands (stmt, expr);
       return;
 
+    case COND_EXPR:
+      get_expr_operands (stmt, &COND_EXPR_COND (expr), opf_none);
+      get_expr_operands (stmt, &TREE_OPERAND (expr, 1), opf_none);
+      get_expr_operands (stmt, &TREE_OPERAND (expr, 2), opf_none);
+      return;
+
     case MODIFY_EXPR:
       {
 	int subflags;
@@ -1334,7 +1353,6 @@ get_indirect_ref_operands (tree stmt, tree expr, int flags)
   /* Stores into INDIRECT_REF operands are never killing definitions.  */
   flags &= ~opf_kill_def;
 
-  /* APPLE LOCAL begin lno */
   if (REF_ORIGINAL (expr))
     {
       enum tree_code ocode = TREE_CODE (REF_ORIGINAL (expr));
@@ -1346,7 +1364,6 @@ get_indirect_ref_operands (tree stmt, tree expr, int flags)
 	  || ocode == IMAGPART_EXPR)
 	flags &= ~opf_kill_def;
     }
-  /* APPLE LOCAL end lno */
 
   if (SSA_VAR_P (ptr))
     {
@@ -1454,7 +1471,7 @@ get_call_expr_operands (tree stmt, tree expr)
       else if (TREE_SIDE_EFFECTS (expr)
 	  && !(call_flags & (ECF_PURE | ECF_CONST | ECF_NORETURN)))
 	add_call_clobber_ops (stmt);
-      else if (!(call_flags & (ECF_CONST | ECF_NORETURN)))
+      else if (!(call_flags & ECF_CONST))
 	add_call_read_ops (stmt);
     }
 }
@@ -1735,9 +1752,9 @@ copy_virtual_operands (tree dst, tree src)
 
 
 /* Specifically for use in DOM's expression analysis.  Given a store, we
-   create an artifical stmt which looks like a load from the store, this can
+   create an artificial stmt which looks like a load from the store, this can
    be used to eliminate redundant loads.  OLD_OPS are the operands from the 
-   store stmt, and NEW_STMT is the new load which reperesent a load of the
+   store stmt, and NEW_STMT is the new load which represents a load of the
    values stored.  */
 
 void

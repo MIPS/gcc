@@ -157,7 +157,7 @@ c_incomplete_type_error (tree value, tree type)
 	  return;
 
 	default:
-	  abort ();
+	  gcc_unreachable ();
 	}
 
       if (TREE_CODE (TYPE_NAME (type)) == IDENTIFIER_NODE)
@@ -240,8 +240,7 @@ composite_type (tree t1, tree t2)
   if (code2 == ENUMERAL_TYPE && code1 == INTEGER_TYPE)
     return t2;
 
-  if (code1 != code2)
-    abort ();
+  gcc_assert (code1 == code2);
 
   switch (code1)
     {
@@ -261,8 +260,7 @@ composite_type (tree t1, tree t2)
 	tree elt = composite_type (TREE_TYPE (t1), TREE_TYPE (t2));
 	
 	/* We should not have any type quals on arrays at all.  */
-	if (TYPE_QUALS (t1) || TYPE_QUALS (t2))
-	  abort ();
+	gcc_assert (!TYPE_QUALS (t1) && !TYPE_QUALS (t2));
 	
 	/* Save space: see if the result is identical to one of the args.  */
 	if (elt == TREE_TYPE (t1) && TYPE_DOMAIN (t1))
@@ -412,8 +410,8 @@ common_pointer_type (tree t1, tree t2)
   if (t2 == error_mark_node)
     return t1;
 
-  if (TREE_CODE (t1) != POINTER_TYPE || TREE_CODE (t2) != POINTER_TYPE)
-    abort ();
+  gcc_assert (TREE_CODE (t1) == POINTER_TYPE
+ 	      && TREE_CODE (t2) == POINTER_TYPE);
 
   /* Merge the attributes.  */
   attributes = targetm.merge_type_attributes (t1, t2);
@@ -470,13 +468,10 @@ common_type (tree t1, tree t2)
   code1 = TREE_CODE (t1);
   code2 = TREE_CODE (t2);
 
-  if (code1 != VECTOR_TYPE && code1 != COMPLEX_TYPE
-      && code1 != REAL_TYPE && code1 != INTEGER_TYPE)
-    abort ();
-
-  if (code2 != VECTOR_TYPE && code2 != COMPLEX_TYPE
-      && code2 != REAL_TYPE && code2 != INTEGER_TYPE)
-    abort ();
+  gcc_assert (code1 == VECTOR_TYPE || code1 == COMPLEX_TYPE
+	      || code1 == REAL_TYPE || code1 == INTEGER_TYPE);
+  gcc_assert (code2 == VECTOR_TYPE || code2 == COMPLEX_TYPE
+	      || code2 == REAL_TYPE || code2 == INTEGER_TYPE);
 
   /* If one type is a vector type, return that type.  (How the usual
      arithmetic conversions apply to the vector types extension is not
@@ -744,7 +739,7 @@ same_translation_unit_p (tree t1, tree t2)
       case 'd': t1 = DECL_CONTEXT (t1); break;
       case 't': t1 = TYPE_CONTEXT (t1); break;
       case 'x': t1 = BLOCK_SUPERCONTEXT (t1); break;  /* assume block */
-      default: abort ();
+      default: gcc_unreachable ();
       }
 
   while (t2 && TREE_CODE (t2) != TRANSLATION_UNIT_DECL)
@@ -753,7 +748,7 @@ same_translation_unit_p (tree t1, tree t2)
       case 'd': t2 = DECL_CONTEXT (t2); break;
       case 't': t2 = TYPE_CONTEXT (t2); break;
       case 'x': t2 = BLOCK_SUPERCONTEXT (t2); break;  /* assume block */
-      default: abort ();
+      default: gcc_unreachable ();
       }
 
   return t1 == t2;
@@ -994,7 +989,7 @@ tagged_types_tu_compatible_p (tree t1, tree t2)
       }
 
     default:
-      abort ();
+      gcc_unreachable ();
     }
 }
 
@@ -1774,7 +1769,7 @@ build_external_ref (tree id, int fun)
 {
   tree ref;
   tree decl = lookup_name (id);
-  tree objc_ivar = lookup_objc_ivar (id);
+  tree objc_ivar = objc_lookup_ivar (id);
 
   /* APPLE LOCAL begin CW asm blocks */
   /* CW assembly has automagical handling of register names.  It's
@@ -2601,48 +2596,24 @@ build_unary_op (enum tree_code code, tree xarg, int flag)
 					  TREE_READONLY (arg),
 					  TREE_THIS_VOLATILE (arg));
 
-      argtype = build_pointer_type (argtype);
-
       if (!c_mark_addressable (arg))
 	return error_mark_node;
 
-      {
-	tree addr;
+      if (TREE_CODE (arg) == COMPONENT_REF
+	  && DECL_C_BIT_FIELD (TREE_OPERAND (arg, 1)))
+	{
+	  error ("attempt to take address of bit-field structure member `%D'",
+		 TREE_OPERAND (arg, 1));
+	  return error_mark_node;
+	}
 
-	if (TREE_CODE (arg) == COMPONENT_REF)
-	  {
-	    tree field = TREE_OPERAND (arg, 1);
+      argtype = build_pointer_type (argtype);
+      val = build1 (ADDR_EXPR, argtype, arg);
 
-	    addr = build_unary_op (ADDR_EXPR, TREE_OPERAND (arg, 0), flag);
+      if (TREE_CODE (arg) == COMPOUND_LITERAL_EXPR)
+	TREE_INVARIANT (val) = TREE_CONSTANT (val) = 1;
 
-	    if (DECL_C_BIT_FIELD (field))
-	      {
-		error ("attempt to take address of bit-field structure member `%s'",
-		       IDENTIFIER_POINTER (DECL_NAME (field)));
-		return error_mark_node;
-	      }
-
-	    addr = fold (build2 (PLUS_EXPR, argtype,
-				 convert (argtype, addr),
-				 convert (argtype, byte_position (field))));
-	    /* APPLE LOCAL begin mainline --apinski */
-
-	    /* If the folded PLUS_EXPR is not a constant address, wrap
-               it in an ADDR_EXPR.  */
-	    if (!TREE_CONSTANT (addr))
-	      addr = build1 (ADDR_EXPR, argtype, arg);
-	    /* APPLE LOCAL end mainline --apinski */
-	  }
-	else
-	  /* APPLE LOCAL begin mainline --apinski */
-	  addr = build1 (ADDR_EXPR, argtype, arg);
-	  /* APPLE LOCAL end mainline --apinski */
-
-	if (TREE_CODE (arg) == COMPOUND_LITERAL_EXPR)
-	  TREE_INVARIANT (addr) = TREE_CONSTANT (addr) = 1;
-
-	return addr;
-      }
+      return val;
 
     default:
       break;
@@ -3018,8 +2989,10 @@ build_c_cast (tree type, tree expr)
   /* The ObjC front-end uses TYPE_MAIN_VARIANT to tie together types differing
      only in <protocol> qualifications.  But when constructing cast expressions,
      the protocols do matter and must be kept around.  */
-  if (!c_dialect_objc () || !objc_is_object_ptr (type))
-    type = TYPE_MAIN_VARIANT (type);
+  if (objc_is_object_ptr (type) && objc_is_object_ptr (TREE_TYPE (expr)))
+    return build1 (NOP_EXPR, type, expr);
+
+  type = TYPE_MAIN_VARIANT (type);
 
   if (TREE_CODE (type) == ARRAY_TYPE)
     {
@@ -4503,8 +4476,7 @@ finish_init (void)
       free (q);
     }
 
-  if (constructor_range_stack)
-    abort ();
+  gcc_assert (!constructor_range_stack);
 
   /* Pop back to the data of the outer initializer (if any).  */
   free (spelling_base);
@@ -4598,14 +4570,14 @@ really_start_incremental_init (tree type)
 	  /* Detect non-empty initializations of zero-length arrays.  */
 	  if (constructor_max_index == NULL_TREE
 	      && TYPE_SIZE (constructor_type))
-	    constructor_max_index = build_int_cst (NULL_TREE, -1, -1);
+	    constructor_max_index = build_int_cst (NULL_TREE, -1);
 
 	  /* constructor_max_index needs to be an INTEGER_CST.  Attempts
 	     to initialize VLAs will cause a proper error; avoid tree
 	     checking errors as well by setting a safe value.  */
 	  if (constructor_max_index
 	      && TREE_CODE (constructor_max_index) != INTEGER_CST)
-	    constructor_max_index = build_int_cst (NULL_TREE, -1, -1);
+	    constructor_max_index = build_int_cst (NULL_TREE, -1);
 
 	  constructor_index
 	    = convert (bitsizetype,
@@ -4620,8 +4592,7 @@ really_start_incremental_init (tree type)
     {
       /* Vectors are like simple fixed-size arrays.  */
       constructor_max_index =
-	build_int_cst (NULL_TREE,
-		       TYPE_VECTOR_SUBPARTS (constructor_type) - 1, 0);
+	build_int_cst (NULL_TREE, TYPE_VECTOR_SUBPARTS (constructor_type) - 1);
       constructor_index = convert (bitsizetype, bitsize_zero_node);
       constructor_unfilled_index = constructor_index;
     }
@@ -4776,8 +4747,7 @@ push_init_level (int implicit)
     {
       /* Vectors are like simple fixed-size arrays.  */
       constructor_max_index =
-	build_int_cst (NULL_TREE,
-		       TYPE_VECTOR_SUBPARTS (constructor_type) - 1, 0);
+	build_int_cst (NULL_TREE, TYPE_VECTOR_SUBPARTS (constructor_type) - 1);
       constructor_index = convert (bitsizetype, integer_zero_node);
       constructor_unfilled_index = constructor_index;
     }
@@ -4791,14 +4761,14 @@ push_init_level (int implicit)
 	  /* Detect non-empty initializations of zero-length arrays.  */
 	  if (constructor_max_index == NULL_TREE
 	      && TYPE_SIZE (constructor_type))
-	    constructor_max_index = build_int_cst (NULL_TREE, -1, -1);
+	    constructor_max_index = build_int_cst (NULL_TREE, -1);
 
 	  /* constructor_max_index needs to be an INTEGER_CST.  Attempts
 	     to initialize VLAs will cause a proper error; avoid tree
 	     checking errors as well by setting a safe value.  */
 	  if (constructor_max_index
 	      && TREE_CODE (constructor_max_index) != INTEGER_CST)
-	    constructor_max_index = build_int_cst (NULL_TREE, -1, -1);
+	    constructor_max_index = build_int_cst (NULL_TREE, -1);
 
 	  constructor_index
 	    = convert (bitsizetype,
@@ -4850,8 +4820,7 @@ pop_init_level (int implicit)
       while (constructor_stack->implicit)
 	process_init_element (pop_init_level (1));
 
-      if (constructor_range_stack)
-	abort ();
+      gcc_assert (!constructor_range_stack);
     }
 
   /* Now output all pending elements.  */
@@ -4871,8 +4840,10 @@ pop_init_level (int implicit)
 	 already have pedwarned for empty brackets.  */
       if (integer_zerop (constructor_unfilled_index))
 	constructor_type = NULL_TREE;
-      else if (! TYPE_SIZE (constructor_type))
+      else
 	{
+	  gcc_assert (!TYPE_SIZE (constructor_type));
+	  
 	  if (constructor_depth > 2)
 	    error_init ("initialization of flexible array member in a nested context");
 	  else if (pedantic)
@@ -4884,10 +4855,6 @@ pop_init_level (int implicit)
 	  if (TREE_CHAIN (constructor_fields) != NULL_TREE)
 	    constructor_type = NULL_TREE;
 	}
-      else
-	/* Zero-length arrays are no longer special, so we should no longer
-	   get here.  */
-	abort ();
     }
 
   /* Warn when some struct elements are implicitly initialized to zero.  */
@@ -5003,14 +4970,14 @@ set_designator (int array)
   if (constructor_type == 0)
     return 1;
 
-  /* If there were errors in this designator list already, bail out silently.  */
+  /* If there were errors in this designator list already, bail out
+     silently.  */
   if (designator_errorneous)
     return 1;
 
   if (!designator_depth)
     {
-      if (constructor_range_stack)
-	abort ();
+      gcc_assert (!constructor_range_stack);
 
       /* Designator list starts at the level of closest explicit
 	 braces.  */
@@ -5026,19 +4993,20 @@ set_designator (int array)
       return 1;
     }
 
-  if (TREE_CODE (constructor_type) == RECORD_TYPE
-      || TREE_CODE (constructor_type) == UNION_TYPE)
+  switch (TREE_CODE (constructor_type))
     {
+    case  RECORD_TYPE:
+    case  UNION_TYPE:
       subtype = TREE_TYPE (constructor_fields);
       if (subtype != error_mark_node)
 	subtype = TYPE_MAIN_VARIANT (subtype);
-    }
-  else if (TREE_CODE (constructor_type) == ARRAY_TYPE)
-    {
+      break;
+    case ARRAY_TYPE:
       subtype = TYPE_MAIN_VARIANT (TREE_TYPE (constructor_type));
+      break;
+    default:
+      gcc_unreachable ();
     }
-  else
-    abort ();
 
   subcode = TREE_CODE (subtype);
   if (array && subcode != ARRAY_TYPE)
@@ -5458,18 +5426,17 @@ set_nonincremental_init_from_string (tree str)
   const char *p, *end;
   int byte, wchar_bytes, charwidth, bitpos;
 
-  if (TREE_CODE (constructor_type) != ARRAY_TYPE)
-    abort ();
+  gcc_assert (TREE_CODE (constructor_type) == ARRAY_TYPE);
 
   if (TYPE_PRECISION (TREE_TYPE (TREE_TYPE (str)))
       == TYPE_PRECISION (char_type_node))
     wchar_bytes = 1;
-  else if (TYPE_PRECISION (TREE_TYPE (TREE_TYPE (str)))
-	   == TYPE_PRECISION (wchar_type_node))
-    wchar_bytes = TYPE_PRECISION (wchar_type_node) / BITS_PER_UNIT;
   else
-    abort ();
-
+    {
+      gcc_assert (TYPE_PRECISION (TREE_TYPE (TREE_TYPE (str)))
+		  == TYPE_PRECISION (wchar_type_node));
+      wchar_bytes = TYPE_PRECISION (wchar_type_node) / BITS_PER_UNIT;
+    }
   charwidth = TYPE_PRECISION (char_type_node);
   type = TREE_TYPE (constructor_type);
   p = TREE_STRING_POINTER (str);
@@ -5522,7 +5489,7 @@ set_nonincremental_init_from_string (tree str)
 		      << (bitpos - HOST_BITS_PER_WIDE_INT);
 	}
 
-      value = build_int_cst (type, val[1], val[0]);
+      value = build_int_cst_wide (type, val[1], val[0]);
       add_pending_init (purpose, value);
     }
 
@@ -6211,16 +6178,14 @@ process_init_element (struct c_expr value)
 	  constructor_range_stack = 0;
 	  while (constructor_stack != range_stack->stack)
 	    {
-	      if (!constructor_stack->implicit)
-		abort ();
+	      gcc_assert (constructor_stack->implicit);
 	      process_init_element (pop_init_level (1));
 	    }
 	  for (p = range_stack;
 	       !p->range_end || tree_int_cst_equal (p->index, p->range_end);
 	       p = p->prev)
 	    {
-	      if (!constructor_stack->implicit)
-		abort ();
+	      gcc_assert (constructor_stack->implicit);
 	      process_init_element (pop_init_level (1));
 	    }
 
@@ -6541,12 +6506,9 @@ c_finish_return (tree retval)
 	    case ADDR_EXPR:
 	      inner = TREE_OPERAND (inner, 0);
 
-
-	      /* APPLE LOCAL begin mainline --apinski */
 	      while (TREE_CODE_CLASS (TREE_CODE (inner)) == 'r'
 	             && TREE_CODE (inner) != INDIRECT_REF)
 		inner = TREE_OPERAND (inner, 0);
-	      /* APPLE LOCAL end mainline --apinski */
 
 	      if (DECL_P (inner)
 		  && ! DECL_EXTERNAL (inner)
@@ -6720,7 +6682,7 @@ c_finish_if_stmt (location_t if_locus, tree cond, tree then_block,
 	    inner_if = TREE_OPERAND (inner_if, 0);
 	    break;
 	  default:
-	    abort ();
+	    gcc_unreachable ();
 	  }
     found:
 
@@ -7811,32 +7773,4 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
       result = convert (final_type, result);
     return result;
   }
-}
-
-/* Build the result of __builtin_offsetof.  TYPE is the first argument to
-   offsetof, i.e. a type.  LIST is a tree_list that encodes component and
-   array references; PURPOSE is set for the former and VALUE is set for
-   the later.  */
-
-tree
-build_offsetof (tree type, tree list)
-{
-  tree t;
-
-  /* Build "*(type *)0".  */
-  t = convert (build_pointer_type (type), null_pointer_node);
-  t = build_indirect_ref (t, "");
-
-  /* Build COMPONENT and ARRAY_REF expressions as needed.  */
-  for (list = nreverse (list); list ; list = TREE_CHAIN (list))
-    if (TREE_PURPOSE (list))
-      t = build_component_ref (t, TREE_PURPOSE (list));
-    else
-      t = build_array_ref (t, TREE_VALUE (list));
-
-  /* Finalize the offsetof expression.  For now all we need to do is take
-     the address of the expression we created, and cast that to an integer
-     type; this mirrors the traditional macro implementation of offsetof.  */
-  t = build_unary_op (ADDR_EXPR, t, 0);
-  return convert (size_type_node, t);
 }

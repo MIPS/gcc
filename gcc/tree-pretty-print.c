@@ -473,10 +473,10 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 	  if (tree_int_cst_sgn (val) < 0)
 	    {
 	      pp_character (buffer, '-');
-	      val = build_int_cst (NULL_TREE,
-				   -TREE_INT_CST_LOW (val),
-				   ~TREE_INT_CST_HIGH (val)
-				   + !TREE_INT_CST_LOW (val));
+	      val = build_int_cst_wide (NULL_TREE,
+					-TREE_INT_CST_LOW (val),
+					~TREE_INT_CST_HIGH (val)
+					+ !TREE_INT_CST_LOW (val));
 	    }
 	  /* Would "%x%0*x" or "%x%*0x" get zero-padding on all
 	     systems?  */
@@ -627,12 +627,15 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       pp_string (buffer, str);
       dump_generic_node (buffer, TREE_OPERAND (node, 1), spc, flags, false);
 
-      op0 = component_ref_field_offset (node);
-      if (op0 && TREE_CODE (op0) != INTEGER_CST)
+      if (TREE_CODE (op0) != VALUE_HANDLE)
 	{
-	  pp_string (buffer, "{off: ");
-	  dump_generic_node (buffer, op0, spc, flags, false);
-	  pp_character (buffer, '}');
+	  op0 = component_ref_field_offset (node);
+	  if (op0 && TREE_CODE (op0) != INTEGER_CST)
+	    {
+	      pp_string (buffer, "{off: ");
+	      dump_generic_node (buffer, op0, spc, flags, false);
+	      pp_character (buffer, '}');
+	    }
 	}
       break;
 
@@ -1074,7 +1077,7 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 	{
 	  pp_character (buffer, '(');
 	  dump_generic_node (buffer, type, spc, flags, false);
-	  pp_string (buffer, ")");
+	  pp_string (buffer, ") ");
 	}
       if (op_prio (op0) < op_prio (node))
 	pp_character (buffer, '(');
@@ -1828,18 +1831,32 @@ op_symbol (tree op)
       return "*";
 
     case TRUNC_DIV_EXPR:
-    case CEIL_DIV_EXPR:
-    case FLOOR_DIV_EXPR:
-    case ROUND_DIV_EXPR:
     case RDIV_EXPR:
-    case EXACT_DIV_EXPR:
       return "/";
 
+    case CEIL_DIV_EXPR:
+      return "/[cl]";
+
+    case FLOOR_DIV_EXPR:
+      return "/[fl]";
+
+    case ROUND_DIV_EXPR:
+      return "/[rd]";
+
+    case EXACT_DIV_EXPR:
+      return "/[ex]";
+
     case TRUNC_MOD_EXPR:
-    case CEIL_MOD_EXPR:
-    case FLOOR_MOD_EXPR:
-    case ROUND_MOD_EXPR:
       return "%";
+
+    case CEIL_MOD_EXPR:
+      return "%[cl]";
+
+    case FLOOR_MOD_EXPR:
+      return "%[fl]";
+
+    case ROUND_MOD_EXPR:
+      return "%[rd]";
 
     case PREDECREMENT_EXPR:
       return " --";
@@ -2036,38 +2053,35 @@ newline_and_indent (pretty_printer *buffer, int spc)
 static void
 dump_vops (pretty_printer *buffer, tree stmt, int spc, int flags)
 {
-  size_t i;
-  stmt_ann_t ann = stmt_ann (stmt);
-  v_may_def_optype v_may_defs = V_MAY_DEF_OPS (ann);
-  v_must_def_optype v_must_defs = V_MUST_DEF_OPS (ann);
-  vuse_optype vuses = VUSE_OPS (ann);
+  tree use, def;
+  use_operand_p use_p;
+  def_operand_p def_p;
+  ssa_op_iter iter;
 
-  for (i = 0; i < NUM_V_MAY_DEFS (v_may_defs); i++)
+  FOR_EACH_SSA_MAYDEF_OPERAND (def_p, use_p, stmt, iter)
     {
       pp_string (buffer, "#   ");
-      dump_generic_node (buffer, V_MAY_DEF_RESULT (v_may_defs, i),
+      dump_generic_node (buffer, DEF_FROM_PTR (def_p),
                          spc + 2, flags, false);
       pp_string (buffer, " = V_MAY_DEF <");
-      dump_generic_node (buffer, V_MAY_DEF_OP (v_may_defs, i),
+      dump_generic_node (buffer, USE_FROM_PTR (use_p),
                          spc + 2, flags, false);
       pp_string (buffer, ">;");
       newline_and_indent (buffer, spc);
     }
 
-  for (i = 0; i < NUM_V_MUST_DEFS (v_must_defs); i++)
+  FOR_EACH_SSA_TREE_OPERAND (def, stmt, iter, SSA_OP_VMUSTDEF)
     {
-      tree v_must_def = V_MUST_DEF_OP (v_must_defs, i);
       pp_string (buffer, "#   V_MUST_DEF <");
-      dump_generic_node (buffer, v_must_def, spc + 2, flags, false);
+      dump_generic_node (buffer, def, spc + 2, flags, false);
       pp_string (buffer, ">;");
       newline_and_indent (buffer, spc);
     }
 
-  for (i = 0; i < NUM_VUSES (vuses); i++)
+  FOR_EACH_SSA_TREE_OPERAND (use, stmt, iter, SSA_OP_VUSE)
     {
-      tree vuse = VUSE_OP (vuses, i);
       pp_string (buffer, "#   VUSE <");
-      dump_generic_node (buffer, vuse, spc + 2, flags, false);
+      dump_generic_node (buffer, use, spc + 2, flags, false);
       pp_string (buffer, ">;");
       newline_and_indent (buffer, spc);
     }

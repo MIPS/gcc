@@ -355,15 +355,27 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #define TARGET_BINDS_LOCAL_P default_binds_local_p
 #endif
 
+#ifndef TARGET_SHIFT_TRUNCATION_MASK
+#define TARGET_SHIFT_TRUNCATION_MASK default_shift_truncation_mask
+#endif
+
 #ifndef TARGET_VALID_POINTER_MODE
 #define TARGET_VALID_POINTER_MODE default_valid_pointer_mode
+#endif
+
+#ifndef TARGET_SCALAR_MODE_SUPPORTED_P
+#define TARGET_SCALAR_MODE_SUPPORTED_P default_scalar_mode_supported_p
+#endif
+
+#ifndef TARGET_VECTOR_MODE_SUPPORTED_P
+#define TARGET_VECTOR_MODE_SUPPORTED_P hook_bool_mode_false
 #endif
 
 #ifndef TARGET_VECTOR_OPAQUE_P
 #define TARGET_VECTOR_OPAQUE_P hook_bool_tree_false
 #endif
 
-/* In hook.c.  */
+/* In hooks.c.  */
 #define TARGET_CANNOT_MODIFY_JUMPS_P hook_bool_void_false
 #define TARGET_BRANCH_TARGET_REGISTER_CLASS hook_int_void_no_regs
 #define TARGET_BRANCH_TARGET_REGISTER_CALLEE_SAVED hook_bool_bool_false
@@ -493,14 +505,24 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #define TARGET_CXX_CDTOR_RETURNS_THIS hook_bool_void_false
 #endif
 
-#define TARGET_CXX		\
-  {				\
-    TARGET_CXX_GUARD_TYPE,	\
-    TARGET_CXX_GUARD_MASK_BIT,	\
-    TARGET_CXX_GET_COOKIE_SIZE,	\
-    TARGET_CXX_COOKIE_HAS_SIZE,	\
-    TARGET_CXX_IMPORT_EXPORT_CLASS,	\
-    TARGET_CXX_CDTOR_RETURNS_THIS	\
+#ifndef TARGET_CXX_KEY_METHOD_MAY_BE_INLINE
+#define TARGET_CXX_KEY_METHOD_MAY_BE_INLINE hook_bool_void_true
+#endif
+
+#ifndef TARGET_CXX_EXPORT_CLASS_DATA
+#define TARGET_CXX_EXPORT_CLASS_DATA hook_bool_void_false
+#endif
+
+#define TARGET_CXX				\
+  {						\
+    TARGET_CXX_GUARD_TYPE,			\
+    TARGET_CXX_GUARD_MASK_BIT,			\
+    TARGET_CXX_GET_COOKIE_SIZE,			\
+    TARGET_CXX_COOKIE_HAS_SIZE,			\
+    TARGET_CXX_IMPORT_EXPORT_CLASS,		\
+    TARGET_CXX_CDTOR_RETURNS_THIS,		\
+    TARGET_CXX_KEY_METHOD_MAY_BE_INLINE,	\
+    TARGET_CXX_EXPORT_CLASS_DATA		\
   }
 
 /* The whole shebang.  */
@@ -538,7 +560,10 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
   TARGET_BINDS_LOCAL_P,				\
   TARGET_ENCODE_SECTION_INFO,			\
   TARGET_STRIP_NAME_ENCODING,			\
+  TARGET_SHIFT_TRUNCATION_MASK,			\
   TARGET_VALID_POINTER_MODE,                    \
+  TARGET_SCALAR_MODE_SUPPORTED_P,		\
+  TARGET_VECTOR_MODE_SUPPORTED_P,               \
   TARGET_VECTOR_OPAQUE_P,			\
   TARGET_RTX_COSTS,				\
   TARGET_ADDRESS_COST,				\

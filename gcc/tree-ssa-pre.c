@@ -225,7 +225,7 @@ typedef struct value_set
 
 
 /* An unordered bitmap set.  One bitmap tracks values, the other,
-   expressions. */
+   expressions.  */
 typedef struct bitmap_set
 {
   bitmap expressions;
@@ -306,6 +306,7 @@ static alloc_pool value_set_node_pool;
 static alloc_pool binary_node_pool;
 static alloc_pool unary_node_pool;
 static alloc_pool reference_node_pool;
+static struct obstack grand_bitmap_obstack;
 
 /* Set of blocks with statements that have had its EH information
    cleaned up.  */
@@ -321,7 +322,7 @@ static htab_t phi_translate_table;
 
 typedef struct expr_pred_trans_d
 {
-  /* The expression. */
+  /* The expression.  */
   tree e;
 
   /* The predecessor block along which we translated the expression.  */
@@ -371,7 +372,7 @@ expr_pred_trans_eq (const void *p1, const void *p2)
 
 /* Search in the phi translation table for the translation of
    expression E in basic block PRED. Return the translated value, if
-   found, NULL otherwise. */ 
+   found, NULL otherwise.  */ 
 
 static inline tree
 phi_trans_lookup (tree e, basic_block pred)
@@ -468,7 +469,7 @@ value_insert_into_set_bitmap (value_set_t set, tree v)
 
   if (set->values == NULL)
     {
-      set->values = BITMAP_GGC_ALLOC ();
+      set->values = BITMAP_OBSTACK_ALLOC (&grand_bitmap_obstack);
       bitmap_clear (set->values);
     }
 
@@ -482,8 +483,8 @@ static bitmap_set_t
 bitmap_set_new (void)
 {
   bitmap_set_t ret = pool_alloc (bitmap_set_pool);
-  ret->expressions = BITMAP_GGC_ALLOC ();
-  ret->values = BITMAP_GGC_ALLOC ();
+  ret->expressions = BITMAP_OBSTACK_ALLOC (&grand_bitmap_obstack);
+  ret->values = BITMAP_OBSTACK_ALLOC (&grand_bitmap_obstack);
   bitmap_clear (ret->expressions);
   bitmap_clear (ret->values);
   return ret;
@@ -703,7 +704,7 @@ bitmap_set_subtract_from_value_set (value_set_t a, bitmap_set_t b,
   return ret;
 }
 
-/* Return true if two sets are equal. */
+/* Return true if two sets are equal.  */
 
 static bool
 set_equal (value_set_t a, value_set_t b)
@@ -1533,7 +1534,7 @@ insert_aux (basic_block block)
 			      fprintf (dump_file, "\n");
 			    }
 
-			  /* Make the necessary insertions. */
+			  /* Make the necessary insertions.  */
 			  for (pred = block->pred;
 			       pred;
 			       pred = pred->pred_next)
@@ -1944,6 +1945,7 @@ init_pre (void)
   FOR_ALL_BB (bb)
     bb->aux = xcalloc (1, sizeof (struct bb_value_sets));
 
+  gcc_obstack_init (&grand_bitmap_obstack);
   phi_translate_table = htab_create (511, expr_pred_trans_hash,
 				     expr_pred_trans_eq, free);
   value_set_pool = create_alloc_pool ("Value sets",
@@ -1980,6 +1982,7 @@ fini_pre (void)
 {
   basic_block bb;
 
+  obstack_free (&grand_bitmap_obstack, NULL);
   free_alloc_pool (value_set_pool);
   free_alloc_pool (bitmap_set_pool);
   free_alloc_pool (value_set_node_pool);
@@ -2087,7 +2090,8 @@ struct tree_opt_pass pass_pre =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func | TODO_ggc_collect | TODO_verify_ssa /* todo_flags_finish */
+  TODO_dump_func | TODO_ggc_collect | TODO_verify_ssa, /* todo_flags_finish */
+  0					/* letter */
 };
 
 
@@ -2118,5 +2122,6 @@ struct tree_opt_pass pass_fre =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func | TODO_ggc_collect | TODO_verify_ssa /* todo_flags_finish */
+  TODO_dump_func | TODO_ggc_collect | TODO_verify_ssa, /* todo_flags_finish */
+  0					/* letter */
 };

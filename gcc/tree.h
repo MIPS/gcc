@@ -235,6 +235,8 @@ struct tree_common GTY(())
            ASM_EXPR
        TYPE_CACHED_VALUES_P in
           ..._TYPE
+       SAVE_EXPR_RESOLVED_P in
+	  SAVE_EXPR
 
    private_flag:
 
@@ -339,7 +341,7 @@ struct tree_common GTY(())
    nowarning_flag:
 
        TREE_NO_WARNING in
-           ... any expr node
+           ... any expr or decl node
 */
 
 /* Define accessors for the fields that all tree nodes have
@@ -759,7 +761,10 @@ extern void tree_operand_check_failed (int, enum tree_code,
 #define CLEANUP_EH_ONLY(NODE) ((NODE)->common.static_flag)
 
 /* In an expr node (usually a conversion) this means the node was made
-   implicitly and should not lead to any sort of warning.  */
+   implicitly and should not lead to any sort of warning.  In a decl node,
+   warnings concerning the decl should be suppressed.  This is used at
+   least for used-before-set warnings, and it set after one warning is
+   emitted.  */
 #define TREE_NO_WARNING(NODE) ((NODE)->common.nowarning_flag)
 
 /* In an INTEGER_CST, REAL_CST, COMPLEX_CST, or VECTOR_CST this means
@@ -797,6 +802,11 @@ extern void tree_operand_check_failed (int, enum tree_code,
 /* In a _TYPE, indicates whether TYPE_CACHED_VALUES contains a vector
    of cached values, or is something else.  */
 #define TYPE_CACHED_VALUES_P(NODE) (TYPE_CHECK(NODE)->common.public_flag)
+
+/* In a SAVE_EXPR, indicates that the original expression has already
+   been substituted with a VAR_DECL that contains the value.  */
+#define SAVE_EXPR_RESOLVED_P(NODE) \
+  (TREE_CHECK (NODE, SAVE_EXPR)->common.public_flag)
 
 /* In any expression, decl, or constant, nonzero means it has side effects or
    reevaluation of the whole expression could produce a different value.
@@ -1075,10 +1085,8 @@ struct tree_vec GTY(())
 #define TREE_OPERAND(NODE, I) TREE_OPERAND_CHECK (NODE, I)
 #define TREE_COMPLEXITY(NODE) (EXPR_CHECK (NODE)->exp.complexity)
 
-/* APPLE LOCAL begin lno */
 /* In INDIRECT_REF.  */
 #define REF_ORIGINAL(NODE) TREE_CHAIN (TREE_CHECK (NODE, INDIRECT_REF))
-/* APPLE LOCAL end lno */
 
 /* In a LABELED_BLOCK_EXPR node.  */
 #define LABELED_BLOCK_LABEL(NODE) \
@@ -1105,7 +1113,7 @@ struct tree_vec GTY(())
 #define SET_EXPR_LOCATION(NODE, FROM) \
   (EXPR_CHECK (NODE)->exp.locus = (FROM))
 #define EXPR_HAS_LOCATION(NODE) (EXPR_LOCATION (NODE) != UNKNOWN_LOCATION)
-/* EXPR_LOCUS and SET_EXPR_LOCUS are deprecated. */
+/* EXPR_LOCUS and SET_EXPR_LOCUS are deprecated.  */
 #define EXPR_LOCUS(NODE)					\
   (IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (TREE_CODE (NODE)))	\
    ? &(NODE)->exp.locus						\
@@ -1438,7 +1446,7 @@ struct tree_block GTY(())
 #define TYPE_DEBUG_REPRESENTATION_TYPE(NODE) (VECTOR_TYPE_CHECK (NODE)->type.values)
 
 /* For record and union types, information about this type, as a base type
-   for itself. */
+   for itself.  */
 #define TYPE_BINFO(NODE) (RECORD_OR_UNION_CHECK(NODE)->type.binfo)
 
 /* For non record and union types, used in a language-dependent way.  */
@@ -1720,15 +1728,10 @@ struct tree_type GTY(())
    found.  NULL_TREE if there is no secondary vptr in the VTT.  */
 #define BINFO_VPTR_INDEX(NODE) (TREE_BINFO_CHECK(NODE)->binfo.vtt_vptr)
 
-/* The binfo of which NODE is a primary base.  (This is different from
-   BINFO_INHERITANCE_CHAIN for virtual base because a virtual base is
-   sometimes a primary base for a class for which it is not an
-   immediate base.)  */
-#define BINFO_PRIMARY_BASE_OF(NODE) (TREE_BINFO_CHECK(NODE)->binfo.primary)
-
 /* The BINFO_INHERITANCE_CHAIN points at the binfo for the base
    inheriting this base for non-virtual bases. For virtual bases it
-   points to the binfo of the most derived type.  */
+   points either to the binfo for which this is a primary binfo, or to
+   the binfo of the most derived type.  */
 #define BINFO_INHERITANCE_CHAIN(NODE) \
 	(TREE_BINFO_CHECK(NODE)->binfo.inheritance)
 
@@ -1745,7 +1748,6 @@ struct tree_binfo GTY (())
 
   tree vtt_subvtt;
   tree vtt_vptr;
-  tree primary;
 
   VEC(tree) base_binfos;
 };
@@ -2418,7 +2420,7 @@ struct tree_value_handle GTY(())
 
   /* Unique ID for this value handle.  IDs are handed out in a
      conveniently dense form starting at 0, so that we can make
-     bitmaps of value handles. */
+     bitmaps of value handles.  */
   unsigned int id;
 };
 
@@ -2802,7 +2804,10 @@ extern tree build4_stat (enum tree_code, tree, tree, tree, tree,
 			 tree MEM_STAT_DECL);
 #define build4(c,t1,t2,t3,t4,t5) build4_stat (c,t1,t2,t3,t4,t5 MEM_STAT_INFO)
 
-extern tree build_int_cst (tree, unsigned HOST_WIDE_INT, HOST_WIDE_INT);
+extern tree build_int_cst (tree, HOST_WIDE_INT);
+extern tree build_int_cst_type (tree, HOST_WIDE_INT);
+extern tree build_int_cstu (tree, unsigned HOST_WIDE_INT);
+extern tree build_int_cst_wide (tree, unsigned HOST_WIDE_INT, HOST_WIDE_INT);
 extern tree build_vector (tree, tree);
 extern tree build_constructor (tree, tree);
 extern tree build_real_from_int_cst (tree, tree);
@@ -2823,7 +2828,8 @@ extern tree build_empty_stmt (void);
 
 extern tree make_signed_type (int);
 extern tree make_unsigned_type (int);
-extern void initialize_sizetypes (void);
+extern tree unsigned_type_for (tree);
+extern void initialize_sizetypes (bool);
 extern void set_sizetype (tree);
 extern void fixup_unsigned_type (tree);
 extern tree build_pointer_type_for_mode (tree, enum machine_mode, bool);
@@ -2858,7 +2864,7 @@ extern HOST_WIDE_INT tree_low_cst (tree, int);
 extern int tree_int_cst_msb (tree);
 extern int tree_int_cst_sgn (tree);
 extern int tree_expr_nonnegative_p (tree);
-extern int rtl_expr_nonnegative_p (rtx);
+extern bool may_negate_without_overflow_p (tree);
 extern tree get_inner_array_type (tree);
 
 /* From expmed.c.  Since rtl.h is included after tree.h, we can't
@@ -2956,14 +2962,6 @@ extern tree merge_decl_attributes (tree, tree);
 extern tree merge_type_attributes (tree, tree);
 extern void default_register_cpp_builtins (struct cpp_reader *);
 
-/* Split a list of declspecs and attributes into two.  */
-
-extern void split_specs_attrs (tree, tree *, tree *);
-
-/* Strip attributes from a list of combined specs and attrs.  */
-
-extern tree strip_attrs (tree);
-
 /* Return 1 if an attribute and its arguments are valid for a decl or type.  */
 
 extern int valid_machine_attribute (tree, tree, tree, tree);
@@ -3019,7 +3017,8 @@ extern tree build_qualified_type (tree, int);
 
 /* Make a copy of a type node.  */
 
-extern tree build_type_copy (tree);
+extern tree build_distinct_type_copy (tree);
+extern tree build_variant_type_copy (tree);
 
 /* Finish up a builtin RECORD_TYPE. Give it a name and provide its
    fields. Optionally specify an alignment, and then lay it out.  */
@@ -3134,10 +3133,8 @@ enum size_type_kind
 {
   SIZETYPE,		/* Normal representation of sizes in bytes.  */
   SSIZETYPE,		/* Signed representation of sizes in bytes.  */
-  USIZETYPE,		/* Unsigned representation of sizes in bytes.  */
   BITSIZETYPE,		/* Normal representation of sizes in bits.  */
   SBITSIZETYPE,		/* Signed representation of sizes in bits.  */
-  UBITSIZETYPE,	        /* Unsigned representation of sizes in bits.  */
   TYPE_KIND_LAST};
 
 extern GTY(()) tree sizetype_tab[(int) TYPE_KIND_LAST];
@@ -3145,14 +3142,11 @@ extern GTY(()) tree sizetype_tab[(int) TYPE_KIND_LAST];
 #define sizetype sizetype_tab[(int) SIZETYPE]
 #define bitsizetype sizetype_tab[(int) BITSIZETYPE]
 #define ssizetype sizetype_tab[(int) SSIZETYPE]
-#define usizetype sizetype_tab[(int) USIZETYPE]
 #define sbitsizetype sizetype_tab[(int) SBITSIZETYPE]
-#define ubitsizetype sizetype_tab[(int) UBITSIZETYPE]
 
+extern tree size_int_kind (HOST_WIDE_INT, enum size_type_kind);
 extern tree size_binop (enum tree_code, tree, tree);
 extern tree size_diffop (tree, tree);
-extern tree size_int_kind (HOST_WIDE_INT, enum size_type_kind);
-extern tree size_int_type (HOST_WIDE_INT, tree);
 
 #define size_int(L) size_int_kind (L, SIZETYPE)
 #define ssize_int(L) size_int_kind (L, SSIZETYPE)
@@ -3172,8 +3166,10 @@ extern void put_pending_sizes (tree);
    + (BITS_PER_UNIT > 8) + (BITS_PER_UNIT > 16) + (BITS_PER_UNIT > 32) \
    + (BITS_PER_UNIT > 64) + (BITS_PER_UNIT > 128) + (BITS_PER_UNIT > 256))
 
-/* If nonzero, an upper limit on alignment of structure fields, in bits.  */
+/* If nonzero, an upper limit on alignment of structure fields, in bits,  */
 extern unsigned int maximum_field_alignment;
+/* and its original value in bytes, specified via -fpack-struct=<value>.  */
+extern unsigned int initial_max_fld_align;
 
 /* If nonzero, the alignment of a bitstring or (power-)set value, in bits.  */
 extern unsigned int set_alignment;
@@ -3242,10 +3238,13 @@ extern int integer_pow2p (tree);
 
 extern int integer_nonzerop (tree);
 
-/* staticp (tree x) is true if X is a reference to data allocated
-   at a fixed address in memory.  */
+extern bool zero_p (tree);
+extern bool cst_and_fits_in_hwi (tree);
 
-extern bool staticp (tree);
+/* staticp (tree x) is nonzero if X is a reference to data allocated
+   at a fixed address in memory.  Returns the outermost data.  */
+
+extern tree staticp (tree);
 
 /* save_expr (EXP) returns an expression equivalent to EXP
    but it can be used multiple times within context CTX
@@ -3564,7 +3563,7 @@ extern int real_onep (tree);
 extern int real_twop (tree);
 extern int real_minus_onep (tree);
 extern void init_ttree (void);
-extern void build_common_tree_nodes (int);
+extern void build_common_tree_nodes (bool, bool);
 extern void build_common_tree_nodes_2 (int);
 extern tree build_nonstandard_integer_type (unsigned HOST_WIDE_INT, int);
 extern tree build_range_type (tree, tree, tree);
@@ -3573,6 +3572,7 @@ extern tree tree_fold_gcd (tree, tree);
 /* APPLE LOCAL begin lno */
 extern bool cst_and_fits_in_hwi (tree);
 /* APPLE LOCAL end lno */
+extern tree build_addr (tree);
 
 extern bool fields_compatible_p (tree, tree);
 extern tree find_compatible_field (tree, tree);
@@ -3780,12 +3780,52 @@ enum tree_dump_index
   TDI_vcg,			/* create a VCG graph file for each
 				   function's flowgraph.  */
   TDI_xml,                      /* dump function call graph.  */
-  TDI_all,			/* enable all the dumps.  */
+  TDI_tree_all,                 /* enable all the GENERIC/GIMPLE dumps.  */
+  TDI_rtl_all,                  /* enable all the RTL dumps.  */
+
+  DFI_MIN,                      /* For now, RTL dumps are placed here.  */
+  DFI_sibling = DFI_MIN,
+  DFI_eh,
+  DFI_jump,
+  DFI_cse,
+  DFI_gcse,
+  DFI_loop,
+  DFI_bypass,
+  DFI_cfg,
+  DFI_bp,
+  DFI_vpt,
+  DFI_ce1,
+  DFI_tracer,
+  DFI_loop2,
+  DFI_web,
+  DFI_cse2,
+  DFI_life,
+  DFI_combine,
+  DFI_ce2,
+  DFI_regmove,
+  DFI_sms,
+  DFI_sched,
+  DFI_lreg,
+  DFI_greg,
+  DFI_postreload,
+  DFI_gcse2,
+  DFI_flow2,
+  DFI_peephole2,
+  DFI_ce3,
+  DFI_rnreg,
+  DFI_bbro,
+  DFI_branch_target_load,
+  DFI_sched2,
+  DFI_stack,
+  DFI_vartrack,
+  DFI_mach,
+  DFI_dbr,
+
   TDI_end
 };
 
-/* Bit masks to control tree dumping. Not all values are applicable to
-   all tree dumps. Add new ones at the end. When you define new
+/* Bit masks to control dumping. Not all values are applicable to
+   all dumps. Add new ones at the end. When you define new
    values, extend the DUMP_OPTIONS array in tree-dump.c */
 #define TDF_ADDRESS	(1 << 0)	/* dump node addresses */
 #define TDF_SLIM	(1 << 1)	/* don't go wild following links */
@@ -3799,11 +3839,15 @@ enum tree_dump_index
 #define TDF_LINENO	(1 << 7)	/* display statement line numbers */
 #define TDF_UID		(1 << 8)	/* display decl UIDs */
 
+#define TDF_TREE	(1 << 9)	/* is a tree dump */
+#define TDF_RTL		(1 << 10)	/* is a RTL dump */
 
 typedef struct dump_info *dump_info_p;
 
+extern char *get_dump_file_name (enum tree_dump_index);
 extern int dump_flag (dump_info_p, int, tree);
 extern int dump_enabled_p (enum tree_dump_index);
+extern int dump_initialized_p (enum tree_dump_index);
 extern FILE *dump_begin (enum tree_dump_index, int *);
 extern void dump_end (enum tree_dump_index, FILE *);
 extern void dump_node (tree, int, FILE *);
@@ -3814,16 +3858,6 @@ extern const char *dump_flag_name (enum tree_dump_index);
 extern void set_decl_rtl (tree, rtx);
 extern void set_decl_incoming_rtl (tree, rtx);
 
-/* Redefine abort to report an internal error w/o coredump, and
-   reporting the location of the error in the source file.  This logic
-   is duplicated in rtl.h and tree.h because every file that needs the
-   special abort includes one or both.  toplev.h gets too few files,
-   system.h gets too many.  */
-
-extern void fancy_abort (const char *, int, const char *)
-    ATTRIBUTE_NORETURN;
-#define abort() fancy_abort (__FILE__, __LINE__, __FUNCTION__)
-
 /* Enum and arrays used for tree allocation stats.
    Keep in sync with tree.c:tree_node_kind_names.  */
 typedef enum

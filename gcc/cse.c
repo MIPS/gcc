@@ -564,12 +564,6 @@ static int n_elements_made;
 
 static int max_elements_made;
 
-/* Surviving equivalence class when two equivalence classes are merged
-   by recording the effects of a jump in the last insn.  Zero if the
-   last insn was not a conditional jump.  */
-
-static struct table_elt *last_jump_equiv_class;
-
 /* Set to the cost of a constant pool reference if one was found for a
    symbolic constant.  If this was found, it means we should try to
    convert constants into constant pool entries if they don't fit in
@@ -648,16 +642,13 @@ static void record_jump_cond (enum rtx_code, enum machine_mode, rtx, rtx,
 			      int);
 static void cse_insn (rtx, rtx);
 static void cse_end_of_basic_block (rtx, struct cse_basic_block_data *,
-				    int, int, int);
+				    int, int);
 static int addr_affects_sp_p (rtx);
 static void invalidate_from_clobbers (rtx);
 static rtx cse_process_notes (rtx, rtx);
-static void cse_around_loop (rtx);
 static void invalidate_skipped_set (rtx, rtx, void *);
 static void invalidate_skipped_block (rtx);
-static void cse_check_loop_start (rtx, rtx, void *);
-static void cse_set_around_loop (rtx, rtx, rtx);
-static rtx cse_basic_block (rtx, rtx, struct branch_path *, int);
+static rtx cse_basic_block (rtx, rtx, struct branch_path *);
 static void count_reg_usage (rtx, int *, int);
 static int check_for_label_ref (rtx *, void *);
 extern void dump_class (struct table_elt*);
@@ -934,8 +925,7 @@ make_new_qty (unsigned int reg, enum machine_mode mode)
   struct qty_table_elem *ent;
   struct reg_eqv_elem *eqv;
 
-  if (next_qty >= max_qty)
-    abort ();
+  gcc_assert (next_qty < max_qty);
 
   q = REG_QTY (reg) = next_qty++;
   ent = &qty_table[q];
@@ -962,8 +952,7 @@ make_regs_eqv (unsigned int new, unsigned int old)
   ent = &qty_table[q];
 
   /* Nothing should become eqv until it has a "non-invalid" qty number.  */
-  if (! REGNO_QTY_VALID_P (old))
-    abort ();
+  gcc_assert (REGNO_QTY_VALID_P (old));
 
   REG_QTY (new) = q;
   firstr = ent->first_reg;
@@ -1433,8 +1422,7 @@ insert (rtx x, struct table_elt *classp, unsigned int hash, enum machine_mode mo
 
   /* If X is a register and we haven't made a quantity for it,
      something is wrong.  */
-  if (REG_P (x) && ! REGNO_QTY_VALID_P (REGNO (x)))
-    abort ();
+  gcc_assert (!REG_P (x) || REGNO_QTY_VALID_P (REGNO (x)));
 
   /* If X is a hard register, show it is being put in the table.  */
   if (REG_P (x) && REGNO (x) < FIRST_PSEUDO_REGISTER)
@@ -1841,7 +1829,7 @@ invalidate (rtx x, enum machine_mode full_mode)
       return;
 
     default:
-      abort ();
+      gcc_unreachable ();
     }
 }
 
@@ -2343,8 +2331,9 @@ hash_rtx (rtx x, enum machine_mode mode, int *do_not_record_p,
   fmt = GET_RTX_FORMAT (code);
   for (; i >= 0; i--)
     {
-      if (fmt[i] == 'e')
+      switch (fmt[i])
 	{
+	case 'e':
 	  /* If we are about to do the last recursive call
 	     needed at this level, change it into iteration.
 	     This function  is called enough to be worth it.  */
@@ -2356,24 +2345,29 @@ hash_rtx (rtx x, enum machine_mode mode, int *do_not_record_p,
 
 	  hash += hash_rtx (XEXP (x, i), 0, do_not_record_p,
 			    hash_arg_in_memory_p, have_reg_qty);
-	}
+	  break;
 
-      else if (fmt[i] == 'E')
-	for (j = 0; j < XVECLEN (x, i); j++)
-	  {
+	case 'E':
+	  for (j = 0; j < XVECLEN (x, i); j++)
 	    hash += hash_rtx (XVECEXP (x, i, j), 0, do_not_record_p,
 			      hash_arg_in_memory_p, have_reg_qty);
-	  }
+	  break;
 
-      else if (fmt[i] == 's')
-	hash += hash_rtx_string (XSTR (x, i));
-      else if (fmt[i] == 'i')
-	hash += (unsigned int) XINT (x, i);
-      else if (fmt[i] == '0' || fmt[i] == 't')
-	/* Unused.  */
-	;
-      else
-	abort ();
+	case 's':
+	  hash += hash_rtx_string (XSTR (x, i));
+	  break;
+
+	case 'i':
+	  hash += (unsigned int) XINT (x, i);
+	  break;
+
+	case '0': case 't':
+	  /* Unused.  */
+	  break;
+
+	default:
+	  gcc_unreachable ();
+	}
     }
 
   return hash;
@@ -2582,7 +2576,7 @@ exp_equiv_p (rtx x, rtx y, int validate, bool for_gcse)
 	  break;
 
 	default:
-	  abort ();
+	  gcc_unreachable ();
 	}
     }
 
@@ -3793,7 +3787,16 @@ fold_rtx (rtx x, rtx insn)
 	new = simplify_unary_operation (code, mode,
 					const_arg0 ? const_arg0 : folded_arg0,
 					mode_arg0);
-	if (new != 0 && is_const)
+	/* NEG of PLUS could be converted into MINUS, but that causes
+	   expressions of the form
+	   (CONST (MINUS (CONST_INT) (SYMBOL_REF)))
+	   which many ports mistakenly treat as LEGITIMATE_CONSTANT_P.
+	   FIXME: those ports should be fixed.  */
+	if (new != 0 && is_const
+	    && GET_CODE (new) == PLUS
+	    && (GET_CODE (XEXP (new, 0)) == SYMBOL_REF
+		|| GET_CODE (XEXP (new, 0)) == LABEL_REF)
+	    && GET_CODE (XEXP (new, 1)) == CONST_INT)
 	  new = gen_rtx_CONST (mode, new);
       }
       break;
@@ -4540,7 +4543,6 @@ record_jump_cond (enum rtx_code code, enum machine_mode mode, rtx op0,
     }
 
   merge_equiv_classes (op0_elt, op1_elt);
-  last_jump_equiv_class = op0_elt;
 }
 
 /* CSE processing for one instruction.
@@ -6244,7 +6246,6 @@ cse_insn (rtx insn, rtx libcall_insn)
   /* If this is a conditional jump insn, record any known equivalences due to
      the condition being tested.  */
 
-  last_jump_equiv_class = 0;
   if (JUMP_P (insn)
       && n_sets == 1 && GET_CODE (x) == SET
       && GET_CODE (SET_SRC (x)) == IF_THEN_ELSE)
@@ -6440,88 +6441,6 @@ cse_process_notes (rtx x, rtx object)
   return x;
 }
 
-/* Find common subexpressions between the end test of a loop and the beginning
-   of the loop.  LOOP_START is the CODE_LABEL at the start of a loop.
-
-   Often we have a loop where an expression in the exit test is used
-   in the body of the loop.  For example "while (*p) *q++ = *p++;".
-   Because of the way we duplicate the loop exit test in front of the loop,
-   however, we don't detect that common subexpression.  This will be caught
-   when global cse is implemented, but this is a quite common case.
-
-   This function handles the most common cases of these common expressions.
-   It is called after we have processed the basic block ending with the
-   NOTE_INSN_LOOP_END note that ends a loop and the previous JUMP_INSN
-   jumps to a label used only once.  */
-
-static void
-cse_around_loop (rtx loop_start)
-{
-  rtx insn;
-  int i;
-  struct table_elt *p;
-
-  /* If the jump at the end of the loop doesn't go to the start, we don't
-     do anything.  */
-  for (insn = PREV_INSN (loop_start);
-       insn && (NOTE_P (insn) && NOTE_LINE_NUMBER (insn) >= 0);
-       insn = PREV_INSN (insn))
-    ;
-
-  if (insn == 0
-      || !NOTE_P (insn)
-      || NOTE_LINE_NUMBER (insn) != NOTE_INSN_LOOP_BEG)
-    return;
-
-  /* If the last insn of the loop (the end test) was an NE comparison,
-     we will interpret it as an EQ comparison, since we fell through
-     the loop.  Any equivalences resulting from that comparison are
-     therefore not valid and must be invalidated.  */
-  if (last_jump_equiv_class)
-    for (p = last_jump_equiv_class->first_same_value; p;
-	 p = p->next_same_value)
-      {
-	if (MEM_P (p->exp) || REG_P (p->exp)
-	    || (GET_CODE (p->exp) == SUBREG
-		&& REG_P (SUBREG_REG (p->exp))))
-	  invalidate (p->exp, VOIDmode);
-	else if (GET_CODE (p->exp) == STRICT_LOW_PART
-		 || GET_CODE (p->exp) == ZERO_EXTRACT)
-	  invalidate (XEXP (p->exp, 0), GET_MODE (p->exp));
-      }
-
-  /* Process insns starting after LOOP_START until we hit a CALL_INSN or
-     a CODE_LABEL (we could handle a CALL_INSN, but it isn't worth it).
-
-     The only thing we do with SET_DEST is invalidate entries, so we
-     can safely process each SET in order.  It is slightly less efficient
-     to do so, but we only want to handle the most common cases.
-
-     The gen_move_insn call in cse_set_around_loop may create new pseudos.
-     These pseudos won't have valid entries in any of the tables indexed
-     by register number, such as reg_qty.  We avoid out-of-range array
-     accesses by not processing any instructions created after cse started.  */
-
-  for (insn = NEXT_INSN (loop_start);
-       !CALL_P (insn) && !LABEL_P (insn)
-       && INSN_UID (insn) < max_insn_uid
-       && ! (NOTE_P (insn)
-	     && NOTE_LINE_NUMBER (insn) == NOTE_INSN_LOOP_END);
-       insn = NEXT_INSN (insn))
-    {
-      if (INSN_P (insn)
-	  && (GET_CODE (PATTERN (insn)) == SET
-	      || GET_CODE (PATTERN (insn)) == CLOBBER))
-	cse_set_around_loop (PATTERN (insn), insn, loop_start);
-      else if (INSN_P (insn) && GET_CODE (PATTERN (insn)) == PARALLEL)
-	for (i = XVECLEN (PATTERN (insn), 0) - 1; i >= 0; i--)
-	  if (GET_CODE (XVECEXP (PATTERN (insn), 0, i)) == SET
-	      || GET_CODE (XVECEXP (PATTERN (insn), 0, i)) == CLOBBER)
-	    cse_set_around_loop (XVECEXP (PATTERN (insn), 0, i), insn,
-				 loop_start);
-    }
-}
-
 /* Process one SET of an insn that was skipped.  We ignore CLOBBERs
    since they are done elsewhere.  This function is called via note_stores.  */
 
@@ -6582,146 +6501,6 @@ invalidate_skipped_block (rtx start)
     }
 }
 
-/* If modifying X will modify the value in *DATA (which is really an
-   `rtx *'), indicate that fact by setting the pointed to value to
-   NULL_RTX.  */
-
-static void
-cse_check_loop_start (rtx x, rtx set ATTRIBUTE_UNUSED, void *data)
-{
-  rtx *cse_check_loop_start_value = (rtx *) data;
-
-  if (*cse_check_loop_start_value == NULL_RTX
-      || GET_CODE (x) == CC0 || GET_CODE (x) == PC)
-    return;
-
-  if ((MEM_P (x) && MEM_P (*cse_check_loop_start_value))
-      || reg_overlap_mentioned_p (x, *cse_check_loop_start_value))
-    *cse_check_loop_start_value = NULL_RTX;
-}
-
-/* X is a SET or CLOBBER contained in INSN that was found near the start of
-   a loop that starts with the label at LOOP_START.
-
-   If X is a SET, we see if its SET_SRC is currently in our hash table.
-   If so, we see if it has a value equal to some register used only in the
-   loop exit code (as marked by jump.c).
-
-   If those two conditions are true, we search backwards from the start of
-   the loop to see if that same value was loaded into a register that still
-   retains its value at the start of the loop.
-
-   If so, we insert an insn after the load to copy the destination of that
-   load into the equivalent register and (try to) replace our SET_SRC with that
-   register.
-
-   In any event, we invalidate whatever this SET or CLOBBER modifies.  */
-
-static void
-cse_set_around_loop (rtx x, rtx insn, rtx loop_start)
-{
-  struct table_elt *src_elt;
-
-  /* If this is a SET, see if we can replace SET_SRC, but ignore SETs that
-     are setting PC or CC0 or whose SET_SRC is already a register.  */
-  if (GET_CODE (x) == SET
-      && GET_CODE (SET_DEST (x)) != PC && GET_CODE (SET_DEST (x)) != CC0
-      && !REG_P (SET_SRC (x)))
-    {
-      src_elt = lookup (SET_SRC (x),
-			HASH (SET_SRC (x), GET_MODE (SET_DEST (x))),
-			GET_MODE (SET_DEST (x)));
-
-      if (src_elt)
-	for (src_elt = src_elt->first_same_value; src_elt;
-	     src_elt = src_elt->next_same_value)
-	  if (REG_P (src_elt->exp) && REG_LOOP_TEST_P (src_elt->exp)
-	      && COST (src_elt->exp) < COST (SET_SRC (x)))
-	    {
-	      rtx p, set;
-
-	      /* Look for an insn in front of LOOP_START that sets
-		 something in the desired mode to SET_SRC (x) before we hit
-		 a label or CALL_INSN.  */
-
-	      for (p = prev_nonnote_insn (loop_start);
-		   p && !CALL_P (p)
-		   && !LABEL_P (p);
-		   p = prev_nonnote_insn  (p))
-		if ((set = single_set (p)) != 0
-		    && REG_P (SET_DEST (set))
-		    && GET_MODE (SET_DEST (set)) == src_elt->mode
-		    && rtx_equal_p (SET_SRC (set), SET_SRC (x)))
-		  {
-		    /* We now have to ensure that nothing between P
-		       and LOOP_START modified anything referenced in
-		       SET_SRC (x).  We know that nothing within the loop
-		       can modify it, or we would have invalidated it in
-		       the hash table.  */
-		    rtx q;
-		    rtx cse_check_loop_start_value = SET_SRC (x);
-		    for (q = p; q != loop_start; q = NEXT_INSN (q))
-		      if (INSN_P (q))
-			note_stores (PATTERN (q),
-				     cse_check_loop_start,
-				     &cse_check_loop_start_value);
-
-		    /* If nothing was changed and we can replace our
-		       SET_SRC, add an insn after P to copy its destination
-		       to what we will be replacing SET_SRC with.  */
-		    if (cse_check_loop_start_value
-			&& single_set (p)
-			&& !can_throw_internal (insn)
-			&& validate_change (insn, &SET_SRC (x),
-					    src_elt->exp, 0))
-		      {
-			/* If this creates new pseudos, this is unsafe,
-			   because the regno of new pseudo is unsuitable
-			   to index into reg_qty when cse_insn processes
-			   the new insn.  Therefore, if a new pseudo was
-			   created, discard this optimization.  */
-			int nregs = max_reg_num ();
-			rtx move
-			  = gen_move_insn (src_elt->exp, SET_DEST (set));
-			if (nregs != max_reg_num ())
-			  {
-			    if (! validate_change (insn, &SET_SRC (x),
-						   SET_SRC (set), 0))
-			      abort ();
-			  }
-			else
-			  {
-			    if (CONSTANT_P (SET_SRC (set))
-				&& ! find_reg_equal_equiv_note (insn))
-			      set_unique_reg_note (insn, REG_EQUAL,
-						   SET_SRC (set));
-			    if (control_flow_insn_p (p))
-			      /* p can cause a control flow transfer so it
-				 is the last insn of a basic block.  We can't
-				 therefore use emit_insn_after.  */
-			      emit_insn_before (move, next_nonnote_insn (p));
-			    else
-			      emit_insn_after (move, p);
-			  }
-		      }
-		    break;
-		  }
-	    }
-    }
-
-  /* Deal with the destination of X affecting the stack pointer.  */
-  addr_affects_sp_p (SET_DEST (x));
-
-  /* See comment on similar code in cse_insn for explanation of these
-     tests.  */
-  if (REG_P (SET_DEST (x)) || GET_CODE (SET_DEST (x)) == SUBREG
-      || MEM_P (SET_DEST (x)))
-    invalidate (SET_DEST (x), VOIDmode);
-  else if (GET_CODE (SET_DEST (x)) == STRICT_LOW_PART
-	   || GET_CODE (SET_DEST (x)) == ZERO_EXTRACT)
-    invalidate (XEXP (SET_DEST (x), 0), GET_MODE (SET_DEST (x)));
-}
-
 /* Find the end of INSN's basic block and return its range,
    the total number of SETs in all the insns of the block, the last insn of the
    block, and the branch path.
@@ -6738,7 +6517,7 @@ cse_set_around_loop (rtx x, rtx insn, rtx loop_start)
 
 static void
 cse_end_of_basic_block (rtx insn, struct cse_basic_block_data *data,
-			int follow_jumps, int after_loop, int skip_blocks)
+			int follow_jumps, int skip_blocks)
 {
   rtx p = insn, q;
   int nsets = 0;
@@ -6776,23 +6555,6 @@ cse_end_of_basic_block (rtx insn, struct cse_basic_block_data *data,
   /* Scan to end of this basic block.  */
   while (p && !LABEL_P (p))
     {
-      /* Don't cse out the end of a loop.  This makes a difference
-	 only for the unusual loops that always execute at least once;
-	 all other loops have labels there so we will stop in any case.
-	 Cse'ing out the end of the loop is dangerous because it
-	 might cause an invariant expression inside the loop
-	 to be reused after the end of the loop.  This would make it
-	 hard to move the expression out of the loop in loop.c,
-	 especially if it is one of several equivalent expressions
-	 and loop.c would like to eliminate it.
-
-	 If we are running after loop.c has finished, we can ignore
-	 the NOTE_INSN_LOOP_END.  */
-
-      if (! after_loop && NOTE_P (p)
-	  && NOTE_LINE_NUMBER (p) == NOTE_INSN_LOOP_END)
-	break;
-
       /* Don't cse over a call to setjmp; on some machines (eg VAX)
 	 the regs restored by the longjmp come from
 	 a later time than the setjmp.  */
@@ -6949,14 +6711,11 @@ cse_end_of_basic_block (rtx insn, struct cse_basic_block_data *data,
    F is the first instruction.
    NREGS is one plus the highest pseudo-reg number used in the instruction.
 
-   AFTER_LOOP is 1 if this is the cse call done after loop optimization
-   (only if -frerun-cse-after-loop).
-
    Returns 1 if jump_optimize should be redone due to simplifications
    in conditional jump instructions.  */
 
 int
-cse_main (rtx f, int nregs, int after_loop, FILE *file)
+cse_main (rtx f, int nregs, FILE *file)
 {
   struct cse_basic_block_data val;
   rtx insn = f;
@@ -7022,7 +6781,7 @@ cse_main (rtx f, int nregs, int after_loop, FILE *file)
   while (insn)
     {
       cse_altered = 0;
-      cse_end_of_basic_block (insn, &val, flag_cse_follow_jumps, after_loop,
+      cse_end_of_basic_block (insn, &val, flag_cse_follow_jumps,
 			      flag_cse_skip_blocks);
 
       /* If this basic block was already processed or has no sets, skip it.  */
@@ -7054,7 +6813,7 @@ cse_main (rtx f, int nregs, int after_loop, FILE *file)
          (see `cse_end_of_basic_block'), we reprocess the code from the start.
          Otherwise, we start after this basic block.  */
       if (val.path_size > 0)
-	cse_basic_block (insn, val.last, val.path, 0);
+	cse_basic_block (insn, val.last, val.path);
       else
 	{
 	  int old_cse_jumps_altered = cse_jumps_altered;
@@ -7064,7 +6823,7 @@ cse_main (rtx f, int nregs, int after_loop, FILE *file)
 	     jump, we want to reprocess the block, since it will give
 	     us a new branch path to investigate.  */
 	  cse_jumps_altered = 0;
-	  temp = cse_basic_block (insn, val.last, val.path, ! after_loop);
+	  temp = cse_basic_block (insn, val.last, val.path);
 	  if (cse_jumps_altered == 0
 	      || (flag_cse_follow_jumps == 0 && flag_cse_skip_blocks == 0))
 	    insn = temp;
@@ -7104,8 +6863,7 @@ cse_main (rtx f, int nregs, int after_loop, FILE *file)
    block and this CSE pass is before loop.c.  */
 
 static rtx
-cse_basic_block (rtx from, rtx to, struct branch_path *next_branch,
-		 int around_loop)
+cse_basic_block (rtx from, rtx to, struct branch_path *next_branch)
 {
   rtx insn;
   int to_usage = 0;
@@ -7282,7 +7040,7 @@ cse_basic_block (rtx from, rtx to, struct branch_path *next_branch,
 	  val.path_size = 0;
 	  val.path = xmalloc (sizeof (struct branch_path)
 			      * PARAM_VALUE (PARAM_MAX_CSE_PATH_LENGTH));
-	  cse_end_of_basic_block (insn, &val, 0, 0, 0);
+	  cse_end_of_basic_block (insn, &val, 0, 0);
 	  free (val.path);
 
 	  /* If the tables we allocated have enough space left
@@ -7305,23 +7063,7 @@ cse_basic_block (rtx from, rtx to, struct branch_path *next_branch,
 	}
     }
 
-  if (next_qty > max_qty)
-    abort ();
-
-  /* If we are running before loop.c, we stopped on a NOTE_INSN_LOOP_END, and
-     the previous insn is the only insn that branches to the head of a loop,
-     we can cse into the loop.  Don't do this if we changed the jump
-     structure of a loop unless we aren't going to be following jumps.  */
-
-  insn = prev_nonnote_insn (to);
-  if ((cse_jumps_altered == 0
-       || (flag_cse_follow_jumps == 0 && flag_cse_skip_blocks == 0))
-      && around_loop && to != 0
-      && NOTE_P (to) && NOTE_LINE_NUMBER (to) == NOTE_INSN_LOOP_END
-      && JUMP_P (insn)
-      && JUMP_LABEL (insn) != 0
-      && LABEL_NUSES (JUMP_LABEL (insn)) == 1)
-    cse_around_loop (JUMP_LABEL (insn));
+  gcc_assert (next_qty <= max_qty);
 
   free (qty_table + max_reg);
 
@@ -7440,7 +7182,7 @@ count_reg_usage (rtx x, int *counts, int incr)
       return;
 
     case INSN_LIST:
-      abort ();
+      gcc_unreachable ();
 
     default:
       break;
@@ -7799,8 +7541,7 @@ cse_cc_succs (basic_block bb, rtx cc_reg, rtx cc_src, bool can_change_mode)
 
 		      if (mode != comp_mode)
 			{
-			  if (! can_change_mode)
-			    abort ();
+			  gcc_assert (can_change_mode);
 			  mode = comp_mode;
 			  PUT_MODE (cc_src, mode);
 			}
@@ -7848,8 +7589,7 @@ cse_cc_succs (basic_block bb, rtx cc_reg, rtx cc_src, bool can_change_mode)
 	  submode = cse_cc_succs (e->dest, cc_reg, cc_src, false);
 	  if (submode != VOIDmode)
 	    {
-	      if (submode != mode)
-		abort ();
+	      gcc_assert (submode == mode);
 	      found_equiv = true;
 	      can_change_mode = false;
 	    }
@@ -7977,8 +7717,7 @@ cse_condition_code_reg (void)
       mode = cse_cc_succs (bb, cc_reg, cc_src, true);
       if (mode != VOIDmode)
 	{
-	  if (mode != GET_MODE (cc_src))
-	    abort ();
+	  gcc_assert (mode == GET_MODE (cc_src));
 	  if (mode != orig_mode)
 	    {
 	      rtx newreg = gen_rtx_REG (mode, REGNO (cc_reg));

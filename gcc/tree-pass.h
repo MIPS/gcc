@@ -26,8 +26,12 @@ Boston, MA 02111-1307, USA.  */
 /* Global variables used to communicate with passes.  */
 extern FILE *dump_file;
 extern int dump_flags;
+extern const char *dump_file_name;
 
 extern struct bitmap_head_def *vars_to_rename;
+
+/* Return the dump_file_info for the given phase.  */
+extern struct dump_file_info *get_dump_file_info (enum tree_dump_index);
 
 /* Describe one pass.  */
 struct tree_opt_pass
@@ -64,6 +68,20 @@ struct tree_opt_pass
   /* Flags indicating common sets things to do before and after.  */
   unsigned int todo_flags_start;
   unsigned int todo_flags_finish;
+
+  /* Letter for RTL dumps.  */
+  char letter;
+};
+
+/* Define a tree dump switch.  */
+struct dump_file_info
+{
+  const char *suffix;           /* suffix to give output file.  */
+  const char *swtch;            /* command line switch */
+  int flags;                    /* user flags */
+  int state;                    /* state of play */
+  int num;                      /* dump file number */
+  int letter;                   /* enabling letter for RTL dumps */
 };
 
 /* Pass properties.  */
@@ -116,18 +134,19 @@ extern struct tree_opt_pass pass_loop_test;
 extern struct tree_opt_pass pass_lim;
 /* APPLE LOCAL begin lno */
 extern struct tree_opt_pass pass_unswitch;
-extern struct tree_opt_pass pass_iv_canon;
 extern struct tree_opt_pass pass_record_bounds;
 extern struct tree_opt_pass pass_mark_maybe_inf_loops;
 extern struct tree_opt_pass pass_elim_checks;
 /* APPLE LOCAL end lno */
+extern struct tree_opt_pass pass_iv_canon;
+extern struct tree_opt_pass pass_if_conversion;
 extern struct tree_opt_pass pass_vectorize;
-/* APPLE LOCAL begin lno */
 extern struct tree_opt_pass pass_complete_unroll;
+/* APPLE LOCAL lno */
 extern struct tree_opt_pass pass_linear_transform;
 extern struct tree_opt_pass pass_iv_optimize;
+/* APPLE LOCAL lno */
 extern struct tree_opt_pass pass_loop_prefetch;
-/* APPLE LOCAL end lno */
 extern struct tree_opt_pass pass_loop_done;
 extern struct tree_opt_pass pass_ch;
 extern struct tree_opt_pass pass_ccp;

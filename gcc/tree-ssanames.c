@@ -155,6 +155,8 @@ init_ssanames (void)
 void
 fini_ssanames (void)
 {
+  ggc_free (ssa_names);
+  ssa_names = NULL;
   free_ssanames = NULL;
 }
 
@@ -182,10 +184,8 @@ make_ssa_name (tree var, tree stmt)
 #if defined ENABLE_CHECKING
   if ((!DECL_P (var)
        && TREE_CODE (var) != INDIRECT_REF)
-      /* APPLE LOCAL begin lno */
       || (stmt
 	  && !IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (TREE_CODE (stmt)))
-      /* APPLE LOCAL end lno */
 	  && TREE_CODE (stmt) != PHI_NODE))
     abort ();
 #endif
@@ -241,10 +241,8 @@ make_ssa_name (tree var, tree stmt)
 void
 release_ssa_name (tree var)
 {
-  /* APPLE LOCAL begin lno */
   if (!var)
     return;
-  /* APPLE LOCAL end lno */
 
   /* Never release the default definition for a symbol.  It's a
      special SSA name that should always exist once it's created.  */
@@ -303,25 +301,12 @@ duplicate_ssa_name (tree name, tree stmt)
 void
 release_defs (tree stmt)
 {
-  size_t i;
-  v_may_def_optype v_may_defs;
-  v_must_def_optype v_must_defs;
-  def_optype defs;
-  stmt_ann_t ann;
+  tree def;
+  ssa_op_iter iter;
 
-  ann = stmt_ann (stmt);
-  defs = DEF_OPS (ann);
-  v_may_defs = V_MAY_DEF_OPS (ann);
-  v_must_defs = V_MUST_DEF_OPS (ann);
-
-  for (i = 0; i < NUM_DEFS (defs); i++)
-    release_ssa_name (DEF_OP (defs, i));
-
-  for (i = 0; i < NUM_V_MAY_DEFS (v_may_defs); i++)
-    release_ssa_name (V_MAY_DEF_RESULT (v_may_defs, i));
-
-  for (i = 0; i < NUM_V_MUST_DEFS (v_must_defs); i++)
-    release_ssa_name (V_MUST_DEF_OP (v_must_defs, i));
+  FOR_EACH_SSA_TREE_OPERAND (def, stmt, iter, SSA_OP_ALL_DEFS)
+    if (TREE_CODE (def) == SSA_NAME)
+      release_ssa_name (def);
 }
 
 

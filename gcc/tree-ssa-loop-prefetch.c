@@ -110,21 +110,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
       -- we assume cache line size allignment of arrays; this could be
 	 improved.  */
 
-/* APPLE LOCAL begin minimize mainline differences --apinski */
-/* Returns true if ARG is either NULL_TREE or constant zero.  */
-
-static bool
-zero_p (tree arg)
-{
-  if (!arg)
-    return true;
-
-  return integer_zerop (arg);
-}
-/* APPLE LOCAL end minimize mainline differences --apinski */
-
-
-
 /* Magic constants follow.  These should be replaced by machine specific
    numbers.  */
 
@@ -785,7 +770,7 @@ issue_prefetch_ref (struct loop *loop, struct mem_ref *ref, unsigned ahead)
   addr = ref->group->group_iv;
   if (delta)
     addr = build (PLUS_EXPR, ptr_type_node,
-		  addr, build_int_cst (ptr_type_node, delta, 0));
+		  addr, build_int_cst (ptr_type_node, delta));
 
   addr = force_gimple_operand (addr, &stmts, false,
 			       SSA_NAME_VAR (ref->group->group_iv));
@@ -830,7 +815,7 @@ issue_prefetches (struct loop *loop, struct mem_ref_group *groups,
 	base = fold_convert (ptr_type_node, TREE_OPERAND (groups->base, 0));
       else
 	base = build (ADDR_EXPR, ptr_type_node, groups->base);
-      step = build_int_cst (ptr_type_node, groups->step, 0);
+      step = build_int_cst (ptr_type_node, groups->step);
 
       standard_iv_increment_position (loop, &bsi, &after);
       create_iv (base, step, iv_var, loop, &bsi, after, &groups->group_iv,
@@ -860,7 +845,7 @@ loop_prefetch_arrays (struct loop *loop)
 
   /* FIXME: We should use not size of the loop, but the average number of
      instructions executed per iteration of the loop.  */
-  ninsns = estimate_loop_size (loop);
+  ninsns = tree_num_loop_insns (loop);
   ahead = (PREFETCH_LATENCY + ninsns - 1) / ninsns;
 
   /* Step 4: what to prefetch?  */

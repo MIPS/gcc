@@ -22,6 +22,9 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #ifndef LAMBDA_H
 #define LAMBDA_H
 
+#include "vec.h"
+#include "ggc.h"
+
 /* An integer vector.  A vector formally consists of an element of a vector
    space. A vector space is a set that is closed under vector addition
    and scalar multiplication.  In this vector space, an element is a list of
@@ -31,7 +34,6 @@ typedef int *lambda_vector;
    all vectors are the same length).  */
 typedef lambda_vector *lambda_matrix;
 
-/* APPLE LOCAL begin lno */
 /* A transformation matrix.  */
 typedef struct
 {
@@ -104,7 +106,8 @@ typedef struct
 
 lambda_loopnest lambda_loopnest_new (int, int);
 lambda_loopnest lambda_loopnest_transform (lambda_loopnest, lambda_trans_matrix);
-bool lambda_transform_legal_p (lambda_trans_matrix, int, varray_type, varray_type);
+
+bool lambda_transform_legal_p (lambda_trans_matrix, int, varray_type);
 void print_lambda_loopnest (FILE *, lambda_loopnest, char);
 
 #define lambda_loop_new() (lambda_loop) ggc_alloc_cleared (sizeof (struct lambda_loop_s))
@@ -157,11 +160,12 @@ lambda_body_vector lambda_body_vector_compute_new (lambda_trans_matrix,
 						   lambda_body_vector);
 void print_lambda_body_vector (FILE *, lambda_body_vector);
 struct loop;
+
 lambda_loopnest gcc_loopnest_to_lambda_loopnest (struct loop *,
-						 varray_type *,
-						 varray_type *);
-void lambda_loopnest_to_gcc_loopnest (struct loop *, varray_type,
-				      varray_type,
+						 VEC(tree) **,
+						 VEC(tree) **);
+void lambda_loopnest_to_gcc_loopnest (struct loop *, VEC(tree) *,
+				      VEC(tree) *,
 				      lambda_loopnest, 
 				      lambda_trans_matrix);
 

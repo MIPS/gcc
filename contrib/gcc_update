@@ -56,6 +56,9 @@ self=$0
 # colon is stripped from the output.
 files_and_dependencies () {
     sed -e 's/ *#.*//' -e '/^$/d' -e 's/://' <<\EOF
+# fixincludes
+fixincludes/configure: fixincludes/configure.ac fixincludes/aclocal.m4
+fixincludes/config.h.in: fixincludes/configure.ac fixincludes/aclocal.m4
 # intl library
 intl/plural.c: intl/plural.y
 intl/configure: intl/configure.ac intl/aclocal.m4
@@ -101,7 +104,7 @@ libjava/libltdl/Makefile.in: libjava/libltdl/Makefile.am libjava/libltdl/configu
 libjava/libltdl/configure: libjava/libltdl/configure.ac libjava/libltdl/aclocal.m4
 libjava/libltdl/config-h.in: libjava/libltdl/configure.ac libjava/libltdl/aclocal.m4
 libcpp/aclocal.m4: libcpp/configure.ac
-libcpp/Makefile.in: libcpp/Makefile.am libcpp/configure.ac libcpp/aclocal.m4
+libcpp/Makefile.in: libcpp/configure.ac libcpp/aclocal.m4
 libcpp/configure: libcpp/configure.ac libcpp/aclocal.m4
 # Top level
 Makefile.in: Makefile.tpl Makefile.def

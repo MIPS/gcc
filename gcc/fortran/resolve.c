@@ -344,7 +344,7 @@ resolve_entries (gfc_namespace * ns)
   if (ns->proc_name->attr.entry_master)
     return;
 
-  /* If this isn't a procedure something as gone horribly wrong.   */
+  /* If this isn't a procedure something has gone horribly wrong.   */
   assert (ns->proc_name->attr.flavor == FL_PROCEDURE);
   
   /* Remember the current namespace.  */
@@ -369,8 +369,8 @@ resolve_entries (gfc_namespace * ns)
 
   /* Create a new symbol for the master function.  */
   /* Give the internal function a unique name (within this file).
-     Also include teh function name so the user has some hope of figuring
-     out whats going on.  */
+     Also include the function name so the user has some hope of figuring
+     out what is going on.  */
   snprintf (name, GFC_MAX_SYMBOL_LEN, "master.%d.%s",
 	    master_count++, ns->proc_name->name);
   name[GFC_MAX_SYMBOL_LEN] = '\0';
@@ -392,10 +392,10 @@ resolve_entries (gfc_namespace * ns)
   for (el = ns->entries; el; el = el->next)
     merge_argument_lists (proc, el->sym->formal);
 
-  /* And use it for the function body.  */
+  /* Use the master function for the function body.  */
   ns->proc_name = proc;
 
-  /* FInalize the new symbols.  */
+  /* Finalize the new symbols.  */
   gfc_commit_symbols ();
 
   /* Restore the original namespace.  */
@@ -1392,7 +1392,7 @@ resolve_operator (gfc_expr * e)
       if (op1->ts.type == BT_CHARACTER && op2->ts.type == BT_CHARACTER)
 	{
 	  e->ts.type = BT_LOGICAL;
-	  e->ts.kind = gfc_default_logical_kind ();
+	  e->ts.kind = gfc_default_logical_kind;
 	  break;
 	}
 
@@ -1401,7 +1401,7 @@ resolve_operator (gfc_expr * e)
 	  gfc_type_convert_binary (e);
 
 	  e->ts.type = BT_LOGICAL;
-	  e->ts.kind = gfc_default_logical_kind ();
+	  e->ts.kind = gfc_default_logical_kind;
 	  break;
 	}
 
@@ -2962,6 +2962,61 @@ resolve_select (gfc_code * code)
 }
 
 
+/* Resolve a transfer statement. This is making sure that:
+   -- a derived type being transferred has only non-pointer components
+   -- a derived type being transferred doesn't have private components
+   -- we're not trying to transfer a whole assumed size array.  */
+
+static void
+resolve_transfer (gfc_code * code)
+{
+  gfc_typespec *ts;
+  gfc_symbol *sym;
+  gfc_ref *ref;
+  gfc_expr *exp;
+
+  exp = code->expr;
+
+  if (exp->expr_type != EXPR_VARIABLE)
+    return;
+
+  sym = exp->symtree->n.sym;
+  ts = &sym->ts;
+
+  /* Go to actual component transferred.  */
+  for (ref = code->expr->ref; ref; ref = ref->next)
+    if (ref->type == REF_COMPONENT)
+      ts = &ref->u.c.component->ts;
+
+  if (ts->type == BT_DERIVED)
+    {
+      /* Check that transferred derived type doesn't contain POINTER
+	 components.  */
+      if (derived_pointer (ts->derived))
+	{
+	  gfc_error ("Data transfer element at %L cannot have "
+		     "POINTER components", &code->loc);
+	  return;
+	}
+
+      if (ts->derived->component_access == ACCESS_PRIVATE)
+	{
+	  gfc_error ("Data transfer element at %L cannot have "
+		     "PRIVATE components",&code->loc);
+	  return;
+	}
+    }
+
+  if (sym->as != NULL && sym->as->type == AS_ASSUMED_SIZE
+      && exp->ref->type == REF_ARRAY && exp->ref->u.ar.type == AR_FULL)
+    {
+      gfc_error ("Data transfer element at %L cannot be a full reference to "
+		 "an assumed-size array", &code->loc);
+      return;
+    }
+}
+
+
 /*********** Toplevel code resolution subroutines ***********/
 
 /* Given a branch to a label and a namespace, if the branch is conforming.
@@ -3568,7 +3623,6 @@ resolve_code (gfc_code * code, gfc_namespace * ns)
 	case EXEC_EXIT:
 	case EXEC_CONTINUE:
 	case EXEC_DT_END:
-	case EXEC_TRANSFER:
 	case EXEC_ENTRY:
 	  break;
 
@@ -3752,6 +3806,10 @@ resolve_code (gfc_code * code, gfc_namespace * ns)
 	  resolve_branch (code->ext.dt->err, code);
 	  resolve_branch (code->ext.dt->end, code);
 	  resolve_branch (code->ext.dt->eor, code);
+	  break;
+
+	case EXEC_TRANSFER:
+	  resolve_transfer (code);
 	  break;
 
 	case EXEC_FORALL:
@@ -4037,7 +4095,7 @@ resolve_symbol (gfc_symbol * sym)
 static struct
 {
   gfc_data_value *vnode;
-  int left;
+  unsigned int left;
 }
 values;
 
@@ -4047,7 +4105,6 @@ values;
 static try
 next_data_value (void)
 {
-
   while (values.left == 0)
     {
       if (values.vnode->next == NULL)
@@ -4057,7 +4114,6 @@ next_data_value (void)
       values.left = values.vnode->repeat;
     }
 
-  values.left--;
   return SUCCESS;
 }
 
@@ -4086,7 +4142,10 @@ check_data_variable (gfc_data_variable * var, locus * where)
     gfc_internal_error ("check_data_variable(): Bad expression");
 
   if (e->rank == 0)
-    mpz_init_set_ui (size, 1);
+    {
+      mpz_init_set_ui (size, 1);
+      ref = NULL;
+    }
   else
     {
       ref = e->ref;
@@ -4145,19 +4204,54 @@ check_data_variable (gfc_data_variable * var, locus * where)
       if (t == FAILURE)
 	break;
 
+      /* If we have more than one element left in the repeat count,
+	 and we have more than one element left in the target variable,
+	 then create a range assignment.  */
+      /* ??? Only done for full arrays for now, since array sections
+	 seem tricky.  */
+      if (mark == AR_FULL && ref && ref->next == NULL
+	  && values.left > 1 && mpz_cmp_ui (size, 1) > 0)
+	{
+	  mpz_t range;
+
+	  if (mpz_cmp_ui (size, values.left) >= 0)
+	    {
+	      mpz_init_set_ui (range, values.left);
+	      mpz_sub_ui (size, size, values.left);
+	      values.left = 0;
+	    }
+	  else
+	    {
+	      mpz_init_set (range, size);
+	      values.left -= mpz_get_ui (size);
+	      mpz_set_ui (size, 0);
+	    }
+
+	  gfc_assign_data_value_range (var->expr, values.vnode->expr,
+				       offset, range);
+
+	  mpz_add (offset, offset, range);
+	  mpz_clear (range);
+	}
+
       /* Assign initial value to symbol.  */
-      gfc_assign_data_value (var->expr, values.vnode->expr, offset);
+      else
+	{
+	  values.left -= 1;
+	  mpz_sub_ui (size, size, 1);
 
-      if (mark == AR_FULL)
-        mpz_add_ui (offset, offset, 1);
+	  gfc_assign_data_value (var->expr, values.vnode->expr, offset);
 
-      /* Modify the array section indexes and recalculate the offset for
-         next element.  */
-      else if (mark == AR_SECTION)
-        gfc_advance_section (section_index, ar, &offset);
+	  if (mark == AR_FULL)
+	    mpz_add_ui (offset, offset, 1);
 
-      mpz_sub_ui (size, size, 1);
+	  /* Modify the array section indexes and recalculate the offset
+	     for next element.  */
+	  else if (mark == AR_SECTION)
+	    gfc_advance_section (section_index, ar, &offset);
+	}
     }
+
   if (mark == AR_SECTION)
     {
       for (i = 0; i < ar->dimen; i++)
@@ -4253,7 +4347,6 @@ traverse_data_var (gfc_data_variable * var, locus * where)
 static try
 resolve_data_variables (gfc_data_variable * d)
 {
-
   for (; d; d = d->next)
     {
       if (d->list == NULL)
@@ -4287,7 +4380,6 @@ resolve_data_variables (gfc_data_variable * d)
 static void
 resolve_data (gfc_data * d)
 {
-
   if (resolve_data_variables (d->var) == FAILURE)
     return;
 
@@ -4312,7 +4404,6 @@ resolve_data (gfc_data * d)
 int
 gfc_impure_variable (gfc_symbol * sym)
 {
-
   if (sym->attr.use_assoc || sym->attr.in_common)
     return 1;
 
@@ -4606,4 +4697,3 @@ gfc_resolve (gfc_namespace * ns)
 
   gfc_current_ns = old_ns;
 }
-

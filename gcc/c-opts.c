@@ -444,7 +444,10 @@ c_common_handle_option (size_t scode, const char *arg, int value)
 	  warning ("Warnings will not be treated as errors.");
 	}
       else
-	cpp_opts->warnings_are_errors = value;
+	{
+	  cpp_opts->warnings_are_errors = value;
+	  global_dc->warning_as_error_requested = value;
+	}
       /* APPLE LOCAL end QA_DISABLE_WERROR 2002-21-01 --dpatel */
       break;
 
@@ -839,6 +842,10 @@ c_common_handle_option (size_t scode, const char *arg, int value)
 
     case OPT_fweak:
       flag_weak = value;
+      break;
+
+    case OPT_fthreadsafe_statics:
+      flag_threadsafe_statics = value;
       break;
 
     case OPT_fzero_link:

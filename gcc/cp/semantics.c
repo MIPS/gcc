@@ -307,7 +307,7 @@ perform_or_defer_access_check (tree binfo, tree decl)
   if (deferred_access_no_check)
     return;
   
-  my_friendly_assert (TREE_CODE (binfo) == TREE_BINFO, 20030623);
+  gcc_assert (TREE_CODE (binfo) == TREE_BINFO);
 
   ptr = VEC_last (deferred_access, deferred_access_stack);
   
@@ -1249,7 +1249,7 @@ finish_parenthesized_expr (tree expr)
 tree
 finish_non_static_data_member (tree decl, tree object, tree qualifying_scope)
 {
-  my_friendly_assert (TREE_CODE (decl) == FIELD_DECL, 20020909);
+  gcc_assert (TREE_CODE (decl) == FIELD_DECL);
 
   if (!object)
     {
@@ -1384,7 +1384,9 @@ check_accessibility_of_qualified_id (tree decl,
        its bases.  */
     qualifying_type = currently_open_derived_class (scope);
 
-  if (qualifying_type)
+  if (qualifying_type && IS_AGGR_TYPE_CODE (TREE_CODE (qualifying_type)))
+    /* It is possible for qualifying type to be a TEMPLATE_TYPE_PARM
+       or similar in a default argument value.  */
     perform_or_defer_access_check (TYPE_BINFO (qualifying_type), decl);
 }
 
@@ -1495,7 +1497,7 @@ finish_stmt_expr_expr (tree expr, tree stmt_expr)
 		 build_tree_list (NULL_TREE, expr),
 		 type, LOOKUP_NORMAL);
 	      expr = build_cplus_new (type, expr);
-	      my_friendly_assert (TREE_CODE (expr) == TARGET_EXPR, 20030729);
+	      gcc_assert (TREE_CODE (expr) == TARGET_EXPR);
 	    }
 	}
 
@@ -1561,7 +1563,7 @@ finish_stmt_expr (tree stmt_expr, bool has_no_scope)
 	      result_stmt_p = &TREE_OPERAND (t, 0);
 	      break;
 	    default:
-	      abort ();
+	      gcc_unreachable ();
 	    }
 	}
       type = TREE_TYPE (EXPR_STMT_EXPR (result_stmt));
@@ -1580,7 +1582,7 @@ finish_stmt_expr (tree stmt_expr, bool has_no_scope)
 	 the statement expression itself as the target's init
 	 expr. Finally, return the target expression.  */
       tree init, target_expr = EXPR_STMT_EXPR (result_stmt);
-      my_friendly_assert (TREE_CODE (target_expr) == TARGET_EXPR, 20030729);
+      gcc_assert (TREE_CODE (target_expr) == TARGET_EXPR);
 
       /* The initializer will be void if the initialization is done by
 	 AGGR_INIT_EXPR; propagate that out to the statement-expression as
@@ -1599,10 +1601,8 @@ finish_stmt_expr (tree stmt_expr, bool has_no_scope)
 	     returning a value directly, give it the appropriate type.  */
 	  if (VOID_TYPE_P (TREE_TYPE (result)))
 	    TREE_TYPE (result) = type;
-	  else if (same_type_p (TREE_TYPE (result), type))
-	    ;
 	  else
-	    abort ();
+	    gcc_assert (same_type_p (TREE_TYPE (result), type));
 	}
       else if (TREE_CODE (result) == STATEMENT_LIST)
 	/* We need to wrap a STATEMENT_LIST in a BIND_EXPR so it can have a
@@ -1680,8 +1680,7 @@ finish_call_expr (tree fn, tree args, bool disallow_virtual, bool koenig_p)
     return error_mark_node;
 
   /* ARGS should be a list of arguments.  */
-  my_friendly_assert (!args || TREE_CODE (args) == TREE_LIST,
-		      20020712);
+  gcc_assert (!args || TREE_CODE (args) == TREE_LIST);
 
   orig_fn = fn;
   orig_args = args;
@@ -1856,7 +1855,7 @@ finish_pseudo_destructor_expr (tree object, tree scope, tree destructor)
   if (destructor == error_mark_node)
     return error_mark_node;
 
-  my_friendly_assert (TYPE_P (destructor), 20010905);
+  gcc_assert (TYPE_P (destructor));
 
   if (!processing_template_decl)
     {
@@ -1996,7 +1995,7 @@ finish_template_template_parm (tree aggr, tree identifier)
   DECL_ARTIFICIAL (decl) = 1;
   end_template_decl ();
 
-  my_friendly_assert (DECL_TEMPLATE_PARMS (tmpl), 20010110);
+  gcc_assert (DECL_TEMPLATE_PARMS (tmpl));
 
   return finish_template_type_parm (aggr, tmpl);
 }
@@ -2126,7 +2125,7 @@ finish_member_declaration (tree decl)
     return;
 
   /* We should see only one DECL at a time.  */
-  my_friendly_assert (TREE_CHAIN (decl) == NULL_TREE, 0);
+  gcc_assert (TREE_CHAIN (decl) == NULL_TREE);
 
   /* Set up access control for DECL.  */
   TREE_PRIVATE (decl) 
@@ -2800,12 +2799,11 @@ simplify_aggr_init_expr (tree *tp)
   else if (1)
     style = pcc;
 #endif
-  else if (TREE_ADDRESSABLE (type))
-    style = arg;
   else
-    /* We shouldn't build an AGGR_INIT_EXPR if we don't need any special
-       handling.  See build_cplus_new.  */
-    abort ();
+    {
+      gcc_assert (TREE_ADDRESSABLE (type));
+      style = arg;
+    }
 
   if (style == ctor || style == arg)
     {
@@ -2822,11 +2820,9 @@ simplify_aggr_init_expr (tree *tp)
 	{
 	  /* The return type might have different cv-quals from the slot.  */
 	  tree fntype = TREE_TYPE (TREE_TYPE (fn));
-#ifdef ENABLE_CHECKING
-	  if (TREE_CODE (fntype) != FUNCTION_TYPE
-	      && TREE_CODE (fntype) != METHOD_TYPE)
-	    abort ();
-#endif
+	  
+	  gcc_assert (TREE_CODE (fntype) == FUNCTION_TYPE
+		      || TREE_CODE (fntype) == METHOD_TYPE);
 	  addr = convert (build_pointer_type (TREE_TYPE (fntype)), addr);
 	}
 
@@ -2884,7 +2880,7 @@ emit_associated_thunks (tree fn)
 		}
 	    }
 	  else
-	    my_friendly_assert (!DECL_THUNKS (thunk), 20031023);
+	    gcc_assert (!DECL_THUNKS (thunk));
 	}
     }
 }
@@ -2915,7 +2911,12 @@ expand_body (tree fn)
   /* Emit any thunks that should be emitted at the same time as FN.  */
   emit_associated_thunks (fn);
 
-  tree_rest_of_compilation (fn, function_depth > 1);
+  /* This function is only called from cgraph, or recursively from
+     emit_associated_thunks.  In neither case should we be currently
+     generating trees for a function.  */
+  gcc_assert (function_depth == 0);
+
+  tree_rest_of_compilation (fn, 0);
 
   current_function_decl = saved_function;
 

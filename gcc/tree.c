@@ -393,6 +393,13 @@ copy_node_stat (tree node MEM_STAT_DECL)
 	 but the optimizer should catch that.  */
       TYPE_SYMTAB_POINTER (t) = 0;
       TYPE_SYMTAB_ADDRESS (t) = 0;
+      
+      /* Do not copy the values cache.  */
+      if (TYPE_CACHED_VALUES_P(t))
+	{
+	  TYPE_CACHED_VALUES_P (t) = 0;
+	  TYPE_CACHED_VALUES (t) = NULL_TREE;
+	}
     }
 
   return t;
@@ -440,11 +447,62 @@ get_array_base (tree expr)
 /* APPLE LOCAL end AV if-conversion --dpatel  */
 
 
+/* Create an INT_CST node with a LOW value sign extended.  */
+
+tree
+build_int_cst (tree type, HOST_WIDE_INT low)
+{
+  return build_int_cst_wide (type, low, low < 0 ? -1 : 0);
+}
+
+/* Create an INT_CST node with a LOW value zero extended.  */
+
+tree
+build_int_cstu (tree type, unsigned HOST_WIDE_INT low)
+{
+  return build_int_cst_wide (type, low, 0);
+}
+
+/* Create an INT_CST node with a LOW value zero or sign extended depending
+   on the type.  */
+
+tree
+build_int_cst_type (tree type, HOST_WIDE_INT low)
+{
+  unsigned HOST_WIDE_INT val = (unsigned HOST_WIDE_INT) low;
+  unsigned bits;
+  bool signed_p;
+  bool negative;
+  tree ret;
+
+  if (!type)
+    type = integer_type_node;
+
+  bits = TYPE_PRECISION (type);
+  signed_p = !TYPE_UNSIGNED (type);
+  negative = ((val >> (bits - 1)) & 1) != 0;
+
+  if (signed_p && negative)
+    {
+      if (bits < HOST_BITS_PER_WIDE_INT)
+	val = val | ((~(unsigned HOST_WIDE_INT) 0) << bits);
+      ret = build_int_cst_wide (type, val, ~(unsigned HOST_WIDE_INT) 0);
+    }
+  else
+    {
+      if (bits < HOST_BITS_PER_WIDE_INT)
+	val = val & ~((~(unsigned HOST_WIDE_INT) 0) << bits);
+      ret = build_int_cst_wide (type, val, 0);
+    }
+
+  return ret;
+}
+
 /* Create an INT_CST node of TYPE and value HI:LOW.  If TYPE is NULL,
    integer_type_node is used.  */
 
 tree
-build_int_cst (tree type, unsigned HOST_WIDE_INT low, HOST_WIDE_INT hi)
+build_int_cst_wide (tree type, unsigned HOST_WIDE_INT low, HOST_WIDE_INT hi)
 {
   tree t;
   int ix = -1;
@@ -526,6 +584,22 @@ build_int_cst (tree type, unsigned HOST_WIDE_INT low, HOST_WIDE_INT hi)
     TREE_VEC_ELT (TYPE_CACHED_VALUES (type), ix) = t;
 
   return t;
+}
+
+/* Checks that X is integer constant that can be expressed in (unsigned)
+   HOST_WIDE_INT without loss of precision.  */
+
+bool
+cst_and_fits_in_hwi (tree x)
+{
+  if (TREE_CODE (x) != INTEGER_CST)
+    return false;
+
+  if (TYPE_PRECISION (TREE_TYPE (x)) > HOST_BITS_PER_WIDE_INT)
+    return false;
+
+  return (TREE_INT_CST_HIGH (x) == 0
+	  || TREE_INT_CST_HIGH (x) == -1);
 }
 
 /* Return a new VECTOR_CST node whose type is TYPE and whose values
@@ -1362,10 +1436,11 @@ array_type_nelts (tree type)
 	  : fold (build2 (MINUS_EXPR, TREE_TYPE (max), max, min)));
 }
 
-/* Return true if arg is static -- a reference to an object in
-   static storage.  This is not the same as the C meaning of `static'.  */
+/* If arg is static -- a reference to an object in static storage -- then
+   return the object.  This is not the same as the C meaning of `static'.
+   If arg isn't static, return NULL.  */
 
-bool
+tree
 staticp (tree arg)
 {
   switch (TREE_CODE (arg))
@@ -1374,19 +1449,21 @@ staticp (tree arg)
       /* Nested functions aren't static, since taking their address
 	 involves a trampoline.  */
       return ((decl_function_context (arg) == 0 || DECL_NO_STATIC_CHAIN (arg))
-	      && ! DECL_NON_ADDR_CONST_P (arg));
+	      && ! DECL_NON_ADDR_CONST_P (arg)
+	      ? arg : NULL);
 
     case VAR_DECL:
       return ((TREE_STATIC (arg) || DECL_EXTERNAL (arg))
 	      && ! DECL_THREAD_LOCAL (arg)
-	      && ! DECL_NON_ADDR_CONST_P (arg));
+	      && ! DECL_NON_ADDR_CONST_P (arg)
+	      ? arg : NULL);
 
     case CONSTRUCTOR:
-      return TREE_STATIC (arg);
+      return TREE_STATIC (arg) ? arg : NULL;
 
     case LABEL_DECL:
     case STRING_CST:
-      return true;
+      return arg;
 
     case COMPONENT_REF:
       /* If the thing being referenced is not a field, then it is
@@ -1397,20 +1474,15 @@ staticp (tree arg)
       /* If we are referencing a bitfield, we can't evaluate an
 	 ADDR_EXPR at compile time and so it isn't a constant.  */
       if (DECL_BIT_FIELD (TREE_OPERAND (arg, 1)))
-	return false;
+	return NULL;
 
       return staticp (TREE_OPERAND (arg, 0));
 
     case BIT_FIELD_REF:
-      return false;
+      return NULL;
 
-#if 0
-       /* This case is technically correct, but results in setting
-	  TREE_CONSTANT on ADDR_EXPRs that cannot be evaluated at
-	  compile time.  */
     case INDIRECT_REF:
-      return TREE_CONSTANT (TREE_OPERAND (arg, 0));
-#endif
+      return TREE_CONSTANT (TREE_OPERAND (arg, 0)) ? arg : NULL;
 
     case ARRAY_REF:
     case ARRAY_RANGE_REF:
@@ -1425,7 +1497,7 @@ staticp (tree arg)
 	  >= (unsigned int) LAST_AND_UNUSED_TREE_CODE)
 	return lang_hooks.staticp (arg);
       else
-	return false;
+	return NULL;
     }
 }
 
@@ -1488,7 +1560,6 @@ save_expr (tree expr)
      value was computed on both sides of the jump.  So make sure it isn't
      eliminated as dead.  */
   TREE_SIDE_EFFECTS (t) = 1;
-  TREE_READONLY (t) = 1;
   TREE_INVARIANT (t) = 1;
   return t;
 }
@@ -2253,15 +2324,20 @@ do { tree _node = (NODE); \
 	  && TREE_CODE (TREE_TYPE (TREE_OPERAND (node, 0))) == ARRAY_TYPE)
 	{
 	  UPDATE_TITCSE (TREE_OPERAND (node, 1));
-	  UPDATE_TITCSE (array_ref_low_bound (node));
-	  UPDATE_TITCSE (array_ref_element_size (node));
+	  if (TREE_OPERAND (node, 2))
+	    UPDATE_TITCSE (TREE_OPERAND (node, 2));
+	  if (TREE_OPERAND (node, 3))
+	    UPDATE_TITCSE (TREE_OPERAND (node, 3));
 	}
       /* Likewise, just because this is a COMPONENT_REF doesn't mean we have a
 	 FIELD_DECL, apparently.  The G++ front end can put something else
 	 there, at least temporarily.  */
       else if (TREE_CODE (node) == COMPONENT_REF
 	       && TREE_CODE (TREE_OPERAND (node, 1)) == FIELD_DECL)
-	UPDATE_TITCSE (component_ref_field_offset (node));
+	{
+	  if (TREE_OPERAND (node, 2))
+	    UPDATE_TITCSE (TREE_OPERAND (node, 2));
+	}
       else if (TREE_CODE (node) == BIT_FIELD_REF)
 	UPDATE_TITCSE (TREE_OPERAND (node, 2));
     }
@@ -2272,7 +2348,11 @@ do { tree _node = (NODE); \
      address of a volatile variable is not volatile.)  If it's a constant,
      the address is both invariant and constant.  Otherwise it's neither.  */
   if (TREE_CODE (node) == INDIRECT_REF)
-    UPDATE_TITCSE (node);
+    {
+      /* If this is &((T*)0)->field, then this is a form of addition.  */
+      if (TREE_CODE (TREE_OPERAND (node, 0)) != INTEGER_CST)
+	UPDATE_TITCSE (node);
+    }
   else if (DECL_P (node))
     {
       if (staticp (node))
@@ -2758,6 +2838,74 @@ build_decl_attribute_variant (tree ddecl, tree attribute)
   return ddecl;
 }
 
+/* Borrowed from hashtab.c iterative_hash implementation.  */
+#define mix(a,b,c) \
+{ \
+  a -= b; a -= c; a ^= (c>>13); \
+  b -= c; b -= a; b ^= (a<< 8); \
+  c -= a; c -= b; c ^= ((b&0xffffffff)>>13); \
+  a -= b; a -= c; a ^= ((c&0xffffffff)>>12); \
+  b -= c; b -= a; b = (b ^ (a<<16)) & 0xffffffff; \
+  c -= a; c -= b; c = (c ^ (b>> 5)) & 0xffffffff; \
+  a -= b; a -= c; a = (a ^ (c>> 3)) & 0xffffffff; \
+  b -= c; b -= a; b = (b ^ (a<<10)) & 0xffffffff; \
+  c -= a; c -= b; c = (c ^ (b>>15)) & 0xffffffff; \
+}
+
+
+/* Produce good hash value combining VAL and VAL2.  */
+static inline hashval_t
+iterative_hash_hashval_t (hashval_t val, hashval_t val2)
+{
+  /* the golden ratio; an arbitrary value.  */
+  hashval_t a = 0x9e3779b9;
+
+  mix (a, val, val2);
+  return val2;
+}
+
+/* Produce good hash value combining PTR and VAL2.  */
+static inline hashval_t
+iterative_hash_pointer (void *ptr, hashval_t val2)
+{
+  if (sizeof (ptr) == sizeof (hashval_t))
+    return iterative_hash_hashval_t ((size_t) ptr, val2);
+  else
+    {
+      hashval_t a = (hashval_t) (size_t) ptr;
+      /* Avoid warnings about shifting of more than the width of the type on
+         hosts that won't execute this path.  */
+      int zero = 0;
+      hashval_t b = (hashval_t) ((size_t) ptr >> (sizeof (hashval_t) * 8 + zero));
+      mix (a, b, val2);
+      return val2;
+    }
+}
+
+/* Produce good hash value combining VAL and VAL2.  */
+static inline hashval_t
+iterative_hash_host_wide_int (HOST_WIDE_INT val, hashval_t val2)
+{
+  if (sizeof (HOST_WIDE_INT) == sizeof (hashval_t))
+    return iterative_hash_hashval_t (val, val2);
+  else
+    {
+      hashval_t a = (hashval_t) val;
+      /* Avoid warnings about shifting of more than the width of the type on
+         hosts that won't execute this path.  */
+      int zero = 0;
+      hashval_t b = (hashval_t) (val >> (sizeof (hashval_t) * 8 + zero));
+      mix (a, b, val2);
+      if (sizeof (HOST_WIDE_INT) > 2 * sizeof (hashval_t))
+	{
+	  hashval_t a = (hashval_t) (val >> (sizeof (hashval_t) * 16 + zero));
+	  hashval_t b = (hashval_t) (val >> (sizeof (hashval_t) * 24 + zero));
+	  mix (a, b, val2);
+	}
+      return val2;
+    }
+}
+
 /* Return a type like TTYPE except that its TYPE_ATTRIBUTE
    is ATTRIBUTE.
 
@@ -3149,10 +3297,28 @@ build_qualified_type (tree type, int type_quals)
   /* If not, build it.  */
   if (!t)
     {
-      t = build_type_copy (type);
+      t = build_variant_type_copy (type);
       set_type_quals (t, type_quals);
     }
 
+  return t;
+}
+
+/* Create a new distinct copy of TYPE.  The new type is made its own
+   MAIN_VARIANT.  */
+
+tree
+build_distinct_type_copy (tree type)
+{
+  tree t = copy_node (type);
+  
+  TYPE_POINTER_TO (t) = 0;
+  TYPE_REFERENCE_TO (t) = 0;
+
+  /* Make it its own variant.  */
+  TYPE_MAIN_VARIANT (t) = t;
+  TYPE_NEXT_VARIANT (t) = 0;
+  
   return t;
 }
 
@@ -3160,26 +3326,16 @@ build_qualified_type (tree type, int type_quals)
    This is so the caller can modify it.  */
 
 tree
-build_type_copy (tree type)
+build_variant_type_copy (tree type)
 {
   tree t, m = TYPE_MAIN_VARIANT (type);
 
-  t = copy_node (type);
-  if (TYPE_CACHED_VALUES_P(t))
-    {
-      /* Do not copy the values cache.  */
-      if (TREE_CODE (t) == INTEGER_TYPE && TYPE_IS_SIZETYPE (t))
-	abort ();
-      TYPE_CACHED_VALUES_P (t) = 0;
-      TYPE_CACHED_VALUES (t) = NULL_TREE;
-    }
-
-  TYPE_POINTER_TO (t) = 0;
-  TYPE_REFERENCE_TO (t) = 0;
-
-  /* Add this type to the chain of variants of TYPE.  */
+  t = build_distinct_type_copy (type);
+  
+  /* Add the new type to the chain of variants of TYPE.  */
   TYPE_NEXT_VARIANT (t) = TYPE_NEXT_VARIANT (m);
   TYPE_NEXT_VARIANT (m) = t;
+  TYPE_MAIN_VARIANT (t) = m;
 
   return t;
 }
@@ -3892,97 +4048,92 @@ iterative_hash_expr (tree t, hashval_t val)
   char class;
 
   if (t == NULL_TREE)
-    return iterative_hash_object (t, val);
+    return iterative_hash_pointer (t, val);
 
   code = TREE_CODE (t);
-  class = TREE_CODE_CLASS (code);
 
-  if (class == 'd'
-      || TREE_CODE (t) == VALUE_HANDLE)
+  switch (code)
     {
-      /* Decls we can just compare by pointer.  */
-      val = iterative_hash_object (t, val);
-    }
-  else if (class == 'c')
-    {
-      /* Alas, constants aren't shared, so we can't rely on pointer
-	 identity.  */
-      if (code == INTEGER_CST)
-	{
-	  val = iterative_hash_object (TREE_INT_CST_LOW (t), val);
-	  val = iterative_hash_object (TREE_INT_CST_HIGH (t), val);
-	}
-      else if (code == REAL_CST)
-	{
-	  unsigned int val2 = real_hash (TREE_REAL_CST_PTR (t));
+    /* Alas, constants aren't shared, so we can't rely on pointer
+       identity.  */
+    case INTEGER_CST:
+      val = iterative_hash_host_wide_int (TREE_INT_CST_LOW (t), val);
+      return iterative_hash_host_wide_int (TREE_INT_CST_HIGH (t), val);
+    case REAL_CST:
+      {
+	unsigned int val2 = real_hash (TREE_REAL_CST_PTR (t));
 
-	  val = iterative_hash (&val2, sizeof (unsigned int), val);
-	}
-      else if (code == STRING_CST)
-	val = iterative_hash (TREE_STRING_POINTER (t),
-			      TREE_STRING_LENGTH (t), val);
-      else if (code == COMPLEX_CST)
-	{
-	  val = iterative_hash_expr (TREE_REALPART (t), val);
-	  val = iterative_hash_expr (TREE_IMAGPART (t), val);
-	}
-      else if (code == VECTOR_CST)
-	val = iterative_hash_expr (TREE_VECTOR_CST_ELTS (t), val);
-      else
-	abort ();
-    }
-  else if (IS_EXPR_CODE_CLASS (class))
-    {
-      val = iterative_hash_object (code, val);
+	return iterative_hash_hashval_t (val2, val);
+      }
+    case STRING_CST:
+      return iterative_hash (TREE_STRING_POINTER (t),
+			     TREE_STRING_LENGTH (t), val);
+    case COMPLEX_CST:
+      val = iterative_hash_expr (TREE_REALPART (t), val);
+      return iterative_hash_expr (TREE_IMAGPART (t), val);
+    case VECTOR_CST:
+      return iterative_hash_expr (TREE_VECTOR_CST_ELTS (t), val);
 
-      /* Don't hash the type, that can lead to having nodes which
-	 compare equal according to operand_equal_p, but which
-	 have different hash codes.  */
-      if (code == NOP_EXPR
-	  || code == CONVERT_EXPR
-	  || code == NON_LVALUE_EXPR)
-	{
-	  /* Make sure to include signness in the hash computation.  */
-	  val += TYPE_UNSIGNED (TREE_TYPE (t));
-	  val = iterative_hash_expr (TREE_OPERAND (t, 0), val);
-	}
+    case SSA_NAME:
+    case VALUE_HANDLE:
+      /* we can just compare by pointer.  */
+      return iterative_hash_pointer (t, val);
 
-      if (commutative_tree_code (code))
-	{
-	  /* It's a commutative expression.  We want to hash it the same
-	     however it appears.  We do this by first hashing both operands
-	     and then rehashing based on the order of their independent
-	     hashes.  */
-	  hashval_t one = iterative_hash_expr (TREE_OPERAND (t, 0), 0);
-	  hashval_t two = iterative_hash_expr (TREE_OPERAND (t, 1), 0);
-	  hashval_t t;
-
-	  if (one > two)
-	    t = one, one = two, two = t;
-
-	  val = iterative_hash_object (one, val);
-	  val = iterative_hash_object (two, val);
-	}
-      else
-	for (i = first_rtl_op (code) - 1; i >= 0; --i)
-	  val = iterative_hash_expr (TREE_OPERAND (t, i), val);
-    }
-  else if (code == TREE_LIST)
-    {
+    case TREE_LIST:
       /* A list of expressions, for a CALL_EXPR or as the elements of a
 	 VECTOR_CST.  */
       for (; t; t = TREE_CHAIN (t))
 	val = iterative_hash_expr (TREE_VALUE (t), val);
-    }
-  else if (code == SSA_NAME)
-    {
-      val = iterative_hash_object (SSA_NAME_VERSION (t), val);
-      val = iterative_hash_expr (SSA_NAME_VAR (t), val);
-    }
-  else
-    abort ();
+      return val;
+    default:
+      class = TREE_CODE_CLASS (code);
 
-  return val;
+      if (class == 'd')
+	{
+	  /* Decls we can just compare by pointer.  */
+	  val = iterative_hash_pointer (t, val);
+	}
+      else if (IS_EXPR_CODE_CLASS (class))
+	{
+	  val = iterative_hash_object (code, val);
+
+	  /* Don't hash the type, that can lead to having nodes which
+	     compare equal according to operand_equal_p, but which
+	     have different hash codes.  */
+	  if (code == NOP_EXPR
+	      || code == CONVERT_EXPR
+	      || code == NON_LVALUE_EXPR)
+	    {
+	      /* Make sure to include signness in the hash computation.  */
+	      val += TYPE_UNSIGNED (TREE_TYPE (t));
+	      val = iterative_hash_expr (TREE_OPERAND (t, 0), val);
+	    }
+
+	  else if (commutative_tree_code (code))
+	    {
+	      /* It's a commutative expression.  We want to hash it the same
+		 however it appears.  We do this by first hashing both operands
+		 and then rehashing based on the order of their independent
+		 hashes.  */
+	      hashval_t one = iterative_hash_expr (TREE_OPERAND (t, 0), 0);
+	      hashval_t two = iterative_hash_expr (TREE_OPERAND (t, 1), 0);
+	      hashval_t t;
+
+	      if (one > two)
+		t = one, one = two, two = t;
+
+	      val = iterative_hash_hashval_t (one, val);
+	      val = iterative_hash_hashval_t (two, val);
+	    }
+	  else
+	    for (i = first_rtl_op (code) - 1; i >= 0; --i)
+	      val = iterative_hash_expr (TREE_OPERAND (t, i), val);
+	}
+      else
+	abort ();
+      return val;
+      break;
+    }
 }
 
 /* Constructors for pointer, array and function types.
@@ -5336,7 +5487,7 @@ make_vector_type (tree innertype, int nunits, enum machine_mode mode)
   layout_type (t);
 
   {
-    tree index = build_int_cst (NULL_TREE, nunits - 1, 0);
+    tree index = build_int_cst (NULL_TREE, nunits - 1);
     tree array = build_array_type (innertype, build_index_type (index));
     tree rt = make_node (RECORD_TYPE);
 
@@ -5380,12 +5531,12 @@ make_or_reuse_type (unsigned size, int unsignedp)
    this function to select one of the types as sizetype.  */
 
 void
-build_common_tree_nodes (int signed_char)
+build_common_tree_nodes (bool signed_char, bool signed_sizetype)
 {
   error_mark_node = make_node (ERROR_MARK);
   TREE_TYPE (error_mark_node) = error_mark_node;
 
-  initialize_sizetypes ();
+  initialize_sizetypes (signed_sizetype);
 
   /* Define both `signed char' and `unsigned char'.  */
   signed_char_type_node = make_signed_type (CHAR_TYPE_SIZE);
@@ -5413,7 +5564,7 @@ build_common_tree_nodes (int signed_char)
      boolean_type_node before calling build_common_tree_nodes_2.  */
   boolean_type_node = make_unsigned_type (BOOL_TYPE_SIZE);
   TREE_SET_CODE (boolean_type_node, BOOLEAN_TYPE);
-  TYPE_MAX_VALUE (boolean_type_node) = build_int_cst (boolean_type_node, 1, 0);
+  TYPE_MAX_VALUE (boolean_type_node) = build_int_cst (boolean_type_node, 1);
   TYPE_PRECISION (boolean_type_node) = 1;
 
   /* Fill in the rest of the sized types.  Reuse existing type nodes
@@ -5442,9 +5593,9 @@ void
 build_common_tree_nodes_2 (int short_double)
 {
   /* Define these next since types below may used them.  */
-  integer_zero_node = build_int_cst (NULL_TREE, 0, 0);
-  integer_one_node = build_int_cst (NULL_TREE, 1, 0);
-  integer_minus_one_node = build_int_cst (NULL_TREE, -1, -1);
+  integer_zero_node = build_int_cst (NULL_TREE, 0);
+  integer_one_node = build_int_cst (NULL_TREE, 1);
+  integer_minus_one_node = build_int_cst (NULL_TREE, -1);
 
   size_zero_node = size_int (0);
   size_one_node = size_int (1);
@@ -5463,8 +5614,7 @@ build_common_tree_nodes_2 (int short_double)
   TYPE_ALIGN (void_type_node) = BITS_PER_UNIT;
   TYPE_USER_ALIGN (void_type_node) = 0;
 
-  null_pointer_node = build_int_cst (build_pointer_type (void_type_node),
-				     0, 0);
+  null_pointer_node = build_int_cst (build_pointer_type (void_type_node), 0);
   layout_type (TREE_TYPE (null_pointer_node));
 
   ptr_type_node = build_pointer_type (void_type_node);
@@ -5517,7 +5667,7 @@ build_common_tree_nodes_2 (int short_double)
        don't copy record types and let c_common_nodes_and_builtins()
        declare the type to be __builtin_va_list.  */
     if (TREE_CODE (t) != RECORD_TYPE)
-      t = build_type_copy (t);
+      t = build_variant_type_copy (t);
 
     va_list_type_node = t;
   }
@@ -5722,24 +5872,6 @@ needs_to_live_in_memory (tree t)
 	  || (TREE_CODE (t) == RESULT_DECL
 	      && aggregate_value_p (t, current_function_decl)));
 }
-
-/* APPLE LOCAL begin lno */
-/* Checks that X is integer constant that can be expressed in (unsigned)
-   HOST_WIDE_INT without loss of precision.  */
-
-bool
-cst_and_fits_in_hwi (tree x)
-{
-  if (TREE_CODE (x) != INTEGER_CST)
-    return false;
-
-  if (TYPE_PRECISION (TREE_TYPE (x)) > HOST_BITS_PER_WIDE_INT)
-    return false;
-
-  return (TREE_INT_CST_HIGH (x) == 0
-	  || TREE_INT_CST_HIGH (x) == -1);
-}
-/* APPLE LOCAL end lno */
 
 /* There are situations in which a language considers record types
    compatible which have different field lists.  Decide if two fields

@@ -193,7 +193,7 @@ maybe_thunk_body (tree fn)
 	  if (parmno == vtt_parmno && ! DECL_HAS_VTT_PARM_P (clone))
 	    {
 	      tree typed_null_pointer_node = copy_node (null_pointer_node);
-	      my_friendly_assert (fn_parm_typelist, 0);
+	      gcc_assert (fn_parm_typelist);
 	      /* Clobber actual parameter with formal parameter type.  */
 	      TREE_TYPE (typed_null_pointer_node) = TREE_VALUE (fn_parm_typelist);
 	      parmlist = tree_cons (NULL, typed_null_pointer_node, parmlist);
@@ -207,7 +207,7 @@ maybe_thunk_body (tree fn)
 	     function.  */
 	  else
 	    {
-	      my_friendly_assert (clone_parm, 0);
+	      gcc_assert (clone_parm);
 	      DECL_ABSTRACT_ORIGIN (clone_parm) = NULL;
 	      parmlist = tree_cons (NULL, clone_parm, parmlist);
 	      clone_parm = TREE_CHAIN (clone_parm);

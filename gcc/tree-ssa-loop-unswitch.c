@@ -204,7 +204,7 @@ tree_unswitch_single_loop (struct loops *loops, struct loop *loop, int num)
     }
 
   /* The loop should not be too large, to limit code growth.  */
-  if (estimate_loop_size (loop)
+  if (tree_num_loop_insns (loop)
       > (unsigned) PARAM_VALUE (PARAM_MAX_UNSWITCH_INSNS))
     {
       if (dump_file && (dump_flags & TDF_DETAILS))

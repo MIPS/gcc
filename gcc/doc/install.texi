@@ -294,7 +294,7 @@ the @option{--with-gmp} or @option{--with-gmp-dir} configure option.
 @item MPFR Library
 
 Necessary to build the Fortran frontend.  It can be downloaded from
-@uref{http://http://www.mpfr.org/}.  It is also included in the current GMP
+@uref{http://www.mpfr.org/}.  It is also included in the current GMP
 release (4.1.3) when configured with @option{--enable-mpfr}.
 
 The @option{--with-mpfr} or @option{--with-mpfr-dir} configure option should
@@ -320,12 +320,13 @@ associated @file{Makefile.in}.
 
 Much of GCC does not use automake, so directly edit the @file{Makefile.in}
 file.  Specifically this applies to the @file{gcc}, @file{intl},
-@file{libiberty}, @file{libobjc} directories as well as any
-of their subdirectories.
+@file{libcpp}, @file{libiberty}, @file{libobjc} directories as well
+as any of their subdirectories.
 
-The Java directory @file{libjava} requires a automake 1.9.1.
-
-Every other directory requires automake 1.8.5.
+The Java directory @file{libjava} and the @file{libstdc++-v3} directory
+require automake 1.9.1.  Every other directory should work with either
+automake 1.8.5 and automake 1.9.1, but most of them have been tested only
+with automake 1.8.5 so far.
 
 @item gettext version 0.12 (or later)
 
@@ -936,6 +937,8 @@ Sun Solaris 2 thread support.
 VxWorks thread support.
 @item win32
 Microsoft Win32 API thread support.
+@item nks
+Novell Kernel Services thread support.
 @end table
 
 @item --with-cpu=@var{cpu}
@@ -955,6 +958,18 @@ These configure options provide default values for the @option{-mschedule=},
 options and for @option{-mhard-float} or @option{-msoft-float}.  As with
 @option{--with-cpu}, which switches will be accepted and acceptable values
 of the arguments depend on the target.
+
+@item --with-divide=@var{type}
+Specify how the compiler should generate code for checking for
+division by zero.  This option is only supported on the MIPS target.
+The possibilities for @var{type} are:
+@table @code
+@item traps
+Division by zero checks use conditional traps (this is the default on
+systems that support conditional traps).
+@item breaks
+Division by zero checks use the break instruction.
+@end table
 
 @item --enable-altivec
 Specify that the target supports AltiVec vector enhancements.  This
@@ -1096,12 +1111,21 @@ compiler and may only work properly if you are building the compiler
 with GCC@.  This is on by default when building from CVS or snapshots,
 but off for releases.  More control over the checks may be had by
 specifying @var{list}; the categories of checks available are
-@samp{misc}, @samp{tree}, @samp{gc}, @samp{rtl}, @samp{rtlflag},
-@samp{fold}, @samp{gcac} and @samp{valgrind}.  The check @samp{valgrind}
-requires the external @command{valgrind} simulator, available from
-@uref{http://valgrind.kde.org/}.  The default when @var{list} is
-not specified is @samp{misc,tree,gc,rtlflag}; the checks @samp{rtl},
-@samp{gcac} and @samp{valgrind} are very expensive.
+@samp{release}, @samp{assert}, @samp{misc}, @samp{tree}, @samp{gc},
+@samp{rtl}, @samp{rtlflag}, @samp{fold}, @samp{gcac} and
+@samp{valgrind}.  The @samp{release} category enables only those checks
+suitable for release builds, currently this is just @samp{assert}.  The
+check @samp{valgrind} requires the external @command{valgrind}
+simulator, available from @uref{http://valgrind.kde.org/}.  The checks
+@samp{rtl}, @samp{gcac} and @samp{valgrind} are very expensive.  The
+default when @var{list} is not specified is
+@samp{assert,misc,tree,gc,rtlflag}.  That is also the default for
+development builds, when @samp{--enable-checking} is not specified.  For
+release builds the default, when @samp{--enable-checking} is not given,
+is @samp{release}.  To disable all checking, @samp{--disable-checking}
+must be explicitly requested.  Disabling assertions will make the
+compiler slightly faster but increase the risk of undetected internal
+errors causing wrong code to be generated.
 
 @item --enable-coverage
 @itemx --enable-coverage=@var{level}
@@ -2608,10 +2632,10 @@ We @emph{highly} recommend using gas/binutils on all hppa platforms;
 you may encounter a variety of problems when using the HP assembler.
 
 Specifically, @option{-g} does not work on HP-UX (since that system
-uses a peculiar debugging format which GCC does not know about), unless you
-use GAS and GDB and configure GCC with the
+uses a peculiar debugging format which GCC does not know about), unless
+you use GAS and GDB.  It may be helpful to configure GCC with the
 @uref{./configure.html#with-gnu-as,,@option{--with-gnu-as}} and
-@option{--with-as=@dots{}} options.
+@option{--with-as=@dots{}} options to ensure that GCC can find GAS.
 
 If you wish to use the pa-risc 2.0 architecture support with a 32-bit
 runtime, you must use either the HP assembler, or gas/binutils 2.11
@@ -2628,6 +2652,16 @@ it is important to completely specify the machine architecture when
 configuring if you want a model other than PROCESSOR_8000.  The macro
 TARGET_SCHED_DEFAULT can be defined in BOOT_CFLAGS if a different
 default scheduling model is desired.
+
+As of GCC 3.5, GCC uses the UNIX 95 namespace for HP-UX 10.10
+through 11.00, and the UNIX 98 namespace for HP-UX 11.11 and later.
+This namespace change might cause problems when bootstrapping with
+an earlier version of GCC or the HP compiler as essentially the same
+namespace is required for an entire build.  This problem can be avoided
+in a number of ways.  With HP cc, @env{UNIX_STD} can be set to @samp{95}
+or @samp{98}.  Another way is to add an appropriate set of predefines
+to @env{CC}.  The description for the @option{munix=} option contains
+a list of the predefines used with each standard.
 
 More specific information to @samp{hppa*-hp-hpux*} targets follows.
 
@@ -2915,8 +2949,9 @@ have installed.
 IA-64 processor (also known as IPF, or Itanium Processor Family)
 running GNU/Linux.
 
-If you are using the optional libunwind library, then you must use
-libunwind 0.96 or later.
+If you are using the installed system libunwind library with
+@option{--with-system-libunwind}, then you must use libunwind 0.98 or
+later.
 
 None of the following versions of GCC has an ABI that is compatible
 with any of the other versions in this list, with the exception that
@@ -2938,6 +2973,8 @@ the option @option{--with-gnu-as} may be necessary.
 The GCC libunwind library has not been ported to HPUX. This means that for
 GCC versions 3.2.3 and earlier, @option{--enable-libunwind-exceptions}
 is required to build GCC. For GCC 3.3 and later, this is the default.
+For gcc 3.4.3 and later, @option{--enable-libunwind-exceptions} is
+removed and the system libunwind library will always be used.
 
 @html
 <hr />
@@ -3175,6 +3212,16 @@ make @samp{mips*-*-*} use the generic implementation instead.  You can also
 configure for @samp{mipsel-elf} as a workaround.  The
 @samp{mips*-*-linux*} target continues to use the MIPS II routines.  More
 work on this is expected in future releases.
+
+MIPS systems check for division by zero (unless
+@option{-mno-check-zero-division} is passed to the compiler) by
+generating either a conditional trap or a break instruction.  Using
+trap results in smaller code, but is only supported on MIPS II and
+later.  Also, some versions of the Linux kernel have a bug that
+prevents trap from generating the proper signal (SIGFPE).  To enable
+the use of break, use the @option{--with-divide=breaks}
+@command{configure} option when configuring GCC.  The default is to
+use traps on systems that support them.
 
 Cross-compilers for the Mips as target using the Mips assembler
 currently do not work, because the auxiliary programs

@@ -211,7 +211,7 @@ cp_gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p)
 
     case EMPTY_CLASS_EXPR:
       /* We create an INTEGER_CST with RECORD_TYPE and value zero.  */
-      *expr_p = build_int_cst (TREE_TYPE (*expr_p), 0, 0);
+      *expr_p = build_int_cst (TREE_TYPE (*expr_p), 0);
       ret = GS_OK;
       break;
 
@@ -329,12 +329,10 @@ cp_genericize (tree fndecl)
   /* Fix up the types of parms passed by invisible reference.  */
   for (t = DECL_ARGUMENTS (fndecl); t; t = TREE_CHAIN (t))
     {
-      if (DECL_BY_REFERENCE (t))
-	abort ();
+      gcc_assert (!DECL_BY_REFERENCE (t));
       if (TREE_ADDRESSABLE (TREE_TYPE (t)))
 	{
-	  if (DECL_ARG_TYPE (t) == TREE_TYPE (t))
-	    abort ();
+	  gcc_assert (DECL_ARG_TYPE (t) != TREE_TYPE (t));
 	  TREE_TYPE (t) = DECL_ARG_TYPE (t);
 	  DECL_BY_REFERENCE (t) = 1;
 	  TREE_ADDRESSABLE (t) = 0;

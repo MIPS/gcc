@@ -1029,10 +1029,20 @@ create_alias_vars (void)
   pta_global_var = NULL_TREE;
 }
 
+static bool
+gate_pta (void)
+{
+#ifdef HAVE_BANSHEE
+  return flag_tree_points_to != PTA_NONE;
+#else
+  return false;
+#endif
+}
+
 struct tree_opt_pass pass_build_pta = 
 {
   "pta",				/* name */
-  NULL,					/* gate */
+  gate_pta,				/* gate */
   create_alias_vars,			/* execute */
   NULL,					/* sub */
   NULL,					/* next */
@@ -1042,7 +1052,8 @@ struct tree_opt_pass pass_build_pta =
   PROP_pta,				/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  0					/* todo_flags_finish */
+  0,                                    /* todo_flags_finish */
+  0					/* letter */
 };
  
 
@@ -1052,9 +1063,6 @@ static void
 delete_alias_vars (void)
 {
   size_t i;
-
-  if (flag_tree_points_to != PTA_ANDERSEN)
-    return;
 
   for (i = 0; i < VARRAY_ACTIVE_SIZE (local_alias_vars); i++)
     {
@@ -1080,7 +1088,7 @@ delete_alias_vars (void)
 struct tree_opt_pass pass_del_pta = 
 {
   "pta",				/* name */
-  NULL,					/* gate */
+  gate_pta,				/* gate */
   delete_alias_vars,			/* execute */
   NULL,					/* sub */
   NULL,					/* next */
@@ -1090,7 +1098,8 @@ struct tree_opt_pass pass_del_pta =
   0,					/* properties_provided */
   PROP_pta,				/* properties_destroyed */
   0,					/* todo_flags_start */
-  0					/* todo_flags_finish */
+  0,                                    /* todo_flags_finish */
+  0					/* letter */
 };
  
 

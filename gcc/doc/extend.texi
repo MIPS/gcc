@@ -1502,7 +1502,7 @@ attributes when making a declaration.  This keyword is followed by an
 attribute specification inside double parentheses.  The following
 attributes are currently defined for functions on all targets:
 @code{noreturn}, @code{noinline}, @code{always_inline},
-@code{pure}, @code{const}, @code{nothrow},
+@code{pure}, @code{const}, @code{nothrow}, @code{sentinel},
 @code{format}, @code{format_arg}, @code{no_instrument_function},
 @code{section}, @code{constructor}, @code{destructor}, @code{used},
 @code{unused}, @code{deprecated}, @code{weak}, @code{malloc},
@@ -2120,6 +2120,33 @@ Some file formats do not support arbitrary sections so the @code{section}
 attribute is not available on all platforms.
 If you need to map the entire contents of a module to a particular
 section, consider using the facilities of the linker instead.
+
+@item sentinel
+@cindex @code{sentinel} function attribute
+This function attribute ensures that a parameter in a function call is
+an explicit @code{NULL}.  The attribute is only valid on variadic
+functions.  By default, the sentinel is located at position zero, the
+last parameter of the function call.  If an optional integer position
+argument P is supplied to the attribute, the sentinel must be located at
+position P counting backwards from the end of the argument list.
+
+@smallexample
+__attribute__ ((sentinel))
+is equivalent to
+__attribute__ ((sentinel(0)))
+@end smallexample
+
+The attribute is automatically set with a position of 0 for the built-in
+functions @code{execl} and @code{execlp}.  The built-in function
+@code{execle} has the attribute set set with a position of 1.
+
+A valid @code{NULL} in this context is defined as zero with any pointer
+type.  If your system defines the @code{NULL} macro with an integer type
+then you need to add an explicit cast.  GCC replaces @code{stddef.h}
+with a copy that redefines NULL appropriately.
+
+The warnings for missing or incorrect sentinels are enabled with
+@option{-Wformat}.
 
 @item short_call
 See long_call/short_call.
@@ -7800,6 +7827,7 @@ for further explanation.
 * Darwin Pragmas::
 * Solaris Pragmas::
 * Symbol-Renaming Pragmas::
+* Structure-Packing Pragmas::
 @end menu
 
 @node ARM Pragmas
@@ -7974,6 +8002,30 @@ warning issues if they contradict each other.  (We would like to have
 @code{#pragma redefine_extname} always win, for consistency with asm
 labels, but if @code{#pragma extern_prefix} triggers first we have no
 way of knowing that that happened.)
+@end enumerate
+
+@node Structure-Packing Pragmas
+@subsection Structure-Packing Pragmas
+
+For compatibility with Win32, GCC supports as set of @code{#pragma}
+directives which change the maximum alignment of members of structures,
+unions, and classes subsequently defined.  The @var{n} value below always
+is required to be a small power of two and specifies the new alignment
+in bytes.
+
+@enumerate
+@item @code{#pragma pack(@var{n})} simply sets the new alignment.
+@item @code{#pragma pack()} sets the alignment to the one that was in
+effect when compilation started (see also command line option
+@option{-fpack-struct[=<n>]} @pxref{Code Gen Options}).
+@item @code{#pragma pack(push[,@var{n}])} pushes the current alignment
+setting on an internal stack and then optionally sets the new alignment.
+@item @code{#pragma pack(pop)} restores the alignment setting to the one
+saved at the top of the internal stack (and removes that stack entry).
+Note that @code{#pragma pack([@var{n}])} does not influence this internal
+stack; thus it is possible to have @code{#pragma pack(push)} followed by
+multiple @code{#pragma pack(@var{n})} instances and finalized by a single
+@code{#pragma pack(pop)}.
 @end enumerate
 
 @node Unnamed Fields

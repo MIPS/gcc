@@ -247,11 +247,6 @@ struct stmt_ann_d GTY(())
      need to be scanned again).  */
   unsigned modified : 1;
 
-  /* Nonzero if the statement is in the CCP worklist and has not been
-     "cancelled".  If we ever need to use this bit outside CCP, then
-     it should be renamed.  */
-  unsigned in_ccp_worklist: 1;
-
   /* Nonzero if the statement makes aliased loads.  */
   unsigned makes_aliased_loads : 1;
 
@@ -418,6 +413,7 @@ typedef struct {
 static inline block_stmt_iterator bsi_start (basic_block);
 static inline block_stmt_iterator bsi_last (basic_block);
 static inline block_stmt_iterator bsi_after_labels (basic_block);
+block_stmt_iterator stmt_for_bsi (tree);
 static inline bool bsi_end_p (block_stmt_iterator);
 static inline void bsi_next (block_stmt_iterator *);
 static inline void bsi_prev (block_stmt_iterator *);
@@ -490,6 +486,7 @@ extern basic_block label_to_block (tree);
 extern void tree_optimize_tail_calls (bool, enum tree_dump_index);
 extern edge tree_block_forwards_to (basic_block bb);
 extern void bsi_insert_on_edge (edge, tree);
+extern basic_block bsi_insert_on_edge_immediate (edge, tree);
 extern void bsi_commit_edge_inserts (int *);
 /* APPLE LOCAL lno */
 extern basic_block bsi_insert_on_edge_immediate (edge, tree);
@@ -501,6 +498,11 @@ extern void extract_true_false_edges_from_block (basic_block, edge *, edge *);
 /* APPLE LOCAL begin lno */
 extern bool tree_duplicate_sese_region (edge, edge, basic_block *, unsigned,
 					basic_block *);
+extern void add_phi_args_after_copy_bb (basic_block);
+extern void add_phi_args_after_copy (basic_block *, unsigned);
+extern void rewrite_to_new_ssa_names_bb (basic_block, struct htab *);
+extern void rewrite_to_new_ssa_names (basic_block *, unsigned, htab_t);
+extern void allocate_ssa_names (bitmap, struct htab **);
 /* APPLE LOCAL end lno */
 extern bool tree_purge_dead_eh_edges (basic_block);
 extern bool tree_purge_all_dead_eh_edges (bitmap);
@@ -618,7 +620,7 @@ struct tree_niter_desc
 			   to false, then the other fields in this structure
 			   should not be used; there is no guarantee that they
 			   will be correct.  */
-  tree may_be_zero;	/* The booleand expression.  If it evaluates to true,
+  tree may_be_zero;	/* The boolean expression.  If it evaluates to true,
 			   the loop will exit in the first iteration (i.e.
 			   its latch will not be executed), even if the niter
 			   field says otherwise.  */
@@ -649,6 +651,9 @@ bool empty_block_p (basic_block);
 /* In tree-ssa-loop*.c  */
 
 void tree_ssa_lim (struct loops *);
+void canonicalize_induction_variables (struct loops *);
+void tree_unroll_loops_completely (struct loops *);
+void tree_ssa_iv_optimize (struct loops *);
 
 void number_of_iterations_cond (tree, tree, tree, enum tree_code, tree, tree,
 				struct tree_niter_desc *);
@@ -663,6 +668,30 @@ void rewrite_into_loop_closed_ssa (void);
 void verify_loop_closed_ssa (void);
 void loop_commit_inserts (void);
 bool for_each_index (tree *, bool (*) (tree, tree *, void *), void *);
+void create_iv (tree, tree, tree, struct loop *, block_stmt_iterator *, bool,
+		tree *, tree *);
+void split_loop_exit_edge (edge);
+basic_block bsi_insert_on_edge_immediate_loop (edge, tree);
+void standard_iv_increment_position (struct loop *, block_stmt_iterator *,
+				     bool *);
+basic_block ip_end_pos (struct loop *);
+basic_block ip_normal_pos (struct loop *);
+
+/* In tree-ssa-loop-im.c  */
+/* The possibilities of statement movement.  */
+
+enum move_pos
+  {
+    MOVE_IMPOSSIBLE,		/* No movement -- side effect expression.  */
+    MOVE_PRESERVE_EXECUTION,	/* Must not cause the non-executed statement
+				   become executed -- memory accesses, ... */
+    MOVE_POSSIBLE		/* Unlimited movement.  */
+  };
+extern enum move_pos movement_possibility (tree);
+
+/* In tree-if-conv.c  */
+bool tree_if_conversion (struct loop *, bool);
+
 
 /* In tree-ssa-dce.c.  */
 void tree_ssa_dce_no_cfg_changes (void);
@@ -694,27 +723,7 @@ void tree_ssa_unswitch_loops (struct loops *loops);
 unsigned estimate_loop_size (struct loop *loop);
 void rewrite_into_loop_closed_ssa (void);
 void verify_loop_closed_ssa (void);
-void compute_phi_arg_on_exit (edge, tree, tree);
 tree force_gimple_operand (tree, tree *, bool, tree);
-void rewrite_address_base (block_stmt_iterator *, tree *, tree);
-
-/* APPLE LOCAL begin AV if-conversion --dpatel */
-/* In tree-ssa-loop-im.c  */
-/* The possibilities of statement movement.  */
-
-enum move_pos
-  {
-    MOVE_IMPOSSIBLE,		/* No movement -- side effect expression.  */
-    MOVE_PRESERVE_EXECUTION,	/* Must not cause the non-executed statement
- 				   become executed -- memory accesses, ... */
-    MOVE_POSSIBLE			/* Unlimited movement.  */
-  };
-extern enum move_pos movement_possibility (tree);
-
-/* In tree-if-conv.c  */
-void test_if_conversion (void);
-bool tree_if_conversion (struct loop *, bool);
-/* APPLE LOCAL end AV if-conversion  --dpatel */ 
 
 /* In tree-flow-inline.h  */
 static inline int phi_arg_from_edge (tree, edge);
@@ -756,6 +765,10 @@ void insert_edge_copies (tree stmt, basic_block bb);
 /* In tree-ssa-operands.c  */
 extern void build_ssa_operands (tree, stmt_ann_t, stmt_operands_p, 
 				stmt_operands_p);
+
+/* In gimplify.c  */
+
+tree force_gimple_operand (tree, tree *, bool, tree);
 
 #include "tree-flow-inline.h"
 

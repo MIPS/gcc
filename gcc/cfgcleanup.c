@@ -151,10 +151,16 @@ try_simplify_condjump (basic_block cbranch_block)
 
   /* If we are partitioning hot/cold basic blocks, we don't want to
      mess up unconditional or indirect jumps that cross between hot
-     and cold sections.  */
+     and cold sections. 
+
+     Basic block partitioning may result in some jumps that appear to
+     be optimizable (or blocks that appear to be mergeable), but which really 
+     must be left untouched (they are required to make it safely across 
+     partition boundaries).  See the comments at the top of 
+     bb-reorder.c:partition_hot_cold_basic_blocks for complete details.  */
 
   if (flag_reorder_blocks_and_partition
-      && (jump_block->partition != jump_dest_block->partition
+      && (BB_PARTITION (jump_block) != BB_PARTITION (jump_dest_block)
 	  || (cbranch_jump_edge->flags & EDGE_CROSSING)))
     return false;
 
@@ -420,8 +426,14 @@ try_forward_edges (int mode, basic_block b)
 
   /* If we are partitioning hot/cold basic blocks, we don't want to
      mess up unconditional or indirect jumps that cross between hot
-     and cold sections.  */
+     and cold sections. 
   
+     Basic block partitioning may result in some jumps that appear to
+     be optimizable (or blocks that appear to be mergeable), but which really m
+     ust be left untouched (they are required to make it safely across 
+     partition boundaries).  See the comments at the top of 
+     bb-reorder.c:partition_hot_cold_basic_blocks for complete details.  */
+
   if (flag_reorder_blocks_and_partition
       && find_reg_note (BB_END (b), REG_CROSSING_JUMP, NULL_RTX))
     return false;
@@ -448,7 +460,14 @@ try_forward_edges (int mode, basic_block b)
       counter = 0;
 
       /* If we are partitioning hot/cold basic_blocks, we don't want to mess
-	 up jumps that cross between hot/cold sections.  */
+	 up jumps that cross between hot/cold sections.
+
+	 Basic block partitioning may result in some jumps that appear
+	 to be optimizable (or blocks that appear to be mergeable), but which 
+	 really must be left untouched (they are required to make it safely 
+	 across partition boundaries).  See the comments at the top of
+	 bb-reorder.c:partition_hot_cold_basic_blocks for complete
+	 details.  */
 
       if (flag_reorder_blocks_and_partition
 	  && first != EXIT_BLOCK_PTR
@@ -501,8 +520,7 @@ try_forward_edges (int mode, basic_block b)
 		  if (t->dest == b)
 		    break;
 
-		  if (nthreaded_edges >= n_basic_blocks)
-		    abort ();
+		  gcc_assert (nthreaded_edges < n_basic_blocks);
 		  threaded_edges[nthreaded_edges++] = t;
 
 		  new_target = t->dest;
@@ -607,11 +625,10 @@ try_forward_edges (int mode, basic_block b)
 		{
 		  edge e;
 		  int prob;
-		  if (n >= nthreaded_edges)
-		    abort ();
+		  
+		  gcc_assert (n < nthreaded_edges);
 		  t = threaded_edges [n++];
-		  if (t->src != first)
-		    abort ();
+		  gcc_assert (t->src == first);
 		  if (first->frequency)
 		    prob = edge_frequency * REG_BR_PROB_BASE / first->frequency;
 		  else
@@ -668,19 +685,25 @@ static void
 merge_blocks_move_predecessor_nojumps (basic_block a, basic_block b)
 {
   rtx barrier;
+  bool only_notes;
 
   /* If we are partitioning hot/cold basic blocks, we don't want to
      mess up unconditional or indirect jumps that cross between hot
-     and cold sections.  */
+     and cold sections.
   
+     Basic block partitioning may result in some jumps that appear to
+     be optimizable (or blocks that appear to be mergeable), but which really 
+     must be left untouched (they are required to make it safely across 
+     partition boundaries).  See the comments at the top of 
+     bb-reorder.c:partition_hot_cold_basic_blocks for complete details.  */
+
   if (flag_reorder_blocks_and_partition
-      && (a->partition != b->partition
+      && (BB_PARTITION (a) != BB_PARTITION (b)
 	  || find_reg_note (BB_END (a), REG_CROSSING_JUMP, NULL_RTX)))
     return;
 
   barrier = next_nonnote_insn (BB_END (a));
-  if (!BARRIER_P (barrier))
-    abort ();
+  gcc_assert (BARRIER_P (barrier));
   delete_insn (barrier);
 
   /* Move block and loop notes out of the chain so that we do not
@@ -690,8 +713,8 @@ merge_blocks_move_predecessor_nojumps (basic_block a, basic_block b)
      and adjust the block trees appropriately.   Even better would be to have
      a tighter connection between block trees and rtl so that this is not
      necessary.  */
-  if (squeeze_notes (&BB_HEAD (a), &BB_END (a)))
-    abort ();
+  only_notes = squeeze_notes (&BB_HEAD (a), &BB_END (a));
+  gcc_assert (!only_notes);
 
   /* Scramble the insn chain.  */
   if (BB_END (a) != PREV_INSN (BB_HEAD (b)))
@@ -720,14 +743,21 @@ merge_blocks_move_successor_nojumps (basic_block a, basic_block b)
 {
   rtx barrier, real_b_end;
   rtx label, table;
+  bool only_notes;
 
   /* If we are partitioning hot/cold basic blocks, we don't want to
      mess up unconditional or indirect jumps that cross between hot
-     and cold sections.  */
+     and cold sections. 
   
+     Basic block partitioning may result in some jumps that appear to
+     be optimizable (or blocks that appear to be mergeable), but which really 
+     must be left untouched (they are required to make it safely across 
+     partition boundaries).  See the comments at the top of 
+     bb-reorder.c:partition_hot_cold_basic_blocks for complete details.  */
+
   if (flag_reorder_blocks_and_partition
       && (find_reg_note (BB_END (a), REG_CROSSING_JUMP, NULL_RTX)
-	  || a->partition != b->partition))
+	  || BB_PARTITION (a) != BB_PARTITION (b)))
     return;
 
   real_b_end = BB_END (b);
@@ -752,8 +782,9 @@ merge_blocks_move_successor_nojumps (basic_block a, basic_block b)
      and adjust the block trees appropriately.   Even better would be to have
      a tighter connection between block trees and rtl so that this is not
      necessary.  */
-  if (squeeze_notes (&BB_HEAD (b), &BB_END (b)))
-    abort ();
+  only_notes = squeeze_notes (&BB_HEAD (b), &BB_END (b));
+  gcc_assert (!only_notes);
+  
 
   /* Scramble the insn chain.  */
   reorder_insns_nobb (BB_HEAD (b), BB_END (b), BB_END (a));
@@ -788,12 +819,18 @@ merge_blocks_move (edge e, basic_block b, basic_block c, int mode)
 
   /* If we are partitioning hot/cold basic blocks, we don't want to
      mess up unconditional or indirect jumps that cross between hot
-     and cold sections.  */
+     and cold sections. 
   
+     Basic block partitioning may result in some jumps that appear to
+     be optimizable (or blocks that appear to be mergeable), but which really 
+     must be left untouched (they are required to make it safely across 
+     partition boundaries).  See the comments at the top of 
+     bb-reorder.c:partition_hot_cold_basic_blocks for complete details.  */
+
   if (flag_reorder_blocks_and_partition
       && (find_reg_note (BB_END (b), REG_CROSSING_JUMP, NULL_RTX)
 	  || find_reg_note (BB_END (c), REG_CROSSING_JUMP, NULL_RTX)
-	  || b->partition != c->partition))
+	  || BB_PARTITION (b) != BB_PARTITION (c)))
     return NULL;
       
 
@@ -931,7 +968,8 @@ merge_memattrs (rtx x, rtx y)
 	      set_mem_offset (y, 0);
 	    }
 	  
-	  set_mem_size (x, MAX (MEM_SIZE (x), MEM_SIZE (y)));
+	  set_mem_size (x, GEN_INT (MAX (INTVAL (MEM_SIZE (x)),
+					 INTVAL (MEM_SIZE (y)))));
 	  set_mem_size (y, MEM_SIZE (x));
 
 	  set_mem_align (x, MIN (MEM_ALIGN (x), MEM_ALIGN (y)));
@@ -1472,7 +1510,13 @@ try_crossjump_to_edge (int mode, edge e1, edge e2)
   newpos1 = newpos2 = NULL_RTX;
 
   /* If we have partitioned hot/cold basic blocks, it is a bad idea
-     to try this optimization.  */
+     to try this optimization. 
+
+     Basic block partitioning may result in some jumps that appear to
+     be optimizable (or blocks that appear to be mergeable), but which really 
+     must be left untouched (they are required to make it safely across 
+     partition boundaries).  See the comments at the top of 
+     bb-reorder.c:partition_hot_cold_basic_blocks for complete details.  */
 
   if (flag_reorder_blocks_and_partition && no_new_pseudos)
     return false;
@@ -1671,10 +1715,16 @@ try_crossjump_bb (int mode, basic_block bb)
 
   /* If we are partitioning hot/cold basic blocks, we don't want to
      mess up unconditional or indirect jumps that cross between hot
-     and cold sections.  */
+     and cold sections. 
   
+     Basic block partitioning may result in some jumps that appear to
+     be optimizable (or blocks that appear to be mergeable), but which really 
+     must be left untouched (they are required to make it safely across 
+     partition boundaries).  See the comments at the top of 
+     bb-reorder.c:partition_hot_cold_basic_blocks for complete details.  */
+
   if (flag_reorder_blocks_and_partition
-      && (bb->pred->src->partition != bb->pred->pred_next->src->partition
+      && (BB_PARTITION (bb->pred->src) != BB_PARTITION (bb->pred->pred_next->src)
 	  || (bb->pred->flags & EDGE_CROSSING)))
     return false;
 

@@ -133,34 +133,37 @@ extern const struct mips_cpu_info *mips_tune_info;
 #define MASK_SPLIT_ADDR	   0x00000004	/* Address splitting is enabled.  */
 #define MASK_NO_FUSED_MADD 0x00000008   /* Don't generate floating point
 					   multiply-add operations.  */
-#define MASK_GAS	   0x00000010	/* Gas used instead of MIPS as */
-#define MASK_EXPLICIT_RELOCS 0x00000020 /* Use relocation operators.  */
-#define MASK_MEMCPY	   0x00000040	/* call memcpy instead of inline code*/
-#define MASK_SOFT_FLOAT	   0x00000080	/* software floating point */
-#define MASK_FLOAT64	   0x00000100	/* fp registers are 64 bits */
-#define MASK_ABICALLS	   0x00000200	/* emit .abicalls/.cprestore/.cpload */
-#define MASK_XGOT	   0x00000400	/* emit big-got PIC */
-#define MASK_LONG_CALLS	   0x00000800	/* Always call through a register */
-#define MASK_64BIT	   0x00001000	/* Use 64 bit GP registers and insns */
-#define MASK_EMBEDDED_DATA 0x00002000	/* Reduce RAM usage, not fast code */
-#define MASK_BIG_ENDIAN	   0x00004000	/* Generate big endian code */
-#define MASK_SINGLE_FLOAT  0x00008000	/* Only single precision FPU.  */
-#define MASK_MAD	   0x00010000	/* Generate mad/madu as on 4650.  */
-#define MASK_4300_MUL_FIX  0x00020000   /* Work-around early Vr4300 CPU bug */
-#define MASK_MIPS16	   0x00040000	/* Generate mips16 code */
+#define MASK_EXPLICIT_RELOCS 0x00000010 /* Use relocation operators.  */
+#define MASK_MEMCPY	   0x00000020	/* call memcpy instead of inline code*/
+#define MASK_SOFT_FLOAT	   0x00000040	/* software floating point */
+#define MASK_FLOAT64	   0x00000080	/* fp registers are 64 bits */
+#define MASK_ABICALLS	   0x00000100	/* emit .abicalls/.cprestore/.cpload */
+#define MASK_XGOT	   0x00000200	/* emit big-got PIC */
+#define MASK_LONG_CALLS	   0x00000400	/* Always call through a register */
+#define MASK_64BIT	   0x00000800	/* Use 64 bit GP registers and insns */
+#define MASK_EMBEDDED_DATA 0x00001000	/* Reduce RAM usage, not fast code */
+#define MASK_BIG_ENDIAN	   0x00002000	/* Generate big endian code */
+#define MASK_SINGLE_FLOAT  0x00004000	/* Only single precision FPU.  */
+#define MASK_MAD	   0x00008000	/* Generate mad/madu as on 4650.  */
+#define MASK_4300_MUL_FIX  0x00010000   /* Work-around early Vr4300 CPU bug */
+#define MASK_MIPS16	   0x00020000	/* Generate mips16 code */
 #define MASK_NO_CHECK_ZERO_DIV \
-			   0x00080000	/* divide by zero checking */
-#define MASK_BRANCHLIKELY  0x00100000   /* Generate Branch Likely
+			   0x00040000	/* divide by zero checking */
+#define MASK_BRANCHLIKELY  0x00080000   /* Generate Branch Likely
 					   instructions.  */
 #define MASK_UNINIT_CONST_IN_RODATA \
-			   0x00200000	/* Store uninitialized
+			   0x00100000	/* Store uninitialized
 					   consts in rodata */
-#define MASK_FIX_R4000	   0x00400000	/* Work around R4000 errata.  */
-#define MASK_FIX_R4400	   0x00800000	/* Work around R4400 errata.  */
-#define MASK_FIX_SB1	   0x01000000	/* Work around SB-1 errata.  */
-#define MASK_FIX_VR4120	   0x02000000   /* Work around VR4120 errata.  */
-#define MASK_VR4130_ALIGN  0x04000000	/* Perform VR4130 alignment opts.  */
-#define MASK_FP_EXCEPTIONS 0x08000000   /* FP exceptions are enabled.  */
+#define MASK_FIX_R4000	   0x00200000	/* Work around R4000 errata.  */
+#define MASK_FIX_R4400	   0x00400000	/* Work around R4400 errata.  */
+#define MASK_FIX_SB1	   0x00800000	/* Work around SB-1 errata.  */
+#define MASK_FIX_VR4120	   0x01000000   /* Work around VR4120 errata.  */
+#define MASK_VR4130_ALIGN  0x02000000	/* Perform VR4130 alignment opts.  */
+#define MASK_FP_EXCEPTIONS 0x04000000   /* FP exceptions are enabled.  */
+#define MASK_DIVIDE_BREAKS 0x08000000   /* Divide by zero check uses
+                                           break instead of trap. */
+#define MASK_PAIRED_SINGLE 0x10000000   /* Support paired-single FPU.  */
+#define MASK_MIPS3D        0x20000000   /* Support MIPS-3D instructions.  */
 
 					/* Debug switches, not documented */
 #define MASK_DEBUG	0		/* unused */
@@ -177,10 +180,6 @@ extern const struct mips_cpu_info *mips_tune_info;
 
 					/* Mips vs. GNU linker */
 #define TARGET_SPLIT_ADDRESSES	((target_flags & MASK_SPLIT_ADDR) != 0)
-
-					/* Mips vs. GNU assembler */
-#define TARGET_GAS		((target_flags & MASK_GAS) != 0)
-#define TARGET_MIPS_AS		(!TARGET_GAS)
 
 					/* Debug Modes */
 #define TARGET_DEBUG_MODE	((target_flags & MASK_DEBUG) != 0)
@@ -224,6 +223,7 @@ extern const struct mips_cpu_info *mips_tune_info;
 #define TARGET_4300_MUL_FIX     ((target_flags & MASK_4300_MUL_FIX) != 0)
 
 #define TARGET_CHECK_ZERO_DIV   ((target_flags & MASK_NO_CHECK_ZERO_DIV) == 0)
+#define TARGET_DIVIDE_TRAPS     ((target_flags & MASK_DIVIDE_BREAKS) == 0)
 
 #define TARGET_BRANCHLIKELY	((target_flags & MASK_BRANCHLIKELY) != 0)
 
@@ -238,6 +238,10 @@ extern const struct mips_cpu_info *mips_tune_info;
 #define TARGET_VR4130_ALIGN	((target_flags & MASK_VR4130_ALIGN) != 0)
 
 #define TARGET_FP_EXCEPTIONS	((target_flags & MASK_FP_EXCEPTIONS) != 0)
+
+#define TARGET_PAIRED_SINGLE_FLOAT	\
+				((target_flags & MASK_PAIRED_SINGLE) != 0)
+#define TARGET_MIPS3D		((target_flags & MASK_MIPS3D) != 0)
 
 /* True if we should use NewABI-style relocation operators for
    symbolic addresses.  This is never true for mips16 code,
@@ -271,22 +275,11 @@ extern const struct mips_cpu_info *mips_tune_info;
   (!TARGET_MIPS16 && (!TARGET_ABICALLS || TARGET_EXPLICIT_RELOCS))
 
 /* True if .gpword or .gpdword should be used for switch tables.
-   There are some problems with using these directives with the
-   native IRIX tools:
 
-      - It has been reported that some versions of the native n32
-	assembler mishandle .gpword, complaining that symbols are
-	global when they are in fact local.
-
-      - The native assemblers don't understand .gpdword.
-
-      - Although GAS does understand .gpdword, the native linker
-	mishandles the relocations GAS generates (R_MIPS_GPREL32
-	followed by R_MIPS_64).
-
-   We therefore disable GP-relative switch tables for n32 and n64
-   on IRIX targets.  */
-#define TARGET_GPWORD (TARGET_ABICALLS && !(TARGET_NEWABI && TARGET_IRIX))
+   Although GAS does understand .gpdword, the SGI linker mishandles
+   the relocations GAS generates (R_MIPS_GPREL32 followed by R_MIPS_64).
+   We therefore disable GP-relative switch tables for n64 on IRIX targets.  */
+#define TARGET_GPWORD (TARGET_ABICALLS && !(mips_abi == ABI_64 && TARGET_IRIX))
 
 					/* Generate mips16 code */
 #define TARGET_MIPS16		((target_flags & MASK_MIPS16) != 0)
@@ -420,6 +413,9 @@ extern const struct mips_cpu_info *mips_tune_info;
       if (TARGET_MIPS16)					\
 	builtin_define ("__mips16");				\
 								\
+      if (TARGET_MIPS3D)					\
+	builtin_define ("__mips3d");				\
+								\
       MIPS_CPP_SET_PROCESSOR ("_MIPS_ARCH", mips_arch_info);	\
       MIPS_CPP_SET_PROCESSOR ("_MIPS_TUNE", mips_tune_info);	\
 								\
@@ -468,7 +464,10 @@ extern const struct mips_cpu_info *mips_tune_info;
 	builtin_define ("__mips_soft_float");			\
 								\
       if (TARGET_SINGLE_FLOAT)					\
-	builtin_define ("__mips_single_float");		\
+	builtin_define ("__mips_single_float");			\
+								\
+      if (TARGET_PAIRED_SINGLE_FLOAT)				\
+	builtin_define ("__mips_paired_single_float");		\
 								\
       if (TARGET_BIG_ENDIAN)					\
 	{							\
@@ -533,10 +532,8 @@ extern const struct mips_cpu_info *mips_tune_info;
      N_("Optimize lui/addiu address loads")},				\
   {"no-split-addresses", -MASK_SPLIT_ADDR,				\
      N_("Don't optimize lui/addiu address loads")},			\
-  {"mips-as",		 -MASK_GAS,					\
-     N_("Use MIPS as")},						\
-  {"gas",		  MASK_GAS,					\
-     N_("Use GNU as")},							\
+  {"gas",		  0,						\
+     N_("Use GNU as (now ignored)")},					\
   {"gpOPT",		  0,						\
      N_("Use GP relative sdata/sbss sections (now ignored)")},		\
   {"gpopt",		  0,						\
@@ -593,6 +590,14 @@ extern const struct mips_cpu_info *mips_tune_info;
      N_("Use single (32-bit) FP only")},				\
   {"double-float",	 -MASK_SINGLE_FLOAT,				\
      N_("Don't use single (32-bit) FP only")},				\
+  {"paired-single",       MASK_PAIRED_SINGLE,				\
+     N_("Use paired-single floating point instructions")},		\
+  {"no-paired-single",   -MASK_PAIRED_SINGLE,				\
+     N_("Use paired-single floating point instructions")},		\
+  {"ips3d",               MASK_MIPS3D,					\
+     N_("Use MIPS-3D instructions")},					\
+  {"no-mips3d",          -MASK_MIPS3D,					\
+     N_("Use MIPS-3D instructions")},					\
   {"mad",		  MASK_MAD,					\
      N_("Use multiply accumulate")},					\
   {"no-mad",		 -MASK_MAD,					\
@@ -629,6 +634,10 @@ extern const struct mips_cpu_info *mips_tune_info;
      N_("Trap on integer divide by zero")},				\
   {"no-check-zero-division", MASK_NO_CHECK_ZERO_DIV,			\
      N_("Don't trap on integer divide by zero")},			\
+  {"divide-traps", -MASK_DIVIDE_BREAKS,					\
+     N_("Use trap to check for integer divide by zero")},		\
+  {"divide-breaks", MASK_DIVIDE_BREAKS,					\
+     N_("Use break to check for integer divide by zero")},		\
   { "branch-likely",      MASK_BRANCHLIKELY,				\
       N_("Use Branch Likely instructions, overriding default for arch")}, \
   { "no-branch-likely",  -MASK_BRANCHLIKELY,				\
@@ -779,13 +788,19 @@ extern const struct mips_cpu_info *mips_tune_info;
    --with-tune is ignored if -mtune is specified.
    --with-abi is ignored if -mabi is specified.
    --with-float is ignored if -mhard-float or -msoft-float are
-     specified.  */
+     specified.
+   --with-divide is ignored if -mdivide-traps or -mdivide-breaks are
+     specified. */
 #define OPTION_DEFAULT_SPECS \
   {"arch", "%{!march=*:%{mips16:-march=%(VALUE)}%{!mips*:-march=%(VALUE)}}" }, \
   {"tune", "%{!mtune=*:-mtune=%(VALUE)}" }, \
   {"abi", "%{!mabi=*:-mabi=%(VALUE)}" }, \
-  {"float", "%{!msoft-float:%{!mhard-float:-m%(VALUE)-float}}" }
+  {"float", "%{!msoft-float:%{!mhard-float:-m%(VALUE)-float}}" }, \
+  {"divide", "%{!mdivide-traps:%{!mdivide-breaks:-mdivide-%(VALUE)}}" }
 
+
+#define GENERATE_DIVIDE_TRAPS (TARGET_DIVIDE_TRAPS \
+                               && ISA_HAS_COND_TRAP)
 
 #define GENERATE_BRANCHLIKELY   (TARGET_BRANCHLIKELY                    \
 				 && !TARGET_SR71K                       \
@@ -797,6 +812,7 @@ extern const struct mips_cpu_info *mips_tune_info;
                                   || TARGET_MIPS5500                    \
                                   || TARGET_MIPS7000                    \
                                   || TARGET_MIPS9000                    \
+				  || TARGET_MAD				\
                                   || ISA_MIPS32	                        \
                                   || ISA_MIPS32R2                       \
                                   || ISA_MIPS64)                        \
@@ -840,9 +856,6 @@ extern const struct mips_cpu_info *mips_tune_info;
 				  || ISA_MIPS64)			\
                                  && !TARGET_MIPS5500                    \
 				 && !TARGET_MIPS16)
-
-/* ISA has just the integer condition move instructions (movn,movz) */
-#define ISA_HAS_INT_CONDMOVE     0
 
 /* ISA has the mips4 FP condition code instructions: FP-compare to CC,
    branch on CC, and move (both FP and non-FP) on CC.  */
@@ -1004,28 +1017,6 @@ extern const struct mips_cpu_info *mips_tune_info;
 #endif
 
 
-/* Assembler specs.  */
-
-/* MIPS_AS_ASM_SPEC is passed when using the MIPS assembler rather
-   than gas.  */
-
-#define MIPS_AS_ASM_SPEC "\
-%{!.s:-nocpp} %{.s: %{cpp} %{nocpp}} \
-%{pipe: %e-pipe is not supported} \
-%{K} %(subtarget_mips_as_asm_spec)"
-
-/* SUBTARGET_MIPS_AS_ASM_SPEC is passed when using the MIPS assembler
-   rather than gas.  It may be overridden by subtargets.  */
-
-#ifndef SUBTARGET_MIPS_AS_ASM_SPEC
-#define SUBTARGET_MIPS_AS_ASM_SPEC "%{v}"
-#endif
-
-/* GAS_ASM_SPEC is passed when using gas, rather than the MIPS
-   assembler.  */
-
-#define GAS_ASM_SPEC "%{mtune=*} %{v}"
-
 #define SUBTARGET_TARGET_SWITCHES
 
 #ifndef MIPS_ABI_DEFAULT
@@ -1036,47 +1027,23 @@ extern const struct mips_cpu_info *mips_tune_info;
 
 #if MIPS_ABI_DEFAULT == ABI_32
 #define MULTILIB_ABI_DEFAULT "mabi=32"
-#define ASM_ABI_DEFAULT_SPEC "-32"
 #endif
 
 #if MIPS_ABI_DEFAULT == ABI_O64
 #define MULTILIB_ABI_DEFAULT "mabi=o64"
-#define ASM_ABI_DEFAULT_SPEC "-mabi=o64"
 #endif
 
 #if MIPS_ABI_DEFAULT == ABI_N32
 #define MULTILIB_ABI_DEFAULT "mabi=n32"
-#define ASM_ABI_DEFAULT_SPEC "-n32"
 #endif
 
 #if MIPS_ABI_DEFAULT == ABI_64
 #define MULTILIB_ABI_DEFAULT "mabi=64"
-#define ASM_ABI_DEFAULT_SPEC "-64"
 #endif
 
 #if MIPS_ABI_DEFAULT == ABI_EABI
 #define MULTILIB_ABI_DEFAULT "mabi=eabi"
-#define ASM_ABI_DEFAULT_SPEC "-mabi=eabi"
 #endif
-
-/* TARGET_ASM_SPEC is used to select either MIPS_AS_ASM_SPEC or
-   GAS_ASM_SPEC as the default, depending upon the value of
-   TARGET_DEFAULT.  */
-
-#if ((TARGET_CPU_DEFAULT | TARGET_DEFAULT) & MASK_GAS) != 0
-/* GAS */
-
-#define TARGET_ASM_SPEC "\
-%{mmips-as: %(mips_as_asm_spec)} \
-%{!mmips-as: %(gas_asm_spec)}"
-
-#else /* not GAS */
-
-#define TARGET_ASM_SPEC "\
-%{!mgas: %(mips_as_asm_spec)} \
-%{mgas: %(gas_asm_spec)}"
-
-#endif /* not GAS */
 
 /* SUBTARGET_ASM_OPTIMIZING_SPEC handles passing optimization options
    to the assembler.  It may be overridden by subtargets.  */
@@ -1087,7 +1054,11 @@ extern const struct mips_cpu_info *mips_tune_info;
 #endif
 
 /* SUBTARGET_ASM_DEBUGGING_SPEC handles passing debugging options to
-   the assembler.  It may be overridden by subtargets.  */
+   the assembler.  It may be overridden by subtargets.
+
+   Beginning with gas 2.13, -mdebug must be passed to correctly handle
+   COFF debugging info.  */
+
 #ifndef SUBTARGET_ASM_DEBUGGING_SPEC
 #define SUBTARGET_ASM_DEBUGGING_SPEC "\
 %{g} %{g0} %{g1} %{g2} %{g3} \
@@ -1095,18 +1066,8 @@ extern const struct mips_cpu_info *mips_tune_info;
 %{gstabs:-g} %{gstabs0:-g0} %{gstabs1:-g1} %{gstabs2:-g2} %{gstabs3:-g3} \
 %{gstabs+:-g} %{gstabs+0:-g0} %{gstabs+1:-g1} %{gstabs+2:-g2} %{gstabs+3:-g3} \
 %{gcoff:-g} %{gcoff0:-g0} %{gcoff1:-g1} %{gcoff2:-g2} %{gcoff3:-g3} \
-%(mdebug_asm_spec)"
+%{gcoff*:-mdebug} %{!gcoff*:-no-mdebug}"
 #endif
-
-/* Beginning with gas 2.13, -mdebug must be passed to correctly handle COFF
-   debugging info.  */
-#if ((TARGET_CPU_DEFAULT | TARGET_DEFAULT) & MASK_GAS) != 0
-/* GAS */
-#define MDEBUG_ASM_SPEC "%{gcoff*:-mdebug} \
-                         %{!gcoff*:-no-mdebug}"
-#else /* not GAS */
-#define MDEBUG_ASM_SPEC ""
-#endif /* not GAS */
 
 /* SUBTARGET_ASM_SPEC is always passed to the assembler.  It may be
    overridden by subtargets.  */
@@ -1115,24 +1076,18 @@ extern const struct mips_cpu_info *mips_tune_info;
 #define SUBTARGET_ASM_SPEC ""
 #endif
 
-/* ASM_SPEC is the set of arguments to pass to the assembler.  Note: we
-   pass -mgp32, -mgp64, -march, -mabi=eabi and -mabi=o64 regardless of
-   whether we're using GAS.  These options can only be used properly
-   with GAS, and it is better to get an error from a non-GAS assembler
-   than to silently generate bad code.  */
-
 #undef ASM_SPEC
 #define ASM_SPEC "\
 %{G*} %(endian_spec) %{mips1} %{mips2} %{mips3} %{mips4} \
 %{mips32} %{mips32r2} %{mips64} \
 %{mips16:%{!mno-mips16:-mips16}} %{mno-mips16:-no-mips16} \
+%{mips3d:-mips3d} \
 %{mfix-vr4120} \
 %(subtarget_asm_optimizing_spec) \
 %(subtarget_asm_debugging_spec) \
-%{mabi=32:-32}%{mabi=n32:-n32}%{mabi=64:-64}%{mabi=n64:-64} \
-%{mabi=eabi} %{mabi=o64} %{!mabi*: %(asm_abi_default_spec)} \
+%{mabi=*} %{!mabi*: %(asm_abi_default_spec)} \
 %{mgp32} %{mgp64} %{march=*} %{mxgot:-xgot} \
-%(target_asm_spec) \
+%{mtune=*} %{v} \
 %(subtarget_asm_spec)"
 
 /* Extra switches sometimes passed to the linker.  */
@@ -1188,15 +1143,10 @@ extern const struct mips_cpu_info *mips_tune_info;
 #define EXTRA_SPECS							\
   { "subtarget_cc1_spec", SUBTARGET_CC1_SPEC },				\
   { "subtarget_cpp_spec", SUBTARGET_CPP_SPEC },				\
-  { "mips_as_asm_spec", MIPS_AS_ASM_SPEC },				\
-  { "gas_asm_spec", GAS_ASM_SPEC },					\
-  { "target_asm_spec", TARGET_ASM_SPEC },				\
-  { "subtarget_mips_as_asm_spec", SUBTARGET_MIPS_AS_ASM_SPEC }, 	\
   { "subtarget_asm_optimizing_spec", SUBTARGET_ASM_OPTIMIZING_SPEC },	\
   { "subtarget_asm_debugging_spec", SUBTARGET_ASM_DEBUGGING_SPEC },	\
-  { "mdebug_asm_spec", MDEBUG_ASM_SPEC },				\
   { "subtarget_asm_spec", SUBTARGET_ASM_SPEC },				\
-  { "asm_abi_default_spec", ASM_ABI_DEFAULT_SPEC },			\
+  { "asm_abi_default_spec", "-" MULTILIB_ABI_DEFAULT },			\
   { "endian_spec", ENDIAN_SPEC },					\
   SUBTARGET_EXTRA_SPECS
 
@@ -1216,15 +1166,6 @@ extern const struct mips_cpu_info *mips_tune_info;
 
 /* By default, turn on GDB extensions.  */
 #define DEFAULT_GDB_EXTENSIONS 1
-
-/* If we are passing smuggling stabs through the MIPS ECOFF object
-   format, put a comment in front of the .stab<x> operation so
-   that the MIPS assembler does not choke.  The mips-tfile program
-   will correctly put the stab into the object file.  */
-
-#define ASM_STABS_OP	((TARGET_GAS) ? "\t.stabs\t" : " #.stabs\t")
-#define ASM_STABN_OP	((TARGET_GAS) ? "\t.stabn\t" : " #.stabn\t")
-#define ASM_STABD_OP	((TARGET_GAS) ? "\t.stabd\t" : " #.stabd\t")
 
 /* Local compiler-generated symbols must have a prefix that the assembler
    understands.   By default, this is $, although some targets (e.g.,
@@ -2043,9 +1984,16 @@ extern enum reg_class mips_char_to_class[256];
    `W' is for memory references that are based on a member of BASE_REG_CLASS.
 	 This is true for all non-mips16 references (although it can sometimes
 	 be indirect if !TARGET_EXPLICIT_RELOCS).  For mips16, it excludes
-	 stack and constant-pool references.  */
+	 stack and constant-pool references.
+   `YG' is for 0 valued vector constants.  */
 
-#define EXTRA_CONSTRAINT(OP,CODE)					\
+#define EXTRA_CONSTRAINT_Y(OP,STR)					\
+  (((STR)[1] == 'G')	  ? (GET_CODE (OP) == CONST_VECTOR		\
+			     && (OP) == CONST0_RTX (GET_MODE (OP)))	\
+   : FALSE)
+
+
+#define EXTRA_CONSTRAINT_STR(OP,CODE,STR)				\
   (((CODE) == 'Q')	  ? const_arith_operand (OP, VOIDmode)		\
    : ((CODE) == 'R')	  ? (GET_CODE (OP) == MEM			\
 			     && mips_fetch_insns (OP) == 1)		\
@@ -2062,7 +2010,14 @@ extern enum reg_class mips_char_to_class[256];
 			     && (!TARGET_MIPS16				\
 				 || (!stack_operand (OP, VOIDmode)	\
 				     && !CONSTANT_P (XEXP (OP, 0)))))	\
+   : ((CODE) == 'Y')	  ? EXTRA_CONSTRAINT_Y (OP, STR)		\
    : FALSE)
+
+/* Y is the only multi-letter constraint, and has length 2.  */
+
+#define CONSTRAINT_LEN(C,STR)						\
+  (((C) == 'Y') ? 2							\
+   : DEFAULT_CONSTRAINT_LEN (C, STR))
 
 /* Say which of the above are memory constraints.  */
 #define EXTRA_MEMORY_CONSTRAINT(C, STR) ((C) == 'R' || (C) == 'W')
@@ -2997,12 +2952,6 @@ do {									\
 
 #undef READONLY_DATA_SECTION_ASM_OP
 #define READONLY_DATA_SECTION_ASM_OP	"\t.rdata"	/* read-only data */
-
-/* Given a decl node or constant node, choose the section to output it in
-   and select that section.  */
-
-#undef  TARGET_ASM_SELECT_SECTION
-#define TARGET_ASM_SELECT_SECTION  mips_select_section
 
 #define ASM_OUTPUT_REG_PUSH(STREAM,REGNO)				\
 do									\

@@ -1112,8 +1112,7 @@ sms_schedule (FILE *dump_file)
           /* Mark this loop as software pipelined so the later
 	     scheduling passes doesn't touch it.  */
 	  if (! flag_resched_modulo_sched)
-	    emit_note_before (NOTE_INSN_DISABLE_SCHED_OF_BLOCK,
-	     		      g->closing_branch->insn);
+	    g->bb->flags |= BB_DISABLE_SCHEDULE;
 
 	  generate_reg_moves (ps);
 	  if (dump_file)
@@ -1939,7 +1938,7 @@ ps_insn_find_column (partial_schedule_ptr ps, ps_insn_ptr ps_i,
   row = SMODULO (ps_i->cycle, ps->ii);
 
   /* Find the first must follow and the last must precede
-     and insert the node immediatly after the must precede
+     and insert the node immediately after the must precede
      but make sure that it there is no must follow after it.   */
   for (next_ps_i = ps->rows[row];
        next_ps_i;
@@ -2008,7 +2007,7 @@ ps_insn_advance_column (partial_schedule_ptr ps, ps_insn_ptr ps_i,
   if (TEST_BIT (must_follow, next_node->cuid))
     return false;
 
-  /* Advace PS_I over its next_in_row in the doubly linked list.  */
+  /* Advance PS_I over its next_in_row in the doubly linked list.  */
   prev = ps_i->prev_in_row;
   next = ps_i->next_in_row;
 

@@ -162,13 +162,13 @@ typedef struct gfc_ss
   gfc_ss_type type;
   gfc_expr *expr;
   mpz_t *shape;
+  tree string_length;
   union
   {
     /* If type is GFC_SS_SCALAR or GFC_SS_REFERENCE.  */
     struct
     {
       tree expr;
-      tree string_length;
     }
     scalar;
 
@@ -179,7 +179,6 @@ typedef struct gfc_ss
          assigned expression.  */
       int dimen;
       tree type;
-      tree string_length;
     }
     temp;
     /* All other types.  */
@@ -375,6 +374,9 @@ void gfc_add_decl_to_function (tree);
 /* Make prototypes for runtime library functions.  */
 void gfc_build_builtin_function_decls (void);
 
+/* Set the backend source location of a decl.  */
+void gfc_set_decl_location (tree, locus *);
+
 /* Return the variable decl for a symbol.  */
 tree gfc_get_symbol_decl (gfc_symbol *);
 
@@ -397,6 +399,8 @@ tree gfc_advance_chain (tree, int);
 void gfc_create_function_decl (gfc_namespace *);
 /* Generate the code for a function.  */
 void gfc_generate_function_code (gfc_namespace *);
+/* Output a BLOCK DATA program unit.  */
+void gfc_generate_block_data (gfc_namespace *);
 /* Output a decl for a module variable.  */
 void gfc_generate_module_vars (gfc_namespace *);
 
@@ -557,7 +561,10 @@ struct lang_decl		GTY(())
 
 /* Build an expression with void type.  */
 #define build1_v(code, arg) build(code, void_type_node, arg)
-#define build_v(code, args...) build(code, void_type_node, args)
+#define build2_v(code, arg1, arg2) build2(code, void_type_node, \
+                                          arg1, arg2)
+#define build3_v(code, arg1, arg2, arg3) build3(code, void_type_node, \
+                                                arg1, arg2, arg3)
 
 /* flag for alternative return labels.  */
 extern int has_alternate_specifier;  /* for caller */

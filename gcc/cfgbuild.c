@@ -83,7 +83,7 @@ inside_basic_block_p (rtx insn)
       return false;
 
     default:
-      abort ();
+      gcc_unreachable ();
     }
 }
 
@@ -131,7 +131,7 @@ control_flow_insn_p (rtx insn)
       return false;
 
     default:
-      abort ();
+      gcc_unreachable ();
     }
 }
 
@@ -183,8 +183,7 @@ count_basic_blocks (rtx f)
 static void
 make_label_edge (sbitmap *edge_cache, basic_block src, rtx label, int flags)
 {
-  if (!LABEL_P (label))
-    abort ();
+  gcc_assert (LABEL_P (label));
 
   /* If the label was never emitted, this insn is junk, but avoid a
      crash trying to refer to BLOCK_FOR_INSN (label).  This can happen
@@ -232,7 +231,10 @@ make_edges (basic_block min, basic_block max, int update_p)
   current_function_has_computed_jump = 0;
 
   /* If we are partitioning hot and cold basic blocks into separate
-     sections, we cannot assume there is no computed jump.  */
+     sections, we cannot assume there is no computed jump (partitioning
+     sometimes requires the use of indirect jumps; see comments about
+     partitioning at the top of bb-reorder.c:partition_hot_cold_basic_blocks 
+     for complete details).  */
 
   if (flag_reorder_blocks_and_partition)
     current_function_has_computed_jump = 1;
@@ -342,8 +344,7 @@ make_edges (basic_block min, basic_block max, int update_p)
 	  /* Otherwise, we have a plain conditional or unconditional jump.  */
 	  else
 	    {
-	      if (! JUMP_LABEL (insn))
-		abort ();
+	      gcc_assert (JUMP_LABEL (insn));
 	      make_label_edge (edge_cache, bb, JUMP_LABEL (insn), 0);
 	    }
 	}
@@ -487,7 +488,7 @@ find_basic_blocks_1 (rtx f)
 	  break;
 
 	default:
-	  abort ();
+	  gcc_unreachable ();
 	}
     }
 
@@ -496,8 +497,7 @@ find_basic_blocks_1 (rtx f)
   else if (bb_note)
     delete_insn (bb_note);
 
-  if (last_basic_block != n_basic_blocks)
-    abort ();
+  gcc_assert (last_basic_block == n_basic_blocks);
 
   clear_aux_for_blocks ();
 }

@@ -35,7 +35,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    the same format as a HARD_REG_SET.  To help make sure this is true,
    we only try the widest fast integer mode (HOST_WIDEST_FAST_INT)
    instead of all the smaller types.  This approach loses only if
-   there are avery few registers and then only in the few cases where
+   there are very few registers and then only in the few cases where
    we have an array of HARD_REG_SETs, so it needn't be as complex as
    it used to be.  */
 
@@ -180,7 +180,7 @@ do { HARD_REG_ELT_TYPE *scan_xp_ = (X), *scan_yp_ = (Y); 	\
 	goto TO; } while (0)
 
 #else
-#if FIRST_PSEUDO_REGISTER <= 3*HOST_BITS_PER_WIDES_FAST_INT
+#if FIRST_PSEUDO_REGISTER <= 3*HOST_BITS_PER_WIDEST_FAST_INT
 #define CLEAR_HARD_REG_SET(TO)  \
 do { HARD_REG_ELT_TYPE *scan_tp_ = (TO);			\
      scan_tp_[0] = 0;						\

@@ -1,3 +1,8 @@
+2004-09-15  Mike Stump  <mrs@apple.com>
+
+	Merge in changes from mainline, from apple-ppc-merge-20040821
+	to apple-ppc-merge-20040907.
+
 2004-08-29  Andrew Pinski  <apinski@apple.com>
 
 	* more-hdrs/ppc_intrinsics.h (__mfspr): Put __extension
@@ -5,7 +10,7 @@
 
 2004-08-23  Mike Stump  <mrs@apple.com>
 
-	* Merge in changes from mainline, from apple-ppc-mergepoint-20040816
+	Merge in changes from mainline, from apple-ppc-mergepoint-20040816
 	to apple-ppc-merge-20040821.
 
 2004-08-19  Geoffrey Keating  <geoffk@apple.com>

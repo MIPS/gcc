@@ -1699,12 +1699,9 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	case NOTE_INSN_DELETED:
 	case NOTE_INSN_LOOP_BEG:
 	case NOTE_INSN_LOOP_END:
-	case NOTE_INSN_LOOP_CONT:
-	case NOTE_INSN_LOOP_VTOP:
 	case NOTE_INSN_FUNCTION_END:
 	case NOTE_INSN_REPEATED_LINE_NUMBER:
 	case NOTE_INSN_EXPECTED_VALUE:
-	case NOTE_INSN_DISABLE_SCHED_OF_BLOCK:
 	  break;
 
 	case NOTE_INSN_UNLIKELY_EXECUTED_CODE:
@@ -1794,7 +1791,6 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	case NOTE_INSN_BLOCK_BEG:
 	  if (debug_info_level == DINFO_LEVEL_NORMAL
 	      || debug_info_level == DINFO_LEVEL_VERBOSE
-	      || write_symbols == DWARF_DEBUG
 	      || write_symbols == DWARF2_DEBUG
 	      || write_symbols == VMS_AND_DWARF2_DEBUG
 	      || write_symbols == VMS_DEBUG)
@@ -1816,7 +1812,6 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	case NOTE_INSN_BLOCK_END:
 	  if (debug_info_level == DINFO_LEVEL_NORMAL
 	      || debug_info_level == DINFO_LEVEL_VERBOSE
-	      || write_symbols == DWARF_DEBUG
 	      || write_symbols == DWARF2_DEBUG
 	      || write_symbols == VMS_AND_DWARF2_DEBUG
 	      || write_symbols == VMS_DEBUG)

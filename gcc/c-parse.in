@@ -129,6 +129,10 @@ do {									\
    yylval contains an IDENTIFIER_NODE which indicates which one.  */
 %token TYPE_QUAL
 
+/* Objective-C protocol qualifiers.  These acquire their magic powers
+   only in certain contexts.  */
+%token OBJC_TYPE_QUAL
+
 /* Character or numeric constants.
    yylval is the node for the constant.  */
 %token CONSTANT
@@ -290,6 +294,9 @@ static GTY(()) tree all_prefix_attributes;
 /* Stack of saved values of current_declspecs, prefix_attributes and
    all_prefix_attributes.  */
 static GTY(()) tree declspec_stack;
+
+/* INDIRECT_REF with a TREE_TYPE of the type being queried for offsetof.  */
+static tree offsetof_base;
 
 /* PUSH_DECLSPEC_STACK is called from setspecs; POP_DECLSPEC_STACK
    should be called from the productions making use of setspecs.  */
@@ -697,8 +704,15 @@ primary:
 		{ $$.value = build_va_arg ($3.value, groktypename ($5));
 		  $$.original_code = ERROR_MARK; }
 
-	| OFFSETOF '(' typename ',' offsetof_member_designator ')'
-		{ $$.value = build_offsetof (groktypename ($3), $5);
+	| OFFSETOF '(' typename ','
+		{ tree type = groktypename ($3);
+		  if (type == error_mark_node)
+		    offsetof_base = error_mark_node;
+		  else
+		    offsetof_base = build1 (INDIRECT_REF, type, NULL);
+		}
+	  offsetof_member_designator ')'
+		{ $$.value = fold_offsetof ($6);
 		  $$.original_code = ERROR_MARK; }
 	| OFFSETOF '(' error ')'
 		{ $$.value = error_mark_node; $$.original_code = ERROR_MARK; }
@@ -724,8 +738,8 @@ primary:
 		  e2 = TYPE_MAIN_VARIANT (groktypename ($5));
 
 		  $$.value = comptypes (e1, e2)
-		    ? build_int_cst (NULL_TREE, 1, 0)
-		    : build_int_cst (NULL_TREE, 0, 0);
+		    ? build_int_cst (NULL_TREE, 1)
+		    : build_int_cst (NULL_TREE, 0);
 		  $$.original_code = ERROR_MARK;
 		}
 	| TYPES_COMPATIBLE_P '(' error ')'
@@ -750,36 +764,34 @@ primary:
 		  $$.original_code = ERROR_MARK; }
 @@ifobjc
 	| objcmessageexpr
-		{ $$.value = build_message_expr ($1);
+		{ $$.value = objc_build_message_expr ($1);
 		  $$.original_code = ERROR_MARK; }
 	| objcselectorexpr
-		{ $$.value = build_selector_expr ($1);
+		{ $$.value = objc_build_selector_expr ($1);
 		  $$.original_code = ERROR_MARK; }
 	| objcprotocolexpr
-		{ $$.value = build_protocol_expr ($1);
+		{ $$.value = objc_build_protocol_expr ($1);
 		  $$.original_code = ERROR_MARK; }
 	| objcencodeexpr
-		{ $$.value = build_encode_expr ($1);
+		{ $$.value = objc_build_encode_expr ($1);
 		  $$.original_code = ERROR_MARK; }
 	| OBJC_STRING
-		{ $$.value = build_objc_string_object ($1);
+		{ $$.value = objc_build_string_object ($1);
 		  $$.original_code = ERROR_MARK; }
 @@end_ifobjc
 	;
 
 /* This is the second argument to __builtin_offsetof.  We must have one
    identifier, and beyond that we want to accept sub structure and sub
-   array references.  We return tree list where each element has
-   PURPOSE set for component refs or VALUE set for array refs.  We'll
-   turn this into something real inside build_offsetof.  */
+   array references.  */
 
 offsetof_member_designator:
 	  identifier
-		{ $$ = tree_cons ($1, NULL_TREE, NULL_TREE); }
+		{ $$ = build_component_ref (offsetof_base, $1); }
 	| offsetof_member_designator '.' identifier
-		{ $$ = tree_cons ($3, NULL_TREE, $1); }
+		{ $$ = build_component_ref ($1, $3); }
 	| offsetof_member_designator '[' expr ']'
-		{ $$ = tree_cons (NULL_TREE, $3.value, $1); }
+		{ $$ = build_array_ref ($1, $3.value); }
 	;
 
 old_style_parm_decls:
@@ -1819,7 +1831,7 @@ component_decl_list2:	/* empty */
 @@ifobjc
 	/* foo(sizeof(struct{ @defs(ClassName)})); */
 	| AT_DEFS '(' CLASSNAME ')'
-		{ $$ = nreverse (get_class_ivars_from_name ($3)); }
+		{ $$ = nreverse (objc_get_class_ivars ($3)); }
 @@end_ifobjc
 	;
 
@@ -2858,17 +2870,10 @@ parmlist_or_identifiers:
 parmlist_or_identifiers_1:
 	  parmlist_1
 	| identifiers ')'
-		{ tree t;
-		  for (t = $1; t; t = TREE_CHAIN (t))
-		    if (TREE_VALUE (t) == NULL_TREE)
-		      error ("`...' in old-style identifier list");
-		  $$ = tree_cons (NULL_TREE, NULL_TREE, $1);
+		{ $$ = tree_cons (NULL_TREE, NULL_TREE, $1);
 
 		  /* Make sure we have a parmlist after attributes.  */
-		  if ($<ttype>-1 != 0
-		      && (TREE_CODE ($$) != TREE_LIST
-			  || TREE_PURPOSE ($$) == 0
-			  || TREE_CODE (TREE_PURPOSE ($$)) != PARM_DECL))
+		  if ($<ttype>-1 != 0)
 		    YYERROR1;
 		}
 	;
@@ -3311,22 +3316,22 @@ reservedwords:
 keyworddecl:
 	  selector ':' '(' typename ')' identifier
 		{
-		  $$ = build_keyword_decl ($1, $4, $6);
+		  $$ = objc_build_keyword_decl ($1, $4, $6);
 		}
 
 	| selector ':' identifier
 		{
-		  $$ = build_keyword_decl ($1, NULL_TREE, $3);
+		  $$ = objc_build_keyword_decl ($1, NULL_TREE, $3);
 		}
 
 	| ':' '(' typename ')' identifier
 		{
-		  $$ = build_keyword_decl (NULL_TREE, $3, $5);
+		  $$ = objc_build_keyword_decl (NULL_TREE, $3, $5);
 		}
 
 	| ':' identifier
 		{
-		  $$ = build_keyword_decl (NULL_TREE, NULL_TREE, $2);
+		  $$ = objc_build_keyword_decl (NULL_TREE, NULL_TREE, $2);
 		}
 	;
 
@@ -3372,11 +3377,11 @@ receiver:
 		{ $$ = $1.value; }
 	| CLASSNAME
 		{
-		  $$ = get_class_reference ($1);
+		  $$ = objc_get_class_reference ($1);
 		}
 	| TYPENAME
 		{
-		  $$ = get_class_reference ($1);
+		  $$ = objc_get_class_reference ($1);
 		}
 	;
 
@@ -3537,6 +3542,7 @@ static const struct resword reswords[] =
   { "void",		RID_VOID,	0 },
   { "volatile",		RID_VOLATILE,	0 },
   { "while",		RID_WHILE,	0 },
+
 @@ifobjc
   { "id",		RID_ID,			D_OBJC },
 
@@ -3807,7 +3813,7 @@ yylexname (void)
 @@ifobjc
   else
     {
-      tree objc_interface_decl = is_class_name (yylval.ttype);
+      tree objc_interface_decl = objc_is_class_name (yylval.ttype);
       /* ObjC class names are in the same namespace as variables and
 	 typedefs, and hence are shadowed by local declarations.  */
       if (objc_interface_decl

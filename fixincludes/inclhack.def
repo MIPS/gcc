@@ -1082,22 +1082,6 @@ fix = {
 
 
 /*
- *  Some releases of FreeBSD 4 and FreeBSD 5.0 and 5.1 system headers presume
- *  neither the existence of GCC 4 nor its exact feature set yet break
- *  (by design?) when __GNUC__ is set beyond 3.
- */
-fix = {
-    hackname  = freebsd_gcc4_breakage;
-    mach      = *-*-freebsd*; 
-    files     = sys/cdefs.h;
-    select    = '^#if __GNUC__ == 2 && __GNUC_MINOR__ >= 7 \|\| __GNUC__ == 3$';
-    c_fix     = format;
-    c_fix_arg = '#if __GNUC__ == 2 && __GNUC_MINOR__ >= 7 || __GNUC__ >= 3';
-    test_text = '#if __GNUC__ == 2 && __GNUC_MINOR__ >= 7 || __GNUC__ == 3';
-};
-
-
-/*
  * Fix these files to use the types we think they should for
  * ptrdiff_t, size_t, and wchar_t.
  *
@@ -1886,35 +1870,31 @@ fix = {
 };
 #endif
 
-/* 
- *  Remove header file warning from sys/time.h.  Autoconf's
- *  AC_HEADER_TIME recommends to include both sys/time.h and time.h
- *  which causes warning on LynxOS.  Remove the warning.
+
+/*
+ *  Delete the '#define void int' line from curses.h on Lynx
  */
 fix = {
-    hackname  = lynxos_no_warning_in_sys_time_h;
-    files     = sys/time.h;
-    select    = "#warning[ \t]+Using <time.h> instead of <sys/time.h>";
+    hackname  = lynx_void_int;
+    files     = curses.h;
+    select    = "#[ \t]*define[ \t]+void[ \t]+int[ \t]*";
     c_fix     = format;
     c_fix_arg = "";
-    test_text = "#warning Using <time.h> instead of <sys/time.h>";
+    test_text = "# define\tvoid\tint \t/* curses foiled again */";
 };
 
 
-/* 
- *  Add missing declaration for putenv.
+/*
+ *  Fix fcntl prototype in fcntl.h on LynxOS.
  */
 fix = {
-    hackname  = lynxos_missing_putenv;
-    mach      = '*-*-lynxos*';
-    files     = stdlib.h;
-    bypass    = 'putenv[ \t]*\\(';
-    select    = "extern char \\*getenv[ \t]*_AP\\(\\(const char \\*\\)\\);";
+    hackname  = lynxos_fcntl_proto;
+    files     = fcntl.h;
+    select    = "fcntl[ \t]*" '\(int, int, int\)';
     c_fix     = format;
-    c_fix_arg = "%0\n"
-        "extern int putenv				_AP((char *));";
-    c_fix_arg = "extern char \\*getenv[ \t]*_AP\\(\\(const char \\*\\)\\);";
-    test_text = "extern char *getenv	_AP((const char *));";
+    c_fix_arg = '%1...)';
+    c_fix_arg = "(fcntl[ \t]*" '\(int, int, )int\)';
+    test_text = "extern int fcntl(int, int, int);";
 };
 
 

@@ -93,6 +93,7 @@ static const char undocumented_msg[] = N_("This switch lacks documentation");
 static bool profile_arc_flag_set, flag_profile_values_set;
 static bool flag_unroll_loops_set, flag_tracer_set;
 static bool flag_value_profile_transformations_set;
+bool flag_speculative_prefetching_set;
 static bool flag_peel_loops_set, flag_branch_probabilities_set;
 
 /* Input file names.  */
@@ -1052,7 +1053,7 @@ decode_options (unsigned int argc, const char **argv)
       flag_tree_dom = 1;
       flag_tree_dse = 1;
       /* APPLE LOCAL begin lno */
-      flag_tree_lim = 1;
+      flag_tree_loop_im = 1;
       flag_ivcanon = 1;
       flag_ivopts = 1;
       flag_tree_vectorize = 0;
@@ -1211,9 +1212,7 @@ decode_options (unsigned int argc, const char **argv)
      work correctly with DWARF debugging turned on.  Until this is fixed
      we will disable the optimization when DWARF debugging is set.  */
   
-  if (flag_reorder_blocks_and_partition
-      && (write_symbols == DWARF_DEBUG
-	  || write_symbols == DWARF2_DEBUG))
+  if (flag_reorder_blocks_and_partition && write_symbols == DWARF2_DEBUG)
     {
       warning
 	("-freorder-blocks-and-partition does not work with -g (currently)");
@@ -1407,6 +1406,16 @@ common_handle_option (size_t scode, const char *arg, int value)
       pp_set_line_maximum_length (global_dc->printer, value);
       break;
 
+    case OPT_fpack_struct_:
+      if (value <= 0 || (value & (value - 1)) || value > 16)
+	error("structure alignment must be a small power of two, not %d", value);
+      else
+	{
+	  initial_max_fld_align = value;
+	  maximum_field_alignment = value * BITS_PER_UNIT;
+	}
+      break;
+
     case OPT_fpeel_loops:
       flag_peel_loops_set = true;
       break;
@@ -1431,6 +1440,10 @@ common_handle_option (size_t scode, const char *arg, int value)
         flag_tracer = value;
       if (!flag_value_profile_transformations_set)
         flag_value_profile_transformations = value;
+#ifdef HAVE_prefetch
+      if (!flag_speculative_prefetching_set)
+	flag_speculative_prefetching = value;
+#endif
       break;
 
     /* APPLE LOCAL begin add fcreate-profile */
@@ -1443,6 +1456,10 @@ common_handle_option (size_t scode, const char *arg, int value)
         flag_profile_values = value;
       if (!flag_value_profile_transformations_set)
         flag_value_profile_transformations = value;
+#ifdef HAVE_prefetch
+      if (!flag_speculative_prefetching_set)
+	flag_speculative_prefetching = value;
+#endif
       break;
 
     case OPT_fprofile_values:
@@ -1465,7 +1482,11 @@ common_handle_option (size_t scode, const char *arg, int value)
       break;
 
     case OPT_fvpt:
-      flag_value_profile_transformations_set = value;
+      flag_value_profile_transformations_set = true;
+      break;
+
+    case OPT_fspeculative_prefetching:
+      flag_speculative_prefetching_set = true;
       break;
 
     case OPT_frandom_seed:

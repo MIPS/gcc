@@ -402,6 +402,9 @@ do {									\
    ? GENERAL_REGS						\
    : (CLASS))
 
+/* MERGE FIXME - This needs resolution... */
+#if 1
+/* This is the old version, below is the new version, Fariborz needs to resolve this.  */
 /* APPLE LOCAL begin Macintosh alignment 2002-2-26 --ff */
 /* This now supports the Macintosh power, mac68k, and natural 
    alignment modes.  It now has one more parameter than the standard 
@@ -441,6 +444,32 @@ extern unsigned round_type_align (union tree_node*, unsigned, unsigned); /* rs60
 #define LOCAL_ALIGNMENT(TYPE, ALIGN)	(MAX ((unsigned) ALIGN,	\
 					      TYPE_ALIGN (TYPE)))
 /* APPLE LOCAL end alignment */
+#else
+/* Fix for emit_group_load (): force large constants to be pushed via regs.  */
+#define ALWAYS_PUSH_CONSTS_USING_REGS_P		1
+
+/* This now supports a natural alignment mode */
+/* Darwin word-aligns FP doubles but doubleword-aligns 64-bit ints.  */
+#define ADJUST_FIELD_ALIGN(FIELD, COMPUTED) \
+  (TARGET_ALIGN_NATURAL ? (COMPUTED) : \
+  (TYPE_MODE (TREE_CODE (TREE_TYPE (FIELD)) == ARRAY_TYPE \
+	      ? get_inner_array_type (FIELD) \
+	      : TREE_TYPE (FIELD)) == DFmode \
+   ? MIN ((COMPUTED), 32) : (COMPUTED)))
+
+/* Darwin increases natural record alignment to doubleword if the first
+   field is an FP double while the FP fields remain word aligned.  */
+#define ROUND_TYPE_ALIGN(STRUCT, COMPUTED, SPECIFIED)			\
+  ((TREE_CODE (STRUCT) == RECORD_TYPE					\
+    || TREE_CODE (STRUCT) == UNION_TYPE					\
+    || TREE_CODE (STRUCT) == QUAL_UNION_TYPE)				\
+   && TARGET_ALIGN_NATURAL == 0                         		\
+   ? rs6000_special_round_type_align (STRUCT, COMPUTED, SPECIFIED)	\
+   : (TREE_CODE (STRUCT) == VECTOR_TYPE					\
+      && ALTIVEC_VECTOR_MODE (TYPE_MODE (STRUCT))) 			\
+   ? MAX (MAX ((COMPUTED), (SPECIFIED)), 128)          			 \
+   : MAX ((COMPUTED), (SPECIFIED)))
+#endif
 
 /* XXX: Darwin supports neither .quad, or .llong, but it also doesn't
    support 64 bit PowerPC either, so this just keeps things happy.  */

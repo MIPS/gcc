@@ -209,7 +209,8 @@ struct tree_opt_pass pass_build_cfg =
   PROP_cfg,				/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_verify_stmts			/* todo_flags_finish */
+  TODO_verify_stmts,			/* todo_flags_finish */
+  0					/* letter */
 };
 
 /* Search the CFG for any computed gotos.  If found, factor them to a 
@@ -1649,7 +1650,8 @@ struct tree_opt_pass pass_remove_useless_stmts =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func			/* todo_flags_finish */
+  TODO_dump_func,			/* todo_flags_finish */
+  0					/* letter */
 };
 
 
@@ -1740,10 +1742,14 @@ cfg_remove_useless_stmts_bb (basic_block bb)
 	  continue;
 	}
 
-      /* Invalidate the var if we encounter something that could modify it.  */
+      /* Invalidate the var if we encounter something that could modify it.
+	 Likewise for the value it was previously set to.  Note that we only
+	 consider values that are either a VAR_DECL or PARM_DECL so we
+	 can test for conflict very simply.  */
       if (TREE_CODE (stmt) == ASM_EXPR
 	  || (TREE_CODE (stmt) == MODIFY_EXPR
-	      && TREE_OPERAND (stmt, 0) == var))
+	      && (TREE_OPERAND (stmt, 0) == var
+		  || TREE_OPERAND (stmt, 0) == val)))
 	return;
   
       bsi_next (&bsi);
@@ -2003,7 +2009,7 @@ cleanup_control_expr_graph (basic_block bb, block_stmt_iterator bsi)
 
 /* Given a control block BB and a predicate VAL, return the edge that
    will be taken out of the block.  If VAL does not match a unique
-   edge, NULL is returned. */
+   edge, NULL is returned.  */
 
 edge
 find_taken_edge (basic_block bb, tree val)
@@ -2734,11 +2740,10 @@ set_bb_for_stmt (tree t, basic_block bb)
     }
 }
 
-/* APPLE LOCAL begin lno */
 /* Finds iterator for STMT.  */
 
 extern block_stmt_iterator
-stmt_bsi (tree stmt)
+stmt_for_bsi (tree stmt)
 {
   block_stmt_iterator bsi;
 
@@ -2748,7 +2753,6 @@ stmt_bsi (tree stmt)
 
   abort ();
 }
-/* APPLE LOCAL end lno */
 
 /* Insert statement (or statement list) T before the statement
    pointed-to by iterator I.  M specifies how to update iterator I
@@ -2862,12 +2866,10 @@ bsi_replace (const block_stmt_iterator *bsi, tree stmt, bool preserve_eh_info)
    or false if it should be done before the location.  If new basic block
    has to be created, it is stored in *NEW_BB.  */
 
-/* APPLE LOCAL begin lno */
 static bool
 tree_find_edge_insert_loc (edge e, block_stmt_iterator *bsi,
 			   basic_block *new_bb)
 {
-/* APPLE LOCAL end lno */
   basic_block dest, src;
   tree tmp;
 
@@ -2943,10 +2945,8 @@ tree_find_edge_insert_loc (edge e, block_stmt_iterator *bsi,
 
   /* Otherwise, create a new basic block, and split this edge.  */
   dest = split_edge (e);
-  /* APPLE LOCAL begin lno */
   if (new_bb)
     *new_bb = dest;
-  /* APPLE LOCAL end lno */
   e = dest->pred;
   goto restart;
 }
@@ -2990,7 +2990,6 @@ bsi_commit_edge_inserts_1 (edge e)
 
       PENDING_STMT (e) = NULL_TREE;
 
-      /* APPLE LOCAL lno */
       if (tree_find_edge_insert_loc (e, &bsi, NULL))
 	bsi_insert_after (&bsi, stmt, BSI_NEW_STMT);
       else
@@ -3008,7 +3007,6 @@ bsi_insert_on_edge (edge e, tree stmt)
   append_to_statement_list (stmt, &PENDING_STMT (e));
 }
 
-/* APPLE LOCAL begin lno */
 /* Similar to bsi_insert_on_edge+bsi_commit_edge_inserts.  If new block has to
    be created, it is returned.  */
 
@@ -3028,8 +3026,6 @@ bsi_insert_on_edge_immediate (edge e, tree stmt)
 
   return new_bb;
 }
-/* APPLE LOCAL end lno */
-
 
 /*---------------------------------------------------------------------------
 	     Tree specific functions for CFG manipulation
@@ -4301,11 +4297,8 @@ tree_duplicate_bb (basic_block bb)
 {
   basic_block new_bb;
   block_stmt_iterator bsi, bsi_tgt;
-  tree phi;
-  def_optype defs;
-  v_may_def_optype v_may_defs;
-  v_must_def_optype v_must_defs;
-  unsigned j;
+  tree phi, val;
+  ssa_op_iter op_iter;
 
   new_bb = create_empty_bb (EXIT_BLOCK_PTR->prev_bb);
 
@@ -4333,17 +4326,8 @@ tree_duplicate_bb (basic_block bb)
       /* Record the definitions.  */
       get_stmt_operands (stmt);
 
-      defs = STMT_DEF_OPS (stmt);
-      for (j = 0; j < NUM_DEFS (defs); j++)
-	mark_for_rewrite (DEF_OP (defs, j));
-
-      v_may_defs = STMT_V_MAY_DEF_OPS (stmt);
-      for (j = 0; j < NUM_V_MAY_DEFS (v_may_defs); j++)
-	mark_for_rewrite (V_MAY_DEF_RESULT (v_may_defs, j));
-
-      v_must_defs = STMT_V_MUST_DEF_OPS (stmt);
-      for (j = 0; j < NUM_V_MUST_DEFS (v_must_defs); j++)
-	mark_for_rewrite (V_MUST_DEF_OP (v_must_defs, j));
+      FOR_EACH_SSA_TREE_OPERAND (val, stmt, op_iter, SSA_OP_ALL_DEFS)
+	mark_for_rewrite (val);
 
       copy = unshare_expr (stmt);
 
@@ -4412,56 +4396,78 @@ collect_defs (basic_block *bbs, unsigned n_bbs)
   return ret;
 }
 
+/* APPLE LOCAL begin lno */
+/* Basic block BB_COPY was created by code duplication.  Add phi node
+   arguments for edges going out of BB_COPY.  The blocks that were
+   duplicated have rbi->duplicated set to one.  */
+
+void
+add_phi_args_after_copy_bb (basic_block bb_copy)
+{
+  basic_block bb, dest;
+  edge e, e_copy;
+  tree phi, phi_copy, phi_next, def;
+      
+  bb = bb_copy->rbi->original;
+
+  for (e_copy = bb_copy->succ; e_copy; e_copy = e_copy->succ_next)
+    {
+      if (!phi_nodes (e_copy->dest))
+	continue;
+
+      if (e_copy->dest->rbi->duplicated)
+	dest = e_copy->dest->rbi->original;
+      else
+	dest = e_copy->dest;
+
+      e = find_edge (bb, dest);
+      if (!e)
+	{
+	  /* During loop unrolling the target of the latch edge is copied.
+	     In this case we are not looking for edge to dest, but to
+	     duplicated block whose original was dest.  */
+	  for (e = bb->succ; e; e = e->succ_next)
+	    if (e->dest->rbi->duplicated
+		&& e->dest->rbi->original == dest)
+	      break;
+
+	  if (!e)
+	    abort ();
+	}
+
+      for (phi = phi_nodes (e->dest), phi_copy = phi_nodes (e_copy->dest);
+	   phi;
+	   phi = phi_next, phi_copy = TREE_CHAIN (phi_copy))
+	{
+	  phi_next = TREE_CHAIN (phi);
+
+	  if (PHI_RESULT (phi) != PHI_RESULT (phi_copy))
+	    abort ();
+	  def = PHI_ARG_DEF_FROM_EDGE (phi, e);
+	  add_phi_arg (&phi_copy, def, e_copy);
+	}
+    }
+}
+
 /* Blocks in REGION_COPY array of length N_REGION were created by
    duplication of basic blocks.  Add phi node arguments for edges
    going from these blocks.  */
 
-static void
+void
 add_phi_args_after_copy (basic_block *region_copy, unsigned n_region)
 {
-  basic_block bb, bb_copy;
-  edge e, e_copy;
-  tree phi, phi_copy, phi_next, def;
   unsigned i;
 
   for (i = 0; i < n_region; i++)
     region_copy[i]->rbi->duplicated = 1;
 
   for (i = 0; i < n_region; i++)
-    {
-      bb_copy = region_copy[i];
-      bb = bb_copy->rbi->original;
-
-      for (e_copy = bb_copy->succ; e_copy; e_copy = e_copy->succ_next)
-	{
-	  if (!phi_nodes (e_copy->dest))
-	    continue;
-
-	  if (e_copy->dest->rbi->duplicated)
-	    e = find_edge (bb, e_copy->dest->rbi->original);
-	  else
-	    e = find_edge (bb, e_copy->dest);
-
-	  if (!e)
-	    abort ();
-
-	  for (phi = phi_nodes (e->dest), phi_copy = phi_nodes (e_copy->dest);
-	       phi;
-	       phi = phi_next, phi_copy = TREE_CHAIN (phi_copy))
-	    {
-	      phi_next = TREE_CHAIN (phi);
-
-	      if (PHI_RESULT (phi) != PHI_RESULT (phi_copy))
-		abort ();
-	      def = PHI_ARG_DEF_FROM_EDGE (phi, e);
-	      add_phi_arg (&phi_copy, def, e_copy);
-	    }
-	}
-    }
+    add_phi_args_after_copy_bb (region_copy[i]);
 
   for (i = 0; i < n_region; i++)
     region_copy[i]->rbi->duplicated = 0;
 }
+/* APPLE LOCAL end lno */
 
 /* Maps the old ssa name FROM_NAME to TO_NAME.  */
 
@@ -4490,21 +4496,25 @@ ssa_name_map_entry_eq (const void *in_table, const void *ssa_name)
   return en->from_name == ssa_name;
 }
 
+/* APPLE LOCAL begin lno */
 /* Allocate duplicates of ssa names in list DEFINITIONS and store the mapping
    to MAP.  */
 
-static void
-allocate_ssa_names (bitmap definitions, htab_t map)
+void
+allocate_ssa_names (bitmap definitions, htab_t *map)
 {
   tree name;
   struct ssa_name_map_entry *entry;
   PTR *slot;
   unsigned ver;
 
+  if (!*map)
+    *map = htab_create (10, ssa_name_map_entry_hash,
+			ssa_name_map_entry_eq, free);
   EXECUTE_IF_SET_IN_BITMAP (definitions, 0, ver,
     {
       name = ssa_name (ver);
-      slot = htab_find_slot_with_hash (map, name, SSA_NAME_VERSION (name),
+      slot = htab_find_slot_with_hash (*map, name, SSA_NAME_VERSION (name),
 				       INSERT);
       if (*slot)
 	entry = *slot;
@@ -4517,6 +4527,7 @@ allocate_ssa_names (bitmap definitions, htab_t map)
       entry->to_name = duplicate_ssa_name (name, SSA_NAME_DEF_STMT (name));
     });
 }
+/* APPLE LOCAL end lno */
 
 /* Rewrite the definition DEF in statement STMT to new ssa name as specified
    by the mapping MAP.  */
@@ -4556,14 +4567,14 @@ rewrite_to_new_ssa_names_use (use_operand_p use, htab_t map)
   SET_USE (use, entry->to_name);
 }
 
-/* Rewrite the ssa names in N_REGION blocks REGION to the new ones as specified
-   by the mapping MAP.  */
+/* APPLE LOCAL begin lno */
+/* Rewrite the ssa names in basic block BB to new ones as specified by the
+   mapping MAP.  */
 
-static void
-rewrite_to_new_ssa_names (basic_block *region, unsigned n_region, htab_t map)
+void
+rewrite_to_new_ssa_names_bb (basic_block bb, htab_t map)
 {
-  basic_block bb;
-  unsigned i, r;
+  unsigned i;
   edge e;
   tree phi, stmt;
   block_stmt_iterator bsi;
@@ -4574,68 +4585,76 @@ rewrite_to_new_ssa_names (basic_block *region, unsigned n_region, htab_t map)
   v_must_def_optype v_must_defs;
   stmt_ann_t ann;
 
-  for (r = 0; r < n_region; r++)
+  for (e = bb->pred; e; e = e->pred_next)
+    if (e->flags & EDGE_ABNORMAL)
+      break;
+
+  for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
     {
-      bb = region[r];
-
-      for (e = bb->pred; e; e = e->pred_next)
-	if (e->flags & EDGE_ABNORMAL)
-	  break;
-
-      for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
-	{
-	  rewrite_to_new_ssa_names_def (PHI_RESULT_PTR (phi), phi, map);
-	  if (e)
-	    SSA_NAME_OCCURS_IN_ABNORMAL_PHI (PHI_RESULT (phi)) = 1;
-	}
-
-      for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
-	{
-	  stmt = bsi_stmt (bsi);
-	  get_stmt_operands (stmt);
-	  ann = stmt_ann (stmt);
-
-	  uses = USE_OPS (ann);
-	  for (i = 0; i < NUM_USES (uses); i++)
-	    rewrite_to_new_ssa_names_use (USE_OP_PTR (uses, i), map);
-
-	  defs = DEF_OPS (ann);
-	  for (i = 0; i < NUM_DEFS (defs); i++)
-	    rewrite_to_new_ssa_names_def (DEF_OP_PTR (defs, i), stmt, map);
-
-	  vuses = VUSE_OPS (ann);
-	  for (i = 0; i < NUM_VUSES (vuses); i++)
-	    rewrite_to_new_ssa_names_use (VUSE_OP_PTR (vuses, i), map);
-
-	  v_may_defs = V_MAY_DEF_OPS (ann);
-	  for (i = 0; i < NUM_V_MAY_DEFS (v_may_defs); i++)
-	    {
-	      rewrite_to_new_ssa_names_use
-		      (V_MAY_DEF_OP_PTR (v_may_defs, i), map);
-	      rewrite_to_new_ssa_names_def
-		      (V_MAY_DEF_RESULT_PTR (v_may_defs, i), stmt, map);
-	    }
-
-	  v_must_defs = V_MUST_DEF_OPS (ann);
-	  for (i = 0; i < NUM_V_MUST_DEFS (v_must_defs); i++)
-	    rewrite_to_new_ssa_names_def
-		    (V_MUST_DEF_OP_PTR (v_must_defs, i), stmt, map);
-	}
-
-      for (e = bb->succ; e; e = e->succ_next)
-	for (phi = phi_nodes (e->dest); phi; phi = TREE_CHAIN (phi))
-	  {
-	    rewrite_to_new_ssa_names_use
-		    (PHI_ARG_DEF_PTR_FROM_EDGE (phi, e), map);
-
-	    if (e->flags & EDGE_ABNORMAL)
-	      {
-		tree op = PHI_ARG_DEF_FROM_EDGE (phi, e);
-		SSA_NAME_OCCURS_IN_ABNORMAL_PHI (op) = 1;
-	      }
-	  }
+      rewrite_to_new_ssa_names_def (PHI_RESULT_PTR (phi), phi, map);
+      if (e)
+	SSA_NAME_OCCURS_IN_ABNORMAL_PHI (PHI_RESULT (phi)) = 1;
     }
+
+  for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+    {
+      stmt = bsi_stmt (bsi);
+      get_stmt_operands (stmt);
+      ann = stmt_ann (stmt);
+
+      uses = USE_OPS (ann);
+      for (i = 0; i < NUM_USES (uses); i++)
+	rewrite_to_new_ssa_names_use (USE_OP_PTR (uses, i), map);
+
+      defs = DEF_OPS (ann);
+      for (i = 0; i < NUM_DEFS (defs); i++)
+	rewrite_to_new_ssa_names_def (DEF_OP_PTR (defs, i), stmt, map);
+
+      vuses = VUSE_OPS (ann);
+      for (i = 0; i < NUM_VUSES (vuses); i++)
+	rewrite_to_new_ssa_names_use (VUSE_OP_PTR (vuses, i), map);
+
+      v_may_defs = V_MAY_DEF_OPS (ann);
+      for (i = 0; i < NUM_V_MAY_DEFS (v_may_defs); i++)
+	{
+	  rewrite_to_new_ssa_names_use
+		  (V_MAY_DEF_OP_PTR (v_may_defs, i), map);
+	  rewrite_to_new_ssa_names_def
+		  (V_MAY_DEF_RESULT_PTR (v_may_defs, i), stmt, map);
+	}
+
+      v_must_defs = V_MUST_DEF_OPS (ann);
+      for (i = 0; i < NUM_V_MUST_DEFS (v_must_defs); i++)
+	rewrite_to_new_ssa_names_def
+		(V_MUST_DEF_OP_PTR (v_must_defs, i), stmt, map);
+    }
+
+  for (e = bb->succ; e; e = e->succ_next)
+    for (phi = phi_nodes (e->dest); phi; phi = TREE_CHAIN (phi))
+      {
+	rewrite_to_new_ssa_names_use
+		(PHI_ARG_DEF_PTR_FROM_EDGE (phi, e), map);
+
+	if (e->flags & EDGE_ABNORMAL)
+	  {
+	    tree op = PHI_ARG_DEF_FROM_EDGE (phi, e);
+	    SSA_NAME_OCCURS_IN_ABNORMAL_PHI (op) = 1;
+	  }
+      }
 }
+
+/* Rewrite the ssa names in N_REGION blocks REGION to the new ones as specified
+   by the mapping MAP.  */
+
+void
+rewrite_to_new_ssa_names (basic_block *region, unsigned n_region, htab_t map)
+{
+  unsigned r;
+
+  for (r = 0; r < n_region; r++)
+    rewrite_to_new_ssa_names_bb (region[r], map);
+}
+/* APPLE LOCAL end lno */
 
 /* Duplicates a REGION (set of N_REGION basic blocks) with just a single
    important exit edge EXIT.  By important we mean that no SSA name defined
@@ -4659,7 +4678,8 @@ tree_duplicate_sese_region (edge entry, edge exit,
   bitmap definitions;
   tree phi, var;
   basic_block *doms, dom;
-  htab_t ssa_name_map;
+  /* APPLE LOCAL lno */
+  htab_t ssa_name_map = NULL;
 
   if (!can_copy_bbs_p (region, n_region))
     return false;
@@ -4768,13 +4788,13 @@ tree_duplicate_sese_region (edge entry, edge exit,
      have immediate uses, it might be better to leave definitions in region
      unchanged, create new ssa names for phi nodes on exit, and rewrite
      the uses, to avoid changing the copied region.  */
-  ssa_name_map = htab_create (10, ssa_name_map_entry_hash,
-			      ssa_name_map_entry_eq, free);
-  allocate_ssa_names (definitions, ssa_name_map);
+  /* APPLE LOCAL begin lno */
+  allocate_ssa_names (definitions, &ssa_name_map);
   rewrite_to_new_ssa_names (region, n_region, ssa_name_map);
-  allocate_ssa_names (definitions, ssa_name_map);
+  allocate_ssa_names (definitions, &ssa_name_map);
   rewrite_to_new_ssa_names (region_copy, n_region, ssa_name_map);
   htab_delete (ssa_name_map);
+  /* APPLE LOCAL end lno */
 
   if (free_region_copy)
     free (region_copy);
@@ -5284,7 +5304,8 @@ struct tree_opt_pass pass_split_crit_edges =
   PROP_no_crit_edges,            /* properties_provided */
   0,                             /* properties_destroyed */
   0,                             /* todo_flags_start */
-  TODO_dump_func,                             /* todo_flags_finish */
+  TODO_dump_func,                /* todo_flags_finish */
+  0                              /* letter */
 };
 
 
@@ -5478,7 +5499,8 @@ struct tree_opt_pass pass_warn_function_return =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  0					/* todo_flags_finish */
+  0,					/* todo_flags_finish */
+  0					/* letter */
 };
 
 #include "gt-tree-cfg.h"

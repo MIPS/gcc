@@ -451,16 +451,17 @@ pop_binding (tree id, tree decl)
   binding = IDENTIFIER_BINDING (id);
 
   /* The name should be bound.  */
-  my_friendly_assert (binding != NULL, 0);
+  gcc_assert (binding != NULL);
 
   /* The DECL will be either the ordinary binding or the type
      binding for this identifier.  Remove that binding.  */
   if (binding->value == decl)
     binding->value = NULL_TREE;
-  else if (binding->type == decl)
-    binding->type = NULL_TREE;
   else
-    abort ();
+    {
+      gcc_assert (binding->type == decl);
+      binding->type = NULL_TREE;
+    }
 
   if (!binding->value && !binding->type)
     {
@@ -745,10 +746,7 @@ pushdecl (tree x)
 	    }
 	  else if (TREE_CODE (t) == PARM_DECL)
 	    {
-	      if (DECL_CONTEXT (t) == NULL_TREE)
-		/* This is probably caused by too many errors, but calling
-		   abort will say that if errors have occurred.  */
-		abort ();
+	      gcc_assert (DECL_CONTEXT (t));
 
 	      /* Check for duplicate params.  */
 	      if (duplicate_decls (x, t))
@@ -850,7 +848,7 @@ pushdecl (tree x)
 		       || TYPE_NAME (type) != DECL_ABSTRACT_ORIGIN (x)))
             {
 	      DECL_ORIGINAL_TYPE (x) = type;
-              type = build_type_copy (type);
+              type = build_variant_type_copy (type);
 	      TYPE_STUB_DECL (type) = TYPE_STUB_DECL (DECL_ORIGINAL_TYPE (x));
               TYPE_NAME (type) = x;
               TREE_TYPE (x) = type;
@@ -1345,7 +1343,7 @@ begin_scope (scope_kind kind, tree entity)
 
     default:
       /* Should not happen.  */
-      my_friendly_assert (false, 20030922);
+      gcc_unreachable ();
       break;
     }
   scope->kind = kind;
@@ -1368,7 +1366,7 @@ leave_scope (void)
 
   /* We cannot leave a scope, if there are none left.  */
   if (NAMESPACE_LEVEL (global_namespace))
-    my_friendly_assert (!global_scope_p (scope), 20030527);
+    gcc_assert (!global_scope_p (scope));
   
   if (ENABLE_SCOPE_CHECKING)
     {
@@ -1398,9 +1396,8 @@ leave_scope (void)
         scope->type_decls = NULL;
       else
         binding_table_free (scope->type_decls);
-      my_friendly_assert (!ENABLE_SCOPE_CHECKING
-                          || scope->binding_depth == binding_depth,
-                          20030529);
+      gcc_assert (!ENABLE_SCOPE_CHECKING
+		  || scope->binding_depth == binding_depth);
       free_binding_level = scope;
     }
 
@@ -1420,9 +1417,9 @@ resume_scope (struct cp_binding_level* b)
 {
   /* Resuming binding levels is meant only for namespaces,
      and those cannot nest into classes.  */
-  my_friendly_assert(!class_binding_level, 386);
+  gcc_assert (!class_binding_level);
   /* Also, resuming a non-directly nested namespace is a no-no.  */
-  my_friendly_assert(b->level_chain == current_binding_level, 386);
+  gcc_assert (b->level_chain == current_binding_level);
   current_binding_level = b;
   if (ENABLE_SCOPE_CHECKING)
     {
@@ -1760,15 +1757,12 @@ set_identifier_type_value_with_scope (tree id, tree decl, cxx_scope *b)
     {
       cxx_binding *binding =
 	binding_for_name (NAMESPACE_LEVEL (current_namespace), id);
-      if (decl)
-	{
-	  if (binding->value)
-	    supplement_binding (binding, decl);
-	  else
-	    binding->value = decl;
-	}
+      gcc_assert (decl);
+      if (binding->value)
+	supplement_binding (binding, decl);
       else
-	abort ();
+	binding->value = decl;
+      
       /* Store marker instead of real type.  */
       type = global_type_node;
     }
@@ -1929,8 +1923,8 @@ push_using_decl (tree scope, tree name)
   tree decl;
 
   timevar_push (TV_NAME_LOOKUP);
-  my_friendly_assert (TREE_CODE (scope) == NAMESPACE_DECL, 383);
-  my_friendly_assert (TREE_CODE (name) == IDENTIFIER_NODE, 384);
+  gcc_assert (TREE_CODE (scope) == NAMESPACE_DECL);
+  gcc_assert (TREE_CODE (name) == IDENTIFIER_NODE);
   for (decl = current_binding_level->usings; decl; decl = TREE_CHAIN (decl))
     if (DECL_INITIAL (decl) == scope && DECL_NAME (decl) == name)
       break;
@@ -2099,7 +2093,7 @@ push_overloaded_decl (tree decl, int flags)
 	      }
 
 	  /* We should always find a previous binding in this case.  */
-	  abort ();
+	  gcc_unreachable ();
 	}
 
       /* Install the new binding.  */
@@ -2151,7 +2145,7 @@ validate_nonmember_using_decl (tree decl, tree scope, tree name)
   if (is_overloaded_fn (decl))
     decl = get_first_fn (decl);
 
-  my_friendly_assert (DECL_P (decl), 20020908);
+  gcc_assert (DECL_P (decl));
 
   /* Make a USING_DECL.  */
   return push_using_decl (scope, name);
@@ -2517,12 +2511,11 @@ lookup_tag_reverse (tree type, tree name)
 bool
 is_ancestor (tree root, tree child)
 {
-  my_friendly_assert ((TREE_CODE (root) == NAMESPACE_DECL
-		       || TREE_CODE (root) == FUNCTION_DECL
-		       || CLASS_TYPE_P (root)), 20030307);
-  my_friendly_assert ((TREE_CODE (child) == NAMESPACE_DECL
-		       || CLASS_TYPE_P (child)),
-		      20030307);
+  gcc_assert ((TREE_CODE (root) == NAMESPACE_DECL
+	       || TREE_CODE (root) == FUNCTION_DECL
+	       || CLASS_TYPE_P (root)));
+  gcc_assert ((TREE_CODE (child) == NAMESPACE_DECL
+	       || CLASS_TYPE_P (child)));
   
   /* The global namespace encloses everything.  */
   if (root == global_namespace)
@@ -2602,7 +2595,7 @@ poplevel_class (void)
   tree shadowed;
 
   timevar_push (TV_NAME_LOOKUP);
-  my_friendly_assert (level != 0, 354);
+  gcc_assert (level != 0);
 
   /* If we're leaving a toplevel class, cache its binding level.  */
   if (current_class_depth == 1)
@@ -2648,7 +2641,7 @@ set_inherited_value_binding_p (cxx_binding *binding, tree decl,
 	context = CP_DECL_CONTEXT (OVL_CURRENT (decl));
       else
 	{
-	  my_friendly_assert (DECL_P (decl), 0);
+	  gcc_assert (DECL_P (decl));
 	  context = context_for_name_lookup (decl);
 	}
 
@@ -2786,7 +2779,7 @@ push_class_level_binding (tree name, tree x)
     POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, true);
 
   /* Check for invalid member names.  */
-  my_friendly_assert (TYPE_BEING_DEFINED (current_class_type), 20040713);
+  gcc_assert (TYPE_BEING_DEFINED (current_class_type));
   /* We could have been passed a tree list if this is an ambiguous
      declaration. If so, pull the declaration out because
      check_template_shadow will not handle a TREE_LIST. */
@@ -2940,7 +2933,7 @@ do_class_using_decl (tree decl)
       name = DECL_NAME (get_first_fn (fns));
     }
 
-  my_friendly_assert (TREE_CODE (name) == IDENTIFIER_NODE, 980716);
+  gcc_assert (TREE_CODE (name) == IDENTIFIER_NODE);
 
   /* Dependent using decls have a NULL type, non-dependent ones have a
      void type.  */
@@ -3085,8 +3078,7 @@ push_namespace (tree name)
   /* We should not get here if the global_namespace is not yet constructed
      nor if NAME designates the global namespace:  The global scope is
      constructed elsewhere.  */
-  my_friendly_assert (global_namespace != NULL && name != global_scope_name,
-                      20030531);
+  gcc_assert (global_namespace != NULL && name != global_scope_name);
 
   if (anon)
     {
@@ -3147,7 +3139,7 @@ push_namespace (tree name)
 void
 pop_namespace (void)
 {
-  my_friendly_assert (current_namespace != global_namespace, 20010801);
+  gcc_assert (current_namespace != global_namespace);
   current_namespace = CP_DECL_CONTEXT (current_namespace);
   /* The binding level is not popped, as it might be re-opened later.  */
   leave_scope ();
@@ -3301,8 +3293,8 @@ add_using_namespace (tree user, tree used, bool indirect)
       timevar_pop (TV_NAME_LOOKUP);
       return;
     }
-  my_friendly_assert (TREE_CODE (user) == NAMESPACE_DECL, 380);
-  my_friendly_assert (TREE_CODE (used) == NAMESPACE_DECL, 380);
+  gcc_assert (TREE_CODE (user) == NAMESPACE_DECL);
+  gcc_assert (TREE_CODE (used) == NAMESPACE_DECL);
   /* Check if we already have this.  */
   t = purpose_member (used, DECL_NAMESPACE_USING (user));
   if (t != NULL_TREE)
@@ -3523,7 +3515,7 @@ ambiguous_decl (tree name, struct scope_binding *old, cxx_binding *new,
 		int flags)
 {
   tree val, type;
-  my_friendly_assert (old != NULL, 393);
+  gcc_assert (old != NULL);
   /* Copy the value.  */
   val = new->value;
   if (val)
@@ -3646,7 +3638,7 @@ lookup_namespace_name (tree namespace, tree name)
   struct scope_binding binding = EMPTY_SCOPE_BINDING;
 
   timevar_push (TV_NAME_LOOKUP);
-  my_friendly_assert (TREE_CODE (namespace) == NAMESPACE_DECL, 370);
+  gcc_assert (TREE_CODE (namespace) == NAMESPACE_DECL);
 
   if (TREE_CODE (name) == NAMESPACE_DECL)
     /* This happens for A::B<int> when B is a namespace.  */
@@ -3671,7 +3663,7 @@ lookup_namespace_name (tree namespace, tree name)
 	name = DECL_NAME (name);
     }
 
-  my_friendly_assert (TREE_CODE (name) == IDENTIFIER_NODE, 373);
+  gcc_assert (TREE_CODE (name) == IDENTIFIER_NODE);
 
   if (!qualified_lookup_using_namespace (name, namespace, &binding, 0))
     POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, error_mark_node);
@@ -4181,8 +4173,7 @@ lookup_type_current_level (tree name)
   tree t = NULL_TREE;
 
   timevar_push (TV_NAME_LOOKUP);
-  my_friendly_assert (current_binding_level->kind != sk_namespace, 
-		      980716);
+  gcc_assert (current_binding_level->kind != sk_namespace);
 
   if (REAL_IDENTIFIER_TYPE_VALUE (name) != NULL_TREE
       && REAL_IDENTIFIER_TYPE_VALUE (name) != global_type_node)
@@ -4480,11 +4471,10 @@ arg_assoc_type (struct arg_lookup *k, tree type)
     case TYPENAME_TYPE:
       return false;
     case LANG_TYPE:
-      if (type == unknown_type_node)
-	return false;
-      /* else fall through */
+      gcc_assert (type == unknown_type_node);
+      return false;
     default:
-      abort ();
+      gcc_unreachable ();
     }
   return false;
 }
@@ -4668,9 +4658,7 @@ maybe_process_template_type_declaration (tree type, int globalize,
     {
       maybe_check_template_type (type);
 
-      my_friendly_assert (IS_AGGR_TYPE (type)
-			  || TREE_CODE (type) == ENUMERAL_TYPE, 0);
-
+      gcc_assert (IS_AGGR_TYPE (type) || TREE_CODE (type) == ENUMERAL_TYPE);
 
       if (processing_template_decl)
 	{

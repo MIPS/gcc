@@ -135,6 +135,7 @@ struct language_function GTY(())
   tree x_break_label;
   tree x_cont_label;
   struct c_switch * GTY((skip)) x_switch_stack;
+  tree arg_info;
   int returns_value;
   int returns_null;
   int returns_abnormally;
@@ -178,8 +179,10 @@ extern void finish_function (void);
 extern tree finish_struct (tree, tree, tree);
 extern tree get_parm_info (bool);
 extern tree grokfield (tree, tree, tree);
+extern void split_specs_attrs (tree, tree *, tree *);
 extern tree groktypename (tree);
 extern tree groktypename_in_parm_context (tree);
+extern tree grokparm (tree);
 extern tree implicitly_declare (tree);
 extern void keep_next_level (void);
 extern tree lookup_name (tree);
@@ -198,6 +201,7 @@ extern int  start_function (tree, tree, tree);
 extern tree start_decl (tree, tree, bool, tree);
 extern tree start_struct (enum tree_code, tree);
 extern void store_parm_decls (void);
+extern void store_parm_decls_from (tree);
 extern tree xref_tag (enum tree_code, tree);
 extern int c_expand_decl (tree);
 extern tree build_c_parm (tree, tree, tree);
@@ -221,8 +225,6 @@ extern void c_initialize_diagnostics (diagnostic_context *);
   c_build_qualified_type ((TYPE),				  \
 			  ((CONST_P) ? TYPE_QUAL_CONST : 0) |	  \
 			  ((VOLATILE_P) ? TYPE_QUAL_VOLATILE : 0))
-
-#define c_sizeof_nowarn(T)  c_sizeof_or_alignof_type (T, SIZEOF_EXPR, 0)
 
 /* APPLE LOCAL begin new tree dump */
 /* in c-dmp-tree.c */
@@ -290,7 +292,6 @@ extern tree c_finish_return (tree);
 extern tree c_finish_bc_stmt (tree *, bool);
 extern tree c_finish_goto_label (tree);
 extern tree c_finish_goto_ptr (tree);
-extern tree build_offsetof (tree, tree);
 
 /* APPLE LOCAL begin CW asm blocks */
 extern tree get_structure_offset (tree, tree);
@@ -326,8 +327,6 @@ extern bool c_eh_initialized_p;
 
 /* In c-decl.c */
 extern void c_finish_incomplete_decl (tree);
-extern void *get_current_scope (void);
-extern void objc_mark_locals_volatile (void *);
 extern void c_write_global_declarations (void);
 
 /* In order for the format checking to accept the C frontend

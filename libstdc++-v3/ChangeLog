@@ -1,3 +1,189 @@
+2004-09-03  Jan Beulich  <jbeulich@novell.com>
+
+	* crossconfig.m4: Add NetWare as a target.
+	* configure: Regenerate.
+
+2004-09-02  Mark Mitchell  <mark@codesourcery.com>
+
+	* libsupc++/typeinfo: Honor __GXX_MERGED_TYPEINFO_NAMES if already
+	defined. 
+
+2004-09-02  Benjamin Kosnik  <bkoz@redhat.com>
+            Simon Richter  <Simon.Richter@hogyros.de>
+	
+	PR libstdc++/16715
+	* include/bits/istream.tcc: Add extern template for iostream
+	char and wchar_t instantiations.
+
+2004-09-02  Benjamin Kosnik  <bkoz@redhat.com>
+            Leland Wang  <llwang@infor.org>
+	
+	PR libstdc++/17259
+	* include/ext/ropeimpl.h (rope::_S_compare): Use
+	_Rope_constants::_S_leaf.
+
+2004-09-02  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/16848
+	* include/Makefile.am (ext_headers): Remove demangle.h.
+	* include/Makefile.in: Regenerate.
+	* include/ext/demangle.h: Remove.
+
+2004-09-01  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/16614
+	* include/ext/mt_allocator.h (__mt_base): Not type dependent,
+	split into..
+	(__pool): New, specialize.
+	(__common_pool): New, static bits here.
+	(__per_type_pool): New, and here.
+	(__mt_alloc_base): New.
+	(__mt_alloc): Add template parameter, inherit from it.
+	* src/allocator.cc: Split this...
+	* src/allocator-inst.cc: And this...
+	* src/pool_allocator.cc: ...into this.
+	* src/mt_allocator.cc: ... and this. Add definitions for
+	__mt_base.
+	* src/Makefile.am (sources): Split allocator.cc to
+	pool_allocator.cc and mt_allocator.cc.
+	* src/Makefile.in: Regenerate.
+	* config/linker-map.gnu: Add symbols.
+	* docs/html/ext/mt_allocator.html: Document new design.
+	* testsuite/ext/mt_allocator/tune-1.cc: New.
+	* testsuite/ext/mt_allocator/tune-2.cc: New.
+	* testsuite/ext/mt_allocator/tune-3.cc: New.
+	* testsuite/ext/mt_allocator/tune-4.cc: New.	
+
+	* testsuite/testsuite_allocator.h (__gnu_test::check_new): New.
+	* testsuite/ext/allocators.cc: Use check_new, split into...
+	* testsuite/ext/mt_allocator/check_new.cc: this.
+	* testsuite/ext/pool_allocator/check_new.cc: this.
+	* testsuite/ext/malloc_allocator/check_new.cc: this.	
+	* testsuite/ext/debug_allocator/check_new.cc: this.	
+	* testsuite/ext/mt_allocator/instantiate.cc: this.
+	* testsuite/ext/pool_allocator/instantiate.cc: this.
+	* testsuite/ext/malloc_allocator/instantiate.cc: this.	
+	* testsuite/ext/debug_allocator/instantiate.cc: this.
+	
+2004-08-30  Phil Edwards  <phil@codesourcery.com>
+
+	* docs/html/install.html:  Update locales list (from Paolo).
+	Remove other redundant information and point to the GCC install
+	documentation.
+
+2004-08-30  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/ext/pool_allocator.h: Rename __pool_base to
+	__pool_alloc_base.
+	* src/allocator.cc: Same.
+	* config/linker-map.gnu: Same.
+
+2004-08-30  Paolo Carlini  <pcarlini@suse.de>
+	    Kenneth C. Schalk  <ken@xorian.net>
+
+	PR libstdc++/17215
+	* config/io/basic_file_stdio.cc (__basic_file<char>::close()):
+	Check the return value of fclose/sync, loop on EINTR.
+	(__basic_file<char>::sys_open): Likewise, for sync.
+
+2004-08-29  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/locale_facets.tcc (time_get<>::_M_extract_via_format,
+	case 'S'): Allow for at least one leap-second (as per C99, 7.23.1
+	and 7.23.3.5), two if !_GLIBCXX_USE_C99.
+	* testsuite/22_locale/time_get/get_time/char/4.cc: New.
+	* testsuite/22_locale/time_get/get_time/wchar_t/4.cc: Likewise.
+
+2004-08-27  Jason Merrill  <jason@redhat.com>
+
+	PR c++/13684
+	* libsupc++/guard.cc (static_mutex): Internal class implementing a
+	recursive mutex which controls initialization of local statics.
+	(__gnu_cxx::recursive_init): New exception class.
+	(__cxa_guard_acquire): Deal with locking and recursion detection.
+	(acquire_1, __cxa_guard_abort, __cxa_guard_release): Likewise.
+
+2004-08-27  Matthias Klose  <doko@debian.org>
+
+	* configure.host: For mips*-*-linux* update cpu_include_dir
+	after atomicity_dir is set.
+
+2004-08-27  Matthias Klose  <doko@debian.org>
+
+	* config/abi/arm-linux-gnu/baseline_symbols.txt: New.
+	* config/abi/mips-linux-gnu/baseline_symbols.txt: Update to 3.4.0.
+	* configure.host: Set abi_baseline_pair for arm*-*-linux* and
+	mips*-*-linux*.
+
+2004-08-27  Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/27_io/manipulators/adjustfield/wchar_t/1.cc: New.
+	* testsuite/27_io/manipulators/adjustfield/wchar_t/2.cc: Likewise.
+	* testsuite/27_io/manipulators/basefield/wchar_t/1.cc: Likewise.
+	* testsuite/27_io/manipulators/standard/wchar_t/1.cc: Likewise.
+	* testsuite/27_io/manipulators/standard/wchar_t/2.cc: Likewise.
+	
+	* testsuite/27_io/manipulators/adjustfield/char/1.cc: Minor
+	formatting fixes.
+	* testsuite/27_io/manipulators/adjustfield/char/2.cc: Likewise.
+	* testsuite/27_io/manipulators/basefield/char/1.cc: Likewise.
+	* testsuite/27_io/manipulators/standard/char/1.cc: Likewise.
+	* testsuite/27_io/manipulators/standard/char/2.cc: Likewise.
+
+2004-08-25  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/17038 (partial)
+	* include/bits/locale_facets.tcc (time_put<>::do_put): Increase
+	__maxlen to 128.
+	* include/bits/locale_facets.h (class __timepunct): Add FIXME
+	comment about _M_put.
+	* config/locale/generic/time_members.cc (_M_put): Always null
+	terminate __s.
+	* config/locale/gnu/time_members.cc (_M_put): Likewise.
+	* testsuite/22_locale/time_put/put/char/17038.cc: New.
+	* testsuite/22_locale/time_put/put/wchar_t/17038.cc: New.
+
+2004-08-24  Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/27_io/basic_istringstream/rdbuf/wchar_t/2832.cc: New.
+	* testsuite/27_io/basic_istringstream/str/wchar_t/1.cc: Likewise.
+	* testsuite/27_io/basic_ostringstream/cons/wchar_t/3.cc: Likewise.
+	* testsuite/27_io/basic_ostringstream/rdbuf/wchar_t/2832.cc: Likewise.
+	* testsuite/27_io/basic_ostringstream/str/wchar_t/1.cc: Likewise.
+	* testsuite/27_io/basic_ostringstream/str/wchar_t/2.cc: Likewise.
+
+	* testsuite/27_io/basic_istringstream/rdbuf/char/2832.cc: Trim excess
+	newlines.
+	* testsuite/27_io/basic_istringstream/str/char/1.cc: Likewise.
+
+2004-08-22  Matthias Klose  <doko@debian.org>
+
+	* config/abi/m68k-linux-gnu/baseline_symbols.txt: New.
+	* config/abi/sparc-linux-gnu/baseline_symbols.txt: Update to 3.4.0.
+
+2004-08-23  Paolo Carlini  <pcarlini@suse.de>
+
+	* configure.ac: Specify version 1.9.1 in AM_INIT_AUTOMAKE.
+	* aclocal.m4: Regenerate with automake-1.9.1.
+	* configure: Regenerate.
+	* Makefile.in: Likewise.
+	* include/Makefile.in: Likewise.
+	* libmath/Makefile.in: Likewise.
+	* libsupc++/Makefile.in: Likewise.
+	* po/Makefile.in: Likewise.
+	* src/Makefile.in: Likewise.
+	* testsuite/Makefile.in: Likewise.
+
+2004-08-22  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/locale_facets.tcc (num_put<>::do_put(bool)): Cast
+	to a signed type, long according to the resolution of DR 359.
+	* testsuite/22_locale/num_put/put/char/9.cc: New.
+	* testsuite/22_locale/num_put/put/wchar_t/9.cc: New.
+
+	* include/bits/locale_facets.tcc (num_put<>::do_put(const void*)):
+	Simplify a bit: no need to clear showpos.
+
 2004-08-21  Paolo Carlini  <pcarlini@suse.de>
 
 	* include/bits/char_traits.h (struct _Char_traits_match): Remove,
@@ -1371,8 +1557,8 @@
 2004-05-18  Jan Beulich  <jbeulich@novell.com>
  
         PR libstdc++/15489
-        * scripts/create_testsuite_files: Also find source files through
-          symbolic links.
+	* scripts/create_testsuite_files: Also find source files through
+	symbolic links.
 
 2004-05-18  Jan Beulich  <jbeulich@novell.com>
 

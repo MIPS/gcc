@@ -26,97 +26,28 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    and this file provides the interface.  */
 
 #include "config.h"
-
-#include <string.h>
-
+#include "system.h"
 #include "gfortran.h"
 #include "arith.h"
-
-/* The gfc_(integer|real)_kinds[] structures have everything the front
-   end needs to know about integers and real numbers on the target.
-   Other entries of the structure are calculated from these values.
-   The first entry is the default kind, the second entry of the real
-   structure is the default double kind.  */
-
-#define MPZ_NULL {{0,0,0}}
-#define MPF_NULL {{0,0,0,0}}
-
-#define DEF_GFC_INTEGER_KIND(KIND,RADIX,DIGITS,BIT_SIZE)		\
-	{KIND, RADIX, DIGITS, BIT_SIZE, 0, MPZ_NULL, MPZ_NULL, MPZ_NULL}
-
-#define DEF_GFC_LOGICAL_KIND(KIND,BIT_SIZE)				\
-	{KIND, BIT_SIZE}
-
-#define DEF_GFC_REAL_KIND(KIND,RADIX,DIGITS,MIN_EXP, MAX_EXP)		\
-	{KIND, RADIX, DIGITS, MIN_EXP, MAX_EXP,				\
-	 0, 0, MPF_NULL, MPF_NULL, MPF_NULL}
-
-gfc_integer_info gfc_integer_kinds[] = {
-  DEF_GFC_INTEGER_KIND (4, 2, 31, 32),
-  DEF_GFC_INTEGER_KIND (8, 2, 63, 64),
-  DEF_GFC_INTEGER_KIND (2, 2, 15, 16),
-  DEF_GFC_INTEGER_KIND (1, 2,  7,  8),
-  DEF_GFC_INTEGER_KIND (0, 0,  0,  0)
-};
-
-gfc_logical_info gfc_logical_kinds[] = {
-  DEF_GFC_LOGICAL_KIND (4, 32),
-  DEF_GFC_LOGICAL_KIND (8, 64),
-  DEF_GFC_LOGICAL_KIND (2, 16),
-  DEF_GFC_LOGICAL_KIND (1,  8),
-  DEF_GFC_LOGICAL_KIND (0,  0)
-};
-
-
-/* IEEE-754 uses 1.xEe representation whereas the fortran standard
-   uses 0.xEe representation.  Hence the exponents below are biased
-   by one.  */
-
-#define GFC_SP_KIND      4
-#define GFC_SP_PREC     24   /* p    =   24, IEEE-754  */
-#define GFC_SP_EMIN   -125   /* emin = -126, IEEE-754  */
-#define GFC_SP_EMAX    128   /* emin =  127, IEEE-754  */
-
-/* Double precision model numbers.  */
-#define GFC_DP_KIND      8
-#define GFC_DP_PREC     53   /* p    =    53, IEEE-754  */
-#define GFC_DP_EMIN  -1021   /* emin = -1022, IEEE-754  */
-#define GFC_DP_EMAX   1024   /* emin =  1023, IEEE-754  */
-
-/* Quad precision model numbers.  Not used.  */
-#define GFC_QP_KIND     16
-#define GFC_QP_PREC    113   /* p    =    113, IEEE-754  */
-#define GFC_QP_EMIN -16381   /* emin = -16382, IEEE-754  */
-#define GFC_QP_EMAX  16384   /* emin =  16383, IEEE-754  */
-
-gfc_real_info gfc_real_kinds[] = {
-  DEF_GFC_REAL_KIND (GFC_SP_KIND, 2, GFC_SP_PREC, GFC_SP_EMIN, GFC_SP_EMAX),
-  DEF_GFC_REAL_KIND (GFC_DP_KIND, 2, GFC_DP_PREC, GFC_DP_EMIN, GFC_DP_EMAX),
-  DEF_GFC_REAL_KIND (0, 0,  0,     0,    0)
-};
-
-
-/* The integer kind to use for array indices.  This will be set to the
-   proper value based on target information from the backend.  */
-
-int gfc_index_integer_kind;
-
 
 /* MPFR does not have a direct replacement for mpz_set_f() from GMP.
    It's easily implemented with a few calls though.  */
 
 void
-gfc_mpfr_to_mpz(mpz_t z, mpfr_t x)
+gfc_mpfr_to_mpz (mpz_t z, mpfr_t x)
 {
   mp_exp_t e;
 
   e = mpfr_get_z_exp (z, x);
+  /* MPFR 2.0.1 (included with GMP 4.1) has a bug whereby mpfr_get_z_exp
+     may set the sign of z incorrectly.  Work around that here.  */
+  if (mpfr_sgn (x) != mpz_sgn (z))
+    mpz_neg (z, z);
+
   if (e > 0)
     mpz_mul_2exp (z, z, e);
   else
     mpz_tdiv_q_2exp (z, z, -e);
-  if (mpfr_sgn (x) < 0)
-    mpz_neg (z, z);
 }
 
 
@@ -125,20 +56,13 @@ gfc_mpfr_to_mpz(mpz_t z, mpfr_t x)
 void
 gfc_set_model_kind (int kind)
 {
-  switch (kind)
-	{
-    case GFC_SP_KIND:
-      mpfr_set_default_prec (GFC_SP_PREC);
-      break;
-    case GFC_DP_KIND:
-      mpfr_set_default_prec (GFC_DP_PREC);
-      break;
-    case GFC_QP_KIND:
-      mpfr_set_default_prec (GFC_QP_PREC);
-      break;
-    default:
-      gfc_internal_error ("gfc_set_model_kind(): Bad model number");
-    }
+  int index = gfc_validate_kind (BT_REAL, kind, false);
+  int base2prec;
+
+  base2prec = gfc_real_kinds[index].digits;
+  if (gfc_real_kinds[index].radix != 2)
+    base2prec *= gfc_real_kinds[index].radix / 2;
+  mpfr_set_default_prec (base2prec);
 }
 
 
@@ -147,20 +71,7 @@ gfc_set_model_kind (int kind)
 void
 gfc_set_model (mpfr_t x)
 {
-  switch (mpfr_get_prec (x))
-    {
-    case GFC_SP_PREC:
-      mpfr_set_default_prec (GFC_SP_PREC);
-      break;
-    case GFC_DP_PREC:
-      mpfr_set_default_prec (GFC_DP_PREC);
-      break;
-    case GFC_QP_PREC:
-      mpfr_set_default_prec (GFC_QP_PREC);
-      break;
-    default:
-      gfc_internal_error ("gfc_set_model(): Bad model number");
-    }
+  mpfr_set_default_prec (mpfr_get_prec (x));
 }
 
 /* Calculate atan2 (y, x)
@@ -265,8 +176,7 @@ gfc_arith_init_1 (void)
   mpz_t r;
   int i;
 
-  gfc_set_model_kind (GFC_QP_KIND);
-
+  mpfr_set_default_prec (128);
   mpfr_init (a);
   mpz_init (r);
 
@@ -406,151 +316,6 @@ gfc_arith_done_1 (void)
 }
 
 
-/* Return default kinds.  */
-
-int
-gfc_default_integer_kind (void)
-{
-  return gfc_integer_kinds[gfc_option.i8 ? 1 : 0].kind;
-}
-
-int
-gfc_default_real_kind (void)
-{
-  return gfc_real_kinds[gfc_option.r8 ? 1 : 0].kind;
-}
-
-int
-gfc_default_double_kind (void)
-{
-  return gfc_real_kinds[1].kind;
-}
-
-int
-gfc_default_character_kind (void)
-{
-  return 1;
-}
-
-int
-gfc_default_logical_kind (void)
-{
-  return gfc_logical_kinds[gfc_option.i8 ? 1 : 0].kind;
-}
-
-int
-gfc_default_complex_kind (void)
-{
-  return gfc_default_real_kind ();
-}
-
-
-/* Make sure that a valid kind is present.  Returns an index into the
-   gfc_integer_kinds array, -1 if the kind is not present.  */
-
-static int
-validate_integer (int kind)
-{
-  int i;
-
-  for (i = 0;; i++)
-    {
-      if (gfc_integer_kinds[i].kind == 0)
-	{
-	  i = -1;
-	  break;
-	}
-      if (gfc_integer_kinds[i].kind == kind)
-	break;
-    }
-
-  return i;
-}
-
-
-static int
-validate_real (int kind)
-{
-  int i;
-
-  for (i = 0;; i++)
-    {
-      if (gfc_real_kinds[i].kind == 0)
-	{
-	  i = -1;
-	  break;
-	}
-      if (gfc_real_kinds[i].kind == kind)
-	break;
-    }
-
-  return i;
-}
-
-
-static int
-validate_logical (int kind)
-{
-  int i;
-
-  for (i = 0;; i++)
-    {
-      if (gfc_logical_kinds[i].kind == 0)
-	{
-	  i = -1;
-	  break;
-	}
-      if (gfc_logical_kinds[i].kind == kind)
-	break;
-    }
-
-  return i;
-}
-
-
-static int
-validate_character (int kind)
-{
-
-  if (kind == gfc_default_character_kind ())
-    return 0;
-  return -1;
-}
-
-
-/* Validate a kind given a basic type.  The return value is the same
-   for the child functions, with -1 indicating nonexistence of the
-   type.  */
-
-int
-gfc_validate_kind (bt type, int kind)
-{
-  int rc;
-
-  switch (type)
-    {
-    case BT_REAL:		/* Fall through */
-    case BT_COMPLEX:
-      rc = validate_real (kind);
-      break;
-    case BT_INTEGER:
-      rc = validate_integer (kind);
-      break;
-    case BT_LOGICAL:
-      rc = validate_logical (kind);
-      break;
-    case BT_CHARACTER:
-      rc = validate_character (kind);
-      break;
-
-    default:
-      gfc_internal_error ("gfc_validate_kind(): Got bad type");
-    }
-
-  return rc;
-}
-
-
 /* Given an integer and a kind, make sure that the integer lies within
    the range of the kind.  Returns ARITH_OK or ARITH_OVERFLOW.  */
 
@@ -560,10 +325,7 @@ gfc_check_integer_range (mpz_t p, int kind)
   arith result;
   int i;
 
-  i = validate_integer (kind);
-  if (i == -1)
-    gfc_internal_error ("gfc_check_integer_range(): Bad kind");
-
+  i = gfc_validate_kind (BT_INTEGER, kind, false);
   result = ARITH_OK;
 
   if (mpz_cmp (p, gfc_integer_kinds[i].min_int) < 0
@@ -585,9 +347,7 @@ gfc_check_real_range (mpfr_t p, int kind)
   mpfr_t q;
   int i;
 
-  i = validate_real (kind);
-  if (i == -1)
-    gfc_internal_error ("gfc_check_real_range(): Bad kind");
+  i = gfc_validate_kind (BT_REAL, kind, false);
 
   gfc_set_model (p);
   mpfr_init (q);
@@ -1287,7 +1047,7 @@ gfc_arith_concat (gfc_expr * op1, gfc_expr * op2, gfc_expr ** resultp)
   gfc_expr *result;
   int len;
 
-  result = gfc_constant_result (BT_CHARACTER, gfc_default_character_kind (),
+  result = gfc_constant_result (BT_CHARACTER, gfc_default_character_kind,
 				&op1->where);
 
   len = op1->value.character.length + op2->value.character.length;
@@ -1401,7 +1161,7 @@ gfc_arith_eq (gfc_expr * op1, gfc_expr * op2, gfc_expr ** resultp)
 {
   gfc_expr *result;
 
-  result = gfc_constant_result (BT_LOGICAL, gfc_default_logical_kind (),
+  result = gfc_constant_result (BT_LOGICAL, gfc_default_logical_kind,
 				&op1->where);
   result->value.logical = (op1->ts.type == BT_COMPLEX) ?
     compare_complex (op1, op2) : (gfc_compare_expr (op1, op2) == 0);
@@ -1416,7 +1176,7 @@ gfc_arith_ne (gfc_expr * op1, gfc_expr * op2, gfc_expr ** resultp)
 {
   gfc_expr *result;
 
-  result = gfc_constant_result (BT_LOGICAL, gfc_default_logical_kind (),
+  result = gfc_constant_result (BT_LOGICAL, gfc_default_logical_kind,
 				&op1->where);
   result->value.logical = (op1->ts.type == BT_COMPLEX) ?
     !compare_complex (op1, op2) : (gfc_compare_expr (op1, op2) != 0);
@@ -1431,7 +1191,7 @@ gfc_arith_gt (gfc_expr * op1, gfc_expr * op2, gfc_expr ** resultp)
 {
   gfc_expr *result;
 
-  result = gfc_constant_result (BT_LOGICAL, gfc_default_logical_kind (),
+  result = gfc_constant_result (BT_LOGICAL, gfc_default_logical_kind,
 				&op1->where);
   result->value.logical = (gfc_compare_expr (op1, op2) > 0);
   *resultp = result;
@@ -1445,7 +1205,7 @@ gfc_arith_ge (gfc_expr * op1, gfc_expr * op2, gfc_expr ** resultp)
 {
   gfc_expr *result;
 
-  result = gfc_constant_result (BT_LOGICAL, gfc_default_logical_kind (),
+  result = gfc_constant_result (BT_LOGICAL, gfc_default_logical_kind,
 				&op1->where);
   result->value.logical = (gfc_compare_expr (op1, op2) >= 0);
   *resultp = result;
@@ -1459,7 +1219,7 @@ gfc_arith_lt (gfc_expr * op1, gfc_expr * op2, gfc_expr ** resultp)
 {
   gfc_expr *result;
 
-  result = gfc_constant_result (BT_LOGICAL, gfc_default_logical_kind (),
+  result = gfc_constant_result (BT_LOGICAL, gfc_default_logical_kind,
 				&op1->where);
   result->value.logical = (gfc_compare_expr (op1, op2) < 0);
   *resultp = result;
@@ -1473,7 +1233,7 @@ gfc_arith_le (gfc_expr * op1, gfc_expr * op2, gfc_expr ** resultp)
 {
   gfc_expr *result;
 
-  result = gfc_constant_result (BT_LOGICAL, gfc_default_logical_kind (),
+  result = gfc_constant_result (BT_LOGICAL, gfc_default_logical_kind,
 				&op1->where);
   result->value.logical = (gfc_compare_expr (op1, op2) <= 0);
   *resultp = result;
@@ -1719,7 +1479,7 @@ eval_intrinsic (gfc_intrinsic_op operator,
 	goto runtime;
 
       temp.ts.type = BT_LOGICAL;
-      temp.ts.kind = gfc_default_logical_kind ();
+      temp.ts.kind = gfc_default_logical_kind;
 
       unary = 1;
       break;
@@ -1733,7 +1493,7 @@ eval_intrinsic (gfc_intrinsic_op operator,
 	goto runtime;
 
       temp.ts.type = BT_LOGICAL;
-      temp.ts.kind = gfc_default_logical_kind ();
+      temp.ts.kind = gfc_default_logical_kind;
 
       unary = 0;
       break;
@@ -1755,7 +1515,7 @@ eval_intrinsic (gfc_intrinsic_op operator,
       if (op1->ts.type == BT_COMPLEX || op2->ts.type == BT_COMPLEX)
 	{
 	  temp.ts.type = BT_LOGICAL;
-	  temp.ts.kind = gfc_default_logical_kind();
+	  temp.ts.kind = gfc_default_logical_kind;
 	  goto runtime;
 	}
 
@@ -1767,7 +1527,7 @@ eval_intrinsic (gfc_intrinsic_op operator,
 	{
 	  unary = 0;
 	  temp.ts.type = BT_LOGICAL;
-	  temp.ts.kind = gfc_default_logical_kind();
+	  temp.ts.kind = gfc_default_logical_kind;
 	  break;
 	}
 
@@ -1797,7 +1557,7 @@ eval_intrinsic (gfc_intrinsic_op operator,
 	  || operator == INTRINSIC_LE || operator == INTRINSIC_LT)
 	{
 	  temp.ts.type = BT_LOGICAL;
-	  temp.ts.kind = gfc_default_logical_kind ();
+	  temp.ts.kind = gfc_default_logical_kind;
 	}
 
       unary = 0;
@@ -1808,7 +1568,7 @@ eval_intrinsic (gfc_intrinsic_op operator,
 	goto runtime;
 
       temp.ts.type = BT_CHARACTER;
-      temp.ts.kind = gfc_default_character_kind ();
+      temp.ts.kind = gfc_default_character_kind;
 
       unary = 0;
       break;
@@ -1885,7 +1645,7 @@ eval_type_intrinsic0 (gfc_intrinsic_op operator, gfc_expr *op)
     case INTRINSIC_EQ:
     case INTRINSIC_NE:
       op->ts.type = BT_LOGICAL;
-      op->ts.kind = gfc_default_logical_kind();
+      op->ts.kind = gfc_default_logical_kind;
       break;
 
     default:

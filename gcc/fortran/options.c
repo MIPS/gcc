@@ -70,7 +70,7 @@ gfc_init_options (unsigned int argc ATTRIBUTE_UNUSED,
   gfc_option.flag_pack_derived = 0;
   gfc_option.flag_repack_arrays = 0;
 
-  gfc_option.q_kind = gfc_default_double_kind ();
+  gfc_option.q_kind = gfc_default_double_kind;
   gfc_option.i8 = 0;
   gfc_option.r8 = 0;
   gfc_option.d8 = 0;
@@ -282,7 +282,7 @@ gfc_handle_option (size_t scode, const char *arg, int value)
       break;
 
     case OPT_qkind_:
-      if (gfc_validate_kind (BT_REAL, value) < 0)
+      if (gfc_validate_kind (BT_REAL, value, true) < 0)
 	gfc_fatal_error ("Argument to -fqkind isn't a valid real kind");
       gfc_option.q_kind = value;
       break;

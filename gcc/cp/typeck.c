@@ -262,14 +262,12 @@ type_after_usual_arithmetic_conversions (tree t1, tree t2)
   tree attributes;
 
   /* FIXME: Attributes.  */
-  my_friendly_assert (ARITHMETIC_TYPE_P (t1) 
-		      || TREE_CODE (t1) == COMPLEX_TYPE
-		      || TREE_CODE (t1) == ENUMERAL_TYPE,
-		      19990725);
-  my_friendly_assert (ARITHMETIC_TYPE_P (t2) 
-		      || TREE_CODE (t2) == COMPLEX_TYPE
-		      || TREE_CODE (t2) == ENUMERAL_TYPE,
-		      19990725);
+  gcc_assert (ARITHMETIC_TYPE_P (t1) 
+	      || TREE_CODE (t1) == COMPLEX_TYPE
+	      || TREE_CODE (t1) == ENUMERAL_TYPE);
+  gcc_assert (ARITHMETIC_TYPE_P (t2) 
+	      || TREE_CODE (t2) == COMPLEX_TYPE
+	      || TREE_CODE (t2) == ENUMERAL_TYPE);
 
   /* In what follows, we slightly generalize the rules given in [expr] so
      as to deal with `long long' and `complex'.  First, merge the
@@ -755,7 +753,7 @@ common_type (tree t1, tree t2)
     return composite_pointer_type (t1, t2, error_mark_node, error_mark_node,
 				   "conversion");
   else
-    abort ();
+    gcc_unreachable ();
 }
 
 /* Compare two exception specifier types for exactness or subsetness, if
@@ -928,7 +926,7 @@ comptypes (tree t1, tree t2, int strict)
   if (t1 == error_mark_node || t2 == error_mark_node)
     return false;
   
-  my_friendly_assert (TYPE_P (t1) && TYPE_P (t2), 20030623);
+  gcc_assert (TYPE_P (t1) && TYPE_P (t2));
   
   /* TYPENAME_TYPEs should be resolved if the qualifying scope is the
      current instantiation.  */
@@ -1219,7 +1217,7 @@ cxx_sizeof_or_alignof_type (tree type, enum tree_code op, bool complain)
   tree value;
   const char *op_name;
 
-  my_friendly_assert (op == SIZEOF_EXPR || op == ALIGNOF_EXPR, 20020720);
+  gcc_assert (op == SIZEOF_EXPR || op == ALIGNOF_EXPR);
   if (type == error_mark_node)
     return error_mark_node;
   
@@ -1442,7 +1440,7 @@ perform_integral_promotions (tree expr)
   tree promoted_type;
 
   type = TREE_TYPE (expr);
-  my_friendly_assert (INTEGRAL_OR_ENUMERATION_TYPE_P (type), 20030703);
+  gcc_assert (INTEGRAL_OR_ENUMERATION_TYPE_P (type));
   promoted_type = type_promotes_to (type);
   if (type != promoted_type)
     expr = cp_convert (promoted_type, expr);
@@ -1596,8 +1594,7 @@ build_class_member_access_expr (tree object, tree member,
   if (TREE_CODE (member) == PSEUDO_DTOR_EXPR)
     return member;
 
-  my_friendly_assert (DECL_P (member) || BASELINK_P (member),
-		      20020801);
+  gcc_assert (DECL_P (member) || BASELINK_P (member));
 
   /* [expr.ref]
 
@@ -1699,8 +1696,7 @@ build_class_member_access_expr (tree object, tree member,
 				    /*nonnull=*/1);
 	  /* If we found the base successfully then we should be able
 	     to convert to it successfully.  */
-	  my_friendly_assert (object != error_mark_node,
-			      20020801);
+	  gcc_assert (object != error_mark_node);
 	}
 
       /* Complain about other invalid uses of offsetof, even though they will
@@ -1910,9 +1906,7 @@ finish_class_member_access_expr (tree object, tree name)
   if (BASELINK_P (name))
     {
       /* A member function that has already been looked up.  */
-      my_friendly_assert ((TREE_CODE (BASELINK_FUNCTIONS (name)) 
-			   == TEMPLATE_ID_EXPR), 
-			  20020805);
+      gcc_assert (TREE_CODE (BASELINK_FUNCTIONS (name)) == TEMPLATE_ID_EXPR);
       member = name;
     }
   else
@@ -1941,12 +1935,10 @@ finish_class_member_access_expr (tree object, tree name)
 	     or a BIT_NOT_EXPR.  */
 	  scope = TREE_OPERAND (name, 0);
 	  name = TREE_OPERAND (name, 1);
-	  my_friendly_assert ((CLASS_TYPE_P (scope) 
-			       || TREE_CODE (scope) == NAMESPACE_DECL),
-			      20020804);
-	  my_friendly_assert ((TREE_CODE (name) == IDENTIFIER_NODE
-			       || TREE_CODE (name) == BIT_NOT_EXPR),
-			      20020804);
+	  gcc_assert (CLASS_TYPE_P (scope)
+		      || TREE_CODE (scope) == NAMESPACE_DECL);
+	  gcc_assert (TREE_CODE (name) == IDENTIFIER_NODE
+		      || TREE_CODE (name) == BIT_NOT_EXPR);
 
 	  /* If SCOPE is a namespace, then the qualified name does not
 	     name a member of OBJECT_TYPE.  */
@@ -2035,7 +2027,7 @@ build_ptrmemfunc_access_expr (tree ptrmem, tree member_name)
   ptrmem_type = TREE_TYPE (ptrmem);
   /* APPLE LOCAL KEXT 2.95-ptmf-compatibility --turly */
   if (!flag_apple_kext)
-  my_friendly_assert (TYPE_PTRMEMFUNC_P (ptrmem_type), 20020804);
+  gcc_assert (TYPE_PTRMEMFUNC_P (ptrmem_type));
   member = lookup_member (ptrmem_type, member_name, /*protect=*/0,
 			  /*want_type=*/false);
   member_type = cp_build_qualified_type (TREE_TYPE (member),
@@ -2377,7 +2369,7 @@ get_member_function_from_ptrfunc (tree *instance_ptrptr, tree function)
 	  break;
 
 	default:
-	  abort ();
+	  gcc_unreachable ();
 	}
 
       /* APPLE LOCAL begin KEXT 2.95-ptmf-compatibility --turly */
@@ -3150,11 +3142,16 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 	    return e;
 	  return cp_build_binary_op (EQ_EXPR, e, integer_zero_node);
 	}
-      else if ((TYPE_PTRMEMFUNC_P (type0)
-		&& same_type_p (TYPE_PTRMEMFUNC_FN_TYPE (type0), type1))
-	       || (TYPE_PTRMEMFUNC_P (type1)
-		   && same_type_p (TYPE_PTRMEMFUNC_FN_TYPE (type1), type0)))
-	abort ();
+      else
+	{
+	  gcc_assert (!TYPE_PTRMEMFUNC_P (type0)
+		      || !same_type_p (TYPE_PTRMEMFUNC_FN_TYPE (type0),
+				       type1));
+	  gcc_assert (!TYPE_PTRMEMFUNC_P (type1)
+		      || !same_type_p (TYPE_PTRMEMFUNC_FN_TYPE (type1),
+				       type0));
+	}
+      
       break;
 
     case MAX_EXPR:
@@ -4027,31 +4024,12 @@ build_unary_op (enum tree_code code, tree xarg, int noconvert)
 	  return arg;
 	}
 
-      /* For &x[y], return x+y.  But, in a template, ARG may be an
-	 ARRAY_REF representing a non-dependent expression.  In that
-	 case, there may be an overloaded "operator []" that will be
-	 chosen at instantiation time; we must not try to optimize
-	 here.  */
-      if (TREE_CODE (arg) == ARRAY_REF && !processing_template_decl)
-	{
-	  if (!cxx_mark_addressable (TREE_OPERAND (arg, 0)))
-	    return error_mark_node;
-	  return cp_build_binary_op (PLUS_EXPR, TREE_OPERAND (arg, 0),
-				     TREE_OPERAND (arg, 1));
-	}
-
       /* Uninstantiated types are all functions.  Taking the
 	 address of a function is a no-op, so just return the
 	 argument.  */
 
-      if (TREE_CODE (arg) == IDENTIFIER_NODE
-	  && IDENTIFIER_OPNAME_P (arg))
-	{
-	  abort ();
-	  /* We don't know the type yet, so just work around the problem.
-	     We know that this will resolve to an lvalue.  */
-	  return build1 (ADDR_EXPR, unknown_type_node, arg);
-	}
+      gcc_assert (TREE_CODE (arg) != IDENTIFIER_NODE
+		  || !IDENTIFIER_OPNAME_P (arg));
 
       if (TREE_CODE (arg) == COMPONENT_REF && type_unknown_p (arg)
 	  && !really_overloaded_fn (TREE_OPERAND (arg, 1)))
@@ -4152,9 +4130,8 @@ build_unary_op (enum tree_code code, tree xarg, int noconvert)
 
 	    /* We can only get here with a single static member
 	       function.  */
-	    my_friendly_assert (TREE_CODE (fn) == FUNCTION_DECL
-				&& DECL_STATIC_FUNCTION_P (fn),
-				20030906);
+	    gcc_assert (TREE_CODE (fn) == FUNCTION_DECL
+			&& DECL_STATIC_FUNCTION_P (fn));
 	    mark_used (fn);
 	    addr = build_address (fn);
 	    if (TREE_SIDE_EFFECTS (TREE_OPERAND (arg, 0)))
@@ -4170,9 +4147,6 @@ build_unary_op (enum tree_code code, tree xarg, int noconvert)
 	  }
 	else
 	  {
-	    /* Unfortunately we cannot just build an address
-	       expression here, because we would not handle
-	       address-constant-expressions or offsetof correctly.  */
 	    tree field = TREE_OPERAND (arg, 1);
 	    tree rval = build_unary_op (ADDR_EXPR, TREE_OPERAND (arg, 0), 0);
 	    tree binfo = lookup_base (TREE_TYPE (TREE_TYPE (rval)),
@@ -4180,11 +4154,9 @@ build_unary_op (enum tree_code code, tree xarg, int noconvert)
 				      ba_check, NULL);
 	    
 	    rval = build_base_path (PLUS_EXPR, rval, binfo, 1);
-	    rval = build_nop (argtype, rval);
-	    addr = fold (build2 (PLUS_EXPR, argtype, rval,
-				 cp_convert (argtype,
-					     byte_position (field))));
 
+	    TREE_OPERAND (arg, 0) = build_indirect_ref (rval, NULL);
+	    addr = build_address (arg);
 	  }
 
 	if (TREE_CODE (argtype) == POINTER_TYPE
@@ -4270,7 +4242,7 @@ unary_complex_lvalue (enum tree_code code, tree arg)
     {
       tree t;
 
-      my_friendly_assert (TREE_CODE (arg) != SCOPE_REF, 313);
+      gcc_assert (TREE_CODE (arg) != SCOPE_REF);
 
       if (TREE_CODE (arg) != OFFSET_REF)
 	return 0;
@@ -4374,10 +4346,10 @@ cxx_mark_addressable (tree exp)
       case VAR_DECL:
 	/* Caller should not be trying to mark initialized
 	   constant fields addressable.  */
-	my_friendly_assert (DECL_LANG_SPECIFIC (x) == 0
-			    || DECL_IN_AGGR_P (x) == 0
-			    || TREE_STATIC (x)
-			    || DECL_EXTERNAL (x), 314);
+	gcc_assert (DECL_LANG_SPECIFIC (x) == 0
+		    || DECL_IN_AGGR_P (x) == 0
+		    || TREE_STATIC (x)
+		    || DECL_EXTERNAL (x));
 	/* Fall through.  */
 
       case CONST_DECL:
@@ -5243,8 +5215,7 @@ build_modify_expr (tree lhs, enum tree_code modifycode, tree rhs)
      	     value with the RHS producing the value we should actually
      	     store into the LHS.  */
 
-	  my_friendly_assert (!PROMOTES_TO_AGGR_TYPE (lhstype, REFERENCE_TYPE),
-			      978652);
+	  gcc_assert (!PROMOTES_TO_AGGR_TYPE (lhstype, REFERENCE_TYPE));
 	  lhs = stabilize_reference (lhs);
 	  newrhs = cp_build_binary_op (modifycode, lhs, rhs);
 	  if (newrhs == error_mark_node)
@@ -5257,9 +5228,8 @@ build_modify_expr (tree lhs, enum tree_code modifycode, tree rhs)
 	  /* Now it looks like a plain assignment.  */
 	  modifycode = NOP_EXPR;
 	}
-      my_friendly_assert (TREE_CODE (lhstype) != REFERENCE_TYPE, 20011220);
-      my_friendly_assert (TREE_CODE (TREE_TYPE (newrhs)) != REFERENCE_TYPE,
-			  20011220);
+      gcc_assert (TREE_CODE (lhstype) != REFERENCE_TYPE);
+      gcc_assert (TREE_CODE (TREE_TYPE (newrhs)) != REFERENCE_TYPE);
     }
 
   /* The left-hand side must be an lvalue.  */
@@ -5680,10 +5650,8 @@ build_ptrmemfunc (tree type, tree pfn, int force)
 	}
 
       /* Just adjust the DELTA field.  */
-      my_friendly_assert 
-	(same_type_ignoring_top_level_qualifiers_p (TREE_TYPE (delta),
-						    ptrdiff_type_node), 
-	 20030727);
+      gcc_assert  (same_type_ignoring_top_level_qualifiers_p
+		   (TREE_TYPE (delta), ptrdiff_type_node));
       if (TARGET_PTRMEMFUNC_VBIT_LOCATION == ptrmemfunc_vbit_in_delta)
 	n = cp_build_binary_op (LSHIFT_EXPR, n, integer_one_node);
       delta = cp_build_binary_op (PLUS_EXPR, delta, n);
@@ -5703,7 +5671,7 @@ build_ptrmemfunc (tree type, tree pfn, int force)
     return instantiate_type (type, pfn, tf_error | tf_warning);
 
   fn = TREE_OPERAND (pfn, 0);
-  my_friendly_assert (TREE_CODE (fn) == FUNCTION_DECL, 0);
+  gcc_assert (TREE_CODE (fn) == FUNCTION_DECL);
   return make_ptrmem_cst (to_type, fn);
 }
 
@@ -5721,7 +5689,7 @@ expand_ptrmemfunc_cst (tree cst, tree *delta, tree *pfn)
   tree fn = PTRMEM_CST_MEMBER (cst);
   tree ptr_class, fn_class;
 
-  my_friendly_assert (TREE_CODE (fn) == FUNCTION_DECL, 0);
+  gcc_assert (TREE_CODE (fn) == FUNCTION_DECL);
 
   /* The class that the function belongs to.  */
   fn_class = DECL_CONTEXT (fn);
@@ -5766,7 +5734,7 @@ expand_ptrmemfunc_cst (tree cst, tree *delta, tree *pfn)
 	  break;
 
 	default:
-	  abort ();
+	  gcc_unreachable ();
 	}
 
       *pfn = fold (build1 (NOP_EXPR, TYPE_PTRMEMFUNC_FN_TYPE (type),
@@ -6145,7 +6113,7 @@ check_return_expr (tree retval)
      return value, the named return value is used.  */
   result = DECL_RESULT (current_function_decl);
   valtype = TREE_TYPE (result);
-  my_friendly_assert (valtype != NULL_TREE, 19990924);
+  gcc_assert (valtype != NULL_TREE);
   fn_returns_value_p = !VOID_TYPE_P (valtype);
   if (!retval && DECL_NAME (result) && fn_returns_value_p)
     retval = result;

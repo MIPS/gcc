@@ -87,7 +87,7 @@ finish_init_stmts (bool is_global, tree stmt_expr, tree compound_stmt)
   
   stmt_expr = finish_stmt_expr (stmt_expr, true);
 
-  my_friendly_assert (!building_stmt_tree () == is_global, 20030726);
+  gcc_assert (!building_stmt_tree () == is_global);
   
   return stmt_expr;
 }
@@ -171,8 +171,7 @@ build_zero_init (tree type, tree nelts, bool static_storage_p)
 
      -- if T is a reference type, no initialization is performed.  */
 
-  my_friendly_assert (nelts == NULL_TREE || TREE_CODE (nelts) == INTEGER_CST,
-		      20030618);
+  gcc_assert (nelts == NULL_TREE || TREE_CODE (nelts) == INTEGER_CST);
 
   if (type == error_mark_node)
     ;
@@ -226,7 +225,7 @@ build_zero_init (tree type, tree nelts, bool static_storage_p)
       /* Iterate over the array elements, building initializations.  */
       inits = NULL_TREE;
       max_index = nelts ? nelts : array_type_nelts (type);
-      my_friendly_assert (TREE_CODE (max_index) == INTEGER_CST, 20030618);
+      gcc_assert (TREE_CODE (max_index) == INTEGER_CST);
 
       /* A zero-sized array, which is accepted as an extension, will
 	 have an upper bound of -1.  */
@@ -241,10 +240,8 @@ build_zero_init (tree type, tree nelts, bool static_storage_p)
 			     inits);
       CONSTRUCTOR_ELTS (init) = nreverse (inits);
     }
-  else if (TREE_CODE (type) == REFERENCE_TYPE)
-    ;
   else
-    abort ();
+    gcc_assert (TREE_CODE (type) == REFERENCE_TYPE);
 
   /* In all cases, the initializer is a constant.  */
   if (init)
@@ -717,15 +714,14 @@ build_vtbl_address (tree binfo)
   tree binfo_for = binfo;
   tree vtbl;
 
-  if (BINFO_VPTR_INDEX (binfo) && BINFO_VIRTUAL_P (binfo)
-      && BINFO_PRIMARY_P (binfo))
+  if (BINFO_VPTR_INDEX (binfo) && BINFO_VIRTUAL_P (binfo))
     /* If this is a virtual primary base, then the vtable we want to store
        is that for the base this is being used as the primary base of.  We
        can't simply skip the initialization, because we may be expanding the
        inits of a subobject constructor where the virtual base layout
        can be different.  */
-    while (BINFO_PRIMARY_BASE_OF (binfo_for))
-      binfo_for = BINFO_PRIMARY_BASE_OF (binfo_for);
+    while (BINFO_PRIMARY_P (binfo_for))
+      binfo_for = BINFO_INHERITANCE_CHAIN (binfo_for);
 
   /* Figure out what vtable BINFO's vtable is based on, and mark it as
      used.  */
@@ -787,7 +783,7 @@ expand_virtual_init (tree binfo, tree decl)
   /* Compute the location of the vtpr.  */
   vtbl_ptr = build_vfield_ref (build_indirect_ref (decl, NULL),
 			       TREE_TYPE (binfo));
-  my_friendly_assert (vtbl_ptr != error_mark_node, 20010730);
+  gcc_assert (vtbl_ptr != error_mark_node);
 
   /* Assign the vtable to the vptr.  */
   vtbl = convert_force (TREE_TYPE (vtbl_ptr), vtbl, 0);
@@ -1168,8 +1164,7 @@ expand_default_init (tree binfo, tree true_exp, tree exp, tree init, int flags)
       && (flags & LOOKUP_ONLYCONVERTING))
     {
       /* Base subobjects should only get direct-initialization.  */
-      if (true_exp != exp)
-	abort ();
+      gcc_assert (true_exp == exp);
 
       if (flags & DIRECT_BIND)
 	/* Do nothing.  We hit this in two cases:  Reference initialization,
@@ -1180,7 +1175,7 @@ expand_default_init (tree binfo, tree true_exp, tree exp, tree init, int flags)
       else if (BRACE_ENCLOSED_INITIALIZER_P (init))
 	{
 	  /* A brace-enclosed initializer for an aggregate.  */
-	  my_friendly_assert (CP_AGGREGATE_TYPE_P (type), 20021016);
+	  gcc_assert (CP_AGGREGATE_TYPE_P (type));
 	  init = digest_init (type, init, (tree *)NULL);
 	}
       else
@@ -1248,8 +1243,8 @@ expand_aggr_init_1 (tree binfo, tree true_exp, tree exp, tree init, int flags)
 {
   tree type = TREE_TYPE (exp);
 
-  my_friendly_assert (init != error_mark_node && type != error_mark_node, 211);
-  my_friendly_assert (building_stmt_tree (), 20021010);
+  gcc_assert (init != error_mark_node && type != error_mark_node);
+  gcc_assert (building_stmt_tree ());
 
   /* Use a function returning the desired type to initialize EXP for us.
      If the function is a constructor, and its first argument is
@@ -1351,7 +1346,7 @@ build_offset_ref (tree type, tree name, bool address_p)
 	    name = DECL_NAME (OVL_CURRENT (name));
 	}
 
-      my_friendly_assert (TREE_CODE (name) == IDENTIFIER_NODE, 0);
+      gcc_assert (TREE_CODE (name) == IDENTIFIER_NODE);
     }
 
   if (type == NULL_TREE)
@@ -1953,7 +1948,7 @@ build_new_1 (tree exp)
   while (TREE_CODE (alloc_call) == COMPOUND_EXPR) 
     alloc_call = TREE_OPERAND (alloc_call, 1);
   alloc_fn = get_callee_fndecl (alloc_call);
-  my_friendly_assert (alloc_fn != NULL_TREE, 20020325);
+  gcc_assert (alloc_fn != NULL_TREE);
 
   /* Now, check to see if this function is actually a placement
      allocation function.  This can happen even when PLACEMENT is NULL
@@ -2075,9 +2070,9 @@ build_new_1 (tree exp)
 	  if (TREE_CODE (init) == TREE_LIST)
 	    init = build_x_compound_expr_from_list (init, "new initializer");
 
-	  else if (TREE_CODE (init) == CONSTRUCTOR
-		   && TREE_TYPE (init) == NULL_TREE)
-	    abort ();
+	  else
+	    gcc_assert (TREE_CODE (init) != CONSTRUCTOR
+			|| TREE_TYPE (init) != NULL_TREE);
 
 	  init_expr = build_modify_expr (init_expr, INIT_EXPR, init);
 	  stable = stabilize_init (init_expr, &init_preeval_expr);
@@ -2219,8 +2214,7 @@ build_vec_delete_1 (tree base, tree maxindex, tree type,
   tree controller = NULL_TREE;
 
   /* We should only have 1-D arrays here.  */
-  if (TREE_CODE (type) == ARRAY_TYPE)
-    abort ();
+  gcc_assert (TREE_CODE (type) != ARRAY_TYPE);
 
   if (! IS_AGGR_TYPE (type) || TYPE_HAS_TRIVIAL_DESTRUCTOR (type))
     goto no_destructor;
@@ -2562,7 +2556,7 @@ build_vec_init (tree base, tree maxindex, tree init, int from_array)
 	  else if (from)
 	    elt_init = build_modify_expr (to, NOP_EXPR, from);
 	  else
-	    abort ();
+	    gcc_unreachable ();
 	}
       else if (TREE_CODE (type) == ARRAY_TYPE)
 	{
@@ -2672,7 +2666,7 @@ build_dtor_call (tree exp, special_function_kind dtor_kind, int flags)
       break;
 
     default:
-      abort ();
+      gcc_unreachable ();
     }
 
   exp = convert_from_reference (exp);
@@ -2769,7 +2763,7 @@ build_delete (tree type, tree addr, special_function_kind auto_delete,
       addr = convert_force (build_pointer_type (type), addr, 0);
     }
 
-  my_friendly_assert (IS_AGGR_TYPE (type), 220);
+  gcc_assert (IS_AGGR_TYPE (type));
 
   if (TYPE_HAS_TRIVIAL_DESTRUCTOR (type))
     {
@@ -2785,7 +2779,7 @@ build_delete (tree type, tree addr, special_function_kind auto_delete,
       tree do_delete = NULL_TREE;
       tree ifexp;
 
-      my_friendly_assert (TYPE_HAS_DESTRUCTOR (type), 20011213);
+      gcc_assert (TYPE_HAS_DESTRUCTOR (type));
 
       /* For `::delete x', we must not use the deleting destructor
 	 since then we would not be sure to get the global `operator
@@ -2831,7 +2825,7 @@ build_delete (tree type, tree addr, special_function_kind auto_delete,
 	 generate a reference to the deleting variety.  */
       if (flag_apple_kext && has_apple_kext_compatibility_attr_p (type))
 	{
-	  my_friendly_assert (auto_delete != sfk_base_destructor, 20020501);
+	  gcc_assert (auto_delete != sfk_base_destructor);
 	  auto_delete = sfk_deleting_destructor;
 	}
       /* APPLE LOCAL  end double destructor  --matt 20020501  */
@@ -2945,7 +2939,7 @@ build_vbase_delete (tree type, tree decl)
   VEC (tree) *vbases;
   tree addr = build_unary_op (ADDR_EXPR, decl, 0);
 
-  my_friendly_assert (addr != error_mark_node, 222);
+  gcc_assert (addr != error_mark_node);
 
   result = convert_to_void (integer_zero_node, NULL);
   for (vbases = CLASSTYPE_VBASECLASSES (type), ix = 0;

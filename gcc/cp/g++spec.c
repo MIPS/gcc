@@ -36,7 +36,7 @@ Boston, MA 02111-1307, USA.  */
 #define MATH_LIBRARY "-lm"
 #endif
 #ifndef MATH_LIBRARY_PROFILE
-#define MATH_LIBRARY_PROFILE "-lm"
+#define MATH_LIBRARY_PROFILE MATH_LIBRARY
 #endif
 
 #ifndef LIBSTDCXX
@@ -304,7 +304,7 @@ lang_specific_driver (int *in_argc, const char *const **in_argv,
 	      arglist[j++] = "-xc++-header";
 	      break;
 	    default:
-	      abort ();
+	      gcc_unreachable ();
 	    }
 	  arglist[j++] = argv[i];
 	  arglist[j] = "-xnone";

@@ -2512,9 +2512,11 @@ find_reloads (rtx insn, int replace, int ind_levels, int live_known,
      a register.  */
   enum reg_class preferred_class[MAX_RECOG_OPERANDS];
   char pref_or_nothing[MAX_RECOG_OPERANDS];
-  /* Nonzero for a MEM operand whose entire address needs a reload.  */
+  /* Nonzero for a MEM operand whose entire address needs a reload. 
+     May be -1 to indicate the entire address may or may not need a reload.  */
   int address_reloaded[MAX_RECOG_OPERANDS];
-  /* Nonzero for an address operand that needs to be completely reloaded.  */
+  /* Nonzero for an address operand that needs to be completely reloaded.
+     May be -1 to indicate the entire operand may or may not need a reload.  */
   int address_operand_reloaded[MAX_RECOG_OPERANDS];
   /* Value of enum reload_type to use for operand.  */
   enum reload_type operand_type[MAX_RECOG_OPERANDS];
@@ -3104,6 +3106,7 @@ find_reloads (rtx insn, int replace, int ind_levels, int live_known,
 		  {
 		    /* Operands don't match.  */
 		    rtx value;
+		    int loc1, loc2;
 		    /* Retroactively mark the operand we had to match
 		       as a loser, if it wasn't already.  */
 		    if (this_alternative_win[m])
@@ -3112,12 +3115,26 @@ find_reloads (rtx insn, int replace, int ind_levels, int live_known,
 		    if (this_alternative[m] == (int) NO_REGS)
 		      bad = 1;
 		    /* But count the pair only once in the total badness of
-		       this alternative, if the pair can be a dummy reload.  */
+		       this alternative, if the pair can be a dummy reload.
+		       The pointers in operand_loc are not swapped; swap
+		       them by hand if necessary.  */
+		    if (swapped && i == commutative)
+		      loc1 = commutative + 1;
+		    else if (swapped && i == commutative + 1)
+		      loc1 = commutative;
+		    else
+		      loc1 = i;
+		    if (swapped && m == commutative)
+		      loc2 = commutative + 1;
+		    else if (swapped && m == commutative + 1)
+		      loc2 = commutative;
+		    else
+		      loc2 = m;
 		    value
 		      = find_dummy_reload (recog_data.operand[i],
 					   recog_data.operand[m],
-					   recog_data.operand_loc[i],
-					   recog_data.operand_loc[m],
+					   recog_data.operand_loc[loc1],
+					   recog_data.operand_loc[loc2],
 					   operand_mode[i], operand_mode[m],
 					   this_alternative[m], -1,
 					   this_alternative_earlyclobber[m]);
@@ -3207,7 +3224,7 @@ find_reloads (rtx insn, int replace, int ind_levels, int live_known,
 			  : offsettable_nonstrict_memref_p (operand))
 			 /* A reloaded address is offsettable because it is now
 			    just a simple register indirect.  */
-			 || address_reloaded[i]))
+			 || address_reloaded[i] == 1))
 		    || (REG_P (operand)
 			&& REGNO (operand) >= FIRST_PSEUDO_REGISTER
 			&& reg_renumber[REGNO (operand)] < 0
@@ -3318,7 +3335,7 @@ find_reloads (rtx insn, int replace, int ind_levels, int live_known,
 			/* If the address was already reloaded,
 			   we win as well.  */
 			else if (MEM_P (operand)
-				 && address_reloaded[i])
+				 && address_reloaded[i] == 1)
 			  win = 1;
 			/* Likewise if the address will be reloaded because
 			   reg_equiv_address is nonzero.  For reg_equiv_mem
@@ -3918,7 +3935,7 @@ find_reloads (rtx insn, int replace, int ind_levels, int live_known,
       }
     else if (goal_alternative_matched[i] < 0
 	     && goal_alternative_matches[i] < 0
-	     && !address_operand_reloaded[i]
+	     && address_operand_reloaded[i] != 1
 	     && optimize)
       {
 	/* For each non-matching operand that's a MEM or a pseudo-register
@@ -4658,8 +4675,9 @@ maybe_memory_address_p (enum machine_mode mode, rtx ad, rtx *part)
    to determine if we may generate output reloads, and where to put USEs
    for pseudos that we have to replace with stack slots.
 
-   Value is nonzero if this address is reloaded or replaced as a whole.
-   This is interesting to the caller if the address is an autoincrement.
+   Value is one if this address is reloaded or replaced as a whole; it is
+   zero if the top level of this address was not reloaded or replaced, and
+   it is -1 if it may or may not have been reloaded or replaced.
 
    Note that there is no verification that the address will be valid after
    this routine does its work.  Instead, we rely on the fact that the address
@@ -4798,7 +4816,7 @@ find_reloads_address (enum machine_mode mode, rtx *memrefloc, rtx ad,
       *memrefloc = copy_rtx (*memrefloc);
       XEXP (*memrefloc, 0) = ad;
       move_replacements (&ad, &XEXP (*memrefloc, 0));
-      return 1;
+      return -1;
     }
   while (0);
 #endif

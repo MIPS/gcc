@@ -77,7 +77,7 @@ mf_build_string (const char *string)
   tree result = mf_mark (build_string (len + 1, string));
 
   TREE_TYPE (result) = build_array_type
-    (char_type_node, build_index_type (build_int_cst (NULL_TREE, len, 0)));
+    (char_type_node, build_index_type (build_int_cst (NULL_TREE, len)));
   TREE_CONSTANT (result) = 1;
   TREE_INVARIANT (result) = 1;
   TREE_READONLY (result) = 1;
@@ -193,7 +193,7 @@ mf_file_function_line_tree (location_t location)
   char *string;
   tree result;
 
-  /* Add FILENAME[:LINENUMBER]. */
+  /* Add FILENAME[:LINENUMBER].  */
   file = xloc.file;
   if (file == NULL && current_function_decl != NULL_TREE)
     file = DECL_SOURCE_FILE (current_function_decl);
@@ -251,7 +251,7 @@ static GTY (()) tree mf_cache_shift_decl;
 /* extern uintptr_t __mf_lc_mask; */
 static GTY (()) tree mf_cache_mask_decl;
 
-/* Their function-scope local shadows, used in single-threaded mode only. */
+/* Their function-scope local shadows, used in single-threaded mode only.  */
 
 /* auto const unsigned char __mf_lc_shift_l; */
 static GTY (()) tree mf_cache_shift_decl_l;
@@ -413,7 +413,7 @@ execute_mudflap_function_ops (void)
 
 /* Create and initialize local shadow variables for the lookup cache
    globals.  Put their decls in the *_l globals for use by
-   mf_build_check_statement_for. */
+   mf_build_check_statement_for.  */
 
 static void
 mf_decl_cache_locals (void)
@@ -462,7 +462,7 @@ mf_decl_cache_locals (void)
 static void
 mf_decl_clear_locals (void)
 {
-  /* Unset local shadows. */
+  /* Unset local shadows.  */
   mf_cache_shift_decl_l = NULL_TREE;
   mf_cache_mask_decl_l = NULL_TREE;
 }
@@ -910,7 +910,7 @@ mx_register_decls (tree decl, tree *stmt_list)
                                   size,
                                   tree_cons (NULL_TREE,
 					     /* __MF_TYPE_STACK */
-                                             build_int_cst (NULL_TREE, 3, 0),
+                                             build_int_cst (NULL_TREE, 3),
                                              NULL_TREE)));
           /* __mf_unregister (...) */
           unregister_fncall = build_function_call_expr (mf_unregister_fndecl,
@@ -928,7 +928,7 @@ mx_register_decls (tree decl, tree *stmt_list)
                                   size,
                                   tree_cons (NULL_TREE,
 					     /* __MF_TYPE_STACK */
-                                             build_int_cst (NULL_TREE, 3, 0),
+                                             build_int_cst (NULL_TREE, 3),
                                              tree_cons (NULL_TREE,
                                                         variable_name,
                                                         NULL_TREE))));
@@ -1071,7 +1071,7 @@ mudflap_register_call (tree obj, tree object_size, tree varname)
 
   args = tree_cons (NULL_TREE, varname, NULL_TREE);
 
-  arg = build_int_cst (NULL_TREE, 4, 0); /* __MF_TYPE_STATIC */
+  arg = build_int_cst (NULL_TREE, 4); /* __MF_TYPE_STATIC */
   args = tree_cons (NULL_TREE, arg, args);
 
   arg = convert (size_type_node, object_size);
@@ -1153,7 +1153,7 @@ mudflap_enqueue_constant (tree obj)
     return;
 
   if (TREE_CODE (obj) == STRING_CST)
-    object_size = build_int_cst (NULL_TREE, TREE_STRING_LENGTH (obj), 0);
+    object_size = build_int_cst (NULL_TREE, TREE_STRING_LENGTH (obj));
   else
     object_size = size_in_bytes (TREE_TYPE (obj));
 
@@ -1245,7 +1245,8 @@ struct tree_opt_pass pass_mudflap_1 =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  TODO_dump_func                        /* todo_flags_finish */
+  TODO_dump_func,                       /* todo_flags_finish */
+  0					/* letter */
 };
 
 struct tree_opt_pass pass_mudflap_2 = 
@@ -1262,7 +1263,8 @@ struct tree_opt_pass pass_mudflap_2 =
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
   TODO_verify_flow | TODO_verify_stmts
-  | TODO_dump_func                      /* todo_flags_finish */
+  | TODO_dump_func,                     /* todo_flags_finish */
+  0					/* letter */
 };
 
 #include "gt-tree-mudflap.h"

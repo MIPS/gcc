@@ -1781,6 +1781,9 @@ init_spec (void)
 #else
 			    "-lgcc_s%M"
 #endif
+#ifdef USE_LIBUNWIND_EXCEPTIONS
+			    " -lunwind"
+#endif
 			    ,
 			    "-lgcc",
 			    "-lgcc_eh"
@@ -7228,9 +7231,9 @@ pfatal_pexecute (const char *errmsg_fmt, const char *errmsg_arg)
 /* Output an error message and exit.  */
 
 void
-fancy_abort (void)
+fancy_abort (const char *file, int line, const char *func)
 {
-  fatal ("internal gcc abort");
+  fatal ("internal gcc abort in %s, at %s:%d", func, file, line);
 }
 
 /* Output an error message and exit.  */

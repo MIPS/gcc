@@ -1357,12 +1357,6 @@ appropriate sizes.  If this macro is undefined, @code{GET_MODE_BITSIZE
 (DImode)} is assumed.
 @end defmac
 
-@defmac VECTOR_MODE_SUPPORTED_P (@var{mode})
-Define this macro to be nonzero if the port is prepared to handle insns
-involving vector mode @var{mode}.  At the very least, it must have move
-patterns for this mode.
-@end defmac
-
 @defmac STACK_SAVEAREA_MODE (@var{save_level})
 If defined, an expression of type @code{enum machine_mode} that
 specifies the mode of the save area operand of a
@@ -3370,7 +3364,7 @@ should return the .eh_frame register number.  The default is
 Define this macro to map register numbers held in the call frame info
 that GCC has collected using @code{DWARF_FRAME_REGNUM} to those that
 should be output in .debug_frame (@code{@var{for_eh}} is zero) and
-.eh_frame (@code{@var{for_eh}} is nonzero).  The default is to 
+.eh_frame (@code{@var{for_eh}} is nonzero).  The default is to
 return @code{@var{regno}}.
 
 @end defmac
@@ -3723,9 +3717,9 @@ register to be used by the caller for this argument; likewise
 @end defmac
 
 @deftypefn {Target Hook} bool TARGET_PASS_BY_REFERENCE (CUMULATIVE_ARGS *@var{cum}, enum machine_mode @var{mode}, tree @var{type}, bool @var{named})
-This target hook should return @code{true} if an argument at the 
+This target hook should return @code{true} if an argument at the
 position indicated by @var{cum} should be passed by reference.  This
-predicate is queried after target independent reasons for being 
+predicate is queried after target independent reasons for being
 passed by reference, such as @code{TREE_ADDRESSABLE (type)}.
 
 If the hook returns true, a copy of that argument is made in memory and a
@@ -3882,6 +3876,24 @@ This hook performs target-specific gimplification of
 @code{VA_ARG_EXPR}.  The first two parameters correspond to the
 arguments to @code{va_arg}; the latter two are as in
 @code{gimplify.c:gimplify_expr}.
+@end deftypefn
+
+@deftypefn {Target Hook} bool TARGET_SCALAR_MODE_SUPPORTED_P (enum machine_mode @var{mode})
+Define this to return nonzero if the port is prepared to handle
+insns involving scalar mode @var{mode}.  For a scalar mode to be
+considered supported, all the basic arithmetic and comparisons
+must work.
+
+The default version of this hook returns true for any mode
+required to handle the basic C types (as defined by the port).
+Included here are the double-word arithmetic supported by the
+code in @file{optabs.c}.
+@end deftypefn
+
+@deftypefn {Target Hook} bool TARGET_VECTOR_MODE_SUPPORTED_P (enum machine_mode @var{mode})
+Define this to return nonzero if the port is prepared to handle
+insns involving vector mode @var{mode}.  At the very least, it
+must have move patterns for this mode.
 @end deftypefn
 
 @node Scalar Return
@@ -5228,16 +5240,17 @@ like:
 @end smallexample
 @end defmac
 
-@defmac REVERSE_CONDEXEC_PREDICATES_P (@var{code1}, @var{code2})
+@defmac REVERSE_CONDEXEC_PREDICATES_P (@var{op1}, @var{op2})
 A C expression that returns true if the conditional execution predicate
-@var{code1} is the inverse of @var{code2} and vice versa.  Define this to
-return 0 if the target has conditional execution predicates that cannot be
-reversed safely.  If no expansion is specified, this macro is defined as
-follows:
+@var{op1}, a comparison operation, is the inverse of @var{op2} and vice
+versa.  Define this to return 0 if the target has conditional execution
+predicates that cannot be reversed safely.  There is no need to validate
+that the arguments of op1 and op2 are the same, this is done separately.
+If no expansion is specified, this macro is defined as follows:
 
 @smallexample
 #define REVERSE_CONDEXEC_PREDICATES_P (x, y) \
-   ((x) == reverse_condition (y))
+   (GET_CODE ((x)) == reversed_comparison_code ((y), NULL))
 @end smallexample
 @end defmac
 
@@ -6754,7 +6767,7 @@ hidden, protected or internal visibility as specified by @var{visibility}.
 @defmac TARGET_WEAK_NOT_IN_ARCHIVE_TOC
 A C expression that evaluates to true if the target's linker expects
 that weak symbols do not appear in a static archive's table of contents.
-The default is @code{0}.  
+The default is @code{0}.
 
 Leaving weak symbols out of an archive's table of contents means that,
 if a symbol will only have a definition in one translation unit and
@@ -8482,7 +8495,7 @@ default is long_long_integer_type_node.
 @end deftypefn
 
 @deftypefn {Target Hook} bool TARGET_CXX_GUARD_MASK_BIT (void)
-This hook determines how guard variables are used.  It should return 
+This hook determines how guard variables are used.  It should return
 @code{false} (the default) if first byte should be used.  A return value of
 @code{true} indicates the least significant bit should be used.
 @end deftypefn
@@ -8513,6 +8526,24 @@ backend's targeted operating system.
 This hook should return @code{true} if constructors and destructors return
 the address of the object created/destroyed.  The default is to return
 @code{false}.
+@end deftypefn
+
+@deftypefn {Target Hook} bool TARGET_CXX_KEY_METHOD_MAY_BE_INLINE (void)
+This hook returns true if the key method for a class (i.e., the method
+which, if defined in the current translation unit, causes the virtual
+table to be emitted) may be an inline function.  Under the standard
+Itanium C++ ABI the key method may be an inline function so long as
+the function is not declared inline in the class definition.  Under
+some variants of the ABI, an inline function can never be the key
+method.  The default is to return @code{true}.
+@end deftypefn
+
+@deftypefn {Target Hook} bool TARGET_CXX_EXPORT_CLASS_DATA (void)
+If this hook returns false (the default), then virtual tables and RTTI
+data structures will have the ELF visibility of their containing
+class.  If this hook returns true, then these data structures will
+have ELF ``default'' visibility, independently of the visibility of
+the containing class.
 @end deftypefn
 
 @node Misc
@@ -8717,6 +8748,31 @@ the implied truncation of the shift instructions.
 
 You need not define this macro if it would always have the value of zero.
 @end defmac
+
+@anchor{TARGET_SHIFT_TRUNCATION_MASK}
+@deftypefn {Target Hook} int TARGET_SHIFT_TRUNCATION_MASK (enum machine_mode @var{mode})
+This function describes how the standard shift patterns for @var{mode}
+deal with shifts by negative amounts or by more than the width of the mode.
+@xref{shift patterns}.
+
+On many machines, the shift patterns will apply a mask @var{m} to the
+shift count, meaning that a fixed-width shift of @var{x} by @var{y} is
+equivalent to an arbitrary-width shift of @var{x} by @var{y & m}.  If
+this is true for mode @var{mode}, the function should return @var{m},
+otherwise it should return 0.  A return value of 0 indicates that no
+particular behavior is guaranteed.
+
+Note that, unlike @code{SHIFT_COUNT_TRUNCATED}, this function does
+@emph{not} apply to general shift rtxes; it applies only to instructions
+that are generated by the named shift patterns.
+
+The default implementation of this function returns
+@code{GET_MODE_BITSIZE (@var{mode}) - 1} if @code{SHIFT_COUNT_TRUNCATED}
+and 0 otherwise.  This definition is always safe, but if
+@code{SHIFT_COUNT_TRUNCATED} is false, and some shift patterns
+nevertheless truncate the shift count, you may get better code
+by overriding it.
+@end deftypefn
 
 @defmac TRULY_NOOP_TRUNCATION (@var{outprec}, @var{inprec})
 A C expression which is nonzero if on this machine it is safe to
@@ -8986,14 +9042,21 @@ of specifically named weak labels, optionally with a value.
 @findex pragma
 @defmac HANDLE_PRAGMA_PACK_PUSH_POP
 Define this macro (to a value of 1) if you want to support the Win32
-style pragmas @samp{#pragma pack(push,@var{n})} and @samp{#pragma
-pack(pop)}.  The @samp{pack(push,@var{n})} pragma specifies the maximum alignment
-(in bytes) of fields within a structure, in much the same way as the
-@samp{__aligned__} and @samp{__packed__} @code{__attribute__}s do.  A
+style pragmas @samp{#pragma pack(push[,@var{n}])} and @samp{#pragma
+pack(pop)}.  The @samp{pack(push,[@var{n}])} pragma specifies the maximum
+alignment (in bytes) of fields within a structure, in much the same way as
+the @samp{__aligned__} and @samp{__packed__} @code{__attribute__}s do.  A
 pack value of zero resets the behavior to the default.  Successive
 invocations of this pragma cause the previous values to be stacked, so
 that invocations of @samp{#pragma pack(pop)} will return to the previous
 value.
+@end defmac
+
+@defmac TARGET_DEFAULT_PACK_STRUCT
+If your target requires a structure packing default other than 0 (meaning
+the machine default), define this macro the the necessary value (in bytes).
+This must be a value that would also valid to be used with
+@samp{#pragma pack()} (that is, a small power of two).
 @end defmac
 
 @defmac DOLLARS_IN_IDENTIFIERS

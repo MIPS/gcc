@@ -9337,9 +9337,15 @@ loc_descriptor_from_tree_1 (tree loc, int want_address)
           >= (unsigned int) LAST_AND_UNUSED_TREE_CODE)
 	return 0;
 
+#ifdef ENABLE_CHECKING
       /* Otherwise this is a generic code; we should just lists all of
 	 these explicitly.  Aborting means we forgot one.  */
       abort ();
+#else
+      /* In a release build, we want to degrade gracefully: better to
+	 generate incomplete debugging information than to crash.  */
+      return NULL;
+#endif
     }
 
   /* Show if we can't fill the request for an address.  */
@@ -11776,6 +11782,9 @@ gen_field_die (tree decl, dw_die_ref context_die)
     add_AT_unsigned (decl_die, DW_AT_accessibility, DW_ACCESS_protected);
   else if (TREE_PRIVATE (decl))
     add_AT_unsigned (decl_die, DW_AT_accessibility, DW_ACCESS_private);
+
+  /* Equate decl number to die, so that we can look up this decl later on.  */
+  equate_decl_number_to_die (decl, decl_die);
 }
 
 #if 0

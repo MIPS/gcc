@@ -156,7 +156,7 @@ gfc_add_modify_expr (stmtblock_t * pblock, tree lhs, tree rhs)
     abort ();
 #endif
 
-  tmp = fold (build_v (MODIFY_EXPR, lhs, rhs));
+  tmp = fold (build2_v (MODIFY_EXPR, lhs, rhs));
   gfc_add_expr_to_block (pblock, tmp);
 }
 
@@ -238,7 +238,7 @@ gfc_finish_block (stmtblock_t * stmtblock)
       if (decl)
 	{
 	  block = poplevel (1, 0, 0);
-	  expr = build_v (BIND_EXPR, decl, expr, block);
+	  expr = build3_v (BIND_EXPR, decl, expr, block);
 	}
       else
 	poplevel (0, 0, 0);
@@ -316,7 +316,7 @@ gfc_build_array_ref (tree base, tree offset)
   if (DECL_P (base))
     TREE_ADDRESSABLE (base) = 1;
 
-  return build (ARRAY_REF, type, base, offset, NULL_TREE, NULL_TREE);
+  return build4 (ARRAY_REF, type, base, offset, NULL_TREE, NULL_TREE);
 }
 
 
@@ -330,7 +330,8 @@ gfc_build_function_call (tree fndecl, tree arglist)
   tree call;
 
   fn = gfc_build_addr_expr (NULL, fndecl);
-  call = build (CALL_EXPR, TREE_TYPE (TREE_TYPE (fndecl)), fn, arglist, NULL);
+  call = build3 (CALL_EXPR, TREE_TYPE (TREE_TYPE (fndecl)), 
+		 fn, arglist, NULL);
   TREE_SIDE_EFFECTS (call) = 1;
 
   return call;
@@ -365,7 +366,7 @@ gfc_trans_runtime_check (tree cond, tree msg, stmtblock_t * pblock)
   tmp = gfc_build_addr_expr (pchar_type_node, gfc_strconst_current_filename);
   args = gfc_chainon_list (args, tmp);
 
-  tmp = build_int_cst (NULL_TREE, input_line, 0);
+  tmp = build_int_cst (NULL_TREE, input_line);
   args = gfc_chainon_list (args, tmp);
 
   tmp = gfc_build_function_call (gfor_fndecl_runtime_error, args);
@@ -384,7 +385,7 @@ gfc_trans_runtime_check (tree cond, tree msg, stmtblock_t * pblock)
       tmp = gfc_chainon_list (tmp, integer_zero_node);
       cond = gfc_build_function_call (built_in_decls[BUILT_IN_EXPECT], tmp);
 
-      tmp = build_v (COND_EXPR, cond, body, build_empty_stmt ());
+      tmp = build3_v (COND_EXPR, cond, body, build_empty_stmt ());
       gfc_add_expr_to_block (pblock, tmp);
     }
 }
@@ -441,7 +442,11 @@ void
 gfc_get_backend_locus (locus * loc)
 {
   loc->lb = gfc_getmem (sizeof (gfc_linebuf));    
+#ifdef USE_MAPPED_LOCATION
+  loc->lb->location = input_location; // FIXME adjust??
+#else
   loc->lb->linenum = input_line - 1;
+#endif
   loc->lb->file = gfc_current_backend_file;
 }
 
@@ -451,9 +456,13 @@ gfc_get_backend_locus (locus * loc)
 void
 gfc_set_backend_locus (locus * loc)
 {
-  input_line = loc->lb->linenum;
   gfc_current_backend_file = loc->lb->file;
+#ifdef USE_MAPPED_LOCATION
+  input_location = loc->lb->location;
+#else
+  input_line = loc->lb->linenum;
   input_filename = loc->lb->file->filename;
+#endif
 }
 
 
@@ -625,7 +634,7 @@ gfc_trans_code (gfc_code * code)
 	  if (TREE_CODE (res) == STATEMENT_LIST)
 	    annotate_all_with_locus (&res, input_location);
 	  else
-	    annotate_with_locus (res, input_location);
+	    SET_EXPR_LOCATION (res, input_location);
 
 	  /* Add the new statemment to the block.  */
 	  gfc_add_expr_to_block (&block, res);
@@ -646,6 +655,12 @@ gfc_generate_code (gfc_namespace * ns)
   gfc_symbol *main_program = NULL;
   symbol_attribute attr;
 
+  if (ns->is_block_data)
+    {
+      gfc_generate_block_data (ns);
+      return;
+    }
+
   /* Main program subroutine.  */
   if (!ns->proc_name)
     {
@@ -658,6 +673,9 @@ gfc_generate_code (gfc_namespace * ns)
       attr.subroutine = 1;
       attr.access = ACCESS_PUBLIC;
       main_program->attr = attr;
+      /* Set the location to the first line of code.  */
+      if (ns->code)
+	main_program->declared_at = ns->code->loc;
       ns->proc_name = main_program;
       gfc_commit_symbols ();
     }

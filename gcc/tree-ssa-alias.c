@@ -359,7 +359,8 @@ struct tree_opt_pass pass_may_alias =
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
   TODO_dump_func | TODO_rename_vars
-    | TODO_ggc_collect | TODO_verify_ssa  /* todo_flags_finish */
+    | TODO_ggc_collect | TODO_verify_ssa,  /* todo_flags_finish */
+  0					/* letter */
 };
 
 
@@ -576,6 +577,8 @@ compute_points_to_and_addr_escape (struct alias_info *ai)
 {
   basic_block bb;
   size_t i;
+  tree op;
+  ssa_op_iter iter;
 
   timevar_push (TV_TREE_PTA);
 
@@ -586,11 +589,6 @@ compute_points_to_and_addr_escape (struct alias_info *ai)
 
       for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
 	{
-	  use_optype uses;
-	  def_optype defs;
-	  v_may_def_optype v_may_defs;
-	  v_must_def_optype v_must_defs;
-	  stmt_ann_t ann;
 	  bitmap addr_taken;
 	  tree stmt = bsi_stmt (si);
 	  bool stmt_escapes_p = is_escape_site (stmt, &ai->num_calls_found);
@@ -629,11 +627,8 @@ compute_points_to_and_addr_escape (struct alias_info *ai)
 		  mark_call_clobbered (var);
 		});
 
-	  ann = stmt_ann (stmt);
-	  uses = USE_OPS (ann);
-	  for (i = 0; i < NUM_USES (uses); i++)
+	  FOR_EACH_SSA_TREE_OPERAND (op, stmt, iter, SSA_OP_USE)
 	    {
-	      tree op = USE_OP (uses, i);
 	      var_ann_t v_ann = var_ann (SSA_NAME_VAR (op));
 	      struct ptr_info_def *pi;
 	      bool is_store;
@@ -698,10 +693,8 @@ compute_points_to_and_addr_escape (struct alias_info *ai)
 	  /* Update reference counter for definitions to any
 	     potentially aliased variable.  This is used in the alias
 	     grouping heuristics.  */
-	  defs = DEF_OPS (ann);
-	  for (i = 0; i < NUM_DEFS (defs); i++)
+	  FOR_EACH_SSA_TREE_OPERAND (op, stmt, iter, SSA_OP_DEF)
 	    {
-	      tree op = DEF_OP (defs, i);
 	      tree var = SSA_NAME_VAR (op);
 	      var_ann_t ann = var_ann (var);
 	      bitmap_set_bit (ai->written_vars, ann->uid);
@@ -710,25 +703,13 @@ compute_points_to_and_addr_escape (struct alias_info *ai)
 	    }
 
 	  /* Mark variables in V_MAY_DEF operands as being written to.  */
-	  v_may_defs = V_MAY_DEF_OPS (ann);
-	  for (i = 0; i < NUM_V_MAY_DEFS (v_may_defs); i++)
+	  FOR_EACH_SSA_TREE_OPERAND (op, stmt, iter, SSA_OP_VIRTUAL_DEFS)
 	    {
-	      tree op = V_MAY_DEF_OP (v_may_defs, i);
 	      tree var = SSA_NAME_VAR (op);
 	      var_ann_t ann = var_ann (var);
 	      bitmap_set_bit (ai->written_vars, ann->uid);
 	    }
 	    
-	  /* Mark variables in V_MUST_DEF operands as being written to.  */
-	  v_must_defs = V_MUST_DEF_OPS (ann);
-	  for (i = 0; i < NUM_V_MUST_DEFS (v_must_defs); i++)
-	    {
-	      tree op = V_MUST_DEF_OP (v_must_defs, i);
-	      tree var = SSA_NAME_VAR (op);
-	      var_ann_t ann = var_ann (var);
-	      bitmap_set_bit (ai->written_vars, ann->uid);
-	    }
-
 	  /* After promoting variables and computing aliasing we will
 	     need to re-scan most statements.  FIXME: Try to minimize the
 	     number of statements re-scanned.  It's not really necessary to
@@ -1723,7 +1704,7 @@ set_pt_malloc (tree ptr)
   struct ptr_info_def *pi = SSA_NAME_PTR_INFO (ptr);
 
   /* If the pointer has already been found to point to arbitrary
-     memory locations, it is unsafe to mark it as pointing to malloc. */
+     memory locations, it is unsafe to mark it as pointing to malloc.  */
   if (pi->pt_anything)
     return;
 
@@ -2391,6 +2372,7 @@ dump_points_to_info (FILE *file)
   basic_block bb;
   block_stmt_iterator si;
   size_t i;
+  ssa_op_iter iter;
   const char *fname =
     lang_hooks.decl_printable_name (current_function_decl, 2);
 
@@ -2424,12 +2406,11 @@ dump_points_to_info (FILE *file)
 
 	for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
 	  {
-	    stmt_ann_t ann = stmt_ann (bsi_stmt (si));
-	    def_optype defs = DEF_OPS (ann);
-	    if (defs)
-	      for (i = 0; i < NUM_DEFS (defs); i++)
-		if (POINTER_TYPE_P (TREE_TYPE (DEF_OP (defs, i))))
-		  dump_points_to_info_for (file, DEF_OP (defs, i));
+	    tree stmt = bsi_stmt (si);
+	    tree def;
+	    FOR_EACH_SSA_TREE_OPERAND (def, stmt, iter, SSA_OP_DEF)
+	      if (POINTER_TYPE_P (TREE_TYPE (def)))
+		dump_points_to_info_for (file, def);
 	  }
     }
 
@@ -2487,14 +2468,16 @@ may_be_aliased (tree var)
   if (TREE_ADDRESSABLE (var))
     return true;
 
-  /* Automatic variables can't have their addresses escape any other way.  */
-  if (!TREE_STATIC (var))
-    return false;
-
   /* Globally visible variables can have their addresses taken by other
      translation units.  */
   if (DECL_EXTERNAL (var) || TREE_PUBLIC (var))
     return true;
+
+  /* Automatic variables can't have their addresses escape any other way.
+     This must be after the check for global variables, as extern declarations
+     do not have TREE_STATIC set.  */
+  if (!TREE_STATIC (var))
+    return false;
 
   /* If we're in unit-at-a-time mode, then we must have seen all occurrences
      of address-of operators, and so we can trust TREE_ADDRESSABLE.  Otherwise

@@ -35,6 +35,8 @@ extern bool default_skip_vec_args (tree, int, int*);
 /* APPLE LOCAL end Altivec */
 
 extern enum machine_mode default_eh_return_filter_mode (void);
+extern unsigned HOST_WIDE_INT default_shift_truncation_mask
+  (enum machine_mode);
 
 extern bool hook_bool_CUMULATIVE_ARGS_true (CUMULATIVE_ARGS *);
 extern tree default_cxx_guard_type (void);
@@ -46,3 +48,5 @@ extern bool hook_pass_by_reference_must_pass_in_stack
   (CUMULATIVE_ARGS *, enum machine_mode mode, tree, bool);
 
 extern void default_unwind_emit (FILE *, rtx);
+
+extern bool default_scalar_mode_supported_p (enum machine_mode);
