@@ -3421,7 +3421,7 @@ cp_pointer_int_sum (enum tree_code resultcode, register tree ptrop,
 static tree
 pointer_diff (register tree op0, register tree op1, register tree ptrtype)
 {
-  register tree result, folded;
+  register tree result;
   tree restype = ptrdiff_type_node;
   tree target_type = TREE_TYPE (ptrtype);
 

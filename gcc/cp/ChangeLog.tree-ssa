@@ -1,3 +1,7 @@
+2003-11-16  Richard Henderson  <rth@redhat.com>
+
+	* typeck.c (pointer_diff): Remove unused variable.
+
 2003-11-16  Jason Merrill  <jason@redhat.com>
 
 	PR optimization/11269
