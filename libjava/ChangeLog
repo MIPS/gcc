@@ -1,3 +1,8 @@
+2004-07-26  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	* java/awt/Button.java (Button()): Use empty string rather than
+	null in no-label constructor.
+
 2004-07-24  Roman Kennke  <roman@ontographics.com>
 
 	* javax/swing/BoxLayout.java: Reimplement.
