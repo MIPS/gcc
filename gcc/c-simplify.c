@@ -788,13 +788,31 @@ simplify_decl_stmt (stmt_p, next_p)
 	    *next_p = NULL_TREE;
 	}
 
-      if (init && init != error_mark_node && !TREE_STATIC (decl))
+      if (init && init != error_mark_node)
 	{
-	  DECL_INITIAL (decl) = NULL_TREE;
-	  init = build (MODIFY_EXPR, void_type_node, decl, init);
-	  if (stmts_are_full_exprs_p ())
-	    init = build1 (CLEANUP_POINT_EXPR, void_type_node, init);
-	  add_tree (init, &pre);
+	  if (!TREE_STATIC (decl))
+	    {
+	      DECL_INITIAL (decl) = NULL_TREE;
+	      init = build (MODIFY_EXPR, void_type_node, decl, init);
+	      if (stmts_are_full_exprs_p ())
+		init = build1 (CLEANUP_POINT_EXPR, void_type_node, init);
+	      /* FIXME: Shouldn't we simplify here?  */
+	      add_tree (init, &pre);
+	    }
+	  else
+	    {
+	      /* We must still examine initializers for static variables
+		 as they may a label address.  However, we must not
+		 make any changes to the node or the queues.  So we
+		 make a copy of the node before calling the simplifier
+		 and we use throw-away queues.  */
+	      tree pre = NULL;
+	      tree post = NULL;
+	      tree dummy_init = deep_copy_node (init);
+	      simplify_expr (&dummy_init, &pre, &post,
+			     is_simple_constructor,
+			     fb_rvalue);
+	    }
 	}
 
       /* This decl isn't mentioned in the enclosing block, so add it to the

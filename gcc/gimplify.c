@@ -880,9 +880,6 @@ simplify_constructor (t, pre_p, post_p)
 {
   tree elt_list;
 
-  if (is_simple_constructor (t))
-    return;
-
   for (elt_list = CONSTRUCTOR_ELTS (t); elt_list;
        elt_list = TREE_CHAIN (elt_list))
     simplify_expr (&TREE_VALUE (elt_list), pre_p, post_p,
@@ -1285,7 +1282,7 @@ simplify_modify_expr (expr_p, pre_p, post_p, want_value)
 {
   tree *from_p = &TREE_OPERAND (*expr_p, 1);
   tree *to_p = &TREE_OPERAND (*expr_p, 0);
-  tree type = TREE_TYPE (*expr_p);
+  tree type = TREE_TYPE (*to_p);
   
 #if defined ENABLE_CHECKING
   if (TREE_CODE (*expr_p) != MODIFY_EXPR
@@ -1322,26 +1319,41 @@ simplify_modify_expr (expr_p, pre_p, post_p, want_value)
     TREE_SET_CODE (*expr_p, MODIFY_EXPR);
 
   /* Break out elements of a constructor into separate MODIFY_EXPRs.  FIXME
-     should also handle arrays/vectors.
+     should also handle vectors.
 
      Note that we still need to clear any elements that don't have explicit
      initializers, so we keep the original MODIFY_EXPR, we just remove all
      of the constructor elements.  FIXME should try to avoid clearing
      initialized elts, a la store_constructor.  */
-  if (TREE_CODE (*from_p) == CONSTRUCTOR && !TREE_STATIC (*from_p)
+  if (TREE_CODE (*from_p) == CONSTRUCTOR
       && (TREE_CODE (type) == RECORD_TYPE || TREE_CODE (type) == UNION_TYPE
-	  || TREE_CODE (type) == QUAL_UNION_TYPE))
+	  || TREE_CODE (type) == QUAL_UNION_TYPE
+	  || TREE_CODE (type) == ARRAY_TYPE))
     {
       tree elt_list = CONSTRUCTOR_ELTS (*from_p);
+      int i;
+
       CONSTRUCTOR_ELTS (*from_p) = NULL_TREE;
       add_tree (*expr_p, pre_p);
-      for (; elt_list; elt_list = TREE_CHAIN (elt_list))
+
+      for (i = 0; elt_list; i++, elt_list = TREE_CHAIN (elt_list))
 	{
-	  tree purpose = TREE_PURPOSE (elt_list);
-	  tree value = TREE_VALUE (elt_list);
-	  tree cref = build (COMPONENT_REF, TREE_TYPE (purpose),
-			     *to_p, purpose);
-	  tree init = build (MODIFY_EXPR, TREE_TYPE (purpose), cref, value);
+	  tree purpose, value, cref, init;
+
+	  purpose = TREE_PURPOSE (elt_list);
+	  value = TREE_VALUE (elt_list);
+
+	  if (TREE_CODE (type) == ARRAY_TYPE)
+	    {
+	      tree type = TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (*to_p)));
+	      cref = build (ARRAY_REF, type, *to_p, build_int_2 (i, 0));
+	    }
+	  else
+	    {
+	      cref = build (COMPONENT_REF, TREE_TYPE (purpose), *to_p, purpose);
+	    }
+
+	  init = build (MODIFY_EXPR, TREE_TYPE (purpose), cref, value);
 	  simplify_expr (&init, pre_p, NULL, is_simple_stmt, fb_none);
 	  add_tree (init, pre_p);
 	}
