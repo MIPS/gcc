@@ -2235,7 +2235,7 @@ find_if_case_1 (test_bb, then_edge, else_edge)
 		    else_bb->global_live_at_start,
 		    then_bb->global_live_at_end, BITMAP_IOR);
   
-  make_edge (NULL, test_bb, then_succ->dest, 0);
+  make_edge (test_bb, then_succ->dest, 0);
   flow_delete_block (then_bb);
   tidy_fallthru_edge (else_edge, test_bb, else_bb);
 
@@ -2326,7 +2326,7 @@ find_if_case_2 (test_bb, then_edge, else_edge)
 		    else_bb->global_live_at_end, BITMAP_IOR);
   
   remove_edge (else_edge);
-  make_edge (NULL, test_bb, else_succ->dest, 0);
+  make_edge (test_bb, else_succ->dest, 0);
   flow_delete_block (else_bb);
 
   num_removed_blocks++;

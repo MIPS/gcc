@@ -54,6 +54,10 @@ static void
 c_post_options ()
 {
   cpp_post_options (parse_in);
+
+  /* Enable tree SSA analysis if -Wuninitialized is used.  */
+  if (warn_uninitialized == 1)
+    flag_tree_ssa = 1;
 }
 
 static void

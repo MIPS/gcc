@@ -4804,8 +4804,11 @@ toplev_main (argc, argv)
 
       /* The c_decode_option function and decode_option hook set
 	 this to `2' if -Wall is used, so we can avoid giving out
-	 lots of errors for people who don't realize what -Wall does.  */
-      if (warn_uninitialized == 1)
+	 lots of errors for people who don't realize what -Wall does.
+ 	 lots of errors for people who don't realize what -Wall does.
+ 	 However, when -ftree-ssa is used, -O is not necessary for finding
+ 	 uses of uninitialized variables.  */
+      if (warn_uninitialized == 1 && !flag_tree_ssa)
 	warning ("-Wuninitialized is not supported without -O");
     }
 

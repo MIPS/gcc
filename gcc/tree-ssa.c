@@ -32,17 +32,24 @@ Boston, MA 02111-1307, USA.  */
 #include "expr.h"
 #include "c-common.h"
 #include "diagnostic.h"
-#include "toplev.h"
 #include "tree-optimize.h"
 #include "tree-flow.h"
 #include "ssa.h"
 
+/* Nonzero to warn about variables used before they are initialized.  Used
+   by analyze_rdefs().  */
+
+int tree_warn_uninitialized = 0;
+
 
 /* Dump file and flags.  */
+
 static FILE *dump_file;
 static int dump_flags;
 
+
 /* Local functions.  */
+
 static void insert_phi_terms PARAMS ((sbitmap *));
 static void build_fud_chains PARAMS ((int *));
 static void search_fud_chains PARAMS ((basic_block, int *));
@@ -508,35 +515,69 @@ tree_compute_rdefs ()
 /* {{{ analyze_rdefs()
 
   Analyze reaching definition information and warn about uses of potentially
-  uninitialized variables.  */
+  uninitialized variables if -Wuninitialized was given.  */
 
 void
 analyze_rdefs ()
 {
   size_t i;
-  sbitmap blocks;
 
-  if (warn_uninitialized == 0)
+  if (tree_warn_uninitialized == 0)
     return;
-
-  blocks = sbitmap_alloc (n_basic_blocks);
-  sbitmap_ones (blocks);
 
   for (i = 0; i < NREF_SYMBOLS; i++)
     {
+      size_t j;
       tree sym = REF_SYMBOL (i);
+      varray_type refs = TREE_REFS (sym);
 
-      if (TREE_CODE (sym) == VAR_DECL
-	  && DECL_CONTEXT (sym) != NULL
-	  && ! TREE_STATIC (sym)
-	  && is_upward_exposed (sym, blocks, 0))
+      /* Uninitialized warning messages are only given for local variables
+	 with auto declarations.  */
+      if (TREE_CODE (sym) != VAR_DECL
+	  || DECL_CONTEXT (sym) == NULL
+	  || TREE_STATIC (sym)
+	  || TREE_ADDRESSABLE (sym))
+	continue;
+
+      /* For each use of SYM, if the use is reached by SYM's ghost
+	 definition, then the symbol may have been used uninitialized in
+	 the function.  */
+      for (j = 0; j < VARRAY_ACTIVE_SIZE (refs); j++)
 	{
-	  if (! TREE_ADDRESSABLE (sym))
-	    warning_with_decl (sym,
-		  "`%s' is used uninitialized in this function");
-	  else
-	    warning_with_decl (sym,
-		  "`%s' may be used uninitialized in this function");
+	  size_t k;
+	  int found_ghost;
+	  varray_type rdefs;
+	  varref use = VARRAY_GENERIC_PTR (refs, j);
+
+	  if (VARREF_TYPE (use) != VARUSE)
+	    continue;
+
+	  /* Check all the reaching definitions looking for the ghost
+	     definition.  */
+	  found_ghost = 0;
+	  rdefs = VARUSE_RDEFS (use);
+	  for (k = 0; k < VARRAY_ACTIVE_SIZE (rdefs); k++)
+	    {
+	      varref def = VARRAY_GENERIC_PTR (rdefs, k);
+
+	      if (IS_GHOST_DEF (def))
+		found_ghost = 1;
+	    }
+
+	  /* If we found a ghost definition for SYM, then the reference may
+	     be accessing an uninitialized symbol.  If the ghost def is the
+	     only reaching definition, then the symbol _is_ used
+	     uninitialized.  Otherwise it _may_ be used uninitialized.  */
+	  if (found_ghost)
+	    {
+	      prep_stmt (VARREF_STMT (use));
+	      if (VARRAY_ACTIVE_SIZE (rdefs) == 1)
+		warning ("`%s' is used uninitialized at this point",
+		         IDENTIFIER_POINTER (DECL_NAME (sym)));
+	      else
+		warning ("`%s' may be used uninitialized at this point",
+		         IDENTIFIER_POINTER (DECL_NAME (sym)));
+	    }
 	}
     }
 }

@@ -31,12 +31,16 @@ Boston, MA 02111-1307, USA.  */
 #include "c-common.h"
 #include "diagnostic.h"
 #include "basic-block.h"
+#include "flags.h"
 #include "tree-optimize.h"
 #include "tree-flow.h"
 
+/* Local functions.  */
+static void init_tree_flow PARAMS ((void));
+
 /* {{{ optimize_tree()
 
-   Main entry point to the tree-based optimizer.  */
+   Main entry point to the tree SSA transformation routines.  */
 
 void
 optimize_tree (t)
@@ -46,8 +50,28 @@ optimize_tree (t)
   if (errorcount || sorrycount)
     return;
 
-  /* Flush out existing data.  */
-  VARRAY_TREE_INIT (referenced_symbols, 20, "referenced_symbols");
+  /* Build the SSA representation for the function.  */
+  build_tree_ssa (t);
+
+  /* Flush out flow graph and SSA data.  */
+  delete_cfg ();
+  delete_ssa ();
+  VARRAY_FREE (referenced_symbols);
+}
+
+/* }}} */
+
+/* {{{ build_tree_ssa()
+
+   Main entry point to the tree SSA analysis routines.  */
+
+void
+build_tree_ssa (t)
+     tree t;
+{
+  /* Initialize flow data.  */
+  init_flow ();
+  init_tree_flow ();
 
   tree_find_basic_blocks (t);
 
@@ -57,11 +81,26 @@ optimize_tree (t)
       tree_build_ssa ();
       tree_compute_rdefs ();
     }
+}
 
-  /* Flush out DFA and SSA data.  */
-  delete_cfg ();
-  delete_ssa ();
-  VARRAY_FREE (referenced_symbols);
+/* }}} */
+
+/* {{{ init_tree_flow()
+
+   Initialize internal data structures and flags for the tree SSA pass.  */
+
+static void
+init_tree_flow ()
+{
+  VARRAY_TREE_INIT (referenced_symbols, 20, "referenced_symbols");
+
+  /* If -Wuninitialized was used, set tree_warn_uninitialized and clear
+     warn_uninitialized to avoid duplicate warnings.  */
+  if (warn_uninitialized == 1)
+    {
+      tree_warn_uninitialized = 1;
+      warn_uninitialized = 0;
+    }
 }
 
 /* }}} */

@@ -55,7 +55,6 @@ static void add_ref_symbol PARAMS ((tree));
 varray_type referenced_symbols;
 
 
-
 /* Find variable references in the code.  */
 
 /* {{{ tree_find_varrefs()
@@ -74,15 +73,16 @@ tree_find_varrefs ()
 
       while (t)
 	{
-	  /* The only non-statements that we can have in a block are the
-	     expressions in control header blocks (FOR_COND, DO_COND, etc).
-	     Those are handled when we process the associated control
-	     statement.  */
 	  if (statement_code_p (TREE_CODE (t)))
 	    {
 	      find_refs_in_stmt (t, bb);
 	      if (t == bb->end_tree || is_ctrl_stmt (t))
 		break;
+	    }
+	  else
+	    {
+	      tree parent = BB_PARENT (bb)->head_tree;
+	      find_refs_in_expr (t, VARUSE, bb, parent, t);
 	    }
 
 	  t = TREE_CHAIN (t);
@@ -136,24 +136,24 @@ find_refs_in_stmt (t, bb)
   if (code == EXPR_STMT)
     find_refs_in_expr (EXPR_STMT_EXPR (t), VARUSE, bb, t, t);
 
+  /* The condition nodes for IF_STMT, SWITCH_STMT and WHILE_STMT are not
+     modeled in the flowgraph, so they need to be looked at separately.  */
   else if (code == IF_STMT)
     find_refs_in_expr (IF_COND (t), VARUSE, bb, t, t);
 
   else if (code == SWITCH_STMT)
     find_refs_in_expr (SWITCH_COND (t), VARUSE, bb, t, t);
 
-  else if (code == FOR_STMT)
-    {
-      find_refs_in_stmt (FOR_INIT_STMT (t), bb);
-      find_refs_in_expr (FOR_COND (t), VARUSE, bb, t, t);
-      find_refs_in_expr (FOR_EXPR (t), VARUSE, bb, t, t);
-    }
-
   else if (code == WHILE_STMT)
     find_refs_in_expr (WHILE_COND (t), VARUSE, bb, t, t);
 
+  /* There is no need to check the children nodes for DO_STMTs and
+     FOR_STMTs, because they're in separate basic blocks.  */
+  else if (code == FOR_STMT)
+    ;				/* Nothing to do.  */
+
   else if (code == DO_STMT)
-    find_refs_in_expr (DO_COND (t), VARUSE, bb, t, t);
+    ;				/* Nothing to do.  */
 
   else if (code == ASM_STMT)
     {
@@ -171,7 +171,11 @@ find_refs_in_stmt (t, bb)
   else if (code == DECL_STMT)
     {
       if (TREE_CODE (DECL_STMT_DECL (t)) == VAR_DECL)
-	find_refs_in_expr (DECL_INITIAL (DECL_STMT_DECL (t)), VARDEF, bb, t, t);
+	{
+	  tree decl = DECL_STMT_DECL (t);
+	  if (DECL_INITIAL (decl))
+	    find_refs_in_expr (decl, VARDEF, bb, t, t);
+	}
     }
 
   else if (code == LABEL_STMT)
@@ -215,7 +219,7 @@ find_refs_in_stmt (t, bb)
    Recursively scan the expression tree EXPR looking for variable
    references.
    
-   REF_TYPE indicates what type of reference should be created,
+   REF_TYPE indicates what type of reference should be created.
 
    BB, PARENT_STMT and PARENT_EXPR are the block, statement and expression
       trees containing EXPR.  */
@@ -246,6 +250,24 @@ find_refs_in_expr (expr, ref_type, bb, parent_stmt, parent_expr)
 
   switch (code)
     {
+      /* Structure and union references.  Use the same reference type that
+	 was given by our caller.  */
+    case COMPONENT_REF:
+      find_refs_in_expr (TREE_OPERAND (expr, 0), ref_type, bb, parent_stmt,
+			 expr);
+      find_refs_in_expr (TREE_OPERAND (expr, 1), ref_type, bb, parent_stmt,
+			 expr);
+      break;
+
+      /* Array references.  Use the same reference type for the array, but
+	 default to VARUSE for the index expression.  */
+    case ARRAY_REF:
+      find_refs_in_expr (TREE_OPERAND (expr, 0), ref_type, bb, parent_stmt,
+			 expr);
+      find_refs_in_expr (TREE_OPERAND (expr, 1), VARUSE, bb, parent_stmt,
+			 expr);
+      break;
+
       /* Unary expressions.  */
     case COMPLEX_CST:
     case INTEGER_CST:
@@ -297,7 +319,6 @@ find_refs_in_expr (expr, ref_type, bb, parent_stmt, parent_expr)
 
 
       /* Binary expressions.  */
-    case ARRAY_REF:
     case BIT_AND_EXPR:
     case BIT_ANDTC_EXPR:
     case BIT_IOR_EXPR:
@@ -305,7 +326,6 @@ find_refs_in_expr (expr, ref_type, bb, parent_stmt, parent_expr)
     case CEIL_DIV_EXPR:
     case CEIL_MOD_EXPR:
     case COMPLEX_EXPR:
-    case COMPONENT_REF:
     case COMPOUND_EXPR:
     case COND_EXPR:
     case CONSTRUCTOR:
@@ -362,7 +382,7 @@ find_refs_in_expr (expr, ref_type, bb, parent_stmt, parent_expr)
       /* Ternary operations.  */
     case BIT_FIELD_REF:
     case SAVE_EXPR:
-      find_refs_in_expr (TREE_OPERAND (expr, 0), VARUSE, bb, parent_stmt,
+      find_refs_in_expr (TREE_OPERAND (expr, 0), ref_type, bb, parent_stmt,
 			 expr);
       find_refs_in_expr (TREE_OPERAND (expr, 1), VARUSE, bb, parent_stmt,
 			 expr);
@@ -474,6 +494,20 @@ create_varref (sym, ref_type, bb, parent_stmt, parent_expr)
 
   /* Add this reference to the list of references for the basic block.  */
   VARRAY_PUSH_GENERIC_PTR (get_bb_ann (bb)->refs, ref);
+
+  /* Make sure that PHI terms are added at the beginning of the list,
+     otherwise FUD chaining will fail to link local uses to the PHI
+     term in this basic block.  */
+  if (ref_type == VARPHI)
+    {
+      varray_type refs = BB_REFS (bb);
+      char *src = refs->data.c;
+      char *dest = refs->data.c + refs->element_size;
+      size_t n = (refs->elements_used - 1) * refs->element_size;
+
+      memmove (dest, src, n);
+      VARRAY_GENERIC_PTR (refs, 0) = ref;
+    }
 
   return ref;
 }

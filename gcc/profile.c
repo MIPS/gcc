@@ -611,14 +611,14 @@ branch_prob ()
 	  if (rtl_dump_file)
 	    fprintf (rtl_dump_file, "Adding fake exit edge to bb %i\n",
 		     bb->index);
-          make_edge (NULL, bb, EXIT_BLOCK_PTR, EDGE_FAKE);
+          make_edge (bb, EXIT_BLOCK_PTR, EDGE_FAKE);
 	}
       if (need_entry_edge && !have_entry_edge)
 	{
 	  if (rtl_dump_file)
 	    fprintf (rtl_dump_file, "Adding fake entry edge to bb %i\n",
 		     bb->index);
-          make_edge (NULL, ENTRY_BLOCK_PTR, bb, EDGE_FAKE);
+          make_edge (ENTRY_BLOCK_PTR, bb, EDGE_FAKE);
 	}
     }
 

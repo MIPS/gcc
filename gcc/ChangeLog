@@ -1,3 +1,139 @@
+2001-10-14  Diego Novillo  <dnovillo@redhat.com>
+
+	* Merge from mainline:
+
+	Tue Sep 11 11:37:52 CEST 2001  Jan Hubicka  <jh@suse.cz>
+
+		* basic-block.h (cached_make_edge): New.
+		(make_edge): Remove first parameter.
+		* flow.c (cached_make_edge): Rename from make_edge; return
+		newly created edge; use obstack allocation.
+		(make_edge): New.
+		(flow_call_edges_add): Updaet make_edge call.
+		(add_noreturn_fake_exit_edges): Likewise.
+		(connect_infinite_loops_to_exit): Liekwise.
+		(make_label_edge, make_edges, find_sub_basic_blocks): Use
+		cached_make_edge.
+		* profile.c (branch_prob): Update make_edge call.
+		* ssa-dce.c (ssa_eliminate_dead_code): Likewise.
+
+2001-10-14  Diego Novillo  <dnovillo@redhat.com>
+
+	* Makefile.in (tree-ssa.o): Remove dependency on flags.h.
+	(tree-optimize.o): Add dependency on flags.h.
+	* bb-reorder.c (fixup_reorder_chain): Update call to make_edge.
+	* c-lang.c (c_post_options): Set flag_tree_ssa if -Wuninitialized
+	is given.
+	* ifcvt.c (find_if_case_1): Update call to make_edge.
+	* toplev.c (toplev_main): Do not warn about -Wuninitialized without
+	-O if -ftree-ssa is used.
+	* tree-cfg.c (dot_dump_file): Remove.
+	(dot_dump_flags): Remove.
+	(cfg_dump_file): Rename to dump_file.
+	(cfg_dump_flags): Rename to dump_flags.
+	(remove_bb_ann): New function.
+	(tree_find_basic_blocks): Do not open dump files at the beginning
+	of the function.
+	Do not call delete_cfg.
+	Create annotations for ENTRY_BLOCK_PTR and EXIT_BLOCK_PTR.
+	(make_for_stmt_blocks): Update FOR_INIT_STMT_BB and FOR_COND_BB
+	when creating the header blocks.
+	Create the blocks for the loop body before the expression block.
+	(make_while_stmt_blocks): Update END_WHILE_BB when creating the
+	header blocks.
+	Create the blocks for the loop body before the end-while block.
+	(make_do_stmt_blocks): Update DO_COND_BB when creating header
+	blocks.
+	Create the blocks for the loop body before the block for DO_COND.
+	(create_bb): When creating loop header blocks, allocate space for
+	the header_blocks union.
+	Call create_bb_ann to create a new annotation.
+	(remove_bb_ann): New function.
+	(tree_split_bb): New function.
+	(make_edges): Remove first argument from call to make_edge,
+	make_ctrl_stmt_edges, make_exit_edges, make_for_stmt_edges,
+	make_while_stmt_edges, make_do_stmt_edges, make_if_stmt_edges,
+	make_goto_stmt_edges, make_break_stmt_edges and
+	make_continue_stmt_edges.
+	When creating edges for the default label, remove the fallthru edge
+	that was created for the associated SWITCH_STMT entry block.
+	Do not call delete_unreachable_blocks.
+	Call tree_cleanup_cfg.
+	(make_ctrl_stmt_edges): Remove first argument.
+	(make_exit_edges): Remove first argument.
+	If the last element of the block is an EXPR_STMT, assume that it is
+	the call to a non-returning function and make an edge to the exit
+	block.
+	Do not call make_return_stmt_edges.  Call make_edge directly.
+	(make_for_stmt_edges): Remove first argument.
+	Simplify the graph for infinite and zero-iteration loops.
+	(make_while_stmt_edges): Remove first argument.
+	Simplify the graph for infinite and zero-iteration loops.
+	(make_do_stmt_edges): Remove first argument.
+	Simplify the graph for infinite and one-iteration loops.
+	(make_if_stmt_edges): Remove first argument.
+	Simplify the graph for always-true and always-false conditionals.
+	(make_goto_stmt_edges): Remove first argument.
+	(make_break_stmt_edges): Remove first argument.
+	(make_continue_stmt_edges): Remove first argument.
+	(make_return_stmt_edges): Remove.
+	(tree_cleanup_cfg): New function.
+	(delete_unreachable_blocks): Do not react to -Wunreachable-code.
+	Write to dump file blocks that have been removed.
+	Call remove_edge.
+	(is_ctrl_altering_stmt): If the statement contains a call to a
+	non-returning function, return 1.
+	(delete_cfg): Call remove_bb_ann.  Also remove annotations for
+	ENTRY_BLOCK_PTR and EXIT_BLOCK_PTR.
+	(latch_block): Use WHILE_COND_BB instead of END_WHILE_BB.
+	(insert_stmt_tree_before): Use cfg_dump_file instead of dump_file.
+	(insert_before_ctrl_stmt): Ditto.
+	(insert_before_normal_stmt): Ditto.
+	(insert_stmt_tree_after): Ditto.
+	(insert_after_ctrl_stmt): Ditto.
+	(insert_after_normal_stmt): Ditto.
+	(replace_expr_in_tree): Ditto.
+	(insert_bb_before): Ditto.
+	* tree-dfa.c (tree_find_varrefs): Call find_refs_in_expr when the
+	tree is not a statement.
+	(find_refs_in_stmt): Update comments.
+	Do not deal with FOR_STMT and DO_STMT trees separately.
+	When processing VAR_DECLs, call find_refs_in_expr with the
+	declaration, not its initial value.
+	(find_refs_in_expr): When processing COMPONENT_REFs and ARRAY_REFs,
+	recurse using the same reference type that was given by the
+	original caller.
+	(create_varref): Insert new PHI terms at the beginning of the
+	BB_REFS array, not the end.
+	* tree-flow.h (struct for_header_blocks): Declare.
+	(union header_blocks): Declare.
+	(struct bb_ann_def): Add new field 'loop_hdr'.
+	(BB_ANN): Re-define so that it can be used as an lvalue.
+	(BB_PARENT): Ditto.
+	(BB_REFS): Ditto.
+	(BB_PREV_CHAIN): Ditto.
+	(BB_BINDING_SCOPE): Ditto.
+	(BB_LOOP_HDR): Define.
+	(FOR_INIT_STMT_BB): Redefine using BB_LOOP_HDR.
+	(FOR_COND_BB): Ditto.
+	(FOR_EXPR_BB): Ditto.
+	(DO_COND_BB): Ditto.
+	(END_WHILE_BB): New name for WHILE_COND_BB.
+	(tree_warn_uninitialized): Declare.
+	(tree_cleanup_cfg): Declare.
+	(tree_split_bb): Declare.
+	* tree-optimize.c: Include flags.h.
+	(init_tree_flow): New function.
+	(optimize_tree): Call build_tree_ssa instead of building SSA
+	in-place.
+	(build_tree_ssa): New function.
+	* tree-optimize.h (build_tree_ssa): Declare.
+	* tree-ssa.c: Don't include toplev.h
+	(tree_warn_uninitialized): Define.
+	(tree_compute_rdefs): Do not call is_upward_exposed.  Instead
+	traverse all the uses of each variable and warn if the use is
+	reached by the ghost definition.
+
 2001-10-01  Graham Stott  <grahams@redhat.com>
             Diego Novillo  <dnovillo@redhat.com>
 
@@ -19,7 +155,7 @@
 	Do not push basic block 0 to initialize scope binding stack.
 	(insert_stmt_tree_after): Remove unused argument from call to
 	insert_after_ctrl_stmt.
-	(tree_dump_bb):
+	(tree_dump_bb): Dump BB_BINDING_SCOPE if defined.
 	* doc/invoke.texi: Document debugging option -ftree-dump-ssa-rdefs.
 
 2001-09-29  Diego Novillo  <dnovillo@redhat.com>

@@ -46,10 +46,8 @@ static const int initial_cfg_capacity = 20;
 static varray_type binding_stack;
 
 /* Dump files and flags.  */
-static FILE *cfg_dump_file;
-static FILE *dot_dump_file;
-static int cfg_dump_flags;
-static int dot_dump_flags;
+static FILE *dump_file;
+static int dump_flags;
 
 /* Basic blocks and flowgraphs.  */
 static void make_blocks PARAMS ((tree, basic_block, tree, tree *));
@@ -66,21 +64,21 @@ static void delete_bb PARAMS ((basic_block));
 
 /* Edges.  */
 static void make_edges PARAMS ((void));
-static void make_ctrl_stmt_edges PARAMS ((sbitmap *, basic_block));
-static void make_exit_edges PARAMS ((sbitmap *, basic_block));
-static void make_for_stmt_edges PARAMS ((sbitmap *, basic_block));
-static void make_while_stmt_edges PARAMS ((sbitmap *, basic_block));
-static void make_do_stmt_edges PARAMS ((sbitmap *, basic_block));
-static void make_if_stmt_edges PARAMS ((sbitmap *, basic_block));
-static void make_goto_stmt_edges PARAMS ((sbitmap *, basic_block));
-static void make_break_stmt_edges PARAMS ((sbitmap *, basic_block));
-static void make_continue_stmt_edges PARAMS ((sbitmap *, basic_block));
-static void make_return_stmt_edges PARAMS ((sbitmap *, basic_block));
+static void make_ctrl_stmt_edges PARAMS ((basic_block));
+static void make_exit_edges PARAMS ((basic_block));
+static void make_for_stmt_edges PARAMS ((basic_block));
+static void make_while_stmt_edges PARAMS ((basic_block));
+static void make_do_stmt_edges PARAMS ((basic_block));
+static void make_if_stmt_edges PARAMS ((basic_block));
+static void make_goto_stmt_edges PARAMS ((basic_block));
+static void make_break_stmt_edges PARAMS ((basic_block));
+static void make_continue_stmt_edges PARAMS ((basic_block));
 
 /* Various helpers.  */
 static basic_block successor_block PARAMS ((basic_block));
 static int block_invalidates_loop PARAMS ((basic_block, struct loop *));
 static void create_bb_ann PARAMS ((basic_block));
+static void remove_bb_ann PARAMS ((basic_block));
 
 static void insert_before_ctrl_stmt PARAMS ((tree, tree, basic_block));
 static void insert_before_normal_stmt PARAMS ((tree, tree, basic_block));
@@ -99,15 +97,13 @@ void
 tree_find_basic_blocks (t)
      tree t;
 {
-  cfg_dump_file = dump_begin (TDI_cfg, &cfg_dump_flags);
-  dot_dump_file = dump_begin (TDI_dot, &dot_dump_flags);
-
-  /* Flush out existing data.  */
-  delete_cfg ();
-
   /* Initialize the basic block array.  */
   n_basic_blocks = 0;
   VARRAY_BB_INIT (basic_block_info, initial_cfg_capacity, "basic_block_info");
+
+  /* Create annotations for ENTRY_BLOCK_PTR and EXIT_BLOCK_PTR.  */
+  create_bb_ann (ENTRY_BLOCK_PTR);
+  create_bb_ann (EXIT_BLOCK_PTR);
 
   /* Initialize the stack of binding scopes.  */
   VARRAY_BB_INIT (binding_stack, 5, "binding_stack");
@@ -124,19 +120,21 @@ tree_find_basic_blocks (t)
       make_edges ();
 
       /* Write the flowgraph to a GraphViz file.  */
-      if (dot_dump_file)
-	tree_cfg2dot (dot_dump_file);
+      dump_file = dump_begin (TDI_dot, &dump_flags);
+      if (dump_file)
+	{
+	  tree_cfg2dot (dump_file);
+	  dump_end (TDI_dot, dump_file);
+	}
 
       /* Dump a textual representation of the flowgraph.  */
-      if (cfg_dump_file)
-	tree_dump_cfg (cfg_dump_file);
+      dump_file = dump_begin (TDI_cfg, &dump_flags);
+      if (dump_file)
+	{
+	  tree_dump_cfg (dump_file);
+	  dump_end (TDI_cfg, dump_file);
+	}
     }
-
-  if (dot_dump_file)
-    dump_end (TDI_dot, dot_dump_file);
-
-  if (cfg_dump_file)
-    dump_end (TDI_cfg, cfg_dump_file);
 }
 
 /* }}} */
@@ -270,14 +268,17 @@ make_for_stmt_blocks (t, control_parent, compound_stmt, prev_chain_p)
   bb = create_maximal_bb (FOR_INIT_STMT (t), entry, compound_stmt,
                           &(FOR_INIT_STMT (t)));
   bb->flags |= BB_CONTROL_EXPR;
+  FOR_INIT_STMT_BB (entry) = bb;
 
   bb = create_maximal_bb (cond, entry, compound_stmt, &(FOR_COND (t)));
   bb->flags |= BB_CONTROL_EXPR;
+  FOR_COND_BB (entry) = bb;
+
+  make_blocks (FOR_BODY (t), entry, compound_stmt, &(FOR_BODY (t)));
 
   bb = create_maximal_bb (expr, entry, compound_stmt, &(FOR_EXPR (t)));
   bb->flags |= BB_CONTROL_EXPR;
-
-  make_blocks (FOR_BODY (t), entry, compound_stmt, &(FOR_BODY (t)));
+  FOR_EXPR_BB (entry) = bb;
 }
 
 /* }}} */
@@ -293,15 +294,18 @@ make_while_stmt_blocks (t, control_parent, compound_stmt, prev_chain_p)
      tree compound_stmt;
      tree *prev_chain_p;
 {
-  basic_block bb = create_bb (t, t, control_parent, prev_chain_p);
-  bb->flags |= BB_CONTROL_ENTRY | BB_CONTROL_EXPR;
+  basic_block bb, entry;
   
+  entry = create_bb (t, t, control_parent, prev_chain_p);
+  entry->flags |= BB_CONTROL_ENTRY | BB_CONTROL_EXPR;
+  
+  make_blocks (WHILE_BODY (t), entry, compound_stmt, &(WHILE_BODY (t)));
+
   /* END_WHILE block.  Needed to avoid multiple back edges that would
      result in multiple natural loops instead of just one.  */
-  bb = create_maximal_bb (build_int_2 (1, 0), bb, compound_stmt, NULL);
+  bb = create_maximal_bb (build_int_2 (1, 0), entry, compound_stmt, NULL);
   bb->flags |= BB_CONTROL_ENTRY;
-
-  make_blocks (WHILE_BODY (t), bb, compound_stmt, &(WHILE_BODY (t)));
+  END_WHILE_BB (entry) = bb;
 }
 
 /* }}} */
@@ -317,13 +321,16 @@ make_do_stmt_blocks (t, control_parent, compound_stmt, prev_chain_p)
      tree compound_stmt;
      tree *prev_chain_p;
 {
-  basic_block bb = create_bb (t, t, control_parent, prev_chain_p);
-  bb->flags |= BB_CONTROL_ENTRY;
+  basic_block bb, entry;
+  
+  entry = create_bb (t, t, control_parent, prev_chain_p);
+  entry->flags |= BB_CONTROL_ENTRY;
 
-  bb = create_maximal_bb (DO_COND (t), bb, compound_stmt, &(DO_COND (t)));
+  make_blocks (DO_BODY (t), entry, compound_stmt, &(DO_BODY (t)));
+
+  bb = create_maximal_bb (DO_COND (t), entry, compound_stmt, &(DO_COND (t)));
   bb->flags |= BB_CONTROL_EXPR;
-
-  make_blocks (DO_BODY (t), bb, compound_stmt, &(DO_BODY (t)));
+  DO_COND_BB (entry) = bb;
 }
 
 /* }}} */
@@ -458,9 +465,22 @@ create_bb (head, end, control_parent, prev_chain_p)
   bb->head_tree = head;
   bb->end_tree = end;
   bb->index = n_basic_blocks;
-  get_bb_ann (bb)->parent = control_parent;
-  get_bb_ann (bb)->prev_chain_p = prev_chain_p;
-  get_bb_ann (bb)->binding_scope = VARRAY_TOP_BB (binding_stack);
+
+  /* Create annotations for the block.  */
+  create_bb_ann (bb);
+  BB_PARENT (bb) = control_parent;
+  BB_PREV_CHAIN_P (bb) = prev_chain_p;
+  BB_BINDING_SCOPE (bb) = VARRAY_TOP_BB (binding_stack);
+
+  if (is_loop_stmt (head))
+    {
+      union header_blocks *hdr;
+      hdr = (union header_blocks *) ggc_alloc (sizeof (union header_blocks));
+      memset (hdr, 0, sizeof (union header_blocks));
+      BB_LOOP_HDR (bb) = hdr;
+    }
+  else
+    BB_LOOP_HDR (bb) = NULL;
 
   /* Grow the basic block array if needed.  */
   if ((size_t) n_basic_blocks == VARRAY_SIZE (basic_block_info))
@@ -535,6 +555,56 @@ create_bb_ann (bb)
 
 /* }}} */
 
+/* {{{ remove_bb_ann()
+
+   Remove the annotation from block BB.  */
+
+static void
+remove_bb_ann (bb)
+     basic_block bb;
+{
+  bb_ann ann = BB_ANN (bb);
+  if (ann)
+    {
+      ann->parent = NULL;
+      /* There is no need to delete the arrays in each of the reference.
+	 That is done by delete_ssa().  */
+      VARRAY_FREE (ann->refs);
+    }
+  bb->aux = NULL;
+}
+
+/* }}} */
+
+/* {{{ tree_split_bb()
+
+   Splits basic block BB at statement T.  A new basic block is created
+   starting with the statement following T.  If T is already the last
+   statement in the block, nothing is done.
+
+   Returns the newly created basic block or NULL if no splitting is
+   necessary.  */
+
+basic_block
+tree_split_bb (bb, t)
+     basic_block bb;
+     tree t;
+{
+  basic_block new_bb;
+
+  /* If T is already BB's last statement, nothing needs to be done.  */
+  if (t == bb->end_tree)
+    return NULL;
+  
+  new_bb = create_maximal_bb (TREE_CHAIN (t), BB_PARENT (bb),
+                              TREE_COMPOUND_STMT (t), &(TREE_CHAIN (t)));
+  bb->end_tree = t;
+
+  return new_bb;
+}
+
+/* }}} */
+
 
 /* Create edges.  */
 
@@ -546,12 +616,8 @@ static void
 make_edges ()
 {
   int i;
-  sbitmap *edge_cache;
 
-  edge_cache = sbitmap_vector_alloc (n_basic_blocks, n_basic_blocks);
-  sbitmap_vector_zero (edge_cache, n_basic_blocks);
-
-  make_edge (edge_cache, ENTRY_BLOCK_PTR, BASIC_BLOCK (0), EDGE_FALLTHRU);
+  make_edge (ENTRY_BLOCK_PTR, BASIC_BLOCK (0), EDGE_FALLTHRU);
 
   /* Traverse basic block array placing edges.  */
   for (i = 0; i < n_basic_blocks; i++)
@@ -560,17 +626,17 @@ make_edges ()
 
       /* Edges for control statements.  */
       if (is_ctrl_stmt (bb->head_tree))
-	make_ctrl_stmt_edges (edge_cache, bb);
+	make_ctrl_stmt_edges (bb);
 
       /* Edges for statement expressions.  */
       if (is_statement_expression (bb->head_tree))
-	make_edge (edge_cache, bb, BASIC_BLOCK (i + 1), 0);
+	make_edge (bb, BASIC_BLOCK (i + 1), 0);
 
       /* Edges for control flow altering statements (goto, break,
          continue, return) need an edge to the corresponding target
          block.  */
       if (is_ctrl_altering_stmt (bb->end_tree))
-	make_exit_edges (edge_cache, bb);
+	make_exit_edges (bb);
 
       /* Incoming edges for label blocks in switch statements.  It's easier
          to deal with these bottom-up than top-down.  */
@@ -585,26 +651,35 @@ make_edges ()
 	      return;
 	    }
 
-	  /* If the preceding block begins a new scope, make the edge to
-	     that block instead.  */
-	  if (bb->pred && bb->pred->src && bb->pred->src->head_tree
-	      && TREE_CODE (bb->pred->src->head_tree) == SCOPE_STMT)
-	    make_edge (edge_cache, switch_bb, bb->pred->src, 0);
-	  else
-	    make_edge (edge_cache, switch_bb, bb, 0);
+	  make_edge (switch_bb, bb, 0);
+
+	  /* If this label is the default label, we need to remove the
+	     fallthru edge that was created when we processed the entry
+	     block for the switch() statement.  */
+	  if (CASE_LOW (bb->head_tree) == NULL)
+	    {
+	      edge e;
+	      basic_block entry_bb, chain_bb;
+
+	      entry_bb = BB_PARENT (bb);
+	      chain_bb = successor_block (entry_bb);
+	      for (e = entry_bb->succ; e; e = e->succ_next)
+		if (e->dest == chain_bb)
+		  {
+		    remove_edge (e);
+		    break;
+		  }
+	    }
 	}
 
       /* Finally, if no edges were created above, this is a regular
          basic block that only needs a fallthru edge.  */
       if (bb->succ == NULL)
-	make_edge (edge_cache, bb, successor_block (bb), EDGE_FALLTHRU);
+	make_edge (bb, successor_block (bb), EDGE_FALLTHRU);
     }
 
   /* Clean up the graph and warn for unreachable code.  */
-  delete_unreachable_blocks ();
-
-  if (edge_cache)
-    sbitmap_vector_free (edge_cache);
+  tree_cleanup_cfg ();
 }
 
 /* }}} */
@@ -614,26 +689,25 @@ make_edges ()
    Create edges for control statement at basic block BB.  */
 
 static void
-make_ctrl_stmt_edges (edge_cache, bb)
-     sbitmap *edge_cache;
+make_ctrl_stmt_edges (bb)
      basic_block bb;
 {
   switch (TREE_CODE (bb->head_tree))
     {
     case FOR_STMT:
-      make_for_stmt_edges (edge_cache, bb);
+      make_for_stmt_edges (bb);
       break;
 
     case WHILE_STMT:
-      make_while_stmt_edges (edge_cache, bb);
+      make_while_stmt_edges (bb);
       break;
 
     case DO_STMT:
-      make_do_stmt_edges (edge_cache, bb);
+      make_do_stmt_edges (bb);
       break;
 
     case IF_STMT:
-      make_if_stmt_edges (edge_cache, bb);
+      make_if_stmt_edges (bb);
       break;
 
     case SWITCH_STMT:
@@ -651,29 +725,29 @@ make_ctrl_stmt_edges (edge_cache, bb)
 /* {{{ make_exit_edges()
 
    Create exit edges for statements that alter the flow of control
-   (BREAK, CONTINUE, GOTO, RETURN).  */
+   (BREAK, CONTINUE, GOTO, RETURN and calls to non-returning functions).  */
 
 static void
-make_exit_edges (edge_cache, bb)
-     sbitmap *edge_cache;
+make_exit_edges (bb)
      basic_block bb;
 {
   switch (TREE_CODE (bb->end_tree))
     {
     case BREAK_STMT:
-      make_break_stmt_edges (edge_cache, bb);
+      make_break_stmt_edges (bb);
       break;
 
     case CONTINUE_STMT:
-      make_continue_stmt_edges (edge_cache, bb);
+      make_continue_stmt_edges (bb);
       break;
 
     case GOTO_STMT:
-      make_goto_stmt_edges (edge_cache, bb);
+      make_goto_stmt_edges (bb);
       break;
 
+    case EXPR_STMT:
     case RETURN_STMT:
-      make_return_stmt_edges (edge_cache, bb);
+      make_edge (bb, EXIT_BLOCK_PTR, 0);
       break;
 
     default:
@@ -688,12 +762,12 @@ make_exit_edges (edge_cache, bb)
    Create edges for a FOR_STMT structure that starts at basic block BB.  */
 
 static void
-make_for_stmt_edges (edge_cache, bb)
-     sbitmap *edge_cache;
+make_for_stmt_edges (bb)
      basic_block bb;
 {
   tree body_t, entry = bb->head_tree;
   basic_block init_bb, cond_bb, expr_bb, body_bb;
+  int infinite_loop, zero_iter_loop;
 
   if (TREE_CODE (entry) != FOR_STMT)
     abort ();
@@ -733,11 +807,31 @@ make_for_stmt_edges (edge_cache, bb)
   body_t = first_exec_stmt (FOR_BODY (entry));
   body_bb = (body_t) ? BB_FOR_STMT (body_t) : expr_bb;
 
-  make_edge (edge_cache, bb, init_bb, 0);
-  make_edge (edge_cache, init_bb, cond_bb, 0);
-  make_edge (edge_cache, cond_bb, body_bb, 0);
-  make_edge (edge_cache, expr_bb, cond_bb, 0);
-  make_edge (edge_cache, cond_bb, successor_block (bb), 0);
+  make_edge (bb, init_bb, 0);
+  make_edge (init_bb, cond_bb, 0);
+
+  /* Simplify the loop if the condition can be statically computed:
+
+     - For infinite loops, do not make an edge between the condition node
+       and the first block outside the loop.
+
+     - For zero-iteration loops, do not make an edge into the first block
+       of the body nor make a back edge from the latch block.  */
+
+  infinite_loop = (FOR_COND (entry) == NULL
+                   || (TREE_CODE (FOR_COND (entry)) == INTEGER_CST
+		       && FOR_COND (entry) != integer_zero_node));
+
+  zero_iter_loop = (FOR_COND (entry) == integer_zero_node);
+
+  if (!zero_iter_loop)
+    {
+      make_edge (cond_bb, body_bb, 0);
+      make_edge (expr_bb, cond_bb, 0);
+    }
+
+  if (!infinite_loop)
+    make_edge (cond_bb, successor_block (bb), 0);
 }
 
 /* }}} */
@@ -747,12 +841,12 @@ make_for_stmt_edges (edge_cache, bb)
    Create the edges for a WHILE_STMT structure starting with bb.  */
 
 static void
-make_while_stmt_edges (edge_cache, bb)
-     sbitmap *edge_cache;
+make_while_stmt_edges (bb)
      basic_block bb;
 {
   tree body_t, entry = bb->head_tree;
-  basic_block end_bb, body_bb, exit_bb;
+  basic_block end_bb, body_bb;
+  int infinite_loop, zero_iter_loop;
 
   if (TREE_CODE (entry) != WHILE_STMT)
     abort ();
@@ -773,16 +867,32 @@ make_while_stmt_edges (edge_cache, bb)
           
      If the body doesn't exist, we use the header instead.  */
 
-  /* Basic blocks for each component.  Note that the block numbers are
-     determined by make_while_stmt_blocks().  */
-  exit_bb = successor_block (bb);
+  /* Basic blocks for each component.  */
   end_bb = latch_block (bb);
   body_t = first_exec_stmt (WHILE_BODY (entry));
   body_bb = (body_t) ? BB_FOR_STMT (body_t) : end_bb;
 
-  make_edge (edge_cache, bb, body_bb, 0);
-  make_edge (edge_cache, end_bb, bb, 0);
-  make_edge (edge_cache, bb, exit_bb, 0);
+  /* Simplify the loop if the condition can be statically computed:
+
+     - For infinite loops, do not make an edge between the entry node and
+       the first block outside the loop.
+
+     - For zero-iteration loops, do not make an edge into the first block
+       of the body nor make a back edge from the latch block.  */
+
+  infinite_loop = (TREE_CODE (WHILE_COND (entry)) == INTEGER_CST
+                   && WHILE_COND (entry) != integer_zero_node);
+
+  zero_iter_loop = (WHILE_COND (entry) == integer_zero_node);
+
+  if (!zero_iter_loop)
+    {
+      make_edge (bb, body_bb, 0);
+      make_edge (end_bb, bb, 0);
+    }
+
+  if (!infinite_loop)
+    make_edge (bb, successor_block (bb), 0);
 }
 
 /* }}} */
@@ -792,12 +902,12 @@ make_while_stmt_edges (edge_cache, bb)
    Create the edges for a DO_STMT structure starting with bb.  */
 
 static void
-make_do_stmt_edges (edge_cache, bb)
-     sbitmap *edge_cache;
+make_do_stmt_edges (bb)
      basic_block bb;
 {
   tree body_t, entry = bb->head_tree;
   basic_block cond_bb, body_bb;
+  int infinite_loop, one_iter_loop;
 
   if (TREE_CODE (entry) != DO_STMT)
     abort ();
@@ -818,15 +928,31 @@ make_do_stmt_edges (edge_cache, bb)
 
      If the body doesn't exist, we use the condition instead.  */
 
-  /* Basic blocks for each component. Note that the block numbers are
-     determined by make_do_stmt_blocks().  */
+  /* Basic blocks for each component.  */
   cond_bb = latch_block (bb);
   body_t = first_exec_stmt (DO_BODY (entry));
   body_bb = (body_t) ? BB_FOR_STMT (body_t) : cond_bb;
 
-  make_edge (edge_cache, bb, body_bb, 0);
-  make_edge (edge_cache, cond_bb, body_bb, 0);
-  make_edge (edge_cache, cond_bb, successor_block (bb), 0);
+  make_edge (bb, body_bb, 0);
+
+  /* Simplify the loop if the condition can be statically computed:
+
+     - For infinite loops, do not make an edge between the conditional
+       block and the first block outside the loop.
+
+     - For one-iteration loops (i.e., 'do {} while (0);'), do not make a
+       back edge to the beginning of the loop.  */
+
+  infinite_loop = (TREE_CODE (DO_COND (entry)) == INTEGER_CST
+                   && DO_COND (entry) != integer_zero_node);
+
+  one_iter_loop = (DO_COND (entry) == integer_zero_node);
+
+  if (!one_iter_loop)
+    make_edge (cond_bb, body_bb, 0);
+
+  if (!infinite_loop)
+    make_edge (cond_bb, successor_block (bb), 0);
 }
 
 /* }}} */
@@ -836,13 +962,13 @@ make_do_stmt_edges (edge_cache, bb)
    Create the edges for an IF_STMT structure starting with BB.  */
 
 static void
-make_if_stmt_edges (edge_cache, bb)
-     sbitmap *edge_cache;
+make_if_stmt_edges (bb)
      basic_block bb;
 {
   tree entry = bb->head_tree;
-  basic_block then_bb, else_bb;
+  basic_block successor_bb, then_bb, else_bb;
   tree then_t, else_t;
+  int always_true, always_false;
 
   if (TREE_CODE (entry) != IF_STMT)
     abort ();
@@ -854,6 +980,8 @@ make_if_stmt_edges (edge_cache, bb)
   else_t = first_exec_stmt (ELSE_CLAUSE (entry));
   else_bb = (else_t) ? BB_FOR_STMT (else_t) : NULL;
 
+  successor_bb = successor_block (bb);
+
   /* Create the following edges.
 
 	      IF_STMT
@@ -861,18 +989,31 @@ make_if_stmt_edges (edge_cache, bb)
 	       /   \
 	    THEN   ELSE
 
-     Either clause may be empty.  */
+     Either clause may be empty.  Linearize the IF statement if the
+     conditional can be statically computed.  */
+
+  always_true = (TREE_CODE (IF_COND (entry)) == INTEGER_CST
+                 && IF_COND (entry) != integer_zero_node);
+
+  always_false = (IF_COND (entry) == integer_zero_node);
+
+  if (always_true)
+    else_bb = NULL;
+
+  if (always_false)
+    then_bb = NULL;
 
   if (then_bb)
-    make_edge (edge_cache, bb, then_bb, 0);
+    make_edge (bb, then_bb, 0);
 
   if (else_bb)
-    make_edge (edge_cache, bb, else_bb, 0);
+    make_edge (bb, else_bb, 0);
 
-  /* We only need an edge to BB's successor block if one of the clauses is
-     missing.  */
-  if (then_bb == NULL || else_bb == NULL)
-    make_edge (edge_cache, bb, successor_block (bb), 0);
+  /* If the conditional cannot be statically computed and the IF is missing
+     one of the clauses, make an edge between the entry block and the
+     first block outside the IF.  */
+  if (!always_true && !always_false && (!then_bb || !else_bb))
+    make_edge (bb, successor_bb, 0);
 }
 
 /* }}} */
@@ -882,8 +1023,7 @@ make_if_stmt_edges (edge_cache, bb)
    Create edges for a goto statement.  */
 
 static void
-make_goto_stmt_edges (edge_cache, bb)
-     sbitmap *edge_cache;
+make_goto_stmt_edges (bb)
      basic_block bb;
 {
   tree goto_t, dest;
@@ -909,14 +1049,14 @@ make_goto_stmt_edges (edge_cache, bb)
 	  && TREE_CODE (target) == LABEL_STMT
 	  && LABEL_STMT_LABEL (target) == dest)
 	{
-	  make_edge (edge_cache, bb, target_bb, 0);
+	  make_edge (bb, target_bb, 0);
 	  break;
 	}
 
       /* Computed GOTOs.  Make an edge to every label block.  */
       else if (TREE_CODE (dest) != LABEL_DECL
 	       && TREE_CODE (target) == LABEL_STMT)
-	make_edge (edge_cache, bb, target_bb, 0);
+	make_edge (bb, target_bb, 0);
     }
 }
 
@@ -928,8 +1068,7 @@ make_goto_stmt_edges (edge_cache, bb)
    block for the break statement's control parent.  */
 
 static void
-make_break_stmt_edges (edge_cache, bb)
-     sbitmap *edge_cache;
+make_break_stmt_edges (bb)
      basic_block bb;
 {
   tree break_t;
@@ -951,7 +1090,7 @@ make_break_stmt_edges (edge_cache, bb)
       return;
     }
 
-  make_edge (edge_cache, bb, successor_block (control_parent), 0);
+  make_edge (bb, successor_block (control_parent), 0);
 }
 
 /* }}} */
@@ -962,8 +1101,7 @@ make_break_stmt_edges (edge_cache, bb)
    control parent's expression block.  */
 
 static void
-make_continue_stmt_edges (edge_cache, bb)
-     sbitmap *edge_cache;
+make_continue_stmt_edges (bb)
      basic_block bb;
 {
   tree continue_t;
@@ -983,32 +1121,25 @@ make_continue_stmt_edges (edge_cache, bb)
       return;
     }
 
-  make_edge (edge_cache, bb, latch_block (loop_bb), 0);
-}
-
-/* }}} */
-
-/* {{{ make_return_stmt_edges()
-
-   Create an edge from the RETURN block to EXIT_BLOCK_PTR.  */
-
-static void
-make_return_stmt_edges (edge_cache, bb)
-     sbitmap *edge_cache;
-     basic_block bb;
-{
-  tree return_t = bb->end_tree;
-
-  if (return_t == NULL || TREE_CODE (return_t) != RETURN_STMT)
-    abort ();
-
-  make_edge (edge_cache, bb, EXIT_BLOCK_PTR, 0);
+  make_edge (bb, latch_block (loop_bb), 0);
 }
 
 /* }}} */
 
 
 /* Flowgraph analysis.  */
+
+/* {{{ tree_cleanup_cfg()
+
+   Remove unreachable blocks and other miscellaneous clean up work.  */
+
+void
+tree_cleanup_cfg ()
+{
+  delete_unreachable_blocks ();
+}
+
+/* }}} */
 
 /* {{{ delete_unreachable_blocks()
    
@@ -1037,27 +1168,21 @@ delete_unreachable_blocks ()
 
 /* {{{ delete_bb()
 
-   Remove a block from the flowgraph.  Emit a warning if -Wunreachable-code
-   is set.  */
+   Remove a block from the flowgraph.  */
 
 static void
 delete_bb (bb)
      basic_block bb;
 {
-  edge e, next, *q;
   tree t;
 
-  if (warn_notreached)
+  dump_file = dump_begin (TDI_cfg, &dump_flags);
+  if (dump_file)
     {
-      tree stmt;
-
-      if (statement_code_p (TREE_CODE (bb->head_tree)))
-	stmt = bb->head_tree;
-      else
-	stmt = BB_PARENT (bb)->head_tree;
-
-      prep_stmt (stmt);
-      warning ("unreachable statement");
+      fprintf (dump_file, "Removed unreachable basic block %d\n", bb->index);
+      tree_dump_bb (dump_file, "", bb, 0);
+      fprintf (dump_file, "\n");
+      dump_end (TDI_cfg, dump_file);
     }
 
   /* Unmap all the instructions in the block.  */
@@ -1070,27 +1195,12 @@ delete_bb (bb)
       t = TREE_CHAIN (t);
     }
 
-  /* Remove the edges into and out of this block.  Note that there
-     may indeed be edges in, if we are removing an unreachable loop.  */
-  for (e = bb->pred; e; e = next)
-    {
-      for (q = &e->src->succ; *q != e; q = &(*q)->succ_next)
-	continue;
-      *q = e->succ_next;
-      next = e->pred_next;
-      n_edges--;
-      free (e);
-    }
+  /* Remove the edges into and out of this block.  */
+  while (bb->pred != NULL)
+    remove_edge (bb->pred);
 
-  for (e = bb->succ; e; e = next)
-    {
-      for (q = &e->dest->pred; *q != e; q = &(*q)->pred_next)
-	continue;
-      *q = e->pred_next;
-      next = e->succ_next;
-      n_edges--;
-      free (e);
-    }
+  while (bb->succ != NULL)
+    remove_edge (bb->succ);
 
   bb->pred = NULL;
   bb->succ = NULL;
@@ -1262,9 +1372,25 @@ is_ctrl_altering_stmt (t)
   if (t == NULL)
     abort ();
 
-  return (TREE_CODE (t) == GOTO_STMT
-	  || TREE_CODE (t) == CONTINUE_STMT
-	  || TREE_CODE (t) == BREAK_STMT || TREE_CODE (t) == RETURN_STMT);
+  if (TREE_CODE (t) == GOTO_STMT || TREE_CODE (t) == CONTINUE_STMT
+      || TREE_CODE (t) == BREAK_STMT || TREE_CODE (t) == RETURN_STMT)
+    return 1;
+
+  /* Calls to non-returning functions also alter the flow of control.  */
+  if (TREE_CODE (t) == EXPR_STMT
+      && EXPR_STMT_EXPR (t)
+      && TREE_CODE (EXPR_STMT_EXPR (t)) == CALL_EXPR)
+    {
+      tree call_expr = EXPR_STMT_EXPR (t);
+      tree addr = TREE_OPERAND (call_expr, 0);
+      tree decl = (TREE_CODE (addr) == ADDR_EXPR) 
+	          ? TREE_OPERAND (addr, 0) 
+		  : addr;
+      if (TREE_THIS_VOLATILE (decl))
+	return 1;
+    }
+
+  return 0;
 }
 
 /* }}} */
@@ -1399,18 +1525,13 @@ delete_cfg ()
   if (basic_block_info == NULL)
     return;
 
-  clear_edges ();
-
   for (i = 0; i < n_basic_blocks; i++)
-    {
-      bb_ann ann = BB_ANN (BASIC_BLOCK (i));
-      ann->parent = NULL;
-      /* There is no need to delete the arrays in each of the reference.
-	 That is done by delete_ssa().  */
-      VARRAY_FREE (ann->refs);
-      BASIC_BLOCK (i)->aux = NULL;
-    }
+    remove_bb_ann (BASIC_BLOCK (i));
 
+  remove_bb_ann (ENTRY_BLOCK_PTR);
+  remove_bb_ann (EXIT_BLOCK_PTR);
+
+  clear_edges ();
   VARRAY_FREE (basic_block_info);
 }
 
@@ -1449,7 +1570,7 @@ latch_block (loop_bb)
   if (code == FOR_STMT)
     return FOR_EXPR_BB (loop_bb);
   else if (code == WHILE_STMT)
-    return WHILE_COND_BB (loop_bb);
+    return END_WHILE_BB (loop_bb);
   else if (code == DO_STMT)
     return DO_COND_BB (loop_bb);
   else
@@ -1660,7 +1781,7 @@ insert_stmt_tree_before (stmt, where, bb)
   if (! statement_code_p (TREE_CODE (stmt)) || TREE_CHAIN (stmt))
     abort ();
 
-  cfg_dump_file = dump_begin (TDI_cfg, &cfg_dump_flags);
+  dump_file = dump_begin (TDI_cfg, &dump_flags);
 
   /* If the basic block contains a control flow expression, we may need
      to do other insertions.  */
@@ -1669,8 +1790,8 @@ insert_stmt_tree_before (stmt, where, bb)
   else
     insert_before_normal_stmt (stmt, where, bb);
 
-  if (cfg_dump_file)
-    dump_end (TDI_cfg, cfg_dump_file);
+  if (dump_file)
+    dump_end (TDI_cfg, dump_file);
 }
 
 /* }}} */
@@ -1694,14 +1815,14 @@ insert_before_ctrl_stmt (stmt, where, bb)
   parent_bb = (bb->flags & BB_CONTROL_ENTRY) ? bb : BB_PARENT (bb);
   parent = parent_bb->head_tree;
 
-  if (cfg_dump_file)
+  if (dump_file)
     {
-      fprintf (cfg_dump_file, "\nAbout to insert statement: ");
-      print_node_brief (cfg_dump_file, "", stmt, 0);
-      fprintf (cfg_dump_file, "\nBefore statement: ");
-      print_node_brief (cfg_dump_file, "", parent, 0);
-      fprintf (cfg_dump_file, " (line %d)\n", STMT_LINENO (parent));
-      fprintf (cfg_dump_file, "At basic block %d\n", bb->index);
+      fprintf (dump_file, "\nAbout to insert statement: ");
+      print_node_brief (dump_file, "", stmt, 0);
+      fprintf (dump_file, "\nBefore statement: ");
+      print_node_brief (dump_file, "", parent, 0);
+      fprintf (dump_file, " (line %d)\n", STMT_LINENO (parent));
+      fprintf (dump_file, "At basic block %d\n", bb->index);
     }
 
   /* If this is not a loop, do a normal insertion before the control
@@ -1813,14 +1934,14 @@ insert_before_normal_stmt (stmt, where, bb)
       TREE_CHAIN (stmt) = where;
       map_stmt_to_bb (stmt, bb);
 
-      if (cfg_dump_file)
+      if (dump_file)
 	{
-	  fprintf (cfg_dump_file, "\nInserted statement: ");
-	  print_node_brief (cfg_dump_file, "", stmt, 0);
-	  fprintf (cfg_dump_file, "\nBefore statement  : ");
-	  print_node_brief (cfg_dump_file, "", where, 0);
-	  fprintf (cfg_dump_file, " (line %d)\n", STMT_LINENO (where));
-	  fprintf (cfg_dump_file, "At basic block %d\n", bb->index);
+	  fprintf (dump_file, "\nInserted statement: ");
+	  print_node_brief (dump_file, "", stmt, 0);
+	  fprintf (dump_file, "\nBefore statement  : ");
+	  print_node_brief (dump_file, "", where, 0);
+	  fprintf (dump_file, " (line %d)\n", STMT_LINENO (where));
+	  fprintf (dump_file, "At basic block %d\n", bb->index);
 	}
     }
 
@@ -1845,18 +1966,18 @@ insert_before_normal_stmt (stmt, where, bb)
 	  bb->head_tree = stmt;
 	}
 
-      if (cfg_dump_file)
+      if (dump_file)
 	{
-	  fprintf (cfg_dump_file, "\nInserted statement: ");
-	  print_node_brief (cfg_dump_file, "", stmt, 0);
-	  fprintf (cfg_dump_file, "\nBefore statement  : ");
-	  print_node_brief (cfg_dump_file, "", where, 0);
-	  fprintf (cfg_dump_file, " (line %d)\n", STMT_LINENO (where));
+	  fprintf (dump_file, "\nInserted statement: ");
+	  print_node_brief (dump_file, "", stmt, 0);
+	  fprintf (dump_file, "\nBefore statement  : ");
+	  print_node_brief (dump_file, "", where, 0);
+	  fprintf (dump_file, " (line %d)\n", STMT_LINENO (where));
 	  if (new_bb)
-	    fprintf (cfg_dump_file, "Created new basic block %d\n",
+	    fprintf (dump_file, "Created new basic block %d\n",
 		     new_bb->index);
 	  else
-	    fprintf (cfg_dump_file, "At basic block %d\n", bb->index);
+	    fprintf (dump_file, "At basic block %d\n", bb->index);
 	}
     }
 }
@@ -1887,15 +2008,15 @@ insert_stmt_tree_after (stmt, where, bb)
   if (! statement_code_p (TREE_CODE (stmt)))
     abort ();
 
-  cfg_dump_file = dump_begin (TDI_cfg, &cfg_dump_flags);
+  dump_file = dump_begin (TDI_cfg, &dump_flags);
 
   if (bb->flags & BB_CONTROL_EXPR)
     insert_after_ctrl_stmt (stmt, bb);
   else
     insert_after_normal_stmt (stmt, where, bb);
 
-  if (cfg_dump_file)
-    dump_end (TDI_cfg, cfg_dump_file);
+  if (dump_file)
+    dump_end (TDI_cfg, dump_file);
 }
 
 /* }}} */
@@ -1919,14 +2040,14 @@ insert_after_ctrl_stmt (stmt, bb)
   parent_bb = (bb->flags & BB_CONTROL_ENTRY) ? bb : BB_PARENT (bb);
   parent = parent_bb->head_tree;
 
-  if (cfg_dump_file)
+  if (dump_file)
     {
-      fprintf (cfg_dump_file, "\nAbout to insert statement: ");
-      print_node_brief (cfg_dump_file, "", stmt, 0);
-      fprintf (cfg_dump_file, "\nAfter statement: ");
-      print_node_brief (cfg_dump_file, "", parent, 0);
-      fprintf (cfg_dump_file, " (line %d)\n", STMT_LINENO (parent));
-      fprintf (cfg_dump_file, "At basic block %d\n", bb->index);
+      fprintf (dump_file, "\nAbout to insert statement: ");
+      print_node_brief (dump_file, "", stmt, 0);
+      fprintf (dump_file, "\nAfter statement: ");
+      print_node_brief (dump_file, "", parent, 0);
+      fprintf (dump_file, " (line %d)\n", STMT_LINENO (parent));
+      fprintf (dump_file, "At basic block %d\n", bb->index);
     }
 
   /* IF_STMT block.  Insert before THEN_CLAUSE and ELSE_CLAUSE.  */
@@ -2061,14 +2182,14 @@ insert_after_normal_stmt (stmt, where, bb)
   if (where == bb->end_tree)
     bb->end_tree = stmt;
 
-  if (cfg_dump_file)
+  if (dump_file)
     {
-      fprintf (cfg_dump_file, "\nInserted statement: ");
-      print_node_brief (cfg_dump_file, "", stmt, 0);
-      fprintf (cfg_dump_file, "\nAfter statement  : ");
-      print_node_brief (cfg_dump_file, "", where, 0);
-      fprintf (cfg_dump_file, " (line %d)\n", STMT_LINENO (where));
-      fprintf (cfg_dump_file, "At basic block %d\n", bb->index);
+      fprintf (dump_file, "\nInserted statement: ");
+      print_node_brief (dump_file, "", stmt, 0);
+      fprintf (dump_file, "\nAfter statement  : ");
+      print_node_brief (dump_file, "", where, 0);
+      fprintf (dump_file, " (line %d)\n", STMT_LINENO (where));
+      fprintf (dump_file, "At basic block %d\n", bb->index);
     }
 }
 
@@ -2139,44 +2260,44 @@ replace_expr_in_tree (stmt, old_expr, new_expr)
 {
   tree *old_expr_p = find_expr_in_tree (stmt, old_expr);
 
-  cfg_dump_file = dump_begin (TDI_cfg, &cfg_dump_flags);
-  if (cfg_dump_file)
+  dump_file = dump_begin (TDI_cfg, &dump_flags);
+  if (dump_file)
     {
       if (old_expr_p)
 	{
-	  fprintf (cfg_dump_file, "\nRequested expression: ");
-	  print_node_brief (cfg_dump_file, "", old_expr, 0);
+	  fprintf (dump_file, "\nRequested expression: ");
+	  print_node_brief (dump_file, "", old_expr, 0);
 
-	  fprintf (cfg_dump_file, "\nReplaced expression:  ");
-	  print_node_brief (cfg_dump_file, "", *old_expr_p, 0);
+	  fprintf (dump_file, "\nReplaced expression:  ");
+	  print_node_brief (dump_file, "", *old_expr_p, 0);
 
-	  fprintf (cfg_dump_file, "\nWith expression:      ");
-	  print_node_brief (cfg_dump_file, "", new_expr, 0);
+	  fprintf (dump_file, "\nWith expression:      ");
+	  print_node_brief (dump_file, "", new_expr, 0);
 	}
       else
 	{
-	  fprintf (cfg_dump_file, "\nCould not find expression: ");
-	  print_node_brief (cfg_dump_file, "", old_expr, 0);
+	  fprintf (dump_file, "\nCould not find expression: ");
+	  print_node_brief (dump_file, "", old_expr, 0);
 	}
 
-      fprintf (cfg_dump_file, "\nIn statement:        ");
-      print_node_brief (cfg_dump_file, "", stmt, 0);
+      fprintf (dump_file, "\nIn statement:        ");
+      print_node_brief (dump_file, "", stmt, 0);
 
-      fprintf (cfg_dump_file, "\nBasic block:         ");
+      fprintf (dump_file, "\nBasic block:         ");
       if (statement_code_p (TREE_CODE (stmt)))
-	fprintf (cfg_dump_file, "%d", BB_FOR_STMT (stmt)->index);
+	fprintf (dump_file, "%d", BB_FOR_STMT (stmt)->index);
       else
-	fprintf (cfg_dump_file, "-1");
+	fprintf (dump_file, "-1");
 
-      fprintf (cfg_dump_file, "\nLine:                ");
+      fprintf (dump_file, "\nLine:                ");
       if (statement_code_p (TREE_CODE (stmt)))
-	fprintf (cfg_dump_file, "%d", STMT_LINENO (stmt));
+	fprintf (dump_file, "%d", STMT_LINENO (stmt));
       else
-	fprintf (cfg_dump_file, "-1");
+	fprintf (dump_file, "-1");
 
-      fprintf (cfg_dump_file, "\n");
+      fprintf (dump_file, "\n");
 
-      dump_end (TDI_cfg, cfg_dump_file);
+      dump_end (TDI_cfg, dump_file);
     }
 
   if (old_expr_p)
@@ -2281,7 +2402,7 @@ insert_bb_before (new_bb, bb)
     redirect_edge_succ (e, new_bb);
 
   /* Create the edge NEW_BB -> BB.  */
-  make_edge (NULL, new_bb, bb, 0);
+  make_edge (new_bb, bb, 0);
 }
 
 /* }}} */

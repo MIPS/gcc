@@ -167,6 +167,20 @@ typedef struct tree_ann_def *tree_ann;
 
 /* {{{ Block annotations stored in basic_block.aux.  */
 
+struct for_header_blocks
+{
+  basic_block for_init_stmt_bb;
+  basic_block for_cond_bb;
+  basic_block for_expr_bb;
+};
+
+union header_blocks
+{
+  struct for_header_blocks for_hdr;
+  basic_block end_while_bb;
+  basic_block do_cond_bb;
+};
+
 struct bb_ann_def
 {
   /* Control flow parent.  */
@@ -182,40 +196,37 @@ struct bb_ann_def
 
   /* Block that starts the enclosing binding scope for this block.  */
   basic_block binding_scope;
+
+  /* For the entry block of a control structure, header_blocks is a
+     structure containing all the associated header blocks.  */
+  union header_blocks *loop_hdr;
 };
 
 typedef struct bb_ann_def *bb_ann;
 
-#define BB_ANN(BLOCK)			\
-    ((bb_ann)((BLOCK)->aux))
+/* Accessors for basic block annotations.  */
+#define BB_ANN(BLOCK)		((bb_ann)((BLOCK)->aux))
+#define BB_PARENT(BLOCK)	BB_ANN (BLOCK)->parent
+#define BB_REFS(BLOCK)		BB_ANN (BLOCK)->refs
+#define BB_PREV_CHAIN_P(BLOCK)	BB_ANN (BLOCK)->prev_chain_p
+#define BB_BINDING_SCOPE(BLOCK)	BB_ANN (BLOCK)->binding_scope
+#define BB_LOOP_HDR(BLOCK)	BB_ANN (BLOCK)->loop_hdr
 
-#define BB_PARENT(BLOCK)		\
-    ((BB_ANN (BLOCK)) ? BB_ANN (BLOCK)->parent : NULL)
+/* Accessors for obtaining header blocks of loop statements.  */
+#define FOR_INIT_STMT_BB(BLOCK)	BB_LOOP_HDR (BLOCK)->for_hdr.for_init_stmt_bb
+#define FOR_COND_BB(BLOCK)	BB_LOOP_HDR (BLOCK)->for_hdr.for_cond_bb
+#define FOR_EXPR_BB(BLOCK)	BB_LOOP_HDR (BLOCK)->for_hdr.for_expr_bb
+#define END_WHILE_BB(BLOCK)	BB_LOOP_HDR (BLOCK)->end_while_bb
+#define DO_COND_BB(BLOCK)	BB_LOOP_HDR (BLOCK)->do_cond_bb
 
-#define BB_REFS(BLOCK)			\
-    ((BB_ANN (BLOCK)) ? BB_ANN (BLOCK)->refs : NULL)
-
-#define BB_PREV_CHAIN_P(BLOCK)		\
-    ((BB_ANN (BLOCK)) ? BB_ANN (BLOCK)->prev_chain_p : NULL)
-
-#define BB_BINDING_SCOPE(BLOCK)		\
-    ((BB_ANN (BLOCK)) ? BB_ANN (BLOCK)->binding_scope : NULL)
-
-
-/* Accessors for obtaining header blocks of a control statement.  */
-#define FOR_INIT_STMT_BB(BLOCK)		(BASIC_BLOCK ((BLOCK)->index + 1))
-#define FOR_COND_BB(BLOCK)		(BASIC_BLOCK ((BLOCK)->index + 2))
-#define FOR_EXPR_BB(BLOCK)		(BASIC_BLOCK ((BLOCK)->index + 3))
-
-#define WHILE_COND_BB(BLOCK)		(BASIC_BLOCK ((BLOCK)->index + 1))
-#define DO_COND_BB(BLOCK)		(BASIC_BLOCK ((BLOCK)->index + 1))
-
-#define IF_COND_BB(BLOCK)		(BASIC_BLOCK ((BLOCK)->index + 1))
-
-#define CASE_COND_BB(BLOCK)		(BASIC_BLOCK ((BLOCK)->index + 1))
 /* }}} */
 
 /* {{{ Global declarations.  */
+
+/* Nonzero to warn about variables used before they are initialized.  */
+
+extern int tree_warn_uninitialized;
+
 
 /* Array of all symbols referenced in the function.  */
 
@@ -268,6 +279,8 @@ extern void insert_stmt_tree_after PARAMS ((tree, tree, basic_block));
 extern void replace_expr_in_tree PARAMS ((tree, tree, tree));
 extern tree *find_expr_in_tree PARAMS ((tree, tree));
 extern void insert_bb_before PARAMS ((basic_block, basic_block));
+extern void tree_cleanup_cfg PARAMS ((void));
+extern basic_block tree_split_bb PARAMS ((basic_block, tree));
 
 /* }}} */
 
