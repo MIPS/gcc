@@ -285,7 +285,7 @@ in the following sections.
 -fschedule-insns  -fschedule-insns2 @gol
 -fsingle-precision-constant  -fssa -fssa-ccp -fssa-dce @gol
 -fstrength-reduce  -fstrict-aliasing  -ftracer  -fthread-jumps  -ftrapv @gol
--ftree-ssa  -funroll-all-loops  -funroll-loops  @gol
+-ftree-ssa  -fdisable-simple  -funroll-all-loops  -funroll-loops  @gol
 --param @var{name}=@var{value}
 -O  -O0  -O1  -O2  -O3  -Os}
 
@@ -3678,6 +3678,11 @@ default.
 Enable optimizations on the tree representation based on the Static
 Single Assignment form (SSA). @emph{Note:} This feature is under
 development and should not be used in this version of GCC.
+
+@item -fdisable-simple
+Do not re-write trees into SIMPLE form.  This switch also disables
+tree-based optimizations (See @option{-ftree-ssa}).  @emph{Note:} This
+option is only useful when debugging the tree simplification pass in GCC.
 
 @item -ftracer
 @opindex ftracer

@@ -51,6 +51,7 @@ int is_simple_arglist                  PARAMS ((tree));
 int is_simple_const                    PARAMS ((tree));
 int is_simple_id                       PARAMS ((tree));
 int is_simple_varname                  PARAMS ((tree));
+int is_simple_addr_expr_arg            PARAMS ((tree));
 int is_simple_val                      PARAMS ((tree));
 int is_simple_min_lval                 PARAMS ((tree));
 int is_simple_compound_lval            PARAMS ((tree));

@@ -48,6 +48,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "c-common.h"
 #include "c-pragma.h"
 #include "tree-dchain.h"
+#include "langhooks.h"
 
 /* In grokdeclarator, distinguish syntactic contexts of declarators.  */
 enum decl_context
@@ -6841,9 +6842,15 @@ c_expand_body (fndecl, nested_p, can_defer_p)
   if (c_function_varargs)
     mark_varargs ();
 
-  /* Invoke the SSA tree optimizer.  */
-  if (flag_tree_ssa)
-    optimize_function_tree (fndecl);
+  /* Simplify the function.  Don't try to optimize the function if
+     simplification failed.  */
+  if (!flag_disable_simple
+      && (*lang_hooks.simplify_function_tree) (fndecl))
+    {
+      /* Invoke the SSA tree optimizer.  */
+      if (flag_tree_ssa)
+	optimize_function_tree (fndecl);
+    }
 
   /* Set up parameters and prepare for return, for the function.  */
   expand_function_start (fndecl, 0);

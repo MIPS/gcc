@@ -269,10 +269,20 @@ is_simple_stmt (t)
 	      && is_simple_stmt (DO_BODY (t)));
 
     case FOR_STMT:
-      return (is_simple_exprseq (EXPR_STMT_EXPR (FOR_INIT_STMT (t)))
-	      && is_simple_condexpr (FOR_COND (t))
-	      && is_simple_exprseq (FOR_EXPR (t))
-	      && is_simple_stmt (FOR_BODY (t)));
+      {
+	int s1, s2, s3, s4;
+
+	if (TREE_CODE (FOR_INIT_STMT (t)) == DECL_STMT)
+	  s1 = is_simple_stmt (FOR_INIT_STMT (t));
+	else
+	  s1 = is_simple_exprseq (EXPR_STMT_EXPR (FOR_INIT_STMT (t)));
+
+	s2 = is_simple_condexpr (FOR_COND (t));
+	s3 = is_simple_exprseq (FOR_EXPR (t));
+	s4 = is_simple_stmt (FOR_BODY (t));
+
+	return (s1 && s2 && s3 && s4);
+      }
 
     /* Note that we can assume that we don't need to special case the body
        of the switch() statement.  If we got to this stage, we can assume
@@ -303,7 +313,10 @@ is_simple_stmt (t)
 
     /* The original SIMPLE grammar converts declaration initializers into
        regular assignments.  This is not possible for things like static
-       variables, read-only variables and dynamic arrays.  */
+       variables, read-only variables and dynamic arrays.
+
+       FIXME: DECL_STMTs should really be simplified.  Inter weaving
+	      DECL_STMTs with other statements should be OK.  */
     case DECL_STMT:
       return 1;
 
@@ -539,7 +552,7 @@ is_simple_unary_expr (t)
     return 1;
 
   if (TREE_CODE (t) == ADDR_EXPR
-      && is_simple_varname (TREE_OPERAND (t, 0)))
+      && is_simple_addr_expr_arg (TREE_OPERAND (t, 0)))
     return 1;
 
   if (is_simple_call_expr (t))
@@ -692,6 +705,10 @@ is_simple_compound_lval (t)
       || TREE_CODE (t) == IMAGPART_EXPR)
     t = TREE_OPERAND (t, 0);
 
+  /* Allow arrays wrapped in NON_LVALUE_EXPR nodes.  */
+  if (TREE_CODE (t) == NON_LVALUE_EXPR)
+    t = TREE_OPERAND (t, 0);
+
   if (TREE_CODE (t) != ARRAY_REF && TREE_CODE (t) != COMPONENT_REF)
     return 0;
 
@@ -704,6 +721,31 @@ is_simple_compound_lval (t)
     }
 
   return is_simple_min_lval (t);
+}
+
+/** Return nonzero if T can be used as the argument for an ADDR_EXPR node.
+    This is not part of the original SIMPLE grammar, but in C99 it is
+    possible to generate an address expression for a function call:
+
+      struct A_s {
+	char a[1];
+      } A;
+
+      extern struct A_s foo ();
+
+      main()
+      {
+	char *t = foo().a;
+      }
+
+    When the above is compiled with -std=iso9899:1999, the front end will
+    generate 't = (char *)(char[1] *)&foo ();'.  */
+
+int
+is_simple_addr_expr_arg (t)
+     tree t;
+{
+  return (is_simple_varname (t) || is_simple_call_expr (t));
 }
 
 /** Return nonzero if T is a constant.  */

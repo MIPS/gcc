@@ -33,7 +33,6 @@ Boston, MA 02111-1307, USA.  */
 #include "flags.h"
 #include "tree-optimize.h"
 #include "tree-flow.h"
-#include "langhooks.h"
 
 /* Local functions.  */
 static void init_tree_flow PARAMS ((void));
@@ -49,11 +48,6 @@ optimize_function_tree (fndecl)
   if (errorcount || sorrycount)
     return;
   
-  /* Simplify the function.  Don't try to optimize the function if
-     simplification failed.  */
-  if (!(*lang_hooks.simplify_function_tree) (fndecl))
-    return;
-
 #if 0
   /* Transform BREAK_STMTs, CONTINUE_STMTs, SWITCH_STMTs and GOTO_STMTs.  */
   double_chain_stmts (fn);

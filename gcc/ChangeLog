@@ -1,3 +1,45 @@
+2002-06-15  Diego Novillo  <dnovillo@redhat.com>
+
+	* Makefile.in (c-decl.o): Add dependency on langhooks.h
+	(c-simplify.o): Add dependency on flags.h, langhooks.h, toplev.h
+	and rtl.h.
+	* c-decl.c: Include langhooks.h.
+	(c_expand_body): Simplify the function.  If it succeeds and
+	-ftree-ssa is enabled, call optimize_function_tree.
+	* c-simplify.c: Include flags.h, rtl.h and toplev.h.
+	(simplify_expr_stmt): New function.
+	(simplify_stmt): Call it.
+	* tree-optimize.c: Don't include langhooks.h.
+	(optimize_function_tree): Don't call lang_hooks.simplify_function_tree.
+
+	* c-decl.c (c_expand_body): Do not simplify nor optimize the
+	function if -fdisable-simple is given.
+	* c-simplify.c (simplify_expr): Use is_simple_addr_expr_arg when
+	simplifying ADDR_EXPR nodes.
+	* flags.h (flag_disable_simple): Declare.
+	* toplev.c (flag_disable_simple): Define.
+	(f_options): Document -fdisable-simple.
+	(process_options): Warn if -fdisable-simple is used with
+	optimization enabled.
+	* tree-simple.c (is_simple_addr_expr_arg): New function.
+        (is_simple_unary_expr): Call it.
+	* tree-simple.h (is_simple_addr_expr_arg): Declare.
+	* doc/invoke.texi: Document -fdisable-simple.
+
+	* c-pretty-print.c (dump_c_node): Handle DECL_STMT nodes inside
+	FOR_INIT_STMT.
+	* c-simplify.c (c_simplify_function_tree): Don't do anything if the
+	program had errors.
+	(simplify_stmt): Skip DECL_STMTs.
+	(simplify_for_stmt): Handle DECL_STMT nodes inside FOR_INIT_STMT.
+	(simplify_save_expr): New function.
+	(simplify_expr): Call it.
+	(tree_last_decl): Handle cases where DECL_STMTs are found before
+	the body of the function.
+	* tree-simple.c (is_simple_stmt): Handle DECL_STMT nodes inside
+	FOR_INIT_STMT.
+	(is_simple_compound_lval): Handle nodes wrapped in NON_LVALUE_EXPR.
+
 2002-06-14  Frank Ch. Eigler  <fche@redhat.com>
 
 	* c-pretty-print.c (dump_c_node): Print more type qualifiers,

@@ -35,6 +35,9 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree-inline.h"
 #include "diagnostic.h"
 #include "langhooks.h"
+#include "flags.h"
+#include "rtl.h"
+#include "toplev.h"
 
 /** The simplification pass converts the language-dependent trees
     (ld-trees) emitted by the parser into language-independent trees
@@ -56,6 +59,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 /* Local declarations.  */
 
 static void simplify_stmt            PARAMS ((tree));
+static void simplify_expr_stmt       PARAMS ((tree, tree *, tree *));
 static void simplify_for_stmt        PARAMS ((tree, tree *));
 static void simplify_while_stmt      PARAMS ((tree, tree *));
 static void simplify_do_stmt         PARAMS ((tree));
@@ -82,6 +86,7 @@ static void simplify_boolean_expr    PARAMS ((tree *, tree *, tree));
 static void simplify_compound_expr   PARAMS ((tree *, tree *, tree *, tree));
 static void simplify_expr_wfl        PARAMS ((tree *, tree *, tree *,
                                               int (*) PARAMS ((tree)), tree));
+static void simplify_save_expr       PARAMS ((tree *, tree *, tree));
 static void make_type_writable       PARAMS ((tree));
 static tree add_tree                 PARAMS ((tree, tree *));
 static tree insert_before_continue   PARAMS ((tree, tree));
@@ -115,6 +120,10 @@ c_simplify_function_tree (fndecl)
 {
   tree fnbody;
 
+  /* Don't bother doing anything if the program has errors.  */
+  if (errorcount || sorrycount)
+    return 0;
+  
   fnbody = COMPOUND_BODY (DECL_SAVED_TREE (fndecl));
   if (fnbody == NULL)
     return 1;
@@ -189,11 +198,10 @@ simplify_stmt (stmt)
   while (stmt && stmt != error_mark_node)
     {
       tree next, pre, post;
-      int keep_stmt_p, stmt_was_null;
+      int keep_stmt_p;
 
       pre = NULL;
       post = NULL;
-      stmt_was_null = 0;
       next = TREE_CHAIN (stmt);
       
       if (dump_file && (dump_flags & TDF_DETAILS))
@@ -232,18 +240,7 @@ simplify_stmt (stmt)
 	  break;
 
 	case EXPR_STMT:
-	  /* Simplification of a statement expression will nullify the
-	     statement if all its side effects are moved to PRE and POST.
-	     In this case we will not want to emit the simplified
-	     statement.  However, if the statement was already null before
-	     simplification, we should leave it to avoid changing the
-	     semantics of the program.  */
-	  if (!expr_has_effect (EXPR_STMT_EXPR (stmt)))
-	    stmt_was_null = 1;
-
-	  walk_tree (&EXPR_STMT_EXPR (stmt), mostly_copy_tree_r, NULL, NULL);
-	  simplify_expr (&EXPR_STMT_EXPR (stmt), &pre, &post, is_simple_expr,
-	                 stmt, fb_rvalue);
+	  simplify_expr_stmt (stmt, &pre, &post);
 	  break;
 
 	case RETURN_STMT:
@@ -253,9 +250,12 @@ simplify_stmt (stmt)
 	/* Contrary to the original SIMPLE grammar, we do not convert
 	   declaration initializers into SIMPLE assignments because this
 	   breaks several C semantics (static variables, read-only
-	   initializers, dynamic arrays, etc).  */
+	   initializers, dynamic arrays, etc).
+
+	   FIXME: DECL_STMTs should really be simplified.  Inter weaving
+		  DECL_STMTs with other statements should be OK.  */
 	case DECL_STMT:
-	  break;
+	  /* Fall through.  */
 
 	/* Statements that need no simplification.  */
 	case FILE_STMT:
@@ -297,7 +297,7 @@ simplify_stmt (stmt)
 	 keep the original statement or not.  If the statement had no
 	 effect before simplification, we emit it anyway to avoid changing
 	 the semantics of the original program.  */
-      keep_stmt_p = (stmt_was_null || stmt_has_effect (stmt));
+      keep_stmt_p = stmt_has_effect (stmt);
       
       TREE_CHAIN (prev) = NULL_TREE;
       TREE_CHAIN (stmt) = NULL_TREE;
@@ -336,6 +336,46 @@ simplify_stmt (stmt)
     }
 }
 
+/** Simplify an EXPR_STMT node.
+
+    STMT is the statement node.
+
+    PRE_P points to the list where side effects that must happen before
+	STMT should be stored.
+
+    POST_P points to the list where side effects that must happen after
+	STMT should be stored.  */
+
+static void
+simplify_expr_stmt (stmt, pre_p, post_p)
+     tree stmt;
+     tree *pre_p;
+     tree *post_p;
+{
+  /* Simplification of a statement expression will nullify the
+     statement if all its side effects are moved to *PRE_P and *POST_P.
+
+     In this case we will not want to emit the simplified statement.
+     However, we may still want to emit a warning, so we do that before
+     simplification.  */
+  if (extra_warnings || warn_unused_value)
+    {
+      const char *fname = DECL_SOURCE_FILE (current_function_decl);
+      int lineno = STMT_LINENO (stmt);
+
+      if (!stmt_has_effect (stmt))
+	warning_with_file_and_line (fname, lineno, "statement with no effect");
+      else if (warn_unused_value)
+	{
+	  set_file_and_line_for_stmt (fname, lineno);
+	  warn_if_unused_value (EXPR_STMT_EXPR (stmt));
+	}
+    }
+
+  walk_tree (&EXPR_STMT_EXPR (stmt), mostly_copy_tree_r, NULL, NULL);
+  simplify_expr (&EXPR_STMT_EXPR (stmt), pre_p, post_p, is_simple_expr, stmt,
+                 fb_rvalue);
+}
 
 /** Simplify a FOR_STMT node.  This will convert:
 
@@ -386,6 +426,18 @@ simplify_for_stmt (stmt, pre_p)
 
   /* Make sure that the loop body has a scope.  */
   tree_build_scope (&FOR_BODY (stmt));
+
+  /* If FOR_INIT_STMT is a DECL_STMT (C99), move it outside the loop and
+     replace it with an empty expression statement.
+
+     FIXME: The DECL_STMT should be simplified and the DECL_INITIAL for the
+	    last declared variable should be converted into the EXPR_STMT
+	    of the FOR_INIT_STMT.  */
+  if (TREE_CODE (FOR_INIT_STMT (stmt)) == DECL_STMT)
+    {
+      add_tree (FOR_INIT_STMT (stmt), pre_p);
+      FOR_INIT_STMT (stmt) = build_stmt (EXPR_STMT, NULL_TREE);
+    }
 
   init_s = EXPR_STMT_EXPR (FOR_INIT_STMT (stmt));
   cond_s = FOR_COND (stmt);
@@ -943,7 +995,7 @@ simplify_expr (expr_p, pre_p, post_p, simple_test_f, stmt, fallback)
 
     case ADDR_EXPR:
       simplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p, post_p,
-		     is_simple_varname, stmt, fb_lvalue);
+		     is_simple_addr_expr_arg, stmt, fb_lvalue);
       break;
 
     /* va_arg expressions should also be left alone to avoid confusing the
@@ -997,9 +1049,7 @@ simplify_expr (expr_p, pre_p, post_p, simple_test_f, stmt, fallback)
     /* SAVE_EXPR nodes are converted into a SIMPLE identifier and
        eliminated.  */
     case SAVE_EXPR:
-      simplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p, post_p, is_simple_id,
-	             stmt, fb_rvalue);
-      *expr_p = TREE_OPERAND (*expr_p, 0);
+      simplify_save_expr (expr_p, pre_p, stmt);
       break;
 
     case EXPR_WITH_FILE_LOCATION:
@@ -1737,6 +1787,38 @@ simplify_expr_wfl (expr_p, pre_p, post_p, simple_test_f, stmt)
     TREE_VALUE (op) = build_expr_wfl (TREE_VALUE (op), file, line, col);
 }
 
+/** Simplify a SAVE_EXPR node.  EXPR_P points to the expression to
+    simplify.  After simplification, EXPR_P will point to a new temporary
+    that holds the original value of the SAVE_EXPR node.
+
+    PRE_P points to the list where side effects that must happen before
+	*EXPR_P should be stored.
+
+    STMT is the statement tree that contains EXPR.  It's used in cases
+	where simplifying an expression requires creating new statement
+	trees.  */
+
+static void
+simplify_save_expr (expr_p, pre_p, stmt)
+     tree *expr_p;
+     tree *pre_p;
+     tree stmt;
+{
+  if (TREE_CODE (*expr_p) != SAVE_EXPR)
+    abort ();
+
+  /* If the operand is already a SIMPLE temporary, just re-write the
+     SAVE_EXPR node.  */
+  if (is_simple_tmp_var (TREE_OPERAND (*expr_p, 0)))
+    *expr_p = TREE_OPERAND (*expr_p, 0);
+  else
+    {
+      TREE_OPERAND (*expr_p, 0) =
+	get_initialized_tmp_var (TREE_OPERAND (*expr_p, 0), pre_p, stmt);
+      *expr_p = TREE_OPERAND (*expr_p, 0);
+    }
+}
+
 
 /* Code generation.  */
 
@@ -2099,7 +2181,10 @@ tree_last_decl (scope)
   while (TREE_CODE (scope) == FILE_STMT)
     scope = TREE_CHAIN (scope);
 
-  if (!SCOPE_BEGIN_P (scope))
+  /* In C99 mode, we can find DECL_STMT nodes before the body of the
+     function.  In that case, we declare all the temporaries there.  */
+  if (TREE_CODE (scope) != DECL_STMT
+      && !SCOPE_BEGIN_P (scope))
     abort ();
 
   /* Find the last declaration statement in the scope.  */

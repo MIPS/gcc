@@ -660,6 +660,9 @@ extern int flag_detailed_statistics;
 /* Nonzero means enable synchronous exceptions for non-call instructions.  */
 extern int flag_non_call_exceptions;
 
+/* Disable tree simplification.  */
+extern int flag_disable_simple;
+
 /* Enable the SSA tree optimizer.  */
 extern int flag_tree_ssa;
 

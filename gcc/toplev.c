@@ -865,6 +865,9 @@ int flag_merge_constants = 1;
    one, unconditionally renumber instruction UIDs.  */
 int flag_renumber_insns = 1;
 
+/* Disable tree simplification.  */
+int flag_disable_simple = 0;
+
 /* Enable the SSA tree optimizer.  */
 int flag_tree_ssa = 0;
 
@@ -1179,6 +1182,8 @@ static const lang_independent_options f_options[] =
    N_("Report on permanent memory allocation at end of run") },
   { "trapv", &flag_trapv, 1,
    N_("Trap for signed overflow in addition / subtraction / multiplication") },
+  { "disable-simple", &flag_disable_simple, 1,
+   N_("Do not re-write trees into SIMPLE form") },
   { "tree-ssa", &flag_tree_ssa, 1,
    N_("Enable SSA optimizations on trees") },
   { "tree-ssa-pre", &flag_tree_ssa_pre, 1,
@@ -5043,6 +5048,11 @@ process_options ()
   if (flag_function_sections && write_symbols != NO_DEBUG)
     warning ("-ffunction-sections may affect debugging on some targets");
 #endif
+
+  /* -ftree-ssa and -fdisable-simple cannot be used together because the
+     tree SSA code can only use SIMPLE trees.  */
+  if (flag_tree_ssa && flag_disable_simple)
+    warning ("-fdisable-simple also disables optimizations on trees");
 }
 
 /* Language-independent initialization, before language-dependent

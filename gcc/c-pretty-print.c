@@ -988,9 +988,13 @@ dump_c_node (buffer, node, spc)
     case FOR_STMT:
       INDENT (spc);
       output_add_string (buffer, "for (");
-      if (FOR_INIT_STMT (node))
-	dump_c_node (buffer, EXPR_STMT_EXPR (FOR_INIT_STMT (node)), 0);
-      output_add_character (buffer, ';');
+      if (TREE_CODE (FOR_INIT_STMT (node)) == EXPR_STMT)
+	{
+	  dump_c_node (buffer, EXPR_STMT_EXPR (FOR_INIT_STMT (node)), 0);
+	  output_add_character (buffer, ';');
+	}
+      else
+	dump_c_node (buffer, FOR_INIT_STMT (node), 0);
       output_add_space (buffer);
       dump_c_node (buffer, FOR_COND (node), 0);
       output_add_character (buffer, ';');
