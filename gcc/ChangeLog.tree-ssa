@@ -1,3 +1,8 @@
+2003-11-20  Andrew Macleod  <amacleod@redhat.com>
+
+	* tree-ssa.c (check_replaceable): Return false if the LHS is a
+	DECL_HARD_REGISTER.
+
 2003-11-20  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-ssa-ccp.c (set_rhs): Replace with an empty statement when

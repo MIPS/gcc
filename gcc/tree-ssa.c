@@ -2040,6 +2040,7 @@ add_dependance (temp_expr_table_p tab, int version, tree var)
 
 /* Check if an expression is suitable for replacement.  If so, create an 
    expression entry.  Return true if this stmt is replaceable.  */
+
 static bool
 check_replaceable (temp_expr_table_p tab, tree stmt)
 {
@@ -2060,6 +2061,11 @@ check_replaceable (temp_expr_table_p tab, tree stmt)
     return false;
   def = *VARRAY_TREE_PTR (ops, 0);
   if (version_ref_count (map, def) != 1)
+    return false;
+
+  /* Assignments to variables assigned to hard registers are not
+     replaceable.  */
+  if (DECL_HARD_REGISTER (SSA_NAME_VAR (def)))
     return false;
 
   /* There must be no VDEFS.  */
