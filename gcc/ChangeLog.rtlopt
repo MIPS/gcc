@@ -1,3 +1,12 @@
+2003-01-26  Josef Zlomek  <zlomekj@suse.cz>
+
+	* toplev.c (rest_of_compilation): Run variable tracking (only) if
+	flag_var_tracking != 0.
+	(parse_options_and_default_flags): do not set flag_var_tracking
+	when optimize >= 1.
+	(process_options): If user has not specified flag_var_tracking
+	set it according to optimize, debug_info_level and debug_hooks.
+
 Sat Jan 25 12:42:13 CET 2003  Jan Hubicka  <jh@suse.cz>
 
 	* Merge from mainline (rtlopt-merge-20030125 tag)

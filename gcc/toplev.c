@@ -384,9 +384,12 @@ tree current_function_func_begin_label;
 
 int flag_eliminate_dwarf2_dups = 0;
 
-/* Nonzero if we should track variables.  */
+/* Nonzero if we should track variables.  When
+   flag_var_tracking == AUTODETECT_FLAG_VAR_TRACKING it will be set according
+   to optimize, debug_info_level and debug_hooks in process_options ().  */
 
-int flag_var_tracking = 0;
+#define AUTODETECT_FLAG_VAR_TRACKING 2
+int flag_var_tracking = AUTODETECT_FLAG_VAR_TRACKING;
 
 /* Nonzero if generating code to do profiling.  */
 
@@ -3708,8 +3711,7 @@ rest_of_compilation (decl)
     }
   compute_alignments ();
 
-  /* Is the condition correct?  */
-  if (debug_info_level >= DINFO_LEVEL_NORMAL && flag_var_tracking)
+  if (flag_var_tracking)
     {
       /* Track the variables, ie. compute where the variable is stored
        in each position in function.  */
@@ -5049,7 +5051,6 @@ parse_options_and_default_flags (argc, argv)
 
   if (optimize >= 1)
     {
-      flag_var_tracking = 1;
       flag_defer_pop = 1;
       flag_thread_jumps = 1;
 #ifdef DELAY_SLOTS
@@ -5369,6 +5370,16 @@ process_options ()
   if (write_symbols == VMS_DEBUG || write_symbols == VMS_AND_DWARF2_DEBUG)
     debug_hooks = &vmsdbg_debug_hooks;
 #endif
+
+  /* Now we know which debug output will be used so we can set
+     flag_var_tracking if user has not specified it.  */
+  if (flag_var_tracking == AUTODETECT_FLAG_VAR_TRACKING)
+    {
+      /* User has not specified -f(no-)var-tracking so autodetect it.  */
+      flag_var_tracking
+	= (optimize >= 1 && debug_info_level >= DINFO_LEVEL_NORMAL
+	   && debug_hooks->var_location != do_nothing_debug_hooks.var_location);
+    }
 
   /* If auxiliary info generation is desired, open the output file.
      This goes in the same directory as the source file--unlike
