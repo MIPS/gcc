@@ -493,8 +493,8 @@ cp_lexer_maybe_grow_buffer (lexer)
       buffer_length = lexer->buffer_end - lexer->buffer;
       /* Allocate a buffer twice as big.  */
       new_buffer = ((cp_token *)
-		    xrealloc (lexer->buffer, 
-			      2 * buffer_length * sizeof (cp_token)));
+		    ggc_realloc (lexer->buffer, 
+				 2 * buffer_length * sizeof (cp_token)));
       
       /* Because the buffer is circular, logically consecutive tokens
 	 are not necessarily placed consecutively in memory.
@@ -1028,15 +1028,6 @@ cp_lexer_stop_debugging (lexer)
        looking ahead a little bit.  In some places, this approach
        might not entirely eliminate the need to parse tentatively, but
        it might still speed up the average case.  */
-
-/* FIXME: Check for all the places new types are not allowed to be 
-   defined:
-
-   - Return typse
-   - Parameter types
-   - friend-declaration
-   - va_arg?
- */
 
 /* Flags that are passed to some parsing functions.  These values can
    be bitwise-ored together.  */
@@ -1813,8 +1804,8 @@ cp_parser_error (parser, message)
   /* Remember that we have issued an error.  */
   cp_parser_simulate_error (parser);
   /* Output the MESSAGE -- unless we're parsing tentatively.  */
-  if (cp_parser_parsing_tentatively (parser) 
-      && !cp_parser_committed_to_tentative_parse (parser))
+  if (!cp_parser_parsing_tentatively (parser) 
+      || cp_parser_committed_to_tentative_parse (parser))
     error (message);
 }
 
@@ -6664,8 +6655,6 @@ cp_parser_operator (parser)
       break;
       
     case CPP_PLUS_PLUS:
-      /* FIXME: It is bizarre that we use post-increment for `++', but
-	 pre-decrement for `--'.  Is there a reason for this?  */
       id = ansi_opname (POSTINCREMENT_EXPR);
       break;
 
@@ -7665,7 +7654,7 @@ cp_parser_simple_type_specifier (parser, flags)
 					/*template_keyword_p=*/true,
 					/*check_dependency_p=*/true);
 	  /* If the template-id did not name a type, we are out of
-	     luck.  FIXME: Issue error message.  */
+	     luck.  */
 	  if (TREE_CODE (type) != TYPE_DECL)
 	    {
 	      cp_parser_error (parser, "expected template-id for type");
@@ -8713,7 +8702,6 @@ cp_parser_init_declarator (parser,
 
   /* For an in-class declaration, use `grokfield' to create the
      declaration.  */
-  /* FIXME: Correct the handling of attributes here.  */
   if (member_p)
     decl = grokfield (declarator, decl_specifiers,
 		      initializer, /*asmspec=*/NULL_TREE,
@@ -8943,15 +8931,6 @@ cp_parser_direct_declarator (parser, abstract_p, ctor_dtor_or_conv_p)
   else if (!abstract_p)
     {
       declarator = cp_parser_declarator_id (parser);
-      /* FIXME: We should check for, and reject, qualified-ids in
-	 places where they are not permitted.  For example,
-
-	   void f (int S::i);
-
-	 should result in an error here, and we should not try to
-	 enter the scope of S below.  We need some information about
-	 whether this is a top-level declarator, or part of the
-	 parameter-declaration-clause.  */
       
       if (TREE_CODE (declarator) == SCOPE_REF)
 	{
@@ -9319,10 +9298,7 @@ cp_parser_cv_qualifier_opt (parser)
    If the id-expression was a qualified-id, then a SCOPE_REF is
    returned.  The first operand is the scope (either a NAMESPACE_DECL
    or TREE_TYPE), but the second is still just a representation of an
-   unqualified-id.
-
-   FIXME: Document the representation returned for the second
-   production.  */
+   unqualified-id.  */
 
 static tree
 cp_parser_declarator_id (parser)
@@ -9788,9 +9764,6 @@ cp_parser_parameter_declaration (parser, greater_than_is_operator_p)
   else
     default_argument = NULL_TREE;
   
-  /* FIXME: Issue an error message about attributes if they are
-     present?  */
-
   /* Create the representation of the parameter.  */
   parameter = build_tree_list (default_argument, 
 			       build_tree_list (decl_specifiers,
@@ -10407,7 +10380,6 @@ cp_parser_class_specifier (parser)
 	  tree fn_scope;
 
 	  /* Figure out which function we need to process.  */
-	  queue_entry = TREE_VALUE (parser->unparsed_functions_queues);
 	  fn_scope = TREE_PURPOSE (queue_entry);
 	  fn = TREE_VALUE (queue_entry);
 
@@ -11053,8 +11025,10 @@ cp_parser_member_declaration (parser)
 				    decl_specifiers, 
 				    initializer,
 				    asm_specification,
-				    build_tree_list (attributes,
-						     NULL_TREE));
+				    (attributes
+				     ? build_tree_list (attributes,
+							NULL_TREE)
+				     : NULL_TREE));
 
 		  /* Reset PREFIX_ATTRIBUTES.  */
 		  while (attributes 
@@ -12156,7 +12130,7 @@ cp_parser_lookup_name (parser, name, check_access, is_type,
     return error_mark_node;
 
   /* If it's a TREE_LIST, the result of the lookup was ambiguous.  */
-  if (TREE_CODE (decl) == TREE_LIST)
+  if (TREE_CODE (decl) == TREE_LIST && !BASELINK_P (decl))
     {
       error ("reference to `%D' is ambiguous", name);
       print_candidates (decl);
