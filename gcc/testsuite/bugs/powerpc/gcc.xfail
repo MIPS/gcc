@@ -1,0 +1,139 @@
+###
+### List of failing tests with Radar bug numbers
+### <radarNum>: <test name>
+### test name should be exactly as it appears html summary reports
+### including any trailing #<number>
+###
+### When the bug is fixed and the test passes, it will be an
+### analyzed non-fail. You should then comment out the test in this
+### file and make sure the Radar is closed.
+###
+###------------------------------------------------------------------
+3665098: gcc.c-torture/compile/20021108-1.c  -O1  (test for excess errors)
+3665098: gcc.c-torture/compile/20021108-1.c  -O2  (test for excess errors)
+3665098: gcc.c-torture/compile/20021108-1.c  -O3 -fomit-frame-pointer  (test for excess errors)
+3665098: gcc.c-torture/compile/20021108-1.c  -O3 -g  (test for excess errors)
+3665098: gcc.c-torture/compile/20021108-1.c  -Os  (test for excess errors)
+3665180: gcc.c-torture/compile/20010605-1.c  -O0  (test for excess errors)
+3665180: gcc.c-torture/compile/20010605-1.c  -O1  (test for excess errors)
+3665098: gcc.c-torture/compile/labels-2.c  -O1  (test for excess errors)
+3665098: gcc.c-torture/compile/labels-2.c  -O2  (test for excess errors)
+3665098: gcc.c-torture/compile/labels-2.c  -O3 -fomit-frame-pointer  (test for excess errors)
+3665098: gcc.c-torture/compile/labels-2.c  -O3 -g  (test for excess errors)
+3665098: gcc.c-torture/compile/labels-2.c  -Os  (test for excess errors)
+3665227: gcc.dg/builtins-1.c (test for excess errors)
+3665227: gcc.dg/builtins-2.c (test for excess errors)
+3665227: gcc.dg/builtins-7.c (test for excess errors)
+3665227: gcc.dg/builtins-9.c (test for excess errors)
+3652019: gcc.dg/builtins-10.c (test for excess errors)
+3665227: gcc.dg/builtins-16.c (test for excess errors)
+3665227: gcc.dg/builtins-18.c (test for excess errors)
+3665227: gcc.dg/builtins-19.c (test for excess errors)
+3665227: gcc.dg/builtins-20.c (test for excess errors)
+3665227: gcc.dg/builtins-21.c (test for excess errors)
+3665227: gcc.dg/builtins-25.c (test for excess errors)
+3665227: gcc.dg/builtins-26.c (test for excess errors)
+3665227: gcc.dg/builtins-28.c (test for excess errors)
+3665227: gcc.dg/builtins-29.c (test for excess errors)
+3665227: gcc.dg/builtins-30.c (test for excess errors)
+3665227: gcc.dg/builtins-31.c (test for excess errors)
+3665227: gcc.dg/builtins-33.c (test for excess errors)
+3665227: gcc.dg/builtins-34.c (test for excess errors)
+3665233: gcc.dg/builtins-35.c (test for excess errors)
+3665227: gcc.dg/builtins-36.c (test for excess errors)
+3665227: gcc.dg/builtins-37.c (test for excess errors)
+3665227: gcc.dg/torture/builtin-attr-1.c  -O0  (test for excess errors)
+3665227: gcc.dg/torture/builtin-attr-1.c  -O1  (test for excess errors)
+3665227: gcc.dg/torture/builtin-attr-1.c  -O2  (test for excess errors)
+3665227: gcc.dg/torture/builtin-attr-1.c  -O3 -fomit-frame-pointer  (test for excess errors)
+3665227: gcc.dg/torture/builtin-attr-1.c  -O3 -g  (test for excess errors)
+3665227: gcc.dg/torture/builtin-attr-1.c  -Os  (test for excess errors)
+3665227: gcc.dg/torture/builtin-convert-1.c  -O0  (test for excess errors)
+3665227: gcc.dg/torture/builtin-convert-1.c  -O1  (test for excess errors)
+3665227: gcc.dg/torture/builtin-convert-1.c  -O2  (test for excess errors)
+3665227: gcc.dg/torture/builtin-convert-1.c  -O3 -fomit-frame-pointer  (test for excess errors)
+3665227: gcc.dg/torture/builtin-convert-1.c  -O3 -g  (test for excess errors)
+3665227: gcc.dg/torture/builtin-convert-1.c  -Os  (test for excess errors)
+3652019: gcc.dg/torture/builtin-ctype-1.c  -O1  (test for excess errors)
+3652019: gcc.dg/torture/builtin-ctype-1.c  -O2  (test for excess errors)
+3652019: gcc.dg/torture/builtin-ctype-1.c  -O3 -fomit-frame-pointer  (test for excess errors)
+3652019: gcc.dg/torture/builtin-ctype-1.c  -O3 -g  (test for excess errors)
+3652019: gcc.dg/torture/builtin-ctype-1.c  -Os  (test for excess errors)
+3652019: gcc.dg/torture/builtin-ctype-2.c  -O1  (test for excess errors)
+3652019: gcc.dg/torture/builtin-ctype-2.c  -O2  (test for excess errors)
+3652019: gcc.dg/torture/builtin-ctype-2.c  -O3 -fomit-frame-pointer  (test for excess errors)
+3652019: gcc.dg/torture/builtin-ctype-2.c  -O3 -g  (test for excess errors)
+3652019: gcc.dg/torture/builtin-ctype-2.c  -Os  (test for excess errors)
+3665227: gcc.dg/torture/builtin-explog-1.c  -O0  (test for excess errors)
+3665227: gcc.dg/torture/builtin-explog-1.c  -O1  (test for excess errors)
+3665227: gcc.dg/torture/builtin-explog-1.c  -O2  (test for excess errors)
+3665227: gcc.dg/torture/builtin-explog-1.c  -O3 -fomit-frame-pointer  (test for excess errors)
+3665227: gcc.dg/torture/builtin-explog-1.c  -O3 -g  (test for excess errors)
+3665227: gcc.dg/torture/builtin-explog-1.c  -Os  (test for excess errors)
+3665227: gcc.dg/torture/builtin-integral-1.c  -O0  (test for excess errors)
+3665227: gcc.dg/torture/builtin-integral-1.c  -O1  (test for excess errors)
+3665227: gcc.dg/torture/builtin-integral-1.c  -O2  (test for excess errors)
+3665227: gcc.dg/torture/builtin-integral-1.c  -O3 -fomit-frame-pointer  (test for excess errors)
+3665227: gcc.dg/torture/builtin-integral-1.c  -O3 -g  (test for excess errors)
+3665227: gcc.dg/torture/builtin-integral-1.c  -Os  (test for excess errors)
+3665227: gcc.dg/torture/builtin-math-1.c  -O0  (test for excess errors)
+3665227: gcc.dg/torture/builtin-math-1.c  -O1  (test for excess errors)
+3665227: gcc.dg/torture/builtin-math-1.c  -O2  (test for excess errors)
+3665227: gcc.dg/torture/builtin-math-1.c  -O3 -fomit-frame-pointer  (test for excess errors)
+3665227: gcc.dg/torture/builtin-math-1.c  -O3 -g  (test for excess errors)
+3665227: gcc.dg/torture/builtin-math-1.c  -Os  (test for excess errors)
+3665227: gcc.dg/torture/builtin-nonneg-1.c  -O0  (test for excess errors)
+3665227: gcc.dg/torture/builtin-nonneg-1.c  -O1  (test for excess errors)
+3665227: gcc.dg/torture/builtin-nonneg-1.c  -O2  (test for excess errors)
+3665227: gcc.dg/torture/builtin-nonneg-1.c  -O3 -fomit-frame-pointer  (test for excess errors)
+3665227: gcc.dg/torture/builtin-nonneg-1.c  -O3 -g  (test for excess errors)
+3665227: gcc.dg/torture/builtin-nonneg-1.c  -Os  (test for excess errors)
+3665098: gcc.dg/torture/builtin-noret-1.c  -O0  (test for excess errors)
+3665098: gcc.dg/torture/builtin-noret-1.c  -O1  (test for excess errors)
+3665098: gcc.dg/torture/builtin-noret-1.c  -O2  (test for excess errors)
+3665098: gcc.dg/torture/builtin-noret-1.c  -O3 -fomit-frame-pointer  (test for excess errors)
+3665098: gcc.dg/torture/builtin-noret-1.c  -O3 -g  (test for excess errors)
+3665098: gcc.dg/torture/builtin-noret-1.c  -Os  (test for excess errors)
+3665098: gcc.dg/torture/builtin-noret-2.c  -O0  (test for excess errors)
+3665098: gcc.dg/torture/builtin-noret-2.c  -O1  (test for excess errors)
+3665098: gcc.dg/torture/builtin-noret-2.c  -O2  (test for excess errors)
+3665098: gcc.dg/torture/builtin-noret-2.c  -O3 -fomit-frame-pointer  (test for excess errors)
+3665098: gcc.dg/torture/builtin-noret-2.c  -O3 -g  (test for excess errors)
+3665098: gcc.dg/torture/builtin-noret-2.c  -Os  (test for excess errors)
+3665227: gcc.dg/torture/builtin-power-1.c  -O0  (test for excess errors)
+3665227: gcc.dg/torture/builtin-power-1.c  -O1  (test for excess errors)
+3665227: gcc.dg/torture/builtin-power-1.c  -O2  (test for excess errors)
+3665227: gcc.dg/torture/builtin-power-1.c  -O3 -fomit-frame-pointer  (test for excess errors)
+3665227: gcc.dg/torture/builtin-power-1.c  -O3 -g  (test for excess errors)
+3665227: gcc.dg/torture/builtin-power-1.c  -Os  (test for excess errors)
+3652019: gcc.dg/torture/builtin-wctype-1.c  -O1  (test for excess errors)
+3652019: gcc.dg/torture/builtin-wctype-1.c  -O2  (test for excess errors)
+3652019: gcc.dg/torture/builtin-wctype-1.c  -O3 -fomit-frame-pointer  (test for excess errors)
+3652019: gcc.dg/torture/builtin-wctype-1.c  -O3 -g  (test for excess errors)
+3652019: gcc.dg/torture/builtin-wctype-1.c  -Os  (test for excess errors)
+3665238: gcc.c-torture/execute/builtins/abs-1.c execution,  -O3 -fomit-frame-pointer
+3665238: gcc.c-torture/execute/builtins/abs-1.c execution,  -O3 -g
+3665238: gcc.c-torture/execute/builtins/string-1.c execution,  -O3 -fomit-frame-pointer
+3665238: gcc.c-torture/execute/builtins/string-1.c execution,  -O3 -g
+3665238: gcc.c-torture/execute/builtins/string-3.c execution,  -O3 -fomit-frame-pointer
+3665238: gcc.c-torture/execute/builtins/string-3.c execution,  -O3 -g
+3665238: gcc.c-torture/execute/builtins/string-4.c execution,  -O3 -fomit-frame-pointer
+3665238: gcc.c-torture/execute/builtins/string-4.c execution,  -O3 -g
+3665238: gcc.c-torture/execute/builtins/string-5.c execution,  -O3 -fomit-frame-pointer
+3665238: gcc.c-torture/execute/builtins/string-5.c execution,  -O3 -g
+3665238: gcc.c-torture/execute/builtins/string-8.c execution,  -O3 -fomit-frame-pointer
+3665238: gcc.c-torture/execute/builtins/string-8.c execution,  -O3 -g
+3648882: gcc.c-torture/execute/20030811-1.c compilation,  -O0
+3648882: gcc.c-torture/execute/20030811-1.c compilation,  -O1
+3648882: gcc.c-torture/execute/20030811-1.c compilation,  -O2
+3648882: gcc.c-torture/execute/20030811-1.c compilation,  -O3 -fomit-frame-pointer
+3648882: gcc.c-torture/execute/20030811-1.c compilation,  -O3 -g
+3648882: gcc.c-torture/execute/20030811-1.c compilation,  -Os
+3665098: gcc.dg/compat/struct-by-value-1 c_compat_x_tst.o-c_compat_y_tst.o link
+3665098: gcc.dg/compat/struct-by-value-2 c_compat_x_tst.o-c_compat_y_tst.o link
+3665098: gcc.dg/compat/struct-by-value-4 c_compat_x_tst.o-c_compat_y_tst.o link
+3665098: gcc.dg/compat/struct-by-value-8 c_compat_x_tst.o-c_compat_y_tst.o link
+3665098: gcc.dg/compat/struct-by-value-9 c_compat_x_tst.o-c_compat_y_tst.o link
+3665098: gcc.dg/compat/struct-return-2 c_compat_x_tst.o-c_compat_y_tst.o link
+3665240: gcc.c-torture/execute/simd-2.c execution,  -O3 -fomit-frame-pointer
+3665240: gcc.c-torture/execute/simd-2.c execution,  -O3 -g
