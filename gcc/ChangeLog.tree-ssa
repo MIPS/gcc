@@ -1,3 +1,7 @@
+2004-01-15  Diego Novillo  <dnovillo@redhat.com>
+
+	* cfghooks.c (predicted_by_p): Add missing return.
+
 2004-01-15  Richard Henderson  <rth@redhat.com>
 
 	* tree-ssa-dom.c (optimize_stmt): Dump new statement if

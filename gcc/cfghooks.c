@@ -473,7 +473,7 @@ predicted_by_p (basic_block bb, enum br_predictor predictor)
   if (!cfg_hooks->predict_edge)
     internal_error ("%s does not support predicted_by_p.", cfg_hooks->name);
 
-  cfg_hooks->predicted_by_p (bb, predictor);
+  return cfg_hooks->predicted_by_p (bb, predictor);
 }
 
 /* Merges basic block B into basic block A.  */
