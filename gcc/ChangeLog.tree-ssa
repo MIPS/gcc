@@ -20,7 +20,7 @@
 
 	* tree-flow-inline.h (remove_dom_child): New function.
 	(clear_dom_children): New function.
-	* tree-cfg.c (bsi_insert_on_edge_immediate)): Do not clear
+	* tree-cfg.c (bsi_insert_on_edge_immediate): Do not clear
 	the annotation for the new bb, it is already memset to zero
 	in alloc_aux_for_block().
 	(move_outgoing_edges): Use dom_children() instead of looking
