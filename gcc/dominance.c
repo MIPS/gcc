@@ -857,7 +857,7 @@ first_dom_son (enum cdi_direction dir, basic_block bb)
 /* Returns the next dominance son after BB in the dominator or postdominator
    tree as determined by DIR, or NULL if it was the last one.  */
 
-extern basic_block
+basic_block
 next_dom_son (enum cdi_direction dir, basic_block bb)
 {
   struct et_node *next = bb->dom[dir]->right;
