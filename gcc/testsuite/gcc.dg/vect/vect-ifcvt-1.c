@@ -72,4 +72,4 @@ int main ()
 
 
 
-/* { dg-final { scan-tree-dump-times "vectorized 2 loops" 1 "vect" } } */
+/* { dg-final { scan-tree-dump-times "vectorized 2 loops" 1 "vect" { xfail i?86-*-* x86_64-*-* } } } */

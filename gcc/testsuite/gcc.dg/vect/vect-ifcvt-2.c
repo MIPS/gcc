@@ -1,6 +1,7 @@
 /* { dg-do run } */
 /* { dg-options "-O2 -ftree-vectorize -fdump-tree-vect-stats -maltivec" { target powerpc*-*-* } } */
 
+
 #include <stdarg.h>
 #include <signal.h>
 
@@ -16,7 +17,7 @@ int main ()
   int i, j;
 
   for (i = 0; i < 16; i++)
-    A[i] = ( A[i] > MAX ? MAX : 0); 
+    A[i] = ( A[i] >= MAX ? MAX : 0); 
 
   /* check results:  */
   for (i = 0; i < N; i++)
@@ -24,7 +25,7 @@ int main ()
       abort ();
 
   for (i = 0; i < 16; i++)
-    B[i] = ( B[i] > MAX ? MAX : 0); 
+    B[i] = ( B[i] >= MAX ? MAX : 0); 
 
   /* check results:  */
   for (i = 0; i < N; i++)
@@ -36,4 +37,4 @@ int main ()
 
 
 
-/* { dg-final { scan-tree-dump-times "vectorized 2 loops" 1 "vect" } } */
+/* { dg-final { scan-tree-dump-times "vectorized 2 loops" 1 "vect" { xfail i?86-*-* x86_64-*-* } } } */

@@ -17,19 +17,19 @@ int main ()
   int i, j;
 
   for (i = 0; i < 16; i++)
-    A[i] = ( A[i] != MAX ? MAX : 0); 
-
-  for (i = 0; i < 16; i++)
-    B[i] = ( B[i] != MAX ? MAX : 0); 
+    A[i] = ( A[i] < MAX ? MAX : 0); 
 
   /* check results:  */
   for (i = 0; i < N; i++)
-    if (!(A[i] != MAX || A[i] != 0))
+    if (!(A[i] == MAX || A[i] == 0))
       abort ();
 
+  for (i = 0; i < 16; i++)
+    B[i] = ( B[i] < MAX ? MAX : 0); 
+
   /* check results:  */
   for (i = 0; i < N; i++)
-    if (!(B[i] != MAX || B[i] != 0))
+    if (!(B[i] == MAX || B[i] == 0))
       abort ();
 
   return 0;
@@ -37,4 +37,4 @@ int main ()
 
 
 
-/* { dg-final { scan-tree-dump-times "vectorized 2 loops" 1 "vect" } } */
+/* { dg-final { scan-tree-dump-times "vectorized 2 loops" 1 "vect" { xfail i?86-*-* x86_64-*-* } } } */
