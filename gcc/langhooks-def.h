@@ -133,6 +133,7 @@ extern int lhd_gimplify_expr (tree *, tree *, tree *);
 #define LANG_HOOKS_FUNCTION_FINAL	lhd_do_nothing_f
 #define LANG_HOOKS_FUNCTION_ENTER_NESTED lhd_do_nothing_f
 #define LANG_HOOKS_FUNCTION_LEAVE_NESTED lhd_do_nothing_f
+#define LANG_HOOKS_FUNCTION_MISSING_NORETURN_OK_P hook_bool_tree_true
 
 #define LANG_HOOKS_RTL_EXPAND_START	lhd_do_nothing
 #define LANG_HOOKS_RTL_EXPAND_STMT	(void (*) (tree)) abort
@@ -198,7 +199,8 @@ extern int lhd_gimplify_expr (tree *, tree *, tree *);
   LANG_HOOKS_FUNCTION_INIT,			\
   LANG_HOOKS_FUNCTION_FINAL,			\
   LANG_HOOKS_FUNCTION_ENTER_NESTED,		\
-  LANG_HOOKS_FUNCTION_LEAVE_NESTED		\
+  LANG_HOOKS_FUNCTION_LEAVE_NESTED,		\
+  LANG_HOOKS_FUNCTION_MISSING_NORETURN_OK_P	\
 }
 
 #define LANG_HOOKS_RTL_EXPAND_INITIALIZER {	\

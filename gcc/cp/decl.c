@@ -115,7 +115,6 @@ static tree check_special_function_return_type
 static tree push_cp_library_fn (enum tree_code, tree);
 static tree build_cp_library_fn (tree, enum tree_code, tree);
 static void store_parm_decls (tree);
-static int cp_missing_noreturn_ok_p (tree);
 static void initialize_local_var (tree, tree);
 static void expand_static_init (tree, tree);
 static tree next_initializable_field (tree);
@@ -2928,9 +2927,6 @@ cxx_init_decl_processing (void)
 
   /* Create all the identifiers we need.  */
   initialize_predefined_identifiers ();
-
-  /* Fill in back-end hooks.  */
-  lang_missing_noreturn_ok_p = &cp_missing_noreturn_ok_p;
 
   /* Create the global variables.  */
   push_to_top_level ();
@@ -11273,7 +11269,7 @@ build_void_list_node (void)
   return t;
 }
 
-static int
+bool
 cp_missing_noreturn_ok_p (tree decl)
 {
   /* A missing noreturn is ok for the `main' function.  */

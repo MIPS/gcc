@@ -44,7 +44,7 @@ static bool c_tree_printer (pretty_printer *, text_info *);
 static tree start_cdtor (int);
 static void finish_cdtor (tree);
 
-int
+bool
 c_missing_noreturn_ok_p (tree decl)
 {
   /* A missing noreturn is not ok for freestanding implementations and
@@ -171,7 +171,6 @@ c_objc_common_init (void)
      putting them here anyway.  The diagnostic format decoder might
      want an enhanced ObjC implementation.  */
   diagnostic_format_decoder (global_dc) = &c_tree_printer;
-  lang_missing_noreturn_ok_p = &c_missing_noreturn_ok_p;
 
   /* If still unspecified, make it match -std=c99
      (allowing for -pedantic-errors).  */

@@ -1,5 +1,27 @@
 2004-02-09  Richard Henderson  <rth@redhat.com>
 
+	* langhooks.h (lang_hooks_for_functions): Add missing_noreturn_ok_p.
+	* langhooks-def.h, c-lang.c, objc/objc-lang.c
+	(LANG_HOOKS_FUNCTION_MISSING_NORETURN_OK_P): New.
+	* c-objc-common.c (c_missing_noreturn_ok_p): Return bool.
+	(c_objc_common_init): Don't set lang_missing_noreturn_ok_p.
+	* c-tree.h (c_missing_noreturn_ok_p): Update decl.
+	* flow.c (lang_missing_noreturn_ok_p): Remove.
+
+	* flow.c (check_function_return_warnings): Move to tree-cfg.c.
+	* toplev.c (rest_of_compilation): Don't call it.
+	* tree-cfg.c (execute_warn_function_return): Move from flow.c,
+	rename, update for tree vs rtl.
+	(pass_warn_function_return): New.
+	* tree-pass.h (pass_warn_function_return): Declare it.
+	* tree-optimize.c (init_tree_optimization_passes): Run it.
+
+	* function.h (struct function): Remove x_clobber_return_insn.
+	* function.c (free_after_compilation): Don't set it.
+	(expand_function_end): Likewise.
+
+2004-02-09  Richard Henderson  <rth@redhat.com>
+
 	Revert:
 	2004-02-06  Richard Henderson  <rth@redhat.com>
         * tree-ssa-dom.c (record_equivalences_from_phis): Use

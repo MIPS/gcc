@@ -459,7 +459,6 @@ free_after_compilation (struct function *f)
   f->x_tail_recursion_label = NULL;
   f->x_tail_recursion_reentry = NULL;
   f->x_arg_pointer_save_area = NULL;
-  f->x_clobber_return_insn = NULL;
   f->x_context_display = NULL;
   f->x_trampoline_list = NULL;
   f->x_parm_birth_insn = NULL;
@@ -7116,9 +7115,6 @@ expand_function_end (void)
     end_sequence ();
 
     after = emit_insn_after (seq, clobber_after);
-
-    if (clobber_after != after)
-      cfun->x_clobber_return_insn = after;
   }
 
   /* Output the label for the naked return from the function, if one is

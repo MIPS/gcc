@@ -3229,14 +3229,6 @@ rest_of_compilation (tree decl)
   if (cfun->tail_call_emit)
     fixup_tail_calls ();
 
-  /* We have to issue these warnings now already, because CFG cleanups
-     further down may destroy the required information.  However, this
-     must be done after the sibcall optimization pass because the barrier
-     emitted for noreturn calls that are candidate for the optimization
-     is folded into the CALL_PLACEHOLDER until after this pass, so the
-     CFG is inaccurate.  */
-  check_function_return_warnings ();
-
   insn_locators_initialize ();
   /* Complete generation of exception handling code.  */
   if (doing_eh (0))

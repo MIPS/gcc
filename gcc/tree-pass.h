@@ -116,6 +116,7 @@ extern struct tree_opt_pass pass_lower_complex;
 extern struct tree_opt_pass pass_fold_builtins;
 extern struct tree_opt_pass pass_early_warn_uninitialized;
 extern struct tree_opt_pass pass_late_warn_uninitialized;
+extern struct tree_opt_pass pass_warn_function_return;
 
 
 #endif /* GCC_TREE_PASS_H */

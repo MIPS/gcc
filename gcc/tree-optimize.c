@@ -300,6 +300,7 @@ init_tree_optimization_passes (void)
   NEXT_PASS (pass_cd_dce);
   NEXT_PASS (pass_tail_calls);
   NEXT_PASS (pass_late_warn_uninitialized);
+  NEXT_PASS (pass_warn_function_return);
   NEXT_PASS (pass_del_ssa);
   NEXT_PASS (pass_del_cfg);
   *p = NULL;

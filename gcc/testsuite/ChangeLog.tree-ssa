@@ -1,3 +1,13 @@
+2004-02-09  Richard Henderson  <rth@redhat.com>
+
+	* gcc.dg/noreturn-1.c: Adjust line numbers on warnings.
+	* gcc.dg/noreturn-4.c: Likewise.
+	* gcc.dg/noreturn-7.c: Likewise.  Adjust warnings for
+	changes to tail-call optimizations.
+	* gcc.dg/return-type-3.c: Turn on optimization.
+	* gcc.dg/uninit-6.c: Adjust line numbers on warnings.
+	* gcc.dg/uninit-8.c: XFAIL.
+
 2004-02-09  Feng Wang  <fengwang@nudt.edu.cn>
 
 	* gfortran.fortran-torture/execute/specifics.f90: Fix mod type.

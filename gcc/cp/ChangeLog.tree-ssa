@@ -1,3 +1,10 @@
+2004-02-09  Richard Henderson  <rth@redhat.com>
+
+	* cp-lang.c (LANG_HOOKS_FUNCTION_MISSING_NORETURN_OK_P): New.
+	* cp-tree.h (cp_missing_noreturn_ok_p): Declare.
+	* decl.c (cp_missing_noreturn_ok_p): Export.
+	(cxx_init_decl_processing): Don't set lang_missing_noreturn_ok_p.
+
 2004-02-06  Andrew Pinski  <pinskia@physics.uc.edu>
 
 	PR c/13863

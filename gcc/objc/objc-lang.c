@@ -86,6 +86,8 @@ enum c_language_kind c_language = clk_objc;
 #define LANG_HOOKS_FUNCTION_ENTER_NESTED c_push_function_context
 #undef LANG_HOOKS_FUNCTION_LEAVE_NESTED
 #define LANG_HOOKS_FUNCTION_LEAVE_NESTED c_pop_function_context
+#undef LANG_HOOKS_FUNCTION_MISSING_NORETURN_OK_P
+#define LANG_HOOKS_FUNCTION_MISSING_NORETURN_OK_P c_missing_noreturn_ok_p
 
 #undef LANG_HOOKS_RTL_EXPAND_STMT
 #define LANG_HOOKS_RTL_EXPAND_STMT expand_stmt_toplev

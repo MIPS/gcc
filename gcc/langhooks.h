@@ -76,6 +76,9 @@ struct lang_hooks_for_functions
 
   /* Called when leaving a nested function.  */
   void (*leave_nested) (struct function *);
+
+  /* Determines if it's ok for a function to have no noreturn attribute.  */
+  bool (*missing_noreturn_ok_p) (tree);
 };
 
 /* Lang hooks for rtl code generation.  */

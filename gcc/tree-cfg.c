@@ -3975,5 +3975,74 @@ struct tree_opt_pass pass_split_crit_edges =
   0,                             /* todo_flags_start */
   0,                             /* todo_flags_finish */
 };
-  
+
+static void
+execute_warn_function_return (void)
+{
+  location_t *locus;
+  tree last;
+  edge e;
+
+  if (warn_missing_noreturn
+      && !TREE_THIS_VOLATILE (cfun->decl)
+      && EXIT_BLOCK_PTR->pred == NULL
+      && !lang_hooks.function.missing_noreturn_ok_p (cfun->decl))
+    warning ("%Jfunction might be possible candidate for attribute `noreturn'",
+	     cfun->decl);
+
+  /* If we have a path to EXIT, then we do return.  */
+  if (TREE_THIS_VOLATILE (cfun->decl)
+      && EXIT_BLOCK_PTR->pred != NULL)
+    {
+      locus = NULL;
+      for (e = EXIT_BLOCK_PTR->pred; e ; e = e->pred_next)
+	{
+	  last = last_stmt (e->src);
+	  if (TREE_CODE (last) == RETURN_EXPR
+	      && (locus = EXPR_LOCUS (last)) != NULL)
+	    break;
+	}
+      if (!locus)
+	locus = &cfun->function_end_locus;
+      warning ("%H`noreturn' function does return", locus);
+    }
+
+  /* If we see "return;" in some basic block, then we do reach the end
+     without returning a value.  */
+  else if (warn_return_type
+	   && EXIT_BLOCK_PTR->pred != NULL
+	   && !VOID_TYPE_P (TREE_TYPE (TREE_TYPE (cfun->decl))))
+    {
+      for (e = EXIT_BLOCK_PTR->pred; e ; e = e->pred_next)
+	{
+	  tree last = last_stmt (e->src);
+	  if (TREE_CODE (last) == RETURN_EXPR
+	      && TREE_OPERAND (last, 0) == NULL)
+	    {
+	      locus = EXPR_LOCUS (last);
+	      if (!locus)
+		locus = &cfun->function_end_locus;
+	      warning ("%Hcontrol reaches end of non-void function", locus);
+	      break;
+	    }
+	}
+    }
+}
+
+struct tree_opt_pass pass_warn_function_return =
+{
+  NULL,					/* name */
+  NULL,					/* gate */
+  execute_warn_function_return,		/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  0,					/* tv_id */
+  PROP_ssa,				/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  0					/* todo_flags_finish */
+};
+
 #include "gt-tree-cfg.h"
