@@ -307,5 +307,6 @@ move_var_to_scope (tree var, tree old_scope, tree scope)
 
   /* Dwarf2out ices (in add_abstract_origin_attribute) when it encounters
      variable that is not declared, but has DECL_ABSTRACT_ORIGIN set.  */
-  DECL_ABSTRACT_ORIGIN (var) = NULL_TREE;
+  if (!TREE_STATIC (var))
+    DECL_ABSTRACT_ORIGIN (var) = NULL_TREE;
 }
