@@ -1,5 +1,10 @@
 2003-05-07  Diego Novillo  <dnovillo@redhat.com>
 
+	* decl.c (grokdeclarator): Fix thinko in handling
+	ERROR_MARK declarators.
+
+2003-05-07  Diego Novillo  <dnovillo@redhat.com>
+
 	* decl.c (grokdeclarator): Handle ERROR_MARK declarators.
 
 2003-05-07  Jason Merrill  <jason@redhat.com>

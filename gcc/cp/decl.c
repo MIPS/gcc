@@ -10542,11 +10542,11 @@ grokdeclarator (tree declarator,
 	 array or function or pointer, and DECLARATOR has had its
 	 outermost layer removed.  */
 
-      if (declarator == error_mark_node)
-	break;
-
       if (type == error_mark_node)
 	{
+	  if (declarator == error_mark_node)
+	    break;
+
 	  if (TREE_CODE (declarator) == SCOPE_REF)
 	    declarator = TREE_OPERAND (declarator, 1);
 	  else
