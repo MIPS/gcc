@@ -701,7 +701,13 @@ remove_path (loops, e)
   /* OK. Remove the path.  */
   from = e->src;
   if (!loop_delete_branch_edge (e))
-    return false;
+    {
+      free (rem_bbs);
+      free (bord_bbs);
+      free (dom_bbs);
+      free (seen);
+      return false;
+    }
 
   /* Now cancel contained loops.  */
   for (i = 0; i < nrem; i++)
