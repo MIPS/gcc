@@ -45,9 +45,13 @@ XXX: libgcc license?
 #define BEGIN_PROTECT(ty, fname, ...)       \
   ty result;                                \
   enum __mf_state old_state;                \
-  if (UNLIKELY (__mf_state != active))      \
+  if (UNLIKELY (__mf_state == reentrant))   \
   {                                         \
     return CALL_REAL(fname, __VA_ARGS__);   \
+  }                                         \
+  else if (UNLIKELY (__mf_state == starting)) \
+  {                                         \
+    return CALL_BACKUP(fname, __VA_ARGS__); \
   }                                         \
   else                                      \
   {                                         \
@@ -65,6 +69,16 @@ XXX: libgcc license?
 /* malloc/free etc. */
 
 #ifdef WRAP_malloc
+
+#if PIC
+/* A special bootstrap variant. */
+static void *
+__mf_0fn_malloc (size_t c)
+{
+  return NULL;
+}
+#endif
+
 #undef malloc
 WRAPPER(void *, malloc, size_t c)
 {
@@ -91,6 +105,16 @@ WRAPPER(void *, malloc, size_t c)
 
 
 #ifdef WRAP_calloc
+
+#ifdef PIC
+/* A special bootstrap variant. */
+static void *
+__mf_0fn_calloc (size_t c, size_t n)
+{
+  return NULL;
+}
+#endif
+
 #undef calloc
 WRAPPER(void *, calloc, size_t c, size_t n)
 {
@@ -122,6 +146,16 @@ WRAPPER(void *, calloc, size_t c, size_t n)
 #endif
 
 #ifdef WRAP_realloc
+
+#if PIC
+/* A special bootstrap variant. */
+static void *
+__mf_0fn_realloc (void *buf, size_t c)
+{
+  return NULL;
+}
+#endif
+
 #undef realloc
 WRAPPER(void *, realloc, void *buf, size_t c)
 {
@@ -165,6 +199,16 @@ WRAPPER(void *, realloc, void *buf, size_t c)
 
 
 #ifdef WRAP_free
+
+#if PIC
+/* A special bootstrap variant. */
+static void
+__mf_0fn_free (void *buf)
+{
+  return;
+}
+#endif
+
 #undef free
 WRAPPER(void, free, void *buf)
 {
@@ -239,6 +283,17 @@ WRAPPER(void, free, void *buf)
 
 
 #ifdef WRAP_mmap
+
+#if PIC
+/* A special bootstrap variant. */
+static void *
+__mf_0fn_mmap (void *start, size_t l, int prot, int f, int fd, off_t off)
+{
+  return NULL;
+}
+#endif
+
+
 #undef mmap
 WRAPPER(void *, mmap, 
 	void  *start,  size_t length, int prot, 
@@ -287,6 +342,17 @@ WRAPPER(void *, mmap,
 
 
 #ifdef WRAP_munmap
+
+#if PIC
+/* A special bootstrap variant. */
+static int
+__mf_0fn_munmap (void *start, size_t length)
+{
+  return -1;
+}
+#endif
+
+
 #undef munmap
 WRAPPER(int , munmap, void *start, size_t length)
 {

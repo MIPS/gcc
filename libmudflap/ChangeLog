@@ -1,3 +1,11 @@
+2003-04-02  Frank Ch. Eigler  <fche@redhat.com>
+
+	* mf-hooks.c (BEGIN_PROTECT): Handle startup-time reentrant
+	calls specially.
+	(__mf_0fn_malloc ... _munmap): New dummy backup calls.
+	* mf-impl.h (CALL_BACKUP): New macros.
+	* mf-runtime.c (__mf_init): Tweak __mf_state during startup.
+
 2003-03-31  Frank Ch. Eigler  <fche@redhat.com>
 
 	* Makefile.am (AM_CFLAGS): Remove optimization flags.

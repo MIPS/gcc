@@ -511,10 +511,10 @@ void __mf_init ()
   char *ov = 0;
 
   __mf_state = starting;
-
 #ifdef PIC
   __mf_resolve_dynamics ();
 #endif
+  __mf_state = active;
 
   __mf_set_default_options ();
 
@@ -528,8 +528,6 @@ void __mf_init ()
 	  exit (1);
 	}
     }
-
-  __mf_state = active;
 
   /* Initialize to a non-zero description epoch. */
   __mf_describe_object (NULL);
