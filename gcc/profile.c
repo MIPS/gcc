@@ -1386,13 +1386,11 @@ gen_edge_profiler (edgeno)
 
   tmp = plus_constant (tmp, GCOV_TYPE_SIZE / BITS_PER_UNIT * edgeno);
   mem_ref = validize_mem (gen_rtx_MEM (mode, tmp));
-
   set_mem_alias_set (mem_ref, new_alias_set ());
 
   tmp = expand_simple_binop (mode, PLUS, mem_ref, const1_rtx,
 			     mem_ref, 0, OPTAB_WIDEN);
 
-  set_mem_alias_set (mem_ref, new_alias_set ());
 
   if (tmp != mem_ref)
     emit_move_insn (copy_rtx (mem_ref), tmp);
