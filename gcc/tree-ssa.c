@@ -783,7 +783,8 @@ rewrite_block (basic_block bb)
 	  tree currdef;
 
 	  /* Ignore PHI nodes that have already been renamed.  */
-	  if (PHI_NUM_ARGS (phi) == PHI_ARG_CAPACITY (phi))
+	  if (!TEST_BIT (vars_to_rename,
+			 var_ann (SSA_NAME_VAR (PHI_RESULT (phi)))->uid))
 	    continue;
 
 	  currdef = get_reaching_def (SSA_NAME_VAR (PHI_RESULT (phi)));

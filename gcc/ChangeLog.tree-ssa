@@ -1,3 +1,10 @@
+2003-10-03  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* tree-ssa.c (rewrite_block): Test vars_to_rename instead of
+	PHI_ARG_CAPACITY.
+	* tree-dfa.c (remove_phi_arg_num): Don't update
+	PHI_ARG_CAPACITY.
+
 2003-10-01  Richard Henderson  <rth@redhat.com>
 
         * c-decl.c (set_decl_nonlocal): New.
