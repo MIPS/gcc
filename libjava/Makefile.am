@@ -1304,6 +1304,7 @@ javax/swing/plaf/basic/BasicArrowButton.java \
 javax/swing/plaf/basic/BasicButtonListener.java \
 javax/swing/plaf/basic/BasicButtonUI.java \
 javax/swing/plaf/basic/BasicCheckBoxUI.java \
+javax/swing/plaf/basic/BasicColorChooserUI.java \
 javax/swing/plaf/basic/BasicComboBoxUI.java \
 javax/swing/plaf/basic/BasicComboBoxEditor.java \
 javax/swing/plaf/basic/BasicComboBoxRenderer.java \
@@ -1400,6 +1401,10 @@ javax/swing/colorchooser/AbstractColorChooserPanel.java \
 javax/swing/colorchooser/ColorChooserComponentFactory.java \
 javax/swing/colorchooser/ColorSelectionModel.java \
 javax/swing/colorchooser/DefaultColorSelectionModel.java \
+javax/swing/colorchooser/DefaultPreviewPanel.java \
+javax/swing/colorchooser/DefaultSwatchChooserPanel.java \
+javax/swing/colorchooser/DefaultHSBChooserPanel.java \
+javax/swing/colorchooser/DefaultRGBChooserPanel.java \
 javax/swing/filechooser/FileFilter.java \
 javax/swing/filechooser/FileSystemView.java \
 javax/swing/filechooser/FileView.java \

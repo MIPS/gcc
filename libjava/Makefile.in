@@ -982,6 +982,7 @@ javax/swing/plaf/basic/BasicArrowButton.java \
 javax/swing/plaf/basic/BasicButtonListener.java \
 javax/swing/plaf/basic/BasicButtonUI.java \
 javax/swing/plaf/basic/BasicCheckBoxUI.java \
+javax/swing/plaf/basic/BasicColorChooserUI.java \
 javax/swing/plaf/basic/BasicComboBoxUI.java \
 javax/swing/plaf/basic/BasicComboBoxEditor.java \
 javax/swing/plaf/basic/BasicComboBoxRenderer.java \
@@ -1078,6 +1079,10 @@ javax/swing/colorchooser/AbstractColorChooserPanel.java \
 javax/swing/colorchooser/ColorChooserComponentFactory.java \
 javax/swing/colorchooser/ColorSelectionModel.java \
 javax/swing/colorchooser/DefaultColorSelectionModel.java \
+javax/swing/colorchooser/DefaultPreviewPanel.java \
+javax/swing/colorchooser/DefaultSwatchChooserPanel.java \
+javax/swing/colorchooser/DefaultHSBChooserPanel.java \
+javax/swing/colorchooser/DefaultRGBChooserPanel.java \
 javax/swing/filechooser/FileFilter.java \
 javax/swing/filechooser/FileSystemView.java \
 javax/swing/filechooser/FileView.java \
@@ -3139,6 +3144,7 @@ javax/swing/plaf/basic/BasicArrowButton.lo \
 javax/swing/plaf/basic/BasicButtonListener.lo \
 javax/swing/plaf/basic/BasicButtonUI.lo \
 javax/swing/plaf/basic/BasicCheckBoxUI.lo \
+javax/swing/plaf/basic/BasicColorChooserUI.lo \
 javax/swing/plaf/basic/BasicComboBoxUI.lo \
 javax/swing/plaf/basic/BasicComboBoxEditor.lo \
 javax/swing/plaf/basic/BasicComboBoxRenderer.lo \
@@ -3218,6 +3224,10 @@ javax/swing/colorchooser/AbstractColorChooserPanel.lo \
 javax/swing/colorchooser/ColorChooserComponentFactory.lo \
 javax/swing/colorchooser/ColorSelectionModel.lo \
 javax/swing/colorchooser/DefaultColorSelectionModel.lo \
+javax/swing/colorchooser/DefaultPreviewPanel.lo \
+javax/swing/colorchooser/DefaultSwatchChooserPanel.lo \
+javax/swing/colorchooser/DefaultHSBChooserPanel.lo \
+javax/swing/colorchooser/DefaultRGBChooserPanel.lo \
 javax/swing/filechooser/FileFilter.lo \
 javax/swing/filechooser/FileSystemView.lo \
 javax/swing/filechooser/FileView.lo \
@@ -5254,6 +5264,10 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/javax/swing/colorchooser/ColorChooserComponentFactory.P \
 .deps/javax/swing/colorchooser/ColorSelectionModel.P \
 .deps/javax/swing/colorchooser/DefaultColorSelectionModel.P \
+.deps/javax/swing/colorchooser/DefaultHSBChooserPanel.P \
+.deps/javax/swing/colorchooser/DefaultPreviewPanel.P \
+.deps/javax/swing/colorchooser/DefaultRGBChooserPanel.P \
+.deps/javax/swing/colorchooser/DefaultSwatchChooserPanel.P \
 .deps/javax/swing/event/AncestorEvent.P \
 .deps/javax/swing/event/AncestorListener.P \
 .deps/javax/swing/event/CaretEvent.P \
@@ -5338,6 +5352,7 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/javax/swing/plaf/basic/BasicButtonUI.P \
 .deps/javax/swing/plaf/basic/BasicCheckBoxMenuItemUI.P \
 .deps/javax/swing/plaf/basic/BasicCheckBoxUI.P \
+.deps/javax/swing/plaf/basic/BasicColorChooserUI.P \
 .deps/javax/swing/plaf/basic/BasicComboBoxEditor.P \
 .deps/javax/swing/plaf/basic/BasicComboBoxRenderer.P \
 .deps/javax/swing/plaf/basic/BasicComboBoxUI.P \
