@@ -1,6 +1,12 @@
 2004-11-19  Jerry Quinn  <jlquinn@optonline.net>
 
+	* java/awt/Checkbox.java (AccessibleAWTCheckBox): Remove todo
+	comments.
+
+2004-11-19  Jerry Quinn  <jlquinn@optonline.net>
+
 	* java/awt/Checkbox.java (itemStateChanged): Implement function.
+	(getAccessibleContext): Add AccessibleAWTCheckBox to item listeners.
 
 2004-11-18  Sven de Marothy  <sven@physto.se>
 
