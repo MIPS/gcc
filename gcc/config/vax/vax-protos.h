@@ -34,9 +34,4 @@ extern int reg_was_0_p PARAMS ((rtx, rtx));
 extern int check_float_value PARAMS ((enum machine_mode, REAL_VALUE_TYPE *, int));
 #endif /* REAL_VALUE_TYPE */
 
-#ifdef TREE_CODE
-extern void vms_check_external PARAMS ((tree, const char *, int));
-#endif /* TREE_CODE */
-
-extern void vms_flush_pending_externals PARAMS ((FILE *));
 extern void const_section PARAMS ((void));

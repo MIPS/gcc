@@ -219,7 +219,6 @@ case $machine in
  | mn10200-*-*      \
  | ns32k-*-openbsd* \
  | romp-*-openbsd*  \
- | vax-*-vms* \
  )
     if test "x$enable_obsolete" != xyes; then
       echo "*** Configuration $machine is obsolete." >&2
@@ -2624,8 +2623,8 @@ vax-*-ultrix*)			# VAXen running ultrix
 	tm_file="${tm_file} vax/ultrix.h"
 	;;
 vax-*-vms*)			# VAXen running VMS
-	xm_file=vax/xm-vms.h
-	tm_file=vax/vms.h
+	echo "Configuration $machine no longer supported" 1>&2
+	exit 1
 	;;
 vax-*-*)			# VAX default entry
 	;;

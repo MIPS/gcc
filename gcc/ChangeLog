@@ -1,3 +1,11 @@
+2002-10-02  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* config.gcc: Remove support for vax-*-vms*.
+	* config/vax/vms.h: Remove.
+	* config/vax/xm-vms.h: Remove.
+	* config/vax/vax-protos.h: Remove VMS-specific code.
+	* config/vax/vax.c: Remove VMS-specific code.
+
 2002-10-01  Andreas Bauer  <baueran@in.tum.de>
 
 	* calls.c (expand_call): Remove the `no indirect check'
