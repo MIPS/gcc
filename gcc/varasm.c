@@ -1249,7 +1249,8 @@ assemble_start_function (decl, fnname)
 
   /* Tell assembler to move to target machine's alignment for functions.  */
   align = floor_log2 (FUNCTION_BOUNDARY / BITS_PER_UNIT);
-  if (align > 0)
+  if (align > 0
+      && cfun->function_frequency != FUNCTION_FREQUENCY_UNLIKELY_EXECUTED)
     {
       ASM_OUTPUT_ALIGN (asm_out_file, align);
     }

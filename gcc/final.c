@@ -859,9 +859,6 @@ compute_alignments ()
       max_log = LABEL_ALIGN (label);
       max_skip = LABEL_ALIGN_MAX_SKIP;
 
-      if (!maybe_hot_bb_p (bb))
-	continue;
-
       for (e = bb->pred; e; e = e->pred_next)
 	{
 	  if (e->flags & EDGE_FALLTHRU)
@@ -881,6 +878,7 @@ compute_alignments ()
 	 when function is called.  */
 
       if (!has_fallthru
+	  && !probably_never_executed_bb_p (bb)
 	  && (branch_frequency > BB_FREQ_MAX / 10
 	      || (bb->frequency > BASIC_BLOCK (i - 1)->frequency * 10
 		  && (BASIC_BLOCK (i - 1)->frequency
@@ -893,9 +891,11 @@ compute_alignments ()
 	      max_skip = JUMP_ALIGN_MAX_SKIP;
 	    }
 	}
+
       /* In case block is frequent and reached mostly by non-fallthru edge,
 	 align it.  It is most likely an first block of loop.  */
       if (has_fallthru
+	  && maybe_hot_bb_p (bb)
 	  && branch_frequency + fallthru_frequency > BB_FREQ_MAX / 10
 	  && branch_frequency > fallthru_frequency * 5)
 	{
