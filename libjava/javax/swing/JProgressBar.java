@@ -92,9 +92,8 @@ public class JProgressBar extends JComponent implements SwingConstants,
      *
      * @param component TODO
      */
-    protected AccessibleJProgressBar(JProgressBar component)
+    protected AccessibleJProgressBar()
     {
-      super(component);
     } 
 
     /**
@@ -665,7 +664,8 @@ public class JProgressBar extends JComponent implements SwingConstants,
   public AccessibleContext getAccessibleContext()
   {
     if (accessibleContext == null)
-      accessibleContext = new AccessibleJProgressBar(this);
+      accessibleContext = new AccessibleJProgressBar();
+    
     return accessibleContext;
   } 
 }

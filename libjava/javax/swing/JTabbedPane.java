@@ -86,9 +86,9 @@ public class JTabbedPane extends JComponent implements Serializable,
      *
      * @param c DOCUMENT ME!
      */
-    public AccessibleJTabbedPane(JTabbedPane c)
+    public AccessibleJTabbedPane()
     {
-      super(c);
+      super();
     }
 
     /**
@@ -1482,7 +1482,7 @@ public class JTabbedPane extends JComponent implements Serializable,
   public AccessibleContext getAccessibleContext()
   {
     if (accessibleContext == null)
-      accessibleContext = new AccessibleJTabbedPane(this);
+      accessibleContext = new AccessibleJTabbedPane();
     return accessibleContext;
   }
 }

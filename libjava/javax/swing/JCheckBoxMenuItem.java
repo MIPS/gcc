@@ -209,7 +209,7 @@ public class JCheckBoxMenuItem extends JMenuItem implements SwingConstants,
   public AccessibleContext getAccessibleContext()
   {
     if (accessibleContext == null)
-      accessibleContext = new AccessibleJCheckBoxMenuItem(this);
+      accessibleContext = new AccessibleJCheckBoxMenuItem();
 
     return accessibleContext;
   }
@@ -223,14 +223,9 @@ public class JCheckBoxMenuItem extends JMenuItem implements SwingConstants,
 
     /**
      * Creates a new AccessibleJCheckBoxMenuItem object.
-     *
-     * @param component DOCUMENT ME!
      */
-    protected AccessibleJCheckBoxMenuItem(JCheckBoxMenuItem component)
+    protected AccessibleJCheckBoxMenuItem()
     {
-      super(component);
-
-      // TODO
     }
 
     /**

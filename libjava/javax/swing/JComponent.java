@@ -101,7 +101,7 @@ public abstract class JComponent extends Container implements Serializable
     protected class AccessibleFocusHandler 
       implements FocusListener
     {
-      protected AccessibleFocusHandler(AccessibleJComponent component){}
+      protected AccessibleFocusHandler(){}
       public void focusGained(FocusEvent event){}
       public void focusLost(FocusEvent valevent){}
     }
@@ -109,7 +109,7 @@ public abstract class JComponent extends Container implements Serializable
     protected class AccessibleContainerHandler 
       implements ContainerListener
     {
-      protected AccessibleContainerHandler(AccessibleJComponent component) {}
+      protected AccessibleContainerHandler() {}
       public void componentAdded(ContainerEvent event) {}
       public void componentRemoved(ContainerEvent valevent) {}
     }
@@ -119,7 +119,7 @@ public abstract class JComponent extends Container implements Serializable
     protected ContainerListener accessibleContainerHandler;
     protected FocusListener accessibleFocusHandler;
 
-    protected AccessibleJComponent(JComponent component) {}
+    protected AccessibleJComponent() {}
     public void addPropertyChangeListener(PropertyChangeListener listener) {}
     public void removePropertyChangeListener(PropertyChangeListener listener) {}
     public int getAccessibleChildrenCount() { return 0; }

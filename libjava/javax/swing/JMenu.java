@@ -673,7 +673,7 @@ public class JMenu extends JMenuItem implements Accessible, MenuElement
   public AccessibleContext getAccessibleContext()
   {
     if (accessibleContext == null)
-      accessibleContext = new AccessibleJMenu(this);
+      accessibleContext = new AccessibleJMenu();
 
     return accessibleContext;
   }
@@ -688,12 +688,9 @@ public class JMenu extends JMenuItem implements Accessible, MenuElement
     
     /**
      * Creates a new AccessibleJMenu object.
-     *
-     * @param component DOCUMENT ME!
      */
-    protected AccessibleJMenu(JMenu component)
+    protected AccessibleJMenu()
     {
-      super(component);
     }
 
     /**
@@ -820,7 +817,7 @@ public class JMenu extends JMenuItem implements Accessible, MenuElement
      * @param value0 DOCUMENT ME!
      * @param value1 DOCUMENT ME!
      */
-    public WinListener(JMenu value0, JPopupMenu value1)
+    public WinListener(JPopupMenu value1)
     {
     }
 

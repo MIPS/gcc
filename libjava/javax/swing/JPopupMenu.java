@@ -798,7 +798,7 @@ public class JPopupMenu extends JComponent implements Accessible, MenuElement
   public AccessibleContext getAccessibleContext()
   {
     if (accessibleContext == null)
-      accessibleContext = new AccessibleJPopupMenu(this);
+      accessibleContext = new AccessibleJPopupMenu();
 
     return accessibleContext;
   }
@@ -984,9 +984,8 @@ public class JPopupMenu extends JComponent implements Accessible, MenuElement
      *
      * @param component DOCUMENT ME!
      */
-    protected AccessibleJPopupMenu(JPopupMenu component)
+    protected AccessibleJPopupMenu()
     {
-      super(component);
     }
 
     /**

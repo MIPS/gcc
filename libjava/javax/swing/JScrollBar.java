@@ -74,9 +74,9 @@ public class JScrollBar extends JComponent implements Adjustable, Accessible
      *
      * @param value0 DOCUMENT ME!
      */
-    protected AccessibleJScrollBar(JScrollBar value0)
+    protected AccessibleJScrollBar()
     {
-      super(value0);
+      super();
     }
 
     /**
@@ -729,7 +729,7 @@ public class JScrollBar extends JComponent implements Adjustable, Accessible
   public AccessibleContext getAccessibleContext()
   {
     if (accessibleContext == null)
-      accessibleContext = new AccessibleJScrollBar(this);
+      accessibleContext = new AccessibleJScrollBar();
     return accessibleContext;
   }
 }

@@ -45,43 +45,34 @@ import javax.accessibility.AccessibleStateSet;
 import javax.swing.text.Document;
 
 public class JTextField extends JEditorPane
+  implements SwingConstants
 {
+  /**
+   * AccessibleJTextField
+   */
+  protected class AccessibleJTextField extends AccessibleJTextComponent
+  {
+    private static final long serialVersionUID = 8255147276740453036L;
 
-	/**
-	 * AccessibleJTextField
-	 */
-	protected class AccessibleJTextField extends AccessibleJTextComponent {
+    /**
+     * Constructor AccessibleJTextField
+     */
+    protected AccessibleJTextField()
+    {
+    }
 
-		//-------------------------------------------------------------
-		// Initialization ---------------------------------------------
-		//-------------------------------------------------------------
+    /**
+     * getAccessibleStateSet
+     * @return AccessibleStateSet
+     */
+    public AccessibleStateSet getAccessibleStateSet()
+    {
+      return null;
+    }
+  }
 
-		/**
-		 * Constructor AccessibleJTextField
-		 * @param component TODO
-		 */
-		protected AccessibleJTextField(JTextField component) {
-			super(component);
-			// TODO
-		} // AccessibleJTextField()
-
-
-		//-------------------------------------------------------------
-		// Methods ----------------------------------------------------
-		//-------------------------------------------------------------
-
-		/**
-		 * getAccessibleStateSet
-		 * @returns AccessibleStateSet
-		 */
-		public AccessibleStateSet getAccessibleStateSet() {
-			return null; // TODO
-		} // getAccessibleStateSet()
-
-
-	} // AccessibleJTextField
-
-
+  private static final long serialVersionUID = 353853209832607592L;
+  
     Vector actions = new Vector();
 
   public JTextField()

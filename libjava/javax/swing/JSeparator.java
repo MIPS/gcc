@@ -62,9 +62,8 @@ public class JSeparator extends JComponent implements SwingConstants,
      *
      * @param component TODO
      */
-    protected AccessibleJSeparator(JSeparator component)
+    protected AccessibleJSeparator()
     {
-      super(component);
     }
 
     /**
@@ -202,7 +201,8 @@ public class JSeparator extends JComponent implements SwingConstants,
   public AccessibleContext getAccessibleContext()
   {
     if (accessibleContext == null)
-      accessibleContext = new AccessibleJSeparator(this);
+      accessibleContext = new AccessibleJSeparator();
+    
     return accessibleContext;
   }
 }

@@ -53,49 +53,30 @@ public class JDesktopPane extends JLayeredPane implements Accessible
 {
   private static final long serialVersionUID = 766333777224038726L;
   
+  /**
+   * AccessibleJDesktopPane
+   */
+  protected class AccessibleJDesktopPane extends AccessibleJComponent
+  {
+    private static final long serialVersionUID = 6079388927946077570L;
 
-	//-------------------------------------------------------------
-	// Classes ----------------------------------------------------
-	//-------------------------------------------------------------
+    /**
+     * Constructor AccessibleJDesktopPane
+     * @param component TODO
+     */
+    protected AccessibleJDesktopPane()
+    {
+    }
 
-	/**
-	 * AccessibleJDesktopPane
-	 */
-	protected class AccessibleJDesktopPane extends AccessibleJComponent {
-
-		//-------------------------------------------------------------
-		// Initialization ---------------------------------------------
-		//-------------------------------------------------------------
-
-		/**
-		 * Constructor AccessibleJDesktopPane
-		 * @param component TODO
-		 */
-		protected AccessibleJDesktopPane(JDesktopPane component) {
-			super(component);
-			// TODO
-		} // AccessibleJDesktopPane()
-
-
-		//-------------------------------------------------------------
-		// Methods ----------------------------------------------------
-		//-------------------------------------------------------------
-
-		/**
-		 * getAccessibleRole
-		 * @returns AccessibleRole
-		 */
-		public AccessibleRole getAccessibleRole() {
-			return AccessibleRole.DESKTOP_PANE;
-		} // getAccessibleRole()
-
-
-	} // AccessibleJDesktopPane
-
-
-	//-------------------------------------------------------------
-	// Constants --------------------------------------------------
-	//-------------------------------------------------------------
+    /**
+     * getAccessibleRole
+     * @returns AccessibleRole
+     */
+    public AccessibleRole getAccessibleRole()
+    {
+      return AccessibleRole.DESKTOP_PANE;
+    }
+  }
 	
 	/**
 	 * LIVE_DRAG_MODE
@@ -274,16 +255,15 @@ public class JDesktopPane extends JLayeredPane implements Accessible
 		return null; // TODO
 	} // paramString()
 
-	/**
-	 * getAccessibleContext
-	 * @returns AccessibleContext
-	 */
-	public AccessibleContext getAccessibleContext() {
-		if (accessibleContext == null) {
-			accessibleContext = new AccessibleJDesktopPane(this);
-		} // if
-		return accessibleContext;
-	} // getAccessibleContext()
+  /**
+   * getAccessibleContext
+   * @returns AccessibleContext
+   */
+  public AccessibleContext getAccessibleContext()
+  {
+    if (accessibleContext == null)
+      accessibleContext = new AccessibleJDesktopPane();
 
-
-} // JDesktopPane
+    return accessibleContext;
+  }
+}

@@ -578,7 +578,7 @@ public class JMenuItem extends AbstractButton implements Accessible,
   public AccessibleContext getAccessibleContext()
   {
     if (accessibleContext == null)
-      accessibleContext = new AccessibleJMenuItem(this);
+      accessibleContext = new AccessibleJMenuItem();
 
     return accessibleContext;
   }
@@ -593,14 +593,9 @@ public class JMenuItem extends AbstractButton implements Accessible,
 
     /**
      * Creates a new AccessibleJMenuItem object.
-     *
-     * @param component DOCUMENT ME!
      */
-    AccessibleJMenuItem(JMenuItem component)
+    AccessibleJMenuItem()
     {
-      super(component);
-
-      // TODO
     }
 
     /**

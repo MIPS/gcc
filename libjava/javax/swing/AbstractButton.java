@@ -296,9 +296,8 @@ public abstract class AbstractButton extends JComponent
   {
     private static final long serialVersionUID = -5673062525319836790L;
     
-    protected AccessibleAbstractButton(JComponent c)
+    protected AccessibleAbstractButton()
     {
-      super(c);
     }
 
     public AccessibleStateSet getAccessibleStateSet()

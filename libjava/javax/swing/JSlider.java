@@ -129,9 +129,8 @@ public class JSlider extends JComponent implements SwingConstants, Accessible,
      *
      * @param value0 DOCUMENT ME!
      */
-    protected AccessibleJSlider(JSlider value0)
+    protected AccessibleJSlider()
     {
-      super(value0);
     }
 
     /**
@@ -935,7 +934,8 @@ public class JSlider extends JComponent implements SwingConstants, Accessible,
   public AccessibleContext getAccessibleContext()
   {
     if (accessibleContext == null)
-      accessibleContext = new AccessibleJSlider(this);
+      accessibleContext = new AccessibleJSlider();
+    
     return accessibleContext;
   }
 }

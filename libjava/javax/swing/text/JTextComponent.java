@@ -93,9 +93,7 @@ public abstract class JTextComponent extends JComponent
 		 * Constructor AccessibleJTextComponent
 		 * @param component TODO
 		 */
-		public AccessibleJTextComponent(JTextComponent component) {
-			super(component);
-			// TODO
+		public AccessibleJTextComponent() {
 		} // AccessibleJTextComponent()
 
 

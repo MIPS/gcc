@@ -1,5 +1,32 @@
 2004-06-08  Michael Koch  <konqueror@gmx.de>
 
+	* javax/swing/AbstractButton.java,
+	javax/swing/CellRendererPane.java,
+	javax/swing/JCheckBoxMenuItem.java,
+	javax/swing/JColorChooser.java,
+	javax/swing/JComboBox.java,
+	javax/swing/JComponent.java,
+	javax/swing/JDesktopPane.java,
+	javax/swing/JFileChooser.java,
+	javax/swing/JMenu.java,
+	javax/swing/JMenuItem.java,
+	javax/swing/JOptionPane.java,
+	javax/swing/JPasswordField.java,
+	javax/swing/JPopupMenu.java,
+	javax/swing/JProgressBar.java,
+	javax/swing/JRadioButtonMenuItem.java,
+	javax/swing/JScrollBar.java,
+	javax/swing/JSeparator.java,
+	javax/swing/JSlider.java,
+	javax/swing/JSplitPane.java,
+	javax/swing/JTabbedPane.java,
+	javax/swing/JTextField.java,
+	javax/swing/JToolBar.java,
+	javax/swing/text/JTextComponent.java:
+	Fixed all constructors of accessibility classes.
+
+2004-06-08  Michael Koch  <konqueror@gmx.de>
+
 	* javax/swing/ScrollPaneLayout.java: Renamed all memeber variables all
 	over.
 

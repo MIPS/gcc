@@ -187,7 +187,7 @@ public class JRadioButtonMenuItem extends JMenuItem implements Accessible
   public AccessibleContext getAccessibleContext()
   {
     if (accessibleContext == null)
-      accessibleContext = new AccessibleJRadioButtonMenuItem(this);
+      accessibleContext = new AccessibleJRadioButtonMenuItem();
 
     return accessibleContext;
   }
@@ -201,14 +201,9 @@ public class JRadioButtonMenuItem extends JMenuItem implements Accessible
 
     /**
      * Creates a new AccessibleJRadioButtonMenuItem object.
-     *
-     * @param component DOCUMENT ME!
      */
-    protected AccessibleJRadioButtonMenuItem(JRadioButtonMenuItem component)
+    protected AccessibleJRadioButtonMenuItem()
     {
-      super(component);
-
-      // TODO
     }
 
     /**

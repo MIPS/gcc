@@ -70,9 +70,8 @@ public class JSplitPane extends JComponent implements Accessible
      *
      * @param value0 DOCUMENT ME!
      */
-    protected AccessibleJSplitPane(JSplitPane value0)
+    protected AccessibleJSplitPane()
     {
-      super(value0);
     }
 
     /**
@@ -352,7 +351,8 @@ public class JSplitPane extends JComponent implements Accessible
   public AccessibleContext getAccessibleContext()
   {
     if (accessibleContext == null)
-      accessibleContext = new AccessibleJSplitPane(this);
+      accessibleContext = new AccessibleJSplitPane();
+    
     return accessibleContext;
   }
 

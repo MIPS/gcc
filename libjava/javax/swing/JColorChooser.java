@@ -83,15 +83,9 @@ public class JColorChooser extends JComponent implements Accessible {
 		 * Constructor AccessibleJColorChooser
 		 * @param component TODO
 		 */
-		protected AccessibleJColorChooser(JColorChooser component) {
-			super(component);
-			// TODO
-		} // AccessibleJColorChooser()
-
-
-		//-------------------------------------------------------------
-		// Methods ----------------------------------------------------
-		//-------------------------------------------------------------
+	  protected AccessibleJColorChooser()
+	  {
+	  }
 
 		/**
 		 * getAccessibleRole
@@ -359,16 +353,15 @@ public class JColorChooser extends JComponent implements Accessible {
 		return null; // TODO
 	} // paramString()
 
-	/**
-	 * getAccessibleContext
-	 * @returns AccessibleContext
-	 */
-	public AccessibleContext getAccessibleContext() {
-		if (accessibleContext == null) {
-			accessibleContext = new AccessibleJColorChooser(this);
-		} // if
-		return accessibleContext;
-	} // getAccessibleContext()
+  /**
+   * getAccessibleContext
+   * @return AccessibleContext
+   */
+  public AccessibleContext getAccessibleContext()
+  {
+    if (accessibleContext == null)
+      accessibleContext = new AccessibleJColorChooser();
 
-
-} // JColorChooser
+    return accessibleContext;
+  }
+}

@@ -59,58 +59,46 @@ import javax.swing.plaf.ToolBarUI;
 public class JToolBar extends JComponent 
   implements SwingConstants, Accessible
 {
+  /**
+   * AccessibleJToolBar
+   */
+  protected class AccessibleJToolBar extends AccessibleJComponent
+  {
+    private static final long serialVersionUID = -5516888265903814215L;
 
-	//-------------------------------------------------------------
-	// Classes ----------------------------------------------------
-	//-------------------------------------------------------------
+    /**
+     * Constructor AccessibleJToolBar
+     */
+    protected AccessibleJToolBar()
+    {
+    }
 
-	/**
-	 * AccessibleJToolBar
-	 */
-	protected class AccessibleJToolBar extends AccessibleJComponent {
+    /**
+     * getAccessibleStateSet
+     * @return AccessibleStateSet
+     */
+    public AccessibleStateSet getAccessibleStateSet()
+    {
+      return null; // TODO
+    }
 
-		//-------------------------------------------------------------
-		// Initialization ---------------------------------------------
-		//-------------------------------------------------------------
-
-		/**
-		 * Constructor AccessibleJToolBar
-		 * @param component TODO
-		 */
-		protected AccessibleJToolBar(JToolBar component) {
-			super(component);
-			// TODO
-		} // AccessibleJToolBar()
-
-
-		//-------------------------------------------------------------
-		// Methods ----------------------------------------------------
-		//-------------------------------------------------------------
-
-		/**
-		 * getAccessibleStateSet
-		 * @returns AccessibleStateSet
-		 */
-		public AccessibleStateSet getAccessibleStateSet() {
-			return null; // TODO
-		} // getAccessibleStateSet()
-
-		/**
-		 * getAccessibleRole
-		 * @returns AccessibleRole
-		 */
-		public AccessibleRole getAccessibleRole() {
-			return AccessibleRole.TOOL_BAR;
-		} // getAccessibleRole()
-
-
-	} // AccessibleJToolBar
+    /**
+     * getAccessibleRole
+     * @return AccessibleRole
+     */
+    public AccessibleRole getAccessibleRole()
+    {
+      return AccessibleRole.TOOL_BAR;
+    }
+  }
 
 	/**
 	 * Separator
 	 */
 	public static class Separator extends JSeparator {
 
+	  private static final long serialVersionUID = -1656745644823105219L;
+    
 		//-------------------------------------------------------------
 		// Variables --------------------------------------------------
 		//-------------------------------------------------------------
@@ -197,6 +185,8 @@ public class JToolBar extends JComponent
 	} // Separator
 
 
+    private static final long serialVersionUID = -1269915519555129643L;
+    
 	//-------------------------------------------------------------
 	// Variables --------------------------------------------------
 	//-------------------------------------------------------------
@@ -459,16 +449,15 @@ public class JToolBar extends JComponent
 		return null; // TODO
 	} // paramString()
 
-	/**
-	 * getAccessibleContext
-	 * @returns AccessibleContext
-	 */
-	public AccessibleContext getAccessibleContext() {
-		if (accessibleContext == null) {
-			accessibleContext = new AccessibleJToolBar(this);
-		} // if
-		return accessibleContext;
-	} // getAccessibleContext()
-
-
-} // JToolBar
+  /**
+   * getAccessibleContext
+   * @return AccessibleContext
+   */
+  public AccessibleContext getAccessibleContext()
+  {
+    if (accessibleContext == null)
+      accessibleContext = new AccessibleJToolBar();
+    
+    return accessibleContext;
+  }
+}

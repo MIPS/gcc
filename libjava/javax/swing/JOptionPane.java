@@ -67,7 +67,6 @@ public class JOptionPane extends JComponent implements Accessible
      */
     protected AccessibleJOptionPane()
     {
-      super(JOptionPane.this);
     }
 
     /**
