@@ -847,7 +847,7 @@ cfg_layout_duplicate_bb (bb, e)
 {
   rtx last = get_last_insn ();
   rtx insn, new = NULL_RTX;
-  rtx pre_head, end;
+  rtx pre_head = NULL_RTX, end = NULL_RTX;
   edge s, n;
   basic_block new_bb;
 
