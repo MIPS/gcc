@@ -1517,6 +1517,7 @@ public class BasicTabbedPaneUI extends TabbedPaneUI implements SwingConstants
     tabPane.setFont(defaults.getFont("TabbedPane.font"));
     tabPane.setForeground(defaults.getColor("TabbedPane.foreground"));
     tabPane.setBackground(defaults.getColor("TabbedPane.background"));
+    tabPane.setOpaque(true);
 
     highlight = defaults.getColor("TabbedPane.highlight");
     lightHighlight = defaults.getColor("TabbedPane.lightHighlight");

@@ -89,7 +89,7 @@ import javax.swing.plaf.MenuItemUI;
  * DOCUMENT ME!
  *
  * @author $author$
- * @version $Revision: 1.1.2.8 $
+ * @version $Revision: 1.1.2.9 $
  */
 public class BasicMenuItemUI extends MenuItemUI
 {
@@ -389,6 +389,8 @@ public class BasicMenuItemUI extends MenuItemUI
     menuItem.setFont(defaults.getFont("MenuItem.font"));
     menuItem.setForeground(defaults.getColor("MenuItem.foreground"));
     menuItem.setMargin(defaults.getInsets("MenuItem.margin"));
+    menuItem.setOpaque(true);
+
     acceleratorFont = defaults.getFont("MenuItem.acceleratorFont");
     acceleratorForeground = defaults.getColor("MenuItem.acceleratorForeground");
     acceleratorSelectionForeground = defaults.getColor("MenuItem.acceleratorSelectionForeground");
@@ -735,7 +737,7 @@ public class BasicMenuItemUI extends MenuItemUI
    * DOCUMENT ME!
    *
    * @author $author$
-   * @version $Revision: 1.1.2.8 $
+   * @version $Revision: 1.1.2.9 $
    */
   protected class MouseInputHandler implements MouseInputListener
   {
@@ -832,7 +834,7 @@ public class BasicMenuItemUI extends MenuItemUI
    * DOCUMENT ME!
    *
    * @author $author$
-   * @version $Revision: 1.1.2.8 $
+   * @version $Revision: 1.1.2.9 $
    */
   protected class MenuDragMouseHandler implements MenuDragMouseListener
   {
@@ -877,7 +879,7 @@ public class BasicMenuItemUI extends MenuItemUI
    * DOCUMENT ME!
    *
    * @author $author$
-   * @version $Revision: 1.1.2.8 $
+   * @version $Revision: 1.1.2.9 $
    */
   protected class MenuKeyHandler implements MenuKeyListener
   {
@@ -913,7 +915,7 @@ public class BasicMenuItemUI extends MenuItemUI
    * DOCUMENT ME!
    *
    * @author $author$
-   * @version $Revision: 1.1.2.8 $
+   * @version $Revision: 1.1.2.9 $
    */
   protected class PropertyChangeHandler implements PropertyChangeListener
   {

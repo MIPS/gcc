@@ -330,7 +330,7 @@ public class JLayeredPane extends JComponent implements Accessible
 	    throw new IllegalArgumentException ();
 
     super.swapComponents (curr, targ);
-    validate();
+    revalidate();
     repaint();
   }
     
@@ -538,7 +538,7 @@ public class JLayeredPane extends JComponent implements Accessible
   {
     componentToLayer.put (c, getObjectForLayer (layer));
     setPosition(c, position);
-    validate();
+    revalidate();
     repaint();
   }
 
@@ -569,7 +569,7 @@ public class JLayeredPane extends JComponent implements Accessible
     incrLayer (layer);
 	
     super.addImpl(comp, null, newIdx);	
-    validate();
+    revalidate();
     repaint();
   }     
 }

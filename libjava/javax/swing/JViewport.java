@@ -117,27 +117,51 @@ public class JViewport extends JComponent
    *
    * @see #toViewCoordinates
    */
-  Dimension viewExtent;
+  Dimension extentSize;
+
+  /**
+   * The width and height of the view in its own coordinate space.
+   */
+
+  Dimension viewSize;
 
   Point lastPaintPosition;
 
-  JViewport()
+  public JViewport()
   {
     setOpaque(true);
     updateUI();
   }
 
-  public Dimension getViewSize()
+  public Dimension getExtentSize()
   {
-    if (viewExtent == null)
+    if (extentSize == null)
       return getPreferredSize();
     else
-      return viewExtent;
+      return extentSize;
   }
+
+  public void setExtentSize(Dimension newSize)
+  {
+    extentSize = newSize;
+    fireStateChanged();
+  }
+
+  public Dimension getViewSize()
+  {
+    if (viewSize == null)
+      return getView().getPreferredSize();
+    else
+      return viewSize;
+  }
+
 
   public void setViewSize(Dimension newSize)
   {
-    viewExtent = newSize;
+    viewSize = newSize;
+    Component view = getView();
+    if (view != null)
+      view.setSize(newSize);
     fireStateChanged();
   }
 
@@ -169,7 +193,7 @@ public class JViewport extends JComponent
   public Rectangle getViewRect()
   {
     return new Rectangle(getViewPosition(), 
-                         getViewSize());
+                         getExtentSize());
   }
 
   public boolean isBackingStoreEnabled()
@@ -210,7 +234,24 @@ public class JViewport extends JComponent
     add(v);
     fireStateChanged();
   }
-    
+
+  public void revalidate()
+  {
+    fireStateChanged();
+    super.revalidate();
+  }
+
+  public void reshape(int x, int y, int w, int h)
+  {
+    boolean changed = 
+      (x != getX()) 
+      || (y != getY()) 
+      || (w != getWidth())
+      || (h != getHeight());
+    super.reshape(x, y, w, h);
+    if (changed)
+      fireStateChanged();
+  }
     
   public void addImpl(Component comp, Object constraints, int index)
   {

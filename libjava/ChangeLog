@@ -1,3 +1,59 @@
+2004-05-21  Graydon Hoare  <graydon@redhat.com>
+
+	* gnu/java/awt/peer/gtk/GdkGraphics2D.java 
+	(setClip): Minor correction to order of operations.
+
+	* javax/swing/JScrollPane.java: Extend sketchy implementation.
+	* javax/swing/ScrollPaneLayout.java: Likewise.
+	* javax/swing/JViewPort.java: Likewise.
+	* javax/swing/ViewportLayout.java: Likewise.
+
+	* javax/swing/JComponent.java: Rewrite.
+	* javax/swing/RepaintManager.java: Likewise.
+
+	* javax/swing/JLayeredPane.java: Change validate() to revalidate().
+	* javax/swing/JList.java 
+	(setSelectedIndices):
+	(getSelectedIndices):
+	(getSelectedValues): New functions.
+	(getPreferredScrollableViewportSize): Return preferred size.
+	(getScrollableUnitIncrement):
+	(getScrollableBlockIncrement): Initial implementations.
+	* javax/swing/JRootPane.java: Clean up slightly.
+	(getUI):
+	(setUI):
+	(updateUI):
+	(getUIClassID):
+	(isValidateRoot): Add overrides from JComponent.
+	* javax/swing/JScrollBar.java: Set default orientation to VERTICAL.
+	* javax/swing/UIManager.java (getDimension): Return the dimension.
+
+	* javax/swing/plaf/basic/BasicButtonUI.java: Set component opaque.
+	* javax/swing/plaf/basic/BasicLabelUI.java: Likewise.
+	* javax/swing/plaf/basic/BasicMenuItemUI.java: Likewise.
+	* javax/swing/plaf/basic/BasicProgressBarUI.java: Likewise.
+	* javax/swing/plaf/basic/BasicSeparatorUI.java: Likewise.
+	* javax/swing/plaf/basic/BasicSliderUI.java: Likewise.
+	* javax/swing/plaf/basic/BasicTabbedPaneUI.java: Likewise.
+	* javax/swing/plaf/basic/BasicRootPaneUI.java: 
+	Likewise, and set background.
+	* javax/swing/plaf/basic/BasicListUI.java: 
+	Likewise, and improve a bit.
+	* javax/swing/plaf/basic/BasicScrollBarUI.java: 
+	Likewise, and adjust calculations.
+	* javax/swing/plaf/basic/BasicViewportUI.java:
+	Likewise, and improve a bit.
+	* javax/swing/plaf/basic/BasicLookAndFeel.java 
+	(Button.margin): Shrink.
+
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGlyphVector.c:
+	Hack to set horizontal always, workaround pango.
+
+	* jni/gtk-peer/gtkcairopeer.h: Change to match pattern API.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGraphics2D.c:
+	Synchronize more often, check cairo status after ops,
+	handle changes to cairo pattern API, check for disposal.
+
 2004-05-21  Olga Rodimina  <rodimina@redhat.com>
 
 	* javax/swing/plaf/basic/BasicMenuItemUI.java:

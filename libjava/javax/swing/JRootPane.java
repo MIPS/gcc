@@ -45,6 +45,7 @@ import java.awt.Dimension;
 import java.awt.LayoutManager;
 import java.awt.LayoutManager2;
 import java.io.Serializable;
+import javax.swing.plaf.RootPaneUI;
 import javax.accessibility.Accessible;
 import javax.accessibility.AccessibleComponent;
 
@@ -206,27 +207,12 @@ public class JRootPane extends JComponent
       {
       }
     }
-    
-     
-    /***********************************************************/
-
   
-    //The glass pane that overlays the menu bar and content pane, so it can intercept mouse movements and such.
     protected  Component glassPane;
-  
-    //The layered pane that manages the menu bar and content pane.
-    protected  JLayeredPane layeredPane;
-  
-    // The menu bar.
-    protected  JMenuBar menuBar;
-  
+    protected  JLayeredPane layeredPane;  
+    protected  JMenuBar menuBar;  
     protected Container contentPane;
-
-    /********************************************************/
-
-    public String getUIClassID()
-    {	return "RootPaneUI";    }
-
+  
     
     void setJMenuBar(JMenuBar m)
     {  
@@ -236,6 +222,11 @@ public class JRootPane extends JComponent
 
     JMenuBar getJMenuBar()
     {  return menuBar; }
+
+  public boolean isValidateRoot()
+  {
+    return true;
+  }
     
 
     public Container getContentPane()
@@ -258,7 +249,6 @@ public class JRootPane extends JComponent
 			  int index)
     {
 	super.addImpl(comp, constraints, index);
-	//System.out.println("don't do that !");
     } 
 
     public Component getGlassPane() 
@@ -295,16 +285,12 @@ public class JRootPane extends JComponent
     }
     
 
-    /********************************************************/
-
     JRootPane()
     {
 	setLayout(createRootLayout());
-	setBackground(UIManager.getColor("control"));
 	getGlassPane();
 	getLayeredPane();
 	getContentPane();
-
 	setDoubleBuffered(true);
 	updateUI();
     }
@@ -318,9 +304,6 @@ public class JRootPane extends JComponent
 	JPanel p = new JPanel();
 	p.setName(this.getName()+".contentPane");
 	p.setLayout(new BorderLayout());
-	//	p.setVisible(true);
-
-	System.out.println("Created ContentPane: " + p);
 	return p;
     }
 
@@ -330,8 +313,6 @@ public class JRootPane extends JComponent
 	p.setName(this.getName()+".glassPane");
 	p.setLayout(new BorderLayout());
 	p.setVisible(false);
-	
-	System.out.println("created the glasspane: "+p);
 	return p;
     }
 
@@ -341,4 +322,25 @@ public class JRootPane extends JComponent
 	l.setLayout(null);
 	return l;
     }    
+
+
+  public RootPaneUI getUI()
+  {
+    return (RootPaneUI) ui;
+  }
+
+  public void setUI(RootPaneUI ui)
+  {
+    super.setUI(ui);
+  }
+
+  public void updateUI()
+  {
+    setUI((RootPaneUI) UIManager.getUI(this));
+  }
+
+  public String getUIClassID()
+  {
+    return "RootPaneUI";
+  }
 }

@@ -171,7 +171,7 @@ public class JScrollBar extends JComponent implements Adjustable, Accessible
   protected BoundedRangeModel model;
 
   /** The orientation of the scroll bar. */
-  protected int orientation = SwingConstants.HORIZONTAL;
+  protected int orientation = SwingConstants.VERTICAL;
 
   /** How much the thumb moves when moving in a unit. */
   protected int unitIncrement = 1;
@@ -188,7 +188,7 @@ public class JScrollBar extends JComponent implements Adjustable, Accessible
    */
   public JScrollBar()
   {
-    this(SwingConstants.HORIZONTAL, 0, 10, 0, 100);
+    this(SwingConstants.VERTICAL, 0, 10, 0, 100);
   }
 
   /**
