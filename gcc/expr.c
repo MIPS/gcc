@@ -6103,11 +6103,22 @@ static rtx
 expand_expr_addr_expr (tree exp, rtx target, enum machine_mode tmode,
 		       enum expand_modifier modifier)
 {
+  enum machine_mode rmode;
   rtx result, subtarget;
   tree inner, offset;
   HOST_WIDE_INT bitsize, bitpos;
   int volatilep, unsignedp;
   enum machine_mode mode1;
+
+  /* Target mode of VOIDmode says "whatever's natural".  */
+  if (tmode == VOIDmode)
+    tmode = TYPE_MODE (TREE_TYPE (exp));
+
+  /* We can get called with some Weird Things if the user does silliness
+     like "(short) &a".  In that case, convert_memory_address won't do
+     the right thing, so ignore the given target mode.  */
+  if (!targetm.valid_pointer_mode (tmode))
+    tmode = Pmode;
 
   /* If we are taking the address of a constant and are at the top level,
      we have to use output_constant_def since we can't call force_const_mem
@@ -6168,7 +6179,7 @@ expand_expr_addr_expr (tree exp, rtx target, enum machine_mode tmode,
 	  result = XEXP (result, 0);
 
 	  /* ??? Is this needed anymore?  */
-	  if (!TREE_USED (exp) == 0)
+	  if (DECL_P (exp) && !TREE_USED (exp) == 0)
 	    {
 	      assemble_external (exp);
 	      TREE_USED (exp) = 1;
@@ -6192,13 +6203,6 @@ expand_expr_addr_expr (tree exp, rtx target, enum machine_mode tmode,
   subtarget = offset || bitpos ? NULL_RTX : target;
   result = expand_expr_addr_expr (inner, subtarget, tmode, modifier);
 
-  if (tmode == VOIDmode)
-    {
-      tmode = GET_MODE (result);
-      if (tmode == VOIDmode)
-	tmode = Pmode;
-    }
-
   if (offset)
     {
       rtx tmp;
@@ -6206,6 +6210,9 @@ expand_expr_addr_expr (tree exp, rtx target, enum machine_mode tmode,
       if (modifier != EXPAND_NORMAL)
 	result = force_operand (result, NULL);
       tmp = expand_expr (offset, NULL, tmode, EXPAND_NORMAL);
+
+      gcc_assert (general_operand (result, tmode));
+      gcc_assert (general_operand (tmp, tmode));
 
       if (modifier == EXPAND_SUM)
 	result = gen_rtx_PLUS (tmode, result, tmp);
@@ -6221,13 +6228,21 @@ expand_expr_addr_expr (tree exp, rtx target, enum machine_mode tmode,
     {
       /* Someone beforehand should have rejected taking the address
 	 of such an object.  */
-      if (bitpos % BITS_PER_UNIT != 0)
-	abort ();
+      gcc_assert ((bitpos % BITS_PER_UNIT) == 0);
 
       result = plus_constant (result, bitpos / BITS_PER_UNIT);
       if (modifier < EXPAND_SUM)
 	result = force_operand (result, target);
     }
+
+  /* Despite expand_expr claims concerning ignoring TMODE when not
+     strictly convenient, stuff breaks if we don't honor it.  Note
+     that combined with the above, we only do this for pointer modes.  */
+  rmode = GET_MODE (result);
+  if (rmode == VOIDmode)
+    rmode = tmode;
+  if (rmode != tmode)
+    result = convert_memory_address (tmode, result);
 
   return result;
 }
