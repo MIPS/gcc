@@ -1,3 +1,9 @@
+2003-11-13  Canqun Yang  <canqun@nudt.edu.cn>
+
+	* resolve.c (gfc_resolve): Also resolve EQUIVALENCE objects.
+	(resolve_equivalence): New function.
+	(resolve_equivalence_derived): New function.
+
 2003-11-12  Richard Henderson  <rth@redhat.com>
 
 	* trans.c (gfc_trans_code): Use annotate_with_locus instead of

@@ -4179,6 +4179,142 @@ warn_unused_label (gfc_namespace * ns)
 }
 
 
+/* Resolve derived type EQUIVALENCE object.  */
+
+static try
+resolve_equivalence_derived (gfc_symbol *derived, gfc_symbol *sym, gfc_expr *e)
+{
+  gfc_symbol *d;
+  gfc_component *c = derived->components;
+
+  if (!derived)
+    return SUCCESS;
+
+  /* Shall not be an object of nonsequence derived type.  */
+  if (!derived->attr.sequence)
+    {
+      gfc_error ("Derived type variable '%s' at %L must have SEQUENCE "
+                 "attribute to be an EQUIVALENCE object", sym->name, &e->where);
+      return FAILURE;
+    }
+
+  for (; c ; c = c->next)
+    {
+      d = c->ts.derived;
+      if (d && (resolve_equivalence_derived (c->ts.derived, sym, e) == FAILURE))
+        return FAILURE;
+        
+      /* Shall not be an object of sequence derived type containing a pointer
+         in the structure.  */
+      if (c->pointer)
+        {
+          gfc_error ("Derived type variable '%s' at %L has pointer componet(s) "
+                     "cannot be an EQUIVALENCE object", sym->name, &e->where);
+          return FAILURE;
+        }
+    }
+  return SUCCESS;
+}
+
+
+/* Resolve equivalence object. 
+   An EQUIVALENCE object shall not be a dummy argument, a pointer, an
+   allocatable array, an object of nonsequence derived type, an object of
+   sequence derived type containing a pointer at any level of component
+   selection, an automatic object, a function name, an entry name, a result
+   name, a named constant, a structure component, or a subobject of any of
+   the preceding objects.  */
+
+static void
+resolve_equivalence (gfc_equiv *eq)
+{
+  gfc_symbol *sym;
+  gfc_symbol *derived;
+  gfc_expr *e;
+  gfc_ref *r;
+
+  for (; eq; eq = eq->eq)
+    {
+      e = eq->expr;
+      if (gfc_resolve_expr (e) == FAILURE)
+        continue;
+
+      sym = e->symtree->n.sym;
+     
+      /* Shall not be a dummy argument.  */
+      if (sym->attr.dummy)
+        {
+          gfc_error ("Dummy argument '%s' at %L cannot be an EQUIVALENCE "
+                     "object", sym->name, &e->where);
+          continue;
+        }
+
+      /* Shall not be an allocatable array.  */
+      if (sym->attr.allocatable)
+        {
+          gfc_error ("Allocatable array '%s' at %L cannot be an EQUIVALENCE "
+                     "object", sym->name, &e->where);
+          continue;
+        }
+
+      /* Shall not be a pointer.  */
+      if (sym->attr.pointer)
+        {
+          gfc_error ("Pointer '%s' at %L cannot be an EQUIVALENCE object",
+                     sym->name, &e->where);
+          continue;
+        }
+      
+      /* Shall not be a function name, ...  */
+      if (sym->attr.function || sym->attr.result || sym->attr.entry
+          || sym->attr.subroutine)
+        {
+          gfc_error ("Entity '%s' at %L cannot be an EQUIVALENCE object",
+                     sym->name, &e->where);
+          continue;
+        }
+
+      /* Shall not be a named constant.  */      
+      if (e->expr_type == EXPR_CONSTANT)
+        {
+          gfc_error ("Named constant '%s' at %L cannot be an EQUIVALENCE "
+                     "object", sym->name, &e->where);
+          continue;
+        }
+
+      derived = e->ts.derived;
+      if (derived && resolve_equivalence_derived (derived, sym, e) == FAILURE)
+        continue;
+
+      if (!e->ref)
+        continue;
+
+      /* Shall not be an automatic array.  */
+      if (e->ref->type == REF_ARRAY
+          && gfc_resolve_array_spec (e->ref->u.ar.as, 1) == FAILURE)
+        {
+          gfc_error ("Array '%s' at %L with non-constant bounds cannot be "
+                     "an EQUIVALENCE object", sym->name, &e->where);
+          continue;
+        }
+
+      /* Shall not be a structure component.  */
+      r = e->ref;
+      while (r)
+        {
+          if (r->type == REF_COMPONENT)
+            {
+              gfc_error ("Structure component '%s' at %L cannot be an "
+                         "EQUIVALENCE object",
+                         r->u.c.component->name, &e->where);
+              break;
+            }
+          r = r->next;
+        }
+    }    
+}      
+      
+      
 /* This function is called after a complete program unit has been compiled.
    Its purpose is to examine all of the expressions associated with a program
    unit, assign types to all intermediate expressions, make sure that all
@@ -4191,6 +4327,7 @@ gfc_resolve (gfc_namespace * ns)
   gfc_namespace *old_ns, *n;
   gfc_charlen *cl;
   gfc_data *d;
+  gfc_equiv *eq;
 
   old_ns = gfc_current_ns;
   gfc_current_ns = ns;
@@ -4234,6 +4371,9 @@ gfc_resolve (gfc_namespace * ns)
 
   iter_stack = NULL;
   gfc_traverse_ns (ns, gfc_formalize_init_value);
+
+  for (eq = ns->equiv; eq; eq = eq->next)
+    resolve_equivalence (eq);
 
   cs_base = NULL;
   resolve_code (ns->code, ns);
