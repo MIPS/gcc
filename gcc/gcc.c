@@ -7050,7 +7050,6 @@ main (int argc, const char **argv)
 	{
 	  delete_failure_queue ();
 	  error_count++;
-	  break;
 	}
       /* If this compilation succeeded, don't delete those files later.  */
       clear_failure_queue ();
