@@ -1,4 +1,10 @@
+2004-08-12  Dale Johannesen  <dalej@apple.com>
+
+	* c-decl.c (diagnose_mismatched_decls): Improve
+	-fdisable-typechecking-for-spec.
+
 2004-08-12  Dale Johannesen <dalej@apple.com>
+
 	* gcc.c (default_compilers): Handle -fast same as -combine.
 	(process_command): Make -fast imply -combine.
 	* tree-scalar-evolution.c (number_of_iterations_in_loop):
