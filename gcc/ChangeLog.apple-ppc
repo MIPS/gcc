@@ -1,3 +1,9 @@
+2005-01-14  Dale Johannesen  <dalej@apple.com>
+
+	Radar 3953308
+	* tree-ssa-dce.c:  Remove all vestiges of LNO branch.
+	* tree-flow.h (tree_ssa_dce_no_cfg_changes):  Remove declaration.
+
 2005-01-13  Stuart Hastings  <stuart@apple.com>
 
         Radar 3236762
