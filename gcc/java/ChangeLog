@@ -1,5 +1,13 @@
 2005-03-28  Tom Tromey  <tromey@redhat.com>
 
+	* tree.hh (tree_generator::array_access): Updated.
+	(tree_generator::array_store): Likewise.
+	* lower.cc (array_access): Added 'mtype' argument.
+	(array_store): Likewise.
+	(visit_bytecode_block): Updated.
+
+2005-03-28  Tom Tromey  <tromey@redhat.com>
+
 	* tree.cc (visit_cast): Handle boxing and unboxing.
 
 2005-03-28  Tom Tromey  <tromey@redhat.com>

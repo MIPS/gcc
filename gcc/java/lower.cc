@@ -251,35 +251,37 @@ tree_generator::visit_bytecode_block (model_bytecode_block *block,
 	  break;
 
 	case op_iaload:
-	  insn = array_access (type_jint);
+	  insn = array_access (primitive_int_type, type_jint);
 	  break;
 
 	case op_laload:
-	  insn = array_access (type_jlong);
+	  insn = array_access (primitive_long_type, type_jlong);
 	  break;
 
 	case op_faload:
-	  insn = array_access (type_jfloat);
+	  insn = array_access (primitive_float_type, type_jfloat);
 	  break;
 
 	case op_daload:
-	  insn = array_access (type_jdouble);
+	  insn = array_access (primitive_double_type, type_jdouble);
 	  break;
 
 	case op_aaload:
-	  insn = array_access (type_object_ptr);
+	  // FIXME: we shouldn't even require Object with the BC ABI.
+	  insn = array_access (global->get_compiler ()->java_lang_Object (),
+			       type_object_ptr);
 	  break;
 
 	case op_baload:
-	  insn = array_access (type_jbyte);
+	  insn = array_access (primitive_byte_type, type_jbyte);
 	  break;
 
 	case op_caload:
-	  insn = array_access (type_jchar);
+	  insn = array_access (primitive_char_type, type_jchar);
 	  break;
 
 	case op_saload:
-	  insn = array_access (type_jshort);
+	  insn = array_access (primitive_short_type, type_jshort);
 	  break;
 
 	case op_istore:
@@ -338,35 +340,37 @@ tree_generator::visit_bytecode_block (model_bytecode_block *block,
 	  break;
 
 	case op_iastore:
-	  insn = array_store (type_jint);
+	  insn = array_store (primitive_int_type, type_jint);
 	  break;
 
 	case op_lastore:
-	  insn = array_store (type_jlong);
+	  insn = array_store (primitive_long_type, type_jlong);
 	  break;
 
 	case op_fastore:
-	  insn = array_store (type_jfloat);
+	  insn = array_store (primitive_float_type, type_jfloat);
 	  break;
 
 	case op_dastore:
-	  insn = array_store (type_jdouble);
+	  insn = array_store (primitive_double_type, type_jdouble);
 	  break;
 
 	case op_aastore:
-	  insn = array_store (type_object_ptr);
+	  // FIXME: we shouldn't even require Object with the BC ABI.
+	  insn = array_store (global->get_compiler ()->java_lang_Object (),
+			      type_object_ptr);
 	  break;
 
 	case op_bastore:
-	  insn = array_store (type_jbyte);
+	  insn = array_store (primitive_byte_type, type_jbyte);
 	  break;
 
 	case op_castore:
-	  insn = array_store (type_jchar);
+	  insn = array_store (primitive_char_type, type_jchar);
 	  break;
 
 	case op_sastore:
-	  insn = array_store (type_jshort);
+	  insn = array_store (primitive_short_type, type_jshort);
 	  break;
 
 	case op_pop:
@@ -1764,10 +1768,10 @@ tree_generator::find_generic_slot (int slot, tree type,
 
 // An array store operation.
 tree
-tree_generator::array_store (tree type)
+tree_generator::array_store (model_type *mtype, tree type)
 {
   tree val = pop (type);
-  tree ary = array_access (type);
+  tree ary = array_access (mtype, type);
   tree result = build2 (MODIFY_EXPR, type, ary, val);
   TREE_SIDE_EFFECTS (result) = 1;
   return result;
@@ -1775,9 +1779,9 @@ tree_generator::array_store (tree type)
 
 // An array fetch operation.
 tree
-tree_generator::array_access (tree type)
+tree_generator::array_access (model_type *mtype, tree type)
 {
-  tree array_type = NULL_TREE; // fixme (type);
+  tree array_type = gcc_builtins->map_type (mtype->array ());
 
   tree index = pop (type_jint);
   tree array = pop (array_type);

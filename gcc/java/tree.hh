@@ -162,8 +162,8 @@ class tree_generator : public visitor
   tree load (int, tree);
   tree store (int, tree);
   tree find_generic_slot (int, tree, tree *);
-  tree array_store (tree);
-  tree array_access (tree);
+  tree array_store (model_type *, tree);
+  tree array_access (model_type *, tree);
   tree find_class (const std::string &);
   tree handle_ldc (constant_pool *, uint16);
   bool type_wide_p (tree) const;
