@@ -1,30 +1,30 @@
 /* IO Code translation/library interface
-   Copyright (C) 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Paul Brook
 
-This file is part of GNU G95.
+This file is part of GCC.
 
-GNU G95 is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
 
-GNU G95 is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU G95; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
 
 
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
 #include "tree.h"
-#include "tree-simple.h"
+#include "tree-gimple.h"
 #include <stdio.h>
 #include "ggc.h"
 #include "toplev.h"
@@ -500,13 +500,13 @@ set_error_locus (stmtblock_t * block, locus * where)
   tree tmp;
   int line;
 
-  f = where->file;
+  f = where->lb->file;
   tmp = gfc_build_string_const (strlen (f->filename) + 1, f->filename);
 
   tmp = gfc_build_addr_expr (pchar_type_node, tmp);
   gfc_add_modify_expr (block, locus_file, tmp);
 
-  line = where->lp->start_line + where->line;
+  line = where->lb->linenum;
   gfc_add_modify_expr (block, locus_line, build_int_2 (line, 0));
 }
 
@@ -1019,9 +1019,10 @@ gfc_trans_dt_end (gfc_code * code)
 /* Generate the call for a scalar transfer node.  */
 
 static void
-transfer_expr (gfc_se * se, gfc_typespec * ts)
+transfer_expr (gfc_se * se, gfc_typespec * ts, tree addr_expr)
 {
-  tree args, tmp, function, arg2;
+  tree args, tmp, function, arg2, field, expr;
+  gfc_component *c;
   int kind;
 
   kind = ts->kind;
@@ -1056,18 +1057,31 @@ transfer_expr (gfc_se * se, gfc_typespec * ts)
       break;
 
     case BT_DERIVED:
-      gfc_todo_error ("IO of derived types");
+      expr = gfc_evaluate_now (addr_expr, &se->pre);
+      expr = gfc_build_indirect_ref (expr);
 
-      /* Store the address to a temporary, then recurse for each
-	 element the type.  */
+      for (c = ts->derived->components; c; c = c->next)
+	{
+	  field = c->backend_decl;
+	  assert (field && TREE_CODE (field) == FIELD_DECL);
 
-      break;
+	  tmp = build (COMPONENT_REF, TREE_TYPE (field), expr, field);
+
+	  if (c->ts.type == BT_CHARACTER)
+	    {
+	      assert (TREE_CODE (TREE_TYPE (tmp)) == ARRAY_TYPE);
+	      se->string_length =
+		TYPE_MAX_VALUE (TYPE_DOMAIN (TREE_TYPE (tmp)));
+	    }
+	  transfer_expr (se, &c->ts, gfc_build_addr_expr (NULL, tmp));
+	}
+      return;
 
     default:
       internal_error ("Bad IO basetype (%d)", ts->type);
     }
 
-  args = gfc_chainon_list (NULL_TREE, se->expr);
+  args = gfc_chainon_list (NULL_TREE, addr_expr);
   args = gfc_chainon_list (args, arg2);
 
   tmp = gfc_build_function_call (function, args);
@@ -1117,7 +1131,7 @@ gfc_trans_transfer (gfc_code * code)
 
   gfc_conv_expr_reference (&se, expr);
 
-  transfer_expr (&se, &expr->ts);
+  transfer_expr (&se, &expr->ts, se.expr);
 
   gfc_add_block_to_block (&body, &se.pre);
   gfc_add_block_to_block (&body, &se.post);

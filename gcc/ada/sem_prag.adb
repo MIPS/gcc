@@ -888,7 +888,7 @@ package body Sem_Prag is
               ("argument of pragma% must be entity name", Arg1);
 
          elsif Prag_Id = Pragma_Interrupt_Handler then
-            Check_Restriction (No_Dynamic_Interrupts, N);
+            Check_Restriction (No_Dynamic_Attachment, N);
          end if;
 
          declare
@@ -1693,6 +1693,7 @@ package body Sem_Prag is
          Id        : Node_Id;
          E1        : Entity_Id;
          Cname     : Name_Id;
+         Comp_Unit : Unit_Number_Type;
 
          procedure Set_Convention_From_Pragma (E : Entity_Id);
          --  Set convention in entity E, and also flag that the entity has a
@@ -1907,9 +1908,11 @@ package body Sem_Prag is
             end if;
 
          --  For the subprogram case, set proper convention for all homonyms
-         --  in same scope.
+         --  in same scope and the same declarative part, i.e. the same
+         --  compilation unit.
 
          else
+            Comp_Unit := Get_Source_Unit (E);
             Set_Convention_From_Pragma (E);
 
             --  Treat a pragma Import as an implicit body, for GPS use.
@@ -1928,6 +1931,7 @@ package body Sem_Prag is
                --  than one Rep_Item chain, to be fixed later ???
 
                if Comes_From_Source (E1)
+                 and then Comp_Unit = Get_Source_Unit (E1)
                  and then Nkind (Original_Node (Parent (E1))) /=
                    N_Full_Type_Declaration
                then
@@ -2945,21 +2949,24 @@ package body Sem_Prag is
 
             --  Processing for procedure, operator or function.
             --  If subprogram is aliased (as for an instance) indicate
-            --  that the renamed entity is inlined.
+            --  that the renamed entity (if declared in the same unit)
+            --  is inlined.
 
             if Is_Subprogram (Subp) then
                while Present (Alias (Inner_Subp)) loop
                   Inner_Subp := Alias (Inner_Subp);
                end loop;
 
-               Set_Inline_Flags (Inner_Subp);
+               if In_Same_Source_Unit (Subp, Inner_Subp) then
+                  Set_Inline_Flags (Inner_Subp);
 
-               Decl := Parent (Parent (Inner_Subp));
+                  Decl := Parent (Parent (Inner_Subp));
 
-               if Nkind (Decl) = N_Subprogram_Declaration
-                 and then Present (Corresponding_Body (Decl))
-               then
-                  Set_Inline_Flags (Corresponding_Body (Decl));
+                  if Nkind (Decl) = N_Subprogram_Declaration
+                    and then Present (Corresponding_Body (Decl))
+                  then
+                     Set_Inline_Flags (Corresponding_Body (Decl));
+                  end if;
                end if;
 
                Applies := True;
@@ -3243,6 +3250,10 @@ package body Sem_Prag is
          procedure Set_Warning (R : All_Restrictions);
          --  If this is a Restriction_Warnings pragma, set warning flag
 
+         -----------------
+         -- Set_Warning --
+         -----------------
+
          procedure Set_Warning (R : All_Restrictions) is
          begin
             if Prag_Id = Pragma_Restriction_Warnings then
@@ -3262,68 +3273,45 @@ package body Sem_Prag is
             Id := Chars (Arg);
             Expr := Expression (Arg);
 
-            --  Case of no restriction identifier
+            --  Case of no restriction identifier present
 
             if Id = No_Name then
                if Nkind (Expr) /= N_Identifier then
                   Error_Pragma_Arg
                     ("invalid form for restriction", Arg);
-
-               else
-                  --  No_Requeue is a synonym for No_Requeue_Statements
-
-                  if Chars (Expr) = Name_No_Requeue then
-                     Check_Restriction
-                       (No_Implementation_Restrictions, Arg);
-                     Set_Restriction (No_Requeue_Statements, N);
-                     Set_Warning (No_Requeue_Statements);
-
-                  --  No_Task_Attributes is a synonym for
-                  --  No_Task_Attributes_Package
-
-                  elsif Chars (Expr) = Name_No_Task_Attributes then
-                     Check_Restriction
-                       (No_Implementation_Restrictions, Arg);
-                     Set_Restriction (No_Task_Attributes_Package, N);
-                     Set_Warning (No_Task_Attributes_Package);
-
-                  --  Normal processing for all other cases
-
-                  else
-                     R_Id := Get_Restriction_Id (Chars (Expr));
-
-                     if R_Id not in All_Boolean_Restrictions then
-                        Error_Pragma_Arg
-                          ("invalid restriction identifier", Arg);
-
-                     --  Restriction is active
-
-                     else
-                        if Implementation_Restriction (R_Id) then
-                           Check_Restriction
-                             (No_Implementation_Restrictions, Arg);
-                        end if;
-
-                        Set_Restriction (R_Id, N);
-                        Set_Warning (R_Id);
-
-                        --  A very special case that must be processed here:
-                        --  pragma Restrictions (No_Exceptions) turns off
-                        --  all run-time checking. This is a bit dubious in
-                        --  terms of the formal language definition, but it
-                        --  is what is intended by RM H.4(12).
-
-                        if R_Id = No_Exceptions then
-                           Scope_Suppress := (others => True);
-                        end if;
-                     end if;
-                  end if;
                end if;
 
-               --  Case of restriction identifier present
+               R_Id :=
+                 Get_Restriction_Id
+                   (Process_Restriction_Synonyms (Chars (Expr)));
+
+               if R_Id not in All_Boolean_Restrictions then
+                  Error_Pragma_Arg
+                    ("invalid restriction identifier", Arg);
+               end if;
+
+               if Implementation_Restriction (R_Id) then
+                  Check_Restriction
+                    (No_Implementation_Restrictions, Arg);
+               end if;
+
+               Set_Restriction (R_Id, N);
+               Set_Warning (R_Id);
+
+               --  A very special case that must be processed here:
+               --  pragma Restrictions (No_Exceptions) turns off
+               --  all run-time checking. This is a bit dubious in
+               --  terms of the formal language definition, but it
+               --  is what is intended by RM H.4(12).
+
+               if R_Id = No_Exceptions then
+                  Scope_Suppress := (others => True);
+               end if;
+
+            --  Case of restriction identifier present
 
             else
-               R_Id := Get_Restriction_Id (Id);
+               R_Id := Get_Restriction_Id (Process_Restriction_Synonyms (Id));
                Analyze_And_Resolve (Expr, Any_Integer);
 
                if R_Id not in All_Parameter_Restrictions then
@@ -3556,10 +3544,11 @@ package body Sem_Prag is
                Set_Is_Statically_Allocated (E);
 
                --  Warn if the corresponding W flag is set and the pragma
-               --  comes from source. The latter may be not be true e.g. on
+               --  comes from source. The latter may not be true e.g. on
                --  VMS where we expand export pragmas for exception codes
-               --  associated with imported or exported exceptions. We don't
-               --  want the user to be warned about something he didn't write.
+               --  associated with imported or exported exceptions. We do
+               --  not want to generate a warning for something that the
+               --  user did not write.
 
                if Warn_On_Export_Import
                  and then Comes_From_Source (Arg)
@@ -5405,12 +5394,24 @@ package body Sem_Prag is
          --    [,[Entity          =>]  IDENTIFIER |
          --                            SELECTED_COMPONENT |
          --                            STRING_LITERAL]
-         --    [,[Parameter_Types =>]  PARAMETER_TYPES]
-         --    [,[Result_Type     =>]  result_SUBTYPE_NAME]
-         --    [,[Homonym_Number  =>]  INTEGER_LITERAL]);
+         --    [,]OVERLOADING_RESOLUTION);
+
+         --  OVERLOADING_RESOLUTION ::= PARAMETER_AND_RESULT_TYPE_PROFILE |
+         --                             SOURCE_LOCATION
+
+         --  PARAMETER_AND_RESULT_TYPE_PROFILE ::= PROCEDURE_PROFILE |
+         --                                        FUNCTION_PROFILE
+
+         --  PROCEDURE_PROFILE ::= Parameter_Types => PARAMETER_TYPES
+
+         --  FUNCTION_PROFILE ::= [Parameter_Types => PARAMETER_TYPES,]
+         --                       Result_Type => result_SUBTYPE_NAME]
 
          --  PARAMETER_TYPES ::= (SUBTYPE_NAME {, SUBTYPE_NAME})
          --  SUBTYPE_NAME    ::= STRING_LITERAL
+
+         --  SOURCE_LOCATION ::= Source_Location => SOURCE_TRACE
+         --  SOURCE_TRACE    ::= STRING_LITERAL
 
          when Pragma_Eliminate => Eliminate : declare
             Args  : Args_List (1 .. 5);
@@ -5419,13 +5420,13 @@ package body Sem_Prag is
                       Name_Entity,
                       Name_Parameter_Types,
                       Name_Result_Type,
-                      Name_Homonym_Number);
+                      Name_Source_Location);
 
             Unit_Name       : Node_Id renames Args (1);
             Entity          : Node_Id renames Args (2);
             Parameter_Types : Node_Id renames Args (3);
             Result_Type     : Node_Id renames Args (4);
-            Homonym_Number  : Node_Id renames Args (5);
+            Source_Location : Node_Id renames Args (5);
 
          begin
             GNAT_Pragma;
@@ -5441,9 +5442,20 @@ package body Sem_Prag is
                           or else
                         Present (Result_Type)
                           or else
-                        Present (Homonym_Number))
+                        Present (Source_Location))
             then
                Error_Pragma ("missing Entity argument for pragma%");
+            end if;
+
+            if (Present (Parameter_Types)
+                       or else
+                Present (Result_Type))
+              and then
+                Present (Source_Location)
+            then
+               Error_Pragma
+                 ("parameter profile and source location can not " &
+                  "be used together in pragma%");
             end if;
 
             Process_Eliminate_Pragma
@@ -5452,7 +5464,7 @@ package body Sem_Prag is
                Entity,
                Parameter_Types,
                Result_Type,
-               Homonym_Number);
+               Source_Location);
          end Eliminate;
 
          --------------------------
@@ -9834,7 +9846,6 @@ package body Sem_Prag is
 
          when Unknown_Pragma =>
             raise Program_Error;
-
       end case;
 
    exception
@@ -9866,7 +9877,7 @@ package body Sem_Prag is
         and then
           (Is_Generic_Instance (Result)
             or else Nkind (Parent (Declaration_Node (Result))) =
-              N_Subprogram_Renaming_Declaration)
+                    N_Subprogram_Renaming_Declaration)
         and then Present (Alias (Result))
       loop
          Result := Alias (Result);
@@ -9874,6 +9885,65 @@ package body Sem_Prag is
 
       return Result;
    end Get_Base_Subprogram;
+
+   -----------------------------
+   -- Is_Config_Static_String --
+   -----------------------------
+
+   function Is_Config_Static_String (Arg : Node_Id) return Boolean is
+
+      function Add_Config_Static_String (Arg : Node_Id) return Boolean;
+      --  This is an internal recursive function that is just like the
+      --  outer function except that it adds the string to the name buffer
+      --  rather than placing the string in the name buffer.
+
+      ------------------------------
+      -- Add_Config_Static_String --
+      ------------------------------
+
+      function Add_Config_Static_String (Arg : Node_Id) return Boolean is
+         N : Node_Id;
+         C : Char_Code;
+
+      begin
+         N := Arg;
+
+         if Nkind (N) = N_Op_Concat then
+            if Add_Config_Static_String (Left_Opnd (N)) then
+               N := Right_Opnd (N);
+            else
+               return False;
+            end if;
+         end if;
+
+         if Nkind (N) /= N_String_Literal then
+            Error_Msg_N ("string literal expected for pragma argument", N);
+            return False;
+
+         else
+            for J in 1 .. String_Length (Strval (N)) loop
+               C := Get_String_Char (Strval (N), J);
+
+               if not In_Character_Range (C) then
+                  Error_Msg
+                    ("string literal contains invalid wide character",
+                     Sloc (N) + 1 + Source_Ptr (J));
+                  return False;
+               end if;
+
+               Add_Char_To_Name_Buffer (Get_Character (C));
+            end loop;
+         end if;
+
+         return True;
+      end Add_Config_Static_String;
+
+   --  Start of prorcessing for Is_Config_Static_String
+
+   begin
+      Name_Len := 0;
+      return Add_Config_Static_String (Arg);
+   end Is_Config_Static_String;
 
    -----------------------------------------
    -- Is_Non_Significant_Pragma_Reference --

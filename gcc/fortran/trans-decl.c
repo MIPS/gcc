@@ -1,23 +1,23 @@
 /* Backend function setup
-   Copyright (C) 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Paul Brook
 
-This file is part of GNU G95.
+This file is part of GCC.
 
-GNU G95 is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
 
-GNU G95 is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU G95; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
 
 /* trans-decl.c -- Handling of backend function and variable decls, etc */
 
@@ -26,7 +26,7 @@ Boston, MA 02111-1307, USA.  */
 #include "coretypes.h"
 #include "tree.h"
 #include "tree-dump.h"
-#include "tree-simple.h"
+#include "tree-gimple.h"
 #include "ggc.h"
 #include "toplev.h"
 #include "tm.h"
@@ -244,8 +244,8 @@ gfc_get_label_decl (gfc_st_label * lp)
       /* Tell the debugger where the label came from.  */
       if (lp->value <= MAX_LABEL_VALUE)	/* An internal label */
 	{
-	  DECL_SOURCE_LINE (label_decl) = lp->where.line;
-	  DECL_SOURCE_FILE (label_decl) = lp->where.file->filename;
+	  DECL_SOURCE_LINE (label_decl) = lp->where.lb->linenum;
+	  DECL_SOURCE_FILE (label_decl) = lp->where.lb->file->filename;
 	}
       else
 	DECL_ARTIFICIAL (label_decl) = 1;
@@ -1855,7 +1855,9 @@ generate_local_decl (gfc_symbol * sym)
           if (warn_unused_parameter)
             warning ("unused parameter `%s'", sym->name);
         }
-      else if (warn_unused_variable)
+      /* warn for unused variables, but not if they're inside a common
+     block.  */
+      else if (warn_unused_variable && !sym->attr.in_common)
         warning ("unused variable `%s'", sym->name);
     }
 }
@@ -2032,7 +2034,7 @@ gfc_generate_function_code (gfc_namespace * ns)
   poplevel (1, 0, 1);
   BLOCK_SUPERCONTEXT (DECL_INITIAL (fndecl)) = fndecl;
 
-  /* Output the SIMPLE tree.  */
+  /* Output the GENERIC tree.  */
   dump_function (TDI_original, fndecl);
 
   /* Store the end of the function, so that we get good line number

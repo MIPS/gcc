@@ -211,7 +211,7 @@ JAVAC = $(GCJ_WITH_FLAGS) -C
 
 GCC_UNWIND_INCLUDE = @GCC_UNWIND_INCLUDE@
 
-WARNINGS = -W -Wall
+WARNINGS = -Wextra -Wall
 AM_CXXFLAGS = -fno-rtti -fnon-call-exceptions $(THREADCXXFLAGS) \
 	-fdollars-in-identifiers \
 	-Wswitch-enum \
@@ -221,6 +221,8 @@ AM_CXXFLAGS = -fno-rtti -fnon-call-exceptions $(THREADCXXFLAGS) \
 
 @USING_GCC_TRUE@AM_CFLAGS = @USING_GCC_TRUE@@LIBGCJ_CFLAGS@ $(WARNINGS)
 @USING_GCC_FALSE@AM_CFLAGS = @USING_GCC_FALSE@@LIBGCJ_CFLAGS@
+
+PEDANTIC_CFLAGS = -ansi -pedantic -Wall -Wno-long-long
 
 JCFLAGS = -g
 JC1FLAGS = @LIBGCJ_JAVAFLAGS@ $(GCJFLAGS)
@@ -280,6 +282,7 @@ jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGraphics.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GdkPixbufDecoder.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkButtonPeer.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkCanvasPeer.c \
+jni/gtk-peer/gnu_java_awt_peer_gtk_GtkCheckboxGroupPeer.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkCheckboxMenuItemPeer.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkCheckboxPeer.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkChoicePeer.c \
@@ -288,6 +291,7 @@ jni/gtk-peer/gnu_java_awt_peer_gtk_GtkComponentPeer.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkEmbeddedWindowPeer.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkEvents.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkFileDialogPeer.c \
+jni/gtk-peer/gnu_java_awt_peer_gtk_GtkGenericPeer.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkImagePainter.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkLabelPeer.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkListPeer.c \
@@ -795,7 +799,10 @@ java/awt/image/ComponentColorModel.java \
 java/awt/image/ComponentSampleModel.java \
 java/awt/image/DataBuffer.java \
 java/awt/image/DataBufferByte.java \
+java/awt/image/DataBufferDouble.java \
+java/awt/image/DataBufferFloat.java \
 java/awt/image/DataBufferInt.java \
+java/awt/image/DataBufferShort.java \
 java/awt/image/DataBufferUShort.java \
 java/awt/image/DirectColorModel.java \
 java/awt/image/ImageConsumer.java \
@@ -803,6 +810,7 @@ java/awt/image/ImageObserver.java \
 java/awt/image/ImageProducer.java \
 java/awt/image/IndexColorModel.java \
 java/awt/image/PackedColorModel.java \
+java/awt/image/PixelInterleavedSampleModel.java \
 java/awt/image/Raster.java \
 java/awt/image/RasterOp.java \
 java/awt/image/SampleModel.java \
@@ -1008,17 +1016,21 @@ javax/swing/border/TitledBorder.java \
 javax/swing/GrayFilter.java \
 javax/swing/AbstractAction.java \
 javax/swing/AbstractButton.java \
+javax/swing/plaf/basic/BasicArrowButton.java \
 javax/swing/plaf/basic/BasicButtonListener.java \
 javax/swing/plaf/basic/BasicButtonUI.java \
 javax/swing/plaf/basic/BasicCheckBoxUI.java \
 javax/swing/plaf/basic/BasicGraphicsUtils.java \
 javax/swing/plaf/basic/BasicLabelUI.java \
 javax/swing/plaf/basic/BasicListUI.java \
+javax/swing/plaf/basic/BasicMenuItemUI.java \
 javax/swing/plaf/basic/BasicOptionPaneUI.java \
 javax/swing/plaf/basic/BasicPanelUI.java \
 javax/swing/plaf/basic/BasicProgressBarUI.java \
 javax/swing/plaf/basic/BasicRootPaneUI.java \
 javax/swing/plaf/basic/BasicRadioButtonUI.java \
+javax/swing/plaf/basic/BasicRadioButtonMenuItemUI.java \
+javax/swing/plaf/basic/BasicCheckBoxMenuItemUI.java \
 javax/swing/plaf/basic/BasicScrollBarUI.java \
 javax/swing/plaf/basic/BasicScrollPaneUI.java \
 javax/swing/plaf/basic/BasicSeparatorUI.java \
@@ -1424,6 +1436,19 @@ javax/accessibility/AccessibleTable.java \
 javax/accessibility/AccessibleTableModelChange.java \
 javax/accessibility/AccessibleText.java \
 javax/accessibility/AccessibleValue.java \
+javax/imageio/ImageReader.java \
+javax/imageio/ImageTranscoder.java \
+javax/imageio/ImageWriter.java \
+javax/imageio/spi/IIOServiceProvider.java \
+javax/imageio/spi/ImageInputStreamSpi.java \
+javax/imageio/spi/ImageOutputStreamSpi.java \
+javax/imageio/spi/ImageReaderWriterSpi.java \
+javax/imageio/spi/ImageTranscoderSpi.java \
+javax/imageio/spi/RegisterableService.java \
+javax/imageio/spi/ServiceRegistry.java \
+javax/imageio/stream/IIOByteBuffer.java \
+javax/imageio/stream/ImageInputStream.java \
+javax/imageio/stream/ImageOutputStream.java \
 javax/naming/directory/Attribute.java \
 javax/naming/directory/AttributeInUseException.java \
 javax/naming/directory/AttributeModificationException.java \
@@ -1512,6 +1537,21 @@ javax/naming/ldap/UnsolicitedNotification.java \
 javax/naming/ldap/UnsolicitedNotificationEvent.java \
 javax/naming/ldap/UnsolicitedNotificationListener.java \
 javax/naming/OperationNotSupportedException.java \
+javax/print/AttributeException.java \
+javax/print/CancelablePrintJob.java \
+javax/print/Doc.java \
+javax/print/DocFlavor.java \
+javax/print/DocPrintJob.java \
+javax/print/FlavorException.java \
+javax/print/MultiDoc.java \
+javax/print/MultiDocPrintJob.java \
+javax/print/MultiDocPrintService.java \
+javax/print/PrintException.java \
+javax/print/PrintService.java \
+javax/print/PrintServiceLookup.java \
+javax/print/ServiceUIFactory.java \
+javax/print/StreamPrintService.java \
+javax/print/URIException.java \
 javax/print/attribute/Attribute.java \
 javax/print/attribute/AttributeSet.java \
 javax/print/attribute/AttributeSetUtilities.java \
@@ -1538,36 +1578,77 @@ javax/print/attribute/SupportedValuesAttribute.java \
 javax/print/attribute/TextSyntax.java \
 javax/print/attribute/UnmodifiableSetException.java \
 javax/print/attribute/URISyntax.java \
+javax/print/attribute/standard/ColorSupported.java \
+javax/print/attribute/standard/Compression.java \
 javax/print/attribute/standard/Copies.java \
+javax/print/attribute/standard/CopiesSupported.java \
 javax/print/attribute/standard/DateTimeAtCompleted.java \
 javax/print/attribute/standard/DateTimeAtCreation.java \
 javax/print/attribute/standard/DateTimeAtProcessing.java \
 javax/print/attribute/standard/DocumentName.java \
+javax/print/attribute/standard/Fidelity.java \
+javax/print/attribute/standard/Finishings.java \
 javax/print/attribute/standard/JobHoldUntil.java \
 javax/print/attribute/standard/JobImpressions.java \
 javax/print/attribute/standard/JobImpressionsCompleted.java \
+javax/print/attribute/standard/JobImpressionsSupported.java \
 javax/print/attribute/standard/JobKOctets.java \
 javax/print/attribute/standard/JobKOctetsProcessed.java \
+javax/print/attribute/standard/JobKOctetsSupported.java \
 javax/print/attribute/standard/JobMediaSheets.java \
 javax/print/attribute/standard/JobMediaSheetsCompleted.java \
+javax/print/attribute/standard/JobMediaSheetsSupported.java \
 javax/print/attribute/standard/JobMessageFromOperator.java \
 javax/print/attribute/standard/JobName.java \
 javax/print/attribute/standard/JobOriginatingUserName.java \
 javax/print/attribute/standard/JobPriority.java \
 javax/print/attribute/standard/JobPrioritySupported.java \
+javax/print/attribute/standard/JobSheets.java \
+javax/print/attribute/standard/JobState.java \
+javax/print/attribute/standard/JobStateReason.java \
+javax/print/attribute/standard/JobStateReasons.java \
+javax/print/attribute/standard/Media.java \
+javax/print/attribute/standard/MediaSizeName.java \
+javax/print/attribute/standard/MultipleDocumentHandling.java \
 javax/print/attribute/standard/NumberOfDocuments.java \
 javax/print/attribute/standard/NumberOfInterveningJobs.java \
 javax/print/attribute/standard/NumberUp.java \
+javax/print/attribute/standard/NumberUpSupported.java \
+javax/print/attribute/standard/OrientationRequested.java \
 javax/print/attribute/standard/OutputDeviceAssigned.java \
+javax/print/attribute/standard/PDLOverrideSupported.java \
+javax/print/attribute/standard/PageRanges.java \
 javax/print/attribute/standard/PagesPerMinute.java \
 javax/print/attribute/standard/PagesPerMinuteColor.java \
+javax/print/attribute/standard/PresentationDirection.java \
+javax/print/attribute/standard/PrintQuality.java \
 javax/print/attribute/standard/PrinterInfo.java \
+javax/print/attribute/standard/PrinterIsAcceptingJobs.java \
 javax/print/attribute/standard/PrinterLocation.java \
 javax/print/attribute/standard/PrinterMakeAndModel.java \
 javax/print/attribute/standard/PrinterMessageFromOperator.java \
+javax/print/attribute/standard/PrinterMoreInfo.java \
+javax/print/attribute/standard/PrinterMoreInfoManufacturer.java \
 javax/print/attribute/standard/PrinterName.java \
+javax/print/attribute/standard/PrinterResolution.java \
+javax/print/attribute/standard/PrinterState.java \
+javax/print/attribute/standard/PrinterStateReason.java \
+javax/print/attribute/standard/PrinterStateReasons.java \
+javax/print/attribute/standard/PrinterURI.java \
 javax/print/attribute/standard/QueuedJobCount.java \
+javax/print/attribute/standard/ReferenceUriSchemesSupported.java \
 javax/print/attribute/standard/RequestingUserName.java \
+javax/print/attribute/standard/Severity.java \
+javax/print/attribute/standard/SheetCollate.java \
+javax/print/attribute/standard/Sides.java \
+javax/print/event/PrintEvent.java \
+javax/print/event/PrintJobAdapter.java \
+javax/print/event/PrintJobAttributeEvent.java \
+javax/print/event/PrintJobAttributeListener.java \
+javax/print/event/PrintJobEvent.java \
+javax/print/event/PrintJobListener.java \
+javax/print/event/PrintServiceAttributeEvent.java \
+javax/print/event/PrintServiceAttributeListener.java \
 javax/security/auth/x500/X500Principal.java \
 javax/sql/ConnectionEvent.java \
 javax/sql/ConnectionEventListener.java \
@@ -1854,6 +1935,8 @@ java/util/regex/PatternSyntaxException.java
 
 
 ordinary_java_source_files = $(core_java_source_files) \
+gnu/classpath/ServiceFactory.java \
+gnu/classpath/ServiceProviderLoadingAction.java \
 gnu/gcj/Core.java \
 gnu/gcj/RawData.java \
 gnu/gcj/io/DefaultMimeTypes.java \
@@ -2066,13 +2149,11 @@ gnu/java/nio/charset/UTF_8.java \
 gnu/regexp/CharIndexed.java \
 gnu/regexp/CharIndexedCharArray.java \
 gnu/regexp/CharIndexedInputStream.java \
-gnu/regexp/CharIndexedReader.java \
 gnu/regexp/CharIndexedString.java \
 gnu/regexp/CharIndexedStringBuffer.java \
 gnu/regexp/RE.java \
 gnu/regexp/REException.java \
 gnu/regexp/REFilterInputStream.java \
-gnu/regexp/REFilterReader.java \
 gnu/regexp/REMatch.java \
 gnu/regexp/REMatchEnumeration.java \
 gnu/regexp/RESyntax.java \
@@ -2082,7 +2163,6 @@ gnu/regexp/RETokenBackRef.java \
 gnu/regexp/RETokenChar.java \
 gnu/regexp/RETokenEnd.java \
 gnu/regexp/RETokenEndSub.java \
-gnu/regexp/RETokenLookAhead.java \
 gnu/regexp/RETokenOneOf.java \
 gnu/regexp/RETokenPOSIX.java \
 gnu/regexp/RETokenRange.java \
@@ -2116,10 +2196,14 @@ gnu/java/security/x509/X500DistinguishedName.java \
 gnu/java/security/x509/X509Certificate.java \
 gnu/java/security/x509/X509CRLEntry.java \
 gnu/java/security/x509/X509CRL.java \
+gnu/java/text/AttributedFormatBuffer.java \
 gnu/java/text/BaseBreakIterator.java \
 gnu/java/text/CharacterBreakIterator.java \
+gnu/java/text/FormatBuffer.java \
+gnu/java/text/FormatCharacterIterator.java \
 gnu/java/text/LineBreakIterator.java \
 gnu/java/text/SentenceBreakIterator.java \
+gnu/java/text/StringFormatBuffer.java \
 gnu/java/text/WordBreakIterator.java \
 gnu/java/util/DoubleEnumeration.java \
 gnu/java/util/EmptyEnumeration.java \
@@ -2459,7 +2543,6 @@ java/text/DecimalFormat.java \
 java/text/DecimalFormatSymbols.java \
 java/text/FieldPosition.java \
 java/text/Format.java \
-java/text/FormatCharacterIterator.java \
 java/text/MessageFormat.java \
 java/text/NumberFormat.java \
 java/text/ParseException.java \
@@ -2831,6 +2914,7 @@ lib_gnu_java_awt_peer_gtk_la_DEPENDENCIES =
 @GTK_CAIRO_FALSE@jni/gtk-peer/gnu_java_awt_peer_gtk_GdkPixbufDecoder.lo \
 @GTK_CAIRO_FALSE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkButtonPeer.lo \
 @GTK_CAIRO_FALSE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkCanvasPeer.lo \
+@GTK_CAIRO_FALSE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkCheckboxGroupPeer.lo \
 @GTK_CAIRO_FALSE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkCheckboxMenuItemPeer.lo \
 @GTK_CAIRO_FALSE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkCheckboxPeer.lo \
 @GTK_CAIRO_FALSE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkChoicePeer.lo \
@@ -2839,6 +2923,7 @@ lib_gnu_java_awt_peer_gtk_la_DEPENDENCIES =
 @GTK_CAIRO_FALSE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkEmbeddedWindowPeer.lo \
 @GTK_CAIRO_FALSE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkEvents.lo \
 @GTK_CAIRO_FALSE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkFileDialogPeer.lo \
+@GTK_CAIRO_FALSE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkGenericPeer.lo \
 @GTK_CAIRO_FALSE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkImagePainter.lo \
 @GTK_CAIRO_FALSE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkLabelPeer.lo \
 @GTK_CAIRO_FALSE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkListPeer.lo \
@@ -2913,6 +2998,7 @@ lib_gnu_java_awt_peer_gtk_la_DEPENDENCIES =
 @GTK_CAIRO_TRUE@jni/gtk-peer/gnu_java_awt_peer_gtk_GdkPixbufDecoder.lo \
 @GTK_CAIRO_TRUE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkButtonPeer.lo \
 @GTK_CAIRO_TRUE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkCanvasPeer.lo \
+@GTK_CAIRO_TRUE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkCheckboxGroupPeer.lo \
 @GTK_CAIRO_TRUE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkCheckboxMenuItemPeer.lo \
 @GTK_CAIRO_TRUE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkCheckboxPeer.lo \
 @GTK_CAIRO_TRUE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkChoicePeer.lo \
@@ -2921,6 +3007,7 @@ lib_gnu_java_awt_peer_gtk_la_DEPENDENCIES =
 @GTK_CAIRO_TRUE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkEmbeddedWindowPeer.lo \
 @GTK_CAIRO_TRUE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkEvents.lo \
 @GTK_CAIRO_TRUE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkFileDialogPeer.lo \
+@GTK_CAIRO_TRUE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkGenericPeer.lo \
 @GTK_CAIRO_TRUE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkImagePainter.lo \
 @GTK_CAIRO_TRUE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkLabelPeer.lo \
 @GTK_CAIRO_TRUE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkListPeer.lo \
@@ -2984,7 +3071,7 @@ libgcj-test.spec.in libgcj.pc.in libgcj.spec.in
 
 DISTFILES = $(DIST_COMMON) $(SOURCES) $(HEADERS) $(TEXINFOS) $(EXTRA_DIST)
 
-TAR = gtar
+TAR = tar
 GZIP_ENV = --best
 DIST_SUBDIRS =  @DIRLTDL@ testsuite gcj include @DIRLTDL@ gcj include
 DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
@@ -3002,9 +3089,10 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/gnu/awt/xlib/XGraphicsConfiguration.P \
 .deps/gnu/awt/xlib/XOffScreenImage.P .deps/gnu/awt/xlib/XPanelPeer.P \
 .deps/gnu/awt/xlib/XToolkit.P .deps/gnu/classpath/Configuration.P \
-.deps/gnu/gcj/Core.P .deps/gnu/gcj/RawData.P \
-.deps/gnu/gcj/convert/BytesToUnicode.P .deps/gnu/gcj/convert/Convert.P \
-.deps/gnu/gcj/convert/IOConverter.P \
+.deps/gnu/classpath/ServiceFactory.P \
+.deps/gnu/classpath/ServiceProviderLoadingAction.P .deps/gnu/gcj/Core.P \
+.deps/gnu/gcj/RawData.P .deps/gnu/gcj/convert/BytesToUnicode.P \
+.deps/gnu/gcj/convert/Convert.P .deps/gnu/gcj/convert/IOConverter.P \
 .deps/gnu/gcj/convert/Input_8859_1.P \
 .deps/gnu/gcj/convert/Input_ASCII.P \
 .deps/gnu/gcj/convert/Input_EUCJIS.P \
@@ -3384,10 +3472,14 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/gnu/java/security/x509/X509CRL.P \
 .deps/gnu/java/security/x509/X509CRLEntry.P \
 .deps/gnu/java/security/x509/X509Certificate.P \
+.deps/gnu/java/text/AttributedFormatBuffer.P \
 .deps/gnu/java/text/BaseBreakIterator.P \
 .deps/gnu/java/text/CharacterBreakIterator.P \
+.deps/gnu/java/text/FormatBuffer.P \
+.deps/gnu/java/text/FormatCharacterIterator.P \
 .deps/gnu/java/text/LineBreakIterator.P \
 .deps/gnu/java/text/SentenceBreakIterator.P \
+.deps/gnu/java/text/StringFormatBuffer.P \
 .deps/gnu/java/text/WordBreakIterator.P \
 .deps/gnu/java/util/DoubleEnumeration.P \
 .deps/gnu/java/util/EmptyEnumeration.P \
@@ -3405,16 +3497,14 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/gnu/javax/rmi/PortableServer.P .deps/gnu/regexp/CharIndexed.P \
 .deps/gnu/regexp/CharIndexedCharArray.P \
 .deps/gnu/regexp/CharIndexedInputStream.P \
-.deps/gnu/regexp/CharIndexedReader.P \
 .deps/gnu/regexp/CharIndexedString.P \
 .deps/gnu/regexp/CharIndexedStringBuffer.P .deps/gnu/regexp/RE.P \
 .deps/gnu/regexp/REException.P .deps/gnu/regexp/REFilterInputStream.P \
-.deps/gnu/regexp/REFilterReader.P .deps/gnu/regexp/REMatch.P \
-.deps/gnu/regexp/REMatchEnumeration.P .deps/gnu/regexp/RESyntax.P \
-.deps/gnu/regexp/REToken.P .deps/gnu/regexp/RETokenAny.P \
-.deps/gnu/regexp/RETokenBackRef.P .deps/gnu/regexp/RETokenChar.P \
-.deps/gnu/regexp/RETokenEnd.P .deps/gnu/regexp/RETokenEndSub.P \
-.deps/gnu/regexp/RETokenLookAhead.P .deps/gnu/regexp/RETokenOneOf.P \
+.deps/gnu/regexp/REMatch.P .deps/gnu/regexp/REMatchEnumeration.P \
+.deps/gnu/regexp/RESyntax.P .deps/gnu/regexp/REToken.P \
+.deps/gnu/regexp/RETokenAny.P .deps/gnu/regexp/RETokenBackRef.P \
+.deps/gnu/regexp/RETokenChar.P .deps/gnu/regexp/RETokenEnd.P \
+.deps/gnu/regexp/RETokenEndSub.P .deps/gnu/regexp/RETokenOneOf.P \
 .deps/gnu/regexp/RETokenPOSIX.P .deps/gnu/regexp/RETokenRange.P \
 .deps/gnu/regexp/RETokenRepeated.P .deps/gnu/regexp/RETokenStart.P \
 .deps/gnu/regexp/RETokenWordBoundary.P .deps/gnu/regexp/UncheckedRE.P \
@@ -3587,7 +3677,10 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/java/awt/image/ComponentSampleModel.P \
 .deps/java/awt/image/CropImageFilter.P \
 .deps/java/awt/image/DataBuffer.P .deps/java/awt/image/DataBufferByte.P \
+.deps/java/awt/image/DataBufferDouble.P \
+.deps/java/awt/image/DataBufferFloat.P \
 .deps/java/awt/image/DataBufferInt.P \
+.deps/java/awt/image/DataBufferShort.P \
 .deps/java/awt/image/DataBufferUShort.P \
 .deps/java/awt/image/DirectColorModel.P \
 .deps/java/awt/image/FilteredImageSource.P \
@@ -3599,6 +3692,7 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/java/awt/image/MemoryImageSource.P \
 .deps/java/awt/image/PackedColorModel.P \
 .deps/java/awt/image/PixelGrabber.P \
+.deps/java/awt/image/PixelInterleavedSampleModel.P \
 .deps/java/awt/image/RGBImageFilter.P .deps/java/awt/image/Raster.P \
 .deps/java/awt/image/RasterFormatException.P \
 .deps/java/awt/image/RasterOp.P .deps/java/awt/image/RenderedImage.P \
@@ -4118,7 +4212,6 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/java/text/DateFormat.P .deps/java/text/DateFormatSymbols.P \
 .deps/java/text/DecimalFormat.P .deps/java/text/DecimalFormatSymbols.P \
 .deps/java/text/FieldPosition.P .deps/java/text/Format.P \
-.deps/java/text/FormatCharacterIterator.P \
 .deps/java/text/MessageFormat.P .deps/java/text/NumberFormat.P \
 .deps/java/text/ParseException.P .deps/java/text/ParsePosition.P \
 .deps/java/text/RuleBasedCollator.P .deps/java/text/SimpleDateFormat.P \
@@ -4221,6 +4314,18 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/javax/accessibility/AccessibleTableModelChange.P \
 .deps/javax/accessibility/AccessibleText.P \
 .deps/javax/accessibility/AccessibleValue.P \
+.deps/javax/imageio/ImageReader.P .deps/javax/imageio/ImageTranscoder.P \
+.deps/javax/imageio/ImageWriter.P \
+.deps/javax/imageio/spi/IIOServiceProvider.P \
+.deps/javax/imageio/spi/ImageInputStreamSpi.P \
+.deps/javax/imageio/spi/ImageOutputStreamSpi.P \
+.deps/javax/imageio/spi/ImageReaderWriterSpi.P \
+.deps/javax/imageio/spi/ImageTranscoderSpi.P \
+.deps/javax/imageio/spi/RegisterableService.P \
+.deps/javax/imageio/spi/ServiceRegistry.P \
+.deps/javax/imageio/stream/IIOByteBuffer.P \
+.deps/javax/imageio/stream/ImageInputStream.P \
+.deps/javax/imageio/stream/ImageOutputStream.P \
 .deps/javax/naming/AuthenticationException.P \
 .deps/javax/naming/AuthenticationNotSupportedException.P \
 .deps/javax/naming/BinaryRefAddr.P .deps/javax/naming/Binding.P \
@@ -4302,6 +4407,16 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/javax/naming/spi/ObjectFactoryBuilder.P \
 .deps/javax/naming/spi/ResolveResult.P \
 .deps/javax/naming/spi/Resolver.P .deps/javax/naming/spi/StateFactory.P \
+.deps/javax/print/AttributeException.P \
+.deps/javax/print/CancelablePrintJob.P .deps/javax/print/Doc.P \
+.deps/javax/print/DocFlavor.P .deps/javax/print/DocPrintJob.P \
+.deps/javax/print/FlavorException.P .deps/javax/print/MultiDoc.P \
+.deps/javax/print/MultiDocPrintJob.P \
+.deps/javax/print/MultiDocPrintService.P \
+.deps/javax/print/PrintException.P .deps/javax/print/PrintService.P \
+.deps/javax/print/PrintServiceLookup.P \
+.deps/javax/print/ServiceUIFactory.P \
+.deps/javax/print/StreamPrintService.P .deps/javax/print/URIException.P \
 .deps/javax/print/attribute/Attribute.P \
 .deps/javax/print/attribute/AttributeSet.P \
 .deps/javax/print/attribute/AttributeSetUtilities.P \
@@ -4328,36 +4443,77 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/javax/print/attribute/TextSyntax.P \
 .deps/javax/print/attribute/URISyntax.P \
 .deps/javax/print/attribute/UnmodifiableSetException.P \
+.deps/javax/print/attribute/standard/ColorSupported.P \
+.deps/javax/print/attribute/standard/Compression.P \
 .deps/javax/print/attribute/standard/Copies.P \
+.deps/javax/print/attribute/standard/CopiesSupported.P \
 .deps/javax/print/attribute/standard/DateTimeAtCompleted.P \
 .deps/javax/print/attribute/standard/DateTimeAtCreation.P \
 .deps/javax/print/attribute/standard/DateTimeAtProcessing.P \
 .deps/javax/print/attribute/standard/DocumentName.P \
+.deps/javax/print/attribute/standard/Fidelity.P \
+.deps/javax/print/attribute/standard/Finishings.P \
 .deps/javax/print/attribute/standard/JobHoldUntil.P \
 .deps/javax/print/attribute/standard/JobImpressions.P \
 .deps/javax/print/attribute/standard/JobImpressionsCompleted.P \
+.deps/javax/print/attribute/standard/JobImpressionsSupported.P \
 .deps/javax/print/attribute/standard/JobKOctets.P \
 .deps/javax/print/attribute/standard/JobKOctetsProcessed.P \
+.deps/javax/print/attribute/standard/JobKOctetsSupported.P \
 .deps/javax/print/attribute/standard/JobMediaSheets.P \
 .deps/javax/print/attribute/standard/JobMediaSheetsCompleted.P \
+.deps/javax/print/attribute/standard/JobMediaSheetsSupported.P \
 .deps/javax/print/attribute/standard/JobMessageFromOperator.P \
 .deps/javax/print/attribute/standard/JobName.P \
 .deps/javax/print/attribute/standard/JobOriginatingUserName.P \
 .deps/javax/print/attribute/standard/JobPriority.P \
 .deps/javax/print/attribute/standard/JobPrioritySupported.P \
+.deps/javax/print/attribute/standard/JobSheets.P \
+.deps/javax/print/attribute/standard/JobState.P \
+.deps/javax/print/attribute/standard/JobStateReason.P \
+.deps/javax/print/attribute/standard/JobStateReasons.P \
+.deps/javax/print/attribute/standard/Media.P \
+.deps/javax/print/attribute/standard/MediaSizeName.P \
+.deps/javax/print/attribute/standard/MultipleDocumentHandling.P \
 .deps/javax/print/attribute/standard/NumberOfDocuments.P \
 .deps/javax/print/attribute/standard/NumberOfInterveningJobs.P \
 .deps/javax/print/attribute/standard/NumberUp.P \
+.deps/javax/print/attribute/standard/NumberUpSupported.P \
+.deps/javax/print/attribute/standard/OrientationRequested.P \
 .deps/javax/print/attribute/standard/OutputDeviceAssigned.P \
+.deps/javax/print/attribute/standard/PDLOverrideSupported.P \
+.deps/javax/print/attribute/standard/PageRanges.P \
 .deps/javax/print/attribute/standard/PagesPerMinute.P \
 .deps/javax/print/attribute/standard/PagesPerMinuteColor.P \
+.deps/javax/print/attribute/standard/PresentationDirection.P \
+.deps/javax/print/attribute/standard/PrintQuality.P \
 .deps/javax/print/attribute/standard/PrinterInfo.P \
+.deps/javax/print/attribute/standard/PrinterIsAcceptingJobs.P \
 .deps/javax/print/attribute/standard/PrinterLocation.P \
 .deps/javax/print/attribute/standard/PrinterMakeAndModel.P \
 .deps/javax/print/attribute/standard/PrinterMessageFromOperator.P \
+.deps/javax/print/attribute/standard/PrinterMoreInfo.P \
+.deps/javax/print/attribute/standard/PrinterMoreInfoManufacturer.P \
 .deps/javax/print/attribute/standard/PrinterName.P \
+.deps/javax/print/attribute/standard/PrinterResolution.P \
+.deps/javax/print/attribute/standard/PrinterState.P \
+.deps/javax/print/attribute/standard/PrinterStateReason.P \
+.deps/javax/print/attribute/standard/PrinterStateReasons.P \
+.deps/javax/print/attribute/standard/PrinterURI.P \
 .deps/javax/print/attribute/standard/QueuedJobCount.P \
+.deps/javax/print/attribute/standard/ReferenceUriSchemesSupported.P \
 .deps/javax/print/attribute/standard/RequestingUserName.P \
+.deps/javax/print/attribute/standard/Severity.P \
+.deps/javax/print/attribute/standard/SheetCollate.P \
+.deps/javax/print/attribute/standard/Sides.P \
+.deps/javax/print/event/PrintEvent.P \
+.deps/javax/print/event/PrintJobAdapter.P \
+.deps/javax/print/event/PrintJobAttributeEvent.P \
+.deps/javax/print/event/PrintJobAttributeListener.P \
+.deps/javax/print/event/PrintJobEvent.P \
+.deps/javax/print/event/PrintJobListener.P \
+.deps/javax/print/event/PrintServiceAttributeEvent.P \
+.deps/javax/print/event/PrintServiceAttributeListener.P \
 .deps/javax/rmi/BAD_OPERATION.P .deps/javax/rmi/CORBA/ClassDesc.P \
 .deps/javax/rmi/CORBA/ObjectImpl.P \
 .deps/javax/rmi/CORBA/PortableRemoteObjectDelegate.P \
@@ -4533,18 +4689,22 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/javax/swing/plaf/TextUI.P .deps/javax/swing/plaf/ToolBarUI.P \
 .deps/javax/swing/plaf/ToolTipUI.P .deps/javax/swing/plaf/TreeUI.P \
 .deps/javax/swing/plaf/UIResource.P .deps/javax/swing/plaf/ViewportUI.P \
+.deps/javax/swing/plaf/basic/BasicArrowButton.P \
 .deps/javax/swing/plaf/basic/BasicBorders.P \
 .deps/javax/swing/plaf/basic/BasicButtonListener.P \
 .deps/javax/swing/plaf/basic/BasicButtonUI.P \
+.deps/javax/swing/plaf/basic/BasicCheckBoxMenuItemUI.P \
 .deps/javax/swing/plaf/basic/BasicCheckBoxUI.P \
 .deps/javax/swing/plaf/basic/BasicGraphicsUtils.P \
 .deps/javax/swing/plaf/basic/BasicIconFactory.P \
 .deps/javax/swing/plaf/basic/BasicLabelUI.P \
 .deps/javax/swing/plaf/basic/BasicListUI.P \
 .deps/javax/swing/plaf/basic/BasicLookAndFeel.P \
+.deps/javax/swing/plaf/basic/BasicMenuItemUI.P \
 .deps/javax/swing/plaf/basic/BasicOptionPaneUI.P \
 .deps/javax/swing/plaf/basic/BasicPanelUI.P \
 .deps/javax/swing/plaf/basic/BasicProgressBarUI.P \
+.deps/javax/swing/plaf/basic/BasicRadioButtonMenuItemUI.P \
 .deps/javax/swing/plaf/basic/BasicRadioButtonUI.P \
 .deps/javax/swing/plaf/basic/BasicRootPaneUI.P \
 .deps/javax/swing/plaf/basic/BasicScrollBarUI.P \
@@ -4645,6 +4805,7 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/jni/gtk-peer/gnu_java_awt_peer_gtk_GdkPixbufDecoder.P \
 .deps/jni/gtk-peer/gnu_java_awt_peer_gtk_GtkButtonPeer.P \
 .deps/jni/gtk-peer/gnu_java_awt_peer_gtk_GtkCanvasPeer.P \
+.deps/jni/gtk-peer/gnu_java_awt_peer_gtk_GtkCheckboxGroupPeer.P \
 .deps/jni/gtk-peer/gnu_java_awt_peer_gtk_GtkCheckboxMenuItemPeer.P \
 .deps/jni/gtk-peer/gnu_java_awt_peer_gtk_GtkCheckboxPeer.P \
 .deps/jni/gtk-peer/gnu_java_awt_peer_gtk_GtkChoicePeer.P \
@@ -4653,6 +4814,7 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/jni/gtk-peer/gnu_java_awt_peer_gtk_GtkEmbeddedWindowPeer.P \
 .deps/jni/gtk-peer/gnu_java_awt_peer_gtk_GtkEvents.P \
 .deps/jni/gtk-peer/gnu_java_awt_peer_gtk_GtkFileDialogPeer.P \
+.deps/jni/gtk-peer/gnu_java_awt_peer_gtk_GtkGenericPeer.P \
 .deps/jni/gtk-peer/gnu_java_awt_peer_gtk_GtkImagePainter.P \
 .deps/jni/gtk-peer/gnu_java_awt_peer_gtk_GtkLabelPeer.P \
 .deps/jni/gtk-peer/gnu_java_awt_peer_gtk_GtkListPeer.P \
@@ -5332,7 +5494,8 @@ $(c_files): java/lang/fdlibm.h java/lang/ieeefp.h java/lang/mprec.h
 
 $(gtk_c_files): %.lo: %.c
 	$(LTCOMPILE) -c -Ijniinclude -I$(srcdir)/jni/classpath -I$(srcdir)/jni/gtk-peer \
-	$(GTK_CFLAGS) $(LIBART_CFLAGS) $(CAIRO_LIBS) $(PANGOFT2_LIBS) -o $@ $<
+	$(PEDANTIC_CFLAGS) $(GTK_CFLAGS) $(LIBART_CFLAGS) \
+	$(CAIRO_LIBS) $(PANGOFT2_LIBS) -o $@ $<
 
 $(gtk_c_files): $(gtk_c_headers)
 

@@ -104,9 +104,9 @@ package Restrict is
    --  (which is why this restriction itself is excluded from the list).
 
    Implementation_Restriction : array (All_Restrictions) of Boolean :=
-     (Boolean_Entry_Barriers             => True,
+     (Simple_Barriers                    => True,
       No_Calendar                        => True,
-      No_Dynamic_Interrupts              => True,
+      No_Dynamic_Attachment              => True,
       No_Enumeration_Maps                => True,
       No_Entry_Calls_In_Elaboration_Code => True,
       No_Entry_Queue                     => True,
@@ -199,6 +199,12 @@ package Restrict is
    --  Test to see if current restrictions settings specify that no exception
    --  handlers are present. This function is called by Gigi when it needs to
    --  expand an AT END clean up identifier with no exception handler.
+
+   function Process_Restriction_Synonyms (Id : Name_Id) return Name_Id;
+   --  Id is the name of a restriction. If it is one of synonyms that we
+   --  allow for historical purposes (for list see System.Rident), then
+   --  the proper official name is returned. Otherwise the argument is
+   --  returned unchanged.
 
    function Restriction_Active (R : All_Restrictions) return Boolean;
    pragma Inline (Restriction_Active);

@@ -26,7 +26,7 @@ Boston, MA 02111-1307, USA.  */
 #include "hard-reg-set.h"
 #include "basic-block.h"
 #include "hashtab.h"
-#include "tree-simple.h"
+#include "tree-gimple.h"
 #include "tree-ssa-operands.h"
 
 /* Forward declare structures for the garbage collector GTY markers.  */
@@ -154,6 +154,16 @@ struct var_ann_d GTY(())
      USE or a VUSE.  In those cases, the SSA renamer creates an SSA name
      for this variable with an empty defining statement.  */
   tree default_def;
+
+  /* During into-ssa and the dominator optimizer, this field holds the
+     current version of this variable (an SSA_NAME). 
+
+     This was previously two varrays (one in into-ssa the other in the
+     dominator optimizer).  That is wasteful, particularly since the
+     dominator optimizer calls into-ssa resulting in having two varrays
+     live at the same time and this can happen for each call to the
+     dominator optimizer.  */
+  tree current_def;
 };
 
 
@@ -502,6 +512,7 @@ extern tree get_virtual_var (tree);
 extern void add_referenced_tmp_var (tree var);
 extern void mark_new_vars_to_rename (tree, bitmap);
 extern void redirect_immediate_uses (tree, tree);
+extern tree make_rename_temp (tree, const char *);
 
 /* Flags used when computing reaching definitions and reached uses.  */
 #define TDFA_USE_OPS		1 << 0
@@ -543,7 +554,7 @@ extern bool tree_ssa_useless_type_conversion (tree);
 extern bool tree_ssa_useless_type_conversion_1 (tree, tree);
 extern void verify_ssa (void);
 extern void delete_tree_ssa (void);
-extern void register_new_def (tree, varray_type *, varray_type);
+extern void register_new_def (tree, varray_type *);
 extern void walk_use_def_chains (tree, walk_use_def_chains_fn, void *);
 
 /* In tree-into-ssa.c  */

@@ -83,11 +83,6 @@ package body Lib is
       return Units.Table (U).Dependency_Num;
    end Dependency_Num;
 
-   function Dependent_Unit (U : Unit_Number_Type) return Boolean is
-   begin
-      return Units.Table (U).Dependent_Unit;
-   end Dependent_Unit;
-
    function Dynamic_Elab (U : Unit_Number_Type) return Boolean is
    begin
       return Units.Table (U).Dynamic_Elab;
@@ -944,6 +939,16 @@ package body Lib is
       Linker_Option_Lines.Table (Linker_Option_Lines.Last) :=
         (Option => S, Unit => Current_Sem_Unit);
    end Store_Linker_Option_String;
+
+   -------------------------------
+   -- Synchronize_Serial_Number --
+   -------------------------------
+
+   procedure Synchronize_Serial_Number is
+      TSN : Int renames Units.Table (Current_Sem_Unit).Serial_Number;
+   begin
+      TSN := TSN + 1;
+   end Synchronize_Serial_Number;
 
    ---------------
    -- Tree_Read --

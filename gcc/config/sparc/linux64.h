@@ -39,7 +39,9 @@ Boston, MA 02111-1307, USA.  */
 #undef MD_EXEC_PREFIX
 #undef MD_STARTFILE_PREFIX
 
-#if TARGET_CPU_DEFAULT == TARGET_CPU_v9 || TARGET_CPU_DEFAULT == TARGET_CPU_ultrasparc
+#if TARGET_CPU_DEFAULT == TARGET_CPU_v9 \
+    || TARGET_CPU_DEFAULT == TARGET_CPU_ultrasparc \
+    || TARGET_CPU_DEFAULT == TARGET_CPU_ultrasparc3
 /* A 64 bit v9 compiler with stack-bias,
    in a Medium/Low code model environment.  */
 
@@ -333,6 +335,11 @@ do {									\
 #undef LINK_GCC_C_SEQUENCE_SPEC
 #define LINK_GCC_C_SEQUENCE_SPEC \
   "%{static:--start-group} %G %L %{static:--end-group}%{!static:%G}"
+
+/* Use --as-needed -lgcc_s for eh support.  */
+#ifdef HAVE_LD_AS_NEEDED
+#define USE_LD_AS_NEEDED 1
+#endif
 
 /* Do code reading to identify a signal frame, and set the frame
    state data appropriately.  See unwind-dw2.c for the structs.  */

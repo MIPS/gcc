@@ -653,7 +653,7 @@ static struct dump_file_info dump_files[TDI_end] =
   {".nested", "tree-nested", 0, 0},
   {".inlined", "tree-inlined", 0, 0},
   {".expanded", "tree-expanded", 0, 0},
-  {".dot", "tree-dot", 0, 0},
+  {".vcg", "tree-vcg", 0, 0},
   {".xml", "call-graph", 0, 0},
   {NULL, "tree-all", 0, 0},
 };

@@ -63,7 +63,7 @@
 
 #include <bits/concept_check.h>
 
-namespace __gnu_norm
+namespace _GLIBCXX_STD
 {
   // Supporting structures are split into common and templated types; the
   // latter publicly inherits from the former in an effort to reduce code
@@ -295,10 +295,11 @@ namespace __gnu_norm
       _Node_Alloc_type;
 
       struct _List_impl 
-	: public _Node_Alloc_type {
+      : public _Node_Alloc_type
+      {
 	_List_node_base _M_node;
 	_List_impl (const _Node_Alloc_type& __a)
-	  : _Node_Alloc_type(__a)
+	: _Node_Alloc_type(__a)
 	{ }
       };
 
@@ -317,10 +318,11 @@ namespace __gnu_norm
 
       allocator_type
       get_allocator() const
-      { return allocator_type(*static_cast<const _Node_Alloc_type*>(&this->_M_impl)); }
+      { return allocator_type(*static_cast<
+			      const _Node_Alloc_type*>(&this->_M_impl)); }
 
       _List_base(const allocator_type& __a)
-	: _M_impl(__a)
+      : _M_impl(__a)
       { _M_init(); }
 
       // This is what actually destroys the list.
@@ -1247,7 +1249,7 @@ namespace __gnu_norm
     inline void
     swap(list<_Tp, _Alloc>& __x, list<_Tp, _Alloc>& __y)
     { __x.swap(__y); }
-} // namespace __gnu_norm
+} // namespace std
 
 #endif /* _LIST_H */
 

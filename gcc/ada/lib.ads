@@ -361,14 +361,6 @@ package Lib is
    --      then called to reflect the contributions of any unit on which this
    --      unit is semantically dependent.
 
-   --    Dependent_Unit
-   --      This is a Boolean flag, which is set True to indicate that this
-   --      entry is for a semantically dependent unit. This flag is nearly
-   --      always set True, the only exception is for a unit that is loaded
-   --      by an Rtsfind request in High_Integrity_Mode, where the entity that
-   --      is obtained by Rtsfind.RTE is for an inlined subprogram or other
-   --      entity for which a dependency need not be created.
-
    --  The units table is reset to empty at the start of the compilation of
    --  each main unit by Lib.Initialize. Entries are then added by calls to
    --  the Lib.Load procedure. The following subprograms are used to access
@@ -381,7 +373,6 @@ package Lib is
 
    function Cunit            (U : Unit_Number_Type) return Node_Id;
    function Cunit_Entity     (U : Unit_Number_Type) return Entity_Id;
-   function Dependent_Unit   (U : Unit_Number_Type) return Boolean;
    function Dependency_Num   (U : Unit_Number_Type) return Nat;
    function Dynamic_Elab     (U : Unit_Number_Type) return Boolean;
    function Error_Location   (U : Unit_Number_Type) return Source_Ptr;
@@ -527,6 +518,15 @@ package Lib is
    --  Increment Serial_Number field for current unit, and return the
    --  incremented value.
 
+   procedure Synchronize_Serial_Number;
+   --  This function increments the Serial_Number field for the current
+   --  unit but does not return the incremented value. This is used when
+   --  there is a situation where one path of control increments a serial
+   --  number (using Increment_Serial_Number), and the other path does not
+   --  and it is important to keep the serial numbers synchronized in the
+   --  two cases (e.g. when the references in a package and a client must
+   --  be kept consistent).
+
    procedure Replace_Linker_Option_String
      (S : String_Id; Match_String : String);
    --  Replace an existing Linker_Option if the prefix Match_String
@@ -612,7 +612,6 @@ private
    pragma Inline (Cunit);
    pragma Inline (Cunit_Entity);
    pragma Inline (Dependency_Num);
-   pragma Inline (Dependent_Unit);
    pragma Inline (Fatal_Error);
    pragma Inline (Generate_Code);
    pragma Inline (Has_RACW);
@@ -641,7 +640,6 @@ private
       Cunit            : Node_Id;
       Cunit_Entity     : Entity_Id;
       Dependency_Num   : Int;
-      Dependent_Unit   : Boolean;
       Fatal_Error      : Boolean;
       Generate_Code    : Boolean;
       Has_RACW         : Boolean;

@@ -134,6 +134,93 @@ replace_exp (tree *op_p, tree val)
   replace_exp_1 (op_p, val, false);
 }
 
+/* Replace *OP_P in STMT with any known equivalent value for *OP_P from
+   CONST_AND_COPIES.  */
+
+static bool
+cprop_operand (stmt_ann_t ann, tree *op_p, varray_type const_and_copies)
+{
+  bool may_have_exposed_new_symbols = false;
+  tree val;
+
+  /* If the operand has a known constant value or it is known to be a
+     copy of some other variable, use the value or copy stored in
+     CONST_AND_COPIES.  */
+  val = VARRAY_TREE (const_and_copies, SSA_NAME_VERSION (*op_p));
+  if (val)
+    {
+      tree op_type, val_type;
+
+      /* Do not change the base variable in the virtual operand
+	 tables.  That would make it impossible to reconstruct
+	 the renamed virtual operand if we later modify this
+	 statement.  Also only allow the new value to be an SSA_NAME
+	 for propagation into virtual operands.  */
+      if (!is_gimple_reg (*op_p)
+	  && (get_virtual_var (val) != get_virtual_var (*op_p)
+	      || TREE_CODE (val) != SSA_NAME))
+	return false;
+
+      /* Get the toplevel type of each operand.  */
+      op_type = TREE_TYPE (*op_p);
+      val_type = TREE_TYPE (val);
+
+      /* While both types are pointers, get the type of the object
+	 pointed to.  */
+      while (POINTER_TYPE_P (op_type) && POINTER_TYPE_P (val_type))
+	{
+	  op_type = TREE_TYPE (op_type);
+	  val_type = TREE_TYPE (val_type);
+	}
+
+      /* Make sure underlying types match before propagating a
+	 constant by converting the constant to the proper type.  Note
+	 that convert may return a non-gimple expression, in which case
+	 we ignore this propagation opportunity.  */
+     if (!lang_hooks.types_compatible_p (op_type, val_type)
+           && TREE_CODE (val) != SSA_NAME)
+	{
+	  val = convert (TREE_TYPE (*op_p), val);
+	  if (!is_gimple_min_invariant (val)
+	      && TREE_CODE (val) != SSA_NAME)
+	    return false;
+	}
+
+      /* Certain operands are not allowed to be copy propagated due
+	 to their interaction with exception handling and some GCC
+	 extensions.  */
+      if (TREE_CODE (val) == SSA_NAME
+	  && !may_propagate_copy (*op_p, val))
+	return false;
+
+      /* Dump details.  */
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	{
+	  fprintf (dump_file, "  Replaced '");
+	  print_generic_expr (dump_file, *op_p, dump_flags);
+	  fprintf (dump_file, "' with %s '",
+		   (TREE_CODE (val) != SSA_NAME ? "constant" : "variable"));
+	  print_generic_expr (dump_file, val, dump_flags);
+	  fprintf (dump_file, "'\n");
+	}
+
+      /* If VAL is an ADDR_EXPR or a constant of pointer type, note
+	 that we may have exposed a new symbol for SSA renaming.  */
+      if (TREE_CODE (val) == ADDR_EXPR
+	  || (POINTER_TYPE_P (TREE_TYPE (*op_p))
+	      && is_gimple_min_invariant (val)))
+	may_have_exposed_new_symbols = true;
+
+      propagate_value (op_p, val);
+
+      /* And note that we modified this statement.  This is now
+	 safe, even if we changed virtual operands since we will
+	 rescan the statement and rewrite its operands again.  */
+      ann->modified = 1;
+    }
+  return may_have_exposed_new_symbols;
+}
+
 /* CONST_AND_COPIES is a table which maps an SSA_NAME to the current
    known value for that SSA_NAME (or NULL if no value is known).  
 
@@ -143,128 +230,42 @@ replace_exp (tree *op_p, tree val)
 bool
 cprop_into_stmt (tree stmt, varray_type const_and_copies)
 {
-  size_t i, table_size[3];
+  bool may_have_exposed_new_symbols = false;
+  stmt_ann_t ann = stmt_ann (stmt);
+  size_t i, num_uses, num_vuses, num_vdefs;
   vuse_optype vuses;
   vdef_optype vdefs;
   use_optype uses;
-  bool may_have_exposed_new_symbols = false;
-  stmt_ann_t ann = stmt_ann (stmt);
-  int table_index;
 
   uses = USE_OPS (ann);
-  vuses = VUSE_OPS (ann);
-  vdefs = VDEF_OPS (ann);
-
-  /* Const/copy propagate into USES, VUSES and the RHS of VDEFs.  */
-  table_size[0] = NUM_USES (uses);
-  table_size[1] = NUM_VUSES (vuses);
-  table_size[2] = NUM_VDEFS (vdefs);
-  for (table_index = 0; table_index < 3; table_index++)
+  num_uses = NUM_USES (uses);
+  for (i = 0; i < num_uses; i++)
     {
-      for (i = 0; i < table_size[table_index]; i++)
-	{
-	  tree val;
-	  tree *op_p;
-
-	  switch (table_index)
-	  {
-	    case 0:
-	      op_p = USE_OP_PTR (uses, i);
-	      break;
-	    case 1:
-	      op_p = VUSE_OP_PTR (vuses, i);
-	      break;
-	    case 2:
-	      op_p = VDEF_OP_PTR (vdefs, i);
-	      break;
-	    default:
-	      abort();
-	  }
-
-	  /* If the operand is not an ssa variable, then there is nothing
-	     to do.  */
-	  if (TREE_CODE (*op_p) != SSA_NAME)
-	    continue;
-
-	  /* If the operand has a known constant value or it is known to be a
-	     copy of some other variable, use the value or copy stored in
-	     CONST_AND_COPIES.  */
-	  val = VARRAY_TREE (const_and_copies, SSA_NAME_VERSION (*op_p));
-	  if (val)
-	    {
-	      tree op_type, val_type;
-
-	      /* Do not change the base variable in the virtual operand
-		 tables.  That would make it impossible to reconstruct
-		 the renamed virtual operand if we later modify this
-		 statement.  Also only allow the new value to be an SSA_NAME
-		 for propagation into virtual operands.  */
-	      if (table_index > 0
-		  && (get_virtual_var (val) != get_virtual_var (*op_p)
-		      || TREE_CODE (val) != SSA_NAME))
-		continue;
-
-	      /* Get the toplevel type of each operand.  */
-	      op_type = TREE_TYPE (*op_p);
-	      val_type = TREE_TYPE (val);
-
-	      /* While both types are pointers, get the type of the object
-		 pointed to.  */
-	      while (POINTER_TYPE_P (op_type) && POINTER_TYPE_P (val_type))
-		{
-		  op_type = TREE_TYPE (op_type);
-		  val_type = TREE_TYPE (val_type);
-		}
-
-	      /* Make sure underlying types match before propagating a
-		 constant by converting the constant to the proper type.  Note
-		 that convert may return a non-gimple expression, in which case
-		 we ignore this propagation opportunity.  */
-	     if (!lang_hooks.types_compatible_p (op_type, val_type)
-	           && TREE_CODE (val) != SSA_NAME)
-		{
-		  val = convert (TREE_TYPE (*op_p), val);
-		  if (!is_gimple_min_invariant (val)
-		      && TREE_CODE (val) != SSA_NAME)
-		    continue;
-		}
-
-	      /* Certain operands are not allowed to be copy propagated due
-		 to their interaction with exception handling and some GCC
-		 extensions.  */
-	      if (TREE_CODE (val) == SSA_NAME
-		  && !may_propagate_copy (*op_p, val))
-		continue;
-
-	      /* Dump details.  */
-	      if (dump_file && (dump_flags & TDF_DETAILS))
-		{
-		  fprintf (dump_file, "  Replaced '");
-		  print_generic_expr (dump_file, *op_p, dump_flags);
-		  fprintf (dump_file, "' with %s '",
-			   (TREE_CODE (val) != SSA_NAME
-			      ? "constant" : "variable"));
-		  print_generic_expr (dump_file, val, dump_flags);
-		  fprintf (dump_file, "'\n");
-		}
-
-	      /* If VAL is an ADDR_EXPR or a constant of pointer type, note
-		 that we may have exposed a new symbol for SSA renaming.  */
-	      if (TREE_CODE (val) == ADDR_EXPR
-		  || (POINTER_TYPE_P (TREE_TYPE (*op_p))
-		      && is_gimple_min_invariant (val)))
-		may_have_exposed_new_symbols = true;
-
-	      propagate_value (op_p, val);
-
-	      /* And note that we modified this statement.  This is now
-		 safe, even if we changed virtual operands since we will
-		 rescan the statement and rewrite its operands again.  */
-	      ann->modified = 1;
-	    }
-	}
+      tree *op_p = USE_OP_PTR (uses, i);
+      if (TREE_CODE (*op_p) == SSA_NAME)
+	may_have_exposed_new_symbols
+	  |= cprop_operand (ann, op_p, const_and_copies);
     }
 
+  vuses = VUSE_OPS (ann);
+  num_vuses = NUM_VUSES (vuses);
+  for (i = 0; i < num_vuses; i++)
+    {
+      tree *op_p = VUSE_OP_PTR (vuses, i);
+      if (TREE_CODE (*op_p) == SSA_NAME)
+	may_have_exposed_new_symbols
+	  |= cprop_operand (ann, op_p, const_and_copies);
+    }
+
+  vdefs = VDEF_OPS (ann);
+  num_vdefs = NUM_VDEFS (vdefs);
+  for (i = 0; i < num_vdefs; i++)
+    {
+      tree *op_p = VDEF_OP_PTR (vdefs, i);
+      if (TREE_CODE (*op_p) == SSA_NAME)
+	may_have_exposed_new_symbols
+	  |= cprop_operand (ann, op_p, const_and_copies);
+    }
   return may_have_exposed_new_symbols;
 }
 

@@ -51,7 +51,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "c-pragma.h"
 #include "langhooks.h"
 #include "tree-mudflap.h"
-#include "tree-simple.h"
+#include "tree-gimple.h"
 #include "diagnostic.h"
 #include "tree-dump.h"
 #include "cgraph.h"
@@ -113,9 +113,11 @@ static GTY(()) tree c_scope_stmt_stack;
 int c_in_iteration_stmt;
 int c_in_case_stmt;
 
-/* A DECL for the current file-scope context.  */
+/* Linked list of TRANSLATION_UNIT_DECLS for the translation units
+   included in this invocation.  Note that the current translation
+   unit is not included in this list.  */
 
-static GTY(()) tree current_file_decl;
+static GTY(()) tree all_translation_units;
 
 /* A list of decls to be made automatically visible in each file scope.  */
 static GTY(()) tree visible_builtins;
@@ -654,7 +656,12 @@ pop_scope (void)
   if (scope->function_body)
     context = current_function_decl;
   else if (scope == file_scope)
-    context = current_file_decl;
+    {
+      tree file_decl = build_decl (TRANSLATION_UNIT_DECL, 0, 0);
+      TREE_CHAIN (file_decl) = all_translation_units;
+      all_translation_units = file_decl;
+      context = file_decl;
+    }
   else
     context = block;
 
@@ -741,6 +748,9 @@ pop_scope (void)
 	      TREE_CHAIN (p) = BLOCK_VARS (block);
 	      BLOCK_VARS (block) = p;
 	    }
+	  /* If this is the file scope, must set DECL_CONTEXT on these.  */
+	  if (!C_DECL_IN_EXTERNAL_SCOPE (p) && scope == file_scope)
+	    DECL_CONTEXT (p) = context;
 
 	  /* Fall through.  */
 	  /* Parameters go in DECL_ARGUMENTS, not BLOCK_VARS, and have
@@ -800,9 +810,6 @@ void
 push_file_scope (void)
 {
   tree decl;
-  tree file_decl = build_decl (TRANSLATION_UNIT_DECL, 0, 0);
-  TREE_CHAIN (file_decl) = current_file_decl;
-  current_file_decl = file_decl;
 
   push_scope ();
   file_scope = current_scope;
@@ -1801,14 +1808,12 @@ pushdecl (tree x)
   if (TREE_CODE (x) == FUNCTION_DECL && ! DECL_LANG_SPECIFIC (x))
     DECL_LANG_SPECIFIC (x) = ggc_alloc_cleared (sizeof (struct lang_decl));
 
-  /* A local extern declaration for a function doesn't constitute nesting.
-     A local auto declaration does, since it's a forward decl
-     for a nested function coming later.  */
-  if (current_function_decl == NULL
-      || ((TREE_CODE (x) == FUNCTION_DECL || TREE_CODE (x) == VAR_DECL)
-	  && DECL_INITIAL (x) == 0 && DECL_EXTERNAL (x)))
-    DECL_CONTEXT (x) = current_file_decl;
-  else
+  /* Must set DECL_CONTEXT for everything not at file scope or
+     DECL_FILE_SCOPE_P won't work.  Local externs don't count
+     unless they have initializers (which generate code).  */
+  if (current_function_decl
+      && ((TREE_CODE (x) != FUNCTION_DECL && TREE_CODE (x) != VAR_DECL)
+	  || DECL_INITIAL (x) || !DECL_EXTERNAL (x)))
     DECL_CONTEXT (x) = current_function_decl;
 
   /* Anonymous decls are just inserted in the scope.  */
@@ -1932,7 +1937,6 @@ pushdecl_top_level (tree x)
   if (I_SYMBOL_BINDING (name))
     abort ();
 
-  DECL_CONTEXT (x) = current_file_decl;
   if (DECL_EXTERNAL (x) || TREE_PUBLIC (x))
     {
       C_DECL_IN_EXTERNAL_SCOPE (x) = 1;
@@ -4807,9 +4811,9 @@ get_parm_info (bool ellipsis)
 	    }
 	  break;
 
-	case ENUMERAL_TYPE: keyword = "struct"; goto tag;
+	case ENUMERAL_TYPE: keyword = "enum"; goto tag;
 	case UNION_TYPE:    keyword = "union"; goto tag;
-	case RECORD_TYPE:   keyword = "enum"; goto tag;
+	case RECORD_TYPE:   keyword = "struct"; goto tag;
 	tag:
 	  /* Types may not have tag-names, in which case the type
 	     appears in the bindings list with b->id NULL.  */
@@ -5838,8 +5842,7 @@ store_parm_decls_newstyle (tree fndecl, tree arg_info)
      warning if we got here because ARG_INFO_TYPES was error_mark_node
      (this happens when a function definition has just an ellipsis in
      its parameter list).  */
-  else if (warn_traditional && !in_system_header
-	   && DECL_CONTEXT (fndecl) == current_file_decl
+  else if (warn_traditional && !in_system_header && !current_function_scope
 	   && ARG_INFO_TYPES (arg_info) != error_mark_node)
     warning ("%Jtraditional C rejects ISO C style function definitions",
 	     fndecl);
@@ -6320,6 +6323,15 @@ finish_function (void)
      info for the epilogue.  */
   cfun->function_end_locus = input_location;
 
+  /* If we don't have ctors/dtors sections, and this is a static
+     constructor or destructor, it must be recorded now.  */
+  if (DECL_STATIC_CONSTRUCTOR (fndecl)
+      && !targetm.have_ctors_dtors)
+    static_ctors = tree_cons (NULL_TREE, fndecl, static_ctors);
+  if (DECL_STATIC_DESTRUCTOR (fndecl)
+      && !targetm.have_ctors_dtors)
+    static_dtors = tree_cons (NULL_TREE, fndecl, static_dtors);
+
   /* Genericize before inlining.  Delay genericizing nested functions
      until their parent function is genericized.  Since finalizing
      requires GENERIC, delay that as well.  */
@@ -6371,23 +6383,14 @@ c_expand_body_1 (tree fndecl, int nested_p)
     /* Return to the enclosing function.  */
     pop_function_context ();
 
-  if (DECL_STATIC_CONSTRUCTOR (fndecl))
-    {
-      if (targetm.have_ctors_dtors)
-	targetm.asm_out.constructor (XEXP (DECL_RTL (fndecl), 0),
-				     DEFAULT_INIT_PRIORITY);
-      else
-	static_ctors = tree_cons (NULL_TREE, fndecl, static_ctors);
-    }
-
-  if (DECL_STATIC_DESTRUCTOR (fndecl))
-    {
-      if (targetm.have_ctors_dtors)
-	targetm.asm_out.destructor (XEXP (DECL_RTL (fndecl), 0),
-				    DEFAULT_INIT_PRIORITY);
-      else
-	static_dtors = tree_cons (NULL_TREE, fndecl, static_dtors);
-    }
+  if (DECL_STATIC_CONSTRUCTOR (fndecl)
+      && targetm.have_ctors_dtors)
+    targetm.asm_out.constructor (XEXP (DECL_RTL (fndecl), 0),
+				 DEFAULT_INIT_PRIORITY);
+  if (DECL_STATIC_DESTRUCTOR (fndecl)
+      && targetm.have_ctors_dtors)
+    targetm.asm_out.destructor (XEXP (DECL_RTL (fndecl), 0),
+				DEFAULT_INIT_PRIORITY);
 }
 
 /* Like c_expand_body_1 but only for unnested functions.  */
@@ -6722,7 +6725,7 @@ c_write_global_declarations (void)
     return;
 
   /* Process all file scopes in this compilation.  */
-  for (t = current_file_decl; t; t = TREE_CHAIN (t))
+  for (t = all_translation_units; t; t = TREE_CHAIN (t))
     c_write_global_declarations_1 (BLOCK_VARS (DECL_INITIAL (t)));
 
   /* Now do the same for the externals scope.  */

@@ -101,7 +101,7 @@ static size_t deferred_count;
 /* Number of deferred options scanned for -include.  */
 static size_t include_cursor;
 
-/* Permit Fotran front-end options.  */
+/* Permit Fortran front-end options.  */
 static bool permit_fortran_options;
 
 static void set_Wimplicit (int);
@@ -162,6 +162,7 @@ c_common_missing_argument (const char *opt, size_t code)
     case OPT_idirafter:
     case OPT_isysroot:
     case OPT_isystem:
+    case OPT_iquote:
       error ("missing path after \"%s\"", opt);
       break;
 
@@ -303,6 +304,7 @@ c_common_handle_option (size_t scode, const char *arg, int value)
 	    error ("-I- specified twice");
 	  quote_chain_split = true;
 	  split_quote_chain ();
+	  inform ("obsolete option -I- used, please use -iquote instead");
 	}
       break;
 
@@ -947,6 +949,10 @@ c_common_handle_option (size_t scode, const char *arg, int value)
 
     case OPT_iprefix:
       iprefix = arg;
+      break;
+
+    case OPT_iquote:
+      add_path (xstrdup (arg), QUOTE, 0);
       break;
 
     case OPT_isysroot:

@@ -1,3 +1,108 @@
+2004-05-16  Paul Brook  <paul@codesourcery.com>
+
+	* io/format.c (write_real): Don't include padding in format.
+
+2004-05-16  Paul Brook  <paul@codesourcery.com>
+
+	* io/format.c (format_lex): Make c an int.
+
+2004-05-16  Janne Blomqvist  <jblomqvi@cc.hut.fi>
+	Paul Brook  <paul@codesourcery.com>
+
+	* io/write.c (write_logical): Don't print extra blank.
+	(write_integer): Base field width on kind.
+	(list_formatted_write): Output initial blank.
+
+2004-05-16  Janne Blomqvist  <jblomqvi@cc.hut.fi>
+
+	* io/io.h (flush): Add prototype.
+	* io/transfer.c (finalize_transfer): Flush partial records.
+	* io/unix.c (flush): New function.
+
+2004-05-15  Tobias Schlueter <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/15234
+	* io/io.h (unit_t): Rename to ...
+	(gfc_unit) ... this.
+	(unit_root, current_unit, find_file, find_unit, get_unit): Now
+	of type gfc_unit.
+	(delete_file, insert_unit, close_unit): Argument now of type
+	gfc_unit.
+	* backspace.c (st_backspace), close.c (st_close), endfile.c
+	(st_endfile), inquire.c (inquire_via_unit, st_inquire), open.c
+	(test_endfile, edit_modes, new_unit, already_open, st_open),
+	rewind.c (st_rewind), transfer.c (current_unit), unit.c
+	(internal_unit, unit_cache, rotate_left, rotate_right, insert,
+	insert_unit, delete_root, delete_treap, delete_unit, find_unit,
+	get_unit, init_units, close_unit), unix.c (find_file0,
+	find_file, delete_file): Replace all occurences of unit_t by
+	gfc_unit.
+
+2004-05-15  Bud Davis  <bdavis9659@comcast.net>
+
+	PR fortran/15311
+	* io/write.c (write_a): right justify A edit output.
+
+2004-05-14  Bud Davis  <bdavis9659@comcast.net>
+
+	PR fortran/15149
+	* libgfortan.h,intrinsics/random.c: Made random_seed visible.
+	* runtime/main.c(init): Call random_seed as part of MAIN init.
+
+2004-05-13  Tobias Schlüter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* io/format.c: (parse_format_list): No comma is required after
+	P descriptor.
+
+2004-05-13  Bud Davis  <bdavis9659@comcast.net>
+
+	PR fortran/15204
+	* io/intrinsic/string_intrinsics.c (adjustr): rework logic.
+
+2004-05-06  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+	    Steven Bosscher  <stevenb@suse.de>
+
+	PR libfortran/15234
+	* libgfortran.h: Include <inttypes.h> if available.
+
+2004-05-03  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* io/unix.c (MAP_FAILED): Define if missing.
+	(mmap_alloc): Cast MAP_FAILED to char *.
+	(mmap_open): Likewise.
+
+2004-04-26  Bud Davis  <bdavis9659@comcast.net>
+
+	* generated/_abs_i8.f90: New file.
+	* generated/_abs_c4.f90: New file.
+	* generated/_abs_c8.f90: New file.
+	* Makefile.am: Add them.
+	* Makefile.in: Regenerate.
+`
+2004-04-26  Bud Davis  <bdavis9659@comcast.net>
+
+	PR fortran/14056
+	* generated/_abs_i4.f90: New file.
+	* Makefile.am: Add it.
+	* Makefile.in: Regenerate.
+
+2004-04-25  Bud Davis  <bdavis9659@comcast.net>
+
+	PR fortran/14942
+	* io/list_read.c(list_formatted_read): finish consuming the
+	spaces and seperators at eoln to get ready for next item.
+
+2004-04-23  Bud Davis  <bdavis9659@comcast.net>
+
+	PR fortran/15113
+	* io/read.c(read_a): Handle field width > destination and no field width.
+
+2004-04-22  Bud Davis  <bdavis9659@comcast.net>
+
+	PR fortran/14906
+	* io/format.c (format_item): gracefully handle a ')'
+        when it is the first character encountered in the string.
+
 2004-04-11  Bud Davis  <bdavis9659@comcast.net>
 
 	PR fortran/14904

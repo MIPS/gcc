@@ -6,7 +6,7 @@
  *                                                                          *
  *                              C Header File                               *
  *                                                                          *
- *          Copyright (C) 1992-2003 Free Software Foundation, Inc.          *
+ *          Copyright (C) 1992-2004 Free Software Foundation, Inc.          *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -36,11 +36,6 @@ extern unsigned int largest_move_alignment;
 
 /* Declare all functions and types used by gigi.  */
 
-/* See if DECL has an RTL that is indirect via a pseudo-register or a
-   memory location and replace it with an indirect reference if so.
-   This improves the debugger's ability to display the value.  */
-extern void adjust_decl_rtl (tree);
-
 /* Record the current code position in GNAT_NODE.  */
 extern void record_code_position (Node_Id);
 
@@ -57,10 +52,6 @@ extern tree emit_stack_check (tree);
 
 /* Make a TRANSFORM_EXPR to later expand GNAT_NODE into code.  */
 extern tree make_transform_expr (Node_Id);
-
-/* Update the setjmp buffer BUF with the current stack pointer.  We assume
-   here that a __builtin_setjmp was done to BUF.  */
-extern void update_setjmp_buf (tree);
 
 /* GNU_TYPE is a type. Determine if it should be passed by reference by
    default.  */
@@ -97,6 +88,13 @@ extern tree gnat_to_gnu_entity (Entity_Id, tree, int);
    GCC type corresponding to that entity.  GNAT_ENTITY is assumed to
    refer to an Ada type.  */
 extern tree gnat_to_gnu_type (Entity_Id);
+
+/* Add GNU_STMT to the current BLOCK_STMT node.  */
+extern void add_stmt (tree);
+
+/* Add a declaration statement for GNU_DECL to the current BLOCK_STMT node.
+   Get SLOC from Entity_Id.  */
+extern void add_decl_stmt (tree, Entity_Id);
 
 /* Given GNAT_ENTITY, elaborate all expressions that are required to
    be elaborated at the point of its definition, but do nothing else.  */
@@ -346,6 +344,7 @@ enum standard_datatypes
   ADT_get_excptr_decl,
   ADT_setjmp_decl,
   ADT_longjmp_decl,
+  ADT_update_setjmp_buf_decl,
   ADT_raise_nodefer_decl,
   ADT_begin_handler_decl,
   ADT_end_handler_decl,
@@ -369,6 +368,7 @@ extern GTY(()) tree gnat_raise_decls[(int) LAST_REASON_CODE + 1];
 #define get_excptr_decl gnat_std_decls[(int) ADT_get_excptr_decl]
 #define setjmp_decl gnat_std_decls[(int) ADT_setjmp_decl]
 #define longjmp_decl gnat_std_decls[(int) ADT_longjmp_decl]
+#define update_setjmp_buf_decl gnat_std_decls[(int) ADT_update_setjmp_buf_decl]
 #define raise_nodefer_decl gnat_std_decls[(int) ADT_raise_nodefer_decl]
 #define begin_handler_decl gnat_std_decls[(int) ADT_begin_handler_decl]
 #define end_handler_decl gnat_std_decls[(int) ADT_end_handler_decl]
@@ -383,37 +383,17 @@ extern int global_bindings_p (void);
    is in reverse order (it has to be so for back-end compatibility).  */
 extern tree getdecls (void);
 
-/* Nonzero if the current level needs to have a BLOCK made.  */
-extern int kept_level_p (void);
-
-/* Enter a new binding level. The input parameter is ignored, but has to be
-   specified for back-end compatibility.  */
-extern void pushlevel (int);
-
-/* Exit a binding level.
-   Pop the level off, and restore the state of the identifier-decl mappings
-   that were in effect when this level was entered.
-
-   If KEEP is nonzero, this level had explicit declarations, so
-   and create a "block" (a BLOCK node) for the level
-   to record its declarations and subblocks for symbol table output.
-
-   If FUNCTIONBODY is nonzero, this level is the body of a function,
-   so create a block as if KEEP were set and also clear out all
-   label names.
-
-   If REVERSE is nonzero, reverse the order of decls before putting
-   them into the BLOCK.  */
-extern tree poplevel (int, int, int);
+/* Enter and exit a new binding level. */
+extern void gnat_pushlevel (void);
+extern void gnat_poplevel (void);
 
 /* Insert BLOCK at the end of the list of subblocks of the
    current binding level.  This is used when a BIND_EXPR is expanded,
    to handle the BLOCK node inside the BIND_EXPR.  */
 extern void insert_block (tree);
 
-/* Set the BLOCK node for the innermost scope
-   (the one we are currently in).  */
-extern void set_block (tree);
+/* Return nonzero if the are any variables in the current block.  */
+extern int block_has_vars (void);
 
 /* Records a ..._DECL node DECL as belonging to the current lexical scope.
    Returns the ..._DECL node. */
@@ -756,7 +736,6 @@ extern Pos get_target_double_size (void);
 extern Pos get_target_long_double_size (void);
 extern Pos get_target_pointer_size (void);
 extern Pos get_target_maximum_alignment (void);
-extern Boolean get_target_no_dollar_in_label (void);
 extern Nat get_float_words_be (void);
 extern Nat get_words_be (void);
 extern Nat get_bytes_be (void);

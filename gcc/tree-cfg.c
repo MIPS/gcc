@@ -67,15 +67,6 @@ static struct cfg_stats_d cfg_stats;
 /* Nonzero if we found a computed goto while building basic blocks.  */
 static bool found_computed_goto;
 
-/* If we found computed gotos, then they are all revectored to this
-   location.  We try to unfactor them after we have translated out
-   of SSA form.  */
-static GTY(()) tree factored_computed_goto_label;
-
-/* The factored computed goto.  We cache this so we can easily recover
-   the destination of computed gotos when unfactoring them.  */
-static GTY(()) tree factored_computed_goto;
-
 /* Basic blocks and flowgraphs.  */
 static basic_block create_bb (void *, void *, basic_block);
 static void create_block_annotation (basic_block);
@@ -103,7 +94,7 @@ static void tree_make_forwarder_block (edge);
 static bool thread_jumps (void);
 static bool tree_forwarder_block_p (basic_block);
 static void bsi_commit_edge_inserts_1 (edge e);
-static void tree_cfg2dot (FILE *);
+static void tree_cfg2vcg (FILE *);
 
 /* Flowgraph optimization and cleanup.  */
 static void tree_merge_blocks (basic_block, basic_block);
@@ -173,14 +164,14 @@ build_tree_cfg (tree *tp)
 
   /* Debugging dumps.  */
 
-  /* Write the flowgraph to a dot file.  */
+  /* Write the flowgraph to a VCG file.  */
   {
     int local_dump_flags;
-    FILE *dump_file = dump_begin (TDI_dot, &local_dump_flags);
+    FILE *dump_file = dump_begin (TDI_vcg, &local_dump_flags);
     if (dump_file)
       {
-	tree_cfg2dot (dump_file);
-	dump_end (TDI_dot, dump_file);
+	tree_cfg2vcg (dump_file);
+	dump_end (TDI_vcg, dump_file);
       }
   }
 
@@ -222,6 +213,8 @@ factor_computed_gotos (void)
   basic_block bb;
   tree factored_label_decl = NULL;
   tree var = NULL;
+  tree factored_computed_goto_label = NULL;
+  tree factored_computed_goto = NULL;
 
   /* We know there are one or more computed gotos in this function.
      Examine the last statement in each basic block to see if the block
@@ -2030,7 +2023,7 @@ phi_alternatives_equal (basic_block dest, edge e1, edge e2)
       val1 = PHI_ARG_DEF (phi, n1);
       val2 = PHI_ARG_DEF (phi, n2);
 
-      if (!operand_equal_p (val1, val2, false))
+      if (!operand_equal_p (val1, val2, 0))
 	return false;
     }
 
@@ -2171,7 +2164,7 @@ dump_tree_cfg (FILE *file, int flags)
   if (flags & TDF_DETAILS)
     {
       const char *funcname
-	= (*lang_hooks.decl_printable_name) (current_function_decl, 2);
+	= lang_hooks.decl_printable_name (current_function_decl, 2);
 
       fputc ('\n', file);
       fprintf (file, ";; Function %s\n\n", funcname);
@@ -2202,7 +2195,7 @@ dump_cfg_stats (FILE *file)
   const char * const fmt_str_1 = "%-30s%13lu%11lu%c\n";
   const char * const fmt_str_3 = "%-43s%11lu%c\n";
   const char *funcname
-    = (*lang_hooks.decl_printable_name) (current_function_decl, 2);
+    = lang_hooks.decl_printable_name (current_function_decl, 2);
 
 
   fprintf (file, "\nCFG Statistics for %s\n\n", funcname);
@@ -2259,28 +2252,33 @@ debug_cfg_stats (void)
 }
 
 
-/* Dump the flowgraph to a .dot FILE.  */
+/* Dump the flowgraph to a .vcg FILE.  */
 
 static void
-tree_cfg2dot (FILE *file)
+tree_cfg2vcg (FILE *file)
 {
   edge e;
   basic_block bb;
   const char *funcname
-    = (*lang_hooks.decl_printable_name) (current_function_decl, 2);
+    = lang_hooks.decl_printable_name (current_function_decl, 2);
 
   /* Write the file header.  */
-  fprintf (file, "digraph %s\n{\n", funcname);
+  fprintf (file, "graph: { title: \"%s\"\n", funcname);
+  fprintf (file, "node: { title: \"ENTRY\" label: \"ENTRY\" }\n");
+  fprintf (file, "node: { title: \"EXIT\" label: \"EXIT\" }\n");
 
   /* Write blocks and edges.  */
   for (e = ENTRY_BLOCK_PTR->succ; e; e = e->succ_next)
     {
-      fprintf (file, "\tENTRY -> %d", e->dest->index);
+      fprintf (file, "edge: { sourcename: \"ENTRY\" targetname: \"%d\"",
+	       e->dest->index);
 
       if (e->flags & EDGE_FAKE)
-	fprintf (file, " [weight=0, style=dotted]");
+	fprintf (file, " linestyle: dotted priority: 10");
+      else
+	fprintf (file, " linestyle: solid priority: 100");
 
-      fprintf (file, ";\n");
+      fprintf (file, " }\n");
     }
   fputc ('\n', file);
 
@@ -2311,21 +2309,23 @@ tree_cfg2dot (FILE *file)
       else
 	end_name = "no-statement";
 
-      fprintf (file, "\t%d [label=\"#%d\\n%s (%d)\\n%s (%d)\"];\n",
+      fprintf (file, "node: { title: \"%d\" label: \"#%d\\n%s (%d)\\n%s (%d)\"}\n",
 	       bb->index, bb->index, head_name, head_line, end_name,
 	       end_line);
 
       for (e = bb->succ; e; e = e->succ_next)
 	{
 	  if (e->dest == EXIT_BLOCK_PTR)
-	    fprintf (file, "\t%d -> EXIT", bb->index);
+	    fprintf (file, "edge: { sourcename: \"%d\" targetname: \"EXIT\"", bb->index);
 	  else
-	    fprintf (file, "\t%d -> %d", bb->index, e->dest->index);
+	    fprintf (file, "edge: { sourcename: \"%d\" targetname: \"%d\"", bb->index, e->dest->index);
 
 	  if (e->flags & EDGE_FAKE)
-	    fprintf (file, " [weight=0, style=dotted]");
+	    fprintf (file, " priority: 10 linestyle: dotted");
+	  else
+	    fprintf (file, " priority: 100 linestyle: solid");
 
-	  fprintf (file, ";\n");
+	  fprintf (file, " }\n");
 	}
 
       if (bb->next_bb != EXIT_BLOCK_PTR)
@@ -2480,7 +2480,7 @@ disband_implicit_edges (void)
   basic_block bb;
   block_stmt_iterator last;
   edge e;
-  tree stmt, label;
+  tree stmt, label, forward;
 
   FOR_EACH_BB (bb)
     {
@@ -2547,20 +2547,20 @@ disband_implicit_edges (void)
 
       label = tree_block_label (e->dest);
 
-      /* ??? Why bother putting this back together when rtl is just
+      /* If this is a goto to a goto, jump to the final destination.
+         Handles unfactoring of the computed jumps.
+         ??? Why bother putting this back together when rtl is just
 	 about to take it apart again?  */
-      if (factored_computed_goto_label
-	  && label == LABEL_EXPR_LABEL (factored_computed_goto_label))
-	label = GOTO_DESTINATION (factored_computed_goto);
+      forward = last_and_only_stmt (e->dest);
+      if (forward
+	  && TREE_CODE (forward) == GOTO_EXPR)
+	label = GOTO_DESTINATION (forward);
 
       bsi_insert_after (&last,
 			build1 (GOTO_EXPR, void_type_node, label),
 			BSI_NEW_STMT);
       e->flags &= ~EDGE_FALLTHRU;
     }
-
-  factored_computed_goto = NULL;
-  factored_computed_goto_label = NULL;
 }
 
 /* Remove block annotations and other datastructures.  */
@@ -4120,7 +4120,7 @@ dump_function_to_file (tree fn, FILE *file, int flags)
   basic_block bb;
   tree chain;
 
-  fprintf (file, "%s (", (*lang_hooks.decl_printable_name) (fn, 2));
+  fprintf (file, "%s (", lang_hooks.decl_printable_name (fn, 2));
 
   arg = DECL_ARGUMENTS (fn);
   while (arg)

@@ -283,9 +283,14 @@ read_a (fnode * f, char *p, int length)
   int w, m, n;
 
   w = f->u.w;
+  if (w == -1) /* '(A)' edit descriptor  */
+    w = length;
+
   source = read_block (&w);
   if (source == NULL)
     return;
+  if (w > length)
+     source += (w - length);
 
   m = (w > length) ? length : w;
   memcpy (p, source, m);

@@ -569,15 +569,6 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
       print_node_brief (file, "chain", TREE_CHAIN (node), indent + 4);
       break;
 
-    case 'b':
-      print_node (file, "vars", BLOCK_VARS (node), indent + 4);
-      print_node (file, "supercontext", BLOCK_SUPERCONTEXT (node), indent + 4);
-      print_node (file, "subblocks", BLOCK_SUBBLOCKS (node), indent + 4);
-      print_node (file, "chain", BLOCK_CHAIN (node), indent + 4);
-      print_node (file, "abstract_origin",
-		  BLOCK_ABSTRACT_ORIGIN (node), indent + 4);
-      break;
-
     case 'e':
     case '<':
     case '1':
@@ -733,6 +724,16 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 	      }
 	  break;
 
+	case BLOCK:
+	  print_node (file, "vars", BLOCK_VARS (node), indent + 4);
+	  print_node (file, "supercontext", BLOCK_SUPERCONTEXT (node),
+		      indent + 4);
+	  print_node (file, "subblocks", BLOCK_SUBBLOCKS (node), indent + 4);
+	  print_node (file, "chain", BLOCK_CHAIN (node), indent + 4);
+	  print_node (file, "abstract_origin",
+		      BLOCK_ABSTRACT_ORIGIN (node), indent + 4);
+	  break;
+
 	default:
 	  if (TREE_CODE_CLASS (TREE_CODE (node)) == 'x')
 	    lang_hooks.print_xnode (file, node, indent);
@@ -742,7 +743,7 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
       break;
     }
 
-  if (EXPR_LOCUS (node))
+  if (EXPR_HAS_LOCATION (node))
     {
       indent_to (file, indent+4);
       fprintf (file, "%s:%d",

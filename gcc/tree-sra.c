@@ -38,7 +38,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "langhooks.h"
 #include "tree-inline.h"
 #include "tree-flow.h"
-#include "tree-simple.h"
+#include "tree-gimple.h"
 #include "tree-dump.h"
 #include "tree-pass.h"
 #include "timevar.h"
@@ -112,17 +112,6 @@ sra_elt_eq (const void *x, const void *y)
   return true;
 }
 
-/* Build a temporary.  Make sure and register it to be renamed.  */
-
-static tree
-make_temp (tree type, const char *prefix)
-{
-  tree t = create_tmp_var (type, prefix);
-  add_referenced_tmp_var (t);
-  bitmap_set_bit (vars_to_rename, var_ann (t)->uid);
-  return t;
-}
-
 /* Mark all the variables in VDEF operands for STMT for renaming.
    This becomes necessary when we modify all of a non-scalar.  */
 
@@ -194,7 +183,7 @@ lookup_scalar (struct sra_elt *key, tree type)
       res = xmalloc (sizeof (*res));
       *slot = res;
       *res = *key;
-      res->replace = make_temp (type, "SR");
+      res->replace = make_rename_temp (type, "SR");
 
       if (DECL_NAME (key->base) && !DECL_IGNORED_P (key->base))
 	{
@@ -497,8 +486,8 @@ scalarize_structure_assignment (block_stmt_iterator *si_p)
     return;
 
   /* Set line number information for our replacements.  */
-  if (EXPR_LOCUS (orig_stmt))
-    annotate_all_with_locus (&list, *EXPR_LOCUS (orig_stmt));
+  if (EXPR_HAS_LOCATION (orig_stmt))
+    annotate_all_with_locus (&list, EXPR_LOCATION (orig_stmt));
 
   /* Replace the existing statement with the newly created list of
      scalarized copies.  When replacing the original statement, the first
@@ -691,7 +680,7 @@ create_scalar_copies (tree lhs, tree rhs, enum sra_copy_mode mode)
       tree stmt, tmp;
 
       /* Add TMP = VA_ARG_EXPR <>  */
-      tmp = make_temp (TREE_TYPE (rhs), NULL);
+      tmp = make_rename_temp (TREE_TYPE (rhs), NULL);
       stmt = csc_assign (&tsi, tmp, rhs);
 
       /* Mark all the variables in VDEF operands for renaming, because
@@ -814,8 +803,8 @@ emit_scalar_copies (block_stmt_iterator *bsi, tree lhs, tree rhs,
   tree list = create_scalar_copies (lhs, rhs, mode);
   tree stmt = bsi_stmt (*bsi);
 
-  if (EXPR_LOCUS (stmt))
-    annotate_all_with_locus (&list, *EXPR_LOCUS (stmt));
+  if (EXPR_HAS_LOCATION (stmt))
+    annotate_all_with_locus (&list, EXPR_LOCATION (stmt));
 
   bsi_insert_before (bsi, list, BSI_SAME_STMT);
 }
@@ -1007,8 +996,8 @@ scalarize_call_expr (block_stmt_iterator *si_p)
       if (is_sra_candidate_decl (var))
 	{
 	  tree list = create_scalar_copies (var, var, SCALAR_FIELD);
-	  if (EXPR_LOCUS (stmt))
-	    annotate_all_with_locus (&list, *EXPR_LOCUS (stmt));
+	  if (EXPR_HAS_LOCATION (stmt))
+	    annotate_all_with_locus (&list, EXPR_LOCATION (stmt));
 	  if (stmt_ends_bb_p (stmt))
 	    insert_edge_copies (list, bb_for_stmt (stmt));
 	  else

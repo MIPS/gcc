@@ -192,7 +192,7 @@ AC_ARG_WITH(ld,
 DEFAULT_LINKER="$with_ld")
 if test x"${DEFAULT_LINKER+set}" = x"set"; then
   if test ! -x "$DEFAULT_LINKER"; then
-    AC_MSG_WARN([cannot execute: $DEFAULT_LINKER: check --with-ld or env. var. DEFAULT_LINKER])
+    AC_MSG_ERROR([cannot execute: $DEFAULT_LINKER: check --with-ld or env. var. DEFAULT_LINKER])
   elif $DEFAULT_LINKER -v < /dev/null 2>&1 | grep GNU > /dev/null; then
     gnu_ld_flag=yes
   fi
@@ -226,7 +226,7 @@ AC_ARG_WITH(as,
 DEFAULT_ASSEMBLER="$with_as")
 if test x"${DEFAULT_ASSEMBLER+set}" = x"set"; then
   if test ! -x "$DEFAULT_ASSEMBLER"; then
-    AC_MSG_WARN([cannot execute: $DEFAULT_ASSEMBLER: check --with-as or env. var. DEFAULT_ASSEMBLER])
+    AC_MSG_ERROR([cannot execute: $DEFAULT_ASSEMBLER: check --with-as or env. var. DEFAULT_ASSEMBLER])
   elif $DEFAULT_ASSEMBLER -v < /dev/null 2>&1 | grep GNU > /dev/null; then
     gas_flag=yes
   fi
@@ -768,7 +768,7 @@ fi
 # How about lex?
 dnl Don't use AC_PROG_LEX; we insist on flex.
 dnl LEXLIB is not useful in gcc.
-if test -f $srcdir/../flex/skel.c; then
+if test x${build} = x${host} && test -f $srcdir/../flex/skel.c; then
   FLEX='$(objdir)/../flex/flex'
 else
   AC_CHECK_PROG(FLEX, flex, flex, ${CONFIG_SHELL-/bin/sh} ${srcdir}/../missing flex)
@@ -776,7 +776,7 @@ fi
 
 # Bison?
 # The -L switch is so bison can find its skeleton file.
-if test -f $srcdir/../bison/bison.simple; then
+if test x${build} = x${host} && test -f $srcdir/../bison/bison.simple; then
   BISON='$(objdir)/../bison/bison -L $(srcdir)/../bison/'
 else
   AC_CHECK_PROG(BISON, bison, bison, ${CONFIG_SHELL-/bin/sh} ${srcdir}/../missing bison)
@@ -2547,6 +2547,26 @@ foo:
 changequote(,)dnl
   i[34567]86-*-* | x86_64-*-*)
 changequote([,])dnl
+    case $target_os in
+      cygwin* | pe | mingw32*)
+	# Used for DWARF 2 in PE
+	gcc_GAS_CHECK_FEATURE([.secrel32 relocs],
+	  gcc_cv_as_ix86_pe_secrel32,
+	  [2,15,91],,
+[.text
+foo:	nop
+.data
+	.secrel32 foo],
+	  [if test x$gcc_cv_ld != x \
+	   && $gcc_cv_ld -o conftest conftest.o > /dev/null 2>&1; then
+	     gcc_cv_as_ix86_pe_secrel32=yes
+	   fi
+	   rm -f conftest],
+	  [AC_DEFINE(HAVE_GAS_PE_SECREL32_RELOC, 1,
+	    [Define if your assembler and linker support 32-bit section relative relocs via '.secrel32 label'.])])
+	;;
+    esac
+
     gcc_GAS_CHECK_FEATURE([filds and fists mnemonics],
        gcc_cv_as_ix86_filds_fists,
       [2,9,0],, [filds mem; fists mem],,
@@ -2762,8 +2782,9 @@ AC_MSG_RESULT($gcc_cv_ld_pie)
 # UNSORTED
 # --------
 
-AC_MSG_CHECKING(linker --as-needed support)
-gcc_cv_ld_as_needed=no
+AC_CACHE_CHECK(linker --as-needed support,
+gcc_cv_ld_as_needed,
+[gcc_cv_ld_as_needed=no
 if test $in_tree_ld = yes ; then
   if test "$gcc_cv_gld_major_version" -eq 2 -a "$gcc_cv_gld_minor_version" -ge 16 -o "$gcc_cv_gld_major_version" -gt 2 \
      && test $in_tree_ld_is_elf = yes; then
@@ -2775,11 +2796,11 @@ elif test x$gcc_cv_ld != x; then
 		gcc_cv_ld_as_needed=yes
 	fi
 fi
+])
 if test x"$gcc_cv_ld_as_needed" = xyes; then
 	AC_DEFINE(HAVE_LD_AS_NEEDED, 1,
 [Define if your linker supports --as-needed and --no-as-needed options.])
 fi
-AC_MSG_RESULT($gcc_cv_ld_as_needed)
 
 if test x$with_sysroot = x && test x$host = x$target \
    && test "$prefix" != "/usr" && test "x$prefix" != "x$local_prefix" ; then
@@ -2885,7 +2906,7 @@ all_languages=
 all_boot_languages=
 all_compilers=
 all_stagestuff=
-all_outputs='Makefile fixinc/Makefile gccbug mklibgcc mkheaders'
+all_outputs='Makefile fixinc/Makefile gccbug mklibgcc mkheaders libada-mk'
 # List of language makefile fragments.
 all_lang_makefrags=
 # List of language subdirectory makefiles.  Deprecated.

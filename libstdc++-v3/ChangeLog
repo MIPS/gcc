@@ -1,3 +1,339 @@
+2004-05-16  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/std/std_bitset.h: Minor formatting fixes.
+
+2004-05-16  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/ext/mt_allocator.h (__mt_alloc<>::deallocate):
+	Consistently update __bin._M_free[0].
+	(__mt_alloc<>::allocate): When __bin._M_first[0] != NULL use
+	__bin._M_free[0] to simplify the while loop (i.e., the number
+	of iterations becomes known at the outset).
+
+2004-05-15  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/std/std_bitset.h: Trivial formatting fixes.
+
+2004-05-14  Paolo Carlini  <pcarlini@suse.de>
+	    Ivan Godard  <igodard@pacbell.net>
+
+	PR libstdc++/15361
+	* include/std/std_bitset.h (_Base_bitset<_Nw>::_M_do_find_next): Fix.
+	* testsuite/23_containers/bitset/ext/15361.cc: New.
+
+2004-05-13  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/15046
+	* crossconfig.m4: Add C99 math bits for linux crosses.
+	* configure: Regenerate.
+	
+2004-05-13  Simon Marshall <simon.marshall@misys.com>
+	    Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/15090
+	* include/bits/locale_facets.h: Fix for -fno-for-scope.
+	* include/debug/safe_sequence.h: Same.
+	* include/debug/safe_iterator.tcc: Same.
+	* src/debug.cc: Same.
+	* src/locale.cc: Same.
+	* src/locale_init.cc: Same.
+	* src/localename.cc: Same.
+	* config/locale/gnu/ctype_members.cc: Same.
+	* config/locale/gnu/numeric_members.cc: Same.
+	* testsuite/testsuite_abi.cc: Same.
+	* testsuite/testsuite_hooks.cc: Same.
+	
+2004-05-13  Jonathan Wakely  <redi@gcc.gnu.org>
+	
+	* docs/html/abi.html: Document effect of -fabi-version on value
+	of __GXX_ABI_VERSION, and that it's defined in c-cppbuiltin.c.
+	Fix markup.
+
+2004-05-13  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/15074	
+	* docs/html/faq/index.html: Update docs for libsupc++ usage.
+
+2004-05-13  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/15412
+	* include/bits/stl_threads.h (_GLIBCXX_mutex): Move to namespace
+	__gnu_internal.
+	(_GLIBCXX_mutex_address): Same.
+	(_GLIBCXX_once): Same.	
+	(_GLIBCXX_mutex_init): Same.
+	(_GLIBCXX_mutex_address_init): Same.
+	
+2004-05-13  Benjamin Kosnik  <bkoz@redhat.com>
+	
+	* docs/html/abi.html: New.
+	* docs/html/abi.txt: Remove.
+	* docs/html/documentation.html: Add link.
+	* testsuite/Makefile.am: Add files.
+	* testsuite/Makefile.in: Regenerated.
+	* testsuite/abi_check.cc: Move and modify code into...
+	* testsuite/testsuite_abi.cc: Add.
+	* testsuite/testsuite_abi.h: Add.
+
+	* docs/html/17_intro/TODO: Update.
+	* include/bits/stl_pair.h: Format.
+	
+2004-05-06  Matthias Klose  <doko@debian.org>
+
+	* include/backward/iterator.h: 	Add GPL copyright info,
+	with exception clause.
+	* include/bits/boost_concept_check.h: Likewise.
+	* include
+	* libsupc++/tinfo.h: Likewise.
+	* po/string_literals.cc: Likewise.
+	
+2004-05-03  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* acinclude.m4: Replace -W with more speaking -Wextra.
+	* configure: Rebuilt.
+
+2004-05-03  Paolo Carlini  <pcarlini@suse.de>
+
+	Optimize locale::_M_impl->_M_names for the most common cases:
+	!_M_names[0] means unnamed; !_M_names[1] means all the categories
+	the same name (_M_names[0] && _M_names[1] means that the full set
+	of _M_names must be processed, the general case).
+	* include/bits/locale_classes.h (locale::_Impl::_M_check_same_name):
+	Tweak, saving work when !_M_names[1].
+	(locale::locale(const locale&, _Facet*): Simplify: now just setting
+	_M_names[0] = 0 means unnamed.
+	* src/locale.cc (locale::operator==): Deal first with the common,
+	easy cases, otherwise fall back to locale::name().
+	(locale::name()): Tweak, if !_M_names[0] just return "*".
+	(locale::_Impl::_Impl(const _Impl&, size_t): Tweak, early stop
+	copying __imp._M_names if !__imp._M_names[0] or !__imp._M_names[1].
+	* src/locale_init.cc (locale::_Impl::_Impl(size_t)): Tweak.
+	* src/localename.cc (locale::_Impl::_Impl(const char*, size_t):
+	Simplify when !std::strchr, just updating _M_names[0]; clean up.
+	(locale::_Impl::_M_replace_categories): When !_M_names[1] prepare
+	for the general case (full set of names), then do the usual work;
+	clean up.
+
+	* src/locale.cc (locale::name()): Reserve space in __ret.
+	* src/locale_init.cc (locale::global(const locale&)): Save
+	the name in a temporary.
+	* src/localename.cc (locale::locale(const char*)): Reserve space
+	in __str.
+
+2004-04-29  Paolo Carlini  <pcarlini@suse.de>
+
+	* src/locale.cc (locale::operator==): Always avoid constructing
+	locale::name(), directly compare pairs of _M_names.
+
+2004-04-26  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/istream.tcc: Fix comment.
+
+2004-04-26  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/stl_vector.h: Trivial formatting fixes.
+	* include/bits/vector.tcc: Likewise.
+
+2004-04-25  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/15002 (continued again)
+	* include/bits/istream.tcc (getline(basic_istream<>&,
+	basic_string<>&, _CharT)): Use a temporary buffer, thus
+	avoiding reallocation for common case.
+
+	* include/bits/basic_string.tcc (_S_construct(_InIterator,
+	_InIterator, const _Alloc&, input_iterator_tag)): Tweak size
+	of temporary buffer to a power of two.
+
+	* testsuite/27_io/basic_istream/getline/char/4.cc: Add comment.
+
+2004-04-25  Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/21_strings/basic_string/inserters_extractors/char/10.cc:
+	New.
+	* testsuite/21_strings/basic_string/inserters_extractors/wchar_t/10.cc:
+	Likewise.
+	* testsuite/27_io/basic_istream/getline/char/5.cc: Likewise.
+
+2004-04-24  Paolo Carlini  <pcarlini@suse.de>
+	    Petur Runolfsson  <peturr02@ru.is>
+
+	PR libstdc++/15002 (continued)
+	* include/bits/istream.tcc (basic_istream<>::getline(char_type*,
+	streamsize, char_type)): Use traits::find/copy in a loop to speed
+	up greatly the function in the common case (I/O buffer size >> 1).
+
+2004-04-24  Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/27_io/basic_istream/getline/char/4.cc: New.	
+
+	* include/bits/istream.tcc (getline(basic_istream<>&,
+	basic_string<>&, _CharT)): Change to use sgetc()/snextc() instead
+	of sbumpc(), consistently with the other functions, thus also
+	dealing correctly with the case of exceeded string::max_size().
+
+2004-04-24  Matthias Klose  <doko@debian.org>
+
+	Jonathan Wakely  <cow@compsoc.man.ac.uk>
+	* docs/html/configopts.html: Fix reference to allocator config option.
+
+2004-04-23  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* linkage.m4 (GLIBCXX_CHECK_MATH_SUPPORT): Check for libmx also.
+	* configure: Regenerate.
+
+2004-04-23  Daniel Jacobowitz  <drow@mvista.com>
+
+	PR libstdc++/15047, libstdc++/11610
+	* testsuite/lib/libstdc++.exp (v3-copy-files): Use remote_download.
+	(libstdc++_init): Don't pass outdir to v3-copy-files.
+
+2004-04-21  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/deque.tcc: Trivial formatting fixes.
+	* include/bits/stl_deque.h: Likewise.
+	* include/bits/stl_list.h: Likewise.
+	* include/bits/stl_tree.h: Likewise.
+
+2004-04-21  Paolo Carlini  <pcarlini@suse.de>
+	    Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* include/bits/basic_string.tcc (_M_mutate): Don't compute
+	__src unnecessarily.
+
+2004-04-19  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/27_io/basic_istream/extractors_character/char/9555-ic.cc: 
+	Clarify assertion, set test variable to false before assert.
+	* testsuite/27_io/basic_istringstream/str/char/1.cc: Same.
+	* testsuite/27_io/basic_stringstream/str/char/1.cc: Same.
+	* testsuite/27_io/ios_base/storage/2.cc: Same.
+	
+	* testsuite/27_io/basic_filebuf/imbue/char/13171-4.cc: Fix
+	function returns.
+	* testsuite/27_io/basic_filebuf/imbue/wchar_t/13582-3.cc: Same.
+	* testsuite/27_io/fpos/14320-3.cc: Same.
+	
+	* testsuite/27_io/basic_filebuf/2.cc: Instantiate in namespace std.
+	* testsuite/27_io/fpos/1.cc: Same.
+	* testsuite/27_io/basic_stringstream/2.cc: Same.
+	* testsuite/27_io/basic_stringbuf/4.cc: Same.
+	* testsuite/27_io/basic_stringbuf/1.cc: Same.
+	* testsuite/27_io/basic_stringbuf/2.cc: Same.
+	* testsuite/27_io/basic_streambuf/2.cc: Same.
+	* testsuite/27_io/basic_ostringstream/2.cc: Same.
+	* testsuite/27_io/basic_ostream/2.cc: Same.
+	* testsuite/27_io/basic_ofstream/2.cc: Same.
+	* testsuite/27_io/basic_istringstream/2.cc: Same.
+	* testsuite/27_io/basic_istream/2.cc: Same.
+	* testsuite/27_io/basic_iostream/2.cc: Same.
+	* testsuite/27_io/basic_ios/2.cc: Same.
+	* testsuite/27_io/basic_ifstream/2.cc: Same.
+	* testsuite/27_io/basic_fstream/2.cc: Same.
+	* testsuite/ext/stdio_filebuf/char/1.cc: Same, in namespace __gnu_cxx.
+
+	* testsuite/21_strings/basic_string/capacity/1.cc: Don't compare
+	unsigned against zero.
+	* testsuite/21_strings/basic_string/capacity/wchar_t/1.cc: Same.
+	* testsuite/21_strings/basic_string/capacity/char/1.cc: Same.
+
+	* testsuite/18_support/new_delete_placement.cc: Initialize
+	variables before first use.
+	* testsuite/21_strings/char_traits/requirements/wchar_t/1.cc: Same.
+	* testsuite/21_strings/char_traits/requirements/char/1.cc: Same.
+	* testsuite/21_strings/char_traits/requirements/short/1.cc: Same.
+	* testsuite/27_io/basic_istream/seekg/char/exceptions_badbit_throw.cc: 
+	Same.
+	* testsuite/27_io/basic_ostream/inserters_arithmetic/char/exceptions_badbit_throw.cc: Same.
+	* testsuite/27_io/basic_ostream/seekp/char/exceptions_badbit_throw.cc: 
+	Same.
+	* testsuite/27_io/basic_ostream/inserters_arithmetic/char/exceptions_failbit_throw.cc: Same.
+	* testsuite/27_io/types/2.cc: Same.
+
+	* testsuite/ext/stdio_sync_filebuf/wchar_t/12077.cc: Fix temporary
+	file name.	
+	* testsuite/27_io/fpos/14775.cc: Same.
+	
+2004-04-19  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/15002 (partial)
+	* include/bits/basic_string.h (_M_replace_aux, _M_replace_safe):
+	Special case __n2 == 1, not calling traits_type::assign/copy. 
+
+2004-04-17  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/bits/stl_bvector.h: Use _M_impl._M_start.
+	
+2004-04-16  Benjamin Kosnik  <bkoz@redhat.com>
+	
+	* include/bits/c++config (_GLIBCXX_STD): New.
+	* src/list.cc: Use it.
+	* include/std/std_bitset.h: Same.
+	* include/bits/vector.tcc: Same.
+	* include/bits/stl_set.h: Same.
+	* include/bits/stl_multiset.h: Same.
+	* include/bits/stl_multimap.h: Same.
+	* include/bits/stl_map.h: Same.
+	* include/bits/stl_list.h: Same.
+	* include/bits/stl_vector.h: Same.
+	* include/bits/stl_bvector.h: Same.
+	* include/bits/stl_deque.h: Same.
+	* include/bits/deque.tcc: Same.
+	* include/bits/list.tcc: Same.
+	* include/debug/vector: Same.
+	* include/debug/set.h: Same.
+	* include/debug/multiset.h: Same.
+	* include/debug/multimap.h: Same.
+	* include/debug/map.h: Same.
+	* include/debug/list: Same.
+	* include/debug/deque: Same.
+	* include/debug/bitset: Same.	
+	* include/debug/formatter.h (__gnu_debug): Remove using directive.
+	Add using declaration for std::type_info.
+	* include/debug/safe_iterator.h: Add using declaration for
+	std::iterator_traits and std::pair.
+	* src/debug_list.cc: New.
+	* src/Makefile.am: Add debug_list.cc.
+	* src/Makefile.in: Regenerate.
+	* config/linker-map.gnu: Add _List_node_base exports for std and
+	__gnu_norm.
+
+	* include/bits/stl_bvector.h (_Bvector_base): Use _Bvector_impl
+	idiom that other containers use.
+	* testsuite/23_containers/vector/bool/clear_allocator.cc: New.
+			
+2004-04-16  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/14975
+	* include/bits/fstream.tcc (basic_filebuf::imbue): Zero _M_codecvt
+	in case of error.
+	* testsuite/27_io/basic_filebuf/imbue/char/14975-1.cc: New.
+	* testsuite/27_io/basic_filebuf/imbue/wchar_t/14975-2.cc: New.
+
+2004-04-16  Paolo Carlini  <pcarlini@suse.de>
+
+	* acconfig.h: Remove _GLIBCXX_USE_LONG_DOUBLE entry, not
+	used anymore.
+	* config.h.in: Regenerate.
+
+2004-04-16  Paolo Carlini  <pcarlini@suse.de>
+
+	* config/locale/generic/monetary_members.cc
+	(moneypunct<wchar_t>::_M_initialize_moneypunct): Avoid calling
+	btowc unnecessarily, just cast to wchar_t (the concerned chars
+	all belong to the basic character set).
+	* config/locale/generic/numeric_members.cc
+	(numpunct<wchar_t>::_M_initialize_numpunct): Likewise.
+	* config/locale/gnu/monetary_members.cc
+	(moneypunct<wchar_t>::_M_initialize_moneypunct): Likewise.
+	* config/locale/gnu/numeric_members.cc
+	(numpunct<wchar_t>::_M_initialize_numpunct): Likewise.
+
+2004-04-15  Paolo Carlini  <pcarlini@suse.de>
+
+	* src/locale.cc (locale::operator==): When _M_impl == __rhs._M_impl
+	avoid constructing unnecessarily this->name().
+
 2004-04-14  Zack Weinberg  <zack@codesourcery.com>
 
 	* testsuite/Makefile.am: Add definition of AM_CXXFLAGS.

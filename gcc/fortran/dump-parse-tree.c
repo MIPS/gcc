@@ -1,23 +1,23 @@
 /* Parse tree dumper
-   Copyright (C) 2003 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
    Contributed by Steven Bosscher
 
-This file is part of GNU G95.
+This file is part of GCC.
 
-GNU G95 is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
 
-GNU G95 is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU G95; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
 
 
 /* Actually this is just a collection of routines that used to be
@@ -183,18 +183,28 @@ gfc_show_array_ref (gfc_array_ref * ar)
     case AR_SECTION:
       for (i = 0; i < ar->dimen; i++)
 	{
+	  /* There are two types of array sections: either the
+	     elements are identified by an integer array ('vector'),
+	     or by an index range. In the former case we only have to
+	     print the start expression which contains the vector, in
+	     the latter case we have to print any of lower and upper
+	     bound and the stride, if they're present.  */
+  
 	  if (ar->start[i] != NULL)
 	    gfc_show_expr (ar->start[i]);
 
-	  gfc_status_char (':');
-
-	  if (ar->end[i] != NULL)
-	    gfc_show_expr (ar->end[i]);
-
-	  if (ar->stride[i] != NULL)
+	  if (ar->dimen_type[i] == DIMEN_RANGE)
 	    {
 	      gfc_status_char (':');
-	      gfc_show_expr (ar->stride[i]);
+
+	      if (ar->end[i] != NULL)
+		gfc_show_expr (ar->end[i]);
+
+	      if (ar->stride[i] != NULL)
+		{
+		  gfc_status_char (':');
+		  gfc_show_expr (ar->stride[i]);
+		}
 	    }
 
 	  if (i != ar->dimen - 1)
@@ -287,7 +297,7 @@ gfc_show_constructor (gfc_constructor * c)
 }
 
 
-/* Show an expression.  Non-static because we use it in match.c.  */
+/* Show an expression.  */
 
 static void
 gfc_show_expr (gfc_expr * p)

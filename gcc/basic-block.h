@@ -406,7 +406,7 @@ extern void compute_bb_for_insn (void);
 extern void free_bb_for_insn (void);
 extern void update_bb_for_insn (basic_block);
 
-extern void free_basic_block_vars (int);
+extern void free_basic_block_vars (void);
 
 extern void insert_insn_on_edge (rtx, edge);
 bool safe_insert_insn_on_edge (rtx, edge);
@@ -564,7 +564,7 @@ enum update_life_extent
 					   insns.  */
 #define CLEANUP_CFGLAYOUT	256	/* Do cleanup in cfglayout mode.  */
 #define CLEANUP_LOG_LINKS	512	/* Update log links.  */
-extern void life_analysis (rtx, FILE *, int);
+extern void life_analysis (FILE *, int);
 extern int update_life_info (sbitmap, enum update_life_extent, int);
 extern int update_life_info_in_dirty_blocks (enum update_life_extent, int);
 extern int count_or_remove_death_notes (sbitmap, int);
@@ -619,7 +619,7 @@ extern void unlink_block (basic_block);
 extern void compact_blocks (void);
 extern basic_block alloc_block (void);
 extern void find_unreachable_blocks (void);
-extern int delete_noop_moves (rtx);
+extern int delete_noop_moves (void);
 extern basic_block force_nonfallthru (edge);
 extern rtx block_label (basic_block);
 extern bool forwarder_block_p (basic_block);

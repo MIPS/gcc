@@ -259,8 +259,9 @@ calls_function_1 (tree exp, int which)
       break;
     }
 
-  /* Only expressions and blocks can contain calls.  */
-  if (! IS_EXPR_CODE_CLASS (class) && class != 'b')
+  /* Only expressions and blocks can contain calls.
+     Blocks were handled above.  */
+  if (! IS_EXPR_CODE_CLASS (class))
     return 0;
 
   for (i = 0; i < length; i++)
@@ -655,21 +656,8 @@ special_function_p (tree fndecl, int flags)
       else if (tname[0] == 'l' && tname[1] == 'o'
 	       && ! strcmp (tname, "longjmp"))
 	flags |= ECF_LONGJMP;
-
-      else if ((tname[0] == 'f' && tname[1] == 'o'
-		&& ! strcmp (tname, "fork"))
-	       /* Linux specific: __clone.  check NAME to insist on the
-		  leading underscores, to avoid polluting the ISO / POSIX
-		  namespace.  */
-	       || (name[0] == '_' && name[1] == '_'
-		   && ! strcmp (tname, "clone"))
-	       || (tname[0] == 'e' && tname[1] == 'x' && tname[2] == 'e'
-		   && tname[3] == 'c' && (tname[4] == 'l' || tname[4] == 'v')
-		   && (tname[5] == '\0'
-		       || ((tname[5] == 'p' || tname[5] == 'e')
-			   && tname[6] == '\0'))))
-	flags |= ECF_FORK_OR_EXEC;
     }
+
   return flags;
 }
 
@@ -1416,7 +1404,7 @@ precompute_arguments (int flags, int num_actuals, struct arg_data *args)
 	    args[i].value
 	      = convert_modes (args[i].mode, mode,
 			       args[i].value, args[i].unsignedp);
-#ifdef PROMOTE_FOR_CALL_ONLY
+#if defined(PROMOTE_FUNCTION_MODE) && !defined(PROMOTE_MODE)
 	    /* CSE will replace this only if it contains args[i].value
 	       pseudo, so convert it down to the declared mode using
 	       a SUBREG.  */
@@ -2466,18 +2454,6 @@ expand_call (tree exp, rtx target, int ignore)
 	try_tail_call = 0;
     }
 
-
-  if (profile_arc_flag && (flags & ECF_FORK_OR_EXEC))
-    {
-      /* A fork duplicates the profile information, and an exec discards
-	 it.  We can't rely on fork/exec to be paired.  So write out the
-	 profile information we have gathered so far, and clear it.  */
-      /* ??? When Linux's __clone is called with CLONE_VM set, profiling
-	 is subject to race conditions, just as with multithreaded
-	 programs.  */
-
-      emit_library_call (gcov_flush_libfunc, LCT_ALWAYS_RETURN, VOIDmode, 0);
-    }
 
   /* Ensure current function's preferred stack boundary is at least
      what we need.  We don't have to increase alignment for recursive

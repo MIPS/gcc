@@ -37,7 +37,7 @@ Boston, MA 02111-1307, USA.  */
 #include "diagnostic.h"
 #include "bitmap.h"
 #include "tree-flow.h"
-#include "tree-simple.h"
+#include "tree-gimple.h"
 #include "tree-inline.h"
 #include "varray.h"
 #include "timevar.h"
@@ -521,7 +521,7 @@ delete_tree_ssa (void)
   fini_ssa_operands ();
 
   global_var = NULL_TREE;
-  BITMAP_FREE (call_clobbered_vars);
+  BITMAP_XFREE (call_clobbered_vars);
   call_clobbered_vars = NULL;
   aliases_computed_p = false;
 }

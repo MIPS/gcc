@@ -20,7 +20,7 @@ the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
 
-#ifndef _TREE_SSA_LIVE_H__
+#ifndef _TREE_SSA_LIVE_H
 #define _TREE_SSA_LIVE_H 1
 
 /* Used to create the variable mapping when we go out of SSA form.  */
@@ -72,6 +72,7 @@ extern void change_partition_var (var_map, tree, int);
 extern void compact_var_map (var_map, int);
 extern void remove_ssa_form (FILE *, var_map, int);
 extern void register_ssa_partitions_for_vars (bitmap vars, var_map map);
+extern tree make_ssa_temp (tree);
 
 static inline int num_var_partitions (var_map);
 static inline tree var_to_partition_to_var (var_map, tree);

@@ -1235,6 +1235,8 @@ extern int common_enclosing_context_p (tree, tree);
 extern int enclosing_context_p (tree, tree);
 extern tree build_result_decl (tree);
 extern void emit_handlers (void);
+extern void set_method_index (tree decl, tree method_index);
+extern tree get_method_index (tree decl);
 extern void make_class_data (tree);
 extern void register_class (void);
 extern int alloc_name_constant (int, tree);

@@ -129,6 +129,7 @@ loop discovery		Michael Hayes		m.hayes@elec.canterbury.ac.nz
 scheduler (+ haifa)	Jim Wilson		wilson@specifixinc.com
 scheduler (+ haifa)	Michael Meissner	gnu@the-meissners.org
 scheduler (+ haifa)	Jeff Law		law@redhat.com
+scheduler (+ haifa)	Vladimir Makarov	vmakarov@redhat.com
 reorg			Jeff Law		law@redhat.com
 caller-save.c		Jeff Law		law@redhat.com
 callgraph		Jan Hubicka		jh@suse.cz
@@ -169,6 +170,11 @@ gcov			Nathan Sidwell		nathan@codesourcery.com
 option handling		Neil Booth		neil@daikokuya.co.uk
 libffi testsuite	Andreas Tobler		andreast@gcc.gnu.org
 middle-end		Roger Sayle		roger@eyesopen.com
+tree-ssa		Diego Novillo		dnovillo@redhat.com
+tree-ssa		Andrew MacLeod		amacleod@redhat.com
+PRE, points-to		Daniel Berlin		dberlin@dberlin.org
+mudflap			Frank Ch. Eigler	fche@redhat.com
+tree browser/unparser	Sebastian Pop		s.pop@laposte.net
 
 Note individuals who maintain parts of the compiler need approval to check
 in changes outside of the parts of the compiler they maintain.
@@ -183,6 +189,7 @@ Wolfgang Bangerth				bangerth@dealii.org
 Daniel Berlin					dan@dberlin.org
 David Billinghurst				David.Billinghurst@riotinto.com
 Laurynas Biveinis			        laurynas.biveinis@mif.vu.lt
+Uros Bizjak					uros@kss-loka.si
 Eric Blake					ericb@gcc.gnu.org
 Jim Blandy					jimb@redhat.com
 Phil Blundell					pb@futuretv.com
@@ -210,10 +217,11 @@ Mohan Embar					gnustuff@thisiscool.com
 Marc Espie					espie@cvs.openbsd.org
 Ansgar Esztermann				ansgar@thphy.uni-duesseldorf.de
 Doug Evans					dje@transmeta.com
+Brian Ford					ford@vss.fsi.com
 Kaveh Ghazi					ghazi@caip.rutgers.edu
 Matthew Gingell					gingell@gnat.com
 Anthony Green					green@redhat.com
-Laurent Guerby					guerby@acm.org
+Laurent Guerby					laurent@guerby.net
 Olivier Hainque					hainque@act-europe.fr
 Stuart Hastings					stuart@apple.com
 Matthew Hiller					hiller@redhat.com
@@ -272,6 +280,7 @@ Gavin Romig-Koch				gavin@redhat.com
 Ira Ruben					ira@apple.com
 Douglas Rupp					rupp@gnat.com
 Alex Samuel					samuel@codesourcery.com
+Tobias Schlüter					tobias.schlueter@physik.uni-muenchen.de
 Andreas Schwab					schwab@suse.de
 Svein Seldal                                    svein.seldal@solidas.com
 Franz Sirl					franz.sirl-kernel@lauterbach.com

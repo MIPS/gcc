@@ -30,7 +30,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "rtl.h"
 #include "errors.h"
 #include "varray.h"
-#include "tree-simple.h"
+#include "tree-gimple.h"
 #include "tree-inline.h"
 #include "diagnostic.h"
 #include "langhooks.h"
@@ -350,6 +350,10 @@ create_tmp_var (tree type, const char *prefix)
     abort ();
   if (!COMPLETE_TYPE_P (type))
     abort ();
+  /* Variable sized types require lots of machinery to create; the
+     optimizers shouldn't be doing anything of the sort.  */
+  if (TREE_CODE (TYPE_SIZE_UNIT (type)) != INTEGER_CST)
+    abort ();
 #endif
 
   tmp_var = create_tmp_var_raw (type, prefix);
@@ -569,7 +573,7 @@ annotate_all_with_locus (tree *stmt_p, location_t locus)
 #endif
 
       if (IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (TREE_CODE (t)))
-	  && ! EXPR_LOCUS (t)
+	  && ! EXPR_HAS_LOCATION (t)
 	  && should_carry_locus_p (t))
 	annotate_with_locus (t, locus);
     }
@@ -1583,7 +1587,16 @@ build_addr_expr_with_type (tree t, tree ptrtype)
 	t = build1 (NOP_EXPR, ptrtype, t);
     }
   else
-    t = build1 (ADDR_EXPR, ptrtype, t);
+    {
+      tree base = t;
+      while (TREE_CODE (base) == COMPONENT_REF
+	     || TREE_CODE (base) == ARRAY_REF)
+	base = TREE_OPERAND (base, 0);
+      if (DECL_P (base))
+	TREE_ADDRESSABLE (base) = 1;
+
+      t = build1 (ADDR_EXPR, ptrtype, t);
+    }
 
   return t;
 }
@@ -1731,10 +1744,21 @@ gimplify_compound_lval (tree *expr_p, tree *pre_p,
 	{
 	  /* Gimplify the dimension.  */
 	  enum gimplify_status tret;
-	  tret = gimplify_expr (&TREE_OPERAND (t, 1), pre_p, post_p,
-				is_gimple_val, fb_rvalue);
-	  if (tret == GS_ERROR)
-	    ret = GS_ERROR;
+	  /* Temporary fix for gcc.c-torture/execute/20040313-1.c.
+	     Gimplify non-constant array indices into a temporary
+	     variable.
+	     FIXME - The real fix is to gimplify post-modify
+	     expressions into a minimal gimple lvalue.  However, that
+	     exposes bugs in alias analysis.  The alias analyzer does
+	     not handle &PTR->FIELD very well.  Will fix after the
+	     branch is merged into mainline (dnovillo 2004-05-03).  */
+	  if (!is_gimple_min_invariant (TREE_OPERAND (t, 1)))
+	    {
+	      tret = gimplify_expr (&TREE_OPERAND (t, 1), pre_p, post_p,
+				    is_gimple_tmp_var, fb_rvalue);
+	      if (tret == GS_ERROR)
+		ret = GS_ERROR;
+	    }
 	}
       recalculate_side_effects (t);
       VARRAY_POP (stack);
@@ -2205,7 +2229,7 @@ gimple_boolify (tree expr)
 
   /* If this is the predicate of a COND_EXPR, it might not even be a
      truthvalue yet.  */
-  expr = (*lang_hooks.truthvalue_conversion) (expr);
+  expr = lang_hooks.truthvalue_conversion (expr);
 
   switch (TREE_CODE (expr))
     {
@@ -2353,7 +2377,6 @@ gimplify_cond_expr (tree *expr_p, tree *pre_p, tree target)
   return ret;
 }
 
-
 /*  Gimplify the MODIFY_EXPR node pointed by EXPR_P.
 
       modify_expr
@@ -2437,6 +2460,34 @@ gimplify_modify_expr (tree *expr_p, tree *pre_p, tree *post_p, bool want_value)
 	  || (is_gimple_reg_type (TREE_TYPE (*from_p))
 	      && !is_gimple_reg (*to_p)))
 	gimplify_expr (from_p, pre_p, post_p, is_gimple_val, fb_rvalue);
+
+      /* If the value being copied is of variable width, expose the length
+	 if the copy by converting the whole thing to a memcpy.  */
+      /* ??? Except that we can't manage this with VA_ARG_EXPR.  Yes, this
+	 does leave us with an edge condition that doesn't work.  The only
+	 way out is to rearrange how VA_ARG_EXPR works.  */
+      if (TREE_CODE (TYPE_SIZE_UNIT (TREE_TYPE (*to_p))) != INTEGER_CST
+	  && TREE_CODE (*from_p) != VA_ARG_EXPR)
+	{
+	  tree args, t, dest;
+
+	  t = TYPE_SIZE_UNIT (TREE_TYPE (*to_p));
+	  args = tree_cons (NULL, t, NULL);
+	  t = build_addr_expr (*from_p);
+	  args = tree_cons (NULL, t, args);
+	  dest = build_addr_expr (*to_p);
+	  args = tree_cons (NULL, dest, args);
+	  t = implicit_built_in_decls[BUILT_IN_MEMCPY];
+	  t = build_function_call_expr (t, args);
+	  if (want_value)
+	    {
+	      t = build1 (NOP_EXPR, TREE_TYPE (dest), t);
+	      t = build1 (INDIRECT_REF, TREE_TYPE (*to_p), t);
+	    }
+	  *expr_p = t;
+
+	  return GS_OK;
+	}
 
       ret = want_value ? GS_OK : GS_ALL_DONE;
     }
@@ -2642,7 +2693,7 @@ gimplify_addr_expr (tree *expr_p, tree *pre_p, tree *post_p)
 	  recompute_tree_invarant_for_addr_expr (expr);
 
 	  /* Mark the RHS addressable.  */
-	  (*lang_hooks.mark_addressable) (TREE_OPERAND (expr, 0));
+	  lang_hooks.mark_addressable (TREE_OPERAND (expr, 0));
 	}
       break;
     }
@@ -2685,32 +2736,40 @@ gimplify_asm_expr (tree *expr_p, tree *pre_p, tree *post_p)
 			       &allows_mem, &allows_reg, &is_inout);
 
       if (!allows_reg && allows_mem)
-	(*lang_hooks.mark_addressable) (TREE_VALUE (link));
+	lang_hooks.mark_addressable (TREE_VALUE (link));
 
       tret = gimplify_expr (&TREE_VALUE (link), pre_p, post_p,
-			    is_gimple_lvalue, fb_lvalue | fb_mayfail);
+			    is_inout ? is_gimple_min_lval : is_gimple_lvalue,
+			    fb_lvalue | fb_mayfail);
       if (tret == GS_ERROR)
 	{
 	  error ("invalid lvalue in asm output %d", i);
 	  ret = tret;
 	}
 
-      if (is_inout && allows_reg)
+      if (is_inout)
 	{
-	  /* An input/output operand that allows a register.  To give the
-	     optimizers more flexibility, split it into separate input and
-	     output operands.  */
+	  /* An input/output operand.  To give the optimizers more
+	     flexibility, split it into separate input and output
+ 	     operands.  */
 	  tree input;
 	  char buf[10];
+	  size_t constraint_len = strlen (constraint);
 
 	  /* Turn the in/out constraint into an output constraint.  */
 	  char *p = xstrdup (constraint);
 	  p[0] = '=';
-	  TREE_VALUE (TREE_PURPOSE (link)) = build_string (strlen (p), p);
+	  TREE_VALUE (TREE_PURPOSE (link)) = build_string (constraint_len, p);
+	  free (p);
 
 	  /* And add a matching input constraint.  */
-	  sprintf (buf, "%d", i);
-	  input = build_string (strlen (buf), buf);
+	  if (allows_reg)
+	    {
+	      sprintf (buf, "%d", i);
+	      input = build_string (strlen (buf), buf);
+	    }
+	  else
+	    input = build_string (constraint_len - 1, constraint + 1);
 	  input = build_tree_list (build_tree_list (NULL_TREE, input),
 				   unshare_expr (TREE_VALUE (link)));
 	  ASM_INPUTS (expr) = chainon (ASM_INPUTS (expr), input);
@@ -2727,7 +2786,7 @@ gimplify_asm_expr (tree *expr_p, tree *pre_p, tree *post_p)
       /* If the operand is a memory input, it should be an lvalue.  */
       if (!allows_reg && allows_mem)
 	{
-	  (*lang_hooks.mark_addressable) (TREE_VALUE (link));
+	  lang_hooks.mark_addressable (TREE_VALUE (link));
 	  tret = gimplify_expr (&TREE_VALUE (link), pre_p, post_p,
 				is_gimple_lvalue, fb_lvalue | fb_mayfail);
 	  if (tret == GS_ERROR)
@@ -2970,7 +3029,7 @@ gimplify_to_stmt_list (tree *stmt_p)
 
     GIMPLE_TEST_F points to a function that takes a tree T and
 	returns nonzero if T is in the GIMPLE form requested by the
-	caller.  The GIMPLE predicates are in tree-simple.c.
+	caller.  The GIMPLE predicates are in tree-gimple.c.
 
 	This test is used twice.  Before gimplification, the test is
 	invoked to determine whether *EXPR_P is already gimple enough.  If
@@ -3041,7 +3100,7 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 	}
 
       /* Do any language-specific gimplification.  */
-      ret = (*lang_hooks.gimplify_expr) (expr_p, pre_p, post_p);
+      ret = lang_hooks.gimplify_expr (expr_p, pre_p, post_p);
       if (ret == GS_OK)
 	{
 	  if (*expr_p == NULL_TREE)

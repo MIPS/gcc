@@ -129,6 +129,7 @@ static void add_implicitly_declared_members (tree, int, int, int);
 static tree fixed_type_or_null (tree, int *, int *);
 static tree resolve_address_of_overloaded_function (tree, tree, tsubst_flags_t,
 						    bool, tree);
+static tree build_simple_base_path (tree expr, tree binfo);
 static tree build_vtbl_ref_1 (tree, tree);
 static tree build_vtbl_initializer (tree, tree, tree, tree, int *);
 static int count_fields (tree);
@@ -253,6 +254,7 @@ build_base_path (enum tree_code code,
   tree ptr_target_type;
   int fixed_type_p;
   int want_pointer = TREE_CODE (TREE_TYPE (expr)) == POINTER_TYPE;
+  bool has_empty = false;
 
   if (expr == error_mark_node || binfo == error_mark_node || !binfo)
     return error_mark_node;
@@ -260,6 +262,8 @@ build_base_path (enum tree_code code,
   for (probe = binfo; probe; probe = BINFO_INHERITANCE_CHAIN (probe))
     {
       d_binfo = probe;
+      if (is_empty_class (BINFO_TYPE (probe)))
+	has_empty = true;
       if (!v_binfo && TREE_VIA_VIRTUAL (probe))
 	v_binfo = probe;
     }
@@ -267,13 +271,17 @@ build_base_path (enum tree_code code,
   probe = TYPE_MAIN_VARIANT (TREE_TYPE (expr));
   if (want_pointer)
     probe = TYPE_MAIN_VARIANT (TREE_TYPE (probe));
-  
+
   my_friendly_assert (code == MINUS_EXPR
 		      ? same_type_p (BINFO_TYPE (binfo), probe)
 		      : code == PLUS_EXPR
 		      ? same_type_p (BINFO_TYPE (d_binfo), probe)
 		      : false, 20010723);
   
+  if (binfo == d_binfo)
+    /* Nothing to do.  */
+    return expr;
+
   if (code == MINUS_EXPR && v_binfo)
     {
       error ("cannot convert from base `%T' to derived type `%T' via virtual base `%T'",
@@ -285,15 +293,36 @@ build_base_path (enum tree_code code,
     /* This must happen before the call to save_expr.  */
     expr = build_unary_op (ADDR_EXPR, expr, 0);
 
+  offset = BINFO_OFFSET (binfo);
   fixed_type_p = resolves_to_fixed_type_p (expr, &nonnull);
-  if (fixed_type_p <= 0 && TREE_SIDE_EFFECTS (expr))
+
+  if (want_pointer && !nonnull
+      && (!integer_zerop (offset) || (v_binfo && fixed_type_p <= 0)))
+    null_test = error_mark_node;
+
+  if (TREE_SIDE_EFFECTS (expr)
+      && (null_test || (v_binfo && fixed_type_p <= 0)))
     expr = save_expr (expr);
 
-  if (want_pointer && !nonnull)
-    null_test = build (EQ_EXPR, boolean_type_node, expr, integer_zero_node);
-  
-  offset = BINFO_OFFSET (binfo);
-  
+  if (null_test)
+    null_test = fold (build2 (NE_EXPR, boolean_type_node,
+			      expr, integer_zero_node));
+
+  /* If this is a simple base reference, express it as a COMPONENT_REF.  */
+  if (code == PLUS_EXPR
+      && (v_binfo == NULL_TREE || fixed_type_p > 0)
+      /* We don't build base fields for empty bases, and they aren't very
+	 interesting to the optimizers anyway.  */
+      && !has_empty)
+    {
+      expr = build_indirect_ref (expr, NULL);
+      expr = build_simple_base_path (expr, binfo);
+      if (want_pointer)
+	expr = build_unary_op (ADDR_EXPR, expr, 0);
+      target_type = TREE_TYPE (expr);
+      goto out;
+    }
+
   if (v_binfo && fixed_type_p <= 0)
     {
       /* Going via virtual base V_BINFO.  We need the static offset
@@ -366,12 +395,54 @@ build_base_path (enum tree_code code,
   if (!want_pointer)
     expr = build_indirect_ref (expr, NULL);
 
+ out:
   if (null_test)
-    expr = build (COND_EXPR, target_type, null_test,
-		  build1 (NOP_EXPR, target_type, integer_zero_node),
-		  expr);
+    expr = fold (build3 (COND_EXPR, target_type, null_test, expr,
+			 fold (build1 (NOP_EXPR, target_type,
+				       integer_zero_node))));
 
   return expr;
+}
+
+/* Subroutine of build_base_path; EXPR and BINFO are as in that function.
+   Perform a derived-to-base conversion by recursively building up a
+   sequence of COMPONENT_REFs to the appropriate base fields.  */
+
+static tree
+build_simple_base_path (tree expr, tree binfo)
+{
+  tree type = BINFO_TYPE (binfo);
+  tree d_binfo;
+  tree field;
+
+  /* For primary virtual bases, we can't just follow
+     BINFO_INHERITANCE_CHAIN.  */
+  d_binfo = BINFO_PRIMARY_BASE_OF (binfo);
+  if (d_binfo == NULL_TREE)
+    d_binfo = BINFO_INHERITANCE_CHAIN (binfo);
+
+  if (d_binfo == NULL_TREE)
+    {
+      if (TYPE_MAIN_VARIANT (TREE_TYPE (expr)) != type)
+	abort ();
+      return expr;
+    }
+
+  /* Recurse.  */
+  expr = build_simple_base_path (expr, d_binfo);
+
+  for (field = TYPE_FIELDS (BINFO_TYPE (d_binfo));
+       field; field = TREE_CHAIN (field))
+    /* Is this the base field created by build_base_field?  */
+    if (TREE_CODE (field) == FIELD_DECL
+	&& TREE_TYPE (field) == type
+	&& DECL_ARTIFICIAL (field)
+	&& DECL_IGNORED_P (field))
+      return build_class_member_access_expr (expr, field,
+					     NULL_TREE, false);
+
+  /* Didn't find the base field?!?  */
+  abort ();
 }
 
 /* Convert OBJECT to the base TYPE.  If CHECK_ACCESS is true, an error
@@ -4181,7 +4252,7 @@ create_vtable_ptr (tree t, tree* virtuals_p)
     {
       /* We build this decl with vtbl_ptr_type_node, which is a
 	 `vtable_entry_type*'.  It might seem more precise to use
-	 `vtable_entry_type (*)[N]' where N is the number of firtual
+	 `vtable_entry_type (*)[N]' where N is the number of virtual
 	 functions.  However, that would require the vtable pointer in
 	 base classes to have a different type than the vtable pointer
 	 in derived classes.  We could make that happen, but that
@@ -4887,6 +4958,11 @@ layout_class_type (tree t, tree *virtuals_p)
 
   /* Warn about bases that can't be talked about due to ambiguity.  */
   warn_about_ambiguous_bases (t);
+
+  /* Now that we're done with layout, give the base fields the real types.  */
+  for (field = TYPE_FIELDS (t); field; field = TREE_CHAIN (field))
+    if (DECL_ARTIFICIAL (field) && IS_FAKE_BASE_TYPE (TREE_TYPE (field)))
+      TREE_TYPE (field) = TYPE_CONTEXT (TREE_TYPE (field));
 
   /* Clean up.  */
   splay_tree_delete (empty_base_offsets);
@@ -6732,7 +6808,6 @@ initialize_array (tree decl, tree inits)
   context = DECL_CONTEXT (decl);
   DECL_CONTEXT (decl) = NULL_TREE;
   DECL_INITIAL (decl) = build_constructor (NULL_TREE, inits);
-  TREE_HAS_CONSTRUCTOR (DECL_INITIAL (decl)) = 1;
   cp_finish_decl (decl, DECL_INITIAL (decl), NULL_TREE, 0);
   DECL_CONTEXT (decl) = context;
 }

@@ -2,22 +2,22 @@
    Copyright (C) 2002 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
-This file is part of GNU G95.
+This file is part of GCC.
 
-GNU G95 is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
 
-GNU G95 is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU G95; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
 
 
 #include "config.h"
@@ -28,7 +28,7 @@ Boston, MA 02111-1307, USA.  */
 
 
 /* This flag is set if a an old-style length selector is matched
-   during an type-declaration statement. */
+   during a type-declaration statement.  */
 
 static int old_char_selector;
 
@@ -254,6 +254,7 @@ static try
 add_init_expr_to_sym (const char *name, gfc_expr ** initp,
 		      locus * var_locus)
 {
+  int i;
   symbol_attribute attr;
   gfc_symbol *sym;
   gfc_expr *init;
@@ -275,6 +276,15 @@ add_init_expr_to_sym (const char *name, gfc_expr ** initp,
       return FAILURE;
     }
 
+  if (attr.in_common
+      && !attr.data
+      && *initp != NULL)
+    {
+      gfc_error ("Initializer not allowed for COMMON variable '%s' at %C",
+		 sym->name);
+      return FAILURE;
+    }
+
   if (init == NULL)
     {
       /* An initializer is required for PARAMETER declarations.  */
@@ -287,7 +297,7 @@ add_init_expr_to_sym (const char *name, gfc_expr ** initp,
   else
     {
       /* If a variable appears in a DATA block, it cannot have an
-         initializer.  */
+	 initializer.  */
       if (sym->attr.data)
 	{
 	  gfc_error
@@ -300,6 +310,19 @@ add_init_expr_to_sym (const char *name, gfc_expr ** initp,
       if (sym->ts.type != BT_DERIVED && init->ts.type != BT_DERIVED
 	  && gfc_check_assign_symbol (sym, init) == FAILURE)
 	return FAILURE;
+
+      for (i = 0; i < sym->attr.dimension; i++)
+	{
+	  if (sym->as->lower[i] == NULL
+	      || sym->as->lower[i]->expr_type != EXPR_CONSTANT
+	      || sym->as->upper[i] == NULL
+	      || sym->as->upper[i]->expr_type != EXPR_CONSTANT)
+	    {
+	      gfc_error ("Array '%s' at %C cannot have initializer",
+			 sym->name);
+	      return FAILURE;
+	    }
+	}
 
       /* Add initializer.  Make sure we keep the ranks sane.  */
       if (sym->attr.dimension && init->rank == 0)
@@ -619,10 +642,11 @@ variable_decl (void)
 	  if (m != MATCH_YES)
 	    goto cleanup;
 	}
-      else if (current_ts.type == BT_DERIVED)
-        {
-          initializer = default_initializer ();
-        }
+    }
+
+  if (current_ts.type == BT_DERIVED && !initializer)
+    {
+      initializer = default_initializer ();
     }
 
   /* Add the initializer.  Note that it is fine if &initializer is

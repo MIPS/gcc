@@ -233,7 +233,7 @@ unlikely_text_section (void)
 		   current_function_name ());
 	  unlikely_section_label_printed = true;
 
-	  /* Make sure that we have approprate alignment for instructions
+	  /* Make sure that we have appropriate alignment for instructions
 	     in this section.  */
 	  assemble_align (FUNCTION_BOUNDARY);
 	}
@@ -2316,6 +2316,7 @@ compare_constant (const tree t1, const tree t2)
     case NOP_EXPR:
     case CONVERT_EXPR:
     case NON_LVALUE_EXPR:
+    case VIEW_CONVERT_EXPR:
       return compare_constant (TREE_OPERAND (t1, 0), TREE_OPERAND (t2, 0));
 
     default:

@@ -921,8 +921,9 @@ static const struct compiler default_compilers[] =
   {".CPP", "#C++", 0, 0, 0}, {".ii", "#C++", 0, 0, 0},
   {".ads", "#Ada", 0, 0, 0}, {".adb", "#Ada", 0, 0, 0},
   {".f", "#Fortran", 0, 0, 0}, {".for", "#Fortran", 0, 0, 0}, 
-  {".F", "#Fortran", 0}, {".FOR", "#Fortran", 0}, {".FPP", "#Fortran", 0},
-  {".f90", "#Fortran 95", 0}, {".f95", "#Fortran 95", 0},
+  {".F", "#Fortran", 0, 0, 0}, {".FOR", "#Fortran", 0, 0, 0},
+  {".FPP", "#Fortran", 0, 0, 0},
+  {".f90", "#Fortran 95", 0, 0, 0}, {".f95", "#Fortran 95", 0, 0, 0},
   {".fpp", "#Fortran", 0, 0, 0}, {".F", "#Fortran", 0, 0, 0}, 
   {".FOR", "#Fortran", 0, 0, 0}, {".FPP", "#Fortran", 0, 0, 0},
   {".r", "#Ratfor", 0, 0, 0},
@@ -1567,6 +1568,11 @@ static int processing_spec_function;
    various permutations of -shared-libgcc, -shared, and such.  */
 
 #if defined(ENABLE_SHARED_LIBGCC) && !defined(REAL_LIBGCC_SPEC)
+
+#ifndef USE_LD_AS_NEEDED
+#define USE_LD_AS_NEEDED 0
+#endif
+
 static void
 init_gcc_specs (struct obstack *obstack, const char *shared_name,
 		const char *static_name, const char *eh_name)
@@ -1575,7 +1581,7 @@ init_gcc_specs (struct obstack *obstack, const char *shared_name,
 
   buf = concat ("%{static|static-libgcc:", static_name, " ", eh_name,
 		"}%{!static:%{!static-libgcc:",
-#ifdef HAVE_LD_AS_NEEDED
+#if USE_LD_AS_NEEDED
 		"%{!shared-libgcc:", static_name,
 		" --as-needed ", shared_name, " --no-as-needed}"
 		"%{shared-libgcc:", shared_name, "%{!shared: ", static_name,
@@ -2264,6 +2270,17 @@ record_temp_file (const char *filename, int always_delete, int fail_delete)
 
 /* Delete all the temporary files whose names we previously recorded.  */
 
+#ifndef DELETE_IF_ORDINARY
+#define DELETE_IF_ORDINARY(NAME,ST,VERBOSE_FLAG)        \
+do                                                      \
+  {                                                     \
+    if (stat (NAME, &ST) >= 0 && S_ISREG (ST.st_mode))  \
+      if (unlink (NAME) < 0)                            \
+	if (VERBOSE_FLAG)                               \
+	  perror_with_name (NAME);                      \
+  } while (0)
+#endif
+
 static void
 delete_if_ordinary (const char *name)
 {
@@ -2280,10 +2297,7 @@ delete_if_ordinary (const char *name)
 
   if (i == 'y' || i == 'Y')
 #endif /* DEBUG */
-    if (stat (name, &st) >= 0 && S_ISREG (st.st_mode))
-      if (unlink (name) < 0)
-	if (verbose_flag)
-	  perror_with_name (name);
+  DELETE_IF_ORDINARY (name, st, verbose_flag);
 }
 
 static void
@@ -6933,20 +6947,21 @@ used_arg (const char *p, int len)
 	= xmalloc (sizeof (struct mswitchstr)
 		   * (n_mdswitches + (n_switches ? n_switches : 1)));
       for (i = 0; i < n_switches; i++)
-	{
-	  int xlen = strlen (switches[i].part1);
-	  for (j = 0; j < cnt; j++)
-	    if (xlen == matches[j].len
-		&& ! strncmp (switches[i].part1, matches[j].str, xlen))
-	      {
-		mswitches[n_mswitches].str = matches[j].replace;
-		mswitches[n_mswitches].len = matches[j].rep_len;
-		mswitches[n_mswitches].replace = (char *) 0;
-		mswitches[n_mswitches].rep_len = 0;
-		n_mswitches++;
-		break;
-	      }
-	}
+	if (switches[i].live_cond != SWITCH_IGNORE)
+	  {
+	    int xlen = strlen (switches[i].part1);
+	    for (j = 0; j < cnt; j++)
+	      if (xlen == matches[j].len
+		  && ! strncmp (switches[i].part1, matches[j].str, xlen))
+		{
+		  mswitches[n_mswitches].str = matches[j].replace;
+		  mswitches[n_mswitches].len = matches[j].rep_len;
+		  mswitches[n_mswitches].replace = (char *) 0;
+		  mswitches[n_mswitches].rep_len = 0;
+		  n_mswitches++;
+		  break;
+		}
+	  }
 
       /* Add MULTILIB_DEFAULTS switches too, as long as they were not present
 	 on the command line nor any options mutually incompatible with

@@ -1,23 +1,24 @@
 /* Compiler arithmetic
-   Copyright (C) 2000, 2001. 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2003, 2004 Free Software Foundation,
+   Inc.
    Contributed by Andy Vaught
 
-This file is part of GNU G95.
+This file is part of GCC.
 
-GNU G95 is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
 
-GNU G95 is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU G95; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
 
 /* Since target arithmetic must be done on the host, there has to
    be some way of evaluating arithmetic expressions as the host
@@ -86,7 +87,7 @@ int gfc_index_integer_kind;
    We first get the argument into the range 0.5 to 1.5 by successive
    multiplications or divisions by e.  Then we use the series:
 
-     ln(x) = (x-1) - (x-1)^/2 + (x-1)^3/3 - (x-1)^4/4 + ...
+     ln(x) = (x-1) - (x-1)^2/2 + (x-1)^3/3 - (x-1)^4/4 + ...
 
    Because we are expanding in powers of (x-1), and 0.5 < x < 1.5, we
    have -0.5 < (x-1) < 0.5.  Ignoring the harmonic term, this means
@@ -178,7 +179,7 @@ common_logarithm (mpf_t * arg, mpf_t * result)
 
      x = Nln2 + r
 
-   Then we obtain exp(r) from the McLaurin series.
+   Then we obtain exp(r) from the Maclaurin series.
    exp(x) is then recovered from the identity
 
      exp(x) = 2^N*exp(r).  */
@@ -265,7 +266,7 @@ exponential (mpf_t * arg, mpf_t * result)
 
      x= N*2pi + r
 
-   Then we obtain sin(r) from the McLaurin series.  */
+   Then we obtain sin(r) from the Maclaurin series.  */
 
 void
 sine (mpf_t * arg, mpf_t * result)
@@ -1172,7 +1173,7 @@ gfc_arith_neqv (gfc_expr * op1, gfc_expr * op2, gfc_expr ** resultp)
 
 
 /* Make sure a constant numeric expression is within the range for
-   it's type and kind.  Note that there's also a gfc_check_range(),
+   its type and kind.  Note that there's also a gfc_check_range(),
    but that one deals with the intrinsic RANGE function.  */
 
 arith
@@ -1192,7 +1193,7 @@ gfc_range_check (gfc_expr * e)
 
     case BT_COMPLEX:
       rc = gfc_check_real_range (e->value.complex.r, e->ts.kind);
-      if (rc != ARITH_OK)
+      if (rc == ARITH_OK)
 	rc = gfc_check_real_range (e->value.complex.i, e->ts.kind);
 
       break;
@@ -1447,8 +1448,8 @@ gfc_arith_divide (gfc_expr * op1, gfc_expr * op2, gfc_expr ** resultp)
 
       mpf_mul (x, op1->value.complex.i, op2->value.complex.r);
       mpf_mul (y, op1->value.complex.r, op2->value.complex.i);
-      mpf_sub (result->value.complex.r, x, y);
-      mpf_div (result->value.complex.r, result->value.complex.r, div);
+      mpf_sub (result->value.complex.i, x, y);
+      mpf_div (result->value.complex.i, result->value.complex.i, div);
 
       mpf_clear (x);
       mpf_clear (y);

@@ -1243,7 +1243,10 @@ list_formatted_read (bt type, void *p, int len)
 	{			/* Found a null value */
 	  eat_separator ();
 	  repeat_count = 0;
-	  return;
+	  if (at_eol)
+            finish_separator ();
+          else
+            return;
 	}
 
     }
@@ -1260,11 +1263,14 @@ list_formatted_read (bt type, void *p, int len)
 	}
 
       if (at_eol)
-	finish_separator ();
+        finish_separator ();
+      else
+        eat_spaces ();
 
       saved_type = BT_NULL;
       repeat_count = 1;
     }
+
 
   switch (type)
     {

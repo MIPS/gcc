@@ -155,9 +155,6 @@ tree_size (tree node)
     case 't':  /* a type node */
       return sizeof (struct tree_type);
 
-    case 'b':  /* a lexical block node */
-      return sizeof (struct tree_block);
-
     case 'r':  /* a reference */
     case 'e':  /* an expression */
     case 's':  /* an expression with side effects */
@@ -206,6 +203,7 @@ tree_size (tree node)
 	case EEXIT_NODE: 	return sizeof (struct tree_eref_common);
 
 	case STATEMENT_LIST:	return sizeof (struct tree_statement_list);
+	case BLOCK:		return sizeof (struct tree_block);
 
 	default:
 	  return lang_hooks.tree_size (code);
@@ -252,10 +250,6 @@ make_node_stat (enum tree_code code MEM_STAT_DECL)
       kind = t_kind;
       break;
 
-    case 'b':  /* a lexical block */
-      kind = b_kind;
-      break;
-
     case 's':  /* an expression with side effects */
       kind = s_kind;
       break;
@@ -284,6 +278,8 @@ make_node_stat (enum tree_code code MEM_STAT_DECL)
 	kind = phi_kind;
       else if (code == SSA_NAME)
 	kind = ssa_name_kind;
+      else if (code == BLOCK)
+	kind = b_kind;
       else
 	kind = x_kind;
       break;
@@ -1494,7 +1490,6 @@ tree_node_structure (tree t)
     {
     case 'd':	return TS_DECL;
     case 't':	return TS_TYPE;
-    case 'b':	return TS_BLOCK;
     case 'r': case '<': case '1': case '2': case 'e': case 's':
       return TS_EXP;
     default:  /* 'c' and 'x' */
@@ -1521,6 +1516,7 @@ tree_node_structure (tree t)
     case SSA_NAME:		return TS_SSA_NAME;
     case PLACEHOLDER_EXPR:	return TS_COMMON;
     case STATEMENT_LIST:	return TS_STATEMENT_LIST;
+    case BLOCK:			return TS_BLOCK;
 
     default:
       abort ();
@@ -1646,7 +1642,6 @@ unsafe_for_reeval (tree expr)
     case 't':  /* a type node */
     case 'x':  /* something random, like an identifier or an ERROR_MARK.  */
     case 'd':  /* A decl node */
-    case 'b':  /* A block node */
       return 0;
 
     case 'e':  /* an expression */
@@ -2022,7 +2017,7 @@ tree
 substitute_placeholder_in_expr (tree exp, tree obj)
 {
   enum tree_code code = TREE_CODE (exp);
-  tree op0, op1, op2;
+  tree op0, op1, op2, op3;
 
   /* If this is a PLACEHOLDER_EXPR, see if we find a corresponding type
      in the chain of OBJ.  */
@@ -2078,7 +2073,6 @@ substitute_placeholder_in_expr (tree exp, tree obj)
       {
       case 'c':
       case 'd':
-      case 'b':
 	return exp;
 
       case 'x':
@@ -2119,6 +2113,19 @@ substitute_placeholder_in_expr (tree exp, tree obj)
 	      return exp;
 	    else
 	      return fold (build3 (code, TREE_TYPE (exp), op0, op1, op2));
+
+	  case 4:
+	    op0 = SUBSTITUTE_PLACEHOLDER_IN_EXPR (TREE_OPERAND (exp, 0), obj);
+	    op1 = SUBSTITUTE_PLACEHOLDER_IN_EXPR (TREE_OPERAND (exp, 1), obj);
+	    op2 = SUBSTITUTE_PLACEHOLDER_IN_EXPR (TREE_OPERAND (exp, 2), obj);
+	    op3 = SUBSTITUTE_PLACEHOLDER_IN_EXPR (TREE_OPERAND (exp, 3), obj);
+
+	    if (op0 == TREE_OPERAND (exp, 0) && op1 == TREE_OPERAND (exp, 1)
+		&& op2 == TREE_OPERAND (exp, 2)
+		&& op3 == TREE_OPERAND (exp, 3))
+	      return exp;
+	    else
+	      return fold (build4 (code, TREE_TYPE (exp), op0, op1, op2, op3));
 
 	  default:
 	    abort ();
@@ -2254,7 +2261,6 @@ stabilize_reference_1 (tree e)
     case 'x':
     case 't':
     case 'd':
-    case 'b':
     case '<':
     case 's':
     case 'e':
@@ -5237,6 +5243,27 @@ finish_vector_type (tree t)
   }
 }
 
+static tree
+make_or_reuse_type (unsigned size, int unsignedp)
+{
+  if (size == INT_TYPE_SIZE)
+    return unsignedp ? unsigned_type_node : integer_type_node;
+  if (size == CHAR_TYPE_SIZE)
+    return unsignedp ? unsigned_char_type_node : signed_char_type_node;
+  if (size == SHORT_TYPE_SIZE)
+    return unsignedp ? short_unsigned_type_node : short_integer_type_node;
+  if (size == LONG_TYPE_SIZE)
+    return unsignedp ? long_unsigned_type_node : long_integer_type_node;
+  if (size == LONG_LONG_TYPE_SIZE)
+    return (unsignedp ? long_long_unsigned_type_node
+            : long_long_integer_type_node);
+
+  if (unsignedp)
+    return make_unsigned_type (size);
+  else
+    return make_signed_type (size);
+}
+
 /* Create nodes for all integer types (and error_mark_node) using the sizes
    of C datatypes.  The caller should call set_sizetype soon after calling
    this function to select one of the types as sizetype.  */
@@ -5279,17 +5306,19 @@ build_common_tree_nodes (int signed_char)
   TREE_TYPE (TYPE_MAX_VALUE (boolean_type_node)) = boolean_type_node;
   TYPE_PRECISION (boolean_type_node) = 1;
 
-  intQI_type_node = make_signed_type (GET_MODE_BITSIZE (QImode));
-  intHI_type_node = make_signed_type (GET_MODE_BITSIZE (HImode));
-  intSI_type_node = make_signed_type (GET_MODE_BITSIZE (SImode));
-  intDI_type_node = make_signed_type (GET_MODE_BITSIZE (DImode));
-  intTI_type_node = make_signed_type (GET_MODE_BITSIZE (TImode));
+  /* Fill in the rest of the sized types.  Reuse existing type nodes
+     when possible.  */
+  intQI_type_node = make_or_reuse_type (GET_MODE_BITSIZE (QImode), 0);
+  intHI_type_node = make_or_reuse_type (GET_MODE_BITSIZE (HImode), 0);
+  intSI_type_node = make_or_reuse_type (GET_MODE_BITSIZE (SImode), 0);
+  intDI_type_node = make_or_reuse_type (GET_MODE_BITSIZE (DImode), 0);
+  intTI_type_node = make_or_reuse_type (GET_MODE_BITSIZE (TImode), 0);
 
-  unsigned_intQI_type_node = make_unsigned_type (GET_MODE_BITSIZE (QImode));
-  unsigned_intHI_type_node = make_unsigned_type (GET_MODE_BITSIZE (HImode));
-  unsigned_intSI_type_node = make_unsigned_type (GET_MODE_BITSIZE (SImode));
-  unsigned_intDI_type_node = make_unsigned_type (GET_MODE_BITSIZE (DImode));
-  unsigned_intTI_type_node = make_unsigned_type (GET_MODE_BITSIZE (TImode));
+  unsigned_intQI_type_node = make_or_reuse_type (GET_MODE_BITSIZE (QImode), 1);
+  unsigned_intHI_type_node = make_or_reuse_type (GET_MODE_BITSIZE (HImode), 1);
+  unsigned_intSI_type_node = make_or_reuse_type (GET_MODE_BITSIZE (SImode), 1);
+  unsigned_intDI_type_node = make_or_reuse_type (GET_MODE_BITSIZE (DImode), 1);
+  unsigned_intTI_type_node = make_or_reuse_type (GET_MODE_BITSIZE (TImode), 1);
   
   access_public_node = get_identifier ("public");
   access_protected_node = get_identifier ("protected");

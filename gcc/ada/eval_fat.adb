@@ -40,8 +40,8 @@ package body Eval_Fat is
 
    type Radix_Power_Table is array (Int range 1 .. 4) of Int;
 
-   Radix_Powers : constant Radix_Power_Table
-     := (Radix**1, Radix**2, Radix**3, Radix**4);
+   Radix_Powers : constant Radix_Power_Table :=
+                    (Radix ** 1, Radix ** 2, Radix ** 3, Radix ** 4);
 
    function Float_Radix return T renames Ureal_2;
    --  Radix expressed in real form
@@ -82,9 +82,6 @@ package body Eval_Fat is
 
    function Machine_Emin (RT : R) return Int;
    --  Return value of the Machine_Emin attribute
-
-   function Machine_Mantissa (RT : R) return Nat;
-   --  Return value of the Machine_Mantissa attribute
 
    --------------
    -- Adjacent --
@@ -705,6 +702,16 @@ package body Eval_Fat is
 
       return Mant;
    end Machine_Mantissa;
+
+   -------------------
+   -- Machine_Radix --
+   -------------------
+
+   function Machine_Radix (RT : R) return Nat is
+      pragma Warnings (Off, RT);
+   begin
+      return Radix;
+   end Machine_Radix;
 
    -----------
    -- Model --

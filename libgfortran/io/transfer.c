@@ -54,7 +54,7 @@ Boston, MA 02111-1307, USA.  */
  *  transferred.
  */
 
-unit_t *current_unit;
+gfc_unit *current_unit;
 static int sf_seen_eor = 0;
 
 char scratch[SCRATCH_SIZE];
@@ -1338,7 +1338,13 @@ finalize_transfer (void)
       free_fnodes ();
 
       if (advance_status == ADVANCE_NO)
-	return;
+	{
+	  /* Most systems buffer lines, so force the partial record
+	     to be written out.  */
+	  flush (current_unit->s);
+	  return;
+	}
+
       next_record (1);
       current_unit->current_record = 0;
     }

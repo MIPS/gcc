@@ -36,7 +36,7 @@ Boston, MA 02111-1307, USA.  */
 #include "function.h"
 #include "diagnostic.h"
 #include "tree-dump.h"
-#include "tree-simple.h"
+#include "tree-gimple.h"
 #include "tree-flow.h"
 #include "tree-inline.h"
 #include "tree-alias-common.h"
@@ -387,9 +387,9 @@ delete_alias_info (struct alias_info *ai)
 {
   size_t i;
 
-  BITMAP_FREE (ai->ssa_names_visited);
+  BITMAP_XFREE (ai->ssa_names_visited);
   ai->processed_ptrs = NULL;
-  BITMAP_FREE (ai->addresses_needed);
+  BITMAP_XFREE (ai->addresses_needed);
 
   for (i = 0; i < ai->num_addressable_vars; i++)
     {
@@ -406,9 +406,9 @@ delete_alias_info (struct alias_info *ai)
   free (ai->pointers);
 
   ai->num_references = NULL;
-  BITMAP_FREE (ai->written_vars);
-  BITMAP_FREE (ai->dereferenced_ptrs_store);
-  BITMAP_FREE (ai->dereferenced_ptrs_load);
+  BITMAP_XFREE (ai->written_vars);
+  BITMAP_XFREE (ai->dereferenced_ptrs_store);
+  BITMAP_XFREE (ai->dereferenced_ptrs_load);
 
   free (ai);
 }
@@ -1919,7 +1919,7 @@ static void
 dump_alias_stats (FILE *file)
 {
   const char *funcname
-    = (*lang_hooks.decl_printable_name) (current_function_decl, 2);
+    = lang_hooks.decl_printable_name (current_function_decl, 2);
   fprintf (file, "\nAlias statistics for %s\n\n", funcname);
   fprintf (file, "Total alias queries:\t%u\n", alias_stats.alias_queries);
   fprintf (file, "Total alias mayalias results:\t%u\n", 
@@ -1948,7 +1948,7 @@ dump_alias_info (FILE *file)
 {
   size_t i;
   const char *funcname
-    = (*lang_hooks.decl_printable_name) (current_function_decl, 2);
+    = lang_hooks.decl_printable_name (current_function_decl, 2);
 
   fprintf (file, "\nAlias information for %s\n\n", funcname);
 
@@ -2031,7 +2031,7 @@ dump_points_to_info (FILE *file)
   block_stmt_iterator si;
   size_t i;
   const char *fname =
-    (*lang_hooks.decl_printable_name) (current_function_decl, 2);
+    lang_hooks.decl_printable_name (current_function_decl, 2);
 
   fprintf (file, "\n\nPointed-to sets for pointers in %s\n\n", fname);
 

@@ -767,6 +767,9 @@ shorten_branches (rtx first ATTRIBUTE_UNUSED)
   /* Compute maximum UID and allocate label_align / uid_shuid.  */
   max_uid = get_max_uid ();
 
+  /* Free uid_shuid before reallocating it.   */
+  free (uid_shuid);
+  
   uid_shuid = xmalloc (max_uid * sizeof *uid_shuid);
 
   if (max_labelno != max_label_num ())
@@ -1711,7 +1714,7 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	  
 	case NOTE_INSN_BASIC_BLOCK:
 	  
-	  /* If we are performing the optimization that paritions
+	  /* If we are performing the optimization that partitions
 	     basic blocks into hot & cold sections of the .o file,
 	     then at the start of each new basic block, before
 	     beginning to write code for the basic block, we need to

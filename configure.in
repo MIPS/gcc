@@ -374,8 +374,9 @@ case "${target}" in
     ;;
   *-*-freebsd* | *-*-kfreebsd*-gnu)
     noconfigdirs="$noconfigdirs target-newlib target-libgloss"
-    if test -f /usr/local/include/gmp.h; then
-      extra_host_args="--with-gmp=/usr/local"
+    if test "x$with_gmp" = x && test "x$with_gmp_dir" = x \
+	&& test -f /usr/local/include/gmp.h; then
+      with_gmp=/usr/local
     fi
 
     # Skip some stuff that's unsupported on some FreeBSD configurations.
@@ -678,8 +679,7 @@ case "${target}" in
     noconfigdirs="$noconfigdirs ld binutils gprof target-libgloss ${libgcj}"
     ;;
   mips*-*-irix5*)
-    # The GNU linker does not support shared libraries.
-    noconfigdirs="$noconfigdirs ld gprof target-libgloss ${libgcj}"
+    noconfigdirs="$noconfigdirs gprof target-libgloss ${libgcj}"
     ;;
   mips*-*-irix6*)
     # Linking libjava exceeds command-line length limits on at least
@@ -1104,6 +1104,7 @@ EOF
 fi
 
 ACX_PROG_GNAT
+ACX_PROG_CMP_IGNORE_INITIAL
 
 # Check for GMP
 gmplibs=
@@ -1134,7 +1135,7 @@ if test "x$gmplibs" = x; then
   gmplibs="-lgmp"
 fi
 
-save_CFLAGS="$CFLAGS"
+saved_CFLAGS="$CFLAGS"
 CFLAGS="$CFLAGS $gmpinc"
 # Check GMP actually works
 AC_MSG_CHECKING([for correct version of gmp.h])

@@ -37,11 +37,593 @@ functions and programming constructs needed to implement optimization
 passes for GIMPLE@.
 
 @menu
+* GENERIC::		A high-level language-independent representation.
+* GIMPLE::              A lower-level factored tree representation.
 * Annotations::		Attributes for statements and variables.
 * Statement Operands::	Variables referenced by GIMPLE statements.
 * SSA::			Static Single Assignment representation.
 * Alias analysis::	Representing aliased loads and stores.
 @end menu
+
+@node GENERIC
+@section GENERIC
+@cindex GENERIC
+
+The purpose of GENERIC is simply to provide a language-independent way of
+representing an entire function in trees.  To this end, it was necessary to
+add a few new tree codes to the back end, but most everything was already
+there.  If you can express it with the codes in @code{gcc/tree.def}, it's
+GENERIC.
+
+Early on, there was a great deal of debate about how to think about
+statements in a tree IL.  In GENERIC, a statement is defined as any
+expression whose value, if any, is ignored.  A statement will always
+have @code{TREE_SIDE_EFFECTS} set (or it will be discarded), but a
+non-statement expression may also have side effects.  A
+@code{CALL_EXPR}, for instance.
+
+It would be possible for some local optimizations to work on the
+GENERIC form of a function; indeed, the adapted tree inliner works
+fine on GENERIC, but the current compiler performs inlining after
+lowering to GIMPLE (a restricted form described in the next section).
+Indeed, currently the frontends perform this lowering before handing
+off to @code{tree_rest_of_compilation}, but this seems inelegant.
+
+If necessary, a front end can use some language-dependent tree codes
+in its GENERIC representation, so long as it provides a hook for
+converting them to GIMPLE and doesn't expect them to work with any
+(hypothetical) optimizers that run before the conversion to GIMPLE.
+The intermediate representation used while parsing C and C++ looks
+very little like GENERIC, but the C and C++ gimplifier hooks are
+perfectly happy to take it as input and spit out GIMPLE.
+
+@node GIMPLE
+@section GIMPLE
+@cindex GIMPLE
+
+GIMPLE is a simplified subset of GENERIC for use in optimization.  The
+particular subset chosen (and the name) was heavily influenced by the
+SIMPLE IL used by the McCAT compiler project at McGill University,
+though we have made some different choices.  For one thing, SIMPLE
+doesn't support @code{goto}; a production compiler can't afford that
+kind of restriction.
+
+GIMPLE retains much of the structure of the parse trees: lexical
+scopes are represented as containers, rather than markers.  However,
+expressions are broken down into a 3-address form, using temporary
+variables to hold intermediate values.  Also, control structures are
+lowered to gotos.
+
+In GIMPLE no container node is ever used for its value; if a
+@code{COND_EXPR} or @code{BIND_EXPR} has a value, it is stored into a
+temporary within the controlled blocks, and that temporary is used in
+place of the container.
+
+The compiler pass which lowers GENERIC to GIMPLE is referred to as the
+@samp{gimplifier}.  The gimplifier works recursively, replacing complex
+statements with sequences of simple statements.  
+
+@c Currently, the only way to
+@c tell whether or not an expression is in GIMPLE form is by recursively
+@c examining it; in the future there will probably be a flag to help avoid
+@c redundant work.  FIXME FIXME
+
+@menu
+* Interfaces::
+* Temporaries::
+* GIMPLE Expressions::
+* Statements::
+* GIMPLE Example::
+* Rough GIMPLE Grammar::
+@end menu
+
+@node Interfaces
+@subsection Interfaces
+@cindex gimplification
+
+The tree representation of a function is stored in
+@code{DECL_SAVED_TREE}.  It is lowered to GIMPLE by a call to
+@code{gimplify_function_tree}.
+
+If a front end wants to include language-specific tree codes in the tree
+representation which it provides to the back end, it must provide a
+definition of @code{LANG_HOOKS_GIMPLIFY_EXPR} which knows how to
+convert the front end trees to GIMPLE.  Usually such a hook will involve
+much of the same code for expanding front end trees to RTL.  This function
+can return fully lowered GIMPLE, or it can return GENERIC trees and let the
+main gimplifier lower them the rest of the way; this is often simpler.
+
+The C and C++ front ends currently convert directly from front end
+trees to GIMPLE, and hand that off to the back end rather than first
+converting to GENERIC.  Their gimplifier hooks know about all the
+@code{_STMT} nodes and how to convert them to GENERIC forms.  There
+was some work done on a genericization pass which would run first, but
+the existence of @code{STMT_EXPR} meant that in order to convert all
+of the C statements into GENERIC equivalents would involve walking the
+entire tree anyway, so it was simpler to lower all the way.  This
+might change in the future if someone writes an optimization pass
+which would work better with higher-level trees, but currently the
+optimizers all expect GIMPLE.
+
+A front end which wants to use the tree optimizers (and already has
+some sort of whole-function tree representation) only needs to provide
+a definition of @code{LANG_HOOKS_GIMPLIFY_EXPR}, call
+@code{gimplify_function_tree} to lower to GIMPLE, and then hand off to
+@code{tree_rest_of_compilation} to compile and output the function.
+
+You can tell the compiler to dump a C-like representation of the GIMPLE
+form with the flag @code{-fdump-tree-gimple}.
+
+@node Temporaries
+@subsection Temporaries
+@cindex Temporaries
+
+When gimplification encounters a subexpression which is too complex, it
+creates a new temporary variable to hold the value of the subexpression,
+and adds a new statement to initialize it before the current statement.
+These special temporaries are known as @samp{expression temporaries}, and are
+allocated using @code{get_formal_tmp_var}.  The compiler tries to
+always evaluate identical expressions into the same temporary, to simplify
+elimination of redundant calculations.
+
+We can only use expression temporaries when we know that it will not be
+reevaluated before its value is used, and that it will not be otherwise
+modified@footnote{These restrictions are derived from those in Morgan 4.8.}.
+Other temporaries can be allocated using
+@code{get_initialized_tmp_var} or @code{create_tmp_var}.
+
+Currently, an expression like @code{a = b + 5} is not reduced any
+further.  We tried converting it to something like
+@smallexample
+  T1 = b + 5;
+  a = T1;
+@end smallexample
+but this bloated the representation for minimal benefit.  However, a
+variable which must live in memory cannot appear in an expression; its
+value is explicitly loaded into a temporary first.  Similarly, storing
+the value of an expression to a memory variable goes through a
+temporary.
+
+@node GIMPLE Expressions
+@subsection Expressions
+@cindex GIMPLE Expressions
+
+In general, expressions in GIMPLE consist of an operation and the
+appropriate number of simple operands; these operands must either be a
+GIMPLE rvalue (@code{is_gimple_val}), i.e. a constant or a register
+variable.  More complex operands are factored out into temporaries, so
+that
+@smallexample
+  a = b + c + d 
+@end smallexample
+becomes
+@smallexample
+  T1 = b + c;
+  a = T1 + d;
+@end smallexample
+
+The same rule holds for arguments to a @code{CALL_EXPR}.
+
+The target of an assignment is usually a variable, but can also be an
+@code{INDIRECT_REF} or a compound lvalue as described below.
+
+@menu
+* Compound Expressions::
+* Compound Lvalues::
+* Conditional Expressions::
+* Logical Operators::
+@end menu
+
+@node Compound Expressions
+@subsubsection Compound Expressions
+@cindex Compound Expressions
+
+The left-hand side of a C comma expression is simply moved into a separate
+statement.
+
+@node Compound Lvalues
+@subsubsection Compound Lvalues
+@cindex Compound Lvalues
+
+Currently compound lvalues involving array and structure field references
+are not broken down; an expression like @code{a.b[2] = 42} is not reduced
+any further (though complex array subscripts are).  This restriction is a
+workaround for limitations in later optimizers; if we were to convert this
+to
+
+@smallexample
+  T1 = &a.b;
+  T1[2] = 42;
+@end smallexample
+
+alias analysis would not remember that the reference to @code{T1[2]} came
+by way of @code{a.b}, so it would think that the assignment could alias
+another member of @code{a}; this broke @code{struct-alias-1.c}.  Future
+optimizer improvements may make this limitation unnecessary.
+
+@node Conditional Expressions
+@subsubsection Conditional Expressions
+@cindex Conditional Expressions
+
+A C @code{?:} expression is converted into an @code{if} statement with
+each branch assigning to the same temporary.  So,
+
+@smallexample
+  a = b ? c : d;
+@end smallexample
+becomes
+@smallexample
+  if (b)
+    T1 = c;
+  else
+    T1 = d;
+  a = T1;
+@end smallexample
+
+Note that in GIMPLE, @code{if} statements are also represented using
+@code{COND_EXPR}, as described below.
+
+@node Logical Operators
+@subsubsection Logical Operators
+@cindex Logical Operators
+
+Except when they appear in the condition operand of a @code{COND_EXPR},
+logical `and' and `or' operators are simplified as follows:
+@code{a = b && c} becomes
+
+@smallexample
+  T1 = (bool)b;
+  if (T1)
+    T1 = (bool)c;
+  a = T1;
+@end smallexample
+
+Note that @code{T1} in this example cannot be an expression temporary,
+because it has two different assignments.
+
+@node Statements
+@subsection Statements
+@cindex Statements
+
+Most statements will be assignment statements, represented by
+@code{MODIFY_EXPR}.  A @code{CALL_EXPR} whose value is ignored can
+also be a statement.  No other C expressions can appear at statement level;
+a reference to a volatile object is converted into a @code{MODIFY_EXPR}.
+
+There are also several varieties of complex statements.
+
+@menu
+* Blocks::
+* Statement Sequences::
+* Empty Statements::
+* Loops::
+* Selection Statements::
+* Jumps::
+* Cleanups::
+* GIMPLE Exception Handling::
+@end menu
+
+@node Blocks
+@subsubsection Blocks
+@cindex Blocks
+
+Block scopes and the variables they declare in GENERIC and GIMPLE are
+expressed using the @code{BIND_EXPR} code, which in previous versions of
+GCC was primarily used for the C statement-expression extension.
+
+Variables in a block are collected into @code{BIND_EXPR_VARS} in
+declaration order.  Any runtime initialization is moved out of 
+@code{DECL_INITIAL} and into a statement in the controlled block.  When
+gimplifying from C or C++, this initialization replaces the
+@code{DECL_STMT}.
+
+Variable-length arrays (VLAs) complicate this process, as their size often
+refers to variables initialized earlier in the block.  To handle this, we
+currently split the block at that point, and move the VLA into a new, inner
+@code{BIND_EXPR}.  This strategy may change in the future.
+
+@code{DECL_SAVED_TREE} for a GIMPLE function will always be a 
+@code{BIND_EXPR} which contains declarations for the temporary variables
+used in the function.
+
+A C++ program will usually contain more @code{BIND_EXPR}s than there are
+syntactic blocks in the source code, since several C++ constructs have
+implicit scopes associated with them.  On the other hand, although the C++
+front end uses pseudo-scopes to handle cleanups for objects with
+destructors, these don't translate into the GIMPLE form; multiple
+declarations at the same level use the same BIND_EXPR.
+
+@node Statement Sequences
+@subsubsection Statement Sequences
+@cindex Statement Sequences
+
+Multiple statements at the same nesting level are collected into a
+@code{STATEMENT_LIST}.  Statement lists are modified and traversed
+using the interface in @samp{tree-iterator.h}.
+
+@node Empty Statements
+@subsubsection Empty Statements
+@cindex Empty Statements
+
+Whenever possible, statements with no effect are discarded.  But if they
+are nested within another construct which cannot be discarded for some
+reason, they are instead replaced with an empty statement, generated by
+@code{build_empty_stmt}.  Initially, all empty statements were shared,
+after the pattern of the Java front end, but this caused a lot of trouble in
+practice.
+
+An empty statement is represented as @code{(void)0}.
+
+@node Loops
+@subsubsection Loops
+@cindex Loops
+
+At one time loops were expressed in GIMPLE using @code{LOOP_EXPR}, but
+now they are lowered to explicit gotos.
+
+@node Selection Statements
+@subsubsection Selection Statements
+@cindex Selection Statements
+
+A simple selection statement, such as the C @code{if} statement, is
+expressed in GIMPLE using a void @code{COND_EXPR}.  If only one branch is
+used, the other is filled with an empty statement.
+
+Normally, the condition expression is reduced to a simple comparison.  If
+it is a shortcut (@code{&&} or @code{||}) expression, however, we try to
+break up the @code{if} into multiple @code{if}s so that the implied shortcut
+is taken directly, much like the transformation done by @code{do_jump} in
+the RTL expander.
+
+A @code{SWITCH_EXPR} in GIMPLE contains the condition and a
+@code{TREE_VEC} of @code{CASE_LABEL_EXPR}s describing the case values
+and corresponding @code{LABEL_DECL}s to jump to.  The body of the
+@code{switch} is moved after the @code{SWITCH_EXPR}.
+
+@node Jumps
+@subsubsection Jumps
+@cindex Jumps
+
+Other jumps are expressed by either @code{GOTO_EXPR} or @code{RETURN_EXPR}.
+
+The operand of a @code{GOTO_EXPR} must be either a label or a variable
+containing the address to jump to.
+
+The operand of a @code{RETURN_EXPR} is either @code{NULL_TREE} or a
+@code{MODIFY_EXPR} which sets the return value.  It would be nice to
+move the @code{MODIFY_EXPR} into a separate statement, but the special
+return semantics in @code{expand_return} make that difficult.  It may
+still happen in the future, perhaps by moving most of that logic into
+@code{expand_assignment}.
+
+@node Cleanups
+@subsubsection Cleanups
+@cindex Cleanups
+
+Destructors for local C++ objects and similar dynamic cleanups are
+represented in GIMPLE by a @code{TRY_FINALLY_EXPR}.  When the controlled
+block exits, the cleanup is run.
+
+@code{TRY_FINALLY_EXPR} complicates the flow graph, since the cleanup
+needs to appear on every edge out of the controlled block; this
+reduces our freedom to move code across these edges.  Therefore, the
+EH lowering pass which runs before most of the optimization passes
+eliminates these expressions by explicitly adding the cleanup to each
+edge.
+
+@node GIMPLE Exception Handling
+@subsubsection Exception Handling
+@cindex GIMPLE Exception Handling
+
+Other exception handling constructs are represented using
+@code{TRY_CATCH_EXPR}.  The handler operand of a @code{TRY_CATCH_EXPR} 
+can be a normal statement to be executed if the controlled block throws an
+exception, or it can have one of two special forms:
+
+@enumerate
+@item A @code{CATCH_EXPR} executes its handler if the thrown exception
+  matches one of the allowed types.  Multiple handlers can be
+  expressed by a sequence of @code{CATCH_EXPR} statements.
+@item An @code{EH_FILTER_EXPR} executes its handler if the thrown
+  exception does not match one of the allowed types.
+@end enumerate
+
+Currently throwing an exception is not directly represented in GIMPLE,
+since it is implemented by calling a function.  At some point in the future
+we will want to add some way to express that the call will throw an
+exception of a known type.
+
+Just before running the optimizers, the compiler lowers the high-level
+EH constructs above into a set of @samp{goto}s, magic labels, and EH
+regions.  Continuing to unwind at the end of a cleanup is represented
+with a @code{RESX_EXPR}.
+
+@node GIMPLE Example
+@subsection GIMPLE Example
+@cindex GIMPLE Example
+
+@smallexample
+struct A @{ A(); ~A(); @};
+
+int i;
+int g();
+void f()
+@{
+  A a;
+  int j = (--i, i ? 0 : 1);
+
+  for (int x = 42; x > 0; --x)
+    @{
+      i += g()*4 + 32;
+    @}
+@}
+@end smallexample
+
+becomes
+
+@smallexample
+void f()
+@{
+  int i.0;
+  int T.1;
+  int iftmp.2;
+  int T.3;
+  int T.4;
+  int T.5;
+  int T.6;
+
+  @{
+    struct A a;
+    int j;
+
+    __comp_ctor (&a);
+    try
+      @{
+        i.0 = i;
+        T.1 = i.0 - 1;
+        i = T.1;
+        i.0 = i;
+        if (i.0 == 0)
+          iftmp.2 = 1;
+        else
+          iftmp.2 = 0;
+        j = iftmp.2;
+        @{
+          int x;
+
+          x = 42;
+          goto test;
+          loop:;
+
+          T.3 = g ();
+          T.4 = T.3 * 4;
+          i.0 = i;
+          T.5 = T.4 + i.0;
+          T.6 = T.5 + 32;
+          i = T.6;
+          x = x - 1;
+
+          test:;
+          if (x > 0)
+            goto loop;
+          else
+            goto break_;
+          break_:;
+        @}
+      @}
+    finally
+      @{
+        __comp_dtor (&a);
+      @}
+  @}
+@}
+@end smallexample
+
+@node Rough GIMPLE Grammar
+@subsection Rough GIMPLE Grammar
+@cindex Rough GIMPLE Grammar
+
+@smallexample
+function:
+  FUNCTION_DECL
+    DECL_SAVED_TREE -> block
+block:
+  BIND_EXPR
+    BIND_EXPR_VARS -> DECL chain
+    BIND_EXPR_BLOCK -> BLOCK
+    BIND_EXPR_BODY 
+      -> compound-stmt
+compound-stmt:
+  COMPOUND_EXPR
+    op0 -> non-compound-stmt
+    op1 -> stmt
+stmt: compound-stmt
+  | non-compound-stmt
+non-compound-stmt:
+  block
+  | if-stmt
+  | switch-stmt
+  | jump-stmt
+  | label-stmt
+  | try-stmt
+  | modify-stmt
+  | call-stmt
+if-stmt:
+  COND_EXPR
+    op0 -> condition
+    op1 -> stmt
+    op2 -> stmt
+switch-stmt:
+  SWITCH_EXPR
+    op0 -> val
+    op1 -> NULL_TREE
+    op2 -> TREE_VEC of CASE_LABEL_EXPRs
+jump-stmt:
+    GOTO_EXPR
+      op0 -> LABEL_DECL | '*' ID
+  | RETURN_EXPR
+      op0 -> modify-stmt
+             | NULL_TREE
+label-stmt:
+  LABEL_EXPR
+      op0 -> LABEL_DECL
+try-stmt:
+  TRY_CATCH_EXPR
+    op0 -> stmt
+    op1 -> handler
+  | TRY_FINALLY_EXPR
+    op0 -> stmt
+    op1 -> stmt
+handler:
+  catch-seq
+  | EH_FILTER_EXPR
+  | stmt
+catch-seq:
+  CATCH_EXPR
+  | COMPOUND_EXPR
+      op0 -> CATCH_EXPR
+      op1 -> catch-seq
+modify-stmt:
+  MODIFY_EXPR
+    op0 -> lhs
+    op1 -> rhs
+call-stmt: CALL_EXPR
+  op0 -> _DECL | '&' _DECL
+  op1 -> arglist
+arglist:
+  NULL_TREE
+  | TREE_LIST
+      op0 -> val
+      op1 -> arglist
+
+varname : compref | _DECL
+lhs: varname | '*' _DECL
+pseudo-lval: _DECL | '*' _DECL
+compref :
+  COMPONENT_REF
+    op0 -> compref | pseudo-lval
+  | ARRAY_REF
+    op0 -> compref | pseudo-lval
+    op1 -> val
+
+condition : val | val relop val
+val : _DECL | CONST
+
+rhs: varname | CONST
+   | '*' _DECL
+   | '&' varname
+   | call_expr
+   | unop val
+   | val binop val
+   | '(' cast ')' val
+
+unop: '+' | '-' | '!' | '~'
+
+binop: relop | '-' | '+' | '/' | '*'
+  | '%' | '&' | '|' | '<<' | '>>' | '^'
+
+relop: All tree codes of class '<'
+@end smallexample
 
 @node Annotations
 @section Annotations

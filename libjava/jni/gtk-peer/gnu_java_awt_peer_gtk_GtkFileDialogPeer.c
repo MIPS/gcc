@@ -1,5 +1,5 @@
 /* gtkfiledialogpeer.c -- Native implementation of GtkFileDialogPeer
-   Copyright (C) 1998, 1999, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2002, 2004 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -156,7 +156,7 @@ window_closed (GtkDialog *dialog __attribute__((unused)),
   static jmethodID disposeID;
   void *ptr;
 
-  // We only need this for the case when the user closed the window
+  /* We only need this for the case when the user closed the window. */
   if (responseId != GTK_RESPONSE_DELETE_EVENT)
     return;
 
@@ -186,6 +186,7 @@ ok_clicked (GtkButton *button __attribute__((unused)),
   static jmethodID hideID;
   void *ptr;
   G_CONST_RETURN gchar *fileName;
+  jstring str_fileName;
 
   ptr = NSA_GET_PTR (gdk_env, peer_obj);
   
@@ -204,7 +205,7 @@ ok_clicked (GtkButton *button __attribute__((unused)),
   gdk_threads_leave ();
   
   /* Set the Java object field 'file' with this value. */
-  jstring str_fileName = (*gdk_env)->NewStringUTF (gdk_env, fileName);
+  str_fileName = (*gdk_env)->NewStringUTF (gdk_env, fileName);
   (*gdk_env)->CallVoidMethod (gdk_env, peer_obj, gtkSetFilenameID, str_fileName);
 
   /* We can hide the dialog now (and unblock show) */

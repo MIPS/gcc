@@ -1533,12 +1533,6 @@ do {						\
 #ifndef USE_STORE_PRE_DECREMENT
 #define USE_STORE_PRE_DECREMENT(MODE)   HAVE_PRE_DECREMENT
 #endif
-
-/* Determine if the insn is a PHI node.  */
-#define PHI_NODE_P(X)				\
-  ((X) && GET_CODE (X) == INSN			\
-   && GET_CODE (PATTERN (X)) == SET		\
-   && GET_CODE (SET_SRC (PATTERN (X))) == PHI)
 
 /* Nonzero if we need to distinguish between the return value of this function
    and the return value of a function called by this function.  This helps
@@ -1840,7 +1834,6 @@ extern int reg_overlap_mentioned_p (rtx, rtx);
 extern rtx set_of (rtx, rtx);
 extern void note_stores (rtx, void (*) (rtx, rtx, void *), void *);
 extern void note_uses (rtx *, void (*) (rtx *, void *), void *);
-extern rtx reg_set_last (rtx, rtx);
 extern int dead_or_set_p (rtx, rtx);
 extern int dead_or_set_regno_p (rtx, unsigned int);
 extern rtx find_reg_note (rtx, enum reg_note, rtx);
@@ -2245,7 +2238,7 @@ extern void init_loop (void);
 #ifdef BUFSIZ
 extern void loop_optimize (rtx, FILE *, int);
 #endif
-extern void branch_target_load_optimize (rtx, bool);
+extern void branch_target_load_optimize (bool);
 
 /* In function.c */
 extern void reposition_prologue_and_epilogue_notes (rtx);
@@ -2327,8 +2320,6 @@ extern void cannot_change_mode_set_regs (HARD_REG_SET *,
 extern bool invalid_mode_change_p (unsigned int, enum reg_class,
 				   enum machine_mode);
 
-extern int delete_null_pointer_checks (rtx);
-
 /* In regmove.c */
 #ifdef BUFSIZ
 extern void regmove_optimize (rtx, int, FILE *);
@@ -2348,7 +2339,7 @@ extern int local_alloc (void);
 
 /* In reg-stack.c */
 #ifdef BUFSIZ
-extern bool reg_to_stack (rtx, FILE *);
+extern bool reg_to_stack (FILE *);
 #endif
 
 /* In calls.c */

@@ -2,22 +2,22 @@
    Copyright (C) 2000, 2001, 2002 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
-This file is part of GNU G95.
+This file is part of GCC.
 
-GNU G95 is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
 
-GNU G95 is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU G95; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
 
 #include "config.h"
 #include "gfortran.h"
@@ -65,7 +65,9 @@ gfc_copy_array_ref (gfc_array_ref * src)
 
 /* Match a single dimension of an array reference.  This can be a
    single element or an array section.  Any modifications we've made
-   to the ar structure are cleaned up by the caller.  */
+   to the ar structure are cleaned up by the caller.  If the init
+   is set, we require the subscript to be a valid initialization
+   expression.  */
 
 static match
 match_subscript (gfc_array_ref * ar, int init)
@@ -131,7 +133,8 @@ end_element:
 
 
 /* Match an array reference, whether it is the whole array or a
-   particular elements or a section.  */
+   particular elements or a section. If init is set, the reference has
+   to consist of init expressions.  */
 
 match
 gfc_match_array_ref (gfc_array_ref * ar, gfc_array_spec * as, int init)

@@ -1,4 +1,4 @@
-/* Copyright (C) 2002-2003 Free Software Foundation, Inc.
+/* Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of the GNU Fortran 95 runtime library (libgfortran).
@@ -37,6 +37,10 @@ Boston, MA 02111-1307, USA.  */
 
 #ifndef PATH_MAX
 #define PATH_MAX 1024
+#endif
+
+#ifndef MAP_FAILED
+#define MAP_FAILED ((void *) -1)
 #endif
 
 /* This implementation of stream I/O is based on the paper:
@@ -561,7 +565,7 @@ mmap_alloc (unix_stream * s, offset_t where, int *len)
   length = ((where - offset) & page_mask) + 2 * page_size;
 
   p = mmap (NULL, length, s->prot, MAP_SHARED, s->fd, offset);
-  if (p == MAP_FAILED)
+  if (p == (char *) MAP_FAILED)
     return FAILURE;
 
   s->mmaped = 1;
@@ -672,7 +676,7 @@ mmap_open (unix_stream * s)
   page_mask = ~0;
 
   p = mmap (0, page_size, s->prot, MAP_SHARED, s->fd, 0);
-  if (p == MAP_FAILED)
+  if (p == (char *) MAP_FAILED)
     {
       fd_open (s);
       return SUCCESS;
@@ -1108,11 +1112,11 @@ compare_file_filename (stream * s, const char *name, int len)
 
 /* find_file0()-- Recursive work function for find_file() */
 
-static unit_t *
-find_file0 (unit_t * u, struct stat *st1)
+static gfc_unit *
+find_file0 (gfc_unit * u, struct stat *st1)
 {
   struct stat st2;
-  unit_t *v;
+  gfc_unit *v;
 
   if (u == NULL)
     return NULL;
@@ -1136,7 +1140,7 @@ find_file0 (unit_t * u, struct stat *st1)
 /* find_file()-- Take the current filename and see if there is a unit
  * that has the file already open.  Returns a pointer to the unit if so. */
 
-unit_t *
+gfc_unit *
 find_file (void)
 {
   char path[PATH_MAX + 1];
@@ -1190,7 +1194,7 @@ stream_at_eof (stream * s)
  * with the unit.  Returns nonzero if something went wrong. */
 
 int
-delete_file (unit_t * u)
+delete_file (gfc_unit * u)
 {
   char path[PATH_MAX + 1];
 
@@ -1388,6 +1392,12 @@ is_seekable (stream * s)
 {
 
   return ((unix_stream *) s)->mmaped;
+}
+
+try
+flush (stream *s)
+{
+  return fd_flush( (unix_stream *) s);
 }
 
 

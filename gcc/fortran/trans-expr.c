@@ -1,26 +1,26 @@
 /* Expression translation
-   Copyright (C) 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Paul Brook <paul@nowt.org>
    and Steven Bosscher <s.bosscher@student.tudelft.nl>
 
-This file is part of GNU G95.
+This file is part of GCC.
 
-GNU G95 is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
 
-GNU G95 is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU G95; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
 
-/* trans-expr.c-- generate SIMPLE trees for gfc_expr.  */
+/* trans-expr.c-- generate GENERIC trees for gfc_expr.  */
 
 #include "config.h"
 #include "system.h"
@@ -31,7 +31,7 @@ Boston, MA 02111-1307, USA.  */
 #include "ggc.h"
 #include "toplev.h"
 #include "real.h"
-#include "tree-simple.h"
+#include "tree-gimple.h"
 #include "flags.h"
 #include <gmp.h>
 #include <assert.h>
@@ -239,8 +239,8 @@ gfc_conv_component_ref (gfc_se * se, gfc_ref * ref)
 }
 
 
-/* Return the contents of a variable. Also handles refrence/pointer
-   variables (all Fortran pointer refrences are implicit) */
+/* Return the contents of a variable. Also handles reference/pointer
+   variables (all Fortran pointer references are implicit).  */
 
 static void
 gfc_conv_variable (gfc_se * se, gfc_expr * expr)
@@ -374,7 +374,7 @@ gfc_conv_unary_op (enum tree_code code, gfc_se * se, gfc_expr * expr)
 
   /* TRUTH_NOT_EXPR is not a "true" unary operator in GCC.
      We must convert it to a compare to 0 (e.g. EQ_EXPR (op1, 0)).
-     All other unary operators have an equivalent SIMPLE unary operator  */
+     All other unary operators have an equivalent GIMPLE unary operator  */
   if (code == TRUTH_NOT_EXPR)
     se->expr = build (EQ_EXPR, type, operand.expr, integer_zero_node);
   else
@@ -796,7 +796,7 @@ gfc_conv_expr_op (gfc_se * se, gfc_expr * expr)
       break;
 
       /* EQV and NEQV only work on logicals, but since we represent them
-         as integers, we can use EQ_EXPR and NE_EXPR for them in SIMPLE.  */
+         as integers, we can use EQ_EXPR and NE_EXPR for them in GIMPLE.  */
     case INTRINSIC_EQ:
     case INTRINSIC_EQV:
       code = EQ_EXPR;
@@ -1292,20 +1292,15 @@ gfc_conv_structure (gfc_se * se, gfc_expr * expr, int init)
       /* Evaluate the expression for this component.  */
       if (init)
 	{
-	  switch (c->expr->expr_type)
+	  if (cm->dimension)
 	    {
-	    case EXPR_ARRAY:
 	      arraytype = TREE_TYPE (cm->backend_decl);
 	      cse.expr = gfc_conv_array_initializer (arraytype, c->expr);
-	      break;
-
-	    case EXPR_STRUCTURE:
-	      gfc_conv_structure (&cse, c->expr, 1);
-	      break;
-
-	    default:
-	      gfc_conv_expr (&cse, c->expr);
 	    }
+	  else if (cm->ts.type == BT_DERIVED)
+	    gfc_conv_structure (&cse, c->expr, 1);
+	  else
+	    gfc_conv_expr (&cse, c->expr);
 	}
       else
 	{

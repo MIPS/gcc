@@ -546,8 +546,8 @@ extern void tree_operand_check_failed (int, enum tree_code,
 #define FUNC_OR_METHOD_CHECK(T)	TREE_CHECK2 (T, FUNCTION_TYPE, METHOD_TYPE)
 #define PTR_OR_REF_CHECK(T)	TREE_CHECK2 (T, POINTER_TYPE, REFERENCE_TYPE)
 
-#define SET_ARRAY_OR_VECTOR_CHECK(T) \
-  TREE_CHECK3 (T, ARRAY_TYPE, SET_TYPE, VECTOR_TYPE)
+#define SET_OR_ARRAY_CHECK(T) \
+  TREE_CHECK2 (T, ARRAY_TYPE, SET_TYPE)
 
 #define REC_OR_UNION_CHECK(T)	\
   TREE_CHECK3 (T, RECORD_TYPE, UNION_TYPE, QUAL_UNION_TYPE)
@@ -1069,6 +1069,16 @@ struct tree_vec GTY(())
   (EXPR_CHECK (NODE)->exp.locus->file)
 #define EXPR_LINENO(NODE) \
   (EXPR_CHECK (NODE)->exp.locus->line)
+#ifdef USE_MAPPED_LOCATION
+#define EXPR_LOCATION(NODE)					\
+  (IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (TREE_CODE (NODE)))	\
+   ? (NODE)->exp.locus						\
+   : UNKNOWN_LOCATION)
+#define EXPR_HAS_LOCATION(NODE) (EXPR_LOCATION (NODE) != UNKNOWN_LOCATION)
+#else
+#define EXPR_LOCATION(NODE) (*EXPR_LOCUS (NODE))
+#define EXPR_HAS_LOCATION(NODE) (EXPR_LOCUS (NODE) != NULL)
+#endif
 
 /* In a TARGET_EXPR node.  */
 #define TARGET_EXPR_SLOT(NODE) TREE_OPERAND_CHECK_CODE (NODE, TARGET_EXPR, 0)
@@ -1449,7 +1459,7 @@ struct tree_block GTY(())
 #define TYPE_MODE(NODE) (TYPE_CHECK (NODE)->type.mode)
 #define TYPE_ORIG_SIZE_TYPE(NODE) (INTEGER_TYPE_CHECK (NODE)->type.values)
 #define TYPE_VALUES(NODE) (ENUMERAL_TYPE_CHECK (NODE)->type.values)
-#define TYPE_DOMAIN(NODE) (SET_ARRAY_OR_VECTOR_CHECK (NODE)->type.values)
+#define TYPE_DOMAIN(NODE) (SET_OR_ARRAY_CHECK (NODE)->type.values)
 #define TYPE_FIELDS(NODE) (REC_OR_UNION_CHECK (NODE)->type.values)
 #define TYPE_METHODS(NODE) (REC_OR_UNION_CHECK (NODE)->type.maxval)
 #define TYPE_VFIELD(NODE) (REC_OR_UNION_CHECK (NODE)->type.minval)
@@ -1475,7 +1485,7 @@ struct tree_block GTY(())
 /* For a VECTOR_TYPE node, this describes a different type which is emitted
    in the debugging output.  We use this to describe a vector as a
    structure containing an array.  */
-#define TYPE_DEBUG_REPRESENTATION_TYPE(NODE) (TYPE_CHECK (NODE)->type.values)
+#define TYPE_DEBUG_REPRESENTATION_TYPE(NODE) (VECTOR_TYPE_CHECK (NODE)->type.values)
 
 /* For aggregate types, information about this type, as a base type
    for itself.  Used in a language-dependent way for types that are
@@ -2452,6 +2462,7 @@ enum tree_index
   TI_PTR_TYPE,
   TI_CONST_PTR_TYPE,
   TI_SIZE_TYPE,
+  TI_PID_TYPE,
   TI_PTRDIFF_TYPE,
   TI_VA_LIST_TYPE,
   TI_BOOLEAN_TYPE,
@@ -2516,6 +2527,7 @@ extern GTY(()) tree global_trees[TI_MAX];
 #define const_ptr_type_node		global_trees[TI_CONST_PTR_TYPE]
 /* The C type `size_t'.  */
 #define size_type_node                  global_trees[TI_SIZE_TYPE]
+#define pid_type_node                   global_trees[TI_PID_TYPE]
 #define ptrdiff_type_node		global_trees[TI_PTRDIFF_TYPE]
 #define va_list_type_node		global_trees[TI_VA_LIST_TYPE]
 
@@ -3425,6 +3437,7 @@ extern void using_eh_for_cleanups (void);
 
 extern tree fold (tree);
 extern tree fold_initializer (tree);
+extern tree fold_convert (tree, tree);
 extern tree fold_single_bit_test (enum tree_code, tree, tree, tree);
 
 extern int force_fit_type (tree, int);
@@ -3455,7 +3468,14 @@ extern int div_and_round_double (enum tree_code, int, unsigned HOST_WIDE_INT,
 				 HOST_WIDE_INT *, unsigned HOST_WIDE_INT *,
 				 HOST_WIDE_INT *);
 
-extern int operand_equal_p (tree, tree, int);
+enum operand_equal_flag
+{
+  OEP_ONLY_CONST = 1,
+  OEP_PURE_SAME = 2
+};
+
+extern int operand_equal_p (tree, tree, unsigned int);
+
 extern tree omit_one_operand (tree, tree, tree);
 extern tree invert_truthvalue (tree);
 extern tree nondestructive_fold_unary_to_constant (enum tree_code, tree, tree);
@@ -3584,18 +3604,17 @@ extern rtx emit_line_note (location_t);
 #define ECF_LONGJMP		64
 /* Nonzero if this is a syscall that makes a new process in the image of
    the current one.  */
-#define ECF_FORK_OR_EXEC	128
-#define ECF_SIBCALL		256
+#define ECF_SIBCALL		128
 /* Nonzero if this is a call to "pure" function (like const function,
    but may read memory.  */
-#define ECF_PURE		512
+#define ECF_PURE		256
 /* Nonzero if this is a call to a function that returns with the stack
    pointer depressed.  */
-#define ECF_SP_DEPRESSED	1024
+#define ECF_SP_DEPRESSED	512
 /* Nonzero if this call is known to always return.  */
-#define ECF_ALWAYS_RETURN	2048
+#define ECF_ALWAYS_RETURN	1024
 /* Create libcall block around the call.  */
-#define ECF_LIBCALL_BLOCK	4096
+#define ECF_LIBCALL_BLOCK	2048
 
 extern int flags_from_decl_or_type (tree);
 extern int call_expr_flags (tree);
@@ -3720,7 +3739,7 @@ enum tree_dump_index
   TDI_inlined,			/* dump each function after inlining
 				   within it.  */
   TDI_expand,			/* dump RTL expansion of each function */
-  TDI_dot,			/* create a dot graph file for each 
+  TDI_vcg,			/* create a VCG graph file for each 
 				   function's flowgraph.  */
   TDI_xml,                      /* dump function call graph.   */
   TDI_all,			/* enable all the dumps.  */
