@@ -1,3 +1,7 @@
+2004-10-10  Dale Johannesen  <dalej@apple.com>
+
+	* alias.c (write_dependence_p):  Refs to same FE object interfere.
+
 2004-09-29  Stan Shebs  <shebs@apple.com>
 
 	* config/darwin.h (REAL_LIBGCC_SPEC): Add non-shared libgcc case for

@@ -2458,6 +2458,11 @@ write_dependence_p (rtx mem, rtx x, int writep)
 	return 0;
     }
 
+  /* APPLE LOCAL begin aliasing improvement */
+  if (overlapping_memrefs_p (mem, x))  
+       return 1;
+  /* APPLE LOCAL end */
+
   if (! base_alias_check (x_addr, mem_addr, GET_MODE (x),
 			  GET_MODE (mem)))
     return 0;
