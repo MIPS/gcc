@@ -50,8 +50,12 @@ extern "C"
 #endif
 
 #define JAWT_VERSION_1_3 0x10003
+#define JAWT_VERSION_1_4 0x10004
 
 #define JAWT_LOCK_ERROR 0x1
+#define JAWT_LOCK_CLIP_CHANGED 0x2
+#define JAWT_LOCK_BOUNDS_CHANGED 0x4
+#define JAWT_LOCK_SURFACE_CHANGED 0x8
 
 struct _JAWT_DrawingSurfaceInfo
 {
@@ -74,9 +78,13 @@ struct _JAWT_DrawingSurface
 
 struct _JAWT
 {
-  jint version;
+  void (JNICALL *Lock) (JNIEnv*);
+  void (JNICALL *Unlock) (JNIEnv*);
+
   struct _JAWT_DrawingSurface* (JNICALL* GetDrawingSurface) (JNIEnv*, jobject);
   void (JNICALL* FreeDrawingSurface) (struct _JAWT_DrawingSurface*);
+
+  jint version;
 };
 
 typedef struct _JAWT_DrawingSurfaceInfo JAWT_DrawingSurfaceInfo;
