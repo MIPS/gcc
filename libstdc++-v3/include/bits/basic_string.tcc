@@ -280,6 +280,7 @@ namespace std
 	     traits_type::copy(_M_data(), __s, __n);
 	   else if (__pos)
 	     traits_type::move(_M_data(), __s, __n);
+	   _M_rep()->_M_set_sharable();
 	   _M_rep()->_M_length = __n;
 	   _M_data()[__n] = _Rep::_S_terminal;  // grr.
 	   return *this;
@@ -522,15 +523,18 @@ namespace std
       const size_t __malloc_header_size = 4 * sizeof (void*);
       if ((__size + __malloc_header_size) > __pagesize)
 	{
-	  size_t __extra =
+	  const size_t __extra =
 	    (__pagesize - ((__size + __malloc_header_size) % __pagesize))
 	    % __pagesize;
 	  __capacity += __extra / sizeof(_CharT);
+	  // Never allocate a string bigger than _S_max_size.
+	  if (__capacity > _S_max_size)
+	    __capacity = _S_max_size;
 	  __size = (__capacity + 1) * sizeof(_CharT) + sizeof(_Rep);
 	}
       else if (__size > __subpagesize)
 	{
-	  size_t __extra =
+	  const size_t __extra =
 	    (__subpagesize - ((__size + __malloc_header_size) % __subpagesize))
 	    % __subpagesize;
 	  __capacity += __extra / sizeof(_CharT);

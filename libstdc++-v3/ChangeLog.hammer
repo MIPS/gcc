@@ -1,3 +1,13 @@
+2004-07-15  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/basic_string.tcc (assign(const _CharT*, size_type)):
+	When working in place remember to set the state to sharable.
+
+2004-07-15  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/basic_string.tcc (_Rep::_S_create):
+	Never allocate a string bigger than max_size().
+
 2004-07-14  Paolo Carlini  <pcarlini@suse.de>
 
 	PR libstdc++/12653
