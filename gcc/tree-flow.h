@@ -81,7 +81,7 @@ struct operands_d GTY(())
   tree  * GTY ((length ("1"))) def_op;
 
   /* Array of pointers to each operand in the statement.  */
-  varray_type use_ops;
+  varray_type  GTY ((skip (""))) use_ops;
 };
 
 typedef struct operands_d *operands_t;
@@ -93,7 +93,7 @@ struct voperands_d GTY(())
   varray_type vdef_ops;
 
   /* List of V_USE references in this statement.  */
-  varray_type vuse_ops;
+  varray_type GTY ((skip (""))) vuse_ops;
 };
 
 typedef struct voperands_d *voperands_t;
@@ -104,7 +104,7 @@ struct dataflow_d GTY(())
   /* Immediate uses.  This is a list of all the statements and PHI nodes
      that are immediately reached by the definitions made in this
      statement.  */
-  varray_type immediate_uses;
+  varray_type GTY ((skip (""))) immediate_uses;
 
   /* Reached uses.  This is a list of all the possible program statements
      that may be reached directly or indirectly by definitions made in this
@@ -122,7 +122,7 @@ struct dataflow_d GTY(())
      includes statement #5 because 'a1' could reach 'a3' via the PHI node
      at statement #4.  The set of REACHED_USES is then the transitive
      closure over all the PHI nodes in the IMMEDIATE_USES set.  */
-  varray_type reached_uses;
+  varray_type GTY ((skip (""))) reached_uses;
 
   /* Reaching definitions.  Similarly to REACHED_USES, the set
      REACHING_DEFS is the set of all the statements that make definitions
@@ -130,7 +130,7 @@ struct dataflow_d GTY(())
      similar entry for immediate definitions, as these are represented by
      the SSA_NAME nodes themselves (each SSA_NAME node contains a pointer
      to the statement that makes that definition).  */
-  varray_type reaching_defs;
+  varray_type GTY ((skip (""))) reaching_defs;
 };
 
 typedef struct dataflow_d *dataflow_t;

@@ -1,3 +1,8 @@
+2003-02-13  Daniel Berlin <dberlin@dberlin.org>
+            Andreas Jaeger  <aj@suse.de>
+
+	* tree-flow.h: Add some garbage collector marks.
+
 2003-02-12  Jeff Law  <law@redhat.com>
 
 	* Makefile.in (ssa.o): Depends on $(TREE_H) and tree-flow.h
