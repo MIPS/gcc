@@ -41,7 +41,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "cfglayout.h"
 #include "loop.h"
 #include "params.h"
-
+#include "output.h"
 /* Stupid definitions of dominator manipulation.  */
 
 basic_block
@@ -459,27 +459,51 @@ unswitch_single_loop (loops, loop, cond_checked, num)
 
   /* Do not unswitch too much.  */
   if (num > PARAM_VALUE (MAX_UNSWITCH_LEVEL))
-    return;
+    {
+      if (rtl_dump_file)
+	fprintf (rtl_dump_file, ";; Not unswitching anymore, hit max level\n");
+      return;
+    }
 
   /* We only unswitch innermost loops (at least for now).  */
   if (loop->inner)
-    return;
+    {
+      if (rtl_dump_file)
+	fprintf (rtl_dump_file, ";; Not unswitching, not innermost loop\n");
+      return;
+    }
   
   /* And we must be able to duplicate loop body.  */
   if (!can_duplicate_loop_p (loop))
-    return;
+    {
+      if (rtl_dump_file)
+	fprintf (rtl_dump_file, ";; Not unswitching, can't duplicate loop\n");
+      return;
+    }
 
   /* Check the size of loop.  */
   if (num_loop_insns (loop) > PARAM_VALUE (MAX_UNSWITCH_INSNS))
-    return;
-
+    {
+      if (rtl_dump_file)
+	fprintf (rtl_dump_file, ";; Not unswitching, loop too big\n");
+      return;
+    }
+  
   /* Do not unswitch in cold areas.  */
   if (!maybe_hot_bb_p (loop->header))
-    return;
-
+    {
+      if (rtl_dump_file)
+	fprintf (rtl_dump_file, ";; Not unswitching, not hot area\n");
+      return;
+    }
+  
   /* Nor if it usually do not pass.  */
   if (expected_loop_iterations (loop) < 1)
-    return;
+    {
+      if (rtl_dump_file)
+	fprintf (rtl_dump_file, ";; Not unswitching, loop iterations < 1\n");
+      return;
+    }
 
   do
     {
@@ -557,7 +581,8 @@ unswitch_single_loop (loops, loop, cond_checked, num)
   bb = split_loop_bb (loops, bbs[i], PREV_INSN (bbs[i]->end))->dest;
   free (bbs);
   true_first = !(bb->succ->flags & EDGE_FALLTHRU);
-
+  if (rtl_dump_file)
+    fprintf (rtl_dump_file, ";; Unswitching loop\n");
   /* Unswitch the loop.  */
   nloop = unswitch_loop (loops, loop, bb);
   if (!nloop)

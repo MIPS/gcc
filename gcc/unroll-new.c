@@ -40,6 +40,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "cfglayout.h"
 #include "loop.h"
 #include "params.h"
+#include "output.h"
 
 static basic_block simple_exit PARAMS ((struct loops *, struct loop *, basic_block *, int *));
 static bool simple_condition_p PARAMS ((struct loop *, basic_block *, rtx, struct loop_desc *));
@@ -246,6 +247,8 @@ simple_increment (loops, loop, body, desc)
 
   /* mod_insn must be a simple increment/decrement.  */
   set = single_set (mod_insn);
+  if (!set)
+    return NULL;
   if (!rtx_equal_p (SET_DEST (set), desc->var))
     return NULL;
 
@@ -452,7 +455,11 @@ unroll_loop_constant_iterations (loops, loop, max_unroll, desc)
 
   /* Normalization.  */
   if (!count_loop_iterations (desc, &niter, NULL))
-    return 0;
+    {
+      if (rtl_dump_file)
+	fprintf (rtl_dump_file, ";; Not unrolling loop, can't count loop iterations\n");
+      return 0;
+    }  
 
   if (niter < 0)
     {
@@ -477,6 +484,8 @@ unroll_loop_constant_iterations (loops, loop, max_unroll, desc)
 	   loop, e, loops, niter + 1, 0xfe - (1 << (niter + 1)),
 	   DLTHE_FLAG_ALL))
 	abort ();
+      if (rtl_dump_file)
+        fprintf (rtl_dump_file, ";; Unrolled loop %d times\n",niter);
       return 1;
     }
 
@@ -488,6 +497,9 @@ unroll_loop_constant_iterations (loops, loop, max_unroll, desc)
 	DLTHE_FLAG_ALL))
     abort ();
 
+  if (rtl_dump_file)
+    fprintf (rtl_dump_file, ";; Unrolled loop %d times\n",max_unroll);
+  
   return 1;
 }
 
@@ -514,6 +526,8 @@ unroll_loop_runtime_iterations (loops, loop, max_unroll, desc)
   start_sequence ();
   if (!count_loop_iterations (desc, NULL, &niter))
     {
+      if (rtl_dump_file)
+	fprintf (rtl_dump_file, ";; Not unrolling loop, can't count loop iterations\n");      
       end_sequence ();
       return 0;
     }
@@ -613,6 +627,9 @@ unroll_loop_runtime_iterations (loops, loop, max_unroll, desc)
 	 DLTHE_FLAG_ALL))
     abort ();
 
+  if (rtl_dump_file)
+    fprintf (rtl_dump_file, ";; Unrolled loop %d times\n", max_unroll);
+  
   return 1;
 }
 
@@ -626,7 +643,11 @@ unroll_simple_loop (loops, loop, max_unroll, desc)
      struct loop_desc *desc;
 {
   if (!can_duplicate_loop_p (loop))
-    return 0;
+    {
+      if (rtl_dump_file)
+	fprintf (rtl_dump_file, ";; Not unrolling loop, can't duplicate\n");
+      return 0;
+    }
 
   switch (desc->cond)
     {
@@ -634,6 +655,8 @@ unroll_simple_loop (loops, loop, max_unroll, desc)
       case GTU:
       case LEU:
       case LTU:
+	if (rtl_dump_file)
+	  fprintf (rtl_dump_file, ";;  Not unrolling loop, GEU/GTU/LEU/LTU condition\n");
 	/* I'm not brave enough to cope with this.  */
 	return 0;
       default:
@@ -666,16 +689,29 @@ peel_loop (loops, loop, will_unroll)
 
   /* Do not peel cold areas.  */
   if (!maybe_hot_bb_p (loop->header))
-    return 1;
+    {
+      if (rtl_dump_file)
+	fprintf (rtl_dump_file, ";; Not peeling loop, header is cold area\n");
+      return 1;
+    }
 
   /* Only peel innermost loops.  */
   if (loop->inner)
-    return 1;
-
+    {
+      if (rtl_dump_file)
+	fprintf (rtl_dump_file, ";; Not peeling loop, not innermost loop\n");
+      return 1;
+    }
+      
   /* Do not peel loops that roll too much.  */
   niter = expected_loop_iterations (loop);
   if (niter > 2 * PARAM_VALUE (MAX_PEEL_TIMES))
-    return 1;
+    {
+      if (rtl_dump_file)
+	fprintf (rtl_dump_file, ";; Not peeling loop, rolls too much (%d iterations > %d [2 * maximum peelings])\n", niter, 2 * PARAM_VALUE (MAX_PEEL_TIMES));    
+      return 1;
+    }
+  
 
   ninsns = num_loop_insns (loop);
 
@@ -690,13 +726,23 @@ peel_loop (loops, loop, will_unroll)
       /* Do not peel simple loops if also unrolling will be done, not to
 	 interfere with it.  */
       if (will_unroll && simple_loop_p (loops, loop, &desc))
-	return 1;
-	 
+	{
+	  if (rtl_dump_file)
+	    fprintf (rtl_dump_file, ";; Not peeling loop, loop will be unrolled\n");
+	  return 1;
+	}
+      
       for (e = loop->header->pred; e->src == loop->latch; e = e->pred_next);
       if (!duplicate_loop_to_header_edge (loop, e, loops, npeel, 0,
 	     DLTHE_FLAG_ALL))
-	return 0;
+	{
+	  if (rtl_dump_file)
+	    fprintf (rtl_dump_file, ";; Peeling unsuccessful\n");
+	  return 0;
+	}
     }
+  if (rtl_dump_file && npeel > 0)
+    fprintf (rtl_dump_file, ";; Peeling loop %d times\n", npeel);
   return 1;
 }
 
@@ -712,7 +758,11 @@ unroll_loop_new (loops, loop, unroll_all)
 
   /* Do not unroll cold areas.  */
   if (!maybe_hot_bb_p (loop->header))
-    return 1;
+    {
+      if (rtl_dump_file)
+	fprintf (rtl_dump_file, ";; Not unrolling loop, cold area\n");
+      return 1;
+    }
 
   ninsns = num_loop_insns (loop);
 
@@ -736,14 +786,25 @@ unroll_loop_new (loops, loop, unroll_all)
 	  /* Do not unroll loops that do not roll.  */
 	  niter = expected_loop_iterations (loop);
 	  if (niter < 2 * PARAM_VALUE (MAX_UNROLL_TIMES))
-	    return 1;
+	    {
+	      if (rtl_dump_file)
+		fprintf (rtl_dump_file, ";; Not unrolling loop, doesn't roll\n");
+	      return 1;
+	    }
 
 	  /* Some hard case; try stupid unrolling anyway.  */
 	  for (e = loop->header->pred; e->src != loop->latch; e = e->pred_next);
 	  if (!duplicate_loop_to_header_edge (loop, e, loops, nunroll, 0,
 		   DLTHE_FLAG_ALL))
-	    return 0;
+	    {
+	      if (rtl_dump_file)
+		fprintf (rtl_dump_file, ";;  Not unrolling loop, can't duplicate\n");
+	      return 0;
+	    }
+	  if (rtl_dump_file)
+	    fprintf (rtl_dump_file, ";; Unrolled loop %d times\n", nunroll);
+	  
 	}
-    }
+    }  
   return 1;
 }
