@@ -127,9 +127,7 @@ do {									\
    the kernel or some such.  */
 
 #define CC1_SPEC "\
-%{gused: -g -feliminate-unused-debug-symbols %<gused }\
-%{gfull: -g -fno-eliminate-unused-debug-symbols %<gfull }\
-%{g: %{!gfull: -feliminate-unused-debug-symbols %<gfull }}\
+%{g: %{!fno-eliminate-unused-debug-symbols: -feliminate-unused-debug-symbols }} \
 %{static: %{Zdynamic: %e conflicting code gen style switches are used}}"\
 /* APPLE LOCAL -fast and PIC code.  */\
 "%{!static:%{!fast:%{!fastf:%{!fastcp:%{!mdynamic-no-pic:-fPIC}}}}}"

@@ -1,3 +1,13 @@
+2004-12-02  Devang Patel  <dpatel@apple.com>
+
+	Radar 3855723 and 3886718
+
+	Backport from Mainline
+	2004-12-02  Devang Patel  <dpatel@apple.com>
+	* config/darwin.h (TARGET_OPTION_TRANSLATE_TABLE): Add -gfull and -gused.
+	* config/rs6000/darwin.h (CC1_SPEC): Do not handle -gfull and -gused.
+	* config/i386/darwin.h (CC1_SPEC): Same.
+
 2004-12-02  Fariborz Jahanian <fjahanian@apple.com>
 	Radar 3893215 - part 1
 	* tree-scalar-evolution.c (follow_ssa_edge_in_condition_phi):
