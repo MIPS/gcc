@@ -1,5 +1,10 @@
 2004-07-31  Mark Wielaard  <mark@klomp.org>
 
+	* gnu/java/awt/peer/gtk/GtkToolkit.java (getFontPeer): Don't return
+	null when a MissingResourceException is thrown. Should never happen.
+
+2004-07-31  Mark Wielaard  <mark@klomp.org>
+
 	* java/awt/EventQueue.java (postEvent): Throw NullPointerException
 	when argument is null.
 

@@ -266,7 +266,7 @@ public class GtkToolkit extends gnu.java.awt.ClasspathToolkit
   {
     if (useGraphics2D())
       return bufferedImageOrError(GdkPixbufDecoder.createBufferedImage (imagedata,
-                                                                        imageoffset, 
+                                                   imageoffset, 
                                                                         imagelength));
     else
       {
@@ -510,12 +510,8 @@ public class GtkToolkit extends gnu.java.awt.ClasspathToolkit
    */
   private FontPeer getFontPeer (String name, int style, int size) 
   {
-    try {
-      GtkFontPeer fp = new GtkFontPeer (name, style, size);
-      return fp;
-    } catch (MissingResourceException ex) {
-      return null;
-    }
+    GtkFontPeer fp = new GtkFontPeer (name, style, size);
+    return fp;
   }
 
   /**
