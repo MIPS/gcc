@@ -1,3 +1,7 @@
+2005-03-18  Geoffrey Keating  <geoffk@apple.com>
+
+	* doc/include/sourcecode.texi: Update branch name.
+
 2005-03-17  Geoffrey Keating  <geoffk@apple.com>
 
 	* c-parse.in: Change number of expected conflicts to 15.
