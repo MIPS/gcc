@@ -1,5 +1,10 @@
 2004-01-03  Sebastian Pop  <s.pop@laposte.net>
 
+	* tree-optimize.c (optimize_function_tree): Move the closing brace of
+	DCE2 to the right place.
+
+2004-01-03  Sebastian Pop  <s.pop@laposte.net>
+
 	* tree-vectorizer.c (vect_analyze_operations): Test vectorization_factor
 	before computing modulo.
 

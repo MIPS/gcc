@@ -238,6 +238,11 @@ optimize_function_tree (tree fndecl, tree *chain)
 	  tree_ssa_dce (fndecl, TDI_dce_2);
 	  ggc_collect ();
 
+#ifdef ENABLE_CHECKING
+	  verify_ssa ();
+#endif
+	}
+      
       if (flag_scalar_evolutions || flag_tree_vectorize)
 	{
 	  unsigned int i;
@@ -298,11 +303,6 @@ optimize_function_tree (tree fndecl, tree *chain)
 	      finalize_scalar_evolutions_analyzer ();
 	      loop_optimizer_finalize (loops, NULL);
 	    }
-	}
-
-#ifdef ENABLE_CHECKING
-	  verify_ssa ();
-#endif
 	}
 
       /* Eliminate tail recursion calls and discover sibling calls.  */
