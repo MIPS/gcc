@@ -30,9 +30,10 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
+#include <regex.h>
 #include "libiberty.h"
 #include "filenames.h"
-
+#include "stdbool.h"
 /* Hack!.
    Pay the price for including darwin.h.  */
 typedef int tree;  
@@ -718,6 +719,367 @@ add_arch (const char *new_arch)
   num_arches++;
 }
 
+/* Rewrite the command line as requested in the QA_OVERRIDE_GCC3_OPTIONS
+   environment variable -- used for testing the compiler, working around bugs
+   in the Apple build environment, etc. 
+
+   The override string is made up of a set of space-separated clauses.  The
+   first letter of each clause describes what's to be done:
+   +string       Add string as a new argument (at the end of the command line).
+                 Multi-word command lines can be added with +x +y
+   s/x/y/        substitute x for y in the command line. X must be an entire 
+                 argument, and can be a regular expression as accepted by the
+                 POSIX regexp code.  Y will be substituted as a single argument,
+                 and will not have regexp replacements added in.
+   xoption       Removes argument matching option
+   Xoption       Removes argument matching option and following word
+   Ox            Removes any optimization flags in command line and replaces
+                 with -Ox.
+
+
+   Here's some examples:
+     O2
+     s/precomp-trustfile=foo//
+     +-fexplore-antartica
+     +-fast
+     s/-fsetvalue=* //
+     x-fwritable-strings
+     s/-O[0-2]/-Osize/
+     x-v
+     X-o +-o +foo.o
+
+   Option substitutions are processed from left to right; matches and changes
+   are cumulative.  An error in processing one element (such as trying to
+   remove an element and successor when the match is at the end) cause the
+   particular change to stop, but additional changes in the environment
+   variable to be applied.
+
+   Key details: 
+   * we always want to be able to adjust optimization levels for testing
+   * adding options is a common task
+   * substitution and deletion are less common.
+
+   If the first character of the environment variable is #, changes are
+   silent.  If not, diagnostics are written to stderr explaining what
+   changes are being performed.
+
+*/
+
+char **arg_array;
+int arg_array_size=0;
+int arg_count = 0;
+int confirm_changes = 1;
+const int ARG_ARRAY_INCREMENT_SIZE = 8;
+#define FALSE 0
+
+/* Routines for the argument array.  The argument array routines are
+   responsible for allocation and deallocation of all objects in the
+   array */
+
+void read_args (int argc, char **argv) 
+{
+  int i;
+
+  arg_array_size = argc+10;
+  arg_count = argc;
+  arg_array = (char**) malloc(sizeof(char*)*arg_array_size);
+  
+  for (i=0;i<argc;i++) {
+    arg_array[i] = malloc (strlen (argv[i]));
+    strcpy (arg_array[i], argv[i]);
+  }
+}
+
+/* Insert the argument before pos. */
+void insert_arg(int pos, char *arg_to_insert) 
+{
+  int i;
+  char *newArg = malloc (strlen (arg_to_insert));
+  strcpy(newArg, arg_to_insert);
+  
+  if (arg_count == arg_array_size) {
+    /* expand array */
+    arg_array_size = arg_count + ARG_ARRAY_INCREMENT_SIZE;
+    arg_array = (char**) realloc (arg_array, arg_array_size);
+  }
+
+  for (i = arg_count; i > pos; i--) {
+    arg_array[i+1] = arg_array[i];
+  }
+
+  arg_array[pos] = newArg;
+  arg_count++;
+  
+  if (confirm_changes)
+    fprintf(stderr,"### Adding argument %s at position %d\n",arg_to_insert, pos);
+}
+
+
+void replace_arg (char *str, int pos) {
+  char *newArg = malloc(strlen(str));
+  strcpy(newArg,str);
+
+  if (confirm_changes)
+    fprintf (stderr,"### Replacing %s with %s\n",arg_array[pos], str);
+
+  free (arg_array[pos]);
+  arg_array[pos] = newArg;
+}
+
+void append_arg (char *str)
+{
+  char *new_arg = malloc (strlen (str));
+  strcpy (new_arg, str);
+  if (confirm_changes)
+    fprintf(stderr,"### Adding argument %s at end\n", str);
+
+  if (arg_count == arg_array_size) {
+    /* expand array */
+    arg_array_size = arg_count + ARG_ARRAY_INCREMENT_SIZE;
+    arg_array = (char**) realloc (arg_array, arg_array_size);
+  }
+  
+  arg_array[arg_count++] = new_arg;
+}
+
+void delete_arg(int pos) {
+  int i;
+
+  if (confirm_changes)
+    fprintf(stderr,"### Deleting argument %s\n",arg_array[pos]);
+
+  free (arg_array[pos]);
+
+  for (i=pos; i < arg_count; i++) 
+    arg_array[i] = arg_array[i+1];
+
+  arg_count--;
+}
+
+/* Changing optimization levels is a common testing pattern --
+   we've got a special option that searches for and replaces anything
+   beginning with -O */
+void replace_optimization_level (char *new_level) {
+  int i;
+  int optionFound = 0;
+  char *new_opt = malloc(strlen(new_opt)+2);
+  sprintf(new_opt, "-O%s",new_level);
+  
+
+  for (i=0;i<arg_count;i++) {
+    if (strncmp(arg_array[i],"-O",2) == 0) {
+      replace_arg (new_opt, i);
+      optionFound = 1;
+      break;
+    }
+  }
+  
+  if (optionFound == 0)
+    /* No optimization level?  Add it! */
+    append_arg (new_opt);
+
+  free (new_opt);
+}
+
+/* Returns a NULL terminated string holding whatever was in the original
+   string at that point.  This must be freed by the caller. */
+
+char *arg_string(char *str, int begin, int len) {
+  char *new_str = malloc(len+1);
+  strncpy(new_str,&str[begin],len);
+  new_str[len] = '\0';
+  return new_str;
+}
+
+/* Given a search-and-replace string of the form
+   s/x/y/
+
+   do search and replace on the arg list.  Make sure to check that the
+   string is sane -- that it has all the proper slashes that are necessary.
+   The search string can be a regular expression, but the replace string
+   must be a literal; the search must also be for a full argument, not for
+   a chain of arguments.  The result will be treated as a single argument.
+   
+   Return true if success, false if bad failure.
+*/
+
+bool search_and_replace (char *str) {
+  regex_t regexp_search_struct;
+  int searchLen;
+  int replaceLen;
+  int i;
+  int err;
+
+  char *searchStr;
+  char *replaceStr;
+  char *replacedStr; 
+  const int  ERRSIZ = 512;
+  char errbuf[ERRSIZ];
+  
+
+  if (str[0] != '/') {
+    return false;
+  }
+
+  searchLen = strcspn (str + 1, "/\0");
+
+  if (str[1 + searchLen] != '/')
+    return false;
+    
+  replaceLen = strcspn(str+1+searchLen+1, "/\0");
+
+  if (str[1 + searchLen + 1 +replaceLen] != '/')
+    return false;
+
+  searchStr = arg_string(str, 1, searchLen);
+  replaceStr = arg_string (str, 1 + searchLen + 1, replaceLen);
+
+  if ((err = regcomp(&regexp_search_struct, searchStr, REG_EXTENDED)) != 0) {
+    regerror(err, &regexp_search_struct, errbuf, ERRSIZ);
+    fprintf(stderr,"%s",errbuf);
+    return false;
+  }
+
+  for (i=0;i<arg_count;i++) {
+    regmatch_t matches[5];
+    if (regexec (&regexp_search_struct, arg_array[i],
+		 5, matches, 0) == 0) {
+      if ((matches[0].rm_eo - matches[0].rm_so) == strlen (arg_array[i])) {
+	/* Success! Change the string. */
+	replace_arg(replaceStr,i);
+	break;
+      }
+    }
+  }
+
+  regfree (&regexp_search_struct);
+  free (searchStr);
+  free (replaceStr);
+
+  return true;
+}
+
+
+/* Given a string, return the argument number where the first match occurs. */
+int find_arg (char *str) {
+  int i;
+  int matchIndex = -1;
+
+  for (i=0;i<arg_count;i++) {
+    if (strcmp(arg_array[i],str) == 0) {
+      matchIndex = i;
+      break;
+    }
+  }
+
+  return matchIndex;
+}
+  
+void rewrite_command_line (char *override_options_line, int *argc, char ***argv){
+  int line_pos = 0;
+  
+  read_args (*argc, *argv);
+
+  if (override_options_line[0] == '#') 
+    {
+      confirm_changes = 0;
+      line_pos++;
+    }
+
+
+  if (confirm_changes)
+    fprintf (stderr, "### QA_OVERRIDE_GCC3_OPTIONS: %s\n",
+	     override_options_line);
+
+  /* Loop through all commands in the file */
+
+  while (override_options_line[line_pos] != '\0') 
+    {
+      char first_char;
+      char *searchStr;
+      char *arg;
+      int search_index;
+      int arg_len;
+
+      /* Any spaces in between options don't count. */
+      if (override_options_line[line_pos] == ' ')
+	{
+	  line_pos++;
+	  continue;
+	}
+      
+      /* The first non-space character is the command. */
+      first_char = override_options_line[line_pos];
+      line_pos++;
+      arg_len = strcspn(override_options_line+line_pos, " ");
+
+      switch (first_char) {
+      case '+':
+	/* Add an argument to the end of the arg list */
+	arg = arg_string (override_options_line,
+			  line_pos,
+			  arg_len);
+	append_arg (arg);
+	free (arg);
+	break;
+
+      case 'x':
+	/* Delete a matching argument */
+	searchStr = arg_string(override_options_line, line_pos, arg_len);
+	if ((search_index = find_arg(searchStr)) != -1) {
+	  delete_arg(search_index);
+	}
+	free (searchStr);
+	break;
+
+      case 'X':
+	/* Delete a matching argument and the argument following. */
+	searchStr = arg_string(override_options_line, line_pos, arg_len);
+	if ((search_index = find_arg(searchStr)) != -1) {
+	  if (search_index >= arg_count -1) {
+	    if (confirm_changes) 
+	      fprintf(stderr,"Not enough arguments to do X\n");
+	  } else {
+	    delete_arg(search_index); /* Delete the matching argument */
+	    delete_arg(search_index); /* Delete the following argument */
+	  }
+	}
+	free (searchStr);
+	break;
+
+      case 'O':
+	/* Change the optimization level to the specified value, and
+	   remove any optimization arguments.   This is a separate command
+	   because we often want is to substitute our favorite
+	   optimization level for whatever the project normally wants.
+	   As we probably care about this a lot (for things like
+	   testing file sizes at different optimization levels) we
+	   make a special rewrite clause. */
+	arg = arg_string (override_options_line, line_pos, arg_len);
+	replace_optimization_level(arg);
+	free (arg);
+	break;
+      case 's':
+	/* Search for the regexp passed in, and replace a matching argument
+	   with the provided replacement string */
+	searchStr = arg_string (override_options_line, line_pos, arg_len);
+	search_and_replace (searchStr);
+	free (searchStr);
+	break;
+
+      default:
+	fprintf(stderr,"### QA_OVERRIDE_GCC3_OPTIONS: invalid string (pos %d)\n",
+		line_pos);
+	break;
+      }
+      line_pos += arg_len;
+    }
+  *argc = arg_count;
+  *argv = arg_array;
+}
+
+
+
 /* Main entry point. This is gcc driver driver!
    Interpret -arch flag from the list of input arguments. Invoke appropriate
    compiler driver. 'lipo' the results if more than one -arch is supplied.  */
@@ -727,7 +1089,7 @@ main (int argc, const char **argv)
   size_t i;
   int l, pid, ret, argv_0_len, prog_len;
   char *errmsg_fmt, *errmsg_arg; 
-
+  char *override_option_str = NULL;
   total_argc = argc;
   argv_0_len = strlen (argv[0]);
   prog_len = 0;
@@ -752,6 +1114,12 @@ main (int argc, const char **argv)
   fprintf (stderr,"%s: progname = %s\n", progname, progname);
   fprintf (stderr,"%s: driver_exec_prefix = %s\n", progname, driver_exec_prefix);
 #endif
+
+  /* Before we get too far, rewrite the command line with any requested overrides */
+  if ((override_option_str = getenv ("QA_OVERRIDE_GCC3_OPTIONS")) != NULL) 
+    rewrite_command_line(override_option_str, &argc, (char***)&argv);
+
+
 
   initialize ();
 

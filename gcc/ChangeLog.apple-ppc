@@ -1,3 +1,9 @@
+2004-09-27  Robert Bowdidge  <bowdidge@apple.com>
+	* opts.c: Remove QA_OVERRIDE_GCC3_OPTIONS machinery.
+        * config/darwin-driver.c: Reimplement QA_OVERRIDE_GCC3_OPTIONS in
+        driver-driver.
+     
+
 2004-09-27  Dale Johannesen  <dalej@apple.com>
 
 	* tree-ssa-copyrename.c (copy_rename_partition_coalesce):
