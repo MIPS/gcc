@@ -262,7 +262,7 @@ emit_call_1 (rtx funexp, tree fntree, tree fndecl ATTRIBUTE_UNUSED,
 /* This improves codegen (computation of value will be into R12) and
    makes indirect sibcalls possible by ensuring a volatile reg is used. */
 #ifdef MAGIC_INDIRECT_CALL_REG
-    funexp = gen_rtx_REG (SImode, MAGIC_INDIRECT_CALL_REG);
+    funexp = gen_rtx_REG (Pmode, MAGIC_INDIRECT_CALL_REG);
 #else
     funexp = memory_address (FUNCTION_MODE, funexp);
 #endif
@@ -2754,7 +2754,7 @@ expand_call (tree exp, rtx target, int ignore)
 	 putting it here.)  */
       if (!fndecl)
 	{
-	  rtx magic_reg = gen_rtx_REG (SImode, MAGIC_INDIRECT_CALL_REG);
+	  rtx magic_reg = gen_rtx_REG (Pmode, MAGIC_INDIRECT_CALL_REG);
 	  emit_move_insn (magic_reg, funexp);
 	  use_reg (&call_fusage, magic_reg);
 	}

@@ -1,3 +1,9 @@
+2004-08-24  Stan Shebs  <shebs@apple.com>
+
+	* calls.c (emit_call_1): Use Pmode instead of SImode in Apple local
+	indirect call code.
+	(expand_call): Likewise.
+
 2004-08-23  Stan Shebs  <shebs@apple.com>
 
 	* config/rs6000/rs6000.c (rs6000_emit_prologue): Add 64-bit
