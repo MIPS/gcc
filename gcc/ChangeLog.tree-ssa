@@ -1,3 +1,8 @@
+2004-03-25  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-ssa-alias.c (struct alias_info): Change type of field
+	'num_references' to varray_type.  Update all users.
+
 2004-03-24  Jeff Law  <law@redhat.com>
 
 	* c-mudflap (mflang_flush_calls): Use push_scope/pop_scope instead
