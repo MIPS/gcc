@@ -1,3 +1,7 @@
+Fri Nov  8 13:25:41 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* i386.c (x86_machine_dependent_reorg): Fix handling of empty functions.
+
 Fri Nov  8 13:01:42 CET 2002  Jan Hubicka  <jh@suse.cz>
 
 	* builtins.c (expand_builtin_mathfn): Handle floor/ceil/trunc/round/nearbyint

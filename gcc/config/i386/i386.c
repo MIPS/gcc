@@ -14468,7 +14468,11 @@ x86_machine_dependent_reorg (first)
 
     if (!returnjump_p (ret) || !maybe_hot_bb_p (bb))
       continue;
-    prev = prev_nonnote_insn (ret);
+    prev = prev_active_insn (ret);
+    /* Empty functions get branch misspredict even when the jump destination
+       is not visible to us.  */
+    if (!prev && cfun->function_frequency > FUNCTION_FREQUENCY_UNLIKELY_EXECUTED)
+      insert = 1;
     if (prev && GET_CODE (prev) == CODE_LABEL)
       {
 	edge e;
