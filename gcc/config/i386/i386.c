@@ -1076,14 +1076,16 @@ cmp_fp_expander_operand (op, mode)
   return general_operand (op, mode);
 }
 
-/* Match either of the extract operators.  */
+/* Match an SI or HImode register for a zero_extract.  */
 
 int
-extract_operator (op, mode)
+ext_register_operand (op, mode)
      register rtx op;
      enum machine_mode mode ATTRIBUTE_UNUSED;
 {
-  return GET_CODE (op) == ZERO_EXTRACT || GET_CODE (op) == SIGN_EXTRACT;
+  if (GET_MODE (op) != SImode && GET_MODE (op) != HImode)
+    return 0;
+  return register_operand (op, VOIDmode);
 }
 
 /* Return 1 if this is a valid binary floating-point operation.
@@ -1315,7 +1317,7 @@ load_pic_register ()
     }
   else
     {
-      pclab = gen_label_rtx ();
+      pclab = gen_rtx_LABEL_REF (VOIDmode, gen_label_rtx ());
     }
 
   emit_insn (gen_prologue_get_pc (pic_offset_table_rtx, pclab));
@@ -3870,18 +3872,6 @@ ix86_expand_fp_compare (code, op0, op1, unordered)
     }
   else
     {
-      rtx tmph;
-
-#if 0
-      /* Generate the compare into the FPSW.  */
-      tmp = gen_rtx_COMPARE (fpcmp_mode, op0, op1);
-      emit_insn (gen_rtx_SET (VOIDmode, gen_rtx_REG (fpcmp_mode, FPSR_REG),
-			      tmp));
-
-      /* Move the FPSW to AX.  */
-      tmp = gen_reg_rtx (HImode);
-      emit_insn (gen_x86_fnstsw_1 (tmp));
-#else
       /* Sadness wrt reg-stack pops killing fpsr -- gotta get fnstsw first.  */
 
       rtx tmp2;
@@ -3889,7 +3879,6 @@ ix86_expand_fp_compare (code, op0, op1, unordered)
       tmp2 = gen_rtx_UNSPEC (HImode, gen_rtvec (1, tmp), 9);
       tmp = gen_reg_rtx (HImode);
       emit_insn (gen_rtx_SET (VOIDmode, tmp, tmp2));
-#endif
 
       if (! unordered)
 	{
@@ -3901,6 +3890,7 @@ ix86_expand_fp_compare (code, op0, op1, unordered)
 	  if (TARGET_USE_SAHF || optimize_size)
 	    {
 	    do_sahf:
+
 	      /* The FP codes work out to act like unsigned.  */
 	      code = unsigned_comparison (code);
 	      emit_insn (gen_x86_sahf_1 (tmp));
@@ -3951,9 +3941,7 @@ ix86_expand_fp_compare (code, op0, op1, unordered)
 		  abort ();
 		}
 
-	      tmph = extract_bit_field (tmp, 8, 8, 1, NULL_RTX, QImode,
-					QImode, 0, -1);
-	      emit_insn (gen_testqi_1 (tmph, GEN_INT (mask)));
+	      emit_insn (gen_testqi_ext_0 (tmp, GEN_INT (mask)));
 	      intcmp_mode = CCNOmode;
 	    }
 	}
@@ -3964,42 +3952,39 @@ ix86_expand_fp_compare (code, op0, op1, unordered)
 	     So do some bit twiddling on the value we've got in AH to come
 	     up with an appropriate set of condition codes.  */
 
-	  tmph = extract_bit_field (tmp, 8, 8, 1, NULL_RTX, QImode,
-				    QImode, 0, -1);
-
 	  intcmp_mode = CCNOmode;
 	  switch (code)
 	    {
 	    case GT:
-	      emit_insn (gen_testqi_1 (tmph, GEN_INT (0x45)));
+	      emit_insn (gen_testqi_ext_0 (tmp, GEN_INT (0x45)));
 	      code = EQ;
 	      break;
 	    case LT:
-	      emit_insn (gen_andqi3 (tmph, tmph, GEN_INT (0x45)));
-	      emit_insn (gen_cmpqi_1 (tmph, GEN_INT (0x01)));
+	      emit_insn (gen_andqi_ext_0 (tmp, tmp, GEN_INT (0x45)));
+	      emit_insn (gen_cmpqi_ext_3 (tmp, GEN_INT (0x01)));
 	      intcmp_mode = CCmode;
 	      code = EQ;
 	      break;
 	    case GE:
-	      emit_insn (gen_testqi_1 (tmph, GEN_INT (0x05)));
+	      emit_insn (gen_testqi_ext_0 (tmp, GEN_INT (0x05)));
 	      code = EQ;
 	      break;
 	    case LE:
-	      emit_insn (gen_andqi3 (tmph, tmph, GEN_INT (0x45)));
-	      emit_insn (gen_addqi3 (tmph, tmph, constm1_rtx));
-	      emit_insn (gen_cmpqi_1 (tmph, GEN_INT (0x40)));
+	      emit_insn (gen_andqi_ext_0 (tmp, tmp, GEN_INT (0x45)));
+	      emit_insn (gen_addqi_ext_1 (tmp, tmp, constm1_rtx));
+	      emit_insn (gen_cmpqi_ext_3 (tmp, GEN_INT (0x40)));
 	      intcmp_mode = CCmode;
 	      code = LTU;
 	      break;
 	    case EQ:
-	      emit_insn (gen_andqi3 (tmph, tmph, GEN_INT (0x45)));
-	      emit_insn (gen_cmpqi_1 (tmph, GEN_INT (0x40)));
+	      emit_insn (gen_andqi_ext_0 (tmp, tmp, GEN_INT (0x45)));
+	      emit_insn (gen_cmpqi_ext_3 (tmp, GEN_INT (0x40)));
 	      intcmp_mode = CCmode;
 	      code = EQ;
 	      break;
 	    case NE:
-	      emit_insn (gen_andqi3 (tmph, tmph, GEN_INT (0x45)));
-	      emit_insn (gen_xorcqi_1 (tmph, tmph, GEN_INT (0x40)));
+	      emit_insn (gen_andqi_ext_0 (tmp, tmp, GEN_INT (0x45)));
+	      emit_insn (gen_xorcqi_ext_1 (tmp, tmp, GEN_INT (0x40)));
 	      code = NE;
 	      break;
 	    default:
@@ -4865,8 +4850,7 @@ ix86_expand_strlensi_unroll_1 (out, align_rtx, scratch)
   emit_jump_insn (gen_rtx_SET (VOIDmode, pc_rtx, tmp));
 
   /* Check second byte. */
-  tmp = gen_rtx_ZERO_EXTRACT (VOIDmode, scratch, GEN_INT (8), GEN_INT (8));
-  emit_insn (gen_cmpqi_ext_3 (scratch, const0_rtx, tmp));
+  emit_insn (gen_cmpqi_ext_3 (scratch, const0_rtx));
   tmp = gen_rtx_EQ (VOIDmode, flags, const0_rtx);
   tmp = gen_rtx_IF_THEN_ELSE (VOIDmode, tmp, 
 			      gen_rtx_LABEL_REF (VOIDmode, end_3_label),

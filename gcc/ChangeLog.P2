@@ -1,5 +1,39 @@
-1999-06-26  Andrew Haley  <aph@cygnus.com>
+1999-06-27  Richard Henderson  <rth@cygnus.com>
 
+	* config/i386/i386.md (movsi_insv_1): Mark output as an in-out reload.
+	(movsi_insv_2, addqi_ext_1, addqi_ext_2): Likewise.
+
+	* i386.md (movqi_extzv_1): Mark output reload with =.
+	(movsi_extzv_1): Likewise.
+	(movqi_extv_1, movhi_extv_1, movsi_extv_1): Likewise.
+
+	* jump.c (jump_optimize_1): Validate the cmov copy to a temporary.
+	* i386.c (extract_operator): Delete.
+	(ext_register_operand): New.
+	(ix86_expand_fp_compare): Use %ah-generating patterns
+	instead of an initial bitfield extract.
+	(ix86_expand_strlensi_unroll_1): Update arguments to gen_cmpqi_ext_3.
+	* i386.h (PREDICATE_CODES): Update.
+	* i386.md (*_ext_*): Replace uses of extract_operator with an
+	explicit zero_extract.  Do operations in SImode.  Constrain the
+	zero_extract operand by ext_register_operand.
+	(testqi_ext_0, testqi_ext_1, testqi_ext_2): New patterns.
+	(andqi_ext_0, andqi_ext_1, andqi_ext_2): Likewise.
+	(xorcqi_ext_1): Likewise.
+
+	From Stan Cox  <scox@cygnus.com>:
+        * i386.md (fix_truncdi_1): Check for early clobber on scratch.
+        (fix_truncdi_1+1): Don't split if the destination uses the
+        clobber register
+
+	* i386.c (load_pic_register): Pass gen_prologue_get_pc
+	a LABEL_REF instead of a CODE_LABEL.
+	* i386.md (prologue_set_got): Likewise.
+	(prologue_get_pc): Likewise.
+
+	* i386.md (lshrdi3): Fix typo in insn name.
+
+	From Andrew Haley  <aph@cygnus.com>:
 	* i386.md (ashlqi3): Correct error in the patch of Jun 9.
 
 1999-06-26  Richard Henderson  <rth@cygnus.com>

@@ -2379,7 +2379,7 @@ do { long l;						\
   {"no_comparison_operator", {EQ, NE, LT, GE, LTU, GTU, LEU, GEU}},	\
   {"fcmov_comparison_operator", {EQ, NE, LTU, GTU, LEU, GEU}},		\
   {"cmp_fp_expander_operand", {CONST_DOUBLE, SUBREG, REG, MEM}},	\
-  {"extract_operator", {ZERO_EXTRACT, SIGN_EXTRACT}},			\
+  {"ext_register_operand", {SUBREG, REG}},				\
   {"binary_fp_operator", {PLUS, MINUS, MULT, DIV}},			\
   {"mult_operator", {MULT}},						\
   {"div_operator", {DIV}},						\
@@ -2427,7 +2427,7 @@ extern int non_q_regs_operand XPARAMS((xrtx, xmode));
 extern int no_comparison_operator XPARAMS((xrtx, xmode));
 extern int fcmov_comparison_operator XPARAMS((xrtx, xmode));
 extern int cmp_fp_expander_operand XPARAMS((xrtx, xmode));
-extern int extract_operator XPARAMS((xrtx, xmode));
+extern int ext_register_operand XPARAMS((xrtx, xmode));
 extern int binary_fp_operator XPARAMS((xrtx, xmode));
 extern int mult_operator XPARAMS((xrtx, xmode));
 extern int div_operator XPARAMS((xrtx, xmode));
