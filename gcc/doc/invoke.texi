@@ -249,7 +249,7 @@ in the following sections.
 -fdump-tree-original@r{[}-@var{n}@r{]} -fdump-tree-optimized@r{[}-@var{n}@r{]} @gol
 -fdump-tree-inlined@r{[}-@var{n}@r{]} @gol
 -fdump-tree-cfg -fdump-tree-dot @gol
--fdump-tree-ssa{[}-@var{n}@r{]} -fdump-tree-ssapre@r{[}-@var{n}@r{]} @gol
+-fdump-tree-ssa@r{[}-@var{n}@r{]} -fdump-tree-ssapre@r{[}-@var{n}@r{]} @gol
 -fdump-tree-simple@r{[}-raw@r{]} @gol
 -fmem-report @gol
 -fprofile-arcs  -ftest-coverage  -ftime-report @gol
