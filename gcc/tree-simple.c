@@ -655,6 +655,12 @@ is_simple_const (t)
 	  || TREE_CODE (t) == COMPLEX_CST);
 }
 
+int
+is_simple_stmt (t)
+     tree t ATTRIBUTE_UNUSED;
+{
+  return 1;
+}
 
 /*  Return nonzero if T is a SIMPLE identifier.  */
 
@@ -914,41 +920,43 @@ is_simplifiable_builtin (expr)
     }
 }
 
-#if 0
-/* Soon  */
 /* Given a COMPOUND_EXPR TOP, reorganize all of the nested COMPOUND_EXPRs
-   so that they only appear as the second operand.  */
+   so that they only appear as the second operand.
+
+   FIXME should this look down to the bottom of a left-recursion?  */
 
 tree
 rationalize_compound_expr (top)
      tree top;
 {
-  tree cur = top;
-  while (TREE_CODE (cur) == COMPOUND_EXPR)
-    {
-      tree lhs = TREE_OPERAND (cur, 0);
-      tree rhs = TREE_OPERAND (cur, 1);
-      if (TREE_CODE (lhs) == COMPOUND_EXPR)
-	{
-	  /* We have ((a, b), c).  Rearrange to (a, (b, c)).  */
-	  tree lhs1 = TREE_OPERAND (lhs, 0);
-	  tree rhs1 = TREE_OPERAND (lhs, 1);
+  tree cur;
+  if (top == NULL_TREE)
+    top = empty_stmt_node;
+  cur = top;
+  if (cur)
+    while (TREE_CODE (cur) == COMPOUND_EXPR)
+      {
+	tree lhs = TREE_OPERAND (cur, 0);
+	tree rhs = TREE_OPERAND (cur, 1);
+	if (TREE_CODE (lhs) == COMPOUND_EXPR)
+	  {
+	    /* We have ((a, b), c).  Rearrange to (a, (b, c)).  */
+	    tree lhs1 = TREE_OPERAND (lhs, 0);
+	    tree rhs1 = TREE_OPERAND (lhs, 1);
 
-	  /* Change lhs from (a, b) to (b, c).  */
-	  TREE_OPERAND (lhs, 0) = rhs1;
-	  TREE_OPERAND (lhs, 1) = rhs;
+	    /* Change lhs from (a, b) to (b, c).  */
+	    TREE_OPERAND (lhs, 0) = rhs1;
+	    TREE_OPERAND (lhs, 1) = rhs;
 
-	  /* Change cur from (lhs, c) to (a, lhs), i.e. (a, (b, c)).  */
-	  TREE_OPERAND (cur, 0) = lhs1;
-	  TREE_OPERAND (cur, 1) = lhs;
-	}
-      else
-	cur = rhs;
-    }
+	    /* Change cur from (lhs, c) to (a, lhs), i.e. (a, (b, c)).  */
+	    TREE_OPERAND (cur, 0) = lhs1;
+	    TREE_OPERAND (cur, 1) = lhs;
+	  }
+	else
+	  cur = rhs;
+      }
   return top;
 }
-#endif
-
 
 /* Given a SIMPLE varname (an ID, an arrayref or a compref), return the
    base symbol for the variable.  */
@@ -977,4 +985,49 @@ get_base_symbol (t)
     default:
       return NULL;
     }
+}
+
+void
+recalculate_side_effects (t)
+     tree t;
+{
+  enum tree_code code = TREE_CODE (t);
+  int fro = first_rtl_op (code);
+  int i;
+
+  switch (TREE_CODE_CLASS (code))
+    {
+    case 'e':
+      switch (code)
+	{
+	case INIT_EXPR:
+	case MODIFY_EXPR:
+	case VA_ARG_EXPR:
+	case RTL_EXPR:
+	case PREDECREMENT_EXPR:
+	case PREINCREMENT_EXPR:
+	case POSTDECREMENT_EXPR:
+	case POSTINCREMENT_EXPR:
+	  /* All of these have side-effects, no matter what their
+	     operands are.  */
+	  return;
+
+	default:
+	  break;
+	}
+      /* Fall through.  */
+
+    case '<':  /* a comparison expression */
+    case '1':  /* a unary arithmetic expression */
+    case '2':  /* a binary arithmetic expression */
+    case 'r':  /* a reference */
+      TREE_SIDE_EFFECTS (t) = 0;
+      for (i = 0; i < fro; ++i)
+	{
+	  tree op = TREE_OPERAND (t, i);
+	  if (op && TREE_SIDE_EFFECTS (op))
+	    TREE_SIDE_EFFECTS (t) = 1;
+	}
+      break;
+   }
 }

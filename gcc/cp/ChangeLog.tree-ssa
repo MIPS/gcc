@@ -1,3 +1,12 @@
+2002-09-24  Jason Merrill  <jason@redhat.com>
+
+	* parse.y (parse_asm_stmt): New fn.
+	(simple_stmt): Use it.
+	* semantics.c (finish_asm_stmt): Change cv_qualifier parm to 
+	volatile_p.
+	* cp-tree.h: Adjust prototype.
+	* pt.c (tsubst_expr): Adjust call.
+
 2002-08-23  Diego Novillo  <dnovillo@redhat.com>
 
 	* Make-lang.in (CXX_C_OBJS): Add tree-dchain.o

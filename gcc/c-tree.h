@@ -238,7 +238,7 @@ extern void store_parm_decls                    PARAMS ((void));
 extern tree xref_tag                            PARAMS ((enum tree_code, tree));
 extern tree c_begin_compound_stmt               PARAMS ((void));
 extern void c_expand_deferred_function          PARAMS ((tree));
-extern void c_expand_decl_stmt                  PARAMS ((tree));
+extern int c_expand_decl	                PARAMS ((tree));
 extern tree make_pointer_declarator		PARAMS ((tree, tree));
 
 /* in c-objc-common.c */
@@ -322,14 +322,6 @@ extern void c_finish_incomplete_decl PARAMS ((tree));
 
 extern GTY(()) tree static_ctors;
 extern GTY(()) tree static_dtors;
-
-/* In c-pretty-print.c  */
-extern void print_c_tree		PARAMS ((FILE*, tree));
-extern void print_c_node		PARAMS ((FILE*, tree));
-extern void print_c_node_brief		PARAMS ((FILE*, tree));
-extern void debug_c_tree		PARAMS ((tree));
-extern void debug_c_node		PARAMS ((tree));
-extern void debug_c_node_brief		PARAMS ((tree));
 
 /* In c-call-graph.c  */
 extern void print_call_graph		PARAMS ((FILE*, tree));

@@ -236,6 +236,10 @@ struct lang_hooks
      Fourth argument is actually an enum expand_modifier.  */
   rtx (*expand_expr) PARAMS ((tree, rtx, enum machine_mode, int));
 
+  /* Called by expand_expr to generate the definition of a decl.  Returns
+     1 if handled, 0 otherwise.  */
+  int (*expand_decl) PARAMS ((tree));
+
   /* Prepare expr to be an argument of a TRUTH_NOT_EXPR or other logical
      operation.
 

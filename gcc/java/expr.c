@@ -2596,12 +2596,6 @@ java_expand_expr (exp, target, tmode, modifier)
 		build_decl (LABEL_DECL, NULL_TREE, NULL_TREE), NULL);
       return const0_rtx;
 
-    case SWITCH_EXPR:
-      expand_start_case (0, TREE_OPERAND (exp, 0), int_type_node, "switch");
-      expand_expr_stmt (TREE_OPERAND (exp, 1));
-      expand_end_case (TREE_OPERAND (exp, 0));
-      return const0_rtx;
-
     case TRY_EXPR:
       /* We expand a try[-catch] block */
 
@@ -2628,11 +2622,6 @@ java_expand_expr (exp, target, tmode, modifier)
     case JAVA_EXC_OBJ_EXPR:
       return expand_expr (build_exception_object_ref (TREE_TYPE (exp)),
 			  target, tmode, modifier);
-
-    case LABEL_EXPR:
-      /* Used only by expanded inline functions.  */
-      expand_label (TREE_OPERAND (exp, 0));
-      return const0_rtx;
 
     default:
       internal_error ("can't expand %s", tree_code_name [TREE_CODE (exp)]);

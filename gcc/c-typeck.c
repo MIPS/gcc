@@ -6809,7 +6809,7 @@ simple_asm_stmt (expr)
     {
       tree stmt;
 
-      stmt = add_stmt (build_stmt (ASM_STMT, NULL_TREE, expr,
+      stmt = add_stmt (build_stmt (ASM_STMT, expr,
 				   NULL_TREE, NULL_TREE,
 				   NULL_TREE));
       ASM_INPUT_P (stmt) = 1;
@@ -6832,6 +6832,7 @@ build_asm_stmt (cv_qualifier, string, outputs, inputs, clobbers)
      tree clobbers;
 {
   tree tail;
+  tree stmt;
 
   if (TREE_CODE (string) != STRING_CST)
     {
@@ -6884,8 +6885,10 @@ build_asm_stmt (cv_qualifier, string, outputs, inputs, clobbers)
   for (tail = inputs; tail; tail = TREE_CHAIN (tail))
     TREE_VALUE (tail) = default_function_array_conversion (TREE_VALUE (tail));
 
-  return add_stmt (build_stmt (ASM_STMT, cv_qualifier, string,
-			       outputs, inputs, clobbers));
+  stmt = build_stmt (ASM_STMT, string, outputs, inputs, clobbers);
+  if (cv_qualifier)
+    ASM_VOLATILE_P (stmt) = 1;
+  return add_stmt (stmt);
 }
 
 /* Expand an ASM statement with operands, handling output operands

@@ -1793,6 +1793,53 @@ expand_asm_operands (string, outputs, inputs, clobbers, vol, filename, line)
   free_temp_slots ();
 }
 
+void
+expand_asm_expr (exp)
+     tree exp;
+{
+  int noutputs, i;
+  tree outputs, tail;
+  tree *o;
+
+  if (ASM_INPUT_P (exp))
+    {
+      expand_asm (ASM_STRING (exp));
+      return;
+    }
+
+  outputs = ASM_OUTPUTS (exp);
+  noutputs = list_length (outputs);
+  /* o[I] is the place that output number I should be written.  */
+  o = (tree *) alloca (noutputs * sizeof (tree));
+
+  /* Record the contents of OUTPUTS before it is modified.  */
+  for (i = 0, tail = outputs; tail; tail = TREE_CHAIN (tail), i++)
+    o[i] = TREE_VALUE (tail);
+
+  /* Generate the ASM_OPERANDS insn; store into the TREE_VALUEs of
+     OUTPUTS some trees for where the values were actually stored.  */
+  expand_asm_operands (ASM_STRING (exp), outputs, ASM_INPUTS (exp),
+		       ASM_CLOBBERS (exp), ASM_VOLATILE_P (exp),
+		       input_filename, lineno);
+
+  /* Copy all the intermediate outputs into the specified outputs.  */
+  for (i = 0, tail = outputs; tail; tail = TREE_CHAIN (tail), i++)
+    {
+      if (o[i] != TREE_VALUE (tail))
+	{
+	  expand_assignment (o[i], TREE_VALUE (tail), 0, 0);
+	  free_temp_slots ();
+
+	  /* Restore the original value so that it's correct the next
+	     time we expand this function.  */
+	  TREE_VALUE (tail) = o[i];
+	}
+    }
+
+  /* Those MODIFY_EXPRs could do autoincrements.  */
+  emit_queue ();
+}
+
 /* A subroutine of expand_asm_operands.  Check that all operands have
    the same number of alternatives.  Return true if so.  */
 
@@ -3760,7 +3807,7 @@ expand_decl (decl)
 	   && !(flag_float_store
 		&& TREE_CODE (type) == REAL_TYPE)
 	   && ! TREE_THIS_VOLATILE (decl)
-	   && (DECL_REGISTER (decl) || optimize))
+	   && (DECL_REGISTER (decl) || DECL_ARTIFICIAL (decl) || optimize))
     {
       /* Automatic variable that can go in a register.  */
       int unsignedp = TREE_UNSIGNED (type);
@@ -3777,7 +3824,8 @@ expand_decl (decl)
 	  REGNO_DECL (REGNO (XEXP (DECL_RTL (decl), 1))) = decl;
 	}
 
-      mark_user_reg (DECL_RTL (decl));
+      if (!DECL_ARTIFICIAL (decl))
+	mark_user_reg (DECL_RTL (decl));
 
       if (POINTER_TYPE_P (type))
 	mark_reg_pointer (DECL_RTL (decl),

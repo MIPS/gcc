@@ -33,6 +33,7 @@ extern tree declare_tmp_vars           PARAMS ((tree, tree));
 extern tree deep_copy_list             PARAMS ((tree));
 extern tree deep_copy_node             PARAMS ((tree));
 extern tree update_line_number         PARAMS ((tree, int));
+extern tree rationalize_compound_expr  PARAMS ((tree));
 
 /* Validation of SIMPLE expressions.  */
 int is_simple_expr                     PARAMS ((tree));
@@ -61,12 +62,15 @@ int is_simple_constructor              PARAMS ((tree));
 int is_simple_constructor_elt          PARAMS ((tree));
 int is_simple_initializer              PARAMS ((tree));
 int is_simplifiable_builtin            PARAMS ((tree));
-int is_simple_decl_stmt                PARAMS ((tree));
+int is_simple_stmt                     PARAMS ((tree));
+
+void recalculate_side_effects		PARAMS ((tree));
 
 /* FIXME this needs a better name.  */
 tree add_tree			       PARAMS ((tree, tree *));
 /* FIXME we should deduce this from the predicate.  */
 typedef enum fallback_t {
+  fb_none = 0,
   fb_rvalue=1,
   fb_lvalue=2,
   fb_either=1|2
@@ -74,6 +78,7 @@ typedef enum fallback_t {
 int simplify_expr		       PARAMS ((tree *, tree *, tree *,
 						int (*) PARAMS ((tree)),
 						fallback_t));
+int simplify_stmt		       PARAMS ((tree *));
 
 /* Miscellaneous helpers.  */
 tree get_base_symbol                   PARAMS ((tree));

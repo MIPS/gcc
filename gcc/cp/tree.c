@@ -2200,6 +2200,8 @@ cp_walk_subtrees (tp, walk_subtrees_p, func, data, htab)
       break;
     }
 
+  c_walk_subtrees (tp, walk_subtrees_p, func, data, htab);
+
   /* We didn't find what we were looking for.  */
   return NULL_TREE;
 

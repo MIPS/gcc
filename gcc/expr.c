@@ -5390,7 +5390,7 @@ store_field (target, bitsize, bitpos, mode, exp, value_mode, unsignedp, type,
 
       if (bitpos != 0)
 	abort ();
-      return store_expr (exp, target, 0);
+      return store_expr (exp, target, value_mode != VOIDmode);
     }
 
   /* If the structure is in a register or if the component
@@ -6725,7 +6725,9 @@ expand_expr (exp, target, tmode, modifier)
 	if (EXPR_WFL_EMIT_LINE_NOTE (exp))
 	  emit_line_note (input_filename, lineno);
 	/* Possibly avoid switching back and forth here.  */
-	to_return = expand_expr (EXPR_WFL_NODE (exp), target, tmode, modifier);
+	to_return = expand_expr (EXPR_WFL_NODE (exp),
+				 (ignore ? const0_rtx : target),
+				 tmode, modifier);
 	input_filename = saved_input_filename;
 	lineno = saved_lineno;
 	return to_return;
@@ -6880,7 +6882,7 @@ expand_expr (exp, target, tmode, modifier)
 
     case LOOP_EXPR:
       push_temp_slots ();
-      expand_start_loop (1);
+      expand_start_loop (0);
       expand_expr_stmt_value (TREE_OPERAND (exp, 0), 0, 1);
       expand_end_loop ();
       pop_temp_slots ();
@@ -6889,29 +6891,79 @@ expand_expr (exp, target, tmode, modifier)
 
     case BIND_EXPR:
       {
-	tree vars = TREE_OPERAND (exp, 0);
+	tree vars;
+	tree block = BIND_EXPR_BLOCK (exp);
+	int mark_ends;
 
-	/* Need to open a binding contour here because
-	   if there are any cleanups they must be contained here.  */
-	expand_start_bindings (2);
-
-	/* Mark the corresponding BLOCK for output in its proper place.  */
-	if (TREE_OPERAND (exp, 2) != 0
-	    && ! TREE_USED (TREE_OPERAND (exp, 2)))
-	  (*lang_hooks.decls.insert_block) (TREE_OPERAND (exp, 2));
-
-	/* If VARS have not yet been expanded, expand them now.  */
-	while (vars)
+	if (TREE_CODE (BIND_EXPR_BODY (exp)) != RTL_EXPR)
 	  {
-	    if (!DECL_RTL_SET_P (vars))
-	      expand_decl (vars);
-	    expand_decl_init (vars);
-	    vars = TREE_CHAIN (vars);
+	    /* If we're in functions-as-trees mode, this BIND_EXPR represents
+	       the block, so we need to emit NOTE_INSN_BLOCK_* notes.  */
+	    mark_ends = (block != NULL_TREE);
+	    expand_start_bindings_and_block (mark_ends ? 0 : 2, block);
+	  }
+	else
+	  {
+	    /* If we're not in functions-as-trees mode, we've already emitted
+	       those notes into our RTL_EXPR, so we just want to splice our BLOCK
+	       into the enclosing one.  */
+	    mark_ends = 0;
+
+	    /* Need to open a binding contour here because
+	       if there are any cleanups they must be contained here.  */
+	    expand_start_bindings_and_block (2, NULL_TREE);
+
+	    /* Mark the corresponding BLOCK for output in its proper place.  */
+	    if (block)
+	      {
+		if (TREE_USED (block))
+		  abort ();
+		(*lang_hooks.decls.insert_block) (block);
+	      }
 	  }
 
-	temp = expand_expr (TREE_OPERAND (exp, 1), target, tmode, modifier);
+	/* If VARS have not yet been expanded, expand them now.  */
+	for (vars = BIND_EXPR_VARS (exp); vars; vars = TREE_CHAIN (vars))
+	  {
+	    if (DECL_EXTERNAL (vars))
+	      /* Do nothing.  */;
+	    else if (TREE_STATIC (vars)
+		     ? !TREE_ASM_WRITTEN (vars)
+		     : !DECL_RTL_SET_P (vars))
+	      {
+		if ((*lang_hooks.expand_decl) (vars))
+		  /* OK.  */;
+		else if (TREE_CODE (vars) == VAR_DECL && !TREE_STATIC (vars))
+		  expand_decl (vars);
+		else if (TREE_CODE (vars) == VAR_DECL && TREE_STATIC (vars))
+		  rest_of_decl_compilation (vars, NULL, 0, 0);
+		else if (TREE_CODE (vars) == TYPE_DECL
+			 || TREE_CODE (vars) == CONST_DECL)
+		  /* No expansion needed.  */;
+		else
+		  abort ();
+	      }
+	    expand_decl_init (vars);
+	  }
 
-	expand_end_bindings (TREE_OPERAND (exp, 0), 0, 0);
+	temp = expand_expr (BIND_EXPR_BODY (exp), target, tmode, modifier);
+
+	expand_end_bindings (BIND_EXPR_VARS (exp), mark_ends, 0);
+
+	/* If we're at the end of a scope that contains inlined nested
+	   functions, we have to decide whether or not to write them out.  */
+	for (vars = BIND_EXPR_VARS (exp); vars; vars = TREE_CHAIN (vars))
+	  {
+	    if (TREE_CODE (vars) == FUNCTION_DECL 
+		&& DECL_CONTEXT (vars) == current_function_decl
+		&& !TREE_ASM_WRITTEN (vars)
+		&& TREE_ADDRESSABLE (vars))
+	      {
+		push_function_context ();
+		output_inline_function (vars);
+		pop_function_context ();
+	      }
+	  }
 
 	return temp;
       }
@@ -8411,11 +8463,19 @@ expand_expr (exp, target, tmode, modifier)
       return temp;
 
     case COMPOUND_EXPR:
-      expand_expr (TREE_OPERAND (exp, 0), const0_rtx, VOIDmode, 0);
-      emit_queue ();
-      return expand_expr (TREE_OPERAND (exp, 1),
-			  (ignore ? const0_rtx : target),
-			  VOIDmode, 0);
+      /* Avoid deep recursion for long block.  */
+      for (; TREE_CODE (exp) == COMPOUND_EXPR; exp = TREE_OPERAND (exp, 1))
+	{
+	  expand_expr (TREE_OPERAND (exp, 0), const0_rtx, VOIDmode, 0);
+	  emit_queue ();
+#if 0
+	  /* FIXME try this.  */
+	  /* Free any temporaries used to evaluate this expression.  */
+	  if (ignore)
+	    free_temp_slots ();
+#endif
+	}
+      return expand_expr (exp, (ignore ? const0_rtx : target), VOIDmode, 0);
 
     case COND_EXPR:
       /* If we would have a "singleton" (see below) were it not for a
@@ -9208,6 +9268,32 @@ expand_expr (exp, target, tmode, modifier)
       /* Function descriptors are not valid except for as
 	 initialization constants, and should not be expanded.  */
       abort ();
+
+    case SWITCH_EXPR:
+      expand_start_case (0, SWITCH_COND (exp), integer_type_node,
+			 "switch");
+      expand_expr_stmt (SWITCH_BODY (exp));
+      expand_end_case (SWITCH_COND (exp));
+      return const0_rtx;
+
+    case LABEL_EXPR:
+      expand_label (TREE_OPERAND (exp, 0));
+      return const0_rtx;
+
+    case CASE_LABEL_EXPR:
+      {
+	tree duplicate = 0;
+	add_case_node (CASE_LOW (exp), CASE_HIGH (exp),
+		       build_decl (LABEL_DECL, NULL_TREE, NULL_TREE), 
+		       &duplicate);
+	if (duplicate)
+	  abort ();
+	return const0_rtx;
+      }
+
+    case ASM_EXPR:
+      expand_asm_expr (exp);
+      return const0_rtx;
 
     default:
       return (*lang_hooks.expand_expr) (exp, original_target, tmode, modifier);

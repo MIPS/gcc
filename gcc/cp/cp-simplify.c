@@ -63,6 +63,9 @@ cp_simplify_expr (expr_p, pre_p, post_p)
     case TARGET_EXPR:
       simplify_target_expr (expr_p, pre_p);
       break;
+
+    default:
+      break;
     }
 
   return c_simplify_expr (expr_p, pre_p, post_p);

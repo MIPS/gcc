@@ -6760,4 +6760,64 @@ check_function_arguments_recurse (callback, ctx, param, param_num)
   (*callback) (ctx, param, param_num);
 }
 
+tree 
+c_walk_subtrees (tp, walk_subtrees_p, func, data, htab)
+     tree *tp;
+     int *walk_subtrees_p ATTRIBUTE_UNUSED;
+     walk_tree_fn func;
+     void *data;
+     void *htab;
+{
+  enum tree_code code = TREE_CODE (*tp);
+  tree result;
+
+#define WALK_SUBTREE(NODE)				\
+  do							\
+    {							\
+      result = walk_tree (&(NODE), func, data, htab);	\
+      if (result)					\
+	return result;					\
+    }							\
+  while (0)
+
+  /* Set lineno here so we get the right instantiation context
+     if we call instantiate_decl from inlinable_function_p.  */
+  if (statement_code_p (code) && !STMT_LINENO_FOR_FN_P (*tp))
+    lineno = STMT_LINENO (*tp);
+
+  /* For statements, we also walk the chain so that we cover the
+     entire statement tree.  */
+  if (statement_code_p (code))
+    {
+      if (code == DECL_STMT
+	  && DECL_STMT_DECL (*tp)
+	  && DECL_P (DECL_STMT_DECL (*tp)))
+	{
+	  /* Walk the DECL_INITIAL and DECL_SIZE.  We don't want to walk
+	     into declarations that are just mentioned, rather than
+	     declared; they don't really belong to this part of the tree.
+	     And, we can see cycles: the initializer for a declaration can
+	     refer to the declaration itself.  */
+	  WALK_SUBTREE (DECL_INITIAL (DECL_STMT_DECL (*tp)));
+	  WALK_SUBTREE (DECL_SIZE (DECL_STMT_DECL (*tp)));
+	  WALK_SUBTREE (DECL_SIZE_UNIT (DECL_STMT_DECL (*tp)));
+	}
+
+      /* This can be tail-recursion optimized if we write it this way.  */
+      WALK_SUBTREE (TREE_CHAIN (*tp));
+    }
+
+  /* We didn't find what we were looking for.  */
+  return NULL_TREE;
+
+#undef WALK_SUBTREE
+}
+
+int
+c_tree_chain_matters_p (t)
+     tree t;
+{
+  return statement_code_p (TREE_CODE (t));
+}
+
 #include "gt-c-common.h"

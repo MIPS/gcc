@@ -295,7 +295,6 @@ make_node (code)
     {
     case 's':
       TREE_SIDE_EFFECTS (t) = 1;
-      TREE_TYPE (t) = void_type_node;
       break;
 
     case 'd':
@@ -372,6 +371,7 @@ copy_node (node)
 
   TREE_CHAIN (t) = 0;
   TREE_ASM_WRITTEN (t) = 0;
+  TREE_VISITED (t) = 0;
 
   if (TREE_CODE_CLASS (code) == 'd')
     DECL_UID (t) = next_decl_uid++;
@@ -985,7 +985,6 @@ tree
 chainon (op1, op2)
      tree op1, op2;
 {
-
   if (op1)
     {
       tree t1;
@@ -1588,6 +1587,10 @@ unsafe_for_reeval (expr)
     {
     case SAVE_EXPR:
     case RTL_EXPR:
+
+      /* A label can only be emitted once.  */
+    case LABEL_EXPR:
+    case BIND_EXPR:
       return 2;
 
     case TREE_LIST:
@@ -2248,17 +2251,28 @@ build1 (code, type, node)
      tree type;
      tree node;
 {
-  int length;
+  int length = sizeof (struct tree_exp);
 #ifdef GATHER_STATISTICS
   tree_node_kind kind;
 #endif
   tree t;
 
 #ifdef GATHER_STATISTICS
-  if (TREE_CODE_CLASS (code) == 'r')
-    kind = r_kind;
-  else
-    kind = e_kind;
+  switch (TREE_CODE_CLASS (code))
+    {
+    case 's':  /* an expression with side effects */
+      kind = s_kind;
+      break;
+    case 'r':  /* a reference */
+      kind = r_kind;
+      break;
+    default:
+      kind = e_kind;
+      break;
+    }
+
+  tree_node_counts[(int) kind]++;
+  tree_node_sizes[(int) kind] += length;
 #endif
 
 #ifdef ENABLE_CHECKING
@@ -2268,16 +2282,9 @@ build1 (code, type, node)
     abort ();
 #endif /* ENABLE_CHECKING */
 
-  length = sizeof (struct tree_exp);
-
   t = ggc_alloc_tree (length);
 
   memset ((PTR) t, 0, sizeof (struct tree_common));
-
-#ifdef GATHER_STATISTICS
-  tree_node_counts[(int) kind]++;
-  tree_node_sizes[(int) kind] += length;
-#endif
 
   TREE_SET_CODE (t, code);
 
@@ -2290,7 +2297,11 @@ build1 (code, type, node)
       TREE_READONLY (t) = TREE_READONLY (node);
     }
 
-  switch (code)
+  if (TREE_CODE_CLASS (code) == 's')
+    {
+      TREE_SIDE_EFFECTS (t) = 1;
+    }
+  else switch (code)
     {
     case INIT_EXPR:
     case MODIFY_EXPR:
@@ -4597,6 +4608,9 @@ build_common_tree_nodes_2 (short_double)
   TYPE_ALIGN (void_type_node) = BITS_PER_UNIT;
   TYPE_USER_ALIGN (void_type_node) = 0;
 
+  /* Used in the tree IR to represent empty statements and blocks. */
+  empty_stmt_node = build1 (CONVERT_EXPR, void_type_node, size_zero_node);
+
   null_pointer_node = build_int_2 (0, 0);
   TREE_TYPE (null_pointer_node) = build_pointer_type (void_type_node);
   layout_type (TREE_TYPE (null_pointer_node));
@@ -4742,6 +4756,18 @@ initializer_zerop (init)
     default:
       return false;
     }
+}
+
+void
+add_var_to_bind_expr (bind_expr, var)
+     tree bind_expr;
+     tree var;
+{
+  BIND_EXPR_VARS (bind_expr)
+    = chainon (BIND_EXPR_VARS (bind_expr), var);
+  if (BIND_EXPR_BLOCK (bind_expr))
+    BLOCK_VARS (BIND_EXPR_BLOCK (bind_expr))
+      = BIND_EXPR_VARS (bind_expr);
 }
 
 #include "gt-tree.h"

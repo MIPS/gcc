@@ -652,10 +652,13 @@ poplevel (keep, reverse, functionbody)
 	    warning_with_decl (label, "label `%s' defined but not used");
 	  IDENTIFIER_LABEL_VALUE (DECL_NAME (label)) = 0;
 
-	  /* Put the labels into the "variables" of the
-	     top-level block, so debugger can see them.  */
-	  TREE_CHAIN (label) = BLOCK_VARS (block);
-	  BLOCK_VARS (block) = label;
+	  if (!C_DECLARED_LABEL_FLAG (label))
+	    {
+	      /* Put undeclared labels into the "variables" of the
+		 top-level block, so debugger can see them.  */
+	      TREE_CHAIN (label) = BLOCK_VARS (block);
+	      BLOCK_VARS (block) = label;
+	    }
 	}
     }
 
@@ -5868,8 +5871,6 @@ start_function (declspecs, declarator, attributes)
   declare_parm_level (1);
   current_binding_level->subblocks_tag_transparent = 1;
 
-  make_decl_rtl (current_function_decl, NULL);
-
   restype = TREE_TYPE (TREE_TYPE (current_function_decl));
   /* Promote the value to int before returning it.  */
   if (c_promoting_integer_type_p (restype))
@@ -6396,6 +6397,11 @@ finish_function (nested, can_defer_p)
       && DECL_INLINE (fndecl))
     warning ("no return statement in function returning non-void");
 
+  /* Simplify before inlining.  Really this only needs to genericize,
+     but that currently happens via the simplifier.  */
+  if (!flag_disable_simple)
+    simplify_function_tree (fndecl);
+
   /* Clear out memory we no longer need.  */
   free_after_parsing (cfun);
   /* Since we never call rest_of_compilation, we never clear
@@ -6499,6 +6505,7 @@ c_expand_body (fndecl, nested_p, can_defer_p)
   /* Initialize the RTL code for the function.  */
   current_function_decl = fndecl;
   input_filename = DECL_SOURCE_FILE (fndecl);
+  make_decl_rtl (fndecl, NULL);
   init_function_start (fndecl, input_filename, DECL_SOURCE_LINE (fndecl));
 
   /* This function is being processed in whole-function mode.  */
@@ -6520,6 +6527,7 @@ c_expand_body (fndecl, nested_p, can_defer_p)
   if (!flag_disable_simple
       && simplify_function_tree (fndecl))
     {
+#if 0
       if (flag_mudflap)
 	{
 	  mudflap_c_function (fndecl);
@@ -6533,6 +6541,7 @@ c_expand_body (fndecl, nested_p, can_defer_p)
       /* Invoke the SSA tree optimizer.  */
       if (optimize >= 1)
 	optimize_function_tree (fndecl);
+#endif
     }
 
   /* Set up parameters and prepare for return, for the function.  */
@@ -6546,7 +6555,11 @@ c_expand_body (fndecl, nested_p, can_defer_p)
     expand_main_function ();
 
   /* Generate the RTL for this function.  */
-  expand_stmt (DECL_SAVED_TREE (fndecl));
+  if (statement_code_p (TREE_CODE (DECL_SAVED_TREE (fndecl))))
+    expand_stmt (DECL_SAVED_TREE (fndecl));
+  else
+    expand_expr_stmt_value (DECL_SAVED_TREE (fndecl), 0, 0);
+
   if (uninlinable)
     {
       /* Allow the body of the function to be garbage collected.  */
@@ -6869,20 +6882,36 @@ c_begin_compound_stmt ()
   return stmt;
 }
 
-/* Expand T (a DECL_STMT) if it declares an entity not handled by the
+/* Expand DECL if it declares an entity not handled by the
    common code.  */
 
-void
-c_expand_decl_stmt (t)
-     tree t;
+int
+c_expand_decl (decl)
+     tree decl;
 {
-  tree decl = DECL_STMT_DECL (t);
-
+  if (TREE_CODE (decl) == VAR_DECL && !TREE_STATIC (decl))
+    {
+      /* Let the back-end know about this variable.  */
+      if (!anon_aggr_type_p (TREE_TYPE (decl)))
+	emit_local_var (decl);
+      else
+	expand_anon_union_decl (decl, NULL_TREE, 
+				DECL_ANON_UNION_ELEMS (decl));
+    }
+  else if (TREE_CODE (decl) == VAR_DECL && TREE_STATIC (decl))
+    make_rtl_for_local_static (decl);
   /* Expand nested functions.  */
-  if (TREE_CODE (decl) == FUNCTION_DECL
-      && DECL_CONTEXT (decl) == current_function_decl
-      && DECL_SAVED_TREE (decl))
+  else if (TREE_CODE (decl) == FUNCTION_DECL
+	   && DECL_CONTEXT (decl) == current_function_decl
+	   && DECL_SAVED_TREE (decl))
     c_expand_body (decl, /*nested_p=*/1, /*can_defer_p=*/0);
+  else if (TREE_CODE (decl) == LABEL_DECL 
+	   && C_DECLARED_LABEL_FLAG (decl))
+    declare_nonlocal_label (decl);
+  else
+    return 0;
+
+  return 1;
 }
 
 /* Return the IDENTIFIER_GLOBAL_VALUE of T, for use in common code, since

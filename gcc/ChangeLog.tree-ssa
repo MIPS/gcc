@@ -1,3 +1,102 @@
+2002-09-24  Jason Merrill  <jason@redhat.com>
+
+	* c-decl.c (poplevel): Only add undeclared labels to the toplevel
+	block.
+	* c-parse.in (label_decl): Push the declared label.
+
+	* c-decl.c (c_expand_body): If we've been simplified, use
+	expand_expr_stmt_value instead.
+
+	* c-decl.c (c_expand_decl): Rename from c_expand_decl_stmt.
+	Handle all C-specific expansion semantics.
+	* c-tree.h: Change prototype.
+	* langhooks.h (struct lang_hooks): Add expand_decl hook.
+	* langhooks.c (lhd_expand_decl): Default version.
+	* langhooks-def.h (LANG_HOOKS_EXPAND_DECL): Provide default.
+	* c-lang.c (LANG_HOOKS_EXPAND_DECL): Define.
+	* c-semantics.c (lang_expand_decl_stmt): Remove.
+	(genrtl_decl_stmt): Use lang_hooks.expand_decl.
+	* Makefile.in (c-semantics.o): Depend on langhooks.h.
+	* c-objc-common.c (c_objc_common_init): Don't set 
+	lang_expand_decl_stmt.
+
+	* c-common.def (ASM_STMT): Only 4 operands.
+	* c-common.h (ASM_CV_QUAL): Remove.
+	(genrtl_asm_stmt): Adjust prototype.
+	* c-typeck.c (build_asm_stmt): Adjust.
+	* c-semantics.c (genrtl_asm_stmt): Change cv_qualifier parm to
+	volatile_p.
+	(expand_stmt): Adjust.
+
+	* c-common.h (SWITCH_COND, SWITCH_BODY, CASE_LOW, CASE_HIGH,
+	CASE_LABEL_DECL, GOTO_DESTINATION, ASM_STRING, ASM_OUTPUTS,
+	ASM_INPUTS, ASM_CLOBBERS, ASM_VOLATILE_P, ASM_INPUT_P): Move to tree.h.
+
+	* c-pretty-print.c (newline_and_indent): New fn.
+	(dump_c_tree, dump_c_node): Make spc a plain int.
+	(dump_c_node): Use output_add_identifier.
+	Reorganize for bnw-simple; indent in the enclosing node rather
+	than the subexpression.
+	[FUNCTION_DECL]: Just print the name for now.
+	[COMPOUND_EXPR, COND_EXPR]: Handle use as statements.
+	[BIND_EXPR, GOTO_EXPR, EXIT_EXPR, LOOP_EXPR, LABELED_BLOCK_EXPR,
+	EXIT_BLOCK_EXPR, RETURN_EXPR, SWITCH_EXPR, ASM_EXPR, 
+	CASE_LABEL_EXPR]: Implement.
+	(print_declaration): Print 'static'.
+	* c-tree.h: Move c-pretty-print decls to diagnostic.h.
+
+	* expr.c (store_field): Don't always pass want_value==0 to store_expr.
+
+	* expr.c (expand_expr) [EXIT_EXPR]: Handle EXIT_EXPR_IS_LOOP_COND.
+
+	* expr.c (expand_expr) [LOOP_EXPR]: Pass exit_flag==0 to 
+	exand_start_loop.
+	[BIND_EXPR]: Adjust for functions-as-trees mode.
+	[COMPOUND_EXPR]: Avoid recursion if possible.
+	[SWITCH_EXPR, LABEL_EXPR]: Move handling from java/expr.c.
+	[CASE_LABEL_EXPR, ASM_EXPR]: New handling.
+
+	* tree.h (struct tree_common): Add visited flag.
+	(TREE_VISITED): New macro.
+	* tree.c (copy_node): Clear TREE_VISITED.
+	* print-tree.c (print_node): Print visted.
+
+	* stmt.c (expand_asm_expr): New fn.
+
+	* tree.c (build1): Always set TREE_SIDE_EFFECTS for 's' codes.
+
+	* tree.h (enum tree_index): Add TI_EMPTY_STMT.
+	(empty_stmt_node): New macro.
+	* tree.c (build_common_tree_nodes_2): Initialize it.
+
+	* tree.def: Change some codes from 'e' to 's'.
+	(CASE_LABEL_EXPR, ASM_EXPR): New codes.
+
+	* tree.def (SWITCH_EXPR): Now has three operands.
+
+	* tree-inline.c: Retarget to generic trees.  FIXME FIXME.
+	* old-tree-inline.c: Old C/Java-specific inliner.
+	* Makefile.in (old-tree-inline.o): New rule.
+	* c-common.c (c_walk_subtrees): New fn.
+	(c_tree_chain_matters_p): New fn.
+	* c-lang.c: Use them for LANG_HOOKS_TREE_INLINING_WALK_SUBTREES
+	and LANG_HOOKS_TREE_INLINING_TREE_CHAIN_MATTERS_P.
+	* c-common.h: Declare them.
+	(DECL_NUM_STMTS): Move to tree.h.
+	* c-decl.c (finish_function): Simplify the function trees.
+	* c-objc-common.c (inline_forbidden_p): Look inside BIND_EXPRs
+	for nested functions.  Don't inline a function with _STMT trees.
+
+	* basic-block.h: Include hard-reg-set.h.
+
+	* c-decl.c (start_function): Don't call make_decl_rtl.
+	(c_expand_body): Call it here instead.
+
+	* Makefile.in (explow.o): Depend on langhooks.h.
+
+	* unroll.c (copy_loop_body): Don't copy NOTE_INSN_DELETED_LABELs
+	between copy_notes_from and loop_end, either.
+
 2002-09-30  Daniel Berlin  <dberlin@dberlin.org>
 
 	* tree-ssa-pre.c (repair_injury): Start work on updating SSA

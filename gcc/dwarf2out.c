@@ -11493,6 +11493,14 @@ gen_decl_die (decl, context_die)
 	  && (current_function_decl == NULL_TREE || DECL_ARTIFICIAL (decl)))
 	break;
 
+#if 0
+      /* FIXME */
+      /* This doesn't work because the C frontend sets DECL_ABSTRACT_ORIGIN
+	 on local redeclarations of global functions.  That seems broken.  */
+      if (current_function_decl != decl)
+	/* This is only a declaration.  */;
+#endif
+
       /* If we're emitting a clone, emit info for the abstract instance.  */
       if (DECL_ORIGIN (decl) != decl)
 	dwarf2out_abstract_function (DECL_ABSTRACT_ORIGIN (decl));
