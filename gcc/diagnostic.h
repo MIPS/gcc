@@ -336,4 +336,6 @@ extern int dump_generic_node		PARAMS ((output_buffer *, tree, int,
 extern void print_generic_stmt		PARAMS ((FILE *, tree, int));
 extern void print_generic_expr		PARAMS ((FILE *, tree, int));
 
+extern void debug_generic_expr          PARAMS ((tree));
+extern void debug_generic_stmt          PARAMS ((tree));
 #endif /* ! GCC_DIAGNOSTIC_H */

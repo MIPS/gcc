@@ -336,6 +336,16 @@ struct tree_common GTY(())
 			       __FUNCTION__);				\
     __t; })
 
+#define EREF_NODE_CHECK(t) __extension__				\
+({  const tree __t = t;							\
+    if (TREE_CODE (__t) != EPHI_NODE && TREE_CODE (__t) != ELEFT_NODE	\
+        && TREE_CODE (__t) != EKILL_NODE				\
+        && TREE_CODE (__t) != EUSE_NODE					\
+	&& TREE_CODE (__t) != EEXIT_NODE)				\
+      tree_check_failed (__t, TREE_CODE (t),				\
+			 __FILE__, __LINE__, __FUNCTION__);		\
+    __t; })
+
 #define TREE_VEC_ELT_CHECK(t, i) __extension__				\
 (*({const tree __t = t;							\
     const int __i = (i);						\
@@ -346,6 +356,17 @@ struct tree_common GTY(())
       tree_vec_elt_check_failed (__i, __t->vec.length,			\
 				 __FILE__, __LINE__, __FUNCTION__);	\
     &__t->vec.a[__i]; }))
+
+#define EPHI_NODE_ELT_CHECK(t, i) __extension__				\
+(*({const tree __t = t;							\
+    const int __i = (i);						\
+    if (TREE_CODE (__t) != EPHI_NODE)					\
+      tree_check_failed (__t, EPHI_NODE,					\
+			 __FILE__, __LINE__, __FUNCTION__);		\
+    if (__i < 0 || __i >= __t->ephi.capacity)				\
+      ephi_node_elt_check_failed (__i, __t->ephi.num_args,		\
+				 __FILE__, __LINE__, __FUNCTION__);	\
+    &__t->ephi.a[__i]; }))
 
 #define PHI_NODE_ELT_CHECK(t, i) __extension__				\
 (*({const tree __t = t;							\
@@ -370,6 +391,9 @@ extern void tree_vec_elt_check_failed PARAMS ((int, int, const char *,
 extern void phi_node_elt_check_failed PARAMS ((int, int, const char *,
 					       int, const char *))
     ATTRIBUTE_NORETURN;
+extern void ephi_node_elt_check_failed PARAMS ((int, int, const char *,
+					       int, const char *))
+    ATTRIBUTE_NORETURN;
 
 #else /* not ENABLE_TREE_CHECKING, or not gcc */
 
@@ -377,8 +401,10 @@ extern void phi_node_elt_check_failed PARAMS ((int, int, const char *,
 #define TREE_CLASS_CHECK(t, code)	(t)
 #define CST_OR_CONSTRUCTOR_CHECK(t)	(t)
 #define EXPR_CHECK(t)			(t)
+#define EREF_NODE_CHECK(t)		(t)
 #define TREE_VEC_ELT_CHECK(t, i)	((t)->vec.a[i])
 #define PHI_NODE_ELT_CHECK(t, i)	((t)->phi.a[i])
+#define EPHI_NODE_ELT_CHECK(t, i)	((t)->ephi.a[i])
 #endif
 
 #include "tree-check.h"
@@ -1051,6 +1077,109 @@ struct tree_phi_node GTY(())
   struct phi_arg_d GTY ((length ("((tree)&%h)->phi.capacity"))) a[1];
 };
 
+
+struct varray_head_tag;
+
+struct tree_eref_common GTY(())
+{
+  struct tree_common common;
+
+  tree name;
+  
+  tree * GTY((skip (""))) stmt;
+
+ /* SSAPRE: True if expression needs to be saved to a temporary. */
+  unsigned int save:1;
+  
+  /* SSAPRE: True if expression needs to be reloaded from a temporary.  */
+  unsigned int reload:1;
+
+  /* SSAPRE: Redundancy class of expression.  */
+  unsigned int class;
+  
+  /* SSAPRE: Processed flag 1. */
+  unsigned int processed:1;
+
+  /* SSAPRE: Processed flag 2. */
+  unsigned int processed2:1;
+
+  struct varray_head_tag *uses;
+};
+
+struct tree_euse_node GTY(())
+{
+  struct tree_eref_common common;
+  
+  /* SSAPRE: Definition for this use. */
+  tree def;
+  
+  /* SSAPRE: True if this is an EPHI operand occurrence. */
+  unsigned int op_occurrence:1;
+  
+  /* SSAPRE: True if this use has a real use defining it.  */
+  unsigned int has_real_use:1;
+  
+  /* SSAPRE: EPHI this use is an operand of.  */
+  tree phi;
+
+  /* SSAPRE: True if expression was inserted as a PHI operand occurrence.  */
+  unsigned int inserted:1;
+
+};
+
+struct tree_ephi_node GTY(())
+{
+  struct tree_eref_common common;
+
+  /* SSAPRE: True if PHI is downsafe.  */
+  unsigned int downsafe:1;
+  
+  /* SSAPRE: True if PHI is can_be_avail.  */
+  unsigned int can_be_avail:1;
+
+  /* SSAPRE: True if PHI is later.  */
+  unsigned int later:1;
+
+  /* SSAPRE: True if PHI is expression.  */
+  unsigned int extraneous:1;
+
+  /* SSAPRE: True if PHI is dead. */
+  unsigned int dead:1;
+  
+  int num_args;
+  int capacity;
+  struct phi_arg_d GTY ((length ("((tree)&%h)->ephi.capacity"))) a[1];
+
+};
+/* In both EPHI's and EUSES */
+#define EREF_PROCESSED(NODE)    EREF_NODE_CHECK (NODE)->eref.processed
+#define EREF_PROCESSED2(NODE)   EREF_NODE_CHECK (NODE)->eref.processed2
+#define EREF_NAME(NODE)         EREF_NODE_CHECK (NODE)->eref.name
+#define EREF_STMT(NODE)         EREF_NODE_CHECK (NODE)->eref.stmt
+#define EREF_RELOAD(NODE)       EREF_NODE_CHECK (NODE)->eref.reload
+#define EREF_SAVE(NODE)         EREF_NODE_CHECK (NODE)->eref.save
+#define EREF_CLASS(NODE)        EREF_NODE_CHECK (NODE)->eref.class
+#define EREF_USES(NODE)         EREF_NODE_CHECK (NODE)->eref.uses
+
+/* In a EUSE_NODE node.  */
+#define EUSE_DEF(NODE)          EUSE_NODE_CHECK (NODE)->euse.def
+#define EUSE_PHIOP(NODE)        EUSE_NODE_CHECK (NODE)->euse.op_occurrence
+#define EUSE_HAS_REAL_USE(NODE)   EUSE_NODE_CHECK (NODE)->euse.has_real_use
+#define EUSE_PHI(NODE)          EUSE_NODE_CHECK (NODE)->euse.phi
+#define EUSE_INSERTED(NODE)     EUSE_NODE_CHECK (NODE)->euse.inserted
+
+/* In a EPHI_NODE node.  */
+#define EPHI_NUM_ARGS(NODE)	EPHI_NODE_CHECK (NODE)->ephi.num_args
+#define EPHI_ARG_CAPACITY(NODE)	EPHI_NODE_CHECK (NODE)->ephi.capacity
+#define EPHI_ARG_ELT(NODE, I)	EPHI_NODE_ELT_CHECK (NODE, I)
+#define EPHI_ARG_EDGE(NODE, I)	EPHI_NODE_ELT_CHECK (NODE, I).e
+#define EPHI_ARG_DEF(NODE, I)	EPHI_NODE_ELT_CHECK (NODE, I).def
+#define EPHI_DOWNSAFE(NODE)     EPHI_NODE_CHECK (NODE)->ephi.downsafe
+#define EPHI_CAN_BE_AVAIL(NODE)   EPHI_NODE_CHECK (NODE)->ephi.can_be_avail
+#define EPHI_LATER(NODE)        EPHI_NODE_CHECK (NODE)->ephi.later
+#define EPHI_EXTRANEOUS(NODE)   EPHI_NODE_CHECK (NODE)->ephi.extraneous
+#define EPHI_DEAD(NODE)         EPHI_NODE_CHECK (NODE)->ephi.dead
+
 /* In a BLOCK node.  */
 #define BLOCK_VARS(NODE) (BLOCK_CHECK (NODE)->block.vars)
 #define BLOCK_SUBBLOCKS(NODE) (BLOCK_CHECK (NODE)->block.subblocks)
@@ -2064,6 +2193,9 @@ enum tree_node_structure_enum {
   TS_EXP,
   TS_SSA_NAME,
   TS_PHI_NODE,
+  TS_EPHI_NODE,
+  TS_EUSE_NODE,
+  TS_EREF_NODE,
   TS_BLOCK,
   LAST_TS_ENUM
 };
@@ -2089,6 +2221,9 @@ union tree_node GTY ((ptr_alias (union lang_tree_node),
   struct tree_exp GTY ((tag ("TS_EXP"))) exp;
   struct tree_ssa_name GTY ((tag ("TS_SSA_NAME"))) ssa_name;
   struct tree_phi_node GTY ((tag ("TS_PHI_NODE"))) phi;
+  struct tree_eref_common GTY ((tag ("TS_EREF_NODE"))) eref;
+  struct tree_ephi_node GTY ((tag ("TS_EPHI_NODE"))) ephi;
+  struct tree_euse_node GTY ((tag ("TS_EUSE_NODE"))) euse;
   struct tree_block GTY ((tag ("TS_BLOCK"))) block;
  };
 

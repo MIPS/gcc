@@ -73,10 +73,8 @@ optimize_function_tree (fndecl)
       /* Rewrite the function into SSA form.  */
       rewrite_into_ssa (fndecl);
       
-#if 0
       if (flag_tree_pre)
 	tree_perform_ssapre (fndecl);
-#endif
 
       if (flag_tree_ccp)
 	tree_ssa_ccp (fndecl);

@@ -1059,6 +1059,19 @@ create_stmt_ann (t)
 
   STRIP_NOPS (t);
   t->common.ann = (tree_ann) ann;
+  ann->common.stmt = t; 
+  if (TREE_CODE (t) == MODIFY_EXPR)
+  {
+    tree op = TREE_OPERAND (t, 1);
+    if (op->common.ann != NULL)
+      op->common.ann->common.stmt = t;
+    else
+      {
+        op->common.ann = ggc_alloc (sizeof (struct tree_ann_common_d));
+        op->common.ann->common.type = TREE_ANN_COMMON;
+	op->common.ann->common.stmt = t;
+      }
+  }
 
   return ann;
 }

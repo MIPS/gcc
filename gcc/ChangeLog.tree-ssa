@@ -1,3 +1,29 @@
+2003-02-13  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-dfa.c (create_stmt_ann): Do stmt part of common annotation.
+	* tree-flow-inline.h (tree_stmt): Return statement tree is part of.
+	* tree-flow.h (struct bb_ann_d): Add ephi_nodes.
+	* tree-optimize.c (optimize_tree): Activate SSAPRE again.
+	* tree-pretty-print.c (debug_generic_expr): New function.
+	(debug_generic_stmt): Ditto.
+	(dump_generic_node): Pretty print EUSE's, EREF's,  and EPHI's.
+	
+	* tree-ssa-pre.c: Rewrite almost entirely. Now performs more
+	strength reduction, EPHI minimization, and keeps SSA up to date.
+	* tree.c (tree_size): Handle EUSE, EPHI, EREF nodes.
+	(tree_node_structure): Ditto.
+	(ephi_node_elt_check_failed): New function.
+	* tree.def: Add EUSE_NODE, ELEFT_NODE, EKILL_NODE, EPHI_NODE,
+	EEXIT_NODE.
+	* tree.h (EREF_NODE_CHECK): New.
+	(EPHI_NODE_ELT_CHECK): New.
+	(struct tree_eref_common): New.
+	(struct tree_euse_node): New.
+	(struct tree_ephi_node): New.
+	(union tree_node): Add euse, eref, ephi members.
+	(enum tree_node_structure): Add TS_EPHI_NODE, TS_EUSE_NODE,
+	TS_EREF_NODE.
+
 2003-02-13  Daniel Berlin <dberlin@dberlin.org>
             Andreas Jaeger  <aj@suse.de>
 
@@ -22,7 +48,7 @@
 2003-02-12  Daniel Berlin  <dberlin@dberlin.org>
 
 	* tree-dfa.c (find_may_aliases_for): Remove
-	(compute_may_aliases): Always all compute_alias_sets.
+	(compute_may_aliases): Always call compute_alias_sets.
 
 2003-02-10  Jeff Law <law@redhat.com>
 

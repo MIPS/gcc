@@ -209,8 +209,15 @@ tree_size (node)
 	else if (code == PHI_NODE)
 	  length = sizeof (struct tree_phi_node)
 		   + (PHI_ARG_CAPACITY (node) - 1) * sizeof (struct phi_arg_d);
+	else if (code == EPHI_NODE)
+	  length = sizeof (struct tree_ephi_node)
+		   + (EPHI_ARG_CAPACITY (node) - 1) * sizeof (struct phi_arg_d);
 	else if (code == SSA_NAME)
 	  length = sizeof (struct tree_ssa_name);
+	else if (code == EUSE_NODE)
+	  length = sizeof (struct tree_euse_node);
+	else if (code == ELEFT_NODE || code == EKILL_NODE || code == EEXIT_NODE)
+	  length = sizeof (struct tree_eref_common);
 	return length;
       }
 
@@ -1503,6 +1510,11 @@ tree_node_structure (t)
     case TREE_LIST:		return TS_LIST;
     case TREE_VEC:		return TS_VEC;
     case PHI_NODE:		return TS_PHI_NODE;
+    case EPHI_NODE:		return TS_EPHI_NODE;
+    case EUSE_NODE:             return TS_EUSE_NODE;
+    case ELEFT_NODE:            return TS_EREF_NODE;
+    case EKILL_NODE:            return TS_EREF_NODE;
+    case EEXIT_NODE:            return TS_EREF_NODE;
     case SSA_NAME:		return TS_SSA_NAME;
     case PLACEHOLDER_EXPR:	return TS_COMMON;
 
@@ -4565,6 +4577,22 @@ tree_vec_elt_check_failed (idx, len, file, line, function)
 {
   internal_error
     ("tree check: accessed elt %d of tree_vec with %d elts in %s, at %s:%d",
+     idx + 1, len, function, trim_filename (file), line);
+}
+
+/* Similar to above, except that the check is for the bounds of a EPHI_NODE's
+   (dynamically sized) vector.  */
+
+void
+ephi_node_elt_check_failed (idx, len, file, line, function)
+     int idx;
+     int len;
+     const char *file;
+     int line;
+     const char *function;
+{
+  internal_error
+    ("tree check: accessed elt %d of ephi_node with %d elts in %s, at %s:%d",
      idx + 1, len, function, trim_filename (file), line);
 }
 

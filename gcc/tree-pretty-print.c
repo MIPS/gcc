@@ -85,6 +85,22 @@ do_niy (buffer, node)
   output_add_string (buffer, " >>>\n");
 }
      
+void 
+debug_generic_expr (t)
+     tree t;
+{
+  print_generic_expr (stderr, t, TDF_VOPS);
+  fprintf (stderr, "\n");
+}
+
+void 
+debug_generic_stmt (t)
+     tree t;
+{
+  print_generic_stmt (stderr, t, TDF_VOPS);
+  fprintf (stderr, "\n");
+}
+
 /* Print tree T, and its successors, on file FILE.  FLAGS specifies details
    to show in the dump.  See TDF_* in tree.h.  */
 
@@ -1238,6 +1254,85 @@ dump_generic_node (buffer, node, spc, flags)
       output_add_character (buffer, '>');
       break;
 
+    case EPHI_NODE:
+      {
+	int i;
+	
+	output_add_string (buffer, " EPHI (");
+	dump_generic_node (buffer, EREF_NAME (node), spc, flags);
+	output_add_string (buffer, ") ");
+	output_add_character (buffer, '[');
+	output_add_string (buffer, "class:");
+	output_decimal (buffer, EREF_CLASS (node));
+	output_add_string (buffer, " downsafe:");
+	output_decimal (buffer, EPHI_DOWNSAFE (node));
+	output_add_string (buffer, " can_be_avail:");
+	output_decimal (buffer, EPHI_CAN_BE_AVAIL (node));
+	output_add_string (buffer, " later:");
+	output_decimal (buffer, EPHI_LATER (node));
+	output_add_string (buffer, " bb:");
+	output_decimal (buffer, bb_for_stmt (node)->index);
+	output_add_character (buffer, ']');
+	output_add_string (buffer, " <");
+	for (i = 0; i < EPHI_NUM_ARGS (node); i++)
+	  {
+	    newline_and_indent (buffer, spc + 4);
+	    dump_generic_node (buffer, EPHI_ARG_DEF (node, i), 
+			       spc + 4, flags);
+	  }
+	output_add_string (buffer, " >");
+      }
+      break;
+    case EEXIT_NODE:
+    case ELEFT_NODE:
+    case EKILL_NODE:
+      if (TREE_CODE (node) == EEXIT_NODE)
+	output_add_string (buffer, "EEXIT (");
+      else if (TREE_CODE (node) == ELEFT_NODE)
+	output_add_string (buffer, "ELEFT (");
+      else if (TREE_CODE (node) == EKILL_NODE)
+	output_add_string (buffer, "EKILL (");
+      dump_generic_node (buffer, EREF_NAME (node), spc, flags);
+      output_add_string (buffer, ") ");
+      output_add_character (buffer, '[');
+      output_add_string (buffer, "class:");
+      output_decimal (buffer, EREF_CLASS (node));
+      output_add_string (buffer, " bb:");
+      output_decimal (buffer, bb_for_stmt (node)->index);
+      output_add_character (buffer, ']');
+      break;
+    case EUSE_NODE:
+      output_add_string (buffer, "EUSE (");
+      dump_generic_node (buffer, EREF_NAME (node), spc, flags);
+      output_add_string (buffer, ") ");
+      output_add_character (buffer, '[');
+      output_add_string (buffer, "class:");
+      output_decimal (buffer, EREF_CLASS (node));
+      output_add_string (buffer, " phiop:");
+      output_decimal (buffer, EUSE_PHIOP (node));
+      output_add_string (buffer, " bb:");
+      output_decimal (buffer, bb_for_stmt (node)->index);
+      if (EUSE_PHIOP (node))
+	{
+	  output_add_string (buffer, " has real use:");
+	  output_decimal (buffer, EUSE_HAS_REAL_USE (node));
+	  if (!(flags & TDF_SLIM))
+	    {
+	      output_add_string (buffer, " defined by:");
+	      newline_and_indent (buffer, spc + 4);
+	      /* If you remove the TDF_SLIM, you will get infinite
+		 loops due to cycles in the factored graph in some
+		 cases. They are *supposed* to occur, but we don't track
+		 which nodes we've already printed, thus, we need to
+		 stop at one level of printing. */
+	      dump_generic_node (buffer, EUSE_DEF (node),
+				 spc + 4, flags | TDF_SLIM);
+	    }
+	  newline_and_indent (buffer, spc);
+	}
+      output_add_character (buffer, ']');
+      
+      break;
     case PHI_NODE:
       {
 	int i;
@@ -1246,7 +1341,8 @@ dump_generic_node (buffer, node, spc, flags)
 	output_add_string (buffer, " = PHI <");
 	for (i = 0; i < PHI_NUM_ARGS (node); i++)
 	  {
-	    dump_generic_node (buffer, PHI_ARG_DEF (node, i), spc, flags);
+	    dump_generic_node (buffer, PHI_ARG_DEF (node, i),
+			       spc, flags);
 	    if (i < PHI_NUM_ARGS (node) - 1)
 	      output_add_string (buffer, ", ");
 	  }

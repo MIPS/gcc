@@ -45,6 +45,8 @@ struct tree_ann_common_d GTY(())
 {
   /* Annotation type.  */
   enum tree_ann_type type;
+  /* Statement this annotation belongs to. */
+  tree stmt;
 };
 
 
@@ -169,6 +171,7 @@ typedef union tree_ann_d *tree_ann;
 typedef struct var_ann_d *var_ann_t;
 typedef struct stmt_ann_d *stmt_ann_t;
 
+static inline tree tree_stmt			PARAMS ((tree));
 static inline var_ann_t var_ann			PARAMS ((tree));
 static inline stmt_ann_t stmt_ann		PARAMS ((tree));
 static inline enum tree_ann_type ann_type	PARAMS ((tree_ann));
@@ -209,6 +212,8 @@ struct bb_ann_d
 
   /* Chain of PHI nodes created in this block.  */
   tree phi_nodes;
+  
+  tree ephi_nodes;
 
   /* Set of blocks immediately dominated by this node.  */
   bitmap dom_children;

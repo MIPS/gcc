@@ -43,6 +43,13 @@ var_ann (t)
 	 : NULL;
 }
 
+static inline tree
+tree_stmt (t)
+     tree t;
+{
+  return t->common.ann->common.stmt;
+}
+
 static inline stmt_ann_t
 stmt_ann (t)
      tree t;

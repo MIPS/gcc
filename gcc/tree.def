@@ -868,11 +868,28 @@ DEFTREECODE (SSA_NAME, "ssa_name", 'x', 0)
    SSA_NAME for the variable.  */
 DEFTREECODE (VDEF_EXPR, "vdef_expr", 'e', 2)
 
-/* SSA PHI operator.  PHI_RESULT is the new SSA_NAME node created by the PHI
-   node.  PHI_ARG_LENGTH is the number of arguments.  PHI_ARG_ELT returns
-   the Ith tuple <ssa_name, edge> from the argument list.  Each tuple
-   contains the incoming reaching definition (SSA_NAME node) and the edge
-   via which that definition is coming through.  */
+/* Expression SSA real and phi operand occurrence node.  */
+DEFTREECODE (EUSE_NODE, "euse_node", 'x', 0)
+
+/* Expression SSA left occurrence node.  */
+DEFTREECODE (ELEFT_NODE, "eleft_node", 'x', 0)
+
+/* Expression SSA kill occurrence node.  */
+DEFTREECODE (EKILL_NODE, "ekill_node", 'x', 0)
+
+/* Expression SSA expression PHI.  Like a regular SSA PHI operator,
+   but for expressions*/
+DEFTREECODE (EPHI_NODE, "ephi_node", 'x', 0)
+
+/* Expression SSA exit occurrence node.  */
+DEFTREECODE (EEXIT_NODE, "eexit_node", 'x', 0)
+
+/* SSA PHI operator.  PHI_RESULT is the new SSA_NAME node created by
+   the PHI node.  PHI_ARG_LENGTH is the number of arguments.
+   PHI_ARG_ELT returns the Ith tuple <ssa_name, edge> from the
+   argument list.  Each tuple contains the incoming reaching
+   definition (SSA_NAME node) and the edge via which that definition
+   is coming through.   */
 DEFTREECODE (PHI_NODE, "phi_node", 'x', 0)
 
 /* Used to represent a typed exception handler.  CATCH_TYPES is the type (or
