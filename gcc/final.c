@@ -3139,7 +3139,7 @@ output_asm_operand_names (operands, oporder, nops)
       wrote = 1;
       if (expr)
 	{
-	  fprintf (asm_out_file, "%s %s",
+	  fprintf (asm_out_file, "%s",
 		   addressp ? "*" : "");
 	  print_mem_expr (asm_out_file, expr);
 	  wrote = 1;
