@@ -91,6 +91,8 @@ The varpool data structure:
 #include "ggc.h"
 #include "debug.h"
 #include "target.h"
+#include "basic-block.h"
+#include "tree-iterator.h"
 #include "cgraph.h"
 #include "varray.h"
 #include "output.h"
@@ -249,6 +251,8 @@ cgraph_create_edge (struct cgraph_node *caller, struct cgraph_node *callee,
   edge->next_callee = caller->callees;
   caller->callees = edge;
   callee->callers = edge;
+  edge->count = caller->current_basic_block
+    ? caller->current_basic_block->count : 0;
   return edge;
 }
 
@@ -290,6 +294,25 @@ cgraph_redirect_edge_callee (struct cgraph_edge *e, struct cgraph_node *n)
   e->callee = n;
   e->next_caller = n->callers;
   n->callers = e;
+}
+
+/* Redirect caller of E to N.  The function does not update underlying
+   call expression.  */
+
+void
+cgraph_redirect_edge_caller (struct cgraph_edge *e, struct cgraph_node *n)
+{
+  struct cgraph_edge **edge;
+
+  for (edge = &e->caller->callees; *edge && *edge != e;
+       edge = &((*edge)->next_callee))
+    continue;
+  if (!*edge)
+    abort ();
+  *edge = (*edge)->next_callee;
+  e->caller = n;
+  e->next_callee = n->callees;
+  n->callees = e;
 }
 
 /* Remove the node from cgraph.  */
@@ -692,5 +715,12 @@ cgraph_clone_node (struct cgraph_node *n)
   n->next_clone = new;
 
   return new;
+}
+
+void fool_optimizer (tree_stmt_iterator *);
+
+void
+fool_optimizer (tree_stmt_iterator *i ATTRIBUTE_UNUSED)
+{
 }
 #include "gt-cgraph.h"

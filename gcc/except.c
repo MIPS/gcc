@@ -73,7 +73,10 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tm_p.h"
 #include "target.h"
 #include "langhooks.h"
+#include "tree-iterator.h"
 #include "cgraph.h"
+#include "tree-inline.h"
+#include "tree-flow.h"
 
 /* Provide defaults for stuff that may not be defined when using
    sjlj exceptions.  */
@@ -81,6 +84,9 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #define EH_RETURN_DATA_REGNO(N) INVALID_REGNUM
 #endif
 
+/* Unused ptr to type throw_stmt_node to prod gengtyp to create throw_stmt_node 
+   routines.  */
+static GTY(()) struct throw_stmt_node * happy_gengtype_throw_stmt_node_ptr;
 
 /* Protect cleanup actions with must-not-throw regions, with a call
    to the given failure handler.  */
@@ -252,6 +258,8 @@ struct eh_status GTY(())
 
   rtx sjlj_fc;
   rtx sjlj_exit_after;
+
+  htab_t GTY((param_is (struct throw_stmt_node))) throw_stmt_table;
 };
 
 
@@ -292,7 +300,7 @@ static hashval_t ehl_hash (const void *);
 static int ehl_eq (const void *, const void *);
 static void add_ehl_entry (rtx, struct eh_region *);
 static void remove_exception_handler_label (rtx);
-static void remove_eh_handler (struct eh_region *);
+void remove_eh_handler (struct eh_region *);
 static int for_each_eh_label_1 (void **, void *);
 
 /* The return value of reachable_next_level.  */
@@ -578,6 +586,8 @@ expand_resx_expr (tree exp)
   int region_nr = TREE_INT_CST_LOW (TREE_OPERAND (exp, 0));
   struct eh_region *reg = cfun->eh->region_array[region_nr];
 
+  if (reg->resume)
+    abort ();
   reg->resume = emit_jump_insn (gen_rtx_RESX (VOIDmode, region_nr));
   emit_barrier ();
 }
@@ -1212,6 +1222,170 @@ duplicate_eh_regions (struct function *ifun, struct inline_remap *map)
 
   i = cfun->eh->last_region_number;
   cfun->eh->last_region_number = i + ifun_last_region_number;
+  return i;
+}
+
+static struct eh_region *
+tree_duplicate_eh_region_1 (struct eh_region *o)
+{
+  struct eh_region *n = ggc_alloc_cleared (sizeof (struct eh_region));
+  
+  n->region_number = o->region_number + cfun->eh->last_region_number;
+  n->type = o->type;
+  
+  switch (n->type)
+    {
+    case ERT_CLEANUP:
+    case ERT_MUST_NOT_THROW:
+      break;
+      
+    case ERT_TRY:
+      break;
+      
+    case ERT_CATCH:
+      n->u.catch.type_list = o->u.catch.type_list;
+      break;
+      
+    case ERT_ALLOWED_EXCEPTIONS:
+      n->u.allowed.type_list = o->u.allowed.type_list;
+      break;
+      
+    case ERT_THROW:
+      n->u.throw.type = o->u.throw.type;
+      
+    default:
+      abort ();
+    }
+  
+  return n;
+}
+
+static void
+tree_duplicate_eh_region_2 (struct eh_region *o, struct eh_region **n_array)
+{
+  struct eh_region *n = n_array[o->region_number];
+  
+  switch (n->type)
+    {
+    case ERT_TRY:
+      n->u.try.catch = n_array[o->u.try.catch->region_number];
+      n->u.try.last_catch = n_array[o->u.try.last_catch->region_number];
+      break;
+      
+    case ERT_CATCH:
+      if (o->u.catch.next_catch)
+	n->u.catch.next_catch = n_array[o->u.catch.next_catch->region_number];
+      if (o->u.catch.prev_catch)
+	n->u.catch.prev_catch = n_array[o->u.catch.prev_catch->region_number];
+      break;
+      
+    default:
+      break;
+    }
+  
+  if (o->outer)
+    n->outer = n_array[o->outer->region_number];
+  if (o->inner)
+    n->inner = n_array[o->inner->region_number];
+  if (o->next_peer)
+    n->next_peer = n_array[o->next_peer->region_number];
+}
+
+/*** FIXME: this is largely a duplicate of duplicate_eh_regions; merge them.  */
+
+int
+tree_duplicate_eh_regions (struct function *ifun, void *id, bool dup_labels)
+{
+  int ifun_last_region_number = ifun->eh->last_region_number;
+  struct eh_region **n_array, *root, *cur;
+  int i;
+  
+  if (ifun_last_region_number == 0 || !ifun->eh->region_tree)
+    return 0;
+  
+  n_array = xcalloc (ifun_last_region_number + 1, sizeof (*n_array));
+  
+  for (i = 1; i <= ifun_last_region_number; ++i)
+    {
+      cur = ifun->eh->region_array[i];
+      if (!cur || cur->region_number != i)
+	continue;
+      n_array[i] = tree_duplicate_eh_region_1 (cur);
+      if (dup_labels && cur->tree_label)
+	{
+	  tree newlabel = remap_decl_v ((void *)cur->tree_label, id);
+	  n_array[i]->tree_label = newlabel;
+	  /* If old label is not actually in the code anywhere, mark the
+	     new label similarly (its current uid will be -1).  This 
+	     prevents crashes later.  */
+	  if (label_to_block_fn (ifun, cur->tree_label) == 0)
+	    {
+	      int uid;
+	      LABEL_DECL_UID (newlabel) = uid = cfun->last_label_uid++;
+	      if (VARRAY_SIZE (label_to_block_map) <= (unsigned) uid)
+		{
+		  bool shared_map = (cfun->cfg->x_label_to_block_map) 
+				== (ifun->cfg->x_label_to_block_map);
+		  unsigned tmp_u = 3 * MAX (uid, 2);
+		  /* Force the multiply to happen before the divide.  */
+		  VARRAY_GROW (label_to_block_map, tmp_u / 2);
+		  /* We need this In case we realloc'd: */
+		  if (shared_map)
+		    ifun->cfg->x_label_to_block_map 
+			= cfun->cfg->x_label_to_block_map;
+		}
+	      VARRAY_BB (label_to_block_map, uid) = 0;
+	    }
+	}
+      else
+	n_array[i]->tree_label = cur->tree_label;
+    }
+  for (i = 1; i <= ifun_last_region_number; ++i)
+    {
+      cur = ifun->eh->region_array[i];
+      if (!cur || cur->region_number != i)
+	continue;
+      tree_duplicate_eh_region_2 (cur, n_array);
+    }
+  
+  root = n_array[ifun->eh->region_tree->region_number];
+  cur = cfun->eh->cur_region;
+  if (cur)
+    {
+      struct eh_region *p = cur->inner;
+      if (p)
+	{
+	  while (p->next_peer)
+	    p = p->next_peer;
+	  p->next_peer = root;
+	}
+      else
+        cur->inner = root;
+      
+      for (i = 1; i <= ifun_last_region_number; ++i)
+	if (n_array[i] && n_array[i]->outer == NULL)
+	  n_array[i]->outer = cur;
+    }
+  else
+    {
+      struct eh_region *p = cfun->eh->region_tree;
+      if (p)
+	{
+	  while (p->next_peer)
+	    p = p->next_peer;
+	  p->next_peer = root;
+	}
+      else
+        cfun->eh->region_tree = root;
+    }
+  
+  free (n_array);
+  
+  i = cfun->eh->last_region_number;
+  cfun->eh->last_region_number = i + ifun_last_region_number;
+  
+  collect_eh_region_array ();
+  
   return i;
 }
 
@@ -2263,7 +2437,7 @@ remove_exception_handler_label (rtx label)
 
 /* Splice REGION from the region tree etc.  */
 
-static void
+void
 remove_eh_handler (struct eh_region *region)
 {
   struct eh_region **pp, **pp_start, *p, *outer, *inner;
@@ -2276,6 +2450,7 @@ remove_eh_handler (struct eh_region *region)
      list of alternate numbers by which we are known.  */
 
   outer = region->outer;
+  if (cfun->eh->region_array)
   cfun->eh->region_array[region->region_number] = outer;
   if (region->aka)
     {
@@ -2346,6 +2521,9 @@ remove_eh_handler (struct eh_region *region)
 	    remove_eh_handler (try);
 	}
     }
+
+  if (region->region_number == cfun->eh->last_region_number)
+    cfun->eh->last_region_number-- ;
 }
 
 /* LABEL heads a basic block that is about to be deleted.  If this
@@ -3783,6 +3961,53 @@ output_function_exception_table (void)
 			 (i ? NULL : "Exception specification table"));
 
   function_section (current_function_decl);
+}
+
+void
+set_eh_throw_stmt_table (struct function *fun, void *table)
+{
+  fun->eh->throw_stmt_table = (htab_t)table;
+}
+
+htab_t
+get_eh_throw_stmt_table (struct function *fun)
+{
+  return fun->eh->throw_stmt_table;
+}
+
+int
+get_eh_last_region_number (struct function *ifun)
+{
+  if (!ifun || !ifun->eh)
+    return -1;
+  return ifun->eh->last_region_number;
+}
+
+/* Get the "current region" number.  -1 means "no current region."  */
+int
+get_eh_cur_region (struct function *ifun)
+{
+  if (ifun
+      && ifun->eh
+      && ifun->eh->cur_region)
+    return ifun->eh->cur_region->region_number;
+  else
+    return -1;
+}
+
+/* Set the "current region" in preparation for splicing in new
+   regions.  Useful when inlining a CALL_EXPR.  "-1" means
+   "no current region."  */
+void
+set_eh_cur_region (struct function *ifun, int region_nr)
+{
+  if (region_nr >= 0
+      && ifun
+      && ifun->eh
+      && ifun->eh->region_array)
+    ifun->eh->cur_region = ifun->eh->region_array[region_nr];
+  else
+    ifun->eh->cur_region = (struct eh_region *)0;
 }
 
 #include "gt-except.h"

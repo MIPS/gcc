@@ -70,6 +70,10 @@ struct cgraph_rtl_info GTY(())
    bool pure_function;
 };
 
+/* FIXME: prefer to use 'gcov_type' here.  */
+typedef HOST_WIDEST_INT cgraph_desirability_type;
+
+#define MAX_DESIRABILITY ((cgraph_desirability_type)10000)
 
 /* The cgraph data structure.
    Each function decl has assigned cgraph_node listing callees and callers.  */
@@ -109,6 +113,14 @@ struct cgraph_node GTY((chain_next ("%h.next"), chain_prev ("%h.previous")))
   bool analyzed;
   /* Set when function is scheduled to be assembled.  */
   bool output;
+  /* Used only while constructing the callgraph.  */
+  struct basic_block_def *current_basic_block;
+  /* Estimated size of this function, with no inlining, in insns.  */
+  cgraph_desirability_type insn_size;
+  /* Estimated growth of this function due to inlining, in insns.  */
+  cgraph_desirability_type insn_growth;
+  /* The CALL within this function that we'd like to inline next.  */
+  struct cgraph_edge *most_desirable;
 };
 
 struct cgraph_edge GTY((chain_next ("%h.next_caller")))
@@ -122,6 +134,12 @@ struct cgraph_edge GTY((chain_next ("%h.next_caller")))
   /* When NULL, inline this call.  When non-NULL, points to the explanation
      why function was not inlined.  */
   const char *inline_failed;
+  /* Expected number of executions: calculated in profile.c.  */
+  /* FIXME:  need 'gcov_type' accessible here.  */
+  cgraph_desirability_type count;
+  /* Desirability of this edge for inlining.  Higher numbers are more
+     likely to be inlined.  */
+  cgraph_desirability_type desirability;
 };
 
 /* The cgraph_varpool data structure.
@@ -175,6 +193,7 @@ void cgraph_varpool_mark_needed_node (struct cgraph_varpool_node *);
 void cgraph_varpool_finalize_decl (tree);
 bool cgraph_varpool_assemble_pending_decls (void);
 void cgraph_redirect_edge_callee (struct cgraph_edge *, struct cgraph_node *);
+void cgraph_redirect_edge_caller (struct cgraph_edge *, struct cgraph_node *);
 
 bool cgraph_function_possibly_inlined_p (tree);
 

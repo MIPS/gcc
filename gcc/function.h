@@ -169,6 +169,7 @@ struct function GTY(())
 
   /* The control flow graph for this function.  */
   struct control_flow_graph *cfg;
+  struct control_flow_graph *saved_cfg;
 
   /* For tree-optimize.c.  */
 
