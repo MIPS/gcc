@@ -378,7 +378,7 @@ static void
 expand_complex_comparison (block_stmt_iterator *bsi, tree ar, tree ai,
 			   tree br, tree bi, enum tree_code code)
 {
-  tree cr, ci, cc, stmt;
+  tree cr, ci, cc, stmt, type;
 
   cr = do_binop (bsi, code, boolean_type_node, ar, br);
   ci = do_binop (bsi, code, boolean_type_node, ai, bi);
@@ -387,9 +387,22 @@ expand_complex_comparison (block_stmt_iterator *bsi, tree ar, tree ai,
 
   stmt = bsi_stmt (*bsi);
   modify_stmt (stmt);
-  if (TREE_CODE (stmt) == RETURN_EXPR)
-    stmt = TREE_OPERAND (stmt, 0);
-  TREE_OPERAND (stmt, 1) = convert (TREE_TYPE (TREE_OPERAND (stmt, 1)), cc);
+
+  switch (TREE_CODE (stmt))
+    {
+    case RETURN_EXPR:
+      stmt = TREE_OPERAND (stmt, 0);
+      /* FALLTHRU */
+    case MODIFY_EXPR:
+      type = TREE_TYPE (TREE_OPERAND (stmt, 1));
+      TREE_OPERAND (stmt, 1) = convert (type, cc);
+      break;
+    case COND_EXPR:
+      TREE_OPERAND (stmt, 0) = cc;
+      break;
+    default:
+      abort ();
+    }
 }
 
 /* Process one statement.  If we identify a complex operation, expand it.  */
@@ -402,17 +415,26 @@ expand_complex_operations_1 (block_stmt_iterator *bsi)
   tree ac, ar, ai, bc, br, bi;
   enum tree_code code;
 
-  /* All complex operations are in MODIFY_EXPR statements.  */
-  if (TREE_CODE (stmt) == RETURN_EXPR)
+  switch (TREE_CODE (stmt))
     {
+    case RETURN_EXPR:
       stmt = TREE_OPERAND (stmt, 0);
       if (!stmt)
 	return;
-    }
-  if (TREE_CODE (stmt) != MODIFY_EXPR)
-    return;
+      break;
 
-  rhs = TREE_OPERAND (stmt, 1);
+    case MODIFY_EXPR:
+      rhs = TREE_OPERAND (stmt, 1);
+      break;
+
+    case COND_EXPR:
+      rhs = TREE_OPERAND (stmt, 0);
+      break;
+
+    default:
+      return;
+    }
+
   type = TREE_TYPE (rhs);
   code = TREE_CODE (rhs);
 
