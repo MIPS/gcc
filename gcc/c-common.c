@@ -38,6 +38,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "cpplib.h"
 #include "target.h"
 #include "c-tree.h"
+#include "input.h"
 cpp_reader *parse_in;		/* Declared in c-lex.h.  */
 
 #undef WCHAR_TYPE_SIZE
@@ -2479,6 +2480,8 @@ c_alignof_expr (expr)
 
 static tree handle_cleanup_attribute  PARAMS ((tree *, tree, tree, int,
 					       bool *));
+static tree handle_warn_unused_result_attribute  PARAMS ((tree *, tree, tree,
+							  int, bool *));
 
 /* Give the specifications for the format attributes, used by C and all
    descendents.  */
@@ -2492,6 +2495,8 @@ static const struct attribute_spec c_format_attribute_table[] =
 			      handle_format_arg_attribute },
   { "cleanup",		      1, 1, true, false, false,
 			      handle_cleanup_attribute },
+  { "warn_unused_result",     0, 0, false, true, true,
+			      handle_warn_unused_result_attribute },
   { NULL,                     0, 0, false, false, false, NULL }
 };
 
@@ -2540,6 +2545,26 @@ handle_cleanup_attribute (node, name, args, flags, no_add_attrs)
 
   /* That the function has proper type is checked with the
      eventual call to build_function_call.  */
+
+  return NULL_TREE;
+}
+
+/* Handle a "warn_unused_result" attribute.  No special handling.  */
+
+static tree
+handle_warn_unused_result_attribute (node, name, args, flags, no_add_attrs)
+     tree *node;
+     tree name;
+     tree args ATTRIBUTE_UNUSED;
+     int flags ATTRIBUTE_UNUSED;
+     bool *no_add_attrs;
+{
+  /* Ignore the attribute for functions not returning any value.  */
+  if (VOID_TYPE_P (TREE_TYPE (*node)))
+    {
+      warning ("`%s' attribute ignored", IDENTIFIER_POINTER (name));
+      *no_add_attrs = true;
+    }
 
   return NULL_TREE;
 }
@@ -3673,6 +3698,26 @@ c_expand_expr (exp, target, tmode, modifier)
 	rtx result;
 	bool preserve_result = false;
 	bool return_target = false;
+
+	if (STMT_EXPR_WARN_UNUSED_RESULT (exp) && target == const0_rtx)
+	  {
+	    tree stmt = STMT_EXPR_STMT (exp);
+	    tree scope;
+
+	    for (scope = COMPOUND_BODY (stmt);
+		 scope && TREE_CODE (scope) != SCOPE_STMT;
+		 scope = TREE_CHAIN (scope));
+
+	    if (scope && SCOPE_STMT_BLOCK (scope))
+	      warning_with_file_and_line (expr_wfl_stack->name,
+					  expr_wfl_stack->line, "\
+ignoring return value of `%D', declared with attribute warn_unused_result",
+			BLOCK_ABSTRACT_ORIGIN (SCOPE_STMT_BLOCK (scope)));
+	    else
+	      warning_with_file_and_line (expr_wfl_stack->name,
+					  expr_wfl_stack->line, "\
+ignoring return value of function declared with attribute warn_unused_result");
+	  }
 
 	/* Since expand_expr_stmt calls free_temp_slots after every
 	   expression statement, we must call push_temp_slots here.
