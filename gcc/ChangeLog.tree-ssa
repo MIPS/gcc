@@ -1,3 +1,7 @@
+2004-03-09  Andrew Pinski <apinski@apple.com>
+
+	* Makefile.in (tree-ssa-forwprop.o): Fix the dependences.
+
 2004-03-09  Jeff Law  <law@redhat.com>
 
 	* tree-flow-inline.h (may_propagate_copy): Do not allow propagation of

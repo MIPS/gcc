@@ -1561,7 +1561,7 @@ tree-ssa.o : tree-ssa.c $(TREE_FLOW_H) $(CONFIG_H) $(SYSTEM_H) \
 tree-ssa-dse.o : tree-ssa-dse.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
    $(TM_H) errors.h $(GGC_H) $(TREE_H) $(RTL_H) $(TM_P_H) $(BASIC_BLOCK_H) \
    $(TREE_FLOW_H) tree-pass.h $(TREE_DUMP_H) domwalk.h flags.h
-tree-ssa-forwprop.o : tree-ssa-phiopt.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
+tree-ssa-forwprop.o : tree-ssa-forwprop.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
    $(TM_H) errors.h $(GGC_H) $(TREE_H) $(RTL_H) $(TM_P_H) $(BASIC_BLOCK_H) \
    $(TREE_FLOW_H) tree-pass.h $(TREE_DUMP_H)
 tree-ssa-phiopt.o : tree-ssa-phiopt.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
