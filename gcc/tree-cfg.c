@@ -2197,7 +2197,6 @@ simple_goto_p (tree expr)
 {
   return  (TREE_CODE (expr) == GOTO_EXPR
 	   && TREE_CODE (GOTO_DESTINATION (expr)) == LABEL_DECL
-	   && ! NONLOCAL_LABEL (GOTO_DESTINATION (expr))
 	   && (decl_function_context (GOTO_DESTINATION (expr))
 	       == current_function_decl));
 }
@@ -2800,7 +2799,7 @@ verify_expr (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
 	return NULL;
       if (!TREE_ADDRESSABLE (x))
 	{
-	  error ("address taken, but ADDRESABLE bit not set");
+	  error ("address taken, but ADDRESSABLE bit not set");
 	  return x;
 	}
       break;

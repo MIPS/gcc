@@ -1,3 +1,8 @@
+2004-01-21  Steven Bosscher  <stevenb@suse.de>
+
+	PR opt/13767
+	* tree-cfg.c (simple_goto_p): Remove NONLOCAL_LABEL check.
+
 2004-01-21  Dale Johannesen  <dalej@apple.com>
 	 
 	* tree-ssa-dfa.c:  Fix comment.
