@@ -138,7 +138,17 @@ static block_stmt_iterator bsi_init 	PARAMS ((tree *, basic_block));
 static inline void bsi_update_from_tsi	PARAMS (( block_stmt_iterator *, tree_stmt_iterator));
 static tree_stmt_iterator bsi_link_after	PARAMS ((tree_stmt_iterator *, tree, basic_block, tree));
 static block_stmt_iterator bsi_commit_first_edge_insert	PARAMS ((edge, tree));
-static tree_stmt_iterator find_insert_location	PARAMS ((basic_block, basic_block, int *));
+
+/* Values returned by location parameter of find_insert_location.  */
+
+enum find_location_action { 
+  EDGE_INSERT_LOCATION_BEFORE,
+  EDGE_INSERT_LOCATION_AFTER,
+  EDGE_INSERT_LOCATION_THEN,
+  EDGE_INSERT_LOCATION_ELSE,
+  EDGE_INSERT_LOCATION_NEW_ELSE };
+
+static tree_stmt_iterator find_insert_location	PARAMS ((basic_block, basic_block, enum find_location_action *));
 
 /* Location to track pending stmt for edge insertion.  */
 #define PENDING_STMT(e)	((tree)(e->insns))
@@ -3511,9 +3521,36 @@ bsi_insert_before (curr_bsi, t, mode)
 
   same_tsi = inserted_tsi;
   tsi_next (&same_tsi);
-  if (curr_container == curr_bb->end_tree_p)
-    curr_bb->end_tree_p = tsi_container (same_tsi);
-    
+
+  if (curr_container == curr_bb->head_tree_p)
+    {
+      curr_bb->head_tree_p = tsi_container (same_tsi);
+      /* If the parent block is a COND_EXPR or LOOP_EXPR, check if this
+	 is the block which they point to and update if necessary.  */
+      if (parent)
+        {
+	  tree insert_container = *tsi_container (inserted_tsi);
+	  switch (TREE_CODE (parent))
+	    {
+	      case COND_EXPR:
+		if (bb_for_stmt (COND_EXPR_THEN (parent)) == curr_bb)
+		  COND_EXPR_THEN (parent) = insert_container;
+		else
+		  if (bb_for_stmt (COND_EXPR_ELSE (parent)) == curr_bb)
+		    COND_EXPR_ELSE (parent) = insert_container;
+		break;
+
+	      case LOOP_EXPR:
+		if (bb_for_stmt (LOOP_EXPR_BODY (parent)) == curr_bb)
+		  LOOP_EXPR_BODY (parent) = insert_container;
+		break;
+
+	      default:
+		break;
+	    }
+	}
+    }
+
   if (mode == BSI_SAME_STMT)
     bsi_update_from_tsi (curr_bsi, same_tsi);
   else
@@ -3527,32 +3564,59 @@ bsi_insert_before (curr_bsi, t, mode)
   return;
 }
 
-
 /* Given an edge between src and dest, return a TSI representing the location
    that any instructions on this edge should be inserted.  
-   A flag indicating whether to insert the new stmt before or after the 
-   iterator is returned in the 'after' parameter.  */
+   The location parameter returns a value indicating how this iterator is
+   to be used.  */
 
 static tree_stmt_iterator
-find_insert_location (src, dest, after)
+find_insert_location (src, dest, location)
      basic_block src;
      basic_block dest;
-     int *after;
+     enum find_location_action *location;
 {
   block_stmt_iterator bsi;
   tree *ret, stmt;
 
-  *after = 0;
+  *location = EDGE_INSERT_LOCATION_BEFORE;
   bsi = bsi_last (src);
   if (!bsi_end_p (bsi))
     {
       stmt = bsi_stmt (bsi);
       switch (TREE_CODE (stmt))
-        {
+	{
 	  case COND_EXPR:
+	    /* If the ELSE block is non-existant, and this is an edge from the 
+	       COND_EXPR to a block other than the THEN block, then we create
+	       a new ELSE clause.  */
+	    if (bb_for_stmt (COND_EXPR_ELSE (stmt)) == NULL)
+	      if (bb_for_stmt (COND_EXPR_THEN (stmt)) != dest)
+		{
+		  ret = &COND_EXPR_ELSE (stmt);
+		  *location = EDGE_INSERT_LOCATION_NEW_ELSE;
+		  break;
+		}
+
+	    /* It must be an edge from the COND_EXPR to either the THEN or
+	       ELSE block. We will need to insert a new stmt in front of the
+	       first stmt in the block, *and* update the pointer to the
+	       THEN or ELSE clause.  */
+	    if (bb_for_stmt (COND_EXPR_THEN (stmt)) == dest)
+	      {
+		ret = &COND_EXPR_THEN (stmt);
+		*location = EDGE_INSERT_LOCATION_THEN;
+	      }
+	    else
+	      {
+		ret = &COND_EXPR_ELSE (stmt);
+		*location = EDGE_INSERT_LOCATION_ELSE;
+	      }
+	    break;
+
+
 	  case LOOP_EXPR:
 	    ret = src->end_tree_p;
-	    *after = 1;
+	    *location = EDGE_INSERT_LOCATION_AFTER;
 	    break;
 	  
 	  default:
@@ -3564,8 +3628,8 @@ find_insert_location (src, dest, after)
     ret = src->end_tree_p;
   
  return tsi_start (ret);
-     
 }
+
 /* This routine inserts a stmt on an edge. Every attempt is made to place the
    stmt in an existing basic block, but sometimes that isn't possible.  When
    it isn't possible, a new basic block is created, edges updated, and the 
@@ -3579,7 +3643,8 @@ bsi_commit_first_edge_insert (e, stmt)
   basic_block src, dest, new_bb;
   block_stmt_iterator bsi, tmp;
   tree_stmt_iterator tsi;
-  int single_exit, single_entry, after;
+  int single_exit, single_entry;
+  enum find_location_action location;
   tree first, last, inserted_stmt, parent;
   bb_ann_t bb_ann;
 
@@ -3674,26 +3739,60 @@ bsi_commit_first_edge_insert (e, stmt)
   bb_ann->ephi_nodes = NULL_TREE;
   bb_ann->dom_children = (bitmap) NULL;
 
-  tsi = find_insert_location (src, dest, &after);
+  tsi = find_insert_location (src, dest, &location);
   parent = parent_stmt (tsi_stmt (tsi));
-  if (after)
-    tsi_link_after (&tsi, stmt, TSI_NEW_STMT);
-  else
-    tsi_link_before (&tsi, stmt, TSI_NEW_STMT);
+
+  switch (location)
+    {
+      case EDGE_INSERT_LOCATION_BEFORE:
+      case EDGE_INSERT_LOCATION_THEN:
+      case EDGE_INSERT_LOCATION_ELSE:
+      case EDGE_INSERT_LOCATION_NEW_ELSE:
+	tsi_link_before (&tsi, stmt, TSI_NEW_STMT);
+	break;
+
+      case EDGE_INSERT_LOCATION_AFTER:
+	tsi_link_after (&tsi, stmt, TSI_NEW_STMT);
+	break;
+    }
 
   append_stmt_to_bb (tsi_container (tsi), new_bb, parent);
   inserted_stmt = tsi_stmt (tsi);
   bsi = bsi_from_tsi (tsi);
 
-  /* It is also known for a fact that the container for the head of the dest
-     block has been changed. (we've linked a new stmt in front of it.)  */
-  tsi_next (&tsi);
+  switch (location)
+    {
+      case EDGE_INSERT_LOCATION_THEN:
+      case EDGE_INSERT_LOCATION_ELSE:
+	stmt = last_stmt (src);
+	if (location == EDGE_INSERT_LOCATION_THEN)
+	  COND_EXPR_THEN (stmt) = inserted_stmt;
+	else
+	  COND_EXPR_ELSE (stmt) = inserted_stmt;
+	/* Fallthru.  */
 
-  /* Handle the case of one stmt in a basic block, so it is both the head and
-     the end of the block.  */
-  if (dest->end_tree_p == dest->head_tree_p)
-    dest->end_tree_p = tsi_container (tsi);
-  dest->head_tree_p = tsi_container (tsi);
+      case EDGE_INSERT_LOCATION_BEFORE:
+      case EDGE_INSERT_LOCATION_AFTER:
+	/* The container for the head of the dest block has been changed. 
+	   (we've linked a new stmt in front of it.)  */
+
+	tsi_next (&tsi);
+	if (dest->end_tree_p == dest->head_tree_p)
+	  dest->end_tree_p = tsi_container (tsi);
+	dest->head_tree_p = tsi_container (tsi);
+	break;
+
+      case EDGE_INSERT_LOCATION_NEW_ELSE:
+	/* This causes a new stmt chain to be formed, and the ELSE clause needs
+	   to be set.  Set the block number for the empty stmt which might
+	   follow this stmt as well.  */
+	stmt = last_stmt (src);
+	COND_EXPR_ELSE (stmt) = inserted_stmt;
+	tsi_next (&tsi);
+	if (tsi_container (tsi))
+	  append_stmt_to_bb (tsi_container (tsi), new_bb, parent);
+	break;
+    }
 
   /* Now update the required SSA bits.  */
   modify_stmt (inserted_stmt);

@@ -1,3 +1,12 @@
+2003-05-15  Andrew MacLeod  <amacleod@redhat.com>
+
+	* tree-cfg.c (enum find_location_action): Enum for find_insert_location.
+	(bsi_insert_before): Handle insert at start of a BB and update pointers
+	from parents if appropriate.
+	(find_insert_location): Handle COND_EXPR properly. Return
+	an enum type indicating what action to take on the returned value.
+	(bsi_commit_first_edge_insert): Use new returned action.
+
 2003-05-15  Jeff Law  <law@redhat.com>
 
 	* tree-cfg.c (make_edges): Factor out loop invariants from
