@@ -614,6 +614,7 @@ extern void reorder_blocks (void);
 /* Set BLOCK_NUMBER for all the blocks in FN.  */
 extern void number_blocks (tree);
 
+extern void clear_block_marks (tree);
 extern tree blocks_nreverse (tree);
 extern void reset_block_changes (void);
 extern void record_block_change (tree);

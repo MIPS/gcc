@@ -65,6 +65,7 @@ lower_function_body (tree *body)
   data.block = DECL_INITIAL (current_function_decl);
   BLOCK_SUBBLOCKS (data.block) = NULL_TREE;
   BLOCK_CHAIN (data.block) = NULL_TREE;
+  TREE_ASM_WRITTEN (data.block) = 1;
 
   record_vars (BIND_EXPR_VARS (*body));
   *body = BIND_EXPR_BODY (*body);
@@ -74,6 +75,8 @@ lower_function_body (tree *body)
     abort ();
   BLOCK_SUBBLOCKS (data.block)
     = blocks_nreverse (BLOCK_SUBBLOCKS (data.block));
+
+  clear_block_marks (data.block);
 }
 
 /* Lowers the EXPR.  Unlike gimplification the statements are not relowered
@@ -156,35 +159,57 @@ lower_bind_expr (tree_stmt_iterator *tsi, struct lower_data *data)
 {
   tree old_block = data->block;
   tree stmt = tsi_stmt (*tsi);
+  tree new_block = BIND_EXPR_BLOCK (stmt);
 
-  if (BIND_EXPR_BLOCK (stmt))
+  if (new_block)
     {
-      data->block = BIND_EXPR_BLOCK (stmt);
+      if (new_block == old_block)
+	{
+	  /* The outermost block of the original function may not be the
+	     outermost statement chain of the gimplified function.  So we
+	     may see the outermost block just inside the function.  */
+	  if (new_block != DECL_INITIAL (current_function_decl))
+	    abort ();
+	  new_block = NULL;
+	}
+      else
+	{
+	  /* We do not expect to handle duplicate blocks.  */
+	  /* ??? This is probably wrong.  We've already done some amount
+	     of code replication in tree-eh.c; we should probably be doing
+	     something like reorder_blocks, which knows how to handle
+	     duplicates.  Either that or lower bind_exprs before this
+	     can matter.  */
+	  if (TREE_ASM_WRITTEN (new_block))
+	    abort ();
+	  TREE_ASM_WRITTEN (new_block) = 1;
 
-      /* Block tree may get clobbered by inlining.  Normally this would be
-	 fixed in rest_of_decl_compilation using block notes, but since we
-	 are not going to emit them, it is up to us.  */
-      BLOCK_CHAIN (data->block) = BLOCK_SUBBLOCKS (old_block);
-      BLOCK_SUBBLOCKS (old_block) = data->block;
-      BLOCK_SUBBLOCKS (data->block) = NULL_TREE;
-      BLOCK_SUPERCONTEXT (data->block) = old_block;
+	  /* Block tree may get clobbered by inlining.  Normally this would
+	     be fixed in rest_of_decl_compilation using block notes, but
+	     since we are not going to emit them, it is up to us.  */
+	  BLOCK_CHAIN (new_block) = BLOCK_SUBBLOCKS (old_block);
+	  BLOCK_SUBBLOCKS (old_block) = new_block;
+	  BLOCK_SUBBLOCKS (new_block) = NULL_TREE;
+	  BLOCK_SUPERCONTEXT (new_block) = old_block;
+
+	  data->block = new_block;
+	}
     }
 
   record_vars (BIND_EXPR_VARS (stmt));
   lower_stmt_body (&BIND_EXPR_BODY (stmt), data);
 
-  if (BIND_EXPR_BLOCK (stmt))
+  if (new_block)
     {
-      if (data->block != BIND_EXPR_BLOCK (stmt))
+      if (data->block != new_block)
 	abort ();
 
-      BLOCK_SUBBLOCKS (data->block) =
-	      blocks_nreverse (BLOCK_SUBBLOCKS (data->block));
+      BLOCK_SUBBLOCKS (new_block)
+	= blocks_nreverse (BLOCK_SUBBLOCKS (new_block));
       data->block = old_block;
     }
 
-  /* The BIND_EXPR no longer carries any useful information, so get rid
-     of it.  */
+  /* The BIND_EXPR no longer carries any useful information -- kill it.  */
   tsi_link_before (tsi, BIND_EXPR_BODY (stmt), TSI_SAME_STMT);
   tsi_delink (tsi);
 }

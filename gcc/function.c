@@ -262,7 +262,6 @@ static void pad_below (struct args_size *, enum machine_mode, tree);
 static rtx round_trampoline_addr (rtx);
 static rtx adjust_trampoline_addr (rtx);
 static tree *identify_blocks_1 (rtx, tree *, tree *, tree *);
-static void reorder_blocks_0 (tree);
 static void reorder_blocks_1 (rtx, tree, varray_type *);
 static void reorder_fix_fragments (tree);
 static int all_blocks (tree, tree *);
@@ -6035,7 +6034,7 @@ reorder_blocks (void)
   VARRAY_TREE_INIT (block_stack, 10, "block_stack");
 
   /* Reset the TREE_ASM_WRITTEN bit for all blocks.  */
-  reorder_blocks_0 (block);
+  clear_block_marks (block);
 
   /* Prune the old trees away, so that they don't get in the way.  */
   BLOCK_SUBBLOCKS (block) = NULL_TREE;
@@ -6051,13 +6050,13 @@ reorder_blocks (void)
 
 /* Helper function for reorder_blocks.  Reset TREE_ASM_WRITTEN.  */
 
-static void
-reorder_blocks_0 (tree block)
+void
+clear_block_marks (tree block)
 {
   while (block)
     {
       TREE_ASM_WRITTEN (block) = 0;
-      reorder_blocks_0 (BLOCK_SUBBLOCKS (block));
+      clear_block_marks (BLOCK_SUBBLOCKS (block));
       block = BLOCK_CHAIN (block);
     }
 }

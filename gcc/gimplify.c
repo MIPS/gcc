@@ -3288,6 +3288,7 @@ void
 gimplify_body (tree *body_p, tree fndecl)
 {
   location_t saved_location = input_location;
+  tree body;
 
   timevar_push (TV_TREE_GIMPLIFY);
   push_gimplify_context ();
@@ -3300,23 +3301,30 @@ gimplify_body (tree *body_p, tree fndecl)
 
   /* Gimplify the function's body.  */
   gimplify_stmt (body_p);
+  body = *body_p;
 
   /* Unshare again, in case gimplification was sloppy.  */
-  unshare_all_trees (*body_p);
+  unshare_all_trees (body);
 
   /* If there isn't an outer BIND_EXPR, add one.  */
-  if (TREE_CODE (*body_p) != BIND_EXPR)
+  if (TREE_CODE (body) == STATEMENT_LIST)
     {
-      tree t = *body_p;
+      tree t = expr_only (*body_p);
+      if (t)
+	body = t;
+    }
+  if (TREE_CODE (body) != BIND_EXPR)
+    {
       tree b = build (BIND_EXPR, void_type_node, NULL_TREE,
 		      NULL_TREE, NULL_TREE);
       TREE_SIDE_EFFECTS (b) = 1;
-      append_to_statement_list (t, &BIND_EXPR_BODY (b));
-      *body_p = b;
+      append_to_statement_list (body, &BIND_EXPR_BODY (b));
+      body = b;
     }
+  *body_p = body;
 
   /* Declare the new temporary variables.  */
-  declare_tmp_vars (gimplify_ctxp->temps, *body_p);
+  declare_tmp_vars (gimplify_ctxp->temps, body);
 
   pop_gimplify_context ();
   timevar_pop (TV_TREE_GIMPLIFY);
