@@ -1,5 +1,5 @@
 /* Target definitions for GNU compiler for PowerPC running System V.4
-   Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2001
+   Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002
    Free Software Foundation, Inc.
    Contributed by Cygnus Support.
 
@@ -431,12 +431,11 @@ do {									\
 /* Besides the usual ELF sections, we need a toc section.  */
 /* Override elfos.h definition.  */
 #undef	EXTRA_SECTIONS
-#define	EXTRA_SECTIONS in_const, in_toc, in_sdata, in_sdata2, in_sbss, in_init, in_fini
+#define	EXTRA_SECTIONS in_toc, in_sdata, in_sdata2, in_sbss, in_init, in_fini
 
 /* Override elfos.h definition.  */
 #undef	EXTRA_SECTION_FUNCTIONS
 #define	EXTRA_SECTION_FUNCTIONS						\
-  CONST_SECTION_FUNCTION						\
   TOC_SECTION_FUNCTION							\
   SDATA_SECTION_FUNCTION						\
   SDATA2_SECTION_FUNCTION						\
@@ -548,39 +547,12 @@ fini_section ()								\
     }									\
 }
 
-/* A C statement or statements to switch to the appropriate section
-   for output of RTX in mode MODE.  You can assume that RTX is some
-   kind of constant in RTL.  The argument MODE is redundant except in
-   the case of a `const_int' rtx.  Select the section by calling
-   `text_section' or one of the alternatives for other sections.
-
-   Do not define this macro if you put all constants in the read-only
-   data section.  */
-
-/* Override elfos.h definition.  */
-#undef	SELECT_RTX_SECTION
-#define	SELECT_RTX_SECTION(MODE, X, ALIGN) rs6000_select_rtx_section (MODE, X)
-
-/* A C statement or statements to switch to the appropriate
-   section for output of DECL.  DECL is either a `VAR_DECL' node
-   or a constant of some sort.  RELOC indicates whether forming
-   the initial value of DECL requires link-time relocations.  */
-
-/* Override elfos.h definition.  */
-#undef	SELECT_SECTION
-#define	SELECT_SECTION(DECL, RELOC, ALIGN) rs6000_select_section (DECL, RELOC)
-
-/* A C statement to build up a unique section name, expressed as a
-   STRING_CST node, and assign it to DECL_SECTION_NAME (decl).
-   RELOC indicates whether the initial value of EXP requires
-   link-time relocations.  If you do not define this macro, GCC will use
-   the symbol name prefixed by `.' as the section name.  Note - this
-   macro can now be called for uninitialized data items as well as
-   initialised data and functions.  */
-
-/* Override elfos.h definition.  */
-#undef	UNIQUE_SECTION
-#define UNIQUE_SECTION(DECL, RELOC) rs6000_unique_section (DECL, RELOC)
+/* Override default elf definitions.  */
+#undef	TARGET_ASM_SELECT_RTX_SECTION
+#define	TARGET_ASM_SELECT_RTX_SECTION rs6000_elf_select_rtx_section
+#undef	TARGET_ASM_SELECT_SECTION
+#define	TARGET_ASM_SELECT_SECTION  rs6000_elf_select_section
+#define TARGET_ASM_UNIQUE_SECTION  rs6000_elf_unique_section
 
 /* Return non-zero if this entry is to be written into the constant pool
    in a special way.  We do so if this is a SYMBOL_REF, LABEL_REF or a CONST
@@ -804,17 +776,8 @@ extern int fixuplabelno;
 /* Historically we have also supported stabs debugging.  */
 #define	DBX_DEBUGGING_INFO
 
-/* If we are referencing a function that is static or is known to be
-   in this file, make the SYMBOL_REF special.  We can use this to indicate
-   that we can branch to this function without emitting a no-op after the
-   call.  For real AIX calling sequences, we also replace the
-   function name with the real name (1 or 2 leading .'s), rather than
-   the function descriptor name.  This saves a lot of overriding code
-   to read the prefixes.  */
-
-#undef	ENCODE_SECTION_INFO
-#define	ENCODE_SECTION_INFO(DECL, FIRST) \
-  rs6000_encode_section_info (DECL, FIRST)
+#undef	TARGET_ENCODE_SECTION_INFO
+#define	TARGET_ENCODE_SECTION_INFO  rs6000_elf_encode_section_info
 
 /* The ELF version doesn't encode [DS] or whatever at the end of symbols.  */
 

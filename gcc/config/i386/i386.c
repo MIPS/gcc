@@ -691,6 +691,8 @@ struct ix86_address
 
 static int ix86_decompose_address PARAMS ((rtx, struct ix86_address *));
 
+static void i386_encode_section_info PARAMS ((tree, int)) ATTRIBUTE_UNUSED;
+
 struct builtin_description;
 static rtx ix86_expand_sse_comi PARAMS ((const struct builtin_description *,
 					 tree, rtx));
@@ -2945,7 +2947,7 @@ local_symbolic_operand (op, mode)
      the compiler that assumes it can just stick the results of 
      ASM_GENERATE_INTERNAL_LABEL in a symbol_ref and have done.  */
   /* ??? This is a hack.  Should update the body of the compiler to
-     always create a DECL an invoke ENCODE_SECTION_INFO.  */
+     always create a DECL an invoke targetm.encode_section_info.  */
   if (strncmp (XSTR (op, 0), internal_label_prefix,
 	       internal_label_prefix_len) == 0)
     return 1;
@@ -3822,7 +3824,7 @@ ix86_asm_file_end (file)
 			      get_identifier ("i686.get_pc_thunk"),
 			      error_mark_node);
       DECL_ONE_ONLY (decl) = 1;
-      UNIQUE_SECTION (decl, 0);
+      (*targetm.asm_out.unique_section) (decl, 0);
       named_section (decl, NULL);
     }
   else
@@ -5083,6 +5085,37 @@ legitimize_pic_address (orig, reg)
 	}
     }
   return new;
+}
+
+/* If using PIC, mark a SYMBOL_REF for a non-global symbol so that we
+   may access it directly in the GOT.  */
+
+static void
+i386_encode_section_info (decl, first)
+     tree decl;
+     int first ATTRIBUTE_UNUSED;
+{
+  if (flag_pic)
+    {
+      rtx rtl = (TREE_CODE_CLASS (TREE_CODE (decl)) != 'd'
+		 ? TREE_CST_RTL (decl) : DECL_RTL (decl));
+
+      if (GET_CODE (rtl) == MEM)
+	{
+	  if (TARGET_DEBUG_ADDR
+	      && TREE_CODE_CLASS (TREE_CODE (decl)) == 'd')
+	    {
+	      fprintf (stderr, "Encode %s, public = %d\n",
+		       IDENTIFIER_POINTER (DECL_NAME (decl)),
+		       TREE_PUBLIC (decl));
+	    }
+
+	  SYMBOL_REF_FLAG (XEXP (rtl, 0))
+	    = (TREE_CODE_CLASS (TREE_CODE (decl)) != 'd'
+	       || ! TREE_PUBLIC (decl)
+	       || MODULE_LOCAL_P (decl));
+	}
+    }
 }
 
 /* Try machine-dependent ways of modifying an illegitimate address
@@ -13048,4 +13081,79 @@ x86_order_regs_for_local_alloc ()
       at all.  */
    while (pos < FIRST_PSEUDO_REGISTER)
      reg_alloc_order [pos++] = 0;
+}
+
+void
+x86_output_mi_thunk (file, delta, function)
+     FILE *file;
+     int delta;
+     tree function;
+{
+  tree parm;
+  rtx xops[3];
+
+  if (ix86_regparm > 0)
+    parm = TYPE_ARG_TYPES (TREE_TYPE (function));
+  else
+    parm = NULL_TREE;
+  for (; parm; parm = TREE_CHAIN (parm))
+    if (TREE_VALUE (parm) == void_type_node)
+      break;
+
+  xops[0] = GEN_INT (delta);
+  if (TARGET_64BIT)
+    {
+      int n = aggregate_value_p (TREE_TYPE (TREE_TYPE (function))) != 0;
+      xops[1] = gen_rtx_REG (DImode, x86_64_int_parameter_registers[n]);
+      output_asm_insn ("add{q} {%0, %1|%1, %0}", xops);
+      if (flag_pic)
+	{
+	  fprintf (file, "\tjmp *");
+	  assemble_name (file, XSTR (XEXP (DECL_RTL (function), 0), 0));
+	  fprintf (file, "@GOTPCREL(%%rip)\n");
+	}
+      else
+	{
+	  fprintf (file, "\tjmp ");
+	  assemble_name (file, XSTR (XEXP (DECL_RTL (function), 0), 0));
+	  fprintf (file, "\n");
+	}
+    }
+  else
+    {
+      if (parm)
+	xops[1] = gen_rtx_REG (SImode, 0);
+      else if (aggregate_value_p (TREE_TYPE (TREE_TYPE (function))))
+	xops[1] = gen_rtx_MEM (SImode, plus_constant (stack_pointer_rtx, 8));
+      else
+	xops[1] = gen_rtx_MEM (SImode, plus_constant (stack_pointer_rtx, 4));
+      output_asm_insn ("add{l} {%0, %1|%1, %0}", xops);
+
+      if (flag_pic)
+	{
+	  xops[0] = pic_offset_table_rtx;
+	  xops[1] = gen_label_rtx ();
+	  xops[2] = gen_rtx_SYMBOL_REF (Pmode, "_GLOBAL_OFFSET_TABLE_");
+
+	  if (ix86_regparm > 2)
+	    abort ();
+	  output_asm_insn ("push{l}\t%0", xops);
+	  output_asm_insn ("call\t%P1", xops);
+	  ASM_OUTPUT_INTERNAL_LABEL (file, "L", CODE_LABEL_NUMBER (xops[1]));
+	  output_asm_insn ("pop{l}\t%0", xops);
+	  output_asm_insn
+	    ("add{l}\t{%2+[.-%P1], %0|%0, OFFSET FLAT: %2+[.-%P1]}", xops);
+	  xops[0] = gen_rtx_MEM (SImode, XEXP (DECL_RTL (function), 0));
+	  output_asm_insn
+	    ("mov{l}\t{%0@GOT(%%ebx), %%ecx|%%ecx, %0@GOT[%%ebx]}", xops);
+	  asm_fprintf (file, "\tpop{l\t%%ebx|\t%%ebx}\n");
+	  asm_fprintf (file, "\tjmp\t{*%%ecx|%%ecx}\n");
+	}
+      else
+	{
+	  fprintf (file, "\tjmp ");
+	  assemble_name (file, XSTR (XEXP (DECL_RTL (function), 0), 0));
+	  fprintf (file, "\n");
+	}
+    }
 }

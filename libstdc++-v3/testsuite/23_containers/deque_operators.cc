@@ -41,7 +41,7 @@ void test01()
   VERIFY( constend == end );
 
   VERIFY( beg != constend );
-  VERIFY( constbeg != end );
+  VERIFY( constend != beg );
 
   VERIFY( beg < constend );
   VERIFY( constbeg < end );

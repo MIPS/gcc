@@ -120,6 +120,9 @@ static int	 arm_adjust_cost		PARAMS ((rtx, rtx, rtx, int));
 #ifdef OBJECT_FORMAT_ELF
 static void	 arm_elf_asm_named_section	PARAMS ((const char *, unsigned int));
 #endif
+#ifndef ARM_PE
+static void	 arm_encode_section_info	PARAMS ((tree, int));
+#endif
 
 #undef Hint
 #undef Mmode
@@ -169,6 +172,13 @@ static void	 arm_elf_asm_named_section	PARAMS ((const char *, unsigned int));
 
 #undef  TARGET_SCHED_ADJUST_COST
 #define TARGET_SCHED_ADJUST_COST arm_adjust_cost
+
+#undef TARGET_ENCODE_SECTION_INFO
+#ifdef ARM_PE
+#define TARGET_ENCODE_SECTION_INFO  arm_pe_encode_section_info
+#else
+#define TARGET_ENCODE_SECTION_INFO  arm_encode_section_info
+#endif
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -2549,7 +2559,8 @@ arm_rtx_costs (x, code, outer)
 	  /* Memory costs quite a lot for the first word, but subsequent words
 	     load at the equivalent of a single insn each.  */
 	  return (10 + 4 * ((GET_MODE_SIZE (mode) - 1) / UNITS_PER_WORD)
-		  + (CONSTANT_POOL_ADDRESS_P (x) ? 4 : 0));
+		  + ((GET_CODE (x) == SYMBOL_REF && CONSTANT_POOL_ADDRESS_P (x))
+		     ? 4 : 0));
 
 	case IF_THEN_ELSE:
 	  /* XXX a guess. */
@@ -2597,7 +2608,8 @@ arm_rtx_costs (x, code, outer)
       /* Memory costs quite a lot for the first word, but subsequent words
 	 load at the equivalent of a single insn each.  */
       return (10 + 4 * ((GET_MODE_SIZE (mode) - 1) / UNITS_PER_WORD)
-	      + (CONSTANT_POOL_ADDRESS_P (x) ? 4 : 0));
+	      + (GET_CODE (x) == SYMBOL_REF
+		 && CONSTANT_POOL_ADDRESS_P (x) ? 4 : 0));
 
     case DIV:
     case MOD:
@@ -2905,16 +2917,16 @@ arm_adjust_cost (insn, link, dep, cost)
       && (d_pat = single_set (dep)) != NULL
       && GET_CODE (SET_DEST (d_pat)) == MEM)
     {
+      rtx src_mem = XEXP (SET_SRC (i_pat), 0);
       /* This is a load after a store, there is no conflict if the load reads
 	 from a cached area.  Assume that loads from the stack, and from the
 	 constant pool are cached, and that others will miss.  This is a 
 	 hack.  */
       
-      if (CONSTANT_POOL_ADDRESS_P (XEXP (SET_SRC (i_pat), 0))
-	  || reg_mentioned_p (stack_pointer_rtx, XEXP (SET_SRC (i_pat), 0))
-	  || reg_mentioned_p (frame_pointer_rtx, XEXP (SET_SRC (i_pat), 0))
-	  || reg_mentioned_p (hard_frame_pointer_rtx, 
-			      XEXP (SET_SRC (i_pat), 0)))
+      if ((GET_CODE (src_mem) == SYMBOL_REF && CONSTANT_POOL_ADDRESS_P (src_mem))
+	  || reg_mentioned_p (stack_pointer_rtx, src_mem)
+	  || reg_mentioned_p (frame_pointer_rtx, src_mem)
+	  || reg_mentioned_p (hard_frame_pointer_rtx, src_mem))
 	return 1;
     }
 
@@ -5340,7 +5352,7 @@ get_jump_table_size (insn)
   /* ADDR_VECs only take room if read-only data does into the text
      section.  */
   if (JUMP_TABLES_IN_TEXT_SECTION
-#if !defined(READONLY_DATA_SECTION)
+#if !defined(READONLY_DATA_SECTION) && !defined(READONLY_DATA_SECTION_ASM_OP)
       || 1
 #endif
       )
@@ -7832,7 +7844,6 @@ emit_multi_reg_push (mask)
   
   par = gen_rtx_PARALLEL (VOIDmode, rtvec_alloc (num_regs));
   dwarf = gen_rtx_SEQUENCE (VOIDmode, rtvec_alloc (num_dwarf_regs + 1));
-  RTX_FRAME_RELATED_P (dwarf) = 1;
   dwarf_par_index = 1;
 
   for (i = 0; i <= LAST_ARM_REGNUM; i++)
@@ -11041,3 +11052,40 @@ arm_elf_asm_named_section (name, flags)
 	     name, flagchars, type);
 }
 #endif
+
+#ifndef ARM_PE
+/* Symbols in the text segment can be accessed without indirecting via the
+   constant pool; it may take an extra binary operation, but this is still
+   faster than indirecting via memory.  Don't do this when not optimizing,
+   since we won't be calculating al of the offsets necessary to do this
+   simplification.  */
+
+static void
+arm_encode_section_info (decl, first)
+     tree decl;
+     int first;
+{
+  /* This doesn't work with AOF syntax, since the string table may be in
+     a different AREA.  */
+#ifndef AOF_ASSEMBLER
+  if (optimize > 0 && TREE_CONSTANT (decl)
+      && (!flag_writable_strings || TREE_CODE (decl) != STRING_CST))
+    {
+      rtx rtl = (TREE_CODE_CLASS (TREE_CODE (decl)) != 'd'
+                 ? TREE_CST_RTL (decl) : DECL_RTL (decl));
+      SYMBOL_REF_FLAG (XEXP (rtl, 0)) = 1;
+    }
+#endif
+
+  /* If we are referencing a function that is weak then encode a long call
+     flag in the function name, otherwise if the function is static or
+     or known to be defined in this file then encode a short call flag.  */
+  if (first && TREE_CODE_CLASS (TREE_CODE (decl)) == 'd')
+    {
+      if (TREE_CODE (decl) == FUNCTION_DECL && DECL_WEAK (decl))
+        arm_encode_call_attribute (decl, LONG_CALL_FLAG_CHAR);
+      else if (! TREE_PUBLIC (decl))
+        arm_encode_call_attribute (decl, SHORT_CALL_FLAG_CHAR);
+    }
+}
+#endif /* !ARM_PE */

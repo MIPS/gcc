@@ -554,27 +554,12 @@ extern int ix86_arch;
 #endif
 #endif /* CPP_CPU_DEFAULT_SPEC */
 
-#ifdef TARGET_BI_ARCH
-#define NO_BUILTIN_SIZE_TYPE
-#define NO_BUILTIN_PTRDIFF_TYPE
-#endif
-
-#ifdef NO_BUILTIN_SIZE_TYPE
-#define CPP_CPU32_SIZE_TYPE_SPEC \
-  " -D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int"
-#define CPP_CPU64_SIZE_TYPE_SPEC \
-  " -D__SIZE_TYPE__=unsigned\\ long\\ int -D__PTRDIFF_TYPE__=long\\ int"
-#else
-#define CPP_CPU32_SIZE_TYPE_SPEC ""
-#define CPP_CPU64_SIZE_TYPE_SPEC ""
-#endif
-
 #define CPP_CPU32_SPEC \
   "-Acpu=i386 -Amachine=i386 %{!ansi:%{!std=c*:%{!std=i*:-Di386}}} -D__i386 \
--D__i386__ %(cpp_cpu32sizet)"
+-D__i386__"
 
 #define CPP_CPU64_SPEC \
-  "-Acpu=x86_64 -Amachine=x86_64 -D__x86_64 -D__x86_64__ %(cpp_cpu64sizet)"
+  "-Acpu=x86_64 -Amachine=x86_64 -D__x86_64 -D__x86_64__"
 
 #define CPP_CPUCOMMON_SPEC "\
 %{march=i386:%{!mcpu*:-D__tune_i386__ }}\
@@ -662,8 +647,6 @@ extern int ix86_arch;
   { "cpp_cpu",	CPP_CPU_SPEC },						\
   { "cpp_cpu32", CPP_CPU32_SPEC },					\
   { "cpp_cpu64", CPP_CPU64_SPEC },					\
-  { "cpp_cpu32sizet", CPP_CPU32_SIZE_TYPE_SPEC },			\
-  { "cpp_cpu64sizet", CPP_CPU64_SIZE_TYPE_SPEC },			\
   { "cpp_cpucommon", CPP_CPUCOMMON_SPEC },				\
   { "cc1_cpu",  CC1_CPU_SPEC },						\
   SUBTARGET_EXTRA_SPECS
@@ -2434,37 +2417,7 @@ enum ix86_builtins
   IX86_BUILTIN_MAX
 };
 
-/* Define this macro if references to a symbol must be treated
-   differently depending on something about the variable or
-   function named by the symbol (such as what section it is in).
-
-   On i386, if using PIC, mark a SYMBOL_REF for a non-global symbol
-   so that we may access it directly in the GOT.  */
-
-#define ENCODE_SECTION_INFO(DECL, FIRST)			\
-do {								\
-    if (flag_pic)						\
-      {								\
-	rtx rtl = (TREE_CODE_CLASS (TREE_CODE (DECL)) != 'd'	\
-		   ? TREE_CST_RTL (DECL) : DECL_RTL (DECL));	\
-								\
-	if (GET_CODE (rtl) == MEM)				\
-	  {							\
-	    if (TARGET_DEBUG_ADDR				\
-		&& TREE_CODE_CLASS (TREE_CODE (DECL)) == 'd')	\
-	      {							\
-		fprintf (stderr, "Encode %s, public = %d\n",	\
-			 IDENTIFIER_POINTER (DECL_NAME (DECL)),	\
-			 TREE_PUBLIC (DECL));			\
-	      }							\
-	    							\
-	    SYMBOL_REF_FLAG (XEXP (rtl, 0))			\
-	      = (TREE_CODE_CLASS (TREE_CODE (DECL)) != 'd'	\
-		 || ! TREE_PUBLIC (DECL)			\
-		 || MODULE_LOCAL_P (DECL));			\
-	  }							\
-      }								\
-} while (0)
+#define TARGET_ENCODE_SECTION_INFO  i386_encode_section_info
 
 /* The `FINALIZE_PIC' macro serves as a hook to emit these special
    codes once the function is being compiled into assembly code, but

@@ -1,6 +1,6 @@
 /* Subroutines used for code generation on the DEC Alpha.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2001 Free Software Foundation, Inc. 
+   2000, 2001, 2002 Free Software Foundation, Inc. 
    Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu)
 
 This file is part of GNU CC.
@@ -115,6 +115,10 @@ int alpha_this_gpdisp_sequence_number;
 /* Declarations of static functions.  */
 static bool decl_in_text_section
   PARAMS ((tree));
+static bool alpha_in_small_data_p
+  PARAMS ((tree));
+static void alpha_encode_section_info
+  PARAMS ((tree, int));
 static int some_small_symbolic_operand_1
   PARAMS ((rtx *, void *));
 static int split_small_symbolic_operand_1
@@ -162,6 +166,11 @@ static int alpha_use_dfa_pipeline_interface
 static int alpha_multipass_dfa_lookahead
   PARAMS ((void));
 
+#ifdef OBJECT_FORMAT_ELF
+static void alpha_elf_select_rtx_section
+  PARAMS ((enum machine_mode, rtx, unsigned HOST_WIDE_INT));
+#endif
+
 #if TARGET_ABI_UNICOSMK
 static void alpha_init_machine_status
   PARAMS ((struct function *p));
@@ -199,15 +208,23 @@ static void vms_asm_out_destructor PARAMS ((rtx, int));
 # define TARGET_SECTION_TYPE_FLAGS vms_section_type_flags
 #endif
 
+#undef TARGET_IN_SMALL_DATA_P
+#define TARGET_IN_SMALL_DATA_P alpha_in_small_data_p
+#undef TARGET_ENCODE_SECTION_INFO
+#define TARGET_ENCODE_SECTION_INFO alpha_encode_section_info
+
 #if TARGET_ABI_UNICOSMK
 static void unicosmk_asm_named_section PARAMS ((const char *, unsigned int));
 static void unicosmk_insert_attributes PARAMS ((tree, tree *));
 static unsigned int unicosmk_section_type_flags PARAMS ((tree, const char *, 
 							 int));
+static void unicosmk_unique_section PARAMS ((tree, int));
 # undef TARGET_INSERT_ATTRIBUTES
 # define TARGET_INSERT_ATTRIBUTES unicosmk_insert_attributes
 # undef TARGET_SECTION_TYPE_FLAGS
 # define TARGET_SECTION_TYPE_FLAGS unicosmk_section_type_flags
+# undef TARGET_ASM_UNIQUE_SECTION
+# define TARGET_ASM_UNIQUE_SECTION unicosmk_unique_section
 #endif
 
 #undef TARGET_ASM_ALIGNED_HI_OP
@@ -224,6 +241,11 @@ static unsigned int unicosmk_section_type_flags PARAMS ((tree, const char *,
 #define TARGET_ASM_UNALIGNED_SI_OP "\t.align 0\n\t.long\t"
 #undef TARGET_ASM_UNALIGNED_DI_OP
 #define TARGET_ASM_UNALIGNED_DI_OP "\t.align 0\n\t.quad\t"
+#endif
+
+#ifdef OBJECT_FORMAT_ELF
+#undef	TARGET_ASM_SELECT_RTX_SECTION
+#define	TARGET_ASM_SELECT_RTX_SECTION  alpha_elf_select_rtx_section
 #endif
 
 #undef TARGET_ASM_FUNCTION_END_PROLOGUE
@@ -932,7 +954,7 @@ local_symbol_p (op)
      unrecognizable insns.  */
 
   return (CONSTANT_POOL_ADDRESS_P (op)
-	  /* If @, then ENCODE_SECTION_INFO sez it's local.  */
+	  /* If @, then alpha_encode_section_info sez it's local.  */
 	  || str[0] == '@'
 	  /* If *$, then ASM_GENERATE_INTERNAL_LABEL sez it's local.  */
 	  || (str[0] == '*' && str[1] == '$'));
@@ -1552,6 +1574,32 @@ decl_in_text_section (decl)
 		    && DECL_ONE_ONLY (decl))));
 }
 
+/* Return true if EXP should be placed in the small data section.  */
+
+static bool
+alpha_in_small_data_p (exp)
+     tree exp;
+{
+  if (TREE_CODE (exp) == VAR_DECL && DECL_SECTION_NAME (exp))
+    {
+      const char *section = TREE_STRING_POINTER (DECL_SECTION_NAME (exp));
+      if (strcmp (section, ".sdata") == 0
+	  || strcmp (section, ".sbss") == 0)
+	return true;
+    }
+  else
+    {
+      HOST_WIDE_INT size = int_size_in_bytes (TREE_TYPE (exp));
+
+      /* If this is an incomplete type with size 0, then we can't put it
+	 in sdata because it might be too big when completed.  */
+      if (size > 0 && size <= g_switch_value)
+	return true;
+    }
+
+  return false;
+}
+
 /* If we are referencing a function that is static, make the SYMBOL_REF
    special.  We use this to see indicate we can branch to this function
    without setting PV or restoring GP. 
@@ -1560,7 +1608,7 @@ decl_in_text_section (decl)
    to the name.  If in addition the variable is to go in .sdata/.sbss,
    then add "@s" instead.  */
 
-void
+static void
 alpha_encode_section_info (decl, first)
      tree decl;
      int first ATTRIBUTE_UNUSED;
@@ -1626,32 +1674,7 @@ alpha_encode_section_info (decl, first)
     is_local = true;
 
   /* Determine if DECL will wind up in .sdata/.sbss.  */
-
-  is_small = false;
-  if (DECL_SECTION_NAME (decl))
-    {
-      const char *section = TREE_STRING_POINTER (DECL_SECTION_NAME (decl));
-      if (strcmp (section, ".sdata") == 0
-	  || strcmp (section, ".sbss") == 0)
-	is_small = true;
-    }
-  else
-    {
-      HOST_WIDE_INT size = int_size_in_bytes (TREE_TYPE (decl));
-
-      /* If the variable has already been defined in the output file, then it
-	 is too late to put it in sdata if it wasn't put there in the first
-	 place.  The test is here rather than above, because if it is already
-	 in sdata, then it can stay there.  */
-
-      if (TREE_ASM_WRITTEN (decl))
-	;
-
-      /* If this is an incomplete type with size 0, then we can't put it in
-	 sdata because it might be too big when completed.  */
-      else if (size > 0 && size <= g_switch_value)
-	is_small = true;
-    }
+  is_small = alpha_in_small_data_p (decl);
 
   /* Finally, encode this into the symbol string.  */
   if (is_local)
@@ -1678,7 +1701,11 @@ alpha_encode_section_info (decl, first)
       XSTR (XEXP (DECL_RTL (decl), 0), 0) = string;
     }
   else if (symbol_str[0] == '@')
-    abort ();
+    {
+      /* We're hosed.  This can happen when the user adds a weak
+	 attribute after rtl generation.  They should have gotten
+	 a warning about unspecified behaviour from varasm.c.  */
+    }
 }
 
 /* legitimate_address_p recognizes an RTL expression that is a valid
@@ -4828,7 +4855,6 @@ alpha_adjust_cost (insn, link, dep_insn, cost)
      rtx dep_insn;
      int cost;
 {
-  rtx set, set_src;
   enum attr_type insn_type, dep_insn_type;
 
   /* If the dependence is an anti-dependence, there is no cost.  For an
@@ -6604,15 +6630,14 @@ alpha_start_function (file, fnname, decl)
     }
 
 #if TARGET_ABI_OPEN_VMS
-  /* Ifdef'ed cause readonly_section and link_section are only
-     available then.  */
-  readonly_section ();
+  /* Ifdef'ed cause link_section are only available then.  */
+  readonly_data_section ();
   fprintf (file, "\t.align 3\n");
   assemble_name (file, fnname); fputs ("..na:\n", file);
   fputs ("\t.ascii \"", file);
   assemble_name (file, fnname);
   fputs ("\\0\"\n", file);
-      
+
   link_section ();
   fprintf (file, "\t.align 3\n");
   fputs ("\t.name ", file);
@@ -8060,6 +8085,26 @@ check_float_value (mode, d, overflow)
   return 0;
 }
 
+#ifdef OBJECT_FORMAT_ELF
+
+/* Switch to the section to which we should output X.  The only thing
+   special we do here is to honor small data.  */
+
+static void
+alpha_elf_select_rtx_section (mode, x, align)
+     enum machine_mode mode;
+     rtx x;
+     unsigned HOST_WIDE_INT align;
+{
+  if (TARGET_SMALL_DATA && GET_MODE_SIZE (mode) <= g_switch_value)
+    /* ??? Consider using mergable sdata sections.  */
+    sdata_section ();
+  else
+    default_elf_select_rtx_section (mode, x, align);
+}
+
+#endif /* OBJECT_FORMAT_ELF */
+
 #if TARGET_ABI_OPEN_VMS
 
 /* Return the VMS argument type corresponding to MODE.  */
@@ -8243,7 +8288,7 @@ alpha_write_linkage (stream)
 {
   if (alpha_links)
     {
-      readonly_section ();
+      readonly_data_section ();
       fprintf (stream, "\t.align 3\n");
       splay_tree_foreach (alpha_links, alpha_write_one_linkage, stream);
     }
@@ -8542,7 +8587,7 @@ unicosmk_section_type_flags (decl, name, reloc)
 /* Generate a section name for decl and associate it with the
    declaration.  */
 
-void
+static void
 unicosmk_unique_section (decl, reloc)
       tree decl;
       int reloc ATTRIBUTE_UNUSED;
@@ -8622,7 +8667,7 @@ unicosmk_insert_attributes (decl, attr_ptr)
 {
   if (DECL_P (decl)
       && (TREE_PUBLIC (decl) || TREE_CODE (decl) == FUNCTION_DECL))
-    UNIQUE_SECTION (decl, 0);
+    unicosmk_unique_section (decl, 0);
 }
 
 /* Output an alignment directive. We have to use the macro 'gcc@code@align'

@@ -1492,36 +1492,7 @@ do { 									\
       || GET_CODE (ADDR) == POST_INC)	\
     goto LABEL
 
-/* Arghh.  The hpux10 linker chokes if we have a reference to symbols
-   in a readonly data section when the symbol is defined in a shared
-   library.  Since we can't know at compile time if a symbol will be
-   satisfied by a shared library or main program we put any symbolic
-   constant into the normal data section.  */
-#define SELECT_RTX_SECTION(MODE,RTX,ALIGN)	\
-  if (symbolic_operand (RTX, MODE))	\
-    data_section ();			\
-  else					\
-    readonly_data_section ();
-
-/* On hpux10, the linker will give an error if we have a reference
-   in the read-only data section to a symbol defined in a shared
-   library.  Therefore, expressions that might require a reloc can
-   not be placed in the read-only data section.  */
-#define SELECT_SECTION(EXP,RELOC,ALIGN) \
-  if (TREE_CODE (EXP) == VAR_DECL \
-      && TREE_READONLY (EXP) \
-      && !TREE_THIS_VOLATILE (EXP) \
-      && DECL_INITIAL (EXP) \
-      && (DECL_INITIAL (EXP) == error_mark_node \
-          || TREE_CONSTANT (DECL_INITIAL (EXP))) \
-      && !RELOC) \
-    readonly_data_section (); \
-  else if (TREE_CODE_CLASS (TREE_CODE (EXP)) == 'c' \
-	   && !(TREE_CODE (EXP) == STRING_CST && flag_writable_strings) \
-	   && !RELOC) \
-    readonly_data_section (); \
-  else \
-    data_section ();
+#define TARGET_ASM_SELECT_SECTION  pa_select_section
    
 /* Define this macro if references to a symbol must be treated
    differently depending on something about the variable or
@@ -1551,24 +1522,8 @@ do { 									\
 
 #define FUNCTION_NAME_P(NAME)  (*(NAME) == '@')
 
-#define ENCODE_SECTION_INFO(DECL, FIRST)		\
-do							\
-  { if (FIRST && TEXT_SPACE_P (DECL))			\
-      {	rtx _rtl;					\
-	if (TREE_CODE (DECL) == FUNCTION_DECL		\
-	    || TREE_CODE (DECL) == VAR_DECL)		\
-	  _rtl = DECL_RTL (DECL);			\
-	else						\
-	  _rtl = TREE_CST_RTL (DECL);			\
-	SYMBOL_REF_FLAG (XEXP (_rtl, 0)) = 1;		\
-	if (TREE_CODE (DECL) == FUNCTION_DECL)		\
-	  hppa_encode_label (XEXP (DECL_RTL (DECL), 0));\
-      }							\
-  }							\
-while (0)
-
 /* Store the user-specified part of SYMBOL_NAME in VAR.
-   This is sort of inverse to ENCODE_SECTION_INFO.  */
+   This is sort of inverse to targetm.encode_section_info.  */
 
 #define STRIP_NAME_ENCODING(VAR,SYMBOL_NAME)	\
   (VAR) = ((SYMBOL_NAME)			\

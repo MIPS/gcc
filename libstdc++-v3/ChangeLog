@@ -1,3 +1,59 @@
+2002-05-18  Paolo Carlini  <pcarlini@unitus.it>
+
+	PR libstdc++/6503
+	* include/bits/stl_deque.h (_Deque_iterator::operator==,
+	operator!=, operator<, operator>, operator>=, operator<=):
+	Make non-member functions, to allow comparing const and
+	non-const iterators in any order.
+	* testsuite/23_containers/deque_operators.cc: New testfile.
+
+2002-05-16  Phil Edwards  <pme@gcc.gnu.org>
+
+	* docs/html/faq/index.html:  Update not-a-bug list with basic_file.h.
+	* docs/html/faq/index.txt:  Regenerate.
+
+2002-05-16  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* Makefile.am: Allow for PWDCMD to override hardcoded pwd.
+	* acinclude.m4: Likewise.
+	* docs/html/Makefile: Likewise.
+	* aclocal.m4: Regenerate.
+	* configure: Regenerate.
+	* Makefile.in: Regenerate.
+
+2002-05-15  Loren J. Rittle <ljrittle@acm.org>
+
+	libstdc++/6641
+	* include/bits/c++config (__USE_MALLOC): Report case where
+	the user improperly defined it on the command line.
+
+2002-05-15  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* testsuite/testsuite_hooks.h (__set_testsuite_memlimit):
+	Retrieve current limits before setting.
+
+2002-05-15  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/6518
+	* include/bits/ostream.tcc (ostream::operator<<(const char*)): Fix
+	for null case.
+	(ostream::operator<<(const _CharT*)): Same.
+	(ostream<char>::operator<<(const char*)): Same.
+	* testsuite/27_io/ostream_inserter_char.cc (test07): Add test.
+	
+2002-05-15  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/6594
+	* src/strstream.cc (strstreambuf): Fix leak.
+
+2002-05-15  Paolo Carlini  <pcarlini@unitus.it>
+
+	PR libstdc++/6648
+	* include/bits/istream.tcc (istream::getline, ignore):
+	Upon __idelim (__delim) call sbumpc() not snextc().
+	* testsuite/27_io/narrow_stream_objects.cc:
+	Add test08 and test09.
+
 2002-05-13  Benjamin Kosnik  <bkoz@redhat.com>
 
 	* testsuite/22_locale/ctype_scan_char.cc: Tweak.

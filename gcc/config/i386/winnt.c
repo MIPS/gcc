@@ -1,6 +1,7 @@
 /* Subroutines for insn-output.c for Windows NT.
    Contributed by Douglas Rupp (drupp@cs.washington.edu)
-   Copyright (C) 1995, 1997, 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1995, 1997, 1998, 1999, 2000, 2001, 2002
+   Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -366,8 +367,6 @@ gen_stdcall_suffix (decl)
   return IDENTIFIER_POINTER (get_identifier (newsym));
 }
 
-/* Cover function to implement ENCODE_SECTION_INFO.  */
-
 void
 i386_pe_encode_section_info (decl, first)
      tree decl;
@@ -423,8 +422,6 @@ i386_pe_encode_section_info (decl, first)
     }
 }
 
-/* Cover function for UNIQUE_SECTION.  */
-
 void
 i386_pe_unique_section (decl, reloc)
      tree decl;
@@ -446,15 +443,8 @@ i386_pe_unique_section (decl, reloc)
      without a .rdata section.  */
   if (TREE_CODE (decl) == FUNCTION_DECL)
     prefix = ".text$";
-/* else if (DECL_INITIAL (decl) == 0
-	   || DECL_INITIAL (decl) == error_mark_node)
-    prefix = ".bss";  */
   else if (DECL_READONLY_SECTION (decl, reloc))
-#ifdef READONLY_DATA_SECTION
     prefix = ".rdata$";
-#else
-    prefix = ".text$";
-#endif
   else
     prefix = ".data$";
   len = strlen (name) + strlen (prefix);

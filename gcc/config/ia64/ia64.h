@@ -213,12 +213,6 @@ extern const char *ia64_fixed_range_string;
    %(cpp_cpu)	\
    -D__LONG_MAX__=9223372036854775807L"
 
-/* This is always "long" so it doesn't "change" in ILP32 vs. LP64.  */
-/* #define NO_BUILTIN_SIZE_TYPE */
-
-/* This is always "long" so it doesn't "change" in ILP32 vs. LP64.  */
-/* #define NO_BUILTIN_PTRDIFF_TYPE */
-
 /* A C string constant that tells the GNU CC driver program options to pass to
    `cc1'.  It can also specify how to translate options you give to GNU CC into
    options for GNU CC to pass to the `cc1'.  */
@@ -1779,12 +1773,6 @@ do {									\
    operation to identify the following data as uninitialized global data.  */
 
 #define BSS_SECTION_ASM_OP "\t.bss"
-
-/* Define this macro if references to a symbol must be treated differently
-   depending on something about the variable or function named by the symbol
-   (such as what section it is in).  */
-
-#define ENCODE_SECTION_INFO(DECL, FIRST) ia64_encode_section_info (DECL, FIRST)
 
 #define SDATA_NAME_FLAG_CHAR '@'
 

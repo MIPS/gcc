@@ -163,10 +163,23 @@ static unsigned int rs6000_elf_section_type_flags PARAMS ((tree, const char *,
 							   int));
 static void rs6000_elf_asm_out_constructor PARAMS ((rtx, int));
 static void rs6000_elf_asm_out_destructor PARAMS ((rtx, int));
+static void rs6000_elf_select_section PARAMS ((tree, int,
+						 unsigned HOST_WIDE_INT));
+static void rs6000_elf_unique_section PARAMS ((tree, int));
+static void rs6000_elf_select_rtx_section PARAMS ((enum machine_mode, rtx,
+						   unsigned HOST_WIDE_INT));
+static void rs6000_elf_encode_section_info PARAMS ((tree, int));
 #endif
 #ifdef OBJECT_FORMAT_COFF
 static void xcoff_asm_named_section PARAMS ((const char *, unsigned int));
+static void rs6000_xcoff_select_section PARAMS ((tree, int,
+						 unsigned HOST_WIDE_INT));
+static void rs6000_xcoff_unique_section PARAMS ((tree, int));
+static void rs6000_xcoff_select_rtx_section PARAMS ((enum machine_mode, rtx,
+						     unsigned HOST_WIDE_INT));
 #endif
+static void rs6000_xcoff_encode_section_info PARAMS ((tree, int))
+     ATTRIBUTE_UNUSED;
 static int rs6000_adjust_cost PARAMS ((rtx, rtx, rtx, int));
 static int rs6000_adjust_priority PARAMS ((rtx, int));
 static int rs6000_issue_rate PARAMS ((void));
@@ -10922,6 +10935,8 @@ rs6000_longcall_ref (call_ref)
 }
 
 
+#ifdef USING_ELFOS_H
+
 /* A C statement or statements to switch to the appropriate section
    for output of RTX in mode MODE.  You can assume that RTX is some
    kind of constant in RTL.  The argument MODE is redundant except in
@@ -10931,22 +10946,16 @@ rs6000_longcall_ref (call_ref)
    Do not define this macro if you put all constants in the read-only
    data section.  */
 
-#ifdef USING_ELFOS_H
-
-void
-rs6000_select_rtx_section (mode, x)
+static void
+rs6000_elf_select_rtx_section (mode, x, align)
      enum machine_mode mode;
      rtx x;
+     unsigned HOST_WIDE_INT align;
 {
   if (ASM_OUTPUT_SPECIAL_POOL_ENTRY_P (x, mode))
     toc_section ();
-  else if (flag_pic
-	   && (GET_CODE (x) == SYMBOL_REF
-	       || GET_CODE (x) == LABEL_REF
-	       || GET_CODE (x) == CONST))
-    data_section ();
   else
-    const_section ();
+    default_elf_select_rtx_section (mode, x, align);
 }
 
 /* A C statement or statements to switch to the appropriate
@@ -10954,16 +10963,17 @@ rs6000_select_rtx_section (mode, x)
    or a constant of some sort.  RELOC indicates whether forming
    the initial value of DECL requires link-time relocations.  */
 
-void
-rs6000_select_section (decl, reloc)
+static void
+rs6000_elf_select_section (decl, reloc, align)
      tree decl;
      int reloc;
+     unsigned HOST_WIDE_INT align ATTRIBUTE_UNUSED;
 {
   int size = int_size_in_bytes (TREE_TYPE (decl));
   int needs_sdata;
   int readonly;
   static void (* const sec_funcs[4]) PARAMS ((void)) = {
-    &const_section,
+    &readonly_data_section,
     &sdata2_section,
     &data_section,
     &sdata_section
@@ -11003,8 +11013,8 @@ rs6000_select_section (decl, reloc)
    macro can now be called for uninitialized data items as well as
    initialised data and functions.  */
 
-void
-rs6000_unique_section (decl, reloc)
+static void
+rs6000_elf_unique_section (decl, reloc)
      tree decl;
      int reloc;
 {
@@ -11084,8 +11094,8 @@ rs6000_unique_section (decl, reloc)
    the function descriptor name.  This saves a lot of overriding code
    to read the prefixes.  */
 
-void
-rs6000_encode_section_info (decl, first)
+static void
+rs6000_elf_encode_section_info (decl, first)
      tree decl;
      int first;
 {
@@ -11628,4 +11638,83 @@ xcoff_asm_named_section (name, flags)
 {
   fprintf (asm_out_file, "\t.csect %s\n", name);
 }
-#endif
+
+static void
+rs6000_xcoff_select_section (exp, reloc, align)
+     tree exp;
+     int reloc;
+     unsigned HOST_WIDE_INT align ATTRIBUTE_UNUSED;
+{
+  if ((TREE_CODE (exp) == STRING_CST
+       && ! flag_writable_strings)
+      || (TREE_CODE_CLASS (TREE_CODE (exp)) == 'd'
+	  && TREE_READONLY (exp) && ! TREE_THIS_VOLATILE (exp)
+	  && DECL_INITIAL (exp)
+	  && (DECL_INITIAL (exp) == error_mark_node
+	      || TREE_CONSTANT (DECL_INITIAL (exp)))
+	  && ! (reloc)))
+    {
+      if (TREE_PUBLIC (exp))
+        read_only_data_section ();
+      else
+        read_only_private_data_section ();
+    }
+  else
+    {
+      if (TREE_PUBLIC (exp))
+        data_section ();
+      else
+        private_data_section ();
+    }
+}
+
+static void
+rs6000_xcoff_unique_section (decl, reloc)
+     tree decl;
+     int reloc;
+{
+  const char *name;
+  char *string;
+  size_t len;
+
+  if (TREE_CODE (decl) == FUNCTION_DECL)
+    {
+      name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
+      len = strlen (name) + 5;
+      string = alloca (len + 1);
+      sprintf (string, ".%s[PR]", name);
+      DECL_SECTION_NAME (decl) = build_string (len, string);
+    }
+}
+
+/* Select section for constant in constant pool.
+
+   On RS/6000, all constants are in the private read-only data area.
+   However, if this is being placed in the TOC it must be output as a
+   toc entry.  */
+
+static void
+rs6000_xcoff_select_rtx_section (mode, x, align)
+     enum machine_mode mode;
+     rtx x;
+     unsigned HOST_WIDE_INT align ATTRIBUTE_UNUSED;
+{
+  if (ASM_OUTPUT_SPECIAL_POOL_ENTRY_P (x, mode))
+    toc_section ();
+  else
+    read_only_private_data_section ();
+}
+#endif /* OBJECT_FORMAT_COFF */
+
+/* Note that this is also used for ELF64.  */
+
+static void
+rs6000_xcoff_encode_section_info (decl, first)
+     tree decl;
+     int first ATTRIBUTE_UNUSED;
+{
+  if (TREE_CODE (decl) == FUNCTION_DECL
+      && (TREE_ASM_WRITTEN (decl) || ! TREE_PUBLIC (decl))
+      && ! DECL_WEAK (decl))
+    SYMBOL_REF_FLAG (XEXP (DECL_RTL (decl), 0)) = 1;
+}

@@ -91,6 +91,22 @@ struct gcc_target
     /* Switch to the section that holds the exception frames.  */
     void (* eh_frame_section) PARAMS ((void));
 
+    /* Select and switch to a section for EXP.  It may be a DECL or a
+       constant for which TREE_CST_RTL is valid.  RELOC is non-zero if
+       runtime relocations must be applied; bit 1 will be set if the
+       runtime relocations require non-local name resolution.  ALIGN is
+       the required alignment of the data.  */
+    void (* select_section) PARAMS ((tree, int, unsigned HOST_WIDE_INT));
+
+    /* Select and switch to a section for X with MODE.  ALIGN is
+       the desired alignment of the data.  */
+    void (* select_rtx_section) PARAMS ((enum machine_mode, rtx,
+					 unsigned HOST_WIDE_INT));
+
+    /* Select a unique section name for DECL.  RELOC is the same as
+       for SELECT_SECTION.  */
+    void (* unique_section) PARAMS ((tree, int));
+
     /* Output a constructor for a symbol with a given priority.  */
     void (* constructor) PARAMS ((rtx, int));
 
@@ -224,6 +240,13 @@ struct gcc_target
   /* True if new jumps cannot be created, to replace existing ones or
      not, at the current point in the compilation.  */
   bool (* cannot_modify_jumps_p) PARAMS ((void));
+
+  /* True if EXP should be placed in a "small data" section.  */
+  bool (* in_small_data_p) PARAMS ((tree));
+
+  /* Do something target-specific to record properties of the DECL into
+     the associated SYMBOL_REF.  */
+  void (* encode_section_info) PARAMS ((tree, int));
 };
 
 extern struct gcc_target targetm;

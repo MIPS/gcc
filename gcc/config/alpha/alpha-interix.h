@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler, for DEC Alpha
    running Windows/NT.
-   Copyright (C) 1995, 1996, 1999, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1995, 1996, 1999, 2000, 2002 Free Software Foundation, Inc.
 
    Donn Terry, Softway Systems, Inc.
    From code
@@ -67,17 +67,9 @@ Boston, MA 02111-1307, USA.  */
 
 /* The following are needed for C++, but also needed for profiling */
 
-/* Support const sections and the ctors and dtors sections for g++.
-   Note that there appears to be two different ways to support const
-   sections at the moment.  You can either #define the symbol
-   READONLY_DATA_SECTION (giving it some code which switches to the
-   readonly data section) or else you can #define the symbols
-   EXTRA_SECTIONS, EXTRA_SECTION_FUNCTIONS, SELECT_SECTION, and
-   SELECT_RTX_SECTION.  We do both here just to be on the safe side.  */
+/* Support const sections and the ctors and dtors sections for g++.  */
 
-#define USE_CONST_SECTION	1
-
-#define CONST_SECTION_ASM_OP	"\t.rdata"
+#define READONLY_DATA_SECTION_ASM_OP	"\t.rdata"
 
 /* Define the pseudo-ops used to switch to the .ctors and .dtors sections.
 
@@ -96,38 +88,6 @@ Boston, MA 02111-1307, USA.  */
 
 #define CTORS_SECTION_ASM_OP	"\t.ctors"
 #define DTORS_SECTION_ASM_OP	"\t.dtors"
-
-/* A default list of other sections which we might be "in" at any given
-   time.  For targets that use additional sections (e.g. .tdesc) you
-   should override this definition in the target-specific file which
-   includes this file.  */
-
-#undef EXTRA_SECTIONS
-#define EXTRA_SECTIONS in_const
-
-/* A default list of extra section function definitions.  For targets
-   that use additional sections (e.g. .tdesc) you should override this
-   definition in the target-specific file which includes this file.  */
-
-#undef EXTRA_SECTION_FUNCTIONS
-#define EXTRA_SECTION_FUNCTIONS						\
-  CONST_SECTION_FUNCTION
-
-#undef READONLY_DATA_SECTION
-#define READONLY_DATA_SECTION() const_section ()
-
-#define CONST_SECTION_FUNCTION						\
-void									\
-const_section ()							\
-{									\
-  if (!USE_CONST_SECTION)						\
-    text_section();							\
-  else if (in_section != in_const)					\
-    {									\
-      fprintf (asm_out_file, "%s\n", CONST_SECTION_ASM_OP);		\
-      in_section = in_const;						\
-    }									\
-}
 
 /* The linker will take care of this, and having them causes problems with
    ld -r (specifically -rU).  */

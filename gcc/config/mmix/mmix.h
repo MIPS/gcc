@@ -905,41 +905,10 @@ typedef struct { int regs; int lib; int now_varargs; } CUMULATIVE_ARGS;
 #define DATA_SECTION_ASM_OP \
  mmix_data_section_asm_op ()
 
-/* Stuff copied from elfos.h.  */
-#define EXTRA_SECTIONS in_const
-
-#define EXTRA_SECTION_FUNCTIONS		\
-  CONST_SECTION_FUNCTION
-
-#define READONLY_DATA_SECTION() const_section ()
-
-#define CONST_SECTION_ASM_OP	"\t.section\t.rodata"
-
-#define CONST_SECTION_FUNCTION					\
-void								\
-const_section ()						\
-{								\
-  if (in_section != in_const)					\
-    {								\
-      fprintf (asm_out_file, "%s\n", CONST_SECTION_ASM_OP);	\
-      in_section = in_const;					\
-    }								\
-}
-
-#undef  SELECT_RTX_SECTION
-#define SELECT_RTX_SECTION(MODE, RTX, ALIGN) const_section ()
-
-#define SELECT_SECTION(DECL, RELOC, ALIGN) \
- mmix_select_section (DECL, RELOC, ALIGN)
-
-#define ENCODE_SECTION_INFO(DECL, FIRST) \
- mmix_encode_section_info (DECL, FIRST)
+#define READONLY_DATA_SECTION_ASM_OP	"\t.section\t.rodata"
 
 #define STRIP_NAME_ENCODING(VAR, SYM_NAME) \
  (VAR) = mmix_strip_name_encoding (SYM_NAME)
-
-#define UNIQUE_SECTION(DECL, RELOC) \
-  mmix_unique_section (decl, reloc)
 
 /* Node: PIC */
 /* (empty) */

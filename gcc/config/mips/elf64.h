@@ -1,6 +1,7 @@
 /* Definitions of target machine for GNU compiler.  MIPS R4000 version with
    GOFAST floating point library.
-   Copyright (C) 1994, 1995, 1996, 1997, 1999, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1994, 1995, 1996, 1997, 1999, 2000, 2002
+   Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -208,19 +209,17 @@ do {									 \
  } while (0)
 
 #define MAKE_DECL_ONE_ONLY(DECL) (DECL_WEAK (DECL) = 1)
-#undef UNIQUE_SECTION
-#define UNIQUE_SECTION(DECL,RELOC) \
-  mips_unique_section ((DECL), (RELOC))
+
+#define TARGET_ASM_UNIQUE_SECTION mips_unique_section
 
 /* A list of other sections which the compiler might be "in" at any
    given time.  */
 #undef EXTRA_SECTIONS
-#define EXTRA_SECTIONS in_sdata, in_rdata
+#define EXTRA_SECTIONS in_sdata
 
 #undef EXTRA_SECTION_FUNCTIONS
 #define EXTRA_SECTION_FUNCTIONS                                         \
-  SECTION_FUNCTION_TEMPLATE(sdata_section, in_sdata, SDATA_SECTION_ASM_OP) \
-  SECTION_FUNCTION_TEMPLATE(rdata_section, in_rdata, RDATA_SECTION_ASM_OP)
+  SECTION_FUNCTION_TEMPLATE(sdata_section, in_sdata, SDATA_SECTION_ASM_OP)
 
 #define SECTION_FUNCTION_TEMPLATE(FN, ENUM, OP)                               \
 void FN ()                                                            \

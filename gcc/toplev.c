@@ -380,6 +380,10 @@ int flag_branch_probabilities = 0;
 
 int flag_reorder_blocks = 0;
 
+/* Nonzero if functions should be reordered.  */
+
+int flag_reorder_functions = 0;
+
 /* Nonzero if registers should be renamed.  */
 
 int flag_rename_registers = 0;
@@ -1081,6 +1085,8 @@ static const lang_independent_options f_options[] =
    N_("Enable basic program profiling code") },
   {"reorder-blocks", &flag_reorder_blocks, 1,
    N_("Reorder basic blocks to improve code placement") },
+  {"reorder-functions", &flag_reorder_functions, 1,
+   N_("Reorder functions to improve code placement") },
   {"rename-registers", &flag_rename_registers, 1,
    N_("Do the register renaming optimization pass") },
   {"cprop-registers", &flag_cprop_registers, 1,
@@ -1543,19 +1549,20 @@ set_Wunused (setting)
    -ffast-math and -fno-fast-math imply.  */
 
 void
-set_fast_math_flags ()
+set_fast_math_flags (int set)
 {
-  flag_trapping_math = 0;
-  flag_unsafe_math_optimizations = 1;
-  flag_errno_math = 0;
+  flag_trapping_math = !set;
+  flag_unsafe_math_optimizations = set;
+  flag_errno_math = !set;
 }
 
-void
-set_no_fast_math_flags ()
+/* Return true iff flags are set as if -ffast-math.  */
+bool
+fast_math_flags_set_p ()
 {
-  flag_trapping_math = 1;
-  flag_unsafe_math_optimizations = 0;
-  flag_errno_math = 1;
+  return (!flag_trapping_math
+	  && flag_unsafe_math_optimizations
+	  && !flag_errno_math);
 }
 
 
@@ -2512,7 +2519,7 @@ rest_of_compilation (decl)
   rebuild_jump_labels (insns);
   find_exception_handler_labels ();
   find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
-  
+
   delete_unreachable_blocks ();
 
   /* Turn NOTE_INSN_PREDICTIONs into branch predictions.  */
@@ -2528,7 +2535,7 @@ rest_of_compilation (decl)
       /* There is pass ordering problem - we must lower NOTE_INSN_PREDICTION
          notes before simplifying cfg and we must do lowering after sibcall
          that unhides parts of RTL chain and cleans up the CFG.
-        
+
          Until sibcall is replaced by tree-level optimizer, lets just
          sweep away the NOTE_INSN_PREDICTION notes that leaked out.  */
       for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
@@ -3821,9 +3828,9 @@ decode_f_option (arg)
     }
 
   if (!strcmp (arg, "fast-math"))
-    set_fast_math_flags ();
+    set_fast_math_flags (1);
   else if (!strcmp (arg, "no-fast-math"))
-    set_no_fast_math_flags ();
+    set_fast_math_flags (0);
   else if ((option_value = skip_leading_substring (arg, "inline-limit-"))
 	   || (option_value = skip_leading_substring (arg, "inline-limit=")))
     {
@@ -3869,7 +3876,7 @@ decode_f_option (arg)
       stack_limit_rtx = gen_rtx_SYMBOL_REF (Pmode, nm);
     }
   else if ((option_value
-            = skip_leading_substring (arg, "message-length=")))
+	    = skip_leading_substring (arg, "message-length=")))
     output_set_maximum_length
       (&global_dc->buffer, read_integral_parameter
        (option_value, arg - 2, diagnostic_line_cutoff (global_dc)));
@@ -4665,6 +4672,7 @@ parse_options_and_default_flags (argc, argv)
       flag_strict_aliasing = 1;
       flag_delete_null_pointer_checks = 1;
       flag_reorder_blocks = 1;
+      flag_reorder_functions = 1;
     }
 
   if (optimize >= 3)
@@ -5022,7 +5030,6 @@ lang_independent_init ()
      provide a dummy function context for them.  */
   init_dummy_function_start ();
   init_expmed ();
-  init_expr_once ();
   if (flag_caller_saves)
     init_caller_save ();
   expand_dummy_function_end ();
@@ -5053,6 +5060,7 @@ lang_dependent_init (name)
      front end is initialized.  */
   init_eh ();
   init_optabs ();
+  init_expr_once ();
 
   /* Put an entry on the input file stack for the main input file.  */
   push_srcloc (input_filename, 0);

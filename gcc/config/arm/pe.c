@@ -1,5 +1,5 @@
 /* Routines for GCC for ARM/pe.
-   Copyright (C) 1995, 1996, 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1995, 1996, 2000, 2001, 2002 Free Software Foundation, Inc.
    Contributed by Doug Evans (dje@cygnus.com).
 
 This file is part of GNU CC.
@@ -204,14 +204,12 @@ arm_mark_dllimport (decl)
   XEXP (DECL_RTL (decl), 0) = newrtl;
 }
 
-/* Cover function to implement ENCODE_SECTION_INFO.  */
-
 void
 arm_pe_encode_section_info (decl, first)
      tree decl;
      int first ATTRIBUTE_UNUSED;
 {
-  /* This bit is copied from arm.h.  */
+  /* This bit is copied from arm_encode_section_info.  */
   if (optimize > 0 && TREE_CONSTANT (decl)
       && (!flag_writable_strings || TREE_CODE (decl) != STRING_CST))
     {
@@ -247,8 +245,6 @@ arm_pe_encode_section_info (decl, first)
 	 ??? We leave these alone for now.  */
     }
 }
-
-/* Cover function for UNIQUE_SECTION.  */
 
 void
 arm_pe_unique_section (decl, reloc)

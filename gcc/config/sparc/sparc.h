@@ -246,19 +246,8 @@ Unrecognized value in TARGET_CPU_DEFAULT.
    sparc64 in 32 bit environments, so for now we only use `sparc64' in
    64 bit environments.  */
 
-#ifdef SPARC_BI_ARCH
-
-#define CPP_ARCH32_SPEC "-D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int \
--D__GCC_NEW_VARARGS__ -Acpu=sparc -Amachine=sparc"
-#define CPP_ARCH64_SPEC "-D__SIZE_TYPE__=long\\ unsigned\\ int -D__PTRDIFF_TYPE__=long\\ int \
--D__arch64__ -Acpu=sparc64 -Amachine=sparc64"
-
-#else
-
 #define CPP_ARCH32_SPEC "-D__GCC_NEW_VARARGS__ -Acpu=sparc -Amachine=sparc"
 #define CPP_ARCH64_SPEC "-D__arch64__ -Acpu=sparc64 -Amachine=sparc64"
-
-#endif
 
 #define CPP_ARCH_DEFAULT_SPEC \
 (DEFAULT_ARCH32_P ? CPP_ARCH32_SPEC : CPP_ARCH64_SPEC)
@@ -372,10 +361,6 @@ Unrecognized value in TARGET_CPU_DEFAULT.
 #define LINK_GCC_C_SEQUENCE_SPEC "%G %L %G %L"
 
 
-#ifdef SPARC_BI_ARCH
-#define NO_BUILTIN_PTRDIFF_TYPE
-#define NO_BUILTIN_SIZE_TYPE
-#endif
 #define PTRDIFF_TYPE (TARGET_ARCH64 ? "long int" : "int")
 #define SIZE_TYPE (TARGET_ARCH64 ? "long unsigned int" : "unsigned int")
 
@@ -841,19 +826,6 @@ if (TARGET_ARCH64				\
 #ifndef SUNOS4_SHARED_LIBRARIES
 #define SUNOS4_SHARED_LIBRARIES 0
 #endif
-
-
-/* Use text section for a constant
-   unless we need more alignment than that offers.  */
-/* This is defined differently for v9 in a cover file.  */
-#define SELECT_RTX_SECTION(MODE, X, ALIGN)	\
-{						\
-  if (GET_MODE_BITSIZE (MODE) <= MAX_TEXT_ALIGN \
-      && ! (flag_pic && (symbolic_operand ((X), (MODE)) || SUNOS4_SHARED_LIBRARIES)))  \
-    text_section ();				\
-  else						\
-    data_section ();				\
-}
 
 /* Standard register usage.  */
 
@@ -2433,16 +2405,6 @@ do {                                                                    \
    On the SPARC this is never true.  */
 
 #define GO_IF_MODE_DEPENDENT_ADDRESS(ADDR,LABEL)
-
-/* If we are referencing a function make the SYMBOL_REF special.
-   In the Embedded Medium/Anywhere code model, %g4 points to the data segment
-   so we must not add it to function addresses.  */
-
-#define ENCODE_SECTION_INFO(DECL, FIRST)				\
-  do {									\
-    if (TARGET_CM_EMBMEDANY && TREE_CODE (DECL) == FUNCTION_DECL)	\
-      SYMBOL_REF_FLAG (XEXP (DECL_RTL (DECL), 0)) = 1;			\
-  } while (0)
 
 /* Specify the machine mode that this machine uses
    for the index in the tablejump instruction.  */

@@ -41,9 +41,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "except.h"		/* For USING_SJLJ_EXCEPTIONS.  */
 cpp_reader *parse_in;		/* Declared in c-lex.h.  */
 
-#undef WCHAR_TYPE_SIZE
-#define WCHAR_TYPE_SIZE TYPE_PRECISION (wchar_type_node)
-
 /* We let tm.h override the types used here, to handle trivial differences
    such as the choice of unsigned int or long unsigned int for size_t.
    When machines start needing nontrivial differences in the size type,
@@ -57,6 +54,10 @@ cpp_reader *parse_in;		/* Declared in c-lex.h.  */
 #ifndef WCHAR_TYPE
 #define WCHAR_TYPE "int"
 #endif
+
+/* WCHAR_TYPE gets overridden by -fshort-wchar.  */
+#define MODIFIED_WCHAR_TYPE \
+	(flag_short_wchar ? "short unsigned int" : WCHAR_TYPE)
 
 #ifndef PTRDIFF_TYPE
 #define PTRDIFF_TYPE "long int"
@@ -80,6 +81,14 @@ cpp_reader *parse_in;		/* Declared in c-lex.h.  */
 		     : ((LONG_TYPE_SIZE == LONG_LONG_TYPE_SIZE)	\
 			? "long unsigned int"			\
 			: "long long unsigned int"))
+#endif
+
+#ifndef STDC_0_IN_SYSTEM_HEADERS
+#define STDC_0_IN_SYSTEM_HEADERS 0
+#endif
+
+#ifndef REGISTER_PREFIX
+#define REGISTER_PREFIX ""
 #endif
 
 /* The variant of the C language being processed.  */
@@ -802,7 +811,8 @@ combine_strings (strings)
 	}
       else
 	{
-	  const int nzeros = (WCHAR_TYPE_SIZE / BITS_PER_UNIT) - 1;
+	  const int nzeros = (TYPE_PRECISION (wchar_type_node)
+			      / BITS_PER_UNIT) - 1;
 	  int j, k;
 
 	  if (BYTES_BIG_ENDIAN)
@@ -2872,9 +2882,7 @@ c_common_nodes_and_builtins ()
   (*targetm.init_builtins) ();
 
   /* This is special for C++ so functions can be overloaded.  */
-  wchar_type_node = get_identifier (flag_short_wchar
-				    ? "short unsigned int"
-				    : WCHAR_TYPE);
+  wchar_type_node = get_identifier (MODIFIED_WCHAR_TYPE);
   wchar_type_node = TREE_TYPE (identifier_global_value (wchar_type_node));
   wchar_type_size = TYPE_PRECISION (wchar_type_node);
   if (c_language == clk_cplusplus)
@@ -4263,8 +4271,10 @@ c_common_init_options (lang)
      enum c_language_kind lang;
 {
   c_language = lang;
-  parse_in = cpp_create_reader (lang == clk_c ? CLK_GNUC89:
-				lang == clk_cplusplus ? CLK_GNUCXX: CLK_OBJC);
+  parse_in = cpp_create_reader (lang == clk_c || lang == clk_objective_c
+				? CLK_GNUC89 : CLK_GNUCXX);
+  if (lang == clk_objective_c)
+    cpp_get_options (parse_in)->objc = 1;
 
   /* Mark as "unspecified" (see c_common_post_options).  */
   flag_bounds_check = -1;
@@ -4301,6 +4311,8 @@ c_common_post_options ()
     warning ("-Wformat-y2k ignored without -Wformat");
   if (warn_format_extra_args && !warn_format)
     warning ("-Wformat-extra-args ignored without -Wformat");
+  if (warn_format_zero_length && !warn_format)
+    warning ("-Wformat-zero-length ignored without -Wformat");
   if (warn_format_nonliteral && !warn_format)
     warning ("-Wformat-nonliteral ignored without -Wformat");
   if (warn_format_security && !warn_format)
@@ -4325,7 +4337,7 @@ cb_register_builtins (pfile)
   if (c_language == clk_cplusplus)
     {
       if (SUPPORTS_ONE_ONLY)
-	cpp_define (pfile, "__GXX_WEAK__");
+	cpp_define (pfile, "__GXX_WEAK__=1");
       else
 	cpp_define (pfile, "__GXX_WEAK__=0");
     }
@@ -4333,6 +4345,36 @@ cb_register_builtins (pfile)
   /* libgcc needs to know this.  */
   if (USING_SJLJ_EXCEPTIONS)
     cpp_define (pfile, "__USING_SJLJ_EXCEPTIONS__");
+
+  /* stddef.h needs to know these.  */
+  builtin_define_with_value ("__SIZE_TYPE__", SIZE_TYPE, 0);
+  builtin_define_with_value ("__PTRDIFF_TYPE__", PTRDIFF_TYPE, 0);
+  builtin_define_with_value ("__WCHAR_TYPE__", MODIFIED_WCHAR_TYPE, 0);
+  builtin_define_with_value ("__WINT_TYPE__", WINT_TYPE, 0);
+
+  /* For use in assembly language.  */
+  builtin_define_with_value ("__REGISTER_PREFIX__", REGISTER_PREFIX, 0);
+  builtin_define_with_value ("__USER_LABEL_PREFIX__", user_label_prefix, 0);
+
+  /* Misc.  */
+  builtin_define_with_value ("__VERSION__", version_string, 1);
+
+  /* Other target-independent built-ins determined by command-line
+     options.  */
+  if (optimize_size)
+    cpp_define (pfile, "__OPTIMIZE_SIZE__");
+  if (optimize)
+    cpp_define (pfile, "__OPTIMIZE__");
+
+  if (flag_hosted)
+    cpp_define (pfile, "__STDC_HOSTED__=1");
+  else
+    cpp_define (pfile, "__STDC_HOSTED__=0");
+
+  if (fast_math_flags_set_p ())
+    cpp_define (pfile, "__FAST_MATH__");
+  if (flag_no_inline)
+    cpp_define (pfile, "__NO_INLINE__");
 
   /* A straightforward target hook doesn't work, because of problems
      linking that hook's body when part of non-C front ends.  */
@@ -4383,6 +4425,32 @@ builtin_define_std (macro)
     }
 }
 
+/* Pass an object-like macro and a value to define it to.  The third
+   parameter says whether or not to turn the value into a string
+   constant.  */
+void
+builtin_define_with_value (macro, expansion, is_str)
+     const char *macro;
+     const char *expansion;
+     int is_str;
+{
+  char *buf;
+  size_t mlen = strlen (macro);
+  size_t elen = strlen (expansion);
+  size_t extra = 2;  /* space for an = and a NUL */
+
+  if (is_str)
+    extra += 2;  /* space for two quote marks */
+
+  buf = alloca (mlen + elen + extra);
+  if (is_str)
+    sprintf (buf, "%s=\"%s\"", macro, expansion);
+  else
+    sprintf (buf, "%s=%s", macro, expansion);
+
+  cpp_define (parse_in, buf);
+}
+
 /* Front end initialization common to C, ObjC and C++.  */
 const char *
 c_common_init (filename)
@@ -4406,6 +4474,7 @@ c_common_init (filename)
      options->unsigned_char = !flag_signed_char; */
 
   options->warn_multichar = warn_multichar;
+  options->stdc_0_in_system_headers = STDC_0_IN_SYSTEM_HEADERS;
 
   /* Register preprocessor built-ins before calls to
      cpp_main_file.  */

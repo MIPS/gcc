@@ -135,35 +135,7 @@ toc_section ()						\
 
 #define READONLY_DATA_SECTION read_only_data_section
 
-/* Select the section for an initialized data object.
-
-   On the RS/6000, we have a special section for all variables except those
-   that are static.  */
-
-#define SELECT_SECTION(EXP,RELOC,ALIGN)			\
-{							\
-  if ((TREE_CODE (EXP) == STRING_CST			\
-       && ! flag_writable_strings)			\
-      || (TREE_CODE_CLASS (TREE_CODE (EXP)) == 'd'	\
-	  && TREE_READONLY (EXP) && ! TREE_THIS_VOLATILE (EXP) \
-	  && DECL_INITIAL (EXP)				\
-	  && (DECL_INITIAL (EXP) == error_mark_node	\
-	      || TREE_CONSTANT (DECL_INITIAL (EXP)))	\
-	  && ! (RELOC)))				\
-    {							\
-      if (TREE_PUBLIC (EXP))				\
-        read_only_data_section ();			\
-      else						\
-        read_only_private_data_section ();		\
-    }							\
-  else							\
-    {							\
-      if (TREE_PUBLIC (EXP))				\
-        data_section ();				\
-      else						\
-        private_data_section ();			\
-    }							\
-}
+#define TARGET_ASM_SELECT_SECTION  rs6000_xcoff_select_section
 
 /* Return non-zero if this entry is to be written into the constant
    pool in a special way.  We do so if this is a SYMBOL_REF, LABEL_REF
@@ -189,29 +161,8 @@ toc_section ()						\
 	       || (GET_MODE_CLASS (GET_MODE (X)) == MODE_FLOAT		\
 		   && ! TARGET_NO_FP_IN_TOC)))))
 
-/* Select section for constant in constant pool.
-
-   On RS/6000, all constants are in the private read-only data area.
-   However, if this is being placed in the TOC it must be output as a
-   toc entry.  */
-
-#define SELECT_RTX_SECTION(MODE, X, ALIGN)		\
-{ if (ASM_OUTPUT_SPECIAL_POOL_ENTRY_P (X, MODE))	\
-    toc_section ();					\
-  else							\
-    read_only_private_data_section ();			\
-}
-
-/* If we are referencing a function that is static or is known to be
-   in this file, make the SYMBOL_REF special.  We can use this to indicate
-   that we can branch to this function without emitting a no-op after the
-   call.  Do not set this flag if the function is weakly defined.  */
-
-#define ENCODE_SECTION_INFO(DECL, FIRST)		\
-  if (TREE_CODE (DECL) == FUNCTION_DECL			\
-      && !TREE_PUBLIC (DECL)				\
-      && !DECL_WEAK (DECL))				\
-    SYMBOL_REF_FLAG (XEXP (DECL_RTL (DECL), 0)) = 1;
+#define TARGET_ASM_SELECT_RTX_SECTION  rs6000_xcoff_select_rtx_section
+#define TARGET_ENCODE_SECTION_INFO rs6000_xcoff_encode_section_info
 
 /* FP save and restore routines.  */
 #define	SAVE_FP_PREFIX "._savef"
@@ -468,20 +419,7 @@ toc_section ()						\
 #define DATA_SECTION_ASM_OP "\t.csect .data[RW],3"
 
 /* Define unique section name -- functions only.  */
-#define UNIQUE_SECTION(DECL,RELOC)			\
-  do {							\
-    int len;						\
-    const char *name;					\
-    char *string;					\
-							\
-    if (TREE_CODE (DECL) == FUNCTION_DECL) {		\
-      name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (DECL)); \
-      len = strlen (name) + 5;				\
-      string = alloca (len + 1);			\
-      sprintf (string, ".%s[PR]", name);		\
-      DECL_SECTION_NAME (DECL) = build_string (len, string); \
-    }							\
-  } while (0)
+#define TARGET_ASM_UNIQUE_SECTION  rs6000_xcoff_unique_section
 
 /* Switch into a generic section.  */
 #define TARGET_ASM_NAMED_SECTION  xcoff_asm_named_section

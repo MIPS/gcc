@@ -74,6 +74,9 @@ static int    m32r_sched_reorder   PARAMS ((FILE *, int, rtx *, int *, int));
 static int    m32r_variable_issue  PARAMS ((FILE *, int, rtx, int));
 static int    m32r_issue_rate	   PARAMS ((void));
 
+static void m32r_select_section PARAMS ((tree, int, unsigned HOST_WIDE_INT));
+static void m32r_encode_section_info PARAMS ((tree, int));
+
 
 /* Initialize the GCC target structure.  */
 #undef TARGET_ATTRIBUTE_TABLE
@@ -101,6 +104,9 @@ static int    m32r_issue_rate	   PARAMS ((void));
 #define TARGET_SCHED_INIT m32r_sched_init
 #undef TARGET_SCHED_REORDER
 #define TARGET_SCHED_REORDER m32r_sched_reorder
+
+#undef TARGET_ENCODE_SECTION_INFO
+#define TARGET_ENCODE_SECTION_INFO m32r_encode_section_info
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -320,15 +326,16 @@ m32r_handle_model_attribute (node, name, args, flags, no_add_attrs)
    or a constant of some sort.  RELOC indicates whether forming
    the initial value of DECL requires link-time relocations.  */
 
-void
-m32r_select_section (decl, reloc)
+static void
+m32r_select_section (decl, reloc, align)
      tree decl;
      int reloc;
+     unsigned HOST_WIDE_INT align ATTRIBUTE_UNUSED;
 {
   if (TREE_CODE (decl) == STRING_CST)
     {
       if (! flag_writable_strings)
-	const_section ();
+	readonly_data_section ();
       else
 	data_section ();
     }
@@ -344,10 +351,10 @@ m32r_select_section (decl, reloc)
 		   && !TREE_CONSTANT (DECL_INITIAL (decl))))
 	data_section ();
       else
-	const_section ();
+	readonly_data_section ();
     }
   else
-    const_section ();
+    readonly_data_section ();
 }
 
 /* Encode section information of DECL, which is either a VAR_DECL,
@@ -365,7 +372,7 @@ m32r_select_section (decl, reloc)
      large: prefixed with LARGE_FLAG_CHAR
 */
 
-void
+static void
 m32r_encode_section_info (decl, first)
      tree decl;
      int first;

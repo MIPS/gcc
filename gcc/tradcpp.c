@@ -103,10 +103,6 @@ int warn_comments;
 
 int no_output;
 
-/* Value of __USER_LABEL_PREFIX__.  Target-dependent, also controlled
-   by -f(no-)leading-underscore.  */
-static const char *user_label_prefix;
-
 /* I/O buffer structure.
    The `fname' field is nonzero for source files and #include files
    and for the dummy text used for -D and -U.
@@ -631,18 +627,15 @@ main (argc, argv)
 	break;
 
       case 'f':
-	if (!strcmp (argv[i], "-fleading-underscore"))
-	  user_label_prefix = "_";
-	else if (!strcmp (argv[i], "-fno-leading-underscore"))
-	  user_label_prefix = "";
-	else if (!strcmp (argv[i], "-fsigned-char"))
+	if (!strcmp (argv[i], "-fsigned-char"))
 	  flag_signed_char = 1;
 	else if (!strcmp (argv[i], "-funsigned-char"))
 	  flag_signed_char = 0;
 	break;
 
-	/* Ignore target-specific flags.  */
+	/* Ignore target-specific and optimization flags.  */
       case 'm':
+      case 'O':
 	break;
 
       case 'M':
@@ -810,9 +803,6 @@ main (argc, argv)
   if (print_deps == 0
       && (deps_missing_files || deps_file || print_deps_phony_targets))
     fatal ("you must additionally specify either -M or -MM");
-
-  if (user_label_prefix == 0)
-    user_label_prefix = USER_LABEL_PREFIX;
 
   if (print_deps)
     {
@@ -5134,8 +5124,9 @@ dump_arg_n (defn, argnum)
 #define DSC(x) U x, sizeof x - 1
 #define install_spec(name, type) \
  install(DSC(name), type, -1);
-#define install_value(name, val) \
- hp = install(DSC(name), T_CONST, -1); hp->value.cpval = val;
+#define install_value(name, val) do { \
+ hp = install(DSC(name), T_CONST, -1); hp->value.cpval = val; \
+} while (0)
 static void
 initialize_builtins ()
 {
@@ -5148,21 +5139,6 @@ initialize_builtins ()
   install_spec ("__VERSION__",       T_VERSION);
   install_spec ("__INCLUDE_LEVEL__", T_INCLUDE_LEVEL);
   install_spec ("__LINE__",          T_SPECLINE);
-
-#ifndef NO_BUILTIN_SIZE_TYPE
-  install_value ("__SIZE_TYPE__",         SIZE_TYPE);
-#endif
-#ifndef NO_BUILTIN_PTRDIFF_TYPE
-  install_value ("__PTRDIFF_TYPE__",      PTRDIFF_TYPE);
-#endif
-#ifndef NO_BUILTIN_WCHAR_TYPE
-  install_value ("__WCHAR_TYPE__",        WCHAR_TYPE);
-#endif
-#ifndef NO_BUILTIN_WINT_TYPE
-  install_value ("__WINT_TYPE__",         WINT_TYPE);
-#endif
-  install_value ("__REGISTER_PREFIX__",   REGISTER_PREFIX);
-  install_value ("__USER_LABEL_PREFIX__", user_label_prefix);
 
   if (flag_signed_char == 0)
     install_value ("__CHAR_UNSIGNED__", "1");

@@ -169,7 +169,6 @@ extern struct rtx_def *mips_load_reg4;	/* 4th reg to check for load delay */
 extern int mips_string_length;		/* length of strings for mips16 */
 
 /* Functions to change what output section we are using.  */
-extern void		rdata_section PARAMS ((void));
 extern void		sdata_section PARAMS ((void));
 extern void		sbss_section PARAMS ((void));
 
@@ -1013,11 +1012,6 @@ extern int mips_abi;
 
 /* Preprocessor specs.  */
 
-/* SUBTARGET_CPP_SIZE_SPEC defines SIZE_TYPE and PTRDIFF_TYPE.  It may
-   be overridden by subtargets.  */
-
-#ifndef SUBTARGET_CPP_SIZE_SPEC
-
 /* Rules for SIZE_TYPE and PTRDIFF_TYPE are:
 
    both gp64 and long64 (not the options, but the corresponding flags,
@@ -1043,20 +1037,6 @@ extern int mips_abi;
 /* 32-bit cases first.  */
 
 #if MIPS_ABI_DEFAULT == ABI_EABI
-#define SUBTARGET_CPP_SIZE_SPEC "\
-%{mabi=eabi|!mabi=*:\
-  %{mips1|mips2|mips32|mgp32|mlong32: \
-    -D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int} \
-  %{!mips1:%{!mips2:%{!mips32:%{!mgp32:%{!mlong32: \
-    %{mips3|mips4|mips5|mips64|mgp64: \
-      -D__SIZE_TYPE__=long\\ unsigned\\ int -D__PTRDIFF_TYPE__=long\\ int} \
-    %{!mips3:%{!mips4:%{!mips5:%{!mips64:%{!mgp64: \
-      -D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int}}}}}}}}}}} \
-%{mabi=o64:\
- %{!mgp64|!-mlong64:-D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int} \
- %{mgp64:%{mlong64:-D__SIZE_TYPE__=long\\ unsigned\\ int -D__PTRDIFF_TYPE__=long\\ int}}} \
-%{mabi=32:-D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int} \
-"
 #define LONG_MAX_SPEC "\
 %{mlong64:-D__LONG_MAX__=9223372036854775807L}\
 %{!mlong64:\
@@ -1073,60 +1053,6 @@ extern int mips_abi;
   %{!mips1:%{!mips2:%{!mips32:%{!mgp32:%{!mlong32: \
     %{mips3|mips4|mips5|mips64|mgp64: \
       -D__LONG_MAX__=9223372036854775807L}}}}}}}} \
-"
-#endif
-
-#if MIPS_ABI_DEFAULT == ABI_O64
-#define SUBTARGET_CPP_SIZE_SPEC "\
-%{mabi=eabi:\
-  %{mips1|mips2|mips32|mgp32|mlong32: \
-    -D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int} \
-  %{!mips1:%{!mips2:%{!mips32:%{!mgp32:%{!mlong32: \
-    %{mips3|mips4|mips5|mips64|mgp64: \
-      -D__SIZE_TYPE__=long\\ unsigned\\ int -D__PTRDIFF_TYPE__=long\\ int} \
-    %{!mips3:%{!mips4:%{!mips5:%{!mips64:%{!mgp64: \
-      -D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int}}}}}}}}}}} \
-%{mabi=o64|!mabi=*:\
- %{!mgp64|!-mlong64:-D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int} \
- %{mgp64:%{mlong64:-D__SIZE_TYPE__=long\\ unsigned\\ int -D__PTRDIFF_TYPE__=long\\ int}}} \
-%{mabi=32:-D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int} \
-%{mabi=meabi:-D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int} \
-"
-#endif
-
-#if MIPS_ABI_DEFAULT == ABI_32
-#define SUBTARGET_CPP_SIZE_SPEC "\
-%{mabi=eabi:\
-  %{mips1|mips2|mips32|mgp32|mlong32: \
-    -D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int} \
-  %{!mips1:%{!mips2:%{!mips32:%{!mgp32:%{!mlong32: \
-    %{mips3|mips4|mips5|mips64|mgp64: \
-      -D__SIZE_TYPE__=long\\ unsigned\\ int -D__PTRDIFF_TYPE__=long\\ int} \
-    %{!mips3:%{!mips4:%{!mips5:%{!mips64:%{!mgp64: \
-      -D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int}}}}}}}}}}} \
-%{mabi=o64:\
- %{!mgp64|!-mlong64:-D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int} \
- %{mgp64:%{mlong64:-D__SIZE_TYPE__=long\\ unsigned\\ int -D__PTRDIFF_TYPE__=long\\ int}}} \
-%{mabi=32|!mabi=*:-D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int} \
-%{mabi=meabi:-D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int} \
-"
-#endif
-
-#if MIPS_ABI_DEFAULT == ABI_MEABI
-#define SUBTARGET_CPP_SIZE_SPEC "\
-%{mabi=eabi:\
-  %{mips1|mips2|mips32|mgp32|mlong32: \
-    -D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int} \
-  %{!mips1:%{!mips2:%{!mips32:%{!mgp32:%{!mlong32: \
-    %{mips3|mips4|mips5|mips64|mgp64: \
-      -D__SIZE_TYPE__=long\\ unsigned\\ int -D__PTRDIFF_TYPE__=long\\ int} \
-    %{!mips3:%{!mips4:%{!mips5:%{!mips64:%{!mgp64: \
-      -D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int}}}}}}}}}}} \
-%{mabi=o64:\
- %{!mgp64|!-mlong64:-D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int} \
- %{mgp64:%{mlong64:-D__SIZE_TYPE__=long\\ unsigned\\ int -D__PTRDIFF_TYPE__=long\\ int}}} \
-%{mabi=32:-D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int} \
-%{mabi=meabi|!mabi=*:-D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int} \
 "
 #endif
 
@@ -1134,18 +1060,6 @@ extern int mips_abi;
 
 /* 64-bit default ISA.  */
 #if MIPS_ABI_DEFAULT == ABI_EABI
-#define SUBTARGET_CPP_SIZE_SPEC "\
-%{mabi=eabi|!mabi=*: \
-  %{mips1|mips2|mips32|mgp32|mlong32: \
-    -D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int} \
-  %{!mips1:%{!mips2:%{!mips32:%{!mgp32:%{!mlong32: \
-    -D__SIZE_TYPE__=long\\ unsigned\\ int -D__PTRDIFF_TYPE__=long\\ int}}}}}} \
-%{mabi=o64:\
- %{mgp32|!-mlong64:-D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int} \
- %{!mgp32:%{mlong64:-D__SIZE_TYPE__=long\\ unsigned\\ int -D__PTRDIFF_TYPE__=long\\ int}}} \
-%{mabi=32:-D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int} \
-%{mabi=meabi:-D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int} \
-"
 #define LONG_MAX_SPEC "\
 %{mlong64:-D__LONG_MAX__=9223372036854775807L}\
 %{!mlong64:\
@@ -1161,53 +1075,6 @@ extern int mips_abi;
   %{!mips1:%{!mips2:%{!mips32:%{!mgp32:%{!mlong32: \
     -D__LONG_MAX__=9223372036854775807L}}}}}}}\
 "
-#endif
-
-#if MIPS_ABI_DEFAULT == ABI_O64
-#define SUBTARGET_CPP_SIZE_SPEC "\
-%{mabi=eabi: \
-  %{mips1|mips2|mips32|mgp32|mlong32: \
-    -D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int} \
-  %{!mips1:%{!mips2:%{!mips32:%{!mgp32:%{!mlong32: \
-    -D__SIZE_TYPE__=long\\ unsigned\\ int -D__PTRDIFF_TYPE__=long\\ int}}}}}} \
-%{mabi=o64|!mabi=*:\
- %{mgp32|!-mlong64:-D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int} \
- %{!mgp32:%{mlong64:-D__SIZE_TYPE__=long\\ unsigned\\ int -D__PTRDIFF_TYPE__=long\\ int}}} \
-%{mabi=32:-D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int} \
-%{mabi=meabi:-D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int} \
-"
-#endif
-
-#if MIPS_ABI_DEFAULT == ABI_32
-#define SUBTARGET_CPP_SIZE_SPEC "\
-%{mabi=eabi:\
-  %{mips1|mips2|mips32|mgp32|mlong32: \
-    -D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int} \
-  %{!mips1:%{!mips2:%{!mips32:%{!mgp32:%{!mlong32: \
-    -D__SIZE_TYPE__=long\\ unsigned\\ int -D__PTRDIFF_TYPE__=long\\ int}}}}}} \
-%{mabi=o64:\
- %{mgp32|!-mlong64:-D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int} \
- %{!mgp32:%{mlong64:-D__SIZE_TYPE__=long\\ unsigned\\ int -D__PTRDIFF_TYPE__=long\\ int}}} \
-%{mabi=32|!mabi=*:-D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int} \
-%{mabi=meabi:-D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int} \
-"
-#endif
-
-#if MIPS_ABI_DEFAULT == ABI_MEABI
-#define SUBTARGET_CPP_SIZE_SPEC "\
-%{mabi=eabi:\
-  %{mips1|mips2|mips32|mgp32|mlong32: \
-    -D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int} \
-  %{!mips1:%{!mips2:%{!mips32:%{!mgp32:%{!mlong32: \
-    -D__SIZE_TYPE__=long\\ unsigned\\ int -D__PTRDIFF_TYPE__=long\\ int}}}}}} \
-%{mabi=o64:\
- %{mgp32|!-mlong64:-D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int} \
- %{!mgp32:%{mlong64:-D__SIZE_TYPE__=long\\ unsigned\\ int -D__PTRDIFF_TYPE__=long\\ int}}} \
-%{mabi=32:-D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int} \
-%{mabi=meabi|!mabi=*:-D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int} \
-"
-#endif
-
 #endif
 
 #endif
@@ -1273,7 +1140,6 @@ extern int mips_abi;
   { "subtarget_cc1_spec", SUBTARGET_CC1_SPEC },				\
   { "cc1_cpu_spec", CC1_CPU_SPEC},                                      \
   { "subtarget_cpp_spec", SUBTARGET_CPP_SPEC },				\
-  { "subtarget_cpp_size_spec", SUBTARGET_CPP_SIZE_SPEC },		\
   { "long_max_spec", LONG_MAX_SPEC },					\
   { "cpp_fpr_spec", CPP_FPR_SPEC },					\
   { "mips_as_asm_spec", MIPS_AS_ASM_SPEC },				\
@@ -3188,53 +3054,7 @@ typedef struct mips_args {
 
 /* A C compound statement with a conditional `goto LABEL;' executed
    if X (an RTX) is a legitimate memory address on the target
-   machine for a memory operand of mode MODE.
-
-   It usually pays to define several simpler macros to serve as
-   subroutines for this one.  Otherwise it may be too complicated
-   to understand.
-
-   This macro must exist in two variants: a strict variant and a
-   non-strict one.  The strict variant is used in the reload pass.
-   It must be defined so that any pseudo-register that has not been
-   allocated a hard register is considered a memory reference.  In
-   contexts where some kind of register is required, a
-   pseudo-register with no hard register must be rejected.
-
-   The non-strict variant is used in other passes.  It must be
-   defined to accept all pseudo-registers in every context where
-   some kind of register is required.
-
-   Compiler source files that want to use the strict variant of
-   this macro define the macro `REG_OK_STRICT'.  You should use an
-   `#ifdef REG_OK_STRICT' conditional to define the strict variant
-   in that case and the non-strict variant otherwise.
-
-   Typically among the subroutines used to define
-   `GO_IF_LEGITIMATE_ADDRESS' are subroutines to check for
-   acceptable registers for various purposes (one for base
-   registers, one for index registers, and so on).  Then only these
-   subroutine macros need have two variants; the higher levels of
-   macros may be the same whether strict or not.
-
-   Normally, constant addresses which are the sum of a `symbol_ref'
-   and an integer are stored inside a `const' RTX to mark them as
-   constant.  Therefore, there is no need to recognize such sums
-   specifically as legitimate addresses.  Normally you would simply
-   recognize any `const' as legitimate.
-
-   Usually `PRINT_OPERAND_ADDRESS' is not prepared to handle
-   constant sums that are not marked with  `const'.  It assumes
-   that a naked `plus' indicates indexing.  If so, then you *must*
-   reject such naked constant sums as illegitimate addresses, so
-   that none of them will be given to `PRINT_OPERAND_ADDRESS'.
-
-   On some machines, whether a symbolic address is legitimate
-   depends on the section that the address refers to.  On these
-   machines, define the macro `ENCODE_SECTION_INFO' to store the
-   information into the `symbol_ref', and then check for it here.
-   When you see a `const', you will have to look inside it to find
-   the `symbol_ref' in order to determine the section.  */
+   machine for a memory operand of mode MODE.  */
 
 #if 1
 #define GO_PRINTF(x)	fprintf(stderr, (x))
@@ -3439,143 +3259,6 @@ typedef struct mips_args {
    You may assume that ADDR is a valid address for the machine.  */
 
 #define GO_IF_MODE_DEPENDENT_ADDRESS(ADDR,LABEL) {}
-
-
-/* Define this macro if references to a symbol must be treated
-   differently depending on something about the variable or
-   function named by the symbol (such as what section it is in).
-
-   The macro definition, if any, is executed immediately after the
-   rtl for DECL has been created and stored in `DECL_RTL (DECL)'.
-   The value of the rtl will be a `mem' whose address is a
-   `symbol_ref'.
-
-   The usual thing for this macro to do is to a flag in the
-   `symbol_ref' (such as `SYMBOL_REF_FLAG') or to store a modified
-   name string in the `symbol_ref' (if one bit is not enough
-   information).
-
-   The best way to modify the name string is by adding text to the
-   beginning, with suitable punctuation to prevent any ambiguity.
-   Allocate the new name in `saveable_obstack'.  You will have to
-   modify `ASM_OUTPUT_LABELREF' to remove and decode the added text
-   and output the name accordingly.
-
-   You can also check the information stored in the `symbol_ref' in
-   the definition of `GO_IF_LEGITIMATE_ADDRESS' or
-   `PRINT_OPERAND_ADDRESS'.
-
-   When optimizing for the $gp pointer, SYMBOL_REF_FLAG is set for all
-   small objects.
-
-   When generating embedded PIC code, SYMBOL_REF_FLAG is set for
-   symbols which are not in the .text section.
-
-   When generating mips16 code, SYMBOL_REF_FLAG is set for string
-   constants which are put in the .text section.  We also record the
-   total length of all such strings; this total is used to decide
-   whether we need to split the constant table, and need not be
-   precisely correct.
-
-   When not mips16 code nor embedded PIC, if a symbol is in a
-   gp addresable section, SYMBOL_REF_FLAG is set prevent gcc from
-   splitting the reference so that gas can generate a gp relative
-   reference.
-
-   When TARGET_EMBEDDED_DATA is set, we assume that all const
-   variables will be stored in ROM, which is too far from %gp to use
-   %gprel addressing.  Note that (1) we include "extern const"
-   variables in this, which mips_select_section doesn't, and (2) we
-   can't always tell if they're really const (they might be const C++
-   objects with non-const constructors), so we err on the side of
-   caution and won't use %gprel anyway (otherwise we'd have to defer
-   this decision to the linker/loader).  The handling of extern consts
-   is why the DECL_INITIAL macros differ from mips_select_section.
-
-   If you are changing this macro, you should look at
-   mips_select_section and see if it needs a similar change.  */
-
-#define ENCODE_SECTION_INFO(DECL, FIRST)				\
-do									\
-  {									\
-    if (TARGET_MIPS16)							\
-      {									\
-	if ((FIRST) && TREE_CODE (DECL) == STRING_CST			\
-	    && ! flag_writable_strings					\
-	    /* If this string is from a function, and the function will	\
-	       go in a gnu linkonce section, then we can't directly	\
-	       access the string.  This gets an assembler error		\
-	       "unsupported PC relative reference to different section".\
-	       If we modify SELECT_SECTION to put it in function_section\
-	       instead of text_section, it still fails because		\
-	       DECL_SECTION_NAME isn't set until assemble_start_function.\
-	       If we fix that, it still fails because strings are shared\
-	       among multiple functions, and we have cross section	\
-	       references again.  We force it to work by putting string	\
-	       addresses in the constant pool and indirecting.  */	\
-	    && (! current_function_decl					\
-		|| ! DECL_ONE_ONLY (current_function_decl)))		\
-	  {								\
-	    SYMBOL_REF_FLAG (XEXP (TREE_CST_RTL (DECL), 0)) = 1;	\
-	    mips_string_length += TREE_STRING_LENGTH (DECL);		\
-	  }								\
-      }									\
-									\
-    if (TARGET_EMBEDDED_DATA						\
-	&& (TREE_CODE (DECL) == VAR_DECL				\
-	    && TREE_READONLY (DECL) && !TREE_SIDE_EFFECTS (DECL))	\
-	    && (!DECL_INITIAL (DECL)					\
-		|| TREE_CONSTANT (DECL_INITIAL (DECL))))		\
-      {									\
-	SYMBOL_REF_FLAG (XEXP (DECL_RTL (DECL), 0)) = 0;		\
-      }									\
-									\
-    else if (TARGET_EMBEDDED_PIC)					\
-      {									\
-        if (TREE_CODE (DECL) == VAR_DECL)				\
-	  SYMBOL_REF_FLAG (XEXP (DECL_RTL (DECL), 0)) = 1;		\
-        else if (TREE_CODE (DECL) == FUNCTION_DECL)			\
-	  SYMBOL_REF_FLAG (XEXP (DECL_RTL (DECL), 0)) = 0;		\
-	else if (TREE_CODE (DECL) == STRING_CST				\
-		 && ! flag_writable_strings)				\
-	  SYMBOL_REF_FLAG (XEXP (TREE_CST_RTL (DECL), 0)) = 0;		\
-        else								\
-	  SYMBOL_REF_FLAG (XEXP (TREE_CST_RTL (DECL), 0)) = 1;		\
-      }									\
-									\
-    else if (TREE_CODE (DECL) == VAR_DECL				\
-             && DECL_SECTION_NAME (DECL) != NULL_TREE                   \
-             && (0 == strcmp (TREE_STRING_POINTER (DECL_SECTION_NAME (DECL)), \
-                              ".sdata")                                 \
-                || 0 == strcmp (TREE_STRING_POINTER (DECL_SECTION_NAME (DECL)),\
-                              ".sbss")))                                \
-      {									\
-        SYMBOL_REF_FLAG (XEXP (DECL_RTL (DECL), 0)) = 1;		\
-      }									\
-									\
-    /* We can not perform GP optimizations on variables which are in	\
-       specific sections, except for .sdata and .sbss which are		\
-       handled above.  */						\
-    else if (TARGET_GP_OPT && TREE_CODE (DECL) == VAR_DECL		\
-	     && DECL_SECTION_NAME (DECL) == NULL_TREE			\
-	     && ! (TARGET_MIPS16 && TREE_PUBLIC (DECL)			\
-		   && (DECL_COMMON (DECL)				\
-		       || DECL_ONE_ONLY (DECL)				\
-		       || DECL_WEAK (DECL))))				\
-      {									\
-	int size = int_size_in_bytes (TREE_TYPE (DECL));		\
-									\
-	if (size > 0 && size <= mips_section_threshold)			\
-	  SYMBOL_REF_FLAG (XEXP (DECL_RTL (DECL), 0)) = 1;		\
-      }									\
-									\
-    else if (HALF_PIC_P ())						\
-      {									\
-	if (FIRST)							\
-          HALF_PIC_ENCODE (DECL);					\
-      }									\
-  }									\
-while (0)
 
 /* This handles the magic '..CURRENT_FUNCTION' symbol, which means
    'the start of the function that this code is output in'.  */
@@ -4517,12 +4200,7 @@ while (0)
 
 /* A C compound statement to output to stdio stream STREAM the
    assembler syntax for an instruction operand that is a memory
-   reference whose address is ADDR.  ADDR is an RTL expression.
-
-   On some machines, the syntax for a symbolic address depends on
-   the section that the address refers to.  On these machines,
-   define the macro `ENCODE_SECTION_INFO' to store the information
-   into the `symbol_ref', and then check for it here.  */
+   reference whose address is ADDR.  ADDR is an RTL expression.  */
 
 #define PRINT_OPERAND_ADDRESS(FILE, ADDR) print_operand_address (FILE, ADDR)
 
@@ -4667,7 +4345,7 @@ while (0)
 	if (TREE_PUBLIC (DECL) && DECL_NAME (DECL))			\
 	  ASM_GLOBALIZE_LABEL (STREAM, NAME);				\
 	    								\
-	READONLY_DATA_SECTION ();					\
+	readonly_data_section ();					\
 	ASM_OUTPUT_ALIGN (STREAM, floor_log2 (ALIGN / BITS_PER_UNIT));	\
 	mips_declare_object (STREAM, NAME, "", ":\n\t.space\t%u\n",	\
 	    (SIZE));							\
@@ -4809,7 +4487,7 @@ do {									\
 {									\
   const char *p = STRING;						\
   int size = strlen (p) + 1;						\
-  rdata_section ();							\
+  readonly_data_section ();						\
   assemble_string (p, size);						\
 }
 
@@ -4822,15 +4500,13 @@ do {									\
 #define TEXT_SECTION_ASM_OP	"\t.text"	/* instructions */
 #define DATA_SECTION_ASM_OP	"\t.data"	/* large data */
 #define SDATA_SECTION_ASM_OP	"\t.sdata"	/* small data */
-#define RDATA_SECTION_ASM_OP	"\t.rdata"	/* read-only data */
-#undef READONLY_DATA_SECTION
-#define READONLY_DATA_SECTION	rdata_section
+#define READONLY_DATA_SECTION_ASM_OP	"\t.rdata"	/* read-only data */
 #define SMALL_DATA_SECTION	sdata_section
 
 /* What other sections we support other than the normal .data/.text.  */
 
 #undef EXTRA_SECTIONS
-#define EXTRA_SECTIONS in_sdata, in_rdata
+#define EXTRA_SECTIONS in_sdata
 
 /* Define the additional functions to select our additional sections.  */
 
@@ -4852,29 +4528,13 @@ sdata_section ()							\
       fprintf (asm_out_file, "%s\n", SDATA_SECTION_ASM_OP);		\
       in_section = in_sdata;						\
     }									\
-}									\
-									\
-void									\
-rdata_section ()							\
-{									\
-  if (in_section != in_rdata)						\
-    {									\
-      fprintf (asm_out_file, "%s\n", RDATA_SECTION_ASM_OP);		\
-      in_section = in_rdata;						\
-    }									\
 }
 
 /* Given a decl node or constant node, choose the section to output it in
    and select that section.  */
 
-#undef SELECT_RTX_SECTION
-#define SELECT_RTX_SECTION(MODE, RTX, ALIGN) \
-  mips_select_rtx_section (MODE, RTX)
-
-#undef SELECT_SECTION
-#define SELECT_SECTION(DECL, RELOC, ALIGN) \
-  mips_select_section (DECL, RELOC)
-
+#undef  TARGET_ASM_SELECT_SECTION
+#define TARGET_ASM_SELECT_SECTION  mips_select_section
 
 /* Store in OUTPUT a string (made with alloca) containing
    an assembler-name for a local static variable named NAME.
@@ -4940,12 +4600,10 @@ while (0)
 /* Default definitions for size_t and ptrdiff_t.  */
 
 #ifndef SIZE_TYPE
-#define NO_BUILTIN_SIZE_TYPE
 #define SIZE_TYPE (Pmode == DImode ? "long unsigned int" : "unsigned int")
 #endif
 
 #ifndef PTRDIFF_TYPE
-#define NO_BUILTIN_PTRDIFF_TYPE
 #define PTRDIFF_TYPE (Pmode == DImode ? "long int" : "int")
 #endif
 

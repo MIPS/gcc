@@ -44,9 +44,6 @@ extern const char * const *h8_reg_names;
 
 #define CPP_SPEC \
   "%{!mh:%{!ms:-D__H8300__}} %{mh:-D__H8300H__} %{ms:-D__H8300S__} \
-   %{!mh:%{!ms:-D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int}} \
-   %{mh:-D__SIZE_TYPE__=unsigned\\ long -D__PTRDIFF_TYPE__=long} \
-   %{ms:-D__SIZE_TYPE__=unsigned\\ long -D__PTRDIFF_TYPE__=long} \
    %{!mh:%{!ms:-Acpu=h8300 -Amachine=h8300}} \
    %{mh:-Acpu=h8300h -Amachine=h8300h} \
    %{ms:-Acpu=h8300s -Amachine=h8300s} \
@@ -974,8 +971,6 @@ struct cum_arg
 /* ANSI C types.
    We use longs for the 300H because ints can be 16 or 32.
    GCC requires SIZE_TYPE to be the same size as pointers.  */
-#define NO_BUILTIN_SIZE_TYPE
-#define NO_BUILTIN_PTRDIFF_TYPE
 #define SIZE_TYPE (TARGET_H8300 ? "unsigned int" : "long unsigned int")
 #define PTRDIFF_TYPE (TARGET_H8300 ? "int" : "long int")
 
@@ -1067,34 +1062,11 @@ struct cum_arg
 /* The assembler op to get a word, 2 bytes for the H8/300, 4 for H8/300H.  */
 #define ASM_WORD_OP	(TARGET_H8300 ? "\t.word\t" : "\t.long\t")
 
-/* We define a readonly data section solely to remove readonly data
-   from the instruction stream.  This can improve relaxing in two significant
-   ways.  First it's more likely that references to readonly data
-   can be done with a 16bit absolute address since they'll be in low
-   memory.  Second, it's more likely that jsr instructions can be
-   turned into bsr instructions since read-only data is not in the
-   instruction stream.  */
-#define READONLY_DATA_SECTION readonly_data
-
 #define TEXT_SECTION_ASM_OP "\t.section .text"
 #define DATA_SECTION_ASM_OP "\t.section .data"
 #define BSS_SECTION_ASM_OP "\t.section .bss"
 #define INIT_SECTION_ASM_OP "\t.section .init"
 #define READONLY_DATA_SECTION_ASM_OP "\t.section .rodata"
-
-#define EXTRA_SECTIONS in_readonly_data
-
-#define EXTRA_SECTION_FUNCTIONS						\
-extern void readonly_data PARAMS ((void));				\
-void									\
-readonly_data ()							\
-{									\
-  if (in_section != in_readonly_data)					\
-    {									\
-      fprintf (asm_out_file, "%s\n", READONLY_DATA_SECTION_ASM_OP);	\
-      in_section = in_readonly_data;					\
-    }									\
-}
 
 #undef DO_GLOBAL_CTORS_BODY
 #define DO_GLOBAL_CTORS_BODY			\
@@ -1124,24 +1096,8 @@ readonly_data ()							\
 
 #define TINY_DATA_NAME_P(NAME) (*(NAME) == '&')
 
-/* If we are referencing a function that is supposed to be called
-   through the function vector, the SYMBOL_REF_FLAG in the rtl
-   so the call patterns can generate the correct code.  */
-#define ENCODE_SECTION_INFO(DECL, FIRST)			\
-  if (TREE_CODE (DECL) == FUNCTION_DECL				\
-      && h8300_funcvec_function_p (DECL))			\
-    SYMBOL_REF_FLAG (XEXP (DECL_RTL (DECL), 0)) = 1;		\
-  else if (TREE_CODE (DECL) == VAR_DECL				\
-	   && (TREE_STATIC (DECL) || DECL_EXTERNAL (DECL))	\
-	   && h8300_eightbit_data_p (DECL))			\
-    SYMBOL_REF_FLAG (XEXP (DECL_RTL (DECL), 0)) = 1;		\
-  else if ((FIRST) && TREE_CODE (DECL) == VAR_DECL		\
-	   && (TREE_STATIC (DECL) || DECL_EXTERNAL (DECL))	\
-	   && h8300_tiny_data_p (DECL))				\
-    h8300_encode_label (DECL);
-
 /* Store the user-specified part of SYMBOL_NAME in VAR.
-   This is sort of inverse to ENCODE_SECTION_INFO.  */
+   This is sort of inverse to targetm.encode_section_info.  */
 #define STRIP_NAME_ENCODING(VAR, SYMBOL_NAME)		\
   (VAR) = (SYMBOL_NAME) + ((SYMBOL_NAME)[0] == '*'	\
 			   || (SYMBOL_NAME)[0] == '@'	\

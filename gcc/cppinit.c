@@ -391,7 +391,6 @@ merge_include_chains (pfile)
 struct lang_flags
 {
   char c99;
-  char objc;
   char cplusplus;
   char extended_numbers;
   char trigraphs;
@@ -402,17 +401,15 @@ struct lang_flags
 
 /* ??? Enable $ in identifiers in assembly? */
 static const struct lang_flags lang_defaults[] =
-{ /*              c99 objc c++ xnum trig dollar c++comm digr  */
-  /* GNUC89 */  { 0,  0,   0,  1,   0,   1,     1,      1     },
-  /* GNUC99 */  { 1,  0,   0,  1,   0,   1,     1,      1     },
-  /* STDC89 */  { 0,  0,   0,  0,   1,   0,     0,      0     },
-  /* STDC94 */  { 0,  0,   0,  0,   1,   0,     0,      1     },
-  /* STDC99 */  { 1,  0,   0,  1,   1,   0,     1,      1     },
-  /* GNUCXX */  { 0,  0,   1,  1,   0,   1,     1,      1     },
-  /* CXX98  */  { 0,  0,   1,  1,   1,   0,     1,      1     },
-  /* OBJC   */  { 0,  1,   0,  1,   0,   1,     1,      1     },
-  /* OBJCXX */  { 0,  1,   1,  1,   0,   1,     1,      1     },
-  /* ASM    */  { 0,  0,   0,  1,   0,   0,     1,      0     }
+{ /*              c99 c++ xnum trig dollar c++comm digr  */
+  /* GNUC89 */  { 0,  0,  1,   0,   1,     1,      1     },
+  /* GNUC99 */  { 1,  0,  1,   0,   1,     1,      1     },
+  /* STDC89 */  { 0,  0,  0,   1,   0,     0,      0     },
+  /* STDC94 */  { 0,  0,  0,   1,   0,     0,      1     },
+  /* STDC99 */  { 1,  0,  1,   1,   0,     1,      1     },
+  /* GNUCXX */  { 0,  1,  1,   0,   1,     1,      1     },
+  /* CXX98  */  { 0,  1,  1,   1,   0,     1,      1     },
+  /* ASM    */  { 0,  0,  1,   0,   0,     1,      0     }
 };
 
 /* Sets internal flags correctly for a given language.  */
@@ -426,7 +423,6 @@ set_lang (pfile, lang)
   CPP_OPTION (pfile, lang) = lang;
 
   CPP_OPTION (pfile, c99)		 = l->c99;
-  CPP_OPTION (pfile, objc)		 = l->objc;
   CPP_OPTION (pfile, cplusplus)		 = l->cplusplus;
   CPP_OPTION (pfile, extended_numbers)	 = l->extended_numbers;
   CPP_OPTION (pfile, trigraphs)		 = l->trigraphs;
@@ -514,7 +510,7 @@ cpp_create_reader (lang)
   /* Initialise the line map.  Start at logical line 1, so we can use
      a line number of zero for special states.  */
   init_line_maps (&pfile->line_maps);
-  pfile->line = 1;
+  pfile->trad_line = pfile->line = 1;
 
   /* Initialize lexer state.  */
   pfile->state.save_comments = ! CPP_OPTION (pfile, discard_comments);
@@ -569,6 +565,9 @@ cpp_destroy (pfile)
   while (CPP_BUFFER (pfile) != NULL)
     _cpp_pop_buffer (pfile);
 
+  if (pfile->trad_out_base)
+    free (pfile->trad_out_base);
+
   if (pfile->macro_buffer)
     {
       free ((PTR) pfile->macro_buffer);
@@ -615,39 +614,28 @@ cpp_destroy (pfile)
   return result;
 }
 
-
 /* This structure defines one built-in identifier.  A node will be
-   entered in the hash table under the name NAME, with value VALUE (if
-   any).  If flags has OPERATOR, the node's operator field is used; if
-   flags has BUILTIN the node's builtin field is used.  Macros that are
-   known at build time should not be flagged BUILTIN, as then they do
-   not appear in macro dumps with e.g. -dM or -dD.
+   entered in the hash table under the name NAME, with value VALUE.
 
-   Two values are not compile time constants, so we tag
-   them in the FLAGS field instead:
-   VERS		value is the global version_string, quoted
-   ULP		value is the global user_label_prefix
+   There are two tables of these.  builtin_array holds all the
+   "builtin" macros: these are handled by builtin_macro() in
+   cppmacro.c.  Builtin is somewhat of a misnomer -- the property of
+   interest is that these macros require special code to compute their
+   expansions.  The value is a "builtin_type" enumerator.
 
-   Also, macros with CPLUS set in the flags field are entered only for C++.  */
+   operator_array holds the C++ named operators.  These are keywords
+   which act as aliases for punctuators.  In C++, they cannot be
+   altered through #define, and #if recognizes them as operators.  In
+   C, these are not entered into the hash table at all (but see
+   <iso646.h>).  The value is a token-type enumerator.  */
 struct builtin
 {
   const uchar *name;
-  const char *value;
-  unsigned char builtin;
-  unsigned char operator;
-  unsigned short flags;
   unsigned short len;
+  unsigned short value;
 };
-#define VERS		0x01
-#define ULP		0x02
-#define CPLUS		0x04
-#define BUILTIN		0x08
-#define OPERATOR  	0x10
 
-#define B(n, t)       { U n, 0, t, 0, BUILTIN, sizeof n - 1 }
-#define C(n, v)       { U n, v, 0, 0, 0, sizeof n - 1 }
-#define X(n, f)       { U n, 0, 0, 0, f, sizeof n - 1 }
-#define O(n, c, f)    { U n, 0, 0, c, OPERATOR | f, sizeof n - 1 }
+#define B(n, t)    { DSC(n), t }
 static const struct builtin builtin_array[] =
 {
   B("__TIME__",		 BT_TIME),
@@ -657,50 +645,24 @@ static const struct builtin builtin_array[] =
   B("__LINE__",		 BT_SPECLINE),
   B("__INCLUDE_LEVEL__", BT_INCLUDE_LEVEL),
   B("_Pragma",		 BT_PRAGMA),
-
-  X("__VERSION__",		VERS),
-  X("__USER_LABEL_PREFIX__",	ULP),
-  C("__REGISTER_PREFIX__",	REGISTER_PREFIX),
-  C("__HAVE_BUILTIN_SETJMP__",	"1"),
-#ifndef NO_BUILTIN_SIZE_TYPE
-  C("__SIZE_TYPE__",		SIZE_TYPE),
-#endif
-#ifndef NO_BUILTIN_PTRDIFF_TYPE
-  C("__PTRDIFF_TYPE__",		PTRDIFF_TYPE),
-#endif
-#ifndef NO_BUILTIN_WCHAR_TYPE
-  C("__WCHAR_TYPE__",		WCHAR_TYPE),
-#endif
-#ifndef NO_BUILTIN_WINT_TYPE
-  C("__WINT_TYPE__",		WINT_TYPE),
-#endif
-#ifdef STDC_0_IN_SYSTEM_HEADERS
   B("__STDC__",		 BT_STDC),
-#else
-  C("__STDC__",		 "1"),
-#endif
+};
 
-  /* Named operators known to the preprocessor.  These cannot be #defined
-     and always have their stated meaning.  They are treated like normal
-     identifiers except for the type code and the meaning.  Most of them
-     are only for C++ (but see iso646.h).  */
-  O("and",	CPP_AND_AND, CPLUS),
-  O("and_eq",	CPP_AND_EQ,  CPLUS),
-  O("bitand",	CPP_AND,     CPLUS),
-  O("bitor",	CPP_OR,      CPLUS),
-  O("compl",	CPP_COMPL,   CPLUS),
-  O("not",	CPP_NOT,     CPLUS),
-  O("not_eq",	CPP_NOT_EQ,  CPLUS),
-  O("or",	CPP_OR_OR,   CPLUS),
-  O("or_eq",	CPP_OR_EQ,   CPLUS),
-  O("xor",	CPP_XOR,     CPLUS),
-  O("xor_eq",	CPP_XOR_EQ,  CPLUS)
+static const struct builtin operator_array[] =
+{
+  B("and",	CPP_AND_AND),
+  B("and_eq",	CPP_AND_EQ),
+  B("bitand",	CPP_AND),
+  B("bitor",	CPP_OR),
+  B("compl",	CPP_COMPL),
+  B("not",	CPP_NOT),
+  B("not_eq",	CPP_NOT_EQ),
+  B("or",	CPP_OR_OR),
+  B("or_eq",	CPP_OR_EQ),
+  B("xor",	CPP_XOR),
+  B("xor_eq",	CPP_XOR_EQ)
 };
 #undef B
-#undef C
-#undef X
-#undef O
-#define builtin_array_end (builtin_array + ARRAY_SIZE (builtin_array))
 
 /* Subroutine of cpp_read_main_file; reads the builtins table above and
    enters them, and language-specific macros, into the hash table.  */
@@ -710,55 +672,25 @@ init_builtins (pfile)
 {
   const struct builtin *b;
 
-  for(b = builtin_array; b < builtin_array_end; b++)
+  for(b = builtin_array;
+      b < (builtin_array + ARRAY_SIZE (builtin_array));
+      b++)
     {
-      if ((b->flags & CPLUS) && ! CPP_OPTION (pfile, cplusplus))
-	continue;
-
-      if ((b->flags & OPERATOR) && ! CPP_OPTION (pfile, operator_names))
-	continue;
-
-      if (b->flags & (OPERATOR | BUILTIN))
-	{
-	  cpp_hashnode *hp = cpp_lookup (pfile, b->name, b->len);
-	  if (b->flags & OPERATOR)
-	    {
-	      hp->flags |= NODE_OPERATOR;
-	      hp->value.operator = b->operator;
-	    }
-	  else
-	    {
-	      hp->type = NT_MACRO;
-	      hp->flags |= NODE_BUILTIN | NODE_WARN;
-	      hp->value.builtin = b->builtin;
-	    }
-	}
-      else			/* A standard macro of some kind.  */
-	{
-	  const char *val;
-	  char *str;
-
-	  if (b->flags & VERS)
-	    {
-	      /* Allocate enough space for 'name "value"\n\0'.  */
-	      str = alloca (b->len + strlen (version_string) + 5);
-	      sprintf (str, "%s \"%s\"\n", b->name, version_string);
-	    }
-	  else
-	    {
-	      if (b->flags & ULP)
-		val = CPP_OPTION (pfile, user_label_prefix);
-	      else
-		val = b->value;
-
-	      /* Allocate enough space for "name value\n\0".  */
-	      str = alloca (b->len + strlen (val) + 3);
-	      sprintf(str, "%s %s\n", b->name, val);
-	    }
-
-	  _cpp_define_builtin (pfile, str);
-	}
+      cpp_hashnode *hp = cpp_lookup (pfile, b->name, b->len);
+      hp->type = NT_MACRO;
+      hp->flags |= NODE_BUILTIN | NODE_WARN;
+      hp->value.builtin = b->value;
     }
+
+  if (CPP_OPTION (pfile, cplusplus) && CPP_OPTION (pfile, operator_names))
+    for (b = operator_array;
+	 b < (operator_array + ARRAY_SIZE (operator_array));
+	 b++)
+      {
+	cpp_hashnode *hp = cpp_lookup (pfile, b->name, b->len);
+	hp->flags |= NODE_OPERATOR;
+	hp->value.operator = b->value;
+      }
 
   if (CPP_OPTION (pfile, cplusplus))
     _cpp_define_builtin (pfile, "__cplusplus 1");
@@ -784,12 +716,6 @@ init_builtins (pfile)
   if (pfile->cb.register_builtins)
     (*pfile->cb.register_builtins) (pfile);
 }
-#undef BUILTIN
-#undef OPERATOR
-#undef VERS
-#undef ULP
-#undef CPLUS
-#undef builtin_array_end
 
 /* And another subroutine.  This one sets up the standard include path.  */
 static void
@@ -1013,6 +939,9 @@ cpp_read_main_file (pfile, fname, table)
      of the front ends.  */
   if (CPP_OPTION (pfile, preprocessed))
     read_original_filename (pfile);
+  /* Overlay an empty buffer to seed traditional preprocessing.  */
+  else if (CPP_OPTION (pfile, traditional))
+    _cpp_overlay_buffer (pfile, U"", 0);
 
   return pfile->map->to_file;
 }
@@ -1061,10 +990,12 @@ cpp_finish_options (pfile)
       struct pending_option *p;
 
       _cpp_do_file_change (pfile, LC_RENAME, _("<built-in>"), 1, 0);
-      init_builtins (pfile);
+      if (!CPP_OPTION (pfile, traditional) /* REMOVEME */)
+	init_builtins (pfile);
       _cpp_do_file_change (pfile, LC_RENAME, _("<command line>"), 1, 0);
-      for (p = CPP_OPTION (pfile, pending)->directive_head; p; p = p->next)
-	(*p->handler) (pfile, p->arg);
+      if (!CPP_OPTION (pfile, traditional) /* REMOVEME */)
+	for (p = CPP_OPTION (pfile, pending)->directive_head; p; p = p->next)
+	  (*p->handler) (pfile, p->arg);
 
       /* Scan -imacros files after -D, -U, but before -include.
 	 pfile->next_include_file is NULL, so _cpp_pop_buffer does not
@@ -1198,7 +1129,6 @@ new_pending_directive (pend, text, handler)
    "-" removed.  It must be sorted in ASCII collating order.  */
 #define COMMAND_LINE_OPTIONS                                                  \
   DEF_OPT("$",                        0,      OPT_dollar)                     \
-  DEF_OPT("+",                        0,      OPT_plus)                       \
   DEF_OPT("-help",                    0,      OPT__help)                      \
   DEF_OPT("-target-help",             0,      OPT_target__help)               \
   DEF_OPT("-version",                 0,      OPT__version)                   \
@@ -1221,8 +1151,6 @@ new_pending_directive (pend, text, handler)
   DEF_OPT("U",                        no_mac, OPT_U)                          \
   DEF_OPT("W",                        no_arg, OPT_W)  /* arg optional */      \
   DEF_OPT("d",                        no_arg, OPT_d)                          \
-  DEF_OPT("fleading-underscore",      0,      OPT_fleading_underscore)        \
-  DEF_OPT("fno-leading-underscore",   0,      OPT_fno_leading_underscore)     \
   DEF_OPT("fno-operator-names",       0,      OPT_fno_operator_names)         \
   DEF_OPT("fno-preprocessed",         0,      OPT_fno_preprocessed)           \
   DEF_OPT("fno-show-column",          0,      OPT_fno_show_column)            \
@@ -1244,7 +1172,6 @@ new_pending_directive (pend, text, handler)
   DEF_OPT("lang-c++",                 0,      OPT_lang_cplusplus)             \
   DEF_OPT("lang-c89",                 0,      OPT_lang_c89)                   \
   DEF_OPT("lang-objc",                0,      OPT_lang_objc)                  \
-  DEF_OPT("lang-objc++",              0,      OPT_lang_objcplusplus)          \
   DEF_OPT("nostdinc",                 0,      OPT_nostdinc)                   \
   DEF_OPT("nostdinc++",               0,      OPT_nostdincplusplus)           \
   DEF_OPT("o",                        no_fil, OPT_o)                          \
@@ -1262,6 +1189,7 @@ new_pending_directive (pend, text, handler)
   DEF_OPT("std=iso9899:199409",       0,      OPT_std_iso9899_199409)         \
   DEF_OPT("std=iso9899:1999",         0,      OPT_std_iso9899_1999)           \
   DEF_OPT("std=iso9899:199x",         0,      OPT_std_iso9899_199x)           \
+  DEF_OPT("traditional-cpp",	      0,      OPT_traditional_cpp)            \
   DEF_OPT("trigraphs",                0,      OPT_trigraphs)                  \
   DEF_OPT("v",                        0,      OPT_v)                          \
   DEF_OPT("version",                  0,      OPT_version)                    \
@@ -1420,12 +1348,6 @@ cpp_handle_option (pfile, argc, argv, ignore)
 	{
 	case N_OPTS: /* Shut GCC up.  */
 	  break;
-	case OPT_fleading_underscore:
-	  CPP_OPTION (pfile, user_label_prefix) = "_";
-	  break;
-	case OPT_fno_leading_underscore:
-	  CPP_OPTION (pfile, user_label_prefix) = "";
-	  break;
 	case OPT_fno_operator_names:
 	  CPP_OPTION (pfile, operator_names) = 0;
 	  break;
@@ -1514,12 +1436,11 @@ cpp_handle_option (pfile, argc, argv, ignore)
 	case OPT_trigraphs:
  	  CPP_OPTION (pfile, trigraphs) = 1;
 	  break;
-	case OPT_plus:
-	  CPP_OPTION (pfile, cplusplus) = 1;
-	  CPP_OPTION (pfile, cplusplus_comments) = 1;
-	  break;
 	case OPT_remap:
 	  CPP_OPTION (pfile, remap) = 1;
+	  break;
+	case OPT_traditional_cpp:
+	  CPP_OPTION (pfile, traditional) = 1;
 	  break;
 	case OPT_iprefix:
 	  CPP_OPTION (pfile, include_prefix) = arg;
@@ -1532,10 +1453,7 @@ cpp_handle_option (pfile, argc, argv, ignore)
 	  set_lang (pfile, CLK_GNUCXX);
 	  break;
 	case OPT_lang_objc:
-	  set_lang (pfile, CLK_OBJC);
-	  break;
-	case OPT_lang_objcplusplus:
-	  set_lang (pfile, CLK_OBJCXX);
+	  CPP_OPTION (pfile, objc) = 1;
 	  break;
 	case OPT_lang_asm:
 	  set_lang (pfile, CLK_ASM);
@@ -1855,14 +1773,17 @@ cpp_post_options (pfile)
   if (CPP_OPTION (pfile, cplusplus))
     CPP_OPTION (pfile, warn_traditional) = 0;
 
-  /* Set this if it hasn't been set already.  */
-  if (CPP_OPTION (pfile, user_label_prefix) == NULL)
-    CPP_OPTION (pfile, user_label_prefix) = USER_LABEL_PREFIX;
-
   /* Permanently disable macro expansion if we are rescanning
-     preprocessed text.  */
+     preprocessed text.  Read preprocesed source in ISO mode.  */
   if (CPP_OPTION (pfile, preprocessed))
-    pfile->state.prevent_expansion = 1;
+    {
+      pfile->state.prevent_expansion = 1;
+      CPP_OPTION (pfile, traditional) = 0;
+    }
+
+  /* Traditional CPP does not accurately track column information.  */
+  if (CPP_OPTION (pfile, traditional))
+    CPP_OPTION (pfile, show_column) = 0;
 
   /* -dM makes no normal output.  This is set here so that -dM -dD
      works as expected.  */
@@ -1980,14 +1901,12 @@ Switches:\n\
   fputs (_("\
   -lang-c++                 Assume that the input sources are in C++\n\
   -lang-objc                Assume that the input sources are in ObjectiveC\n\
-  -lang-objc++              Assume that the input sources are in ObjectiveC++\n\
   -lang-asm                 Assume that the input sources are in assembler\n\
 "), stdout);
   fputs (_("\
   -std=<std name>           Specify the conformance standard; one of:\n\
                             gnu89, gnu99, c89, c99, iso9899:1990,\n\
                             iso9899:199409, iso9899:1999\n\
-  -+                        Allow parsing of C++ style features\n\
   -w                        Inhibit warning messages\n\
   -Wtrigraphs               Warn if trigraphs are encountered\n\
   -Wno-trigraphs            Do not warn about trigraphs\n\

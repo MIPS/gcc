@@ -234,48 +234,7 @@ Boston, MA 02111-1307, USA.  */
 
 #define EH_FRAME_IN_DATA_SECTION
 
-/* Note that there appears to be two different ways to support const
-   sections at the moment.  You can either #define the symbol
-   READONLY_DATA_SECTION (giving it some code which switches to the
-   readonly data section) or else you can #define the symbols
-   EXTRA_SECTIONS, EXTRA_SECTION_FUNCTIONS, SELECT_SECTION, and
-   SELECT_RTX_SECTION.  We do both here just to be on the safe side.  */
-
-#define USE_CONST_SECTION	1
-
-#define CONST_SECTION_ASM_OP	"\t.section\t.rdata,\"r\""
-
-/* A default list of other sections which we might be "in" at any given
-   time.  For targets that use additional sections (e.g. .tdesc) you
-   should override this definition in the target-specific file which
-   includes this file.  */
-
-#undef EXTRA_SECTIONS
-#define EXTRA_SECTIONS in_const
-
-/* A default list of extra section function definitions.  For targets
-   that use additional sections (e.g. .tdesc) you should override this
-   definition in the target-specific file which includes this file.  */
-
-#undef EXTRA_SECTION_FUNCTIONS
-#define EXTRA_SECTION_FUNCTIONS						\
-  CONST_SECTION_FUNCTION
-
-#undef READONLY_DATA_SECTION
-#define READONLY_DATA_SECTION() const_section ()
-
-#define CONST_SECTION_FUNCTION						\
-void									\
-const_section ()							\
-{									\
-  if (!USE_CONST_SECTION)						\
-    text_section();							\
-  else if (in_section != in_const)					\
-    {									\
-      fprintf (asm_out_file, "%s\n", CONST_SECTION_ASM_OP);		\
-      in_section = in_const;						\
-    }									\
-}
+#define READONLY_DATA_SECTION_ASM_OP	"\t.section\t.rdata,\"r\""
 
 /* The MS compilers take alignment as a number of bytes, so we do as well */
 #undef ASM_OUTPUT_ALIGN
@@ -346,32 +305,15 @@ while (0)
 
    stddef renaming does NOT apply to Alpha.  */
 
-union tree_node;
-const char *gen_stdcall_suffix PARAMS ((union tree_node *));
+const char *gen_stdcall_suffix PARAMS ((tree));
+void i386_interix_encode_section_info PARAMS ((tree, int));
 
-#undef ENCODE_SECTION_INFO
-#define ENCODE_SECTION_INFO(DECL, FIRST)				\
-do 									\
-  {									\
-    if (flag_pic)							\
-      {									\
-	rtx rtl = (TREE_CODE_CLASS (TREE_CODE (DECL)) != 'd'		\
-		   ? TREE_CST_RTL (DECL) : DECL_RTL (DECL));		\
-	SYMBOL_REF_FLAG (XEXP (rtl, 0))					\
-	  = (TREE_CODE_CLASS (TREE_CODE (DECL)) != 'd'			\
-	     || ! TREE_PUBLIC (DECL));					\
-      }									\
-    if ((FIRST) && TREE_CODE (DECL) == FUNCTION_DECL) 			\
-      if (lookup_attribute ("stdcall",					\
-			    TYPE_ATTRIBUTES (TREE_TYPE (DECL))))	\
-        XEXP (DECL_RTL (DECL), 0) = 					\
-          gen_rtx (SYMBOL_REF, Pmode, gen_stdcall_suffix (DECL)); 	\
-  }									\
-while (0)
+#undef TARGET_ENCODE_SECTION_INFO
+#define TARGET_ENCODE_SECTION_INFO i386_interix_encode_section_info
 
 /* This macro gets just the user-specified name
    out of the string in a SYMBOL_REF.  Discard
-   trailing @[NUM] encoded by ENCODE_SECTION_INFO.  */
+   trailing @[NUM] encoded by targetm.encode_section_info.  */
 #undef  STRIP_NAME_ENCODING
 #define STRIP_NAME_ENCODING(VAR,SYMBOL_NAME)				\
 do {									\
@@ -402,8 +344,8 @@ do {									\
    symbols must be explicitly imported from shared libraries (DLLs).  */
 #define MULTIPLE_SYMBOL_SPACES
 
-extern void i386_pe_unique_section ();
-#define UNIQUE_SECTION(DECL,RELOC) i386_pe_unique_section (DECL, RELOC)
+extern void i386_pe_unique_section PARAMS ((tree, int));
+#define TARGET_ASM_UNIQUE_SECTION i386_pe_unique_section
 
 #define SUPPORTS_ONE_ONLY 1
 #endif /* 0 */

@@ -177,46 +177,6 @@ This macro is just like @code{CPP_SPEC}, but is used for C++, rather
 than C@.  If you do not define this macro, then the value of
 @code{CPP_SPEC} (if any) will be used instead.
 
-@findex NO_BUILTIN_SIZE_TYPE
-@item NO_BUILTIN_SIZE_TYPE
-If this macro is defined, the preprocessor will not define the built-in macro
-@code{__SIZE_TYPE__}.  The macro @code{__SIZE_TYPE__} must then be defined
-by @code{CPP_SPEC} instead.
-
-This should be defined if @code{SIZE_TYPE} depends on target dependent flags
-which are not accessible to the preprocessor.  Otherwise, it should not
-be defined.
-
-@findex NO_BUILTIN_PTRDIFF_TYPE
-@item NO_BUILTIN_PTRDIFF_TYPE
-If this macro is defined, the preprocessor will not define the built-in macro
-@code{__PTRDIFF_TYPE__}.  The macro @code{__PTRDIFF_TYPE__} must then be
-defined by @code{CPP_SPEC} instead.
-
-This should be defined if @code{PTRDIFF_TYPE} depends on target dependent flags
-which are not accessible to the preprocessor.  Otherwise, it should not
-be defined.
-
-@findex NO_BUILTIN_WCHAR_TYPE
-@item NO_BUILTIN_WCHAR_TYPE
-If this macro is defined, the preprocessor will not define the built-in macro
-@code{__WCHAR_TYPE__}.  The macro @code{__WCHAR_TYPE__} must then be
-defined by @code{CPP_SPEC} instead.
-
-This should be defined if @code{WCHAR_TYPE} depends on target dependent flags
-which are not accessible to the preprocessor.  Otherwise, it should not
-be defined.
-
-@findex NO_BUILTIN_WINT_TYPE
-@item NO_BUILTIN_WINT_TYPE
-If this macro is defined, the preprocessor will not define the built-in macro
-@code{__WINT_TYPE__}.  The macro @code{__WINT_TYPE__} must then be
-defined by @code{CPP_SPEC} instead.
-
-This should be defined if @code{WINT_TYPE} depends on target dependent flags
-which are not accessible to the preprocessor.  Otherwise, it should not
-be defined.
-
 @findex CC1_SPEC
 @item CC1_SPEC
 A C string constant that tells the GCC driver program options to
@@ -4807,11 +4767,11 @@ sums that are not marked with  @code{const}.  It assumes that a naked
 naked constant sums as illegitimate addresses, so that none of them will
 be given to @code{PRINT_OPERAND_ADDRESS}.
 
-@cindex @code{ENCODE_SECTION_INFO} and address validation
+@cindex @code{TARGET_ENCODE_SECTION_INFO} and address validation
 On some machines, whether a symbolic address is legitimate depends on
 the section that the address refers to.  On these machines, define the
-macro @code{ENCODE_SECTION_INFO} to store the information into the
-@code{symbol_ref}, and then check for it here.  When you see a
+target hook @code{TARGET_ENCODE_SECTION_INFO} to store the information
+into the @code{symbol_ref}, and then check for it here.  When you see a
 @code{const}, you will have to look inside it to find the
 @code{symbol_ref} in order to determine the section.  @xref{Assembler
 Format}.
@@ -5691,11 +5651,38 @@ Normally this is not needed, as simply defining @code{TEXT_SECTION_ASM_OP}
 is enough.  The MIPS port uses this to sort all functions after all data
 declarations.
 
+@findex HOT_TEXT_SECTION_NAME
+@item HOT_TEXT_SECTION_NAME
+If defined, a C string constant for the name of the section containing most
+frequently executed functions of the program.  If not defined, GCC will provide
+a default definition if the target supports named sections.
+
+@findex UNLIKELY_EXECUTED_TEXT_SECTION_NAME
+@item UNLIKELY_EXECUTED_TEXT_SECTION_NAME
+If defined, a C string constant for the name of the section containing unlikely
+executed functions in the program.
+
 @findex DATA_SECTION_ASM_OP
 @item DATA_SECTION_ASM_OP
 A C expression whose value is a string, including spacing, containing the
 assembler operation to identify the following data as writable initialized
 data.  Normally @code{"\t.data"} is right.
+
+@findex READONLY_DATA_SECTION_ASM_OP
+@item READONLY_DATA_SECTION_ASM_OP
+A C expression whose value is a string, including spacing, containing the
+assembler operation to identify the following data as read-only initialized
+data.
+
+@findex READONLY_DATA_SECTION
+@item READONLY_DATA_SECTION
+A macro naming a function to call to switch to the proper section for
+read-only data.  The default is to use @code{READONLY_DATA_SECTION_ASM_OP}
+if defined, else fall back to @code{text_section}.
+
+The most common definition will be @code{data_section}, if the target
+does not have a special read-only data section, and does not put data
+in the text section.
 
 @findex SHARED_SECTION_ASM_OP
 @item SHARED_SECTION_ASM_OP
@@ -5770,44 +5757,6 @@ functions should do jobs analogous to those of @code{text_section} and
 @code{data_section}, for your additional sections.  Do not define this
 macro if you do not define @code{EXTRA_SECTIONS}.
 
-@findex READONLY_DATA_SECTION
-@item READONLY_DATA_SECTION
-On most machines, read-only variables, constants, and jump tables are
-placed in the text section.  If this is not the case on your machine,
-this macro should be defined to be the name of a function (either
-@code{data_section} or a function defined in @code{EXTRA_SECTIONS}) that
-switches to the section to be used for read-only items.
-
-If these items should be placed in the text section, this macro should
-not be defined.
-
-@findex SELECT_SECTION
-@item SELECT_SECTION (@var{exp}, @var{reloc}, @var{align})
-A C statement or statements to switch to the appropriate section for
-output of @var{exp}.  You can assume that @var{exp} is either a
-@code{VAR_DECL} node or a constant of some sort.  @var{reloc}
-indicates whether the initial value of @var{exp} requires link-time
-relocations.  Bit 1 is set when variable contains local relocations
-only, while bit 2 is set for global relocations.
-Select the section by calling @code{text_section} or one
-of the alternatives for other sections.  @var{align} is the constant
-alignment in bits.
-
-Do not define this macro if you put all read-only variables and
-constants in the read-only data section (usually the text section).
-
-@findex SELECT_RTX_SECTION
-@item SELECT_RTX_SECTION (@var{mode}, @var{rtx}, @var{align})
-A C statement or statements to switch to the appropriate section for
-output of @var{rtx} in mode @var{mode}.  You can assume that @var{rtx}
-is some kind of constant in RTL@.  The argument @var{mode} is redundant
-except in the case of a @code{const_int} rtx.  Select the section by
-calling @code{text_section} or one of the alternatives for other
-sections.  @var{align} is the constant alignment in bits.
-
-Do not define this macro if you put all constants in the read-only
-data section.
-
 @findex JUMP_TABLES_IN_TEXT_SECTION
 @item JUMP_TABLES_IN_TEXT_SECTION
 Define this macro to be an expression with a nonzero value if jump
@@ -5817,49 +5766,77 @@ readonly data section is used.
 
 This macro is irrelevant if there is no separate readonly data section.
 
-@findex ENCODE_SECTION_INFO
-@item ENCODE_SECTION_INFO (@var{decl}, @var{new_decl_p})
-Define this macro if references to a symbol or a constant must be
-treated differently depending on something about the variable or
-function named by the symbol (such as what section it is in).
-
-The macro definition, if any, is executed under two circumstances.  One
-is immediately after the rtl for @var{decl} that represents a variable
-or a function has been created and stored in @code{DECL_RTL(@var{decl})}.
-The value of the rtl will be a @code{mem} whose address is a @code{symbol_ref}.
-The other is immediately after the rtl for @var{decl} that represents a
-constant has been created and stored in @code{TREE_CST_RTL (@var{decl})}.
-The macro is called once for each distinct constant in a source file.
-
-The @var{new_decl_p} argument will be true if this is the first time that
-@code{ENCODE_SECTION_INFO} has been invoked on this decl.  It will
-be false for subsequent invocations, which will happen for duplicate
-declarations.  Whether or not anything must be done for the duplicate
-declaration depends on whether @code{ENCODE_SECTION_INFO} examines
-@code{DECL_ATTRIBUTES}.
-
-@cindex @code{SYMBOL_REF_FLAG}, in @code{ENCODE_SECTION_INFO}
-The usual thing for this macro to do is to record a flag in the
-@code{symbol_ref} (such as @code{SYMBOL_REF_FLAG}) or to store a
-modified name string in the @code{symbol_ref} (if one bit is not
-enough information).
-
 @findex STRIP_NAME_ENCODING
 @item STRIP_NAME_ENCODING (@var{var}, @var{sym_name})
 Decode @var{sym_name} and store the real name part in @var{var}, sans
 the characters that encode section info.  Define this macro if
-@code{ENCODE_SECTION_INFO} alters the symbol's name string.
-
-@findex UNIQUE_SECTION
-@item UNIQUE_SECTION (@var{decl}, @var{reloc})
-A C statement to build up a unique section name, expressed as a
-@code{STRING_CST} node, and assign it to @samp{DECL_SECTION_NAME (@var{decl})}.
-@var{reloc} indicates whether the initial value of @var{exp} requires
-link-time relocations.  If you do not define this macro, GCC will use
-the symbol name prefixed by @samp{.} as the section name.  Note - this
-macro can now be called for uninitialized data items as well as
-initialized data and functions.
+@code{TARGET_ENCODE_SECTION_INFO} alters the symbol's name string.
 @end table
+
+@deftypefn {Target Hook} void TARGET_ASM_SELECT_SECTION (tree @var{exp}, int @var{reloc}, unsigned HOST_WIDE_INT @var{align})
+Switches to the appropriate section for output of @var{exp}.  You can
+assume that @var{exp} is either a @code{VAR_DECL} node or a constant of
+some sort.  @var{reloc} indicates whether the initial value of @var{exp}
+requires link-time relocations.  Bit 0 is set when variable contains
+local relocations only, while bit 1 is set for global relocations.
+Select the section by calling @code{data_section} or one of the
+alternatives for other sections.  @var{align} is the constant alignment
+in bits.
+
+The default version of this function takes care of putting read-only
+variables in @code{readonly_data_section}.
+@end deftypefn
+
+@deftypefn {Target Hook} void TARGET_ASM_UNIQUE_SECTION (tree @var{decl}, int @var{reloc})
+Build up a unique section name, expressed as a @code{STRING_CST} node,
+and assign it to @samp{DECL_SECTION_NAME (@var{decl})}.
+As with @code{TARGET_ASM_SELECT_SECTION}, @var{reloc} indicates whether
+the initial value of @var{exp} requires link-time relocations.
+
+The default version of this function appends the symbol name to the
+ELF section name that would normally be used for the symbol.  For
+example, the function @code{foo} would be placed in @code{.text.foo}.
+Whatever the actual target object format, this is often good enough.
+@end deftypefn
+
+@deftypefn {Target Hook} void TARGET_ASM_SELECT_RTX_SECTION (enum machine_mode @var{mode}, rtx @var{x}, unsigned HOST_WIDE_INT @var{align})
+Switches to the appropriate section for output of constant pool entry
+@var{x} in @var{mode}.  You can assume that @var{x} is some kind of
+constant in RTL@.  The argument @var{mode} is redundant except in the
+case of a @code{const_int} rtx.  Select the section by calling
+@code{readonly_data_section} or one of the alternatives for other
+sections.  @var{align} is the constant alignment in bits.
+
+The default version of this function takes care of putting symbolic
+constants in @code{flag_pic} mode in @code{data_section} and everything
+else in @code{readonly_data_section}.
+@end deftypefn
+
+@deftypefn {Target Hook} void TARGET_ENCODE_SECTION_INFO (tree @var{decl}, int @var{new_decl_p})
+Define this hook if references to a symbol or a constant must be
+treated differently depending on something about the variable or
+function named by the symbol (such as what section it is in).
+
+The hook is executed under two circumstances.  One is immediately after
+the rtl for @var{decl} that represents a variable or a function has been
+created and stored in @code{DECL_RTL(@var{decl})}.  The value of the rtl
+will be a @code{mem} whose address is a @code{symbol_ref}.  The other is
+immediately after the rtl for @var{decl} that represents a constant has
+been created and stored in @code{TREE_CST_RTL (@var{decl})}.  The macro
+is called once for each distinct constant in a source file.
+
+The @var{new_decl_p} argument will be true if this is the first time
+that @code{ENCODE_SECTION_INFO} has been invoked on this decl.  It will
+be false for subsequent invocations, which will happen for duplicate
+declarations.  Whether or not anything must be done for the duplicate
+declaration depends on whether the hook examines @code{DECL_ATTRIBUTES}.
+
+@cindex @code{SYMBOL_REF_FLAG}, in @code{TARGET_ENCODE_SECTION_INFO}
+The usual thing for this hook to do is to record a flag in the
+@code{symbol_ref} (such as @code{SYMBOL_REF_FLAG}) or to store a
+modified name string in the @code{symbol_ref} (if one bit is not
+enough information).
+@end deftypefn
 
 @node PIC
 @section Position Independent Code
@@ -6539,7 +6516,7 @@ A C statement (sans semicolon) to output a reference to
 @code{SYMBOL_REF} @var{sym}.  If not defined, @code{assemble_name}
 will be used to output the name of the symbol.  This macro may be used
 to modify the way a symbol is referenced depending on information
-encoded by @code{ENCODE_SECTION_INFO}.
+encoded by @code{TARGET_ENCODE_SECTION_INFO}.
 
 @findex ASM_OUTPUT_LABEL_REF
 @item ASM_OUTPUT_LABEL_REF (@var{stream}, @var{buf})
@@ -7095,10 +7072,10 @@ A C compound statement to output to stdio stream @var{stream} the
 assembler syntax for an instruction operand that is a memory reference
 whose address is @var{x}.  @var{x} is an RTL expression.
 
-@cindex @code{ENCODE_SECTION_INFO} usage
+@cindex @code{TARGET_ENCODE_SECTION_INFO} usage
 On some machines, the syntax for a symbolic address depends on the
-section that the address refers to.  On these machines, define the macro
-@code{ENCODE_SECTION_INFO} to store the information into the
+section that the address refers to.  On these machines, define the hook
+@code{TARGET_ENCODE_SECTION_INFO} to store the information into the
 @code{symbol_ref}, and then check for it here.  @xref{Assembler Format}.
 
 @findex DBR_OUTPUT_SEQEND
