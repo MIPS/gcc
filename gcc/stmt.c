@@ -3399,7 +3399,7 @@ expand_start_bindings_and_block (int flags, tree block)
     abort ();
 
   /* Create a note to mark the beginning of the block.  */
-  if (block_flag)
+  if (block_flag && !cfun->dont_emit_block_notes)
     {
       note = emit_note (NOTE_INSN_BLOCK_BEG);
       NOTE_BLOCK (note) = block;
@@ -3819,7 +3819,7 @@ expand_end_bindings (tree vars, int mark_ends, int dont_jump_in)
      We do this now, after running cleanups on the variables
      just going out of scope, so they are in scope for their cleanups.  */
 
-  if (mark_ends)
+  if (mark_ends && !cfun->dont_emit_block_notes)
     {
       rtx note = emit_note (NOTE_INSN_BLOCK_END);
       NOTE_BLOCK (note) = NOTE_BLOCK (thisblock->data.block.first_insn);

@@ -392,6 +392,10 @@ struct function GTY(())
      delay list for them is recorded here.  */
   rtx epilogue_delay_list;
 
+  /* Nonzero if NOTE_INSN_BLOCK_BEG / NOTE_INSN_BLOCK_END notes should not
+     be emitted.  */
+  unsigned int dont_emit_block_notes : 1;
+
   /* How commonly executed the function is.  Initialized during branch
      probabilities pass.  */
   enum function_frequency {
@@ -411,6 +415,9 @@ struct function GTY(())
 
   /* Line number of the end of the function.  */
   location_t function_end_locus;
+
+  /* Array mapping insn uids to blocks.  */
+  struct varray_head_tag *ib_boundaries_block;
 
   /* Collected bit flags.  */
 
@@ -603,6 +610,13 @@ extern void reorder_blocks (void);
 
 /* Set BLOCK_NUMBER for all the blocks in FN.  */
 extern void number_blocks (tree);
+
+extern tree blocks_nreverse (tree);
+extern void reset_block_changes (void);
+extern void record_block_change (tree);
+extern void finalize_block_changes (void);
+extern void check_block_change (rtx, tree *);
+extern void free_block_changes (void);
 
 /* Return size needed for stack frame based on slots so far allocated.
    This size counts from zero.  It is not rounded to STACK_BOUNDARY;

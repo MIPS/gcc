@@ -61,6 +61,11 @@ optimize_function_tree (tree fndecl)
   /* Build the flowgraph.  */
   init_flow ();
 
+  lower_function_body (&DECL_SAVED_TREE (fndecl));
+  /* Avoid producing notes for blocks.  */
+  cfun->dont_emit_block_notes = 1;
+  reset_block_changes ();
+
   build_tree_cfg (DECL_SAVED_TREE (fndecl));
 
   /* Begin analysis and optimization passes.  After the function is

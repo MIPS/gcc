@@ -489,6 +489,8 @@ extern void mark_new_vars_to_rename (tree, sbitmap);
 #define TDFA_USE_OPS		1 << 0
 #define TDFA_USE_VOPS		1 << 1
 
+/* In gimple-low.c  */
+void lower_function_body (tree *);
 
 /* In tree-ssa.c  */
 extern void init_tree_ssa (void);

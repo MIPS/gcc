@@ -43,7 +43,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 struct lower_data
 {
-  void *dummy;		/* To get rid of an empty structure warning.  */
+  /* Block the current statement belongs to.  */
+  tree block;
 };
 
 static void lower_stmt_body (tree *, struct lower_data *);
@@ -63,7 +64,16 @@ lower_function_body (tree *body)
   if (TREE_CODE (*body) != BIND_EXPR)
     abort ();
 
+  data.block = DECL_INITIAL (current_function_decl);
+  BLOCK_SUBBLOCKS (data.block) = NULL_TREE;
+  BLOCK_CHAIN (data.block) = NULL_TREE;
+
   lower_stmt_body (&BIND_EXPR_BODY (*body), &data);
+
+  if (data.block != DECL_INITIAL (current_function_decl))
+    abort ();
+  BLOCK_SUBBLOCKS (data.block) =
+	  blocks_nreverse (BLOCK_SUBBLOCKS (data.block));
 }
 
 /* Lowers the EXPR.  Unlike gimplification the statements are not relowered
@@ -84,6 +94,9 @@ static void
 lower_stmt (tree_stmt_iterator *tsi, struct lower_data *data)
 {
   tree stmt = tsi_stmt (*tsi);
+
+  if (EXPR_LOCUS (stmt))
+    TREE_BLOCK (stmt) = data->block;
 
   switch (TREE_CODE (stmt))
     {
@@ -130,9 +143,32 @@ lower_stmt (tree_stmt_iterator *tsi, struct lower_data *data)
 static void
 lower_bind_expr (tree_stmt_iterator *tsi, struct lower_data *data)
 {
+  tree old_block = data->block;
   tree stmt = tsi_stmt (*tsi);
 
+  if (BIND_EXPR_BLOCK (stmt))
+    {
+      data->block = BIND_EXPR_BLOCK (stmt);
+
+      /* Block tree may get clobbered by inlining.  Normally this would be
+	 fixed in rest_of_decl_compilation using block notes, but since we
+	 are not going to emit them, it is up to us.  */
+      BLOCK_CHAIN (data->block) = BLOCK_SUBBLOCKS (old_block);
+      BLOCK_SUBBLOCKS (old_block) = data->block;
+      BLOCK_SUBBLOCKS (data->block) = NULL_TREE;
+      BLOCK_SUPERCONTEXT (data->block) = old_block;
+    }
   lower_stmt_body (&BIND_EXPR_BODY (stmt), data);
+
+  if (BIND_EXPR_BLOCK (stmt))
+    {
+      if (data->block != BIND_EXPR_BLOCK (stmt))
+	abort ();
+
+      BLOCK_SUBBLOCKS (data->block) =
+	      blocks_nreverse (BLOCK_SUBBLOCKS (data->block));
+      data->block = old_block;
+    }
 }
 
 /* Checks whether EXPR is a simple local goto.  */
