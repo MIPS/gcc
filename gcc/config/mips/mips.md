@@ -27,11 +27,7 @@
 ;; Must include new entries for fmadd in addition to existing entries.
 
 (define_constants
-  [(UNSPEC_ULW			 0)
-   (UNSPEC_USW			 1)
-   (UNSPEC_ULD			 2)
-   (UNSPEC_USD			 3)
-   (UNSPEC_GET_FNADDR		 4)
+  [(UNSPEC_GET_FNADDR		 4)
    (UNSPEC_HILO_DELAY		 5)
    (UNSPEC_BLOCKAGE		 6)
    (UNSPEC_LOADGP		 7)
@@ -50,7 +46,15 @@
    (UNSPEC_ALIGN_8		20)
    (UNSPEC_CPADD		21)
    (UNSPEC_HIGH			22)
-
+   (UNSPEC_LWL			23)
+   (UNSPEC_LWR			24)
+   (UNSPEC_SWL			25)
+   (UNSPEC_SWR			26)
+   (UNSPEC_LDL			27)
+   (UNSPEC_LDR			28)
+   (UNSPEC_SDL			29)
+   (UNSPEC_SDR			30)
+   
    ;; Constants used in relocation unspecs.  RELOC_GOT_PAGE and RELOC_GOT_DISP
    ;; are really only available for n32 and n64.  However, it is convenient
    ;; to reuse them for SVR4 PIC, where they represent the local and global
@@ -4870,277 +4874,147 @@ move\\t%0,%z4\\n\\
 ;;
 ;;  ....................
 
-;; Bit field extract patterns which use lwl/lwr.
+;; Bit field extract patterns which use lwl/lwr or ldl/ldr.
 
-;; ??? There could be HImode variants for the ulh/ulhu/ush macros.
-;; It isn't clear whether this will give better code.
-
-;; Only specify the mode operand 1, the rest are assumed to be word_mode.
 (define_expand "extv"
   [(set (match_operand 0 "register_operand" "")
 	(sign_extract (match_operand:QI 1 "memory_operand" "")
 		      (match_operand 2 "immediate_operand" "")
 		      (match_operand 3 "immediate_operand" "")))]
   "!TARGET_MIPS16"
-  "
-{
-  /* If the field does not start on a byte boundary, then fail.  */
-  if (INTVAL (operands[3]) % 8 != 0)
-    FAIL;
+  {
+    if (mips_expand_unaligned_load (operands[0], operands[1],
+				    INTVAL (operands[2]),
+				    INTVAL (operands[3])))
+      DONE;
+    else
+      FAIL;
+  })
 
-  /* MIPS I and MIPS II can only handle a 32bit field.  */
-  if (!TARGET_64BIT && INTVAL (operands[2]) != 32)
-    FAIL;
-
-  /* MIPS III and MIPS IV can handle both 32bit and 64bit fields.  */
-  if (TARGET_64BIT
-      && INTVAL (operands[2]) != 64
-      && INTVAL (operands[2]) != 32)
-    FAIL;
-
-  /* This can happen for a 64 bit target, when extracting a value from
-     a 64 bit union member.  extract_bit_field doesn't verify that our
-     source matches the predicate, so we force it to be a MEM here.  */
-  if (GET_CODE (operands[1]) != MEM)
-    FAIL;
-
-  /* Change the mode to BLKmode for aliasing purposes.  */
-  operands[1] = adjust_address (operands[1], BLKmode, 0);
-  set_mem_size (operands[1], GEN_INT (INTVAL (operands[2]) / BITS_PER_UNIT));
-
-  /* Otherwise, emit a l[wd]l/l[wd]r pair to load the value.  */
-  if (INTVAL (operands[2]) == 64)
-    emit_insn (gen_movdi_uld (operands[0], operands[1]));
-  else
-    {
-      if (TARGET_64BIT)
-	{
-	  operands[0] = gen_lowpart (SImode, operands[0]);
-	  if (operands[0] == NULL_RTX)
-	    FAIL;
-	}
-      emit_insn (gen_movsi_ulw (operands[0], operands[1]));
-    }
-  DONE;
-}")
-
-;; Only specify the mode operand 1, the rest are assumed to be word_mode.
 (define_expand "extzv"
   [(set (match_operand 0 "register_operand" "")
 	(zero_extract (match_operand:QI 1 "memory_operand" "")
 		      (match_operand 2 "immediate_operand" "")
 		      (match_operand 3 "immediate_operand" "")))]
   "!TARGET_MIPS16"
-  "
-{
-  /* If the field does not start on a byte boundary, then fail.  */
-  if (INTVAL (operands[3]) % 8 != 0)
-    FAIL;
+  {
+    if (mips_expand_unaligned_load (operands[0], operands[1],
+				    INTVAL (operands[2]),
+				    INTVAL (operands[3])))
+      DONE;
+    else
+      FAIL;
+  })
 
-  /* MIPS I and MIPS II can only handle a 32bit field.  */
-  if (!TARGET_64BIT && INTVAL (operands[2]) != 32)
-    FAIL;
-
-  /* MIPS III and MIPS IV can handle both 32bit and 64bit fields.  */
-  if (TARGET_64BIT
-      && INTVAL (operands[2]) != 64
-      && INTVAL (operands[2]) != 32)
-    FAIL;
-
-  /* This can happen for a 64 bit target, when extracting a value from
-     a 64 bit union member.  extract_bit_field doesn't verify that our
-     source matches the predicate, so we force it to be a MEM here.  */
-  if (GET_CODE (operands[1]) != MEM)
-    FAIL;
-
-  /* Change the mode to BLKmode for aliasing purposes.  */
-  operands[1] = adjust_address (operands[1], BLKmode, 0);
-  set_mem_size (operands[1], GEN_INT (INTVAL (operands[2]) / BITS_PER_UNIT));
-
-  /* Otherwise, emit a lwl/lwr pair to load the value.  */
-  if (INTVAL (operands[2]) == 64)
-    emit_insn (gen_movdi_uld (operands[0], operands[1]));
-  else
-    {
-      if (TARGET_64BIT)
-	{
-	  operands[0] = gen_lowpart (SImode, operands[0]);
-	  if (operands[0] == NULL_RTX)
-	    FAIL;
-	}
-      emit_insn (gen_movsi_ulw (operands[0], operands[1]));
-    }
-  DONE;
-}")
-
-;; Only specify the mode operands 0, the rest are assumed to be word_mode.
 (define_expand "insv"
   [(set (zero_extract (match_operand:QI 0 "memory_operand" "")
 		      (match_operand 1 "immediate_operand" "")
 		      (match_operand 2 "immediate_operand" ""))
-	(match_operand 3 "register_operand" ""))]
+	(match_operand 3 "reg_or_0_operand" ""))]
   "!TARGET_MIPS16"
-  "
-{
-  /* If the field does not start on a byte boundary, then fail.  */
-  if (INTVAL (operands[2]) % 8 != 0)
-    FAIL;
+  {
+    if (mips_expand_unaligned_store (operands[0], operands[3],
+				     INTVAL (operands[1]),
+				     INTVAL (operands[2])))
+      DONE;
+    else
+      FAIL;
+  })
 
-  /* MIPS I and MIPS II can only handle a 32bit field.  */
-  if (!TARGET_64BIT && INTVAL (operands[1]) != 32)
-    FAIL;
+;; Unaligned word moves generated by the bit field patterns.
+;;
+;; As far as the rtl is concerned, both the left-part and right-part
+;; instructions can access the whole field.  However, the real operand
+;; refers to just the first or the last byte (depending onendianness).
+;; We therefore use two memory operands to each instruction, one to
+;; describe the rtl effect and one to use in the assembly output.
 
-  /* MIPS III and MIPS IV can handle both 32bit and 64bit fields.  */
-  if (TARGET_64BIT
-      && INTVAL (operands[1]) != 64
-      && INTVAL (operands[1]) != 32)
-    FAIL;
-
-  /* This can happen for a 64 bit target, when storing into a 32 bit union
-     member.  store_bit_field doesn't verify that our target matches the
-     predicate, so we force it to be a MEM here.  */
-  if (GET_CODE (operands[0]) != MEM)
-    FAIL;
-
-  /* Change the mode to BLKmode for aliasing purposes.  */
-  operands[0] = adjust_address (operands[0], BLKmode, 0);
-  set_mem_size (operands[0], GEN_INT (INTVAL (operands[1]) / BITS_PER_UNIT));
-
-  /* Otherwise, emit a s[wd]l/s[wd]r pair to load the value.  */
-  if (INTVAL (operands[1]) == 64)
-    emit_insn (gen_movdi_usd (operands[0], operands[3]));
-  else
-    {
-      if (TARGET_64BIT)
-	{
-	  operands[3] = gen_lowpart (SImode, operands[3]);
-	  if (operands[3] == NULL_RTX)
-	    FAIL;
-	}
-      emit_insn (gen_movsi_usw (operands[0], operands[3]));
-    }
-  DONE;
-}")
-
-;; unaligned word moves generated by the bit field patterns
-
-(define_insn "movsi_ulw"
-  [(set (match_operand:SI 0 "register_operand" "=&d")
-	(unspec:SI [(match_operand:BLK 1 "general_operand" "m")]
-		   UNSPEC_ULW))]
+(define_insn "mov_lwl"
+  [(set (match_operand:SI 0 "register_operand" "=d")
+	(unspec:SI [(match_operand:BLK 1 "general_operand" "m")
+		    (match_operand:QI 2 "general_operand" "m")]
+		   UNSPEC_LWL))]
   "!TARGET_MIPS16"
-  "*
-{
-  rtx offset = const0_rtx;
-  rtx addr = XEXP (operands[1], 0);
-  rtx mem_addr = eliminate_constant_term (addr, &offset);
-  const char *ret;
+  "lwl\t%0,%2"
+  [(set_attr "type" "load")
+   (set_attr "mode" "SI")])
 
-  if (TARGET_STATS)
-    mips_count_memory_refs (operands[1], 2);
+(define_insn "mov_lwr"
+  [(set (match_operand:SI 0 "register_operand" "=d")
+	(unspec:SI [(match_operand:BLK 1 "general_operand" "m")
+		    (match_operand:QI 2 "general_operand" "m")
+		    (match_operand:SI 3 "register_operand" "0")]
+		   UNSPEC_LWR))]
+  "!TARGET_MIPS16"
+  "lwr\t%0,%2"
+  [(set_attr "type" "load")
+   (set_attr "mode" "SI")])
 
-  /* The stack/frame pointers are always aligned, so we can convert
-     to the faster lw if we are referencing an aligned stack location.  */
 
-  if ((INTVAL (offset) & 3) == 0
-      && (mem_addr == stack_pointer_rtx || mem_addr == frame_pointer_rtx))
-    ret = \"lw\\t%0,%1\";
-  else
-    ret = \"ulw\\t%0,%1\";
-
-  return mips_fill_delay_slot (ret, DELAY_LOAD, operands, insn);
-}"
-  [(set_attr "type"	"load")
-   (set_attr "mode"	"SI")
-   (set_attr "length"   "8")])
-
-(define_insn "movsi_usw"
+(define_insn "mov_swl"
   [(set (match_operand:BLK 0 "memory_operand" "=m")
-	(unspec:BLK [(match_operand:SI 1 "reg_or_0_operand" "dJ")]
-		    UNSPEC_USW))]
+	(unspec:BLK [(match_operand:SI 1 "reg_or_0_operand" "dJ")
+		     (match_operand:QI 2 "general_operand" "m")]
+		    UNSPEC_SWL))]
   "!TARGET_MIPS16"
-  "*
-{
-  rtx offset = const0_rtx;
-  rtx addr = XEXP (operands[0], 0);
-  rtx mem_addr = eliminate_constant_term (addr, &offset);
+  "swl\t%z1,%2"
+  [(set_attr "type" "store")
+   (set_attr "mode" "SI")])
 
-  if (TARGET_STATS)
-    mips_count_memory_refs (operands[0], 2);
+(define_insn "mov_swr"
+  [(set (match_operand:BLK 0 "memory_operand" "+m")
+	(unspec:BLK [(match_operand:SI 1 "reg_or_0_operand" "dJ")
+		     (match_operand:QI 2 "general_operand" "m")
+		     (match_dup 0)]
+		    UNSPEC_SWR))]
+  "!TARGET_MIPS16"
+  "swr\t%z1,%2"
+  [(set_attr "type" "store")
+   (set_attr "mode" "SI")])
 
-  /* The stack/frame pointers are always aligned, so we can convert
-     to the faster sw if we are referencing an aligned stack location.  */
 
-  if ((INTVAL (offset) & 3) == 0
-      && (mem_addr == stack_pointer_rtx || mem_addr == frame_pointer_rtx))
-    return \"sw\\t%z1,%0\";
+(define_insn "mov_ldl"
+  [(set (match_operand:DI 0 "register_operand" "=d")
+	(unspec:DI [(match_operand:BLK 1 "general_operand" "m")
+		    (match_operand:QI 2 "general_operand" "m")]
+		   UNSPEC_LDL))]
+  "TARGET_64BIT && !TARGET_MIPS16"
+  "ldl\t%0,%2"
+  [(set_attr "type" "load")
+   (set_attr "mode" "DI")])
 
-  return \"usw\\t%z1,%0\";
-}"
-  [(set_attr "type"	"store")
-   (set_attr "mode"	"SI")
-   (set_attr "length"   "8")])
+(define_insn "mov_ldr"
+  [(set (match_operand:DI 0 "register_operand" "=d")
+	(unspec:DI [(match_operand:BLK 1 "general_operand" "m")
+		    (match_operand:QI 2 "general_operand" "m")
+		    (match_operand:DI 3 "register_operand" "0")]
+		   UNSPEC_LDR))]
+  "TARGET_64BIT && !TARGET_MIPS16"
+  "ldr\t%0,%2"
+  [(set_attr "type" "load")
+   (set_attr "mode" "DI")])
 
-;; Bit field extract patterns which use ldl/ldr.
 
-;; unaligned double word moves generated by the bit field patterns
-
-(define_insn "movdi_uld"
-  [(set (match_operand:DI 0 "register_operand" "=&d")
-	(unspec:DI [(match_operand:BLK 1 "general_operand" "m")]
-		   UNSPEC_ULD))]
-  ""
-  "*
-{
-  rtx offset = const0_rtx;
-  rtx addr = XEXP (operands[1], 0);
-  rtx mem_addr = eliminate_constant_term (addr, &offset);
-  const char *ret;
-
-  if (TARGET_STATS)
-    mips_count_memory_refs (operands[1], 2);
-
-  /* The stack/frame pointers are always aligned, so we can convert
-     to the faster lw if we are referencing an aligned stack location.  */
-
-  if ((INTVAL (offset) & 7) == 0
-      && (mem_addr == stack_pointer_rtx || mem_addr == frame_pointer_rtx))
-    ret = \"ld\\t%0,%1\";
-  else
-    ret = \"uld\\t%0,%1\";
-
-  return mips_fill_delay_slot (ret, DELAY_LOAD, operands, insn);
-}"
-  [(set_attr "type"	"load")
-   (set_attr "mode"	"SI")
-   (set_attr "length"	"8")])
-
-(define_insn "movdi_usd"
+(define_insn "mov_sdl"
   [(set (match_operand:BLK 0 "memory_operand" "=m")
-	(unspec:BLK [(match_operand:DI 1 "reg_or_0_operand" "dJ")]
-		    UNSPEC_USD))]
-  ""
-  "*
-{
-  rtx offset = const0_rtx;
-  rtx addr = XEXP (operands[0], 0);
-  rtx mem_addr = eliminate_constant_term (addr, &offset);
+	(unspec:BLK [(match_operand:DI 1 "reg_or_0_operand" "dJ")
+		     (match_operand:QI 2 "general_operand" "m")]
+		    UNSPEC_SDL))]
+  "TARGET_64BIT && !TARGET_MIPS16"
+  "sdl\t%z1,%2"
+  [(set_attr "type" "store")
+   (set_attr "mode" "DI")])
 
-  if (TARGET_STATS)
-    mips_count_memory_refs (operands[0], 2);
-
-  /* The stack/frame pointers are always aligned, so we can convert
-     to the faster sw if we are referencing an aligned stack location.  */
-
-  if ((INTVAL (offset) & 7) == 0
-      && (mem_addr == stack_pointer_rtx || mem_addr == frame_pointer_rtx))
-    return \"sd\\t%z1,%0\";
-
-  return \"usd\\t%z1,%0\";
-}"
-  [(set_attr "type"	"store")
-   (set_attr "mode"	"SI")
-   (set_attr "length"	"8")])
+(define_insn "mov_sdr"
+  [(set (match_operand:BLK 0 "memory_operand" "+m")
+	(unspec:BLK [(match_operand:DI 1 "reg_or_0_operand" "dJ")
+		     (match_operand:QI 2 "general_operand" "m")
+		     (match_dup 0)]
+		    UNSPEC_SDR))]
+  "TARGET_64BIT && !TARGET_MIPS16"
+  "sdr\t%z1,%2"
+  [(set_attr "type" "store")
+   (set_attr "mode" "DI")])
 
 
 ;; Instructions for loading a relocation expression using "lui".

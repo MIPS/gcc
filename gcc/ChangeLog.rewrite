@@ -1,3 +1,21 @@
+2003-03-13  Richard Sandiford  <rsandifo@redhat.com>
+
+	* config/mips/mips-protos.h (mips_expand_unaligned_load): Declare.
+	(mips_expand_unaligned_store): Declare.
+	* config/mips/mips.c (mips_get_unaligned_mem): New fn.
+	(mips_expand_unaligned_load, mips_expand_unaligned_store): New fns.
+	* config/mips/mips.md (UNSPEC_ULW, UNSPEC_USW): Remove.
+	(UNSPEC_ULD, UNSPEC_USD): Remove.
+	(UNSPEC_LWL, UNSPEC_LWR, UNSPEC_SWL, UNSPEC_SWR): New.
+	(UNSPEC_LDL, UNSPEC_LDR, UNSPEC_SDL, UNSPEC_SDR): New.
+	(extv, extzv): Use mips_expand_unaligned_load.
+	(insv): Use mips_expand_unaligned_store.  Use a reg_or_0_operand
+	predicate for operand 3.
+	(movsi_ulw, movsi_usw): Replace with...
+	(mov_lwl, mov_lwr, mov_swl, move_swr): ...these new insns.
+	(movdi_uld, movdi_usd): Likewise replace with...
+	(mov_ldl, mov_ldr, mov_sdl, move_sdr): ...these insns.
+
 2003-02-26  Richard Sandiford  <rsandifo@redhat.com>
 
 	* config/mips/mips-protos.h (mips_global_pic_constant_p): Declare.

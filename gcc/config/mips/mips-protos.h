@@ -81,6 +81,12 @@ extern void		mips_va_start PARAMS ((tree, rtx));
 extern struct rtx_def  *mips_va_arg PARAMS ((tree, tree));
 
 extern void		expand_block_move PARAMS ((rtx *));
+extern bool		mips_expand_unaligned_load PARAMS ((rtx, rtx,
+							    unsigned int,
+							    int));
+extern bool		mips_expand_unaligned_store PARAMS ((rtx, rtx,
+							     unsigned int,
+							     int));
 extern void		final_prescan_insn PARAMS ((rtx, rtx *, int));
 extern void		init_cumulative_args PARAMS ((CUMULATIVE_ARGS *,
 						      tree, rtx));

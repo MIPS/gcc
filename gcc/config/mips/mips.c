@@ -221,6 +221,8 @@ static void mips_arg_info		PARAMS ((const CUMULATIVE_ARGS *,
 						 enum machine_mode,
 						 tree, int,
 						 struct mips_arg_info *));
+static bool mips_get_unaligned_mem		PARAMS ((rtx *, unsigned int,
+							 int, rtx *, rtx *));
 static rtx mips_add_large_offset_to_sp		PARAMS ((HOST_WIDE_INT));
 static void mips_annotate_frame_insn		PARAMS ((rtx, rtx));
 static rtx mips_frame_set			PARAMS ((enum machine_mode,
@@ -5094,7 +5096,144 @@ mips_va_start (valist, nextarg)
   else
     std_expand_builtin_va_start (valist, nextarg);
 }
+
+/* Return true if it is possible to use left/right accesses for a
+   bitfield of WIDTH bits starting BITPOS bits into *OP.  When
+   returning true, update *OP, *LEFT and *RIGHT as follows:
 
+   *OP is a BLKmode reference to the whole field.
+
+   *LEFT is a QImode reference to the first byte if big endian or
+   the last byte if little endian.  This address can be used in the
+   left-side instructions (lwl, swl, ldl, sdl).
+
+   *RIGHT is a QImode reference to the opposite end of the field and
+   can be used in the parterning right-side instruction.  */
+
+static bool
+mips_get_unaligned_mem (op, width, bitpos, left, right)
+     rtx *op, *left, *right;
+     unsigned int width;
+     int bitpos;
+{
+  rtx first, last;
+
+  /* Check that the operand really is a MEM.  Not all the extv and
+     extzv predicates are checked.  */
+  if (GET_CODE (*op) != MEM)
+    return false;
+
+  /* Check that the size is valid.  */
+  if (width != 32 && (!TARGET_64BIT || width != 64))
+    return false;
+
+  /* We can only access byte-aligned values.  Since we are always passed
+     a reference to the first byte of the field, it is not necessary to
+     do anything with BITPOS after this check.  */
+  if (bitpos % BITS_PER_UNIT != 0)
+    return false;
+
+  /* Reject aligned bitfields: we want to use a normal load or store
+     instead of a left/right pair.  */
+  if (MEM_ALIGN (*op) >= width)
+    return false;
+
+  /* Adjust *OP to refer to the whole field.  This also has the effect
+     of legitimizing *OP's address for BLKmode, possibly simplifying it.  */
+  *op = adjust_address (*op, BLKmode, 0);
+  set_mem_size (*op, GEN_INT (width / BITS_PER_UNIT));
+
+  /* Get references to both ends of the field.  We deliberately don't
+     use the original QImode *OP for FIRST since the new BLKmode one
+     might have a simpler address.  */
+  first = adjust_address (*op, QImode, 0);
+  last = adjust_address (*op, QImode, width / BITS_PER_UNIT - 1);
+
+  /* Allocate to LEFT and RIGHT according to endiannes.  LEFT should
+     be the upper word and RIGHT the lower word.  */
+  if (TARGET_BIG_ENDIAN)
+    *left = first, *right = last;
+  else
+    *left = last, *right = first;
+
+  return true;
+}
+
+
+/* Try to emit the equivalent of (set DEST (zero_extract SRC WIDTH BITPOS)).
+   Return true on success.  We only handle cases where zero_extract is
+   equivalent to sign_extract.  */
+
+bool
+mips_expand_unaligned_load (dest, src, width, bitpos)
+     rtx dest, src;
+     unsigned int width;
+     int bitpos;
+{
+  rtx left, right;
+
+  /* If TARGET_64BIT, the destination of a 32-bit load will be a
+     paradoxical word_mode subreg.  This is the only case in which
+     we allow the destination to be larger than the source.  */
+  if (GET_CODE (dest) == SUBREG
+      && GET_MODE (dest) == DImode
+      && SUBREG_BYTE (dest) == 0
+      && GET_MODE (SUBREG_REG (dest)) == SImode)
+    dest = SUBREG_REG (dest);
+
+  /* After the above adjustment, the destination must be the same
+     width as the source.  */
+  if (GET_MODE_BITSIZE (GET_MODE (dest)) != width)
+    return false;
+
+  if (!mips_get_unaligned_mem (&src, width, bitpos, &left, &right))
+    return false;
+
+  if (GET_MODE (dest) == DImode)
+    {
+      emit_insn (gen_mov_ldl (dest, src, left));
+      emit_insn (gen_mov_ldr (copy_rtx (dest), copy_rtx (src),
+			      right, copy_rtx (dest)));
+    }
+  else
+    {
+      emit_insn (gen_mov_lwl (dest, src, left));
+      emit_insn (gen_mov_lwr (copy_rtx (dest), copy_rtx (src),
+			      right, copy_rtx (dest)));
+    }
+  return true;
+}
+
+
+/* Try to expand (set (zero_extract DEST WIDTH BITPOS) SRC).  Return
+   true on success.  */
+
+bool
+mips_expand_unaligned_store (dest, src, width, bitpos)
+     rtx dest, src;
+     unsigned int width;
+     int bitpos;
+{
+  rtx left, right;
+
+  if (!mips_get_unaligned_mem (&dest, width, bitpos, &left, &right))
+    return false;
+
+  src = gen_lowpart (mode_for_size (width, MODE_INT, 0), src);
+
+  if (GET_MODE (src) == DImode)
+    {
+      emit_insn (gen_mov_sdl (dest, src, left));
+      emit_insn (gen_mov_sdr (copy_rtx (dest), copy_rtx (src), right));
+    }
+  else
+    {
+      emit_insn (gen_mov_swl (dest, src, left));
+      emit_insn (gen_mov_swr (copy_rtx (dest), copy_rtx (src), right));
+    }
+  return true;
+}
+
 /* Implement va_arg.  */
 
 rtx
