@@ -1,3 +1,10 @@
+2002-10-30  Zack Weinberg  <zack@codesourcery.com>
+
+	* gthr.h, gthr-dce.h, gthr-posix.h, gthr-rtems.h,
+	gthr-solaris.h, gthr-win32.h: Remove __gthread_key_dtor.
+	* unwind-sjlj.c (fc_key_dtor): Delete.
+	(fc_key_init): Adjust __gthread_key_create call to match.
+
 Tue Oct 29 23:28:10 CET 2002  Jan Hubicka  <jh@suse.cz>
 
 	* i386.md (negdf splitter): Fix construction of the constant.
