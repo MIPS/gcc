@@ -1,5 +1,20 @@
 2004-03-26  David Jee  <djee@redhat.com>
 
+	* gnu/java/awt/peer/gtk/GtkMenuPeer.java
+	(addSeparator): Remove.
+	* java/awt/Menu.java
+	(separator): Remove static final MenuItem field.
+	(separatorLabel): New static final String field.
+	(addSeparator): Do not use peer method; use add(MenuItem) instead.
+	Use separatorLabel to denote that it is a separator.
+	(insertSeparator): Create a new MenuItem with separatorLabel, instead
+	of reusing the static separator instance, because a MenuItem instance
+	can't be added more than once without being cloned.
+	* java/awt/peer/MenuPeer.java
+	(addSeparator): Remove from interface.
+
+2004-03-26  David Jee  <djee@redhat.com>
+
 	* gnu/java/awt/peer/gtk/GtkMenuItemPeer.java
 	(connectSignals): New native method declaration.
 	(GtkMenuItemPeer): Connect signals if the parent is a Menu.
