@@ -1,3 +1,11 @@
+2004-11-15  Matt Austern  <austern@apple.com>
+
+	Radar 3878983
+	* ginclude/tgmath.h (fdim) Use __TGMATH_REAL_2 macro.
+	(hypot) Likewise.
+	(remainder) Likewise.
+	(nexttoward) Use proper number of arguments for TGMATH_REAL_1_2.
+	
 2004-11-11  Dale Johannesen  <dalej@apple.com>
 
 	Radar 3875337
