@@ -514,7 +514,7 @@ verify_alias_info (void)
    TODO: verify the variable annotations.  */
 
 void
-verify_ssa (void)
+verify_ssa (bool check_modified)
 {
   size_t i;
   basic_block bb;
@@ -563,7 +563,12 @@ verify_ssa (void)
 	  tree stmt;
 
 	  stmt = bsi_stmt (bsi);
-	  get_stmt_operands (stmt);
+	  if (check_modified && stmt_modified_p (stmt))
+	    {
+	      error ("Stmt (0x%x) is marked modified at end of optimization pass: ", (unsigned long)stmt);
+	      print_generic_stmt (stderr, stmt, TDF_VOPS);
+	      goto err;
+	    }
 
 	  if (stmt_ann (stmt)->makes_aliased_stores 
 	      && NUM_V_MAY_DEFS (STMT_V_MAY_DEF_OPS (stmt)) == 0)
@@ -936,8 +941,8 @@ walk_use_def_chains (tree var, walk_use_def_chains_fn fn, void *data,
 /* Replaces VAR with REPL in memory reference expression *X in
    statement STMT.  */
 
-static void
-propagate_into_addr (tree stmt, tree var, tree *x, tree repl)
+static bool
+propagate_into_addr (tree stmt, use_operand_p use_p, tree *x, tree repl)
 {
   tree new_var, ass_stmt, addr_var;
   basic_block bb;
@@ -945,7 +950,7 @@ propagate_into_addr (tree stmt, tree var, tree *x, tree repl)
 
   /* There is nothing special to handle in the other cases.  */
   if (TREE_CODE (repl) != ADDR_EXPR)
-    return;
+    return false;
   addr_var = TREE_OPERAND (repl, 0);
 
   while (handled_component_p (*x)
@@ -953,22 +958,24 @@ propagate_into_addr (tree stmt, tree var, tree *x, tree repl)
 	 || TREE_CODE (*x) == IMAGPART_EXPR)
     x = &TREE_OPERAND (*x, 0);
 
+  /* Heres a hack but since KRPhinodes is going away soon, Im not going to 
+     sweat it.  */
   if (TREE_CODE (*x) != INDIRECT_REF
-      || TREE_OPERAND (*x, 0) != var)
-    return;
+      || &(TREE_OPERAND (*x, 0)) != use_p->use)  /* HACK ALERT. */
+    return false;
 
   if (TREE_TYPE (*x) == TREE_TYPE (addr_var))
     {
       *x = addr_var;
       mark_new_vars_to_rename (stmt, vars_to_rename);
-      return;
+      return true;
     }
 
 
   /* Frontends sometimes produce expressions like *&a instead of a[0].
      Create a temporary variable to handle this case.  */
   ass_stmt = build2 (MODIFY_EXPR, void_type_node, NULL_TREE, repl);
-  new_var = duplicate_ssa_name (var, ass_stmt);
+  new_var = duplicate_ssa_name (USE_FROM_PTR (use_p), ass_stmt);
   TREE_OPERAND (*x, 0) = new_var;
   TREE_OPERAND (ass_stmt, 0) = new_var;
 
@@ -978,6 +985,7 @@ propagate_into_addr (tree stmt, tree var, tree *x, tree repl)
   bsi_insert_after (&bsi, ass_stmt, BSI_NEW_STMT);
 
   mark_new_vars_to_rename (stmt, vars_to_rename);
+  return true;
 }
 
 /* Replaces immediate uses of VAR by REPL.  */
@@ -985,57 +993,55 @@ propagate_into_addr (tree stmt, tree var, tree *x, tree repl)
 static void
 replace_immediate_uses (tree var, tree repl)
 {
-  int i, j, n;
-  dataflow_t df;
   tree stmt;
   bool mark_new_vars;
-  ssa_op_iter iter;
-  use_operand_p use_p;
+  use_operand_p imm_use;
+  imm_use_iterator imm_iter;
 
-  df = get_immediate_uses (SSA_NAME_DEF_STMT (var));
-  n = num_immediate_uses (df);
-
-  for (i = 0; i < n; i++)
+  FOR_EACH_IMM_USE_SAFE (imm_use, imm_iter, var)
     {
-      stmt = immediate_use (df, i);
+      stmt = USE_STMT (imm_use);
 
       if (TREE_CODE (stmt) == PHI_NODE)
 	{
-	  for (j = 0; j < PHI_NUM_ARGS (stmt); j++)
-	    if (PHI_ARG_DEF (stmt, j) == var)
-	      {
-		SET_PHI_ARG_DEF (stmt, j, repl);
-		if (TREE_CODE (repl) == SSA_NAME
-		    && PHI_ARG_EDGE (stmt, j)->flags & EDGE_ABNORMAL)
-		  SSA_NAME_OCCURS_IN_ABNORMAL_PHI (repl) = 1;
-	      }
+	  int index = PHI_ARG_INDEX_FROM_USE (imm_use);
+#ifdef ENABLE_CHECKING
+	  gcc_assert (&(PHI_ARG_IMM_USE_NODE (stmt, index)) == imm_use);
+#endif
+          SET_USE (imm_use, repl);
+	  if (TREE_CODE (repl) == SSA_NAME
+	      && PHI_ARG_EDGE (stmt, index)->flags & EDGE_ABNORMAL)
+	    SSA_NAME_OCCURS_IN_ABNORMAL_PHI (repl) = 1;
 
 	  continue;
 	}
 
-      get_stmt_operands (stmt);
+      gcc_assert (!stmt_modified_p (stmt));
+
       mark_new_vars = false;
       if (is_gimple_reg (SSA_NAME_VAR (var)))
 	{
+	  bool propagated = false;
 	  if (TREE_CODE (stmt) == MODIFY_EXPR)
 	    {
-	      propagate_into_addr (stmt, var, &TREE_OPERAND (stmt, 0), repl);
-	      propagate_into_addr (stmt, var, &TREE_OPERAND (stmt, 1), repl);
+	      if (TREE_CODE (repl) == ADDR_EXPR)
+	        {
+		  propagated =
+		    propagate_into_addr (stmt, imm_use, &TREE_OPERAND (stmt, 0),
+					 repl);
+		  if (!propagated)
+		    propagated = 
+		      propagate_into_addr (stmt, imm_use, 
+					   &TREE_OPERAND (stmt, 1), repl);
+		}
 	    }
 
-	  FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, SSA_OP_USE)
-	    if (USE_FROM_PTR (use_p) == var)
-	      {
-		propagate_value (use_p, repl);
-		mark_new_vars = POINTER_TYPE_P (TREE_TYPE (repl));
-	      }
+	  if (!propagated)
+	    propagate_value (imm_use, repl);
+	  mark_new_vars = POINTER_TYPE_P (TREE_TYPE (repl));
 	}
       else
-	{
-	  FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, SSA_OP_VIRTUAL_USES)
-	    if (USE_FROM_PTR (use_p) == var)
-	      propagate_value (use_p, repl);
-	}
+	propagate_value (imm_use, repl);
 
       /* FIXME.  If REPL is a constant, we need to fold STMT.
 	 However, fold_stmt wants a pointer to the statement, because
@@ -1064,7 +1070,7 @@ replace_immediate_uses (tree var, tree repl)
       if (mark_new_vars)
 	mark_new_vars_to_rename (stmt, vars_to_rename);
       else
-	modify_stmt (stmt);
+	update_stmt (stmt);
     }
 }
 
@@ -1105,8 +1111,9 @@ static void
 check_phi_redundancy (tree phi, tree *eq_to)
 {
   tree val = NULL_TREE, def, res = PHI_RESULT (phi), stmt;
-  unsigned i, ver = SSA_NAME_VERSION (res), n;
-  dataflow_t df;
+  unsigned i, ver = SSA_NAME_VERSION (res);
+  imm_use_iterator imm_iter;
+  use_operand_p use_p;
 
   /* It is unlikely that such large phi node would be redundant.  */
   if (PHI_NUM_ARGS (phi) > 16)
@@ -1142,13 +1149,9 @@ check_phi_redundancy (tree phi, tree *eq_to)
 
   eq_to[ver] = val;
 
-  df = get_immediate_uses (SSA_NAME_DEF_STMT (res));
-  n = num_immediate_uses (df);
-
-  for (i = 0; i < n; i++)
+  FOR_EACH_IMM_USE_FAST (use_p, imm_iter, res)
     {
-      stmt = immediate_use (df, i);
-
+      stmt = USE_STMT (use_p);
       if (TREE_CODE (stmt) == PHI_NODE)
 	check_phi_redundancy (stmt, eq_to);
     }
@@ -1188,12 +1191,6 @@ kill_redundant_phi_nodes (void)
      it safe).  */
   eq_to = xcalloc (num_ssa_names, sizeof (tree));
 
-  /* We have had cases where computing immediate uses takes a
-     significant amount of compile time.  If we run into such
-     problems here, we may want to only compute immediate uses for
-     a subset of all the SSA_NAMEs instead of computing it for
-     all of the SSA_NAMEs.  */
-  compute_immediate_uses (TDFA_USE_OPS | TDFA_USE_VOPS, NULL);
   old_num_ssa_names = num_ssa_names;
 
   FOR_EACH_BB (bb)
@@ -1230,7 +1227,6 @@ kill_redundant_phi_nodes (void)
 	}
     }
 
-  free_df ();
   free (eq_to);
 }
 

@@ -3652,9 +3652,10 @@ vect_stmt_relevant_p (tree stmt, loop_vec_info loop_vinfo)
   v_may_def_optype v_may_defs;
   v_must_def_optype v_must_defs;
   struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
-  int i;
-  dataflow_t df;
-  int num_uses;
+  ssa_op_iter op_iter;
+  imm_use_iterator imm_iter;
+  use_operand_p use_p;
+  tree var;
 
   /* cond stmt other than loop exit cond.  */
   if (is_ctrl_stmt (stmt) && (stmt != LOOP_VINFO_EXIT_COND (loop_vinfo)))
@@ -3671,17 +3672,17 @@ vect_stmt_relevant_p (tree stmt, loop_vec_info loop_vinfo)
     }
 
   /* uses outside the loop.  */
-  df = get_immediate_uses (stmt);
-  num_uses = num_immediate_uses (df);
-  for (i = 0; i < num_uses; i++)
+  FOR_EACH_SSA_TREE_OPERAND (var, stmt, op_iter, SSA_OP_DEF)
     {
-      tree use = immediate_use (df, i);
-      basic_block bb = bb_for_stmt (use);
-      if (!flow_bb_inside_loop_p (loop, bb))
+      FOR_EACH_IMM_USE_FAST (use_p, imm_iter, var)
 	{
-	  if (vect_debug_details (NULL))
-	    fprintf (dump_file, "vec_stmt_relevant_p: used out of loop.");
-	  return true;
+	  basic_block bb = bb_for_stmt (USE_STMT (use_p));
+	  if (!flow_bb_inside_loop_p (loop, bb))
+	    {
+	      if (vect_debug_details (NULL))
+		fprintf (dump_file, "vec_stmt_relevant_p: used out of loop.");
+	      return true;
+	    }
 	}
     }
 
@@ -4073,19 +4074,6 @@ vect_analyze_loop (struct loop *loop)
 }
 
 
-/* Function need_imm_uses_for.
-
-   Return whether we ought to include information for 'var'
-   when calculating immediate uses.  For this pass we only want use
-   information for non-virtual variables.  */
-
-static bool
-need_imm_uses_for (tree var)
-{
-  return is_gimple_reg (var);
-}
-
-
 /* Function vectorize_loops.
    
    Entry Point to loop vectorization phase.  */
@@ -4104,8 +4092,6 @@ vectorize_loops (struct loops *loops)
 	fprintf (dump_file, "vectorizer: target vector size is not defined.");
       return;
     }
-
-  compute_immediate_uses (TDFA_USE_OPS, need_imm_uses_for);
 
   /*  ----------- Analyze loops. -----------  */
 
@@ -4137,7 +4123,6 @@ vectorize_loops (struct loops *loops)
 
   /*  ----------- Finalize. -----------  */
 
-  free_df ();
   for (i = 1; i < loops_num; i++)
     {
       struct loop *loop = loops->parray[i];

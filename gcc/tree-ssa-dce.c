@@ -336,7 +336,7 @@ mark_stmt_if_obviously_necessary (tree stmt, bool aggressive)
 	     statement from being marked necessary, we replace the condition
 	     with a constant.  The stmt is killed later on in cfg_cleanup.  */
 	  COND_EXPR_COND (stmt) = integer_zero_node;
-	  modify_stmt (stmt);
+	  update_stmt (stmt);
 	  return;
 	}
       /* Fall through.  */

@@ -379,7 +379,7 @@ verify_loop_closed_ssa (void)
   tree phi;
   unsigned i;
 
-  verify_ssa ();
+  verify_ssa (false);
 
   FOR_EACH_BB (bb)
     {

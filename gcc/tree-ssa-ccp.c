@@ -330,16 +330,6 @@ likely_value (tree stmt)
 }
 
 
-/* Function indicating whether we ought to include information for VAR
-   when calculating immediate uses.  */
-
-static bool
-need_imm_uses_for (tree var)
-{
-  return get_value (var)->lattice_val != VARYING;
-}
-
-
 /* Initialize local data structures for CCP.  */
 
 static void
@@ -429,9 +419,6 @@ ccp_initialize (void)
     }
 
   sbitmap_free (is_may_def);
-
-  /* Compute immediate uses for variables we care about.  */
-  compute_immediate_uses (TDFA_USE_OPS | TDFA_USE_VOPS, need_imm_uses_for);
 }
 
 
@@ -588,7 +575,7 @@ substitute_and_fold (void)
 		    tree_purge_dead_eh_edges (bb);
 		}
 	      else
-		modify_stmt (stmt);
+		update_stmt (stmt);
 	    }
 
 	  if (dump_file && (dump_flags & TDF_DETAILS))
@@ -2187,7 +2174,7 @@ execute_fold_all_builtins (void)
 	      if (result && !set_rhs (stmtp, result))
 		abort ();
 	    }
-	  modify_stmt (*stmtp);
+	  update_stmt (*stmtp);
 	  if (maybe_clean_eh_stmt (*stmtp)
 	      && tree_purge_dead_eh_edges (bb))
 	    cfg_changed = true;
