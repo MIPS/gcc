@@ -1,5 +1,9 @@
 2005-03-23  Tom Tromey  <tromey@redhat.com>
 
+	* tree.cc (visit_field_initializer): Don't build a COMPONENT_REF.
+
+2005-03-23  Tom Tromey  <tromey@redhat.com>
+
 	* tree.cc (visit_try): Annotate statement.
 
 2005-03-23  Tom Tromey  <tromey@redhat.com>
