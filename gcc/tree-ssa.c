@@ -201,7 +201,7 @@ static int elim_unvisited_predecessor (elim_graph, int);
 static void elim_backward (elim_graph, int);
 static void elim_create (elim_graph, int);
 static void eliminate_phi (edge, int, elim_graph);
-static tree_live_info_p coalesce_ssa_name (var_map, int flags);
+static tree_live_info_p coalesce_ssa_name (var_map, int);
 static void assign_vars (var_map);
 static bool replace_variable (var_map, tree *, tree *);
 static void eliminate_virtual_phis (void);
@@ -970,9 +970,6 @@ create_temp (tree t)
   tmp = create_tmp_var (type, name);
   add_referenced_tmp_var (tmp);
 
-  /* Mark the new variable as used.  */
-  set_is_used (tmp);
-
   /* add_referenced_tmp_var will create the annotation and set up some
      of the flags in the annotation.  However, some flags we need to
      inherit from our original variable.  */
@@ -1484,16 +1481,22 @@ coalesce_abnormal_edges (var_map map, conflict_graph graph, root_var_p rv)
 static tree_live_info_p
 coalesce_ssa_name (var_map map, int flags)
 {
-  int num, x;
+  int num, x, i;
   sbitmap live;
-  tree var;
+  tree var, phi;
   root_var_p rv;
   tree_live_info_p liveinfo;
   var_ann_t ann;
   conflict_graph graph;
+  basic_block bb;
+  coalesce_list_p cl = NULL;
 
   if (num_var_partitions (map) <= 1)
     return NULL;
+
+  /* If no preference given, use cheap coalescing of all partitions.  */
+  if ((flags & (SSANORM_COALESCE_PARTITIONS | SSANORM_USE_COALESCE_LIST)) == 0)
+    flags |= SSANORM_COALESCE_PARTITIONS;
   
   liveinfo = calculate_live_on_entry (map);
   calculate_live_on_exit (liveinfo);
@@ -1502,20 +1505,84 @@ coalesce_ssa_name (var_map map, int flags)
   /* Remove single element variable from the list.  */
   root_var_compact (rv);
 
+  if (flags & SSANORM_USE_COALESCE_LIST)
+    {
+      cl = create_coalesce_list (map);
+      
+      /* Add all potential copies via PHI arguments to the list.  */
+      FOR_EACH_BB (bb)
+	{
+	  for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
+	    {
+	      tree res = PHI_RESULT (phi);
+	      int p = var_to_partition (map, res);
+	      if (p == NO_PARTITION)
+		continue;
+	      for (x = 0; x < PHI_NUM_ARGS (phi); x++)
+		{
+		  tree arg = PHI_ARG_DEF (phi, x);
+		  int p2;
+
+		  if (TREE_CODE (arg) != SSA_NAME)
+		    continue;
+		  if (SSA_NAME_VAR (res) != SSA_NAME_VAR (arg))
+		    continue;
+		  p2 = var_to_partition (map, PHI_ARG_DEF (phi, x));
+		  if (p2 != NO_PARTITION)
+		    add_coalesce (cl, p, p2, 1);
+		}
+	    }
+	}
+
+      /* Coalesce all the result decls together.  */
+      var = NULL_TREE;
+      i = 0;
+      for (x = 0; x < num_var_partitions (map); x++)
+	{
+	  tree p = partition_to_var (map, x);
+	  if (TREE_CODE (SSA_NAME_VAR(p)) == RESULT_DECL)
+	    {
+	      if (var == NULL_TREE)
+		{
+		  var = p;
+		  i = x;
+		}
+	      else
+		add_coalesce (cl, i, x, 1);
+	    }
+	}
+    }
+
   /* Build a conflict graph.  */
-  graph = build_tree_conflict_graph (liveinfo, rv, NULL);
+  graph = build_tree_conflict_graph (liveinfo, rv, cl);
+
+  if (cl)
+    {
+      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+	{
+	  fprintf (tree_dump_file, "Before sorting:\n");
+	  dump_coalesce_list (tree_dump_file, cl);
+	}
+
+      sort_coalesce_list (cl);
+
+      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+	{
+	  fprintf (tree_dump_file, "\nAfter sorting:\n");
+	  dump_coalesce_list (tree_dump_file, cl);
+	}
+    }
 
   /* Put the single element variables back in.  */
   root_var_decompact (rv);
 
   /* First, coalesce all live on entry variables to their root variable. 
-     This will ensure the first use is coming from the right memory location. */
+     This will ensure the first use is coming from the correct location. */
 
   live = sbitmap_alloc (num_var_partitions (map));
   sbitmap_zero (live);
 
   /* Set 'live' vector to indicate live on entry partitions.  */
-
   num = num_var_partitions (map);
   for (x = 0 ; x < num; x++)
     {
@@ -1563,12 +1630,23 @@ coalesce_ssa_name (var_map map, int flags)
   coalesce_abnormal_edges (map, graph, rv);
 
   if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-    dump_var_map (tree_dump_file, map);
+    {
+      dump_var_map (tree_dump_file, map);
+    }
 
-  /* Coalesce partitions of a root variable wherever possible.  */
-  coalesce_tpa_members (rv, graph, map, NULL, 
-			((tree_dump_flags & TDF_DETAILS) ? tree_dump_file : NULL));
+  /* Coalesce partitions.  */
+  if (flags & SSANORM_USE_COALESCE_LIST)
+    coalesce_tpa_members (rv, graph, map, cl, 
+			  ((tree_dump_flags & TDF_DETAILS) ? tree_dump_file 
+							   : NULL));
 
+  
+  if (flags & SSANORM_COALESCE_PARTITIONS)
+    coalesce_tpa_members (rv, graph, map, NULL, 
+			  ((tree_dump_flags & TDF_DETAILS) ? tree_dump_file 
+							   : NULL));
+  if (cl)
+    delete_coalesce_list (cl);
   root_var_delete (rv);
   conflict_graph_delete (graph);
 
@@ -1626,18 +1704,20 @@ assign_vars (var_map map)
 
 	  if (t == var || TREE_CODE (t) != SSA_NAME)
 	    continue;
-	  
-	  rep = var_to_partition (map, t);
 
+	  rep = var_to_partition (map, t);
+	  
 	  if (!ann->out_of_ssa_tag)
 	    {
+	      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+		print_exprs (tree_dump_file, "", t, "  --> ", var, "\n");
 	      change_partition_var (map, var, rep);
 	      continue;
 	    }
 
 	  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-	    print_exprs (tree_dump_file, "Overlap :  '", t, "'  conflicts with  '",
-			 var, "");
+	    print_exprs (tree_dump_file, "", t, " not coalesced with ", var, 
+			 "");
 
 	  var = create_temp (t);
 	  change_partition_var (map, var, rep);
@@ -1645,7 +1725,7 @@ assign_vars (var_map map)
 
 	  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
 	    {
-	      fprintf (tree_dump_file, "'     New temp:  '");
+	      fprintf (tree_dump_file, " -->  New temp:  '");
 	      print_generic_expr (tree_dump_file, var, TDF_SLIM);
 	      fprintf (tree_dump_file, "'\n");
 	    }
@@ -2525,15 +2605,22 @@ remove_ssa_form (FILE *dump, var_map map, int flags)
 
   liveinfo = coalesce_ssa_name (map, flags);
 
+  /* Make sure even single occurrence variables are in the list now.  */
+  if ((flags & SSANORM_COMBINE_TEMPS) == 0)
+    compact_var_map (map, VARMAP_NORMAL);
+
   if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
     {
       fprintf (tree_dump_file, "After Coalescing:\n");
       dump_var_map (tree_dump_file, map);
     }
 
-  /* Make sure even single occurrence variables are in the list now.  */
-  if ((flags & SSANORM_COMBINE_TEMPS) == 0)
-    compact_var_map (map, VARMAP_NORMAL);
+  if (flags & SSANORM_PERFORM_TER)
+    {
+      values = find_replaceable_exprs (map);
+      if (values && tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+	dump_replaceable_exprs (tree_dump_file, values);
+    }
 
   /* Assign real variables to the partitions now.  */
   assign_vars (map);
@@ -2544,13 +2631,6 @@ remove_ssa_form (FILE *dump, var_map map, int flags)
       dump_var_map (tree_dump_file, map);
     }
 
-  if (flags & SSANORM_PERFORM_TER)
-    {
-      values = find_replaceable_exprs (map);
-      if (values && tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-	dump_replaceable_exprs (tree_dump_file, values);
-    }
-   
   if ((flags & SSANORM_COMBINE_TEMPS) && liveinfo)
     {
       coalesce_vars (map, liveinfo);
@@ -2680,10 +2760,9 @@ rewrite_vars_out_of_ssa (bitmap vars)
 
       /* Now that we have all the partitions registered, translate the
 	 appropriate variables out of SSA form.  */
+      ssa_flags = SSANORM_COALESCE_PARTITIONS;
       if (flag_tree_combine_temps)
-	ssa_flags = SSANORM_COMBINE_TEMPS;
-      else
-	ssa_flags = 0;
+	ssa_flags |= SSANORM_COMBINE_TEMPS;
       remove_ssa_form (tree_dump_file, map, ssa_flags);
 
       /* And finally, reset the out_of_ssa flag for each of the vars
@@ -2706,7 +2785,8 @@ rewrite_out_of_ssa (void)
 {
   var_map map;
   int var_flags = 0;
-  int ssa_flags = SSANORM_REMOVE_ALL_PHIS;
+  int ssa_flags = (SSANORM_REMOVE_ALL_PHIS | SSANORM_USE_COALESCE_LIST
+		   | SSANORM_COALESCE_PARTITIONS);
 
   eliminate_virtual_phis ();
 

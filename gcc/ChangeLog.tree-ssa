@@ -1,3 +1,21 @@
+2004-02-11  Andrew MacLeod  <amacleod@redhat.com>
+
+	* tree-ssa-live.c (compare_pairs): New.  Coalesce list cost function.
+	(sort_coalesce_list): Use qsort() to sort list by cost.
+	(coalesce_tpa_members): Use correct partition representatives.  Add more
+	debug information.  Allow coalesce by list, root_var, or both.
+	(tpa_dump): Show partition index.
+	* tree-ssa-live.h (SSANORM_COALESCE_PARTITIONS): New flag.
+	(SSANORM_USE_COALESCE_LIST): New flag.
+	* tree-ssa.c (create_temp): Don't mark as used when created.
+	(coalesce_ssa_name): Create coalesce list if requested.  Add more 
+	debug output.
+	(assign_vars): Add additional debug info.
+	(remove_ssa_form): Perform TER after assign_vars().
+	(rewrite_vars_out_of_ssa): Pass coalesce partitions flag to 
+	remove_ssa_form.
+	(rewrite_out_of_ssa): Add coalesce list flag to remove_ssa_form call.
+
 2004-02-10  Jeff Law  <law@redhat.com>
 
 	* Makefile.in (OBJS-common): Add tree-ssa-phiopt.o
