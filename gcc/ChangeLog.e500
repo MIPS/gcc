@@ -1,4 +1,11 @@
 2005-01-19  Aldy Hernandez  <aldyh@redhat.com>
+
+	2004-11-23  Richard Henderson  <rth@redhat.com>
+
+        * combine.c (gen_lowpart_for_combine): Factor out mode of x as well
+        as mode sizes into local temporaries.  Unify failure path.
+
+2005-01-19  Aldy Hernandez  <aldyh@redhat.com>
 	
 	Backport from mainline:
 
