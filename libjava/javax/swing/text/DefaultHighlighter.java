@@ -84,6 +84,16 @@ public class DefaultHighlighter extends LayeredHighlighter
   {
   }
 
+  private void checkPositions(int p0, int p1)
+    throws BadLocationException
+  {
+    if (p0 < 0)
+      throw new BadLocationException("DefaultHighlighter", p0);
+    
+    if (p1 < p0)
+      throw new BadLocationException("DefaultHighlighter", p1);
+  }
+
   public void install(JTextComponent c)
   {
     textComponent = c;
@@ -96,7 +106,9 @@ public class DefaultHighlighter extends LayeredHighlighter
   }
 
   public Object addHighlight(int p0, int p1, Highlighter.HighlightPainter painter)
+    throws BadLocationException
   {
+    checkPositions(p0, p1);
     HighlightEntry entry = new HighlightEntry(p0, p1, painter);
     highlights.add(entry);
     return entry;
@@ -118,7 +130,9 @@ public class DefaultHighlighter extends LayeredHighlighter
   }
 
   public void changeHighlight(Object tag, int p0, int p1)
+    throws BadLocationException
   {
+    checkPositions(p0, p1);
     HighlightEntry entry = (HighlightEntry) tag;
     entry.p0 = p0;
     entry.p1 = p1;

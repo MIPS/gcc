@@ -393,21 +393,33 @@ public abstract class JTextComponent extends JComponent
     return "JTextComponent";
   }
 
+  /**
+   * This method returns the label's UI delegate.
+   *
+   * @return The label's UI delegate.
+   */
   public TextUI getUI()
   {
     return (TextUI) ui;
   }
 
+  /**
+   * This method sets the label's UI delegate.
+   *
+   * @param ui The label's UI delegate.
+   */
   public void setUI(TextUI newUI)
   {
     super.setUI(newUI);
   }
 
+  /**
+   * This method resets the label's UI delegate to the default UI for the
+   * current look and feel.
+   */
   public void updateUI()
   {
     setUI((TextUI) UIManager.getUI(this));
-    invalidate();
-    repaint();
   }
 
   public Dimension getPreferredScrollableViewportSize()

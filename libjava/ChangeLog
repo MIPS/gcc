@@ -1,3 +1,25 @@
+2004-06-30  Michael Koch  <konqueror@gmx.de>
+
+	* javax/swing/plaf/basic/BasicButtonUI.java
+	(paintFocus): Fixed method signature.
+	(paintButtonPressed): Likewise.
+	(paintButtonNormal): Likewise.
+	(paintText): New method.
+	* javax/swing/plaf/basic/BasicLabelUI.java
+	(paint): Re-indented.
+	* javax/swing/plaf/basic/BasicTextUI.java
+	(installUI): Set parent textComponent to opaque.
+	* javax/swing/text/DefaultHighlighter.java
+	(checkPositions): New helper method.
+	(addHighlight): Throws BadLocationException, check positions.
+	(changeHighlight): Likewise.
+	* javax/swing/text/EditorKit.java
+	(EditorKit): Implements Serializable.
+	* javax/swing/text/JTextComponent.java
+	(getUI): Added javadoc.
+	(setUI): Likewise.
+	(upadteUI): Added javadoc, don't revalidate and repaint.
+
 2004-06-30  Olga Rodimina  <rodimina@redhat.com>
 
 	*  javax/swing/AbstractButton.java: 
