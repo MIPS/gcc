@@ -1,3 +1,13 @@
+2003-06-25  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-ssa-pre.c: Convert to ISO C.
+	(handle_bb_creation): New function.
+	(ephi_will_be_avail): Remove dead code.
+	(finalize_1): Use handle_bb_creation, start to fix edge insertion
+	related fun.
+	(maybe_find_rhs_use_for_var): Stop using tree_stmt.
+	(code_motion): Always get the temporary from the right place.
+	
 2003-06-24  Jason Merrill  <jason@redhat.com>
 
 	* gimplify.c (gimplify_self_mod_expr): Add want_value parm.

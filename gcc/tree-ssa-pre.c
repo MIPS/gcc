@@ -53,7 +53,6 @@ Boston, MA 02111-1307, USA.  */
 
    Pieces are also taken from Open64's SSAPRE implementation.
 
-   
    Since the papers are a bit dense to read, take a while to grasp,
    and have a few bugs, i'll give a quick rundown:
    
@@ -99,11 +98,13 @@ Boston, MA 02111-1307, USA.  */
    5. Insert the saves and reloads, and transform EPHIs into regular
    phis of the temporary we use for insertion/saving.  */
 
+
 /* TODOS: 
-   
-Do strength reduction on a +-b and -a, not just a * <constant>.  
-Get rid of the ephis array in expr_info, since it's not necessary
-anymore.  */
+   Reimplement load PRE.
+   Do strength reduction on a +-b and -a, not just a * <constant>.  
+   Get rid of the ephis array in expr_info, since it's not necessary
+   anymore.  */
+
 /* Debugging dumps.  */
 static FILE *dump_file;
 static FILE *graph_dump_file;
@@ -111,92 +112,88 @@ static int dump_flags;
 static int graph_dump_flags;
 
 struct expr_info;
-static bool expr_lexically_eq PARAMS ((const tree, const tree));
-static void free_expr_info PARAMS ((struct expr_info *));
-static bitmap compute_idfs PARAMS ((bitmap *, tree));
-static void compute_domchildren PARAMS ((dominance_info, sbitmap *));
-static inline bool a_dom_b PARAMS ((tree, tree));
-static void set_var_phis PARAMS ((struct expr_info *, tree));
-static void calculate_preorder PARAMS ((void));
-static bool names_match_p PARAMS ((const tree, const tree));
-static bool is_strred_cand PARAMS ((const tree));
-static int pre_expression PARAMS ((struct expr_info *, void *));
-static bool is_injuring_def PARAMS ((struct expr_info *, tree));
-static inline bool okay_injuring_def PARAMS ((tree, tree));
-static void expr_phi_insertion PARAMS ((bitmap *, struct expr_info *));
-static tree factor_through_injuries PARAMS ((struct expr_info *, tree, tree));
-static inline tree maybe_find_rhs_use_for_var PARAMS ((tree, tree));
-static inline tree find_rhs_use_for_var PARAMS ((tree, tree));
-static tree create_ephi_node PARAMS ((basic_block, unsigned int));
-static inline int opnum_of_phi PARAMS ((tree, int));
-static tree phi_opnd_from_res PARAMS ((struct expr_info *, tree, int,
-					      int));
-static tree subst_phis PARAMS ((struct expr_info *, tree, int, basic_block));
-static void generate_expr_as_of_bb PARAMS ((struct expr_info *, tree, int,
-					    basic_block));
-static void rename_2 PARAMS ((struct expr_info *, varray_type *));
-void rename_1 PARAMS ((struct expr_info *));
-void new_rename_1 PARAMS ((struct expr_info *));
-static void process_delayed_rename PARAMS ((struct expr_info *, tree, tree));
-
-static void assign_new_class PARAMS ((tree, varray_type *, varray_type *));
-static void insert_occ_in_preorder_dt_order_1 PARAMS ((struct expr_info *, 
-						       fibheap_t,
-						       basic_block));
-static void insert_occ_in_preorder_dt_order PARAMS ((struct expr_info *, 
-						     fibheap_t));
-static void insert_euse_in_preorder_dt_order_1 PARAMS ((struct expr_info *, 
-							basic_block));
-static void insert_euse_in_preorder_dt_order PARAMS ((struct expr_info *));
-static inline bool defs_match_p PARAMS ((struct expr_info *, const varray_type,
-					 const tree));
-static inline bool defs_y_dom_x PARAMS ((struct expr_info *, const varray_type,
-					 const tree));
+static bool expr_lexically_eq (const tree, const tree);
+static void free_expr_info (struct expr_info *);
+static bitmap compute_idfs (bitmap *, tree);
+static void compute_domchildren (dominance_info, sbitmap *);
+static inline bool a_dom_b (tree, tree);
+static void set_var_phis (struct expr_info *, tree);
+static void calculate_preorder (void);
+static bool names_match_p (const tree, const tree);
+static bool is_strred_cand (const tree);
+static int pre_expression (struct expr_info *, void *);
+static bool is_injuring_def (struct expr_info *, tree);
+static inline bool okay_injuring_def (tree, tree);
+static void expr_phi_insertion (bitmap *, struct expr_info *);
+static tree factor_through_injuries (struct expr_info *, tree, tree);
+static inline tree maybe_find_rhs_use_for_var (tree, tree);
+static inline tree find_rhs_use_for_var (tree, tree);
+static tree create_ephi_node (basic_block, unsigned int);
+static inline int opnum_of_phi (tree, int);
+static tree phi_opnd_from_res (struct expr_info *, tree, int, int);
+static tree subst_phis (struct expr_info *, tree, int, basic_block);
+static void generate_expr_as_of_bb (struct expr_info *, tree, int,
+				    basic_block);
+static void rename_2 (struct expr_info *, varray_type *);
+void rename_1 (struct expr_info *);
+void new_rename_1 (struct expr_info *);
+static void process_delayed_rename (struct expr_info *, tree, tree);
+static void assign_new_class (tree, varray_type *, varray_type *);
+static void insert_occ_in_preorder_dt_order_1 (struct expr_info *, fibheap_t,
+					       basic_block);
+static void insert_occ_in_preorder_dt_order (struct expr_info *, fibheap_t);
+static void insert_euse_in_preorder_dt_order_1 (struct expr_info *,
+						basic_block);
+static void insert_euse_in_preorder_dt_order (struct expr_info *);
+static inline bool defs_match_p (struct expr_info *, const varray_type,
+				 const tree);
+static inline bool defs_y_dom_x (struct expr_info *, const varray_type,
+				 const tree);
 #if ENABLE_CHECKING
-static int count_stmts_in_bb PARAMS ((basic_block));
+static int count_stmts_in_bb (basic_block);
 #endif
-static void reset_down_safe PARAMS ((tree));
-static void down_safety PARAMS ((struct expr_info *));
-static void will_be_avail PARAMS ((struct expr_info *));
-static void compute_can_be_avail PARAMS ((struct expr_info *));
-static void reset_can_be_avail PARAMS ((struct expr_info *, tree));
-static void compute_later PARAMS ((struct expr_info *));
-static void reset_later PARAMS ((struct expr_info *, tree));
-static inline tree ephi_operand_for_pred PARAMS ((tree, edge));
-static void add_ephi_arg PARAMS ((tree, tree, edge));
-static bool finalize_1 PARAMS ((struct expr_info *));
-static void finalize_2 PARAMS ((struct expr_info *));
-static void code_motion PARAMS ((struct expr_info *));
-static tree calculate_increment PARAMS ((struct expr_info *, tree));
-static void repair_euse_injury PARAMS ((struct expr_info *, tree, tree));
-static void repair_ephi_injury PARAMS ((struct expr_info *, tree, tree));
-static void repair_phi_injury PARAMS ((struct expr_info *, tree, tree));
-static void repair_use_injury PARAMS ((struct expr_info *, tree, tree));
-static bool can_insert PARAMS ((tree));
-static void set_save PARAMS ((struct expr_info *, tree));
-static void update_old_new PARAMS ((struct expr_info *, tree *, tree *));
-static tree reaching_def PARAMS ((tree, tree, basic_block, tree));
-static tree * do_proper_save PARAMS ((struct expr_info *, tree , tree, tree, int));
-static void process_left_occs_and_kills PARAMS ((varray_type, 
-						 struct expr_info *, tree *));
-static bool injured_ephi_operand PARAMS ((struct expr_info *, tree, int));
-static void set_replacement PARAMS ((struct expr_info *, tree, tree));
-static void remove_ephi PARAMS ((struct expr_info *, tree));
-static inline bool ephi_has_bottom PARAMS ((tree));
-static int add_call_to_ei PARAMS ((struct expr_info *, void *));
-static bool call_modifies_slot PARAMS ((tree *, tree));
-static tree create_expr_ref PARAMS ((struct expr_info *, tree, enum tree_code, 
-				     basic_block, tree *));
-static void set_expruse_def PARAMS ((tree, tree));
-static inline bool ephi_will_be_avail PARAMS ((tree));
-static int occ_compare PARAMS ((const void *, const void *));
-static inline tree ephi_at_block PARAMS ((basic_block));
-static inline tree ephi_operand_for_pred PARAMS ((tree, edge));
-static void compute_dt_preorder PARAMS ((void));
-static int search_dt_preorder PARAMS ((basic_block, int));
-static bool requires_edge_placement PARAMS ((tree));
-static tree get_default_def PARAMS ((tree, htab_t));
-
+static void reset_down_safe (tree);
+static void down_safety (struct expr_info *);
+static void will_be_avail (struct expr_info *);
+static void compute_can_be_avail (struct expr_info *);
+static void reset_can_be_avail (struct expr_info *, tree);
+static void compute_later (struct expr_info *);
+static void reset_later (struct expr_info *, tree);
+static inline tree ephi_operand_for_pred (tree, edge);
+static void add_ephi_arg (tree, tree, edge);
+static bool finalize_1 (struct expr_info *);
+static void finalize_2 (struct expr_info *);
+static void code_motion (struct expr_info *);
+static tree calculate_increment (struct expr_info *, tree);
+static void repair_euse_injury (struct expr_info *, tree, tree);
+static void repair_ephi_injury (struct expr_info *, tree, tree);
+static void repair_phi_injury (struct expr_info *, tree, tree);
+static void repair_use_injury (struct expr_info *, tree, tree);
+static bool can_insert (tree);
+static void set_save (struct expr_info *, tree);
+static void update_old_new (struct expr_info *, tree *, tree *);
+static tree reaching_def (tree, tree, basic_block, tree);
+static tree * do_proper_save (struct expr_info *, tree , tree, tree, int);
+static void process_left_occs_and_kills (varray_type, struct expr_info *, 
+                                         tree *);
+static bool injured_ephi_operand (struct expr_info *, tree, int);
+static void set_replacement (struct expr_info *, tree, tree);
+static void remove_ephi (struct expr_info *, tree);
+static inline bool ephi_has_bottom (tree);
+static int add_call_to_ei (struct expr_info *, void *);
+static bool call_modifies_slot (tree *, tree);
+static tree create_expr_ref (struct expr_info *, tree, enum tree_code, 
+                             basic_block, tree *);
+static void set_expruse_def (tree, tree);
+static inline bool ephi_will_be_avail (tree);
+static int occ_compare (const void *, const void *);
+static inline tree ephi_at_block (basic_block);
+static inline tree ephi_operand_for_pred (tree, edge);
+static void compute_dt_preorder (void);
+static int search_dt_preorder (basic_block, int);
+static bool requires_edge_placement (tree);
+static tree get_default_def (tree, htab_t);
+static void handle_bb_creation (struct expr_info *, edge, edge);
 static int *pre_preorder;
 static dominance_info pre_idom;
 static bitmap *pre_dfs;
@@ -207,6 +204,8 @@ static tree *avdefs;
 static splay_tree idom_of_ephi;
 /* Map from blocks to their depth first number.  */
 static splay_tree dfn;
+
+static bool redo_dominators;
 
 static struct pre_stats_d
 {
@@ -253,10 +252,7 @@ struct expr_info
 
 /* Add tree DEF coming from edge E as an argument to PHI. */
 static void
-add_ephi_arg (phi, def, e)
-     tree phi;
-     tree def;
-     edge e;
+add_ephi_arg (tree phi, tree def, edge e)
 {
   int i = EPHI_NUM_ARGS (phi);
   
@@ -267,9 +263,7 @@ add_ephi_arg (phi, def, e)
 
 /* Create a new EPHI node at basic block BB.  */
 static tree
-create_ephi_node (bb, add)
-     basic_block bb;
-     unsigned int add;
+create_ephi_node (basic_block bb, unsigned int add)
 {
   tree phi;
   int len;
@@ -307,9 +301,7 @@ create_ephi_node (bb, add)
    find a use of VAR on the RHS of DEF, if one exists. Abort if we
    can't find one.  */
 static inline tree
-find_rhs_use_for_var (def, var)
-     tree def;
-     tree var;
+find_rhs_use_for_var (tree def, tree var)
 {
   tree ret = maybe_find_rhs_use_for_var (def, var);
   if (!ret)
@@ -321,9 +313,7 @@ find_rhs_use_for_var (def, var)
    find a use of VAR on the RHS of DEF, if one exists.  Return NULL if
    we cannot find one.  */
 static inline tree
-maybe_find_rhs_use_for_var (def, var)
-     tree def;
-     tree var;
+maybe_find_rhs_use_for_var (tree def, tree var)
 {
   varray_type uses;
   size_t i;
@@ -334,8 +324,8 @@ maybe_find_rhs_use_for_var (def, var)
 	return def;
       return NULL_TREE;
     }
-  get_stmt_operands (tree_stmt (def));
-  uses = use_ops (tree_stmt (def));
+  get_stmt_operands (def);
+  uses = use_ops (def);
   
   if (!uses)
     return NULL_TREE;
@@ -353,9 +343,7 @@ maybe_find_rhs_use_for_var (def, var)
 /* Determine if an injuring def is one which we can repair, and thus,
    ignore for purposes of determining the version of a variable.  */
 static inline bool
-okay_injuring_def (inj, var)
-     tree inj;
-     tree var;
+okay_injuring_def (tree inj, tree var)
 {
   /* Acceptable injuries are those which 
      1. aren't empty statements.
@@ -370,9 +358,7 @@ okay_injuring_def (inj, var)
 
 /* Return true if INJ is an injuring definition */
 static bool 
-is_injuring_def (ei, inj)
-     struct expr_info *ei;
-     tree inj;
+is_injuring_def (struct expr_info *ei, tree inj)
 {
   /* Things that are never injuring definitions. */
   if (!inj || IS_EMPTY_STMT (inj) || TREE_CODE (inj) == PHI_NODE) 
@@ -429,7 +415,7 @@ is_injuring_def (ei, inj)
       if (really_constant_p (irhs2) 
 	  && really_constant_p (TREE_OPERAND (ei->expr, 1)))
 	return true;
-      /* We don't support "the injury is inside a loop,expr is 
+      /* We don't currently support "the injury is inside a loop,expr is 
 	 loop-invariant, and b is either loop-invariant or is 
 	 another induction variable with respect to the loop." */
       return false;
@@ -440,10 +426,7 @@ is_injuring_def (ei, inj)
 /* Find the statement defining VAR, ignoring injuries we can repair.  
    START is the first potential injuring def. */
 static tree
-factor_through_injuries (ei, start, var)
-     struct expr_info *ei;
-     tree start;
-     tree var;
+factor_through_injuries (struct expr_info *ei, tree start, tree var)
 {
   tree end = start;
 
@@ -464,8 +447,7 @@ factor_through_injuries (ei, start, var)
 }
 
 static inline bool
-ephi_has_bottom (ephi)
-     tree ephi;
+ephi_has_bottom (tree ephi)
 {
   int i;
   for (i = 0 ; i < EPHI_NUM_ARGS (ephi); i++)
@@ -478,27 +460,19 @@ ephi_has_bottom (ephi)
 }
 
 static inline bool
-ephi_will_be_avail (ephi)
-     tree ephi;
+ephi_will_be_avail (tree ephi)
 {
   if (EPHI_CAN_BE_AVAIL (ephi))
     if (!EPHI_LATER (ephi))
-      {
-	/*	int i;
-	for (i = 0; i < EPHI_NUM_ARGS (ephi); i++)
-	  if (EUSE_DEF (EPHI_ARG_DEF (ephi, i)) == NULL_TREE)
-	  return false;*/
-	return true;
-      }
+      return true;
+
   return false;
 }
 /* Set DEF to be the new definition of REF, and update the approriate
    use arrays to reflect this. */
 
 static void
-set_expruse_def (ref, def)
-     tree ref;
-     tree def;
+set_expruse_def (tree ref, tree def)
 {
   if (EUSE_DEF (ref))
     {
@@ -525,12 +499,8 @@ set_expruse_def (ref, def)
 }
 
 static tree
-create_expr_ref (ei, expr, type, bb, parent)
-     struct expr_info *ei;
-     tree expr;
-     enum tree_code type;
-     basic_block bb;
-     tree *parent;
+create_expr_ref (struct expr_info *ei, tree expr, enum tree_code type,
+		 basic_block bb, tree *parent)
 {
   tree ret;
   if (type == EPHI_NODE)
@@ -571,9 +541,7 @@ static bitmap varphis;
    EPHI's for the variables in the PHI as well. */
 
 static void
-set_var_phis (ei, phi)
-     struct expr_info *ei;
-     tree phi;
+set_var_phis (struct expr_info *ei, tree phi)
 {
   /* If we've already got an EPHI set to be placed in PHI's BB, we
      don't need to do this. */
@@ -614,9 +582,7 @@ set_var_phis (ei, phi)
 
 /* EPHI insertion algorithm.  */
 static void
-expr_phi_insertion (dfs, ei)
-     bitmap *dfs;
-     struct expr_info *ei;
+expr_phi_insertion (bitmap * dfs, struct expr_info *ei)
 {
   size_t i;
   dfphis = BITMAP_XMALLOC ();
@@ -695,8 +661,7 @@ expr_phi_insertion (dfs, ei)
 }
 
 static inline tree 
-ephi_at_block (bb)
-     basic_block bb;
+ephi_at_block (basic_block bb)
 {
   bb_ann_t ann = bb_ann (bb);
   if (ann->ephi_nodes)
@@ -706,10 +671,8 @@ ephi_at_block (bb)
 }
 /* Insert the occurrences in preorder DT order, in the fibheap.  */
 static void
-insert_occ_in_preorder_dt_order_1 (ei, fh, block)
-     struct expr_info *ei;
-     fibheap_t fh;
-     basic_block block;
+insert_occ_in_preorder_dt_order_1 (struct expr_info *ei, fibheap_t fh,
+				   basic_block block)
 {
   size_t i;
   edge succ; 
@@ -794,9 +757,7 @@ insert_occ_in_preorder_dt_order_1 (ei, fh, block)
 }
 
 static void
-insert_occ_in_preorder_dt_order (ei, fh)
-     struct expr_info *ei;
-     fibheap_t fh;
+insert_occ_in_preorder_dt_order (struct expr_info *ei, fibheap_t fh)
 {
   preorder_count = 0;
   insert_occ_in_preorder_dt_order_1 (ei, fh, ENTRY_BLOCK_PTR->next_bb);
@@ -815,10 +776,7 @@ insert_occ_in_preorder_dt_order (ei, fh)
 /* Assign a new redundancy class to the occurrence, and push it on the
    stack.  */ 
 static void
-assign_new_class (occ, stack, stack2)
-     tree occ;
-     varray_type *stack;
-     varray_type *stack2;
+assign_new_class (tree occ, varray_type * stack, varray_type * stack2)
 {
   /* class(occ) <- count
      Push(occ, stack)
@@ -834,10 +792,7 @@ assign_new_class (occ, stack, stack2)
 /* Determine if the definitions of variables in Y dominate the basic
    block of X. */
 static inline bool 
-defs_y_dom_x (ei, yuses, x)
-     struct expr_info *ei;
-     const varray_type yuses;
-     const tree x;
+defs_y_dom_x (struct expr_info *ei, const varray_type yuses, const tree x)
 {
   size_t i;
 
@@ -866,10 +821,7 @@ defs_y_dom_x (ei, yuses, x)
   return true;
 }
 static inline bool
-defs_match_p (ei, t1uses, t2)
-     struct expr_info *ei;
-     const varray_type t1uses;
-     const tree t2;
+defs_match_p (struct expr_info *ei, const varray_type t1uses, const tree t2)
 {
   size_t i;
   for (i = 0; i < VARRAY_ACTIVE_SIZE (t1uses); i++)
@@ -903,9 +855,7 @@ defs_match_p (ei, t1uses, t2)
 
 /* Determine the phi operand index for J, for PHI.  */
 static inline int
-opnum_of_phi (phi, j)
-     tree phi;
-     int j;
+opnum_of_phi (tree phi, int j)
 {
   int i;
   /* We can't just count predecessors, since tree-ssa.c generates them
@@ -918,11 +868,7 @@ opnum_of_phi (phi, j)
   abort();
 }
 static tree
-phi_opnd_from_res (ei, Z, curr_phiop, j)
-     struct expr_info *ei;
-     tree Z;
-     int curr_phiop;
-     int j;
+phi_opnd_from_res (struct expr_info *ei, tree Z, int curr_phiop, int j)
 {
   tree q;
   tree stmt_copy;
@@ -995,11 +941,7 @@ generate_expr_as_of_bb (ei, expr, j, bb)
 }
 
 static tree
-subst_phis (ei, Z, j, bb)
-     struct expr_info *ei;
-     tree Z;
-     int j;
-     basic_block bb;
+subst_phis (struct expr_info *ei, tree Z, int j, basic_block bb)
 {
   tree q;
   tree stmt_copy;
@@ -1026,9 +968,7 @@ subst_phis (ei, Z, j, bb)
   return q;
 }
 static void
-rename_2 (ei, rename2_set)
-     struct expr_info *ei;
-     varray_type *rename2_set;
+rename_2 (struct expr_info *ei, varray_type * rename2_set)
 {
   unsigned int i;
   
@@ -1089,9 +1029,7 @@ rename_2 (ei, rename2_set)
 }
 
 static int 
-occ_compare (a, b)
-     const void *a;
-     const void *b;
+occ_compare (const void *a, const void *b)
 {
   tree occ1 = *(tree *) a;
   tree occ2 = *(tree *) b;
@@ -1119,10 +1057,7 @@ occ_compare (a, b)
 
 /* Delayed rename handling as implemented in open64. */
 static void
-process_delayed_rename (ei, use, real_occ)
-     struct expr_info *ei;
-     tree use;   
-     tree real_occ;
+process_delayed_rename (struct expr_info *ei, tree use, tree real_occ)
 {
   tree exp_phi = use;
   int opnd_num = 0;
@@ -1170,8 +1105,7 @@ process_delayed_rename (ei, use, real_occ)
 
 /* Renaming as implemented in Open64. */
 void
-new_rename_1 (ei)
-     struct expr_info *ei;
+new_rename_1 (struct expr_info *ei)
 {
   fibheap_t fh = fibheap_new ();
   tree *occs;
@@ -1328,8 +1262,7 @@ new_rename_1 (ei)
 
 /* Renaming as implemented in papers.  */
 void
-rename_1 (ei)
-     struct expr_info *ei;
+rename_1 (struct expr_info *ei)
 {
   fibheap_t fh = fibheap_new ();
   tree *occs;
@@ -1515,8 +1448,7 @@ rename_1 (ei)
 
 /* Reset down safety flags.  */
 static void 
-reset_down_safe (ephiop)
-     tree ephiop;
+reset_down_safe (tree ephiop)
 {
   tree ephi;
   int i;
@@ -1535,8 +1467,7 @@ reset_down_safe (ephiop)
 
 /* Compute down_safety.  */
 static void
-down_safety (ei)
-     struct expr_info *ei;
+down_safety (struct expr_info *ei)
 {
   size_t i;
   for (i = 0; i < VARRAY_ACTIVE_SIZE (ei->euses_dt_order); i++)
@@ -1552,9 +1483,7 @@ down_safety (ei)
     }      
 } 
 static inline tree
-ephi_operand_for_pred (ephi, e)
-     tree ephi;
-     edge e;
+ephi_operand_for_pred (tree ephi, edge e)
 {
   int i;
   for (i = 0; i < EPHI_NUM_ARGS (ephi); i++)
@@ -1595,8 +1524,7 @@ requires_edge_placement (ephi)
 
 /* Compute can_be_avail.  */
 static void
-compute_can_be_avail (ei)
-     struct expr_info *ei;
+compute_can_be_avail (struct expr_info *ei)
 {
   size_t i;
   for (i = 0; i < VARRAY_ACTIVE_SIZE (ei->euses_dt_order); i++)
@@ -1623,9 +1551,7 @@ compute_can_be_avail (ei)
 
 /* Reset can_be_avail flags.  */
 static void
-reset_can_be_avail (ei, ephi)
-     struct expr_info *ei;   
-     tree ephi;
+reset_can_be_avail (struct expr_info *ei, tree ephi)
 {
   varray_type uses;
   size_t i;
@@ -1655,9 +1581,7 @@ reset_can_be_avail (ei, ephi)
 
 /*  Reset later flags.  */
 static void 
-reset_later (ei, ephi)
-     struct expr_info *ei;
-     tree ephi;
+reset_later (struct expr_info *ei, tree ephi)
 {
   varray_type uses;
   size_t i;
@@ -1689,8 +1613,7 @@ reset_later (ei, ephi)
 
 /*  Compute later flags.  */
 static void
-compute_later (ei)
-     struct expr_info *ei;
+compute_later (struct expr_info *ei)
 {
   size_t i;
   for (i = 0; i < VARRAY_ACTIVE_SIZE (ei->euses_dt_order); i++)
@@ -1724,8 +1647,7 @@ compute_later (ei)
 
 /* Compute will_be_avail.  */
 static void
-will_be_avail (ei)
-     struct expr_info *ei;
+will_be_avail (struct expr_info *ei)
 {
   compute_can_be_avail (ei);
   compute_later (ei);
@@ -1733,9 +1655,7 @@ will_be_avail (ei)
 
 /* Insert the expressions in preorder DT order in the ref_list.  */
 static void
-insert_euse_in_preorder_dt_order_1 (ei, block)
-     struct expr_info *ei;
-     basic_block block;
+insert_euse_in_preorder_dt_order_1 (struct expr_info *ei, basic_block block)
 {
   size_t i;
   for (i = 0; i < VARRAY_ACTIVE_SIZE (ei->erefs); i++)
@@ -1757,8 +1677,7 @@ insert_euse_in_preorder_dt_order_1 (ei, block)
 }
 
 static void
-insert_euse_in_preorder_dt_order (ei)
-     struct expr_info *ei;
+insert_euse_in_preorder_dt_order (struct expr_info *ei)
 {
   VARRAY_CLEAR (ei->euses_dt_order);
   insert_euse_in_preorder_dt_order_1 (ei, ENTRY_BLOCK_PTR->next_bb);
@@ -1766,8 +1685,7 @@ insert_euse_in_preorder_dt_order (ei)
 
 /* Determine if we can insert the ephi.  */
 static bool
-can_insert (op)
-     tree op;
+can_insert (tree op)
 {
   tree def;
   
@@ -1789,9 +1707,7 @@ can_insert (op)
    This is incredibly ugly, since we have to walk back through all
    the definitions to find the one defined by the empty statement.  */
 static tree
-get_default_def (var, seen)
-     tree var;
-     htab_t seen;
+get_default_def (tree var, htab_t seen)
 {
   tree defstmt = SSA_NAME_DEF_STMT (var);
 
@@ -1818,11 +1734,7 @@ get_default_def (var, seen)
 }
 /* Hunt down the right reaching def for VAR, starting with BB. */
 static tree
-reaching_def (var, currstmt, bb, ignore)
-     tree var;
-     tree currstmt;
-     basic_block bb;
-     tree ignore;
+reaching_def (tree var, tree currstmt, basic_block bb, tree ignore)
 {
   tree curruse = NULL_TREE;
   block_stmt_iterator bsi;
@@ -1872,10 +1784,7 @@ reaching_def (var, currstmt, bb, ignore)
 }
 
 static void
-update_old_new (ei, old, new)
-     struct expr_info *ei;
-     tree *old;
-     tree *new;
+update_old_new (struct expr_info *ei, tree *old, tree *new)
 {
   splay_tree_node result;
   size_t i;
@@ -1912,10 +1821,33 @@ update_old_new (ei, old, new)
       if (EREF_STMT (VARRAY_TREE (ei->erefs, i)) == old)
 	EREF_STMT (VARRAY_TREE (ei->erefs, i)) = new;
     }
-}      
+}
+static void
+handle_bb_creation (struct expr_info *ei, edge old_edge,
+		    edge new_edge)
+{
+  unsigned int i;
+  for (i = 0; i < VARRAY_SIZE (ei->erefs); i++)
+    {
+      tree tempephi = VARRAY_TREE (ei->erefs, i);
+      if (tempephi == NULL) continue;
+      if (TREE_CODE (tempephi) == EPHI_NODE)
+	{
+	  tree phi = EREF_TEMP (tempephi);
+	  int num_elem = PHI_NUM_ARGS (phi);
+	  int j;
+	  for (j = 0; j < num_elem; j++)
+	    if (PHI_ARG_EDGE (phi, j) == old_edge)
+	      {
+		PHI_ARG_EDGE (phi, j) = new_edge;
+		EPHI_ARG_EDGE (tempephi, j) = new_edge;
+	      }
+	}
+    }
+}
+
 static bool
-finalize_1 (ei)
-     struct expr_info *ei;
+finalize_1 (struct expr_info *ei)
 {
   tree x;
   int nx;
@@ -1977,6 +1909,10 @@ finalize_1 (ei)
 		  tree endtree;
 		  tree *endtreep;
 		  basic_block bb = bb_for_stmt (x);
+		  edge e = NULL;
+		  int opnum;
+		  basic_block createdbb = NULL;
+		  block_stmt_iterator bsi;
 		  
 		  /* Insert definition of expr at end of BB containing x. */
 		  
@@ -2019,20 +1955,50 @@ finalize_1 (ei)
 		  set_bb_for_stmt (expr, bb);
 
 		  /* Find the edge to insert on. */
-		  {
-		    edge e = NULL;
-		    int opnum;
-		    int newbbs;
+		  for (opnum = 0; opnum < EPHI_NUM_ARGS (ephi); opnum++)
+		    if (EPHI_ARG_DEF (ephi, opnum) == x)
+		      e = EPHI_ARG_EDGE (ephi, opnum);
+		  if (e == NULL)
+		    abort ();
 
-		    for (opnum = 0; opnum < EPHI_NUM_ARGS (ephi); opnum++)
-		      if (EPHI_ARG_DEF (ephi, opnum) == x)
-			e = EPHI_ARG_EDGE (ephi, opnum);
-		    if (e == NULL)
-		      abort ();
-
-		    bsi_insert_on_edge (e, expr);
-		    bsi_commit_edge_inserts (1, &newbbs);
-		  }
+		  /* Do the insertion.
+		     Need to get a BSI in case insert_on_edge_immediate
+		     does an insert before, which will cause us to need
+		     to update pointers like do_proper_save does.  */
+		  bsi = bsi_start (bb);
+		  for (; !bsi_end_p (bsi); bsi_next (&bsi))
+		    {
+		      if (bsi_stmt (bsi) == endtree)
+			{
+			  bsi_insert_on_edge_immediate (e, expr, &bsi, 
+							&createdbb);
+			  if (createdbb != NULL)
+			    {
+			      set_bb_for_stmt (x, createdbb);
+			      if (createdbb->succ && createdbb->succ->succ_next)
+				abort ();
+			      handle_bb_creation (ei, e, createdbb->succ);
+			      /* If we split the block, we need to update
+				 the euse, the ephi edge, etc. */
+			      /* Cheat for now, don't redo the dominance info, 
+				 it shouldn't matter until after insertion
+				 is done for this expression.*/
+			      /* bb = bb_for_stmt (expr); */
+			      set_bb_for_stmt (x, createdbb);
+			      
+			      /* e->src = createdbb; */
+			      redo_dominators = true;
+			    }
+			  else			      
+			    {
+			      if (bsi_stmt_ptr (bsi) != endtreep)
+				update_old_new (ei, endtreep,
+						bsi_stmt_ptr (bsi));
+			    }
+			  break;
+			}
+		    }
+		  
 		  set_expruse_def (x, create_expr_ref (ei, ei->expr, EUSE_NODE,
 						       bb, 0));
 		  VARRAY_PUSH_TREE (ei->erefs, EUSE_DEF (x));
@@ -2060,10 +2026,7 @@ finalize_1 (ei)
    Used during EPHI minimization to make sure we keep EPHI's 
    that we need to do injury repair on.  */
 static bool
-injured_ephi_operand (ei, ephi, opnum)
-     struct expr_info *ei;
-     tree ephi;
-     int opnum;
+injured_ephi_operand (struct expr_info *ei, tree ephi, int opnum)
 {
   int i;
   tree operand = EPHI_ARG_DEF (ephi, opnum);
@@ -2097,9 +2060,7 @@ injured_ephi_operand (ei, ephi, opnum)
   return false;  
 }
 static void
-set_save (ei, X)
-     struct expr_info *ei;
-     tree X;
+set_save (struct expr_info *ei, tree X)
 {
   if ((TREE_CODE (X) == EUSE_NODE && !EUSE_PHIOP (X))
       || TREE_CODE (X) == ELEFT_NODE)
@@ -2152,9 +2113,7 @@ set_save (ei, X)
     }
 }
 static void
-remove_ephi (ei, ephi)
-     struct expr_info *ei;
-     tree ephi;   
+remove_ephi (struct expr_info *ei, tree ephi)
 {
   size_t i;
   int j;
@@ -2213,10 +2172,7 @@ remove_ephi (ei, ephi)
 
 /* Set replacement for EPHI minimization.  */
 static void
-set_replacement (ei, g, replacing_def)
-     struct expr_info *ei;
-     tree g;
-     tree replacing_def;
+set_replacement (struct expr_info *ei, tree g, tree replacing_def)
 {
   size_t i;
   
@@ -2260,8 +2216,7 @@ set_replacement (ei, g, replacing_def)
 }
 
 static void 
-finalize_2 (ei)
-     struct expr_info *ei;
+finalize_2 (struct expr_info *ei)
 {
   size_t i;
 
@@ -2330,9 +2285,7 @@ finalize_2 (ei)
 
 /* Calculate the increment necessary due to EXPR for the temporary. */
 static tree
-calculate_increment (ei, expr)
-     struct expr_info *ei;
-     tree expr;
+calculate_increment (struct expr_info *ei, tree expr)
 {
   tree incr;
   
@@ -2355,10 +2308,7 @@ calculate_increment (ei, expr)
   return incr;
 }
 static void
-repair_ephi_injury (ei, ephi, temp)
-     struct expr_info *ei;
-     tree ephi;
-     tree temp;
+repair_ephi_injury (struct expr_info *ei, tree ephi, tree temp)
 {
   tree t;
   for (t = phi_nodes (bb_for_stmt (ephi)); t; t = TREE_CHAIN (t))
@@ -2367,10 +2317,7 @@ repair_ephi_injury (ei, ephi, temp)
     }
 }
 static void
-repair_phi_injury (ei, phi, temp)
-     struct expr_info *ei;
-     tree phi;
-     tree temp;
+repair_phi_injury (struct expr_info *ei, tree phi, tree temp)
 {
   int curr_phi_oper;
   if (htab_find (ei->repaired, phi) != NULL)
@@ -2394,11 +2341,7 @@ repair_phi_injury (ei, phi, temp)
 }
 
 static void
-repair_use_injury (ei, use, temp)
-     struct expr_info *ei;
-     tree use;
-     tree temp;
-     
+repair_use_injury (struct expr_info *ei, tree use, tree temp)
 {
   tree stmt;
   tree var;
@@ -2471,10 +2414,7 @@ repair_use_injury (ei, use, temp)
 
 /* Repair the injury for USE. */
 static void
-repair_euse_injury (ei, euse, temp)
-     struct expr_info *ei; 
-     tree euse; 
-     tree temp;
+repair_euse_injury (struct expr_info *ei, tree euse, tree temp)
 {
 
   int i;
@@ -2505,8 +2445,7 @@ repair_euse_injury (ei, euse, temp)
 }
 #if ENABLE_CHECKING
 static int
-count_stmts_in_bb (bb)
-     basic_block bb;
+count_stmts_in_bb (basic_block bb)
 {
   block_stmt_iterator bsi;
   int num_stmt1 = 0;
@@ -2569,8 +2508,7 @@ do_proper_save (ei, use, firstexpr, secondexpr, before)
 }
 
 static void
-code_motion (ei)
-     struct expr_info *ei;
+code_motion (struct expr_info *ei)
 {
   tree use;
   tree newtemp;
@@ -2698,13 +2636,19 @@ code_motion (ei)
 	  for (i = 0; i < EPHI_NUM_ARGS (use); i++)
 	    {
 	      tree rdef;
-	      rdef = EREF_TEMP (EPHI_ARG_DEF (use, i));
+	      tree argdef = EPHI_ARG_DEF (use, i);
+	      rdef = EREF_TEMP (argdef);
 	      if (!rdef)
 		{
-		  if (TREE_CODE (EUSE_DEF (EPHI_ARG_DEF (use, i))) == EPHI_NODE)
-		    rdef = PHI_RESULT (EREF_TEMP (EUSE_DEF (EPHI_ARG_DEF (use, i))));
-		  else
-		    rdef = EREF_TEMP (EUSE_DEF (EPHI_ARG_DEF (use, i)));
+		  if (TREE_CODE (EUSE_DEF (argdef)) == EPHI_NODE)
+		    rdef = PHI_RESULT (EREF_TEMP (EUSE_DEF (argdef)));
+		  else if (EREF_TEMP (EUSE_DEF (argdef)))
+		    rdef = EREF_TEMP (EUSE_DEF (argdef));
+		  else if (EUSE_HAS_REAL_USE (argdef))
+		    {
+		      rdef = TREE_OPERAND (*(EREF_STMT (EUSE_DEF (argdef))), 0);
+		    }
+		  
 		}
 	      if (!rdef)
 	        abort();
@@ -2730,9 +2674,7 @@ code_motion (ei)
 
 /* Returns true if a dominates b */
 static inline bool 
-a_dom_b (a, b)
-     tree a;
-     tree b;
+a_dom_b (tree a, tree b)
 {
   bool ret = false;
   
@@ -2811,9 +2753,7 @@ a_dom_b (a, b)
 /* Compute the domchildren sbitmap vector from the list of immediate
    dominators.  */     
 static void
-compute_domchildren (idom, domc)
-     dominance_info idom;
-     sbitmap *domc;
+compute_domchildren (dominance_info idom, sbitmap * domc)
 {
   basic_block bb;
   FOR_EACH_BB (bb)
@@ -2827,9 +2767,7 @@ compute_domchildren (idom, domc)
 
 /* Compute the iterated dominance frontier of a statement. */
 static bitmap
-compute_idfs (dfs, stmt)
-     bitmap *dfs;
-     tree stmt;
+compute_idfs (bitmap * dfs, tree stmt)
 {
   fibheap_t worklist;
   sbitmap inworklist = sbitmap_alloc (last_basic_block);
@@ -2863,7 +2801,7 @@ compute_idfs (dfs, stmt)
 }
 
 static void 
-calculate_preorder ()
+calculate_preorder (void)
 {
   edge *stack;
   int sp;
@@ -2941,9 +2879,7 @@ is_strred_cand (expr)
   return false;
 }
 static bool
-names_match_p (t1, t2)
-     const tree t1;
-     const tree t2;
+names_match_p (const tree t1, const tree t2)
 {
   tree name1, name2;
   
@@ -2977,9 +2913,7 @@ names_match_p (t1, t2)
 	   
 /* Determine if two expressions are lexically equivalent. */
 static bool
-expr_lexically_eq (v1, v2)
-     const tree v1;
-     const tree v2;
+expr_lexically_eq (const tree v1, const tree v2)
 {
   if (TREE_CODE_CLASS (TREE_CODE (v1)) != TREE_CODE_CLASS (TREE_CODE (v2)))
     return false;
@@ -3010,8 +2944,7 @@ expr_lexically_eq (v1, v2)
 
 /* Free an expression info structure.  */
 static void 
-free_expr_info (v1)
-     struct expr_info * v1;
+free_expr_info (struct expr_info *v1)
 {
   struct expr_info *e1 = (struct expr_info *)v1;
   VARRAY_CLEAR (e1->occurs);
@@ -3033,9 +2966,7 @@ call_modifies_slot (call, expr)
 
 /* Add call expression to expr-infos.  */
 static int
-add_call_to_ei (slot, data)
-     struct expr_info *slot;
-     void *data;
+add_call_to_ei (struct expr_info *slot, void *data)
 {
   tree *call = (tree *) data;
   struct expr_info *ei = (struct expr_info *) slot;
@@ -3079,9 +3010,7 @@ process_left_occs_and_kills (bexprs, slot, exprp)
 }
 
 static int
-pre_expression (slot, data)
-     struct expr_info *slot;
-     void *data;
+pre_expression (struct expr_info *slot, void *data)
 {
   size_t i;
   bool changed = true;
@@ -3251,9 +3180,7 @@ pre_expression (slot, data)
 }
 
 static int
-search_dt_preorder (bb, num)
-     basic_block bb;
-     int num;
+search_dt_preorder (basic_block bb, int num)
 {
   int i;
   splay_tree_insert (dfn, (splay_tree_key) bb, num);
@@ -3267,14 +3194,13 @@ search_dt_preorder (bb, num)
 
 			      
 static void 
-compute_dt_preorder ()
+compute_dt_preorder (void)
 {
   search_dt_preorder (ENTRY_BLOCK_PTR, 0);
 }
 
 void 
-tree_perform_ssapre (fndecl)
-  tree fndecl;
+tree_perform_ssapre (tree fndecl)
 {
   int currbbs;
   block_stmt_iterator j;
