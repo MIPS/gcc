@@ -1,5 +1,10 @@
 2004-03-24  Bud Davis  <bdavis9659@comcast.net>
 
+	* m4/cexp.m4 (csqrt): Actually use the passed value.
+	* generated/exp_c?.c: Regenerate.
+
+2004-03-24  Bud Davis  <bdavis9659@comcast.net>
+
 	PR 12921
 	* io.h, transfer.c, open.c : recl_in changed from ptr to variable.
 	* open.c (new_unit): Moved test for positioned direct access error.
