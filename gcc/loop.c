@@ -6999,6 +6999,8 @@ combine_givs_p (g1, g2)
     return NULL_RTX;
 
   ret = comb = express_from (g1, g2);
+  if (comb == NULL_RTX)
+    return NULL_RTX;
   if (g1->mode != g2->mode)
     ret = gen_lowpart (g2->mode, comb);
 
