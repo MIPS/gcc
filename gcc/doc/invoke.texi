@@ -271,7 +271,7 @@ in the following sections.
 @gccoptlist{
 -falign-functions=@var{n}  -falign-jumps=@var{n} @gol
 -falign-labels=@var{n}  -falign-loops=@var{n}  @gol
--fbounds-check @gol
+-fbounds-check -fmudflap @gol
 -fbranch-probabilities  -fcaller-saves -fcprop-registers @gol
 -fcse-follow-jumps  -fcse-skip-blocks  -fdata-sections @gol
 -fdelayed-branch  -fdelete-null-pointer-checks @gol
@@ -3820,6 +3820,22 @@ For front-ends that support it, generate additional code to check that
 indices used to access arrays are within the declared range.  This is
 currently only supported by the Java and Fortran 77 front-ends, where
 this option defaults to true and false respectively.
+
+@item -fmudflap
+@opindex fmudflap
+@cindex bounds checking
+@cindex mudflap
+For front-ends that support it (C and C++), instrument all risky
+pointer/array dereferencing operations, some standard library
+string/heap functions, and some other associated constructs with
+range/validity tests.  Modules so instrumented should be immune to
+buffer overflows, invalid heap use, and some other classes of C/C++
+programming errors.  The instrumentation relies on a separate runtime
+library (@file{libmudflap}), which will be linked into a program if
+@option{-fmudflap} is given at link time.  Run-time behavior of the
+instrumented program is controlled by the @env{MUDFLAP_OPTIONS}
+environment variable.  See @code{env MUDFLAP_OPTIONS=-help a.out}
+for its options.
 
 @item -fstrength-reduce
 @opindex fstrength-reduce
