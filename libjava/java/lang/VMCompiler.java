@@ -42,9 +42,14 @@ import java.io.FileOutputStream;
 import java.io.InputStreamReader;
 import java.security.MessageDigest;
 import java.security.ProtectionDomain;
+import java.security.NoSuchAlgorithmException;
 import java.util.WeakHashMap;
 import java.util.HashSet;
+import java.util.Enumeration;
+import java.util.StringTokenizer;
+import java.util.Vector;
 import gnu.gcj.runtime.SharedLibHelper;
+import gnu.gcj.runtime.PersistentByteMap;
 
 /**
  * This class is just a per-VM reflection of java.lang.Compiler.
@@ -72,6 +77,8 @@ final class VMCompiler
   // SharedLibHelper is collected if and only if the ClassLoader is.
   private static WeakHashMap sharedHelperMap = new WeakHashMap();
 
+  private static Vector precompiledMapFiles;
+
   static
   {
     gcjJitCompiler = System.getProperty("gnu.gcj.jit.compiler");
@@ -88,6 +95,36 @@ final class VMCompiler
 	  canUseCompiler = false;
 	else
 	  canUseCompiler = true;
+      }
+
+    String prop = System.getProperty ("gnu.gcj.precompiled.db");
+    if (prop != null)
+      {
+	precompiledMapFiles = new Vector();
+	// Add the 
+	StringTokenizer st
+	  = new StringTokenizer (prop,
+				 System.getProperty ("path.separator", ":"));
+	{
+	  while (st.hasMoreElements ()) 
+	    {  
+	      String e = st.nextToken ();
+	      try
+		{
+		  PersistentByteMap map 
+		    = new PersistentByteMap
+		    (e, PersistentByteMap.AccessMode.READ_ONLY);
+		  precompiledMapFiles.add(map);
+		}
+	      catch (IllegalArgumentException _)
+		{
+		  // Not a map file	      
+		}
+	      catch (java.io.IOException _)
+		{
+		}
+	    }
+	}
       }
   }
 
@@ -129,6 +166,44 @@ final class VMCompiler
 				   int offset, int len,
 				   ProtectionDomain domain)
   {
+    if (precompiledMapFiles == null
+	&& (! useCompiler || ! canUseCompiler))
+      return null;
+
+    byte digest[];
+
+    try
+      {
+	MessageDigest md = MessageDigest.getInstance("MD5");
+	digest = md.digest(data);
+      }
+    catch (NoSuchAlgorithmException _)
+      {
+	return null;
+      }
+
+    // We use lookaside cache files to determine whether these bytes
+    // correspond to a class file that is part of a precompiled DSO.
+    if (precompiledMapFiles != null)
+      {
+	try
+	  {
+	    Enumeration elements = precompiledMapFiles.elements();
+	    while (elements.hasMoreElements())
+	      {
+		PersistentByteMap map = (PersistentByteMap)elements.nextElement();
+		byte[] soName = map.get(digest);
+		if (soName != null)
+		  return loadSharedLibrary(loader, 
+					   new String(soName), 
+					   domain, name);
+	      }
+	  }
+	catch (Exception _)
+	  {
+	  }
+      }
+ 
     if (! useCompiler || ! canUseCompiler)
       return null;
 
@@ -137,8 +212,6 @@ final class VMCompiler
 	// FIXME: Make sure that the class represented by the
 	// bytes in DATA really is the class named in NAME.  Make
 	// sure it's not "java.*".
-	MessageDigest md = MessageDigest.getInstance("MD5");
-	byte digest[] = md.digest(data);
 	StringBuffer hexBytes = new StringBuffer(gcjJitTmpdir);
 	hexBytes.append(File.separatorChar);
 	int digestLength = digest.length;

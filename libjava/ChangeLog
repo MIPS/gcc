@@ -1,3 +1,27 @@
+2004-10-28  Andrew Haley  <aph@redhat.com>
+
+	* gnu/gcj/runtime/PersistentByteMap.java: New file.
+	* jv_dbtool.java: New file.
+	* Makefile.am (bin_PROGRAMS): Add jv-dbtool
+	(jv_dbtool_SOURCES, jv_dbtool_LDFLAGS, jv_dbtool_LINK)
+	(jv_dbtool_LDADD, jv_dbtool_DEPENDENCIES): New.
+	* Makefile.in: Regenerate,
+	* java/lang/VMCompiler.java: Import NoSuchAlgorithmException,
+	Enumeration, StringTokenizer, Vector, PersistentByteMap.
+	(precompiledMapFiles): New variable.
+	(VMCompiler static intializer): Read "gnu.gcj.precompiled.db" to
+	initialize precompiledMapFiles.
+	(compileClass): Look at the database of precompiled class files
+	before firing up gcj.
+
+	* gnu/gcj/runtime/VMClassLoader.java (findClass): Fix comment.
+
+2004-10-27  Andrew Haley  <aph@redhat.com>
+
+	* java/lang/VMCompiler.java (compileClass): try looking for
+	precompiledMapFiles.
+	* gnu/gcj/runtime/PersistentByteMap.java: New file.
+
 2004-10-27  Tom Tromey  <tromey@redhat.com>
 
 	* link.cc (ensure_class_linked): Only resolve classes for

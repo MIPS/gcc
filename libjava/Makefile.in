@@ -17,7 +17,7 @@
 
 
 
-SOURCES = $(lib_gnu_awt_xlib_la_SOURCES) $(lib_gnu_java_awt_peer_gtk_la_SOURCES) $(lib_org_ietf_jgss_la_SOURCES) $(lib_org_w3c_dom_la_SOURCES) $(lib_org_xml_sax_la_SOURCES) $(libgcj_la_SOURCES) $(libgij_la_SOURCES) $(gen_from_JIS_SOURCES) $(gij_SOURCES) $(grmic_SOURCES) $(grmiregistry_SOURCES) $(jv_convert_SOURCES)
+SOURCES = $(lib_gnu_awt_xlib_la_SOURCES) $(lib_gnu_java_awt_peer_gtk_la_SOURCES) $(lib_org_ietf_jgss_la_SOURCES) $(lib_org_w3c_dom_la_SOURCES) $(lib_org_xml_sax_la_SOURCES) $(libgcj_la_SOURCES) $(libgij_la_SOURCES) $(gen_from_JIS_SOURCES) $(gij_SOURCES) $(grmic_SOURCES) $(grmiregistry_SOURCES) $(jv_convert_SOURCES) $(jv_dbtool_SOURCES)
 
 srcdir = @srcdir@
 top_srcdir = @top_srcdir@
@@ -43,7 +43,8 @@ build_triplet = @build@
 host_triplet = @host@
 target_triplet = @target@
 @NATIVE_TRUE@bin_PROGRAMS = jv-convert$(EXEEXT) gij$(EXEEXT) \
-@NATIVE_TRUE@	grmic$(EXEEXT) grmiregistry$(EXEEXT)
+@NATIVE_TRUE@	grmic$(EXEEXT) grmiregistry$(EXEEXT) \
+@NATIVE_TRUE@	jv-dbtool$(EXEEXT)
 @MAINTAINER_MODE_TRUE@@NATIVE_TRUE@noinst_PROGRAMS =  \
 @MAINTAINER_MODE_TRUE@@NATIVE_TRUE@	gen-from-JIS$(EXEEXT)
 DIST_COMMON = README $(am__configure_deps) $(srcdir)/../compile \
@@ -597,6 +598,7 @@ am__libgcj_la_SOURCES_DIST = prims.cc jni.cc exception.cc link.cc \
 	gnu/gcj/runtime/FinalizerThread.java \
 	gnu/gcj/runtime/JNIWeakRef.java gnu/gcj/runtime/MethodRef.java \
 	gnu/gcj/runtime/NameFinder.java \
+	gnu/gcj/runtime/PersistentByteMap.java \
 	gnu/gcj/runtime/SharedLibHelper.java \
 	gnu/gcj/runtime/SharedLibLoader.java \
 	gnu/gcj/runtime/StackTrace.java \
@@ -3442,6 +3444,7 @@ am__objects_14 = $(am__objects_9) gnu/classpath/ServiceFactory.lo \
 	gnu/gcj/runtime/FinalizerThread.lo \
 	gnu/gcj/runtime/JNIWeakRef.lo gnu/gcj/runtime/MethodRef.lo \
 	gnu/gcj/runtime/NameFinder.lo \
+	gnu/gcj/runtime/PersistentByteMap.lo \
 	gnu/gcj/runtime/SharedLibHelper.lo \
 	gnu/gcj/runtime/SharedLibLoader.lo \
 	gnu/gcj/runtime/StackTrace.lo gnu/gcj/runtime/StringBuffer.lo \
@@ -3996,6 +3999,8 @@ am_grmiregistry_OBJECTS =
 grmiregistry_OBJECTS = $(am_grmiregistry_OBJECTS)
 am_jv_convert_OBJECTS =
 jv_convert_OBJECTS = $(am_jv_convert_OBJECTS)
+am_jv_dbtool_OBJECTS = jv_dbtool.$(OBJEXT)
+jv_dbtool_OBJECTS = $(am_jv_dbtool_OBJECTS)
 binSCRIPT_INSTALL = $(INSTALL_SCRIPT)
 SCRIPTS = $(bin_SCRIPTS)
 DEFAULT_INCLUDES = -I. -I$(srcdir) -I$(top_builddir)/include -I$(top_builddir)/gcj
@@ -4026,14 +4031,15 @@ SOURCES = $(lib_gnu_awt_xlib_la_SOURCES) \
 	$(lib_org_ietf_jgss_la_SOURCES) $(lib_org_w3c_dom_la_SOURCES) \
 	$(lib_org_xml_sax_la_SOURCES) $(libgcj_la_SOURCES) \
 	$(libgij_la_SOURCES) $(gen_from_JIS_SOURCES) $(gij_SOURCES) \
-	$(grmic_SOURCES) $(grmiregistry_SOURCES) $(jv_convert_SOURCES)
+	$(grmic_SOURCES) $(grmiregistry_SOURCES) $(jv_convert_SOURCES) \
+	$(jv_dbtool_SOURCES)
 DIST_SOURCES = $(lib_gnu_awt_xlib_la_SOURCES) \
 	$(am__lib_gnu_java_awt_peer_gtk_la_SOURCES_DIST) \
 	$(lib_org_ietf_jgss_la_SOURCES) $(lib_org_w3c_dom_la_SOURCES) \
 	$(lib_org_xml_sax_la_SOURCES) $(am__libgcj_la_SOURCES_DIST) \
 	$(libgij_la_SOURCES) $(am__gen_from_JIS_SOURCES_DIST) \
 	$(gij_SOURCES) $(grmic_SOURCES) $(grmiregistry_SOURCES) \
-	$(jv_convert_SOURCES)
+	$(jv_convert_SOURCES) $(jv_dbtool_SOURCES)
 RECURSIVE_TARGETS = all-recursive check-recursive dvi-recursive \
 	html-recursive info-recursive install-data-recursive \
 	install-exec-recursive install-info-recursive \
@@ -4661,6 +4667,13 @@ jv_convert_LDFLAGS = --main=gnu.gcj.convert.Convert \
 jv_convert_LINK = $(GCJLINK)
 jv_convert_LDADD = -L$(here)/.libs libgcj.la
 jv_convert_DEPENDENCIES = libgcj.la libgcj.spec
+jv_dbtool_SOURCES = jv_dbtool.java
+jv_dbtool_LDFLAGS = --main=jv_dbtool \
+	-rpath $(toolexeclibdir) -shared-libgcc $(THREADLDFLAGS)
+
+jv_dbtool_LINK = $(GCJLINK)
+jv_dbtool_LDADD = -L$(here)/.libs libgcj.la
+jv_dbtool_DEPENDENCIES = libgcj.la libgcj.spec
 gij_SOURCES = 
 gij_LDFLAGS = -rpath $(toolexeclibdir) -shared-libgcc $(THREADLDFLAGS)
 gij_LINK = $(GCJLINK)
@@ -6192,6 +6205,7 @@ gnu/gcj/runtime/FinalizerThread.java \
 gnu/gcj/runtime/JNIWeakRef.java \
 gnu/gcj/runtime/MethodRef.java \
 gnu/gcj/runtime/NameFinder.java \
+gnu/gcj/runtime/PersistentByteMap.java \
 gnu/gcj/runtime/SharedLibHelper.java \
 gnu/gcj/runtime/SharedLibLoader.java \
 gnu/gcj/runtime/StackTrace.java \
@@ -8582,6 +8596,8 @@ gnu/gcj/runtime/JNIWeakRef.lo: gnu/gcj/runtime/$(am__dirstamp) \
 gnu/gcj/runtime/MethodRef.lo: gnu/gcj/runtime/$(am__dirstamp) \
 	gnu/gcj/runtime/$(DEPDIR)/$(am__dirstamp)
 gnu/gcj/runtime/NameFinder.lo: gnu/gcj/runtime/$(am__dirstamp) \
+	gnu/gcj/runtime/$(DEPDIR)/$(am__dirstamp)
+gnu/gcj/runtime/PersistentByteMap.lo: gnu/gcj/runtime/$(am__dirstamp) \
 	gnu/gcj/runtime/$(DEPDIR)/$(am__dirstamp)
 gnu/gcj/runtime/SharedLibHelper.lo: gnu/gcj/runtime/$(am__dirstamp) \
 	gnu/gcj/runtime/$(DEPDIR)/$(am__dirstamp)
@@ -13848,6 +13864,9 @@ grmiregistry$(EXEEXT): $(grmiregistry_OBJECTS) $(grmiregistry_DEPENDENCIES)
 jv-convert$(EXEEXT): $(jv_convert_OBJECTS) $(jv_convert_DEPENDENCIES) 
 	@rm -f jv-convert$(EXEEXT)
 	$(jv_convert_LINK) $(jv_convert_LDFLAGS) $(jv_convert_OBJECTS) $(jv_convert_LDADD) $(LIBS)
+jv-dbtool$(EXEEXT): $(jv_dbtool_OBJECTS) $(jv_dbtool_DEPENDENCIES) 
+	@rm -f jv-dbtool$(EXEEXT)
+	$(jv_dbtool_LINK) $(jv_dbtool_LDFLAGS) $(jv_dbtool_OBJECTS) $(jv_dbtool_LDADD) $(LIBS)
 install-binSCRIPTS: $(bin_SCRIPTS)
 	@$(NORMAL_INSTALL)
 	test -z "$(bindir)" || $(mkdir_p) "$(DESTDIR)$(bindir)"
@@ -13996,6 +14015,8 @@ mostlyclean-compile:
 	-rm -f gnu/gcj/runtime/MethodRef.lo
 	-rm -f gnu/gcj/runtime/NameFinder.$(OBJEXT)
 	-rm -f gnu/gcj/runtime/NameFinder.lo
+	-rm -f gnu/gcj/runtime/PersistentByteMap.$(OBJEXT)
+	-rm -f gnu/gcj/runtime/PersistentByteMap.lo
 	-rm -f gnu/gcj/runtime/SharedLibHelper.$(OBJEXT)
 	-rm -f gnu/gcj/runtime/SharedLibHelper.lo
 	-rm -f gnu/gcj/runtime/SharedLibLoader.$(OBJEXT)
@@ -18760,6 +18781,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/gij.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/interpret.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/jni.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/jv_dbtool.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/link.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/no-threads.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/nogc.Plo@am__quote@
@@ -18833,6 +18855,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/gcj/runtime/$(DEPDIR)/JNIWeakRef.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/gcj/runtime/$(DEPDIR)/MethodRef.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/gcj/runtime/$(DEPDIR)/NameFinder.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@gnu/gcj/runtime/$(DEPDIR)/PersistentByteMap.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/gcj/runtime/$(DEPDIR)/SharedLibHelper.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/gcj/runtime/$(DEPDIR)/SharedLibLoader.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/gcj/runtime/$(DEPDIR)/StackTrace.Plo@am__quote@

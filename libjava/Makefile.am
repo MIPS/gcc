@@ -117,7 +117,7 @@ propdir = $(libdir)
 
 ## For now, only on native systems.  FIXME.
 if NATIVE
-bin_PROGRAMS = jv-convert gij grmic grmiregistry
+bin_PROGRAMS = jv-convert gij grmic grmiregistry jv-dbtool
 endif
 
 bin_SCRIPTS = addr2name.awk
@@ -904,6 +904,25 @@ jv_convert_LDADD = -L$(here)/.libs libgcj.la
 ## Depend on the spec file to make sure it is up to date before
 ## linking this program.
 jv_convert_DEPENDENCIES = libgcj.la libgcj.spec
+
+jv_dbtool_SOURCES = jv_dbtool.java
+## We need -nodefaultlibs because we want to avoid gcj's `-lgcj'.  We
+## need this because we are explicitly using libtool to link using the
+## `.la' file.
+jv_dbtool_LDFLAGS = --main=jv_dbtool \
+	-rpath $(toolexeclibdir) -shared-libgcc $(THREADLDFLAGS)
+jv_dbtool_LINK = $(GCJLINK)
+## We don't explicitly link in the libraries we need; libgcj.la brings
+## in all dependencies.  We need the -L so that gcj can find libgcj
+## with `-lgcj', but it must come first, otherwise the -L flags
+## brought in from libgcj.la would cause the install directories to be
+## searched before the build-tree ones, and we'd get errors because of
+## different libraries with the same SONAME from picky linkers such as
+## Solaris'.  FIXME: should be _libs on some systems.
+jv_dbtool_LDADD = -L$(here)/.libs libgcj.la
+## Depend on the spec file to make sure it is up to date before
+## linking this program.
+jv_dbtool_DEPENDENCIES = libgcj.la libgcj.spec
 
 gij_SOURCES = 
 ## We need -nodefaultlibs because we want to avoid gcj's `-lgcj'.  We
@@ -2472,6 +2491,7 @@ gnu/gcj/runtime/FinalizerThread.java \
 gnu/gcj/runtime/JNIWeakRef.java \
 gnu/gcj/runtime/MethodRef.java \
 gnu/gcj/runtime/NameFinder.java \
+gnu/gcj/runtime/PersistentByteMap.java \
 gnu/gcj/runtime/SharedLibHelper.java \
 gnu/gcj/runtime/SharedLibLoader.java \
 gnu/gcj/runtime/StackTrace.java \
