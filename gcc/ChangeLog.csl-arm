@@ -14,6 +14,15 @@
 
 2004-08-31  Mark Mitchell  <mark@codesourcery.com>
 
+	* config.gcc (arm*-*-symbianelf*): Do not include t-bpabi.
+	* config/arm/lib1funcs.asm: Do not include supplemental .S files
+	when compiling for Symbian.
+	* config/arm/symbian.h (RENAME_LIBRARY): New macro.
+	(TARGET_OS_CPP_BUILTINS): Likewise.
+	* config/arm/t-symbian (LIB1ASMFUNCS): Define.
+	
+2004-08-31  Mark Mitchell  <mark@codesourcery.com>
+
 	* target-def.h (TARGET_CXX): Add TARGET_CXX_EXPORT_CLASS_DATA.
 	* target.h (cxx): Add export_class_data.
 	* config/arm/arm.c (arm_cxx_export_class_data): New function.
