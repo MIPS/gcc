@@ -1055,8 +1055,7 @@ build_static_field_ref (tree fdecl)
      However, currently sometimes gcj is too eager and will end up
      returning the field itself, leading to an incorrect external
      reference being generated.  */
-  if ((is_compiled 
-       && (! flag_indirect_dispatch || current_class == fclass))
+  if ((is_compiled && !flag_indirect_dispatch)
       || (FIELD_FINAL (fdecl) && DECL_INITIAL (fdecl) != NULL_TREE
 	  && (JSTRING_TYPE_P (TREE_TYPE (fdecl))
 	      || JNUMERIC_TYPE_P (TREE_TYPE (fdecl)))
@@ -1275,7 +1274,7 @@ make_field_value (tree fdecl)
 	      ? TREE_CHAIN (TYPE_FIELDS (field_info_union_node))
 	      : TYPE_FIELDS (field_info_union_node)),
 	     (FIELD_STATIC (fdecl)
-	      ? build_address_of (build_static_field_ref (fdecl))
+	      ? build_address_of (fdecl)
 	      : byte_position (fdecl)))));
 
   FINISH_RECORD_CONSTRUCTOR (finit);

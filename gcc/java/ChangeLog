@@ -1,5 +1,9 @@
 2004-11-10  Tom Tromey  <tromey@redhat.com>
 
+	* class.c (make_field_value): Don't call build_static_field_ref.
+	(build_static_field_ref): Don't emit direct references when using
+	indirect dispatch.
+
 	* gcj.texi (Invoking gij): Document -verbose.  Put -verbose and
 	-verbose:class into man page synopsis.
 
