@@ -1,3 +1,8 @@
+2003-06-19  Jeff Law  <law@redhat.com>
+
+	* tree-cfg.c (handle_switch_split): Handle case where target
+	block has only one statement (the case label itself).
+
 2003-06-19  Diego Novillo  <dnovillo@redhat.com>
 
 	* doc/invoke.texi: Add documentation for -ftree-dominator-opts

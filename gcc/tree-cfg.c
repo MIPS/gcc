@@ -3760,12 +3760,26 @@ handle_switch_split (basic_block src, basic_block dest)
      block for those stmts. It cannot be done in the above loop, for 
      changing the basic block of a stmt pointed to by an iterator will cause
      the iterator to think its reached the end of a block. (It is now 
-     pointing to BB_b, the next stmt is in BB_a, so it terminates.  */
+     pointing to BB_b, the next stmt is in BB_a, so it terminates.
 
-  for (tsi = tsi_start (dest->head_tree_p); 
-       !tsi_end_p (tsi) && (tsi_container (tsi) != bsi_container (bsi));
-       tsi_next (&tsi))
-    append_stmt_to_bb (tsi_container (tsi), src, parent_stmt (tsi_stmt (tsi)));
+     We know at least one statement will need it's block changed, so a
+     "do" loop is appropriate here.
+
+     Note that if BSI is at the end of a basic block, then its container
+     will be be NULL.  We want to just change the block for one statement
+     in that case (not all the statements until TSI's container is
+     NULL!).  */
+  tsi = tsi_start (dest->head_tree_p);
+  do
+    {
+      append_stmt_to_bb (tsi_container (tsi),
+			 src,
+			 parent_stmt (tsi_stmt (tsi)));
+      tsi_next (&tsi);
+    }
+  while (! bsi_end_p (bsi)
+	 && ! tsi_end_p (tsi)
+	 && (tsi_container (tsi) != bsi_container (bsi)));
 
 
   /* Issue the label at the beginning of DEST, and update DEST's head
