@@ -1,3 +1,22 @@
+2003-06-23  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* doc/extend.texi: Fix typos.
+	* doc/md.texi: Likewise.
+
+2003-06-23  Roger Sayle  <roger@eyesopen.com>
+            Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
+
+	* doc/contrib.texi (Contributors): Add a note on testing and
+	remove duplicates from testers list.
+
+2003-06-23  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* doc/invoke.texi: Document dump options, dT and dW.
+
+2003-06-23  Andreas Schwab  <schwab@suse.de>
+
+	* doc/invoke.texi: Remove leading `-' from options in index.
+
 2003-06-21  Jakub Jelinek  <jakub@redhat.com>
 
 	* config/i386/i386.c (x86_output_mi_thunk): Don't pass MEM to %P0,
@@ -37,7 +56,7 @@ Sat Jun 21 13:37:52 CEST 2003  Jan Hubicka  <jh@suse.cz>
 
 	* i386.c (ix86_va_arg): Fix allocation of temporary slot.
 
-2003-06-14  Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
+2003-06-21  Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
 
 	* doc/contrib.texi (Contributors): Use Windows instead of Win32.
 
