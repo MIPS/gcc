@@ -1,3 +1,9 @@
+2003-05-21  Jason Merrill  <jason@redhat.com>
+
+	* init.c (build_vec_delete): Copy the address into a temporary
+	variable before calling build_vec_delete_1.
+	* decl2.c (delete_sanity): Don't call stabilize_reference.
+
 2003-05-13  Jason Merrill  <jason@redhat.com>
 
 	* typeck.c (build_modify_expr): Don't always stabilize the lhs and
