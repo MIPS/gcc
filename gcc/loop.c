@@ -3681,7 +3681,17 @@ remove_constant_addition (x)
   rtx exp = *x;
 
   if (GET_CODE (exp) == CONST)
-    exp = copy_rtx (XEXP (exp, 0));
+    {
+      if (GET_CODE (XEXP (exp, 0)) == PLUS
+	  && GET_CODE (XEXP (XEXP (exp, 0), 0)) == SYMBOL_REF
+	  && GET_CODE (XEXP (XEXP (exp, 0), 1)) == CONST_INT)
+	{
+	  *x = XEXP (XEXP (exp, 0), 0);
+	  return INTVAL (XEXP (XEXP (exp, 0), 1));
+	}
+      /* Avoid clobbering of shared CONST expression.  */
+      return 0;
+    }
   if (GET_CODE (exp) == CONST_INT)
     {
       addval = INTVAL (exp);

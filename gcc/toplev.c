@@ -293,12 +293,12 @@ static struct dump_file_info dump_file[DFI_MAX] =
   { "cse",	's', 0, 0, 0 },
   { "addressof", 'F', 0, 0, 0 },
   { "web",      'Z', 0, 0, 0 },
-  { "gcse2",	'G', 1, 0, 0 },
+  { "gcse",	'G', 1, 0, 0 },
   { "loop",	'L', 1, 0, 0 },
   { "cfg",	'f', 1, 0, 0 },
   { "bp",	'b', 1, 0, 0 },
   { "tracer",	'T', 1, 0, 0 },
-  { "gcse",	'G', 1, 0, 0 },
+  { "gcse2",	'G', 1, 0, 0 },
   { "cse2",	't', 1, 0, 0 },
   { "life",	'f', 1, 0, 0 },	/* Yes, duplicate enable switch.  */
   { "ce",	'C', 1, 0, 0 },
@@ -3074,36 +3074,30 @@ rest_of_compilation (decl)
 #endif
     }
 
-#if 0
   /* Perform global cse.  */
 
   if (optimize > 0 && flag_gcse)
     {
       timevar_push (TV_GCSE);
-      open_dump_file (DFI_gcse, decl);
+      open_dump_file (DFI_gcse2, decl);
       if (rtl_dump_file)
         dump_flow_info (rtl_dump_file);
 
       reg_scan (insns, max_reg_num (), 1);
-      cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
+      cleanup_cfg (CLEANUP_EXPENSIVE);
       gcse_main (insns, rtl_dump_file);
       rebuild_jump_labels (insns);
       reg_scan (insns, max_reg_num (), 1);
       coalesce ();
 
-      save_csb = flag_cse_skip_blocks;
-      save_cfj = flag_cse_follow_jumps;
-      flag_cse_skip_blocks = flag_cse_follow_jumps = 0;
-
-      close_dump_file (DFI_gcse, print_rtl_with_bb, insns);
+      close_dump_file (DFI_gcse2, print_rtl_with_bb, insns);
       timevar_pop (TV_GCSE);
 
       ggc_collect ();
 #ifdef ENABLE_CHECKING
       verify_flow_info ();
 #endif
-     }
-#endif
+    }
 
   /* Lower into lowlevel RTL now.  */
   cfun->rtl_form = RTL_FORM_MIDLOW;

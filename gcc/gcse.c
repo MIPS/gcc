@@ -4933,33 +4933,24 @@ gcse_emit_move_after (src, dest, insn)
   rtx new;
   rtx set = single_set (insn);
   rtx note;
+  rtx eqv;
 
   /* This should never fail since we're creating a reg->reg copy
      we've verified to be valid.  */
 
   new = emit_insn_after (gen_rtx_SET (VOIDmode, dest, src), insn);
 
-#if 0
   /* Note the equivalence for local CSE pass.  */
-  if ((note = find_reg_note (insn, REG_EQUAL, NULL)))
-    {
-      REG_NOTES (new)
-	= alloc_EXPR_LIST (REG_EQUAL, copy_insn_1 (XEXP (note, 0)),
-			   REG_NOTES (new));
-    }
-  else if ((note = find_reg_note (insn, REG_EQUIV, NULL)))
-    {
-      REG_NOTES (new)
-	= alloc_EXPR_LIST (REG_EQUIV, copy_insn_1 (XEXP (note, 0)),
-			   REG_NOTES (new));
-    }
-  else if (!REG_P (SET_SRC (set)))
-    {
-      REG_NOTES (new)
-	= alloc_EXPR_LIST (REG_EQUAL, copy_insn_1 (SET_SRC (set)),
-			   REG_NOTES (new));
-    }
-#endif
+  if ((note == find_reg_equal_equiv_note (insn)))
+    eqv = XEXP (note, 0);
+  else
+    eqv = SET_SRC (set);
+
+  /* Since the INSN is executed first, we must ensure that it does not
+     modify it's SRC.  In case it does the DEST is no longer equivalent
+     to SRC after then insn.  */
+  if (!modified_between_p (eqv, insn, NEXT_INSN (insn)))
+    set_unique_reg_note (new, REG_EQUAL, copy_insn_1 (src));
   return new;
 }
 
