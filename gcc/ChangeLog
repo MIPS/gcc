@@ -1,3 +1,14 @@
+2002-09-17  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* function.c (max_parm_reg_num): Remove.
+	* stmt.c (in_control_zone_p, stmt_loop_nest_empty,
+	drop_through_at_end_p, move_cleanups_up,
+	expand_end_case_dummy, case_index_expr_type): Likewise.
+	* stor-layout.c (pos_from_byte): Likewise.
+	* tree.c (chain_member_value, chain_member_purpose, listify,
+	tree_int_cst_msb, index_type_equal): Likewise.
+	* tree.h: Remove prototypes for unused functions.
+
 2002-09-16  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
 
 	* config/mips/mips.c (save_restore_insns): Remove unused variable.

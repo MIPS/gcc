@@ -536,25 +536,6 @@ byte_from_pos (offset, bitpos)
 }
 
 void
-pos_from_byte (poffset, pbitpos, off_align, pos)
-     tree *poffset, *pbitpos;
-     unsigned int off_align;
-     tree pos;
-{
-  *poffset
-    = size_binop (MULT_EXPR,
-		  convert (sizetype,
-			   size_binop (FLOOR_DIV_EXPR, pos,
-				       bitsize_int (off_align
-						    / BITS_PER_UNIT))),
-		  size_int (off_align / BITS_PER_UNIT));
-  *pbitpos = size_binop (MULT_EXPR,
-			 size_binop (FLOOR_MOD_EXPR, pos,
-				     bitsize_int (off_align / BITS_PER_UNIT)),
-			 bitsize_unit_node);
-}
-
-void
 pos_from_bit (poffset, pbitpos, off_align, pos)
      tree *poffset, *pbitpos;
      unsigned int off_align;

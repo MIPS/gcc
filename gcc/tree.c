@@ -947,41 +947,6 @@ chain_member (elem, chain)
   return 0;
 }
 
-/* Return nonzero if ELEM is equal to TREE_VALUE (CHAIN) for any piece of
-   chain CHAIN.  This and the next function are currently unused, but
-   are retained for completeness.  */
-
-int
-chain_member_value (elem, chain)
-     tree elem, chain;
-{
-  while (chain)
-    {
-      if (elem == TREE_VALUE (chain))
-	return 1;
-      chain = TREE_CHAIN (chain);
-    }
-
-  return 0;
-}
-
-/* Return nonzero if ELEM is equal to TREE_PURPOSE (CHAIN)
-   for any piece of chain CHAIN.  */
-
-int
-chain_member_purpose (elem, chain)
-     tree elem, chain;
-{
-  while (chain)
-    {
-      if (elem == TREE_PURPOSE (chain))
-	return 1;
-      chain = TREE_CHAIN (chain);
-    }
-
-  return 0;
-}
-
 /* Return the length of a chain of nodes chained through TREE_CHAIN.
    We expect a null pointer to mark the end of the chain.
    This is the Lisp primitive `length'.  */
@@ -1073,31 +1038,6 @@ nreverse (t)
       prev = decl;
     }
   return prev;
-}
-
-/* Given a chain CHAIN of tree nodes,
-   construct and return a list of those nodes.  */
-
-tree
-listify (chain)
-     tree chain;
-{
-  tree result = NULL_TREE;
-  tree in_tail = chain;
-  tree out_tail = NULL_TREE;
-
-  while (in_tail)
-    {
-      tree next = tree_cons (NULL_TREE, in_tail, NULL_TREE);
-      if (out_tail)
-	TREE_CHAIN (out_tail) = next;
-      else
-	result = next;
-      out_tail = next;
-      in_tail = TREE_CHAIN (in_tail);
-    }
-
-  return result;
 }
 
 /* Return a newly created TREE_LIST node whose
@@ -3277,24 +3217,6 @@ tree_low_cst (t, pos)
     abort ();
 }
 
-/* Return the most significant bit of the integer constant T.  */
-
-int
-tree_int_cst_msb (t)
-     tree t;
-{
-  int prec;
-  HOST_WIDE_INT h;
-  unsigned HOST_WIDE_INT l;
-
-  /* Note that using TYPE_PRECISION here is wrong.  We care about the
-     actual bits, not the (arbitrary) range of the type.  */
-  prec = GET_MODE_BITSIZE (TYPE_MODE (TREE_TYPE (t))) - 1;
-  rshift_double (TREE_INT_CST_LOW (t), TREE_INT_CST_HIGH (t), prec,
-		 2 * HOST_BITS_PER_WIDE_INT, &l, &h, 0);
-  return (l & 1) == 1;
-}
-
 /* Return an indication of the sign of the integer constant T.
    The return value is -1 if T < 0, 0 if T == 0, and 1 if T > 0.
    Note that -1 will never be returned it T's type is unsigned.  */
@@ -3646,36 +3568,6 @@ build_index_2_type (lowval, highval)
      tree lowval, highval;
 {
   return build_range_type (sizetype, lowval, highval);
-}
-
-/* Return nonzero iff ITYPE1 and ITYPE2 are equal (in the LISP sense).
-   Needed because when index types are not hashed, equal index types
-   built at different times appear distinct, even though structurally,
-   they are not.  */
-
-int
-index_type_equal (itype1, itype2)
-     tree itype1, itype2;
-{
-  if (TREE_CODE (itype1) != TREE_CODE (itype2))
-    return 0;
-
-  if (TREE_CODE (itype1) == INTEGER_TYPE)
-    {
-      if (TYPE_PRECISION (itype1) != TYPE_PRECISION (itype2)
-	  || TYPE_MODE (itype1) != TYPE_MODE (itype2)
-	  || simple_cst_equal (TYPE_SIZE (itype1), TYPE_SIZE (itype2)) != 1
-	  || TYPE_ALIGN (itype1) != TYPE_ALIGN (itype2))
-	return 0;
-
-      if (1 == simple_cst_equal (TYPE_MIN_VALUE (itype1),
-				 TYPE_MIN_VALUE (itype2))
-	  && 1 == simple_cst_equal (TYPE_MAX_VALUE (itype1),
-				    TYPE_MAX_VALUE (itype2)))
-	return 1;
-    }
-
-  return 0;
 }
 
 /* Construct, lay out and return the type of arrays of elements with ELT_TYPE

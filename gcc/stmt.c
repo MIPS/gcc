@@ -455,14 +455,6 @@ init_stmt_for_function ()
   clear_last_expr ();
 }
 
-/* Return nonzero if anything is pushed on the loop, condition, or case
-   stack.  */
-int
-in_control_zone_p ()
-{
-  return cond_stack || loop_stack || case_stack;
-}
-
 /* Record the current file and line.  Called from emit_line_note.  */
 void
 set_file_and_line_for_stmt (file, line)
@@ -2727,17 +2719,6 @@ expand_exit_loop_top_cond (whichloop, cond)
   return 1;
 }
 
-/* Return nonzero if the loop nest is empty.  Else return zero.  */
-
-int
-stmt_loop_nest_empty ()
-{
-  /* cfun->stmt can be NULL if we are building a call to get the
-     EH context for a setjmp/longjmp EH target and the current
-     function was a deferred inline function.  */
-  return (cfun->stmt == NULL || loop_stack == NULL);
-}
-
 /* Return non-zero if we should preserve sub-expressions as separate
    pseudos.  We never do so if we aren't optimizing.  We always do so
    if -fexpensive-optimizations.
@@ -3120,18 +3101,6 @@ expand_return (retval)
       emit_queue ();
       expand_value_return (result_rtl);
     }
-}
-
-/* Return 1 if the end of the generated RTX is not a barrier.
-   This means code already compiled can drop through.  */
-
-int
-drop_through_at_end_p ()
-{
-  rtx insn = get_last_insn ();
-  while (insn && GET_CODE (insn) == NOTE)
-    insn = PREV_INSN (insn);
-  return insn && GET_CODE (insn) != BARRIER;
 }
 
 /* Attempt to optimize a potential tail recursion call into a goto.
@@ -4230,24 +4199,6 @@ end_cleanup_deferral ()
     --block_stack->data.block.conditional_code;
 }
 
-/* Move all cleanups from the current block_stack
-   to the containing block_stack, where they are assumed to
-   have been created.  If anything can cause a temporary to
-   be created, but not expanded for more than one level of
-   block_stacks, then this code will have to change.  */
-
-void
-move_cleanups_up ()
-{
-  struct nesting *block = block_stack;
-  struct nesting *outer = block->next;
-
-  outer->data.block.cleanups
-    = chainon (block->data.block.cleanups,
-	       outer->data.block.cleanups);
-  block->data.block.cleanups = 0;
-}
-
 tree
 last_cleanup_this_contour ()
 {
@@ -4356,26 +4307,6 @@ expand_start_case_dummy ()
   case_stack = thiscase;
   nesting_stack = thiscase;
   start_cleanup_deferral ();
-}
-
-/* End a dummy case statement.  */
-
-void
-expand_end_case_dummy ()
-{
-  end_cleanup_deferral ();
-  POPSTACK (case_stack);
-}
-
-/* Return the data type of the index-expression
-   of the innermost case statement, or null if none.  */
-
-tree
-case_index_expr_type ()
-{
-  if (case_stack)
-    return TREE_TYPE (case_stack->data.case_stmt.index_expr);
-  return 0;
 }
 
 static void
