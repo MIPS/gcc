@@ -1,3 +1,14 @@
+2005-02-14  Julian Brown  <julian@codesourcery.com>
+
+	* config/arm/t-bpabi (LIB2ADDEH): Add pr-support.c
+	* unwind-arm.c (next_unwind_byte): Moved to file pr-support.c.
+	(__gnu_unwind_execute): Likewise.
+	(__gnu_unwind_frame): Likewise.
+	(_Unwind_GetLanguageSpecificData): Likewise.
+	(_Unwind_GetRegionStart): Likewise.
+	* pr-support.c: New file.
+	(selfrel_offset31, EHT16, EHT32): Duplicated from unwind-arm.c.
+
 2005-01-28  Paul Brook  <paul@codesourcery.com>
 
 	* Makefile.in (opts.o): Depend on $(TARGET_H).
