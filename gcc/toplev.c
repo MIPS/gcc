@@ -197,7 +197,11 @@ const char *progname;
 /* Copy of argument vector to toplev_main.  */
 static const char **save_argv;
 
-/* -1: compile single file; 0: compile multiple files; 1: server. */
+/* -1: compile single file;
+    0: compile multiple files;
+    1: quick-and-dirty server (don't reset);
+    2: more robust server. */
+
 int server_mode = -1;
 
 /* Name of top-level original source file (what was input to cpp).
@@ -4284,6 +4288,11 @@ backend_init (void)
 static int
 lang_dependent_init (void)
 {
+  if (num_in_fnames > 0)
+    dump_base_name = in_fnames[0];
+  else
+    dump_base_name = "gccdump";
+
   /* Set aux_base_name if not already set.  */
   if (aux_base_name)
     ;
@@ -4297,13 +4306,6 @@ lang_dependent_init (void)
   else
     aux_base_name = "gccaux";
 
-  if (dump_base_name == NULL)
-    {
-      if (num_in_fnames > 0)
-	dump_base_name = in_fnames[0];
-      else
-	dump_base_name = "NONAME";
-    }
   main_input_filename = input_filename = dump_base_name;
 
   /* Set up the back-end if requested.  */
@@ -4361,9 +4363,11 @@ finalize (void)
 
   if (asm_out_file)
     {
+      fflush (asm_out_file);
       if (ferror (asm_out_file) != 0)
 	fatal_error ("error writing to %s: %m", asm_file_name);
-      if (fclose (asm_out_file) != 0)
+      if (asm_out_file != stdout
+	  && fclose (asm_out_file) != 0)
 	fatal_error ("error closing %s: %m", asm_file_name);
     }
 
@@ -4589,20 +4593,44 @@ get_fd (int sock)
 
 static int old_fd[3] = { -1, -1, -1 };
 
+static int xdup (int fd)
+{
+  int i;
+  if ((i = dup (fd)) == -1)
+    fatal_error ("dup");
+  return i;
+}
+
+static void xdup2 (int fd1, int fd2)
+{
+  if (dup2 (fd1, fd2) == -1)
+    fatal_error ("dup2");
+}
+
+static void xclose (int fd)
+{
+  if (close (fd) == -1)
+    fatal_error ("close");
+}
+
 static void
 push_to_fd (int fd0, int fd1, int fd2)
 {
   if (old_fd[0] != -1)
     abort ();
-  old_fd[0] = dup (0);
-  old_fd[1] = dup (1);
-  old_fd[2] = dup (2);
-  close (0);
-  close (1);
-  close (2);
-  dup2 (fd0, 0);
-  dup2 (fd1, 1);
-  dup2 (fd2, 2);
+  fflush (stdin); fflush (stdout); fflush (stderr);
+  old_fd[0] = xdup (0);
+  old_fd[1] = xdup (1);
+  old_fd[2] = xdup (2);
+  xclose (0);
+  xclose (1);
+  xclose (2);
+  xdup2 (fd0, 0);
+  xdup2 (fd1, 1);
+  xdup2 (fd2, 2);
+  xclose (fd0);
+  xclose (fd1);
+  xclose (fd2);
 }
 
 static void
@@ -4610,15 +4638,17 @@ pop_fd (void)
 {
   if (old_fd[0] == -1)
     abort ();
-  close (0);
-  close (1);
-  close (2);
-  dup2 (old_fd[0], 0);
-  dup2 (old_fd[1], 1);
-  dup2 (old_fd[2], 2);
-  close (old_fd[0]);
-  close (old_fd[1]);
-  close (old_fd[2]);
+  fflush (stdin); fflush (stdout); fflush (stderr);
+
+  xclose (0);
+  xclose (1);
+  xclose (2);
+  xdup2 (old_fd[0], 0);
+  xdup2 (old_fd[1], 1);
+  xdup2 (old_fd[2], 2);
+  xclose (old_fd[0]);
+  xclose (old_fd[1]);
+  xclose (old_fd[2]);
   old_fd[0] = -1;
   old_fd[1] = -1;
   old_fd[2] = -1;
@@ -4659,7 +4689,7 @@ server_loop ()
   /* We tighten down the compile server to the current user.  */
   omask = umask (0077);
   /* FIXME - remove for production, testing is easier if we don't do this. */
-  /* unlink (server.sun_path); */
+  unlink (server.sun_path);
   if (bind (sock, (struct sockaddr *) &server, sizeof (struct sockaddr_un))) 
     {
       /* This is a second invocation of a compiler server, we don't need two.  */
@@ -4680,7 +4710,9 @@ server_loop ()
 #ifdef ENABLE_SERVER
       if (fd < 0)
 	{
-	  fd = accept (sock, 0, 0);
+	  do {
+	    fd = accept (sock, 0, 0);
+	  } while (fd < 0 && errno == EINTR);
 	  if (fd < 0)
 	    fatal_error("can't connect to client socket: %m");
 	}

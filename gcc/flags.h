@@ -228,8 +228,10 @@ extern int pedantic;
 
 extern int in_system_header;
 
-/* -1: compile single file; 0: compile multiple files;
-   1: quick-and-dirty server (don't reset); 2: more robust server. */
+/* -1: compile single file;
+    0: compile multiple files;
+    1: quick-and-dirty server (don't reset);
+    2: more robust server. */
 
 extern int server_mode;
 

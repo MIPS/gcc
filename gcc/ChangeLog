@@ -1,3 +1,17 @@
+2003-09-09  Mike Stump  <mrs@apple.com>
+
+	* common.opt (fserver): Make it JoinedOrMissing.
+	* flags.h (compiler_server): Update doc.
+	* opts.c (common_handle_option, case OPT_fserver): Handle selection
+	of different modes, default to mode 2.
+	* toplev.c (server_mode): Update doc.
+	(server_loop): Allow accept to EINTR to allow debugging, always remove
+	old server socket when starting up server to aid debugging.
+	(lang_dependent_init): Always set dump_base_name.
+	(finalize): Flush output to the asm file and ensure that it is written.
+	(push_to_fd, pop_fd): Add more error checking.
+	(xdup, xdup2, xclose): Add.
+
 2003-09-05  Mike Stump  <mrs@apple.com>
 
 	* gcc.c (execute): Improve -o handling, in C++ land it doesn't

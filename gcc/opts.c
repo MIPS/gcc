@@ -957,7 +957,20 @@ common_handle_option (size_t scode, const char *arg,
       break;
 
     case OPT_fserver:
-      server_mode = value;
+      /* Gee, f_options from toplevel.c isn't used.  */
+      if (value)
+	{
+	  if (*arg == '\0')
+	    server_mode = 2;
+	  else
+	    {
+	      int i = integral_argument (arg);
+	      if (i == (unsigned int) -1 || i > 2)
+		return 0;
+	      server_mode = i;
+	    }
+	}
+      break;
 
     case OPT_feliminate_dwarf2_dups:
       flag_eliminate_dwarf2_dups = value;
