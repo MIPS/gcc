@@ -24,54 +24,270 @@ Boston, MA 02111-1307, USA.  */
 
 #include "bitmap.h"
 
-/* Types of references.  */
+/*---------------------------------------------------------------------------
+			    Types of references
 
-enum treeref_type { VARDEF, VARUSE, VARPHI, 
-		    EXPRPHI, EXPRUSE, EXPRKILL, EXPRINJ };
+  The compiler tracks references to variables (scalars, arrays and
+  structures), indicated with a V_ prefix, and references to expressions
+  (function calls, arithmetic expressions, etc), indicated with an E_
+  prefix.
 
-union varref_def;
+  The basic semantics of each referenc type can be altered using the
+  modifiers defined below (M_* constants).  These modifiers provide more
+  information for optimizers when making transformations.
+---------------------------------------------------------------------------*/
+
+/* A V_DEF reference represents a write operation to the associated
+   variable.  If no modifier alters the reference, the reference represents
+   a killing definition of the associated variable via an assignment
+   expression (i.e., all the bits of the variable are modified).  Note that
+   unmodified V_DEF references are only allowed for MODIFY_EXPR and
+   INIT_EXPR expressions.
+   
+   In this case, this reference will represent the output value of the
+   associated expression.  For instance, 'a = 3' creates a V_DEF reference
+   for 'a' and calling output_ref('a = 3') returns this V_DEF.  */
+extern const HOST_WIDE_INT V_DEF;
+
+/* A V_USE reference represents a read operation from the associated
+   variable.  If no modifier alters the reference, the reference represents
+   a full read operation on the variable (i.e., all the bits of the
+   variable are read).  */
+extern const HOST_WIDE_INT V_USE;
+
+/* A V_PHI represents an SSA PHI operation on the associated variable.  */
+extern const HOST_WIDE_INT V_PHI;
+
+/* A V_PHI_ARG represents a PHI argument.  Its immediate reaching
+   definition is one of the N definitions reaching the PHI node.  */
+extern const HOST_WIDE_INT V_PHI_ARG;
+
+/* An E_FCALL reference indicates a function call site.  Its associated
+   variable is the CALL_EXPR node.  Used to insert may-def/may-use
+   references when the compiler doesn't know what the called function might
+   do.  */
+extern const HOST_WIDE_INT E_FCALL;
+
+/* The following references are akin to the previous types but used
+   when building SSA information for expressions instead of variables
+   (see tree-ssa-pre.c)  */
+extern const HOST_WIDE_INT E_PHI;
+extern const HOST_WIDE_INT E_USE;
+extern const HOST_WIDE_INT E_KILL;
+
+/* FIXME: This is not used anywhere.  Needed?  */
+extern const HOST_WIDE_INT E_INJ;
 
 
-/* Common features of every variable reference.  */
-struct treeref_common
+/*---------------------------------------------------------------------------
+			 Reference type modifiers
+
+  These modifiers are OR'd with the basic reference types to alter the
+  semantics of the reference.  For instance, V_DEF|M_CLOBBER means that the
+  reference modifies the associated variable in ways that the compiler
+  cannot determine.
+---------------------------------------------------------------------------*/
+/* M_DEFAULT is used to modify V_DEF references to indicate a default
+   definition.  Default definitions are artificially created in the first
+   basic block of the program.  They provide a convenient way of checking
+   if a variable is used without being assigned a value first.  Their
+   presence is not required, but they save the code from having to consider
+   special cases like nil PHI node arguments.  */
+extern const HOST_WIDE_INT M_DEFAULT;
+
+/* M_CLOBBER is used to modify V_DEF references to represent an unknown
+   access to the associated variable (ie, the operation may read and/or
+   write to the variable).  Since the compiler does not know what the
+   statement may be doing to the variable, it assumes that the statement
+   might write a new value to it.
+
+   For instance, __asm__ statements, function calls and tree nodes that
+   have not been simplified use V_DEF|M_CLOBBERs to represent references.
+   V_DEF|M_CLOBBER references are safety devices used when the compiler
+   knows that the variable is being accessed, but it doesn't know how.  */
+extern const HOST_WIDE_INT M_CLOBBER;
+
+/* M_MAY is used to represent references that may or may not occur at
+   runtime.  It is generated to model aliasing.  For instance, given
+
+   		*ptr = 30;
+
+   A V_DEF|M_MAY reference is created for all the variables potentially
+   aliased by 'ptr'.  The M_MAY modifier may be removed using alias
+   analysis.  V_USE reference may be similarly created.  */
+extern const HOST_WIDE_INT M_MAY;
+
+/* M_PARTIAL is used to model partial references to compound structures
+   like arrays, structures and complex numbers.  For instance, given
+
+   		a[4] = 10;
+
+   The compiler creates a V_DEF for 'a[4]' and a V_DEF|M_PARTIAL for 'a'.
+   Partial definitions are also known as non-killing definitions in the
+   literature.  */
+extern const HOST_WIDE_INT M_PARTIAL;
+
+/* M_INITIAL modifies a V_DEF reference to indicate that the definition is
+   an initial static value for the variable.  Multiple executions of this
+   reference do not produce multiple definitions of the variable.  This is
+   used to model static variables in C.  For instance,
+
+   		static int counter = 0;
+
+   An initializing definition is created for variable counter.  */
+extern const HOST_WIDE_INT M_INITIAL;
+
+/* M_INDIRECT modifies a V_DEF or V_USE reference to indicate that the
+   reference is to the memory location pointed by the variable.  For
+   instance, the following creates a V_DEF|M_INDIRECT to 'ptr',
+
+   		*ptr = 5;
+
+   FIXME This has the unpleasant side-effect that an indirect V_DEF to a
+   pointer also implies a definition for the pointer, because currently the
+   FUD chaining algorithm only keeps a single notion of 'current
+   definition' for symbols.  In the example above, *ptr = 5 means that ptr
+   itself is considered defined.  To fix this inefficiency, we should have
+   the notion of 'indirect current definitions' in the FUD chaining
+   algorithm (i.e., have a 'currdef' and an 'indirect_currdef' field in the
+   tree_ann structure).  */
+extern const HOST_WIDE_INT M_INDIRECT;
+
+/* M_VOLATILE modifies a V_DEF or V_USE reference to indicate that it is
+   accessing a volatile variable.  Therefore, optimizers should not assume
+   anything about it.  For instance,
+
+   		volatile int a = 5;
+		int b = a;
+
+   In the above code fragment, we cannot assume that 'b' is assigned the
+   value 5.  */
+extern const HOST_WIDE_INT M_VOLATILE;
+
+
+/*---------------------------------------------------------------------------
+		 Doubly linked list of variable references
+---------------------------------------------------------------------------*/
+union tree_ref_d;
+
+struct ref_list_node
 {
-  /* Base symbol.  */
-  tree sym;
+  union tree_ref_d *ref;
+  struct ref_list_node *prev;
+  struct ref_list_node *next;
+};
 
-  /* Statement containing the reference.  */
+struct ref_list_priv
+{
+  struct ref_list_node *first;
+  struct ref_list_node *last;
+};
+typedef struct ref_list_priv *ref_list;
+
+
+/* Iterators for reference lists.  */
+#define FOR_REF_BETWEEN(REF, TMP, FROM, TO, DIR)		\
+  if (FROM) \
+  for (TMP = FROM, REF = TMP->ref;  TMP != TO; TMP = TMP->DIR, REF = (TMP ? TMP->ref : NULL))
+
+#define FOR_EACH_REF(REF, TMP, LIST)				\
+  FOR_REF_BETWEEN (REF, TMP, LIST->first, LIST->last->next, next)
+
+#define FOR_EACH_REF_REV(REF, TMP, LIST)			\
+  FOR_REF_BETWEEN (REF, TMP, LIST->last, LIST->first->prev, prev)
+
+
+/*---------------------------------------------------------------------------
+			      Variable references
+---------------------------------------------------------------------------*/
+/* Common features of every variable reference.  */
+struct tree_ref_common
+{
+  /* Reference type.  */
+  HOST_WIDE_INT type;
+
+  /* Variable being referenced.  This is not necessarily a _DECL node.  It
+     may be also be a COMPONENT_REF, ARRAY_REF or an INDIRECT_REF.  */
+  tree var;
+
+  /* Statement containing the reference.  Maybe NULL for special references
+     (e.g., default definitions inserted at the start of every function).  */
   tree stmt;
 
-  /* Expression tree containing the reference.  */
+  /* Expression tree containing the reference.  Maybe NULL for special
+     references (e.g., default definitions inserted at the start of every
+     function).  */
   tree expr;
 
-  /* Pointer to operand of EXPR containing the reference.  */
+  /* Pointer to operand of EXPR containing VAR.  Used when substituting the
+     operand with some other value in transformations like constant
+     propagation.  Maybe NULL for special references (e.g., default
+     definitions inserted at the start of every function).  */
   tree *operand_p;
+
+  /* Original value stored in *OPERAND_P.  Used by restore_ref_operand.  */
+  tree orig_operand;
 
   /* Basic block containing the reference.  */
   basic_block bb;
 
-  /* Reference type.  */
-  enum treeref_type type;
-
   /* Reference ID.  Unique within a single function.  */
-  unsigned int id;
+  HOST_WIDE_INT id;
 };
 
 
-/* Stuff common to all expression references.  */
-struct exprref_common
+/* Variable definitions.  */
+struct var_ref
 {
-  struct treeref_common common;
+  struct tree_ref_common common;
+
+  /* Immediate uses for this definition.  */
+  ref_list imm_uses;
+
+  /* Saved definition chain.  Used by the FUD chain building algorithm
+     (tree-ssa.c:build_fud_chains).  */
+  union tree_ref_d *save_chain;
+
+  /* Uses reached by this definition.  */
+  ref_list reached_uses;
+
+  /* Visited mark.  Used when computing reaching definitions.  */
+  union tree_ref_d *marked;
+
+  /* Array of PHI arguments.  The number of arguments to a PHI node is the
+     number of incoming edges to the basic block where that PHI node
+     resides.  */
+  varray_type phi_args;
+
+  /* Immediate reaching definition for this reference.  Notice that this is
+     also applicable to variable definitions because we are intersted in
+     building def-def chains (for non-killing definitions.  */
+  union tree_ref_d *imm_rdef;
+
+  /* Definitions reaching this use.  */
+  ref_list rdefs;
+
+  /* Incoming edge where we are receiving imm_rdef from.  NOTE: only valid
+     in V_PHI_ARG references.  */
+  edge imm_rdef_edge;
+};
+
+
+/*---------------------------------------------------------------------------
+			     Expression references
+---------------------------------------------------------------------------*/
+/* Common feature of all expression references.  */
+struct expr_ref_common
+{
+  struct tree_ref_common common;
 
   /* SSAPRE: True if expression needs to be saved to a temporary. */
   unsigned int save:1;
   
-  /* SSAPRE: True if expression needs to be reloaded from a
-     temporary.  */
+  /* SSAPRE: True if expression needs to be reloaded from a temporary.  */
   unsigned int reload:1;
 
-  /* SSAPRE: True if expression was inserted as a PHI operand
-     occurrence.  */
+  /* SSAPRE: True if expression was inserted as a PHI operand occurrence.  */
   unsigned int inserted:1;
   
   /* SSAPRE: Redundancy class of expression.  */
@@ -79,16 +295,21 @@ struct exprref_common
 };
 
 
-/* Expression PHI's */
+/* FIXME: Get rid of these lvalue macros.  */
+#define EXPRREF_CLASS(r) (r)->ecommon.class
+#define EXPRREF_INSERTED(r) (r)->ecommon.inserted
+#define EXPRREF_SAVE(r) (r)->ecommon.save
+#define EXPRREF_RELOAD(r) (r)->ecommon.reload
 
-struct exprphi
+/* Expression PHIs.  */
+struct expr_phi
 {
-  struct exprref_common common;
+  struct expr_ref_common common;
   
   /* Expression PHI operands.  This is an array of size
      last_basic_block, with operands ordered by pre-order index of the
      BB it's from.  */
-  varray_type phi_chain;
+  varray_type phi_args;
 
   /* SSAPRE: True if PHI is downsafe.  */
   unsigned int downsafe:1;
@@ -107,7 +328,7 @@ struct exprphi
   bitmap processed;
 };
 
-#define EXPRPHI_PHI_CHAIN(r) (r)->ephi.phi_chain
+#define EXPRPHI_PHI_ARGS(r) (r)->ephi.phi_args
 #define EXPRPHI_DOWNSAFE(r) (r)->ephi.downsafe
 #define EXPRPHI_CANBEAVAIL(r) (r)->ephi.can_be_avail
 #define EXPRPHI_LATER(r) (r)->ephi.later
@@ -116,74 +337,13 @@ struct exprphi
 #define EXPRPHI_WILLBEAVAIL(r) (EXPRPHI_CANBEAVAIL ((r)) && !EXPRPHI_LATER ((r)))
 
 
-/* Doubly linked list of variable references.  */
-struct ref_list_node
-{
-  union varref_def *ref;
-  struct ref_list_node *prev;
-  struct ref_list_node *next;
-};
-
-struct ref_list_priv
-{
-  struct ref_list_node *first;
-  struct ref_list_node *last;
-};
-typedef struct ref_list_priv *ref_list;
-
-
-/* Variable definitions.  */
-struct vardef
-{
-  struct treeref_common common;
-
-  /* Immediate uses for this definition.  */
-  ref_list imm_uses;
-
-  /* Saved definition chain.  */
-  union varref_def *save_chain;
-
-  /* Uses reached by this definition.  */
-  ref_list ruses;
-
-  /* Visited mark.  Used when computing reaching definitions.  */
-  union varref_def *marked;
-
-  /* PHI arguments (not used with real definitions).  The number of
-     arguments to a PHI node is the number of incoming edges to the basic
-     block where that PHI node resides.  Each argument is of type phi_arg.  */
-  varray_type phi_args;
-};
-
-#define VARDEF_IMM_USES(r) (r)->def.imm_uses
-#define VARDEF_SAVE_CHAIN(r) (r)->def.save_chain
-#define VARDEF_RUSES(r) (r)->def.ruses
-#define VARDEF_MARKED(r) (r)->def.marked
-#define VARDEF_PHI_ARGS(r) (r)->def.phi_args
-
-/* Variable uses.  */
-struct varuse
-{
-  struct exprref_common common;
-
-  /* Immediate reaching definition for this use.  */
-  union varref_def *imm_rdef;
-
-  /* Definitions reaching this use.  */
-  ref_list rdefs;
-};
-
-#define VARUSE_IMM_RDEF(r) (r)->use.imm_rdef
-#define VARUSE_RDEFS(r) (r)->use.rdefs
-
-
 /* Expressions uses.  */
-struct expruse
+struct expr_use
 {
-  struct exprref_common common;
+  struct expr_ref_common common;
 
   /* Definition chain.  */
-  union varref_def *def;
+  union tree_ref_d *def;
   
   /* True if this use is a phi operand occurrence. */
   int op_occurrence;
@@ -197,76 +357,73 @@ struct expruse
 #define EXPRUSE_HAS_REAL_USE(r) (r)->euse.has_real_use
 
 
-
 /* Generic variable reference structure.  */
-union varref_def
+union tree_ref_d
 {
-  struct treeref_common common;
-  struct exprref_common ecommon;
-  struct vardef def;
-  struct varuse use;
-  struct expruse euse;
-  struct exprphi ephi;
+  struct tree_ref_common common;
+  struct var_ref vref;
+  struct expr_ref_common ecommon;
+  struct expr_use euse;
+  struct expr_phi ephi;
 };
 
-typedef union varref_def *varref;
-
-#define VARREF_ID(r) (r)->common.id
-#define VARREF_TYPE(r) (r)->common.type
-#define VARREF_BB(r) (r)->common.bb
-#define VARREF_EXPR(r) (r)->common.expr
-#define VARREF_OPERAND_P(r) (r)->common.operand_p
-#define VARREF_STMT(r) (r)->common.stmt
-#define VARREF_SYM(r) (r)->common.sym
-
-#define EXPRREF_TYPE(r) (r)->common.type
-#define EXPRREF_BB(r) (r)->common.bb
-#define EXPRREF_EXPR(r) (r)->common.expr
-#define EXPRREF_STMT(r) (r)->common.stmt
-#define EXPRREF_SYM(r) (r)->common.sym
-#define EXPRREF_CLASS(r) (r)->ecommon.class
-#define EXPRREF_INSERTED(r) (r)->ecommon.inserted
-#define EXPRREF_SAVE(r) (r)->ecommon.save
-#define EXPRREF_RELOAD(r) (r)->ecommon.reload
+typedef union tree_ref_d *tree_ref;
 
 
-/* PHI node arguments.  */
-typedef struct
-{
-  /* Definition reaching this argument.  */
-  varref def;
+/*---------------------------------------------------------------------------
+		    Accessor functions for tree_ref objects.
+---------------------------------------------------------------------------*/
+/* For tree_ref_common.  */
+static inline HOST_WIDE_INT ref_type		PARAMS ((tree_ref));
+static inline tree ref_var			PARAMS ((tree_ref));
+static inline tree ref_stmt			PARAMS ((tree_ref));
+static inline tree ref_expr			PARAMS ((tree_ref));
+static inline basic_block ref_bb		PARAMS ((tree_ref));
+static inline HOST_WIDE_INT ref_id		PARAMS ((tree_ref));
 
-  /* Incoming edge where DEF is coming from.  */
-  edge e;
-} *phi_arg;
-
-static inline unsigned get_num_phi_args PARAMS ((varref));
-static inline phi_arg get_phi_arg PARAMS ((varref, unsigned int));
-static inline void set_phi_arg PARAMS ((varref, unsigned int, phi_arg));
-extern void add_phi_arg PARAMS ((varref, varref, edge));
-
-
-/* Return nonzero if R is a default definition.  Default definitions are
-   artificially created in the first basic block of the program.  They
-   provide a convenient way of checking if a variable is used without being
-   assigned a value first.  Their presence is not required, but they save
-   the code from having to consider special cases like nil PHI node
-   arguments.  */
-#define IS_DEFAULT_DEF(R)		\
-    (R					\
-     && VARREF_TYPE (R) == VARDEF	\
-     && VARREF_EXPR (R) == NULL_TREE	\
-     && VARREF_STMT (R) == NULL_TREE	\
-     && VARREF_BB (R)->index == 0)
-
-/* Return nonzero if R is an artificial definition (currently, a PHI term
-   or a default definition).  */
-#define IS_ARTIFICIAL_REF(R)	\
-    (IS_DEFAULT_DEF (R) || VARREF_TYPE (R) == VARPHI)
+static inline void replace_ref_operand_with	PARAMS ((tree_ref, tree));
+static inline void restore_ref_operand		PARAMS ((tree_ref));
 
 
-/* Tree annotations stored in tree_common.aux.  */
-struct tree_ann_def
+/* For var_ref.  */
+static inline ref_list imm_uses			PARAMS ((tree_ref));
+static inline tree_ref save_chain		PARAMS ((tree_ref));
+static inline void set_save_chain		PARAMS ((tree_ref, tree_ref));
+static inline ref_list reached_uses		PARAMS ((tree_ref));
+static inline tree_ref marked_with		PARAMS ((tree_ref));
+static inline void mark_def_with		PARAMS ((tree_ref, tree_ref));
+
+static inline varray_type phi_args		PARAMS ((tree_ref));
+static inline unsigned int num_phi_args		PARAMS ((tree_ref));
+static inline tree_ref phi_arg			PARAMS ((tree_ref, unsigned));
+static inline void set_phi_arg			PARAMS ((tree_ref, unsigned,
+                                                         tree_ref));
+extern void add_phi_arg				PARAMS ((tree_ref, tree_ref,
+                                                         edge));
+static inline tree_ref imm_reaching_def		PARAMS ((tree_ref));
+static inline void set_imm_reaching_def		PARAMS ((tree_ref, tree_ref));
+static inline edge imm_reaching_def_edge	PARAMS ((tree_ref));
+static inline void set_imm_reaching_def_edge	PARAMS ((tree_ref, edge));
+static inline ref_list reaching_defs		PARAMS ((tree_ref));
+
+
+
+/*---------------------------------------------------------------------------
+		   Tree annotations stored in tree_common.aux
+---------------------------------------------------------------------------*/
+/* Tree flags.  */
+enum tree_flags {
+  /* Expression tree should be folded.  */
+  TF_FOLD	= 1 << 0,
+
+  /* The expression is not in SIMPLE form.  */
+  TF_NOT_SIMPLE	= 1 << 1,
+
+  /* This _DECL node has already been referenced in this function.  */
+  TF_REFERENCED	= 1 << 2
+};
+
+struct tree_ann_d
 {
   /* Basic block that contains this tree.  */
   basic_block bb;
@@ -277,36 +434,45 @@ struct tree_ann_def
      list of references made in this expression.  */
   ref_list refs;
 
-  /* For _DECL trees this is the most recent definition for this symbol.
-     Used when placing FUD chains.  For assignment expressions, this is the
-     VARDEF being defined on the LHS of the assignment.  Note that
-     assignments may define more than one symbol (e.g., a.b = 5 defines
-     'a.b' and 'a').  However, in this case currdef only holds the VARDEF
-     D for which VARREF_SYM (D) == TREE_OPERAND (assignment, 0).  */
-  varref currdef;
+  /* For _DECL trees this is the most recent definition for this variable.
+     Used when placing FUD chains.  */
+  tree_ref currdef;
 
   /* Immediately enclosing compound statement to which this tree belongs.  */
-  tree compound_stmt;
+  tree compound_parent;
 
   /* Flags used to mark optimization-dependent state.  See TF_* below.  */
-  int flags;
+  HOST_WIDE_INT flags;
+
+  /* Output reference.  This is the V_DEF reference at the LHS of
+     assignments (MODIFY_EXPR, INIT_EXPR and DECL_STMTs for static
+     variables).  */
+  tree_ref output_ref;
 };
 
-typedef struct tree_ann_def *tree_ann;
+typedef struct tree_ann_d *tree_ann;
 
-#define TREE_ANN(NODE)		((tree_ann)((NODE)->common.aux))
-#define BB_FOR_STMT(NODE)	TREE_ANN (NODE)->bb
-#define TREE_CURRDEF(NODE) 	TREE_ANN (NODE)->currdef
-#define TREE_REFS(NODE)		TREE_ANN (NODE)->refs
-#define TREE_COMPOUND_STMT(NODE) TREE_ANN (NODE)->compound_stmt
-#define TREE_FLAGS(NODE)	TREE_ANN (NODE)->flags
+static inline tree_ann tree_annotation	PARAMS ((tree));
+static inline bool has_annotation	PARAMS ((tree));
+static inline basic_block bb_for_stmt	PARAMS ((tree));
+static inline void set_bb_for_stmt	PARAMS ((tree, basic_block));
+static inline tree_ref currdef_for	PARAMS ((tree));
+static inline void set_currdef_for	PARAMS ((tree, tree_ref));
+static inline ref_list tree_refs	PARAMS ((tree));
+static inline void add_tree_ref		PARAMS ((tree, tree_ref));
+static inline void remove_tree_ref	PARAMS ((tree, tree_ref));
+static inline tree compound_parent	PARAMS ((tree));
+static inline void set_compound_parent	PARAMS ((tree, tree));
+static inline void set_tree_flag	PARAMS ((tree, enum tree_flags));
+static inline void clear_tree_flag	PARAMS ((tree, enum tree_flags));
+static inline enum tree_flags tree_flags PARAMS ((tree));
+static inline void reset_tree_flags	PARAMS ((tree));
+static inline tree_ref output_ref	PARAMS ((tree));
+static inline void set_output_ref	PARAMS ((tree, tree_ref));
 
-/* Tree flags.  */
-#define TF_FOLD		1	/* Expression tree should be folded.  */
-#define TF_NOT_SIMPLE	2	/* The expression is not in SIMPLE form.  */
-
-
-/* Block annotations stored in basic_block.aux.  */
+/*---------------------------------------------------------------------------
+		  Block annotations stored in basic_block.aux
+---------------------------------------------------------------------------*/
 struct for_header_blocks
 {
   basic_block for_init_stmt_bb;
@@ -320,25 +486,6 @@ union header_blocks
   basic_block end_while_bb;
   basic_block do_cond_bb;
 };
-
-/* Functions to manipulate lists of references (ref_list).  */
-ref_list create_ref_list PARAMS ((void));
-void empty_ref_list PARAMS ((ref_list));
-void delete_ref_list PARAMS ((ref_list));
-void add_ref_to_list_end PARAMS ((ref_list, varref));
-void add_ref_to_list_begin PARAMS ((ref_list, varref));
-void remove_ref_from_list PARAMS ((ref_list, varref));
-
-
-#define FOR_REF_BETWEEN(REF, TMP, FROM, TO, DIR)		\
-  if (FROM) \
-  for (TMP = FROM, REF = TMP->ref;  TMP != TO; TMP = TMP->DIR, REF = (TMP ? TMP->ref : NULL))
-
-#define FOR_EACH_REF(REF, TMP, LIST)				\
-  FOR_REF_BETWEEN (REF, TMP, LIST->first, LIST->last->next, next)
-
-#define FOR_EACH_REF_REV(REF, TMP, LIST)			\
-  FOR_REF_BETWEEN (REF, TMP, LIST->last, LIST->first->prev, prev)
 
 struct bb_ann_def
 {
@@ -364,42 +511,63 @@ struct bb_ann_def
 typedef struct bb_ann_def *bb_ann;
 
 /* Accessors for basic block annotations.  */
-#define BB_ANN(BLOCK)		((bb_ann)((BLOCK)->aux))
-#define BB_PARENT(BLOCK)	BB_ANN (BLOCK)->parent
-#define BB_REFS(BLOCK)		BB_ANN (BLOCK)->refs
-#define BB_PREV_CHAIN_P(BLOCK)	BB_ANN (BLOCK)->prev_chain_p
-#define BB_BINDING_SCOPE(BLOCK)	BB_ANN (BLOCK)->binding_scope
-#define BB_LOOP_HDR(BLOCK)	BB_ANN (BLOCK)->loop_hdr
-
-/* Accessors for obtaining header blocks of loop statements.  */
-#define FOR_INIT_STMT_BB(BLOCK)	BB_LOOP_HDR (BLOCK)->for_hdr.for_init_stmt_bb
-#define FOR_COND_BB(BLOCK)	BB_LOOP_HDR (BLOCK)->for_hdr.for_cond_bb
-#define FOR_EXPR_BB(BLOCK)	BB_LOOP_HDR (BLOCK)->for_hdr.for_expr_bb
-#define END_WHILE_BB(BLOCK)	BB_LOOP_HDR (BLOCK)->end_while_bb
-#define DO_COND_BB(BLOCK)	BB_LOOP_HDR (BLOCK)->do_cond_bb
+static inline bb_ann bb_annotation	PARAMS ((basic_block));
+static inline basic_block bb_parent	PARAMS ((basic_block));
+static inline void set_bb_parent	PARAMS ((basic_block, basic_block));
+static inline ref_list bb_refs		PARAMS ((basic_block));
+static inline void remove_bb_ref	PARAMS ((basic_block, tree_ref));
+static inline tree *prev_chain_p	PARAMS ((basic_block));
+static inline void set_prev_chain_p	PARAMS ((basic_block, tree *));
+static inline basic_block binding_scope	PARAMS ((basic_block));
+static inline void set_binding_scope	PARAMS ((basic_block, basic_block));
+static inline union header_blocks *loop_hdr PARAMS ((basic_block));
+static inline basic_block for_init_bb	PARAMS ((basic_block));
+static inline void set_for_init_bb 	PARAMS ((basic_block, basic_block));
+static inline basic_block for_cond_bb	PARAMS ((basic_block));
+static inline void set_for_cond_bb	PARAMS ((basic_block, basic_block));
+static inline basic_block for_expr_bb	PARAMS ((basic_block));
+static inline void set_for_expr_bb	PARAMS ((basic_block, basic_block));
+static inline basic_block end_while_bb	PARAMS ((basic_block));
+static inline void set_end_while_bb	PARAMS ((basic_block, basic_block));
+static inline basic_block do_cond_bb	PARAMS ((basic_block));
+static inline void set_do_cond_bb	PARAMS ((basic_block, basic_block));
 
 /* Some basic blocks are nothing but markers used to give structure to the
    flow graph (see make_while_stmt_blocks).  They contain no useful
    instructions.  */
-#define BB_EMPTY_P(BLOCK)	((BLOCK)->head_tree == integer_one_node \
-                                 && (BLOCK)->end_tree == integer_one_node)
+static inline bool bb_empty_p		PARAMS ((basic_block));
+static inline bool
+bb_empty_p (b)
+     basic_block b;
+{
+  return b->head_tree == integer_one_node && b->end_tree == integer_one_node;
+}
+
 
 /* Global declarations.  */
 
 /* Nonzero to warn about variables used before they are initialized.  */
 extern int tree_warn_uninitialized;
 
-/* Array of all symbols referenced in the function.  */
-extern varray_type referenced_symbols;
+/* Array of all variables referenced in the function.  */
+extern varray_type referenced_vars;
+
+/* List of all call sites in the current function.  */
+extern ref_list call_sites;
 
 /* Next unique reference ID to be assigned by create_ref().  */
-extern unsigned int next_varref_id;
+extern HOST_WIDE_INT next_tree_ref_id;
 
+/* Accessors for the referenced_vars array.  */
+extern size_t num_referenced_vars;
 
-/* Accessor macros for referenced_symbols array.  */
-#define NREF_SYMBOLS		VARRAY_ACTIVE_SIZE (referenced_symbols)
-#define REF_SYMBOL(N)		VARRAY_TREE (referenced_symbols, (N))
-#define ADD_REF_SYMBOL(T)	VARRAY_PUSH_TREE (referenced_symbols, (T));
+static inline tree referenced_var PARAMS ((size_t));
+static inline tree
+referenced_var (i)
+     size_t i;
+{
+  return VARRAY_TREE (referenced_vars, i);
+}
 
 /* Bitmasks to select which function calls to return in get_fcalls().  */
 #define FCALL_NON_PURE	(1 << 0)
@@ -407,113 +575,696 @@ extern unsigned int next_varref_id;
 #define FCALL_BUILT_IN	(1 << 2)
 
 
-
 /* Functions in tree-cfg.c  */
-
-extern void tree_find_basic_blocks PARAMS ((tree));
-extern int is_ctrl_stmt PARAMS ((tree));
-extern int is_ctrl_altering_stmt PARAMS ((tree));
-extern int is_loop_stmt PARAMS ((tree));
-extern tree loop_body PARAMS ((tree));
-extern void set_loop_body PARAMS ((tree, tree));
-extern int stmt_ends_bb_p PARAMS ((tree));
-extern int stmt_starts_bb_p PARAMS ((tree));
-extern void delete_cfg PARAMS ((void));
-extern bb_ann get_bb_ann PARAMS ((basic_block));
-extern void tree_dump_bb PARAMS ((FILE *, const char *, basic_block, int));
-extern void tree_debug_bb PARAMS ((basic_block));
-extern void tree_dump_cfg PARAMS ((FILE *));
-extern void tree_debug_cfg PARAMS ((void));
-extern void tree_cfg2dot PARAMS ((FILE *));
-extern basic_block loop_parent PARAMS ((basic_block));
-extern basic_block latch_block PARAMS ((basic_block));
-extern basic_block switch_parent PARAMS ((basic_block));
-extern tree first_exec_stmt PARAMS ((tree));
-extern tree last_exec_stmt PARAMS ((tree));
-extern int is_exec_stmt PARAMS ((tree));
-extern int is_statement_expression PARAMS ((tree));
-extern void validate_loops PARAMS ((struct loops *));
-extern tree first_non_decl_stmt PARAMS ((tree));
-extern tree first_decl_stmt PARAMS ((tree));
-extern tree first_non_label_in_bb PARAMS ((basic_block));
-extern void insert_stmt_tree_before PARAMS ((tree, tree, basic_block));
-extern void insert_stmt_tree_after PARAMS ((tree, tree, basic_block));
-extern void replace_expr_in_tree PARAMS ((tree, tree, tree));
-extern tree *find_expr_in_tree PARAMS ((tree, tree));
-extern void insert_bb_before PARAMS ((basic_block, basic_block));
-extern void tree_cleanup_cfg PARAMS ((void));
-extern basic_block tree_split_bb PARAMS ((basic_block, tree));
+extern void tree_find_basic_blocks	PARAMS ((tree));
+extern int is_ctrl_stmt			PARAMS ((tree));
+extern int is_ctrl_altering_stmt	PARAMS ((tree));
+extern int is_loop_stmt			PARAMS ((tree));
+extern bool is_computed_goto		PARAMS ((tree));
+extern tree loop_body			PARAMS ((tree));
+extern void set_loop_body		PARAMS ((tree, tree));
+extern int stmt_ends_bb_p		PARAMS ((tree));
+extern int stmt_starts_bb_p		PARAMS ((tree));
+extern void delete_cfg			PARAMS ((void));
+extern bb_ann create_bb_ann 		PARAMS ((basic_block));
+extern void tree_dump_bb		PARAMS ((FILE *, const char *,
+						 basic_block, int));
+extern void tree_debug_bb		PARAMS ((basic_block));
+extern void tree_dump_cfg		PARAMS ((FILE *));
+extern void tree_debug_cfg		PARAMS ((void));
+extern void tree_cfg2dot		PARAMS ((FILE *));
+extern basic_block loop_parent		PARAMS ((basic_block));
+extern basic_block latch_block		PARAMS ((basic_block));
+extern basic_block switch_parent	PARAMS ((basic_block));
+extern tree first_exec_stmt		PARAMS ((tree));
+extern tree last_exec_stmt		PARAMS ((tree));
+extern int is_exec_stmt			PARAMS ((tree));
+extern int is_statement_expression	PARAMS ((tree));
+extern void validate_loops		PARAMS ((struct loops *));
+extern tree first_non_decl_stmt		PARAMS ((tree));
+extern tree first_decl_stmt		PARAMS ((tree));
+extern tree first_non_label_in_bb	PARAMS ((basic_block));
+extern void insert_stmt_tree_before	PARAMS ((tree, tree, basic_block));
+extern void insert_stmt_tree_after	PARAMS ((tree, tree, basic_block));
+extern void replace_expr_in_tree	PARAMS ((tree, tree, tree));
+extern tree *find_expr_in_tree		PARAMS ((tree, tree));
+extern void insert_bb_before		PARAMS ((basic_block, basic_block));
+extern void tree_cleanup_cfg		PARAMS ((void));
+extern basic_block tree_split_bb	PARAMS ((basic_block, tree));
 
 
 /* Functions in tree-dfa.c  */
-
-extern void tree_find_varrefs PARAMS ((void));
-extern tree_ann get_tree_ann PARAMS ((tree));
-extern void remove_tree_ann PARAMS ((tree));
-extern varref create_ref PARAMS ((tree, enum treeref_type,
-				  basic_block, tree, tree, tree *));
-extern void debug_varref PARAMS ((varref));
-extern void dump_varref PARAMS ((FILE *, const char *, varref, int, int));
-extern void debug_varref_list PARAMS ((ref_list));
-extern void debug_varref_array PARAMS ((varray_type));
-extern void debug_phi_args PARAMS ((varray_type));
-extern void dump_varref_list PARAMS ((FILE *, const char *, ref_list, int,
-                                      int));
-extern void dump_varref_array PARAMS ((FILE *, const char *, varray_type, int,
-                                      int));
-extern void dump_phi_args PARAMS ((FILE *, const char *, varray_type, int,
-                                      int));
-extern int function_may_recurse_p PARAMS ((void));
-extern void get_fcalls PARAMS ((varray_type *, unsigned));
-extern basic_block find_declaration PARAMS ((tree));
+extern void tree_find_refs		PARAMS ((void));
+extern void remove_tree_ann		PARAMS ((tree));
+extern tree_ann create_tree_ann 	PARAMS ((tree));
+extern tree_ref create_ref		PARAMS ((tree, HOST_WIDE_INT,
+						 basic_block, tree, tree,
+						 tree *, bool));
+extern void debug_ref			PARAMS ((tree_ref));
+extern void dump_ref			PARAMS ((FILE *, const char *, tree_ref,
+      						 int, int));
+extern void debug_ref_list		PARAMS ((ref_list));
+extern void debug_ref_array		PARAMS ((varray_type));
+extern void dump_ref_list		PARAMS ((FILE *, const char *, ref_list,
+      						 int, int));
+extern void dump_ref_array		PARAMS ((FILE *, const char *,
+                                                 varray_type, int, int));
+extern void debug_referenced_vars	PARAMS ((void));
+extern void dump_referenced_vars	PARAMS ((FILE *));
+extern int function_may_recurse_p	PARAMS ((void));
+extern void get_fcalls			PARAMS ((varray_type *, unsigned));
+extern bool is_pure_fcall		PARAMS ((tree));
+extern bool fcall_takes_ref_args	PARAMS ((tree));
+extern basic_block find_declaration	PARAMS ((tree));
+extern ref_list create_ref_list		PARAMS ((void));
+extern void empty_ref_list		PARAMS ((ref_list));
+extern void delete_ref_list		PARAMS ((ref_list));
+extern void add_ref_to_list_end		PARAMS ((ref_list, tree_ref));
+extern void add_ref_to_list_begin	PARAMS ((ref_list, tree_ref));
+extern void add_ref_to_list_after	PARAMS ((ref_list,
+						 struct ref_list_node *,
+					         tree_ref));
+extern void remove_ref_from_list	PARAMS ((ref_list, tree_ref));
+extern struct ref_list_node *find_list_node PARAMS ((ref_list, tree_ref));
+extern const char *ref_type_name	PARAMS ((HOST_WIDE_INT));
+extern bool validate_ref_type		PARAMS ((HOST_WIDE_INT));
 
 
 /* Functions in tree-ssa.c  */
-
-extern void tree_build_ssa PARAMS ((void));
-extern void tree_compute_rdefs PARAMS ((void));
-extern void analyze_rdefs PARAMS ((void));
-extern int is_upward_exposed PARAMS ((tree, sbitmap, int));
-extern void delete_ssa PARAMS ((void));
-extern void tree_ssa_remove_phi_alternative PARAMS ((varref, basic_block));
+extern void tree_build_ssa		PARAMS ((void));
+extern void tree_compute_rdefs		PARAMS ((void));
+extern void analyze_rdefs		PARAMS ((void));
+extern bool is_upward_exposed		PARAMS ((tree, sbitmap, int));
+extern void delete_ssa			PARAMS ((void));
+extern void tree_ssa_remove_phi_alternative PARAMS ((tree_ref, basic_block));
 
 /* Functions in tree-alias-steen.c  */
-extern void create_alias_vars PARAMS ((void));
+extern void create_alias_vars		PARAMS ((void));
 
 
-/* Inline functions.  */
-
-/* Return the number of arguments for PHI.  */
-
-static inline unsigned
-get_num_phi_args (phi)
-     varref phi;
+/*---------------------------------------------------------------------------
+				Inline functions
+---------------------------------------------------------------------------*/
+/* Return the reference ID.  */
+static inline HOST_WIDE_INT
+ref_id (ref)
+     tree_ref ref;
 {
-  return VARRAY_ACTIVE_SIZE (VARDEF_PHI_ARGS (phi));
+  return ref->common.id;
+}
+
+/* Return the reference type.  */
+static inline HOST_WIDE_INT
+ref_type (ref)
+     tree_ref ref;
+{
+  return ref->common.type;
+}
+
+/* Return the basic block where REF is located.  */
+static inline basic_block
+ref_bb (ref)
+     tree_ref ref;
+{
+  return ref->common.bb;
+}
+
+/* Return the expression where REF is located.  */
+static inline tree
+ref_expr (ref)
+     tree_ref ref;
+{
+  return ref->common.expr;
+}
+
+/* Return the statement where REF is located.  */
+static inline tree
+ref_stmt (ref)
+     tree_ref ref;
+{
+  return ref->common.stmt;
+}
+
+/* Return the variable associated to REF.  */
+static inline tree
+ref_var (ref)
+     tree_ref ref;
+{
+  return ref->common.var;
+}
+
+/* Return a list of all the uses immediately reached from DEF.  */
+static inline ref_list
+imm_uses (def)
+     tree_ref def;
+{
+  return def->vref.imm_uses;
+}
+
+/* Return a list of all the uses reached by DEF.  */
+static inline ref_list
+reached_uses (ref)
+     tree_ref ref;
+{
+  return ref->vref.reached_uses;
+}
+
+/* Return the saved definition chain for DEF (used when placing FUD chains
+   in tree-ssa.c:search_fud_chains.  */
+static inline tree_ref
+save_chain (ref)
+     tree_ref ref;
+{
+  return ref->vref.save_chain;
+}
+
+/* Return the use reference that was last used to mark definition DEF.
+   Used to compute reaching definitions and reached uses in
+   tree-ssa.c:tree_compute_rdefs.  */
+static inline tree_ref
+marked_with (ref)
+     tree_ref ref;
+{
+  return ref->vref.marked;
+}
+
+/* Return the immediately reaching definition for USE.  */
+static inline tree_ref
+imm_reaching_def (use)
+     tree_ref use;
+{
+  return use->vref.imm_rdef;
+}
+
+/* Set the immediately reaching definition of USE to be DEF.  */
+static inline void 
+set_imm_reaching_def (use, def)
+     tree_ref use;
+     tree_ref def;
+{
+  use->vref.imm_rdef = def;
+}
+
+/* Set E to be the edge where the given USE is coming from.  */
+static inline void
+set_imm_reaching_def_edge (use, e)
+     tree_ref use;
+     edge e;
+{
+  use->vref.imm_rdef_edge = e;
+}
+
+/* Return the list of all definitions that may reach USE.  This is only
+   valid after calling tree-ssa.c:tree_compute_rdefs.  */
+static inline ref_list
+reaching_defs (use)
+     tree_ref use;
+{
+  return use->vref.rdefs;
 }
 
 
-/* Return the Ith argument of PHI.  Each PHI argument contains a VARDEF and
-   an edge where that VARDEF is coming from.  */
+/* Return the array with all the arguments of PHI node.  */
+static inline varray_type
+phi_args (phi)
+     tree_ref phi;
+{
+  return phi->vref.phi_args;
+}
 
-static inline phi_arg
-get_phi_arg (phi, i)
-     varref phi;
+/* Return the number of arguments for the given PHI node.  */
+static inline unsigned int
+num_phi_args (phi)
+     tree_ref phi;
+{
+  return VARRAY_ACTIVE_SIZE (phi->vref.phi_args);
+}
+
+/* Return the Ith argument for the given PHI node.  */
+static inline tree_ref
+phi_arg (phi, i)
+     tree_ref phi;
      unsigned int i;
 {
-  return (phi_arg)(VARRAY_GENERIC_PTR (VARDEF_PHI_ARGS (phi), i));
+  return (tree_ref)(VARRAY_GENERIC_PTR (phi->vref.phi_args, i));
 }
 
-
-/* Set the Ith argument of PHI to be ARG.  */
-
+/* Set the Ith argument of the given PHI node to ARG.  */
 static inline void
 set_phi_arg (phi, i, arg)
-     varref phi;
+     tree_ref phi;
      unsigned int i;
-     phi_arg arg;
+     tree_ref arg;
 {
-  VARRAY_GENERIC_PTR (VARDEF_PHI_ARGS (phi), i) = (PTR)arg;
+  VARRAY_GENERIC_PTR (phi->vref.phi_args, i) = (PTR)arg;
+}
+
+/* Return the edge where the PHI argument PHI_ARG is coming from.  */
+static inline edge
+imm_reaching_def_edge (phi_arg)
+     tree_ref phi_arg;
+{
+  return phi_arg->vref.imm_rdef_edge;
+}
+
+/* Save CHAIN as the current definition chain for DEF.  Used by
+   tree-ssa.c:search_fud_chains when building the SSA web.  */
+static inline void
+set_save_chain (def, chain)
+     tree_ref def;
+     tree_ref chain;
+{
+  def->vref.save_chain = chain;
+}
+
+/* Mark DEF as having been visited with USE.  Used by
+   tree-ssa.c:tree_compute_rdefs when traversing FUD chains to compute
+   reaching definitions.  */
+static inline void
+mark_def_with (def, use)
+     tree_ref def;
+     tree_ref use;
+{
+  def->vref.marked = use;
+}
+
+/* Replaces the operand that REF is pointing to with a new operand OP.
+   Note that this does not modify any other references that may be affected
+   by the change.  */
+static inline void
+replace_ref_operand_with (ref, op)
+     tree_ref ref;
+     tree op;
+{
+  *(ref->common.operand_p) = op;
+}
+
+/* Restores the operand for REF with its original value (i.e., with the
+   variable that REF is referring to).  */
+static inline void
+restore_ref_operand (ref)
+     tree_ref ref;
+{
+  *(ref->common.operand_p) = ref->common.orig_operand;
+}
+
+/* Return the annotation attached to T.  Create a new one if necessary.  */
+static inline tree_ann
+tree_annotation (t)
+     tree t;
+{
+  return ((t->common.aux) ? (tree_ann)t->common.aux : create_tree_ann (t));
+}
+
+static inline bool
+has_annotation (t)
+     tree t;
+{
+  return (t->common.aux != NULL);
+}
+
+/* Return the basic block containing statement T.  */
+static inline basic_block
+bb_for_stmt (t)
+     tree t;
+{
+  return tree_annotation (t)->bb;
+}
+
+/* Set the basic block containing statement T.  */
+static inline void
+set_bb_for_stmt (t, bb)
+     tree t;
+     basic_block bb;
+{
+  tree_ann ann;
+#if defined ENABLE_CHECKING
+  if (!statement_code_p (TREE_CODE (t)))
+    abort ();
+#endif
+  ann = tree_annotation (t);
+  ann->bb = bb;
+}
+
+/* Return the current definition for variable DECL.  Used by the SSA
+   builder (tree-ssa.c:search_fud_chains).  */
+static inline tree_ref
+currdef_for (decl)
+     tree decl;
+{
+#if defined ENABLE_CHECKING
+  if (TREE_CODE_CLASS (TREE_CODE (decl)) != 'd')
+    abort ();
+#endif
+  return tree_annotation (decl)->currdef;
+}
+
+/* Set the current definition for variable DECL to be DEF.  */
+static inline void
+set_currdef_for (decl, def)
+     tree decl;
+     tree_ref def;
+{
+  tree_ann ann;
+#if defined ENABLE_CHECKING
+  if (TREE_CODE_CLASS (TREE_CODE (decl)) != 'd')
+    abort ();
+  if (def && !(def->common.type & (V_DEF | V_PHI)))
+    abort ();
+#endif
+  ann = tree_annotation (decl);
+  ann->currdef = def;
+}
+
+/* Return the list of variable references made by T.  For _DECL trees, this
+   is the list of references made to this variable.  For _STMT trees, list
+   of references made in this statement.  For first-level SIMPLE
+   expressions (i.e., the topmost expression of a _STMT node), list of
+   references made in this expression.  */
+static inline ref_list
+tree_refs (t)
+     tree t;
+{
+#if defined ENABLE_CHECKING
+  if (TREE_CODE_CLASS (TREE_CODE (t)) == 'c'
+      || TREE_CODE_CLASS (TREE_CODE (t)) == 't')
+    abort ();
+#endif
+  return tree_annotation (t)->refs;
+}
+
+/* Add REF to the list of referencs for T.  */
+static inline void
+add_tree_ref (t, ref)
+     tree t;
+     tree_ref ref;
+{
+#if defined ENABLE_CHECKING
+  if (TREE_CODE_CLASS (TREE_CODE (t)) == 'c'
+      || TREE_CODE_CLASS (TREE_CODE (t)) == 't')
+    abort ();
+#endif
+  add_ref_to_list_end (tree_refs (t), ref);
+}
+
+/* Remove REF from the list of references for T.  */
+static inline void
+remove_tree_ref (t, ref)
+     tree t;
+     tree_ref ref;
+{
+  remove_ref_from_list (tree_refs (t), ref);
+}
+
+/* Return the COMPOUND_STMT enclosing T.  */
+static inline tree
+compound_parent (t)
+     tree t;
+{
+#if defined ENABLE_CHECKING
+  if (!statement_code_p (TREE_CODE (t)))
+    abort ();
+#endif
+  return tree_annotation (t)->compound_parent;
+}
+
+/* Set PARENT to be the COMPOUND_STMT enclosing T.  */
+static inline void
+set_compound_parent (t, parent)
+     tree t;
+     tree parent;
+{
+  tree_ann ann;
+#if defined ENABLE_CHECKING
+  if (!statement_code_p (TREE_CODE (t)))
+    abort ();
+#endif
+  ann = tree_annotation (t);
+  ann->compound_parent = parent;
+}
+
+/* Return the output reference for EXPR.  This will always be NULL for
+   everything except MODIFY_EXPR, INIT_EXPR and DECL_STMT for static
+   variables.  */
+static inline tree_ref
+output_ref (t)
+     tree t;
+{
+  return tree_annotation (t)->output_ref;
+}
+
+/* Set the output reference for EXPR to be DEF.  */
+static inline void
+set_output_ref (t, def)
+     tree t;
+     tree_ref def;
+{
+  tree_ann ann = tree_annotation (t);
+  ann->output_ref = def;
+}
+
+/* Set T's FLAG.  */
+static inline void
+set_tree_flag (t, flag)
+     tree t;
+     enum tree_flags flag;
+{
+  tree_ann  ann;
+#if defined ENABLE_CHECKING
+  if (TREE_CODE_CLASS (TREE_CODE (t)) == 'c'
+      || TREE_CODE_CLASS (TREE_CODE (t)) == 't')
+    abort ();
+#endif
+  ann = tree_annotation (t);
+  ann->flags |= flag;
+}
+
+/* Clear T's FLAG.  */
+static inline void
+clear_tree_flag (t, flag)
+     tree t;
+     enum tree_flags flag;
+{
+  tree_ann ann;
+#if defined ENABLE_CHECKING
+  if (TREE_CODE_CLASS (TREE_CODE (t)) == 'c'
+      || TREE_CODE_CLASS (TREE_CODE (t)) == 't')
+    abort ();
+#endif
+  ann = tree_annotation (t);
+  ann->flags &= ~flag;
+}
+
+/* Reset all T's flags to zero.  */
+static inline void
+reset_tree_flags (t)
+     tree t;
+{
+  tree_ann ann;
+#if defined ENABLE_CHECKING
+  if (TREE_CODE_CLASS (TREE_CODE (t)) == 'c'
+      || TREE_CODE_CLASS (TREE_CODE (t)) == 't')
+    abort ();
+#endif
+  ann = tree_annotation (t);
+  ann->flags = 0;
+}
+
+/* Return T's FLAGS.  */
+static inline enum tree_flags
+tree_flags (t)
+     tree t;
+{
+#if defined ENABLE_CHECKING
+  if (TREE_CODE_CLASS (TREE_CODE (t)) == 'c'
+      || TREE_CODE_CLASS (TREE_CODE (t)) == 't')
+    abort ();
+#endif
+  return tree_annotation (t)->flags;
+}
+
+/* Return the annotation for basic block B.  Create a new one if necessary.  */
+static inline bb_ann
+bb_annotation (b)
+     basic_block b;
+{
+  return (b->aux) ? (bb_ann)b->aux : create_bb_ann (b);
+}
+
+/* Return the control flow parent block for B.  This is the block that
+   starts the scope or control structure that B is contained in.  */
+static inline basic_block
+bb_parent (b)
+     basic_block b;
+{
+  return bb_annotation (b)->parent;
+}
+
+/* Set the control flow parent block for B.  */
+static inline void
+set_bb_parent (b, parent)
+     basic_block b;
+     basic_block parent;
+{
+  bb_ann ann = bb_annotation (b);
+  ann->parent = parent;
+}
+
+/* Return the list of references made in basic block B.  */
+static inline ref_list
+bb_refs (b)
+     basic_block b;
+{
+  return bb_annotation (b)->refs;
+}
+
+/* Remove REF from the list of references made by B.  */
+static inline void
+remove_bb_ref (b, ref)
+     basic_block b;
+     tree_ref ref;
+{
+  remove_ref_from_list (bb_annotation (b)->refs, ref);
+}
+
+/* Return the address of the tree that is pointing to the first tree in the
+   basic block.  This is used to compensate for the lack of a 'previous'
+   chain in the trees.  Writing to the address returned by this function
+   will make the TREE_CHAIN of the tree preceding T point somewhere else.  */
+static inline tree *
+prev_chain_p (b)
+     basic_block b;
+{
+  return bb_annotation (b)->prev_chain_p;
+}
+
+/* Set the previous chain pointer for block B.  */
+static inline void
+set_prev_chain_p (b, tp)
+     basic_block b;
+     tree *tp;
+{
+  bb_ann ann = bb_annotation (b);
+  ann->prev_chain_p = tp;
+}
+
+/* Return the block that starts the binding scope containing B.  */
+static inline basic_block
+binding_scope (b)
+     basic_block b;
+{
+  return bb_annotation (b)->binding_scope;
+}
+
+/* Set the binding scope for B.  */
+static inline void
+set_binding_scope (b, scope)
+     basic_block b;
+     basic_block scope;
+{
+  bb_ann ann = bb_annotation (b);
+  ann->binding_scope = scope;
+}
+
+/* Return the set of loop headers for the loop entry block ENTRY.  */
+static inline union header_blocks *
+loop_hdr (entry)
+     basic_block entry;
+{
+  return bb_annotation (entry)->loop_hdr;
+}
+
+/* Return the block containing the FOR_INIT_STMT node of a FOR_STMT.  Only
+   valid if FOR_BB is the entry block of the loop.  */
+static inline basic_block
+for_init_bb (for_bb)
+     basic_block for_bb;
+{
+  return loop_hdr (for_bb)->for_hdr.for_init_stmt_bb;
+}
+
+/* Set the block containing the FOR_INIT_STMT node.  */
+static inline void
+set_for_init_bb (for_bb, init_bb)
+     basic_block for_bb;
+     basic_block init_bb;
+{
+  union header_blocks *hdr = loop_hdr (for_bb);
+  hdr->for_hdr.for_init_stmt_bb = init_bb;
+}
+
+/* Return the block containing the FOR_COND node of a FOR_STMT.  Only
+   valid if FOR_BB is the entry block of the loop.  */
+static inline basic_block
+for_cond_bb (for_bb)
+     basic_block for_bb;
+{
+  return loop_hdr (for_bb)->for_hdr.for_cond_bb;
+}
+
+/* Set the block containing the FOR_COND node.  */
+static inline void
+set_for_cond_bb (for_bb, cond_bb)
+     basic_block for_bb;
+     basic_block cond_bb;
+{
+  union header_blocks *hdr = loop_hdr (for_bb);
+  hdr->for_hdr.for_cond_bb = cond_bb;
+}
+
+/* Return the block containing the FOR_EXPR node of a FOR_STMT.  Only
+   valid if FOR_BB is the entry block of the loop.  */
+static inline basic_block
+for_expr_bb (for_bb)
+     basic_block for_bb;
+{
+  return loop_hdr (for_bb)->for_hdr.for_expr_bb;
+}
+
+/* Set the block containing the FOR_EXPR node.  */
+static inline void
+set_for_expr_bb (for_bb, expr_bb)
+     basic_block for_bb;
+     basic_block expr_bb;
+{
+  union header_blocks *hdr = loop_hdr (for_bb);
+  hdr->for_hdr.for_expr_bb = expr_bb;
+}
+
+/* Return the END_WHILE block for WHILE_BB.  */
+static inline basic_block
+end_while_bb (while_bb)
+     basic_block while_bb;
+{
+  return loop_hdr (while_bb)->end_while_bb;
+}
+
+/* Set the END_WHILE block for WHILE_BB.  */
+static inline void
+set_end_while_bb (while_bb, end_while_bb)
+     basic_block while_bb;
+     basic_block end_while_bb;
+{
+  union header_blocks *hdr = loop_hdr (while_bb);
+  hdr->end_while_bb = end_while_bb;
+}
+
+/* Return the basic block for the DO_COND node of a DO_STMT entry block.  */
+static inline basic_block
+do_cond_bb (do_bb)
+     basic_block do_bb;
+{
+  return loop_hdr (do_bb)->do_cond_bb;
+}
+
+/* Set the basic block for the DO_COND node of a DO_STMT entry block.  */
+static inline void
+set_do_cond_bb (do_bb, do_cond_bb)
+     basic_block do_bb;
+     basic_block do_cond_bb;
+{
+  union header_blocks *hdr = loop_hdr (do_bb);
+  hdr->do_cond_bb = do_cond_bb;
 }
 
 #endif /* _TREE_FLOW_H  */

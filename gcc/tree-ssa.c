@@ -32,15 +32,18 @@ Boston, MA 02111-1307, USA.  */
 #include "errors.h"
 #include "expr.h"
 #include "diagnostic.h"
-#include "tree-optimize.h"
-#include "tree-flow.h"
-#include "tree-inline.h"
-#include "ssa.h"
-#include "varray.h"
+
 /* This should be eventually be generalized to other languages, but
    this would require a shared function-as-trees infrastructure.  */
 #include "c-common.h"
 #include "bitmap.h"
+
+#include "tree-optimize.h"
+#include "tree-flow.h"
+#include "tree-simple.h"
+#include "tree-inline.h"
+#include "ssa.h"
+#include "varray.h"
 
 /* Nonzero to warn about variables used before they are initialized.  Used
    by analyze_rdefs().  */
@@ -59,21 +62,20 @@ static int dump_flags;
 static void insert_phi_terms PARAMS ((sbitmap *));
 static void build_fud_chains PARAMS ((dominance_info));
 static void search_fud_chains PARAMS ((basic_block, dominance_info));
-static void follow_chain PARAMS ((varref, varref));
+static void follow_chain PARAMS ((tree_ref, tree_ref));
 
 
-/*  Build the SSA form for the given function. This implements Factored
-    Use-Def Chains as described in 
+/* Build the SSA form for the given function. This implements Factored
+   Use-Def Chains as described in 
 
-    Wolfe, M. J., High Performance Compilers for Parallel Computing,
-    Addison-Wesley, 1996.  */
+   Wolfe, M. J., High Performance Compilers for Parallel Computing,
+   Addison-Wesley, 1996.  */
 
 void
 tree_build_ssa ()
 {
   sbitmap *dfs;
   dominance_info idom;
-  size_t i;
   
   /* Compute immediate dominators.  */
   idom = calculate_dominance_info (CDI_DOMINATORS);
@@ -81,17 +83,6 @@ tree_build_ssa ()
   /* Compute dominance frontiers.  */
   dfs = sbitmap_vector_alloc (last_basic_block, last_basic_block);
   compute_dominance_frontiers (dfs, idom);
-
-  /* Insert default definitions for all the symbols referenced in the
-     function.  This allows the identification of variables that have been
-     used without a preceding definition.
-
-     These definitions do not affect code generation, they are associated
-     with no statement or expression (to distinguish them from actual
-     definitions).  */
-  for (i = 0; i < NREF_SYMBOLS; i++)
-    create_ref (REF_SYMBOL (i), VARDEF, ENTRY_BLOCK_PTR->succ->dest, NULL,
-	        NULL, NULL);
 
   /* Insert the PHI terms and build FUD chains.  */
   insert_phi_terms (dfs);
@@ -116,7 +107,7 @@ tree_build_ssa ()
       FOR_EACH_BB (bb)
 	{
 	  tree_dump_bb (dump_file, "", bb, 0);
-	  dump_varref_list (dump_file, "    ", BB_REFS (bb), 0, 1);
+	  dump_ref_list (dump_file, "    ", bb_refs (bb), 0, 1);
 	  fputs ("\n\n", dump_file);
 	}
 
@@ -125,8 +116,8 @@ tree_build_ssa ()
 }
 
 
-/*  Insert PHI terms at the dominance frontier of nodes with variable
-    definitions.  */
+/* Insert PHI terms at the dominance frontier of nodes with variable
+   definitions.  */
 
 static void
 insert_phi_terms (dfs)
@@ -151,32 +142,31 @@ insert_phi_terms (dfs)
      an assignment or PHI term will be pushed to this stack.  */
   VARRAY_BB_INIT (work_stack, last_basic_block, "work_stack");
 
-  /* Iterate over all referenced symbols in the function.  For each
-     symbol, add to the work list all the blocks that have a definition
-     for the symbol.  PHI terms will be added to the dominance frontier
+  /* Iterate over all referenced variables in the function.  For each
+     variable, add to the work list all the blocks that have a definition
+     for the variable.  PHI nodes will be added to the dominance frontier
      blocks of each definition block.  */
-  for (i = 0; i < NREF_SYMBOLS; i++)
+  for (i = 0; i < num_referenced_vars; i++)
     {
-
-      tree sym = REF_SYMBOL (i);
+      tree var = referenced_var (i);
       struct ref_list_node *tmp;
-      varref ref;
+      tree_ref ref;
 
 #if defined ENABLE_CHECKING
-      /* Symbols in referenced_symbols must have at least 1 reference.  */
-      if (TREE_REFS (sym)->first == NULL)
+      /* Variables in referenced_vars must have at least 1 reference.  */
+      if (tree_refs (var)->first == NULL)
 	abort ();
 #endif
 
-      FOR_EACH_REF (ref, tmp, TREE_REFS (sym))
+      FOR_EACH_REF (ref, tmp, tree_refs (var))
 	{
-	  basic_block bb = VARREF_BB (ref);
+	  basic_block bb = ref_bb (ref);
 
-	  if (VARREF_TYPE (ref) != VARDEF)
-	    continue;
-
-	  VARRAY_PUSH_BB (work_stack, bb);
-	  VARRAY_TREE (in_work, bb->index) = sym;
+	  if (ref_type (ref) & V_DEF)
+	    {
+	      VARRAY_PUSH_BB (work_stack, bb);
+	      VARRAY_TREE (in_work, bb->index) = var;
+	    }
 	}
 
       while (VARRAY_ACTIVE_SIZE (work_stack) > 0)
@@ -189,9 +179,9 @@ insert_phi_terms (dfs)
 
 	  EXECUTE_IF_SET_IN_SBITMAP (dfs[bb->index], 0, w,
 	    {
-	      if (VARRAY_TREE (added, w) != sym)
+	      if (VARRAY_TREE (added, w) != var)
 		{
-		  varref phi;
+		  tree_ref phi;
 		  basic_block stmt_bb;
 		  basic_block bb = BASIC_BLOCK (w);
 
@@ -203,16 +193,18 @@ insert_phi_terms (dfs)
 		  stmt_bb = bb;
 		  while (stmt_bb
 		         && !statement_code_p (TREE_CODE (stmt_bb->head_tree)))
-		    stmt_bb = BB_PARENT (stmt_bb);
+		    stmt_bb = bb_parent (stmt_bb);
 
-		  phi = create_ref (sym, VARPHI, bb, stmt_bb->head_tree,
-		                    NULL, NULL);
-		  VARRAY_TREE (added, w) = sym;
+		  phi = create_ref (var, V_PHI, bb, stmt_bb->head_tree, NULL,
+		                    NULL, false);
+		  add_ref_to_list_begin (bb_refs (bb), phi);
 
-		  if (VARRAY_TREE (in_work, w) != sym)
+		  VARRAY_TREE (added, w) = var;
+
+		  if (VARRAY_TREE (in_work, w) != var)
 		    {
 		      VARRAY_PUSH_BB (work_stack, bb);
-		      VARRAY_TREE (in_work, w) = sym;
+		      VARRAY_TREE (in_work, w) = var;
 		    }
 		}
 	    });
@@ -221,7 +213,7 @@ insert_phi_terms (dfs)
 }
 
 
-/*  Build FUD (Factored Use-Def) chains.  */
+/* Build FUD (Factored Use-Def) chains.  */
 
 static void
 build_fud_chains (idom)
@@ -229,17 +221,17 @@ build_fud_chains (idom)
 {
   size_t i;
 
-  /* Initialize the current definition for all the symbols.  */
-  for (i = 0; i < NREF_SYMBOLS; i++)
-    get_tree_ann (REF_SYMBOL (i))->currdef = NULL;
+  /* Initialize the current definition for all the variables.  */
+  for (i = 0; i < num_referenced_vars; i++)
+    set_currdef_for (referenced_var (i), NULL);
 
   /* Search FUD chains starting with the entry block.  */
   search_fud_chains (ENTRY_BLOCK_PTR, idom);
 }
 
 
-/*  Perform a depth-first traversal of the dominator tree looking for FUD
-    chains.  */
+/* Perform a depth-first traversal of the dominator tree looking for FUD
+   chains.  */
 
 static void
 search_fud_chains (bb, idom)
@@ -249,43 +241,63 @@ search_fud_chains (bb, idom)
   edge e;
   basic_block child_bb;
   struct ref_list_node *tmp;
-  varref ref;
+  tree_ref ref;
 
   /* for each variable use or def or phi-term R in BB do
-         let SYM be the variable referenced at R
+         let VAR be the variable referenced at R
          if R is a use then
-             Chain(R) = CurrDef(SYM)
+             Chain(R) = CurrDef(VAR)
          else if R is a def or $\phi$-term then
-             SaveChain(R) = CurrDef(SYM)
-             CurrDef(SYM) = R
+             SaveChain(R) = CurrDef(VAR)
+             CurrDef(VAR) = R
          endif
      endfor  */
-  FOR_EACH_REF (ref, tmp, BB_REFS (bb))
+  FOR_EACH_REF (ref, tmp, bb_refs (bb))
     {
-      varref currdef;
-      tree sym = VARREF_SYM (ref);
+      tree_ref currdef;
+      tree var = ref_var (ref);
+
+      if (!(ref_type (ref) & (V_DEF | V_USE | V_PHI)))
+	continue;
 
       /* Retrieve the current definition for the variable.  */
-      currdef = TREE_CURRDEF (sym);
+      currdef = currdef_for (var);
 
-      if (VARREF_TYPE (ref) == VARUSE)
+      if (ref_type (ref) & V_USE)
 	{
 	  /* Set up a def-use chain between CURRDEF (the immediately
 	     reaching definition for REF) and REF.  Each definition may
-	     have more than one immediate use.  */
-	  if (currdef && VARUSE_IMM_RDEF (ref) != currdef)
-	    add_ref_to_list_end (VARDEF_IMM_USES (currdef), ref);
-
+	     have more than one immediate use, so make sure that we don't
+	     add REF to CURRDEF's immediate uses more than once.  */
+	  if (currdef && imm_reaching_def (ref) != currdef)
+	    add_ref_to_list_end (imm_uses (currdef), ref);
 
 	  /* Set up a use-def chain between REF and CURRDEF.  */
-	  VARUSE_IMM_RDEF (ref) = currdef;
+	  set_imm_reaching_def (ref, currdef);
 	}
-      else if (VARREF_TYPE (ref) == VARDEF || VARREF_TYPE (ref) == VARPHI)
+      else if (ref_type (ref) & (V_DEF | V_PHI))
 	{
-	  VARDEF_SAVE_CHAIN (ref) = currdef;
+	  /* Save the current definition chain and replace the current reaching
+	     definition with a new one.  */
+	  set_save_chain (ref, currdef);
 
-	  /* Replace the current reaching definition with a new one.  */
-	  get_tree_ann (sym)->currdef = ref;
+	  /* If the current reference (REF) is a non-killing definition
+	     (may-def or partial-def), then set a def-def chain between REF
+	     and CURRDEF.  This is used to chain definitions to arrays and
+	     pointers so that all possible reaching defs can be found later
+	     by tree_compute_rdefs.  For instance,
+
+			  1	x = 5;
+			  2	*ptr = 10;
+			  3	y = x + 10;
+
+	     Since the assignment to '*ptr' at line 2 introduces a may-def
+	     for 'x', without def-def chains the use of 'x' at line 3 will
+	     not be reached by the defintion at line 1.  */
+	  if (ref_type (ref) & (M_PARTIAL | M_MAY))
+	    set_imm_reaching_def (ref, currdef);
+
+	  set_currdef_for (var, ref);
 	}
     }
 
@@ -293,30 +305,30 @@ search_fud_chains (bb, idom)
   /* for Y in SUCC(BB) do
         J = WhichPred(BB -> Y)
         for each phi-term R in Y do
-            let SYM be the variable referenced at R
-            phi-chain(R)[J] = CurrDef(SYM)
+            let VAR be the variable referenced at R
+            phi-chain(R)[J] = CurrDef(VAR)
         endfor
      endfor  */
   for (e = bb->succ; e; e = e->succ_next)
     {
       
       basic_block y;
-      varref phi;
+      tree_ref phi;
 
       y = e->dest;
-      if (BB_REFS (y) == NULL)
+      if (bb_refs (y) == NULL)
 	continue;
 
-      FOR_EACH_REF (phi, tmp, BB_REFS (y))
+      FOR_EACH_REF (phi, tmp, bb_refs (y))
 	{
-	  tree sym;
-	  varref currdef;
+	  tree var;
+	  tree_ref currdef;
 	
-	  if (VARREF_TYPE (phi) != VARPHI)
+	  if (!(ref_type (phi) & V_PHI))
 	    continue;
 
-	  sym = VARREF_SYM (phi);
-	  currdef = TREE_CURRDEF (sym);
+	  var = ref_var (phi);
+	  currdef = currdef_for (var);
 
 	  /* Besides storing the incoming definition CURRDEF, we also store
 	     E, which is the edge that we are receiving CURRDEF from.   */
@@ -325,7 +337,7 @@ search_fud_chains (bb, idom)
 	      add_phi_arg (phi, currdef, e);
 
 	      /* Set a def-use edge between CURRDEF and this PHI node.  */
-	      add_ref_to_list_end (VARDEF_IMM_USES (currdef), phi);
+	      add_ref_to_list_end (imm_uses (currdef), phi);
 	    }
 	}
     }
@@ -342,29 +354,15 @@ search_fud_chains (bb, idom)
 
 
   /* for each variable use or def or phi-term R in BB in reverse order do
-         let SYM be the variable referenced at R
+         let VAR be the variable referenced at R
          if R is a def or a phi-term then
-             CurrDef(SYM) = SaveChain(R)
+             CurrDef(VAR) = SaveChain(R)
          endif
      endfor  */
-  FOR_EACH_REF_REV (ref, tmp, BB_REFS (bb))
+  FOR_EACH_REF_REV (ref, tmp, bb_refs (bb))
     {
-
-      if (VARREF_TYPE (ref) == VARDEF || VARREF_TYPE (ref) == VARPHI)
-	{
-	  tree sym = VARREF_SYM (ref);
-	  tree_ann ann;
-
-	  /* Restore the current definition for the variable.  */
-	  ann = TREE_ANN (sym);
-
-#if defined ENABLE_CHECKING
-	  if (ann == NULL)
-	    abort ();
-#endif
-
-	  ann->currdef = VARDEF_SAVE_CHAIN (ref);
-	}
+      if (ref_type (ref) & (V_DEF | V_PHI))
+	set_currdef_for (ref_var (ref), save_chain (ref));
     }
 }
 
@@ -376,18 +374,23 @@ delete_ssa ()
 {
   size_t i;
 
-  /* Remove annotations from every symbol.  We should only need to remove
-     annotations from global symbols, because those are the only ones who
+  /* Remove annotations from every variable.  We should only need to remove
+     annotations from global variables, because those are the only ones that
      might be re-used in other functions.  But better be safe.  */
-  for (i = 0; i < NREF_SYMBOLS; i++)
-    remove_tree_ann (REF_SYMBOL (i));
+  for (i = 0; i < num_referenced_vars; i++)
+    remove_tree_ann (referenced_var (i));
+
+  delete_ref_list (call_sites);
+  call_sites = NULL;
+  num_referenced_vars = 0;
+  referenced_vars = NULL;
 }
 
 
 /* Reaching definitions.  */
 
-/*  Computes reaching definitions and reached uses for all the variables
-    referenced in the current function.  */
+/* Computes reaching definitions and reached uses for all the variables
+   referenced in the current function.  */
 
 void
 tree_compute_rdefs ()
@@ -396,33 +399,33 @@ tree_compute_rdefs ()
 
   /* Initialize reaching definition and reached uses information for every
      reference in the function.  */
-  for (i = 0; i < NREF_SYMBOLS; i++)
+  for (i = 0; i < num_referenced_vars; i++)
     {
-      tree sym = REF_SYMBOL (i);
-      varref r;
+      tree var = referenced_var (i);
+      tree_ref r;
       struct ref_list_node *tmp;
 
-      FOR_EACH_REF (r, tmp, TREE_REFS (sym))
+      FOR_EACH_REF (r, tmp, tree_refs (var))
 	{
-	  if (VARREF_TYPE (r) == VARUSE)
-	    empty_ref_list (VARUSE_RDEFS (r));
-	  else if (VARREF_TYPE (r) == VARDEF)
-	    empty_ref_list (VARDEF_RUSES (r));
+	  if (ref_type (r) & V_USE)
+	    empty_ref_list (reaching_defs (r));
+	  else if (ref_type (r) & (V_DEF | V_PHI))
+	    empty_ref_list (reached_uses (r));
 	}
     }
 
   /* Traverse all the uses following their use-def chains looking for
      reaching definitions and reached uses.  */
-  for (i = 0; i < NREF_SYMBOLS; i++)
+  for (i = 0; i < num_referenced_vars; i++)
     {
-      tree sym = REF_SYMBOL (i);
-      varref u;
+      tree var = referenced_var (i);
+      tree_ref u;
       struct ref_list_node *tmp;
 
-      FOR_EACH_REF (u, tmp, TREE_REFS (sym))
+      FOR_EACH_REF (u, tmp, tree_refs (var))
 	{
-	  if (VARREF_TYPE (u) == VARUSE)
-	    follow_chain (VARUSE_IMM_RDEF (u), u);
+	  if (ref_type (u) & V_USE)
+	    follow_chain (imm_reaching_def (u), u);
 	}
     }
 
@@ -438,35 +441,36 @@ tree_compute_rdefs ()
 
       fprintf (dump_file, "Reaching definitions:\n");
 
-      for (i = 0; i < NREF_SYMBOLS; i++)
+      for (i = 0; i < num_referenced_vars; i++)
 	{
-	  tree sym = REF_SYMBOL (i);
+	  tree var = referenced_var (i);
 	  struct ref_list_node *tmp;
-	  varref u;
+	  tree_ref u;
 	  
-	  fprintf (dump_file, "Symbol: ");
-	  print_node_brief (dump_file, "", sym, 0);
+	  fprintf (dump_file, "Variable: ");
+	  print_node_brief (dump_file, "", var, 0);
 	  fprintf (dump_file, "\n");
 
-	  FOR_EACH_REF (u, tmp, TREE_REFS (sym))
+	  FOR_EACH_REF (u, tmp, tree_refs (var))
 	    {
-	      if (VARREF_TYPE (u) == VARUSE)
+	      if (ref_type (u) & V_USE)
 		{
-		  dump_varref (dump_file, "", u, 4, 0);
-		  dump_varref_list (dump_file, "", VARUSE_RDEFS (u), 6, 0);
+		  dump_ref (dump_file, "", u, 4, 0);
+		  dump_ref_list (dump_file, "", reaching_defs (u), 6, 0);
 		  fprintf (dump_file, "\n");
 		}
 	    }
 	  fprintf (dump_file, "\n");
 	}
-
-      dump_end (TDI_ssa, dump_file);
     }
+
+  if (dump_file)
+    dump_end (TDI_ssa, dump_file);
 }
 
 
-/*  Analyze reaching definition information and warn about uses of
-    potentially uninitialized variables if -Wuninitialized was given.  */
+/* Analyze reaching definition information and warn about uses of
+   potentially uninitialized variables if -Wuninitialized was given.  */
 
 void
 analyze_rdefs ()
@@ -476,68 +480,68 @@ analyze_rdefs ()
   if (tree_warn_uninitialized == 0)
     return;
 
-  for (i = 0; i < NREF_SYMBOLS; i++)
+  for (i = 0; i < num_referenced_vars; i++)
     {
-      tree sym = REF_SYMBOL (i);
+      tree var = referenced_var (i);
       struct ref_list_node *tmp;
-      varref use;
+      tree_ref use;
 
       /* Uninitialized warning messages are only given for local variables
 	 with auto declarations.  */
-      if (TREE_CODE (sym) != VAR_DECL
-	  || DECL_CONTEXT (sym) == NULL
-	  || TREE_STATIC (sym)
-	  || TREE_ADDRESSABLE (sym))
+      if (TREE_CODE (var) != VAR_DECL
+	  || DECL_CONTEXT (var) == NULL
+	  || TREE_STATIC (var)
+	  || TREE_ADDRESSABLE (var))
 	continue;
 
-      /* For each use of SYM, if the use is reached by SYM's default
-	 definition, then the symbol may have been used uninitialized in
+      /* For each use of VAR, if the use is reached by VAR's default
+	 definition, then the variable may have been used uninitialized in
 	 the function.  */
-      FOR_EACH_REF (use, tmp, TREE_REFS (sym))
+      FOR_EACH_REF (use, tmp, tree_refs (var))
 	{
 	  int found_default;
-	  varref def;
+	  tree_ref def;
 	  struct ref_list_node *tmp2;
 
-	  if (VARREF_TYPE (use) != VARUSE)
+	  if (!(ref_type (use) & V_USE))
 	    continue;
 
 	  /* Check all the reaching definitions looking for the default
 	     definition.  */
 	  found_default = 0;
-	  FOR_EACH_REF (def, tmp2, VARUSE_RDEFS (use))
+	  FOR_EACH_REF (def, tmp2, reaching_defs (use))
 	    {
-	      if (IS_DEFAULT_DEF (def))
+	      if (ref_type (def) & (V_DEF | M_DEFAULT))
 		found_default = 1;
 	    }
 
-	  /* If we found a default definition for SYM, then the reference may
-	     be accessing an uninitialized symbol.  If the default def is the
-	     only reaching definition, then the symbol _is_ used
+	  /* If we found a default definition for VAR, then the reference may
+	     be accessing an uninitialized variable.  If the default def is the
+	     only reaching definition, then the variable _is_ used
 	     uninitialized.  Otherwise it _may_ be used uninitialized.  */
 	  if (found_default)
 	    {
-	      prep_stmt (VARREF_STMT (use));
-	      if (VARUSE_RDEFS (use)->last == VARUSE_RDEFS (use)->first)
+	      prep_stmt (ref_stmt (use));
+	      if (reaching_defs (use)->last == reaching_defs (use)->first)
 		warning ("`%s' is used uninitialized at this point",
-		         IDENTIFIER_POINTER (DECL_NAME (sym)));
+		         IDENTIFIER_POINTER (DECL_NAME (var)));
 	      else
 		warning ("`%s' may be used uninitialized at this point",
-		         IDENTIFIER_POINTER (DECL_NAME (sym)));
+		         IDENTIFIER_POINTER (DECL_NAME (var)));
 	    }
 	}
     }
 }
 
 
-/*  Follows the factored use-def links to find all possible reaching
-    definitions for U, starting with D.  This also updates reached uses for
-    each reaching definition found.  */
+/* Follow factored use-def chains to find all possible reaching definitions
+   for U, starting with D.  This also updates reached uses for each
+   reaching definition found.  */
 
 static void
 follow_chain (d, u)
-     varref d;
-     varref u;
+     tree_ref d;
+     tree_ref u;
 {
   /* Do nothing if the definition doesn't exist.  */
   if (d == NULL)
@@ -545,67 +549,71 @@ follow_chain (d, u)
 
 #if defined ENABLE_CHECKING
   /* Consistency check.  D should be a definition or a PHI term.  */
-  if (VARREF_TYPE (d) != VARDEF && VARREF_TYPE (d) != VARPHI)
+  if (!(ref_type (d) & (V_DEF | V_PHI)))
     abort ();
 #endif
 
   /* Do nothing if we've already visited this definition.  */
-  if (VARDEF_MARKED (d) == u)
+  if (marked_with (d) == u)
     return;
 
-  VARDEF_MARKED (d) = u;
+  mark_def_with (d, u);
 
   /* If D is a definition for U, add it to the list of definitions reaching
      U.  Similarly, add U to the list of reached uses of D.  */
-  if (VARREF_TYPE (d) == VARDEF && VARREF_SYM (d) == VARREF_SYM (u))
+  if ((ref_type (d) & V_DEF) && ref_var (d) == ref_var (u))
     {
-      add_ref_to_list_end (VARUSE_RDEFS (u), d);
-      add_ref_to_list_end (VARDEF_RUSES (d), u);
-
+      add_ref_to_list_end (reaching_defs (u), d);
+      add_ref_to_list_end (reached_uses (d), u);
     }
 
-    /* If D is a PHI term, recursively follow each of its arguments.  */
-    if (VARREF_TYPE (d) == VARPHI)
-      {
-	size_t i;
+  /* If D is a PHI term, recursively follow each of its arguments.  */
+  if (ref_type (d) & V_PHI)
+    {
+      size_t i;
 
-	for (i = 0; i < get_num_phi_args (d); i++)
-	  follow_chain (get_phi_arg (d, i)->def, u);
-      }
+      for (i = 0; i < num_phi_args (d); i++)
+	follow_chain (imm_reaching_def (phi_arg (d, i)), u);
+    }
+
+  /* If D is a non-killing definition of U (i.e., D is a may-def or a
+     partial-def), follow D's def-def link (see explanation in
+     search_fud_chains).  */
+  else if (ref_type (d) & (V_DEF | M_PARTIAL | M_MAY))
+    follow_chain (imm_reaching_def (d), u);
 }
 
 
-/*  Return 1 if one or more uses of SYM in BB_SET have reaching definitions
-    coming from blocks outside BB_SET.  If EXCLUDE_INIT_DECL is nonzero,
-    the initializer expression used in the declaration of SYM will always
-    be considered external to BB_SET.  */
+/* Return true if one or more uses of VAR in BB_SET have reaching definitions
+   coming from blocks outside BB_SET.  If EXCLUDE_INIT_DECL is nonzero,
+   the initializer expression used in the declaration of VAR will always
+   be considered external to BB_SET.  */
 
-int
-is_upward_exposed (sym, bb_set, exclude_init_decl)
-     tree sym;
+bool
+is_upward_exposed (var, bb_set, exclude_init_decl)
+     tree var;
      sbitmap bb_set;
      int exclude_init_decl;
 {
   struct ref_list_node *tmp;
-  varref r;
+  tree_ref r;
 
-  FOR_EACH_REF (r, tmp, TREE_REFS (sym))
+  FOR_EACH_REF (r, tmp, tree_refs (var))
     {
-      /* If this is a use of symbol in one of the basic blocks we are
-	 interested in, check its reaching definitions.  */
-      if (VARREF_TYPE (r) == VARUSE
-	  && TEST_BIT (bb_set, VARREF_BB (r)->index))
+      /* If this is a use of the variable in one of the basic blocks that
+	 we are interested in, check its reaching definitions.  */
+      if ((ref_type (r) & V_USE) && TEST_BIT (bb_set, ref_bb (r)->index))
 	{
-	  varref def;
+	  tree_ref def;
 	  struct ref_list_node *tmp2;
 
-	  FOR_EACH_REF (def, tmp2, VARUSE_RDEFS (r))
+	  FOR_EACH_REF (def, tmp2, reaching_defs (r))
 	    {
-	      basic_block def_bb = VARREF_BB (def);
+	      basic_block def_bb = ref_bb (def);
 
-	      if (IS_DEFAULT_DEF (def)
+	      if ((ref_type (def) & (V_DEF | M_DEFAULT))
 		  || (exclude_init_decl
-		      && TREE_CODE (VARREF_STMT (def)) == DECL_STMT)
+		      && TREE_CODE (ref_stmt (def)) == DECL_STMT)
 		  || ! TEST_BIT (bb_set, def_bb->index))
 		return 1;
 	    }
@@ -625,49 +633,32 @@ is_upward_exposed (sym, bb_set, exclude_init_decl)
 
 void
 tree_ssa_remove_phi_alternative (phi_node, block)
-     varref phi_node;
+     tree_ref phi_node;
      basic_block block;
 {
-  varray_type phi_vec = VARDEF_PHI_ARGS (phi_node);
+  varray_type phi_vec = phi_args (phi_node);
   unsigned int num_elem = VARRAY_ACTIVE_SIZE (phi_vec);
   unsigned int i;
 
   for (i = 0; i < num_elem; i++)
     {
-      varref ref;
+      tree_ref ref;
       basic_block src_bb;
-      phi_arg arg;
+      tree_ref arg;
 
-      arg = get_phi_arg (phi_node, i);
-      ref = arg->def;
-      src_bb = arg->e->src;
+      arg = phi_arg (phi_node, i);
+      ref = imm_reaching_def (arg);
+      src_bb = imm_reaching_def_edge (arg)->src;
 
       if (src_bb == block)
 	{
 	  /* If we are not at the last element, switch the last element
 	     with the element we want to delete.  */
 	  if (i != num_elem - 1)
-	    set_phi_arg (phi_node, i, get_phi_arg (phi_node, num_elem - 1));
+	    set_phi_arg (phi_node, i, phi_arg (phi_node, num_elem - 1));
 
 	  /* Shrink the vector.  */
 	  VARRAY_ACTIVE_SIZE (phi_vec) -= 1;
 	}
     }
-}
-
-
-/* Add a new argument to PHI for definition DEF reaching in via edge E.  */
-
-void
-add_phi_arg (phi, def, e)
-     varref phi;
-     varref def;
-     edge e;
-{
-  phi_arg arg;
-
-  arg = (phi_arg) ggc_alloc (sizeof (*arg));
-  arg->def = def;
-  arg->e = e;
-  VARRAY_PUSH_GENERIC_PTR (VARDEF_PHI_ARGS (phi), arg);
 }

@@ -29,6 +29,11 @@ Boston, MA 02111-1307, USA.  */
 #include "output.h"
 #include "expr.h"
 #include "diagnostic.h"
+
+/* This should be eventually be generalized to other languages, but
+   this would require a shared function-as-trees infrastructure.  */
+#include "c-common.h"
+
 #include "basic-block.h"
 #include "flags.h"
 #include "tree-optimize.h"
@@ -46,13 +51,19 @@ void
 optimize_function_tree (fndecl)
      tree fndecl;
 {
+  tree fnbody;
+
   /* Don't bother doing anything if the program has errors.  */
   if (errorcount || sorrycount)
     return;
   
+  fnbody = DECL_SAVED_TREE (fndecl);
+  if (fnbody == NULL)
+    abort ();
+
   /* Build the doubly-linked lists so that we can delete nodes
      efficiently.  */
-  double_chain_stmts (DECL_SAVED_TREE (fndecl));
+  double_chain_stmts (fnbody);
 
 #if 0
   /* Transform BREAK_STMTs, CONTINUE_STMTs, SWITCH_STMTs and GOTO_STMTs.  */
@@ -74,12 +85,11 @@ optimize_function_tree (fndecl)
     }
 
   /* Wipe out the back-pointes in the statement chain.  */
-  double_chain_free (DECL_SAVED_TREE (fndecl));
+  double_chain_free (fnbody);
 
   /* Flush out flow graph and SSA data.  */
   delete_cfg ();
   delete_ssa ();
-  referenced_symbols = NULL;
 }
 
 
@@ -97,7 +107,7 @@ build_tree_ssa (fndecl)
 
   if (n_basic_blocks > 0 && ! (errorcount || sorrycount))
     {
-      tree_find_varrefs ();
+      tree_find_refs ();
       tree_build_ssa ();
       tree_compute_rdefs ();    
     }
@@ -111,7 +121,7 @@ build_tree_ssa (fndecl)
 static void
 init_tree_flow ()
 {
-  VARRAY_TREE_INIT (referenced_symbols, 20, "Referenced symbols");
+  VARRAY_TREE_INIT (referenced_vars, 20, "Referenced variables");
 
   /* If -Wuninitialized was used, set tree_warn_uninitialized and clear
      warn_uninitialized to avoid duplicate warnings.  */

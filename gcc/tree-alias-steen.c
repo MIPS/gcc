@@ -37,6 +37,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include "expr.h"
 #include "diagnostic.h"
 #include "tree.h"  
+#include "c-common.h"
 #include "tree-optimize.h"
 #include "tree-flow.h"
 #include "tree-inline.h"

@@ -714,7 +714,7 @@ dump_begin (phase, flag_ptr)
   name = concat (dump_base_name, dump_id, dump_files[phase].suffix, NULL);
   stream = fopen (name, dump_files[phase].state < 0 ? "w" : "a");
   if (!stream)
-    error ("could not open dump file `%s'", name);
+    error ("could not open dump file `%s': %s", name, strerror (errno));
   else
     dump_files[phase].state = 1;
   free (name);

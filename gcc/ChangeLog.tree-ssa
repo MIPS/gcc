@@ -1,3 +1,285 @@
+2002-09-09  Diego Novillo  <dnovillo@redhat.com>
+
+	* Makefile.in (tree-ssa.o): Add dependency on tree-simple.h.
+	(tree-dfa.o): Add dependency on tree-simple.h and tree-inline.h.
+	(tree-alias-steen.o): Add dependency on c-common.h.
+	(tree-optimize.o): Add dependency on c-common.h.
+
+	* c-simplify.c (deep_copy_node): Call walk_tree with mostly_copy_tree_r.
+	(mostly_copy_tree_r): Also copy flags from original tree.
+	(mark_not_simple_r): Call set_tree_flag.
+
+	* tree-alias-steen.c: Include c-common.h.
+
+	* tree-cfg.c (map_stmt_to_bb): Remove.
+	(block_invalidates_loop): Change return type to bool.
+	(create_loop_hdr): New function.
+	(create_bb): Call it.
+	(create_bb_ann): Return newly created annotation object.
+	(remove_bb_ann): Nullify loop_hdr annotation, if there is one.
+	(tree_delete_bb): Only remove basic block annotation from
+	executables statements.
+	(is_computed_goto): New function.
+
+	* tree-dfa.c (pointer_refs): New file local variable.
+	(call_sites): New global variable.
+	(V_DEF, V_USE, V_PHI, V_PHI_ARG, E_FCALL, E_PHI, E_USE, E_KILL,
+	E_INJ): New global constants.
+	(M_DEFAULT, M_CLOBBER, M_MAY, M_PARTIAL, M_INITIAL, M_INDIRECT,
+	M_VOLATILE): New global constants.
+	(num_referenced_vars): New global variable.
+	(referenced_vars): Rename from referenced_symbols.  Update all
+	users.
+	(clobber_vars_r): New function.
+	(add_default_defs): New function.
+	(add_call_site_clobbers): New function.
+	(add_ptr_may_refs): New function.
+	(add_phi_arg): New function.
+	(find_list_node): New function.
+	(remove_ref_from_list): Call it.
+	(add_ref_to_list_after): New function.
+	(is_pure_fcall): New function.
+	(fcall_takes_ref_args): New function.
+	(dump_referenced_vars): New function.
+	(debug_referenced_vars): New function.
+	(ref_type_name): New function.
+	(validate_ref_type): New function.
+	(debug_phi_args): Remove.
+	(dump_phi_args): Remove.
+	(add_referenced_var): Rename from add_ref_symbol.  Update all
+	users.
+	(dump_ref): Rename from dump_varref.  Update all users.
+	(debug_ref): Rename from debug_varref.  Update all users.
+	(dump_ref_list): Rename from dump_varref_list.  Update all users.
+	(dump_ref_array): Rename from dump_varref_array.  Update all users.
+	(next_tree_ref_id): Rename from next_varref_id.  Update all users.
+
+	(tree_find_refs): Rename from tree_find_varrefs.  Update all users.
+	Call add_default_defs.
+	Call add_call_site_clobbers.
+	Call add_ptr_may_refs.
+	Call dump_referenced_vars.
+	Create and destroy pointer_refs list.
+
+	(find_refs_in_stmt): Set reference type to clobbering definition
+	for the ASM_OUTPUTS and ASM_CLOBBERS expressions of an ASM_STMT.
+	Set reference type to initial definition for the DECL_INITIAL node
+	of a DECL_STMT.
+	Clobber everything in CLEANUP_STMT nodes.
+
+	(find_refs_in_expr): Re-write.
+	Recursively clobber every VAR_DECL contained in non SIMPLE nodes.
+	Mark indirect pointer references with M_INDIRECT flag.
+	Add pointer references to pointer_refs list.
+	Glob references to arrays and structures.
+	Add function call expressions to call_sites list.
+
+	(empty_ref_list): Do nothing if the list is empty already.
+	(delete_ref_list): Ditto.
+	(create_ref): Add new argument ADD_TO_BB.
+	Set M_VOLATILE modifier if this is a reference to a volatile
+	variable.
+	Count number of incoming edges for V_PHI references before
+	initializing the V_PHI_ARG array.
+	Only add reference to basic block if ADD_TO_BB is true.
+	Set output reference for the parent expression for V_DEF
+	references.
+	(remove_tree_ann): Do nothing if the tree didn't have an
+	annotation.
+
+	* tree-flow.h (enum treeref_type): Remove.  Update all users.
+	(union varref_def): Ditto.
+	(tree_ref): Rename from varref.  Update all users.
+	(V_DEF): Declare.
+	(V_USE): Declare.
+	(V_PHI): Declare.
+	(V_PHI_ARG): Declare.
+	(E_FCALL): Declare.
+	(E_PHI): Declare.
+	(E_USE): Declare.
+	(E_KILL): Declare.
+	(E_INJ): Declare.
+	(M_DEFAULT): Declare.
+	(M_CLOBBER): Declare.
+	(M_MAY): Declare.
+	(M_PARTIAL): Declare.
+	(M_INITIAL): Declare.
+	(M_INDIRECT): Declare.
+	(M_VOLATILE): Declare.
+	(struct tree_ref_common): Rename from treeref_common.  Update all
+	users.
+	Change type of field 'type' to HOST_WIDE_INT.
+	Rename field 'sym' to 'var'.
+	(struct var_ref): Rename from varref.  Update all users.
+	Join the structures varuse
+	and vardef into a single structure.
+	(struct expr_ref_common): Rename from exprref_common.  Update all
+	users.
+	(struct expr_use): Rename from expruse.  Update all users.
+	(struct expr_phi): Rename from exprphi.  Update all users.
+	(union tree_ref_d): Rename from varref_def.  Update all users.
+	(EXPRPHI_PHI_ARGS): Rename from EXPRPHI_PHI_CHAIN.  Update all
+	users.
+	(struct tree_ann_d): Rename field 'compound_stmt' to
+	'compound_parent'.
+	Add field 'output_ref'.
+	(enum tree_flags): New enum.
+	(TF_REFERENCED): New flag.
+	(phi_arg): Remove.
+	(get_num_phi_args): Remove.
+	(get_phi_arg): Remove.
+
+	(struct vardef): Remove.  Update all users.
+	(VARDEF_IMM_USES): Ditto.
+	(VARDEF_SAVE_CHAIN): Ditto.
+	(VARDEF_RUSES): Ditto.
+	(VARDEF_MARKED): Ditto.
+	(VARDEF_PHI_ARGS): Ditto.
+	(struct varuse): Ditto.
+	(VARUSE_IMM_RDEF): Ditto.
+	(VARUSE_RDEFS): Ditto.
+	(VARREF_ID): Ditto.
+	(VARREF_TYPE): Ditto.
+	(VARREF_BB): Ditto.
+	(VARREF_EXPR): Ditto.
+	(VARREF_OPERAND_P): Ditto.
+	(VARREF_STMT): Ditto.
+	(VARREF_SYM): Ditto.
+	(IS_DEFAULT_DEF): Ditto.
+	(IS_ARTIFICIAL_REF): Ditto.
+	(TREE_ANN): Ditto.
+	(BB_FOR_STMT): Ditto.
+	(TREE_CURRDEF): Ditto.
+	(TREE_REFS): Ditto.
+	(TREE_COMPOUND_STMT): Ditto.
+	(TREE_FLAGS): Ditto.
+	(BB_ANN): Ditto.
+	(BB_PARENT): Ditto.
+	(BB_REFS): Ditto.
+	(BB_PREV_CHAIN_P): Ditto.
+	(BB_BINDING_SCOPE): Ditto.
+	(BB_LOOP_HDR): Ditto.
+	(FOR_INIT_STMT_BB): Ditto.
+	(FOR_COND_BB): Ditto.
+	(FOR_EXPR_BB): Ditto.
+	(END_WHILE_BB): Ditto.
+	(DO_COND_BB): Ditto.
+	(BB_EMPTY_P): Ditto.
+
+	(ref_type): New inline function.
+	(ref_var): New inline function.
+	(ref_stmt): New inline function.
+	(ref_expr): New inline function.
+	(ref_bb): New inline function.
+	(ref_id): New inline function.
+	(replace_ref_operand_with): New inline function.
+	(restore_ref_operand): New inline function.
+	(imm_uses): New inline function.
+	(save_chain): New inline function.
+	(set_save_chain): New inline function.
+	(reached_uses): New inline function.
+	(marked_with): New inline function.
+	(mark_def_with): New inline function.
+	(phi_args): New inline function.
+	(num_phi_args): New inline function.
+	(phi_arg): New inline function.
+	(imm_reaching_def): New inline function.
+	(set_imm_reaching_def): New inline function.
+	(imm_reaching_def_edge): New inline function.
+	(set_imm_reaching_def_edge): New inline function.
+	(reaching_defs): New inline function.
+	(tree_annotation): New inline function.
+	(has_annotation): New inline function.
+	(bb_for_stmt): New inline function.
+	(set_bb_for_stmt): New inline function.
+	(currdef_for): New inline function.
+	(set_currdef_for): New inline function.
+	(tree_refs): New inline function.
+	(add_tree_ref): New inline function.
+	(remove_tree_ref): New inline function.
+	(compound_parent): New inline function.
+	(set_compound_parent): New inline function.
+	(set_tree_flag): New inline function.
+	(clear_tree_flag): New inline function.
+	(tree_flags): New inline function.
+	(reset_tree_flags): New inline function.
+	(output_ref): New inline function.
+	(set_output_ref): New inline function.
+	(bb_annotation): New inline function.
+	(bb_parent): New inline function.
+	(set_bb_parent): New inline function.
+	(bb_refs): New inline function.
+	(remove_bb_ref): New inline function.
+	(prev_chain_p): New inline function.
+	(set_prev_chain_p): New inline function.
+	(binding_scope): New inline function.
+	(set_binding_scope): New inline function.
+	(header_blocks): New inline function.
+	(for_init_bb): New inline function.
+	(set_for_init_bb): New inline function.
+	(for_cond_bb): New inline function.
+	(set_for_cond_bb): New inline function.
+	(for_expr_bb): New inline function.
+	(set_for_expr_bb): New inline function.
+	(end_while_bb): New inline function.
+	(set_end_while_bb): New inline function.
+	(do_cond_bb): New inline function.
+	(set_do_cond_bb): New inline function.
+	(bb_empty_p): New inline function.
+
+	(referenced_vars): Rename from referenced_symbols.  Update all
+	users.
+	(num_referenced_vars): Declare.
+	(NREF_SYMBOLS): Remove.  Update all users.
+	(REF_SYMBOL): Ditto.
+	(ADD_REF_SYMBOL): Ditto.
+	(referenced_var): New inline function.
+	(call_sites): Declare.
+	(next_tree_ref_id): Rename from next_varref_id.  Update all users.
+	(is_computed_goto): Declare.
+	(is_pure_fcall): Declare.
+	(fcall_takes_ref_args): Declare.
+	(add_ref_to_list_after): Declare.
+	(find_list_node): Declare.
+	(ref_type_name): Declare.
+	(validate_ref_type): Declare.
+
+	* tree-optimize.c: Include c-common.h.
+	(optimize_function_tree): Store DECL_SAVED_TREE in a local
+	variable.
+
+	* tree-ssa-ccp.c (cp_lattice_meet): New function.
+	(visit_phi_node): Call it.
+	(add_outgoing_control_edges): New function.
+	(visit_expression_for): Call it.
+	Don't handle static initializers.
+	Handle computed gotos.
+	(add_control_edge): New function.
+	(visit_condexpr_for, simulate_block, add_outgoing_control_edges): Call
+	it.
+	(simulate_def_use_chains): Only look at unmodified V_USE references.
+	(ssa_ccp_substitute_constants): Ditto.
+	(evaluate_expr): Ditto.
+	(initialize): Set initial value for incoming parameters and globals
+	to VARYING.
+	Set initial value for initialized static variables to VARYING,
+	unless the variable is read-only.
+	(set_lattice_value): Don't special case globals, volatiles and
+	variables with their address taken.
+
+	* tree-ssa.c: Include tree-simple.h.
+	(tree_build_ssa): Don't add default definitions.
+	(insert_phi_terms): Add new PHI nodes at the beginning of the list
+	of references for the basic block.
+	(search_fud_chains): Add def-def chains for non-killing
+	definitions.
+	(delete_ssa): Remove list call_sites.
+	Set num_referenced_vars to 0.
+	Set referenced_vars to NULL.
+	(follow_chain): Follow def-def chains for non-killing definitions.
+	(is_upward_exposed): Change return type to bool.
+	(add_phi_arg): Remove.
+
 2002-09-06  Frank Ch. Eigler  <fche@redhat.com>
 
 	* tree-mudflap.c (deferred_static_decl*): Correct GTY markup.

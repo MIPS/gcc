@@ -1391,12 +1391,13 @@ disjoint-set.o: disjoint-set.c disjoint-set.h $(SYSTEM_H) $(CONFIG_H) $(GGC_H)
 tree-alias-ecr.o: tree-alias-ecr.c tree-alias-ecr.h disjoint-set.h tree-alias-type.h  $(SYSTEM_H) $(CONFIG_H) $(GGC_H)
 tree-alias-type.o: tree-alias-type.c tree-alias-type.h $(SYSTEM_H) $(CONFIG_H) $(GGC_H) gt-tree-alias-type.h
 tree-alias-steen.o: tree-alias-steen.c tree-alias-steen.h $(SYSTEM_H) \
-	$(CONFIG_H) $(GGC_H) $(TREE_H) tree-flow.h  tree-alias-common.h
+	$(CONFIG_H) $(GGC_H) $(TREE_H) gt-tree-alias-steen.h tree-flow.h \
+	$(C_COMMON_H)
 tree-alias-common.o: tree-alias-common.c tree-alias-common.h $(SYSTEM_H) \
 	$(CONFIG_H) $(GGC_H) $(TREE_H) gt-tree-alias-common.h tree-flow.h 
 tree-ssa.o : tree-ssa.c tree-optimize.h tree-flow.h $(CONFIG_H) $(SYSTEM_H) \
    $(RTL_H) $(TREE_H) $(TM_P_H) $(BASIC_BLOCK_H) $(EXPR_H) $(C_COMMON_H) \
-   $(GGC_H) output.h diagnostic.h ssa.h errors.h toplev.h ggc.h
+   $(GGC_H) output.h diagnostic.h ssa.h errors.h toplev.h ggc.h tree-simple.h
 tree-ssa-pre.o : tree-ssa-pre.c tree-optimize.h tree-flow.h $(CONFIG_H) \
    $(SYSTEM_H) $(RTL_H) $(TREE_H) $(TM_P_H) $(BASIC_BLOCK_H) $(EXPR_H) \
    $(C_COMMON_H) $(GGC_H) output.h diagnostic.h ssa.h errors.h toplev.h
@@ -1405,11 +1406,12 @@ tree-cfg.o : tree-cfg.c tree-optimize.h tree-flow.h $(CONFIG_H) $(SYSTEM_H) \
    $(GGC_H) flags.h output.h diagnostic.h errors.h $(C_TREE_H)
 tree-dfa.o : tree-dfa.c tree-optimize.h tree-flow.h $(CONFIG_H) $(SYSTEM_H) \
    $(RTL_H) $(TREE_H) $(TM_P_H) $(BASIC_BLOCK_H) $(EXPR_H) \
-   $(GGC_H) output.h diagnostic.h errors.h $(C_TREE_H)
+   $(GGC_H) output.h diagnostic.h errors.h $(C_TREE_H) tree-simple.h \
+   tree-inline.h
 tree-optimize.o : tree-optimize.c tree-optimize.h tree-flow.h $(CONFIG_H) \
    $(SYSTEM_H) $(RTL_H) $(TREE_H) $(TM_P_H) $(BASIC_BLOCK_H) $(EXPR_H) \
    $(GGC_H) output.h diagnostic.h ssa.h errors.h flags.h tree-alias-common.h \
-   tree-dchain.h
+   tree-dchain.h $(C_COMMON_H)
 c-simplify.o : c-simplify.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) errors.h \
    $(C_TREE_H) $(C_COMMON_H) diagnostic.h tree-simple.h varray.h flags.h \
    langhooks.h toplev.h rtl.h tree-flow.h $(BASIC_BLOCK_H) langhooks-def.h

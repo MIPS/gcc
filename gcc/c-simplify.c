@@ -2635,7 +2635,7 @@ deep_copy_node (node)
       break;
 
     default:
-      walk_tree (&node, copy_tree_r, NULL, NULL);
+      walk_tree (&node, mostly_copy_tree_r, NULL, NULL);
       res = node;
       break;
     }
@@ -2679,7 +2679,9 @@ expr_has_effect (expr)
 /* Similar to copy_tree_r() but do not copy SAVE_EXPR nodes.  These nodes
    model computations that should only be done once.  If we were to unshare
    something like SAVE_EXPR(i++), the simplification process would create
-   wrong code.  */
+   wrong code.
+
+   Additionally, copy any flags that were set in the original tree.  */
 
 static tree
 mostly_copy_tree_r (tp, walk_subtrees, data)
@@ -2690,7 +2692,12 @@ mostly_copy_tree_r (tp, walk_subtrees, data)
   if (TREE_CODE (*tp) == SAVE_EXPR)
     *walk_subtrees = 0;
   else
-    copy_tree_r (tp, walk_subtrees, data);
+    {
+      enum tree_flags flags = (has_annotation (*tp)) ? tree_flags (*tp) : 0;
+      copy_tree_r (tp, walk_subtrees, data);
+      if (flags)
+	set_tree_flag (*tp, flags);
+    }
 
   return NULL_TREE;
 }
@@ -2817,7 +2824,7 @@ mark_not_simple_r (tp, walk_subtrees, data)
 	break;
 
       default:
-	get_tree_ann (*tp)->flags |= TF_NOT_SIMPLE;
+	set_tree_flag (*tp, TF_NOT_SIMPLE);
 	break;
     }
 
