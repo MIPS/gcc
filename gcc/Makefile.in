@@ -759,7 +759,7 @@ OBJS = alias.o bb-reorder.o bitmap.o builtins.o caller-save.o calls.o	   \
  tree-optimize.o tree-simple.o simple-break-elim.o simple-goto-elim.o      \
  tree-ssa-pre.o tree-alias-type.o gimplify.o  				   \
  tree-alias-ecr.o tree-alias-common.o tree-alias-steen.o disjoint-set.o    \
- tree-ssa-ccp.o tree-ssa-dce.o @ANDER@ 					   \
+ tree-ssa-ccp.o tree-ssa-dce.o tree-browser.o @ANDER@ 			   \
  et-forest.o $(GGC) $(out_object_file) $(EXTRA_OBJS)
 
 BACKEND = main.o libbackend.a
@@ -1419,6 +1419,8 @@ c-simplify.o : c-simplify.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) errors.h \
 gimplify.o : gimplify.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) errors.h \
    diagnostic.h tree-simple.h tree-inline.h varray.h langhooks.h \
    langhooks-def.h $(TREE_FLOW_H)
+tree-browser.o : tree-browser.c tree-browser.def $(CONFIG_H) $(SYSTEM_H) \
+   $(TREE_H) errors.h tree-inline.h diagnostic.h $(HASHTAB_H)
 simple-break-elim.o : simple-break-elim.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) \
    $(C_TREE_H) $(C_COMMON_H) diagnostic.h tree-dchain.h
 simple-goto-elim.o : simple-goto-elim.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) \
