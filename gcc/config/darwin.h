@@ -221,9 +221,6 @@ do {									\
     }									\
   /* The c_dialect...() macros are not available to us here.  */	\
   darwin_running_cxx = (strstr (lang_hooks.name, "C++") != 0);		\
-  /* APPLE LOCAL long double default size mrs */			\
-  if (rs6000_long_double_size_string == 0)				\
-    rs6000_long_double_type_size = 128;					\
 } while(0)
 
 #define SUBTARGET_INIT_BUILTINS		\

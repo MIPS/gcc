@@ -85,6 +85,9 @@ do {									\
         warning ("-fpic is not supported; -fPIC assumed");		\
         flag_pic = 2;							\
       }									\
+    /* APPLE LOCAL long double default size mrs */			\
+    if (rs6000_long_double_size_string == 0)				\
+      rs6000_long_double_type_size = 128;				\
   }									\
 }while(0)
 
