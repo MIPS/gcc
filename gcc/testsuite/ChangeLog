@@ -1,3 +1,7 @@
+2004-12-05  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* g++.dg/debug/typedef2.C: New test.
+
 2005-01-02  Andreas Jaeger  <aj@suse.de>
 
 	* gcc.dg/pr12092-1.c: Do not run on x86_64.

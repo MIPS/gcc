@@ -1,12 +1,19 @@
-// PR c++/17695
+// PR debug/16261
+// { dg-do compile }
 
-template<typename T> struct A
+namespace N
 {
-  T t;
-  A();
-};
+  struct A {};
+  typedef A B;
+}
 
-struct B
+void foo()
 {
-  B() { typedef int C; A<C> a; }
-} b;
+  struct C
+  {
+    C(N::B) {}
+  };
+
+  N::B b;
+  C c(b);
+}
