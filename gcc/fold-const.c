@@ -7181,15 +7181,22 @@ fold (tree expr)
 	    return integer_one_node;
 	}
 
-      /* If this is an equality comparison of the address of two non-weak
-	 symbols, then we know the result.  */
+      /* If this is an equality comparison of the address of two non-weak,
+	 unaliased symbols neither of which are extern (since we do not
+	 have access to attributes for externs), then we know the result.  */
       if ((code == EQ_EXPR || code == NE_EXPR)
 	  && TREE_CODE (arg0) == ADDR_EXPR
 	  && DECL_P (TREE_OPERAND (arg0, 0))
 	  && ! DECL_WEAK (TREE_OPERAND (arg0, 0))
+	  && ! lookup_attribute ("alias",
+				 DECL_ATTRIBUTES (TREE_OPERAND (arg0, 0)))
+	  && DECL_EXTERNAL (TREE_OPERAND (arg0, 0))
 	  && TREE_CODE (arg1) == ADDR_EXPR
 	  && DECL_P (TREE_OPERAND (arg1, 0))
-	  && ! DECL_WEAK (TREE_OPERAND (arg1, 0)))
+	  && ! DECL_WEAK (TREE_OPERAND (arg1, 0))
+	  && ! lookup_attribute ("alias",
+				 DECL_ATTRIBUTES (TREE_OPERAND (arg1, 0)))
+	  && DECL_EXTERNAL (TREE_OPERAND (arg1, 0)))
 	{
 	  if (code == EQ_EXPR)
 	    return (operand_equal_p (arg0, arg1, 0)
