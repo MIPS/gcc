@@ -45,13 +45,59 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
       operation and no registers may occur inside the expressions outside
       of INITIAL_VALUE.  The registers in step must also be unchanging.
      ITERATION is the number of executions of LOOP's latch.
-*/
+
+   The results are stored in the aux field of df information (i.e. for each
+   use and definition of induction variable, we have its value stored there).
+
+   Additionally, following structures are provided:
+   loop_entry_values ... for each loop the value of register at start of the
+     iteration is stored here
+   initial_values ... for each loop the value of register at entry (i.e. start
+     of the 0th iteration) is stored here
+   iv_occurences ... all definitions of ivs as well as memory addresses that
+     act as ivs are stored here, divided by values of their step and base.
+     A constant additional factor is also split out of base.
+
+   A note on special rtl codes used in rtl expressions for induction variables:
+
+   initial_value(reg) ... wraps a register inside it and means the value of the
+     register at entry of the loop. It may occur in any iv expression, but
+     not in initial_values (as its value is relative to the enclosing loop and
+     also presence of any explicit register operands is unnecessary there).
+     This code is in fact redundant (registers wrapped and not wrapped inside
+     it may never occur in a single expression). It is present only for clarity
+     of the semantics of those expressions.
+   iteration ... means the actual iteration of the enclosing loop. May not
+     be present in initial_values (due to being relative to the enclosing loop;
+     see the value_at description to how it is replaced there).
+   value_at(reg_no, insn_no) ... means the value of register with number
+     reg_no immediatelly before the insn with uid insn_no was executed last
+     time before the control flow reached the point where it is used. This
+     code may occur in any expression.  This code may be only used on places
+     where we are sure that the insn insn_no was executed (i.e. they must be
+     dominated by it) and the value could not change since that time.
+     In initial_values, if the reg_no is -1, insn_no must be the first insn
+     in some loop's header and this value_at means the current iteration
+     of this loop if we are in some of its subloops, or the number of iterations
+     of the loop when we passed through it the last time otherwise (this is
+     mostly useless now, but later we might exploit it for loops where we
+     are able to determine this number precisely).  */
+
+/* ??? I dislike a code with that much global variables.  It would be better to
+   encalupsate them in a structure that would be passed when needed.  Perhaps
+   add it as new fields to loops?  */
 
 /* Maximal register number.  */
 static unsigned max_regno;
 
 /* The loops for that we compute the ivs.  */
 static struct loops *current_loops;
+
+/* The real number of loops (not including the deleted ones).  */
+static unsigned real_loops_num;
+
+/* The array of loops ordered by the dominance relation on their headers.  */
+static struct loop **loops_dominance_order;
 
 /* Dataflow informations.  */
 static struct df *df;
@@ -144,11 +190,14 @@ static void compute_register_values	PARAMS ((int));
 static void simplify_reg_values		PARAMS ((basic_block, rtx));
 static void simplify_register_values	PARAMS ((void));
 static void compute_loop_end_values	PARAMS ((struct loop *, rtx *));
+static int replace_iteration_with_value_at PARAMS ((rtx *, void *));
+static rtx iv_make_initial_value	PARAMS ((struct loop *, rtx, rtx, unsigned));
 static void compute_initial_values	PARAMS ((struct loop *));
 static void fill_loop_rd_in_for_def	PARAMS ((struct ref *));
 static void fill_rd_for_defs		PARAMS ((basic_block, bitmap));
+static void fill_loops_dominance_order	PARAMS ((void));
 static void enter_iv_occurence		PARAMS ((struct iv_occurence_step_class **,
-						 rtx, rtx, rtx, rtx, rtx *,
+						 rtx, rtx, rtx, rtx, rtx, rtx *,
 						 enum machine_mode, enum machine_mode,
 						 enum rtx_code));
 static int record_iv_occurences_1	PARAMS ((rtx *, void *));
@@ -1603,6 +1652,10 @@ simulate_set (reg, set, data)
 /* Try to simplify induction variable VAR using register initial values stored
    in INITIAL_VALUES.  Returns the simplified form of VAR or VAR if no
    simplification is possible.  */
+/* ??? Now we only consider expressing base or step as a constant to be
+   "simplification".  Certainly it would make sense to at least always
+   propagate constants and also expressions like symbol + constant
+   should be considered simple.  */
 rtx
 simplify_iv_using_values (var, initial_values)
      rtx var;
@@ -2085,6 +2138,40 @@ fill_rd_for_defs (bb, defs)
   free (stack);
 }
 
+/* Enumerates loops in the dominance order of their headers.  (More precisely
+   in an breath-first search order in the dominators tree).  */
+static void
+fill_loops_dominance_order ()
+{
+  basic_block *bbs, *dom_bbs;
+  unsigned n_bbs, abb, n_dom_bbs, n_loops;
+
+  bbs = xmalloc (n_basic_blocks * sizeof (basic_block));
+  n_bbs = 1;
+  bbs[0] = ENTRY_BLOCK_PTR->succ->dest;
+
+  abb = 0;
+  while (abb < n_bbs)
+    {
+      n_dom_bbs = get_dominated_by (current_loops->cfg.dom, bbs[abb], &dom_bbs);
+      abb++;
+      while (n_dom_bbs--)
+	bbs[n_bbs++] = dom_bbs[n_dom_bbs];
+      free (dom_bbs);
+    }
+  if (n_bbs != (unsigned) n_basic_blocks)
+    abort ();
+
+  loops_dominance_order[0] = current_loops->tree_root;
+  n_loops = 1;
+  for (abb = 0; abb < n_bbs; abb++)
+    if (bbs[abb]->loop_father->header == bbs[abb])
+      loops_dominance_order[n_loops++] = bbs[abb]->loop_father;
+  free (bbs);
+  if (n_loops != real_loops_num)
+    abort ();
+}
+
 /* Initialize variables used by the analysis.  */
 void
 initialize_iv_analysis (loops)
@@ -2155,6 +2242,13 @@ initialize_iv_analysis (loops)
 
   iv_occurences = xcalloc (current_loops->num,
 			   sizeof (struct iv_occurence_step_class *));
+
+  real_loops_num = 0;
+  for (i = 0; i < current_loops->num; i++)
+    if (current_loops->parray[i])
+      real_loops_num++;
+  loops_dominance_order = xmalloc (sizeof (struct loop *) * real_loops_num);
+  fill_loops_dominance_order ();
 }
 
 /* Free variables used by the analysis.  */
@@ -2213,6 +2307,7 @@ finalize_iv_analysis ()
   free (iv_occurences);
 
   release_fq_dominators (dom);
+  free (loops_dominance_order);
 }
 
 /* Computes values of modified registers at end of LOOP, putting the result
@@ -2263,6 +2358,61 @@ compute_loop_end_values (loop, values)
     });
   sbitmap_free (invalid);
   free (found_def);
+}
+
+/* Called through for_each_rtx from iv_make_initial_value; replaces occurence
+   of iteration with value_at (-1, insn (passed in data)).  */
+static int replaced;	/* Used to return whether any replacement was done.  */
+static int
+replace_iteration_with_value_at (expr, data)
+     rtx *expr;
+     void *data;
+{
+  rtx insn = data;
+
+  if (GET_CODE (*expr) != ITERATION)
+    return 0;
+
+  *expr = gen_rtx_fmt_ii (VALUE_AT, GET_MODE (*expr), -1, INSN_UID (insn));
+  replaced = true;
+  return -1;
+}
+
+/* Make EXPR suitable for usage as initial value by replacing iteration with
+   value_at (-1, loop header's start) and substituting for initial values.
+   INSN is the place where this def of register REGNO with value EXPR occurs.  */
+static rtx
+iv_make_initial_value (loop, insn, expr, regno)
+     struct loop *loop;
+     rtx insn;
+     rtx expr;
+     unsigned regno;
+{
+  int original = true;
+
+  if (expr_mentions_code_p (expr, INITIAL_VALUE))
+    {
+      expr = substitute_into_expr (expr, initial_values[loop->num], true);
+      if (!expr)
+	return gen_value_at (regno, insn, true);
+      original = false;
+    }
+
+  if (!loop->outer)
+    return expr;
+
+  if (original)
+    {
+      if (!expr_mentions_iteration_p (expr))
+	return expr;
+      expr = copy_rtx (expr);
+    }
+
+  replaced = false;
+  for_each_rtx (&expr, replace_iteration_with_value_at, loop->header->head);
+  if (replaced)
+    expr = iv_simplify_rtx (expr);
+  return expr;
 }
 
 /* Compute values of registers at entry to the LOOP, using the values
@@ -2323,22 +2473,8 @@ compute_initial_values (loop)
       else if (TEST_BIT (invalid, regno))
 	values[regno] = gen_value_at (regno, preheader->end, true);
       else if (def)
-	{
-	  if (DF_REF_BB (def)->loop_father != outer
-	      && expr_mentions_iteration_p ((rtx) def->aux))
-	    values[regno] = gen_value_at (regno, def->insn, true);
-	  else
-	    values[regno] = def->aux;
-	}
-      else if (outer_values[regno]
-	       && (expr_mentions_iteration_p (outer_values[regno])
-		   /* This is neccesary, as INITIAL_VALUE is relative to the
-		      outer loop's father.  ??? We should instead keep
-		      initial values free of INITIAL_VALUE by substituting
-		      initial values from outer loop in the = def->aux case.  */
-		   || expr_mentions_code_p (outer_values[regno], INITIAL_VALUE)))
-	values[regno] = gen_value_at (regno, outer_preheader_end,
-				      outer_preheader_end_after);
+	values[regno] = iv_make_initial_value (DF_REF_BB (def)->loop_father,
+					       def->insn, def->aux, regno);
       else
 	values[regno] = outer_values[regno];
     }
@@ -2346,13 +2482,16 @@ compute_initial_values (loop)
   sbitmap_free (invalid);
 }
 
-/* Enters occurence with given parameters into list TO.  */
+/* Enters occurence with given parameters into list TO.  For meaning of
+   the parameters see definition of struct iv_occurence (and related
+   structures).  */
 static void
-enter_iv_occurence (to, base, delta, step, insn, occurence,
+enter_iv_occurence (to, base, delta, local_base, step, insn, occurence,
 		    real_mode, extended_mode, extend)
      struct iv_occurence_step_class **to;
      rtx base;
      rtx delta;
+     rtx local_base;
      rtx step;
      rtx insn;
      rtx *occurence;
@@ -2388,6 +2527,7 @@ enter_iv_occurence (to, base, delta, step, insn, occurence,
   nw->insn = insn;
   nw->occurence = occurence;
   nw->delta = delta;
+  nw->local_base = local_base;
   nw->real_mode = real_mode;
   nw->extended_mode = extended_mode;
   nw->extend = extend;
@@ -2404,7 +2544,7 @@ record_iv_occurences_1 (expr, data)
      void *data;
 {
   struct iv_occurence_step_class **to = data;
-  rtx val, dest, base, sbase, step, delta, *tmp, *last;
+  rtx val, dest, base, lbase, sbase, step, delta, *tmp, *last;
   struct loop *loop = BLOCK_FOR_INSN (current_insn)->loop_father;
   enum machine_mode real_mode, extended_mode;
   enum rtx_code extend;
@@ -2428,6 +2568,10 @@ record_iv_occurences_1 (expr, data)
   if (!val)
     return 0;
 
+  val = simplify_iv_using_values (val, initial_values[loop->num]);
+  if (!val)
+    return 0;
+
   extended_mode = GET_MODE (val);
   if (GET_CODE (val) == SIGN_EXTEND
       || GET_CODE (val) == ZERO_EXTEND)
@@ -2441,16 +2585,13 @@ record_iv_occurences_1 (expr, data)
 
   iv_split (val, &base, &step);
   if (!base
-      || !invariant_wrto_ivs_p (step, loop_entry_values[loop->num])
-      || expr_mentions_code_p (base, VALUE_AT))
+      || expr_mentions_code_p (base, VALUE_AT)
+      || expr_mentions_code_p (step, VALUE_AT))
     return 0;
 
+  lbase = copy_rtx (base);
   sbase = substitute_into_expr (base, initial_values[loop->num], true);
-
-  if (sbase
-      && !expr_mentions_code_p (base, VALUE_AT)
-      && !expr_mentions_code_p (base, ITERATION)
-      && !expr_mentions_code_p (base, INITIAL_VALUE))
+  if (sbase)
     base = sbase;
 
   tmp = &base;
@@ -2471,7 +2612,7 @@ record_iv_occurences_1 (expr, data)
   else
     delta = const0_rtx;
 
-  enter_iv_occurence (to, base, delta, step, current_insn, expr,
+  enter_iv_occurence (to, base, delta, lbase, step, current_insn, expr,
 		      real_mode, extended_mode, extend);
   return 0;
 }
@@ -2801,25 +2942,19 @@ analyse_induction_variables ()
   compute_register_values (false);
 
   /* Compute the loop initial value information using the data computed above
-     and simplify loop entry information using it.  */
+     and simplify loop entry information using it.  We process the loops in
+     the order determined by the dominance relation of their headers (so
+     that when we refer to a value that is defined in a previous loop,
+     we already know their initial values and we may use them).  */
   insn = ENTRY_BLOCK_PTR->succ->dest->head;
   for (regno = FIRST_PSEUDO_REGISTER; regno < max_regno; regno++)
     initial_values[0][regno] = gen_value_at (regno, insn, false);
-  loop = current_loops->tree_root->inner;
-  while (loop)
+  for (i = 1; i < real_loops_num; i++)
     {
+      loop = loops_dominance_order[i];
       compute_initial_values (loop);
       simplify_ivs_using_values (loop_entry_values[loop->num],
 				 initial_values[loop->num]);
-
-      if (loop->inner)
-	loop = loop->inner;
-      else
-	{
-	  while (loop->outer && !loop->next)
-	    loop = loop->outer;
-	  loop = loop->next;
-	}
     }
 
   /* Simplify values stored at insns using this knowledge.  */

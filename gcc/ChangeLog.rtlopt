@@ -1,5 +1,23 @@
 2003-05-06  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
+	* cfgloop.h (struct iv_occurence): Add local_base field.
+	* loop-iv.c (real_loops_num, loops_dominance_order): New static
+	variables.
+	(initialize_iv_analysis, finalize_iv_analysis): Initialize and
+	finalize them.
+	(replace_iteration_with_value_at, iv_make_initial_value,
+	fill_loops_dominance_order): New static functions.
+	(enter_iv_occurence, record_iv_occurences_1): Initialize local_base
+	field.
+	(compute_initial_values, analyse_induction_variables): Be more clever
+	about variable initial values.
+	* loop-prefetch.c (struct prefetch_info): Add base_address_local
+	field.
+	(emit_prefetch_instructions): Intialize and use it.
+	* rtl.def (VALUE_AT): Extend the comment.
+
+2003-05-06  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
 	* loop-iv.c (iv_new_insn_changes_commit): Fix.
 
 2003-05-04  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>

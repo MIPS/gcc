@@ -129,8 +129,11 @@ struct prefetch_info
 {
   struct iv_occurence *iv;	/* IV this prefetch is based on.  */
   rtx base_address;		/* Start prefetching from this address plus
-				   index.  The values of registers are valid
-				   at the end of the loop preheader.  */
+				   index.  */
+  rtx base_address_local;	/* Or this address.  The values of registers
+				   are valid at the end of the loop preheader,
+				   and outer values are not propagated into
+				   this expression.  */
   HOST_WIDE_INT index;
   HOST_WIDE_INT stride;		/* Prefetch stride in bytes in each
 				   iteration.  */
@@ -255,6 +258,7 @@ emit_prefetch_instructions (loops, loop)
 	  struct check_store_data d;
 	  const char *ignore_reason = NULL;
 	  int size = GET_MODE_SIZE (GET_MODE (*iv_oc->occurence));
+	  rtx local_address;
 
 	  /* Ignore if it is not a memory access.  */
 	  if (GET_CODE (*iv_oc->occurence) != MEM)
@@ -314,7 +318,8 @@ emit_prefetch_instructions (loops, loop)
 
 	  /* Determine the pointer to the basic array we are examining.  */
 	  index = INTVAL (iv_oc->delta);
-	  address = iv_omit_initial_values (copy_rtx (iv_bc->base));
+	  address = iv_bc->base;
+	  local_address = iv_omit_initial_values (copy_rtx (iv_oc->local_base));
 
 	  d.mem_write = 0;
 	  d.mem = *iv_oc->occurence;
@@ -356,6 +361,7 @@ emit_prefetch_instructions (loops, loop)
 		  {
 		    info[i].write |= d.mem_write;
 		    info[i].bytes_accessed += size;
+		    info[i].base_address_local = local_address;
 		    info[i].index = index;
 		    info[i].iv = iv_oc;
 		    add = 0;
@@ -386,6 +392,7 @@ emit_prefetch_instructions (loops, loop)
 	      info[num_prefetches].index = index;
 	      info[num_prefetches].stride = stride;
 	      info[num_prefetches].base_address = address;
+	      info[num_prefetches].base_address_local = local_address;
 	      info[num_prefetches].write = d.mem_write;
 	      info[num_prefetches].bytes_accessed = size;
 	      num_prefetches++;
@@ -556,10 +563,8 @@ emit_prefetch_instructions (loops, loop)
 	  rtx after_insn = loop_preheader_edge (loop)->src->end;
 	  for (y = 0; y < info[i].prefetch_before_loop; y++)
 	    {
-	      rtx init_val = info[i].base_address;
-	      rtx add_val = simplify_gen_binary (PLUS, Pmode,
-						 GEN_INT (info[i].index),
-						 GEN_INT (y * PREFETCH_BLOCK));
+	      rtx init_val = info[i].base_address_local;
+	      rtx add_val = GEN_INT (y * PREFETCH_BLOCK);
 	      start_sequence ();
 #if 0
 	      /* ??? I am not sure whether something like this is needed

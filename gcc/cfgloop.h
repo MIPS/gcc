@@ -304,6 +304,12 @@ struct iv_occurence
 					   where delta is const_int;
 					   base and step can be obtained
 					   from base_class.  */
+  rtx local_base;			/* The "local" definition of base,
+					   without all the strange stuff
+					   introduced by substituting the
+					   initial values.  It includes value
+					   of delta, i.e. the iv has also
+					   value local_base + iteration * step.  */
   rtx insn;				/* The insn where the iv occurs.  */
   rtx *occurence;			/* The occurence itself. Either
 					   a set with this value, or a mem
