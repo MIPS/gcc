@@ -57,7 +57,7 @@ gfc_init_options (unsigned int argc ATTRIBUTE_UNUSED,
   gfc_option.warn_unused_labels = 0;
 
   gfc_option.flag_dollar_ok = 0;
-  gfc_option.flag_g77_calls = 0;
+  gfc_option.flag_g77_calls = 1;
   gfc_option.flag_implicit_none = 0;
   gfc_option.flag_max_stack_var_size = -1;
   gfc_option.flag_module_access_private = 0;
@@ -182,7 +182,8 @@ gfc_handle_option (size_t scode, const char *arg, int value)
       break;
 
     case OPT_fg77_calls:
-      gfc_option.flag_g77_calls = value;
+      /*TODO: the non-g77 calling convention is broken beyond hope.  */
+      /*gfc_option.flag_g77_calls = value;*/
       break;
 
     case OPT_fimplicit_none:
