@@ -1121,9 +1121,6 @@ fi
 extra_arflags_for_target=
 extra_nmflags_for_target=
 case "${target}" in
-  v810*)
-    target_makefile_frag="config/mt-v810"
-    ;;
   i[3456]86-*-netware*)
     target_makefile_frag="config/mt-netware"
     ;;

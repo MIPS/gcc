@@ -1,5 +1,7 @@
 2002-11-10  Nathanael Nerode  <neroden@gcc.gnu.org>
 
+	* configure.in (v810*): Remove special setting of tools.
+
 	* configure: Add support for extra required flags for ar or nm.
 	* configure.in (aix4.3+): Use above support for target-specific 
 	issues, rather than using config/mt-aix43.
