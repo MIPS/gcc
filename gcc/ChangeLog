@@ -1,4 +1,8 @@
-Wed Oct  9 21:18:43 CEST 2002 Jan Hubicka  <jh@suse.cz>
+Thu Oct 10 16:52:55 CEST 2002  Jan Hubicka  <jh@suse.cz>
+
+	* cfgcleanup.c (insn_match_p): Verify sibcall flag for calls to.
+
+Wed Oct  9 21:18:43 CEST 2002  Jan Hubicka  <jh@suse.cz>
 
 	* i386.c (*_cost): Add branch costs.
 	(override_options): set ix86_branch_cost.
