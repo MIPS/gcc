@@ -1,3 +1,83 @@
+2004-09-10  Dorit Naishlos <dorit@il.ibm.com>
+
+	* tree.def (ALIGN_INDIRECT_REF, MISALIGNED_INDIRECT_REF)
+	(REALIGN_LOAD_EXPR, REALIGN_STORE_EXPR): New tree-codes.
+	* tree.h (REF_ORIGINAL): Consider ALIGN_INDIRECT_REF and
+	MISALIGNED_INDIRECT_REF.
+	* alias.c (get_alias_set, nonoverlapping_memrefs_p): Likewise.
+	* tree-gimple.c (get_base_address): Likewise.
+	* tree-ssa-loop-ivopts.c (for_each_index, peel_address): Likewise.
+	* tree-pretty-print.c (op_prio): Likewise.
+	(dump_generic_node): Likewise + consider REALIGN_LOAD_EXPR.
+	* tree-ssa-operands.c (get_expr_operands): Same.
+	* expr.c (safe_from_p, expand_expr_real_1, rewrite_address_base)
+	(find_interesting_uses_address): Consider 			 
+	ALIGN_INDIRECT_REF and MISALIGNED_INDIRECT_REF.
+	(expand_expr_real_1): Consider REALIGN_LOAD_EXPR.
+	* optabs.h (vec_realign_store_optab, vec_realign_load_optab)
+	(addr_floor_optab, addr_misaligned_optab): New optabs.
+	(OTI_vec_realign_store, OTI_vec_realign_load, OTI_addr_floor)
+	(OTI_addr_misaligned): New optab_index values for the above new
+	optabs.
+	(expand_realign_op, expand_addr_floor_op, expand_addr_misaligned_op):
+	Declaration for new functions.
+	* optabs.c (optab_for_tree_code): Add new cases for the above
+	new tree-codes.
+	(expand_realign_op, expand_addr_floor_op, expand_addr_misaligned_op):
+	New functions.
+	(init_optabs): Init vec_realign_load_optab, addr_floor_optab and
+	addr_misaligned_optab.
+	* genopinit.c (optabs): Handle above new optabs.
+
+	* builtin-types.def (BT_CHAR_VECTOR, BT_FN_CHAR_VECTOR_PTR): New types.
+	* builtins.def (BUILT_IN_BUILD_VECTOR_MASK_FOR_LOAD): New builtin.
+	(BUILT_IN_BUILD_CC_MASK_FOR_LOAD): New builtin.
+	* builtins.c (expand_builtin_build_mask_for_load): New function.
+	(exapnd_builtin): New cases for BUILT_IN_BUILD_VECTOR_MASK_FOR_LOAD
+	and BUILT_IN_BUILD_CC_MASK_FOR_LOAD.
+
+	* config/rs6000/altivec.md (build_vector_mask_for_load): New 
+	define_expand.
+	(addr_floor_v4si, addr_floor_v4sf, addr_floor_v4hi, addr_floor_v16qi):
+	New define_expand.
+	(vec_realign_load_v4si, vec_realign_load_v4sf, vec_realign_load_v8hi)
+	(vec_realign_load_v16qi): New define_insn.
+	* config/i386/i386.md (addr_misaligned_v16qi): New define_expand.
+
+	* tree-vectorizer.c (vect_create_data_ref): Renamed to 
+	vect_create_data_ref_ptr. Functionality changes reflected in the
+	function documentation. 
+	(offset, initial_address, only_init): New arguments.
+	(vect_ptr): New pointer to vectype rather than pointer to array of
+	vectypes.
+	(vectorizable_store): Call vect_create_data_ref_ptr with additional
+	arguments, and create an indirect_ref with its return value data_ref.
+	Check aligned_access_p.
+	(vect_create_cond_for_align_checks): Call vect_create_data_ref_ptr with
+	additional arguments.
+	(vect_create_addr_base_for_vector_ref): Takes an additional argument - 
+	offset. Creates &(base[init_val+offset]) instead of &(base[init_val) if
+	offst is provided.
+	(vectorizable_load): Handle misaligned loads, using software-pipelined
+	scheme with REALIGN_LOAD_EXPR and ALIGN_INDIRECT_REF if 
+	vec_realign_load_optab and addr_floor_optab are supported, or using 
+	regular scheme (without software-pipelining) with 
+	MISALIGNED_INDIRECT_REF if addr_misaligned_optab is supported.
+	(BUILT_IN_build_mask_for_load): New variable. 
+	(vect_enhance_data_refs_alignment): Don't do versioning for misaligned
+	loads/stores that can be vectorized. Call vectorizable_load/store and
+	initialize STMT_VINFO_VECTYPE.
+	(vect_analyze_data_refs_alignment): Don't fail vectorization in the 
+	presence of misaligned loads.
+
+	(vect_create_addr_base_for_vector_ref, vect_create_data_ref)
+	(vect_compute_data_ref_alignment): Call unshare_expr.
+
+	(add_loop_guard_on_edge, vect_create_index_for_vector_ref)
+	(vect_finish_stmt_generation, vect_compute_data_refs_alignment)
+	(vect_analyze_data_ref_access): Minor editting fixes (don't overflow 80
+	columns).
+
 2004-09-07  Sebastian Pop  <pop@cri.ensmp.fr>
 
 	* tree-data-ref.c (dump_data_dependence_relation): Don't dump distance 

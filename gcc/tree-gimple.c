@@ -541,6 +541,8 @@ get_base_address (tree t)
   if (SSA_VAR_P (t)
       || TREE_CODE (t) == STRING_CST
       || TREE_CODE (t) == CONSTRUCTOR
+      || TREE_CODE (t) == MISALIGNED_INDIRECT_REF
+      || TREE_CODE (t) == ALIGN_INDIRECT_REF
       || TREE_CODE (t) == INDIRECT_REF)
     return t;
   else

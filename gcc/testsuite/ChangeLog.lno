@@ -1,3 +1,18 @@
+2004-09-10  Dorit Naishlos <dorit@il.ibm.com>
+
+	* gcc.dg/vect/vect-72.c: New test.
+	* gcc.dg/vect/vect-27.c: Now vectorized on ppc*.
+	* gcc.dg/vect/vect-52.c: Now vectorized on ppc*.
+	* gcc.dg/vect/vect-6.c: Temporarily changed from run to compile
+	* gcc.dg/vect/vect-26.c: Use sse2 instead of sse.
+	* gcc.dg/vect/vect-27.c: Use sse2 instead of sse.
+	* gcc.dg/vect/vect-28.c: Use sse2 instead of sse.
+	* gcc.dg/vect/vect-29.c: Use sse2 instead of sse.
+	* gcc.dg/vect/vect-4?.c: Use sse2 instead of sse.
+	* gcc.dg/vect/vect-5?.c: Use sse2 instead of sse.
+	* gcc.dg/vect/vect-60.c: Use sse2 instead of sse.
+	* gcc.dg/vect/vect-61.c: Use sse2 instead of sse.
+
 2004-09-02  Olga Golovanevsky  <olga@il.ibm.com>
             Dorit Naishlos <dorit@il.ibm.com>
 

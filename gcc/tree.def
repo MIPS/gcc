@@ -372,6 +372,17 @@ DEFTREECODE (BIT_FIELD_REF, "bit_field_ref", 'r', 3)
 /* C unary `*' or Pascal `^'.  One operand, an expression for a pointer.  */
 DEFTREECODE (INDIRECT_REF, "indirect_ref", 'r', 1)
 
+/* Same as above, but also aligns the referenced address (drops the
+   low bits).  */
+DEFTREECODE (ALIGN_INDIRECT_REF, "align_indirect_ref", 'r', 1)
+
+/* Same as INDIRECT_REF, but also specifies the alignment of the referenced
+   address:
+   Operand 0 is the referenced address (a pointer);
+   Operand 1 is an INTEGER_CST which represents the alignment of the address,
+   or -1 if the alignment is unknown.  */
+DEFTREECODE (MISALIGNED_INDIRECT_REF, "misaligned_indirect_ref", 'r', 2)
+
 /* Array indexing.
    Operand 0 is the array; operand 1 is a (single) array index.
    Operand 2, if present, is a copy of TYPE_MIN_VALUE of the index.
@@ -891,6 +902,22 @@ DEFTREECODE (TREE_BINFO, "tree_binfo", 'x', 0)
    Operand 0 is the real expression.
    Operand 1 is the size of the type in the expression.  */
 DEFTREECODE (WITH_SIZE_EXPR, "with_size_expr", 'e', 2)
+
+/* Extract elements from two input vectors Operand 0 and Operand 1 of size VS,
+   according to an offset OFF as follows: the last VS - OFF elements of 
+   vector Operand0 are concatenated to the first OFF elements of vector
+   Operand1.  If OFF==0, then the returned vector is Opernad1.
+   OP2 may take different forms; It can be an address, in which case and its 
+   low log2(VS)-1 bits define the offset, or it can be mask of some form.  */ 
+DEFTREECODE (REALIGN_LOAD_EXPR, "realign_load", 'e', 3)
+
+/* Extract elements from two input vectors Operand 0 and Operand 1 of size VS,
+   according to an offset OFF as follows: the last OFF elements of 
+   vector Operand0 are concatenated to the first VS - OFF elements of vector
+   Operand1.  If OFF==0, then the returned vector is Opernad1.
+   OP2 may take different forms; It can be an address, in which case and its 
+   low log2(VS)-1 bits define the offset, or it can be mask of some form.  */ 
+DEFTREECODE (REALIGN_STORE_EXPR, "realign_store", 'e', 3)
 
 /*
 Local variables:

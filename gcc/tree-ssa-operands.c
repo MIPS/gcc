@@ -905,6 +905,11 @@ get_expr_operands (tree stmt, tree *expr_p, int flags, voperands_t prev_vops)
       add_stmt_operand (expr_p, stmt, flags, prev_vops);
       return;
 
+    case MISALIGNED_INDIRECT_REF:
+      get_expr_operands (stmt, &TREE_OPERAND (expr, 1), flags, prev_vops);
+      /* fall through */
+
+    case ALIGN_INDIRECT_REF:
     case INDIRECT_REF:
       get_indirect_ref_operands (stmt, expr, flags, prev_vops);
       return;
@@ -1047,6 +1052,14 @@ get_expr_operands (tree stmt, tree *expr_p, int flags, voperands_t prev_vops)
 	get_expr_operands (stmt, &TREE_OPERAND (expr, 0), flags, prev_vops);
 	get_expr_operands (stmt, &TREE_OPERAND (expr, 1), flags, prev_vops);
 	return;
+      }
+
+    case REALIGN_LOAD_EXPR:
+      {
+	get_expr_operands (stmt, &TREE_OPERAND (expr, 0), flags, prev_vops);
+        get_expr_operands (stmt, &TREE_OPERAND (expr, 1), flags, prev_vops);
+        get_expr_operands (stmt, &TREE_OPERAND (expr, 2), flags, prev_vops);
+        return;
       }
 
     case BLOCK:

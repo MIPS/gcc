@@ -5770,6 +5770,8 @@ safe_from_p (rtx x, tree exp, int top_p)
 	    }
 	  break;
 
+	case MISALIGNED_INDIRECT_REF:
+	case ALIGN_INDIRECT_REF:
 	case INDIRECT_REF:
 	  if (MEM_P (x)
 	      && alias_sets_conflict_p (MEM_ALIAS_SET (x),
@@ -6645,6 +6647,8 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	  return target;
 	}
 
+    case MISALIGNED_INDIRECT_REF:
+    case ALIGN_INDIRECT_REF:
     case INDIRECT_REF:
       {
 	tree exp1 = TREE_OPERAND (exp, 0);
@@ -6661,6 +6665,10 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 
 	op0 = expand_expr (exp1, NULL_RTX, VOIDmode, EXPAND_SUM);
 	op0 = memory_address (mode, op0);
+
+	if (code == ALIGN_INDIRECT_REF)
+	  op0 = expand_addr_floor_op (mode, op0);
+
 	temp = gen_rtx_MEM (mode, op0);
 
 	orig = REF_ORIGINAL (exp);
@@ -6673,6 +6681,12 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	   conflict with readonly references to those fields.  */
 	if (modifier == EXPAND_WRITE && readonly_fields_p (type))
 	  RTX_UNCHANGING_P (temp) = 1;
+
+	if (code == MISALIGNED_INDIRECT_REF)
+	  {
+	    op1 = expand_expr (TREE_OPERAND (exp, 1), NULL_RTX, VOIDmode, 0);
+	    temp = expand_addr_misaligned_op (mode, temp, op1);
+	  }
 
 	return temp;
       }
@@ -8655,6 +8669,26 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	 have pulled out the size to use in whatever context it needed.  */
       return expand_expr_real (TREE_OPERAND (exp, 0), original_target, tmode,
 			       modifier, alt_rtl);
+
+    case REALIGN_LOAD_EXPR:
+      {
+        tree oprnd0 = TREE_OPERAND (exp, 0); 
+        tree oprnd1 = TREE_OPERAND (exp, 1);
+        tree oprnd2 = TREE_OPERAND (exp, 2);
+        rtx op2;
+
+        this_optab = optab_for_tree_code (code, type);
+        if (this_optab->handlers[(int) mode].insn_code == CODE_FOR_nothing)
+          abort ();
+        expand_operands (oprnd0, oprnd1, NULL_RTX, &op0, &op1, 0);
+        op2 = expand_expr (oprnd2, NULL_RTX, VOIDmode, 0);
+        temp = expand_realign_op (mode, this_optab, op0, op1, op2, 
+				  target, unsignedp);
+        if (temp == 0)
+          abort ();
+        return temp;
+      }
+
 
     default:
       return lang_hooks.expand_expr (exp, original_target, tmode,

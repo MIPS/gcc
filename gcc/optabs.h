@@ -227,6 +227,14 @@ enum optab_index
   OTI_vec_extract,
   /* Initialize vector operand.  */
   OTI_vec_init,
+  /* Extract specified elements from vectors, for vector store.  */
+  OTI_vec_realign_store,
+  /* Extract specified elements from vectors, for vector load.  */
+  OTI_vec_realign_load,
+  /* Drop low bits of address.  */
+  OTI_addr_floor,
+  /* Possibly misaligned address.  */
+  OTI_addr_misaligned,
 
   OTI_MAX
 };
@@ -328,6 +336,10 @@ extern GTY(()) optab optab_table[OTI_MAX];
 #define vec_set_optab (optab_table[OTI_vec_set])
 #define vec_extract_optab (optab_table[OTI_vec_extract])
 #define vec_init_optab (optab_table[OTI_vec_init])
+#define vec_realign_store_optab (optab_table[OTI_vec_realign_store])
+#define vec_realign_load_optab (optab_table[OTI_vec_realign_load])
+#define addr_floor_optab (optab_table[OTI_addr_floor])
+#define addr_misaligned_optab (optab_table[OTI_addr_misaligned])
 
 /* Conversion optabs have their own table and indexes.  */
 enum convert_optab_index
@@ -402,6 +414,36 @@ extern enum insn_code cmpstr_optab[NUM_MACHINE_MODES];
 extern enum insn_code cmpmem_optab[NUM_MACHINE_MODES];
 
 /* Define functions given in optabs.c.  */
+
+/* Generate code to extract elements from two input vectors 
+   OP0,OP1 of size VS, according to the offset OFF defined by OP2 as
+   follows: 
+
+   If realign_optab == realign_load_optab: 
+     If OFF > 0, the last VS - OFF elements of vector OP0 are concatenated to 
+     the first OFF elements of the vector OP1.
+     If OFF == 0, then the returned vector is OP1.
+
+   If realign_optab == realign_store_optab: 
+     If OFF > 0, the last OFF elements of vector OP0 are concatenated to 
+     the first VS - OFF elements of the vector OP1.
+     If OFF == 0, then the returned vector is OP0.
+
+   On different targets, OP2 may take different forms; The default is
+   that OP2 is an address, and its low log2(VS)-1 bits define the offset.  */
+extern rtx
+expand_realign_op (enum machine_mode mode, optab realign_optab, 
+		   rtx op0, rtx op1, rtx op2, rtx target, int unsignedp);
+
+/* Generate code to align an address that will be used in a vector 
+   load/store operation.  */
+extern rtx
+expand_addr_floor_op (enum machine_mode mode, rtx op); 
+
+/* Generate code to handle an unaligned address that will be used in a vector 
+   load/store operation.  */
+extern rtx
+expand_addr_misaligned_op (enum machine_mode mode, rtx op0, rtx op1);
 
 /* Expand a binary operation given optab and rtx operands.  */
 extern rtx expand_binop (enum machine_mode, optab, rtx, rtx, rtx, int,
