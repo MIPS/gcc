@@ -888,9 +888,11 @@ df_def_record_1 (struct df *df, rtx x, basic_block bb, rtx insn)
     loc = &SET_DEST (x);
   dst = *loc;
 
-  /* Some targets place small structures in registers for
+  /* APPLE LOCAL begin handle DImode parallel */
+  /* Some targets place small structures or 64-bit ints in registers for
      return values of functions.  */
-  if (GET_CODE (dst) == PARALLEL && GET_MODE (dst) == BLKmode)
+  if (GET_CODE (dst) == PARALLEL)
+  /* APPLE LOCAL end handle DImode parallel */
     {
       int i;
 
