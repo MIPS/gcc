@@ -1,3 +1,9 @@
+2005-01-03  Geoffrey Keating  <geoffk@apple.com>
+
+	Radar 3933673
+	* config/rs6000/darwin-fallback.c: Use 'ucontext_t' rather than
+	'struct ucontext'.
+
 2004-12-09  Stan Shebs  <shebs@apple.com>
 
 	* config/rs6000/darwin-asm.h: New file, 32/64-bit assembly macros
