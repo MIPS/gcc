@@ -314,7 +314,7 @@ initialize_builtins ()
 #include "builtin-types.def"
 
 #define DEF_BUILTIN(ENUM, NAME, CLASS, TYPE, LIBTYPE, BOTH_P, \
-                    FALLBACK_P, NONANSI_P) \
+                    FALLBACK_P, NONANSI_P, ATTRS) \
   define_builtin (ENUM, NAME, CLASS, builtin_types[TYPE], FALLBACK_P);
 #include "builtins.def"
 }

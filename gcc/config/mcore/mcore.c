@@ -1296,7 +1296,7 @@ mcore_output_inline_const_forced (insn, operands, mode)
 
   /* Now, work our way backwards emitting the constant.  */
 
-  /* Emit the value that remains -- it will be non-zero.  */
+  /* Emit the value that remains -- it will be nonzero.  */
   operands[1] = GEN_INT (value);
   output_asm_insn (output_inline_const (SImode, operands), operands);
  
@@ -1437,7 +1437,7 @@ mcore_output_movedouble (operands, mode)
 
 /* Predicates used by the templates.  */
 
-/* Non zero if OP can be source of a simple move operation.  */
+/* Nonzero if OP can be source of a simple move operation.  */
 
 int
 mcore_general_movsrc_operand (op, mode)
@@ -1451,7 +1451,7 @@ mcore_general_movsrc_operand (op, mode)
   return general_operand (op, mode);
 }
 
-/* Non zero if OP can be destination of a simple move operation. */
+/* Nonzero if OP can be destination of a simple move operation. */
 
 int
 mcore_general_movdst_operand (op, mode)
@@ -1483,7 +1483,7 @@ mcore_arith_reg_operand (op, mode)
   return 1;
 }
 
-/* Non zero if OP should be recognized during reload for an ixh/ixw
+/* Nonzero if OP should be recognized during reload for an ixh/ixw
    operand.  See the ixh/ixw patterns.  */
 
 int
@@ -1729,7 +1729,7 @@ mcore_expand_insv (operands)
       return 1;
     }
 
-  /* Look at some bitfield placements that we aren't interested
+  /* Look at some bit-field placements that we aren't interested
      in handling ourselves, unless specifically directed to do so.  */
   if (! TARGET_W_FIELD)
     return 0;		/* Generally, give up about now.  */
@@ -2341,7 +2341,6 @@ mcore_expand_prolog ()
     {
       /* Emit a symbol for this routine's frame size.  */
       rtx x;
-      int len;
 
       x = DECL_RTL (current_function_decl);
       
@@ -2356,10 +2355,7 @@ mcore_expand_prolog ()
       if (mcore_current_function_name)
 	free (mcore_current_function_name);
       
-      len = strlen (XSTR (x, 0)) + 1;
-      mcore_current_function_name = (char *) xmalloc (len);
-      
-      memcpy (mcore_current_function_name, XSTR (x, 0), len);
+      mcore_current_function_name = xstrdup (XSTR (x, 0));
       
       ASM_OUTPUT_CG_NODE (asm_out_file, mcore_current_function_name, space_allocated);
 
@@ -3272,7 +3268,7 @@ mcore_function_arg_partial_nregs (cum, mode, type, named)
   return reg;
 }
 
-/* Return non-zero if SYMBOL is marked as being dllexport'd.  */
+/* Return nonzero if SYMBOL is marked as being dllexport'd.  */
 int
 mcore_dllexport_name_p (symbol)
      const char * symbol;
@@ -3280,7 +3276,7 @@ mcore_dllexport_name_p (symbol)
   return symbol[0] == '@' && symbol[1] == 'e' && symbol[2] == '.';
 }
 
-/* Return non-zero if SYMBOL is marked as being dllimport'd.  */
+/* Return nonzero if SYMBOL is marked as being dllimport'd.  */
 int
 mcore_dllimport_name_p (symbol)
      const char * symbol;
@@ -3544,7 +3540,7 @@ mcore_unique_section (decl, reloc)
     prefix = ".text$";
   /* For compatibility with EPOC, we ignore the fact that the
      section might have relocs against it.  */
-  else if (DECL_READONLY_SECTION (decl, 0))
+  else if (decl_readonly_section (decl, 0))
     prefix = ".rdata$";
   else
     prefix = ".data$";

@@ -21,7 +21,7 @@
 -- MA 02111-1307, USA.                                                      --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
--- It is now maintained by Ada Core Technologies Inc (http://www.gnat.com). --
+-- Extensive contributions were provided by Ada Core Technologies Inc.      --
 --                                                                          --
 ------------------------------------------------------------------------------
 
@@ -130,7 +130,8 @@ begin
          end if;
 
          Write_Str (Gnat_Version_String);
-         Write_Str (" Copyright 1992-2002 Free Software Foundation, Inc.");
+         Write_Eol;
+         Write_Str ("Copyright 1992-2002 Free Software Foundation, Inc.");
          Write_Eol;
       end if;
 

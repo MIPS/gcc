@@ -36,7 +36,7 @@ Boston, MA 02111-1307, USA.  */
 #include "recog.h"
 #include "toplev.h"
 #include "ggc.h"
-#include "m32r-protos.h"
+#include "tm_p.h"
 #include "target.h"
 #include "target-def.h"
 
@@ -77,6 +77,7 @@ static int    m32r_issue_rate	   PARAMS ((void));
 static void m32r_select_section PARAMS ((tree, int, unsigned HOST_WIDE_INT));
 static void m32r_encode_section_info PARAMS ((tree, int));
 static const char *m32r_strip_name_encoding PARAMS ((const char *));
+static void init_idents PARAMS ((void));
 
 /* Initialize the GCC target structure.  */
 #undef TARGET_ATTRIBUTE_TABLE
@@ -271,7 +272,7 @@ static tree large_ident1;
 static tree large_ident2;
 
 static void
-init_idents PARAMS ((void))
+init_idents ()
 {
   if (small_ident1 == 0)
     {
@@ -1028,7 +1029,7 @@ extend_operand (op, mode)
     }
 }
 
-/* Return non-zero if the operand is an insn that is a small insn.
+/* Return nonzero if the operand is an insn that is a small insn.
    Allow const_int 0 as well, which is a placeholder for NOP slots.  */
 
 int
@@ -1045,7 +1046,7 @@ small_insn_p (op, mode)
   return get_attr_length (op) == 2;
 }
 
-/* Return non-zero if the operand is an insn that is a large insn.  */
+/* Return nonzero if the operand is an insn that is a large insn.  */
 
 int
 large_insn_p (op, mode)
@@ -1446,12 +1447,8 @@ m32r_setup_incoming_varargs (cum, mode, type, pretend_size, no_rtl)
   if (mode == BLKmode)
     abort ();
 
-  /* We must treat `__builtin_va_alist' as an anonymous arg.  */
-  if (current_function_varargs)
-    first_anon_arg = *cum;
-  else
-    first_anon_arg = (ROUND_ADVANCE_CUM (*cum, mode, type)
-		      + ROUND_ADVANCE_ARG (mode, type));
+  first_anon_arg = (ROUND_ADVANCE_CUM (*cum, mode, type)
+		    + ROUND_ADVANCE_ARG (mode, type));
 
   if (first_anon_arg < M32R_MAX_PARM_REGS)
     {
@@ -2184,7 +2181,7 @@ m32r_output_function_epilogue (file, size)
   m32r_compute_function_type (NULL_TREE);
 }
 
-/* Return non-zero if this function is known to have a null or 1 instruction
+/* Return nonzero if this function is known to have a null or 1 instruction
    epilogue.  */
 
 int
@@ -2314,14 +2311,13 @@ m32r_print_operand (file, x, code)
 
     case 'A' :
       {
-	REAL_VALUE_TYPE d;
 	char str[30];
 
 	if (GET_CODE (x) != CONST_DOUBLE
 	    || GET_MODE_CLASS (GET_MODE (x)) != MODE_FLOAT)
 	  fatal_insn ("bad insn for 'A'", x);
-	REAL_VALUE_FROM_CONST_DOUBLE (d, x);
-	REAL_VALUE_TO_DECIMAL (d, "%.20e", str);
+
+	real_to_decimal (str, CONST_DOUBLE_REAL_VALUE (x), sizeof (str), 0, 1);
 	fprintf (file, "%s", str);
 	return;
       }
@@ -2593,7 +2589,7 @@ zero_and_one (operand1, operand2)
 	||((INTVAL (operand1) == 1) && (INTVAL (operand2) == 0)));
 }
 
-/* Return non-zero if the operand is suitable for use in a conditional move sequence.  */
+/* Return nonzero if the operand is suitable for use in a conditional move sequence.  */
 int
 conditional_move_operand (operand, mode)
      rtx operand;
@@ -2865,7 +2861,7 @@ m32r_output_block_move (insn, operands)
      stores are done without any increment, then the remaining ones can use
      the pre-increment addressing mode.
      
-     Note: expand_block_move() also relies upon this behaviour when building
+     Note: expand_block_move() also relies upon this behavior when building
      loops to copy large blocks.  */
   first_time = 1;
   

@@ -40,7 +40,7 @@ static void objc_init_options                   PARAMS ((void));
 #undef LANG_HOOKS_INIT_OPTIONS
 #define LANG_HOOKS_INIT_OPTIONS objc_init_options
 #undef LANG_HOOKS_DECODE_OPTION
-#define LANG_HOOKS_DECODE_OPTION objc_decode_option
+#define LANG_HOOKS_DECODE_OPTION c_common_decode_option
 #undef LANG_HOOKS_POST_OPTIONS
 #define LANG_HOOKS_POST_OPTIONS c_common_post_options
 #undef LANG_HOOKS_GET_ALIAS_SET
@@ -162,5 +162,6 @@ const char * const tree_code_name[] = {
 static void 
 objc_init_options ()
 {
-  c_common_init_options (clk_objective_c);
-} 
+  flag_objc = 1;
+  c_common_init_options (clk_c);
+}

@@ -131,9 +131,9 @@ extern "Java"
       class ArithmeticException;
       class ArrayIndexOutOfBoundsException;
       class ArrayStoreException;
+      class AssertionError;
       class Boolean;
       class Byte;
-      class CPlusPlusDemangler;
       class CharSequence;
       class Character;
       class Character$Subset;
@@ -204,7 +204,6 @@ extern "Java"
       class ThreadDeath;
       class ThreadGroup;
       class ThreadLocal;
-      class ThreadLocal$Value;
       class Throwable;
       class UnknownError;
       class UnsatisfiedLinkError;
@@ -212,6 +211,7 @@ extern "Java"
       class UnsupportedOperationException;
       class VMClassLoader;
       class VMSecurityManager;
+      class VMThrowable;
       class VerifyError;
       class VirtualMachineError;
       class Void;
@@ -230,11 +230,16 @@ extern "Java"
         class Array;
         class Constructor;
         class Field;
+	class InvocationHandler;
         class InvocationTargetException;
         class Member;
         class Method;
         class Modifier;
+	class Proxy;
+	class Proxy$ProxyData;
+	class Proxy$ProxyType;
         class ReflectPermission;
+	class UndeclaredThrowableException;
       };
     };
 
@@ -243,13 +248,12 @@ extern "Java"
       class AbstractCollection;
       class AbstractList;
       class AbstractMap;
+      class AbstractMap$BasicMapEntry;
       class AbstractSequentialList;
       class AbstractSet;
       class ArrayList;
       class Arrays;
       class Arrays$ArrayList;
-      class Arrays$ListImpl;
-      class BasicMapEntry;
       class BitSet;
       class Calendar;
       class Collection;
@@ -289,6 +293,7 @@ extern "Java"
       class EmptyStackException;
       class Enumeration;
       class EventListener;
+      class EventListenerProxy;
       class EventObject;
       class GregorianCalendar;
       class HashMap;
@@ -317,11 +322,13 @@ extern "Java"
       class Map$Entry;
       class Map$Map;
       class MissingResourceException;
+      class MyResources;
       class NoSuchElementException;
       class Observable;
       class Observer;
       class Properties;
       class PropertyPermission;
+      class PropertyPermissionCollection;
       class PropertyResourceBundle;
       class Random;
       class RandomAccess;
@@ -380,14 +387,15 @@ extern "Java"
         class InflaterInputStream;
         class ZipConstants;
         class ZipEntry;
-        class ZipEnumeration;
         class ZipException;
         class ZipFile;
+        class ZipFile$PartialInputStream;
+        class ZipFile$ZipEntryEnumeration;
         class ZipInputStream;
         class ZipOutputStream;
       };
     };
-  };  
+  };
 };
   
 typedef struct java::lang::Object* jobject;

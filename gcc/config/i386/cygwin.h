@@ -20,8 +20,8 @@ along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
-#define DBX_DEBUGGING_INFO 
-#define SDB_DEBUGGING_INFO 
+#define DBX_DEBUGGING_INFO 1
+#define SDB_DEBUGGING_INFO 1
 #define PREFERRED_DEBUGGING_TYPE DBX_DEBUG
 
 #define TARGET_VERSION fprintf (stderr, " (x86 Cygwin)"); 
@@ -54,8 +54,23 @@ Boston, MA 02111-1307, USA.  */
 { "no-nop-fun-dllimport", -MASK_NOP_FUN_DLLIMPORT, "" },	\
 { "threads",		  0, N_("Use Mingw-specific thread support") },
 
-#undef CPP_PREDEFINES
-#define CPP_PREDEFINES "-D_X86_=1 -Asystem=winnt"
+#define MAYBE_UWIN_CPP_BUILTINS() /* Nothing.  */
+#define TARGET_OS_CPP_BUILTINS()					\
+  do									\
+    {									\
+	builtin_define ("_X86_=1");					\
+	builtin_assert ("system=winnt");				\
+	builtin_define ("__stdcall=__attribute__((__stdcall__))");	\
+	builtin_define ("__cdecl=__attribute__((__cdecl__))");		\
+	builtin_define ("__declspec(x)=__attribute__((x))");		\
+	if (!flag_iso)							\
+	  {								\
+	    builtin_define ("_stdcall=__attribute__((__stdcall__))");	\
+	    builtin_define ("_cdecl=__attribute__((__cdecl__))");	\
+	  }								\
+	MAYBE_UWIN_CPP_BUILTINS ();					\
+    }									\
+  while (0)
 
 #ifdef CROSS_COMPILE
 #define CYGWIN_INCLUDES "%{!nostdinc:-idirafter " CYGWIN_CROSS_DIR "/include}"
@@ -97,12 +112,6 @@ Boston, MA 02111-1307, USA.  */
 
 #undef CPP_SPEC
 #define CPP_SPEC "%{posix:-D_POSIX_SOURCE} \
-  -D__stdcall=__attribute__((__stdcall__)) \
-  -D__cdecl=__attribute__((__cdecl__)) \
-  %{!ansi:-D_stdcall=__attribute__((__stdcall__)) \
-    -D_cdecl=__attribute__((__cdecl__))} \
-  -D__declspec(x)=__attribute__((x)) \
-  -D__i386__ -D__i386 \
   %{mno-win32:%{mno-cygwin: %emno-cygwin and mno-win32 are not compatible}} \
   %{mno-cygwin:-D__MSVCRT__ -D__MINGW32__ %{mthreads:-D_MT} "\
     MINGW_INCLUDES "} \
@@ -409,7 +418,7 @@ extern int i386_pe_dllimport_name_p PARAMS ((const char *));
 #undef	BIGGEST_FIELD_ALIGNMENT
 #define BIGGEST_FIELD_ALIGNMENT 64
 
-/* A bitfield declared as `int' forces `int' alignment for the struct.  */
+/* A bit-field declared as `int' forces `int' alignment for the struct.  */
 #undef PCC_BITFIELD_TYPE_MATTERS
 #define PCC_BITFIELD_TYPE_MATTERS 1
 #define GROUP_BITFIELDS_BY_ALIGN TYPE_NATIVE(rec)

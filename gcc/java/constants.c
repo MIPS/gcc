@@ -29,8 +29,6 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "toplev.h"
 #include "ggc.h"
 
-extern struct obstack permanent_obstack;
-
 static void set_constant_entry PARAMS ((CPool *, int, int, jword));
 static int find_class_or_string_constant PARAMS ((CPool *, int, tree));
 static int find_name_and_type_constant PARAMS ((CPool *, tree, tree));
@@ -49,8 +47,8 @@ set_constant_entry (cpool, index, tag, value)
   if (cpool->data == NULL)
     {
       cpool->capacity = 100;
-      cpool->tags = (uint8*) xmalloc (sizeof(uint8) * cpool->capacity);
-      cpool->data = (jword*) xmalloc (sizeof(jword) * cpool->capacity);
+      cpool->tags = xmalloc (sizeof(uint8) * cpool->capacity);
+      cpool->data = xmalloc (sizeof(jword) * cpool->capacity);
       cpool->count = 1;
     }
   if (index >= cpool->capacity)
@@ -58,10 +56,8 @@ set_constant_entry (cpool, index, tag, value)
       cpool->capacity *= 2;
       if (index >= cpool->capacity)
 	cpool->capacity = index + 10;
-      cpool->tags = (uint8*) xrealloc (cpool->tags,
-				       sizeof(uint8) * cpool->capacity);
-      cpool->data = (jword*) xrealloc (cpool->data,
-				       sizeof(jword) * cpool->capacity);
+      cpool->tags = xrealloc (cpool->tags, sizeof(uint8) * cpool->capacity);
+      cpool->data = xrealloc (cpool->data, sizeof(jword) * cpool->capacity);
     }
   if (index >= cpool->count)
     cpool->count = index + 1;

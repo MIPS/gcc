@@ -48,8 +48,7 @@ dump_access (di, t)
 }
 
 /* Dump a representation of the specific operator for an overloaded
-   operator associated with node t.
-*/
+   operator associated with node t.  */
 
 static void
 dump_op (di, t)
@@ -324,7 +323,6 @@ cp_dump_tree (dump_info, t)
 		dump_string (di, "global init");
 	      if (DECL_GLOBAL_DTOR_P (t))
 		dump_string (di, "global fini");
-	      dump_int (di, "prio", GLOBAL_INIT_PRIORITY (t));
 	    }
 	  if (DECL_FRIEND_PSEUDO_TEMPLATE_INSTANTIATION (t))
 	    dump_string (di, "pseudo tmpl");
@@ -413,6 +411,5 @@ cp_dump_tree (dump_info, t)
       break;
     }
 
-  return 0;
+  return c_dump_tree (di, t);
 }
-

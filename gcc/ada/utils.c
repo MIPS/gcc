@@ -21,7 +21,7 @@
  * MA 02111-1307, USA.                                                      *
  *                                                                          *
  * GNAT was originally developed  by the GNAT team at  New York University. *
- * It is now maintained by Ada Core Technologies Inc (http://www.gnat.com). *
+ * Extensive contributions were provided by Ada Core Technologies Inc.      *
  *                                                                          *
  ****************************************************************************/
 
@@ -625,13 +625,12 @@ init_gigi_decls (long_long_float_type, exception_type)
 						      endlink))),
 	   NULL_TREE, 0, 1, 1, 0);
 
-      for (i = 0; i < sizeof gnat_raise_decls / sizeof gnat_raise_decls[0];
-	   i++)
+      for (i = 0; i < ARRAY_SIZE (gnat_raise_decls); i++)
 	gnat_raise_decls[i] = decl;
     }
   else
     /* Otherwise, make one decl for each exception reason.  */
-    for (i = 0; i < sizeof gnat_raise_decls / sizeof gnat_raise_decls[0]; i++)
+    for (i = 0; i < ARRAY_SIZE (gnat_raise_decls); i++)
       {
 	char name[17];
 
@@ -656,7 +655,7 @@ init_gigi_decls (long_long_float_type, exception_type)
     = build_qualified_type (TREE_TYPE (raise_nodefer_decl),
 			    TYPE_QUAL_VOLATILE);
 
-  for (i = 0; i < sizeof gnat_raise_decls / sizeof gnat_raise_decls[0]; i++)
+  for (i = 0; i < ARRAY_SIZE (gnat_raise_decls); i++)
     {
       TREE_THIS_VOLATILE (gnat_raise_decls[i]) = 1;
       TREE_SIDE_EFFECTS (gnat_raise_decls[i]) = 1;
@@ -1872,15 +1871,17 @@ end_subprog_body ()
    See tree.h for its possible values.
 
    If LIBRARY_NAME is nonzero, use that for DECL_ASSEMBLER_NAME,
-   the name to be called if we can't opencode the function.  */
+   the name to be called if we can't opencode the function.  If
+   ATTRS is nonzero, use that for the function attribute list.  */
 
 tree
-builtin_function (name, type, function_code, class, library_name)
+builtin_function (name, type, function_code, class, library_name, attrs)
      const char *name;
      tree type;
      int function_code;
      enum built_in_class class;
      const char *library_name;
+     tree attrs;
 {
   tree decl = build_decl (FUNCTION_DECL, get_identifier (name), type);
 
@@ -1892,6 +1893,8 @@ builtin_function (name, type, function_code, class, library_name)
   pushdecl (decl);
   DECL_BUILT_IN_CLASS (decl) = class;
   DECL_FUNCTION_CODE (decl) = function_code;
+  if (attrs)
+      decl_attributes (&decl, attrs, ATTR_FLAG_BUILT_IN);
   return decl;
 }
 

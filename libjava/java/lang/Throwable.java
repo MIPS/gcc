@@ -1,5 +1,4 @@
-/* java.lang.Throwable -- Reference implementation of root class for
-   all Exceptions and Errors
+/* java.lang.Throwable -- Root class for all Exceptions and Errors
    Copyright (C) 1998, 1999, 2002 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
@@ -45,87 +44,6 @@ import java.io.ObjectOutputStream;
 import java.io.ObjectInputStream;
 import java.io.IOException;
 import java.io.OutputStream;
-
-/**
- * @author Tom Tromey <tromey@cygnus.com>
- * @date October 30, 1998 
- */
-
-/* Written using "Java Class Libraries", 2nd edition, ISBN 0-201-31002-3
- * "The Java Language Specification", ISBN 0-201-63451-1
- * Status: Sufficient for compiled code, but methods applicable to
- * bytecode not implemented.  JDK 1.1.
- */
-
-/* A CPlusPlusDemangler sits on top of a PrintWriter.  All input is
- * passed through the "c++filt" program (part of GNU binutils) which
- * demangles internal symbols to their C++ source form.
- *
- * Closing a CPlusPlusDemangler doesn't close the underlying
- * PrintWriter; it does, however close underlying process and flush
- * all its buffers, so it's possible to guarantee that after a
- * CPlusPlusDemangler has been closed no more will ever be written to
- * the underlying PrintWriter.
- *
- * FIXME: This implictly converts data from the input stream, which is
- * a stream of characters, to a stream of bytes.  We need a way of
- * handling Unicode characters in demangled identifiers.  */
-
-class CPlusPlusDemangler extends OutputStream
-{
-  java.io.OutputStream procOut;
-  java.io.InputStream procIn;
-  java.lang.Process proc;
-  PrintWriter p;
-
-  /* The number of bytes written to the underlying PrintWriter.  This
-     provides a crude but fairly portable way to determine whether or
-     not the attempt to exec c++filt worked. */  
-  public int written = 0;
-
-  CPlusPlusDemangler (PrintWriter writer) throws IOException
-  {
-    p = writer;
-    proc = Runtime.getRuntime ().exec ("c++filt -s java");
-    procOut = proc.getOutputStream ();
-    procIn = proc.getInputStream ();
-  }
-
-  public void write (int b) throws IOException
-  {
-    procOut.write (b);
-    while (procIn.available () != 0)
-      {
-	int c = procIn.read ();
-	if (c == -1)
-	  break;
-	else
-	  {
-	    p.write (c);
-	    written++;
-	  }
-      }
-  }
-  
-  public void close () throws IOException
-  {
-    procOut.close ();
-    int c;
-    while ((c = procIn.read ()) != -1)
-      {
-	p.write (c);
-	written++;
-      }
-    p.flush ();
-    try
-      {
-	proc.waitFor ();
-      }
-    catch (InterruptedException _)
-      {
-      }
-  }    
-}
 
 /**
  * Throwable is the superclass of all exceptions that can be raised.
@@ -186,7 +104,7 @@ class CPlusPlusDemangler extends OutputStream
  * @author Tom Tromey
  * @author Eric Blake <ebb9@email.byu.edu>
  * @since 1.0
- * @status still missing 1.4 functionality
+ * @status updated to 1.4
  */
 public class Throwable implements Serializable
 {
@@ -200,7 +118,7 @@ public class Throwable implements Serializable
    *
    * @serial specific details about the exception, may be null
    */
-  private String detailMessage;
+  private final String detailMessage;
 
   /**
    * The cause of the throwable, including null for an unknown or non-chained
@@ -219,8 +137,7 @@ public class Throwable implements Serializable
    *         no null entries
    * @since 1.4
    */
-  // XXX Don't initialize this, once fillInStackTrace() does it.
-  private StackTraceElement[] stackTrace = {};
+  private StackTraceElement[] stackTrace;
 
   /**
    * Instantiate this Throwable with an empty message. The cause remains
@@ -242,7 +159,7 @@ public class Throwable implements Serializable
   public Throwable(String message)
   {
     fillInStackTrace();
-    detailMessage = message;  
+    detailMessage = message;
   }
 
   /**
@@ -445,30 +362,122 @@ public class Throwable implements Serializable
    */
   public void printStackTrace(PrintStream s)
   {
-    printStackTrace(new PrintWriter(s));
+    s.print(stackTraceString());
   }
 
   /**
-   * Print a stack trace to the specified PrintWriter. See
-   * {@link #printStackTrace()} for the sample format.
+   * Prints the exception, the detailed message and the stack trace
+   * associated with this Throwable to the given <code>PrintWriter</code>.
+   * The actual output written is implemention specific. Use the result of
+   * <code>getStackTrace()</code> when more precise information is needed.
+   *
+   * <p>This implementation first prints a line with the result of this
+   * object's <code>toString()</code> method.
+   * <br>
+   * Then for all elements given by <code>getStackTrace</code> it prints
+   * a line containing three spaces, the string "at " and the result of calling
+   * the <code>toString()</code> method on the <code>StackTraceElement</code>
+   * object. If <code>getStackTrace()</code> returns an empty array it prints
+   * a line containing three spaces and the string
+   * "&lt;&lt;No stacktrace available&gt;&gt;".
+   * <br>
+   * Then if <code>getCause()</code> doesn't return null it adds a line
+   * starting with "Caused by: " and the result of calling
+   * <code>toString()</code> on the cause.
+   * <br>
+   * Then for every cause (of a cause, etc) the stacktrace is printed the
+   * same as for the top level <code>Throwable</code> except that as soon
+   * as all the remaining stack frames of the cause are the same as the
+   * the last stack frames of the throwable that the cause is wrapped in
+   * then a line starting with three spaces and the string "... X more" is
+   * printed, where X is the number of remaining stackframes.
    *
    * @param w the PrintWriter to write the trace to
    * @since 1.1
    */
-  public void printStackTrace (PrintWriter wr)
+  public void printStackTrace (PrintWriter pw)
   {
-    try
+    pw.print(stackTraceString());
+  }
+
+  private static final String nl = System.getProperty("line.separator");
+  // Create whole stack trace in a stringbuffer so we don't have to print
+  // it line by line. This prevents printing multiple stack traces from
+  // different threads to get mixed up when written to the same PrintWriter.
+  private String stackTraceString()
+  {
+    StringBuffer sb = new StringBuffer();
+
+    // Main stacktrace
+    StackTraceElement[] stack = getStackTrace();
+    stackTraceStringBuffer(sb, this.toString(), stack, 0);
+
+    // The cause(s)
+    Throwable cause = getCause();
+    while (cause != null)
       {
-	CPlusPlusDemangler cPlusPlusFilter = new CPlusPlusDemangler (wr);
-	PrintWriter writer = new PrintWriter (cPlusPlusFilter);
-	printRawStackTrace (writer);
-	writer.close ();
-	if (cPlusPlusFilter.written == 0) // The demangler has failed...
-	  printRawStackTrace (wr);
+	// Cause start first line
+        sb.append("Caused by: ");
+
+        // Cause stacktrace
+        StackTraceElement[] parentStack = stack;
+        stack = cause.getStackTrace();
+	if (parentStack == null || parentStack.length == 0)
+	  stackTraceStringBuffer(sb, cause.toString(), stack, 0);
+	else
+	  {
+	    int equal = 0; // Count how many of the last stack frames are equal
+	    int frame = stack.length-1;
+	    int parentFrame = parentStack.length-1;
+	    while (frame > 0 && parentFrame > 0)
+	      {
+		if (stack[frame].equals(parentStack[parentFrame]))
+		  {
+		    equal++;
+		    frame--;
+		    parentFrame--;
+		  }
+		else
+		  break;
+	      }
+	    stackTraceStringBuffer(sb, cause.toString(), stack, equal);
+	  }
+        cause = cause.getCause();
       }
-    catch (Exception e1)
+
+    return sb.toString();
+  }
+
+  // Adds to the given StringBuffer a line containing the name and
+  // all stacktrace elements minus the last equal ones.
+  private static void stackTraceStringBuffer(StringBuffer sb, String name,
+					StackTraceElement[] stack, int equal)
+  {
+    // (finish) first line
+    sb.append(name);
+    sb.append(nl);
+
+    // The stacktrace
+    if (stack == null || stack.length == 0)
       {
-	printRawStackTrace (wr);
+	sb.append("   <<No stacktrace available>>");
+	sb.append(nl);
+      }
+    else
+      {
+	for (int i = 0; i < stack.length-equal; i++)
+	  {
+	    sb.append("   at ");
+	    sb.append(stack[i] == null ? "<<Unknown>>" : stack[i].toString());
+	    sb.append(nl);
+	  }
+	if (equal > 0)
+	  {
+	    sb.append("   ...");
+	    sb.append(equal);
+	    sb.append(" more");
+	    sb.append(nl);
+	  }
       }
   }
 
@@ -478,7 +487,13 @@ public class Throwable implements Serializable
    * @return this same throwable
    * @see #printStackTrace()
    */
-  public native Throwable fillInStackTrace();
+  public Throwable fillInStackTrace()
+  {
+    vmState = VMThrowable.fillInStackTrace(this);
+    stackTrace = null; // Should be regenerated when used.
+
+    return this;
+  }
 
   /**
    * Provides access to the information printed in {@link #printStackTrace()}.
@@ -493,6 +508,15 @@ public class Throwable implements Serializable
    */
   public StackTraceElement[] getStackTrace()
   {
+    if (stackTrace == null)
+      if (vmState == null)
+	stackTrace = new StackTraceElement[0];
+      else 
+	{
+	  stackTrace = vmState.getStackTrace(this);
+	  vmState = null; // No longer needed
+	}
+
     return stackTrace;
   }
 
@@ -500,6 +524,10 @@ public class Throwable implements Serializable
    * Change the stack trace manually. This method is designed for remote
    * procedure calls, which intend to alter the stack trace before or after
    * serialization according to the context of the remote call.
+   * <p>
+   * The contents of the given stacktrace is copied so changes to the
+   * original array do not change the stack trace elements of this
+   * throwable.
    *
    * @param stackTrace the new trace to use
    * @throws NullPointerException if stackTrace is null or has null elements
@@ -507,15 +535,23 @@ public class Throwable implements Serializable
    */
   public void setStackTrace(StackTraceElement[] stackTrace)
   {
-    for (int i = stackTrace.length; --i >= 0; )
-      if (stackTrace[i] == null)
-        throw new NullPointerException();
-    this.stackTrace = stackTrace;
+    int i = stackTrace.length;
+    StackTraceElement[] st = new StackTraceElement[i];
+
+    while (--i >= 0)
+      {
+	st[i] = stackTrace[i];
+	if (st[i] == null)
+	  throw new NullPointerException("Element " + i + " null");
+      }
+
+    this.stackTrace = st;
   }
 
-  private native final void printRawStackTrace (PrintWriter wr);
-  
-  // Setting this flag to false prevents fillInStackTrace() from running.
-  static boolean trace_enabled = true;
-  private transient byte stackTraceBytes[];
+  /**
+   * VM state when fillInStackTrace was called.
+   * Used by getStackTrace() to get an array of StackTraceElements.
+   * Cleared when no longer needed.
+   */
+  private transient VMThrowable vmState;
 }

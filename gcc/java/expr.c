@@ -1,5 +1,5 @@
 /* Process expressions for the GNU compiler for the Java(TM) language.
-   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001
+   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002
    Free Software Foundation, Inc.
 
 This file is part of GNU CC.
@@ -86,13 +86,12 @@ static int emit_init_test_initialization PARAMS ((void **entry,
 static int get_offset_table_index PARAMS ((tree));
 
 static GTY(()) tree operand_type[59];
-extern struct obstack permanent_obstack;
 
 static GTY(()) tree methods_ident;
 static GTY(()) tree ncode_ident;
 tree dtable_ident = NULL_TREE;
 
-/* Set to non-zero value in order to emit class initilization code
+/* Set to nonzero value in order to emit class initilization code
    before static field references.  */
 int always_initialize_class_p;
 
@@ -177,7 +176,7 @@ java_truthvalue_conversion (expr)
     case ABS_EXPR:
     case FLOAT_EXPR:
     case FFS_EXPR:
-      /* These don't change whether an object is non-zero or zero.  */
+      /* These don't change whether an object is nonzero or zero.  */
       return java_truthvalue_conversion (TREE_OPERAND (expr, 0));
 
     case COND_EXPR:
@@ -392,7 +391,12 @@ can_widen_reference_to (source_type, target_type)
 	{
 	  HOST_WIDE_INT source_length, target_length;
 	  if (TYPE_ARRAY_P (source_type) != TYPE_ARRAY_P (target_type))
-	    return 0;
+	    {
+	      /* An array implements Cloneable and Serializable.  */
+	      tree name = DECL_NAME (TYPE_NAME (target_type));
+	      return (name == java_lang_cloneable_identifier_node
+		      || name == java_io_serializable_identifier_node);
+	    }
 	  target_length = java_array_type_length (target_type);
 	  if (target_length >= 0)
 	    {
@@ -675,6 +679,15 @@ build_java_array_length_access (node)
   tree type = TREE_TYPE (node);
   tree array_type = TREE_TYPE (type);
   HOST_WIDE_INT length;
+
+  /* JVM spec: If the arrayref is null, the arraylength instruction
+     throws a NullPointerException.  The only way we could get a node
+     of type ptr_type_node at this point is `aconst_null; arraylength'
+     or something equivalent.  */
+  if (type == ptr_type_node)
+    return build (CALL_EXPR, int_type_node, 
+		  build_address_of (soft_nullpointer_node),
+		  NULL_TREE, NULL_TREE);
 
   if (!is_array_type_p (type))
     abort ();
@@ -1029,12 +1042,21 @@ expand_java_arrayload (lhs_type_node )
 
   index_node = save_expr (index_node);
   array_node = save_expr (array_node);
-  lhs_type_node   = build_java_check_indexed_type (array_node, lhs_type_node);
-
-  load_node = build_java_arrayaccess (array_node,
-				      lhs_type_node,
-				      index_node);
-
+  
+  if (TREE_TYPE (array_node) == ptr_type_node)
+    /* The only way we could get a node of type ptr_type_node at this
+       point is `aconst_null; arraylength' or something equivalent, so
+       unconditionally throw NullPointerException.  */    
+    load_node = build (CALL_EXPR, lhs_type_node, 
+		       build_address_of (soft_nullpointer_node),
+		       NULL_TREE, NULL_TREE);
+  else
+    {
+      lhs_type_node = build_java_check_indexed_type (array_node, lhs_type_node);
+      load_node = build_java_arrayaccess (array_node,
+					  lhs_type_node,
+					  index_node);
+    }
   if (INTEGRAL_TYPE_P (lhs_type_node) && TYPE_PRECISION (lhs_type_node) <= 32)
     load_node = fold (build1 (NOP_EXPR, int_type_node, load_node));
   push_value (load_node);
@@ -2535,6 +2557,7 @@ java_expand_expr (exp, target, tmode, modifier)
       if (BLOCK_EXPR_BODY (exp))
 	{
 	  tree local;
+	  rtx last;
 	  tree body = BLOCK_EXPR_BODY (exp);
 	  /* Set to 1 or more when we found a static class
              initialization flag. */
@@ -2568,11 +2591,11 @@ java_expand_expr (exp, target, tmode, modifier)
 	      emit_queue ();
 	      body = TREE_OPERAND (body, 1);
 	    }
-	  expand_expr (body, const0_rtx, VOIDmode, 0);
+  	  last = expand_expr (body, NULL_RTX, VOIDmode, 0);
 	  emit_queue ();
 	  expand_end_bindings (getdecls (), 1, 0);
 	  poplevel (1, 1, 0);
-	  return const0_rtx;
+	  return last;
 	}
       return const0_rtx;
 
@@ -2628,6 +2651,11 @@ java_expand_expr (exp, target, tmode, modifier)
     case JAVA_EXC_OBJ_EXPR:
       return expand_expr (build_exception_object_ref (TREE_TYPE (exp)),
 			  target, tmode, modifier);
+
+    case LABEL_EXPR:
+      /* Used only by expanded inline functions.  */
+      expand_label (TREE_OPERAND (exp, 0));
+      return const0_rtx;
 
     default:
       internal_error ("can't expand %s", tree_code_name [TREE_CODE (exp)]);
@@ -2946,7 +2974,11 @@ process_jvm_instruction (PC, byte_ops, length)
   }
 
 #define JSR(OPERAND_TYPE, OPERAND_VALUE) \
-  build_java_jsr (oldpc+OPERAND_VALUE, PC);
+  {						    \
+    /* OPERAND_VALUE may have side-effects on PC */ \
+    int opvalue = OPERAND_VALUE;		    \
+    build_java_jsr (oldpc + opvalue, PC);	    \
+  }
 
 /* Push a constant onto the stack. */
 #define PUSHC(OPERAND_TYPE, OPERAND_VALUE) \

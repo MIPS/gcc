@@ -614,17 +614,13 @@ anywhere.  This does not mean that it is function invariant.
 Stored in the @code{unchanging} field and printed as @samp{/u}.
 
 @findex SCHED_GROUP_P
-@cindex @code{insn} and @samp{/i}
-@cindex @code{call_insn} and @samp{/i}
-@cindex @code{jump_insn} and @samp{/i}
-@cindex @code{code_label} and @samp{/i}
-@cindex @code{barrier} and @samp{/i}
-@cindex @code{note} and @samp{/i}
-@cindex @code{in_struct}, in @code{insn}, @code{jump_insn}, @code{call_insn}, @code{code_label}, @code{barrier}, and @code{note}
+@cindex @code{insn} and @samp{/s}
+@cindex @code{call_insn} and @samp{/s}
+@cindex @code{jump_insn} and @samp{/s}
+@cindex @code{in_struct}, in @code{insn}, @code{jump_insn} and @code{call_insn}
 @item SCHED_GROUP_P (@var{x})
-During instruction scheduling, in an @code{insn}, @code{call_insn},
-@code{jump_insn}, @code{code_label}, @code{barrier}, or
-@code{note}, indicates that the
+During instruction scheduling, in an @code{insn}, @code{call_insn} or
+@code{jump_insn}, indicates that the
 previous insn must be scheduled together with this insn.  This is used to
 ensure that certain groups of instructions will not be split up by the
 instruction scheduling pass, for example, @code{use} insns before
@@ -1549,7 +1545,7 @@ preferable approach if only a small subset of instructions modify the
 condition code.  Other machines store condition codes in general
 registers; in such cases a pseudo register should be used.
 
-Some machines, such as the Sparc and RS/6000, have two sets of
+Some machines, such as the SPARC and RS/6000, have two sets of
 arithmetic instructions, one that sets and one that does not set the
 condition code.  This is best handled by normally generating the
 instruction that does not set the condition code, and making a pattern
@@ -2298,7 +2294,8 @@ trouble to describe the values that are stored, but it is essential to
 inform the compiler that the registers will be altered, lest it
 attempt to keep data in them across the string instruction.
 
-If @var{x} is @code{(mem:BLK (const_int 0))}, it means that all memory
+If @var{x} is @code{(mem:BLK (const_int 0))} or 
+@code{(mem:BLK (scratch))}, it means that all memory
 locations must be presumed clobbered.  If @var{x} is a @code{parallel},
 it has the same meaning as a @code{parallel} in a @code{set} expression.
 
@@ -2358,11 +2355,11 @@ An hypothetical example might be a pattern for an addition that can
 either wrap around or use saturating addition depending on the value
 of a special control register:
 
-@example
+@smallexample
 (parallel [(set (reg:SI 2) (unspec:SI [(reg:SI 3)
                                        (reg:SI 4)] 0))
            (use (reg:SI 1))])
-@end example
+@end smallexample
 
 @noindent
 
@@ -2580,9 +2577,6 @@ Represents the side effect of setting @var{x} to @var{y} and
 represents @var{x} before @var{x} is modified.  @var{x} must be a
 @code{reg} or @code{mem}, but most machines allow only a @code{reg}.
 @var{m} must be the machine mode for pointers on the machine in use.
-The amount @var{x} is decremented by is the length in bytes of the
-machine mode of the containing memory reference of which this expression
-serves as the address.  Note that this is not currently implemented.
 
 The expression @var{y} must be one of three forms:
 @table @code
@@ -2594,10 +2588,10 @@ where @var{z} is an index register and @var{i} is a constant.
 
 Here is an example of its use:
 
-@example
+@smallexample
 (mem:SF (post_modify:SI (reg:SI 42) (plus (reg:SI 42)
                                           (reg:SI 48))))
-@end example
+@end smallexample
 
 This says to modify pseudo register 42 by adding the contents of pseudo
 register 48 to it, after the use of what ever 42 points to.
@@ -2834,13 +2828,32 @@ Besides as a @code{code_label}, a label can also be represented as a
 
 @findex LABEL_NUSES
 The field @code{LABEL_NUSES} is only defined once the jump optimization
-phase is completed and contains the number of times this label is
+phase is completed.  It contains the number of times this label is
 referenced in the current function.
 
-@findex LABEL_ALTERNATE_NAME
-The field @code{LABEL_ALTERNATE_NAME} is used to associate a name with
-a @code{code_label}.  If this field is defined, the alternate name will
-be emitted instead of an internally generated label name.
+@findex LABEL_KIND
+@findex SET_LABEL_KIND
+@findex LABEL_ALT_ENTRY_P
+@cindex alternate entry points
+The field @code{LABEL_KIND} differentiates four different types of
+labels: @code{LABEL_NORMAL}, @code{LABEL_STATIC_ENTRY},
+@code{LABEL_GLOBAL_ENTRY}, and @code{LABEL_WEAK_ENTRY}.  The only labels
+that do not have type @code{LABEL_NORMAL} are @dfn{alternate entry
+points} to the current function.  These may be static (visible only in
+the containing translation unit), global (exposed to all translation
+units), or weak (global, but can be overriden by another symbol with the
+same name).
+
+Much of the compiler treats all four kinds of label identically.  Some
+of it needs to know whether or not a label is an alternate entry point;
+for this purpose, the macro @code{LABEL_ALT_ENTRY_P} is provided.  It is
+equivalent to testing whether @samp{LABEL_KIND (label) == LABEL_NORMAL}.
+The only place that cares about the distinction between static, global,
+and weak alternate entry points, besides the front-end code that creates
+them, is the function @code{output_alternate_entry_point}, in
+@file{final.c}.
+
+To set the kind of a label, use the @code{SET_LABEL_KIND} macro.
 
 @findex barrier
 @item barrier

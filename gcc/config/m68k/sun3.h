@@ -161,7 +161,7 @@ Boston, MA 02111-1307, USA.  */
 
 /* This is BSD, so it wants DBX format.  */
 
-#define DBX_DEBUGGING_INFO
+#define DBX_DEBUGGING_INFO 1
 
 /* Generate calls to memcpy, memcmp and memset.  */
 #define TARGET_MEM_FUNCTIONS
@@ -208,7 +208,7 @@ Boston, MA 02111-1307, USA.  */
         }							\
       else							\
         { char dstr[30];					\
-          REAL_VALUE_TO_DECIMAL ((VALUE), "%.9g", dstr);	\
+	  real_to_decimal (dstr, &(VALUE), sizeof (dstr), 9, 0); \
           asm_fprintf (FILE, "%I0r%s", dstr);			\
         }							\
     } while (0)
@@ -228,7 +228,7 @@ Boston, MA 02111-1307, USA.  */
         }								\
       else								\
         { char dstr[30];						\
-          REAL_VALUE_TO_DECIMAL ((VALUE), "%.17g", dstr);		\
+	  real_to_decimal (dstr, &(VALUE), sizeof (dstr), 0, 1);	\
           asm_fprintf (FILE, "%I0r%s", dstr);				\
         }								\
     } while (0)

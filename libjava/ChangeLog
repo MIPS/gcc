@@ -1,3 +1,2891 @@
+2002-11-18  Jesse Rosenstock <jmr@ugcs.caltech.edu>
+
+        * java/nio/charset/CoderResult.java (Cache.get): Fix a bug
+        that was causing CoderResults to be cached, not WeakReferences
+        to CoderResults.
+	
+2002-11-18  Joerg Brunsmann  <joerg_brunsmann@yahoo.de>
+
+	* java/security/KeyStore.java (getInstance): Fix
+	comment and throw IllegalArgumentException if 
+	given provider is null.
+	(getInstance): New method for jdk1.4 compatibility.
+
+2002-11-18  Michael Koch <konqueror@gmx.de>
+
+	* java/net/PlainSocketImpl.java: Fix imports.
+
+2002-11-18  Michael Koch <konqueror@gmx.de>
+
+	* java/nio/channels/SelectionKey.java
+	(isValid): Added exception documentation.
+	* java/nio/channels/Selector.java
+	(open): Declare "throws IOException".
+
+2002-11-18  Jesse Rosenstock <jmr@ugcs.caltech.edu>
+ 
+	* java/nio/charset/Charset.java
+	(<clinit>): New method.
+	(encode): Synchronize use of cached encoder object.
+	(decode): Synchronize use of cached encoder object.
+
+2002-11-18  Michael Koch <konqueror@gmx.de>
+
+	* gnu/java/nio/ByteBufferImpl.java,
+	gnu/java/nio/CharBufferImpl.java,
+	gnu/java/nio/DatagramChannelImpl.java,
+	gnu/java/nio/DoubleBufferImpl.java,
+	gnu/java/nio/FileChannelImpl.java,
+	gnu/java/nio/FloatBufferImpl.java,
+	gnu/java/nio/IntBufferImpl.java,
+	gnu/java/nio/LongBufferImpl.java,
+	gnu/java/nio/PipeImpl.java,
+	gnu/java/nio/SelectionKeyImpl.java,
+	gnu/java/nio/SelectorImpl.java,
+	gnu/java/nio/SelectorProviderImpl.java,
+	gnu/java/nio/ServerSocketChannelImpl.java,
+	gnu/java/nio/ShortBufferImpl.java,
+	gnu/java/nio/SocketChannelImpl.java,
+	java/nio/DoubleBuffer.java,
+	java/nio/FloatBuffer.java,
+	java/nio/IntBuffer.java,
+	java/nio/LongBuffer.java,
+	java/nio/ShortBuffer.java,
+	java/nio/channels/FileChannel.java: New files.
+
+2002-11-18  Michael Koch <konqueror@gmx.de>
+
+	* Makefile.am (ordinary_java_source_files):
+	Added java/nio/ReadOnlyBufferException.java and
+	java/nio/channels/ClosedSelectorException.java.
+	* Makefile.in: Regenerated.
+
+2002-11-18  Michael Koch <konqueror@gmx.de>
+
+	* java/net/PlainSocketImpl.java: Reworked imports.
+	* java/net/ServerSocket.java
+	(ServerSocket): Create socket.
+	* java/net/SocketAddress.java: Documentation added.
+	* java/net/natPlainSocketImpl.cc: Reindented.
+	* java/nio/ReadOnlyBufferException.java: New file
+	* java/nio/channels/ClosedChannelException.java: Documentation added.
+	* java/nio/channels/ClosedSelectorException.java: New file.
+
+2002-11-17  Mark Wielaard  <mark@klomp.org>
+
+	* java/net/HttpURLConnection.java ((getPermission): Take port
+	into consideration.
+	(getErrorStream): Implement.
+
+2002-11-17  Mark Wielaard  <mark@klomp.org>
+
+	* java/net/HttpURLConnection.java: Merge with GNU Classpath.
+
+2002-11-16  Mark Wielaard  <mark@klomp.org>
+
+	Integrate work by Raif S. Naffah (raif@fl.net.au)
+	* java/security/DummyKeyPairGenerator.java (clone): New method.
+	* java/security/DummyMessageDigest.java (clone): New method.
+	(engineUpdate): Now public.
+	(engineReset): Likewise.
+	(engineDigest): Likewise.
+	(engineGetDigestLength): New method.
+	* java/security/DummySignature.java (clone): New method.
+	* java/security/KeyPairGenerator.java (provider): Now package private.
+	(getInstance(String)): Use getInstance(String,Provider).
+	(getInstance(String,String): Use getInstance(String,Provider)
+	(getInstance(String,Provider): New method.
+	(getInstance(String,String,Provider): Don't cast DummyKeyPairGenerator.
+	* java/security/KeyPairGeneratorSpi.java (clone): New method.
+	* java/security/MessageDigest.java (provider): Now package private.
+	(getInstance(String): Use getInstance(String,Provider).
+	(getInstance(String,String): Use getInstance(String,Provider)
+	(getInstance(String,Provider): New method.
+	* java/security/Provider.java (toCanonicalKey): New method.
+	(get): New method that uses toCanonicalKey().
+	(put): Use toCanonicalKey().
+	(remove): Likewise.
+	* java/security/Security.java (insertProviderAt): Provider index is one
+	based, not zero based.
+	(addProvider): Likewise.
+	(removeProvider): Likewise.
+	* java/security/Signature.java (provider): Now package private.
+	(getInstance(String)): Use getInstance(String,Provider).
+	(getInstance(String,String): Use getInstance(String,Provider)
+	(getInstance(String,Provider): New method.
+	(getInstance(String,String,Provider): Don't cast DummySignature.
+
+2002-11-15  Tom Tromey  <tromey@redhat.com>
+
+	For PR libgcj/8593:
+	* java/util/zip/GZIPInputStream.java (read): Check file size.
+	Look in inflater for remaining input bytes.
+	(read4): Added buf and offset arguments.
+
+2002-11-12  Eric Blake  <ebb9@email.byu.edu>
+
+	* java/applet/AppletContext.java: Fix typo and remove redundant
+	modifiers.
+
+2002-11-14  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/natRuntime.cc (insertSystemProperties): Set
+	gnu.classpath.home.
+
+2002-11-13  Michael Koch <konqueror@gmx.de>
+
+	* java/nio/ByteBuffer.java
+	(allocate): New method.
+	(wrap): New method.
+	(put): New method.
+	(get): New method.
+	
+2002-11-13  Michael Koch <konqueror@gmx.de>
+
+	* java/nio/channels/AlreadyConnectedException.java:
+	Removed unneeded import.
+	(AlreadyConnectedException): Documentation added.
+	* java/nio/channels/Pipe.java
+	(SinkChannel.SinkChannel): Documentation added.
+	(SinkChannel.validOps): New method.
+	(SourceChannel.SourceChannel): Documentation added.
+	(SourceChannel.validOps): New method.
+	(Pipe): Documentation added.
+	(open): Documentation added.
+	(SinkChannel.channel): Documentation added.
+	(SourceChannel.channel): Documentation added.
+	* java/nio/channel/SelectableChannel.java
+	(SelectableChannel): Documentation added.
+	(blockingLock): Documentation added.
+	(configureBlocking):Documentation added.
+	(isBlocking):Documentation added.
+	(isRegistered):Documentation added.
+	(keyFor):Documentation added.
+	(provider):Documentation added.
+	(register): Documentation added.
+	(validOps): Documentation added.
+	* jaba/nio/channels/SelectionKey.java
+	(SelectionKey): Documentation added.
+	(attach): Documentation added.
+	(attachment): Documentation added.
+	(isAcceptable): Documentation added.
+	(isConnetable): Documentation added.
+	(isReadable): Documentation added.
+	(isWritable): Documentation added.
+	(cancel): Documentation added.
+	(channel): Documentation added.
+	(interestOps): Documentation added.
+	(isValid): Documentation added.
+	(readyOps): Documentation added.
+	(selector): Documentation added.
+	* jaba/nio/channels/Selector.java
+	(Selector): Documentation added.
+	(open): Documentation added.
+	(close): Documentation added.
+	(isOpen): Documentation added.
+	(keys): Documentation added.
+	(provider): Documentation added.
+	(select): Documentation added.
+	(selectedKeys): Documentation added.
+	(selectNow): Documentation added.
+	(wakeup): Documentation added.
+	* java/nio/channels/spi/AbstractInterruptibleChannel.java
+	(AbstractInterruptibleChannel): Documentation added.
+	(opened): Default to true;
+	(begin): Documentation added.
+	(close): Set opened to false, documentation added.
+	(isOpen): Documentation added.
+	* java/nio/channels/spi/AbstractSelectionKey.java
+	(AbstractSelectionKey): Documentation added.
+	(cancel): Documentation added.
+	(isValid): Documentation added.
+	* java/nio/channels/spi/AbstractSelector.java
+	(AbstractSelector): Documentation added.
+	(begin): Documentation added.
+	(close): Documentation added.
+	(isOpen): Documentation added.
+	(deregister): Documentation added.
+	(end): Documentation added.
+	(provider): Documentation added.
+	(implCloseSelector): Documentation added.
+	(register): Documentation added.
+	* java/nio/channels/spi/SelectorProvider.java
+	(SelectorProvider): Documentation added.
+	(openDatagramChannel): Documentation added.
+	(openPipe): Documentation added.
+	(openSelector): Documentation added.
+	(openServerSocketChannel): Documentation added.
+	(openSocketChannel): Documentation added.
+	(provider): Documentation added.
+
+2002-11-12  Michael Koch <konqueror@gmx.de>
+
+	* java/nio/Buffer.java: Implemented.
+	* java/nio/CharBuffer.java: New file.
+	* java/nio/InvalidMarkException.java: New file.
+	* java/nio/channels/DatagramChannel.java: Implemented.
+	* java/nio/channels/ServerSocketChannel.java: Implemented.
+	* java/nio/channels/SocketChannel.java: Implemented.
+	* java/nio/channels/spi/AbstractChannel.java: Removed.
+	* java/nio/channels/spi/AbstractSelectableChannel.java:
+	Implemented.
+	* java/nio/charset/Charset.java:
+	Merge from Classpath.
+	* java/nio/charset/CharsetDecoder.java: New file.
+	* java/nio/charset/CharsetEncoder.java: New file.
+	* java/nio/charset/CoderResult.java: New file.
+	* Makefile.am (ordinary_java_source_files): Added new files.
+	* Makefile.in: Regenerated.
+	
+2002-11-11  Jesse Rosenstock  <jmr@ugcs.caltech.edu>
+
+	* gnu/java/nio/charset/ISO_8859_1.java,
+	gnu/java/nio/charset/Provider.java,
+	gnu/java/nio/charset/US_ASCII.java,
+	gnu/java/nio/charset/UTF_16.java,
+	gnu/java/nio/charset/UTF_16BE.java,
+	gnu/java/nio/charset/UTF_16Decoder.java,
+	gnu/java/nio/charset/UTF_16Encoder.java,
+	gnu/java/nio/charset/UTF_16LE.java,
+	gnu/java/nio/charset/UTF_8.java: New files.
+
+2002-11-11  Michael Koch <konqueror@gmx.de>
+
+	* java/nio/charset/CharacterCodingException.java:
+	This class must be public.
+	* java/nio/charset/CoderMalfunctionError.java:
+	This class must be public.
+	* java/nio/charset/CodingErrorAction.java:
+	This class must be public.
+	* java/nio/charset/IllegalCharsetNameException.java:
+	This class must be public, better implementation.
+	* java/nio/charset/MalformedInputException.java:
+	This class must be public, better implementation.
+	* java/nio/charset/UnmappableCharacterException.java:
+	This class must be public, better implementation.
+	* java/nio/charset/UnsupportedCharsetException.java:
+	This class must be public, better implementation.
+	
+2002-11-11  Michael Koch <konqueror@gmx.de>
+
+	* java/nio/BufferOverflowException.java,
+	java/nio/BufferUnderflowException.java: New file.
+	* Makefile.am (ordinary_java_source_files):
+	Added new files.
+	* Makefile.in: Regenerated.
+	
+2002-11-10  Tom Tromey  <tromey@redhat.com>
+
+	* java/awt/Container.java (validate): Use tree lock.
+	(getComponent): Likewise.
+	(getComponents): Likewise.
+	(addImpl): Likewise.
+	(remove): Likewise.
+	(removeAll): Likewise.
+	(processEvent): Fixed indentation.
+	(getComponentAt): Use tree lock.
+	(findComponentAt): Likewise.
+	(removeNotify): Likewise.
+	(isAncestorOf): Likewise.
+	(list): Likewise.
+	(visitChildren): Likewise.
+	(findNextFocusComponent): Likewise.
+	(addNotifyContainerChildren): Likewise.
+	(getAccessibleChildrenCount): Likewise.
+	(getAccessibleChild): Likewise.
+
+	* java/awt/GridLayout.java (layoutContainer): Use tree lock.
+	(getSize): Likewise.
+	* java/awt/FlowLayout.java (layoutContainer): Use tree lock.
+	(getSize): Likewise.
+	* java/awt/BorderLayout.java (layoutContainer): Use tree lock.
+	(calcSize): Likewise.
+	* java/awt/CardLayout.java (getSize): Use tree lock.
+	(gotoComponent): Likewise.
+	(layoutContainer): Likewise.
+
+	* java/io/natFileDescriptorWin32.cc (read): Handle case where
+	count is 0.
+	* java/io/natFileDescriptorPosix.cc (read): Handle case where
+	count is 0.
+
+	* java/io/Externalizable.java, java/io/FilePermission.java,
+	java/io/ObjectStreamConstants.java, java/io/Serializable.java,
+	java/io/SerializablePermission.java, java/text/Format.java,
+	java/util/AbstractMap.java, java/util/HashMap.java,
+	java/util/LinkedHashMap.java, javax/naming/BinaryRefAddr.java: New
+	versions from Classpath.
+
+2002-11-10  Anthony Green  <green@redhat.com>
+
+	* java/util/jar/Attributes.java (Name): Fix name check.
+
+2002-11-10  Mark Wielaard  <mark@klomp.org>
+
+	* java/lang/natClass.cc (initializeClass): Throw NoClassDefFoundError
+	with getName() as message.
+	(_Jv_CheckArrayStore): Throw ArrayStoreException with object and array
+	type as message.
+
+	* java/lang/natVMThrowable.cc: Don't declare parameter t, it is
+	unused.
+
+2002-11-08  Ranjit Mathew <rmathew@hotmail.com>
+
+	* include/jni.h (JNIIMPORT, JNIEXPORT, JNICALL): Linker defines
+	for Win32. JNICALL has been defined to __stdcall to be compatible
+	with Sun's JDKs.
+
+2002-11-10  Tom Tromey  <tromey@redhat.com>
+
+	* java/awt/GridLayout.java (setColumns): Check newCols, not cols.
+	(setRows): Check newRows, not rows.
+
+	* jni.cc (_Jv_GetJNIEnvNewFrame): Set env->ex in all cases.
+
+2002-11-09  Tom Tromey  <tromey@redhat.com>
+
+	* java/applet/Applet.java, java/applet/AppletContext.java,
+	java/applet/AppletStub.java, java/applet/AudioClip.java,
+	java/awt/CardLayout.java,
+	java/awt/ContainerOrderFocusTraversalPolicy.java,
+	java/awt/Cursor.java, java/awt/Event.java, java/awt/Frame.java,
+	java/awt/GridBagConstraints.java, java/awt/GridBagLayout.java,
+	java/awt/GridLayout.java, java/awt/color/ColorSpace.java,
+	java/awt/color/ICC_ColorSpace.java,
+	java/awt/color/ICC_Profile.java,
+	java/awt/color/ICC_ProfileGray.java,
+	java/awt/color/ICC_ProfileRGB.java,
+	java/awt/datatransfer/DataFlavor.java,
+	java/awt/dnd/DragSourceContext.java, java/awt/dnd/DropTarget.java,
+	java/awt/dnd/DropTargetContext.java, java/awt/event/KeyEvent.java:
+	New versions from Classpath.
+	* Makefile.in: Rebuilt.
+	* Makefile.am (awt_java_source_files): Added ICC_ProfileGray and
+	ICC_ProfileRGB.
+
+	* java/awt/ScrollPane.java (ScrollPane): Fixed test for valid
+	display policy.
+
+	* java/awt/List.java (processEvent): Added missing `else's.
+
+	* java/awt/Window.java (show): validate() before showing.  Make
+	parent displayable.
+	(isDisplayable): New method.
+
+2002-11-07  Mark Wielaard  <mark@klomp.org>
+
+        Merge Orp RMI patches from Wu Gansha <gansha.wu@intel.com>
+	* java/rmi/MarshalledObject.java (equals): Check hashcode first.
+
+	* java/rmi/server/RMIClassLoader.java (MyClassLoader): Create/Use
+	annotation.
+	(loadClass): Take String as codebases.
+	(getClassAnnotation): Use MyClassLoader annotations.
+	* java/rmi/server/UnicastRemoteObject.java (UnicastRemoteObject):
+	call exportObject(this).
+
+	* gnu/java/rmi/RMIMarshalledObjectOutputStream.java
+	(RMIMarshalledObjectOutputStream): set locBytesStream and locStream.
+	(setAnnotation): Don't set locBytesStream and locStream.
+	(replaceObject): Removed.
+	(flush): Don't test locStream.
+	(getLocBytes): LikeWise.
+	* gnu/java/rmi/dgc/DGCImpl.java: extends UnicastServerRef.
+	(leaseCache): New field.
+	(dirty): Use leaseCache.
+	(LeaseRecord): New inner class.
+	* gnu/java/rmi/registry/RegistryImpl.java (RegistryImpl): Don't
+	explicitly call exportObject().
+	* gnu/java/rmi/registry/RegistryImpl_Stub.java: set useNewInvoke to
+	false to communicate with Sun JDK130.
+	* gnu/java/rmi/server/ConnectionRunnerPool.java: Add CPU comment.
+	* gnu/java/rmi/server/RMIObjectInputStream.java
+	(UnicastConnectionManager): Removed field.
+	* gnu/java/rmi/server/RMIObjectOutputStream.java (replaceObject):
+	Use UnicastServer.getExportedRef().
+	* gnu/java/rmi/server/UnicastConnection.java (reviveTime): New field.
+	(expireTime): Likewise.
+	(CONNECTION_TIMEOUT): Likewise.
+	(disconnect): Call sock.close().
+	(isExpired): New method.
+	(resetTime): Likewise.
+	(run): Use do while loop and catch Exception for discardConnection().
+	* gnu/java/rmi/server/UnicastConnectionManager.java: Pool connections.
+	* gnu/java/rmi/server/UnicastRef.java: Lots of changes.
+	* gnu/java/rmi/server/UnicastRemoteCall.java: Lots of changes.
+	* gnu/java/rmi/server/UnicastServer.java (refcache): New field.
+	(exportObject): Use refcache.
+	(unexportObject): Likewise.
+	(getExportedRef): New method.
+	* gnu/java/rmi/server/UnicastServerRef.java (UnicastServerRef): New
+	constructor.
+	(exportObject): Save manager.serverobj.
+	(getStub): New method.
+
+2002-11-07  Mark Wielaard  <mark@klomp.org>
+
+	* java/lang/reflect/natField.cc (getBoolean): Use getType().
+	(getByte): Likewise.
+	(getShort): Likewise.
+	(getInt): Likewise.
+	(getLong): Likewise.
+	(getFloat): Likewise.
+	(getDouble): Likewise.
+	(get): Likewise.
+	(setChar): Likewise.
+	(setByte): Likewise.
+	(setShort): Likewise.
+	(setInt): Likewise.
+	(setLong): Likewise.
+	(setFloat): Likewise.
+	(setDouble): Likewise.
+
+2002-11-07  Michael Koch <konqueror@gmx.de>
+
+	* java/awt/Choice.java,
+	java/awt/Container.java,
+	java/awt/GridBagLayout.java:
+	Fixed documentation.
+	* java/awt/peer/ContainerPeer.java:
+	Reindented.
+
+2002-11-07  Michael Koch <konqueror@gmx.de>
+
+	* java/awt/color/ICC_Profile.java:
+	Added missing constants.
+	* java/awt/color/ICC_ColorSpace.java
+	(getMinValue): Added dummy implementation.
+	(getMaxValue): Added dummy implementation.
+	* java/awt/datatransfer/DataFlavor.java
+	(imageFlavor): Added.
+	(isMimeTypeEqual): Must be final.
+	(getDefaultRepresentationClass): Must be non-static.
+	(getDefaultRepresentationClassAsString): Must be non-static.
+	* java/awt/dnd/DragSourceContext.java
+	(dragExit): Corrected argument.
+	(dragDropEnd): Corrected argument.
+	* java/awt/dnd/DragSourceListener.java.java
+	(dragExit): Corrected argument.
+	(dragDropEnd): Corrected argument.
+	* java/awt/font/TextHitInfo.java
+	(toString): Added stubbed implementation.
+	* java/awt/geom/PathIterator.java:
+	The constants must be static.
+	* java/awt/image/VolatileImage.java
+	(IMAGE_INCOMPATIBLE): Fixed typo.
+	* java/awt/image/renderable/RenderableImage.java
+	(HINTS_OBSERVED): Must be static.
+	* java/beans/BeanInfo.java:
+	Constants must be final.
+
+2002-11-06  Tom Tromey  <tromey@redhat.com>
+
+	From svens@it.uu.se.  For PR libgcj/8481.
+	* java/util/Random.java (nextInt(int)): Only use 31 bits.
+
+2002-11-06  Tom Tromey  <tromey@redhat.com>
+
+	* jni.cc (array_from_valist): Assume that jlong won't be
+	promoted.
+
+2002-11-04  R. A. Rivas Diaz  <rivasdiaz@yahoo.com>
+
+	* gnu/java/security/provider/SHA.java (engineGetDigestLength):
+	Return 20.
+	* gnu/java/security/provider/MD5.java (engineGetDigestLength):
+	Return 16.
+
+2002-11-03  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/ClassLoader.java (loadClass): Call loadClass on
+	VMClassLoader, not findClass.
+
+2002-11-03  Jeff Sturm  <jsturm@one-point.com>
+
+	* resolve.cc (METHOD_NOT_THERE, METHOD_INACCESSIBLE): Remove.
+	(_Jv_ResolvePoolEntry): Use _Jv_Method.index, not
+	_Jv_DetermineVTableIndex, to determine vtable offset.
+	(_Jv_DetermineVTableIndex): Remove.
+	(_Jv_PrepareClass): Don't layout vtable.  Use _Jv_MakeVTable instead.
+
+	* java/lang/Class.h (friend int _Jv_DetermineVTableIndex): Remove.
+
+2002-11-03  Tom Tromey  <tromey@redhat.com>
+
+	* java/nio/channels/AlreadyConnectedException.java: Extend
+	IllegalStateException, per spec.
+
+2002-10-31  Stephen Crawley  <crawley@dstc.edu.au>
+
+	* java/lang/Double.java (valueOf): Return new Double(parseDouble(s)).
+
+2002-10-31  Wu Gansha <gansha.wu@intel.com>:
+
+        * java/util/ArrayList.java (readObject, writeObject): Only read/write
+        size items.
+
+2002-10-31  Wu Gansha <gansha.wu@intel.com>:
+
+        * java/io/DataInputStream.java (convertFromUTF): Give StringBuffer an
+        initial estimated size to avoid enlarge buffer frequently.
+
+2002-10-31  Wu Gansha <gansha.wu@intel.com>:
+
+	* java/lang/reflect/Proxy.java (ProxyType): Set loader to System
+	ClassLoader when null.
+	(ProxyType.hashCode): Loader null check no longer needed.
+	(ProxyType.sameTypes): New method.
+	(ProxyType.equals): Use new method.
+
+2002-10-31  Mark Wielaard  <mark@klomp.org>
+
+        * java/net/URLDecoder.java (decode): Initialize Stringbuffer size to
+	length of String.
+	* java/net/URLEncoder.java (encode): Likewise.
+
+2002-10-31  Mark Wielaard  <mark@klomp.org>
+
+	* java/util/zip/ZipInputStream.java (getNextEntry): Throw IOException
+	when stream is closed.
+	(closeEntry): Likewise.
+	(read): Likewise.
+	* java/util/zip/ZipOutputStream.java (putNextEntry): Throw
+	ZipException when no entry active.
+	(closeEntry): Likewise.
+	(write): Likewise.
+
+2002-11-02  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/Class.h: Move JV_STATE_ERROR before JV_STATE_DONE.
+	* java/lang/natClass.cc (initializeClass): Don't return just
+	because self==thread.
+
+	For PR java/8415:
+	* java/lang/reflect/natMethod.cc (getType): Use _Jv_FindClass.
+	* prims.cc (_Jv_FindClassFromSignature): Indentation fix.
+
+2002-11-02  Andreas Schwab  <schwab@suse.de>
+
+	* Makefile.am (AM_MAKEFLAGS): Don't pass JC1FLAGS, CC and CXX, do
+	pass GCJFLAGS.
+	(FLAGS_TO_PASS): Define.
+	* Makefile.in: Regenerated.
+
+2002-11-01  Michael Koch  <konqueror@gmx.de>
+
+	* java/nio/ByteOrder.java: New file.
+	* java/nio/channels/DatagramChannel.java:
+	(DatagramChannel): New constructor.
+	* java/nio/channels/Pipe.java: New file.
+	* java/nio/channels/SelectableChannel.java: New file.
+	* java/nio/channels/SelectionKey.java: New file.
+	* java/nio/channels/Selector.java: New file.
+	* java/nio/channels/ServerSocketChannel.java
+	(ServerSocketChannel): New constructor.
+	* java/nio/channels/SocketChannel.java
+	(SocketChannel): New constructor.
+	* java/nio/channels/Pipe.java: New file.
+	* java/nio/channels/spi/AbstractChannel.java: New file.
+	* java/nio/channels/spi/AbstractInterruptibleChannel.java: New file.
+	* java/nio/channels/spi/AbstractSelectableChannel.java:
+	License added
+	(AbstractSelectableChannel): New stubbed method.
+	* java/nio/channels/spi/AbstractSelectionKey.java: New file.
+	* java/nio/channels/spi/AbstractSelector.java: New file.
+	* java/nio/channels/spi/SelectorProvider.java: New file.
+	* java/nio/charset/Charset.java: New file.
+	* java/nio/charset/CoderMalfunctionError.java: New file.
+	* java/nio/charset/CodingErrorAction.java: New file.
+	* java/nio/charset/spi/CharsetProvider.java
+	(charsetForName): Uncommented.
+	* Makefile.am (java_native_source_files): Added new files.
+	* Makefile.in: Regenerated.
+
+2002-11-01  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/InetAddress.java:
+	(isAnyLocalAddress): Implemented.
+	(isLoopbackAddress): Implemented, comment added.
+	(isLinkLocalAddress): Implemented, documentation added.
+	(isSiteLocalAddress): Implemented, documentation added.
+	(isMCGlobal): Implemented, documentation added.
+	(isMCNodeLocal): Implemented, documentation added.
+	(isMCLinkLocal): Implemented, documentation added.
+	(isMCSiteLocal): Implemented, documentation added.
+	(isMCOrgLocal): Implemented, documentation added.
+	(getHostName): Documentation added.
+	(getCanonicalHostName): Implemented, documentation added.
+	(getAddress): Documentation added.
+	(hashCode): Documentation added.
+	(equals): Documentation added.
+	(toString): Fixed implementation.
+	(getByAddress): Use Inet4Address and Inet6Address.
+	(lookup): New linewrap.
+	(getByName): SecurityManager check added, support Inet4Address and
+	Inet6address, comments added.
+	(getAllByName): SecurityManager check added, comments added.
+	* java/net/Inet6Address.java:
+	(Inet6Address): Initialize parent class with addr instead of null.
+	* java/net/URL.java
+	(equals): Documentation added.
+	(getFile): Documentation added.
+	(hashCode): Documentation added.
+	* java/net/natInetAddress.cc:
+	(aton): Fix IPv6 support.
+	* java/net/natPlainDatagramSocketImpl.cc:
+	(peek): Throw PortUnreachableException when suitable.
+	(peekData): Throw PortUnreachableException when suitable.
+	(send): Throw PortUnreachableException when suitable.
+	(receive): Throw PortUnreachableException when suitable.
+
+2002-10-27  Mark Wielaard  <mark@klomp.org>
+
+	* java/util/zip/ZipFile.java (readLeShort): Take and use DataInput as
+	argument.
+	(readLeShort): Likewise and use byte[].
+	(readLeInt): Likewise.
+	(readEntries): Use new versions of methods and use byte[] for reading
+	a complete zip entry. Add ZipFile name to exceptions.
+	(entries): Add ZipFile name to exceptions.
+	(getEntry): Likewise.
+	(checkLocalHeader): Use new versions of methods and add ZipFile name
+	to exceptions.
+
+2002-10-31  Mark Anderson  <mark@panonet.net>
+
+	* java/awt/GridBagLayout.java (setConstraints): New stubbed method
+	added
+
+2002-10-25  Krister Walfridsson  <cato@df.lth.se>
+
+	* configure.in: Disable hash sync when not using threads.
+	* configure: Regenerated.
+
+2002-10-24  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/natRuntime.cc (_Jv_SetDLLSearchPath): New function.
+	(_Jv_FindSymbolInExecutable): Removed argument name.
+	(insertSystemProperties): Call _Jv_SetDLLSearchPath if
+	java.library.path is set.
+
+	* gij.cc (help): Document --showversion.
+	(version): Don't exit.
+	(main): Handle --showversion.  Exit if --version given.
+
+2002-10-23  Tom Tromey  <tromey@redhat.com>
+
+	* jni.cc (_Jv_JNI_AllocObject): Removed old FIXME comment.
+	(array_from_valist): Correctly handle promotion for jint, jlong,
+	jfloat, and jdouble.
+
+2002-10-23  Ranjit Mathew <rmathew@hotmail.com>
+
+	* java/io/natFileWin32.cc (attr): Use FindFirstFile( ) instead of
+	GetFileAttributesEx( ) to find file length and modification times,
+	as the latter is not present on Windows 95.
+
+2002-10-21  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/URL.java
+	(URL): Activate SecurityManager checks.
+	(equals): Use URLStreamHandler implementation instead of doing it
+	alone. This allows special protocol stream handlers to change default
+	behaviour.
+	(hashCode): Use URLStreamHandler implementation instead of doing it
+	alone. This allows special protocol stream handlers to change default
+	behaviour.
+	* java/net/URLStreamHandler.java
+	(equals): Implemented default URL equality check.
+	(hostsEqual): Implemented default URL equality check.
+	(hashCode): Implemented default URL hashCode algorithm.
+	* java/net/natPlainDatagramSocketImpl.cc:
+	No lines longer then 80 characters.
+	
+2002-10-20  Adam Megacz <adam@xwt.org>
+
+	* aclocal.m4 (CHECK_FOR_BROKEN_MINGW_LD): added
+	* configure.in: enabled hash sync on Win32
+        * include/win32-threads.h (_Jv_ThreadId_t): added.
+        * java/lang/natObject.cc (_Jv_MonitorEnter, _Jv_MonitorExit,
+	heavy_lock_obj_finalization_proc, wait, notify, notifyAll):
+	removed some posix-isms, use Thread::sleep() instead of usleep,
+	added code to clear bottom three bits if platform has a broken
+	linker.  * include/win32-threads.h (_Jv_ThreadId_t): added.
+
+2002-10-19  Ranjit Mathew <rmathew@hotmail.com>
+
+	* java/lang/natRuntime.cc (insertSystemProperties): Added GCJ
+	runtime property "gnu.gcj.progname" containing the name used to
+	invoke the current Java program (similar to argv[0] for C
+	programs).
+
+2002-10-15  Tom Tromey  <tromey@redhat.com>
+
+	Fix for PR libgcj/8234:
+	* java/util/zip/natInflater.cc (reset): Reset avail_in.
+	* java/util/zip/natDeflater.cc (reset): Reset avail_in.
+
+2002-10-13  Mark Wielaard  <mark@klomp.org>
+
+	* mauve-libgcj: Enable Mauve tests that compile now.
+
+2002-10-11  Mark Wielaard  <mark@klomp.org>
+
+	Fix for PR libgcj/8142
+	* java/lang/natClassLoader.cc (findClass): Skip inner classes when
+	loading native modules.
+
+2002-10-10  Michael Koch  <konqueror@gmx.de>
+
+	* javax/swing/AbstractListModel.java
+	(getListDataListeners): New stubbed method.
+	javax/swing/DefaultBoundedRangeModel.java
+	(getChangeListeners): New stubbed method.
+	javax/swing/DefaultSingleSelectionModel.java
+	(getChangeListeners): New stubbed method.
+
+2002-10-10  Michael Koch  <konqueror@gmx.de>
+
+	* gcj/.cvsignore: New file to ignore files generated during build.
+	* include/.cvsignore: New file to ignore files generated during build.
+
+2002-10-10  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/HttpURLConnection.java
+	(getPermission): New method.
+	(getErrorStream): New stub method.
+	(getHeaderFieldDate): New stub method.
+	* java/net/Inet4Address.java:
+	(isLinkLocalAddress): Typo fixed.
+	* java/net/InetAddress.java:
+	(readResolve): New stubbed method (for serialization).
+	(isAnyLocalAddress): New stubbed method.
+	(isLoopbackAddress): New stubbed method.
+	(isLinkLocalAddress): New stubbed method.
+	(isSiteLocalAddress): New stubbed method.
+	(isMCGlobal): New stubbed method.
+	(isMCNodeGlobal): New stubbed method.
+	(isMCLinkLocal): New stubbed method.
+	(isMCSiteLocal): New stubbed method.
+	(isMCOrgLocal): New stubbed method.
+	(getCanonicalHostName): New stubbed method.
+	(getByAddress): Create instances of Inet4Address/Inet6Address,
+	instead of InetAddress, documentation added.
+	* java/net/MulticastSocket.java
+	(getInterface): Removed FIXME.
+	(getNetworkInterface): New method.
+	(setNetworkInterface): New method.
+	* java/net/NetworkInterface.java:
+	(toString): Use property "line.separator" instead of "\n".
+	* java/net/URLConnection.java
+	(getContent): New stubbed method.
+	* java/net/URLStreamHandler.java:
+	(equals): New stubbed method.
+	(hostsEqual): New stubbed method.
+	(hashCode): New stubbed method.
+	* java/net/natNetworkInterface.cc:
+	(getRealNetworkInterfaces): Create Inet4Address object
+	instead of InetAddress.
+
+2002-10-08  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* interpret.cc (_Jv_InterpMethod::run): Use UINT32 instead of
+	unsigned long temporary to implement insn_iushr shifts.
+
+2002-10-08  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* configure.host [s390*-*]: Enable Java interpreter.
+	Enable hash synchronization.  Add sysdeps dir.
+	* sysdep/s390/locks.h: New file.
+
+2002-10-06  Mark Wielaard  <mark@klomp.org>
+
+	* java/lang/Thread.java (setDaemon): Check startable_flag,
+	not isAlive().
+
+2002-10-07  Michael Koch  <konqueror@gmx.de>
+
+	* java/nio/Buffer.java: New stub file.
+	* java/nio/charset/spi/CharsetProvider.java: Commented out all usages
+	of class Charset.
+	* Makefile.am (java_native_source_files): Added java/nio/Buffer.java.
+	* Makefile.in: Regenerated.
+
+2002-10-07  Michael Koch  <konqueror@gmx.de>
+
+	* java/nio/ByteBuffer.java:
+	removed import of not commited class.
+
+2002-10-07  Michael Koch  <konqueror@gmx.de>
+
+	* java/nio/ByteBuffer.java,
+	java/nio/MappedByteBuffer.java:
+	New files, forgot to add these dummies.
+	* Makefile.am (java_native_source_files): Added new files.
+	* Makefile.in: Regenerated.
+
+2002-10-07  Michael Koch  <konqueror@gmx.de>
+
+	* java/nio/channels/AlreadyConnectedException.java,
+	java/nio/channels/ClosedChannelException.java,
+	java/nio/channels/ReadableByteChannel.java,
+	java/nio/channels/InterruptibleChannel.java,
+	java/nio/channels/Channel.java,
+	java/nio/channels/ByteChannel.java,
+	java/nio/channels/GatheringByteChannel.java,
+	java/nio/channels/ScatteringByteChannel.java,
+	java/nio/channels/WritableByteChannel.java,
+	java/nio/charset/CharacterCodingException.java,
+	java/nio/charset/IllegalCharsetNameException.java,
+	java/nio/charset/MalformedInputException.java,
+	java/nio/charset/UnmappableCharacterException.java,
+	java/nio/charset/UnsupportedCharsetException.java,
+	java/nio/charset/spi/CharsetProvider.java: New file.
+	These files are exceptions or interfaces,
+	no real or abstract classes.
+	* Makefile.am (java_native_source_files): Added new files.
+	* Makefile.in: Regenerated.
+
+2002-10-05  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/InetAddress.java
+	(getByAddress): Fixed documentation.
+	(getByAddress): New method.
+	* java/net/Inet4Address.java: New file.
+	* java/net/URL.java
+	(URL): Documentation added.
+	(getContent): Documentation added.
+	(getContent): New stubbed method.
+	(getQuery): New method.
+	(openConnection): Documentation added.
+	(openStream): Documentation added.
+	(setURLStreamHandlerFactory): Documentation added.
+	* java/net/URI.java: New stub file.
+	* Makefile.am
+	(java_native_source_files): Added java/net/Inet4Address.java,
+	java/net/Inet6Address.java and java/net/URI.java.
+	* Makefile.in: Regenerated.
+
+2002-10-04  C. Scott Ananian <cananian@lesser-magoo.lcs.mit.edu>
+	
+	* java/lang/ProtectionDomain.java (linesep): Remove field.
+	(toString): Use System.getProperty("line.separator").
+
+2002-10-04  Michael Koch  <konqueror@gmx.de>
+
+	* java/security/Identity.java: Added serialVersionUID.
+	* java/security/KeyPair.java: Added serialVersionUID.
+	* java/security/Provider.java: Added serialVersionUID.
+	* java/security/SecureRandom.java: Added serialVersionUID.
+	* java/security/SecureRandomSpi.java: Added serialVersionUID.
+	* java/security/SignedObject.java: Added serialVersionUID.
+	* java/security/cert/Certificate.java: Added serialVersionUID.
+
+2002-10-04  Mark Wielaard <mark@klomp.org>
+
+	* java/security/Security.java: Use java.home or gnu.classpath.home
+	to load providers.
+	(loadProviders): Extra dir argument.
+	(getProvider): Return null when not found.
+
+2002-10-04  Mark Wielaard  <mark@klomp.org>
+
+	* java/lang/Throwable.java: Remerge with Classpath.
+
+2002-10-04  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/InetAddress.java:
+	(isMulticastAddress): Added documentation.
+	(getHostAddress): Added documentation.
+	(toString): Added documentation.
+	(getByAddress): Fixed documentation.
+	(getByName): Added documentation.
+	(getAllByName): Added documentation.
+	(getLocalHost): Added documentation.
+
+2002-10-04  Michael Koch  <konqueror@gmx.de>
+
+	* java/beans/beancontext/BeanContextChildSupport.java:
+	Added serialVersionUID.
+	* java/text/Collator.java: (compare): Made documentation HTML-aware.
+	* javax/naming/BinaryRefAddr.java: Added serialVersionUID.
+	* javax/naming/Name.java: Added serialVersionUID.
+
+2002-10-03  Adam Megacz <adam@xwt.org>
+
+	* natNetworkInterface.cc (getRealNetworkInterfaces): ifdef out
+	some functionality that isn't supported yet on WIN32.
+
+2002-10-03  Tom Tromey  <tromey@redhat.com>
+
+	* Makefile.in: Rebuilt.
+	* Makefile.am (awt_java_source_files): Added new files.
+
+2002-10-03  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/InetAddress.java
+	(class InetAddress): Removed final keyword.
+	(equals): Fixed typo.
+	(getByAddress): New method.
+
+2002-10-03  Michael Koch  <konqueror@gmx.de>
+
+	* java/awt/dnd/Autoscroll.java:
+	New file, merge from Classpath.
+	* java/awt/dnd/DragSourceAdapter.java:
+	(dragExit): Fixed typos in argument type.
+	(dragDropEnd): Fixed typos in argument type.
+	* java/awt/dnd/DragSourceDropEvent.java:
+	New file, merge from Classpath.
+	* java/awt/dnd/DropTarget.java:
+	Added stubs, merge from Classpath.
+	* java/awt/dnd/DropTargetAdapter.java:
+	New file, merge from Classpath.
+	* java/awt/dnd/DropTargetContext.java:
+	New file, merge from Classpath.
+	* java/awt/dnd/DropTargetDragEvent.java:
+	New file, merge from Classpath.
+	* java/awt/dnd/DropTargetDropEvent.java:
+	New file, merge from Classpath.
+	* java/awt/dnd/DropTargetEvent.java:
+	New file, merge from Classpath.
+	* java/awt/dnd/DropTargetListener.java:
+	New file, merge from Classpath.
+	* java/awt/dnd/MouseDragGestureRecognizer.java:
+	New file, merge from Classpath.
+	* java/awt/dnd/peer/DropTargetContextPeer.java:
+	New file, merge from Classpath.
+
+2002-10-03  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/DatagramPacket.java
+	(setLength): Fixed typo and be HTML-aware.
+	* java/net/InetSocketAddress.java
+	(InetSocketAddress): Correct initialization of hostname, fixed typo.
+	(equals): Added comment about equality of InetSocketAddress objects.
+	* java/net/ServerSocket.java
+	(accept): Added checks.
+	(isClosed): New stubbed method.
+	* java/net/SocketOptions.java: Reindention.
+	* java/net/SocketPermission
+	(SocketPermission): Documentation fixed.
+	
+2002-10-03  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/DatagramSocket.java
+	(receive): Check with SecurityManager AFTER the packet is received,
+	check if connected to multicast address, documentation added.
+	(send): Only check SecurityManager if connected, check address of
+	packet to send.
+	(connect): Implemented, documentation added.
+	* java/net/Inet6Address.java: New file (not added yet to Makefile.am).
+	* java/net/InetSocketAddress.java
+	(whole file): Reindented.
+	(hostname): New attribute.
+	(InetSocketAddress): Initialize new attribute.
+	(getAddress): Documentation added.
+	(getHostName): Documentation added.
+	(getPort): Documentation added.
+	(hashCode): Documentation added.
+	(isUnresolved): Documentation added.
+	(toString): Conform to output of JDK 1.4.1, documentation added.
+	* java/net/MulticastSocket.java
+	(joinGroup): Removed FIXME, documentation added.
+	(leaveGroup): Removed FIXME, documentation added.
+	(send): Documentation added.
+	* java/net/Socket.java
+	(inputShutdown): New variable.
+	(outputShutdown): New variable.
+	(Socket): Initialize new variables.
+	(getRemoteSocketAddress): Check if connected.
+	(shutdownInput): Set new variable.
+	(shutdownOutput): Set new variable.
+	(isConnected): New method.
+	(isClosed): New method.
+	(isInputShutdown): New method.
+	(isOutputShutdown): New method.
+	* java/net/URLStreamHandler.java
+	(URLStreamHandler): New method.
+	(openConnection): Added documentation.
+	(parseURL): Added documentation.
+	(getHostAddress): New method.
+	(getDefaultPort): New method.
+
+2002-10-02  Tom Tromey  <tromey@redhat.com>
+
+	* java/rmi/activation/ActivationDesc.java,
+	java/rmi/activation/ActivationGroupDesc.java,
+	java/rmi/activation/ActivationGroupID.java,
+	java/rmi/activation/ActivationID.java: New versions from
+	Classpath.
+
+2002-09-30  Bo Thorsen  <bo@suse.de>
+
+	* sysdep/x86-64/locks.h (compare_and_swap): Fix multilib support.
+
+2002-09-30  Tom Tromey  <tromey@redhat.com>
+
+	* java/io/ObjectInputStream.java (resolveProxyClass): New method
+	from Classpath.
+	* Makefile.in: Rebuilt.
+	* Makefile.am (rmi_java_source_files): Added new files.
+	* gnu/java/rmi/RMIMarshalledObjectInputStream.java,
+	gnu/java/rmi/RMIMarshalledObjectOutputStream.java,
+	gnu/java/rmi/server/ConnectionRunnerPool.java: New files from
+	Classpath.
+	* gnu/java/rmi/dgc/DGCImpl.java,
+	gnu/java/rmi/dgc/DGCImpl_Skel.java,
+	gnu/java/rmi/dgc/DGCImpl_Stub.java,
+	gnu/java/rmi/registry/RegistryImpl_Skel.java,
+	gnu/java/rmi/registry/RegistryImpl_Stub.java,
+	gnu/java/rmi/server/RMIHashes.java,
+	gnu/java/rmi/server/RMIObjectInputStream.java,
+	gnu/java/rmi/server/RMIObjectOutputStream.java,
+	gnu/java/rmi/server/UnicastConnection.java,
+	gnu/java/rmi/server/UnicastConnectionManager.java,
+	gnu/java/rmi/server/UnicastRef.java,
+	gnu/java/rmi/server/UnicastServer.java,
+	gnu/java/rmi/server/UnicastServerRef.java,
+	java/rmi/MarshalledObject.java,
+	java/rmi/server/RMIClassLoader.java,
+	java/rmi/server/RemoteObject.java,
+	java/rmi/server/UnicastRemoteObject.java,
+	java/security/SecureClassLoader.java: Merged from Classpath.
+
+2002-09-29  Anthony Green  <green@redhat.com>
+
+	* java/lang/reflect/UndeclaredThrowableException.java: New file.
+	Imported from GNU Classpath.
+	* java/lang/reflect/natProxy.cc: New file.
+	* java/lang/reflect/InvocationHandler.java: New file.  Imported
+	from GNU Classpath.
+	* java/lang/reflect/Proxy.java: New file.  Imported from GNU
+	Classpath.
+	* gnu/java/lang/reflect/TypeSignature.java: Refresh from GNU
+	Classpath.	
+	* gnu/classpath/Configuration.java.in (HAVE_NATIVE_GET_PROXY_DATA,
+	HAVE_NATIVE_GET_PROXY_CLASS, HAVE_NATIVE_GENERATE_PROXY_CLASS):
+	New statics.
+	* gcj/javaprims.h ("Java"): Add new classes.
+	* java/lang/reflect/Proxy.java: Fix check for duplicate interfaces.
+	* Makefile.am (java/lang/reflect/Proxy$$ProxyData.h): Create this.
+ 	java/lang/reflect/Proxy$$ProxyType.h): And this.
+	(inner_nat_headers): Add these new headers.
+	(ordinary_java_source_files): Add new files.
+	(nat_source_files): Add new file.
+	* Makefile.in: Rebuilt.
+
+2002-09-28  Richard Earnshaw  <rearnsha@arm.com>
+
+	* configure.host: Handle arm*-elf, strongarm*-elf and xscale*-elf with
+	a single configuration.
+
+2002-09-25  Jesse Rosenstock  <jmr@ugcs.caltech.edu>
+
+	* java/util/TimeZone.java (getDSTSavings): New method.
+	Fixes PR libgcj/7786.
+
+2002-09-25  Jesse Rosenstock  <jmr@ugcs.caltech.edu>
+
+	* resolve.cc (_Jv_ResolvePoolEntry) [end_of_method_search]: Check
+	to see if `the_method == 0' before looking up vtable index.
+	Fixes PR libgcj/7709.
+
+2002-09-25  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/natClassLoader.cc: 
+	(_Jv_PrepareCompiledClass): Throw NoClassDefFoundError, per spec.
+	* resolve.cc: Include NoClassDefFoundError.h, not
+	ClassNotFoundException.h.
+	(_Jv_ResolvePoolEntry): Throw NoClassDefFoundError, per spec.
+
+	* defineclass.cc: Don't include ClassNotFoundException.h.
+
+	* resolve.cc: Include StringBuffer.
+	(_Jv_ResolvePoolEntry): Use StringBuffer to create error string.
+
+	* boehm.cc (_Jv_MarkObj): Don't fail if class object has been
+	allocated but not initialized.
+
+2002-09-25  Jesse Rosenstock  <jmr@ugcs.caltech.edu>
+
+	Fix for PR libgcj/7766:
+	* java/util/zip/ZipInputStream.java (entryAtEOF): New field.
+	(getNextEntry): Set it.
+	(closeEntry): Likewise.
+	(read): Likewise.
+	(close): Likewise.
+	(available): Use it.
+
+2002-09-25  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/DatagramSocket.java
+	(DatagramSocket): Initialize new instance variables.
+	(close): Reset new instance variables.
+	(getLocalAddress): Remove unneeded SecurityManager usage.
+	(getLocalPort): Check if socket is already bound.
+	(isConnected): New method.
+	(getInetAddress): Implemented.
+	(getPort): Better Implementation, documentation fixed.
+	(getRemoteSocketAddress): New method.
+	* java/net/JarURLConnection.java
+	(element): Typo fixed.
+	(getMainAttributes): New method.
+	(getAttributes): New method (stub only).
+	(getManifest): New method (stub only).
+	* java/net/NetPermission.java: Added serialVersionsUID.
+	* java/net/Socket.java
+	(connect): Check blocking mode of associated channel,
+	documentation added.
+	(getLocalSocketAddress): Better implementation.
+	(getRemoteSocketAddress): Implemented.
+	(isBound): New method.
+	(setSendBufferSize): Documentation added.
+	* java/net/SocketAddress.java: Added serialVersionsUID.
+	* java/net/SocketPermission.java: Added serialVersionsUID.
+	* java/net/URL.java
+	(URL): Wrap for shorter lines, initialize new instance variables,
+	documentation added.
+	(equals): Check new instance variables too.
+	(getContent): Documentation added.
+	(getPath): Documentation added.
+	(getAuthority): New method.
+	(getHost): Documentation added.
+	(getPort): Documentation added.
+	(getDefaultPort): New method.
+	(getProtocol): Documentation added.
+	(getUserInfo): Documentation added.
+	(set): Initialize new instance variables, documentation added.
+	* java/net/URLStreamHandler.java
+	(setURL): New method.
+	* java/net/natPlainDatagramSocketImpl.cc
+	(connect): Fix exception name.
+	(disconnect): Fix exception name.
+
+2002-09-25  Michael Koch  <konqueror@gmx.de>
+
+	* java/nio/channels/spi/AbstractSelectableChannel.java: New file.
+	* java/nio/channels/DatagramChannel.java:
+	extends AbstractSelectableChannel
+	* java/nio/channels/ServerSocketChannel.java:
+	extends AbstractSelectableChannel
+	* java/nio/channels/SocketChannel.java:
+	extends AbstractSelectableChannel
+	* Makefile.am (ordinary_java_source_files):
+	java/nio/channels/spi/AbstractSelectableChannel.java added.
+	* Makefile.in: Regenerated.
+
+2002-09-25  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/DatagramSocket.java
+	(DatagramSocket): Exception documentation added.
+	(bind): Exception documentation added, addded SecurityManager check,
+	added SocketAddress type check.
+	(getSoTimeout): Check impl.
+	(receive): Fix SecurityManager check, check impl, documentation added.
+	(send): Check channel mode, documentation added.
+	(connect): New method.
+	(disconnect): Implemented.
+	(getLocalSocketAddress): New method.
+	(getReceiveBufferSize): Check impl.
+	(setReuseAddress): Check impl.
+	(getReuseAddress): Check impl.
+	(setBroadcast): Check impl.
+	(getBroadcast): Check impl.
+	(setTrafficClass): Check impl, Documentation cleared.
+	(getTrafficClass): Check impl.
+	(getSendBufferSize): Check impl.
+	(setReceiveBufferSize): Check impl, documentation added.
+	(setSendBufferSize): Documentation added.
+	(setDatagramSocketImplFactory): New method.
+	* java/net/HttpURLConnection.java
+	(HTTP_INTERNAL_ERROR): The correct code is 500.
+	(HTTP_NOT_IMPLEMENTED): Added new constant.
+	(setFollowRedirects): Documentation added.
+	(getInstanceFollowRedirects): New method.
+	(setInstanceFollowRedirects): New method.
+	(setRequestMethod): Documentation added.
+	(getResponseCode): Documentation added.
+	(getResponseMessage): Documentation added.
+	* java/net/JarURLConnection.java
+	(JarURLConnection): protected since JDK 1.4.
+	(getJarEntry): java.io.IOException to IOException, documentation added.
+	(getJarFile): Documentation added.
+	* java/net/ServerSocket.java
+	(ServerSocket): Private to public, exception added.
+	(ServerSocket): java.io.IOException to IOException, documentation added.
+	(bind): Check socket address type, documentation added.
+	(bind): java.io.IOException to IOException, documentation added.
+	(accept): Documentation added.
+	(implAccept): Check ch is not non-blocking, documentation added.
+	(setSoTimeout): Documentation fixed.
+	(setReceiveBufferSize): Documentation added.
+	* java/net/Socket.java
+	(Socket): Documentation added.
+	(bind): Documentation added.
+	(connect): Check socket address type, documentation added.
+	(getRemoteSocketAddress): New method.
+	(getLocalSocketAddress): New method.
+	(setSoLinger): Documentation added.
+	(getReuseAddress): New method.
+	(setReuseAddress): New method.
+	(getTrafficClass): New method.
+	(setTrafficClass): New method.
+	* java/net/URLStreamHandler.java
+	(openConnection): java.io.IOException to IOException.
+	(parseURL): Documentation added.
+	(sameFile): public to protected, documentation added.
+	(setURL): Documentation added.
+	* java/nio/IllegalBlockingModeException.java: New file.
+	* Makefile.am (ordinary_java_source_files):
+	added java/nio/IllegalBlockingModeException.java
+	* Makefile.in: Regenerated.
+
+2002-09-25  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/DatagramPacket
+	(DatagramPacket): Exception documentation added.
+	(setData): Likewise.
+	(setSocketAddress): Likewise.
+	* java/net/DatagramSocketImpl.java
+	(peek): Documentation addded.
+	(peekData): Documentation addded.
+	(send): Documentation addded.
+	(receive): Documentation addded.
+	(connect): New method.
+	(disconnect): New method.
+	(joinGroup): New abstract method.
+	(leaveGroup): New abstract method.
+	* java/net/InetSocketAddress.java
+	(InetSocketAddress): Documentation added.
+	(equals): final keyword added.
+	(getAddress): final keyword added.
+	(getHostName): final keyword added.
+	(getPort): final keyword added.
+	(hashCode): final keyword added.
+	(isUnresolved): final keyword added.
+	* java/net/MulticastSocket.java
+	(MulticastSocket): Documentation added.
+	(MulticastSocket): New method.
+	(joinGroup): Documentation added.
+	(joinGroup): New method.
+	(leaveGroup): Documentation added.
+	(leaveGroup): New method.
+	(send): Documentation added.
+	* java/net/NetworkInterface.java
+	(getByName): Documentation added.
+	(getByInetAddress): Documentation added.
+	(getNetworkInterfaces): Documentation added.
+	* java/net/PlainDatagramSocketImpl.java
+	(connect): New method.
+	(disconnect): New method.
+	* java/net/SocketImpl.java
+	(create): Documentation added.
+	(shutdownInput): Convert public to protected, as it always was.
+	(shutdownOutput): Convert public to protected, as it always was.
+	* java/net/SocketOptions.java
+	(whole file): Reintented.
+	* java/net/URLClassLoader.java
+	(URLClassLoader): SecurityManager check added, documentation added.
+	(findResources): Documentation added.
+	(findClass): Documentation added.
+	(newInstance): More correct method arguments.
+	* java/net/URLConnection.java
+	(connect): Documentation added.
+	(getContent): Documentation added.
+	(getPermission): Documentation added.
+	(getInputStream): Documentation added.
+	(getOutputStream): Documentation added.
+	(setDoInput): Throw correct exception, documentation added.
+	(setDoOutput): Throw correct exception, documentation added.
+	(setAllowUserInteraction): Throw correct exception, documentation added.
+	(setUseCaches): Throw correct exception, documentation added.
+	(setIfModifiedSince): Throw correct exception, documentation added.
+	(setRequestProperty): Throw exception, documentation added.
+	(addRequestProperty): Throw exception, documentation added.
+	(getRequestProperty): Throw exception, documentation added.
+	(getRequestProperties): Documentation added.
+	(setContentHandlerFactory): Documentation added.
+	(guessContentTypeFromName): protected to public.
+	(setFileNameMap): Documentation added.
+	* java/net/URLDecoder.java
+	(URLDecoder): New method.
+	(decode): Documentation added.
+	(whole file): Reindented.
+	* java/net/URLEncoder.java
+	(encode): Documentation added.
+	* java/net/natPlainDatagramSocketImpl.cc
+	(connect): New method.
+	(disconnect): New method.
+	* javax/naming/RefAddr:
+	(addrType): addrType was never final.
+	(equals): Fix typo in method name.
+	* javax/naming/BinaryRefAddr:
+	(equals): Fix typo in method name.
+
+2002-09-22  Tom Tromey  <tromey@redhat.com>
+
+	Fix for PR libgcj/6576:
+	* java/util/ResourceBundle.java (tryBundle): Cache `null' if we
+	didn't find a given bundle.
+	(getBundle): Don't require base bundle.
+	(setParent): Removed old comment.
+	(tryLocalBundle): Try components even if preceding components were
+	empty.
+
+2002-09-22  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* Makefile.am (all-multi): Fix multilib parallel build.
+
+2002-09-21  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/Socket.java
+	(sendUrgentData): New method.
+	(getChannel): New method.
+	* java/net/ServerSocket.java
+	(getChannel): New method.
+	(isBound): New method.
+	* java/net/DatagramSocket.java
+	(DatagramSocket): Two new methods.
+	(bind): New method.
+	(getChannel): New method.
+	(isBound): New method.
+	(send): Added newline to to make shorter lines.
+	* java/net/PlainDatagramSocketImpl.java
+	(mcastGrp): Added argument.
+	(join): Use new mcastGrp.
+	(leave): Use new mcastGrp.
+	(joinGroup): New method.
+	(leaveGroup): New method.
+	* java/net/natPlainDatagramSocketImpl.cc
+	(mcastGrp): Added argument, no yet really implemented.
+	(getOption): Added newline for shorter lines.
+	* java/net/natPlainSocketImpl.cc
+	(read, setOption, getOption): Added newline for shorter lines.
+
+2002-09-19  Tom Tromey  <tromey@redhat.com>
+
+       * java/lang/ClassLoader.java (resolveClass0): Set cause for
+       newly-created exception.
+
+2002-09-18  Michael Koch  <konqueror@gmx.de>
+
+	* java/util/regex/Matcher.java, java/util/regex/Pattern.java,
+	java/util/regex/PatternSyntaxException.java:
+	Merge with classpath, new files.
+	* Makefile.am (core_java_source_files):
+	Added java/util/regex/Matcher.java,
+	java/util/regex/Pattern.java,
+	java/util/regex/PatternSyntaxException.java
+	* Makefile.in: Regenerated.
+	* include/config.h.in: Added HAVE_NET_IF_H.
+	* java/net/natNetworkInterface.cc (getRealNetworkInterfaces):
+	Removed #if 0 ... #endif.
+	
+2002-09-17  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/natNetworkInterface.cc:
+	Removed unneed and yet wrong includes.
+
+2002-09-17  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/NetworkInterface.java: New file.
+	* java/net/natNetworkInterface.java: New file.
+	* configure.in: Added check for net/if.h.
+	* configure: Regenerated.
+	* Makefile.am
+	(ordinary_java_source_files): Added NetworkInterface.java.
+	(nat_source_files): Added natNetworkInterface.cc.
+	* Makefile.in: Regenerated.
+
+2002-09-16  Tom Tromey  <tromey@redhat.com>
+
+	* java/net/URLClassLoader.java (findClass): Code source for a
+	class from a jar is not necessarily a jar: URL.
+
+2002-09-16  Michael Koch  <konqueror@gmx.de>
+
+	* java/lang/AssertionError.java:
+	Merge with classpath, fixes HTML.
+	* java/rmi/server/LogStream.java:
+	Merge with classpath, fixes some constants.
+	* java/net/server/RemoteServer.java:
+	Merge with classpath, adds serialVersionUID.
+	* javax/naming/BinaryRefAddr.java:
+	Merge with classpath, s/equal/equals/.
+	* javax/naming/NamingException.java:
+	Merge with classpath, fixed typo.
+	* javax/naming/RefAddr.java:
+	Merge with classpath, s/equal/equals/.
+	* java/awt/Toolkit.java:
+	s/gnu.java.awt.peer.gtk.GtkToolkit/gnu.awt.gtk.GtkToolkit/
+	and typo fixed.
+
+2002-09-15  Adam Megacz <adam@xwt.org>
+	
+	* java/net/natPlainSocketImpl.cc: fixed typo.
+
+2002-09-15  Adam Megacz <adam@xwt.org>
+	
+	* java/net/natPlainSocketImpl.cc: #ifdef-shielded socket timeouts,
+	which don't work on Win32 (yet).
+
+2002-09-14  Adam Megacz <adam@xwt.org>
+	
+	* java/net/natPlainDatagramSocket.cc: removed #include
+	<ws2tcpip.h>; the mingw header is broken (conflicts with itself).
+	* include/win32.h: included definition for IP_TOS to satisfy
+	natPlainDatagramSocket.cc
+	
+2002-09-13  Michael Koch  <konqueror@gmx.de>
+	
+	* java/net/DatagramPacket.java (DatagramPacket):
+	Added linebreak for 80 chars per line.
+	* java/net/JarURLConection.java
+	(getInputStreami, getJarEntry): Likewise.
+	* java/net/SocketPErmission.java
+	(SocketPermission class docu, implies): Likewise.
+	* java/net/URLClassLoader.java (findResources): Likewise.
+	* java/net/URLConnection.java: Reindendet remark for 80 chars per line
+
+2002-09-13  Michael Koch  <konqueror@gmx.de>
+
+	* java/nio/channels/DatagramChannel.java,
+	java/nio/channels/ServerSocketChannel.java
+	java/nio/channels/SocketChannel.java:
+	New dummy files to make java.net fully JDK 1.4 compatible
+	* Makefile.am (ordinary_java_source_files): Added
+	java/net/DatagramSocketImplFactory.java (long forgotten),
+	java/nio/SocketChannel.java,
+	java/nio/ServerSocketChannel.java,
+	java/nio/DatagramChannel.java
+	* Makefile.in: Regenrated.
+
+2002-09-12  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/DatagramSocketImpl.java
+	(peekData): New method.
+	* java/net/PlainDatagramSocketImpl.java
+	(peekData): New method.
+	* java/net/natPlainDatagramSocketImpl.cc
+	(peekData): New method.
+	* java/net/URLConnection
+	(getPermission): New method.
+	(addRequestProperty): New method.
+	(getRequestProperties): New method.
+	(guessContentTypeFromStream): New method, not really implemented.
+	(URLConnection): Added/updated documentation.
+	(connect): Added/updated documentation.
+	(getURL): Added/updated documentation.
+	(getContentLength): Added/updated documentation.
+	(getContentType: Added/updated documentation.
+	(getContentEncoding): Added/updated documentation.
+	(getExpiration): Added/updated documentation.
+	(getDate): Added/updated documentation.
+	(getLastModified): Added/updated documentation.
+	(getHeaderField): Added/updated documentation.
+	(getHeaderFields): Added/updated documentation.
+	(getHeaderFieldInt): Added/updated documentation.
+	(getHeaderFieldDate): Added/updated documentation.
+	(getHeaderFieldKey): Added/updated documentation.
+	(getContent): Added/updated documentation.
+	(getInputStream): Added/updated documentation.
+	(getOutputStream): Added/updated documentation.
+	(toString): Added/updated documentation.
+	(setDoInput): Added/updated documentation.
+	(getDoInput): Added/updated documentation.
+	(setDoOutput): Added/updated documentation.
+	(getDoOutput): Added/updated documentation.
+	(setAllowUserInteraction): Added/updated documentation.
+	(getAllowUserInteraction): Added/updated documentation.
+	(setDefaultAllowUserInteraction): Added/updated documentation.
+	(getDefaultAllowUserInteraction): Added/updated documentation.
+	(setUseCaches): Added/updated documentation.
+	(getUseCaches): Added/updated documentation.
+	(setIfModifiedSince): Added/updated documentation.
+	(getIfModifiedSince): Added/updated documentation.
+	(getDefaultUseCaches): Added/updated documentation.
+	(setDefaultUseCaches): Added/updated documentation.
+	(setRequestProperty): Added/updated documentation.
+	(getRequestProperty): Added/updated documentation.
+	(setDefaultRequestProperty): Added/updated documentation.
+	(getDefaultRequestProperty): Added/updated documentation.
+	(setContentHandlerFactory): Added/updated documentation.
+	(guessContentTypeFromName): Added/updated documentation.
+	(getFileNameMap): Added/updated documentation.
+	(setFileNameMap): Added/updated documentation.
+	
+2002-09-11  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/Socket.java
+	(Socket): protected to public (since JDK 1.4). Added @specnote.
+	(bind): New method.
+	(connect): Two new methods.
+	(getKeepalive): Get correct socket option.
+	(setKeepalive): Set correct socket option.
+	(getOOBInline): New method.
+	(setOOBInline): New method.
+	* java/net/ServerSocket.java
+	(bind): Two new methods.
+	(getInetAddress): Reimplemented, catch exception.
+	(getLocalSocketAddress): New method.
+	(setReuseAddress): New method.
+	(getReuseAdress): New method.
+	(setReceiveBufferSize): New method.
+	(getReceiveBufferSize): New method.
+	(toString): Made string JDK 1.4 compliant.
+
+2002-09-10  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/SocketImpl.java
+	(connect): New method.
+	(supportsUrgentData): New method.
+	(sendUrgentData): New method.
+	* java/net/PlainSocketImpl.java
+	(connect): One new method and two new implementation.
+	(sendUrgentData): New method.
+	* java/natPlainSocketImpl.cc
+	(connect): Arguments changed, added support for timeouts.
+	(getOption): Another __java_boolean to jboolean.
+
+2002-09-07  Adam Megacz <adam@xwt.org>
+
+	* java/net/natPlainDatagramSocket.cc: include ws2tcpip.h for
+	definition of IP_TOS.
+
+2002-09-04  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/DatagramSocket.java
+	(DatagramSocket): Added documentation.
+	(close): Likewise.
+	(getLocalAddress): Likewise.
+	(getLocalPort): Likewise.
+	(receive): Likewise.
+	(send): Likewise.
+	(setSoTimeout): Likewise.
+	(connect): New method.
+	(disconnect): New method.
+	(getInetAddress): New method (FIXME)
+	(getPort): New method.
+	(setReuseAddress): New method.
+	(getReuseAddress): New method.
+	(setBroadcast): New method.
+	(getBroadcast): New method.
+	(setTrafficClass): New method.
+	(getTrafficClass): New method.
+	* java/net/MulticastSocket.java):
+	(getTTL): Added @see in documentation.
+	(setTTL): Added @see in documentation.
+	(setLoopbackMode): New method.
+	(getLoopbackMode): New method.
+	* java/net/PlainSocketImpl.java:
+	Added new constants for the options SO_BROADCAST, SO_OOBINLINE,
+	IP_MULTICAST_IF2, IP_MULTICAST_LOOP, IP_TOS
+	* java/net/PlainDatagramSocketImpl.java
+	Added new constants for the options SO_BROADCAST, SO_OOBINLINE,
+	IP_MULTICAST_IF2, IP_MULTICAST_LOOP, IP_TOS
+	* java/net/natPlainSocketImpl.cc
+	(getOption): Implemented the options SO_BROADCAST, SO_OOBINLINE,
+	IP_MULTICAST_IF2, IP_MULTICAST_LOOP, IP_TOS
+	(setOption): Implemented the options SO_BROADCAST, SO_OOBINLINE,
+	IP_MULTICAST_IF2, IP_MULTICAST_LOOP, IP_TOS
+	This should also fix SO_KEEPALIVE
+	* java/net/natPlainDatagramSocketImpl.cc
+	(getOption): Implemented the options SO_BROADCAST, SO_OOBINLINE,
+	IP_MULTICAST_IF2, IP_MULTICAST_LOOP, IP_TOS
+	(setOption): Implemented the options SO_BROADCAST, SO_OOBINLINE,
+	IP_MULTICAST_IF2, IP_MULTICAST_LOOP, IP_TOS
+
+2002-09-04  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/SocketOptions.java: added static variables to be JDK 1.4
+	compatible (SO_BROADCAST, SO_OOBINLINE, IP_MULTICAST_IF2,
+	IP_MULTICAST_LOOP, IP_TOS
+
+2002-09-03  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/Class.h (_getDeclaredMethod): Declare.
+	(_getMethod): Now private.
+	* java/lang/natClass.cc (_getDeclaredMethod): Renamed from
+	getDeclaredMethod.  Now returns NULL on failure.
+	* java/lang/Class.java (_getDeclaredMethod): Declare.
+	(getDeclaredMethod): No longer native; implements access checks.
+
+2002-09-01  Mark Wielaard  <mark@klomp.org>
+
+	* gnu/gcj/runtime/NameFinder.java (remove_interpreter): New field.
+	(sanitizeStack): Correctly reset unknown and interpreter counters,
+	detect interpreter runtime frames.
+	(demangleInterpreterMethod): New method.
+	* gnu/gcj/runtime/natNameFinder.cc (lookupInterp): Use new method.
+	* java/lang/natVMThrowable.cc (fillInStackTrace): Change order of
+	filling in addrs[].
+
+2002-09-02  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/DatagramPacket.java, java/net/MulticsstSocket.java:
+	re-indented documentation.
+
+2002-08-30  Jesse Rosenstock  <jmr@ugcs.caltech.edu>
+
+	* java/util/Calendar.java (getTimeInMillis, getTimeInMillis): Now
+	public, per 1.4 spec.  Fixes PR libgcj/7785.
+
+2002-08-30  Jeff Sturm  <jsturm@one-point.com>
+
+	* Makefile.in: Rebuilt.
+	* Makefile.am (ZIP, GCJH): Remove $(EXEEXT).
+
+2002-08-29  Tom Tromey  <tromey@redhat.com>
+
+	* java/net/JarURLConnection.java (getCertificates): New method
+	from Classpath.
+	* java/net/URLClassLoader.java (URLClassLoader): Extends
+	SecureClassLoader.
+	(definePackage): New method from Classpath.
+	(getPermissions): Likewise.
+	(newInstance): Likewise.
+	(findClass): Construct CodeSource for new class (from Classpath).
+	* java/net/SocketImpl.java (shutdownInput, shutdownOutput): New
+	methods.
+	* java/net/URL.java (getUserInfo): New method.
+	(set(String,String,int,String,String,String,String,String)): New
+	method.
+	* java/net/PlainSocketImpl.java (_Jv_SO_KEEPALIVE_): Define.
+	(shutdownInput, shutdownOutput): Declare.
+	* java/net/PlainDatagramSocketImpl.java (_Jv_SO_KEEPALIVE_):
+	Define.
+	* java/net/natPlainSocketImpl.cc (setOption): Handle keepalive.
+	(getOption): Likewise.
+	(shutdownInput): New method.
+	(shutdownOutput): Likewise.
+	* java/net/natPlainDatagramSocketImpl.cc (setOption): Handle
+	keepalive.
+	(getOption): Likewise.
+	* java/net/SocketOptions.java (SO_KEEPALIVE): New constant.
+	* java/net/Socket.java (setKeepAlive): New method.
+	(getKeepAlive): Likewise.
+	(shutdownInput, shutdownOutput): New methods.
+
+2002-08-29  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/DatagramPacket.java: updated to JDK 1.4 API
+	new methods are:
+	DatagramPacket(byte[] buf, int offset, int length, SocketAddress
+	  address),
+	DatagramPacket(byte[] buf, int length, SocketAddress address),
+	void setSocketAddress(SocketAddress address)
+	public SocketAddress getSocketAddress()
+
+2002-08-29  Tom Tromey  <tromey@redhat.com>
+
+	* java/io/natFileDescriptorPosix.cc (setLength): Handle case where
+	ftruncate is missing.
+	* configure, include/config.h.in: Rebuilt.
+	* acconfig.h (HAVE_FTRUNCATE): Mention.
+	* configure.in: Check for ftruncate.
+
+2002-08-29  Tom Tromey  <tromey@redhat.com>
+
+	* include/jvm.h (struct _Jv_frame_info): New structure.
+	* gnu/gcj/runtime/natNameFinder.cc: Include StringBuffer.h,
+	java-interp.h.
+	(lookupInterp): New method.
+	(getAddrAsString): Use _Jv_frame_info.
+	(dladdrLookup): Likewise.
+	* gnu/gcj/runtime/NameFinder.java (lookup): Try to look up
+	interpreted frame.
+	(lookupInterp): Declare.
+	* java/lang/natVMThrowable.cc: Include Thread.h, java-interp.h.
+	(fillInStackTrace): Collect information on interpreted frames.
+	Use _Jv_frame_info.
+	* interpret.cc: Include Thread.h.
+	(run): Create and push _Jv_MethodChain object.
+	(_Jv_EndOfInterpreter): New global.
+	* java/lang/Thread.java (interp_frame): New field.
+	* include/java-interp.h (struct _Jv_MethodChain): New structure.
+	Include NameFinder.h.
+
+2002-08-28  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/Class.h: Include Package.h.
+	(Class::getProtectionDomain): Declare.
+	(Class::getPackage): Declare.
+
+2002-08-28  Michael Koch <konqueror@gmx.de>
+
+	* java/net/InetSocketAddress.java: Added some documentation and argument
+	checks for the port numbers.
+	* java/net/DatagramSocketImplFactory.java: New file.
+
+2002-08-28  Michael Koch <konqueror@gmx.de>
+
+	* java/net/Authenticator.java: added some documentation.
+
+2002-08-27  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/reflect/natConstructor.cc (newInstance): Initialize
+	class.
+	* java/lang/reflect/natMethod.cc (invoke): Initialize class.
+
+2002-08-27  Michael Koch <konqueror@gmx.de>
+
+	* java/net/BindException.java,
+	java/net/JarURLConnection.java,
+	java/net/FileNameMap.java,
+	java/net/HttpURLConnection.java,
+	java/net/InetSocketAddress.java,
+	java/net/DatagramPacket.java,
+	java/net/DatagramSocket.java,
+	java/net/DatagramSocketImpl.java,
+	java/net/MulticastSocket.java,
+	java/net/PasswordAuthentication.java,
+	java/net/ServerSocket.java,
+	java/net/Socket.java,
+	java/net/URLClassLoader.java,
+	java/net/URLConnection.java: add/update of some @since/@deprecated
+	
+2002-08-27  Tony Kimball <alk@pobox.com>
+            Tom Tromey  <tromey@redhat.com>
+
+	* java/net/natPlainDatagramSocketImpl.cc (NATIVE_CLOSE): New
+	define.
+	(::close): Removed.
+	(PlainDatagramSocketImpl::close): Use NATIVE_CLOSE.
+	* java/net/natPlainSocketImpl.cc (NATIVE_CLOSE): New define.
+	(::close): Removed.
+	(PlainSocketImpl::close): Use NATIVE_CLOSE.
+	* include/win32.h (getcwd): Removed declaration.  Include io.h.
+
+2002-08-25  Adam Megacz <adam@xwt.org>
+
+	* include/win32.h (getcwd): copied function declaration as
+	temporary fix for header confusion.
+	
+2002-08-24  Mark Wielaard <mark@klomp.org>
+
+	* Makefile.am (libgcj_la_SOURCES): Remove name-finder.cc.
+	(core_java_source_files): Add VMThrowable.java and NameFinder.java
+	(nat_source_files): Remove natThrowable.cc, add natVMThrowable.cc
+	and natNameFinder.cc.
+	* Makefile.in: Regenerate.
+	* prims.cc: Use trace_enabled from VMThrowable.
+	* name-finder.cc: Removed.
+	* gcj/javaprims.h: Add class VMThrowable.
+	* gnu/gcj/runtime/NameFinder.java: New file.
+	* gnu/gcj/runtime/natNameFinder.cc: Likewise.
+	* include/name-finder.h: Removed.
+	* java/lang/Throwable.java (printStackTrace (PrintStream)): Use new
+	method stackTraceString().
+	(printStackTrace (PrintWriter)): Likewise.
+	(stackTraceString): Complete rewrite of old printStackTrace using
+	StringBuffer.
+	(stackTraceStringBuffer): New helper method for stackTraceString().
+	(fillInStackTrace): Delegate to VMTrowable.
+	(getStackTrace): Likewise.
+	(getStackTrace0): Removed. 
+	(trace_enabled, stackTraceBytes): Moved to new VMThrowable.java.
+	(setStackTrace): Copy given array.
+	* java/lang/natThrowable.cc: Removed (replaced by natVMThrowable).
+	* java/lang/VMThrowable.java: New class.
+	* java/lang/natVMThrowable.cc: New file.
+
+2003-08-23  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/URLConnection.java,
+	java/netJarURLConnection.java,
+	gnu/gcj/protocol/core/Connection.java,
+	gnu/gcj/protocol/file/Connection.java,
+	gnu/gcj/protocol/http/Connection.java: Added implementation of
+	getHeaderFields().
+
+2002-08-22  Tom Tromey  <tromey@redhat.com>
+
+	* gij.cc (help): Document -cp and -classpath.
+	(main): Handle -classpath.
+
+2002-08-21  Tom Tromey  <tromey@redhat.com>
+
+	* Makefile.in: Rebuilt.
+	* Makefile.am (ordinary_java_source_files): Added
+	SocketAddress.java, InetSocketAddress.java.
+	* java/net/PortUnreachableException.java: Merged with Classpath.
+	* java/net/SocketTimeoutException.java: Likewise.
+	* java/net/URISyntaxException.java: Likewise.
+	* java/net/SocketAddress.java: New class from Classpath.
+	* java/net/InetSocketAddress.java: Likewise.
+
+2003-08-21  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/Authenticator.java: updated JDK 1.4
+	* java/net/ContentHandler.java: updated JDK 1.4
+
+2002-08-20  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/URISyntaxException.java: New file.
+	* java/net/SocketTimeoutException.java: New file.
+	* java/net/PortUnreachableException.java: New file.	
+	* Makefile.am: Updated.
+	* Makefile.in: Rebuilt.
+
+2002-08-18  Mark Wielaard  <mark@klomp.org>
+
+	Thanks to Vladimir Puskas <vpuskas@eunet.yu>
+	* gnu/java/security/provider/MD5.java: Extends MessageDigest, not
+	MessageDigestSpi (fixes Classpath bug #783).
+
+2002-08-14  Jesse Rosenstock  <jmr@ugcs.caltech.edu>
+
+	* java/lang/natPosixProcess.cc (cleanup): Added `path' argument.
+	(startProcess): Allocate path for chdir in async-signal-safe way.
+
+2002-08-13  Jesse Rosenstock  <jmr@ugcs.caltech.edu>
+
+	Fix for PR libgcj/7570 and PR libgcj/7578:
+	* java/lang/natPosixProcess.cc: Include java/io/File.h.
+	(startProcess): Handle new `dir' argument.
+	* java/lang/Win32Process.java (ConcreteProcess): Added `dir'
+	argument.
+	* java/lang/PosixProcess.java (ConcreteProcess): Added `dir'
+	argument.
+	(startProcess): Likewise.
+	* java/lang/EcosProcess.java (ConcreteProcess): Added `dir'
+	argument.
+	* java/lang/Runtime.java (execInternal): Added `dir' argument.
+	(exec): Don't create new environment if ENV==null.  Pass DIR to
+	execInternal.
+	* java/lang/natRuntime.cc: Include java/io/File.h.
+	(execInternal): Added `dir' argument.
+
+2002-08-13  Jesse Rosenstock  <jmr@fulcrummicro.com>
+
+	* java/io/RandomAccessFile.java (skipBytes): Return number of
+	bytes skipped.
+
+2002-08-01  Mark Wielaard  <mark@klomp.org>
+
+	Reenable patch since shared library troubles on powerpc are solved:
+	* gnu/java/security/provider/Gnu.java: Reference all implementation
+	classes by using Class.getName().
+	* gnu/java/security/der/DEREncodingException.java,
+	gnu/java/security/provider/DERReader.java,
+	gnu/java/security/provider/DERWriter.java,
+	gnu/java/security/provider/DSAKeyPairGenerator.java,
+	gnu/java/security/provider/DSAParameterGenerator.java,
+	gnu/java/security/provider/DSAParameters.java,
+	gnu/java/security/provider/DSASignature.java,
+	gnu/java/security/provider/GnuDSAPrivateKey.java,
+	gnu/java/security/provider/GnuDSAPublicKey.java,
+	gnu/java/security/provider/MD5.java,
+	gnu/java/security/util/Prime.java: New classes
+	* Makefile.am (ordinary_java_source_files): Add above files.
+	* Makefile.in: Regenerate.
+	* gnu/java/security/provider/DefaultPolicy.java
+	(getPermissions): Don't maintain static class variable of Permissions.
+	* gnu/java/security/provider/SHA.java 
+	(engineUpdate): algorithm change.
+	(engineDigest): algorithm change.
+
+2002-08-09  Mark Wielaard  <mark@klomp.org>
+
+	* java/awt/image/MemoryImageSource.java: Change constructor to take
+	int[] not byte[].
+	* java/awt/Graphics2D.java: Uncomment methods that can now be
+	compiled.
+	* java/awt/GridBagLayout.java: New stub implementation.
+	* javax/swing/text/html/HTML.java: Stub implementation.
+	* javax/swing/text/html/parser/ParserDelegator.java: New stub
+	implementation.
+
+	* Makefile.am: Add new files.
+	* Makefile.in: Rebuilt.
+
+2002-08-09  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	* gnu/awt/j2d/Graphics2DImpl.java: Implement stubs for new abstract
+	methods in Graphics2D.
+	
+2002-08-09  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	AWT/Swing merge from GNU Classpath.
+
+	* java/awt/AlphaComposite.java, java/awt/AttributeValue.java, 
+	java/awt/BasicStroke.java, java/awt/BufferCapabilities.java,
+	java/awt/color/CMMException.java, java/awt/ColorPaintContext.java,
+	java/awt/color/ProfileDataException.java, 
+	java/awt/CompositeContext.java,	java/awt/Composite.java,
+	java/awt/ContainerOrderFocusTraversalPolicy.java,
+	java/awt/datatransfer/FlavorTable.java,
+	java/awt/DefaultFocusTraversalPolicy.java,
+	java/awt/DefaultKeyboardFocusManager.java, java/awt/DisplayMode.java,
+	java/awt/dnd/DnDConstants.java, java/awt/dnd/DragGestureEvent.java,
+	java/awt/dnd/DragGestureListener.java, 
+	java/awt/dnd/DragGestureRecognizer.java,
+	java/awt/dnd/DragSourceAdapter.java,
+	java/awt/dnd/DragSourceContext.java,
+	java/awt/dnd/DragSourceDragEvent.java,
+	java/awt/dnd/DragSourceEvent.java, java/awt/dnd/DragSource.java,
+	java/awt/dnd/DragSourceListener.java,
+	java/awt/dnd/DragSourceMotionListener.java,
+	java/awt/dnd/DropTarget.java,
+	java/awt/dnd/InvalidDnDOperationException.java,
+	java/awt/dnd/peer/DragSourceContextPeer.java,
+	java/awt/event/AWTEventListenerProxy.java,
+	java/awt/event/MouseWheelEvent.java,
+	java/awt/event/MouseWheelListener.java,
+	java/awt/event/WindowFocusListener.java,
+	java/awt/event/WindowStateListener.java,
+	java/awt/FocusTraversalPolicy.java, java/awt/FontFormatException.java,
+	java/awt/font/TextHitInfo.java, java/awt/geom/Arc2D.java,
+	java/awt/geom/Area.java, java/awt/geom/CubicCurve2D.java,
+	java/awt/geom/FlatteningPathIterator.java,
+	java/awt/geom/GeneralPath.java, java/awt/geom/QuadCurve2D.java,
+	java/awt/GradientPaint.java, java/awt/GraphicsConfigTemplate.java,
+	java/awt/GraphicsDevice.java, java/awt/GraphicsEnvironment.java,
+	java/awt/HeadlessException.java, java/awt/image/BufferedImageOp.java,
+	java/awt/image/BufferStrategy.java, java/awt/ImageCapabilities.java,
+	java/awt/image/ImagingOpException.java,
+	java/awt/image/RasterFormatException.java,
+	java/awt/image/RenderedImage.java, java/awt/image/TileObserver.java,
+	java/awt/image/VolatileImage.java,
+	java/awt/image/WritableRenderedImage.java,
+	java/awt/im/InputContext.java, java/awt/im/InputMethodHighlight.java
+	java/awt/im/InputMethodRequests.java, java/awt/im/InputSubset.java,
+	java/awt/JobAttributes.java, java/awt/KeyboardFocusManager.java,
+	java/awt/KeyEventDispatcher.java, java/awt/KeyEventPostProcessor.java
+	java/awt/PageAttributes.java, java/awt/print/Book.java,
+	java/awt/print/Pageable.java, java/awt/print/PageFormat.java,
+	java/awt/print/Paper.java, java/awt/print/Printable.java,
+	java/awt/print/PrinterAbortException.java,
+	java/awt/print/PrinterException.java,
+	java/awt/print/PrinterGraphics.java,
+	java/awt/print/PrinterIOException.java, java/awt/print/PrinterJob.java,
+	java/awt/Robot.java, java/awt/ScrollPaneAdjustable.java,
+	java/awt/Stroke.java, java/awt/TexturePaint.java,
+	javax/accessibility/AccessibleAction.java,
+	javax/accessibility/AccessibleBundle.java,
+	javax/accessibility/AccessibleComponent.java,
+	javax/accessibility/AccessibleContext.java,
+	javax/accessibility/AccessibleEditableText.java,
+	javax/accessibility/AccessibleExtendedComponent.java,
+	javax/accessibility/AccessibleExtendedTable.java,
+	javax/accessibility/AccessibleHyperlink.java,
+	javax/accessibility/AccessibleHypertext.java,
+	javax/accessibility/AccessibleIcon.java,
+	javax/accessibility/Accessible.java,
+	javax/accessibility/AccessibleKeyBinding.java,
+	javax/accessibility/AccessibleRelation.java,
+	javax/accessibility/AccessibleRelationSet.java,
+	javax/accessibility/AccessibleResourceBundle.java,
+	javax/accessibility/AccessibleRole.java,
+	javax/accessibility/AccessibleSelection.java,
+	javax/accessibility/AccessibleState.java,
+	javax/accessibility/AccessibleStateSet.java,
+	javax/accessibility/AccessibleTable.java,
+	javax/accessibility/AccessibleTableModelChange.java,
+	javax/accessibility/AccessibleText.java,
+	javax/accessibility/AccessibleValue.java,
+	javax/swing/AbstractAction.java,
+	javax/swing/AbstractButton.java,
+	javax/swing/AbstractCellEditor.java,
+	javax/swing/AbstractListModel.java,
+	javax/swing/AbstractSet.java, javax/swing/Action.java,
+	javax/swing/ActionMap.java, javax/swing/border/AbstractBorder.java,
+	javax/swing/border/BevelBorder.java, javax/swing/border/Border.java,
+	javax/swing/border/CompoundBorder.java,
+	javax/swing/border/EmptyBorder.java,
+	javax/swing/border/EtchedBorder.java, javax/swing/BorderFactory.java,
+	javax/swing/border/LineBorder.java,
+	javax/swing/border/MatteBorder.java,
+	javax/swing/border/TitledBorder.java,
+	javax/swing/BoundedRangeModel.java, javax/swing/Box.java,
+	javax/swing/BoxLayout.java, javax/swing/ButtonGroup.java,
+	javax/swing/ButtonModel.java, javax/swing/CellEditor.java,
+	javax/swing/CellRendererPane.java,
+	javax/swing/colorchooser/AbstractColorChooserPanel.java,
+	javax/swing/colorchooser/ColorChooserComponentFactory.java,
+	javax/swing/colorchooser/ColorSelectionModel.java,
+	javax/swing/colorchooser/DefaultColorSelectionModel.java,
+	javax/swing/ComboBoxEditor.java, javax/swing/ComboBoxModel.java,
+	javax/swing/ComponentInputMap.java, javax/swing/DebugGraphics.java,
+	javax/swing/DefaultBoundedRangeModel.java,
+	javax/swing/DefaultButtonModel.java,
+	javax/swing/DefaultCellEditor.java,
+	javax/swing/DefaultCellRenderer.java,
+	javax/swing/DefaultComboBoxModel.java,
+	javax/swing/DefaultDesktopManager.java,
+	javax/swing/DefaultFocusManager.java,
+	javax/swing/DefaultListCellRenderer.java,
+	javax/swing/DefaultListModel.java,
+	javax/swing/DefaultListSelectionModel.java,
+	javax/swing/DefaultSingleSelectionModel.java,
+	javax/swing/DesktopManager.java,
+	javax/swing/event/AncestorEvent.java,
+	javax/swing/event/AncestorListener.java,
+	javax/swing/event/CaretEvent.java,
+	javax/swing/event/CaretListener.java,
+	javax/swing/event/CellEditorListener.java,
+	javax/swing/event/ChangeEvent.java,
+	javax/swing/event/ChangeListener.java,
+	javax/swing/event/DocumentEvent.java,
+	javax/swing/event/DocumentListener.java,
+	javax/swing/event/EventListenerList.java,
+	javax/swing/event/HyperlinkEvent.java,
+	javax/swing/event/HyperlinkListener.java,
+	javax/swing/event/InternalFrameAdapter.java,
+	javax/swing/event/InternalFrameEvent.java,
+	javax/swing/event/InternalFrameListener.java,
+	javax/swing/event/ListDataEvent.java,
+	javax/swing/event/ListDataListener.java,
+	javax/swing/event/ListSelectionEvent.java,
+	javax/swing/event/ListSelectionListener.java,
+	javax/swing/event/MenuDragMouseEvent.java,
+	javax/swing/event/MenuDragMouseListener.java,
+	javax/swing/event/MenuEvent.java,
+	javax/swing/event/MenuKeyEvent.java,
+	javax/swing/event/MenuKeyListener.java,
+	javax/swing/event/MenuListener.java,
+	javax/swing/event/MouseInputAdapter.java,
+	javax/swing/event/MouseInputListener.java,
+	javax/swing/event/PopupMenuEvent.java,
+	javax/swing/event/PopupMenuListener.java,
+	javax/swing/event/SwingPropertyChangeSupport.java,
+	javax/swing/event/TableColumnModelEvent.java,
+	javax/swing/event/TableColumnModelListener.java,
+	javax/swing/event/TableModelEvent.java,
+	javax/swing/event/TableModelListener.java,
+	javax/swing/event/TreeExpansionEvent.java,
+	javax/swing/event/TreeExpansionListener.java,
+	javax/swing/event/TreeModelEvent.java,
+	javax/swing/event/TreeModelListener.java,
+	javax/swing/event/TreeSelectionEvent.java,
+	javax/swing/event/TreeSelectionListener.java,
+	javax/swing/event/TreeWillExpandListener.java,
+	javax/swing/event/UndoableEditEvent.java,
+	javax/swing/event/UndoableEditListener.java,
+	javax/swing/filechooser/FileFilter.java,
+	javax/swing/filechooser/FileSystemView.java,
+	javax/swing/filechooser/FileView.java,
+	javax/swing/FocusManager.java, javax/swing/GrayFilter.java,
+	javax/swing/Icon.java, javax/swing/ImageIcon.java,
+	javax/swing/InputMap.java, javax/swing/InputVerifier.java,
+	javax/swing/JApplet.java, javax/swing/JButton.java,
+	javax/swing/JCheckBox.java, javax/swing/JCheckBoxMenuItem.java,
+	javax/swing/JColorChooser.java, javax/swing/JComboBox.java,
+	javax/swing/JComponent.java, javax/swing/JDesktopPane.java,
+	javax/swing/JDialog.java, javax/swing/JEditorPane.java,
+	javax/swing/JFileChooser.java, javax/swing/JFrame.java,
+	javax/swing/JInternalFrame.java, javax/swing/JLabel.java,
+	javax/swing/JLayeredPane.java, javax/swing/JList.java,
+	javax/swing/JMenuBar.java, javax/swing/JMenuItem.java,
+	javax/swing/JMenu.java,	javax/swing/JOptionPane.java,
+	javax/swing/JPanel.java, javax/swing/JPasswordField.java,
+	javax/swing/JPopupMenu.java, javax/swing/JProgressBar.java,
+	javax/swing/JRadioButton.java, javax/swing/JRadioButtonMenuItem.java,
+	javax/swing/JRootPane.java, javax/swing/JScrollBar.java,
+	javax/swing/JScrollPane.java, javax/swing/JSeparator.java,
+	javax/swing/JSlider.java, javax/swing/JSplitPane.java,
+	javax/swing/JTabbedPane.java, javax/swing/JTable.java,
+	javax/swing/JTextField.java, javax/swing/JTextPane.java,
+	javax/swing/JToggleButton.java, javax/swing/JToolBar.java,
+	javax/swing/JToolTip.java, javax/swing/JTree.java,
+	javax/swing/JViewport.java, javax/swing/JWindow.java,
+	javax/swing/KeyStroke.java, javax/swing/ListCellRenderer.java,
+	javax/swing/ListModel.java, javax/swing/ListSelectionModel.java,
+	javax/swing/LookAndFeel.java, javax/swing/MenuElement.java,
+	javax/swing/MenuSelectionManager.java,
+	javax/swing/MutableComboBoxModel.java,
+	javax/swing/OverlayLayout.java,
+	javax/swing/plaf/ActionMapUIResource.java,
+	javax/swing/plaf/basic/BasicBorders.java,
+	javax/swing/plaf/basic/BasicButtonUI.java,
+	javax/swing/plaf/basic/BasicCheckBoxUI.java,
+	javax/swing/plaf/basic/BasicDefaults.java,
+	javax/swing/plaf/basic/BasicGraphicsUtils.java,
+	javax/swing/plaf/basic/BasicIconFactory.java,
+	javax/swing/plaf/basic/BasicLabelUI.java,
+	javax/swing/plaf/basic/BasicListUI.java,
+	javax/swing/plaf/basic/BasicLookAndFeel.java,
+	javax/swing/plaf/basic/BasicOptionPaneUI.java,
+	javax/swing/plaf/basic/BasicPanelUI.java,
+	javax/swing/plaf/basic/BasicRadioButtonUI.java,
+	javax/swing/plaf/basic/BasicScrollPaneUI.java,
+	javax/swing/plaf/basic/BasicTabbedPaneUI.java,
+	javax/swing/plaf/basic/BasicTextUI.java,
+	javax/swing/plaf/basic/BasicToggleButtonUI.java,
+	javax/swing/plaf/basic/BasicTreeUI.java,
+	javax/swing/plaf/basic/BasicViewportUI.java,
+	javax/swing/plaf/BorderUIResource.java,
+	javax/swing/plaf/ButtonUI.java,
+	javax/swing/plaf/ColorChooserUI.java,
+	javax/swing/plaf/ColorUIResource.java,
+	javax/swing/plaf/ComboBoxUI.java,
+	javax/swing/plaf/ComponentInputMapUIResource.java,
+	javax/swing/plaf/ComponentUI.java,
+	javax/swing/plaf/DesktopIconUI.java,
+	javax/swing/plaf/DesktopPaneUI.java,
+	javax/swing/plaf/DimensionUIResource.java,
+	javax/swing/plaf/FileChooserUI.java,
+	javax/swing/plaf/FontUIResource.java,
+	javax/swing/plaf/IconUIResource.java,
+	javax/swing/plaf/InputMapUIResource.java,
+	javax/swing/plaf/InsetsUIResource.java,
+	javax/swing/plaf/InternalFrameUI.java,
+	javax/swing/plaf/LabelUI.java,
+	javax/swing/plaf/ListUI.java,
+	javax/swing/plaf/MenuBarUI.java,
+	javax/swing/plaf/MenuItemUI.java,
+	javax/swing/plaf/OptionPaneUI.java,
+	javax/swing/plaf/PanelUI.java,
+	javax/swing/plaf/PopupMenuUI.java,
+	javax/swing/plaf/ProgressBarUI.java,
+	javax/swing/plaf/RootPaneUI.java,
+	javax/swing/plaf/ScrollBarUI.java,
+	javax/swing/plaf/ScrollPaneUI.java,
+	javax/swing/plaf/SeparatorUI.java,
+	javax/swing/plaf/SliderUI.java,
+	javax/swing/plaf/SplitPaneUI.java,
+	javax/swing/plaf/TabbedPaneUI.java,
+	javax/swing/plaf/TableHeaderUI.java,
+	javax/swing/plaf/TableUI.java,
+	javax/swing/plaf/TextUI.java,
+	javax/swing/plaf/ToolBarUI.java,
+	javax/swing/plaf/ToolTipUI.java,
+	javax/swing/plaf/TreeUI.java,
+	javax/swing/plaf/UIResource.java,
+	javax/swing/plaf/ViewportUI.java,
+	javax/swing/ProgressMonitorInputStream.java,
+	javax/swing/ProgressMonitor.java,
+	javax/swing/Renderer.java,
+	javax/swing/RepaintManager.java,
+	javax/swing/RootPaneContainer.java,
+	javax/swing/Scrollable.java,
+	javax/swing/ScrollPaneConstants.java,
+	javax/swing/ScrollPaneLayout.java,
+	javax/swing/SingleSelectionModel.java,
+	javax/swing/SizeRequirements.java,
+	javax/swing/SizeSequence.java,
+	javax/swing/SwingConstants.java,
+	javax/swing/SwingUtilities.java,
+	javax/swing/table/AbstractTableModel.java,
+	javax/swing/table/DefaultTableCellRenderer.java,
+	javax/swing/table/DefaultTableColumnModel.java,
+	javax/swing/table/DefaultTableModel.java,
+	javax/swing/table/TableCellEditor.java,
+	javax/swing/table/TableCellRenderer.java,
+	javax/swing/table/TableColumn.java,
+	javax/swing/table/TableColumnModel.java,
+	javax/swing/table/TableModel.java,
+	javax/swing/text/AbstractDocument.java,
+	javax/swing/text/AttributeSet.java,
+	javax/swing/text/BadLocationException.java,
+	javax/swing/text/Caret.java,
+	javax/swing/text/CharacterIterator.java,
+	javax/swing/text/ComponentView.java,
+	javax/swing/text/DefaultCaret.java,
+	javax/swing/text/DefaultEditorKit.java,
+	javax/swing/text/Document.java,
+	javax/swing/text/EditorKit.java,
+	javax/swing/text/Element.java,
+	javax/swing/text/GapContent.java,
+	javax/swing/text/JTextComponent.java,
+	javax/swing/text/Keymap.java,
+	javax/swing/text/MutableAttributeSet.java,
+	javax/swing/text/PlainDocument.java,
+	javax/swing/text/PlainEditorKit.java,
+	javax/swing/text/Position.java,
+	javax/swing/text/Segment.java,
+	javax/swing/text/StyledDocument.java,
+	javax/swing/text/StyledEditorKit.java,
+	javax/swing/text/Style.java,
+	javax/swing/text/TextAction.java,
+	javax/swing/text/ViewFactory.java,
+	javax/swing/text/View.java,
+	javax/swing/Timer.java,
+	javax/swing/ToggleButtonModel.java,
+	javax/swing/ToolTipManager.java,
+	javax/swing/tree/AbstractLayoutCache.java,
+	javax/swing/tree/DefaultMutableTreeNode.java,
+	javax/swing/tree/DefaultTreeCellEditor.java,
+	javax/swing/tree/DefaultTreeCellRenderer.java,
+	javax/swing/tree/DefaultTreeModel.java,
+	javax/swing/tree/DefaultTreeSelectionModel.java,
+	javax/swing/tree/ExpandVetoException.java,
+	javax/swing/tree/FixedHeightLayoutCache.java,
+	javax/swing/tree/MutableTreeNode.java,
+	javax/swing/tree/RowMapper.java,
+	javax/swing/tree/TreeCellEditor.java,
+	javax/swing/tree/TreeCellRenderer.java,
+	javax/swing/tree/TreeModel.java,
+	javax/swing/tree/TreeNode.java,
+	javax/swing/tree/TreePath.java,
+	javax/swing/tree/TreeSelectionModel.java,
+	javax/swing/tree/VariableHeightLayoutCache.java,
+	javax/swing/UIDefaults.java,
+	javax/swing/UIManager.java,
+	javax/swing/undo/AbstractUndoableEdit.java,
+	javax/swing/undo/CannotRedoException.java,
+	javax/swing/undo/CannotUndoException.java,
+	javax/swing/undo/CompoundEdit.java,
+	javax/swing/undo/StateEditable.java,
+	javax/swing/undo/StateEdit.java,
+	javax/swing/undo/UndoableEdit.java,
+	javax/swing/undo/UndoableEditSupport.java,
+	javax/swing/undo/UndoManager.java,
+	javax/swing/UnsupportedLookAndFeelException.java,
+	javax/swing/ViewportLayout.java,
+	javax/swing/WindowConstants.java: New files, from GNU Classpath.
+	
+	* java/awt/ActiveEvent.java,
+	java/awt/Adjustable.java, java/awt/AWTError.java,
+	java/awt/AWTEvent.java,	java/awt/AWTEventMulticaster.java,
+	java/awt/AWTException.java, java/awt/AWTPermission.java,
+	java/awt/BorderLayout.java, java/awt/Button.java, java/awt/Choice.java,
+	java/awt/Color.java, java/awt/Component.java,
+	java/awt/ComponentOrientation.java, java/awt/Container.java,
+	java/awt/datatransfer/MimeTypeParseException.java,
+	java/awt/datatransfer/Transferable.java,
+	java/awt/datatransfer/UnsupportedFlavorException.java,
+	java/awt/Dimension.java, java/awt/event/ActionEvent.java,
+	java/awt/event/ActionListener.java,
+	java/awt/event/AdjustmentEvent.java,
+	java/awt/event/AdjustmentListener.java,
+	java/awt/event/AWTEventListener.java,
+	java/awt/event/ComponentAdapter.java,
+	java/awt/event/ComponentEvent.java,
+	java/awt/event/ComponentListener.java,
+	java/awt/event/ContainerAdapter.java,
+	java/awt/event/ContainerEvent.java,
+	java/awt/event/ContainerListener.java,
+	java/awt/event/FocusAdapter.java,
+	java/awt/event/FocusEvent.java, java/awt/event/FocusListener.java,
+	java/awt/event/HierarchyBoundsAdapter.java,
+	java/awt/event/HierarchyBoundsListener.java,
+	java/awt/event/HierarchyEvent.java,
+	java/awt/event/HierarchyListener.java,
+	java/awt/event/InputEvent.java, java/awt/event/InputMethodEvent.java,
+	java/awt/event/InputMethodListener.java,
+	java/awt/event/InvocationEvent.java, java/awt/event/ItemEvent.java,
+	java/awt/event/ItemListener.java, java/awt/event/KeyAdapter.java,
+	java/awt/event/KeyEvent.java, java/awt/event/KeyListener.java,
+	java/awt/event/MouseAdapter.java, java/awt/event/MouseEvent.java,
+	java/awt/event/MouseListener.java,
+	java/awt/event/MouseMotionAdapter.java,
+	java/awt/event/MouseMotionListener.java,
+	java/awt/event/PaintEvent.java, java/awt/EventQueue.java,
+	java/awt/event/TextEvent.java, java/awt/event/TextListener.java,
+	java/awt/event/WindowAdapter.java, java/awt/event/WindowEvent.java,
+	java/awt/event/WindowListener.java, java/awt/Font.java,
+	java/awt/geom/AffineTransform.java, java/awt/geom/Dimension2D.java,
+	java/awt/geom/Ellipse2D.java,
+	java/awt/geom/IllegalPathStateException.java,
+	java/awt/geom/Line2D.java,
+	java/awt/geom/NoninvertibleTransformException.java,
+	java/awt/geom/PathIterator.java, java/awt/geom/Point2D.java,
+	java/awt/geom/Rectangle2D.java, java/awt/geom/RectangularShape.java,
+	java/awt/geom/RoundRectangle2D.java,
+	java/awt/GraphicsConfiguration.java,
+	java/awt/IllegalComponentStateException.java,
+	java/awt/image/IndexColorModel.java,
+	java/awt/Image.java, java/awt/image/MemoryImageSource.java,
+	java/awt/image/PixelGrabber.java, java/awt/Insets.java,
+	java/awt/ItemSelectable.java, java/awt/LayoutManager2.java,
+	java/awt/LayoutManager.java, java/awt/MenuContainer.java,
+	java/awt/MenuItem.java,	java/awt/PaintContext.java,
+	java/awt/Paint.java, java/awt/Panel.java, java/awt/Point.java,
+	java/awt/Polygon.java, java/awt/PrintGraphics.java,
+	java/awt/PrintJob.java, java/awt/Rectangle.java, 
+	java/awt/RenderingHints.java, java/awt/ScrollPane.java,
+	java/awt/Shape.java, java/awt/SystemColor.java, java/awt/Toolkit.java,
+	java/awt/Transparency.java, java/awt/Window.java: Merge from classpath.
+
+	* java/awt/im/spi/InputMethod.java,
+	java/awt/im/spi/InputMethodContext.java,
+	java/awt/im/spi/InputMethodDescriptor.java,
+	java/awt/image/renderable/ContextualRenderedImageFactory.java,
+	java/awt/image/renderable/ParameterBlock.java,
+	java/awt/image/renderable/RenderContext.java,
+	java/awt/image/renderable/RenderableImage.java,
+	java/awt/image/renderable/RenderableImageOp.java,
+	java/awt/image/renderable/RenderableImageProducer.java,
+	java/awt/image/renderable/RenderedImageFactory.java: New files from
+	classpath.
+
+	* gnu/java/awt/EventModifier.java,
+	gnu/java/awt/image/ImageDecoder.java,
+	gnu/java/awt/image/XBMDecoder.java: New files from GNU Classpath.
+
+	* gnu/awt/xlib/XGraphicsConfiguration.java,
+	gnu/awt/xlib/XToolkit.java: Updated to compile against 1.4 abstract
+	API.
+	
+	* javax/swing/plaf/metal/MetalLookAndFeel.java: New file from 
+	GNU Classpath.
+
+	* Makefile.am: Add new files.
+	* Makefile.in: Rebuilt.
+
+2002-08-07  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	* java/lang/ClassLoader.java (getSystemClassLoader, findClass,
+	defineClass, setSigners, getSystemResource, getSystemResourceAsStream, 
+	findResource, getResources, findResources): Add javadoc from classpath.
+	(getSystemResources): Implemented.
+
+2002-08-01  Mark Wielaard  <mark@klomp.org>
+
+	Revert patch that breaks libgcj shared library on powerpc:
+	* gnu/java/security/provider/Gnu.java: Reverse referencing all
+	implementation classes by using Class.getName(). Uses Strings again.
+	* gnu/java/security/der/DEREncodingException.java,
+	gnu/java/security/provider/DERReader.java,
+	gnu/java/security/provider/DERWriter.java,
+	gnu/java/security/provider/DSAKeyPairGenerator.java,
+	gnu/java/security/provider/DSAParameterGenerator.java,
+	gnu/java/security/provider/DSAParameters.java,
+	gnu/java/security/provider/DSASignature.java,
+	gnu/java/security/provider/GnuDSAPrivateKey.java,
+	gnu/java/security/provider/GnuDSAPublicKey.java,
+	gnu/java/security/provider/MD5.java,
+	gnu/java/security/util/Prime.java: Removed.
+	* Makefile.am (ordinary_java_source_files): Remove above files.
+	* Makefile.in: Regenerate.
+	* gnu/java/security/provider/DefaultPolicy.java
+	(getPermissions): Revert to maintaining static class variable of
+	Permissions.
+	* gnu/java/security/provider/SHA.java 
+	(engineUpdate): Revert algorithm change.
+	(engineDigest): Revert algorithm change.
+
+2002-08-01  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	* configure.host: Add SH support.
+        * sysdep/sh/locks.h: New file.
+
+2002-07-31  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	* java/awt/Frame.java (Frame): Remove println calls.
+
+2002-07-30  Jeff Sturm  <jsturm@one-point.com>
+
+	* configure.in (LIBFFIINCS): Don't prepend MULTIBUILDTOP.
+	* configure: Rebuilt.
+
+2002-07-27  Alan Modra  <amodra@bigpond.net.au>
+
+	* sysdep/powerpc/locks.h: Formatting.
+	(_LARX): Define.
+	(_STCX): Define.
+	(compare_and_swap): Use _LARX and _STCX.
+	(compare_and_swap_release): Likewise.
+
+2002-07-26  Tom Tromey  <tromey@redhat.com>
+
+	* java/net/Authenticator.java: New version from Classpath.
+	* java/net/DatagramSocketImpl.java: New version from Classpath.
+
+2002-07-27  Alan Modra  <amodra@bigpond.net.au>
+
+	* configure.host: Add powerpc64*-* entry.
+
+2002-07-26  Tom Tromey  <tromey@redhat.com>
+
+	* java/io/natFileDescriptorPosix.cc: Don't include sys/socket.h or
+	fcntl.h.
+
+2002-07-24  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/Runtime.java (loadLibrary): Pass `true' as search
+	argument to _load.
+
+2002-07-24  Tom Tromey  <tromey@redhat.com>
+            Tony Kimball <alk@pobox.com>
+
+	* java/io/natFileDescriptorWin32.cc (setLength): New method.
+	* java/io/natFileDescriptorPosix.cc (setLength): New method.
+	* java/io/RandomAccessFile.java (setLength): New method.
+	* java/io/natFileDescriptorEcos.cc (setLength): New method.
+	* java/io/FileDescriptor.java (setLength): New method.
+
+2002-07-24  Mark Wielaard  <mark@klomp.org>
+
+	* java/lang/reflect/natField.cc (setAddr): Check isAccessible().
+	* java/io/ObjectInputStream.java (setBooleanField): Before setting
+	field call setAccessible(true).
+	(setByteField): Likewise.
+	(setCharField): Likewise.
+	(setDoubleField): Likewise.
+	(setFloatField): Likewise.
+	(setIntField): Likewise.
+	(setLongField): Likewise.
+	(setShortField): Likewise.
+	(setObjectField): Likewise.
+
+2002-07-24  Tom Tromey  <tromey@redhat.com>
+
+	* java/io/ObjectInputStream.java (readObject) [TC_ARRAY]: Don't
+	use toString() to format array element.
+
+2002-07-23  Mark Wielaard  <mark@klomp.org>
+
+	* gnu/java/security/provider/MD5.java: Extends MessageDigest, not
+	MessageDigestSpi (fixes Classpath bug #783).
+
+2002-07-21  Mark Wielaard  <mark@klomp.org>
+
+	* gnu/java/security/provider/Gnu.java: Reference all implementation
+	classes by using Class.getName().
+
+2002-07-19  Bo Thorsen  <bo@berlioz.suse.de>
+
+	* java/lang/ieeefp.h: Add x86-64 support.
+	* configure.in: Likewise.
+	* configure.host: Likewise.
+	* configure: Regenerated.
+	* sysdep/x86-64/locks.h: New file with x86-64 locks.
+
+2002-07-16  Mark Wielaard  <mark@klomp.org>
+
+	* java/io/StreamTokenizer.java (pushBack): Update documentation.
+	(whitespaceChars): call resetChar().
+
+2002-07-15  Tom Tromey  <tromey@redhat.com>
+
+	* Makefile.in: Rebuilt.
+	* Makefile.am (awt_java_source_files): Added new files.
+	* java/beans/ExceptionListener.java: Merged with Classpath.
+	* java/beans/PropertyChangeEvent.java: Merged with Classpath.
+	* java/beans/PropertyChangeListener.java: Merged with Classpath.
+	* java/beans/PropertyChangeListenerProxy.java: Merged with Classpath.
+	* java/beans/PropertyChangeSupport.java: Merged with Classpath.
+	* java/beans/VetoableChangeListener.java: Merged with Classpath.
+	* java/beans/VetoableChangeListenerProxy.java: Merged with Classpath.
+	* java/beans/VetoableChangeSupport.java: Merged with Classpath.
+
+2002-07-14  Mark Wielaard  <mark@klomp.org>
+
+	* gnu/java/security/der/DEREncodingException.java,
+	gnu/java/security/provider/DERReader.java,
+	gnu/java/security/provider/DERWriter.java,
+	gnu/java/security/provider/DSAKeyPairGenerator.java,
+	gnu/java/security/provider/DSAParameterGenerator.java,
+	gnu/java/security/provider/DSAParameters.java,
+	gnu/java/security/provider/DSASignature.java,
+	gnu/java/security/provider/GnuDSAPrivateKey.java,
+	gnu/java/security/provider/GnuDSAPublicKey.java,
+	gnu/java/security/provider/MD5.java,
+	gnu/java/security/util/Prime.java: New files from Classpath.
+	* Makefile.am (ordinary_java_source_files): Add new files.
+	* Makefile.in: Regenerate.
+
+2002-07-14  C. Brian Jones <cbj@gnu.org>
+
+	* gnu/java/security/provider/DefaultPolicy.java
+	(getPermissions): do not maintain static class variable of
+	Permissions
+	* gnu/java/security/provider/SHA.java 
+	(engineUpdate): algorithm change
+	(engineDigest): algorithm change
+
+2002-07-12  Jesse Rosenstock  <jmr@fulcrummicro.com>
+
+	For PR libgcj/7292:
+	* java/lang/Character.java (toString(char)): Now static.
+
+2002-07-12  Mark Wielaard  <mark@klomp.org>
+
+	* java/lang/natThrowable.cc (printRawStackTrace): removed.
+	(getStackTrace0): new method.
+	* java/lang/Throwable.java (CPlusPlusDemangler): removed.
+	(printStackTrace(PrintWriter)): replace with pure java implementation.
+	(printRawStackTrace): removed.
+	(getStackTrace0): new method.
+	* java/lang/StackTraceElement.java (toString): add extra whitespace.
+	* gcj/javaprims.h: regenerate class list.
+	* include/name-finder.h (lookup): new returns StackTraceElement*.
+	(method_name, file_name): fields removed.
+	(pid2, f2_pipe, b2_pipe, b2_pipe_fd): new fields.
+	(~_Jv_name_finder): close new descriptors.
+	* name-finder.cc(_Jv_name_finder): setup c++filt helper process.
+	(createStackTraceElement): new method.
+	(lookup): returns StackTraceElement*, uses createStackTraceElement().
+
+2002-07-10  Tom Tromey  <tromey@redhat.com>
+
+	* configure: Rebuilt.
+	* configure.in: Use `test' after `&&'.  From Chris Faylor.
+
+2002-07-08  Mark Wielaard  <mark@klomp.org>
+
+	* mauve-libgcj: Don't compile java.sql.Blob.BlobTest,
+	java.sql.Clob.ClobTest, java.sql.Connection.TestJdbc20,
+	java.sql.DatabaseMetaData.TestJdbc20
+
+2002-07-05  Tony Kimball  <alk@pobox.com>
+
+	* java/lang/natRuntime.cc (nativeGetLibname): Added missing `#'.
+
+2002-07-04  Tom Tromey  <tromey@redhat.com>
+            Jeff Sturm  <jsturm@one-point.com>
+
+	Fix for PR libgcj/7060:
+	* java/lang/Class.h (_getMethod): Renamed from getMethod.
+	* java/lang/natClass.cc (_getMethod): Renamed from getMethod.
+	Recurse into superinterfaces.  Don't throw NoSuchMethodException.
+	* java/lang/Class.java (getMethod): New Java implementation;
+	complies with spec.
+	(_getMethod): New native method.
+
+2002-07-02  Tom Tromey  <tromey@redhat.com>
+            David Hovemeyer  <daveho@cs.umd.edu>
+
+	* java/text/ChoiceFormat.java
+	(format(double,StringBuffer,FieldPosition)): Fix fencepost error
+	in check loop.
+	* java/text/MessageFormat.java
+	(format(Object[],StringBuffer,FieldPosition): Pass all arguments
+	to MessageFormat.
+
+2002-07-01  Tom Tromey  <tromey@redhat.com>
+
+	* javax/naming/spi/NamingManager.java (getPlusPath): Don't create
+	StringTokenizer on null string.  For PR libgcj/7180.
+	From daveho@cs.umd.edu.
+
+2002-06-24  Tom Tromey  <tromey@redhat.com>
+
+	* java/net/natPlainDatagramSocketImpl.cc (BooleanClass): Removed.
+	(IntegerClass): Likewise.
+	* java/lang/natClass.cc (CloneableClass): Removed.
+	(ObjectClass, ErrorClass, ClassClass, MethodClass, FieldClass,
+	ConstructorClass): Likewise.
+	* java/lang/natClassLoader.cc (CloneableClass): Removed.
+	(ObjectClass, ClassClass, VMClassLoaderClass, ClassLoaderClass,
+	SerializableClass): Likewise.
+	* java/lang/reflect/natMethod.cc (BooleanClass): Removed.
+	(VoidClass, ByteClass, ShortClass, CharacterClass, IntegerClass,
+	LongClass, FloatClass, DoubleClass): Likewise.
+
+	* verify.cc (branch_prepass): Updated for change to exception
+	handler type.
+	(verify_instructions_0): Likewise.
+	* defineclass.cc (handleCodeAttribute): Initialize `prepared'.
+	(handleExceptionTableEntry): Updated for change to exception
+	handler type.
+	* java/lang/Class.h (Class): Removed _Jv_InterpMethodInvocation.
+	* include/java-interp.h (_Jv_InterpMethodInvocation): Removed.
+	(union _Jv_InterpPC): New.
+	(class _Jv_InterpException): Changed types to _Jv_InterpPC.
+	(class _Jv_InterpMethod): Added new `prepared' field.
+	(class _Jv_InterpMethod): Added `compile' method.  Removed
+	`continue1' and `find_exception'.  Changed arguments to `run'.
+	* interpret.cc (union insn_slot): New.
+	(find_exception): Removed.
+	(run_normal): Removed most logic.
+	(run_synch_object): Likewise; also, use JvSynchronize.
+	(run_synch_class): Likewise.
+	(run): Removed.
+	(continue1): Renamed as `run'.  Compile bytecode if required.
+	Add new code to allow refinement of direct-threaded code at
+	runtime.  Handle exceptions.
+	(SAVE_PC): Removed.
+	(compile): New method.
+	(SET_ONE, SET_INSN, SET_INT, SET_DATUM): New defines.
+	(NULLARRAYCHECK): Don't use SAVE_PC.
+	(pc_t): New typedef.
+	(TAKE_GOTO, GET1S, GET1U, GET2U, AVAL1U, AVAL2U, AVAL2UP,
+	SKIP_GOTO, GOTO_VAL, PCVAL, AMPAMP): New macros.
+
+2002-06-23  Tom Tromey  <tromey@redhat.com>
+
+	* configure: Rebuilt.
+	* configure.in (INTERPRETER): New subst.
+	(AM_RUNTESTFLAGS): Don't subst.
+
+	* Makefile.in: Rebuilt.
+	* Makefile.am ($(srcdir)/java/lang/Object.h,
+	$(srcdir)/java/lang/Class.h): Added dummy targets.
+
+2002-06-21  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	Reformat JDBC classes and add new JDK 1.4 classes and methods.
+
+	* java/sql/ParameterMetaData.java, java/sql/SQLPermission.java,
+	java/sql/Savepoint.java: New files.
+	* java/sql/Array.java, java/sql/BatchUpdateException.java,
+	java/sql/Blob.java, java/sql/CallableStatement.java,
+	java/sql/Clob.java, java/sql/Connection.java,
+	java/sql/DataTruncation.java, java/sql/DatabaseMetaData.java,
+	java/sql/Date.java, java/sql/Driver.java, java/sql/DriverManager.java,
+	java/sql/DriverPropertyInfo.java, java/sql/PreparedStatement.java,
+	java/sql/Ref.java, java/sql/ResultSet.java,
+	java/sql/ResultSetMetaData.java, java/sql/SQLData.java
+	java/sql/SQLException.java, java/sql/SQLInput.java,
+	java/sql/SQLOutput.java, java/sql/SQLWarning.java
+	java/sql/Statement.java, java/sql/Struct.java, java/sql/Time.java,
+	java/sql/Timestamp.java, java/sql/Types.java: Updated to JDBC 3.0
+	(JDK 1.4) specification.
+	* javax/sql/ConnectionEvent.java, 
+	javax/sql/ConnectionEventListener.java,
+	javax/sql/ConnectionPoolDataSource.java,
+	javax/sql/DataSource.java, javax/sql/PooledConnection.java,
+	javax/sql/RowSetEvent.java, javax/sql/RowSetInternal.java,
+	javax/sql/RowSet.java, javax/sql/RowSetListener.java,
+	javax/sql/RowSetMetaData.java, javax/sql/RowSetReader.java,
+	javax/sql/RowSetWriter.java, javax/sql/XAConnection.java,
+	javax/sql/XADataSource.java: New files.
+	* Makefile.am: Add new files.
+	* Makefile.in: Rebuilt.
+	
+2002-06-20  Tom Tromey  <tromey@redhat.com>
+
+	For PR libgcj/7073:
+	* resolve.cc (_Jv_PrepareClass): Only resolve superclass if it
+	exists.
+	* defineclass.cc (handleClassBegin): Superclass for interface is
+	`null'.
+
+2002-06-18  Tom Tromey  <tromey@redhat.com>
+
+	* gcj/javaprims.h: Updated class declaration list.
+	* Makefile.in: Rebuilt.
+	* Makefile.am (core_java_source_files): Removed
+	BasicMapEntry.java.
+	* java/util/BasicMapEntry.java: Removed.
+
+2002-06-18  Jeff Sturm  <jsturm@one-point.com>
+
+	* java/net/natPlainDatagramSocketImpl.cc (receive):
+	Check bounds of argument to FD_SET.
+	(setOption): Throw exception if socket is closed.
+
+	* java/net/natPlainSocketImpl.cc (accept, read):
+	Check bounds of argument to FD_SET.
+	(setOption): Throw exception if socket is closed.
+
+2002-06-18  Tom Tromey  <tromey@redhat.com>
+
+	* gcj/javaprims.h: Updated class declaration list.
+	* Makefile.in: Rebuilt.
+	* Makefile.am (core_java_source_files): Added
+	PropertyPermissionCollection.java.
+	* java/lang/Thread.java (group, name): Now package-private.
+	* java/lang/ThreadGroup.java: Re-merge with Classpath.
+	* java/util/AbstractList.java: Likewise.
+	* java/util/AbstractMap.java: Likewise.
+	* java/util/Calendar.java: Likewise.
+	* java/util/Collections.java: Likewise.
+	* java/util/HashMap.java: Likewise.
+	* java/util/Hashtable.java: Likewise.
+	* java/util/LinkedHashMap.java: Likewise.
+	* java/util/LinkedList.java: Likewise.
+	* java/util/List.java: Likewise.
+	* java/util/ListResourceBundle.java: Likewise.
+	* java/util/Map.java: Likewise.
+	* java/util/Observable.java: Likewise.
+	* java/util/Properties.java: Likewise.
+	* java/util/PropertyPermission.java: Likewise.
+	* java/util/PropertyPermissionCollection.java: Likewise.
+	* java/util/PropertyResourceBundle.java: Likewise.
+	* java/util/Random.java: Likewise.
+	* java/util/SimpleTimeZone.java: Likewise.
+	* java/util/StringTokenizer.java: Likewise.
+	* java/util/TimerTask.java: Likewise.
+	* java/util/TreeMap.java: Likewise.
+	* java/util/WeakHashMap.java: Likewise.
+	* java/util/jar/Attributes.java: Likewise.
+	* java/util/jar/JarException.java: Likewise.
+	* java/util/jar/Manifest.java: Likewise.
+
+2002-06-17  Tom Tromey  <tromey@redhat.com>
+
+	* gcj/javaprims.h: Updated class declaration list.
+	* Makefile.in: Rebuilt.
+	* Makefile.am (core_java_source_files): Added new file.
+	* java/util/EventListenerProxy.java: New file.
+	* java/util/EventListener.java: Re-merge with Classpath.
+	* java/util/EventObject.java: Re-merge with Classpath.
+
+2002-06-17  Nathanael Nerode  <neroden@twcny.rr.com>
+
+	* java/lang/ClassNotFoundException.java: New Classpath version.
+
+2002-06-17  Nathanael Nerode  <neroden@twcny.rr.com>
+
+	* java/rmi/activation/ActivateFailedException.java: Remerge from
+	Classpath version.
+	* java/rmi/activation/ActivationException.java: Ditto.
+	* java/rmi/activation/UnknownGroupException.java: Ditto.
+	* java/rmi/activation/UnknownObjectException.java: Ditto.
+	* java/rmi/server/ExportException: Ditto.
+	* java/rmi/server/ServerCloneException: Ditto.
+	* java/rmi/server/ServerNotActiveException: Ditto.
+	* java/rmi/server/SkeletonMismatchException: Ditto.
+	* java/rmi/server/SkeletonNotFoundException: Ditto.
+	* java/rmi/server/SocketSecurityException: Ditto.
+
+2002-06-16  Tom Tromey  <tromey@redhat.com>
+
+	* gcj/javaprims.h: Updated class declaration list.
+
+	* java/io/LineNumberInputStream.java: Merged with Classpath.
+
+	* java/lang/RuntimeException.java: Re-merge with Classpath.
+	* java/util/ArrayList.java: Likewise.
+	* java/util/Arrays.java: Likewise.
+	* java/util/BitSet.java: Likewise.
+	* java/util/Dictionary.java: Likewise.
+	* java/util/IdentityHashMap.java: Likewise.
+	* java/util/MissingResourceException.java: Likewise.
+	* java/util/Observer.java: Likewise.
+	* java/util/TooManyListenersException.java: Likewise.
+	* java/util/zip/DataFormatException.java: Likewise.
+	* java/util/zip/ZipException.java: Likewise.
+
+2002-06-16  Nathanael Nerode  <neroden@twcny.rr.com>
+
+	* java/rmi/AccessException.java: Remerge from Classpath.
+	* java/rmi/AlreadyBoundException.java: Ditto.
+	* java/rmi/ConnectException.java: Ditto.
+	* java/rmi/ConnectIOException.java: Ditto.
+	* java/rmi/MarshalException.java: Ditto.
+	* java/rmi/NoSuchObjectException.java: Ditto.
+	* java/rmi/NotBoundException.java: Ditto.
+	* java/rmi/RemoteException.java: Ditto.
+	* java/rmi/RMISecurityException.java: Ditto.
+	* java/rmi/ServerError.java: Ditto.
+	* java/rmi/ServerException.java: Ditto.
+	* java/rmi/ServerRuntimeException.java: Ditto.
+	* java/rmi/StubNotFoundException.java: Ditto.
+	* java/rmi/UnexpectedExcpetion.java: Ditto.
+	* java/rmi/UnknownHostException.java: Ditto.
+	* java/rmi/UnmarshalException.java: Ditto.
+
+2002-06-15  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/AbstractMethodError.java: Re-merged with Classpath.
+	* java/lang/ArithmeticException.java: Likewise.
+	* java/lang/ArrayIndexOutOfBoundsException.java: Likewise.
+	* java/lang/ArrayStoreException.java: Likewise.
+	* java/lang/Byte.java: Likewise.
+	* java/lang/CharSequence.java: Likewise.
+	* java/lang/ClassCastException.java: Likewise.
+	* java/lang/ClassCircularityError.java: Likewise.
+	* java/lang/ClassFormatError.java: Likewise.
+	* java/lang/CloneNotSupportedException.java: Likewise.
+	* java/lang/Cloneable.java: Likewise.
+	* java/lang/Comparable.java: Likewise.
+	* java/lang/Compiler.java: Likewise.
+	* java/lang/Error.java: Likewise.
+	* java/lang/ExceptionInInitializerError.java: Likewise.
+	* java/lang/IllegalAccessError.java: Likewise.
+	* java/lang/IllegalAccessException.java: Likewise.
+	* java/lang/IllegalArgumentException.java: Likewise.
+	* java/lang/IllegalMonitorStateException.java: Likewise.
+	* java/lang/IllegalStateException.java: Likewise.
+	* java/lang/IllegalThreadStateException.java: Likewise.
+	* java/lang/IncompatibleClassChangeError.java: Likewise.
+	* java/lang/IndexOutOfBoundsException.java: Likewise.
+	* java/lang/InheritableThreadLocal.java: Likewise.
+	* java/lang/InstantiationError.java: Likewise.
+	* java/lang/InstantiationException.java: Likewise.
+	* java/lang/InternalError.java: Likewise.
+	* java/lang/InterruptedException.java: Likewise.
+	* java/lang/LinkageError.java: Likewise.
+	* java/lang/NegativeArraySizeException.java: Likewise.
+	* java/lang/NoClassDefFoundError.java: Likewise.
+	* java/lang/NoSuchFieldError.java: Likewise.
+	* java/lang/NoSuchFieldException.java: Likewise.
+	* java/lang/NoSuchMethodError.java: Likewise.
+	* java/lang/NoSuchMethodException.java: Likewise.
+	* java/lang/NullPointerException.java: Likewise.
+	* java/lang/NumberFormatException.java: Likewise.
+	* java/lang/OutOfMemoryError.java: Likewise.
+	* java/lang/Process.java: Likewise.
+	* java/lang/Runnable.java: Likewise.
+	* java/lang/RuntimePermission.java: Likewise.
+	* java/lang/SecurityException.java: Likewise.
+	* java/lang/Short.java: Likewise.
+	* java/lang/StackOverflowError.java: Likewise.
+	* java/lang/StringIndexOutOfBoundsException.java: Likewise.
+	* java/lang/ThreadDeath.java: Likewise.
+	* java/lang/ThreadLocal.java: Likewise.
+	* java/lang/UnknownError.java: Likewise.
+	* java/lang/UnsatisfiedLinkError.java: Likewise.
+	* java/lang/UnsupportedClassVersionError.java: Likewise.
+	* java/lang/UnsupportedOperationException.java: Likewise.
+	* java/lang/VerifyError.java: Likewise.
+	* java/lang/VirtualMachineError.java: Likewise.
+	* java/lang/reflect/InvocationTargetException.java: Likewise.
+	* java/net/BindException.java: Likewise.
+	* java/net/ConnectException.java: Likewise.
+	* java/net/MalformedURLException.java: Likewise.
+	* java/net/NoRouteToHostException.java: Likewise.
+	* java/net/ProtocolException.java: Likewise.
+	* java/net/SocketException.java: Likewise.
+	* java/net/UnknownHostException.java: Likewise.
+	* java/net/UnknownServiceException.java: Likewise.
+
+	* java/io/BufferedOutputStream.java: Re-merged with Classpath.
+	* java/io/CharConversionException.java: Likewise.
+	* java/io/EOFException.java: Likewise.
+	* java/io/FileNotFoundException.java: Likewise.
+	* java/io/IOException.java: Likewise.
+	* java/io/InterruptedIOException.java: Likewise.
+	* java/io/InvalidClassException.java: Likewise.
+	* java/io/InvalidObjectException.java: Likewise.
+	* java/io/NotActiveException.java: Likewise.
+	* java/io/NotSerializableException.java: Likewise.
+	* java/io/ObjectStreamException.java: Likewise.
+	* java/io/ObjectStreamConstants.java: Likewise.
+	* java/io/OptionalDataException.java: Likewise.
+	* java/io/PipedInputStream.java: Likewise.
+	* java/io/PushbackInputStream.java: Likewise.
+	* java/io/StreamCorruptedException.java: Likewise.
+	* java/io/SyncFailedException.java: Likewise.
+	* java/io/UTFDataFormatException.java: Likewise.
+	* java/io/UnsupportedEncodingException.java: Likewise.
+	* java/io/WriteAbortedException.java: Likewise.
+
+2002-06-15  Nathanael Nerode  <neroden@twcny.rr.com>
+
+	* java/text/ChoiceFormat.java: Update comments from Classpath.
+	* java/text/ParseException.java (serialVersionUID): New
+	field from Classpath.
+	* java/text/ParseException.java: Update formatting & comments
+	from Classpath.
+
+2002-06-15  Tom Tromey  <tromey@redhat.com>
+
+	* java/util/zip/InflaterInputStream.java (read): Loop if data has
+	been read but none output by inflater.
+	* java/util/zip/natDeflater.cc (reset): Set is_finished.
+	* java/util/zip/natInflater.cc (reset): Set dist_needed and
+	is_finished.
+	* java/util/zip/ZipOutputStream.java: Replaced with Classpath
+	version.
+	* java/util/zip/ZipFile.java: Replaced with Classpath version.
+	* java/util/zip/ZipEntry.java: Replaced with Classpath version.
+	* java/util/zip/ZipInputStream.java: Replaced with Classpath
+	version.
+	* java/util/zip/ZipConstants.java: Replaced with Classpath version.
+
+2002-06-13  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/natString.cc (init): Handle case where DONT_COPY is
+	true and OFFSET!=0.
+	* java/lang/String.java (String(char[],int,int,boolean): New
+	constructor.
+	* java/lang/Long.java: Imported new version from Classpath.
+	* java/lang/Number.java: Likewise.
+	* java/lang/Integer.java: Likewise.
+	* java/lang/Long.java: Likewise.
+	* java/lang/Float.java: Likewise.
+	* java/lang/Boolean.java: Likewise.
+	* java/lang/Double.java: Likewise.
+	* java/lang/Void.java: Likewise.
+
 2002-06-12  Tom Tromey  <tromey@redhat.com>
 
 	* java/io/natFilePosix.cc (getCanonicalPath): Treat "" like ".".

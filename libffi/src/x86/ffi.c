@@ -23,6 +23,8 @@
 	      break;
 
 	    case FFI_TYPE_UINT16:
+#ifndef __x86_64__
+
 	      *(unsigned int *) argp = (unsigned int)*(UINT16 *)(* p_argv);
 	      break;
 
@@ -36,12 +38,10 @@
 
 	    case FFI_TYPE_STRUCT:
 	      *(unsigned int *) argp = (unsigned int)*(UINT32 *)(* p_argv);
-	      break;
 
 	    default:
 	      FFI_ASSERT(0);
       else
-	{
 	  memcpy(argp, *p_argv, z);
 	}
       p_argv++;
@@ -52,3 +52,5 @@
       *p_argv = (void*) argp;
       p_argv++;
       argp += z;
+
+#endif /* __x86_64__  */

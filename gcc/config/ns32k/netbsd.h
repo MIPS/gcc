@@ -30,13 +30,14 @@ Boston, MA 02111-1307, USA.  */
 
 /* Compile for the floating point unit & 32532 by default;
    Don't assume SB is zero;
-   Don't use bitfield instructions;
+   Don't use bit-field instructions;
    FPU is 32381;
    Use multiply-add instructions */
 
+#undef TARGET_DEFAULT
 #define TARGET_DEFAULT \
-  (MASK_32532|MASK_32332 | MASK_NO_SB | MASK_NO_BITFIELD | \
-   MASK_32081|MASK_32381 | MASK_MULT_ADD)
+  (MASK_32532 | MASK_NO_SB | MASK_NO_BITFIELD | \
+   MASK_32381 | MASK_IEEE_COMPARE | MASK_MULT_ADD)
 
 /* 32-bit alignment for efficiency */
 
@@ -87,7 +88,7 @@ Boston, MA 02111-1307, USA.  */
 
 /* This is BSD, so it wants DBX format.  */
 
-#define DBX_DEBUGGING_INFO
+#define DBX_DEBUGGING_INFO 1
 
 /* Do not break .stabs pseudos into continuations.  */
 

@@ -102,15 +102,15 @@ Boston, MA 02111-1307, USA.  */
 
 #undef STDC_0_IN_SYSTEM_HEADERS
 
+/* Attempt to enable execute permissions on the stack.  */
+#define TRANSFER_FROM_TRAMPOLINE NETBSD_ENABLE_EXECUTE_STACK
+
 #undef TARGET_VERSION
 #define TARGET_VERSION fprintf (stderr, " (%s)", TARGET_NAME);
 
 /*
  * Clean up afterwards generic SPARC ELF configuration.
  */
-
-#undef TRANSFER_FROM_TRAMPOLINE
-#define TRANSFER_FROM_TRAMPOLINE
 
 /* FIXME: Aren't these supposed to be available for SPARC ELF?  */
 #undef MULDI3_LIBCALL

@@ -239,6 +239,12 @@
 #include "pushback.h"
 #include "compress.h"
 
+/* Some systems have mkdir that takes a single argument.  */
+#ifdef MKDIR_TAKES_ONE_ARG
+# define mkdir(a,b) mkdir(a)
+#endif
+
+
 #ifdef WORDS_BIGENDIAN
 
 #define L2BI(l) ((l & 0xff000000) >> 24) | \
@@ -433,8 +439,7 @@ int main(int argc, char **argv){
   /* create the jarfile */
   if(action == ACTION_CREATE){
     if(jarfile){
-      jarfd = open(jarfile, O_CREAT | O_BINARY | O_WRONLY | O_TRUNC,
-		   S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+      jarfd = open(jarfile, O_CREAT | O_BINARY | O_WRONLY | O_TRUNC, 0666);
 
       if(jarfd < 0){
         fprintf(stderr, "Error opening %s for writing!\n", jarfile);
@@ -838,7 +843,7 @@ int add_to_jar(int fd, const char *new_dir, const char *file){
     }
   }
 
-  if(!strcmp(file, jarfile)){
+  if(jarfile && !strcmp(file, jarfile)){
     if(verbose)
       printf("skipping: %s\n", file);
     return 0;  /* we don't want to add ourselves.. */
@@ -919,7 +924,8 @@ int add_to_jar(int fd, const char *new_dir, const char *file){
     while(!use_explicit_list_only && (de = readdir(dir)) != NULL){
       if(de->d_name[0] == '.')
         continue;
-      if(!strcmp(de->d_name, jarfile)){ /* we don't want to add ourselves.  Believe me */
+      if(jarfile && !strcmp(de->d_name, jarfile)){
+	/* we don't want to add ourselves.  Believe me */
         if(verbose)
           printf("skipping: %s\n", de->d_name);
         continue;
@@ -1657,7 +1663,7 @@ int list_jar(int fd, char **files, int file_num){
         strftime(ascii_date, 30, "%a %b %d %H:%M:%S %Z %Y", s_tm);
       }
 
-      if(filename_len < fnlen){
+      if(filename_len < fnlen + 1){
         if(filename != NULL)
           free(filename);
       
@@ -1776,7 +1782,7 @@ int list_jar(int fd, char **files, int file_num){
         strftime(ascii_date, 30, "%a %b %d %H:%M:%S %Z %Y", s_tm);
       }
 
-      if(filename_len < fnlen){
+      if(filename_len < fnlen + 1){
         if(filename != NULL)
           free(filename);
         

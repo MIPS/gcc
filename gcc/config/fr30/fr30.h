@@ -122,8 +122,6 @@ extern int target_flags;
 /* Defined in svr4.h.  */
 #define PCC_BITFIELD_TYPE_MATTERS 1
 
-#define TARGET_FLOAT_FORMAT IEEE_FLOAT_FORMAT
-
 /*}}}*/ 
 /*{{{  Layout of Source Language Data Types.  */ 
 
@@ -586,7 +584,7 @@ enum reg_class
   {FRAME_POINTER_REGNUM, STACK_POINTER_REGNUM}	\
 }
 
-/* A C expression that returns non-zero if the compiler is allowed to try to
+/* A C expression that returns nonzero if the compiler is allowed to try to
    replace register number FROM with register number TO.  This macro
    need only be defined if `ELIMINABLE_REGS' is defined, and will usually be
    the constant 1, since most of the cases preventing register elimination are
@@ -695,7 +693,7 @@ enum reg_class
    You may use the macro `MUST_PASS_IN_STACK (MODE, TYPE)' in the definition of
    this macro to determine if this argument is of a type that must be passed in
    the stack.  If `REG_PARM_STACK_SPACE' is not defined and `FUNCTION_ARG'
-   returns non-zero for such an argument, the compiler will abort.  If
+   returns nonzero for such an argument, the compiler will abort.  If
    `REG_PARM_STACK_SPACE' is defined, the argument will be computed in the
    stack and then loaded into a register.  */
      
@@ -718,7 +716,7 @@ enum reg_class
 /* On the FR30 this value is an accumulating count of the number of argument
    registers that have been filled with argument values, as opposed to say,
    the number of bytes of argument accumulated so far.  */
-typedef int CUMULATIVE_ARGS;
+#define CUMULATIVE_ARGS int
 
 /* A C expression for the number of words, at the beginning of an argument,
    must be put in registers.  The value must be zero for arguments that are
@@ -927,7 +925,7 @@ typedef int CUMULATIVE_ARGS;
    ldi:32 FUNCTION, r0
    jmp    @r0
 
-   The no-ops are to guarantee that the the static chain and final
+   The no-ops are to guarantee that the static chain and final
    target are 32 bit ailgned within the trampoline.  That allows us to
    initialize those locations with simple SImode stores.   The alternative
    would be to use HImode stores.  */
@@ -992,7 +990,7 @@ do										\
    
    * indexed addressing using small signed offsets from the frame pointer
 
-   * register plus register addresing using R13 as the base register.
+   * register plus register addressing using R13 as the base register.
 
    At the moment we only support the first two of these special cases.  */
    
@@ -1165,32 +1163,8 @@ do										\
 /*}}}*/ 
 /*{{{  Output and Generation of Labels.  */ 
 
-/* A C statement (sans semicolon) to output to the stdio stream STREAM the
-   assembler definition of a label named NAME.  Use the expression
-   `assemble_name (STREAM, NAME)' to output the name itself; before and after
-   that, output the additional assembler syntax for defining the name, and a
-   newline.  */
-#define ASM_OUTPUT_LABEL(STREAM, NAME)	\
-  do					\
-    {					\
-      assemble_name (STREAM, NAME);	\
-      fputs (":\n", STREAM);		\
-    }					\
-  while (0)
-
-/* A C statement (sans semicolon) to output to the stdio stream STREAM some
-   commands that will make the label NAME global; that is, available for
-   reference from other files.  Use the expression `assemble_name (STREAM,
-   NAME)' to output the name itself; before and after that, output the
-   additional assembler syntax for making that name global, and a newline.  */
-#define ASM_GLOBALIZE_LABEL(STREAM,NAME)	\
-  do						\
-    {						\
-      fputs ("\t.globl ", STREAM);		\
-      assemble_name (STREAM, NAME);		\
-      fputs ("\n", STREAM);			\
-    }						\
-  while (0)
+/* Globalizing directive for a label.  */
+#define GLOBAL_ASM_OP "\t.globl "
 
 /* A C expression to assign to OUTVAR (which is a variable of type `char *') a
    newly allocated string made from the string NAME and the number NUMBER, with

@@ -1,7 +1,7 @@
 ;; -*- Mode: Scheme -*-
 ;;   Machine description for GNU compiler,
 ;;   for ATMEL AVR micro controllers.
-;;   Copyright (C) 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+;;   Copyright (C) 1998, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
 ;;   Contributed by Denis Chertykov (denisc@overta.ru)
 
 ;; This file is part of GNU CC.
@@ -356,13 +356,15 @@
   "{
   rtx addr0, addr1;
   int cnt8;
+  enum machine_mode mode;
 
   if (GET_CODE (operands[2]) != CONST_INT)
     FAIL;
   cnt8 = byte_immediate_operand (operands[2], GET_MODE (operands[2]));
-  operands[2] = copy_to_mode_reg (cnt8 ? QImode : HImode, operands[2]);
+  mode = cnt8 ? QImode : HImode;
+  operands[2] = copy_to_mode_reg (mode,
+                                  gen_int_mode (INTVAL (operands[2]), mode));
   operands[4] = operands[2];
-
   addr0 = copy_to_mode_reg (Pmode, XEXP (operands[0], 0));
   addr1 = copy_to_mode_reg (Pmode, XEXP (operands[1], 0));
 
@@ -385,7 +387,7 @@
   "ld __tmp_reg__,%a1+
 	st %a0+,__tmp_reg__
 	dec %2
-	brne _PC_-8"
+	brne .-8"
   [(set_attr "length" "4")
    (set_attr "cc" "clobber")])
 
@@ -403,13 +405,13 @@
        return (AS2 (ld,__tmp_reg__,%a1+) CR_TAB
 	       AS2 (st,%a0+,__tmp_reg__)  CR_TAB
 	       AS2 (sbiw,%A2,1) CR_TAB
-	       AS1 (brne,_PC_-8));
+	       AS1 (brne,.-8));
      else
        return (AS2 (ld,__tmp_reg__,%a1+) CR_TAB
 	       AS2 (st,%a0+,__tmp_reg__)  CR_TAB
 	       AS2 (subi,%A2,1) CR_TAB
 	       AS2 (sbci,%B2,0) CR_TAB
-	       AS1 (brne,_PC_-10));
+	       AS1 (brne,.-10));
 }"
   [(set_attr "length" "4,5")
    (set_attr "cc" "clobber,clobber")])
@@ -428,12 +430,15 @@
   "{
   rtx addr0;
   int cnt8;
+  enum machine_mode mode;
 
   if (GET_CODE (operands[1]) != CONST_INT)
     FAIL;
 
   cnt8 = byte_immediate_operand (operands[1], GET_MODE (operands[1]));
-  operands[1] = copy_to_mode_reg (cnt8 ? QImode : HImode, operands[1]);
+  mode = cnt8 ? QImode : HImode;
+  operands[1] = copy_to_mode_reg (mode,
+                                  gen_int_mode (INTVAL (operands[1]), mode));
   operands[3] = operands[1];
 
   addr0 = copy_to_mode_reg (Pmode, XEXP (operands[0], 0));
@@ -452,7 +457,7 @@
   ""
   "st %a0+,__zero_reg__
         dec %1
-	brne _PC_-6"
+	brne .-6"
   [(set_attr "length" "3")
    (set_attr "cc" "clobber")])
 
@@ -468,12 +473,12 @@
      if (which_alternative==0)
        return (AS2 (st,%a0+,__zero_reg__) CR_TAB
 	       AS2 (sbiw,%A1,1) CR_TAB
-	       AS1 (brne,_PC_-6));
+	       AS1 (brne,.-6));
      else
        return (AS2 (st,%a0+,__zero_reg__) CR_TAB
 	       AS2 (subi,%A1,1) CR_TAB
 	       AS2 (sbci,%B1,0) CR_TAB
-	       AS1 (brne,_PC_-8));
+	       AS1 (brne,.-8));
 }"
   [(set_attr "length" "3,4")
    (set_attr "cc" "clobber,clobber")])
@@ -507,7 +512,7 @@
   ""
   "ld __tmp_reg__,%a0+
 	tst __tmp_reg__
-	brne _PC_-6"
+	brne .-6"
   [(set_attr "length" "3")
    (set_attr "cc" "clobber")])
 
@@ -1966,7 +1971,7 @@
 			       (const_int 0))
 			   (label_ref (match_dup 1))
 			   (pc)))]
-  "operands[2] = GEN_INT (0x80000000);")
+  "operands[2] = GEN_INT (-2147483647 - 1);")
 
 (define_peephole2
   [(set (cc0) (match_operand:SI 0 "register_operand" ""))
@@ -1978,7 +1983,7 @@
 			       (const_int 0))
 			   (label_ref (match_dup 1))
 			   (pc)))]
-  "operands[2] = GEN_INT (0x80000000);")
+  "operands[2] = GEN_INT (-2147483647 - 1);")
 
 ;; ************************************************************************
 ;; Implementation of conditional jumps here.
@@ -2142,6 +2147,13 @@
 			  (if_then_else (eq_attr "mcu_mega" "yes")
 					(const_int 2)
 					(const_int 1))])])
+
+(define_insn "return"
+  [(return)]
+  "reload_completed && avr_simple_epilogue ()"
+  "ret"
+  [(set_attr "cc" "none")
+   (set_attr "length" "1")])
 
 (define_insn "nop"
   [(const_int 0)]
@@ -2396,6 +2408,7 @@
     && test_hard_reg_class (LD_REGS, operands[1]))"
   "*
 {
+  CC_STATUS_INIT;
   if (test_hard_reg_class (ADDW_REGS, operands[0]))
     output_asm_insn (AS2 (sbiw,%0,1) CR_TAB
 		     AS2 (sbc,%C0,__zero_reg__) CR_TAB
@@ -2410,10 +2423,10 @@
     case 1:
       return AS1 (brcc,%2);
     case 2:
-      return (AS1 (brcs,_PC_+2) CR_TAB
+      return (AS1 (brcs,.+2) CR_TAB
               AS1 (rjmp,%2));
   }
-  return (AS1 (brcs,_PC_+4) CR_TAB
+  return (AS1 (brcs,.+4) CR_TAB
           AS1 (jmp,%2));
 }")
 
@@ -2434,6 +2447,7 @@
     && test_hard_reg_class (LD_REGS, operands[1]))"
   "*
 {
+  CC_STATUS_INIT;
   if (test_hard_reg_class (ADDW_REGS, operands[0]))
     output_asm_insn (AS2 (sbiw,%0,1), operands);
   else
@@ -2444,10 +2458,10 @@
     case 1:
       return AS1 (brcc,%2);
     case 2:
-      return (AS1 (brcs,_PC_+2) CR_TAB
+      return (AS1 (brcs,.+2) CR_TAB
               AS1 (rjmp,%2));
   }
-  return (AS1 (brcs,_PC_+4) CR_TAB
+  return (AS1 (brcs,.+4) CR_TAB
           AS1 (jmp,%2));
 }")
 
@@ -2465,16 +2479,19 @@
   "test_hard_reg_class (LD_REGS, operands[0])"
   "*
 {
+  CC_STATUS_INIT;
+  cc_status.value1 = operands[0];
+  cc_status.flags |= CC_OVERFLOW_UNUSABLE;
   output_asm_insn (AS2 (subi,%A0,1), operands);
   switch (avr_jump_mode (operands[1],insn))
   {
     case 1:
       return AS1 (brcc,%1);
     case 2:
-      return (AS1 (brcs,_PC_+2) CR_TAB
+      return (AS1 (brcs,.+2) CR_TAB
               AS1 (rjmp,%1));
   }
-  return (AS1 (brcs,_PC_+4) CR_TAB
+  return (AS1 (brcs,.+4) CR_TAB
           AS1 (jmp,%1));
 }")
 

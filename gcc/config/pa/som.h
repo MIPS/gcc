@@ -198,10 +198,9 @@ do {								\
 		   }							\
 	       }							\
 	     /* anonymous args */					\
-	     if ((TYPE_ARG_TYPES (tree_type) != 0			\
-		  && (TREE_VALUE (tree_last (TYPE_ARG_TYPES (tree_type)))\
-		      != void_type_node))				\
-		 || current_function_varargs)				\
+	     if (TYPE_ARG_TYPES (tree_type) != 0			\
+		 && (TREE_VALUE (tree_last (TYPE_ARG_TYPES (tree_type)))\
+		     != void_type_node))				\
 	       {							\
 		 for (; i < 4; i++)					\
 		   fprintf (FILE, ",ARGW%d=GR", i);			\
@@ -366,3 +365,13 @@ do {						\
 /* SOM does not support the init_priority C++ attribute.  */
 #undef SUPPORTS_INIT_PRIORITY
 #define SUPPORTS_INIT_PRIORITY 0
+
+/* The SOM linker hardcodes paths into binaries.  As a result, dotdots
+   must be removed from library prefixes to prevent binaries from depending
+   on the location of the GCC tool directory.  The downside is GCC
+   cannot be moved after installation using a symlink.  */
+#define ALWAYS_STRIP_DOTDOT 1
+
+/* Aggregates with a single float or double field should be passed and
+   returned in the general registers.  */
+#define MEMBER_TYPE_FORCES_BLK(FIELD, MODE) (MODE==SFmode || MODE==DFmode)

@@ -116,7 +116,7 @@ struct gcc_target targetm = TARGET_INITIALIZER;
 /* Called by OVERRIDE_OPTIONS to initialize various things.  */
 
 void
-arc_init (void)
+arc_init ()
 {
   char *tmp;
   
@@ -802,12 +802,8 @@ arc_setup_incoming_varargs (cum, mode, type, pretend_size, no_rtl)
   if (mode == BLKmode)
     abort ();
 
-  /* We must treat `__builtin_va_alist' as an anonymous arg.  */
-  if (current_function_varargs)
-    first_anon_arg = *cum;
-  else
-    first_anon_arg = *cum + ((GET_MODE_SIZE (mode) + UNITS_PER_WORD - 1)
-			     / UNITS_PER_WORD);
+  first_anon_arg = *cum + ((GET_MODE_SIZE (mode) + UNITS_PER_WORD - 1)
+			   / UNITS_PER_WORD);
 
   if (first_anon_arg < MAX_ARC_PARM_REGS && !no_rtl)
     {
@@ -1557,24 +1553,24 @@ output_shift (operands)
 	      output_asm_insn ("sr %4,[lp_end]", operands);
 	      output_asm_insn ("nop\n\tnop", operands);
 	      if (flag_pic)
-		asm_fprintf (asm_out_file, "\t%s single insn loop\n",
-			     ASM_COMMENT_START);
+		fprintf (asm_out_file, "\t%s single insn loop\n",
+			 ASM_COMMENT_START);
 	      else
-		asm_fprintf (asm_out_file, "1:\t%s single insn loop\n",
-			     ASM_COMMENT_START);
+		fprintf (asm_out_file, "1:\t%s single insn loop\n",
+			 ASM_COMMENT_START);
 	      output_asm_insn (shift_one, operands);
 	    }
 	  else 
 	    {
-	      asm_fprintf (asm_out_file, "1:\t%s begin shift loop\n",
-			   ASM_COMMENT_START);
+	      fprintf (asm_out_file, "1:\t%s begin shift loop\n",
+		       ASM_COMMENT_START);
 	      output_asm_insn ("sub.f %4,%4,1", operands);
 	      output_asm_insn ("nop", operands);
 	      output_asm_insn ("bn.nd 2f", operands);
 	      output_asm_insn (shift_one, operands);
 	      output_asm_insn ("b.nd 1b", operands);
-	      asm_fprintf (asm_out_file, "2:\t%s end shift loop\n",
-			   ASM_COMMENT_START);
+	      fprintf (asm_out_file, "2:\t%s end shift loop\n",
+		       ASM_COMMENT_START);
 	    }
 	}
     }
@@ -1745,14 +1741,13 @@ arc_print_operand (file, x, code)
       return;
     case 'A' :
       {
-	REAL_VALUE_TYPE d;
 	char str[30];
 
 	if (GET_CODE (x) != CONST_DOUBLE
 	    || GET_MODE_CLASS (GET_MODE (x)) != MODE_FLOAT)
 	  abort ();
-	REAL_VALUE_FROM_CONST_DOUBLE (d, x);
-	REAL_VALUE_TO_DECIMAL (d, "%.20e", str);
+
+	real_to_decimal (str, CONST_DOUBLE_REAL_VALUE (x), sizeof (str), 0, 1);
 	fprintf (file, "%s", str);
 	return;
       }
@@ -2265,8 +2260,7 @@ arc_ccfsm_record_branch_deleted ()
 }
 
 void
-arc_va_start (stdarg_p, valist, nextarg)
-     int stdarg_p;
+arc_va_start (valist, nextarg)
      tree valist;
      rtx nextarg;
 {
@@ -2275,7 +2269,7 @@ arc_va_start (stdarg_p, valist, nextarg)
       && (current_function_args_info & 1))
     nextarg = plus_constant (nextarg, UNITS_PER_WORD);
 
-  std_expand_builtin_va_start (stdarg_p, valist, nextarg);
+  std_expand_builtin_va_start (valist, nextarg);
 }
 
 rtx

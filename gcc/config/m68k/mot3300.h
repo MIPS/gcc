@@ -118,13 +118,9 @@ Boston, MA 02111-1307, USA.  */
 #undef PARM_BOUNDARY
 #define PARM_BOUNDARY 16
 
-/* cpp has to support a #sccs directive for the /usr/include files */
-
-#define SCCS_DIRECTIVE
-
 /* Make output for SDB.  */
 
-#define SDB_DEBUGGING_INFO
+#define SDB_DEBUGGING_INFO 1
 
 #undef REGISTER_PREFIX
 #define REGISTER_PREFIX "%"

@@ -189,6 +189,42 @@ java::io::FileDescriptor::close (void)
     throw new IOException (JvNewStringLatin1 (strerror (errno)));
 }
 
+void
+java::io::FileDescriptor::setLength (jlong pos)
+{
+  struct stat sb;
+  off_t orig;
+
+#ifdef HAVE_FTRUNCATE
+  if (::fstat (fd, &sb))
+    throw new IOException (JvNewStringLatin1 (strerror (errno)));
+
+  if ((jlong) sb.st_size == pos) 
+    return;
+
+  orig = ::lseek (fd, (off_t) 0, SEEK_CUR);
+  if (orig == -1)
+    throw new IOException (JvNewStringLatin1 (strerror (errno)));
+
+  // If the file is too short, we extend it.  We can't rely on
+  // ftruncate() extending the file.  So we lseek() to 1 byte less
+  // than we want, and then we write a single byte at the end.
+  if ((jlong) sb.st_size < pos)
+    {
+      if (::lseek (fd, (off_t) (pos - 1), SEEK_SET) == -1)
+	throw new IOException (JvNewStringLatin1 (strerror (errno)));
+      char out = '\0';
+      int r = ::write (fd, &out, 1);
+      if (r <= 0 || ::lseek (fd, orig, SEEK_SET) == -1)
+	throw new IOException (JvNewStringLatin1 (strerror (errno)));
+    }
+  else if (::ftruncate (fd, (off_t) pos))
+    throw new IOException (JvNewStringLatin1 (strerror (errno)));
+#else /* HAVE_FTRUNCATE */
+  throw new IOException (JvNewStringLatin1 ("FileDescriptor.setLength not implemented"));
+#endif /* HAVE_FTRUNCATE */
+}
+
 jint
 java::io::FileDescriptor::seek (jlong pos, jint whence, jboolean eof_trunc)
 {
@@ -257,6 +293,11 @@ java::io::FileDescriptor::read (jbyteArray buffer, jint offset, jint count)
   jsize bsize = JvGetArrayLength (buffer);
   if (offset < 0 || count < 0 || offset + count > bsize)
     throw new java::lang::ArrayIndexOutOfBoundsException;
+
+  // Must return 0 if an attempt is made to read 0 bytes.
+  if (count == 0)
+    return 0;
+
   jbyte *bytes = elements (buffer) + offset;
   int r = ::read (fd, bytes, count);
   if (r == 0)

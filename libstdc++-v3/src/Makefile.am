@@ -27,7 +27,7 @@ MAINT_CHARSET = latin1
 
 mkinstalldirs = $(SHELL) $(toplevel_srcdir)/mkinstalldirs
 
-# Cross compiler and multilib support.
+# Cross compiler support.
 CXX = @glibcpp_CXX@
 toolexecdir = @glibcpp_toolexecdir@
 toolexeclibdir = @glibcpp_toolexeclibdir@
@@ -41,7 +41,7 @@ OPTIMIZE_CXXFLAGS = @OPTIMIZE_CXXFLAGS@
 # or configure.in to see how they are set. See GLIBCPP_EXPORT_FLAGS
 # NB: DEBUGFLAGS have to be at the end so that -O2 can be overridden.
 CONFIG_CXXFLAGS = \
-	@EXTRA_CXX_FLAGS@ @SECTION_FLAGS@ @CSHADOW_FLAGS@ @DEBUG_FLAGS@ 
+	@EXTRA_CXX_FLAGS@ @SECTION_FLAGS@ @DEBUG_FLAGS@ 
 
 # Warning flags to use.
 WARN_CXXFLAGS = \
@@ -60,17 +60,31 @@ INCLUDES = \
 	$(LIBSUPCXX_INCLUDES) $(LIBIO_INCLUDES) $(LIBMATH_INCLUDES) \
 	$(TOPLEVEL_INCLUDES)
 
-sources = \
+# Source files linked in via configuration magic for a particular target.
+target_sources = \
+	codecvt_members.cc \
+	collate_members.cc \
+	ctype_members.cc \
+	messages_members.cc \
+	monetary_members.cc \
+	numeric_members.cc \
+	time_members.cc
+
+# Source files linked in via configuration magic for a particular
+# target, but with ad hoc naming rules.
+target_sources_extra = \
 	basic_file.cc \
+	c++locale.cc 
+
+# Sources present in the src directory.
+sources = \
 	bitset.cc \
-	c++locale.cc \
-	cmath.cc \
 	codecvt.cc \
-	collate.cc \
 	complex_io.cc \
 	concept-inst.cc \
 	ctype.cc \
 	ext-inst.cc \
+	fstream.cc \
 	fstream-inst.cc \
 	functexcept.cc \
 	globals.cc \
@@ -78,13 +92,10 @@ sources = \
 	ios.cc \
 	istream-inst.cc \
 	limits.cc \
-	locale-inst.cc \
 	locale.cc \
+	locale-inst.cc \
 	localename.cc \
-	messages.cc \
 	misc-inst.cc \
-	monetary.cc \
-	numeric.cc \
 	ostream-inst.cc \
 	sstream-inst.cc \
 	stdexcept.cc \
@@ -92,11 +103,11 @@ sources = \
 	streambuf-inst.cc \
 	string-inst.cc \
 	strstream.cc \
-	time.cc \
 	valarray-inst.cc \
 	vterminate.cc \
-	wstring-inst.cc
-
+	wstring-inst.cc \
+	${target_sources} \
+	${target_sources_extra}
 
 VPATH = $(top_srcdir)/src:$(top_srcdir)
 

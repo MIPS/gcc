@@ -131,7 +131,7 @@ extern int target_flags;
 /* Instruction set characteristics.
    These are internal macros, set by the appropriate -mcpu= option.  */
 
-/* Non-zero means the cpu has a barrel shifter.  */
+/* Nonzero means the cpu has a barrel shifter.  */
 #define TARGET_SHIFTER 0
 
 extern const char *arc_cpu_string;
@@ -149,7 +149,7 @@ extern const char *arc_text_string,*arc_data_string,*arc_rodata_string;
 extern int arc_cpu_type;
 
 /* Check if CPU is an extension and set `arc_cpu_type' and `arc_mangle_cpu'
-   appropriately.  The result should be non-zero if the cpu is recognized,
+   appropriately.  The result should be nonzero if the cpu is recognized,
    otherwise zero.  This is intended to be redefined in a cover file.
    This is used by arc_init.  */
 #define ARC_EXTENSION_CPU(cpu) 0
@@ -231,7 +231,7 @@ if (GET_MODE_CLASS (MODE) == MODE_INT		\
 /* Every structure's size must be a multiple of this.  */
 #define STRUCTURE_SIZE_BOUNDARY 8
 
-/* A bitfield declared as `int' forces `int' alignment for the struct.  */
+/* A bit-field declared as `int' forces `int' alignment for the struct.  */
 #define PCC_BITFIELD_TYPE_MATTERS 1
 
 /* No data type wants to be aligned rounder than this.  */
@@ -665,15 +665,9 @@ extern enum reg_class arc_regno_reg_class[FIRST_PSEUDO_REGISTER];
    a reg.  This includes arguments that have to be passed by reference as the
    pointer to them is passed in a reg if one is available (and that is what
    we're given).
-   When passing arguments NAMED is always 1.  When receiving arguments NAMED
-   is 1 for each argument except the last in a stdarg/varargs function.  In
-   a stdarg function we want to treat the last named arg as named.  In a
-   varargs function we want to treat the last named arg (which is
-   `__builtin_va_alist') as unnamed.
    This macro is only used in this file.  */
-#define PASS_IN_REG_P(CUM, MODE, TYPE, NAMED) \
-((!current_function_varargs || (NAMED))					\
- && (CUM) < MAX_ARC_PARM_REGS						\
+#define PASS_IN_REG_P(CUM, MODE, TYPE) \
+((CUM) < MAX_ARC_PARM_REGS						\
  && ((ROUND_ADVANCE_CUM ((CUM), (MODE), (TYPE))				\
       + ROUND_ADVANCE_ARG ((MODE), (TYPE))				\
       <= MAX_ARC_PARM_REGS)))
@@ -693,7 +687,7 @@ extern enum reg_class arc_regno_reg_class[FIRST_PSEUDO_REGISTER];
 /* On the ARC the first MAX_ARC_PARM_REGS args are normally in registers
    and the rest are pushed.  */
 #define FUNCTION_ARG(CUM, MODE, TYPE, NAMED) \
-(PASS_IN_REG_P ((CUM), (MODE), (TYPE), (NAMED))				\
+(PASS_IN_REG_P ((CUM), (MODE), (TYPE))					\
  ? gen_rtx_REG ((MODE), ROUND_ADVANCE_CUM ((CUM), (MODE), (TYPE)))	\
  : 0)
 
@@ -995,7 +989,7 @@ do { \
 #define SELECT_CC_MODE(OP, X, Y) \
 arc_select_cc_mode (OP, X, Y)
 
-/* Return non-zero if SELECT_CC_MODE will never return MODE for a
+/* Return nonzero if SELECT_CC_MODE will never return MODE for a
    floating point inequality comparison.  */
 #define REVERSIBLE_CC_MODE(MODE) 1 /*???*/
 
@@ -1180,19 +1174,8 @@ extern const char *arc_text_section, *arc_data_section, *arc_rodata_section;
    no longer contain unusual constructs.  */
 #define ASM_APP_OFF ""
 
-/* This is how to output the definition of a user-level label named NAME,
-   such as the label on a static function or variable NAME.  */
-#define ASM_OUTPUT_LABEL(FILE, NAME) \
-do { assemble_name (FILE, NAME); fputs (":\n", FILE); } while (0)
-
-/* This is how to output a command to make the user-level label named NAME
-   defined for reference from other files.  */
-#define ASM_GLOBALIZE_LABEL(FILE, NAME) \
-do {				\
-  fputs ("\t.global\t", FILE);	\
-  assemble_name (FILE, NAME);	\
-  fputs ("\n", FILE);		\
-} while (0)
+/* Globalizing directive for a label.  */
+#define GLOBAL_ASM_OP "\t.global\t"
 
 /* A C statement (sans semicolon) to output on FILE an assembler pseudo-op to
    declare a library function name external.  The name of the library function
@@ -1328,12 +1311,8 @@ do { if ((LOG) != 0) fprintf (FILE, "\t.align %d\n", 1 << (LOG)); } while (0)
 /* Debugging information.  */
 
 /* Generate DBX and DWARF debugging information.  */
-#ifndef DBX_DEBUGGING_INFO
-#define DBX_DEBUGGING_INFO
-#endif
-#ifndef DWARF_DEBUGGING_INFO
-#define DWARF_DEBUGGING_INFO
-#endif
+#define DBX_DEBUGGING_INFO 1
+#define DWARF_DEBUGGING_INFO 1
 
 /* Prefer STABS (for now).  */
 #undef PREFERRED_DEBUGGING_TYPE
@@ -1416,8 +1395,8 @@ enum arc_function_type {
 
 
 /* Implement `va_start' for varargs and stdarg.  */
-#define EXPAND_BUILTIN_VA_START(stdarg, valist, nextarg) \
-  arc_va_start (stdarg, valist, nextarg)
+#define EXPAND_BUILTIN_VA_START(valist, nextarg) \
+  arc_va_start (valist, nextarg)
 
 /* Implement `va_arg'.  */
 #define EXPAND_BUILTIN_VA_ARG(valist, type) \

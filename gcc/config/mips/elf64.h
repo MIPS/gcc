@@ -20,36 +20,18 @@ along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
-#define OBJECT_FORMAT_ELF
+#undef  OBJECT_FORMAT_COFF
+#undef  EXTENDED_COFF
 
-/* Default to -mips3.  */
-#ifndef TARGET_DEFAULT
-#define TARGET_DEFAULT MASK_FLOAT64|MASK_64BIT
-#endif
+#undef  SDB_DEBUGGING_INFO
+#define DBX_DEBUGGING_INFO 1
+#define DWARF2_DEBUGGING_INFO 1
 
-#ifndef MIPS_ISA_DEFAULT
-#define MIPS_ISA_DEFAULT 3
-#endif
+#undef  PREFERRED_DEBUGGING_TYPE
+#define PREFERRED_DEBUGGING_TYPE DWARF2_DEBUG
 
-/* This should change to n32 when it is supported in gas.  */
-#ifndef MIPS_ABI_DEFAULT
-#define MIPS_ABI_DEFAULT ABI_O64
-#endif
-
-/* Until we figure out what MIPS ELF targets normally use, just do
-   stabs in ELF.  */
-#ifndef PREFERRED_DEBUGGING_TYPE
-#define PREFERRED_DEBUGGING_TYPE DBX_DEBUG
-#endif
-
-/* US Software GOFAST library support.  */
-#include "gofast.h"
-#define INIT_SUBTARGET_OPTABS INIT_GOFAST_OPTABS
-
-#include "mips/mips.h"
-
-/* Use memcpy, et. al., rather than bcopy.  */
-#define TARGET_MEM_FUNCTIONS
+#undef  SUBTARGET_ASM_DEBUGGING_SPEC
+#define SUBTARGET_ASM_DEBUGGING_SPEC "-g0"
 
 /* Biggest alignment supported by the object file format of this
    machine.  Use this macro to limit the alignment which can be
@@ -58,24 +40,6 @@ Boston, MA 02111-1307, USA.  */
 
 #undef MAX_OFILE_ALIGNMENT
 #define MAX_OFILE_ALIGNMENT (32768*8)
-
-/* We need to use .esize and .etype instead of .size and .type to
-   avoid conflicting with ELF directives.  */
-#undef PUT_SDB_SIZE
-#define PUT_SDB_SIZE(a)					\
-do {							\
-  extern FILE *asm_out_text_file;			\
-  fprintf (asm_out_text_file, "\t.esize\t");		\
-  fprintf (asm_out_text_file, HOST_WIDE_INT_PRINT_DEC, (HOST_WIDE_INT) (a)); \
-  fprintf (asm_out_text_file, ";");		       	\
-} while (0)
-
-#undef PUT_SDB_TYPE
-#define PUT_SDB_TYPE(a)					\
-do {							\
-  extern FILE *asm_out_text_file;			\
-  fprintf (asm_out_text_file, "\t.etype\t0x%x;", (a));	\
-} while (0)
 
 /* Switch into a generic section.  */
 #undef TARGET_ASM_NAMED_SECTION
@@ -123,21 +87,14 @@ do {						\
 #undef ASM_DECLARE_OBJECT_NAME
 #define ASM_DECLARE_OBJECT_NAME(FILE, NAME, DECL)			\
   do {									\
-    fprintf (FILE, "%s", TYPE_ASM_OP);					\
-    assemble_name (FILE, NAME);						\
-    putc (',', FILE);							\
-    fprintf (FILE, TYPE_OPERAND_FMT, "object");				\
-    putc ('\n', FILE);							\
+    HOST_WIDE_INT size;							\
+    ASM_OUTPUT_TYPE_DIRECTIVE (FILE, NAME, "object");			\
     size_directive_output = 0;						\
     if (!flag_inhibit_size_directive && DECL_SIZE (DECL))		\
       {									\
 	size_directive_output = 1;					\
-	fprintf (FILE, "%s", SIZE_ASM_OP);				\
-	assemble_name (FILE, NAME);					\
-	fprintf (FILE, ",");						\
-	fprintf (FILE, HOST_WIDE_INT_PRINT_DEC,				\
-	  int_size_in_bytes (TREE_TYPE (DECL)));			\
-	fprintf (FILE, "\n");						\
+	size = int_size_in_bytes (TREE_TYPE (DECL));			\
+	ASM_OUTPUT_SIZE_DIRECTIVE (FILE, NAME, size);			\
       }									\
     mips_declare_object (FILE, NAME, "", ":\n", 0);			\
   } while (0)
@@ -152,18 +109,15 @@ do {						\
 #define ASM_FINISH_DECLARE_OBJECT(FILE, DECL, TOP_LEVEL, AT_END)	 \
 do {									 \
      const char *name = XSTR (XEXP (DECL_RTL (DECL), 0), 0);		 \
+     HOST_WIDE_INT size;						 \
      if (!flag_inhibit_size_directive && DECL_SIZE (DECL)		 \
          && ! AT_END && TOP_LEVEL					 \
 	 && DECL_INITIAL (DECL) == error_mark_node			 \
 	 && !size_directive_output)					 \
        {								 \
 	 size_directive_output = 1;					 \
-	 fprintf (FILE, "%s", SIZE_ASM_OP);				 \
-	 assemble_name (FILE, name);					 \
-	 fprintf (FILE, ",");						 \
-	 fprintf (FILE, HOST_WIDE_INT_PRINT_DEC,			 \
-		  int_size_in_bytes (TREE_TYPE (DECL)));		 \
-	 fprintf (FILE, "\n");						 \
+	 size = int_size_in_bytes (TREE_TYPE (DECL));			 \
+	 ASM_OUTPUT_SIZE_DIRECTIVE (FILE, name, size);			 \
        }								 \
    } while (0)
 
@@ -238,7 +192,15 @@ void FN ()                                                            \
 #define LIB_SPEC ""
 
 #undef  STARTFILE_SPEC
+#if defined(HAVE_MIPS_LIBGLOSS_STARTUP_DIRECTIVES) \
+    || (MIPS_ABI_DEFAULT == ABI_MEABI)
+#define STARTFILE_SPEC "crti%O%s crtbegin%O%s"
+#else
 #define STARTFILE_SPEC "crti%O%s crtbegin%O%s %{!mno-crt0:crt0%O%s}"
+#endif
 
 #undef  ENDFILE_SPEC
 #define ENDFILE_SPEC "crtend%O%s crtn%O%s"
+
+/* We support #pragma.  */
+#define HANDLE_SYSV_PRAGMA 1

@@ -21,7 +21,7 @@
 -- MA 02111-1307, USA.                                                      --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
--- It is now maintained by Ada Core Technologies Inc (http://www.gnat.com). --
+-- Extensive contributions were provided by Ada Core Technologies Inc.      --
 --                                                                          --
 ------------------------------------------------------------------------------
 
@@ -36,7 +36,6 @@ with GNAT.Command_Line;
 with Gnatvsn;
 
 procedure GNATprep is
-   pragma Ident (Gnatvsn.Gnat_Version_String);
 
    type Strptr is access String;
 

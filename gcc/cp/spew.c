@@ -79,15 +79,14 @@ struct unparsed_text GTY(())
 {
   struct unparsed_text *next;	/* process this one next */
   tree decl;		/* associated declaration */
-  const char *filename;	/* name of file we were processing */
-  int lineno;		/* line number we got the text from */
+  location_t locus;     /* location we got the text from */
   int interface;	/* remembering interface_unknown and interface_only */
 
   struct token_chunk * tokens; /* Start of the token list.  */
 
   struct token_chunk *last_chunk; /* End of the token list.  */
-  short last_pos;	/* Number of tokens used in the last chunk of 
-			   TOKENS. */
+  short last_pos;	/* Number of tokens used in the last chunk of
+			   TOKENS.  */
 
   short cur_pos;	/* Current token in 'cur_chunk', when rescanning.  */
   struct token_chunk *cur_chunk;  /* Current chunk, when rescanning.  */
@@ -98,8 +97,7 @@ struct unparsed_text GTY(())
 struct feed GTY(())
 {
   struct unparsed_text *input;
-  const char *filename;
-  int lineno;
+  location_t locus;
   int yychar;
   YYSTYPE GTY ((desc ("%1.yychar"))) yylval;
   int first_token;
@@ -126,15 +124,16 @@ static SPEW_INLINE void consume_token PARAMS ((void));
 static SPEW_INLINE int read_process_identifier PARAMS ((YYSTYPE *));
 
 static SPEW_INLINE void feed_input PARAMS ((struct unparsed_text *));
-static SPEW_INLINE struct token * space_for_token 
+static SPEW_INLINE struct token * space_for_token
   PARAMS ((struct unparsed_text *t));
 static SPEW_INLINE struct token * remove_last_token
   PARAMS ((struct unparsed_text *t));
 static struct unparsed_text * alloc_unparsed_text
-  PARAMS ((const char *fn, int li, tree decl, int interface));
+  PARAMS ((const location_t *, tree decl, int interface));
 
 static void snarf_block PARAMS ((struct unparsed_text *t));
 static tree snarf_defarg PARAMS ((void));
+static void snarf_parenthesized_expression (struct unparsed_text *);
 static int frob_id PARAMS ((int, int, tree *));
 
 /* The list of inline functions being held off until we reach the end of
@@ -161,10 +160,11 @@ static enum cpp_ttype last_token;
 static tree last_token_id;
 
 /* From lex.c: */
-/* the declaration found for the last IDENTIFIER token read in.
-   yylex must look this up to detect typedefs, which get token type TYPENAME,
-   so it is left around in case the identifier is not a typedef but is
-   used in a context which makes it a reference to a variable.  */
+/* the declaration found for the last IDENTIFIER token read in.  yylex
+   must look this up to detect typedefs, which get token type
+   tTYPENAME, so it is left around in case the identifier is not a
+   typedef but is used in a context which makes it a reference to a
+   variable.  */
 extern tree lastiddecl;		/* let our brains leak out here too */
 extern int	yychar;		/*  the lookahead symbol		*/
 extern YYSTYPE	yylval;		/*  the semantic value of the		*/
@@ -178,7 +178,7 @@ static int first_token;
    through and parse all of them using do_pending_defargs.  Since yacc
    parsers are not reentrant, we retain defargs state in these two
    variables so that subsequent calls to do_pending_defargs can resume
-   where the previous call left off. DEFARG_FNS is a tree_list where 
+   where the previous call left off. DEFARG_FNS is a tree_list where
    the TREE_TYPE is the current_class_type, TREE_VALUE is the FUNCTION_DECL,
    and TREE_PURPOSE is the list unprocessed dependent functions.  */
 
@@ -186,7 +186,7 @@ static int first_token;
 static GTY(()) tree defarg_fns;
 /* current default parameter */
 static GTY(()) tree defarg_parm;
-/* list of unprocessed fns met during current fn. */
+/* list of unprocessed fns met during current fn.  */
 static GTY(()) tree defarg_depfns;
 /* list of fns with circular defargs */
 static GTY(()) tree defarg_fnsdone;
@@ -208,23 +208,8 @@ read_process_identifier (pyylval)
 
   if (C_IS_RESERVED_WORD (id))
     {
-      /* Possibly replace the IDENTIFIER_NODE with a magic cookie.
-	 Can't put yylval.code numbers in ridpointers[].  Bleah.  */
-
-      switch (C_RID_CODE (id))
-	{
-	case RID_BITAND: pyylval->code = BIT_AND_EXPR;	return '&';
-	case RID_AND_EQ: pyylval->code = BIT_AND_EXPR;	return ASSIGN;
-	case RID_BITOR:	 pyylval->code = BIT_IOR_EXPR;	return '|';
-	case RID_OR_EQ:	 pyylval->code = BIT_IOR_EXPR;	return ASSIGN;
-	case RID_XOR:	 pyylval->code = BIT_XOR_EXPR;	return '^';
-	case RID_XOR_EQ: pyylval->code = BIT_XOR_EXPR;	return ASSIGN;
-	case RID_NOT_EQ: pyylval->code = NE_EXPR;	return EQCOMPARE;
-
-	default:
-	  pyylval->ttype = ridpointers[C_RID_CODE (id)];
-	  return C_RID_YYCODE (id);
-	}
+      pyylval->ttype = ridpointers[C_RID_CODE (id)];
+      return C_RID_YYCODE (id);
     }
 
   /* Make sure that user does not collide with our internal naming
@@ -359,7 +344,7 @@ read_token (t)
     case CPP_EOF:
       t->yychar = 0;
       break;
-      
+
     case CPP_NAME:
       t->yychar = read_process_identifier (&t->yylval);
       break;
@@ -402,20 +387,20 @@ feed_input (input)
 #ifdef SPEW_DEBUG
   if (spew_debug)
     fprintf (stderr, "\tfeeding %s:%d [%d tokens]\n",
-	     input->filename, input->lineno, input->limit - input->pos);
+	     input->locus.file, input->locus.line, input->limit - input->pos);
 #endif
 
   f->input = input;
-  f->filename = input_filename;
-  f->lineno = lineno;
+  f->locus.file = input_filename;
+  f->locus.line = lineno;
   f->yychar = yychar;
   f->yylval = yylval;
   f->first_token = first_token;
   f->token_obstack = token_obstack;
   f->next = feed;
 
-  input_filename = input->filename;
-  lineno = input->lineno;
+  input_filename = input->locus.file;
+  lineno = input->locus.line;
   yychar = YYEMPTY;
   yylval.ttype = NULL_TREE;
   first_token = 0;
@@ -428,8 +413,8 @@ end_input ()
 {
   struct feed *f = feed;
 
-  input_filename = f->filename;
-  lineno = f->lineno;
+  input_filename = f->locus.file;
+  lineno = f->locus.line;
   yychar = f->yychar;
   yylval = f->yylval;
   first_token = f->first_token;
@@ -486,14 +471,13 @@ next_token (t)
 	  feed->input->cur_chunk = feed->input->cur_chunk->next;
 	  feed->input->cur_pos = 0;
 	}
-      memcpy (t, feed->input->cur_chunk->toks + feed->input->cur_pos, 
+      memcpy (t, feed->input->cur_chunk->toks + feed->input->cur_pos,
 	      sizeof (struct token));
       feed->input->cur_pos++;
       return t->yychar;
     }
-  
-  memcpy (t, &Teosi, sizeof (struct token));
-  return END_OF_SAVED_INPUT;
+
+  return 0;
 }
 
 /* Shift the next token onto the fifo.  */
@@ -579,7 +563,7 @@ scan_tokens (n)
 	goto pad_tokens;
     }
   return;
-  
+
  pad_tokens:
   while (num_tokens () <= n)
     obstack_grow (&token_obstack, &Tpad, sizeof (struct token));
@@ -605,17 +589,17 @@ identifier_type (decl)
     {
       if (TREE_CODE (DECL_TEMPLATE_RESULT (decl)) == TYPE_DECL)
 	return PTYPENAME;
-      else if (looking_for_template) 
+      else if (looking_for_template)
 	return PFUNCNAME;
     }
   if (looking_for_template && really_overloaded_fn (decl))
     {
       /* See through a baselink.  */
-      if (TREE_CODE (decl) == TREE_LIST)
-	decl = TREE_VALUE (decl);
+      if (TREE_CODE (decl) == BASELINK)
+	decl = BASELINK_FUNCTIONS (decl);
 
       for (t = decl; t != NULL_TREE; t = OVL_CHAIN (t))
-	if (DECL_FUNCTION_TEMPLATE_P (OVL_FUNCTION (t))) 
+	if (DECL_FUNCTION_TEMPLATE_P (OVL_FUNCTION (t)))
 	  return PFUNCNAME;
     }
   if (TREE_CODE (decl) == NAMESPACE_DECL)
@@ -636,11 +620,11 @@ identifier_type (decl)
   if (t && t == decl)
     return SELFNAME;
 
-  return TYPENAME;
+  return tTYPENAME;
 }
 
 /* token[0] == AGGR (struct/union/enum)
-   Thus, token[1] is either a TYPENAME or a TYPENAME_DEFN.
+   Thus, token[1] is either a tTYPENAME or a TYPENAME_DEFN.
    If token[2] == '{' or ':' then it's TYPENAME_DEFN.
    It's also a definition if it's a forward declaration (as in 'struct Foo;')
    which we can tell if token[2] == ';' *and* token[-1] != FRIEND or NEW.  */
@@ -649,10 +633,10 @@ static SPEW_INLINE void
 do_aggr ()
 {
   int yc1, yc2;
-  
+
   scan_tokens (2);
   yc1 = nth_token (1)->yychar;
-  if (yc1 != TYPENAME && yc1 != IDENTIFIER && yc1 != PTYPENAME)
+  if (yc1 != tTYPENAME && yc1 != IDENTIFIER && yc1 != PTYPENAME)
     return;
   yc2 = nth_token (2)->yychar;
   if (yc2 == ';')
@@ -667,7 +651,7 @@ do_aggr ()
 
   switch (yc1)
     {
-    case TYPENAME:
+    case tTYPENAME:
       nth_token (1)->yychar = TYPENAME_DEFN;
       break;
     case PTYPENAME:
@@ -679,12 +663,12 @@ do_aggr ()
     default:
       abort ();
     }
-}  
+}
 
 void
 see_typename ()
 {
-  /* Only types expected, not even namespaces. */
+  /* Only types expected, not even namespaces.  */
   looking_for_typename = 2;
   if (yychar < 0)
     if ((yychar = yylex ()) < 0) yychar = 0;
@@ -739,7 +723,7 @@ yylex ()
     {
     case EMPTY:
       /* This is a lexical no-op.  */
-#ifdef SPEW_DEBUG    
+#ifdef SPEW_DEBUG
       if (spew_debug)
 	debug_yychar (yychr);
 #endif
@@ -758,19 +742,19 @@ yylex ()
     case IDENTIFIER:
     {
       int peek;
-      
+
       scan_tokens (1);
       peek = nth_token (1)->yychar;
       yychr = frob_id (yychr, peek, &nth_token (0)->yylval.ttype);
       break;
     }
     case IDENTIFIER_DEFN:
-    case TYPENAME:
+    case tTYPENAME:
     case TYPENAME_DEFN:
     case PTYPENAME:
     case PTYPENAME_DEFN:
       /* If we see a SCOPE next, restore the old value.
-	 Otherwise, we got what we want. */
+	 Otherwise, we got what we want.  */
       looking_for_typename = old_looking_for_typename;
       looking_for_template = 0;
       break;
@@ -831,13 +815,13 @@ yylex ()
   yychar = yychr;
   {
     struct token *tok = nth_token (0);
-    
+
     yylval = tok->yylval;
     if (tok->lineno)
       lineno = tok->lineno;
   }
 
-#ifdef SPEW_DEBUG    
+#ifdef SPEW_DEBUG
   if (spew_debug)
     debug_yychar (yychr);
 #endif
@@ -848,7 +832,7 @@ yylex ()
 }
 
 /* Unget character CH from the input stream.
-   If RESCAN is non-zero, then we want to `see' this
+   If RESCAN is nonzero, then we want to `see' this
    character as the next input token.  */
 
 void
@@ -883,7 +867,7 @@ frob_id (yyc, peek, idp)
 {
   tree trrr;
   int old_looking_for_typename = 0;
-  
+
   if (peek == SCOPE)
     {
       /* Don't interfere with the setting from an 'aggr' prefix.  */
@@ -898,12 +882,12 @@ frob_id (yyc, peek, idp)
       yyc = identifier_type (trrr);
       switch(yyc)
         {
-          case TYPENAME:
+          case tTYPENAME:
           case SELFNAME:
           case NSNAME:
           case PTYPENAME:
 	    /* If this got special lookup, remember it.  In these
-	       cases, we know it can't be a declarator-id. */
+	       cases, we know it can't be a declarator-id.  */
             if (got_scope || got_object)
               *idp = trrr;
             /* FALLTHROUGH */
@@ -1039,10 +1023,10 @@ space_for_token (t)
   if (t->last_pos != TOKEN_CHUNK_SIZE)
     return t->last_chunk->toks + (t->last_pos++);
 
-  t->last_chunk->next = ggc_alloc (sizeof (*t->last_chunk->next));
+  t->last_chunk->next = ggc_alloc_cleared (sizeof (*t->last_chunk->next));
   t->last_chunk = t->last_chunk->next;
   t->last_chunk->next = NULL;
-  
+
   t->last_pos = 1;
   return t->last_chunk->toks;
 }
@@ -1062,27 +1046,49 @@ remove_last_token (t)
       for (tc = &t->tokens; (*tc)->next != NULL; tc = &(*tc)->next)
 	;
       *tc = NULL;
-      t->last_pos = sizeof ((*tc)->toks) / sizeof ((*tc)->toks[0]);
+      t->last_pos = ARRAY_SIZE ((*tc)->toks);
     }
   return result;
 }
 
 /* Allocate an 'unparsed_text' structure, ready to use space_for_token.  */
 static struct unparsed_text *
-alloc_unparsed_text (fn, li, decl, interface)
-     const char *fn;
-     int li;
+alloc_unparsed_text (locus, decl, interface)
+     const location_t *locus;
      tree decl;
      int interface;
 {
   struct unparsed_text *r;
   r = ggc_alloc_cleared (sizeof (*r));
   r->decl = decl;
-  r->filename = fn;
-  r->lineno = li;
+  r->locus = *locus;
   r->interface = interface;
   r->tokens = r->last_chunk = ggc_alloc_cleared (sizeof (*r->tokens));
   return r;
+}
+
+/* Accumulate the tokens that make up a parenthesized expression in T,
+   having already read the opening parenthesis.  */
+
+static void
+snarf_parenthesized_expression (struct unparsed_text *t)
+{
+  int yyc;
+  int level = 1;
+
+  while (1)
+    {
+      yyc = next_token (space_for_token (t));
+      if (yyc == '(')
+	++level;
+      else if (yyc == ')' && --level == 0)
+	break;
+      else if (yyc == 0)
+	{
+	  error ("%Hend of file read inside definition", &t->locus);
+	  break;
+	}
+    }
 }
 
 /* Subroutine of snarf_method, deals with actual absorption of the block.  */
@@ -1134,7 +1140,7 @@ snarf_block (t)
 	    {
 	      if (!look_for_catch)
 		break;
-	      
+
 	      if (next_token (space_for_token (t)) != CATCH)
 		{
 		  push_token (remove_last_token (t));
@@ -1149,7 +1155,7 @@ snarf_block (t)
 	  if (look_for_lbrac)
 	    {
 	      struct token *fake;
-	      
+
 	      error ("function body for constructor missing");
 	      /* fake a { } to avoid further errors */
 	      fake = space_for_token (t);
@@ -1163,10 +1169,11 @@ snarf_block (t)
 	  else if (look_for_semicolon && blev == 0)
 	    break;
 	}
+      else if (yyc == '(' && blev == 0)
+	snarf_parenthesized_expression (t);
       else if (yyc == 0)
 	{
-	  error_with_file_and_line (t->filename, t->lineno,
-				    "end of file read inside definition");
+	  error ("%Hend of file read inside definition", &t->locus);
 	  break;
 	}
     }
@@ -1178,15 +1185,23 @@ void
 snarf_method (decl)
      tree decl;
 {
-  int starting_lineno = lineno;
-  const char *starting_filename = input_filename;
   struct unparsed_text *meth;
+  location_t starting;
+  starting.file = input_filename;
+  starting.line = lineno;
 
-  meth = alloc_unparsed_text (starting_filename, starting_lineno, decl,
-			      (interface_unknown ? 1 
-			       : (interface_only ? 0 : 2)));
+  meth = alloc_unparsed_text (&starting, decl, (interface_unknown ? 1
+						: (interface_only ? 0 : 2)));
 
   snarf_block (meth);
+  /* Add three END_OF_SAVED_INPUT tokens.  We used to provide an
+     infinite stream of END_OF_SAVED_INPUT tokens -- but that can
+     cause the compiler to get stuck in an infinite loop when
+     encountering invalid code.  We need more than one because the
+     parser sometimes peeks ahead several tokens.  */
+  memcpy (space_for_token (meth), &Teosi, sizeof (struct token));
+  memcpy (space_for_token (meth), &Teosi, sizeof (struct token));
+  memcpy (space_for_token (meth), &Teosi, sizeof (struct token));
 
   /* Happens when we get two declarations of the same function in the
      same scope.  */
@@ -1197,8 +1212,7 @@ snarf_method (decl)
 #ifdef SPEW_DEBUG
   if (spew_debug)
     fprintf (stderr, "\tsaved method of %d tokens from %s:%d\n",
-	     meth->limit,
-	     starting_filename, starting_lineno);
+	     meth->limit, starting.file, starting.line);
 #endif
 
   DECL_PENDING_INLINE_INFO (decl) = meth;
@@ -1217,14 +1231,15 @@ snarf_method (decl)
 static tree
 snarf_defarg ()
 {
-  int starting_lineno = lineno;
-  const char *starting_filename = input_filename;
   int yyc;
   int plev = 0;
   struct unparsed_text *buf;
   tree arg;
+  location_t starting;
+  starting.file = input_filename;
+  starting.line = lineno;
 
-  buf = alloc_unparsed_text (starting_filename, starting_lineno, 0, 0);
+  buf = alloc_unparsed_text (&starting, 0, 0);
 
   for (;;)
     {
@@ -1238,21 +1253,27 @@ snarf_defarg ()
 	--plev;
       else if (yyc == 0)
 	{
-	  error_with_file_and_line (starting_filename, starting_lineno,
-				    "end of file read inside default argument");
+	  error ("%Hend of file read inside default argument", &starting);
 	  goto done;
 	}
     }
 
   /* Unget the last token.  */
   push_token (remove_last_token (buf));
+  /* Add three END_OF_SAVED_INPUT tokens.  We used to provide an
+     infinite stream of END_OF_SAVED_INPUT tokens -- but that can
+     cause the compiler to get stuck in an infinite loop when
+     encountering invalid code.  We need more than one because the
+     parser sometimes peeks ahead several tokens.  */
+  memcpy (space_for_token (buf), &Teosi, sizeof (struct token));
+  memcpy (space_for_token (buf), &Teosi, sizeof (struct token));
+  memcpy (space_for_token (buf), &Teosi, sizeof (struct token));
 
  done:
 #ifdef SPEW_DEBUG
   if (spew_debug)
     fprintf (stderr, "\tsaved defarg of %d tokens from %s:%d\n",
-	     buf->limit,
-	     starting_filename, starting_lineno);
+	     buf->limit, starting.file, starting.line);
 #endif
 
   arg = make_node (DEFAULT_ARG);
@@ -1284,7 +1305,7 @@ add_defarg_fn (decl)
     TREE_VALUE (defarg_fns) = decl;
   else
     {
-      defarg_fns = tree_cons (NULL_TREE, decl, defarg_fns);  
+      defarg_fns = tree_cons (NULL_TREE, decl, defarg_fns);
       TREE_TYPE (defarg_fns) = current_class_type;
     }
 }
@@ -1313,7 +1334,7 @@ finish_defarg ()
     error ("parse error at end of saved function text");
 
   end_input ();
-}  
+}
 
 /* Main function for deferred parsing of default arguments.  Called from
    the parser.  */
@@ -1327,7 +1348,7 @@ do_pending_defargs ()
   for (; defarg_fns;)
     {
       tree current = defarg_fns;
-      
+
       tree defarg_fn = TREE_VALUE (defarg_fns);
       if (defarg_parm == NULL_TREE)
 	{
@@ -1367,7 +1388,7 @@ do_pending_defargs ()
 
       poplevel (0, 0, 0);
       pop_nested_class ();
-      
+
       defarg_fns = TREE_CHAIN (defarg_fns);
       if (defarg_depfns)
         {
@@ -1375,8 +1396,8 @@ do_pending_defargs ()
              of defarg_fns. We will need to reprocess this function, and
              check for circular dependencies.  */
           tree a, b;
-          
-          for (a = defarg_depfns, b = TREE_PURPOSE (current); a && b; 
+
+          for (a = defarg_depfns, b = TREE_PURPOSE (current); a && b;
                a = TREE_CHAIN (a), b = TREE_CHAIN (b))
             if (TREE_VALUE (a) != TREE_VALUE (b))
               goto different;
@@ -1392,8 +1413,8 @@ do_pending_defargs ()
               cp_warning_at ("circular dependency in default args of `%#D'", defarg_fn);
               /* No need to say what else is dependent, as they will be
                  picked up in another pass.  */
-              
-              /* Immediately repeat, but marked so that we break the loop. */
+
+              /* Immediately repeat, but marked so that we break the loop.  */
               defarg_fns = current;
               TREE_PURPOSE (current) = error_mark_node;
             }
@@ -1405,7 +1426,7 @@ do_pending_defargs ()
 }
 
 /* After parsing all the default arguments, we must clear any that remain,
-   which will be part of a circular dependency. */
+   which will be part of a circular dependency.  */
 void
 done_pending_defargs ()
 {
@@ -1413,7 +1434,7 @@ done_pending_defargs ()
     {
       tree fn = TREE_VALUE (defarg_fnsdone);
       tree parms;
-      
+
       if (TREE_CODE (fn) == FUNCTION_DECL)
         parms = TYPE_ARG_TYPES (TREE_TYPE (fn));
       else
@@ -1460,7 +1481,7 @@ replace_defarg (arg, init)
     }
 }
 
-#ifdef SPEW_DEBUG    
+#ifdef SPEW_DEBUG
 /* debug_yychar takes a yychar (token number) value and prints its name.  */
 
 static void
@@ -1469,7 +1490,7 @@ debug_yychar (yy)
 {
   if (yy<256)
     fprintf (stderr, "->%d < %c >\n", lineno, yy);
-  else if (yy == IDENTIFIER || yy == TYPENAME)
+  else if (yy == IDENTIFIER || yy == tTYPENAME)
     {
       const char *id;
       if (TREE_CODE (yylval.ttype) == IDENTIFIER_NODE)

@@ -2,22 +2,21 @@
 
 // Copyright (C) 2001, 2002 Free Software Foundation
 //
-// This file is part of GNU CC.
-//
-// GNU CC is free software; you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation; either version 2, or (at your option)
+// This file is part of the GNU ISO C++ Library.  This library is free
+// software; you can redistribute it and/or modify it under the
+// terms of the GNU General Public License as published by the
+// Free Software Foundation; either version 2, or (at your option)
 // any later version.
-// 
-// GNU CC is distributed in the hope that it will be useful,
+
+// This library is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
-// 
-// You should have received a copy of the GNU General Public License
-// along with GNU CC; see the file COPYING.  If not, write to
-// the Free Software Foundation, 59 Temple Place - Suite 330,
-// Boston, MA 02111-1307, USA.
+
+// You should have received a copy of the GNU General Public License along
+// with this library; see the file COPYING.  If not, write to the Free
+// Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+// USA.
 
 // As a special exception, you may use this file as part of a free software
 // library without restriction.  Specifically, if other files instantiate
@@ -47,7 +46,7 @@
 // MAY BE REMOVED in a future standard revision.  You should use the
 // header <sstream> instead.
 
-#include <strstream.h>
+#include <strstream>
 #include <algorithm>
 #include <new>
 #include <stdlib.h>
@@ -60,12 +59,13 @@ namespace std
   : _Base(), _M_alloc_fun(0), _M_free_fun(0), _M_dynamic(true), 
     _M_frozen(false), _M_constant(false)
   {
-    _M_buf_size = _M_buf_size_opt = max(initial_capacity, streamsize(16));
-    _M_buf = _M_alloc(_M_buf_size);
-    if (_M_buf) 
+    streamsize n = max(initial_capacity, streamsize(16));
+    
+    char* buf = _M_alloc(n);
+    if (buf) 
       {
-	setp(_M_buf, _M_buf + _M_buf_size);
-	setg(_M_buf, _M_buf, _M_buf);
+	setp(buf, buf + n);
+	setg(buf, buf, buf);
       }
   }
 
@@ -73,12 +73,13 @@ namespace std
   : _Base(), _M_alloc_fun(alloc_f), _M_free_fun(free_f), _M_dynamic(true), 
     _M_frozen(false), _M_constant(false)
   {
-    _M_buf_size = _M_buf_size_opt = 16;
-    _M_buf = _M_alloc(_M_buf_size);
-    if (_M_buf) 
+    streamsize n = 16;
+
+    char* buf = _M_alloc(n);
+    if (buf) 
       {
-	setp(_M_buf, _M_buf + _M_buf_size);
-	setg(_M_buf, _M_buf, _M_buf);
+	setp(buf, buf + n);
+	setg(buf, buf, buf);
       }
   }
 
@@ -116,14 +117,7 @@ namespace std
   strstreambuf::~strstreambuf()
   {
     if (_M_dynamic && !_M_frozen)
-      {
-	char* p = this->eback();
-	_M_free(p);
-	if (p == _M_buf)
-	  _M_buf = 0;
-      }
-    if (_M_buf)
-      _M_free(_M_buf);
+      _M_free(eback());
   }
 
   void 
@@ -169,8 +163,6 @@ namespace std
 		old_get_offset = gptr() - eback();
 	      }
 	    
-	    _M_buf = buf;
-	    _M_buf_size = _M_buf_size_opt = new_size;
 	    setp(buf, buf + new_size);
 	    pbump(old_size);
 

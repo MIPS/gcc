@@ -31,7 +31,7 @@ extern int function_label_operand PARAMS ((rtx, enum machine_mode));
 extern int lhs_lshift_cint_operand PARAMS ((rtx, enum machine_mode));
 
 #ifdef TREE_CODE
-extern void hppa_va_start PARAMS ((int, tree, rtx));
+extern void hppa_va_start PARAMS ((tree, rtx));
 extern rtx hppa_va_arg PARAMS ((tree, tree));
 #endif /* TREE_CODE */
 extern rtx hppa_legitimize_address PARAMS ((rtx, rtx, enum machine_mode));
@@ -63,6 +63,7 @@ extern rtx legitimize_pic_address PARAMS ((rtx, enum machine_mode, rtx));
 extern struct rtx_def *gen_cmp_fp PARAMS ((enum rtx_code, rtx, rtx));
 extern void hppa_encode_label PARAMS ((rtx));
 extern int arith11_operand PARAMS ((rtx, enum machine_mode));
+extern int adddi3_operand PARAMS ((rtx, enum machine_mode));
 extern int symbolic_expression_p PARAMS ((rtx));
 extern int hppa_address_cost PARAMS ((rtx));
 extern int symbolic_memory_operand PARAMS ((rtx, enum machine_mode));
@@ -104,6 +105,8 @@ extern int jump_in_call_delay PARAMS ((rtx));
 extern enum reg_class secondary_reload_class PARAMS ((enum reg_class,
 						      enum machine_mode, rtx));
 extern int hppa_fpstore_bypass_p PARAMS ((rtx, rtx));
+extern int attr_length_millicode_call PARAMS ((rtx, int));
+extern int attr_length_call PARAMS ((rtx, int));
 
 /* Declare functions defined in pa.c and used in templates.  */
 
@@ -124,9 +127,6 @@ extern int non_hard_reg_operand PARAMS ((rtx, enum machine_mode));
 extern int eq_neq_comparison_operator PARAMS ((rtx, enum machine_mode));
 extern int insn_refs_are_delayed PARAMS ((rtx));
 #endif /* RTX_CODE */
-
-/* Prototype function used in macro ASM_OUTPUT_MI_THUNK.  */
-extern void pa_output_function_prologue PARAMS ((FILE *, HOST_WIDE_INT));
 
 /* Prototype function used in macro CONST_OK_FOR_LETTER_P.  */
 extern int zdepi_cint_p PARAMS ((unsigned HOST_WIDE_INT));
@@ -162,6 +162,4 @@ extern rtx function_arg PARAMS ((CUMULATIVE_ARGS *, enum machine_mode,
 extern int function_arg_partial_nregs PARAMS ((CUMULATIVE_ARGS *,
 					       enum machine_mode,
 					       tree, int));
-
-extern void pa_asm_output_mi_thunk PARAMS ((FILE *, tree, int, tree));
 #endif /* TREE_CODE */

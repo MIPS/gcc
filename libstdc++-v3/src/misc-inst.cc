@@ -37,6 +37,7 @@
 #include <ostream>
 #include <algorithm>
 #include <vector>
+#include <bits/atomicity.h>
 
 namespace std
 {
@@ -67,27 +68,13 @@ namespace std
     basic_istream<wchar_t>& 
     getline(basic_istream<wchar_t>&, wstring&);
 #endif
+#ifdef _GLIBCPP_INST_ATOMICITY_LOCK
+  template volatile int __Atomicity_lock<0>::_S_atomicity_lock;
+#endif
 
 #if 1
   // XXX
-  // 2002-05-24 These are no longer needed and should be deleted.
-
-  // algorithm
-  typedef  _Char_traits_match<char, char_traits<char> > char_match;
-
-  template 
-    const char*  
-    find_if<const char *, char_match>
-    (const char *, const char *, char_match, random_access_iterator_tag);
-
-#ifdef _GLIBCPP_USE_WCHAR_T
-  typedef  _Char_traits_match<wchar_t, char_traits<wchar_t> > wchar_match;
-
-  template const wchar_t*  
-    find_if<const wchar_t*, wchar_match>
-    (const wchar_t*, const wchar_t*, wchar_match, random_access_iterator_tag);
-#endif
-  
+  // 2002-05-24 These are no longer needed and should eventually be deleted.
   template 
     string* 
     __uninitialized_fill_n_aux<string*, size_t, string>
@@ -99,4 +86,4 @@ namespace std
     (vector<string>::const_iterator, vector<string>::const_iterator, 
      string*, __false_type);
 #endif
-} //std
+} // namespace std

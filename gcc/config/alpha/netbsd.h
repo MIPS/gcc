@@ -28,6 +28,12 @@ Boston, MA 02111-1307, USA.  */
 	NETBSD_OS_CPP_BUILTINS_LP64();		\
     } while (0)
 
+
+/* NetBSD doesn't use the LANGUAGE* built-ins.  */
+#undef SUBTARGET_LANGUAGE_CPP_BUILTINS
+#define SUBTARGET_LANGUAGE_CPP_BUILTINS()	/* nothing */
+
+
 /* Show that we need a GP when profiling.  */
 #undef TARGET_PROFILING_NEEDS_GP
 #define TARGET_PROFILING_NEEDS_GP 1
@@ -66,7 +72,13 @@ Boston, MA 02111-1307, USA.  */
 #undef ENDFILE_SPEC
 #define ENDFILE_SPEC		\
   "%{ffast-math|funsafe-math-optimizations:crtfm%O%s} \
-   %{!shared:crtend%O%s} %{shared:crtendS%O%s}"
+   %{!shared:crtend%O%s} %{shared:crtendS%O%s} \
+   %:if-exists(crtn%O%s)"
+
+
+/* Attempt to enable execute permissions on the stack.  */
+
+#define TRANSFER_FROM_TRAMPOLINE NETBSD_ENABLE_EXECUTE_STACK
 
 
 #undef TARGET_VERSION

@@ -161,6 +161,9 @@ static int ia64_sched_reorder PARAMS ((FILE *, int, rtx *, int *, int));
 static int ia64_sched_reorder2 PARAMS ((FILE *, int, rtx *, int *, int));
 static int ia64_variable_issue PARAMS ((FILE *, int, rtx, int));
 
+static void ia64_output_mi_thunk PARAMS ((FILE *, tree, HOST_WIDE_INT,
+					  HOST_WIDE_INT, tree));
+
 static void ia64_select_rtx_section PARAMS ((enum machine_mode, rtx,
 					     unsigned HOST_WIDE_INT));
 static void ia64_aix_select_section PARAMS ((tree, int,
@@ -170,6 +173,9 @@ static void ia64_aix_unique_section PARAMS ((tree, int))
      ATTRIBUTE_UNUSED;
 static void ia64_aix_select_rtx_section PARAMS ((enum machine_mode, rtx,
 					         unsigned HOST_WIDE_INT))
+     ATTRIBUTE_UNUSED;
+
+static void ia64_hpux_add_extern_decl PARAMS ((const char *name))
      ATTRIBUTE_UNUSED;
 
 /* Table of valid machine attributes.  */
@@ -241,6 +247,11 @@ static const struct attribute_spec ia64_attribute_table[] =
 #define TARGET_HAVE_TLS true
 #endif
 
+#undef TARGET_ASM_OUTPUT_MI_THUNK
+#define TARGET_ASM_OUTPUT_MI_THUNK ia64_output_mi_thunk
+#undef TARGET_ASM_CAN_OUTPUT_MI_THUNK
+#define TARGET_ASM_CAN_OUTPUT_MI_THUNK hook_bool_tree_hwi_hwi_tree_true
+
 struct gcc_target targetm = TARGET_INITIALIZER;
 
 /* Return 1 if OP is a valid operand for the MEM of a CALL insn.  */
@@ -250,7 +261,7 @@ call_operand (op, mode)
      rtx op;
      enum machine_mode mode;
 {
-  if (mode != GET_MODE (op))
+  if (mode != GET_MODE (op) && mode != VOIDmode)
     return 0;
 
   return (GET_CODE (op) == SYMBOL_REF || GET_CODE (op) == REG
@@ -992,7 +1003,10 @@ ia64_expand_load_address (dest, src, scratch)
   /* The destination could be a MEM during initial rtl generation,
      which isn't a valid destination for the PIC load address patterns.  */
   if (! register_operand (dest, DImode))
-    temp = gen_reg_rtx (DImode);
+    if (! scratch || ! register_operand (scratch, DImode))
+      temp = gen_reg_rtx (DImode);
+    else
+      temp = scratch;
   else
     temp = dest;
 
@@ -1003,7 +1017,8 @@ ia64_expand_load_address (dest, src, scratch)
     emit_insn (gen_load_gprel64 (temp, src));
   else if (GET_CODE (src) == SYMBOL_REF && SYMBOL_REF_FLAG (src))
     emit_insn (gen_load_fptr (temp, src));
-  else if (sdata_symbolic_operand (src, DImode))
+  else if ((GET_MODE (src) == Pmode || GET_MODE (src) == ptr_mode)
+           && sdata_symbolic_operand (src, VOIDmode))
     emit_insn (gen_load_gprel (temp, src));
   else if (GET_CODE (src) == CONST
 	   && GET_CODE (XEXP (src, 0)) == PLUS
@@ -1034,11 +1049,19 @@ ia64_expand_load_address (dest, src, scratch)
 	scratch = no_new_pseudos ? temp : gen_reg_rtx (DImode);
 
       insn = emit_insn (gen_load_symptr (temp, src, scratch));
+#ifdef POINTERS_EXTEND_UNSIGNED
+      if (GET_MODE (temp) != GET_MODE (src))
+	src = convert_memory_address (GET_MODE (temp), src);
+#endif
       REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_EQUAL, src, REG_NOTES (insn));
     }
 
   if (temp != dest)
-    emit_move_insn (dest, temp);
+    {
+      if (GET_MODE (dest) != GET_MODE (temp))
+	temp = convert_to_mode (GET_MODE (dest), temp, 0);
+      emit_move_insn (dest, temp);
+    }
 }
 
 static GTY(()) rtx gen_tls_tga;
@@ -1059,7 +1082,7 @@ gen_thread_pointer ()
   if (!thread_pointer_rtx)
     {
       thread_pointer_rtx = gen_rtx_REG (Pmode, 13);
-      RTX_UNCHANGING_P (thread_pointer_rtx);
+      RTX_UNCHANGING_P (thread_pointer_rtx) = 1;
     }
   return thread_pointer_rtx;
 }
@@ -1073,7 +1096,7 @@ ia64_expand_move (op0, op1)
   if (!reload_in_progress && !reload_completed && !ia64_move_ok (op0, op1))
     op1 = force_reg (mode, op1);
 
-  if (mode == Pmode)
+  if (mode == Pmode || mode == ptr_mode)
     {
       enum tls_model tls_kind;
       if ((tls_kind = tls_symbolic_operand (op1, Pmode)))
@@ -1184,7 +1207,9 @@ ia64_expand_move (op0, op1)
 	      abort ();
 	    }
 	}
-      else if (!TARGET_NO_PIC && symbolic_operand (op1, DImode))
+      else if (!TARGET_NO_PIC &&
+	       (symbolic_operand (op1, Pmode) ||
+		symbolic_operand (op1, ptr_mode)))
 	{
 	  /* Before optimization starts, delay committing to any particular
 	     type of PIC address load.  If this function gets deferred, we
@@ -1208,7 +1233,10 @@ ia64_expand_move (op0, op1)
 		    && (SYMBOL_REF_FLAG (op1)
 			|| CONSTANT_POOL_ADDRESS_P (op1)
 			|| STRING_POOL_ADDRESS_P (op1))))
-	    emit_insn (gen_movdi_symbolic (op0, op1));
+	    if (GET_MODE (op1) == DImode)
+	      emit_insn (gen_movdi_symbolic (op0, op1));
+	    else
+	      emit_insn (gen_movsi_symbolic (op0, op1));
 	  else
 	    ia64_expand_load_address (op0, op1, NULL_RTX);
 	  return NULL_RTX;
@@ -2857,12 +2885,16 @@ ia64_assemble_integer (x, size, aligned_p)
      unsigned int size;
      int aligned_p;
 {
-  if (size == UNITS_PER_WORD && aligned_p
+  if (size == (TARGET_ILP32 ? 4 : 8)
+      && aligned_p
       && !(TARGET_NO_PIC || TARGET_AUTO_PIC)
       && GET_CODE (x) == SYMBOL_REF
       && SYMBOL_REF_FLAG (x))
     {
-      fputs ("\tdata8\t@fptr(", asm_out_file);
+      if (TARGET_ILP32)
+	fputs ("\tdata4\t@fptr(", asm_out_file);
+      else
+	fputs ("\tdata8\t@fptr(", asm_out_file);
       output_addr_const (asm_out_file, x);
       fputs (")\n", asm_out_file);
       return true;
@@ -3050,9 +3082,8 @@ ia64_setup_incoming_varargs (cum, int_mode, type, pretend_size, second_time)
      int *           pretend_size;
      int	     second_time ATTRIBUTE_UNUSED;
 {
-  /* If this is a stdarg function, then skip the current argument.  */
-  if (! current_function_varargs)
-    ia64_function_arg_advance (&cum, int_mode, type, 1);
+  /* Skip the current argument.  */
+  ia64_function_arg_advance (&cum, int_mode, type, 1);
 
   if (cum.words < MAX_ARGUMENT_SLOTS)
     {
@@ -3094,17 +3125,17 @@ hfa_element_mode (type, nested)
 	 gcc's COMPLEX_TYPEs as HFAs.  We need to exclude the integral complex
 	 types though.  */
     case COMPLEX_TYPE:
-      if (GET_MODE_CLASS (TYPE_MODE (type)) == MODE_COMPLEX_FLOAT)
+      if (GET_MODE_CLASS (TYPE_MODE (type)) == MODE_COMPLEX_FLOAT
+	  && (TYPE_MODE (type) != TCmode || INTEL_EXTENDED_IEEE_FORMAT))
 	return mode_for_size (GET_MODE_UNIT_SIZE (TYPE_MODE (type))
 			      * BITS_PER_UNIT, MODE_FLOAT, 0);
       else
 	return VOIDmode;
 
     case REAL_TYPE:
-      /* ??? Should exclude 128-bit long double here.  */
       /* We want to return VOIDmode for raw REAL_TYPEs, but the actual
 	 mode if this is contained within an aggregate.  */
-      if (nested)
+      if (nested && (TYPE_MODE (type) != TFmode || INTEL_EXTENDED_IEEE_FORMAT))
 	return TYPE_MODE (type);
       else
 	return VOIDmode;
@@ -3453,27 +3484,6 @@ ia64_function_arg_pass_by_reference (cum, mode, type, named)
   return type && TREE_CODE (TYPE_SIZE (type)) != INTEGER_CST;
 }
 
-/* Implement va_start.  */
-
-void
-ia64_va_start (stdarg_p, valist, nextarg)
-     int stdarg_p;
-     tree valist;
-     rtx nextarg;
-{
-  int arg_words;
-  int ofs;
-
-  arg_words = current_function_args_info.words;
-
-  if (stdarg_p)
-    ofs = 0;
-  else
-    ofs = (arg_words >= MAX_ARGUMENT_SLOTS ? -UNITS_PER_WORD : 0);
-
-  nextarg = plus_constant (nextarg, ofs);
-  std_expand_builtin_va_start (1, valist, nextarg);
-}
 
 /* Implement va_arg.  */
 
@@ -4044,8 +4054,13 @@ ia64_asm_output_external (file, decl, name)
 {
   int save_referenced;
 
-  /* GNU as does not need anything here.  */
-  if (TARGET_GNU_AS)
+  /* GNU as does not need anything here, but the HP linker does need
+     something for external functions.  */
+
+  if (TARGET_GNU_AS
+      && (!TARGET_HPUX_LD
+	  || TREE_CODE (decl) != FUNCTION_DECL
+	  || strstr(name, "__builtin_") == name))
     return;
 
   /* ??? The Intel assembler creates a reference that needs to be satisfied by
@@ -4060,19 +4075,18 @@ ia64_asm_output_external (file, decl, name)
       || ! strcmp (name, "__builtin_args_info"))
     return;
 
-  /* assemble_name will set TREE_SYMBOL_REFERENCED, so we must save and
-     restore it.  */
-  save_referenced = TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl));
-  if (TREE_CODE (decl) == FUNCTION_DECL)
+  if (TARGET_HPUX_LD)
+    ia64_hpux_add_extern_decl (name);
+  else
     {
-      fprintf (file, "%s", TYPE_ASM_OP);
-      assemble_name (file, name);
-      putc (',', file);
-      fprintf (file, TYPE_OPERAND_FMT, "function");
-      putc ('\n', file);
+      /* assemble_name will set TREE_SYMBOL_REFERENCED, so we must save and
+         restore it.  */
+      save_referenced = TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl));
+      if (TREE_CODE (decl) == FUNCTION_DECL)
+        ASM_OUTPUT_TYPE_DIRECTIVE (file, name, "function");
+      (*targetm.asm_out.globalize_label) (file, name);
+      TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl)) = save_referenced;
     }
-  ASM_GLOBALIZE_LABEL (file, name);
-  TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl)) = save_referenced;
 }
 
 /* Parse the -mfixed-range= option string.  */
@@ -4155,10 +4169,16 @@ ia64_override_options ()
   if (TARGET_AUTO_PIC)
     target_flags |= MASK_CONST_GP;
 
-  if (TARGET_INLINE_DIV_LAT && TARGET_INLINE_DIV_THR)
+  if (TARGET_INLINE_FLOAT_DIV_LAT && TARGET_INLINE_FLOAT_DIV_THR)
     {
-      warning ("cannot optimize division for both latency and throughput");
-      target_flags &= ~MASK_INLINE_DIV_THR;
+      warning ("cannot optimize floating point division for both latency and throughput");
+      target_flags &= ~MASK_INLINE_FLOAT_DIV_THR;
+    }
+
+  if (TARGET_INLINE_INT_DIV_LAT && TARGET_INLINE_INT_DIV_THR)
+    {
+      warning ("cannot optimize integer division for both latency and throughput");
+      target_flags &= ~MASK_INLINE_INT_DIV_THR;
     }
 
   if (ia64_fixed_range_string)
@@ -4180,6 +4200,10 @@ ia64_override_options ()
   ia64_section_threshold = g_switch_set ? g_switch_value : IA64_DEFAULT_GVALUE;
 
   init_machine_status = ia64_init_machine_status;
+
+  /* Tell the compiler which flavor of TFmode we're using.  */
+  if (INTEL_EXTENDED_IEEE_FORMAT)
+    real_format_for_mode[TFmode - QFmode] = &ieee_extended_intel_128_format;
 }
 
 static enum attr_itanium_requires_unit0 ia64_safe_itanium_requires_unit0 PARAMS((rtx));
@@ -7132,24 +7156,7 @@ ia64_encode_section_info (decl, first)
   is_local = (*targetm.binds_local_p) (decl);
 
   if (TREE_CODE (decl) == VAR_DECL && DECL_THREAD_LOCAL (decl))
-    {
-      enum tls_model kind;
-      if (!flag_pic)
-	{
-	  if (is_local)
-	    kind = TLS_MODEL_LOCAL_EXEC;
-	  else
-	    kind = TLS_MODEL_INITIAL_EXEC;
-	}
-      else if (is_local)
-	kind = TLS_MODEL_LOCAL_DYNAMIC;
-      else
-	kind = TLS_MODEL_GLOBAL_DYNAMIC;
-      if (kind < flag_tls_default)
-	kind = flag_tls_default;
-
-      encoding = " GLil"[kind];
-    }
+    encoding = " GLil"[decl_tls_model (decl)];
   /* Determine if DECL will wind up in .sdata/.sbss.  */
   else if (is_local && ia64_in_small_data_p (decl))
     encoding = 's';
@@ -7506,55 +7513,43 @@ ia64_init_builtins ()
 {
   tree psi_type_node = build_pointer_type (integer_type_node);
   tree pdi_type_node = build_pointer_type (long_integer_type_node);
-  tree endlink = void_list_node;
 
   /* __sync_val_compare_and_swap_si, __sync_bool_compare_and_swap_si */
   tree si_ftype_psi_si_si
-    = build_function_type (integer_type_node,
-                           tree_cons (NULL_TREE, psi_type_node,
-                                      tree_cons (NULL_TREE, integer_type_node,
-                                                 tree_cons (NULL_TREE,
-							    integer_type_node,
-                                                            endlink))));
+    = build_function_type_list (integer_type_node,
+				psi_type_node, integer_type_node,
+				integer_type_node, NULL_TREE);
 
   /* __sync_val_compare_and_swap_di, __sync_bool_compare_and_swap_di */
   tree di_ftype_pdi_di_di
-    = build_function_type (long_integer_type_node,
-                           tree_cons (NULL_TREE, pdi_type_node,
-                                      tree_cons (NULL_TREE,
-						 long_integer_type_node,
-                                                 tree_cons (NULL_TREE,
-							long_integer_type_node,
-							endlink))));
+    = build_function_type_list (long_integer_type_node,
+				pdi_type_node, long_integer_type_node,
+				long_integer_type_node, NULL_TREE);
   /* __sync_synchronize */
   tree void_ftype_void
-    = build_function_type (void_type_node, endlink);
+    = build_function_type (void_type_node, void_list_node);
 
   /* __sync_lock_test_and_set_si */
   tree si_ftype_psi_si
-    = build_function_type (integer_type_node,
-                           tree_cons (NULL_TREE, psi_type_node,
-                           tree_cons (NULL_TREE, integer_type_node, endlink)));
+    = build_function_type_list (integer_type_node,
+				psi_type_node, integer_type_node, NULL_TREE);
 
   /* __sync_lock_test_and_set_di */
   tree di_ftype_pdi_di
-    = build_function_type (long_integer_type_node,
-                           tree_cons (NULL_TREE, pdi_type_node,
-                           tree_cons (NULL_TREE, long_integer_type_node,
-				      endlink)));
+    = build_function_type_list (long_integer_type_node,
+				pdi_type_node, long_integer_type_node,
+				NULL_TREE);
 
   /* __sync_lock_release_si */
   tree void_ftype_psi
-    = build_function_type (void_type_node, tree_cons (NULL_TREE, psi_type_node,
-						      endlink));
+    = build_function_type_list (void_type_node, psi_type_node, NULL_TREE);
 
   /* __sync_lock_release_di */
   tree void_ftype_pdi
-    = build_function_type (void_type_node, tree_cons (NULL_TREE, pdi_type_node,
-						      endlink));
+    = build_function_type_list (void_type_node, pdi_type_node, NULL_TREE);
 
 #define def_builtin(name, type, code) \
-  builtin_function ((name), (type), (code), BUILT_IN_MD, NULL)
+  builtin_function ((name), (type), (code), BUILT_IN_MD, NULL, NULL_TREE)
 
   def_builtin ("__sync_val_compare_and_swap_si", si_ftype_psi_si_si,
 	       IA64_BUILTIN_VAL_COMPARE_AND_SWAP_SI);
@@ -7578,11 +7573,11 @@ ia64_init_builtins ()
 	       IA64_BUILTIN_LOCK_RELEASE_DI);
 
   def_builtin ("__builtin_ia64_bsp",
-	       build_function_type (ptr_type_node, endlink),
+	       build_function_type (ptr_type_node, void_list_node),
 	       IA64_BUILTIN_BSP);
 
   def_builtin ("__builtin_ia64_flushrs", 
-	       build_function_type (void_type_node, endlink), 
+	       build_function_type (void_type_node, void_list_node), 
 	       IA64_BUILTIN_FLUSHRS);
 
   def_builtin ("__sync_fetch_and_add_si", si_ftype_psi_si,
@@ -7665,6 +7660,10 @@ ia64_expand_fetch_and_op (binoptab, mode, arglist, target)
   arg0 = TREE_VALUE (arglist);
   arg1 = TREE_VALUE (TREE_CHAIN (arglist));
   mem = expand_expr (arg0, NULL_RTX, Pmode, 0);
+#ifdef POINTERS_EXTEND_UNSIGNED
+  if (GET_MODE(mem) != Pmode)
+    mem = convert_memory_address (Pmode, mem);
+#endif
   value = expand_expr (arg1, NULL_RTX, mode, 0);
 
   mem = gen_rtx_MEM (mode, force_reg (Pmode, mem));
@@ -7742,6 +7741,11 @@ ia64_expand_op_and_fetch (binoptab, mode, arglist, target)
   arg0 = TREE_VALUE (arglist);
   arg1 = TREE_VALUE (TREE_CHAIN (arglist));
   mem = expand_expr (arg0, NULL_RTX, Pmode, 0);
+#ifdef POINTERS_EXTEND_UNSIGNED
+  if (GET_MODE(mem) != Pmode)
+    mem = convert_memory_address (Pmode, mem);
+#endif
+
   value = expand_expr (arg1, NULL_RTX, mode, 0);
 
   mem = gen_rtx_MEM (mode, force_reg (Pmode, mem));
@@ -7805,11 +7809,11 @@ ia64_expand_compare_and_swap (mode, boolp, arglist, target)
   arg0 = TREE_VALUE (arglist);
   arg1 = TREE_VALUE (TREE_CHAIN (arglist));
   arg2 = TREE_VALUE (TREE_CHAIN (TREE_CHAIN (arglist)));
-  mem = expand_expr (arg0, NULL_RTX, Pmode, 0);
+  mem = expand_expr (arg0, NULL_RTX, ptr_mode, 0);
   old = expand_expr (arg1, NULL_RTX, mode, 0);
   new = expand_expr (arg2, NULL_RTX, mode, 0);
 
-  mem = gen_rtx_MEM (mode, force_reg (Pmode, mem));
+  mem = gen_rtx_MEM (mode, force_reg (ptr_mode, mem));
   MEM_VOLATILE_P (mem) = 1;
 
   if (! register_operand (old, mode))
@@ -7854,10 +7858,10 @@ ia64_expand_lock_test_and_set (mode, arglist, target)
 
   arg0 = TREE_VALUE (arglist);
   arg1 = TREE_VALUE (TREE_CHAIN (arglist));
-  mem = expand_expr (arg0, NULL_RTX, Pmode, 0);
+  mem = expand_expr (arg0, NULL_RTX, ptr_mode, 0);
   new = expand_expr (arg1, NULL_RTX, mode, 0);
 
-  mem = gen_rtx_MEM (mode, force_reg (Pmode, mem));
+  mem = gen_rtx_MEM (mode, force_reg (ptr_mode, mem));
   MEM_VOLATILE_P (mem) = 1;
   if (! register_operand (new, mode))
     new = copy_to_mode_reg (mode, new);
@@ -7888,9 +7892,9 @@ ia64_expand_lock_release (mode, arglist, target)
   rtx mem;
 
   arg0 = TREE_VALUE (arglist);
-  mem = expand_expr (arg0, NULL_RTX, Pmode, 0);
+  mem = expand_expr (arg0, NULL_RTX, ptr_mode, 0);
 
-  mem = gen_rtx_MEM (mode, force_reg (Pmode, mem));
+  mem = gen_rtx_MEM (mode, force_reg (ptr_mode, mem));
   MEM_VOLATILE_P (mem) = 1;
 
   emit_move_insn (mem, const0_rtx);
@@ -8064,6 +8068,56 @@ ia64_hpux_function_arg_padding (mode, type)
        : GET_MODE_BITSIZE (mode) < PARM_BOUNDARY)
       ? downward : upward);
 }
+
+/* Linked list of all external functions that are to be emitted by GCC.
+   We output the name if and only if TREE_SYMBOL_REFERENCED is set in
+   order to avoid putting out names that are never really used.  */
+
+struct extern_func_list
+{
+  struct extern_func_list *next; /* next external */
+  char *name;                    /* name of the external */
+} *extern_func_head = 0;
+
+static void
+ia64_hpux_add_extern_decl (name)
+        const char *name;
+{
+  struct extern_func_list *p;
+
+  p = (struct extern_func_list *) xmalloc (sizeof (struct extern_func_list));
+  p->name = xmalloc (strlen (name) + 1);
+  strcpy(p->name, name);
+  p->next = extern_func_head;
+  extern_func_head = p;
+}
+
+/* Print out the list of used global functions.  */
+
+void
+ia64_hpux_asm_file_end (file)
+	FILE *file;
+{
+  while (extern_func_head)
+    {
+      const char *const real_name =
+	(* targetm.strip_name_encoding) (extern_func_head->name);
+      tree decl = get_identifier (real_name);
+
+      if (decl && ! TREE_ASM_WRITTEN (decl) && TREE_SYMBOL_REFERENCED (decl))
+        {
+	  TREE_ASM_WRITTEN (decl) = 1;
+	  (*targetm.asm_out.globalize_label) (file, real_name);
+	  fprintf (file, "%s", TYPE_ASM_OP);
+	  assemble_name (file, real_name);
+	  putc (',', file);
+	  fprintf (file, TYPE_OPERAND_FMT, "function");
+	  putc ('\n', file);
+        }
+      extern_func_head = extern_func_head->next;
+    }
+}
+
 
 /* Switch to the section to which we should output X.  The only thing
    special we do here is to honor small data.  */
@@ -8117,6 +8171,98 @@ ia64_aix_select_rtx_section (mode, x, align)
   flag_pic = 1;
   ia64_select_rtx_section (mode, x, align);
   flag_pic = save_pic;
+}
+
+/* Output the assembler code for a thunk function.  THUNK_DECL is the
+   declaration for the thunk function itself, FUNCTION is the decl for
+   the target function.  DELTA is an immediate constant offset to be
+   added to THIS.  If VCALL_OFFSET is non-zero, the word at
+   *(*this + vcall_offset) should be added to THIS.  */
+
+static void
+ia64_output_mi_thunk (file, thunk, delta, vcall_offset, function)
+     FILE *file;
+     tree thunk ATTRIBUTE_UNUSED;
+     HOST_WIDE_INT delta;
+     HOST_WIDE_INT vcall_offset;
+     tree function;
+{
+  rtx this, insn, funexp;
+
+  /* Set things up as ia64_expand_prologue might.  */
+  last_scratch_gr_reg = 15;
+
+  memset (&current_frame_info, 0, sizeof (current_frame_info));
+  current_frame_info.spill_cfa_off = -16;
+  current_frame_info.n_input_regs = 1;
+  current_frame_info.need_regstk = (TARGET_REG_NAMES != 0);
+
+  if (!TARGET_REG_NAMES)
+    reg_names[IN_REG (0)] = ia64_reg_numbers[0];
+
+  /* Mark the end of the (empty) prologue.  */
+  emit_note (NULL, NOTE_INSN_PROLOGUE_END);
+
+  this = gen_rtx_REG (Pmode, IN_REG (0));
+
+  /* Apply the constant offset, if required.  */
+  if (delta)
+    {
+      rtx delta_rtx = GEN_INT (delta);
+
+      if (!CONST_OK_FOR_I (delta))
+	{
+	  rtx tmp = gen_rtx_REG (Pmode, 2);
+	  emit_move_insn (tmp, delta_rtx);
+	  delta_rtx = tmp;
+	}
+      emit_insn (gen_adddi3 (this, this, delta_rtx));
+    }
+
+  /* Apply the offset from the vtable, if required.  */
+  if (vcall_offset)
+    {
+      rtx vcall_offset_rtx = GEN_INT (vcall_offset);
+      rtx tmp = gen_rtx_REG (Pmode, 2);
+
+      emit_move_insn (tmp, gen_rtx_MEM (Pmode, this));
+
+      if (!CONST_OK_FOR_J (vcall_offset))
+	{
+	  rtx tmp2 = gen_rtx_REG (Pmode, next_scratch_gr_reg ());
+	  emit_move_insn (tmp2, vcall_offset_rtx);
+	  vcall_offset_rtx = tmp2;
+	}
+      emit_insn (gen_adddi3 (tmp, tmp, vcall_offset_rtx));
+
+      emit_move_insn (tmp, gen_rtx_MEM (Pmode, tmp));
+
+      emit_insn (gen_adddi3 (this, this, tmp));
+    }
+
+  /* Generate a tail call to the target function.  */
+  if (! TREE_USED (function))
+    {
+      assemble_external (function);
+      TREE_USED (function) = 1;
+    }
+  funexp = XEXP (DECL_RTL (function), 0);
+  funexp = gen_rtx_MEM (FUNCTION_MODE, funexp);
+  ia64_expand_call (NULL_RTX, funexp, NULL_RTX, 1);
+  insn = get_last_insn ();
+  SIBLING_CALL_P (insn) = 1;
+  emit_barrier ();
+
+  /* Run just enough of rest_of_compilation to get the insns emitted.
+     There's not really enough bulk here to make other passes such as
+     instruction scheduling worth while.  Note that use_thunk calls
+     assemble_start_function and assemble_end_function.  */
+  insn = get_insns ();
+  emit_all_insn_group_barriers (NULL, insn);
+  shorten_branches (insn);
+  final_start_function (insn, file, 1);
+  final (insn, file, 1, 0);
+  final_end_function ();
 }
 
 #include "gt-ia64.h"

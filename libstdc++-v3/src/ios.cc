@@ -38,29 +38,38 @@
 #include <fstream>
 #include <bits/atomicity.h>
 #include <ext/stdio_filebuf.h>
+#ifdef _GLIBCPP_HAVE_UNISTD_H
+#include <unistd.h>
+#endif
+
+namespace __gnu_cxx
+{
+  // Extern declarations for global objects in src/globals.cc.
+  extern stdio_filebuf<char> buf_cout;
+  extern stdio_filebuf<char> buf_cin;
+  extern stdio_filebuf<char> buf_cerr;
+
+#ifdef _GLIBCPP_USE_WCHAR_T
+  extern stdio_filebuf<wchar_t> buf_wcout;
+  extern stdio_filebuf<wchar_t> buf_wcin;
+  extern stdio_filebuf<wchar_t> buf_wcerr;
+#endif
+} // namespace __gnu_cxx
 
 namespace std 
 {
-  // Extern declarations for global objects in src/globals.cc.
+  using namespace __gnu_cxx;
+  
   extern istream cin;
   extern ostream cout;
   extern ostream cerr;
   extern ostream clog;
-
-  using __gnu_cxx::stdio_filebuf;
-  extern stdio_filebuf<char> buf_cout;
-  extern stdio_filebuf<char> buf_cin;
-  extern stdio_filebuf<char> buf_cerr;
 
 #ifdef _GLIBCPP_USE_WCHAR_T
   extern wistream wcin;
   extern wostream wcout;
   extern wostream wcerr;
   extern wostream wclog;
-
-  extern stdio_filebuf<wchar_t> buf_wcout;
-  extern stdio_filebuf<wchar_t> buf_wcin;
-  extern stdio_filebuf<wchar_t> buf_wcerr;
 #endif
 
   // Definitions for static const data members of __ios_flags.
@@ -151,7 +160,11 @@ namespace std
   ios_base::Init::_S_ios_create(bool __sync)
   {
     int __out_size = __sync ? 0 : static_cast<int>(BUFSIZ);
-    int __in_size = __sync ? 1 : static_cast<int>(BUFSIZ);
+#ifdef _GLIBCPP_HAVE_ISATTY
+    int __in_size = (__sync || isatty (0)) ? 1 : static_cast<int>(BUFSIZ);
+#else
+    int __in_size = 1;
+#endif
 
     // NB: The file globals.cc creates the four standard files
     // with NULL buffers. At this point, we swap out the dummy NULL

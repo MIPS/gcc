@@ -63,7 +63,6 @@ host_alias = @host_alias@
 host_triplet = @host@
 target_alias = @target_alias@
 target_triplet = @target@
-AM_RUNTESTFLAGS = @AM_RUNTESTFLAGS@
 AR = @AR@
 AS = @AS@
 CC = @CC@
@@ -88,6 +87,7 @@ GCSPEC = @GCSPEC@
 GCTESTSPEC = @GCTESTSPEC@
 HASH_SYNC_SPEC = @HASH_SYNC_SPEC@
 INCLTDL = @INCLTDL@
+INTERPRETER = @INTERPRETER@
 JC1GCSPEC = @JC1GCSPEC@
 LIBFFI = @LIBFFI@
 LIBFFIINCS = @LIBFFIINCS@
@@ -138,12 +138,12 @@ EXPECT = `if [ -f $(top_builddir)/../expect/expect ] ; then \
           else echo expect ; fi`
 
 
-RUNTEST = `if [ -f $(top_srcdir)/../dejagnu/runtest ] ; then \
+RUNTEST = "`if [ -f $(top_srcdir)/../dejagnu/runtest ] ; then \
 	       echo $(top_srcdir)/../dejagnu/runtest ; \
-	    else echo runtest; fi`
+	    else echo runtest; fi` $(AM_RUNTESTFLAGS)"
 
 
-RUNTESTFLAGS = @AM_RUNTESTFLAGS@
+AM_RUNTESTFLAGS = INTERPRETER=$(INTERPRETER)
 CONFIG_HEADER = ../include/config.h ../gcj/libgcj-config.h
 CONFIG_CLEAN_FILES = 
 DIST_COMMON =  ChangeLog Makefile.am Makefile.in
@@ -151,7 +151,7 @@ DIST_COMMON =  ChangeLog Makefile.am Makefile.in
 
 DISTFILES = $(DIST_COMMON) $(SOURCES) $(HEADERS) $(TEXINFOS) $(EXTRA_DIST)
 
-TAR = tar
+TAR = gtar
 GZIP_ENV = --best
 all: all-redirect
 .SUFFIXES:
@@ -179,13 +179,15 @@ distdir: $(DISTFILES)
 	@for file in $(DISTFILES); do \
 	  d=$(srcdir); \
 	  if test -d $$d/$$file; then \
-	    cp -pr $$/$$file $(distdir)/$$file; \
+	    cp -pr $$d/$$file $(distdir)/$$file; \
 	  else \
 	    test -f $(distdir)/$$file \
 	    || ln $$d/$$file $(distdir)/$$file 2> /dev/null \
 	    || cp -p $$d/$$file $(distdir)/$$file || :; \
 	  fi; \
 	done
+
+RUNTESTFLAGS =
 
 DEJATOOL = $(PACKAGE)
 

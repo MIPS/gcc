@@ -108,7 +108,7 @@ proc objc_init { args } {
 	set tmpdir /tmp
     }
     if { [target_info needs_status_wrapper]!="" && ![info exists gluefile] } {
-	set gluefile ${tmpdir}/testglue.o;
+	set gluefile ${tmpdir}/objc-testglue.o;
 	set result [build_wrapper $gluefile];
 	if { $result != "" } {
 	    set gluefile [lindex $result 0];
@@ -139,6 +139,7 @@ proc objc_target_compile { source dest type options } {
     global rootme;
     global tmpdir;
     global gluefile wrap_flags;
+    global srcdir
     global OBJC_UNDER_TEST
     global TOOL_OPTIONS
     global ld_library_path
@@ -164,9 +165,11 @@ proc objc_target_compile { source dest type options } {
     if [info exists TOOL_OPTIONS] {
 	lappend options "additional_flags=$TOOL_OPTIONS"
     }
-    if [target_info exists objc,no_varargs] {
-	lappend options "additional_flags=-DNO_VARARGS"
-    }
+
+    # Point to the ObjC headers in libobjc.
+    set objc_include_dir "${srcdir}/../../libobjc"
+    lappend options "additional_flags=-I${objc_include_dir}"
+
     set objcpath "[get_multilibs]"
     set libobjc_dir [lookfor_file ${objcpath} libobjc/.libs/libobjc.a]
     if { $libobjc_dir != "" } {

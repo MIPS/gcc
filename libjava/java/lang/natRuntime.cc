@@ -21,6 +21,7 @@ details.  */
 #include <java/lang/UnsatisfiedLinkError.h>
 #include <gnu/gcj/runtime/FileDeleter.h>
 #include <gnu/gcj/runtime/FinalizerThread.h>
+#include <java/io/File.h>
 #include <java/util/Properties.h>
 #include <java/util/TimeZone.h>
 #include <java/lang/StringBuffer.h>
@@ -101,12 +102,24 @@ _Jv_FindSymbolInExecutable (const char *symname)
   return NULL;
 }
 
+void
+_Jv_SetDLLSearchPath (const char *path)
+{
+  lt_dlsetsearchpath (path);
+}
+
 #else
 
 void *
-_Jv_FindSymbolInExecutable (const char *symname)
+_Jv_FindSymbolInExecutable (const char *)
 {
   return NULL;
+}
+
+void
+_Jv_SetDLLSearchPath (const char *)
+{
+  // Nothing.
 }
 
 #endif /* USE_LTDL */
@@ -367,7 +380,8 @@ java::lang::Runtime::insertSystemProperties (java::util::Properties *newprops)
   // nothing else when installing gcj.  Plus, people are free to
   // redefine `java.home' with `-D' if necessary.
   SET ("java.home", PREFIX);
-  
+  SET ("gnu.classpath.home", PREFIX);
+
   SET ("file.encoding", default_file_encoding);
 
 #ifdef HAVE_UNAME
@@ -532,15 +546,38 @@ java::lang::Runtime::insertSystemProperties (java::util::Properties *newprops)
 		      sb->toString ());
     }
 
+  // The name used to invoke this process (argv[0] in C).
+  SET ("gnu.gcj.progname", _Jv_ThisExecutable());
+
   // Allow platform specific settings and overrides.
   _Jv_platform_initProperties (newprops);
+
+  // If java.library.path is set, tell libltdl so we search the new
+  // directories as well.  FIXME: does this work properly on Windows?
+  String *path = newprops->getProperty(JvNewStringLatin1("java.library.path"));
+  if (path)
+    {
+      char *val = (char *) _Jv_Malloc (JvGetStringUTFLength (path) + 1);
+      jsize total = JvGetStringUTFRegion (path, 0, path->length(), val);
+      val[total] = '\0';
+      _Jv_SetDLLSearchPath (val);
+      _Jv_Free (val);
+    }
+  else
+    {
+      // Set a value for user code to see.
+      // FIXME: JDK sets this to the actual path used, including
+      // LD_LIBRARY_PATH, etc.
+      SET ("java.library.path", "");
+    }
 }
 
 java::lang::Process *
 java::lang::Runtime::execInternal (jstringArray cmd,
-				   jstringArray env)
+				   jstringArray env,
+				   java::io::File *dir)
 {
-  return new java::lang::ConcreteProcess (cmd, env);
+  return new java::lang::ConcreteProcess (cmd, env, dir);
 }
 
 jint
@@ -575,7 +612,7 @@ java::lang::Runtime::nativeGetLibname (jstring pathname, jstring libname)
   // FIXME: use platform function here.
 #ifdef WIN32
   sb->append (JvNewStringLatin1 ("dll"));
-else
+#else
   sb->append (JvNewStringLatin1 ("so"));
 #endif
 

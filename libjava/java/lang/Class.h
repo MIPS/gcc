@@ -19,6 +19,7 @@ details.  */
 #include <java/net/URL.h>
 #include <java/lang/reflect/Modifier.h>
 #include <java/security/ProtectionDomain.h>
+#include <java/lang/Package.h>
 
 // We declare these here to avoid including gcj/cni.h.
 extern "C" void _Jv_InitClass (jclass klass);
@@ -45,9 +46,10 @@ enum
   JV_STATE_LINKED = 9,		// Strings interned.
 
   JV_STATE_IN_PROGRESS = 10,	// <Clinit> running.
-  JV_STATE_DONE = 12,		// 
 
-  JV_STATE_ERROR = 14		// must be last.
+  JV_STATE_ERROR = 12,
+
+  JV_STATE_DONE = 14		// Must be last.
 };
 
 struct _Jv_Field;
@@ -159,6 +161,9 @@ private:
   java::lang::reflect::Method *getPrivateMethod (jstring, JArray<jclass> *);
   java::security::ProtectionDomain *getProtectionDomain0 ();
 
+  java::lang::reflect::Method *_getMethod (jstring, JArray<jclass> *);
+  java::lang::reflect::Method *_getDeclaredMethod (jstring, JArray<jclass> *);
+
 public:
   JArray<java::lang::reflect::Field *> *getFields (void);
 
@@ -166,7 +171,6 @@ public:
 
   void getSignature (java::lang::StringBuffer *buffer);
   static jstring getSignature (JArray<jclass> *, jboolean is_constructor);
-  java::lang::reflect::Method *getMethod (jstring, JArray<jclass> *);
   JArray<java::lang::reflect::Method *> *getMethods (void);
 
   inline jint getModifiers (void)
@@ -209,6 +213,8 @@ public:
     }
 
   jobject newInstance (void);
+  java::security::ProtectionDomain *getProtectionDomain (void);
+  java::lang::Package *getPackage (void);
   jstring toString (void);
   jboolean desiredAssertionStatus (void);
 
@@ -325,8 +331,6 @@ private:
 #ifdef INTERPRETER
   friend jboolean _Jv_IsInterpretedClass (jclass);
   friend void _Jv_InitField (jobject, jclass, _Jv_Field*);
-  friend int _Jv_DetermineVTableIndex (jclass, _Jv_Utf8Const *, 
-				       _Jv_Utf8Const*);
   friend void _Jv_InitField (jobject, jclass, int);
   friend _Jv_word _Jv_ResolvePoolEntry (jclass, int);
   friend _Jv_Method *_Jv_SearchMethodInClass (jclass cls, jclass klass, 
@@ -338,7 +342,6 @@ private:
   friend class _Jv_ClassReader;	
   friend class _Jv_InterpClass;
   friend class _Jv_InterpMethod;
-  friend class _Jv_InterpMethodInvocation;
 #endif
 
 #ifdef JV_MARKOBJ_DECL

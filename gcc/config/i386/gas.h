@@ -43,11 +43,7 @@ Boston, MA 02111-1307, USA.  */
 
 /* Ask for COFF symbols.  */
 
-#define SDB_DEBUGGING_INFO
-
-/* Allow #sccs in preprocessor.  */
-
-#define SCCS_DIRECTIVE
+#define SDB_DEBUGGING_INFO 1
 
 /* Output #ident as a .ident.  */
 

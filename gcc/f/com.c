@@ -605,7 +605,8 @@ struct lang_identifier GTY(())
 
 /* The resulting tree type.  */
 union lang_tree_node 
-  GTY((desc ("TREE_CODE (&%h.generic) == IDENTIFIER_NODE")))
+  GTY((desc ("TREE_CODE (&%h.generic) == IDENTIFIER_NODE"),
+       chain_next ("(union lang_tree_node *)TREE_CHAIN (&%h.generic)")))
 {
   union tree_node GTY ((tag ("0"), 
 			desc ("tree_node_structure (&%h)"))) 
@@ -805,6 +806,7 @@ ffecom_subscript_check_ (tree array, tree element, int dim, int total_dims,
   die = ffecom_call_gfrt (FFECOM_gfrtRANGE,
 			  args, NULL_TREE);
   TREE_SIDE_EFFECTS (die) = 1;
+  die = convert (void_type_node, die);
 
   element = ffecom_3 (COND_EXPR,
 		      TREE_TYPE (element),
@@ -820,7 +822,7 @@ ffecom_subscript_check_ (tree array, tree element, int dim, int total_dims,
    `item' is NULL_TREE, or the transformed pointer to the array.
    `expr' is the original opARRAYREF expression, which is transformed
      if `item' is NULL_TREE.
-   `want_ptr' is non-zero if a pointer to the element, instead of
+   `want_ptr' is nonzero if a pointer to the element, instead of
      the element itself, is to be returned.  */
 
 static tree
@@ -1812,15 +1814,8 @@ ffecom_call_ (tree fn, ffeinfoKindtype kt, bool is_f2c_complex,
 				       callee_commons,
 				       scalar_args))
 	{
-#ifdef HOHO
-	  tempvar = ffecom_make_tempvar (ffecom_tree_type
-					 [FFEINFO_basictypeCOMPLEX][kt],
-					 FFETARGET_charactersizeNONE,
-					 -1);
-#else
 	  tempvar = hook;
 	  assert (tempvar);
-#endif
 	}
       else
 	{
@@ -2168,13 +2163,8 @@ ffecom_char_args_x_ (tree *xitem, tree *length, ffebld expr, bool with_null)
 	    if (!ffesymbol_hook (s).addr)
 	      item = ffecom_1_fn (item);
 	  }
-
-#ifdef HOHO
-	tempvar = ffecom_push_tempvar (char_type_node, size, -1, TRUE);
-#else
 	tempvar = ffebld_nonter_hook (expr);
 	assert (tempvar);
-#endif
 	tempvar = ffecom_1 (ADDR_EXPR,
 			    build_pointer_type (TREE_TYPE (tempvar)),
 			    tempvar);
@@ -2226,13 +2216,8 @@ ffecom_char_args_x_ (tree *xitem, tree *length, ffebld expr, bool with_null)
 	  tree args;
 	  tree newlen;
 
-#ifdef HOHO
-	  tempvar = ffecom_make_tempvar (char_type_node,
-					 ffebld_size (expr), -1);
-#else
 	  tempvar = ffebld_nonter_hook (expr);
 	  assert (tempvar);
-#endif
 	  tempvar = ffecom_1 (ADDR_EXPR,
 			      build_pointer_type (TREE_TYPE (tempvar)),
 			      tempvar);
@@ -4046,12 +4031,8 @@ ffecom_expr_intrinsic_ (ffebld expr, tree dest_tree,
 
     case FFEINTRIN_impCHAR:
     case FFEINTRIN_impACHAR:
-#ifdef HOHO
-      tempvar = ffecom_make_tempvar (char_type_node, 1, -1);
-#else
       tempvar = ffebld_nonter_hook (expr);
       assert (tempvar);
-#endif
       {
 	tree tmv = TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (tempvar)));
 
@@ -5624,7 +5605,6 @@ ffecom_expr_power_integer_ (ffebld expr)
 
     ffecom_start_compstmt ();
 
-#ifndef HAHA
     rtmp = ffecom_make_tempvar ("power_r", rtype,
 				FFETARGET_charactersizeNONE, -1);
     ltmp = ffecom_make_tempvar ("power_l", ltype,
@@ -5637,25 +5617,6 @@ ffecom_expr_power_integer_ (ffebld expr)
 				    FFETARGET_charactersizeNONE, -1);
     else
       divide = NULL_TREE;
-#else  /* HAHA */
-    {
-      tree hook;
-
-      hook = ffebld_nonter_hook (expr);
-      assert (hook);
-      assert (TREE_CODE (hook) == TREE_VEC);
-      assert (TREE_VEC_LENGTH (hook) == 4);
-      rtmp = TREE_VEC_ELT (hook, 0);
-      ltmp = TREE_VEC_ELT (hook, 1);
-      result = TREE_VEC_ELT (hook, 2);
-      divide = TREE_VEC_ELT (hook, 3);
-      if (TREE_CODE (ltype) == COMPLEX_TYPE
-	  || TREE_CODE (ltype) == RECORD_TYPE)
-	assert (divide);
-      else
-	assert (! divide);
-    }
-#endif  /* HAHA */
 
     expand_expr_stmt (ffecom_modify (void_type_node,
 				     rtmp,
@@ -6735,15 +6696,6 @@ ffecom_let_char_ (tree dest_tree, tree dest_length,
     tree citem;
     tree clength;
 
-#ifdef HOHO
-    length_array
-      = lengths
-      = ffecom_push_tempvar (ffecom_f2c_ftnlen_type_node,
-			     FFETARGET_charactersizeNONE, count, TRUE);
-    item_array = items = ffecom_push_tempvar (ffecom_f2c_address_type_node,
-					      FFETARGET_charactersizeNONE,
-					      count, TRUE);
-#else
     {
       tree hook;
 
@@ -6754,7 +6706,6 @@ ffecom_let_char_ (tree dest_tree, tree dest_length,
       length_array = lengths = TREE_VEC_ELT (hook, 0);
       item_array = items = TREE_VEC_ELT (hook, 1);
     }
-#endif
 
     for (i = 0; i < count; ++i)
       {
@@ -10258,18 +10209,6 @@ ffecom_arg_ptr_to_expr (ffebld expr, tree *length)
     /* ~~Kludge! */
     assert (sz != FFETARGET_charactersizeNONE);
 
-#ifdef HOHO
-    length_array
-      = lengths
-      = ffecom_push_tempvar (ffecom_f2c_ftnlen_type_node,
-			     FFETARGET_charactersizeNONE, count, TRUE);
-    item_array
-      = items
-      = ffecom_push_tempvar (ffecom_f2c_address_type_node,
-			     FFETARGET_charactersizeNONE, count, TRUE);
-    temporary = ffecom_push_tempvar (char_type_node,
-				     sz, -1, TRUE);
-#else
     {
       tree hook;
 
@@ -10281,7 +10220,6 @@ ffecom_arg_ptr_to_expr (ffebld expr, tree *length)
       item_array = items = TREE_VEC_ELT (hook, 1);
       temporary = TREE_VEC_ELT (hook, 2);
     }
-#endif
 
     known_length = ffecom_f2c_ftnlen_zero_node;
 
@@ -11187,7 +11125,7 @@ ffecom_init_0 ()
 
       name = bsearch ("foo", &names[0], ARRAY_SIZE (names), sizeof (names[0]),
 		      (int (*)(const void *, const void *)) strcmp);
-      if (name != &names[0][2])
+      if (name != &names[2][0])
 	{
 	  assert ("bsearch doesn't work, #define FFEPROJ_BSEARCH 0 in proj.h"
 		  == NULL);
@@ -11731,23 +11669,23 @@ ffecom_init_0 ()
     = build_function_type (void_type_node, NULL_TREE);
 
   builtin_function ("__builtin_sqrtf", float_ftype_float,
-		    BUILT_IN_SQRTF, BUILT_IN_NORMAL, "sqrtf");
+		    BUILT_IN_SQRTF, BUILT_IN_NORMAL, "sqrtf", NULL_TREE);
   builtin_function ("__builtin_sqrt", double_ftype_double,
-		    BUILT_IN_SQRT, BUILT_IN_NORMAL, "sqrt");
+		    BUILT_IN_SQRT, BUILT_IN_NORMAL, "sqrt", NULL_TREE);
   builtin_function ("__builtin_sqrtl", ldouble_ftype_ldouble,
-		    BUILT_IN_SQRTL, BUILT_IN_NORMAL, "sqrtl");
+		    BUILT_IN_SQRTL, BUILT_IN_NORMAL, "sqrtl", NULL_TREE);
   builtin_function ("__builtin_sinf", float_ftype_float,
-		    BUILT_IN_SINF, BUILT_IN_NORMAL, "sinf");
+		    BUILT_IN_SINF, BUILT_IN_NORMAL, "sinf", NULL_TREE);
   builtin_function ("__builtin_sin", double_ftype_double,
-		    BUILT_IN_SIN, BUILT_IN_NORMAL, "sin");
+		    BUILT_IN_SIN, BUILT_IN_NORMAL, "sin", NULL_TREE);
   builtin_function ("__builtin_sinl", ldouble_ftype_ldouble,
-		    BUILT_IN_SINL, BUILT_IN_NORMAL, "sinl");
+		    BUILT_IN_SINL, BUILT_IN_NORMAL, "sinl", NULL_TREE);
   builtin_function ("__builtin_cosf", float_ftype_float,
-		    BUILT_IN_COSF, BUILT_IN_NORMAL, "cosf");
+		    BUILT_IN_COSF, BUILT_IN_NORMAL, "cosf", NULL_TREE);
   builtin_function ("__builtin_cos", double_ftype_double,
-		    BUILT_IN_COS, BUILT_IN_NORMAL, "cos");
+		    BUILT_IN_COS, BUILT_IN_NORMAL, "cos", NULL_TREE);
   builtin_function ("__builtin_cosl", ldouble_ftype_ldouble,
-		    BUILT_IN_COSL, BUILT_IN_NORMAL, "cosl");
+		    BUILT_IN_COSL, BUILT_IN_NORMAL, "cosl", NULL_TREE);
 
   pedantic_lvalues = FALSE;
 
@@ -12469,27 +12407,6 @@ ffecom_prepare_expr_ (ffebld expr, ffebld dest UNUSED)
 	}
       break;
 
-#ifdef HAHA
-    case FFEBLD_opPOWER:
-      {
-	tree rtype, ltype;
-	tree rtmp, ltmp, result;
-
-	ltype = ffecom_type_expr (ffebld_left (expr));
-	rtype = ffecom_type_expr (ffebld_right (expr));
-
-	rtmp = ffecom_make_tempvar (rtype, FFETARGET_charactersizeNONE, -1);
-	ltmp = ffecom_make_tempvar (ltype, FFETARGET_charactersizeNONE, -1);
-	result = ffecom_make_tempvar (ltype, FFETARGET_charactersizeNONE, -1);
-
-	tempvar = make_tree_vec (3);
-	TREE_VEC_ELT (tempvar, 0) = rtmp;
-	TREE_VEC_ELT (tempvar, 1) = ltmp;
-	TREE_VEC_ELT (tempvar, 2) = result;
-      }
-      break;
-#endif  /* HAHA */
-
     case FFEBLD_opCONCATENATE:
       {
 	/* This gets special handling, because only one set of temps
@@ -13157,12 +13074,14 @@ bison_rule_compstmt_ ()
    See tree.h for its possible values.
 
    If LIBRARY_NAME is nonzero, use that for DECL_ASSEMBLER_NAME,
-   the name to be called if we can't opencode the function.  */
+   the name to be called if we can't opencode the function.  If
+   ATTRS is nonzero, use that for the function's attribute list.  */
 
 tree
 builtin_function (const char *name, tree type, int function_code,
 		  enum built_in_class class,
-		  const char *library_name)
+		  const char *library_name,
+		  tree attrs ATTRIBUTE_UNUSED)
 {
   tree decl = build_decl (FUNCTION_DECL, get_identifier (name), type);
   DECL_EXTERNAL (decl) = 1;
@@ -14840,12 +14759,12 @@ ffe_truthvalue_conversion (expr)
     case ABS_EXPR:
     case FLOAT_EXPR:
     case FFS_EXPR:
-      /* These don't change whether an object is non-zero or zero.  */
+      /* These don't change whether an object is nonzero or zero.  */
       return ffe_truthvalue_conversion (TREE_OPERAND (expr, 0));
 
     case LROTATE_EXPR:
     case RROTATE_EXPR:
-      /* These don't change whether an object is zero or non-zero, but
+      /* These don't change whether an object is zero or nonzero, but
 	 we can't ignore them if their second arg has side-effects.  */
       if (TREE_SIDE_EFFECTS (TREE_OPERAND (expr, 1)))
 	return build (COMPOUND_EXPR, integer_type_node, TREE_OPERAND (expr, 1),
@@ -14854,10 +14773,17 @@ ffe_truthvalue_conversion (expr)
 	return ffe_truthvalue_conversion (TREE_OPERAND (expr, 0));
 
     case COND_EXPR:
-      /* Distribute the conversion into the arms of a COND_EXPR.  */
-      return fold (build (COND_EXPR, integer_type_node, TREE_OPERAND (expr, 0),
-			  ffe_truthvalue_conversion (TREE_OPERAND (expr, 1)),
-			  ffe_truthvalue_conversion (TREE_OPERAND (expr, 2))));
+      {
+	/* Distribute the conversion into the arms of a COND_EXPR.  */
+	tree arg1 = TREE_OPERAND (expr, 1);
+	tree arg2 = TREE_OPERAND (expr, 2);
+	if (! VOID_TYPE_P (TREE_TYPE (arg1)))
+	  arg1 = ffe_truthvalue_conversion (arg1);
+	if (! VOID_TYPE_P (TREE_TYPE (arg2)))
+	  arg2 = ffe_truthvalue_conversion (arg2);
+	return fold (build (COND_EXPR, integer_type_node,
+			    TREE_OPERAND (expr, 0), arg1, arg2));
+      }
 
     case CONVERT_EXPR:
       /* Don't cancel the effect of a CONVERT_EXPR from a REFERENCE_TYPE,
@@ -14962,7 +14888,10 @@ ffe_type_for_mode (mode, unsignedp)
   if (mode == TYPE_MODE (double_type_node))
     return double_type_node;
 
-  if (mode == TYPE_MODE (build_pointer_type (char_type_node)))
+  if (mode == TYPE_MODE (long_double_type_node))
+    return long_double_type_node;
+
+ if (mode == TYPE_MODE (build_pointer_type (char_type_node)))
     return build_pointer_type (char_type_node);
 
   if (mode == TYPE_MODE (build_pointer_type (integer_type_node)))
@@ -15108,7 +15037,7 @@ struct file_name_list
     char *fname;
     /* Mapping of file names for this directory.  */
     struct file_name_map *name_map;
-    /* Non-zero if name_map is valid.  */
+    /* Nonzero if name_map is valid.  */
     int got_name_map;
   };
 
@@ -15395,10 +15324,10 @@ read_name_map (dirname)
 
   dirlen = strlen (dirname);
   separator_needed = dirlen != 0 && dirname[dirlen - 1] != '/';
-  name = (char *) xmalloc (dirlen + strlen (FILE_NAME_MAP_FILE) + 2);
-  strcpy (name, dirname);
-  name[dirlen] = '/';
-  strcpy (name + dirlen + separator_needed, FILE_NAME_MAP_FILE);
+  if (separator_needed)
+    name = concat (dirname, "/", FILE_NAME_MAP_FILE, NULL);
+  else
+    name = concat (dirname, FILE_NAME_MAP_FILE, NULL);
   f = fopen (name, "r");
   free (name);
   if (!f)
@@ -15428,10 +15357,10 @@ read_name_map (dirname)
 	    ptr->map_to = to;
 	  else
 	    {
-	      ptr->map_to = xmalloc (dirlen + strlen (to) + 2);
-	      strcpy (ptr->map_to, dirname);
-	      ptr->map_to[dirlen] = '/';
-	      strcpy (ptr->map_to + dirlen + separator_needed, to);
+	      if (separator_needed)
+		ptr->map_to = concat (dirname, "/", to, NULL);
+	      else
+		ptr->map_to = concat (dirname, to, NULL);
 	      free (to);
 	    }
 

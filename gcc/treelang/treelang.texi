@@ -451,7 +451,7 @@ later. The list of keywords follows:
 @{ - used to start the statements in a function
 @} - used to end the statements in a function
 ( - start list of function arguments, or to change the precedence of operators in an expression
-) - end list or prioritised operators in expression
+) - end list or prioritized operators in expression
 , - used to separate parameters in a function prototype or in a function call 
 ; - used to end a statement
 + - addition
@@ -601,7 +601,7 @@ statement: if_statement OR expression_statement OR return_statement
 if_statement: if (expression) @{ statements @} else @{ statements @}
 
 The first lot of statements is executed if the expression is
-non-zero. Otherwise the second lot of statements is executed. Either
+nonzero. Otherwise the second lot of statements is executed. Either
 list of statements may be empty, but both sets of braces and the else must be present. 
 
 @smallexample

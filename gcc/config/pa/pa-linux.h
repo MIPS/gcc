@@ -18,11 +18,6 @@ along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
-/* Use DWARF2 debugging info and unwind.  */
-#undef PREFERRED_DEBUGGING_TYPE
-#define PREFERRED_DEBUGGING_TYPE DWARF2_DEBUG
-#define DWARF2_ASM_LINE_DEBUG_INFO 1
-#define DWARF2_UNWIND_INFO 1
 
 /* A C expression whose value is RTL representing the location of the
    incoming return address at the beginning of any function, before the
@@ -57,8 +52,22 @@ Boston, MA 02111-1307, USA.  */
       }									\
     } while (0)
 
-#undef CPP_PREDEFINES
-#define CPP_PREDEFINES "-D__ELF__ -Dunix -D__hppa__ -D__gnu_linux__ -Dlinux -Asystem=unix -Asystem=posix -Acpu=hppa -Amachine=hppa -Amachine=bigendian"
+#undef TARGET_OS_CPP_BUILTINS
+#define TARGET_OS_CPP_BUILTINS()		\
+  do						\
+    {						\
+	builtin_define ("__ELF__");		\
+	builtin_define ("__gnu_linux__");	\
+	builtin_define_std ("linux");		\
+	builtin_define_std ("unix");		\
+	builtin_assert ("machine=bigendian");	\
+	builtin_assert ("system=posix");	\
+	builtin_assert ("system=unix");		\
+    }						\
+  while (0)
+
+#undef CPP_SPEC
+#define CPP_SPEC "%{fPIC:-D__PIC__ -D__pic__} %{fpic:-D__PIC__ -D__pic__} %{posix:-D_POSIX_SOURCE}"
 
 #undef	LIB_SPEC
 #define LIB_SPEC \
@@ -81,10 +90,6 @@ Boston, MA 02111-1307, USA.  */
       %{rdynamic:-export-dynamic} \
       %{!dynamic-linker:-dynamic-linker /lib/ld.so.1}} \
       %{static:-static}}"
-
-/* Sibcalls, stubs, and elf sections don't play well.  */
-#undef FUNCTION_OK_FOR_SIBCALL
-#define FUNCTION_OK_FOR_SIBCALL(x) 0
 
 /* glibc's profiling functions don't need gcc to allocate counters.  */
 #define NO_PROFILE_COUNTERS 1
@@ -126,18 +131,6 @@ Boston, MA 02111-1307, USA.  */
     }								\
    while (0)
 
-/* Output a definition */
-#define ASM_OUTPUT_DEF(FILE,LABEL1,LABEL2) \
-  do								\
-    {								\
-      fprintf ((FILE), "\t%s\t", SET_ASM_OP);			\
-      assemble_name (FILE, LABEL1);				\
-      fprintf (FILE, ",");					\
-      assemble_name (FILE, LABEL2);				\
-      fprintf (FILE, "\n");					\
-    }								\
-  while (0)
-
 /* We want local labels to start with period if made with asm_fprintf.  */
 #undef LOCAL_LABEL_PREFIX
 #define LOCAL_LABEL_PREFIX "."
@@ -162,25 +155,17 @@ Boston, MA 02111-1307, USA.  */
   else								\
     fprintf (FILE, "\tb .L%d\n\tnop\n", VALUE)
 
-/* This is how to output the definition of a user-level label named NAME,
-   such as the label on a static function or variable NAME.  */
-
+/* Use the default.  */
 #undef ASM_OUTPUT_LABEL
-#define ASM_OUTPUT_LABEL(FILE, NAME) \
-  do								\
-    {								\
-      assemble_name (FILE, NAME);				\
-      fputs (":\n", FILE);					\
-    }								\
-  while (0)
 
 /* NOTE: ASM_OUTPUT_INTERNAL_LABEL() is defined for us by elfos.h, and
    does what we want (i.e. uses colons).  It must be compatible with
    ASM_GENERATE_INTERNAL_LABEL(), so do not define it here.  */
 
-#undef ASM_GLOBALIZE_LABEL
-#define ASM_GLOBALIZE_LABEL(FILE, NAME) \
-  (fputs (".globl ", FILE), assemble_name (FILE, NAME), fputs ("\n", FILE))
+/* Use the default.  */
+#undef TARGET_ASM_GLOBALIZE_LABEL
+/* Globalizing directive for a label.  */
+#define GLOBAL_ASM_OP ".globl "
 
 /* FIXME: Hacked from the <elfos.h> one so that we avoid multiple
    labels in a function declaration (since pa.c seems determined to do
@@ -190,12 +175,21 @@ Boston, MA 02111-1307, USA.  */
 #define ASM_DECLARE_FUNCTION_NAME(FILE, NAME, DECL)		\
   do								\
     {								\
-      fprintf (FILE, "\t%s\t ", TYPE_ASM_OP);			\
-      assemble_name (FILE, NAME);				\
-      putc (',', FILE);						\
-      fprintf (FILE, TYPE_OPERAND_FMT, "function");		\
-      putc ('\n', FILE);					\
+      ASM_OUTPUT_TYPE_DIRECTIVE (FILE, NAME, "function");	\
       ASM_DECLARE_RESULT (FILE, DECL_RESULT (DECL));		\
+    }								\
+  while (0)
+
+/* As well as globalizing the label, we need to encode the label
+   to ensure a plabel is generated in an indirect call.  */
+
+#undef ASM_OUTPUT_EXTERNAL_LIBCALL
+#define ASM_OUTPUT_EXTERNAL_LIBCALL(FILE, FUN)  		\
+  do								\
+    {								\
+      if (!FUNCTION_NAME_P (XSTR (FUN, 0)))			\
+	hppa_encode_label (FUN);				\
+      (*targetm.asm_out.globalize_label) (FILE, XSTR (FUN, 0));	\
     }								\
   while (0)
 

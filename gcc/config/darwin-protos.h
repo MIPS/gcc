@@ -22,9 +22,9 @@ extern int name_needs_quotes PARAMS ((const char *));
 
 extern void machopic_validate_stub_or_non_lazy_ptr PARAMS ((const char *, int));
 
-extern char *machopic_function_base_name PARAMS ((void));
-extern char *machopic_non_lazy_ptr_name PARAMS ((const char*));
-extern char *machopic_stub_name PARAMS ((const char*));
+extern const char *machopic_function_base_name PARAMS ((void));
+extern const char *machopic_non_lazy_ptr_name PARAMS ((const char*));
+extern const char *machopic_stub_name PARAMS ((const char*));
 
 extern void machopic_picsymbol_stub_section PARAMS ((void));
 extern void machopic_symbol_stub_section PARAMS ((void));
@@ -112,5 +112,8 @@ extern void machopic_lazy_symbol_ptr_section PARAMS ((void));
 extern void machopic_nl_symbol_ptr_section PARAMS ((void));
 extern void machopic_symbol_stub_section PARAMS ((void));
 extern void machopic_picsymbol_stub_section PARAMS ((void));
+extern void machopic_output_stub PARAMS ((FILE *, const char *, const char *));
 extern void darwin_exception_section PARAMS ((void));
 extern void darwin_eh_frame_section PARAMS ((void));
+extern void darwin_globalize_label PARAMS ((FILE *, const char *));
+extern void darwin_asm_output_dwarf_delta PARAMS ((FILE *, int, const char *, const char *));

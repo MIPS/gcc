@@ -1,5 +1,5 @@
 /* Definitions of Tensilica's Xtensa target machine for GNU compiler.
-   Copyright (C) 2001 Free Software Foundation, Inc.
+   Copyright 2001,2002 Free Software Foundation, Inc.
    Contributed by Bob Wilson (bwilson@tensilica.com) at Tensilica.
 
 This file is part of GCC.
@@ -191,25 +191,22 @@ extern unsigned xtensa_current_frame_size;
 
 
 #define OVERRIDE_OPTIONS override_options ()
-
-#if XCHAL_HAVE_BE
-#define CPP_ENDIAN_SPEC "\
-  %{mlittle-endian:-D__XTENSA_EL__} \
-  %{!mlittle-endian:-D__XTENSA_EB__} "
-#else /* !XCHAL_HAVE_BE */
-#define CPP_ENDIAN_SPEC "\
-  %{mbig-endian:-D__XTENSA_EB__} \
-  %{!mbig-endian:-D__XTENSA_EL__} "
-#endif /* !XCHAL_HAVE_BE */
-
-#if XCHAL_HAVE_FP
-#define CPP_FLOAT_SPEC "%{msoft-float:-D__XTENSA_SOFT_FLOAT__}"
-#else
-#define CPP_FLOAT_SPEC "%{!mhard-float:-D__XTENSA_SOFT_FLOAT__}"
-#endif
-
-#undef CPP_SPEC
-#define CPP_SPEC CPP_ENDIAN_SPEC CPP_FLOAT_SPEC
+
+/* Target CPU builtins.  */
+#define TARGET_CPU_CPP_BUILTINS()					\
+  do {									\
+    builtin_assert ("cpu=xtensa");					\
+    builtin_assert ("machine=xtensa");					\
+    builtin_define ("__XTENSA__");					\
+    builtin_define (TARGET_BIG_ENDIAN ? "__XTENSA_EB__" : "__XTENSA_EL__"); \
+    if (!TARGET_HARD_FLOAT)						\
+      builtin_define ("__XTENSA_SOFT_FLOAT__");				\
+    if (flag_pic)							\
+      {									\
+        builtin_define ("__PIC__");					\
+        builtin_define ("__pic__");					\
+      }									\
+  } while (0)
 
 /* Define this to set the endianness to use in libgcc2.c, which can
    not depend on target_flags.  */
@@ -557,6 +554,7 @@ enum reg_class
   FP_REGS,			/* floating point registers */
   ACC_REG,			/* MAC16 accumulator */
   SP_REG,			/* sp register (aka a1) */
+  RL_REGS,			/* preferred reload regs (not sp or fp) */
   GR_REGS,			/* integer registers except sp */
   AR_REGS,			/* all integer registers */
   ALL_REGS,			/* all registers */
@@ -577,6 +575,7 @@ enum reg_class
   "FP_REGS",								\
   "ACC_REG",								\
   "SP_REG",								\
+  "RL_REGS",								\
   "GR_REGS",								\
   "AR_REGS",								\
   "ALL_REGS"								\
@@ -592,6 +591,7 @@ enum reg_class
   { 0xfff80000, 0x00000007 }, /* floating-point registers */ \
   { 0x00000000, 0x00000008 }, /* MAC16 accumulator */ \
   { 0x00000002, 0x00000000 }, /* stack pointer register */ \
+  { 0x0000ff7d, 0x00000000 }, /* preferred reload registers */ \
   { 0x0000fffd, 0x00000000 }, /* general-purpose registers */ \
   { 0x0003ffff, 0x00000000 }, /* integer registers */ \
   { 0xffffffff, 0x0000000f }  /* all registers */ \
@@ -707,10 +707,10 @@ extern enum reg_class xtensa_char_to_class[256];
    : FALSE)
 
 #define PREFERRED_RELOAD_CLASS(X, CLASS)				\
-  xtensa_preferred_reload_class (X, CLASS)
+  xtensa_preferred_reload_class (X, CLASS, 0)
 
 #define PREFERRED_OUTPUT_RELOAD_CLASS(X, CLASS)				\
-  (CLASS)
+  xtensa_preferred_reload_class (X, CLASS, 1)
   
 #define SECONDARY_INPUT_RELOAD_CLASS(CLASS, MODE, X)			\
   xtensa_secondary_reload_class (CLASS, MODE, X, 0)
@@ -796,13 +796,13 @@ extern enum reg_class xtensa_char_to_class[256];
 /* Don't worry about compatibility with PCC.  */
 #define DEFAULT_PCC_STRUCT_RETURN 0
 
-/* For Xtensa, we would like to be able to return up to 6 words in
-   memory but GCC cannot support that.  The return value must be given
-   one of the standard MODE_INT modes, and there is no 6 word mode.
-   Instead, if we try to return a 6 word structure, GCC selects the
-   next biggest mode (OImode, 8 words) and then the register allocator
-   fails because there is no 8-register group beginning with a10.  So
-   we have to fall back on the next largest size which is 4 words... */
+/* For Xtensa, up to 4 words can be returned in registers.  (It would
+   have been nice to allow up to 6 words in registers but GCC cannot
+   support that.  The return value must be given one of the standard
+   MODE_INT modes, and there is no 6 word mode.  Instead, if we try to
+   return a 6 word structure, GCC selects the next biggest mode
+   (OImode, 8 words) and then the register allocator fails because
+   there is no 8-register group beginning with a10.)  */
 #define RETURN_IN_MEMORY(TYPE)						\
   ((unsigned HOST_WIDE_INT) int_size_in_bytes (TYPE) > 4 * UNITS_PER_WORD)
 
@@ -857,9 +857,6 @@ extern enum reg_class xtensa_char_to_class[256];
    the stack. */
 #define FUNCTION_ARG_REGNO_P(N)						\
   ((N) >= GP_OUTGOING_ARG_FIRST && (N) <= GP_OUTGOING_ARG_LAST)
-
-/* Use IEEE floating-point format.  */
-#define TARGET_FLOAT_FORMAT IEEE_FLOAT_FORMAT
 
 /* Define a data type for recording info about an argument list
    during the scan of that argument list.  This data type should
@@ -921,29 +918,33 @@ typedef struct xtensa_args {
    && (TREE_CODE (TYPE_SIZE (TYPE)) != INTEGER_CST			\
        || TREE_ADDRESSABLE (TYPE)))
 
-/* Output assembler code to FILE to increment profiler label LABELNO
-   for profiling a function entry.
-
-   The mcount code in glibc doesn't seem to use this LABELNO stuff.
-   Some ports (e.g., MIPS) don't even bother to pass the label
-   address, and even those that do (e.g., i386) don't seem to use it.
-   The information needed by mcount() is the current PC and the
-   current return address, so that mcount can identify an arc in the
-   call graph.  For Xtensa, we pass the current return address as
-   the first argument to mcount, and the current PC is available as
-   a0 in mcount's register window.  Both of these values contain
-   window size information in the two most significant bits; we assume
-   that the mcount code will mask off those bits.  The call to mcount
-   uses a window size of 8 to make sure that mcount doesn't clobber
+/* Profiling Xtensa code is typically done with the built-in profiling
+   feature of Tensilica's instruction set simulator, which does not
+   require any compiler support.  Profiling code on a real (i.e.,
+   non-simulated) Xtensa processor is currently only supported by
+   GNU/Linux with glibc.  The glibc version of _mcount doesn't require
+   counter variables.  The _mcount function needs the current PC and
+   the current return address to identify an arc in the call graph.
+   Pass the current return address as the first argument; the current
+   PC is available as a0 in _mcount's register window.  Both of these
+   values contain window size information in the two most significant
+   bits; we assume that _mcount will mask off those bits.  The call to
+   _mcount uses a window size of 8 to make sure that it doesn't clobber
    any incoming argument values. */
 
-#define FUNCTION_PROFILER(FILE, LABELNO)				\
+#define NO_PROFILE_COUNTERS
+
+#define FUNCTION_PROFILER(FILE, LABELNO) \
   do {									\
-    fprintf (FILE, "\taddi\t%s, %s, 0\t# save current return address\n", \
-	     reg_names[GP_REG_FIRST+10],				\
-	     reg_names[GP_REG_FIRST+0]);				\
-    fprintf (FILE, "\tcall8\t_mcount\n");				\
-  } while (0);
+    fprintf (FILE, "\t%s\ta10, a0\n", TARGET_DENSITY ? "mov.n" : "mov"); \
+    if (flag_pic)							\
+      {									\
+	fprintf (FILE, "\tmovi\ta8, _mcount@PLT\n");			\
+	fprintf (FILE, "\tcallx8\ta8\n");				\
+      }									\
+    else								\
+      fprintf (FILE, "\tcall8\t_mcount\n");				\
+  } while (0)
 
 /* Stack pointer value doesn't matter at exit.  */
 #define EXIT_IGNORE_STACK 1
@@ -1031,8 +1032,8 @@ typedef struct xtensa_args {
   xtensa_builtin_saveregs
 
 /* Implement `va_start' for varargs and stdarg.  */
-#define EXPAND_BUILTIN_VA_START(stdarg, valist, nextarg) \
-  xtensa_va_start (stdarg, valist, nextarg)
+#define EXPAND_BUILTIN_VA_START(valist, nextarg) \
+  xtensa_va_start (valist, nextarg)
 
 /* Implement `va_arg'.  */
 #define EXPAND_BUILTIN_VA_ARG(valist, type) \
@@ -1056,8 +1057,7 @@ typedef struct xtensa_args {
    we currently need to ensure that there is a frame pointer when these
    builtin functions are used. */
 
-#define SETUP_FRAME_ADDRESSES() \
-  xtensa_setup_frame_addresses ()
+#define SETUP_FRAME_ADDRESSES  xtensa_setup_frame_addresses
 
 /* A C expression whose value is RTL representing the address in a
    stack frame where the pointer to the caller's frame is stored.
@@ -1081,22 +1081,8 @@ typedef struct xtensa_args {
 
 /* A C expression whose value is RTL representing the value of the
    return address for the frame COUNT steps up from the current
-   frame, after the prologue.  FRAMEADDR is the frame pointer of the
-   COUNT frame, or the frame pointer of the COUNT - 1 frame if
-   'RETURN_ADDR_IN_PREVIOUS_FRAME' is defined.
-
-   The 2 most-significant bits of the return address on Xtensa hold
-   the register window size.  To get the real return address, these bits
-   must be masked off and replaced with the high bits from the current
-   PC.  Since it is unclear how the __builtin_return_address function
-   is used, the current code does not do this masking and simply returns
-   the raw return address from the a0 register. */
-#define RETURN_ADDR_RTX(count, frame)					\
-  ((count) == -1							\
-   ? gen_rtx_REG (Pmode, 0)						\
-   : gen_rtx_MEM (Pmode, memory_address					\
-		  (Pmode, plus_constant (frame, -4 * UNITS_PER_WORD))))
-
+   frame, after the prologue.  */
+#define RETURN_ADDR_RTX  xtensa_return_addr
 
 /* Addressing modes, and classification of registers for them.  */
 
@@ -1556,23 +1542,8 @@ typedef struct xtensa_args {
       goto FAIL;							\
   } while (0)
 
-
-/* This is how to output the definition of a user-level label named NAME,
-   such as the label on a static function or variable NAME. */
-#define ASM_OUTPUT_LABEL(STREAM, NAME)					\
-  do {									\
-    assemble_name (STREAM, NAME);					\
-    fputs (":\n", STREAM);						\
-  } while (0)
-
-/* This is how to output a command to make the user-level label named NAME
-   defined for reference from other files.  */
-#define ASM_GLOBALIZE_LABEL(STREAM, NAME)				\
-  do {									\
-    fputs ("\t.global\t", STREAM);					\
-    assemble_name (STREAM, NAME);					\
-    fputs ("\n", STREAM);						\
-  } while (0)
+/* Globalizing directive for a label.  */
+#define GLOBAL_ASM_OP "\t.global\t"
 
 /* This says how to define a global common symbol.  */
 #define ASM_OUTPUT_COMMON(STREAM, NAME, SIZE, ROUNDED)			\

@@ -156,7 +156,7 @@ namespace std
       // unformatted input and output with non-required basic_ios
       // instantiations is possible even without imbuing the expected
       // ctype<char_type> facet.
-      _M_fill = 0;
+      _M_fill = _CharT();
       _M_fill_init = false;
 
       _M_exception = goodbit;
@@ -187,7 +187,10 @@ namespace std
   // which are defined via explicit instantiations elsewhere.  
   // NB:  This syntax is a GNU extension.
   extern template class basic_ios<char>;
+
+#ifdef _GLIBCPP_USE_WCHAR_T
   extern template class basic_ios<wchar_t>;
+#endif
 } // namespace std
 
 #endif 

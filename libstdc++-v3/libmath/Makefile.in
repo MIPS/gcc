@@ -74,8 +74,6 @@ CCODECVT_H = @CCODECVT_H@
 CLOCALE_H = @CLOCALE_H@
 CMESSAGES_H = @CMESSAGES_H@
 CPP = @CPP@
-CPU_LIMITS_INC_SRCDIR = @CPU_LIMITS_INC_SRCDIR@
-CSHADOW_FLAGS = @CSHADOW_FLAGS@
 CSTDIO_H = @CSTDIO_H@
 CXX = @CXX@
 CXXCPP = @CXXCPP@
@@ -93,7 +91,6 @@ LIBMATHOBJS = @LIBMATHOBJS@
 LIBMATH_INCLUDES = @LIBMATH_INCLUDES@
 LIBSUPCXX_INCLUDES = @LIBSUPCXX_INCLUDES@
 LIBSUPCXX_PICFLAGS = @LIBSUPCXX_PICFLAGS@
-LIBTOOL = @LIBTOOL@
 LIBUNWIND_FLAG = @LIBUNWIND_FLAG@
 LN_S = @LN_S@
 MAINT = @MAINT@
@@ -112,6 +109,7 @@ USE_NLS = @USE_NLS@
 VERSION = @VERSION@
 WARN_FLAGS = @WARN_FLAGS@
 WERROR = @WERROR@
+baseline_file = @baseline_file@
 check_msgfmt = @check_msgfmt@
 enable_shared = @enable_shared@
 enable_static = @enable_static@
@@ -130,7 +128,6 @@ gxx_include_dir = @gxx_include_dir@
 ifGNUmake = @ifGNUmake@
 libio_la = @libio_la@
 libtool_VERSION = @libtool_VERSION@
-release_VERSION = @release_VERSION@
 toplevel_srcdir = @toplevel_srcdir@
 
 AUTOMAKE_OPTIONS = 1.3 cygnus
@@ -145,17 +142,15 @@ libmath_la_DEPENDENCIES = $(libmath_la_LIBADD)
 
 libmath_la_SOURCES = stubs.c
 
-LINK = \
-	$(LIBTOOL) --tag CC --mode=link "$(CCLD)" \
-	$(AM_CFLAGS) $(CFLAGS) $(LDFLAGS) -o $@
-
-
 # Use common includes from acinclude.m4/GLIBCPP_EXPORT_INCLUDES
 TOPLEVEL_INCLUDES = @TOPLEVEL_INCLUDES@
 
 INCLUDES = \
 	$(TOPLEVEL_INCLUDES) 
 
+
+# Only compiling "C" sources in this directory.
+LIBTOOL = @LIBTOOL@ --tag CC
 CONFIG_HEADER = ../config.h
 CONFIG_CLEAN_FILES = 
 LTLIBRARIES =  $(noinst_LTLIBRARIES)
@@ -171,6 +166,7 @@ CFLAGS = @CFLAGS@
 COMPILE = $(CC) $(DEFS) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
 LTCOMPILE = $(LIBTOOL) --mode=compile $(CC) $(DEFS) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
 CCLD = $(CC)
+LINK = $(LIBTOOL) --mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(LDFLAGS) -o $@
 DIST_COMMON =  Makefile.am Makefile.in
 
 

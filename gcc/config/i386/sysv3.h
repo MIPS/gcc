@@ -32,11 +32,17 @@ Boston, MA 02111-1307, USA.  */
 
 /* Specify predefined symbols in preprocessor.  */
 
-#define CPP_PREDEFINES "-Dunix -Asystem=svr3"
+#define TARGET_OS_CPP_BUILTINS()		\
+  do						\
+    {						\
+	builtin_define_std ("unix");		\
+	builtin_assert ("system=svr3");		\
+    }						\
+  while (0)
 
 #define CPP_SPEC "%{posix:-D_POSIX_SOURCE}"
 
-/* Writing `int' for a bitfield forces int alignment for the structure.  */
+/* Writing `int' for a bit-field forces int alignment for the structure.  */
 
 #define PCC_BITFIELD_TYPE_MATTERS 1
 
@@ -47,8 +53,7 @@ Boston, MA 02111-1307, USA.  */
 
 /* We want to be able to get DBX debugging information via -gstabs.  */
 
-#undef DBX_DEBUGGING_INFO
-#define DBX_DEBUGGING_INFO
+#define DBX_DEBUGGING_INFO 1
 
 #undef PREFERRED_DEBUGGING_TYPE
 #define PREFERRED_DEBUGGING_TYPE SDB_DEBUG

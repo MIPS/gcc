@@ -37,10 +37,14 @@
 
 #pragma GCC system_header
 
+#ifdef _GLIBCPP_HAVE_UNISTD_H
+#include <unistd.h>
+#endif
+
 namespace std 
 {
   template<typename _CharT, typename _Traits>
-    const typename basic_streambuf<_CharT, _Traits>::int_type
+    const size_t
     basic_streambuf<_CharT, _Traits>::_S_pback_size;
 
   template<typename _CharT, typename _Traits>
@@ -138,7 +142,7 @@ namespace std
 	  if (__ret < __n)
 	    {
 	      int_type __c = this->uflow();  
-	      if (__c != traits_type::eof())
+	      if (!traits_type::eq_int_type(__c, traits_type::eof()))
 		{
 		  traits_type::assign(*__s++, traits_type::to_char_type(__c));
 		  ++__ret;
@@ -177,7 +181,7 @@ namespace std
 	  if (__ret < __n)
 	    {
 	      int_type __c = this->overflow(traits_type::to_int_type(*__s));
-	      if (__c != traits_type::eof())
+	      if (!traits_type::eq_int_type(__c, traits_type::eof()))
 		{
 		  ++__ret;
 		  ++__s;
@@ -208,19 +212,35 @@ namespace std
       try 
 	{
 	  while (__testput && __bufsize != -1)
-	    {
-	      __xtrct = __sbout->sputn(__sbin->gptr(), __bufsize);
-	      __ret += __xtrct;
-	      __sbin->_M_in_cur_move(__xtrct);
-	      if (__xtrct == __bufsize)
+  	    {
+ 	      if (__bufsize != 0 && __sbin->gptr() != NULL
+		  && __sbin->gptr() + __bufsize <= __sbin->egptr()) 
 		{
-		  if (__sbin->sgetc() == _Traits::eof())
+		  __xtrct = __sbout->sputn(__sbin->gptr(), __bufsize);
+		  __ret += __xtrct;
+		  __sbin->_M_in_cur_move(__xtrct);
+		  if (__xtrct != __bufsize)
 		    break;
-		  __bufsize = __sbin->in_avail();
 		}
-	      else
-		break;
-	    }
+ 	      else 
+		{
+#ifdef _GLIBCPP_HAVE_ISATTY		  
+		  size_t __size = isatty(0) ? 1 : static_cast<size_t>(BUFSIZ);
+#else
+		  size_t __size = 1;
+#endif
+		  _CharT* __buf =
+		    static_cast<_CharT*>(__builtin_alloca(sizeof(_CharT) * __size));
+		  streamsize __charsread = __sbin->sgetn(__buf, __size);
+		  __xtrct = __sbout->sputn(__buf, __charsread);
+		  __ret += __xtrct;
+		  if (__xtrct != __charsread)
+		    break;
+		}
+ 	      if (_Traits::eq_int_type(__sbin->sgetc(), _Traits::eof()))
+  		break;
+ 	      __bufsize = __sbin->in_avail();
+  	    }
 	}
       catch(exception& __fail) 
 	{
@@ -240,11 +260,13 @@ namespace std
     __copy_streambufs(basic_ios<char>&, basic_streambuf<char>*,
 		      basic_streambuf<char>*); 
 
+#ifdef _GLIBCPP_USE_WCHAR_T
   extern template class basic_streambuf<wchar_t>;
   extern template
     streamsize
     __copy_streambufs(basic_ios<wchar_t>&, basic_streambuf<wchar_t>*,
 		      basic_streambuf<wchar_t>*); 
+#endif
 } // namespace std
 
 #endif 

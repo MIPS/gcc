@@ -90,8 +90,8 @@ for windows/multi thread */
 
 /* Names to predefine in the preprocessor for this target machine.  */
 
-#define DBX_DEBUGGING_INFO
-#define SDB_DEBUGGING_INFO
+#define DBX_DEBUGGING_INFO 1
+#define SDB_DEBUGGING_INFO 1
 #undef PREFERRED_DEBUGGING_TYPE
 #define PREFERRED_DEBUGGING_TYPE DBX_DEBUG
 
@@ -104,7 +104,7 @@ for windows/multi thread */
 #define WCHAR_TYPE_SIZE 16
 
 /* Our strategy for finding global constructors is a bit different, although
-   not a lot. */
+   not a lot.  */
 #define DO_GLOBAL_CTORS_BODY						\
 do {									\
   int i;								\

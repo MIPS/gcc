@@ -139,13 +139,9 @@ do {									\
 #define ASM_DECLARE_FUNCTION_NAME(FILE, NAME, DECL)			\
   do {									\
     if (TARGET_ELF) {							\
-      fprintf (FILE, "%s", TYPE_ASM_OP);				\
-      assemble_name (FILE, NAME);					\
-      putc (',', FILE);							\
-      fprintf (FILE, TYPE_OPERAND_FMT, "function");			\
-      putc ('\n', FILE);						\
+      ASM_OUTPUT_TYPE_DIRECTIVE (FILE, NAME, "function");		\
       ASM_DECLARE_RESULT (FILE, DECL_RESULT (DECL));			\
-      ASM_OUTPUT_LABEL(FILE, NAME);					\
+      ASM_OUTPUT_LABEL (FILE, NAME);					\
     } else								\
       SCO_DEFAULT_ASM_COFF(FILE, NAME);					\
 } while (0)
@@ -153,34 +149,28 @@ do {									\
 #undef ASM_DECLARE_FUNCTION_SIZE
 #define ASM_DECLARE_FUNCTION_SIZE(FILE, FNAME, DECL)			\
   do {									\
-    if (TARGET_ELF) { if (!flag_inhibit_size_directive)			\
-      {									\
-	fprintf (FILE, "%s", SIZE_ASM_OP);				\
-	assemble_name (FILE, (FNAME));					\
-        fprintf (FILE, ",.-");						\
-	assemble_name (FILE, (FNAME));					\
-	putc ('\n', FILE);						\
-      }	}								\
+    if (TARGET_ELF && !flag_inhibit_size_directive)			\
+      ASM_OUTPUT_MEASURED_SIZE (FILE, FNAME);				\
   } while (0)
 
 #undef ASM_DECLARE_OBJECT_NAME
 #define ASM_DECLARE_OBJECT_NAME(FILE, NAME, DECL)			\
   do {									\
     if (TARGET_ELF) {							\
-      fprintf (FILE, "%s", TYPE_ASM_OP);				\
-      assemble_name (FILE, NAME);					\
-      putc (',', FILE);							\
-      fprintf (FILE, TYPE_OPERAND_FMT, "object");			\
-      putc ('\n', FILE);						\
+      HOST_WIDE_INT size;						\
+									\
+      ASM_OUTPUT_TYPE_DIRECTIVE (FILE, NAME, "object");			\
+									\
       size_directive_output = 0;					\
-      if (!flag_inhibit_size_directive && DECL_SIZE (DECL))		\
-        {								\
-  	size_directive_output = 1;					\
-	fprintf (FILE, "%s", SIZE_ASM_OP);				\
-	assemble_name (FILE, NAME);					\
-	fprintf (FILE, ",%d\n",  int_size_in_bytes (TREE_TYPE (DECL)));	\
-        }								\
-      ASM_OUTPUT_LABEL(FILE, NAME);					\
+      if (!flag_inhibit_size_directive					\
+	  && (DECL) && DECL_SIZE (DECL))				\
+	{								\
+	  size_directive_output = 1;					\
+	  size = int_size_in_bytes (TREE_TYPE (DECL));			\
+	  ASM_OUTPUT_SIZE_DIRECTIVE (FILE, NAME, size);			\
+	}								\
+									\
+      ASM_OUTPUT_LABEL (FILE, NAME);					\
     } else								\
       SCO_DEFAULT_ASM_COFF(FILE, NAME);					\
   } while (0)
@@ -198,17 +188,17 @@ do {									\
 #undef ASM_FINISH_DECLARE_OBJECT
 #define ASM_FINISH_DECLARE_OBJECT(FILE, DECL, TOP_LEVEL, AT_END)	 \
 do {									 \
-  if (TARGET_ELF) {							\
+  if (TARGET_ELF) {							 \
      const char *name = XSTR (XEXP (DECL_RTL (DECL), 0), 0);		 \
+     HOST_WIDE_INT size;						 \
      if (!flag_inhibit_size_directive && DECL_SIZE (DECL)		 \
          && ! AT_END && TOP_LEVEL					 \
 	 && DECL_INITIAL (DECL) == error_mark_node			 \
 	 && !size_directive_output)					 \
        {								 \
 	 size_directive_output = 1;					 \
-	 fprintf (FILE, "%s", SIZE_ASM_OP);			 	 \
-	 assemble_name (FILE, name);					 \
-	 fprintf (FILE, ",%d\n",  int_size_in_bytes (TREE_TYPE (DECL))); \
+	 size = int_size_in_bytes (TREE_TYPE (DECL));			 \
+	 ASM_OUTPUT_SIZE_DIRECTIVE (FILE, name, size);			 \
        }								 \
     }									 \
 } while (0)
@@ -360,13 +350,9 @@ do {									\
 #define ASM_OUTPUT_IDENT(FILE, NAME) \
   fprintf (FILE, "%s\"%s\"\n", IDENT_ASM_OP, NAME);
 
-#undef ASM_GLOBALIZE_LABEL
-#define ASM_GLOBALIZE_LABEL(FILE,NAME)	\
-  (fprintf ((FILE), "%s", GLOBAL_ASM_OP), assemble_name (FILE, NAME), fputs ("\n", FILE))
-
 #undef ASM_OUTPUT_EXTERNAL_LIBCALL
 #define ASM_OUTPUT_EXTERNAL_LIBCALL(FILE, FUN)				\
-  if (TARGET_ELF) ASM_GLOBALIZE_LABEL (FILE, XSTR (FUN, 0))
+  if (TARGET_ELF) (*targetm.asm_out.globalize_label) (FILE, XSTR (FUN, 0))
 
 #undef ASM_OUTPUT_INTERNAL_LABEL
 #define ASM_OUTPUT_INTERNAL_LABEL(FILE,PREFIX,NUM)			\
@@ -427,16 +413,12 @@ do {									\
 #define DBX_REGISTER_NUMBER(n) \
   ((TARGET_ELF) ? svr4_dbx_register_map[n] : dbx_register_map[n])
 
-#undef DWARF2_DEBUGGING_INFO
-#undef DWARF_DEBUGGING_INFO
-#undef SDB_DEBUGGING_INFO
-#undef DBX_DEBUGGING_INFO
-#undef PREFERRED_DEBUGGING_TYPE
-
 #define DWARF2_DEBUGGING_INFO 1
 #define DWARF_DEBUGGING_INFO 1
-#define SDB_DEBUGGING_INFO   1
-#define DBX_DEBUGGING_INFO   1
+#define SDB_DEBUGGING_INFO 1
+#define DBX_DEBUGGING_INFO 1
+
+#undef PREFERRED_DEBUGGING_TYPE
 #define PREFERRED_DEBUGGING_TYPE					\
   ((TARGET_ELF) ? DWARF2_DEBUG: SDB_DEBUG)
 
@@ -541,9 +523,6 @@ init_section ()								\
   do { fputs ("\t.weak\t", FILE); assemble_name (FILE, NAME);		\
 	fputc ('\n', FILE); } while (0)
 
-#undef SCCS_DIRECTIVE
-#define SCCS_DIRECTIVE 1
-
 /*
  * Define sizes and types
  */
@@ -634,20 +613,32 @@ init_section ()								\
   %{mcoff:crtendS.o%s} \
   %{pg:gcrtn.o%s}%{!pg:crtn.o%s}"
 
-#undef CPP_PREDEFINES
-#define CPP_PREDEFINES \
- "-Asystem=svr3"
-
-/* You are in a maze of GCC specs ... all alike */
+#define TARGET_OS_CPP_BUILTINS()		\
+  do						\
+    {						\
+	builtin_define ("__unix");		\
+	builtin_define ("_SCO_DS");		\
+	builtin_define ("_M_I386");		\
+	builtin_define ("_M_XENIX");		\
+	builtin_define ("_M_UNIX");		\
+	builtin_assert ("system=svr3");		\
+	if (flag_iso)				\
+	  cpp_define (pfile, "_STRICT_ANSI");	\
+	if (flag_pic)							\
+	  {								\
+	    builtin_define ("__PIC__");					\
+	    builtin_define ("__pic__");					\
+	  }								\
+    }						\
+  while (0)
 
 #undef CPP_SPEC
 #define CPP_SPEC "\
   %{fpic:%{mcoff:%e-fpic is not valid with -mcoff}} \
   %{fPIC:%{mcoff:%e-fPIC is not valid with -mcoff}} \
-  -D__i386 -D__unix -D_SCO_DS=1 -D_M_I386 -D_M_XENIX -D_M_UNIX \
   %{!Xods30:-D_STRICT_NAMES} \
   %{!ansi:%{!posix:%{!Xods30:-D_SCO_XPG_VERS=4}}} \
-  %{ansi:-isystem include/ansi%s -isystem /usr/include/ansi -D_STRICT_ANSI} \
+  %{ansi:-isystem include/ansi%s -isystem /usr/include/ansi} \
   %{!ansi: \
    %{posix:-isystem include/posix%s -isystem /usr/include/posix \
            -D_POSIX_C_SOURCE=2 -D_POSIX_SOURCE=1} \
@@ -664,8 +655,6 @@ init_section ()								\
   %{scointl:-DM_INTERNAT -D_M_INTERNAT} \
   %{!mcoff:-D_SCO_ELF} \
   %{mcoff:-D_M_COFF -D_SCO_COFF} \
-  %{!mcoff:%{fpic:-D__PIC__ -D__pic__} \
-         %{fPIC:%{!fpic:-D__PIC__ -D__pic__}}} \
   %{Xa:-D_SCO_C_DIALECT=1} \
   %{!Xa:%{Xc:-D_SCO_C_DIALECT=3} \
    %{!Xc:%{Xk:-D_SCO_C_DIALECT=4} \

@@ -1,5 +1,5 @@
 /* Subroutines for insn-output.c for Tensilica's Xtensa architecture.
-   Copyright (C) 2001 Free Software Foundation, Inc.
+   Copyright 2001,2002 Free Software Foundation, Inc.
    Contributed by Bob Wilson (bwilson@tensilica.com) at Tensilica.
 
 This file is part of GCC.
@@ -107,10 +107,10 @@ const char xtensa_leaf_regs[FIRST_PSEUDO_REGISTER] =
 /* Map hard register number to register class */
 const enum reg_class xtensa_regno_to_class[FIRST_PSEUDO_REGISTER] =
 {
-  GR_REGS,	SP_REG,		GR_REGS,	GR_REGS,
-  GR_REGS,	GR_REGS,	GR_REGS,	GR_REGS,
-  GR_REGS,	GR_REGS,	GR_REGS,	GR_REGS,
-  GR_REGS,	GR_REGS,	GR_REGS,	GR_REGS,
+  RL_REGS,	SP_REG,		RL_REGS,	RL_REGS,
+  RL_REGS,	RL_REGS,	RL_REGS,	GR_REGS,
+  RL_REGS,	RL_REGS,	RL_REGS,	RL_REGS,
+  RL_REGS,	RL_REGS,	RL_REGS,	RL_REGS,
   AR_REGS,	AR_REGS,	BR_REGS,
   FP_REGS,	FP_REGS,	FP_REGS,	FP_REGS,
   FP_REGS,	FP_REGS,	FP_REGS,	FP_REGS,
@@ -197,8 +197,10 @@ static rtx fixup_subreg_mem PARAMS ((rtx x));
 static enum machine_mode xtensa_find_mode_for_size PARAMS ((unsigned));
 static struct machine_function * xtensa_init_machine_status PARAMS ((void));
 static void printx PARAMS ((FILE *, signed int));
-static void xtensa_select_rtx_section PARAMS ((enum machine_mode, rtx,
-					       unsigned HOST_WIDE_INT));
+static unsigned int xtensa_multibss_section_type_flags
+  PARAMS ((tree, const char *, int));
+static void xtensa_select_rtx_section
+  PARAMS ((enum machine_mode, rtx, unsigned HOST_WIDE_INT));
 static void xtensa_encode_section_info PARAMS ((tree, int));
 
 static rtx frame_size_const;
@@ -2281,6 +2283,33 @@ xtensa_function_epilogue (file, size)
 }
 
 
+rtx
+xtensa_return_addr (count, frame)
+     int count;
+     rtx frame;
+{
+  rtx result, retaddr;
+
+  if (count == -1)
+    retaddr = gen_rtx_REG (Pmode, 0);
+  else
+    {
+      rtx addr = plus_constant (frame, -4 * UNITS_PER_WORD);
+      addr = memory_address (Pmode, addr);
+      retaddr = gen_reg_rtx (Pmode);
+      emit_move_insn (retaddr, gen_rtx_MEM (Pmode, addr));
+    }
+
+  /* The 2 most-significant bits of the return address on Xtensa hold
+     the register window size.  To get the real return address, these
+     bits must be replaced with the high bits from the current PC.  */
+
+  result = gen_reg_rtx (Pmode);
+  emit_insn (gen_fix_return_addr (result, retaddr));
+  return result;
+}
+
+
 /* Create the va_list data type.
    This structure is set up by __builtin_saveregs.  The __va_reg
    field points to a stack-allocated region holding the contents of the
@@ -2295,7 +2324,7 @@ xtensa_function_epilogue (file, size)
    argument word N for N >= 6. */
 
 tree
-xtensa_build_va_list (void)
+xtensa_build_va_list ()
 {
   tree f_stk, f_reg, f_ndx, record, type_decl;
 
@@ -2366,8 +2395,7 @@ xtensa_builtin_saveregs ()
    current function to fill in an initial va_list. */
 
 void
-xtensa_va_start (stdarg_p, valist, nextarg)
-     int stdarg_p ATTRIBUTE_UNUSED;
+xtensa_va_start (valist, nextarg)
      tree valist;
      rtx nextarg ATTRIBUTE_UNUSED;
 {
@@ -2586,16 +2614,22 @@ xtensa_va_arg (valist, type)
 
 
 enum reg_class
-xtensa_preferred_reload_class (x, class)
+xtensa_preferred_reload_class (x, class, isoutput)
      rtx x;
      enum reg_class class;
+     int isoutput;
 {
-  if (CONSTANT_P (x) && GET_CODE (x) == CONST_DOUBLE)
+  if (!isoutput && CONSTANT_P (x) && GET_CODE (x) == CONST_DOUBLE)
     return NO_REGS;
 
-  /* Don't use sp for reloads! */
-  if (class == AR_REGS)
-    return GR_REGS;
+  /* Don't use the stack pointer or hard frame pointer for reloads!
+     The hard frame pointer would normally be OK except that it may
+     briefly hold an incoming argument in the prologue, and reload
+     won't know that it is live because the hard frame pointer is
+     treated specially.  */
+
+  if (class == AR_REGS || class == GR_REGS)
+    return RL_REGS;
 
   return class;
 }
@@ -2617,13 +2651,13 @@ xtensa_secondary_reload_class (class, mode, x, isoutput)
   if (!isoutput)
     {
       if (class == FP_REGS && constantpool_mem_p (x))
-	return GR_REGS;
+	return RL_REGS;
     }
 
   if (ACC_REG_P (regno))
-    return (class == GR_REGS ? NO_REGS : GR_REGS);
+    return ((class == GR_REGS || class == RL_REGS) ? NO_REGS : RL_REGS);
   if (class == ACC_REG)
-    return (GP_REG_P (regno) ? NO_REGS : GR_REGS);
+    return (GP_REG_P (regno) ? NO_REGS : RL_REGS);
 
   return NO_REGS;
 }
@@ -2719,6 +2753,34 @@ a7_overlap_mentioned_p (x)
 
   return 0;
 }
+
+
+/* Some Xtensa targets support multiple bss sections.  If the section
+   name ends with ".bss", add SECTION_BSS to the flags.  */
+
+static unsigned int
+xtensa_multibss_section_type_flags (decl, name, reloc)
+     tree decl;
+     const char *name;
+     int reloc;
+{
+  unsigned int flags = default_section_type_flags (decl, name, reloc);
+  const char *suffix;
+
+  suffix = strrchr (name, '.');
+  if (suffix && strcmp (suffix, ".bss") == 0)
+    {
+      if (!decl || (TREE_CODE (decl) == VAR_DECL
+		    && DECL_INITIAL (decl) == NULL_TREE))
+	flags |= SECTION_BSS;  /* @nobits */
+      else
+	warning ("only uninitialized variables can be placed in a "
+		 ".bss section");
+    }
+
+  return flags;
+}
+
 
 /* The literal pool stays with the function.  */
 

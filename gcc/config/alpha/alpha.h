@@ -64,26 +64,35 @@ Boston, MA 02111-1307, USA.  */
 	    builtin_assert ("cpu=ev4");			\
 	  }						\
 	if (TARGET_IEEE || TARGET_IEEE_WITH_INEXACT)	\
-	  builtin_define ("__IEEE_FP");			\
+	  builtin_define ("_IEEE_FP");			\
 	if (TARGET_IEEE_WITH_INEXACT)			\
-	  builtin_define ("__IEEE_FP_INEXACT");		\
+	  builtin_define ("_IEEE_FP_INEXACT");		\
 							\
 	/* Macros dependent on the C dialect.  */	\
-	if (preprocessing_asm_p ())			\
-	  builtin_define_std ("LANGUAGE_ASSEMBLY");	\
-        else if (c_language == clk_c)			\
-	  builtin_define_std ("LANGUAGE_C");		\
-	else if (c_language == clk_cplusplus)		\
-	  {						\
-	    builtin_define ("__LANGUAGE_C_PLUS_PLUS");	\
-	    builtin_define ("__LANGUAGE_C_PLUS_PLUS__");\
-	  }						\
-	else if (c_language == clk_objective_c)		\
-	  {						\
-	    builtin_define ("__LANGUAGE_OBJECTIVE_C");	\
-	    builtin_define ("__LANGUAGE_OBJECTIVE_C__");\
-	  }						\
+	SUBTARGET_LANGUAGE_CPP_BUILTINS();		\
 } while (0)
+
+#ifndef SUBTARGET_LANGUAGE_CPP_BUILTINS
+#define SUBTARGET_LANGUAGE_CPP_BUILTINS()		\
+  do							\
+    {							\
+      if (preprocessing_asm_p ())			\
+	builtin_define_std ("LANGUAGE_ASSEMBLY");	\
+      else if (c_language == clk_c)			\
+	builtin_define_std ("LANGUAGE_C");		\
+      else if (c_language == clk_cplusplus)		\
+	{						\
+	  builtin_define ("__LANGUAGE_C_PLUS_PLUS");	\
+	  builtin_define ("__LANGUAGE_C_PLUS_PLUS__");	\
+	}						\
+      if (flag_objc)					\
+	{						\
+	  builtin_define ("__LANGUAGE_OBJECTIVE_C");	\
+	  builtin_define ("__LANGUAGE_OBJECTIVE_C__");	\
+	}						\
+    }							\
+  while (0)
+#endif
 
 #define CPP_SPEC "%(cpp_subtarget)"
 
@@ -402,6 +411,10 @@ extern const char *alpha_tls_size_string; /* For -mtls-size= */
 /* Define the size of `long long'.  The default is the twice the word size.  */
 #define LONG_LONG_TYPE_SIZE 64
 
+/* We're IEEE unless someone says to use VAX.  */
+#define TARGET_FLOAT_FORMAT \
+  (TARGET_FLOAT_VAX ? VAX_FLOAT_FORMAT : IEEE_FLOAT_FORMAT)
+
 /* The two floating-point formats we support are S-floating, which is
    4 bytes, and T-floating, which is 8 bytes.  `float' is S and `double'
    and `long double' are T.  */
@@ -480,7 +493,7 @@ extern const char *alpha_tls_size_string; /* For -mtls-size= */
 /* Every structure's size must be a multiple of this.  */
 #define STRUCTURE_SIZE_BOUNDARY 8
 
-/* A bitfield declared as `int' forces `int' alignment for the struct.  */
+/* A bit-field declared as `int' forces `int' alignment for the struct.  */
 #define PCC_BITFIELD_TYPE_MATTERS 1
 
 /* No data type wants to be aligned rounder than this.  */
@@ -499,14 +512,14 @@ extern const char *alpha_tls_size_string; /* For -mtls-size= */
 #define DATA_ALIGNMENT(EXP, ALIGN) MAX ((ALIGN), BITS_PER_WORD)
 #endif
 
-/* Set this non-zero if move instructions will actually fail to work
+/* Set this nonzero if move instructions will actually fail to work
    when given unaligned data.
 
    Since we get an error message when we do one, call them invalid.  */
 
 #define STRICT_ALIGNMENT 1
 
-/* Set this non-zero if unaligned move instructions are extremely slow.
+/* Set this nonzero if unaligned move instructions are extremely slow.
 
    On the Alpha, they trap.  */
 
@@ -844,15 +857,10 @@ enum reg_class {
 #define CLASS_MAX_NREGS(CLASS, MODE)				\
  ((GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD)
 
-/* If defined, gives a class of registers that cannot be used as the
-   operand of a SUBREG that changes the mode of the object illegally.  */
+/* Return the class of registers that cannot change mode from FROM to TO.  */
 
-#define CLASS_CANNOT_CHANGE_MODE	FLOAT_REGS
-
-/* Defines illegal mode changes for CLASS_CANNOT_CHANGE_MODE.  */
-
-#define CLASS_CANNOT_CHANGE_MODE_P(FROM,TO) \
-  (GET_MODE_SIZE (FROM) != GET_MODE_SIZE (TO))
+#define CANNOT_CHANGE_MODE_CLASS(FROM, TO) \
+  (GET_MODE_SIZE (FROM) != GET_MODE_SIZE (TO) ? FLOAT_REGS : NO_REGS)
 
 /* Define the cost of moving between registers of various classes.  Moving
    between FLOAT_REGS and anything else except float regs is expensive. 
@@ -1158,12 +1166,11 @@ extern int alpha_memory_latency;
 
 /* We do not allow indirect calls to be optimized into sibling calls, nor
    can we allow a call to a function in a different compilation unit to
-   be optimized into a sibcall.  Except if the function is known not to
-   return, in which case our caller doesn't care what the gp is.  */
+   be optimized into a sibcall.  */
 #define FUNCTION_OK_FOR_SIBCALL(DECL)			\
   (DECL							\
-   && ((TREE_ASM_WRITTEN (DECL) && !flag_pic)		\
-       || ! TREE_PUBLIC (DECL)))
+   && (! TREE_PUBLIC (DECL)				\
+       || (TREE_ASM_WRITTEN (DECL) && (*targetm.binds_local_p) (DECL))))
 
 /* Try to output insns to set TARGET equal to the constant C if it can be
    done in less than N insns.  Do all computations in MODE.  Returns the place
@@ -1460,7 +1467,7 @@ do {									     \
 #define MAX_FIXED_MODE_SIZE	GET_MODE_BITSIZE (TImode)
 
 /* Nonzero if access to memory by bytes is no faster than for words.
-   Also non-zero if doing byte operations (specifically shifts) in registers
+   Also nonzero if doing byte operations (specifically shifts) in registers
    is undesirable. 
 
    On the Alpha, we want to not use the byte operation and instead use
@@ -1743,17 +1750,8 @@ do {						\
   fputs (name_, STREAM);			\
 } while (0)
 
-/* This is how to output the definition of a user-level label named NAME,
-   such as the label on a static function or variable NAME.  */
-
-#define ASM_OUTPUT_LABEL(FILE,NAME)	\
-  do { assemble_name (FILE, NAME); fputs (":\n", FILE); } while (0)
-
-/* This is how to output a command to make the user-level label named NAME
-   defined for reference from other files.  */
-
-#define ASM_GLOBALIZE_LABEL(FILE,NAME)	\
-  do { fputs ("\t.globl ", FILE); assemble_name (FILE, NAME); fputs ("\n", FILE);} while (0)
+/* Globalizing directive for a label.  */
+#define GLOBAL_ASM_OP "\t.globl "
 
 /* The prefix to add to user-visible assembler symbols.  */
 
@@ -1779,11 +1777,6 @@ do {						\
 
 #define ASM_GENERATE_INTERNAL_LABEL(LABEL,PREFIX,NUM)	\
   sprintf ((LABEL), "*$%s%ld", (PREFIX), (long)(NUM))
-
-/* Check a floating-point value for validity for a particular machine mode.  */
-
-#define CHECK_FLOAT_VALUE(MODE, D, OVERFLOW) \
-  ((OVERFLOW) = check_float_value (MODE, &D, OVERFLOW))
 
 /* We use the default ASCII-output routine, except that we don't write more
    than 50 characters since the assembler doesn't support very long lines.  */
@@ -1984,8 +1977,8 @@ do {						\
   (VALIST) = alpha_build_va_list ()
 
 /* Implement `va_start' for varargs and stdarg.  */
-#define EXPAND_BUILTIN_VA_START(stdarg, valist, nextarg) \
-  alpha_va_start (stdarg, valist, nextarg)
+#define EXPAND_BUILTIN_VA_START(valist, nextarg) \
+  alpha_va_start (valist, nextarg)
 
 /* Implement `va_arg'.  */
 #define EXPAND_BUILTIN_VA_ARG(valist, type) \
@@ -2000,9 +1993,9 @@ do {						\
 
 /* Definitions for debugging.  */
 
-#define SDB_DEBUGGING_INFO		/* generate info for mips-tfile */
-#define DBX_DEBUGGING_INFO		/* generate embedded stabs */
-#define MIPS_DEBUGGING_INFO		/* MIPS specific debugging info */
+#define SDB_DEBUGGING_INFO 1		/* generate info for mips-tfile */
+#define DBX_DEBUGGING_INFO 1		/* generate embedded stabs */
+#define MIPS_DEBUGGING_INFO 1		/* MIPS specific debugging info */
 
 #ifndef PREFERRED_DEBUGGING_TYPE	/* assume SDB_DEBUGGING_INFO */
 #define PREFERRED_DEBUGGING_TYPE  SDB_DEBUG
@@ -2140,8 +2133,3 @@ do {							\
 
 /* Generate calls to memcpy, etc., not bcopy, etc.  */
 #define TARGET_MEM_FUNCTIONS 1
-
-/* Output code to add DELTA to the first argument, and then jump to FUNCTION.
-   Used for C++ multiple inheritance.  */
-#define ASM_OUTPUT_MI_THUNK(FILE, THUNK_FNDECL, DELTA, FUNCTION) \
-  alpha_output_mi_thunk_osf (FILE, THUNK_FNDECL, DELTA, FUNCTION)

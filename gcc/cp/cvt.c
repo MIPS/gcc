@@ -149,12 +149,12 @@ cp_convert_to_pointer (type, expr, force)
 	  enum tree_code code = PLUS_EXPR;
 	  tree binfo;
 
-	  /* Try derived to base conversion. */
+	  /* Try derived to base conversion.  */
 	  binfo = lookup_base (TREE_TYPE (intype), TREE_TYPE (type),
 			       ba_check, NULL);
 	  if (!binfo)
 	    {
-	      /* Try base to derived conversion. */
+	      /* Try base to derived conversion.  */
 	      binfo = lookup_base (TREE_TYPE (type), TREE_TYPE (intype),
 				   ba_check, NULL);
 	      code = MINUS_EXPR;
@@ -164,7 +164,7 @@ cp_convert_to_pointer (type, expr, force)
 	  if (binfo)
 	    {
 	      expr = build_base_path (code, expr, binfo, 0);
-	      /* Add any qualifier conversions. */
+	      /* Add any qualifier conversions.  */
 	      if (!same_type_p (TREE_TYPE (TREE_TYPE (expr)),
 				TREE_TYPE (type)))
 		{
@@ -252,7 +252,15 @@ cp_convert_to_pointer (type, expr, force)
       else
 	expr = build_int_2 (0, 0);
       TREE_TYPE (expr) = type;
+      /* Fix up the representation of -1 if appropriate.  */
+      force_fit_type (expr, 0);
       return expr;
+    }
+  else if ((TYPE_PTRMEM_P (type) || TYPE_PTRMEMFUNC_P (type))
+	   && INTEGRAL_CODE_P (form))
+    {
+      error ("invalid conversion from '%T' to '%T'", intype, type);
+      return error_mark_node;
     }
 
   if (INTEGRAL_CODE_P (form))
@@ -314,7 +322,7 @@ convert_to_pointer_force (type, expr)
 	  if (binfo)
 	    {
 	      expr = build_base_path (code, expr, binfo, 0);
-	      /* Add any qualifier conversions. */
+	      /* Add any qualifier conversions.  */
 	      if (!same_type_p (TREE_TYPE (TREE_TYPE (expr)),
 				TREE_TYPE (type)))
 		{
@@ -465,12 +473,13 @@ convert_to_reference (reftype, expr, convtype, flags, decl)
      tree decl;
 {
   register tree type = TYPE_MAIN_VARIANT (TREE_TYPE (reftype));
-  register tree intype = TREE_TYPE (expr);
+  register tree intype;
   tree rval = NULL_TREE;
   tree rval_as_conversion = NULL_TREE;
   int i;
 
-  if (TREE_CODE (type) == FUNCTION_TYPE && intype == unknown_type_node)
+  if (TREE_CODE (type) == FUNCTION_TYPE 
+      && TREE_TYPE (expr) == unknown_type_node)
     {
       expr = instantiate_type (type, expr, 
 			       (flags & LOOKUP_COMPLAIN)
@@ -478,6 +487,11 @@ convert_to_reference (reftype, expr, convtype, flags, decl)
       if (expr == error_mark_node)
 	return error_mark_node;
 
+      intype = TREE_TYPE (expr);
+    }
+  else
+    {
+      expr = convert_from_reference (expr);
       intype = TREE_TYPE (expr);
     }
 
@@ -769,21 +783,13 @@ ocp_convert (type, expr, convtype, flags)
 	   the target with the temp (see [dcl.init]).  */
 	ctor = build_user_type_conversion (type, ctor, flags);
       else
-	ctor = build_method_call (NULL_TREE, 
-				  complete_ctor_identifier,
-				  build_tree_list (NULL_TREE, ctor),
-				  TYPE_BINFO (type), flags);
+	ctor = build_special_member_call (NULL_TREE, 
+					  complete_ctor_identifier,
+					  build_tree_list (NULL_TREE, ctor),
+					  TYPE_BINFO (type), flags);
       if (ctor)
 	return build_cplus_new (type, ctor);
     }
-
-  /* If TYPE or TREE_TYPE (E) is not on the permanent_obstack,
-     then it won't be hashed and hence compare as not equal,
-     even when it is.  */
-  if (code == ARRAY_TYPE
-      && TREE_TYPE (TREE_TYPE (e)) == TREE_TYPE (type)
-      && index_type_equal (TYPE_DOMAIN (TREE_TYPE (e)), TYPE_DOMAIN (type)))
-    return e;
 
   if (flags & LOOKUP_COMPLAIN)
     error ("conversion from `%T' to non-scalar type `%T' requested",
@@ -857,7 +863,7 @@ convert_to_void (expr, implicit)
     
     case NON_LVALUE_EXPR:
     case NOP_EXPR:
-      /* These have already decayed to rvalue. */
+      /* These have already decayed to rvalue.  */
       break;
     
     case CALL_EXPR:   /* we have a special meaning for volatile void fn() */
@@ -1014,7 +1020,7 @@ convert_force (type, expr, convtype)
    allowed (references private members, etc).
    If no conversion exists, NULL_TREE is returned.
 
-   If (FOR_SURE & 1) is non-zero, then we allow this type conversion
+   If (FOR_SURE & 1) is nonzero, then we allow this type conversion
    to take place immediately.  Otherwise, we build a SAVE_EXPR
    which can be evaluated if the results are ever needed.
 

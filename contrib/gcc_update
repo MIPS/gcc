@@ -104,6 +104,8 @@ libjava/libltdl/aclocal.m4: libjava/libltdl/configure.in libjava/libltdl/acinclu
 libjava/libltdl/Makefile.in: libjava/libltdl/Makefile.am libjava/libltdl/configure.in libjava/libltdl/aclocal.m4
 libjava/libltdl/configure: libjava/libltdl/configure.in libjava/libltdl/aclocal.m4
 libjava/libltdl/stamp-h.in: libjava/libltdl/configure.in libjava/libltdl/aclocal.m4 libjava/libltdl/acconfig.h
+# Top level
+Makefile.in: Makefile.tpl Makefile.def
 EOF
 }
 
@@ -123,7 +125,7 @@ touch_files () {
     echo '	echo Touching $@... 1>&2; \' >> Makefile.$$
     echo '	touch $@' >> Makefile.$$
     files_and_dependencies | sed 's,[^ ]* ,,;s,$, :,' >> Makefile.$$
-    while ${MAKE-make} -f Makefile.$$ all | grep . > /dev/null; do
+    while ${MAKE-make} -s -f Makefile.$$ all | grep . > /dev/null; do
       sleep 1
     done 2>&1
     rm -f Makefile.$$

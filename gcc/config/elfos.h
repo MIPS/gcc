@@ -46,9 +46,11 @@ Boston, MA 02111-1307, USA.  */
 
 #define NO_DOLLAR_IN_LABEL
 
-/* Writing `int' for a bitfield forces int alignment for the structure.  */
+/* Writing `int' for a bit-field forces int alignment for the structure.  */
 
+#ifndef PCC_BITFIELD_TYPE_MATTERS
 #define PCC_BITFIELD_TYPE_MATTERS 1
+#endif
 
 /* Implicit library calls should use memcpy, not bcopy, etc.  */
 
@@ -60,15 +62,11 @@ Boston, MA 02111-1307, USA.  */
 
 /* System V Release 4 uses DWARF debugging info.  */
 
-#ifndef DWARF_DEBUGGING_INFO
 #define DWARF_DEBUGGING_INFO 1
-#endif
 
 /* All ELF targets can support DWARF-2.  */
 
-#ifndef DWARF2_DEBUGGING_INFO
 #define DWARF2_DEBUGGING_INFO 1
-#endif
 
 /* The GNU tools operate better with dwarf2, and it is required by some
    psABI's.  Since we don't have any native tools to be compatible with,
@@ -172,7 +170,7 @@ Boston, MA 02111-1307, USA.  */
    in each assembly file where they are referenced.  */
 
 #define ASM_OUTPUT_EXTERNAL_LIBCALL(FILE, FUN)	\
-  ASM_GLOBALIZE_LABEL (FILE, XSTR (FUN, 0))
+  (*targetm.asm_out.globalize_label) (FILE, XSTR (FUN, 0))
 
 /* This says how to output assembler code to declare an
    uninitialized external linkage data object.  Under SVR4,
@@ -291,18 +289,13 @@ Boston, MA 02111-1307, USA.  */
    function's return value.  We allow for that here.  */
 
 #ifndef ASM_DECLARE_FUNCTION_NAME
-#define ASM_DECLARE_FUNCTION_NAME(FILE, NAME, DECL)	\
-  do							\
-    {							\
-      fprintf (FILE, "%s", TYPE_ASM_OP);		\
-      assemble_name (FILE, NAME);			\
-      putc (',', FILE);					\
-      fprintf (FILE, TYPE_OPERAND_FMT, "function");	\
-      putc ('\n', FILE);				\
-      							\
-      ASM_DECLARE_RESULT (FILE, DECL_RESULT (DECL));	\
-      ASM_OUTPUT_LABEL(FILE, NAME);			\
-    }							\
+#define ASM_DECLARE_FUNCTION_NAME(FILE, NAME, DECL)		\
+  do								\
+    {								\
+      ASM_OUTPUT_TYPE_DIRECTIVE (FILE, NAME, "function");	\
+      ASM_DECLARE_RESULT (FILE, DECL_RESULT (DECL));		\
+      ASM_OUTPUT_LABEL (FILE, NAME);				\
+    }								\
   while (0)
 #endif
 
@@ -311,26 +304,19 @@ Boston, MA 02111-1307, USA.  */
 #define ASM_DECLARE_OBJECT_NAME(FILE, NAME, DECL)		\
   do								\
     {								\
-      fprintf (FILE, "%s", TYPE_ASM_OP);			\
-      assemble_name (FILE, NAME);				\
-      putc (',', FILE);						\
-      fprintf (FILE, TYPE_OPERAND_FMT, "object");		\
-      putc ('\n', FILE);					\
-      								\
+      HOST_WIDE_INT size;					\
+								\
+      ASM_OUTPUT_TYPE_DIRECTIVE (FILE, NAME, "object");		\
+								\
       size_directive_output = 0;				\
-      								\
       if (!flag_inhibit_size_directive				\
 	  && (DECL) && DECL_SIZE (DECL))			\
 	{							\
 	  size_directive_output = 1;				\
-	  fprintf (FILE, "%s", SIZE_ASM_OP);			\
-	  assemble_name (FILE, NAME);				\
-	  putc (',', FILE);					\
-	  fprintf (FILE, HOST_WIDE_INT_PRINT_DEC,		\
-		   int_size_in_bytes (TREE_TYPE (DECL)));	\
-	  fputc ('\n', FILE);					\
+	  size = int_size_in_bytes (TREE_TYPE (DECL));		\
+	  ASM_OUTPUT_SIZE_DIRECTIVE (FILE, NAME, size);		\
 	}							\
-      								\
+								\
       ASM_OUTPUT_LABEL (FILE, NAME);				\
     }								\
   while (0)
@@ -345,6 +331,7 @@ Boston, MA 02111-1307, USA.  */
   do								\
     {								\
       const char *name = XSTR (XEXP (DECL_RTL (DECL), 0), 0);	\
+      HOST_WIDE_INT size;					\
       								\
       if (!flag_inhibit_size_directive				\
 	  && DECL_SIZE (DECL)					\
@@ -353,12 +340,8 @@ Boston, MA 02111-1307, USA.  */
 	  && !size_directive_output)				\
 	{							\
 	  size_directive_output = 1;				\
-	  fprintf (FILE, "%s", SIZE_ASM_OP);			\
-	  assemble_name (FILE, name);				\
-	  putc (',', FILE);					\
-	  fprintf (FILE, HOST_WIDE_INT_PRINT_DEC,		\
-		   int_size_in_bytes (TREE_TYPE (DECL))); 	\
-	  fputc ('\n', FILE);					\
+	  size = int_size_in_bytes (TREE_TYPE (DECL));		\
+	  ASM_OUTPUT_SIZE_DIRECTIVE (FILE, name, size);		\
 	}							\
     }								\
   while (0)
@@ -369,23 +352,7 @@ Boston, MA 02111-1307, USA.  */
   do								\
     {								\
       if (!flag_inhibit_size_directive)				\
-	{							\
-	  char label[256];					\
-	  static int labelno;					\
-	  							\
-	  labelno++;						\
-	  							\
-	  ASM_GENERATE_INTERNAL_LABEL (label, "Lfe", labelno);	\
-	  ASM_OUTPUT_INTERNAL_LABEL (FILE, "Lfe", labelno);	\
-	  							\
-	  fprintf (FILE, "%s", SIZE_ASM_OP);			\
-	  assemble_name (FILE, (FNAME));			\
-	  fprintf (FILE, ",");					\
-	  assemble_name (FILE, label);				\
-	  fprintf (FILE, "-");					\
-	  assemble_name (FILE, (FNAME));			\
-	  putc ('\n', FILE);					\
-	}							\
+	ASM_OUTPUT_MEASURED_SIZE (FILE, FNAME);			\
     }								\
   while (0)
 #endif
@@ -435,7 +402,7 @@ Boston, MA 02111-1307, USA.  */
    generated assembly code more compact (and thus faster to assemble)
    as well as more readable, especially for targets like the i386
    (where the only alternative is to output character sequences as
-   comma separated lists of numbers).   */
+   comma separated lists of numbers).  */
 
 #define ASM_OUTPUT_LIMITED_STRING(FILE, STR)		\
   do							\

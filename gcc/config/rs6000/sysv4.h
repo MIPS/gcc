@@ -21,6 +21,9 @@ the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
 
+/* Header files should be C++ aware in general.  */
+#define NO_IMPLICIT_EXTERN_C
+
 /* Yes!  We are ELF.  */
 #define	TARGET_OBJECT_FORMAT OBJECT_ELF
 
@@ -261,6 +264,8 @@ do {									\
 	     rs6000_sdata_name, rs6000_abi_name);			\
     }									\
 									\
+  targetm.have_srodata_section = rs6000_sdata == SDATA_EABI;		\
+									\
   if (TARGET_RELOCATABLE && !TARGET_MINIMAL_TOC)			\
     {									\
       target_flags |= MASK_MINIMAL_TOC;					\
@@ -396,7 +401,6 @@ do {									\
          : MAX (COMPUTED, SPECIFIED))
 
 #undef  BIGGEST_FIELD_ALIGNMENT
-#undef  ADJUST_FIELD_ALIGN
 
 /* Use ELF style section commands.  */
 
@@ -550,7 +554,7 @@ fini_section ()								\
 #define	TARGET_ASM_SELECT_SECTION  rs6000_elf_select_section
 #define TARGET_ASM_UNIQUE_SECTION  rs6000_elf_unique_section
 
-/* Return non-zero if this entry is to be written into the constant pool
+/* Return nonzero if this entry is to be written into the constant pool
    in a special way.  We do so if this is a SYMBOL_REF, LABEL_REF or a CONST
    containing one of them.  If -mfp-in-toc (the default), we also do
    this for floating-point constants.  We actually can only do this
@@ -610,11 +614,7 @@ extern int rs6000_pic_labelno;
 	putc ('\n', FILE);						\
       }									\
 									\
-    fprintf (FILE, "%s", TYPE_ASM_OP);					\
-    assemble_name (FILE, NAME);						\
-    putc (',', FILE);							\
-    fprintf (FILE, TYPE_OPERAND_FMT, "function");			\
-    putc ('\n', FILE);							\
+    ASM_OUTPUT_TYPE_DIRECTIVE (FILE, NAME, "function");			\
     ASM_DECLARE_RESULT (FILE, DECL_RESULT (DECL));			\
 									\
     if (DEFAULT_ABI == ABI_AIX)						\
@@ -640,39 +640,6 @@ extern int rs6000_pic_labelno;
     ASM_OUTPUT_LABEL (FILE, NAME);					\
   } while (0)
 
-/* A C compound statement that outputs the assembler code for a thunk function,
-    used to implement C++ virtual function calls with multiple inheritance.  The
-    thunk acts as a wrapper around a virtual function, adjusting the implicit
-    object parameter before handing control off to the real function.
-
-    First, emit code to add the integer DELTA to the location that contains the
-    incoming first argument.  Assume that this argument contains a pointer, and
-    is the one used to pass the this' pointer in C++.  This is the incoming
-    argument *before* the function prologue, e.g. %o0' on a sparc.  The
-    addition must preserve the values of all other incoming arguments.
-
-    After the addition, emit code to jump to FUNCTION, which is a
-    FUNCTION_DECL'.  This is a direct pure jump, not a call, and does not touch
-    the return address.  Hence returning from FUNCTION will return to whoever
-    called the current thunk'.
-
-    The effect must be as if FUNCTION had been called directly with the adjusted
-    first argument.  This macro is responsible for emitting all of the code for
-    a thunk function; FUNCTION_PROLOGUE' and FUNCTION_EPILOGUE' are not
-    invoked.
-
-    The THUNK_FNDECL is redundant.  (DELTA and FUNCTION have already been
-    extracted from it.)  It might possibly be useful on some targets, but
-    probably not.
-
-    If you do not define this macro, the target-independent code in the C++
-    frontend will generate a less efficient heavyweight thunk that calls
-    FUNCTION instead of jumping to it.  The generic approach does not support
-    varargs.  */
-
-#define	ASM_OUTPUT_MI_THUNK(FILE, THUNK_FNDECL, DELTA, FUNCTION) \
-  output_mi_thunk (FILE, THUNK_FNDECL, DELTA, FUNCTION)
-
 /* The USER_LABEL_PREFIX stuff is affected by the -fleading-underscore
    flag.  The LOCAL_LABEL_PREFIX variable is used by dbxelf.h.  */
 
@@ -684,15 +651,8 @@ extern int rs6000_pic_labelno;
 #define	ASM_OUTPUT_INTERNAL_LABEL_PREFIX(FILE,PREFIX)	\
   asm_fprintf (FILE, "%L%s", PREFIX)
 
-#define	ASM_OUTPUT_LABEL(FILE,NAME)	\
-  (assemble_name (FILE, NAME), fputs (":\n", FILE))
-
-/* This is how to output a command to make the user-level label named NAME
-   defined for reference from other files.  */
-
-#define	ASM_GLOBALIZE_LABEL(FILE,NAME)	\
-  do { fputs ("\t.globl ", FILE);	\
-       assemble_name (FILE, NAME); putc ('\n', FILE);} while (0)
+/* Globalizing directive for a label.  */
+#define GLOBAL_ASM_OP "\t.globl "
 
 /* This says how to output assembler code to declare an
    uninitialized internal linkage data object.  Under SVR4,
@@ -715,11 +675,7 @@ do {									\
       ASM_OUTPUT_LABEL (FILE, NAME);					\
       ASM_OUTPUT_SKIP (FILE, SIZE);					\
       if (!flag_inhibit_size_directive && (SIZE) > 0)			\
-	{								\
-	  fprintf (FILE, "%s", SIZE_ASM_OP);				\
-	  assemble_name (FILE, NAME);					\
-	  fprintf (FILE, ",%d\n",  SIZE);				\
-	}								\
+	ASM_OUTPUT_SIZE_DIRECTIVE (FILE, NAME, SIZE);			\
     }									\
   else									\
     {									\
@@ -732,8 +688,36 @@ do {									\
 /* Describe how to emit uninitialized external linkage items.  */
 #define	ASM_OUTPUT_ALIGNED_BSS(FILE, DECL, NAME, SIZE, ALIGN)		\
 do {									\
-  ASM_GLOBALIZE_LABEL (FILE, NAME);					\
+  (*targetm.asm_out.globalize_label) (FILE, NAME);			\
   ASM_OUTPUT_ALIGNED_LOCAL (FILE, NAME, SIZE, ALIGN);			\
+} while (0)
+
+/* This is how to output code to push a register on the stack.
+   It need not be very fast code.
+
+   On the rs6000, we must keep the backchain up to date.  In order
+   to simplify things, always allocate 16 bytes for a push (System V
+   wants to keep stack aligned to a 16 byte boundary).  */
+
+#define	ASM_OUTPUT_REG_PUSH(FILE, REGNO)				\
+do {									\
+  if (DEFAULT_ABI == ABI_V4)						\
+    asm_fprintf (FILE,							\
+		 "\t{stu|stwu} %s,-16(%s)\n\t{st|stw} %s,12(%s)\n",	\
+		 reg_names[1], reg_names[1], reg_names[REGNO],		\
+		 reg_names[1]);						\
+} while (0)
+
+/* This is how to output an insn to pop a register from the stack.
+   It need not be very fast code.  */
+
+#define	ASM_OUTPUT_REG_POP(FILE, REGNO)					\
+do {									\
+  if (DEFAULT_ABI == ABI_V4)						\
+    asm_fprintf (FILE,							\
+		 "\t{l|lwz} %s,12(%s)\n\t{ai|addic} %s,%s,16\n",	\
+		 reg_names[REGNO], reg_names[1], reg_names[1],		\
+		 reg_names[1]);						\
 } while (0)
 
 /* Switch  Recognition by gcc.c.  Add -G xx support.  */
@@ -766,14 +750,16 @@ extern int fixuplabelno;
 /* This is the end of what might become sysv4.h.  */
 
 /* Use DWARF 2 debugging information by default.  */
-#undef	PREFERRED_DEBUGGING_TYPE
-#define	PREFERRED_DEBUGGING_TYPE DWARF2_DEBUG
+#undef  PREFERRED_DEBUGGING_TYPE
+#define PREFERRED_DEBUGGING_TYPE DWARF2_DEBUG
 
 /* Historically we have also supported stabs debugging.  */
-#define	DBX_DEBUGGING_INFO
+#define DBX_DEBUGGING_INFO 1
 
-#define	TARGET_ENCODE_SECTION_INFO  rs6000_elf_encode_section_info
-#define	TARGET_STRIP_NAME_ENCODING  rs6000_elf_strip_name_encoding
+#define TARGET_ENCODE_SECTION_INFO  rs6000_elf_encode_section_info
+#define TARGET_STRIP_NAME_ENCODING  rs6000_elf_strip_name_encoding
+#define TARGET_IN_SMALL_DATA_P  rs6000_elf_in_small_data_p
+#define TARGET_SECTION_TYPE_FLAGS  rs6000_elf_section_type_flags
 
 /* The ELF version doesn't encode [DS] or whatever at the end of symbols.  */
 
@@ -808,9 +794,19 @@ do {						\
 #define	TARGET_VERSION fprintf (stderr, " (PowerPC System V.4)");
 #endif
 
-#ifndef	CPP_PREDEFINES
-#define	CPP_PREDEFINES \
-  "-DPPC -Dunix -D__svr4__ -Asystem=unix -Asystem=svr4 -Acpu=powerpc -Amachine=powerpc"
+#ifndef	TARGET_OS_CPP_BUILTINS
+#define TARGET_OS_CPP_BUILTINS()          \
+  do                                      \
+    {                                     \
+      builtin_define_std ("PPC");         \
+      builtin_define_std ("unix");        \
+      builtin_define ("__svr4__");        \
+      builtin_assert ("system=unix");     \
+      builtin_assert ("system=svr4");     \
+      builtin_assert ("cpu=powerpc");     \
+      builtin_assert ("machine=powerpc"); \
+    }                                     \
+  while (0)
 #endif
 
 /* Pass various options to the assembler.  */
@@ -1375,7 +1371,7 @@ ncrtn.o%s"
    pack(pop)'.  The pack(push,<n>) pragma specifies the maximum
    alignment (in bytes) of fields within a structure, in much the
    same way as the __aligned__' and __packed__' __attribute__'s
-   do.  A pack value of zero resets the behaviour to the default.
+   do.  A pack value of zero resets the behavior to the default.
    Successive invocations of this pragma cause the previous values to
    be stacked, so that invocations of #pragma pack(pop)' will return
    to the previous value.  */

@@ -27,7 +27,7 @@
  * file might be covered by the  GNU Public License.                        *
  *                                                                          *
  * GNAT was originally developed  by the GNAT team at  New York University. *
- * It is now maintained by Ada Core Technologies Inc (http://www.gnat.com). *
+ * Extensive contributions were provided by Ada Core Technologies Inc.      *
  *                                                                          *
  ****************************************************************************/
 
@@ -294,7 +294,8 @@ __gnat_ttyname (filedes)
 #if defined (linux) || defined (sun) || defined (sgi) || defined (__EMX__) \
   || (defined (__osf__) && ! defined (__alpha_vxworks)) || defined (WINNT) \
   || defined (__MACHTEN__) || defined (hpux) || defined (_AIX) \
-  || (defined (__svr4__) && defined (i386)) || defined (__Lynx__)
+  || (defined (__svr4__) && defined (i386)) || defined (__Lynx__) \
+  || defined (__CYGWIN__)
 #include <termios.h>
 
 #else
@@ -349,7 +350,7 @@ getc_immediate_common (stream, ch, end_of_file, avail, waiting)
 {
 #if defined (linux) || defined (sun) || defined (sgi) || defined (__EMX__) \
     || (defined (__osf__) && ! defined (__alpha_vxworks)) \
-    || defined (__CYGWIN32__) || defined (__MACHTEN__) || defined (hpux) \
+    || defined (__CYGWIN__) || defined (__MACHTEN__) || defined (hpux) \
     || defined (_AIX) || (defined (__svr4__) && defined (i386)) \
     || defined (__Lynx__)
   char c;

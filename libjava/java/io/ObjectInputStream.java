@@ -1,5 +1,5 @@
 /* ObjectInputStream.java -- Class used to read serialized objects
-   Copyright (C) 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -42,6 +42,7 @@ import gnu.classpath.Configuration;
 
 import java.lang.reflect.Array;
 import java.lang.reflect.Modifier;
+import java.lang.reflect.Proxy;
 import java.util.Arrays;
 import java.util.Hashtable;
 import java.util.Vector;
@@ -244,7 +245,7 @@ public class ObjectInputStream extends InputStream
 	int handle = assignNewHandle (array);
 	readArrayElements (array, componentType);
 	for (int i=0, len=Array.getLength(array); i < len; i++)
-	  dumpElementln ("  ELEMENT[" + i + "]=" + Array.get(array, i).toString());
+	  dumpElementln ("  ELEMENT[" + i + "]=" + Array.get(array, i));
 	ret_val = processResolution (array, handle);
 	break;
       }
@@ -527,6 +528,32 @@ public class ObjectInputStream extends InputStream
   }
 
 
+  protected Class resolveProxyClass (String[] intfs)
+    throws IOException, ClassNotFoundException
+  {
+    SecurityManager sm = System.getSecurityManager ();
+    
+    if (sm == null)
+      sm = new SecurityManager () {};
+    
+    ClassLoader cl = currentClassLoader (sm);
+    
+    Class[] clss = new Class[intfs.length];
+    if(cl == null){
+      for (int i = 0; i < intfs.length; i++)
+	clss[i] = Class.forName(intfs[i]);
+      cl = ClassLoader.getSystemClassLoader();
+    }
+    else
+      for (int i = 0; i < intfs.length; i++)
+	clss[i] = cl.loadClass(intfs[i]);
+    try {
+      return Proxy.getProxyClass(cl, clss);
+    } catch (IllegalArgumentException e) {
+      throw new ClassNotFoundException(null, e);
+    }
+  }
+  
   /**
      If <code>enable</code> is <code>true</code> and this object is
      trusted, then <code>resolveObject (Object)</code> will be called
@@ -1401,6 +1428,7 @@ public class ObjectInputStream extends InputStream
       {
 	Class klass = obj.getClass ();
 	Field f = getField (klass, field_name);
+	f.setAccessible(true);
 	f.setBoolean (obj, val);
       }
     catch (Exception _)
@@ -1415,6 +1443,7 @@ public class ObjectInputStream extends InputStream
       {
 	Class klass = obj.getClass ();
 	Field f = getField (klass, field_name);
+	f.setAccessible(true);
 	f.setByte (obj, val);
       }
     catch (Exception _)
@@ -1429,6 +1458,7 @@ public class ObjectInputStream extends InputStream
       {
 	Class klass = obj.getClass ();
 	Field f = getField (klass, field_name);
+	f.setAccessible(true);
 	f.setChar (obj, val);
       }
     catch (Exception _)
@@ -1443,6 +1473,7 @@ public class ObjectInputStream extends InputStream
       {
 	Class klass = obj.getClass ();
 	Field f = getField (klass, field_name);
+	f.setAccessible(true);
 	f.setDouble (obj, val);
       }
     catch (Exception _)
@@ -1457,6 +1488,7 @@ public class ObjectInputStream extends InputStream
       {
 	Class klass = obj.getClass ();
 	Field f = getField (klass, field_name);
+	f.setAccessible(true);
 	f.setFloat (obj, val);
       }
     catch (Exception _)
@@ -1471,6 +1503,7 @@ public class ObjectInputStream extends InputStream
       {
 	Class klass = obj.getClass ();
 	Field f = getField (klass, field_name);
+	f.setAccessible(true);
 	f.setInt (obj, val);
       }
     catch (Exception _)
@@ -1486,6 +1519,7 @@ public class ObjectInputStream extends InputStream
       {
 	Class klass = obj.getClass ();
 	Field f = getField (klass, field_name);
+	f.setAccessible(true);
 	f.setLong (obj, val);
       }
     catch (Exception _)
@@ -1501,6 +1535,7 @@ public class ObjectInputStream extends InputStream
       {
 	Class klass = obj.getClass ();
 	Field f = getField (klass, field_name);
+	f.setAccessible(true);
 	f.setShort (obj, val);
       }
     catch (Exception _)
@@ -1516,6 +1551,7 @@ public class ObjectInputStream extends InputStream
       {
 	Class klass = obj.getClass ();
 	Field f = getField (klass, field_name);
+	f.setAccessible(true);
 	// FIXME: We should check the type_code here
 	f.set (obj, val);
       }

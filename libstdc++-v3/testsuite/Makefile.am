@@ -33,14 +33,31 @@ RUNTEST = `if [ -f @glibcpp_srcdir@/../dejagnu/runtest ] ; then \
 	       echo @glibcpp_srcdir@/../dejagnu/runtest ; \
 	    else echo runtest; fi`
 
+AM_RUNTESTFLAGS =
 RUNTESTFLAGS =
 
-CXX = @glibcpp_CXX@ @GLIBCPP_INCLUDES@
-# Use common includes from acinclude.m4/GLIBCPP_EXPORT_INCLUDES
-INCLUDES = @TOPLEVEL_INCLUDES@
+## CXX is actually a "C" compiler. These are real C++ programs.
+## Do the same thing as `testsuite_flags --build-cxx`
+CXX_fake = @glibcpp_CXX@ 
+CXX=`echo $(CXX_fake) | sed 's/xgcc/g++/g'`
+CXXLINK = \
+	LD_RUN_PATH=${LD_RUN_PATH:+$LD_RUN_PATH:}${glibcpp_builddir}/src/.libs\
+	$(LIBTOOL) --tag=CXX --mode=link $(CXX) \
+	$(AM_CXXFLAGS) $(CXXFLAGS) $(LDFLAGS) -o $@
 
+INCLUDES = \
+	-nostdinc++ \
+	@GLIBCPP_INCLUDES@ @LIBSUPCXX_INCLUDES@ @TOPLEVEL_INCLUDES@ 
+
+## Build support library.
 noinst_LIBRARIES = libv3test.a
-
 libv3test_a_SOURCES = testsuite_hooks.cc
 
-
+## Build support utilities.
+## Only build this as native, as need to find startup files and libc to link.
+if GLIBCPP_BUILD_ABI_CHECK
+noinst_PROGRAMS = abi_check
+else
+noinst_PROGRAMS = 
+endif
+abi_check_SOURCES = abi_check.cc

@@ -78,6 +78,15 @@ ix86_handle_dll_attribute (node, name, args, flags, no_add_attrs)
 	}
     }
 
+  /* `extern' needn't be specified with dllimport.
+     Specify `extern' now and hope for the best.  Sigh.  */
+  else if (TREE_CODE (*node) == VAR_DECL
+	   && is_attribute_p ("dllimport", name))
+    {
+      DECL_EXTERNAL (*node) = 1;
+      TREE_PUBLIC (*node) = 1;
+    }
+
   return NULL_TREE;
 }
 
@@ -126,7 +135,7 @@ associated_type (decl)
   return t;
 }
 
-/* Return non-zero if DECL is a dllexport'd object.  */
+/* Return nonzero if DECL is a dllexport'd object.  */
 
 int
 i386_pe_dllexport_p (decl)
@@ -153,7 +162,7 @@ i386_pe_dllexport_p (decl)
   return 0;
 }
 
-/* Return non-zero if DECL is a dllimport'd object.  */
+/* Return nonzero if DECL is a dllimport'd object.  */
 
 int
 i386_pe_dllimport_p (decl)
@@ -184,7 +193,7 @@ i386_pe_dllimport_p (decl)
   return 0;
 }
 
-/* Return non-zero if SYMBOL is marked as being dllexport'd.  */
+/* Return nonzero if SYMBOL is marked as being dllexport'd.  */
 
 int
 i386_pe_dllexport_name_p (symbol)
@@ -193,7 +202,7 @@ i386_pe_dllexport_name_p (symbol)
   return symbol[0] == '@' && symbol[1] == 'e' && symbol[2] == '.';
 }
 
-/* Return non-zero if SYMBOL is marked as being dllimport'd.  */
+/* Return nonzero if SYMBOL is marked as being dllimport'd.  */
 
 int
 i386_pe_dllimport_name_p (symbol)
@@ -300,16 +309,6 @@ i386_pe_mark_dllimport (decl)
     {
       error_with_decl (decl, "static variable `%s' is marked dllimport");
       return;
-    }
-
-  /* `extern' needn't be specified with dllimport.
-     Specify `extern' now and hope for the best.  Sigh.  */
-  if (TREE_CODE (decl) == VAR_DECL
-      /* ??? Is this test for vtables needed?  */
-      && !DECL_VIRTUAL_P (decl))
-    {
-      DECL_EXTERNAL (decl) = 1;
-      TREE_PUBLIC (decl) = 1;
     }
 
   newname = alloca (strlen (oldname) + 11);
@@ -472,7 +471,7 @@ i386_pe_unique_section (decl, reloc)
      without a .rdata section.  */
   if (TREE_CODE (decl) == FUNCTION_DECL)
     prefix = ".text$";
-  else if (DECL_READONLY_SECTION (decl, reloc))
+  else if (decl_readonly_section (decl, reloc))
     prefix = ".rdata$";
   else
     prefix = ".data$";
@@ -518,7 +517,7 @@ i386_pe_section_type_flags (decl, name, reloc)
 
   if (decl && TREE_CODE (decl) == FUNCTION_DECL)
     flags = SECTION_CODE;
-  else if (decl && DECL_READONLY_SECTION (decl, reloc))
+  else if (decl && decl_readonly_section (decl, reloc))
     flags = 0;
   else
     {
@@ -584,7 +583,7 @@ i386_pe_asm_named_section (name, flags)
 /* Mark a function appropriately.  This should only be called for
    functions for which we are not emitting COFF debugging information.
    FILE is the assembler output file, NAME is the name of the
-   function, and PUBLIC is non-zero if the function is globally
+   function, and PUBLIC is nonzero if the function is globally
    visible.  */
 
 void
@@ -622,7 +621,7 @@ i386_pe_record_external_function (name)
 {
   struct extern_list *p;
 
-  p = (struct extern_list *) permalloc (sizeof *p);
+  p = (struct extern_list *) xmalloc (sizeof *p);
   p->next = extern_head;
   p->name = name;
   extern_head = p;
@@ -652,7 +651,7 @@ i386_pe_record_exported_symbol (name, is_data)
 {
   struct export_list *p;
 
-  p = (struct export_list *) permalloc (sizeof *p);
+  p = (struct export_list *) xmalloc (sizeof *p);
   p->next = export_head;
   p->name = name;
   p->is_data = is_data;
