@@ -1,3 +1,39 @@
+2004-07-11  Dorit Naishlos <dorit@il.ibm.com>
+
+        * tree-vectorizer.c: Update documentation. Use '#ifdef
+        ENABLE_CHECKING' to guard checks that are expected to have been
+        verified during analysis. Use vect_debug_details/vect_debug_stats
+        for dumping information.
+
+        * tree-vectorizer.h (struct _stmt_vec_info): New field "memtag".
+        (STMT_VINFO_MEMTAG): Access macro for new field "memtag".
+        * tree-vectorizer.c (vect_create_data_ref): Get tag from new field.
+        (vect_analyze_data_refs): Record the tag in the new memtag field.
+
+        (vect_align_data_ref): Remove unused argument.
+        (vect_analyze_data_refs): Call vect_align_data_ref with one argument.
+        (vect_get_array_first_index): Additional argument to return the
+        index rather than as the return value of the function.
+        (create_index_for_array_ref): Call vect_get_array_first_index with
+        an extra argument.
+        (vect_create_data_ref): Remove unused argument.
+        (vect_debug_stats, vect_debug_details): Argument "string" removed.
+
+        (vect_analyze_pointer_ref_access): New function.
+        (vect_analyze_data_refs): Call vect_analyze_pointer_ref_access.
+
+        (vect_finish_stmt_generation): New function.
+        (vect_transform_assignment, vect_transform_op, vect_transform_store):
+        (vect_transform_load): Call vect_finish_stmt_generation.
+
+        (get_vectype_for_scalar_type): No need to iterate through the
+        different modes - build_vector_type already does that.
+
+        (vect_transform_loop_bound): Check which edge is actually the 'then'.
+
+        (vect_analyze_operations): Temporarily disable vectorization of loops
+        with unknown loop bound.
+ 
 2004-07-10  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* tree-ssa-loop-ivopts.c (determine_biv_step): Use simple_iv.

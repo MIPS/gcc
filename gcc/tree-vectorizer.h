@@ -66,10 +66,16 @@ typedef struct _stmt_vec_info {
   /* The vectorized version of the stmt.  */
   tree vectorized_stmt;
 
-  /* Relevant only for array accesses;
-     A GIMPLE stmt is expected to have at most 1 array access.  */
 
+  /** The following is relevant only for stmts that contain a non-scalar
+     data-ref (array/pointer/struct access). A GIMPLE stmt is expected to have 
+     at most one such data-ref.  **/
+
+  /* Information about the data-ref (access function, etc).  */
   struct data_reference *data_ref_info;
+
+  /* Aliasing information.  */
+  tree memtag;
 } *stmt_vec_info;
 
 /* Access Functions.  */
@@ -80,6 +86,7 @@ typedef struct _stmt_vec_info {
 #define STMT_VINFO_VECTYPE(S)    (S)->vectype
 #define STMT_VINFO_VEC_STMT(S)   (S)->vectorized_stmt
 #define STMT_VINFO_DATA_REF(S)   (S)->data_ref_info
+#define STMT_VINFO_MEMTAG(S)     (S)->memtag
 
 static inline void set_stmt_info (stmt_ann_t ann, stmt_vec_info stmt_info);
 static inline stmt_vec_info vinfo_for_stmt (tree stmt);

@@ -35,6 +35,7 @@ int main1 (int n)
 int main2 (unsigned int n)
 {
   int i=0;
+  int nn = n;
 
   /* Vectorized: unknown loop bound.  */
   while (n--) {
@@ -43,7 +44,7 @@ int main2 (unsigned int n)
   }
 
   /* check results:  */
-  for (i = 0; i < n; i++)
+  for (i = 0; i < nn; i++)
     {
       if (c[i] != b[i])
         abort ();
@@ -61,4 +62,4 @@ int main (void)
   return 0;
 }
 
-/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 2 "vect" } } */
+/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 2 "vect" { xfail *-*-* } } } */
