@@ -1,3 +1,9 @@
+2004-03-29  Jan Hubicka  <jh@suse.cz>
+
+	PR 14756
+	* cgraphunit.c (cgraph_decide_inlining): Rewrite handling of
+	always_inline functions.
+
 2004-03-28  Jan Hubicka  <jh@suse.cz>
 
 	* tree-inline.c (expand_call_inline):  Remove fixme introduced by
