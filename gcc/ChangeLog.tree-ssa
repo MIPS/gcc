@@ -1,3 +1,11 @@
+2003-10-20  Diego Novillo  <dnovillo@redhat.com>
+
+	Fix PR optimization/12688
+	* tree-dfa.c (get_stmt_operands): Don't return early when dealing
+	with an empty statement.
+	* tree-ssa-ccp.c (set_rhs): If the expression has no side effects,
+	replace the statement with an empty statement.
+
 2003-10-20  Andrew MacLeod  <amacleod@redhat.com>
 
 	* tree-ssa-dce.c (processed): Change to an sbitmap.

@@ -182,8 +182,8 @@ get_stmt_operands (tree stmt)
     abort ();
 #endif
 
-  /* Ignore empty and error statements.  */
-  if (IS_EMPTY_STMT (stmt) || TREE_CODE (stmt) == ERROR_MARK)
+  /* Ignore error statements.  */
+  if (TREE_CODE (stmt) == ERROR_MARK)
     return;
 
   /* If the statement has not been modified, the operands are still valid.  */
@@ -288,10 +288,11 @@ get_stmt_operands (tree stmt)
     default:
       /* Notice that if get_expr_operands tries to use &STMT as the operand
 	 pointer (which may only happen for USE operands), we will abort in
-	 add_use.  This default will handle statements like CALL_EXPRs or
-	 VA_ARG_EXPRs that may appear on the RHS of a statement or as
-	 statements themselves.  */
-      get_expr_operands (stmt, &stmt, opf_none, prev_vops);
+	 add_use.  This default will handle statements like empty statements,
+	 CALL_EXPRs or VA_ARG_EXPRs that may appear on the RHS of a statement
+	 or as statements themselves.  */
+      if (!IS_EMPTY_STMT (stmt))
+	get_expr_operands (stmt, &stmt, opf_none, prev_vops);
       break;
     }
 
