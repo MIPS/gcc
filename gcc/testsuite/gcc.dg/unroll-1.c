@@ -1,7 +1,7 @@
 /* PR optimization/8599 */
 /* { dg-do run } */
 /* { dg-options "-O2 -funroll-loops" } */
-/* { dg-options "-mtune=k6 -O2 -funroll-loops" { target i?86-*-* } } */
+/* { dg-options "-mcpu=k6 -O2 -funroll-loops" { target i?86-*-* } } */
 
 extern void abort (void);
 
