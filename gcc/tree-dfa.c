@@ -45,8 +45,17 @@ Boston, MA 02111-1307, USA.  */
 
 /* Build and maintain data flow information for trees.  */
 
-/* Local declarations.  */
-static tree *alias_tags;
+/* To avoid useless and repeated lookups, we cache the base symbol
+   and the alias set for the alias tag within the alias tag structure
+   itself.  */
+struct alias_tags
+{
+  tree alias_tags;
+  tree base_symbol;
+  HOST_WIDE_INT alias_set;
+};
+
+static struct alias_tags *alias_tags;
 static unsigned long num_alias_tags;
 
 /* Counters used to display DFA and SSA statistics.  */
@@ -84,8 +93,9 @@ static void collect_dfa_stats		PARAMS ((struct dfa_stats_d *));
 static tree collect_dfa_stats_r		PARAMS ((tree *, int *, void *));
 static tree clobber_vars_r		PARAMS ((tree *, int *, void *));
 static void find_may_aliases_for	PARAMS ((int));
-static tree find_alias_tag		PARAMS ((tree, tree));
-static bool may_access_global_mem 	PARAMS ((tree));
+static tree find_alias_tag
+  PARAMS ((tree, tree, HOST_WIDE_INT, tree, tree, HOST_WIDE_INT));
+static bool may_access_global_mem 	PARAMS ((tree, tree));
 static void set_def			PARAMS ((tree *, tree));
 static void add_use			PARAMS ((tree *, tree));
 static void add_vdef			PARAMS ((tree, tree, voperands_t));
@@ -109,14 +119,28 @@ varray_type referenced_vars;
 /* The total number of unique INDIRECT_REFs in the function.  */
 static unsigned long num_indirect_refs;
 
-/* Array of all the unique INDIRECT_REFs in the function.  */
+/* Arrays for all the unique INDIRECT_REFs in the function. 
+
+   INDIRECT_REFS contains the canonical INDIRECT_REFs
+   INDIRECT_REFS_BASE contains the base symbol for those refs
+   INDIRECT_REFS_ALIAS_SET contains the alias set for this INDIRECT_REF.  */
+
 static varray_type indirect_refs;
+static varray_type indirect_refs_base;
+static varray_type indirect_refs_alias_set;
 
 /* The total number of unique addressable vars in the function.  */
 static unsigned long num_addressable_vars;
 
-/* Array of all the unique addressable vars in the function.  */
+/* Arrays for all the unique addressable vars in the function. 
+
+   ADDRESSABLE_VARS contains the canonical addressable variable
+   ADDRESSABLE_VARS_BASE contains the base symbol for those variables
+   ADDRESSABLE_VARS_ALIAS_SET contains the alias set for this addressable
+   variable.  */
 static varray_type addressable_vars;
+static varray_type addressable_vars_base;
+static varray_type addressable_vars_alias_set;
 
 /* Artificial variable used to model the effects of function calls on every
    variable that they may use and define.  Calls to non-const and non-pure
@@ -535,7 +559,8 @@ add_stmt_operand (var_p, stmt, is_def, force_vop, prev_vops)
 	 point to global memory, then mark '*p' as an alias for
 	 global memory.  */
       if (TREE_CODE (stmt) == MODIFY_EXPR
-	  && may_access_global_mem (TREE_OPERAND (stmt, 1)))
+	  && may_access_global_mem (TREE_OPERAND (stmt, 1),
+		  		    get_base_symbol (TREE_OPERAND (stmt, 1))))
 	set_may_alias_global_mem (deref);
     }
 }
@@ -1357,9 +1382,13 @@ compute_may_aliases ()
 
   num_indirect_refs = 0;
   VARRAY_TREE_INIT (indirect_refs, 20, "indirect_refs");
+  VARRAY_TREE_INIT (indirect_refs_base, 20, "indirect_refs_base");
+  VARRAY_WIDE_INT_INIT (indirect_refs_alias_set, 20, "indirect_refs_alias_set");
 
   num_addressable_vars = 0;
   VARRAY_TREE_INIT (addressable_vars, 20, "addressable_vars");
+  VARRAY_TREE_INIT (addressable_vars_base, 20, "addressable_vars_base");
+  VARRAY_WIDE_INT_INIT (addressable_vars_alias_set, 20, "addressable_vars_alias_set");
 
   /* Hash table of all the objects the SSA builder needs to be aware of.  */
   vars_found = htab_create (50, htab_hash_var, htab_var_eq, NULL);
@@ -1391,13 +1420,14 @@ compute_may_aliases ()
 
   if (flag_tree_points_to == PTA_NONE)
     {
+      size_t count = num_indirect_refs + num_addressable_vars;
+      size_t size = count * sizeof (struct alias_tags);
+
       num_alias_tags = 0;
-      alias_tags = (tree *) xmalloc ((num_indirect_refs + num_addressable_vars)
-		     		      * sizeof (tree));
-      memset ((void *) alias_tags, 0,
-	      ((num_indirect_refs + num_addressable_vars) * sizeof (tree)));
+      alias_tags = (struct alias_tags *) xmalloc (size);
+      memset ((void *) alias_tags, 0, size);
     }
-  
+
   for (i = 0; i < num_indirect_refs; i++)
     find_may_aliases_for (i);
 
@@ -1413,18 +1443,31 @@ compute_may_aliases ()
 
   num_indirect_refs = 0;
   indirect_refs = 0;
+  indirect_refs_base = 0;
+  indirect_refs_alias_set = 0;
   num_addressable_vars = 0;
   addressable_vars = 0;
+  addressable_vars_base = 0;
+  addressable_vars_alias_set = 0;
   timevar_pop (TV_TREE_MAY_ALIAS);
 }
 
 
-/* Return TRUE if variables V1 and V2 may alias.  */
+/* Return TRUE if variables V1 and V2 may alias. 
+ 
+   V1_BASE is the base symbol for V1
+   V1_ALIAS_SET is the alias set for V1
+   V2_BASE is the base symbol for V2
+   V2_ALIAS_SET is the base symbol for V2.  */
 
 bool
-may_alias_p (v1, v2)
+may_alias_p (v1, v1_base, v1_alias_set, v2, v2_base, v2_alias_set)
      tree v1;
+     tree v1_base;
+     HOST_WIDE_INT v1_alias_set;
      tree v2;
+     tree v2_base;
+     HOST_WIDE_INT v2_alias_set;
 {
   tree ptr, var, ptr_sym, var_sym;
   HOST_WIDE_INT ptr_alias_set, var_alias_set;
@@ -1437,18 +1480,23 @@ may_alias_p (v1, v2)
   if (TREE_CODE (v1) == INDIRECT_REF || v1 == global_var)
     {
       ptr = v1;
+      ptr_sym = v1_base;
+      ptr_alias_set = v1_alias_set;
       var = v2;
+      var_sym = v2_base;
+      var_alias_set = v2_alias_set;
     }
   else if (TREE_CODE (v2) == INDIRECT_REF || v2 == global_var)
     {
       ptr = v2;
+      ptr_sym = v2_base;
+      ptr_alias_set = v2_alias_set;
       var = v1;
+      var_sym = v1_base;
+      var_alias_set = v1_alias_set;
     }
   else
     return false;
-
-  ptr_sym = get_base_symbol (ptr);
-  var_sym = get_base_symbol (var);
 
   /* GLOBAL_VAR aliases every global variable, pointer dereference and
      locals that have had their address taken, unless points-to analysis is
@@ -1482,10 +1530,7 @@ may_alias_p (v1, v2)
   if (DECL_P (var) && !TREE_ADDRESSABLE (var))
     return false;
 
-  /* Compute type-based alias information.  If the alias sets don't
-     conflict then PTR cannot alias VAR.  */
-  ptr_alias_set = get_alias_set (ptr);
-  var_alias_set = get_alias_set (var);
+  /* If the alias sets don't conflict then PTR cannot alias VAR.  */
   if (!alias_sets_conflict_p (ptr_alias_set, var_alias_set))
     return false;
 
@@ -1496,7 +1541,6 @@ may_alias_p (v1, v2)
 
   return true;
 }
-
 
 /* Find variables that may be aliased by the variable (V1) at
    index VAR_INDEX in the alias_vars varray. 
@@ -1519,13 +1563,16 @@ find_may_aliases_for (indirect_ref_index)
 {
   unsigned long i;
   tree v1 = VARRAY_TREE (indirect_refs, indirect_ref_index);
+  tree v1_base = VARRAY_TREE (indirect_refs_base, indirect_ref_index);
+  HOST_WIDE_INT v1_alias_set
+    = VARRAY_INT (indirect_refs_alias_set, indirect_ref_index);
 
 #if defined ENABLE_CHECKING
   if (TREE_CODE (v1) != INDIRECT_REF)
     abort ();
 #endif
 
-  if (may_access_global_mem (v1))
+  if (may_access_global_mem (v1, v1_base))
     set_may_alias_global_mem (v1);
 
   /* Note that our aliasing properties are symmetric, so we can
@@ -1534,11 +1581,13 @@ find_may_aliases_for (indirect_ref_index)
   for (i = indirect_ref_index; i < num_indirect_refs; i++)
     {
       tree v2 = VARRAY_TREE (indirect_refs, i);
+      tree v2_base = VARRAY_TREE (indirect_refs_base, i);
+      HOST_WIDE_INT v2_alias_set = VARRAY_INT (indirect_refs_alias_set, i);
 
       if (v1 == v2)
 	continue;
 
-      if (may_alias_p (v1, v2))
+      if (may_alias_p (v1, v1_base, v1_alias_set, v2, v2_base, v2_alias_set))
 	{
 	  tree at;
 
@@ -1548,9 +1597,16 @@ find_may_aliases_for (indirect_ref_index)
 		 all the aliases into a single representative alias that
 		 represents a group of variables with similar aliasing
 		 characteristics.  */
-	      at = find_alias_tag (v1, v2);
+	      at = find_alias_tag (v1, v1_base, v1_alias_set,
+			      	   v2, v2_base, v2_alias_set);
 	      if (at == NULL_TREE)
-		at = alias_tags [num_alias_tags++] = v1;
+		{
+		  at = v1;
+		  alias_tags [num_alias_tags].alias_tags = v1;
+		  alias_tags [num_alias_tags].base_symbol = v1_base;
+		  alias_tags [num_alias_tags].alias_set = v1_alias_set;
+		  num_alias_tags++;
+		}
 	      add_may_alias (v2, at);
 	    }
 	  else
@@ -1565,7 +1621,7 @@ find_may_aliases_for (indirect_ref_index)
 
 	  /* If V2 may access global memory, mark both AT and V1 as aliases
 	     for global memory.  */
-	  if (may_access_global_mem (v2))
+	  if (may_access_global_mem (v2, v2_base))
 	    {
 	      set_may_alias_global_mem (at);
 	      set_may_alias_global_mem (v1);
@@ -1576,11 +1632,13 @@ find_may_aliases_for (indirect_ref_index)
   for (i = 0; i < num_addressable_vars; i++)
     {
       tree v2 = VARRAY_TREE (addressable_vars, i);
+      tree v2_base = VARRAY_TREE (addressable_vars_base, i);
+      HOST_WIDE_INT v2_alias_set = VARRAY_INT (addressable_vars_alias_set, i);
 
       if (v1 == v2)
 	continue;
 
-      if (may_alias_p (v1, v2))
+      if (may_alias_p (v1, v1_base, v1_alias_set, v2, v2_base, v2_alias_set))
 	{
 	  tree at;
 
@@ -1590,9 +1648,16 @@ find_may_aliases_for (indirect_ref_index)
 		 all the aliases into a single representative alias that
 		 represents a group of variables with similar aliasing
 		 characteristics.  */
-	      at = find_alias_tag (v1, v2);
+	      at = find_alias_tag (v1, v1_base, v1_alias_set,	
+				   v2, v2_base, v2_alias_set);
 	      if (at == NULL_TREE)
-		at = alias_tags [num_alias_tags++] = v1;
+		{
+		  at = v1;
+		  alias_tags [num_alias_tags].alias_tags = v1;
+		  alias_tags [num_alias_tags].base_symbol = v1_base;
+		  alias_tags [num_alias_tags].alias_set = v1_alias_set;
+		  num_alias_tags++;
+		}
 	      add_may_alias (v2, at);
 	    }
 	  else
@@ -1607,7 +1672,7 @@ find_may_aliases_for (indirect_ref_index)
 
 	  /* If V2 may access global memory, mark both AT and V1 as aliases
 	     for global memory.  */
-	  if (may_access_global_mem (v2))
+	  if (may_access_global_mem (v2, v2_base))
 	    {
 	      set_may_alias_global_mem (at);
 	      set_may_alias_global_mem (v1);
@@ -1643,20 +1708,36 @@ add_may_alias (var, alias)
 
 
 /* Traverse the ALIAS_TAGS array looking for an alias tag that may alias
-   variable V1 or V2.  If no entry is found for either V1 or V2, return
-   NULL_TREE to tell the caller that it should create a new entry in the
-   ALIAS_TAG array.  */
+   variable V1 or V2.  The caller also provides the base symbol and
+   alias set V1 and V2 in V1_BASE, V2_BASE, V1_ALIAS_SET and V2_ALIAS_SET.
+ 
+ 
+   If no entry is found for either V1 or V2, return NULL_TREE to tell the
+   caller that it should create a new entry in the ALIAS_TAG array.  */
 
 static tree
-find_alias_tag (v1, v2)
+find_alias_tag (v1, v1_base, v1_alias_set, v2, v2_base, v2_alias_set)
      tree v1;
+     tree v1_base;
+     HOST_WIDE_INT v1_alias_set;
      tree v2;
+     tree v2_base;
+     HOST_WIDE_INT v2_alias_set;
 {
   unsigned long i;
 
   for (i = 0; i < num_alias_tags; i++)
-    if (may_alias_p (alias_tags[i], v1) || may_alias_p (alias_tags[i], v2))
-      return alias_tags[i];
+    {
+      if (may_alias_p (alias_tags[i].alias_tags,
+			 alias_tags[i].base_symbol,
+			 alias_tags[i].alias_set,
+			 v1, v1_base, v1_alias_set)
+	  || may_alias_p (alias_tags[i].alias_tags,
+			  alias_tags[i].base_symbol,
+			  alias_tags[i].alias_set,
+			  v2, v2_base, v2_alias_set))
+        return alias_tags[i].alias_tags;
+    }
 
   return NULL_TREE;
 }
@@ -1677,14 +1758,14 @@ dump_alias_info (file)
     {
       fprintf (file, "Alias set #%ld:\n", i);
       fprintf (file, "  Tag: ");
-      dump_variable (file, alias_tags[i]);
+      dump_variable (file, alias_tags[i].alias_tags);
       fprintf (file, "  Aliases: { ");
 
       for (j = 0; j < num_addressable_vars; j++)
 	{
 	  tree var = VARRAY_TREE (addressable_vars, j);
 	  varray_type aliases = may_aliases (var);
-	  if (aliases && VARRAY_TREE (aliases, 0) == alias_tags[i])
+	  if (aliases && VARRAY_TREE (aliases, 0) == alias_tags[i].alias_tags)
 	    {
 	      print_generic_expr (file, var, 0);
 	      fprintf (file, " ");
@@ -1695,7 +1776,7 @@ dump_alias_info (file)
 	{
 	  tree var = VARRAY_TREE (indirect_refs, j);
 	  varray_type aliases = may_aliases (var);
-	  if (aliases && VARRAY_TREE (aliases, 0) == alias_tags[i])
+	  if (aliases && VARRAY_TREE (aliases, 0) == alias_tags[i].alias_tags)
 	    {
 	      print_generic_expr (file, var, 0);
 	      fprintf (file, " ");
@@ -1722,20 +1803,20 @@ debug_alias_info ()
 /* Return TRUE if expression EXPR may return a pointer to global memory.  */
 
 static bool
-may_access_global_mem (expr)
+may_access_global_mem (expr, expr_base)
      tree expr;
+     tree expr_base;
 {
   char class;
-  tree sym;
 
   if (expr == NULL_TREE)
     return false;
 
   /* Function arguments and global variables may reference global memory.  */
-  if ((sym = get_base_symbol (expr)) != NULL_TREE)
+  if (expr_base != NULL_TREE)
     {
-      if (TREE_CODE (sym) == PARM_DECL
-	  || decl_function_context (sym) == NULL_TREE)
+      if (TREE_CODE (expr_base) == PARM_DECL
+	  || decl_function_context (expr_base) == NULL_TREE)
 	return true;
     }
 
@@ -1755,7 +1836,8 @@ may_access_global_mem (expr)
       unsigned char i;
 
       for (i = 0; i < TREE_CODE_LENGTH (TREE_CODE (expr)); i++)
-	if (may_access_global_mem (TREE_OPERAND (expr, i)))
+	if (may_access_global_mem (TREE_OPERAND (expr, i),
+				   get_base_symbol (TREE_OPERAND (expr, i))))
 	  return true;
     }
 
@@ -1860,7 +1942,7 @@ find_vars_r (tp, walk_subtrees, data)
       /* Get the underlying symbol.  We will need it shortly.  */
       if (TREE_CODE (var) == INDIRECT_REF)
 	{
-	  sym = get_base_symbol (var);
+	  sym = get_base_symbol (TREE_OPERAND (var, 0));
 	  ind = var;
 
 	  if (!is_dereferenced (sym))
@@ -1870,12 +1952,12 @@ find_vars_r (tp, walk_subtrees, data)
 	}
       else
 	{
+	  sym = get_base_symbol (var);
 	  ind = NULL_TREE;
-	  sym = var;
 	}
 
       /* Make VAR either the canonical INDIRECT_REF or the real symbol.  */
-      var = (ind ? ind : sym);
+      var = (ind ? ind : var);
 
       /* First handle an INDIRECT_REF.  */
       if (ind)
@@ -1885,6 +1967,8 @@ find_vars_r (tp, walk_subtrees, data)
 	    {
 	      *slot = (void *)var;
 	      VARRAY_PUSH_TREE (indirect_refs, var);
+	      VARRAY_PUSH_TREE (indirect_refs_base, sym);
+	      VARRAY_PUSH_INT (indirect_refs_alias_set, get_alias_set (var));
 	      num_indirect_refs++;
 	    }
 
@@ -1898,6 +1982,9 @@ find_vars_r (tp, walk_subtrees, data)
 	    {
 	      *slot = (void *)var;
 	      VARRAY_PUSH_TREE (addressable_vars, var);
+	      VARRAY_PUSH_TREE (addressable_vars_base, sym);
+	      VARRAY_PUSH_INT (addressable_vars_alias_set,
+			       get_alias_set (var));
 	      num_addressable_vars++;
 	    }
 	}

@@ -331,7 +331,8 @@ extern void debug_immediate_uses_for	PARAMS ((tree));
 extern void remove_decl			PARAMS ((tree));
 extern tree *find_decl_location		PARAMS ((tree, tree));
 extern void compute_may_aliases		PARAMS ((void));
-extern bool may_alias_p			PARAMS ((tree, tree));
+extern bool may_alias_p			PARAMS ((tree, tree, HOST_WIDE_INT,
+						 tree, tree, HOST_WIDE_INT));
 extern void compute_reached_uses	PARAMS ((int));
 extern void compute_immediate_uses	PARAMS ((int));
 extern void compute_reaching_defs	PARAMS ((int));

@@ -1,3 +1,28 @@
+2003-01-30  Jeff Law <law@redhat.com>
+
+	* tree-dfa.c (struct alias_tags): New.  Collector for key information
+	regarding alias tags.
+	(indirect_refs_base, indirect_refs_alias_set): New varrays.
+	(addressable_vars_base, addressable_vars_alias_set): Likewise.
+	(compute_may_aliases): Initialize and finalize the new varrays.
+	Update allocation of alias tags information.
+	(find_may_aliases_for): Extract base symbols and alias set
+	information for V1 and V2 from the virtual arrays and store
+	them into local variables.  Pass them as necessary to
+	may_alias_p, may_access_global_mem, find_alias_tag.  Add base
+	symbol and alias set when creating a new alias tag.
+	(find_vars_r): Fill in new varrays as needed.
+	(may_alias_p): Add new arguments for base and alias set of the
+	two origianl incoming arguments.  No longer call get_base_symbol
+	or get_alias_set.
+	(find_alias_tag,  may_access_global_mem): Similarly.
+	(add_stmt_operand): Update to pass additional argument to
+	may_access_global_mem.
+	(dump_alias_info): Update to deal with new alias tag structure.
+	* tree-flow.h (may_alias_p): Update prototype with new arguments.
+	* tree-ssa-pre.c (process_left_occs_and_kills): Update to pass
+	new arguments to may_alias_p.
+
 2003-01-30  Daniel Berlin  <dberlin@dberlin.org>
 	
 	Remove all traces of steensgaard's algorithm.

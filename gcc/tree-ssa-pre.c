@@ -2806,6 +2806,9 @@ process_left_occs_and_kills (bexprs, slot, ref, expr)
     }  
   if (DECL_P (TREE_OPERAND (expr, 0)))
     {
+      tree op0_base = get_base_symbol (TREE_OPERAND (expr, 0));
+      HOST_WIDE_INT op0_alias_set = get_alias_set (TREE_OPERAND (expr, 0));
+
       for (k = 0; k < VARRAY_ACTIVE_SIZE (bexprs); k++)
 	{
 	  tree op;
@@ -2819,7 +2822,12 @@ process_left_occs_and_kills (bexprs, slot, ref, expr)
 		? indirect_var (get_base_symbol (ei->expr)) : NULL;
 /*		: component_ref (ei->expr, get_component_ref_index (ei->expr)); */
 	      
-	      if (may_alias_p (op, TREE_OPERAND (expr, 0)) 
+	      if (may_alias_p (op,
+			       get_base_symbol (op),
+			       get_alias_set (op),
+			       TREE_OPERAND (expr, 0),
+			       op0_base,
+			       op0_alias_set)
 		  || op  == TREE_OPERAND (expr, 0))
 		{
 		  add_left_occ (ei, ref->common.stmt_p);
@@ -2827,7 +2835,12 @@ process_left_occs_and_kills (bexprs, slot, ref, expr)
 	    }
 	  else if (DECL_P (ei->expr))
 	    {
-	      if (may_alias_p (ei->expr, TREE_OPERAND (expr, 0))
+	      if (may_alias_p (ei->expr,
+			       get_base_symbol (ei->expr),
+			       get_alias_set (ei->expr),
+			       TREE_OPERAND (expr, 0),
+			       op0_base,
+			       op0_alias_set)
 		  || ei->expr == TREE_OPERAND (expr, 0))
 		{
 		  add_left_occ (ei, ref->common.stmt_p);
@@ -2851,7 +2864,13 @@ process_left_occs_and_kills (bexprs, slot, ref, expr)
 	      ? indirect_var (get_base_symbol (ei->expr))  : NULL;
 	      /*: component_ref (ei->expr, get_component_ref_index (ei->expr));*/
 	      op2 = indirect_var (get_base_symbol (TREE_OPERAND (expr, 0)));
-	      if (may_alias_p (op1, op2) || op1 == op2)
+	      if (may_alias_p (op1,
+			       get_base_symbol (op1),
+			       get_alias_set (op1),
+			       op2,
+			       get_base_symbol (op2),
+			       get_alias_set (op2))
+		   || op1 == op2)
 		{
 		  add_left_occ (ei, ref->common.stmt_p);
 		}
@@ -2859,7 +2878,12 @@ process_left_occs_and_kills (bexprs, slot, ref, expr)
 	  else if (DECL_P (ei->expr))
 	    {
 	      tree op2 = indirect_var (get_base_symbol (TREE_OPERAND (expr, 0)));
-	      if (may_alias_p (ei->expr, op2))
+	      if (may_alias_p (ei->expr,
+			       get_base_symbol (ei->expr),
+			       get_alias_set (ei->expr),
+			       op2,
+			       get_base_symbol (op2),
+			       get_alias_set (op2))
 		{
 		  add_left_occ (ei, ref->common.stmt_p);
 		}
@@ -2883,7 +2907,13 @@ process_left_occs_and_kills (bexprs, slot, ref, expr)
 /*		: component_ref (ei->expr, get_component_ref_index (ei->expr));*/
 	      op2 = TREE_OPERAND (expr, 0);
 /*	      op2 = component_ref (op2, get_component_ref_index (op2));*/
-	      if (may_alias_p (op1, op2) || op1 == op2)
+	      if (may_alias_p (op1,
+			       get_base_symbol (op1),
+			       get_alias_set (op1),
+			       op2,
+			       get_base_symbol (op2),
+			       get_alias_set (op2))
+		   || op1 == op2)
 		{
 		  add_left_occ (ei, ref->common.stmt_p);
 		}
@@ -2892,7 +2922,12 @@ process_left_occs_and_kills (bexprs, slot, ref, expr)
 	    {
 	      tree op2 = TREE_OPERAND (expr, 0);
 /*	      op2 = component_ref (op2, get_component_ref_index (op2));*/
-	      if (may_alias_p (ei->expr, op2))
+	      if (may_alias_p (ei->expr,
+			       get_base_symbol (ei->expr),
+			       get_alias_set (ei->expr),
+			       op2,
+			       get_base_symbol (op2),
+			       get_alias_set (op2))
 		{
 		  add_left_occ (ei, ref->common.stmt_p);
 		}
