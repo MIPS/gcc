@@ -957,10 +957,15 @@ simplify_decl_stmt (t, pre_p, mid_p, post_p)
 
   if (DECL_SIZE_UNIT (decl)
       && TREE_CODE (DECL_SIZE_UNIT (decl)) != INTEGER_CST)
-    simplify_expr (&DECL_SIZE_UNIT (decl), pre_p, &post, is_simple_val,
-		   fb_rvalue);
+    {
+      walk_tree (&DECL_SIZE_UNIT (decl), mostly_copy_tree_r, NULL, NULL);
+      simplify_expr (&DECL_SIZE_UNIT (decl), pre_p, &post, is_simple_val,
+		    fb_rvalue);
+    }
+
   if (init)
     {
+      walk_tree (&init, mostly_copy_tree_r, NULL, NULL);
       simplify_expr (&init, &mid, &post, is_simple_initializer, fb_rvalue);
       init = build (INIT_EXPR, TREE_TYPE (decl), decl, init);
       add_tree (mid, mid_p);

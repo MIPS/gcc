@@ -1,3 +1,8 @@
+2002-07-03  Diego Novillo  <dnovillo@redhat.com>
+
+	* c-simplify.c (simplify_decl_stmt): Unshare the
+	initializer nodes before simplification.
+
 2002-06-29  Aldy Hernandez  <aldyh@quesejoda.com>
             Diego Novillo  <dnovillo@redhat.com>
 
