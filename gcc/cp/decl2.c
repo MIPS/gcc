@@ -439,7 +439,7 @@ int flag_weak = 1;
 
 /* Nonzero to enable experimental ABI changes.  */
 
-int flag_new_abi;
+int flag_new_abi = 1;
 
 /* Nonzero to use __cxa_atexit, rather than atexit, to register
    destructors for local statics and global objects.  */

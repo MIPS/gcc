@@ -1,3 +1,11 @@
+1999-12-21  Mark Mitchell  <mark@codesourcery.com>
+
+	* class.c (create_vtable_ptr): Put the vtable at the beginning of
+	the class, not the end, in the new ABI.
+	* decl2.c (flag_new_ab): Initialize it to one.
+	* tree.c (propagate_binfo_offsets): Do the right thing for the new
+	ABI.
+
 1999-12-20  Mark Mitchell  <mark@codesourcery.com>
 
 	* cp-tree.h (CLASSTYPE_VFIELD_PARENT): Update comments.
