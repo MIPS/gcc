@@ -1,6 +1,7 @@
 /* Mudflap: narrow-pointer bounds-checking by tree rewriting.
    Copyright (C) 2001, 2002 Free Software Foundation, Inc.
    Contributed by Frank Ch. Eigler <fche@redhat.com>
+   and Graydon Hoare <graydon@redhat.com>
 
 This file is part of GCC.
 
@@ -408,6 +409,185 @@ mf_varname_tree (decl)
 
 
 
+/* 
+   assuming the declaration "foo a[xdim][ydim][zdim];", we will get
+   an expression "a[x][y][z]" as a tree structure something like
+   
+   {ARRAY_REF, z, type = foo,
+    {ARRAY_REF, y, type = foo[zdim],
+     {ARRAY_REF, x, type = foo[ydim][zdim],
+      {ARRAY, a, type = foo[xdim][ydim][zdim] }}}
+   
+   from which we will produce an offset value of the form:
+   
+   {PLUS_EXPR z, {MULT_EXPR zdim,
+    {PLUS_EXPR y, {MULT_EXPR ydim, 
+     x }}}}
+   
+*/
+
+static tree 
+mf_offset_expr_of_array_ref (t, offset, base)
+     tree t;
+     tree offset;
+     tree *base;
+{
+
+  if ( TREE_CODE (t) == ARRAY_REF )
+    {
+      /* It's a sub-array-ref; recurse. */
+      
+      tree factor = mx_flag (build (PLUS_EXPR, 
+				    integer_type_node, 
+				    integer_one_node, 
+				    TYPE_MAX_VALUE 
+				    (TYPE_DOMAIN (TREE_TYPE (t)))));
+      tree child = TREE_OPERAND (t, 0);
+      tree next_offset = TREE_OPERAND (t, 1);
+
+      /* mark this node to inhibit further transformation */
+      mx_flag (t);
+      
+      return 
+	mx_flag 
+	(build (PLUS_EXPR, integer_type_node, offset, 
+		mx_flag
+		(build (MULT_EXPR, integer_type_node, factor, 
+			mf_offset_expr_of_array_ref (child, next_offset, base)))));
+    } 
+  else if ( TREE_CODE (TREE_TYPE (t)) == ARRAY_TYPE )
+    {
+      /* It's *not* an ARRAY_REF, but it *is* an ARRAY_TYPE; we are at the
+	 bottom of the ARRAY_REF expression */ 
+      *base = t;
+      return offset;
+    }
+  else 
+    {
+      /* It's an array ref of a non-array -> failure. */
+      abort ();
+    }
+}
+
+
+tree 
+mf_build_check_statement_for (ptrvalue, finale)
+     tree ptrvalue;
+     tree *finale;
+{
+  tree ptrtype = TREE_TYPE (ptrvalue);
+  tree myptrtype = build_qualified_type (ptrtype, TYPE_QUAL_CONST);
+  
+  tree t1_1;
+  tree t1_2, t1_2_1;
+  tree t1_3, t1_3_1;
+  tree t1_4, t1_4_1, t1_4_2;
+  tree t1_98;
+  tree t1_99;
+  tree t1;
+  tree t0;
+
+  tree return_type, return_value;
+  
+  /* ({ */
+  t1_1 = build_stmt (SCOPE_STMT, NULL_TREE);
+  SCOPE_BEGIN_P (t1_1) = 1;
+  
+  /* <TYPE> const __mf_value = <EXPR>; */
+  t1_2_1 = build_decl (VAR_DECL, get_identifier ("__mf_value"), myptrtype);
+  DECL_ARTIFICIAL (t1_2_1) = 1;
+  DECL_INITIAL (t1_2_1) = ptrvalue;
+  t1_2 = build1 (DECL_STMT, myptrtype, t1_2_1);
+  TREE_CHAIN (t1_1) = t1_2;
+  
+  /* struct __mf_cache * const __mf_elem = [...] */
+  t1_3_1 = build_decl (VAR_DECL, get_identifier ("__mf_elem"), mf_cache_structptr_type);
+  DECL_ARTIFICIAL (t1_3_1) = 1;
+  DECL_INITIAL (t1_3_1) =
+    /* & __mf_lookup_cache [(((uintptr_t)__mf_value) >> __mf_shift) & __mf_mask] */
+    mx_flag (build1 (ADDR_EXPR, mf_cache_structptr_type,
+		     mx_flag (build (ARRAY_REF, TYPE_MAIN_VARIANT (TREE_TYPE
+								   (TREE_TYPE
+								    (mf_cache_array_decl))),
+				     mx_external_ref (mf_cache_array_decl, 0),
+				     build (BIT_AND_EXPR, mf_uintptr_type,
+					    build (RSHIFT_EXPR, mf_uintptr_type,
+						   convert (mf_uintptr_type, t1_2_1),
+						   mx_external_ref (mf_cache_shift_decl, 0)),
+					    mx_external_ref (mf_cache_mask_decl, 0))))));
+  
+  t1_3 = build1 (DECL_STMT, mf_cache_structptr_type, t1_3_1);
+  TREE_CHAIN (t1_2) = t1_3;
+  
+  /* Quick validity check.  */
+  t1_4_1 = build (BIT_IOR_EXPR, integer_type_node,
+		  build (GT_EXPR, integer_type_node,
+			 build (COMPONENT_REF, mf_uintptr_type, /* __mf_elem->low */
+				mx_flag (build1 (INDIRECT_REF, 
+						 mf_cache_struct_type, t1_3_1)),
+				TYPE_FIELDS (mf_cache_struct_type)),
+			 t1_2_1), /* __mf_value */
+		  build (LT_EXPR, integer_type_node,
+			 build (COMPONENT_REF, mf_uintptr_type, /* __mf_elem->high */
+				mx_flag (build1 (INDIRECT_REF, 
+						 mf_cache_struct_type, t1_3_1)),
+				TREE_CHAIN (TYPE_FIELDS (mf_cache_struct_type))),
+			 build (PLUS_EXPR, mf_uintptr_type, /* __mf_value + sizeof(T) - 1 */
+				t1_2_1,
+				fold (build (MINUS_EXPR, mf_uintptr_type,
+					     convert (mf_uintptr_type,
+						      TYPE_SIZE_UNIT 
+						      (TREE_TYPE 
+						       (TREE_TYPE (ptrvalue)))),
+					     integer_one_node)))));
+  
+  /* Mark condition as UNLIKELY using __builtin_expect.  */
+  t1_4_1 = build_function_call (built_in_decls[BUILT_IN_EXPECT],
+				tree_cons (NULL_TREE,
+					   convert (long_integer_type_node, t1_4_1),
+					   tree_cons (NULL_TREE,
+						      integer_zero_node,
+						      NULL_TREE)));
+  
+  t1_4_2 = build_function_call (mx_external_ref (mf_check_fndecl, 1),
+				tree_cons (NULL_TREE,
+					   convert (mf_uintptr_type, t1_2_1),
+					   tree_cons (NULL_TREE, 
+						      convert (mf_uintptr_type, 
+							       TYPE_SIZE_UNIT 
+							       (TREE_TYPE (TREE_TYPE (ptrvalue)))),
+						      NULL_TREE)));
+  
+  t1_4 = build_stmt (IF_STMT, 
+		     t1_4_1,
+		     build1 (EXPR_STMT, void_type_node, t1_4_2),
+		     NULL_TREE);
+  TREE_CHAIN (t1_3) = t1_4;
+
+  if (finale)
+    {
+      return_type = TREE_TYPE (*finale);
+      return_value = *finale;
+    } 
+  else 
+    {
+      return_type = myptrtype;
+      return_value = t1_2_1;
+    }
+
+  /* "return" __mf_value, or provided finale */
+  t1_98 = build1 (EXPR_STMT, return_type, return_value);
+  TREE_CHAIN (t1_4) = t1_98;
+  
+  t1_99 = build_stmt (SCOPE_STMT, NULL_TREE);
+  TREE_CHAIN (t1_98) = t1_99;
+  
+  t1 = build1 (COMPOUND_STMT, return_type, t1_1);
+  t0 = build1 (STMT_EXPR, return_type, t1);
+
+  return t0;
+}
+
 
 /* }}} */
 /* ------------------------------------------------------------------------ */
@@ -458,129 +638,80 @@ mx_xfn_indirect_ref (t, continue_p, data)
       break;
 
     case ARRAY_REF:
+
+      {
+	tree base_array, base_obj_type, base_ptr_type;
+	tree offset_expr;
+	tree check_ptr;
+	tree tmp;
+
+	offset_expr = mf_offset_expr_of_array_ref (TREE_OPERAND (*t,0), 
+						   TREE_OPERAND (*t,1), 
+						   &base_array);
+	
+	/* We now have a tree representing the array in base_array, 
+	   and a tree representing the complete desired offset in
+	   offset_expr. */
+	
+	base_obj_type = TREE_TYPE (TREE_TYPE (TREE_OPERAND(*t,0)));
+	base_ptr_type = build_pointer_type (base_obj_type);
+
+	check_ptr = 
+	  mx_flag 
+	  (build (PLUS_EXPR, 
+		  base_ptr_type,
+		  mx_flag 
+		  (build1 (ADDR_EXPR, 
+			   base_ptr_type, 
+			   mx_flag 
+			   (build (ARRAY_REF, 
+				   base_obj_type, 
+				   base_array, integer_zero_node)))),
+		  mx_flag 
+		  (build (MULT_EXPR, 
+			  integer_type_node,
+			  TYPE_SIZE_UNIT (base_obj_type),
+			  offset_expr))));
+	
+	tmp = mf_build_check_statement_for (check_ptr, t);
+	*t = tmp;	
+	mx_flag (*t);
+
+	/*
+	fprintf (stderr, "\n");
+ 	print_c_tree (stderr, *t);
+	fprintf (stderr, "\n");
+	*/
+
+      }
+      break;
+      
     case ARRAY_RANGE_REF:
       /* not yet implemented */
-      warning ("mudflap checking not yet implemented for ARRAY_REF");
+      warning ("mudflap checking not yet implemented for ARRAY_RANGE_REF");
       break;
 
     case INDIRECT_REF:
       /*
-      fprintf (stderr, "\n");
-      print_c_tree (stderr, *t);
-      fprintf (stderr, "\n");
+	fprintf (stderr, "\n");
+	print_c_tree (stderr, *t);
+	fprintf (stderr, "\n");
       */
-
-      /* Perform transformation.  */
-      {
-	tree ptrvalue = TREE_OPERAND (*t, 0);
-	tree ptrtype = TREE_TYPE (ptrvalue);
-	tree myptrtype = build_qualified_type (ptrtype, TYPE_QUAL_CONST);
-
-	tree t1_1;
-	tree t1_2, t1_2_1;
-	tree t1_3, t1_3_1;
-	tree t1_4, t1_4_1, t1_4_2;
-	tree t1_98;
-	tree t1_99;
-	tree t1;
-	tree t0;
-
-	/* ({ */
-	t1_1 = build_stmt (SCOPE_STMT, NULL_TREE);
-	SCOPE_BEGIN_P (t1_1) = 1;
-
-	/* <TYPE> const __mf_value = <EXPR>; */
-	t1_2_1 = build_decl (VAR_DECL, get_identifier ("__mf_value"), myptrtype);
-	DECL_ARTIFICIAL (t1_2_1) = 1;
-	DECL_INITIAL (t1_2_1) = ptrvalue;
-	t1_2 = build1 (DECL_STMT, myptrtype, t1_2_1);
-	TREE_CHAIN (t1_1) = t1_2;
-
-	/* struct __mf_cache * const __mf_elem = [...] */
-	t1_3_1 = build_decl (VAR_DECL, get_identifier ("__mf_elem"), mf_cache_structptr_type);
-	DECL_ARTIFICIAL (t1_3_1) = 1;
-	DECL_INITIAL (t1_3_1) =
-	  /* & __mf_lookup_cache [(((uintptr_t)__mf_value) >> __mf_shift) & __mf_mask] */
-	  mx_flag (build1 (ADDR_EXPR, mf_cache_structptr_type,
-			   mx_flag (build (ARRAY_REF, TYPE_MAIN_VARIANT (TREE_TYPE
-									 (TREE_TYPE
-									  (mf_cache_array_decl))),
-					   mx_external_ref (mf_cache_array_decl, 0),
-					   build (BIT_AND_EXPR, mf_uintptr_type,
-						  build (RSHIFT_EXPR, mf_uintptr_type,
-							 convert (mf_uintptr_type, t1_2_1),
-							 mx_external_ref (mf_cache_shift_decl, 0)),
-						  mx_external_ref (mf_cache_mask_decl, 0))))));
+      
+      /* Substitute check statement for ptrvalue in INDIRECT_REF.  */
+      TREE_OPERAND (*t, 0) = 
+	mf_build_check_statement_for (TREE_OPERAND (*t, 0), NULL);
 	
-	t1_3 = build1 (DECL_STMT, mf_cache_structptr_type, t1_3_1);
-	TREE_CHAIN (t1_2) = t1_3;
-
-	/* Quick validity check.  */
-	t1_4_1 = build (BIT_IOR_EXPR, integer_type_node,
-			build (GT_EXPR, integer_type_node,
-			       build (COMPONENT_REF, mf_uintptr_type, /* __mf_elem->low */
-				      mx_flag (build1 (INDIRECT_REF, 
-						       mf_cache_struct_type, t1_3_1)),
-				      TYPE_FIELDS (mf_cache_struct_type)),
-			       t1_2_1), /* __mf_value */
-			build (LT_EXPR, integer_type_node,
-			       build (COMPONENT_REF, mf_uintptr_type, /* __mf_elem->high */
-				      mx_flag (build1 (INDIRECT_REF, 
-						       mf_cache_struct_type, t1_3_1)),
-				      TREE_CHAIN (TYPE_FIELDS (mf_cache_struct_type))),
-			       build (PLUS_EXPR, mf_uintptr_type, /* __mf_value + sizeof(T) - 1 */
-				      t1_2_1,
-				      fold (build (MINUS_EXPR, mf_uintptr_type,
-						   convert (mf_uintptr_type,
-							    TYPE_SIZE_UNIT (TREE_TYPE (ptrvalue))),
-						   integer_one_node)))));
-
-	/* Mark condition as UNLIKELY using __builtin_expect.  */
-	t1_4_1 = build_function_call (built_in_decls[BUILT_IN_EXPECT],
-				      tree_cons (NULL_TREE,
-						 convert (long_integer_type_node, t1_4_1),
-						 tree_cons (NULL_TREE,
-							    integer_zero_node,
-							    NULL_TREE)));
+	/*
+	  fprintf (stderr, "\n");
+	  print_c_tree (stderr, *t);
+	  fprintf (stderr, "\n");
+	*/
 	
-	t1_4_2 = build_function_call (mx_external_ref (mf_check_fndecl, 1),
-				      tree_cons (NULL_TREE,
-						 convert (mf_uintptr_type, t1_2_1),
-						 tree_cons (NULL_TREE, 
-							    convert (mf_uintptr_type, 
-								     TYPE_SIZE_UNIT (TREE_TYPE (ptrvalue))),
-							    NULL_TREE)));
-
-	t1_4 = build_stmt (IF_STMT, 
-			   t1_4_1,
-			   build1 (EXPR_STMT, void_type_node, t1_4_2),
-			   NULL_TREE);
-	TREE_CHAIN (t1_3) = t1_4;
-
-	/* "return" __mf_value */
-	t1_98 = build1 (EXPR_STMT, myptrtype, t1_2_1);
-	TREE_CHAIN (t1_4) = t1_98;
-
-	t1_99 = build_stmt (SCOPE_STMT, NULL_TREE);
-	TREE_CHAIN (t1_98) = t1_99;
-
-	t1 = build1 (COMPOUND_STMT, myptrtype, t1_1);
-	t0 = build1 (STMT_EXPR, myptrtype, t1);
-
-	/* Substitute t0 for ptrvalue in INDIRECT_REF.  */
-	TREE_OPERAND (*t, 0) = t0;
-      }
-
-      /*
-      fprintf (stderr, "\n");
-      print_c_tree (stderr, *t);
-      fprintf (stderr, "\n");
-      */
-
-      /* Prevent this transform's reapplication to this tree node.
-	 Note that we do not prevent recusion in walk_tree toward
-	 subtrees of this node, in case of nested pointer expressions.  */
-      mx_flag (*t);
+	/* Prevent this transform's reapplication to this tree node.
+	   Note that we do not prevent recusion in walk_tree toward
+	   subtrees of this node, in case of nested pointer expressions.  */
+	mx_flag (*t);
       break;
     }
 

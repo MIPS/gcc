@@ -1,3 +1,13 @@
+2002-08-13  Graydon Hoare  <graydon@redhat.com>
+
+	* tree-mudflap.c (mf_build_check_statement_for): Factor code out of
+	mx_xfn_indirect_ref for use in ARRAY_REF case.
+	(mf_build_check_statement_for): Check size of underlying object
+	rather than size of pointer.
+	(mx_xfn_indirect_ref): Check ARRAY_REF expressions.
+	(mf_offset_expr_of_array_ref): New function to calculate array ref
+	offsets.
+
 2002-08-13  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-simple.c (is_simple_condexpr): Update comment.

@@ -3,6 +3,7 @@
 /* Mudflap: narrow-pointer bounds-checking by tree rewriting.
    Copyright (C) 2001, 2002 Free Software Foundation, Inc.
    Contributed by Frank Ch. Eigler <fche@redhat.com>
+   and Graydon Hoare <graydon@redhat.com>
 
 This file is part of GCC.
 
@@ -18,8 +19,16 @@ XXX: libgcc license?
 #include <execinfo.h>
 #include <assert.h>
 
+#include <string.h>
+#include <limits.h>
+#include <sys/types.h>
+#include <signal.h>
+
 #include "mf-runtime.h"
 
+#ifndef max
+#define max(a,b) ((a) > (b) ? (a) : (b))
+#endif
 
 #ifdef _MUDFLAP
 #error "Do not compile this file with -fmudflap!"
@@ -32,6 +41,7 @@ XXX: libgcc license?
 
 #define MINPTR ((uintptr_t) 0)
 #define MAXPTR (~ (uintptr_t) 0)
+
 /* Clamp the addition/subtraction of uintptr_t's to [MINPTR,MAXPTR] */
 #define CLAMPSUB(ptr,offset) ((ptr) >= (offset) ? (ptr)-(offset) : MINPTR)
 #define CLAMPADD(ptr,offset) ((ptr) <= MAXPTR-(offset) ? (ptr)+(offset) : MAXPTR)
@@ -41,32 +51,250 @@ XXX: libgcc license?
 /* ------------------------------------------------------------------------ */
 /* {{{ Configuration macros */
 
-/*
-  Mode selection.  Exactly one of the following mode macros should
-  be defined:
-   
-  MODE_NOP    - make check/register/unregister each a nop
-  MODE_NOSIR  - make check/register/unregister always trigger a violation
-  MODE_YESSIR - make check/register/unregister a nop; populate lookup cache
-  MODE_CHECK  - activate check/register/unregister
-*/
+struct __mf_options __mf_opts;
+static int __mf_active_p = 0;
 
-#if (MODE_NOP + MODE_NOSIR + MODE_YESSIR + MODE_CHECK) != 1
-#error "Incorrect mf-runtime MODE selected."
-#endif
+static void
+__mf_set_default_options ()
+{
+  __mf_opts.trace_mf_calls = 0;
+  __mf_opts.collect_stats = 0;
+  __mf_opts.internal_checking = 0;
+  __mf_opts.print_leaks = 0;
+  __mf_opts.verbose_violations = 0;
+  __mf_opts.optimize_object_tree = 0;
+  __mf_opts.multi_threaded = 0;
+  __mf_opts.free_queue_length = 0;
+  __mf_opts.persistent_count = 0;
+  __mf_opts.backtrace = 4;
+  __mf_opts.mudflap_mode = mode_check;
+  __mf_opts.violation_mode = viol_nop;
+}
+
+static struct option
+{
+  char *name;
+  char *description;
+  enum
+    {
+      set_option,
+      read_integer_option,
+    } type;
+  int value;
+  int *target;
+} 
+options [] =
+  {
+    {"mode-nop", 
+     "mudflaps do nothing", 
+     set_option, (int)mode_nop, (int *)&__mf_opts.mudflap_mode},    
+    {"mode-populate", 
+     "mudflaps populate object tree", 
+     set_option, (int)mode_populate, (int *)&__mf_opts.mudflap_mode},    
+    {"mode-check", 
+     "mudflaps check for memory violations (default)",
+     set_option, (int)mode_check, (int *)&__mf_opts.mudflap_mode},
+    {"mode-violate", 
+     "mudflaps always cause violations (diagnostic)",
+     set_option, (int)mode_violate, (int *)&__mf_opts.mudflap_mode},
+    
+    {"viol-nop", 
+     "violations do not change program execution (default)",
+     set_option, (int)viol_nop, (int *)&__mf_opts.violation_mode},
+    {"viol-abort", 
+     "violations cause a call to abort()",
+     set_option, (int)viol_abort, (int *)&__mf_opts.violation_mode},
+    {"viol-segv", 
+     "violations are promoted to SIGSEGV signals",
+     set_option, (int)viol_segv, (int *)&__mf_opts.violation_mode},
+    {"viol-gdb", 
+     "violations fork a gdb process attached to current program",
+     set_option, (int)viol_gdb, (int *)&__mf_opts.violation_mode},
+
+    {"collect-stats", 
+     "collect statistics on mudflap's operation",
+     set_option, 1, &__mf_opts.collect_stats},
+    {"internal-checking", 
+     "perform more expensive internal checking",
+     set_option, 1, &__mf_opts.internal_checking},
+    {"print-leaks", 
+     "print any memory leaks at program shutdown",
+     set_option, 1, &__mf_opts.print_leaks},
+    {"verbose-violations", 
+     "print verbose messages when memory violations occur",
+     set_option, 1, &__mf_opts.verbose_violations},
+    {"optimize-object-tree", 
+     "periodically optimize memory object tracking tree",
+     set_option, 1, &__mf_opts.optimize_object_tree},
+    {"multi-threaded", 
+     "support multiple threads",
+     set_option, 1, &__mf_opts.multi_threaded},
+
+    {"free-queue-length", 
+     "queue N deferred free() calls before performing them",
+     read_integer_option, 0, &__mf_opts.free_queue_length},
+    {"persistent-count", 
+     "keep a history of N unregistered regions",
+     read_integer_option, 0, &__mf_opts.persistent_count},
+    {"backtrace", 
+     "keep an N-level stack trace of each call context",
+     read_integer_option, 0, &__mf_opts.backtrace},
+
+    {0, 0, set_option, 0, NULL}
+  };
+
+static void
+__mf_usage ()
+{
+  struct option *opt;
+
+  fprintf (stderr, 
+	   "This is a GCC \"mudflap\" memory-checked binary.\n"
+	   "Mudflap is Copyright (C) 2001, 2002 Free Software Foundation, Inc.\n"
+	   "\n"
+	   "The mudflap code can be controlled by an environment variable:\n"
+	   "\n"
+	   "$ export MUDFLAP_OPTIONS='<options>'\n"
+	   "$ <mudflapped_program>\n"
+	   "\n"
+	   "where <options> is a space-separated list of \n"
+	   "any of the following:\n"
+	   "\n");
+
+  for (opt = options; opt->name; opt++)
+    {
+      switch (opt->type)
+	{
+	  char buf[128];
+	case set_option:
+	  fprintf (stderr, "-%-23.23s %s\n", opt->name, opt->description);
+	  break;
+	case read_integer_option:
+	  strncpy (buf, opt->name, 128);
+	  strncpy (buf + strnlen (opt->name, 128), "=N", 2);
+	  fprintf (stderr, "-%-23.23s %s\n", buf, opt->description);
+	  break;	  
+	}
+    }
+
+  fprintf (stderr, "\n");
+}
 
 
-/*
-  Violation handling.  Exactly one of the following should be defined:
+static int 
+__mf_process_opts (char *optstr)
+{
+  struct option *opts = 0;
+  char *nxt = 0;
+  long tmp = 0;
 
-  VIOLATION_NOP  - return control to application
-  VIOLATION_SEGV - signal a segv  (XXX: not implemented)
-  VIOLATION_CORE - abort()
-  VIOLATION_GDB  - fork a debugger on self  (XXX: not implemented)
-*/
-#if (VIOLATION_NOP + VIOLATION_SEGV + VIOLATION_CORE + VIOLATION_GDB) != 1
-#error "Incorrect mf-runtime VIOLATION selected."
-#endif
+  while (*optstr)
+    {
+      switch (*optstr) {
+      case ' ':
+      case '\t':
+      case '\n':
+	optstr++;
+	break;
+
+      case '-':
+	if (*optstr+1)
+	  {	    
+	    optstr++;
+
+	    if (*optstr == '?' || strcmp (optstr, "help") == 0)
+	      {
+		__mf_usage ();
+		exit (0);
+	      }
+	    
+	    for (opts = options; opts->name; opts++)
+	      {
+		if (strncmp (optstr, opts->name, 
+				     strlen (opts->name)) == 0)
+		  {
+		    optstr += strlen (opts->name);
+		    assert (opts->target);
+		    switch (opts->type) 
+		      {
+		      case set_option:
+			*(opts->target) = opts->value;
+			break;
+		      case read_integer_option:
+			if (*optstr == '=' && *(optstr+1))
+			  {
+			    optstr++;
+			    tmp = strtol (optstr, &nxt, 10);
+			    if ((optstr != nxt) && (tmp != LONG_MAX))
+			      {
+				optstr = nxt;				
+				*(opts->target) = (int)tmp;
+			      }
+			  }
+			break;
+		      }
+		  }
+	      }
+	  }
+	break;
+	
+      default:
+	fprintf (stderr, 
+		 "warning: unrecognized string '%s' in mudflap options\n",
+		 optstr);
+	return 0;
+	break;
+      }
+    }
+  return 1;
+}
+
+#define CTOR  __attribute__ ((constructor))
+#define DTOR  __attribute__ ((destructor))
+
+#define TRACE_IN \
+ if (__mf_opts.trace_mf_calls) \
+ fprintf (stderr, "mf: enter %s\n", __FUNCTION__);
+
+#define TRACE_OUT \
+ if (__mf_opts.trace_mf_calls) \
+ fprintf (stderr, "mf: exit %s\n", __FUNCTION__);
+
+
+extern void __mf_init () CTOR;
+void __mf_init ()
+{
+  char *ov = 0;
+
+  __mf_set_default_options ();
+
+  ov = getenv ("MUDFLAP_OPTIONS");
+  if (ov)
+    {
+      if (__mf_process_opts (ov) == 0)
+	{
+	  fprintf (stderr, 
+		   "mudflap error: unknown options in "
+		   "environment variable MUDFLAP_OPTIONS\n");
+	  exit (1);
+	}
+    }
+
+  __mf_active_p = 1;
+
+  TRACE_OUT;
+}
+
+
+extern void __mf_fini () DTOR;
+void __mf_fini ()
+{
+  TRACE_IN;
+  __mf_report ();
+  TRACE_OUT;
+}
+
+
 
 
 
@@ -107,9 +335,8 @@ unsigned char __mf_lc_shift = LOOKUP_CACHE_SHIFT_DFL;
 
 /* }}} */
 /* ------------------------------------------------------------------------ */
-/* {{{ OPT_STATS-related globals.  */
+/* {{{ stats-related globals.  */
 
-#if OPT_STATS
 static unsigned long __mf_count_check;
 static unsigned long __mf_lookup_cache_reusecount [LOOKUP_CACHE_SIZE_MAX];
 static unsigned long __mf_treerot_left, __mf_treerot_right;
@@ -118,13 +345,11 @@ static unsigned long __mf_total_register_size [__MF_TYPE_STATIC+1];
 static unsigned long __mf_count_unregister;
 static unsigned long __mf_total_unregister_size;
 static unsigned long __mf_count_violation [__MF_VIOL_UNREGISTER+1];
-#endif
 
 /* }}} */
 /* ------------------------------------------------------------------------ */
 /* {{{ MODE_CHECK-related globals.  */
 
-#if MODE_CHECK
 
 typedef struct __mf_object
 {
@@ -135,20 +360,14 @@ typedef struct __mf_object
 
   uintptr_t alloc_pc;
   struct timeval alloc_time;
-#ifdef OPT_BKTRACE
   char **alloc_backtrace;
   size_t alloc_backtrace_size;
-#endif  
 
-#ifdef OPT_PERSIST
   int deallocated_p;
   uintptr_t dealloc_pc;
   struct timeval dealloc_time;
-#ifdef OPT_BKTRACE
   char **dealloc_backtrace;
   size_t dealloc_backtrace_size;
-#endif  
-#endif
 } __mf_object_t;
 
 
@@ -161,11 +380,9 @@ typedef struct __mf_object_tree
 
 /* Live objects: binary tree on __mf_object_t.low */
 __mf_object_tree_t *__mf_object_root;
-#if OPT_PERSIST
 /* Dead objects: circular arrays */
 unsigned __mf_object_dead_head[__MF_TYPE_STATIC+1]; /* next empty spot */
-__mf_object_tree_t *__mf_object_cemetary[__MF_TYPE_STATIC+1][OPT_PERSIST];
-#endif
+__mf_object_tree_t *__mf_object_cemetary[__MF_TYPE_STATIC+1][__MF_PERSIST_MAX];
 
 unsigned __mf_recursion_protect;
 
@@ -177,7 +394,6 @@ static unsigned __mf_find_dead_objects (uintptr_t ptr_low, uintptr_t ptr_high,
 static void __mf_link_object (__mf_object_tree_t *obj);
 static void __mf_unlink_object (__mf_object_tree_t *obj);
 static void __mf_describe_object (__mf_object_t *obj);
-#endif
 
 /* }}} */
 /* ------------------------------------------------------------------------ */
@@ -191,49 +407,58 @@ void __mf_check (uintptr_t ptr, uintptr_t sz)
   uintptr_t ptr_high = CLAMPSZ (ptr, sz);
   static unsigned recursion = 0;
 
-#if OPT_STATS
   struct __mf_cache old_entry = *entry;
-#endif
+
+  if (UNLIKELY (! __mf_active_p)) return;
 
   if (UNLIKELY (recursion)) return;
   recursion ++;
+  
+  switch (__mf_opts.mudflap_mode)
+    {
+    case mode_nop:
+      break;
 
-#if MODE_NOP
-  /* Do nothing.  The cache will remain unpopulated.  */
-#elif MODE_NOSIR
-  violation_p = 1;
-#elif MODE_YESSIR
-  entry->low = ptr;
-  entry->high = ptr_high;
-#elif MODE_CHECK
-  {
-    __mf_object_tree_t *node = __mf_find_object (ptr, ptr_high);
-    __mf_object_t *obj = (node != NULL ? (& node->data) : NULL);
-    
-    if (LIKELY (obj && ptr >= obj->low && ptr_high <= obj->high))
+    case mode_populate:
+      entry->low = ptr;
+      entry->high = ptr_high;
+      break;
+
+    case mode_check:
       {
-	entry->low = obj->low;
-	entry->high = obj->high;
-	obj->check_count ++;  /* XXX: what about overflow?  */
-      }
-    else
-      {
-	/* XXX:  */
-	violation_p = 1;
-      }
-  }
-#endif
+	__mf_object_tree_t *node = __mf_find_object (ptr, ptr_high);
+	__mf_object_t *obj = (node != NULL ? (& node->data) : NULL);
+	
+	if (LIKELY (obj && ptr >= obj->low && ptr_high <= obj->high))
+	  {
+	    entry->low = obj->low;
+	    entry->high = obj->high;
+	    obj->check_count ++;  /* XXX: what about overflow?  */
+	  }
+	else
+	  {
+	    /* XXX:  */
+	    violation_p = 1;
+	  }
+      }    
+      break;
 
-#if OPT_STATS
-  __mf_count_check ++;
+    case mode_violate:
+      violation_p = 1;
+      break;
+    }
 
-  if (LIKELY (old_entry.low != entry->low || old_entry.high != entry->high))
-    /* && (old_entry.low != 0) && (old_entry.high != 0)) */
-    __mf_lookup_cache_reusecount [entry_idx] ++;    
-#endif
-#if OPT_TRACE
-  fprintf (stderr, "mf chk p=%08lx s=%lu\n", ptr, sz);
-#endif
+  if (__mf_opts.collect_stats)
+    {
+      __mf_count_check ++;
+      
+      if (LIKELY (old_entry.low != entry->low || old_entry.high != entry->high))
+	/* && (old_entry.low != 0) && (old_entry.high != 0)) */
+	__mf_lookup_cache_reusecount [entry_idx] ++;    
+    }
+
+  if (__mf_opts.trace_mf_calls)
+    fprintf (stderr, "mf chk p=%08lx s=%lu\n", ptr, sz);
 
   if (UNLIKELY (violation_p))
     __mf_violation (ptr, sz, (uintptr_t) __builtin_return_address (0), __MF_VIOL_CHECK);
@@ -247,88 +472,103 @@ void __mf_check (uintptr_t ptr, uintptr_t sz)
 void
 __mf_register (uintptr_t ptr, uintptr_t sz, int type, const char *name)
 {
-#if MODE_NOP
-#elif MODE_NOSIR
-  __mf_violation (ptr, sz, (uintptr_t) __builtin_return_address (0), __MF_VIOL_REGISTER);
-#elif MODE_YESSIR
-  /* Clear the cache.  */
-  memset (__mf_lookup_cache, 0, sizeof(__mf_lookup_cache));
-#elif MODE_CHECK
-  __mf_object_tree_t *ovr_obj[1];
-  __mf_object_tree_t *new_obj;
-  unsigned num_overlapping_objs;
-  static unsigned recursion = 0;
-  uintptr_t low = ptr;
-  uintptr_t high = CLAMPSZ (ptr, sz);
 
-  if (UNLIKELY (recursion)) return;
-  recursion ++;
+  if (UNLIKELY (! __mf_active_p)) return;
 
-  /* Treat unknown size indication as 1.  */
-  if (UNLIKELY (sz == 0)) sz = 1;
-
-  num_overlapping_objs = __mf_find_objects (low, high, ovr_obj, 1);
-  if (UNLIKELY (num_overlapping_objs > 0))
+  switch (__mf_opts.mudflap_mode)
     {
-      /* Normally, this would be a violation.  However, accept a
-	 single duplicate registration for static objects, since these
-	 may come from distinct compilation units.  */
-      if (type == __MF_TYPE_STATIC &&
-	  num_overlapping_objs == 1 &&
-	  ovr_obj[0]->data.type == __MF_TYPE_STATIC &&
-	  ovr_obj[0]->data.low == low &&
-	  ovr_obj[0]->data.high == high)
-	{
-	  /* do nothing */
-	  ;
-	}
-      else
-	{
-	  __mf_violation (ptr, sz, (uintptr_t) __builtin_return_address (0),
-			  __MF_VIOL_REGISTER);
-	}
+    case mode_nop:
+      break;
+      
+    case mode_violate:
+      __mf_violation (ptr, sz, (uintptr_t) 
+		      __builtin_return_address (0), __MF_VIOL_REGISTER);
+      break;
 
-      recursion --;
-      return;
+    case mode_populate:
+      /* Clear the cache.  */
+      memset (__mf_lookup_cache, 0, sizeof(__mf_lookup_cache));
+      break;
+
+    case mode_check:
+      {
+	__mf_object_tree_t *ovr_obj[1];
+	__mf_object_tree_t *new_obj;
+	unsigned num_overlapping_objs;
+	static unsigned recursion = 0;
+	uintptr_t low = ptr;
+	uintptr_t high = CLAMPSZ (ptr, sz);
+	
+	if (UNLIKELY (recursion)) return;
+	recursion ++;
+	
+	/* Treat unknown size indication as 1.  */
+	if (UNLIKELY (sz == 0)) sz = 1;
+	
+	num_overlapping_objs = __mf_find_objects (low, high, ovr_obj, 1);
+	if (UNLIKELY (num_overlapping_objs > 0))
+	  {
+	    /* Normally, this would be a violation.  However, accept a
+	       single duplicate registration for static objects, since these
+	       may come from distinct compilation units.  */
+	    if (type == __MF_TYPE_STATIC &&
+		num_overlapping_objs == 1 &&
+		ovr_obj[0]->data.type == __MF_TYPE_STATIC &&
+		ovr_obj[0]->data.low == low &&
+		ovr_obj[0]->data.high == high)
+	      {
+		/* do nothing */
+		;
+	      }
+	    else
+	      {
+		__mf_violation (ptr, sz, (uintptr_t) __builtin_return_address (0),
+				__MF_VIOL_REGISTER);
+	      }
+	    
+	    recursion --;
+	    return;
+	  }
+	
+	new_obj = calloc (1, sizeof(__mf_object_tree_t));
+	new_obj->data.low = low;
+	new_obj->data.high = high;
+	new_obj->data.type = type;
+	new_obj->data.name = name;
+	new_obj->data.alloc_pc = (uintptr_t) __builtin_return_address (0);
+	gettimeofday (& new_obj->data.alloc_time, NULL);
+	
+	if (__mf_opts.backtrace > 0)
+	  {
+	    void *array [__mf_opts.backtrace];
+	    size_t bt_size;
+	    bt_size = backtrace (array, __mf_opts.backtrace);
+	    new_obj->data.alloc_backtrace = backtrace_symbols (array, bt_size);
+	    new_obj->data.alloc_backtrace_size = bt_size;
+	  }
+	
+	__mf_link_object (new_obj);
+	
+	/* We could conceivably call __mf_check() here to prime the cache,
+	   but then the check_count field is not reliable.  */
+	
+	recursion --;	
+	break;
+      }
+
+    } /* end switch (__mf_opts.mudflap_mode) */
+
+  if (__mf_opts.collect_stats)
+    {
+      __mf_count_register ++;
+      __mf_total_register_size [(type < 0) ? 0 :
+				(type > __MF_TYPE_STATIC) ? 0 : 
+				type] += sz;
     }
 
-  new_obj = calloc (1, sizeof(__mf_object_tree_t));
-  new_obj->data.low = low;
-  new_obj->data.high = high;
-  new_obj->data.type = type;
-  new_obj->data.name = name;
-  new_obj->data.alloc_pc = (uintptr_t) __builtin_return_address (0);
-  gettimeofday (& new_obj->data.alloc_time, NULL);
-
-#if OPT_BKTRACE
-  {
-    void *array [OPT_BKTRACE];
-    size_t bt_size;
-    bt_size = backtrace (array, OPT_BKTRACE);
-    new_obj->data.alloc_backtrace = backtrace_symbols (array, bt_size);
-    new_obj->data.alloc_backtrace_size = bt_size;
-  }
-#endif
-
-  __mf_link_object (new_obj);
-
-  /* We could conceivably call __mf_check() here to prime the cache,
-     but then the check_count field is not reliable.  */
-
-  recursion --;
-
-#endif /* MODE_* */
-
-#if OPT_STATS
-  __mf_count_register ++;
-  __mf_total_register_size [(type < 0) ? 0 :
-			    (type > __MF_TYPE_STATIC) ? 0 : 
-			    type] += sz;
-#endif
-#if OPT_TRACE
-  fprintf (stderr, "mf reg p=%08lx s=%lu t=%d n=`%s'\n", 
-	   ptr, sz, type, name ? name : "");
-#endif
+  if (__mf_opts.trace_mf_calls)
+    fprintf (stderr, "mf reg p=%08lx s=%lu t=%d n=`%s'\n", 
+	     ptr, sz, type, name ? name : "");
 }
 
 /* }}} */
@@ -337,142 +577,158 @@ __mf_register (uintptr_t ptr, uintptr_t sz, int type, const char *name)
 void
 __mf_unregister (uintptr_t ptr, uintptr_t sz)
 {
-#if MODE_NOP
-#elif MODE_NOSIR
-  __mf_violation (ptr, sz, (uintptr_t) __builtin_return_address (0), 
-		  __MF_VIOL_UNREGISTER);
-#elif MODE_YESSIR
-  /* Clear the cache.  */
-  memset (__mf_lookup_cache, 0, sizeof(__mf_lookup_cache));
-#elif MODE_CHECK
-  static unsigned recursion = 0;
-  __mf_object_tree_t *old_obj = NULL;
-  __mf_object_tree_t *del_obj = NULL;  /* Object to actually delete. */
-  __mf_object_tree_t *objs[1] = {NULL};
-  unsigned num_overlapping_objs;
 
-  if (UNLIKELY (recursion)) return;
-  recursion ++;
+  if (UNLIKELY (! __mf_active_p)) return;
 
-  /* Treat unknown size indication as 1.  */
-  if (sz == 0) sz = 1;
+  switch (__mf_opts.mudflap_mode)
+    { 
+    case mode_nop:
+      break;
 
-  num_overlapping_objs = __mf_find_objects (ptr, CLAMPSZ (ptr, sz), objs, 1);
-  if (UNLIKELY (num_overlapping_objs != 1))
-    {
-      /* XXX: also: should match ptr == old_obj->low ? */
-
-      __mf_violation (ptr, sz, (uintptr_t) __builtin_return_address (0),
+    case mode_violate:
+      __mf_violation (ptr, sz, (uintptr_t) __builtin_return_address (0), 
 		      __MF_VIOL_UNREGISTER);
-      recursion --;
-      return;
-    }
+      break;
 
-  old_obj = objs[0];
-  __mf_unlink_object (old_obj);
+    case mode_populate:
+      /* Clear the cache.  */
+      memset (__mf_lookup_cache, 0, sizeof(__mf_lookup_cache));
+      break;
 
-  /* Remove any low/high pointers for this object from the lookup cache.  */
-  if (LIKELY (old_obj->data.check_count)) /* Can it possibly exist in the cache?  */
-    {
-      uintptr_t low = old_obj->data.low;
-      uintptr_t high = old_obj->data.high;
-      unsigned idx_low = __MF_CACHE_INDEX (low);
-      unsigned idx_high = __MF_CACHE_INDEX (high);
-      unsigned i;
-      for (i = idx_low; i <= idx_high; i++)
-	{
-	  struct __mf_cache *entry = & __mf_lookup_cache [i];
-	  if (entry->low == low && entry->high == high)
+    case mode_check:
+      {
+	static unsigned recursion = 0;
+	__mf_object_tree_t *old_obj = NULL;
+	__mf_object_tree_t *del_obj = NULL;  /* Object to actually delete. */
+	__mf_object_tree_t *objs[1] = {NULL};
+	unsigned num_overlapping_objs;
+	
+	if (UNLIKELY (recursion)) return;
+	recursion ++;
+	
+	/* Treat unknown size indication as 1.  */
+	if (sz == 0) sz = 1;
+	
+	num_overlapping_objs = __mf_find_objects (ptr, CLAMPSZ (ptr, sz), objs, 1);
+	if (UNLIKELY (num_overlapping_objs != 1))
+	  {
+	    /* XXX: also: should match ptr == old_obj->low ? */
+	    
+	    __mf_violation (ptr, sz, (uintptr_t) __builtin_return_address (0),
+			    __MF_VIOL_UNREGISTER);
+	    recursion --;
+	    return;
+	  }
+	
+	old_obj = objs[0];
+	__mf_unlink_object (old_obj);
+	
+	/* Remove any low/high pointers for this object from the lookup cache.  */
+	if (LIKELY (old_obj->data.check_count)) /* Can it possibly exist in the cache?  */
+	  {
+	    uintptr_t low = old_obj->data.low;
+	    uintptr_t high = old_obj->data.high;
+	    unsigned idx_low = __MF_CACHE_INDEX (low);
+	    unsigned idx_high = __MF_CACHE_INDEX (high);
+	    unsigned i;
+	    for (i = idx_low; i <= idx_high; i++)
+	      {
+		struct __mf_cache *entry = & __mf_lookup_cache [i];
+		if (entry->low == low && entry->high == high)
+		  {
+		    entry->low = entry->high = (uintptr_t) 0;
+		  }
+	      }
+	  }
+	
+	if (__mf_opts.persistent_count > 0)
+	  {
+	    old_obj->data.deallocated_p = 1;
+	    old_obj->left = old_obj->right = NULL;
+	    old_obj->data.dealloc_pc = (uintptr_t) __builtin_return_address (0);
+	    gettimeofday (& old_obj->data.dealloc_time, NULL);
+	    
+	    if (__mf_opts.backtrace > 0)
+	      {
+		void *array [__mf_opts.backtrace];
+		size_t bt_size;
+		bt_size = backtrace (array, __mf_opts.backtrace);
+		old_obj->data.dealloc_backtrace = backtrace_symbols (array, bt_size);
+		old_obj->data.dealloc_backtrace_size = bt_size;
+	      }
+	    
+	    /* Put this object into the cemetary.  This may require this plot to
+	       be recycled, and the previous resident to be designated del_obj.  */
+	    
+	    assert (old_obj->data.type >= __MF_TYPE_UNKNOWN && 
+		    old_obj->data.type <= __MF_TYPE_STATIC);
 	    {
-	      entry->low = entry->high = (uintptr_t) 0;
+	      unsigned row = old_obj->data.type;
+	      unsigned plot = __mf_object_dead_head [row];
+	      
+	      del_obj = __mf_object_cemetary [row][plot];
+	      __mf_object_cemetary [row][plot] = old_obj;
+	      
+	      plot ++;
+	      if (plot == __mf_opts.persistent_count) plot = 0;
+	      __mf_object_dead_head [row] = plot;
 	    }
-	}
-    }
+	    
+	  } else {
+	    del_obj = old_obj;
+	  }
+	
+	if (__mf_opts.print_leaks)
+	  {
+	    if (old_obj->data.check_count == 0 &&
+		old_obj->data.type == __MF_TYPE_HEAP)
+	      {
+		fprintf (stderr, 
+			 "*******\n"
+			 "mudflap warning: unaccessed registered object:\n");
+		__mf_describe_object (& old_obj->data);
+	      }
+	  }
+	
+	if (del_obj != NULL) /* May or may not equal old_obj.  */
+	  {
+	    if (__mf_opts.backtrace > 0)
+	      {
+		free (del_obj->data.alloc_backtrace);
+		if (__mf_opts.persistent_count > 0)
+		  free (del_obj->data.dealloc_backtrace);
+	      }
+	    free (del_obj);
+	  }
+	
+	recursion --;
+	break;
+      }
+    } /* end switch (__mf_opts.mudflap_mode) */
 
-#if OPT_PERSIST
-  old_obj->data.deallocated_p = 1;
-  old_obj->left = old_obj->right = NULL;
-  old_obj->data.dealloc_pc = (uintptr_t) __builtin_return_address (0);
-  gettimeofday (& old_obj->data.dealloc_time, NULL);
 
-#if OPT_BKTRACE
-  {
-    void *array [OPT_BKTRACE];
-    size_t bt_size;
-    bt_size = backtrace (array, OPT_BKTRACE);
-    old_obj->data.dealloc_backtrace = backtrace_symbols (array, bt_size);
-    old_obj->data.dealloc_backtrace_size = bt_size;
-  }
-#endif /* OPT_BKTRACE */
-
-  /* Put this object into the cemetary.  This may require this plot to
-     be recycled, and the previous resident to be designated del_obj.  */
-
-  assert (old_obj->data.type >= __MF_TYPE_UNKNOWN && 
-	  old_obj->data.type <= __MF_TYPE_STATIC);
-  {
-    unsigned row = old_obj->data.type;
-    unsigned plot = __mf_object_dead_head [row];
-
-    del_obj = __mf_object_cemetary [row][plot];
-    __mf_object_cemetary [row][plot] = old_obj;
-
-    plot ++;
-    if (plot == OPT_PERSIST) plot = 0;
-    __mf_object_dead_head [row] = plot;
-  }
-
-#else  /* ! OPT_PERSIST */
-  del_obj = old_obj;
-#endif /* OPT_PERSIST */
-
-#if OPT_LEAK
-  if (old_obj->data.check_count == 0 &&
-      old_obj->data.type == __MF_TYPE_HEAP)
+  if (__mf_opts.collect_stats)
     {
-      fprintf (stderr, 
-	       "*******\n"
-	       "mudflap warning: unaccessed registered object:\n");
-      __mf_describe_object (& old_obj->data);
-    }
-#endif
-
-  if (del_obj != NULL) /* May or may not equal old_obj.  */
-    {
-#if OPT_BKTRACE
-      free (del_obj->data.alloc_backtrace);
-#if OPT_PERSIST
-      free (del_obj->data.dealloc_backtrace);
-#endif
-#endif
-      free (del_obj);
+      __mf_count_unregister ++;
+      __mf_total_unregister_size += sz;
     }
 
-  recursion --;
-#endif /* MODE_* */
-
-#if OPT_STATS
-  __mf_count_unregister ++;
-  __mf_total_unregister_size += sz;
-#endif
-#if OPT_TRACE
-  fprintf (stderr, "mf unr p=%08lx s=%lu\n", ptr, sz);
-#endif
+  if (__mf_opts.trace_mf_calls)    
+    fprintf (stderr, "mf unr p=%08lx s=%lu\n", ptr, sz);
 }
 
 /* }}} */
 /* ------------------------------------------------------------------------ */
-#if MODE_CHECK
 /* {{{ __mf_validate_live_object_tree, _object_cemetary */
 
-#if OPT_INTCHK
 static void
 __mf_validate_live_object_tree (__mf_object_tree_t *obj)
 {
   assert (obj != NULL);
-#if OPT_PERSIST
-  assert (! obj->data.deallocated_p);
-#endif
+
+  if (__mf_opts.persistent_count > 0)
+    assert (! obj->data.deallocated_p);
+
   if (obj->left)
     {
       assert (obj->left->data.high < obj->data.low);
@@ -485,7 +741,6 @@ __mf_validate_live_object_tree (__mf_object_tree_t *obj)
     }
 }
 
-#if OPT_PERSIST
 static void
 __mf_validate_object_cemetary ()
 {
@@ -495,8 +750,8 @@ __mf_validate_object_cemetary ()
   for (cls = __MF_TYPE_UNKNOWN; cls <= __MF_TYPE_STATIC; cls++)
     {
       assert (__mf_object_dead_head [cls] >= 0 &&
-	      __mf_object_dead_head [cls] < OPT_PERSIST);
-      for (i = 0; i < OPT_PERSIST; i++)
+	      __mf_object_dead_head [cls] < __mf_opts.persistent_count);
+      for (i = 0; i < __mf_opts.persistent_count; i++)
 	{
 	  __mf_object_tree_t *obj = __mf_object_cemetary [cls][i];
 	  if (obj != NULL)
@@ -508,19 +763,16 @@ __mf_validate_object_cemetary ()
 	}
     }
 }
-#endif
 
 static void 
 __mf_validate_objects ()
 {
   if (__mf_object_root)
     __mf_validate_live_object_tree (__mf_object_root);
-#if OPT_PERSIST
-  __mf_validate_object_cemetary ();
-#endif
-}
 
-#endif
+  if (__mf_opts.persistent_count > 0)
+    __mf_validate_object_cemetary ();
+}
 
 /* }}} */
 /* {{{ __mf_find_object[s] */
@@ -529,9 +781,7 @@ __mf_validate_objects ()
    max_objs of their pointers in objs[].  Return total count of
    overlaps (may exceed max_objs). */
 
-#if OPT_STATS
 /* XXX: track traversal statistics, like average depth, balance.  */
-#endif
 
 static unsigned
 __mf_find_objects_rec (uintptr_t low, uintptr_t high, __mf_object_tree_t **nodep,
@@ -619,9 +869,10 @@ __mf_find_object (uintptr_t low, uintptr_t high)
 {
   __mf_object_tree_t* objects[1]; /* Find at most one.  */
   unsigned count;
-#if OPT_INTCHK
-  __mf_validate_objects ();
-#endif
+
+  if (__mf_opts.internal_checking)
+    __mf_validate_objects ();
+
   count = __mf_find_objects_rec (low, high, & __mf_object_root, objects, 1);
   if (count == 1)
     return objects[0];
@@ -634,9 +885,9 @@ unsigned
 __mf_find_objects (uintptr_t ptr_low, uintptr_t ptr_high,
 		   __mf_object_tree_t **objs, unsigned max_objs)
 {
-#if OPT_INTCHK
-  __mf_validate_objects ();
-#endif
+  if (__mf_opts.internal_checking)
+    __mf_validate_objects ();
+
   return __mf_find_objects_rec (ptr_low, ptr_high, & __mf_object_root, objs, max_objs);
 }
 
@@ -667,9 +918,9 @@ __mf_link_object2 (__mf_object_tree_t *ptr, __mf_object_tree_t **link)
 void
 __mf_link_object (__mf_object_tree_t *ptr)
 {
-#if OPT_INTCHK
-  __mf_validate_objects ();
-#endif
+  if (__mf_opts.internal_checking)
+    __mf_validate_objects ();
+
   return __mf_link_object2 (ptr, & __mf_object_root);
 }
 
@@ -729,58 +980,58 @@ static unsigned
 __mf_find_dead_objects (uintptr_t low, uintptr_t high,
 			__mf_object_tree_t **objs, unsigned max_objs)
 {
-#if OPT_PERSIST
-  unsigned count;
-  unsigned recollection;
-  unsigned row;
-
-  assert (low <= high);
-  assert (max_objs == 0 || objs != NULL);
-
-  /* Widen the search from the most recent plots in each row, looking
-     backward in time.  */
-  recollection = 0;
-  while (recollection < OPT_PERSIST)
+  if (__mf_opts.persistent_count > 0)
     {
-      count = 0;
-
-      for (row = __MF_TYPE_UNKNOWN; row <= __MF_TYPE_STATIC; row ++)
+      unsigned count = 0;
+      unsigned recollection = 0;
+      unsigned row = 0;
+      
+      assert (low <= high);
+      assert (max_objs == 0 || objs != NULL);
+      
+      /* Widen the search from the most recent plots in each row, looking
+	 backward in time.  */
+      recollection = 0;
+      while (recollection < __mf_opts.persistent_count)
 	{
-	  unsigned plot;
-	  unsigned i;
-
-	  plot = __mf_object_dead_head [row];
-	  for (i = 0; i <= recollection; i ++)
+	  count = 0;
+	  
+	  for (row = __MF_TYPE_UNKNOWN; row <= __MF_TYPE_STATIC; row ++)
 	    {
-	      __mf_object_tree_t *obj;
-
-	      /* Look backward through row: it's a circular buffer.  */
-	      if (plot > 0) plot --;
-	      else plot = OPT_PERSIST - 1;
-
-	      obj = __mf_object_cemetary [row][plot];
-	      if (obj && obj->data.low <= high && obj->data.high >= low)
+	      unsigned plot;
+	      unsigned i;
+	      
+	      plot = __mf_object_dead_head [row];
+	      for (i = 0; i <= recollection; i ++)
 		{
-		  /* Found an overlapping dead object!  */
-		  if (count < max_objs)
-		    objs [count] = obj;
-		  count ++;
+		  __mf_object_tree_t *obj;
+		  
+		  /* Look backward through row: it's a circular buffer.  */
+		  if (plot > 0) plot --;
+		  else plot = __mf_opts.persistent_count - 1;
+		  
+		  obj = __mf_object_cemetary [row][plot];
+		  if (obj && obj->data.low <= high && obj->data.high >= low)
+		    {
+		      /* Found an overlapping dead object!  */
+		      if (count < max_objs)
+			objs [count] = obj;
+		      count ++;
+		    }
 		}
 	    }
+	  
+	  if (count)
+	    break;
+	  
+	  /* Look farther back in time.  */
+	  recollection = (recollection * 2) + 1;
 	}
-
-      if (count)
-	break;
-
-      /* Look farther back in time.  */
-      recollection = (recollection * 2) + 1;
+      
+      return count;
+    } else {
+      return 0;
     }
-
-  return count;
-
-#else /* ! OPT_PERSIST */
-  return 0;
-#endif
 }
 
 /* }}} */
@@ -789,6 +1040,9 @@ __mf_find_dead_objects (uintptr_t low, uintptr_t high,
 static void
 __mf_describe_object (__mf_object_t *obj)
 {
+
+  if (UNLIKELY (! __mf_active_p)) return;
+
   fprintf (stderr,
 	   "mudflap object %p: name=`%s'\n"
 	   "bounds=[%08lx,%08lx] area=%s access-count=%u\n"
@@ -800,30 +1054,31 @@ __mf_describe_object (__mf_object_t *obj)
 	    "unknown"),
 	   obj->check_count,
 	   obj->alloc_time.tv_sec, obj->alloc_time.tv_usec, obj->alloc_pc);
-#if OPT_BKTRACE
+
+  if (__mf_opts.backtrace > 0)
   {
     int i;
     for (i=0; i<obj->alloc_backtrace_size; i++)
       fprintf (stderr, "      %s\n", obj->alloc_backtrace[i]);
   }
-#endif
-#if OPT_PERSIST
-  if (obj->deallocated_p)
+
+  if (__mf_opts.persistent_count > 0)
     {
-      fprintf (stderr, "dealloc time=%lu.%06lu pc=%08lx\n",
-	       obj->dealloc_time.tv_sec, obj->dealloc_time.tv_usec, obj->dealloc_pc);
-#if OPT_BKTRACE
-      {
-	int i;
-	for (i=0; i<obj->dealloc_backtrace_size; i++)
-	  fprintf (stderr, "      %s\n", obj->dealloc_backtrace[i]);
-      }
-#endif
+      if (obj->deallocated_p)
+	{
+	  fprintf (stderr, "dealloc time=%lu.%06lu pc=%08lx\n",
+		   obj->dealloc_time.tv_sec, obj->dealloc_time.tv_usec, obj->dealloc_pc);
+
+	  if (__mf_opts.backtrace > 0)
+	  {
+	    int i;
+	    for (i=0; i<obj->dealloc_backtrace_size; i++)
+	      fprintf (stderr, "      %s\n", obj->dealloc_backtrace[i]);
+	  }
+	}
     }
-#endif
 }
 
-#if OPT_LEAK
 static unsigned
 __mf_report_leaks (__mf_object_tree_t *node)
 {
@@ -844,111 +1099,77 @@ __mf_report_leaks (__mf_object_tree_t *node)
 
   return count;
 }
-#endif
 
 /* }}} */
-#endif
 /* ------------------------------------------------------------------------ */
 /* {{{ __mf_report */
 
 void
 __mf_report ()
 {
-#if OPT_STATS
-  fprintf (stderr,
-	   "*******\n"
-	   "mudflap stats:\n"
-	   "calls to __mf_check: %lu rot: %lu/%lu\n"
-	   "         __mf_register: %lu [%luB, %luB, %luB, %luB]\n"
-	   "         __mf_unregister: %lu [%luB]\n"
-	   "         __mf_violation: [%lu, %lu, %lu, %lu]\n",
-	   __mf_count_check, __mf_treerot_left, __mf_treerot_right,
-	   __mf_count_register,
-	   __mf_total_register_size[0], __mf_total_register_size[1],
-	   __mf_total_register_size[2], __mf_total_register_size[3],
-	   __mf_count_unregister, __mf_total_unregister_size,
-	   __mf_count_violation[0], __mf_count_violation[1],
-	   __mf_count_violation[2], __mf_count_violation[3]);
 
-  /* Lookup cache stats.  */
-  {
-    unsigned i;
-    unsigned max_reuse = 0;
-    unsigned num_used = 0;
-    unsigned num_unused = 0;
+  if (UNLIKELY (! __mf_active_p)) return;
 
-    for (i = 0; i < LOOKUP_CACHE_SIZE; i++)
+  if (__mf_opts.collect_stats)
+    {
+      fprintf (stderr,
+	       "*******\n"
+	       "mudflap stats:\n"
+	       "calls to __mf_check: %lu rot: %lu/%lu\n"
+	       "         __mf_register: %lu [%luB, %luB, %luB, %luB]\n"
+	       "         __mf_unregister: %lu [%luB]\n"
+	       "         __mf_violation: [%lu, %lu, %lu, %lu]\n",
+	       __mf_count_check, __mf_treerot_left, __mf_treerot_right,
+	       __mf_count_register,
+	       __mf_total_register_size[0], __mf_total_register_size[1],
+	       __mf_total_register_size[2], __mf_total_register_size[3],
+	       __mf_count_unregister, __mf_total_unregister_size,
+	       __mf_count_violation[0], __mf_count_violation[1],
+	       __mf_count_violation[2], __mf_count_violation[3]);
+
+      /* Lookup cache stats.  */
       {
-	if (__mf_lookup_cache_reusecount[i])
-	  num_used ++;
-	else
-	  num_unused ++;
-	if (max_reuse < __mf_lookup_cache_reusecount[i])
-	  max_reuse = __mf_lookup_cache_reusecount[i];
+	unsigned i;
+	unsigned max_reuse = 0;
+	unsigned num_used = 0;
+	unsigned num_unused = 0;
+
+	for (i = 0; i < LOOKUP_CACHE_SIZE; i++)
+	  {
+	    if (__mf_lookup_cache_reusecount[i])
+	      num_used ++;
+	    else
+	      num_unused ++;
+	    if (max_reuse < __mf_lookup_cache_reusecount[i])
+	      max_reuse = __mf_lookup_cache_reusecount[i];
+	  }
+	fprintf (stderr, "lookup cache slots used: %u  unused: %u  peak-reuse: %u\n",
+		 num_used, num_unused, max_reuse);
       }
-    fprintf (stderr, "lookup cache slots used: %u  unused: %u  peak-reuse: %u\n",
-	     num_used, num_unused, max_reuse);
-  }
 
-  {
-    unsigned live_count;
-    live_count = __mf_find_objects ((uintptr_t) 0, ~ (uintptr_t) 0, NULL, 0);
-    fprintf (stderr, "number of live objects: %u\n", live_count);
-  }
+      {
+	unsigned live_count;
+	live_count = __mf_find_objects ((uintptr_t) 0, ~ (uintptr_t) 0, NULL, 0);
+	fprintf (stderr, "number of live objects: %u\n", live_count);
+      }
 
-#if OPT_PERSIST
-  {
-    unsigned dead_count = 0;
-    unsigned row, plot;
-    for (row = __MF_TYPE_UNKNOWN; row <= __MF_TYPE_STATIC; row ++)
-      for (plot = 0 ; plot < OPT_PERSIST; plot ++)
-	if (__mf_object_cemetary [row][plot] != 0)
-	  dead_count ++;
-    fprintf (stderr, "          persistent dead objects: %u\n", dead_count);
-  }
-#endif
-#endif /* OPT_STATS */
-#if OPT_LEAK && MODE_CHECK
-  {
-    unsigned l = __mf_report_leaks (__mf_object_root);
-    fprintf (stderr, "number of leaked objects: %u\n", l);
-  }
-#endif
+      if (__mf_opts.persistent_count > 0)
+	{
+	  unsigned dead_count = 0;
+	  unsigned row, plot;
+	  for (row = __MF_TYPE_UNKNOWN; row <= __MF_TYPE_STATIC; row ++)
+	    for (plot = 0 ; plot < __mf_opts.persistent_count; plot ++)
+	      if (__mf_object_cemetary [row][plot] != 0)
+		dead_count ++;
+	  fprintf (stderr, "          persistent dead objects: %u\n", dead_count);
+	}
+    }
+  if (__mf_opts.print_leaks && (__mf_opts.mudflap_mode == mode_check))
+    {
+      unsigned l = __mf_report_leaks (__mf_object_root);
+      fprintf (stderr, "number of leaked objects: %u\n", l);
+    }
 }
-
-/* }}} */
-/* {{{ OPT_INIT support */
-
-#if OPT_INIT
-
-#if 0
-/* XXX */
-#define CTOR  __attribute__ ((section (".init")))
-#define DTOR  __attribute__ ((section (".fini")))
-#endif
-
-#define CTOR  __attribute__ ((constructor))
-#define DTOR  __attribute__ ((destructor))
-
-extern void __mf_init () CTOR;
-void __mf_init ()
-{
-#if OPT_TRACE
-  fprintf (stderr, "mf init\n");
-#endif
-}
-
-
-extern void __mf_fini () DTOR;
-void __mf_fini ()
-{
-#if OPT_TRACE
-  fprintf (stderr, "mf fini\n");
-#endif
-  __mf_report ();
-}
-
-#endif
 
 /* }}} */
 /* ------------------------------------------------------------------------ */
@@ -957,16 +1178,18 @@ void __mf_fini ()
 void
 __mf_violation (uintptr_t ptr, uintptr_t sz, uintptr_t pc, int type)
 {
+  char buf [128];
   static unsigned violation_number;
 
-#if OPT_TRACE
-  fprintf (stderr, "mf violation pc=%08lx type=%d\n", pc, type);
-#endif
-#if OPT_STATS
-  __mf_count_violation [(type < 0) ? 0 :
-			(type > __MF_VIOL_UNREGISTER) ? 0 :
-			type] ++;
-#endif
+  if (UNLIKELY (! __mf_active_p)) return;
+
+  if (__mf_opts.trace_mf_calls)
+    fprintf (stderr, "mf violation pc=%08lx type=%d\n", pc, type);
+
+  if (__mf_opts.collect_stats)
+    __mf_count_violation [(type < 0) ? 0 :
+			  (type > __MF_VIOL_UNREGISTER) ? 0 :
+			  type] ++;
 
   /* Print out a basic warning message.  */
   /* XXX: should even this be conditional?  */
@@ -986,7 +1209,7 @@ __mf_violation (uintptr_t ptr, uintptr_t sz, uintptr_t pc, int type)
 	      "unknown"));
   }
 
-#if OPT_HELPFUL
+  if (__mf_opts.verbose_violations)
   {
     unsigned dead_p;
     unsigned num_helpful = 0;
@@ -1048,18 +1271,24 @@ __mf_violation (uintptr_t ptr, uintptr_t sz, uintptr_t pc, int type)
 
     fprintf (stderr, "number of nearby objects: %u\n", num_helpful);
   }
-#endif
 
   /* How to finally handle this violation?  */
-#if VIOLATION_NOP
-  return;
-#elif VIOLATION_SEGV
-  kill (getpid(), SIGSEGV);
-#elif VIOLATION_CORE
-  abort ();
-#elif VIOLATION_GDB
-#error "not yet implemented"
-#endif
+  switch (__mf_opts.violation_mode)
+    {
+    case viol_nop:
+      return;
+      break;
+    case viol_segv:
+      kill (getpid(), SIGSEGV);
+      break;
+    case viol_abort:
+      abort ();
+      break;
+    case viol_gdb:
+      snprintf (buf, 128, "gdb --pid=%d", getpid ());
+      system (buf);
+      break;
+    }
 }
 
 /* }}} */

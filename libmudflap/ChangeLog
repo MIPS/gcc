@@ -1,3 +1,14 @@
+2002-08-13  Graydon Hoare  <graydon@redhat.com>
+
+	* mf-runtime.c: Rework configuration to operate on
+	environment variable options rather than #defines
+	(__mf_violation): Add simple fork-a-gdb violaiton mode.
+	(__mf_init): Set static __mf_active_p flag on startup,
+	to inhibit mudflap wrap-based checking during crt0.s.
+	* mf-runtime.h: Declare options structure.
+	* mf-hooks.c: New wrappings for mem*, b*, str*
+	libc functions (temporarily #if 0-ed out).
+
 2002-08-12  Frank Ch. Eigler  <fche@redhat.com>
 
 	* Makefile.am, configure.in: New files.
