@@ -1,3 +1,7 @@
+2003-04-22  Release Manager
+
+	* GCC 3.2.3 Released.
+
 2003-04-12  Jakub Jelinek  <jakub@redhat.com>
 
 	* include/ffi.h.in [POWERPC64] (FFI_CLOSURE): Define to 1.

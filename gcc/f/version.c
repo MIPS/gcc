@@ -1,4 +1,4 @@
 #include "ansidecl.h"
 #include "f/version.h"
 
-const char *const ffe_version_string = "3.2.2 20030407 (Red Hat Linux 3.2.2-17)";
+const char *const ffe_version_string = "3.2.3 20030422 (Red Hat Linux 3.2.3-1)";
