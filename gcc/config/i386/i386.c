@@ -3818,7 +3818,9 @@ flags_reg_operand (op, mode)
 {
   if (mode != VOIDmode && GET_MODE (op) != mode)
     return 0;
-  return REG_P (op) && REGNO (op) == FLAGS_REG && GET_MODE (op) != VOIDmode;
+  return (GET_CODE (op) == REG
+	  && REGNO (op) == FLAGS_REG
+	  && GET_MODE (op) != VOIDmode);
 }
 
 /* Return true if op is a NON_Q_REGS class register.  */
@@ -4249,6 +4251,14 @@ aligned_operand (op, mode)
 
   /* Didn't find one -- this must be an aligned address.  */
   return 1;
+}
+
+int
+compare_operator (op, mode)
+     rtx op;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
+{
+  return GET_CODE (op) == COMPARE;
 }
 
 /* Initialize the table of extra 80387 mathematical constants.  */

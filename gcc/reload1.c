@@ -3390,6 +3390,16 @@ set_initial_elim_offsets ()
   num_not_at_initial_offset = 0;
 }
 
+/* Subroutine of set_initial_label_offsets called via for_each_eh_label.  */
+
+static void set_initial_eh_label_offset PARAMS ((rtx));
+static void
+set_initial_eh_label_offset (label)
+     rtx label;
+{
+  set_label_offsets (label, NULL_RTX, 1);
+}
+
 /* Initialize the known label offsets.
    Set a known offset for each forced label to be at the initial offset
    of each elimination.  We do this because we assume that all
@@ -3406,6 +3416,8 @@ set_initial_label_offsets ()
   for (x = forced_labels; x; x = XEXP (x, 1))
     if (XEXP (x, 0))
       set_label_offsets (XEXP (x, 0), NULL_RTX, 1);
+
+  for_each_eh_label (set_initial_eh_label_offset);
 }
 
 /* Set all elimination offsets to the known values for the code label given
@@ -8085,6 +8097,19 @@ reload_cse_simplify (insn, testreg)
       int i;
       int count = 0;
       rtx value = NULL_RTX;
+
+      /* Registers mentioned in the clobber list for an asm cannot be reused
+	 within the body of the asm.  Invalidate those registers now so that
+	 we don't try to substitute values for them.  */
+      if (asm_noperands (body) >= 0)
+	{
+	  for (i = XVECLEN (body, 0) - 1; i >= 0; --i)
+	    {
+	      rtx part = XVECEXP (body, 0, i);
+	      if (GET_CODE (part) == CLOBBER && REG_P (XEXP (part, 0)))
+		cselib_invalidate_rtx (XEXP (part, 0));
+	    }
+	}
 
       /* If every action in a PARALLEL is a noop, we can delete
 	 the entire PARALLEL.  */
