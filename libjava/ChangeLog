@@ -1,6 +1,7 @@
-2004-07-17  Michael Koch  <konqueror@gmx.de>
+2004-07-01  Mark Wielaard  <mark@klomp.org>
 
-	* java/awt/event/InvocationEvent.java
+	* java/awt/event/InvocationEvent.java (dispatch): Synchronize
+	on notifier object before calling notifyAll().
 
 2004-07-16  Graydon Hoare  <graydon@redhat.com>
 
