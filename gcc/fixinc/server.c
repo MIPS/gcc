@@ -2,7 +2,7 @@
 /*
  *  server.c  Set up and handle communications with a server process.
  *
- *  Server Handling copyright 1992-1998 The Free Software Foundation
+ *  Server Handling copyright 1992-1999 The Free Software Foundation
  *
  *  Server Handling is free software.
  *  You may redistribute it and/or modify it under the terms of the
@@ -81,9 +81,9 @@
 STATIC bool read_pipe_timeout;
 
 STATIC tpChar def_args[] =
-{(char *) NULL, (char *) NULL};
+{ (char *) NULL, (char *) NULL };
 STATIC tpfPair server_pair =
-{(FILE *) NULL, (FILE *) NULL};
+{ (FILE *) NULL, (FILE *) NULL };
 STATIC pid_t server_id = NULLPROCESS;
 /*
  *  Arbitrary text that should not be found in the shell output.
@@ -108,8 +108,7 @@ chainOpen (stdin_fd, pp_args, p_child)
      tpChar *pp_args;
      pid_t *p_child;
 {
-  tFdPair stdout_pair =
-  {-1, -1};
+  tFdPair stdout_pair = {-1, -1};
   pid_t ch_id;
   char *pz_cmd;
 
@@ -117,7 +116,7 @@ chainOpen (stdin_fd, pp_args, p_child)
    *  Create a pipe it will be the child process' stdout,
    *  and the parent will read from it.
    */
-  if ((pipe ((int *) &stdout_pair) < 0))
+  if (pipe ((int *) &stdout_pair) < 0)
     {
       if (p_child != (pid_t *) NULL)
         *p_child = NOPROCESS;
@@ -143,14 +142,17 @@ chainOpen (stdin_fd, pp_args, p_child)
       if (pz_cmd == (char *) NULL)
         pz_cmd = "sh";
     }
+
 #ifdef DEBUG_PRINT
   printf ("START:  %s\n", pz_cmd);
   {
     int idx = 0;
+    
     while (pp_args[++idx] != (char *) NULL)
       printf ("  ARG %2d:  %s\n", idx, pp_args[idx]);
   }
 #endif
+
   /*
    *  Call fork() and see which process we become
    */
@@ -286,11 +288,10 @@ load_data (fp)
   char z_line[1024];
 
   text_size = sizeof (z_line) * 2;
-  pz_scan = \
-    pz_text = malloc (text_size);
+  pz_scan = pz_text = malloc (text_size);
 
   if (pz_text == (char *) NULL)
-    return pz_text;
+    return (char *) NULL;
 
   for (;;)
     {
@@ -310,9 +311,9 @@ load_data (fp)
 
       if (text_size - usedCt < sizeof (z_line))
         {
-
           size_t off = (size_t) (pz_scan - pz_text);
           void *p;
+	  
           text_size += 4096;
           p = realloc ((void *) pz_text, text_size);
           if (p == (void *) NULL)
@@ -321,7 +322,6 @@ load_data (fp)
               free ((void *) pz_text);
               return (char *) NULL;
             }
-
           pz_text = (char *) p;
           pz_scan = pz_text + off;
         }
@@ -350,7 +350,7 @@ load_data (fp)
 static void
 close_server ()
 {
-  kill( (pid_t) server_id, SIGKILL);
+  kill ((pid_t) server_id, SIGKILL);
   server_id = NULLPROCESS;
   fclose (server_pair.pfRead);
   fclose (server_pair.pfWrite);
@@ -381,11 +381,12 @@ static void
 server_setup ()
 {
   static int atexit_done = 0;
+  
   if (atexit_done++ == 0)
-    atexit( &close_server );
+    atexit (&close_server);
 
-  signal( SIGPIPE, sig_handler );
-  signal( SIGALRM, sig_handler );
+  signal (SIGPIPE, sig_handler);
+  signal (SIGALRM, sig_handler);
 
   fputs ("trap : 1\n", server_pair.pfWrite);
   fflush (server_pair.pfWrite);
@@ -433,8 +434,9 @@ runShell (pz_cmd)
    */
   if (server_id <= 0)
     {
-      char* pz = (char*)malloc( 1 );
-      if (pz != (char*)NULL)
+      char *pz = (char *) malloc (1);
+      
+      if (pz != (char *) NULL)
         *pz = '\0';
       return pz;
     }
@@ -454,8 +456,9 @@ runShell (pz_cmd)
    */
   if (server_id == NULLPROCESS)
     {
-      char* pz = (char*)malloc( 1 );
-      if (pz != (char*)NULL)
+      char *pz = (char *) malloc (1);
+      
+      if (pz != (char *) NULL)
         *pz = '\0';
       return pz;
     }
@@ -466,13 +469,14 @@ runShell (pz_cmd)
    */
   {
     char *pz = load_data (server_pair.pfRead);
+    
     if (pz == (char *) NULL)
       {
         fprintf (stderr, "CLOSING SHELL SERVER - command failure:\n\t%s\n",
                  pz_cmd);
         close_server ();
-        pz = (char*)malloc( 1 );
-        if (pz != (char*)NULL)
+        pz = (char *) malloc (1);
+        if (pz != (char *) NULL)
           *pz = '\0';
       }
     return pz;

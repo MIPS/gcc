@@ -2,7 +2,7 @@
 /*
  *  server.c  Set up and handle communications with a server process.
  *
- *  Server Handling copyright 1992-1998 The Free Software Foundation
+ *  Server Handling copyright 1992-1999 The Free Software Foundation
  *
  *  Server Handling is free software.
  *  You may redistribute it and/or modify it under the terms of the
@@ -59,40 +59,36 @@
  */
 
 typedef struct
-  {
-    int readFd;
-    int writeFd;
-  }
-tFdPair;
+{
+  int readFd;
+  int writeFd;
+} tFdPair;
 
 typedef struct
-  {
-    FILE *pfRead;               /* parent read fp  */
-    FILE *pfWrite;              /* parent write fp */
-  }
-tpfPair;
+{
+  FILE *pfRead;			/* parent read fp  */
+  FILE *pfWrite;		/* parent write fp */
+} tpfPair;
 
 typedef char *tpChar;
 
-#define NOPROCESS   ((pid_t)-1)
-#define NULLPROCESS ((pid_t)0)
+#define NOPROCESS	((pid_t) -1)
+#define NULLPROCESS	((pid_t)0)
 
-#define EXIT_PANIC   99
+#define EXIT_PANIC	99
 
 typedef enum
-  {
-    BOOL_FALSE, BOOL_TRUE
-  }
-bool;
+{
+  BOOL_FALSE, BOOL_TRUE
+} bool;
 
-#define _P_(p) ()
+#define _P_(p)	()
 
 char *runShell _P_ ((const char *pzCmd));
 pid_t p2fopen _P_ ((tpfPair * pfPair, tpChar * ppArgs));
 pid_t p2open _P_ ((tFdPair * pPair, tpChar * ppArgs));
-int
-chainOpen _P_ ((int stdinFd,
-                tpChar * ppArgs,
-                pid_t * pChild));
+int chainOpen _P_ ((int stdinFd,
+		    tpChar * ppArgs,
+		    pid_t * pChild));
 
 #endif /* FIXINC_SERVER_H */
