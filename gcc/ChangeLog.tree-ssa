@@ -1,3 +1,7 @@
+2003-06-17  Steven Bosscher  <steven@gcc.gnu.org>
+
+	* timevar.def (TV_TREE_BUILD_FUD_CHAINS): Remove.
+
 2003-06-16  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-ssa-ccp.c (DONT_SIMULATE_AGAIN): Define.
