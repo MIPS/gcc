@@ -435,14 +435,6 @@ c_common_handle_option (size_t scode, const char *arg, int value)
       break;
 
     case OPT_Werror:
-      /* APPLE LOCAL begin QA_DISABLE_WERROR 2002-21-01 --dpatel */
-      if (getenv ("QA_DISABLE_WERROR"))
-	{
-	  warning ("-Werror ignored because QA_DISABLE_WERROR is set.");
-	  warning ("Warnings will not be treated as errors.");
-	  break;
-	}
-      /* APPLE LOCAL end QA_DISABLE_WERROR 2002-21-01 --dpatel */
       cpp_opts->warnings_are_errors = value;
       global_dc->warning_as_error_requested = value;
       break;

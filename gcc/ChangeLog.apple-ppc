@@ -1,3 +1,17 @@
+2005-03-06  Devang Patel  <dpatel@apple.com>
+
+	* c-opts.c (c_common_handle_option): Remove QA_DISABLE_WERROR.
+
+2005-03-06  Devang Patel  <dpatel@apple.com>
+
+	* tree-ssa-operands.h (add_vdef): Remove.
+	* tree.h (get_array_base): Remove.
+	(swap_tree_comparison): Remove redundant decl.
+
+2005-03-06  Devang Patel  <dpatel@apple.com>
+
+	* varray.h (VARRAY_DG_INIT, VARRAY_DG): Remove.
+	
 2005-03-04  Dale Johannesen  <dalej@apple.com>
 
 	Radar 4025985 (partial)
