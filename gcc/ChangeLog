@@ -1,4 +1,7 @@
 2004-02-25  Stuart Hastings  <stuart@apple.com>
+	* gimple-low.c (expand_var_p) Remove redundant call.
+	
+2004-02-25  Stuart Hastings  <stuart@apple.com>
 	* tree-optimize.c (execute_inline) New.
 	Make inliner into a PASS, move after first gimplification step.
 	
