@@ -1258,6 +1258,7 @@ extern int c_staticp (tree);
 extern int c_common_unsafe_for_reeval (tree);
 
 extern void init_c_lex (void);
+extern void register_cpp_callbacks (void);
 
 extern void c_cpp_builtins (cpp_reader *);
 

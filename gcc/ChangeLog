@@ -1,3 +1,17 @@
+2003-08-14  Per Bothner  <pbothner@apple.com>
+
+	* c-lex.c (init_c_lex):  Clear map - needed if server starts new file.
+	(fe_file_change):  Handle new_map == NULL.
+
+	* c-lex.c (register_cpp_callbacks):  New function.
+	Move stuff out of init_c_lex.
+	* c-opts.c (c_common_post_options):  Call it.
+	* c-common.h (register_cpp_callbacks):  New declaration.
+
+	* c-lex.c (init_c_lex):  Don't allocate file_info_tree here.
+	(get_fileinfo):  Instead allocate it lazily here.
+	(dump_time_statistics):  Check that file_info_tree is non-NULL.
+
 2003-08-14  Per Bothner  <bothner@pbothner.com>
 
 	* cppfiles.c (stack_file):  Correctly pass return_at_eof parameter

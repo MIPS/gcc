@@ -81,13 +81,8 @@ static void cb_undef (cpp_reader *, unsigned int, cpp_hashnode *);
 void
 init_c_lex (void)
 {
-  struct cpp_callbacks *cb;
   struct c_fileinfo *toplevel;
 
-  /* Set up filename timing.  Must happen before cpp_read_main_file.  */
-  file_info_tree = splay_tree_new ((splay_tree_compare_fn)strcmp,
-				   0,
-				   (splay_tree_delete_value_fn)free);
   toplevel = get_fileinfo ("<top level>");
   if (flag_detailed_statistics)
     {
@@ -95,7 +90,13 @@ init_c_lex (void)
       body_time = get_run_time ();
       toplevel->time = body_time;
     }
+  map = NULL;
+}
 
+void
+register_cpp_callbacks ()
+{
+  struct cpp_callbacks *cb;
   cb = cpp_get_callbacks (parse_in);
 
   cb->line_change = cb_line_change;
@@ -121,6 +122,11 @@ get_fileinfo (const char *name)
   splay_tree_node n;
   struct c_fileinfo *fi;
 
+  /* Set up filename timing.  Must happen before cpp_read_main_file.  */
+  if (file_info_tree == NULL)
+    file_info_tree = splay_tree_new ((splay_tree_compare_fn)strcmp,
+				     0,
+				     (splay_tree_delete_value_fn)free);
   n = splay_tree_lookup (file_info_tree, (splay_tree_key) name);
   if (n)
     return (struct c_fileinfo *) n->value;
@@ -171,7 +177,8 @@ dump_time_statistics (void)
 	   (double)header_time / (double)(this_time - body_time));
   fprintf (stderr, "\n******\n");
 
-  splay_tree_foreach (file_info_tree, dump_one_header, 0);
+  if (file_info_tree != NULL)
+    splay_tree_foreach (file_info_tree, dump_one_header, 0);
 }
 
 static void
@@ -212,7 +219,14 @@ cb_dir_change (cpp_reader *pfile ATTRIBUTE_UNUSED, const char *dir)
 void
 fe_file_change (const struct line_map *new_map)
 {
-  unsigned int to_line = SOURCE_LINE (new_map, new_map->to_line);
+  unsigned int to_line;
+  if (new_map == NULL)
+    {
+      map = NULL;
+      return;
+    }
+
+  to_line = SOURCE_LINE (new_map, new_map->to_line);
 
   if (new_map->reason == LC_ENTER)
     {

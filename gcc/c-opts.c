@@ -1119,6 +1119,7 @@ c_common_post_options (const char **pfilename)
     }
   else
     {
+      register_cpp_callbacks ();
       init_c_lex ();
 
       /* Yuk.  WTF is this?  I do know ObjC relies on it somewhere.  */
