@@ -1,3 +1,10 @@
+2004-04-24  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* tree-cfg.c (factored_computed_goto_label,
+	factored_computed_goto): Removed.
+	(disband_implicit_edges): Unfactor computed gotos without
+	using them.
+
 2004-04-23  Andrew Pinski  <pinskia@physics.uc.edu>
 
 	* c-simplify.c (gimplify_decl_stmt) [TYPE_DECL]:
