@@ -1,3 +1,8 @@
+2004-09-21  Paul Brook  <paul@codesourcery.com>
+
+	* varasm.c (default_assemble_integer): Return false for values wider
+	than the target word size.  Works around GAS bug.
+
 2004-09-19  Mark Mitchell  <mark@codesourcery.com>
 
 	* cp/decl2.c (determine_visibility): Allow class visibility
