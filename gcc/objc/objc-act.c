@@ -5957,33 +5957,39 @@ build_objc_method_call (super_flag, method_prototype, lookup_object,
      tree method_prototype, lookup_object, selector, method_params;
 {
   tree sender = (super_flag ? umsg_super_decl :
-		 flag_nil_receivers ? umsg_decl : umsg_nonnil_decl);
-  tree rcv_p = (super_flag ? super_type	: id_type);
-  tree object = (super_flag ? self_decl : lookup_object);
+		 (!flag_next_runtime || flag_nil_receivers
+		  ? umsg_decl
+		  : umsg_nonnil_decl));
+  tree rcv_p = (super_flag ? super_type : id_type);
   
+  /* If a prototype for the method to be called exists, then cast
+     the sender's return type to match that of the  method.  Otherwise,
+     leave sender as is.  */
+  /* If the sender's return type is 'void', treat it as if it were
+     'id' instead.  This is because the sender signature may in
+     fact be incorrect, especially if the type of the receiver is
+     not known.  The same applies to sender's arguments (other than
+     self and _cmd), so just cast them as '...'.  */
+  tree ret_type = (method_prototype
+		   ? groktypename (TREE_TYPE (method_prototype))
+		   : id_type);
+  tree sender_cast = build_pointer_type
+		     (build_function_type 
+		      ((ret_type == void_type_node 
+			? id_type 
+			: ret_type),
+		      tree_cons (NULL_TREE,
+				 (super_flag && flag_next_runtime
+				  ? super_type
+				  : id_type),
+				 tree_cons (NULL_TREE, 
+					    selector_type,
+					    NULL_TREE))));
+	 
+  lookup_object = build_c_cast (rcv_p, lookup_object);
+
   if (flag_next_runtime)
     {
-      /* If a prototype for the method to be called exists, then cast
-	 the sender's arguments and return type to match that of the
-	 method.  Otherwise, leave sender as is.  */
-      /* If the sender's return type is 'void', treat it as if it were
-	 'id' instead.  This is because the sender signature may in
-	 fact be incorrect, especially if the type of the receiver is
-	 not known.  */
-      tree ret_type = (method_prototype
-		       ? groktypename (TREE_TYPE (method_prototype))
-		       : id_type);
-      tree sender_cast = (method_prototype
-			  ? build_pointer_type
-			    (build_function_type 
-			     ((ret_type == void_type_node 
-			       ? id_type 
-			       : ret_type),
-			      get_arg_type_list (method_prototype, 
-						 METHOD_REF,
-						 super_flag)))
-			  : NULL_TREE);
-	 
 #ifdef STRUCT_VALUE
       /* If we are returning a struct in memory, and the address
 	 of that memory location is passed as a hidden first
@@ -5999,32 +6005,27 @@ build_objc_method_call (super_flag, method_prototype, lookup_object,
 	sender = (super_flag ? umsg_super_stret_decl : 
 		flag_nil_receivers ? umsg_stret_decl : umsg_nonnil_stret_decl);
 #endif
-      method_params = tree_cons (NULL_TREE, 
-				 build_c_cast (rcv_p, lookup_object),
+      method_params = tree_cons (NULL_TREE, lookup_object,
 				 tree_cons (NULL_TREE, selector,
 					    method_params));
+      TREE_USED (sender) = 1;
       assemble_external (sender);
       /* We want to cast the sender, not convert it.  */
       return build_function_call 
-	     (sender_cast ? build_c_cast (sender_cast, sender) : sender, 
+	     (build_c_cast (sender_cast, sender), 
 	      method_params);
     }
   else
     {
-      /* This is the portable way.
-	 First call the lookup function to get a pointer to the method,
-	 then cast the pointer, then call it with the method arguments.  */
-      tree method;
+      /* This is the portable way.  */
+      tree method, object;
 
-      /* Avoid trouble since we may evaluate each of these twice.  */
+      /* First, call the lookup function to get a pointer to the method,
+	 then cast the pointer, then call it with the method arguments.
+	 Use SAVE_EXPR to avoid evaluating the receiver twice.  */
       lookup_object = save_expr (lookup_object);
-      selector = save_expr (selector);
-
-      if (!super_flag)
-        object = lookup_object;
-
-      lookup_object = build_c_cast (rcv_p, lookup_object);
-
+      object = (super_flag ? self_decl : lookup_object);
+      TREE_USED (sender) = 1;
       assemble_external (sender);
       method
 	= build_function_call (sender,
@@ -6032,24 +6033,10 @@ build_objc_method_call (super_flag, method_prototype, lookup_object,
 					  tree_cons (NULL_TREE, selector,
 						     NULL_TREE)));
 
-      /* If we have a method prototype, construct the data type this
-	 method needs, and cast what we got from SENDER into a pointer
-	 to that type.  */
-      if (method_prototype)
-	{
-	  tree arglist = get_arg_type_list (method_prototype, METHOD_REF,
-					    super_flag);
-	  tree valtype = groktypename (TREE_TYPE (method_prototype));
-	  tree fake_function_type = build_function_type (valtype, arglist);
-	  TREE_TYPE (method) = build_pointer_type (fake_function_type);
-	}
-      else
-	TREE_TYPE (method)
-	  = build_pointer_type (build_function_type (ptr_type_node, NULL_TREE));
-
       /* Pass the object to the method.  */
+      TREE_USED (method) = 1;
       assemble_external (method);
-      return build_function_call (method,
+      return build_function_call (build_c_cast (sender_cast, method),
 				  tree_cons (NULL_TREE, object,
 					     tree_cons (NULL_TREE, selector,
 							method_params)));
