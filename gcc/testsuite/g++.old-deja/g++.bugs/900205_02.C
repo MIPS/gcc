@@ -1,3 +1,4 @@
+// Build don't link:
 // g++ 1.36.1 bug 900205_02
 
 // g++ allows constructors to be defined which do not include

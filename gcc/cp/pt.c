@@ -1302,7 +1302,8 @@ check_explicit_specialization (declarator, decl, flags)
     {
       SET_DECL_TEMPLATE_SPECIALIZATION (decl);
       if (ctype 
-	  && TREE_CODE (declarator) == TEMPLATE_ID_EXPR)
+	  && (TREE_CODE (declarator) == TEMPLATE_ID_EXPR
+	      || CLASSTYPE_TEMPLATE_SPECIALIZATION (ctype)))
 	member_specialization = 1;
       else
 	specialization = 1;
@@ -6680,6 +6681,13 @@ tsubst_copy (t, args, complain, in_decl)
 	tree enum_type;
 	tree v;
 
+	/* If we encounter a non-type template parameter, replace it
+	   with the value that has been used to instantiate the
+	   template.  */
+	if (DECL_TEMPLATE_PARM_P (t))
+	  return tsubst_copy (DECL_INITIAL (t), args, complain,
+			      in_decl);
+
 	if (!DECL_CONTEXT (t))
 	  /* This is a global enumeration constant.  */
 	  return t;
@@ -6735,6 +6743,8 @@ tsubst_copy (t, args, complain, in_decl)
     case TEMPLATE_DECL:
       if (is_member_template (t))
 	return tsubst (t, args, complain, in_decl);
+      else if (DECL_TEMPLATE_TEMPLATE_PARM_P (t))
+	return tsubst (TREE_TYPE (t), args, complain, in_decl);
       else
 	return t;
 
@@ -6755,6 +6765,18 @@ tsubst_copy (t, args, complain, in_decl)
 	  }
 
 	return t;
+      }
+
+    case USING_DECL:
+      {
+	/* When we see a USING_DECL it will be a member-declaration
+	   from a template class.  For now, we just convert it to a
+	   LOOKUP_EXPR; we do not yet implement the modern semantics
+	   of class using-declarations.  */
+	my_friendly_assert (TYPE_P (CP_DECL_CONTEXT (t)),
+			    20010717);
+	r = build_nt (LOOKUP_EXPR, DECL_NAME (t));
+	return r;
       }
 
     case CAST_EXPR:
@@ -6879,6 +6901,9 @@ tsubst_copy (t, args, complain, in_decl)
 	 to expand the STMT_EXPR here.  */
       if (!processing_template_decl)
 	{
+	  /* Pretend the statement-expression is compiler-generated;
+	     we have already warned about it when it was created, if
+	     necessary.  */
 	  tree stmt_expr = begin_stmt_expr ();
 	  tsubst_expr (STMT_EXPR_STMT (t), args,
 		       complain, in_decl);

@@ -39,9 +39,6 @@ Boston, MA 02111-1307, USA.  */
 #include "intl.h"
 #include "diagnostic.h"
 
-#define obstack_chunk_alloc xmalloc
-#define obstack_chunk_free  free
-
 #define output_formatted_integer(BUFFER, FORMAT, INTEGER) \
   do {                                                    \
     sprintf (digit_buffer, FORMAT, INTEGER);              \
@@ -274,17 +271,21 @@ output_set_prefix (buffer, prefix)
   output_indentation (buffer) = 0;
 }
 
-/*  Return a pointer to the last character emitted in the output
-    BUFFER area.  A NULL pointer means no character available.  */
+/*  Return a pointer to the last character emitted in the current
+    diagnostic message.  */
+
 const char *
 output_last_position (buffer)
      const output_buffer *buffer;
 {
-  const char *p = NULL;
-  
-  if (obstack_base (&buffer->obstack) != obstack_next_free (&buffer->obstack))
-    p = ((const char *) obstack_next_free (&buffer->obstack)) - 1;
-  return p;
+  const char *end;
+
+  end = buffer->messages->s + dyn_string_length (buffer->messages);
+
+  if (end != buffer->messages->s)
+    return end - 1;
+
+  return NULL;
 }
 
 /* Free BUFFER's prefix, a previously malloc'd string.  */
@@ -300,13 +301,13 @@ output_destroy_prefix (buffer)
     }
 }
 
-/* Zero out any text output so far in BUFFER.  */
+/* Remove any queued messages from the BUFFER without issuing them.  */
 
 void
 output_clear_message_text (buffer)
      output_buffer *buffer;
 {
-  obstack_free (&buffer->obstack, obstack_base (&buffer->obstack));
+  dyn_string_clear (buffer->messages);
   output_text_length (buffer) = 0;
 }
 
@@ -332,7 +333,7 @@ init_output_buffer (buffer, prefix, maximum_length)
      int maximum_length;
 {
   memset (buffer, 0, sizeof (output_buffer));
-  obstack_init (&buffer->obstack);
+  buffer->messages = dyn_string_new (0);
   output_buffer_attached_stream (buffer) = stderr;
   ideal_line_wrap_cutoff (buffer) = maximum_length;
   prefixing_policy (buffer) = current_prefixing_rule;
@@ -373,17 +374,6 @@ output_clear (buffer)
 {
   output_clear_message_text (buffer);
   clear_diagnostic_info (buffer);
-}
-
-/* Finishes constructing a NULL-terminated character string representing
-   the BUFFERed message.  */
-
-const char *
-output_finalize_message (buffer)
-     output_buffer *buffer;
-{
-  obstack_1grow (&buffer->obstack, '\0');
-  return output_message_text (buffer);
 }
 
 void
@@ -442,7 +432,7 @@ void
 output_add_newline (buffer)
      output_buffer *buffer;
 {
-  obstack_1grow (&buffer->obstack, '\n');
+  dyn_string_append_char (buffer->messages, '\n');
   output_text_length (buffer) = 0;
 }
 
@@ -455,7 +445,7 @@ output_add_character (buffer, c)
 {
   if (output_is_line_wrapping (buffer) && output_space_left (buffer) <= 0)
     output_add_newline (buffer);
-  obstack_1grow (&buffer->obstack, c);
+  dyn_string_append_char (buffer->messages, c);
   ++output_text_length (buffer);
 }
 
@@ -470,7 +460,7 @@ output_add_space (buffer)
       output_add_newline (buffer);
       return;
     }
-  obstack_1grow (&buffer->obstack, ' ');
+  dyn_string_append_char (buffer->messages, ' ');
   ++output_text_length (buffer);
 }
 
@@ -550,7 +540,7 @@ output_append_r (buffer, start, length)
      const char *start;
      int length;
 {
-  obstack_grow (&buffer->obstack, start, length);
+  dyn_string_append_cstr_len (buffer->messages, start, length);
   output_text_length (buffer) += length;
 }
 
@@ -657,11 +647,9 @@ output_buffer_to_stream (buffer)
 {
   output_add_newline (buffer);
 
-  /* If we're issuing messages tenatively, we don't need to take any
-     action here.  */
-  if (!buffer->ds->tenative_diagnostic)
+  if (!buffer->ds->tentative_diagnostic)
     {
-      const char *text = output_finalize_message (buffer);
+      const char *text = buffer->messages->s;
       fputs (text, output_buffer_attached_stream (buffer));
       output_clear_message_text (buffer);
     }
@@ -1047,14 +1035,14 @@ diagnostic_for_decl (decl, msgid, args_ptr, warn)
 }
 
 
-/* Begin issuing diagnostics tenatively.  When a diagnostic is issued,
+/* Begin issuing diagnostics tentatively.  When a diagnostic is issued,
    no message will be printed.  Instead, the message will be stored.
    Later, if diagnostic_commit is called, the message will be
    printed.  Otherwise, if diagnostic_rollback is called, it will be
    as if the diagnostic was never issued.  */
 
 void 
-diagnostic_issue_tenatively (buffer)
+diagnostic_issue_tentatively (buffer)
      output_buffer *buffer;
 {
   diagnostic_state *ds;
@@ -1064,13 +1052,14 @@ diagnostic_issue_tenatively (buffer)
   /* Copy the data from the previous entry.  */
   *ds = *buffer->ds;
   /* Save the location of the next diagnostic.  */
-  ds->tenative_diagnostic = obstack_alloc (&buffer->obstack, 0);
+  ds->tentative_diagnostic 
+    = dyn_string_length (buffer->messages) + 1;
   /* Link this entry onto the stack.  */
   ds->next = buffer->ds;
   buffer->ds = ds;
 }
 
-/* Commit to those diagnostic messages that were issued tenatively.  */
+/* Commit to those diagnostic messages that were issued tentatively.  */
 
 void
 diagnostic_commit (buffer)
@@ -1087,14 +1076,13 @@ diagnostic_commit (buffer)
   memcpy (buffer->ds->diagnostic_count, 
 	  ds->diagnostic_count,
 	  sizeof (buffer->ds->diagnostic_count));
-  /* If we're popping all the way back to a non-tenative level, and
+  /* If we're popping all the way back to a non-tentative level, and
      there's a new diagnostic, issue the message now.  */
-  if (!buffer->ds->tenative_diagnostic
-      && (output_message_text (buffer)
-	  != obstack_next_free (&buffer->obstack)))
+  if (!buffer->ds->tentative_diagnostic
+      && dyn_string_length (buffer->messages))
     {
       /* FIXME: This should be shared with output_buffer_to_stream.  */
-      fputs (output_finalize_message (buffer),
+      fputs (buffer->messages->s,
 	     output_buffer_attached_stream (buffer));
       output_clear_message_text (buffer);
     }
@@ -1102,7 +1090,7 @@ diagnostic_commit (buffer)
   free (ds);
 }
 
-/* Rollback the tenatively issued diagnostic messages.  */
+/* Rollback the tentatively issued diagnostic messages.  */
 
 void
 diagnostic_rollback (buffer)
@@ -1115,7 +1103,8 @@ diagnostic_rollback (buffer)
   /* Unlink it from the list.  */
   buffer->ds = ds->next;
   /* Delete any diagnostics that we've issued.  */
-  obstack_free (&buffer->obstack, ds->tenative_diagnostic);
+  dyn_string_terminate (buffer->messages, 
+			ds->tentative_diagnostic - 1);
   /* Free the now-unused state.  */
   free (ds);
 }

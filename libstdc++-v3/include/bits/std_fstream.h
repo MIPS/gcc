@@ -66,6 +66,25 @@ namespace std
 
       friend class ios_base; // For sync_with_stdio.
 
+    protected:
+
+      using __streambuf_type::_M_pback;
+      using __streambuf_type::_M_pback_size;
+      using __streambuf_type::_M_pback_init;
+      using __streambuf_type::_M_in_cur;
+      using __streambuf_type::_M_in_beg;
+      using __streambuf_type::_M_in_end;
+      using __streambuf_type::_M_out_cur;
+      using __streambuf_type::_M_out_beg;
+      using __streambuf_type::_M_out_end;
+      using __streambuf_type::_M_buf;
+      using __streambuf_type::_M_buf_unified;
+      using __streambuf_type::_M_buf_size;
+      using __streambuf_type::_M_buf_size_opt;
+      using __streambuf_type::_M_buf_locale;
+      using __streambuf_type::_M_buf_locale_init;
+      using __streambuf_type::_M_mode;
+
     private:
       // Data Members:
       // External buffer.

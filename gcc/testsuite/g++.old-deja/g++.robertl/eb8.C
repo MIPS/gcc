@@ -5,8 +5,7 @@ public:
   operator <<(char *);        //ERROR - no return type
 };
 
-void main()
-{                             //ERROR - wrong return type for main
+void main() { //ERROR - wrong return type for main
   foo f;
   f << (void*)0;
 }

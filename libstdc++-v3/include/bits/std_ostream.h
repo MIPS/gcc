@@ -61,6 +61,8 @@ namespace std
       typedef num_put<_CharT, __ostreambuf_iter>        __numput_type;
       typedef ctype<_CharT>           			__ctype_type;
 
+      using __ios_type::_M_fnumput;
+
       // 27.6.2.2 Constructor/destructor:
       explicit 
       basic_ostream(__streambuf_type* __sb)

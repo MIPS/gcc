@@ -3475,7 +3475,7 @@ check_field_decl (field, t, cant_have_const_ctor,
        This class cannot have an implicitly generated copy constructor
        taking a const reference.
 
-     CANT_HAVE_CONST_ASN_REF
+     CANT_HAVE_CONST_ASN_REF_P
        This class cannot have an implicitly generated assignment
        operator taking a const reference.
 
@@ -3487,14 +3487,15 @@ check_field_decl (field, t, cant_have_const_ctor,
 
 static void
 check_field_decls (t, access_decls, empty_p, 
-		   cant_have_default_ctor_p, cant_have_const_ctor_p,
-		   no_const_asn_ref_p)
+		   cant_have_default_ctor_p, 
+		   cant_have_const_ctor_p,
+		   cant_have_const_asn_ref_p)
      tree t;
      tree *access_decls;
      int *empty_p;
      int *cant_have_default_ctor_p;
      int *cant_have_const_ctor_p;
-     int *no_const_asn_ref_p;
+     int *cant_have_const_asn_ref_p;
 {
   tree *field;
   tree *next;
@@ -3682,7 +3683,7 @@ check_field_decls (t, access_decls, empty_p,
 	check_field_decl (x, t,
 			  cant_have_const_ctor_p,
 			  cant_have_default_ctor_p, 
-			  no_const_asn_ref_p,
+			  cant_have_const_asn_ref_p,
 			  &any_default_members);
     }
 
@@ -4602,8 +4603,9 @@ check_bases_and_members (t, empty_p)
   TYPE_HAS_COMPLEX_ASSIGN_REF (t)
     |= TYPE_HAS_ASSIGN_REF (t) || TYPE_USES_VIRTUAL_BASECLASSES (t);
 
-  /* Synthesize any needed methods.  Note that methods will be synthesized
-     for anonymous unions; grok_x_components undoes that.  */
+  /* Synthesize any needed methods.  Note that methods will be
+     synthesized for anonymous unions but undone later by
+     fixup_anonymous_aggr.  */
   add_implicitly_declared_members (t, cant_have_default_ctor,
 				   cant_have_const_ctor,
 				   no_const_asn_ref);
@@ -4667,7 +4669,7 @@ create_vtable_ptr (t, empty_p, vfuns_p,
 	 setting up the vtable pointer.  
 
          Therefore, we use one type for all vtable pointers.  We still
-	 use a type-correct type; it's just doesn't indicate the array
+	 use a type-correct type; it just doesn't indicate the array
 	 bounds.  That's better than using `void*' or some such; it's
 	 cleaner, and it let's the alias analysis code know that these
 	 stores cannot alias stores to void*!  */
@@ -4717,20 +4719,12 @@ static void
 fixup_inline_methods (type)
      tree type;
 {
-  tree method = TYPE_METHODS (type);
-
-  if (method && TREE_CODE (method) == TREE_VEC)
-    {
-      if (TREE_VEC_ELT (method, 1))
-	method = TREE_VEC_ELT (method, 1);
-      else if (TREE_VEC_ELT (method, 0))
-	method = TREE_VEC_ELT (method, 0);
-      else
-	method = TREE_VEC_ELT (method, 2);
-    }
+  tree method;
 
   /* Do inline member functions.  */
-  for (; method; method = TREE_CHAIN (method))
+  for (method = TYPE_METHODS (type); 
+       method; 
+       method = TREE_CHAIN (method))
     fixup_pending_inline (method);
 
   /* Do friends.  */

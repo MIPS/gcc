@@ -10,8 +10,7 @@ class bug { // ERROR - several errors
 	bug(int size);
 };
 
-bug::bug(int size)
-{ // ERROR - candidates
+bug::bug(int size) { // ERROR - candidates
 	numbers = new internal(size * size);// ERROR -  no match.*
 }
 

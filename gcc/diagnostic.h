@@ -22,7 +22,7 @@ Boston, MA 02111-1307, USA.  */
 #ifndef GCC_DIAGNOSTIC_H
 #define GCC_DIAGNOSTIC_H
 
-#include "obstack.h"
+#include "dyn-string.h"
 
 /*  Forward declarations.  */
 typedef struct output_buffer output_buffer;
@@ -87,17 +87,16 @@ typedef struct
 } output_state;
 
 /* State that is saved every time we begin issuing diagnostics
-   tenatively.  */
+   tentatively.  */
 
 struct diagnostic_state
 {
   /* The number of times we have issued diagnostics.  */
   int diagnostic_count[DK_LAST_DIAGNOSTIC_KIND];
-  /* If we are issuing diagnostics tenatively, the location to which
-     we should call obstack_free to undo the tenatively issued
-     diagnostics.  Otherwise, if we are issuing diagnostics
-     definitely, this value is NULL.  */
-  void *tenative_diagnostic;
+  /* If we are issuing diagnostics tentatively, this value is one
+     greater than the index of the first character of any tenatively
+     issued diagnostics.  */
+  size_t tentative_diagnostic;
   /* The next diagnostic_state in the stack.  */
   diagnostic_state *next;
 };
@@ -110,8 +109,8 @@ struct output_buffer
 
   /* Where to output formatted text.  */
   FILE* stream;
-  /* The obstack where the text is built up.  */  
-  struct obstack obstack;
+  /* The string where messages that are not yet issued are stored.  */
+  dyn_string_t messages;
   /* The amount of characters output so far.  */  
   int line_length;
   /* The current state of the buffer.  */
@@ -128,8 +127,7 @@ struct output_buffer
 #define output_needs_newline(BUFFER) (BUFFER)->state.need_newline_p
 #define output_buffer_state(BUFFER) (BUFFER)->state
 #define output_indentation(BUFFER) (BUFFER)->state.indent_skip
-#define output_message_text(BUFFER) \
-   ((const char *) obstack_base (&(BUFFER)->obstack))
+#define output_message_text(BUFFER) (BUFFER)->messages->s
 
 /* This data structure bundles altogether any information relevant to
    the context of a diagnostic message.  */
@@ -247,7 +245,6 @@ extern void output_add_character	PARAMS ((output_buffer *, int));
 extern void output_decimal		PARAMS ((output_buffer *, int));
 extern void output_add_string		PARAMS ((output_buffer *,
 						 const char *));
-extern const char *output_finalize_message PARAMS ((output_buffer *));
 extern void output_clear_message_text	PARAMS ((output_buffer *));
 extern void output_printf		PARAMS ((output_buffer *, const char *,
 						 ...)) ATTRIBUTE_PRINTF_2;
@@ -264,7 +261,7 @@ extern void record_last_error_module	PARAMS ((void));
 extern int error_function_changed	PARAMS ((void));
 extern void record_last_error_function	PARAMS ((void));
 extern void report_problematic_module	PARAMS ((output_buffer *));     
-extern void diagnostic_issue_tenatively PARAMS ((output_buffer *));
+extern void diagnostic_issue_tentatively PARAMS ((output_buffer *));
 extern void diagnostic_commit           PARAMS ((output_buffer *));
 extern void diagnostic_rollback         PARAMS ((output_buffer *));
 

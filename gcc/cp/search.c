@@ -642,12 +642,27 @@ lookup_field_1 (type, name)
 	  if (temp)
 	    return temp;
 	}
-      if (TREE_CODE (field) == USING_DECL)
+      if (TREE_CODE (field) == USING_DECL
+	  && !(CLASSTYPE_TEMPLATE_INFO (type)
+	       && uses_template_parms (type)))
 	/* For now, we're just treating member using declarations as
 	   old ARM-style access declarations.  Thus, there's no reason
 	   to return a USING_DECL, and the rest of the compiler can't
 	   handle it.  Once the class is defined, these are purged
-	   from TYPE_FIELDS anyhow; see handle_using_decl.  */
+	   from TYPE_FIELDS anyhow; see handle_using_decl.  
+
+	   Inside a template class, however, we have to return the
+	   USING_DECL because otherwise:
+
+	     struct A { int i; };
+             template <typename T> struct B : public A {};
+             template <typename T> struct C : public B<T> {
+               using B<T>::i;
+               void f() { i = 3; }
+             }; 
+
+           does not work -- there is no `i' in scope when `C<T>::f' is
+	   parsed.  */
 	;
       else if (DECL_NAME (field) == name)
 	{
@@ -2993,8 +3008,7 @@ dfs_push_decls (binfo, data)
       tree fields;
       for (fields = TYPE_FIELDS (type); fields; fields = TREE_CHAIN (fields))
 	if (DECL_NAME (fields) 
-	    && TREE_CODE (fields) != TYPE_DECL
-	    && TREE_CODE (fields) != USING_DECL)
+	    && TREE_CODE (fields) != TYPE_DECL)
 	  setup_class_bindings (DECL_NAME (fields), /*type_binding_p=*/0);
 	else if (TREE_CODE (fields) == FIELD_DECL
 		 && ANON_AGGR_TYPE_P (TREE_TYPE (fields)))

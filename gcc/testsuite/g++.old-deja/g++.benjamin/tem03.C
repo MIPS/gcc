@@ -190,6 +190,7 @@ public:
 // member templates, non-type parameters
 template <long l>// ERROR - .*
 struct Xthirteen {
+  long value;
   template <long l> long comp_ge(long test) {// ERROR - .
     long local_value;
     if (local_value > value) 

@@ -1829,8 +1829,6 @@ struct lang_decl_flags
   } u2;
 };
 
-struct unparsed_text;
-
 struct lang_decl
 {
   struct lang_decl_flags decl_flags;
@@ -1851,7 +1849,7 @@ struct lang_decl
   union
   {
     tree sorted_fields;
-    struct unparsed_text *pending_inline_info;
+    void *pending_inline_info;
     struct cp_language_function *saved_language_function;
   } u;
 
@@ -3827,7 +3825,7 @@ extern tree push_library_fn			PARAMS ((tree, tree));
 extern tree push_void_library_fn		PARAMS ((tree, tree));
 extern tree push_throw_library_fn		PARAMS ((tree, tree));
 extern int init_type_desc			PARAMS ((void));
-extern tree check_tag_decl			PARAMS ((tree));
+extern tree check_tag_decl			PARAMS ((tree, bool *));
 extern void shadow_tag				PARAMS ((tree));
 extern tree groktypename			PARAMS ((tree));
 extern tree start_decl				PARAMS ((tree, tree, int, tree, tree));
@@ -3898,7 +3896,6 @@ extern int check_java_method			PARAMS ((tree));
 extern int cxx_decode_option			PARAMS ((int, char **));
 extern int grok_method_quals			PARAMS ((tree, tree, tree));
 extern void warn_if_unknown_interface		PARAMS ((tree));
-extern void grok_x_components			PARAMS ((tree));
 extern void maybe_retrofit_in_chrg		PARAMS ((tree));
 extern void maybe_make_one_only			PARAMS ((tree));
 extern void grokclassfn				PARAMS ((tree, tree, enum overload_flags, tree));
@@ -4025,7 +4022,7 @@ extern tree get_type_value			PARAMS ((tree));
 extern tree build_member_call			PARAMS ((tree, tree, tree));
 extern tree build_offset_ref			PARAMS ((tree, tree));
 extern tree resolve_offset_ref			PARAMS ((tree));
-extern tree build_new				PARAMS ((tree, tree, tree, int));
+extern tree build_new				PARAMS ((tree, tree, tree, bool));
 extern tree build_vec_init			PARAMS ((tree, tree, int));
 extern tree build_x_delete			PARAMS ((tree, int, tree));
 extern tree build_delete			PARAMS ((tree, tree, special_function_kind, int, int));
@@ -4044,13 +4041,7 @@ extern tree make_pointer_declarator		PARAMS ((tree, tree));
 extern tree make_reference_declarator		PARAMS ((tree, tree));
 extern tree make_function_declarator		PARAMS ((tree, tree, tree, tree));
 extern void set_quals_and_spec			PARAMS ((tree, tree, tree));
-extern void print_parse_statistics		PARAMS ((void));
 extern void do_pending_inlines			PARAMS ((void));
-extern void process_next_inline			PARAMS ((struct unparsed_text *));
-
-extern void yyungetc				PARAMS ((int, int));
-extern void snarf_method			PARAMS ((tree));
-
 extern void note_got_semicolon			PARAMS ((tree));
 extern void note_list_got_semicolon		PARAMS ((tree));
 extern void do_pending_lang_change		PARAMS ((void));
@@ -4288,7 +4279,7 @@ extern tree finish_template_template_parm       PARAMS ((cp_tag_kind, tree));
 extern tree check_template_template_default_arg PARAMS ((tree));
 extern tree finish_parmlist                     PARAMS ((tree, int));
 extern tree begin_class_definition              PARAMS ((tree));
-extern tree finish_class_definition             PARAMS ((tree, tree, int, int));
+extern tree finish_class_definition             PARAMS ((tree, tree, int, int, tree *));
 extern void finish_default_args                 PARAMS ((void));
 extern void finish_member_class_template        PARAMS ((tree));
 extern void finish_template_decl                PARAMS ((tree));

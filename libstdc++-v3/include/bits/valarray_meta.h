@@ -34,6 +34,8 @@
 
 #pragma GCC system_header
 
+#include <bits/slice.h>
+
 namespace std
 {
 

@@ -43,9 +43,7 @@ struct S6
 };
 
 template <class T>
-S6<T>::~S6(float)
-{ // ERROR - destructors may not have parameters
-}
+S6<T>::~S6(float) {} // ERROR - destructors may not have parameters
 
 
 

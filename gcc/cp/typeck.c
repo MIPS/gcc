@@ -2015,6 +2015,10 @@ lookup_anon_field (t, type)
    COMPONENT can be an IDENTIFIER_NODE that is the name of the member
    that we are interested in, or it can be a FIELD_DECL.  */
 
+/* FIXME: We can probably remove the name-lookup stuff from here at
+   this point, and expect COMPONENT to be a FIELD_DECL or an OVERLOAD,
+   or some similar entity.  */
+
 tree
 build_component_ref (datum, component, basetype_path, protect)
      tree datum, component, basetype_path;
@@ -2031,7 +2035,8 @@ build_component_ref (datum, component, basetype_path, protect)
     return build_min_nt (COMPONENT_REF, datum, component);
   
   if (datum == error_mark_node 
-      || TREE_TYPE (datum) == error_mark_node)
+      || TREE_TYPE (datum) == error_mark_node
+      || component == error_mark_node)
     return error_mark_node;
 
   /* BASETYPE holds the type of the class containing the COMPONENT.  */
@@ -2113,7 +2118,7 @@ build_component_ref (datum, component, basetype_path, protect)
       && DECL_NAME (TYPE_VFIELD (basetype)) == component)
     /* Special-case this because if we use normal lookups in an ambiguous
        hierarchy, the compiler will abort (because vptr lookups are
-       not supposed to be ambiguous.  */
+       not supposed to be ambiguous).  */
     field = TYPE_VFIELD (basetype);
   else if (TREE_CODE (component) == FIELD_DECL)
     field = component;
@@ -2122,7 +2127,8 @@ build_component_ref (datum, component, basetype_path, protect)
       cp_error ("invalid use of type decl `%#D' as expression", component);
       return error_mark_node;
     }
-  else if (TREE_CODE (component) == TEMPLATE_DECL)
+  else if (TREE_CODE (component) == TEMPLATE_DECL
+	   && !DECL_FUNCTION_TEMPLATE_P (component))
     {
       cp_error ("invalid use of template `%#D' as expression", component);
       return error_mark_node;

@@ -2185,7 +2185,7 @@ type_as_string (typ, flags)
 
   dump_type (typ, flags);
 
-  return output_finalize_message (scratch_buffer);
+  return output_message_text (scratch_buffer);
 }
 
 const char *
@@ -2197,7 +2197,7 @@ expr_as_string (decl, flags)
 
   dump_expr (decl, flags);
 
-  return output_finalize_message (scratch_buffer);
+  return output_message_text (scratch_buffer);
 }
 
 const char *
@@ -2209,7 +2209,7 @@ decl_as_string (decl, flags)
 
   dump_decl (decl, flags);
 
-  return output_finalize_message (scratch_buffer);
+  return output_message_text (scratch_buffer);
 }
 
 const char *
@@ -2221,7 +2221,7 @@ context_as_string (context, flags)
 
   dump_scope (context, flags);
 
-  return output_finalize_message (scratch_buffer);
+  return output_message_text (scratch_buffer);
 }
 
 /* Generate the three forms of printable names for lang_printable_name.  */
@@ -2247,7 +2247,7 @@ lang_decl_name (decl, v)
   else
     dump_decl (DECL_NAME (decl), TFF_PLAIN_IDENTIFIER);
 
-  return output_finalize_message (scratch_buffer);
+  return output_message_text (scratch_buffer);
 }
 
 const char *
@@ -2312,7 +2312,7 @@ decl_to_string (decl, verbose)
 
   dump_decl (decl, flags);
 
-  return output_finalize_message (scratch_buffer);
+  return output_message_text (scratch_buffer);
 }
 
 static const char *
@@ -2324,7 +2324,7 @@ expr_to_string (decl, verbose)
 
   dump_expr (decl, 0);
 
-  return output_finalize_message (scratch_buffer);
+  return output_message_text (scratch_buffer);
 }
 
 static const char *
@@ -2341,7 +2341,7 @@ fndecl_to_string (fndecl, verbose)
 
   dump_decl (fndecl, flags);
 
-  return output_finalize_message (scratch_buffer);
+  return output_message_text (scratch_buffer);
 }
 
 
@@ -2416,7 +2416,7 @@ type_to_string (typ, verbose)
 
   dump_type (typ, flags);
 
-  return output_finalize_message (scratch_buffer);
+  return output_message_text (scratch_buffer);
 }
 
 static const char *
@@ -2455,7 +2455,7 @@ args_to_string (p, verbose)
       if (TREE_CHAIN (p))
 	separate_with_comma (scratch_buffer);
     }
-  return output_finalize_message (scratch_buffer);
+  return output_message_text (scratch_buffer);
 }
 
 static const char *
@@ -2467,7 +2467,7 @@ cv_to_string (p, v)
 
   dump_qualifiers (p, before);
 
-  return output_finalize_message (scratch_buffer);
+  return output_message_text (scratch_buffer);
 }
 
 static void

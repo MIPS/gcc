@@ -179,6 +179,10 @@ public:
   }
 
   void clear();
+
+protected:
+
+  using _Base::_M_node;
 };
 
 
@@ -201,7 +205,7 @@ template <class _Tp, class _Alloc = allocator<_Tp> >
 class list : protected _List_base<_Tp, _Alloc>
 {
   // concept requirements
-  __glibcpp_class_requires(_Tp, _SGIAssignableConcept);
+  __glibcpp_class_requires(_Tp, _SGIAssignableConcept)
 
   typedef _List_base<_Tp, _Alloc> _Base;
 protected:

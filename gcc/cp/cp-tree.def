@@ -36,7 +36,7 @@ DEFTREECODE (OFFSET_REF, "offset_ref", 'r', 2)
 DEFTREECODE (PTRMEM_CST, "ptrmem_cst", 'c', 2)
 
 /* For NEW_EXPR, operand 0 is the placement list.
-   Operand 1 is the new-declarator.
+   Operand 1 is the type of the storage to be allocated.
    Operand 2 is the initializer.  */
 DEFTREECODE (NEW_EXPR, "nw_expr", 'e', 3)
 DEFTREECODE (VEC_NEW_EXPR, "vec_nw_expr", 'e', 3)

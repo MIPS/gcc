@@ -1,4 +1,7 @@
 // Build don't link:
+
+extern "C" void abort ();
+
 class A {
 public:
   void z();

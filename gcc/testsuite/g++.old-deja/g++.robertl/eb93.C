@@ -25,6 +25,6 @@ inline double Sine()
 
 int main()
 {
-  double f=Sine<32,5>()
-  return 0;               // ERROR - parse error
+  double f=Sine<32,5>() // ERROR - parse error
+  return 0;               
 }

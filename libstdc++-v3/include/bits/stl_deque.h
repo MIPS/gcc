@@ -289,6 +289,9 @@ public:
   ~_Deque_base();    
 
 protected:
+  using _Base::_M_map;
+  using _Base::_M_map_size;
+
   void _M_initialize_map(size_t);
   void _M_create_nodes(_Tp** __nstart, _Tp** __nfinish);
   void _M_destroy_nodes(_Tp** __nstart, _Tp** __nfinish);
@@ -357,7 +360,7 @@ template <class _Tp, class _Alloc = allocator<_Tp> >
 class deque : protected _Deque_base<_Tp, _Alloc> {
 
   // concept requirements
-  __glibcpp_class_requires(_Tp, _SGIAssignableConcept);
+  __glibcpp_class_requires(_Tp, _SGIAssignableConcept)
 
   typedef _Deque_base<_Tp, _Alloc> _Base;
 public:                         // Basic types

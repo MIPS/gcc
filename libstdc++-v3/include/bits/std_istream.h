@@ -61,6 +61,8 @@ namespace std
       typedef num_get<_CharT, __istreambuf_iter>        __numget_type;
       typedef ctype<_CharT>           			__ctype_type;
 
+      using __ios_type::_M_fnumget;
+
     protected:
       // Data Members:
       streamsize 		_M_gcount;

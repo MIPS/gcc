@@ -832,28 +832,6 @@ warn_if_unknown_interface (decl)
 		   decl);
 }
 
-/* A subroutine of the parser, to handle a component list.  */
-
-void
-grok_x_components (specs)
-     tree specs;
-{
-  tree t;
-
-  specs = strip_attrs (specs);
-
-  check_tag_decl (specs);
-  t = groktypename (build_tree_list (specs, NULL_TREE)); 
-
-  /* The only case where we need to do anything additional here is an
-     anonymous union field, e.g.: `struct S { union { int i; }; };'.  */
-  if (t == NULL_TREE || !ANON_AGGR_TYPE_P (t))
-    return;
-
-  fixup_anonymous_aggr (t);
-  finish_member_declaration (build_decl (FIELD_DECL, NULL_TREE, t)); 
-}
-
 /* Returns a PARM_DECL for a parameter of the indicated TYPE, with the
    indicated NAME.  */
 
@@ -5088,7 +5066,9 @@ do_class_using_decl (decl)
 
   my_friendly_assert (TREE_CODE (name) == IDENTIFIER_NODE, 980716);
 
-  value = build_lang_decl (USING_DECL, name, void_type_node);
+  /* A USING_DECL does not have a type; the type will be taken from
+     whatever the USING_DECL resolves to.  */
+  value = build_lang_decl (USING_DECL, name, NULL_TREE);
   DECL_INITIAL (value) = TREE_OPERAND (decl, 0);
   return value;
 }

@@ -14,6 +14,6 @@ struct _type_desc {
 
 struct metatype { int base_list; };
 
-static _type_desc _type_metatype("metatype", sizeof(metatype),
+static _type_desc _type_metatype("metatype", sizeof(metatype), // WARNING - cannot pass non-pod
   (RF_Ptr)0, 0, 1, 1,
-  _im_pers_mem_spec( ((size_t)&((( metatype *)0)-> base_list )) , 1)); // WARNING - cannot pass non-pod
+  _im_pers_mem_spec( ((size_t)&((( metatype *)0)-> base_list )) , 1)); 

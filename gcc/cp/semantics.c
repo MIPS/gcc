@@ -971,6 +971,9 @@ finish_decl_cleanup (decl, cleanup)
 
 /* Generate the RTL for a RETURN_INIT. */
 
+/* FIXME: Remove this, and all other traces of the named-return-value
+   extension.  */
+
 static void
 genrtl_named_return_value ()
 {
@@ -1233,7 +1236,10 @@ finish_parenthesized_expr (expr)
 }
 
 /* Begin a statement-expression.  The value returned must be passed to
-   finish_stmt_expr.  */
+   finish_stmt_expr.  If COMPILER_GENERATED_P is TRUE, then this
+   statement-expression is being created by the compiler itself; if
+   FALSE, the statement-expression comes directly from the input
+   program.  */
 
 tree 
 begin_stmt_expr ()
@@ -1923,21 +1929,26 @@ finish_member_declaration (decl)
 	}
 
       /* Enter the DECL into the scope of the class.  */
-      if (TREE_CODE (decl) != USING_DECL)
+      if (TREE_CODE (decl) != USING_DECL || processing_template_decl)
 	pushdecl_class_level (decl);
     }
 }
 
 /* Finish a class definition T with the indicate ATTRIBUTES.  If SEMI,
    the definition is immediately followed by a semicolon.  Returns the
-   type.  */
+   type.  *INLINE_FRIENDS will be filled in with any friend functions
+   whose bodies were provided in the class definition.  If non-NULL,
+   *INLINE_FRIENDS will be a TREE_LIST; the TREE_VALUE of each node
+   will be the declaration of a function whose body has not yet been
+   parsed.  */
 
 tree
-finish_class_definition (t, attributes, semi, pop_scope_p)
+finish_class_definition (t, attributes, semi, pop_scope_p, inline_friends)
      tree t;
      tree attributes;
      int semi;
      int pop_scope_p;
+     tree *inline_friends;
 {
   /* finish_struct nukes this anyway; if finish_exception does too,
      then it can go.  */
@@ -1949,14 +1960,13 @@ finish_class_definition (t, attributes, semi, pop_scope_p)
   attributes = chainon (TREE_TYPE (t), attributes);
   TREE_TYPE (t) = NULL_TREE;
 
-  if (TREE_CODE (t) == ENUMERAL_TYPE)
-    ;
-  else
-    {
-      t = finish_struct (t, attributes);
-      if (semi) 
-	note_got_semicolon (t);
-    }
+  /* Save CLASSTYPE_INLINE_FRIENDS; it is about to become
+     TYPE_NONCOPIED_PARTS.  */
+  *inline_friends = CLASSTYPE_INLINE_FRIENDS (t);
+
+  t = finish_struct (t, attributes);
+  if (semi) 
+    note_got_semicolon (t);
 
   if (pop_scope_p)
     pop_scope (CP_DECL_CONTEXT (TYPE_MAIN_DECL (t)));

@@ -58,7 +58,7 @@ Boston, MA 02111-1307, USA.  */
 int
 dyn_string_init (ds_struct_ptr, space)
      struct dyn_string *ds_struct_ptr;
-     int space;
+     size_t space;
 {
   /* We need at least one byte in which to store the terminating NUL.  */
   if (space == 0)
@@ -86,7 +86,7 @@ dyn_string_init (ds_struct_ptr, space)
 
 dyn_string_t 
 dyn_string_new (space)
-     int space;
+     size_t space;
 {
   dyn_string_t result;
 #ifdef RETURN_ON_ALLOCATION_FAILURE
@@ -143,9 +143,9 @@ dyn_string_release (ds)
 dyn_string_t 
 dyn_string_resize (ds, space)
      dyn_string_t ds;
-     int space;
+     size_t space;
 {
-  int new_allocated = ds->allocated;
+  size_t new_allocated = ds->allocated;
 
   /* Increase SPACE to hold the NUL termination.  */
   ++space;
@@ -215,7 +215,7 @@ dyn_string_copy_cstr (dest, src)
      dyn_string_t dest;
      const char *src;
 {
-  int length = strlen (src);
+  size_t length = strlen (src);
   /* Make room in DEST.  */
   if (dyn_string_resize (dest, length) == NULL)
     return 0;
@@ -259,10 +259,10 @@ dyn_string_prepend_cstr (dest, src)
 int
 dyn_string_insert (dest, pos, src)
      dyn_string_t dest;
-     int pos;
+     size_t pos;
      dyn_string_t src;
 {
-  int i;
+  size_t i;
 
   if (src == dest)
     abort ();
@@ -287,11 +287,11 @@ dyn_string_insert (dest, pos, src)
 int
 dyn_string_insert_cstr (dest, pos, src)
      dyn_string_t dest;
-     int pos;
+     size_t pos;
      const char *src;
 {
-  int i;
-  int length = strlen (src);
+  size_t i;
+  size_t length = strlen (src);
 
   if (dyn_string_resize (dest, dest->length + length) == NULL)
     return 0;
@@ -312,10 +312,10 @@ dyn_string_insert_cstr (dest, pos, src)
 int
 dyn_string_insert_char (dest, pos, c)
      dyn_string_t dest;
-     int pos;
+     size_t pos;
      int c;
 {
-  int i;
+  size_t i;
 
   if (dyn_string_resize (dest, dest->length + 1) == NULL)
     return 0;
@@ -354,14 +354,31 @@ dyn_string_append_cstr (dest, s)
      dyn_string_t dest;
      const char *s;
 {
-  int len = strlen (s);
+  size_t len = strlen (s);
 
-  /* The new length is the old length plus the size of our string, plus
-     one for the null at the end.  */
+  return dyn_string_append_cstr_len (dest, s, len);
+}
+
+/* Append LEN characters from S to DEST.  Returns 1 on success.  On
+   failure, if RETURN_ON_ALLOCATION_FAILURE, deletes DEST and returns
+   0.  */
+
+int
+dyn_string_append_cstr_len (dest, s, len)
+     dyn_string_t dest;
+     const char *s;
+     size_t len;
+{
+  /* Make sure there is room for LEN more bytes.  */
   if (dyn_string_resize (dest, dest->length + len) == NULL)
     return 0;
-  strcpy (dest->s + dest->length, s);
+  /* Copy S.  */
+  memcpy (dest->s + dest->length, s, len);
+  /* Calculate the new length.  */
   dest->length += len;
+  /* Apend a trailing NUL.  */
+  dest->s[dest->length] = '\0';
+
   return 1;
 }
 
@@ -395,11 +412,11 @@ int
 dyn_string_substring (dest, src, start, end)
      dyn_string_t dest;
      dyn_string_t src;
-     int start;
-     int end;
+     size_t start;
+     size_t end;
 {
-  int i;
-  int length = end - start;
+  size_t i;
+  size_t length = end - start;
 
   if (start > end || start > src->length || end > src->length)
     abort ();
@@ -431,3 +448,16 @@ dyn_string_eq (ds1, ds2)
   else
     return !strcmp (ds1->s, ds2->s);
 }
+
+/* Terminates DS at the indicated POSITION, which must be less than or
+   equal to the length of DS.  */
+
+void
+dyn_string_terminate (ds, position)
+     dyn_string_t ds;
+     size_t position;
+{
+  ds->s[position] = '\0';
+  ds->length = position;
+}
+   

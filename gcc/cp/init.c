@@ -1105,7 +1105,7 @@ expand_member_init (exp, name, init)
 	  else
 	    cp_error ("type `%T' is not an immediate basetype for `%T'",
 		      basetype, type);
-	  return error_mark_node;
+	  basetype = error_mark_node;
 	}
 
       init = build_tree_list (basetype, init);
@@ -1950,154 +1950,28 @@ build_builtin_delete_call (addr)
   return build_call (global_delete_fndecl, build_tree_list (NULL_TREE, addr));
 }
 
-/* Generate a C++ "new" expression. DECL is either a TREE_LIST
-   (which needs to go through some sort of groktypename) or it
-   is the name of the class we are newing. INIT is an initialization value.
-   It is either an EXPRLIST, an EXPR_NO_COMMAS, or something in braces.
-   If INIT is void_type_node, it means do *not* call a constructor
-   for this instance.
+/* Generate code for a new-expression.  TYPE is the TYPE of the
+   storage to allocate.  INIT is the initializer, if any, for the
+   storage.  PLACEMENT are the arguments provided in the
+   new-placement.  USE_GLOBAL_NEW is TRUE iff `::new' was specified.
 
-   For types with constructors, the data returned is initialized
-   by the appropriate constructor.
-
-   Whether the type has a constructor or not, if it has a pointer
-   to a virtual function table, then that pointer is set up
-   here.
-
-   Unless I am mistaken, a call to new () will return initialized
-   data regardless of whether the constructor itself is private or
-   not.  NOPE; new fails if the constructor is private (jcm).
-
-   Note that build_new does nothing to assure that any special
-   alignment requirements of the type are met.  Rather, it leaves
-   it up to malloc to do the right thing.  Otherwise, folding to
-   the right alignment cal cause problems if the user tries to later
-   free the memory returned by `new'.
-
-   PLACEMENT is the `placement' list for user-defined operator new ().  */
+   Returns an expression to perform the allocation.  */
 
 tree
-build_new (placement, decl, init, use_global_new)
+build_new (placement, type, init, use_global_new)
      tree placement;
-     tree decl, init;
-     int use_global_new;
+     tree type;
+     tree init;
+     bool use_global_new;
 {
-  tree type, rval;
-  tree nelts = NULL_TREE, t;
-  int has_array = 0;
+  tree rval;
 
-  if (decl == error_mark_node)
+  if (type == error_mark_node)
     return error_mark_node;
-
-  if (TREE_CODE (decl) == TREE_LIST)
-    {
-      tree absdcl = TREE_VALUE (decl);
-      tree last_absdcl = NULL_TREE;
-
-      if (current_function_decl
-	  && DECL_CONSTRUCTOR_P (current_function_decl))
-	my_friendly_assert (immediate_size_expand == 0, 19990926);
-
-      nelts = integer_one_node;
-
-      if (absdcl && TREE_CODE (absdcl) == CALL_EXPR)
-	my_friendly_abort (215);
-      while (absdcl && TREE_CODE (absdcl) == INDIRECT_REF)
-	{
-	  last_absdcl = absdcl;
-	  absdcl = TREE_OPERAND (absdcl, 0);
-	}
-
-      if (absdcl && TREE_CODE (absdcl) == ARRAY_REF)
-	{
-	  /* probably meant to be a vec new */
-	  tree this_nelts;
-
-	  while (TREE_OPERAND (absdcl, 0)
-		 && TREE_CODE (TREE_OPERAND (absdcl, 0)) == ARRAY_REF)
-	    {
-	      last_absdcl = absdcl;
-	      absdcl = TREE_OPERAND (absdcl, 0);
-	    }
-
-	  has_array = 1;
-	  this_nelts = TREE_OPERAND (absdcl, 1);
-	  if (this_nelts != error_mark_node)
-	    {
-	      if (this_nelts == NULL_TREE)
-		error ("new of array type fails to specify size");
-	      else if (processing_template_decl)
-		{
-		  nelts = this_nelts;
-		  absdcl = TREE_OPERAND (absdcl, 0);
-		}
-	      else
-		{
-		  if (build_expr_type_conversion (WANT_INT | WANT_ENUM, 
-						  this_nelts, 0)
-		      == NULL_TREE)
-		    pedwarn ("size in array new must have integral type");
-
-		  this_nelts = save_expr (cp_convert (sizetype, this_nelts));
-		  absdcl = TREE_OPERAND (absdcl, 0);
-	          if (this_nelts == integer_zero_node)
-		    {
-		      warning ("zero size array reserves no space");
-		      nelts = integer_zero_node;
-		    }
-		  else
-		    nelts = cp_build_binary_op (MULT_EXPR, nelts, this_nelts);
-		}
-	    }
-	  else
-	    nelts = integer_zero_node;
-	}
-
-      if (last_absdcl)
-	TREE_OPERAND (last_absdcl, 0) = absdcl;
-      else
-	TREE_VALUE (decl) = absdcl;
-
-      type = groktypename (decl);
-      if (! type || type == error_mark_node)
-	return error_mark_node;
-    }
-  else if (TREE_CODE (decl) == IDENTIFIER_NODE)
-    {
-      if (IDENTIFIER_HAS_TYPE_VALUE (decl))
-	{
-	  /* An aggregate type.  */
-	  type = IDENTIFIER_TYPE_VALUE (decl);
-	  decl = TYPE_MAIN_DECL (type);
-	}
-      else
-	{
-	  /* A builtin type.  */
-	  decl = lookup_name (decl, 1);
-	  my_friendly_assert (TREE_CODE (decl) == TYPE_DECL, 215);
-	  type = TREE_TYPE (decl);
-	}
-    }
-  else if (TREE_CODE (decl) == TYPE_DECL)
-    {
-      type = TREE_TYPE (decl);
-    }
-  else
-    {
-      type = decl;
-      decl = TYPE_MAIN_DECL (type);
-    }
 
   if (processing_template_decl)
     {
-      if (has_array)
-	t = tree_cons (tree_cons (NULL_TREE, type, NULL_TREE),
-		       build_min_nt (ARRAY_REF, NULL_TREE, nelts),
-		       NULL_TREE);
-      else
-	t = type;
-	
-      rval = build_min_nt (NEW_EXPR, placement, t, init);
+      rval = build_min_nt (NEW_EXPR, placement, type, init);
       NEW_EXPR_USE_GLOBAL (rval) = use_global_new;
       return rval;
     }
@@ -2117,22 +1991,7 @@ build_new (placement, decl, init, use_global_new)
       return error_mark_node;
     }
 
-  /* When the object being created is an array, the new-expression yields a
-     pointer to the initial element (if any) of the array.  For example,
-     both new int and new int[10] return an int*.  5.3.4.  */
-  if (TREE_CODE (type) == ARRAY_TYPE && has_array == 0)
-    {
-      nelts = array_type_nelts_top (type);
-      has_array = 1;
-      type = TREE_TYPE (type);
-    }
-
-  if (has_array)
-    t = build_nt (ARRAY_REF, type, nelts);
-  else
-    t = type;
-
-  rval = build (NEW_EXPR, build_pointer_type (type), placement, t, init);
+  rval = build (NEW_EXPR, build_pointer_type (type), placement, type, init);
   NEW_EXPR_USE_GLOBAL (rval) = use_global_new;
   TREE_SIDE_EFFECTS (rval) = 1;
   rval = build_new_1 (rval);
@@ -2219,8 +2078,7 @@ get_cookie_size (type)
   return cookie_size;
 }
 
-/* Called from cplus_expand_expr when expanding a NEW_EXPR.  The return
-   value is immediately handed to expand_expr.  */
+/* Generate code for EXP, which is a NEW_EXPR.  */
 
 static tree
 build_new_1 (exp)
@@ -2229,10 +2087,9 @@ build_new_1 (exp)
   tree placement, init;
   tree type, true_type, size, rval, t;
   tree full_type;
-  tree nelts = NULL_TREE;
+  tree nelts;
   tree alloc_call, alloc_expr, alloc_node;
   tree cookie_expr, init_expr;
-  int has_array = 0;
   enum tree_code code;
   int use_cookie, nothrow, check_new;
   /* Nonzero if the user wrote `::new' rather than just `new'.  */
@@ -2248,31 +2105,22 @@ build_new_1 (exp)
   /* True if the function we are calling is a placement allocation
      function.  */
   bool placement_allocation_fn_p;
+  bool has_array;
 
   placement = TREE_OPERAND (exp, 0);
   type = TREE_OPERAND (exp, 1);
   init = TREE_OPERAND (exp, 2);
   globally_qualified_p = NEW_EXPR_USE_GLOBAL (exp);
 
-  if (TREE_CODE (type) == ARRAY_REF)
-    {
-      has_array = 1;
-      nelts = TREE_OPERAND (type, 1);
-      type = TREE_OPERAND (type, 0);
-
-      full_type = cp_build_binary_op (MINUS_EXPR, nelts, integer_one_node);
-      full_type = build_index_type (full_type);
-      full_type = build_cplus_array_type (type, full_type);
-    }
-  else
-    full_type = type;
-
+  full_type = type;
   true_type = type;
-
+  
+  has_array = TREE_CODE (type) == ARRAY_TYPE;
   code = has_array ? VEC_NEW_EXPR : NEW_EXPR;
 
   /* If our base type is an array, then make sure we know how many elements
      it has.  */
+  nelts = size_one_node;
   while (TREE_CODE (true_type) == ARRAY_TYPE)
     {
       tree this_nelts = array_type_nelts_top (true_type);
@@ -2284,8 +2132,7 @@ build_new_1 (exp)
     return error_mark_node;
 
   size = size_in_bytes (true_type);
-  if (has_array)
-    size = fold (cp_build_binary_op (MULT_EXPR, size, nelts));
+  size = fold (cp_build_binary_op (MULT_EXPR, size, nelts));
 
   if (TREE_CODE (true_type) == VOID_TYPE)
     {
@@ -2581,9 +2428,13 @@ build_new_1 (exp)
 
   /* Now strip the outer ARRAY_TYPE, so we return a pointer to the first
      element.  */
-  rval = convert (build_pointer_type (type), rval);
+  if (TREE_CODE (type) == ARRAY_TYPE)
+    type = TREE_TYPE (type);
+  /* And then form a pointer to that type.  Both `new int' and `new
+     int[5]' have type `int *'.  */
+  type = build_pointer_type (type);
 
-  return rval;
+  return convert (type, rval);
 }
 
 static tree

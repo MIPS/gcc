@@ -6787,11 +6787,14 @@ fixup_anonymous_aggr (t)
 /* Make sure that a declaration with no declarator is well-formed, i.e.
    just defines a tagged type or anonymous union.
 
-   Returns the type defined, if any.  */
+   Returns the type defined, if any.  If FRIEND_P is non-NULL,
+   *FRIEND_P is set to TRUE iff `friend' was specified in the
+   *DECLSPECS.  */
 
 tree
-check_tag_decl (declspecs)
+check_tag_decl (declspecs, friend_p)
      tree declspecs;
+     bool *friend_p;
 {
   int found_type = 0;
   int saw_friend = 0;
@@ -6902,6 +6905,9 @@ check_tag_decl (declspecs)
 		  ob_modifier);
     }
 
+  if (friend_p)
+    *friend_p = saw_friend;
+
   return t;
 }
 
@@ -6920,7 +6926,7 @@ void
 shadow_tag (declspecs)
      tree declspecs;
 {
-  tree t = check_tag_decl (declspecs);
+  tree t = check_tag_decl (declspecs, NULL);
 
   if (t)
     maybe_process_partial_specialization (t);
@@ -9135,23 +9141,11 @@ compute_array_index_type (name, size)
 				cp_convert (ssizetype, size),
 				cp_convert (ssizetype,
 					    integer_one_node)));
-
-  /* Check for variable-sized arrays.  We allow such things as an
-     extension, even though they are not allowed in ANSI/ISO C++.  */
+  /* Create a variable-sized array index type, if necessary.  Our
+     caller will already have issue any necessary warning messages
+     about the use of this extension.  */
   if (!TREE_CONSTANT (itype))
-    {
-      if (pedantic)
-	{
-	  if (name)
-	    cp_pedwarn ("ISO C++ forbids variable-size array `%D'",
-			name);
-	  else
-	    cp_pedwarn ("ISO C++ forbids variable-size array");
-	}
-
-      /* Create a variable-sized array index type.  */
-      itype = variable_size (itype);
-    }
+    itype = variable_size (itype);
   /* Make sure that there was no overflow when creating to a signed
      index type.  (For example, on a 32-bit machine, an array with
      size 2^32 - 1 is too big.)  */
@@ -9665,19 +9659,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
       return void_type_node;
     }
 
-  /* Anything declared one level down from the top level
-     must be one of the parameters of a function
-     (because the body is at least two levels down).  */
-
-  /* This heuristic cannot be applied to C++ nodes! Fixed, however,
-     by not allowing C++ class definitions to specify their parameters
-     with xdecls (must be spec.d in the parmlist).
-
-     Since we now wait to push a class scope until we are sure that
-     we are in a legitimate method context, we must set oldcname
-     explicitly (since current_class_name is not yet alive).
-
-     We also want to avoid calling this a PARM if it is in a namespace.  */
+  /* We want to avoid calling this a PARM if it is in a namespace.  */
 
   if (decl_context == NORMAL && !toplevel_bindings_p ())
     {
@@ -10613,17 +10595,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 
 		if (current_class_type
 		    && same_type_p (ctype, current_class_type))
-		  {
-		    /* class A {
-		         void A::f ();
-		       };
-
-		       Is this ill-formed?  */
-
-		    if (pedantic)
-		      cp_pedwarn ("extra qualification `%T::' on member `%s' ignored",
-				  ctype, name);
-		  }
+		  ;
 		else if (TREE_CODE (type) == FUNCTION_TYPE)
 		  {
 		    if (current_class_type == NULL_TREE || friendp)
@@ -13782,26 +13754,14 @@ finish_function_and_pop_scope ()
 }
 
 
-/* Create the FUNCTION_DECL for a function definition.
-   DECLSPECS and DECLARATOR are the parts of the declaration;
-   they describe the return type and the name of the function,
-   but twisted together in a fashion that parallels the syntax of C.
+/* Create the FUNCTION_DECL for a function definition.  The DECLSPECS
+   is the decl-specifier-seq used in the declaration.  The DECLARATOR
+   is, of course, the declarator.
 
    This function creates a binding context for the function body
    as well as setting up the FUNCTION_DECL in current_function_decl.
 
-   Returns a FUNCTION_DECL on success.
-
-   If the DECLARATOR is not suitable for a function (it defines a datum
-   instead), we return 0, which tells yyparse to report a parse error.
-
-   May return void_type_node indicating that this method is actually
-   a friend.  See grokfield for more details.
-
-   Came here with a `.pushlevel' .
-
-   DO NOT MAKE ANY CHANGES TO THIS CODE WITHOUT MAKING CORRESPONDING
-   CHANGES TO CODE IN `grokfield'.  */
+   Returns a FUNCTION_DECL on success, or ERROR_MARK_NODE on failure.  */
 
 tree
 start_method (declspecs, declarator, attrlist)
@@ -13811,16 +13771,12 @@ start_method (declspecs, declarator, attrlist)
 				attrlist);
 
   /* Something too ugly to handle.  */
-  if (fndecl == NULL_TREE)
-    return NULL_TREE;
-
-  /* Pass friends other than inline friend functions back.  */
-  if (fndecl == void_type_node)
-    return fndecl;
-
-  if (TREE_CODE (fndecl) != FUNCTION_DECL)
-    /* Not a function, tell parser to report parse error.  */
-    return NULL_TREE;
+  if (fndecl == NULL_TREE 
+      || TREE_CODE (fndecl) != FUNCTION_DECL)
+    {
+      cp_error ("invalid function definition");
+      return error_mark_node;
+    }
 
   if (DECL_IN_AGGR_P (fndecl))
     {
@@ -13831,7 +13787,7 @@ start_method (declspecs, declarator, attrlist)
 	    cp_error ("`%D' is already defined in class `%T'", fndecl,
 	              DECL_CONTEXT (fndecl));
 	}
-      return void_type_node;
+      return error_mark_node;
     }
 
   check_template_shadow (fndecl);

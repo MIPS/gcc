@@ -51,7 +51,7 @@ unsigned short X_one<T>::ret_id() {
 
 export template <class T2> // WARNING - 
 bool compare_ge(T2 test) {
-  if (test > type)
+  if (test > test)
     return true;
   return false;
 }

@@ -9,8 +9,8 @@
 
 // Compiles fine with Sun CC 2.1
 
-void f(char *& x)
-{// ERROR - location of error
+void f(char *& x) // ERROR - location of error
+{
   x++;
 }
 

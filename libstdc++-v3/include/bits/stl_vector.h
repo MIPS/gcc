@@ -103,6 +103,10 @@ struct _Vector_base
           _Base;
   typedef typename _Base::allocator_type allocator_type;
 
+  using _Base::_M_start;
+  using _Base::_M_finish;
+  using _Base::_M_end_of_storage;
+
   _Vector_base(const allocator_type& __a) : _Base(__a) {}
   _Vector_base(size_t __n, const allocator_type& __a) : _Base(__a) {
     _M_start = _M_allocate(__n);
@@ -118,7 +122,7 @@ template <class _Tp, class _Alloc = allocator<_Tp> >
 class vector : protected _Vector_base<_Tp, _Alloc> 
 {
   // concept requirements
-  __glibcpp_class_requires(_Tp, _SGIAssignableConcept);
+  __glibcpp_class_requires(_Tp, _SGIAssignableConcept)
 
 private:
   typedef _Vector_base<_Tp, _Alloc> _Base;

@@ -7,8 +7,8 @@ public:
 };
 
 void
-A::f(int const i1 = 1)
-{                          // ERROR - duplicate default argument
+A::f(int const i1 = 1) // ERROR - duplicate default argument
+{                          
   i1_ = i1;
 }
 

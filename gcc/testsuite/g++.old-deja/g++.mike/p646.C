@@ -83,13 +83,6 @@ return_foo ()
 }
 
 foo
-return_named_foo () return f
-{
-  printf ("returning named foo\n");
-  return f;
-}
-
-foo
 foo_parm_returns_foo (foo f)
 {
   return f;
@@ -131,12 +124,6 @@ warn_return_foo ()
   foo f;
   printf ("returning foo\n");
 }                              // WARNING - control reaches end
-
-foo
-nowarn_return_named_foo () return f
-{
-  printf ("returning named foo\n");
-}
 
 foo
 warn_foo_parm_returns_foo (foo f)

@@ -491,6 +491,9 @@ struct _Rb_tree_base
     : _Base(__a) { _M_header = _M_get_node(); }
   ~_Rb_tree_base() { _M_put_node(_M_header); }
 
+protected:
+  
+  using _Base::_M_header;
 };
 
 

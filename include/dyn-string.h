@@ -1,5 +1,5 @@
 /* An abstract string datatype.
-   Copyright (C) 1998, 1999, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
    Contributed by Mark Mitchell (mark@markmitchell.com).
 
 This file is part of GNU CC.
@@ -19,11 +19,13 @@ along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
+#ifndef DYN_STRING_H
+#define DYN_STRING_H
 
 typedef struct dyn_string
 {
-  int allocated;	/* The amount of space allocated for the string.  */
-  int length;		/* The actual length of the string.  */
+  size_t allocated;	/* The amount of space allocated for the string.  */
+  size_t length;	/* The actual length of the string.  */
   char *s;		/* The string itself, NUL-terminated.  */
 }* dyn_string_t;
 
@@ -69,24 +71,30 @@ typedef struct dyn_string
 #endif /* IN_LIBGCC2 */
 
 
-extern int dyn_string_init              PARAMS ((struct dyn_string *, int));
-extern dyn_string_t dyn_string_new      PARAMS ((int));
+extern int dyn_string_init              PARAMS ((struct dyn_string *, size_t));
+extern dyn_string_t dyn_string_new      PARAMS ((size_t));
 extern void dyn_string_delete           PARAMS ((dyn_string_t));
 extern char *dyn_string_release         PARAMS ((dyn_string_t));
-extern dyn_string_t dyn_string_resize   PARAMS ((dyn_string_t, int));
+extern dyn_string_t dyn_string_resize   PARAMS ((dyn_string_t, size_t));
 extern void dyn_string_clear            PARAMS ((dyn_string_t));
 extern int dyn_string_copy              PARAMS ((dyn_string_t, dyn_string_t));
 extern int dyn_string_copy_cstr         PARAMS ((dyn_string_t, const char *));
 extern int dyn_string_prepend           PARAMS ((dyn_string_t, dyn_string_t));
 extern int dyn_string_prepend_cstr      PARAMS ((dyn_string_t, const char *));
-extern int dyn_string_insert            PARAMS ((dyn_string_t, int,
+extern int dyn_string_insert            PARAMS ((dyn_string_t, size_t,
 						 dyn_string_t));
-extern int dyn_string_insert_cstr       PARAMS ((dyn_string_t, int,
+extern int dyn_string_insert_cstr       PARAMS ((dyn_string_t, size_t,
 						 const char *));
-extern int dyn_string_insert_char       PARAMS ((dyn_string_t, int, int));
+extern int dyn_string_insert_char       PARAMS ((dyn_string_t, size_t, int));
 extern int dyn_string_append            PARAMS ((dyn_string_t, dyn_string_t));
 extern int dyn_string_append_cstr       PARAMS ((dyn_string_t, const char *));
 extern int dyn_string_append_char       PARAMS ((dyn_string_t, int));
+extern int dyn_string_append_cstr_len   PARAMS ((dyn_string_t, 
+						 const char *, size_t));
 extern int dyn_string_substring         PARAMS ((dyn_string_t, 
-						 dyn_string_t, int, int));
+						 dyn_string_t, size_t,
+						 size_t));
 extern int dyn_string_eq                PARAMS ((dyn_string_t, dyn_string_t));
+extern void dyn_string_terminate        PARAMS ((dyn_string_t, size_t));
+
+#endif /* DYN_STRING_H */
