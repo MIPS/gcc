@@ -9484,6 +9484,7 @@ ix86_expand_int_movcc (operands)
 
       if ((diff == 1 || diff == 2 || diff == 4 || diff == 8
 	   || diff == 3 || diff == 5 || diff == 9)
+	  && ((mode != QImode && mode != HImode) || !TARGET_PARTIAL_REG_STALL)
 	  && (mode != DImode || x86_64_sign_extended_value (GEN_INT (cf), 0)))
 	{
 	  /*

@@ -1,3 +1,8 @@
+Tue Nov 26 22:43:50 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* i386.c (ix86_expand_int_movcc):  Do not emit lea for short mode on
+	partial_reg_stall target.
+
 Tue Nov 26 22:27:47 CET 2002  Jan Hubicka  <jh@suse.cz>
 
 	* i386.md (movhicc): Allow general operand.
