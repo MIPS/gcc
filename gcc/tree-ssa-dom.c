@@ -237,6 +237,13 @@ static void dom_opt_initialize_block (struct dom_walk_data *,
 				      basic_block, tree);
 static void dom_opt_walk_stmts (struct dom_walk_data *, basic_block, tree);
 static void cprop_into_phis (struct dom_walk_data *, basic_block, tree);
+static void remove_local_expressions_from_table (varray_type locals,
+						 unsigned limit,
+						 htab_t table);
+static void restore_vars_to_original_value (varray_type locals,
+					    unsigned limit, 
+					    varray_type table);
+static void extract_true_false_edges_from_block (basic_block, edge *, edge *);
 
 
 /* Propagate the value VAL (assumed to be a constant or another SSA_NAME)
@@ -669,6 +676,16 @@ thread_across_edge (struct dom_walk_data *walk_data, edge e)
 								false);
 	    }
 	}
+      /* We can have conditionals which just test the state of a
+	 variable rather than use a relational operator.  These are
+	 simpler to handle.  */
+      else if (TREE_CODE (COND_EXPR_COND (stmt)) == SSA_NAME)
+	{
+	  cached_lhs = COND_EXPR_COND (stmt);
+	  cached_lhs = get_value_for (cached_lhs, const_and_copies);
+	  if (cached_lhs && ! is_gimple_min_invariant (cached_lhs))
+	    cached_lhs = 0;
+	}
       else
 	cached_lhs = lookup_avail_expr (stmt, NULL, false);
 
@@ -778,6 +795,75 @@ dom_opt_initialize_block (struct dom_walk_data *walk_data,
   record_equivalences_from_phis (bb);
 }
 
+/* Remove all the expressions in LOCALS from TABLE, stopping when there are
+   LIMIT entries left in LOCALs.  */
+
+static void
+remove_local_expressions_from_table (varray_type locals,
+				     unsigned limit,
+				     htab_t table)
+{
+  if (! locals)
+    return;
+
+  /* Remove all the expressions made available in this block.  */
+  while (VARRAY_ACTIVE_SIZE (locals) > limit)
+    {
+      tree expr = VARRAY_TOP_TREE (locals);
+      VARRAY_POP (locals);
+      htab_remove_elt (table, expr);
+    }
+}
+
+/* Use the source/dest pairs in LOCALS to restore TABLE to its original
+   state, stopping when there are LIMIT entires left in LOCALs.  */
+
+static void
+restore_vars_to_original_value (varray_type locals,
+				unsigned limit,
+				varray_type table)
+{
+  if (! locals)
+    return;
+
+  while (VARRAY_ACTIVE_SIZE (locals) > limit)
+    {
+      tree prev_value, dest;
+
+      prev_value = VARRAY_TOP_TREE (locals);
+      VARRAY_POP (locals);
+      dest = VARRAY_TOP_TREE (locals);
+      VARRAY_POP (locals);
+
+      set_value_for (dest, prev_value, table);
+    }
+}
+
+/* Given a basic block which ends with a conditional and has precisely
+   two successors, determine which of the edges is taken if the conditional
+   is true and which is taken if the conditional is false.  Set TRUE_EDGE
+   and FALSE_EDGE appropriately.  */
+
+static void
+extract_true_false_edges_from_block (basic_block b,
+				     edge *true_edge,
+				     edge *false_edge)
+{
+  edge e = b->succ;
+
+  if (e->flags & EDGE_TRUE_VALUE)
+    {
+      *true_edge = e;
+      *false_edge = e->succ_next;
+    }
+  else
+    {
+      *false_edge = e;
+      *true_edge = e->succ_next;
+    }
+}
+
+
 /* We have finished processing the dominator children of BB, perform
    any finalization actions in preparation for leaving this node in
    the dominator tree.  */
@@ -806,33 +892,32 @@ dom_opt_finalize_block (struct dom_walk_data *walk_data,
     }
   else if ((last = last_stmt (bb))
 	   && TREE_CODE (last) == COND_EXPR
-	   && TREE_CODE_CLASS (TREE_CODE (COND_EXPR_COND (last))) == '<'
+	   && (TREE_CODE_CLASS (TREE_CODE (COND_EXPR_COND (last))) == '<'
+	       || TREE_CODE (COND_EXPR_COND (last)) == SSA_NAME)
 	   && bb->succ
 	   && (bb->succ->flags & EDGE_ABNORMAL) == 0
 	   && bb->succ->succ_next
 	   && (bb->succ->succ_next->flags & EDGE_ABNORMAL) == 0
 	   && ! bb->succ->succ_next->succ_next)
     {
-      edge e = bb->succ;
       edge true_edge, false_edge;
-      tree cond, inverted;
+      tree cond = NULL, inverted = NULL;
+      tree var = NULL;
 
-      if (e->flags & EDGE_TRUE_VALUE)
+      extract_true_false_edges_from_block (bb, &true_edge, &false_edge);
+
+      if (TREE_CODE_CLASS (TREE_CODE (COND_EXPR_COND (last))) == '<')
 	{
-	  true_edge = e;
-	  false_edge = e->succ_next;
+	  cond = COND_EXPR_COND (last);
+	  inverted = invert_truthvalue (cond);
 	}
-      else
+      else if (TREE_CODE (COND_EXPR_COND (last)) == SSA_NAME)
 	{
-	  false_edge = e;
-	  true_edge = e->succ_next;
+	  var = COND_EXPR_COND (last);
 	}
 
-      cond = COND_EXPR_COND (last);
-      inverted = invert_truthvalue (cond);
-
-      /* If the THEN arm is the end of a dominator tree, then try to thread
-	 through its edge.  */
+      /* If the THEN arm is the end of a dominator tree or has PHI nodes,
+	 then try to thread through its edge.  */
       if (get_immediate_dominator (CDI_DOMINATORS, true_edge->dest) != bb
 	  || phi_nodes (true_edge->dest))
 	{
@@ -848,100 +933,77 @@ dom_opt_finalize_block (struct dom_walk_data *walk_data,
 	    = bd->const_and_copies ? VARRAY_ACTIVE_SIZE (bd->const_and_copies)
 				   : 0;
 
-	  record_cond_is_true (cond, &bd->true_exprs);
-	  record_cond_is_false (inverted, &bd->false_exprs);
+	  /* Record any equivalences created by following this edge.  */
+	  if (cond || inverted)
+	    {
+	      record_cond_is_true (cond, &bd->true_exprs);
+	      record_cond_is_false (inverted, &bd->false_exprs);
+	    }
+	  else
+	    {
+	      tree prev_value = get_value_for (var, const_and_copies);
+
+	      set_value_for (var, boolean_true_node, const_and_copies);
+
+	      if (! bd->const_and_copies)
+		VARRAY_TREE_INIT (bd->const_and_copies, 2,
+				  "block_const_and_copies");
+	      VARRAY_PUSH_TREE (bd->const_and_copies, var);
+	      VARRAY_PUSH_TREE (bd->const_and_copies, prev_value);
+	    }
+
+	  /* Now thread the edge.  */
 	  thread_across_edge (walk_data, true_edge);
 
-	  /* Wipe the single entry out of TRUE_EXPRs and FALSE_EXPRs
-	     that was created above.  */
-	  if (true_limit != VARRAY_ACTIVE_SIZE (bd->true_exprs))
-	    {
-	      htab_remove_elt (true_exprs, VARRAY_TOP_TREE (bd->true_exprs));
-	      VARRAY_POP (bd->true_exprs);
-	    }
-	  if (false_limit != VARRAY_ACTIVE_SIZE (bd->false_exprs))
-	    {
-	      htab_remove_elt (false_exprs, VARRAY_TOP_TREE (bd->false_exprs));
-	      VARRAY_POP (bd->false_exprs);
-	    }
+	  /* And restore the various tables to their state before
+	     we threaded this edge.  */
+	  remove_local_expressions_from_table (bd->true_exprs,
+					       true_limit,
+					       true_exprs);
+	  remove_local_expressions_from_table (bd->false_exprs,
+					       false_limit,
+					       false_exprs);
+	  restore_vars_to_original_value (bd->const_and_copies,
+					  const_and_copies_limit,
+					  const_and_copies);
 
-	  /* Wipe any equivalences created by PHIs.  */
-	  while (bd->const_and_copies
-		 && (const_and_copies_limit
-		     != VARRAY_ACTIVE_SIZE (bd->const_and_copies)))
-	    {
-	      tree prev_value, dest;
-
-	      prev_value = VARRAY_TOP_TREE (bd->const_and_copies);
-	      VARRAY_POP (bd->const_and_copies);
-	      dest = VARRAY_TOP_TREE (bd->const_and_copies);
-	      VARRAY_POP (bd->const_and_copies);
-
-	      set_value_for (dest, prev_value, const_and_copies);
-	    }
 	}
-
       /* Similarly for the ELSE arm.  */
       if (get_immediate_dominator (CDI_DOMINATORS, false_edge->dest) != bb
 	  || phi_nodes (false_edge->dest))
 	{
-	  record_cond_is_false (cond, &bd->false_exprs);
-	  record_cond_is_true (inverted, &bd->true_exprs);
+	  /* Record any equivalences created by following this edge.  */
+	  if (cond || inverted)
+	    {
+	      record_cond_is_false (cond, &bd->false_exprs);
+	      record_cond_is_true (inverted, &bd->true_exprs);
+	    }
+	  else
+	    {
+	      tree prev_value = get_value_for (var, const_and_copies);
+
+	      set_value_for (var, boolean_false_node, const_and_copies);
+
+	      if (! bd->const_and_copies)
+		VARRAY_TREE_INIT (bd->const_and_copies, 2,
+				  "block_const_and_copies");
+	      VARRAY_PUSH_TREE (bd->const_and_copies, var);
+	      VARRAY_PUSH_TREE (bd->const_and_copies, prev_value);
+	    }
+
 	  thread_across_edge (walk_data, false_edge);
 
-	  /* No need to wipe the temporary entries in const_and_copies,
-	     true_exprs or false_exprs as we will do so immediately below.  */
+	  /* No need to remove local expressions from our tables
+	     or restore vars to their original value as that will
+	     be done immediately below.  */
 	}
     }
 
-  /* Remove all the expressions made available in this block.  */
-  while (bd->true_exprs && VARRAY_ACTIVE_SIZE (bd->true_exprs) > 0)
-    {
-      tree cond = VARRAY_TOP_TREE (bd->true_exprs);
-      VARRAY_POP (bd->true_exprs);
-      htab_remove_elt (true_exprs, cond);
-    }
-
-  while (bd->false_exprs && VARRAY_ACTIVE_SIZE (bd->false_exprs) > 0)
-    {
-      tree cond = VARRAY_TOP_TREE (bd->false_exprs);
-      VARRAY_POP (bd->false_exprs);
-      htab_remove_elt (false_exprs, cond);
-    }
-
-  while (bd->avail_exprs && VARRAY_ACTIVE_SIZE (bd->avail_exprs) > 0)
-    {
-      tree stmt = VARRAY_TOP_TREE (bd->avail_exprs);
-      VARRAY_POP (bd->avail_exprs);
-      htab_remove_elt (avail_exprs, stmt);
-    }
-
-  /* Also remove equivalences created by EQ_EXPR_VALUE.  */
-  while (bd->const_and_copies
-	 && VARRAY_ACTIVE_SIZE (bd->const_and_copies) > 0)
-    {
-      tree prev_value, dest;
-
-      prev_value = VARRAY_TOP_TREE (bd->const_and_copies);
-      VARRAY_POP (bd->const_and_copies);
-      dest = VARRAY_TOP_TREE (bd->const_and_copies);
-      VARRAY_POP (bd->const_and_copies);
-
-      set_value_for (dest, prev_value, const_and_copies);
-    }
-
-  /* Also remove block local expressions which created nonzero values.  */
-  while (bd->nonzero_vars && VARRAY_ACTIVE_SIZE (bd->nonzero_vars) > 0)
-    {
-      tree prev_value, dest;
-
-      prev_value = VARRAY_TOP_TREE (bd->nonzero_vars);
-      VARRAY_POP (bd->nonzero_vars);
-      dest = VARRAY_TOP_TREE (bd->nonzero_vars);
-      VARRAY_POP (bd->nonzero_vars);
-
-      set_value_for (dest, prev_value, nonzero_vars);
-    }
+  remove_local_expressions_from_table (bd->true_exprs, 0, true_exprs);
+  remove_local_expressions_from_table (bd->false_exprs, 0, false_exprs);
+  remove_local_expressions_from_table (bd->avail_exprs, 0, avail_exprs);
+  restore_vars_to_original_value (bd->nonzero_vars, 0, nonzero_vars);
+  restore_vars_to_original_value (bd->const_and_copies, 0, const_and_copies);
 
   /* Remove VRP records associated with this basic block.  They are no
      longer valid.

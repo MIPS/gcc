@@ -5,6 +5,13 @@
 2004-01-15  Andrew MacLeod  <amacleod@redhat.com>
 	    Jeff Law  <law@redhat.com>
 
+	* tree-ssa-dom.c (remove_local_expressions_from_table): New function
+	extracted from dom_opt_finalize_block.
+	(restore_vars_to_originalvalue): Likewise.
+	(extract_true_false_edges_from_block): Likewise.
+	(thread_across_edge): Handle if (cond) too.
+	(dom_opt_finalize_block): Use new functions.  Handle if (cond).
+ 
 	* tree-ssa-dom.c (thread_across_edge): Accept dom_walk argument.
 	Record temporary equivalences created by PHIs and temporarily
 	const/copy propagate into conditionals.
