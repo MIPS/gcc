@@ -64,6 +64,27 @@
 	* fold-const.c (nondestructive_fold_binary): Handle truth ops
 	when both arguments are constant (duh!).  Handle CONJ_EXPR.
 
+2003-02-26  Daniel Berlin  <dberlin@dberlin.org>
+
+	* flags.h: Remove flag_ip.
+	* toplev.c: Ditto.
+	* tree-alias-ander.c: s/flag_ip/flag_unit_at_a_time/g.
+	(andersen_cleanup): Set region to null when done.
+	(andersen_function_call): Check DECL_PTA_TYPEVAR, not
+	DECL_SAVED_TREE.
+	* tree-alias-common.c: s/SSA_DECL_P/DECL_P/g.
+	(get_alias_var_decl): Remove dead code, fix bug in what is a
+	local alias var.
+	(find_func_aliases): Use get_alias_var, not create_fun_alias_var.
+	(create_fun_alias_var): Fix to use DECL_PTA_TYPEVAR.
+	Use get_alias_var rather than create_alias_var.
+	(create_fun_alias_var_ptf): Ditto.
+	(create_alias_vars): Ditto.
+	* tree-dfa.c (compute_may_aliases): Fix check for
+	create_alias_vars.
+	Move deletion of alias vars back to here, from tree-ssa.c
+	* tree-ssa.c (delete_tree_ssa): Remove delete_alias_vars call.
+
 2003-02-25  Jeff Law  <law@redhat.com>
 	    Diego Novillo  <dnovillo@redhat.com>
 
