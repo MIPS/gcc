@@ -339,9 +339,8 @@ _Jv_ClassReader::parse ()
     throw_class_format_error ("unused data before end of file");
 
   // Tell everyone we're done.
-  def->state = JV_STATE_LOADED;
+  def->state = JV_STATE_READ;
   def->notifyAll ();
-
 }
 
 void _Jv_ClassReader::read_constpool ()
