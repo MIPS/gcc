@@ -65,7 +65,14 @@ optimize_function_tree (fndecl)
     {
 #if 0
       struct loops *loops;
+      
+      /* The loop analyzer should be initialized after the CFG construction.  */
       loops = loop_optimizer_init (NULL);
+      
+      /* For the moment the loops structure is not used.  If you use this 
+	 structure you'll have to ensure that optimizers don't invalidate the
+	 information gathered in the loops structure via modifications to the
+	 underlying structure: the CFG.  */
       loop_optimizer_finalize (loops, NULL);
 #endif 
       /* Rewrite the function into SSA form.  */
