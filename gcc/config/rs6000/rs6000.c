@@ -457,14 +457,14 @@ static tree rs6000_build_builtin_va_list (void);
 
 /* APPLE LOCAL begin AV if-conversion --dpatel  */
 static bool rs6000_vector_compare_p (void);
-static bool rs6000_vector_compare_for_p (tree, enum tree_code);
+static bool rs6000_vector_compare_for_p (tree, tree, enum tree_code);
 static tree rs6000_vector_compare_stmt (tree, tree, tree, tree, enum tree_code);
 
 static bool rs6000_vector_select_p (void);
 static bool rs6000_vector_select_for_p (tree);
 static tree rs6000_vector_select_stmt (tree, tree, tree, tree, tree);
 
-static tree get_vector_compare_for (tree, enum tree_code);
+static tree get_vector_compare_for (tree, tree, enum tree_code);
 static tree get_vector_select_for (tree);
 /* APPLE LOCAL end AV if-conversion --dpatel  */
 
@@ -17953,9 +17953,9 @@ rs6000_vector_compare_p (void)
 /* Ttarget hook for vector_compare_for_p.  */
 
 static bool
-rs6000_vector_compare_for_p (tree type, enum tree_code code)
+rs6000_vector_compare_for_p (tree type, tree argtype, enum tree_code code)
 {
-  if (get_vector_compare_for (type, code) != NULL_TREE)
+  if (get_vector_compare_for (type, argtype, code) != NULL_TREE)
     return true;
   else
     return false;
@@ -17964,13 +17964,14 @@ rs6000_vector_compare_for_p (tree type, enum tree_code code)
 /* Get builtin compare function node.  */
 
 static tree
-get_vector_compare_for (tree type, enum tree_code code)
+get_vector_compare_for (tree type, tree argtype, enum tree_code code)
 {
 
-  enum machine_mode m0;
+  enum machine_mode m0, m1;
 
   m0 = TYPE_MODE (type);
-  
+  m1 = TYPE_MODE (argtype);
+
   if (TARGET_ALTIVEC)
     {
       if (code == EQ_EXPR)
@@ -17990,7 +17991,7 @@ get_vector_compare_for (tree type, enum tree_code code)
         }
       else if (code == GE_EXPR)
         {
-          if (m0 == V4SImode)
+          if (m0 == V4SImode && m1 == V4SFmode)
             return vector_builtin_fns [ALTIVEC_BUILTIN_VCMPGEFP];
         }
       else if (code == GT_EXPR)
@@ -18009,7 +18010,7 @@ get_vector_compare_for (tree type, enum tree_code code)
               else
                 return vector_builtin_fns [ALTIVEC_BUILTIN_VCMPGTSH];
             }
-          else if (m0 == V4SImode)
+          else if (m0 == V4SImode && m1 == V4SImode)
             {
               if (TREE_CODE (TREE_TYPE (type)) == REAL_TYPE)
                 return vector_builtin_fns [ALTIVEC_BUILTIN_VCMPGTFP];
@@ -18036,7 +18037,7 @@ rs6000_vector_compare_stmt (tree type, tree dest, tree arg1, tree arg2,
   tree fn;
   tree arg_list;
 
-  fn = get_vector_compare_for (type, code);
+  fn = get_vector_compare_for (type, TREE_TYPE (arg1), code);
 
   if (fn == NULL_TREE)
     abort ();

@@ -461,7 +461,7 @@ struct gcc_target
     bool (* support_vector_compare_p) (void);
 
     /* True if vector compare instruction is supported in given code.  */
-    bool (* support_vector_compare_for_p) (tree, enum tree_code);
+    bool (* support_vector_compare_for_p) (tree, tree, enum tree_code);
  
     /* Generate vector compare statement.  
        Return value is vector compare statement.  */

@@ -60,6 +60,9 @@ static bool bb_with_exit_edge (basic_block);
 static void collapse_blocks (struct loop *, basic_block *);
 static void make_cond_modify_expr (tree, block_stmt_iterator *);
 static void mark_vdefs_vuses_for_rename (tree);
+static void handle_sibling_pattern (struct loop *);
+static void fold_sibling_stmts (tree, tree, block_stmt_iterator *);
+
 /* Make new temp variable of type TYPE. Add MODIFY_EXPR to assign EXPR 
    to the variable.  */
 
@@ -203,7 +206,7 @@ make_cond_modify_expr (tree t, block_stmt_iterator *bsi)
     }
 
   /* Create temporary for C in < A = COND_EXPR < C, B>>.  */
-  new_cond = make_ifcvt_temp_variable (boolean_type_node, 
+  new_cond = make_ifcvt_temp_variable (boolean_type_node,
 				       unshare_expr (cond),
 				       t, bsi, true);
 
@@ -213,6 +216,12 @@ make_cond_modify_expr (tree t, block_stmt_iterator *bsi)
  
   TREE_TYPE (t) = TREE_TYPE (op0);
   modify_stmt (t);
+
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    {
+      fprintf (dump_file, "new stmt\n");
+      print_generic_stmt (dump_file, t, TDF_SLIM);
+    }
 }
 
 /* Replace PHI node with conditional modify expr.  */
@@ -308,6 +317,13 @@ replace_phi_with_cond_modify_expr (tree phi)
     }
   else
     modify_stmt (new_stmt);
+
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    {
+      fprintf (dump_file, "new phi replacement stmt\n");
+      print_generic_stmt (dump_file, new_stmt, TDF_SLIM);
+    }
+
 }
 
 /* if-convert stmt T */
@@ -316,6 +332,14 @@ static tree
 tree_if_convert_stmt (tree t, tree cond, block_stmt_iterator *bsi)
 {
  
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    {
+      fprintf (dump_file, "------if-convert stmt\n");
+      print_generic_stmt (dump_file, t, TDF_SLIM);
+      print_generic_stmt (dump_file, cond, TDF_SLIM);
+    }
+
+
   switch (TREE_CODE (t))
     {
       /* Labels are harmless here.  */
@@ -542,34 +566,12 @@ is_appropriate_for_if_conv (struct loop *loop, bool for_vectorizer)
 				fprintf (dump_file,"use_bb is dominated by t_bb\n");
 			      }
 			  }
-			/* Case 3 */
-			else if (dominated_by_p (CDI_DOMINATORS, use_bb, t_bb))
-			  {
-			    if (dump_file && (dump_flags & TDF_DETAILS))
-			      {
-				fprintf (dump_file,"use_bb is dominated by t_bb");
-				fprintf (dump_file,"do not know how to handle this case");
-			      }
-			    free_dominance_info (CDI_POST_DOMINATORS);
-			    return false;
-			  }
 			/* case 4 */
 			else if (bb != loop->header && PHI_NUM_ARGS (use) != 2)
 			  {
 			    if (dump_file && (dump_flags & TDF_DETAILS))
 				fprintf (dump_file, "More than two phi node args.\n");
 			    free_dominance_info(CDI_POST_DOMINATORS);
-			    return false;
-			  }
-			/* Case 5 */
-			else
-			  {
-			    if (dump_file && (dump_flags & TDF_DETAILS))
-			      {
-				fprintf (dump_file, "dominance relationship between t_bb ");
-				fprintf (dump_file, "and use_bb difficult to handle");
-			      }
-			    free_dominance_info (CDI_POST_DOMINATORS);
 			    return false;
 			  }
 		      }
@@ -601,23 +603,12 @@ is_appropriate_for_if_conv (struct loop *loop, bool for_vectorizer)
 	
 	for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
 	  {
-	     tree result = SSA_NAME_VAR (PHI_RESULT (phi));
-	    var_ann_t ann = var_ann (result);
-
 	    if (dump_file && (dump_flags & TDF_DETAILS))
 	      {
 		fprintf (dump_file, "-------------------------\n");
 		print_generic_stmt (dump_file, phi, TDF_SLIM);
 	      }
 
-	    if (ann 
-		&& (ann->mem_tag_kind == TYPE_TAG || ann->mem_tag_kind == NAME_TAG))
-	      {
-		if (dump_file && (dump_flags & TDF_DETAILS))
-		  fprintf (dump_file,"PHIs with memory tags\n");
-		free_dominance_info (CDI_POST_DOMINATORS);
-		return false;
-	      }
 	    if (bb != loop->header && PHI_NUM_ARGS (phi) != 2)
 	      {
 		if (dump_file && (dump_flags & TDF_DETAILS))
@@ -685,7 +676,19 @@ collapse_blocks (struct loop *loop, basic_block *bbs)
       while (phi)
 	{
 	  tree next = TREE_CHAIN (phi);
-	  replace_phi_with_cond_modify_expr (phi);
+	  tree result = SSA_NAME_VAR (PHI_RESULT (phi));
+	  var_ann_t ann = var_ann (result);
+	  if (ann && (ann->mem_tag_kind == TYPE_TAG || ann->mem_tag_kind == NAME_TAG))
+	    {
+	      if (dump_file && (dump_flags & TDF_DETAILS))
+		{
+		  fprintf (dump_file,"remove...\n");
+		  print_generic_stmt (dump_file, phi, TDF_SLIM);
+		}
+	      bitmap_set_bit (vars_to_rename, var_ann (result)->uid);
+	    }
+	  else
+	    replace_phi_with_cond_modify_expr (phi);
 	  release_phi_node (phi);
 	  phi = next;
 	}
@@ -848,6 +851,10 @@ tree_if_conversion (struct loop *loop, bool for_vectorizer)
   clean_predicate_lists (loop, bbs);
   free (bbs);
   free_df ();
+
+  handle_sibling_pattern (loop);
+  compute_immediate_uses (TDFA_USE_OPS, NULL);
+  compute_immediate_uses (TDFA_USE_VOPS, NULL);
   return true;
 }
 
@@ -891,4 +898,121 @@ mark_vdefs_vuses_for_rename (tree stmt)
       else
 	bitmap_set_bit (vars_to_rename, var_ann (def)->uid);
     }
+}
+
+/* Identify sibling conditional modify expressions and replace them
+   with one conditional modify expression.  */
+
+static void
+handle_sibling_pattern (struct loop *loop)
+{
+  basic_block *bbs;
+  basic_block bb;
+  block_stmt_iterator bsi;
+  unsigned int i;
+
+  compute_immediate_uses (TDFA_USE_OPS, NULL);
+  compute_immediate_uses (TDFA_USE_VOPS, NULL);
+
+  bbs = get_loop_body_in_bfs_order (loop);
+  for (i = 0; i < loop->num_nodes; i++)
+    {
+      bb = bbs [i];
+
+      for (bsi = bsi_start (bb); !bsi_end_p (bsi); /* empty */)
+	{
+	  tree t = bsi_stmt (bsi);
+	  
+	  if (TREE_CODE (t) == MODIFY_EXPR 
+	      && TREE_CODE (TREE_OPERAND (t, 1)) == COND_EXPR)
+	    {
+	      dataflow_t df = get_immediate_uses (t);
+	      int num_uses = num_immediate_uses (df);
+
+	      /* If one and only immediate use is in another conditional
+		 modify expression than it is a sibling candidate.  */
+	      if (num_uses == 1)
+		{
+		  tree use = immediate_use (df, 0);
+		  if (TREE_CODE (use) == MODIFY_EXPR
+		      && TREE_CODE (TREE_OPERAND (use, 1)) == COND_EXPR)
+		    {
+		      if (dump_file && (dump_flags & TDF_DETAILS))
+			{
+			  fprintf (dump_file, "potential sibling candidates:\n");
+			  print_generic_stmt (dump_file, t, TDF_SLIM);
+			  print_generic_stmt (dump_file, use, TDF_SLIM);
+			}
+		      fold_sibling_stmts (t, use, &bsi);
+
+		    }
+		}
+	    }
+	  if (!bsi_end_p (bsi))
+	    bsi_next (&bsi);
+	}
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	tree_dump_bb (bb, dump_file, 4);		
+  
+    }
+  free (bbs);
+  free_df ();
+}
+
+/* FIRST and SECOND statements are sibling statements.
+   If possible fold FIRST statement into SECOND statement
+   and remove FIRST statement.  */
+
+static void
+fold_sibling_stmts (tree first, tree second, block_stmt_iterator *bsi)
+{
+  tree op1, op2;
+  tree cond1, cond2;
+
+#ifdef ENABLE_CHECKING
+  if (TREE_CODE (first) != MODIFY_EXPR)
+    abort ();
+
+  if (TREE_CODE (TREE_OPERAND (first, 1)) != COND_EXPR)
+    abort ();
+
+  if (TREE_CODE (second) != MODIFY_EXPR)
+    abort ();
+
+  if (TREE_CODE (TREE_OPERAND (second, 1)) != COND_EXPR)
+    abort ();
+#endif
+
+  op1 = TREE_OPERAND (first, 1);
+  op2 = TREE_OPERAND (second, 1);
+
+  cond1 = TREE_OPERAND (op1, 0);
+  cond2 = TREE_OPERAND (op2, 0);
+
+  if (cond1 != cond2)
+    {
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	fprintf (dump_file, "condition is not identical\n");
+      return;
+    }
+
+  if (TREE_CODE (TREE_OPERAND (op1, 1)) == NOP_EXPR
+      && TREE_OPERAND (op2, 2) == TREE_OPERAND (first, 0))
+    {
+      /* We have,
+	 FIRST  : t1 = cond ? <NOP_EXPR> : XYZ
+	 SECOND : t2 = cond ? ABC : t1
+
+	 In this case,
+	 FIRST  : remove
+	 SECOND : t2 = cond ? ABC : XYZ
+      */
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	fprintf (dump_file, "fold this sibling\n");
+
+      TREE_OPERAND (op2, 2) = TREE_OPERAND (op1, 2);
+      modify_stmt (second);
+      bsi_remove (bsi);
+    } 
+
 }

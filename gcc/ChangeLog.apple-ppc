@@ -1,3 +1,31 @@
+2004-07-14  Devang Patel  <dpatel@apple.com>
+
+        * target.h (gcc_target): Additional parameter for
+        support_vector_compare_for_p.
+        * tree-if-conv.c (handle_sibling_pattern): New.
+        (fold_sibling_stmts): New.
+        (make_cond_modify_expr): Dump debugging info.
+        (tree_if_convert_stmt): Same.
+        (is_appropriate_for_if_conv): Remove filters that eliminated
+        loops becase of memory tags and difficult dominance relation.
+        (collapse_blocks): Handle memory tags.
+        (tree_if_conversion): Optimize sibling statements.
+        * tree-vectorizer.c (vect_init_vector): Additional parameter.
+        (vect_get_vec_def_for_operand): Supply vectype to vect_init_vector().
+        (vect_init_vecotr): Use input parameter vectype.
+        (vect_transform_compare): Fix type in dump info.
+        (vect_transform_select): Handle ARRAY_REF as scalar dest. Handle
+        NOP_EXPR as an operand.
+        (vect_is_supportable_compare): Use operand's type to decide
+        second vector type for support_vector_compare_for_p().
+        (vect_is_supportable_select): Fix typo. Allow SSA_NAME as 2nd
+        operand.
+        (exist_non_indexing_operands_for_use_p): Handle conditional modify
+        expr.   
+        config/rs6000/rs6000.c (rs6000_vector_compare_for_p): New parameter.
+        (get_vector_compare_for): New parameter. Use it to find appropriate 
+        builtin.
+
 2004-06-26  Fariborz Jahanian <fjahanian@apple.com>
 
 	* gcc.c: Don't use -fpredictive-compilation when 

@@ -1,3 +1,7 @@
+2004-07-14  Devang Patel  <dpatel@apple.com>
+
+	* gcc.dg/tree-ssa-vect/ifc-04.c: New test.
+
 2004-07-13  Matt Austern  <austern@apple.com>
 
 	Radar 3278745, 3419910, 3432773

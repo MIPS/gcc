@@ -223,7 +223,8 @@ static void vect_finish_stmt_generation_in_preheader (tree, struct loop *);
 static tree get_vectype_for_scalar_type (tree);
 static tree vect_get_new_vect_var (tree, enum vect_var_kind, const char *);
 static tree vect_get_vec_def_for_operand (tree, tree);
-static tree vect_init_vector (tree, tree);
+/* APPLE LOCAL AV if-conversion -dpatel  */
+static tree vect_init_vector (tree, tree, tree);
 /* APPLE LOCAL begin AV --haifa  */
 static tree vect_build_symbl_bound (tree n, int vf, struct loop * loop);
 static basic_block vect_gen_if_guard (edge, tree, basic_block, edge);
@@ -454,7 +455,7 @@ vect_force_dr_alignment_p (struct data_reference *dr)
   tree ref = DR_REF (dr);
   tree array_base;
 
-  if (TREE_CODE (ref) != ARRAY_REF)
+  if (TREE_CODE (ref) != ARRAY_REF) 
     return false;
 
   array_base = DR_BASE_NAME (dr);
@@ -1005,15 +1006,17 @@ vect_create_destination_var (tree scalar_dest, tree vectype)
    Insert a new stmt (INIT_STMT) that initializes a new vector veriable with
    the vector elements of VECTOR_VAR. Return the DEF of INIT_STMT. It will be
    used in the vectorization of STMT.  */
-
+/* APPLE LOCAL AV if-conversion -dpatel  */
+/* Additional vectype parameter.  */
 static tree
-vect_init_vector (tree stmt, tree vector_var)
+vect_init_vector (tree stmt, tree vector_var, tree vectype)
 {
   stmt_vec_info stmt_vinfo = vinfo_for_stmt (stmt);
   struct loop *loop = STMT_VINFO_LOOP (stmt_vinfo);
   tree new_var;
   tree init_stmt;
-  tree vectype = STMT_VINFO_VECTYPE (stmt_vinfo); 
+  /* APPLE LOCAL AV if-conversion -dpatel  */
+  /* Remove local variable vectype.  */
   tree vec_oprnd;
   edge pe;
   basic_block new_bb;
@@ -1143,7 +1146,8 @@ vect_get_vec_def_for_operand (tree op, tree stmt)
 	    }
 
 	  vec_inv = build_constructor (vectype, t); /* CHECKME */
-	  return vect_init_vector (stmt, vec_inv);
+	  /* APPLE LOCAL AV if-conversion -dpatel  */
+	  return vect_init_vector (stmt, vec_inv, vectype);
 	}
 
 
@@ -1166,8 +1170,10 @@ vect_get_vec_def_for_operand (tree op, tree stmt)
       /* Create 'vect_cst_ = {cst,cst,...,cst}'  */
 
       tree vec_cst;
-      stmt_vec_info stmt_vinfo = vinfo_for_stmt (stmt);
-      tree vectype = STMT_VINFO_VECTYPE (stmt_vinfo);
+      /* APPLE LOCAL begin AV if-conversion -dpatel  */
+      /* Remove local variables stmt_vinfo.  */
+      tree vectype = get_vectype_for_scalar_type (TREE_TYPE (op));
+      /* APPLE LOCAL end AV if-conversion -dpatel  */
       int nunits = GET_MODE_NUNITS (TYPE_MODE (vectype));
       tree t = NULL_TREE; 
       int i;
@@ -1180,7 +1186,8 @@ vect_get_vec_def_for_operand (tree op, tree stmt)
 	  t = tree_cons (NULL_TREE, op, t);
         }
       vec_cst = build_vector (vectype, t);
-      return vect_init_vector (stmt, vec_cst);
+      /* APPLE LOCAL AV if-conversion -dpatel  */
+      return vect_init_vector (stmt, vec_cst, vectype);
     }
 
   return NULL_TREE;
@@ -1262,7 +1269,7 @@ vect_transform_compare (tree stmt, block_stmt_iterator *bsi)
   tree new_temp;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
-    fprintf (dump_file, "transform select\n");
+    fprintf (dump_file, "transform compare\n");
 
   if (TREE_CODE (stmt) != MODIFY_EXPR)
     abort ();
@@ -1331,7 +1338,7 @@ vect_transform_select (tree stmt, block_stmt_iterator *bsi)
   stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
   tree vectype = STMT_VINFO_VECTYPE (stmt_info);
   tree new_temp;
-  
+  tree t;
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "transform select\n");
 
@@ -1341,9 +1348,20 @@ vect_transform_select (tree stmt, block_stmt_iterator *bsi)
   /** Handle def. **/
 
   scalar_dest = TREE_OPERAND (stmt, 0);
-  if (TREE_CODE (scalar_dest) != SSA_NAME)
+
+  if (TREE_CODE (scalar_dest) == SSA_NAME)
+    vec_dest = vect_create_destination_var (scalar_dest, vectype);
+  else if (TREE_CODE (scalar_dest) == ARRAY_REF)
+    {
+      vect_align_data_ref (scalar_dest, stmt);
+      vec_dest = vect_create_data_ref (scalar_dest, stmt, bsi, false, &t, false);
+    }
+  else
     abort ();
-  vec_dest = vect_create_destination_var (scalar_dest, vectype);
+
+  if (!vec_dest)
+    abort ();
+
 
   /** Handle condition.  **/
 
@@ -1362,6 +1380,15 @@ vect_transform_select (tree stmt, block_stmt_iterator *bsi)
 
   op = TREE_OPERAND (TREE_OPERAND (stmt, 1), 1);
 
+  if (TREE_CODE (op) == NOP_EXPR)
+    {
+      tree ztype = TREE_TYPE (TREE_OPERAND (stmt, 0));
+      if (TREE_CODE (ztype) == INTEGER_TYPE)
+	op = integer_zero_node;
+      else if (TREE_CODE (ztype) == REAL_TYPE)
+	op = build_real_from_int_cst (ztype, integer_zero_node);
+    }
+  
   vec_oprnd = vect_get_vec_def_for_operand (op, stmt);
   if (! vec_oprnd)
     abort ();
@@ -1369,7 +1396,13 @@ vect_transform_select (tree stmt, block_stmt_iterator *bsi)
   op2 = TREE_OPERAND (TREE_OPERAND (stmt, 1), 2);
 
   if (TREE_CODE (op2) == NOP_EXPR)
-    op2 = integer_zero_node;
+    {
+      tree ztype = TREE_TYPE (TREE_OPERAND (stmt, 0));
+      if (TREE_CODE (ztype) == INTEGER_TYPE)
+	op2 = integer_zero_node;
+      else if (TREE_CODE (ztype) == REAL_TYPE)
+	op2 = build_real_from_int_cst (ztype, integer_zero_node);
+    }
  
   vec_oprnd2 = vect_get_vec_def_for_operand (op2, stmt);
   if (! vec_oprnd2)
@@ -1380,8 +1413,11 @@ vect_transform_select (tree stmt, block_stmt_iterator *bsi)
   vec_stmt = targetm.vect.vector_select_stmt (vectype, vec_dest,
  					 vec_cond, vec_oprnd2, vec_oprnd);
 
-  new_temp = make_ssa_name (vec_dest, vec_stmt);
-  TREE_OPERAND (vec_stmt, 0) = new_temp;
+  if (TREE_CODE (vec_dest) == VAR_DECL)
+    {
+      new_temp = make_ssa_name (vec_dest, vec_stmt);
+      TREE_OPERAND (vec_stmt, 0) = new_temp;
+    }
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
@@ -1389,7 +1425,7 @@ vect_transform_select (tree stmt, block_stmt_iterator *bsi)
       print_generic_stmt (dump_file, vec_stmt, TDF_SLIM);
     }
   bsi_insert_before (bsi, vec_stmt, BSI_SAME_STMT);
-
+  /*  bsi_next (bsi);*/
   return vec_stmt;
 }
  
@@ -2919,6 +2955,7 @@ vect_is_supportable_compare (tree stmt)
 {
   stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
   tree op, op0, op1;
+  tree vectype0;
   tree vectype = STMT_VINFO_VECTYPE (stmt_info);
   struct loop *loop = STMT_VINFO_LOOP (stmt_info);
 
@@ -2932,6 +2969,7 @@ vect_is_supportable_compare (tree stmt)
 
   op0 = TREE_OPERAND (op, 0);
   op1 = TREE_OPERAND (op, 1);
+  vectype0 = get_vectype_for_scalar_type (TREE_TYPE (op0));
 
   if (!vect_is_simple_use (op0, loop))
     {
@@ -2947,7 +2985,7 @@ vect_is_supportable_compare (tree stmt)
       return false;
     }
 
-  if (!targetm.vect.support_vector_compare_for_p (vectype, TREE_CODE (op)))
+  if (!targetm.vect.support_vector_compare_for_p (vectype, vectype0, TREE_CODE (op)))
     {
       if (dump_file && (dump_flags & TDF_DETAILS))
         fprintf (dump_file, "target does not support vector compare.\n");
@@ -2990,7 +3028,7 @@ vect_is_supportable_select (tree stmt)
 
   if (TREE_CODE (op1) == SSA_NAME)
     {
-      if (!vect_is_simple_use (op0, loop))
+      if (!vect_is_simple_use (op1, loop))
         {
           if (dump_file && (dump_flags & TDF_DETAILS))
             fprintf (dump_file, "use not simple.\n");
@@ -2999,6 +3037,7 @@ vect_is_supportable_select (tree stmt)
     }
   else if ( TREE_CODE (op1) != INTEGER_CST
             && TREE_CODE (op1) != REAL_CST
+	    && TREE_CODE (op1) != NOP_EXPR 
             && !vect_is_supportable_operation (op1, vectype, loop))
     {
       if (dump_file && (dump_flags & TDF_DETAILS))
@@ -3006,15 +3045,26 @@ vect_is_supportable_select (tree stmt)
       return false;
     }
 
-  if (op2 
-      && TREE_CODE (op2) != NOP_EXPR 
-      && TREE_CODE (op2) != INTEGER_CST
-      && TREE_CODE (op2) != REAL_CST
-      && !vect_is_supportable_operation (op2, vectype, loop))
+  if (op2)
     {
-      if (dump_file && (dump_flags & TDF_DETAILS))
-        fprintf (dump_file, "use not simple.\n");
-      return false;
+      if (TREE_CODE (op2) == SSA_NAME)
+	{
+	  if (!vect_is_simple_use (op2, loop))
+	    {
+	      if (dump_file && (dump_flags & TDF_DETAILS))
+		fprintf (dump_file, "use not simple.\n");
+	      return false;
+	    }
+	}
+      else if (TREE_CODE (op2) != NOP_EXPR 
+	       && TREE_CODE (op2) != INTEGER_CST
+	       && TREE_CODE (op2) != REAL_CST
+	       && !vect_is_supportable_operation (op2, vectype, loop))
+	{
+	  if (dump_file && (dump_flags & TDF_DETAILS))
+	    fprintf (dump_file, "use not simple.\n");
+	  return false;
+	}
     }
 
   STMT_VINFO_TYPE (stmt_info) = select_vec_info_type;
@@ -3248,12 +3298,19 @@ exist_non_indexing_operands_for_use_p (tree use, tree stmt)
 
   operand = TREE_OPERAND (stmt, 1);
 
-  if (TREE_CODE (operand) != SSA_NAME)
-    return false;
-
-  if (operand == use)
+  /* APPLE LOCAL begin AV if-conversion -dpatel  */
+  if (TREE_CODE (operand) == SSA_NAME && operand == use)
     return true;
 
+  if (TREE_CODE (operand) == COND_EXPR)
+    {
+      int i;
+      for (i = 0; i < 3; i++)
+	if (TREE_CODE (TREE_OPERAND (operand, i)) == SSA_NAME
+	    && TREE_OPERAND (operand, i) == use)
+	  return true;
+    }
+  /* APPLE LOCAL end AV if-conversion -dpatel  */
   return false;
 }
 
