@@ -1447,8 +1447,8 @@ gfc_arith_divide (gfc_expr * op1, gfc_expr * op2, gfc_expr ** resultp)
 
       mpf_mul (x, op1->value.complex.i, op2->value.complex.r);
       mpf_mul (y, op1->value.complex.r, op2->value.complex.i);
-      mpf_sub (result->value.complex.r, x, y);
-      mpf_div (result->value.complex.r, result->value.complex.r, div);
+      mpf_sub (result->value.complex.i, x, y);
+      mpf_div (result->value.complex.i, result->value.complex.i, div);
 
       mpf_clear (x);
       mpf_clear (y);

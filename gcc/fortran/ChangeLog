@@ -1,3 +1,8 @@
+2004-04-24  Feng Wang  <fengwang@nudt.edu.cn>
+
+	PR 14817
+	* arith.c (gfc_arith_divide): Fix complex divide.
+
 2004-04-23  Andrew Pinski  <pinskia@physics.uc.edu>
 
 	* gfortranspec.c: Include the target headers.
