@@ -779,10 +779,6 @@ gen-decls
 ObjC ObjC++
 Dump declarations to a .decl file
 
-; APPLE LOCAL -header-mapfile
-header-mapfile
-C ObjC C++ ObjC++ Separate
-
 
 idirafter
 C ObjC C++ ObjC++ Joined Separate

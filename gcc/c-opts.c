@@ -1058,18 +1058,6 @@ c_common_handle_option (size_t scode, const char *arg, int value)
       flag_gen_declaration = 1;
       break;
 
-      /* APPLE LOCAL begin -header-mapfile */
-    case OPT_header_mapfile:
-      if (cpp_opts->header_map != NULL)
-	error ("more than one `-header-mapfile' option specified; "
-	       "only one is allowed");
-#if 0
-      else
-	    cpp_opts->header_map = hmap_load_header_map (arg);
-#endif
-      break;
-      /* APPLE LOCAL end -header-mapfile */
-
     case OPT_idirafter:
       add_path (xstrdup (arg), AFTER, 0);
       break;
@@ -1137,11 +1125,6 @@ c_common_handle_option (size_t scode, const char *arg, int value)
       cpp_opts->pedantic = 1;
       cpp_opts->warn_endif_labels = 1;
       break;
-
-      /* APPLE LOCAL begin -precomp-trustfile */
-    case OPT_precomp_trustfile:
-      break;
-      /* APPLE LOCAL end -precomp-trustfile */
 
     case OPT_print_objc_runtime_info:
       print_struct_values = 1;

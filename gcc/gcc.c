@@ -1145,8 +1145,6 @@ static const struct option_map option_map[] =
    {"--pedantic-errors", "-pedantic-errors", 0},
    {"--pie", "-pie", 0},
    {"--pipe", "-pipe", 0},
-   /* APPLE LOCAL -precomp-trustfile */
-   {"--precomp-trustfile", "-precomp-trustfile", "a"},
    {"--prefix", "-B", "a"},
    {"--preprocess", "-E", 0},
    {"--print-search-dirs", "-print-search-dirs", 0},

@@ -933,12 +933,6 @@ gxcoff+
 Common JoinedOrMissing
 Generate debug information in extended XCOFF format
 
-; APPLE LOCAL begin -header-mapfile
-header-mapfile
-Common Separate
-
-; APPLE LOCAL end -header-mapfile
-
 m
 Common Joined
 
@@ -957,12 +951,6 @@ Issue warnings needed for strict compliance to the standard
 pedantic-errors
 Common
 Like -pedantic but issue them as errors
-
-; APPLE LOCAL begin -precomp-trustfile
-precomp-trustfile
-Common Separate
-
-; APPLE LOCAL end -precomp-trustfile
 
 quiet
 Common
