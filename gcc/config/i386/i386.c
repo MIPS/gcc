@@ -205,7 +205,6 @@ int ix86_align_loops;
 /* Power of two alignment for non-loop jumps. */
 int ix86_align_jumps;
 
-static int ix86_aligned_reg_p PROTO ((int));
 static void output_pic_addr_const PROTO ((FILE *, rtx, int));
 static void put_condition_code PROTO ((enum rtx_code, enum machine_mode,
 				       int, int, FILE *));
@@ -487,20 +486,15 @@ optimization_options (level, size)
 #endif
 }
 
-/* Return nonzero if the rtx is aligned */
-
-static int
-ix86_aligned_reg_p (regno)
-     int regno;
-{
-  return (regno == STACK_POINTER_REGNUM
-	  || (! flag_omit_frame_pointer && regno == FRAME_POINTER_REGNUM));
-}
+/* Return nonzero if the rtx is known aligned.  */
+/* ??? Unused.  */
 
 int
 ix86_aligned_p (op)
      rtx op;
 {
+  struct ix86_address parts;
+
   /* Registers and immediate operands are always "aligned". */
   if (GET_CODE (op) != MEM)
     return 1;
@@ -509,37 +503,38 @@ ix86_aligned_p (op)
   if (MEM_VOLATILE_P (op))
     return 0;
 
-  /* Get address of memory operand. */
   op = XEXP (op, 0);
 
-  switch (GET_CODE (op))
+  /* Pushes and pops are only valid on the stack pointer.  */
+  if (GET_CODE (op) == PRE_DEC
+      || GET_CODE (op) == POST_INC)
+    return 1;
+
+  /* Decode the address.  */
+  if (! ix86_decompose_address (op, &parts))
+    abort ();
+
+  /* Look for some component that isn't known to be aligned.  */
+  if (parts.index)
     {
-    case CONST_INT:
-      if (INTVAL (op) & 3)
-	break;
-      return 1;
-
-      /* Match "reg + offset" */
-    case PLUS:
-      if (GET_CODE (XEXP (op, 1)) != CONST_INT)
-	break;
-      if (INTVAL (XEXP (op, 1)) & 3)
-	break;
-
-      op = XEXP (op, 0);
-      if (GET_CODE (op) != REG)
-	break;
-
-      /* ... fall through ... */
-
-    case REG:
-      return ix86_aligned_reg_p (REGNO (op));
-
-    default:
-      break;
+      if (parts.scale < 4
+	  && REGNO_POINTER_ALIGN (REGNO (parts.index)) < 4)
+	return 0;
+    }
+  if (parts.base)
+    {
+      if (REGNO_POINTER_ALIGN (REGNO (parts.index)) < 4)
+	return 0;
+    }
+  if (parts.disp)
+    {
+      if (GET_CODE (parts.disp) != CONST_INT
+	  || (INTVAL (parts.disp) & 3) != 0)
+	return 0;
     }
 
-  return 0;
+  /* Didn't find one -- this must be an aligned address.  */
+  return 1;
 }
 
 /* Return nonzero if IDENTIFIER with arguments ARGS is a valid machine specific
@@ -2752,7 +2747,7 @@ print_operand_address (file, addr)
 
       if (GET_CODE (disp) == CONST_INT)
 	{
-	  if (ASSEMBLER_DIALECT == 1)
+	  if (ASSEMBLER_DIALECT != 0)
 	    fputs ("ds:", file);
 	  fprintf (file, HOST_WIDE_INT_PRINT_DEC, INTVAL (addr));
 	}
@@ -3768,7 +3763,7 @@ ix86_expand_fp_compare (code, op0, op1, unordered)
   fpcmp_mode = unordered ? CCFPUmode : CCFPmode;
 
   /* ??? If we knew whether invalid-operand exceptions were masked,
-     we could rely on fcom to raise and exception and take care of
+     we could rely on fcom to raise an exception and take care of
      NaNs.  But we don't.  We could know this from c9x math bits.  */
   if (TARGET_IEEE_FP)
     unordered = 1;
@@ -4178,7 +4173,7 @@ ix86_expand_int_movcc (operands)
 
   compare_code = GET_CODE (compare_op);
 
-  /* Don't attempt constant expansion here -- if we had to expand 5 or 6
+  /* Don't attempt mode expansion here -- if we had to expand 5 or 6
      HImode insns, we'd be swallowed in word prefix ops.  */
 
   if (GET_MODE (operands[0]) != HImode

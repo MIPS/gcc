@@ -1,3 +1,9 @@
+1999-07-01  Richard Henderson  <rth@cygnus.com>
+
+	* i386.c (ix86_aligned_reg_p): Delete.
+	(ix86_aligned_p): Rewrite in terms of ix86_decompose_address
+	and REGNO_POINTER_ALIGN.
+
 1999-07-01  Jan Hubicka  <hubicka@freesoft.cz>
 
 	* i386.md (memory attribute): New "both" value.
