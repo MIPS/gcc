@@ -1,3 +1,8 @@
+2003-12-12  Huang Chun <chunhuang73@hotmail.com>
+
+	* gfortran.fortran-torture/execute/intrinsic_len.f90: Fix.
+	* gfortran.fortran-torture/execute/intrinsic_index.f90: New test.
+
 2003-12-11  Jeff Law  <law@redhat.com>
 
 	* gcc.c-torture/execute/20031211-1.c: New test.
