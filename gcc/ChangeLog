@@ -1,3 +1,67 @@
+2005-01-13  David Edelsohn  <edelsohn@gnu.org>
+
+	* config/rs6000/aix52.h (CPLUSPLUS_CPP_SPEC): Change _XOPEN_SOURCE
+	definition to 600.
+
+2005-01-13  Ralf Corsepius <ralf.corsepius@rtems.org>
+
+	* config/i386/t-rtems-i386: Multilib on -mtune instead of -mcpu.
+
+2004-01-12  David Mosberger  <davidm@hpl.hp.com>
+	    James E Wilson  <wilson@specifixinc.com>
+
+	PR target/18987
+	* config/ia64/ia64.c (process_set): For alloc insn, only call
+	process_epilogue is !frame_pointer_needed.
+
+	PR target/13158
+	* config/ia64/ia64.c (ia64_expand_epilogue): Set RTX_FRAME_RELATED_P on
+	sibcall alloc instruction.
+	(process_set): Handle sibcall alloc instruction.
+
+2005-01-10  David Edelsohn  <edelsohn@gnu.org>
+
+	PR target/18720
+	Backport from mainline
+	* collect2.c (main): Set aixrtl_flag for -brtl option.
+	(resolve_lib_name): Search for .so file extension before .a
+	if aixrtl_flag set.
+
+2005-01-08  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/19012
+	* config/i386/i386.md (addqi_1_slp): Set memory attribute.
+
+2005-01-07  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* configure.ac (HAVE_AS_OFFSETABLE_LO10): Fix typo.
+	* configure: Regenerate.
+
+2005-01-07  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-common.c (handle_mode_attribute): For ENUMERAL_TYPE, also copy
+	TYPE_MODE.
+
+2005-01-06  Richard Sandiford  <rsandifo@redhat.com>
+
+        PR rtl-opt/13299
+        * loop.c (get_monotonic_increment, biased_biv_fits_mode_p,
+        biv_fits_mode_p, extension_within_bounds_p): New functions.
+        (check_ext_dependent_givs): Use them.
+
+2005-01-05  Richard Henderson  <rth@redhat.com>
+
+        PR rtl-opt/10692
+        * reload1.c (do_input_reload): Restrict the optimization deleteing
+        a previous output reload to RELOAD_FOR_INPUT.
+
+2005-01-06  Jakub Jelinek  <jakub@redhat.com>
+
+	Backport from mainline:
+	2004-03-22  Diego Novillo  <dnovillo@redhat.com>
+
+	* c-typeck.c (same_translation_unit_p): Fix pasto.
+
 2004-12-05  Eric Botcazou  <ebotcazou@libertysurf.fr>
 
 	PR debug/16261
@@ -627,14 +691,6 @@
 	PR rtl-optimization/17825
 	* combine.c (subst): Ignore STRICT_LOW_PART no matter if REG_P (new)
 	or not.
-
-2004-10-27  David Mosberger  <davidm@hpl.hp.com>
-	    James E Wilson  <wilson@specifixinc.com>
-
-	PR target/13158
-	* config/ia64/ia64.c (ia64_expand_epilogue): Set RTX_FRAME_RELATED_P on
-	sibcall alloc instruction.
-	(process_set): Handle sibcall alloc instruction.
 
 2004-10-26  James E Wilson  <wilson@specifixinc.com>
 
