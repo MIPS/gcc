@@ -383,7 +383,16 @@ build_constant_data_ref (void)
       tree type;
       tree decl_name = mangled_classname ("_CD_", current_class);
 
+      /* Build a type with unspecified bounds.  The will make sure
+	 that targets do the right thing with whatever size we end
+	 up with at the end.  Using bounds that are too small risks
+	 assuming the data is in the small data section.  */
       type = build_array_type (ptr_type_node, NULL_TREE);
+
+      /* We need to lay out the type ourselves, since build_array_type
+	 thinks the type is incomplete.  */
+      layout_type (type);
+
       decl = build_decl (VAR_DECL, decl_name, type);
       TREE_STATIC (decl) = 1;
       make_decl_rtl (decl, NULL);
