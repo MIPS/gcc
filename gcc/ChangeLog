@@ -1,5 +1,10 @@
 2003-08-15  Per Bothner  <pbothner@apple.com>
 
+	* objc/lang-specs.h: Handle -server flag.
+	* objc/objc-lang.c (LANG_HOOKS_INIT_ONCE):  New definition.
+
+2003-08-15  Per Bothner  <pbothner@apple.com>
+
 	* toplev.c (server_argv, server_argc):  New static variables.
 	(server_loop):  Save options from 'F' command in server_argv
 	and server_argc, after comparing with previously saved options.
