@@ -1058,6 +1058,8 @@ can_combine_p (insn, i3, pred, succ, pdest, psrc)
       /* Don't combine with an insn that sets a register to itself if it has
 	 a REG_EQUAL note.  This may be part of a REG_NO_CONFLICT sequence.  */
       || (rtx_equal_p (src, dest) && find_reg_note (insn, REG_EQUAL, NULL_RTX))
+      /* Can't merge an ASM_OPERANDS.  */
+      || GET_CODE (src) == ASM_OPERANDS
       /* Can't merge a function call.  */
       || GET_CODE (src) == CALL
       /* Don't eliminate a function call argument.  */
@@ -2107,11 +2109,17 @@ try_combine (i3, i2, i1, new_direct_jump_p)
 				 i3);
 	}
 
-      if (m_split && GET_CODE (m_split) == SEQUENCE
-	  && XVECLEN (m_split, 0) == 2
-	  && (next_real_insn (i2) == i3
-	      || ! use_crosses_set_p (PATTERN (XVECEXP (m_split, 0, 0)),
-				      INSN_CUID (i2))))
+      if (m_split && GET_CODE (m_split) != SEQUENCE)
+	{
+	  insn_code_number = recog_for_combine (&m_split, i3, &new_i3_notes);
+	  if (insn_code_number >= 0)
+	    newpat = m_split;
+	} 
+      else if (m_split && GET_CODE (m_split) == SEQUENCE
+	       && XVECLEN (m_split, 0) == 2
+	       && (next_real_insn (i2) == i3
+		   || ! use_crosses_set_p (PATTERN (XVECEXP (m_split, 0, 0)),
+					   INSN_CUID (i2))))
 	{
 	  rtx i2set, i3set;
 	  rtx newi3pat = PATTERN (XVECEXP (m_split, 0, 1));
@@ -3927,21 +3935,17 @@ combine_simplify_rtx (x, op0_mode, last, in_dest)
       if (GET_CODE (XEXP (x, 0)) == IOR || GET_CODE (XEXP (x, 0)) == AND)
  	{
 	  rtx in1 = XEXP (XEXP (x, 0), 0), in2 = XEXP (XEXP (x, 0), 1);
+	  enum machine_mode op_mode;
 
-	  if (GET_CODE (in1) == NOT)
-	    in1 = XEXP (in1, 0);
-	  else
-	    in1 = gen_rtx_combine (NOT, GET_MODE (in1), in1);
+	  op_mode = GET_MODE (in1);
+	  in1 = gen_unary (NOT, op_mode, op_mode, in1);
 
-	  if (GET_CODE (in2) == NOT)
-	    in2 = XEXP (in2, 0);
-	  else if (GET_CODE (in2) == CONST_INT
-		   && GET_MODE_BITSIZE (mode) <= HOST_BITS_PER_WIDE_INT)
-	    in2 = GEN_INT (GET_MODE_MASK (mode) & ~INTVAL (in2));
-	  else
-	    in2 = gen_rtx_combine (NOT, GET_MODE (in2), in2);
+	  op_mode = GET_MODE (in2);
+	  if (op_mode == VOIDmode)
+	    op_mode = mode;
+	  in2 = gen_unary (NOT, op_mode, op_mode, in2);
 
-	  if (GET_CODE (in2) == NOT)
+	  if (GET_CODE (in2) == NOT && GET_CODE (in1) != NOT)
 	    {
 	      rtx tem = in2;
 	      in2 = in1; in1 = tem;
@@ -4347,13 +4351,16 @@ combine_simplify_rtx (x, op0_mode, last, in_dest)
 
 	  if (STORE_FLAG_VALUE == 1
 	      && new_code == NE && GET_MODE_CLASS (mode) == MODE_INT
-	      && op1 == const0_rtx && nonzero_bits (op0, mode) == 1)
+	      && op1 == const0_rtx
+	      && mode == GET_MODE (op0)
+	      && nonzero_bits (op0, mode) == 1)
 	    return gen_lowpart_for_combine (mode,
 					    expand_compound_operation (op0));
 
 	  else if (STORE_FLAG_VALUE == 1
 		   && new_code == NE && GET_MODE_CLASS (mode) == MODE_INT
 		   && op1 == const0_rtx
+		   && mode == GET_MODE (op0)
 		   && (num_sign_bit_copies (op0, mode)
 		       == GET_MODE_BITSIZE (mode)))
 	    {
@@ -4365,6 +4372,7 @@ combine_simplify_rtx (x, op0_mode, last, in_dest)
 	  else if (STORE_FLAG_VALUE == 1
 		   && new_code == EQ && GET_MODE_CLASS (mode) == MODE_INT
 		   && op1 == const0_rtx
+		   && mode == GET_MODE (op0)
 		   && nonzero_bits (op0, mode) == 1)
 	    {
 	      op0 = expand_compound_operation (op0);
@@ -4376,6 +4384,7 @@ combine_simplify_rtx (x, op0_mode, last, in_dest)
 	  else if (STORE_FLAG_VALUE == 1
 		   && new_code == EQ && GET_MODE_CLASS (mode) == MODE_INT
 		   && op1 == const0_rtx
+		   && mode == GET_MODE (op0)
 		   && (num_sign_bit_copies (op0, mode)
 		       == GET_MODE_BITSIZE (mode)))
 	    {
@@ -4396,6 +4405,7 @@ combine_simplify_rtx (x, op0_mode, last, in_dest)
 	  else if (STORE_FLAG_VALUE == -1
 		   && new_code == NE && GET_MODE_CLASS (mode) == MODE_INT
 		   && op1 == const0_rtx
+		   && mode == GET_MODE (op0)
 		   && nonzero_bits (op0, mode) == 1)
 	    {
 	      op0 = expand_compound_operation (op0);
@@ -4406,6 +4416,7 @@ combine_simplify_rtx (x, op0_mode, last, in_dest)
 	  else if (STORE_FLAG_VALUE == -1
 		   && new_code == EQ && GET_MODE_CLASS (mode) == MODE_INT
 		   && op1 == const0_rtx
+		   && mode == GET_MODE (op0)
 		   && (num_sign_bit_copies (op0, mode)
 		       == GET_MODE_BITSIZE (mode)))
 	    {
@@ -4418,6 +4429,7 @@ combine_simplify_rtx (x, op0_mode, last, in_dest)
 	  else if (STORE_FLAG_VALUE == -1
 		   && new_code == EQ && GET_MODE_CLASS (mode) == MODE_INT
 		   && op1 == const0_rtx
+		   && mode == GET_MODE (op0)
 		   && nonzero_bits (op0, mode) == 1)
 	    {
 	      op0 = expand_compound_operation (op0);
@@ -7407,6 +7419,14 @@ if_then_else_cond (x, ptrue, pfalse)
   else if (CONSTANT_P (x)
 	   || ((cond0 = get_last_value (x)) != 0 && CONSTANT_P (cond0)))
     ;
+
+  /* If we're in BImode, canonicalize on 0 and STORE_FLAG_VALUE, as that
+     will be least confusing to the rest of the compiler.  */
+  else if (mode == BImode)
+    {
+      *ptrue = GEN_INT (STORE_FLAG_VALUE), *pfalse = const0_rtx;
+      return x;
+    }
 
   /* If X is known to be either 0 or -1, those are the true and
      false values when testing X.  */
@@ -10793,6 +10813,21 @@ simplify_comparison (code, pop0, pop1)
 	      continue;
 	    }
 
+	  /* Convert (ne (and (lshiftrt (not X)) 1) 0) to
+	     (eq (and (lshiftrt X) 1) 0).  */
+	  if (const_op == 0 && equality_comparison_p
+	      && XEXP (op0, 1) == const1_rtx
+	      && GET_CODE (XEXP (op0, 0)) == LSHIFTRT
+	      && GET_CODE (XEXP (XEXP (op0, 0), 0)) == NOT)
+	    {
+	      op0 = simplify_and_const_int
+		(op0, mode, gen_rtx_combine (LSHIFTRT, mode,
+					     XEXP (XEXP (XEXP (op0, 0), 0), 0),
+					     XEXP (XEXP (op0, 0), 1)),
+		 (HOST_WIDE_INT) 1);
+	      code = (code == NE ? EQ : NE);
+	      continue;
+	    }
 	  break;
 
 	case ASHIFT:

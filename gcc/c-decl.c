@@ -1100,6 +1100,12 @@ poplevel (keep, reverse, functionbody)
 	  TREE_ADDRESSABLE (DECL_ABSTRACT_ORIGIN (decl)) = 1;
       }
 
+  /* We used to warn about unused variables in expand_end_bindings,
+     i.e. while generating RTL.  But in function-at-a-time mode we may
+     choose to never expand a function at all (e.g. auto inlining), so
+     we do this explicitly now.  */
+  warn_about_unused_variables (getdecls ());
+
   /* If there were any declarations or structure tags in that level,
      or if this level is a function body,
      create a BLOCK to record them for the life of this function.  */
@@ -3693,7 +3699,7 @@ finish_decl (decl, init, asmspec_tree)
       if (failure == 1)
 	error_with_decl (decl, "initializer fails to determine size of `%s'");
 
-      if (failure == 2)
+      else if (failure == 2)
 	{
 	  if (do_default)
 	    error_with_decl (decl, "array size missing in `%s'");
@@ -3710,8 +3716,8 @@ finish_decl (decl, init, asmspec_tree)
       /* TYPE_MAX_VALUE is always one less than the number of elements
 	 in the array, because we start counting at zero.  Therefore,
 	 warn only if the value is less than zero.  */
-      if (pedantic && TYPE_DOMAIN (type) != 0
-	  && tree_int_cst_sgn (TYPE_MAX_VALUE (TYPE_DOMAIN (type))) < 0)
+      else if (pedantic && TYPE_DOMAIN (type) != 0
+	      && tree_int_cst_sgn (TYPE_MAX_VALUE (TYPE_DOMAIN (type))) < 0)
 	error_with_decl (decl, "zero or negative size array `%s'");
 
       layout_decl (decl, 0);
@@ -6859,6 +6865,10 @@ c_expand_body (fndecl, nested_p)
   immediate_size_expand = 0;
   cfun->x_dont_save_pending_sizes_p = 1;
 
+  /* If this is a varargs function, inform function.c.  */
+  if (c_function_varargs)
+    mark_varargs ();
+
   /* Set up parameters and prepare for return, for the function.  */
   expand_function_start (fndecl, 0);
 
@@ -6868,10 +6878,6 @@ c_expand_body (fndecl, nested_p)
       && MAIN_NAME_P (DECL_NAME (fndecl))
       && DECL_CONTEXT (fndecl) == NULL_TREE)
     expand_main_function ();
-
-  /* If this is a varargs function, inform function.c.  */
-  if (c_function_varargs)
-    mark_varargs ();
 
   /* Generate the RTL for this function.  */
   expand_stmt (DECL_SAVED_TREE (fndecl));

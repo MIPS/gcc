@@ -7,7 +7,7 @@ struct IDENT
     {
     enum TYPE { Variable, Constant } type;
 
-    std::ostream& printTo(std::ostream& out) const
+    ostream& printTo(ostream& out) const
 	{
 	switch (type)
 	    {
@@ -34,7 +34,7 @@ struct TC
     };
 
 template <class T>
-inline std::ostream& operator<< (std::ostream& out, const TC<T> &c)
+inline ostream& operator<< (ostream& out, const TC<T> &c)
     {
     c.getIdent().printTo(out);
     return out;
@@ -42,8 +42,8 @@ inline std::ostream& operator<< (std::ostream& out, const TC<T> &c)
 
 void foo(const TC<IDENT> &c)
     {
-    std::cerr << c 
+    cerr << c 
          << ": " // This line is crucial!
          << c
-         << std::endl;
+         << endl;
     }

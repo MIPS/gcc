@@ -3482,8 +3482,9 @@ else
   [(set (match_operand:SI 0 "" "")
 	(const (minus:SI
 		(unspec [(match_operand:SI 1 "" "")] 6)
-		(const (plus:SI (label_ref (match_operand:SI 2 "" ""))
-				(const_int 2))))))]
+		(const (plus:SI
+			(unspec [(label_ref (match_operand:SI 2 "" ""))] 6)
+			(const_int 2))))))]
   "" "")
 
 (define_expand "symGOT2reg"
@@ -3514,8 +3515,10 @@ else
 	(const (minus:SI
 		(plus:SI (pc)
 			 (unspec [(match_operand:SI 1 "" "")] 9))
-		(const (plus:SI (label_ref (match_operand:SI 2 "" ""))
-				(const_int 2))))))
+		(const
+		 (plus:SI
+		  (unspec [(label_ref (match_operand:SI 2 "" ""))] 6)
+		  (const_int 2))))))
    (use (match_dup 3))]
   ;; Even though the PIC register is not really used by the call
   ;; sequence in which this is expanded, the PLT code assumes the PIC
@@ -4216,9 +4219,8 @@ else
    (set_attr "fp_mode" "single")])
 
 (define_expand "floatsisf2"
-  [(parallel [(set (match_operand:SF 0 "arith_reg_operand" "")
-		   (float:SF (match_operand:SI 1 "arith_reg_operand" "")))
-	      (use (match_dup 2))])]
+  [(set (match_operand:SF 0 "arith_reg_operand" "")
+	(float:SF (match_operand:SI 1 "reg_no_subreg_operand" "")))]
   "TARGET_SH3E"
   "
 {
@@ -4227,28 +4229,26 @@ else
       emit_sf_insn (gen_floatsisf2_i4 (operands[0], operands[1], get_fpscr_rtx ()));
       DONE;
     }
-  operands[2] = get_fpscr_rtx ();
 }")
 
 (define_insn "floatsisf2_i4"
   [(set (match_operand:SF 0 "arith_reg_operand" "=f")
-	(float:SF (match_operand:SI 1 "register_operand" "y")))
+	(float:SF (match_operand:SI 1 "reg_no_subreg_operand" "y")))
    (use (match_operand:PSI 2 "fpscr_operand" "c"))]
-  "TARGET_SH3E"
+  "TARGET_SH4"
   "float	%1,%0"
   [(set_attr "type" "fp")
    (set_attr "fp_mode" "single")])
 
-;; ??? This pattern is used nowhere.  floatsisf always expands to floatsisf_i4.
-;; (define_insn "*floatsisf2_ie"
-;;  [(set (match_operand:SF 0 "arith_reg_operand" "=f")
-;;	(float:SF (reg:SI 22)))]
-;;  "TARGET_SH3E && ! TARGET_SH4"
-;;  "float	fpul,%0"
-;;  [(set_attr "type" "fp")])
+(define_insn "*floatsisf2_ie"
+  [(set (match_operand:SF 0 "arith_reg_operand" "=f")
+	(float:SF (match_operand:SI 1 "reg_no_subreg_operand" "y")))]
+  "TARGET_SH3E && ! TARGET_SH4"
+  "float	%1,%0"
+  [(set_attr "type" "fp")])
 
 (define_expand "fix_truncsfsi2"
-  [(set (match_operand:SI 0 "arith_reg_operand" "=y")
+  [(set (match_operand:SI 0 "register_operand" "=y")
 	(fix:SI (match_operand:SF 1 "arith_reg_operand" "f")))]
   "TARGET_SH3E"
   "
@@ -4261,7 +4261,7 @@ else
 }")
 
 (define_insn "fix_truncsfsi2_i4"
-  [(set (match_operand:SI 0 "arith_reg_operand" "=y")
+  [(set (match_operand:SI 0 "register_operand" "=y")
 	(fix:SI (match_operand:SF 1 "arith_reg_operand" "f")))
    (use (match_operand:PSI 2 "fpscr_operand" "c"))]
   "TARGET_SH4"
@@ -4477,7 +4477,7 @@ else
 
 (define_expand "floatsidf2"
   [(match_operand:DF 0 "arith_reg_operand" "")
-   (match_operand:SI 1 "arith_reg_operand" "")]
+   (match_operand:SI 1 "reg_no_subreg_operand" "")]
   "TARGET_SH4"
   "
 {
@@ -4487,7 +4487,7 @@ else
 
 (define_insn "floatsidf2_i"
   [(set (match_operand:DF 0 "arith_reg_operand" "=f")
-	(float:DF (match_operand:SI 1 "register_operand" "y")))
+	(float:DF (match_operand:SI 1 "reg_no_subreg_operand" "y")))
    (use (match_operand:PSI 2 "fpscr_operand" "c"))]
   "TARGET_SH4"
   "float	%1,%0"
@@ -4621,7 +4621,7 @@ else
 
 (define_expand "extendsfdf2"
   [(match_operand:DF 0 "arith_reg_operand" "")
-   (match_operand:SF 1 "arith_reg_operand" "")]
+   (match_operand:SF 1 "reg_no_subreg_operand" "")]
   "TARGET_SH4"
   "
 {
@@ -4631,7 +4631,7 @@ else
 
 (define_insn "extendsfdf2_i4"
   [(set (match_operand:DF 0 "arith_reg_operand" "=f")
-	(float_extend:DF (match_operand:SF 1 "register_operand" "y")))
+	(float_extend:DF (match_operand:SF 1 "reg_no_subreg_operand" "y")))
    (use (match_operand:PSI 2 "fpscr_operand" "c"))]
   "TARGET_SH4"
   "fcnvsd  %1,%0"

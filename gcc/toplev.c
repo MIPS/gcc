@@ -1403,6 +1403,10 @@ int warn_packed;
 
 int warn_padded;
 
+/* Warn when an optimization pass is disabled.  */
+
+int warn_disabled_optimization;
+
 /* Likewise for -W.  */
 
 lang_independent_options W_options[] =
@@ -1429,7 +1433,9 @@ lang_independent_options W_options[] =
   {"packed", &warn_packed, 1,
    "Warn when the packed attribute has no effect on struct layout"},
   {"padded", &warn_padded, 1,
-   "Warn when padding is required to align struct members"}
+   "Warn when padding is required to align struct members"},
+  {"disabled-optimization", &warn_disabled_optimization, 1,
+   "Warn when an optimization pass is disabled"}
 };
 
 /* Output files for assembler code (real compiler output)
@@ -2836,11 +2842,14 @@ rest_of_compilation (decl)
   if (! DECL_DEFER_OUTPUT (decl))
     TREE_ASM_WRITTEN (decl) = 1;
 
-  /* Now that integrate will no longer see our rtl, we need not distinguish
-     between the return value of this function and the return value of called
-     functions.  */
+  /* Now that integrate will no longer see our rtl, we need not
+     distinguish between the return value of this function and the
+     return value of called functions.  Also, we can remove all SETs
+     of subregs of hard registers; they are only here because of
+     integrate.*/
   rtx_equal_function_value_matters = 0;
-
+  purge_hard_subreg_sets (get_insns ());
+  
   /* Don't return yet if -Wreturn-type; we need to do jump_optimize.  */
   if ((rtl_dump_and_exit || flag_syntax_only) && !warn_return_type)
     goto exit_rest_of_compilation;

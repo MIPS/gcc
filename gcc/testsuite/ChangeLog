@@ -1,3 +1,43 @@
+2000-09-22  Geoff Keating  <geoffk@cygnus.com>
+
+	* gcc.c-torture/compile/20000922-1.c: New file.
+
+2000-09-21  Nick Clifton  <nickc@redhat.com>
+
+	* gcc.c-torture/execute/divmod-1.c (mod5): New function - perform
+	a signed long modulo operation.
+	(mod6): New funciton - perform an unsigned long modulo operation.
+	(main): Add tests for modulos of very large numbers by very small
+	dividends.
+
+2000-09-19  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* g++.old-deja/g++.other/virtual8.C: Declare printf correctly.
+
+2000-09-19  Richard Henderson  <rth@cygnus.com>
+
+	* gcc.dg/compare2.c (case 10): XFAIL.
+
+2000-09-18  Richard Henderson  <rth@cygnus.com>
+
+	* gcc.c-torture/execute/20000906-1.c: Move ...
+	* gcc.dg/20000906-1.c: ... here.  Only run on targets
+	that support __builtin_trap.
+
+Mon 18-Sep-2000 19:23:11 BST  Neil Booth  <NeilB@earthling.net>
+
+	* gcc.dg/cpp/cmdlne-C.c: Remove bogus warning test.
+
+2000-09-18  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* gcc.dg/format-ext-1.c: Add tests for mixing %m with $ formats.
+	* gcc.dg/format-xopen-1.c: Fix error in one $ format test.  Add
+	more $ format tests.
+
+2000-09-18  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* gcc.dg/format-errmk-1.c: New test.
+
 2000-09-17  Greg McGary  <greg@mcgary.org>
 
 	* gcc.c-torture/execute/20000917-1.x: Remove.

@@ -1020,7 +1020,8 @@ addsubcosts (x)
      rtx x;
 {
   /* Adding a register is a single cycle insn.  */
-  if (GET_CODE (XEXP (x, 1)) != CONST_INT)
+  if (GET_CODE (XEXP (x, 1)) == REG
+      || GET_CODE (XEXP (x, 1)) == SUBREG)
     return 1;
 
   /* Likewise for small constants.  */
@@ -2201,6 +2202,14 @@ find_barrier (num_mova, mova, from)
 	      if (num_mova)
 		si_limit -= GET_MODE_SIZE (mode);
 	    }
+
+	  /* See the code in machine_dependent_reorg, which has a similar if
+	     statement that generates new mova insn in many cases.  */
+	  if (GET_CODE (dst) == REG
+	      && ((REGNO (dst) >= FIRST_FP_REG
+		   && REGNO (dst) <= LAST_XD_REG)
+		  || REGNO (dst) == FPUL_REG))
+	    inc += 2;
 	}
 
       if (mova_p (from))
@@ -2239,26 +2248,31 @@ find_barrier (num_mova, mova, from)
 	      inc = XVECLEN (body, 1) * GET_MODE_SIZE (GET_MODE (body));
 	    }
 	}
+      /* For the SH1, we generate alignments even after jumps-around-jumps.  */
+      else if (GET_CODE (from) == JUMP_INSN
+	       && ! TARGET_SH2
+	       && ! TARGET_SMALLCODE)
+	new_align = 4;
 
       if (found_si)
 	{
+	  count_si += inc;
 	  if (new_align > si_align)
 	    {
 	      si_limit -= (count_si - 1) & (new_align - si_align);
 	      si_align = new_align;
 	    }
 	  count_si = (count_si + new_align - 1) & -new_align;
-	  count_si += inc;
 	}
       if (found_hi)
 	{
+	  count_hi += inc;
 	  if (new_align > hi_align)
 	    {
 	      hi_limit -= (count_hi - 1) & (new_align - hi_align);
 	      hi_align = new_align;
 	    }
 	  count_hi = (count_hi + new_align - 1) & -new_align;
-	  count_hi += inc;
 	}
       from = NEXT_INSN (from);
     }
@@ -3950,7 +3964,17 @@ sh_expand_prologue ()
 
   if (flag_pic && (current_function_uses_pic_offset_table
 		   || regs_ever_live[PIC_OFFSET_TABLE_REGNUM]))
-    emit_insn (gen_GOTaddr2picreg ());
+    {
+      rtx insn = get_last_insn ();
+      rtx insn_end = emit_insn (gen_GOTaddr2picreg ());
+      while (insn != insn_end)
+	{
+	  insn = NEXT_INSN (insn);
+	  REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_MAYBE_DEAD,
+						const0_rtx,
+						REG_NOTES (insn));
+	}
+    }
 
   if (target_flags != save_flags)
     emit_insn (gen_toggle_sz ());
@@ -3975,6 +3999,14 @@ sh_expand_epilogue ()
   int frame_size;
 
   live_regs_mask = calc_live_regs (&d, &live_regs_mask2);
+
+  if (flag_pic && current_function_uses_pic_offset_table)
+    {
+      if ((live_regs_mask & (1 << PIC_OFFSET_TABLE_REGNUM)) != 0)
+	abort ();
+      live_regs_mask |= (1 << PIC_OFFSET_TABLE_REGNUM);
+      d += UNITS_PER_WORD;
+    }
 
   frame_size = rounded_frame_size (d);
 
@@ -4003,8 +4035,6 @@ sh_expand_epilogue ()
 
   if (target_flags != save_flags)
     emit_insn (gen_toggle_sz ());
-  if (flag_pic && current_function_uses_pic_offset_table)
-    live_regs_mask |= (1 << PIC_OFFSET_TABLE_REGNUM);
   if (live_regs_mask & (1 << PR_REG))
     pop (PR_REG);
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
@@ -4627,6 +4657,20 @@ general_movdst_operand (op, mode)
     return 0;
 
   return general_operand (op, mode);
+}
+
+/* Accept a register, but not a subreg of any kind.  This allows us to
+   avoid pathological cases in reload wrt data movement common in 
+   int->fp conversion.  */
+
+int
+reg_no_subreg_operand (op, mode)
+     register rtx op;
+     enum machine_mode mode;
+{
+  if (GET_CODE (op) == SUBREG)
+    return 0;
+  return register_operand (op, mode);
 }
 
 /* Returns 1 if OP is a normal arithmetic register.  */
@@ -5277,8 +5321,8 @@ sh_insn_length_adjustment (insn)
   return 0;
 }
 
-/* Return TRUE if X references a SYMBOL_REF whose symbol doesn't have
-   @GOT or @GOTOFF.  */
+/* Return TRUE if X references a SYMBOL_REF or LABEL_REF whose symbol
+   isn't protected by a PIC unspec.  */
 int
 nonpic_symbol_mentioned_p (x)
      rtx x;
@@ -5286,7 +5330,7 @@ nonpic_symbol_mentioned_p (x)
   register const char *fmt;
   register int i;
 
-  if (GET_CODE (x) == SYMBOL_REF)
+  if (GET_CODE (x) == SYMBOL_REF || GET_CODE (x) == LABEL_REF)
     return 1;
 
   if (GET_CODE (x) == UNSPEC
