@@ -1,3 +1,8 @@
+2004-09-13  Dale Johannesen  <dalej@apple.com>
+
+	Radar 3793575
+	* c-decl.c (start_decl):  Fix from mainline (PR 17408).
+
 2004-09-13  Andrew Pinski  <apinski@apple.com>
 
 	Part of radar 3753405 and all of 3767339

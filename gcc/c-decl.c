@@ -2981,8 +2981,11 @@ start_decl (tree declarator, tree declspecs, bool initialized, tree attributes)
      TEM may equal DECL or it may be a previous decl of the same name.  */
   tem = pushdecl (decl);
 
-  if (initialized)
-    DECL_EXTERNAL (tem) = 0;
+ if (initialized && DECL_EXTERNAL (tem))
+   {
+     DECL_EXTERNAL (tem) = 0;
+     TREE_STATIC (tem) = 1;
+   }
 
   return tem;
 }
