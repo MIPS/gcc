@@ -1,4 +1,11 @@
 2003-08-25  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+	    Jeff Law  <law@redhat.com>
+
+	* gcc.dg/tree-ssa/20030815-1.c: New test.
+	* gcc.dg/tree-ssa/20030821-1.c: New test.
+ 
+
+2003-08-25  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* gcc.dg/tree-ssa/20030825-1.c: New test.
 
