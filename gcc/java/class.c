@@ -44,6 +44,7 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "target.h"
 #include "except.h"
 #include "tree-iterator.h"
+#include "cgraph.h"
 
 /* DOS brain-damage */
 #ifndef O_BINARY
@@ -1232,6 +1233,7 @@ make_local_function_alias (tree method)
   TREE_USED (alias) = 1;
   SET_DECL_ASSEMBLER_NAME (alias, DECL_NAME (alias));
   TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (alias)) = 1;
+  cgraph_mark_needed_node (cgraph_node (alias));
   if (!flag_syntax_only)
     assemble_alias (alias, DECL_ASSEMBLER_NAME (method));
   return alias;

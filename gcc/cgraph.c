@@ -118,13 +118,17 @@ bool cgraph_global_info_ready = false;
 static GTY((param_is (struct cgraph_varpool_node))) htab_t cgraph_varpool_hash;
 
 /* Queue of cgraph nodes scheduled to be lowered and output.  */
-struct cgraph_varpool_node *cgraph_varpool_nodes_queue;
+struct cgraph_varpool_node *cgraph_varpool_nodes_queue, *cgraph_varpool_first_unanalyzed_node;
+
 
 /* Number of nodes in existence.  */
 int cgraph_varpool_n_nodes;
 
 /* The linked list of cgraph varpool nodes.  */
-static GTY(())  struct cgraph_varpool_node *cgraph_varpool_nodes;
+static GTY(()) struct cgraph_varpool_node *cgraph_varpool_nodes;
+
+/* End of the varpool queue.  Needs to be QTYed to work with PCH.  */
+static GTY(()) struct cgraph_varpool_node *cgraph_varpool_last_needed_node;
 
 static hashval_t hash_node (const void *);
 static int eq_node (const void *, const void *);
@@ -580,17 +584,29 @@ change_decl_assembler_name (tree decl, tree name)
   SET_DECL_ASSEMBLER_NAME (decl, name);
 }
 
+/* Helped function for finalization code - add node into lists so it will
+   be analyzed and compiled.  */
+static void
+enqueue_needed_varpool_node (struct cgraph_varpool_node *node)
+{
+  if (cgraph_varpool_last_needed_node)
+    cgraph_varpool_last_needed_node->next_needed = node;
+  cgraph_varpool_last_needed_node = node;
+  node->next_needed = NULL;
+  if (!cgraph_varpool_nodes_queue)
+    cgraph_varpool_nodes_queue = node;
+  if (!cgraph_varpool_first_unanalyzed_node)
+    cgraph_varpool_first_unanalyzed_node = node;
+  notice_global_symbol (node->decl);
+}
+
 /* Notify finalize_compilation_unit that given node is reachable
    or needed.  */
 void
 cgraph_varpool_mark_needed_node (struct cgraph_varpool_node *node)
 {
   if (!node->needed && node->finalized)
-    {
-      node->next_needed = cgraph_varpool_nodes_queue;
-      cgraph_varpool_nodes_queue = node;
-      notice_global_symbol (node->decl);
-    }
+    enqueue_needed_varpool_node (node);
   node->needed = 1;
 }
 
@@ -606,11 +622,7 @@ cgraph_varpool_finalize_decl (tree decl)
   if (node->finalized)
     return;
   if (node->needed)
-    {
-      node->next_needed = cgraph_varpool_nodes_queue;
-      cgraph_varpool_nodes_queue = node;
-      notice_global_symbol (decl);
-    }
+    enqueue_needed_varpool_node (node);
   node->finalized = true;
 
   if (/* Externally visible variables must be output.  The exception are
@@ -626,26 +638,6 @@ cgraph_varpool_finalize_decl (tree decl)
     }
 }
 
-bool
-cgraph_varpool_assemble_pending_decls (void)
-{
-  bool changed = false;
-
-  while (cgraph_varpool_nodes_queue)
-    {
-      tree decl = cgraph_varpool_nodes_queue->decl;
-      struct cgraph_varpool_node *node = cgraph_varpool_nodes_queue;
-
-      cgraph_varpool_nodes_queue = cgraph_varpool_nodes_queue->next_needed;
-      if (!TREE_ASM_WRITTEN (decl))
-	{
-	  assemble_variable (decl, 0, 1, 0);
-	  changed = true;
-	}
-      node->next_needed = NULL;
-    }
-  return changed;
-}
 
 /* Return true when the DECL can possibly be inlined.  */
 bool

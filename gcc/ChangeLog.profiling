@@ -1,3 +1,30 @@
+2004-10-11  Jan Hubicka  <jh@suse.cz>
+
+	* cgraph.c (cgraph_varpool_first_unanalyzed_node): New global voriable
+	(cgraph_varpool_last_needed_node): New static variable.
+	(enqueue_needed_varpool_node): Break out from ...; add items to the end of queue;
+	update first pointers.
+	(cgraph_varpool_mark_needed_node): ... here.
+	(cgraph_varpool_finalize_decl): Use enqueue_needed_varpool_node.
+	(cgraph_varpool_assemble_pending_decls): Move to cgraphunit.c
+	* cgraph.h (cgraph_varpool_node): Add analyzed field.
+	(cgraph_varpool_first_unanalyzed_node): Declare.
+	* cgraphunit.c: Include output.h.
+	(cgraph_varpool_analyze_pending_decls): New function.
+	(cgraph_varpool_assemble_pending_decls): Move from cgraph.c; bail out for errors,
+	analyze pending decls.
+	(cgraph_finalize_compilation_unit): Only analyze decls.
+	(cgraph_optimize): Assemble the decls after expanding.
+
+	* decl2.c (finish_objects): Mark ctor as needed.
+	(cp_finish_file): Output variables only in nonunit-at-a-time.
+
+	* Make-lang.in (class.o, decl.o): Depend on cgraph.h.
+	* class.c: Include cgraph.h
+	(make_local_functoin_alias): Mark aslias as needed.
+	* resource.c: Include cgraph.h
+	(compile_resource_data): Go via cgraph interface.
+
 2004-10-02  Jan Hubicka  <jh@suse.cz>
 
 	* toplev.c (flag_web): Disable by default.

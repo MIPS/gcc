@@ -226,6 +226,9 @@ struct cgraph_varpool_node GTY(())
   /* Set when function must be output - it is externally visible
      or it's address is taken.  */
   bool needed;
+  /* Set once the variable has been instantiated and its callee
+     lists created.  */
+  bool analyzed;
   /* Set once it has been finalized so we consider it to be output.  */
   bool finalized;
   /* Set when function is scheduled to be assembled.  */
@@ -239,6 +242,7 @@ extern bool cgraph_global_info_ready;
 extern GTY(()) struct cgraph_node *cgraph_nodes_queue;
 
 extern GTY(()) int cgraph_varpool_n_nodes;
+extern GTY(()) struct cgraph_varpool_node *cgraph_varpool_first_unanalyzed_node;
 extern GTY(()) struct cgraph_varpool_node *cgraph_varpool_nodes_queue;
 
 /* In cgraph.c  */

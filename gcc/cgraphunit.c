@@ -202,6 +202,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "function.h"
 #include "ipa_prop.h"
 #include "tree-gimple.h"
+#include "output.h"
 
 #define INSNS_PER_CALL 10
 
@@ -853,6 +854,55 @@ verify_cgraph (void)
     verify_cgraph_node (node);
 }
 
+/* Walk the decls we marked as neccesary and see if they reference new variables
+   or functions and add them into the worklists.  */
+static bool
+cgraph_varpool_analyze_pending_decls (void)
+{
+  bool changed = false;
+
+  while (cgraph_varpool_first_unanalyzed_node)
+    {
+      tree decl = cgraph_varpool_first_unanalyzed_node->decl;
+
+      cgraph_varpool_first_unanalyzed_node->analyzed = true;
+      cgraph_varpool_first_unanalyzed_node = cgraph_varpool_first_unanalyzed_node->next_needed;
+      cgraph_create_edges (NULL, DECL_INITIAL (decl));
+      changed = true;
+    }
+  return changed;
+}
+
+/* Output all variables enqueued to be assembled.  */
+bool
+cgraph_varpool_assemble_pending_decls (void)
+{
+  bool changed = false;
+
+  if (errorcount || sorrycount)
+    return false;
+ 
+  /* EH might mark decls as needed during expansion.  This should be safe since
+     we don't create references to new function, but it should not be used
+     elsewhere.  */
+  cgraph_varpool_analyze_pending_decls ();
+
+  while (cgraph_varpool_nodes_queue)
+    {
+      tree decl = cgraph_varpool_nodes_queue->decl;
+      struct cgraph_varpool_node *node = cgraph_varpool_nodes_queue;
+
+      cgraph_varpool_nodes_queue = cgraph_varpool_nodes_queue->next_needed;
+      if (!TREE_ASM_WRITTEN (decl))
+	{
+	  assemble_variable (decl, 0, 1, 0);
+	  changed = true;
+	}
+      node->next_needed = NULL;
+    }
+  return changed;
+}
+
 /* Analyze the function scheduled to be output.  */
 static void
 cgraph_analyze_function (struct cgraph_node *node)
@@ -902,7 +952,7 @@ cgraph_finalize_compilation_unit (void)
       return;
     }
 
-  cgraph_varpool_assemble_pending_decls ();
+  cgraph_varpool_analyze_pending_decls ();
   if (!quiet_flag)
     fprintf (stderr, "\nAnalyzing compilation unit\n");
 
@@ -944,7 +994,7 @@ cgraph_finalize_compilation_unit (void)
 	if (!edge->callee->reachable)
 	  cgraph_mark_reachable_node (edge->callee);
 
-      cgraph_varpool_assemble_pending_decls ();
+      cgraph_varpool_analyze_pending_decls ();
     }
 
   /* Collect entry points to the unit.  */
@@ -2824,6 +2874,8 @@ cgraph_optimize (void)
   cgraph_characterize_statics ();
   
   cgraph_expand_all_functions ();
+
+  cgraph_varpool_assemble_pending_decls ();
   if (cgraph_dump_file)
     {
       fprintf (cgraph_dump_file, "\nFinal ");
