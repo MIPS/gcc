@@ -34,17 +34,9 @@
 /* The purpose that the location (REG or MEM) has in RTL.  */
 enum location_type
 {
-  LT_PARAM,	/* Location is a parameter of instruction.  */
-  LT_SET_DEST,	/* Location is the destination of the SET.  */
-  LT_CLOBBERED	/* Location is the "destination" of CLOBBER.  */
-};
-
-/* Operation that is performed when scanning RTL.  */
-enum scan_operation
-{
-  SO_COUNT,	/* Count the number of locations.  */
-  SO_STORE,	/* Store the locations to the array VTI (bb)->locs.  */
-  SO_SKIP	/* Skip current node, and scan and store its internals.  */
+  LT_USE,	/* Location is used in instruction.  */
+  LT_SET,	/* Location is set by instruction.  */
+  LT_CLOBBER	/* Location is clobbered by instruction.  */
 };
 
 /* Where shall the note be emitted?  BEFORE or AFTER the instruction.  */
@@ -67,20 +59,6 @@ typedef struct location_def
   enum location_type type;
 } location;
 
-/* Structure for passing some other parameters to functions count_locations and
-   add_locations.  */
-typedef struct scan_for_locations_data_def
-{
-  /* Instruction that the pattern is in.  */
-  rtx insn;
-
-  /* What type of the location are we scanning now?  */
-  enum location_type type;
-
-  /* What are we doing now?  */
-  enum scan_operation oper;
-} scan_for_locations_data;
-
 /* Structure for passing some other parameters to function
    emit_note_if_var_changed.  */
 typedef struct emit_note_data_def
@@ -96,7 +74,7 @@ typedef struct emit_note_data_def
    MEM_ATTRS and is common for REGs and MEMs.
    There is a separate link list of these structures for each (physical)
    register for attributes of variables which are stored in register
-   and separate link list for each DECL_RTL (MEM_EXPR (mem)) for MEMs, 
+   and separate link list for each DECL_RTL (MEM_EXPR (mem)) for MEMs,
    so the link lists are pretty short (usually 1 or 2 elements) and thus
    link list is the best data structure.  */
 typedef struct attrs_def
@@ -217,7 +195,10 @@ static void attrs_htab_clear		PARAMS ((htab_t));
 static void attrs_htab_cleanup		PARAMS ((void *));
 
 static bool track_expr_p		PARAMS ((tree));
-static int scan_for_locations		PARAMS ((rtx *, void *));
+static void count_uses			PARAMS ((rtx *, void *));
+static void count_stores		PARAMS ((rtx, rtx, void *));
+static void add_uses			PARAMS ((rtx *, void *));
+static void add_stores			PARAMS ((rtx, rtx, void *));
 static bool compute_bb_dataflow		PARAMS ((basic_block));
 static void hybrid_search		PARAMS ((basic_block, sbitmap,
 						 sbitmap));
@@ -524,7 +505,7 @@ static bool
 attrs_htab_different_value;
 
 /* Compare one SLOT with the corresponding slot from hash-table DATA.  */
-   
+
 static int
 attrs_htab_different_1 (slot, data)
      void **slot;
@@ -537,8 +518,10 @@ attrs_htab_different_1 (slot, data)
   list2 = (attrs) htab_find_with_hash (htab, list1->loc,
 					    MEM_HASH_VAL (list1->loc));
 
+#ifdef ENABLE_CHECKING
   if (!list1)
     abort ();
+#endif
   for (; list1; list1 = list1->next)
     {
       for (list = list2; list; list = list->next)
@@ -687,16 +670,16 @@ track_expr_p (expr)
   /* If EXPR is not a parameter or a variable do not track it.  */
   if (TREE_CODE (expr) != VAR_DECL && TREE_CODE (expr) != PARM_DECL)
     return 0;
- 
+
   /* It also must have a name...  */
   if (!DECL_NAME (expr))
     return 0;
-  
+
   /* ... and a RTL assigned to it.  */
   decl_rtl = DECL_RTL (expr);
   if (!decl_rtl)
     return 0;
-    
+
   /* If RTX is a memory it should not be very large (because it would be an array
      or struct).  */
   if (GET_CODE (decl_rtl) == MEM)
@@ -704,113 +687,92 @@ track_expr_p (expr)
       if (MEM_SIZE (decl_rtl) && INTVAL (MEM_SIZE (decl_rtl)) > MAX_LOC_PARTS)
 	return 0;
     }
- 
+
   return 1;
 }
 
-/* Scan rtx X for registers and memory references.  Other parameters are
-   in struct scan_for_locations_data passed in DATA.  */
+/* Count uses (register and memory references) LOC which will be tracked.
+   INSN is instruction which the LOC is part of.  */
 
-static int
-scan_for_locations (x, data)
-     rtx *x;
-     void *data;
+static void
+count_uses (loc, insn)
+     rtx *loc;
+     void *insn;
 {
-  scan_for_locations_data *d = (scan_for_locations_data *) data;
-  basic_block bb = BLOCK_FOR_INSN (d->insn);
-  location *l;
-  enum location_type old_type;
+  basic_block bb = BLOCK_FOR_INSN ((rtx) insn);
 
-  switch (d->oper)
+  if (GET_CODE (*loc) == REG)
     {
-      case SO_SKIP:	/* Do not process current rtx X.  */
-	/* Store the locations from subexpressions.  */
-	d->oper = SO_STORE;
-	return 0;
-
-      case SO_COUNT:	/* Count the locations.  */
-	switch (GET_CODE (*x))
-	  {
-	    case REG:
 #ifdef ENABLE_CHECKING
-	      if (REGNO (*x) >= FIRST_PSEUDO_REGISTER)
-		abort ();
+	if (REGNO (*loc) >= FIRST_PSEUDO_REGISTER)
+	  abort ();
 #endif
-	      VTI (bb)->n_locs++;
-	      /* Continue traversing.  */
-	      return 0;
-
-	    case MEM:
-	      if (MEM_EXPR (*x) && track_expr_p (MEM_EXPR (*x)))
-		VTI (bb)->n_locs++;
-	      /* Continue traversing.  */
-	      return 0;
-
-	    default:
-	      /* Continue traversing.  */
-	      return 0;
-	  }
-	break;
-
-      case SO_STORE:	/* Store the locations.  */
-	switch (GET_CODE (*x))
-	  {
-	    case SET:
-	      old_type = d->type;
-	      d->type = LT_PARAM;
-	      for_each_rtx (&SET_SRC (*x), scan_for_locations, data);
-	      d->type = LT_SET_DEST;
-	      for_each_rtx (&SET_DEST (*x), scan_for_locations, data);
-	      d->type = old_type;
-	      /* Do not traverse sub-expressions.  */
-	      return -1;
-
-	    case CLOBBER:
-	      old_type = d->type;
-	      d->type = LT_CLOBBERED;
-	      for_each_rtx (&SET_DEST (*x), scan_for_locations, data);
-	      d->type = old_type;
-	      /* Do not traverse sub-expressions.  */
-	      return -1;
-
-	    case REG:
-	      l = VTI (bb)->locs + VTI (bb)->n_locs++;
-	      l->loc = *x;
-	      l->insn = d->insn;
-	      l->type = d->type;
-	      /* Do not traverse sub-expressions.  */
-	      return -1;
-
-	    case MEM:
-	      if (MEM_EXPR (*x) && track_expr_p (MEM_EXPR (*x)))
-		{
-		  l = VTI (bb)->locs + VTI (bb)->n_locs++;
-		  l->loc = *x;
-		  l->insn = d->insn;
-		  l->type = d->type;
-		  if (d->type != LT_PARAM)
-		    {
-		      /* Scan for params in subexpressions.  */
-		      old_type = d->type;
-		      d->oper = SO_SKIP;
-		      d->type = LT_PARAM;
-		      for_each_rtx (x, scan_for_locations, data);
-		      d->type = old_type;
-		      /* Do not traverse sub-expressions.  */
-		      return -1;
-		    }
-		}
-	      /* Continue traversing.  */
-	      return 0;
-
-	    default:
-	      /* Continue traversing.  */
-	      return 0;
-	  }
-	break;
+	VTI (bb)->n_locs++;
     }
+  else if (GET_CODE (*loc) == MEM
+	   && MEM_EXPR (*loc)
+	   && track_expr_p (MEM_EXPR (*loc)))
+    {
+	  VTI (bb)->n_locs++;
+    }
+}
 
-  return 0;
+/* Count stores (register and memory references) LOC which will be tracked.
+   INSN is instruction which the LOC is part of.  */
+
+static void
+count_stores (loc, expr, insn)
+     rtx loc;
+     rtx expr ATTRIBUTE_UNUSED;
+     void *insn;
+{
+  count_uses (&loc, insn);
+}
+
+/* Add uses (register and memory references) LOC which will be tracked
+   to VTI (bb)->loc.  INSN is instruction which the LOC is part of.  */
+
+static void
+add_uses (loc, insn)
+     rtx *loc;
+     void *insn;
+{
+  if (GET_CODE (*loc) == REG
+      || (GET_CODE (*loc) == MEM
+	  && MEM_EXPR (*loc)
+	  && track_expr_p (MEM_EXPR (*loc))))
+    {
+      basic_block bb = BLOCK_FOR_INSN ((rtx) insn);
+      location *l = VTI (bb)->locs + VTI (bb)->n_locs++;
+
+      l->loc = *loc;
+      l->insn = (rtx) insn;
+      l->type = LT_USE;
+    }
+}
+
+/* Add stores (register and memory references) LOC which will be tracked
+   to VTI (bb)->loc. EXPR is the RTL expression containing the store.
+   INSN is instruction which the LOC is part of.  */
+
+static void
+add_stores (loc, expr, insn)
+     rtx loc;
+     rtx expr;
+     void *insn;
+{
+  if (GET_CODE (loc) == REG
+      || (GET_CODE (loc) == MEM
+	  && MEM_EXPR (loc)
+	  && track_expr_p (MEM_EXPR (loc))))
+    {
+      basic_block bb = BLOCK_FOR_INSN ((rtx) insn);
+      location *l = VTI (bb)->locs + VTI (bb)->n_locs++;
+
+      l->loc = loc;
+      l->insn = (rtx) insn;
+      l->type = GET_CODE (expr) == CLOBBER ? LT_CLOBBER : LT_SET;
+    }
 }
 
 /* Compute the changes of variable locations in the basic block BB.  */
@@ -846,8 +808,8 @@ compute_bb_dataflow (bb)
       if (GET_CODE (loc) == REG)
 	{
 	  attrs_list_clear (&out[REGNO (loc)]);
-	  if (VTI (bb)->locs[i].type == LT_PARAM
-	      || VTI (bb)->locs[i].type == LT_SET_DEST)
+	  if (VTI (bb)->locs[i].type == LT_USE
+	      || VTI (bb)->locs[i].type == LT_SET)
 	    {
 	      if (REG_EXPR (loc) && track_expr_p (REG_EXPR (loc)))
 		{
@@ -865,8 +827,8 @@ compute_bb_dataflow (bb)
 	  HOST_WIDE_INT offset = MEM_OFFSET (loc) ? INTVAL (MEM_OFFSET (loc)) : 0;
 
 	  attrs_htab_delete (VTI (bb)->mem_out, loc);
-	  if (VTI (bb)->locs[i].type == LT_PARAM
-	      || VTI (bb)->locs[i].type == LT_SET_DEST)
+	  if (VTI (bb)->locs[i].type == LT_USE
+	      || VTI (bb)->locs[i].type == LT_SET)
 	    {
 	      /* We are storing a part of variable to memory so remove its
 	         occurrences from registers.  */
@@ -1324,7 +1286,7 @@ static void
 process_bb (bb)
      basic_block bb;
 {
-  int i, n;
+  int i;
   attrs reg[FIRST_PSEUDO_REGISTER];
   htab_t mem;
 
@@ -1335,38 +1297,42 @@ process_bb (bb)
 			   mem_htab_eq, attrs_htab_cleanup);
   attrs_htab_copy (mem, VTI (bb)->mem_in);
 
-  n = VTI (bb)->n_locs;
-  for (i = 0; i < n; i++)
+  for (i = 0; i < VTI (bb)->n_locs; i++)
     {
+      attrs l;
       rtx insn = VTI (bb)->locs[i].insn;
       rtx loc = VTI (bb)->locs[i].loc;
 
       if (GET_CODE (loc) == REG)
 	{
-	  attrs l;
 	  tree decl = REG_EXPR (loc);
 	  HOST_WIDE_INT offset = REG_OFFSET (loc);
 	  enum where_emit_note where = EMIT_NOTE_AFTER_INSN;
 
 	  switch (VTI (bb)->locs[i].type)
 	    {
-	      case LT_PARAM:
+	      case LT_USE:
 		where = EMIT_NOTE_BEFORE_INSN;
-	      case LT_SET_DEST:
+	      case LT_SET:
 		for (l = reg[REGNO (loc)]; l; l = l->next)
 		  if (l->decl != decl || l->offset != offset)
 		    delete_location_part (l->decl, l->offset, insn, where);
 		attrs_list_clear (&reg[REGNO (loc)]);
-		if (decl && track_expr_p (decl))
+		if (decl)
 		  {
-		    set_location_part (decl, offset, loc, insn, where);
-		    attrs_list_insert (&reg[REGNO (loc)], decl, offset, loc);
+		    if (track_expr_p (decl))
+		      {
+			set_location_part (decl, offset, loc, insn, where);
+			attrs_list_insert (&reg[REGNO (loc)], decl, offset, loc);
+		      }
+		    else
+		      {
+			delete_location_part (decl, offset, insn, where);
+		      }
 		  }
-		else
-		  delete_location_part (decl, offset, insn, where);
 		break;
 
-	      case LT_CLOBBERED:
+	      case LT_CLOBBER:
 		for (l = reg[REGNO (loc)]; l; l = l->next)
 		  delete_location_part (l->decl, l->offset, insn,
 					EMIT_NOTE_AFTER_INSN);
@@ -1384,15 +1350,18 @@ process_bb (bb)
 
 	  switch (VTI (bb)->locs[i].type)
 	    {
-	      case LT_PARAM:
+	      case LT_USE:
 		where = EMIT_NOTE_BEFORE_INSN;
-	      case LT_SET_DEST:
+	      case LT_SET:
+		/* We are storing a part of variable to memory. If variable
+		   has several equivalent locations keep only the memory
+		   location.  So remove variable's occurrences from registers.  */
 		process_bb_delete (reg, mem, false, loc, insn, where);
 		set_location_part (decl, offset, loc, insn, where);
 		attrs_htab_insert (mem, loc);
 		break;
 
-	      case LT_CLOBBERED:
+	      case LT_CLOBBER:
 		process_bb_delete (reg, mem, true, loc, insn,
 				   EMIT_NOTE_AFTER_INSN);
 		break;
@@ -1502,7 +1471,6 @@ static void
 var_tracking_initialize ()
 {
   basic_block bb;
-  scan_for_locations_data data;
 
   alloc_aux_for_blocks (sizeof (struct var_tracking_info_def));
 
@@ -1517,9 +1485,8 @@ var_tracking_initialize ()
 	{
 	  if (INSN_P (insn))
 	    {
-	      data.oper = SO_COUNT;
-	      data.insn = insn;
-	      for_each_rtx (&PATTERN (insn), scan_for_locations, &data);
+	      note_uses (&PATTERN (insn), count_uses, insn);
+	      note_stores (PATTERN (insn), count_stores, insn);
 	    }
 	}
 
@@ -1534,42 +1501,42 @@ var_tracking_initialize ()
 	    {
 	      int n1, n2;
 
-	      data.type = LT_PARAM;
-	      data.oper = SO_STORE;
-	      data.insn = insn;
 	      n1 = VTI (bb)->n_locs;
-	      for_each_rtx (&PATTERN (insn), scan_for_locations, &data);
+	      note_uses (&PATTERN (insn), add_uses, insn);
+	      note_stores (PATTERN (insn), add_stores, insn);
 	      n2 = VTI (bb)->n_locs - 1;
 
-	      /* Order the locations so that the locations of type LT_PARAM are
+	      /* Order the locations so that the locations of type LT_USE are
 		 before others.  */
 	      while (n1 < n2)
 		{
-		  while (n1 < n2 && VTI (bb)->locs[n1].type == LT_PARAM)
+		  while (n1 < n2 && VTI (bb)->locs[n1].type == LT_USE)
 		    n1++;
-		  while (n1 < n2 && VTI (bb)->locs[n2].type != LT_PARAM)
+		  while (n1 < n2 && VTI (bb)->locs[n2].type != LT_USE)
 		    n2--;
 		  if (n1 < n2)
 		    {
 		      location sw;
+
 		      sw = VTI (bb)->locs[n1];
 		      VTI (bb)->locs[n1] = VTI (bb)->locs[n2];
 		      VTI (bb)->locs[n2] = sw;
 		    }
 		}
 
-	      /* Now the LT_PARAMs are first, order the rest so that the
-		 LT_SET_DESTs are before LT_CLOBBEREDs.  */
+	      /* Now the LT_USEs are first, order the rest so that LT_SETs are
+		 before LT_CLOBBERs.  */
 	      n2 = VTI (bb)->n_locs - 1;
 	      while (n1 < n2)
 		{
-		  while (n1 < n2 && VTI (bb)->locs[n1].type == LT_SET_DEST)
+		  while (n1 < n2 && VTI (bb)->locs[n1].type == LT_SET)
 		    n1++;
-		  while (n1 < n2 && VTI (bb)->locs[n2].type == LT_CLOBBERED)
+		  while (n1 < n2 && VTI (bb)->locs[n2].type == LT_CLOBBER)
 		    n2--;
 		  if (n1 < n2)
 		    {
 		      location sw;
+
 		      sw = VTI (bb)->locs[n1];
 		      VTI (bb)->locs[n1] = VTI (bb)->locs[n2];
 		      VTI (bb)->locs[n2] = sw;

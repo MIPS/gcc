@@ -1,3 +1,14 @@
+2003-02-03  Josef Zlomek  <zlomekj@suse.cz>
+
+	* var-tracking.c (enum scan_operation): Deleted.
+	(enum location_type): Changed names of fields to be less confusing.
+	(struct scan_for_locations_data_def): Deleted.
+	(scan_for_locations): Deleted function.
+	(count_uses, count_stores, add_uses, add_stores): New function.
+	(process_bb): Do not delete_location_part if decl == NULL.
+	(var_tracking_initialize): Use note_uses and note_stores instead of
+	for_each_bb, use insn instead of scan_for_locations_data data.
+
 2003-02-02  Daniel Berlin  <dberlin@dberlin.org>
 
 	* dwarf2out.c (output_loc_list): Location list terminators
