@@ -1,3 +1,7 @@
+2003-04-03  Diego Novillo  <dnovillo@redhat.com>
+
+	* gcc.c-torture/execute/20030403-1.c: New test.
+
 2003-03-10  Steven Bosscher  <s.bosscher@student.tudelft.nl>
 
 	* gcc.c-torture/compile/20030310-1.c: New test.

@@ -4983,7 +4983,7 @@ fold_relational_hi_lo (code_p, type_p, op0_p, op1_p)
 	      st0 = (*lang_hooks.types.signed_type) (TREE_TYPE (op0));
 	      st1 = (*lang_hooks.types.signed_type) (TREE_TYPE (op1));
 
-	      exp = build (LE_EXPR ? GE_EXPR: LT_EXPR,
+	      exp = build (code == LE_EXPR ? GE_EXPR: LT_EXPR,
 			   type,
 			   convert (st0, op0),
 			   convert (st1, integer_zero_node));
