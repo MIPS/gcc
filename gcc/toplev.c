@@ -4885,7 +4885,7 @@ parse_options_and_default_flags (argc, argv)
       flag_delete_null_pointer_checks = 1;
       flag_reorder_blocks = 1;
       flag_reorder_functions = 1;
-      flag_tracer = 2;
+      flag_tracer = 1;
       flag_new_unroll_loops = 2;
       flag_unswitch_loops = 2;
       flag_peel_loops = 2;
