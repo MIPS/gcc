@@ -10626,9 +10626,15 @@ cp_parser_class_head (parser,
       *nested_name_specifier_p = true;
     }
 
-  /* Enter the scope of the class; the names of base classes should be
-     looked up in that context.  */
-  push_scope (type);
+  /* Enter the scope containing the class; the names of base classes
+     should be looked up in that context.  For example, given:
+
+       struct A { struct B {}; struct C; };
+       struct A::C : B {};
+
+     is valid.  */
+  if (nested_name_specifier)
+    push_scope (nested_name_specifier);
   /* Now, look for the base-clause.  */
   token = cp_lexer_peek_token (parser->lexer);
   if (token->type == CPP_COLON)
@@ -10640,9 +10646,10 @@ cp_parser_class_head (parser,
       /* Process them.  */
       xref_basetypes (type, bases);
     }
-  /* Leave the class scope.  (It will be re-enetered when we start
-     processing the members of the class.)  */
-  pop_scope (type);
+  /* Leave the scope given by the nested-name-specifier.  We will
+     enter the class scope itself while processing the members.  */
+  if (nested_name_specifier)
+    pop_scope (nested_name_specifier);
 
   return type;
 }
@@ -12118,10 +12125,6 @@ cp_parser_lookup_name (parser, name, check_access, is_type,
 	  /* Otherwise, check accessibility now.  */
 	  else
 	    enforce_access (qualifying_type, decl);
-	  
-	  /* FIXME: I think we check access on using-declarations in
-	     classes somewhere else.  It is now probably checked 
-	     here.  */
 	}
     }
 

@@ -1189,7 +1189,8 @@ accessible_p (type, decl)
 
 /* Returns the scope through which DECL is being accessed, or
    NULL_TREE if DECL is not a member.  If OBJECT_TYPE is non-NULL, we
-   have just seen `x->' or `x.'.  If the DECL was named as `A::B' then
+   have just seen `x->' or `x.' and OBJECT_TYPE is the type of `*x',
+   or `x', respectively.  If the DECL was named as `A::B' then
    NESTED_NAME_SPECIFIER is `A'.  */
 
 tree
