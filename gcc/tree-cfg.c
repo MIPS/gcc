@@ -59,11 +59,6 @@ static int dump_flags;		/* CFG dump flags.  */
    building of the CFG in code with lots of gotos.  */
 static varray_type label_to_block_map;
 
-/* Stack of active exception handlers.  When we encounter statements
-   that may throw, we walk this stack to determine which exception
-   handlers are directly reachable by the statement.  */
-static varray_type eh_stack;
-
 /* CFG statistics.  */
 struct cfg_stats_d
 {
@@ -86,9 +81,6 @@ static void free_blocks_annotations (void);
 static void clear_blocks_annotations (void);
 static basic_block make_blocks (tree *, tree, tree, basic_block, tree);
 static void make_cond_expr_blocks (tree *, tree, basic_block, tree);
-static void make_catch_expr_blocks (tree *, tree, basic_block, tree);
-static void make_eh_filter_expr_blocks (tree *, tree, basic_block, tree);
-static void make_try_expr_blocks (tree *, tree, basic_block, tree);
 static void make_switch_expr_blocks (tree *, tree, basic_block, tree);
 static basic_block make_bind_expr_blocks (tree *, tree, basic_block, tree,
 					  tree);
@@ -100,7 +92,6 @@ static inline void set_parent_stmt (tree *, tree);
 static void make_edges (void);
 static void make_ctrl_stmt_edges (basic_block);
 static void make_exit_edges (basic_block);
-static void make_call_expr_edges (basic_block, tree, tree);
 static void make_cond_expr_edges (basic_block);
 static void make_goto_expr_edges (basic_block);
 static void make_case_label_edges (basic_block);
@@ -108,13 +99,11 @@ static void make_case_label_edges (basic_block);
 /* Various helpers.  */
 static void assign_vars_to_scope (tree);
 static basic_block successor_block (basic_block);
-static basic_block last_exec_block (tree *);
 static tree *first_exec_stmt (tree *);
 static basic_block switch_parent (basic_block);
 static inline bool stmt_starts_bb_p (tree, tree);
 static inline bool stmt_ends_bb_p (tree);
 static void find_contained_blocks (tree *, bitmap, tree **);
-static void compute_reachable_eh (tree);
 static int tree_verify_flow_info (void);
 static basic_block tree_make_forwarder_block (basic_block, int, int, edge, int);
 static struct loops *tree_loop_optimizer_init (FILE *);
@@ -149,7 +138,6 @@ static void merge_tree_blocks (basic_block, basic_block);
 static bool remap_stmts (basic_block, basic_block, tree *);
 static tree *handle_switch_split (basic_block, basic_block);
 static tree *handle_switch_fallthru (tree, basic_block, basic_block);
-static enum eh_region_type get_eh_region_type (tree);
 
 /* Block iterator helpers.  */
 static void remove_bsi_from_block (block_stmt_iterator *, bool);
@@ -254,8 +242,6 @@ build_tree_cfg (tree fnbody)
 
   ENTRY_BLOCK_PTR->next_bb = EXIT_BLOCK_PTR;
   EXIT_BLOCK_PTR->prev_bb = ENTRY_BLOCK_PTR;
-
-  VARRAY_TREE_INIT (eh_stack, 10, "Exception Handlers");
 
   /* Find the basic blocks for the flowgraph.  Ignore empty functions.  */
   if (IS_EMPTY_STMT (fnbody) || TREE_CODE (fnbody) != BIND_EXPR)
@@ -437,12 +423,6 @@ make_blocks (tree *first_p, tree next_block_link, tree parent_stmt,
 	make_cond_expr_blocks (stmt_p, next_block_link, bb, scope);
       else if (code == SWITCH_EXPR)
 	make_switch_expr_blocks (stmt_p, next_block_link, bb, scope);
-      else if (code == CATCH_EXPR)
-	make_catch_expr_blocks (stmt_p, next_block_link, bb, scope);
-      else if (code == EH_FILTER_EXPR)
-	make_eh_filter_expr_blocks (stmt_p, next_block_link, bb, scope);
-      else if (code == TRY_CATCH_EXPR || code == TRY_FINALLY_EXPR)
-	make_try_expr_blocks (stmt_p, next_block_link, bb, scope);
       else if (code == BIND_EXPR)
 	{
 	  int num_blocks_before;
@@ -506,17 +486,7 @@ make_blocks (tree *first_p, tree next_block_link, tree parent_stmt,
 	 next iteration.  Also compute any reachable exception handlers
 	 for STMT.  */
       if (stmt && stmt_ends_bb_p (stmt))
-        {
-	  start_new_block = true;
-
-	  if (TREE_CODE (stmt) == CALL_EXPR
-	      || (TREE_CODE (stmt) == MODIFY_EXPR
-		  && TREE_CODE (TREE_OPERAND (stmt, 1)) == CALL_EXPR)
-	      || (flag_non_call_exceptions && TREE_CODE (stmt) == MODIFY_EXPR
-		  && (could_trap_p (TREE_OPERAND (stmt, 0))
-		      || could_trap_p (TREE_OPERAND (stmt, 1)))))
-	    compute_reachable_eh (stmt);
-	}
+	start_new_block = true;
 
       last = stmt;
     }
@@ -530,17 +500,6 @@ make_blocks (tree *first_p, tree next_block_link, tree parent_stmt,
     }
 
   return NULL;
-}
-
-/* Return 1 if the expr can trap, as in dereferencing an
-   invalid pointer location.  */
-
-int
-could_trap_p (tree expr)
-{
-  return (TREE_CODE (expr) == INDIRECT_REF
-	  || (TREE_CODE (expr) == COMPONENT_REF
-	      && (TREE_CODE (TREE_OPERAND (expr, 0)) == INDIRECT_REF)));
 }
 
 /* Create the blocks for the COND_EXPR node pointed by COND_P.
@@ -577,124 +536,6 @@ make_cond_expr_blocks (tree *cond_p, tree next_block_link,
   make_blocks (&COND_EXPR_THEN (cond), next_block_link, cond, NULL, scope);
   make_blocks (&COND_EXPR_ELSE (cond), next_block_link, cond, NULL, scope);
 }
-
-/* Derive an exception handling region type from STMT.  */
-
-static enum eh_region_type
-get_eh_region_type (tree stmt)
-{
-  if (TREE_CODE (stmt) == TRY_FINALLY_EXPR)
-    return ERT_CLEANUP;
-  if (TREE_CODE (stmt) == TRY_CATCH_EXPR)
-    {
-      tree handler = TREE_OPERAND (stmt, 1);
-      if (TREE_CODE (expr_first (handler)) == CATCH_EXPR)
-	return ERT_TRY;
-      if (TREE_CODE (handler) == EH_FILTER_EXPR)
-	return ERT_ALLOWED_EXCEPTIONS;
-      return ERT_CLEANUP;
-    }
-  abort ();
-}
-
-/* Create the blocks for the TRY_CATCH_EXPR or TRY_FINALLY_EXPR node
-   pointed by expr_p.
-   
-   SCOPE is the BIND_EXPR node holding *EXPR_P.  */
-
-static void
-make_try_expr_blocks (tree *expr_p, tree next_block_link,
-		      basic_block entry, tree scope)
-{
-  tree_stmt_iterator si;
-  tree expr = *expr_p;
-  entry->flags |= BB_CONTROL_STRUCTURE;
-
-  /* Determine NEXT_BLOCK_LINK for statements inside the body.  */
-  si = tsi_start (expr_p);
-  tsi_next (&si);
-
-  /* Ignore any empty statements at the tail of this tree.  */
-  while (!tsi_end_p (si) && tsi_stmt (si) == NULL)
-    tsi_next (&si);
-
-  if (!tsi_end_p (si) && tsi_stmt (si) != NULL_TREE)
-    next_block_link = *(tsi_container (si));
-
-  STRIP_CONTAINERS (expr);
-
-  /* We need to keep a stack of the TRY_CATCH_EXPR and TRY_FINALLY nodes
-     so that we know when throwing statements should end a basic block.  */
-  VARRAY_PUSH_TREE (eh_stack, expr);
-
-  /* Make blocks for the TRY block.  */
-  make_blocks (&TREE_OPERAND (expr, 0), next_block_link, expr, NULL, scope);
-
-  /* And pop the stack of exception handlers.  */
-  VARRAY_POP (eh_stack);
-
-  /* Make blocks for the handler itself.  */
-  make_blocks (&TREE_OPERAND (expr, 1), next_block_link, expr, NULL, scope);
-
-  /* If this is a cleanup, then record which cleanup higher in the
-     stack it can directly reach.  */
-  if (get_eh_region_type (expr) == ERT_CLEANUP
-      && VARRAY_ACTIVE_SIZE (eh_stack))
-    {
-      tree region = VARRAY_TOP_TREE (eh_stack);
-      if (get_eh_region_type (region) == ERT_CLEANUP)
-	stmt_ann (expr)->reachable_exception_handlers = TREE_OPERAND (region, 1);
-    }
-}
-
-/* Create the blocks for the CATCH_EXPR node pointed to by expr_p.
-   
-   SCOPE is the BIND_EXPR node holding *EXPR_P.  */
-
-static void
-make_catch_expr_blocks (tree *expr_p, tree next_block_link,
-			basic_block entry, tree scope)
-{
-  tree_stmt_iterator si;
-  tree expr = *expr_p;
-  entry->flags |= BB_CONTROL_STRUCTURE;
-
-  /* Determine NEXT_BLOCK_LINK for statements inside the body.  */
-  si = tsi_start (expr_p);
-  tsi_next (&si);
-
-  /* Ignore any empty statements at the tail of this tree.  */
-  while (!tsi_end_p (si) && tsi_stmt (si) == NULL)
-    tsi_next (&si);
-
-  STRIP_CONTAINERS (expr);
-  make_blocks (&CATCH_BODY (expr), next_block_link, expr, NULL, scope);
-}
-
-/* Create the blocks for the EH_FILTER_EXPR node pointed to by expr_p.
-   
-   SCOPE is the BIND_EXPR node holding *EXPR_P.  */
-
-static void
-make_eh_filter_expr_blocks (tree *expr_p, tree next_block_link,
-			    basic_block entry, tree scope)
-{
-  tree_stmt_iterator si;
-  tree expr = *expr_p;
-  entry->flags |= BB_CONTROL_STRUCTURE;
-
-  /* Determine NEXT_BLOCK_LINK for statements inside the body.  */
-  si = tsi_start (expr_p);
-  tsi_next (&si);
-
-  /* Ignore any empty statements at the tail of this tree.  */
-  while (!tsi_end_p (si) && tsi_stmt (si) == NULL)
-    tsi_next (&si);
-
-  STRIP_CONTAINERS (expr);
-  make_blocks (&EH_FILTER_FAILURE (expr), next_block_link, expr, NULL, scope);
-}
-
 
 /* Create the blocks for the SWITCH_EXPR node pointed by SWITCH_E_P.
 
@@ -889,21 +730,12 @@ create_bb (void)
 				 Edge creation
 ---------------------------------------------------------------------------*/
 
-/* We need to keep a stack of the TRY_FINALLY blocks we've found as
-   we must process its children before we know what special edges
-   need to be created.  */
-varray_type try_finallys;
-
-
 /* Join all the blocks in the flowgraph.  */
 
 static void
 make_edges (void)
 {
   basic_block bb;
-  int i;
-
-  VARRAY_TREE_INIT (try_finallys, 10, "try finally block stack");
 
   /* Create an edge from entry to the first block with executable
      statements in it.  */
@@ -917,12 +749,11 @@ make_edges (void)
 
       if (first)
         {
-	  /* Edges for control statements.  */
+	  /* Edges for statements that always alter flow control.  */
 	  if (is_ctrl_stmt (last))
 	    make_ctrl_stmt_edges (bb);
 
-	  /* Edges for control flow altering statements (GOTO_EXPR and
-	     RETURN_EXPR) need an edge to the corresponding target block.  */
+	  /* Edges for statements that sometimes alter flow control.  */
 	  if (is_ctrl_altering_stmt (last))
 	    make_exit_edges (bb);
 
@@ -941,87 +772,6 @@ make_edges (void)
   /* We do not care about fake edges, so remove any that the CFG
      builder inserted for completeness.  */
   remove_fake_edges ();
-
-  /* Now go back to each TRY_FINALLY_EXPR and add the required special
-     edges.
-
-     For each edge out of the TRY block:
-
-       1.  Add an abnormal edge from the source of that edge to the
-       FINALLY block.
-
-       2. Add an abnormal edge from the FINALLY block to the destination
-       of the edge out of the TRY block.
-
-     Note this does not update the underlying tree codes, just the CFG.
-     This may be an insanely bad idea long term.
-
-     Also note this is overly conservative, many of the edges from the
-     TRY to the FINALLY should be normal edges.  Similarly for the
-     edges from the FINALLY to the TRY's original destination.  */
-  for (i = VARRAY_ACTIVE_SIZE (try_finallys) - 1; i >= 0; i--)
-    {
-      tree try_finally = VARRAY_TREE (try_finallys, i);
-      tree *finally_p = &TREE_OPERAND (try_finally, 1);
-      basic_block finally_bb = bb_for_stmt (*finally_p);
-      tree *finally_last_p;
-      basic_block last_bb;
-      int bb;
-      bitmap try_blocks = BITMAP_XMALLOC ();
-
-      /* We need to know the last statement in the FINALLY so that
-	 we know where to wire up the additional outgoing edges from
-	 the FINALLY block.  */
-      last_bb = last_exec_block (finally_p);
-
-      /* Get bitmaps for the basic blocks within the TRY block as
-	 well as bitmap for the blocks which the TRY block can
-	 reach.  */
-      finally_last_p = NULL;
-      find_contained_blocks (&TREE_OPERAND (try_finally, 0),
-			     try_blocks, &finally_last_p);
-
-      /* If the FINALLY is not empty, then we'll need to create some more
-	 edges.  */
-      if (finally_bb)
-	{
-	  /* Examine each basic block within the TRY block.  */
-	  EXECUTE_IF_SET_IN_BITMAP (try_blocks, 0, bb,
-	    {
-	      edge e;
-
-	      /* Look at each outgoing edge from the block, if the
-		 destination of the edge is not inside the TRY block,
-		 then wire up an edge from this block to the FINALLY block
-	         and an edge from the end of the FINALLY block to the target
-		 of this edge.
-
-		 For now all the edges created below must be abnormal
-		 edges.  As the edge splitting code improves we can probably
-		 relax this restriction.  */
-	      for (e = BASIC_BLOCK (bb)->succ; e; e = e->succ_next)
-		if (! bitmap_bit_p (try_blocks, e->dest->index))
-		  {
-		    make_edge (BASIC_BLOCK (bb), finally_bb, EDGE_ABNORMAL);
-
-		    /* Do not create an artificial loop in the FINALLY
-		       block.  */
-		    if (e->dest != finally_bb)
-		      make_edge (last_bb, e->dest, EDGE_ABNORMAL);
-
-		    /* If this is not one of the blocks we just
-		       created, then it can be removed it can never
-		       be executed.  */
-		    if (e->dest != finally_bb && e->src != last_bb)
-		      remove_edge (e);
-		  }
-	    });
-	}
-
-      BITMAP_XFREE (try_blocks);
-    }
-
-  try_finallys = NULL;
 
   /* Clean up the graph and warn for unreachable code.  */
   cleanup_tree_cfg ();
@@ -1143,87 +893,16 @@ make_ctrl_stmt_edges (basic_block bb)
     case SWITCH_EXPR:
       break;
 
-    case TRY_FINALLY_EXPR:
-      /* Record this TRY_FINALLY_EXPR as needing further processing.  */
-      VARRAY_PUSH_TREE (try_finallys, last);
-
-      /* We used to try and optimize cases where the TRY block has no
-	 executable code.  However that is unsafe in our container
-	 based intermediate representation.  Consider what happens
-	 if the out-of-ssa pass wants to insert an instruction on the
-	 edge from the TRY_FINALLY_EXPR to the FINALLY block and there
-	 are multiple predecessors for the FINALLY block.  There is
-	 no safe place to do the insertion without special casing to
-	 know the insertion can occur before the TRY_FINALLY_EXPR.  */
-
-      /* FALLTHRU */
-    case TRY_CATCH_EXPR:
-      make_edge (bb, bb_for_stmt (TREE_OPERAND (last, 0)), 0);
-
-      /* Make an edge to the next cleanup if applicable.  */
-      if (stmt_ann (last)->reachable_exception_handlers)
-	{
-	  tree handler  = stmt_ann (last)->reachable_exception_handlers;
-	  basic_block target_bb = last_exec_block (&TREE_OPERAND (last, 1));
-	  make_edge (target_bb, bb_for_stmt (handler), 0);
-	}
-
-      break;
-
-    case CATCH_EXPR:
-      make_edge (bb, bb_for_stmt (CATCH_BODY (last)), 0);
-      break;
-
-    case EH_FILTER_EXPR:
-      make_edge (bb, bb_for_stmt (EH_FILTER_FAILURE (last)), 0);
+    case RESX_EXPR:
+      make_eh_edges (last);
+      /* Yet another NORETURN hack.  */
+      if (bb->succ == NULL)
+	make_edge (bb, EXIT_BLOCK_PTR, EDGE_FAKE);
       break;
 
     default:
       abort ();
     }
-}
-
-/* A CALL_EXPR node here means that the last statement of the block
-   is a call to a non-returning function or a call that may throw.  */
-
-static void
-make_call_expr_edges (basic_block bb, tree call, tree stmt)
-{
-  /* If this function receives a nonlocal goto, then we need to
-     make edges from this call site to all the nonlocal goto
-     handlers.  */
-  if (FUNCTION_RECEIVES_NONLOCAL_GOTO (current_function_decl))
-    make_goto_expr_edges (bb);
-
-  /* If this statement might throw and has reachable exception handlers,
-     then create abnormal edges to them.  */
-  if (stmt_ann (stmt)->reachable_exception_handlers
-      && !TREE_NOTHROW (call))
-    {
-      tree t;
-
-      for (t = stmt_ann (stmt)->reachable_exception_handlers;
-	   t;
-	   t = TREE_CHAIN (t))
-	make_edge (bb, bb_for_stmt (TREE_VALUE (t)), EDGE_ABNORMAL);
-    }
-
-  /* Some calls are known not to return.  For such calls we create
-     a fake edge.
-
-     We really need to revamp how we build edges so that it's not
-     such a bloody pain to avoid creating edges for this case since
-     all we do is remove these edges when we're done building the
-     CFG.  */
-  if (call_expr_flags (call) & (ECF_NORETURN | ECF_LONGJMP))
-    {
-      make_edge (bb, EXIT_BLOCK_PTR, EDGE_FAKE);
-      return;
-    }
-
-  /* We need to explicitly add the fall-thru edge, since we've added
-     others.  */
-  make_edge (bb, successor_block (bb), EDGE_FALLTHRU);
 }
 
 /* Create exit edges for statements in block BB that alter the flow of
@@ -1241,34 +920,43 @@ make_exit_edges (basic_block bb)
   switch (TREE_CODE (last))
     {
     case CALL_EXPR:
-      make_call_expr_edges (bb, last, last);
+      /* If this function receives a nonlocal goto, then we need to
+	 make edges from this call site to all the nonlocal goto
+	 handlers.  */
+      if (FUNCTION_RECEIVES_NONLOCAL_GOTO (current_function_decl))
+	make_goto_expr_edges (bb);
+
+      /* If this statement has reachable exception handlers, then
+	 create abnormal edges to them.  */
+      make_eh_edges (last);
+
+      /* Some calls are known not to return.  For such calls we create
+	 a fake edge.
+
+	 We really need to revamp how we build edges so that it's not
+	 such a bloody pain to avoid creating edges for this case since
+	 all we do is remove these edges when we're done building the
+	 CFG.  */
+      if (call_expr_flags (last) & (ECF_NORETURN | ECF_LONGJMP))
+	{
+	  make_edge (bb, EXIT_BLOCK_PTR, EDGE_FAKE);
+	  return;
+	}
+
+      /* Don't forget the fall-thru edge.  */
+      make_edge (bb, successor_block (bb), EDGE_FALLTHRU);
       break;
 
     case MODIFY_EXPR:
       /* A MODIFY_EXPR may have a CALL_EXPR on its RHS and the CALL_EXPR
 	 may have an abnormal edge.  Search the RHS for this case and
 	 create any required edges.  */
-      if (TREE_CODE (TREE_OPERAND (last, 1)) == CALL_EXPR)
-	make_call_expr_edges (bb, TREE_OPERAND (last, 1), last);
+      if (TREE_CODE (TREE_OPERAND (last, 1)) == CALL_EXPR
+	  && FUNCTION_RECEIVES_NONLOCAL_GOTO (current_function_decl))
+	make_goto_expr_edges (bb);
 
-      if (flag_non_call_exceptions
-	  && (could_trap_p (TREE_OPERAND (last, 0))
-	      || could_trap_p (TREE_OPERAND (last, 1))))
-	{
-	  if (stmt_ann (last)->reachable_exception_handlers)
-	    {
-	      tree t;
-
-	      for (t = stmt_ann (last)->reachable_exception_handlers;
-		   t;
-		   t = TREE_CHAIN (t))
-		make_edge (bb,
-			   bb_for_stmt (TREE_VALUE (t)),
-			   EDGE_ABNORMAL);
-	    }
-
-          make_edge (bb, successor_block (bb), EDGE_FALLTHRU);
-	}
+      make_eh_edges (last);
+      make_edge (bb, successor_block (bb), EDGE_FALLTHRU);
       break;
 
     default:
@@ -1317,6 +1005,11 @@ make_cond_expr_edges (basic_block bb)
     make_edge (bb, successor_bb, 0);
 }
 
+basic_block
+label_to_block (tree dest)
+{
+  return VARRAY_BB (label_to_block_map, LABEL_DECL_INDEX (dest));
+}
 
 /* Create edges for a goto statement at block BB.  */
 
@@ -1347,16 +1040,13 @@ make_goto_expr_edges (basic_block bb)
       /* A GOTO to a local label creates normal edges.  */
       if (TREE_CODE (dest) == LABEL_DECL && ! NONLOCAL_LABEL (dest))
 	{
-	  make_edge (bb,
-		     VARRAY_BB (label_to_block_map, LABEL_DECL_INDEX (dest)),
-		     0);
+	  make_edge (bb, label_to_block (dest), 0);
 	  return;
 	}
 
       /* If we reach here, then we either have a computed goto or
 	 a nonlocal goto.  */
       edge_flags = EDGE_ABNORMAL;
-
     }
 
   /* Look for the block starting with the destination label.  In the
@@ -3029,7 +2719,8 @@ is_ctrl_stmt (tree t)
 {
   return (is_ctrl_structure (t)
 	  || TREE_CODE (t) == GOTO_EXPR
-	  || TREE_CODE (t) == RETURN_EXPR);
+	  || TREE_CODE (t) == RETURN_EXPR
+	  || TREE_CODE (t) == RESX_EXPR);
 }
 
 /* Return true if T is a stmt that may or may not alter the flow of control
@@ -3038,53 +2729,40 @@ is_ctrl_stmt (tree t)
 bool
 is_ctrl_altering_stmt (tree t)
 {
-  enum tree_code code;
+  tree call = t;
 
 #if defined ENABLE_CHECKING
   if (t == NULL)
     abort ();
 #endif
 
-  code = TREE_CODE (t);
+  switch (TREE_CODE (t))
+    {
+    case MODIFY_EXPR:
+      /* A MODIFY_EXPR with a rhs of a call has the characteristics
+	 of the call.  */
+      call = TREE_OPERAND (t, 1);
+      if (TREE_CODE (call) != CALL_EXPR)
+	break;
+      /* FALLTHRU */
 
-  /* A CALL_EXPR alters flow control if the current function has
-     nonlocal labels.  */
-  if (code == CALL_EXPR
-      && FUNCTION_RECEIVES_NONLOCAL_GOTO (current_function_decl))
-    return true;
+    case CALL_EXPR:
+      /* A CALL_EXPR alters flow control if the current function has
+	 nonlocal labels.  */
+      if (FUNCTION_RECEIVES_NONLOCAL_GOTO (current_function_decl))
+	return true;
 
-  /* A CALL_EXPR also alters flow control if it does not return.  */
-  if (code == CALL_EXPR
-      && call_expr_flags (t) & (ECF_NORETURN | ECF_LONGJMP))
-    return true;
+      /* A CALL_EXPR also alters flow control if it does not return.  */
+      if (call_expr_flags (call) & (ECF_NORETURN | ECF_LONGJMP))
+	return true;
+      break;
 
-  /* A CALL_EXPR also alters flow control if it may throw.  */
-  if (code == CALL_EXPR
-      && !TREE_NOTHROW (t)
-      && (VARRAY_ACTIVE_SIZE (eh_stack) > 0
-	  || stmt_ann (t)->reachable_exception_handlers))
-    return true;
+    default:
+      return false;
+    }
 
-  /* A MODIFY_EXPR may contain a CALL_EXPR, which in turn may have
-     an abnormal edge if the current function has nonlocal labels.  */
-  if (code == MODIFY_EXPR
-      && TREE_CODE (TREE_OPERAND (t, 1)) == CALL_EXPR
-      && !TREE_NOTHROW (TREE_OPERAND (t, 1))
-      && (FUNCTION_RECEIVES_NONLOCAL_GOTO (current_function_decl)
-          || VARRAY_ACTIVE_SIZE (eh_stack) > 0
-	  || stmt_ann (t)->reachable_exception_handlers))
-    return true;
-
-  /* A MODIFY_EXPR may throw if it contains a INDIRECT_REF and
-     flag_non_call_exceptions is set.  */
-  if (flag_non_call_exceptions && code == MODIFY_EXPR
-      && (could_trap_p (TREE_OPERAND (t, 0))
-	  || could_trap_p (TREE_OPERAND (t, 1)))
-      && (VARRAY_ACTIVE_SIZE (eh_stack) > 0
-	  || stmt_ann (t)->reachable_exception_handlers))
-    return true;
-
-  return false;
+  /* If a statement can throw, it alters control flow.  */
+  return tree_can_throw_internal (t);
 }
 
 
@@ -3235,20 +2913,6 @@ first_stmt (basic_block bb)
   i = bsi_start (bb);
   return (!bsi_end_p (i)) ? bsi_stmt (i) : NULL_TREE;
 }
-
-/* Return the last basic block with executable statements in it, starting
-   at ENTRY_P.  */
-
-static basic_block
-last_exec_block (tree *entry_p)
-{
-  bitmap dummy_bitmap = BITMAP_XMALLOC ();
-  tree *last_p = NULL;
-  find_contained_blocks (entry_p, dummy_bitmap, &last_p);
-  BITMAP_XFREE (dummy_bitmap);
-  return bb_for_stmt (*last_p);
-}
-
 
 /* Return the last statement in basic block BB, stripped of any NOP
    containers.
@@ -4723,130 +4387,6 @@ remap_stmts (basic_block bb1, basic_block bb2, tree *first_p)
 
   return false;
 }
-
-
-/* Compute reachable exception handlers for STMT, which is assumed to be
-   a function call and the last statement of its basic block.  */
-
-static void
-compute_reachable_eh (tree stmt)
-{
-  int i;
-  tree reachable_handlers = NULL_TREE;
-  tree types_caught = NULL_TREE;
-  int skip_cleanups = 0;
-  tree_stmt_iterator si;
-
-  /* EH_STACK contains all the exception handlers which enclose
-     this statement.
-
-     We want to examine the handlers innermost to outermost
-     and determine which ones are actually reachable from this
-     statement.  Those which are reachable are chained together
-     on a list and added to the statement's annotation.  */
-  for (i = VARRAY_ACTIVE_SIZE (eh_stack) - 1; i >= 0; i--)
-    {
-      tree region = VARRAY_TREE (eh_stack, i);
-      tree handler, tp_node;
-
-      switch (get_eh_region_type (region))
-	{
-	case ERT_TRY:
-	  for (si = tsi_start (&TREE_OPERAND (region, 1));
-	       !tsi_end_p (si); tsi_next (&si))
-	    {
-	      tree types;
-
-	      handler = tsi_stmt (si);
-	      types = CATCH_TYPES (handler);
-
-	      /* This is a try/catch construct.  If it has no
-		 CATCH_TYPES, then it catches all types and we
-		 can stop our search early.  */
-	      if (types == NULL_TREE)
-		{
-		  reachable_handlers = tree_cons (void_type_node,
-						  handler,
-						  reachable_handlers);
-		  goto out;
-		}
-
-	      /* If TYPES is not a list, make it a list to
-		 simplify handling below.  */
-	      if (TREE_CODE (types) != TREE_LIST)
-		types = tree_cons (NULL_TREE, types, NULL_TREE);
-
-	      /* See if the CATCH_TYPES specifies any types that have
-		 not already been handled.  If so, add those types to
-		 the types we handle and add this handler to the list
-		 of reachable handlers.  */
-	      for (tp_node = types; tp_node; tp_node = TREE_CHAIN (tp_node))
-		{
-		  tree type = TREE_VALUE (tp_node);
-
-		  if (!check_handled (types_caught, type))
-		    {
-		      types_caught = tree_cons (NULL, type, types_caught);
-		      reachable_handlers
-			= tree_cons (void_type_node,
-				     handler,
-				     reachable_handlers);
-		    }
-		}
-	    }
-
-	  skip_cleanups = 0;
-	  break;
-
-	case ERT_ALLOWED_EXCEPTIONS:
-	  handler = TREE_OPERAND (region, 1);
-
-	  /* This is an exception specification.  If it has
-	     no types, then it ends our search.  */
-	  if (EH_FILTER_TYPES (handler) == NULL_TREE)
-	    {
-	      reachable_handlers = tree_cons (void_type_node,
-					      handler,
-					      reachable_handlers);
-	      break;
-	    }
-
-	  /* This can throw a new exception, so it does not
-	     stop our search.  We should probably track the
-	     types it can throw.  */
-	  reachable_handlers = tree_cons (void_type_node,
-					  handler,
-					  reachable_handlers);
-
-	  skip_cleanups = 0;
-	  break;
-
-	case ERT_CLEANUP:
-	  if (skip_cleanups)
-	    break;
-
-	  handler = TREE_OPERAND (region, 1);
-
-	  /* This is a cleanup and is reachable.  It does not
-	     stop our search; however, we can skip other
-	     cleanups until we run into something else.  */
-	  reachable_handlers = tree_cons (void_type_node,
-					  handler,
-					  reachable_handlers);
-	  skip_cleanups = 1;
-	  break;
-
-	default:
-	  abort ();
-	}
-    }
-
- out:
-  /* REACHABLE_HANDLERS now contains a list of all the reachable
-     handlers.  */
-  stmt_ann (stmt)->reachable_exception_handlers = reachable_handlers;
-}
-
 
 /*---------------------------------------------------------------------------
 	    Tree specific functions for the cfg loop optimizer

@@ -1,3 +1,8 @@
+2003-09-17  Richard Henderson  <rth@redhat.com>
+
+	* decl.c (cxx_init_decl_processing): Don't using_eh_for_cleanups
+	if exceptions are disabled.
+
 2003-09-03  Richard Henderson  <rth@redhat.com>
 
 	* cp-lang.c (LANG_HOOKS_RTL_EXPAND_STMT): Use expand_stmt_toplev.

@@ -248,6 +248,7 @@ get_stmt_operands (tree stmt)
     case TRY_FINALLY_EXPR:
     case EH_FILTER_EXPR:
     case CATCH_EXPR:
+    case RESX_EXPR:
       break;
 
     default:
@@ -298,6 +299,7 @@ get_expr_operands (tree stmt, tree *expr_p, int flags, voperands_t prev_vops)
       || class == 'b'
       || code == FUNCTION_DECL
       || code == EXC_PTR_EXPR
+      || code == FILTER_EXPR
       || code == LABEL_DECL)
     return;
 

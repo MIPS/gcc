@@ -248,33 +248,48 @@ stmt_useful_p (tree stmt)
      they are control flow, and we have no way of knowing whether they can
      be removed.   DCE can eliminate all the other statements in a block,
      and CFG can then remove the block and labels.  */
-  if ((TREE_CODE (stmt) == ASM_EXPR)
-      || (TREE_CODE (stmt) == RETURN_EXPR)
-      || (TREE_CODE (stmt) == CASE_LABEL_EXPR)
-      || (TREE_CODE (stmt) == LABEL_EXPR)
-      || (TREE_CODE (stmt) == BIND_EXPR)
-      || (TREE_CODE (stmt) == CALL_EXPR)
-      || ((TREE_CODE (stmt) == MODIFY_EXPR)
-	  && (TREE_CODE (TREE_OPERAND (stmt, 1)) == CALL_EXPR))
-      || (TREE_CODE (stmt) == TRY_CATCH_EXPR)
-      || (TREE_CODE (stmt) == TRY_FINALLY_EXPR)
-      || (TREE_CODE (stmt) == EH_FILTER_EXPR)
-      || (TREE_CODE (stmt) == CATCH_EXPR))
-    return true;
-
-  /* GOTO_EXPR nodes to nonlocal labels need to be kept (This fixes
-     gcc.c-torture/execute/920501-7.c and others that have nested functions
-     with nonlocal gotos).  FIXME: If we were doing IPA we could determine
-     if the label is actually reachable.  */
-  if (TREE_CODE (stmt) == GOTO_EXPR)
+  switch (TREE_CODE (stmt))
     {
-      edge e;
-      basic_block bb = bb_for_stmt (stmt);
+    case ASM_EXPR:
+    case RETURN_EXPR:
+    case CASE_LABEL_EXPR:
+    case LABEL_EXPR:
+    case BIND_EXPR:
+    case CALL_EXPR:
+    case RESX_EXPR:
+      return true;
 
-      if (bb)
-	for (e = bb->succ; e; e = e->succ_next)
-	  if (e->dest == EXIT_BLOCK_PTR && e->flags & EDGE_ABNORMAL)
-	    return true;
+    case MODIFY_EXPR:
+      if (TREE_CODE (TREE_OPERAND (stmt, 1)) == CALL_EXPR)
+	return true;
+
+      /* These values are mildly magic bits of the EH runtime.  We can't
+	 see the entire lifetime of these values until landing pads are
+	 generated.  */
+      if (TREE_CODE (TREE_OPERAND (stmt, 0)) == EXC_PTR_EXPR)
+	return true;
+      if (TREE_CODE (TREE_OPERAND (stmt, 0)) == FILTER_EXPR)
+	return true;
+      break;
+
+    case GOTO_EXPR:
+      /* GOTO_EXPR nodes to nonlocal labels need to be kept (This fixes
+	 gcc.c-torture/execute/920501-7.c and others that have nested
+	 functions with nonlocal gotos).  FIXME: If we were doing IPA
+	 we could determine if the label is actually reachable.  */
+      {
+	edge e;
+	basic_block bb = bb_for_stmt (stmt);
+
+	if (bb)
+	  for (e = bb->succ; e; e = e->succ_next)
+	    if (e->dest == EXIT_BLOCK_PTR && e->flags & EDGE_ABNORMAL)
+	      return true;
+      }
+      break;
+
+    default:
+      break;
     }
 
   /* Examine all the stores in this statement.  */

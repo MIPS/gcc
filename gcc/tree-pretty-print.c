@@ -1132,6 +1132,10 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags)
       pp_string (buffer, "<<<exception object>>>");
       break;
 
+    case FILTER_EXPR:
+      pp_string (buffer, "<<<filter object>>>");
+      break;
+
     case LOOP_EXPR:
       pp_string (buffer, "while (1)");
       if (!(flags & TDF_SLIM))
@@ -1197,6 +1201,11 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags)
       pp_string (buffer, "goto ");
       dump_generic_node (buffer, op0, spc, flags);
       pp_character (buffer, ';');
+      break;
+
+    case RESX_EXPR:
+      pp_string (buffer, "resx;");
+      /* ??? Any sensible way to present the eh region?  */
       break;
 
     case ASM_EXPR:

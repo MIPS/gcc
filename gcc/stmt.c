@@ -387,7 +387,7 @@ struct stmt_status GTY(())
 #define goto_fixup_chain (cfun->stmt->x_goto_fixup_chain)
 
 /* Nonzero if we are using EH to handle cleanups.  */
-static int using_eh_for_cleanups_p = 0;
+int using_eh_for_cleanups_p = 0;
 
 static int n_occurrences (int, const char *);
 static bool parse_input_constraint (const char **, int, int, int, int,
@@ -3086,11 +3086,8 @@ expand_return (tree retval)
   else if ((TREE_CODE (retval) == MODIFY_EXPR || TREE_CODE (retval) == INIT_EXPR)
 	   && TREE_CODE (TREE_OPERAND (retval, 0)) == RESULT_DECL)
     retval_rhs = TREE_OPERAND (retval, 1);
-  else if (VOID_TYPE_P (TREE_TYPE (retval)))
-    /* Recognize tail-recursive call to void function.  */
-    retval_rhs = retval;
   else
-    retval_rhs = NULL_TREE;
+    retval_rhs = retval;
 
   last_insn = get_last_insn ();
 

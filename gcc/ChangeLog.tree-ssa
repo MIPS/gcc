@@ -1,5 +1,77 @@
 2003-09-17  Richard Henderson  <rth@redhat.com>
 
+	* tree-eh.c: New file.
+	* Makefile.in (OBJS-common): Add it.
+	(tree-eh.o): New.
+	* calls.c (emit_call_1): New argument for full call expr.
+	Check with lookup_stmt_eh_region to set REG_EH_REGION.
+	(expand_call): Likewise for tail-calls.
+	* except.c (struct eh_region): Add tree_label.
+	(gen_eh_region, gen_eh_region_cleanup, gen_eh_region_try,
+	gen_eh_region_catch, gen_eh_region_allowed,
+	gen_eh_region_must_not_throw, get_eh_region_number,
+	get_eh_region_may_contain_throw, get_eh_region_tree_label,
+	set_eh_region_tree_label, expand_resx_expr): New.
+	(expand_eh_region_start, expand_start_catch): Use them.
+	(expand_end_catch): Tidy.
+	(note_eh_region_may_contain_throw): Take region argument.
+	(note_current_region_may_contain_throw): New.
+	(get_exception_filter): Export.
+	(collect_eh_region_array): Export.
+	(remove_unreachable_regions): Check ERT_TRY based on reachability
+	of catches, not reachability of continue_label.  Never remove 
+	ERT_MUST_NOT_THROW regions.
+	(collect_rtl_labels_from_trees): New.
+	(convert_from_eh_region_ranges): Use it.
+	(connect_post_landing_pads): Handle dying cleanups.
+	(struct reachable_info): Add callback data.
+	(add_reachable_handler): Invoke the callback.
+	(foreach_reachable_handler): New.
+	(reachable_handlers): Use it.
+	(arh_to_landing_pad, arh_to_label): New.
+	(can_throw_internal_1): Split out from can_throw_internal.
+	(can_throw_external_1): Similarly.
+	* except.h: Update.
+	* expr.c (expand_expr): Handle RESX_EXPR, FILTER_EXPR.
+	* gimplify.c (gimplify_modify_expr): Use tree_could_trap_p.
+	* stmt.c (using_eh_for_cleanups_p): Export.
+	(expand_return): Allow any typed rhs.
+	* timevar.def (TV_TREE_EH): New.
+	* tree-cfg.c (eh_stack): Kill.
+	(build_tree_cfg): Don't set it.  Kill code to handle EH.
+	(could_trap_p): Move to tree-eh.c as tree_could_trap_p.
+	(get_eh_region_type, make_try_expr_blocks, make_catch_expr_blocks,
+	make_eh_filter_expr_blocks, try_finallys): Kill.
+	(make_edges): Kill code to handle EH.
+	(make_ctrl_stmt_edges): Kill TRY_FINALLY_EXPR, CATCH_EXPR,
+	EH_FILTER_EXPR.  Handle RESX_EXPR.
+	(make_call_expr_edges): Kill.
+	(make_exit_edges): Use make_eh_edges.
+	(label_to_block): New.
+	(make_goto_expr_edges): Use it.
+	(is_ctrl_stmt): Add RESX_EXPR.
+	(is_ctrl_altering_stmt): Restructure.  Use tree_can_throw_internal.
+	(last_exec_block, compute_reachable_eh): Kill.
+	* tree-dfa.c (get_stmt_operands): Add RESX_EXPR.
+	(get_expr_operands): Add FILTER_EXPR.
+	* tree-dump.c (dump_files): Add tree-eh.
+	* tree-flow.h (struct stmt_ann_d): Kill reachable_exception_handlers.
+	(label_to_block, lower_eh_constructs, make_eh_edges,
+	tree_could_trap_p, tree_could_throw_p, tree_can_throw_internal,
+	tree_can_throw_external): Declare.
+	* tree-optimize.c (optimize_function_tree): Call lower_eh_constructs.
+	(tree_rest_of_compilation): Save tree for inlining.
+	* tree-pretty-print.c (dump_generic_node): Handle FILTER_EXPR,
+	RESX_EXPR.
+	* tree-simple.c (is_gimple_stmt): Add RESX_EXPR.
+	(is_gimple_val): Add FILTER_EXPR.
+	* tree-ssa-dce.c (stmt_useful_p): Restructure.  Add lhs of
+	EXC_PTR_EXPR or FILTER_EXPR.
+	* tree.def (FILTER_EXPR, RESX_EXPR): New.
+	* tree.h (enum tree_dump_index): Add TDI_eh.
+
+2003-09-17  Richard Henderson  <rth@redhat.com>
+
 	* tree.c (tsi_link_before): Remove unnecessary parens.
 	(tsi_link_chain_before, tsi_delink): Likewise.
 	(tsi_link_after): Accept the case if the iterator points

@@ -124,7 +124,7 @@ int stack_arg_under_construction;
 static int calls_function (tree, int);
 static int calls_function_1 (tree, int);
 
-static void emit_call_1 (rtx, tree, tree, HOST_WIDE_INT, HOST_WIDE_INT,
+static void emit_call_1 (rtx, tree, tree, tree, HOST_WIDE_INT, HOST_WIDE_INT,
 			 HOST_WIDE_INT, rtx, rtx, int, rtx, int,
 			 CUMULATIVE_ARGS *);
 static void precompute_register_parameters (int, struct arg_data *, int *);
@@ -364,7 +364,8 @@ prepare_call_address (rtx funexp, tree fndecl, rtx *call_fusage,
    denote registers used by the called function.  */
 
 static void
-emit_call_1 (rtx funexp, tree fndecl ATTRIBUTE_UNUSED, tree funtype ATTRIBUTE_UNUSED,
+emit_call_1 (rtx funexp, tree fntree, tree fndecl ATTRIBUTE_UNUSED,
+	     tree funtype ATTRIBUTE_UNUSED,
 	     HOST_WIDE_INT stack_size ATTRIBUTE_UNUSED,
 	     HOST_WIDE_INT rounded_stack_size,
 	     HOST_WIDE_INT struct_value_size ATTRIBUTE_UNUSED,
@@ -508,7 +509,16 @@ emit_call_1 (rtx funexp, tree fndecl ATTRIBUTE_UNUSED, tree funtype ATTRIBUTE_UN
     REG_NOTES (call_insn) = gen_rtx_EXPR_LIST (REG_EH_REGION, const0_rtx,
 					       REG_NOTES (call_insn));
   else
-    note_eh_region_may_contain_throw ();
+    {
+      int rn = lookup_stmt_eh_region (fntree);
+
+      /* If rn < 0, then either (1) tree-ssa not used or (2) doesn't
+	 throw, which we already took care of.  */
+      if (rn > 0)
+	REG_NOTES (call_insn) = gen_rtx_EXPR_LIST (REG_EH_REGION, GEN_INT (rn),
+						   REG_NOTES (call_insn));
+      note_current_region_may_contain_throw ();
+    }
 
   if (ecf_flags & ECF_NORETURN)
     REG_NOTES (call_insn) = gen_rtx_EXPR_LIST (REG_NORETURN, const0_rtx,
@@ -2426,7 +2436,8 @@ expand_call (tree exp, rtx target, int ignore)
       || !flag_optimize_sibling_calls
       || !rtx_equal_function_value_matters
       || any_pending_cleanups ()
-      || args_size.var)
+      || args_size.var
+      || lookup_stmt_eh_region (exp) >= 0)
     try_tail_call = try_tail_recursion = 0;
 
   /* Tail recursion fails, when we are not dealing with recursive calls.  */
@@ -3049,7 +3060,7 @@ expand_call (tree exp, rtx target, int ignore)
 	abort ();
 
       /* Generate the actual call instruction.  */
-      emit_call_1 (funexp, fndecl, funtype, unadjusted_args_size,
+      emit_call_1 (funexp, exp, fndecl, funtype, unadjusted_args_size,
 		   adjusted_args_size.constant, struct_value_size,
 		   next_arg_reg, valreg, old_inhibit_defer_pop, call_fusage,
 		   flags, & args_so_far);
@@ -4096,7 +4107,7 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
      always signed.  We also assume that the list of arguments passed has
      no impact, so we pretend it is unknown.  */
 
-  emit_call_1 (fun,
+  emit_call_1 (fun, NULL,
 	       get_identifier (XSTR (orgfun, 0)),
 	       build_function_type (tfom, NULL_TREE),
 	       original_args_size.constant, args_size.constant,

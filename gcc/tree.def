@@ -389,6 +389,9 @@ DEFTREECODE (VTABLE_REF, "vtable_ref", 'r', 3)
 /* The exception object from the runtime.  */
 DEFTREECODE (EXC_PTR_EXPR, "exc_ptr_expr", 'e', 0)
 
+/* The filter object from the runtime.  */
+DEFTREECODE (FILTER_EXPR, "filter_expr", 'e', 0)
+
 /* Constructor: return an aggregate value made from specified components.
    In C, this is used only for structure and array initializers.
    Also used for SET_TYPE in Chill (and potentially Pascal).
@@ -845,6 +848,10 @@ DEFTREECODE (SWITCH_EXPR, "switch_expr", 's', 3)
    'default' label. If CASE_HIGH is NULL_TREE, the label is a normal case
    label.  CASE_LABEL is the corresponding LABEL_DECL.  */
 DEFTREECODE (CASE_LABEL_EXPR, "case_label_expr", 's', 3)
+
+/* RESX.  Resume execution after an exception.  Operand 0 is a 
+   number indicating the exception region that is being left.  */
+DEFTREECODE (RESX_EXPR, "resx_expr", 's', 1)
 
 /* Used to represent an inline assembly statement.  ASM_STRING returns a
    STRING_CST for the instruction (e.g., "mov x, y"). ASM_OUTPUTS,

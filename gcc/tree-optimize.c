@@ -74,6 +74,10 @@ optimize_function_tree (tree fndecl)
       }
   }
 
+  /* Run a pass to lower magic exception handling constructs into,
+     well, less magic though not completely mundane constructs.  */
+  lower_eh_constructs (&DECL_SAVED_TREE (fndecl));
+
   build_tree_cfg (DECL_SAVED_TREE (fndecl));
 
   /* Begin analysis and optimization passes.  */
@@ -188,7 +192,7 @@ void
 tree_rest_of_compilation (tree fndecl)
 {
   static int nesting = -1;
-  tree saved_tree;
+  tree saved_tree = NULL;
 
   /* Don't bother doing anything if there are errors.  */
   if (errorcount || sorrycount)
@@ -223,6 +227,15 @@ tree_rest_of_compilation (tree fndecl)
      not safe to try to expand expressions involving them.  */
   immediate_size_expand = 0;
   cfun->x_dont_save_pending_sizes_p = 1;
+
+  /* We might need the body of this function so that we can expand
+     it inline somewhere else.  This means not lowering some constructs
+     such as exception handling.  */
+  if (DECL_INLINE (fndecl) && flag_inline_trees)
+    {
+      saved_tree = lhd_unsave_expr_now (DECL_SAVED_TREE (fndecl));
+      nesting++;
+    }
 
   /* Gimplify the function.  Don't try to optimize the function if
      gimplification failed.  */
@@ -262,12 +275,10 @@ tree_rest_of_compilation (tree fndecl)
 
   /* Add mudflap instrumentation to a copy of the function body.  */
   if (flag_mudflap)
-    saved_tree = mudflap_c_function (fndecl);
-  else
-    saved_tree = DECL_SAVED_TREE (fndecl);
+    DECL_SAVED_TREE (fndecl) = mudflap_c_function (fndecl);
 
   /* Generate the RTL for this function.  */
-  (*lang_hooks.rtl_expand.stmt) (saved_tree);
+  (*lang_hooks.rtl_expand.stmt) (DECL_SAVED_TREE (fndecl));
 
   /* We hard-wired immediate_size_expand to zero above.
      expand_function_end will decrement this variable.  So, we set the
@@ -324,14 +335,18 @@ tree_rest_of_compilation (tree fndecl)
 
   /* ??? Looks like some of this could be combined.  */
 
+  if (DECL_INLINE (fndecl) && flag_inline_trees)
+    {
+      /* We might need the body of this function so that we can expand
+         it inline somewhere else.  */
+      DECL_SAVED_TREE (fndecl) = saved_tree;
+      nesting--;
+    }
+
   /* If possible, obliterate the body of the function so that it can
      be garbage collected.  */
-  if (dump_enabled_p (TDI_all))
+  else if (dump_enabled_p (TDI_all))
     /* Keep the body; we're going to dump it.  */
-    ;
-  else if (DECL_INLINE (fndecl) && flag_inline_trees)
-    /* We might need the body of this function so that we can expand
-       it inline somewhere else.  */
     ;
   else
     /* We don't need the body; blow it away.  */

@@ -6379,7 +6379,8 @@ cxx_init_decl_processing (void)
   start_fname_decls ();
 
   /* Show we use EH for cleanups.  */
-  using_eh_for_cleanups ();
+  if (flag_exceptions)
+    using_eh_for_cleanups ();
 
   /* Maintain consistency.  Perhaps we should just complain if they
      say -fwritable-strings?  */

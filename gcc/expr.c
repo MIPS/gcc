@@ -9631,6 +9631,10 @@ expand_expr (tree exp, rtx target, enum machine_mode tmode, enum expand_modifier
 	return target;
       }
 
+    case RESX_EXPR:
+      expand_resx_expr (exp);
+      return const0_rtx;
+
     case TRY_CATCH_EXPR:
       {
 	tree handler = TREE_OPERAND (exp, 1);
@@ -9726,6 +9730,9 @@ expand_expr (tree exp, rtx target, enum machine_mode tmode, enum expand_modifier
 
     case EXC_PTR_EXPR:
       return get_exception_pointer (cfun);
+
+    case FILTER_EXPR:
+      return get_exception_filter (cfun);
 
     case FDESC_EXPR:
       /* Function descriptors are not valid except for as

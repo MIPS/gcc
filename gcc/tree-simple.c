@@ -359,6 +359,7 @@ is_gimple_stmt (tree t)
     case EH_FILTER_EXPR:
     case CATCH_EXPR:
     case ASM_EXPR:
+    case RESX_EXPR:
       /* These are always void.  */
       return 1;
 
@@ -442,11 +443,13 @@ is_gimple_val (tree t)
       && !is_gimple_reg (t))
     return 0;
 
-  if (/* FIXME make this a decl.  */
-      TREE_CODE (t) == EXC_PTR_EXPR
-      /* Allow the address of a decl.  */
-      || (TREE_CODE (t) == ADDR_EXPR
-	  && DECL_P (TREE_OPERAND (t, 0))))
+  /* FIXME make these decls.  That can happen only when we expose the
+     entire landing-pad construct at the tree level.  */
+  if (TREE_CODE (t) == EXC_PTR_EXPR || TREE_CODE (t) == FILTER_EXPR)
+    return 1;
+
+  /* Allow the address of a decl.  */
+  if (TREE_CODE (t) == ADDR_EXPR && DECL_P (TREE_OPERAND (t, 0)))
     return 1;
 
   /* Allow address of vla, so that we do not replace it in the call_expr of

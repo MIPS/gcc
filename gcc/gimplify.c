@@ -2054,7 +2054,7 @@ gimplify_modify_expr (tree *expr_p, tree *pre_p, tree *post_p, int want_value)
      FIXME this should be handled by the is_gimple_rhs predicate.  */
   if (! is_gimple_tmp_var (*to_p)
       && (TREE_CODE (*from_p) == CALL_EXPR
-	  || (flag_non_call_exceptions && could_trap_p (*from_p))))
+	  || (flag_non_call_exceptions && tree_could_trap_p (*from_p))))
     gimplify_expr (from_p, pre_p, post_p, is_gimple_val, fb_rvalue);
 
   if (want_value)

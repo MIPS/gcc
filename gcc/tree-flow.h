@@ -235,10 +235,6 @@ struct stmt_ann_d GTY(())
      structure to which this statement belongs to.  */
   tree parent_stmt;
 
-  /* For nodes which can throw REACHABLE_EXCEPTION_HANDLERS contains a
-     tree list of all the directly reachable exception handlers.  */
-  tree reachable_exception_handlers;
-
   /* Array of variables that have had their address taken in the statement.  */
   varray_type addresses_taken;
 
@@ -430,11 +426,11 @@ extern tree *last_stmt_ptr (basic_block);
 extern edge find_taken_edge (basic_block, tree);
 extern int call_expr_flags (tree);
 extern void remove_useless_stmts_and_vars (tree *, bool);
-extern int could_trap_p (tree);
 extern basic_block tree_split_edge (edge);
 extern void bsi_move_before (block_stmt_iterator, block_stmt_iterator);
 extern void bsi_move_after (block_stmt_iterator, block_stmt_iterator);
 extern void bsi_move_to_bb_end (block_stmt_iterator, basic_block);
+extern basic_block label_to_block (tree);
 
 /* In tree-dfa.c  */
 void find_referenced_vars (tree);
@@ -523,6 +519,14 @@ static inline bool may_propagate_copy (tree, tree);
 
 /* In tree-must-alias.c  */
 void tree_compute_must_alias (tree);
+
+/* In tree-eh.c  */
+extern void lower_eh_constructs (tree *);
+extern void make_eh_edges (tree);
+extern bool tree_could_trap_p (tree);
+extern bool tree_could_throw_p (tree);
+extern bool tree_can_throw_internal (tree);
+extern bool tree_can_throw_external (tree);
 
 #include "tree-flow-inline.h"
 
