@@ -59,8 +59,8 @@ static rtx expand_sdiv_pow2 (enum machine_mode, rtx, HOST_WIDE_INT);
    Usually, this will mean that the MD file will emit non-branch
    sequences.  */
 
-static int sdiv_pow2_cheap[NUM_MACHINE_MODES];
-static int smod_pow2_cheap[NUM_MACHINE_MODES];
+static bool sdiv_pow2_cheap[NUM_MACHINE_MODES];
+static bool smod_pow2_cheap[NUM_MACHINE_MODES];
 
 #ifndef SLOW_UNALIGNED_ACCESS
 #define SLOW_UNALIGNED_ACCESS(MODE, ALIGN) STRICT_ALIGNMENT
@@ -109,7 +109,7 @@ init_expmed (void)
 {
   struct
   {
-    struct rtx_def reg;
+    struct rtx_def reg;		rtunion reg_fld[2];
     struct rtx_def plus;	rtunion plus_fld1;
     struct rtx_def neg;
     struct rtx_def udiv;	rtunion udiv_fld1;
@@ -3194,6 +3194,31 @@ expand_sdiv_pow2 (enum machine_mode mode, rtx op0, HOST_WIDE_INT d)
       return expand_shift (RSHIFT_EXPR, mode, temp, shift, NULL_RTX, 0);
     }
 
+#ifdef HAVE_conditional_move
+  if (BRANCH_COST >= 2)
+    {
+      rtx temp2;
+
+      start_sequence ();
+      temp2 = copy_to_mode_reg (mode, op0);
+      temp = expand_binop (mode, add_optab, temp2, GEN_INT (d-1),
+			   NULL_RTX, 0, OPTAB_LIB_WIDEN);
+      temp = force_reg (mode, temp);
+
+      /* Construct "temp2 = (temp2 < 0) ? temp : temp2".  */
+      temp2 = emit_conditional_move (temp2, LT, temp2, const0_rtx,
+				     mode, temp, temp2, mode, 0);
+      if (temp2)
+	{
+	  rtx seq = get_insns ();
+	  end_sequence ();
+	  emit_insn (seq);
+	  return expand_shift (RSHIFT_EXPR, mode, temp2, shift, NULL_RTX, 0);
+	}
+      end_sequence ();
+    }
+#endif
+
   if (BRANCH_COST >= 2)
     {
       int ushift = GET_MODE_BITSIZE (mode) - logd;
@@ -4312,10 +4337,24 @@ expand_divmod (int rem_flag, enum tree_code code, enum machine_mode mode,
 	target = 0;
 
       if (quotient == 0)
-	/* No divide instruction either.  Use library for remainder.  */
-	remainder = sign_expand_binop (compute_mode, umod_optab, smod_optab,
-				       op0, op1, target,
-				       unsignedp, OPTAB_LIB_WIDEN);
+	{
+	  /* No divide instruction either.  Use library for remainder.  */
+	  remainder = sign_expand_binop (compute_mode, umod_optab, smod_optab,
+					 op0, op1, target,
+					 unsignedp, OPTAB_LIB_WIDEN);
+	  /* No remainder function.  Try a quotient-and-remainder
+	     function, keeping the remainder.  */
+	  if (!remainder)
+	    {
+	      remainder = gen_reg_rtx (compute_mode);
+	      if (!expand_twoval_binop_libfunc 
+		  (unsignedp ? udivmod_optab : sdivmod_optab,
+		   op0, op1,
+		   NULL_RTX, remainder,
+		   unsignedp ? UMOD : MOD))
+		remainder = NULL_RTX;
+	    }
+	}
       else
 	{
 	  /* We divided.  Now finish doing X - Y * (X / Y).  */

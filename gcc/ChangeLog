@@ -1,3 +1,377 @@
+2004-08-09  Mark Mitchell  <mark@codesourcery.com>
+
+	* config.gcc (arm*-*-eabi*): New target.
+	* defaults.h (TARGET_LIBGCC_FUNCS): New macro.
+	(TARGET_LIB_INT_CMP_BIASED): Likewise.
+	* expmed.c (expand_divmod): Try a two-valued divmod function as a
+	last resort.
+	* gthr.h: Remove bogus tokens at end of #pragma.
+	* optabs.c (expand_twoval_binop_libfunc): New function.
+	(prepare_cmp_insn): Handle the !TARGET_LIB_INT_CMP_BIASED case.
+	(prepare_float_lib_cmp): Try reversing the condition.
+	(debug_optab_libfuncs): New function.
+	* optabs.h (expand_twoval_binop_libfunc): Declare.
+	* config/arm/arm.c (arm_init_libfuncs): New function.
+	(arm_compute_initial_eliminatino_offset): Return HOST_WIDE_INT.
+	(TARGET_INIT_LIBFUNCS): Define it.
+	* config/arm/arm.h (TARGET_BPABI): New macro.
+	* config/arm/arm-protos.h
+	(arm_compute_initial_elimination_offset): Return HOST_WIDE_INT.
+	* config/arm/bpabi.S: New file.
+	* config/arm/bpabi.c: Likewise.
+	* config/arm/bpabi.h: Likewise.
+	* config/arm/ieee754-df.S (__aeabi_dneg): New function or alias.
+	(__aeabi_drsub): Likewise.
+	(__aeabi_dsub): Likewise.
+	(__aeabi_dadd): Likewise.
+	(__aeabi_ui2d): Likewise.
+	(__aeabi_i2d): Likewise.
+	(__aeabi_f2d): Likewise.
+	(__aeabi_dmul): Likewise.
+	(__aeabi_ddiv): Likewise.
+	(__aeabi_cdrcmple): Likewise.
+	(__aeabi_cdcmpeq): Likewise.
+	(__aeabi_cdcmple): Likewise.
+	(__aeabi_dcmpeq): Likewise.
+	(__aeabi_dcmplt): Likewise.
+	(__aeabi_dcmple): Likewise.
+	(__aeabi_dcmpge): Likewise.
+	(__aeabi_dcmpgt): Likewise.
+	(__aeabi_dcmpun): Likewise.
+	(__aeabi_d2iz): Likewise.
+	(__aeabi_d2uiz): Likewise.
+	(__aeabi_d2f): Likewise.
+	* config/arm/ieee754-sf.S (__aeabi_fneg): New function or alias.
+	(__aeabi_frsub): Likewise.
+	(__aeabi_fsub): Likewise.
+	(__aeabi_fadd): Likewise.
+	(__aeabi_ui2f): Likewise.
+	(__aeabi_i2f): Likewise.
+	(__aeabi_fmul): Likewise.
+	(__aeabi_fdiv): Likewise.
+	(__aeabi_cfrcmple): Likewise.
+	(__aeabi_cfcmpeq): Likewise.
+	(__aeabi_cfcmple): Likewise.
+	(__aeabi_fcmpeq): Likewise.
+	(__aeabi_fcmplt): Likewise.
+	(__aeabi_fcmple): Likewise.
+	(__aeabi_fcmpge): Likewise.
+	(__aeabi_fcmpgt): Likewise.
+	(__aeabi_fcmpun): Likewise.
+	(__aeabi_f2iz): Likewise.
+	(__aeabi_f2uiz): Likewise.
+	* config/arm/lib1funcs.asm (ARM_CALL): New macro.
+	(__aeabi_uidivmod): New function or alias.
+	(__aeabi_idivmod): Likewise.
+	(__aeabi_idiv0): Likewise.
+	(__aeabi_ldiv0): Likewise.
+	(__aeabi_llsr): Likewise.
+	(__aeabi_lasr): Likewise.
+	(__aeabi_llsl): Likewise.
+	(bpabi.S): Include it.
+	* config/arm/libgcc-bpabi.ver: New file.
+	* config/arm/symbian.h (ARM_DEFAULT_ABI): Remove.
+	(LINK_SPEC): Remove.
+	* config/arm/t-arm-elf (LIB1ASMFUNCS): Add __aeabi_lcmp and
+	__aeabi_ulcmp.
+	* config/arm/t-bpabi: New file.
+	* doc/tm.texi (TARGET_LIBGCC_FUNCS): New entry.
+	(TARGET_LIB_INT_CMP_BIASED): Likewise.
+	
+2004-08-10  David Edelsohn  <edelsohn@gnu.org>
+
+	* config/rs6000/rs6000-protos.h (expand_block_clear): Declare.
+	* config/rs6000/rs6000.md (clrmemsi): New pattern.
+	* config/rs6000/rs6000.c (expand_block_clear): New function.
+	(expand_block_move): Convert alignment to bits.  Use SImode and
+	HImode for unaligned addresses if not STRICT_ALIGNMENT.
+
+2004-08-10  Caroline Tice  <ctice@apple.com>
+
+	* varasm.c (unlikely_section_label): New global variable.
+	(unlikely_text_section_name): New global variable.
+	(text_section):  Remove alignment statement.
+	(unlikely_text_section): Remove alignment statement; use 
+	unlikely_section_label rather than hard-coded string.
+	(assemble_start_function): Initialize unlikely_section_label and
+	unlikely_text_section_name;  make sure cold section is properly
+	aligned at start of function; output unlikely_section_label if
+	appropriate.
+
+2004-08-10  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* config/s390/s390-protos.h (s390_canonicalize_comparison): Declare.
+	* config/s390/s390.c (s390_canonicalize_comparison): New function.
+	* config/s390/s390.h (CANONICALIZE_COMPARISON): Define.
+	* config/s390/s390.md ("*tmdi_ext", "*tmsi_ext", "*tmqisi_ext",
+	"*tmqidi_ext", "*tmdi_mem", "*tmsi_mem", "*tmhi_mem"): Remove.
+	("*tmqi_mem"): Remove SUBREG from pattern.
+	("*anddi3_cconly"): Prevent accidentally matching TM pattern.
+	("*andsi3_cconly"): Likewise.
+	
+2004-08-10  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/16909
+	* config/i386/i386.md (*strsetdi_rex_1): Use DI instead of SI.
+
+2004-08-10  Janis Johnson  <janis187@us.ibm.com>
+
+	* doc/sourcebuild.texi (compat testing): Document available test
+	framework commands.  Use the preferred spelling of DejaGnu.
+
+2004-08-10  Daniel Berlin <dberlin@dberlin.org>
+
+	* lambda.h: Add matrix type, and prototypes for remainder of
+	matrix and vector functions.
+	(lambda_vector_mult_const): New function.
+	(lambda_vector_negate): Ditto.
+	(lambda_vector_add): Ditto.
+	(lambda_vector_add_mc): Ditto.
+	(lambda_vector_copy): Ditto.
+	(lambda_vector_zerop): Ditto.
+	(lambda_vector_equal): Ditto.
+	(lambda_vector_min_nz): Ditto.
+	(lambda_vector_first_nz): Ditto.
+	(lambda_vector_matrix_mult): Ditto.
+	* lambda-mat.c: New file.
+	* Makefile.in (lambda-mat.o): New.
+
+2004-08-10  Andrew MacLeod  <amacleod@redhat.com>
+
+	* tree-cfg.c (bsi_insert_before, bsi_insert_after): Call modify_stmt
+	after linking stmt into the program.
+	(bsi_remove): Don't call modify_stmt.
+	* tree-complex.c (update_complex_assignment, 
+	expand_complex_comparison): Call modify_stmt after changing the stmt.
+	* tree-outof-ssa.c (rewrite_trees): Call modify_stmt only if not 
+	removing the stmt.
+	* tree-ssa-ccp.c (substitute_and_fold): Call modify_stmt after changing
+	the stmt, and only if needed.
+	* tree-ssa-dom.c (thread_across_edge): Pass no annotation for a dummy
+	expression.
+	(simplify_rhs_and_lookup_avail_expr): Don't take an annotation param.
+	(simplify_cond_and_lookup_avail_expr): Use modify_stmt.
+	(simplify_switch_and_lookup_avail_expr): Don't take an annotation param.
+	(eliminate_redundant_computations): Don't pass an annotation. Call 
+	modify_stmt rather than setting the annotation directly.
+	(record_equivalences_from_stmt): Remove unused local 'j'.
+	(cprop_operand): Take a stmt rather than an annotation as a parameter.
+	Call modify_stmt.
+	(cprop_into_stmt): Pass stmt rather than annotation.
+	(update_rhs_and_lookup_avail_expr): Call modify_stmt.
+	* tree-ssa-loop-im.c (schedule_sm): Call get_stmt_ann rather than 
+	modify_stmt.
+	* tree-ssa.c (propagate_into_addr): Dont call modify_stmt.
+
+2004-08-10  Jason Merrill  <jason@redhat.com>
+
+	PR middle-end/16948
+	* function.c (expand_function_start): Handle DECL_BY_REFERENCE on
+	the RESULT_DECL.
+
+2004-08-10  Geoffrey Keating  <geoffk@apple.com>
+
+	* tree-vn.c (val_expr_pair_expr_eq): Compare vuses, to match the
+	hash function.
+
+2004-08-10  Roger Sayle  <roger@eyesopen.com>
+
+	* config/mips/mips.md: New reciprocal square root patterns that
+	match sqrt(1.0/x) in addition to the existing 1.0/sqrt(x) insns.
+
+2004-08-10  Paul Brook  <paul@codesourcery.com>
+
+	* config/arm/arm-protos.h (arm_set_return_address,
+	thumb_set_return_address): Add prototypes.
+	* config/arm/arm.h (ARM_FT_EXCEPTION_HANDLER): Remove.
+	* config/arm/arm.c (arm_compute_func_type,
+	use_return_insn, arm_compute_save_reg0_reg12_mask,
+	arm_compute_save_reg_mask, arm_output_function_prologue,
+	arm_output_epilogue): Replace ARM_FT_EXCEPTION_HANDLER with
+	current_function_calls_eh_return.
+	(thumb_exit, thumb_pushpop, thumb_unexpanded_epilogue): Replace
+	old eh code.
+	(arm_set_return_address, thumb_set_return_address): New functions.
+	* config/arm/arm.h (MUST_USE_SJLJ_EXCEPTIONS, DWARF2_UNWIND_INFO,
+	ARM_EH_STACKADJ_REGNUM, EH_RETURN_STACKADJ_RTX): Define.
+	* config/arm/arm.md (VUNSPEC_EH_RETURN): Add.
+	(epilogue): Use the stackadj register.
+	(eh_return, arm_eh_return, thumb_eh_return): New pattern.
+
+2004-08-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/3144
+	* expr.c (move_by_pieces_ninsns): Add max_size argument.
+	(MOVE_BY_PIECES_P): Pass MOVE_MAX_PIECES + 1 to it.
+	(CLEAR_BY_PIECES_P): Pass STORE_MAX_PIECES + 1 to it.
+	(STORE_BY_PIECES_P): Define similarly to CLEAR_BY_PIECES_P,
+	but using MOVE_RATIO.
+	(move_by_pieces): Pass max_size to move_by_pieces_ninsns.
+	(can_store_by_pieces): Change max_size type to unsigned int.
+	(store_by_pieces_1): Likewise.  Pass max_size to
+	move_by_pieces_ninsns.
+	* config/s390/s390.h (STORE_BY_PIECES_P): Define.
+	* config/sh/sh.c (MOVE_BY_PIECES_P): Pass MOVE_MAX_PIECES + 1
+	to move_by_pieces_ninsns.
+	(STORE_BY_PIECES_P): Define.
+	* config/ns32k/ns32k.h (STORE_BY_PIECES_P): Pass STORE_MAX_PIECES + 1
+	to move_by_pieces_ninsns.
+	* doc/tm.texi (STORE_BY_PIECES_P): Document changed default.
+
+	* config/i386/i386.h (CLEAR_RATIO): Define.
+
+2004-08-09  Paolo Bonzini  <bonzini@gnu.org>
+
+	* expr.c (expand_expr_real_1): Add back code that was not dead.
+
+2004-08-09  Andrew Pinski  <apinski@apple.com>
+
+	* c-common.c (c_common_get_alias_set): Set the aliasing set of the type
+	which is found to be compatible before returning the aliasing set.
+
+2004-08-09  Daniel Jacobowitz  <dan@debian.org>
+
+	* ggc-zone.c (struct alloc_zone): Add statistics counters.
+	(always_collect): New flag.
+	(ggc_alloc_zone_1): Update statistics support.  Don't include
+	overhead in allocated counter.
+	(sweep_pages): Update allocated counter for large pages.  Don'y
+	include overhead.
+	(ggc_collect_1): Always collect.
+	(ggc_collect): Honor always_collect flag.  Sum all zones to decide
+	whether to collect.
+	(SCALE, LABEL): New macros.
+	(ggc_print_statistics): Add statistics support.
+
+2004-08-09  Roger Sayle  <roger@eyesopen.com>
+
+	* expmed.c (sdiv_pow2_cheap, smod_pow2_cheap): Change type to bool.
+	(init_expmed): Fix potential overrun problem with "all.reg".
+	(expand_sdiv2_pow2): Add an alternate implementation for signed
+	division, if the target provides a suitable conditional move insn.
+
+2004-08-09  Paul Brook  <paul@codesourcery.com>
+	Richard Henderson  <rth@redhat.com>
+
+	* unwind-dw2.c (uw_install_context_1): Update target saved stack
+	pointer.
+
+2004-08-09  Geoffrey Keating  <geoffk@apple.com>
+
+	* ggc-common.c (ggc_rlimit_bound): Don't check RSS limit.
+	Check DATA limit only if there's no AS limit.  Ignore insanely
+	low DATA limits.
+	(ggc_min_heapsize_heuristic): Don't divide AS or RSS limits by 8,
+	but take care that the AS limit isn't overrun.
+	* doc/invoke.texi: Update documentation of min-heapsize parameter.
+
+2004-08-09  Jeff Law  <law@redhat.com>
+
+	* Makefile.in (OBJC-common): Add tree-ssa-threadupdate.c
+	(tree-ssa-threadupdate.o): Add dependencies.
+	* tree-ssa-threadupdate.c: New file.
+	* tree-flow.h (incoming_edge_threaded): New flag in block annotation.
+	(rewrite_vars_out_of_ssa): Remove prototype.
+	(cleanup_tree_cfg): Returns a bool.
+	* tree.h (thread_through_all_blocks): Prototype.
+	* tree-outof-ssa.c  (SSANORM_*): Move into here.
+	(remove_ssa_form): Now static.
+	(rewrite_vars_out_of_ssa): Kill.
+	* tree-ssa-live.c (register_ssa_partitions_for_vars): Kill.
+	* tree-ssa-live.h (SSANORM_*): Moved into tree-outof-ssa.c.
+	(remove_ssa_form, register_partitions_for_vars): Kill declarations.
+	* tree-cfg.c (cleanup_tree_cfg): Return a value indicating if
+	anything was changed.
+	* tree-phinodes.c (add_phi_arg): Get the block for the PHI
+	from the PHI's annotation rather than the edge associated with
+	the new argument.
+	* tree-ssa-dom.c (redirection_edges): Kill.
+	(redirect_edges_and_update_ssa_graph): Kill.
+	(tree_ssa_dominator_optimize): Do not reset forwardable flag
+	for blocks anymore.  Do not initialize redirection_edges.
+	Call thread_through_all_blocks.  Simplify code for cleanup
+	of the CFG and iterating.  No longer call cleanup_tree_cfg
+	outside the iteration loop.
+	(thread_across_edge): No longer mess with forwardable blocks.
+
+2004-08-09  Zack Weinberg  <zack@codesourcery.com>
+
+	* explow.c (memory_address): Use memory_address_p.
+	* recog.c (general_operand): Likewise.
+	* regrename.c: No need to define REG_OK_STRICT.
+
+2004-08-09  Steven Bosscher  <stevenb@suse.de>
+
+	* timevar.def (TV_CPROP1, TV_CPROP2, TV_PRE, TV_HOIST, TV_LSM):
+	New timers.
+	* gcse.c: Include timevar.h.
+	(const_prop_count, copy_prop_count): Rename to global_const_prop_count
+	and global_copy_prop_count.
+	(local_const_prop_count, local_copy_prop_count): New static globals.
+	(gcse_main): Set the right timevar for each pass.
+	(cprop_jump): Increment global_const_prop_count when a constant is
+	propagated.  Add "GLOBAL" to dump output.
+	(cprop_insn): Increment global_const_prop_count when a constant is
+	propagated, or global_copy_prop_count when a copy is propagated.
+	(do_local_cprop): Likewise for local_const_prop_count and
+	local_copy_prop_count.
+	(one_cprop_pass): Initialize const/cprop counters to zero.
+	Print out results of local and global const/cprop separately.
+	(bypass_block): Break over-length line.
+	* Makefile.in (gcse.o): Add TIMEVAR_H dependency.  Fix dependencies
+	for bb-reorder.o and tracer.o.
+
+2004-08-09  Paolo Bonzini  <bonzini@gnu.org>
+
+	* Makefile.in (GTFILES): Remove stmt.c
+	(stmt.o): Do not depend on gt-stmt.h.
+	* emit-rtl.c (emit_line_note): Do not call
+	set_file_and_line_for_stmt.
+	* expr.c (expand_expr_real_1) <SWITCH_EXPR>: Let expand_case
+	do everything.
+	* function.c (free_after_parsing): Do not free STMT field.
+	(allocate_struct_function): Do not call init_stmt_for_function.
+	(assign_stack_temp_for_type): Do not accept values of keep
+	other than 0 or 1.
+	(init_temp_slots): Do not initialize removed variables.
+	* function.h (struct function): Remove STMT, X_TARGET_TEMP_SLOT_LEVEL
+	and X_VAR_TEMP_SLOT_LEVEL fields.
+	* rtl.h (set_file_and_line_for_stmt): Remove.
+	* stmt.c (struct nesting, ALLOC_NESTING, POPSTACK,
+	struct stmt_status, cond_stack, case_stack, nesting_stack,
+	nesting_depth, emit_locus, set_file_and_line_for_stmt,
+	same_case_target_p, init_stmt_for_function, emit_nop,
+	expand_start_cond, expand_start_elseif, expand_start_else,
+	expand_elseif, expand_end_cond): Remove.
+	(preserve_subexpressions_p): Remove references to CFUN->STMT.
+	(expand_start_case, expand_end_case_type): Remove, merge into...
+	(expand_case): ... this one, including other bits from
+	expand_expr_real_1.  Inline same_case_target_p.  Turn members
+	of CASE_STACK into local variables.
+	(emit_case_bit_tests): Inline same_case_target_p.
+	(add_case_node): Add HEAD argument, return new head of the list,
+	do not handle default label here.
+	* tree.h (expand_start_cond, expand_end_cond, expand_start_else,
+	expand_start_elseif, current_nesting_level, expand_start_case,
+	expand_end_case_type, expand_end_case, add_case_node,
+	init_stmt_for_function, expand_elseif): Remove prototypes.
+	(expand_case): Add prototype.
+
+2004-08-09  Paolo Bonzini  <bonzini@gnu.org>
+
+	* expr.c (expand_expr_real_1): Use optab_for_tree_code.
+
+2004-08-09  Paolo Bonzini  <bonzini@gnu.org>
+
+	* expr.c (var_rtx): Remove.
+	(expand_expr_real_1) <LOOP_EXPR, EXIT_EXPR,
+	LABELED_BLOCK_EXPR, EXIT_BLOCK_EXPR, TRUTH_ANDIF_EXPR,
+	TRUTH_ORIF_EXPR, COMPOUND_EXPR, CONJ_EXPR, INIT_EXPR>:
+	Abort.
+	(expand_expr_real_1) <COND_EXPR>: Remove most special cases.
+	* optabs.c (emit_clr_insn, emit_0_to_1_insn): Remove.
+	* optabs.h (emit_clr_insn, emit_0_to_1_insn): Remove.
+
 2004-08-08  Mostafa Hagog  <mustafa@il.ibm.com>
 	Ayal Zaks <zaks@il.ibm.com>
 
@@ -100,14 +474,14 @@
 	(CC1PLUS_SPEC): Define it to be the same as CC1_SPEC.
 
 2004-08-06  Roman Zippel  <zippel@linux-m68k.org>
- 
-        * config/m68k/m68k.c (post_inc_operand,pre_dec_operand): New.
-        * config/m68k/m68k.h (PREDICATE_CODES): add post_inc_operand,
-        pre_dec_operand.
-        * config/m68k/m68k.md (zero_extend*2): delay the splitting of the
-        pattern until reload is finished to allow better code generation
-        and split them completely into separate instrunctions.
-        (*andsi3_split): New pattern.
+
+	* config/m68k/m68k.c (post_inc_operand,pre_dec_operand): New.
+	* config/m68k/m68k.h (PREDICATE_CODES): add post_inc_operand,
+	pre_dec_operand.
+	* config/m68k/m68k.md (zero_extend*2): delay the splitting of the
+	pattern until reload is finished to allow better code generation
+	and split them completely into separate instrunctions.
+	(*andsi3_split): New pattern.
 
 2004-08-05  Mark Mitchell  <mark@codesourcery.com>
 
@@ -143,7 +517,7 @@
 	(dllimport): Likewise.
 	* doc/tm.texi (TARGET_DLLIMPORT_DECL_ATTRIBUTES): Mention
 	handle_dll_attribute.
-	
+
 2004-08-05  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* tree-ssa-loop-manip.c: New file.
@@ -2595,7 +2969,7 @@
 	* objc/objc-act.c (get_super_receiver): Update calls to
 	build_compound_expr.
 
-2004-07-12  Paolo Bonzini  <bonzini@gnu.org>
+2004-07-18  Paolo Bonzini  <bonzini@gnu.org>
 
 	* config/sh/sh.c (sh_use_dfa_interface): Remove.
 	(TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE): Set to
