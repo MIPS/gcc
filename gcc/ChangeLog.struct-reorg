@@ -1,3 +1,27 @@
+2004-12-02  Dale Johannesen  <dalej@apple.com>
+
+	* basic-block.h (scale_bbs_frequencies_int):  New declaration.
+	(scale_bbs_frequencies_gcov_type):  New declaration.
+	* cfgloopmanip.c (scale_bbs_frequencies):  Renamed to
+	scale_bbs_frequencies_int and moved to cfg.c.
+	(scale_loop_frequencies):  Adjust call to it.
+	(duplicate_loop_to_header_edge):  Adjust calls to it.
+	* cfg.c (RDIV): New (copied from cfgloopmanip.c).
+	(update_bb_profile_for_threading):  Performance improvement
+	from mainline.  Allow for roundoff error.
+	(scale_bbs_frequencies_int):  Moved from cfgloopmanip.c.
+	(scale_bbs_frequencies_gcov_type):  New.
+	* except.c (get_maybe_saved_eh_throw_stmt_table):  Remove.
+	* except.h (get_maybe_saved_eh_throw_stmt_table):  Remove.
+	* tree-eh.c (duplicate_stmt_eh_region_mapping):  Remove #if 0.
+	* tree-inline.c (struct inline_data):  Add callee_cfun.
+	(copy_body_r):  Move make_edge call to right places.
+	Use id->callee_cfun.
+	(copy_cfg_body):  Set and use id->callee_cfun.
+	(clone_body):  Set it.
+	(save_body):  Set it.
+	* tree-ssa-loop-ch.c (copy_loop_headers):  Propagate profiling info.
+
 2004-11-21  Dale Johannesen  <dalej@apple.com>
 
 	Merge from tree-profiling-branch as of 11-17.

@@ -127,9 +127,11 @@ copy_loop_headers (void)
   unsigned i;
   struct loop *loop;
   basic_block header;
-  edge exit;
-  basic_block *bbs;
+  edge exit, entry;
+  basic_block *bbs, *copied_bbs;
   unsigned n_bbs;
+  unsigned bbs_size;
+  gcov_type entry_count, body_count, total_count;
 
   loops = loop_optimizer_init (dump_file);
   if (!loops)
@@ -145,6 +147,8 @@ copy_loop_headers (void)
 #endif
 
   bbs = xmalloc (sizeof (basic_block) * n_basic_blocks);
+  copied_bbs = xmalloc (sizeof (basic_block) * n_basic_blocks);
+  bbs_size = n_basic_blocks;
 
   for (i = 1; i < loops->num; i++)
     {
@@ -177,6 +181,7 @@ copy_loop_headers (void)
 	    exit = EDGE_SUCC (header, 0);
 	  else
 	    exit = EDGE_SUCC (header, 1);
+	  gcc_assert (bbs_size > n_bbs);
 	  bbs[n_bbs++] = header;
 	  header = exit->dest;
 	}
@@ -194,12 +199,22 @@ copy_loop_headers (void)
       if (EDGE_COUNT (exit->dest->preds) > 1)
 	exit = EDGE_SUCC (loop_split_edge_with (exit, NULL), 0);
 
-      if (!tree_duplicate_sese_region (loop_preheader_edge (loop), exit,
-				       bbs, n_bbs, NULL))
+      entry = loop_preheader_edge (loop);
+      entry_count = entry->src->count;
+      body_count = exit->dest->count;
+
+      if (!tree_duplicate_sese_region (entry, exit, bbs, n_bbs, copied_bbs))
 	{
 	  fprintf (dump_file, "Duplication failed.\n");
 	  continue;
 	}
+
+      /* Fix profiling info.  Scaling is done in gcov_type arithmetic to
+	 avoid losing information; this is slow, but is done at most
+	 once per loop.  */
+      total_count = body_count + entry_count;
+      scale_bbs_frequencies_gcov_type (bbs, n_bbs, body_count, total_count);
+      scale_bbs_frequencies_gcov_type (copied_bbs, n_bbs, entry_count, total_count);
 
       /* Ensure that the latch and the preheader is simple (we know that they
 	 are not now, since there was the loop exit condition.  */
@@ -208,6 +223,7 @@ copy_loop_headers (void)
     }
 
   free (bbs);
+  free (copied_bbs);
 
 #ifdef ENABLE_CHECKING
   verify_loop_closed_ssa ();

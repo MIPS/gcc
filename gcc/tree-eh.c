@@ -191,12 +191,6 @@ duplicate_stmt_eh_region_mapping (struct function *ifun,
   htab_t cfun_hash, ifun_hash;
   void **slot;
   
-#if 0
-/* MERGE FIXME doing this broke eon.  Where was it needed??
-   Case in eon is recursive call; call to this was using
-   original tree, so needed to use original table.  */
-  ifun_hash = (htab_t)get_maybe_saved_eh_throw_stmt_table (ifun);
-#endif
   ifun_hash = (htab_t)get_eh_throw_stmt_table (ifun);
   if (!ifun_hash)
     return;

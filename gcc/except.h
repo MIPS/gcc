@@ -172,7 +172,6 @@ struct throw_stmt_node GTY(())
 void remove_eh_handler (struct eh_region *);
 extern void set_eh_throw_stmt_table (struct function *, void *);
 extern struct htab *get_eh_throw_stmt_table (struct function *);
-extern struct htab *get_maybe_saved_eh_throw_stmt_table (struct function *);
 extern int get_eh_last_region_number (struct function *);
 extern int get_eh_cur_region (struct function *);
 extern void set_eh_cur_region (struct function *, int);

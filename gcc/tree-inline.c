@@ -110,6 +110,10 @@ typedef struct inline_data
   tree callee;
   /* FUNCTION_DECL for function being inlined into.  */
   tree caller;
+  /* struct function for function being inlined.  Usually this is the same
+     as DECL_STRUCT_FUNCTION (callee), but can be different if saved_cfg
+     and saved_eh are in use.  */
+  struct function *callee_cfun;
   /* The label to jump to when a return statement is encountered.  If
      this value is NULL, then return statements will simply be
      remapped as return statements, rather than as jumps.  */
@@ -543,6 +547,10 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
 	  /* Replace the RETURN_EXPR with (a copy of) the
 	     MODIFY_EXPR hangning underneath.  */
 	  *tp = copy_node (assignment);
+	  /* If we're working on CFGs, add an outgoing CFG edge to the
+	     return block.  */
+	  make_edge (id->copy_basic_block, id->return_block,
+		     EDGE_FALLTHRU);
         }
       else /* Else the RETURN_EXPR returns no value.  */
 	{
@@ -552,11 +560,11 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
 	     it to iterate through the statemetns of this
 	     block.  */
 	  tsi_delink (&id->copy_tsi);
+	  /* If we're working on CFGs, add an outgoing CFG edge to the
+	     return block.  */
+	  make_edge (id->copy_basic_block, id->return_block,
+		     EDGE_FALLTHRU);
 	}
-      /* If we're working on CFGs, add an outgoing CFG edge to the
-	 return block.  */
-      make_edge (id->copy_basic_block, id->return_block,
-		 EDGE_FALLTHRU);
     }
   /* Local variables and labels need to be replaced by equivalent
      variables.  We don't want to copy static variables; there's only
@@ -727,11 +735,11 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
 	     to reflect the callee's region, so don't look at that.)  */
 	  if (id->saving_p || id->cloning_p)
 	    duplicate_stmt_eh_region_mapping (
-			DECL_STRUCT_FUNCTION (id->callee), cfun,
+			id->callee_cfun, cfun,
 			old_node, *tp, 0);
 	  else
 	    duplicate_stmt_eh_region_mapping (
-			DECL_STRUCT_FUNCTION (id->callee),
+			id->callee_cfun,
 			DECL_STRUCT_FUNCTION (id->caller),
 			old_node, *tp, 1);
 	}
@@ -819,6 +827,7 @@ copy_cfg_body (inline_data *id)
       DECL_SAVED_TREE (new_fndecl) = cfun_to_copy->saved_tree;
       DECL_ARGUMENTS (new_fndecl) = cfun_to_copy->saved_args;
     }
+  id->callee_cfun = cfun_to_copy;
   DECL_STRUCT_FUNCTION (new_fndecl) = new_cfun;
   push_cfun (new_cfun);
 
@@ -979,13 +988,14 @@ copy_cfg_body (inline_data *id)
 		{
 		  edge e = split_block (new_bb, copy_stmt);
 		  new_bb = e->dest;
+		  tsi_copy = tsi_start (new_bb->stmt_list);
 		}
 	      /* If this tree doesn't have a region associated with it,
 		 and there is a "current region,"
 		 then associate this tree with the current region
 		 and add edges associated with this region.  */
 	      if (lookup_stmt_eh_region_fn (
-			    DECL_STRUCT_FUNCTION (id->callee),
+			    id->callee_cfun,
 			    orig_stmt) <= 0
 		  && get_eh_cur_region (caller_cfun) > 0)
 		{
@@ -2479,6 +2489,7 @@ clone_body (tree clone, tree fn, void *arg_map)
   memset (&id, 0, sizeof (id));
   id.caller = clone;
   id.callee = fn;
+  id.callee_cfun = DECL_STRUCT_FUNCTION (fn);
   id.decl_map = (splay_tree)arg_map;
 
   /* Cloning is treated slightly differently from inlining.  Set
@@ -2506,6 +2517,7 @@ save_body (tree fn, tree *arg_copy, tree *sc_copy)
 
   memset (&id, 0, sizeof (id));
   id.callee = fn;
+  id.callee_cfun = DECL_STRUCT_FUNCTION (fn);
   id.caller = fn;
   id.node = cgraph_node (fn);
   id.saving_p = true;

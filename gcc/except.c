@@ -3919,13 +3919,6 @@ get_eh_throw_stmt_table (struct function *fun)
   return fun->eh->throw_stmt_table;
 }
 
-htab_t
-get_maybe_saved_eh_throw_stmt_table (struct function *fun)
-{
-  return fun->saved_eh ? fun->saved_eh->throw_stmt_table
-			: fun->eh->throw_stmt_table;
-}
-
 int
 get_eh_last_region_number (struct function *ifun)
 {
