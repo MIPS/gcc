@@ -760,8 +760,8 @@ cleanup_unconditional_jumps ()
 	  else
 	    continue;
 
-	  /* Cleanup barriers and verify that there are no tablejumps
-	     in a way.  */
+	  /* Cleanup barriers and delete ADDR_VECs in a way as they are belonging
+             to removed tablejump anyway.  */
 	  insn = NEXT_INSN (bb->end);
 	  while (insn
 		 && (GET_CODE (insn) != NOTE
@@ -771,6 +771,8 @@ cleanup_unconditional_jumps ()
 
 	      if (GET_CODE (insn) == BARRIER)
 		delete_barrier (insn);
+	      else if (GET_CODE (insn) == JUMP_INSN)
+		delete_insn_chain (PREV_INSN (insn), insn);
 	      else if (GET_CODE (insn) == CODE_LABEL)
 		;
 	      else if (GET_CODE (insn) != NOTE)
