@@ -232,10 +232,11 @@ struct loop_histogram
 enum
 {
   LOOPS_HAVE_PREHEADERS = 1,
-  LOOPS_HAVE_SIMPLE_LATCHES = 2,
-  LOOPS_HAVE_MARKED_IRREDUCIBLE_REGIONS = 4,
-  LOOPS_HAVE_HISTOGRAMS_ON_EDGES = 8,
-  LOOPS_HAVE_LANDING_PADS = 16
+  LOOPS_HAVE_SIMPLE_PREHEADERS = 2,
+  LOOPS_HAVE_SIMPLE_LATCHES = 4,
+  LOOPS_HAVE_MARKED_IRREDUCIBLE_REGIONS = 8,
+  LOOPS_HAVE_HISTOGRAMS_ON_EDGES = 16,
+  LOOPS_HAVE_LANDING_PADS = 32
 };
 
 /* Structure to hold CFG information about natural loops within a function.  */
@@ -333,8 +334,13 @@ struct iv_occurence
   rtx value;				/* And the value itself.  */
   rtx insn;				/* The insn where the iv occurs.  */
   rtx *occurence;			/* The occurence itself. Either
-					   a set with this value, or a mem
-					   whose address is this value.  */
+					   a set with this value, a mem
+					   whose address is this value or
+					   comparison for that this is the
+					   ARGth argument.  */
+  int arg;				/* Of the occurence this iv_occ
+					   represents in case it is
+					   comparison.  */
   void *aux;				/* Pass specific information.  */
 };
 

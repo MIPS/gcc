@@ -65,8 +65,10 @@ enum
 {
   SIE_SIMPLIFY = 1,	/* Simplify the resulting expression.  */
   SIE_ONLY_SIMPLE = 2,	/* Only substitute the simple expressions.  */
-  SIE_DEFAULT_ID = 4	/* NULL members of substitution should be considered
+  SIE_DEFAULT_ID = 4,	/* NULL members of substitution should be considered
 			   identity.  */
+  SIE_IGNORE_MODE = 8	/* When substituting for SFOR, ignore mode when
+			   comparing for equality.  */
 };
 
 #define init_algebraic ELNF (init_algebraic)
@@ -79,7 +81,7 @@ enum
 #define iv_split ELNF (iv_split)
 
 extern void init_algebraic (void);
-extern EXPR substitute_into_expr (EXPR, sbitmap, EXPR *, int);
+extern EXPR substitute_into_expr (EXPR, sbitmap, EXPR *, EXPR, int);
 extern EXPR simplify_alg_expr_shorten (EXPR, EXPR_TYPE, EXPR_TYPE);
 extern EXPR simplify_alg_expr (EXPR);
 extern EXPR simplify_alg_expr_using_values (EXPR, sbitmap, EXPR *);

@@ -1059,7 +1059,8 @@ detect_movable_set (basic_block bb, rtx insn, int after_call,
     }
 
   value = substitute_into_expr (value, iv_interesting_reg,
-				initial_values[loop->num], SIE_SIMPLIFY);
+				initial_values[loop->num], NULL,
+				SIE_SIMPLIFY);
   cost = rtx_cost (src, SET);
 
   for (def = DF_INSN_DEFS (loop_df, insn);

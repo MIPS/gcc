@@ -861,7 +861,7 @@ iv_simple_condition_p (loop, condition, desc)
   rtx op0, op1, tmp, delta, base0, step0, base1, step1, step, bound, may_xform;
   rtx assumption;
   enum rtx_code cond;
-  enum machine_mode mode = GET_MODE (XEXP (condition, 0));
+  enum machine_mode mode;
   enum machine_mode extend_mode;
   rtx mmin, mmax;
   unsigned HOST_WIDEST_INT s, size, d;
@@ -888,16 +888,25 @@ iv_simple_condition_p (loop, condition, desc)
   if (!condition)
     return false;
 
-  /* We only handle integers or pointers.  */
-  if (GET_MODE_CLASS (mode) != MODE_INT
-      && GET_MODE_CLASS (mode) != MODE_PARTIAL_INT)
-    return false;
+  /* The simplification could have proved that this condition is always true or
+     always false.  */
+  if (condition == const0_rtx)
+    {
+      desc->const_iter = true;
+      desc->niter = 0;
+      desc->niter_expr = const0_rtx;
+      desc->noloop_assumptions = alloc_EXPR_LIST (0, const_true_rtx, NULL_RTX);
+      return true;
+    }
 
-  /* The value of VALUE_AT may differ in each iteration, making most of
-     the checks below useless.  */
-  if (expr_mentions_code_p (condition, VALUE_AT))
-    return false;
-
+  /* This indicates that the exit is useless, so it would be fine to remove
+     it somewhere.  */
+  if (condition == const_true_rtx)
+    {
+      desc->infinite = alloc_EXPR_LIST (0, const_true_rtx, NULL_RTX); 
+      return false;
+    }
+ 
   /* We may be unsure about the first iteration.  ??? We certainly could
      handle this case, it would require some non-trivial effort (for example
      the second iteration is special due to need to handle overflows, so
@@ -908,26 +917,26 @@ iv_simple_condition_p (loop, condition, desc)
   if (bival_p (condition))
     return false;
 
-  /* The simplification above could have proved that this condition is
-     always true or always false.  */
-  if (condition == const0_rtx)
-    {
-      desc->const_iter = true;
-      desc->niter = 0;
-      desc->niter_expr = const0_rtx;
-      desc->noloop_assumptions = alloc_EXPR_LIST (0, const_true_rtx, NULL_RTX);
-      return true;
-    }
-  /* This indicates that the exit is useless, so it would be fine to remove
-     it somewhere.  */
-  if (condition == const_true_rtx)
-    {
-      desc->infinite = alloc_EXPR_LIST (0, const_true_rtx, NULL_RTX); 
-      return false;
-    }
   cond = GET_CODE (condition);
   if (GET_RTX_CLASS (cond) != '<')
     abort ();
+
+  mode = GET_MODE (XEXP (condition, 0));
+  if (mode == VOIDmode)
+    mode = GET_MODE (XEXP (condition, 1));
+  /* The constant comparisons should be folded.  */
+  if (mode == VOIDmode)
+    abort ();
+
+  /* We only handle integers or pointers.  */
+  if (GET_MODE_CLASS (mode) != MODE_INT
+      && GET_MODE_CLASS (mode) != MODE_PARTIAL_INT)
+    return false;
+
+  /* The value of VALUE_AT may differ in each iteration, making most of
+     the checks below useless.  */
+  if (expr_mentions_code_p (condition, VALUE_AT))
+    return false;
 
   op0 = XEXP (condition, 0);
   op1 = XEXP (condition, 1);

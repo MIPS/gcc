@@ -84,8 +84,10 @@ equal_when_iteration_zero_p (EXPR expr1, EXPR expr2)
 
   /* ??? It might be better to have a specialized version, in order not to
      copy the rtl unnecesarily.  */
-  e1 = substitute_into_expr (expr1, NULL, &zero, SIE_SIMPLIFY);
-  e2 = substitute_into_expr (expr2, NULL, &zero, SIE_SIMPLIFY);
+  e1 = substitute_into_expr (expr1, NULL, &zero, gen_iteration (LONG_INT_TYPE),
+			     SIE_SIMPLIFY | SIE_IGNORE_MODE);
+  e2 = substitute_into_expr (expr2, NULL, &zero, gen_iteration (LONG_INT_TYPE),
+			     SIE_SIMPLIFY | SIE_IGNORE_MODE);
   return e1 && e2 && EXPR_EQUAL_P (e1, e2);
 }
 
@@ -775,7 +777,8 @@ simplify_alg_expr_one_level (EXPR expr, EXPR_TYPE inner_mode)
     {
       if (ITH_ARG_EXPR_P (code, i))
 	{
-	  if (GET_OPERATOR (ARG (expr, i)) != OP_CONST_INT)
+	  if (ARG (expr, i)
+	      && GET_OPERATOR (ARG (expr, i)) != OP_CONST_INT)
 	    break;
 	}
       else if (!ITH_ARG_CONST_P (code, i))
@@ -1010,16 +1013,17 @@ init_algebraic ()
    (used when simplifying).  If the substitution fails to be performed,
    NULL_EXPR is returned instead.
  
-   If INTERESTING_REG is NULL, then we replace iteration rtl by *substitution
-   instead (??? this should be done in a cleaner way!).  */
+   If SFOR is not NULL, then we replace rtxes equal to it by *substitution
+   instead.  */
 EXPR
 substitute_into_expr (EXPR expr, sbitmap interesting_reg, EXPR *substitution,
-		      int flags)
+		      EXPR sfor, int flags)
 {
   EXPR old_expr, new_expr, sub_expr;
   unsigned regno;
   int i, length;
   EXPR_TYPE mode, inner_mode = EXPR_UNSPECIFIED_TYPE;
+  EXPR_TYPE new_mode = EXPR_UNSPECIFIED_TYPE;
   OPERATOR code;
   EXPR val = NULL_EXPR;
 
@@ -1036,7 +1040,28 @@ substitute_into_expr (EXPR expr, sbitmap interesting_reg, EXPR *substitution,
     expr = ARG (expr, 0);
 
   code = GET_OPERATOR (expr);
-  if (interesting_reg && code == OP_VARIABLE)
+  if (sfor)
+    {
+      if (GET_OPERATOR (sfor) == code
+	  && ((flags & SIE_IGNORE_MODE)
+	      || rtx_equal_p (expr, sfor)))
+	{
+	  EXPR_TYPE vmode;
+	  val = *substitution;
+
+	  vmode = GET_EXPR_TYPE (val) == EXPR_UNSPECIFIED_TYPE
+		  ? GET_EXPR_TYPE (sfor)
+		  : GET_EXPR_TYPE (val);
+	  if (GET_EXPR_TYPE (val) != mode)
+	    {
+	      if (mode < GET_EXPR_TYPE_SIZE (vmode))
+		val = FOLD_CAST (mode, val, vmode);
+	      else
+		val = FOLD_EXTEND (OP_EXTEND_UNSIGNED, mode, val, vmode);
+	    }
+	}
+    }
+  else if (code == OP_VARIABLE)
     {
       regno = VARIABLE_ID (expr);
       if (!TEST_BIT (interesting_reg, regno))
@@ -1050,13 +1075,6 @@ substitute_into_expr (EXPR expr, sbitmap interesting_reg, EXPR *substitution,
 	  else
 	    return NULL_EXPR;
 	}
-    }
-  else if (!interesting_reg && code == OP_ITERATION)
-    {
-      val = *substitution;
-      if (GET_EXPR_TYPE (val) != EXPR_UNSPECIFIED_TYPE
-	  && GET_EXPR_TYPE (val) != GET_EXPR_TYPE (expr))
-	abort ();
     }
 
   if (val)
@@ -1084,8 +1102,15 @@ substitute_into_expr (EXPR expr, sbitmap interesting_reg, EXPR *substitution,
   if (!TEST_BIT (suitable_operator, code))
       return NULL_EXPR;
 
-  if (code == OP_SHORTEN || code == OP_EXTEND_SIGNED || code == OP_EXTEND_UNSIGNED)
+  if (code == OP_VARIABLE)
+    return expr;
+
+  if (code == OP_SHORTEN
+      || code == OP_EXTEND_SIGNED
+      || code == OP_EXTEND_UNSIGNED)
     inner_mode = GET_EXPR_TYPE (ARG (expr, 0));
+  else if (COMPARISON_OP_P (code))
+    inner_mode = GET_ARGS_TYPE (expr);
 
   new_expr = SHALLOW_COPY_EXPR (expr);
   length = NUM_OP_ARGS (code);
@@ -1096,7 +1121,7 @@ substitute_into_expr (EXPR expr, sbitmap interesting_reg, EXPR *substitution,
 	  if (!ARG (expr, i))
 	    continue;
 	  sub_expr = substitute_into_expr (ARG (expr, i),
-					   interesting_reg, substitution,
+					   interesting_reg, substitution, sfor,
 					   flags & ~SIE_SIMPLIFY);
 	  if (!sub_expr)
 	    return NULL_EXPR;
@@ -1106,9 +1131,17 @@ substitute_into_expr (EXPR expr, sbitmap interesting_reg, EXPR *substitution,
 	return NULL_EXPR;
     }
 
-  if ((code == OP_SHORTEN || code == OP_EXTEND_SIGNED || code == OP_EXTEND_UNSIGNED)
-      && inner_mode != EXPR_UNSPECIFIED_TYPE
-      && GET_EXPR_TYPE (ARG (new_expr, 0)) == EXPR_UNSPECIFIED_TYPE)
+  /* Fold constants now, as their mode is going to be lost due to stupid
+     design of rtl.  */
+  if (code == OP_SHORTEN
+      || code == OP_EXTEND_SIGNED
+      || code == OP_EXTEND_UNSIGNED)
+    new_mode = GET_EXPR_TYPE (ARG (new_expr, 0));
+  else if (COMPARISON_OP_P (code))
+    new_mode = GET_ARGS_TYPE (new_expr);
+  
+  if (inner_mode != EXPR_UNSPECIFIED_TYPE
+      && new_mode == EXPR_UNSPECIFIED_TYPE)
     {
       if (code == OP_SHORTEN)
 	{
@@ -1119,8 +1152,12 @@ substitute_into_expr (EXPR expr, sbitmap interesting_reg, EXPR *substitution,
 	  new_expr = FOLD_CAST (mode, ARG (new_expr, 0), inner_mode);
 #endif
 	}
-      else
+      else if (code == OP_EXTEND_SIGNED
+	       || code == OP_EXTEND_UNSIGNED)
 	new_expr = FOLD_EXTEND (code, mode, ARG (new_expr, 0), inner_mode);
+      else
+	new_expr = FOLD_RELATIONAL (code, inner_mode,
+				    ARG (new_expr, 0), ARG (new_expr, 1));
     }
 
   if ((flags & SIE_SIMPLIFY) && !simple_expr_p (new_expr))
@@ -1147,7 +1184,7 @@ simplify_alg_expr_using_values (EXPR var, sbitmap interesting_reg,
      fields.  */
   if (bival_p (var))
     {
-      svar = substitute_into_expr (var, interesting_reg, initial_values,
+      svar = substitute_into_expr (var, interesting_reg, initial_values, NULL,
 				   SIE_SIMPLIFY);
       if (bival_p (svar))
 	{
@@ -1189,10 +1226,10 @@ simplify_alg_expr_using_values (EXPR var, sbitmap interesting_reg,
   if (fast_expr_mentions_operator_p (base, OP_INITIAL_VALUE))
     {
       sbase = substitute_into_expr (base, interesting_reg, initial_values,
-				    SIE_SIMPLIFY);
+				    NULL, SIE_SIMPLIFY);
       if (!sbase || !simple_expr_p (sbase))
 	sbase = substitute_into_expr (base, interesting_reg, initial_values,
-				      SIE_ONLY_SIMPLE | SIE_SIMPLIFY);
+				      NULL, SIE_ONLY_SIMPLE | SIE_SIMPLIFY);
       if (sbase)
 	{
 	  base = sbase;
@@ -1202,10 +1239,10 @@ simplify_alg_expr_using_values (EXPR var, sbitmap interesting_reg,
   if (fast_expr_mentions_operator_p (step, OP_INITIAL_VALUE))
     {
       sstep = substitute_into_expr (step, interesting_reg, initial_values,
-				    SIE_SIMPLIFY);
+				    NULL, SIE_SIMPLIFY);
       if (!sstep || !simple_expr_p (sstep))
 	sstep = substitute_into_expr (step, interesting_reg, initial_values,
-				      SIE_ONLY_SIMPLE | SIE_SIMPLIFY);
+				      NULL, SIE_ONLY_SIMPLE | SIE_SIMPLIFY);
       if (sstep)
 	{
 	  step = sstep;

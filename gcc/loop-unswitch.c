@@ -250,7 +250,17 @@ unswitch_single_loop (loops, loop, cond_checked, num)
   /* Unswitch the loop.  */
   nloop = unswitch_loop (loops, loop, bb);
   if (!nloop)
-  abort ();
+    abort ();
+
+  if (loops->state & LOOPS_HAVE_SIMPLE_PREHEADERS)
+    {
+      e = loop_preheader_edge (loop);
+      if (e->src->succ->succ_next)
+	loop_split_edge_with (e, NULL_RTX, loops);
+      e = loop_preheader_edge (nloop);
+      if (e->src->succ->succ_next)
+	loop_split_edge_with (e, NULL_RTX, loops);
+    }
 
   /* Invoke itself on modified loops.  */
   unswitch_single_loop (loops, nloop, true_first ? conds : rconds, num + 1);

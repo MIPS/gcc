@@ -1324,6 +1324,12 @@ verify_loop_structure (loops)
 	  error ("Loop %d's header does not have exactly 2 entries.", i);
 	  err = 1;
 	}
+      if ((loops->state & LOOPS_HAVE_SIMPLE_PREHEADERS)
+	  && loop_preheader_edge (loop)->src->succ->succ_next)
+	{
+	  error ("Loop %d's preheader does not have exactly 1 successor.", i);
+	  err = 1;
+	}
       if (loops->state & LOOPS_HAVE_SIMPLE_LATCHES)
 	{
 	  if (!loop->latch->succ

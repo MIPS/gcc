@@ -172,8 +172,9 @@ static void fill_loop_rd_in_for_def (struct ref *);
 static void fill_rd_for_defs (basic_block, bitmap);
 static void fill_loops_dominance_order (void);
 static void enter_iv_occurence (struct iv_occurence_step_class **, rtx, rtx,
-				rtx, rtx, rtx, rtx, rtx *, enum machine_mode,
-				enum machine_mode, enum rtx_code);
+				rtx, rtx, rtx, rtx, rtx *, int,
+				enum machine_mode, enum machine_mode,
+				enum rtx_code);
 static int record_iv_occurences_1 (rtx *, void *);
 static void record_iv_occurences (struct iv_occurence_step_class **, rtx);
 static void iv_new_insn_changes_commit (basic_block, rtx, rtx);
@@ -449,7 +450,7 @@ simulate_set (rtx reg, rtx set, void *data)
   else
     {
       src = SET_SRC (set);
-      value = substitute_into_expr (src, iv_interesting_reg, values,
+      value = substitute_into_expr (src, iv_interesting_reg, values, NULL,
 				    SIE_SIMPLIFY);
     }
   if (!value)
@@ -634,7 +635,7 @@ iv_simplify_using_initial_values (enum rtx_code op, rtx expr, struct loop *loop)
     }
 
   tmp = substitute_into_expr (expr, iv_interesting_reg,
-			      initial_values[loop->num], SIE_SIMPLIFY);
+			      initial_values[loop->num], NULL, SIE_SIMPLIFY);
   if (tmp && good_constant_p (tmp))
     return tmp;
 
@@ -666,7 +667,7 @@ iv_simplify_using_branches (enum rtx_code op, rtx expr, struct loop *loop)
 	{
 	  if (!expr_val)
 	    expr_val = substitute_into_expr (expr, iv_interesting_reg,
-					     initial_values[loop->num],
+					     initial_values[loop->num], NULL,
 					     SIE_SIMPLIFY);
 	  expr_val = iv_simplify_using_branch (e, expr_val);
 	}
@@ -721,7 +722,7 @@ iv_get_condition_value (edge e)
     }
 
   return substitute_into_expr (condition, iv_interesting_reg,
-			       iv_register_values, SIE_SIMPLIFY);
+			       iv_register_values, NULL, SIE_SIMPLIFY);
 }
 
 /* Attempt to simplify the expression EXPR using the fact that we use edge E.
@@ -776,16 +777,14 @@ iv_simplify_using_condition (rtx expr, rtx condition)
     {
       /* Try to substitute left side for the right one and see what
 	 happens.  */
-      ccond = replace_rtx (COPY_EXPR (condition),
-			   XEXP (expr, 0), XEXP (expr, 1));
-      ccond = simplify_alg_expr (ccond);
+      ccond = substitute_into_expr (condition, NULL, &XEXP (expr, 1),
+				    XEXP (expr, 0), SIE_SIMPLIFY);
       if (ccond == const0_rtx)
 	return ccond;
 
       /* And vice versa.  */
-      ccond = replace_rtx (COPY_EXPR (condition),
-			   XEXP (expr, 1), XEXP (expr, 0));
-      ccond = simplify_alg_expr (ccond);
+      ccond = substitute_into_expr (condition, NULL, &XEXP (expr, 0),
+				    XEXP (expr, 1), SIE_SIMPLIFY);
       if (ccond == const0_rtx)
 	return ccond;
     }
@@ -1435,7 +1434,8 @@ iv_make_initial_value (struct loop *loop, rtx insn, rtx expr, unsigned regno)
   if (fast_expr_mentions_operator_p (expr, INITIAL_VALUE))
     {
       expr = substitute_into_expr (expr, iv_interesting_reg,
-				   initial_values[loop->num], SIE_SIMPLIFY);
+				   initial_values[loop->num], NULL,
+				   SIE_SIMPLIFY);
       if (!expr)
 	return gen_value_at (regno, insn, true);
       original = false;
@@ -1530,7 +1530,7 @@ compute_initial_values (struct loop *loop)
 static void
 enter_iv_occurence (struct iv_occurence_step_class **to, rtx value, rtx base,
 		    rtx delta, rtx local_base, rtx step, rtx insn,
-		    rtx *occurence, enum machine_mode real_mode,
+		    rtx *occurence, int arg, enum machine_mode real_mode,
 		    enum machine_mode extended_mode, enum rtx_code extend)
 {
   struct iv_occurence *nw = xmalloc (sizeof (struct iv_occurence));
@@ -1560,6 +1560,7 @@ enter_iv_occurence (struct iv_occurence_step_class **to, rtx value, rtx base,
 
   nw->insn = insn;
   nw->occurence = occurence;
+  nw->arg = arg;
   nw->value = value;
   nw->delta = delta;
   nw->local_base = local_base;
@@ -1578,6 +1579,8 @@ static int
 record_iv_occurences_1 (rtx *expr, void *data)
 {
   struct iv_occurence_step_class **to = data;
+  rtx vals[2];
+  int n_vals, arg;
   rtx val, dest, base, lbase, sbase, step, delta, *tmp, *last;
   struct loop *loop = BLOCK_FOR_INSN (current_insn)->loop_father;
   enum machine_mode real_mode, extended_mode;
@@ -1589,68 +1592,91 @@ record_iv_occurences_1 (rtx *expr, void *data)
       if (GET_CODE (dest) != REG
 	  || !TEST_BIT (iv_interesting_reg, REGNO (dest)))
 	return 0;
-      val = get_def_value (current_insn, REGNO (dest));
+      vals[0] = get_def_value (current_insn, REGNO (dest));
+      n_vals = 1;
     }
   else if (GET_CODE (*expr) == MEM)
     {
       val = XEXP (*expr, 0);
-      val = substitute_into_expr (val, iv_interesting_reg,
-				  iv_register_values, SIE_SIMPLIFY);
+      vals[0] = substitute_into_expr (val, iv_interesting_reg,
+				      iv_register_values, NULL, SIE_SIMPLIFY);
+      n_vals = 1;
+    }
+  else if (GET_CODE (*expr) == COMPARE
+	   || COMPARISON_OP_P (GET_CODE (*expr)))
+    {
+      val = XEXP (*expr, 0);
+      vals[0] = substitute_into_expr (val, iv_interesting_reg,
+				      iv_register_values, NULL, SIE_SIMPLIFY);
+      val = XEXP (*expr, 1);
+      vals[1] = substitute_into_expr (val, iv_interesting_reg,
+				      iv_register_values, NULL, SIE_SIMPLIFY);
+      n_vals = 2;
     }
   else
     return 0;
 
-  if (!val)
-    return 0;
+  for (arg = 0; arg < n_vals; arg++)
+    {
+      val = vals[arg];
+      if (!val)
+	continue;
 
-  val = simplify_alg_expr_using_values (val, iv_interesting_reg,
+      val = simplify_alg_expr_using_values (val, iv_interesting_reg,
 					initial_values[loop->num]);
-  if (!val)
-    return 0;
+      if (!val)
+	continue;
 
-  extended_mode = GET_MODE (val);
-  if (GET_CODE (val) == SIGN_EXTEND
-      || GET_CODE (val) == ZERO_EXTEND)
-    {
-      extend = GET_CODE (val);
-      val = XEXP (val, 0);
-    }
-  else
-    extend = NIL;
-  real_mode = GET_MODE (val);
+      /* Recording every constant set produces many irrelevant occurences.  */
+      if (good_constant_p (val))
+	continue;
 
-  iv_split (val, &base, &step);
-  if (!base
-      || expr_mentions_code_p (base, VALUE_AT)
-      || expr_mentions_code_p (step, VALUE_AT))
-    return 0;
-
-  lbase = copy_rtx (base);
-  sbase = substitute_into_expr (base, iv_interesting_reg,
-				initial_values[loop->num], SIE_SIMPLIFY);
-  if (sbase)
-    base = sbase;
-
-  tmp = &base;
-  last = NULL;
-  while (GET_CODE (*tmp) == PLUS)
-    {
-      last = tmp;
-      tmp = &XEXP (*tmp, 0);
-    }
-  if (GET_CODE (*tmp) == CONST_INT)
-    {
-      delta = *tmp;
-      if (!last)
-	base = const0_rtx;
+      extended_mode = GET_MODE (val);
+      if (GET_CODE (val) == SIGN_EXTEND
+	  || GET_CODE (val) == ZERO_EXTEND)
+	{
+	  extend = GET_CODE (val);
+	  val = XEXP (val, 0);
+	}
       else
-	*last = XEXP (*last, 1);
-    }
-  else
-    delta = const0_rtx;
+	extend = NIL;
+      real_mode = GET_MODE (val);
 
-  enter_iv_occurence (to, val, base, delta, lbase, step, current_insn, expr,
-		      real_mode, extended_mode, extend);
+      iv_split (val, &base, &step);
+      if (!base
+	  || expr_mentions_code_p (base, VALUE_AT)
+	  || expr_mentions_code_p (step, VALUE_AT))
+	continue;
+
+      lbase = copy_rtx (base);
+      sbase = substitute_into_expr (base, iv_interesting_reg,
+				    initial_values[loop->num], NULL,
+				    SIE_SIMPLIFY);
+      if (sbase)
+	base = sbase;
+
+      tmp = &base;
+      last = NULL;
+      while (GET_CODE (*tmp) == PLUS)
+	{
+	  last = tmp;
+	  tmp = &XEXP (*tmp, 0);
+	}
+      if (GET_CODE (*tmp) == CONST_INT)
+	{
+	  delta = *tmp;
+	  if (!last)
+	    base = const0_rtx;
+	  else
+	    *last = XEXP (*last, 1);
+	}
+      else
+	delta = const0_rtx;
+
+      enter_iv_occurence (to, val, base, delta, lbase, step, current_insn,
+			  expr, arg, real_mode, extended_mode, extend);
+    }
+
   return 0;
 }
 
@@ -1658,8 +1684,12 @@ record_iv_occurences_1 (rtx *expr, void *data)
 static void
 record_iv_occurences (struct iv_occurence_step_class **to, rtx insn)
 {
+#if 0
   struct df_link *use = DF_INSN_USES (loop_df, insn);
   struct df_link *def = DF_INSN_DEFS (loop_df, insn);
+
+  /* We don't have a good way to do this filtering for conditions, so we
+     must just endure the pass over all insns.  */
 
   /* Check that there is anything to bother with.  */
   for (; use; use = use->next)
@@ -1676,6 +1706,7 @@ record_iv_occurences (struct iv_occurence_step_class **to, rtx insn)
       if (!def)
 	return;
     }
+#endif
 
   current_insn = insn;
   iv_load_used_values (insn, iv_register_values);

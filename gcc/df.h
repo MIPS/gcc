@@ -188,6 +188,7 @@ struct df_map
 #define DF_REF_BBNO(REF) (BLOCK_FOR_INSN ((REF)->insn)->index)
 #define DF_REF_INSN(REF) ((REF)->insn)
 #define DF_REF_INSN_UID(REF) (INSN_UID ((REF)->insn))
+#define DF_REF_INSN_LUID(DF, REF) (DF_INSN_LUID (DF, (REF)->insn))
 #define DF_REF_TYPE(REF) ((REF)->type)
 #define DF_REF_CHAIN(REF) ((REF)->chain)
 #define DF_REF_ID(REF) ((REF)->id)

@@ -2170,7 +2170,8 @@ get_best_mode (bitsize, bitpos, align, largest_mode, volatilep)
 
 /* Gets minimal and maximal values for MODE (signed or unsigned depending on
    SIGN).  */
-void get_mode_bounds (mode, sign, mmin, mmax)
+void
+get_mode_bounds (mode, sign, mmin, mmax)
      enum machine_mode mode;
      int sign;
      rtx *mmin;

@@ -1,3 +1,47 @@
+2003-07-20  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* algebraic.c (equal_when_iteration_zero_p, substitute_into_expr):
+	Cleanup handling of substitution for iteration.
+	(simplify_alg_expr_one_level, substitute_into_expr): Support
+	EXPR_LISTs.
+	(substitute_into_expr): Fix folding of conditions.
+	(simplify_alg_expr_using_values): Modified.
+	* algebraic.h (SIE_IGNORE_MODE): New flag.
+	(substitute_into_expr): Declaration changed.
+	* cfgloop.c (verify_loop_structure): Check simple preheaders.
+	* cfgloop.h (LOOPS_HAVE_SIMPLE_PREHEADERS): New flag.
+	(struct iv_occurence): Field arg added.
+	* cfgloopanal.c (iv_simple_condition_p): Put checks into correct
+	order.
+	* cfgloopmanip.c (create_preheaders): Record
+	LOOPS_HAVE_SIMPLE_PREHEADERS.
+	* df.h (DF_REF_INSN_LUID): New.
+	* flow.c (mark_used_regs): Set subregs_of_mode only if initialized.
+	* loop-invariant.c (detect_movable_set): Modified.
+	* loop-iv.c (enter_iv_occurence, record_iv_occurences_1): Record ivs
+	in conditions.
+	(simulate_set, iv_simplify_using_initial_values,
+	iv_simplify_using_branches, iv_get_condition_value,
+	iv_simplify_using_condition, iv_make_initial_value): Modified.
+	* loop-ivopts.c (struct str_red): Fields elimination and remove_notes
+	added.
+	(struct repl_alt): Fields pre and type added, type of field loc changed.
+	(COST_INFTY): Changed.
+	(struct iv_occ_list): Field aux added.
+	(decide_strength_reduction, kill_old_global_iv, add_iv_elimination,
+	remove_incorrect_eliminations, elimination_invalid_p,
+	partial_computation_p, detect_strength_reductions,
+	detect_strength_reductions, schedule_autoinc, computation_cost,
+	schedule_repl_for, invariant_displacement_p, repl_mem_addr_cost,
+	repl_move_cost, gen_repl_rtx, create_biv, execute_strength_reduction,
+	determine_reductions_to_perform, decrease_by_one_iv,
+	estimate_gain, finish_repl, dump_new_biv): Support induction variable
+	elimination.
+	(create_bivs_for, greatest_common_divisor, gen_cond_repl_rtx,
+	repl_comparison_cost, may_wrap_p): New static functions.
+	* loop-unswitch.c (unswitch_single_loop): Preserve simple preheaders.
+	* stor-layout.c (get_mode_bounds): Formating fix.
+
 2003-07-15  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* algebraic.c (init_algebraic, substitute_into_expr): Support

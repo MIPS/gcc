@@ -1491,6 +1491,8 @@ create_preheaders (loops, flags)
   for (i = 1; i < loops->num; i++)
     create_preheader (loops->parray[i], loops->cfg.dom, flags);
   loops->state |= LOOPS_HAVE_PREHEADERS;
+  if (flags & CP_SIMPLE_PREHEADERS)
+    loops->state |= LOOPS_HAVE_SIMPLE_PREHEADERS;
 }
 
 /* Forces all loop latches of loops from loop tree LOOPS to have only single
