@@ -1188,15 +1188,15 @@ vect_is_supportable_binop (tree stmt)
   op1 = TREE_OPERAND (operation, 1);
 
   if (!op0 || TREE_CODE (op0) != SSA_NAME)
-    return NULL;
+    return false;
 
   if (!op1 || TREE_CODE (op1) != SSA_NAME)
-    return NULL;
+    return false;
 
   /* Suppotable by target?  */
 
   if (!binoptab)
-    return NULL;
+    return false;
 
   vec_mode = TYPE_MODE (vectype);
 

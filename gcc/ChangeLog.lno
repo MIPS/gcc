@@ -1,3 +1,8 @@
+2004-01-02  Sebastian Pop  <s.pop@laposte.net>
+
+	* tree-vectorizer.c (vect_is_supportable_binop): Returns false instead
+	of NULL.
+
 2004-01-02  Richard Henderson  <rth@redhat.com>
 
 	* config/i386/i386.h (UNITS_PER_SIMD_WORD): New.
