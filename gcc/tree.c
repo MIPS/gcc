@@ -648,13 +648,21 @@ build_vector (tree type, tree vals)
     {
       tree value = TREE_VALUE (link);
 
-      over1 |= TREE_OVERFLOW (value);
-      over2 |= TREE_CONSTANT_OVERFLOW (value);
       /* APPLE LOCAL begin AltiVec */
-      TREE_VALUE (link) = fold (value);
+      value = fold (value);
+      if (TREE_CODE (value) != INTEGER_CST && TREE_CODE (value) != REAL_CST)
+	{
+	  error ("vector literal contains an invalid constant expression");
+	  /* recover */
+	  set_fast_math_flags (1);
+	  value = fold (value);
+	}
+      TREE_VALUE (link) = value;
       count++;
       list = link;
       /* APPLE LOCAL end AltiVec */
+      over1 |= TREE_OVERFLOW (value);
+      over2 |= TREE_CONSTANT_OVERFLOW (value);
     }
 
   /* APPLE LOCAL begin AltiVec */
