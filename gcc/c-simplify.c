@@ -833,6 +833,7 @@ gimplify_decl_stmt (tree *stmt_p)
   tree stmt = *stmt_p;
   tree decl = DECL_STMT_DECL (stmt);
   tree pre = NULL_TREE;
+  tree post = NULL_TREE;
 
   if (TREE_CODE (decl) == VAR_DECL && !DECL_EXTERNAL (decl))
     {
@@ -846,13 +847,13 @@ gimplify_decl_stmt (tree *stmt_p)
 	  /* This is a variable-sized decl.  Simplify its size and mark it
 	     for deferred expansion.  */
 
-	  size = get_initialized_tmp_var (DECL_SIZE_UNIT (decl), &pre);
+	  size = get_initialized_tmp_var (DECL_SIZE_UNIT (decl), &pre, &post);
 	  DECL_DEFER_OUTPUT (decl) = 1;
-	  alloc = build_function_call_expr (
-			implicit_built_in_decls[BUILT_IN_STACK_ALLOC],
-			tree_cons (NULL_TREE,
-				   build1 (ADDR_EXPR, pt_type, decl),
-				   tree_cons (NULL_TREE, size, NULL_TREE)));
+	  alloc = build_function_call_expr
+	    (implicit_built_in_decls[BUILT_IN_STACK_ALLOC],
+	     tree_cons (NULL_TREE,
+			build1 (ADDR_EXPR, pt_type, decl),
+			tree_cons (NULL_TREE, size, NULL_TREE)));
 	  add_tree (alloc, &pre);
 	}
 
@@ -882,6 +883,7 @@ gimplify_decl_stmt (tree *stmt_p)
 	gimple_add_tmp_var (decl);
     }
 
+  add_tree (post, &pre);
   *stmt_p = pre;
 }
 

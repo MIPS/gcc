@@ -28,7 +28,7 @@ Boston, MA 02111-1307, USA.  */
 extern tree create_tmp_var (tree, const char *);
 extern tree create_tmp_alias_var (tree, const char *);
 extern bool is_gimple_tmp_var (tree);
-extern tree get_initialized_tmp_var (tree, tree *);
+extern tree get_initialized_tmp_var (tree, tree *, tree *);
 extern tree get_formal_tmp_var (tree, tree *);
 extern void declare_tmp_vars (tree, tree);
 

@@ -58,7 +58,7 @@ static void gimplify_return_expr (tree, tree *);
 static tree build_addr_expr (tree);
 static tree build_addr_expr_with_type (tree, tree);
 static tree add_stmt_to_compound (tree, tree);
-static void gimplify_asm_expr (tree, tree *);
+static void gimplify_asm_expr (tree, tree *, tree *);
 static void gimplify_bind_expr (tree *, tree *);
 static inline void remove_suffix (char *, int);
 static void push_gimplify_context (void);
@@ -82,7 +82,7 @@ static void gimplify_exit_block_expr (tree *);
 static hashval_t gimple_tree_hash (const void *);
 static int gimple_tree_eq (const void *, const void *);
 static tree lookup_tmp_var (tree, bool);
-static tree internal_get_tmp_var (tree, tree *, bool);
+static tree internal_get_tmp_var (tree, tree *, tree *, bool);
 static tree shortcut_cond_expr (tree);
 static tree gimple_boolify (tree);
 static void gimplify_conversion (tree *);
@@ -601,7 +601,7 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 	  break;
 
 	case ASM_EXPR:
-	  gimplify_asm_expr (*expr_p, pre_p);
+	  gimplify_asm_expr (*expr_p, pre_p, post_p);
 	  break;
 
 	case TRY_FINALLY_EXPR:
@@ -771,7 +771,7 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 	/* The postqueue might change the value of the expression between
 	   the initialization and use of the temporary, so we can't use a
 	   formal temp.  FIXME do we care?  */
-	*expr_p = get_initialized_tmp_var (*expr_p, pre_p);
+	*expr_p = get_initialized_tmp_var (*expr_p, pre_p, post_p);
       else
 	*expr_p = get_formal_tmp_var (*expr_p, pre_p);
     }
@@ -2137,13 +2137,8 @@ gimplify_save_expr (tree *expr_p, tree *pre_p, tree *post_p)
   if (is_gimple_tmp_var (val))
     *expr_p = val;
   else
-    {
-      /* Gimplify this now so post-effects go on the normal postqueue.  */
-      gimplify_expr (&val, pre_p, post_p, is_gimple_rhs, fb_rvalue);
-      val = get_initialized_tmp_var (val, pre_p);
-      TREE_OPERAND (*expr_p, 0) = val;
-      *expr_p = val;
-    }
+    *expr_p = TREE_OPERAND (*expr_p, 0)
+      = get_initialized_tmp_var (val, pre_p, post_p);
 }
 
 /*  Re-write the ADDR_EXPR node pointed by EXPR_P
@@ -2187,7 +2182,7 @@ gimplify_addr_expr (tree *expr_p, tree *pre_p, tree *post_p)
    value; output operands should be a gimple lvalue.  */
 
 static void
-gimplify_asm_expr (tree expr, tree *pre_p)
+gimplify_asm_expr (tree expr, tree *pre_p, tree *post_p)
 {
   tree link;
 
@@ -2196,17 +2191,17 @@ gimplify_asm_expr (tree expr, tree *pre_p)
 				 ASM_INPUTS (expr));
 
   for (link = ASM_OUTPUTS (expr); link; link = TREE_CHAIN (link))
-    gimplify_expr (&TREE_VALUE (link), pre_p, NULL,
+    gimplify_expr (&TREE_VALUE (link), pre_p, post_p,
 		   is_gimple_lvalue, fb_lvalue);
 
   for (link = ASM_INPUTS (expr); link; link = TREE_CHAIN (link))
     {
       /* If the operand is a memory input, it should be an lvalue.  */
       if (asm_op_is_mem_input (link, expr))
-	gimplify_expr (&TREE_VALUE (link), pre_p, NULL,
+	gimplify_expr (&TREE_VALUE (link), pre_p, post_p,
 		       is_gimple_lvalue, fb_lvalue);
       else
-	gimplify_expr (&TREE_VALUE (link), pre_p, NULL,
+	gimplify_expr (&TREE_VALUE (link), pre_p, post_p,
 		       is_gimple_val, fb_rvalue);
     }
 
@@ -2530,8 +2525,8 @@ lookup_tmp_var (tree val, bool is_formal)
     }
 }
 
-/* Returns a formal temporary variable initialized with VAL.  PRE_P and
-   STMT are as in gimplify_expr.  Only use this function if:
+/* Returns a formal temporary variable initialized with VAL.  PRE_P is as
+   in gimplify_expr.  Only use this function if:
 
    1) The value of the unfactored expression represented by VAL will not
       change between the initialization and use of the temporary, and
@@ -2545,25 +2540,25 @@ lookup_tmp_var (tree val, bool is_formal)
 tree
 get_formal_tmp_var (tree val, tree *pre_p)
 {
-  return internal_get_tmp_var (val, pre_p, true);
+  return internal_get_tmp_var (val, pre_p, NULL, true);
 }
 
-/* Returns a temporary variable initialized with VAL.  PRE_P and STMT
+/* Returns a temporary variable initialized with VAL.  PRE_P and POST_P
    are as in gimplify_expr.  */
 
 tree
-get_initialized_tmp_var (tree val, tree *pre_p)
+get_initialized_tmp_var (tree val, tree *pre_p, tree *post_p)
 {
-  return internal_get_tmp_var (val, pre_p, false);
+  return internal_get_tmp_var (val, pre_p, post_p, false);
 }
 
 static tree
-internal_get_tmp_var (tree val, tree *pre_p, bool is_formal)
+internal_get_tmp_var (tree val, tree *pre_p, tree *post_p, bool is_formal)
 {
   tree t, mod;
   char class;
 
-  gimplify_expr (&val, pre_p, NULL, is_gimple_rhs, fb_rvalue);
+  gimplify_expr (&val, pre_p, post_p, is_gimple_rhs, fb_rvalue);
 
   t = lookup_tmp_var (val, is_formal);
 
