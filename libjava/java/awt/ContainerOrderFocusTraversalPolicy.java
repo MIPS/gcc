@@ -101,10 +101,8 @@ public class ContainerOrderFocusTraversalPolicy extends FocusTraversalPolicy
     if (current == null)
       throw new IllegalArgumentException ("current component is null");
 
-    // FIXME: is this the right thing to do here? it move the context
-    // for traversal up one focus traversal cycle.
-    if ((Component) root == current)
-      root = current.getFocusCycleRootAncestor ();
+    if (!root.isFocusCycleRoot ())
+      throw new IllegalArgumentException ("root is not a focus cycle root");
 
     Container ancestor = current.getFocusCycleRootAncestor ();
     Container prevAncestor = ancestor;
@@ -125,52 +123,55 @@ public class ContainerOrderFocusTraversalPolicy extends FocusTraversalPolicy
 	prevAncestor = ancestor;
       }
 
-    // FIXME: need locking on root.
-    Component[] components = root.getComponents ();
-    int componentIndex = 0;
-    int numComponents = root.getComponentCount ();
+    // FIXME: is this the right thing to do here? It moves the context
+    // for traversal up one focus traversal cycle.  We'll need a test
+    // for this.
+    if ((Component) root == current)
+      root = current.getFocusCycleRootAncestor ();
 
-    // Find component's index.
-    for (int i = 0; i < numComponents; i++)
-      {
-	if (components[i] == current)
-	  componentIndex = i;
-      }
+    // Check if we've reached the top of the component hierarchy.  If
+    // so then we want to loop around to the first component in the
+    // focus traversal cycle.
+    if (current instanceof Window)
+      return getFirstComponent ((Container) current);
 
-    // Search forward for the next acceptable component.
-    for (int i = componentIndex + 1; i < numComponents; i++)
+    Container parent = current.getParent ();
+
+    synchronized (parent.getTreeLock ())
       {
-        if (components[i] instanceof Container)
+        Component[] components = parent.getComponents ();
+        int componentIndex = 0;
+        int numComponents = parent.getComponentCount ();
+
+        // Find component's index.
+        for (int i = 0; i < numComponents; i++)
           {
-            Component result = getFirstComponent ((Container) components[i]);
-
-            if (result != null
-		&& implicitDownCycleTraversal)
-              return result;
+            if (components[i] == current)
+              componentIndex = i;
           }
 
-	if (accept (components[i]))
-	  return components[i];
-      }
-
-    for (int i = 0; i < componentIndex; i++)
-      {
-        if (components[i] instanceof Container)
+        // Search forward for the next acceptable component.
+        for (int i = componentIndex + 1; i < numComponents; i++)
           {
-            Component result = getFirstComponent ((Container) components[i]);
+            if (accept (components[i]))
+              return components[i];
 
-            if (result != null
-		&& implicitDownCycleTraversal)
-              return result;
+            if (components[i] instanceof Container)
+              {
+                Component result = getFirstComponent ((Container) components[i]);
+
+                if (result != null
+                    && implicitDownCycleTraversal)
+                  return result;
+              }
           }
 
-	// FIXME: see below.
-	if (accept (components[i]))
-	  return components[i];
-      }
+        // No focusable components after current in its Container.  So go
+        // to the next Component after current's Container (parent).
+        Component result = getComponentAfter (root, parent);
 
-    // No acceptable component found.
-    return null;
+        return result;
+      }
   }
 
   /**
@@ -194,10 +195,8 @@ public class ContainerOrderFocusTraversalPolicy extends FocusTraversalPolicy
     if (current == null)
       throw new IllegalArgumentException ("current component is null");
 
-    // FIXME: is this the right thing to do here? it move the context
-    // for traversal up one focus traversal cycle.
-    if ((Component) root == current)
-      root = current.getFocusCycleRootAncestor ();
+    if (!root.isFocusCycleRoot ())
+      throw new IllegalArgumentException ("root is not a focus cycle root");
 
     Container ancestor = current.getFocusCycleRootAncestor ();
     Container prevAncestor = ancestor;
@@ -218,50 +217,54 @@ public class ContainerOrderFocusTraversalPolicy extends FocusTraversalPolicy
 	prevAncestor = ancestor;
       }
 
-    // FIXME: need locking on root.
-    Component[] components = root.getComponents ();
-    int componentIndex = 0;
-    int numComponents = root.getComponentCount ();
+    // FIXME: is this the right thing to do here? It moves the context
+    // for traversal up one focus traversal cycle.  We'll need a test
+    // for this.
+    if ((Component) root == current)
+      root = current.getFocusCycleRootAncestor ();
 
-    // Find component's index.
-    for (int i = 0; i < numComponents; i++)
-      {
-	if (components[i] == current)
-	  componentIndex = i;
-      }
+    // Check if we've reached the top of the component hierarchy.  If
+    // so then we want to loop around to the last component in the
+    // focus traversal cycle.
+    if (current instanceof Window)
+      return getLastComponent ((Container) current);
 
-    // Search backward for the next acceptable component.
-    for (int i = componentIndex - 1; i >= 0; i--)
+    Container parent = current.getParent ();
+
+    synchronized (parent.getTreeLock ())
       {
-        if (components[i] instanceof Container)
+        Component[] components = parent.getComponents ();
+        int componentIndex = 0;
+        int numComponents = parent.getComponentCount ();
+
+        // Find component's index.
+        for (int i = 0; i < numComponents; i++)
           {
-            Component result = getLastComponent ((Container) components[i]);
-
-            if (result != null)
-              return result;
+            if (components[i] == current)
+              componentIndex = i;
           }
 
-	if (accept (components[i]))
-	  return components[i];
-      }
-
-    for (int i = numComponents - 1; i > componentIndex; i--)
-      {
-        if (components[i] instanceof Container)
+        // Search backward for the next acceptable component.
+        for (int i = componentIndex - 1; i >= 0; i--)
           {
-            Component result = getLastComponent ((Container) components[i]);
+            if (accept (components[i]))
+              return components[i];
 
-            if (result != null)
-              return result;
+            if (components[i] instanceof Container)
+              {
+                Component result = getLastComponent ((Container) components[i]);
+
+                if (result != null)
+                  return result;
+              }
           }
 
-	// FIXME: see below.
-	if (accept (components[i]))
-	  return components[i];
-      }
+        // No focusable components before current in its Container.  So go
+        // to the previous Component before current's Container (parent).
+        Component result = getComponentBefore (root, parent);
 
-    // No acceptable component found.
-    return null;
+        return result;
+      }
   }
 
   /**
@@ -292,6 +295,9 @@ public class ContainerOrderFocusTraversalPolicy extends FocusTraversalPolicy
       {
         Component component = componentArray [i];
 	
+	if (accept (component))
+	  return component;
+
         if (component instanceof Container)
           {
             Component result = getFirstComponent ((Container) component);
@@ -299,12 +305,6 @@ public class ContainerOrderFocusTraversalPolicy extends FocusTraversalPolicy
             if (result != null)
               return result;
           }
-
-	// FIXME: can the container itself be focused?  if not, then
-	// this part needs to be in the else clause of the if
-	// statement above.
-	if (accept (component))
-	  return component;
       }
 
     return null;
@@ -334,10 +334,13 @@ public class ContainerOrderFocusTraversalPolicy extends FocusTraversalPolicy
 
     Component[] componentArray = root.getComponents ();
     
-    for (int i = componentArray.length - 1; i >= 0; i++)
+    for (int i = componentArray.length - 1; i >= 0; i--)
       {
         Component component = componentArray [i];
 	
+	if (accept (component))
+	  return component;
+
         if (component instanceof Container)
           {
             Component result = getLastComponent ((Container) component);
@@ -345,10 +348,6 @@ public class ContainerOrderFocusTraversalPolicy extends FocusTraversalPolicy
             if (result != null)
               return result;
           }
-
-	// FIXME: see above.
-	if (accept (component))
-	  return component;
       }
 
     return null;

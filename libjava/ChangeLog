@@ -1,3 +1,11 @@
+2004-04-23  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	* java/awt/ContainerOrderFocusTraversalPolicy.java
+	(getComponentAfter): Start from current component and work up
+	the component hierarchy until an acceptable component is found.
+	Synchronize on tree lock.
+	(getComponentBefore): Likewise.
+
 2004-04-22  Thomas Fitzsimmons  <fitzsim@redhat.com>
 
 	* gnu/java/awt/peer/gtk/GtkComponentPeer.java: Remove
