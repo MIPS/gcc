@@ -1,3 +1,7 @@
+2004-01-21  Hartmut Penner  <hpenner@de.ibm.com>
+
+	* f/com.h (ffecom_gfrt_basictype): Fix prototype.	
+
 2004-01-21  Andreas Jaeger  <aj@suse.de>
 
 	* config/i386/x86-64.h (NO_PROFILE_COUNTERS): Define to 1.
