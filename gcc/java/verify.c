@@ -84,23 +84,23 @@ check_pending_block (tree target_label)
 
   if (current_subr == NULL)
     {
-      if (LABEL_IN_SUBR (target_label))
-	return "might transfer control into subroutine";
+/*       if (LABEL_IN_SUBR (target_label)) */
+/* 	return "might transfer control into subroutine"; */
     }
   else
     {
       if (LABEL_IN_SUBR (target_label))
 	{
-	  if (LABEL_SUBR_START (target_label) != current_subr)
-	    return "transfer out of subroutine";
+/* 	  if (LABEL_SUBR_START (target_label) != current_subr) */
+/* 	    return "transfer out of subroutine"; */
 	}
       else if (! LABEL_VERIFIED (target_label))
 	{
 	  LABEL_IN_SUBR (target_label) = 1;
 	  LABEL_SUBR_START (target_label) = current_subr;
 	}
-      else
-	return "transfer out of subroutine";
+/*       else */
+/* 	return "transfer out of subroutine"; */
     }
   return NULL;
 }
@@ -121,6 +121,58 @@ subroutine_nesting (tree label)
   return nesting;
 }
 
+static tree
+defer_merging (tree type1, tree type2)
+{
+  if (TYPE_DUMMY (type1) || TYPE_DUMMY (type2))
+    {
+      warning ("assert: cannot merge types %s and %s", 
+	       xstrdup (lang_printable_name (type1, 0)),
+	       xstrdup (lang_printable_name (type2, 0)));
+    }
+
+  return object_ptr_type_node;
+
+  if (TREE_CODE (type1) == POINTER_TYPE)
+    type1 = TREE_TYPE (type1);
+  if (TREE_CODE (type2) == POINTER_TYPE)
+    type2 = TREE_TYPE (type2);
+
+  if (TREE_CODE (type1) == RECORD_TYPE && TREE_CODE (type2) == RECORD_TYPE)
+    {
+      tree list = build_tree_list (type1, NULL_TREE);
+      list = tree_cons (type2, NULL_TREE, list);
+      return list;
+    }
+
+  if (TREE_CODE (type1) == TREE_LIST && TREE_CODE (type2) == TREE_LIST)
+    {
+      return chainon (copy_list (type1), copy_list (type2));
+    }
+
+  if (TREE_CODE (type1) == TREE_LIST && TREE_CODE (type2) == RECORD_TYPE)
+    {
+      tree tmp = type1;
+      do
+	{
+	  if (TREE_PURPOSE (tmp) == type2)
+	    return type1;
+	  tmp = TREE_CHAIN (tmp);
+	}
+      while (tmp);
+
+      return tree_cons (type2, NULL_TREE, copy_list (type1));
+    }
+
+  if (TREE_CODE (type2) == TREE_LIST && TREE_CODE (type1) == RECORD_TYPE)
+    {
+      return defer_merging (type2, type1);
+    }
+
+  abort ();
+}
+
+
 /* Return the "merged" types of TYPE1 and TYPE2.
    If either is primitive, the other must match (after promotion to int).
    For reference types, return the common super-class.
@@ -133,7 +185,11 @@ merge_types (tree type1, tree type2)
     return type1;
   if (type1 == TYPE_UNKNOWN || type2 == TYPE_UNKNOWN
       || type1 == TYPE_RETURN_ADDR || type2 == TYPE_RETURN_ADDR)
-    return TYPE_UNKNOWN;
+    return TYPE_UNKNOWN;  
+
+  if (TREE_CODE (type1) == TREE_LIST || TREE_CODE (type2) == TREE_LIST)
+    return defer_merging (type1, type2);
+
   if (TREE_CODE (type1) == POINTER_TYPE && TREE_CODE (type2) == POINTER_TYPE)
     {
       int depth1, depth2;
@@ -148,6 +204,9 @@ merge_types (tree type1, tree type2)
       tt1 = TREE_TYPE (type1);
       tt2 = TREE_TYPE (type2);
 
+      if (TYPE_DUMMY (tt1) || TYPE_DUMMY (tt2))
+	return defer_merging (tt1, tt2);
+      
       /* If tt{1,2} haven't been properly loaded, now is a good time
          to do it. */
       if (!TYPE_SIZE (tt1))
@@ -650,6 +709,8 @@ verify_jvm_instructions (JCF* jcf, const unsigned char *byte_ops, long length)
 	  VERIFICATION_ERROR_WITH_INDEX
 	    ("invalid local variable index %d in load");
 	tmp = type_map[index];
+	if (TREE_CODE (tmp) != TREE_LIST)
+	  {
 	if (tmp == TYPE_UNKNOWN)
 	  VERIFICATION_ERROR_WITH_INDEX
 	    ("loading local variable %d which has unknown type");
@@ -663,6 +724,7 @@ verify_jvm_instructions (JCF* jcf, const unsigned char *byte_ops, long length)
 		: type != tmp))
 	  VERIFICATION_ERROR_WITH_INDEX
 	    ("loading local variable %d which has invalid type");
+	  }
 	PUSH_TYPE (tmp);
 	goto note_used;
 	case OPCODE_istore:  type = int_type_node;  goto general_store;
@@ -1023,6 +1085,11 @@ verify_jvm_instructions (JCF* jcf, const unsigned char *byte_ops, long length)
 						       index));
 	    if (! CLASS_LOADED_P (self_type))
 	      load_class (self_type, 1);
+
+	    if (TYPE_DUMMY (self_type) && op_code == OPCODE_invokeinterface)
+	      /* Assume we are an interface.  */
+	      CLASS_INTERFACE (TYPE_NAME (self_type)) = 1;
+
 	    self_is_interface = CLASS_INTERFACE (TYPE_NAME (self_type));
 	    method_name = COMPONENT_REF_NAME (&current_jcf->cpool, index);
 	    method_type = parse_signature_string (IDENTIFIER_POINTER (sig),
@@ -1057,6 +1124,7 @@ verify_jvm_instructions (JCF* jcf, const unsigned char *byte_ops, long length)
 		  if (!nargs || notZero)
 		      VERIFICATION_ERROR 
 		        ("invalid argument number in invokeinterface");
+		  
 		  /* If we verify/resolve the constant pool, as we should,
 		     this test (and the one just following) are redundant.  */
 		  if (! self_is_interface)

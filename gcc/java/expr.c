@@ -313,6 +313,21 @@ pop_type_0 (tree type, char **messagep)
   t = stack_type_map[--stack_pointer];
   if (type == NULL_TREE || t == type)
     return t;
+  if (TREE_CODE (t) == TREE_LIST)
+    {      
+      do
+	{
+	  tree tt = TREE_PURPOSE (t);
+	  if (! can_widen_reference_to (tt, type))
+	    {
+	      t = tt;
+	      goto fail;
+	    }
+	  t = TREE_CHAIN (t);
+	}
+      while (t);
+      return t;
+    }
   if (INTEGRAL_TYPE_P (type) && INTEGRAL_TYPE_P (t)
       && TYPE_PRECISION (type) <= 32 && TYPE_PRECISION (t) <= 32)
       return t;
@@ -331,8 +346,18 @@ pop_type_0 (tree type, char **messagep)
 	return object_ptr_type_node;
     }
 
+  if (! flag_verify_invocations && flag_indirect_dispatch
+      && t == object_ptr_type_node)
+    {
+      if (type != ptr_type_node)
+	warning ("need to insert runtime check for %s", 
+		 xstrdup (lang_printable_name (type, 0)));
+      return type;
+    }
+
   /* lang_printable_name uses a static buffer, so we must save the result
      from calling it the first time.  */
+ fail:
   {
     char *temp = xstrdup (lang_printable_name (type, 0));
     *messagep = concat ("expected type '", temp,
@@ -351,7 +376,7 @@ tree
 pop_type (tree type)
 {
   char *message = NULL;
-  type = pop_type_0 (type, &message);
+   type = pop_type_0 (type, &message);
   if (message != NULL)
     {
       error ("%s", message);
@@ -377,6 +402,14 @@ can_widen_reference_to (tree source_type, tree target_type)
 
   if (source_type == target_type)
     return 1;
+
+  if (TYPE_DUMMY (source_type) || TYPE_DUMMY (target_type))
+    {
+      warning ("assert: %s is assign compatible with %s", 
+	       xstrdup (lang_printable_name (target_type, 0)),
+	       xstrdup (lang_printable_name (source_type, 0)));
+      return 1;
+    }
   else
     {
       if (TYPE_ARRAY_P (source_type) || TYPE_ARRAY_P (target_type))
@@ -410,7 +443,14 @@ can_widen_reference_to (tree source_type, tree target_type)
 	  int source_depth = class_depth (source_type);
 	  int target_depth = class_depth (target_type);
 
-	  /* class_depth can return a negative depth if an error occurred */
+	  if (TYPE_DUMMY (source_type) || TYPE_DUMMY (target_type))
+	    {
+	      warning ("assert: %s is assign compatible with %s", 
+		       xstrdup (lang_printable_name (target_type, 0)),
+		       xstrdup (lang_printable_name (source_type, 0)));
+	      return 1;
+	    }
+ 	  /* class_depth can return a negative depth if an error occurred */
 	  if (source_depth < 0 || target_depth < 0)
 	    return 0;
 
@@ -1138,22 +1178,28 @@ bool class_has_finalize_method (tree type)
     return HAS_FINALIZER_P (type) || class_has_finalize_method (super);
 }
 
+tree
+java_create_object (tree type)
+{
+  tree alloc_node = (class_has_finalize_method (type) 
+		     ? alloc_object_node
+		     : alloc_no_finalizer_node);
+  tree size = flag_indirect_dispatch ? integer_zero_node : size_in_bytes (type);
+  
+  return build (CALL_EXPR, promote_type (type),
+		build_address_of (alloc_node),
+		tree_cons (NULL_TREE, build_class_ref (type),
+			   build_tree_list (NULL_TREE, size)),
+		NULL_TREE);
+}
+
 static void
 expand_java_NEW (tree type)
 {
-  tree alloc_node;
-
-  alloc_node = (class_has_finalize_method (type) ? alloc_object_node
-		  				 : alloc_no_finalizer_node);
   if (! CLASS_LOADED_P (type))
     load_class (type, 1);
   safe_layout_class (type);
-  push_value (build (CALL_EXPR, promote_type (type),
-		     build_address_of (alloc_node),
-		     tree_cons (NULL_TREE, build_class_ref (type),
-				build_tree_list (NULL_TREE,
-						 size_in_bytes (type))),
-		     NULL_TREE));
+  push_value (java_create_object (type));
 }
 
 /* This returns an expression which will extract the class of an
@@ -1511,12 +1557,13 @@ build_field_ref (tree self_value, tree self_class, tree name)
       tree base_type = promote_type (base_class);
       if (base_type != TREE_TYPE (self_value))
 	self_value = fold (build1 (NOP_EXPR, base_type, self_value));
-      if (flag_indirect_dispatch
-	  && output_class != self_class)
-	/* FIXME: output_class != self_class is not exactly the right
-	   test.  What we really want to know is whether self_class is
-	   in the same translation unit as output_class.  If it is,
-	   we can make a direct reference.  */
+      if (! flag_syntax_only
+	  && (flag_indirect_dispatch
+	      /* DECL_FIELD_OFFSET == 0 if we have no reference for
+		 the field, perhaps because we couldn't find the class
+		 in which the field is defined.  
+		 FIXME: We should investigate this.  */
+	      || DECL_FIELD_OFFSET (field_decl) == 0))
 	{
 	  tree otable_index =
 	    build_int_2 (get_symbol_table_index 
@@ -1767,8 +1814,16 @@ build_known_method_ref (tree method, tree method_type ATTRIBUTE_UNUSED,
   tree func;
   if (is_compiled_class (self_type))
     {
-      if (!flag_indirect_dispatch
-	  || (!TREE_PUBLIC (method) && DECL_CONTEXT (method)))
+      /* At one point I used 
+
+      (!TREE_PUBLIC (method) && DECL_CONTEXT (method))) 
+      
+      here, meaning that we would make a direct call to methods that
+      are in the current compilation unit and not public.  That ought
+      to work, right?  Wrong.  Unfortunately, for some reason we still
+      generate a PLT jump for such methods, and they can end up being
+      resolved in some other library.  Sigh.  */
+      if (!flag_indirect_dispatch)
 	{
 	  make_decl_rtl (method, NULL);
 	  func = build1 (ADDR_EXPR, method_ptr_type_node, method);
@@ -2028,31 +2083,54 @@ expand_invoke (int opcode, int method_ref_index, int nargs ATTRIBUTE_UNUSED)
     method = lookup_java_method (self_type, method_name, method_signature);
   if (method == NULL_TREE)
     {
-      error ("class '%s' has no method named '%s' matching signature '%s'",
-	     self_name,
-	     IDENTIFIER_POINTER (method_name),
-	     IDENTIFIER_POINTER (method_signature));
+      if (flag_verify_invocations || ! flag_indirect_dispatch)
+	{
+	  error ("class '%s' has no method named '%s' matching signature '%s'",
+		 self_name,
+		 IDENTIFIER_POINTER (method_name),
+		 IDENTIFIER_POINTER (method_signature));
+	}
+      else
+	{
+	  int flags = ACC_PUBLIC;
+	  if (opcode == OPCODE_invokestatic)
+	    flags |= ACC_STATIC;
+	  if (opcode == OPCODE_invokeinterface)
+	    {
+	      flags |= ACC_INTERFACE;
+	      CLASS_INTERFACE (TYPE_NAME (self_type)) = 1;
+	    }
+	  method = add_method (self_type, flags, method_name, method_signature);
+	  DECL_ARTIFICIAL (method) = 1;
+	  METHOD_DUMMY (method) = 1;
+	  layout_class_method (self_type, NULL,
+			       method, NULL);
+	}
     }
+
   /* Invoke static can't invoke static/abstract method */
-  else if (opcode == OPCODE_invokestatic)
+  if (method != NULL_TREE)
     {
-      if (!METHOD_STATIC (method))
+      if (opcode == OPCODE_invokestatic)
 	{
-	  error ("invokestatic on non static method");
-	  method = NULL_TREE;
+	  if (!METHOD_STATIC (method))
+	    {
+	      error ("invokestatic on non static method");
+	      method = NULL_TREE;
+	    }
+	  else if (METHOD_ABSTRACT (method))
+	    {
+	      error ("invokestatic on abstract method");
+	      method = NULL_TREE;
+	    }
 	}
-      else if (METHOD_ABSTRACT (method))
+      else
 	{
-	  error ("invokestatic on abstract method");
-	  method = NULL_TREE;
-	}
-    }
-  else
-    {
-      if (METHOD_STATIC (method))
-	{
-	  error ("invoke[non-static] on static method");
-	  method = NULL_TREE;
+	  if (METHOD_STATIC (method))
+	    {
+	      error ("invoke[non-static] on static method");
+	      method = NULL_TREE;
+	    }
 	}
     }
 
@@ -2332,10 +2410,11 @@ static void
 expand_java_field_op (int is_static, int is_putting, int field_ref_index)
 {
   tree self_type = 
-      get_class_constant (current_jcf, 
-			  COMPONENT_REF_CLASS_INDEX (&current_jcf->cpool, 
-						     field_ref_index));
-  const char *self_name = IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (self_type)));
+    get_class_constant (current_jcf, 
+			COMPONENT_REF_CLASS_INDEX (&current_jcf->cpool, 
+						   field_ref_index));
+  const char *self_name = 
+    IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (self_type)));
   tree field_name = COMPONENT_REF_NAME (&current_jcf->cpool, field_ref_index);
   tree field_signature = COMPONENT_REF_SIGNATURE (&current_jcf->cpool, 
 						  field_ref_index);
@@ -2343,6 +2422,7 @@ expand_java_field_op (int is_static, int is_putting, int field_ref_index)
   tree new_value = is_putting ? pop_value (field_type) : NULL_TREE;
   tree field_ref;
   int is_error = 0;
+  tree original_self_type = self_type;
   tree field_decl = lookup_field (&self_type, field_name);
   if (field_decl == error_mark_node)
     {
@@ -2350,9 +2430,23 @@ expand_java_field_op (int is_static, int is_putting, int field_ref_index)
     }
   else if (field_decl == NULL_TREE)
     {
-      error ("missing field '%s' in '%s'",
-	     IDENTIFIER_POINTER (field_name), self_name);
-      is_error = 1;
+      if (! flag_verify_invocations)
+	{
+	  int flags = ACC_PUBLIC;
+	  if (is_static)
+	    flags |= ACC_STATIC;
+	  self_type = original_self_type;
+	  field_decl = add_field (original_self_type, field_name,
+				  field_type, flags); 
+	  DECL_ARTIFICIAL (field_decl) = 1;
+	  DECL_IGNORED_P (field_decl) = 1;
+	}
+      else
+	{      
+	  error ("missing field '%s' in '%s'",
+		 IDENTIFIER_POINTER (field_name), self_name);
+	  is_error = 1;
+      }
     }
   else if (build_java_signature (TREE_TYPE (field_decl)) != field_signature)
     {

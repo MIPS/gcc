@@ -485,6 +485,10 @@ set_super_info (int access_flags, tree this_class,
       TREE_VEC_ELT (BINFO_BASETYPES (TYPE_BINFO (this_class)), 0)
 	= super_binfo;
       CLASS_HAS_SUPER (this_class) = 1;
+      /* FIXME: This is wrong.  */
+      if (TYPE_LANG_SPECIFIC (this_class)
+	  && TYPE_LANG_SPECIFIC (super_class))
+	TYPE_DUMMY (this_class) = TYPE_DUMMY (super_class);
     }
 
   set_class_decl_access_flags (access_flags, class_decl);
@@ -962,7 +966,7 @@ build_class_ref (tree type)
 	 we always emit this hard superclass reference.  */
       if  (flag_indirect_dispatch
 	   && type != output_class
-	   && type != CLASSTYPE_SUPER (output_class)
+// 	   && type != CLASSTYPE_SUPER (output_class)
 	   && TREE_CODE (type) == RECORD_TYPE)
 	return build_indirect_class_ref (type);
 
@@ -1080,7 +1084,10 @@ build_static_field_ref (tree fdecl)
       return fdecl;
     }
 
-  if (flag_indirect_dispatch)
+  /* FIXME: The gcj runtime is broken in that atable references to
+     static fields in interpreted classes aren't fixed up until too
+     late.  When this is fixed we can re-enable this code.  */
+  if (0 && flag_indirect_dispatch)
     {
       tree table_index 
 	= build_int_2 (get_symbol_table_index 
@@ -1249,7 +1256,9 @@ make_method_value (tree mdecl)
 #define ACC_TRANSLATED          0x4000
   int accflags = get_access_flags_from_decl (mdecl) | ACC_TRANSLATED;
 
-  if (!flag_indirect_dispatch && DECL_VINDEX (mdecl) != NULL_TREE)
+  if (CLASS_INTERFACE (TYPE_NAME (DECL_CONTEXT (mdecl)))
+      || (!flag_indirect_dispatch 
+	  && DECL_VINDEX (mdecl) != NULL_TREE))
     index = DECL_VINDEX (mdecl);
   else
     index = integer_minus_one_node;
@@ -1464,7 +1473,9 @@ make_class_data (tree type)
 
   /* Build Field array. */
   field = TYPE_FIELDS (type);
-  if (DECL_NAME (field) == NULL_TREE)
+  while (field && DECL_ARTIFICIAL (field))
+    field = TREE_CHAIN (field);  /* Skip dummy fields.  */
+  if (field && DECL_NAME (field) == NULL_TREE)
     field = TREE_CHAIN (field);  /* Skip dummy field for inherited data. */
   for ( ;  field != NULL_TREE;  field = TREE_CHAIN (field))
     {
@@ -1519,6 +1530,11 @@ make_class_data (tree type)
 	  && ! flag_keep_inline_functions
 	  && (flag_inline_functions || optimize))
 	continue;
+      /* Even if we have a decl, we don't necessaily have the code.
+	 This can happen if we inherit a method from a superclass for
+	 which we don't have a .class file.  */
+      if (METHOD_DUMMY (method))
+	continue;
       init = make_method_value (method);
       method_count++;
       methods = tree_cons (NULL_TREE, init, methods);
@@ -1562,10 +1578,8 @@ make_class_data (tree type)
   super = CLASSTYPE_SUPER (type);
   if (super == NULL_TREE)
     super = null_pointer_node;
-  else if (/* FIXME: we should also test for (!
-	      flag_indirect_dispatch) here, but libgcj can't cope with
-	      a symbolic reference a superclass in the class data.  */
-	   assume_compiled (IDENTIFIER_POINTER (DECL_NAME (type_decl)))
+  else if (! flag_indirect_dispatch
+	   && assume_compiled (IDENTIFIER_POINTER (DECL_NAME (type_decl)))
 	   && assume_compiled (IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (super)))))
     super = build_class_ref (super);
   else
@@ -1661,8 +1675,14 @@ make_class_data (tree type)
   PUSH_FIELD_VALUE (cons, "fields",
 		    fields_decl == NULL_TREE ? null_pointer_node
 		    : build1 (ADDR_EXPR, field_ptr_type_node, fields_decl));
-  PUSH_FIELD_VALUE (cons, "size_in_bytes", size_in_bytes (type));
-  PUSH_FIELD_VALUE (cons, "field_count", build_int_2 (field_count, 0));
+  /* If we're using the binary compatibility ABI we don't know the
+     size until load time.  */
+  PUSH_FIELD_VALUE (cons, "size_in_bytes", 
+		    (flag_indirect_dispatch 
+		     ? integer_minus_one_node 
+		     : size_in_bytes (type)));
+  PUSH_FIELD_VALUE (cons, "field_count", 
+		    build_int_2 (field_count, 0));
   PUSH_FIELD_VALUE (cons, "static_field_count",
 		    build_int_2 (static_field_count, 0));
 
@@ -1728,6 +1748,10 @@ make_class_data (tree type)
     DECL_ALIGN (decl) = 64; 
   
   rest_of_decl_compilation (decl, (char*) 0, 1, 0);
+  
+  TYPE_OTABLE_DECL (type) = NULL_TREE;
+  TYPE_ATABLE_DECL (type) = NULL_TREE;
+  TYPE_CTABLE_DECL (type) = NULL_TREE;
 }
 
 void
@@ -2176,7 +2200,8 @@ layout_class_method (tree this_class, tree super_class,
 	build_java_argument_signature (TREE_TYPE (method_decl));
       tree super_method = lookup_argument_method (super_class, method_name,
 						  method_sig);
-      if (super_method != NULL_TREE && ! METHOD_PRIVATE (super_method))
+      if (super_method != NULL_TREE && ! METHOD_PRIVATE (super_method)
+	  && ! DECL_ARTIFICIAL (super_method))
 	{
 	  DECL_VINDEX (method_decl) = DECL_VINDEX (super_method);
 	  if (DECL_VINDEX (method_decl) == NULL_TREE 

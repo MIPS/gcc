@@ -1,3 +1,70 @@
+2004-04-16  Andrew Haley  <aph@redhat.com>
+
+	* verify.c (check_pending_block): Disable subroutine checks.
+	(defer_merging): New function.
+	(merge_types): If types are dummy, use defer_merging to combine them.
+	(verify_jvm_instructions): If invocation is invokeinterface and
+	target is dummy, assume target really is an interface.
+
+	* parse.y (patch_invoke): Break out call to java_create_object.
+
+	* lang.c (flag_verify_invocations): New.
+
+	* jcf-parse.c (load_class): If we've already failed to load a
+	class, don't try again.
+	(load_class): If we can't find a .class file, don't fail, but emit
+	a warning.
+	(parse_class_file): Don't act on dummy methods.
+
+	* java-tree.h (flag_verify_invocations): New.
+	(TYPE_DUMMY): New.
+	(lang_type.dummy_class): New field.
+	(java_create_object): New function.
+	(METHOD_DUMMY): New.
+
+	* expr.c (build_field_ref): Widen field offset.
+	(pop_type_0): If the type in stack_type_map is a TREE_LIST, check
+	that each of its elements is compatible with the one we're
+	popping.
+	(pop_type_0): Issue a warning to say that we need to generate a
+	runtime check.
+	(java_create_object): New function.
+	(build_field_ref): Only generate hard refs if we're not using
+	indirect dispatch.
+	(expand_java_field_op): If we're using !verify_invocations and we
+	see a missing field, generate a decl for it.
+
+	(expand_invoke): If a class doesn't have the method we seek and
+	we're using !flag_verify_invocations, generate a decl for the
+	method now.
+
+	(build_known_method_ref): Always use indirect dispatch via the
+	atable for static methods.
+
+	(expand_java_NEW): Break out object creation into new function,	
+	java_create_object.
+
+	(can_widen_reference_to): Issue a warning to say that we need to
+	generate a runtime check.
+
+	* class.c (set_super_info): Inherit TYPE_DUMMY from sureclass.
+	(make_method_value): Also use index for interfaces.
+	(make_class_data): Skip dummy field for inherited data.
+	Don't build method array for dummy methods.
+	Set size_in_byte to -1 when using inirect dispatch
+	Don't build a hard class ref if we don't have a hard ref to our
+	superclass, or if we're using inirect dispatch.
+	Null out dispatch tables.
+
+	(layout_class_method): Don't complain about non-static method
+	overrides static method is method is artificial.
+
+	(build_static_field_ref): Disable atable references to static
+	fields for the time being.
+
+	(layout_class_methods): Check for CLASS_INTERFACE as
+	well as CLASS_ABSTRACT.
+
 2004-03-31  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
 
 	* jcf-write.c (generate_bytecode_insns): Use TYPE_UNSIGNED.

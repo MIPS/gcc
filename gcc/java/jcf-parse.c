@@ -566,6 +566,11 @@ load_class (tree class_or_name, int verbose)
   tree name, saved;
   int class_loaded;
 
+  /* We've already failed, don't try again.  */
+  if (TREE_CODE (class_or_name) == RECORD_TYPE
+      && TYPE_DUMMY (class_or_name))
+    return;
+
   /* class_or_name can be the name of the class we want to load */
   if (TREE_CODE (class_or_name) == IDENTIFIER_NODE)
     name = class_or_name;
@@ -600,8 +605,30 @@ load_class (tree class_or_name, int verbose)
 	break;
     }
 
-  if (!class_loaded && verbose)
-    error ("cannot find file for class %s", IDENTIFIER_POINTER (saved));
+  if (!class_loaded)
+    {
+      if (flag_verify_invocations || ! flag_indirect_dispatch
+	  || flag_emit_class_files)
+	{
+	  if (verbose)
+	    error ("cannot find file for class %s", IDENTIFIER_POINTER (saved));
+	}
+      else if (verbose)
+	{
+	  /* This is just a diagnostic during testing, not a real problem.  */
+	  warning("cannot find file for class %s", 
+		  IDENTIFIER_POINTER (saved));
+	  
+	  /* Fake it.  */
+	  if (TREE_CODE (class_or_name) == RECORD_TYPE)
+	    {
+	      set_super_info (0, class_or_name, object_type_node, 0);
+	      TYPE_DUMMY (class_or_name) = 1;
+	      /* We won't be able to output any debug info for this class.  */
+	      DECL_IGNORED_P (TYPE_NAME (class_or_name)) = 1;
+	    }
+	}
+    }
 }
 
 /* Parse the .class file JCF. */
@@ -716,7 +743,7 @@ parse_class_file (void)
     {
       JCF *jcf = current_jcf;
 
-      if (METHOD_ABSTRACT (method))
+      if (METHOD_ABSTRACT (method) || METHOD_DUMMY (method))
 	continue;
 
       if (METHOD_NATIVE (method))

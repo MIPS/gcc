@@ -244,6 +244,8 @@ extern GTY(()) struct JCF * current_jcf;
    before static field references.  */
 extern int always_initialize_class_p;
 
+extern int flag_verify_invocations;
+
 typedef struct CPool constant_pool;
 
 #define CONSTANT_ResolvedFlag 16
@@ -989,6 +991,7 @@ struct lang_decl_func GTY(())
   unsigned int invisible : 1;	/* Set for methods we generate
 				   internally but which shouldn't be
 				   written to the .class file.  */
+  unsigned int dummy:1;		
 };
 
 struct treetreehash_entry GTY(())
@@ -1047,6 +1050,9 @@ struct lang_decl GTY(())
 #define TYPE_II_STMT_LIST(T)     (TYPE_LANG_SPECIFIC (T)->ii_block)
 /* The decl of the synthetic method `class$' used to handle `.class'
    for non primitive types when compiling to bytecode. */
+
+#define TYPE_DUMMY(T)		(TYPE_LANG_SPECIFIC(T)->dummy_class)
+
 #define TYPE_DOT_CLASS(T)        (TYPE_LANG_SPECIFIC (T)->dot_class)
 #define TYPE_PACKAGE_LIST(T)     (TYPE_LANG_SPECIFIC (T)->package_list)
 #define TYPE_IMPORT_LIST(T)      (TYPE_LANG_SPECIFIC (T)->import_list)
@@ -1108,6 +1114,7 @@ struct lang_type GTY(())
   unsigned poic:1;		/* Protected Inner Class. */
   unsigned strictfp:1;		/* `strictfp' class.  */
   unsigned assertions:1;	/* Any method uses `assert'.  */
+  unsigned dummy_class:1;		/* Not a real class, just a placeholder.  */
 };
 
 #define JCF_u4 unsigned long
@@ -1271,6 +1278,7 @@ extern void push_type (tree);
 extern void load_type_state (tree);
 extern void add_interface (tree, tree);
 extern tree force_evaluation_order (tree);
+extern tree java_create_object (tree);
 extern int verify_constant_pool (struct JCF *);
 extern void start_java_method (tree);
 extern void end_java_method (void);
@@ -1352,6 +1360,8 @@ extern void gen_indirect_dispatch_tables (tree type);
 #define DECL_FINAL(DECL) DECL_LANG_FLAG_3 (DECL)
 
 /* Access flags etc for a method (a FUNCTION_DECL): */
+
+#define METHOD_DUMMY(DECL) (DECL_LANG_SPECIFIC (DECL)->u.f.dummy)
 
 #define METHOD_PUBLIC(DECL) DECL_LANG_FLAG_1 (FUNCTION_DECL_CHECK (DECL))
 #define METHOD_PRIVATE(DECL) TREE_PRIVATE (FUNCTION_DECL_CHECK (DECL))
