@@ -2837,6 +2837,140 @@ analyze_scalar_evolution_in_loop (struct loop *wrto_loop, struct loop *use_loop,
     }
 }
 
+/* Analyze all the parameters of the chrec that were left under a symbolic form,
+   with respect to LOOP.  CHREC is the chrec to instantiate.  */
+
+static tree
+instantiate_parameters_1 (struct loop *loop, tree chrec)
+{
+  tree res, op0, op1, op2;
+  basic_block def_bb;
+  struct loop *def_loop;
+  
+  if (chrec == NULL_TREE
+      || automatically_generated_chrec_p (chrec))
+    return chrec;
+ 
+  if (is_gimple_min_invariant (chrec))
+    return chrec;
+
+  switch (TREE_CODE (chrec))
+    {
+    case SSA_NAME:
+      def_bb = bb_for_stmt (SSA_NAME_DEF_STMT (chrec));
+
+      /* A parameter, nothing to do.  */
+      if (!def_bb)
+	return chrec;
+
+      /* Don't instantiate the SSA_NAME if it is in a mixer
+	 structure.  This is used for avoiding the instantiation of
+	 recursively defined functions, such as: 
+
+	 | a_2 -> {0, +, 1, +, a_2}_1
+	   
+	 Note: the size of already_instantiated is proportional to
+	 the degree of the evolution function.  This is the number
+	 of parameters that have to be instantiated, and is almost
+	 all the time less than 2.  */
+      if (tree_is_in_varray_tree_p (chrec, already_instantiated))
+	{
+	  if (!flow_bb_inside_loop_p (loop, def_bb))
+	    {
+	      /* It is an invariant in LOOP, so we may keep the symbolic
+		 form.  */
+	      return chrec;
+	    }
+	  else
+	    {
+	      /* Something with unknown behavior in LOOP.  */
+	      return chrec_top;
+	    }
+	}
+
+      def_loop = find_common_loop (loop, def_bb->loop_father);
+
+      /* If the analysis yields a parametric chrec, instantiate
+	 the result again.  Enqueue the SSA_NAME such that it will
+	 never be instantiated twice, avoiding the cyclic
+	 instantiation in mixers.  */
+      VARRAY_PUSH_TREE (already_instantiated, chrec);
+      res = analyze_scalar_evolution (def_loop, chrec);
+      res = instantiate_parameters (loop, res);
+      VARRAY_POP (already_instantiated);
+      return res;
+
+    case POLYNOMIAL_CHREC:
+      op0 = instantiate_parameters (loop, CHREC_LEFT (chrec));
+      op1 = instantiate_parameters (loop, CHREC_RIGHT (chrec));
+      return build_polynomial_chrec (CHREC_VARIABLE (chrec), op0, op1);
+
+    case EXPONENTIAL_CHREC:
+      op0 = instantiate_parameters (loop, CHREC_LEFT (chrec));
+      op1 = instantiate_parameters (loop, CHREC_RIGHT (chrec));
+      return build_exponential_chrec (CHREC_VARIABLE (chrec), op0, op1);
+
+    case PEELED_CHREC:
+      op0 = instantiate_parameters (loop, CHREC_LEFT (chrec));
+      op1 = instantiate_parameters (loop, CHREC_RIGHT (chrec));
+      return build_peeled_chrec (CHREC_VARIABLE (chrec), op0, op1);
+
+    case INTERVAL_CHREC:
+      op0 = instantiate_parameters (loop, CHREC_LOW (chrec));
+      op1 = instantiate_parameters (loop, CHREC_UP (chrec));
+      return build_interval_chrec (op0, op1);
+
+    case PLUS_EXPR:
+      op0 = instantiate_parameters (loop, TREE_OPERAND (chrec, 0));
+      op1 = instantiate_parameters (loop, TREE_OPERAND (chrec, 1));
+      return chrec_fold_plus (TREE_TYPE (chrec), op0, op1);
+
+    case MINUS_EXPR:
+      op0 = instantiate_parameters (loop, TREE_OPERAND (chrec, 0));
+      op1 = instantiate_parameters (loop, TREE_OPERAND (chrec, 1));
+      return chrec_fold_minus (TREE_TYPE (chrec), op0, op1);
+
+    case MULT_EXPR:
+      op0 = instantiate_parameters (loop, TREE_OPERAND (chrec, 0));
+      op1 = instantiate_parameters (loop, TREE_OPERAND (chrec, 1));
+      return chrec_fold_multiply (TREE_TYPE (chrec), op0, op1);
+
+    case NOP_EXPR:
+      op0 = instantiate_parameters (loop, TREE_OPERAND (chrec, 0));
+      return chrec_convert (TREE_TYPE (chrec), op0);
+
+    default:
+      break;
+    }
+
+  switch (TREE_CODE_LENGTH (TREE_CODE (chrec)))
+    {
+    case 3:
+      op0 = instantiate_parameters (loop, TREE_OPERAND (chrec, 0));
+      op1 = instantiate_parameters (loop, TREE_OPERAND (chrec, 1));
+      op2 = instantiate_parameters (loop, TREE_OPERAND (chrec, 2));
+      return build (TREE_CODE (chrec), TREE_TYPE (chrec), op0, op1, op2);
+
+    case 2:
+      op0 = instantiate_parameters (loop, TREE_OPERAND (chrec, 0));
+      op1 = instantiate_parameters (loop, TREE_OPERAND (chrec, 1));
+      return build (TREE_CODE (chrec), TREE_TYPE (chrec), op0, op1);
+	    
+    case 1:
+      op0 = instantiate_parameters (loop, TREE_OPERAND (chrec, 0));
+      return build1 (TREE_CODE (chrec), TREE_TYPE (chrec), op0);
+
+    case 0:
+      return chrec;
+	    
+    default:
+      break;
+    }
+
+  /* Too complicated to handle.  */
+  return chrec_top;
+}
+
 /* Analyze all the parameters of the chrec that were left under a
    symbolic form.  LOOP is the loop in which symbolic names have to
    be analyzed and instantiated.  */
@@ -2845,8 +2979,8 @@ tree
 instantiate_parameters (struct loop *loop,
 			tree chrec)
 {
-  tree res, op0, op1, op2;
-  
+  tree res;
+
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
       fprintf (dump_file, "(instantiate_parameters \n");
@@ -2855,135 +2989,9 @@ instantiate_parameters (struct loop *loop,
       print_generic_expr (dump_file, chrec, 0);
       fprintf (dump_file, ")\n");
     }
-  
-  if (chrec == NULL_TREE
-      || automatically_generated_chrec_p (chrec))
-    res = chrec;
-  
-  else if (TREE_CODE (chrec) == SSA_NAME
-	   || TREE_CODE (chrec) == VAR_DECL
-	   || TREE_CODE (chrec) == PARM_DECL)
-    {
-      if (tree_is_in_varray_tree_p (chrec, already_instantiated))
-	/* Don't instantiate the SSA_NAME if it is in a mixer
-	   structure.  This is used for avoiding the instantiation of
-	   recursively defined functions, such as: 
+ 
+  res = instantiate_parameters_1 (loop, chrec);
 
-	   | a_2 -> {0, +, 1, +, a_2}_1
-	   
-	   Note: the size of already_instantiated is proportional to
-	   the degree of the evolution function.  This is the number
-	   of parameters that have to be instantiated, and is almost
-	   all the time less than 2.  */
-	res = chrec_top;
-      
-      else
-	{
-	  VARRAY_PUSH_TREE (already_instantiated, chrec);
-	  res = analyze_scalar_evolution (loop, chrec);
-	  
-	  /* If the analysis yields a parametric chrec, instantiate
-	     the result again.  Enqueue the SSA_NAME such that it will
-	     never be instantiated twice, avoiding the cyclic
-	     instantiation in mixers.  */
-	  if (chrec_contains_symbols (res))
-	    res = instantiate_parameters (loop, res);
-	  
-	  VARRAY_POP (already_instantiated);
-	}
-    }
-  else
-    switch (TREE_CODE (chrec))
-      {
-      case POLYNOMIAL_CHREC:
-	op0 = instantiate_parameters (loop, CHREC_LEFT (chrec));
-	op1 = instantiate_parameters (loop, CHREC_RIGHT (chrec));
-	res = build_polynomial_chrec (CHREC_VARIABLE (chrec), op0, op1);
-	break;
-	
-      case EXPONENTIAL_CHREC:
-	op0 = instantiate_parameters (loop, CHREC_LEFT (chrec));
-	op1 = instantiate_parameters (loop, CHREC_RIGHT (chrec));
-	res = build_exponential_chrec (CHREC_VARIABLE (chrec), op0, op1);
-	break;
-	
-      case PEELED_CHREC:
-	op0 = instantiate_parameters (loop, CHREC_LEFT (chrec));
-	op1 = instantiate_parameters (loop, CHREC_RIGHT (chrec));
-	res = build_peeled_chrec (CHREC_VARIABLE (chrec), op0, op1);
-	break;
-	
-      case INTERVAL_CHREC:
-	op0 = instantiate_parameters (loop, CHREC_LOW (chrec));
-	op1 = instantiate_parameters (loop, CHREC_UP (chrec));
-	res = build_interval_chrec (op0, op1);
-	break;
-	
-      case PLUS_EXPR:
-	op0 = instantiate_parameters (loop, TREE_OPERAND (chrec, 0));
-	op1 = instantiate_parameters (loop, TREE_OPERAND (chrec, 1));
-	res = chrec_fold_plus (TREE_TYPE (chrec), op0, op1);
-	break;
-	
-      case MINUS_EXPR:
-	op0 = instantiate_parameters (loop, TREE_OPERAND (chrec, 0));
-	op1 = instantiate_parameters (loop, TREE_OPERAND (chrec, 1));
-	res = chrec_fold_minus (TREE_TYPE (chrec), op0, op1);
-	break;
-	
-      case MULT_EXPR:
-	op0 = instantiate_parameters (loop, TREE_OPERAND (chrec, 0));
-	op1 = instantiate_parameters (loop, TREE_OPERAND (chrec, 1));
-	res = chrec_fold_multiply (TREE_TYPE (chrec), op0, op1);
-	break;
-	
-      case ABS_EXPR:
-	/* In general these nodes come from the symbolic computation
-	   of the number of iterations.  These nodes are too difficult
-	   to instantiate for the moment.  */
-	res = chrec;
-	break;
-
-      case NOP_EXPR:
-	op0 = instantiate_parameters (loop, TREE_OPERAND (chrec, 0));
-	res = chrec_convert (TREE_TYPE (chrec), op0);
-	break;
-	
-      default:
-	switch (TREE_CODE_LENGTH (TREE_CODE (chrec)))
-	  {
-	  case 3:
-	    op0 = instantiate_parameters 
-	      (loop, TREE_OPERAND (chrec, 0));
-	    op1 = instantiate_parameters 
-	      (loop, TREE_OPERAND (chrec, 1));
-	    op2 = instantiate_parameters 
-	      (loop, TREE_OPERAND (chrec, 2));
-	    res = build (TREE_CODE (chrec), TREE_TYPE (chrec), op0, op1, op2);
-	    break;
-
-	  case 2:
-	    op0 = instantiate_parameters 
-	      (loop, TREE_OPERAND (chrec, 0));
-	    op1 = instantiate_parameters 
-	      (loop, TREE_OPERAND (chrec, 1));
-	    res = build (TREE_CODE (chrec), TREE_TYPE (chrec), op0, op1);
-	    break;
-	    
-	  case 1:
-	    res = instantiate_parameters 
-	      (loop, TREE_OPERAND (chrec, 0));
-	    if (!automatically_generated_chrec_p (res))
-	      res = build1 (TREE_CODE (chrec), TREE_TYPE (chrec), res);
-	    break;
-	    
-	  default:
-	    res = chrec;
-	    break;
-	  }
-	break;
-      }
-  
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
       fprintf (dump_file, "  (res = ");

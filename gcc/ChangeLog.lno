@@ -1,5 +1,11 @@
 2004-04-23  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
+	* tree-scalar-evolution.c (instantiate_parameters_1): Handle changed
+	semantics of analyze_scalar_evolution.  Split off from ...
+	(instantiate_parameters): ... here.
+
+2004-04-23  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
 	* tree-scalar-evolution.c (analyze_scalar_evolution_1): Keep
 	loop invariants in symbolic form.  Use
 	compute_scalar_evolution_in_loop for expressions defined in subloops.
