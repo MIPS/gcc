@@ -1,5 +1,5 @@
 /* Target definitions for PowerPC running Darwin (Mac OS X).
-   Copyright (C) 1997, 2000, 2001, 2003 Free Software Foundation, Inc.
+   Copyright (C) 1997, 2000, 2001, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Apple Computer Inc.
 
    This file is part of GCC.
@@ -110,6 +110,13 @@ do {									\
 #undef SUBTARGET_EXTRA_SPECS
 #define SUBTARGET_EXTRA_SPECS			\
   { "darwin_arch", "ppc" },
+
+/* The "-faltivec" option should have been called "-maltivec" all along.  */
+#define SUBTARGET_OPTION_TRANSLATE_TABLE                               \
+  { "-faltivec", "-maltivec -include altivec.h" },     \
+  { "-fno-altivec", "-mno-altivec" },  \
+  { "-Waltivec-long-deprecated",       "-mwarn-altivec-long" }, \
+  { "-Wno-altivec-long-deprecated", "-mno-warn-altivec-long" }
 
 /* Make both r2 and r3 available for allocation.  */
 #define FIXED_R2 0
@@ -295,16 +302,14 @@ do {									\
 
 /* Darwin increases natural record alignment to doubleword if the first
    field is an FP double while the FP fields remain word aligned.  */
-#define ROUND_TYPE_ALIGN(STRUCT, COMPUTED, SPECIFIED)	\
-  ((TREE_CODE (STRUCT) == RECORD_TYPE			\
-    || TREE_CODE (STRUCT) == UNION_TYPE			\
-    || TREE_CODE (STRUCT) == QUAL_UNION_TYPE)		\
-   && TYPE_FIELDS (STRUCT) != 0				\
-   && TARGET_ALIGN_NATURAL == 0                         \
-   && DECL_MODE (TYPE_FIELDS (STRUCT)) == DFmode	\
-   ? MAX (MAX ((COMPUTED), (SPECIFIED)), 64)		\
-   : (TARGET_ALTIVEC && TREE_CODE (STRUCT) == VECTOR_TYPE) \
-   ? MAX (MAX ((COMPUTED), (SPECIFIED)), 128)           \
+#define ROUND_TYPE_ALIGN(STRUCT, COMPUTED, SPECIFIED)			\
+  ((TREE_CODE (STRUCT) == RECORD_TYPE					\
+    || TREE_CODE (STRUCT) == UNION_TYPE					\
+    || TREE_CODE (STRUCT) == QUAL_UNION_TYPE)				\
+   && TARGET_ALIGN_NATURAL == 0                         		\
+   ? rs6000_special_round_type_align (STRUCT, COMPUTED, SPECIFIED)	\
+   : (TARGET_ALTIVEC && TREE_CODE (STRUCT) == VECTOR_TYPE) 		\
+   ? MAX (MAX ((COMPUTED), (SPECIFIED)), 128)          			 \
    : MAX ((COMPUTED), (SPECIFIED)))
 
 /* XXX: Darwin supports neither .quad, or .llong, but it also doesn't
@@ -322,3 +327,4 @@ do {									\
 
 #undef REGISTER_TARGET_PRAGMAS
 #define REGISTER_TARGET_PRAGMAS DARWIN_REGISTER_TARGET_PRAGMAS
+

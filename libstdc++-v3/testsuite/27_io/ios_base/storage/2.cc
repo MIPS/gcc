@@ -1,6 +1,6 @@
 // 2000-12-19 bkoz
 
-// Copyright (C) 2000, 2002, 2003 Free Software Foundation
+// Copyright (C) 2000, 2002, 2003, 2004 Free Software Foundation
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -24,7 +24,7 @@
 // XXX bug(s) in libc malloc for very large allocations.  However
 // XXX -lmalloc seems to work.
 // See http://gcc.gnu.org/ml/gcc/2002-05/msg01012.html
-// { dg-options "-D_GLIBCXX_ASSERT -lmalloc" { target mips*-*-irix6* } }
+// { dg-options "-lmalloc" { target mips*-*-irix6* } }
 
 #include <sstream>
 #include <iostream>
@@ -58,7 +58,8 @@ void test02()
     }
   catch(...)
     {
-      VERIFY( test = false );
+      test = false;
+      VERIFY( test );
     }
   VERIFY( v == 0 );
 
@@ -77,7 +78,8 @@ void test02()
     }
   catch(...)
     {
-      VERIFY( test = false );
+      test = false;
+      VERIFY( test );
     }
   VERIFY( v == &test );
 
@@ -96,7 +98,8 @@ void test02()
     }
   catch(...)
     {
-      VERIFY( test = false );
+      test = false;
+      VERIFY( test );
     }
   VERIFY( l == 0 );
 
@@ -115,7 +118,8 @@ void test02()
     }
   catch(...)
     {
-      VERIFY( test = false );
+      test = false;
+      VERIFY( test );
     }
   VERIFY( l == 1 );
 

@@ -1,5 +1,5 @@
 /* Various declarations for language-independent diagnostics subroutines.
-   Copyright (C) 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Gabriel Dos Reis <gdr@codesourcery.com>
 
 This file is part of GCC.
@@ -27,7 +27,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 /* Constants used to discriminate diagnostics.  */
 typedef enum
 {
-#define DEFINE_DIAGNOSTIC_KIND(K, M) K,  
+#define DEFINE_DIAGNOSTIC_KIND(K, msgid) K,  
 #include "diagnostic.def"
 #undef DEFINE_DIAGNOSTIC_KIND
   DK_LAST_DIAGNOSTIC_KIND

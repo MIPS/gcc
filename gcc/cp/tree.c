@@ -1,6 +1,6 @@
 /* Language-dependent node constructors for parse phase of GNU compiler.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -90,6 +90,10 @@ lvalue_p_1 (tree ref,
     case COMPONENT_REF:
       op1_lvalue_kind = lvalue_p_1 (TREE_OPERAND (ref, 0),
 				    treat_class_rvalues_as_lvalues);
+      /* In an expression of the form "X.Y", the packed-ness of the
+	 expression does not depend on "X".  */
+      op1_lvalue_kind &= ~clk_packed;
+      /* Look at the member designator.  */
       if (!op1_lvalue_kind 
 	  /* The "field" can be a FUNCTION_DECL or an OVERLOAD in some	
   	     situations.  */
@@ -427,11 +431,6 @@ cp_build_qualified_type_real (tree type,
 {
   tree result;
   int bad_quals = TYPE_UNQUALIFIED;
-  /* We keep bad function qualifiers separate, so that we can decide
-     whether to implement DR 295 or not. DR 295 break existing code,
-     unfortunately. Remove this variable to implement the defect
-     report.  */
-  int bad_func_quals = TYPE_UNQUALIFIED;
 
   if (type == error_mark_node)
     return type;
@@ -501,8 +500,6 @@ cp_build_qualified_type_real (tree type,
 	  || TREE_CODE (type) == METHOD_TYPE))
     {
       bad_quals |= type_quals & (TYPE_QUAL_CONST | TYPE_QUAL_VOLATILE);
-      if (TREE_CODE (type) != REFERENCE_TYPE)
-	bad_func_quals |= type_quals & (TYPE_QUAL_CONST | TYPE_QUAL_VOLATILE);
       type_quals &= ~(TYPE_QUAL_CONST | TYPE_QUAL_VOLATILE);
     }
   
@@ -521,21 +518,17 @@ cp_build_qualified_type_real (tree type,
     /*OK*/;
   else if (!(complain & (tf_error | tf_ignore_bad_quals)))
     return error_mark_node;
-  else if (bad_func_quals && !(complain & tf_error))
-    return error_mark_node;
   else
     {
       if (complain & tf_ignore_bad_quals)
  	/* We're not going to warn about constifying things that can't
  	   be constified.  */
  	bad_quals &= ~TYPE_QUAL_CONST;
-      bad_quals |= bad_func_quals;
       if (bad_quals)
  	{
  	  tree bad_type = build_qualified_type (ptr_type_node, bad_quals);
  
- 	  if (!(complain & tf_ignore_bad_quals)
-	      || bad_func_quals)
+ 	  if (!(complain & tf_ignore_bad_quals))
  	    error ("`%V' qualifiers cannot be applied to `%T'",
 		   bad_type, type);
  	}
@@ -985,7 +978,8 @@ build_exception_variant (tree type, tree raises)
 
   for (; v; v = TYPE_NEXT_VARIANT (v))
     if (TYPE_QUALS (v) == type_quals
-        && comp_except_specs (raises, TYPE_RAISES_EXCEPTIONS (v), 1))
+        && comp_except_specs (raises, TYPE_RAISES_EXCEPTIONS (v), 1)
+	&& (*targetm.comp_type_attributes) (type, v))
       return v;
 
   /* Need to build a new variant.  */
@@ -1552,6 +1546,12 @@ cp_tree_equal (tree t1, tree t2)
     case IDENTIFIER_NODE:
       return false;
 
+    case BASELINK:
+      return (BASELINK_BINFO (t1) == BASELINK_BINFO (t2)
+	      && BASELINK_ACCESS_BINFO (t1) == BASELINK_ACCESS_BINFO (t2)
+	      && cp_tree_equal (BASELINK_FUNCTIONS (t1),
+				BASELINK_FUNCTIONS (t2)));
+
     case TEMPLATE_PARM_INDEX:
       return (TEMPLATE_PARM_IDX (t1) == TEMPLATE_PARM_IDX (t2)
 	      && TEMPLATE_PARM_LEVEL (t1) == TEMPLATE_PARM_LEVEL (t2)
@@ -1651,8 +1651,6 @@ tree
 lvalue_type (tree arg)
 {
   tree type = TREE_TYPE (arg);
-  if (TREE_CODE (arg) == OVERLOAD)
-    type = unknown_type_node;
   return type;
 }
 
@@ -1772,6 +1770,8 @@ pod_type_p (tree t)
     return 1; /* pointer to non-member */
   if (TYPE_PTR_TO_MEMBER_P (t))
     return 1; /* pointer to member */
+  if (TREE_CODE (t) == VECTOR_TYPE)
+    return 1; /* vectors are (small) arrays of scalars */
   
   if (! CLASS_TYPE_P (t))
     return 0; /* other non-class type (reference or function) */
@@ -1954,6 +1954,23 @@ make_ptrmem_cst (tree type, tree member)
   TREE_TYPE (ptrmem_cst) = type;
   PTRMEM_CST_MEMBER (ptrmem_cst) = member;
   return ptrmem_cst;
+}
+
+/* Build a variant of TYPE that has the indicated ATTRIBUTES.  May
+   return an existing type of an appropriate type already exists.  */
+
+tree
+cp_build_type_attribute_variant (tree type, tree attributes)
+{
+  tree new_type;
+
+  new_type = build_type_attribute_variant (type, attributes);
+  if (TREE_CODE (new_type) == FUNCTION_TYPE
+      && (TYPE_RAISES_EXCEPTIONS (new_type) 
+	  != TYPE_RAISES_EXCEPTIONS (type)))
+    new_type = build_exception_variant (new_type,
+					TYPE_RAISES_EXCEPTIONS (type));
+  return new_type;
 }
 
 /* Apply FUNC to all language-specific sub-trees of TP in a pre-order
@@ -2411,7 +2428,7 @@ stabilize_expr (tree exp, tree* initp)
 
   if (!TREE_SIDE_EFFECTS (exp))
     {
-      init_expr = void_zero_node;
+      init_expr = NULL_TREE;
     }
   else if (!real_lvalue_p (exp)
 	   || !TYPE_NEEDS_CONSTRUCTING (TREE_TYPE (exp)))
@@ -2430,6 +2447,82 @@ stabilize_expr (tree exp, tree* initp)
   *initp = init_expr;
   return exp;
 }
+
+/* Like stabilize_expr, but for a call whose args we want to
+   pre-evaluate.  */
+
+void
+stabilize_call (tree call, tree *initp)
+{
+  tree inits = NULL_TREE;
+  tree t;
+
+  if (call == error_mark_node)
+    return;
+
+  if (TREE_CODE (call) != CALL_EXPR
+      && TREE_CODE (call) != AGGR_INIT_EXPR)
+    abort ();
+
+  for (t = TREE_OPERAND (call, 1); t; t = TREE_CHAIN (t))
+    if (TREE_SIDE_EFFECTS (TREE_VALUE (t)))
+      {
+	tree init;
+	TREE_VALUE (t) = stabilize_expr (TREE_VALUE (t), &init);
+	if (!init)
+	  /* Nothing.  */;
+	else if (inits)
+	  inits = build (COMPOUND_EXPR, void_type_node, inits, init);
+	else
+	  inits = init;
+      }
+
+  *initp = inits;
+}
+
+/* Like stabilize_expr, but for an initialization.  If we are initializing
+   an object of class type, we don't want to introduce an extra temporary,
+   so we look past the TARGET_EXPR and stabilize the arguments of the call
+   instead.  */
+
+bool
+stabilize_init (tree init, tree *initp)
+{
+  tree t = init;
+
+  if (t == error_mark_node)
+    return true;
+
+  if (TREE_CODE (t) == INIT_EXPR
+      && TREE_CODE (TREE_OPERAND (t, 1)) != TARGET_EXPR)
+    TREE_OPERAND (t, 1) = stabilize_expr (TREE_OPERAND (t, 1), initp);
+  else
+    {
+      if (TREE_CODE (t) == INIT_EXPR)
+	t = TREE_OPERAND (t, 1);
+      if (TREE_CODE (t) == TARGET_EXPR)
+	t = TARGET_EXPR_INITIAL (t);
+      if (TREE_CODE (t) == COMPOUND_EXPR)
+	t = expr_last (t);
+      if (TREE_CODE (t) == CONSTRUCTOR
+	  && CONSTRUCTOR_ELTS (t) == NULL_TREE)
+	{
+	  /* Default-initialization.  */
+	  *initp = NULL_TREE;
+	  return true;
+	}
+
+      /* If the initializer is a COND_EXPR, we can't preevaluate
+	 anything.  */
+      if (TREE_CODE (t) == COND_EXPR)
+	return false;
+
+      stabilize_call (t, initp);
+    }
+
+  return true;
+}
+
 
 #if defined ENABLE_TREE_CHECKING && (GCC_VERSION >= 2007)
 /* Complain that some language-specific thing hanging off a tree

@@ -18,6 +18,7 @@
 #undef ASM_CPU32_DEFAULT_SPEC
 #define ASM_CPU32_DEFAULT_SPEC "-xarch=v8plus"
 #endif
+
 #if TARGET_CPU_DEFAULT == TARGET_CPU_ultrasparc
 #undef CPP_CPU64_DEFAULT_SPEC
 #define CPP_CPU64_DEFAULT_SPEC ""
@@ -25,6 +26,15 @@
 #define ASM_CPU32_DEFAULT_SPEC "-xarch=v8plusa"
 #undef ASM_CPU64_DEFAULT_SPEC
 #define ASM_CPU64_DEFAULT_SPEC AS_SPARC64_FLAG "a"
+#endif
+
+#if TARGET_CPU_DEFAULT == TARGET_CPU_ultrasparc3
+#undef CPP_CPU64_DEFAULT_SPEC
+#define CPP_CPU64_DEFAULT_SPEC ""
+#undef ASM_CPU32_DEFAULT_SPEC
+#define ASM_CPU32_DEFAULT_SPEC "-xarch=v8plusb"
+#undef ASM_CPU64_DEFAULT_SPEC
+#define ASM_CPU64_DEFAULT_SPEC AS_SPARC64_FLAG "b"
 #endif
 
 #if DEFAULT_ARCH32_P
@@ -45,15 +55,16 @@
 %{mcpu=sparclite|mcpu-f930|mcpu=f934:-D__sparclite__} \
 %{mcpu=v8:" DEF_ARCH32_SPEC("-D__sparcv8") "} \
 %{mcpu=supersparc:-D__supersparc__ " DEF_ARCH32_SPEC("-D__sparcv8") "} \
-%{mcpu=v9|mcpu=ultrasparc:" DEF_ARCH32_SPEC("-D__sparcv8") "} \
+%{mcpu=v9|mcpu=ultrasparc|mcpu=ultrasparc3:" DEF_ARCH32_SPEC("-D__sparcv8") "} \
 %{!mcpu*:%{!mcypress:%{!msparclite:%{!mf930:%{!mf934:%{!mv8:%{!msupersparc:%(cpp_cpu_default)}}}}}}} \
 "
 
 #undef ASM_CPU_SPEC
 #define ASM_CPU_SPEC "\
-%{mcpu=ultrasparc:" DEF_ARCH32_SPEC("-xarch=v8plusa") DEF_ARCH64_SPEC(AS_SPARC64_FLAG "a") "} \
 %{mcpu=v9:" DEF_ARCH32_SPEC("-xarch=v8plus") DEF_ARCH64_SPEC(AS_SPARC64_FLAG) "} \
-%{!mcpu=ultrasparc:%{!mcpu=v9:%{mcpu*:" DEF_ARCH32_SPEC("-xarch=v8") DEF_ARCH64_SPEC(AS_SPARC64_FLAG) "}}} \
+%{mcpu=ultrasparc:" DEF_ARCH32_SPEC("-xarch=v8plusa") DEF_ARCH64_SPEC(AS_SPARC64_FLAG "a") "} \
+%{mcpu=ultrasparc3:" DEF_ARCH32_SPEC("-xarch=v8plusb") DEF_ARCH64_SPEC(AS_SPARC64_FLAG "b") "} \
+%{!mcpu=ultrasparc3:%{!mcpu=ultrasparc:%{!mcpu=v9:%{mcpu*:" DEF_ARCH32_SPEC("-xarch=v8") DEF_ARCH64_SPEC(AS_SPARC64_FLAG) "}}}} \
 %{!mcpu*:%(asm_cpu_default)} \
 "
 
@@ -141,7 +152,7 @@
    %{compat-bsd: \
      %{!YP,*:%{p|pg:-Y P,/usr/ucblib/sparcv9:/usr/lib/libp/sparcv9:/usr/lib/sparcv9} \
        %{!p:%{!pg:-Y P,/usr/ucblib/sparcv9:/usr/lib/sparcv9}}} \
-     -R /usr/ucblib} \
+     -R /usr/ucblib/sparcv9} \
    %{!compat-bsd: \
      %{!YP,*:%{p|pg:-Y P,/usr/lib/libp/sparcv9:/usr/lib/sparcv9} \
        %{!p:%{!pg:-Y P,/usr/lib/sparcv9}}}}"
@@ -199,23 +210,36 @@
 "
 #endif
 
+/* Support for a compile-time default CPU, et cetera.  The rules are:
+   --with-cpu is ignored if -mcpu is specified.
+   --with-tune is ignored if -mtune is specified.
+   --with-float is ignored if -mhard-float, -msoft-float, -mfpu, or -mno-fpu
+     are specified.
+   In the SPARC_BI_ARCH compiler we cannot pass %{!mcpu=*:-mcpu=%(VALUE)}
+   here, otherwise say -mcpu=v7 would be passed even when -m64.
+   CC1_SPEC above takes care of this instead.  */
+#undef OPTION_DEFAULT_SPECS
+#if DEFAULT_ARCH32_P
+#define OPTION_DEFAULT_SPECS \
+  {"cpu", "%{!m64:%{!mcpu=*:-mcpu=%(VALUE)}}" }, \
+  {"tune", "%{!mtune=*:-mtune=%(VALUE)}" }, \
+  {"float", "%{!msoft-float:%{!mhard-float:%{!fpu:%{!no-fpu:-m%(VALUE)-float}}}}" }
+#else
+#define OPTION_DEFAULT_SPECS \
+  {"cpu", "%{!m32:%{!mcpu=*:-mcpu=%(VALUE)}}" }, \
+  {"tune", "%{!mtune=*:-mtune=%(VALUE)}" }, \
+  {"float", "%{!msoft-float:%{!mhard-float:%{!fpu:%{!no-fpu:-m%(VALUE)-float}}}}" }
+#endif
+
 #if DEFAULT_ARCH32_P
 #define MULTILIB_DEFAULTS { "m32" }
 #else
 #define MULTILIB_DEFAULTS { "m64" }
 #endif
 
-/* We use stabs-in-elf in 32-bit mode, because that is what the native
-   toolchain uses.  But gdb can't handle truncated 32-bit stabs so we
-   use dwarf2 in 64-bit mode.  */
 #undef PREFERRED_DEBUGGING_TYPE
-#define PREFERRED_DEBUGGING_TYPE (TARGET_ARCH32 ? DBX_DEBUG : DWARF2_DEBUG)
+#define PREFERRED_DEBUGGING_TYPE DWARF2_DEBUG
 
-/* We can't use the above definition for the purposes of specs.  */
 #if defined(HAVE_AS_GDWARF2_DEBUG_FLAG) && defined(HAVE_AS_GSTABS_DEBUG_FLAG)
-# if DEFAULT_ARCH32_P
-#  define ASM_DEBUG_SPEC "%{gdwarf-2*:--gdwarf2}%{!gdwarf-2*:%{g*:--gstabs}}"
-# else
-#  define ASM_DEBUG_SPEC "%{gstabs*:--gstabs}%{!gstabs*:%{g*:--gdwarf2}}"
-# endif
+# define ASM_DEBUG_SPEC "%{gstabs*:--gstabs}%{!gstabs*:%{g*:--gdwarf2}}"
 #endif

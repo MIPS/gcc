@@ -1,6 +1,6 @@
 /* Expands front end tree to back end RTL for GCC.
    Copyright (C) 1987, 1988, 1989, 1991, 1992, 1993, 1994, 1995, 1996, 1997,
-   1998, 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1998, 1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -780,7 +780,7 @@ assign_stack_temp_for_type (enum machine_mode mode, HOST_WIDE_INT size, int keep
   if (keep == 2)
     {
       p->level = target_temp_slot_level;
-      p->keep = 0;
+      p->keep = 1;
     }
   else if (keep == 3)
     {
@@ -1430,8 +1430,9 @@ put_var_into_stack (tree decl, int rescan)
 
 static void
 put_reg_into_stack (struct function *function, rtx reg, tree type,
-		    enum machine_mode promoted_mode, enum machine_mode decl_mode,
-		    int volatile_p, unsigned int original_regno, int used_p, htab_t ht)
+		    enum machine_mode promoted_mode,
+		    enum machine_mode decl_mode, int volatile_p,
+		    unsigned int original_regno, int used_p, htab_t ht)
 {
   struct function *func = function ? function : cfun;
   rtx new = 0;
@@ -1441,7 +1442,11 @@ put_reg_into_stack (struct function *function, rtx reg, tree type,
     regno = REGNO (reg);
 
   if (regno < func->x_max_parm_reg)
-    new = func->x_parm_reg_stack_loc[regno];
+    {
+      if (!func->x_parm_reg_stack_loc)
+	abort ();
+      new = func->x_parm_reg_stack_loc[regno];
+    }
 
   if (new == 0)
     new = assign_stack_local_1 (decl_mode, GET_MODE_SIZE (decl_mode), 0, func);
@@ -3646,10 +3651,20 @@ instantiate_decl (rtx x, HOST_WIDE_INT size, int valid_only)
   enum machine_mode mode;
   rtx addr;
 
+  if (x == 0)
+    return;
+
+  /* If this is a CONCAT, recurse for the pieces.  */
+  if (GET_CODE (x) == CONCAT)
+    {
+      instantiate_decl (XEXP (x, 0), size / 2, valid_only);
+      instantiate_decl (XEXP (x, 1), size / 2, valid_only);
+      return;
+    }
+
   /* If this is not a MEM, no need to do anything.  Similarly if the
      address is a constant or a register that is not a virtual register.  */
-
-  if (x == 0 || GET_CODE (x) != MEM)
+  if (GET_CODE (x) != MEM)
     return;
 
   addr = XEXP (x, 0);
@@ -4337,7 +4352,8 @@ assign_parms (tree fndecl)
   max_parm_reg = LAST_VIRTUAL_REGISTER + 1;
   parm_reg_stack_loc = ggc_alloc_cleared (max_parm_reg * sizeof (rtx));
 
-  if (SPLIT_COMPLEX_ARGS)
+  /* If the target wants to split complex arguments into scalars, do so.  */
+  if (targetm.calls.split_complex_arg)
     fnargs = split_complex_args (fnargs);
 
 #ifdef REG_PARM_STACK_SPACE
@@ -4351,7 +4367,7 @@ assign_parms (tree fndecl)
 #ifdef INIT_CUMULATIVE_INCOMING_ARGS
   INIT_CUMULATIVE_INCOMING_ARGS (args_so_far, fntype, NULL_RTX);
 #else
-  INIT_CUMULATIVE_ARGS (args_so_far, fntype, NULL_RTX, fndecl);
+  INIT_CUMULATIVE_ARGS (args_so_far, fntype, NULL_RTX, fndecl, -1);
 #endif
 
   /* We haven't yet found an argument that we must push and pretend the
@@ -4588,6 +4604,7 @@ assign_parms (tree fndecl)
 
       {
 	rtx offset_rtx;
+	unsigned int align, boundary;
 
 	/* If we're passing this arg using a reg, make its stack home
 	   the aligned stack slot.  */
@@ -4605,10 +4622,24 @@ assign_parms (tree fndecl)
 						  offset_rtx));
 
 	set_mem_attributes (stack_parm, parm, 1);
-	if (entry_parm && MEM_ATTRS (stack_parm)->align < PARM_BOUNDARY)
-	  set_mem_align (stack_parm, PARM_BOUNDARY);
 
-	/* Set also REG_ATTRS if parameter was passed in a register.  */
+	boundary = FUNCTION_ARG_BOUNDARY (promoted_mode, passed_type);
+	align = 0;
+
+	/* If we're padding upward, we know that the alignment of the slot
+	   is FUNCTION_ARG_BOUNDARY.  If we're using slot_offset, we're
+	   intentionally forcing upward padding.  Otherwise we have to come
+	   up with a guess at the alignment based on OFFSET_RTX.  */
+	if (locate.where_pad == upward || entry_parm)
+	  align = boundary;
+	else if (GET_CODE (offset_rtx) == CONST_INT)
+	  {
+	    align = INTVAL (offset_rtx) * BITS_PER_UNIT | boundary;
+	    align = align & -align;
+	  }
+	if (align > 0)
+	  set_mem_align (stack_parm, align);
+
 	if (entry_parm)
 	  set_reg_attrs_for_parm (entry_parm, stack_parm);
       }
@@ -4682,13 +4713,9 @@ assign_parms (tree fndecl)
       /* If we can't trust the parm stack slot to be aligned enough
 	 for its ultimate type, don't use that slot after entry.
 	 We'll make another stack slot, if we need one.  */
-      {
-	unsigned int thisparm_boundary
-	  = FUNCTION_ARG_BOUNDARY (promoted_mode, passed_type);
-
-	if (GET_MODE_ALIGNMENT (nominal_mode) > thisparm_boundary)
-	  stack_parm = 0;
-      }
+      if (STRICT_ALIGNMENT && stack_parm
+	  && GET_MODE_ALIGNMENT (nominal_mode) > MEM_ALIGN (stack_parm))
+	stack_parm = 0;
 
       /* If parm was passed in memory, and we need to convert it on entry,
 	 don't store it back in that same slot.  */
@@ -4797,8 +4824,7 @@ assign_parms (tree fndecl)
 		  PUT_MODE (stack_parm, GET_MODE (entry_parm));
 		  set_mem_attributes (stack_parm, parm, 1);
 		}
-	      else if (GET_CODE (entry_parm) == PARALLEL 
-		       && GET_MODE(entry_parm) == BLKmode)
+	      else if (GET_CODE (entry_parm) == PARALLEL)
 		;
 	      else if (PARM_BOUNDARY % BITS_PER_WORD != 0)
 		abort ();
@@ -5215,20 +5241,35 @@ assign_parms (tree fndecl)
 	}
     }
 
-  if (SPLIT_COMPLEX_ARGS && fnargs != orig_fnargs)
+  if (targetm.calls.split_complex_arg && fnargs != orig_fnargs)
     {
       for (parm = orig_fnargs; parm; parm = TREE_CHAIN (parm))
 	{
-	  if (TREE_CODE (TREE_TYPE (parm)) == COMPLEX_TYPE)
+	  if (TREE_CODE (TREE_TYPE (parm)) == COMPLEX_TYPE
+	      && targetm.calls.split_complex_arg (TREE_TYPE (parm)))
 	    {
-	      SET_DECL_RTL (parm,
-			    gen_rtx_CONCAT (DECL_MODE (parm),
-					    DECL_RTL (fnargs),
-					    DECL_RTL (TREE_CHAIN (fnargs))));
-	      DECL_INCOMING_RTL (parm)
-		= gen_rtx_CONCAT (DECL_MODE (parm),
-				  DECL_INCOMING_RTL (fnargs),
-				  DECL_INCOMING_RTL (TREE_CHAIN (fnargs)));
+	      rtx tmp, real, imag;
+	      enum machine_mode inner = GET_MODE_INNER (DECL_MODE (parm));
+
+	      real = DECL_RTL (fnargs);
+	      imag = DECL_RTL (TREE_CHAIN (fnargs));
+	      if (inner != GET_MODE (real))
+		{
+		  real = gen_lowpart_SUBREG (inner, real);
+		  imag = gen_lowpart_SUBREG (inner, imag);
+		}
+	      tmp = gen_rtx_CONCAT (DECL_MODE (parm), real, imag);
+	      SET_DECL_RTL (parm, tmp);
+
+	      real = DECL_INCOMING_RTL (fnargs);
+	      imag = DECL_INCOMING_RTL (TREE_CHAIN (fnargs));
+	      if (inner != GET_MODE (real))
+		{
+		  real = gen_lowpart_SUBREG (inner, real);
+		  imag = gen_lowpart_SUBREG (inner, imag);
+		}
+	      tmp = gen_rtx_CONCAT (DECL_MODE (parm), real, imag);
+	      DECL_INCOMING_RTL (parm) = tmp;
 	      fnargs = TREE_CHAIN (fnargs);
 	    }
 	  else
@@ -5349,8 +5390,12 @@ split_complex_args (tree args)
 
   /* Before allocating memory, check for the common case of no complex.  */
   for (p = args; p; p = TREE_CHAIN (p))
-    if (TREE_CODE (TREE_TYPE (p)) == COMPLEX_TYPE)
-      goto found;
+    {
+      tree type = TREE_TYPE (p);
+      if (TREE_CODE (type) == COMPLEX_TYPE
+	  && targetm.calls.split_complex_arg (type))
+        goto found;
+    }
   return args;
 
  found:
@@ -5359,7 +5404,8 @@ split_complex_args (tree args)
   for (p = args; p; p = TREE_CHAIN (p))
     {
       tree type = TREE_TYPE (p);
-      if (TREE_CODE (type) == COMPLEX_TYPE)
+      if (TREE_CODE (type) == COMPLEX_TYPE
+	  && targetm.calls.split_complex_arg (type))
 	{
 	  tree decl;
 	  tree subtype = TREE_TYPE (type);
@@ -5683,7 +5729,7 @@ uninitialized_vars_warning (tree block)
 	     flow.c that the entire aggregate was initialized.
 	     Unions are troublesome because members may be shorter.  */
 	  && ! AGGREGATE_TYPE_P (TREE_TYPE (decl))
-	  && DECL_RTL (decl) != 0
+	  && DECL_RTL_SET_P (decl)
 	  && GET_CODE (DECL_RTL (decl)) == REG
 	  /* Global optimizations can make it difficult to determine if a
 	     particular variable has been initialized.  However, a VAR_DECL
@@ -5698,7 +5744,7 @@ uninitialized_vars_warning (tree block)
 		 decl, decl);
       if (extra_warnings
 	  && TREE_CODE (decl) == VAR_DECL
-	  && DECL_RTL (decl) != 0
+	  && DECL_RTL_SET_P (decl)
 	  && GET_CODE (DECL_RTL (decl)) == REG
 	  && regno_clobbered_at_setjmp (REGNO (DECL_RTL (decl))))
 	warning ("%Jvariable '%D' might be clobbered by `longjmp' or `vfork'",
@@ -6394,9 +6440,6 @@ allocate_struct_function (tree fndecl)
 
   init_stmt_for_function ();
   init_eh_for_function ();
-  init_emit ();
-  init_expr ();
-  init_varasm_status (cfun);
 
   (*lang_hooks.function.init) (cfun);
   if (init_machine_status)
@@ -6434,6 +6477,9 @@ prepare_function_start (tree fndecl)
     cfun = DECL_SAVED_INSNS (fndecl);
   else
     allocate_struct_function (fndecl);
+  init_emit ();
+  init_varasm_status (cfun);
+  init_expr ();
 
   cse_not_expected = ! optimize;
 
@@ -6880,6 +6926,19 @@ use_return_register (void)
   diddle_return_value (do_use_return_reg, NULL);
 }
 
+/* Possibly warn about unused parameters.  */
+void
+do_warn_unused_parameter (tree fn)
+{
+  tree decl;
+
+  for (decl = DECL_ARGUMENTS (fn);
+       decl; decl = TREE_CHAIN (decl))
+    if (!TREE_USED (decl) && TREE_CODE (decl) == PARM_DECL
+	&& DECL_NAME (decl) && !DECL_ARTIFICIAL (decl))
+      warning ("%Junused parameter '%D'", decl, decl);
+}
+
 static GTY(()) rtx initial_trampoline;
 
 /* Generate RTL for the end of the current function.  */
@@ -6968,17 +7027,12 @@ expand_function_end (void)
 	  }
     }
 
-  /* Possibly warn about unused parameters.  */
-  if (warn_unused_parameter)
-    {
-      tree decl;
-
-      for (decl = DECL_ARGUMENTS (current_function_decl);
-	   decl; decl = TREE_CHAIN (decl))
-	if (! TREE_USED (decl) && TREE_CODE (decl) == PARM_DECL
-	    && DECL_NAME (decl) && ! DECL_ARTIFICIAL (decl))
-          warning ("%Junused parameter '%D'", decl, decl);
-    }
+  /* Possibly warn about unused parameters.
+     When frontend does unit-at-a-time, the warning is already
+     issued at finalization time.  */
+  if (warn_unused_parameter
+      && !lang_hooks.callgraph.expand_function)
+    do_warn_unused_parameter (current_function_decl);
 
   /* Delete handlers for nonlocal gotos if nothing uses them.  */
   if (nonlocal_goto_handler_slots != 0
@@ -6995,6 +7049,14 @@ expand_function_end (void)
 
   clear_pending_stack_adjust ();
   do_pending_stack_adjust ();
+
+  /* ???  This is a kludge.  We want to ensure that instructions that
+     may trap are not moved into the epilogue by scheduling, because
+     we don't always emit unwind information for the epilogue.
+     However, not all machine descriptions define a blockage insn, so
+     emit an ASM_INPUT to act as one.  */
+  if (flag_non_call_exceptions)
+    emit_insn (gen_rtx_ASM_INPUT (VOIDmode, ""));
 
   /* Mark the end of the function body.
      If control reaches this insn, the function can drop through
@@ -7254,7 +7316,7 @@ record_insns (rtx insns, varray_type *vecp)
     }
 }
 
-/* Set the specified locator to the insn chain.  */
+/* Set the locator of the insn chain starting at INSN to LOC.  */
 static void
 set_insn_locators (rtx insn, int loc)
 {
@@ -7895,6 +7957,7 @@ epilogue_done:
 #endif
 
 #ifdef HAVE_prologue
+  /* This is probably all useless now that we use locators.  */
   if (prologue_end)
     {
       rtx insn, prev;
@@ -7955,11 +8018,16 @@ epilogue_done:
 
       /* Similarly, move any line notes that appear after the epilogue.
          There is no need, however, to be quite so anal about the existence
-	 of such a note.  */
+	 of such a note.  Also move the NOTE_INSN_FUNCTION_END and (possibly)
+	 NOTE_INSN_FUNCTION_BEG notes, as those can be relevant for debug
+	 info generation.  */
       for (insn = epilogue_end; insn; insn = next)
 	{
 	  next = NEXT_INSN (insn);
-	  if (GET_CODE (insn) == NOTE && NOTE_LINE_NUMBER (insn) > 0)
+	  if (GET_CODE (insn) == NOTE 
+	      && (NOTE_LINE_NUMBER (insn) > 0
+		  || NOTE_LINE_NUMBER (insn) == NOTE_INSN_FUNCTION_BEG
+		  || NOTE_LINE_NUMBER (insn) == NOTE_INSN_FUNCTION_END))
 	    reorder_insns (insn, insn, PREV_INSN (epilogue_end));
 	}
     }

@@ -24,6 +24,14 @@
 #undef MD_EXEC_PREFIX
 #undef MD_STARTFILE_PREFIX
 
+/* Linux doesn't support saving and restoring 64-bit regs in a 32-bit
+   process.  */
+#define OS_MISSING_POWERPC64 1
+
+/* glibc has float and long double forms of math functions.  */
+#undef  TARGET_C99_FUNCTIONS
+#define TARGET_C99_FUNCTIONS 1
+
 #undef  TARGET_OS_CPP_BUILTINS
 #define TARGET_OS_CPP_BUILTINS()          \
   do                                      \
@@ -90,6 +98,8 @@
 #undef RELOCATABLE_NEEDS_FIXUP
 
 #define TARGET_ASM_FILE_END file_end_indicate_exec_stack
+
+#define TARGET_HAS_F_SETLKW
 
 /* Do code reading to identify a signal frame, and set the frame
    state data appropriately.  See unwind-dw2.c for the structs.  */
@@ -163,6 +173,10 @@ enum { SIGNAL_FRAMESIZE = 64 };
 	    = (long)&(sc_->regs->gpr[i_]) - new_cfa_;			\
 	}								\
 									\
+    (FS)->regs.reg[CR2_REGNO].how = REG_SAVED_OFFSET;			\
+    (FS)->regs.reg[CR2_REGNO].loc.offset				\
+      = (long)&(sc_->regs->ccr) - new_cfa_;				\
+									\
     (FS)->regs.reg[LINK_REGISTER_REGNUM].how = REG_SAVED_OFFSET;	\
     (FS)->regs.reg[LINK_REGISTER_REGNUM].loc.offset 			\
       = (long)&(sc_->regs->link) - new_cfa_;				\
@@ -173,4 +187,3 @@ enum { SIGNAL_FRAMESIZE = 64 };
     (FS)->retaddr_column = CR0_REGNO;					\
     goto SUCCESS;							\
   } while (0)
-

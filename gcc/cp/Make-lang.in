@@ -37,10 +37,10 @@
 # - define the names for selecting the language in LANGUAGES.
 
 # Actual names to use when installing a native compiler.
-CXX_INSTALL_NAME = `echo c++|sed '$(program_transform_name)'`
-GXX_INSTALL_NAME = `echo g++|sed '$(program_transform_name)'`
-CXX_TARGET_INSTALL_NAME = $(target_noncanonical)-`echo c++|sed '$(program_transform_name)'`
-GXX_TARGET_INSTALL_NAME = $(target_noncanonical)-`echo g++|sed '$(program_transform_name)'`
+CXX_INSTALL_NAME := $(shell echo c++|sed '$(program_transform_name)')
+GXX_INSTALL_NAME := $(shell echo g++|sed '$(program_transform_name)')
+CXX_TARGET_INSTALL_NAME := $(target_noncanonical)-$(shell echo c++|sed '$(program_transform_name)')
+GXX_TARGET_INSTALL_NAME := $(target_noncanonical)-$(shell echo g++|sed '$(program_transform_name)')
 
 #
 # Define the names for selecting c++ in LANGUAGES.
@@ -57,8 +57,6 @@ g++spec.o: $(srcdir)/cp/g++spec.c $(SYSTEM_H) coretypes.h $(TM_H) $(GCC_H) $(CON
 	SHLIB_MULTILIB='$(SHLIB_MULTILIB)'; \
 	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(DRIVER_DEFINES) \
 		$(INCLUDES) $(srcdir)/cp/g++spec.c)
-
-po-generated:
 
 # Create the compiler driver for g++.
 GXX_OBJS = gcc.o g++spec.o intl.o prefix.o version.o 
@@ -108,6 +106,8 @@ c++.all.build: g++$(exeext)
 c++.all.cross: g++-cross$(exeext)
 c++.start.encap: g++$(exeext)
 c++.rest.encap:
+c++.info:
+c++.srcinfo:
 c++.srcextra:
 
 c++.tags: force
@@ -115,7 +115,10 @@ c++.tags: force
 	  --regex='/DEFTREECODE [(]\([A-Z_]+\)/\1/' cp-tree.def; \
 	etags --include TAGS.sub --include ../TAGS.sub
 
-generated-manpages:: $(docobjdir)/g++.1
+c++.man: doc/g++.1
+
+c++.srcman: doc/g++.1
+	-cp -p $^ $(srcdir)/doc
 
 check-c++ : check-g++
 lang_checks += check-g++
@@ -157,15 +160,15 @@ c++.install-common: installdirs
 
 # We can't use links because not everyone supports them, and we can't use
 # .so because Irix 6.5 doesn't support them.  So just copy the manpage.
-$(docobjdir)/g++.1: $(docobjdir)/gcc.1
-	cp $(docobjdir)/gcc.1 $(docobjdir)/g++.1
+doc/g++.1: doc/gcc.1
+	cp doc/gcc.1 doc/g++.1
 
-c++.install-man: installdirs $(docobjdir)/g++.1
-	-if [ -f cc1plus$(exeext) ] ; then \
-	  rm -f $(DESTDIR)$(man1dir)/$(GXX_INSTALL_NAME)$(man1ext); \
-	  $(INSTALL_DATA) $(docobjdir)/g++.1 $(DESTDIR)$(man1dir)/$(GXX_INSTALL_NAME)$(man1ext); \
-	  chmod a-x $(DESTDIR)$(man1dir)/$(GXX_INSTALL_NAME)$(man1ext); \
-	else true; fi
+c++.install-man: installdirs $(DESTDIR)$(man1dir)/$(GXX_INSTALL_NAME)$(man1ext) 
+
+$(DESTDIR)$(man1dir)/$(GXX_INSTALL_NAME)$(man1ext): doc/g++.1
+	-rm -f $@
+	-$(INSTALL_DATA) $< $@
+	-chmod a-x $@
 
 c++.uninstall:
 	-rm -rf $(DESTDIR)$(bindir)/$(CXX_INSTALL_NAME)$(exeext)
@@ -177,7 +180,7 @@ c++.uninstall:
 # We just have to delete files specific to us.
 
 c++.mostlyclean:
-	-rm -f $(docobjdir)/g++.1
+	-rm -f doc/g++.1
 	-rm -f cp/*$(objext)
 	-rm -f cp/*$(coverageexts)
 c++.clean:
@@ -255,7 +258,8 @@ cp/semantics.o: cp/semantics.c $(CXX_TREE_H) $(TM_H) cp/lex.h except.h toplev.h 
 cp/dump.o: cp/dump.c $(CXX_TREE_H) $(TM_H) tree-dump.h
 cp/optimize.o: cp/optimize.c $(CXX_TREE_H) $(TM_H) rtl.h integrate.h insn-config.h \
   input.h $(PARAMS_H) debug.h tree-inline.h
-cp/mangle.o: cp/mangle.c $(CXX_TREE_H) $(TM_H) toplev.h real.h gt-cp-mangle.h $(TM_P_H)
+cp/mangle.o: cp/mangle.c $(CXX_TREE_H) $(TM_H) toplev.h real.h gt-cp-mangle.h \
+  $(TARGET_H) $(TM_P_H)
 
 cp/parser.o: cp/parser.c $(CXX_TREE_H) $(TM_H) diagnostic.h gt-cp-parser.h output.h
 

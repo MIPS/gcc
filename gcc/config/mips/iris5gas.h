@@ -1,5 +1,5 @@
-/* Definitions of target machine for GNU compiler.  Irix version 5 with gas.
-   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003
+/* Definitions of target machine for GNU compiler.  IRIX version 5 with gas.
+   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
    Free Software Foundation, Inc.
 
    This file is part of GCC.
@@ -18,6 +18,9 @@
    along with GCC; see the file COPYING.  If not, write to
    the Free Software Foundation, 59 Temple Place - Suite 330,
    Boston, MA 02111-1307, USA.  */
+
+/* Reenable debugging.  */
+#define PREFERRED_DEBUGGING_TYPE DWARF2_DEBUG
 
 /* GNU as does handle DWARF2 directives.  */
 #undef DWARF2_UNWIND_INFO
@@ -40,17 +43,10 @@
 /* Override iris5.h versions to include crtbegin.o and crtend.o.  */
 
 #undef STARTFILE_SPEC
-#define STARTFILE_SPEC "\
-%{!static: \
-  %{!shared:%{pg:gcrt1.o%s}%{!pg:%{p:mcrt1.o%s libprof1.a%s}%{!p:crt1.o%s}}}} \
-%{static: \
-  %{pg:gcrt1.o%s} \
-  %{!pg:%{p:/usr/lib/nonshared/mcrt1.o%s libprof1.a%s} \
-  %{!p:/usr/lib/nonshared/crt1.o%s}}} \
-crtbegin.o%s"
+#define STARTFILE_SPEC "%(irix_startfile_spec) crtbegin.o%s"
 
 #undef ENDFILE_SPEC
-#define ENDFILE_SPEC "crtend.o%s %{!shared:crtn.o%s}"
+#define ENDFILE_SPEC "crtend.o%s %(irix_endfile_spec)"
 
 /* Irix 5 does not have some strange restrictions that Irix 3 had.  */
 #undef SET_FILE_NUMBER
@@ -73,10 +69,6 @@ do {							\
 do {							\
   fprintf (asm_out_file, "\t.etype\t0x%x;", (a));	\
 } while (0)
-
-/* Switch into a generic section.  */
-#undef TARGET_ASM_NAMED_SECTION
-#define TARGET_ASM_NAMED_SECTION  default_elf_asm_named_section
 
 /* Add -g to mips.h default to avoid confusing gas with local symbols
    generated from stabs info.  */

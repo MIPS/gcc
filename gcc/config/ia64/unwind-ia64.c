@@ -37,6 +37,7 @@
 #include "tm.h"
 #include "unwind.h"
 #include "unwind-ia64.h"
+#include "unwind-compat.h"
 #include "ia64intrin.h"
 
 /* This isn't thread safe, but nice for occasional tests.  */
@@ -1783,8 +1784,10 @@ uw_frame_state_for (struct _Unwind_Context *context, _Unwind_FrameState *fs)
 	 an unwind table entry.
 
 	 This can only happen in the frame after unwinding through a signal
-	 handler.  Avoid infinite looping by requiring that B0 != RP.  */
-      if (context->br_loc[0] && *context->br_loc[0] != context->rp)
+	 handler.  Avoid infinite looping by requiring that B0 != RP.
+	 RP == 0 terminates the chain.  */
+      if (context->br_loc[0] && *context->br_loc[0] != context->rp
+	  && context->rp != 0)
 	{
 	  fs->curr.reg[UNW_REG_RP].where = UNW_WHERE_BR;
 	  fs->curr.reg[UNW_REG_RP].when = -1;
@@ -2379,4 +2382,24 @@ uw_identify_context (struct _Unwind_Context *context)
 }
 
 #include "unwind.inc"
+
+#if defined (USE_GAS_SYMVER) && defined (SHARED) && defined (USE_LIBUNWIND_EXCEPTIONS)
+alias (_Unwind_Backtrace);
+alias (_Unwind_DeleteException);
+alias (_Unwind_FindEnclosingFunction);
+alias (_Unwind_FindTableEntry);
+alias (_Unwind_ForcedUnwind);
+alias (_Unwind_GetBSP);
+alias (_Unwind_GetCFA);
+alias (_Unwind_GetGR);
+alias (_Unwind_GetIP);
+alias (_Unwind_GetLanguageSpecificData);
+alias (_Unwind_GetRegionStart);
+alias (_Unwind_RaiseException);
+alias (_Unwind_Resume);
+alias (_Unwind_Resume_or_Rethrow);
+alias (_Unwind_SetGR);
+alias (_Unwind_SetIP);
+#endif
+
 #endif

@@ -1,5 +1,5 @@
 /* General-purpose hooks.
-   Copyright (C) 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -31,6 +31,7 @@ extern bool hook_bool_tree_hwi_hwi_tree_false (tree, HOST_WIDE_INT, HOST_WIDE_IN
 extern bool hook_bool_tree_hwi_hwi_tree_true (tree, HOST_WIDE_INT, HOST_WIDE_INT,
 				       tree);
 extern bool hook_bool_rtx_false (rtx);
+extern bool hook_bool_uintp_uintp_false (unsigned int *, unsigned int *);
 extern bool hook_bool_rtx_int_int_intp_false (rtx, int, int, int *);
 extern bool hook_bool_constcharptr_size_t_false (const char *, size_t);
 
@@ -59,5 +60,5 @@ extern rtx hook_rtx_rtx_null (rtx);
 extern rtx hook_rtx_tree_int_null (tree, int);
 extern void * hook_voidp_size_t_null (size_t);
 extern bool hook_bool_voidp_size_t_false (void *, size_t);
-
+extern const char *hook_constcharptr_tree_null (tree);
 #endif

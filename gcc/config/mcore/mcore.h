@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler,
    for Motorola M*CORE Processor.
-   Copyright (C) 1993, 1999, 2000, 2001, 2002, 2003
+   Copyright (C) 1993, 1999, 2000, 2001, 2002, 2003, 2004
    Free Software Foundation, Inc.
 
    This file is part of GCC.
@@ -710,7 +710,7 @@ extern const enum reg_class reg_class_from_letter[];
 
    On MCore, the offset always starts at 0: the first parm reg is always
    the same reg.  */
-#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, INDIRECT)  \
+#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, INDIRECT, N_NAMED_ARGS) \
   ((CUM) = 0)
 
 /* Update the data in CUM to advance over an argument

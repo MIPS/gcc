@@ -1,5 +1,5 @@
 /* Xstormy16 cpu description.
-   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003
+   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
    Free Software Foundation, Inc.
    Contributed by Red Hat, Inc.
 
@@ -435,7 +435,8 @@ enum reg_class
    of arguments that have been passed in registers so far.  */
 #define CUMULATIVE_ARGS int
 
-#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, INDIRECT) (CUM) = 0
+#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, INDIRECT, N_NAMED_ARGS) \
+  (CUM) = 0
 
 #define FUNCTION_ARG_ADVANCE(CUM, MODE, TYPE, NAMED)			\
   ((CUM) = xstormy16_function_arg_advance (CUM, MODE, TYPE, NAMED))

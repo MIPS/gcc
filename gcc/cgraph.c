@@ -231,15 +231,27 @@ cgraph_remove_node (struct cgraph_node *node)
   if (node->previous)
     node->previous->next = node->next;
   else
-    cgraph_nodes = node;
+    cgraph_nodes = node->next;
   if (node->next)
     node->next->previous = node->previous;
   DECL_SAVED_TREE (node->decl) = NULL;
+  DECL_SAVED_INSNS (node->decl) = NULL;
+  DECL_ARGUMENTS (node->decl) = NULL;
+  DECL_INITIAL (node->decl) = error_mark_node;
   slot = 
     htab_find_slot_with_hash (cgraph_hash, DECL_ASSEMBLER_NAME (node->decl),
 			      IDENTIFIER_HASH_VALUE (DECL_ASSEMBLER_NAME
 						     (node->decl)), NO_INSERT);
-  htab_clear_slot (cgraph_hash, slot);
+  if (slot == 0)
+    {
+      /* We use DECL_ASSEMBLER_NAME as key, which may not work in
+	 all cases. See PR/15666. Gcc 3.5 uses DECL_UID as key,
+	 which doesn't have this problem.  */
+      if (!DECL_BUILT_IN (node->decl))
+	abort ();
+    }
+  else
+    htab_clear_slot (cgraph_hash, slot);
   /* Do not free the structure itself so the walk over chain can continue.  */
 }
 

@@ -1,5 +1,5 @@
 /* Handle #pragma, system V.4 style.  Supports #pragma weak and #pragma pack.
-   Copyright (C) 1992, 1997, 1998, 1999, 2000, 2001, 2002, 2003
+   Copyright (C) 1992, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -377,7 +377,8 @@ handle_pragma_redefine_extname (cpp_reader *dummy ATTRIBUTE_UNUSED)
     warning ("junk at end of #pragma redefine_extname");
 
   decl = identifier_global_value (oldname);
-  if (decl && TREE_CODE_CLASS (TREE_CODE (decl)) == 'd')
+  if (decl && (TREE_CODE (decl) == FUNCTION_DECL
+	       || TREE_CODE (decl) == VAR_DECL))
     {
       if (DECL_ASSEMBLER_NAME_SET_P (decl)
 	  && DECL_ASSEMBLER_NAME (decl) != newname)

@@ -1,6 +1,6 @@
 /* Control flow graph manipulation code for GNU compiler.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -483,9 +483,21 @@ rtl_split_block (basic_block bb, void *insnp)
   edge e;
   rtx insn = insnp;
 
-  /* There is no point splitting the block after its end.  */
-  if (BB_END (bb) == insn)
-    return 0;
+  if (!insn)
+    {
+      insn = first_insn_after_basic_block_note (bb);
+
+      if (insn)
+	insn = PREV_INSN (insn);
+      else
+	insn = get_last_insn ();
+    }
+
+  /* We probably should check type of the insn so that we do not create
+     inconsistent cfg.  It is checked in verify_flow_info anyway, so do not
+     bother.  */
+  if (insn == BB_END (bb))
+    emit_note_after (NOTE_INSN_DELETED, insn);
 
   /* Create the new basic block.  */
   new_bb = create_basic_block (NEXT_INSN (insn), BB_END (bb), bb);
@@ -687,7 +699,7 @@ block_label (basic_block block)
    apply only if all edges now point to the same block.  The parameters and
    return values are equivalent to redirect_edge_and_branch.  */
 
-static bool
+bool
 try_redirect_by_replacing_jump (edge e, basic_block target, bool in_cfglayout)
 {
   basic_block src = e->src;
@@ -780,7 +792,7 @@ try_redirect_by_replacing_jump (edge e, basic_block target, bool in_cfglayout)
       rtx target_label = block_label (target);
       rtx barrier, label, table;
 
-      emit_jump_insn_after (gen_jump (target_label), insn);
+      emit_jump_insn_after_noloc (gen_jump (target_label), insn);
       JUMP_LABEL (BB_END (src)) = target_label;
       LABEL_NUSES (target_label)++;
       if (rtl_dump_file)
@@ -971,15 +983,13 @@ rtl_redirect_edge_and_branch (edge e, basic_block target)
   if (e->flags & (EDGE_ABNORMAL_CALL | EDGE_EH))
     return false;
 
+  if (e->dest == target)
+    return true;
+
   if (try_redirect_by_replacing_jump (e, target, false))
     return true;
 
-  /* Do this fast path late, as we want above code to simplify for cases
-     where called on single edge leaving basic block containing nontrivial
-     jump insn.  */
-  else if (e->dest == target)
-    return false;
-  else if (!redirect_branch_edge (e, target))
+  if (!redirect_branch_edge (e, target))
     return false;
 
   return true;
@@ -1111,14 +1121,14 @@ force_nonfallthru_and_redirect (edge e, basic_block target)
   if (target == EXIT_BLOCK_PTR)
     {
       if (HAVE_return)
-	emit_jump_insn_after (gen_return (), BB_END (jump_block));
+	emit_jump_insn_after_noloc (gen_return (), BB_END (jump_block));
       else
 	abort ();
     }
   else
     {
       rtx label = block_label (target);
-      emit_jump_insn_after (gen_jump (label), BB_END (jump_block));
+      emit_jump_insn_after_noloc (gen_jump (label), BB_END (jump_block));
       JUMP_LABEL (BB_END (jump_block)) = label;
       LABEL_NUSES (label)++;
     }
@@ -1590,11 +1600,11 @@ commit_one_edge_insertion (edge e, int watch_calls)
 
   if (before)
     {
-      emit_insn_before (insns, before);
+      emit_insn_before_noloc (insns, before);
       last = prev_nonnote_insn (before);
     }
   else
-    last = emit_insn_after (insns, after);
+    last = emit_insn_after_noloc (insns, after);
 
   if (returnjump_p (last))
     {
@@ -2437,11 +2447,11 @@ cfg_layout_redirect_edge_and_branch (edge e, basic_block dest)
   if (e->flags & (EDGE_ABNORMAL_CALL | EDGE_EH))
     return false;
 
-  if (e->src != ENTRY_BLOCK_PTR
-      && try_redirect_by_replacing_jump (e, dest, true))
+  if (e->dest == dest)
     return true;
 
-  if (e->dest == dest)
+  if (e->src != ENTRY_BLOCK_PTR
+      && try_redirect_by_replacing_jump (e, dest, true))
     return true;
 
   if (e->src == ENTRY_BLOCK_PTR
@@ -2487,10 +2497,11 @@ cfg_layout_redirect_edge_and_branch (edge e, basic_block dest)
 	      && onlyjump_p (BB_END (src)))
 	    delete_insn (BB_END (src));
 	}
-      redirect_edge_succ_nodup (e, dest);
+
       if (rtl_dump_file)
 	fprintf (rtl_dump_file, "Fallthru edge %i->%i redirected to %i\n",
 		 e->src->index, e->dest->index, dest->index);
+      redirect_edge_succ_nodup (e, dest);
 
       ret = true;
     }
@@ -2627,7 +2638,7 @@ cfg_layout_merge_blocks (basic_block a, basic_block b)
   /* We should have fallthru edge in a, or we can do dummy redirection to get
      it cleaned up.  */
   if (GET_CODE (BB_END (a)) == JUMP_INSN)
-    redirect_edge_and_branch (a->succ, b);
+    try_redirect_by_replacing_jump (a->succ, b, true);
   if (GET_CODE (BB_END (a)) == JUMP_INSN)
     abort ();
 
@@ -2636,7 +2647,7 @@ cfg_layout_merge_blocks (basic_block a, basic_block b)
     {
       rtx first = BB_END (a), last;
 
-      last = emit_insn_after (b->rbi->header, BB_END (a));
+      last = emit_insn_after_noloc (b->rbi->header, BB_END (a));
       delete_insn_chain (NEXT_INSN (first), last);
       b->rbi->header = NULL;
     }
@@ -2646,7 +2657,7 @@ cfg_layout_merge_blocks (basic_block a, basic_block b)
     {
       rtx first = unlink_insn_chain (BB_HEAD (b), BB_END (b));
 
-      emit_insn_after (first, BB_END (a));
+      emit_insn_after_noloc (first, BB_END (a));
       /* Skip possible DELETED_LABEL insn.  */
       if (!NOTE_INSN_BASIC_BLOCK_P (first))
 	first = NEXT_INSN (first);
@@ -2711,6 +2722,18 @@ cfg_layout_split_edge (edge e)
 
   new_bb->count = e->count;
   new_bb->frequency = EDGE_FREQUENCY (e);
+
+  /* ??? This info is likely going to be out of date very soon, but we must
+     create it to avoid getting an ICE later.  */
+  if (e->dest->global_live_at_start)
+    {
+      new_bb->global_live_at_start = OBSTACK_ALLOC_REG_SET (&flow_obstack);
+      new_bb->global_live_at_end = OBSTACK_ALLOC_REG_SET (&flow_obstack);
+      COPY_REG_SET (new_bb->global_live_at_start,
+		    e->dest->global_live_at_start);
+      COPY_REG_SET (new_bb->global_live_at_end,
+		    e->dest->global_live_at_start);
+    }
 
   new_e = make_edge (new_bb, e->dest, EDGE_FALLTHRU);
   new_e->probability = REG_BR_PROB_BASE;

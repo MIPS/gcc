@@ -1,5 +1,5 @@
 /* Define control and data flow tables, and regsets.
-   Copyright (C) 1987, 1997, 1998, 1999, 2000, 2001, 2002, 2003
+   Copyright (C) 1987, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -480,6 +480,10 @@ enum update_life_extent
 				 | PROP_SCAN_DEAD_CODE | PROP_AUTOINC \
 				 | PROP_ALLOW_CFG_CHANGES \
 				 | PROP_SCAN_DEAD_STORES)
+#define PROP_POSTRELOAD		(PROP_DEATH_NOTES  \
+				 | PROP_KILL_DEAD_CODE  \
+				 | PROP_SCAN_DEAD_CODE | PROP_AUTOINC \
+				 | PROP_SCAN_DEAD_STORES)
 
 #define CLEANUP_EXPENSIVE	1	/* Do relatively expensive optimizations
 					   except for edge forwarding */
@@ -495,6 +499,7 @@ enum update_life_extent
 #define CLEANUP_NO_INSN_DEL	128	/* Do not try to delete trivially dead
 					   insns.  */
 #define CLEANUP_CFGLAYOUT	256	/* Do cleanup in cfglayout mode.  */
+#define CLEANUP_LOG_LINKS	512	/* Update log links.  */
 extern void life_analysis (rtx, FILE *, int);
 extern int update_life_info (sbitmap, enum update_life_extent, int);
 extern int update_life_info_in_dirty_blocks (enum update_life_extent, int);
@@ -601,7 +606,7 @@ extern bool inside_basic_block_p (rtx);
 extern bool control_flow_insn_p (rtx);
 
 /* In bb-reorder.c */
-extern void reorder_basic_blocks (void);
+extern void reorder_basic_blocks (unsigned int);
 
 /* In dominance.c */
 
@@ -640,6 +645,7 @@ extern void iterate_fix_dominators (enum cdi_direction, basic_block *, int);
 extern void verify_dominators (enum cdi_direction);
 extern basic_block first_dom_son (enum cdi_direction, basic_block);
 extern basic_block next_dom_son (enum cdi_direction, basic_block);
+extern bool try_redirect_by_replacing_jump (edge, basic_block, bool);
 
 #include "cfghooks.h"
 

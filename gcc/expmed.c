@@ -1,7 +1,7 @@
 /* Medium-level subroutines: convert bit-field store and extract
    and shifts, multiplies and divides to rtl instructions.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -289,6 +289,7 @@ store_bit_field (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
   unsigned HOST_WIDE_INT bitpos = bitnum % unit;
   rtx op0 = str_rtx;
   int byte_offset;
+  rtx orig_value;
 
   enum machine_mode op_mode = mode_for_extraction (EP_insv, 3);
 
@@ -568,6 +569,7 @@ store_bit_field (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
      corresponding size.  This can occur on a machine with 64 bit registers
      that uses SFmode for float.  This can also occur for unaligned float
      structure fields.  */
+  orig_value = value;
   if (GET_MODE_CLASS (GET_MODE (value)) != MODE_INT
       && GET_MODE_CLASS (GET_MODE (value)) != MODE_PARTIAL_INT)
     value = gen_lowpart ((GET_MODE (value) == VOIDmode
@@ -634,7 +636,7 @@ store_bit_field (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
 	  /* Fetch that unit, store the bitfield in it, then store
 	     the unit.  */
 	  tempreg = copy_to_reg (op0);
-	  store_bit_field (tempreg, bitsize, bitpos, fieldmode, value,
+	  store_bit_field (tempreg, bitsize, bitpos, fieldmode, orig_value,
 			   total_size);
 	  emit_move_insn (op0, tempreg);
 	  return value;
@@ -1125,6 +1127,7 @@ extract_bit_field (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
 	  || ! (*insn_data[icode].operand[1].predicate) (src, mode1)
 	  || ! (*insn_data[icode].operand[2].predicate) (rtxpos, mode2))
 	abort ();
+
       pat = GEN_FCN (icode) (dest, src, rtxpos);
       seq = get_insns ();
       end_sequence ();
@@ -1132,9 +1135,7 @@ extract_bit_field (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
 	{
 	  emit_insn (seq);
 	  emit_insn (pat);
-	  return extract_bit_field (dest, bitsize,
-				    bitnum - pos * GET_MODE_BITSIZE (innermode),
-				    unsignedp, target, mode, tmode, total_size);
+	  return dest;
 	}
     }
 

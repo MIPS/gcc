@@ -1,6 +1,6 @@
 /* Structure for saving state for a nested function.
    Copyright (C) 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -457,9 +457,10 @@ struct function GTY(())
   /* Nonzero if the function being compiled issues a computed jump.  */
   unsigned int has_computed_jump : 1;
 
-  /* Nonzero if the current function is a thunk (a lightweight function that
-     just adjusts one of its arguments and forwards to another function), so
-     we should try to cut corners where we can.  */
+  /* Nonzero if the current function is a thunk, i.e., a lightweight
+     function implemented by the output_mi_thunk hook) that just
+     adjusts one of its arguments and forwards to another
+     function.  */
   unsigned int is_thunk : 1;
 
   /* This bit is used by the exception handling logic.  It is set if all
@@ -639,5 +640,7 @@ extern const char *current_function_name (void);
 
 /* Called once, at initialization, to initialize function.c.  */
 extern void init_function_once (void);
+
+extern void do_warn_unused_parameter (tree);
 
 #endif  /* GCC_FUNCTION_H */
