@@ -25,6 +25,7 @@ XXX: libgcc license?
 #include <signal.h>
 
 #include "mf-runtime.h"
+#include "mf-impl.h"
 
 #ifndef max
 #define max(a,b) ((a) > (b) ? (a) : (b))
@@ -41,13 +42,17 @@ XXX: libgcc license?
 /* ------------------------------------------------------------------------ */
 /* {{{ Utility macros */
 
-#define MINPTR ((uintptr_t) 0)
-#define MAXPTR (~ (uintptr_t) 0)
+/* Protect against recursive calls. */
+#define BEGIN_RECURSION_PROTECT           \
+  enum __mf_state old_state;              \
+  if (UNLIKELY (__mf_state == reentrant)) \
+    return;                               \
+  old_state = __mf_state;                 \
+  __mf_state = reentrant;
 
-/* Clamp the addition/subtraction of uintptr_t's to [MINPTR,MAXPTR] */
-#define CLAMPSUB(ptr,offset) ((ptr) >= (offset) ? (ptr)-(offset) : MINPTR)
-#define CLAMPADD(ptr,offset) ((ptr) <= MAXPTR-(offset) ? (ptr)+(offset) : MAXPTR)
-#define CLAMPSZ(ptr,size) ((ptr) <= MAXPTR-(size)+1 ? (ptr)+(size)-1 : MAXPTR)
+#define END_RECURSION_PROTECT             \
+  __mf_state = old_state;
+
 
 /* }}} */
 /* ------------------------------------------------------------------------ */
@@ -68,25 +73,15 @@ uintptr_t __mf_lc_mask = LOOKUP_CACHE_MASK_DFL;
 unsigned char __mf_lc_shift = LOOKUP_CACHE_SHIFT_DFL;
 #define LOOKUP_CACHE_SIZE (__mf_lc_mask + 1)
 
+struct __mf_options __mf_opts;
+enum __mf_state __mf_state = inactive;
+#ifdef PIC
+struct __mf_dynamic __mf_dynamic;
+#endif
+
 /* }}} */
 /* ------------------------------------------------------------------------ */
 /* {{{ Configuration engine */
-
-struct __mf_options __mf_opts;
-
-mf_state __mf_state = inactive;
-
-#define BEGIN_RECURSION_PROTECT           \
-  mf_state old_state;                     \
-  if (UNLIKELY (__mf_state == reentrant)) \
-    return;                               \
-  old_state = __mf_state;                 \
-  __mf_state = reentrant;
-
-#define END_RECURSION_PROTECT             \
-  __mf_state = old_state;
-
-
 
 static void
 __mf_set_default_options ()
@@ -333,6 +328,74 @@ __mf_process_opts (char *optstr)
 #define CTOR  __attribute__ ((constructor))
 #define DTOR  __attribute__ ((destructor))
 
+#ifdef PIC
+
+static void 
+resolve_single_dynamic (void **target, const char *name)
+{
+  char *err;
+  assert (target);
+  *target = NULL;
+  *target = dlsym (RTLD_NEXT, name);
+  err = dlerror ();
+  if (err)
+    {
+      fprintf (stderr, "mf: error in dlsym(\"%s\"): %s\n",
+	       name, err);
+      abort ();
+    }  
+  if (! *target)
+    {
+      fprintf (stderr, "mf: dlsym(\"%s\") = NULL\n", name);
+      abort ();
+    }
+}
+
+void 
+__mf_resolve_dynamics () 
+{
+  TRACE_IN;
+#define RESOLVE(fname) \
+resolve_single_dynamic (&__mf_dynamic.dyn_ ## fname, #fname)
+  RESOLVE(bcmp);
+  RESOLVE(bcopy);
+  RESOLVE(bzero);
+  RESOLVE(calloc);
+  RESOLVE(dlopen);
+  RESOLVE(free);
+  RESOLVE(index);
+  RESOLVE(malloc);
+  RESOLVE(memchr);
+  RESOLVE(memcmp);
+  RESOLVE(memcpy);
+  RESOLVE(memmem);
+  RESOLVE(memmove);
+  RESOLVE(memrchr);
+  RESOLVE(memset);
+  RESOLVE(mmap);
+  RESOLVE(munmap);
+  RESOLVE(realloc);
+  RESOLVE(rindex);
+  RESOLVE(strcasecmp);
+  RESOLVE(strcat);
+  RESOLVE(strchr);
+  RESOLVE(strcmp);
+  RESOLVE(strcpy);
+  RESOLVE(strdup);
+  RESOLVE(strlen);
+  RESOLVE(strncasecmp);
+  RESOLVE(strncat);
+  RESOLVE(strncmp);
+  RESOLVE(strncpy);
+  RESOLVE(strndup);
+  RESOLVE(strnlen);
+  RESOLVE(strrchr);
+  RESOLVE(strstr);
+#undef RESOLVE
+  TRACE_OUT;
+}
+
+#endif /* PIC */
 
 extern void __mf_init () CTOR;
 void __mf_init ()
@@ -340,6 +403,10 @@ void __mf_init ()
   char *ov = 0;
 
   __mf_state = starting;
+
+#ifdef PIC
+  __mf_resolve_dynamics ();
+#endif
 
   __mf_set_default_options ();
 
@@ -482,14 +549,15 @@ void __mf_check (uintptr_t ptr, uintptr_t sz, const char *location)
 		else
 		  {	      
 		    /* Possible violation. */
-		    if (attempts)
+		    if (attempts > 0)
 		      {
 			/* Try re-initializing heuristics. */
 			__mf_init_heuristics (); 
 		      }
 		    else
 		      {
-			/* Second time around: out of luck. */
+			/* This is our second time around,
+			   therefore we are out of luck. */
 			violation_p = 1;
 		      }
 		  }
@@ -529,10 +597,10 @@ static __mf_object_tree_t *
 __mf_insert_new_object (uintptr_t low, uintptr_t high, int type, 
 			const char *name, uintptr_t pc)
 {
-  extern void * __real_calloc (size_t c, size_t);
+  DECLARE (void *, calloc, size_t c, size_t n);
 
   __mf_object_tree_t *new_obj;
-  new_obj = __real_calloc (1, sizeof(__mf_object_tree_t));
+  new_obj = CALL_REAL(calloc, 1, sizeof(__mf_object_tree_t));
   new_obj->data.low = low;
   new_obj->data.high = high;
   new_obj->data.type = type;
@@ -655,10 +723,10 @@ __mf_register (uintptr_t ptr, uintptr_t sz, int type, const char *name)
 
 		    for (i = 0; i < num_overlapping_objs; ++i)
 		      {
-			extern void  __real_free (void *);
+			DECLARE (void, free, void *ptr);
 			__mf_remove_old_object (ovr_obj[i]);
-			__real_free (ovr_obj[i]->data.alloc_backtrace);
-			__real_free (ovr_obj[i]);			
+			CALL_REAL(free, ovr_obj[i]->data.alloc_backtrace);
+			CALL_REAL(free, ovr_obj[i]);
 		      }
 
 		    __mf_insert_new_object (low, high, __MF_TYPE_GUESS, 
@@ -687,7 +755,7 @@ __mf_register (uintptr_t ptr, uintptr_t sz, int type, const char *name)
 			uintptr_t guess2_low, guess2_high;
 			uintptr_t guess_pc;
 			const char *guess_name;
-			extern void  __real_free (void *);
+			DECLARE (void, free, void *ptr);
 		
 			guess_pc = ovr_obj[i]->data.alloc_pc;
 			guess_name = ovr_obj[i]->data.name;
@@ -704,8 +772,8 @@ __mf_register (uintptr_t ptr, uintptr_t sz, int type, const char *name)
 			/* NB: split regions may disappear if low > high. */
 
 			__mf_remove_old_object (ovr_obj[i]);
-			__real_free (ovr_obj[i]->data.alloc_backtrace);
-			__real_free (ovr_obj[i]);
+		        CALL_REAL(free, ovr_obj[i]->data.alloc_backtrace);
+			CALL_REAL(free, ovr_obj[i]);
 			ovr_obj[i] = NULL;
 
 			/* XXX: preserve other information: stats? backtraces */
@@ -763,9 +831,7 @@ __mf_register (uintptr_t ptr, uintptr_t sz, int type, const char *name)
 void
 __mf_unregister (uintptr_t ptr, uintptr_t sz)
 {
-
-  extern void  __real_free (void *);
-
+  DECLARE (void, free, void *ptr);
   BEGIN_RECURSION_PROTECT;
 
   switch (__mf_opts.mudflap_mode)
@@ -878,11 +944,13 @@ __mf_unregister (uintptr_t ptr, uintptr_t sz)
 	  {
 	    if (__mf_opts.backtrace > 0)
 	      {
-		__real_free (del_obj->data.alloc_backtrace);
+		CALL_REAL(free, del_obj->data.alloc_backtrace);
 		if (__mf_opts.persistent_count > 0)
-		  __real_free (del_obj->data.dealloc_backtrace);
+		  {
+		    CALL_REAL(free, del_obj->data.dealloc_backtrace);
+		  }
 	      }
-	    __real_free (del_obj);
+	    CALL_REAL(free, del_obj);
 	  }
 	
 	break;
@@ -1400,8 +1468,7 @@ __mf_violation (uintptr_t ptr, uintptr_t sz, uintptr_t pc,
 {
   char buf [128];
   static unsigned violation_number;
-  extern void  __real_free (void *);
-
+  DECLARE(void, free, void *ptr);
   BEGIN_RECURSION_PROTECT;
 
   TRACE("mf: violation pc=%p location=%s type=%d ptr=%p size=%lu\n", pc, 
@@ -1448,7 +1515,7 @@ __mf_violation (uintptr_t ptr, uintptr_t sz, uintptr_t pc,
 	  fprintf (stderr, "      %s\n", symbols[i]);
 	
 	/* Calling free() here would trigger a violation.  */
-	__real_free (symbols);
+	CALL_REAL(free, symbols);
       }
     
     

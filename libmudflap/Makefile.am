@@ -50,9 +50,9 @@ WARN_CFLAGS = $(WERROR) -fdiagnostics-show-location=once
 LIBMUDFLAP_INCLUDES =
 TOPLEVEL_INCLUDES =
 
-mf-runtime.o: mf-runtime.h
-mf-hooks.o: mf-runtime.h
-mf-heuristics.o: mf-runtime.h
+mf-runtime.o: mf-runtime.h mf-impl.h
+mf-hooks.o: mf-runtime.h mf-impl.h
+mf-heuristics.o: mf-runtime.h mf-impl.h
 
 libmudflap_la_SOURCES = \
 	mf-runtime.c \

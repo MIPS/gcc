@@ -1,3 +1,22 @@
+2002-08-26  Graydon Hoare  <graydon@redhat.com>
+
+	* mf-impl.h: New file, private implementation header.
+	* mf-runtime.h: Reorganize a bit.
+	(CLAMPSZ): Fix arithmetic.
+	(__MF_CACHE_MISS_P): Fix arithmetic.
+	* mf-runtime.c: Reorganize a bit.
+	(__mf_dynamic): New structure.
+	(resolve_single_dynamic): New function.
+	(__mf_resolve_dynamics): New function.
+	(__mf_init): Initialize dynamic wrappers.
+	* mf-hooks.c: Macro-ize __real calls.
+	Clamp various bits of arithmetic.
+	Add explicit __mf_check call contexts.
+	* Makefile.am: Add dependencies on mf-impl.h
+	* Makefile.in: Regenerate.
+	* configure.in: Comment out shared override.
+	* configure: Regenerate.
+
 2002-08-22  Graydon Hoare  <graydon@redhat.com>
 
 	* mf-runtime.c (__mf_process_opts): Sanity-check free_queue_length.

@@ -11,6 +11,7 @@
 
 #include <stdio.h>
 #include "mf-runtime.h"
+#include "mf-impl.h"
 
 #ifdef _MUDFLAP
 #error "Do not compile this file with -fmudflap!"
@@ -131,7 +132,7 @@ __mf_heuristic_check (uintptr_t ptr, uintptr_t ptr_high)
 void
 __mf_init_heuristics ()
 {
-  mf_state old_state;
+  enum __mf_state old_state;
   old_state = __mf_state;
   __mf_state = starting;
   TRACE_IN;

@@ -1,4 +1,4 @@
-# Makefile.in generated automatically by automake 1.4 from Makefile.am
+# Makefile.in generated automatically by automake 1.4-p4 from Makefile.am
 
 # Copyright (C) 1994, 1995-8, 1999 Free Software Foundation, Inc.
 # This Makefile.in is free software; the Free Software Foundation
@@ -134,7 +134,7 @@ config.h.in configure configure.in
 
 DISTFILES = $(DIST_COMMON) $(SOURCES) $(HEADERS) $(TEXINFOS) $(EXTRA_DIST)
 
-TAR = gtar
+TAR = tar
 GZIP_ENV = --best
 SOURCES = $(libmudflap_la_SOURCES)
 OBJECTS = $(libmudflap_la_OBJECTS)
@@ -152,7 +152,7 @@ Makefile: $(srcdir)/Makefile.in  $(top_builddir)/config.status
 $(ACLOCAL_M4): @MAINTAINER_MODE_TRUE@ configure.in 
 	cd $(srcdir) && $(ACLOCAL)
 
-config.status: $(srcdir)/configure $(CONFIG_STATUS_DEPENDENCIES)
+config.status: $(srcdir)/configure.in $(CONFIG_STATUS_DEPENDENCIES)
 	$(SHELL) ./config.status --recheck
 $(srcdir)/configure: @MAINTAINER_MODE_TRUE@$(srcdir)/configure.in $(ACLOCAL_M4) $(CONFIGURE_DEPENDENCIES)
 	cd $(srcdir) && $(AUTOCONF)
@@ -457,9 +457,9 @@ test/fail%.x: test/fail%.c
 test/pass%.x: test/pass%.c
 	$(CC) -DSHOULD_PASS -rdynamic -fmudflap -g -o $@ $<
 
-mf-runtime.o: mf-runtime.h
-mf-hooks.o: mf-runtime.h
-mf-heuristics.o: mf-runtime.h
+mf-runtime.o: mf-runtime.h mf-impl.h
+mf-hooks.o: mf-runtime.h mf-impl.h
+mf-heuristics.o: mf-runtime.h mf-impl.h
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

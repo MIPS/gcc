@@ -21,8 +21,8 @@ AC_SUBST(target_alias)
 AM_CONFIG_HEADER(config.h)
 
 # override for now
-enable_shared=no
-disable_shared=yes
+#enable_shared=no
+#disable_shared=yes
 
 AC_LIBTOOL_DLOPEN
 AM_PROG_LIBTOOL
