@@ -863,6 +863,7 @@ enum tree_dump_index
 #define TDF_ADDRESS	(1 << 0)	/* dump node addresses */
 #define TDF_SLIM	(1 << 1)	/* don't go wild following links */
 #define TDF_REFS	(1 << 0)	/* dump ssa variable refs */
+#define TDF_RDEFS	(1 << 1)	/* dump reaching definitions */
 
 typedef struct dump_info *dump_info_p;
 

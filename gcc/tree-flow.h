@@ -1,4 +1,4 @@
-/* {{{ Data and Control Flow Analysis for Trees.
+/* Data and Control Flow Analysis for Trees.
    Copyright (C) 2001 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
@@ -18,8 +18,6 @@ You should have received a copy of the GNU General Public License
 along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
-
-/* }}} */
 
 #ifndef _TREE_FLOW_H
 #define _TREE_FLOW_H 1
@@ -65,10 +63,22 @@ struct vardef
 
   /* Saved definition chain.  */
   union varref_def *save_chain;
+
+  /* Uses reached by this definition.  */
+  varray_type ruses;
+
+  /* Visited mark.  Used when computing reaching definitions.  */
+  union varref_def *marked;
+
+  /* PHI arguments (not used with real definitions).  */
+  varray_type phi_chain;
 };
 
 #define VARDEF_IMM_USES(r) (r)->def.imm_uses
 #define VARDEF_SAVE_CHAIN(r) (r)->def.save_chain
+#define VARDEF_RUSES(r) (r)->def.ruses
+#define VARDEF_MARKED(r) (r)->def.marked
+#define VARDEF_PHI_CHAIN(r) (r)->def.phi_chain
 
 /* }}} */
 
@@ -80,23 +90,13 @@ struct varuse
 
   /* Definition chain.  */
   union varref_def *chain;
+
+  /* Definitions reaching this use.  */
+  varray_type rdefs;
 };
 
 #define VARUSE_CHAIN(r) (r)->use.chain
-
-/* }}} */
-
-/* {{{ PHI terms.  */
-
-struct varphi
-{
-  struct varref_common common;
-
-  /* PHI arguments.  */
-  varray_type phi_chain;
-};
-
-#define VARPHI_CHAIN(r) (r)->phi.phi_chain
+#define VARUSE_RDEFS(r) (r)->use.rdefs
 
 /* }}} */
 
@@ -107,7 +107,6 @@ union varref_def
   struct varref_common common;
   struct vardef def;
   struct varuse use;
-  struct varphi phi;
 };
 
 typedef union varref_def *varref;
@@ -117,6 +116,15 @@ typedef union varref_def *varref;
 #define VARREF_EXPR(r) (r)->common.expr
 #define VARREF_STMT(r) (r)->common.stmt
 #define VARREF_SYM(r) (r)->common.sym
+
+/* Return non-zero if R is a ghost definition.  */
+#define IS_GHOST_DEF(R)		\
+    (R && VARREF_TYPE (R) == VARDEF && VARREF_BB (R) == ENTRY_BLOCK_PTR)
+
+/* Return non-zero if R is an artificial definition (currently, a PHI term
+   or a ghost definition).  */
+#define IS_ARTIFICIAL_REF(R)	\
+    (IS_GHOST_DEF (R) || VARREF_TYPE (R) == VARPHI)
 
 /* }}} */
 
@@ -166,19 +174,45 @@ struct bb_ann_def
 
   /* List of references made in this block.  */
   varray_type refs;
+
+  /* Address into the tree preceeding bb->head_tree that contains a pointer
+     to bb->head_tree.  Used when we need to insert statements before the
+     first statement of the block (see insert_stmt_tree_before).  */
+  tree *prev_chain_p;
+
+  /* Block that starts the enclosing binding scope for this block.  */
+  basic_block binding_scope;
 };
 
 typedef struct bb_ann_def *bb_ann;
 
-#define BB_ANN(BLOCK)		\
+#define BB_ANN(BLOCK)			\
     ((bb_ann)((BLOCK)->aux))
 
 #define BB_PARENT(BLOCK)		\
     ((BB_ANN (BLOCK)) ? BB_ANN (BLOCK)->parent : NULL)
 
-#define BB_REFS(BLOCK)		\
+#define BB_REFS(BLOCK)			\
     ((BB_ANN (BLOCK)) ? BB_ANN (BLOCK)->refs : NULL)
 
+#define BB_PREV_CHAIN_P(BLOCK)		\
+    ((BB_ANN (BLOCK)) ? BB_ANN (BLOCK)->prev_chain_p : NULL)
+
+#define BB_BINDING_SCOPE(BLOCK)		\
+    ((BB_ANN (BLOCK)) ? BB_ANN (BLOCK)->binding_scope : NULL)
+
+
+/* Accessors for obtaining header blocks of a control statement.  */
+#define FOR_INIT_STMT_BB(BLOCK)		(BASIC_BLOCK ((BLOCK)->index + 1))
+#define FOR_COND_BB(BLOCK)		(BASIC_BLOCK ((BLOCK)->index + 2))
+#define FOR_EXPR_BB(BLOCK)		(BASIC_BLOCK ((BLOCK)->index + 3))
+
+#define WHILE_COND_BB(BLOCK)		(BASIC_BLOCK ((BLOCK)->index + 1))
+#define DO_COND_BB(BLOCK)		(BASIC_BLOCK ((BLOCK)->index + 1))
+
+#define IF_COND_BB(BLOCK)		(BASIC_BLOCK ((BLOCK)->index + 1))
+
+#define CASE_COND_BB(BLOCK)		(BASIC_BLOCK ((BLOCK)->index + 1))
 /* }}} */
 
 /* {{{ Global declarations.  */
@@ -187,10 +221,16 @@ typedef struct bb_ann_def *bb_ann;
 
 extern varray_type referenced_symbols;
 
+/* Accessor macros for referenced_symbols array.  */
 
-/* Nonzero to warn about code which is never reached.  */
+#define NREF_SYMBOLS		VARRAY_ACTIVE_SIZE (referenced_symbols)
+#define REF_SYMBOL(N)		VARRAY_TREE (referenced_symbols, (N))
+#define ADD_REF_SYMBOL(T)	VARRAY_PUSH_TREE (referenced_symbols, (T));
 
-extern int warn_notreached;
+/* Bitmasks to select which function calls to return in get_fcalls().  */
+#define FCALL_NON_PURE	(1 << 0)
+#define FCALL_PURE	(1 << 1)
+#define FCALL_BUILT_IN	(1 << 2)
 
 /* }}} */
 
@@ -201,6 +241,8 @@ extern void tree_find_basic_blocks PARAMS ((tree));
 extern int is_ctrl_stmt PARAMS ((tree));
 extern int is_ctrl_altering_stmt PARAMS ((tree));
 extern int is_loop_stmt PARAMS ((tree));
+extern tree loop_body PARAMS ((tree));
+extern void set_loop_body PARAMS ((tree, tree));
 extern int stmt_ends_bb_p PARAMS ((tree));
 extern int stmt_starts_bb_p PARAMS ((tree));
 extern void delete_cfg PARAMS ((void));
@@ -214,8 +256,18 @@ extern basic_block loop_parent PARAMS ((basic_block));
 extern basic_block latch_block PARAMS ((basic_block));
 extern basic_block switch_parent PARAMS ((basic_block));
 extern tree first_exec_stmt PARAMS ((tree));
+extern tree last_exec_stmt PARAMS ((tree));
 extern int is_exec_stmt PARAMS ((tree));
+extern int is_statement_expression PARAMS ((tree));
 extern void validate_loops PARAMS ((struct loops *));
+extern tree first_non_decl_stmt PARAMS ((tree));
+extern tree first_decl_stmt PARAMS ((tree));
+extern tree first_non_label_in_bb PARAMS ((basic_block));
+extern void insert_stmt_tree_before PARAMS ((tree, tree, basic_block));
+extern void insert_stmt_tree_after PARAMS ((tree, tree, basic_block));
+extern void replace_expr_in_tree PARAMS ((tree, tree, tree));
+extern tree *find_expr_in_tree PARAMS ((tree, tree));
+extern void insert_bb_before PARAMS ((basic_block, basic_block));
 
 /* }}} */
 
@@ -230,12 +282,18 @@ extern void dump_varref PARAMS ((FILE *, const char *, varref, int, int));
 extern void debug_varref_list PARAMS ((varray_type));
 extern void dump_varref_list PARAMS ((FILE *, const char *, varray_type, int,
                                       int));
+extern int function_may_recurse_p PARAMS ((void));
+extern void get_fcalls PARAMS ((varray_type *, unsigned));
+extern basic_block find_declaration PARAMS ((tree));
 
 /* }}} */
 
 /* {{{ Functions in tree-ssa.c  */
 
 extern void tree_build_ssa PARAMS ((void));
+extern void tree_compute_rdefs PARAMS ((void));
+extern void analyze_rdefs PARAMS ((void));
+extern int is_upward_exposed PARAMS ((tree, sbitmap, int));
 extern void delete_ssa PARAMS ((void));
 
 /* }}} */

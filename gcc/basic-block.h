@@ -225,7 +225,18 @@ typedef struct basic_block_def {
 #define BB_FREQ_MAX 10000
 
 /* Masks for basic_block.flags.  */
+
+/* Block is reachable.  */
+
 #define BB_REACHABLE		1
+
+/* Block contains a control flow expression.  */
+
+#define BB_CONTROL_EXPR		2
+
+/* Block is the entry block to a control statement but contains no code.  */
+
+#define BB_CONTROL_ENTRY	4
 
 /* Number of basic blocks in the current function.  */
 

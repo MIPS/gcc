@@ -34,7 +34,7 @@ Boston, MA 02111-1307, USA.  */
 #include "tree-optimize.h"
 #include "tree-flow.h"
 
-/* {{{ Local declarations.  */
+/* Local declarations.  */
 
 /* Dump file and flags.  */
 static FILE *dump_file;
@@ -42,23 +42,18 @@ static int dump_flags;
 
 /* Local functions.  */
 static void find_refs_in_stmt PARAMS ((tree, basic_block));
-static tree find_refs_in_stmt_expr PARAMS ((tree *, int *, void *));
 static void find_refs_in_expr PARAMS ((tree, enum varref_type, basic_block,
 				       tree, tree));
 static void create_tree_ann PARAMS ((tree));
-static void add_ref_to_sym PARAMS ((varref, tree));
-static void add_ref_to_bb PARAMS ((varref, basic_block));
 static void add_ref_symbol PARAMS ((tree));
 
-/* }}} */
 
-/* {{{ Global declarations.  */
+/* Global declarations.  */
 
 /* Array of all symbols referenced in the function.  */
 
 varray_type referenced_symbols;
 
-/* }}} */
 
 
 /* Find variable references in the code.  */
@@ -71,8 +66,6 @@ void
 tree_find_varrefs ()
 {
   int i;
-
-  dump_file = dump_begin (TDI_ssa, &dump_flags);
 
   for (i = 0; i < n_basic_blocks; i++)
     {
@@ -97,27 +90,28 @@ tree_find_varrefs ()
     }
 
   /* Debugging dumps.  */
+  dump_file = dump_begin (TDI_ssa, &dump_flags);
+
   if (dump_file && (dump_flags & TDF_REFS))
     {
-      int i;
+      size_t i;
 
       fprintf (dump_file, ";; Function %s\n\n",
 	       IDENTIFIER_POINTER (DECL_NAME (current_function_decl)));
 
       fprintf (dump_file, "Symbols referenced:\n");
 
-      for (i = 0; i < VARRAY_ACTIVE_SIZE (referenced_symbols); i++)
+      for (i = 0; i < NREF_SYMBOLS; i++)
 	{
-	  tree sym = VARRAY_TREE (referenced_symbols, i);
+	  tree sym = REF_SYMBOL (i);
 	  print_node_brief (dump_file, "\t", sym, 0);
 	  fputc ('\n', dump_file);
 	  dump_varref_list (dump_file, "\t", TREE_REFS (sym), 4, 1);
 	  fputc ('\n', dump_file);
 	}
-    }
 
-  if (dump_file)
-    dump_end (TDI_ssa, dump_file);
+      dump_end (TDI_ssa, dump_file);
+    }
 }
 
 /* }}} */
@@ -134,7 +128,7 @@ find_refs_in_stmt (t, bb)
 {
   enum tree_code code;
 
-  if (t == NULL)
+  if (t == NULL || t == error_mark_node)
     return;
 
   code = TREE_CODE (t);
@@ -177,12 +171,14 @@ find_refs_in_stmt (t, bb)
   else if (code == DECL_STMT)
     {
       if (TREE_CODE (DECL_STMT_DECL (t)) == VAR_DECL)
-	find_refs_in_expr (DECL_INITIAL (DECL_STMT_DECL (t)), VARDEF, bb, t,
-			   t);
+	find_refs_in_expr (DECL_INITIAL (DECL_STMT_DECL (t)), VARDEF, bb, t, t);
     }
 
   else if (code == LABEL_STMT)
     find_refs_in_expr (LABEL_STMT_LABEL (t), VARUSE, bb, t, t);
+
+  else if (code == STMT_EXPR)
+    find_refs_in_stmt (STMT_EXPR_STMT (t), bb);
 
   else if (code == CONTINUE_STMT)
     ;				/* Nothing to do.  */
@@ -194,15 +190,10 @@ find_refs_in_stmt (t, bb)
     ;				/* Nothing to do.  */
 
   else if (code == COMPOUND_STMT)
-    /* FIXME - This is needed for C/C++ statement-expressions.  These
-       should have their own subgraphs.  We are now considering
-       all these references as if they have been made inside bb.  */
-    walk_stmt_tree (&t, find_refs_in_stmt_expr, (void *) bb);
+    ;				/* Nothing to do.  */
 
   else if (code == SCOPE_STMT)
-    ;				/* Nothing to do.  FIXME - This should not
-				   be needed.  See the note for code ==
-				   COMPOUND_STMT.  */
+    ;				/* Nothing to do.  */
 
   else
     {
@@ -217,37 +208,17 @@ find_refs_in_stmt (t, bb)
     }
 }
 
-/* Temporary hack.  This should not be needed once we lower statement
-   expressions and treat them as proper sub-graphs of the main CFG.  */
-
-static tree
-find_refs_in_stmt_expr (tp, walk_subtrees, data)
-     tree *tp;
-     int *walk_subtrees ATTRIBUTE_UNUSED;
-     void *data;
-{
-  basic_block bb = (basic_block) data;
-  tree t = *tp;
-
-  if (t == NULL)
-    return NULL;
-
-  if (TREE_CODE (t) == COMPOUND_STMT)
-    find_refs_in_stmt (COMPOUND_BODY (t), bb);
-  else
-    find_refs_in_stmt (t, bb);
-
-  return NULL;
-}
-
 /* }}} */
 
 /* {{{ find_refs_in_expr()
 
    Recursively scan the expression tree EXPR looking for variable
-   references. REF_TYPE indicates what type of reference should be created,
+   references.
+   
+   REF_TYPE indicates what type of reference should be created,
+
    BB, PARENT_STMT and PARENT_EXPR are the block, statement and expression
-   trees containing EXPR.  */
+      trees containing EXPR.  */
 
 static void
 find_refs_in_expr (expr, ref_type, bb, parent_stmt, parent_expr)
@@ -259,7 +230,7 @@ find_refs_in_expr (expr, ref_type, bb, parent_stmt, parent_expr)
 {
   enum tree_code code;
 
-  if (expr == NULL)
+  if (expr == NULL || expr == error_mark_node)
     return;
 
   code = TREE_CODE (expr);
@@ -282,11 +253,11 @@ find_refs_in_expr (expr, ref_type, bb, parent_stmt, parent_expr)
     case REAL_CST:
     case RESULT_DECL:
     case STRING_CST:
+    case ADDR_EXPR:
       /* These trees make no memory references.  */
       break;
 
     case ABS_EXPR:
-    case ADDR_EXPR:
     case CONJ_EXPR:
     case CONVERT_EXPR:
     case EXIT_EXPR:
@@ -403,9 +374,15 @@ find_refs_in_expr (expr, ref_type, bb, parent_stmt, parent_expr)
     case CALL_EXPR:
       {
 	tree op;
+	tree addr = TREE_OPERAND (expr, 0);
+	tree decl;
 
-	find_refs_in_expr (TREE_OPERAND (expr, 0), VARUSE, bb, parent_stmt,
-			   expr);
+	if (TREE_CODE (addr) == ADDR_EXPR)
+	  decl = TREE_OPERAND (addr, 0);
+	else
+	  decl = addr;
+
+	find_refs_in_expr (decl, VARUSE, bb, parent_stmt, expr);
 	for (op = TREE_OPERAND (expr, 1); op; op = TREE_CHAIN (op))
 	  find_refs_in_expr (TREE_VALUE (op), VARUSE, bb, parent_stmt, expr);
 	break;
@@ -425,6 +402,11 @@ find_refs_in_expr (expr, ref_type, bb, parent_stmt, parent_expr)
       /* C/C++ statement-expressions.  */
     case STMT_EXPR:
       find_refs_in_stmt (STMT_EXPR_STMT (expr), bb);
+      break;
+
+      /* File and line number annotations.  */
+    case EXPR_WITH_FILE_LOCATION:
+      find_refs_in_stmt (TREE_OPERAND (expr, 0), bb);
       break;
 
     default:
@@ -460,7 +442,6 @@ create_varref (sym, ref_type, bb, parent_stmt, parent_expr)
      tree parent_expr;
 {
   varref ref;
-  int is_new;
 
   if (bb == NULL)
     abort ();
@@ -474,46 +455,27 @@ create_varref (sym, ref_type, bb, parent_stmt, parent_expr)
   VARREF_BB (ref) = bb;
   VARREF_EXPR (ref) = parent_expr;
 
+  /* Create containers according to the type of reference.  */
+  if (ref_type == VARDEF || ref_type == VARPHI)
+    {
+      VARRAY_GENERIC_PTR_INIT (VARDEF_IMM_USES (ref), 3, "imm_uses");
+      VARRAY_GENERIC_PTR_INIT (VARDEF_RUSES (ref), 5, "ruses");
+      if (ref_type == VARPHI)
+	VARRAY_GENERIC_PTR_INIT (VARDEF_PHI_CHAIN (ref), 3, "phi_chain");
+    }
+  else if (ref_type == VARUSE)
+    VARRAY_GENERIC_PTR_INIT (VARUSE_RDEFS (ref), 3, "rdefs");
+
   /* Add the symbol to the list of symbols referenced in this function.  */
   add_ref_symbol (sym);
 
   /* Add this reference to the list of references for the symbol.  */
-  add_ref_to_sym (ref, sym);
+  VARRAY_PUSH_GENERIC_PTR (get_tree_ann (sym)->refs, ref);
 
   /* Add this reference to the list of references for the basic block.  */
-  add_ref_to_bb (ref, bb);
+  VARRAY_PUSH_GENERIC_PTR (get_bb_ann (bb)->refs, ref);
 
   return ref;
-}
-
-/* }}} */
-
-/* {{{ add_ref_to_sym()
-
-   Adds reference REF to the list of references made to symbol SYM.  */
-
-void
-add_ref_to_sym (ref, sym)
-     varref ref;
-     tree sym;
-{
-  tree_ann ann = get_tree_ann (sym);
-  VARRAY_PUSH_GENERIC_PTR (ann->refs, ref);
-}
-
-/* }}} */
-
-/* {{{ add_ref_to_bb()
-
-   Adds reference REF to the list of references made in basic block BB.  */
-
-void
-add_ref_to_bb (ref, bb)
-     varref ref;
-     basic_block bb;
-{
-  bb_ann ann = get_bb_ann (bb);
-  VARRAY_PUSH_GENERIC_PTR (ann->refs, ref);
 }
 
 /* }}} */
@@ -526,16 +488,16 @@ static void
 add_ref_symbol (sym)
      tree sym;
 {
-  int i;
+  size_t i;
 
   /* Look for the SYM in the array of symbols referenced in the function.  */
-  for (i = 0; i < VARRAY_ACTIVE_SIZE (referenced_symbols); i++)
-    if (VARRAY_TREE (referenced_symbols, i) == sym)
+  for (i = 0; i < NREF_SYMBOLS; i++)
+    if (REF_SYMBOL (i) == sym)
       return;
 
   /* We didn't find the symbol.  Add it to the list and create a new
      annotation for the symbol.  */
-  VARRAY_PUSH_TREE (referenced_symbols, sym);
+  ADD_REF_SYMBOL (sym);
   create_tree_ann (sym);
 }
 
@@ -572,6 +534,131 @@ create_tree_ann (t)
   memset ((void *) ann, 0, sizeof (*ann));
   VARRAY_GENERIC_PTR_INIT (ann->refs, 10, "symbol_refs");
   t->common.aux = (void *) ann;
+}
+
+/* }}} */
+
+
+/* Miscellaneous helpers.  */
+
+/* {{{ function_may_recurse_p()
+
+   Return 1 if the function may call itself.
+   
+   ??? Currently this is very limited because we do not have call-graph
+       information.  */
+
+int
+function_may_recurse_p ()
+{
+  int i;
+
+  /* If we only make calls to pure and/or builtin functions, then the
+     function is not recursive.  */
+  for (i = 0; i < n_basic_blocks; i++)
+    {
+      size_t j;
+      varray_type refs = BB_REFS (BASIC_BLOCK (i));
+
+      for (j = 0; j < VARRAY_ACTIVE_SIZE (refs); j++)
+	{
+	  varref ref = VARRAY_GENERIC_PTR (refs, j);
+	  tree fcall = VARREF_SYM (ref);
+
+	  if (fcall == current_function_decl
+	      || (TREE_CODE (fcall) == FUNCTION_DECL
+		  && ! DECL_IS_PURE (fcall)
+		  && ! DECL_BUILT_IN (fcall)))
+	    return 1;
+	}
+    }
+
+  return 0;
+}
+
+/* }}} */
+
+/* {{{ get_fcalls()
+
+   Push into variable array *FCALLS_P all the function call references made
+   in this function.
+
+   WHICH is a bitmask specifying the type of function call that the caller
+   is interested in (see tree-flow.h).  */
+
+void
+get_fcalls (fcalls_p, which)
+     varray_type *fcalls_p;
+     unsigned which;
+{
+  int i;
+
+  if (fcalls_p == NULL || *fcalls_p == NULL)
+    abort ();
+
+  for (i = 0; i < n_basic_blocks; i++)
+    {
+      size_t j;
+      varray_type refs = BB_REFS (BASIC_BLOCK (i));
+
+      for (j = 0; j < VARRAY_ACTIVE_SIZE (refs); j++)
+	{
+	  varref ref = VARRAY_GENERIC_PTR (refs, j);
+	  tree fcall = VARREF_SYM (ref);
+
+	  if (TREE_CODE (fcall) == FUNCTION_DECL)
+	    {
+	      if ((which & FCALL_NON_PURE)
+		  && ! DECL_IS_PURE (fcall)
+		  && ! DECL_BUILT_IN (fcall))
+		VARRAY_PUSH_GENERIC_PTR (*fcalls_p, ref);
+	      
+	      else if ((which & FCALL_PURE) && DECL_IS_PURE (fcall))
+		VARRAY_PUSH_GENERIC_PTR (*fcalls_p, ref);
+
+	      else if ((which & FCALL_BUILT_IN) && DECL_BUILT_IN (fcall))
+		VARRAY_PUSH_GENERIC_PTR (*fcalls_p, ref);
+	    }
+	}
+    }
+}
+
+/* }}} */
+
+/* {{{ find_declaration()
+
+   Returns the basic block containing the statement that declares DECL.  */
+
+basic_block
+find_declaration (decl)
+     tree decl;
+{
+  int i;
+  tree t;
+  varref first_ref;
+
+  /* Start with the first reference of DECL and walk the flowgraph
+     backwards looking for a node with the scope block declaring the
+     original variable.  */
+  first_ref = VARRAY_GENERIC_PTR (TREE_REFS (decl), 0);
+  t = VARREF_STMT (first_ref);
+  for (i = BB_FOR_STMT (t)->index; i >= 0; i--)
+    {
+      basic_block bb = BASIC_BLOCK (i);
+
+      if (TREE_CODE (bb->head_tree) == SCOPE_STMT
+	  && SCOPE_STMT_BLOCK (bb->head_tree))
+	{
+	  tree block = SCOPE_STMT_BLOCK (bb->head_tree);
+	  tree var;
+
+	  for (var = BLOCK_VARS (block); var; var = TREE_CHAIN (var))
+	    if (var == decl)
+	      return bb;
+	}
+    }
+
+  return NULL;
 }
 
 /* }}} */
@@ -619,16 +706,18 @@ dump_varref (outf, prefix, ref, indent, details)
   fprintf (outf, "%s%s%s(%s): line %d, bb %d, ", s_indent, prefix, type,
 	   sym, lineno, bbix);
 
-  print_node_brief (outf, "", VARREF_EXPR (ref), 0);
+  if (VARREF_EXPR (ref))
+    print_node_brief (outf, "", VARREF_EXPR (ref), 0);
+  else
+    fprintf (outf, "<nil>");
 
   /* Dump specific contents for the different types of references.  */
-
   if (details)
     {
-      if (VARREF_TYPE (ref) == VARPHI && VARPHI_CHAIN (ref))
+      if (VARREF_TYPE (ref) == VARPHI && VARDEF_PHI_CHAIN (ref))
 	{
 	  fputs (" phi-args:\n", outf);
-	  dump_varref_list (outf, prefix, VARPHI_CHAIN (ref), indent + 4, 0);
+	  dump_varref_list (outf, prefix, VARDEF_PHI_CHAIN (ref), indent + 4, 0);
 	}
       else if (VARREF_TYPE (ref) == VARDEF && VARDEF_IMM_USES (ref))
 	{
@@ -644,8 +733,6 @@ dump_varref (outf, prefix, ref, indent, details)
     }
 
   fputc ('\n', outf);
-  if (VARREF_EXPR (ref) == NULL)
-    fputc ('\n', outf);
 }
 
 /* }}} */
@@ -678,11 +765,14 @@ dump_varref_list (outf, prefix, reflist, indent, details)
      int indent;
      int details;
 {
-  int i;
+  size_t i;
 
-  for (i = 0; reflist && i < VARRAY_ACTIVE_SIZE (reflist); i++)
+  if (reflist == NULL)
+    return;
+
+  for (i = 0; i < VARRAY_ACTIVE_SIZE (reflist); i++)
     dump_varref (outf, prefix, VARRAY_GENERIC_PTR (reflist, i), 
-	         indent, details);
+		 indent, details);
 }
 
 /* }}} */

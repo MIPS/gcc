@@ -43,7 +43,7 @@ optimize_tree (t)
      tree t;
 {
   /* Flush out existing data.  */
-  VARRAY_TREE_INIT (referenced_symbols, 20, "function_symbols");
+  VARRAY_TREE_INIT (referenced_symbols, 20, "referenced_symbols");
 
   tree_find_basic_blocks (t);
 
@@ -54,8 +54,9 @@ optimize_tree (t)
     }
 
   /* Flush out DFA and SSA data.  */
-  referenced_symbols = NULL;
   delete_cfg ();
+  delete_ssa ();
+  VARRAY_FREE (referenced_symbols);
 }
 
 /* }}} */

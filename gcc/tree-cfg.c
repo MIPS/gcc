@@ -28,18 +28,22 @@ Boston, MA 02111-1307, USA.  */
 #include "basic-block.h"
 #include "output.h"
 #include "errors.h"
+#include "flags.h"
 #include "expr.h"
 #include "c-common.h"
+#include "c-tree.h"
 #include "ggc.h"
 #include "diagnostic.h"
 #include "tree-optimize.h"
 #include "tree-flow.h"
 
-/* {{{ Local declarations.  */
+/* Local declarations.  */
 
 /* Initial capacity for the basic block array.  */
-
 static const int initial_cfg_capacity = 20;
+
+/* Stack of binding scopes.  */
+static varray_type binding_stack;
 
 /* Dump files and flags.  */
 static FILE *cfg_dump_file;
@@ -48,17 +52,17 @@ static int cfg_dump_flags;
 static int dot_dump_flags;
 
 /* Basic blocks and flowgraphs.  */
-static void make_blocks PARAMS ((tree, basic_block, tree));
-static void make_for_stmt_blocks PARAMS ((tree, basic_block, tree));
-static void make_if_stmt_blocks PARAMS ((tree, basic_block, tree));
-static void make_while_stmt_blocks PARAMS ((tree, basic_block, tree));
-static void make_switch_stmt_blocks PARAMS ((tree, basic_block, tree));
-static void make_do_stmt_blocks PARAMS ((tree, basic_block, tree));
-static basic_block create_bb PARAMS ((tree, tree, basic_block));
-static basic_block create_maximal_bb PARAMS ((tree, basic_block, tree));
+static void make_blocks PARAMS ((tree, basic_block, tree, tree *));
+static void make_for_stmt_blocks PARAMS ((tree, basic_block, tree, tree *));
+static void make_if_stmt_blocks PARAMS ((tree, basic_block, tree, tree *));
+static void make_while_stmt_blocks PARAMS ((tree, basic_block, tree, tree *));
+static void make_switch_stmt_blocks PARAMS ((tree, basic_block, tree, tree *));
+static void make_do_stmt_blocks PARAMS ((tree, basic_block, tree, tree *));
+static basic_block create_bb PARAMS ((tree, tree, basic_block, tree *));
+static basic_block create_maximal_bb PARAMS ((tree, basic_block, tree, tree *));
 static void map_stmt_to_bb PARAMS ((tree, basic_block));
 static void delete_unreachable_blocks PARAMS ((void));
-static void delete_block PARAMS ((basic_block));
+static void delete_bb PARAMS ((basic_block));
 
 /* Edges.  */
 static void make_edges PARAMS ((void));
@@ -78,8 +82,11 @@ static basic_block successor_block PARAMS ((basic_block));
 static int block_invalidates_loop PARAMS ((basic_block, struct loop *));
 static void create_bb_ann PARAMS ((basic_block));
 
-/* }}} */
-
+static void insert_before_ctrl_stmt PARAMS ((tree, tree, basic_block));
+static void insert_before_normal_stmt PARAMS ((tree, tree, basic_block));
+static void insert_after_ctrl_stmt PARAMS ((tree, tree, basic_block));
+static void insert_after_normal_stmt PARAMS ((tree, tree, basic_block));
+static void insert_after_loop_body PARAMS ((tree, basic_block));
 
 /* Create basic blocks.  */
 
@@ -101,11 +108,17 @@ tree_find_basic_blocks (t)
   n_basic_blocks = 0;
   VARRAY_BB_INIT (basic_block_info, initial_cfg_capacity, "basic_block_info");
 
+  /* Initialize the stack of binding scopes.  */
+  VARRAY_BB_INIT (binding_stack, 5, "binding_stack");
+
   /* Find the basic blocks for the flowgraph.  */
-  make_blocks (t, NULL, NULL);
+  make_blocks (t, NULL, NULL, NULL);
 
   if (n_basic_blocks > 0)
     {
+      /* Adjust the size of the array.  */
+      VARRAY_GROW (basic_block_info, n_basic_blocks);
+
       /* Create the edges of the flowgraph.  */
       make_edges ();
 
@@ -132,21 +145,26 @@ tree_find_basic_blocks (t)
    Build a flowgraph for the tree starting with T.
    
    CONTROL_PARENT is the header block for the control structure immediately
-   enclosing the new sub-graph.
- 
+      enclosing the new sub-graph.
+
    COMPOUND_STMT is the immediately enclosing compound statement to which T
-   belongs.  These statements are not represented in the flowgraph, but are
-   important to determine successor basic blocks in successor_block().
+      belongs.  These statements are not represented in the flowgraph, but
+      are important to determine successor basic blocks in successor_block().
+
+   PREV_CHAIN_P is the address into the tree preceeding T that contains a
+      pointer to T.  This is used when we need to insert statements before
+      the first tree of the block.
 
    When creating basic blocks one important property should be maintained:
    It must be possible to traverse all the trees inside a basic block by
    following the TREE_CHAIN from bb->head_tree.  */
 
 static void
-make_blocks (t, control_parent, compound_stmt)
+make_blocks (t, control_parent, compound_stmt, prev_chain_p)
      tree t;
      basic_block control_parent;
      tree compound_stmt;
+     tree *prev_chain_p;
 {
   /* Traverse the statement chain building basic blocks.  */
   while (t && t != error_mark_node)
@@ -156,41 +174,58 @@ make_blocks (t, control_parent, compound_stmt)
       switch (TREE_CODE (t))
 	{
 	case COMPOUND_STMT:
-	  make_blocks (COMPOUND_BODY (t), control_parent, t);
+	  make_blocks (COMPOUND_BODY (t), control_parent, t,
+	               &(COMPOUND_BODY (t)));
 	  break;
 
 	case FOR_STMT:
-	  make_for_stmt_blocks (t, control_parent, compound_stmt);
+	  make_for_stmt_blocks (t, control_parent, compound_stmt,
+	      prev_chain_p);
 	  break;
 
 	case IF_STMT:
-	  make_if_stmt_blocks (t, control_parent, compound_stmt);
+	  make_if_stmt_blocks (t, control_parent, compound_stmt,
+	      prev_chain_p);
 	  break;
 
 	case WHILE_STMT:
-	  make_while_stmt_blocks (t, control_parent, compound_stmt);
+	  make_while_stmt_blocks (t, control_parent, compound_stmt,
+	      prev_chain_p);
 	  break;
 
 	case SWITCH_STMT:
-	  make_switch_stmt_blocks (t, control_parent, compound_stmt);
+	  make_switch_stmt_blocks (t, control_parent, compound_stmt,
+	      prev_chain_p);
 	  break;
 
 	case DO_STMT:
-	  make_do_stmt_blocks (t, control_parent, compound_stmt);
+	  make_do_stmt_blocks (t, control_parent, compound_stmt,
+	      prev_chain_p);
 	  break;
 
 	default:
-	  if (is_exec_stmt (t))
+	  if (is_statement_expression (t))
+	    {
+	      tree expr = TREE_OPERAND (t, 0);
+	      basic_block bb = create_bb (t, t, control_parent, prev_chain_p);
+	      make_blocks (STMT_EXPR_STMT (expr), bb, t,
+			   &(STMT_EXPR_STMT (expr)));
+	    }
+	  else if (is_exec_stmt (t))
 	    {
 	      basic_block bb;
-	      bb = create_maximal_bb (t, control_parent, compound_stmt);
+	      bb = create_maximal_bb (t, control_parent, compound_stmt,
+		  prev_chain_p);
 	      t = bb->end_tree;
 	    }
 	  break;
 	}
 
       if (t)
-	t = TREE_CHAIN (t);
+	{
+	  prev_chain_p = &(TREE_CHAIN (t));
+	  t = TREE_CHAIN (t);
+	}
     }
 }
 
@@ -201,12 +236,13 @@ make_blocks (t, control_parent, compound_stmt)
    Create the blocks for a FOR_STMT.  */
 
 static void
-make_for_stmt_blocks (t, control_parent, compound_stmt)
+make_for_stmt_blocks (t, control_parent, compound_stmt, prev_chain_p)
      tree t;
      basic_block control_parent;
      tree compound_stmt;
+     tree *prev_chain_p;
 {
-  basic_block bb;
+  basic_block entry, bb;
   tree expr, cond;
 
   /* Make sure that both condition and expression blocks will be created
@@ -222,11 +258,20 @@ make_for_stmt_blocks (t, control_parent, compound_stmt)
   cond = (FOR_COND (t)) ? FOR_COND (t) : build_int_2 (1, 0);
   expr = (FOR_EXPR (t)) ? FOR_EXPR (t) : build_int_2 (1, 0);
 
-  bb = create_bb (t, t, control_parent);
-  create_maximal_bb (FOR_INIT_STMT (t), bb, compound_stmt);
-  create_maximal_bb (cond, bb, compound_stmt);
-  create_maximal_bb (expr, bb, compound_stmt);
-  make_blocks (FOR_BODY (t), bb, compound_stmt);
+  entry = create_bb (t, t, control_parent, prev_chain_p);
+  entry->flags |= BB_CONTROL_ENTRY;
+
+  bb = create_maximal_bb (FOR_INIT_STMT (t), entry, compound_stmt,
+                          &(FOR_INIT_STMT (t)));
+  bb->flags |= BB_CONTROL_EXPR;
+
+  bb = create_maximal_bb (cond, entry, compound_stmt, &(FOR_COND (t)));
+  bb->flags |= BB_CONTROL_EXPR;
+
+  bb = create_maximal_bb (expr, entry, compound_stmt, &(FOR_EXPR (t)));
+  bb->flags |= BB_CONTROL_EXPR;
+
+  make_blocks (FOR_BODY (t), entry, compound_stmt, &(FOR_BODY (t)));
 }
 
 /* }}} */
@@ -236,18 +281,21 @@ make_for_stmt_blocks (t, control_parent, compound_stmt)
    Create the blocks for a WHILE_STMT.  */
 
 static void
-make_while_stmt_blocks (t, control_parent, compound_stmt)
+make_while_stmt_blocks (t, control_parent, compound_stmt, prev_chain_p)
      tree t;
      basic_block control_parent;
      tree compound_stmt;
+     tree *prev_chain_p;
 {
-  basic_block bb = create_bb (t, t, control_parent);
+  basic_block bb = create_bb (t, t, control_parent, prev_chain_p);
+  bb->flags |= BB_CONTROL_ENTRY | BB_CONTROL_EXPR;
   
   /* END_WHILE block.  Needed to avoid multiple back edges that would
      result in multiple natural loops instead of just one.  */
-  create_maximal_bb (build_int_2 (1, 0), bb, compound_stmt);
+  bb = create_maximal_bb (build_int_2 (1, 0), bb, compound_stmt, NULL);
+  bb->flags |= BB_CONTROL_ENTRY;
 
-  make_blocks (WHILE_BODY (t), bb, compound_stmt);
+  make_blocks (WHILE_BODY (t), bb, compound_stmt, &(WHILE_BODY (t)));
 }
 
 /* }}} */
@@ -257,14 +305,19 @@ make_while_stmt_blocks (t, control_parent, compound_stmt)
    Create the blocks for a DO_STMT.  */
 
 static void
-make_do_stmt_blocks (t, control_parent, compound_stmt)
+make_do_stmt_blocks (t, control_parent, compound_stmt, prev_chain_p)
      tree t;
      basic_block control_parent;
      tree compound_stmt;
+     tree *prev_chain_p;
 {
-  basic_block bb = create_bb (t, t, control_parent);
-  create_maximal_bb (DO_COND (t), bb, compound_stmt);
-  make_blocks (DO_BODY (t), bb, compound_stmt);
+  basic_block bb = create_bb (t, t, control_parent, prev_chain_p);
+  bb->flags |= BB_CONTROL_ENTRY;
+
+  bb = create_maximal_bb (DO_COND (t), bb, compound_stmt, &(DO_COND (t)));
+  bb->flags |= BB_CONTROL_EXPR;
+
+  make_blocks (DO_BODY (t), bb, compound_stmt, &(DO_BODY (t)));
 }
 
 /* }}} */
@@ -274,14 +327,17 @@ make_do_stmt_blocks (t, control_parent, compound_stmt)
    Create the blocks for an IF_STMT.  */
 
 static void
-make_if_stmt_blocks (t, control_parent, compound_stmt)
+make_if_stmt_blocks (t, control_parent, compound_stmt, prev_chain_p)
      tree t;
      basic_block control_parent;
      tree compound_stmt;
+     tree *prev_chain_p;
 {
-  basic_block bb = create_bb (t, t, control_parent);
-  make_blocks (THEN_CLAUSE (t), bb, compound_stmt);
-  make_blocks (ELSE_CLAUSE (t), bb, compound_stmt);
+  basic_block bb = create_bb (t, t, control_parent, prev_chain_p);
+  bb->flags |= BB_CONTROL_ENTRY | BB_CONTROL_EXPR;
+
+  make_blocks (THEN_CLAUSE (t), bb, compound_stmt, &(THEN_CLAUSE (t)));
+  make_blocks (ELSE_CLAUSE (t), bb, compound_stmt, &(ELSE_CLAUSE (t)));
 }
 
 /* }}} */
@@ -291,13 +347,16 @@ make_if_stmt_blocks (t, control_parent, compound_stmt)
    Create the blocks for a SWITCH_STMT.  */
 
 static void
-make_switch_stmt_blocks (t, control_parent, compound_stmt)
+make_switch_stmt_blocks (t, control_parent, compound_stmt, prev_chain_p)
      tree t;
      basic_block control_parent;
      tree compound_stmt;
+     tree *prev_chain_p;
 {
-  basic_block bb = create_bb (t, SWITCH_COND (t), control_parent);
-  make_blocks (SWITCH_BODY (t), bb, compound_stmt);
+  basic_block bb = create_bb (t, t, control_parent, prev_chain_p);
+  bb->flags |= BB_CONTROL_ENTRY | BB_CONTROL_EXPR;
+
+  make_blocks (SWITCH_BODY (t), bb, compound_stmt, &(SWITCH_BODY (t)));
 }
 
 /* }}} */
@@ -318,13 +377,18 @@ make_switch_stmt_blocks (t, control_parent, compound_stmt)
    COMPOUND_STMT is the immediately enclosing compound statement to which
       the first tree of the block belongs.
 
+   PREV_CHAIN_P is the address into the tree preceeding T that contains a
+      pointer to T.  This is used when we need to insert statements before
+      the first tree of the block.
+
    Returns the new basic block.  */
 
 static basic_block
-create_maximal_bb (t, control_parent, compound_stmt)
+create_maximal_bb (t, control_parent, compound_stmt, prev_chain_p)
      tree t;
      basic_block control_parent;
      tree compound_stmt;
+     tree *prev_chain_p;
 {
   tree first, last;
   basic_block bb;
@@ -333,7 +397,7 @@ create_maximal_bb (t, control_parent, compound_stmt)
     return NULL;
 
   first = last = t;
-  bb = create_bb (first, last, control_parent);
+  bb = create_bb (first, last, control_parent, prev_chain_p);
 
   while (last && last != error_mark_node)
     {
@@ -362,13 +426,18 @@ create_maximal_bb (t, control_parent, compound_stmt)
    HEAD and END are the first and last statements in the block.
 
    CONTROL_PARENT is the entry block for the control structure containing
-   the new block.  */
+      the new block.
+
+   PREV_CHAIN_P is the address into the tree preceeding T that contains a
+      pointer to T.  This is used when we need to insert statements before
+      the first tree of the block.  */
 
 static basic_block
-create_bb (head, end, control_parent)
+create_bb (head, end, control_parent, prev_chain_p)
      tree head;
      tree end;
      basic_block control_parent;
+     tree *prev_chain_p;
 {
   basic_block bb;
 
@@ -376,10 +445,24 @@ create_bb (head, end, control_parent)
   bb = (basic_block) ggc_alloc (sizeof (*bb));
   memset (bb, 0, sizeof (*bb));
 
+  /* Initialize the binding stack with the first block.  */
+  if (n_basic_blocks == 0)
+    VARRAY_PUSH_BB (binding_stack, bb);
+
   bb->head_tree = head;
   bb->end_tree = end;
   bb->index = n_basic_blocks;
   get_bb_ann (bb)->parent = control_parent;
+  get_bb_ann (bb)->prev_chain_p = prev_chain_p;
+  get_bb_ann (bb)->binding_scope = VARRAY_TOP_BB (binding_stack);
+
+  /* If this block starts a new scope, push it into the stack of bindings.  */
+  if (TREE_CODE (bb->head_tree) == SCOPE_STMT && SCOPE_BEGIN_P (bb->head_tree))
+    VARRAY_PUSH_BB (binding_stack, bb);
+
+  /* If the block ends a scope, pop it from the stack.  */
+  if (TREE_CODE (bb->end_tree) == SCOPE_STMT && SCOPE_END_P (bb->end_tree))
+    VARRAY_POP (binding_stack);
 
   /* Grow the basic block array if needed.  */
   if ((size_t) n_basic_blocks == VARRAY_SIZE (basic_block_info))
@@ -481,6 +564,10 @@ make_edges ()
       if (is_ctrl_stmt (bb->head_tree))
 	make_ctrl_stmt_edges (edge_cache, bb);
 
+      /* Edges for statement expressions.  */
+      if (is_statement_expression (bb->head_tree))
+	make_edge (edge_cache, bb, BASIC_BLOCK (i + 1), 0);
+
       /* Edges for control flow altering statements (goto, break,
          continue, return) need an edge to the corresponding target
          block.  */
@@ -500,7 +587,13 @@ make_edges ()
 	      return;
 	    }
 
-	  make_edge (edge_cache, switch_bb, bb, 0);
+	  /* If the preceding block begins a new scope, make the edge to
+	     that block instead.  */
+	  if (bb->pred && bb->pred->src && bb->pred->src->head_tree
+	      && TREE_CODE (bb->pred->src->head_tree) == SCOPE_STMT)
+	    make_edge (edge_cache, switch_bb, bb->pred->src, 0);
+	  else
+	    make_edge (edge_cache, switch_bb, bb, 0);
 	}
 
       /* Finally, if no edges were created above, this is a regular
@@ -547,7 +640,7 @@ make_ctrl_stmt_edges (edge_cache, bb)
 
     case SWITCH_STMT:
       /* Nothing to do.  Each label inside the switch statement will create
-         its own edge form the switch block.  */
+         its own edge from the switch block.  */
       break;
 
     default:
@@ -602,7 +695,6 @@ make_for_stmt_edges (edge_cache, bb)
      basic_block bb;
 {
   tree body_t, entry = bb->head_tree;
-  int ix;
   basic_block init_bb, cond_bb, expr_bb, body_bb;
 
   if (TREE_CODE (entry) != FOR_STMT)
@@ -635,15 +727,11 @@ make_for_stmt_edges (edge_cache, bb)
        block. Hence, loops with neither component will reduce to the
        condition block with a self-referencing edge.  */
 
-  /* Basic blocks for each component.  Note that the block numbers are
-     determined by make_for_stmt_blocks().  */
-  ix = bb->index + 1;
-
   /* make_for_stmt_blocks() guarantees that both condition and expression
      blocks exist in every for loop.  */
-  init_bb = BASIC_BLOCK (ix++);
-  cond_bb = BASIC_BLOCK (ix++);
-  expr_bb = BASIC_BLOCK (ix++);
+  init_bb = FOR_INIT_STMT_BB (bb);
+  cond_bb = FOR_COND_BB (bb);
+  expr_bb = FOR_EXPR_BB (bb);
   body_t = first_exec_stmt (FOR_BODY (entry));
   body_bb = (body_t) ? BB_FOR_STMT (body_t) : expr_bb;
 
@@ -937,25 +1025,25 @@ delete_unreachable_blocks ()
 
   /* Delete all unreachable basic blocks.  Count down so that we
      don't interfere with the block renumbering that happens in
-     delete_block.  */
+     delete_bb.  */
   for (i = n_basic_blocks - 1; i >= 0; --i)
     {
       basic_block bb = BASIC_BLOCK (i);
 
       if (!(bb->flags & BB_REACHABLE))
-	delete_block (bb);
+	delete_bb (bb);
     }
 }
 
 /* }}} */
 
-/* {{{ delete_block()
+/* {{{ delete_bb()
 
    Remove a block from the flowgraph.  Emit a warning if -Wunreachable-code
    is set.  */
 
 static void
-delete_block (bb)
+delete_bb (bb)
      basic_block bb;
 {
   edge e, next, *q;
@@ -965,8 +1053,6 @@ delete_block (bb)
     {
       tree stmt;
 
-      /* The only nodes whose head tree is not a statement are condition
-         nodes for DO_STMT and WHILE_STMT loops.  */
       if (statement_code_p (TREE_CODE (bb->head_tree)))
 	stmt = bb->head_tree;
       else
@@ -976,9 +1062,7 @@ delete_block (bb)
       warning ("unreachable statement");
     }
 
-  /* Remove all the instructions in the block.
-
-     FIXME - This merely unmaps the statements.  We should remove them.  */
+  /* Unmap all the instructions in the block.  */
   t = bb->head_tree;
   while (t)
     {
@@ -1061,7 +1145,8 @@ block_invalidates_loop (bb, loop)
      basic_block bb;
      struct loop *loop;
 {
-  tree t;
+  size_t i;
+  varray_type refs;
 
   /* Valid loops cannot contain a return statement.  */
   if (TREE_CODE (bb->end_tree) == RETURN_STMT)
@@ -1073,17 +1158,17 @@ block_invalidates_loop (bb, loop)
       && ! TEST_BIT (loop->nodes, bb->succ->dest->index))
     return 1;
 
-  for (t = bb->head_tree; t; t = TREE_CHAIN (t))
+  /* If the node contains a non-pure function call, mark it invalid.  */
+  refs = BB_REFS (bb);
+  for (i = 0; i < VARRAY_ACTIVE_SIZE (refs); i++)
     {
-      /* Call to user function.
-	 FIXME: Should check that this is actually a user function.  */
+      varref ref = VARRAY_GENERIC_PTR (refs, i);
+      tree fcall = VARREF_SYM (ref);
 
-      if (TREE_CODE (t) == EXPR_STMT
-	  && TREE_CODE (EXPR_STMT_EXPR (t)) == CALL_EXPR)
+      if (TREE_CODE (fcall) == FUNCTION_DECL
+	  && ! DECL_IS_PURE (fcall)
+	  && ! DECL_BUILT_IN (fcall))
 	return 1;
-
-      if (t == bb->end_tree)
-	break;
     }
 
   return 0;
@@ -1161,7 +1246,8 @@ is_ctrl_stmt (t)
   return (TREE_CODE (t) == FOR_STMT
 	  || TREE_CODE (t) == IF_STMT
 	  || TREE_CODE (t) == WHILE_STMT
-	  || TREE_CODE (t) == SWITCH_STMT || TREE_CODE (t) == DO_STMT);
+	  || TREE_CODE (t) == SWITCH_STMT
+	  || TREE_CODE (t) == DO_STMT);
 }
 
 /* }}} */
@@ -1202,6 +1288,64 @@ is_loop_stmt (t)
 
 /* }}} */
 
+/* {{{ loop_body()
+
+   Return the first statement in the body of LOOP.  */
+
+tree
+loop_body (loop)
+     tree loop;
+{
+  if (TREE_CODE (loop) == FOR_STMT)
+    return FOR_BODY (loop);
+  else if (TREE_CODE (loop) == WHILE_STMT)
+    return WHILE_BODY (loop);
+  else if (TREE_CODE (loop) == DO_STMT)
+    return DO_BODY (loop);
+  else
+    abort ();
+}
+
+/* }}} */
+
+/* {{{ set_loop_body()
+
+   Set the body of LOOP to be STMT.  */
+
+void
+set_loop_body (loop, stmt)
+     tree loop;
+     tree stmt;
+{
+  tree *prev_chain_p;
+
+  if (TREE_CODE (loop) == FOR_STMT)
+    {
+      prev_chain_p = &(FOR_BODY (loop));
+      FOR_BODY (loop) = stmt;
+    }
+  else if (TREE_CODE (loop) == WHILE_STMT)
+    {
+      prev_chain_p = &(WHILE_BODY (loop));
+      WHILE_BODY (loop) = stmt;
+    }
+  else if (TREE_CODE (loop) == DO_STMT)
+    {
+      prev_chain_p = &(DO_BODY (loop));
+      DO_BODY (loop) = stmt;
+    }
+  else
+    abort ();
+
+  /* Create a sub-flowgraph for the new statement and re-compute edges in
+     the flowgraph.  */
+  make_blocks (stmt, BB_FOR_STMT (loop), TREE_COMPOUND_STMT (loop),
+               prev_chain_p);
+  make_edges ();
+}
+
+/* }}} */
+
 /* {{{ stmt_starts_bb_p()
 
    Return 1 if the given tree should start a new basic block.  */
@@ -1216,7 +1360,9 @@ stmt_starts_bb_p (t)
   return (TREE_CODE (t) == CASE_LABEL
 	  || TREE_CODE (t) == LABEL_STMT
 	  || TREE_CODE (t) == RETURN_STMT
-	  || TREE_CODE (t) == COMPOUND_STMT || is_ctrl_stmt (t));
+	  || TREE_CODE (t) == COMPOUND_STMT
+	  || is_statement_expression (t)
+	  || is_ctrl_stmt (t));
 }
 
 /* }}} */
@@ -1261,7 +1407,9 @@ delete_cfg ()
     {
       bb_ann ann = BB_ANN (BASIC_BLOCK (i));
       ann->parent = NULL;
-      ann->refs = NULL;
+      /* There is no need to delete the arrays in each of the reference.
+	 That is done by delete_ssa().  */
+      VARRAY_FREE (ann->refs);
       BASIC_BLOCK (i)->aux = NULL;
     }
 
@@ -1292,27 +1440,22 @@ loop_parent (bb)
 
    Returns the block marking the end of the loop body.  This is the block
    that contains the back edge to the start of the loop (i.e., to the block
-   containing DO_COND or WHILE_COND or FOR_COND).
-   
-   ??? Note that this relies heavily on the order in which basic blocks
-       get constructed, but I couldn't find another way of dealing with
-       this.  */
+   containing DO_COND or WHILE_COND or FOR_COND).  */
 
 basic_block
 latch_block (loop_bb)
      basic_block loop_bb;
 {
-  int index;
   enum tree_code code = TREE_CODE (loop_bb->head_tree);
 
   if (code == FOR_STMT)
-    index = loop_bb->index + 3;
-  else if (code == DO_STMT || code == WHILE_STMT)
-    index = loop_bb->index + 1;
+    return FOR_EXPR_BB (loop_bb);
+  else if (code == WHILE_STMT)
+    return WHILE_COND_BB (loop_bb);
+  else if (code == DO_STMT)
+    return DO_COND_BB (loop_bb);
   else
     abort ();
-
-  return BASIC_BLOCK (index);
 }
 
 /* }}} */
@@ -1377,6 +1520,32 @@ first_exec_stmt (t)
 
 /* }}} */
 
+/* {{{ last_exec_stmt (t)
+
+   Return the last executable statement starting at T.  */
+
+tree
+last_exec_stmt (t)
+     tree t;
+{
+  tree prev;
+
+  if (t == NULL)
+    return NULL;
+
+  prev = NULL;
+  t = first_exec_stmt (t);
+  while (t && is_exec_stmt (t))
+    {
+      prev = t;
+      t = TREE_CHAIN (t);
+    }
+
+  return prev;
+}
+
+/* }}} */
+
 /* {{{ is_exec_stmt()
 
    Return 1 if T is an executable statement.  */
@@ -1387,7 +1556,735 @@ is_exec_stmt (t)
 {
   return (t
           && statement_code_p (TREE_CODE (t))
-          && TREE_CODE (t) != COMPOUND_STMT && TREE_CODE (t) != SCOPE_STMT);
+          && TREE_CODE (t) != COMPOUND_STMT
+          && ! (TREE_CODE (t) == SCOPE_STMT && SCOPE_END_P (t)));
+}
+
+/* }}} */
+
+/* {{{ is_statement_expression()
+
+   Return 1 if T is a statement-expression.  */
+
+int
+is_statement_expression (t)
+     tree t;
+{
+  return (TREE_CODE (t) == EXPR_STMT
+	  && TREE_OPERAND (t, 0)
+	  && TREE_CODE (TREE_OPERAND (t, 0)) == STMT_EXPR);
+}
+
+/* }}} */
+
+/* {{{ first_non_decl_stmt()
+
+   Returns the first statement that is not a DECL_STMT or SCOPE_STMT, starting
+   with T.  */
+
+tree
+first_non_decl_stmt (t)
+     tree t;
+{
+  while (t && (TREE_CODE (t) == SCOPE_STMT || TREE_CODE (t) == DECL_STMT))
+    t = TREE_CHAIN (t);
+
+  return t;
+}
+
+/* }}} */
+
+/* {{{ first_decl_stmt()
+
+   Returns the first statement that is not a DECL_STMT or SCOPE_STMT, starting
+   with T.  */
+
+tree
+first_decl_stmt (t)
+     tree t;
+{
+  while (t && TREE_CODE (t) != DECL_STMT)
+    t = TREE_CHAIN (t);
+
+  return t;
+}
+
+/* }}} */
+
+/* {{{ first_non_label_in_bb()
+
+   Returns the first executable statement that is not a LABEL or CASE_LABEL
+   in basic block BB.  Returns NULL if the block only contains labels.  */
+
+tree
+first_non_label_in_bb (bb)
+     basic_block bb;
+{
+  tree t;
+
+  t = bb->head_tree;
+  while (t 
+         && is_exec_stmt (t)
+	 && t != bb->end_tree
+	 && (TREE_CODE (t) == LABEL_STMT
+	     || TREE_CODE (t) == CASE_LABEL))
+    t = TREE_CHAIN (t);
+
+  return ((t && t != bb->end_tree) ? t : NULL);
+}
+
+/* }}} */
+
+
+/* Code insertion and replacement.  */
+
+/* {{{ insert_stmt_tree_before()
+
+   Insert statement STMT before tree WHERE in basic block BB.  The
+   insertion is flow-sensitive.  After insertion, statement STMT is
+   guaranteed to always execute before WHERE.
+
+   ??? Important, this code only supports the insertion of simple
+   statements. Inserting control statements will require re-computing the
+   flowgraph.
+   
+   Also, insertion of expressions is not supported.  The code is
+   not prepared to handle all the side-effects and look for correct
+   sequence points where to insert arbitrary expressions.  */
+
+void
+insert_stmt_tree_before (stmt, where, bb)
+     tree stmt;
+     tree where;
+     basic_block bb;
+{
+  /* Make sure STMT is a statement with no existing chain.  */
+  if (! statement_code_p (TREE_CODE (stmt)) || TREE_CHAIN (stmt))
+    abort ();
+
+  cfg_dump_file = dump_begin (TDI_cfg, &cfg_dump_flags);
+
+  /* If the basic block contains a control flow expression, we may need
+     to do other insertions.  */
+  if (bb->flags & BB_CONTROL_EXPR)
+    insert_before_ctrl_stmt (stmt, where, bb);
+  else
+    insert_before_normal_stmt (stmt, where, bb);
+
+  if (cfg_dump_file)
+    dump_end (TDI_cfg, cfg_dump_file);
+}
+
+/* }}} */
+
+/* {{{ insert_before_ctrl_stmt()
+
+   Subroutine of insert_stmt_before() to handle insertions in control
+   header blocks.  */
+
+static void
+insert_before_ctrl_stmt (stmt, where, bb)
+     tree stmt;
+     tree where;
+     basic_block bb;
+{
+  basic_block parent_bb;
+  tree parent;
+
+  /* If BB is already a control entry block (IF, WHILE, CASE), then we
+     don't need to go to its parent.  */
+  parent_bb = (bb->flags & BB_CONTROL_ENTRY) ? bb : BB_PARENT (bb);
+  parent = parent_bb->head_tree;
+
+  if (cfg_dump_file)
+    {
+      fprintf (cfg_dump_file, "\nAbout to insert statement: ");
+      print_node_brief (cfg_dump_file, "", stmt, 0);
+      fprintf (cfg_dump_file, "\nBefore statement: ");
+      print_node_brief (cfg_dump_file, "", parent, 0);
+      fprintf (cfg_dump_file, " (line %d)\n", STMT_LINENO (parent));
+      fprintf (cfg_dump_file, "At basic block %d\n", bb->index);
+    }
+
+  /* If this is not a loop, do a normal insertion before the control
+     statement's entry point.  */
+  if (! is_loop_stmt (parent))
+    insert_before_normal_stmt (stmt, parent, parent_bb);
+
+  /* WHILE_STMT block.  Insert before the entry block and after the last
+     block in the body.  */
+  else if (TREE_CODE (parent) == WHILE_STMT)
+    {
+      insert_before_normal_stmt (stmt, parent, bb);
+
+      if (first_exec_stmt (first_non_decl_stmt (WHILE_BODY (parent))) == NULL)
+	WHILE_BODY (parent) = copy_node (stmt);
+      else
+	insert_after_loop_body (copy_node (stmt), parent_bb);
+    }
+
+  /* DO_STMT block.  Insert at the end of the loop body.  */
+  else if (TREE_CODE (parent) == DO_STMT)
+    {
+      if (first_exec_stmt (first_non_decl_stmt (DO_BODY (parent))) == NULL)
+	DO_BODY (parent) = stmt;
+      else
+	insert_after_loop_body (stmt, parent_bb);
+    }
+
+  /* FOR_STMT block.  Check which of FOR_INIT_EXPR, FOR_COND or FOR_EXPR we
+     are dealing with.  */
+  else if (TREE_CODE (parent) == FOR_STMT)
+    {
+      /* FOR_INIT_STMT.  Insert before its first statement.  */
+      if (bb == FOR_INIT_STMT_BB (parent_bb))
+	{
+	  if (first_exec_stmt (FOR_INIT_STMT (parent)) == NULL)
+	    FOR_INIT_STMT (parent) = stmt;
+	  else
+	    insert_before_normal_stmt (stmt, where, bb);
+	}
+
+      /* FOR_COND block.  Insert at the end of FOR_INIT_STMT and at the end
+	 of FOR_EXPR.  */
+      else if (bb == FOR_COND_BB (parent_bb))
+	{
+	  tree last_stmt = last_exec_stmt (FOR_INIT_STMT (parent));
+	  if (last_stmt)
+	    insert_after_normal_stmt (stmt, last_stmt,
+				      BB_FOR_STMT (last_stmt));
+	  else
+	    FOR_INIT_STMT (parent) = stmt;
+
+	  last_stmt = last_exec_stmt (FOR_EXPR (parent));
+	  if (last_stmt)
+	    insert_after_normal_stmt (copy_node (stmt), last_stmt,
+				      BB_FOR_STMT (last_stmt));
+	  else
+	    FOR_EXPR (parent) = copy_node (stmt);
+	}
+
+      /* FOR_EXPR block.  Insert at the end of the loop body.  */
+      else if (bb == FOR_EXPR_BB (parent_bb))
+	{
+	  if (first_exec_stmt (first_non_decl_stmt (FOR_BODY (parent))) == NULL)
+	    FOR_BODY (parent) = stmt;
+	  else
+	    insert_after_loop_body (stmt, parent_bb);
+	}
+      else
+	abort();
+    }
+  
+  else
+    abort ();
+}
+
+/* }}} */
+
+/* {{{ insert_before_normal_stmt()
+
+   Subroutine of insert_stmt_tree_before() to handle insertions in regular
+   statements.  If STMT is inserted before a block boundary, a new basic
+   block is created to hold it.  */
+
+static void
+insert_before_normal_stmt (stmt, where, bb)
+     tree stmt;
+     tree where;
+     basic_block bb;
+{
+  /* If the insertion is somewhere in the middle of the block, look for
+     the insertion point starting at the head.  */
+  if (where != bb->head_tree)
+    {
+      tree last, prev;
+
+      prev = NULL;
+      last = bb->head_tree;
+      while (last && last != where)
+	{
+	  prev = last;
+	  last = TREE_CHAIN (last);
+	}
+
+      if (prev == NULL)
+	abort ();
+
+      TREE_CHAIN (prev) = stmt;
+      TREE_CHAIN (stmt) = where;
+      map_stmt_to_bb (stmt, bb);
+
+      if (cfg_dump_file)
+	{
+	  fprintf (cfg_dump_file, "\nInserted statement: ");
+	  print_node_brief (cfg_dump_file, "", stmt, 0);
+	  fprintf (cfg_dump_file, "\nBefore statement  : ");
+	  print_node_brief (cfg_dump_file, "", where, 0);
+	  fprintf (cfg_dump_file, " (line %d)\n", STMT_LINENO (where));
+	  fprintf (cfg_dump_file, "At basic block %d\n", bb->index);
+	}
+    }
+
+  /* Otherwise, insert the statement in the previous tree's
+     TREE_CHAIN and create a new basic block holding the statement, if
+     needed.  */
+  else
+    {
+      basic_block new_bb = NULL;
+      tree *prev_chain_p = BB_PREV_CHAIN_P (bb);
+
+      *prev_chain_p = stmt;
+      TREE_CHAIN (stmt) = where;
+      if (is_ctrl_stmt (where))
+	{
+	  new_bb = create_bb (stmt, stmt, BB_PARENT (bb), prev_chain_p);
+	  insert_bb_before (new_bb, bb);
+	}
+      else
+	{
+	  map_stmt_to_bb (stmt, bb);
+	  bb->head_tree = stmt;
+	}
+
+      if (cfg_dump_file)
+	{
+	  fprintf (cfg_dump_file, "\nInserted statement: ");
+	  print_node_brief (cfg_dump_file, "", stmt, 0);
+	  fprintf (cfg_dump_file, "\nBefore statement  : ");
+	  print_node_brief (cfg_dump_file, "", where, 0);
+	  fprintf (cfg_dump_file, " (line %d)\n", STMT_LINENO (where));
+	  if (new_bb)
+	    fprintf (cfg_dump_file, "Created new basic block %d\n",
+		     new_bb->index);
+	  else
+	    fprintf (cfg_dump_file, "At basic block %d\n", bb->index);
+	}
+    }
+}
+
+/* }}} */
+
+/* {{{ insert_stmt_tree_after()
+
+   Insert statement STMT after statement WHERE in basic block BB.  The
+   insertion is flow-sensitive.  After insertion, statement STMT is
+   guaranteed to always execute after WHERE.
+
+   ??? Important, this code only supports the insertion of simple
+   statements. Inserting control statements will require re-computing the
+   flowgraph.
+   
+   Also, insertion of expressions is not supported.  The code is
+   not prepared to handle all the side-effects and look for correct
+   sequence points where to insert arbitrary expressions.  */
+
+void
+insert_stmt_tree_after (stmt, where, bb)
+     tree stmt;
+     tree where;
+     basic_block bb;
+{
+  /* Only accept statement trees.  */
+  if (! statement_code_p (TREE_CODE (stmt)))
+    abort ();
+
+  cfg_dump_file = dump_begin (TDI_cfg, &cfg_dump_flags);
+
+  if (bb->flags & BB_CONTROL_EXPR)
+    insert_after_ctrl_stmt (stmt, where, bb);
+  else
+    insert_after_normal_stmt (stmt, where, bb);
+
+  if (cfg_dump_file)
+    dump_end (TDI_cfg, cfg_dump_file);
+}
+
+/* }}} */
+
+/* {{{ insert_after_ctrl_stmt()
+
+   Subroutine of insert_stmt_tree_after() to handle insertions at control
+   statement header blocks.  */
+
+static void
+insert_after_ctrl_stmt (stmt, where, bb)
+     tree stmt;
+     tree where;
+     basic_block bb;
+{
+  basic_block parent_bb;
+  tree parent;
+  tree t;
+
+  /* If BB is already a control entry block (IF, WHILE, CASE), then we
+     don't need to go to its parent.  */
+  parent_bb = (bb->flags & BB_CONTROL_ENTRY) ? bb : BB_PARENT (bb);
+  parent = parent_bb->head_tree;
+
+  if (cfg_dump_file)
+    {
+      fprintf (cfg_dump_file, "\nAbout to insert statement: ");
+      print_node_brief (cfg_dump_file, "", stmt, 0);
+      fprintf (cfg_dump_file, "\nAfter statement: ");
+      print_node_brief (cfg_dump_file, "", parent, 0);
+      fprintf (cfg_dump_file, " (line %d)\n", STMT_LINENO (parent));
+      fprintf (cfg_dump_file, "At basic block %d\n", bb->index);
+    }
+
+  /* IF_STMT block.  Insert before THEN_CLAUSE and ELSE_CLAUSE.  */
+  if (TREE_CODE (parent) == IF_STMT)
+    {
+      t = first_exec_stmt (first_non_decl_stmt (THEN_CLAUSE (parent)));
+      if (t == NULL)
+	THEN_CLAUSE (parent) = stmt;
+      else
+	insert_before_normal_stmt (stmt, t, BB_FOR_STMT (t));
+
+      t = first_exec_stmt (first_non_decl_stmt (ELSE_CLAUSE (parent)));
+      if (t == NULL)
+	ELSE_CLAUSE (parent) = copy_node (stmt);
+      else
+	insert_before_normal_stmt (copy_node (stmt), t, BB_FOR_STMT (t));
+    }
+
+  /* SWITCH_STMT block.  Insert before each case block (after the label).  */
+  else if (TREE_CODE (parent) == SWITCH_STMT)
+    {
+      edge e;
+
+      for (e = parent_bb->succ; e; e = e->succ_next)
+	{
+	  basic_block succ_bb = e->dest;
+	  t = first_non_label_in_bb (succ_bb);
+	  if (t)
+	    insert_before_normal_stmt (copy_node (stmt), t, succ_bb);
+	}
+    }
+
+  /* WHILE_STMT block.  Insert before the first statement in the body.  */
+  else if (TREE_CODE (parent) == WHILE_STMT)
+    {
+      t = first_exec_stmt (first_non_decl_stmt (WHILE_BODY (parent)));
+      if (t == NULL)
+	WHILE_BODY (parent) = stmt;
+      else
+	insert_before_normal_stmt (stmt, t, BB_FOR_STMT (t));
+    }
+
+  /* DO_STMT block.  Insert before the first statement in the body.
+     FIXME: This is wrong, we should be replacing the conditional
+            with an expression-statement.  */
+  else if (TREE_CODE (parent) == DO_STMT)
+    {
+      t = first_exec_stmt (first_non_decl_stmt (DO_BODY (parent)));
+      if (t == NULL)
+	DO_BODY (parent) = stmt;
+      else
+	insert_before_normal_stmt (stmt, t, BB_FOR_STMT (t));
+    }
+
+  /* FOR_STMT block.  Check which of FOR_INIT_STMT, FOR_COND or FOR_EXPR
+     we are dealing with.  */
+  else if (TREE_CODE (parent) == FOR_STMT)
+    {
+      /* FOR_INIT_STMT block.  Insert after the last init statement.  */
+      if (bb == FOR_INIT_STMT_BB (parent_bb))
+	{
+	  t = last_exec_stmt (FOR_INIT_STMT (parent));
+	  if (t == NULL)
+	    FOR_INIT_STMT (parent) = stmt;
+	  else
+	    insert_after_normal_stmt (stmt, t, bb);
+	}
+
+      /* FOR_COND block.  Insert before the first statement in the body.  */
+      else if (bb == FOR_COND_BB (parent_bb))
+	{
+	  t = first_exec_stmt (first_non_decl_stmt (FOR_BODY (parent)));
+	  if (t == NULL)
+	    FOR_BODY (parent) = stmt;
+	  else
+	    insert_before_normal_stmt (stmt, t, BB_FOR_STMT (t));
+	}
+
+      /* FOR_EXPR block.  Insert after the last expr statement.  */
+      else if (bb == FOR_EXPR_BB (parent_bb))
+	{
+	  t = last_exec_stmt (FOR_EXPR (parent));
+	  if (t == NULL)
+	    FOR_EXPR (parent) = stmt;
+	  else
+	    insert_after_normal_stmt (stmt, t, bb);
+	}
+      
+      else
+	abort ();
+    }
+
+  else
+    abort ();
+}
+
+/* }}} */
+
+/* {{{ insert_after_normal_stmt()
+
+   Subroutine of insert_stmt_tree_after() to insert after normal
+   statements.  */
+
+static void
+insert_after_normal_stmt (stmt, where, bb)
+     tree stmt;
+     tree where;
+     basic_block bb;
+{
+  /* If the statement goes at the end of the block, we need to adjust the
+     PREV_CHAIN_P pointer of each successor block that was pointing back to
+     TREE_CHAIN (where).  */
+  if (where == bb->end_tree)
+    {
+      edge e;
+
+      for (e = bb->succ; e; e = e->succ_next)
+	{
+	  basic_block succ_bb = e->dest;
+
+	  if (BB_PREV_CHAIN_P (succ_bb) == &(TREE_CHAIN (where)))
+	    get_bb_ann (succ_bb)->prev_chain_p = &(TREE_CHAIN (stmt));
+	}
+    }
+
+  /* Chain STMT after WHERE.  */
+  TREE_CHAIN (stmt) = TREE_CHAIN (where);
+  TREE_CHAIN (where) = stmt;
+
+  /* Extend the basic block to contain STMT.  */
+  map_stmt_to_bb (stmt, bb);
+  if (where == bb->end_tree)
+    bb->end_tree = stmt;
+
+  if (cfg_dump_file)
+    {
+      fprintf (cfg_dump_file, "\nInserted statement: ");
+      print_node_brief (cfg_dump_file, "", stmt, 0);
+      fprintf (cfg_dump_file, "\nAfter statement  : ");
+      print_node_brief (cfg_dump_file, "", where, 0);
+      fprintf (cfg_dump_file, " (line %d)\n", STMT_LINENO (where));
+      fprintf (cfg_dump_file, "At basic block %d\n", bb->index);
+    }
+}
+
+/* }}} */
+
+/* {{{ insert_after_loop_body()
+
+   Inserts STMT so that it will be executed after the body of the loop
+   starting at basic block LOOP.  */
+
+static void
+insert_after_loop_body (stmt, loop)
+     tree stmt;
+     basic_block loop;
+{
+  edge e;
+  tree last_stmt;
+  basic_block latch_bb;
+
+  /* For every predecessor PRED_BB of the latch block, we need to insert a
+     copy of STMT if PRED_BB ends in a CONTINUE_STMT, BREAK_STMT or if its
+     parent block is the loop header.
+
+     The last condition is to avoid inserting unnecessary copies in cases
+     like this one:
+
+     			for ()
+			  {
+			    ....
+			    if ()
+			      a;
+			    else
+			      b;
+			  }
+
+     In this case, both 'a' and 'b' are predecessors of the latch block,
+     but instead of inserting STMT twice, it's better to insert it after
+     the if() statement.  */
+  latch_bb = latch_block (loop);
+  for (e = latch_bb->pred; e; e = e->pred_next)
+    {
+      basic_block pred_bb = e->src;
+      last_stmt = pred_bb->end_tree;
+
+      if (TREE_CODE (last_stmt) == CONTINUE_STMT
+	  || TREE_CODE (last_stmt) == BREAK_STMT)
+	insert_before_normal_stmt (copy_node (stmt), pred_bb->end_tree,
+	                           pred_bb);
+    }
+
+  /* Insert STMT after the last executable statement in the loop body.  */
+  last_stmt = last_exec_stmt (loop_body (loop->head_tree));
+  insert_after_normal_stmt (copy_node (stmt), last_stmt, 
+                            BB_FOR_STMT (last_stmt));
+}
+
+/* }}} */
+
+/* {{{ replace_expr_in_tree()
+
+   Replace expression EXPR in statement STMT with NEW_EXPR.  */
+
+void
+replace_expr_in_tree (stmt, old_expr, new_expr)
+     tree stmt;
+     tree old_expr;
+     tree new_expr;
+{
+  tree *old_expr_p = find_expr_in_tree (stmt, old_expr);
+
+  cfg_dump_file = dump_begin (TDI_cfg, &cfg_dump_flags);
+  if (cfg_dump_file)
+    {
+      if (old_expr_p)
+	{
+	  fprintf (cfg_dump_file, "\nRequested expression: ");
+	  print_node_brief (cfg_dump_file, "", old_expr, 0);
+
+	  fprintf (cfg_dump_file, "\nReplaced expression:  ");
+	  print_node_brief (cfg_dump_file, "", *old_expr_p, 0);
+
+	  fprintf (cfg_dump_file, "\nWith expression:      ");
+	  print_node_brief (cfg_dump_file, "", new_expr, 0);
+	}
+      else
+	{
+	  fprintf (cfg_dump_file, "\nCould not find expression: ");
+	  print_node_brief (cfg_dump_file, "", old_expr, 0);
+	}
+
+      fprintf (cfg_dump_file, "\nIn statement:        ");
+      print_node_brief (cfg_dump_file, "", stmt, 0);
+
+      fprintf (cfg_dump_file, "\nBasic block:         ");
+      if (statement_code_p (TREE_CODE (stmt)))
+	fprintf (cfg_dump_file, "%d", BB_FOR_STMT (stmt)->index);
+      else
+	fprintf (cfg_dump_file, "-1");
+
+      fprintf (cfg_dump_file, "\nLine:                ");
+      if (statement_code_p (TREE_CODE (stmt)))
+	fprintf (cfg_dump_file, "%d", STMT_LINENO (stmt));
+      else
+	fprintf (cfg_dump_file, "-1");
+
+      fprintf (cfg_dump_file, "\n");
+
+      dump_end (TDI_cfg, cfg_dump_file);
+    }
+
+  if (old_expr_p)
+    *old_expr_p = new_expr;
+}
+
+/* }}} */
+
+/* {{{ find_expr_in_tree()
+
+   Returns the location of expression EXPR in T.  The search is guaranteed
+   to not go outside statement nodes, only their sub-expressions are
+   searched.  */
+
+tree *
+find_expr_in_tree (t, expr)
+     tree t;
+     tree expr;
+{
+  int i;
+  tree *loc;
+
+  if (t == NULL || t == error_mark_node
+      || expr == NULL || expr == error_mark_node)
+    return NULL;
+
+  /* Deal with special trees first.  */
+  switch (TREE_CODE (t))
+    {
+      case COMPLEX_CST:
+      case INTEGER_CST:
+      case LABEL_DECL:
+      case REAL_CST:
+      case RESULT_DECL:
+      case STRING_CST:
+	return NULL;
+
+      case TREE_LIST:
+	  {
+	    tree op;
+
+	    /* Try the list elements.  */
+	    for (op = t; op; op = TREE_CHAIN (op))
+	      if (TREE_VALUE (op) == expr)
+		return &(TREE_VALUE (op));
+
+	    /* Not there?  Recurse into each of the list elements.  */
+	    for (op = t; op; op = TREE_CHAIN (op))
+	      {
+		loc = find_expr_in_tree (TREE_VALUE (op), expr);
+		if (loc)
+		  return loc;
+	      }
+
+	    return NULL;
+	  }
+
+      default:
+	break;
+    }
+
+  /* Try the immediate operands.  */
+  for (i = 0; i < TREE_CODE_LENGTH (TREE_CODE (t)); i++)
+    if (TREE_OPERAND (t, i) == expr)
+      return &(TREE_OPERAND (t, i));
+
+  /* If we still haven't found it, recurse into each sub-expression of T.  */
+  for (i = 0; i < TREE_CODE_LENGTH (TREE_CODE (t)); i++)
+    {
+      loc = find_expr_in_tree (TREE_OPERAND (t, i), expr);
+      if (loc)
+	return loc;
+    }
+
+  /* Finally, if T is not a statement, recurse into its chain (this limits
+     the search to a single statement).  */
+  if (! statement_code_p (TREE_CODE (t)))
+    {
+      loc = find_expr_in_tree (TREE_CHAIN (t), expr);
+      if (loc)
+	return loc;
+    }
+
+  return NULL;
+}
+
+/* }}} */
+
+/* {{{ insert_bb_before()
+
+   Insert basic block NEW_BB before BB.  */
+
+void
+insert_bb_before (new_bb, bb)
+     basic_block new_bb;
+     basic_block bb;
+{
+  edge e;
+
+  /* Reconnect BB's predecessors to NEW_BB.  */
+  for (e = bb->pred; e; e = e->pred_next)
+    redirect_edge_succ (e, new_bb);
+
+  /* Create the edge NEW_BB -> BB.  */
+  make_edge (NULL, new_bb, bb, 0);
 }
 
 /* }}} */
@@ -1453,6 +2350,26 @@ tree_dump_bb (outf, prefix, bb, indent)
     fprintf (outf, "%d\n", BB_PARENT (bb)->index);
   else
     fputs ("nil\n", outf);
+
+  fprintf (outf, "%s%sPrevious stmt: ", s_indent, prefix);
+  if (BB_PREV_CHAIN_P (bb))
+    {
+      tree *t = BB_PREV_CHAIN_P (bb);
+      lineno = (*t && statement_code_p (TREE_CODE (*t)))
+	       ? STMT_LINENO (*t)
+	       : -1;
+      print_node_brief (outf, "", *t, 0);
+      fprintf (outf, " (line: %d)\n", lineno);
+    }
+  else
+    fputs ("nil\n", outf);
+    
+  fprintf (outf, "%s%sBinding scope block: ", s_indent, prefix);
+  if (BB_BINDING_SCOPE (bb))
+    fprintf (outf, "%d\n", BB_BINDING_SCOPE (bb)->index);
+  else
+    fputs ("nil\n", outf);
+
 
   fprintf (outf, "%s%sLoop depth: %d\n", s_indent, prefix, bb->loop_depth);
 }

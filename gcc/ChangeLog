@@ -1,3 +1,167 @@
+2001-09-29  Diego Novillo  <dnovillo@redhat.com>
+
+	* Makefile.in (tree-ssa.o): Update dependencies.
+	(tree-cfg.o): Ditto.
+	(tree-optimize.o): Ditto.
+	* basic-block.h (BB_CONTROL_EXPR): Define.
+	(BB_CONTROL_ENTRY): Define.
+	* c-common.h (TDF_RDEFS): Define.
+	* c-dump.c (dump_option_value_in): Add entry for TDF_RDEFS.
+	* tree-cfg.c: Include flags.h and c-tree.h
+	(binding_stack): New local variable.
+	(delete_block): Rename to delete_bb.
+	(tree_find_basic_blocks): Initialize varray 'binding_stack'.
+	Call make_blocks with an additional argument.
+	Adjust size of varray 'basic_block_info' after building CFG.
+	(make_blocks): Add new argument prev_chain_p.
+	Update all callers and callees.
+	Create sub-graphs for statement-expressions.
+	Update prev_chain_p when accessing the next tree in the chain.
+	(make_for_stmt_blocks): Add new argument prev_chain_p.
+	Update all callers and callees.
+	Update flags for control header blocks with BB_CONTROL_ENTRY and/or
+	BB_CONTROL_EXPR.
+	(make_while_stmt_blocks): Ditto.
+	(make_do_stmt_blocks): Ditto.
+	(make_if_stmt_blocks): Ditto.
+	(make_switch_stmt_blocks): Ditto.
+	(create_maximal_bb): Add new argument prev_chain_p.
+	Update all callers and callees.
+	(create_bb): Add new argument prev_chain_p.
+	Push basic block 0 the first time into the binding scope stack.
+	Associate the new basic block to the binding scope at the top of
+	the binding stack.
+	Push new binding scopes when a SCOPE_BEGIN statement is found.
+	Pop the top binding scope when a SCOPE_END statement is found.
+	(make_edges): Handle statement expressions.
+	Handle case labels preceded by scope statements in switch
+	statements.
+	(make_for_stmt_edges): Use FOR_INIT_STMT_BB, FOR_COND_BB and
+	FOR_EXPR_BB to access the header basic blocks.
+	(delete_unreachable_blocks): Call delete_bb instead of
+	delete_block.
+	(delete_block): Rename to delete_bb.
+	(block_invalidates_loop): Use data references to find calls to
+	non-pure functions.
+	(is_ctrl_stmt): Reformat.
+	(loop_body): New function.
+	(set_loop_body): New function.
+	(stmt_starts_bb_p): Statement expression trees also start a new
+	basic block.
+	(delete_cfg): Call VARRAY_FREE to delete all the references in each
+	basic block.
+	(latch_block): Use FOR_EXPR_BB, WHILE_COND_BB and DO_COND_BB to
+	find out the latch block for the loop.
+	(last_exec_stmt): New function.
+	(is_exec_stmt): Scope statements that begin a scope are also
+	considered executables.
+	(is_statement_expression): New function.
+	(first_non_decl_stmt): New function.
+	(first_decl_stmt): New function.
+	(first_non_label_in_bb): New function.
+	(insert_stmt_tree_before): New function.
+	(insert_before_ctrl_stmt): New function.
+	(insert_before_normal_stmt): New function.
+	(insert_stmt_tree_after): New function.
+	(insert_after_ctrl_stmt): New function.
+	(insert_after_normal_stmt): New function.
+	(insert_after_loop_body): New function.
+	(replace_expr_in_tree): New function.
+	(find_expr_in_tree): New function.
+	(insert_bb_before): New function.
+	(tree_dump_bb): Display the contents of BB_PREV_CHAIN_P.
+	* tree-dfa.c (tree_find_varrefs): Use accessor macros for array
+	'referenced_symbols'.
+	(find_refs_in_stmt): Do not process error_mark_node trees.
+	Handle statement-expression nodes as any other statement tree.
+	Do not call find_refs_in_stmt_expr.
+	(find_refs_in_stmt_expr): Remove.
+	(add_ref_to_sym): Remove.
+	(add_ref_to_bb): Remove.
+	(find_refs_in_expr): Do not process error_mark_node trees.
+	ADDR_EXPR trees are not variable references except if used in a
+	CALL_EXPR node.
+	Handle EXPR_WITH_FILE_LOCATION nodes.
+	(create_varref): Remove variable 'is_new'.
+	Initialize data-flow arrays VARDEF_IMM_USES, VARDEF_RUSES,
+	VARDEF_PHI_CHAIN and VARUSE_RDEFS.
+	Do not call add_ref_to_sym and add_ref_to_bb.
+	(add_ref_symbol): Use accessor macros for varray
+	'referenced_symbols'.
+	(function_may_recurse_p): New function.
+	(get_fcalls): New function.
+	(find_declaration): New function.
+	(dump_varref): Handle NULL values of VARREF_EXPR.
+	Use VARDEF_PHI_CHAIN instead of VARPHI_CHAIN.
+	(dump_varref_list): Check if the list is NULL before traversing it.
+	* tree-flow.h (struct vardef): Add fields 'ruses', 'marked' and
+	'phi_chain'.
+	(VARDEF_RUSES): Define.
+	(VARDEF_MARKED): Define.
+	(VARDEF_PHI_CHAIN): Define.
+	(VARPHI_CHAIN): Remove.
+	(struct varphi): Remove.
+	(struct varuse): Add field 'rdefs'.
+	(VARUSE_RDEFS): Define.
+	(union varref_def): Remove field 'phi'.
+	(IS_GHOST_DEF): Define.
+	(IS_ARTIFICIAL_REF): Define.
+	(struct bb_ann_def): Add fields 'prev_chain_p' and 'binding_scope'.
+	(BB_PREV_CHAIN_P): Define.
+	(BB_BINDING_SCOPE): Define.
+	(FOR_INIT_STMT_BB): Define.
+	(FOR_COND_BB): Define.
+	(FOR_EXPR_BB): Define.
+	(WHILE_COND_BB): Define.
+	(DO_COND_BB): Define.
+	(IF_COND_BB): Define.
+	(CASE_COND_BB): Define.
+	(NREF_SYMBOLS): Define.
+	(REF_SYMBOL): Define.
+	(ADD_REF_SYMBOL): Define.
+	(FCALL_NON_PURE): Define.
+	(FCALL_PURE): Define.
+	(FCALL_BUILT_IN): Define.
+	(loop_body): Declare.
+	(set_loop_body): Declare.
+	(last_exec_stmt): Declare.
+	(is_statement_expression): Declare.
+	(first_non_decl_stmt): Declare.
+	(first_decl_stmt): Declare.
+	(first_non_label_in_bb): Declare.
+	(insert_stmt_tree_before): Declare.
+	(insert_stmt_tree_after): Declare.
+	(replace_expr_in_tree): Declare.
+	(find_expr_in_tree): Declare.
+	(insert_bb_before): Declare.
+	(function_may_recurse_p): Declare.
+	(get_fcalls): Declare.
+	(find_declaration): Declare.
+	(tree_compute_rdefs): Declare.
+	(analyze_rdefs): Declare.
+	(is_upward_exposed): Declare.
+	* tree-optimize.c (optimize_tree): Update name for varray
+	referenced_symbols.
+	Free varray referenced_symbols and call delete_ssa on exit.
+	* tree-ssa.c: Include flags.h, diagnostic.h and toplev.h.
+	(tree_build_ssa): Create ghost definitions before building FUD
+	chains.
+	(insert_phi_terms): Use accessor macros for 'referenced_symbols'.
+	Ignore ghost definitions when placing PHI terms.
+	(build_fud_chains): Call get_tree_ann to create an annotation for
+	the symbol if it doesn't already have one.
+	(search_fud_chains): Reformat comments.
+	Do not initialize varray VARDEF_IMM_USES.
+	If a successor basic block does not have references, continue on to
+	the next one, do not stop.
+	Do not initialize varray VARDEF_PHI_CHAIN.
+	(delete_ssa): New function.
+	(delete_refs): New function.
+	(tree_compute_rdefs): New function.
+	(analyze_rdefs): New function.
+	(follow_chain): New function.
+	(is_upward_exposed): New function.
+
 2001-09-14  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-cfg.c (tree_find_basic_blocks): Remove call to
