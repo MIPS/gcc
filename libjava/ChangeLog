@@ -1,3 +1,14 @@
+2004-03-05  David Jee  <djee@redhat.com>
+
+	* gnu/java/awt/peer/gtk/GtkButtonPeer.java
+	(handleEvent): Action events are generated upon MOUSE_RELEASED.
+	* java/awt/Container.java
+	(acquireComponentForMouseEvent): Fixed.
+	(handleEvent): Fixed.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkEvents.c
+	(state_to_awt_mods_with_button_states): New method.
+	(pre_event_handler): Fixed mouse event generation.
+
 2004-03-05  Olga Rodimina  <rodimina@redhat.com>
 
 	gnu/java/awt/peer/gtk/GdkGraphics2D.java

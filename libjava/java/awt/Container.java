@@ -1553,6 +1553,9 @@ class LightweightDispatcher implements Serializable
   private long eventMask;
   
   private transient Component mouseEventTarget;
+  private transient Component pressedComponent;
+  private transient Component lastComponentEntered;
+  private transient int pressCount;
   
   LightweightDispatcher(Container c)
   {
@@ -1568,46 +1571,37 @@ class LightweightDispatcher implements Serializable
   {
     int x = me.getX ();
     int y = me.getY ();
-    Component candidate = mouseEventTarget;
-    
-    while(candidate != null)
+
+    // Find the candidate which should receive this event.
+    Component parent = nativeContainer;
+    Component candidate = null;
+    Point p = me.getPoint();
+    while (candidate == null && parent != null)
       {
-        if (candidate.isShowing())
-          {
-            // Convert our point to the candidate's parent's space.
-            Point cp = SwingUtilities.convertPoint(nativeContainer, x, y, candidate);
-            
-            // If the event lands inside candidate, we have a hit.
-            if (candidate.contains(cp.x, cp.y))
-              {
-                // If candidate has children, we refine the hit.
-                if (candidate instanceof Container &&
-                    ((Container)candidate).getComponentCount() > 0)              
-                  candidate = SwingUtilities.getDeepestComponentAt(candidate, cp.x, cp.y);
-                break;
-              }
-          }        
-        // If candidate isn't showing or doesn't contain point, we back out a level.
-        candidate = candidate.getParent();
-      }
-    
-    if (candidate == null)
-      {
-        // We either lost, or never had, a candidate; acquire from our native.
-        candidate = 
-          SwingUtilities.getDeepestComponentAt(nativeContainer, x, y);
+        candidate =
+          SwingUtilities.getDeepestComponentAt(parent, p.x, p.y);
+        if (candidate == null)
+        {
+          p = SwingUtilities.convertPoint(parent, p.x, p.y, parent.parent);
+          parent = parent.parent;
+        }
       }
 
+    // If the only candidate we found was the native container itself,
+    // don't dispatch any event at all.  We only care about the lightweight
+    // children here.
+    if (candidate == nativeContainer)
+      candidate = null;
 
     // If our candidate is new, inform the old target we're leaving.
-    if (mouseEventTarget != null
-        && mouseEventTarget.isShowing()
-        && mouseEventTarget != candidate)
+    if (lastComponentEntered != null
+        && lastComponentEntered.isShowing()
+        && lastComponentEntered != candidate)
       {
         Point tp = 
           SwingUtilities.convertPoint(nativeContainer, 
-                                      x, y, mouseEventTarget);
-        MouseEvent exited = new MouseEvent (mouseEventTarget, 
+                                      x, y, lastComponentEntered);
+        MouseEvent exited = new MouseEvent (lastComponentEntered, 
                                             MouseEvent.MOUSE_EXITED,
                                             me.getWhen (), 
                                             me.getModifiers (), 
@@ -1615,22 +1609,23 @@ class LightweightDispatcher implements Serializable
                                             me.getClickCount (),
                                             me.isPopupTrigger (),
                                             me.getButton ());
-        mouseEventTarget.dispatchEvent (exited); 
-        mouseEventTarget = null;
+        lastComponentEntered.dispatchEvent (exited); 
+        lastComponentEntered = null;
       }
 
     // If we have a candidate, maybe enter it.
     if (candidate != null)
       {
+        mouseEventTarget = candidate;
         if (candidate.isLightweight() 
             && candidate.isShowing()
             && candidate != nativeContainer
-            && candidate != mouseEventTarget)
+            && candidate != lastComponentEntered)
 	  {			
-            mouseEventTarget = candidate;
+            lastComponentEntered = mouseEventTarget;
             Point cp = SwingUtilities.convertPoint(nativeContainer, 
-                                                   x, y, candidate);
-            MouseEvent entered = new MouseEvent (mouseEventTarget, 
+                                                   x, y, lastComponentEntered);
+            MouseEvent entered = new MouseEvent (lastComponentEntered, 
                                                  MouseEvent.MOUSE_ENTERED,
                                                  me.getWhen (), 
                                                  me.getModifiers (), 
@@ -1638,8 +1633,28 @@ class LightweightDispatcher implements Serializable
                                                  me.getClickCount (),
                                                  me.isPopupTrigger (),
                                                  me.getButton ());
-            mouseEventTarget.dispatchEvent (entered);
+            lastComponentEntered.dispatchEvent (entered);
           }
+      }
+
+    if (me.getID() == MouseEvent.MOUSE_RELEASED
+        || me.getID() == MouseEvent.MOUSE_PRESSED && pressCount > 0
+        || me.getID() == MouseEvent.MOUSE_DRAGGED)
+      // If any of the following events occur while a button is held down,
+      // they should be dispatched to the same component to which the
+      // original MOUSE_PRESSED event was dispatched:
+      //   - MOUSE_RELEASED
+      //   - MOUSE_PRESSED: another button pressed while the first is held down
+      //   - MOUSE_DRAGGED
+      mouseEventTarget = pressedComponent;
+    else if (me.getID() == MouseEvent.MOUSE_CLICKED)
+      {
+        // Don't dispatch CLICKED events whose target is not the same as the
+        // target for the original PRESSED event.
+        if (candidate != pressedComponent)
+          mouseEventTarget = null;
+        else if (pressCount == 0)
+          pressedComponent = null;
       }
   }
 
@@ -1651,17 +1666,36 @@ class LightweightDispatcher implements Serializable
     if (e instanceof MouseEvent)
       {
         MouseEvent me = (MouseEvent) e;
+
         acquireComponentForMouseEvent(me);
 
-        // Avoid dispatching an ENTERED event twice.
+        // Avoid dispatching ENTERED and EXITED events twice.
         if (mouseEventTarget != null
             && mouseEventTarget.isShowing()
-            && e.getID() != MouseEvent.MOUSE_ENTERED)
+            && e.getID() != MouseEvent.MOUSE_ENTERED
+            && e.getID() != MouseEvent.MOUSE_EXITED)
           {
             MouseEvent newEvt = 
               SwingUtilities.convertMouseEvent(nativeContainer, me, 
                                                mouseEventTarget);
             mouseEventTarget.dispatchEvent(newEvt);
+
+            switch (e.getID())
+              {
+                case MouseEvent.MOUSE_PRESSED:
+                  if (pressCount++ == 0)
+                    pressedComponent = mouseEventTarget;
+                  break;
+
+                case MouseEvent.MOUSE_RELEASED:
+                  // Clear our memory of the original PRESSED event, only if
+                  // we're not expecting a CLICKED event after this. If
+                  // there is a CLICKED event after this, it will do clean up.
+                  if (--pressCount == 0
+                      && mouseEventTarget != pressedComponent)
+                    pressedComponent = null;
+                  break;
+              }
           }
       }
     else if (e instanceof KeyEvent && focus != null)
