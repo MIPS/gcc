@@ -4299,13 +4299,8 @@ fold_builtin (exp)
 	  enum built_in_function fcode;
 	  tree arg = TREE_VALUE (arglist);
 
-	  /* Optimize sqrt(0.0) = 0.0 and sqrt(1.0) = 1.0.  */
-	  if (real_zerop (arg) || real_onep (arg))
-	    return arg;
-
 	  /* Optimize sqrt of constant value.  */
-	  if (flag_unsafe_math_optimizations
-	      && TREE_CODE (arg) == REAL_CST
+	  if (TREE_CODE (arg) == REAL_CST
 	      && ! TREE_CONSTANT_OVERFLOW (arg))
 	    {
 	      enum machine_mode mode;

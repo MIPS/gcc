@@ -1,3 +1,9 @@
+2002-12-10  Roger Sayle  <roger@eyesopen.com>
+
+	* builtins.c (fold_builtin): Remove -funsafe-math-optimizations
+	check for evaluating sqrt of a constant at compile time.
+	* simplify-rtx.c (simplify_unary_operation): Likewise.
+
 2002-12-06  Per Bothner  <pbothner@apple.com>
 
 	* cpplib.h (struct cpp_hashnode):  Change field directive_index from
