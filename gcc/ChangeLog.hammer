@@ -1,3 +1,11 @@
+2004-01-31  Alan Modra  <amodra@bigpond.net.au>
+
+	Backport from mainline.
+	2003-12-03  Alan Modra  <amodra@bigpond.net.au>
+	PR target/11229
+	* cse.c (cse_insn): Set classp using src_const_elt if
+	src_eqv_elt is NULL.
+
 2004-01-30  Jan Hubicka  <jh@suse.cz>
 
 	* reload.c (get_secondary_mem):  Fix updating of
