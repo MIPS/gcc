@@ -1,3 +1,7 @@
+2000-05-18  Greg McGary  <greg@mcgary.org>
+
+	* libiberty.h (ARRAY_SIZE): New macro.
+
 2000-04-28  Kenneth Block  <block@zk3.dec.com>
 	    Jason Merrill  <jason@casey.cygnus.com>
 
