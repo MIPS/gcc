@@ -1,4 +1,9 @@
-2003-10-31  Richard Henderson  <rth@redhat.com>
+2003-10-30  Richard Henderson  <rth@redhat.com>
+
+        * c-objc-common.c (c_tree_printer): Handle types correctly.
+        Factor code a bit.
+
+2003-10-30  Richard Henderson  <rth@redhat.com>
 
         * cppcharset.c (one_utf8_to_utf16): Initialize 's' to silence warning.
 
