@@ -1,3 +1,11 @@
+2004-04-25  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/locale_facets.tcc (num_get<>::do_get(long&),
+	num_get<>::do_get(unsigned short&), num_get<>::do_get(unsigned int&),
+	num_get<>::do_get(unsigned long&), num_get<>::do_get(long long&),
+	num_get<>::do_get(unsigned long long&), num_get<>::do_get(void*&)):
+	Reserve space in __xtrc, thus speeding up the parsing.
+
 2004-04-23  Paolo Carlini  <pcarlini@suse.de>
 
 	PR libstdc++/15002 (partial)

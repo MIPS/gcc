@@ -474,6 +474,7 @@ namespace std
            ios_base::iostate& __err, long& __v) const
     {
       string __xtrc;
+      __xtrc.reserve(32);
       int __base;
       __beg = _M_extract_int(__beg, __end, __io, __err, __xtrc, __base);
       __convert_to_v(__xtrc.c_str(), __v, __err, _S_c_locale, __base);
@@ -487,6 +488,7 @@ namespace std
            ios_base::iostate& __err, unsigned short& __v) const
     {
       string __xtrc;
+      __xtrc.reserve(32);
       int __base;
       __beg = _M_extract_int(__beg, __end, __io, __err, __xtrc, __base);
       unsigned long __ul;
@@ -506,6 +508,7 @@ namespace std
            ios_base::iostate& __err, unsigned int& __v) const
     {
       string __xtrc;
+      __xtrc.reserve(32);
       int __base;
       __beg = _M_extract_int(__beg, __end, __io, __err, __xtrc, __base);
       unsigned long __ul;
@@ -525,6 +528,7 @@ namespace std
            ios_base::iostate& __err, unsigned long& __v) const
     {
       string __xtrc;
+      __xtrc.reserve(32);
       int __base;
       __beg = _M_extract_int(__beg, __end, __io, __err, __xtrc, __base);
       __convert_to_v(__xtrc.c_str(), __v, __err, _S_c_locale, __base);
@@ -539,6 +543,7 @@ namespace std
            ios_base::iostate& __err, long long& __v) const
     {
       string __xtrc;
+      __xtrc.reserve(32);
       int __base;
       __beg = _M_extract_int(__beg, __end, __io, __err, __xtrc, __base);
       __convert_to_v(__xtrc.c_str(), __v, __err, _S_c_locale, __base);
@@ -552,6 +557,7 @@ namespace std
            ios_base::iostate& __err, unsigned long long& __v) const
     {
       string __xtrc;
+      __xtrc.reserve(32);
       int __base;
       __beg = _M_extract_int(__beg, __end, __io, __err, __xtrc, __base);
       __convert_to_v(__xtrc.c_str(), __v, __err, _S_c_locale, __base);
@@ -610,6 +616,7 @@ namespace std
       __io.flags(__fmt & ~ios_base::basefield | ios_base::hex);
 
       string __xtrc;
+      __xtrc.reserve(32);
       int __base;
       __beg = _M_extract_int(__beg, __end, __io, __err, __xtrc, __base);
 
