@@ -579,6 +579,7 @@ const int x86_ext_80387_constants = m_K6 | m_ATHLON | m_PENT4 | m_NOCONA | m_PPR
    the 16 byte window.  */
 const int x86_four_jump_limit = m_PPRO | m_ATHLON_K8 | m_PENT4 | m_NOCONA;
 const int x86_schedule = m_PPRO | m_ATHLON_K8 | m_K6 | m_PENT;
+const int x86_use_bt = m_ATHLON_K8;
 
 /* In case the average insn count for single function invocation is
    lower than this constant, emit fast (but longer) prologue and
@@ -1942,7 +1943,12 @@ ix86_must_pass_in_stack (enum machine_mode mode, tree type)
 {
   if (must_pass_in_stack_var_size_or_pad (mode, type))
     return true;
-  return (!TARGET_64BIT && type && mode == TImode);
+
+  /* For 32-bit, we want TImode aggregates to go on the stack.  But watch out!
+     The layout_type routine is crafty and tries to trick us into passing
+     currently unsupported vector types on the stack by using TImode.  */
+  return (!TARGET_64BIT && mode == TImode
+	  && type && TREE_CODE (type) != VECTOR_TYPE);
 }
 
 /* Initialize a variable CUM of type CUMULATIVE_ARGS
@@ -2639,6 +2645,34 @@ function_arg_advance (CUMULATIVE_ARGS *cum,	/* current arg information */
   return;
 }
 
+/* A subroutine of function_arg.  We want to pass a parameter whose nominal
+   type is MODE in REGNO.  We try to minimize ABI variation, so MODE may not
+   actually be valid for REGNO with the current ISA.  In this case, ALT_MODE
+   is used instead.  It must be the same size as MODE, and must be known to
+   be valid for REGNO.  Finally, ORIG_MODE is the original mode of the 
+   parameter, as seen by the type system.  This may be different from MODE
+   when we're mucking with things minimizing ABI variations.
+
+   Returns a REG or a PARALLEL as appropriate.  */
+
+static rtx
+gen_reg_or_parallel (enum machine_mode mode, enum machine_mode alt_mode,
+		     enum machine_mode orig_mode, unsigned int regno)
+{
+  rtx tmp;
+
+  if (HARD_REGNO_MODE_OK (regno, mode))
+    tmp = gen_rtx_REG (mode, regno);
+  else
+    {
+      tmp = gen_rtx_REG (alt_mode, regno);
+      tmp = gen_rtx_EXPR_LIST (VOIDmode, tmp, const0_rtx);
+      tmp = gen_rtx_PARALLEL (orig_mode, gen_rtvec (1, tmp));
+    }
+
+  return tmp;
+}
+
 /* Define where to put the arguments to a function.
    Value is zero to push the argument on the stack,
    or a hard register in which to store the argument.
@@ -2653,12 +2687,11 @@ function_arg_advance (CUMULATIVE_ARGS *cum,	/* current arg information */
     (otherwise it is an extra parameter matching an ellipsis).  */
 
 rtx
-function_arg (CUMULATIVE_ARGS *cum,	/* current arg information */
-	      enum machine_mode mode,	/* current arg mode */
-	      tree type,	/* type of the argument or 0 if lib support */
-	      int named)	/* != 0 for normal args, == 0 for ...  args */
+function_arg (CUMULATIVE_ARGS *cum, enum machine_mode orig_mode,
+	      tree type, int named)
 {
-  rtx ret   = NULL_RTX;
+  enum machine_mode mode = orig_mode;
+  rtx ret = NULL_RTX;
   int bytes =
     (mode == BLKmode) ? int_size_in_bytes (type) : (int) GET_MODE_SIZE (mode);
   int words = (bytes + UNITS_PER_WORD - 1) / UNITS_PER_WORD;
@@ -2754,7 +2787,8 @@ function_arg (CUMULATIVE_ARGS *cum,	/* current arg information */
 			 "changes the ABI");
 	      }
 	    if (cum->sse_nregs)
-	      ret = gen_rtx_REG (mode, cum->sse_regno + FIRST_SSE_REG);
+	      ret = gen_reg_or_parallel (mode, TImode, orig_mode,
+					 cum->sse_regno + FIRST_SSE_REG);
 	  }
 	break;
       case V8QImode:
@@ -2770,7 +2804,8 @@ function_arg (CUMULATIVE_ARGS *cum,	/* current arg information */
 			 "changes the ABI");
 	      }
 	    if (cum->mmx_nregs)
-	      ret = gen_rtx_REG (mode, cum->mmx_regno + FIRST_MMX_REG);
+	      ret = gen_reg_or_parallel (mode, DImode, orig_mode,
+					 cum->mmx_regno + FIRST_MMX_REG);
 	  }
 	break;
       }
@@ -3368,6 +3403,7 @@ ix86_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
 	  sse_addr = create_tmp_var (ptr_type_node, "sse_addr");
 	  DECL_POINTER_ALIAS_SET (sse_addr) = get_varargs_alias_set ();
 	}
+
       /* First ensure that we fit completely in registers.  */
       if (needed_intregs)
 	{
@@ -3393,14 +3429,16 @@ ix86_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
       if (needed_intregs)
 	{
 	  /* int_addr = gpr + sav; */
-	  t = build2 (PLUS_EXPR, ptr_type_node, sav, gpr);
+	  t = fold_convert (ptr_type_node, gpr);
+	  t = build2 (PLUS_EXPR, ptr_type_node, sav, t);
 	  t = build2 (MODIFY_EXPR, void_type_node, int_addr, t);
 	  gimplify_and_add (t, pre_p);
 	}
       if (needed_sseregs)
 	{
 	  /* sse_addr = fpr + sav; */
-	  t = build2 (PLUS_EXPR, ptr_type_node, sav, fpr);
+	  t = fold_convert (ptr_type_node, fpr);
+	  t = build2 (PLUS_EXPR, ptr_type_node, sav, t);
 	  t = build2 (MODIFY_EXPR, void_type_node, sse_addr, t);
 	  gimplify_and_add (t, pre_p);
 	}
@@ -3453,14 +3491,14 @@ ix86_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
       if (needed_intregs)
 	{
 	  t = build2 (PLUS_EXPR, TREE_TYPE (gpr), gpr,
-		      build_int_cst (NULL_TREE, needed_intregs * 8));
+		      build_int_cst (TREE_TYPE (gpr), needed_intregs * 8));
 	  t = build2 (MODIFY_EXPR, TREE_TYPE (gpr), gpr, t);
 	  gimplify_and_add (t, pre_p);
 	}
       if (needed_sseregs)
 	{
 	  t = build2 (PLUS_EXPR, TREE_TYPE (fpr), fpr,
-		      build_int_cst (NULL_TREE, needed_sseregs * 16));
+		      build_int_cst (TREE_TYPE (fpr), needed_sseregs * 16));
 	  t = build2 (MODIFY_EXPR, TREE_TYPE (fpr), fpr, t);
 	  gimplify_and_add (t, pre_p);
 	}
@@ -3481,9 +3519,9 @@ ix86_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
     {
       HOST_WIDE_INT align = FUNCTION_ARG_BOUNDARY (VOIDmode, type) / 8;
       t = build (PLUS_EXPR, TREE_TYPE (ovf), ovf,
-		 build_int_cst (NULL_TREE, align - 1));
+		 build_int_cst (TREE_TYPE (ovf), align - 1));
       t = build (BIT_AND_EXPR, TREE_TYPE (t), t,
-		 build_int_cst (NULL_TREE, -align));
+		 build_int_cst (TREE_TYPE (t), -align));
     }
   gimplify_expr (&t, pre_p, NULL, is_gimple_val, fb_rvalue);
 
@@ -3491,7 +3529,7 @@ ix86_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
   gimplify_and_add (t2, pre_p);
 
   t = build2 (PLUS_EXPR, TREE_TYPE (t), t,
-	      build_int_cst (NULL_TREE, rsize * UNITS_PER_WORD));
+	      build_int_cst (TREE_TYPE (t), rsize * UNITS_PER_WORD));
   t = build2 (MODIFY_EXPR, TREE_TYPE (ovf), ovf, t);
   gimplify_and_add (t, pre_p);
 
@@ -7629,7 +7667,7 @@ ix86_expand_unary_operator (enum rtx_code code, enum machine_mode mode,
   /* If the destination is memory, and we do not have matching source
      operands, do things in registers.  */
   matching_memory = 0;
-  if (GET_CODE (dst) == MEM)
+  if (MEM_P (dst))
     {
       if (rtx_equal_p (dst, src))
 	matching_memory = 1;
@@ -7638,10 +7676,10 @@ ix86_expand_unary_operator (enum rtx_code code, enum machine_mode mode,
     }
 
   /* When source operand is memory, destination must match.  */
-  if (!matching_memory && GET_CODE (src) == MEM)
+  if (MEM_P (src) && !matching_memory)
     src = force_reg (mode, src);
 
-  /* If optimizing, copy to regs to improve CSE */
+  /* If optimizing, copy to regs to improve CSE.  */
   if (optimize && ! no_new_pseudos)
     {
       if (GET_CODE (dst) == MEM)
@@ -7686,6 +7724,91 @@ ix86_unary_operator_ok (enum rtx_code code ATTRIBUTE_UNUSED,
       && ! rtx_equal_p (operands[0], operands[1]))
     return FALSE;
   return TRUE;
+}
+
+/* Generate code for floating point ABS or NEG.  */
+
+void
+ix86_expand_fp_absneg_operator (enum rtx_code code, enum machine_mode mode,
+				rtx operands[])
+{
+  rtx mask, set, use, clob, dst, src;
+  bool matching_memory;
+  bool use_sse = false;
+
+  if (TARGET_SSE_MATH)
+    {
+      if (mode == SFmode)
+	use_sse = true;
+      else if (mode == DFmode && TARGET_SSE2)
+	use_sse = true;
+    }
+
+  /* NEG and ABS performed with SSE use bitwise mask operations.
+     Create the appropriate mask now.  */
+  if (use_sse)
+    {
+      HOST_WIDE_INT hi, lo;
+      int shift = 63;
+
+      /* Find the sign bit, sign extended to 2*HWI.  */
+      if (mode == SFmode)
+        lo = 0x80000000, hi = lo < 0;
+      else if (HOST_BITS_PER_WIDE_INT >= 64)
+        lo = (HOST_WIDE_INT)1 << shift, hi = -1;
+      else
+        lo = 0, hi = (HOST_WIDE_INT)1 << (shift - HOST_BITS_PER_WIDE_INT);
+
+      /* If we're looking for the absolute value, then we want
+	 the compliment.  */
+      if (code == ABS)
+        lo = ~lo, hi = ~hi;
+
+      /* Force this value into the low part of a fp vector constant.  */
+      mask = immed_double_const (lo, hi, mode == SFmode ? SImode : DImode);
+      mask = gen_lowpart (mode, mask);
+      if (mode == SFmode)
+        mask = gen_rtx_CONST_VECTOR (V4SFmode,
+				     gen_rtvec (4, mask, CONST0_RTX (SFmode),
+						CONST0_RTX (SFmode),
+						CONST0_RTX (SFmode)));
+      else
+        mask = gen_rtx_CONST_VECTOR (V2DFmode,
+				     gen_rtvec (2, mask, CONST0_RTX (DFmode)));
+      mask = force_reg (GET_MODE (mask), mask);
+    }
+  else
+    {
+      /* When not using SSE, we don't use the mask, but prefer to keep the
+	 same general form of the insn pattern to reduce duplication when
+	 it comes time to split.  */
+      mask = const0_rtx;
+    }
+
+  dst = operands[0];
+  src = operands[1];
+
+  /* If the destination is memory, and we don't have matching source
+     operands, do things in registers.  */
+  matching_memory = false;
+  if (MEM_P (dst))
+    {
+      if (rtx_equal_p (dst, src) && (!optimize || no_new_pseudos))
+	matching_memory = true;
+      else
+	dst = gen_reg_rtx (mode);
+    }
+  if (MEM_P (src) && !matching_memory)
+    src = force_reg (mode, src);
+
+  set = gen_rtx_fmt_e (code, mode, src);
+  set = gen_rtx_SET (VOIDmode, dst, set);
+  use = gen_rtx_USE (VOIDmode, mask);
+  clob = gen_rtx_CLOBBER (VOIDmode, gen_rtx_REG (CCmode, FLAGS_REG));
+  emit_insn (gen_rtx_PARALLEL (VOIDmode, gen_rtvec (3, set, use, clob)));
+
+  if (dst != operands[0])
+    emit_move_insn (operands[0], dst);
 }
 
 /* Return TRUE or FALSE depending on whether the first SET in INSN
@@ -13898,10 +14021,20 @@ ix86_hard_regno_mode_ok (int regno, enum machine_mode mode)
   if (FP_REGNO_P (regno))
     return VALID_FP_MODE_P (mode);
   if (SSE_REGNO_P (regno))
-    return (TARGET_SSE ? VALID_SSE_REG_MODE (mode) : 0);
+    {
+      if (TARGET_SSE2 && VALID_SSE2_REG_MODE (mode))
+	return 1;
+      if (TARGET_SSE && VALID_SSE_REG_MODE (mode))
+	return 1;
+      return 0;
+    }
   if (MMX_REGNO_P (regno))
-    return (TARGET_MMX
-	    ? VALID_MMX_REG_MODE (mode) || VALID_MMX_REG_MODE_3DNOW (mode) : 0);
+    {
+      if (TARGET_3DNOW && VALID_MMX_REG_MODE_3DNOW (mode))
+	return 1;
+      if (TARGET_MMX && VALID_MMX_REG_MODE (mode))
+	return 1;
+    }
   /* We handle both integer and floats in the general purpose registers.
      In future we should be able to handle vector modes as well.  */
   if (!VALID_INT_MODE_P (mode) && !VALID_FP_MODE_P (mode))
@@ -14279,7 +14412,9 @@ ix86_rtx_costs (rtx x, int code, int outer_code, int *total)
       return false;
 
     case FLOAT_EXTEND:
-      if (!TARGET_SSE_MATH || !VALID_SSE_REG_MODE (mode))
+      if (!TARGET_SSE_MATH
+	  || mode == XFmode
+	  || (mode == DFmode && !TARGET_SSE2))
 	*total = 0;
       return false;
 
@@ -15071,20 +15206,15 @@ ix86_expand_vector_init (rtx target, rtx vals)
 static bool
 ix86_vector_mode_supported_p (enum machine_mode mode)
 {
-  if (TARGET_SSE
-      && VALID_SSE_REG_MODE (mode))
+  if (TARGET_SSE && VALID_SSE_REG_MODE (mode))
     return true;
-
-  else if (TARGET_MMX
-	   && VALID_MMX_REG_MODE (mode))
+  if (TARGET_SSE2 && VALID_SSE2_REG_MODE (mode))
     return true;
-
-  else if (TARGET_3DNOW
-	   && VALID_MMX_REG_MODE_3DNOW (mode))
+  if (TARGET_MMX && VALID_MMX_REG_MODE (mode))
     return true;
-
-  else
-    return false;
+  if (TARGET_3DNOW && VALID_MMX_REG_MODE_3DNOW (mode))
+    return true;
+  return false;
 }
 
 /* Worker function for TARGET_MD_ASM_CLOBBERS.

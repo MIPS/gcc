@@ -1,3 +1,143 @@
+2004-12-15  Alan Modra  <amodra@bigpond.net.au>
+
+	* g++.dg/opt/inline9.C: New test.
+
+2004-12-15  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/18993
+	* gfotran.dg/nullify_1.f: New test.
+
+2004-12-15  Richard Henderson  <rth@redhat.com>
+
+	* gcc.target/i386/i386.exp: New harness.
+	* gcc.target/i386/vect-args.c: New.
+
+2004-12-15  David Edelsohn  <edelsohn@gnu.org>
+
+	* gcc.dg/20040813-1.c: Skip for *-*-aix*.
+
+2004-12-15  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/18825
+	* g++.dg/template/friend32.C: New test.
+
+2004-12-15  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* cpp/pragma-once-1.c: New test.
+	* cpp/pragma-once-1b.h: Likewise.
+	* cpp/pragma-once-1c.h: Likewise.
+	* cpp/pragma-once-1d.h: Likewise.
+	* cpp/inc/pragma-once-1a.h: Likewise.
+
+2004-12-15  Bud Davis  <bdavis9659@comcast.net>
+            Steven G. Kargle  <kargls@comcast.net>
+
+	PR fortran/17597
+	* gfortran.dg/list_read_3.f90: New test.
+
+2004-12-15  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/ftrapv-2.c: New test.
+
+2004-12-15  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR 18981
+	* g++.dg/template/typename9.C: New test.
+
+2004-12-14  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/18738
+	* g++.dg/template/typename8.C: New test.
+	* g++.dg/parse/friend2.C: Tweak error message.
+
+2004-12-14  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* gcc.c-torture/20041214-1.c: New test.
+
+2004-12-14  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR c++/18965
+	* g++.dg/init/array17.C: New test.
+
+2004-12-14  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/18793
+	* g++.dg/init/aggr3.C: New test.
+
+2004-12-14  Janis Johnson  <janis187@us.ibm.com
+
+	* gcc.dg/altivec-types-1.c: New test.
+	* gcc.dg/altivec-types-2.c: New test.
+	* gcc.dg/altivec-types-3.c: New test.
+	* gcc.dg/altivec-types-4.c: New test.
+	* g++.dg/ext/altivec-types-1.C: New test.
+	* g++.dg/ext/altivec-types-2.C: New test.
+	* g++.dg/ext/altivec-types-3.C: New test.
+	* g++.dg/ext/altivec-types-4.C: New test.
+
+2004-12-14  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/18951
+	* gcc.c-torture/execute/20041213-1.c: New test.
+
+2004-12-14  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/18949
+	* g++.dg/template/cast1.C: New.
+
+2004-12-13  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* gcc.c-torture/execute/20041213-2.c: New test.
+
+2004-12-13  Richard Henderson  <rth@redhat.com>
+
+	* gcc.dg/i386-sse-10.c: Fix typo in options.
+
+2004-12-13  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR c++/18968
+	* g++.dg/opt/pr18968.C: New test.
+
+2004-12-13  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/18925
+	* g++.dg/ext/visibility/staticdatamem.C: New test.
+
+2004-12-13  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* gcc.target/xstormy16/below100.S: Remove DOS line endings.
+
+2004-12-13  Roger Sayle  <roger@eyesopen.com>
+
+	PR rtl-optimization/18928
+	* gcc.dg/pr18928-1.c: New test case.
+
+2004-12-13  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR tree-opt/16951
+	* gcc.c-torture/compile/20041211-1.c: New.
+
+2004-12-12  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR middle-end/17564
+	* gcc.c-torture/execute/20041212-1.c: New test.
+
+2004-12-12  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/18869
+	* gfortran.dg/common_1.f90: New test.
+
+2004-12-12  Steven G. Kargl  <kargls@comcast.net>
+	Paul Brook  <paul@codesourcery.com>
+
+	PR fortran/16222
+	* gfortran.dg/real_do_1.f90: New test.
+
+2004-12-12  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR tree-opt/18040
+	* g++.dg/opt/ptrmem6.C: New test.
+
 2004-12-11  Roger Sayle  <roger@eyesopen.com>
 
 	PR middle-end/18921

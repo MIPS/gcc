@@ -1,3 +1,81 @@
+2004-12-15  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/18825
+	* pt.c (instantiate_class_template): Set input_location for
+	friend function.
+	(tsubst_friend_function): Don't set input_location here.
+	Make sure the context is complete if necessary.
+
+2004-12-15  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/18981
+	* parser.c (cp_parser_lookup_name): Remove unneeded TYPENAME_TYPE
+	flag setting.
+
+2004-12-14  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/18738
+	* decl.c (make_typename_type): Do not handle namespace-scoped
+	names here.
+	(tag_name): Handle typename_type.
+	(check_elaborated_type_specifier): Handle typenames.
+	* parser.c (cp_parser_diagnose_invalid_type_name): Improve
+	comment.
+	(cp_parser_elaborated_type_specifier): Use
+	cp_parser_diagnose_invalid_type_name.
+
+2004-12-14  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR c++/18965
+	* init.c (build_zero_init): If the max_index is 0, there is no
+	need to create a RANGE_EXPR.
+
+2004-12-14  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/18793
+	* cp-objcp-common.c (cp_expr_size): Loosen assertion.
+
+2004-12-14  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/18949
+	* pt.c (tsubst_copy_and_build): <INDIRECT_REF case> Check that a
+	REFERENCE_REF_P is dereferencing a reference type.
+	* typeck.c (build_static_cast): Convert from reference even in a
+	template.
+	(build_reinterpret_cast, build_const_cast, build_c_cast): Likewise.
+
+2004-12-14  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	* parser.c (cp_parser_uncommitted_to_tentative_parse_p): New function.
+	(cp_parser_name_lookup_error): Use it.
+	(cp_parser_check_for_invalid_template_id): Likewise.
+	(cp_parser_skip_to_closing_parenthesis): Likewise.
+	(cp_parser_nested_name_specifier_opt): Likewise.
+	(cp_parser_simple_declaration, cp_parser_template_id): Likewise.
+	(cp_parser_parameter_declaration_list): Likewise.
+	(cp_parser_parameter_declaration): Likewise.
+	(cp_parser_template_name): Let cp_parser_simulate_error perform
+	the checking.
+	(cp_parser_committed_to_tentative_parse): Remove.
+
+2004-12-13  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR c++/18968
+	* class.c (build_base_path): Convert the zero constant to the correct
+	type when comparing.
+
+2004-12-13  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/18925
+	* class.c (layout_class_type): Determine the visibility of static
+	data members.
+
+2004-12-12  Roger Sayle  <roger@eyesopen.com>
+
+	PR middle-end/12454
+	* cp-gimplify.c (gimplify_if_stmt): Optimize the case where the
+	condition is a constant and the unexecuted clause is empty.
+
 2004-12-10  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
 
 	PR c++/18731

@@ -1137,6 +1137,22 @@ copy_body (inline_data *id, gcov_type count, int frequency)
   return body;
 }
 
+/* Return true if VALUE is an ADDR_EXPR of an automatic variable
+   defined in function FN, or of a data member thereof.  */
+
+static bool
+self_inlining_addr_expr (tree value, tree fn)
+{
+  tree var;
+
+  if (TREE_CODE (value) != ADDR_EXPR)
+    return false;
+
+  var = get_base_address (TREE_OPERAND (value, 0));
+	      
+  return var && lang_hooks.tree_inlining.auto_var_in_fn_p (var, fn);
+}
+
 static void
 setup_one_parameter (inline_data *id, tree p, tree value, tree fn,
 		     tree *init_stmts, tree *vars, bool *gimplify_init_stmts_p)
@@ -1155,33 +1171,19 @@ setup_one_parameter (inline_data *id, tree p, tree value, tree fn,
       && !TREE_ADDRESSABLE (p)
       && value && !TREE_SIDE_EFFECTS (value))
     {
-      /* We can't risk substituting complex expressions.  They
-	 might contain variables that will be assigned to later.
-	 Theoretically, we could check the expression to see if
-	 all of the variables that determine its value are
-	 read-only, but we don't bother.  */
-      if ((TREE_CONSTANT (value) || TREE_READONLY_DECL_P (value)
-	  || TREE_INVARIANT (value))
-	  /* We may produce non-gimple trees by adding NOPs or introduce
-	     invalid sharing when operand is not really constant.
-	     It is not big deal to prohibit constant propagation here as
-	     we will constant propagate in DOM1 pass anyway.  */
-	  && (is_gimple_min_invariant (value)
-		&& lang_hooks.types_compatible_p (TREE_TYPE (value), 
-						  TREE_TYPE (p))))
+      /* We may produce non-gimple trees by adding NOPs or introduce
+	 invalid sharing when operand is not really constant.
+	 It is not big deal to prohibit constant propagation here as
+	 we will constant propagate in DOM1 pass anyway.  */
+      if (is_gimple_min_invariant (value)
+	  && lang_hooks.types_compatible_p (TREE_TYPE (value), TREE_TYPE (p))
+	  /* We have to be very careful about ADDR_EXPR.  Make sure
+	     the base variable isn't a local variable of the inlined
+	     function, e.g., when doing recursive inlining, direct or
+	     mutually-recursive or whatever, which is why we don't
+	     just test whether fn == current_function_decl.  */
+	  && ! self_inlining_addr_expr (value, fn))
 	{
-	  /* If this is a declaration, wrap it in a NOP_EXPR so that 
-	     we don't try to put the VALUE on the list of BLOCK_VARS.  */
-	  if (DECL_P (value))
-	    value = build1 (NOP_EXPR, TREE_TYPE (value), value);
-
-	  /* If this is a constant, make sure it has the right type. 
-	     Failure to do so causes problems when hanging a NOP_EXPR 
-	     of pointer type over an ADDR_EXPR, because the NOP_EXPR 
-	     is pointer-to-constant.  */
-	  else if (TREE_CODE_CLASS (TREE_CODE (value)) == 'c')
-	    value = fold (build1 (NOP_EXPR, TREE_TYPE (p), value));
-
 	  insert_decl_map (id, p, value);
 	  return;
 	}
@@ -2328,8 +2330,11 @@ expand_call_inline (tree *tp, int *walk_subtrees, void *data)
   id->decl_map = st;
   set_eh_cur_region (cfun, 0);
 
-  /* The new expression has side-effects if the old one did.  */
-  TREE_SIDE_EFFECTS (id->bind_expr) = TREE_SIDE_EFFECTS (t);
+  /* Although, from the semantic viewpoint, the new expression has
+     side-effects only if the old one did, it is not possible, from
+     the technical viewpoint, to evaluate the body of a function
+     multiple times without serious havoc.  */
+  TREE_SIDE_EFFECTS (id->bind_expr) = 1;
 
   /* Splice the duplicated callee body into the caller.  */
   first_half_bb->next_bb = head_copied_body;

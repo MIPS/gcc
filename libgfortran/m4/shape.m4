@@ -25,8 +25,11 @@ Boston, MA 02111-1307, USA.  */
 #include "libgfortran.h"'
 include(iparm.m4)dnl
 
+extern void shape_`'rtype_kind (rtype * ret, const rtype * array);
+export_proto(shape_`'rtype_kind);
+
 void
-`__shape_'rtype_kind (rtype * ret, const rtype * array)
+shape_`'rtype_kind (rtype * ret, const rtype * array)
 {
   int n;
   index_type stride;
@@ -41,4 +44,3 @@ void
         array->dim[n].ubound + 1 - array->dim[n].lbound;
     }
 }
-

@@ -295,8 +295,11 @@ build_base_path (enum tree_code code,
 
   /* Now that we've saved expr, build the real null test.  */
   if (null_test)
-    null_test = fold (build2 (NE_EXPR, boolean_type_node,
-			      expr, integer_zero_node));
+    {
+      tree zero = cp_convert (TREE_TYPE (expr), integer_zero_node);
+      null_test = fold (build2 (NE_EXPR, boolean_type_node,
+				expr, zero));
+    }
 
   /* If this is a simple base reference, express it as a COMPONENT_REF.  */
   if (code == PLUS_EXPR && !virtual_access
@@ -4553,7 +4556,13 @@ layout_class_type (tree t, tree *virtuals_p)
              At this point, finish_record_layout will be called, but
 	     S1 is still incomplete.)  */
 	  if (TREE_CODE (field) == VAR_DECL)
-	    maybe_register_incomplete_var (field);
+	    {
+	      maybe_register_incomplete_var (field);
+	      /* The visibility of static data members is determined
+		 at their point of declaration, not their point of
+		 definition.  */
+	      determine_visibility (field);
+	    }
 	  continue;
 	}
 

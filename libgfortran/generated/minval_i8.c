@@ -25,8 +25,12 @@ Boston, MA 02111-1307, USA.  */
 #include <float.h>
 #include "libgfortran.h"
 
+
+extern void minval_i8 (gfc_array_i8 *, gfc_array_i8 *, index_type *);
+export_proto(minval_i8);
+
 void
-__minval_i8 (gfc_array_i8 * retarray, gfc_array_i8 *array, index_type *pdim)
+minval_i8 (gfc_array_i8 *retarray, gfc_array_i8 *array, index_type *pdim)
 {
   index_type count[GFC_MAX_DIMENSIONS - 1];
   index_type extent[GFC_MAX_DIMENSIONS - 1];
@@ -146,8 +150,14 @@ __minval_i8 (gfc_array_i8 * retarray, gfc_array_i8 *array, index_type *pdim)
     }
 }
 
+
+extern void mminval_i8 (gfc_array_i8 *, gfc_array_i8 *, index_type *,
+					       gfc_array_l4 *);
+export_proto(mminval_i8);
+
 void
-__mminval_i8 (gfc_array_i8 * retarray, gfc_array_i8 * array, index_type *pdim, gfc_array_l4 * mask)
+mminval_i8 (gfc_array_i8 * retarray, gfc_array_i8 * array,
+				  index_type *pdim, gfc_array_l4 * mask)
 {
   index_type count[GFC_MAX_DIMENSIONS - 1];
   index_type extent[GFC_MAX_DIMENSIONS - 1];

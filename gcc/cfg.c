@@ -474,7 +474,8 @@ dump_flow_info (FILE *file)
   basic_block bb;
   static const char * const reg_class_names[] = REG_CLASS_NAMES;
 
-  if (reg_n_info)
+  /* There are no pseudo registers after reload.  Don't dump them.  */
+  if (reg_n_info && !reload_completed)
     {
       fprintf (file, "%d registers.\n", max_regno);
       for (i = FIRST_PSEUDO_REGISTER; i < max_regno; i++)
