@@ -307,16 +307,16 @@ enum reg_class
    `I'	is used for the range of constants an arithmetic insn can
 	actually contain (16 bits signed integers).
 
-   `J'	is used for the range which is just zero (i.e., $r0).
+   `J'	is used for the range which is just zero (ie, $r0).
 
    `K'	is used for the range of constants a logical insn can actually
 	contain (16 bit zero-extended integers).
 
    `L'	is used for the range of constants that be loaded with lui
-	(i.e., the bottom 16 bits are zero).
+	(ie, the bottom 16 bits are zero).
 
    `M'	is used for the range of constants that take two words to load
-	(i.e., not matched by `I', `K', and `L').
+	(ie, not matched by `I', `K', and `L').
 
    `N'	is used for constants 0xffffnnnn or 0xnnnnffff
 

@@ -1445,7 +1445,7 @@
 
 ;; If you need to construct a sequence of assembler instructions in order
 ;; to implement a pattern be sure to escape any backslashes and double quotes
-;; that you use, e.g.:
+;; that you use, eg:
 ;;
 ;; (define_insn "an example"
 ;;   [(some rtl)]

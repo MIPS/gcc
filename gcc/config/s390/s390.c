@@ -57,6 +57,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 
 static bool s390_assemble_integer (rtx, unsigned int, int);
+static void s390_select_rtx_section (enum machine_mode, rtx,
+				     unsigned HOST_WIDE_INT);
 static void s390_encode_section_info (tree, rtx, int);
 static bool s390_cannot_force_const_mem (rtx);
 static rtx s390_delegitimize_address (rtx);
@@ -94,6 +96,9 @@ static bool s390_pass_by_reference (CUMULATIVE_ARGS *, enum machine_mode mode,
 
 #undef  TARGET_ASM_CLOSE_PAREN
 #define TARGET_ASM_CLOSE_PAREN ""
+
+#undef	TARGET_ASM_SELECT_RTX_SECTION
+#define	TARGET_ASM_SELECT_RTX_SECTION  s390_select_rtx_section
 
 #undef	TARGET_ENCODE_SECTION_INFO
 #define TARGET_ENCODE_SECTION_INFO s390_encode_section_info
@@ -5953,11 +5958,8 @@ s390_frame_info (int base_used, int return_addr_used)
 	}
       else
 	{
-	  /* On 31 bit we have to care about alignment of the
-	     floating point regs to provide fastest access.  */
 	  cfun_frame_layout.f0_offset 
-	    = ((cfun_frame_layout.gprs_offset 
-		& ~(STACK_BOUNDARY / BITS_PER_UNIT - 1))
+	    = (cfun_frame_layout.gprs_offset
 	       - 8 * (cfun_fpr_bit_p (0) + cfun_fpr_bit_p (1)));
 	  
 	  cfun_frame_layout.f4_offset 
@@ -5994,9 +5996,7 @@ s390_frame_info (int base_used, int return_addr_used)
     {
       cfun_frame_layout.frame_size += (cfun_frame_layout.save_backchain_p
 				       * UNITS_PER_WORD);
-
-      /* No alignment trouble here because f8-f15 are only saved under 
-	 64 bit.  */
+      
       cfun_frame_layout.f8_offset = (MIN (MIN (cfun_frame_layout.f0_offset,
 					       cfun_frame_layout.f4_offset),
 					  cfun_frame_layout.gprs_offset)
@@ -6009,9 +6009,6 @@ s390_frame_info (int base_used, int return_addr_used)
 	  cfun_frame_layout.frame_size += 8;
       
       cfun_frame_layout.frame_size += cfun_gprs_save_area_size;
-      
-      /* If under 31 bit an odd number of gprs has to be saved we have to adjust
-	 the frame size to sustain 8 byte alignment of stack frames.  */
       cfun_frame_layout.frame_size = ((cfun_frame_layout.frame_size +
 				       STACK_BOUNDARY / BITS_PER_UNIT - 1)
 				      & ~(STACK_BOUNDARY / BITS_PER_UNIT - 1));
@@ -7153,10 +7150,6 @@ s390_gimplify_va_arg (tree valist, tree type, tree *pre_p,
       indirect_p = 1;
       reg = gpr;
       n_reg = 1;
-
-      /* TARGET_KERNEL_BACKCHAIN on 31 bit: It is assumed here that no padding
-	 will be added by s390_frame_info because for va_args always an even
-	 number of gprs has to be saved r15-r2 = 14 regs.  */
       sav_ofs = (TARGET_KERNEL_BACKCHAIN
 		 ? (TARGET_64BIT ? 4 : 2) * 8 : 2 * UNITS_PER_WORD);
       sav_scale = UNITS_PER_WORD;
@@ -7192,10 +7185,6 @@ s390_gimplify_va_arg (tree valist, tree type, tree *pre_p,
       indirect_p = 0;
       reg = gpr;
       n_reg = (size + UNITS_PER_WORD - 1) / UNITS_PER_WORD;
-
-      /* TARGET_KERNEL_BACKCHAIN on 31 bit: It is assumed here that no padding
-	will be added by s390_frame_info because for va_args always an even
-	number of gprs has to be saved r15-r2 = 14 regs.  */
       sav_ofs = TARGET_KERNEL_BACKCHAIN ? 
 	(TARGET_64BIT ? 4 : 2) * 8 : 2*UNITS_PER_WORD;
 
@@ -7537,6 +7526,20 @@ s390_function_profiler (FILE *file, int labelno)
       output_asm_insn ("basr\t%0,%0", op);
       output_asm_insn ("l\t%0,%1", op);
     }
+}
+
+/* Select section for constant in constant pool.  In 32-bit mode,
+   constants go in the function section; in 64-bit mode in .rodata.  */
+
+static void
+s390_select_rtx_section (enum machine_mode mode ATTRIBUTE_UNUSED,
+			 rtx x ATTRIBUTE_UNUSED,
+			 unsigned HOST_WIDE_INT align ATTRIBUTE_UNUSED)
+{
+  if (TARGET_CPU_ZARCH)
+    readonly_data_section ();
+  else
+    function_section (current_function_decl);
 }
 
 /* Encode symbol attributes (local vs. global, tls model) of a SYMBOL_REF

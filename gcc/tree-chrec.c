@@ -583,16 +583,14 @@ hide_evolution_in_other_loops_than_loop (tree chrec,
     }
 }
 
-/* Returns the evolution part of CHREC in LOOP_NUM when RIGHT is
-   true, otherwise returns the initial condition in LOOP_NUM.  */
+/* Returns the evolution part in LOOP_NUM.  Example: the call
+   get_evolution_in_loop (1, {{0, +, 1}_1, +, 2}_1) returns 
+   {1, +, 2}_1  */
 
-static tree 
-chrec_component_in_loop_num (tree chrec, 
-			     unsigned loop_num,
-			     bool right)
+tree 
+evolution_part_in_loop_num (tree chrec, 
+			    unsigned loop_num)
 {
-  tree component;
-
   if (automatically_generated_chrec_p (chrec))
     return chrec;
   
@@ -601,22 +599,15 @@ chrec_component_in_loop_num (tree chrec,
     case POLYNOMIAL_CHREC:
       if (CHREC_VARIABLE (chrec) == loop_num)
 	{
-	  if (right)
-	    component = CHREC_RIGHT (chrec);
-	  else
-	    component = CHREC_LEFT (chrec);
-
 	  if (TREE_CODE (CHREC_LEFT (chrec)) != POLYNOMIAL_CHREC
 	      || CHREC_VARIABLE (CHREC_LEFT (chrec)) != CHREC_VARIABLE (chrec))
-	    return component;
+	    return CHREC_RIGHT (chrec);
 	  
 	  else
 	    return build_polynomial_chrec
 	      (loop_num, 
-	       chrec_component_in_loop_num (CHREC_LEFT (chrec), 
-					    loop_num, 
-					    right), 
-	       component);
+	       evolution_part_in_loop_num (CHREC_LEFT (chrec), loop_num), 
+	       CHREC_RIGHT (chrec));
 	}
       
       else if (CHREC_VARIABLE (chrec) < loop_num)
@@ -624,38 +615,11 @@ chrec_component_in_loop_num (tree chrec,
 	return NULL_TREE;
       
       else
-	return chrec_component_in_loop_num (CHREC_LEFT (chrec), 
-					    loop_num, 
-					    right);
+	return evolution_part_in_loop_num (CHREC_LEFT (chrec), loop_num);
       
-     default:
-      if (right)
-	return NULL_TREE;
-      else
-	return chrec;
+    default:
+      return NULL_TREE;
     }
-}
-
-/* Returns the evolution part in LOOP_NUM.  Example: the call
-   evolution_part_in_loop_num (1, {{0, +, 1}_1, +, 2}_1) returns 
-   {1, +, 2}_1  */
-
-tree 
-evolution_part_in_loop_num (tree chrec, 
-			    unsigned loop_num)
-{
-  return chrec_component_in_loop_num (chrec, loop_num, true);
-}
-
-/* Returns the initial condition in LOOP_NUM.  Example: the call
-   initial_condition_in_loop_num ({{0, +, 1}_1, +, 2}_2, 1) returns 
-   {0, +, 1}_1  */
-
-tree 
-initial_condition_in_loop_num (tree chrec, 
-			       unsigned loop_num)
-{
-  return chrec_component_in_loop_num (chrec, loop_num, false);
 }
 
 /* Set or reset the evolution of CHREC to NEW_EVOL in loop LOOP_NUM.

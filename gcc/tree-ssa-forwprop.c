@@ -39,7 +39,7 @@ Boston, MA 02111-1307, USA.  */
 
    Right now we only bother forward propagating into COND_EXPRs since those
    are relatively common cases where forward propagation creates valid
-   gimple code without the expression needing to fold.  i.e.
+   gimple code without the expression needing to fold.  ie
 
      bb0:
        x = a COND b;
