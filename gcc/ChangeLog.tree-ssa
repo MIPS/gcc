@@ -1,3 +1,9 @@
+2004-03-01  Jeff Law  <law@redhat.com>
+
+	* tree-ssa-dom.c (true_false_expr_hash): Update comments slightly.
+	(true_false_expr_eq): Update comments slightly.  Avoid using
+	operand_equal_p, instead check the code and operands directly.
+
 2004-03-01  Andrew MacLeod  <amacleod@redhat.com>
 
 	* Makefile.in (tree-ssa-copyrename.o): New object.

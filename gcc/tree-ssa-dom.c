@@ -2950,8 +2950,8 @@ get_eq_expr_value (tree if_stmt,
   return retval;
 }
 
-/* Hashing for expressions which are going to be entered into the true/false
-   hash tables.  */
+/* Hashing for relational expressions which are going to be entered into the
+   true/false hash tables.  */
 
 static hashval_t
 true_false_expr_hash (const void *p)
@@ -2960,8 +2960,10 @@ true_false_expr_hash (const void *p)
   return iterative_hash_expr (rhs, 0);
 }
 
-/* Given two expressions from the true/false hash tables, return nonzero
-   if they are equivalent.  */
+/* Given two relational expressions from the true/false hash tables, return
+   nonzero if they are equivalent.   Note that since we are working with
+   nodes which are known to be relational expressions we can be a little
+   more lenient in regards to type checking.  */
 
 static int
 true_false_expr_eq (const void *p1, const void *p2)
@@ -2973,11 +2975,20 @@ true_false_expr_eq (const void *p1, const void *p2)
   if (rhs1 == rhs2)
     return true;
 
-  if (TREE_CODE (rhs1) == TREE_CODE (rhs2)
-      && (TREE_TYPE (rhs1) == TREE_TYPE (rhs2)
-	  || (TYPE_MAIN_VARIANT (TREE_TYPE (rhs1))
-	      == TYPE_MAIN_VARIANT (TREE_TYPE (rhs2))))
-      && operand_equal_p (rhs1, rhs2, 0))
+  /* If the codes are not the same, then they clearly can not be equal.  */
+  if (TREE_CODE (rhs1) != TREE_CODE (rhs2))
+    return false;
+
+  /* We know both expressions are relationals.  Just check their operands
+     for equality.  If the operator is commutative, then check the
+     operands in reverse order as well.  */
+  if ((operand_equal_p (TREE_OPERAND (rhs1, 0), TREE_OPERAND (rhs2, 0), 0)
+       && operand_equal_p (TREE_OPERAND (rhs1, 1), TREE_OPERAND (rhs2, 1), 0))
+      || (commutative_tree_code (TREE_CODE (rhs1))
+	  && operand_equal_p (TREE_OPERAND (rhs1, 0),
+			      TREE_OPERAND (rhs2, 1), 0)
+	  && operand_equal_p (TREE_OPERAND (rhs1, 1),
+			      TREE_OPERAND (rhs2, 0), 0)))
     {
 #ifdef ENABLE_CHECKING
 	  if (true_false_expr_hash (rhs1) != true_false_expr_hash (rhs2))
