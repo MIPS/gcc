@@ -166,7 +166,7 @@ namespace std
   */
   template<typename _InputIterator, typename _Tp>
     inline _InputIterator
-    find(_InputIterator __first, _InputIterator __last,
+    __find(_InputIterator __first, _InputIterator __last,
 	 const _Tp& __val, input_iterator_tag)
     {
       while (__first != __last && !(*__first == __val))
@@ -181,7 +181,7 @@ namespace std
   */
   template<typename _InputIterator, typename _Predicate>
     inline _InputIterator
-    find_if(_InputIterator __first, _InputIterator __last,
+    __find_if(_InputIterator __first, _InputIterator __last,
 	    _Predicate __pred, input_iterator_tag)
     {
       while (__first != __last && !__pred(*__first))
@@ -196,7 +196,7 @@ namespace std
   */
   template<typename _RandomAccessIterator, typename _Tp>
     _RandomAccessIterator
-    find(_RandomAccessIterator __first, _RandomAccessIterator __last,
+    __find(_RandomAccessIterator __first, _RandomAccessIterator __last,
 	 const _Tp& __val, random_access_iterator_tag)
     {
       typename iterator_traits<_RandomAccessIterator>::difference_type
@@ -248,7 +248,7 @@ namespace std
   */
   template<typename _RandomAccessIterator, typename _Predicate>
     _RandomAccessIterator
-    find_if(_RandomAccessIterator __first, _RandomAccessIterator __last,
+    __find_if(_RandomAccessIterator __first, _RandomAccessIterator __last,
 	    _Predicate __pred, random_access_iterator_tag)
     {
       typename iterator_traits<_RandomAccessIterator>::difference_type
@@ -311,8 +311,8 @@ namespace std
       __glibcxx_function_requires(_EqualOpConcept<
 		typename iterator_traits<_InputIterator>::value_type, _Tp>)
       __glibcxx_requires_valid_range(__first, __last);
-      return std::find(__first, __last, __val,
-		       std::__iterator_category(__first));
+      return std::__find(__first, __last, __val,
+		         std::__iterator_category(__first));
     }
 
   /**
@@ -333,8 +333,8 @@ namespace std
       __glibcxx_function_requires(_UnaryPredicateConcept<_Predicate,
 	      typename iterator_traits<_InputIterator>::value_type>)
       __glibcxx_requires_valid_range(__first, __last);
-      return std::find_if(__first, __last, __pred,
-			  std::__iterator_category(__first));
+      return std::__find_if(__first, __last, __pred,
+			    std::__iterator_category(__first));
     }
 
   /**
