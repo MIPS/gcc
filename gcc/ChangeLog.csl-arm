@@ -21,6 +21,7 @@
 	* config/arm/unwind-arm.c (__gnu_unwind_execute): Make it static. 
 	* doc/tm.texi (INIT_ARRAY_SECTION_ASM_OP): Document.
 	(FINI_ARRAY_SECTION_ASM_OP): Likewise.
+	* config.gcc (arm*-*-linux-gnueabi): Use __cxa_atexit.
 
 2004-11-19  Mark Mitchell  <mark@codesourcery.com>
 
