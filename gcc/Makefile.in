@@ -3000,27 +3000,27 @@ doc: html
 html: $(htmldir)/gcc/index.html $(htmldir)/cpp/index.html
 
 $(htmldir)/cpp/index.html: $(TEXI_CPP_FILES)
-	$(SHELL) ${srcdir}/mkinstalldirs $(htmldir)/cpp
+	$(mkinstalldirs) $(htmldir)/cpp
 	$(MAKEINFO) --html -I $(docdir) -I $(docdir)/include \
 	  -o $(htmldir)/cpp $(docdir)/cpp.texi
 
 $(htmldir)/gcc/index.html: $(TEXI_GCC_FILES)
-	$(SHELL) ${srcdir}/mkinstalldirs $(htmldir)/gcc
+	$(mkinstalldirs) $(htmldir)/gcc
 	$(MAKEINFO) --html -I $(docdir) -I $(docdir)/include \
 	  -o $(htmldir)/gcc $(docdir)/gcc.texi
 
 $(htmldir)/gccint/index.html: $(TEXI_GCCINT_FILES)
-	$(SHELL) ${srcdir}/mkinstalldirs $(htmldir)/gccint
+	$(mkinstalldirs) $(htmldir)/gccint
 	$(MAKEINFO) --html -I $(docdir) -I $(docdir)/include \
 	  -o $(htmldir)/gccint $(docdir)/gccint.texi
 
 $(htmldir)/gccinstall/index.html: $(TEXI_GCCINSTALL_FILES)
-	$(SHELL) ${srcdir}/mkinstalldirs $(htmldir)/gccinstall
+	$(mkinstalldirs) $(htmldir)/gccinstall
 	$(MAKEINFO) --html -I $(docdir) -I $(docdir)/include \
 	  -o $(htmldir)/gccinstall $(docdir)/install.texi
 
 $(htmldir)/cppinternals/index.html: $(TEXI_CPPINT_FILES)
-	$(SHELL) ${srcdir}/mkinstalldirs $(htmldir)/cppinternals
+	$(mkinstalldirs) $(htmldir)/cppinternals
 	$(MAKEINFO) --html -I $(docdir) -I $(docdir)/include \
 	  -o $(htmldir)/cppinternals $(docdir)/cppinternals.texi
 # APPLE LOCAL end html --mrs
