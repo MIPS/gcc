@@ -127,8 +127,8 @@ Java_gnu_java_awt_peer_gtk_GtkFileDialogPeer_nativeGetDirectory
    This function extracts the filename from the GtkFileFilterInfo object,
    and passes it to the Java method.  The Java method will call the filter's
    accept() method and will give back the return value. */
-gboolean filenameFilterCallback (const GtkFileFilterInfo *filter_info,
-                                 gpointer obj)
+static gboolean filenameFilterCallback (const GtkFileFilterInfo *filter_info,
+					gpointer obj)
 {
   jclass cx;
   jmethodID id;
