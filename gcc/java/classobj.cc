@@ -22,9 +22,18 @@
 #include "java/glue.hh"
 
 record_creator::record_creator (tree record_type)
+  : the_class (record_type)
 {
   constructor = build_constructor (record_type, NULL_TREE);
-  field_iterator = TYPE_FIELDS (record_type);
+
+  field_class = the_class;
+  field_iterator = TYPE_FIELDS (field_class);
+
+  while (DECL_NAME (field_iterator) == NULL_TREE)
+    {
+      field_class = TREE_TYPE (field_iterator);
+      field_iterator = TYPE_FIELDS (field_class);
+    }
 }
 
 record_creator::~record_creator ()
@@ -40,6 +49,25 @@ record_creator::set_field (const char *name, tree value)
   CONSTRUCTOR_ELTS (constructor) = tree_cons (field_iterator, value,
 					      CONSTRUCTOR_ELTS (constructor));
   field_iterator = TREE_CHAIN (field_iterator);
+  if (field_iterator == NULL_TREE
+      && field_class != the_class)
+    {
+      // Now search downward from the most derived class to the parent
+      // of the base class over which we just iterated.
+      tree search = the_class;
+      while (search != NULL_TREE)
+	{
+	  tree parent = TREE_TYPE (TYPE_FIELDS (search));
+	  if (parent == field_class)
+	    break;
+	  search = parent;
+	}
+      assert (search != NULL_TREE);
+      assert (search != field_class);
+      field_class = search;
+      // Make sure to skip over the super-class field.
+      field_iterator = TREE_CHAIN (TYPE_FIELDS (field_class));
+    }
 }
 
 tree
@@ -216,6 +244,12 @@ class_object_creator::create_class_instance (tree class_tree)
   gcj_abi *abi = builtins->find_abi (real_class);
   record_creator inst (type_class);
 
+  // First the fields from Object.
+  inst.set_field ("vtable", null_pointer_node);	// FIXME
+  if (! flag_hash_synchronization)
+    inst.set_field ("sync_info", null_pointer_node);
+
+  // Now fields from Class.
   inst.set_field ("next", null_pointer_node);
   inst.set_field ("name",
 		  builtins->map_utf8const (real_class->get_fully_qualified_name ()));

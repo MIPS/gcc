@@ -31,6 +31,12 @@ class record_creator
   // Iterator over fields of class type.
   tree field_iterator;
 
+  // The most-derived class over which we're iterating.
+  tree the_class;
+  // The class containing the fields over which we are currently
+  // iterating.
+  tree field_class;
+
 public:
 
   record_creator (tree record_type);
@@ -68,12 +74,11 @@ class class_object_creator
 
 public:
 
-  class_object_creator (tree_builtins *b, aot_class *k)
+  class_object_creator (tree_builtins *b, aot_class *k, tree record)
     : builtins (b),
       klass (k)
   {
-    abort ();
-    // create_class_instance (FIXME);
+    create_class_instance (record);
   }
 
   /// Return the class object we created.

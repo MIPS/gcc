@@ -88,5 +88,7 @@ tree_code_generator::generate (model_class *the_class)
       cgraph_varpool_finalize_decl (field);
     }
 
-  // FIXME: write out the class object now.
+  class_object_creator creator (builtins, wrapper, TREE_TYPE (class_tree));
+  tree class_obj = creator.get_class ();
+  // FIXME: do something with the class now.
 }

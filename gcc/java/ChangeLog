@@ -1,5 +1,16 @@
 2005-02-09  Tom Tromey  <tromey@redhat.com>
 
+	* classobj.cc (record_creator): Initialize new fields.
+	(set_field): Updated.
+	(create_class_instance): Initialize fields of Object.
+	* treegen.cc (generate): Create a class_instance_creator.
+	* classobj.hh (class_object_creator): Added 'record' argument.
+	Uncommented body.
+	(record_creator::field_class): New field.
+	(record_creator::the_class): Likewise.
+
+2005-02-09  Tom Tromey  <tromey@redhat.com>
+
 	* tree.cc (visit_array_ref): Lay out array class.
 
 2005-02-09  Tom Tromey  <tromey@redhat.com>
