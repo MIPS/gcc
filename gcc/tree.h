@@ -2363,6 +2363,12 @@ extern tree build_qualified_type        PARAMS ((tree, int));
 
 extern tree build_type_copy		PARAMS ((tree));
 
+/* Finish up a builtin RECORD_TYPE. Give it a name and provide its
+   fields. Optionally specify an alignment, and then lsy it out.  */
+
+extern void finish_builtin_struct		PARAMS ((tree, const char *,
+							 tree, tree));
+
 /* Given a ..._TYPE node, calculate the TYPE_SIZE, TYPE_SIZE_UNIT,
    TYPE_ALIGN and TYPE_MODE fields.  If called more than once on one
    node, does nothing except for the first time.  */

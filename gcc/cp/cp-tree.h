@@ -3762,8 +3762,6 @@ extern bool constructor_name_p                  (tree, tree);
 extern void defer_fn            		PARAMS ((tree));
 extern void finish_anon_union			PARAMS ((tree));
 extern tree finish_table			PARAMS ((tree, tree, tree, int));
-extern void finish_builtin_type			PARAMS ((tree, const char *,
-						       tree *, int, tree));
 extern tree coerce_new_type			PARAMS ((tree));
 extern tree coerce_delete_type			PARAMS ((tree));
 extern void comdat_linkage			PARAMS ((tree));

@@ -1397,6 +1397,46 @@ finish_record_layout (rli)
   free (rli);
 }
 
+
+/* Finish processing a builtin RECORD_TYPE type TYPE.  It's name is
+   NAME, its fields are chained in reverse on FIELDS.
+
+   If ALIGN_TYPE is non-null, it is given the same alignment as
+   ALIGN_TYPE.  */
+
+void
+finish_builtin_struct (type, name, fields, align_type)
+     tree type;
+     const char *name;
+     tree fields;
+     tree align_type;
+{
+  tree tail, next;
+
+  for (tail = NULL_TREE; fields; tail = fields, fields = next)
+    {
+      DECL_FIELD_CONTEXT (fields) = type;
+      next = TREE_CHAIN (fields);
+      TREE_CHAIN (fields) = tail;
+    }
+  TYPE_FIELDS (type) = tail;
+
+  if (align_type)
+    {
+      TYPE_ALIGN (type) = TYPE_ALIGN (align_type);
+      TYPE_USER_ALIGN (type) = TYPE_USER_ALIGN (align_type);
+    }
+  
+  layout_type (type);
+#if 0 /* not yet, should get fixed properly later */
+  TYPE_NAME (type) = make_type_decl (get_identifier (name), type);
+#else
+  TYPE_NAME (type) = build_decl (TYPE_DECL, get_identifier (name), type);
+#endif
+  TYPE_STUB_DECL (type) = TYPE_NAME (type);
+  layout_decl (TYPE_NAME (type), 0);
+}
+
 /* Calculate the mode, size, and alignment for TYPE.
    For an array type, calculate the element separation as well.
    Record TYPE on the chain of permanent or temporary types

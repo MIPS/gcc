@@ -1,3 +1,9 @@
+2002-09-02  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* stor-layout (finish_builtin_struct): Renamed and moved from c++
+	frontend. Take chain of fields. Allow NULL alignment type.
+	* tree.h (finish_builtin_struct): Declare.
+
 2002-09-01  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
 
 	* config/alpha/alpha.c config/alpha/alpha.h config/alpha/alpha.md
