@@ -1,6 +1,6 @@
 /* { dg-do run } */
 /* { dg-options "-O2" } */
-/* { dg-options "-O2 -mtune=i686" { target i?86-*-* } } */
+/* { dg-options "-O2 -mcpu=i686" { target i?86-*-* } } */
 
 extern void abort (void);
 extern void exit (int);
