@@ -118,10 +118,10 @@ field really isn't ever used.
 
 @findex desc
 @findex tag
-@findex always
+@findex default
 @item desc
 @itemx tag
-@itemx always
+@itemx default
 
 The type machinery needs to be told which field of a @code{union} is
 currently active.  This is done by giving each field a constant @code{tag}
@@ -143,7 +143,9 @@ it discriminates.  Use @code{%1} to mean the structure containing it.
 (There are no escapes available to the @code{tag} option, since it's
 supposed to be a constant.)
 
-You can use @code{always} to mean that this field is always used.
+Each @code{tag} should be different.  If no @code{tag} is matched,
+the field marked with @code{default} is used if there is one, otherwise
+no field in the union will be marked.
 
 @findex param_is
 @findex use_param

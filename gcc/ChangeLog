@@ -1,5 +1,10 @@
 2002-07-04  Geoffrey Keating  <geoffk@redhat.com>
 
+	* gengtype.c (write_gc_structure_fields): Remove implementation
+	of `always' option, add `default' option.
+	* doc/gty.texi (GTY Options): Remove documentation of `always',
+	add `default'.
+
 	* ggc.h (ggc_add_root): Document as obsolete.
 
 *** End of unmerged pch-branch ChangeLog ***

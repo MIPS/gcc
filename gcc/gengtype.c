@@ -942,11 +942,11 @@ write_gc_structure_fields (of, s, val, prev_val, opts, indent, line, bitmap,
 	  error_at_line (line, "missing `desc' option");
 	}
 
-      oprintf (of, "%*s{\n", indent, "");
-      indent += 2;
-      oprintf (of, "%*sunsigned int tag%d = (", indent, "", tagcounter);
+      oprintf (of, "%*sswitch (", indent, "");
       output_escaped_param (of, tagexpr, val, prev_val, "desc", line);
-      oprintf (of, ");\n");
+      oprintf (of, ")\n");
+      indent += 2;
+      oprintf (of, "%*s{\n", indent, "");
     }
   
   for (f = s->u.s.fields; f; f = f->next)
@@ -955,7 +955,7 @@ write_gc_structure_fields (of, s, val, prev_val, opts, indent, line, bitmap,
       const char *length = NULL;
       const char *special = NULL;
       int skip_p = 0;
-      int always_p = 0;
+      int default_p = 0;
       int maybe_undef_p = 0;
       int use_param_p = 0;
       options_p oo;
@@ -977,8 +977,8 @@ write_gc_structure_fields (of, s, val, prev_val, opts, indent, line, bitmap,
 	  special = (const char *)oo->info;
 	else if (strcmp (oo->name, "skip") == 0)
 	  skip_p = 1;
-	else if (strcmp (oo->name, "always") == 0)
-	  always_p = 1;
+	else if (strcmp (oo->name, "default") == 0)
+	  default_p = 1;
 	else if (strcmp (oo->name, "desc") == 0 && UNION_P (t))
 	  ;
  	else if (strcmp (oo->name, "descbits") == 0 && UNION_P (t))
@@ -1009,9 +1009,7 @@ write_gc_structure_fields (of, s, val, prev_val, opts, indent, line, bitmap,
 		nt = create_array (nt, t->u.a.len);
 	      t = nt;
 	    }
-	  else if (s->kind == TYPE_UNION && ! always_p && tagid)
-	    ;
-	  else
+	  else if (s->kind != TYPE_UNION)
 	    error_at_line (&f->line, "no parameter defined");
 	}
 
@@ -1021,15 +1019,22 @@ write_gc_structure_fields (of, s, val, prev_val, opts, indent, line, bitmap,
 	error_at_line (&f->line, 
 		       "field `%s' has invalid option `maybe_undef_p'\n",
 		       f->name);
-      if (s->kind == TYPE_UNION && ! always_p )
+      if (s->kind == TYPE_UNION)
 	{
-	  if (! tagid)
+	  if (tagid)
+	    {
+	      oprintf (of, "%*scase %s:\n", indent, "", tagid);
+
+	    }
+	  else if (default_p)
+	    {
+	      oprintf (of, "%*sdefault:\n", indent, "");
+	    }
+	  else
 	    {
 	      error_at_line (&f->line, "field `%s' has no tag", f->name);
 	      continue;
 	    }
-	  oprintf (of, "%*sif (tag%d == (%s)) {\n", indent, "", 
-		   tagcounter, tagid);
 	  indent += 2;
 	}
       
@@ -1271,18 +1276,18 @@ write_gc_structure_fields (of, s, val, prev_val, opts, indent, line, bitmap,
 	  break;
 	}
       
-      if (s->kind == TYPE_UNION && ! always_p )
+      if (s->kind == TYPE_UNION)
 	{
+	  oprintf (of, "%*sbreak;\n", indent, "");
 	  indent -= 2;
-	  oprintf (of, "%*s}\n", indent, "");
 	}
       if (special)
 	error_at_line (&f->line, "unhandled special `%s'", special);
     }
   if (s->kind == TYPE_UNION)
     {
-      indent -= 2;
       oprintf (of, "%*s}\n", indent, "");
+      indent -= 2;
     }
 }
 
