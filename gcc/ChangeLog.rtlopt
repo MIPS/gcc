@@ -1,3 +1,7 @@
+Fri Dec  6 00:30:57 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* cfgcleanup.c: Disable loop header hack.
+
 Thu Dec  5 14:11:43 CET 2002  Josef Zlomek <zlomj9am@artax.karlin.mff.cuni.cz>
 
 	* bb-reorder.c (N_CODEGROWING_ROUNDS): Deleted.
