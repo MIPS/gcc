@@ -1,3 +1,8 @@
+2004-06-11  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	PR target/15944
+	* loop-invariant.c (may_assign_reg_p): Use can_copy_p.
+
 2004-06-11  Olga Golovanevsky  <olga@il.ibm.com>
             Dorit Naishlos <dorit@il.ibm.com>
 

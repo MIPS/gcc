@@ -282,14 +282,9 @@ find_exits (struct loop *loop, basic_block *body,
 /* Check whether we may assign a value to X from a register.  */
 
 static bool
-may_assign_reg_p (rtx x ATTRIBUTE_UNUSED)
+may_assign_reg_p (rtx x)
 {
-#ifdef AVOID_CCMODE_COPIES
-  if (GET_MODE_CLASS (GET_MODE (x)) == MODE_CC)
-    return false;
-#endif
-
-  return true;
+  return can_copy_p (GET_MODE (x));
 }
 
 /* Finds definitions that may correspond to invariants in LOOP with body BODY.
