@@ -1,3 +1,8 @@
+2004-11-02  Jerry Quinn  <jlquinn@optonline.net>
+
+	* java/awt/image/ComponentSampleModel.java (getDataElements,
+	setDataElements): Implement SHORT, FLOAT, and INT transfer types.
+
 2004-11-02  Thomas Fitzsimmons  <fitzsim@redhat.com>
 
 	* java/awt/Font.java (name): New field.
