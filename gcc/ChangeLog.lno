@@ -1,3 +1,9 @@
+2004-04-09  David Edelsohn  <edelsohn@gnu.org>
+
+	Backport from mainline:
+        * config/rs6000/t-linux64 (bispecs): Don't add -mlong-double-128 for
+        32-bit builds when defaulting to 32-bit.
+
 2004-04-09  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* cfgrtl.c (purge_dead_edges): Clean the EDGE_ABNORMAL_CALL flags.
