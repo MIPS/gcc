@@ -1,3 +1,9 @@
+2004-07-01  Devang Patel  <dpatel@apple.com>
+
+	Radar 3236762
+	* config/darwin-driver.c (do_lipo): Do not supply -arch <arch_name>
+	to lipo.
+
 2004-06-29  Andrew Pinski  <apinski@apple.com>
 
 	* c-decl.c (perform_loop_transpose): Save chain of right_before_inner_loop

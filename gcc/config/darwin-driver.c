@@ -471,11 +471,7 @@ do_lipo (int start_outfile_index, const char *out_file)
   /* Already 4 lipo arguments are set.  Now add all lipo inputs.  */
   j = 4;
   for (i = 0; i < num_arches; i++)
-    {
-      lipo_argv[j++] = "-arch";
-      lipo_argv[j++] = arches[i];
-      lipo_argv[j++] = out_files[start_outfile_index + i];
-    }
+    lipo_argv[j++] = out_files[start_outfile_index + i];
 
 #ifdef DEBUG
   debug_command_line (lipo_argv, j);
