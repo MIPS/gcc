@@ -1,3 +1,70 @@
+2005-01-13  Geoffrey Keating  <geoffk@apple.com>
+
+	* configure.host (darwin): On darwin8 or later, no need to build
+	libstdc++ with -flat_namespace.
+
+2005-01-13  Jonathan Wakely  <redi@gcc.gnu.org>
+
+	* docs/doxygen/user.cfg.in: Set HAVE_DOT back to YES.
+
+2005-01-13  Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/26_numerics/cmath/c99_classification_macros_c++.cc:
+	Re-enable commented-out test for double type.
+
+2005-01-11  Paolo Carlini  <pcarlini@suse.de>
+	    Benjamin Kosnik  <bkoz@redhat.com>
+
+	* src/istream.cc (basic_istream<char>::ignore(streamsize),
+	basic_istream<char>::ignore(streamsize, int_type),
+	basic_istream<wchar_t>::ignore(streamsize),
+	basic_istream<wchar_t>::ignore(streamsize, int_type)): In case
+	more than numeric_limits<streamsize>::max() chars are skipped,
+	set _M_gcount = max().
+	* include/bits/istream.tcc (ignore(streamsize), ignore(streamsize,
+	int_type)): Likewise; keep simple, don't forward.
+
+2005-01-11  Paolo Carlini  <pcarlini@suse.de>
+
+	* src/istream.cc (basic_istream<char>::ignore(streamsize),
+	basic_istream<char>::ignore(streamsize, int_type),
+	basic_istream<wchar_t>::ignore(streamsize),
+	basic_istream<wchar_t>::ignore(streamsize, int_type)): Revert
+	2005-01-05 change: actually, the previous behavior is conforming
+	and consistent with that of get(char_type*, streamsize, char_type),
+	albeit slightly different from that of 3.3/3.4 in a corner case
+	due to the use of snextc.
+	* include/bits/istream.tcc (ignore(streamsize), ignore(streamsize,
+	int_type)): Likewise.
+	* testsuite/27_io/basic_istream/ignore/char/4.cc: Remove.
+	* testsuite/27_io/basic_istream/ignore/wchar_t/4.cc: Likewise.
+
+2005-01-11  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/tr1/type_traits: Implement alignment_of and aligned_storage.
+	* testsuite/tr1/4_metaprogramming/other_transformations/
+	aligned_storage/aligned_storage.cc: New.
+	* testsuite/tr1/4_metaprogramming/other_transformations/
+	aligned_storage/typedefs.cc: Likewise.
+	* testsuite/tr1/4_metaprogramming/type_properties/
+	alignment_of/alignment_of.cc: Likewise.
+	* testsuite/tr1/4_metaprogramming/type_properties/
+	alignment_of/typedefs.cc: Likewise.
+
+2005-01-10  Paolo Carlini  <pcarlini@suse.de>
+
+	* Makefile.in: Regenerate.
+	* libmath/Makefile.in: Likewise.
+	* libsupc++/Makefile.in: Likewise.
+	* po/Makefile.in: Likewise.
+	* src/Makefile.in: Likewise.
+	* testsuite/Makefile.in: Likewise.
+
+2005-01-10  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/stl_algobase.h (lexicographical_compare):
+	Fix concept check.
+
 2005-01-07  Benjamin Kosnik  <bkoz@redhat.com>
 
 	* acinclude.m4: Remove CCODECVT_H.

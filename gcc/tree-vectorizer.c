@@ -1377,13 +1377,13 @@ vect_strip_conversion (tree expr)
             a[j].b[i][j] = 0;
 	 
    For a[j].b[i][j], EXPR will be 'i * C_i + j * C_j + C'. 'i' cannot be 
-   subsituted, since its access_fn in the inner loop is i. 'j' will be 
+   substituted, since its access_fn in the inner loop is i. 'j' will be 
    substituted with 3. An INITIAL_OFFSET will be 'i * C_i + C`', where
    C` =  3 * C_j + C.
 
    Compute MISALIGN (the misalignment of the data reference initial access from
    its base) if possible. Misalignment can be calculated only if all the
-   variables can be substitued with constants, or if a variable is multiplied
+   variables can be substituted with constants, or if a variable is multiplied
    by a multiple of VECTYPE_ALIGNMENT. In the above example, since 'i' cannot
    be substituted, MISALIGN will be NULL_TREE in case that C_i is not a multiple
    of VECTYPE_ALIGNMENT, and C` otherwise. (We perform MISALIGN modulo 
@@ -1415,16 +1415,16 @@ vect_analyze_offset_expr (tree expr,
   tree left_step = size_zero_node;
   tree right_step = size_zero_node;
   enum tree_code code;
-  tree init, evolution, def_stmt;
+  tree init, evolution;
+
+  *step = NULL_TREE;
+  *misalign = NULL_TREE;
+  *initial_offset = NULL_TREE;
 
   /* Strip conversions that don't narrow the mode.  */
   expr = vect_strip_conversion (expr);
   if (!expr)
     return false;
-
-  *step = NULL_TREE;
-  *misalign = NULL_TREE;
-  *initial_offset = NULL_TREE;
 
   /* Stop conditions:
      1. Constant.  */
@@ -1447,18 +1447,12 @@ vect_analyze_offset_expr (tree expr,
 	return false;
 
       init = initial_condition_in_loop_num (access_fn, loop->num);
-      if (init == expr)
-	{
-	  def_stmt = SSA_NAME_DEF_STMT (init);
-	  if (def_stmt 
-	      && !IS_EMPTY_STMT (def_stmt)
-	      && flow_bb_inside_loop_p (loop, bb_for_stmt (def_stmt)))
-	    /* Not enough information: may be not loop invariant.  
-	       E.g., for a[b[i]], we get a[D], where D=b[i]. EXPR is D, its 
-	       initial_condition is D, but it depends on i - loop's induction
-	       variable.  */	  
-	    return false;
-	}
+      if (init == expr && !expr_invariant_in_loop_p (loop, init))
+	/* Not enough information: may be not loop invariant.  
+	   E.g., for a[b[i]], we get a[D], where D=b[i]. EXPR is D, its 
+	   initial_condition is D, but it depends on i - loop's induction
+	   variable.  */	  
+	return false;
 
       evolution = evolution_part_in_loop_num (access_fn, loop->num);
       if (evolution && TREE_CODE (evolution) != INTEGER_CST)
@@ -3184,7 +3178,8 @@ vect_update_ivs_after_vectorizer (struct loop *loop, tree niters, edge update_e)
       gcc_assert (!tree_is_chrec (evolution_part));
 
       step_expr = evolution_part;
-      init_expr = unshare_expr (initial_condition (access_fn));
+      init_expr = unshare_expr (initial_condition_in_loop_num (access_fn, 
+							       loop->num));
 
       ni = build2 (PLUS_EXPR, TREE_TYPE (init_expr),
 		  build2 (MULT_EXPR, TREE_TYPE (niters),
@@ -3900,7 +3895,7 @@ vect_is_simple_iv_evolution (unsigned loop_nb, tree access_fn, tree * init,
     return false;
   
   step_expr = evolution_part;
-  init_expr = unshare_expr (initial_condition (access_fn));
+  init_expr = unshare_expr (initial_condition_in_loop_num (access_fn, loop_nb));
 
   if (vect_debug_details (NULL))
     {
@@ -4430,7 +4425,11 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
     {
       struct data_reference *dr = VARRAY_GENERIC_PTR (loop_write_datarefs, i);
       if (dr == LOOP_VINFO_UNALIGNED_DR (loop_vinfo))
-	DR_MISALIGNMENT (dr) = 0;
+	{
+	  DR_MISALIGNMENT (dr) = 0;
+	  if (vect_debug_details (loop) || vect_debug_stats (loop))
+	    fprintf (dump_file, "Alignment of access forced using peeling.");
+	}
       else
 	DR_MISALIGNMENT (dr) = -1;
     }
@@ -4438,7 +4437,11 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
     {
       struct data_reference *dr = VARRAY_GENERIC_PTR (loop_read_datarefs, i);
       if (dr == LOOP_VINFO_UNALIGNED_DR (loop_vinfo))
-	DR_MISALIGNMENT (dr) = 0;
+	{
+	  DR_MISALIGNMENT (dr) = 0;
+	  if (vect_debug_details (loop) || vect_debug_stats (loop))
+	    fprintf (dump_file, "Alignment of access forced using peeling.");
+	}
       else
 	DR_MISALIGNMENT (dr) = -1;
     }
@@ -4496,6 +4499,9 @@ vect_analyze_data_refs_alignment (loop_vec_info loop_vinfo)
 	    fprintf (dump_file, "not vectorized: unsupported unaligned load.");
 	  return false;
 	}
+      if (supportable_dr_alignment != dr_aligned 
+	  && (vect_debug_details (loop) || vect_debug_stats (loop)))
+	fprintf (dump_file, "Vectorizing an unaligned access.");
     }
   for (i = 0; i < VARRAY_ACTIVE_SIZE (loop_write_datarefs); i++)
     {
@@ -4507,6 +4513,9 @@ vect_analyze_data_refs_alignment (loop_vec_info loop_vinfo)
 	    fprintf (dump_file, "not vectorized: unsupported unaligned store.");
 	  return false;
 	}
+      if (supportable_dr_alignment != dr_aligned 
+	  && (vect_debug_details (loop) || vect_debug_stats (loop)))
+	fprintf (dump_file, "Vectorizing an unaligned access.");
     }
 
   return true;
@@ -4627,6 +4636,14 @@ vect_analyze_pointer_ref_access (tree memref, tree stmt, bool is_read)
     }
 		
   STRIP_NOPS (init);
+
+  if (!expr_invariant_in_loop_p (loop, init))
+    {
+      if (vect_debug_stats (loop) || vect_debug_details (loop)) 
+	fprintf (dump_file, 
+		 "not vectorized: initial condition is not loop invariant.");	
+      return NULL;
+    }
 
   if (TREE_CODE (step) != INTEGER_CST)
     {
@@ -4887,7 +4904,7 @@ vect_get_memtag_and_dr (tree memref, tree stmt, bool is_read,
    1.1.1- vect_get_base_and_offset():
       Calculate base, initial_offset, step and alignment.      
       For ARRAY_REFs and COMPONENT_REFs use call get_inner_reference.
-   2- vect_analyze_dependences(): apply dependece testing using ref_stmt.DR
+   2- vect_analyze_dependences(): apply dependence testing using ref_stmt.DR
    3- vect_analyze_drs_alignment(): check that ref_stmt.alignment is ok.
    4- vect_analyze_drs_access(): check that ref_stmt.step is ok.
 

@@ -1,3 +1,672 @@
+2005-01-14  J. D. Johnston  <jjohnst@us.ibm.com>
+
+	* config/s390/tpf-unwind.h (s390_fallback_frame_state): Correct
+	end-of-stack check.
+	(__tpf_eh_return): Copy TPF private stack area from the module
+	boundary stack frame.  Add check for when module addresses are
+	equal, but no stub address is found.
+
+2005-01-14  Richard Earnshaw  <rearnsha@arm.com>
+
+	PR target/7525
+	* arm.h (struct machine_function): Add call_via field.
+	(thumb_call_via_label): Declare.
+	* arm.c (thumb_call_via_label): New variable.
+	(thumb_call_reg_needed): New variable.
+	(arm_output_function_epilogue): For Thumb code, output any per-function
+	call-indirect trampolines.
+	(thumb_call_via_reg): New function.
+	(arm_file_end): New function.
+	(TARGET_ASM_FILE_END): Call arm_file_end.
+	(aof_file_end): Likewise.
+	* arm-protos.h (thumb_call_via_reg): Declare.
+	* arm.md (call_reg_thumb, call_value_reg_thumb): Call 
+	thumb_call_via_reg in normal case.
+
+2005-01-14  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/19084
+	PR rtl-optimization/19348
+	* recog.c (peephole2_optimize): Do global life update if some peephole
+	decides it doesn't need at least one of its inputs and that change
+	influences liveness at the start of the basic block.
+
+	* basic-block.h (EXECUTE_IF_AND_COMPL_IN_REG_SET): Needs 2 REGSET
+	arguments instead of 1.
+
+2005-01-14  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR middle-end/18820
+	* varasm.c (initializer_constant_valid_p) <ADDR_EXPR>: Return
+	zero for nested functions needing a static chain or functions
+	with a non-constant address.
+
+2005-01-13  Roger Sayle  <roger@eyesopen.com>
+
+	* simplify-rtx.c (simplify_binary_operation) <AND>: Optimize
+	(and (sign_extend X) C) into (zero_extend (and X C)).
+
+2005-01-13  David O'Brien  <obrien@FreeBSD.org>
+
+	* config/freebsd-spec.h:  Make KSE pthread lib logic the default.
+
+2005-01-13  Richard Henderson  <rth@redhat.com>
+
+	PR target/19009
+	PR target/19250
+	PR target/19252
+	* config/i386/i386.md (cmpdf, cmpsf, bunordered, bordered, buneq,
+	bunge, bungt, bunle, bunlt, bltgt): Enable for TARGET_SSE_MATH,
+	not just TARGET_SSE.
+	(cmpfp_i_387): Rename from cmpfp_i.  Move after sse patterns.
+	(cmpfp_i_mixed): Rename from cmpfp_i_sse; use for TARGET_MIX_SSE_I387.
+	(cmpfp_i_sse): Rename from cmpfp_i_sse_only; use for TARGET_SSE_MATH.
+	(cmpfp_iu_mixed, cmpfp_iu_sse, cmpfp_iu_387): Similarly.
+	(fp_jcc_1_mixed, fp_jcc_1_sse, fp_jcc_1_387): Similarly.
+	(fp_jcc_2_mixed, fp_jcc_2_sse, fp_jcc_2_387): Similarly.
+	(fp_jcc_3_387, fp_jcc_4_387, fp_jcc_5_387, fp_jcc_6_387,
+	fp_jcc_7_387, fp_jcc_8_387): Rename from fp_jcc_N.
+	(movdicc_c_rex64): Rename with '*'.
+	(movsfcc, movdfcc): Add checks for 387 and sse math to condition.
+	(movsfcc_1_sse_min, movsfcc_1_sse_max, movsfcc_1_sse): New.
+	(movsfcc_1_387): Rename from movsfcc_1.
+	(movdfcc_1_sse_min, movdfcc_1_sse_max, movdfcc_1_sse): New.
+	(movdfcc_1, movdfcc_1_rex64): Add check for 387.
+	(sminsf3, smaxsf3, smindf3, smaxdf3): New.
+	(minsf3, minsf, minsf_nonieee, minsf_sse, mindf3, mindf,
+	mindf_nonieee, mindf_sse, maxsf3, maxsf, maxsf_nonieee, maxsf_sse,
+	maxdf3, maxdf, maxdf_nonieee, maxdf_sse, sse_movsfcc, sse_movsfcc_eq,
+	sse_movdfcc, sse_movdfcc_eq, sse_movsfcc_const0_1,
+	sse_movsfcc_const0_2, sse_movsfcc_const0_3, sse_movsfcc_const0_4,
+	sse_movdfcc_const0_1, sse_movdfcc_const0_2, sse_movdfcc_const0_3,
+	sse_movdfcc_const0_4): Remove.
+	* config/i386/i386.c (ix86_expand_fp_movcc): For TARGET_SSE_MATH,
+	recognize min/max early.  Update for changed sse cmove patterns.
+	(ix86_split_sse_movcc): New.
+	* config/i386/i386-protos.h: Update.
+
+2005-01-13  Steven Bosscher  <stevenb@suse.de>
+
+	* tree-ssa-dse.c (fix_phi_uses): Use SSA operand iterators.
+	(fix_stmt_v_may_defs): Likewise.
+
+2005-01-13  Richard Henderson  <rth@redhat.com>
+
+	* config/i386/i386.c (ix86_expand_fp_absneg_operator): Use elt_mode
+	for converting the mask.
+
+2005-01-13  David Edelsohn  <edelsohn@gnu.org>
+
+	* config/rs6000/aix52.h (CPLUSPLUS_CPP_SPEC): Change _XOPEN_SOURCE
+	definition to 600.
+
+2005-01-13  Richard Henderson  <rth@redhat.com>
+
+	* config/i386/i386.c (IX86_BUILTIN_MOVQ, IX86_BUILTIN_LOADD,
+	IX86_BUILTIN_STORED, IX86_BUILTIN_MOVQ2DQ,
+	IX86_BUILTIN_MOVDQ2Q): Remove.
+	(IX86_BUILTIN_VEC_EXT_V4SI): New.
+	(ix86_init_mmx_sse_builtins, ix86_expand_builtin): Update to match.
+	(ix86_expand_vector_extract): For V4S[FI], extract element 0 after 
+	shuffling.
+	* config/i386/sse.md (sse_concatv2sf): Accept zero operand 2.
+	(sse2_pextrw): Fix immediate constraint.
+	(sse2_loadq, sse2_loadq_rex64): Remove.
+	* config/i386/emmintrin.h (_mm_cvtsi128_si32, _mm_cvtsi128_si64x):
+	Use __builtin_ia32_vec_ext_<size>.
+	(_mm_cvtsi32_si128, _mm_cvtsi64x_si128): Use _mm_set_epi<size>.
+
+2005-01-13  Aldy Hernandez  <aldyh@redhat.com>
+
+	* function.c (assign_parm_setup_block): Look inside original
+	entry_parm when inspecting PARALLEL.
+
+2005-01-13  Ralf Corsepius  <ralf.corsepius@rtems.org>
+	    Joel Sherrill  <joel@oarcorp.com>
+
+	PR target/19399
+	* gthr-rtems.h (__gthread_recursive_mutex_t): New type.
+	(__GTHREAD_RECURSIVE_MUTEX_INIT_FUNCTION): Define to
+	rtems_gxx_recursive_mutex_init.
+	(__gthread_recursive_mutex_lock): New function.
+	(__gthread_recursive_mutex_trylock): Likewise.
+	(__gthread_recursive_mutex_unlock): Likewise.
+
+2005-01-13  Ralf Corsepius <ralf.corsepius@rtems.org>
+
+	* config/i386/t-rtems-i386: Multilib on -mtune instead of -mcpu.
+
+2005-01-13  Jan Beulich  <jbeulich@novell.com>
+
+	* config/ia64/ia64.md (ashlti3, ashlti3_internal): New.
+	(ashrti3_internal): Indicate output is early clobber. Generate result
+	into output rather than first input. Use move for low word of output
+	if shift count is exactly 64.
+	(lshrti3_internal): Likewise.
+
+2005-01-13  Hans-Peter Nilsson  <hp@bitrange.com>
+
+	PR target/18329
+	PR target/18330
+	* reload1.c (delete_output_reload): Don't delete an output reload
+	if the pseudo lives longer than a single basic block.  Adjust and
+	improve wording of comment.
+
+2005-01-12  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR target/19334
+	* config/darwin.c (machopic_select_section): Use TYPE_SIZE_UNIT instead
+	of TYPE_SIZE where we mean the number of bytes.
+
+2005-01-12  Aldy Hernandez  <aldyh@redhat.com>
+
+	* function.c (assign_parm_setup_block): Relax condition on
+	multi-register optimization.
+
+2005-01-12  Nick Clifton  <nickc@redhat.com>
+
+	* config/sh/sh.md (udivsi3_sh2a, divsi3_sh2a): Give these patterns
+	an "in_delay_slot" attribute of "no" to prevent them being used in
+	delay slots.  This is forbidden because they might generate
+	exceptions.
+
+2005-01-12  Alan Modra  <amodra@bigpond.net.au>
+
+	PR target/19389
+	* config/rs6000/rs6000.md (movtf_internal): Replace r->o and m->r
+	with r->Y and Y->r.
+
+2005-01-12  Nick Clifton  <nickc@redhat.com>
+
+	* config/iq2000/iq2000.h (ASM_SPEC): Undefine (to stop -Qy being
+	passed on to GAS) but do not define, as GAS no longer supports or
+	needs the -m2000 option.
+
+2005-01-11  Roger Sayle  <roger@eyesopen.com>
+
+	* builtins.c (fold_builtin_fabs): Convert argument to the appropriate
+	type as args of unprototyped builtins aren't automatically promoted.
+	(fold_builtin_abs): Likewise.
+
+2005-01-11  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* Makefile.in: Set a `build-warn' variable.
+
+2005-01-11  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	PR tree-optimization/17949
+	* tree-ssa-loop-ivopts.c (may_be_unaligned_p): New function.
+	(find_interesting_uses_address): Use it.
+
+2005-01-11  Aldy Hernandez  <aldyh@redhat.com>
+
+	* regrename.c (kill_value): Handle subreg's that won't simplify.
+
+2005-01-11  Richard Henderson  <rth@redhat.com>
+
+	PR target/13366
+	* config/i386/i386.h (enum ix86_builtins): Move ...
+	* config/i386/i386.c: ... here.
+	(IX86_BUILTIN_MOVDDUP, IX86_BUILTIN_MMX_ZERO, IX86_BUILTIN_PEXTRW,
+	IX86_BUILTIN_PINSRW, IX86_BUILTIN_LOADAPS, IX86_BUILTIN_LOADSS,
+	IX86_BUILTIN_STORESS, IX86_BUILTIN_SSE_ZERO, IX86_BUILTIN_PEXTRW128,
+	IX86_BUILTIN_PINSRW128, IX86_BUILTIN_LOADAPD, IX86_BUILTIN_LOADSD,
+	IX86_BUILTIN_STOREAPD, IX86_BUILTIN_STORESD,  IX86_BUILTIN_STOREHPD,
+	IX86_BUILTIN_STORELPD, IX86_BUILTIN_SETPD1, IX86_BUILTIN_SETPD,
+	IX86_BUILTIN_CLRPD, IX86_BUILTIN_LOADPD1, IX86_BUILTIN_LOADRPD,
+	IX86_BUILTIN_STOREPD1, IX86_BUILTIN_STORERPD, IX86_BUILTIN_LOADDQA,
+	IX86_BUILTIN_STOREDQA, IX86_BUILTIN_CLRTI,
+	IX86_BUILTIN_LOADDDUP): Remove.
+	(IX86_BUILTIN_VEC_INIT_V2SI, IX86_BUILTIN_VEC_INIT_V4HI,
+	IX86_BUILTIN_VEC_INIT_V8QI, IX86_BUILTIN_VEC_EXT_V2DF,
+	IX86_BUILTIN_VEC_EXT_V2DI, IX86_BUILTIN_VEC_EXT_V4SF,
+	IX86_BUILTIN_VEC_EXT_V8HI, IX86_BUILTIN_VEC_EXT_V4HI,
+	IX86_BUILTIN_VEC_SET_V8HI, IX86_BUILTIN_VEC_SET_V4HI): New.
+	(ix86_init_builtins): Make static.
+	(ix86_init_mmx_sse_builtins): Update for changed builtins.
+	(ix86_expand_binop_builtin): Only use ix86_fixup_binary_operands
+	if all the modes match.  Otherwise, fake it.
+	(get_element_number, ix86_expand_vec_init_builtin,
+	ix86_expand_vec_ext_builtin, ix86_expand_vec_set_builtin): New.
+	(ix86_expand_builtin): Make static.  Update for changed builtins.
+	(ix86_expand_vector_move_misalign): Use sse2_loadlpd with zero
+	operand instead of sse2_loadsd.  Cast sse1 fallback to V4SFmode.
+	(ix86_expand_vector_init_duplicate): New.
+	(ix86_expand_vector_init_low_nonzero): New.
+	(ix86_expand_vector_init_one_var, ix86_expand_vector_init_general):
+	Split out from ix86_expand_vector_init; handle integer modes.
+	(ix86_expand_vector_init): Use them.
+	(ix86_expand_vector_set, ix86_expand_vector_extract): New.
+	* config/i386/i386-protos.h: Update.
+	* config/i386/predicates.md (reg_or_0_operand): New.
+	* config/i386/mmx.md (mov<MMXMODEI>_internal): Add 'r' variants.
+	(movv2sf_internal): Likewise.  And a splitter to match them all.
+	(vec_dupv2sf, mmx_concatv2sf, vec_setv2sf, vec_extractv2sf,
+	vec_initv2sf, vec_dupv4hi, vec_dupv2si, mmx_concatv2si, vec_setv2si,
+	vec_extractv2si, vec_initv2si, vec_setv4hi, vec_extractv4hi,
+	vec_initv4hi, vec_setv8qi, vec_extractv8qi, vec_initv8qi): New.
+	(mmx_pinsrw): Fix operand ordering.
+	* config/i386/sse.md (movv4sf splitter): Use direct pattern,
+	rather than sse_loadss expander.
+	(movv2df splitter): Similarly.
+	(sse_loadss, sse_loadlss): Remove.
+	(vec_dupv4sf, sse_concatv2sf, sse_concatv4sf, vec_extractv4sf_0): New.
+	(vec_setv4sf, vec_setv2df): Use ix86_expand_vector_set.
+	(vec_extractv4sf, vec_extractv2df): Use ix86_expand_vector_extract.
+	(sse3_movddup): Rename with '*'.
+	(sse3_movddup splitter): Use gen_rtx_REG instead of gen_lowpart.
+	(sse2_loadsd): Remove.
+	(vec_dupv2df_sse3): Rename from sse3_loadddup.
+	(vec_dupv2df, vec_concatv2df_sse3, vec_concatv2df): New.
+	(sse2_pinsrw): Fix argument ordering.
+	(sse2_loadld, sse2_loadq): Add sse1 alternatives.
+	(sse2_stored): Remove 'r' destination.
+	(vec_dupv4si, vec_dupv2di, sse2_concatv2si, sse1_concatv2si,
+	vec_concatv4si_1, vec_concatv2di, vec_setv2di, vec_extractv2di,
+	vec_initv2di, vec_setv4si, vec_extractv4si, vec_initv4si,
+	vec_setv8hi, vec_extractv8hi, vec_initv8hi, vec_setv16qi,
+	vec_extractv16qi, vec_initv16qi): New.
+
+	* config/i386/emmintrin.h (__m128i, __m128d): Use typedef, not define.
+	(_mm_set_sd, _mm_set1_pd, _mm_setzero_pd, _mm_set_epi64x, 
+	_mm_set_epi32, _mm_set_epi16, _mm_set_epi8, _mm_setzero_si128): Use
+	constructor form.
+	(_mm_load_pd, _mm_store_pd): Use plain dereference.
+	(_mm_load_si128, _mm_store_si128): Likewise.
+	(_mm_load1_pd): Use _mm_set1_pd.
+	(_mm_load_sd): Use _mm_set_sd.
+	(_mm_store_sd, _mm_storeh_pd): Use __builtin_ia32_vec_ext_v2df.
+	(_mm_store1_pd, _mm_storer_pd): Use _mm_store_pd.
+	(_mm_set_epi64): Use _mm_set_epi64x.
+	(_mm_set1_epi64x, _mm_set1_epi64, _mm_set1_epi32, _mm_set_epi16,
+	_mm_set1_epi8, _mm_setr_epi64, _mm_setr_epi32, _mm_setr_epi16,
+	_mm_setr_epi8): Use _mm_set_foo form.
+	(_mm_loadl_epi64, _mm_movpi64_epi64, _mm_move_epi64): Use _mm_set_epi64.
+	(_mm_storel_epi64, _mm_movepi64_pi64): Use __builtin_ia32_vec_ext_v2di.
+	(_mm_extract_epi16): Use __builtin_ia32_vec_ext_v8hi.
+	(_mm_insert_epi16): Use __builtin_ia32_vec_set_v8hi.
+	* config/i386/mmintrin.h (_mm_setzero_si64): Use plain cast.
+	(_mm_set_pi32): Use __builtin_ia32_vec_init_v2si.
+	(_mm_set_pi16): Use __builtin_ia32_vec_init_v4hi.
+	(_mm_set_pi8): Use __builtin_ia32_vec_init_v8qi.
+	(_mm_set1_pi16, _mm_set1_pi8): Use _mm_set_piN variant.
+	* config/i386/pmmintrin.h (_mm_loaddup_pd): Use _mm_load1_pd.
+	(_mm_movedup_pd): Use _mm_shuffle_pd.
+	* config/i386/xmmintrin.h (_mm_setzero_ps, _mm_set_ss,
+	_mm_set1_ps, _mm_set_ps, _mm_setr_ps): Use constructor form.
+	(_mm_cvtpi16_ps, _mm_cvtpu16_ps, _mm_cvtpi8_ps, _mm_cvtpu8_ps,
+	_mm_cvtps_pi8, _mm_cvtpi32x2_ps): Avoid __builtin_ia32_mmx_zero;
+	Use _mm_setzero_ps.
+	(_mm_load_ss, _mm_load1_ps): Use _mm_set* form.
+	(_mm_load_ps, _mm_loadr_ps): Use raw dereference.
+	(_mm_store_ss): Use __builtin_ia32_vec_ext_v4sf.
+	(_mm_store_ps): Use raw dereference.
+	(_mm_store1_ps): Use _mm_storeu_ps.
+	(_mm_storer_ps): Use _mm_store_ps.
+	(_mm_extract_pi16): Use __builtin_ia32_vec_ext_v4hi.
+	(_mm_insert_pi16): Use __builtin_ia32_vec_set_v4hi.
+
+2005-01-11  Stan Shebs  <shebs@apple.com>
+
+	* config/rs6000/rs6000.c (machopic_output_stub): Issue
+	ldu instead of lwzu if 64-bit -mdynamic-no-pic.
+
+2005-01-11  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR target/18761
+	* config/rs6000/rs6000.c (rs6000_special_round_type_align):
+	Skip all DECLs except for FIELD_DECLs.
+
+2005-01-11  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* config/s390/s390.c (override_options): Return error if
+	-mbackchain, -mpacked-stack and -mhard-float are used together.
+	(s390_va_start): Remove the backchain && packed-stack special case.
+	(s390_gimplify_va_arg): Likewise.
+	* doc/invoke.texi: Remove the ABI incompatibility note.
+
+2005-01-11  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* config/s390/s390.c (struct s390_frame_layout): Remove 
+	save_backchain_p.
+	(s390_frame_info, s390_emit_prologue): Replace occurrences of
+	save_backchain_p with TARGET_BACKCHAIN.
+
+2005-01-11  Alan Modra  <amodra@bigpond.net.au>
+
+	PR target/18916
+	* builtins.c (std_gimplify_va_arg_expr): Adjust alignment of *ap.
+	* expr.h (struct locate_and_pad_arg_data): Add "boundary".
+	* function.c (locate_and_pad_parm): Set new field.
+	(assign_parm_find_stack_rtl): Use it instead of FUNCTION_ARG_BOUNDARY.
+	Tweak where_pad test to include "none".  Always set mem align for
+	stack_parm.
+	(assign_parm_adjust_stack_rtl): Discard stack_parm if alignment
+	not sufficient for type.
+	(assign_parm_setup_block): If stack_parm is zero on entry, always
+	make a new stack local.  Block move old stack parm if necessary
+	to new aligned stack local.
+	(assign_parm_setup_stack): Use a block move to handle
+	potentially misaligned entry_parm.
+	(assign_parms_unsplit_complex): Specify required alignment when
+	creating stack local.
+	* calls.c (compute_argument_addresses): Override alignment of stack
+	arg calculated from its type with the alignment given by
+	FUNCTION_ARG_BOUNDARY.
+	(store_one_arg): Likewise.
+
+2005-01-11  Jan Beulich  <jbeulich@novell.com>
+
+	* config/ia64/ia64.md (zero_extendsidi2): Replace zxt4 by addp4.
+	Change respective itanium_class attribute to ialu.
+	(shladdp4_internal): New.
+	* config/ia64/predicates.md (shladd_log2_operand): New.
+
+2005-01-11  Richard Henderson  <rth@redhat.com>
+
+	* expr.c (store_constructor): Use rtvec_alloc instead of
+	alloca+gen_rtvec_v, and an incorrect number passed to alloca.
+
+2005-01-11  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/alpha/alpha.c, config/i386/mmx.md: Fix comment typos.
+
+2005-01-11  Alan Modra  <amodra@bigpond.net.au>
+
+	* varasm.c (default_section_type_flags_1): Don't set SECTION_SMALL.
+	* config/ia64/ia64.c (TARGET_SECTION_TYPE_FLAGS): Define.
+	(TARGET_RWRELOC): Define.
+	(ia64_rwreloc_section_type_flags): Delete.
+	(ia64_section_type_flags): New function.
+	* config/ia64/hpux.h (TARGET_SECTION_TYPE_FLAGS): Don't define.
+	(TARGET_RWRELOC): Define.
+
+2005-01-10  David Mosberger  <davidm@hpl.hp.com>
+
+	PR target/18987
+	* config/ia64/ia64.c (process_set): For alloc insn, only call
+	process_epilogue is !frame_pointer_needed.
+
+2005-01-10  Roger Sayle  <roger@eyesopen.com>
+
+	PR c++/19355
+	* c-common.c (c_common_truthvalue_conversion): TRUTH_NOT_EXPR is a
+	unary operator and can't be treated as a binary/comparison operator.
+
+2005-01-10  Richard Henderson  <rth@redhat.com>
+
+	* config/i386/i386.c (ix86_function_value): Use type_natural_mode.
+	(ix86_return_in_memory): Likewise.
+	(function_arg_advance):  Likewise.  Mirror structure in function_arg
+	for choosing register to advance.
+
+2005-01-10  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* tree-vectorizer.c, tree.def: Fix comment typos.
+
+2005-01-10  Mark Dettinger  <dettinge@de.ibm.com>
+
+	* config/s390/s390.c (struct processor_costs): 4 new fields:
+	ddbr, ddr, debr, der.
+	(s390_rtx_costs): More precise handling of divide instructions.
+
+2005-01-10  David Edelsohn  <edelsohn@gnu.org>
+
+	* config/rs6000/t-aix43 (BOOT_LDFLAGS): Define.
+
+2005-01-10  Jan Beulich  <jbeulich@novell.com>
+
+	* config/ia64/ia64.c (ia64_in_small_data_p): Also handle the section
+	names resulting from -ffunction-sections/-fdata-sections and linkonce
+	ones.
+	* varasm.c (default_section_type_flags_1): Also set SECTION_SMALL
+	based on the section name. Rearrange the section name comparison logic
+	slightly so that each section name is compared against at most once.
+
+2005-01-10  Ben Elliston  <bje@au.ibm.com>
+
+	* doc/invoke.texi (Code Gen Options): Add PowerPC to the list of
+	targets for which -fPIC reduces limitations on the GOT size.
+
+2005-01-09  Falk Hueffner  <falk@debian.org>
+
+	* fold-const.c (fold): Also handle EXACT_DIV_EXPR when folding
+	X/C1 cmpop C2.
+
+2005-01-09  David Edelsohn  <edelsohn@gnu.org>
+
+	PR target/18720
+	* collect2.c (main): Set aixrtl_flag for -brtl option.
+	(resolve_lib_name): Search for .so file extension before .a
+	if aixrtl_flag set.
+
+2005-01-09  Dorit Naishlos  <dorit@il.ibm.com>
+
+	* tree-vectorizer.c (vect_enhance_data_refs_alignment): Add dump prints.
+	(vect_analyze_data_refs_alignment): Add dump prints.
+
+2005-01-09  Ira Rosen  <irar@il.ibm.com>
+
+	* tree-vectorizer.c (vect_analyze_offset_expr): Use 
+	expr_invariant_in_loop_p.
+	Initialize outputs first thing in the function.
+	(vect_update_ivs_after_vectorizer): Call initial_condition_in_loop_num.
+	(vect_is_simple_iv_evolution): Call initial_condition_in_loop_num.
+	(vect_analyze_pointer_ref_access): Check that the initial condition of 
+	the access function is loop invariant.
+
+2005-01-09  Richard Henderson  <rth@redhat.com>
+
+	* config/i386/i386.c (bdesc_2arg): Update names for mmx_ prefixes.
+	(ix86_expand_builtin): Likewise.  Frob MASKMOVQ wrt the input mem
+	just like MASKMOVDQU.  Return plain zero for MMX_ZERO.
+	* config/i386/i386.md (MMXMODEI, mov<MMXMODEI>,
+	mov<MMXMODEI>_internal_rex64, mov<MMXMODEI>_internal, movv2sf,
+	movv2sf_internal_rex64, movv2sf_internal, MMXMODE,
+	movmisalign<MMXMODE>, mmx_pmovmskb, mmx_maskmovq, mmx_maskmovq_rex,
+	sse_movntdi, addv8qi3, addv4hi3, addv2si3, mmx_adddi3, ssaddv8qi3,
+	ssaddv4hi3, usaddv8qi3, usaddv4hi3, subv8qi3, subv4hi3, subv2si3,
+	mmx_subdi3, sssubv8qi3, sssubv4hi3, ussubv8qi3, ussubv4hi3,
+	mulv4hi3, smulv4hi3_highpart, umulv4hi3_highpart, mmx_pmaddwd,
+	sse2_umulsidi3, mmx_iordi3, mmx_xordi3, mmx_anddi3, mmx_nanddi3,
+	mmx_uavgv8qi3, mmx_uavgv4hi3, mmx_psadbw, mmx_pinsrw, mmx_pinsrw,
+	mmx_pextrw, mmx_pshufw, eqv8qi3, eqv4hi3, eqv2si3, gtv8qi3, gtv4hi3,
+	gtv2si3, umaxv8qi3, smaxv4hi3, uminv8qi3, sminv4hi3, ashrv4hi3,
+	ashrv2si3, lshrv4hi3, lshrv2si3, mmx_lshrdi3, ashlv4hi3, ashlv2si3,
+	mmx_ashldi3, mmx_packsswb, mmx_packssdw, mmx_packuswb, mmx_punpckhbw,
+	mmx_punpckhwd, mmx_punpckhdq, mmx_punpcklbw, mmx_punpcklwd, 
+	mmx_punpckldq, emms, addv2sf3, subv2sf3, subrv2sf3, gtv2sf3, gev2sf3,
+	eqv2sf3, pfmaxv2sf3, pfminv2sf3, mulv2sf3, femms, pf2id, pf2iw,
+	pfacc, pfnacc, pfpnacc, pi2fw, floatv2si2, pfrcpv2sf2, pfrcpit1v2sf3,
+	pfrcpit2v2sf3, pfrsqrtv2sf2, pfrsqit1v2sf3, pmulhrwv4hi3, pswapdv2si2,
+	pswapdv2sf2): Move to mmx.md; rename as necessary with leading
+	mmx_ prefix.
+	(mmx_clrdi, pavgusb): Remove.
+	(ldmxcsr, stmxcsr, sfence, sfence_insn): Move to sse.md; rename 
+	with leading sse_ prefix.
+	* config/i386/sse.md: Receive them.
+	* config/i386/mmx.md: New file.
+	(MMXMODE12, MMXMODE24, mmxvecsize): New.
+	(subrv2sf3): Turn into expander for normal subtraction.
+	(mmx_addv2sf3, mmx_mulv2sf3, mmx_smaxv2sf3, mmx_sminv2sf3,
+	mmx_eqv2sf3, mmx_mulv4hi3, mmx_smulv4hi3_highpart,
+	mmx_umulv4hi3_highpart, mmx_pmaddwd, mmx_pmulhrwv4hi3, sse2_umulsidi3,
+	mmx_umaxv8qi3, mmx_smaxv4hi3, mmx_uminv8qi3, mmx_sminv4hi3): Mark
+	commutative; use ix86_binary_operator_ok.
+	(mmx_add<MMXMODEI>3, mmx_ssadd<MMXMODE12>3, mmx_usadd<MMXMODE12>3,
+	mmx_sub<MMXMODEI>3, mmx_sssub<MMXMODE12>3, mmx_ussub<MMXMODE12>3
+	mmx_ashr<MMXMODE24>3, mmx_lshr<MMXMODE23>3, mmx_ashl<MMXMODE24>3
+	mmx_eq<MMXMODEI>3, mmx_gt<MMXMODEI>3, mmx_and<MMXMODEI>3, 
+	mmx_nand<MMXMODEI>3, mmx_ior<MMXMODEI>3, mmx_xor<MMXMODEI>3):
+	Macroize from existing patterns; use ix86_binary_operator_ok.
+	(mmx_packsswb, mmx_packssdw, mmx_packuswb): Add memory alternative.
+	(mmx_punpckhbw, mmx_punpcklbw, mmx_punpckhwd, mmx_punpcklwd,
+	mmx_punpckhdq, mmx_punpckhdq, mmx_punpckldq): Likewise.  Model
+	with vec_select+vec_concat.
+	(mmx_pshufw, mmx_pshufw_1): Likewise.
+	(mmx_uavgv8qi3): Merge pavgusb.  Model correcty.
+	(mmx_uavgv4hi3): Model correctly.
+	* config/i386/mmintrin.h (_mm_and_si64, _mm_andnot_si64, _mm_or_si64,
+	_mm_xor_si64): Remove casts.
+
+2005-01-09  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	PR tree-optimization/19224
+	* tree-scalar-evolution.c (get_instantiated_value,
+	set_instantiated_value): New functions.
+	(instantiate_parameters_1): Cache the results.
+	(instantiate_parameters, resolve_mixers): Initialize and free
+	the cache.
+
+2005-01-08  David Edelsohn  <edelsohn@gnu.org>
+
+	* config/i386/i386.md (addhi_4): Correct reference in comment.
+	(addqi_4): Same.
+
+2005-01-08  Richard Henderson  <rth@redhat.com>
+
+	* config/i386/emmintrin.h (_mm_cvtsi128_si32): Move earlier.
+	(_mm_cvtsi128_si64x): Likewise.
+	(_mm_srl_epi64, _mm_srl_epi32, _mm_srl_epi16, _mm_sra_epi32,
+	_mm_sra_epi16, _mm_sll_epi64, _mm_sll_epi32, _mm_sll_epi16): Use
+	the _mm_{srl,sll}i_foo counterpart, and _mm_cvtsi128_si32.
+	* config/i386/i386-modes.def: Add V16HI, V32QI, V4DF, V8SF.
+	* config/i386/i386-protos.h: Update.
+	* config/i386/i386.c (print_operand): Add 'H'.
+	(ix86_fixup_binary_operands): Split out from ...
+	(ix86_expand_binary_operator): ... here.
+	(ix86_fixup_binary_operands_no_copy): New.
+	(ix86_expand_fp_absneg_operator): Handle vector mode results.
+	(bdesc_2arg): Update names for sse{,2,3}_ prefixes.
+	(ix86_init_mmx_sse_builtins): Remove *maskncmp* special cases.
+	(safe_vector_operand): Use CONST0_RTX.
+	(ix86_expand_binop_builtin): Use ix86_fixup_binary_operands.
+	(ix86_expand_builtin): Merge CODE_FOR_sse2_maskmovdqu_rex64 and
+	CODE_FOR_sse2_maskmovdqu.  Special case SSE version of MASKMOVDQU
+	expansion.  Update names for sse{,2,3}_ prefixes.  Remove *maskncmp*
+	special cases.
+	* config/i386/i386.h (IX86_BUILTIN_CMPNGTSS): New.
+	(IX86_BUILTIN_CMPNGESS): New.
+	* config/i386/i386.md (UNSPEC_FIX_NOTRUNC): New.
+	(attr type): Add sselog1.
+	(attr unit, attr memory): Handle it.
+	(movti, movti_internal, movti_rex64): Move near other integer moves.
+	(movtf, movtf_internal): Move near other fp moves.
+	(SSEMODE, SSEMODEI, vec_setv2df, vec_extractv2df, vec_initv2df,
+	vec_setv4sf, vec_extractv4sf, vec_initv4sf, movv4sf, movv4sf_internal,
+	movv2df, movv2df_internal, mov<SSEMODEI>, mov<SSEMODEI>_internal, 
+	movmisalign<SSEMODE>, sse_movups_1, sse_movmskps, sse_movntv4sf,
+	sse_movhlps, sse_movlhps, sse_storehps, sse_loadhps, sse_storelps,
+	sse_loadlps, sse_loadss, sse_loadss_1, sse_movss, sse_storess,
+	sse_shufps, addv4sf3, vmaddv4sf3, subv4sf3, vmsubv4sf3, negv4sf2,
+	mulv4sf3, vmmulv4sf3, divv4sf3, vmdivv4sf3, rcpv4sf2, vmrcpv4sf2,
+	rsqrtv4sf2, vmrsqrtv4sf2, sqrtv4sf2, vmsqrtv4sf2, sse_andv4sf3,
+	sse_nandv4sf3, sse_iorv4sf3, sse_xorv4sf3, sse2_andv2df3, 
+	sse2_nandv2df3, sse2_iorv2df3, sse2_xorv2df3, sse2_andv2di3, 
+	sse2_nandv2di3, sse2_iorv2di3, sse2_xorv2di3, maskcmpv4sf3, 
+	vmmaskcmpv4sf3, sse_comi, sse_ucomi, sse_unpckhps, sse_unpcklps,
+	smaxv4sf3, vmsmaxv4sf3, sminv4sf3, vmsminv4sf3, cvtpi2ps, cvtps2pi,
+	cvttps2pi, cvtsi2ss, cvtsi2ssq, cvtss2si, cvtss2siq, cvttss2si,
+	cvttss2siq, addv2df3, vmaddv2df3, subv2df3, vmsubv2df3, mulv2df3,
+	vmmulv2df3, divv2df3, vmdivv2df3, smaxv2df3, vmsmaxv2df3, sminv2df3,
+	vmsminv2df3, sqrtv2df2, vmsqrtv2df2, maskcmpv2df3, vmmaskcmpv2df3,
+	sse2_comi, sse2_ucomi, sse2_movmskpd, sse2_pmovmskb, sse2_maskmovdqu,
+	sse2_maskmovdqu_rex64, sse2_movntv2df, sse2_movntv2di, sse2_movntsi,
+	cvtdq2ps, cvtps2dq, cvttps2dq, cvtdq2pd, cvtpd2dq, cvttpd2dq,
+	cvtpd2pi, cvttpd2pi, cvtpi2pd, cvtsd2si, cvtsd2siq, cvttsd2si,
+	cvttsd2siq, cvtsi2sd, cvtsi2sdq, cvtsd2ss, cvtss2sd, cvtpd2ps,
+	cvtps2pd, addv16qi3, addv8hi3, addv4si3, addv2di3, ssaddv16qi3,
+	ssaddv8hi3, usaddv16qi3, usaddv8hi3, subv16qi3, subv8hi3, subv4si3,
+	subv2di3, sssubv16qi3, sssubv8hi3, ussubv16qi3, ussubv8hi3, mulv8hi3,
+	smulv8hi3_highpart, umulv8hi3_highpart, sse2_umulsidi3,
+	sse2_umulv2siv2di3, sse2_pmaddwd, sse2_uavgv16qi3, sse2_uavgv8hi3,
+	sse2_psadbw, sse2_pinsrw, sse2_pextrw, sse2_pshufd, sse2_pshuflw,
+	sse2_pshufhw, eqv16qi3, eqv8hi3, eqv4si3, gtv16qi3, gtv8hi3, 
+	gtv4si3, umaxv16qi3, smaxv8hi3, uminv16qi3, sminv8hi3, ashrv8hi3,
+	ashrv4si3, lshrv8hi3, lshrv4si3, lshrv2di3, ashlv8hi3, ashlv4si3,
+	ashlv2di3, sse2_ashlti3, sse2_lshrti3, sse2_unpckhpd, sse2_unpcklpd,
+	sse2_packsswb, sse2_packssdw, sse2_packuswb, sse2_punpckhbw, 
+	sse2_punpckhwd, sse2_punpckhdq, sse2_punpcklbw, sse2_punpcklwd,
+	sse2_punpckldq, sse2_punpcklqdq, sse2_punpckhqdq, sse2_movupd,
+	sse2_movdqu, sse2_movdq2q, sse2_movdq2q_rex64, sse2_movq2dq, 
+	sse2_movq2dq_rex64, sse2_loadd, sse2_stored, sse2_storehpd,
+	sse2_loadhpd, sse2_storelpd, sse2_loadlpd, sse2_movsd, sse2_loadsd,
+	sse2_loadsd_1, sse2_storesd, sse2_shufpd, sse2_clflush, sse2_mfence,
+	mfence_insn, sse2_lfence, lfence_insn, mwait, monitor, addsubv4sf3,
+	addsubv2df3, haddv4sf3, haddv2df3, hsubv4sf3, hsubv2df3, movshdup,
+	movsldup, lddqu, loadddup, movddup): Move to sse.md.  Any with
+	non-optabs meanings renamed with an "sse{,2,3}_" prefix at the
+	same time.
+	(SSEPUSH, push<SSEPUSH>): Remove.
+	(MMXPUSH, push<MMXPUSH>): Remove.
+	(sse_movaps, sse_movaps_1, sse_movups): Remove.
+	(sse2_movapd, sse2_movdqa, sse2_movq): Remove.
+	(sse2_andti3, sse2_nandti3, sse2_iorti3, sse2_xorti3): Remove.
+	(sse_clrv4sf, sse_clrv2df, sse2_clrti): Remove.
+	(maskncmpv4sf3, vmmaskncmpv4sf3): Remove.
+	(maskncmpv2df3, vmmaskncmpv2df3): Remove.
+	(ashrv8hi3_ti, ashrv4si3_ti, lshrv8hi3_ti, lshrv4si3_ti): Remove.
+	(lshrv2di3_ti, ashlv8hi3_ti, ashlv4si3_ti, ashlv2di3_ti): Remove.
+	* config/i386/athlon.md (athlon_sselog_load): Handle sselog1.
+	(athlon_sselog_load_k8, athlon_sselog, athlon_sselog_k8): Likewise.
+	* config/i386/ppro.md (ppro_sse_div_V4SF_load): Fix memory attr.
+	(ppro_sse_log_V4SF_load): Similarly.  Handle sselog1.
+	(ppro_sse_log_V4SF): Handle sselog1.
+	* config/i386/predicates.md (const_0_to_1_operand): New.
+	(const_0_to_255_mul_8_operand): New.
+	(const_1_to_31_operand): Rename from const_int_1_31_operand.
+	(const_2_to_3_operand, const_4_to_7_operand): New.
+	* config/i386/sse.md: New file.
+	(SSEMODE12, SSEMODE24, SSEMODE124, SSEMODE248, ssevecsize): New.
+	(sse_movups): Rename from sse_movups_1.
+	(sse_loadlss): Rename from sse_loadss_1.
+	(andv4sf3, iorv4sf3, xorv4sf3, andv2df3): Remove the sse prefix
+	from the name.
+	(negv4sf2): Use ix86_expand_fp_absneg_operator.
+	(absv4sf2, negv2df, absv2df): New.
+	(addv4sf3): Add expander to call ix86_fixup_binary_operands_no_copy.
+	(subv4sf3, mulv4sf3, divv4sf3, smaxv4sf3, sminv4sf3, andv4sf3,
+	iorv4sf3, xorv4sf3, addv2df3, subv2df3, mulv2df3, divv2df3,
+	smaxv2df3, sminv2df3, andv2df3, iorv2df3, xorv2df3, mulv8hi3,
+	umaxv16qi3, smaxv8hi3, uminv16qi3, sminv8hi3): Likewise.
+	(sse3_addsubv4sf3): Model correctly.
+	sse3_haddv4sf3, sse3_hsubv4sf3, sse3_addsubv2df3, sse3_haddv2df3,
+	sse3_hsubv2df3, sse2_ashlti3, sse2_lshrti3): Likewise.
+	(sse_movhlps): Model with vec_select+vec_concat.
+	(sse_movlhps, sse_unpckhps, sse_unpcklps, sse3_movshdup, 
+	sse3_movsldup, sse_shufps, sse_shufps_1, sse2_unpckhpd, sse3_movddup,
+	sse2_unpcklpd, sse2_shufpd, sse2_shufpd_1, sse2_punpckhbw,
+	sse2_punpcklbw, sse2_punpckhwd, sse2_punpcklwd, sse2_punpckhdq,
+	sse2_punpckldq, sse2_punpckhqdq, sse2_punpcklqdq, sse2_pshufd,
+	sse2_pshufd_1, sse2_pshuflw, sse2_pshuflw_1, sse2_pshufhw, 
+	sse2_pshufhw_1): Likewise.
+	(neg<SSEMODEI>2, one_cmpl<SSEMODEI>2): New.
+	(add<SSEMODEI>3, sse2_ssadd<SSEMODE12>3, sse2_usadd<SSEMODE12>3,
+	sub<SSEMODEI>3, sse2_sssub<SSEMODE12>3, sse2_ussub<SSEMODE12>3,
+	ashr<SSEMODE24>3, lshr<SSEMODE248>3, sse2_eq<SSEMODE124>3,
+	sse2_gt<SSEMODDE124>3, and<SSEMODEI>3, sse_nand<SSEMODEI>3,
+	ior<SSEMODEI>3, xor<SSEMODEI>3): Macroize from existing patterns.	
+	(addv4sf3, sse_vmaddv4sf3, mulv4sf3, sse_vmmulv4sf3, smaxv4sf3,
+	sse_vmsmaxv4sf3, sminv4sf3, sse_vmsminv4sf3, addv2df3, sse2_vmaddv2df3,
+	mulv2df3, sse2_vmmulv2df3, smaxv2df3, sse2_vmsmaxv2df3, sminv2df3,
+	sse2_vmsminv2df3, umaxv16qi3, smaxv8hi3, uminv16qi3
+	sminv8hi3): Mark commutative
+	operands.  Use ix86_binary_operator_ok.
+	(sse_unpckhps, sse_unpcklps, sse2_packsswb, sse2_packssdw,
+	sse2_packuswb, sse2_punpckhbw, sse2_punpcklbw, sse2_punpckhwd,
+	sse2_punpcklwd, sse2_punpckhdq, sse2_punpckldq, sse2_punpckhqdq,
+	sse2_punpcklqdq): Allow operand2 in memory.
+	(sse_movhlps, sse_movlhps, sse2_unpckhpd, sse2_unpcklpd
+	sse2_movsd): Add memory alternatives.
+	(sse_storelps): Turn expander into an insn; split after reload.
+	(sse_storess, sse2_loadhpd, sse2_loadlpd): Add non-xmm inputs.
+	(sse2_storehpd, sse2_storelpd): Add non-xmm outputs.
+
+2005-01-08  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* configure.ac (DWARF-2 debug_line): Use objdump.
+	* configure: Regenerate.
+
 2005-01-08  Jeff Law  <law@redhat.com>
 	    Diego Novillo  <dnovillo@redhat.com>
 

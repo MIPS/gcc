@@ -1,3 +1,145 @@
+2005-01-13  Graydon Hoare  <graydon@redhat.com>
+
+	* include/jni.h (_Jv_JNIEnv::bottom_locals): New field.
+	* include/jvm.h (_Jv_FreeJNIEnv): Declare.
+	* java/lang/natThread.cc (finalize_native): Call _Jv_FreeJNIEnv.
+	* jni.cc: Reuse bottom frame between calls, avoid clearing
+	frame when no local references are made.
+
+2005-01-13  Michael Koch  <konqueror@gmx.de>
+
+	PR libgcj/17784
+	* java/lang/Thread.java
+	(Thread): Call checkAccess().
+	(stop): Fixed argument name to match javadoc.
+	* java/lang/natThread.cc
+	(interrupt): Call checkAccess().
+	(stop): Likewise.
+
+2005-01-11  Michael Koch  <konqueror@gmx.de>
+
+	PR libgcj/13972
+	* java/net/URL.java (URL): Handle specs like
+	"/redir?http://domain2.com/index.html" which start with a slash.
+
+2005-01-11  Michael Koch  <konqueror@gmx.de>
+
+	PR libgcj/14012, PR libgcj/14013, PR libgcj/15157, PR libgcj/15509
+	* gnu/java/net/BASE64.java,
+	gnu/java/net/EmptyX509TrustManager.java,
+	gnu/java/net/LineInputStream.java,
+	gnu/java/net/protocol/http/Authenticator.java,
+	gnu/java/net/protocol/http/ByteArrayRequestBodyWriter.java,
+	gnu/java/net/protocol/http/ByteArrayResponseBodyReader.java,
+	gnu/java/net/protocol/http/ChunkedInputStream.java,
+	gnu/java/net/protocol/http/Cookie.java,
+	gnu/java/net/protocol/http/CookieManager.java,
+	gnu/java/net/protocol/http/Credentials.java,
+	gnu/java/net/protocol/http/HTTPConnection.java,
+	gnu/java/net/protocol/http/HTTPDateFormat.java,
+	gnu/java/net/protocol/http/HTTPURLConnection.java,
+	gnu/java/net/protocol/http/Headers.java,
+	gnu/java/net/protocol/http/Request.java,
+	gnu/java/net/protocol/http/RequestBodyWriter.java,
+	gnu/java/net/protocol/http/Response.java,
+	gnu/java/net/protocol/http/ResponseBodyReader.java,
+	gnu/java/net/protocol/http/ResponseHeaderHandler.java,
+	gnu/java/net/protocol/http/SimpleCookieManager.java,
+	gnu/java/net/protocol/http/event/ConnectionEvent.java,
+	gnu/java/net/protocol/http/event/ConnectionListener.java,
+	gnu/java/net/protocol/http/event/RequestEvent.java,
+	gnu/java/net/protocol/http/event/RequestListener.java: New files.
+	* gnu/java/net/protocol/http/Connection.java: Removed.
+	* gnu/java/net/protocol/http/Handler.java,
+	javax/net/ssl/HttpsURLConnection.java: Updated.
+	* Makefile.am: Added new files and remove old ones.
+	* Makefile.in: Regenerated.
+
+2005-01-11  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/18840:
+	* java/io/BufferedInputStream.java (read): Repeatedly read to
+	fill buffer.
+	(refill): Change test to see if buffer must be grown.
+
+2005-01-10  Tom Tromey  <tromey@redhat.com>
+
+	* mauve-libgcj: Exclude some swing tests.
+
+2005-01-10  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/12016, PR libgcj/18405, PR libgcj/17738:
+	* java/lang/Package.java (getPackages): Use VMClassLoader when
+	appropriate.
+	(getPackage): Likewise.
+	* prims.cc (_Jv_CreateJavaVM): Call
+	_Jv_RegisterBootstrapPackages.
+	* include/jvm.h (_Jv_RegisterBootstrapPackages): Declare.
+	* java/lang/VMClassLoader.java (getPackage): Rewrote.
+	(getPackages): Likewise.
+	(definedPackages): New field.
+	(definePackageForNative): New method.
+	* java/lang/Class.h (_Jv_FindClassInCache): Updated.
+	* java/lang/natVMClassLoader.cc (loadClass): Updated.
+	* defineclass.cc (handleClassBegin): Use
+	ClassLoader.findLoadedClass.
+	* java/lang/natClassLoader.cc (_Jv_RegisterInitiatingLoader):
+	Rewrote.
+	(struct _Jv_LoaderInfo): Removed.
+	(initiated_classes): Likewise.
+	(_Jv_UnregisterClass): Don't use initiated_classes.
+	(_Jv_FindClassInCache): Likewise.  Removed 'loader' argument.
+	(_Jv_FindClass): Register classes found during boostrap.
+	(BOOTSTRAP_CLASS_LIST_SIZE): New define.
+	(bootstrap_class_list): New global.
+	(bootstrap_index): Likewise.
+	(_Jv_RegisterBootstrapPackages): New function.
+	* gnu/gcj/runtime/natVMClassLoader.cc (findClass): Call
+	definePackageForNative.
+	(findClass): Updated.
+	* gnu/gcj/runtime/VMClassLoader.java (definePackageForNative):
+	New method.
+
+2005-01-10  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/18868:
+	* include/jvm.h (_Jv_Linker::find_field): Declare.
+	(_Jv_Linker::find_field_helper): Likewise.
+	* link.cc (find_field_helper): New method.
+	(find_field): Likewise.
+	(resolve_pool_entry): Use it.  Throw NoSuchFieldError when field
+	not found.
+	(link_symbol_table): Use find_field.
+
+2005-01-10  Michael Koch  <konqueror@gmx.de>
+
+	PR libgcj/18014
+	* java/util/Locale.java (Locale): Don't uppercase variant.
+	(getISOCountries): Fixed typo in javadoc.
+
+2005-01-10  Michael Koch  <konqueror@gmx.de>
+
+	* java/util/SimpleTimeZone.java (checkRule):
+	Throw IllegalArgumentException on invalid month values.
+	* java/util/TimeZone.java (setID):
+	Throw NullPointerException if needed.
+
+2005-01-10  Andrew John Hughes  <gnu_andrew@member.fsf.org>
+
+	* java/util/SimpleTimeZone.java (getOffset):
+	offset end date with daylight savings
+
+2005-01-10  Ranjit Mathew  <rmathew@hotmail.com>
+
+	* testsuite/libjava.compile/PR19277.java: New file for PR java/19277.
+	* testsuite/libjava.compile/PR19277.xfail: Likewise.
+
+2005-01-09  Michael Koch  <konqueror@gmx.de>
+
+	PR libgcj/17069
+	* java/net/InetAddress.java (getLocalHost):
+	Throw UnknownHostException if local hostname cannot be determined.
+
 2005-01-06  Tom Tromey  <tromey@redhat.com>
 
 	* java/lang/ClassLoader.java (findClass): Fixed documentation.

@@ -126,6 +126,10 @@ extern void ix86_expand_clear (rtx);
 extern void ix86_expand_move (enum machine_mode, rtx[]);
 extern void ix86_expand_vector_move (enum machine_mode, rtx[]);
 extern void ix86_expand_vector_move_misalign (enum machine_mode, rtx[]);
+extern rtx ix86_fixup_binary_operands (enum rtx_code,
+				       enum machine_mode, rtx[]);
+extern void ix86_fixup_binary_operands_no_copy (enum rtx_code,
+						enum machine_mode, rtx[]);
 extern void ix86_expand_binary_operator (enum rtx_code,
 					 enum machine_mode, rtx[]);
 extern int ix86_binary_operator_ok (enum rtx_code, enum machine_mode, rtx[]);
@@ -141,6 +145,7 @@ extern void ix86_expand_branch (enum rtx_code, rtx);
 extern int ix86_expand_setcc (enum rtx_code, rtx);
 extern int ix86_expand_int_movcc (rtx[]);
 extern int ix86_expand_fp_movcc (rtx[]);
+extern void ix86_split_sse_movcc (rtx[]);
 extern int ix86_expand_int_addcc (rtx[]);
 extern void ix86_expand_call (rtx, rtx, rtx, rtx, rtx, int);
 extern void x86_initialize_trampoline (rtx, rtx, rtx);
@@ -194,8 +199,6 @@ extern rtx function_arg (CUMULATIVE_ARGS *, enum machine_mode, tree, int);
 extern void function_arg_advance (CUMULATIVE_ARGS *, enum machine_mode,
 				  tree, int);
 extern rtx ix86_function_value (tree);
-extern void ix86_init_builtins (void);
-extern rtx ix86_expand_builtin (tree, rtx, rtx, enum machine_mode, int);
 #endif
 
 #endif
@@ -215,7 +218,10 @@ extern int x86_field_alignment (tree, int);
 
 extern rtx ix86_tls_get_addr (void);
 
-extern void ix86_expand_vector_init (rtx, rtx);
+extern void ix86_expand_vector_init (bool, rtx, rtx);
+extern void ix86_expand_vector_set (bool, rtx, rtx, int);
+extern void ix86_expand_vector_extract (bool, rtx, rtx, int);
+
 /* In winnt.c  */
 extern int i386_pe_dllexport_name_p (const char *);
 extern int i386_pe_dllimport_name_p (const char *);

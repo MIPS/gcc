@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler.
-   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
    Contributed by James E. Wilson <wilson@cygnus.com> and
 		  David Mosberger <davidm@hpl.hp.com>.
@@ -258,9 +258,7 @@ static void ia64_rwreloc_unique_section (tree, int)
 static void ia64_rwreloc_select_rtx_section (enum machine_mode, rtx,
 					     unsigned HOST_WIDE_INT)
      ATTRIBUTE_UNUSED;
-static unsigned int ia64_rwreloc_section_type_flags (tree, const char *, int)
-     ATTRIBUTE_UNUSED;
-
+static unsigned int ia64_section_type_flags (tree, const char *, int);
 static void ia64_hpux_add_extern_decl (tree decl)
      ATTRIBUTE_UNUSED;
 static void ia64_hpux_file_end (void)
@@ -386,6 +384,9 @@ static const struct attribute_spec ia64_attribute_table[] =
 
 #undef TARGET_ENCODE_SECTION_INFO
 #define TARGET_ENCODE_SECTION_INFO ia64_encode_section_info
+
+#undef  TARGET_SECTION_TYPE_FLAGS
+#define TARGET_SECTION_TYPE_FLAGS  ia64_section_type_flags
 
 /* ??? ABI doesn't allow us to define this.  */
 #if 0
@@ -7682,8 +7683,13 @@ ia64_in_small_data_p (tree exp)
   if (TREE_CODE (exp) == VAR_DECL && DECL_SECTION_NAME (exp))
     {
       const char *section = TREE_STRING_POINTER (DECL_SECTION_NAME (exp));
+
       if (strcmp (section, ".sdata") == 0
-	  || strcmp (section, ".sbss") == 0)
+	  || strncmp (section, ".sdata.", 7) == 0
+	  || strncmp (section, ".gnu.linkonce.s.", 16) == 0
+	  || strcmp (section, ".sbss") == 0
+	  || strncmp (section, ".sbss.", 6) == 0
+	  || strncmp (section, ".gnu.linkonce.sb.", 17) == 0)
 	return true;
     }
   else
@@ -7756,7 +7762,7 @@ process_set (FILE *asm_out_file, rtx pat)
 	     followed by a new prologue.  If the procedure doesn't
 	     have a memory-stack frame, we'll issue a dummy ".restore
 	     sp" now.  */
-	  if (current_frame_info.total_size == 0)
+	  if (current_frame_info.total_size == 0 && !frame_pointer_needed)
 	    /* if haven't done process_epilogue() yet, do it now */
 	    process_epilogue ();
 	  fprintf (asm_out_file, "\t.prologue\n");
@@ -8791,10 +8797,27 @@ ia64_rwreloc_select_rtx_section (enum machine_mode mode, rtx x,
   flag_pic = save_pic;
 }
 
+#ifndef TARGET_RWRELOC
+#define TARGET_RWRELOC flag_pic
+#endif
+
 static unsigned int
-ia64_rwreloc_section_type_flags (tree decl, const char *name, int reloc)
+ia64_section_type_flags (tree decl, const char *name, int reloc)
 {
-  return default_section_type_flags_1 (decl, name, reloc, true);
+  unsigned int flags = 0;
+
+  if (strcmp (name, ".sdata") == 0
+      || strncmp (name, ".sdata.", 7) == 0
+      || strncmp (name, ".gnu.linkonce.s.", 16) == 0
+      || strncmp (name, ".sdata2.", 8) == 0
+      || strncmp (name, ".gnu.linkonce.s2.", 17) == 0
+      || strcmp (name, ".sbss") == 0
+      || strncmp (name, ".sbss.", 6) == 0
+      || strncmp (name, ".gnu.linkonce.sb.", 17) == 0)
+    flags = SECTION_SMALL;
+
+  flags |= default_section_type_flags_1 (decl, name, reloc, TARGET_RWRELOC);
+  return flags;
 }
 
 /* Returns true if FNTYPE (a FUNCTION_TYPE or a METHOD_TYPE) returns a
