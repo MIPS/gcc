@@ -336,10 +336,6 @@ extern int flag_no_builtin;
 
 extern int flag_no_nonansi_builtin;
 
-/* Nonzero if we want to support huge (> 2^(sizeof(short)*8-1) bytes)
-   objects.  */
-extern int flag_huge_objects;
-
 /* Nonzero if we want to conserve space in the .o files.  We do this
    by putting uninitialized data and runtime initialized data into
    .common instead of .data at the expense of not flagging multiple
@@ -2940,7 +2936,8 @@ decls_match (newdecl, olddecl)
 
       if (same_type_p (TREE_TYPE (f1), TREE_TYPE (f2)))
 	{
-	  if (! strict_prototypes_lang_c && DECL_LANGUAGE (olddecl) == lang_c
+	  if ((! strict_prototypes_lang_c || DECL_BUILT_IN (olddecl))
+	      && DECL_LANGUAGE (olddecl) == lang_c
 	      && p2 == NULL_TREE)
 	    {
 	      types_match = self_promoting_args_p (p1);
@@ -13554,8 +13551,7 @@ start_function (declspecs, declarator, attrs, flags)
 
   ++function_depth;
 
-  if (DESTRUCTOR_NAME_P (DECL_ASSEMBLER_NAME (decl1))
-      && DECL_LANGUAGE (decl1) == lang_cplusplus)
+  if (DECL_DESTRUCTOR_P (decl1))
     {
       dtor_label = build_decl (LABEL_DECL, NULL_TREE, NULL_TREE);
       DECL_CONTEXT (dtor_label) = current_function_decl;

@@ -21,14 +21,13 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "config.h"
 #include "system.h"
-
+#include "hashtab.h"
 #include "cpplib.h"
 #include "cpphash.h"
 #include "output.h"
 #include "prefix.h"
 #include "intl.h"
 #include "version.h"
-#include "hashtab.h"
 #include "mkdeps.h"
 
 /* Predefined symbols, built-in macros, and the default include path. */
@@ -683,7 +682,7 @@ initialize_builtins (pfile)
       hp = _cpp_make_hashnode (b->name, len, b->type,
 			       _cpp_calc_hash (b->name, len));
       hp->value.cpval = val;
-      *(htab_find_slot (pfile->hashtab, (void *)hp, 1)) = hp;
+      *(htab_find_slot (pfile->hashtab, (void *) hp, INSERT)) = hp;
 
       if ((b->flags & DUMP) && CPP_OPTION (pfile, debug_output))
 	dump_special_to_buffer (pfile, b->name);
@@ -795,7 +794,7 @@ initialize_standard_includes (pfile)
      These have /usr/local/lib/gcc... replaced by specd_prefix.  */
   if (specd_prefix != 0)
     {
-      char *default_prefix = alloca (sizeof GCC_INCLUDE_DIR - 7);
+      char *default_prefix = (char *) alloca (sizeof GCC_INCLUDE_DIR - 7);
       /* Remove the `include' from /usr/local/lib/gcc.../include.
 	 GCC_INCLUDE_DIR will always end in /include. */
       int default_len = sizeof GCC_INCLUDE_DIR - 8;
@@ -1280,7 +1279,7 @@ handle_option (pfile, argc, argv)
 	      arg = argv[++i];
 	      if (!arg)
 		{
-		  cpp_fatal (pfile, _(cl_options[opt_index].msg), argv[i - 1]);
+		  cpp_fatal (pfile, cl_options[opt_index].msg, argv[i - 1]);
 		  return argc;
 		}
 	    }

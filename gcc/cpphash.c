@@ -26,8 +26,9 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "config.h"
 #include "system.h"
 #include "cpplib.h"
-#include "cpphash.h"
 #include "hashtab.h"
+#include "cpphash.h"
+
 #undef abort
 
 static unsigned int hash_HASHNODE PARAMS ((const void *));
@@ -200,12 +201,13 @@ _cpp_lookup (pfile, name, len)
 }
 
 /* Find the hashtable slot for name "name".  Used to insert or delete.  */
+
 HASHNODE **
 _cpp_lookup_slot (pfile, name, len, insert, hash)
      cpp_reader *pfile;
      const U_CHAR *name;
      int len;
-     int insert;
+     enum insert_option insert;
      unsigned long *hash;
 {
   const U_CHAR *bp;
@@ -214,7 +216,9 @@ _cpp_lookup_slot (pfile, name, len, insert, hash)
 
   if (len < 0)
     {
-      for (bp = name; is_idchar (*bp); bp++);
+      for (bp = name; is_idchar (*bp); bp++)
+	;
+
       len = bp - name;
     }
 
@@ -223,7 +227,7 @@ _cpp_lookup_slot (pfile, name, len, insert, hash)
   dummy.hash = _cpp_calc_hash (name, len);
 
   slot = (HASHNODE **) htab_find_slot_with_hash (pfile->hashtab,
-						 (void *)&dummy,
+						 (void *) &dummy,
 						 dummy.hash, insert);
   if (insert)
     *hash = dummy.hash;
@@ -331,7 +335,7 @@ collect_expansion (pfile, arglist)
 	    CPP_SET_WRITTEN (pfile, here);
 	  break;
 
-	case CPP_STRINGIZE:
+	case CPP_HASH:
 	  /* # is not special in object-like macros.  It is special in
 	     function-like macros with no args.  (6.10.3.2 para 1.) */
 	  if (arglist == NULL)
@@ -344,7 +348,7 @@ collect_expansion (pfile, arglist)
 	  CPP_SET_WRITTEN (pfile, here);  /* delete from replacement text */
 	  break;
 
-	case CPP_TOKPASTE:
+	case CPP_PASTE:
 	  /* If the last token was an argument, discard this token and
 	     any hspace between it and the argument's position.  Then
 	     mark the arg raw_after.  */
@@ -401,7 +405,7 @@ collect_expansion (pfile, arglist)
 	case CPP_NAME:
 	  for (i = 0; i < argc; i++)
 	    if (!strncmp (tok, argv[i].name, argv[i].len)
-		&& ! is_idchar (tok[argv[i].len]))
+		&& tok + argv[i].len == CPP_PWRITTEN (pfile))
 	      goto addref;
 
 	  /* fall through */
@@ -517,7 +521,6 @@ collect_expansion (pfile, arglist)
       while (here > last && is_hspace (pfile->token_buffer [here-1]))
 	here--;
       CPP_SET_WRITTEN (pfile, here);
-      CPP_NUL_TERMINATE (pfile);
       len = CPP_WRITTEN (pfile) - start + 1;
       /* space for no-concat markers at either end */
       exp = (U_CHAR *) xmalloc (len + 4);
@@ -574,10 +577,10 @@ collect_formal_parameters (pfile)
 
   old_written = CPP_WRITTEN (pfile);
   token = _cpp_get_directive_token (pfile);
-  if (token != CPP_LPAREN)
+  if (token != CPP_OPEN_PAREN)
     {
       cpp_ice (pfile, "first token = %d not %d in collect_formal_parameters",
-	       token, CPP_LPAREN);
+	       token, CPP_OPEN_PAREN);
       goto invalid;
     }
 
@@ -623,10 +626,10 @@ collect_formal_parameters (pfile)
 	  argv[argc].len = 0;
 	  break;
 
-	case CPP_RPAREN:
+	case CPP_CLOSE_PAREN:
 	  goto done;
 
-	case CPP_3DOTS:
+	case CPP_ELLIPSIS:
 	  goto rest_arg;
 
 	case CPP_VSPACE:
@@ -665,7 +668,7 @@ collect_formal_parameters (pfile)
   argv[argc].rest_arg = 1;
   
   token = _cpp_get_directive_token (pfile);
-  if (token != CPP_RPAREN)
+  if (token != CPP_CLOSE_PAREN)
     {
       cpp_error (pfile, "another parameter follows `...'");
       goto invalid;
@@ -773,10 +776,10 @@ macarg (pfile, rest_args)
 	  if (!CPP_IS_MACRO_BUFFER (CPP_BUFFER (pfile)))
 	    return token;
 	  break;
-	case CPP_LPAREN:
+	case CPP_OPEN_PAREN:
 	  paren++;
 	  break;
-	case CPP_RPAREN:
+	case CPP_CLOSE_PAREN:
 	  if (--paren < 0)
 	    goto found;
 	  break;
@@ -834,7 +837,6 @@ _cpp_quote_string (pfile, src)
       
       case '\0':
 	CPP_PUTC_Q (pfile, '\"');
-	CPP_NUL_TERMINATE_Q (pfile);
 	return;
       }
 }
@@ -851,7 +853,6 @@ special_symbol (hp, pfile)
      cpp_reader *pfile;
 {
   const char *buf;
-  int len;
   cpp_buffer *ip;
 
   switch (hp->type)
@@ -859,6 +860,11 @@ special_symbol (hp, pfile)
     case T_FILE:
     case T_BASE_FILE:
       ip = cpp_file_buffer (pfile);
+      if (ip == NULL)
+	{
+	  CPP_PUTS (pfile, "\"\"", 2);
+	  return;
+	}
       if (hp->type == T_BASE_FILE)
 	while (CPP_PREV_BUFFER (ip) != NULL)
 	  ip = CPP_PREV_BUFFER (ip);
@@ -870,10 +876,13 @@ special_symbol (hp, pfile)
 
     case T_INCLUDE_LEVEL:
       {
-	int true_indepth = 1;
+	int true_indepth = 0;
 	ip = cpp_file_buffer (pfile);
-	while ((ip = CPP_PREV_BUFFER (ip)) != NULL)
-	  true_indepth++;
+	while (ip)
+	  {
+	    true_indepth++;
+	    ip = CPP_PREV_BUFFER (ip);
+	  }
 
 	CPP_RESERVE (pfile, 10);
 	sprintf (CPP_PWRITTEN (pfile), "%d", true_indepth);
@@ -884,11 +893,10 @@ special_symbol (hp, pfile)
     case T_STDC:
 #ifdef STDC_0_IN_SYSTEM_HEADERS
       ip = cpp_file_buffer (pfile);
-      if (ip->system_header_p && !cpp_defined (pfile, DSC("__STRICT_ANSI__")))
+      if (ip && ip->system_header_p
+	  && !cpp_defined (pfile, DSC("__STRICT_ANSI__")))
 	{
-	  CPP_RESERVE (pfile, 2);
-	  CPP_PUTC_Q (pfile, '0');
-	  CPP_NUL_TERMINATE_Q (pfile);
+	  CPP_PUTC (pfile, '0');
 	  return;
 	}
 #endif
@@ -900,16 +908,18 @@ special_symbol (hp, pfile)
       if (!buf)
 	return;
       if (*buf == '\0')
-	buf = "\r ";
+	buf = "\r \r ";
 
-      len = strlen (buf);
-      CPP_RESERVE (pfile, len + 1);
-      CPP_PUTS_Q (pfile, buf, len);
-      CPP_NUL_TERMINATE_Q (pfile);
+      CPP_PUTS (pfile, buf, strlen (buf));
       return;
 
     case T_SPECLINE:
       ip = cpp_file_buffer (pfile);
+      if (ip == NULL)
+	{
+	  CPP_PUTC (pfile, '0');
+	  return;
+	}
       CPP_RESERVE (pfile, 10);
       sprintf (CPP_PWRITTEN (pfile), "%u", CPP_BUF_LINE (ip));
       CPP_ADJUST_WRITTEN (pfile, strlen (CPP_PWRITTEN (pfile)));
@@ -946,9 +956,7 @@ special_symbol (hp, pfile)
 
     case T_POISON:
       cpp_error (pfile, "attempt to use poisoned `%s'.", hp->name);
-      CPP_RESERVE (pfile, 1);
-      CPP_PUTC_Q (pfile, '0');
-      CPP_NUL_TERMINATE_Q (pfile);
+      CPP_PUTC (pfile, '0');
       break;
 
     default:
@@ -983,8 +991,13 @@ _cpp_macroexpand (pfile, hp)
   register int i;
 
   ip = cpp_file_buffer (pfile);
-  start_line = CPP_BUF_LINE (ip);
-  start_column = CPP_BUF_COL (ip);
+  if (ip)
+    {
+      start_line = CPP_BUF_LINE (ip);
+      start_column = CPP_BUF_COL (ip);
+    }
+  else
+    start_line = start_column = 0;
 
   /* Check for and handle special symbols. */
   if (hp->type != T_MACRO)
@@ -1029,7 +1042,7 @@ _cpp_macroexpand (pfile, hp)
       pfile->no_directives++;
 
       token = cpp_get_non_space_token (pfile);
-      if (token != CPP_LPAREN)
+      if (token != CPP_OPEN_PAREN)
 	cpp_ice (pfile, "macroexpand: unexpected token %d (wanted LPAREN)",
 		 token);
       CPP_ADJUST_WRITTEN (pfile, -1);
@@ -1059,17 +1072,17 @@ _cpp_macroexpand (pfile, hp)
       CPP_OPTION (pfile, discard_comments)--;
       pfile->no_macro_expand--;
       pfile->no_directives--;
-      if (token != CPP_RPAREN)
+      if (token != CPP_CLOSE_PAREN)
 	return;
 
-      /* If we got one arg but it was just whitespace, call that 0 args.  */
-      if (i == 1)
+      /* foo ( ) is equivalent to foo () unless foo takes exactly one
+	 argument, in which case the former is allowed and the latter
+	 is not.  XXX C99 is silent on this rule, but it seems
+	 inconsistent to me.  */
+      if (i == 1 && nargs != 1)
 	{
 	  register U_CHAR *bp = ARG_BASE + args[0].raw;
 	  register U_CHAR *lim = bp + args[0].raw_length;
-	  /* cpp.texi says for foo ( ) we provide one argument.
-	     However, if foo wants just 0 arguments, treat this as 0.  */
-	  if (nargs == 0)
 	    while (bp != lim && is_space(*bp))
 	      bp++;
 	  if (bp == lim)
@@ -1397,6 +1410,10 @@ unsafe_chars (pfile, c1, c2)
      cpp_reader *pfile;
      int c1, c2;
 {
+  /* If c2 is EOF, that's always safe.  */
+  if (c2 == EOF)
+    return 0;
+
   switch (c1)
     {
     case EOF:
@@ -1478,14 +1495,13 @@ push_macro_expansion (pfile, xbuf, len, hp)
   /* Likewise, avoid the extra space at the end of the macro expansion
      if this is safe.  We can do a better job here since we can know
      what the next char will be.  */
-  if (len >= 3
-      && xbuf[len-2] == '\r'
-      && xbuf[len-1] == ' ')
-    {
-      int c = CPP_BUF_PEEK (CPP_BUFFER (pfile));
-      if (c == EOF || !unsafe_chars (pfile, xbuf[len-3], c))
-	len -= 2;
-    }
+  if (len >= 3 && xbuf[len-2] == '\r' && xbuf[len-1] == ' '
+      && !unsafe_chars (pfile, xbuf[len-3], CPP_BUF_PEEK (CPP_BUFFER (pfile))))
+    len -= 2;
+
+  /* If the total expansion is "\r \r", we must not trim both escapes.  */
+  if (len == 2 && advance_cur)
+    advance_cur = 0;
 
   mbuf = cpp_push_buffer (pfile, xbuf, len);
   if (mbuf == NULL)
@@ -1688,7 +1704,6 @@ _cpp_dump_definition (pfile, sym, len, defn)
     }
   if (CPP_BUFFER (pfile) == 0 || ! pfile->done_initializing)
     CPP_PUTC (pfile, '\n');
-  CPP_NUL_TERMINATE (pfile);
 }
 
 /* Dump out the hash table.  */

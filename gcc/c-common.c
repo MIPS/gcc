@@ -981,6 +981,8 @@ decl_attributes (node, attributes, prefix_attributes)
 		  break;
 		}
 	      id = get_identifier (TREE_STRING_POINTER (id));
+	      /* This counts as a use of the object pointed to.  */
+	      TREE_USED (id) = 1;
 
 	      if (TREE_CODE (decl) == FUNCTION_DECL)
 		DECL_INITIAL (decl) = error_mark_node;
@@ -3766,6 +3768,16 @@ c_common_nodes_and_builtins (cplus_mode, no_builtins, no_nonansi_builtins)
 						      va_list_arg_type_node,
 						      endlink))),
 		    BUILT_IN_VA_COPY, BUILT_IN_NORMAL, NULL_PTR);
+
+  /* ??? Ought to be `T __builtin_expect(T, T)' for any type T.  */
+  builtin_function ("__builtin_expect",
+		    build_function_type (long_integer_type_node,
+					 tree_cons (NULL_TREE,
+						    long_integer_type_node,
+						    tree_cons (NULL_TREE,
+							long_integer_type_node,
+							endlink))),
+		    BUILT_IN_EXPECT, BUILT_IN_NORMAL, NULL_PTR);
 
   /* Currently under experimentation.  */
   builtin_function ("__builtin_memcpy", memcpy_ftype, BUILT_IN_MEMCPY,

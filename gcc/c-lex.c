@@ -680,7 +680,7 @@ check_newline ()
 	}
       else if (!strcmp (name, "ident"))
 	{
-	  /* #ident.  The pedantic warning is now in cccp.c.  */
+	  /* #ident.  The pedantic warning is now in cpp.  */
 
 	  /* Here we have just seen `#ident '.
 	     A string constant should follow.  */
@@ -1625,7 +1625,7 @@ yylex ()
 		    floatflag = AFTER_EXPON;
 		    break;   /* start of exponent */
 		  }
-		else if (c >= 'a')
+		else if (c >= 'a' && c <= 'f')
 		  {
 		    c = c - 'a' + 10;
 		  }

@@ -1037,6 +1037,7 @@ grokclassfn (ctype, function, flags, quals)
 
   if (flags == DTOR_FLAG)
     {
+      DECL_DESTRUCTOR_P (function) = 1;
       DECL_ASSEMBLER_NAME (function) = build_destructor_name (ctype);
       TYPE_HAS_DESTRUCTOR (ctype) = 1;
     }
@@ -1389,7 +1390,7 @@ check_classfn (ctype, function)
 	  && DECL_CONSTRUCTOR_P (function))
 	goto got_it;
       if (*++methods && fn_name == DECL_NAME (OVL_CURRENT (*methods))
-	  && DESTRUCTOR_NAME_P (DECL_ASSEMBLER_NAME (function)))
+	  && DECL_DESTRUCTOR_P (function))
 	goto got_it;
 
       while (++methods != end && *methods)
@@ -1410,7 +1411,7 @@ check_classfn (ctype, function)
 		     we can't use this short-cut for them, either.
 		     (It's not legal to declare arguments for a
 		     destructor, but some people try.)  */
-		  if (!DESTRUCTOR_NAME_P (DECL_ASSEMBLER_NAME (function))
+		  if (!DECL_DESTRUCTOR_P (function)
 		      && (DECL_ASSEMBLER_NAME (function)
 			  != DECL_NAME (function))
 		      && (DECL_ASSEMBLER_NAME (fndecl)
@@ -1572,7 +1573,23 @@ grokfield (declarator, declspecs, init, asmspec_tree, attrlist)
 	  || TREE_CODE (TREE_OPERAND (declarator, 0)) == SCOPE_REF)
       && parmlist_is_exprlist (CALL_DECLARATOR_PARMS (declarator)))
     {
-      init = TREE_OPERAND (declarator, 1);
+      /* It's invalid to try to initialize a data member using a
+	 functional notation, e.g.:
+	 
+            struct S {
+	      static int i (3);
+	    };
+	    
+	 Explain that to the user.  */
+      static int explained_p;
+
+      cp_error ("invalid data member initiailization");
+      if (!explained_p)
+	{
+	  cp_error ("use `=' to initialize static data members");
+	  explained_p = 1;
+	}
+
       declarator = TREE_OPERAND (declarator, 0);
       flags = 0;
     }
@@ -1893,7 +1910,7 @@ grok_function_init (decl, init)
       /* pure virtual destructors must be defined.  */
       /* pure virtual needs to be defined (as abort) only when put in 
 	 vtbl. For wellformed call, it should be itself. pr4737 */
-      if (!DESTRUCTOR_NAME_P (DECL_ASSEMBLER_NAME (decl)))
+      if (!DECL_DESTRUCTOR_P (decl)))
 	{
 	  /* Give this node rtl from `abort'.  */
 	  DECL_RTL (decl) = DECL_RTL (abort_fndecl);
@@ -2405,6 +2422,7 @@ key_method (type)
   tree method;
 
   if (TYPE_FOR_JAVA (type)
+      || CLASSTYPE_TEMPLATE_INSTANTIATION (type)
       || CLASSTYPE_INTERFACE_KNOWN (type))
     return NULL_TREE;
 
@@ -2511,8 +2529,7 @@ import_export_class (ctype)
   /* Base our import/export status on that of the first non-inline,
      non-pure virtual function, if any.  */
   if (import_export == 0
-      && TYPE_POLYMORPHIC_P (ctype)
-      && ! CLASSTYPE_TEMPLATE_INSTANTIATION (ctype))
+      && TYPE_POLYMORPHIC_P (ctype))
     {
       tree method = key_method (ctype);
       if (method)

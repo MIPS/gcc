@@ -1,3 +1,395 @@
+2000-04-20  Zack Weinberg  <zack@wolery.cumb.org>
+
+	* cpplib.h (enum cpp_ttype): Add token types for all
+	punctuators.  Distinguish pp-numbers from valid C numbers.
+	Give some tokens better names.  Initialize from macro.    
+	(struct cpp_name, cpp_token, cpp_toklist): New data   
+	structures.
+	Update prototypes.
+	* cpplex.c (bump_column, expand_name_space,
+	expand_token_space, init_token_list, cpp_output_list,
+	_cpp_scan_line):  New functions.
+	(output_line_command): Add third argument, new line number.
+	* cpphash.h: Update prototypes.
+	* cppexp.c, cpphash.c, cpplib.c, scan-decls.c: Update for new
+	token names.
+
+2000-04-20  Richard Henderson  <rth@cygnus.com>
+
+	* config/alpha/alpha.c (alpha_emit_floatuns): Emit missing barrier.
+
+2000-04-20  Zack Weinberg  <zack@wolery.cumb.org>
+
+	* c-common.c (decl_attributes) [A_ALIAS]: Set TREE_USED on the
+	object pointed to.
+
+Thu Apr 20 14:19:18 MET DST 2000  Jan Hubicka  <jh@suse.cz>
+
+	* loop.c (emit_iv_add_mult):  Simplify it's input and emit
+	REG_EQUAL note explaining the calculated value.
+
+	* calls.c (expand_call): Avoid unnecesary precalculation
+	and outgoing parameters space guarding for sibling calls.
+	(store_one_arg): Likewise.
+
+Thu Apr 20 08:01:07 2000  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
+
+	* toplev.c (enum dump_file_index, dump_file): Add DFI_sibling.
+	(rest_of_compilation): Write sibling dump file and account
+	for time as jump time.
+	* invoke.texi: Update documentation on dump flags.
+
+2000-04-19  Marek Michalkiewicz  <marekm@linux.org.pl>
+
+	* avr.c: #include "system.h" instead of <stdio.h> and <stdlib.h>.
+
+2000-04-19  Zack Weinberg  <zack@wolery.cumb.org>
+
+	* cpphash.c (special_symbol): Represent an empty macro with
+	"\r \r " not just "\r ".
+	(_cpp_macroexpand): Correct condition for the foo ( ) special
+	case.
+	(unsafe_chars): Handle EOF as second argument.
+	(push_macro_expansion): Simplify test for removing escape at
+	end.  Do not trim both escapes if there is no text in between.
+
+2000-04-19  Jim Blandy  <jimb@redhat.com>
+
+	* dwarf2out.c (DWARF2_ADDR_SIZE): New macro.  Use it instead
+	of PTR_SIZE, when appropriate.
+
+2000-04-19  Mark Mitchell  <mark@codesourcery.com>
+
+	* system.h (ONLY_INT_FIELDS): Make sure it is defined.
+	(USE_ENUM_BITFIELDS): Fix typo.
+
+Wed Apr 19 12:14:55 2000  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
+
+	* stor-layout.c (place_field): Set rli->offset_align properly.
+
+2000-04-19  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* mips.h (BITS_PER_WORD, UNITS_PER_WORD, UNITS_PER_FPREG,
+	INT_TYPE_SIZE, LONG_TYPE_SIZE, POINTER_SIZE, POINTER_BOUNDARY,
+	PARM_BOUNDARY): Remove unnecessary casts.
+
+Wed Apr 19 12:02:37 MET DST 2000  Jan Hubicka  <jh@suse.cz>
+
+	* calls.c (precompute_arguments): Remove must_preallocate and
+	args_size calls.
+	(expand_call): Update call of precompute_arguments.
+
+	* loop.c (check_insn_for_bivs, for_every_insn_in_loop,
+	check_insn_for_givs): Break out from ...
+	(strength_reduce) ... here; use for_every_insn_in_loop to call
+	check_insn_for_givs.
+	* loop.h (for_every_insn_in_loop): Declare.
+	(loop_insn_callback): New type.
+
+2000-04-18  Zack Weinberg  <zack@wolery.cumb.org>
+
+	* cpplib.c (do_pragma_poison):  Strings in the token buffer are
+	not nul-terminated.
+
+Tue Apr 18 16:04:12 2000  Jim Wilson  <wilson@cygnus.com>
+
+	* config/ia64/sysv4.h (SELECT_SECTION): Use data_section if
+	flag_pic and RELOC.
+
+2000-04-18  Zack Weinberg  <zack@wolery.cumb.org>
+
+	* cccp.c, cexp.y, cexp.c, cccp.1: Removed.
+
+	* configure.in: Delete --disable-cpplib option and all
+	references to cpp_main.
+	* configure: Regenerate.
+	* Makefile.in: Remove all references to CCCP, CCCP_OBJS,
+	@cpp_main@, cccp.c, cexp.c, cexp.y, cexp.output, cexp.o,
+	cccp.o, cccp, or cppmain.  Link cppmain.o straight to
+	cpp$(exeext).  Add --no-headers to makeinfo command line when
+	generating INSTALL.  Install and uninstall cpp.1 manpage, not
+	cccp.1.
+	* install.texi: Delete all references to cexp.y/cexp.c.
+	Delete ancient instructions for compiling GCC on 3b1.
+	* INSTALL: Regenerate.
+
+	* cppfiles.c, cpplib.h, jump.c, protoize.c, c-lex.c, mips/t-ecoff,
+	mips/t-elf, mips/t-r3900: Remove references to cccp.c.
+	* convex.h, fx80.h, m68k.h, pdp11.h: Remove references to
+	cexp.c/cexp.y.
+	* xm-linux.h, xm-os2.h, romp.h: Remove definition of BSTRING,
+	which is no longer tested anywhere.
+	
+	* cppinit.c (handle_option): Don't run error message through
+	gettext twice.
+
+Tue Apr 18 14:16:47 2000  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
+
+	* conflict.c (conflict_graph_add): Pass enum type to htab_find_slot.
+	* cpperror.c (hashtab.h): Now include.
+	* cppexp.c (hashtab.h): Likewise.
+	* cpplex.c (hashtab.h): Likewise.
+	* cppfiles.c (hashtab.h): Likewise.
+	(find_include_file, _cpp_calc_hash, cpp_read_file): Pass enum type
+	to htab_find_slot_with_hash.
+	* cpphash.c (hashtab.h): Now include.
+	(_cpp_lookup_slot): INSERT is now enum insert_option.
+	* cpphash.h (_cpp_lookup_slot): Likewise.
+	* cppinit.c (hashtab.h): Include earlier.
+	(initialize_builtins): Pass enum to htab_find_slot.
+	* cpplib.c (hashtab.h): Now include.
+	(do_define, do_undef): Pass enum type to _cpp_lookup_slot.
+	(do_pragma_poison, do_assert): Likewise.
+	* emit-rtl.c (gen_rtx_CONST_INT): Pass enum to
+	htab_find_slot_with_hash.
+	* simplify-rtx.c (cselib_lookup_mem, cselib_lookup): Likewise.
+	* tree.c (type_hash_add): Likewise.
+	(build1): Minor cleanup.
+
+	* ggc-common.c: Add missing blanks.
+	* print-tree.c (print_node): Print DECL_OFFSET_ALIGN.
+	* tree.h (DECL_OFFSET_ALIGN): Fix typo in comment.
+
+	* stmt.c (mark_case_node): New function.
+	(mark_case_nesting): Call it.
+
+	* expmed.c (emit_store_flag): If comparing two-word integer
+	with zero, can optimize NE, EQ, GE, and LT.
+
+	* c-decl.c (mark_binding_level): Use 'for' instead of `while'.
+	* conflict.c: Minor cleanups.
+	* optabs.c: Add blank line
+	* simplify-rtx.c: Minor cleanups.
+
+2000-04-18  Stan Cox  <scox@cygnus.com>
+
+	* gengenrtl.c (genlegend): Fix misspelling.
+
+2000-04-18  Robert Lipe  <robertlipe@usa.net>
+
+	* configure.in (ENUM_BITFIELDS_ARE_UNSIGNED): Added.  Check that
+	bitfields of the host compiler are not signed quantities.
+	* config.in: Regenerate.
+	* configure: Regenerate.
+	* system.h (USE_ENUM_BITFIELDS): Added.
+	(ENUM_BITFIELDS): Added.
+	* rtl.h (rtx_def): Members `code', `mode', now ENUM_BITFIELD.
+	(SHORT_ENUM_BUG): Deleted.
+	* tree.h (tree_common): Members `code', `mode', `built_in_class', 
+	now ENUM_BITFIELD.
+	* config/i386/xm-sco.h (ONLY_INT_FIELDS): Deleted.
+	(CODE_FIELD_BUG): Likewise.
+	* config/m68k/x-apollo68 (CC): Deleted SHORT_ENUM_BUG.
+	(OLD_CC): Likewise.
+	* config/m68k/x-ccur (X_CFLAGS): Likewise.
+
+2000-04-18  Mark Mitchell  <mark@codesourcery.com>
+
+	* cpplex.c (_cpp_lex_token): Don't call CPP_BUMP_LINE when the
+	mark is active.
+
+2000-04-17  Zack Weinberg  <zack@wolery.cumb.org>
+
+	* cppexp.c (lex): Don't assume tokens are NUL terminated.
+	* cpplib.c (do_include, do_import, do_include_next,
+	read_line_number, detect_if_not_defined): Likewise.
+	* cpphash.c (collect_expansion): Likewise.
+	(special_symbol, _cpp_macroexpand): Check return from
+	cpp_file_buffer.
+	* cpphash.h (CPP_NUL_TERMINATE, CPP_NUL_TERMINATE_Q): Delete
+	macros.  Delete all uses.
+
+	* gcc.dg/cpp-mi.c: Add two more test cases.
+	* gcc.dg/cpp-mind.h, gcc.dg/cpp-mindp.h: New files.
+
+2000-04-17  Richard Henderson  <rth@cygnus.com>
+
+	* bb-reorder.c (fixup_reorder_chain): Don't look up new block again.
+	(reorder_basic_blocks): If no epilogue in rtl, force last block last.
+
+2000-04-17  Mark Mitchell  <mark@codesourcery.com>
+
+	* function.c (expand_function_start): Use hard_function_value to
+	compute the RTL to use for DECL_RESULT.
+
+Mon Apr 17 23:35:29 MET DST 2000  Jan Hubicka  <jh@suse.cz>
+
+	* i386.c (athlon_cost): Fix lea, divide and XFmode move costs.
+	(x86_integer_DFmode_moves, x86_partial_reg_dependency,
+	 x86_memory_mismatch_stall): New global variables.
+	(ix86_adjust_cost): Handle MEMORY_BOTH on places MEMORY_STORE was only
+	alloved; fix load penalties for Athlon.
+	* i386.h (x86_integer_DFmode_moves, x86_partial_reg_dependency,
+	x86_memory_mismatch_stall): Declare.
+	(TARGET_INTEGER_DFMODE_MOVES, TARGET_PARTIAL_REG_DEPENDENCY,
+	 TARGET_MEMORY_MISMATCH_STALL): New.
+	* i386.md (athlon scheduling parameters): Fix latencies according to
+	Athlon Optimization Manual.
+	(sahf, xchg, fldcw, leave instruction patterns): Set athlon_decode to
+	vector.
+	(fsqrt instruction patterns): Set athlon_decode to direct.
+	(movhi_1): Promote for TARGET_PARTIAL_REG_DEPENDENCY and for
+	PARTIAL_REGISTER_STALL with !TARGET_HIMODE_MATH machines.
+	(movqi_1): Handle promoting correctly for TARGET_PARTIAL_REG_DEPENDENCY
+	and TARGET_PARTIAL_REGISTER_STALL machines.
+	(pushdf_nointeger): New pattern.
+	(pushdf_integer): Rename from pushdf.
+	(movdf_nointger): Enable for !TARGET_INTEGER_DFMODE_MOVES machines.
+	(movdf_intger): Disable for !TARGET_INTEGER_DFMODE_MOVES machines.
+
+2000-04-17  Richard Henderson  <rth@cygnus.com>
+
+	* loop.c (canonicalize_condition): Add WANT_REG argument.
+	Stop the search if we match it.
+	* expr.h (canonicalize_condition): Update decl.
+	* predict.c (expected_value_to_br_prob): Use it.  Track last
+	expected value note.
+	(find_expected_value): Remove.
+
+	* reorg.c (mostly_true_jump): Always use BR_PROB if present.
+
+2000-04-17  Zack Weinberg  <zack@wolery.cumb.org>
+
+	* aclocal.m4 (AM_GNU_GETTEXT): Don't AC_REQUIRE([AC_FUNC_MMAP]).
+	(AC_FUNC_MMAP_FILE): New macro, tests read-only private map of
+	a plain file.
+	* configure.in: Call AC_FUNC_MMAP_FILE.
+	* configure: Regenerate.
+	* config.in: Regenerate.
+
+	* intl/loadmsgcat.c: Test HAVE_MMAP_FILE not HAVE_MMAP.
+	* fixinc/fixincl.c: Likewise.
+
+2000-04-17  Richard Henderson  <rth@cygnus.com>
+
+	* builtins.c (expand_builtin_expect): New.
+	(expand_builtin): Call it.
+	* builtins.def (BUILT_IN_EXPECT): New.
+	* c-common.c (c_common_nodes_and_builtins): Declare __builtin_expect.
+	* extend.texi: Document it.
+
+	* predict.c (expected_value_to_br_prob): New.
+	(find_expected_value): New.
+	* basic-block.h (expected_value_to_br_prob): Declare.
+	* toplev.c (rest_of_compilation): Invoke it.
+
+	* rtl.h (NOTE_EXPECTED_VALUE): New.
+	(NOTE_INSN_EXPECTED_VALUE): New.
+	* rtl.c (note_insn_name): Update.
+	* print-rtl.c (print_rtx): Reorg NOTE_LINE_NUMBER special
+	cases; handle NOTE_INSN_EXPECTED_VALUE.
+
+2000-04-17  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/sparc/sparc.c (eligible_for_sibcall_delay): Cannot use
+	leaf sibcall delay slot if flag_pic.
+	(output_sibcall): Always emit call for leaf sibcall if flag_pic.
+
+2000-04-17  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* Makefile.in (stmp-fixproto): Acknowledge errors in fixproto.
+
+	* fixproto: If fix-header fails, exit with an error.
+
+Mon Apr 17 14:59:36 MET DST 2000  Jan Hubicka  <jh@suse.cz>
+
+	* cse.c (struct check_depdendence_data): New.
+	(check_dependence): New function.
+	(invalidate): Use check_depdenence.
+
+2000-04-16  Mark Mitchell  <mark@codesourcery.com>
+
+	* dwarf2out.c (DWARF_CIE_DATA_ALIGNMENT): Adjust, now that
+	UNITS_PER_WORD is unsigned.
+
+	* tree.h (struct tree_common): Remove misleading comment.
+
+2000-04-16  Dave Pitts  <dpitts@cozx.com>
+
+	* Makefile.in ($(srcdir)/c-parse.y: c-parse.in): Enclose the whole
+	message in quotes. Otherwise, IBM's make program treats the '#' as the
+	start of a comment and ignores the remainder of the line.
+
+	* c-lex.c (yylex): Change for EBCDIC, lower case characters preceed
+	upper case.
+	* cccp.c (initialize_char_syntax): Allow for holes in EBCDIC.
+	* cexp.y (initialize_random_junk): Likewise.
+	* cppfiles.c (find_include_file): Cast alloca return value.
+	* cppinit.c (initialize_standard_includes): Likewise.
+	* cpplib.c (cpp_define, cpp_undef): Likewise.
+	* defaults.h (ASM_OUTPUT_ASCII): Use ISPRINT.
+	* final.c (output_asm_insn): Allow for holes in EBCDIC.
+	* fold-const.c (CHARMASK): New.
+	(real_hex_to_f): Use it.
+	* real.c (CHARMASK): New.
+	(etoasc, asctoeg): Use it.
+	(asctoeg): EBCDIC lower case characters preceed upper case.
+
+	* i370.c (mvs_add_label): Change spacing for coding conventions.
+	* i370.h (ASM_OUTPUT_CASE_LABEL): Change to the data CSECT for the
+	outputing case vectors.
+	(ASM_OUTPUT_CASE_END): New, put assembler back into code CSECT.
+	(ASM_OUTPUT_ADDR_VEC_ELT, ASM_OUTPUT_ADDR_DIFF_ELT): Remove page check,
+	since vector in in the data CSECT.
+	(ASM_OUTPUT_REG_POP, ASM_OUTPUT_REG_PUSH): Restore to correct operation.
+	* i370.md (Many patterns): Put the length in the XL directives.
+	(movdi): Put back STM and MVC in definition.
+	(floatsidf2): Correct TARGET_ELF_ABI pattern and add back the LE370
+	pattern using the TCA.
+	* oe.h (CPP_SPEC): Added to allow trigraphs.
+	* xm-oe.h (HOST_BITS_PER_LONGLONG): Change to 32. IBM's compiler does
+	not support the "long long" type.
+
+2000-04-16  Mark Mitchell  <mark@codesourcery.com>
+
+	* config/mips/mips-protos.h (mips_legitimate_address_p): New
+	function.
+	(mips_reg_mode_ok_for_base_p): Likewise.
+	* config/mips/mips.h (REG_OK_STRICT_P): Don't define.
+	(REG_OK_FOR_INDEX_P): Define unconditionally.
+	(REG_MODE_OK_FOR_BASE_P): Use mips_reg_mode_ok_for_base_p.
+	(GO_IF_LEGITIMATE_ADDRESS): Use mips_legitimate_address_p.
+	* config/mips/mips.c (mips16_simple_memory_operand): Adjust now
+	that GET_MODE_SIZE is unsigned.
+	(mips_reg_mode_ok_for_base_p): Define.
+	(mips_legitimate_address_p): Likewise.  Adjust now
+	that GET_MODE_SIZE is unsigned.
+	(block_move_loop): Make the number of bytes unsigned.
+	(expand_block_move): Likewise.
+	(function_arg): Make the loop counter unsigned to match the
+	boundary condition.
+
+2000-04-16  Richard Henderson  <rth@cygnus.com>
+
+	* rtl.h (enum insn_note): New enumeration.  Subsume
+	NOTE_INSN_DELETED and friends.
+	(GET_NOTE_INSN_NAME): Adjust index by NOTE_INSN_BIAS.
+	* rtl.c (note_insn_name): Tweak string order.
+
+2000-04-15  Zack Weinberg  <zack@wolery.cumb.org>
+
+	* cpplex.c (_cpp_read_and_prescan): Enlarge len by setting it
+	to offset * 2.
+
+	* cpplex.c (output_line_command): Remove debugging prints.
+	(cpp_output_tokens): Don't write out a zero-length buffer or
+	try to see if it has a newline in it.
+	(_cpp_expand_to_buffer): Copy the source buffer before pushing.
+	(_cpp_read_and_prescan): Move shift-down of pushback bytes to
+	the end of the loop.  Use memmove.  Don't read past the end of
+	the buffer.  Remove trailing newlines from error messages.
+
+2004-04-16  Neil Booth  <NeilB@earthling.net>
+
+	* cpphash.h (SYNTAX_INCLUDE, SYNTAX_ASSERT, directive_handler): new.
+	* cpplib.c: Add new syntax flags to directive table, and
+	supporting macros.
+
+2000-04-15  Ulrich Drepper  <drepper@redhat.com>
+
+	* i386.c (ix86_expand_epilogue): Yes, the x86 can pop 64k at once
+	using ret $N.
+
 2000-04-15  David Edelsohn  <edelsohn@gnu.org>
 
 	* toplev.c (display_help): Prefix "f" to "sched-verbose=".
@@ -175,8 +567,8 @@ Fri Apr 14 10:54:22 2000  Jim Wilson  <wilson@cygnus.com>
 
 2000-04-14  Richard Henderson  <rth@cygnus.com>
 
-        * fold-const.c (extract_muldiv): Don't distribute and widen
-        multiply across plus for non-sizetype unsigned types.
+	* fold-const.c (extract_muldiv): Don't distribute and widen
+	multiply across plus for non-sizetype unsigned types.
 
 2000-04-14  Richard Henderson  <rth@cygnus.com>
 
@@ -204,7 +596,7 @@ Thu Apr 13 19:39:56 2000  Clinton Popetz  <cpopetz@cygnus.com>
 2000-04-13  Andreas Jaeger  <aj@suse.de>
 
 	* config/mips/mips.c (expand_block_move): Pass alignment
-        argument to move_by_pieces in bits, not bytes.
+	argument to move_by_pieces in bits, not bytes.
 
 	* config/mips/linux.h (CPP_PREDEFINES): Also define __PIC__ and
 	__pic__ for little endian.
@@ -307,8 +699,8 @@ Wed Apr 12 15:54:11 MET DST 2000  Jan Hubicka  <jh@suse.cz>
 
 Wed Apr 12 07:51:54 2000  Catherine Moore  <clm@cygnus.com>
  
-        * calls.c (emit_library_call_value_1): Change 3rd arg to
-        locate_and_pad_parm to disregard the setting of partial.
+	* calls.c (emit_library_call_value_1): Change 3rd arg to
+	locate_and_pad_parm to disregard the setting of partial.
 
 Wed Apr 12 08:47:38 2000  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
 
@@ -1460,7 +1852,7 @@ Wed Apr  5 12:35:18 2000  Hans-Peter Nilsson  <hp@axis.com>
 	all (op (minus A B) 0) with (op A B).
 
 Wed Apr  5 18:03:31 2000  Toshiyasu Morita  (toshi.morita@sega.com)
-	                  J"orn Rennecke <amylaar@cygnus.co.uk>
+			  J"orn Rennecke <amylaar@cygnus.co.uk>
 
 	* sh.md (block_lump_real_i4): Add missing clobber of T_REG
 	(block_lump_real): Likewise.
@@ -3839,11 +4231,11 @@ Thu Mar 16 02:14:16 2000  Hans-Peter Nilsson  <hp@bitrange.com>
 
 	2000-01-27  Clinton Popetz  <cpopetz@cygnus.com>
 
-        * rs6000.c (rs6000_emit_load_toc_table): Use "LCG" and
-        reload_toc_labelno for non-prologue TOC reloads.  Also, don't
-        increment rs6000_pic_labelno here.
-        (rs6000_emit_prologue): Pass TRUE to rs6000_emit_load_toc_table,
-        and increment rs6000_pic_labelno here.
+	* rs6000.c (rs6000_emit_load_toc_table): Use "LCG" and
+	reload_toc_labelno for non-prologue TOC reloads.  Also, don't
+	increment rs6000_pic_labelno here.
+	(rs6000_emit_prologue): Pass TRUE to rs6000_emit_load_toc_table,
+	and increment rs6000_pic_labelno here.
 
 	2000-01-24  Geoffrey Keating  <geoffk@cygnus.com>
 
@@ -4022,29 +4414,29 @@ Thu Mar 16 02:14:16 2000  Hans-Peter Nilsson  <hp@bitrange.com>
 
 	2000-01-07  David Edelsohn  <edelsohn@gnu.org>
 
-        * rs6000.c (processor_target_table): Add power3 as alias for 630.
-        * aix43.h: Revert Aug 2 change.
-        (HAS_INIT_SECTION): Define, not visible yet.
-        (LD_INIT_SWITCH): Define, not visible yet.
-        * t-aix43 (MULTILIB_OPTIONS): Revert Aug 2 change.
+	* rs6000.c (processor_target_table): Add power3 as alias for 630.
+	* aix43.h: Revert Aug 2 change.
+	(HAS_INIT_SECTION): Define, not visible yet.
+	(LD_INIT_SWITCH): Define, not visible yet.
+	* t-aix43 (MULTILIB_OPTIONS): Revert Aug 2 change.
 
 	2000-01-04  Joel Sherrill (joel@OARcorp.com>
 
-        * config/rs6000/rtems.h: Include config/rtems.h.
+	* config/rs6000/rtems.h: Include config/rtems.h.
 
 	2000-01-04  David Edelsohn  <edelsohn@gnu.org>
 
-        * rs6000.h (HANDLE_PRAGMA_PACK): Define.
-        (SLOW_UNALIGNED_ACCESS): Define.
-        (CASE_VECTOR_MODE): Always use 32-bit offsets.
-        (ASM_FILE_END): Generate 64-bit symbol in 64-bit mode.
-        (EXTRA_SECTOIN_FUNCTIONS): Indent .csect pseudo-op.
-        (toc_section): Likewise and .toc pseudo-op.
-        (ASM_DECLARE_FUNCTION): Likewise.  Align text more strictly in
-        64-bit mode.
-        (TEXT_SECTION_ASM_OP): Likewise.
-        (ASM_OUTPUT_ADD_VEC_ELT, ASM_OUTPUT_ADDR_DIFF_ELT): Always use
-        32-bit offsets.
+	* rs6000.h (HANDLE_PRAGMA_PACK): Define.
+	(SLOW_UNALIGNED_ACCESS): Define.
+	(CASE_VECTOR_MODE): Always use 32-bit offsets.
+	(ASM_FILE_END): Generate 64-bit symbol in 64-bit mode.
+	(EXTRA_SECTOIN_FUNCTIONS): Indent .csect pseudo-op.
+	(toc_section): Likewise and .toc pseudo-op.
+	(ASM_DECLARE_FUNCTION): Likewise.  Align text more strictly in
+	64-bit mode.
+	(TEXT_SECTION_ASM_OP): Likewise.
+	(ASM_OUTPUT_ADD_VEC_ELT, ASM_OUTPUT_ADDR_DIFF_ELT): Always use
+	32-bit offsets.
 
 	1999-12-17  Jakub Jelinek  <jakub@redhat.com>
 
@@ -4061,7 +4453,7 @@ Thu Mar 16 02:14:16 2000  Hans-Peter Nilsson  <hp@bitrange.com>
 
 	2000-01-05  Franz Sirl <Franz.Sirl-kernel@lauterbach.com>
 
-        * rs6000.h: Continue cleanup.
+	* rs6000.h: Continue cleanup.
 	* aix.h: Likewise.
 	* lynx.h: Likewise.
 	* netware.h: Likewise.
@@ -16128,7 +16520,7 @@ Sat Oct  9 12:18:16 1999  Richard Henderson  <rth@cygnus.com>
 	(count_or_remove_death_notes): New.
 	(verify_flow_info): Abort on error after all checks.
 	(remove_edge): Decrement n_edges.
-	(remove_fake_edges): Tweek format.
+	(remove_fake_edges): Tweak format.
 	* haifa-sched.c (schedule_insns): Use split_all_insns.
 	* output.h (update_life_info): Remove declaration.
 	* recog.c (split_all_insns): From the corpse of split_block_insns,

@@ -18,17 +18,13 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
-
- In other words, you are welcome to use, share and improve this program.
- You are forbidden to forbid anyone else to use, share and improve
- what you give them.   Help stamp out software-hoarding!  */
+Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "config.h"
 #include "system.h"
+#include "hashtab.h"
 #include "cpplib.h"
 #include "cpphash.h"
-#include "hashtab.h"
 #include "intl.h"
 #include "mkdeps.h"
 
@@ -263,8 +259,8 @@ find_include_file (pfile, fname, search_start, ihash, before)
   dummy.hash = _cpp_calc_hash (fname, strlen (fname));
   path = (fname[0] == '/') ? ABSOLUTE_PATH : search_start;
   slot = (IHASH **) htab_find_slot_with_hash (pfile->all_include_files,
-					      (const void *)&dummy,
-					      dummy.hash, 1);
+					      (const void *) &dummy,
+					      dummy.hash, INSERT);
 
   if (*slot && (ih = redundant_include_p (pfile, *slot, path)))
     {
@@ -284,7 +280,7 @@ find_include_file (pfile, fname, search_start, ihash, before)
   else
     {
       /* Search directory path, trying to open the file.  */
-      name = alloca (strlen (fname) + pfile->max_include_len
+      name = (char *) alloca (strlen (fname) + pfile->max_include_len
 		     + 2 + INCLUDE_LEN_FUDGE);
       do
 	{
@@ -333,8 +329,8 @@ _cpp_fake_ihash (pfile, fname)
   dummy.nshort = fname;
   dummy.hash = _cpp_calc_hash (fname, strlen (fname));
   slot = (IHASH **) htab_find_slot_with_hash (pfile->all_include_files,
-					      (const void *)&dummy,
-					      dummy.hash, 1);
+					      (const void *) &dummy,
+					      dummy.hash, INSERT);
   if (*slot)
     return (*slot)->name;
   ih = make_IHASH (fname, 0, ABSOLUTE_PATH, dummy.hash, slot);
@@ -670,10 +666,10 @@ cpp_read_file (pfile, fname)
     dummy.hash = _cpp_calc_hash (fname, strlen (fname));
   slot = (IHASH **) htab_find_slot_with_hash (pfile->all_include_files,
 					      (const void *) &dummy,
-					      dummy.hash, 1);
+					      dummy.hash, INSERT);
   if (*slot && (ih = redundant_include_p (pfile, *slot, ABSOLUTE_PATH)))
     {
-      if (ih == (IHASH *)-1)
+      if (ih == (IHASH *) -1)
 	return 1;  /* Already included.  */
     }
   else
@@ -1101,7 +1097,7 @@ hack_vms_include_specification (fullname)
 	/* The VMS part ends in a `]', and the preceding character is not a `.'.
 	   -> PATH]:/name (basename = '/name', unixname = 'name')
 	   We strip the `]', and then splice the two parts of the name in the
-	   usual way.  Given the default locations for include files in cccp.c,
+	   usual way.  Given the default locations for include files,
 	   we will only use this code if the user specifies alternate locations
 	   with the /include (-I) switch on the command line.  */
 

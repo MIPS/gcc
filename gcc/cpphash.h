@@ -213,9 +213,6 @@ extern unsigned char _cpp_IStable[256];
 #define CPP_PUTC_Q(PFILE, CH) (*(PFILE)->limit++ = (CH))
 /* Append character CH to PFILE's output buffer.  Make space if need be. */
 #define CPP_PUTC(PFILE, CH) (CPP_RESERVE (PFILE, 1), CPP_PUTC_Q (PFILE, CH))
-/* Make sure PFILE->limit is followed by '\0'. */
-#define CPP_NUL_TERMINATE_Q(PFILE) (*(PFILE)->limit = 0)
-#define CPP_NUL_TERMINATE(PFILE) (CPP_RESERVE(PFILE, 1), *(PFILE)->limit = 0)
 
 /* Advance the current line by one. */
 #define CPP_BUMP_BUFFER_LINE(PBUF) ((PBUF)->lineno++,\
@@ -271,7 +268,8 @@ extern unsigned int _cpp_calc_hash	PARAMS ((const U_CHAR *, size_t));
 extern HASHNODE *_cpp_lookup		PARAMS ((cpp_reader *,
 						 const U_CHAR *, int));
 extern HASHNODE **_cpp_lookup_slot	PARAMS ((cpp_reader *,
-						 const U_CHAR *, int, int,
+						 const U_CHAR *, int,
+						 enum insert_option,
 						 unsigned long *));
 extern void _cpp_free_definition	PARAMS ((DEFINITION *));
 extern DEFINITION *_cpp_create_definition PARAMS ((cpp_reader *, int));
@@ -311,6 +309,7 @@ extern enum cpp_ttype _cpp_get_directive_token
 					PARAMS ((cpp_reader *));
 extern enum cpp_ttype _cpp_get_define_token
 					PARAMS ((cpp_reader *));
+extern void _cpp_scan_line		PARAMS ((cpp_reader *, cpp_toklist *));
 
 /* In cpplib.c */
 extern int _cpp_handle_directive	PARAMS ((cpp_reader *));
