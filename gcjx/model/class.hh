@@ -1,6 +1,6 @@
 // Represent the class statement.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -97,6 +97,10 @@ protected:
 
   // All methods in this class, including inherited methods.
   AllMethods all_methods;
+  // Like all_methods, but sorted properly for vtable generation
+  // (i.e., source order and inheritance order).
+  // FIXME this should not be needed.
+  std::list<model_method *> source_order_methods;
 
   // Member classes declared here.
   std::map< std::string, owner<model_class> > member_classes;
@@ -678,6 +682,11 @@ public:
   std::list<model_variable_decl *> get_captured_variables () const
   {
     return captured_variables;
+  }
+
+  const std::list<model_method *> &get_sorted_methods () const
+  {
+    return source_order_methods;
   }
 };
 

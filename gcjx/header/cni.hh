@@ -32,13 +32,16 @@ protected:
   // The compiler we're using.
   compiler *comp;
 
+  // Handy typedef.
+  typedef std::list<model_method *>::const_iterator method_iterator;
+
   std::string cxxname (model_type *, bool = true);
   void update_modifiers (std::ostream &, modifier_t, modifier_t &);
   void add (model_type *, std::set<model_class *> &,
 	    bool &, model_package *, model_package *,
 	    model_package *, model_class *);
   void write_includes (std::ostream &, model_class *,
-		       const AllMethodsIterator &, const AllMethodsIterator &,
+		       const method_iterator &, const method_iterator &,
 		       const std::list<ref_field> &);
   void write_method (std::ostream &, model_method *, modifier_t &);
   void write_field (std::ostream &, model_field *, modifier_t &);

@@ -1,3 +1,21 @@
+2005-02-27  Tom Tromey  <tromey@redhat.com>
+
+	* header/cni.cc (write_includes): Changed argument types.
+	(generate): Use get_sorted_methods.
+	* header/cni.hh (cni_code_generator::method_iterator): New
+	typedef.
+	(cni_code_generator::write_includes): Changed argument types.
+	* aot/aotclass.cc (lay_out_vtable): Use get_sorted_methods.  Skip
+	final methods from Object.
+	(add_item): Don't use slot 0 of constant pool.
+	* model/class.cc (resolve_one_method): Updated
+	source_order_methods.
+	(add_method): Likewise.
+	(inherit_methods): Likewise.
+	(resolve_members): Likewise.
+	* model/class.hh (model_class::source_order_methods): New field.
+	(model_class::get_sorted_methods): New method.
+
 2005-02-26  Tom Tromey  <tromey@redhat.com>
 
 	* aot/aotclass.cc (lay_out_vtable): Added debug code.

@@ -1,6 +1,6 @@
 // Write a CNI header.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -242,8 +242,8 @@ cni_code_generator::write_namespaces (std::ostream &out,
 void
 cni_code_generator::write_includes (std::ostream &out,
 				    model_class *klass,
-				    const AllMethodsIterator & methods_begin,
-				    const AllMethodsIterator & methods_end,
+				    const method_iterator &methods_begin,
+				    const method_iterator &methods_end,
 				    const std::list<ref_field> &fields)
 {
   // These classes are chosen since they are already in 'compiler' and
@@ -274,7 +274,7 @@ cni_code_generator::write_includes (std::ostream &out,
 	  << ".h>" << std::endl;
     }
 
-  for (AllMethodsIterator i = methods_begin; i != methods_end; ++i)
+  for (method_iterator i = methods_begin; i != methods_end; ++i)
     {
       add ((*i)->get_return_type (), class_set, array_seen,
 	   lang_package, util_package, io_package, super);
@@ -400,8 +400,8 @@ cni_code_generator::generate (model_class *klass)
       << std::endl;
 
   std::list<ref_field> fields = klass->get_fields ();
-  write_includes (out, klass, klass->begin_all_methods (),
-                  klass->end_all_methods (), fields);
+  std::list<model_method *> methods = klass->get_sorted_methods ();
+  write_includes (out, klass, methods.begin (), methods.end (), fields);
   out << std::endl;
 
   out << "class " << cxxname (klass, false);

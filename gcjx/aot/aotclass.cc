@@ -43,8 +43,11 @@ aot_class::lay_out_vtable ()
   if (super)
     vtable = super->vtable;
 
-  for (AllMethodsIterator i = klass->begin_all_methods ();
-       i != klass->end_all_methods ();
+  model_class *objtype = global->get_compiler ()->java_lang_Object ();
+
+  std::list<model_method *> methods = klass->get_sorted_methods ();
+  for (std::list<model_method *>::const_iterator i = methods.begin ();
+       i != methods.end ();
        ++i)
     {
       // Static methods, private methods, and constructors do not
@@ -54,6 +57,12 @@ aot_class::lay_out_vtable ()
       if ((*i)->static_p ()
 	  || (*i)->constructor_p ()
 	  || ((*i)->get_modifiers () & ACC_PRIVATE) != 0)
+	continue;
+
+      // Final methods in Object are not entered in the vtable as they
+      // are never called virtually.  FIXME: conceivably, this could
+      // change in Java, and this threatens binary compatibility.
+      if ((*i)->final_p () && (*i)->get_declaring_class () == objtype)
 	continue;
 
       model_class *declaring_class = (*i)->get_declaring_class ();
@@ -88,7 +97,7 @@ aot_class::lay_out_vtable ()
 		  && (*i)->hides_or_overrides_p (*j, klass))
 		{
 		  // Re-use the previous slot.
-		  vtable[index] = (*i).get ();
+		  vtable[index] = *i;
 		  break;
 		}
 	    }
@@ -96,7 +105,7 @@ aot_class::lay_out_vtable ()
 	    continue;
 	}
 
-      vtable.push_back ((*i).get ());
+      vtable.push_back (*i);
     }
 
 #ifdef DEBUG_VTABLE
@@ -123,7 +132,10 @@ aot_class::add_item (const pool_entry &entry)
     }
 
   pool.push_back (entry);
-  return pool.size () - 1;
+  // Note that we return the new size, not 'pool.size() - 1', because
+  // for historical reasons the 0th entry of the constant pool is not
+  // used.
+  return pool.size ();
 }
 
 int

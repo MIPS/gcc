@@ -72,6 +72,7 @@ model_class::resolve_one_method (const ref_method &method)
     return;
 
   all_methods.insert (std::make_pair (method->get_name (), method.get ()));
+  source_order_methods.push_back (method.get ());
 
   resolution_scope scope;
   push_on_scope (&scope);
@@ -466,6 +467,7 @@ model_class::add_method (const ref_method &method)
 {
   methods.push_back (method);
   all_methods.insert (std::make_pair (method->get_name (), method));
+  source_order_methods.push_back (method.get ());
 }
 
 void
@@ -850,6 +852,7 @@ model_class::inherit_methods (const IteratorT &begin, const IteratorT &end,
 	  // FIXME if OTHER == Object && this.interface_p(), then add
 	  // a new abstract method -- ?
 	  all_methods.insert (std::make_pair ((*i)->get_name (), *i));
+	  source_order_methods.push_back ((*i).get ());
 
 	  if (! abstract_p () && (*i)->abstract_p ())
 	    // FIXME: locations.
@@ -1343,6 +1346,7 @@ model_class::resolve_members (resolution_scope *scope)
        ++it)
     {
       all_methods.insert (std::make_pair ((*it)->get_name (), *it));
+      source_order_methods.push_back ((*it).get ());
     }
 
   // Insert our fields into the field map first.
