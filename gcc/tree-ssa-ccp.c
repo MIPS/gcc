@@ -348,14 +348,22 @@ visit_phi_node (phi_node)
 	if (e->flags & EDGE_EXECUTABLE)
 	  {
 	    tree_ref rdef;
-	    value rdef_val;
 	    
 	    rdef = phi_arg_def (arg);
 
 	    if (is_killing_def (rdef, phi_node))
 	      {
+		value rdef_val;
+
 		rdef_val = values[ref_id (rdef)];
 		phi_val = cp_lattice_meet (phi_val, rdef_val);
+
+		if (dump_file && (dump_flags & TDF_DETAILS))
+		  {
+		    dump_ref (dump_file, "\t", phi_arg_def (arg), 0, 0);
+		    dump_lattice_value (dump_file, "\tValue: ", rdef_val);
+		    fprintf (dump_file, "\n");
+		  }
 	      }
 	    else
 	      {
@@ -364,13 +372,6 @@ visit_phi_node (phi_node)
 		   its value to VARYING.  */
 		phi_val.lattice_val = VARYING;
 		phi_val.const_value = NULL_TREE;
-	      }
-
-	    if (dump_file && (dump_flags & TDF_DETAILS))
-	      {
-		dump_ref (dump_file, "\t", phi_arg_def (arg), 0, 0);
-		dump_lattice_value (dump_file, "\tValue: ", rdef_val);
-		fprintf (dump_file, "\n");
 	      }
 
 	    if (phi_val.lattice_val == VARYING)

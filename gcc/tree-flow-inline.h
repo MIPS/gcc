@@ -326,7 +326,7 @@ indirect_var (ptr)
      tree ptr;
 {
 #if defined ENABLE_CHECKING
-  if (TREE_CODE_CLASS (TREE_CODE (ptr)) != 'd'
+  if (!DECL_P (ptr)
       || !POINTER_TYPE_P (TREE_TYPE (ptr)))
     abort ();
 #endif
@@ -340,13 +340,24 @@ set_indirect_var (ptr, indirect)
 {
   tree_ann ann;
 #if defined ENABLE_CHECKING
-  if (TREE_CODE_CLASS (TREE_CODE (ptr)) != 'd'
+  if (!DECL_P (ptr)
       || !POINTER_TYPE_P (TREE_TYPE (ptr))
       || TREE_CODE (indirect) != INDIRECT_REF)
     abort ();
 #endif
-  ann = tree_annotation (ptr);
+  ann = tree_annotation (ptr) ? tree_annotation (ptr) : create_tree_ann (ptr);
   ann->indirect_var = indirect;
+}
+
+static inline tree
+create_indirect_ref (ptr_sym)
+     tree ptr_sym;
+{
+#if defined ENABLE_CHECKING
+  if (!POINTER_TYPE_P (TREE_TYPE (ptr_sym)))
+    abort ();
+#endif
+  return build1 (INDIRECT_REF, TREE_TYPE (TREE_TYPE (ptr_sym)), ptr_sym);
 }
 
 static inline bb_ann

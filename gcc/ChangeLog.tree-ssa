@@ -1,3 +1,24 @@
+2002-11-13  Diego Novillo  <dnovillo@redhat.com>
+
+	* toplev.c (parse_options_and_default_flags): Enable SSA-CCP by
+	default with optimization >= 1.
+	* tree-dfa.c (find_refs_in_expr): Clobber '*.GLOBAL_VAR', not
+	'GLOBAL_VAR'.
+	(collect_dfa_stats): Collect statistics on '*.GLOBAL_VAR'.
+	(compute_may_aliases): Make sure that variable is an INDIRECT_REF.
+	(may_alias_p): GLOBAL_VAR should alias INDIRECT_REFs.
+	Only check addressability on VAR_DECLs.
+	(find_may_aliases_for): Make sure argument is an INDIRECT_REF.
+	* tree-flow-inline.h (indirect_var): Call DECL_P.
+	(set_indirect_var): Call DECL_P.
+	Create annotation if it doesn't exist.
+	(create_indirect_ref): Move from tree-dfa.c.
+	* tree-flow.h (create_indirect_ref): Declare.
+	* tree-ssa-ccp.c (visit_phi_node): Avoid debugging dump from
+	accessing uninitialized data.
+	* tree-ssa.c (init_tree_ssa): Create an INDIRECT_REF node for
+	.GLOBAL_VAR.
+
 2002-11-12  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-cfg.c (delete_tree_cfg): Call free_aux_for_blocks.

@@ -4861,8 +4861,7 @@ parse_options_and_default_flags (argc, argv)
       flag_crossjumping = 1;
       flag_if_conversion = 1;
       flag_if_conversion2 = 1;
-      if (getenv ("TREE_CCP"))
-	flag_tree_ccp = 1;
+      flag_tree_ccp = 1;
     }
 
   if (optimize >= 2)

@@ -987,8 +987,10 @@ init_tree_ssa ()
   DECL_EXTERNAL (global_var) = 0;
   TREE_STATIC (global_var) = 0;
   TREE_USED (global_var) = 1;
-  DECL_CONTEXT (global_var) = 0;
+  DECL_CONTEXT (global_var) = NULL_TREE;
   TREE_THIS_VOLATILE (global_var) = 1;
+  TREE_ADDRESSABLE (global_var) = 1;
+  set_indirect_var (global_var, create_indirect_ref (global_var));
 
   /* If -Wuninitialized was used, set tree_warn_uninitialized and clear
      warn_uninitialized to avoid duplicate warnings.  */

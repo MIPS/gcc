@@ -100,7 +100,6 @@ static void find_may_aliases_for	PARAMS ((tree));
 static void add_may_alias		PARAMS ((tree, tree));
 static inline bool may_alias_p		PARAMS ((tree, tree));
 static size_t tree_ref_size		PARAMS ((enum tree_ref_type));
-static inline tree create_indirect_ref	PARAMS ((tree));
 static tree replace_ref_r		PARAMS ((tree *, int *, void *));
 
 
@@ -387,11 +386,14 @@ find_refs_in_expr (expr_p, ref_type, ref_mod, bb, parent_stmt_p)
 
   /* Function calls.  Create a V_USE reference for every argument in the call.
      If the callee is neither pure nor const, create a use and a def of
-     GLOBAL_VAR.  Definitions of this variable will reach uses of every call
-     clobbered variable in the function.  Uses of GLOBAL_VAR will be reached by
+     *.GLOBAL_VAR.  This variable is a pointer that is assumed to point to
+     every global variable and locals that have had their address taken.
+     
+     Definitions of this variable will reach uses of every call clobbered
+     variable in the function.  Uses of *.GLOBAL_VAR will be reached by
      definitions of call clobbered variables.  This is used to model the
-     effects that the called function may have on local and global variables
-     that might be visible to it.  */
+     effects that the called function may have on local and global
+     variables that might be visible to it.  */
   if (code == CALL_EXPR)
     {
       tree callee;
@@ -408,8 +410,10 @@ find_refs_in_expr (expr_p, ref_type, ref_mod, bb, parent_stmt_p)
 	  may-use followed by a clobbering definition of GLOBAL_VAR.  */
       if (! (flags & (ECF_CONST | ECF_PURE)))
 	{
-	  create_ref (global_var, V_USE, TRM_MAY, bb, parent_stmt_p, 1);
-	  create_ref (global_var, V_DEF, TRM_CLOBBER, bb, parent_stmt_p, 1);
+	  create_ref (indirect_var (global_var), V_USE, TRM_MAY, bb,
+		      parent_stmt_p, 1);
+	  create_ref (indirect_var (global_var), V_DEF, TRM_CLOBBER, bb,
+		      parent_stmt_p, 1);
 	}
 
       return;
@@ -1619,6 +1623,7 @@ collect_dfa_stats (dfa_stats_p)
   htab_t htab;
   tree *first_stmt_p;
   basic_block bb;
+  tree star_global_var;
 
   if (dfa_stats_p == NULL)
     abort ();
@@ -1633,6 +1638,8 @@ collect_dfa_stats (dfa_stats_p)
 
   /* Also look into GLOBAL_VAR (which is not actually part of the program).  */
   walk_tree (&global_var, collect_dfa_stats_r, (void *) dfa_stats_p, NULL);
+  star_global_var = indirect_var (global_var);
+  walk_tree (&star_global_var, collect_dfa_stats_r, (void *) dfa_stats_p, NULL);
 
   FOR_EACH_BB (bb)
     count_tree_refs (dfa_stats_p, bb_refs (bb));
@@ -1840,10 +1847,9 @@ compute_may_aliases ()
   for (i = 0; i < num_referenced_vars; i++)
     {
       tree var = referenced_var (i);
-      tree sym = get_base_symbol (var);
 
       /* Find aliases for pointer variables.  */
-      if (POINTER_TYPE_P (TREE_TYPE (sym)))
+      if (TREE_CODE (var) == INDIRECT_REF)
 	find_may_aliases_for (var);
     }
 
@@ -1856,39 +1862,41 @@ compute_may_aliases ()
 }
 
 
-/* Return true if PTR (an INDIRECT_REF tree) may alias VAR_SYM (a _DECL tree).
-   FIXME  This returns true more often than it should.  */
+/* Return true if INDIRECT_PTR (an INDIRECT_REF node) may alias VAR (a
+   VAR_DECL or INDIRECT_REF node).  FIXME  This returns true more often
+   than it should.  */
 
 static inline bool
-may_alias_p (ptr, var_sym)
-     tree ptr;
-     tree var_sym;
+may_alias_p (indirect_ptr, var)
+     tree indirect_ptr;
+     tree var;
 {
   HOST_WIDE_INT ptr_alias_set, var_alias_set;
-  tree ptr_sym = get_base_symbol (ptr);
+  tree ptr_sym = get_base_symbol (indirect_ptr);
+  tree var_sym = get_base_symbol (var);
   
-  /* GLOBAL_VAR aliases every global variable and locals that have had
-     their address taken, unless points-to analysis is done. This is because
-     points-to is supposed to handle this case, and thus, can give a more
-     accurate answer.   */
-
-  if (!flag_tree_points_to && 
-      ptr == global_var
-      && var_sym != global_var
+  /* GLOBAL_VAR aliases every global variable, pointer dereference and
+     locals that have had their address taken, unless points-to analysis is
+     done.  This is because points-to is supposed to handle this case, and
+     thus, can give a more accurate answer.   */
+  if (flag_tree_points_to == PTA_NONE
+      && ptr_sym == global_var
       && (TREE_ADDRESSABLE (var_sym)
+	  || TREE_CODE (var) == INDIRECT_REF
 	  || decl_function_context (var_sym) == NULL))
     return true;
-  
+
   /* Obvious reasons why PTR_SYM and VAR_SYM can't possibly alias
      each other.  */
   if (var_sym == ptr_sym
-      || !POINTER_TYPE_P (TREE_TYPE (ptr_sym))
-      || !TREE_ADDRESSABLE (var_sym)
-      || DECL_ARTIFICIAL (var_sym))
+      || DECL_ARTIFICIAL (var_sym)
+      /* Only check for addressability on non-pointers.  Even if VAR is 
+	 a non-addressable pointer, it may still alias with INDIRECT_PTR.  */
+      || (DECL_P (var) && !TREE_ADDRESSABLE (var)))
     return false;
 
-  ptr_alias_set = get_alias_set (TREE_TYPE (ptr));
-  var_alias_set = get_alias_set (TREE_TYPE (var_sym));
+  ptr_alias_set = get_alias_set (TREE_TYPE (indirect_ptr));
+  var_alias_set = get_alias_set (TREE_TYPE (var));
   
   if (!alias_sets_conflict_p (ptr_alias_set, var_alias_set))
     return false;
@@ -1901,25 +1909,31 @@ may_alias_p (ptr, var_sym)
 }
 
 
-/* Find variables that PTR may be aliasing.  */
+/* Find variables that INDIRECT_PTR (an INDIRECT_REF node) may be aliasing.  */
 
 static void
-find_may_aliases_for (ptr)
-     tree ptr;
+find_may_aliases_for (indirect_ptr)
+     tree indirect_ptr;
 {
   unsigned long i;
+
+#if defined ENABLE_CHECKING
+  if (TREE_CODE (indirect_ptr) != INDIRECT_REF)
+    abort ();
+#endif
 
   for (i = 0; i < num_referenced_vars; i++)
     {
       tree var = referenced_var (i);
-      tree var_sym = get_base_symbol (var);
 
-      if (may_alias_p (ptr, var_sym)
+      /* If *PTR may alias VAR, add *PTR to the list of may-aliases of VAR,
+	 and VAR to the list of may-aliases of *PTR.  */
+      if (may_alias_p (indirect_ptr, var)
 	  /* Avoid adding duplicate aliases.  */
-	  && get_alias_index (ptr, var_sym) == -1)
+	  && get_alias_index (indirect_ptr, var) == -1)
 	{
-	  add_may_alias (ptr, var_sym);
-	  add_may_alias (var_sym, ptr);
+	  add_may_alias (indirect_ptr, var);
+	  add_may_alias (var, indirect_ptr);
 	}
     }
 }
@@ -2074,20 +2088,6 @@ tree_ref_structure (ref)
     return TR_EXPR_REF_COMMON;
 
   abort ();
-}
-
-
-/* Create and return a new INDIRECT_REF for pointer symbol PTR_SYM.  */
-
-static inline tree
-create_indirect_ref (ptr_sym)
-     tree ptr_sym;
-{
-#if defined ENABLE_CHECKING
-  if (!POINTER_TYPE_P (TREE_TYPE (ptr_sym)))
-    abort ();
-#endif
-  return build1 (INDIRECT_REF, TREE_TYPE (TREE_TYPE (ptr_sym)), ptr_sym);
 }
 
 

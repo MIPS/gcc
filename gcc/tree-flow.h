@@ -528,6 +528,7 @@ static inline enum tree_flags tree_flags PARAMS ((tree));
 static inline void reset_tree_flags	PARAMS ((tree));
 static inline tree indirect_var		PARAMS ((tree));
 static inline void set_indirect_var	PARAMS ((tree, tree));
+static inline tree create_indirect_ref	PARAMS ((tree));
 static inline tree may_alias		PARAMS ((tree, size_t));
 static inline size_t num_may_alias	PARAMS ((tree));
 static inline int get_lineno		PARAMS ((tree));
