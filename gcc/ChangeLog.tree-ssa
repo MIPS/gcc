@@ -1,3 +1,11 @@
+2003-05-16  Andrew MacLeod  <amacleod@redhat.com>
+
+	* tree-flow.h (ssa_make_edge): Remove prototype.
+	* tree-ssa-dce.c (remove_dead_stmt): Change comment about removing 
+	conditionals.
+	(remove_conditional): Don't update PHI nodes or call ssa_make_edge.
+	* tree-ssa.c (ssa_make_edge): Remove.
+
 2003-05-16  Jeff Law  <law@redhat.com>
 
 	* tree-cfg.c (remove_useless_stmts_and_vars): Handle case where

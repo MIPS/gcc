@@ -467,7 +467,6 @@ extern void debug_tree_ssa		PARAMS ((void));
 extern void debug_def_blocks		PARAMS ((void));
 extern void dump_tree_ssa_stats		PARAMS ((FILE *));
 extern void debug_tree_ssa_stats	PARAMS ((void));
-extern edge ssa_make_edge		(basic_block, basic_block, int, tree);
 extern void ssa_remove_edge		(edge);
 
 /* In tree-ssa-pre.c  */

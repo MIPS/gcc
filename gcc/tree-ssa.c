@@ -1725,46 +1725,6 @@ ssa_remove_edge (edge e)
   remove_edge (e);
 }
 
-
-/* Make a new edge between BB1 and BB2.  All the PHI nodes at BB2 will
-   receive a new argument that should be provided in PHI_ARG_LIST.  */
-
-edge
-ssa_make_edge (basic_block bb1, basic_block bb2, int flags, tree phi_arg_list)
-{
-  tree phi;
-  edge e;
-  
-  e = make_edge (bb1, bb2, flags);
-
-  /* Add a new argument to every PHI node in BB2.  FIXME: Hmm, double
-     linear scan.  This may slow things down.  */
-  if (phi_arg_list)
-    for (phi = phi_nodes (bb2); phi; phi = TREE_CHAIN (phi))
-      {
-	/* Look for the new argument to add in PHI_ARG_LIST.  */
-	tree node;
-
-	for (node = phi_arg_list; node; node = TREE_CHAIN (node))
-	  {
-	    tree arg = TREE_VALUE (node);
-	    if (SSA_NAME_VAR (arg) == SSA_NAME_VAR (PHI_RESULT (phi)))
-	      {
-		add_phi_arg (phi, arg, e);
-		break;
-	      }
-	  }
-
-	/* If we didn't find an argument for the PHI node, then PHI_ARG_LIST
-	  is wrong.  */
-	if (node == NULL_TREE)
-	  abort ();
-      }
-
-  return e;
-}
-
-
 /*---------------------------------------------------------------------------
 			       Debugging support
 ---------------------------------------------------------------------------*/

@@ -531,11 +531,10 @@ remove_dead_stmt (i, bb)
      post-dominator.  This prevents us from having to add any branch
      instuctions to replace the conditional statement.
 
-     Note that the call to remove_conditional can be relatively
-     expensive because of all the PHI node manipulation it needs to do.
-     Therefore, we only remove a conditional if its parent statement is
-     live.  This avoid unnecessary calls to remove_conditional in the
-     event of dead nested conditionals.  */
+     Only remove a conditional if its parent statement is live.  This avoids
+     unnecessary calls to remove_conditional in the event of dead nested 
+     conditionals.  */
+
   if (TREE_CODE (t) == COND_EXPR || TREE_CODE (t) == SWITCH_EXPR)
     {
       tree parent = parent_stmt (t);
@@ -601,7 +600,6 @@ static void
 remove_conditional (basic_block bb)
 {
   basic_block pdom_bb;
-  tree phi, phi_arg_list;
   edge e;
 
   /* Calculate dominance info, if it hasn't been computed yet.  */
@@ -629,81 +627,21 @@ remove_conditional (basic_block bb)
   if (bb->succ)
     return;
 
-  /* For every PHI node V_i at PDOM_BB, find the first argument V_j coming
-     from a node dominated by BB.  That argument V_j will be used as the
-     new argument for V_i, coming from the new edge BB -> PDOM_BB.
+  /* If the post dominator has any PHI nodes in it at all, the 
+     conditional has been marked as necessary. This means no PHI
+     node updating is required. If there are any PHI nodes, its a bug
+     in DCE.  */
 
-			+----------+
-			| ...      |
-			| if (...) | BB
-			+----------+
-			  /      \
-			 /        \
-			...       ...
-		       +---+     +---+
-		       |   | N   |   | M
-		       +---+     +---+
-			 \        /
-			  \      /
-	    +------------------------------------+
-	    | V_i = PHI <..., V_j(N), V_j(M)...> | PDOM_BB
-	    +------------------------------------+
-
-     Notice that since the whole conditional structure is dead, it is
-     impossible for V_j to have originated inside the conditional.
-     Otherwise, the conditional would have live statements (namely, the
-     statements that generate V_j).
-
-     Therefore, the PHI node V_i is guaranteed to have up to two identical
-     arguments V_j coming from inside the conditional.  Since V_j cannot
-     have been generated inside the conditional, when we add a new edge
-     BB->PDOM_BB, we can make V_j come from the new edge.  The transformed
-     flowgraph will look as follows (after the call to cleanup_tree_cfg):
-
-			+---------+
-			| ...     |
-			| (void)0 | BB
-			+---------+
-			     |
-			     |
-	    +-------------------------------+
-	    | V_i = PHI <..., V_j(BB), ...> | PDOM_BB
-	    +-------------------------------+
-
-     The same property applies for SWITCH_EXPR conditionals.  */
-  phi_arg_list = NULL_TREE;
-  for (phi = phi_nodes (pdom_bb); phi; phi = TREE_CHAIN (phi))
-    {
-      int found, i;
-      for (found = i = 0; i < PHI_NUM_ARGS (phi); i++)
-	{
-	  basic_block arg_bb = PHI_ARG_EDGE (phi, i)->src;
-
-	  if (dominated_by_p (dom_info, arg_bb, bb))
-	    {
-	      tree arg = build_tree_list (NULL_TREE, PHI_ARG_DEF (phi, i));
-
-	      if (phi_arg_list )
-		chainon (phi_arg_list, arg);
-	      else
-		phi_arg_list = arg;
-
-	      remove_phi_arg_num (phi, i);
-	      found = 1;
-	      break;
-	    }
-	}
-
-#if defined ENABLE_CHECKING
-      /* If we didn't find an argument coming from a block dominated by BB,
-	 something is wrong.  */
-      if (!found)
-	abort ();
+#ifdef ENABLE_CHECKING
+  {
+    tree phi;
+    for (phi = phi_nodes (pdom_bb); phi; phi = TREE_CHAIN (phi))
+      if (necessary_p (phi))
+        abort ();
+  }
 #endif
-    }
 
-  /* Add an edge to BB's post dominator.  Add PHI arguments to every PHI
-     node at PDOM_BB from the list of arguments computed above..  */
+  /* Add an edge to BB's post dominator.  */
   if (bb->succ == NULL)
-    ssa_make_edge (bb, pdom_bb, EDGE_FALLTHRU, phi_arg_list);
+    make_edge (bb, pdom_bb,  EDGE_FALLTHRU);
 }
