@@ -1,3 +1,12 @@
+2005-02-11  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	* jawt.c: New file.
+	* include/jawt.h: Likewise.
+	* include/jawt_md.h: Likewise.
+	* jni/classpath/classpath_jawt.h: Likewise.
+	* jni/gtk-peer/gtk_jawt.c: Likewise.
+	* Makefile.am: Build libjawt.so.
+
 2005-02-12  Michael Koch  <konqueror@gmx.de>
 
 	* gnu/java/awt/peer/gtk/GdkGraphics2D.java:

@@ -102,15 +102,17 @@ endif
 
 if GTK_AWT
 cond_gtk_ltlibrary = lib-gnu-java-awt-peer-gtk.la
+cond_gtk_jawt_ltlibrary = libjawt.la
 else
 cond_gtk_ltlibrary =
+cond_gtk_jawt_ltlibrary =
 endif
 
 toolexeclib_LTLIBRARIES = libgcj.la libgij.la lib-org-xml-sax.la \
 	lib-org-w3c-dom.la lib-java-awt.la lib-java-applet.la lib-javax-swing.la \
 	lib-java-beans.la lib-java-util-logging.la lib-javax-naming.la \
 	lib-javax-accessibility.la lib-javax-imageio.la lib-org-ietf-jgss.la \
-    $(cond_gtk_ltlibrary) $(cond_xlib_ltlibrary)
+    $(cond_gtk_ltlibrary) $(cond_gtk_jawt_ltlibrary) $(cond_xlib_ltlibrary)
 toolexecmainlib_DATA = libgcj.spec
 
 pkgconfigdir = $(libdir)/pkgconfig
@@ -286,6 +288,7 @@ jni/gtk-peer/gnu_java_awt_peer_gtk_GtkToolkit.c	\
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkWindowPeer.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GThreadNativeMethodRunner.c \
 jni/gtk-peer/gthread-jni.c \
+jni/gtk-peer/gtk_jawt.c \
 jni/classpath/jcl.c \
 jni/classpath/jnilink.c	\
 jni/classpath/native_state.c \
@@ -453,6 +456,14 @@ lib_gnu_java_awt_peer_gtk_la_DEPENDENCIES = $(gtk_jni_headers) libgcj-@gcc_versi
 lib_gnu_java_awt_peer_gtk_la_LDFLAGS = \
         -version-info `grep -v '^\#' $(srcdir)/libtool-version` $(LIBGCJ_LD_SYMBOLIC)
 lib_gnu_java_awt_peer_gtk_la_LINK = $(LIBLINK)
+
+libjawt_la_SOURCES = jawt.c
+libjawt_la_CFLAGS = -I$(srcdir)/jni/classpath $(PEDANTIC_CFLAGS) $(X_CFLAGS)
+libjawt_la_LIBADD = lib-gnu-java-awt-peer-gtk.la
+libjawt_la_LDFLAGS = \
+        -version-info `grep -v '^\#' $(srcdir)/libtool-version` \
+	$(LIBGCJ_LD_SYMBOLIC)
+libjawt_la_LINK = $(LIBLINK)
 
 lib_org_ietf_jgss_la_SOURCES = \
 org/ietf/jgss/ChannelBinding.java \
