@@ -686,12 +686,20 @@ update_addressable_flag (tree expr)
 static tree
 force_gimple_operand (tree expr, tree *stmts, bool simple)
 {
-  enum tree_code code = TREE_CODE (expr);
-  char class = TREE_CODE_CLASS (code);
+  enum tree_code code;
+  char class;
   tree op0, op1, stmts0, stmts1, stmt, rhs, name;
   tree_stmt_iterator tsi;
   struct idx_fs_data d;
   tree atmp;
+
+  /* Throw away the useless type conversions, so that we do not create
+     unneccesary junk.  */
+  STRIP_TYPE_NOPS (expr);
+  STRIP_USELESS_TYPE_CONVERSION (expr);
+
+  code = TREE_CODE (expr);
+  class = TREE_CODE_CLASS (code);
 
   if (is_gimple_val (expr)
       && (!simple
@@ -1461,7 +1469,8 @@ number_of_iterations_cond (tree type, tree base0, tree step0,
 
       if (TREE_CODE (delta) == INTEGER_CST)
 	{
-	  tmp = EXEC_BINARY (MINUS_EXPR, type, step, integer_zero_node);
+	  tmp = EXEC_BINARY (MINUS_EXPR, type, step,
+			     convert (type, integer_one_node));
 	  if (was_sharp
 	      && operand_equal_p (delta, tmp, 0))
 	    {
@@ -4537,7 +4546,6 @@ rewrite_use_address (struct ivopts_data *data,
 	 the base variable of the ssa name to a new temporary.  */
       tmp_var = create_tmp_var (TREE_TYPE (op), "ruatmp");
       add_referenced_tmp_var (tmp_var);
-      SSA_NAME_VAR (op) = tmp_var;
 
       var = get_base_address (*use->op_p);
       if (TREE_CODE (var) == INDIRECT_REF)
@@ -4563,6 +4571,8 @@ rewrite_use_address (struct ivopts_data *data,
 	      new_ann->name_mem_tag = ann->name_mem_tag;
 	    }
 	}
+
+      SSA_NAME_VAR (op) = tmp_var;
     }
 
   *use->op_p = build1 (INDIRECT_REF, TREE_TYPE (*use->op_p), op);

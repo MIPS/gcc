@@ -1,3 +1,10 @@
+2004-04-25  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* tree-ssa-loop-ivopts.c (force_gimple_operand): Strip useless type
+	conversions.
+	(number_of_iterations_cond): Fix typo.
+	(rewrite_use_address): Fix.
+
 2004-04-23  Daniel Berlin  <dberlin@dberlin.org>
 
 	* tree-loop-linear.c (linear_transform_loops): Add invariants array.
