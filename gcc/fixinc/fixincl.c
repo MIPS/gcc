@@ -41,7 +41,7 @@
 #include "regex.h"
 #include "server.h"
 
-#define MINIMUM_MAXIMUM_LINES   256
+#define MINIMUM_MAXIMUM_LINES   128
 
 /* If this particular system's header files define the macro `MAXPATHLEN',
    we happily take advantage of it; otherwise we use a value which ought
