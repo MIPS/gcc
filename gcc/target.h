@@ -303,11 +303,6 @@ struct gcc_target
   rtx (* expand_builtin) (tree exp, rtx target, rtx subtarget,
 			  enum machine_mode mode, int ignore);
 
-  /* Given a scalar type (e.g., HI_type_node) return the
-     corresponding vector type (e.g., V8HI_type_node or V16HI_type_node etc.)
-     if supported. Return NULL otherwise.  */
-  tree (* vectype_for_scalar_type) (tree scalar_tree_type);
-
   /* Make any adjustments to libfunc names needed for this target.  */
   void (* init_libfuncs) (void);
 

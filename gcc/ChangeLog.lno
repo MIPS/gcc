@@ -5,6 +5,11 @@
 
 2004-01-02  Richard Henderson  <rth@redhat.com>
 
+	* target.h (struct gcc_target): Remove vectype_for_scalar_type.
+	* target-def.h (TARGET_VECTYPE_FOR_SCALAR_TYPE): Remove.
+	* config/rs6000/rs6000.c (rs6000_vectype_for_scalar_type): Remove.
+	(TARGET_VECTYPE_FOR_SCALAR_TYPE): Remove.
+
 	* tree.c (build_vector_type_with_mode): Rename from make_vector,
 	remove unsignedp argument, update callers.
 	(build_vector_type): New.

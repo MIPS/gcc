@@ -348,7 +348,6 @@ static rtx rs6000_expand_unop_builtin (enum insn_code, tree, rtx);
 static rtx rs6000_expand_binop_builtin (enum insn_code, tree, rtx);
 static rtx rs6000_expand_ternop_builtin (enum insn_code, tree, rtx);
 static rtx rs6000_expand_builtin (tree, rtx, rtx, enum machine_mode, int);
-static tree rs6000_vectype_for_scalar_type (tree);
 static void altivec_init_builtins (void);
 static void rs6000_common_init_builtins (void);
 static void rs6000_init_libfuncs (void);
@@ -553,9 +552,6 @@ static const char alt_reg_names[][8] =
 
 #undef TARGET_EXPAND_BUILTIN
 #define TARGET_EXPAND_BUILTIN rs6000_expand_builtin
-
-#undef TARGET_VECTYPE_FOR_SCALAR_TYPE
-#define TARGET_VECTYPE_FOR_SCALAR_TYPE rs6000_vectype_for_scalar_type
 
 #undef TARGET_INIT_LIBFUNCS
 #define TARGET_INIT_LIBFUNCS rs6000_init_libfuncs
@@ -7264,85 +7260,6 @@ rs6000_common_init_builtins (void)
 
       def_builtin (d->mask, d->name, type, d->code);
     }
-}
-
-/* Given a type of a scalar tree operation, return the type of the
-   corresponding vector operation.
- */
-tree
-rs6000_vectype_for_scalar_type (tree tree_type)
-{
-  bool is_unsigned = TREE_UNSIGNED (tree_type);
-
-  if (TARGET_SPE)
-    {
-      if (is_unsigned)
-        {
-          switch (TYPE_MODE (tree_type))
-          {
-          case SImode:
-            return unsigned_V2SI_type_node;
-          case HImode:
-            return unsigned_V4HI_type_node;
-          case DImode:
-            return unsigned_V1DI_type_node;
-          default:
-            return NULL;
-          }
-        }
-      else
-        {
-          switch (TYPE_MODE (tree_type))
-          {
-          case SFmode:
-            return V2SF_type_node;
-          case SImode:
-            return V2SI_type_node;
-          case HImode:
-            return V4HI_type_node;
-          case DImode:
-            return V1DI_type_node;
-          default:
-            return NULL;
-          }
-        }
-    }
-
-  if (TARGET_ALTIVEC)
-    {
-      if (is_unsigned)
-        {
-          switch (TYPE_MODE (tree_type))
-          {
-          case SImode:
-            return unsigned_V4SI_type_node;
-          case HImode:
-            return unsigned_V8HI_type_node;
-          case QImode:
-            return unsigned_V16QI_type_node;
-          default:
-            return NULL;
-          }
-        }
-      else
-        {
-        switch (TYPE_MODE (tree_type))
-        {
-        case SFmode:
-          return V4SF_type_node;
-        case SImode:
-          return V4SI_type_node;
-        case HImode:
-          return V8HI_type_node;
-        case QImode:
-          return V16QI_type_node;
-        default:
-          return NULL;
-        }
-      }
-    }
-
-  return NULL;
 }
 
 static void
