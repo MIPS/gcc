@@ -1,3 +1,8 @@
+2003-02-19  Daniel Berlin  <dberlin@dberlin.org>
+	
+	* dwarf2out.c (output_die): Use dw2_asm_output_offset,
+	not dw2_asm_output_delta, for location list labels.
+
 2003-02-19  Josef Zlomek  <zlomekj@suse.cz>
 
 	* dwarf2out.c: Fix coding style on some places.

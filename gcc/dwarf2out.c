@@ -6934,8 +6934,7 @@ output_die (die)
 
 	    if (sym == 0)
 	      abort ();
-	    dw2_asm_output_delta (DWARF_OFFSET_SIZE, sym,
-				  loc_section_label, "%s", name);
+	    dw2_asm_output_offset (DWARF_OFFSET_SIZE, sym, "%s", name);
 	  }
 	  break;
 
