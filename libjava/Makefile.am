@@ -579,7 +579,7 @@ jni/gtk-peer/gnu_java_awt_peer_gtk_GtkMenuItemPeer.lo: $(top_builddir)/jniinclud
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkMenuPeer.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GtkMenuPeer.h
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkPanelPeer.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GtkPanelPeer.h
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkPopupMenuPeer.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GtkPopupMenuPeer.h
-jni/gtk-peer/gnu_java_awt_peer_gtk_GtkScrollbarPeer.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GtkScrollbarPeer.h
+jni/gtk-peer/gnu_java_awt_peer_gtk_GtkScrollBarPeer.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GtkScrollbarPeer.h
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkScrollPanePeer.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GtkScrollPanePeer.h
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkTextAreaPeer.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GtkTextAreaPeer.h
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkTextComponentPeer.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GtkTextComponentPeer.h
