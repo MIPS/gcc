@@ -15,24 +15,29 @@
 3664851: objc/execute/string1.m compilation,  -O3 -fomit-frame-pointer
 3664851: objc/execute/string1.m compilation,  -O3 -g
 3664851: objc/execute/string1.m compilation,  -Os
+3664851: objc/execute/string1.m compilation,  -fast
 3664851: objc/execute/string2.m compilation,  -O0
 3664851: objc/execute/string2.m compilation,  -O1
 3664851: objc/execute/string2.m compilation,  -O2
 3664851: objc/execute/string2.m compilation,  -O3 -fomit-frame-pointer
 3664851: objc/execute/string2.m compilation,  -O3 -g
 3664851: objc/execute/string2.m compilation,  -Os
+3664851: objc/execute/string2.m compilation,  -fast
 3664851: objc/execute/string3.m compilation,  -O0
 3664851: objc/execute/string3.m compilation,  -O1
 3664851: objc/execute/string3.m compilation,  -O2
 3664851: objc/execute/string3.m compilation,  -O3 -fomit-frame-pointer
 3664851: objc/execute/string3.m compilation,  -O3 -g
 3664851: objc/execute/string3.m compilation,  -Os
+3664851: objc/execute/string3.m compilation,  -fast
 3664851: objc/execute/string4.m compilation,  -O0
 3664851: objc/execute/string4.m compilation,  -O1
 3664851: objc/execute/string4.m compilation,  -O2
 3664851: objc/execute/string4.m compilation,  -O3 -fomit-frame-pointer
 3664851: objc/execute/string4.m compilation,  -O3 -g
 3664851: objc/execute/string4.m compilation,  -Os
+3664851: objc/execute/string4.m compilation,  -fast
 3664999: objc.dg/const-cfstring-1.m execution test
-3665002: objc.dg/const-str-3.m (test for excess errors)
-3665002: objc.dg/const-str-4.m (test for excess errors)
+#3665002: objc.dg/const-str-3.m (test for excess errors)
+#3665002: objc.dg/const-str-4.m (test for excess errors)
+3691708: objc.dg/const-str-4.m execution test
