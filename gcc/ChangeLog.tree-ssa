@@ -1,3 +1,9 @@
+2004-02-19  Jeff Law  <law@redhat.com>
+
+	* tree-ssa-phiopt.c (tree_ssa_phiopt): TRUTH_NOT_EXPR is valid
+	gimple code.
+ 
+
 2004-02-19  Steven Bosscher  <stevenb@suse.de>
 
 	Remove the RTL inliner.
