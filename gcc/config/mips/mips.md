@@ -655,9 +655,9 @@
    (set_attr "mode"	"SF")])
 
 (define_expand "addsi3"
-  [(set (match_operand:SI 0 "register_operand" "=d")
-	(plus:SI (match_operand:SI 1 "reg_or_0_operand" "dJ")
-		 (match_operand:SI 2 "arith_operand" "dI")))]
+  [(set (match_operand:SI 0 "register_operand" "")
+	(plus:SI (match_operand:SI 1 "reg_or_0_operand" "")
+		 (match_operand:SI 2 "arith_operand" "")))]
   ""
   "
 {
@@ -693,14 +693,16 @@
 }")
 
 (define_insn "addsi3_internal"
-  [(set (match_operand:SI 0 "register_operand" "=d")
-	(plus:SI (match_operand:SI 1 "reg_or_0_operand" "dJ")
-		 (match_operand:SI 2 "arith_operand" "dI")))]
+  [(set (match_operand:SI 0 "register_operand" "=d,d")
+	(plus:SI (match_operand:SI 1 "reg_or_0_operand" "dJ,dJ")
+		 (match_operand:SI 2 "arith_operand" "d,Q")))]
   "! TARGET_MIPS16
    && (TARGET_GAS
        || GET_CODE (operands[2]) != CONST_INT
        || INTVAL (operands[2]) != -32768)"
-  "addu\\t%0,%z1,%2"
+  "@
+    addu\\t%0,%z1,%2
+    addiu\\t%0,%z1,%2"
   [(set_attr "type"	"arith")
    (set_attr "mode"	"SI")])
 
@@ -735,7 +737,7 @@
 (define_insn ""
   [(set (match_operand:SI 0 "register_operand" "=d,d,d")
 	(plus:SI (match_operand:SI 1 "register_operand" "0,d,d")
-		 (match_operand:SI 2 "arith_operand" "IQ,O,d")))]
+		 (match_operand:SI 2 "arith_operand" "Q,O,d")))]
   "TARGET_MIPS16
    && (GET_CODE (operands[1]) != REG
        || REGNO (operands[1]) >= FIRST_PSEUDO_REGISTER
@@ -1027,20 +1029,17 @@
   "")
 
 (define_insn "adddi3_internal_3"
-  [(set (match_operand:DI 0 "register_operand" "=d")
-	(plus:DI (match_operand:DI 1 "reg_or_0_operand" "dJ")
-		 (match_operand:DI 2 "arith_operand" "dI")))]
+  [(set (match_operand:DI 0 "register_operand" "=d,d")
+	(plus:DI (match_operand:DI 1 "reg_or_0_operand" "dJ,dJ")
+		 (match_operand:DI 2 "arith_operand" "d,Q")))]
   "TARGET_64BIT
    && !TARGET_MIPS16
    && (TARGET_GAS
        || GET_CODE (operands[2]) != CONST_INT
        || INTVAL (operands[2]) != -32768)"
-  "*
-{
-  return (GET_CODE (operands[2]) == CONST_INT && INTVAL (operands[2]) < 0)
-    ? \"dsubu\\t%0,%z1,%n2\"
-    : \"daddu\\t%0,%z1,%2\";
-}"
+  "@
+    daddu\\t%0,%z1,%2
+    daddiu\\t%0,%z1,%2"
   [(set_attr "type"	"darith")
    (set_attr "mode"	"DI")])
 
@@ -1075,7 +1074,7 @@
 (define_insn ""
   [(set (match_operand:DI 0 "register_operand" "=d,d,d")
 	(plus:DI (match_operand:DI 1 "register_operand" "0,d,d")
-		 (match_operand:DI 2 "arith_operand" "IQ,O,d")))]
+		 (match_operand:DI 2 "arith_operand" "Q,O,d")))]
   "TARGET_MIPS16 && TARGET_64BIT
    && (GET_CODE (operands[1]) != REG
        || REGNO (operands[1]) >= FIRST_PSEUDO_REGISTER
@@ -1177,27 +1176,24 @@
 }")
 
 (define_insn "addsi3_internal_2"
-  [(set (match_operand:DI 0 "register_operand" "=d")
-	(sign_extend:DI (plus:SI (match_operand:SI 1 "reg_or_0_operand" "dJ")
-				 (match_operand:SI 2 "arith_operand" "dI"))))]
+  [(set (match_operand:DI 0 "register_operand" "=d,d")
+	(sign_extend:DI (plus:SI (match_operand:SI 1 "reg_or_0_operand" "dJ,dJ")
+				 (match_operand:SI 2 "arith_operand" "d,Q"))))]
   "TARGET_64BIT
    && !TARGET_MIPS16
    && (TARGET_GAS
        || GET_CODE (operands[2]) != CONST_INT
        || INTVAL (operands[2]) != -32768)"
-  "*
-{
-  return (GET_CODE (operands[2]) == CONST_INT && INTVAL (operands[2]) < 0)
-    ? \"subu\\t%0,%z1,%n2\"
-    : \"addu\\t%0,%z1,%2\";
-}"
+  "@
+    addu\\t%0,%z1,%2
+    addiu\\t%0,%z1,%2"
   [(set_attr "type"	"arith")
    (set_attr "mode"	"SI")])
 
 (define_insn ""
   [(set (match_operand:DI 0 "register_operand" "=d,d,d")
 	(sign_extend:DI (plus:SI (match_operand:SI 1 "register_operand" "0,d,d")
-				 (match_operand:SI 2 "arith_operand" "IQ,O,d"))))]
+				 (match_operand:SI 2 "arith_operand" "Q,O,d"))))]
   "TARGET_MIPS16 && TARGET_64BIT"
   "*
 {
