@@ -1,3 +1,10 @@
+2004-12-08  Mike Stump  <mrs@apple.com>
+
+	Radar 3679243
+	* varasm.c (assemble_variable): Don't use .zerofill for weak
+	symbols as it isn't supported in the assembler.  Also, key off
+	!DECL_COMMON directly instead of flag_no_common so that C++ works.
+	
 2004-12-08  Devang Patel  <dpatel@apple.com>
 	
 	Radar 3903799

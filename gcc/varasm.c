@@ -1691,9 +1691,10 @@ assemble_variable (tree decl, int top_level ATTRIBUTE_UNUSED,
   /* APPLE LOCAL begin zerofill 20020218 --turly  */
 #ifdef ASM_OUTPUT_ZEROFILL
   /* We need a ZEROFILL COALESCED option!  */
-  if (flag_no_common
+  if (!DECL_COMMON (decl)
       && ! dont_output_data
       && ! DECL_ONE_ONLY (decl)
+      && ! DECL_WEAK (decl)
       && (DECL_INITIAL (decl) == 0 || DECL_INITIAL (decl) == error_mark_node))
     {
       ASM_OUTPUT_ZEROFILL (asm_out_file, name,
@@ -1706,7 +1707,6 @@ assemble_variable (tree decl, int top_level ATTRIBUTE_UNUSED,
       return;
     }
 #endif
-
   /* APPLE LOCAL end zerofill 20020218 --turly  */
 
   /* dbxout.c needs to know this.  */
