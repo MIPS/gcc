@@ -27,7 +27,7 @@
 # stagestuff	- files to add to $(STAGESTUFF)
 # diff_excludes	- files to ignore when building diffs between two versions.
 
-language="objc++"
+language="obj-c++"
 
 compilers="cc1objplus\$(exeext)"
 

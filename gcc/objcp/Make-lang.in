@@ -38,11 +38,11 @@
 
 #
 # Define the names for selecting Objective-C++ in LANGUAGES.
-OBJC++ objc++: cc1objplus$(exeext)
+OBJ-C++ obj-c++: cc1objplus$(exeext)
 OBJECTIVE-C++ objective-c++: cc1objplus$(exeext)
 
 # Tell GNU make to ignore these if they exist.
-.PHONY: objective-c++ objc++ ObjC++
+.PHONY: objective-c++ obj-c++ Obj-C++
 
 # Use maximal warnings for this front end.  Also, make ObjC and C++
 # headers accessible.
@@ -85,16 +85,16 @@ gt-objcp-objcp-decl.h : s-gtype ; @true
 #
 # Build hooks:
 
-objc++.all.build:
-objc++.all.cross:
-objc++.start.encap:
-objc++.rest.encap:
-objc++.info:
-objc++.srcinfo:
-objc++.srcextra:
-objc++.man:
+obj-c++.all.build:
+obj-c++.all.cross:
+obj-c++.start.encap:
+obj-c++.rest.encap:
+obj-c++.info:
+obj-c++.srcinfo:
+obj-c++.srcextra:
+obj-c++.man:
 
-objc++.tags: force
+obj-c++.tags: force
 	cd $(srcdir)/objcp; etags -o TAGS.sub *.y *.c *.h; \
 	etags --include TAGS.sub --include ../TAGS.sub
 
@@ -104,37 +104,37 @@ lang_checks += check-obj-c++
 # Install hooks:
 # cc1objplus is installed elsewhere as part of $(COMPILERS).
 
-objc++.install-normal:
+obj-c++.install-normal:
 
-objc++.install-common:
+obj-c++.install-common:
 
-objc++.install-man:
+obj-c++.install-man:
 
-objc++.uninstall:
+obj-c++.uninstall:
 #
 # Clean hooks:
 # A lot of the ancillary files are deleted by the main makefile.
 # We just have to delete files specific to us.
-objc++.mostlyclean:
+obj-c++.mostlyclean:
 	-rm -f objcp/*$(objext)
 	-rm -f objcp/*$(coverageexts)
-objc++.clean: objc++.mostlyclean
-objc++.distclean:
+obj-c++.clean: obj-c++.mostlyclean
+obj-c++.distclean:
 	-rm -f objcp/config.status objcp/Makefile
-objc++.maintainer-clean:
+obj-c++.maintainer-clean:
 
 #
 # Stage hooks:
 
-objc++.stage1: stage1-start
+obj-c++.stage1: stage1-start
 	-mv objcp/*$(objext) stage1/objcp
-objc++.stage2: stage2-start
+obj-c++.stage2: stage2-start
 	-mv objcp/*$(objext) stage2/objcp
-objc++.stage3: stage3-start
+obj-c++.stage3: stage3-start
 	-mv objcp/*$(objext) stage3/objcp
-objc++.stage4: stage4-start
+obj-c++.stage4: stage4-start
 	-mv objcp/*$(objext) stage4/objcp
-objc++.stageprofile: stageprofile-start
+obj-c++.stageprofile: stageprofile-start
 	-mv objcp/*$(objext) stageprofile/objcp
-objc++.stagefeedback: stagefeedback-start
+obj-c++.stagefeedback: stagefeedback-start
 	-mv objcp/*$(objext) stagefeedback/objcp

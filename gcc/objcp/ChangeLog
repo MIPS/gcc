@@ -1,3 +1,11 @@
+2004-03-18  Ziemowit Laski  <zlaski@apple.com>
+
+	* Make-lang.in (OBJC++, objc++): Rename to 'OBJ-C++' and
+	'obj-c++', respectively.
+	(objc++.*): Rename to 'obj-c++.*'.
+	* config-lang.in (language): Rename from 'objc++' to
+	'obj-c++'.
+
 2004-03-09  Ziemowit Laski  <zlaski@apple.com>
 
 	* lang-specs.h: Add informative blurb about cp/lang-specs.h.
