@@ -22,6 +22,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #ifndef GCC_TREE_SCALAR_EVOLUTION_H
 #define GCC_TREE_SCALAR_EVOLUTION_H
 
+extern tree first_iteration_non_satisfying (enum tree_code, unsigned, 
+					    tree, tree);
 extern tree number_of_iterations_in_loop (struct loop *);
 extern tree get_loop_exit_condition (struct loop *);
 
@@ -30,6 +32,7 @@ extern void scev_finalize (void);
 extern tree analyze_scalar_evolution (unsigned, tree);
 extern tree instantiate_parameters (unsigned, tree);
 extern void eliminate_redundant_checks (void);
+extern void gather_stats_on_scev_database (void);
 
 
 struct scev_info_str {

@@ -1922,11 +1922,9 @@ chrec_contains_symbols (tree chrec)
 bool 
 chrec_contains_undetermined (tree chrec)
 {
-  if (chrec == NULL_TREE)
-    return false;
-  
   if (chrec == chrec_top
-      || chrec == chrec_not_analyzed_yet)
+      || chrec == chrec_not_analyzed_yet
+      || chrec == NULL_TREE)
     return true;
   
   switch (TREE_CODE_LENGTH (TREE_CODE (chrec)))

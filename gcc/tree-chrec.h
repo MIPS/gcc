@@ -116,13 +116,6 @@ static inline bool chrec_should_remain_symbolic (tree);
 /* Analyzers.  */
 extern void analyze_overlapping_iterations (tree, tree, tree *, tree *);
 
-static inline bool prove_truth_value_lt (tree, tree, tree, bool *);
-static inline bool prove_truth_value_le (tree, tree, tree, bool *);
-static inline bool prove_truth_value_ge (tree, tree, tree, bool *);
-static inline bool prove_truth_value_ne (tree, tree, tree, bool *);
-static inline bool prove_truth_value_gt (tree, tree, tree, bool *);
-static inline bool prove_truth_value_eq (tree, tree, tree, bool *);
-
 
 
 /* Constructors.  */
@@ -294,6 +287,29 @@ evolution_function_is_affine_or_constant_p (tree chrec)
     || evolution_function_is_constant_p (chrec);
 }
 
+/* Determine whether the given tree is a multivariate evolution.  */
+
+static inline bool
+evolution_function_is_multivariate (tree chrec)
+{
+  return !evolution_function_is_univariate_p (chrec);
+}
+
+/* Determine whether the given tree is an affine peeled chrec.  */
+
+static inline bool 
+evolution_function_is_peeled_affine_p (tree chrec)
+{
+  if (chrec == NULL_TREE)
+    return false;
+  
+  if (TREE_CODE (chrec) == PEELED_CHREC)
+    return (evolution_function_is_affine_or_constant_p (CHREC_LEFT (chrec)) 
+	    && evolution_function_is_affine_p (CHREC_RIGHT (chrec)));
+
+  return false;
+}
+
 /* Determines which expressions are simpler to be {handled | kept} in a 
    symbolic form.  */
 
@@ -313,122 +329,6 @@ static inline bool
 tree_does_not_contain_chrecs (tree expr)
 {
   return !tree_contains_chrecs (expr);
-}
-
-/* Determines whether "CHREC0 (x) > CHREC1 (x)" for all the integers x
-   such that "0 <= x < nb_iter".  When this property is statically
-   computable, set VALUE and return true.  */
-
-static inline bool
-prove_truth_value_gt (tree chrec0, 
-		      tree chrec1, 
-		      tree nb_iters ATTRIBUTE_UNUSED,
-		      bool *value)
-{
-  tree diff = chrec_fold_minus (integer_type_node, chrec0, chrec1);
-  return chrec_is_positive (diff, value);
-}
-
-/* Determines whether "CHREC0 (x) < CHREC1 (x)" for all the integers x
-   such that "0 <= x <= nb_iters".  When this property is statically
-   computable, set VALUE and return true.  */
-
-static inline bool
-prove_truth_value_lt (tree chrec0, 
-		      tree chrec1, 
-		      tree nb_iters,
-		      bool *value)
-{
-  return prove_truth_value_gt (chrec1, chrec0, nb_iters, value);
-}
-
-/* Determines whether "CHREC0 (x) <= CHREC1 (x)" for all the integers
-   x such that "0 <= x <= nb_iters".  When this property is statically
-   computable, set VALUE and return true.  */
-
-static inline bool
-prove_truth_value_le (tree chrec0, 
-		      tree chrec1, 
-		      tree nb_iters, 
-		      bool *value)
-{
-  if (prove_truth_value_gt (chrec0, chrec1, nb_iters, value))
-    {
-      *value = !*value;
-      return true;
-    }
-  
-  return false;
-}
-
-/* Determines whether "CHREC0 (x) >= CHREC1 (x)" for all the integers
-   x such that "0 <= x <= nb_iters".  When this property is statically
-   computable, set VALUE and return true.  */
-
-static inline bool
-prove_truth_value_ge (tree chrec0, 
-		      tree chrec1, 
-		      tree nb_iters,
-		      bool *value)
-{
-  if (prove_truth_value_gt (chrec1, chrec0, nb_iters, value))
-    {
-      *value = !*value;
-      return true;
-    }
-  
-  return false;
-}
-
-/* Determines whether "CHREC0 (x) == CHREC1 (x)" for all the integers
-   x such that "0 <= x <= nb_iters".  When this property is statically
-   computable, set VALUE and return true.  */
-
-static inline bool
-prove_truth_value_eq (tree chrec0, 
-		      tree chrec1, 
-		      tree nb_iters ATTRIBUTE_UNUSED,
-		      bool *value)
-{
-  tree diff;
-  
-  if (TREE_TYPE (initial_condition (chrec0)) 
-      != TREE_TYPE (initial_condition (chrec1)))
-    return false;
-  
-  diff = chrec_fold_minus (integer_type_node, chrec0, chrec1);
-  if (TREE_CODE (diff) == INTEGER_CST)
-    {
-      if (integer_zerop (diff))
-	*value = true;
-      
-      else
-	*value = false;
-      
-      return true;
-    }
-  
-  else
-    return false;  
-}
-
-/* Determines whether "CHREC0 (x) != CHREC1 (x)" for all the integers
-   x such that "0 <= x <= nb_iters".  When this property is statically
-   computable, set VALUE and return true.  */
-
-static inline bool
-prove_truth_value_ne (tree chrec0, 
-		      tree chrec1, 
-		      tree nb_iters,
-		      bool *value)
-{
-  if (prove_truth_value_eq (chrec0, chrec1, nb_iters, value))
-    {
-      *value = !*value;
-      return true;
-    }
-  
-  return false;
 }
 
 #endif  /* GCC_TREE_CHREC_H  */

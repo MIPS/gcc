@@ -69,20 +69,126 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree-pass.h"
 #include "flags.h"
 
-static void remove_redundant_check (tree, bool);
-static void try_eliminate_check (tree);
-static void scan_all_loops_r (struct loop *);
+/* Return the negation of the comparison code.  */
+
+static inline enum tree_code
+not_code (enum tree_code code)
+{
+  switch (code)
+    {
+    case EQ_EXPR:
+      return NE_EXPR;
+    case NE_EXPR:
+      return EQ_EXPR;
+    case LT_EXPR:
+      return GE_EXPR;
+    case LE_EXPR:
+      return GT_EXPR;
+    case GT_EXPR:
+      return LE_EXPR;
+    case GE_EXPR:
+      return LT_EXPR;
+      
+    default:
+      return code;
+    }
+}
+
+/* Determine whether "CHREC0 (x) CODE CHREC1 (x)", for all the
+   integers x such that "0 <= x <= NB_ITERS_IN_LOOP".  When this
+   property is statically computable, set VALUE and return true.  */
+
+static bool
+prove_truth_value (enum tree_code code, 
+		   unsigned loop_nb, 
+		   tree chrec0, 
+		   tree chrec1, 
+		   tree nb_iters_in_loop, 
+		   bool *value)
+{
+  tree nb_iters_in_then, nb_iters_in_else;
+  
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    {
+      fprintf (dump_file, "  (nb_iters_in_loop = ");
+      print_generic_expr (dump_file, nb_iters_in_loop, 0);
+      fprintf (dump_file, ")\n  (chrec0 = ");
+      print_generic_expr (dump_file, chrec0, 0);
+      fprintf (dump_file, ")\n  (chrec1 = ");
+      print_generic_expr (dump_file, chrec1, 0);
+      fprintf (dump_file, ")\n");
+    }
+  
+  if (automatically_generated_chrec_p (nb_iters_in_loop))
+    return false;
+  
+  /* Compute the number of iterations that fall in the THEN clause,
+     and the number of iterations that fall in the ELSE clause.  */
+  nb_iters_in_then = first_iteration_non_satisfying 
+    (code, loop_nb, chrec0, chrec1);
+  nb_iters_in_else = first_iteration_non_satisfying 
+    (not_code (code), loop_nb, chrec0, chrec1);
+  
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    {
+      fprintf (dump_file, "  (nb_iters_in_then = ");
+      print_generic_expr (dump_file, nb_iters_in_then, 0);
+      fprintf (dump_file, ")\n  (nb_iters_in_else = ");
+      print_generic_expr (dump_file, nb_iters_in_else, 0);
+      fprintf (dump_file, ")\n");
+    }
+  
+  if (nb_iters_in_then == chrec_top
+      || nb_iters_in_else == chrec_top)
+    return false;
+  
+  if (nb_iters_in_then == chrec_bot
+      && integer_zerop (nb_iters_in_else))
+    {
+      *value = true;
+      return true;
+    }
+  
+  if (nb_iters_in_else == chrec_bot
+      && integer_zerop (nb_iters_in_then))
+    {
+      *value = false;
+      return true;
+    }
+  
+  if (TREE_CODE (nb_iters_in_then) == INTEGER_CST
+      && TREE_CODE (nb_iters_in_else) == INTEGER_CST)
+    {
+      if (integer_zerop (nb_iters_in_then)
+	  && tree_is_gt (nb_iters_in_else, nb_iters_in_loop))
+	{
+	  *value = false;
+	  return true;
+	}
+      
+      if (integer_zerop (nb_iters_in_else)
+	  && tree_is_gt (nb_iters_in_then, nb_iters_in_loop))
+	{
+	  *value = true;
+	  return true;
+	}
+      
+      return false;
+    }
+  
+  return false;
+}
 
 /* Remove the check by setting the condition COND to VALUE.  */
 
-static void 
+static inline void 
 remove_redundant_check (tree cond, bool value)
 {
   /* A dead COND_EXPR means the condition is dead. We don't change any
      flow, just replace the expression with a constant.  */
-  if (dump_file && (dump_flags & TDF_STATS))
+  if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "Replacing one of the conditions.\n");
-
+  
   if (value == true)
     COND_EXPR_COND (cond) = integer_one_node;
   
@@ -103,8 +209,11 @@ try_eliminate_check (tree cond)
   tree chrec0, chrec1;
   unsigned loop_nb = loop_num (loop_of_stmt (cond));
   tree nb_iters = number_of_iterations_in_loop (loop_of_stmt (cond));
-
-  if (dump_file && (dump_flags & TDF_STATS))
+  
+  if (automatically_generated_chrec_p (nb_iters))
+    return;
+  
+  if (dump_file && (dump_flags & TDF_DETAILS))
     {
       fprintf (dump_file, "(try_eliminate_check \n");
       fprintf (dump_file, "  (cond = ");
@@ -123,7 +232,7 @@ try_eliminate_check (tree cond)
 	break;
       chrec0 = instantiate_parameters (loop_nb, chrec0);
       
-      if (dump_file && (dump_flags & TDF_STATS))
+      if (dump_file && (dump_flags & TDF_DETAILS))
 	{
 	  fprintf (dump_file, "  (test = ");
 	  print_generic_expr (dump_file, test, 0);
@@ -135,7 +244,8 @@ try_eliminate_check (tree cond)
 	  fprintf (dump_file, ")\n");
 	}
       
-      if (prove_truth_value_ne (chrec0, integer_zero_node, nb_iters, &value))
+      if (prove_truth_value (NE_EXPR, loop_nb, chrec0, integer_zero_node, 
+			     nb_iters, &value))
 	remove_redundant_check (cond, value);
       break;
 
@@ -158,7 +268,7 @@ try_eliminate_check (tree cond)
       chrec0 = instantiate_parameters (loop_nb, chrec0);
       chrec1 = instantiate_parameters (loop_nb, chrec1);
       
-      if (dump_file && (dump_flags & TDF_STATS))
+      if (dump_file && (dump_flags & TDF_DETAILS))
 	{
 	  fprintf (dump_file, "  (test = ");
 	  print_generic_expr (dump_file, test, 0);
@@ -172,48 +282,16 @@ try_eliminate_check (tree cond)
 	  fprintf (dump_file, ")\n");
 	}
       
-      switch (TREE_CODE (test))
-	{
-	case LT_EXPR:
-	  if (prove_truth_value_lt (chrec0, chrec1, nb_iters, &value))
-	    remove_redundant_check (cond, value);
-	  break;
-	  
-	case LE_EXPR:
-	  if (prove_truth_value_le (chrec0, chrec1, nb_iters, &value))
-	    remove_redundant_check (cond, value);
-	  break;
-	  
-	case GT_EXPR:
-	  if (prove_truth_value_gt (chrec0, chrec1, nb_iters, &value))
-	    remove_redundant_check (cond, value);
-	  break;
-	  
-	case GE_EXPR:
-	  if (prove_truth_value_ge (chrec0, chrec1, nb_iters, &value))
-	    remove_redundant_check (cond, value);
-	  break;
-	    
-	case EQ_EXPR:
-	  if (prove_truth_value_eq (chrec0, chrec1, nb_iters, &value))
-	    remove_redundant_check (cond, value);
-	  break;
-	  
-	case NE_EXPR:
-	  if (prove_truth_value_ne (chrec0, chrec1, nb_iters, &value))
-	    remove_redundant_check (cond, value);
-	  break;
-	  
-	default:
-	  break;
-	}
+      if (prove_truth_value (TREE_CODE (test), loop_nb, chrec0, chrec1, 
+			     nb_iters, &value))
+	remove_redundant_check (cond, value);
       break;
       
     default:
       break;
     }
   
-  if (dump_file && (dump_flags & TDF_STATS))
+  if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, ")\n");
 }
 

@@ -257,5 +257,13 @@ tree_is_eq (tree a, tree b)
   return (tree_int_cst_sgn (cmp) != 0);
 }
 
+/* Given two integer constants A and B, determine whether "A != B".  */
+
+static inline bool
+tree_is_ne (tree a, tree b)
+{
+  tree cmp = fold (build (NE_EXPR, boolean_type_node, a, b));
+  return (tree_int_cst_sgn (cmp) != 0);
+}
 
 #endif  /* GCC_TREE_FOLD_H  */

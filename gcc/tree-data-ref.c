@@ -883,15 +883,15 @@ analyze_all_data_dependences (struct loops *loops)
       ddr = VARRAY_GENERIC_PTR (dependence_relations, i);
       build_classic_dist_vector (ddr, &classic_dist);
     }
-
-  if (dump_file)
+  
+  if (dump_file && (dump_flags & TDF_DETAILS))
     {
       dump_data_dependence_relations (dump_file, dependence_relations);
       fprintf (dump_file, "\n\n");
     }
-
   
-  /* Don't dump distances for avoiding to update the testsuite.  */
+  /* Don't dump distances in order to avoid to update the
+     testsuite.  */
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
       for (i = 0; i < VARRAY_ACTIVE_SIZE (classic_dist); i++)
@@ -903,6 +903,64 @@ analyze_all_data_dependences (struct loops *loops)
 	  fprintf (dump_file, ")\n");
 	}
       fprintf (dump_file, "\n\n");
+    }
+
+  if (dump_file && (dump_flags & TDF_STATS))
+    {
+      unsigned nb_top_relations = 0;
+      unsigned nb_bot_relations = 0;
+      unsigned nb_basename_differ = 0;
+      unsigned nb_non_distance_relations = 0;
+      unsigned nb_chrec_relations = 0;
+
+      for (i = 0; i < VARRAY_ACTIVE_SIZE (dependence_relations); i++)
+	{
+	  struct data_dependence_relation *ddr;
+	  ddr = VARRAY_GENERIC_PTR (dependence_relations, i);
+	  
+	  if (DDR_ARE_DEPENDENT (ddr) == chrec_top)
+	    nb_top_relations++;
+	  
+	  else if (DDR_ARE_DEPENDENT (ddr) == chrec_bot)
+	    {
+	      struct data_reference *a = DDR_A (ddr);
+	      struct data_reference *b = DDR_B (ddr);
+	      
+	      if (DR_NUM_DIMENSIONS (a) != DR_NUM_DIMENSIONS (b)
+		  || array_base_name_differ_p (a, b))
+		nb_basename_differ++;
+	      else
+		nb_bot_relations++;
+	    }
+	  	  
+	  else 
+	    {
+	      unsigned j;
+	      
+	      nb_chrec_relations++;
+	      
+	      for (j = 0; j < DDR_NUM_SUBSCRIPTS (ddr); j++)
+		{
+		  struct subscript *subscript = DDR_SUBSCRIPT (ddr, j);
+		  
+		  if (SUB_DISTANCE (subscript) == chrec_top)
+		    {
+		      nb_non_distance_relations++;
+		      break;
+		    }
+		}
+	    }
+	}
+      
+      fprintf (dump_file, "\n(\n");
+      fprintf (dump_file, "%d\tnb_top_relations\n", nb_top_relations);
+      fprintf (dump_file, "%d\tnb_bot_relations\n", nb_bot_relations);
+      fprintf (dump_file, "%d\tnb_basename_differ\n", nb_basename_differ);
+      fprintf (dump_file, "%d\tnb_non_distance_relations\n", nb_non_distance_relations);
+      fprintf (dump_file, "%d\tnb_chrec_relations\n", nb_chrec_relations);
+      fprintf (dump_file, "\n)\n");
+      
+      gather_stats_on_scev_database ();
     }
   
   varray_clear (dependence_relations);

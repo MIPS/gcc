@@ -1,3 +1,30 @@
+2004-03-30  Sebastian Pop  <sebastian.pop@ensmp.fr>
+
+	* tree-chrec.c (chrec_contains_symbols): Factorize conditions,
+	chrec_not_analyzed_yet is a NULL_TREE.
+	* tree-chrec.h (prove_truth_value_{lt, le, ge, ne, gt, eq}.c):
+	Removed.
+	(evolution_function_is_multivariate, 
+	evolution_function_is_peeled_affine_p): New.
+	* tree-data-ref.c (analyze_all_data_dependences): Dump some 
+	statistics on the data dependences.
+	* tree-elim-check.c (not_code, prove_truth_value): New.
+	(try_eliminate_check): Use prove_truth_value.
+	* tree-fold-const.h (tree_is_ne): New.
+	* tree-scalar-evolution.c (types_forbid_solutions_p, 
+	first_iteration_non_satisfying_noev_noev, 
+	first_iteration_non_satisfying_noev_ev, 
+	first_iteration_non_satisfying_ev_noev, 
+	first_iteration_non_satisfying_ev_ev, 
+	first_iteration_non_satisfying_1, 
+	first_iteration_non_satisfying, 
+	gather_stats_on_scev_database): New functions.
+	(nb_iterations_less, nb_iterations_eq, nb_iterations_ne): Removed.
+	(set_nb_iterations_in_loop): Be more careful on overflow.
+	(number_of_iterations_in_loop): Use first_iteration_non_satisfying.
+	* tree-scalar-evolution.h (first_iteration_non_satisfying, 
+	gather_stats_on_scev_database): Declared.
+
 2004-03-30  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* tree-ssa-loop-ivopts.c (iv_value): Use correct type.
