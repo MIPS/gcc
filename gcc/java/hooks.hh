@@ -23,6 +23,7 @@
 #define GCC_TREE_HOOKS_HH
 
 // See decl.cc for documentation of these globals.
+extern GTY (()) tree all_decls;
 extern GTY (()) tree type_utf8const;
 extern GTY (()) tree type_utf8const_ptr;
 extern GTY (()) tree type_dtable;
@@ -105,6 +106,7 @@ extern GTY (()) tree class_list;
 extern tree build_address_of (tree);
 extern void push_field (tree record, tree &field, const char *name,
 			tree field_type, bool is_private = false);
+extern void pushdecl (tree);
 
 namespace gcjx
 {

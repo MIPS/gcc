@@ -29,7 +29,7 @@ extern "C" rtx init_one_libfunc (const char *);
 // Used when computing the ABI version.
 #define GCJ_BINARYCOMPAT_ADDITION 5
 
-// FIXME: do we need this?  Global decl list.
+// DECLs that we want to protect from GC.
 tree all_decls;
 
 // Type of a Utf8Const structure, and pointer to it.
@@ -147,7 +147,9 @@ tree class_list;
 
 
 
-static void
+// In gcjx this is used only to protect the tree from garbage
+// collection.
+void
 pushdecl (tree x)
 {
   all_decls = tree_cons (NULL_TREE, x, all_decls);

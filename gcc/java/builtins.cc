@@ -186,7 +186,10 @@ tree_builtins::add (tree context, model_field *field)
       TYPE_FIELDS (context) = result;
     }
   else
-    DECL_EXTERNAL (result) = 1;	// FIXME unless we're compiling it...
+    {
+      DECL_EXTERNAL (result) = 1;	// FIXME unless we're compiling it...
+      pushdecl (result);
+    }
 
   fieldmap[field] = result;
 }
@@ -245,7 +248,6 @@ tree_builtins::map_type (model_type *type)
 
       // FIXME: make a NAMESPACE_DECL and use it as the DECL_CONTEXT.
 
-      // FIXME: pushdecl() ?
       // FIXME: should we use the class's name or its fully qualified
       // name?  For the moment we use the latter.
       tree decl = build_decl (TYPE_DECL, TYPE_NAME (record), record);
@@ -253,6 +255,8 @@ tree_builtins::map_type (model_type *type)
       TYPE_STUB_DECL (record) = decl;
 
       typemap[klass] = build_pointer_type (record);
+
+      pushdecl (typemap[klass]);
     }
   return typemap[type];
 }
@@ -272,6 +276,7 @@ tree_builtins::map_class_object (model_class *klass)
       DECL_NAME (decl) = DECL_ASSEMBLER_NAME (decl);
 
       classobj_map[klass] = decl;
+      pushdecl (decl);
     }
   return classobj_map[klass];
 }
