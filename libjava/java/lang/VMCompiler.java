@@ -100,12 +100,13 @@ final class VMCompiler
 
   private static Class loadSharedLibrary(ClassLoader loader,
 					 String fileName,
-					 ProtectionDomain domain)
+					 ProtectionDomain domain,
+					 String className)
   {
     Class c = null;
     SharedLibHelper helper 
       = SharedLibHelper.findHelper (loader, fileName, domain.getCodeSource());
-    c = helper.findClass (fileName);
+    c = helper.findClass (className);
     if (c != null)
       {
 	HashSet hs = (HashSet) sharedHelperMap.get(loader);
@@ -149,7 +150,8 @@ final class VMCompiler
 	// via a property that determines lookup policy.
 	File soFile = new File(hexBytes + ".so");
 	if (soFile.isFile())
-	  return loadSharedLibrary (loader, soFile.toString(), domain);
+          return loadSharedLibrary (loader, soFile.toString(), domain,
+				    name);
 
 	File classFile = new File(hexBytes + ".class");
 	classFile.delete();
@@ -185,7 +187,7 @@ final class VMCompiler
 	    return null;
 	  }
 
-	return loadSharedLibrary(loader, soFile.toString(), domain);
+	return loadSharedLibrary(loader, soFile.toString(), domain, name);
       }
     catch (Exception _)
       {

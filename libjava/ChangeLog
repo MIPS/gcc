@@ -1,3 +1,33 @@
+2004-08-18  Andrew Haley  <aph@redhat.com>
+
+	* java/lang/VMCompiler.java (loadSharedLibrary): Add className
+	argument.  Pass it to findClass instead of fileName.
+	(compileClass): Pass class name to loadSharedLibrary.
+
+2004-06-22  Andrew Haley  <aph@redhat.com>
+
+	* testsuite/libjava.compile/compile.exp: Force indirect dispatch.
+
+2004-06-15  Andrew Haley  <aph@redhat.com>
+
+	* java/lang/natSystem.cc (getenv0): Don't assume environment
+	variable is Latin 1 coded.
+
+2004-06-07  Andrew Haley  <aph@redhat.com>
+
+	* java/lang/System.java: (getenv0): New method.
+	(getenv): Add security check.  Do the right thing.
+	* java/lang/natSystem.cc (getenv0): New method.
+
+2004-04-19    Andrew Haley  <aph@redhat.com>
+
+	* gnu/gcj/runtime/NameFinder.java: Call waitFor() on the processes
+	we destroy.
+
+	* gnu/java/net/natPlainSocketImplPosix.cc (read): The value byte
+	is returned as an int in the range 0 to 255.
+
+=======
 2004-08-13  Tom Tromey  <tromey@redhat.com>
 
 	* java/lang/natClass.cc (_Jv_LinkSymbolTable): Prepare the target
@@ -59,6 +89,7 @@
 	* Makefile.in: Rebuilt.
 	* Makefile.am (interpret.lo): New rule.
 
+>>>>>>> 1.2729.2.13
 2004-08-05  Andrew Haley  <aph@redhat.com>
 
 	* java/net/URLClassLoader.java (JarURLLoader.JarURLLoader): Look
