@@ -1,3 +1,34 @@
+Sat Jan  1 19:06:52 2000  Hans-Peter Nilsson  <hp@bitrange.com>
+
+	* symcat.h (STRINGX) [!__STDC__ || ALMOST_STDC]: Change "?" to "s"
+	to stringify argument s.
+
+1999-12-05  Mark Mitchell  <mark@codesourcery.com>
+
+	* splay-tree.h (struct splay_tree_node): Rename to ...
+	(struct splay_tree_node_s): ... this.
+	(struct splay_tree): Rename to ...
+	(struct splay_tree_s): ... this.
+
+1999-11-30  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* ansidecl.h (ATTRIBUTE_MALLOC): New macro.
+
+	* libiberty.h (buildargv, dupargv, concat, choose_temp_base,
+	make_temp_file, xmalloc, xcalloc, xstrdup, xmemdup): Add
+	ATTRIBUTE_MALLOC.
+	(xatexit): Remove __GNUC__ check, add ATTRIBUTE_NORETURN.
+
+1999-11-28  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* libiberty.h: Include stdarg.h when ANSI_PROTOTYPES is defined.
+	(asprintf, vasprintf): Provide declarations.
+
+Wed Nov 10 12:43:21 1999  Philippe De Muyter  <phdm@macqel.be>
+                          Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* ansidecl.h: Define and test `GCC_VERSION', not `HAVE_GCC_VERSION'.
+	
 1999-10-23 08:51 -0700  Zack Weinberg  <zack@bitmover.com>
 
 	* hashtab.h: Give hash_table_t a struct tag.  Add prototypes

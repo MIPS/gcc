@@ -1,5 +1,5 @@
 /* Expand builtin functions.
-   Copyright (C) 1988, 92-98, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1988, 92-98, 1999, 2000 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -43,8 +43,6 @@ Boston, MA 02111-1307, USA.  */
 #define CALLED_AS_BUILT_IN(NODE) \
    (!strncmp (IDENTIFIER_POINTER (DECL_NAME (NODE)), "__builtin_", 10))
 
-#define CEIL(x,y) (((x) + (y) - 1) / (y))
-
 /* Register mappings for target machines without register windows.  */
 #ifndef INCOMING_REGNO
 #define INCOMING_REGNO(OUT) (OUT)
@@ -53,38 +51,40 @@ Boston, MA 02111-1307, USA.  */
 #define OUTGOING_REGNO(IN) (IN)
 #endif
 
-tree (*lang_type_promotes_to) PROTO((tree));
+tree (*lang_type_promotes_to) PARAMS ((tree));
 
-static int get_pointer_alignment	PROTO((tree, unsigned));
-static tree c_strlen			PROTO((tree));
-static rtx get_memory_rtx		PROTO((tree));
-static int apply_args_size		PROTO((void));
-static int apply_result_size		PROTO((void));
-static rtx result_vector		PROTO((int, rtx));
-static rtx expand_builtin_apply_args	PROTO((void));
-static rtx expand_builtin_apply_args_1	PROTO((void));
-static rtx expand_builtin_apply		PROTO((rtx, rtx, rtx));
-static void expand_builtin_return	PROTO((rtx));
-static rtx expand_builtin_classify_type	PROTO((tree));
-static rtx expand_builtin_mathfn	PROTO((tree, rtx, rtx));
-static rtx expand_builtin_constant_p	PROTO((tree));
-static rtx expand_builtin_args_info	PROTO((tree));
-static rtx expand_builtin_next_arg	PROTO((tree));
-static rtx expand_builtin_va_start	PROTO((int, tree));
-static rtx expand_builtin_va_end	PROTO((tree));
-static rtx expand_builtin_va_copy	PROTO((tree));
-#ifdef HAVE_cmpstrsi
-static rtx expand_builtin_memcmp	PROTO((tree, tree, rtx));
-static rtx expand_builtin_strcmp	PROTO((tree, rtx));
+static int get_pointer_alignment	PARAMS ((tree, unsigned));
+static tree c_strlen			PARAMS ((tree));
+static rtx get_memory_rtx		PARAMS ((tree));
+static int apply_args_size		PARAMS ((void));
+static int apply_result_size		PARAMS ((void));
+#if defined (HAVE_untyped_call) || defined (HAVE_untyped_return)
+static rtx result_vector		PARAMS ((int, rtx));
 #endif
-static rtx expand_builtin_memcpy	PROTO((tree));
-static rtx expand_builtin_strcpy	PROTO((tree));
-static rtx expand_builtin_memset	PROTO((tree));
-static rtx expand_builtin_strlen	PROTO((tree, rtx, enum machine_mode));
-static rtx expand_builtin_alloca	PROTO((tree, rtx));
-static rtx expand_builtin_ffs		PROTO((tree, rtx, rtx));
-static rtx expand_builtin_frame_address	PROTO((tree));
-static tree stabilize_va_list		PROTO((tree, int));
+static rtx expand_builtin_apply_args	PARAMS ((void));
+static rtx expand_builtin_apply_args_1	PARAMS ((void));
+static rtx expand_builtin_apply		PARAMS ((rtx, rtx, rtx));
+static void expand_builtin_return	PARAMS ((rtx));
+static rtx expand_builtin_classify_type	PARAMS ((tree));
+static rtx expand_builtin_mathfn	PARAMS ((tree, rtx, rtx));
+static rtx expand_builtin_constant_p	PARAMS ((tree));
+static rtx expand_builtin_args_info	PARAMS ((tree));
+static rtx expand_builtin_next_arg	PARAMS ((tree));
+static rtx expand_builtin_va_start	PARAMS ((int, tree));
+static rtx expand_builtin_va_end	PARAMS ((tree));
+static rtx expand_builtin_va_copy	PARAMS ((tree));
+#ifdef HAVE_cmpstrsi
+static rtx expand_builtin_memcmp	PARAMS ((tree, tree, rtx));
+static rtx expand_builtin_strcmp	PARAMS ((tree, rtx));
+#endif
+static rtx expand_builtin_memcpy	PARAMS ((tree));
+static rtx expand_builtin_strcpy	PARAMS ((tree));
+static rtx expand_builtin_memset	PARAMS ((tree));
+static rtx expand_builtin_strlen	PARAMS ((tree, rtx, enum machine_mode));
+static rtx expand_builtin_alloca	PARAMS ((tree, rtx));
+static rtx expand_builtin_ffs		PARAMS ((tree, rtx, rtx));
+static rtx expand_builtin_frame_address	PARAMS ((tree));
+static tree stabilize_va_list		PARAMS ((tree, int));
 
 /* Return the alignment in bits of EXP, a pointer valued expression.
    But don't return more than MAX_ALIGN no matter what.
@@ -762,13 +762,6 @@ expand_builtin_apply_args_1 ()
 
 	tem = gen_rtx_REG (mode, INCOMING_REGNO (regno));
 
-#ifdef STACK_REGS
-        /* For reg-stack.c's stack register household.
-	   Compare with a similar piece of code in function.c.  */
-
-        emit_insn (gen_rtx_USE (mode, tem));
-#endif
-
 	emit_move_insn (change_address (registers, mode,
 					plus_constant (XEXP (registers, 0),
 						       size)),
@@ -1189,9 +1182,16 @@ expand_builtin_mathfn (exp, target, subtarget)
       && TREE_CODE (TREE_VALUE (arglist)) != PARM_DECL)
     {
       exp = copy_node (exp);
-      arglist = copy_node (arglist);
       TREE_OPERAND (exp, 1) = arglist;
+      /* Wrap the computation of the argument in a SAVE_EXPR.  That
+	 way, if we need to expand the argument again (as in the
+	 flag_errno_math case below where we cannot directly set
+	 errno), we will not perform side-effects more than once.
+	 Note that here we're mutating the original EXP as well as the
+	 copy; that's the right thing to do in case the original EXP
+	 is expanded later.  */
       TREE_VALUE (arglist) = save_expr (TREE_VALUE (arglist));
+      arglist = copy_node (arglist);
     }
   op0 = expand_expr (TREE_VALUE (arglist), subtarget, VOIDmode, 0);
 
@@ -1303,7 +1303,7 @@ expand_builtin_strlen (exp, target, mode)
 
       rtx result, src_rtx, char_rtx;
       enum machine_mode insn_mode = value_mode, char_mode;
-      enum insn_code icode;
+      enum insn_code icode = CODE_FOR_nothing;
 
       /* If the length is known, just return it.  */
       if (len != 0)

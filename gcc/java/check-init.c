@@ -216,7 +216,7 @@ check_bool2_init (code, exp0, exp1, before, when_false, when_true)
    the conditional when the conditional is false.
    On output, WHEN_TRUE is the set of variables definitely assigned after
    the conditional when the conditional is true.
-   (WHEN_FALSE and WHEN_TRUE are overwriten with initial values ignored.)
+   (WHEN_FALSE and WHEN_TRUE are overwritten with initial values ignored.)
    (None of BEFORE, WHEN_FALSE, or WHEN_TRUE can overlap, as they may
    be used as temporary working areas. */
 
@@ -674,7 +674,8 @@ check_init (exp, before)
 
 	for ( ;  x != NULL_TREE;  x = TREE_CHAIN (x))
 	  check_init (TREE_VALUE (x), before);
-	if (func == throw_node)
+	if (func == throw_node[0]
+	    || func == throw_node[1])
 	  goto never_continues;
       }
       break;

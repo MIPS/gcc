@@ -1,3 +1,63 @@
+2000-01-04  Mumit Khan  <khan@xraylith.wisc.edu>
+
+	* pexecute.c: Conditionally include string.h.
+	(fix_argv): Handle embedded whitespace in args for Mingw32. 
+
+2000-01-04  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* configure.in (ac_libiberty_warn_cflags): Turn on warnings if
+	we're using gcc.
+
+	* Makefile.in (COMPILE.c): Add @ac_libiberty_warn_cflags@
+
+1999-12-27  Geoff Keating  <geoffk@cygnus.com>
+
+	* vasprintf.c (int_vasprintf): Don't re-read the format character
+	as this mishandles strings like '%%s'.
+
+1999-12-05  Mark Mitchell  <mark@codesourcery.com>
+
+	* splay-tree.c (splay_tree_new): Use struct splay_tree_node_s
+	rather than struct splay_tree_node.
+	(splay_tree_insert): Use struct splay_tree_s rather than struct
+	splay_tree.
+
+Sun Nov 28 00:59:39 1999  Philippe De Muyter  <phdm@macqel.be>
+
+	* hashtab.c (sys/types.h): File included.
+
+1999-11-22  Jason Merrill  <jason@casey.cygnus.com>
+
+	* strtoul.c, strtol.c, random.c: Remove advertising clause from
+	BSD license, pursuant with
+
+	  ftp://ftp.cs.berkeley.edu/pub/4bsd/README.Impt.License.Change
+
+Wed Nov 10 09:42:39 1999  Jeffrey A Law  (law@cygnus.com)
+
+	* hashtab.c: Include stdio.h.
+
+Mon Nov  8 09:23:41 1999  Jeffrey A Law  (law@cygnus.com)
+
+	* hashtab.c (traverse_hash_table): Protect prototype with PARAMS.
+
+Tue Nov  2 03:23:13 1999  Philippe De Muyter  <phdm@macqel.be>
+
+	* xstrdup (sys/types.h): Include this file.
+
+1999-10-28  Nathan Sidwell  <nathan@acm.org>
+
+	* Makefile.in (SUBDIRS): New macro.
+	(mostlyclean, clean, distclean, maintainer-clean): Adjust to
+	avoid multiple subdirectory cleaning.
+	(*-subdir): Use SUBDIRS.
+
+1999-10-25  Jim Kingdon  <http://developer.redhat.com/>
+
+	* cplus-dem.c: Move declarations of standard_symbol_characters and
+	hp_symbol_characters inside #ifdef MAIN to avoid compiler
+	warnings.
+
 1999-10-23 08:51 -0700  Zack Weinberg  <zack@bitmover.com>
 
 	* hashtab.c (find_hash_table_entry): When returning a

@@ -312,10 +312,6 @@ FIX_PROC_HEAD( else_endif_label_fix )
                   break;
                 }
 
-              /*
-                FIXME:  if this is a C++ file, then a double slash comment
-                is allowed to follow the directive.  */
-
               /* FALLTHROUGH */
 
             default:
@@ -371,10 +367,10 @@ apply_fix( fixname, filname )
   const char* fixname;
   const char* filname;
 {
-  #define _FT_(n,p) { n, p },
+#define _FT_(n,p) { n, p },
   static fix_entry_t fix_table[] = { FIXUP_TABLE { NULL, NULL }};
-  #undef _FT_
-  #define FIX_TABLE_CT ((sizeof(fix_table)/sizeof(fix_table[0]))-1)
+#undef _FT_
+#define FIX_TABLE_CT ((sizeof(fix_table)/sizeof(fix_table[0]))-1)
 
   char* buf;
   int ct = FIX_TABLE_CT;

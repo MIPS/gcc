@@ -81,6 +81,7 @@ Boston, MA 02111-1307, USA.  */
 #include "dbxout.h"
 #include "toplev.h"
 #include "tm_p.h"
+#include "ggc.h"
 
 #ifdef XCOFF_DEBUGGING_INFO
 #include "xcoffout.h"
@@ -207,11 +208,11 @@ static FILE *asmfile;
 
 /* Last source file name mentioned in a NOTE insn.  */
 
-static char *lastfile;
+static const char *lastfile;
 
 /* Current working directory.  */
 
-static char *cwd;
+static const char *cwd;
 
 enum typestatus {TYPE_UNSEEN, TYPE_XREF, TYPE_DEFINED};
 
@@ -318,10 +319,6 @@ static int current_sym_nchars;
 #define CONTIN
 #endif
 
-void dbxout_types ();
-void dbxout_args ();
-void dbxout_symbol ();
-
 #if defined(ASM_OUTPUT_SECTION_NAME)
 static void dbxout_function_end		PROTO((void));
 #endif
@@ -331,15 +328,15 @@ static void dbxout_type_index		PROTO((tree));
 static void dbxout_continue		PROTO((void));
 #endif
 static void dbxout_type_fields		PROTO((tree));
-static void dbxout_type_method_1	PROTO((tree, char *));
+static void dbxout_type_method_1	PROTO((tree, const char *));
 static void dbxout_type_methods		PROTO((tree));
 static void dbxout_range_type		PROTO((tree));
 static void dbxout_type			PROTO((tree, int, int));
 static void print_int_cst_octal		PROTO((tree));
 static void print_octal			PROTO((unsigned HOST_WIDE_INT, int));
 static void dbxout_type_name		PROTO((tree));
-static void dbxout_symbol_location	PROTO((tree, tree, char *, rtx));
-static void dbxout_symbol_name		PROTO((tree, char *, int));
+static void dbxout_symbol_location	PROTO((tree, tree, const char *, rtx));
+static void dbxout_symbol_name		PROTO((tree, const char *, int));
 static void dbxout_prepare_symbol	PROTO((tree));
 static void dbxout_finish_symbol	PROTO((tree));
 static void dbxout_block		PROTO((tree, int, tree));
@@ -374,7 +371,7 @@ dbxout_function_end ()
 void
 dbxout_init (asm_file, input_file_name, syms)
      FILE *asm_file;
-     char *input_file_name;
+     const char *input_file_name;
      tree syms;
 {
   char ltext_label_name[100];
@@ -467,6 +464,8 @@ dbxout_init (asm_file, input_file_name, syms)
      and output them all, except for those already output.  */
 
   dbxout_typedefs (syms);
+
+  ggc_add_string_root ((char **) &lastfile, 1);
 }
 
 /* Output any typedef names for types described by TYPE_DECLs in SYMS,
@@ -495,7 +494,7 @@ dbxout_typedefs (syms)
 
 void
 dbxout_start_new_source_file (filename)
-     char *filename ATTRIBUTE_UNUSED;
+     const char *filename ATTRIBUTE_UNUSED;
 {
 #ifdef DBX_USE_BINCL
   struct dbx_file *n = (struct dbx_file *) xmalloc (sizeof *n);
@@ -530,7 +529,7 @@ dbxout_resume_previous_source_file ()
 void
 dbxout_source_file (file, filename)
      FILE *file;
-     char *filename;
+     const char *filename;
 {
   char ltext_label_name[100];
 
@@ -562,7 +561,7 @@ dbxout_source_file (file, filename)
 void
 dbxout_source_line (file, filename, lineno)
      FILE *file;
-     char *filename;
+     const char *filename;
      int lineno;
 {
   dbxout_source_file (file, filename);
@@ -581,7 +580,7 @@ dbxout_source_line (file, filename, lineno)
 void
 dbxout_finish (file, filename)
      FILE *file ATTRIBUTE_UNUSED;
-     char *filename ATTRIBUTE_UNUSED;
+     const char *filename ATTRIBUTE_UNUSED;
 {
 #ifdef DBX_OUTPUT_MAIN_SOURCE_FILE_END
   DBX_OUTPUT_MAIN_SOURCE_FILE_END (file, filename);
@@ -709,7 +708,8 @@ dbxout_type_fields (type)
 	    {
 	      if (TREE_STATIC (tem) && use_gnu_debug_info_extensions)
 		{
-		  char *name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (tem));
+		  const char *name =
+		    IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (tem));
 		  have_used_extensions = 1;
 		  fprintf (asmfile, ":%s;", name);
 		  CHARS (strlen (name));
@@ -743,7 +743,7 @@ dbxout_type_fields (type)
 static void
 dbxout_type_method_1 (decl, debug_name)
      tree decl;
-     char *debug_name;
+     const char *debug_name;
 {
   char c1 = 'A', c2;
 
@@ -807,7 +807,7 @@ dbxout_type_methods (type)
      the class names, constructor names, and encodings for assembler
      label names.  For now, disable output of dbx info for them.  */
   {
-    char *ptr = IDENTIFIER_POINTER (type_encoding);
+    const char *ptr = IDENTIFIER_POINTER (type_encoding);
     /* This should use index.  (mrs) */
     while (*ptr && *ptr != '<') ptr++;
     if (*ptr != 0)
@@ -847,7 +847,8 @@ dbxout_type_methods (type)
 	{
 	  /* This is the "mangled" name of the method.
 	     It encodes the argument types.  */
-	  char *debug_name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (fndecl));
+	  const char *debug_name =
+	    IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (fndecl));
 	  int show_arg_types = 0;
 
 	  CONTIN;
@@ -880,8 +881,9 @@ dbxout_type_methods (type)
 		  debug_name += IDENTIFIER_LENGTH (name);
 		  if (debug_name[0] == '_' && debug_name[1] == '_')
 		    {
-		      char *method_name = debug_name + 2;
-		      char *length_ptr = formatted_type_identifier_length;
+		      const char *method_name = debug_name + 2;
+		      const char *length_ptr =
+			formatted_type_identifier_length;
 		      /* Get past const and volatile qualifiers.  */
 		      while (*method_name == 'C' || *method_name == 'V')
 			method_name++;
@@ -898,8 +900,8 @@ dbxout_type_methods (type)
 	      /* Detect constructors by their style of name mangling.  */
 	      else if (debug_name[0] == '_' && debug_name[1] == '_')
 		{
-		  char *ctor_name = debug_name + 2;
-		  char *length_ptr = formatted_type_identifier_length;
+		  const char *ctor_name = debug_name + 2;
+		  const char *length_ptr = formatted_type_identifier_length;
 		  while (*ctor_name == 'C' || *ctor_name == 'V')
 		    ctor_name++;
 		  /* Skip digits for length of type_encoding.  */
@@ -1154,25 +1156,56 @@ dbxout_type (type, full, show_arg_types)
 	  dbxout_type_index (type);
 	  fprintf (asmfile, ";0;127;");
 	}
-      /* This used to check if the type's precision was more than
-	 HOST_BITS_PER_WIDE_INT.  That is wrong since gdb uses a
-	 long (it has no concept of HOST_BITS_PER_WIDE_INT).  */
-      else if (use_gnu_debug_info_extensions
-	       && (TYPE_PRECISION (type) > TYPE_PRECISION (integer_type_node)
-		   || TYPE_PRECISION (type) >= HOST_BITS_PER_LONG))
-	{
-	  /* This used to say `r1' and we used to take care
-	     to make sure that `int' was type number 1.  */
-	  fprintf (asmfile, "r");
-	  dbxout_type_index (integer_type_node);
-	  fprintf (asmfile, ";");
-	  print_int_cst_octal (TYPE_MIN_VALUE (type));
-	  fprintf (asmfile, ";");
-	  print_int_cst_octal (TYPE_MAX_VALUE (type));
-	  fprintf (asmfile, ";");
-	}
-      else /* Output other integer types as subranges of `int'.  */
+
+      /* If this is a subtype of another integer type, always prefer to
+	 write it as a subtype.  */
+      else if (TREE_TYPE (type) != 0
+	       && TREE_CODE (TREE_TYPE (type)) == INTEGER_CST)
 	dbxout_range_type (type);
+
+      else
+  	{
+	  /* If the size is non-standard, say what it is if we can use
+	     GDB extensions.  */
+
+	  if (use_gnu_debug_info_extensions
+	      && TYPE_PRECISION (type) != TYPE_PRECISION (integer_type_node))
+	    fprintf (asmfile, "@s%d;", TYPE_PRECISION (type));
+
+	  /* If we can use GDB extensions and the size is wider than a
+	     long (the size used by GDB to read them) or we may have
+	     trouble writing the bounds the usual way, write them in
+	     octal.  Note the test is for the *target's* size of "long",
+	     not that of the host.  The host test is just to make sure we
+	     can write it out in case the host wide int is narrower than the
+	     target "long".  */
+
+	  /* For unsigned types, we use octal if they are the same size or
+	     larger.  This is because we print the bounds as signed decimal,
+	     and hence they can't span same size unsigned types.  */
+
+ 	  if (use_gnu_debug_info_extensions
+	      && (TYPE_PRECISION (type) > TYPE_PRECISION (integer_type_node)
+		  || (TYPE_PRECISION (type) == TYPE_PRECISION (integer_type_node)
+		      && TREE_UNSIGNED (type))
+		  || TYPE_PRECISION (type) > HOST_BITS_PER_WIDE_INT
+		  || (TYPE_PRECISION (type) == HOST_BITS_PER_WIDE_INT
+		      && TREE_UNSIGNED (type))))
+	    {
+	      fprintf (asmfile, "r");
+	      dbxout_type_index (type);
+	      fprintf (asmfile, ";");
+	      print_int_cst_octal (TYPE_MIN_VALUE (type));
+	      fprintf (asmfile, ";");
+	      print_int_cst_octal (TYPE_MAX_VALUE (type));
+	      fprintf (asmfile, ";");
+	    }
+
+	  else
+	    /* Output other integer types as subranges of `int'.  */
+	    dbxout_range_type (type);
+  	}
+
       CHARS (22);
       break;
 
@@ -1349,7 +1382,7 @@ dbxout_type (type, full, show_arg_types)
 	       If the type has a name, don't nest its definition within
 	       another type's definition; instead, output an xref
 	       and let the definition come when the name is defined.  */
-	    fprintf (asmfile, (TREE_CODE (type) == RECORD_TYPE) ? "xs" : "xu");
+	    fputs ((TREE_CODE (type) == RECORD_TYPE) ? "xs" : "xu", asmfile);
 	    CHARS (3);
 #if 0 /* This assertion is legitimately false in C++.  */
 	    /* We shouldn't be outputting a reference to a type before its
@@ -1674,7 +1707,7 @@ dbxout_type_name (type)
 void
 dbxout_symbol (decl, local)
      tree decl;
-     int local;
+     int local ATTRIBUTE_UNUSED;
 {
   tree type = TREE_TYPE (decl);
   tree context = NULL_TREE;
@@ -1909,7 +1942,7 @@ dbxout_symbol (decl, local)
 	  if (TREE_PUBLIC (decl) == 0)
 	    {
 	      /* The sun4 assembler does not grok this.  */
-	      char *name = IDENTIFIER_POINTER (DECL_NAME (decl));
+	      const char *name = IDENTIFIER_POINTER (DECL_NAME (decl));
 	      if (TREE_CODE (TREE_TYPE (decl)) == INTEGER_TYPE
 		  || TREE_CODE (TREE_TYPE (decl)) == ENUMERAL_TYPE)
 		{
@@ -1955,7 +1988,7 @@ dbxout_symbol (decl, local)
 static void
 dbxout_symbol_location (decl, type, suffix, home)
      tree decl, type;
-     char *suffix;
+     const char *suffix;
      rtx home;
 {
   int letter = 0;
@@ -2170,14 +2203,14 @@ dbxout_symbol_location (decl, type, suffix, home)
 static void
 dbxout_symbol_name (decl, suffix, letter)
      tree decl;
-     char *suffix;
+     const char *suffix;
      int letter;
 {
   /* One slight hitch: if this is a VAR_DECL which is a static
      class member, we must put out the mangled name instead of the
      DECL_NAME.  Note also that static member (variable) names DO NOT begin
      with underscores in .stabs directives.  */
-  char *name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
+  const char *name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
   if (name == 0)
     name = "(anon)";
   fprintf (asmfile, "%s \"%s%s:", ASM_STABS_OP, name,
@@ -2191,7 +2224,7 @@ dbxout_prepare_symbol (decl)
      tree decl ATTRIBUTE_UNUSED;
 {
 #ifdef WINNING_GDB
-  char *filename = DECL_SOURCE_FILE (decl);
+  const char *filename = DECL_SOURCE_FILE (decl);
 
   dbxout_source_file (asmfile, filename);
 #endif
@@ -2428,17 +2461,26 @@ dbxout_parms (parms)
 		 && ! CONSTANT_P (XEXP (DECL_RTL (parms), 0)))
 	  {
 	    /* Parm was passed in registers but lives on the stack.  */
+	    int aux_sym_value = 0;
 
 	    current_sym_code = N_PSYM;
 	    /* DECL_RTL looks like (MEM (PLUS (REG...) (CONST_INT...))),
 	       in which case we want the value of that CONST_INT,
 	       or (MEM (REG ...)) or (MEM (MEM ...)),
 	       in which case we use a value of zero.  */
-	    if (GET_CODE (XEXP (DECL_RTL (parms), 0)) == REG
-		|| GET_CODE (XEXP (DECL_RTL (parms), 0)) == MEM)
+	    if (GET_CODE (XEXP (DECL_RTL (parms), 0)) == REG)
 	      current_sym_value = 0;
+	    else if (GET_CODE (XEXP (DECL_RTL (parms), 0)) == MEM)
+	      {
+		/* Remember the location on the stack the parm is moved to */
+	        aux_sym_value
+		  = INTVAL (XEXP (XEXP (XEXP (DECL_RTL (parms), 0), 0), 1));
+	        current_sym_value = 0;
+	      }
 	    else
-	      current_sym_value = INTVAL (XEXP (XEXP (DECL_RTL (parms), 0), 1));
+		current_sym_value
+		  = INTVAL (XEXP (XEXP (DECL_RTL (parms), 0), 1));
+
 	    current_sym_addr = 0;
 
 	    /* Make a big endian correction if the mode of the type of the
@@ -2453,7 +2495,8 @@ dbxout_parms (parms)
 	    FORCE_TEXT;
 	    if (DECL_NAME (parms))
 	      {
-		current_sym_nchars = 2 + strlen (IDENTIFIER_POINTER (DECL_NAME (parms)));
+		current_sym_nchars
+		  = 2 + strlen (IDENTIFIER_POINTER (DECL_NAME (parms)));
 
 		fprintf (asmfile, "%s \"%s:%c", ASM_STABS_OP,
 			 IDENTIFIER_POINTER (DECL_NAME (parms)),
@@ -2471,6 +2514,17 @@ dbxout_parms (parms)
 				     XEXP (DECL_RTL (parms), 0));
 	    dbxout_type (TREE_TYPE (parms), 0, 0);
 	    dbxout_finish_symbol (parms);
+	    if (aux_sym_value != 0)
+	      {
+		/* Generate an entry for the stack location */
+
+		fprintf (asmfile, "%s \"%s:", ASM_STABS_OP,
+			 IDENTIFIER_POINTER (DECL_NAME (parms)));
+		current_sym_value = aux_sym_value;
+	        current_sym_code = N_LSYM;
+	        dbxout_type (build_reference_type (TREE_TYPE (parms)), 0, 0);
+	        dbxout_finish_symbol (parms);
+	      }
 	  }
       }
 }
@@ -2570,7 +2624,7 @@ dbxout_block (block, depth, args)
      int depth;
      tree args;
 {
-  int blocknum;
+  int blocknum = -1;
 
   while (block)
     {

@@ -27,12 +27,10 @@ Boston, MA 02111-1307, USA.  */
 #include "bitmap.h"
 #include "ggc.h"
 #include "obstack.h"
+#include "toplev.h"
+
 #define	obstack_chunk_alloc	xmalloc
 #define	obstack_chunk_free	free
-
-#ifndef DIR_SEPARATOR
-#define DIR_SEPARATOR '/'
-#endif
 
 /* Obstack used for allocating RTL objects.
    Between functions, this is the permanent_obstack.
@@ -582,6 +580,114 @@ shallow_copy_rtx (orig)
   return copy;
 }
 
+/* This is 1 until after the rtl generation pass.  */
+int rtx_equal_function_value_matters;
+
+/* Return 1 if X and Y are identical-looking rtx's.
+   This is the Lisp function EQUAL for rtx arguments.  */
+
+int
+rtx_equal_p (x, y)
+     rtx x, y;
+{
+  register int i;
+  register int j;
+  register enum rtx_code code;
+  register const char *fmt;
+
+  if (x == y)
+    return 1;
+  if (x == 0 || y == 0)
+    return 0;
+
+  code = GET_CODE (x);
+  /* Rtx's of different codes cannot be equal.  */
+  if (code != GET_CODE (y))
+    return 0;
+
+  /* (MULT:SI x y) and (MULT:HI x y) are NOT equivalent.
+     (REG:SI x) and (REG:HI x) are NOT equivalent.  */
+
+  if (GET_MODE (x) != GET_MODE (y))
+    return 0;
+
+  /* REG, LABEL_REF, and SYMBOL_REF can be compared nonrecursively.  */
+
+  if (code == REG)
+    /* Until rtl generation is complete, don't consider a reference to the
+       return register of the current function the same as the return from a
+       called function.  This eases the job of function integration.  Once the
+       distinction is no longer needed, they can be considered equivalent.  */
+    return (REGNO (x) == REGNO (y)
+	    && (! rtx_equal_function_value_matters
+		|| REG_FUNCTION_VALUE_P (x) == REG_FUNCTION_VALUE_P (y)));
+  else if (code == LABEL_REF)
+    return XEXP (x, 0) == XEXP (y, 0);
+  else if (code == SYMBOL_REF)
+    return XSTR (x, 0) == XSTR (y, 0);
+  else if (code == SCRATCH || code == CONST_DOUBLE)
+    return 0;
+
+  /* Compare the elements.  If any pair of corresponding elements
+     fail to match, return 0 for the whole things.  */
+
+  fmt = GET_RTX_FORMAT (code);
+  for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
+    {
+      switch (fmt[i])
+	{
+	case 'w':
+	  if (XWINT (x, i) != XWINT (y, i))
+	    return 0;
+	  break;
+
+	case 'n':
+	case 'i':
+	  if (XINT (x, i) != XINT (y, i))
+	    return 0;
+	  break;
+
+	case 'V':
+	case 'E':
+	  /* Two vectors must have the same length.  */
+	  if (XVECLEN (x, i) != XVECLEN (y, i))
+	    return 0;
+
+	  /* And the corresponding elements must match.  */
+	  for (j = 0; j < XVECLEN (x, i); j++)
+	    if (rtx_equal_p (XVECEXP (x, i, j), XVECEXP (y, i, j)) == 0)
+	      return 0;
+	  break;
+
+	case 'e':
+	  if (rtx_equal_p (XEXP (x, i), XEXP (y, i)) == 0)
+	    return 0;
+	  break;
+
+	case 'S':
+	case 's':
+	  if (strcmp (XSTR (x, i), XSTR (y, i)))
+	    return 0;
+	  break;
+
+	case 'u':
+	  /* These are just backpointers, so they don't matter.  */
+	  break;
+
+	case '0':
+	case 't':
+	  break;
+
+	  /* It is believed that rtx's at this level will never
+	     contain anything but integers and other rtx's,
+	     except for within LABEL_REFs and SYMBOL_REFs.  */
+	default:
+	  abort ();
+	}
+    }
+  return 1;
+}
+
 /* Subroutines of read_rtx.  */
 
 /* The current line number for the file.  */
@@ -806,30 +912,28 @@ read_rtx (infile)
 
   tmp_code = UNKNOWN;
 
-  for (i=0; i < NUM_RTX_CODE; i++) /* @@ might speed this search up */
-    {
-      if (!(strcmp (tmp_char, GET_RTX_NAME (i))))
-	{
-	  tmp_code = (RTX_CODE) i;	/* get value for name */
-	  break;
-	}
-    }
+  for (i = 0; i < NUM_RTX_CODE; i++)
+    if (! strcmp (tmp_char, GET_RTX_NAME (i)))
+      {
+	tmp_code = (RTX_CODE) i;	/* get value for name */
+	break;
+      }
+
   if (tmp_code == UNKNOWN)
-    {
-      fprintf (stderr,
-	       "Unknown rtx read in rtl.read_rtx(). Code name was %s .",
-	       tmp_char);
-    }
+    fatal_with_file_and_line (infile, "unknown rtx code `%s'", tmp_char);
+
   /* (NIL) stands for an expression that isn't there.  */
   if (tmp_code == NIL)
     {
       /* Discard the closeparen.  */
-      while ((c = getc (infile)) && c != ')');
+      while ((c = getc (infile)) && c != ')')
+	;
+
       return 0;
     }
 
-  return_rtx = rtx_alloc (tmp_code); /* if we end up with an insn expression
-				       then we free this space below.  */
+  /* If we end up with an insn expression then we free this space below.  */
+  return_rtx = rtx_alloc (tmp_code);
   format_ptr = GET_RTX_FORMAT (GET_CODE (return_rtx));
 
   /* If what follows is `: mode ', read it and
@@ -838,13 +942,15 @@ read_rtx (infile)
   i = read_skip_spaces (infile);
   if (i == ':')
     {
-      register int k;
       read_name (tmp_char, infile);
-      for (k = 0; k < NUM_MACHINE_MODES; k++)
-	if (!strcmp (GET_MODE_NAME (k), tmp_char))
+      for (j = 0; j < NUM_MACHINE_MODES; j++)
+	if (! strcmp (GET_MODE_NAME (j), tmp_char))
 	  break;
 
-      PUT_MODE (return_rtx, (enum machine_mode) k );
+      if (j == MAX_MACHINE_MODE)
+	fatal_with_file_and_line (infile, "unknown mode `%s'", tmp_char);
+
+      PUT_MODE (return_rtx, (enum machine_mode) j);
     }
   else
     ungetc (i, infile);
@@ -1018,7 +1124,7 @@ read_rtx (infile)
   return return_rtx;
 }
 
-#if defined ENABLE_CHECKING && HAVE_GCC_VERSION(2,7)
+#if defined ENABLE_RTL_CHECKING && (GCC_VERSION >= 2007)
 void
 rtl_check_failed_bounds (r, n, file, line, func)
     rtx r;
@@ -1102,7 +1208,7 @@ rtvec_check_failed_bounds (r, n, file, line, func)
 	 n, GET_NUM_ELEM (r)-1);
   fancy_abort (file, line, func);
 }
-#endif /* ENABLE_CHECKING */
+#endif /* ENABLE_RTL_CHECKING */
 
 /* These are utility functions used by fatal-error functions all over the
    code.  rtl.c happens to be linked by all the programs that need them,
@@ -1133,9 +1239,6 @@ trim_filename (name)
 
 /* Report an internal compiler error in a friendly manner and without
    dumping core.  */
-
-extern void fatal PVPROTO ((const char *, ...))
-  ATTRIBUTE_PRINTF_1 ATTRIBUTE_NORETURN;
 
 void
 fancy_abort (file, line, function)

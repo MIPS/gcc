@@ -1,3 +1,44 @@
+2000-01-12  Fred Fish  <fnf@be.com>
+
+	* Makefile.in (SHOPT): New macro, flag to ld to create
+	shared library.  Defaults to "-shared".
+	(SHLIB): Use new SHOPT rather than hardcoded "-shared".
+	* configure.in: While configuring for *-*-beos*, if
+	--enable-shared is given, add beos.ml to list of makefile
+	frags.
+	* config/beos.ml: New file.
+
+1999-12-15  Jason Merrill  <jason@casey.cygnus.com>
+
+	* Makefile.in (MYCXXFLAGS): Include $(CXXFLAGS).
+	(MYCFLAGS): Include $(CFLAGS).
+	
+1999-12-14  Martin v. Löwis  <loewis@informatik.hu-berlin.de>
+
+	* std/bastring.h (basic_string::basic_string): Rename parameters
+	to avoid shadow warnings.
+	* std/bastring.cc (alloc): Likewise.
+
+1999-12-13  Jakub Jelinek  <jakub@redhat.com>
+
+	* std/bastring.h (class basic_string::Rep): Use proper defines
+	for sparc v9 and fix asm for sparc64.
+
+1999-11-19  Gabriel Dos Reis  <dosreis@cmla.ens-cachan.fr>
+
+	* std/valarray_meta.h (_DEFINE_EXPR_UNARY_FUNCTION): Don't forget
+	to define tanh. 
+
+Sun Nov 14 09:47:51 1999  H.J. Lu  <hjl@gnu.org>
+
+	* Makefile.in ($(OBJS)): Depend on stamp-picdir.
+
+1999-11-05  Gabriel Dos Reis  <dosreis@cmla.ens-cachan.fr>
+
+	* std/valarray_meta.h (_DEFINE_EXPR_UNARY_FUNCTION):  When
+	building meta-expressions don't forget to take the contained
+        closures.
+
 1999-10-19  Gabriel Dos Reis  <dosreis@cmla.ens-cachan.fr>
 
 	* std/valarray_meta.h: (_BinClos::_BinClos): Fix typo.

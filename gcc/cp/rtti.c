@@ -84,7 +84,7 @@ build_headof_sub (exp)
 
 /* Given the expression EXP of type `class *', return the head of the
    object pointed to by EXP with type cv void*, if the class has any
-   virtual functions (TYPE_VIRTUAL_P), else just return the
+   virtual functions (TYPE_POLYMORPHIC_P), else just return the
    expression.  */
 
 static tree
@@ -102,7 +102,7 @@ build_headof (exp)
     }
   type = TREE_TYPE (type);
 
-  if (!TYPE_VIRTUAL_P (type))
+  if (!TYPE_POLYMORPHIC_P (type))
     return exp;
   if (CLASSTYPE_COM_INTERFACE (type))
     {
@@ -143,8 +143,6 @@ call_void_fn (name)
     d = IDENTIFIER_GLOBAL_VALUE (d);
   else
     {
-      push_obstacks (&permanent_obstack, &permanent_obstack);
-
       type = build_function_type (void_type_node, void_list_node);
       d = build_lang_decl (FUNCTION_DECL, d, type);
       DECL_EXTERNAL (d) = 1;
@@ -152,7 +150,6 @@ call_void_fn (name)
       DECL_ARTIFICIAL (d) = 1;
       pushdecl_top_level (d);
       make_function_rtl (d);
-      pop_obstacks ();
     }
 
   mark_used (d);
@@ -210,7 +207,7 @@ get_tinfo_fn_dynamic (exp)
     }
 
   /* If exp is a reference to polymorphic type, get the real type_info.  */
-  if (TYPE_VIRTUAL_P (type) && ! resolves_to_fixed_type_p (exp, 0))
+  if (TYPE_POLYMORPHIC_P (type) && ! resolves_to_fixed_type_p (exp, 0))
     {
       /* build reference to type_info from vtable.  */
       tree t;
@@ -277,7 +274,7 @@ build_x_typeid (exp)
 
   if (TREE_CODE (exp) == INDIRECT_REF
       && TREE_CODE (TREE_TYPE (TREE_OPERAND (exp, 0))) == POINTER_TYPE
-      && TYPE_VIRTUAL_P (TREE_TYPE (exp))
+      && TYPE_POLYMORPHIC_P (TREE_TYPE (exp))
       && ! resolves_to_fixed_type_p (exp, &nonnull)
       && ! nonnull)
     {
@@ -311,7 +308,7 @@ get_tinfo_var (type)
      tree type;
 {
   tree tname = build_overload_with_type (get_identifier ("__ti"), type);
-  tree tdecl, arrtype;
+  tree arrtype;
   int size;
 
   if (IDENTIFIER_GLOBAL_VALUE (tname))
@@ -330,7 +327,7 @@ get_tinfo_var (type)
     {
       if (CLASSTYPE_N_BASECLASSES (type) == 0)
 	size = 2 * POINTER_SIZE;
-      else if (! TYPE_USES_COMPLEX_INHERITANCE (type)
+      else if (! TYPE_BASE_CONVS_MAY_REQUIRE_CODE_P (type)
 	       && (TREE_VIA_PUBLIC
 		   (TREE_VEC_ELT (TYPE_BINFO_BASETYPES (type), 0))))
 	size = 3 * POINTER_SIZE;
@@ -340,29 +337,27 @@ get_tinfo_var (type)
   else
     size = 2 * POINTER_SIZE;
 
-  push_obstacks (&permanent_obstack, &permanent_obstack);
-
   /* The type for a character array of the appropriate size.  */
   arrtype = build_cplus_array_type
     (unsigned_char_type_node,
      build_index_type (size_int (size / BITS_PER_UNIT - 1)));
 
-  tdecl = build_decl (VAR_DECL, tname, arrtype);
-  TREE_PUBLIC (tdecl) = 1;
-  DECL_EXTERNAL (tdecl) = 1;
-  DECL_ARTIFICIAL (tdecl) = 1;
-  push_to_top_level ();
-  pushdecl (tdecl);
-  cp_finish_decl (tdecl, NULL_TREE, NULL_TREE, 0, 0);
-  pop_from_top_level ();
-
-  pop_obstacks ();
-
-  return tdecl;
+  return declare_global_var (tname, arrtype);
 }
 
+/* Returns the decl for a function which will return a type_info node for
+   TYPE.  This version does not mark the function used, for use in
+   set_rtti_entry; for the vtable case, we'll get marked in
+   finish_vtable_vardecl, when we know that we want to be emitted.
+
+   We do this to avoid emitting the tinfo node itself, since we don't
+   currently support DECL_DEFER_OUTPUT for variables.  Also, we don't
+   associate constant pools with their functions properly, so we would
+   emit string constants and such even though we don't emit the actual
+   function.  When those bugs are fixed, this function should go away.  */
+
 tree
-get_tinfo_fn (type)
+get_tinfo_fn_unused (type)
      tree type;
 {
   tree name;
@@ -379,8 +374,6 @@ get_tinfo_fn (type)
   if (IDENTIFIER_GLOBAL_VALUE (name))
     return IDENTIFIER_GLOBAL_VALUE (name);
 
-  push_obstacks (&permanent_obstack, &permanent_obstack);
-
   d = build_lang_decl (FUNCTION_DECL, name, tinfo_fn_type);
   DECL_EXTERNAL (d) = 1;
   TREE_PUBLIC (d) = 1;
@@ -391,10 +384,19 @@ get_tinfo_fn (type)
 
   pushdecl_top_level (d);
   make_function_rtl (d);
-  mark_used (d);
   mark_inline_for_output (d);
-  pop_obstacks ();
 
+  return d;
+}
+
+/* Likewise, but also mark it used.  Called by various EH and RTTI code.  */
+
+tree
+get_tinfo_fn (type)
+     tree type;
+{
+  tree d = get_tinfo_fn_unused (type);
+  mark_used (d);
   return d;
 }
 
@@ -560,7 +562,7 @@ build_dynamic_cast_1 (type, expr)
   }
 
   /* Otherwise *exprtype must be a polymorphic class (have a vtbl).  */
-  if (TYPE_VIRTUAL_P (TREE_TYPE (exprtype)))
+  if (TYPE_POLYMORPHIC_P (TREE_TYPE (exprtype)))
     {
       tree expr1;
       /* if TYPE is `void *', return pointer to complete object.  */
@@ -653,7 +655,6 @@ build_dynamic_cast_1 (type, expr)
 	    {
 	      tree tmp;
 
-	      push_obstacks (&permanent_obstack, &permanent_obstack);
 	      tmp = tree_cons
 		(NULL_TREE, TREE_TYPE (td1), tree_cons
 		 (NULL_TREE, TREE_TYPE (td1), tree_cons
@@ -668,7 +669,6 @@ build_dynamic_cast_1 (type, expr)
 	      DECL_ARTIFICIAL (dcast_fn) = 1;
 	      pushdecl_top_level (dcast_fn);
 	      make_function_rtl (dcast_fn);
-	      pop_obstacks ();
 	    }
 	  
 	  mark_used (dcast_fn);
@@ -691,6 +691,9 @@ build_dynamic_cast_1 (type, expr)
           return ifnonnull (expr, result);
 	}
     }
+
+  cp_error ("dynamic_cast from non-polymorphic type `%#T'", exprtype);
+  return error_mark_node;
 
  fail:
   cp_error ("cannot dynamic_cast `%E' (of type `%#T') to type `%#T'",
@@ -750,7 +753,6 @@ expand_si_desc (tdecl, type)
   else
     {
       tree tmp;
-      push_obstacks (&permanent_obstack, &permanent_obstack);
       tmp = tree_cons
 	(NULL_TREE, ptr_type_node, tree_cons
 	 (NULL_TREE, const_string_type_node, tree_cons
@@ -764,7 +766,6 @@ expand_si_desc (tdecl, type)
       DECL_ARTIFICIAL (fn) = 1;
       pushdecl_top_level (fn);
       make_function_rtl (fn);
-      pop_obstacks ();
     }
 
   mark_used (fn);
@@ -801,8 +802,7 @@ expand_class_desc (tdecl, type)
 
       /* A reasonably close approximation of __class_type_info::base_info */
 
-      push_obstacks (&permanent_obstack, &permanent_obstack);
-      base_info_type_node = make_lang_type (RECORD_TYPE);
+      base_info_type_node = make_aggr_type (RECORD_TYPE);
 
       /* Actually const __user_type_info * */
       fields [0] = build_lang_decl
@@ -828,7 +828,6 @@ expand_class_desc (tdecl, type)
 
       finish_builtin_type (base_info_type_node, "__base_info", fields,
 			   3, ptr_type_node);
-      pop_obstacks ();
     }
 
   while (--i >= 0)
@@ -931,7 +930,6 @@ expand_class_desc (tdecl, type)
     fn = IDENTIFIER_GLOBAL_VALUE (fn);
   else
     {
-      push_obstacks (&permanent_obstack, &permanent_obstack);
       tmp = tree_cons
 	(NULL_TREE, ptr_type_node, tree_cons
 	 (NULL_TREE, const_string_type_node, tree_cons
@@ -945,7 +943,6 @@ expand_class_desc (tdecl, type)
       DECL_ARTIFICIAL (fn) = 1;
       pushdecl_top_level (fn);
       make_function_rtl (fn);
-      pop_obstacks ();
     }
 
   mark_used (fn);
@@ -978,7 +975,6 @@ expand_ptr_desc (tdecl, type)
   else
     {
       tree tmp;
-      push_obstacks (&permanent_obstack, &permanent_obstack);
       tmp = tree_cons
 	(NULL_TREE, ptr_type_node, tree_cons
 	 (NULL_TREE, const_string_type_node, tree_cons
@@ -992,7 +988,6 @@ expand_ptr_desc (tdecl, type)
       DECL_ARTIFICIAL (fn) = 1;
       pushdecl_top_level (fn);
       make_function_rtl (fn);
-      pop_obstacks ();
     }
 
   mark_used (fn);
@@ -1025,7 +1020,6 @@ expand_attr_desc (tdecl, type)
   else
     {
       tree tmp;
-      push_obstacks (&permanent_obstack, &permanent_obstack);
       tmp = tree_cons
 	(NULL_TREE, ptr_type_node, tree_cons
 	 (NULL_TREE, const_string_type_node, tree_cons
@@ -1040,7 +1034,6 @@ expand_attr_desc (tdecl, type)
       DECL_ARTIFICIAL (fn) = 1;
       pushdecl_top_level (fn);
       make_function_rtl (fn);
-      pop_obstacks ();
     }
 
   mark_used (fn);
@@ -1068,7 +1061,6 @@ expand_generic_desc (tdecl, type, fnname)
   else
     {
       tree tmp;
-      push_obstacks (&permanent_obstack, &permanent_obstack);
       tmp = tree_cons
 	(NULL_TREE, ptr_type_node, tree_cons
 	 (NULL_TREE, const_string_type_node, void_list_node));
@@ -1080,7 +1072,6 @@ expand_generic_desc (tdecl, type, fnname)
       DECL_ARTIFICIAL (fn) = 1;
       pushdecl_top_level (fn);
       make_function_rtl (fn);
-      pop_obstacks ();
     }
 
   mark_used (fn);
@@ -1125,11 +1116,12 @@ synthesize_tinfo_fn (fndecl)
   DECL_COMMON (tdecl) = 1;
   TREE_USED (tdecl) = 1;
   DECL_ALIGN (tdecl) = TYPE_ALIGN (ptr_type_node);
-  cp_finish_decl (tdecl, NULL_TREE, NULL_TREE, 0, 0);
+  cp_finish_decl (tdecl, NULL_TREE, NULL_TREE, 0);
 
   /* Begin processing the function.  */
   start_function (NULL_TREE, fndecl, NULL_TREE, 
 		  SF_DEFAULT | SF_PRE_PARSED);
+  DECL_DEFER_OUTPUT (fndecl) = 1;
   store_parm_decls ();
   clear_last_expr ();
 
@@ -1137,11 +1129,8 @@ synthesize_tinfo_fn (fndecl)
   compound_stmt = begin_compound_stmt (/*has_no_scope=*/0);
 
   /* For convenience, we save away the address of the static
-     variable.  Since we will process expression-statements between
-     here and the end of the function, we must call push_momentary to
-     keep ADDR from being overwritten.  */
+     variable.  */
   addr = decay_conversion (tdecl);
-  push_momentary ();
 
   /* If the first word of the array (the vtable) is non-zero, we've already
      initialized the object, so don't do it again.  */
@@ -1173,7 +1162,7 @@ synthesize_tinfo_fn (fndecl)
     {
       if (CLASSTYPE_N_BASECLASSES (type) == 0)
 	expand_generic_desc (tdecl, type, "__rtti_user");
-      else if (! TYPE_USES_COMPLEX_INHERITANCE (type)
+      else if (! TYPE_BASE_CONVS_MAY_REQUIRE_CODE_P (type)
 	       && (TREE_VIA_PUBLIC
 		   (TREE_VEC_ELT (TYPE_BINFO_BASETYPES (type), 0))))
 	expand_si_desc (tdecl, type);
@@ -1193,8 +1182,6 @@ synthesize_tinfo_fn (fndecl)
   tmp = cp_convert (build_pointer_type (type_info_type_node), addr);
   tmp = build_indirect_ref (tmp, 0);
   finish_return_stmt (tmp);
-  /* Undo the call to push_momentary above.  */
-  pop_momentary ();
   /* Finish the function body.  */
   finish_compound_stmt (/*has_no_scope=*/0, compound_stmt);
   expand_body (finish_function (lineno, 0));

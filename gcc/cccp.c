@@ -1,5 +1,5 @@
 /* C Compatible Compiler Preprocessor (CCCP)
-   Copyright (C) 1986, 87, 89, 92-98, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1986, 87, 89, 92-99, 2000 Free Software Foundation, Inc.
    Written by Paul Rubin, June 1986
    Adapted to ANSI C, Richard Stallman, Jan 1987
 
@@ -46,16 +46,6 @@ typedef unsigned char U_CHAR;
 # define STANDARD_INCLUDE_DIR "/usr/include"
 #endif
 
-/* By default, colon separates directories in a path.  */
-#ifndef PATH_SEPARATOR
-# define PATH_SEPARATOR ':'
-#endif
-
-/* By default, a slash separates directory names.  */
-#ifndef DIR_SEPARATOR
-# define DIR_SEPARATOR '/'
-#endif
-
 /* By default, the suffix for object files is ".o".  */
 #ifdef OBJECT_SUFFIX
 # define HAVE_OBJECT_SUFFIX
@@ -84,8 +74,9 @@ static void hack_vms_include_specification ();
 #define INCLUDE_LEN_FUDGE 12	/* leave room for VMS syntax conversion */
 #endif /* VMS */
 
-/* Windows does not natively support inodes, and neither does MSDOS.  */
-#if (defined (_WIN32) && ! defined (__CYGWIN__) && ! defined (_UWIN)) \
+/* Windows does not natively support inodes, and neither does MSDOS. 
+   Cygwin's emulation can generate non-unique inodes, so don't use it. */
+#if (defined (_WIN32) && ! defined (_UWIN)) \
   || defined (__MSDOS__)
 #define INO_T_EQ(a, b) 0
 #endif
@@ -1132,6 +1123,7 @@ print_help ()
   printf ("  -lang-objc                Assume that the input sources are in ObjectiveC\n");
   printf ("  -lang-objc++              Assume that the input sources are in ObjectiveC++\n");
   printf ("  -lang-asm                 Assume that the input sources are in assembler\n");
+  printf ("  -lang-fortran	       Assume that the input sources are in Fortran\n");
   printf ("  -lang-chill               Assume that the input sources are in Chill\n");
   printf ("  -std=<std name>           Specify the conformance standard; one of:\n");
   printf ("                            gnu89, gnu9x, c89, c9x, iso9899:1990,\n");
@@ -1263,7 +1255,7 @@ main (argc, argv)
      progname need to be set first, in case a diagnostic is issued.  */
      
   pend_files = (char **) xmalloc (argc * sizeof (char *));
-  pend_defs = (char **) xmalloc (argc * sizeof (char *));
+  pend_defs = (char **) xmalloc ((2 * argc) * sizeof (char *));
   pend_undefs = (char **) xmalloc (argc * sizeof (char *));
   pend_assertions = (char **) xmalloc (argc * sizeof (char *));
   pend_includes = (char **) xmalloc (argc * sizeof (char *));
@@ -1283,7 +1275,7 @@ main (argc, argv)
   cplusplus_comments = 1;
 
   bzero ((char *) pend_files, argc * sizeof (char *));
-  bzero ((char *) pend_defs, argc * sizeof (char *));
+  bzero ((char *) pend_defs, (2 * argc) * sizeof (char *));
   bzero ((char *) pend_undefs, argc * sizeof (char *));
   bzero ((char *) pend_assertions, argc * sizeof (char *));
   bzero ((char *) pend_includes, argc * sizeof (char *));
@@ -1453,7 +1445,11 @@ main (argc, argv)
 	if (! strcmp (argv[i], "-lang-c"))
 	  cplusplus = 0, cplusplus_comments = 1, c89 = 0, c9x = 1, objc = 0;
 	else if (! strcmp (argv[i], "-lang-c89"))
-	  cplusplus = 0, cplusplus_comments = 0, c89 = 1, c9x = 0, objc = 0;
+	  {
+	    cplusplus = 0, cplusplus_comments = 0, c89 = 1, c9x = 0, objc = 0;
+	    no_trigraphs = 0;
+	    pend_defs[2*i] = "__STRICT_ANSI__";
+	  }
 	else if (! strcmp (argv[i], "-lang-c++"))
 	  cplusplus = 1, cplusplus_comments = 1, c89 = 0, c9x = 0, objc = 0;
 	else if (! strcmp (argv[i], "-lang-objc"))
@@ -1462,6 +1458,8 @@ main (argc, argv)
 	  cplusplus = 1, cplusplus_comments = 1, c89 = 0, c9x = 0, objc = 1;
  	else if (! strcmp (argv[i], "-lang-asm"))
  	  lang_asm = 1;
+	else if (! strcmp (argv[i], "-lang-fortran"))
+	  /* Doesn't actually do anything.  */ ;
  	else if (! strcmp (argv[i], "-lint"))
  	  for_lint = 1;
 	break;
@@ -1471,15 +1469,40 @@ main (argc, argv)
 	break;
 
       case 's':
-	if (!strcmp (argv[i], "-std=iso9899:1990")
-	    || !strcmp (argv[i], "-std=iso9899:199409")
-	    || !strcmp (argv[i], "-std=c89")
-	    || !strcmp (argv[i], "-std=gnu89"))
-	  cplusplus = 0, cplusplus_comments = 0, c89 = 1, c9x = 0, objc = 0;
+	if (!strcmp (argv[i], "-std=gnu89"))
+	  {
+	    cplusplus = 0, cplusplus_comments = 0, c89 = 1, c9x = 0, objc = 0;
+	  }
+	else if (!strcmp (argv[i], "-std=gnu9x")
+		 || !strcmp (argv[i], "-std=gnu99"))
+	  {
+	    cplusplus = 0, cplusplus_comments = 1, c89 = 0, c9x = 1, objc = 0;
+	    pend_defs[2*i+1] = "__STDC_VERSION__=199901L";
+	  }
+	else if (!strcmp (argv[i], "-std=iso9899:1990")
+		 || !strcmp (argv[i], "-std=c89"))
+	  {
+	    cplusplus = 0, cplusplus_comments = 0, c89 = 1, c9x = 0, objc = 0;
+	    no_trigraphs = 0;
+	    pend_defs[2*i] = "__STRICT_ANSI__";
+	  }
+	else if (!strcmp (argv[i], "-std=iso9899:199409"))
+	  {
+	    cplusplus = 0, cplusplus_comments = 0, c89 = 1, c9x = 0, objc = 0;
+	    no_trigraphs = 0;
+	    pend_defs[2*i] = "__STRICT_ANSI__";
+	    pend_defs[2*i+1] = "__STDC_VERSION__=199409L";
+	  }
         else if (!strcmp (argv[i], "-std=iso9899:199x")
+		 || !strcmp (argv[i], "-std=iso9899:1999")
 		 || !strcmp (argv[i], "-std=c9x")
-		 || !strcmp (argv[i], "-std=gnu9x"))
-	  cplusplus = 0, cplusplus_comments = 1, c89 = 0, c9x = 1, objc = 0;
+		 || !strcmp (argv[i], "-std=c99"))
+	  {
+	    cplusplus = 0, cplusplus_comments = 1, c89 = 0, c9x = 1, objc = 0;
+	    no_trigraphs = 0;
+	    pend_defs[2*i] = "__STRICT_ANSI__";
+	    pend_defs[2*i+1] = "__STDC_VERSION__=199901L";
+	  }
 	break;
 
       case 'w':
@@ -1628,11 +1651,11 @@ main (argc, argv)
 
       case 'D':
 	if (argv[i][2] != 0)
-	  pend_defs[i] = argv[i] + 2;
+	  pend_defs[2*i] = argv[i] + 2;
 	else if (i + 1 == argc)
 	  fatal ("Macro name missing after -D option");
 	else
-	  i++, pend_defs[i] = argv[i];
+	  i++, pend_defs[2*i] = argv[i];
 	break;
 
       case 'A':
@@ -1653,7 +1676,7 @@ main (argc, argv)
 	       that were passed automatically in from GCC.  */
 	    int j;
 	    for (j = 0; j < i; j++)
-	      pend_defs[j] = pend_assertions[j] = 0;
+	      pend_defs[2*j] = pend_assertions[j] = 0;
 	  } else {
 	    pend_assertions[i] = p;
 	    pend_assertion_options[i] = "-A";
@@ -1778,10 +1801,15 @@ main (argc, argv)
         output_line_directive (fp, &outbuf, 0, same_file);
       make_undef (pend_undefs[i], &outbuf);
     }
-    if (pend_defs[i]) {
+    if (pend_defs[2*i]) {
       if (debug_output)
         output_line_directive (fp, &outbuf, 0, same_file);
-      make_definition (pend_defs[i]);
+      make_definition (pend_defs[2*i]);
+    }
+    if (pend_defs[2*i+1]) {
+      if (debug_output)
+        output_line_directive (fp, &outbuf, 0, same_file);
+      make_definition (pend_defs[2*i+1]);
     }
     if (pend_assertions[i])
       make_assertion (pend_assertion_options[i], pend_assertions[i]);
@@ -2239,7 +2267,7 @@ index0 (s, c, n)
   for (;;) {
     const char *q = index (p, c);
     if (q)
-      return q;
+      return (const U_CHAR *) q;
     else {
       size_t l = strlen (p);
       if (l == n)
@@ -3340,7 +3368,9 @@ randomchar:
 #endif
 		
 		if (output_marks) {
+		  op->bufp = obp;
 		  check_expand (op, limit - ibp + 2);
+		  obp = op->bufp;
 		  *obp++ = '\n';
 		  *obp++ = '-';
 		}
@@ -4261,7 +4291,7 @@ special_symbol (hp, op)
 #ifdef STDC_0_IN_SYSTEM_HEADERS
     if (ip->system_header_p
 	&& hp->length == 8 && bcmp (hp->name, "__STDC__", 8) == 0
-	&& !lookup ((U_CHAR *) "__STRICT_ANSI__", -1, -1))
+	&& !lookup ((const U_CHAR *) "__STRICT_ANSI__", -1, -1))
       buf = "0";
 #endif
     if (pcp_inside_if && pcp_outfile)
@@ -4552,7 +4582,9 @@ get_filename:
 	 since it would put extra spaces in include file names.  */
       U_CHAR *src;
       int errors_before_expansion = errors;
-      FILE_BUF trybuf = expand_to_temp_buffer (buf, limit, 1, 0);
+      FILE_BUF trybuf;
+
+      trybuf = expand_to_temp_buffer (buf, limit, 1, 0);
       if (errors != errors_before_expansion) {
 	free (trybuf.buf);
 	goto invalid_include_file_name;
@@ -6062,13 +6094,20 @@ check_macro_name (symname, assertion)
   sym_length = p - symname;
   if (sym_length == 0
       || (sym_length == 1 && *symname == 'L' && (*p == '\'' || *p == '"')))
-    error (assertion ? "invalid assertion name" : "invalid macro name");
+    {
+      if (assertion)
+	error ("invalid assertion name");
+      else
+	error ("invalid macro name");
+    }
   else if (!is_idstart[*symname]
 	   || (sym_length == 7 && ! bcmp (symname, "defined", 7)))
-    error ((assertion
-	    ? "invalid assertion name `%.*s'"
-	    : "invalid macro name `%.*s'"),
-	   sym_length, symname);
+    {
+      if (assertion)
+	error ("invalid assertion name `%.*s'", sym_length, symname);
+      else
+	error ("invalid macro name `%.*s'", sym_length, symname);
+    }
   return sym_length;
 }
 
@@ -7172,7 +7211,7 @@ do_pragma (buf, limit, op, keyword)
     do_once ();
   }
 
-  if (!strncmp (buf, "poison", 6)) {
+  if (!strncmp ((char *) buf, "poison", 6)) {
     /* Poison these symbols so that all subsequent usage produces an
        error message.  */
     U_CHAR *p = buf + 6;
@@ -7417,9 +7456,12 @@ do_xifdef (buf, limit, op, keyword)
   if (end == buf) {
     skip = (keyword->type == T_IFDEF);
     if (! traditional)
-      pedwarn (end == limit ? "`#%s' with no argument"
-	       : "`#%s' argument starts with punctuation",
-	       keyword->name);
+      {
+	if (end == limit)
+	  pedwarn ("`#%s' with no argument", keyword->name);
+	else
+	  pedwarn ("`#%s' argument starts with punctuation", keyword->name);
+      }
   } else {
     HASHNODE *hp;
 
@@ -8429,13 +8471,19 @@ output_line_directive (ip, op, conditional, file_change)
    into the macro.  If the actual use count exceeds 10, 
    the value stored is 10.
    `free1' and `free2', if nonzero, point to blocks to be freed
-   when the macro argument data is no longer needed.  */
+   when the macro argument data is no longer needed.
+   `free_ptr', if nonzero, points to a value of instack[i].free_ptr
+   where the raw field points somewhere into this string.  The purpose
+   of this is to hold onto instack[i].buf for macro arguments, even
+   when the element has been popped off the input stack.
+*/
 
 struct argdata {
   U_CHAR *raw, *expanded;
   int raw_length, expand_length, expand_size;
   int stringified_length_bound;
   U_CHAR *free1, *free2;
+  U_CHAR *free_ptr;
   char newlines;
   char use_count;
 };
@@ -8488,6 +8536,7 @@ macroexpand (hp, op)
       args[i].raw_length = args[i].expand_length = args[i].expand_size
 	= args[i].stringified_length_bound = 0;
       args[i].free1 = args[i].free2 = 0;
+      args[i].free_ptr = 0;
       args[i].use_count = 0;
     }
 
@@ -8579,7 +8628,12 @@ macroexpand (hp, op)
 	 Also count number of times each arg is used.  */
       xbuf_len = defn->length;
       for (ap = defn->pattern; ap != NULL; ap = ap->next) {
-	if (ap->stringify)
+	if (ap->stringify && args[ap->argno].stringified_length_bound == 0)
+	  /* macarg is not called for omitted arguments, as a result
+	     stringified_length_bound will be zero.  We need to make
+	     enough space for "".  */
+	  xbuf_len += 2;
+	else if (ap->stringify)
 	  xbuf_len += args[ap->argno].stringified_length_bound;
 	else if (ap->raw_before != 0 || ap->raw_after != 0 || traditional)
 	  /* Add 4 for two newline-space markers to prevent
@@ -8826,6 +8880,18 @@ macroexpand (hp, op)
       xbuf_len = totlen;
 
       for (i = 0; i < nargs; i++) {
+        if (args[i].free_ptr != 0) {
+          U_CHAR *buf = args[i].free_ptr;
+          int d;
+          for (d = indepth; d >= 0; --d) {
+            if (instack[d].buf == buf) {
+              instack[d].free_ptr = buf; /* Give ownership back to instack */
+              goto no_free;
+            }
+          }
+          free (buf); /* buf is not on the stack; must have been popped */
+        no_free:;
+        }
 	if (args[i].free1 != 0)
 	  free (args[i].free1);
 	if (args[i].free2 != 0)
@@ -8896,6 +8962,11 @@ macarg (argptr, rest_args)
       argptr->raw = ip->bufp;
       argptr->raw_length = bp - ip->bufp;
       argptr->newlines = ip->lineno - lineno0;
+      /* The next two statements transfer ownership of the the buffer
+	 from ip to argptr.  Note that the second statement ensures that
+	 a given free_ptr is owned by at most one macro argument. */
+      argptr->free_ptr = ip->free_ptr;
+      ip->free_ptr     = 0;
     }
     ip->bufp = bp;
   } else {
@@ -9620,7 +9691,10 @@ vwarning_with_line (line, msgid, args)
   if (ip != NULL) {
     fwrite (ip->nominal_fname, sizeof ip->nominal_fname[0],
 	    ip->nominal_fname_len, stderr);
-    fprintf (stderr, line ? ":%d: " : ": ", line);
+    if (line)
+      fprintf (stderr, ":%d: ", line);
+    else
+      fputs (": ", stderr);
   }
   notice ("warning: ");
   vnotice (msgid, args);

@@ -101,7 +101,7 @@ extern tree stabilize_reference PROTO ((tree));
 
 #define ABSTRACT_CHECK(FLAG, V, CL, S)				\
   if ((FLAG) & (V))						\
-    parse_error_context ((CL), S " method can't be abstract");
+    parse_error_context ((CL), "%s method can't be abstract", (S));
 
 #define JCONSTRUCTOR_CHECK(FLAG, V, CL, S)			\
   if ((FLAG) & (V))						\
@@ -138,13 +138,12 @@ extern tree stabilize_reference PROTO ((tree));
 
 /* Pedantic warning on obsolete modifiers. Note: when cl is NULL,
    flags was set artificially, such as for a interface method */
-#define OBSOLETE_MODIFIER_WARNING(cl, flags, modifier, format, arg)          \
+#define OBSOLETE_MODIFIER_WARNING(cl, flags, __modifier, format, arg)        \
   {                                                                          \
-    if (flag_redundant && (cl) && ((flags) & (modifier)))		     \
+    if (flag_redundant && (cl) && ((flags) & (__modifier)))		     \
       parse_warning_context (cl,                                             \
-			     "Discouraged redundant use of `%s' modifier "   \
-			     "in declaration of " format,                    \
-			     java_accstring_lookup (modifier), arg);         \
+     "Discouraged redundant use of `%s' modifier in declaration of " format, \
+			     java_accstring_lookup (__modifier), arg);       \
   }
 
 /* Quickly build a temporary pointer on hypothetical type NAME. */
@@ -212,26 +211,26 @@ extern tree stabilize_reference PROTO ((tree));
 
 /* Standard error messages */
 #define ERROR_CANT_CONVERT_TO_BOOLEAN(OPERATOR, NODE, TYPE)		\
-  parse_error_context							\
-    ((OPERATOR), "Incompatible type for `%s'. Can't convert `%s' to "	\
-     "boolean", operator_string ((NODE)), lang_printable_name ((TYPE),0))
+  parse_error_context ((OPERATOR),					\
+    "Incompatible type for `%s'. Can't convert `%s' to boolean",	\
+    operator_string ((NODE)), lang_printable_name ((TYPE),0))
 
 #define ERROR_CANT_CONVERT_TO_NUMERIC(OPERATOR, NODE, TYPE)		\
-  parse_error_context							\
-    ((OPERATOR), "Incompatible type for `%s'. Can't convert `%s' to "	\
-     "numeric type", operator_string ((NODE)), lang_printable_name ((TYPE), 0))
+  parse_error_context ((OPERATOR),					\
+      "Incompatible type for `%s'. Can't convert `%s' to numeric type",	\
+      operator_string ((NODE)), lang_printable_name ((TYPE), 0))
 
 #define ERROR_CAST_NEEDED_TO_INTEGRAL(OPERATOR, NODE, TYPE)		\
 do {									\
   tree _operator = (OPERATOR), _node = (NODE), _type = (TYPE);		\
   if (JPRIMITIVE_TYPE_P (_type))					\
-    parse_error_context (_operator, "Incompatible type for `%s'. Explicit" \
-                         " cast needed to convert `%s' to integral",	\
+    parse_error_context (_operator,					\
+"Incompatible type for `%s'. Explicit cast needed to convert `%s' to integral",\
 			 operator_string(_node),			\
 			 lang_printable_name (_type, 0));		\
   else									\
-    parse_error_context (_operator, "Incompatible type for `%s'. Can't" \
-                         " convert `%s' to integral",			\
+    parse_error_context (_operator,					\
+      "Incompatible type for `%s'. Can't convert `%s' to integral",	\
 			 operator_string(_node),			\
 			 lang_printable_name (_type, 0));		\
 } while (0)
@@ -487,7 +486,7 @@ typedef struct _jdeplist {
   build_expr_wfl ((NODE), input_filename, EXPR_WFL_LINENO ((WFL)), 	\
 		  EXPR_WFL_COLNO ((WFL)))
 
-#define EXPR_WFL_QUALIFICATION(WFL) TREE_OPERAND ((WFL), 1)
+#define EXPR_WFL_QUALIFICATION(WFL) TREE_OPERAND ((WFL), 2)
 #define QUAL_WFL(NODE) TREE_PURPOSE (NODE)
 #define QUAL_RESOLUTION(NODE) TREE_VALUE (NODE)
 #define QUAL_DECL_TYPE(NODE) GET_SKIP_TYPE (NODE)
@@ -534,7 +533,7 @@ typedef struct _jdeplist {
 #define BUILD_THROW(WHERE, WHAT)					\
   {									\
     (WHERE) = build (CALL_EXPR, void_type_node,				\
-		  build_address_of (throw_node),			\
+		  build_address_of (throw_node[exceptions_via_longjmp ? 1 : 0]), \
 		  build_tree_list (NULL_TREE, (WHAT)), NULL_TREE);	\
     TREE_SIDE_EFFECTS ((WHERE)) = 1;					\
   }
@@ -606,10 +605,24 @@ struct parser_ctxt {
   int osb_depth;		     /* Current depth of [ in an expression */
   int osb_limit;		     /* Limit of this depth */
   int *osb_number;		     /* Keep track of ['s */
-  int minus_seen;		     /* Integral literal overflow */
   int lineno;			     /* Current lineno */
-  int java_error_flag;		     /* Report error when true */
-  int deprecated;		     /* @deprecated tag seen */
+
+  /* The flags section */
+
+  /* Indicates a context used for saving the parser status. The
+     context must be popped when the status is restored. */
+  unsigned saved_data_ctx:1;	
+  /* Indicates that a context already contains saved data and that the
+     next save operation will require a new context to be created. */
+  unsigned saved_data:1;
+  /* Integral literal overflow */
+  unsigned minus_seen:1;
+  /* Report error when true */
+  unsigned java_error_flag:1;
+  /* @deprecated tag seen */
+  unsigned deprecated:1;
+  /* Flag to report certain errors (fix this documentation. FIXME) */
+  unsigned class_err:1;
 
   /* This section is defined only if we compile jc1 */
 #ifndef JC1_LITE
@@ -620,7 +633,6 @@ struct parser_ctxt {
   struct JCF *current_jcf;	    /* CU jcf */
 
   int prevent_ese;	            /* Prevent expression statement error */
-  int class_err;		    /* Flag to report certain errors */
 
   int formal_parameter_number;	    /* Number of parameters found */
   int interface_number;		    /* # itfs declared to extend an itf def */
@@ -651,7 +663,7 @@ struct parser_ctxt {
 
   int pending_block;		    /* Pending block to close */
 
-  int explicit_constructor_p;	    /* True when processing an explicit
+  int explicit_constructor_p;	    /* >0 when processing an explicit
 				       constructor. This flag is used to trap
 				       illegal argument usage during an
 				       explicit constructor invocation. */
@@ -662,6 +674,7 @@ struct parser_ctxt {
 void safe_layout_class PROTO ((tree));
 void java_complete_class PROTO ((void));
 void java_check_circular_reference PROTO ((void));
+void java_fix_constructors PROTO ((void));
 void java_check_final PROTO ((void));
 void java_layout_classes PROTO ((void));
 tree java_method_add_stmt PROTO ((tree, tree));

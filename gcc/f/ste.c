@@ -35,6 +35,7 @@ the Free Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #if FFECOM_targetCURRENT == FFECOM_targetGCC
 #include "rtl.j"
 #include "toplev.j"
+#include "ggc.j"
 #endif
 
 #include "ste.h"
@@ -1218,9 +1219,6 @@ ffeste_io_ialist_ (bool have_err,
     {
       tree ref;
 
-      push_obstacks_nochange ();
-      end_temporary_allocation ();
-
       ref = make_node (RECORD_TYPE);
 
       errfield = ffecom_decl_field (ref, NULL_TREE, "err",
@@ -1231,8 +1229,7 @@ ffeste_io_ialist_ (bool have_err,
       TYPE_FIELDS (ref) = errfield;
       layout_type (ref);
 
-      resume_temporary_allocation ();
-      pop_obstacks ();
+      ggc_add_tree_root (&f2c_alist_struct, 1);
 
       f2c_alist_struct = ref;
     }
@@ -1279,7 +1276,7 @@ ffeste_io_ialist_ (bool have_err,
   yes = suspend_momentary ();
 
   t = build_decl (VAR_DECL,
-		  ffecom_get_invented_identifier ("__g77_alist_%d", NULL,
+		  ffecom_get_invented_identifier ("__g77_alist_%d",
 						  mynumber++),
 		  f2c_alist_struct);
   TREE_STATIC (t) = 1;
@@ -1355,9 +1352,6 @@ ffeste_io_cilist_ (bool have_err,
     {
       tree ref;
 
-      push_obstacks_nochange ();
-      end_temporary_allocation ();
-
       ref = make_node (RECORD_TYPE);
 
       errfield = ffecom_decl_field (ref, NULL_TREE, "err",
@@ -1374,8 +1368,7 @@ ffeste_io_cilist_ (bool have_err,
       TYPE_FIELDS (ref) = errfield;
       layout_type (ref);
 
-      resume_temporary_allocation ();
-      pop_obstacks ();
+      ggc_add_tree_root (&f2c_cilist_struct, 1);
 
       f2c_cilist_struct = ref;
     }
@@ -1495,7 +1488,7 @@ ffeste_io_cilist_ (bool have_err,
   yes = suspend_momentary ();
 
   t = build_decl (VAR_DECL,
-		  ffecom_get_invented_identifier ("__g77_cilist_%d", NULL,
+		  ffecom_get_invented_identifier ("__g77_cilist_%d",
 						  mynumber++),
 		  f2c_cilist_struct);
   TREE_STATIC (t) = 1;
@@ -1586,9 +1579,6 @@ ffeste_io_cllist_ (bool have_err,
     {
       tree ref;
 
-      push_obstacks_nochange ();
-      end_temporary_allocation ();
-
       ref = make_node (RECORD_TYPE);
 
       errfield = ffecom_decl_field (ref, NULL_TREE, "err",
@@ -1601,8 +1591,7 @@ ffeste_io_cllist_ (bool have_err,
       TYPE_FIELDS (ref) = errfield;
       layout_type (ref);
 
-      resume_temporary_allocation ();
-      pop_obstacks ();
+      ggc_add_tree_root (&f2c_close_struct, 1);
 
       f2c_close_struct = ref;
     }
@@ -1635,7 +1624,7 @@ ffeste_io_cllist_ (bool have_err,
   yes = suspend_momentary ();
 
   t = build_decl (VAR_DECL,
-		  ffecom_get_invented_identifier ("__g77_cllist_%d", NULL,
+		  ffecom_get_invented_identifier ("__g77_cllist_%d",
 						  mynumber++),
 		  f2c_close_struct);
   TREE_STATIC (t) = 1;
@@ -1713,9 +1702,6 @@ ffeste_io_icilist_ (bool have_err,
     {
       tree ref;
 
-      push_obstacks_nochange ();
-      end_temporary_allocation ();
-
       ref = make_node (RECORD_TYPE);
 
       errfield = ffecom_decl_field (ref, NULL_TREE, "err",
@@ -1734,8 +1720,7 @@ ffeste_io_icilist_ (bool have_err,
       TYPE_FIELDS (ref) = errfield;
       layout_type (ref);
 
-      resume_temporary_allocation ();
-      pop_obstacks ();
+      ggc_add_tree_root (&f2c_icilist_struct, 1);
 
       f2c_icilist_struct = ref;
     }
@@ -1853,7 +1838,7 @@ ffeste_io_icilist_ (bool have_err,
   yes = suspend_momentary ();
 
   t = build_decl (VAR_DECL,
-		  ffecom_get_invented_identifier ("__g77_icilist_%d", NULL,
+		  ffecom_get_invented_identifier ("__g77_icilist_%d",
 						  mynumber++),
 		  f2c_icilist_struct);
   TREE_STATIC (t) = 1;
@@ -1976,9 +1961,6 @@ ffeste_io_inlist_ (bool have_err,
     {
       tree ref;
 
-      push_obstacks_nochange ();
-      end_temporary_allocation ();
-
       ref = make_node (RECORD_TYPE);
 
       errfield = ffecom_decl_field (ref, NULL_TREE, "err",
@@ -2041,8 +2023,7 @@ ffeste_io_inlist_ (bool have_err,
       TYPE_FIELDS (ref) = errfield;
       layout_type (ref);
 
-      resume_temporary_allocation ();
-      pop_obstacks ();
+      ggc_add_tree_root (&f2c_inquire_struct, 1);
 
       f2c_inquire_struct = ref;
     }
@@ -2113,7 +2094,7 @@ ffeste_io_inlist_ (bool have_err,
   yes = suspend_momentary ();
 
   t = build_decl (VAR_DECL,
-		  ffecom_get_invented_identifier ("__g77_inlist_%d", NULL,
+		  ffecom_get_invented_identifier ("__g77_inlist_%d",
 						  mynumber++),
 		  f2c_inquire_struct);
   TREE_STATIC (t) = 1;
@@ -2229,9 +2210,6 @@ ffeste_io_olist_ (bool have_err,
     {
       tree ref;
 
-      push_obstacks_nochange ();
-      end_temporary_allocation ();
-
       ref = make_node (RECORD_TYPE);
 
       errfield = ffecom_decl_field (ref, NULL_TREE, "err",
@@ -2256,8 +2234,7 @@ ffeste_io_olist_ (bool have_err,
       TYPE_FIELDS (ref) = errfield;
       layout_type (ref);
 
-      resume_temporary_allocation ();
-      pop_obstacks ();
+      ggc_add_tree_root (&f2c_open_struct, 1);
 
       f2c_open_struct = ref;
     }
@@ -2302,7 +2279,7 @@ ffeste_io_olist_ (bool have_err,
   yes = suspend_momentary ();
 
   t = build_decl (VAR_DECL,
-		  ffecom_get_invented_identifier ("__g77_olist_%d", NULL,
+		  ffecom_get_invented_identifier ("__g77_olist_%d",
 						  mynumber++),
 		  f2c_open_struct);
   TREE_STATIC (t) = 1;

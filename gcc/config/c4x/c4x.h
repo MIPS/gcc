@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler.  TMS320C[34]x
-   Copyright (C) 1994-98, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1994-99, 2000 Free Software Foundation, Inc.
 
    Contributed by Michael Hayes (m.hayes@elec.canterbury.ac.nz)
               and Herman Ten Brugge (Haj.Ten.Brugge@net.HCC.nl).
@@ -21,19 +21,15 @@
    the Free Software Foundation, 59 Temple Place - Suite 330,
    Boston, MA 02111-1307, USA.  */
 
-/* Set the following so that some of the macros expand to function
-   calls to simplify debugging.  */
-#define C4X_DEBUG 1
-
-/* RUN-TIME TARGET SPECIFICATION */
+/* RUN-TIME TARGET SPECIFICATION.  */
 
 #define C4x   1
 
-/* Name of the c4x assembler */
+/* Name of the c4x assembler.  */
 
 #define ASM_PROG "c4x-as"
 
-/* Name of the c4x linker */
+/* Name of the c4x linker.  */
 
 #define LD_PROG "c4x-ld"
 
@@ -94,32 +90,32 @@
 
 /* Target compilation option flags.  */
 
-#define SMALL_MEMORY_FLAG   0x0000001 /* small memory model */
-#define MPYI_FLAG           0x0000002 /* use 24-bit MPYI for C3x */
-#define FAST_FIX_FLAG       0x0000004 /* fast fixing of floats */
-#define RPTS_FLAG           0x0000008 /* allow use of RPTS */
-#define C3X_FLAG            0x0000010 /* emit C3x code */
-#define TI_FLAG             0x0000020 /* be compatible with TI assembler */
-#define PARANOID_FLAG       0x0000040 /* be paranoid about DP reg. in ISRs */
-#define MEMPARM_FLAG        0x0000080 /* pass arguments on stack */
-#define DEVEL_FLAG          0x0000100 /* enable features under development */
-#define RPTB_FLAG           0x0000200 /* enable repeat block */
-#define BK_FLAG             0x0000400 /* use BK as general register */
-#define DB_FLAG             0x0000800 /* use decrement and branch for C3x */
-#define DEBUG_FLAG          0x0001000 /* enable debugging of GCC */
-#define HOIST_FLAG          0x0002000 /* force constants into registers */
-#define LOOP_UNSIGNED_FLAG  0x0004000 /* allow unsigned loop counters */
-#define FORCE_FLAG          0x0008000 /* force op0 and op1 to be same */
-#define PRESERVE_FLOAT_FLAG 0x0010000 /* save all 40 bits for floats */
-#define PARALLEL_PACK_FLAG  0x0020000 /* allow parallel insn packing */
-#define PARALLEL_MPY_FLAG   0x0040000 /* allow MPY||ADD, MPY||SUB insns */
-#define ALIASES_FLAG	    0x0080000 /* assume mem refs possibly aliased */
+#define SMALL_MEMORY_FLAG   0x0000001 /* Small memory model.  */
+#define MPYI_FLAG           0x0000002 /* Use 24-bit MPYI for C3x.  */
+#define FAST_FIX_FLAG       0x0000004 /* Fast fixing of floats.  */
+#define RPTS_FLAG           0x0000008 /* Allow use of RPTS.  */
+#define C3X_FLAG            0x0000010 /* Emit C3x code.  */
+#define TI_FLAG             0x0000020 /* Be compatible with TI assembler.  */
+#define PARANOID_FLAG       0x0000040 /* Be paranoid about DP reg. in ISRs.  */
+#define MEMPARM_FLAG        0x0000080 /* Pass arguments on stack.  */
+#define DEVEL_FLAG          0x0000100 /* Enable features under development.  */
+#define RPTB_FLAG           0x0000200 /* Enable repeat block.  */
+#define BK_FLAG             0x0000400 /* Use BK as general register.  */
+#define DB_FLAG             0x0000800 /* Use decrement and branch for C3x.  */
+#define DEBUG_FLAG          0x0001000 /* Enable debugging of GCC.  */
+#define HOIST_FLAG          0x0002000 /* Force constants into registers.  */
+#define LOOP_UNSIGNED_FLAG  0x0004000 /* Allow unsigned loop counters.  */
+#define FORCE_FLAG          0x0008000 /* Force op0 and op1 to be same.  */
+#define PRESERVE_FLOAT_FLAG 0x0010000 /* Save all 40 bits for floats.  */
+#define PARALLEL_PACK_FLAG  0x0020000 /* Allow parallel insn packing.  */
+#define PARALLEL_MPY_FLAG   0x0040000 /* Allow MPY||ADD, MPY||SUB insns.  */
+#define ALIASES_FLAG	    0x0080000 /* Assume mem refs possibly aliased.  */
 
-#define C30_FLAG            0x0100000 /* emit C30 code */
-#define C31_FLAG            0x0200000 /* emit C31 code */
-#define C32_FLAG            0x0400000 /* emit C32 code */
-#define C40_FLAG            0x1000000 /* emit C40 code */
-#define C44_FLAG            0x2000000 /* emit C44 code */
+#define C30_FLAG            0x0100000 /* Emit C30 code.  */
+#define C31_FLAG            0x0200000 /* Emit C31 code.  */
+#define C32_FLAG            0x0400000 /* Emit C32 code.  */
+#define C40_FLAG            0x1000000 /* Emit C40 code.  */
+#define C44_FLAG            0x2000000 /* Emit C44 code.  */
 
 /* Run-time compilation parameters selecting different hardware subsets.
 
@@ -222,7 +218,7 @@
     "Assume that pointers not aliased" }, \
   { "", TARGET_DEFAULT, ""} }
 
-/* Default target switches */
+/* Default target switches.  */
 
 /* Play safe, not the fastest code.  */
 #define TARGET_DEFAULT		ALIASES_FLAG | PARALLEL_PACK_FLAG \
@@ -236,8 +232,8 @@
 
 extern int target_flags;
 
-#define TARGET_INLINE		1 /* Inline MPYI */
-#define TARGET_PARALLEL	        1 /* Enable parallel insns in MD */
+#define TARGET_INLINE		(! optimize_size) /* Inline MPYI.  */
+#define TARGET_PARALLEL	        1 /* Enable parallel insns in MD.  */
 #define TARGET_SMALL_REG_CLASS	0
 
 #define TARGET_SMALL		(target_flags & SMALL_MEMORY_FLAG)
@@ -283,7 +279,7 @@ extern int target_flags;
 
 #define	BCT_CHECK_LOOP_ITERATIONS  !(TARGET_LOOP_UNSIGNED)
 
-/* -mcpu=XX    with XX = target DSP version number */
+/* -mcpu=XX    with XX = target DSP version number.  */
 
 /* This macro is similar to `TARGET_SWITCHES' but defines names of
    command options that have values.  Its definition is an
@@ -316,18 +312,17 @@ extern const char *c4x_rpts_cycles_string, *c4x_cpu_version_string;
    defined, is executed once just after all the command options have
    been parsed.  */
 
-extern void c4x_override_options ();
 #define OVERRIDE_OPTIONS c4x_override_options ()
 
 /* Define this to change the optimizations performed by default.  */
-extern void c4x_optimization_options ();
-#define OPTIMIZATION_OPTIONS(LEVEL,SIZE) c4x_optimization_options(LEVEL,SIZE)
 
-/* Run Time Target Specification  */
+#define OPTIMIZATION_OPTIONS(LEVEL,SIZE) c4x_optimization_options(LEVEL, SIZE)
 
-#define TARGET_VERSION fprintf (stderr, " (TMS320C[34]x, TI syntax)" );
+/* Run Time Target Specification.  */
 
-/* Storage Layout  */
+#define TARGET_VERSION fprintf (stderr, " (TMS320C[34]x, TI syntax)");
+
+/* Storage Layout.  */
 
 #define BITS_BIG_ENDIAN		0
 #define BYTES_BIG_ENDIAN	0
@@ -355,7 +350,11 @@ extern void c4x_optimization_options ();
 #define EMPTY_FIELD_BOUNDARY	32
 #define STRICT_ALIGNMENT	0
 #define TARGET_FLOAT_FORMAT	C4X_FLOAT_FORMAT
-#define MAX_FIXED_MODE_SIZE	64 /* HImode */
+#define MAX_FIXED_MODE_SIZE	64 /* HImode.  */
+
+/* If a structure has a floating point field then force structure
+   to have BLKMODE.  */
+#define STRUCT_FORCE_BLK(FIELD) (TREE_CODE (TREE_TYPE (FIELD)) == REAL_TYPE)
 
 /* Number of bits in the high and low parts of a two stage
    load of an immediate constant.  */
@@ -367,9 +366,9 @@ extern void c4x_optimization_options ();
 
 #define REAL_ARITHMETIC
 
-/* Define register numbers */
+/* Define register numbers.  */
 
-/* Extended-precision registers */
+/* Extended-precision registers.  */
 
 #define R0_REGNO   0
 #define R1_REGNO   1
@@ -380,7 +379,7 @@ extern void c4x_optimization_options ();
 #define R6_REGNO   6
 #define R7_REGNO   7
 
-/* Auxiliary (address) registers */
+/* Auxiliary (address) registers.  */
 
 #define AR0_REGNO  8
 #define AR1_REGNO  9
@@ -391,127 +390,132 @@ extern void c4x_optimization_options ();
 #define AR6_REGNO 14
 #define AR7_REGNO 15
 
-/* Data page register */
+/* Data page register.  */
 
 #define DP_REGNO  16
 
-/* Index registers */
+/* Index registers.  */
 
 #define IR0_REGNO 17
 #define IR1_REGNO 18
 
-/* Block size register */
+/* Block size register.  */
 
 #define BK_REGNO  19
 
-/* Stack pointer */
+/* Stack pointer.  */
 
 #define SP_REGNO  20
 
-/* Status register */
+/* Status register.  */
 
 #define ST_REGNO  21
 
-/* Misc. interrupt registers */
+/* Misc. interrupt registers.  */
 
-#define DIE_REGNO 22		/* C4x only */
-#define IE_REGNO  22		/* C3x only */
-#define IIE_REGNO 23		/* C4x only */
-#define IF_REGNO  23		/* C3x only */
-#define IIF_REGNO 24		/* C4x only */
-#define IOF_REGNO 24		/* C3x only */
+#define DIE_REGNO 22		/* C4x only.  */
+#define IE_REGNO  22		/* C3x only.  */
+#define IIE_REGNO 23		/* C4x only.  */
+#define IF_REGNO  23		/* C3x only.  */
+#define IIF_REGNO 24		/* C4x only.  */
+#define IOF_REGNO 24		/* C3x only.  */
 
-/* Repeat block registers */
+/* Repeat block registers.  */
 
 #define RS_REGNO  25
 #define RE_REGNO  26
 #define RC_REGNO  27
 
-/* Additional extended-precision registers */
+/* Additional extended-precision registers.  */
 
-#define R8_REGNO  28		/* C4x only */
-#define R9_REGNO  29		/* C4x only */
-#define R10_REGNO 30		/* C4x only */
-#define R11_REGNO 31		/* C4x only */
+#define R8_REGNO  28		/* C4x only.  */
+#define R9_REGNO  29		/* C4x only.  */
+#define R10_REGNO 30		/* C4x only.  */
+#define R11_REGNO 31		/* C4x only.  */
 
 #define FIRST_PSEUDO_REGISTER	32
 
-/* Extended precision registers (low set) */
+/* Extended precision registers (low set).  */
 
-#define IS_R0R1_REG(r)             ((((r) >= R0_REGNO) && ((r) <= R1_REGNO)))
-#define IS_R2R3_REG(r)             ((((r) >= R2_REGNO) && ((r) <= R3_REGNO)))
-#define IS_EXT_LOW_REG(r)          ((((r) >= R0_REGNO) && ((r) <= R7_REGNO)))
+#define IS_R0R1_REGNO(r)           ((((r) >= R0_REGNO) && ((r) <= R1_REGNO)))
+#define IS_R2R3_REGNO(r)           ((((r) >= R2_REGNO) && ((r) <= R3_REGNO)))
+#define IS_EXT_LOW_REGNO(r)        ((((r) >= R0_REGNO) && ((r) <= R7_REGNO)))
 
-/* Extended precision registers (high set) */
+/* Extended precision registers (high set).  */
 
-#define IS_EXT_HIGH_REG(r)         (! TARGET_C3X \
+#define IS_EXT_HIGH_REGNO(r)       (! TARGET_C3X \
 			            && ((r) >= R8_REGNO) && ((r) <= R11_REGNO))
-/* Address registers */
+/* Address registers.  */
 
-#define IS_AUX_REG(r)    (((r) >= AR0_REGNO) && ((r) <= AR7_REGNO))
-#define IS_ADDR_REG(r)   IS_AUX_REG(r)
-#define IS_DP_REG(r)     ((r) == DP_REGNO)
-#define IS_INDEX_REG(r)  (((r) == IR0_REGNO) || ((r) == IR1_REGNO))
-#define IS_SP_REG(r)     ((r) == SP_REGNO)
-#define IS_BK_REG(r)     (TARGET_BK && (r) == BK_REGNO)
+#define IS_AUX_REGNO(r)    (((r) >= AR0_REGNO) && ((r) <= AR7_REGNO))
+#define IS_ADDR_REGNO(r)   IS_AUX_REGNO(r)
+#define IS_DP_REGNO(r)     ((r) == DP_REGNO)
+#define IS_INDEX_REGNO(r)  (((r) == IR0_REGNO) || ((r) == IR1_REGNO))
+#define IS_SP_REGNO(r)     ((r) == SP_REGNO)
+#define IS_BK_REGNO(r)     (TARGET_BK && (r) == BK_REGNO)
 
-/* Misc registers */
+/* Misc registers.  */
 
-#define IS_ST_REG(r)     ((r) == ST_REGNO)
-#define IS_RC_REG(r)     ((r) == RC_REGNO)
-#define IS_REPEAT_REG(r) (((r) >= RS_REGNO) && ((r) <= RC_REGNO))
+#define IS_ST_REGNO(r)     ((r) == ST_REGNO)
+#define IS_RC_REGNO(r)     ((r) == RC_REGNO)
+#define IS_REPEAT_REGNO(r) (((r) >= RS_REGNO) && ((r) <= RC_REGNO))
 
-/* Composite register sets */
+/* Composite register sets.  */
 
-#define IS_ADDR_OR_INDEX_REG(r) (IS_ADDR_REG(r) || IS_INDEX_REG(r))
-#define IS_EXT_REG(r)           (IS_EXT_LOW_REG(r) || IS_EXT_HIGH_REG(r))
-#define IS_STD_REG(r)           (IS_ADDR_OR_INDEX_REG(r) || IS_REPEAT_REG(r) \
-                                 || IS_SP_REG(r) || IS_BK_REG(r))
-#define IS_INT_REG(r)           (IS_EXT_REG(r) || IS_STD_REG(r))
-#define IS_GROUP1_REG(r)        (IS_ADDR_OR_INDEX_REG(r) || IS_BK_REG(r))
+#define IS_ADDR_OR_INDEX_REGNO(r) (IS_ADDR_REGNO(r) || IS_INDEX_REGNO(r))
+#define IS_EXT_REGNO(r)           (IS_EXT_LOW_REGNO(r) || IS_EXT_HIGH_REGNO(r))
+#define IS_STD_REGNO(r)           (IS_ADDR_OR_INDEX_REGNO(r) \
+				   || IS_REPEAT_REGNO(r) \
+                                   || IS_SP_REGNO(r) \
+		       		   || IS_BK_REGNO(r))
+#define IS_INT_REGNO(r)           (IS_EXT_REGNO(r) || IS_STD_REGNO(r))
+#define IS_GROUP1_REGNO(r)        (IS_ADDR_OR_INDEX_REGNO(r) || IS_BK_REGNO(r))
 
+#define IS_PSEUDO_REGNO(r)            ((r) >= FIRST_PSEUDO_REGISTER)
+#define IS_R0R1_OR_PSEUDO_REGNO(r)    (IS_R0R1_REGNO(r) || IS_PSEUDO_REGNO(r))
+#define IS_R2R3_OR_PSEUDO_REGNO(r)    (IS_R2R3_REGNO(r) || IS_PSEUDO_REGNO(r))
+#define IS_EXT_OR_PSEUDO_REGNO(r)     (IS_EXT_REGNO(r) || IS_PSEUDO_REGNO(r))
+#define IS_STD_OR_PSEUDO_REGNO(r)     (IS_STD_REGNO(r) || IS_PSEUDO_REGNO(r))
+#define IS_INT_OR_PSEUDO_REGNO(r)     (IS_INT_REGNO(r) || IS_PSEUDO_REGNO(r))
+#define IS_ADDR_OR_PSEUDO_REGNO(r)    (IS_ADDR_REGNO(r) || IS_PSEUDO_REGNO(r))
+#define IS_INDEX_OR_PSEUDO_REGNO(r)   (IS_INDEX_REGNO(r) || IS_PSEUDO_REGNO(r))
+#define IS_EXT_LOW_OR_PSEUDO_REGNO(r) (IS_EXT_LOW_REGNO(r) \
+				       || IS_PSEUDO_REGNO(r))
+#define IS_DP_OR_PSEUDO_REGNO(r)      (IS_DP_REGNO(r) || IS_PSEUDO_REGNO(r))
+#define IS_SP_OR_PSEUDO_REGNO(r)      (IS_SP_REGNO(r) || IS_PSEUDO_REGNO(r))
+#define IS_ST_OR_PSEUDO_REGNO(r)      (IS_ST_REGNO(r) || IS_PSEUDO_REGNO(r))
+#define IS_RC_OR_PSEUDO_REGNO(r)      (IS_RC_REGNO(r) || IS_PSEUDO_REGNO(r))
 
-#define IS_PSEUDO_REG(r)            ((r) >= FIRST_PSEUDO_REGISTER)
-#define IS_R0R1_OR_PSEUDO_REG(r)    (IS_R0R1_REG(r) || IS_PSEUDO_REG(r))
-#define IS_R2R3_OR_PSEUDO_REG(r)    (IS_R2R3_REG(r) || IS_PSEUDO_REG(r))
-#define IS_EXT_OR_PSEUDO_REG(r)     (IS_EXT_REG(r) || IS_PSEUDO_REG(r))
-#define IS_STD_OR_PSEUDO_REG(r)     (IS_STD_REG(r) || IS_PSEUDO_REG(r))
-#define IS_INT_OR_PSEUDO_REG(r)     (IS_INT_REG(r) || IS_PSEUDO_REG(r))
-#define IS_ADDR_OR_PSEUDO_REG(r)    (IS_ADDR_REG(r) || IS_PSEUDO_REG(r))
-#define IS_INDEX_OR_PSEUDO_REG(r)   (IS_INDEX_REG(r) || IS_PSEUDO_REG(r))
-#define IS_EXT_LOW_OR_PSEUDO_REG(r) (IS_EXT_LOW_REG(r) || IS_PSEUDO_REG(r))
-#define IS_DP_OR_PSEUDO_REG(r)      (IS_DP_REG(r) || IS_PSEUDO_REG(r))
-#define IS_SP_OR_PSEUDO_REG(r)      (IS_SP_REG(r) || IS_PSEUDO_REG(r))
-#define IS_ST_OR_PSEUDO_REG(r)      (IS_ST_REG(r) || IS_PSEUDO_REG(r))
-#define IS_RC_OR_PSEUDO_REG(r)      (IS_RC_REG(r) || IS_PSEUDO_REG(r))
+#define IS_PSEUDO_REG(op)          (IS_PSEUDO_REGNO(REGNO(op)))
+#define IS_ADDR_REG(op)            (IS_ADDR_REGNO(REGNO(op)))
+#define IS_INDEX_REG(op)           (IS_INDEX_REGNO(REGNO(op)))
+#define IS_GROUP1_REG(r)           (IS_GROUP1_REGNO(REGNO(op)))
+#define IS_SP_REG(op)              (IS_SP_REGNO(REGNO(op)))
+#define IS_STD_REG(op)             (IS_STD_REGNO(REGNO(op)))
+#define IS_EXT_REG(op)             (IS_EXT_REGNO(REGNO(op)))
 
-#define IS_PSEUDO_REGNO(op)          (IS_PSEUDO_REG(REGNO(op)))
-#define IS_ADDR_REGNO(op)            (IS_ADDR_REG(REGNO(op)))
-#define IS_INDEX_REGNO(op)           (IS_INDEX_REG(REGNO(op)))
-#define IS_GROUP1_REGNO(r)           (IS_GROUP1_REG(REGNO(op)))
+#define IS_R0R1_OR_PSEUDO_REG(op)  (IS_R0R1_OR_PSEUDO_REGNO(REGNO(op)))
+#define IS_R2R3_OR_PSEUDO_REG(op)  (IS_R2R3_OR_PSEUDO_REGNO(REGNO(op)))
+#define IS_EXT_OR_PSEUDO_REG(op)   (IS_EXT_OR_PSEUDO_REGNO(REGNO(op)))
+#define IS_STD_OR_PSEUDO_REG(op)   (IS_STD_OR_PSEUDO_REGNO(REGNO(op)))
+#define IS_EXT_LOW_OR_PSEUDO_REG(op) (IS_EXT_LOW_OR_PSEUDO_REGNO(REGNO(op)))
+#define IS_INT_OR_PSEUDO_REG(op)   (IS_INT_OR_PSEUDO_REGNO(REGNO(op)))
 
-#define IS_R0R1_OR_PSEUDO_REGNO(op)  (IS_R0R1_OR_PSEUDO_REG(REGNO(op)))
-#define IS_R2R3_OR_PSEUDO_REGNO(op)  (IS_R2R3_OR_PSEUDO_REG(REGNO(op)))
-#define IS_EXT_OR_PSEUDO_REGNO(op)   (IS_EXT_OR_PSEUDO_REG(REGNO(op)))
-#define IS_STD_OR_PSEUDO_REGNO(op)   (IS_STD_OR_PSEUDO_REG(REGNO(op)))
-#define IS_EXT_LOW_OR_PSEUDO_REGNO(op) (IS_EXT_LOW_OR_PSEUDO_REG(REGNO(op)))
-#define IS_INT_OR_PSEUDO_REGNO(op)   (IS_INT_OR_PSEUDO_REG(REGNO(op)))
-
-#define IS_ADDR_OR_PSEUDO_REGNO(op)  (IS_ADDR_OR_PSEUDO_REG(REGNO(op)))
-#define IS_INDEX_OR_PSEUDO_REGNO(op) (IS_INDEX_OR_PSEUDO_REG(REGNO(op)))
-#define IS_DP_OR_PSEUDO_REGNO(op)    (IS_DP_OR_PSEUDO_REG(REGNO(op)))
-#define IS_SP_OR_PSEUDO_REGNO(op)    (IS_SP_OR_PSEUDO_REG(REGNO(op)))
-#define IS_ST_OR_PSEUDO_REGNO(op)    (IS_ST_OR_PSEUDO_REG(REGNO(op)))
-#define IS_RC_OR_PSEUDO_REGNO(op)    (IS_RC_OR_PSEUDO_REG(REGNO(op)))
+#define IS_ADDR_OR_PSEUDO_REG(op)  (IS_ADDR_OR_PSEUDO_REGNO(REGNO(op)))
+#define IS_INDEX_OR_PSEUDO_REG(op) (IS_INDEX_OR_PSEUDO_REGNO(REGNO(op)))
+#define IS_DP_OR_PSEUDO_REG(op)    (IS_DP_OR_PSEUDO_REGNO(REGNO(op)))
+#define IS_SP_OR_PSEUDO_REG(op)    (IS_SP_OR_PSEUDO_REGNO(REGNO(op)))
+#define IS_ST_OR_PSEUDO_REG(op)    (IS_ST_OR_PSEUDO_REGNO(REGNO(op)))
+#define IS_RC_OR_PSEUDO_REG(op)    (IS_RC_OR_PSEUDO_REGNO(REGNO(op)))
 
 /* 1 for registers that have pervasive standard uses
    and are not available for the register allocator.  */
 
 #define FIXED_REGISTERS \
 {									\
-/* R0  R1  R2  R3  R4  R5  R6  R7 AR0 AR1 AR2 AR3 AR4 AR5 AR6 AR7 */	\
+/* R0  R1  R2  R3  R4  R5  R6  R7 AR0 AR1 AR2 AR3 AR4 AR5 AR6 AR7.  */	\
     0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,	\
-/* DP IR0 IR1  BK  SP  ST DIE IIE IIF  RS  RE  RC  R8  R9 R10 R11 */	\
+/* DP IR0 IR1  BK  SP  ST DIE IIE IIF  RS  RE  RC  R8  R9 R10 R11.  */	\
     1,  0,  0,  0,  1,  1,  1,  1,  1,  0,  0,  0,  0,  0,  0,  0	\
 }
 
@@ -528,9 +532,9 @@ extern void c4x_optimization_options ();
 
 #define CALL_USED_REGISTERS \
 {									\
-/* R0  R1  R2  R3  R4  R5  R6  R7 AR0 AR1 AR2 AR3 AR4 AR5 AR6 AR7 */	\
+/* R0  R1  R2  R3  R4  R5  R6  R7 AR0 AR1 AR2 AR3 AR4 AR5 AR6 AR7.  */	\
     1,  1,  1,  1,  0,  0,  0,  0,  1,  1,  1,  0,  0,  0,  0,  0,	\
-/* DP IR0 IR1  BK  SP  ST DIE IIE IIF  RS  RE  RC  R8  R9 R10 R11 */	\
+/* DP IR0 IR1  BK  SP  ST DIE IIE IIF  RS  RE  RC  R8  R9 R10 R11.  */	\
     1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  0,  1,  1,  1	\
 }
 
@@ -548,9 +552,9 @@ extern void c4x_optimization_options ();
       {							\
 	 int i;                                          \
 							 \
-	 reg_names[DIE_REGNO] = "ie";  /* clobber die */ \
-	 reg_names[IF_REGNO] = "if";   /* clobber iie */ \
-	 reg_names[IOF_REGNO] = "iof"; /* clobber iif */ \
+	 reg_names[DIE_REGNO] = "ie";  /* Clobber die.  */ \
+	 reg_names[IF_REGNO] = "if";   /* Clobber iie.  */ \
+	 reg_names[IOF_REGNO] = "iof"; /* Clobber iif.  */ \
 	 						\
 	 for (i = R8_REGNO; i <= R11_REGNO; i++)	\
 	 {						\
@@ -565,7 +569,7 @@ extern void c4x_optimization_options ();
       }							\
    }
 
-/* Order of Allocation of Registers  */
+/* Order of Allocation of Registers.  */
 
 /* List the order in which to allocate registers.  Each register must be
    listed once, even those in FIXED_REGISTERS.
@@ -593,8 +597,7 @@ extern void c4x_optimization_options ();
    local-alloc.c won't allocate pseudos that have these classes as their
    preferred class unless they are "preferred or nothing".  */
 
-#define CLASS_LIKELY_SPILLED_P(CLASS) \
- ((CLASS) == INDEX_REGS)
+#define CLASS_LIKELY_SPILLED_P(CLASS) ((CLASS) == INDEX_REGS)
 
 /* CCmode is wrongly defined in machmode.def  It should have a size
    of UNITS_PER_WORD.  */
@@ -617,9 +620,7 @@ extern void c4x_optimization_options ();
 
 #define HARD_REGNO_CALLER_SAVE_MODE(REGNO, NREGS) (c4x_caller_save_map[REGNO])
 
-int c4x_hard_regno_mode_ok ();
-#define HARD_REGNO_MODE_OK(REGNO, MODE)  c4x_hard_regno_mode_ok(REGNO, MODE)
-
+#define HARD_REGNO_MODE_OK(REGNO, MODE) c4x_hard_regno_mode_ok(REGNO, MODE)
 
 /* A C expression that is nonzero if it is desirable to choose
    register allocation so as to avoid move instructions between a
@@ -630,7 +631,7 @@ int c4x_hard_regno_mode_ok ();
    If HARD_REGNO_MODE_OK could produce different values for MODE1 and MODE2,
    for any hard reg, then this must be 0 for correct output.  */
 
-#define MODES_TIEABLE_P(MODE1, MODE2)		0
+#define MODES_TIEABLE_P(MODE1, MODE2) 0
 
 
 /* Define the classes of registers for register constraints in the
@@ -656,20 +657,20 @@ int c4x_hard_regno_mode_ok ();
 enum reg_class
   {
     NO_REGS,
-    R0R1_REGS,			/* 't' */
-    R2R3_REGS,			/* 'u' */
-    EXT_LOW_REGS,		/* 'q' */
-    EXT_REGS,			/* 'f' */
-    ADDR_REGS,			/* 'a' */
-    INDEX_REGS,			/* 'x' */
-    BK_REG,			/* 'k' */
-    SP_REG,			/* 'b' */
-    RC_REG,			/* 'v' */
+    R0R1_REGS,			/* 't'.  */
+    R2R3_REGS,			/* 'u'.  */
+    EXT_LOW_REGS,		/* 'q'.  */
+    EXT_REGS,			/* 'f'.  */
+    ADDR_REGS,			/* 'a'.  */
+    INDEX_REGS,			/* 'x'.  */
+    BK_REG,			/* 'k'.  */
+    SP_REG,			/* 'b'.  */
+    RC_REG,			/* 'v'.  */
     COUNTER_REGS,		/*  */
-    INT_REGS,			/* 'c' */
-    GENERAL_REGS,		/* 'r' */
-    DP_REG,			/* 'z' */
-    ST_REG,			/* 'y' */
+    INT_REGS,			/* 'c'.  */
+    GENERAL_REGS,		/* 'r'.  */
+    DP_REG,			/* 'z'.  */
+    ST_REG,			/* 'y'.  */
     ALL_REGS,
     LIM_REG_CLASSES
   };
@@ -704,22 +705,22 @@ enum reg_class
 
 #define REG_CLASS_CONTENTS \
 {						\
- {0x00000000}, /*     No registers */		\
- {0x00000003}, /* 't' R0-R1	 */		\
- {0x0000000c}, /* 'u' R2-R3	 */		\
- {0x000000ff}, /* 'q' R0-R7	 */		\
+ {0x00000000}, /*     No registers.  */		\
+ {0x00000003}, /* 't' R0-R1	.  */		\
+ {0x0000000c}, /* 'u' R2-R3	.  */		\
+ {0x000000ff}, /* 'q' R0-R7	.  */		\
  {0xf00000ff}, /* 'f' R0-R11       */		\
- {0x0000ff00}, /* 'a' AR0-AR7 */		\
- {0x00060000}, /* 'x' IR0-IR1 */		\
- {0x00080000}, /* 'k' BK */			\
- {0x00100000}, /* 'b' SP */			\
- {0x08000000}, /* 'v' RC */			\
- {0x0800ff00}, /*     RC,AR0-AR7 */		\
- {0x0e1eff00}, /* 'c' AR0-AR7, IR0-IR1, BK, SP, RS, RE, RC */	\
- {0xfe1effff}, /* 'r' R0-R11, AR0-AR7, IR0-IR1, BK, SP, RS, RE, RC */\
- {0x00010000}, /* 'z' DP */			\
- {0x00200000}, /* 'y' ST */			\
- {0xffffffff}, /*     All registers */		\
+ {0x0000ff00}, /* 'a' AR0-AR7.  */		\
+ {0x00060000}, /* 'x' IR0-IR1.  */		\
+ {0x00080000}, /* 'k' BK.  */			\
+ {0x00100000}, /* 'b' SP.  */			\
+ {0x08000000}, /* 'v' RC.  */			\
+ {0x0800ff00}, /*     RC,AR0-AR7.  */		\
+ {0x0e1eff00}, /* 'c' AR0-AR7, IR0-IR1, BK, SP, RS, RE, RC.  */	\
+ {0xfe1effff}, /* 'r' R0-R11, AR0-AR7, IR0-IR1, BK, SP, RS, RE, RC.  */\
+ {0x00010000}, /* 'z' DP.  */			\
+ {0x00200000}, /* 'y' ST.  */			\
+ {0xffffffff}, /*     All registers.  */		\
 }
 
 /* The same information, inverted:
@@ -809,45 +810,42 @@ enum reg_class
    has been allocated, which happens in local-alloc.c.  */
 
 #define REGNO_OK_FOR_BASE_P(REGNO)  \
-     (IS_ADDR_REG(REGNO) || IS_ADDR_REG((unsigned)reg_renumber[REGNO]))
+     (IS_ADDR_REGNO(REGNO) || IS_ADDR_REGNO((unsigned)reg_renumber[REGNO]))
 
 #define REGNO_OK_FOR_INDEX_P(REGNO) \
-     (IS_INDEX_REG(REGNO) || IS_INDEX_REG((unsigned)reg_renumber[REGNO]))
+     (IS_INDEX_REGNO(REGNO) || IS_INDEX_REGNO((unsigned)reg_renumber[REGNO]))
 
-extern enum reg_class c4x_preferred_reload_class ();
-#define PREFERRED_RELOAD_CLASS(X, CLASS) c4x_preferred_reload_class(X, CLASS)
+#define PREFERRED_RELOAD_CLASS(X, CLASS) (CLASS)
 
-extern enum reg_class c4x_limit_reload_class ();
-#define LIMIT_RELOAD_CLASS(X, CLASS) c4x_limit_reload_class(X, CLASS)
+#define LIMIT_RELOAD_CLASS(X, CLASS) (CLASS)
 
-extern enum reg_class c4x_secondary_memory_needed ();
-#define SECONDARY_MEMORY_NEEDED(CLASS1, CLASS2, MODE) 	\
-c4x_secondary_memory_needed(CLASS1, CLASS2, MODE)
+#define SECONDARY_MEMORY_NEEDED(CLASS1, CLASS2, MODE) 0
 
 #define CLASS_MAX_NREGS(CLASS, MODE)			\
 (((MODE) == CCmode || (MODE) == CC_NOOVmode) ? 1 : ((MODE) == HFmode) ? 1 : \
 ((GET_MODE_SIZE(MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD))
 
-#define IS_INT5_CONST(VAL) (((VAL) <= 15) && ((VAL) >= -16))	/* 'K' */
+#define IS_INT5_CONST(VAL) (((VAL) <= 15) && ((VAL) >= -16))	/* 'K'.  */
 
-#define IS_UINT5_CONST(VAL) (((VAL) <= 31) && ((VAL) >= 0))	/* 'R' */
+#define IS_UINT5_CONST(VAL) (((VAL) <= 31) && ((VAL) >= 0))	/* 'R'.  */
 
-#define IS_INT8_CONST(VAL) (((VAL) <= 127) && ((VAL) >= -128))	/* 'J' */
+#define IS_INT8_CONST(VAL) (((VAL) <= 127) && ((VAL) >= -128))	/* 'J'.  */
 
-#define IS_UINT8_CONST(VAL) (((VAL) <= 255) && ((VAL) >= 0))	/* 'M' */
+#define IS_UINT8_CONST(VAL) (((VAL) <= 255) && ((VAL) >= 0))	/* 'M'.  */
 
-#define IS_INT16_CONST(VAL) (((VAL) <= 32767) && ((VAL) >= -32768)) /* 'I' */
+#define IS_INT16_CONST(VAL) (((VAL) <= 32767) && ((VAL) >= -32768)) /* 'I'.  */
 
-#define IS_UINT16_CONST(VAL) (((VAL) <= 65535) && ((VAL) >= 0))	/* 'L' */
+#define IS_UINT16_CONST(VAL) (((VAL) <= 65535) && ((VAL) >= 0))	/* 'L'.  */
 
-#define IS_NOT_UINT16_CONST(VAL) IS_UINT16_CONST(~(VAL))	/* 'N' */
+#define IS_NOT_UINT16_CONST(VAL) IS_UINT16_CONST(~(VAL))	/* 'N'.  */
 
-#define IS_HIGH_CONST(VAL) (! TARGET_C3X && (((VAL) & 0xffff) == 0)) /* 'O' */
+#define IS_HIGH_CONST(VAL) \
+(! TARGET_C3X && (((VAL) & 0xffff) == 0)) /* 'O'.  */
 
 
-#define IS_DISP1_CONST(VAL) (((VAL) <= 1) && ((VAL) >= -1)) /* 'S' */
+#define IS_DISP1_CONST(VAL) (((VAL) <= 1) && ((VAL) >= -1)) /* 'S'.  */
 
-#define IS_DISP8_CONST(VAL) (((VAL) <= 255) && ((VAL) >= -255))	/* 'Q' */
+#define IS_DISP8_CONST(VAL) (((VAL) <= 255) && ((VAL) >= -255))	/* 'Q'.  */
 
 #define IS_DISP1_OFF_CONST(VAL) (IS_DISP1_CONST (VAL) \
 				 && IS_DISP1_CONST (VAL + 1))
@@ -866,7 +864,7 @@ c4x_secondary_memory_needed(CLASS1, CLASS2, MODE)
         : 0 )	
 
 #define CONST_DOUBLE_OK_FOR_LETTER_P(OP, C) 				\
-        ( ((C) == 'G') ? (fp_zero_operand (OP))				\
+        ( ((C) == 'G') ? (fp_zero_operand (OP, QFmode))			\
 	: ((C) == 'H') ? (c4x_H_constant (OP)) 				\
 	: 0 )
 
@@ -980,7 +978,7 @@ c4x_secondary_memory_needed(CLASS1, CLASS2, MODE)
 #define C4X_ARG0 -2
 #define C4X_LOC0 1
 
-/* Basic Stack Layout  */
+/* Basic Stack Layout.  */
      
 /* The stack grows upward, stack frame grows upward, and args grow
    downward.  */
@@ -993,25 +991,25 @@ c4x_secondary_memory_needed(CLASS1, CLASS2, MODE)
 /* Define this if pushing a word on the stack
    makes the stack pointer a smaller address.  */
 
-/* #define STACK_GROWS_DOWNWARD */
-/* Like the dsp16xx, i370, i960, and we32k ports */
+/* #define STACK_GROWS_DOWNWARD.  */
+/* Like the dsp16xx, i370, i960, and we32k ports.  */
 
 /* Define this if the nominal address of the stack frame
    is at the high-address end of the local variables;
    that is, each additional local variable allocated
    goes at a more negative offset in the frame.  */
 
-/* #define FRAME_GROWS_DOWNWARD */
+/* #define FRAME_GROWS_DOWNWARD.  */
 
 
-/* Registers That Address the Stack Frame  */
+/* Registers That Address the Stack Frame.  */
 
-#define STACK_POINTER_REGNUM	SP_REGNO	/* SP */
-#define FRAME_POINTER_REGNUM	AR3_REGNO	/* AR3 */
-#define ARG_POINTER_REGNUM	AR3_REGNO	/* AR3 */
-#define STATIC_CHAIN_REGNUM	AR0_REGNO	/* AR0 */
+#define STACK_POINTER_REGNUM	SP_REGNO	/* SP.  */
+#define FRAME_POINTER_REGNUM	AR3_REGNO	/* AR3.  */
+#define ARG_POINTER_REGNUM	AR3_REGNO	/* AR3.  */
+#define STATIC_CHAIN_REGNUM	AR0_REGNO	/* AR0.  */
 
-/* Eliminating Frame Pointer and Arg Pointer  */
+/* Eliminating Frame Pointer and Arg Pointer.  */
 
 #define FRAME_POINTER_REQUIRED	0
 
@@ -1027,7 +1025,7 @@ c4x_secondary_memory_needed(CLASS1, CLASS2, MODE)
   (DEPTH) = -(offset + get_frame_size ());			\
 }
 
-/* This is a hack... We need to specify a register.  */
+/* This is a hack...  We need to specify a register.  */
 #define	ELIMINABLE_REGS 					\
   {{ FRAME_POINTER_REGNUM, FRAME_POINTER_REGNUM }}
 
@@ -1048,14 +1046,14 @@ c4x_secondary_memory_needed(CLASS1, CLASS2, MODE)
 }
 
 
-/* Passing Function Arguments on the Stack  */
+/* Passing Function Arguments on the Stack.  */
 
 #if 0
 #define PUSH_ROUNDING(BYTES) (BYTES)
 #endif
 #define RETURN_POPS_ARGS(FUNDECL, FUNTYPE, STACK_SIZE) 0
 
-/* The following structure is used by calls.c, function.c, c4x.c  */
+/* The following structure is used by calls.c, function.c, c4x.c.  */
 
 typedef struct c4x_args
 {
@@ -1070,17 +1068,11 @@ typedef struct c4x_args
 }
 CUMULATIVE_ARGS;
 
-extern void c4x_init_cumulative_args();
-
 #define INIT_CUMULATIVE_ARGS(CUM,FNTYPE,LIBNAME,INDIRECT)	\
   (c4x_init_cumulative_args (&CUM, FNTYPE, LIBNAME))
 
-extern void c4x_function_arg_advance();
-
 #define FUNCTION_ARG_ADVANCE(CUM, MODE, TYPE, NAMED)	\
   (c4x_function_arg_advance (&CUM, MODE, TYPE, NAMED))
-
-extern struct rtx_def *c4x_function_arg();
 
 #define FUNCTION_ARG(CUM, MODE, TYPE, NAMED) \
   (c4x_function_arg(&CUM, MODE, TYPE, NAMED))
@@ -1101,47 +1093,45 @@ extern struct rtx_def *c4x_function_arg();
 /* 1 if N is a possible register number for function argument passing.  */
 
 #define FUNCTION_ARG_REGNO_P(REGNO) \
-	(  (   ((REGNO) == AR2_REGNO)	/* AR2 */	\
-	    || ((REGNO) == R2_REGNO)	/* R2 */	\
-	    || ((REGNO) == R3_REGNO)	/* R3 */	\
-	    || ((REGNO) == RC_REGNO)	/* RC */	\
-	    || ((REGNO) == RS_REGNO)	/* RS */	\
-	    || ((REGNO) == RE_REGNO))	/* RE */	\
+	(  (   ((REGNO) == AR2_REGNO)	/* AR2.  */	\
+	    || ((REGNO) == R2_REGNO)	/* R2.  */	\
+	    || ((REGNO) == R3_REGNO)	/* R3.  */	\
+	    || ((REGNO) == RC_REGNO)	/* RC.  */	\
+	    || ((REGNO) == RS_REGNO)	/* RS.  */	\
+	    || ((REGNO) == RE_REGNO))	/* RE.  */	\
 	 ? 1						\
 	 : 0)
 
-/* How Scalar Function Values Are Returned  */
+/* How Scalar Function Values Are Returned.  */
 
 #define FUNCTION_VALUE(VALTYPE, FUNC) \
-	gen_rtx(REG, TYPE_MODE(VALTYPE), R0_REGNO)	/* Return in R0 */
+	gen_rtx(REG, TYPE_MODE(VALTYPE), R0_REGNO)	/* Return in R0.  */
 
 #define LIBCALL_VALUE(MODE) \
-	gen_rtx(REG, MODE, R0_REGNO)	/* Return in R0 */
+	gen_rtx(REG, MODE, R0_REGNO)	/* Return in R0.  */
 
 #define FUNCTION_VALUE_REGNO_P(REGNO) ((REGNO) == R0_REGNO)
 
-/* How Large Values Are Returned  */
+/* How Large Values Are Returned.  */
 
 #define DEFAULT_PCC_STRUCT_RETURN	0
-#define STRUCT_VALUE_REGNUM		AR0_REGNO	/* AR0 */
+#define STRUCT_VALUE_REGNUM		AR0_REGNO	/* AR0.  */
 
 /* Varargs handling.  */
 
-extern void c4x_va_start ();
 #define	EXPAND_BUILTIN_VA_START(stdarg, valist, nextarg) \
   c4x_va_start (stdarg, valist, nextarg)
 
-extern struct rtx_def *c4x_va_arg ();
 #define EXPAND_BUILTIN_VA_ARG(valist, type) \
   c4x_va_arg (valist, type)
 
-/* Function Entry and Exit  */
+/* Function Entry and Exit.  */
 
 #define FUNCTION_PROLOGUE(FILE, SIZE)	c4x_function_prologue(FILE, SIZE)
 #define FUNCTION_EPILOGUE(FILE, SIZE)	c4x_function_epilogue(FILE, SIZE)
 
 
-/* Generating Code for Profiling  */
+/* Generating Code for Profiling.  */
 
 /* Note that the generated assembly uses the ^ operator to load the 16
    MSBs of the address.  This is not supported by the TI assembler. 
@@ -1427,7 +1417,7 @@ extern struct rtx_def *c4x_va_arg ();
 	asm("	popf	r0");		\
 	asm("	pop	r0");		\
 
-/* Implicit Calls to Library Routines  */
+/* Implicit Calls to Library Routines.  */
 
 #define MULQI3_LIBCALL      "__mulqi3"
 #define DIVQI3_LIBCALL      "__divqi3"
@@ -1459,6 +1449,39 @@ extern struct rtx_def *c4x_va_arg ();
 #define FIXUNS_TRUNCHFHI2_LIBCALL "__ufix_trunchfhi2"
 
 #define FFS_LIBCALL	    "__ffs"
+
+
+#define INIT_TARGET_OPTABS \
+  do { \
+    smul_optab->handlers[(int) QImode].libfunc		\
+      = init_one_libfunc (MULQI3_LIBCALL);		\
+    sdiv_optab->handlers[(int) QImode].libfunc		\
+      = init_one_libfunc (DIVQI3_LIBCALL);		\
+    udiv_optab->handlers[(int) QImode].libfunc		\
+      = init_one_libfunc (UDIVQI3_LIBCALL);		\
+    smod_optab->handlers[(int) QImode].libfunc		\
+      = init_one_libfunc (MODQI3_LIBCALL);		\
+    umod_optab->handlers[(int) QImode].libfunc		\
+      = init_one_libfunc (UMODQI3_LIBCALL);		\
+    flodiv_optab->handlers[(int) QFmode].libfunc	\
+      = init_one_libfunc (DIVQF3_LIBCALL);		\
+    smul_optab->handlers[(int) HFmode].libfunc		\
+      = init_one_libfunc (MULHF3_LIBCALL);		\
+    flodiv_optab->handlers[(int) HFmode].libfunc	\
+      = init_one_libfunc (DIVHF3_LIBCALL);		\
+    smul_optab->handlers[(int) HImode].libfunc		\
+      = init_one_libfunc (MULHI3_LIBCALL);		\
+    sdiv_optab->handlers[(int) HImode].libfunc		\
+      = init_one_libfunc (DIVHI3_LIBCALL);		\
+    udiv_optab->handlers[(int) HImode].libfunc		\
+      = init_one_libfunc (UDIVHI3_LIBCALL);		\
+    smod_optab->handlers[(int) HImode].libfunc		\
+      = init_one_libfunc (MODHI3_LIBCALL);		\
+    umod_optab->handlers[(int) HImode].libfunc		\
+      = init_one_libfunc (UMODHI3_LIBCALL);		\
+    ffs_optab->handlers[(int) QImode].libfunc		\
+      = init_one_libfunc (FFS_LIBCALL);			\
+  } while (0)
 
 #define TARGET_MEM_FUNCTIONS
 
@@ -1553,9 +1576,7 @@ extern struct rtx_def *c4x_va_arg ();
     || GET_MODE (Y) == ABS)					\
     ? CC_NOOVmode : CCmode)
 
-extern struct rtx_def *c4x_gen_compare_reg ();
-
-/* Addressing Modes  */
+/* Addressing Modes.  */
 
 #define HAVE_POST_INCREMENT 1
 #define HAVE_PRE_INCREMENT 1
@@ -1593,17 +1614,15 @@ extern struct rtx_def *c4x_gen_compare_reg ();
    After reload, it makes no difference, since pseudo regs have
    been eliminated by then.  */
 
-extern int c4x_check_legit_addr ();
-
 #ifndef REG_OK_STRICT
 
 /* Nonzero if X is a hard or pseudo reg that can be used as an base.  */
 
-#define REG_OK_FOR_BASE_P(X) IS_ADDR_OR_PSEUDO_REG(REGNO(X))
+#define REG_OK_FOR_BASE_P(X) IS_ADDR_OR_PSEUDO_REG(X)
 
 /* Nonzero if X is a hard or pseudo reg that can be used as an index.  */
 
-#define REG_OK_FOR_INDEX_P(X) IS_INDEX_OR_PSEUDO_REG(REGNO(X))
+#define REG_OK_FOR_INDEX_P(X) IS_INDEX_OR_PSEUDO_REG(X)
 
 #define GO_IF_LEGITIMATE_ADDRESS(MODE, X, ADDR)				\
 {									\
@@ -1629,7 +1648,6 @@ extern int c4x_check_legit_addr ();
 
 #endif
 
-extern struct rtx_def *c4x_legitimize_address ();
 #define LEGITIMIZE_ADDRESS(X, OLDX, MODE, WIN) \
 {									\
   rtx new;								\
@@ -1641,7 +1659,6 @@ extern struct rtx_def *c4x_legitimize_address ();
   }									\
 }
 
-extern struct rtx_def *c4x_legitimize_reload_address ();
 #define LEGITIMIZE_RELOAD_ADDRESS(X,MODE,OPNUM,TYPE,IND_LEVELS,WIN)     \
 {									\
   rtx new;								\
@@ -1708,10 +1725,9 @@ extern struct rtx_def *c4x_legitimize_reload_address ();
    On the C4x we use this to indicate if a symbol is in text or
    data space.  */
 
-extern void c4x_encode_section_info ();
 #define ENCODE_SECTION_INFO(DECL) c4x_encode_section_info (DECL);
 
-/* Descripting Relative Cost of Operations  */
+/* Descripting Relative Cost of Operations.  */
 
 /* Provide the costs of a rtl expression.  This is in the body of a
    switch on CODE. 
@@ -1811,8 +1827,6 @@ extern void c4x_encode_section_info ();
    for valid addresses.  We handle the most common address without 
    a call to c4x_address_cost.  */
 
-extern int c4x_address_cost ();
-
 #define ADDRESS_COST(ADDR) (REG_P (ADDR) ? 1 : c4x_address_cost (ADDR))
 
 #define	CANONICALIZE_COMPARISON(CODE, OP0, OP1)		\
@@ -1834,7 +1848,7 @@ if (REG_P (OP1) && ! REG_P (OP0))			\
 #define REGISTER_MOVE_COST(FROM, TO)	2
 
 /* Memory move cost is same as fast register move.  Maybe this should
-   be bumped up? */
+   be bumped up?.  */
 
 #define MEMORY_MOVE_COST(M,C,I)		4
 
@@ -2019,7 +2033,7 @@ dtors_section ()							\
     }									\
   else if (TREE_CODE (DECL) == VAR_DECL)				\
     {									\
-      if ((0 && RELOC)	/* should be (flag_pic && RELOC) */		\
+      if ((0 && RELOC)	/* Should be (flag_pic && RELOC).  */		\
 	  || ! TREE_READONLY (DECL) || TREE_SIDE_EFFECTS (DECL)		\
 	  || ! DECL_INITIAL (DECL)					\
 	  || (DECL_INITIAL (DECL) != error_mark_node			\
@@ -2041,7 +2055,7 @@ dtors_section ()							\
 #define SELECT_RTX_SECTION(MODE, RTX) const_section()
 
 
-/* Overall Framework of an Assembler File  */
+/* Overall Framework of an Assembler File.  */
 
 #define ASM_FILE_START(FILE)					\
 {								\
@@ -2086,7 +2100,8 @@ dtors_section ()							\
 /* Output float/double constants  QFmode.  */
 
 #define ASM_OUTPUT_BYTE_FLOAT(FILE, VALUE)		\
-{   long l;						\
+  do {							\
+    long l;						\
     char str[30];					\
     REAL_VALUE_TO_TARGET_SINGLE (VALUE, l);		\
     REAL_VALUE_TO_DECIMAL (VALUE, "%20lf", str);	\
@@ -2094,7 +2109,7 @@ dtors_section ()							\
       fprintf (FILE, "\t.word\t0%08xh\t; %s\n", l, str);\
     else						\
       fprintf (FILE, "\t.word\t0%08lxh\t; %s\n", l, str);\
-}
+  } while (0);
 
 /* Output long double constants  HFmode. 
    The first word contains the exponent and first part of the mantissa
@@ -2105,7 +2120,8 @@ dtors_section ()							\
    a LDP for each load.  */
 
 #define ASM_OUTPUT_SHORT_FLOAT(FILE, VALUE)		\
-{   long l[2];						\
+  do {							\
+    long l[2];						\
     char str[30];					\
     REAL_VALUE_TO_TARGET_DOUBLE (VALUE, l);		\
     REAL_VALUE_TO_DECIMAL (VALUE, "%20lf", str);	\
@@ -2116,58 +2132,58 @@ dtors_section ()							\
     else							\
       fprintf (FILE, "\t.word\t0%08lxh\t; %s\n\t.word\t0%08lxh\n", \
                l[0], str, l[1]);				\
-}
+  } while (0);
 
 #define ASM_OUTPUT_CHAR(FILE, VALUE)			\
-{    fprintf (FILE, "\t.word\t");			\
+  do {							\
+    fprintf (FILE, "\t.word\t");			\
      output_addr_const (FILE, VALUE);			\
      if (GET_CODE (VALUE) != SYMBOL_REF)		\
        fprintf (FILE, " ; 0%08xh\n", INTVAL (VALUE));	\
      else						\
        fputc ('\n', FILE);				\
-}
+  } while (0);
 
 #define ASM_OUTPUT_BYTE(FILE, VALUE)  \
   fprintf (FILE, "\t.word\t0%xh\n", (VALUE))
 
-extern void c4x_output_ascii ();
 #define ASM_OUTPUT_ASCII(FILE, PTR, LEN) c4x_output_ascii (FILE, PTR, LEN)
 
 #define ASM_OPEN_PAREN "("
 #define ASM_CLOSE_PAREN ")"
 
 
-/* Output and Generation of Labels  */
+/* Output and Generation of Labels.  */
 
-#define NO_DOT_IN_LABEL		/* Only required for TI format */
+#define NO_DOT_IN_LABEL		/* Only required for TI format.  */
 
 #define ASM_OUTPUT_LABEL(FILE, NAME)	\
-{ assemble_name (FILE, NAME); fputs (":\n", FILE); }
+do { assemble_name (FILE, NAME); fputs (":\n", FILE); } while (0);
 
 #define ASM_GLOBALIZE_LABEL(FILE, NAME) \
-{                                       \
+  do {                                  \
     fprintf (FILE, "\t.global\t");	\
     assemble_name (FILE, NAME);		\
     fputs ("\n", FILE); 	        \
-}
+  } while (0);
 
 #define ASM_OUTPUT_EXTERNAL(FILE, DECL, NAME)	\
-{                                            	\
+  do {                                         	\
     fprintf (FILE, "\t.ref\t");			\
     assemble_name (FILE, NAME);	             	\
     fputc ('\n', FILE);  	               	\
-}
+  } while (0);
 
 /* A C statement to output on FILE an assembler pseudo-op to
    declare a library function named external.
-   (Only needed to keep asm30 happy for ___divqf3 etc.) */
+   (Only needed to keep asm30 happy for ___divqf3 etc.)  */
 
 #define ASM_OUTPUT_EXTERNAL_LIBCALL(FILE, FUN)  \
-{						\
+  do {						\
     fprintf (FILE, "\t.ref\t");			\
     assemble_name (FILE, XSTR (FUN, 0));	\
     fprintf (FILE, "\n");			\
-}
+  } while (0);
 
 /* The prefix to add to user-visible assembler symbols.  */
 
@@ -2196,7 +2212,7 @@ asm_fprintf (FILE, "%s%d:\n", PREFIX, NUM)
   sprintf ((OUTPUT), "%s%d", (NAME), (LABELNO)))
 
 
-/* Output of Dispatch Tables  */
+/* Output of Dispatch Tables.  */
 
 /* This is how to output an element of a case-vector that is absolute.  */
 
@@ -2224,7 +2240,7 @@ asm_fprintf (FILE, "%s%d:\n", PREFIX, NUM)
 #define LONG_LONG_TYPE_SIZE	64
 #define FLOAT_TYPE_SIZE		32
 #define DOUBLE_TYPE_SIZE	32
-#define LONG_DOUBLE_TYPE_SIZE	64 /* actually only 40 */
+#define LONG_DOUBLE_TYPE_SIZE	64 /* Actually only 40.  */
 
 /* Allow #sccs in preprocessor.  */
 
@@ -2237,7 +2253,7 @@ asm_fprintf (FILE, "%s%d:\n", PREFIX, NUM)
 
 #define CPP_PREDEFINES ""
 
-/* Output of Uninitialized Variables  */
+/* Output of Uninitialized Variables.  */
 
 /* This says how to output an assembler line to define a local
    uninitialized variable.  */
@@ -2259,12 +2275,12 @@ asm_fprintf (FILE, "%s%d:\n", PREFIX, NUM)
    assemble_name (FILE, (NAME)),	\
    fprintf (FILE, ",%u\n", (ROUNDED)))
 
-/* Macros Controlling Initialization Routines  */
+/* Macros Controlling Initialization Routines.  */
 
 #define OBJECT_FORMAT_COFF
 #define REAL_NM_FILE_NAME "c4x-nm"
 
-/* Output of Assembler Instructions  */
+/* Output of Assembler Instructions.  */
 
 /* Register names when used for integer modes.  */
 
@@ -2286,8 +2302,6 @@ asm_fprintf (FILE, "%s%d:\n", PREFIX, NUM)
  "iif",	 "rs",  "re",  "rc",  "f8",  "f9", "f10", "f11"		\
 }
 
-
-extern void c4x_print_operand ();
 #define PRINT_OPERAND(FILE, X, CODE) c4x_print_operand(FILE, X, CODE)
 
 /* Determine which codes are valid without a following integer.  These must
@@ -2295,7 +2309,6 @@ extern void c4x_print_operand ();
 
 #define PRINT_OPERAND_PUNCT_VALID_P(CODE) ((CODE) == '#')
 
-extern void c4x_print_operand_address ();
 #define PRINT_OPERAND_ADDRESS(FILE, X) c4x_print_operand_address(FILE, X)
 
 /* Define this macro if you want to implement any pragmas.  If defined, it
@@ -2304,19 +2317,16 @@ extern void c4x_print_operand_address ();
    text can be read.  CH is the first character after the #pragma.  The
    result of the expression is the terminating character found
    (newline or EOF).  */
-extern int c4x_handle_pragma ();
 #define HANDLE_PRAGMA(GETC, UNGETC, NAME) \
   c4x_handle_pragma (GETC, UNGETC, NAME)
 
-extern void c4x_set_default_attributes ();
 #define SET_DEFAULT_DECL_ATTRIBUTES(DECL, ATTRIBUTES) \
   c4x_set_default_attributes (DECL, &ATTRIBUTES)
 
-extern int c4x_valid_type_attribute_p ();
 #define VALID_MACHINE_TYPE_ATTRIBUTE(TYPE, ATTRIBUTES, NAME, ARGS) \
   (c4x_valid_type_attribute_p (TYPE, ATTRIBUTES, NAME, ARGS))
 
-/* Assembler Commands for Alignment  */
+/* Assembler Commands for Alignment.  */
 
 #define ASM_OUTPUT_SKIP(FILE, SIZE) \
 { int c = SIZE; \
@@ -2334,7 +2344,7 @@ extern int c4x_valid_type_attribute_p ();
 
 
 /* Macros for SDB and DWARF Output  (use .sdef instead of .def
-   to avoid conflict with TI's use of .def)  */
+   to avoid conflict with TI's use of .def).  */
 
 #define SDB_DELIM "\n"
 #define SDB_DEBUGGING_INFO
@@ -2525,7 +2535,7 @@ do { fprintf (asm_out_file, "\t.sdef\t");		\
 /* MOVE_RATIO is the number of move instructions that is better than a
    block move.  */
 
-#define MOVE_RATIO 2		/* Default value */
+#define MOVE_RATIO 2		/* Default value.  */
 
 #define BSS_SECTION_ASM_OP ".bss"
 
@@ -2611,187 +2621,12 @@ if (final_sequence != NULL_RTX)		\
 
 /* Variables in c4x.c */
 
-extern enum reg_class c4x_regclass_map[];/* smallest class containing REGNO */
+/* Smallest class containing REGNO.  */
+extern enum reg_class c4x_regclass_map[];
 extern enum machine_mode c4x_caller_save_map[];
 
-extern struct rtx_def *c4x_compare_op0;	/* operand 0 for comparisons */
-extern struct rtx_def *c4x_compare_op1;	/* operand 1 for comparisons */
-
-extern int c4x_rpts_cycles;	        /* max cycles for RPTS */
-extern int c4x_cpu_version;		/* cpu version C30/31/32/40/44 */
-
-/* Functions in c4x.c */
-
-extern void c4x_function_prologue ();
-
-extern void c4x_function_epilogue ();
-
-extern struct rtx_def *c4x_operand_subword ();
-
-extern struct rtx_def *c4x_adj_offsettable_operand ();
-
-extern char *c4x_output_cbranch ();
-
-extern int c4x_null_epilogue_p ();
-
-extern int c4x_autoinc_operand ();
-
-extern int c4x_label_conflict ();
-
-extern int c4x_address_conflict ();
-
-extern int c4x_adjust_cost ();
-
-extern void c4x_process_after_reload ();
-
-extern void c4x_combine_parallel ();
-
-extern int c4x_rptb_nop_p ();
-
-extern int c4x_rptb_rpts_p ();
-
-extern int fp_zero_operand ();
-
-extern int const_operand ();
-
-extern int stik_const_operand ();
-
-extern int not_const_operand ();
-
-extern int parallel_operand ();
-
-extern int reg_or_const_operand ();
-
-extern int reg_operand ();
-
-extern int mixed_subreg_operand ();
-
-extern int reg_imm_operand ();
-
-extern int r0r1_reg_operand ();
-
-extern int r2r3_reg_operand ();
-
-extern int ext_low_reg_operand ();
-
-extern int ext_reg_operand ();
-
-extern int std_reg_operand ();
-
-extern int dst_operand ();
-
-extern int src_operand ();
-
-extern int src_hi_operand ();
-
-extern int lsrc_operand ();
-
-extern int tsrc_operand ();
-
-extern int addr_reg_operand ();
-
-extern int index_reg_operand ();
-
-extern int dp_reg_operand ();
-
-extern int sp_reg_operand ();
-
-extern int rc_reg_operand ();
-
-extern int st_reg_operand ();
-
-extern int symbolic_address_operand ();
-
-extern int ar0_reg_operand ();
-
-extern int ar0_mem_operand ();
-
-extern int ar1_reg_operand ();
-
-extern int ar1_mem_operand ();
-
-extern int ar2_reg_operand ();
-
-extern int ar2_mem_operand ();
-
-extern int ar3_reg_operand ();
-
-extern int ar3_mem_operand ();
-
-extern int ar4_reg_operand ();
-
-extern int ar4_mem_operand ();
-
-extern int ar5_reg_operand ();
-
-extern int ar5_mem_operand ();
-
-extern int ar6_reg_operand ();
-
-extern int ar6_mem_operand ();
-
-extern int ar7_reg_operand ();
-
-extern int ar7_mem_operand ();
-
-extern int ir0_reg_operand ();
-
-extern int ir0_mem_operand ();
-
-extern int ir1_reg_operand ();
-
-extern int ir1_mem_operand ();
-
-extern int group1_reg_operand ();
-
-extern int group1_mem_operand ();
-
-extern int arx_reg_operand ();
-
-extern int call_address_operand ();
-
-extern int par_ind_operand ();
-
-extern int not_rc_reg ();
-
-extern int not_modify_reg ();
-
-extern int c4x_shiftable_constant ();
-
-extern int c4x_H_constant ();
-
-extern int c4x_I_constant ();
-
-extern int c4x_J_constant ();
-
-extern int c4x_L_constant ();
-
-extern int c4x_Q_constraint ();
-
-extern int c4x_R_constraint ();
-
-extern int c4x_S_constraint ();
-
-extern int c4x_T_constraint ();
-
-extern int c4x_U_constraint ();
-
-extern void c4x_emit_libcall ();
-
-extern void c4x_emit_libcall3 ();
-
-extern void c4x_emit_libcall_mulhi ();
-
-extern int c4x_emit_move_sequence ();
-
-extern int legitimize_operands ();
-
-extern int valid_operands ();
-
-extern int valid_parallel_load_store ();
-
-extern int valid_parallel_operands_4 ();
-
-extern int valid_parallel_operands_5 ();
-
-extern int valid_parallel_operands_6 ();
+extern struct rtx_def *c4x_compare_op0;	/* Operand 0 for comparisons.  */
+extern struct rtx_def *c4x_compare_op1;	/* Operand 1 for comparisons.  */
+
+extern int c4x_rpts_cycles;	        /* Max cycles for RPTS.  */
+extern int c4x_cpu_version;		/* Cpu version C30/31/32/40/44.  */

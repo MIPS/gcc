@@ -1,5 +1,5 @@
 /* Search an insn for pseudo regs that must be in hard regs and are not.
-   Copyright (C) 1987, 88, 89, 92-98, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1987, 88, 89, 92-99, 2000 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -252,7 +252,6 @@ static int find_reusable_reload	PROTO((rtx *, rtx, enum reg_class,
 static rtx find_dummy_reload	PROTO((rtx, rtx, rtx *, rtx *,
 				       enum machine_mode, enum machine_mode,
 				       enum reg_class, int, int));
-static int earlyclobber_operand_p PROTO((rtx));
 static int hard_reg_set_here_p	PROTO((int, int, rtx));
 static struct decomposition decompose PROTO((rtx));
 static int immune_p		PROTO((rtx, rtx, struct decomposition));
@@ -466,7 +465,6 @@ push_secondary_reload (in_p, x, opnum, optional, reload_class, reload_mode,
 	  rld[t_reload].outmode = ! in_p ? t_mode : VOIDmode;
 	  rld[t_reload].reg_rtx = 0;
 	  rld[t_reload].optional = optional;
-	  rld[t_reload].nongroup = 0;
 	  rld[t_reload].inc = 0;
 	  /* Maybe we could combine these, but it seems too tricky.  */
 	  rld[t_reload].nocombine = 1;
@@ -536,7 +534,6 @@ push_secondary_reload (in_p, x, opnum, optional, reload_class, reload_mode,
       rld[s_reload].outmode = ! in_p ? mode : VOIDmode;
       rld[s_reload].reg_rtx = 0;
       rld[s_reload].optional = optional;
-      rld[s_reload].nongroup = 0;
       rld[s_reload].inc = 0;
       /* Maybe we could combine these, but it seems too tricky.  */
       rld[s_reload].nocombine = 1;
@@ -655,7 +652,7 @@ clear_secondary_mem ()
 
 static enum reg_class
 find_valid_class (m1, n)
-     enum machine_mode  m1;
+     enum machine_mode m1 ATTRIBUTE_UNUSED;
      int n;
 {
   int class;
@@ -1247,7 +1244,6 @@ push_reload (in, out, inloc, outloc, class,
       rld[i].outmode = outmode;
       rld[i].reg_rtx = 0;
       rld[i].optional = optional;
-      rld[i].nongroup = 0;
       rld[i].inc = 0;
       rld[i].nocombine = 0;
       rld[i].in_reg = inloc ? *inloc : 0;
@@ -1461,12 +1457,21 @@ push_reload (in, out, inloc, outloc, class,
 	    && GET_MODE_SIZE (inmode) <= GET_MODE_SIZE (GET_MODE (XEXP (note, 0)))
 	    && HARD_REGNO_MODE_OK (regno, inmode)
 	    && GET_MODE_SIZE (outmode) <= GET_MODE_SIZE (GET_MODE (XEXP (note, 0)))
-	    && HARD_REGNO_MODE_OK (regno, outmode)
-	    && TEST_HARD_REG_BIT (reg_class_contents[(int) class], regno)
-	    && !fixed_regs[regno])
+	    && HARD_REGNO_MODE_OK (regno, outmode))
 	  {
-	    rld[i].reg_rtx = gen_rtx_REG (inmode, regno);
-	    break;
+	    int offs;
+	    int nregs = HARD_REGNO_NREGS (regno, inmode);
+	    for (offs = 0; offs < nregs; offs++)
+	      if (fixed_regs[regno + offs]
+		  || ! TEST_HARD_REG_BIT (reg_class_contents[(int) class],
+					  regno + offs))
+		break;
+
+	    if (offs == nregs)
+	      {
+		rld[i].reg_rtx = gen_rtx_REG (inmode, regno);
+		break;
+	      }
 	  }
     }
 
@@ -1834,11 +1839,6 @@ find_dummy_reload (real_in, real_out, inloc, outloc,
       *inloc = const0_rtx;
 
       if (regno < FIRST_PSEUDO_REGISTER
-	  /* A fixed reg that can overlap other regs better not be used
-	     for reloading in any way.  */
-#ifdef OVERLAPPING_REGNO_P
-	  && ! (fixed_regs[regno] && OVERLAPPING_REGNO_P (regno))
-#endif
 	  && ! refers_to_regno_for_reload_p (regno, regno + nwords,
 					     PATTERN (this_insn), outloc))
 	{
@@ -1921,7 +1921,7 @@ find_dummy_reload (real_in, real_out, inloc, outloc,
 
 /* Return 1 if X is an operand of an insn that is being earlyclobbered.  */
 
-static int
+int
 earlyclobber_operand_p (x)
      rtx x;
 {
@@ -1975,7 +1975,7 @@ hard_reg_set_here_p (beg_regno, end_regno, x)
 
 int
 strict_memory_address_p (mode, addr)
-     enum machine_mode mode;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
      register rtx addr;
 {
   GO_IF_LEGITIMATE_ADDRESS (mode, addr, win);
@@ -2383,7 +2383,7 @@ find_reloads (insn, replace, ind_levels, live_known, reload_reg_p)
   int swapped;
   int goal_alternative[MAX_RECOG_OPERANDS];
   int this_alternative_number;
-  int goal_alternative_number;
+  int goal_alternative_number = 0;
   int operand_reloadnum[MAX_RECOG_OPERANDS];
   int goal_alternative_matches[MAX_RECOG_OPERANDS];
   int goal_alternative_matched[MAX_RECOG_OPERANDS];
@@ -2393,12 +2393,11 @@ find_reloads (insn, replace, ind_levels, live_known, reload_reg_p)
   int goal_alternative_swapped;
   int best;
   int commutative;
-  int changed;
   char operands_match[MAX_RECOG_OPERANDS][MAX_RECOG_OPERANDS];
   rtx substed_operand[MAX_RECOG_OPERANDS];
   rtx body = PATTERN (insn);
   rtx set = single_set (insn);
-  int goal_earlyclobber, this_earlyclobber;
+  int goal_earlyclobber = 0, this_earlyclobber;
   enum machine_mode operand_mode[MAX_RECOG_OPERANDS];
   int retval = 0;
 
@@ -2662,15 +2661,6 @@ find_reloads (insn, replace, ind_levels, live_known, reload_reg_p)
 	   && REGNO (recog_data.operand[i]) >= FIRST_PSEUDO_REGISTER
 	   && reg_alternate_class (REGNO (recog_data.operand[i])) == NO_REGS);
     }
-
-#ifdef HAVE_cc0
-  /* If we made any reloads for addresses, see if they violate a
-     "no input reloads" requirement for this insn.  */
-  if (no_input_reloads)
-    for (i = 0; i < n_reloads; i++)
-      if (rld[i].in != 0)
-	abort ();
-#endif
 
   /* If this is simply a copy from operand 1 to operand 0, merge the
      preferred classes for the operands.  */
@@ -4113,65 +4103,28 @@ find_reloads (insn, replace, ind_levels, live_known, reload_reg_p)
 	    rld[j].in = 0;
 	  }
 
-  /* Set which reloads must use registers not used in any group.  Start
-     with those that conflict with a group and then include ones that
-     conflict with ones that are already known to conflict with a group.  */
+#ifdef HAVE_cc0
+  /* If we made any reloads for addresses, see if they violate a
+     "no input reloads" requirement for this insn.  But loads that we
+     do after the insn (such as for output addresses) are fine.  */
+  if (no_input_reloads)
+    for (i = 0; i < n_reloads; i++)
+      if (rld[i].in != 0
+	  && rld[i].when_needed != RELOAD_FOR_OUTADDR_ADDRESS
+	  && rld[i].when_needed != RELOAD_FOR_OUTPUT_ADDRESS)
+	abort ();
+#endif
 
-  changed = 0;
+  /* Compute reload_mode and reload_nregs.  */
   for (i = 0; i < n_reloads; i++)
     {
-      enum machine_mode mode = rld[i].inmode;
-      enum reg_class class = rld[i].class;
-      int size;
+      rld[i].mode
+	= (rld[i].inmode == VOIDmode
+	   || (GET_MODE_SIZE (rld[i].outmode)
+	       > GET_MODE_SIZE (rld[i].inmode)))
+	  ? rld[i].outmode : rld[i].inmode;
 
-      if (GET_MODE_SIZE (rld[i].outmode) > GET_MODE_SIZE (mode))
-	mode = rld[i].outmode;
-      size = CLASS_MAX_NREGS (class, mode);
-
-      if (size == 1)
-	for (j = 0; j < n_reloads; j++)
-	  if ((CLASS_MAX_NREGS (rld[j].class,
-				(GET_MODE_SIZE (rld[j].outmode)
-				 > GET_MODE_SIZE (rld[j].inmode))
-				? rld[j].outmode : rld[j].inmode)
-	       > 1)
-	      && !rld[j].optional
-	      && (rld[j].in != 0 || rld[j].out != 0
-		  || rld[j].secondary_p)
-	      && reloads_conflict (i, j)
-	      && reg_classes_intersect_p (class, rld[j].class))
-	    {
-	      rld[i].nongroup = 1;
-	      changed = 1;
-	      break;
-	    }
-    }
-
-  while (changed)
-    {
-      changed = 0;
-
-      for (i = 0; i < n_reloads; i++)
-	{
-	  enum machine_mode mode = rld[i].inmode;
-	  enum reg_class class = rld[i].class;
-	  int size;
-
-	  if (GET_MODE_SIZE (rld[i].outmode) > GET_MODE_SIZE (mode))
-	    mode = rld[i].outmode;
-	  size = CLASS_MAX_NREGS (class, mode);
-
-	  if (! rld[i].nongroup && size == 1)
-	    for (j = 0; j < n_reloads; j++)
-	      if (rld[j].nongroup
-		  && reloads_conflict (i, j)
-		  && reg_classes_intersect_p (class, rld[j].class))
-		{
-		  rld[i].nongroup = 1;
-		  changed = 1;
-		  break;
-		}
-	}
+      rld[i].nregs = CLASS_MAX_NREGS (rld[i].class, rld[i].mode);
     }
 
   return retval;
@@ -4684,14 +4637,6 @@ find_reloads_address (mode, memrefloc, ad, loc, opnum, type, ind_levels, insn)
      is valid when not interpreted strictly.  If it is, the only problem is
      that the index needs a reload and find_reloads_address_1 will take care
      of it.
-
-     There is still a case when we might generate an extra reload,
-     however.  In certain cases eliminate_regs will return a MEM for a REG
-     (see the code there for details).  In those cases, memory_address_p
-     applied to our address will return 0 so we will think that our offset
-     must be too large.  But it might indeed be valid and the only problem
-     is that a MEM is present where a REG should be.  This case should be
-     very rare and there doesn't seem to be any way to avoid it.
 
      If we decide to do something here, it must be that
      `double_reg_address_ok' is true and that this address rtl was made by
@@ -6027,15 +5972,6 @@ find_equiv_reg (goal, insn, class, other, reload_reg_p, goalreg, mode)
   else
     return 0;
 
-  /* On some machines, certain regs must always be rejected
-     because they don't behave the way ordinary registers do.  */
-
-#ifdef OVERLAPPING_REGNO_P
-  if (regno >= 0 && regno < FIRST_PSEUDO_REGISTER
-      && OVERLAPPING_REGNO_P (regno))
-    return 0;
-#endif
-
   /* Scan insns back from INSN, looking for one that copies
      a value into or out of GOAL.
      Stop and give up if we reach a label.  */
@@ -6174,14 +6110,6 @@ find_equiv_reg (goal, insn, class, other, reload_reg_p, goalreg, mode)
       && reload_reg_p[valueno] >= 0)
     return 0;
 
-  /* On some machines, certain regs must always be rejected
-     because they don't behave the way ordinary registers do.  */
-
-#ifdef OVERLAPPING_REGNO_P
-  if (OVERLAPPING_REGNO_P (valueno))
-    return 0;
-#endif
-
   nregs = HARD_REGNO_NREGS (regno, mode);
   valuenregs = HARD_REGNO_NREGS (valueno, mode);
 
@@ -6234,14 +6162,6 @@ find_equiv_reg (goal, insn, class, other, reload_reg_p, goalreg, mode)
 #ifdef NON_SAVING_SETJMP
       if (NON_SAVING_SETJMP && GET_CODE (p) == NOTE
 	  && NOTE_LINE_NUMBER (p) == NOTE_INSN_SETJMP)
-	return 0;
-#endif
-
-#ifdef INSN_CLOBBERS_REGNO_P
-      if ((valueno >= 0 && valueno < FIRST_PSEUDO_REGISTER
-	   && INSN_CLOBBERS_REGNO_P (p, valueno))
-	  || (regno >= 0 && regno < FIRST_PSEUDO_REGISTER
-	      && INSN_CLOBBERS_REGNO_P (p, regno)))
 	return 0;
 #endif
 

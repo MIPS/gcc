@@ -1,5 +1,5 @@
 /* Build expressions with type checking for C compiler.
-   Copyright (C) 1987, 88, 91-97, 1998 Free Software Foundation, Inc.
+   Copyright (C) 1987, 88, 91-99, 2000 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -45,35 +45,35 @@ Boston, MA 02111-1307, USA.  */
    message within this initializer.  */
 static int missing_braces_mentioned;
 
-static tree qualify_type		PROTO((tree, tree));
-static int comp_target_types		PROTO((tree, tree));
-static int function_types_compatible_p	PROTO((tree, tree));
-static int type_lists_compatible_p	PROTO((tree, tree));
-static tree decl_constant_value		PROTO((tree));
-static tree lookup_field		PROTO((tree, tree, tree *));
-static tree convert_arguments		PROTO((tree, tree, tree, tree));
-static tree pointer_int_sum		PROTO((enum tree_code, tree, tree));
-static tree pointer_diff		PROTO((tree, tree));
-static tree unary_complex_lvalue	PROTO((enum tree_code, tree));
-static void pedantic_lvalue_warning	PROTO((enum tree_code));
-static tree internal_build_compound_expr PROTO((tree, int));
-static tree convert_for_assignment	PROTO((tree, tree, const char *, tree,
-					       tree, int));
-static void warn_for_assignment		PROTO((const char *, const char *,
-					       tree, int));
-static tree valid_compound_expr_initializer PROTO((tree, tree));
-static void push_string			PROTO((const char *));
-static void push_member_name		PROTO((tree));
-static void push_array_bounds		PROTO((int));
-static int spelling_length		PROTO((void));
-static char *print_spelling		PROTO((char *));
-static void warning_init		PROTO((const char *));
-static tree digest_init			PROTO((tree, tree, int, int));
-static void check_init_type_bitfields	PROTO((tree));
-static void output_init_element		PROTO((tree, tree, tree, int));
-static void output_pending_init_elements PROTO((int));
-static void add_pending_init		PROTO((tree, tree));
-static int pending_init_member		PROTO((tree));
+static tree qualify_type		PARAMS ((tree, tree));
+static int comp_target_types		PARAMS ((tree, tree));
+static int function_types_compatible_p	PARAMS ((tree, tree));
+static int type_lists_compatible_p	PARAMS ((tree, tree));
+static tree decl_constant_value		PARAMS ((tree));
+static tree lookup_field		PARAMS ((tree, tree, tree *));
+static tree convert_arguments		PARAMS ((tree, tree, tree, tree));
+static tree pointer_int_sum		PARAMS ((enum tree_code, tree, tree));
+static tree pointer_diff		PARAMS ((tree, tree));
+static tree unary_complex_lvalue	PARAMS ((enum tree_code, tree));
+static void pedantic_lvalue_warning	PARAMS ((enum tree_code));
+static tree internal_build_compound_expr PARAMS ((tree, int));
+static tree convert_for_assignment	PARAMS ((tree, tree, const char *,
+						 tree, tree, int));
+static void warn_for_assignment		PARAMS ((const char *, const char *,
+						 tree, int));
+static tree valid_compound_expr_initializer PARAMS ((tree, tree));
+static void push_string			PARAMS ((const char *));
+static void push_member_name		PARAMS ((tree));
+static void push_array_bounds		PARAMS ((int));
+static int spelling_length		PARAMS ((void));
+static char *print_spelling		PARAMS ((char *));
+static void warning_init		PARAMS ((const char *));
+static tree digest_init			PARAMS ((tree, tree, int, int));
+static void check_init_type_bitfields	PARAMS ((tree));
+static void output_init_element		PARAMS ((tree, tree, tree, int));
+static void output_pending_init_elements PARAMS ((int));
+static void add_pending_init		PARAMS ((tree, tree));
+static int pending_init_member		PARAMS ((tree));
 
 /* Do `exp = require_complete_type (exp);' to make sure exp
    does not have an incomplete type.  (That includes void types.)  */
@@ -1157,9 +1157,8 @@ build_component_ref (datum, component)
 
       if (!field)
 	{
-	  error (code == RECORD_TYPE
-		 ? "structure has no member named `%s'"
-		 : "union has no member named `%s'",
+	  error ("%s has no member named `%s'",
+		 code == RECORD_TYPE ? "structure" : "union",
 		 IDENTIFIER_POINTER (component));
 	  return error_mark_node;
 	}
@@ -1461,7 +1460,8 @@ build_function_call (function, params)
 
   if (TREE_CODE (function) == ADDR_EXPR
       && TREE_CODE (TREE_OPERAND (function, 0)) == FUNCTION_DECL
-      && DECL_BUILT_IN (TREE_OPERAND (function, 0)))
+      && DECL_BUILT_IN (TREE_OPERAND (function, 0))
+      && DECL_BUILT_IN_CLASS (TREE_OPERAND (function, 0)) == BUILT_IN_NORMAL)
     switch (DECL_FUNCTION_CODE (TREE_OPERAND (function, 0)))
       {
       case BUILT_IN_ABS:
@@ -2390,8 +2390,6 @@ build_binary_op (code, orig_op0, orig_op1, convert_p)
 	      tree primop0 = get_narrower (op0, &unsignedp0);
 	      tree primop1 = get_narrower (op1, &unsignedp1);
 
-	      /* Avoid spurious warnings for comparison with enumerators.  */
- 
 	      xop0 = orig_op0;
 	      xop1 = orig_op1;
 	      STRIP_TYPE_NOPS (xop0);
@@ -2407,28 +2405,41 @@ build_binary_op (code, orig_op0, orig_op1, convert_p)
 		 all the values of the unsigned type.  */
 	      if (! TREE_UNSIGNED (result_type))
 		/* OK */;
-              /* Do not warn if both operands are unsigned.  */
+              /* Do not warn if both operands are the same signedness.  */
               else if (op0_signed == op1_signed)
                 /* OK */;
-	      /* Do not warn if the signed quantity is an unsuffixed
-		 integer literal (or some static constant expression
-		 involving such literals) and it is non-negative.  */
-	      else if ((op0_signed && TREE_CODE (xop0) == INTEGER_CST
-			&& tree_int_cst_sgn (xop0) >= 0)
-		       || (op1_signed && TREE_CODE (xop1) == INTEGER_CST
-			   && tree_int_cst_sgn (xop1) >= 0))
-		/* OK */;
-	      /* Do not warn if the comparison is an equality operation,
-                 the unsigned quantity is an integral constant and it does
-                 not use the most significant bit of result_type.  */
-	      else if ((resultcode == EQ_EXPR || resultcode == NE_EXPR)
-		       && ((op0_signed && TREE_CODE (xop1) == INTEGER_CST
-			    && int_fits_type_p (xop1, signed_type (result_type)))
-			   || (op1_signed && TREE_CODE (xop0) == INTEGER_CST
-			       && int_fits_type_p (xop0, signed_type (result_type)))))
-		/* OK */;
 	      else
-		warning ("comparison between signed and unsigned");
+		{
+		  tree sop, uop;
+		  if (op0_signed)
+		    sop = xop0, uop = xop1;
+		  else
+		    sop = xop1, uop = xop0;
+
+		  /* Do not warn if the signed quantity is an unsuffixed
+		     integer literal (or some static constant expression
+		     involving such literals) and it is non-negative.  */
+		  if (TREE_CODE (sop) == INTEGER_CST
+		      && tree_int_cst_sgn (sop) >= 0)
+		    /* OK */;
+		  /* Do not warn if the comparison is an equality operation,
+		     the unsigned quantity is an integral constant, and it
+		     would fit in the result if the result were signed.  */
+		  else if (TREE_CODE (uop) == INTEGER_CST
+			   && (resultcode == EQ_EXPR || resultcode == NE_EXPR)
+			   && int_fits_type_p (uop, signed_type (result_type)))
+		    /* OK */;
+		  /* Do not warn if the unsigned quantity is an enumeration
+		     constant and its maximum value would fit in the result
+		     if the result were signed.  */
+		  else if (TREE_CODE (uop) == INTEGER_CST
+			   && TREE_CODE (TREE_TYPE (uop)) == ENUMERAL_TYPE
+			   && int_fits_type_p (TYPE_MAX_VALUE (TREE_TYPE(uop)),
+					       signed_type (result_type)))
+		    /* OK */;
+		  else
+		    warning ("comparison between signed and unsigned");
+		}
 
 	      /* Warn if two unsigned values are being compared in a size
 		 larger than their original size, and one (and only one) is the
@@ -2806,9 +2817,9 @@ build_unary_op (code, xarg, noconvert)
       if (typecode != POINTER_TYPE
 	  && typecode != INTEGER_TYPE && typecode != REAL_TYPE)
 	{
-	  error (code == PREINCREMENT_EXPR || code == POSTINCREMENT_EXPR
-		 ? "wrong type argument to increment"
-		 : "wrong type argument to decrement");
+	  error ("wrong type argument to %s",
+		 code == PREINCREMENT_EXPR || code == POSTINCREMENT_EXPR
+		 ? "increment" : "decrement");
 	  return error_mark_node;
 	}
 
@@ -2826,15 +2837,15 @@ build_unary_op (code, xarg, noconvert)
 	    /* If pointer target is an undefined struct,
 	       we just cannot know how to do the arithmetic.  */
 	    if (TYPE_SIZE (TREE_TYPE (result_type)) == 0)
-	      error (code == PREINCREMENT_EXPR || code == POSTINCREMENT_EXPR
-		     ? "increment of pointer to unknown structure"
-		     : "decrement of pointer to unknown structure");
+	      error ("%s of pointer to unknown structure",
+		     code == PREINCREMENT_EXPR || code == POSTINCREMENT_EXPR
+		     ? "increment" : "decrement");
 	    else if ((pedantic || warn_pointer_arith)
 		     && (TREE_CODE (TREE_TYPE (result_type)) == FUNCTION_TYPE
 			 || TREE_CODE (TREE_TYPE (result_type)) == VOID_TYPE))
-	      pedwarn (code == PREINCREMENT_EXPR || code == POSTINCREMENT_EXPR
-		       ? "wrong type argument to increment"
-		       : "wrong type argument to decrement");
+	      pedwarn ("wrong type argument to %s",
+		       code == PREINCREMENT_EXPR || code == POSTINCREMENT_EXPR
+		       ? "increment" : "decrement");
 	    inc = c_size_in_bytes (TREE_TYPE (result_type));
 	  }
 	else
@@ -3118,7 +3129,7 @@ lvalue_or_else (ref, msgid)
   int win = lvalue_p (ref);
 
   if (! win)
-    error (msgid);
+    error ("%s", msgid);
 
   return win;
 }
@@ -3172,11 +3183,18 @@ pedantic_lvalue_warning (code)
      enum tree_code code;
 {
   if (pedantic)
-    pedwarn (code == COND_EXPR
-	     ? "ANSI C forbids use of conditional expressions as lvalues"
-	     : code == COMPOUND_EXPR
-	     ? "ANSI C forbids use of compound expressions as lvalues"
-	     : "ANSI C forbids use of cast expressions as lvalues");
+    switch (code)
+      {
+      case COND_EXPR:
+	pedwarn ("ANSI C forbids use of conditional expressions as lvalues");
+	break;
+      case COMPOUND_EXPR:
+	pedwarn ("ANSI C forbids use of compound expressions as lvalues");
+	break;
+      default:
+	pedwarn ("ANSI C forbids use of cast expressions as lvalues");
+	break;
+      }
 }
 
 /* Warn about storing in something that is `const'.  */
@@ -3355,6 +3373,37 @@ build_conditional_expr (ifexp, op1, op2)
            && (code2 == INTEGER_TYPE || code2 == REAL_TYPE))
     {
       result_type = common_type (type1, type2);
+
+      /* If -Wsign-compare, warn here if type1 and type2 have
+	 different signedness.  We'll promote the signed to unsigned
+	 and later code won't know it used to be different.
+	 Do this check on the original types, so that explicit casts
+	 will be considered, but default promotions won't.  */
+      if ((warn_sign_compare < 0 ? extra_warnings : warn_sign_compare)
+	  && !skip_evaluation)
+	{
+	  int unsigned_op1 = TREE_UNSIGNED (TREE_TYPE (orig_op1));
+	  int unsigned_op2 = TREE_UNSIGNED (TREE_TYPE (orig_op2));
+
+	  if (unsigned_op1 ^ unsigned_op2)
+	    {
+	      /* Do not warn if the result type is signed, since the
+		 signed type will only be chosen if it can represent
+		 all the values of the unsigned type.  */
+	      if (! TREE_UNSIGNED (result_type))
+		/* OK */;
+	      /* Do not warn if the signed quantity is an unsuffixed
+		 integer literal (or some static constant expression
+		 involving such literals) and it is non-negative.  */
+	      else if ((unsigned_op2 && TREE_CODE (op1) == INTEGER_CST
+			&& tree_int_cst_sgn (op1) >= 0)
+		       || (unsigned_op1 && TREE_CODE (op2) == INTEGER_CST
+			   && tree_int_cst_sgn (op2) >= 0))
+		/* OK */;
+	      else
+		warning ("signed and unsigned type in conditional expression");
+	    }
+	}
     }
   else if (code1 == VOID_TYPE || code2 == VOID_TYPE)
     {
@@ -3652,16 +3701,24 @@ build_c_cast (type, expr)
 	  && TREE_CODE (type) == POINTER_TYPE
 	  && TREE_CODE (otype) == POINTER_TYPE)
 	{
-	  /* Go to the innermost object being pointed to.  */
 	  tree in_type = type;
 	  tree in_otype = otype;
+	  int warn = 0;
 
-	  while (TREE_CODE (in_type) == POINTER_TYPE)
-	    in_type = TREE_TYPE (in_type);
-	  while (TREE_CODE (in_otype) == POINTER_TYPE)
-	    in_otype = TREE_TYPE (in_otype);
-	  
-	  if (TYPE_QUALS (in_otype) & ~TYPE_QUALS (in_type))
+	  /* Check that the qualifiers on IN_TYPE are a superset of
+	     the qualifiers of IN_OTYPE.  The outermost level of
+	     POINTER_TYPE nodes is uninteresting and we stop as soon
+	     as we hit a non-POINTER_TYPE node on either type.  */
+	  do
+	    {
+	      in_otype = TREE_TYPE (in_otype);
+	      in_type = TREE_TYPE (in_type);
+	      warn |= (TYPE_QUALS (in_otype) & ~TYPE_QUALS (in_type));
+	    }
+	  while (TREE_CODE (in_type) == POINTER_TYPE
+		 && TREE_CODE (in_otype) == POINTER_TYPE);
+
+	  if (warn)
 	    /* There are qualifiers present in IN_OTYPE that are not
 	       present in IN_TYPE.  */
 	    pedwarn ("cast discards qualifiers from pointer target type");
@@ -4443,7 +4500,7 @@ error_init (msgid)
 {
   char *ofwhat;
 
-  error (msgid);
+  error ("%s", msgid);
   ofwhat = print_spelling ((char *) alloca (spelling_length () + 1));
   if (*ofwhat)
     error ("(near initialization for `%s')", ofwhat);
@@ -4459,7 +4516,7 @@ pedwarn_init (msgid)
 {
   char *ofwhat;
 
-  pedwarn (msgid);
+  pedwarn ("%s", msgid);
   ofwhat = print_spelling ((char *) alloca (spelling_length () + 1));
   if (*ofwhat)
     pedwarn ("(near initialization for `%s')", ofwhat);
@@ -4475,7 +4532,7 @@ warning_init (msgid)
 {
   char *ofwhat;
 
-  warning (msgid);
+  warning ("%s", msgid);
   ofwhat = print_spelling ((char *) alloca (spelling_length () + 1));
   if (*ofwhat)
     warning ("(near initialization for `%s')", ofwhat);
@@ -6707,6 +6764,7 @@ c_expand_start_case (exp)
       type = TYPE_MAIN_VARIANT (TREE_TYPE (exp));
 
       if (warn_traditional
+	  && ! in_system_header
 	  && (type == long_integer_type_node
 	      || type == long_unsigned_type_node))
 	pedwarn ("`long' switch expression not converted to `int' in ANSI C");

@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler, for Intel 80960
-   Copyright (C) 1992, 1993, 1995, 1996, 1998, 1999
+   Copyright (C) 1992, 1993, 1995, 1996, 1998, 1999, 2000
    Free Software Foundation, Inc.
    Contributed by Steven McGeady, Intel Corp.
    Additional Work by Glenn Colon-Bonet, Jonathan Shapiro, Andy Wilson
@@ -94,8 +94,13 @@ Boston, MA 02111-1307, USA.  */
 #define LIB_SPEC "%{!nostdlib:-lcg %{p:-lprof}%{pg:-lgprof}\
 	  %{mka:-lfpg}%{msa:-lfpg}%{mca:-lfpg}%{mcf:-lfpg} -lgnu}"
 
-/* Show we can debug even without a frame pointer.  */
-#define CAN_DEBUG_WITHOUT_FP
+/* Defining the macro shows we can debug even without a frame pointer.
+   Actually, we can debug without FP.  But defining the macro results in
+   that -O means FP elimination.  Addressing through sp requires
+   negative offset and more one word addressing in the most cases
+   (offsets except for 0-4095 require one more word).  Therefore we've
+   not defined the macro. */
+/*#define CAN_DEBUG_WITHOUT_FP*/
 
 /* Do leaf procedure and tail call optimizations for -O2 and higher.  */
 #define OPTIMIZATION_OPTIONS(LEVEL,SIZE)	\
@@ -127,7 +132,6 @@ Boston, MA 02111-1307, USA.  */
 
 /* Handle pragmas for compatibility with Intel's compilers.  */
 #define HANDLE_PRAGMA(GET, UNGET, NAME) process_pragma (GET, UNGET, NAME)
-extern int process_pragma ();
 
 /* Run-time compilation parameters selecting different hardware subsets.  */
 
@@ -333,17 +337,17 @@ extern int target_flags;
 {								\
   if (TARGET_K_SERIES && TARGET_C_SERIES)			\
     {								\
-      warning ("conflicting architectures defined - using C series", 0); \
+      warning ("conflicting architectures defined - using C series"); \
       target_flags &= ~TARGET_FLAG_K_SERIES;			\
     }								\
   if (TARGET_K_SERIES && TARGET_MC)				\
     {								\
-      warning ("conflicting architectures defined - using K series", 0); \
+      warning ("conflicting architectures defined - using K series"); \
       target_flags &= ~TARGET_FLAG_MC;				\
     }								\
   if (TARGET_C_SERIES && TARGET_MC)				\
     {								\
-      warning ("conflicting architectures defined - using C series", 0);\
+      warning ("conflicting architectures defined - using C series");\
       target_flags &= ~TARGET_FLAG_MC;				\
     }								\
   if (TARGET_IC_COMPAT3_0)					\
@@ -353,7 +357,7 @@ extern int target_flags;
       target_flags |= TARGET_FLAG_CLEAN_LINKAGE;		\
       if (TARGET_IC_COMPAT2_0)					\
 	{							\
-	  warning ("iC2.0 and iC3.0 are incompatible - using iC3.0", 0); \
+	  warning ("iC2.0 and iC3.0 are incompatible - using iC3.0"); \
 	  target_flags &= ~TARGET_FLAG_IC_COMPAT2_0;		\
 	}							\
     }								\
@@ -364,7 +368,7 @@ extern int target_flags;
     }								\
   /* ??? See the LONG_DOUBLE_TYPE_SIZE definition below.  */	\
   if (TARGET_LONG_DOUBLE_64)					\
-    warning ("The -mlong-double-64 option does not work yet.", 0);\
+    warning ("The -mlong-double-64 option does not work yet.");\
   i960_initialize ();						\
 }
 
@@ -573,7 +577,6 @@ extern int target_flags;
 /* Value is 1 if hard register REGNO can hold a value of machine-mode MODE.
    On 80960, the cpu registers can hold any mode but the float registers
    can only hold SFmode, DFmode, or XFmode.  */
-extern int hard_regno_mode_ok ();
 #define HARD_REGNO_MODE_OK(REGNO, MODE) hard_regno_mode_ok ((REGNO), (MODE))
 
 /* Value is 1 if it is a good idea to tie two pseudo registers
@@ -607,22 +610,30 @@ extern int hard_regno_mode_ok ();
 /* ??? It isn't clear to me why this is here.  Perhaps because of a bug (since
    fixed) in the definition of INITIAL_FRAME_POINTER_OFFSET which would have
    caused this to fail.  */
-/* ??? Must check current_function_has_nonlocal_goto, otherwise frame pointer
-   elimination messes up nonlocal goto sequences.  I think this works for other
-   targets because they use indirect jumps for the return which disables fp
-   elimination.  */
-#define FRAME_POINTER_REQUIRED \
-  (! leaf_function_p () || current_function_has_nonlocal_goto)
+#define FRAME_POINTER_REQUIRED (! leaf_function_p ())
 
-/* C statement to store the difference between the frame pointer
-   and the stack pointer values immediately after the function prologue.
+/* Definitions for register eliminations.
+
+   This is an array of structures.  Each structure initializes one pair
+   of eliminable registers.  The "from" register number is given first,
+   followed by "to".  Eliminations of the same "from" register are listed
+   in order of preference.. */
+
+#define ELIMINABLE_REGS	 {{FRAME_POINTER_REGNUM, STACK_POINTER_REGNUM}}
+
+/* Given FROM and TO register numbers, say whether this elimination is allowed.
+   Frame pointer elimination is automatically handled.  */
+#define CAN_ELIMINATE(FROM, TO) 1
+
+/* Define the offset between two registers, one to be eliminated, and
+   the other its replacement, at the start of a routine.
 
    Since the stack grows upward on the i960, this must be a negative number.
    This includes the 64 byte hardware register save area and the size of
    the frame.  */
 
-#define INITIAL_FRAME_POINTER_OFFSET(VAR) \
-  do { (VAR) = - (64 + compute_frame_size (get_frame_size ())); } while (0)
+#define INITIAL_ELIMINATION_OFFSET(FROM, TO, OFFSET)			\
+  do { (OFFSET) = - (64 + compute_frame_size (get_frame_size ())); } while (0)
 
 /* Base register for access to arguments of the function.  */
 #define ARG_POINTER_REGNUM 14
@@ -937,7 +948,6 @@ struct cum_args { int ca_nregparms; int ca_nstackparms; };
    NAMED is nonzero if this argument is a named parameter
     (otherwise it is an extra parameter matching an ellipsis).  */
 
-extern struct rtx_def *i960_function_arg ();
 #define FUNCTION_ARG(CUM, MODE, TYPE, NAMED)	\
   i960_function_arg(&CUM, MODE, TYPE, NAMED)
 
@@ -1143,7 +1153,6 @@ extern struct rtx_def *i960_function_arg ();
 
 /* On 80960, convert non-canonical addresses to canonical form.  */
 
-extern struct rtx_def *legitimize_address ();
 #define LEGITIMIZE_ADDRESS(X, OLDX, MODE, WIN)	\
 { rtx orig_x = (X);				\
   (X) = legitimize_address (X, OLDX, MODE);	\
@@ -1228,10 +1237,6 @@ extern struct rtx_def *legitimize_address ();
    cc setter and cc user at insn emit time.  */
 
 extern struct rtx_def *i960_compare_op0, *i960_compare_op1;
-
-/* Define the function that build the compare insn for scc and bcc.  */
-
-extern struct rtx_def *gen_compare_reg ();
 
 /* Add any extra modes needed to represent the condition code.
 
@@ -1638,16 +1643,6 @@ extern enum insn_types i960_last_insn_type;
 		       CONST_DOUBLE, CONST}},				\
   {"power2_operand", {CONST_INT}},					\
   {"cmplpower2_operand", {CONST_INT}},
-
-/* Define functions in i960.c and used in insn-output.c.  */
-
-extern char *i960_output_ldconst ();
-extern char *i960_output_call_insn ();
-extern char *i960_output_ret_insn ();
-extern char *i960_output_move_double ();
-extern char *i960_output_move_double_zero ();
-extern char *i960_output_move_quad ();
-extern char *i960_output_move_quad_zero ();
 
 /* Defined in reload.c, and used in insn-recog.c.  */
 

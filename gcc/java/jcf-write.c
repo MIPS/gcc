@@ -35,10 +35,6 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "buffer.h"
 #include "toplev.h"
 
-#ifndef DIR_SEPARATOR
-#define DIR_SEPARATOR '/'
-#endif
-
 extern struct obstack temporary_obstack;
 
 /* Base directory in which `.class' files should be written.
@@ -1160,7 +1156,8 @@ generate_bytecode_conditional (exp, true_label, false_label,
       }
       break;
     case TRUTH_NOT_EXPR:
-      generate_bytecode_conditional (TREE_OPERAND (exp, 0), false_label, true_label,
+      generate_bytecode_conditional (TREE_OPERAND (exp, 0), 
+				     false_label, true_label,
 				     ! true_branch_first, state);
       break;
     case TRUTH_ANDIF_EXPR:
@@ -1238,7 +1235,7 @@ generate_bytecode_conditional (exp, true_label, false_label,
 	    }
 	  if (integer_zerop (exp1) || integer_zerop (exp0))
 	    {
-	      generate_bytecode_insns (integer_zerop (exp1) ? exp0 : exp0,
+	      generate_bytecode_insns (integer_zerop (exp1) ? exp0 : exp1,
 				       STACK_TARGET, state);
 	      op = op + (OPCODE_ifnull - OPCODE_if_acmpeq);
 	      negop = (op & 1) ? op - 1 : op + 1;
@@ -1462,8 +1459,8 @@ generate_bytecode_insns (exp, target, state)
 	}
       break;
       case COMPOUND_EXPR:	
-	generate_bytecode_insns (TREE_OPERAND (exp, 0), IGNORE_TARGET, state);
-	generate_bytecode_insns (TREE_OPERAND (exp, 1), target, state);
+      generate_bytecode_insns (TREE_OPERAND (exp, 0), IGNORE_TARGET, state);
+      generate_bytecode_insns (TREE_OPERAND (exp, 1), target, state);
       break;
     case EXPR_WITH_FILE_LOCATION:
       {
@@ -1622,6 +1619,10 @@ generate_bytecode_insns (exp, target, state)
 	define_jcf_label (else_label, state);
 	generate_bytecode_insns (TREE_OPERAND (exp, 2), target, state);
 	define_jcf_label (end_label, state);
+
+	/* COND_EXPR can be used in a binop. The stack must be adjusted. */
+	if (TREE_TYPE (exp) != void_type_node)
+	  NOTE_POP (TYPE_PRECISION (TREE_TYPE (exp)) > 32 ? 2 : 1);
       }
       break;
     case CASE_EXPR:
@@ -2140,7 +2141,8 @@ generate_bytecode_insns (exp, target, state)
 	  {
 	    if (TREE_CODE (exp) == CONVERT_EXPR)
 	      {
-		int index = find_class_constant (&state->cpool, TREE_TYPE (dst_type));
+		int index = find_class_constant (&state->cpool, 
+						 TREE_TYPE (dst_type));
 		RESERVE (3);
 		OP1 (OPCODE_checkcast);
 		OP2 (index);
@@ -2450,7 +2452,8 @@ generate_bytecode_insns (exp, target, state)
 	  }
 	else if (f == soft_monitorenter_node
 		 || f == soft_monitorexit_node
-		 || f == throw_node)
+		 || f == throw_node[0]
+		 || f == throw_node[1])
 	  {
 	    if (f == soft_monitorenter_node)
 	      op = OPCODE_monitorenter;
@@ -2502,6 +2505,11 @@ generate_bytecode_insns (exp, target, state)
 	    else
 	      OP1 (OPCODE_invokevirtual);
 	    OP2 (index);
+	    if (interface)
+	      {
+		OP1 (nargs);
+		OP1 (0);
+	      }
 	    f = TREE_TYPE (TREE_TYPE (f));
 	    if (TREE_CODE (f) != VOID_TYPE)
 	      {
@@ -2510,11 +2518,6 @@ generate_bytecode_insns (exp, target, state)
 		  emit_pop (size, state);
 		else
 		  NOTE_PUSH (size);
-	      }
-	    if (interface)
-	      {
-		OP1 (nargs);
-		OP1 (0);
 	      }
 	    break;
 	  }

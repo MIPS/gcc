@@ -617,6 +617,17 @@ same name.
 This macro returns the enclosing namespace.  The @code{DECL_CONTEXT} for
 the @code{global_namespace} is @code{NULL_TREE}.
 
+@item DECL_NAMESPACE_ALIAS
+
+If this declaration is for a namespace alias, then
+@code{DECL_NAMESPACE_ALIAS} is the namespace for which this one is an
+alias.  
+
+Do not attempt to use @code{cp_namespace_decls} for a namespace which is
+an alias.  Instead, follow @code{DECL_NAMESPACE_ALIAS} links until you
+reach an ordinary, non-alias, namespace, and call
+@code{cp_namespace_decls} there.
+
 @item cp_namespace_decls
 This function will return the declarations contained in the namespace,
 including types, overloaded functions, other namespaces, and so forth.
@@ -636,6 +647,9 @@ For more information on the kinds of declarations that can occur on this
 list, @xref{Declarations}.  Some declarations will not appear on this
 list.  In particular, no @code{FIELD_DECL}, @code{LABEL_DECL}, or
 @code{PARM_DECL} nodes will appear here.
+
+This function cannot be used with namespaces that have
+@code{DECL_NAMESPACE_ALIAS} set.
 
 @end ftable
 
@@ -1274,6 +1288,12 @@ following the @code{TREE_CHAIN} link from one substatement to the next.
 Used to represent a @code{continue} statement.  There are no additional
 fields.
 
+@item CTOR_STMT
+
+Used to mark the beginning (if @code{CTOR_BEGIN_P} holds) or end (if
+@code{CTOR_END_P} holds of the main body of a constructor.  See also
+@code{SUBOBJECT} for more information on how to use these nodes.
+
 @item DECL_STMT
 
 Used to represent a local declaration.  The @code{DECL_STMT_DECL} macro
@@ -1368,9 +1388,9 @@ A scope-statement represents the beginning or end of a scope.  If
 scope; if @code{SCOPE_END_P} holds this statement represents the end of
 a scope.  On exit from a scope, all cleanups from @code{CLEANUP_STMT}s
 occurring in the scope must be run, in reverse order to the order in
-which they were encountered.  If @code{SCOPE_NULLIFIED_P} holds of the
-scope, back-ends should behave as if the @code{SCOPE_STMT} were not
-present at all.
+which they were encountered.  If @code{SCOPE_NULLIFIED_P} or
+@code{SCOPE_NO_CLEANUPS_P} holds of the scope, back-ends should behave
+as if the @code{SCOPE_STMT} were not present at all.
 
 @item START_CATCH_STMT
 
@@ -1383,9 +1403,9 @@ equalit) to @code{CATCH_ALL_TYPE} if this handler is for all types.
 
 In a constructor, these nodes are used to mark the point at which a
 subobject of @code{this} is fully constructed.  If, after this point, an
-exception is thrown before the constructor finishes executing, the
-@code{SUBOBJECT_CLEANUP} must be executed.  The cleanups must be
-executed in the reverse order in which they appear.
+exception is thrown before a @code{CTOR_STMT} with @code{CTOR_END_P} set
+is encountered, the @code{SUBOBJECT_CLEANUP} must be executed.  The
+cleanups must be executed in the reverse order in which they appear.
 
 @item SWITCH_STMT
 
@@ -1897,7 +1917,13 @@ storage is initialized to zero.
 
 @item SAVE_EXPR
 
-FIXME: Describe.
+A @code{SAVE_EXPR} represents an expression (possibly involving
+side-effects) that is used more than once.  The side-effects should
+occur only the first time the expression is evaluated.  Subsequent uses
+should juse reuse the computed value.  The first operand to the
+@code{SAVE_EXPR} is the expression to evaluate.  The side-effects should
+be executed where the @code{SAVE_EXPR} is first encountered in a
+depth-first preorder traversal of the expression tree.
 
 @item TARGET_EXPR
 A @code{TARGET_EXPR} represents a temporary object.  The first operand

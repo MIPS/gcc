@@ -1,5 +1,5 @@
 /* Move registers around to reduce number of move instructions needed.
-   Copyright (C) 1987, 88, 89, 92-98, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1987, 88, 89, 92-99, 2000 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -45,7 +45,7 @@ static int optimize_reg_copy_1	PROTO((rtx, rtx, rtx));
 static void optimize_reg_copy_2	PROTO((rtx, rtx, rtx));
 static void optimize_reg_copy_3	PROTO((rtx, rtx, rtx));
 static rtx gen_add3_insn	PROTO((rtx, rtx, rtx));
-static void copy_src_to_dest	PROTO((rtx, rtx, rtx, int, int));
+static void copy_src_to_dest	PROTO((rtx, rtx, rtx, int));
 static int *regmove_bb_head;
 
 struct match {
@@ -57,7 +57,7 @@ struct match {
 
 static rtx discover_flags_reg PROTO((void));
 static void mark_flags_life_zones PROTO((rtx));
-static void flags_set_1 PROTO((rtx, rtx));
+static void flags_set_1 PROTO((rtx, rtx, void *));
 
 static int try_auto_increment PROTO((rtx, rtx, rtx, rtx, HOST_WIDE_INT, int));
 static int find_matches PROTO((rtx, struct match *));
@@ -68,7 +68,6 @@ static int stable_and_no_regs_but_for_p PROTO((rtx, rtx, rtx));
 static int regclass_compatible_p PROTO((int, int));
 static int replacement_quality PROTO((rtx));
 static int fixup_match_2 PROTO((rtx, rtx, rtx, rtx, FILE *));
-static int loop_depth;
 
 /* Return non-zero if registers with CLASS1 and CLASS2 can be merged without
    causing too much register allocation problems.  */
@@ -302,7 +301,7 @@ mark_flags_life_zones (flags)
 	      /* In either case, birth is denoted simply by it's presence
 		 as the destination of a set.  */
 	      flags_set_1_set = 0;
-	      note_stores (PATTERN (insn), flags_set_1);
+	      note_stores (PATTERN (insn), flags_set_1, NULL);
 	      if (flags_set_1_set)
 		{
 		  live = 1;
@@ -322,8 +321,9 @@ mark_flags_life_zones (flags)
 /* A subroutine of mark_flags_life_zones, called through note_stores.  */
 
 static void
-flags_set_1 (x, pat)
+flags_set_1 (x, pat, data)
      rtx x, pat;
+     void *data ATTRIBUTE_UNUSED;
 {
   if (GET_CODE (pat) == SET
       && reg_overlap_mentioned_p (x, flags_set_1_rtx))
@@ -403,10 +403,7 @@ optimize_reg_copy_1 (insn, dest, src)
 
   for (p = NEXT_INSN (insn); p; p = NEXT_INSN (p))
     {
-      if (GET_CODE (p) == CODE_LABEL || GET_CODE (p) == JUMP_INSN
-	  || (GET_CODE (p) == NOTE
-	      && (NOTE_LINE_NUMBER (p) == NOTE_INSN_LOOP_BEG
-		  || NOTE_LINE_NUMBER (p) == NOTE_INSN_LOOP_END)))
+      if (GET_CODE (p) == CODE_LABEL || GET_CODE (p) == JUMP_INSN)
 	break;
 
       /* ??? We can't scan past the end of a basic block without updating
@@ -464,20 +461,7 @@ optimize_reg_copy_1 (insn, dest, src)
 			   && (sregno >= FIRST_PSEUDO_REGISTER
 			       || ! reg_overlap_mentioned_p (src,
 							     PATTERN (q))))
-		    {
-		      /* We assume that a register is used exactly once per
-			 insn in the REG_N_REFS updates below.  If this is not
-			 correct, no great harm is done.
-
-			 Since we do not know if we will change the lifetime of
-			 SREGNO or DREGNO, we must not update REG_LIVE_LENGTH
-			 or REG_N_CALLS_CROSSED at this time.   */
-		      if (sregno >= FIRST_PSEUDO_REGISTER)
-			REG_N_REFS (sregno) -= loop_depth;
-
-		      if (dregno >= FIRST_PSEUDO_REGISTER)
-			REG_N_REFS (dregno) += loop_depth;
-		    }
+		    ;
 		  else
 		    {
 		      validate_replace_rtx (dest, src, q);
@@ -541,6 +525,14 @@ optimize_reg_copy_1 (insn, dest, src)
 	      REG_NOTES (insn) = note;
 	    }
 
+	  /* DEST is also dead if INSN has a REG_UNUSED note for DEST.  */
+	  if (! dest_death
+	      && (dest_death = find_regno_note (insn, REG_UNUSED, dregno)))
+	    {
+	      PUT_REG_NOTE_KIND (dest_death, REG_DEAD);
+	      remove_note (insn, dest_death);
+	    }
+
 	  /* Put death note of DEST on P if we saw it die.  */
 	  if (dest_death)
 	    {
@@ -596,10 +588,7 @@ optimize_reg_copy_2 (insn, dest, src)
 
   for (p = NEXT_INSN (insn); p; p = NEXT_INSN (p))
     {
-      if (GET_CODE (p) == CODE_LABEL || GET_CODE (p) == JUMP_INSN
-	  || (GET_CODE (p) == NOTE
-	      && (NOTE_LINE_NUMBER (p) == NOTE_INSN_LOOP_BEG
-		  || NOTE_LINE_NUMBER (p) == NOTE_INSN_LOOP_END)))
+      if (GET_CODE (p) == CODE_LABEL || GET_CODE (p) == JUMP_INSN)
 	break;
 
       /* ??? We can't scan past the end of a basic block without updating
@@ -625,15 +614,7 @@ optimize_reg_copy_2 (insn, dest, src)
 	    if (GET_RTX_CLASS (GET_CODE (q)) == 'i')
 	      {
 		if (reg_mentioned_p (dest, PATTERN (q)))
-		  {
-		    PATTERN (q) = replace_rtx (PATTERN (q), dest, src);
-
-		    /* We assume that a register is used exactly once per
-		       insn in the updates below.  If this is not correct,
-		       no great harm is done.  */
-		    REG_N_REFS (dregno) -= loop_depth;
-		    REG_N_REFS (sregno) += loop_depth;
-		  }
+		  PATTERN (q) = replace_rtx (PATTERN (q), dest, src);
 
 
 	      if (GET_CODE (q) == CALL_INSN)
@@ -681,10 +662,7 @@ optimize_reg_copy_3 (insn, dest, src)
     return;
   for (p = PREV_INSN (insn); p && ! reg_set_p (src_reg, p); p = PREV_INSN (p))
     {
-      if (GET_CODE (p) == CODE_LABEL || GET_CODE (p) == JUMP_INSN
-	  || (GET_CODE (p) == NOTE
-	      && (NOTE_LINE_NUMBER (p) == NOTE_INSN_LOOP_BEG
-		  || NOTE_LINE_NUMBER (p) == NOTE_INSN_LOOP_END)))
+      if (GET_CODE (p) == CODE_LABEL || GET_CODE (p) == JUMP_INSN)
 	return;
 
       /* ??? We can't scan past the end of a basic block without updating
@@ -754,11 +732,10 @@ optimize_reg_copy_3 (insn, dest, src)
    instead moving the value to dest directly before the operation.  */
 
 static void
-copy_src_to_dest (insn, src, dest, loop_depth, old_max_uid)
+copy_src_to_dest (insn, src, dest, old_max_uid)
      rtx insn;
      rtx src;
      rtx dest;
-     int loop_depth;
      int old_max_uid;
 {
   rtx seq;
@@ -843,8 +820,7 @@ copy_src_to_dest (insn, src, dest, loop_depth, old_max_uid)
 
       /* Update the various register tables.  */
       dest_regno = REGNO (dest);
-      REG_N_SETS (dest_regno) += loop_depth;
-      REG_N_REFS (dest_regno) += loop_depth;
+      REG_N_SETS (dest_regno) ++;
       REG_LIVE_LENGTH (dest_regno)++;
       if (REGNO_FIRST_UID (dest_regno) == insn_uid)
 	REGNO_FIRST_UID (dest_regno) = move_uid;
@@ -964,10 +940,7 @@ fixup_match_2 (insn, dst, src, offset, regmove_dump_file)
       rtx pset;
 
       if (GET_CODE (p) == CODE_LABEL
-          || GET_CODE (p) == JUMP_INSN
-          || (GET_CODE (p) == NOTE
-              && (NOTE_LINE_NUMBER (p) == NOTE_INSN_LOOP_BEG
-                  || NOTE_LINE_NUMBER (p) == NOTE_INSN_LOOP_END)))
+          || GET_CODE (p) == JUMP_INSN)
         break;
 
       /* ??? We can't scan past the end of a basic block without updating
@@ -1006,9 +979,6 @@ fixup_match_2 (insn, dst, src, offset, regmove_dump_file)
 		  REG_N_CALLS_CROSSED (REGNO (dst)) += num_calls;
 		}
 
-	      REG_N_REFS (REGNO (dst)) += loop_depth;
-	      REG_N_REFS (REGNO (src)) -= loop_depth;
-
 	      if (regmove_dump_file)
 		fprintf (regmove_dump_file,
 			 "Fixed operand of insn %d.\n",
@@ -1018,10 +988,7 @@ fixup_match_2 (insn, dst, src, offset, regmove_dump_file)
 	      for (p = PREV_INSN (insn); p; p = PREV_INSN (p))
 		{
 		  if (GET_CODE (p) == CODE_LABEL
-		      || GET_CODE (p) == JUMP_INSN
-		      || (GET_CODE (p) == NOTE
-			  && (NOTE_LINE_NUMBER (p) == NOTE_INSN_LOOP_BEG
-			      || NOTE_LINE_NUMBER (p) == NOTE_INSN_LOOP_END)))
+		      || GET_CODE (p) == JUMP_INSN)
 		    break;
 		  if (GET_RTX_CLASS (GET_CODE (p)) != 'i')
 		    continue;
@@ -1035,10 +1002,7 @@ fixup_match_2 (insn, dst, src, offset, regmove_dump_file)
 	      for (p = NEXT_INSN (insn); p; p = NEXT_INSN (p))
 		{
 		  if (GET_CODE (p) == CODE_LABEL
-		      || GET_CODE (p) == JUMP_INSN
-		      || (GET_CODE (p) == NOTE
-			  && (NOTE_LINE_NUMBER (p) == NOTE_INSN_LOOP_BEG
-			      || NOTE_LINE_NUMBER (p) == NOTE_INSN_LOOP_END)))
+		      || GET_CODE (p) == JUMP_INSN)
 		    break;
 		  if (GET_RTX_CLASS (GET_CODE (p)) != 'i')
 		    continue;
@@ -1098,22 +1062,20 @@ regmove_optimize (f, nregs, regmove_dump_file)
      can supress some optimizations in those zones.  */
   mark_flags_life_zones (discover_flags_reg ());
 
-  regno_src_regno = (int *)alloca (sizeof *regno_src_regno * nregs);
+  regno_src_regno = (int *) xmalloc (sizeof *regno_src_regno * nregs);
   for (i = nregs; --i >= 0; ) regno_src_regno[i] = -1;
 
-  regmove_bb_head = (int *)alloca (sizeof (int) * (old_max_uid + 1));
+  regmove_bb_head = (int *) xmalloc (sizeof (int) * (old_max_uid + 1));
   for (i = old_max_uid; i >= 0; i--) regmove_bb_head[i] = -1;
   for (i = 0; i < n_basic_blocks; i++)
     regmove_bb_head[INSN_UID (BLOCK_HEAD (i))] = i;
 
   /* A forward/backward pass.  Replace output operands with input operands.  */
 
-  loop_depth = 1;
-
   for (pass = 0; pass <= 2; pass++)
     {
       if (! flag_regmove && pass >= flag_expensive_optimizations)
-	return;
+	goto done;
 
       if (regmove_dump_file)
 	fprintf (regmove_dump_file, "Starting %s pass...\n",
@@ -1124,14 +1086,6 @@ regmove_optimize (f, nregs, regmove_dump_file)
 	{
 	  rtx set;
 	  int op_no, match_no;
-
-	  if (GET_CODE (insn) == NOTE)
-	    {
-	      if (NOTE_LINE_NUMBER (insn) == NOTE_INSN_LOOP_BEG)
-		loop_depth++;
-	      else if (NOTE_LINE_NUMBER (insn) == NOTE_INSN_LOOP_END)
-		loop_depth--;
-	    }
 
 	  set = single_set (insn);
 	  if (! set)
@@ -1268,17 +1222,8 @@ regmove_optimize (f, nregs, regmove_dump_file)
   if (regmove_dump_file)
     fprintf (regmove_dump_file, "Starting backward pass...\n");
 
-  loop_depth = 1;
-
   for (insn = get_last_insn (); insn; insn = PREV_INSN (insn))
     {
-      if (GET_CODE (insn) == NOTE)
-	{
-	  if (NOTE_LINE_NUMBER (insn) == NOTE_INSN_LOOP_END)
-	    loop_depth++;
-	  else if (NOTE_LINE_NUMBER (insn) == NOTE_INSN_LOOP_BEG)
-	    loop_depth--;
-	}
       if (GET_RTX_CLASS (GET_CODE (insn)) == 'i')
 	{
 	  int op_no, match_no;
@@ -1425,10 +1370,7 @@ regmove_optimize (f, nregs, regmove_dump_file)
 		  rtx pset;
 
 		  if (GET_CODE (p) == CODE_LABEL
-		      || GET_CODE (p) == JUMP_INSN
-		      || (GET_CODE (p) == NOTE
-			  && (NOTE_LINE_NUMBER (p) == NOTE_INSN_LOOP_BEG
-			      || NOTE_LINE_NUMBER (p) == NOTE_INSN_LOOP_END)))
+		      || GET_CODE (p) == JUMP_INSN)
 		    break;
 
 		  /* ??? We can't scan past the end of a basic block without
@@ -1527,22 +1469,6 @@ regmove_optimize (f, nregs, regmove_dump_file)
 			REG_LIVE_LENGTH (srcno) = 2;
 		    }
 
-		  /* We assume that a register is used exactly once per
-		     insn in the updates above.  If this is not correct,
-		     no great harm is done.  */
-
-		  REG_N_REFS (dstno) += 2 * loop_depth;
-		  REG_N_REFS (srcno) -= 2 * loop_depth;
-
-                  /* If that was the only time src was set,
-                     and src was not live at the start of the
-                     function, we know that we have no more
-                     references to src; clear REG_N_REFS so it
-                     won't make reload do any work.  */
-                  if (REG_N_SETS (REGNO (src)) == 0
-                      && ! regno_uninitialized (REGNO (src)))
-                    REG_N_REFS (REGNO (src)) = 0;
-
 		  if (regmove_dump_file)
 		    fprintf (regmove_dump_file,
 			     "Fixed operand %d of insn %d matching operand %d.\n",
@@ -1555,8 +1481,7 @@ regmove_optimize (f, nregs, regmove_dump_file)
 	  /* If we weren't able to replace any of the alternatives, try an
 	     alternative appoach of copying the source to the destination.  */
 	  if (!success && copy_src != NULL_RTX)
-	    copy_src_to_dest (insn, copy_src, copy_dst, loop_depth,
-			      old_max_uid);
+	    copy_src_to_dest (insn, copy_src, copy_dst, old_max_uid);
 
 	}
     }
@@ -1573,6 +1498,11 @@ regmove_optimize (f, nregs, regmove_dump_file)
 	new = next, next = NEXT_INSN (new);
       BLOCK_END (i) = new;
     }
+
+ done:
+  /* Clean up.  */
+  free (regno_src_regno);
+  free (regmove_bb_head);
 }
 
 /* Returns nonzero if INSN's pattern has matching constraints for any operand.
@@ -1674,10 +1604,10 @@ fixup_match_1 (insn, set, src, src_subreg, dst, backward, operand_number,
   int success = 0;
   int num_calls = 0, s_num_calls = 0;
   enum rtx_code code = NOTE;
-  HOST_WIDE_INT insn_const, newconst;
+  HOST_WIDE_INT insn_const = 0, newconst;
   rtx overlap = 0; /* need to move insn ? */
-  rtx src_note = find_reg_note (insn, REG_DEAD, src), dst_note;
-  int length, s_length, true_loop_depth;
+  rtx src_note = find_reg_note (insn, REG_DEAD, src), dst_note = NULL_RTX;
+  int length, s_length;
 
   /* If SRC is marked as unchanging, we may not change it.
      ??? Maybe we could get better code by removing the unchanging bit
@@ -1727,10 +1657,7 @@ fixup_match_1 (insn, set, src, src_subreg, dst, backward, operand_number,
 
   for (length = s_length = 0, p = NEXT_INSN (insn); p; p = NEXT_INSN (p))
     {
-      if (GET_CODE (p) == CODE_LABEL || GET_CODE (p) == JUMP_INSN
-	  || (GET_CODE (p) == NOTE
-	      && (NOTE_LINE_NUMBER (p) == NOTE_INSN_LOOP_BEG
-		  || NOTE_LINE_NUMBER (p) == NOTE_INSN_LOOP_END)))
+      if (GET_CODE (p) == CODE_LABEL || GET_CODE (p) == JUMP_INSN)
 	break;
 
       /* ??? We can't scan past the end of a basic block without updating
@@ -1768,7 +1695,7 @@ fixup_match_1 (insn, set, src, src_subreg, dst, backward, operand_number,
 	  if (! src_note)
 	    {
 	      rtx q;
-	      rtx set2;
+	      rtx set2 = NULL_RTX;
 
 	      /* If an optimization is done, the value of SRC while P
 		 is executed will be changed.  Check that this is OK.  */
@@ -1776,10 +1703,7 @@ fixup_match_1 (insn, set, src, src_subreg, dst, backward, operand_number,
 		break;
 	      for (q = p; q; q = NEXT_INSN (q))
 		{
-		  if (GET_CODE (q) == CODE_LABEL || GET_CODE (q) == JUMP_INSN
-		      || (GET_CODE (q) == NOTE
-			  && (NOTE_LINE_NUMBER (q) == NOTE_INSN_LOOP_BEG
-			      || NOTE_LINE_NUMBER (q) == NOTE_INSN_LOOP_END)))
+		  if (GET_CODE (q) == CODE_LABEL || GET_CODE (q) == JUMP_INSN)
 		    {
 		      q = 0;
 		      break;
@@ -1899,8 +1823,6 @@ fixup_match_1 (insn, set, src, src_subreg, dst, backward, operand_number,
   if (! success)
     return 0;
 
-  true_loop_depth = backward ? 2 - loop_depth : loop_depth;
-
   /* Remove the death note for DST from P.  */
   remove_note (p, dst_note);
   if (code == MINUS)
@@ -1912,7 +1834,6 @@ fixup_match_1 (insn, set, src, src_subreg, dst, backward, operand_number,
 	post_inc = 0;
       validate_change (insn, &XEXP (SET_SRC (set), 1), GEN_INT (insn_const), 0);
       REG_N_SETS (REGNO (src))++;
-      REG_N_REFS (REGNO (src)) += true_loop_depth;
       REG_LIVE_LENGTH (REGNO (src))++;
     }
   if (overlap)
@@ -1951,17 +1872,14 @@ fixup_match_1 (insn, set, src, src_subreg, dst, backward, operand_number,
   if (! overlap && (code == PLUS || code == MINUS))
     {
       rtx note = find_reg_note (insn, REG_EQUAL, NULL_RTX);
-      rtx q, set2;
+      rtx q, set2 = NULL_RTX;
       int num_calls2 = 0, s_length2 = 0;
 
       if (note && CONSTANT_P (XEXP (note, 0)))
 	{
 	  for (q = PREV_INSN (insn); q; q = PREV_INSN(q))
 	    {
-	      if (GET_CODE (q) == CODE_LABEL || GET_CODE (q) == JUMP_INSN
-		  || (GET_CODE (q) == NOTE
-		      && (NOTE_LINE_NUMBER (q) == NOTE_INSN_LOOP_BEG
-			  || NOTE_LINE_NUMBER (q) == NOTE_INSN_LOOP_END)))
+	      if (GET_CODE (q) == CODE_LABEL || GET_CODE (q) == JUMP_INSN)
 		{
 		  q = 0;
 		  break;
@@ -2004,7 +1922,6 @@ fixup_match_1 (insn, set, src, src_subreg, dst, backward, operand_number,
 	      NOTE_SOURCE_FILE (q) = 0;
 	      REG_N_SETS (REGNO (src))--;
 	      REG_N_CALLS_CROSSED (REGNO (src)) -= num_calls2;
-	      REG_N_REFS (REGNO (src)) -= true_loop_depth;
 	      REG_LIVE_LENGTH (REGNO (src)) -= s_length2;
 	      insn_const = 0;
 	    }
@@ -2034,10 +1951,7 @@ fixup_match_1 (insn, set, src, src_subreg, dst, backward, operand_number,
       inc_dest = post_inc_set ? SET_DEST (post_inc_set) : src;
       for (q = post_inc; (q = NEXT_INSN (q)); )
 	{
-	  if (GET_CODE (q) == CODE_LABEL || GET_CODE (q) == JUMP_INSN
-	      || (GET_CODE (q) == NOTE
-		  && (NOTE_LINE_NUMBER (q) == NOTE_INSN_LOOP_BEG
-		      || NOTE_LINE_NUMBER (q) == NOTE_INSN_LOOP_END)))
+	  if (GET_CODE (q) == CODE_LABEL || GET_CODE (q) == JUMP_INSN)
 	    break;
 
 	  /* ??? We can't scan past the end of a basic block without updating
@@ -2098,23 +2012,6 @@ fixup_match_1 (insn, set, src, src_subreg, dst, backward, operand_number,
       if (REG_LIVE_LENGTH (REGNO (dst)) < 2)
 	REG_LIVE_LENGTH (REGNO (dst)) = 2;
     }
-
-  /* We assume that a register is used exactly once per
-      insn in the updates above.  If this is not correct,
-      no great harm is done.  */
-
-  REG_N_REFS (REGNO (src)) += 2 * true_loop_depth;
-  REG_N_REFS (REGNO (dst)) -= 2 * true_loop_depth;
-
-  /* If that was the only time dst was set,
-     and dst was not live at the start of the
-     function, we know that we have no more
-     references to dst; clear REG_N_REFS so it
-     won't make reload do any work.  */
-  if (REG_N_SETS (REGNO (dst)) == 0
-      && ! regno_uninitialized (REGNO (dst)))
-    REG_N_REFS (REGNO (dst)) = 0;
-
   if (regmove_dump_file)
     fprintf (regmove_dump_file,
 	     "Fixed operand %d of insn %d matching operand %d.\n",

@@ -1,5 +1,5 @@
 /* Instruction scheduling pass.
-   Copyright (C) 1992, 93-98, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1992, 93-98, 1999, 2000 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com) Enhanced by,
    and currently maintained by, Jim Wilson (wilson@cygnus.com)
 
@@ -231,21 +231,69 @@ fix_sched_param (param, val)
     warning ("fix_sched_param: unknown param: %s", param);
 }
 
+/* Describe state of dependencies used during sched_analyze phase.  */
+struct deps
+{
+  /* The *_insns and *_mems are paired lists.  Each pending memory operation
+     will have a pointer to the MEM rtx on one list and a pointer to the
+     containing insn on the other list in the same place in the list.  */
 
-/* Element N is the next insn that sets (hard or pseudo) register
-   N within the current basic block; or zero, if there is no
-   such insn.  Needed for new registers which may be introduced
-   by splitting insns.  */
-static rtx *reg_last_uses;
-static rtx *reg_last_sets;
-static rtx *reg_last_clobbers;
+  /* We can't use add_dependence like the old code did, because a single insn
+     may have multiple memory accesses, and hence needs to be on the list
+     once for each memory access.  Add_dependence won't let you add an insn
+     to a list more than once.  */
+
+  /* An INSN_LIST containing all insns with pending read operations.  */
+  rtx pending_read_insns;
+
+  /* An EXPR_LIST containing all MEM rtx's which are pending reads.  */
+  rtx pending_read_mems;
+
+  /* An INSN_LIST containing all insns with pending write operations.  */
+  rtx pending_write_insns;
+
+  /* An EXPR_LIST containing all MEM rtx's which are pending writes.  */
+  rtx pending_write_mems;
+
+  /* Indicates the combined length of the two pending lists.  We must prevent
+     these lists from ever growing too large since the number of dependencies
+     produced is at least O(N*N), and execution time is at least O(4*N*N), as
+     a function of the length of these pending lists.  */
+  int pending_lists_length;
+
+  /* The last insn upon which all memory references must depend.
+     This is an insn which flushed the pending lists, creating a dependency
+     between it and all previously pending memory references.  This creates
+     a barrier (or a checkpoint) which no memory reference is allowed to cross.
+
+     This includes all non constant CALL_INSNs.  When we do interprocedural
+     alias analysis, this restriction can be relaxed.
+     This may also be an INSN that writes memory if the pending lists grow
+     too large.  */
+  rtx last_pending_memory_flush;
+
+  /* The last function call we have seen.  All hard regs, and, of course,
+     the last function call, must depend on this.  */
+  rtx last_function_call;
+
+  /* The LOG_LINKS field of this is a list of insns which use a pseudo register
+     that does not already cross a call.  We create dependencies between each
+     of those insn and the next call insn, to ensure that they won't cross a call
+     after scheduling is done.  */
+  rtx sched_before_next_call;
+
+  /* Element N is the next insn that sets (hard or pseudo) register
+     N within the current basic block; or zero, if there is no
+     such insn.  Needed for new registers which may be introduced
+     by splitting insns.  */
+  rtx *reg_last_uses;
+  rtx *reg_last_sets;
+  rtx *reg_last_clobbers;
+};
+
 static regset reg_pending_sets;
 static regset reg_pending_clobbers;
 static int reg_pending_sets_all;
-
-/* Vector indexed by INSN_UID giving the original ordering of the insns.  */
-static int *insn_luid;
-#define INSN_LUID(INSN) (insn_luid[INSN_UID (INSN)])
 
 /* To speed up the test for duplicate dependency links we keep a record
    of true dependencies created by add_dependence when the average number
@@ -261,47 +309,77 @@ static int *insn_luid;
    insn chain.  */
 static sbitmap *true_dependency_cache;
 
-/* Vector indexed by INSN_UID giving each instruction a priority.  */
-static int *insn_priority;
-#define INSN_PRIORITY(INSN) (insn_priority[INSN_UID (INSN)])
+/* Indexed by INSN_UID, the collection of all data associated with
+   a single instruction.  */
 
-static short *insn_costs;
-#define INSN_COST(INSN)	insn_costs[INSN_UID (INSN)]
+struct haifa_insn_data
+{
+  /* A list of insns which depend on the instruction.  Unlike LOG_LINKS,
+     it represents forward dependancies.  */
+  rtx depend;
 
-/* Vector indexed by INSN_UID giving an encoding of the function units
-   used.  */
-static short *insn_units;
-#define INSN_UNIT(INSN)	insn_units[INSN_UID (INSN)]
+  /* The line number note in effect for each insn.  For line number 
+     notes, this indicates whether the note may be reused.  */
+  rtx line_note;
 
-/* Vector indexed by INSN_UID giving each instruction a
-   register-weight.  This weight is an estimation of the insn
-   contribution to registers pressure.  */
-static int *insn_reg_weight;
-#define INSN_REG_WEIGHT(INSN) (insn_reg_weight[INSN_UID (INSN)])
+  /* Logical uid gives the original ordering of the insns.  */
+  int luid;
 
-/* Vector indexed by INSN_UID giving list of insns which
-   depend upon INSN.  Unlike LOG_LINKS, it represents forward dependences.  */
-static rtx *insn_depend;
-#define INSN_DEPEND(INSN) insn_depend[INSN_UID (INSN)]
+  /* A priority for each insn.  */
+  int priority;
 
-/* Vector indexed by INSN_UID. Initialized to the number of incoming
-   edges in forward dependence graph (= number of LOG_LINKS).  As
-   scheduling procedes, dependence counts are decreased.  An
-   instruction moves to the ready list when its counter is zero.  */
-static int *insn_dep_count;
-#define INSN_DEP_COUNT(INSN) (insn_dep_count[INSN_UID (INSN)])
+  /* The number of incoming edges in the forward dependency graph.
+     As scheduling proceds, counts are decreased.  An insn moves to
+     the ready queue when its counter reaches zero.  */
+  int dep_count;
 
-/* Vector indexed by INSN_UID giving an encoding of the blockage range
-   function.  The unit and the range are encoded.  */
-static unsigned int *insn_blockage;
-#define INSN_BLOCKAGE(INSN) insn_blockage[INSN_UID (INSN)]
-#define UNIT_BITS 5
-#define BLOCKAGE_MASK ((1 << BLOCKAGE_BITS) - 1)
-#define ENCODE_BLOCKAGE(U, R)				\
-(((U) << BLOCKAGE_BITS					\
-  | MIN_BLOCKAGE_COST (R)) << BLOCKAGE_BITS		\
- | MAX_BLOCKAGE_COST (R))
-#define UNIT_BLOCKED(B) ((B) >> (2 * BLOCKAGE_BITS))
+  /* An encoding of the blockage range function.  Both unit and range
+     are coded.  */
+  unsigned int blockage;
+
+  /* Number of instructions referring to this insn.  */
+  int ref_count;
+
+  /* The minimum clock tick at which the insn becomes ready.  This is
+     used to note timing constraints for the insns in the pending list.  */
+  int tick;
+
+  short cost;
+
+  /* An encoding of the function units used.  */
+  short units;
+
+  /* This weight is an estimation of the insn's contribution to
+     register pressure.  */
+  short reg_weight;
+
+  /* Some insns (e.g. call) are not allowed to move across blocks.  */
+  unsigned int cant_move : 1;
+
+  /* Set if there's DEF-USE dependance between some speculatively
+     moved load insn and this one.  */
+  unsigned int fed_by_spec_load : 1;
+  unsigned int is_load_insn : 1;
+};
+
+static struct haifa_insn_data *h_i_d;
+
+#define INSN_DEPEND(INSN)	(h_i_d[INSN_UID (INSN)].depend)
+#define INSN_LUID(INSN)		(h_i_d[INSN_UID (INSN)].luid)
+#define INSN_PRIORITY(INSN)	(h_i_d[INSN_UID (INSN)].priority)
+#define INSN_DEP_COUNT(INSN)	(h_i_d[INSN_UID (INSN)].dep_count)
+#define INSN_COST(INSN)		(h_i_d[INSN_UID (INSN)].cost)
+#define INSN_UNIT(INSN)		(h_i_d[INSN_UID (INSN)].units)
+#define INSN_REG_WEIGHT(INSN)	(h_i_d[INSN_UID (INSN)].reg_weight)
+
+#define INSN_BLOCKAGE(INSN)	(h_i_d[INSN_UID (INSN)].blockage)
+#define UNIT_BITS		5
+#define BLOCKAGE_MASK		((1 << BLOCKAGE_BITS) - 1)
+#define ENCODE_BLOCKAGE(U, R)			\
+  (((U) << BLOCKAGE_BITS			\
+    | MIN_BLOCKAGE_COST (R)) << BLOCKAGE_BITS	\
+   | MAX_BLOCKAGE_COST (R))
+#define UNIT_BLOCKED(B)		((B) >> (2 * BLOCKAGE_BITS))
 #define BLOCKAGE_RANGE(B)                                                \
   (((((B) >> BLOCKAGE_BITS) & BLOCKAGE_MASK) << (HOST_BITS_PER_INT / 2)) \
    | ((B) & BLOCKAGE_MASK))
@@ -317,16 +395,12 @@ static unsigned int *insn_blockage;
 #define DONE_PRIORITY_P(INSN) (INSN_PRIORITY (INSN) < 0)
 #define LOW_PRIORITY_P(INSN) ((INSN_PRIORITY (INSN) & 0x7f000000) == 0)
 
-/* Vector indexed by INSN_UID giving number of insns referring to this
-   insn.  */
-static int *insn_ref_count;
-#define INSN_REF_COUNT(INSN) (insn_ref_count[INSN_UID (INSN)])
-
-/* Vector indexed by INSN_UID giving line-number note in effect for each
-   insn.  For line-number notes, this indicates whether the note may be
-   reused.  */
-static rtx *line_note;
-#define LINE_NOTE(INSN) (line_note[INSN_UID (INSN)])
+#define INSN_REF_COUNT(INSN)	(h_i_d[INSN_UID (INSN)].ref_count)
+#define LINE_NOTE(INSN)		(h_i_d[INSN_UID (INSN)].line_note)
+#define INSN_TICK(INSN)		(h_i_d[INSN_UID (INSN)].tick)
+#define CANT_MOVE(insn)		(h_i_d[INSN_UID (insn)].cant_move)
+#define FED_BY_SPEC_LOAD(insn)	(h_i_d[INSN_UID (insn)].fed_by_spec_load)
+#define IS_LOAD_INSN(insn)	(h_i_d[INSN_UID (insn)].is_load_insn)
 
 /* Vector indexed by basic block number giving the starting line-number
    for each basic block.  */
@@ -389,12 +463,6 @@ static int q_size = 0;
 #define NEXT_Q(X) (((X)+1) & (INSN_QUEUE_SIZE-1))
 #define NEXT_Q_AFTER(X, C) (((X)+C) & (INSN_QUEUE_SIZE-1))
 
-/* Vector indexed by INSN_UID giving the minimum clock tick at which
-   the insn becomes ready.  This is used to note timing constraints for
-   insns in the pending list.  */
-static int *insn_tick;
-#define INSN_TICK(INSN) (insn_tick[INSN_UID (INSN)])
-
 /* Forward declarations.  */
 static void add_dependence PROTO ((rtx, rtx, enum reg_note));
 #ifdef HAVE_cc0
@@ -411,12 +479,13 @@ static int potential_hazard PROTO ((int, rtx, int));
 static int insn_cost PROTO ((rtx, rtx, rtx));
 static int priority PROTO ((rtx));
 static void free_pending_lists PROTO ((void));
-static void add_insn_mem_dependence PROTO ((rtx *, rtx *, rtx, rtx));
-static void flush_pending_lists PROTO ((rtx, int));
-static void sched_analyze_1 PROTO ((rtx, rtx));
-static void sched_analyze_2 PROTO ((rtx, rtx));
-static void sched_analyze_insn PROTO ((rtx, rtx, rtx));
-static void sched_analyze PROTO ((rtx, rtx));
+static void add_insn_mem_dependence PROTO ((struct deps *, rtx *, rtx *, rtx,
+					    rtx));
+static void flush_pending_lists PROTO ((struct deps *, rtx, int));
+static void sched_analyze_1 PROTO ((struct deps *, rtx, rtx));
+static void sched_analyze_2 PROTO ((struct deps *, rtx, rtx));
+static void sched_analyze_insn PROTO ((struct deps *, rtx, rtx, rtx));
+static void sched_analyze PROTO ((struct deps *, rtx, rtx));
 static int rank_for_schedule PROTO ((const PTR, const PTR));
 static void swap_sort PROTO ((rtx *, int));
 static void queue_insn PROTO ((rtx, int));
@@ -426,10 +495,6 @@ static int schedule_block PROTO ((int, int));
 static char *safe_concat PROTO ((char *, char *, const char *));
 static int insn_issue_delay PROTO ((rtx));
 static void adjust_priority PROTO ((rtx));
-
-/* Some insns (e.g. call) are not allowed to move across blocks.  */
-static char *cant_move;
-#define CANT_MOVE(insn) (cant_move[INSN_UID (insn)])
 
 /* Control flow graph edges are kept in circular lists.  */
 typedef struct
@@ -461,8 +526,7 @@ static int *out_edges;
 
 
 static int is_cfg_nonregular PROTO ((void));
-static int build_control_flow PROTO ((int_list_ptr *, int_list_ptr *,
-				      int *, int *));
+static int build_control_flow PROTO ((struct edge_list *));
 static void new_edge PROTO ((int, int));
 
 
@@ -501,8 +565,7 @@ static int *containing_rgn;
 
 void debug_regions PROTO ((void));
 static void find_single_block_region PROTO ((void));
-static void find_rgns PROTO ((int_list_ptr *, int_list_ptr *,
-			      int *, int *, sbitmap *));
+static void find_rgns PROTO ((struct edge_list *, sbitmap *));
 static int too_large PROTO ((int, int *, int *));
 
 extern void debug_live PROTO ((int, int));
@@ -531,7 +594,7 @@ static int bitlst_table_size;
 static int *bitlst_table;
 
 static char bitset_member PROTO ((bitset, int, int));
-static void extract_bitlst PROTO ((bitset, int, bitlst *));
+static void extract_bitlst PROTO ((bitset, int, int, bitlst *));
 
 /* Target info declarations.
 
@@ -617,6 +680,9 @@ static int *rgn_edges;
 /* Number of words in an edgeset.  */
 static int edgeset_size;
 
+/* Number of bits in an edgeset.  */
+static int edgeset_bitsize;
+
 /* Mapping from each edge in the graph to its number in the rgn.  */
 static int *edge_to_bit;
 #define EDGE_TO_BIT(edge) (edge_to_bit[edge])
@@ -660,7 +726,6 @@ static int is_exception_free PROTO ((rtx, int, int));
 
 static char find_insn_mem_list PROTO ((rtx, rtx, rtx, rtx));
 static void compute_block_forward_dependences PROTO ((int));
-static void init_rgn_data_dependences PROTO ((int));
 static void add_branch_dependences PROTO ((rtx, rtx));
 static void compute_block_backward_dependences PROTO ((int));
 void debug_dependencies PROTO ((void));
@@ -721,7 +786,7 @@ static rtx move_insn1 PROTO ((rtx, rtx));
 static rtx move_insn PROTO ((rtx, rtx));
 static rtx group_leader PROTO ((rtx));
 static int set_priorities PROTO ((int));
-static void init_rtx_vector PROTO ((rtx **, rtx *, int, int));
+static void init_deps PROTO ((struct deps *));
 static void schedule_region PROTO ((int));
 
 #endif /* INSN_SCHEDULING */
@@ -827,6 +892,13 @@ add_dependence (insn, elem, dep_type)
 
   /* Insn dependency, not data dependency.  */
   PUT_REG_NOTE_KIND (link, dep_type);
+
+#ifdef INSN_SCHEDULING
+  /* If we are adding a true dependency to INSN's LOG_LINKs, then
+     note that in the bitmap cache of true dependency information.  */
+  if ((int)dep_type == 0 && true_dependency_cache)
+    SET_BIT (true_dependency_cache[INSN_LUID (insn)], INSN_LUID (elem));
+#endif
 }
 
 #ifdef HAVE_cc0
@@ -876,7 +948,7 @@ remove_dependence (insn, elem)
 #ifndef INSN_SCHEDULING
 void
 schedule_insns (dump_file)
-     FILE *dump_file;
+     FILE *dump_file ATTRIBUTE_UNUSED;
 {
 }
 #else
@@ -890,88 +962,19 @@ schedule_insns (dump_file)
 
 /* Computation of memory dependencies.  */
 
-/* The *_insns and *_mems are paired lists.  Each pending memory operation
-   will have a pointer to the MEM rtx on one list and a pointer to the
-   containing insn on the other list in the same place in the list.  */
+/* Data structures for the computation of data dependences in a regions.  We
+   keep one mem_deps structure for every basic block.  Before analyzing the
+   data dependences for a bb, its variables are initialized as a function of
+   the variables of its predecessors.  When the analysis for a bb completes,
+   we save the contents to the corresponding bb_mem_deps[bb] variable.  */
 
-/* We can't use add_dependence like the old code did, because a single insn
-   may have multiple memory accesses, and hence needs to be on the list
-   once for each memory access.  Add_dependence won't let you add an insn
-   to a list more than once.  */
-
-/* An INSN_LIST containing all insns with pending read operations.  */
-static rtx pending_read_insns;
-
-/* An EXPR_LIST containing all MEM rtx's which are pending reads.  */
-static rtx pending_read_mems;
-
-/* An INSN_LIST containing all insns with pending write operations.  */
-static rtx pending_write_insns;
-
-/* An EXPR_LIST containing all MEM rtx's which are pending writes.  */
-static rtx pending_write_mems;
-
-/* Indicates the combined length of the two pending lists.  We must prevent
-   these lists from ever growing too large since the number of dependencies
-   produced is at least O(N*N), and execution time is at least O(4*N*N), as
-   a function of the length of these pending lists.  */
-
-static int pending_lists_length;
-
-/* The last insn upon which all memory references must depend.
-   This is an insn which flushed the pending lists, creating a dependency
-   between it and all previously pending memory references.  This creates
-   a barrier (or a checkpoint) which no memory reference is allowed to cross.
-
-   This includes all non constant CALL_INSNs.  When we do interprocedural
-   alias analysis, this restriction can be relaxed.
-   This may also be an INSN that writes memory if the pending lists grow
-   too large.  */
-
-static rtx last_pending_memory_flush;
-
-/* The last function call we have seen.  All hard regs, and, of course,
-   the last function call, must depend on this.  */
-
-static rtx last_function_call;
-
-/* The LOG_LINKS field of this is a list of insns which use a pseudo register
-   that does not already cross a call.  We create dependencies between each
-   of those insn and the next call insn, to ensure that they won't cross a call
-   after scheduling is done.  */
-
-static rtx sched_before_next_call;
+static struct deps *bb_deps;
 
 /* Pointer to the last instruction scheduled.  Used by rank_for_schedule,
    so that insns independent of the last scheduled insn will be preferred
    over dependent instructions.  */
 
 static rtx last_scheduled_insn;
-
-/* Data structures for the computation of data dependences in a regions.  We
-   keep one copy of each of the declared above variables for each bb in the
-   region.  Before analyzing the data dependences for a bb, its variables
-   are initialized as a function of the variables of its predecessors.  When
-   the analysis for a bb completes, we save the contents of each variable X
-   to a corresponding bb_X[bb] variable.  For example, pending_read_insns is
-   copied to bb_pending_read_insns[bb].  Another change is that few
-   variables are now a list of insns rather than a single insn:
-   last_pending_memory_flash, last_function_call, reg_last_sets.  The
-   manipulation of these variables was changed appropriately.  */
-
-static rtx **bb_reg_last_uses;
-static rtx **bb_reg_last_sets;
-static rtx **bb_reg_last_clobbers;
-
-static rtx *bb_pending_read_insns;
-static rtx *bb_pending_read_mems;
-static rtx *bb_pending_write_insns;
-static rtx *bb_pending_write_mems;
-static int *bb_pending_lists_length;
-
-static rtx *bb_last_pending_memory_flush;
-static rtx *bb_last_function_call;
-static rtx *bb_sched_before_next_call;
 
 /* Functions for construction of the control flow graph.  */
 
@@ -1041,48 +1044,45 @@ is_cfg_nonregular ()
    prevent cross block scheduling.  */
 
 static int
-build_control_flow (s_preds, s_succs, num_preds, num_succs)
-     int_list_ptr *s_preds;
-     int_list_ptr *s_succs;
-     int *num_preds;
-     int *num_succs;
+build_control_flow (edge_list)
+     struct edge_list *edge_list;
 {
-  int i;
-  int_list_ptr succ;
-  int unreachable;
+  int i, unreachable, num_edges;
 
-  /* Count the number of edges in the cfg.  */
-  nr_edges = 0;
+  /* This already accounts for entry/exit edges.  */
+  num_edges = NUM_EDGES (edge_list);
+
+  /* Unreachable loops with more than one basic block are detected
+     during the DFS traversal in find_rgns.
+
+     Unreachable loops with a single block are detected here.  This
+     test is redundant with the one in find_rgns, but it's much
+    cheaper to go ahead and catch the trivial case here.  */
   unreachable = 0;
   for (i = 0; i < n_basic_blocks; i++)
     {
-      nr_edges += num_succs[i];
+      basic_block b = BASIC_BLOCK (i);
 
-      /* Unreachable loops with more than one basic block are detected
-	 during the DFS traversal in find_rgns.
-
-	 Unreachable loops with a single block are detected here.  This
-	 test is redundant with the one in find_rgns, but it's much
-	 cheaper to go ahead and catch the trivial case here.  */
-      if (num_preds[i] == 0
-	  || (num_preds[i] == 1 && INT_LIST_VAL (s_preds[i]) == i))
+      if (b->pred == NULL
+	  || (b->pred->src == b
+	      && b->pred->pred_next == NULL))
 	unreachable = 1;
     }
 
-  /* Account for entry/exit edges.  */
-  nr_edges += 2;
-
+  /* ??? We can kill these soon.  */
   in_edges = (int *) xcalloc (n_basic_blocks, sizeof (int));
   out_edges = (int *) xcalloc (n_basic_blocks, sizeof (int));
-  edge_table = (haifa_edge *) xcalloc (nr_edges, sizeof (haifa_edge));
+  edge_table = (haifa_edge *) xcalloc (num_edges, sizeof (haifa_edge));
 
   nr_edges = 0;
-  for (i = 0; i < n_basic_blocks; i++)
-    for (succ = s_succs[i]; succ; succ = succ->next)
-      {
-	if (INT_LIST_VAL (succ) != EXIT_BLOCK)
-	  new_edge (i, INT_LIST_VAL (succ));
-      }
+  for (i = 0; i < num_edges; i++)
+    {
+      edge e = INDEX_EDGE (edge_list, i);
+
+      if (e->dest != EXIT_BLOCK_PTR
+	  && e->src != ENTRY_BLOCK_PTR)
+	new_edge (e->src->index, e->dest->index);
+    }
 
   /* Increment by 1, since edge 0 is unused.  */
   nr_edges++;
@@ -1219,9 +1219,10 @@ bitset_member (set, index, len)
 /* Translate a bit-set SET to a list BL of the bit-set members.  */
 
 static void
-extract_bitlst (set, len, bl)
+extract_bitlst (set, len, bitlen, bl)
      bitset set;
      int len;
+     int bitlen;
      bitlst *bl;
 {
   int i, j, offset;
@@ -1233,11 +1234,15 @@ extract_bitlst (set, len, bl)
   bl->first_member = &bitlst_table[bitlst_table_last];
   bl->nr_members = 0;
 
+  /* Iterate over each word in the bitset.  */
   for (i = 0; i < len; i++)
     {
       word = set[i];
       offset = i * HOST_BITS_PER_WIDE_INT;
-      for (j = 0; word; j++)
+
+      /* Iterate over each bit in the word, but do not
+	 go beyond the end of the defined bits.  */
+      for (j = 0; offset < bitlen && word; j++)
 	{
 	  if (word & 1)
 	    {
@@ -1372,14 +1377,11 @@ too_large (block, num_bbs, num_insns)
    of edge tables.  That would simplify it somewhat.  */
 
 static void
-find_rgns (s_preds, s_succs, num_preds, num_succs, dom)
-     int_list_ptr *s_preds;
-     int_list_ptr *s_succs;
-     int *num_preds;
-     int *num_succs;
+find_rgns (edge_list, dom)
+     struct edge_list *edge_list;
      sbitmap *dom;
 {
-  int *max_hdr, *dfs_nr, *stack, *queue, *degree;
+  int *max_hdr, *dfs_nr, *stack, *degree;
   char no_loops = 1;
   int node, child, loop_head, i, head, tail;
   int count = 0, sp, idx = 0, current_edge = out_edges[0];
@@ -1401,6 +1403,8 @@ find_rgns (s_preds, s_succs, num_preds, num_succs, dom)
   /* Note if a block is in the block queue. */
   sbitmap in_stack;
 
+  int num_edges = NUM_EDGES (edge_list);
+
   /* Perform a DFS traversal of the cfg.  Identify loop headers, inner loops
      and a mapping from block to its loop header (if the block is contained
      in a loop, else -1).
@@ -1411,10 +1415,9 @@ find_rgns (s_preds, s_succs, num_preds, num_succs, dom)
      STACK, SP and DFS_NR are only used during the first traversal.  */
 
   /* Allocate and initialize variables for the first traversal.  */
-  max_hdr = (int *) alloca (n_basic_blocks * sizeof (int));
-  dfs_nr = (int *) alloca (n_basic_blocks * sizeof (int));
-  bzero ((char *) dfs_nr, n_basic_blocks * sizeof (int));
-  stack = (int *) alloca (nr_edges * sizeof (int));
+  max_hdr = (int *) xmalloc (n_basic_blocks * sizeof (int));
+  dfs_nr = (int *) xcalloc (n_basic_blocks, sizeof (int));
+  stack = (int *) xmalloc (nr_edges * sizeof (int));
 
   inner = sbitmap_alloc (n_basic_blocks);
   sbitmap_ones (inner);
@@ -1536,21 +1539,29 @@ find_rgns (s_preds, s_succs, num_preds, num_succs, dom)
      to hold degree counts.  */
   degree = dfs_nr;
 
-  /* Compute the in-degree of every block in the graph.  */
   for (i = 0; i < n_basic_blocks; i++)
-    degree[i] = num_preds[i];
+    degree[i] = 0;
+  for (i = 0; i < num_edges; i++)
+    {
+      edge e = INDEX_EDGE (edge_list, i);
+
+      if (e->dest != EXIT_BLOCK_PTR)
+	degree[e->dest->index]++;
+    }
 
   /* Do not perform region scheduling if there are any unreachable
      blocks.  */
   if (!unreachable)
     {
+      int *queue;
+
       if (no_loops)
 	SET_BIT (header, 0);
 
       /* Second travsersal:find reducible inner loops and topologically sort
 	 block of each region.  */
 
-      queue = (int *) alloca (n_basic_blocks * sizeof (int));
+      queue = (int *) xmalloc (n_basic_blocks * sizeof (int));
 
       /* Find blocks which are inner loop headers.  We still have non-reducible
 	 loops to consider at this point.  */
@@ -1558,7 +1569,7 @@ find_rgns (s_preds, s_succs, num_preds, num_succs, dom)
 	{
 	  if (TEST_BIT (header, i) && TEST_BIT (inner, i))
 	    {
-	      int_list_ptr ps;
+	      edge e;
 	      int j;
 
 	      /* Now check that the loop is reducible.  We do this separate
@@ -1599,10 +1610,9 @@ find_rgns (s_preds, s_succs, num_preds, num_succs, dom)
 
 	      /* Decrease degree of all I's successors for topological
 		 ordering.  */
-	      for (ps = s_succs[i]; ps; ps = ps->next)
-		if (INT_LIST_VAL (ps) != EXIT_BLOCK
-		    && INT_LIST_VAL (ps) != ENTRY_BLOCK)
-		  --degree[INT_LIST_VAL(ps)];
+	      for (e = BASIC_BLOCK (i)->succ; e; e = e->succ_next)
+		if (e->dest != EXIT_BLOCK_PTR)
+		  --degree[e->dest->index];
 
 	      /* Estimate # insns, and count # blocks in the region.  */
 	      num_bbs = 1;
@@ -1619,8 +1629,9 @@ find_rgns (s_preds, s_succs, num_preds, num_succs, dom)
 		  for (j = 0; j < n_basic_blocks; j++)
 		    /* Leaf nodes have only a single successor which must
 		       be EXIT_BLOCK.  */
-		    if (num_succs[j] == 1
-			&& INT_LIST_VAL (s_succs[j]) == EXIT_BLOCK)
+		    if (BASIC_BLOCK (j)->succ
+			&& BASIC_BLOCK (j)->succ->dest == EXIT_BLOCK_PTR
+			&& BASIC_BLOCK (j)->succ->succ_next == NULL)
 		      {
 			queue[++tail] = j;
 			SET_BIT (in_queue, j);
@@ -1634,15 +1645,15 @@ find_rgns (s_preds, s_succs, num_preds, num_succs, dom)
 		}
 	      else
 		{
-		  int_list_ptr ps;
+		  edge e;
 
-		  for (ps = s_preds[i]; ps; ps = ps->next)
+		  for (e = BASIC_BLOCK (i)->pred; e; e = e->pred_next)
 		    {
-		      node = INT_LIST_VAL (ps);
-
-		      if (node == ENTRY_BLOCK || node == EXIT_BLOCK)
+		      if (e->src == ENTRY_BLOCK_PTR)
 			continue;
- 
+
+		      node = e->src->index;
+
 		      if (max_hdr[node] == loop_head && node != i)
 			{
 			  /* This is a loop latch.  */
@@ -1692,16 +1703,16 @@ find_rgns (s_preds, s_succs, num_preds, num_succs, dom)
 	
 	      while (head < tail && !too_large_failure)
 		{
-		  int_list_ptr ps;
+		  edge e;
 		  child = queue[++head];
 
-		  for (ps = s_preds[child]; ps; ps = ps->next)
+		  for (e = BASIC_BLOCK (child)->pred; e; e = e->pred_next)
 		    {
-		      node = INT_LIST_VAL (ps);
+		      node = e->src->index;
 
 		      /* See discussion above about nodes not marked as in
 			 this loop during the initial DFS traversal.  */
-		      if (node == ENTRY_BLOCK || node == EXIT_BLOCK
+		      if (e->src == ENTRY_BLOCK_PTR
 			  || max_hdr[node] != loop_head)
 			{
 			  tail = -1;
@@ -1737,23 +1748,24 @@ find_rgns (s_preds, s_succs, num_preds, num_succs, dom)
 		     the region.  */
 		  while (tail >= 0)
 		    {
-		      int_list_ptr ps;
-
 		      if (head < 0)
 			head = tail;
 		      child = queue[head];
 		      if (degree[child] == 0)
 			{
+			  edge e;
+
 			  degree[child] = -1;
 			  rgn_bb_table[idx++] = child;
 			  BLOCK_TO_BB (child) = ++count;
 			  CONTAINING_RGN (child) = nr_regions;
 			  queue[head] = queue[tail--];
 
-			  for (ps = s_succs[child]; ps; ps = ps->next)
-			    if (INT_LIST_VAL (ps) != ENTRY_BLOCK
-				&& INT_LIST_VAL (ps) != EXIT_BLOCK)
-			      --degree[INT_LIST_VAL (ps)];
+			  for (e = BASIC_BLOCK (child)->succ;
+			       e;
+			       e = e->succ_next)
+			    if (e->dest != EXIT_BLOCK_PTR)
+			      --degree[e->dest->index];
 			}
 		      else
 			--head;
@@ -1762,6 +1774,7 @@ find_rgns (s_preds, s_succs, num_preds, num_succs, dom)
 		}
 	    }
 	}
+      free (queue);
     }
 
   /* Any block that did not end up in a region is placed into a region
@@ -1776,6 +1789,9 @@ find_rgns (s_preds, s_succs, num_preds, num_succs, dom)
 	BLOCK_TO_BB (i) = 0;
       }
 
+  free (max_hdr);
+  free (dfs_nr);
+  free (stack);
   free (passed);
   free (header);
   free (inner);
@@ -1876,12 +1892,13 @@ split_edges (bb_src, bb_trg, bl)
      edgelst *bl;
 {
   int es = edgeset_size;
-  edgeset src = (edgeset) alloca (es * sizeof (HOST_WIDE_INT));
+  edgeset src = (edgeset) xcalloc (es, sizeof (HOST_WIDE_INT));
 
   while (es--)
     src[es] = (pot_split[bb_src])[es];
   BITSET_DIFFER (src, pot_split[bb_trg], edgeset_size);
-  extract_bitlst (src, edgeset_size, bl);
+  extract_bitlst (src, edgeset_size, edgeset_bitsize, bl);
+  free (src);
 }
 
 
@@ -2288,11 +2305,6 @@ enum INSN_TRAP_CLASS
 #define WORST_CLASS(class1, class2) \
 ((class1 > class2) ? class1 : class2)
 
-/* Indexed by INSN_UID, and set if there's DEF-USE dependence between 
-   some speculatively moved load insn and this one.  */
-char *fed_by_spec_load;
-char *is_load_insn;
-
 /* Non-zero if block bb_to is equal to, or reachable from block bb_from.  */
 #define IS_REACHABLE(bb_from, bb_to)					\
 (bb_from == bb_to                                                       \
@@ -2300,8 +2312,6 @@ char *is_load_insn;
    || (bitset_member (ancestor_edges[bb_to],				\
 		      EDGE_TO_BIT (IN_EDGES (BB_TO_BLOCK (bb_from))),	\
 		      edgeset_size)))
-#define FED_BY_SPEC_LOAD(insn) (fed_by_spec_load[INSN_UID (insn)])
-#define IS_LOAD_INSN(insn) (is_load_insn[INSN_UID (insn)])
 
 /* Non-zero iff the address is comprised from at most 1 register.  */
 #define CONST_BASED_ADDRESS_P(x)			\
@@ -3132,25 +3142,14 @@ priority (insn)
 static void
 free_pending_lists ()
 {
-  if (current_nr_blocks <= 1)
-    {
-      free_INSN_LIST_list (&pending_read_insns);
-      free_INSN_LIST_list (&pending_write_insns);
-      free_EXPR_LIST_list (&pending_read_mems);
-      free_EXPR_LIST_list (&pending_write_mems);
-    }
-  else
-    {
-      /* Interblock scheduling.  */
-      int bb;
+  int bb;
 
-      for (bb = 0; bb < current_nr_blocks; bb++)
-	{
-	  free_INSN_LIST_list (&bb_pending_read_insns[bb]);
-	  free_INSN_LIST_list (&bb_pending_write_insns[bb]);
-	  free_EXPR_LIST_list (&bb_pending_read_mems[bb]);
-	  free_EXPR_LIST_list (&bb_pending_write_mems[bb]);
-	}
+  for (bb = 0; bb < current_nr_blocks; bb++)
+    {
+      free_INSN_LIST_list (&bb_deps[bb].pending_read_insns);
+      free_INSN_LIST_list (&bb_deps[bb].pending_write_insns);
+      free_EXPR_LIST_list (&bb_deps[bb].pending_read_mems);
+      free_EXPR_LIST_list (&bb_deps[bb].pending_write_mems);
     }
 }
 
@@ -3159,7 +3158,8 @@ free_pending_lists ()
    so that we can do memory aliasing on it.  */
 
 static void
-add_insn_mem_dependence (insn_list, mem_list, insn, mem)
+add_insn_mem_dependence (deps, insn_list, mem_list, insn, mem)
+     struct deps *deps;
      rtx *insn_list, *mem_list, insn, mem;
 {
   register rtx link;
@@ -3170,54 +3170,56 @@ add_insn_mem_dependence (insn_list, mem_list, insn, mem)
   link = alloc_EXPR_LIST (VOIDmode, mem, *mem_list);
   *mem_list = link;
 
-  pending_lists_length++;
+  deps->pending_lists_length++;
 }
 
-
 /* Make a dependency between every memory reference on the pending lists
    and INSN, thus flushing the pending lists.  If ONLY_WRITE, don't flush
    the read list.  */
 
 static void
-flush_pending_lists (insn, only_write)
+flush_pending_lists (deps, insn, only_write)
+     struct deps *deps;
      rtx insn;
      int only_write;
 {
   rtx u;
   rtx link;
 
-  while (pending_read_insns && ! only_write)
+  while (deps->pending_read_insns && ! only_write)
     {
-      add_dependence (insn, XEXP (pending_read_insns, 0), REG_DEP_ANTI);
+      add_dependence (insn, XEXP (deps->pending_read_insns, 0),
+		      REG_DEP_ANTI);
 
-      link = pending_read_insns;
-      pending_read_insns = XEXP (pending_read_insns, 1);
+      link = deps->pending_read_insns;
+      deps->pending_read_insns = XEXP (deps->pending_read_insns, 1);
       free_INSN_LIST_node (link);
 
-      link = pending_read_mems;
-      pending_read_mems = XEXP (pending_read_mems, 1);
+      link = deps->pending_read_mems;
+      deps->pending_read_mems = XEXP (deps->pending_read_mems, 1);
       free_EXPR_LIST_node (link);
     }
-  while (pending_write_insns)
+  while (deps->pending_write_insns)
     {
-      add_dependence (insn, XEXP (pending_write_insns, 0), REG_DEP_ANTI);
+      add_dependence (insn, XEXP (deps->pending_write_insns, 0),
+		      REG_DEP_ANTI);
 
-      link = pending_write_insns;
-      pending_write_insns = XEXP (pending_write_insns, 1);
+      link = deps->pending_write_insns;
+      deps->pending_write_insns = XEXP (deps->pending_write_insns, 1);
       free_INSN_LIST_node (link);
 
-      link = pending_write_mems;
-      pending_write_mems = XEXP (pending_write_mems, 1);
+      link = deps->pending_write_mems;
+      deps->pending_write_mems = XEXP (deps->pending_write_mems, 1);
       free_EXPR_LIST_node (link);
     }
-  pending_lists_length = 0;
+  deps->pending_lists_length = 0;
 
   /* last_pending_memory_flush is now a list of insns.  */
-  for (u = last_pending_memory_flush; u; u = XEXP (u, 1))
+  for (u = deps->last_pending_memory_flush; u; u = XEXP (u, 1))
     add_dependence (insn, XEXP (u, 0), REG_DEP_ANTI);
 
-  free_INSN_LIST_list (&last_pending_memory_flush);
-  last_pending_memory_flush = alloc_INSN_LIST (insn, NULL_RTX);
+  free_INSN_LIST_list (&deps->last_pending_memory_flush);
+  deps->last_pending_memory_flush = alloc_INSN_LIST (insn, NULL_RTX);
 }
 
 /* Analyze a single SET, CLOBBER, PRE_DEC, POST_DEC, PRE_INC or POST_INC
@@ -3225,7 +3227,8 @@ flush_pending_lists (insn, only_write)
    destination of X, and reads of everything mentioned.  */
 
 static void
-sched_analyze_1 (x, insn)
+sched_analyze_1 (deps, x, insn)
+     struct deps *deps;
      rtx x;
      rtx insn;
 {
@@ -3241,9 +3244,9 @@ sched_analyze_1 (x, insn)
     {
       register int i;
       for (i = XVECLEN (dest, 0) - 1; i >= 0; i--)
-	sched_analyze_1 (XVECEXP (dest, 0, i), insn);
+	sched_analyze_1 (deps, XVECEXP (dest, 0, i), insn);
       if (GET_CODE (x) == SET)
-	sched_analyze_2 (SET_SRC (x), insn);
+	sched_analyze_2 (deps, SET_SRC (x), insn);
       return;
     }
 
@@ -3253,8 +3256,8 @@ sched_analyze_1 (x, insn)
       if (GET_CODE (dest) == ZERO_EXTRACT || GET_CODE (dest) == SIGN_EXTRACT)
 	{
 	  /* The second and third arguments are values read by this insn.  */
-	  sched_analyze_2 (XEXP (dest, 1), insn);
-	  sched_analyze_2 (XEXP (dest, 2), insn);
+	  sched_analyze_2 (deps, XEXP (dest, 1), insn);
+	  sched_analyze_2 (deps, XEXP (dest, 2), insn);
 	}
       dest = XEXP (dest, 0);
     }
@@ -3272,12 +3275,13 @@ sched_analyze_1 (x, insn)
 	  i = HARD_REGNO_NREGS (regno, GET_MODE (dest));
 	  while (--i >= 0)
 	    {
+	      int r = regno + i;
 	      rtx u;
 
-	      for (u = reg_last_uses[regno + i]; u; u = XEXP (u, 1))
+	      for (u = deps->reg_last_uses[r]; u; u = XEXP (u, 1))
 		add_dependence (insn, XEXP (u, 0), REG_DEP_ANTI);
 
-	      for (u = reg_last_sets[regno + i]; u; u = XEXP (u, 1))
+	      for (u = deps->reg_last_sets[r]; u; u = XEXP (u, 1))
 		add_dependence (insn, XEXP (u, 0), REG_DEP_OUTPUT);
 
 	      /* Clobbers need not be ordered with respect to one
@@ -3285,18 +3289,17 @@ sched_analyze_1 (x, insn)
 		 pending clobber.  */
 	      if (code == SET)
 		{
-		  free_INSN_LIST_list (&reg_last_uses[regno + i]);
-	          for (u = reg_last_clobbers[regno + i]; u; u = XEXP (u, 1))
+		  free_INSN_LIST_list (&deps->reg_last_uses[r]);
+	          for (u = deps->reg_last_clobbers[r]; u; u = XEXP (u, 1))
 		    add_dependence (insn, XEXP (u, 0), REG_DEP_OUTPUT);
-	          SET_REGNO_REG_SET (reg_pending_sets, regno + i);
+	          SET_REGNO_REG_SET (reg_pending_sets, r);
 		}
 	      else
-		SET_REGNO_REG_SET (reg_pending_clobbers, regno + i);
+		SET_REGNO_REG_SET (reg_pending_clobbers, r);
 
 	      /* Function calls clobber all call_used regs.  */
-	      if (global_regs[regno + i]
-		  || (code == SET && call_used_regs[regno + i]))
-		for (u = last_function_call; u; u = XEXP (u, 1))
+	      if (global_regs[r] || (code == SET && call_used_regs[r]))
+		for (u = deps->last_function_call; u; u = XEXP (u, 1))
 		  add_dependence (insn, XEXP (u, 0), REG_DEP_ANTI);
 	    }
 	}
@@ -3304,16 +3307,16 @@ sched_analyze_1 (x, insn)
 	{
 	  rtx u;
 
-	  for (u = reg_last_uses[regno]; u; u = XEXP (u, 1))
+	  for (u = deps->reg_last_uses[regno]; u; u = XEXP (u, 1))
 	    add_dependence (insn, XEXP (u, 0), REG_DEP_ANTI);
 
-	  for (u = reg_last_sets[regno]; u; u = XEXP (u, 1))
+	  for (u = deps->reg_last_sets[regno]; u; u = XEXP (u, 1))
 	    add_dependence (insn, XEXP (u, 0), REG_DEP_OUTPUT);
 
 	  if (code == SET)
 	    {
-	      free_INSN_LIST_list (&reg_last_uses[regno]);
-	      for (u = reg_last_clobbers[regno]; u; u = XEXP (u, 1))
+	      free_INSN_LIST_list (&deps->reg_last_uses[regno]);
+	      for (u = deps->reg_last_clobbers[regno]; u; u = XEXP (u, 1))
 		add_dependence (insn, XEXP (u, 0), REG_DEP_OUTPUT);
 	      SET_REGNO_REG_SET (reg_pending_sets, regno);
 	    }
@@ -3326,13 +3329,13 @@ sched_analyze_1 (x, insn)
 	  if (!reload_completed
 	      && reg_known_equiv_p[regno]
 	      && GET_CODE (reg_known_value[regno]) == MEM)
-	    sched_analyze_2 (XEXP (reg_known_value[regno], 0), insn);
+	    sched_analyze_2 (deps, XEXP (reg_known_value[regno], 0), insn);
 
 	  /* Don't let it cross a call after scheduling if it doesn't
 	     already cross one.  */
 
 	  if (REG_N_CALLS_CROSSED (regno) == 0)
-	    for (u = last_function_call; u; u = XEXP (u, 1))
+	    for (u = deps->last_function_call; u; u = XEXP (u, 1))
 	      add_dependence (insn, XEXP (u, 0), REG_DEP_ANTI);
 	}
     }
@@ -3340,7 +3343,7 @@ sched_analyze_1 (x, insn)
     {
       /* Writing memory.  */
 
-      if (pending_lists_length > 32)
+      if (deps->pending_lists_length > 32)
 	{
 	  /* Flush all pending reads and writes to prevent the pending lists
 	     from getting any larger.  Insn scheduling runs too slowly when
@@ -3348,15 +3351,15 @@ sched_analyze_1 (x, insn)
 	     seems like a reasonable number.  When compiling GCC with itself,
 	     this flush occurs 8 times for sparc, and 10 times for m88k using
 	     the number 32.  */
-	  flush_pending_lists (insn, 0);
+	  flush_pending_lists (deps, insn, 0);
 	}
       else
 	{
 	  rtx u;
 	  rtx pending, pending_mem;
 
-	  pending = pending_read_insns;
-	  pending_mem = pending_read_mems;
+	  pending = deps->pending_read_insns;
+	  pending_mem = deps->pending_read_mems;
 	  while (pending)
 	    {
 	      if (anti_dependence (XEXP (pending_mem, 0), dest))
@@ -3366,8 +3369,8 @@ sched_analyze_1 (x, insn)
 	      pending_mem = XEXP (pending_mem, 1);
 	    }
 
-	  pending = pending_write_insns;
-	  pending_mem = pending_write_mems;
+	  pending = deps->pending_write_insns;
+	  pending_mem = deps->pending_write_mems;
 	  while (pending)
 	    {
 	      if (output_dependence (XEXP (pending_mem, 0), dest))
@@ -3377,24 +3380,25 @@ sched_analyze_1 (x, insn)
 	      pending_mem = XEXP (pending_mem, 1);
 	    }
 
-	  for (u = last_pending_memory_flush; u; u = XEXP (u, 1))
+	  for (u = deps->last_pending_memory_flush; u; u = XEXP (u, 1))
 	    add_dependence (insn, XEXP (u, 0), REG_DEP_ANTI);
 
-	  add_insn_mem_dependence (&pending_write_insns, &pending_write_mems,
-				   insn, dest);
+	  add_insn_mem_dependence (deps, &deps->pending_write_insns,
+				   &deps->pending_write_mems, insn, dest);
 	}
-      sched_analyze_2 (XEXP (dest, 0), insn);
+      sched_analyze_2 (deps, XEXP (dest, 0), insn);
     }
 
   /* Analyze reads.  */
   if (GET_CODE (x) == SET)
-    sched_analyze_2 (SET_SRC (x), insn);
+    sched_analyze_2 (deps, SET_SRC (x), insn);
 }
 
 /* Analyze the uses of memory and registers in rtx X in INSN.  */
 
 static void
-sched_analyze_2 (x, insn)
+sched_analyze_2 (deps, x, insn)
+     struct deps *deps;
      rtx x;
      rtx insn;
 {
@@ -3459,32 +3463,33 @@ sched_analyze_2 (x, insn)
 	    i = HARD_REGNO_NREGS (regno, GET_MODE (x));
 	    while (--i >= 0)
 	      {
-		reg_last_uses[regno + i]
-		  = alloc_INSN_LIST (insn, reg_last_uses[regno + i]);
+		int r = regno + i;
+		deps->reg_last_uses[r]
+		  = alloc_INSN_LIST (insn, deps->reg_last_uses[r]);
 
-		for (u = reg_last_sets[regno + i]; u; u = XEXP (u, 1))
+		for (u = deps->reg_last_sets[r]; u; u = XEXP (u, 1))
 		  add_dependence (insn, XEXP (u, 0), 0);
 
 		/* ??? This should never happen.  */
-		for (u = reg_last_clobbers[regno + i]; u; u = XEXP (u, 1))
+		for (u = deps->reg_last_clobbers[r]; u; u = XEXP (u, 1))
 		  add_dependence (insn, XEXP (u, 0), 0);
 
-		if ((call_used_regs[regno + i] || global_regs[regno + i]))
+		if (call_used_regs[r] || global_regs[r])
 		  /* Function calls clobber all call_used regs.  */
-		  for (u = last_function_call; u; u = XEXP (u, 1))
+		  for (u = deps->last_function_call; u; u = XEXP (u, 1))
 		    add_dependence (insn, XEXP (u, 0), REG_DEP_ANTI);
 	      }
 	  }
 	else
 	  {
-	    reg_last_uses[regno] = alloc_INSN_LIST (insn,
-						    reg_last_uses[regno]);
+	    deps->reg_last_uses[regno]
+	      = alloc_INSN_LIST (insn, deps->reg_last_uses[regno]);
 
-	    for (u = reg_last_sets[regno]; u; u = XEXP (u, 1))
+	    for (u = deps->reg_last_sets[regno]; u; u = XEXP (u, 1))
 	      add_dependence (insn, XEXP (u, 0), 0);
 
 	    /* ??? This should never happen.  */
-	    for (u = reg_last_clobbers[regno]; u; u = XEXP (u, 1))
+	    for (u = deps->reg_last_clobbers[regno]; u; u = XEXP (u, 1))
 	      add_dependence (insn, XEXP (u, 0), 0);
 
 	    /* Pseudos that are REG_EQUIV to something may be replaced
@@ -3493,13 +3498,14 @@ sched_analyze_2 (x, insn)
 	    if (!reload_completed
 		&& reg_known_equiv_p[regno]
 		&& GET_CODE (reg_known_value[regno]) == MEM)
-	      sched_analyze_2 (XEXP (reg_known_value[regno], 0), insn);
+	      sched_analyze_2 (deps, XEXP (reg_known_value[regno], 0), insn);
 
 	    /* If the register does not already cross any calls, then add this
 	       insn to the sched_before_next_call list so that it will still
 	       not cross calls after scheduling.  */
 	    if (REG_N_CALLS_CROSSED (regno) == 0)
-	      add_dependence (sched_before_next_call, insn, REG_DEP_ANTI);
+	      add_dependence (deps->sched_before_next_call, insn,
+			      REG_DEP_ANTI);
 	  }
 	return;
       }
@@ -3510,8 +3516,8 @@ sched_analyze_2 (x, insn)
 	rtx u;
 	rtx pending, pending_mem;
 
-	pending = pending_read_insns;
-	pending_mem = pending_read_mems;
+	pending = deps->pending_read_insns;
+	pending_mem = deps->pending_read_mems;
 	while (pending)
 	  {
 	    if (read_dependence (XEXP (pending_mem, 0), x))
@@ -3521,8 +3527,8 @@ sched_analyze_2 (x, insn)
 	    pending_mem = XEXP (pending_mem, 1);
 	  }
 
-	pending = pending_write_insns;
-	pending_mem = pending_write_mems;
+	pending = deps->pending_write_insns;
+	pending_mem = deps->pending_write_mems;
 	while (pending)
 	  {
 	    if (true_dependence (XEXP (pending_mem, 0), VOIDmode,
@@ -3533,22 +3539,22 @@ sched_analyze_2 (x, insn)
 	    pending_mem = XEXP (pending_mem, 1);
 	  }
 
-	for (u = last_pending_memory_flush; u; u = XEXP (u, 1))
+	for (u = deps->last_pending_memory_flush; u; u = XEXP (u, 1))
 	  add_dependence (insn, XEXP (u, 0), REG_DEP_ANTI);
 
 	/* Always add these dependencies to pending_reads, since
 	   this insn may be followed by a write.  */
-	add_insn_mem_dependence (&pending_read_insns, &pending_read_mems,
-				 insn, x);
+	add_insn_mem_dependence (deps, &deps->pending_read_insns,
+				 &deps->pending_read_mems, insn, x);
 
 	/* Take advantage of tail recursion here.  */
-	sched_analyze_2 (XEXP (x, 0), insn);
+	sched_analyze_2 (deps, XEXP (x, 0), insn);
 	return;
       }
 
     /* Force pending stores to memory in case a trap handler needs them.  */
     case TRAP_IF:
-      flush_pending_lists (insn, 1);
+      flush_pending_lists (deps, insn, 1);
       break;
 
     case ASM_OPERANDS:
@@ -3569,19 +3575,19 @@ sched_analyze_2 (x, insn)
 	    int max_reg = max_reg_num ();
 	    for (i = 0; i < max_reg; i++)
 	      {
-		for (u = reg_last_uses[i]; u; u = XEXP (u, 1))
+		for (u = deps->reg_last_uses[i]; u; u = XEXP (u, 1))
 		  add_dependence (insn, XEXP (u, 0), REG_DEP_ANTI);
-		free_INSN_LIST_list (&reg_last_uses[i]);
+		free_INSN_LIST_list (&deps->reg_last_uses[i]);
 
-		for (u = reg_last_sets[i]; u; u = XEXP (u, 1))
+		for (u = deps->reg_last_sets[i]; u; u = XEXP (u, 1))
 		  add_dependence (insn, XEXP (u, 0), 0);
 
-		for (u = reg_last_clobbers[i]; u; u = XEXP (u, 1))
+		for (u = deps->reg_last_clobbers[i]; u; u = XEXP (u, 1))
 		  add_dependence (insn, XEXP (u, 0), 0);
 	      }
 	    reg_pending_sets_all = 1;
 
-	    flush_pending_lists (insn, 0);
+	    flush_pending_lists (deps, insn, 0);
 	  }
 
 	/* For all ASM_OPERANDS, we must traverse the vector of input operands.
@@ -3592,7 +3598,7 @@ sched_analyze_2 (x, insn)
 	if (code == ASM_OPERANDS)
 	  {
 	    for (j = 0; j < ASM_OPERANDS_INPUT_LENGTH (x); j++)
-	      sched_analyze_2 (ASM_OPERANDS_INPUT (x, j), insn);
+	      sched_analyze_2 (deps, ASM_OPERANDS_INPUT (x, j), insn);
 	    return;
 	  }
 	break;
@@ -3608,8 +3614,8 @@ sched_analyze_2 (x, insn)
          instructions.  Thus we need to pass them to both sched_analyze_1
          and sched_analyze_2.  We must call sched_analyze_2 first in order
          to get the proper antecedent for the read.  */
-      sched_analyze_2 (XEXP (x, 0), insn);
-      sched_analyze_1 (x, insn);
+      sched_analyze_2 (deps, XEXP (x, 0), insn);
+      sched_analyze_1 (deps, x, insn);
       return;
 
     default:
@@ -3621,17 +3627,18 @@ sched_analyze_2 (x, insn)
   for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
     {
       if (fmt[i] == 'e')
-	sched_analyze_2 (XEXP (x, i), insn);
+	sched_analyze_2 (deps, XEXP (x, i), insn);
       else if (fmt[i] == 'E')
 	for (j = 0; j < XVECLEN (x, i); j++)
-	  sched_analyze_2 (XVECEXP (x, i, j), insn);
+	  sched_analyze_2 (deps, XVECEXP (x, i, j), insn);
     }
 }
 
 /* Analyze an INSN with pattern X to find all dependencies.  */
 
 static void
-sched_analyze_insn (x, insn, loop_notes)
+sched_analyze_insn (deps, x, insn, loop_notes)
+     struct deps *deps;
      rtx x, insn;
      rtx loop_notes;
 {
@@ -3641,7 +3648,7 @@ sched_analyze_insn (x, insn, loop_notes)
   int i;
 
   if (code == SET || code == CLOBBER)
-    sched_analyze_1 (x, insn);
+    sched_analyze_1 (deps, x, insn);
   else if (code == PARALLEL)
     {
       register int i;
@@ -3649,22 +3656,22 @@ sched_analyze_insn (x, insn, loop_notes)
 	{
 	  code = GET_CODE (XVECEXP (x, 0, i));
 	  if (code == SET || code == CLOBBER)
-	    sched_analyze_1 (XVECEXP (x, 0, i), insn);
+	    sched_analyze_1 (deps, XVECEXP (x, 0, i), insn);
 	  else
-	    sched_analyze_2 (XVECEXP (x, 0, i), insn);
+	    sched_analyze_2 (deps, XVECEXP (x, 0, i), insn);
 	}
     }
   else
-    sched_analyze_2 (x, insn);
+    sched_analyze_2 (deps, x, insn);
 
   /* Mark registers CLOBBERED or used by called function.  */
   if (GET_CODE (insn) == CALL_INSN)
     for (link = CALL_INSN_FUNCTION_USAGE (insn); link; link = XEXP (link, 1))
       {
 	if (GET_CODE (XEXP (link, 0)) == CLOBBER)
-	  sched_analyze_1 (XEXP (link, 0), insn);
+	  sched_analyze_1 (deps, XEXP (link, 0), insn);
 	else
-	  sched_analyze_2 (XEXP (link, 0), insn);
+	  sched_analyze_2 (deps, XEXP (link, 0), insn);
       }
 
   /* If there is a {LOOP,EHREGION}_{BEG,END} note in the middle of a basic
@@ -3702,19 +3709,19 @@ sched_analyze_insn (x, insn, loop_notes)
 	  for (i = 0; i < max_reg; i++)
 	    {
 	      rtx u;
-	      for (u = reg_last_uses[i]; u; u = XEXP (u, 1))
+	      for (u = deps->reg_last_uses[i]; u; u = XEXP (u, 1))
 		add_dependence (insn, XEXP (u, 0), REG_DEP_ANTI);
-	      free_INSN_LIST_list (&reg_last_uses[i]);
+	      free_INSN_LIST_list (&deps->reg_last_uses[i]);
 
-	      for (u = reg_last_sets[i]; u; u = XEXP (u, 1))
+	      for (u = deps->reg_last_sets[i]; u; u = XEXP (u, 1))
 		add_dependence (insn, XEXP (u, 0), 0);
 
-	      for (u = reg_last_clobbers[i]; u; u = XEXP (u, 1))
+	      for (u = deps->reg_last_clobbers[i]; u; u = XEXP (u, 1))
 		add_dependence (insn, XEXP (u, 0), 0);
 	    }
 	  reg_pending_sets_all = 1;
 
-	  flush_pending_lists (insn, 0);
+	  flush_pending_lists (deps, insn, 0);
 	}
 
     }
@@ -3722,19 +3729,19 @@ sched_analyze_insn (x, insn, loop_notes)
   /* Accumulate clobbers until the next set so that it will be output dependent
      on all of them.  At the next set we can clear the clobber list, since
      subsequent sets will be output dependent on it.  */
-  EXECUTE_IF_SET_IN_REG_SET (reg_pending_sets, 0, i,
-			     {
-			       free_INSN_LIST_list (&reg_last_sets[i]);
-			       free_INSN_LIST_list (&reg_last_clobbers[i]);
-			       reg_last_sets[i]
-				 = alloc_INSN_LIST (insn, NULL_RTX);
-			     });
-  EXECUTE_IF_SET_IN_REG_SET (reg_pending_clobbers, 0, i,
-			     {
-			       reg_last_clobbers[i]
-				 = alloc_INSN_LIST (insn, 
-						    reg_last_clobbers[i]);
-			     });
+  EXECUTE_IF_SET_IN_REG_SET
+    (reg_pending_sets, 0, i,
+     {
+       free_INSN_LIST_list (&deps->reg_last_sets[i]);
+       free_INSN_LIST_list (&deps->reg_last_clobbers[i]);
+       deps->reg_last_sets[i] = alloc_INSN_LIST (insn, NULL_RTX);
+     });
+  EXECUTE_IF_SET_IN_REG_SET
+    (reg_pending_clobbers, 0, i,
+     {
+       deps->reg_last_clobbers[i]
+	 = alloc_INSN_LIST (insn, deps->reg_last_clobbers[i]);
+     });
   CLEAR_REG_SET (reg_pending_sets);
   CLEAR_REG_SET (reg_pending_clobbers);
 
@@ -3742,9 +3749,9 @@ sched_analyze_insn (x, insn, loop_notes)
     {
       for (i = 0; i < maxreg; i++)
 	{
-	  free_INSN_LIST_list (&reg_last_sets[i]);
-	  free_INSN_LIST_list (&reg_last_clobbers[i]);
-	  reg_last_sets[i] = alloc_INSN_LIST (insn, NULL_RTX);
+	  free_INSN_LIST_list (&deps->reg_last_sets[i]);
+	  free_INSN_LIST_list (&deps->reg_last_clobbers[i]);
+	  deps->reg_last_sets[i] = alloc_INSN_LIST (insn, NULL_RTX);
 	}
 
       reg_pending_sets_all = 0;
@@ -3791,7 +3798,8 @@ sched_analyze_insn (x, insn, loop_notes)
    for every dependency.  */
 
 static void
-sched_analyze (head, tail)
+sched_analyze (deps, head, tail)
+     struct deps *deps;
      rtx head, tail;
 {
   register rtx insn;
@@ -3808,9 +3816,9 @@ sched_analyze (head, tail)
 	  /* Make each JUMP_INSN a scheduling barrier for memory
              references.  */
 	  if (GET_CODE (insn) == JUMP_INSN)
-	    last_pending_memory_flush
-	      = alloc_INSN_LIST (insn, last_pending_memory_flush);
-	  sched_analyze_insn (PATTERN (insn), insn, loop_notes);
+	    deps->last_pending_memory_flush
+	      = alloc_INSN_LIST (insn, deps->last_pending_memory_flush);
+	  sched_analyze_insn (deps, PATTERN (insn), insn, loop_notes);
 	  loop_notes = 0;
 	}
       else if (GET_CODE (insn) == CALL_INSN)
@@ -3842,14 +3850,14 @@ sched_analyze (head, tail)
 	      int max_reg = max_reg_num ();
 	      for (i = 0; i < max_reg; i++)
 		{
-		  for (u = reg_last_uses[i]; u; u = XEXP (u, 1))
+		  for (u = deps->reg_last_uses[i]; u; u = XEXP (u, 1))
 		    add_dependence (insn, XEXP (u, 0), REG_DEP_ANTI);
-		  free_INSN_LIST_list (&reg_last_uses[i]);
+		  free_INSN_LIST_list (&deps->reg_last_uses[i]);
 
-		  for (u = reg_last_sets[i]; u; u = XEXP (u, 1))
+		  for (u = deps->reg_last_sets[i]; u; u = XEXP (u, 1))
 		    add_dependence (insn, XEXP (u, 0), 0);
 
-		  for (u = reg_last_clobbers[i]; u; u = XEXP (u, 1))
+		  for (u = deps->reg_last_clobbers[i]; u; u = XEXP (u, 1))
 		    add_dependence (insn, XEXP (u, 0), 0);
 		}
 	      reg_pending_sets_all = 1;
@@ -3869,10 +3877,10 @@ sched_analyze (head, tail)
 	      for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
 		if (call_used_regs[i] || global_regs[i])
 		  {
-		    for (u = reg_last_uses[i]; u; u = XEXP (u, 1))
+		    for (u = deps->reg_last_uses[i]; u; u = XEXP (u, 1))
 		      add_dependence (insn, XEXP (u, 0), REG_DEP_ANTI);
 
-		    for (u = reg_last_sets[i]; u; u = XEXP (u, 1))
+		    for (u = deps->reg_last_sets[i]; u; u = XEXP (u, 1))
 		      add_dependence (insn, XEXP (u, 0), REG_DEP_ANTI);
 
 		    SET_REGNO_REG_SET (reg_pending_clobbers, i);
@@ -3881,29 +3889,29 @@ sched_analyze (head, tail)
 
 	  /* For each insn which shouldn't cross a call, add a dependence
 	     between that insn and this call insn.  */
-	  x = LOG_LINKS (sched_before_next_call);
+	  x = LOG_LINKS (deps->sched_before_next_call);
 	  while (x)
 	    {
 	      add_dependence (insn, XEXP (x, 0), REG_DEP_ANTI);
 	      x = XEXP (x, 1);
 	    }
-	  free_INSN_LIST_list (&LOG_LINKS (sched_before_next_call));
+	  free_INSN_LIST_list (&LOG_LINKS (deps->sched_before_next_call));
 
-	  sched_analyze_insn (PATTERN (insn), insn, loop_notes);
+	  sched_analyze_insn (deps, PATTERN (insn), insn, loop_notes);
 	  loop_notes = 0;
 
 	  /* In the absence of interprocedural alias analysis, we must flush
 	     all pending reads and writes, and start new dependencies starting
 	     from here.  But only flush writes for constant calls (which may
 	     be passed a pointer to something we haven't written yet).  */
-	  flush_pending_lists (insn, CONST_CALL_P (insn));
+	  flush_pending_lists (deps, insn, CONST_CALL_P (insn));
 
 	  /* Depend this function call (actually, the user of this
 	     function call) on all hard register clobberage.  */
 
 	  /* last_function_call is now a list of insns.  */
-	  free_INSN_LIST_list(&last_function_call);
-	  last_function_call = alloc_INSN_LIST (insn, NULL_RTX);
+	  free_INSN_LIST_list (&deps->last_function_call);
+	  deps->last_function_call = alloc_INSN_LIST (insn, NULL_RTX);
 	}
 
       /* See comments on reemit_notes as to why we do this.  
@@ -5788,8 +5796,8 @@ schedule_block (bb, rgn_n_insns)
   /* Prepare current target block info.  */
   if (current_nr_blocks > 1)
     {
-      candidate_table = (candidate *) alloca (current_nr_blocks 
-					      * sizeof (candidate));
+      candidate_table = (candidate *) xmalloc (current_nr_blocks 
+					       * sizeof (candidate));
 
       bblst_last = 0;
       /* ??? It is not clear why bblst_size is computed this way.  The original
@@ -5798,11 +5806,11 @@ schedule_block (bb, rgn_n_insns)
 	 members) seems to be a reasonable solution.  */
       /* ??? Or perhaps there is a bug somewhere else in this file?  */
       bblst_size = (current_nr_blocks - bb) * rgn_nr_edges * 2;
-      bblst_table = (int *) alloca (bblst_size * sizeof (int));
+      bblst_table = (int *) xmalloc (bblst_size * sizeof (int));
 
       bitlst_table_last = 0;
       bitlst_table_size = rgn_nr_edges;
-      bitlst_table = (int *) alloca (rgn_nr_edges * sizeof (int));
+      bitlst_table = (int *) xmalloc (rgn_nr_edges * sizeof (int));
 
       compute_trg_info (bb);
     }
@@ -5810,7 +5818,7 @@ schedule_block (bb, rgn_n_insns)
   clear_units ();
 
   /* Allocate the ready list.  */
-  ready = (rtx *) alloca ((rgn_n_insns + 1) * sizeof (rtx));
+  ready = (rtx *) xmalloc ((rgn_n_insns + 1) * sizeof (rtx));
 
   /* Print debugging information.  */
   if (sched_verbose >= 5)
@@ -5863,7 +5871,6 @@ schedule_block (bb, rgn_n_insns)
 		    || (insn_issue_delay (insn) <= 3
 			&& check_live (insn, bb_src)
 			&& is_exception_free (insn, bb_src, target_bb))))
-
 	      {
 		rtx next;
 
@@ -5872,7 +5879,8 @@ schedule_block (bb, rgn_n_insns)
 		   speculative insn, NEXT might otherwise be a note.  */
 		next = next_nonnote_insn (insn);
 		if (INSN_DEP_COUNT (insn) == 0
-		    && (SCHED_GROUP_P (next) == 0
+		    && (! next
+			|| SCHED_GROUP_P (next) == 0
 			|| GET_RTX_CLASS (GET_CODE (next)) != 'i'))
 		  ready[n_ready++] = insn;
 	      }
@@ -5981,7 +5989,7 @@ schedule_block (bb, rgn_n_insns)
 		 still intact.  */
 
 	      temp = insn;
-	      while (SCHED_GROUP_P (insn))
+	      while (SCHED_GROUP_P (temp))
 		temp = PREV_INSN (temp);
 
 	      /* Update source block boundaries.   */
@@ -6092,6 +6100,15 @@ schedule_block (bb, rgn_n_insns)
 	       INSN_UID (BLOCK_END (b)));
     }
 
+  /* Clean up.  */
+  if (current_nr_blocks > 1)
+    {
+      free (candidate_table);
+      free (bblst_table);
+      free (bitlst_table);
+    }
+  free (ready);
+
   return (sched_n_insns);
 }				/* schedule_block () */
 
@@ -6168,30 +6185,27 @@ compute_block_forward_dependences (bb)
 /* Initialize variables for region data dependence analysis.
    n_bbs is the number of region blocks.  */
 
-__inline static void
-init_rgn_data_dependences (n_bbs)
-     int n_bbs;
+static void
+init_deps (deps)
+     struct deps *deps;
 {
-  int bb;
+  int maxreg = max_reg_num ();
+  deps->reg_last_uses = (rtx *) xcalloc (maxreg, sizeof (rtx));
+  deps->reg_last_sets = (rtx *) xcalloc (maxreg, sizeof (rtx));
+  deps->reg_last_clobbers = (rtx *) xcalloc (maxreg, sizeof (rtx));
 
-  /* Variables for which one copy exists for each block.  */
-  bzero ((char *) bb_pending_read_insns, n_bbs * sizeof (rtx));
-  bzero ((char *) bb_pending_read_mems, n_bbs * sizeof (rtx));
-  bzero ((char *) bb_pending_write_insns, n_bbs * sizeof (rtx));
-  bzero ((char *) bb_pending_write_mems, n_bbs * sizeof (rtx));
-  bzero ((char *) bb_pending_lists_length, n_bbs * sizeof (rtx));
-  bzero ((char *) bb_last_pending_memory_flush, n_bbs * sizeof (rtx));
-  bzero ((char *) bb_last_function_call, n_bbs * sizeof (rtx));
-  bzero ((char *) bb_sched_before_next_call, n_bbs * sizeof (rtx));
+  deps->pending_read_insns = 0;
+  deps->pending_read_mems = 0;
+  deps->pending_write_insns = 0;
+  deps->pending_write_mems = 0;
+  deps->pending_lists_length = 0;
+  deps->last_pending_memory_flush = 0;
+  deps->last_function_call = 0;
 
-  /* Create an insn here so that we can hang dependencies off of it later.  */
-  for (bb = 0; bb < n_bbs; bb++)
-    {
-      bb_sched_before_next_call[bb] =
-	gen_rtx_INSN (VOIDmode, 0, NULL_RTX, NULL_RTX,
-		      NULL_RTX, 0, NULL_RTX, NULL_RTX);
-      LOG_LINKS (bb_sched_before_next_call[bb]) = 0;
-    }
+  deps->sched_before_next_call
+    = gen_rtx_INSN (VOIDmode, 0, NULL_RTX, NULL_RTX,
+		    NULL_RTX, 0, NULL_RTX, NULL_RTX);
+  LOG_LINKS (deps->sched_before_next_call) = 0;
 }
 
 /* Add dependences so that branches are scheduled to run last in their
@@ -6201,13 +6215,12 @@ static void
 add_branch_dependences (head, tail)
      rtx head, tail;
 {
-
   rtx insn, last;
 
-  /* For all branches, calls, uses, and cc0 setters, force them to remain
-     in order at the end of the block by adding dependencies and giving
-     the last a high priority.  There may be notes present, and prev_head
-     may also be a note.
+  /* For all branches, calls, uses, clobbers, and cc0 setters, force them
+     to remain in order at the end of the block by adding dependencies and
+     giving the last a high priority.  There may be notes present, and
+     prev_head may also be a note.
 
      Branches must obviously remain at the end.  Calls should remain at the
      end since moving them results in worse register allocation.  Uses remain
@@ -6215,9 +6228,11 @@ add_branch_dependences (head, tail)
      at the end because they can't be moved away from their cc0 user.  */
   insn = tail;
   last = 0;
-  while (GET_CODE (insn) == CALL_INSN || GET_CODE (insn) == JUMP_INSN
+  while (GET_CODE (insn) == CALL_INSN
+	 || GET_CODE (insn) == JUMP_INSN
 	 || (GET_CODE (insn) == INSN
 	     && (GET_CODE (PATTERN (insn)) == USE
+		 || GET_CODE (PATTERN (insn)) == CLOBBER
 #ifdef HAVE_cc0
 		 || sets_cc0_p (PATTERN (insn))
 #endif
@@ -6275,6 +6290,154 @@ add_branch_dependences (head, tail)
       }
 }
 
+/* After computing the dependencies for block BB, propagate the dependencies
+   found in TMP_DEPS to the successors of the block.  MAX_REG is the number
+   of registers.  */
+static void
+propagate_deps (bb, tmp_deps, max_reg)
+     int bb;
+     struct deps *tmp_deps;
+     int max_reg;
+{
+  int b = BB_TO_BLOCK (bb);
+  int e, first_edge;
+  int reg;
+  rtx link_insn, link_mem;
+  rtx u;
+
+  /* These lists should point to the right place, for correct
+     freeing later.  */
+  bb_deps[bb].pending_read_insns = tmp_deps->pending_read_insns;
+  bb_deps[bb].pending_read_mems = tmp_deps->pending_read_mems;
+  bb_deps[bb].pending_write_insns = tmp_deps->pending_write_insns;
+  bb_deps[bb].pending_write_mems = tmp_deps->pending_write_mems;
+
+  /* bb's structures are inherited by its successors.  */
+  first_edge = e = OUT_EDGES (b);
+  if (e <= 0)
+    return;
+
+  do
+    {
+      rtx x;
+      int b_succ = TO_BLOCK (e);
+      int bb_succ = BLOCK_TO_BB (b_succ);
+      struct deps *succ_deps = bb_deps + bb_succ;
+
+      /* Only bbs "below" bb, in the same region, are interesting.  */
+      if (CONTAINING_RGN (b) != CONTAINING_RGN (b_succ)
+	  || bb_succ <= bb)
+	{
+	  e = NEXT_OUT (e);
+	  continue;
+	}
+
+      for (reg = 0; reg < max_reg; reg++)
+	{
+	  /* reg-last-uses lists are inherited by bb_succ.  */
+	  for (u = tmp_deps->reg_last_uses[reg]; u; u = XEXP (u, 1))
+	    {
+	      if (find_insn_list (XEXP (u, 0),
+				  succ_deps->reg_last_uses[reg]))
+		continue;
+
+	      succ_deps->reg_last_uses[reg]
+		= alloc_INSN_LIST (XEXP (u, 0),
+				   succ_deps->reg_last_uses[reg]);
+	    }
+
+	  /* reg-last-defs lists are inherited by bb_succ.  */
+	  for (u = tmp_deps->reg_last_sets[reg]; u; u = XEXP (u, 1))
+	    {
+	      if (find_insn_list (XEXP (u, 0),
+				  succ_deps->reg_last_sets[reg]))
+		continue;
+
+	      succ_deps->reg_last_sets[reg]
+		= alloc_INSN_LIST (XEXP (u, 0),
+				   succ_deps->reg_last_sets[reg]);
+	    }
+
+	  for (u = tmp_deps->reg_last_clobbers[reg]; u; u = XEXP (u, 1))
+	    {
+	      if (find_insn_list (XEXP (u, 0),
+				  succ_deps->reg_last_clobbers[reg]))
+		continue;
+
+	      succ_deps->reg_last_clobbers[reg]
+		= alloc_INSN_LIST (XEXP (u, 0),
+				   succ_deps->reg_last_clobbers[reg]);
+	    }
+	}
+
+      /* Mem read/write lists are inherited by bb_succ.  */
+      link_insn = tmp_deps->pending_read_insns;
+      link_mem = tmp_deps->pending_read_mems;
+      while (link_insn)
+	{
+	  if (!(find_insn_mem_list (XEXP (link_insn, 0),
+				    XEXP (link_mem, 0),
+				    succ_deps->pending_read_insns,
+				    succ_deps->pending_read_mems)))
+	    add_insn_mem_dependence (succ_deps, &succ_deps->pending_read_insns,
+				     &succ_deps->pending_read_mems,
+				     XEXP (link_insn, 0), XEXP (link_mem, 0));
+	  link_insn = XEXP (link_insn, 1);
+	  link_mem = XEXP (link_mem, 1);
+	}
+
+      link_insn = tmp_deps->pending_write_insns;
+      link_mem = tmp_deps->pending_write_mems;
+      while (link_insn)
+	{
+	  if (!(find_insn_mem_list (XEXP (link_insn, 0),
+				    XEXP (link_mem, 0),
+				    succ_deps->pending_write_insns,
+				    succ_deps->pending_write_mems)))
+	    add_insn_mem_dependence (succ_deps,
+				     &succ_deps->pending_write_insns,
+				     &succ_deps->pending_write_mems,
+				     XEXP (link_insn, 0), XEXP (link_mem, 0));
+
+	  link_insn = XEXP (link_insn, 1);
+	  link_mem = XEXP (link_mem, 1);
+	}
+
+      /* last_function_call is inherited by bb_succ.  */
+      for (u = tmp_deps->last_function_call; u; u = XEXP (u, 1))
+	{
+	  if (find_insn_list (XEXP (u, 0),
+			      succ_deps->last_function_call))
+	    continue;
+
+	  succ_deps->last_function_call
+	    = alloc_INSN_LIST (XEXP (u, 0),
+			       succ_deps->last_function_call);
+	}
+
+      /* last_pending_memory_flush is inherited by bb_succ.  */
+      for (u = tmp_deps->last_pending_memory_flush; u; u = XEXP (u, 1))
+	{
+	  if (find_insn_list (XEXP (u, 0), 
+			      succ_deps->last_pending_memory_flush))
+	    continue;
+
+	  succ_deps->last_pending_memory_flush
+	    = alloc_INSN_LIST (XEXP (u, 0),
+			       succ_deps->last_pending_memory_flush);
+	}
+
+      /* sched_before_next_call is inherited by bb_succ.  */
+      x = LOG_LINKS (tmp_deps->sched_before_next_call);
+      for (; x; x = XEXP (x, 1))
+	add_dependence (succ_deps->sched_before_next_call,
+			XEXP (x, 0), REG_DEP_ANTI);
+
+      e = NEXT_OUT (e);
+    }
+  while (e != first_edge);
+}
+
 /* Compute backward dependences inside bb.  In a multiple blocks region:
    (1) a bb is analyzed after its predecessors, and (2) the lists in
    effect at the end of bb (after analyzing for bb) are inherited by
@@ -6296,193 +6459,20 @@ static void
 compute_block_backward_dependences (bb)
      int bb;
 {
-  int b;
-  rtx x;
+  int i;
   rtx head, tail;
   int max_reg = max_reg_num ();
+  struct deps tmp_deps;
 
-  b = BB_TO_BLOCK (bb);
-
-  if (current_nr_blocks == 1)
-    {
-      reg_last_uses = (rtx *) alloca (max_reg * sizeof (rtx));
-      reg_last_sets = (rtx *) alloca (max_reg * sizeof (rtx));
-      reg_last_clobbers = (rtx *) alloca (max_reg * sizeof (rtx));
-
-      bzero ((char *) reg_last_uses, max_reg * sizeof (rtx));
-      bzero ((char *) reg_last_sets, max_reg * sizeof (rtx));
-      bzero ((char *) reg_last_clobbers, max_reg * sizeof (rtx));
-
-      pending_read_insns = 0;
-      pending_read_mems = 0;
-      pending_write_insns = 0;
-      pending_write_mems = 0;
-      pending_lists_length = 0;
-      last_function_call = 0;
-      last_pending_memory_flush = 0;
-      sched_before_next_call
-	= gen_rtx_INSN (VOIDmode, 0, NULL_RTX, NULL_RTX,
-			NULL_RTX, 0, NULL_RTX, NULL_RTX);
-      LOG_LINKS (sched_before_next_call) = 0;
-    }
-  else
-    {
-      reg_last_uses = bb_reg_last_uses[bb];
-      reg_last_sets = bb_reg_last_sets[bb];
-      reg_last_clobbers = bb_reg_last_clobbers[bb];
-
-      pending_read_insns = bb_pending_read_insns[bb];
-      pending_read_mems = bb_pending_read_mems[bb];
-      pending_write_insns = bb_pending_write_insns[bb];
-      pending_write_mems = bb_pending_write_mems[bb];
-      pending_lists_length = bb_pending_lists_length[bb];
-      last_function_call = bb_last_function_call[bb];
-      last_pending_memory_flush = bb_last_pending_memory_flush[bb];
-
-      sched_before_next_call = bb_sched_before_next_call[bb];
-    }
+  tmp_deps = bb_deps[bb];
 
   /* Do the analysis for this block.  */
   get_bb_head_tail (bb, &head, &tail);
-  sched_analyze (head, tail);
+  sched_analyze (&tmp_deps, head, tail);
   add_branch_dependences (head, tail);
 
   if (current_nr_blocks > 1)
-    {
-      int e, first_edge;
-      int b_succ, bb_succ;
-      int reg;
-      rtx link_insn, link_mem;
-      rtx u;
-
-      /* These lists should point to the right place, for correct
-         freeing later.  */
-      bb_pending_read_insns[bb] = pending_read_insns;
-      bb_pending_read_mems[bb] = pending_read_mems;
-      bb_pending_write_insns[bb] = pending_write_insns;
-      bb_pending_write_mems[bb] = pending_write_mems;
-
-      /* bb's structures are inherited by it's successors.  */
-      first_edge = e = OUT_EDGES (b);
-      if (e > 0)
-	do
-	  {
-	    b_succ = TO_BLOCK (e);
-	    bb_succ = BLOCK_TO_BB (b_succ);
-
-	    /* Only bbs "below" bb, in the same region, are interesting.  */
-	    if (CONTAINING_RGN (b) != CONTAINING_RGN (b_succ)
-		|| bb_succ <= bb)
-	      {
-		e = NEXT_OUT (e);
-		continue;
-	      }
-
-	    for (reg = 0; reg < max_reg; reg++)
-	      {
-
-		/* reg-last-uses lists are inherited by bb_succ.  */
-		for (u = reg_last_uses[reg]; u; u = XEXP (u, 1))
-		  {
-		    if (find_insn_list (XEXP (u, 0),
-					(bb_reg_last_uses[bb_succ])[reg]))
-		      continue;
-
-		    (bb_reg_last_uses[bb_succ])[reg]
-		      = alloc_INSN_LIST (XEXP (u, 0),
-					 (bb_reg_last_uses[bb_succ])[reg]);
-		  }
-
-		/* reg-last-defs lists are inherited by bb_succ.  */
-		for (u = reg_last_sets[reg]; u; u = XEXP (u, 1))
-		  {
-		    if (find_insn_list (XEXP (u, 0),
-					(bb_reg_last_sets[bb_succ])[reg]))
-		      continue;
-
-		    (bb_reg_last_sets[bb_succ])[reg]
-		      = alloc_INSN_LIST (XEXP (u, 0),
-					 (bb_reg_last_sets[bb_succ])[reg]);
-		  }
-
-		for (u = reg_last_clobbers[reg]; u; u = XEXP (u, 1))
-		  {
-		    if (find_insn_list (XEXP (u, 0),
-					(bb_reg_last_clobbers[bb_succ])[reg]))
-		      continue;
-
-		    (bb_reg_last_clobbers[bb_succ])[reg]
-		      = alloc_INSN_LIST (XEXP (u, 0),
-					 (bb_reg_last_clobbers[bb_succ])[reg]);
-		  }
-	      }
-
-	    /* Mem read/write lists are inherited by bb_succ.  */
-	    link_insn = pending_read_insns;
-	    link_mem = pending_read_mems;
-	    while (link_insn)
-	      {
-		if (!(find_insn_mem_list (XEXP (link_insn, 0),
-					  XEXP (link_mem, 0),
-					  bb_pending_read_insns[bb_succ],
-					  bb_pending_read_mems[bb_succ])))
-		  add_insn_mem_dependence (&bb_pending_read_insns[bb_succ],
-					   &bb_pending_read_mems[bb_succ],
-				   XEXP (link_insn, 0), XEXP (link_mem, 0));
-		link_insn = XEXP (link_insn, 1);
-		link_mem = XEXP (link_mem, 1);
-	      }
-
-	    link_insn = pending_write_insns;
-	    link_mem = pending_write_mems;
-	    while (link_insn)
-	      {
-		if (!(find_insn_mem_list (XEXP (link_insn, 0),
-					  XEXP (link_mem, 0),
-					  bb_pending_write_insns[bb_succ],
-					  bb_pending_write_mems[bb_succ])))
-		  add_insn_mem_dependence (&bb_pending_write_insns[bb_succ],
-					   &bb_pending_write_mems[bb_succ],
-				   XEXP (link_insn, 0), XEXP (link_mem, 0));
-
-		link_insn = XEXP (link_insn, 1);
-		link_mem = XEXP (link_mem, 1);
-	      }
-
-	    /* last_function_call is inherited by bb_succ.  */
-	    for (u = last_function_call; u; u = XEXP (u, 1))
-	      {
-		if (find_insn_list (XEXP (u, 0),
-				    bb_last_function_call[bb_succ]))
-		  continue;
-
-		bb_last_function_call[bb_succ]
-		  = alloc_INSN_LIST (XEXP (u, 0),
-				     bb_last_function_call[bb_succ]);
-	      }
-
-	    /* last_pending_memory_flush is inherited by bb_succ.  */
-	    for (u = last_pending_memory_flush; u; u = XEXP (u, 1))
-	      {
-		if (find_insn_list (XEXP (u, 0), 
-				    bb_last_pending_memory_flush[bb_succ]))
-		  continue;
-
-		bb_last_pending_memory_flush[bb_succ]
-		  = alloc_INSN_LIST (XEXP (u, 0),
-				     bb_last_pending_memory_flush[bb_succ]);
-	      }
-
-	    /* sched_before_next_call is inherited by bb_succ.  */
-	    x = LOG_LINKS (sched_before_next_call);
-	    for (; x; x = XEXP (x, 1))
-	      add_dependence (bb_sched_before_next_call[bb_succ],
-			      XEXP (x, 0), REG_DEP_ANTI);
-
-	    e = NEXT_OUT (e);
-	  }
-	while (e != first_edge);
-    }
+    propagate_deps (bb, &tmp_deps, max_reg);
 
   /* Free up the INSN_LISTs.
 
@@ -6491,23 +6481,23 @@ compute_block_backward_dependences (bb)
      The list was empty for the vast majority of those calls.  On the PA, not 
      calling free_INSN_LIST_list in those cases improves -O2 compile times by
      3-5% on average.  */
-  for (b = 0; b < max_reg; ++b)
+  for (i = 0; i < max_reg; ++i)
     {
-      if (reg_last_clobbers[b])
-	free_INSN_LIST_list (&reg_last_clobbers[b]);
-      if (reg_last_sets[b])
-	free_INSN_LIST_list (&reg_last_sets[b]);
-      if (reg_last_uses[b])
-	free_INSN_LIST_list (&reg_last_uses[b]);
+      if (tmp_deps.reg_last_clobbers[i])
+	free_INSN_LIST_list (&tmp_deps.reg_last_clobbers[i]);
+      if (tmp_deps.reg_last_sets[i])
+	free_INSN_LIST_list (&tmp_deps.reg_last_sets[i]);
+      if (tmp_deps.reg_last_uses[i])
+	free_INSN_LIST_list (&tmp_deps.reg_last_uses[i]);
     }
 
   /* Assert that we won't need bb_reg_last_* for this block anymore.  */
-  if (current_nr_blocks > 1)
-    {
-      bb_reg_last_uses[bb] = (rtx *) NULL_RTX;
-      bb_reg_last_sets[bb] = (rtx *) NULL_RTX;
-      bb_reg_last_clobbers[bb] = (rtx *) NULL_RTX;
-    }
+  free (bb_deps[bb].reg_last_uses);
+  free (bb_deps[bb].reg_last_sets);
+  free (bb_deps[bb].reg_last_clobbers);
+  bb_deps[bb].reg_last_uses = 0;
+  bb_deps[bb].reg_last_sets = 0;
+  bb_deps[bb].reg_last_clobbers = 0;
 }
 
 /* Print dependences for debugging, callable from debugger.  */
@@ -6619,29 +6609,6 @@ set_priorities (bb)
   return n_insn;
 }
 
-/* Make each element of VECTOR point at an rtx-vector,
-   taking the space for all those rtx-vectors from SPACE.
-   SPACE is of type (rtx *), but it is really as long as NELTS rtx-vectors.
-   BYTES_PER_ELT is the number of bytes in one rtx-vector.
-   (this is the same as init_regset_vector () in flow.c)  */
-
-static void
-init_rtx_vector (vector, space, nelts, bytes_per_elt)
-     rtx **vector;
-     rtx *space;
-     int nelts;
-     int bytes_per_elt;
-{
-  register int i;
-  register rtx *p = space;
-
-  for (i = 0; i < nelts; i++)
-    {
-      vector[i] = p;
-      p += bytes_per_elt / sizeof (*p);
-    }
-}
-
 /* Schedule a region.  A region is either an inner loop, a loop-free
    subroutine, or a single basic block.  Each bb in the region is
    scheduled after its flow predecessors.  */
@@ -6663,45 +6630,9 @@ schedule_region (rgn)
   reg_pending_sets_all = 0;
 
   /* Initializations for region data dependence analyisis.  */
-  if (current_nr_blocks > 1)
-    {
-      rtx *space;
-      int maxreg = max_reg_num ();
-
-      bb_reg_last_uses = (rtx **) alloca (current_nr_blocks * sizeof (rtx *));
-      space = (rtx *) alloca (current_nr_blocks * maxreg * sizeof (rtx));
-      bzero ((char *) space, current_nr_blocks * maxreg * sizeof (rtx));
-      init_rtx_vector (bb_reg_last_uses, space, current_nr_blocks,
-		       maxreg * sizeof (rtx *));
-
-      bb_reg_last_sets = (rtx **) alloca (current_nr_blocks * sizeof (rtx *));
-      space = (rtx *) alloca (current_nr_blocks * maxreg * sizeof (rtx));
-      bzero ((char *) space, current_nr_blocks * maxreg * sizeof (rtx));
-      init_rtx_vector (bb_reg_last_sets, space, current_nr_blocks,
-		       maxreg * sizeof (rtx *));
-
-      bb_reg_last_clobbers =
-	(rtx **) alloca (current_nr_blocks * sizeof (rtx *));
-      space = (rtx *) alloca (current_nr_blocks * maxreg * sizeof (rtx));
-      bzero ((char *) space, current_nr_blocks * maxreg * sizeof (rtx));
-      init_rtx_vector (bb_reg_last_clobbers, space, current_nr_blocks,
-		       maxreg * sizeof (rtx *));
-
-      bb_pending_read_insns = (rtx *) alloca (current_nr_blocks * sizeof (rtx));
-      bb_pending_read_mems = (rtx *) alloca (current_nr_blocks * sizeof (rtx));
-      bb_pending_write_insns =
-	(rtx *) alloca (current_nr_blocks * sizeof (rtx));
-      bb_pending_write_mems = (rtx *) alloca (current_nr_blocks * sizeof (rtx));
-      bb_pending_lists_length =
-	(int *) alloca (current_nr_blocks * sizeof (int));
-      bb_last_pending_memory_flush =
-	(rtx *) alloca (current_nr_blocks * sizeof (rtx));
-      bb_last_function_call = (rtx *) alloca (current_nr_blocks * sizeof (rtx));
-      bb_sched_before_next_call =
-	(rtx *) alloca (current_nr_blocks * sizeof (rtx));
-
-      init_rgn_data_dependences (current_nr_blocks);
-    }
+  bb_deps = (struct deps *) xmalloc (sizeof (struct deps) * current_nr_blocks);
+  for (bb = 0; bb < current_nr_blocks; bb++)
+    init_deps (bb_deps + bb);
 
   /* Compute LOG_LINKS.  */
   for (bb = 0; bb < current_nr_blocks; bb++)
@@ -6728,23 +6659,20 @@ schedule_region (rgn)
     {
       int i;
 
-      prob = (float *) alloca ((current_nr_blocks) * sizeof (float));
+      prob = (float *) xmalloc ((current_nr_blocks) * sizeof (float));
 
       bbset_size = current_nr_blocks / HOST_BITS_PER_WIDE_INT + 1;
-      dom = (bbset *) alloca (current_nr_blocks * sizeof (bbset));
+      dom = (bbset *) xmalloc (current_nr_blocks * sizeof (bbset));
       for (i = 0; i < current_nr_blocks; i++)
-	{
-	  dom[i] = (bbset) alloca (bbset_size * sizeof (HOST_WIDE_INT));
-	  bzero ((char *) dom[i], bbset_size * sizeof (HOST_WIDE_INT));
-	}
+	dom[i] = (bbset) xcalloc (bbset_size, sizeof (HOST_WIDE_INT));
 
       /* Edge to bit.  */
       rgn_nr_edges = 0;
-      edge_to_bit = (int *) alloca (nr_edges * sizeof (int));
+      edge_to_bit = (int *) xmalloc (nr_edges * sizeof (int));
       for (i = 1; i < nr_edges; i++)
 	if (CONTAINING_RGN (FROM_BLOCK (i)) == rgn)
 	  EDGE_TO_BIT (i) = rgn_nr_edges++;
-      rgn_edges = (int *) alloca (rgn_nr_edges * sizeof (int));
+      rgn_edges = (int *) xmalloc (rgn_nr_edges * sizeof (int));
 
       rgn_nr_edges = 0;
       for (i = 1; i < nr_edges; i++)
@@ -6753,19 +6681,16 @@ schedule_region (rgn)
 
       /* Split edges.  */
       edgeset_size = rgn_nr_edges / HOST_BITS_PER_WIDE_INT + 1;
-      pot_split = (edgeset *) alloca (current_nr_blocks * sizeof (edgeset));
-      ancestor_edges = (edgeset *) alloca (current_nr_blocks 
-					   * sizeof (edgeset));
+      edgeset_bitsize = rgn_nr_edges;
+      pot_split = (edgeset *) xmalloc (current_nr_blocks * sizeof (edgeset));
+      ancestor_edges 
+	= (edgeset *) xmalloc (current_nr_blocks * sizeof (edgeset));
       for (i = 0; i < current_nr_blocks; i++)
 	{
 	  pot_split[i] =
-	    (edgeset) alloca (edgeset_size * sizeof (HOST_WIDE_INT));
-	  bzero ((char *) pot_split[i],
-		 edgeset_size * sizeof (HOST_WIDE_INT));
+	    (edgeset) xcalloc (edgeset_size, sizeof (HOST_WIDE_INT));
 	  ancestor_edges[i] =
-	    (edgeset) alloca (edgeset_size * sizeof (HOST_WIDE_INT));
-	  bzero ((char *) ancestor_edges[i],
-		 edgeset_size * sizeof (HOST_WIDE_INT));
+	    (edgeset) xcalloc (edgeset_size, sizeof (HOST_WIDE_INT));
 	}
 
       /* Compute probabilities, dominators, split_edges.  */
@@ -6775,13 +6700,7 @@ schedule_region (rgn)
 
   /* Now we can schedule all blocks.  */
   for (bb = 0; bb < current_nr_blocks; bb++)
-    {
-      sched_rgn_n_insns += schedule_block (bb, rgn_n_insns);
-
-#ifdef USE_C_ALLOCA
-      alloca (0);
-#endif
-    }
+    sched_rgn_n_insns += schedule_block (bb, rgn_n_insns);
 
   /* Sanity check: verify that all region insns were scheduled.  */
   if (sched_rgn_n_insns != rgn_n_insns)
@@ -6799,6 +6718,26 @@ schedule_region (rgn)
 
   FREE_REG_SET (reg_pending_sets);
   FREE_REG_SET (reg_pending_clobbers);
+
+  free (bb_deps);
+
+  if (current_nr_blocks > 1)
+    {
+      int i;
+
+      free (prob);
+      for (i = 0; i < current_nr_blocks; ++i)
+	{
+	  free (dom[i]);
+	  free (pot_split[i]);
+	  free (ancestor_edges[i]);
+	}
+      free (dom);
+      free (edge_to_bit);
+      free (rgn_edges);
+      free (pot_split);
+      free (ancestor_edges);
+    }
 }
 
 /* The one entry point in this file.  DUMP_FILE is the dump file for
@@ -6847,13 +6786,9 @@ schedule_insns (dump_file)
      pseudos which do not cross calls.  */
   max_uid = get_max_uid () + 1;
 
-  cant_move = xcalloc (max_uid, sizeof (char));
-  fed_by_spec_load = xcalloc (max_uid, sizeof (char));
-  is_load_insn = xcalloc (max_uid, sizeof (char));
+  h_i_d = (struct haifa_insn_data *) xcalloc (max_uid, sizeof (*h_i_d));
 
-  insn_luid = (int *) xmalloc (max_uid * sizeof (int));
-
-  insn_luid[0] = 0;
+  h_i_d[0].luid = 0;
   luid = 1;
   for (b = 0; b < n_basic_blocks; b++)
     for (insn = BLOCK_HEAD (b);; insn = NEXT_INSN (insn))
@@ -6885,10 +6820,10 @@ schedule_insns (dump_file)
     }
 
   nr_regions = 0;
-  rgn_table = (region *) alloca ((n_basic_blocks) * sizeof (region));
-  rgn_bb_table = (int *) alloca ((n_basic_blocks) * sizeof (int));
-  block_to_bb = (int *) alloca ((n_basic_blocks) * sizeof (int));
-  containing_rgn = (int *) alloca ((n_basic_blocks) * sizeof (int));
+  rgn_table = (region *) xmalloc ((n_basic_blocks) * sizeof (region));
+  rgn_bb_table = (int *) xmalloc ((n_basic_blocks) * sizeof (int));
+  block_to_bb = (int *) xmalloc ((n_basic_blocks) * sizeof (int));
+  containing_rgn = (int *) xmalloc ((n_basic_blocks) * sizeof (int));
 
   blocks = sbitmap_alloc (n_basic_blocks);
   large_region_blocks = sbitmap_alloc (n_basic_blocks);
@@ -6911,18 +6846,10 @@ schedule_insns (dump_file)
 	}
       else
 	{
-	  int_list_ptr *s_preds, *s_succs;
-	  int *num_preds, *num_succs;
-	  sbitmap *dom, *pdom;
+	  sbitmap *dom;
+	  struct edge_list *edge_list;
 
-	  s_preds = (int_list_ptr *) alloca (n_basic_blocks
-					     * sizeof (int_list_ptr));
-	  s_succs = (int_list_ptr *) alloca (n_basic_blocks
-					     * sizeof (int_list_ptr));
-	  num_preds = (int *) alloca (n_basic_blocks * sizeof (int));
-	  num_succs = (int *) alloca (n_basic_blocks * sizeof (int));
 	  dom = sbitmap_vector_alloc (n_basic_blocks, n_basic_blocks);
-	  pdom = sbitmap_vector_alloc (n_basic_blocks, n_basic_blocks);
 
 	  /* The scheduler runs after flow; therefore, we can't blindly call
 	     back into find_basic_blocks since doing so could invalidate the
@@ -6935,52 +6862,31 @@ schedule_insns (dump_file)
 
 	     We could (should?) recompute register live information.  Doing
 	     so may even be beneficial.  */
-
-	  compute_preds_succs (s_preds, s_succs, num_preds, num_succs);
+	  edge_list = create_edge_list ();
 
 	  /* Compute the dominators and post dominators.  We don't
 	     currently use post dominators, but we should for
 	     speculative motion analysis.  */
-	  compute_dominators (dom, pdom, s_preds, s_succs);
+	  compute_flow_dominators (dom, NULL);
 
 	  /* build_control_flow will return nonzero if it detects unreachable
 	     blocks or any other irregularity with the cfg which prevents
 	     cross block scheduling.  */
-	  if (build_control_flow (s_preds, s_succs, num_preds, num_succs) != 0)
+	  if (build_control_flow (edge_list) != 0)
 	    find_single_block_region ();
 	  else
-	    find_rgns (s_preds, s_succs, num_preds, num_succs, dom);
+	    find_rgns (edge_list, dom);
 
 	  if (sched_verbose >= 3)
 	    debug_regions ();
 
 	  /* For now.  This will move as more and more of haifa is converted
 	     to using the cfg code in flow.c.  */
-	  free_bb_mem ();
 	  free (dom);
-	  free (pdom);
 	}
     }
 
-  /* Allocate data for this pass.  See comments, above,
-     for what these vectors do.
-
-     We use xmalloc instead of alloca, because max_uid can be very large
-     when there is a lot of function inlining.  If we used alloca, we could
-     exceed stack limits on some hosts for some inputs.  */
-  insn_priority = (int *) xcalloc (max_uid, sizeof (int));
-  insn_reg_weight = (int *) xcalloc (max_uid, sizeof (int));
-  insn_tick = (int *) xcalloc (max_uid, sizeof (int));
-  insn_costs = (short *) xcalloc (max_uid, sizeof (short));
-  insn_units = (short *) xcalloc (max_uid, sizeof (short));
-  insn_blockage = (unsigned int *) xcalloc (max_uid, sizeof (unsigned int));
-  insn_ref_count = (int *) xcalloc (max_uid, sizeof (int));
-
-  /* Allocate for forward dependencies.  */
-  insn_dep_count = (int *) xcalloc (max_uid, sizeof (int));
-  insn_depend = (rtx *) xcalloc (max_uid, sizeof (rtx));
-
-  deaths_in_region = (int *) alloca (sizeof(int) * nr_regions);
+  deaths_in_region = (int *) xmalloc (sizeof(int) * nr_regions);
 
   init_alias_analysis ();
 
@@ -6988,9 +6894,7 @@ schedule_insns (dump_file)
     {
       rtx line;
 
-      line_note = (rtx *) xcalloc (max_uid, sizeof (rtx));
-      line_note_head = (rtx *) alloca (n_basic_blocks * sizeof (rtx));
-      bzero ((char *) line_note_head, n_basic_blocks * sizeof (rtx));
+      line_note_head = (rtx *) xcalloc (n_basic_blocks, sizeof (rtx));
 
       /* Save-line-note-head:
          Determine the line-number at the start of each basic block.
@@ -7041,13 +6945,7 @@ schedule_insns (dump_file)
 
   /* Schedule every region in the subroutine.  */
   for (rgn = 0; rgn < nr_regions; rgn++)
-    {
-      schedule_region (rgn);
-
-#ifdef USE_C_ALLOCA
-      alloca (0);
-#endif
-    }
+    schedule_region (rgn);
 
   /* Update life analysis for the subroutine.  Do single block regions
      first so that we can verify that live_at_start didn't change.  Then
@@ -7116,29 +7014,23 @@ schedule_insns (dump_file)
       fprintf (dump, "\n\n");
     }
 
+  /* Clean up.  */
+  end_alias_analysis ();
+
   if (true_dependency_cache)
     {
       free (true_dependency_cache);
       true_dependency_cache = NULL;
     }
-  free (cant_move);
-  free (fed_by_spec_load);
-  free (is_load_insn);
-  free (insn_luid);
+  free (rgn_table);
+  free (rgn_bb_table);
+  free (block_to_bb);
+  free (containing_rgn);
 
-  free (insn_priority);
-  free (insn_reg_weight);
-  free (insn_tick);
-  free (insn_costs);
-  free (insn_units);
-  free (insn_blockage);
-  free (insn_ref_count);
-
-  free (insn_dep_count);
-  free (insn_depend);
+  free (h_i_d);
 
   if (write_symbols != NO_DEBUG)
-    free (line_note);
+    free (line_note_head);
 
   if (edge_table)
     {
@@ -7159,5 +7051,8 @@ schedule_insns (dump_file)
 
   sbitmap_free (blocks);
   sbitmap_free (large_region_blocks);
+
+  free (deaths_in_region);
 }
+
 #endif /* INSN_SCHEDULING */

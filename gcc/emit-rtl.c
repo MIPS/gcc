@@ -50,6 +50,7 @@ Boston, MA 02111-1307, USA.  */
 #include "real.h"
 #include "obstack.h"
 #include "bitmap.h"
+#include "basic-block.h"
 #include "ggc.h"
 
 /* Commonly used modes.  */
@@ -155,12 +156,12 @@ static rtx sequence_result[SEQUENCE_RESULT_SIZE];
 /* During RTL generation, we also keep a list of free INSN rtl codes.  */
 static rtx free_insn;
 
-#define first_insn (current_function->emit->x_first_insn)
-#define last_insn (current_function->emit->x_last_insn)
-#define cur_insn_uid (current_function->emit->x_cur_insn_uid)
-#define last_linenum (current_function->emit->x_last_linenum)
-#define last_filename (current_function->emit->x_last_filename)
-#define first_label_num (current_function->emit->x_first_label_num)
+#define first_insn (cfun->emit->x_first_insn)
+#define last_insn (cfun->emit->x_last_insn)
+#define cur_insn_uid (cfun->emit->x_cur_insn_uid)
+#define last_linenum (cfun->emit->x_last_linenum)
+#define last_filename (cfun->emit->x_last_filename)
+#define first_label_num (cfun->emit->x_first_label_num)
 
 /* This is where the pointer to the obstack being used for RTL is stored.  */
 extern struct obstack *rtl_obstack;
@@ -452,7 +453,7 @@ rtx
 gen_reg_rtx (mode)
      enum machine_mode mode;
 {
-  struct function *f = current_function;
+  struct function *f = cfun;
   register rtx val;
 
   /* Don't let anything called after initial flow analysis create new
@@ -1522,9 +1523,10 @@ gen_label_rtx ()
   register rtx label;
 
   label = gen_rtx_CODE_LABEL (VOIDmode, 0, NULL_RTX,
-			      NULL_RTX, label_num++, NULL_PTR);
+			      NULL_RTX, label_num++, NULL_PTR, NULL_PTR);
 
   LABEL_NUSES (label) = 0;
+  LABEL_ALTERNATE_NAME (label) = NULL;
   return label;
 }
 
@@ -1578,7 +1580,7 @@ set_new_last_label_num (last)
 
 void
 restore_emit_status (p)
-     struct function *p;
+     struct function *p ATTRIBUTE_UNUSED;
 {
   last_label_num = 0;
   clear_emit_caches ();
@@ -1894,6 +1896,34 @@ int
 get_max_uid ()
 {
   return cur_insn_uid;
+}
+
+/* Renumber instructions so that no instruction UIDs are wasted.  */
+
+void
+renumber_insns (stream)
+     FILE *stream;
+{
+  rtx insn;
+
+  /* If we're not supposed to renumber instructions, don't.  */
+  if (!flag_renumber_insns)
+    return;
+
+  /* If there aren't that many instructions, then it's not really
+     worth renumbering them.  */
+  if (flag_renumber_insns == 1 && get_max_uid () < 25000)
+    return;
+
+  cur_insn_uid = 1;
+
+  for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
+    {
+      if (stream)
+	fprintf (stream, "Renumbering insn %d to %d\n", 
+		 INSN_UID (insn), cur_insn_uid);
+      INSN_UID (insn) = cur_insn_uid++;
+    }
 }
 
 /* Return the next insn.  If it is a SEQUENCE, return the first insn
@@ -2566,6 +2596,32 @@ reorder_insns_with_line_notes (from, to, after)
 			  NOTE_LINE_NUMBER (after_line),
 			  to);
 }
+
+/* Remove unncessary notes from the instruction stream.  */
+
+void
+remove_unncessary_notes ()
+{
+  rtx insn;
+  rtx next;
+
+  /* Remove NOTE_INSN_DELETED notes.  We must not remove the first
+     instruction in the function because the compiler depends on the
+     first instruction being a note.  */
+  for (insn = NEXT_INSN (get_insns ()); insn; insn = next)
+    {
+      /* Remember what's next.  */
+      next = NEXT_INSN (insn);
+
+      /* We're only interested in notes.  */
+      if (GET_CODE (insn) != NOTE)
+	continue;
+
+      if (NOTE_LINE_NUMBER (insn) == NOTE_INSN_DELETED)
+	remove_insn (insn);
+    }
+}
+
 
 /* Emit an insn of given code and pattern
    at a specified place within the doubly-linked list.  */
@@ -2598,6 +2654,20 @@ emit_insn_before (pattern, before)
     }
 
   return insn;
+}
+
+/* Similar to emit_insn_before, but update basic block boundaries as well.  */
+
+rtx
+emit_block_insn_before (pattern, before, block)
+     rtx pattern, before;
+     basic_block block;
+{
+  rtx prev = PREV_INSN (before);
+  rtx r = emit_insn_before (pattern, before);
+  if (block && block->head == before)
+    block->head = NEXT_INSN (prev);
+  return r;
 }
 
 /* Make an instruction with body PATTERN and code JUMP_INSN
@@ -2740,6 +2810,19 @@ emit_insn_after_with_line_notes (pattern, after, from)
     emit_line_note_after (NOTE_SOURCE_FILE (after_line),
 			  NOTE_LINE_NUMBER (after_line),
 			  insn);
+}
+
+/* Similar to emit_insn_after, but update basic block boundaries as well.  */
+
+rtx
+emit_block_insn_after (pattern, after, block)
+     rtx pattern, after;
+     basic_block block;
+{
+  rtx r = emit_insn_after (pattern, after);
+  if (block && block->end == after)
+    block->end = r;
+  return r;
 }
 
 /* Make an insn of code JUMP_INSN with body PATTERN
@@ -3309,16 +3392,16 @@ gen_sequence ()
   for (tem = first_insn; tem; tem = NEXT_INSN (tem))
     len++;
 
-  /* If only one insn, return its pattern rather than a SEQUENCE.
+  /* If only one insn, return it rather than a SEQUENCE.
      (Now that we cache SEQUENCE expressions, it isn't worth special-casing
-     the case of an empty list.)  */
+     the case of an empty list.)     
+     We only return the pattern of an insn if its code is INSN and it
+     has no notes.  This ensures that no information gets lost.  */
   if (len == 1
       && ! RTX_FRAME_RELATED_P (first_insn)
-      && (GET_CODE (first_insn) == INSN
-	  || GET_CODE (first_insn) == JUMP_INSN
-	  /* Don't discard the call usage field.  */
-	  || (GET_CODE (first_insn) == CALL_INSN
-	      && CALL_INSN_FUNCTION_USAGE (first_insn) == NULL_RTX)))
+      && GET_CODE (first_insn) == INSN
+      /* Don't throw away any reg notes. */
+      && REG_NOTES (first_insn) == 0)
     {
       if (!ggc_p)
 	{
@@ -3560,7 +3643,7 @@ copy_insn (insn)
 void
 init_emit ()
 {
-  struct function *f = current_function;
+  struct function *f = cfun;
 
   f->emit = (struct emit_status *) xmalloc (sizeof (struct emit_status));
   first_insn = NULL;

@@ -1,5 +1,5 @@
 /* Convert RTL to assembler code and output it, for GNU compiler.
-   Copyright (C) 1987, 88, 89, 92-98, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1987, 88, 89, 92-99, 2000 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -309,7 +309,9 @@ static int alter_cond		PROTO((rtx));
 #ifndef ADDR_VEC_ALIGN
 static int final_addr_vec_align PROTO ((rtx));
 #endif
+#ifdef HAVE_ATTR_length
 static int align_fuzz		PROTO ((rtx, rtx, int, unsigned));
+#endif
 
 /* Initialize data in final at the beginning of a compilation.  */
 
@@ -699,7 +701,7 @@ init_insn_lengths ()
 
 int
 get_attr_length (insn)
-     rtx insn;
+     rtx insn ATTRIBUTE_UNUSED;
 {
 #ifdef HAVE_ATTR_length
   rtx body;
@@ -980,7 +982,7 @@ insn_current_reference_address (branch)
 
 void
 shorten_branches (first)
-     rtx first;
+     rtx first ATTRIBUTE_UNUSED;
 {
   rtx insn;
   int max_uid;
@@ -1282,7 +1284,7 @@ shorten_branches (first)
 				 * GET_MODE_SIZE (GET_MODE (body)));
 	  /* Alignment is handled by ADDR_VEC_ALIGN.  */
 	}
-      else if (asm_noperands (body) >= 0)
+      else if (GET_CODE (body) == ASM_INPUT || asm_noperands (body) >= 0)
 	insn_lengths[uid] = asm_insn_count (body) * insn_default_length (insn);
       else if (GET_CODE (body) == SEQUENCE)
 	{
@@ -1302,7 +1304,8 @@ shorten_branches (first)
 	      int inner_uid = INSN_UID (inner_insn);
 	      int inner_length;
 
-	      if (asm_noperands (PATTERN (XVECEXP (body, 0, i))) >= 0)
+	      if (GET_CODE (body) == ASM_INPUT
+		  || asm_noperands (PATTERN (XVECEXP (body, 0, i))) >= 0)
 		inner_length = (asm_insn_count (PATTERN (inner_insn))
 				* insn_default_length (inner_insn));
 	      else
@@ -1693,7 +1696,7 @@ final_start_function (first, file, optimize)
 
 static void
 profile_after_prologue (file)
-     FILE *file;
+     FILE *file ATTRIBUTE_UNUSED;
 {
 #ifdef FUNCTION_BLOCK_PROFILER
   if (profile_block_flag)
@@ -2068,9 +2071,9 @@ rtx
 final_scan_insn (insn, file, optimize, prescan, nopeepholes)
      rtx insn;
      FILE *file;
-     int optimize;
+     int optimize ATTRIBUTE_UNUSED;
      int prescan;
-     int nopeepholes;
+     int nopeepholes ATTRIBUTE_UNUSED;
 {
 #ifdef HAVE_cc0
   rtx set;
@@ -2418,14 +2421,19 @@ final_scan_insn (insn, file, optimize, prescan, nopeepholes)
 	      ASM_OUTPUT_CASE_LABEL (file, "L", CODE_LABEL_NUMBER (insn),
 				     NEXT_INSN (insn));
 #else
-	      ASM_OUTPUT_INTERNAL_LABEL (file, "L", CODE_LABEL_NUMBER (insn));
+              if (LABEL_ALTERNATE_NAME (insn))
+                ASM_OUTPUT_ALTERNATE_LABEL_NAME (file, insn);
+              else
+	        ASM_OUTPUT_INTERNAL_LABEL (file, "L", CODE_LABEL_NUMBER (insn));
 #endif
 #endif
 	      break;
 	    }
 	}
-
-      ASM_OUTPUT_INTERNAL_LABEL (file, "L", CODE_LABEL_NUMBER (insn));
+      if (LABEL_ALTERNATE_NAME (insn))
+        ASM_OUTPUT_ALTERNATE_LABEL_NAME (file, insn);
+      else
+        ASM_OUTPUT_INTERNAL_LABEL (file, "L", CODE_LABEL_NUMBER (insn));
       break;
 
     default:

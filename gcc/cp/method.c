@@ -142,66 +142,6 @@ init_method ()
    value.  */
 static char digit_buffer[128];
 
-/* Move inline function definitions out of structure so that they
-   can be processed normally.  CNAME is the name of the class
-   we are working from, METHOD_LIST is the list of method lists
-   of the structure.  We delete friend methods here, after
-   saving away their inline function definitions (if any).  */
-
-void
-do_inline_function_hair (type, friend_list)
-     tree type, friend_list;
-{
-  tree method = TYPE_METHODS (type);
-
-  if (method && TREE_CODE (method) == TREE_VEC)
-    {
-      if (TREE_VEC_ELT (method, 1))
-	method = TREE_VEC_ELT (method, 1);
-      else if (TREE_VEC_ELT (method, 0))
-	method = TREE_VEC_ELT (method, 0);
-      else
-	method = TREE_VEC_ELT (method, 2);
-    }
-
-  while (method)
-    {
-      /* Do inline member functions.  */
-      struct pending_inline *info = DECL_PENDING_INLINE_INFO (method);
-      if (info)
-	{
-	  tree args;
-
-	  my_friendly_assert (info->fndecl == method, 238);
-	  args = DECL_ARGUMENTS (method);
-	  while (args)
-	    {
-	      DECL_CONTEXT (args) = method;
-	      args = TREE_CHAIN (args);
-	    }
-	}
-      method = TREE_CHAIN (method);
-    }
-  while (friend_list)
-    {
-      tree fndecl = TREE_VALUE (friend_list);
-      struct pending_inline *info = DECL_PENDING_INLINE_INFO (fndecl);
-      if (info)
-	{
-	  tree args;
-
-	  my_friendly_assert (info->fndecl == fndecl, 239);
-	  args = DECL_ARGUMENTS (fndecl);
-	  while (args)
-	    {
-	      DECL_CONTEXT (args) = fndecl;
-	      args = TREE_CHAIN (args);
-	    }
-	}
-
-      friend_list = TREE_CHAIN (friend_list);
-    }
-}
 
 /* Here is where overload code starts.  */
 
@@ -2149,7 +2089,6 @@ emit_thunk (thunk_fndecl)
       /* Make sure we build up its RTL before we go onto the
 	 temporary obstack.  */
       make_function_rtl (thunk_fndecl);
-      temporary_allocation ();
       DECL_RESULT (thunk_fndecl)
 	= build_decl (RESULT_DECL, 0, integer_type_node);
       fnname = XSTR (XEXP (DECL_RTL (thunk_fndecl), 0), 0);
@@ -2158,9 +2097,8 @@ emit_thunk (thunk_fndecl)
       assemble_start_function (thunk_fndecl, fnname);
       ASM_OUTPUT_MI_THUNK (asm_out_file, thunk_fndecl, delta, function);
       assemble_end_function (thunk_fndecl, fnname);
-      permanent_allocation (1);
       current_function_decl = 0;
-      current_function = 0;
+      cfun = 0;
     }
 #else /* ASM_OUTPUT_MI_THUNK */
   {
@@ -2211,10 +2149,7 @@ emit_thunk (thunk_fndecl)
 
     /* Don't let the backend defer this function.  */
     if (DECL_DEFER_OUTPUT (thunk_fndecl))
-      {
-	output_inline_function (thunk_fndecl);
-	permanent_allocation (1);
-      }
+      output_inline_function (thunk_fndecl);
   }
 #endif /* ASM_OUTPUT_MI_THUNK */
 

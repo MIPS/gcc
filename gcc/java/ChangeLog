@@ -1,3 +1,331 @@
+2000-01-11  Mumit Khan  <khan@xraylith.wisc.edu>
+
+	* jcf-path.c: Delete PATH_SEPARATOR and DIR_SEPARATOR macros.
+	* jcf-write.c: Likewise.
+	* parse.y: Likewise.
+	* parse.c: Regenerate.
+
+2000-01-09  Anthony Green  <green@cygnus.com>
+
+	* jcf-write.c (generate_bytecode_insns): Emit invokeinterface
+	bytecodes in the correct order.
+
+2000-01-09  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* Makefile.in (jcf-dump, gcjh): Move ../errors.o before $(LIBS).
+
+Thu Jan  6 16:31:28 2000  Anthony Green  <green@cygnus.com>
+
+	* expr.c (java_lang_expand_expr): Switch to permanent obstack
+	before building constant array decl.
+
+Thu Jan  6 00:54:10 2000  Alexandre Petit-Bianco  <apbianco@cygnus.com>
+
+	* jcf-write.c (generate_byecode_conditional): Fixed indentation in
+	method invocation and typo in conditional expression.
+        (generate_bytecode_insns): COND_EXPR can be part of a binop. Issue
+ 	the appropriate NOTE_POP.
+	* parse.y (patch_binop): Shift value mask to feature the right
+ 	type.
+
+1999-12-30  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* class.c (assume_compiled, assume_compiled_node): Add static
+	prototype.
+	(add_assume_compiled): Use xmalloc/xstrdup, not malloc/strdup.
+
+	* jcf-dump.c (ARRAY_NEW_NUM): Cast long to int in switch.
+
+	* jvgenmain.c (usage): Add static prototype with ATTRIBUTE_NORETURN.
+
+	* parse.h (OBSOLETE_MODIFIER_WARNING): Rename parameter `modifier'
+	to `__modifier' to avoid stringifying it.
+
+	* parse.y (verify_constructor_circularity): Don't call a variadic
+	function with a non-literal format string.
+	(java_check_abstract_methods): Move unreachable code inside
+	`continue' statement.
+	(lookup_method_invoke): Call xstrdup, not strdup.
+
+	* expr.c (expand_java_field_op): Avoid the use of ANSI string
+	concatenation.
+
+	* jcf-parse.c (yyparse): Likewise.
+
+	* jv-scan.c (main): Likewise.
+	
+1999-12-30  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* parse.h (ABSTRACT_CHECK, JCONSTRUCTOR_CHECK,
+	ERROR_CANT_CONVERT_TO_BOOLEAN, ERROR_CANT_CONVERT_TO_NUMERIC,
+	ERROR_CAST_NEEDED_TO_INTEGRAL): Avoid the use of ANSI string
+	concatenation.
+
+	* parse.y (synchronized, variable_redefinition_error,
+	check_class_interface_creation, create_interface, create_class,
+	method_header, finish_method_declaration,
+	check_modifiers_consistency, method_declarator,
+	complete_class_report_errors, check_abstract_method_definitions,
+	java_check_regular_methods, check_throws_clauses,
+	java_check_abstract_methods, read_import_dir,
+	check_pkg_class_access, declare_local_variables, fix_constructors,
+	cut_identifier_in_qualified, resolve_expression_name,
+	resolve_qualified_expression_name, patch_method_invocation,
+	java_complete_lhs, patch_assignment, try_builtin_assignconv,
+	patch_binop, patch_array_ref, patch_newarray, build_labeled_block,
+	patch_exit_expr, patch_exit_expr, patch_switch_statement,
+	patch_try_statement, patch_synchronized_statement,
+	patch_throw_statement, check_thrown_exceptions,
+	patch_conditional_expr): Likewise.
+
+Fri Dec 24 00:25:29 1999  Alexandre Petit-Bianco  <apbianco@cygnus.com>
+
+	* Makefile.in (LIBDEPS): Added gcc's errors.o
+	(../jcf-dump$(exeext):): Link with gcc's errors.o
+	(../gcjh$(exeext):): Likewise.
+	* expr.c (expand_java_NEW): Layout the entire target type instead of
+ 	laying out its methods only.
+	(lookup_field): Layout the class after having loaded it.
+	* java-tree.h (java_debug_context): Declared.
+	* jcf-io.c (toplev.h): Included.
+	(find_class): Removed assignment to jcf's outofsynch
+ 	field. Force source file to be read if newer than its matching
+ 	class file. Tweaked debug messages.
+	* jcf-parse.c (jcf_out_of_synch): Deleted.
+	(read_class): Call to jcf_out_of_synch removed.
+	* jcf.h (typedef struct JCF): Field `outofsynch' deleted.
+	(jcf_out_of_synch): Prototype deleted.
+	* parse.h (struct parser_ctxt): `minus_seen', `java_error_flag',
+ 	`deprecated' and `class_err': integer turned into bit fields.
+	New bit fields `saved_data_ctx' and `saved_data'. Fixed comments.
+	* parse.y (package_list): New global.
+	(package_declaration:): Record newly parsed package name.
+	(extra_ctxp_pushed_p): Static global deleted.
+	(java_parser_context_save_global): Create buffer context for the
+ 	purpose of saving globals, if necessary.
+	(java_parser_context_restore_global): Pop context pushed for the
+ 	purpose of saving globals, if necessary.
+	(java_debug_context_do): New prototype and function.
+	(java_debug_context): Likewise.
+	(do_resolve_class): Use already parsed package names to qualify
+ 	and lookup class candidate. 
+	(java_pre_expand_clinit): Removed unnecessary local variable.	
+
+1999-12-17  Tom Tromey  <tromey@cygnus.com>
+
+	* gjavah.c (decode_signature_piece): Print "::" in JArray<>.  This
+	fixes PR gcj/119.
+	(process_file): Use `\n\' at end of each line in string.
+
+Thu Dec 16 00:09:45 1999  Alexandre Petit-Bianco  <apbianco@cygnus.com>
+
+	* expr.c (expand_invoke): Layout the loaded class before
+ 	attempting to use it.
+	(expand_java_field_op): Allow final field assignments to take
+ 	place in $finit$.
+	* typeck.c (convert): Return error_mark_node if expr is null. 
+
+1999-12-14  Alexandre Petit-Bianco  <apbianco@cygnus.com>
+
+	* class.c (class_depth): Return -1 if the class doesn't load
+	properly.
+	* expr.c (can_widen_reference_to): Check for errors during depth
+	computation and return 0 accordingly.
+	* jcf-parse.c (parse_source_file): Call java_fix_constructors to
+	create default constructors and add an other error check.
+	* parse.h (java_fix_constructors): Prototyped.
+	* parse.y (java_pre_expand_clinit): Likewise.
+	(build_super_invocation): Re-prototyped to feature one argument.
+	(java_check_circular_reference): Directly use `current'.
+	(java_fix_constructors): New function.
+	(java_check_regular_methods): Don't create default constructors
+	here, but abort if none were found.
+	(java_complete_expand_methods): Pre-process <clinit> calling
+	java_pre_expand_clinit.
+	(java_pre_expand_clinit): New function.
+	(fix_constructors): build_super_invocation invoked with the
+	current method declaration as an argument.
+	(build_super_invocation): Use the context of the processed method
+	decl argument instead of current_class.
+	* typeck.c (lookup_java_method): Take WFLs in method names into
+	account.
+	
+Tue Dec 14 14:20:16 1999  Per Bothner  <per@bothner.com>
+
+	* class.c (make_class_data): flag_keep_inline_functions to keep
+	private methods in the method array.
+
+1999-12-15  Anthony Green  <green@cygnus.com>
+
+	* check-init.c (check_init): Take into account both types of
+        `throw's when checking for uninitialized variables.
+
+Fri Dec 10 21:53:45 1999  Alexandre Petit-Bianco  <apbianco@cygnus.com>
+
+        * parse.y (java_complete_lhs): Force convertion of array
+        dimensions to int_type_node, that's what runtime's ABI expects.
+
+Fri Dec 10 16:13:48 1999  Alexandre Petit-Bianco  <apbianco@cygnus.com>
+
+	* parse.h (EXPR_WFL_QUALIFICATION): Temporary uses the third
+ 	operand of a WFL, until the Java front-end gets fixed with regard
+ 	to Mark Mitchell's gcc/tree.h patch (1999-12-04.)
+
+1999-12-10  Andrew Haley  <aph@cygnus.com>
+
+	* parse.h (BUILD_THROW): Add support for sjlj-exceptions.
+	decl.c (init_decl_processing): Add _Jv_Sjlj_Throw.
+	expr.c (build_java_athrow): Add support for sjlj-exceptions.
+	java-tree.h: Ditto.
+	jcf-write.c: Ditto.	
+
+Wed Dec  8 15:33:26 1999  Alexandre Petit-Bianco  <apbianco@cygnus.com>
+
+        * expr.c (java_lang_expand_expr): Switch to permanent obstack
+        before calling expand_eh_region_start and expand_start_all_catch.
+        * except.c (expand_start_java_handler): Switch to permanent
+        obstack before calling expand_eh_region_start.
+        (expand_end_java_handler): Switch to permanent obstack before
+        calling expand_start_all_catch.
+
+1999-12-5  Anthony Green  <green@cygnus.com>
+
+	* decl.c (init_decl_processing): Mark throw_node as a noreturn
+	function with side effects.
+	(init_decl_processing): Mark all memory allocating DECLs with
+	DECL_IS_MALLOC.
+
+Wed Dec  1 04:25:06 1999  Alexandre Petit-Bianco  <apbianco@cygnus.com>
+
+        * except.c (expand_end_java_handler): Call
+        expand_resume_after_catch and end_catch_handler.
+
+Tue Nov 30 12:36:15 1999  Anthony Green  <green@cygnus.com>
+
+        * verify.c (verify_jvm_instructions): Create new return label
+        chain if non existant (don't rely on the verified state of the jsr
+        target.)
+
+Tue Nov 30 12:28:34 1999  Alexandre Petit-Bianco  <apbianco@cygnus.com>
+
+        * jcf-write.c (generate_byecode_insns): Fixed indentation for
+        COMPOUND_EXPR and FIX_TRUNC_EXPR cases.
+
+        * parse.y (patch_assignment): Removed bogus final class test on
+        lhs when checking on whether to emit an ArrayStoreException runtime
+        check.
+        * expr.c (expand_java_arraystore): Likewise. 
+
+Wed Nov 24 17:33:26 1999  Alexandre Petit-Bianco  <apbianco@cygnus.com>
+
+        * jcf-parse.c (saw_java_source): Global variable removed.
+        (read_class): Don't use `saw_java_source'. Added extra braces.
+        (yyparse): Code setting `saw_java_source' removed.
+
+1999-11-24  Mark Mitchell  <mark@codesourcery.com>
+
+	* except.c (emit_handlers): Zero catch_clauses after emitting them.
+
+Tue Nov 23 17:29:40 1999  Alexandre Petit-Bianco  <apbianco@cygnus.com>
+
+        * verify.c (merge_type_state): Non verified subroutines being
+        considered more than once to trigger passive type merge.
+
+Tue Nov 23 10:55:18 1999  Alexandre Petit-Bianco  <apbianco@cygnus.com>
+
+	* parse.y (catch_clause_parameter:): Still set `$$' to NULL_TREE
+ 	in case of error. Error message tuned.
+
+1999-11-21  Anthony Green  <green@cygnus.com>
+
+	* constants.c (find_methodref_index): Unwrap method names before
+	inserting them in the constant pool.
+
+	* jcf-parse.c (jcf_parse): Display `interface' when appropriate.
+
+	* class.c (assume_compiled_node): New typedef.
+	(assume_compiled_tree): New static data.
+	(find_assume_compiled_node): New function.
+	(add_assume_compiled): New function.
+	(assume_compiled): New function.
+	* class.c (make_class_data): Use assume_compiled.
+	(is_compiled_class): Use assume_compiled.
+
+	* java-tree.h (add_assume_compiled): Declare.
+
+	* lang.c (lang_decode_option): Parse new options.
+
+Wed Nov 17 21:09:28 1999  Alexandre Petit-Bianco  <apbianco@cygnus.com>
+
+	* class.c (layout_class): Always convert TYPE_SIZE_UNIT to
+ 	int_type_node: that's what `_Jv_AllocObject' expects.
+
+Thu Nov 11 01:57:14 1999  Alexandre Petit-Bianco  <apbianco@cygnus.com>
+
+        * parse.y (lookup_method_invoke): Use lang_printable_name to
+ 	reliably build the type name during error report. Fixes PR gcj/97.
+
+1999-11-09  Tom Tromey  <tromey@cygnus.com>
+
+	* jcf-path.c: Include <sys/stat.h>.
+	(jcf_path_init): Search for libjava.zip.  Fixes PR gcj/84.
+	(DIR_UP): New macro.
+
+Tue Nov  9 12:12:38 1999  Alexandre Petit-Bianco  <apbianco@cygnus.com>
+
+	* parse.y (source_end_java_method): Resume permanent allocation,
+ 	reversing Apr 27 1998 patch.
+	(patch_string_cst): Pop obstacks after having pushed the permanent
+ 	ones.
+
+1999-11-05  Tom Tromey  <tromey@cygnus.com>
+
+	* class.c (finish_class): Emit inlined methods if any native
+	methods exist in the class.  Fixes PR gcj/85.
+
+Thu Nov  4 16:27:01 1999  Alexandre Petit-Bianco  <apbianco@cygnus.com>
+
+	* parse.y (resolve_qualified_expression_name): Handle PLUS_EXPR.
+	(qualify_ambiguous_name): Likewise.
+	
+Wed Nov  3 15:20:02 MST 1999  Godmar Back <gback@cs.utah.edu>
+
+	* typeck.c: (lookup_java_method):  search all inherited
+	interfaces when looking up interface method.
+
+Mon Nov  1 23:42:00 1999  Alexandre Petit-Bianco  <apbianco@cygnus.com>
+
+	* parse.y (method_header:): Issue error message for rule `type
+ 	error'.
+	(synchronized:): Error report when not using synchronized.
+	
+Mon Nov  1 01:32:48 1999  Alexandre Petit-Bianco  <apbianco@cygnus.com>
+
+	* parse.y (resolve_qualified_expression_name): Prevent `this' from
+ 	being used before the superclass constructor has been called.
+	(complete_function_arguments): Use CALL_EXPLICIT_CONSTRUCTOR_P
+ 	instead of `CALL_THIS_CONSTRUCTOR_P'.
+
+Sat Oct 30 21:35:13 1999  Todd T. Fries <todd@lighthouse.fries.net>
+
+	* check-init.c: Fix typo in comment.
+
+Fri Oct 29 14:35:18 1999  Alexandre Petit-Bianco  <apbianco@cygnus.com>
+
+	* class.c (add_method_1): Set DECL_INLINE to 1 for private, static
+ 	and final method.
+
+Fri Oct 29 14:23:32 1999  Alexandre Petit-Bianco  <apbianco@cygnus.com>
+
+	* parse.y (expression_statement:): Call function to report
+ 	improper invocation of a constructor.
+	(parse_ctor_invocation_error): New function.
+
+1999-10-26  Mark Mitchell  <mark@codesourcery.com>
+
+	* decl.c (poplevel): Don't set BLOCK_TYPE_TAGS or call
+	remember_end_note.
+
 1999-10-21  Tom Tromey  <tromey@cygnus.com>
 
 	* jvgenmain.c (main): _Jv_Compiler_Properties now an extern; set

@@ -1,7 +1,7 @@
 /* This file contains the definitions and documentation for the
    additional tree codes used in the GNU C++ compiler (see tree.def
    for the standard codes).
-   Copyright (C) 1987, 1988, 1990, 1993, 1997, 1998 Free Software Foundation, Inc.
+   Copyright (C) 1987,88,90,93,97-8,1999 Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GNU CC.
@@ -125,12 +125,15 @@ DEFTREECODE (TEMPLATE_DECL, "template_decl", 'd', 0)
    the types of things; the ORIG_LEVEL is the level when we are
    worrying about instantiating things.  */
 DEFTREECODE (TEMPLATE_PARM_INDEX, "template_parm_index", 'x', 
-	     /* The addition of (sizeof(char*) - 1) in the next
-		expression is to ensure against the case where
-		sizeof(char*) does not evenly divide
-		sizeof(HOST_WIDE_INT).  */
-	     1 + ((3 * sizeof (HOST_WIDE_INT) + sizeof(char*) - 1)
-		  / sizeof (char*)))
+	     /* The addition of (sizeof(tree) - 1) in the next expression
+		is to handle the case when padding pushes us past an even
+		multiple of sizeof(tree).  */
+	     /* We used to try to calculate this using
+		1+3*sizeof(HOST_WIDE_INT), but that fails if alignment
+		makes it bigger.  */
+	     ((sizeof (template_parm_index) - sizeof (struct tree_common))
+	      + sizeof (tree) - 1)
+	     / sizeof (tree))
 
 /* Index into a template parameter list.  This parameter must be a type.
    The TYPE_FIELDS value will be a TEMPLATE_PARM_INDEX.  */
@@ -200,6 +203,9 @@ DEFTREECODE (SRCLOC, "srcloc", 'x', 2)
    unused.  */
 DEFTREECODE (LOOKUP_EXPR, "lookup_expr", 'e', 1)
 
+/* Used to represent __PRETTY_FUNCTION__ in template bodies.  */
+DEFTREECODE (FUNCTION_NAME, "function_name", 'e', 0)
+
 /* A whole bunch of tree codes for the initial, superficial parsing of
    templates.  */
 DEFTREECODE (MODOP_EXPR, "modop_expr", 'e', 3)
@@ -234,6 +240,11 @@ DEFTREECODE (ASM_STMT, "asm_stmt", 'e', 5)
    run if an exception is thrown before the end of the enclosing
    function.  */
 DEFTREECODE (SUBOBJECT, "subobject", 'e', 1)
+/* An CTOR_STMT marks the beginning (if CTOR_BEGIN_P holds) or end of
+   a contstructor (if CTOR_END_P) holds.  At the end of a constructor,
+   the cleanups associated with any SUBOBJECT_CLEANUPS need no longer
+   be run.  */
+DEFTREECODE (CTOR_STMT, "ctor_stmt", 'e', 0)
 /* A CLEANUP_STMT marks the point at which a declaration is fully
    constructed.  If, after this point, the CLEANUP_DECL goes out of
    scope, the CLEANUP_EXPR must be run.  */
@@ -246,8 +257,9 @@ DEFTREECODE (START_CATCH_STMT, "start_catch_stmt", 'e', 0)
    SCOPE_BEGIN_P holds, then this is the start of a scope.  If
    SCOPE_END_P holds, then this is the end of a scope.  If
    SCOPE_NULLIFIED_P holds then there turned out to be no variables in
-   this scope.  */
-DEFTREECODE (SCOPE_STMT, "scope_stmt", 'e', 0)
+   this scope.  The SCOPE_STMT_BLOCK is the BLOCK containing the
+   variables declared in this scope.  */
+DEFTREECODE (SCOPE_STMT, "scope_stmt", 'e', 1)
 DEFTREECODE (CTOR_INITIALIZER, "ctor_initializer", 'e', 2)
 DEFTREECODE (CASE_LABEL, "case_label", 'e', 2)
 DEFTREECODE (RETURN_INIT, "return_init", 'e', 2)

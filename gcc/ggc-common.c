@@ -1,22 +1,22 @@
 /* Simple garbage collection for the GNU compiler.
    Copyright (C) 1999 Free Software Foundation, Inc.
 
-   This file is part of GNU CC.
+This file is part of GNU CC.
 
-   GNU CC is free software; you can redistribute it and/or modify
-   it under the terms of the GNU General Public License as published by
-   the Free Software Foundation; either version 2, or (at your option)
-   any later version.
+GNU CC is free software; you can redistribute it and/or modify it
+under the terms of the GNU General Public License as published by the
+Free Software Foundation; either version 2, or (at your option) any
+later version.
 
-   GNU CC is distributed in the hope that it will be useful,
-   but WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-   GNU General Public License for more details.
+GNU CC is distributed in the hope that it will be useful, but WITHOUT
+ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
 
-   You should have received a copy of the GNU General Public License
-   along with GNU CC; see the file COPYING.  If not, write to
-   the Free Software Foundation, 59 Temple Place - Suite 330,
-   Boston, MA 02111-1307, USA.  */
+You should have received a copy of the GNU General Public License
+along with GNU CC; see the file COPYING.  If not, write to the Free
+Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
 
 /* Generic garbage collection (GC) functions and data, not specific to
    any particular GC implementation.  */
@@ -29,6 +29,9 @@
 #include "hash.h"
 #include "varray.h"
 #include "ggc.h"
+
+/* Statistics about the allocation.  */
+static ggc_statistics *ggc_stats;
 
 static void ggc_mark_rtx_ptr PARAMS ((void *));
 static void ggc_mark_tree_ptr PARAMS ((void *));
@@ -60,7 +63,7 @@ static void
 ggc_mark_rtx_ptr (elt)
      void *elt;
 {
-  ggc_mark_rtx (*(rtx *)elt);
+  ggc_mark_rtx (*(rtx *) elt);
 }
 
 /* Type-correct function to pass to ggc_add_root.  It just forwards
@@ -70,7 +73,7 @@ static void
 ggc_mark_tree_ptr (elt)
      void *elt;
 {
-  ggc_mark_tree (*(tree *)elt);
+  ggc_mark_tree (*(tree *) elt);
 }
 
 /* Type-correct function to pass to ggc_add_root.  It just forwards
@@ -80,7 +83,7 @@ static void
 ggc_mark_tree_varray_ptr (elt)
      void *elt;
 {
-  ggc_mark_tree_varray (*(varray_type *)elt);
+  ggc_mark_tree_varray (*(varray_type *) elt);
 }
 
 /* Type-correct function to pass to ggc_add_root.  It just forwards
@@ -94,12 +97,21 @@ ggc_mark_tree_hash_table_ptr (elt)
   ggc_mark_tree_hash_table (*(struct hash_table **) elt);
 }
 
+/* Type-correct function to pass to ggc_add_root.  It just forwards
+   ELT (which is really a char **) to ggc_mark_string.  */
+
 static void
 ggc_mark_string_ptr (elt)
      void *elt;
 {
-  ggc_mark_string (*(char **)elt);
+  ggc_mark_string (*(char **) elt);
 }
+
+/* Add BASE as a new garbage collection root.  It is an array of
+   length NELT with each element SIZE bytes long.  CB is a 
+   function that will be called with a pointer to each element
+   of the array; it is the intention that CB call the appropriate
+   routine to mark gc-able memory for that element.  */
 
 void
 ggc_add_root (base, nelt, size, cb)
@@ -118,6 +130,8 @@ ggc_add_root (base, nelt, size, cb)
   roots = x;
 }
 
+/* Register an array of rtx as a GC root.  */
+
 void
 ggc_add_rtx_root (base, nelt)
      rtx *base;
@@ -125,6 +139,8 @@ ggc_add_rtx_root (base, nelt)
 {
   ggc_add_root (base, nelt, sizeof(rtx), ggc_mark_rtx_ptr);
 }
+
+/* Register an array of trees as a GC root.  */
 
 void
 ggc_add_tree_root (base, nelt)
@@ -134,7 +150,7 @@ ggc_add_tree_root (base, nelt)
   ggc_add_root (base, nelt, sizeof(tree), ggc_mark_tree_ptr);
 }
 
-/* Add V (a varray full of trees) to the list of GC roots.  */
+/* Register a varray of trees as a GC root.  */
 
 void
 ggc_add_tree_varray_root (base, nelt)
@@ -145,8 +161,7 @@ ggc_add_tree_varray_root (base, nelt)
 		ggc_mark_tree_varray_ptr);
 }
 
-/* Add HT (a hash-table where ever key is a tree) to the list of GC
-   roots.  */
+/* Register a hash table of trees as a GC root.  */
 
 void
 ggc_add_tree_hash_table_root (base, nelt)
@@ -157,6 +172,8 @@ ggc_add_tree_hash_table_root (base, nelt)
 		ggc_mark_tree_hash_table_ptr);
 }
 
+/* Register an array of strings as a GC root.  */
+
 void
 ggc_add_string_root (base, nelt)
      char **base;
@@ -165,6 +182,7 @@ ggc_add_string_root (base, nelt)
   ggc_add_root (base, nelt, sizeof (char *), ggc_mark_string_ptr);
 }
 
+/* Remove the previously registered GC root at BASE.  */
 
 void
 ggc_del_root (base)
@@ -188,6 +206,8 @@ ggc_del_root (base)
   abort();
 }
 
+/* Iterate through all registered roots and mark each element.  */
+
 void
 ggc_mark_roots ()
 {
@@ -205,74 +225,105 @@ ggc_mark_roots ()
     }
 }
 
+/* R had not been previously marked, but has now been marked via
+   ggc_set_mark.  Now recurse and process the children.  */
+
 void
 ggc_mark_rtx_children (r)
      rtx r;
 {
   const char *fmt;
   int i;
+  rtx next_rtx;
 
-  /* ??? If (some of) these are really pass-dependant info, do we have
-     any right poking our noses in?  */
-  switch (GET_CODE (r))
+  do 
     {
-    case JUMP_INSN:
-      ggc_mark_rtx (JUMP_LABEL (r));
-      break;
-    case CODE_LABEL:
-      ggc_mark_rtx (LABEL_REFS (r));
-      break;
-    case LABEL_REF:
-      ggc_mark_rtx (LABEL_NEXTREF (r));
-      ggc_mark_rtx (CONTAINING_INSN (r));
-      break;
-    case ADDRESSOF:
-      ggc_mark_tree (ADDRESSOF_DECL (r));
-      break;
-    case CONST_DOUBLE:
-      ggc_mark_rtx (CONST_DOUBLE_CHAIN (r));
-      break;
-    case NOTE:
-      switch (NOTE_LINE_NUMBER (r))
-	{
-	case NOTE_INSN_RANGE_START:
-	case NOTE_INSN_RANGE_END:
-	case NOTE_INSN_LIVE:
-	  ggc_mark_rtx (NOTE_RANGE_INFO (r));
-	  break;
+      enum rtx_code code = GET_CODE (r);
+      /* This gets set to a child rtx to eliminate tail recursion.  */
+      next_rtx = NULL;
 
-	case NOTE_INSN_BLOCK_BEG:
-	case NOTE_INSN_BLOCK_END:
-	  ggc_mark_tree (NOTE_BLOCK (r));
+      /* Collect statistics, if appropriate.  */
+      if (ggc_stats)
+	{
+	  ++ggc_stats->num_rtxs[(int) code];
+	  ggc_stats->size_rtxs[(int) code] += ggc_get_size (r);
+	}
+
+      /* ??? If (some of) these are really pass-dependant info, do we
+	 have any right poking our noses in?  */
+      switch (code)
+	{
+	case JUMP_INSN:
+	  ggc_mark_rtx (JUMP_LABEL (r));
+	  break;
+	case CODE_LABEL:
+	  ggc_mark_rtx (LABEL_REFS (r));
+	  ggc_mark_string (LABEL_ALTERNATE_NAME (r));
+	  break;
+	case LABEL_REF:
+	  ggc_mark_rtx (LABEL_NEXTREF (r));
+	  ggc_mark_rtx (CONTAINING_INSN (r));
+	  break;
+	case ADDRESSOF:
+	  ggc_mark_tree (ADDRESSOF_DECL (r));
+	  break;
+	case CONST_DOUBLE:
+	  ggc_mark_rtx (CONST_DOUBLE_CHAIN (r));
+	  break;
+	case NOTE:
+	  switch (NOTE_LINE_NUMBER (r))
+	    {
+	    case NOTE_INSN_RANGE_START:
+	    case NOTE_INSN_RANGE_END:
+	    case NOTE_INSN_LIVE:
+	      ggc_mark_rtx (NOTE_RANGE_INFO (r));
+	      break;
+
+	    case NOTE_INSN_BLOCK_BEG:
+	    case NOTE_INSN_BLOCK_END:
+	      ggc_mark_tree (NOTE_BLOCK (r));
+	      break;
+
+	    default:
+	      if (NOTE_LINE_NUMBER (r) >= 0)
+		ggc_mark_string (NOTE_SOURCE_FILE (r));
+	      break;
+	    }
 	  break;
 
 	default:
-	  if (NOTE_LINE_NUMBER (r) >= 0)
-	    ggc_mark_string (NOTE_SOURCE_FILE (r));
 	  break;
 	}
-      break;
 
-    default:
-      break;
-    }
-
-  for (fmt = GET_RTX_FORMAT (GET_CODE (r)), i = 0; *fmt ; ++fmt, ++i)
-    {
-      switch (*fmt)
+      for (fmt = GET_RTX_FORMAT (GET_CODE (r)), i = 0; *fmt ; ++fmt, ++i)
 	{
-	case 'e': case 'u':
-	  ggc_mark_rtx (XEXP (r, i));
-	  break;
-	case 'V': case 'E':
-	  ggc_mark_rtvec (XVEC (r, i));
-	  break;
-	case 'S': case 's':
-	  ggc_mark_if_gcable (XSTR (r, i));
-	  break;
+	  rtx exp;
+	  switch (*fmt)
+	    {
+	    case 'e': case 'u':
+	      exp = XEXP (r, i);
+	      if (ggc_test_and_set_mark (exp))
+		{ 
+		  if (next_rtx == NULL) 
+		    next_rtx = exp; 
+		  else 
+		    ggc_mark_rtx_children (exp);
+		} 
+	      break;
+	    case 'V': case 'E':
+	      ggc_mark_rtvec (XVEC (r, i));
+	      break;
+	    case 'S': case 's':
+	      ggc_mark_if_gcable (XSTR (r, i));
+	      break;
+	    }
 	}
     }
+  while ((r = next_rtx) != NULL);
 }
+
+/* V had not been previously marked, but has now been marked via
+   ggc_set_mark.  Now recurse and process the children.  */
 
 void
 ggc_mark_rtvec_children (v)
@@ -285,16 +336,28 @@ ggc_mark_rtvec_children (v)
     ggc_mark_rtx (RTVEC_ELT (v, i));
 }
 
+/* T had not been previously marked, but has now been marked via
+   ggc_set_mark.  Now recurse and process the children.  */
+
 void
 ggc_mark_tree_children (t)
      tree t;
 {
+  enum tree_code code = TREE_CODE (t);
+
+  /* Collect statistics, if appropriate.  */
+  if (ggc_stats)
+    {
+      ++ggc_stats->num_trees[(int) code];
+      ggc_stats->size_trees[(int) code] += ggc_get_size (t);
+    }
+
   /* Bits from common.  */
   ggc_mark_tree (TREE_TYPE (t));
   ggc_mark_tree (TREE_CHAIN (t));
 
   /* Some nodes require special handling.  */
-  switch (TREE_CODE (t))
+  switch (code)
     {
     case TREE_LIST:
       ggc_mark_tree (TREE_PURPOSE (t));
@@ -349,7 +412,7 @@ ggc_mark_tree_children (t)
     }
   
   /* But in general we can handle them by class.  */
-  switch (TREE_CODE_CLASS (TREE_CODE (t)))
+  switch (TREE_CODE_CLASS (code))
     {
     case 'd': /* A decl node.  */
       ggc_mark_string (DECL_SOURCE_FILE (t));
@@ -389,11 +452,9 @@ ggc_mark_tree_children (t)
 
     case 'b': /* A lexical block.  */
       ggc_mark_tree (BLOCK_VARS (t));
-      ggc_mark_tree (BLOCK_TYPE_TAGS (t));
       ggc_mark_tree (BLOCK_SUBBLOCKS (t));
       ggc_mark_tree (BLOCK_SUPERCONTEXT (t));
       ggc_mark_tree (BLOCK_ABSTRACT_ORIGIN (t));
-      ggc_mark_rtx (BLOCK_END_NOTE (t));
       break;
 
     case 'c': /* A constant.  */
@@ -448,7 +509,10 @@ ggc_mark_tree_hash_table (ht)
   hash_traverse (ht, ggc_mark_tree_hash_table_entry, /*info=*/0);
 }
 
-/* Allocation wrappers.  */
+/* Allocate a gc-able string.  If CONTENTS is null, then the memory will
+   be uninitialized.  If LENGTH is -1, then CONTENTS is assumed to be a
+   null-terminated string and the memory sized accordingly.  Otherwise,
+   the memory is filled with LENGTH bytes from CONTENTS.  */
 
 char *
 ggc_alloc_string (contents, length)
@@ -470,4 +534,75 @@ ggc_alloc_string (contents, length)
   string[length] = 0;
 
   return string;
+}
+
+/* Print statistics that are independent of the collector in use.  */
+
+void
+ggc_print_statistics (stream, stats)
+     FILE *stream;
+     ggc_statistics *stats;
+{
+  int code;
+
+  /* Set the pointer so that during collection we will actually gather
+     the statistics.  */
+  ggc_stats = stats;
+
+  /* Then do one collection to fill in the statistics.  */
+  ggc_collect ();
+
+  /* Total the statistics.  */
+  for (code = 0; code < MAX_TREE_CODES; ++code)
+    {
+      stats->total_num_trees += stats->num_trees[code];
+      stats->total_size_trees += stats->size_trees[code];
+    }
+  for (code = 0; code < NUM_RTX_CODE; ++code)
+    {
+      stats->total_num_rtxs += stats->num_rtxs[code];
+      stats->total_size_rtxs += stats->size_rtxs[code];
+    }
+
+  /* Print the statistics for trees.  */
+  fprintf (stream, "%-22s%-16s%-16s%-7s\n", "Code", 
+	   "Number", "Bytes", "% Total");
+  for (code = 0; code < MAX_TREE_CODES; ++code)
+    if (ggc_stats->num_trees[code]) 
+      {
+	fprintf (stream, "%s%*s%-15u %-15lu %7.3f\n", 
+		 tree_code_name[code],
+		 22 - (int) strlen (tree_code_name[code]), "",
+		 ggc_stats->num_trees[code],
+		 (unsigned long) ggc_stats->size_trees[code],
+		 (100 * ((double) ggc_stats->size_trees[code]) 
+		  / ggc_stats->total_size_trees));
+      }
+  fprintf (stream,
+	   "%-22s%-15u %-15lu\n", "Total",
+	   ggc_stats->total_num_trees,
+	   (unsigned long) ggc_stats->total_size_trees);
+
+  /* Print the statistics for RTL.  */
+  fprintf (stream, "\n%-22s%-16s%-16s%-7s\n", "Code", 
+	   "Number", "Bytes", "% Total");
+  for (code = 0; code < NUM_RTX_CODE; ++code)
+    if (ggc_stats->num_rtxs[code]) 
+      {
+	fprintf (stream, "%s%*s%-15u %-15lu %7.3f\n", 
+		 rtx_name[code],
+		 22 - (int) strlen (rtx_name[code]), "",
+		 ggc_stats->num_rtxs[code],
+		 (unsigned long) ggc_stats->size_rtxs[code],
+		 (100 * ((double) ggc_stats->size_rtxs[code]) 
+		  / ggc_stats->total_size_rtxs));
+      }
+  fprintf (stream,
+	   "%-22s%-15u %-15lu\n", "Total",
+	   ggc_stats->total_num_rtxs,
+	   (unsigned long) ggc_stats->total_size_rtxs);
+
+
+  /* Don't gather statistics any more.  */
+  ggc_stats = NULL;
 }

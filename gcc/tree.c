@@ -1,5 +1,5 @@
 /* Language-independent node constructors for parse phase of GNU compiler.
-   Copyright (C) 1987, 88, 92-98, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1987, 88, 92-99, 2000 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -47,6 +47,8 @@ Boston, MA 02111-1307, USA.  */
 #define obstack_chunk_free free
 /* obstack.[ch] explicitly declined to prototype this. */
 extern int _obstack_allocated_p PROTO ((struct obstack *h, PTR obj));
+
+static void unsave_expr_now_r PROTO ((tree));
 
 /* Tree nodes of permanent duration are allocated in this obstack.
    They are the identifier nodes, and everything outside of
@@ -269,14 +271,18 @@ struct type_hash
 #define TYPE_HASH_SIZE 59
 struct type_hash *type_hash_table[TYPE_HASH_SIZE];
 
+static void build_real_from_int_cst_1 PROTO((PTR));
 static void set_type_quals PROTO((tree, int));
 static void append_random_chars PROTO((char *));
-static void build_real_from_int_cst_1 PROTO((PTR));
 static void mark_type_hash PROTO ((void *));
 static void fix_sizetype PROTO ((tree));
 
-/* If non-null, a language specific helper for unsave_expr_now. */
-
+/* If non-null, these are language-specific helper functions for
+   unsave_expr_now.  If present, LANG_UNSAVE is called before its
+   argument (an UNSAVE_EXPR) is to be unsaved, and all other
+   processing in unsave_expr_now is aborted.  LANG_UNSAVE_EXPR_NOW is
+   called from unsave_expr_1 for language-specific tree codes.  */
+void (*lang_unsave) PROTO((tree *));
 void (*lang_unsave_expr_now) PROTO((tree));
 
 /* The string used as a placeholder instead of a source file name for
@@ -315,11 +321,14 @@ init_obstacks ()
 
   /* Init the hash table of identifiers.  */
   bzero ((char *) hash_table, sizeof hash_table);
+  ggc_add_tree_root (hash_table, sizeof hash_table / sizeof (tree));
 
-  ggc_add_tree_root (hash_table, MAX_HASH_TABLE);
-  ggc_add_root (type_hash_table, TYPE_HASH_SIZE, 
-		sizeof(struct type_hash *),
-		mark_type_hash);
+  /* Initialize the hash table of types.  */
+  bzero ((char *) type_hash_table,
+	 sizeof type_hash_table / sizeof type_hash_table[0]);
+  ggc_add_root (type_hash_table,
+		sizeof type_hash_table / sizeof type_hash_table [0],
+		sizeof type_hash_table[0], mark_type_hash);
   ggc_add_tree_root (global_trees, TI_MAX);
 }
 
@@ -568,6 +577,7 @@ permanent_allocation (function_end)
     }
   else
     obstack_free (&momentary_obstack, momentary_firstobj);
+
   obstack_free (function_maybepermanent_obstack, maybepermanent_firstobj);
   obstack_free (&temp_decl_obstack, temp_decl_firstobj);
 
@@ -874,8 +884,8 @@ resume_momentary (yes)
 void
 init_tree_codes ()
 {
-  built_in_filename = 
-    ggc_alloc_string (BUILT_IN_FILENAME, sizeof (BUILT_IN_FILENAME));
+  built_in_filename
+    = ggc_alloc_string (BUILT_IN_FILENAME, sizeof (BUILT_IN_FILENAME));
   ggc_add_string_root (&built_in_filename, 1);
 }
 
@@ -1185,9 +1195,7 @@ copy_node (node)
     t = (tree) obstack_alloc (current_obstack, length);
   memcpy (t, node, length);
 
-  /* EXPR_WITH_FILE_LOCATION must keep filename info stored in TREE_CHAIN */
-  if (TREE_CODE (node) != EXPR_WITH_FILE_LOCATION)
-    TREE_CHAIN (t) = 0;
+  TREE_CHAIN (t) = 0;
   TREE_ASM_WRITTEN (t) = 0;
 
   if (TREE_CODE_CLASS (code) == 'd')
@@ -1375,6 +1383,7 @@ build_int_2_wide (low, hi)
      HOST_WIDE_INT low, hi;
 {
   register tree t = make_node (INTEGER_CST);
+
   TREE_INT_CST_LOW (t) = low;
   TREE_INT_CST_HIGH (t) = hi;
   TREE_TYPE (t) = integer_type_node;
@@ -1411,11 +1420,15 @@ build_real (type, d)
 
 REAL_VALUE_TYPE
 real_value_from_int_cst (type, i)
-     tree type, i;
+     tree type ATTRIBUTE_UNUSED, i;
 {
   REAL_VALUE_TYPE d;
 
 #ifdef REAL_ARITHMETIC
+  /* Clear all bits of the real value type so that we can later do
+     bitwise comparisons to see if two values are the same.  */
+  bzero ((char *) &d, sizeof d);
+
   if (! TREE_UNSIGNED (TREE_TYPE (i)))
     REAL_VALUE_FROM_INT (d, TREE_INT_CST_LOW (i), TREE_INT_CST_HIGH (i),
 			 TYPE_MODE (type));
@@ -1452,31 +1465,37 @@ real_value_from_int_cst (type, i)
   return d;
 }
 
+/* Args to pass to and from build_real_from_int_cst_1.  */
+
 struct brfic_args
 {
-  /* Input */
-  tree type, i;
-  /* Output */
-  REAL_VALUE_TYPE d;
+  tree type;			/* Input: type to conver to. */
+  tree i;			/* Input: operand to convert */
+  REAL_VALUE_TYPE d;		/* Output: floating point value. */
 };
+
+/* Convert an integer to a floating point value while protected by a floating
+   point exception handler.  */
 
 static void
 build_real_from_int_cst_1 (data)
   PTR data;
 {
-  struct brfic_args * args = (struct brfic_args *) data;
+  struct brfic_args *args = (struct brfic_args *) data;
   
 #ifdef REAL_ARITHMETIC
   args->d = real_value_from_int_cst (args->type, args->i);
 #else
-  args->d =
-    REAL_VALUE_TRUNCATE (TYPE_MODE (args->type),
-			 real_value_from_int_cst (args->type, args->i));
+  args->d
+    = REAL_VALUE_TRUNCATE (TYPE_MODE (args->type),
+			   real_value_from_int_cst (args->type, args->i));
 #endif
 }
 
-/* This function can't be implemented if we can't do arithmetic
-   on the float representation.  */
+/* Given a tree representing an integer constant I, return a tree
+   representing the same value as a floating-point constant of type TYPE.
+   We cannot perform this operation if there is no way of doing arithmetic
+   on floating-point values.  */
 
 tree
 build_real_from_int_cst (type, i)
@@ -1496,10 +1515,8 @@ build_real_from_int_cst (type, i)
   args.i = i;
 
   if (do_float_handler (build_real_from_int_cst_1, (PTR) &args))
-    {
-      /* Receive output from build_real_from_int_cst_1() */
-      d = args.d;
-    }
+    /* Receive output from build_real_from_int_cst_1() */
+    d = args.d;
   else
     {
       /* We got an exception from build_real_from_int_cst_1() */
@@ -1534,11 +1551,13 @@ build_string (len, str)
      deferring constant output in varasm.c.  */
 
   register tree s = make_node (STRING_CST);
+
   TREE_STRING_LENGTH (s) = len;
   if (ggc_p)
     TREE_STRING_POINTER (s) = ggc_alloc_string (str, len);
   else
     TREE_STRING_POINTER (s) = obstack_copy0 (saveable_obstack, str, len);
+
   return s;
 }
 
@@ -1893,10 +1912,8 @@ chain_member (elem, chain)
 }
 
 /* Return nonzero if ELEM is equal to TREE_VALUE (CHAIN) for any piece of
-   chain CHAIN.  */
-/* ??? This function was added for machine specific attributes but is no
-   longer used.  It could be deleted if we could confirm all front ends
-   don't use it.  */
+   chain CHAIN.  This and the next function are currently unused, but
+   are retained for completeness.  */
 
 int
 chain_member_value (elem, chain)
@@ -1914,9 +1931,6 @@ chain_member_value (elem, chain)
 
 /* Return nonzero if ELEM is equal to TREE_PURPOSE (CHAIN)
    for any piece of chain CHAIN.  */
-/* ??? This function was added for machine specific attributes but is no
-   longer used.  It could be deleted if we could confirm all front ends
-   don't use it.  */
 
 int
 chain_member_purpose (elem, chain)
@@ -1961,14 +1975,14 @@ chainon (op1, op2)
   if (op1)
     {
       register tree t1;
-#ifdef ENABLE_CHECKING
+#ifdef ENABLE_TREE_CHECKING
       register tree t2;
 #endif
 
       for (t1 = op1; TREE_CHAIN (t1); t1 = TREE_CHAIN (t1))
 	;
       TREE_CHAIN (t1) = op2;
-#ifdef ENABLE_CHECKING
+#ifdef ENABLE_TREE_CHECKING
       for (t2 = op2; t2; t2 = TREE_CHAIN (t2))
         if (t2 == t1)
           abort ();  /* Circularity created.  */
@@ -2054,6 +2068,7 @@ build_decl_list (parm, value)
 {
   register tree node;
   register struct obstack *ambient_obstack = current_obstack;
+
   current_obstack = &temp_decl_obstack;
   node = build_tree_list (parm, value);
   current_obstack = ambient_obstack;
@@ -2068,6 +2083,7 @@ build_expr_list (parm, value)
 {
   register tree node;
   register struct obstack *ambient_obstack = current_obstack;
+
   current_obstack = expression_obstack;
   node = build_tree_list (parm, value);
   current_obstack = ambient_obstack;
@@ -2082,9 +2098,6 @@ tree
 tree_cons (purpose, value, chain)
      tree purpose, value, chain;
 {
-#if 0
-  register tree node = make_node (TREE_LIST);
-#else
   register tree node;
 
   if (ggc_p)
@@ -2104,7 +2117,6 @@ tree_cons (purpose, value, chain)
   TREE_SET_CODE (node, TREE_LIST);
   if (current_obstack == &permanent_obstack)
     TREE_PERMANENT (node) = 1;
-#endif
 
   TREE_CHAIN (node) = chain;
   TREE_PURPOSE (node) = purpose;
@@ -2120,6 +2132,7 @@ decl_tree_cons (purpose, value, chain)
 {
   register tree node;
   register struct obstack *ambient_obstack = current_obstack;
+
   current_obstack = &temp_decl_obstack;
   node = tree_cons (purpose, value, chain);
   current_obstack = ambient_obstack;
@@ -2134,6 +2147,7 @@ expr_tree_cons (purpose, value, chain)
 {
   register tree node;
   register struct obstack *ambient_obstack = current_obstack;
+
   current_obstack = expression_obstack;
   node = tree_cons (purpose, value, chain);
   current_obstack = ambient_obstack;
@@ -2148,8 +2162,8 @@ perm_tree_cons (purpose, value, chain)
 {
   register tree node;
   register struct obstack *ambient_obstack = current_obstack;
-  current_obstack = &permanent_obstack;
 
+  current_obstack = &permanent_obstack;
   node = tree_cons (purpose, value, chain);
   current_obstack = ambient_obstack;
   return node;
@@ -2163,8 +2177,8 @@ temp_tree_cons (purpose, value, chain)
 {
   register tree node;
   register struct obstack *ambient_obstack = current_obstack;
-  current_obstack = &temporary_obstack;
 
+  current_obstack = &temporary_obstack;
   node = tree_cons (purpose, value, chain);
   current_obstack = ambient_obstack;
   return node;
@@ -2178,8 +2192,8 @@ saveable_tree_cons (purpose, value, chain)
 {
   register tree node;
   register struct obstack *ambient_obstack = current_obstack;
-  current_obstack = saveable_obstack;
 
+  current_obstack = saveable_obstack;
   node = tree_cons (purpose, value, chain);
   current_obstack = ambient_obstack;
   return node;
@@ -2202,11 +2216,13 @@ size_in_bytes (type)
 
   type = TYPE_MAIN_VARIANT (type);
   t = TYPE_SIZE_UNIT (type);
+
   if (t == 0)
     {
       incomplete_type_error (NULL_TREE, type);
       return integer_zero_node;
     }
+
   if (TREE_CODE (t) == INTEGER_CST)
     force_fit_type (t, 0);
 
@@ -2229,6 +2245,7 @@ int_size_in_bytes (type)
   t = TYPE_SIZE_UNIT (type);
   if (t == 0
       || TREE_CODE (t) != INTEGER_CST
+      || TREE_OVERFLOW (t)
       || TREE_INT_CST_HIGH (t) != 0)
     return -1;
 
@@ -2236,10 +2253,7 @@ int_size_in_bytes (type)
 }
 
 /* Return, as a tree node, the number of elements for TYPE (which is an
-   ARRAY_TYPE) minus one. This counts only elements of the top array.
-
-   Don't let any SAVE_EXPRs escape; if we are called as part of a cleanup
-   action, they would get unsaved.  */
+   ARRAY_TYPE) minus one. This counts only elements of the top array.  */
 
 tree
 array_type_nelts (type)
@@ -2255,26 +2269,6 @@ array_type_nelts (type)
   index_type = TYPE_DOMAIN (type);
   min = TYPE_MIN_VALUE (index_type);
   max = TYPE_MAX_VALUE (index_type);
-
-  if (! TREE_CONSTANT (min))
-    {
-      STRIP_NOPS (min);
-      if (TREE_CODE (min) == SAVE_EXPR && SAVE_EXPR_RTL (min))
-	min = build (RTL_EXPR, TREE_TYPE (TYPE_MIN_VALUE (index_type)), 0,
-		     SAVE_EXPR_RTL (min));
-      else
-	min = TYPE_MIN_VALUE (index_type);
-    }
-
-  if (! TREE_CONSTANT (max))
-    {
-      STRIP_NOPS (max);
-      if (TREE_CODE (max) == SAVE_EXPR && SAVE_EXPR_RTL (max))
-	max = build (RTL_EXPR, TREE_TYPE (TYPE_MAX_VALUE (index_type)), 0,
-		     SAVE_EXPR_RTL (max));
-      else
-	max = TYPE_MAX_VALUE (index_type);
-    }
 
   return (integer_zerop (min)
 	  ? max
@@ -2442,30 +2436,18 @@ first_rtl_op (code)
     }
 }
 
-/* Modify a tree in place so that all the evaluate only once things
-   are cleared out.  Return the EXPR given.  
+/* Perform any modifications to EXPR required when it is unsaved.  Does
+   not recurse into EXPR's subtrees.  */
 
-   LANG_UNSAVE_EXPR_NOW, if set, is a pointer to a function to handle
-   language specific nodes.
-*/
-
-tree
-unsave_expr_now (expr)
+void
+unsave_expr_1 (expr)
      tree expr;
 {
-  enum tree_code code;
-  register int i;
-  int first_rtl;
-
-  if (expr == NULL_TREE)
-    return expr;
-
-  code = TREE_CODE (expr);
-  first_rtl = first_rtl_op (code);
-  switch (code)
+  switch (TREE_CODE (expr))
     {
     case SAVE_EXPR:
-      SAVE_EXPR_RTL (expr) = 0;
+      if (! SAVE_EXPR_PERSISTENT_P (expr))
+	SAVE_EXPR_RTL (expr) = 0;
       break;
 
     case TARGET_EXPR:
@@ -2481,24 +2463,42 @@ unsave_expr_now (expr)
 
     case CALL_EXPR:
       CALL_EXPR_RTL (expr) = 0;
-      if (TREE_OPERAND (expr, 1)
-	  && TREE_CODE (TREE_OPERAND (expr, 1)) == TREE_LIST)
-	{
-	  tree exp = TREE_OPERAND (expr, 1);
-	  while (exp)
-	    {
-	      unsave_expr_now (TREE_VALUE (exp));
-	      exp = TREE_CHAIN (exp);
-	    }
-	}
       break;
 
     default:
-      if (lang_unsave_expr_now)
+      if (lang_unsave_expr_now != 0)
 	(*lang_unsave_expr_now) (expr);
       break;
     }
+}
 
+/* Helper function for unsave_expr_now.  */
+
+static void
+unsave_expr_now_r (expr)
+     tree expr;
+{
+  enum tree_code code;
+
+  /* There's nothing to do for NULL_TREE.  */
+  if (expr == 0)
+    return;
+
+  unsave_expr_1 (expr);
+
+  code = TREE_CODE (expr);
+  if (code == CALL_EXPR 
+      && TREE_OPERAND (expr, 1)
+      && TREE_CODE (TREE_OPERAND (expr, 1)) == TREE_LIST)
+    {
+      tree exp = TREE_OPERAND (expr, 1);
+      while (exp)
+	{
+	  unsave_expr_now_r (TREE_VALUE (exp));
+	  exp = TREE_CHAIN (exp);
+	}
+    }
+ 
   switch (TREE_CODE_CLASS (code))
     {
     case 'c':  /* a constant */
@@ -2506,7 +2506,7 @@ unsave_expr_now (expr)
     case 'x':  /* something random, like an identifier or an ERROR_MARK.  */
     case 'd':  /* A decl node */
     case 'b':  /* A block node */
-      return expr;
+      break;
 
     case 'e':  /* an expression */
     case 'r':  /* a reference */
@@ -2514,13 +2514,32 @@ unsave_expr_now (expr)
     case '<':  /* a comparison expression */
     case '2':  /* a binary arithmetic expression */
     case '1':  /* a unary arithmetic expression */
-      for (i = first_rtl - 1; i >= 0; i--)
-	unsave_expr_now (TREE_OPERAND (expr, i));
-      return expr;
+      {
+	int i;
+	
+	for (i = first_rtl_op (code) - 1; i >= 0; i--)
+	  unsave_expr_now_r (TREE_OPERAND (expr, i));
+      }
+      break;
 
     default:
       abort ();
     }
+}
+
+/* Modify a tree in place so that all the evaluate only once things
+   are cleared out.  Return the EXPR given.  */
+
+tree
+unsave_expr_now (expr)
+     tree expr;
+{
+  if (lang_unsave!= 0)
+    (*lang_unsave) (&expr);
+  else
+    unsave_expr_now_r (expr);
+
+  return expr;
 }
 
 /* Return 1 if EXP contains a PLACEHOLDER_EXPR; i.e., if it represents a size
@@ -3295,11 +3314,11 @@ build_decl (code, name, type)
 
 tree
 build_block (vars, tags, subblocks, supercontext, chain)
-     tree vars, tags, subblocks, supercontext, chain;
+     tree vars, tags ATTRIBUTE_UNUSED, subblocks, supercontext, chain;
 {
   register tree block = make_node (BLOCK);
+
   BLOCK_VARS (block) = vars;
-  BLOCK_TYPE_TAGS (block) = tags;
   BLOCK_SUBBLOCKS (block) = subblocks;
   BLOCK_SUPERCONTEXT (block) = supercontext;
   BLOCK_CHAIN (block) = chain;
@@ -3318,7 +3337,7 @@ build_expr_wfl (node, file, line, col)
      int line, col;
 {
   static const char *last_file = 0;
-  static tree  last_filenode = NULL_TREE;
+  static tree last_filenode = NULL_TREE;
   register tree wfl = make_node (EXPR_WITH_FILE_LOCATION);
 
   EXPR_WFL_NODE (wfl) = node;
@@ -3328,12 +3347,14 @@ build_expr_wfl (node, file, line, col)
       last_file = file;
       last_filenode = file ? get_identifier (file) : NULL_TREE;
     }
+
   EXPR_WFL_FILENAME_NODE (wfl) = last_filenode;
   if (node)
     {
       TREE_SIDE_EFFECTS (wfl) = TREE_SIDE_EFFECTS (node);
       TREE_TYPE (wfl) = TREE_TYPE (node);
     }
+
   return wfl;
 }
 
@@ -3360,12 +3381,9 @@ build_type_attribute_variant (ttype, attribute)
   if ( ! attribute_list_equal (TYPE_ATTRIBUTES (ttype), attribute))
     {
       register int hashcode;
-      register struct obstack *ambient_obstack = current_obstack;
       tree ntype;
 
-      if (ambient_obstack != &permanent_obstack)
-        current_obstack = TYPE_OBSTACK (ttype);
-
+      push_obstacks (TYPE_OBSTACK (ttype), TYPE_OBSTACK (ttype));
       ntype = copy_node (ttype);
 
       TYPE_POINTER_TO (ntype) = 0;
@@ -3401,12 +3419,7 @@ build_type_attribute_variant (ttype, attribute)
 
       ntype = type_hash_canon (hashcode, ntype);
       ttype = build_qualified_type (ntype, TYPE_QUALS (ttype));
-
-      /* We must restore the current obstack after the type_hash_canon call,
-	 because type_hash_canon calls type_hash_add for permanent types, and
-	 then type_hash_add calls oballoc expecting to get something permanent
-	 back.  */
-      current_obstack = ambient_obstack;
+      pop_obstacks ();
     }
 
   return ttype;
@@ -3436,7 +3449,8 @@ valid_machine_attribute (attr_name, attr_args, decl, type)
 
 #ifdef VALID_MACHINE_DECL_ATTRIBUTE
   if (decl != 0
-      && VALID_MACHINE_DECL_ATTRIBUTE (decl, decl_attr_list, attr_name, attr_args))
+      && VALID_MACHINE_DECL_ATTRIBUTE (decl, decl_attr_list, attr_name,
+				       attr_args))
     {
       tree attr = lookup_attribute (IDENTIFIER_POINTER (attr_name),
 				    decl_attr_list);
@@ -3485,8 +3499,10 @@ valid_machine_attribute (attr_name, attr_args, decl, type)
 	  else
 	    TYPE_ATTRIBUTES (type) = type_attr_list;
 	}
+
       if (decl != 0)
 	TREE_TYPE (decl) = type;
+
       validated = 1;
     }
 
@@ -3609,12 +3625,12 @@ merge_attributes (a1, a2)
 
   /* Either one unset?  Take the set one.  */
 
-  if (! (attributes = a1))
+  if ((attributes = a1) == 0)
     attributes = a2;
 
   /* One that completely contains the other?  Take it.  */
 
-  else if (a2 && ! attribute_list_contained (a1, a2))
+  else if (a2 != 0 && ! attribute_list_contained (a1, a2))
   {
     if (attribute_list_contained (a2, a1))
       attributes = a2;
@@ -3626,7 +3642,7 @@ merge_attributes (a1, a2)
 	if (list_length (a1) < list_length (a2))
 	  attributes = a2, a2 = a1;
 
-	for (; a2; a2 = TREE_CHAIN (a2))
+	for (; a2 != 0; a2 = TREE_CHAIN (a2))
 	  if (lookup_attribute (IDENTIFIER_POINTER (TREE_PURPOSE (a2)),
 				attributes) == NULL_TREE)
 	    {
@@ -3747,8 +3763,10 @@ type_hash_list (list)
 {
   register int hashcode;
   register tree tail;
+
   for (hashcode = 0, tail = list; tail; tail = TREE_CHAIN (tail))
     hashcode += TYPE_HASH (TREE_VALUE (tail));
+
   return hashcode;
 }
 
@@ -3788,6 +3806,7 @@ type_hash_lookup (hashcode, type)
 		&& type_list_equal (TYPE_DOMAIN (h->type),
 				    TYPE_DOMAIN (type)))))
       return h->type;
+
   return 0;
 }
 
@@ -3837,6 +3856,7 @@ type_hash_canon (hashcode, type)
     {
       if (!ggc_p)
 	obstack_free (TYPE_OBSTACK (type), type);
+
 #ifdef GATHER_STATISTICS
       tree_node_counts[(int)t_kind]--;
       tree_node_sizes[(int)t_kind] -= sizeof (struct tree_type);
@@ -3876,6 +3896,7 @@ attribute_hash_list (list)
 {
   register int hashcode;
   register tree tail;
+
   for (hashcode = 0, tail = list; tail; tail = TREE_CHAIN (tail))
     /* ??? Do we want to add in TREE_VALUE too? */
     hashcode += TYPE_HASH (TREE_PURPOSE (tail));
@@ -3913,7 +3934,7 @@ attribute_list_contained (l1, l2)
 
   /* Maybe the lists are similar.  */
   for (t1 = l1, t2 = l2;
-       t1 && t2
+       t1 != 0 && t2 != 0
         && TREE_PURPOSE (t1) == TREE_PURPOSE (t2)
         && TREE_VALUE (t1) == TREE_VALUE (t2);
        t1 = TREE_CHAIN (t1), t2 = TREE_CHAIN (t2));
@@ -3922,13 +3943,14 @@ attribute_list_contained (l1, l2)
   if (t1 == 0 && t2 == 0)
      return 1;
 
-  for (; t2; t2 = TREE_CHAIN (t2))
+  for (; t2 != 0; t2 = TREE_CHAIN (t2))
     {
       tree attr
 	= lookup_attribute (IDENTIFIER_POINTER (TREE_PURPOSE (t2)), l1);
 
-      if (attr == NULL_TREE)
+      if (attr == 0)
 	return 0;
+
       if (simple_cst_equal (TREE_VALUE (t2), TREE_VALUE (attr)) != 1)
 	return 0;
     }
@@ -3967,13 +3989,16 @@ tree_int_cst_equal (t1, t2)
 {
   if (t1 == t2)
     return 1;
+
   if (t1 == 0 || t2 == 0)
     return 0;
+
   if (TREE_CODE (t1) == INTEGER_CST
       && TREE_CODE (t2) == INTEGER_CST
       && TREE_INT_CST_LOW (t1) == TREE_INT_CST_LOW (t2)
       && TREE_INT_CST_HIGH (t1) == TREE_INT_CST_HIGH (t2))
     return 1;
+
   return 0;
 }
 
@@ -3987,8 +4012,9 @@ tree_int_cst_lt (t1, t2)
   if (t1 == t2)
     return 0;
 
-  if (!TREE_UNSIGNED (TREE_TYPE (t1)))
+  if (! TREE_UNSIGNED (TREE_TYPE (t1)))
     return INT_CST_LT (t1, t2);
+
   return INT_CST_LT_UNSIGNED (t1, t2);
 }
 
@@ -4026,7 +4052,7 @@ simple_cst_list_equal (l1, l2)
       l2 = TREE_CHAIN (l2);
     }
 
-  return (l1 == l2);
+  return l1 == l2;
 }
 
 /* Return truthvalue of whether T1 is the same tree structure as T2.
@@ -4041,6 +4067,7 @@ simple_cst_equal (t1, t2)
 {
   register enum tree_code code1, code2;
   int cmp;
+  int i;
 
   if (t1 == t2)
     return 1;
@@ -4058,6 +4085,7 @@ simple_cst_equal (t1, t2)
       else
 	return simple_cst_equal (TREE_OPERAND (t1, 0), t2);
     }
+
   else if (code2 == NOP_EXPR || code2 == CONVERT_EXPR
 	   || code2 == NON_LVALUE_EXPR)
     return simple_cst_equal (t1, TREE_OPERAND (t2, 0));
@@ -4068,16 +4096,16 @@ simple_cst_equal (t1, t2)
   switch (code1)
     {
     case INTEGER_CST:
-      return TREE_INT_CST_LOW (t1) == TREE_INT_CST_LOW (t2)
-	&& TREE_INT_CST_HIGH (t1) == TREE_INT_CST_HIGH (t2);
+      return (TREE_INT_CST_LOW (t1) == TREE_INT_CST_LOW (t2)
+	      && TREE_INT_CST_HIGH (t1) == TREE_INT_CST_HIGH (t2));
 
     case REAL_CST:
       return REAL_VALUES_IDENTICAL (TREE_REAL_CST (t1), TREE_REAL_CST (t2));
 
     case STRING_CST:
-      return TREE_STRING_LENGTH (t1) == TREE_STRING_LENGTH (t2)
-	&& !bcmp (TREE_STRING_POINTER (t1), TREE_STRING_POINTER (t2),
-		  TREE_STRING_LENGTH (t1));
+      return (TREE_STRING_LENGTH (t1) == TREE_STRING_LENGTH (t2)
+	      && ! bcmp (TREE_STRING_POINTER (t1), TREE_STRING_POINTER (t2),
+			 TREE_STRING_LENGTH (t1)));
 
     case CONSTRUCTOR:
       if (CONSTRUCTOR_ELTS (t1) == CONSTRUCTOR_ELTS (t2))
@@ -4092,7 +4120,8 @@ simple_cst_equal (t1, t2)
       cmp = simple_cst_equal (TREE_OPERAND (t1, 0), TREE_OPERAND (t2, 0));
       if (cmp <= 0)
 	return cmp;
-      return simple_cst_list_equal (TREE_OPERAND (t1, 1), TREE_OPERAND (t2, 1));
+      return
+	simple_cst_list_equal (TREE_OPERAND (t1, 1), TREE_OPERAND (t2, 1));
 
     case TARGET_EXPR:
       /* Special case: if either target is an unallocated VAR_DECL,
@@ -4108,19 +4137,23 @@ simple_cst_equal (t1, t2)
 	cmp = 1;
       else
 	cmp = simple_cst_equal (TREE_OPERAND (t1, 0), TREE_OPERAND (t2, 0));
+
       if (cmp <= 0)
 	return cmp;
+
       return simple_cst_equal (TREE_OPERAND (t1, 1), TREE_OPERAND (t2, 1));
 
     case WITH_CLEANUP_EXPR:
       cmp = simple_cst_equal (TREE_OPERAND (t1, 0), TREE_OPERAND (t2, 0));
       if (cmp <= 0)
 	return cmp;
+
       return simple_cst_equal (TREE_OPERAND (t1, 2), TREE_OPERAND (t1, 2));
 
     case COMPONENT_REF:
       if (TREE_OPERAND (t1, 1) == TREE_OPERAND (t2, 1))
 	return simple_cst_equal (TREE_OPERAND (t1, 0), TREE_OPERAND (t2, 0));
+
       return 0;
 
     case VAR_DECL:
@@ -4142,7 +4175,6 @@ simple_cst_equal (t1, t2)
 
   switch (TREE_CODE_CLASS (code1))
     {
-      int i;
     case '1':
     case '2':
     case '<':
@@ -4150,12 +4182,13 @@ simple_cst_equal (t1, t2)
     case 'r':
     case 's':
       cmp = 1;
-      for (i=0; i<tree_code_length[(int) code1]; ++i)
+      for (i = 0; i < tree_code_length[(int) code1]; i++)
 	{
 	  cmp = simple_cst_equal (TREE_OPERAND (t1, i), TREE_OPERAND (t2, i));
 	  if (cmp <= 0)
 	    return cmp;
 	}
+
       return cmp;
 
     default:
@@ -4178,7 +4211,7 @@ build_pointer_type (to_type)
 
   /* First, if we already have a type for pointers to TO_TYPE, use it.  */
 
-  if (t)
+  if (t != 0)
     return t;
 
   /* We need a new one.  Put this in the same obstack as TO_TYPE.   */
@@ -4194,6 +4227,34 @@ build_pointer_type (to_type)
   /* Lay out the type.  This function has many callers that are concerned
      with expression-construction, and this simplifies them all.
      Also, it guarantees the TYPE_SIZE is in the same obstack as the type.  */
+  layout_type (t);
+
+  return t;
+}
+
+/* Build the node for the type of references-to-TO_TYPE.  */
+
+tree
+build_reference_type (to_type)
+     tree to_type;
+{
+  register tree t = TYPE_REFERENCE_TO (to_type);
+
+  /* First, if we already have a type for pointers to TO_TYPE, use it.  */
+
+  if (t)
+    return t;
+
+  /* We need a new one.  Put this in the same obstack as TO_TYPE.   */
+  push_obstacks (TYPE_OBSTACK (to_type), TYPE_OBSTACK (to_type));
+  t = make_node (REFERENCE_TYPE);
+  pop_obstacks ();
+
+  TREE_TYPE (t) = to_type;
+
+  /* Record this type as the pointer to TO_TYPE.  */
+  TYPE_REFERENCE_TO (to_type) = t;
+
   layout_type (t);
 
   return t;
@@ -4305,6 +4366,7 @@ index_type_equal (itype1, itype2)
 {
   if (TREE_CODE (itype1) != TREE_CODE (itype2))
     return 0;
+
   if (TREE_CODE (itype1) == INTEGER_TYPE)
     {
       if (TYPE_PRECISION (itype1) != TYPE_PRECISION (itype2)
@@ -4312,6 +4374,7 @@ index_type_equal (itype1, itype2)
 	  || simple_cst_equal (TYPE_SIZE (itype1), TYPE_SIZE (itype2)) != 1
 	  || TYPE_ALIGN (itype1) != TYPE_ALIGN (itype2))
 	return 0;
+
       if (1 == simple_cst_equal (TYPE_MIN_VALUE (itype1),
 				 TYPE_MIN_VALUE (itype2))
 	  && 1 == simple_cst_equal (TYPE_MAX_VALUE (itype1),
@@ -4410,34 +4473,6 @@ build_function_type (value_type, arg_types)
   return t;
 }
 
-/* Build the node for the type of references-to-TO_TYPE.  */
-
-tree
-build_reference_type (to_type)
-     tree to_type;
-{
-  register tree t = TYPE_REFERENCE_TO (to_type);
-
-  /* First, if we already have a type for pointers to TO_TYPE, use it.  */
-
-  if (t)
-    return t;
-
-  /* We need a new one.  Put this in the same obstack as TO_TYPE.   */
-  push_obstacks (TYPE_OBSTACK (to_type), TYPE_OBSTACK (to_type));
-  t = make_node (REFERENCE_TYPE);
-  pop_obstacks ();
-
-  TREE_TYPE (t) = to_type;
-
-  /* Record this type as the pointer to TO_TYPE.  */
-  TYPE_REFERENCE_TO (to_type) = t;
-
-  layout_type (t);
-
-  return t;
-}
-
 /* Construct, lay out and return the type of methods belonging to class
    BASETYPE and whose arguments and values are described by TYPE.
    If that type exists already, reuse it.
@@ -4529,7 +4564,7 @@ build_complex_type (component_type)
      since complex is a fundamental type.  */
   if (write_symbols == DWARF2_DEBUG && ! TYPE_NAME (t))
     {
-      char *name;
+      const char *name;
       if (component_type == char_type_node)
 	name = "complex char";
       else if (component_type == signed_char_type_node)
@@ -4553,9 +4588,9 @@ build_complex_type (component_type)
       else if (component_type == long_long_unsigned_type_node)
 	name = "complex long long unsigned int";
       else
-	name = (char *)0;
+	name = 0;
 
-      if (name)
+      if (name != 0)
 	TYPE_NAME (t) = get_identifier (name);
     }
 
@@ -4687,8 +4722,8 @@ get_narrower (op, unsignedp_ptr)
   while (TREE_CODE (op) == NOP_EXPR)
     {
       register int bitschange
-	= TYPE_PRECISION (TREE_TYPE (op))
-	  - TYPE_PRECISION (TREE_TYPE (TREE_OPERAND (op, 0)));
+	= (TYPE_PRECISION (TREE_TYPE (op))
+	   - TYPE_PRECISION (TREE_TYPE (TREE_OPERAND (op, 0))));
 
       /* Truncations are many-one so cannot be removed.  */
       if (bitschange < 0)
@@ -4781,6 +4816,16 @@ int_fits_type_p (c, type)
 		  && TREE_UNSIGNED (TREE_TYPE (c))));
 }
 
+/* Given a DECL or TYPE, return the scope in which it was declared, or
+   NUL_TREE if there is no containing scope.  */
+
+tree
+get_containing_scope (t)
+     tree t;
+{
+  return (TYPE_P (t) ? TYPE_CONTEXT (t) : DECL_CONTEXT (t));
+}
+
 /* Return the innermost context enclosing DECL that is
    a FUNCTION_DECL, or zero if none.  */
 
@@ -4795,20 +4840,24 @@ decl_function_context (decl)
 
   if (TREE_CODE (decl) == SAVE_EXPR)
     context = SAVE_EXPR_CONTEXT (decl);
+  /* C++ virtual functions use DECL_CONTEXT for the class of the vtable
+     where we look up the function at runtime.  Such functions always take
+     a first argument of type 'pointer to real context'.
+
+     C++ should really be fixed to use DECL_CONTEXT for the real context,
+     and use something else for the "virtual context".  */
+  else if (TREE_CODE (decl) == FUNCTION_DECL && DECL_VINDEX (decl))
+    context = TYPE_MAIN_VARIANT
+      (TREE_TYPE (TREE_VALUE (TYPE_ARG_TYPES (TREE_TYPE (decl)))));
   else
     context = DECL_CONTEXT (decl);
 
   while (context && TREE_CODE (context) != FUNCTION_DECL)
     {
-      if (TREE_CODE_CLASS (TREE_CODE (context)) == 't')
-	context = TYPE_CONTEXT (context);
-      else if (TREE_CODE_CLASS (TREE_CODE (context)) == 'd')
-	context = DECL_CONTEXT (context);
-      else if (TREE_CODE (context) == BLOCK)
+      if (TREE_CODE (context) == BLOCK)
 	context = BLOCK_SUPERCONTEXT (context);
-      else
-	/* Unhandled CONTEXT !?  */
-	abort ();
+      else 
+	context = get_containing_scope (context);
     }
 
   return context;
@@ -4830,15 +4879,47 @@ decl_type_context (decl)
 	  || TREE_CODE (context) == UNION_TYPE
 	  || TREE_CODE (context) == QUAL_UNION_TYPE)
 	return context;
+
       if (TREE_CODE (context) == TYPE_DECL
 	  || TREE_CODE (context) == FUNCTION_DECL)
 	context = DECL_CONTEXT (context);
+
       else if (TREE_CODE (context) == BLOCK)
 	context = BLOCK_SUPERCONTEXT (context);
+
       else
 	/* Unhandled CONTEXT!?  */
 	abort ();
     }
+  return NULL_TREE;
+}
+
+/* CALL is a CALL_EXPR.  Return the declaration for the function
+   called, or NULL_TREE if the called function cannot be 
+   determined.  */
+
+tree
+get_callee_fndecl (call)
+     tree call;
+{
+  tree addr;
+
+  /* It's invalid to call this function with anything but a
+     CALL_EXPR.  */
+  if (TREE_CODE (call) != CALL_EXPR)
+    abort ();
+
+  /* The first operand to the CALL is the address of the function
+     called.  */
+  addr = TREE_OPERAND (call, 0);
+
+  /* If the address is just `&f' for some function `f', then we know
+     that `f' is being called.  */
+  if (TREE_CODE (addr) == ADDR_EXPR
+      && TREE_CODE (TREE_OPERAND (addr, 0)) == FUNCTION_DECL)
+    return TREE_OPERAND (addr, 0);
+
+  /* We couldn't figure out what was being called.  */
   return NULL_TREE;
 }
 
@@ -4915,8 +4996,8 @@ dump_tree_statistics ()
 #endif	/* NO_DOT_IN_LABEL */
 #endif	/* NO_DOLLAR_IN_LABEL */
 
-extern char * first_global_object_name;
-extern char * weak_global_object_name;
+extern char *first_global_object_name;
+extern char *weak_global_object_name;
 
 /* Appends 6 random characters to TEMPLATE to (hopefully) avoid name
    clashes in cases where we can't reliably choose a unique name.
@@ -4999,10 +5080,10 @@ get_file_function_name_long (type)
   buf = (char *) alloca (sizeof (FILE_FUNCTION_FORMAT) + strlen (p)
 			 + strlen (type));
 
-  /* Set up the name of the file-level functions we may need.  */
-  /* Use a global object (which is already required to be unique over
+  /* Set up the name of the file-level functions we may need. 
+     Use a global object (which is already required to be unique over
      the program) rather than the file name (which imposes extra
-     constraints).  -- Raeburn@MIT.EDU, 10 Jan 1990.  */
+     constraints).  */
   sprintf (buf, FILE_FUNCTION_FORMAT, type, p);
 
   /* Don't need to pull weird characters out of global names.  */
@@ -5037,12 +5118,12 @@ get_file_function_name (kind)
      int kind;
 {
   char p[2];
+
   p[0] = kind;
   p[1] = 0;
 
   return get_file_function_name_long (p);
 }
-
 
 /* Expand (the constant part of) a SET_TYPE CONSTRUCTOR node.
    The result is placed in BUFFER (which has length BIT_SIZE),
@@ -5140,7 +5221,7 @@ get_set_constructor_bytes (init, buffer, wd_size)
   return non_const_bits;
 }
 
-#if defined ENABLE_CHECKING && HAVE_GCC_VERSION(2,7)
+#if defined ENABLE_TREE_CHECKING && (GCC_VERSION >= 2007)
 /* Complain that the tree code of NODE does not match the expected CODE.
    FILE, LINE, and FUNCTION are of the caller.  */
 void
@@ -5172,7 +5253,7 @@ tree_class_check_failed (node, cl, file, line, function)
   fancy_abort (file, line, function);
 }
 
-#endif /* ENABLE_CHECKING */
+#endif /* ENABLE_TREE_CHECKING */
 
 /* Return the alias set for T, which may be either a type or an
    expression.  */
@@ -5181,7 +5262,7 @@ int
 get_alias_set (t)
      tree t;
 {
-  if (!flag_strict_aliasing || !lang_get_alias_set)
+  if (! flag_strict_aliasing || lang_get_alias_set == 0)
     /* If we're not doing any lanaguage-specific alias analysis, just
        assume everything aliases everything else.  */
     return 0;
@@ -5195,6 +5276,7 @@ int
 new_alias_set ()
 {
   static int last_alias_set;
+
   if (flag_strict_aliasing)
     return ++last_alias_set;
   else
@@ -5281,8 +5363,8 @@ build_common_tree_nodes (signed_char)
   unsigned_intTI_type_node = make_unsigned_type (GET_MODE_BITSIZE (TImode));
 }
 
-/* For type TYPE, fill in the proper type for TYPE_SIZE and
-   TYPE_SIZE_UNIT.  */
+/* For type TYPE, fill in the proper type for TYPE_SIZE and TYPE_SIZE_UNIT.  */
+
 static void
 fix_sizetype (type)
      tree type;
@@ -5294,6 +5376,7 @@ fix_sizetype (type)
 /* Call this function after calling build_common_tree_nodes and set_sizetype.
    It will fix the previously made nodes to have proper references to
    sizetype, and it will create several other common tree nodes.  */
+
 void
 build_common_tree_nodes_2 (short_double)
      int short_double;
@@ -5333,6 +5416,7 @@ build_common_tree_nodes_2 (short_double)
 
   void_type_node = make_node (VOID_TYPE);
   layout_type (void_type_node);	/* Uses size_zero_node */
+
   /* We are not going to have real types in C with less than byte alignment,
      so we might as well not have any types that claim to have it.  */
   TYPE_ALIGN (void_type_node) = BITS_PER_UNIT;

@@ -429,10 +429,14 @@ extern HARD_REG_SET call_fixed_reg_set;
 
 extern char global_regs[FIRST_PSEUDO_REGISTER];
 
+#ifdef REG_ALLOC_ORDER
 /* Table of register numbers in the order in which to try to use them.  */
 
-#ifdef REG_ALLOC_ORDER   /* Avoid undef symbol in certain broken linkers.  */
 extern int reg_alloc_order[FIRST_PSEUDO_REGISTER];
+
+/* The inverse of reg_alloc_order.  */
+
+extern int inv_reg_alloc_order[FIRST_PSEUDO_REGISTER];
 #endif
 
 /* For each reg class, a HARD_REG_SET saying which registers are in it.  */
@@ -467,4 +471,4 @@ extern int n_non_fixed_regs;
 
 /* Vector indexed by hardware reg giving its name.  */
 
-extern char *reg_names[FIRST_PSEUDO_REGISTER];
+extern const char *reg_names[FIRST_PSEUDO_REGISTER];

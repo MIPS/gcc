@@ -57,11 +57,6 @@ extern struct obstack *saveable_obstack;
 extern struct obstack temporary_obstack;
 extern struct obstack permanent_obstack;
 
-/* This is true if the user specified a `.java' file on the command
-   line.  Otherwise it is 0.  FIXME: this is temporary, until our
-   .java parser is fully working.  */
-int saw_java_source = 0;
-
 /* The class we are currently processing. */
 tree current_class = NULL_TREE;
 
@@ -445,22 +440,6 @@ get_class_constant (JCF *jcf , int i)
   return type;
 }
 
-void
-DEFUN(jcf_out_of_synch, (jcf),
-      JCF *jcf)
-{
-  char *source = xstrdup (jcf->filename);
-  int i = strlen (source);
-
-  while (source[i] != '.')
-    i--;
-
-  source [i] = '\0';
-  warning ("Class file `%s' out of synch with `%s.java'", 
-	   jcf->filename, source);
-  free (source);
-}
-
 /* Read a class with the fully qualified-name NAME.
    Return 1 iff we read the requested file.
    (It is still possible we failed if the file did not
@@ -482,24 +461,19 @@ read_class (name)
 
   /* Search in current zip first.  */
   if (find_in_current_zip (IDENTIFIER_POINTER (name), &jcf) == 0)
-    /* FIXME: until the `.java' parser is fully working, we only
-       look for a .java file when one was mentioned on the
-       command line.  This lets us test the .java parser fairly
-       easily, without compromising our ability to use the
-       .class parser without fear.  */
-    if (find_class (IDENTIFIER_POINTER (name), IDENTIFIER_LENGTH (name),
-		     &this_jcf, saw_java_source) == 0)
-      {
-	pop_obstacks ();	/* FIXME: one pop_obstack() per function */
-	return 0;
-      }
-    else
-      {
-        this_jcf.seen_in_zip = 0;
-        current_jcf = &this_jcf;
-	if (this_jcf.outofsynch)
-	  jcf_out_of_synch (current_jcf);
-      }
+    {
+      if (find_class (IDENTIFIER_POINTER (name), IDENTIFIER_LENGTH (name),
+		      &this_jcf, 1) == 0)
+	{
+	  pop_obstacks ();	/* FIXME: one pop_obstack() per function */
+	  return 0;
+	}
+      else
+	{
+	  this_jcf.seen_in_zip = 0;
+	  current_jcf = &this_jcf;
+	}
+    }
   else
     current_jcf = jcf;
 
@@ -612,7 +586,8 @@ jcf_parse (jcf)
   if (main_class == NULL_TREE)
     main_class = current_class;
   if (! quiet_flag && TYPE_NAME (current_class))
-    fprintf (stderr, " class %s",
+    fprintf (stderr, " %s %s",
+	     (jcf->access_flags & ACC_INTERFACE) ? "interface" : "class", 
 	     IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (current_class))));
   if (CLASS_LOADED_P (current_class))
     return;
@@ -763,6 +738,8 @@ parse_source_file (file)
   java_parse_abort_on_error ();
   java_check_circular_reference (); /* Check on circular references */
   java_parse_abort_on_error ();
+  java_fix_constructors ();	    /* Fix the constructors */
+  java_parse_abort_on_error ();
 }
 
 static int
@@ -799,10 +776,6 @@ yyparse ()
 	  int twice = 0;
 
 	  int len = strlen (list);
-	  /* FIXME: this test is only needed until our .java parser is
-	     fully capable.  */
-	  if (len > 5 && ! strcmp (&list[len - 5], ".java"))
-	    saw_java_source = 1;
 
 	  if (*list != '/' && several_files)
 	    obstack_grow (&temporary_obstack, "./", 2);
@@ -834,8 +807,7 @@ yyparse ()
 	    {
 	      char *saved_input_filename = input_filename;
 	      input_filename = value;
-	      warning ("source file seen twice on command line and will be "
-		       "compiled only once.");
+	      warning ("source file seen twice on command line and will be compiled only once.");
 	      input_filename = saved_input_filename;
 	    }
 	  else

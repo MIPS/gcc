@@ -226,7 +226,7 @@ typedef struct rtvec_def{
 
 /* General accessor macros for accessing the fields of an rtx.  */
 
-#if defined ENABLE_CHECKING  && HAVE_GCC_VERSION(2,7)
+#if defined ENABLE_RTL_CHECKING && (GCC_VERSION >= 2007)
 /* The bit with a star outside the statement expr and an & inside is
    so that N can be evaluated only once.  */
 #define RTL_CHECK1(RTX, N, C1)						\
@@ -293,7 +293,7 @@ extern void rtvec_check_failed_bounds PROTO((rtvec, int,
 					     const char *, int, const char *))
     ATTRIBUTE_NORETURN;
 
-#else   /* not ENABLE_CHECKING */
+#else   /* not ENABLE_RTL_CHECKING */
 
 #define RTL_CHECK1(RTX, N, C1)      ((RTX)->fld[N])
 #define RTL_CHECK2(RTX, N, C1, C2)  ((RTX)->fld[N])
@@ -596,6 +596,9 @@ extern const char * const note_insn_name[];
 /* In jump.c, each label contains a count of the number
    of LABEL_REFs that point at it, so unused labels can be deleted.  */
 #define LABEL_NUSES(RTX) XCINT(RTX, 5, CODE_LABEL)
+
+/* Associate a name with a CODE_LABEL.  */
+#define LABEL_ALTERNATE_NAME(RTX) XCSTR(RTX, 7, CODE_LABEL)
 
 /* The original regno this ADDRESSOF was built for.  */
 #define ADDRESSOF_REGNO(RTX) XCINT(RTX, 1, ADDRESSOF)
@@ -973,6 +976,7 @@ extern rtx copy_rtx			PROTO((rtx));
 extern rtx copy_rtx_if_shared		PROTO((rtx));
 extern rtx copy_most_rtx		PROTO((rtx, rtx));
 extern rtx shallow_copy_rtx		PROTO((rtx));
+extern int rtx_equal_p                  PROTO((rtx, rtx));
 extern rtvec gen_rtvec_v		PROTO((int, rtx *));
 extern rtx gen_reg_rtx			PROTO((enum machine_mode));
 extern rtx gen_label_rtx		PROTO((void));
@@ -1059,6 +1063,7 @@ extern rtx find_equiv_reg		PROTO((rtx, rtx, enum reg_class, int, short *, int, e
 extern rtx squeeze_notes		PROTO((rtx, rtx));
 extern rtx delete_insn			PROTO((rtx));
 extern void delete_jump			PROTO((rtx));
+extern void delete_barrier		PROTO((rtx));
 extern rtx get_label_before		PROTO((rtx));
 extern rtx get_label_after		PROTO((rtx));
 extern rtx follow_jumps			PROTO((rtx));
@@ -1069,6 +1074,9 @@ extern rtx simplify_unary_operation	PROTO((enum rtx_code, enum machine_mode, rtx
 extern rtx simplify_binary_operation	PROTO((enum rtx_code, enum machine_mode, rtx, rtx));
 extern rtx simplify_ternary_operation	PROTO((enum rtx_code, enum machine_mode, enum machine_mode, rtx, rtx, rtx));
 extern rtx simplify_relational_operation PROTO((enum rtx_code, enum machine_mode, rtx, rtx));
+extern rtx simplify_gen_binary		PROTO((enum rtx_code, enum machine_mode,
+					       rtx, rtx));
+extern rtx simplify_rtx			PROTO((rtx));
 extern rtx gen_move_insn		PROTO((rtx, rtx));
 extern rtx gen_jump			PROTO((rtx));
 extern rtx gen_beq			PROTO((rtx));
@@ -1103,9 +1111,8 @@ extern int multiple_sets		PROTO((rtx));
 extern rtx find_last_value		PROTO((rtx, rtx *, rtx, int));
 extern int refers_to_regno_p		PROTO((int, int, rtx, rtx *));
 extern int reg_overlap_mentioned_p	PROTO((rtx, rtx));
-extern void note_stores			PROTO((rtx, void (*)(rtx, rtx)));
+extern void note_stores			PROTO((rtx, void (*)(rtx, rtx, void *), void *));
 extern rtx reg_set_last			PROTO((rtx, rtx));
-extern int rtx_equal_p			PROTO((rtx, rtx));
 extern int dead_or_set_p		PROTO((rtx, rtx));
 extern int dead_or_set_regno_p		PROTO((rtx, int));
 extern rtx find_reg_note		PROTO((rtx, enum reg_note, rtx));
@@ -1410,9 +1417,10 @@ extern int condjump_in_parallel_p	PROTO ((rtx));
 extern void never_reached_warning	PROTO ((rtx));
 
 /* Flags for jump_optimize() */
-#define JUMP_CROSS_JUMP		1
-#define JUMP_NOOP_MOVES		1
-#define JUMP_AFTER_REGSCAN	1
+#define JUMP_CROSS_JUMP			1
+#define JUMP_CROSS_JUMP_DEATH_MATTERS	2
+#define JUMP_NOOP_MOVES			1
+#define JUMP_AFTER_REGSCAN		1
 
 /* In emit-rtl.c. */
 extern int max_reg_num				PROTO ((void));
@@ -1452,6 +1460,8 @@ extern rtx emit					PROTO ((rtx));
    warnings about unreachable code.  */
 int force_line_numbers PROTO((void));
 void restore_line_number_status PROTO((int old_value));
+extern void renumber_insns                      PROTO ((FILE *));
+extern void remove_unncessary_notes             PROTO ((void));
 
 /* In insn-emit.c */
 extern void add_clobbers		PROTO ((rtx, int));
@@ -1529,7 +1539,6 @@ extern void recompute_reg_usage		PROTO ((rtx, int));
 extern void print_rtl_with_bb		PROTO ((FILE *, rtx));
 extern void dump_flow_info		PROTO ((FILE *));
 #endif
-extern void free_bb_mem			PROTO ((void));
 
 /* In expmed.c */
 extern void init_expmed			PROTO ((void));
@@ -1562,10 +1571,12 @@ extern void init_regs			PROTO ((void));
 extern void init_reg_sets		PROTO ((void));
 extern void regset_release_memory	PROTO ((void));
 extern void regclass_init		PROTO ((void));
-extern void regclass			PROTO ((rtx, int));
+extern void regclass			PROTO ((rtx, int, FILE *));
 extern void reg_scan			PROTO ((rtx, int, int));
 extern void reg_scan_update		PROTO ((rtx, rtx, int));
-extern void fix_register		PROTO ((char *, int, int));
+extern void fix_register		PROTO ((const char *, int, int));
+
+extern void delete_null_pointer_checks	PROTO ((rtx));
 
 /* In regmove.c */
 #ifdef BUFSIZ
@@ -1669,10 +1680,10 @@ extern int read_rtx_lineno;
 
 extern void fancy_abort PROTO((const char *, int, const char *))
     ATTRIBUTE_NORETURN;
-#if ! HAVE_GCC_VERSION(2,7)
-#define abort() fancy_abort (__FILE__, __LINE__, 0)
-#else
+#if (GCC_VERSION >= 2007)
 #define abort() fancy_abort (__FILE__, __LINE__, __PRETTY_FUNCTION__)
+#else
+#define abort() fancy_abort (__FILE__, __LINE__, 0)
 #endif
 
 /* In alias.c */
@@ -1694,6 +1705,8 @@ extern rtx addr_side_effect_eval	PROTO ((rtx, int, int));
 extern int stack_regs_mentioned		PROTO((rtx insn));
 #endif
 
+/* In toplev.c */
 
-extern void delete_null_pointer_checks	PROTO ((rtx));
+extern rtx stack_limit_rtx;
+
 #endif /* _RTL_H */

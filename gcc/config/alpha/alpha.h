@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler, for DEC Alpha.
-   Copyright (C) 1992, 93-98, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1992, 93-99, 2000 Free Software Foundation, Inc.
    Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu)
 
 This file is part of GNU CC.
@@ -276,11 +276,18 @@ extern const char *alpha_mlat_string;	/* For -mmemory-latency= */
 #define CPP_CPU_EV5_SPEC	"%(cpp_im_ev5)"
 #define CPP_CPU_EV56_SPEC	"%(cpp_im_ev5) %(cpp_am_bwx)"
 #define CPP_CPU_PCA56_SPEC	"%(cpp_im_ev5) %(cpp_am_bwx) %(cpp_am_max)"
-#define CPP_CPU_EV6_SPEC	"%(cpp_im_ev6) %(cpp_am_bwx) %(cpp_am_max) %(cpp_am_fix)"
+#define CPP_CPU_EV6_SPEC \
+  "%(cpp_im_ev6) %(cpp_am_bwx) %(cpp_am_max) %(cpp_am_fix)"
+#define CPP_CPU_EV67_SPEC \
+  "%(cpp_im_ev6) %(cpp_am_bwx) %(cpp_am_max) %(cpp_am_fix) %(cpp_am_cix)"
 
 #ifndef CPP_CPU_DEFAULT_SPEC
 # if TARGET_CPU_DEFAULT & MASK_CPU_EV6
-#  define CPP_CPU_DEFAULT_SPEC		CPP_CPU_EV6_SPEC
+#  if TARGET_CPU_DEFAULT & MAX_CIX
+#    define CPP_CPU_DEFAULT_SPEC	CPP_CPU_EV67_SPEC
+#  else
+#    define CPP_CPU_DEFAULT_SPEC	CPP_CPU_EV6_SPEC
+#  endif
 # else
 #  if TARGET_CPU_DEFAULT & MASK_CPU_EV5
 #   if TARGET_CPU_DEFAULT & MASK_MAX
@@ -306,6 +313,7 @@ extern const char *alpha_mlat_string;	/* For -mmemory-latency= */
 %{mcpu=ev56|mcpu=21164a:%(cpp_cpu_ev56) }\
 %{mcpu=pca56|mcpu=21164pc|mcpu=21164PC:%(cpp_cpu_pca56) }\
 %{mcpu=ev6|mcpu=21264:%(cpp_cpu_ev6) }\
+%{mcpu=ev67|mcpu=21264a:%(cpp_cpu_ev67) }\
 %{!mcpu*:%(cpp_cpu_default) }}"
 #endif
 
@@ -336,6 +344,7 @@ extern const char *alpha_mlat_string;	/* For -mmemory-latency= */
   { "cpp_cpu_ev56", CPP_CPU_EV56_SPEC },	\
   { "cpp_cpu_pca56", CPP_CPU_PCA56_SPEC },	\
   { "cpp_cpu_ev6", CPP_CPU_EV6_SPEC },		\
+  { "cpp_cpu_ev67", CPP_CPU_EV67_SPEC },	\
   { "cpp_cpu_default", CPP_CPU_DEFAULT_SPEC },	\
   { "cpp_cpu", CPP_CPU_SPEC },			\
   { "cpp_subtarget", CPP_SUBTARGET_SPEC },	\
@@ -528,7 +537,7 @@ extern const char *alpha_mlat_string;	/* For -mmemory-latency= */
 
    On the Alpha, they trap.  */
 
-#define SLOW_UNALIGNED_ACCESS 1
+#define SLOW_UNALIGNED_ACCESS(MODE, ALIGN) 1
 
 /* Standard register usage.  */
 
@@ -815,42 +824,11 @@ enum reg_class { NO_REGS, GENERAL_REGS, FLOAT_REGS, ALL_REGS,
    We also cannot load an unaligned address or a paradoxical SUBREG into an
    FP register.   */
 
-#define SECONDARY_INPUT_RELOAD_CLASS(CLASS,MODE,IN)			\
-(((GET_CODE (IN) == MEM 						\
-   || (GET_CODE (IN) == REG && REGNO (IN) >= FIRST_PSEUDO_REGISTER)	\
-   || (GET_CODE (IN) == SUBREG						\
-       && (GET_CODE (SUBREG_REG (IN)) == MEM				\
-	   || (GET_CODE (SUBREG_REG (IN)) == REG			\
-	       && REGNO (SUBREG_REG (IN)) >= FIRST_PSEUDO_REGISTER))))	\
-  && (((CLASS) == FLOAT_REGS						\
-       && ((MODE) == SImode || (MODE) == HImode || (MODE) == QImode))	\
-      || (((MODE) == QImode || (MODE) == HImode)			\
-	  && ! TARGET_BWX && ! aligned_memory_operand (IN, MODE))))	\
- ? GENERAL_REGS								\
- : ((CLASS) == FLOAT_REGS && GET_CODE (IN) == MEM			\
-    && GET_CODE (XEXP (IN, 0)) == AND) ? GENERAL_REGS			\
- : ((CLASS) == FLOAT_REGS && GET_CODE (IN) == SUBREG			\
-    && (GET_MODE_SIZE (GET_MODE (IN))					\
-	> GET_MODE_SIZE (GET_MODE (SUBREG_REG (IN))))) ? GENERAL_REGS	\
- : NO_REGS)
+#define SECONDARY_INPUT_RELOAD_CLASS(CLASS,MODE,IN) \
+  secondary_reload_class((CLASS), (MODE), (IN), 1)
 
-#define SECONDARY_OUTPUT_RELOAD_CLASS(CLASS,MODE,OUT)			\
-(((GET_CODE (OUT) == MEM 						\
-   || (GET_CODE (OUT) == REG && REGNO (OUT) >= FIRST_PSEUDO_REGISTER)	\
-   || (GET_CODE (OUT) == SUBREG						\
-       && (GET_CODE (SUBREG_REG (OUT)) == MEM				\
-	   || (GET_CODE (SUBREG_REG (OUT)) == REG			\
-	       && REGNO (SUBREG_REG (OUT)) >= FIRST_PSEUDO_REGISTER)))) \
-  && ((((MODE) == HImode || (MODE) == QImode)				\
-       && (! TARGET_BWX || (CLASS) == FLOAT_REGS))			\
-      || ((MODE) == SImode && (CLASS) == FLOAT_REGS)))			\
- ? GENERAL_REGS								\
- : ((CLASS) == FLOAT_REGS && GET_CODE (OUT) == MEM			\
-    && GET_CODE (XEXP (OUT, 0)) == AND) ? GENERAL_REGS			\
- : ((CLASS) == FLOAT_REGS && GET_CODE (OUT) == SUBREG			\
-    && (GET_MODE_SIZE (GET_MODE (OUT))					\
-	> GET_MODE_SIZE (GET_MODE (SUBREG_REG (OUT))))) ? GENERAL_REGS	\
- : NO_REGS)
+#define SECONDARY_OUTPUT_RELOAD_CLASS(CLASS,MODE,OUT) \
+  secondary_reload_class((CLASS), (MODE), (OUT), 0)
 
 /* If we are copying between general and FP registers, we need a memory
    location unless the FIX extension is available.  */
@@ -2098,12 +2076,12 @@ literal_section ()						\
 #define ASM_OUTPUT_ASCII(MYFILE, MYSTRING, MYLENGTH) \
   do {									      \
     FILE *_hide_asm_out_file = (MYFILE);				      \
-    unsigned char *_hide_p = (unsigned char *) (MYSTRING);		      \
+    const unsigned char *_hide_p = (const unsigned char *) (MYSTRING);	      \
     int _hide_thissize = (MYLENGTH);					      \
     int _size_so_far = 0;						      \
     {									      \
       FILE *asm_out_file = _hide_asm_out_file;				      \
-      unsigned char *p = _hide_p;					      \
+      const unsigned char *p = _hide_p;					      \
       int thissize = _hide_thissize;					      \
       int i;								      \
       fprintf (asm_out_file, "\t.ascii \"");				      \
@@ -2222,7 +2200,7 @@ literal_section ()						\
 
 #define ASM_OUTPUT_MI_THUNK(FILE, THUNK_FNDECL, DELTA, FUNCTION)	\
 do {									\
-  char *fn_name = XSTR (XEXP (DECL_RTL (FUNCTION), 0), 0);		\
+  const char *fn_name = XSTR (XEXP (DECL_RTL (FUNCTION), 0), 0);	\
   int reg;								\
 									\
   /* Mark end of prologue.  */						\
@@ -2340,7 +2318,8 @@ do {									\
   {"any_memory_operand", {MEM}},					\
   {"hard_fp_register_operand", {SUBREG, REG}},				\
   {"reg_not_elim_operand", {SUBREG, REG}},				\
-  {"reg_no_subreg_operand", {REG}},
+  {"reg_no_subreg_operand", {REG}},					\
+  {"addition_operation", {PLUS}},
 
 /* Define the `__builtin_va_list' type for the ABI.  */
 #define BUILD_VA_LIST_TYPE(VALIST) \
@@ -2505,3 +2484,6 @@ do {							\
 
 /* The system headers under Alpha systems are generally C++-aware.  */
 #define NO_IMPLICIT_EXTERN_C
+
+/* Generate calls to memcpy, etc., not bcopy, etc. */
+#define TARGET_MEM_FUNCTIONS 1

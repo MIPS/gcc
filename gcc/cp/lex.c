@@ -1,5 +1,5 @@
 /* Separate lexical analyzer for GNU C++.
-   Copyright (C) 1987, 89, 92-98, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1987, 89, 92-99, 2000 Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GNU CC.
@@ -38,6 +38,7 @@ Boston, MA 02111-1307, USA.  */
 #include "toplev.h"
 #include "output.h"
 #include "ggc.h"
+#include "tm_p.h"
 
 #ifdef MULTIBYTE_CHARS
 #include "mbchar.h"
@@ -46,13 +47,6 @@ Boston, MA 02111-1307, USA.  */
 
 #define obstack_chunk_alloc xmalloc
 #define obstack_chunk_free free
-
-#ifndef DIR_SEPARATOR
-#define DIR_SEPARATOR '/'
-#endif
-
-extern struct obstack permanent_obstack;
-extern struct obstack *current_obstack, *saveable_obstack;
 
 extern void yyprint PROTO((FILE *, int, YYSTYPE));
 
@@ -115,6 +109,9 @@ file_name_nondirectory (x)
    TOKEN_BUFFER because `check_newline' calls `yylex'.  */
 struct obstack inline_text_obstack;
 char *inline_text_firstobj;
+
+/* Nonzero if parse output is being saved to an obstack for later parsing. */
+static int saving_parse_to_obstack = 0;
 
 #if USE_CPPLIB
 #include "cpplib.h"
@@ -379,13 +376,11 @@ get_time_identifier (name)
   time_identifier = get_identifier (buf);
   if (TIME_IDENTIFIER_TIME (time_identifier) == NULL_TREE)
     {
-      push_permanent_obstack ();
       TIME_IDENTIFIER_TIME (time_identifier) = build_int_2 (0, 0);
       TIME_IDENTIFIER_FILEINFO (time_identifier) 
 	= build_int_2 (0, 1);
       SET_IDENTIFIER_GLOBAL_VALUE (time_identifier, filename_times);
       filename_times = time_identifier;
-      pop_obstacks ();
     }
   return time_identifier;
 }
@@ -407,7 +402,7 @@ my_get_run_time ()
 
 #define DEFTREECODE(SYM, NAME, TYPE, LENGTH) TYPE,
 
-char cplus_tree_code_type[] = {
+static char cplus_tree_code_type[] = {
   'x',
 #include "cp-tree.def"
 };
@@ -419,7 +414,7 @@ char cplus_tree_code_type[] = {
 
 #define DEFTREECODE(SYM, NAME, TYPE, LENGTH) LENGTH,
 
-int cplus_tree_code_length[] = {
+static int cplus_tree_code_length[] = {
   0,
 #include "cp-tree.def"
 };
@@ -429,7 +424,7 @@ int cplus_tree_code_length[] = {
    Used for printing out the tree and error messages.  */
 #define DEFTREECODE(SYM, NAME, TYPE, LEN) NAME,
 
-const char *cplus_tree_code_name[] = {
+static const char *cplus_tree_code_name[] = {
   "@@dummy",
 #include "cp-tree.def"
 };
@@ -1623,7 +1618,9 @@ reinit_parse_for_block (pyychar, obstackp)
     {
       int this_lineno = lineno;
 
+      saving_parse_to_obstack = 1;
       c = skip_white_space (c);
+      saving_parse_to_obstack = 0;
 
       /* Don't lose our cool if there are lots of comments.  */
       if (lineno == this_lineno + 1)
@@ -1752,7 +1749,9 @@ reinit_parse_for_expr (obstackp)
     {
       int this_lineno = lineno;
 
+      saving_parse_to_obstack = 1;
       c = skip_white_space (c);
+      saving_parse_to_obstack = 0;
 
       /* Don't lose our cool if there are lots of comments.  */
       if (lineno == this_lineno + 1)
@@ -1851,11 +1850,9 @@ snarf_defarg ()
   len = obstack_object_size (&inline_text_obstack);
   buf = obstack_finish (&inline_text_obstack);
 
-  push_obstacks (&inline_text_obstack, &inline_text_obstack);
   arg = make_node (DEFAULT_ARG);
   DEFARG_LENGTH (arg) = len - 1;
   DEFARG_POINTER (arg) = buf;
-  pop_obstacks ();
 
   return arg;
 }
@@ -1872,11 +1869,7 @@ add_defarg_fn (decl)
   if (TREE_CODE (decl) == FUNCTION_DECL)
     TREE_VALUE (defarg_fns) = decl;
   else
-    {
-      push_obstacks (&inline_text_obstack, &inline_text_obstack);
-      defarg_fns = tree_cons (current_class_type, decl, defarg_fns);  
-      pop_obstacks ();
-    }
+    defarg_fns = tree_cons (current_class_type, decl, defarg_fns);  
 }
 
 /* Helper for do_pending_defargs.  Starts the parsing of a default arg.  */
@@ -2004,9 +1997,6 @@ cons_up_default_function (type, full_name, kind)
   switch (kind)
     {
       /* Destructors.  */
-    case 1:
-      declspecs = build_decl_list (NULL_TREE, ridpointers [(int) RID_VIRTUAL]);
-      /* Fall through...  */
     case 0:
       name = build_parse_node (BIT_NOT_EXPR, name);
       args = void_list_node;
@@ -2500,10 +2490,11 @@ linenum:
      (2) I don't know how well that would work in the presense
      of filenames that contain wide characters.  */
 
-  if (saw_line)
+  if (saw_line || saving_parse_to_obstack)
     {
       /* Don't treat \ as special if we are processing #line 1 "...".
-	 If you want it to be treated specially, use # 1 "...".  */
+	 If you want it to be treated specially, use # 1 "...". Also
+	 ignore these if saving to an obstack for later parsing. */
       ignore_escape_flag = 1;
     }
 
@@ -2947,29 +2938,26 @@ yyerror (string)
      const char *string;
 {
   extern int end_of_file;
-  char buf[200];
-
-  strcpy (buf, string);
 
   /* We can't print string and character constants well
      because the token_buffer contains the result of processing escapes.  */
   if (end_of_file)
-    strcat (buf, input_redirected ()
-	    ? " at end of saved text"
-	    : " at end of input");
+  {
+    if (input_redirected ())
+      error ("%s at end of saved text", string);
+    else
+      error ("%s at end of input", string);
+  }
   else if (token_buffer[0] == 0)
-    strcat (buf, " at null character");
+    error ("%s at null character", string);
   else if (token_buffer[0] == '"')
-    strcat (buf, " before string constant");
+    error ("%s before string constant", string);
   else if (token_buffer[0] == '\'')
-    strcat (buf, " before character constant");
+    error ("%s before character constant", string);
   else if (!ISGRAPH ((unsigned char)token_buffer[0]))
-    sprintf (buf + strlen (buf), " before character 0%o",
-	     (unsigned char) token_buffer[0]);
+    error ("%s before character 0%o", string, (unsigned char) token_buffer[0]);
   else
-    strcat (buf, " before `%s'");
-
-  error (buf, token_buffer);
+    error ("%s before `%s'", string, token_buffer);
 }
 
 /* Value is 1 (or 2) if we should try to make the next identifier look like
@@ -3058,13 +3046,7 @@ is_global (d)
       default:
         my_friendly_assert (TREE_CODE_CLASS (TREE_CODE (d)) == 'd', 980629);
 
-	/* A template parameter is not really global, even though it
-	   has no enclosing scope.  */
-	if (DECL_TEMPLATE_PARM_P (d))
-	  return 0;
-
-        d = CP_DECL_CONTEXT (d);
-        return TREE_CODE (d) == NAMESPACE_DECL;
+	return DECL_NAMESPACE_SCOPE_P (d);
       }
 }
 
@@ -3178,18 +3160,18 @@ do_identifier (token, parsing, args)
 	}
       else if (!DECL_ERROR_REPORTED (id))
 	{
-	  static char msg[]
-	    = "name lookup of `%s' changed for new ANSI `for' scoping";
 	  DECL_ERROR_REPORTED (id) = 1;
 	  if (TYPE_NEEDS_DESTRUCTOR (TREE_TYPE (id)))
 	    {
-	      error (msg, IDENTIFIER_POINTER (token));
+	      error ("name lookup of `%s' changed for new ANSI `for' scoping",
+		     IDENTIFIER_POINTER (token));
 	      cp_error_at ("  cannot use obsolete binding at `%D' because it has a destructor", id);
 	      id = error_mark_node;
 	    }
 	  else
 	    {
-	      pedwarn (msg, IDENTIFIER_POINTER (token));
+	      pedwarn ("name lookup of `%s' changed for new ANSI `for' scoping",
+		       IDENTIFIER_POINTER (token));
 	      cp_pedwarn_at ("  using obsolete binding at `%D'", id);
 	    }
 	}
@@ -3216,10 +3198,6 @@ do_identifier (token, parsing, args)
      local variables and then finding matching instantiations.  */
   if (current_template_parms
       && (is_overloaded_fn (id) 
-	  /* If it's not going to be around at instantiation time, we
-	     look it up then.  This is a hack, and should go when we
-	     really get dependent/independent name lookup right.  */
-	  || !TREE_PERMANENT (id)
 	  /* Some local VAR_DECLs (such as those for local variables
 	     in member functions of local classes) are built on the
 	     permanent obstack.  */
@@ -3850,7 +3828,9 @@ real_yylex ()
 	       || (ISALNUM (c) && c != 'l' && c != 'L'
 		   && c != 'u' && c != 'U'
 		   && c != 'i' && c != 'I' && c != 'j' && c != 'J'
-		   && (floatflag == NOT_FLOAT || ((c != 'f') && (c != 'F')))))
+		   && (floatflag == NOT_FLOAT
+		       || ((base != 16) && (c != 'f') && (c != 'F'))
+		       || base == 16)))   
 	  {
 	    if (c == '.')
 	      {
@@ -4489,11 +4469,7 @@ real_yylex ()
 	/* We have read the entire constant.
 	   Construct a STRING_CST for the result.  */
 
-	if (processing_template_decl)
-	  push_obstacks (&permanent_obstack, &permanent_obstack);
 	yylval.ttype = build_string (p - (token_buffer + 1), token_buffer + 1);
-	if (processing_template_decl)
-	  pop_obstacks ();
 
 	if (wide_flag)
 	  TREE_TYPE (yylval.ttype) = wchar_array_type_node;
@@ -4802,8 +4778,6 @@ cp_make_lang_type (code)
     {
       struct lang_type *pi;
 
-      SET_IS_AGGR_TYPE (t, 1);
-
       pi = (struct lang_type *) ggc_alloc (sizeof (struct lang_type));
       bzero ((char *) pi, (int) sizeof (struct lang_type));
 
@@ -4833,6 +4807,18 @@ cp_make_lang_type (code)
      all types.  */
   if (IS_AGGR_TYPE_CODE (code) || code == TEMPLATE_TYPE_PARM)
     TYPE_BINFO (t) = make_binfo (integer_zero_node, t, NULL_TREE, NULL_TREE);
+
+  return t;
+}
+
+tree
+make_aggr_type (code)
+     enum tree_code code;
+{
+  tree t = cp_make_lang_type (code);
+
+  if (IS_AGGR_TYPE_CODE (code))
+    SET_IS_AGGR_TYPE (t, 1);
 
   return t;
 }

@@ -1,5 +1,5 @@
 ;;- Machine description for HP PA-RISC architecture for GNU C compiler
-;;   Copyright (C) 1992, 93-98, 1999 Free Software Foundation, Inc.
+;;   Copyright (C) 1992, 93-99, 2000 Free Software Foundation, Inc.
 ;;   Contributed by the Center for Software Science at the University
 ;;   of Utah.
 
@@ -862,25 +862,30 @@
   operands[5] = hppa_compare_op1;
 }")
 
-; We need the first constraint alternative in order to avoid
-; earlyclobbers on all other alternatives.
+;; We used to accept any register for op1.
+;;
+;; However, it loses sometimes because the compiler will end up using
+;; different registers for op0 and op1 in some critical cases.  local-alloc
+;; will  not tie op0 and op1 because op0 is used in multiple basic blocks.
+;;
+;; If/when global register allocation supports tying we should allow any
+;; register for op1 again.
 (define_insn ""
-  [(set (match_operand:SI 0 "register_operand" "=r,r,r,r,r")
+  [(set (match_operand:SI 0 "register_operand" "=r,r,r,r")
 	(if_then_else:SI
 	 (match_operator 5 "comparison_operator"
-	    [(match_operand:SI 3 "register_operand" "r,r,r,r,r")
-	     (match_operand:SI 4 "arith11_operand" "rI,rI,rI,rI,rI")])
-	 (match_operand:SI 1 "reg_or_cint_move_operand" "0,r,J,N,K")
+	    [(match_operand:SI 3 "register_operand" "r,r,r,r")
+	     (match_operand:SI 4 "arith11_operand" "rI,rI,rI,rI")])
+	 (match_operand:SI 1 "reg_or_cint_move_operand" "0,J,N,K")
 	 (const_int 0)))]
   ""
   "@
    {com%I4clr|cmp%I4clr},%S5 %4,%3,%%r0\;ldi 0,%0
-   {com%I4clr|cmp%I4clr},%B5 %4,%3,%0\;copy %1,%0
    {com%I4clr|cmp%I4clr},%B5 %4,%3,%0\;ldi %1,%0
    {com%I4clr|cmp%I4clr},%B5 %4,%3,%0\;ldil L'%1,%0
    {com%I4clr|cmp%I4clr},%B5 %4,%3,%0\;{zdepi|depwi,z} %Z1,%0"
-  [(set_attr "type" "multi,multi,multi,multi,nullshift")
-   (set_attr "length" "8,8,8,8,8")])
+  [(set_attr "type" "multi,multi,multi,nullshift")
+   (set_attr "length" "8,8,8,8")])
 
 (define_insn ""
   [(set (match_operand:SI 0 "register_operand" "=r,r,r,r,r,r,r,r")
@@ -1615,7 +1620,7 @@
 	(plus:SI (match_operand:SI 1 "register_operand" "r")
 		 (high:SI (match_operand 2 "" ""))))]
   "symbolic_operand (operands[2], Pmode)
-   && ! function_label_operand (operands[2])
+   && ! function_label_operand (operands[2], Pmode)
    && flag_pic == 2"
   "addil LT'%G2,%1"
   [(set_attr "type" "binary")
@@ -1647,8 +1652,8 @@
   [(set (match_operand:SI 0 "register_operand" "=a")
 	(high:SI (match_operand 1 "" "")))]
   "symbolic_operand (operands[1], Pmode)
-   && ! function_label_operand (operands[1])
-   && ! read_only_operand (operands[1])
+   && ! function_label_operand (operands[1], Pmode)
+   && ! read_only_operand (operands[1], Pmode)
    && ! flag_pic"
   "*
 {
@@ -1683,7 +1688,7 @@
 (define_insn ""
   [(set (match_operand:SI 0 "register_operand" "=r")
 	(high:SI (match_operand 1 "" "")))]
-  "(!flag_pic || !symbolic_operand (operands[1]), Pmode)
+  "(!flag_pic || !symbolic_operand (operands[1], Pmode))
     && !is_function_label_plus_const (operands[1])"
   "*
 {
@@ -3118,25 +3123,6 @@
    (set_attr "pa_combine_type" "addmove")
    (set_attr "length" "4,4")])
 
-;; Disgusting kludge to work around reload bugs with frame pointer
-;; elimination.  Similar to other magic reload patterns in the
-;; indexed memory operations.
-(define_insn ""
-  [(set (match_operand:SI 0 "register_operand" "=&r")
-	(plus:SI (plus:SI (match_operand:SI 1 "register_operand" "%r")
-			  (match_operand:SI 2 "register_operand" "r"))
-		 (match_operand:SI 3 "const_int_operand" "rL")))]
-  "reload_in_progress"
-  "*
-{
-  if (GET_CODE (operands[3]) == CONST_INT)
-    return \"ldo %3(%2),%0\;{addl|add,l} %1,%0,%0\";
-  else
-    return \"{addl|add,l} %3,%2,%0\;{addl|add,l} %1,%0,%0\";
-}"
-  [(set_attr "type" "binary")
-   (set_attr "length" "8")])
-
 (define_expand "subdi3"
   [(set (match_operand:DI 0 "register_operand" "")
 	(minus:DI (match_operand:DI 1 "register_operand" "")
@@ -3623,7 +3609,13 @@
   [(set_attr "type" "binary")
    (set_attr "length" "4")])
 
-(define_insn "negdi2"
+(define_expand "negdi2"
+  [(set (match_operand:DI 0 "register_operand" "")
+	(neg:DI (match_operand:DI 1 "register_operand" "")))]
+  ""
+  "")
+
+(define_insn ""
   [(set (match_operand:DI 0 "register_operand" "=r")
 	(neg:DI (match_operand:DI 1 "register_operand" "r")))]
   ""
@@ -3899,7 +3891,9 @@
 		 (match_operand:DF 3 "register_operand" "f")))
    (set (match_operand:DF 4 "register_operand" "=&f")
 	(mult:DF (match_dup 1) (match_dup 2)))]
-  "! TARGET_SOFT_FLOAT && TARGET_PA_20"
+  "(! TARGET_SOFT_FLOAT && TARGET_PA_20
+    && ! (reg_overlap_mentioned_p (operands[4], operands[1])
+          || reg_overlap_mentioned_p (operands[4], operands[2])))"
   "#"
   [(set_attr "type" "fpmuldbl")
    (set_attr "length" "8")])
@@ -3926,7 +3920,9 @@
 		 (match_operand:SF 3 "register_operand" "f")))
    (set (match_operand:SF 4 "register_operand" "=&f")
 	(mult:SF (match_dup 1) (match_dup 2)))]
-  "! TARGET_SOFT_FLOAT && TARGET_PA_20"
+  "(! TARGET_SOFT_FLOAT && TARGET_PA_20
+    && ! (reg_overlap_mentioned_p (operands[4], operands[1])
+          || reg_overlap_mentioned_p (operands[4], operands[2])))"
   "#"
   [(set_attr "type" "fpmuldbl")
    (set_attr "length" "8")])
@@ -3953,7 +3949,7 @@
 	(neg:DF (mult:DF (match_operand:DF 1 "register_operand" "f")
 			 (match_operand:DF 2 "register_operand" "f"))))]
   "! TARGET_SOFT_FLOAT && TARGET_PA_20"
-  "fmpynfadd,dbl %1,%2,0,%0"
+  "fmpynfadd,dbl %1,%2,%%fr0,%0"
   [(set_attr "type" "fpmuldbl")
    (set_attr "length" "4")])
 
@@ -3962,7 +3958,7 @@
 	(neg:SF (mult:SF (match_operand:SF 1 "register_operand" "f")
 			 (match_operand:SF 2 "register_operand" "f"))))]
   "! TARGET_SOFT_FLOAT && TARGET_PA_20"
-  "fmpynfadd,sgl %1,%2,0,%0"
+  "fmpynfadd,sgl %1,%2,%%fr0,%0"
   [(set_attr "type" "fpmuldbl")
    (set_attr "length" "4")])
 
@@ -3972,7 +3968,9 @@
 			 (match_operand:DF 2 "register_operand" "f"))))
    (set (match_operand:DF 3 "register_operand" "=&f")
 	(mult:DF (match_dup 1) (match_dup 2)))]
-  "! TARGET_SOFT_FLOAT && TARGET_PA_20"
+  "(! TARGET_SOFT_FLOAT && TARGET_PA_20
+    && ! (reg_overlap_mentioned_p (operands[3], operands[1])
+          || reg_overlap_mentioned_p (operands[3], operands[2])))"
   "#"
   [(set_attr "type" "fpmuldbl")
    (set_attr "length" "8")])
@@ -3994,7 +3992,9 @@
 			 (match_operand:SF 2 "register_operand" "f"))))
    (set (match_operand:SF 3 "register_operand" "=&f")
 	(mult:SF (match_dup 1) (match_dup 2)))]
-  "! TARGET_SOFT_FLOAT && TARGET_PA_20"
+  "(! TARGET_SOFT_FLOAT && TARGET_PA_20
+    && ! (reg_overlap_mentioned_p (operands[3], operands[1])
+          || reg_overlap_mentioned_p (operands[3], operands[2])))"
   "#"
   [(set_attr "type" "fpmuldbl")
    (set_attr "length" "8")])
@@ -4038,7 +4038,9 @@
 		 (match_operand:DF 3 "register_operand" "f")))
    (set (match_operand:DF 4 "register_operand" "=&f")
 	(mult:DF (match_dup 1) (match_dup 2)))]
-  "! TARGET_SOFT_FLOAT && TARGET_PA_20"
+  "(! TARGET_SOFT_FLOAT && TARGET_PA_20
+    && ! (reg_overlap_mentioned_p (operands[4], operands[1])
+          || reg_overlap_mentioned_p (operands[4], operands[2])))"
   "#"
   [(set_attr "type" "fpmuldbl")
    (set_attr "length" "8")])
@@ -4063,7 +4065,9 @@
 		 (match_operand:SF 3 "register_operand" "f")))
    (set (match_operand:SF 4 "register_operand" "=&f")
 	(mult:SF (match_dup 1) (match_dup 2)))]
-  "! TARGET_SOFT_FLOAT && TARGET_PA_20"
+  "(! TARGET_SOFT_FLOAT && TARGET_PA_20
+    && ! (reg_overlap_mentioned_p (operands[4], operands[1])
+          || reg_overlap_mentioned_p (operands[4], operands[2])))"
   "#"
   [(set_attr "type" "fpmuldbl")
    (set_attr "length" "8")])
@@ -4088,7 +4092,9 @@
 			   (match_operand:DF 2 "register_operand" "f"))))
    (set (match_operand:DF 4 "register_operand" "=&f")
 	(mult:DF (match_dup 1) (match_dup 2)))]
-  "! TARGET_SOFT_FLOAT && TARGET_PA_20"
+  "(! TARGET_SOFT_FLOAT && TARGET_PA_20
+    && ! (reg_overlap_mentioned_p (operands[4], operands[1])
+          || reg_overlap_mentioned_p (operands[4], operands[2])))"
   "#"
   [(set_attr "type" "fpmuldbl")
    (set_attr "length" "8")])
@@ -4113,7 +4119,9 @@
 			   (match_operand:SF 2 "register_operand" "f"))))
    (set (match_operand:SF 4 "register_operand" "=&f")
 	(mult:SF (match_dup 1) (match_dup 2)))]
-  "! TARGET_SOFT_FLOAT && TARGET_PA_20"
+  "(! TARGET_SOFT_FLOAT && TARGET_PA_20
+    && ! (reg_overlap_mentioned_p (operands[4], operands[1])
+          || reg_overlap_mentioned_p (operands[4], operands[2])))"
   "#"
   [(set_attr "type" "fpmuldbl")
    (set_attr "length" "8")])
@@ -4135,7 +4143,8 @@
   [(set (match_operand:DF 0 "register_operand" "=f")
 	(neg:DF (abs:DF (match_operand:DF 1 "register_operand" "f"))))
    (set (match_operand:DF 2 "register_operand" "=&f") (abs:DF (match_dup 1)))]
-  "! TARGET_SOFT_FLOAT && TARGET_PA_20"
+  "(! TARGET_SOFT_FLOAT && TARGET_PA_20
+    && ! reg_overlap_mentioned_p (operands[2], operands[1]))"
   "#"
   [(set_attr "type" "fpalu")
    (set_attr "length" "8")])
@@ -4153,7 +4162,8 @@
   [(set (match_operand:SF 0 "register_operand" "=f")
 	(neg:SF (abs:SF (match_operand:SF 1 "register_operand" "f"))))
    (set (match_operand:SF 2 "register_operand" "=&f") (abs:SF (match_dup 1)))]
-  "! TARGET_SOFT_FLOAT && TARGET_PA_20"
+  "(! TARGET_SOFT_FLOAT && TARGET_PA_20
+    && ! reg_overlap_mentioned_p (operands[2], operands[1]))"
   "#"
   [(set_attr "type" "fpalu")
    (set_attr "length" "8")])
@@ -4199,28 +4209,6 @@
   [(set_attr "type" "binary")
    (set_attr "length" "4")])
 
-;; This variant of the above insn can occur if the first operand
-;; is the frame pointer.  This is a kludge, but there doesn't
-;; seem to be a way around it.  Only recognize it while reloading.
-;; Note how operand 3 uses a predicate of "const_int_operand", but 
-;; has constraints allowing a register.  I don't know how this works,
-;; but it somehow makes sure that out-of-range constants are placed
-;; in a register which somehow magically is a "const_int_operand".
-;; (this was stolen from alpha.md, I'm not going to try and change it.
-
-(define_insn ""
-  [(set (match_operand:SI 0 "register_operand" "=&r,r")
-	(plus:SI (plus:SI (mult:SI (match_operand:SI 2 "register_operand" "r,r")
-				   (match_operand:SI 4 "shadd_operand" ""))
-			  (match_operand:SI 1 "register_operand" "r,r"))
-		 (match_operand:SI 3 "const_int_operand" "r,J")))]
-  "reload_in_progress"
-  "@
-   {sh%O4addl %2,%1,%0|shladd,l %2,%O4,%1,%0}\;{addl|add,l} %3,%0,%0
-   {sh%O4addl %2,%1,%0|shladd,l %2,%O4,%1,%0}\;ldo %3(%0),%0"
-  [(set_attr "type" "multi")
-   (set_attr "length" "8")])
-
 ;; This anonymous pattern and splitter wins because it reduces the latency
 ;; of the shadd sequence without increasing the latency of the shift.
 ;;
@@ -4241,7 +4229,8 @@
    (set (match_operand:SI 4 "register_operand" "=&r")
 	(ashift:SI (match_dup 2)
 		   (match_operand:SI 5 "const_int_operand" "i")))]
-  "INTVAL (operands[5]) == exact_log2 (INTVAL (operands[3]))"
+  "(INTVAL (operands[5]) == exact_log2 (INTVAL (operands[3]))
+    && ! (reg_overlap_mentioned_p (operands[4], operands[2])))"
   "#"
   [(set_attr "type" "binary")
    (set_attr "length" "8")])
@@ -4746,7 +4735,7 @@
 }")
 
 (define_insn "call_internal_symref"
-  [(call (mem:SI (match_operand:SI 0 "call_operand_address" ""))
+  [(call (mem:SI (match_operand 0 "call_operand_address" ""))
 	 (match_operand 1 "" "i"))
    (clobber (reg:SI 2))
    (use (const_int 0))]
@@ -4895,7 +4884,7 @@
 
 (define_insn "call_value_internal_symref"
   [(set (match_operand 0 "" "=rf")
-	(call (mem:SI (match_operand:SI 1 "call_operand_address" ""))
+	(call (mem:SI (match_operand 1 "call_operand_address" ""))
 	      (match_operand 2 "" "i")))
    (clobber (reg:SI 2))
    (use (const_int 0))]
@@ -5106,7 +5095,20 @@
   DONE;
 }")
 
-(define_insn "extzv"
+(define_expand "extzv"
+  [(set (match_operand:SI 0 "register_operand" "")
+	(zero_extract:SI (match_operand:SI 1 "register_operand" "")
+			 (match_operand:SI 2 "uint5_operand" "")
+			 (match_operand:SI 3 "uint5_operand" "")))]
+  ""
+  "
+{
+  if (! uint5_operand (operands[2], SImode)
+      ||  ! uint5_operand (operands[3], SImode))
+  FAIL;
+}")
+
+(define_insn ""
   [(set (match_operand:SI 0 "register_operand" "=r")
 	(zero_extract:SI (match_operand:SI 1 "register_operand" "r")
 			 (match_operand:SI 2 "uint5_operand" "")
@@ -5126,7 +5128,20 @@
   [(set_attr "type" "shift")
    (set_attr "length" "4")])
 
-(define_insn "extv"
+(define_expand "extv"
+  [(set (match_operand:SI 0 "register_operand" "")
+	(sign_extract:SI (match_operand:SI 1 "register_operand" "")
+			 (match_operand:SI 2 "uint5_operand" "")
+			 (match_operand:SI 3 "uint5_operand" "")))]
+  ""
+  "
+{
+  if (! uint5_operand (operands[2], SImode)
+      ||  ! uint5_operand (operands[3], SImode))
+  FAIL;
+}")
+
+(define_insn ""
   [(set (match_operand:SI 0 "register_operand" "=r")
 	(sign_extract:SI (match_operand:SI 1 "register_operand" "r")
 			 (match_operand:SI 2 "uint5_operand" "")
@@ -5146,7 +5161,20 @@
   [(set_attr "type" "shift")
    (set_attr "length" "4")])
 
-(define_insn "insv"
+(define_expand "insv"
+  [(set (zero_extract:SI (match_operand:SI 0 "register_operand" "")
+			 (match_operand:SI 1 "uint5_operand" "")
+			 (match_operand:SI 2 "uint5_operand" ""))
+	(match_operand:SI 3 "arith5_operand" "r,L"))]
+  ""
+  "
+{
+  if (! uint5_operand (operands[1], SImode)
+      ||  ! uint5_operand (operands[2], SImode))
+  FAIL;
+}")
+
+(define_insn ""
   [(set (zero_extract:SI (match_operand:SI 0 "register_operand" "+r,r")
 			 (match_operand:SI 1 "uint5_operand" "")
 			 (match_operand:SI 2 "uint5_operand" ""))
@@ -5325,15 +5353,10 @@
 	  (const_int 8)
 	  (const_int 12)))))])
 
-;; The next several patterns (parallel_addb, parallel_movb, fmpyadd and
-;; fmpysub aren't currently used by the FSF sources, but will be soon.
-;;
-;; They're in the FSF tree for documentation and to make Cygnus<->FSF
-;; merging easier.
 (define_insn ""
   [(set (pc) (label_ref (match_operand 3 "" "" )))
-   (set (match_operand:SI 0 "register_operand" "=r")
-	(plus:SI (match_operand:SI 1 "register_operand" "r")
+   (set (match_operand:SI 0 "ireg_operand" "=r")
+	(plus:SI (match_operand:SI 1 "ireg_operand" "r")
 		 (match_operand:SI 2 "ireg_or_int5_operand" "rL")))]
   "(reload_completed && operands[0] == operands[1]) || operands[0] == operands[2]"
   "*
@@ -5349,7 +5372,7 @@
 
 (define_insn ""
   [(set (pc) (label_ref (match_operand 2 "" "" )))
-   (set (match_operand:SF 0 "register_operand" "=r")
+   (set (match_operand:SF 0 "ireg_operand" "=r")
 	(match_operand:SF 1 "ireg_or_int5_operand" "rL"))]
   "reload_completed"
   "*
@@ -5365,7 +5388,7 @@
 
 (define_insn ""
   [(set (pc) (label_ref (match_operand 2 "" "" )))
-   (set (match_operand:SI 0 "register_operand" "=r")
+   (set (match_operand:SI 0 "ireg_operand" "=r")
 	(match_operand:SI 1 "ireg_or_int5_operand" "rL"))]
   "reload_completed"
   "*
@@ -5381,7 +5404,7 @@
 
 (define_insn ""
   [(set (pc) (label_ref (match_operand 2 "" "" )))
-   (set (match_operand:HI 0 "register_operand" "=r")
+   (set (match_operand:HI 0 "ireg_operand" "=r")
 	(match_operand:HI 1 "ireg_or_int5_operand" "rL"))]
   "reload_completed"
   "*
@@ -5397,7 +5420,7 @@
 
 (define_insn ""
   [(set (pc) (label_ref (match_operand 2 "" "" )))
-   (set (match_operand:QI 0 "register_operand" "=r")
+   (set (match_operand:QI 0 "ireg_operand" "=r")
 	(match_operand:QI 1 "ireg_or_int5_operand" "rL"))]
   "reload_completed"
   "*

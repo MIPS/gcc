@@ -1,5 +1,5 @@
 /* Definitions for computing resource usage of specific insns.
-   Copyright (C) 1999 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -30,6 +30,7 @@ Boston, MA 02111-1307, USA.  */
 #include "flags.h"
 #include "output.h"
 #include "resource.h"
+#include "insn-attr.h"
 
 /* This structure is used to record liveness information at the targets or
    fallthrough insns of branches.  We will most likely need the information
@@ -73,7 +74,7 @@ static HARD_REG_SET current_live_regs;
 
 static HARD_REG_SET pending_dead_regs;
 
-static void update_live_status		PROTO ((rtx, rtx));
+static void update_live_status		PROTO ((rtx, rtx, void *));
 static int find_basic_block		PROTO ((rtx));
 static rtx next_insn_no_annul		PROTO ((rtx));
 static rtx find_dead_or_set_registers	PROTO ((rtx, struct resources*,
@@ -84,9 +85,10 @@ static rtx find_dead_or_set_registers	PROTO ((rtx, struct resources*,
    It deadens any CLOBBERed registers and livens any SET registers.  */
 
 static void
-update_live_status (dest, x)
+update_live_status (dest, x, data)
      rtx dest;
      rtx x;
+     void *data ATTRIBUTE_UNUSED;
 {
   int first_regno, last_regno;
   int i;
@@ -270,7 +272,9 @@ mark_referenced_resources (x, res, include_delayed_effects)
       mark_referenced_resources (SET_SRC (x), res, 0);
 
       x = SET_DEST (x);
-      if (GET_CODE (x) == SIGN_EXTRACT || GET_CODE (x) == ZERO_EXTRACT)
+      if (GET_CODE (x) == SIGN_EXTRACT
+	  || GET_CODE (x) == ZERO_EXTRACT
+	  || GET_CODE (x) == STRICT_LOW_PART)
 	mark_referenced_resources (x, res, 0);
       else if (GET_CODE (x) == SUBREG)
 	x = SUBREG_REG (x);
@@ -1007,7 +1011,7 @@ mark_target_live_regs (insns, target, res)
 		      SET_HARD_REG_BIT (pending_dead_regs, i);
 		  }
 
-	      note_stores (PATTERN (real_insn), update_live_status);
+	      note_stores (PATTERN (real_insn), update_live_status, NULL);
 
 	      /* If any registers were unused after this insn, kill them.
 		 These notes will always be accurate.  */
@@ -1063,8 +1067,8 @@ mark_target_live_regs (insns, target, res)
 
   /* If we hit an unconditional branch, we have another way of finding out
      what is live: we can see what is live at the branch target and include
-     anything used but not set before the branch.  The only things that are
-     live are those that are live using the above test and the test below.  */
+     anything used but not set before the branch.  We add the live
+     resources found using the test below to those found until now. */
 
   if (jump_insn)
     {
@@ -1088,7 +1092,7 @@ mark_target_live_regs (insns, target, res)
 	  mark_set_resources (insn, &set, 0, 1);
 	}
 
-      AND_HARD_REG_SET (res->regs, new_resources.regs);
+      IOR_HARD_REG_SET (res->regs, new_resources.regs);
     }
 
   if (tinfo != NULL)
@@ -1291,6 +1295,10 @@ find_free_register (current_insn, last_insn, class_str, mode, reg_set)
 	continue;
       /* And that we don't create an extra save/restore.  */
       if (! call_used_regs[regno] && ! regs_ever_live[regno])
+	continue;
+      /* And we don't clobber traceback for noreturn functions.  */
+      if ((regno == FRAME_POINTER_REGNUM || regno == HARD_FRAME_POINTER_REGNUM)
+	  && (! reload_completed || frame_pointer_needed))
 	continue;
 
       success = 1;

@@ -1,5 +1,5 @@
 /* Handle initialization things in C++.
-   Copyright (C) 1987, 89, 92-98, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1987, 89, 92-98, 1999, 2000 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GNU CC.
@@ -37,8 +37,7 @@ static void expand_aggr_vbase_init_1 PROTO((tree, tree, tree, tree));
 static void construct_virtual_bases PROTO((tree, tree, tree, tree, tree));
 static void expand_aggr_init_1 PROTO((tree, tree, tree, tree, int));
 static void expand_default_init PROTO((tree, tree, tree, tree, int));
-static tree build_vec_delete_1 PROTO((tree, tree, tree, tree, tree,
-				      int));
+static tree build_vec_delete_1 PROTO((tree, tree, tree, tree, int));
 static void perform_member_init PROTO((tree, tree, tree, int));
 static void sort_base_init PROTO((tree, tree *, tree *));
 static tree build_builtin_delete_call PROTO((tree));
@@ -49,6 +48,7 @@ static tree initializing_context PROTO((tree));
 static tree build_java_class_ref PROTO((tree));
 static void expand_cleanup_for_base PROTO((tree, tree));
 static tree get_temp_regvar PROTO((tree, tree));
+static tree dfs_initialize_vtbl_ptrs PROTO((tree, void *));
 
 /* Set up local variable for this file.  MUST BE CALLED AFTER
    INIT_DECL_PROCESSING.  */
@@ -63,72 +63,70 @@ void init_init_processing ()
 
   /* Define the structure that holds header information for
      arrays allocated via operator new.  */
-  BI_header_type = make_lang_type (RECORD_TYPE);
+  BI_header_type = make_aggr_type (RECORD_TYPE);
   nelts_identifier = get_identifier ("nelts");
   fields[0] = build_lang_decl (FIELD_DECL, nelts_identifier, sizetype);
+
+  /* Use the biggest alignment supported by the target to prevent operator
+     new from returning misaligned pointers. */
+  TYPE_ALIGN (BI_header_type) = BIGGEST_ALIGNMENT;
   finish_builtin_type (BI_header_type, "__new_cookie", fields,
-		       0, double_type_node);
+		       0, BI_header_type);
   BI_header_size = size_in_bytes (BI_header_type);
 
   ggc_add_tree_root (&BI_header_type, 1);
   ggc_add_tree_root (&BI_header_size, 1);
 }
 
-/* Subroutine of emit_base_init.  For BINFO, initialize all the
-   virtual function table pointers, except those that come from
-   virtual base classes.  Initialize binfo's vtable pointer, if
-   INIT_SELF is true.  CAN_ELIDE is true when we know that all virtual
-   function table pointers in all bases have been initialized already,
-   probably because their constructors have just be run.  ADDR is the
-   pointer to the object whos vtables we are going to initialize.
+/* Called from initialize_vtbl_ptrs via dfs_walk.  */
 
-   REAL_BINFO is usually the same as BINFO, except when addr is not of
-   pointer to the type of the real derived type that we want to
-   initialize for.  This is the case when addr is a pointer to a sub
-   object of a complete object, and we only want to do part of the
-   complete object's initialization of vtable pointers.  This is done
-   for all virtual table pointers in virtual base classes.  REAL_BINFO
-   is used to find the BINFO_VTABLE that we initialize with.  BINFO is
-   used for conversions of addr to subobjects.
+static tree
+dfs_initialize_vtbl_ptrs (binfo, data)
+     tree binfo;
+     void *data;
+{
+  if (!BINFO_PRIMARY_MARKED_P (binfo) 
+      && CLASSTYPE_VFIELDS (BINFO_TYPE (binfo)))
+    {
+      tree base_ptr = TREE_VALUE ((tree) data);
 
-   BINFO_TYPE (real_binfo) must be BINFO_TYPE (binfo).
+      if (TREE_VIA_VIRTUAL (binfo))
+	base_ptr = convert_pointer_to_vbase (BINFO_TYPE (binfo),
+					     base_ptr);
+      else
+	base_ptr 
+	  = build_vbase_path (PLUS_EXPR, 
+			      build_pointer_type (BINFO_TYPE (binfo)),
+			      base_ptr,
+			      binfo,
+			      /*nonnull=*/1);
 
-   Relies upon binfo being inside TYPE_BINFO (TREE_TYPE (TREE_TYPE
-   (addr))).  */
+      expand_virtual_init (binfo, base_ptr);
+    }
+
+  SET_BINFO_MARKED (binfo);
+
+  return NULL_TREE;
+}
+
+/* Initialize all the vtable pointers for the hierarchy dominated by
+   TYPE. */
 
 void
-expand_direct_vtbls_init (real_binfo, binfo, init_self, can_elide, addr)
-     tree real_binfo, binfo, addr;
-     int init_self, can_elide;
+initialize_vtbl_ptrs (type, addr)
+     tree type;
+     tree addr;
 {
-  tree real_binfos = BINFO_BASETYPES (real_binfo);
-  tree binfos = BINFO_BASETYPES (binfo);
-  int i, n_baselinks = real_binfos ? TREE_VEC_LENGTH (real_binfos) : 0;
+  tree list = build_tree_list (type, addr);
 
-  push_momentary ();
-  for (i = 0; i < n_baselinks; i++)
-    {
-      tree real_base_binfo = TREE_VEC_ELT (real_binfos, i);
-      tree base_binfo = TREE_VEC_ELT (binfos, i);
-      int is_not_base_vtable
-	= i != CLASSTYPE_VFIELD_PARENT (BINFO_TYPE (real_binfo));
-      if (! TREE_VIA_VIRTUAL (real_base_binfo))
-	expand_direct_vtbls_init (real_base_binfo, base_binfo,
-				  is_not_base_vtable, can_elide, addr);
-    }
-#if 0
-  /* Before turning this on, make sure it is correct.  */
-  if (can_elide && ! BINFO_MODIFIED (binfo))
-    return;
-#endif
-  /* Should we use something besides CLASSTYPE_VFIELDS? */
-  if (init_self && CLASSTYPE_VFIELDS (BINFO_TYPE (real_binfo)))
-    {
-      tree base_ptr = convert_pointer_to_real (binfo, addr);
-      expand_virtual_init (real_binfo, base_ptr);
-    }
-  pop_momentary ();
+  dfs_walk (TYPE_BINFO (type), dfs_initialize_vtbl_ptrs, 
+	    dfs_unmarked_real_bases_queue_p, list);
+  dfs_walk (TYPE_BINFO (type), dfs_unmark,
+	    dfs_marked_real_bases_queue_p, type);
+  if (TYPE_USES_VIRTUAL_BASECLASSES (type))
+    expand_indirect_vtbls_init (TYPE_BINFO (type), addr);
 }
+
 
 /* 348 - 351 */
 /* Subroutine of emit_base_init.  */
@@ -142,6 +140,9 @@ perform_member_init (member, name, init, explicit)
   tree type = TREE_TYPE (member);
 
   decl = build_component_ref (current_class_ref, name, NULL_TREE, explicit);
+
+  if (decl == error_mark_node)
+    return;
 
   /* Deal with this here, as we will get confused if we try to call the
      assignment op for an anonymous union.  This can happen in a
@@ -384,10 +385,7 @@ sort_base_init (t, rbase_ptr, vbase_ptr)
 	     this constructor is the top-level constructor called.  */
 	  if (TREE_VIA_VIRTUAL (binfo))
 	    {
-	      tree v = CLASSTYPE_VBASECLASSES (t);
-	      while (BINFO_TYPE (v) != BINFO_TYPE (binfo))
-		v = TREE_CHAIN (v);
-
+	      tree v = BINFO_FOR_VBASE (BINFO_TYPE (binfo), t);
 	      vbases = tree_cons (v, TREE_VALUE (x), vbases);
 	      continue;
 	    }
@@ -546,14 +544,8 @@ emit_base_init (t)
       rbase_init_list = TREE_CHAIN (rbase_init_list);
     }
 
-  /* Initialize all the virtual function table fields that
-     do come from virtual base classes.  */
-  if (TYPE_USES_VIRTUAL_BASECLASSES (t))
-    expand_indirect_vtbls_init (t_binfo, current_class_ref, current_class_ptr);
-
-  /* Initialize all the virtual function table fields that
-     do not come from virtual base classes.  */
-  expand_direct_vtbls_init (t_binfo, t_binfo, 1, 1, current_class_ptr);
+  /* Initialize the vtable pointers for the class.  */
+  initialize_vtbl_ptrs (t, current_class_ptr);
 
   for (member = TYPE_FIELDS (t); member; member = TREE_CHAIN (member))
     {
@@ -912,7 +904,7 @@ expand_member_init (exp, name, init)
 	       && ! current_template_parms
 	       && ! vec_binfo_member (basetype,
 				      TYPE_BINFO_BASETYPES (type))
-	       && ! binfo_member (basetype, CLASSTYPE_VBASECLASSES (type)))
+	       && ! BINFO_FOR_VBASE (basetype, type))
 	{
 	  if (IDENTIFIER_CLASS_VALUE (name))
 	    goto try_member;
@@ -975,7 +967,6 @@ begin_init_stmts (stmt_expr_p, compound_stmt_p)
      tree *stmt_expr_p;
      tree *compound_stmt_p;
 {
-  push_momentary ();
   *stmt_expr_p = begin_stmt_expr ();
   *compound_stmt_p = begin_compound_stmt (/*has_no_scope=*/1);
 }
@@ -988,7 +979,6 @@ finish_init_stmts (stmt_expr, compound_stmt)
      tree stmt_expr;
      tree compound_stmt;
 {
-  pop_momentary ();
   finish_compound_stmt (/*has_no_scope=*/1, compound_stmt);
   stmt_expr = finish_stmt_expr (stmt_expr);
 
@@ -2000,9 +1990,9 @@ build_new (placement, decl, init, use_global_new)
   if (processing_template_decl)
     {
       if (has_array)
-	t = min_tree_cons (min_tree_cons (NULL_TREE, type, NULL_TREE),
-			   build_min_nt (ARRAY_REF, NULL_TREE, nelts),
-			   NULL_TREE);
+	t = tree_cons (tree_cons (NULL_TREE, type, NULL_TREE),
+		       build_min_nt (ARRAY_REF, NULL_TREE, nelts),
+		       NULL_TREE);
       else
 	t = type;
 	
@@ -2076,7 +2066,6 @@ build_java_class_ref (type)
   class_decl = IDENTIFIER_GLOBAL_VALUE (name);
   if (class_decl == NULL_TREE)
     {
-      push_permanent_obstack ();
       class_decl = build_decl (VAR_DECL, name, TREE_TYPE (jclass_node));
       TREE_STATIC (class_decl) = 1;
       DECL_EXTERNAL (class_decl) = 1;
@@ -2085,7 +2074,6 @@ build_java_class_ref (type)
       DECL_IGNORED_P (class_decl) = 1;
       pushdecl_top_level (class_decl);
       make_decl_rtl (class_decl, NULL_PTR, 1);
-      pop_obstacks ();
     }
   return class_decl;
 }
@@ -2197,20 +2185,10 @@ build_new_1 (exp)
     }
   else
     {
-      int susp = 0;
-
-      if (flag_exceptions)
-	/* We will use RVAL when generating an exception handler for
-	   this new-expression, so we must save it.  */
-	susp = suspend_momentary ();
-
       rval = build_op_new_call
 	(code, true_type, tree_cons (NULL_TREE, size, placement),
 	 LOOKUP_NORMAL | (use_global_new * LOOKUP_GLOBAL));
       rval = cp_convert (build_pointer_type (true_type), rval);
-
-      if (flag_exceptions)
-	resume_momentary (susp);
     }
 
   /*        unless an allocation function is declared with an empty  excep-
@@ -2373,9 +2351,6 @@ build_new_1 (exp)
 	  tree cleanup, fn = NULL_TREE;
 	  int flags = LOOKUP_NORMAL | (use_global_new * LOOKUP_GLOBAL);
 
-	  /* All cleanups must last longer than normal.  */
-	  int yes = suspend_momentary ();
-
 	  /* The Standard is unclear here, but the right thing to do
              is to use the same method for finding deallocation
              functions that we use for finding allocation functions.  */
@@ -2387,8 +2362,6 @@ build_new_1 (exp)
 	  fn = TREE_OPERAND (fn, 0);
 
 	  cleanup = build_op_delete_call (dcode, alloc_node, size, flags, fn);
-
-	  resume_momentary (yes);
 
 	  /* Ack!  First we allocate the memory.  Then we set our sentry
 	     variable to true, and expand a cleanup that deletes the memory
@@ -2402,11 +2375,9 @@ build_new_1 (exp)
 	      begin = get_target_expr (boolean_true_node);
 	      sentry = TREE_OPERAND (begin, 0);
 
-	      yes = suspend_momentary ();
 	      TREE_OPERAND (begin, 2)
 		= build (COND_EXPR, void_type_node, sentry,
 			 cleanup, void_zero_node);
-	      resume_momentary (yes);
 
 	      rval = get_target_expr (rval);
 
@@ -2453,10 +2424,9 @@ build_new_1 (exp)
 }
 
 static tree
-build_vec_delete_1 (base, maxindex, type, auto_delete_vec, auto_delete,
-		    use_global_delete)
+build_vec_delete_1 (base, maxindex, type, auto_delete_vec, use_global_delete)
      tree base, maxindex, type;
-     tree auto_delete_vec, auto_delete;
+     tree auto_delete_vec;
      int use_global_delete;
 {
   tree virtual_size;
@@ -2491,7 +2461,7 @@ build_vec_delete_1 (base, maxindex, type, auto_delete_vec, auto_delete,
   /* The below is short by BI_header_size */
   virtual_size = fold (size_binop (MULT_EXPR, size_exp, maxindex));
 
-  tbase = build_decl (VAR_DECL, NULL_TREE, ptype);
+  tbase = create_temporary_var (ptype);
   tbase_init = build_modify_expr (tbase, NOP_EXPR,
 				  fold (build (PLUS_EXPR, ptype,
 					       base,
@@ -2500,29 +2470,10 @@ build_vec_delete_1 (base, maxindex, type, auto_delete_vec, auto_delete,
   controller = build (BIND_EXPR, void_type_node, tbase, NULL_TREE, NULL_TREE);
   TREE_SIDE_EFFECTS (controller) = 1;
 
-  if (auto_delete != integer_zero_node
-      && auto_delete != integer_two_node)
-    {
-      tree base_tbd = cp_convert (ptype,
-				  build_binary_op (MINUS_EXPR,
-						   cp_convert (ptr_type_node, base),
-						   BI_header_size));
-      /* This is the real size */
-      virtual_size = size_binop (PLUS_EXPR, virtual_size, BI_header_size);
-      body = build_expr_list (NULL_TREE,
-			      build_x_delete (base_tbd,
-					      2 | use_global_delete,
-					      virtual_size));
-      body = fold (build (COND_EXPR, void_type_node,
-			  fold (build (BIT_AND_EXPR, integer_type_node,
-				       auto_delete, integer_one_node)),
-			  body, integer_zero_node));
-    }
-  else
-    body = NULL_TREE;
+  body = NULL_TREE;
 
   body = tree_cons (NULL_TREE,
-		    build_delete (ptype, tbase, auto_delete,
+		    build_delete (ptype, tbase, integer_two_node,
 				  LOOKUP_NORMAL|LOOKUP_DESTRUCTOR, 1),
 		    body);
 
@@ -2677,7 +2628,7 @@ build_vec_init (decl, base, maxindex, init, from_array)
   tree compound_stmt;
   int destroy_temps;
   tree try_block = NULL_TREE;
-  tree try_body;
+  tree try_body = NULL_TREE;
   int num_initialized_elts = 0;
 
   maxindex = cp_convert (ptrdiff_type_node, maxindex);
@@ -2928,7 +2879,6 @@ build_vec_init (decl, base, maxindex, init, from_array)
 					       iterator),
 			      type,
 			      /*auto_delete_vec=*/integer_zero_node,
-			      /*auto_delete=*/integer_zero_node,
 			      /*use_global_delete=*/0);
       finish_cleanup (e, try_block);
     }
@@ -3033,8 +2983,7 @@ build_delete (type, addr, auto_delete, flags, use_global_delete)
 	  return error_mark_node;
 	}
       return build_vec_delete (addr, array_type_nelts (type),
-			       auto_delete, integer_zero_node,
-			       use_global_delete);
+			       auto_delete, use_global_delete);
     }
   else
     {
@@ -3228,7 +3177,6 @@ build_vbase_delete (type, decl)
    BASE is the expression that should yield the store to be deleted.
    This function expands (or synthesizes) these calls itself.
    AUTO_DELETE_VEC says whether the container (vector) should be deallocated.
-   AUTO_DELETE say whether each item in the container should be deallocated.
 
    This also calls delete for virtual baseclasses of elements of the vector.
 
@@ -3240,10 +3188,9 @@ build_vbase_delete (type, decl)
    be worth bothering.)  */
 
 tree
-build_vec_delete (base, maxindex, auto_delete_vec, auto_delete,
-		  use_global_delete)
+build_vec_delete (base, maxindex, auto_delete_vec, use_global_delete)
      tree base, maxindex;
-     tree auto_delete_vec, auto_delete;
+     tree auto_delete_vec;
      int use_global_delete;
 {
   tree type;
@@ -3285,6 +3232,6 @@ build_vec_delete (base, maxindex, auto_delete_vec, auto_delete,
       return error_mark_node;
     }
 
-  return build_vec_delete_1 (base, maxindex, type, auto_delete_vec, auto_delete,
+  return build_vec_delete_1 (base, maxindex, type, auto_delete_vec,
 			     use_global_delete);
 }

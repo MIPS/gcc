@@ -1,3 +1,265 @@
+Thu Jan 13 02:29:32 2000  Jeffrey A Law  (law@cygnus.com)
+
+	* gcc.c-torture/execute/20000113-1.c: New test.
+
+Wed Jan 12 20:26:58 2000  Jeffrey A Law  (law@cygnus.com)
+
+	* gcc.c-torture/execute/20000112-1.c: New test.
+
+2000-01-11  Alexandre Oliva  <oliva@lsd.ic.unicamp.br>
+
+	* gcc.dg/20000111-1.c: New test.
+
+Mon Jan 10 18:12:49 2000  Jeffrey A Law  (law@cygnus.com)
+
+	* gcc.c-torture/execute/990628-1.c: Tweak to work on targets
+	with 16 bit integers.
+
+2000-01-08  Alexandre Oliva  <oliva@lsd.ic.unicamp.br>
+
+	* gcc.dg/20000108-1.c: New test.
+
+2000-01-05  Nathan Sidwell  <nathan@acm.org>
+
+	* g++.old-deja/g++.ns/koenig8.C: New test.
+
+2000-01-05  Nathan Sidwell  <nathan@acm.org>
+
+	* g++.old-deja/g++.other/cast4.C: New test.
+
+Wed Jan  5 00:26:20 2000  Jeffrey A Law  (law@cygnus.com)
+
+	* gcc.c-torture/compile/20000105-2.c: New test.
+	* gcc.c-torture/compile/20000105-1.c: New test.
+
+2000-01-04  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* g++.old-deja/g++.brendan/array1.C: Modify explicit external libc
+	references to printf & atoi to conform to ANSI standard.
+	* g++.old-deja/g++.brendan/code-gen1.C: Likewise.
+	* g++.old-deja/g++.brendan/code-gen2.C: Likewise.
+	* g++.old-deja/g++.brendan/code-gen3.C: Likewise.
+	* g++.old-deja/g++.brendan/code-gen4.C: Likewise.
+	* g++.old-deja/g++.brendan/code-gen6.C: Likewise.
+	* g++.old-deja/g++.brendan/complex1.C: Likewise.
+	* g++.old-deja/g++.brendan/copy1.C: Likewise.
+	* g++.old-deja/g++.brendan/copy2.C: Likewise.
+	* g++.old-deja/g++.brendan/copy3.C: Likewise.
+	* g++.old-deja/g++.brendan/copy4.C: Likewise.
+	* g++.old-deja/g++.brendan/copy5.C: Likewise.
+	* g++.old-deja/g++.brendan/copy6.C: Likewise.
+	* g++.old-deja/g++.brendan/copy7.C: Likewise.
+	* g++.old-deja/g++.brendan/copy8.C: Likewise.
+	* g++.old-deja/g++.brendan/crash11.C: Likewise.
+	* g++.old-deja/g++.brendan/crash14.C: Likewise.
+	* g++.old-deja/g++.brendan/ctors1.C: Likewise.
+	* g++.old-deja/g++.brendan/ctors2.C: Likewise.
+	* g++.old-deja/g++.brendan/delete2.C: Likewise.
+	* g++.old-deja/g++.brendan/dtors1.C: Likewise.
+	* g++.old-deja/g++.brendan/dtors2.C: Likewise.
+	* g++.old-deja/g++.brendan/dtors3.C: Likewise.
+	* g++.old-deja/g++.brendan/eh1.C: Likewise.
+	* g++.old-deja/g++.brendan/groff1.C: Likewise.
+	* g++.old-deja/g++.brendan/init3.C: Likewise.
+	* g++.old-deja/g++.brendan/misc12.C: Likewise.
+	* g++.old-deja/g++.brendan/misc7.C: Likewise.
+	* g++.old-deja/g++.brendan/new2.C: Likewise.
+	* g++.old-deja/g++.brendan/operators4.C: Likewise.
+	* g++.old-deja/g++.brendan/operators5.C: Likewise.
+	* g++.old-deja/g++.brendan/overload2.C: Likewise.
+	* g++.old-deja/g++.brendan/overload7.C: Likewise.
+	* g++.old-deja/g++.brendan/redecl2.C: Likewise.
+	* g++.old-deja/g++.brendan/reference1.C: Likewise.
+	* g++.old-deja/g++.brendan/sizeof5.C: Likewise.
+	* g++.old-deja/g++.brendan/template24.C: Likewise.
+	* g++.old-deja/g++.brendan/template3.C: Likewise.
+	* g++.old-deja/g++.brendan/vtables1.C: Likewise.
+	* g++.old-deja/g++.jason/inline3.C: Likewise.
+	* g++.old-deja/g++.jason/opeq.C: Likewise.
+	* g++.old-deja/g++.law/arg5.C: Likewise.
+	* g++.old-deja/g++.law/arm7.C: Likewise.
+	* g++.old-deja/g++.law/ctors11.C: Likewise.
+	* g++.old-deja/g++.law/cvt8.C: Likewise.
+	* g++.old-deja/g++.law/init9.C: Likewise.
+	* g++.old-deja/g++.law/refs4.C: Likewise.
+	* g++.old-deja/g++.law/template2.C: Likewise.
+	* g++.old-deja/g++.law/visibility24.C: Likewise.
+	* g++.old-deja/g++.law/vtable3.C: Likewise.
+	* g++.old-deja/g++.mike/asm2.C: Likewise.
+	* g++.old-deja/g++.mike/eh1.C: Likewise.
+	* g++.old-deja/g++.mike/misc1.C: Likewise.
+	* g++.old-deja/g++.mike/misc13.C: Likewise.
+	* g++.old-deja/g++.mike/misc14.C: Likewise.
+	* g++.old-deja/g++.mike/ns12.C: Likewise.
+	* g++.old-deja/g++.mike/p1248.C: Likewise.
+	* g++.old-deja/g++.mike/p3708.C: Likewise.
+	* g++.old-deja/g++.mike/p3708a.C: Likewise.
+	* g++.old-deja/g++.mike/p3708b.C: Likewise.
+	* g++.old-deja/g++.mike/p646.C: Likewise.
+	* g++.old-deja/g++.mike/p700.C: Likewise.
+	* g++.old-deja/g++.mike/p783.C: Likewise.
+	* g++.old-deja/g++.mike/p783a.C: Likewise.
+	* g++.old-deja/g++.mike/p783b.C: Likewise.
+	* g++.old-deja/g++.mike/p786.C: Likewise.
+	* g++.old-deja/g++.mike/p789.C: Likewise.
+	* g++.old-deja/g++.mike/p789a.C: Likewise.
+	* g++.old-deja/g++.mike/p807a.C: Likewise.
+	* g++.old-deja/g++.other/delete3.C: Likewise.
+	* g++.old-deja/g++.other/dyncast1.C: Likewise.
+	* g++.old-deja/g++.other/dyncast2.C: Likewise.
+	* g++.old-deja/g++.other/dyncast3.C: Likewise.
+	* g++.old-deja/g++.other/empty1.C: Likewise.
+	* g++.old-deja/g++.other/temporary1.C: Likewise.
+	* g++.old-deja/g++.pt/memtemp14.C: Likewise.
+	* g++.old-deja/g++.pt/t16.C: Likewise.
+	* g++.old-deja/g++.pt/tiemann2.C: Likewise.
+
+1999-12-30  Bernd Schmidt  <bernds@cygnus.co.uk>
+
+	* gcc.dg/991230-1.c: New test.
+
+Wed Dec 29 23:48:49 1999  Jeffrey A Law  (law@cygnus.com)
+
+	* gcc.c-torture/compile/991229-3.c: New test.
+	* gcc.c-torture/compile/991229-2.c: New test.
+	* gcc.c-torture/compile/991229-1.c: New test.
+
+Wed Dec 29 20:54:46 1999  Greg McGary <gkm@eng.ascend.com>
+
+	* gcc.c-torture/compile/labels-2.c: New test.
+
+1999-12-22  Alexandre Oliva  <oliva@lsd.ic.unicamp.br>
+
+	* g++.old-deja/g++.pt/instantiate6.C: Remove excess errors XFAIL.
+
+1999-12-20  Nathan Sidwell  <nathan@acm.org>
+
+	* g++.old-deja/g++.other/cast3.C: New test.
+
+1999-12-14  Bernd Schmidt  <bernds@cygnus.co.uk>
+
+	* gcc.dg/991214-1.c: Use "__asm__", not "asm".
+	Actually make the test fail by using "-O2" for compilation.
+
+1999-12-15  Nathan Sidwell  <nathan@acm.org>
+
+	* g++.old-deja/g++.warn/cast-align1.C: New test.
+
+1999-12-14  Bernd Schmidt  <bernds@cygnus.co.uk>
+
+	* gcc.dg/991214-1.c: New test.
+	
+Mon Dec 13 23:03:09 1999  Jeffrey A Law  (law@cygnus.com)
+
+	* gcc.c-torture/compile/991213-3.c: New test.
+	* gcc.c-torture/compile/991213-2.c: New test.
+	* gcc.c-torture/compile/991213-1.c: New test.
+
+Fri Dec 10 00:53:10 1999  J"orn Rennecke <amylaar@cygnus.co.uk>
+
+	* gcc.dg/991209-1.c: New test.
+
+Wed Dec  8 23:44:08 1999  Nathan Sidwell <nathan@acm.org>
+
+	* gcc.c-torture/compile/991208-1.c: New test.
+
+1999-12-06  Alexandre Oliva  <oliva@lsd.ic.unicamp.br>
+
+	* gcc.dg/ultrasp2.c: New test.
+
+1999-12-05  Alex Samuel  <samuel@codesourcery.com>
+
+	* g++.old-deja/g++.abi/align.C (main): Fix typo.
+
+1999-12-02  Alex Samuel  <samuel@codesourcery.com>
+
+	* g++.old-deja/g++.abi/align.C: New test.
+	* g++.old-deja/g++.abi/aggregates.C: Likewise.
+	* g++.old-deja/g++.abi/bitfields.C: Likewise.
+
+1999-12-01  Richard Henderson  <rth@cygnus.com>
+
+	* gcc.c-torture/execute/991201-1.c: New.
+
+1999-11-29  Bernd Schmidt  <bernds@cygnus.co.uk>
+
+	* gcc.dg/991129-1.c: New test.
+
+1999-11-22  Nathan Sidwell  <nathan@acm.org>
+
+	* g++.old-deja/g++.other/warn4.C: New test.
+
+1999-11-22  Nathan Sidwell  <nathan@acm.org>
+
+	* g++.old-deja/g++.eh/cleanup2.C: New test.
+	* g++.old-deja/g++.ext/pretty2.C: New test.
+	* g++.old-deja/g++.ext/pretty3.C: New test.
+	* g++.old-deja/g++.other/debug6.C: New test.
+
+1999-11-19  Geoffrey Keating  <geoffk@cygnus.com>
+
+	* gcc.c-torture/execute/991118-1.c: Also test case
+	where the word boundary does not split a byte evenly.
+
+1999-11-19  Nathan Sidwell  <nathan@acm.org>
+
+	* g++.old-deja/g++.ext/restrict1.C: New test.
+
+1999-11-18 Herman A.J. ten Brugge <Haj.Ten.Brugge@net.HCC.nl>
+
+	* gcc.c-torture/execute/991118-1.c: New test.
+
+1999-11-16  Geoffrey Keating  <geoffk@cygnus.com>
+
+	* g77.f-torture/execute/u77-test.f (wd): Allow for longer
+	working directory pathnames.
+
+1999-11-08  Nick Clifton  <nickc@cygnus.com>
+
+	* lib/gcc-dg.exp: Include target-supports.exp
+
+1999-11-05  Nick Clifton  <nickc@cygnus.com>
+
+	* lib/target-supports.exp: New file: Provide procs to test for 
+	features supported by the target.
+	(check_weak_available): Moved here from ecos.exp.
+	(check_alias_available): New proc: Determine of the target
+	toolchain supports the alias attribute.
+	
+	* gcc.dg/special/ecos.exp: Move check_weak_available to
+	target-supports.exp. 
+	(alias-1.c): Only perform the test if the target supports
+	aliases. 
+	(wkali-1.c): Only perform the test if the target supports
+	aliases. 
+
+	* gcc.dg/990506-0.c: Expect error messages from cross
+	targets as well as native targets.
+
+1999-11-02  Alexandre Oliva  <oliva@lsd.ic.unicamp.br>
+
+	* gcc.dg/ultrasp1.c: Removed xfail.
+	* gcc.dg/struct-ret-2.c: Likewise.
+	* gcc.dg/array-1.c: Likewise.
+
+1999-11-01  Alexandre Oliva  <oliva@lsd.ic.unicamp.br>
+
+	* gcc.dg/struct-ret-2.c: New test.
+
+	* gcc.dg/array-1.c: New test.
+
+Sat Oct 30 22:23:46 1999  Stephen L Moshier <moshier@mediaone.net>
+
+	* gcc.c-torture/execute/991030-1.c: New test.
+
+Tue Oct 26 20:25:42 1999  Richard Henderson  <rth@cygnus.com>
+
+	* gcc.c-torture/compile/991026-2.c: New test.
+
+Tue Oct 26 00:45:56 1999  Jeffrey A Law  (law@cygnus.com)
+
+	* gcc.c-torture/compile/991026-1.c: New test.
+
 Sat Oct 23 23:36:03 1999  Jeffrey A Law  (law@cygnus.com)
 
 	* gcc.c-torture/execute/991023-1.c: New test.

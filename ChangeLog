@@ -1,3 +1,60 @@
+Wed Jan 12 18:00:26 2000  Mark P. Mitchell  <mark@codesourcery.com>
+
+	* configure.in: Fix typo in last change.
+
+2000-01-12  Richard Henderson  <rth@cygnus.com>
+
+	* configure.in: Don't build some bits for beos.
+
+2000-01-12  Joel Sherrill (joel@OARcorp.com)
+
+	* Makefile.in (CC_FOR_TARGET): Use newlib libraries as well
+	as include files.
+
+2000-01-11  Zack Weinberg  <zack@wolery.cumb.org>
+
+	* Add self as cpplib maintainer, as requested by Jason
+	Merrill.  Correct my e-mail address.
+
+2000-01-06  Geoff Keating  <geoffk@cygnus.com>
+
+	* configure.in: Use mt-aix43 to handle *_TARGET defs,
+	not mh-aix43.
+
+Thu Dec 23 03:43:36 1999  Hans-Peter Nilsson  <hp@bitrange.com>
+
+	* MAINTAINERS: Add myself to "write after approval" list.
+
+1999-12-14  Richard Henderson  <rth@cygnus.com>
+
+	* config.guess (alpha-osf, alpha-linux): Detect ev67.
+	* config.sub: Accept alphaev[78], alphaev8.
+
+1999-12-03  Alexandre Oliva  <oliva@lsd.ic.unicamp.br>
+
+	* config.guess, config.sub: Update from autoconf.
+
+1999-11-29  Bruce Korb  <autogen@linuxbox.com>
+
+	* MAINTAINERS:  update my playtime e-address.
+
+Tue Nov 23 00:57:41 1999  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* config-ml.in (sparc*-*-*): Disable sparcv9 support if the
+	necessary libraries are missing.
+
+Fri Nov 19 11:22:31 MST 1999	Diego Novillo <dnovillo@cygnus.com>
+
+	* MAINTAINERS: Add new 'write after approval' maintainer.
+
+Wed Nov 17 16:08:43 1999  Alexandre Petit-Bianco  <apbianco@cygnus.com>
+
+	* MAINTAINERS: Add new Java maintainer.
+
+1999-10-25  Andreas Schwab  <schwab@suse.de>
+
+	* configure: Fix quoting inside arguments of eval.
+
 1999-10-21  Nick Clifton  <nickc@cygnus.com>
 
 	* config-ml.in: Allow suppression of some ARM multilibs.

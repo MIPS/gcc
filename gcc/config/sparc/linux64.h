@@ -26,6 +26,9 @@ Boston, MA 02111-1307, USA.  */
 /* Don't assume anything about the header files. */
 #define NO_IMPLICIT_EXTERN_C
 
+#undef DEFAULT_VTABLE_THUNKS
+#define DEFAULT_VTABLE_THUNKS 1
+
 #include <sparc/sysv4.h>
 
 #undef MD_EXEC_PREFIX
@@ -38,7 +41,7 @@ Boston, MA 02111-1307, USA.  */
 #undef TARGET_DEFAULT
 #define TARGET_DEFAULT \
   (MASK_V9 + MASK_PTR64 + MASK_64BIT /* + MASK_HARD_QUAD */ \
-   + MASK_STACK_BIAS + MASK_EPILOGUE + MASK_FPU)
+   + MASK_STACK_BIAS + MASK_APP_REGS + MASK_EPILOGUE + MASK_FPU)
 #endif
 
 /* Output at beginning of assembler file.  */
@@ -236,6 +239,7 @@ Boston, MA 02111-1307, USA.  */
 %{mv8:-mcpu=v8} %{msupersparc:-mcpu=supersparc} \
 %{m32:-mptr32 -mno-stack-bias \
   %{!mcpu*:%{!mcypress:%{!msparclite:%{!mf930:%{!mf934:%{!mv8:%{!msupersparc:-mcpu=cypress}}}}}}}} \
+%{!m32:%{!mcpu*:-mcpu=ultrasparc}} \
 %{!mno-vis:%{!m32:%{!mcpu=v9:-mvis}}} \
 "
 #endif
@@ -328,11 +332,6 @@ do {									\
 #define ASM_GENERATE_INTERNAL_LABEL(LABEL,PREFIX,NUM)	\
   sprintf (LABEL, "*.L%s%d", PREFIX, NUM)
 
-/* Stabs doesn't use this, and it confuses a simulator.  */
-/* ??? Need to see what DWARF needs, if anything.  */
-#undef ASM_IDENTIFY_GCC
-#define ASM_IDENTIFY_GCC(FILE)
-
 /* Define the names of various pseudo-ops used by the Sparc/svr4 assembler.
    ??? If ints are 64 bits then UNALIGNED_INT_ASM_OP (defined elsewhere) is
    misnamed.  These should all refer to explicit sizes (half/word/xword?),
@@ -349,6 +348,13 @@ do {									\
 
 /* #define DWARF_OFFSET_SIZE PTR_SIZE */
 
+/* No weird SPARC variants on Linux */
+#undef TARGET_LIVE_G0
+#define TARGET_LIVE_G0			0
+#undef TARGET_BROKEN_SAVERESTORE
+#define TARGET_BROKEN_SAVERESTORE	0
+
+#if TARGET_ARCH32
 /* Override MACHINE_STATE_{SAVE,RESTORE} because we have special
    traps available which can get and set the condition codes
    reliably.  */
@@ -367,6 +373,7 @@ do {									\
 	       "ta	0x21\n\t"			\
 	       : /* no outputs */			\
 	       : "r" (ms_flags), "r" (ms_saveret));
+#endif /* sparc32 */
 
 /* A C statement (sans semicolon) to output an element in the table of
    global constructors.  */

@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler, for IBM RS/6000.
-   Copyright (C) 1992, 93-8, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1992, 93-99, 2000 Free Software Foundation, Inc.
    Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu)
 
 This file is part of GNU CC.
@@ -303,6 +303,16 @@ extern int target_flags;
 #define TARGET_UPDATE		(! TARGET_NO_UPDATE)
 #define TARGET_FUSED_MADD	(! TARGET_NO_FUSED_MADD)
 
+#ifdef IN_LIBGCC2
+/* For libgcc2 we make sure this is a compile time constant */
+#undef TARGET_POWERPC64
+#ifdef __64BIT__
+#define TARGET_POWERPC64	1
+#else
+#define TARGET_POWERPC64	0
+#endif
+#endif
+
 /* Pseudo target to indicate whether the object format is ELF
    (to get around not having conditional compilation in the md file)  */
 #ifndef	TARGET_ELF
@@ -391,9 +401,10 @@ extern int target_flags;
   {"fused-madd",	- MASK_NO_FUSED_MADD},				\
   {"no-fused-madd",	MASK_NO_FUSED_MADD},				\
   SUBTARGET_SWITCHES							\
-  {"",			TARGET_DEFAULT}}
+  {"",			TARGET_DEFAULT | SUBTARGET_DEFAULT}}
 
 #define TARGET_DEFAULT (MASK_POWER | MASK_MULTIPLE | MASK_STRING)
+#define SUBTARGET_DEFAULT 0
 
 /* Processor type.  Order must match cpu attribute in MD file.  */
 enum processor_type
@@ -496,7 +507,6 @@ extern int rs6000_debug_arg;		/* debug argument handling */
 
 /* Define this to change the optimizations performed by default.  */
 #define OPTIMIZATION_OPTIONS(LEVEL,SIZE) optimization_options(LEVEL,SIZE)
-
 
 /* Show we can debug even without a frame pointer.  */
 #define CAN_DEBUG_WITHOUT_FP
@@ -625,6 +635,9 @@ extern int rs6000_debug_arg;		/* debug argument handling */
 /* No data type wants to be aligned rounder than this.  */
 #define BIGGEST_ALIGNMENT 64
 
+/* Handle #pragma pack.  */
+#define HANDLE_PRAGMA_PACK 1
+
 /* AIX word-aligns FP doubles but doubleword-aligns 64-bit ints.  */
 #define ADJUST_FIELD_ALIGN(FIELD, COMPUTED) \
   (TYPE_MODE (TREE_CODE (TREE_TYPE (FIELD)) == ARRAY_TYPE \
@@ -666,6 +679,14 @@ extern int rs6000_debug_arg;		/* debug argument handling */
 /* Non-zero if move instructions will actually fail to work
    when given unaligned data.  */
 #define STRICT_ALIGNMENT 0
+
+/* Define this macro to be the value 1 if unaligned accesses have a cost
+   many times greater than aligned accesses, for example if they are
+   emulated in a trap handler.  */
+#define SLOW_UNALIGNED_ACCESS(MODE, ALIGN)			\
+   ((((MODE) == SFmode || (MODE) == DFmode || (MODE) == DImode)	\
+     && (ALIGN) < 4) ? 1 : 0)
+
 
 /* Standard register usage.  */
 
@@ -850,8 +871,8 @@ extern int rs6000_debug_arg;		/* debug argument handling */
 
    On the RS/6000, bump this up a bit.  */
 
-#define MEMORY_MOVE_COST(MODE,CLASS,IN)	\
-  ((GET_MODE_CLASS (MODE) == MODE_FLOAT	\
+#define MEMORY_MOVE_COST(MODE, CLASS, IN)	\
+  ((GET_MODE_CLASS (MODE) == MODE_FLOAT		\
     && (rs6000_cpu == PROCESSOR_RIOS1 || rs6000_cpu == PROCESSOR_PPC601) \
     ? 3 : 2) \
    + 4)
@@ -871,7 +892,7 @@ extern int rs6000_debug_arg;		/* debug argument handling */
    output-dependencies.  In fact, output dependencies on the CR do have
    a cost, but it is probably not worthwhile to track it.  */
 
-#define ADJUST_COST(INSN,LINK,DEP_INSN,COST)				\
+#define ADJUST_COST(INSN, LINK, DEP_INSN, COST)				\
   (COST) = rs6000_adjust_cost (INSN,LINK,DEP_INSN,COST)
 
 /* A C statement (sans semicolon) to update the integer scheduling priority
@@ -2165,7 +2186,7 @@ do {                                                                    \
 
 /* Specify the machine mode that this machine uses
    for the index in the tablejump instruction.  */
-#define CASE_VECTOR_MODE (TARGET_32BIT ? SImode : DImode)
+#define CASE_VECTOR_MODE SImode
 
 /* Define as C expression which evaluates to nonzero if the tablejump
    instruction expects the table to contain offsets from the address of the
@@ -2513,7 +2534,8 @@ extern int rs6000_trunc_used;
   text_section ();						\
   fputs ("_section_.text:\n", FILE);				\
   data_section ();						\
-  fputs ("\t.long _section_.text\n", FILE);			\
+  fputs (TARGET_32BIT						\
+	 ? "\t.long _section_.text\n" : "\t.llong _section_.text\n", FILE); \
 }
 
 /* We define this to prevent the name mangler from putting dollar signs into
@@ -2556,10 +2578,10 @@ extern int rs6000_trunc_used;
    that we can branch to this function without emitting a no-op after the
    call.  Do not set this flag if the function is weakly defined. */
 
-#define ENCODE_SECTION_INFO(DECL)  \
+#define ENCODE_SECTION_INFO(DECL)			\
   if (TREE_CODE (DECL) == FUNCTION_DECL			\
       && (TREE_ASM_WRITTEN (DECL) || ! TREE_PUBLIC (DECL)) \
-      && !DECL_WEAK (DECL)) \
+      && ! DECL_WEAK (DECL))				\
     SYMBOL_REF_FLAG (XEXP (DECL_RTL (DECL), 0)) = 1;
 
 /* Indicate that jump tables go in the text section.  */
@@ -2576,7 +2598,7 @@ read_only_data_section ()				\
 {							\
   if (in_section != read_only_data)			\
     {							\
-      fprintf (asm_out_file, ".csect %s[RO],3\n",	\
+      fprintf (asm_out_file, "\t.csect %s[RO],3\n",	\
 	       xcoff_read_only_section_name);		\
       in_section = read_only_data;			\
     }							\
@@ -2587,7 +2609,7 @@ private_data_section ()					\
 {							\
   if (in_section != private_data)			\
     {							\
-      fprintf (asm_out_file, ".csect %s[RW],3\n",	\
+      fprintf (asm_out_file, "\t.csect %s[RW],3\n",	\
 	       xcoff_private_data_section_name);	\
       in_section = private_data;			\
     }							\
@@ -2598,7 +2620,7 @@ read_only_private_data_section ()			\
 {							\
   if (in_section != read_only_private_data)		\
     {							\
-      fprintf (asm_out_file, ".csect %s[RO],3\n",	\
+      fprintf (asm_out_file, "\t.csect %s[RO],3\n",	\
 	       xcoff_private_data_section_name);	\
       in_section = read_only_private_data;		\
     }							\
@@ -2614,19 +2636,19 @@ toc_section ()						\
 	 in each file.  */						 \
       if (! toc_initialized)				\
 	{						\
-	  fputs (".toc\nLCTOC..0:\n", asm_out_file);	\
+	  fputs ("\t.toc\nLCTOC..0:\n", asm_out_file);	\
 	  fputs ("\t.tc toc_table[TC],toc_table[RW]\n", asm_out_file); \
 	  toc_initialized = 1;				\
 	}						\
 							\
       if (in_section != toc)				\
-	fprintf (asm_out_file, ".csect toc_table[RW]%s\n",	\
+	fprintf (asm_out_file, "\t.csect toc_table[RW]%s\n",	\
 		 (TARGET_32BIT ? "" : ",3"));		\
     }							\
   else							\
     {							\
       if (in_section != toc)				\
-        fputs (".toc\n", asm_out_file);			\
+        fputs ("\t.toc\n", asm_out_file);		\
     }							\
   in_section = toc;					\
 }
@@ -2640,9 +2662,10 @@ extern int toc_initialized;
 
    The csect for the function will have already been created by the
    `text_section' call previously done.  We do have to go back to that
-   csect, however.  */
+   csect, however.
 
-/* ??? What do the 16 and 044 in the .function line really mean?  */
+   The third and fourth parameters to the .function pseudo-op (16 and 044)
+   are placeholders which no longer have any use.  */
 
 #define ASM_DECLARE_FUNCTION_NAME(FILE,NAME,DECL)		\
 { if (TREE_PUBLIC (DECL))					\
@@ -2657,7 +2680,7 @@ extern int toc_initialized;
       RS6000_OUTPUT_BASENAME (FILE, NAME);			\
       putc ('\n', FILE);					\
     }								\
-  fputs (".csect ", FILE);					\
+  fputs ("\t.csect ", FILE);					\
   RS6000_OUTPUT_BASENAME (FILE, NAME);				\
   fputs (TARGET_32BIT ? "[DS]\n" : "[DS],3\n", FILE);		\
   RS6000_OUTPUT_BASENAME (FILE, NAME);				\
@@ -2665,7 +2688,8 @@ extern int toc_initialized;
   fputs (TARGET_32BIT ? "\t.long ." : "\t.llong .", FILE);	\
   RS6000_OUTPUT_BASENAME (FILE, NAME);				\
   fputs (", TOC[tc0], 0\n", FILE);				\
-  fputs (".csect .text[PR]\n.", FILE);				\
+  fputs (TARGET_32BIT						\
+	 ? "\t.csect .text[PR]\n." : "\t.csect .text[PR],3\n.", FILE); \
   RS6000_OUTPUT_BASENAME (FILE, NAME);				\
   fputs (":\n", FILE);						\
   if (write_symbols == XCOFF_DEBUG)				\
@@ -2819,6 +2843,17 @@ extern int toc_initialized;
   putc ('\n', FILE);				\
 }
 
+/* This is how we tell the assembler that two symbols have the same value.  */
+
+#define ASM_OUTPUT_DEF(FILE,NAME1,NAME2)	\
+do {						\
+  fputs("\t.set ", FILE);			\
+  assemble_name(FILE, NAME1);			\
+  fputc(',', FILE);				\
+  assemble_name(FILE, NAME2);			\
+  fputc('\n', FILE);				\
+} while (0)
+
 /* Output to assembler file text saying following lines
    may contain character constants, extra white space, comments, etc.  */
 
@@ -2833,7 +2868,7 @@ extern int toc_initialized;
    Text section for 64-bit target may contain 64-bit address jump table.  */
 
 #define TEXT_SECTION_ASM_OP (TARGET_32BIT \
-			     ? ".csect .text[PR]" : ".csect .text[PR],3")
+			     ? "\t.csect .text[PR]" : "\t.csect .text[PR],3")
 
 /* Output before writable data.
    Align entire section to BIGGEST_ALIGNMENT.  */
@@ -3098,7 +3133,7 @@ do {									\
 
 #define ASM_OUTPUT_ADDR_VEC_ELT(FILE, VALUE)		\
   do { char buf[100];					\
-       fputs (TARGET_32BIT ? "\t.long " : "\t.llong ", FILE);	\
+       fputs ("\t.long ", FILE);			\
        ASM_GENERATE_INTERNAL_LABEL (buf, "L", VALUE);	\
        assemble_name (FILE, buf);			\
        putc ('\n', FILE);				\
@@ -3106,9 +3141,9 @@ do {									\
 
 /* This is how to output an element of a case-vector that is relative.  */
 
-#define ASM_OUTPUT_ADDR_DIFF_ELT(FILE, BODY, VALUE, REL)	\
+#define ASM_OUTPUT_ADDR_DIFF_ELT(FILE, BODY, VALUE, REL) \
   do { char buf[100];					\
-       fputs (TARGET_32BIT ? "\t.long " : "\t.llong ", FILE);	\
+       fputs ("\t.long ", FILE);			\
        ASM_GENERATE_INTERNAL_LABEL (buf, "L", VALUE);	\
        assemble_name (FILE, buf);			\
        putc ('-', FILE);				\
@@ -3301,7 +3336,7 @@ extern struct rtx_def *function_arg ();
 extern int function_arg_partial_nregs ();
 extern int function_arg_pass_by_reference ();
 extern void setup_incoming_varargs ();
-extern union tree_node *rs6000_va_list ();
+extern union tree_node *rs6000_build_va_list ();
 extern void rs6000_va_start ();
 extern struct rtx_def *rs6000_va_arg ();
 extern struct rtx_def *rs6000_stack_temp ();

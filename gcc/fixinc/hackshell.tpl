@@ -9,9 +9,7 @@
   for file in $files; do
 
     # Skip unreadable files, symlinks to directories and glibc files
-    if test ! -r "${file}" || test -d "${file}/." \
-       || fgrep 'This file is part of the GNU C Library' "${file}" \
-	    > /dev/null 2>&1; then
+    if test ! -r "${file}" || test -d "${file}/." ; then
       continue
     fi
 
@@ -26,7 +24,9 @@
 
 _FOR fix "\n\n" =]
     #
-    # Fix [=_eval _index 1 + #%3d _printf=]:  [=hackname _Cap=]
+    # Fix [=
+       _IF FIXINC_DEBUG _exist =][=_eval _index 1 + #%3d _printf=]:  [=
+       _ENDIF =][=hackname _Cap=]
     #[=
     _IF files _exist=]
     case "${file}" in [=_FOR files " | \\\n\t"=]./[=files=][=/files=] )[=
@@ -61,8 +61,8 @@ _FOR fix "\n\n" =]
 
     _IF bypass _exist =]
     if ( test [=
-            _FOR bypass=] -a \
-              -z [=bypass _shrstr "#`egrep %s ${file}`"
+            _FOR bypass " -a \\\n              "
+              =]-z [=bypass _shrstr "#`egrep %s ${file}`"
                             _printf _shstr =][=
             /bypass=]
        ) > /dev/null 2>&1 ; then[=
@@ -119,12 +119,12 @@ _FOR fix "\n\n" =]
     _ELIF replace _exist =][=
 
       _IF replace _len 0 > =]
-    echo "[=hackname _down=] replacing file ${file}" >&2
+    echo "[=hackname =] replacing file ${file}" >&2
     cat > ${DESTFILE} << '_EOF_'
 [=replace=]
 _EOF_[=
       _ELSE =]
-    echo "[=hackname _down=] bypassing file ${file}"[=
+    echo "[=hackname =] bypassing file ${file}"[=
       _ENDIF =]
     continue
 [=

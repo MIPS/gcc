@@ -1,5 +1,5 @@
 /* Build expressions with type checking for C++ compiler.
-   Copyright (C) 1987, 88, 89, 92-98, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1987, 88, 89, 92-99, 2000 Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GNU CC.
@@ -65,6 +65,7 @@ static int comp_cv_target_types PROTO((tree, tree, int));
 static void casts_away_constness_r PROTO((tree *, tree *));
 static int casts_away_constness PROTO ((tree, tree));
 static void maybe_warn_about_returning_address_of_local PROTO ((tree));
+static tree strip_all_pointer_quals PROTO ((tree));
 
 /* Return the target type of TYPE, which means return T for:
    T*, T&, T[], T (...), and otherwise, just T.  */
@@ -1704,6 +1705,9 @@ decay_conversion (exp)
       code = TREE_CODE (type);
     }
 
+  if (type == error_mark_node)
+    return error_mark_node;
+
   /* Constants can be used directly unless they're not loadable.  */
   if (TREE_CODE (exp) == CONST_DECL)
     exp = DECL_INITIAL (exp);
@@ -2159,7 +2163,7 @@ build_component_ref (datum, component, basetype_path, protect)
 			 unknown_type_node to be really overloaded, so
 			 let's oblige.  */
 		      TREE_VALUE (fndecls)
-			= scratch_ovl_cons (TREE_VALUE (fndecls), NULL_TREE);
+			= ovl_cons (TREE_VALUE (fndecls), NULL_TREE);
 		    }
 		}
 
@@ -2199,7 +2203,7 @@ build_component_ref (datum, component, basetype_path, protect)
 	}
 
       /* Handle base classes here...  */
-      if (base != basetype && TYPE_USES_COMPLEX_INHERITANCE (basetype))
+      if (base != basetype && TYPE_BASE_CONVS_MAY_REQUIRE_CODE_P (basetype))
 	{
 	  tree addr = build_unary_op (ADDR_EXPR, datum, 0);
 	  if (integer_zerop (addr))
@@ -2600,7 +2604,7 @@ build_x_function_call (function, params, decl)
 
   /* A friend template.  Make it look like a toplevel declaration.  */
   if (! is_method && TREE_CODE (function) == TEMPLATE_DECL)
-    function = scratch_ovl_cons (function, NULL_TREE);
+    function = ovl_cons (function, NULL_TREE);
 
   /* Handle methods, friends, and overloaded functions, respectively.  */
   if (is_method)
@@ -3017,7 +3021,8 @@ build_function_call_real (function, params, require_complete, flags)
 
   if (TREE_CODE (function) == ADDR_EXPR
       && TREE_CODE (TREE_OPERAND (function, 0)) == FUNCTION_DECL
-      && DECL_BUILT_IN (TREE_OPERAND (function, 0)))
+      && DECL_BUILT_IN (TREE_OPERAND (function, 0))
+      && DECL_BUILT_IN_CLASS (TREE_OPERAND (function, 0)) == BUILT_IN_NORMAL)
     switch (DECL_FUNCTION_CODE (TREE_OPERAND (function, 0)))
       {
       case BUILT_IN_ABS:
@@ -4273,7 +4278,7 @@ build_component_addr (arg, argtype)
     }
 
   if (TREE_CODE (field) == FIELD_DECL
-      && TYPE_USES_COMPLEX_INHERITANCE (basetype))
+      && TYPE_BASE_CONVS_MAY_REQUIRE_CODE_P (basetype))
     {
       /* Can't convert directly to ARGTYPE, since that
 	 may have the same pointer type as one of our
@@ -4789,7 +4794,7 @@ build_unary_op (code, xarg, noconvert)
       return fold (build1 (code, argtype, arg));
     }
 
-  error (errstring);
+  error ("%s", errstring);
   return error_mark_node;
 }
 
@@ -4978,18 +4983,12 @@ mark_addressable (exp)
 	    && DECL_RTL (x) != 0
 	    && ! DECL_IN_MEMORY_P (x))
 	  {
-	    /* We thought this would make a good constant variable,
-	       but we were wrong.  */
-	    push_permanent_obstack ();
-
 	    TREE_ASM_WRITTEN (x) = 0;
 	    DECL_RTL (x) = 0;
 	    rest_of_decl_compilation (x, 0, 
 				      !DECL_FUNCTION_SCOPE_P (x),
 				      0);
 	    TREE_ADDRESSABLE (x) = 1;
-
-	    pop_obstacks ();
 
 	    return 1;
 	  }
@@ -5008,7 +5007,7 @@ mark_addressable (exp)
 		      x);
 	TREE_ADDRESSABLE (x) = 1;
 	TREE_USED (x) = 1;
-	if (current_function && expanding_p)
+	if (cfun && expanding_p)
 	  put_var_into_stack (x);
 	return 1;
 
@@ -5187,14 +5186,15 @@ build_static_cast (type, expr)
   /* FIXME handle casting to array type.  */
 
   ok = 0;
-  if (can_convert_arg (type, intype, expr))
+  if (IS_AGGR_TYPE (intype)
+      ? can_convert_arg (type, intype, expr)
+      : can_convert_arg (strip_all_pointer_quals (type),
+                         strip_all_pointer_quals (intype), expr))
     ok = 1;
   else if (TYPE_PTROB_P (type) && TYPE_PTROB_P (intype))
     {
       tree binfo;
       if (IS_AGGR_TYPE (TREE_TYPE (type)) && IS_AGGR_TYPE (TREE_TYPE (intype))
-	  && at_least_as_qualified_p (TREE_TYPE (type),
-				      TREE_TYPE (intype))
 	  && (binfo = get_binfo (TREE_TYPE (intype), TREE_TYPE (type), 0))
 	  && ! TREE_VIA_VIRTUAL (binfo))
 	ok = 1;
@@ -5203,8 +5203,6 @@ build_static_cast (type, expr)
     {
       if (same_type_p (TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (type))),
 		       TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (intype))))
-	  && at_least_as_qualified_p (TREE_TYPE (TREE_TYPE (type)),
-				      TREE_TYPE (TREE_TYPE (intype)))
 	  && (binfo = get_binfo (TYPE_OFFSET_BASETYPE (TREE_TYPE (type)),
 				 TYPE_OFFSET_BASETYPE (TREE_TYPE (intype)), 0))
 	  && ! TREE_VIA_VIRTUAL (binfo))
@@ -5213,13 +5211,13 @@ build_static_cast (type, expr)
   else if (TREE_CODE (intype) != BOOLEAN_TYPE
 	   && TREE_CODE (type) != ARRAY_TYPE
 	   && TREE_CODE (type) != FUNCTION_TYPE
-	   && can_convert (intype, type))
+	   && can_convert (intype, strip_all_pointer_quals (type)))
     ok = 1;
 
   /* [expr.static.cast]
 
      The static_cast operator shall not be used to cast away
-     constnes.  */
+     constness.  */
   if (ok && casts_away_constness (intype, type))
     {
       cp_error ("static_cast from `%T' to `%T' casts away constness",
@@ -5452,7 +5450,7 @@ build_c_cast (type, expr)
   if (processing_template_decl)
     {
       tree t = build_min (CAST_EXPR, type,
-			  min_tree_cons (NULL_TREE, value, NULL_TREE));
+			  tree_cons (NULL_TREE, value, NULL_TREE));
       return t;
     }
 
@@ -5504,16 +5502,8 @@ build_c_cast (type, expr)
       && TREE_CODE (otype) == POINTER_TYPE
       && !at_least_as_qualified_p (TREE_TYPE (type),
 				   TREE_TYPE (otype)))
-    cp_warning ("cast discards qualifiers from pointer target type");
-
-  /* Warn about possible alignment problems.  */
-  if (STRICT_ALIGNMENT && warn_cast_align
-      && TREE_CODE (type) == POINTER_TYPE
-      && TREE_CODE (otype) == POINTER_TYPE
-      && TREE_CODE (TREE_TYPE (otype)) != VOID_TYPE
-      && TREE_CODE (TREE_TYPE (otype)) != FUNCTION_TYPE
-      && TYPE_ALIGN (TREE_TYPE (type)) > TYPE_ALIGN (TREE_TYPE (otype)))
-    warning ("cast increases required alignment of target type");
+    cp_warning ("cast from `%T' to `%T' discards qualifiers from pointer target type",
+                otype, type);
 
 #if 0
   /* We should see about re-enabling these, they seem useful to
@@ -5553,6 +5543,19 @@ build_c_cast (type, expr)
 	  TREE_CONSTANT_OVERFLOW (value) = TREE_CONSTANT_OVERFLOW (ovalue);
 	}
     }
+
+  /* Warn about possible alignment problems.  Do this here when we will have
+     instantiated any necessary template types.  */
+  if (STRICT_ALIGNMENT && warn_cast_align
+      && TREE_CODE (type) == POINTER_TYPE
+      && TREE_CODE (otype) == POINTER_TYPE
+      && TREE_CODE (TREE_TYPE (otype)) != VOID_TYPE
+      && TREE_CODE (TREE_TYPE (otype)) != FUNCTION_TYPE
+      && TYPE_SIZE (TREE_TYPE (otype))
+      && TYPE_SIZE (TREE_TYPE (type))
+      && TYPE_ALIGN (TREE_TYPE (type)) > TYPE_ALIGN (TREE_TYPE (otype)))
+    cp_warning ("cast from `%T' to `%T' increases required alignment of target type",
+                otype, type);
 
     /* Always produce some operator for an explicit cast,
        so we can tell (for -pedantic) that the cast is no lvalue.  */
@@ -6047,8 +6050,7 @@ get_delta_difference (from, to, force)
 	return delta;
       if (binfo_from_vbase (binfo))
 	{
-	  binfo = binfo_member (BINFO_TYPE (binfo),
-				CLASSTYPE_VBASECLASSES (from));
+	  binfo = BINFO_FOR_VBASE (BINFO_TYPE (binfo), from);
 	  cp_warning ("pointer to member cast to virtual base `%T'",
 		      BINFO_TYPE (binfo));
 	  warning ("  will only work if you are very careful");
@@ -6395,7 +6397,10 @@ convert_for_assignment (type, rhs, errtype, fndecl, parmnum)
   if (TREE_CODE (rhs) == TREE_LIST && TREE_VALUE (rhs) == error_mark_node)
     return error_mark_node;
 
-  /* Issue warnings about peculiar, but legal, uses of NULL.  */
+  /* Issue warnings about peculiar, but legal, uses of NULL.  We
+     do this *before* the call to decl_constant_value so as to
+     avoid duplicate warnings on code like `const int I = NULL;
+     f(I);'.  */
   if (ARITHMETIC_TYPE_P (type) && rhs == null_node)
     cp_warning ("converting NULL to non-pointer type");
 
@@ -6571,21 +6576,6 @@ convert_for_initialization (exp, type, rhs, flags, errtype, fndecl, parmnum)
 
   if (IS_AGGR_TYPE (type))
     return ocp_convert (type, rhs, CONV_IMPLICIT|CONV_FORCE_TEMP, flags);
-
-  if (type == TREE_TYPE (rhs))
-    {
-      /* Issue warnings about peculiar, but legal, uses of NULL.  We
-	 do this *before* the call to decl_constant_value so as to
-	 avoid duplicate warnings on code like `const int I = NULL;
-	 f(I);'.  */
-      if (ARITHMETIC_TYPE_P (type) && rhs == null_node)
-	cp_warning ("converting NULL to non-pointer type");
-
-      if (TREE_READONLY_DECL_P (rhs))
-	rhs = decl_constant_value (rhs);
-
-      return rhs;
-    }
 
   return convert_for_assignment (type, rhs, errtype, fndecl, parmnum);
 }
@@ -6891,30 +6881,7 @@ tree
 c_expand_start_case (exp)
      tree exp;
 {
-  tree type, idx;
-
-  exp = build_expr_type_conversion (WANT_INT | WANT_ENUM, exp, 1);
-  if (exp == NULL_TREE)
-    {
-      error ("switch quantity not an integer");
-      exp = error_mark_node;
-    }
-  if (exp == error_mark_node)
-    return error_mark_node;
-
-  exp = default_conversion (exp);
-  type = TREE_TYPE (exp);
-  idx = get_unwidened (exp, 0);
-  /* We can't strip a conversion from a signed type to an unsigned,
-     because if we did, int_fits_type_p would do the wrong thing
-     when checking case values for being in range,
-     and it's too hard to do the right thing.  */
-  if (TREE_UNSIGNED (TREE_TYPE (exp)) == TREE_UNSIGNED (TREE_TYPE (idx)))
-    exp = idx;
-
-  expand_start_case
-    (1, fold (build1 (CLEANUP_POINT_EXPR, TREE_TYPE (exp), exp)),
-     type, "switch statement");
+  expand_start_case (1, exp, TREE_TYPE (exp), "switch statement");
 
   return exp;
 }
@@ -7207,4 +7174,18 @@ casts_away_constness (t1, t2)
     return 1;
 
   return 0;
+}
+
+/* Returns TYPE with its cv qualifiers removed
+   TYPE is T cv* .. *cv where T is not a pointer type,
+   returns T * .. *  */
+
+static tree
+strip_all_pointer_quals (type)
+     tree type;
+{
+  if (TREE_CODE (type) == POINTER_TYPE)
+    return build_pointer_type (strip_all_pointer_quals (TREE_TYPE (type)));
+  else
+    return strip_top_quals (type);
 }

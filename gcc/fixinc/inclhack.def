@@ -8,11 +8,17 @@ autogen definitions inclhack;
 Define all the fixes we know about for repairing damaged headers.
 Please see the README before adding or changing entries in this file.
 
-Now, first:  DO NOT DO BROKEN FIXES (empty replacement fixes) */
+Set up a debug test so we can make the templates emit special
+code while debugging these fixes:  */
 
+#ifdef DEBUG
+FIXINC_DEBUG = yes;
+#endif
+
+/* DO NOT DO BROKEN FIXES (empty replacement fixes) */
 
 /*
- *  Purge some HP-UX 11 files that are only borken after they are "fixed".
+ *  Purge some HP-UX 11 files that are only broken after they are "fixed".
  */
 fix = {
     hackname = AAA_ki_iface;
@@ -23,7 +29,7 @@ fix = {
 
 
 /*
- *  Purge some HP-UX 11 files that are only borken after they are "fixed".
+ *  Purge some HP-UX 11 files that are only broken after they are "fixed".
  */
 fix = {
     hackname = AAA_ki;
@@ -34,7 +40,7 @@ fix = {
 
 
 /*
- *  Purge some HP-UX 11 files that are only borken after they are "fixed".
+ *  Purge some HP-UX 11 files that are only broken after they are "fixed".
  */
 fix = {
     hackname = AAA_ki_calls;
@@ -45,7 +51,7 @@ fix = {
 
 
 /*
- *  Purge some HP-UX 11 files that are only borken after they are "fixed".
+ *  Purge some HP-UX 11 files that are only broken after they are "fixed".
  */
 fix = {
     hackname = AAA_ki_defs;
@@ -70,7 +76,7 @@ fix = {
 
 
 /*
- *  Purge some HP-UX 11 files that are only borken after they are "fixed".
+ *  Purge some HP-UX 11 files that are only broken after they are "fixed".
  */
 fix = {
     hackname = AAA_time;
@@ -150,6 +156,292 @@ typedef char * va_list;
 \#endif /* __LINT__ */
 \#endif /*  !(defined(_VA_LIST) || defined(_VA_LIST_)) */
 \#endif /*  #ifndef __INT_VARARGS_H  */\n";
+};
+
+
+/*
+ *  This fixes __FD_ZERO bug for linux 2.x.y (x <= 2 && y <= some n)
+ */
+fix = {
+    hackname = AAB_fd_zero_asm_posix_types_h;
+    files    = asm/posix_types.h;
+    mach     = 'i[34567]86-*-linux-gnu*';
+    bypass   = '} while';
+
+    /*
+     * Define _POSIX_TYPES_H_WRAPPER at the end of the wrapper, not
+     * the start, so that if #include_next gets another instance of
+     * the wrapper, this will follow the #include_next chain until
+     * we arrive at the real <asm/posix_types.h>.
+     */
+    replace  =
+
+'/* This file fixes a bug in the __FD_ZERO macro
+   for older versions of the Linux kernel. */
+\#ifndef _POSIX_TYPES_H_WRAPPER
+\#include <features.h>
+\#include_next <asm/posix_types.h>
+
+\#if defined(__FD_ZERO) && !defined(__GLIBC__)
+\#undef __FD_ZERO
+\#define __FD_ZERO(fdsetp) \\
+  do { \\
+    int __d0, __d1; \\
+		__asm__ __volatile__("cld ; rep ; stosl" \\
+			: "=&c" (__d0), "=&D" (__d1) \\
+			: "a" (0), "0" (__FDSET_LONGS), \\
+			  "1" ((__kernel_fd_set *) (fdsetp)) :"memory"); \\
+  } while (0)
+\#endif
+
+\#define _POSIX_TYPES_H_WRAPPER
+\#endif /* _POSIX_TYPES_H_WRAPPER */
+';
+};
+
+
+/*
+ *  This fixes __FD_ZERO bug for glibc-1.x
+ */
+fix = {
+    hackname = AAB_fd_zero_gnu_types_h;
+    files    = gnu/types.h;
+    mach     = 'i[34567]86-*-linux-gnu*';
+
+    /*
+     * Define _TYPES_H_WRAPPER at the end of the wrapper, not
+     * the start, so that if #include_next gets another instance of
+     * the wrapper, this will follow the #include_next chain until
+     * we arrive at the real <gnu/types.h>.
+     */
+    replace  =
+
+'/* This file fixes a bug in the __FD_ZERO macro present in glibc 1.x. */
+\#ifndef _TYPES_H_WRAPPER
+\#include <features.h>
+\#include_next <gnu/types.h>
+
+\#if defined(__FD_ZERO) && !defined(__GLIBC__)
+\#undef __FD_ZERO
+\# define __FD_ZERO(fdsetp) \\
+  do { \\
+    int __d0, __d1; \\
+	__asm__ __volatile__("cld ; rep ; stosl" \\
+        	: "=&c" (__d0), "=&D" (__d1) \\
+        	: "a" (0), "0" (__FDSET_LONGS), \\
+		  "1" ((__fd_set *) (fdsetp)) :"memory"); \\
+  } while (0)
+\#endif
+
+\#define _TYPES_H_WRAPPER
+\#endif /* _TYPES_H_WRAPPER */
+';
+};
+
+
+/*
+ *  This fixes __FD_ZERO bug for glibc-2.0.x
+ */
+fix = {
+    hackname = AAB_fd_zero_selectbits_h;
+    files    = selectbits.h;
+    mach     = 'i[34567]86-*-linux-gnu*';
+
+    /*
+     * Define _SELECTBITS_H_WRAPPER at the end of the wrapper, not
+     * the start, so that if #include_next gets another instance of
+     * the wrapper, this will follow the #include_next chain until
+     * we arrive at the real <selectbits.h>.
+     */
+    replace  =
+
+'/* This file fixes a bug in the __FD_ZERO macro present in glibc 2.0.x. */
+\#ifndef _SELECTBITS_H_WRAPPER
+\#include <features.h>
+\#include_next <selectbits.h>
+
+\#if defined(__FD_ZERO) && defined(__GLIBC__) \\
+	&& defined(__GLIBC_MINOR__) && __GLIBC__ == 2 \\
+	&& __GLIBC_MINOR__ == 0
+\#undef __FD_ZERO
+\#define __FD_ZERO(fdsetp) \\
+  do { \\
+    int __d0, __d1; \\
+  __asm__ __volatile__ ("cld; rep; stosl" \\
+                        : "=&c" (__d0), "=&D" (__d1) \\
+                        : "a" (0), "0" (sizeof (__fd_set) \\
+                                        / sizeof (__fd_mask)), \\
+                          "1" ((__fd_mask *) (fdsetp)) \\
+                        : "memory"); \\
+  } while (0)
+\#endif
+
+\#define _SELECTBITS_H_WRAPPER
+\#endif /* _SELECTBITS_H_WRAPPER */
+';
+};
+
+
+/*
+ *  Completely replace <sys/byteorder.h>; with a file that implements gcc's
+ *  optimized byteswapping.  Restricted to "SVR4" machines until either
+ *  it is shown to be safe to replace this file always, or we get bolder ;-)
+ */
+fix = {
+    hackname = AAB_svr4_replace_byteorder;
+#ifndef SVR5
+    mach = "*-*-sysv4*";
+    mach = "i[34567]86-*-sysv5*";
+    mach = "i[34567]86-*-udk*";
+    mach = "i[34567]86-*-solaris2.[0-4]";
+    mach = "powerpcle-*-solaris2.[0-4]";
+    mach = "sparc-*-solaris2.[0-4]";
+#endif /* SVR5 */
+    files    = sys/byteorder.h;
+    replace  = '#ifndef _SYS_BYTEORDER_H
+\#define _SYS_BYTEORDER_H
+
+/* Functions to convert `short\' and `long\' quantities from host byte order
+   to (internet) network byte order (i.e. big-endian).
+
+   Written by Ron Guilmette (rfg@ncd.com).
+
+   This isn\'t actually used by GCC.  It is installed by fixinc.svr4.
+
+   For big-endian machines these functions are essentially no-ops.
+
+   For little-endian machines, we define the functions using specialized
+   asm sequences in cases where doing so yields better code (e.g. i386).  */
+
+\#if !defined (__GNUC__) && !defined (__GNUG__)
+\#error You lose!  This file is only useful with GNU compilers.
+\#endif
+
+\#ifndef __BYTE_ORDER__
+/* Byte order defines.  These are as defined on UnixWare 1.1, but with
+   double underscores added at the front and back.  */
+\#define __LITTLE_ENDIAN__   1234
+\#define __BIG_ENDIAN__      4321
+\#define __PDP_ENDIAN__      3412
+\#endif
+
+\#ifdef __STDC__
+static __inline__ unsigned long htonl (unsigned long);
+static __inline__ unsigned short htons (unsigned int);
+static __inline__ unsigned long ntohl (unsigned long);
+static __inline__ unsigned short ntohs (unsigned int);
+\#endif /* defined (__STDC__) */
+
+\#if defined (__i386__)
+
+\#ifndef __BYTE_ORDER__
+\#define __BYTE_ORDER__ __LITTLE_ENDIAN__
+\#endif
+
+/* Convert a host long to a network long.  */
+
+/* We must use a new-style function definition, so that this will also
+   be valid for C++.  */
+static __inline__ unsigned long
+htonl (unsigned long __arg)
+{
+  register unsigned long __result;
+
+  __asm__ ("xchg%B0 %b0,%h0
+	ror%L0 $16,%0
+	xchg%B0 %b0,%h0" : "=q" (__result) : "0" (__arg));
+  return __result;
+}
+
+/* Convert a host short to a network short.  */
+
+static __inline__ unsigned short
+htons (unsigned int __arg)
+{
+  register unsigned short __result;
+
+  __asm__ ("xchg%B0 %b0,%h0" : "=q" (__result) : "0" (__arg));
+  return __result;
+}
+
+\#elif ((defined (__i860__) && !defined (__i860_big_endian__))	\\
+       || defined (__ns32k__) || defined (__vax__)		\\
+       || defined (__spur__) || defined (__arm__))
+
+\#ifndef __BYTE_ORDER__
+\#define __BYTE_ORDER__ __LITTLE_ENDIAN__
+\#endif
+
+/* For other little-endian machines, using C code is just as efficient as
+   using assembly code.  */
+
+/* Convert a host long to a network long.  */
+
+static __inline__ unsigned long
+htonl (unsigned long __arg)
+{
+  register unsigned long __result;
+
+  __result = (__arg >> 24) & 0x000000ff;
+  __result |= (__arg >> 8) & 0x0000ff00;
+  __result |= (__arg << 8) & 0x00ff0000;
+  __result |= (__arg << 24) & 0xff000000;
+  return __result;
+}
+
+/* Convert a host short to a network short.  */
+
+static __inline__ unsigned short
+htons (unsigned int __arg)
+{
+  register unsigned short __result;
+
+  __result = (__arg << 8) & 0xff00;
+  __result |= (__arg >> 8) & 0x00ff;
+  return __result;
+}
+
+\#else /* must be a big-endian machine */
+
+\#ifndef __BYTE_ORDER__
+\#define __BYTE_ORDER__ __BIG_ENDIAN__
+\#endif
+
+/* Convert a host long to a network long.  */
+
+static __inline__ unsigned long
+htonl (unsigned long __arg)
+{
+  return __arg;
+}
+
+/* Convert a host short to a network short.  */
+
+static __inline__ unsigned short
+htons (unsigned int __arg)
+{
+  return __arg;
+}
+
+\#endif /* big-endian */
+
+/* Convert a network long to a host long.  */
+
+static __inline__ unsigned long
+ntohl (unsigned long __arg)
+{
+  return htonl (__arg);
+}
+
+/* Convert a network short to a host short.  */
+
+static __inline__ unsigned short
+ntohs (unsigned int __arg)
+{
+  return htons (__arg);
+}
+\#endif
+';
 };
 
 
@@ -355,6 +647,9 @@ fix = {
  */
 fix = {
     hackname = bad_lval;
+
+    select   = "^[ \t]*#[ \t]*pragma[ \t][ \t]*extern_prefix";
+
     files    = libgen.h;
     files    = dirent.h;
     files    = ftw.h;
@@ -433,56 +728,15 @@ fix = {
 
 
 /*
- *  Remove the double-slash comments
- *  They *must* be removed so it will not create nested comments!!
- *  However, they will *not* be removed if the file name ends with
- *  any of "++", ".hh" or ".H", or if the file name contains "cxx/".
- *
- *  There *used* to be a number of similar problems in various OSes:
-
- *  Turning // comments into normal comments trashes this IRIX 4.0.1
- *  header file, which embeds // comments inside multi-line
- *  comments.  If this looks like the IRIX header file, we refix it by
- *  just throwing away the // comments.
-
- *  Same problem with a file from SunOS 4.1.3 : a header file containing
- *  the string "//" embedded in "/ * * /"
-
- *  There is a similar problem with the VxWorks drv/netif/if_med.h file.
-
- *  And also with the HP-UX 10 and HP-UX 11 sys/pci.h file
-
- *  Now that we delete the // comments instead of converting them to / * * /,
- *  traditional hacks like irix_bogus_cxx_cmnt, no longer work (which
- *  strangely enough was also used on alpha-dec-osf4.0d).  If we skip the
- *  hack whenever we see ``"//"' ', then the need for the secondary hack
- *  disappears.  Note: it is painful to ensure that the first quote
- *  exists, so we just check for the trailing quote directly abutting
- *  the //.  Note: We should never touch a line that has // completely
- *  within quotes but this is somewhat hard to check for.
-
- *  Ultimately, this fix ought to go inside of C code where
- *  we can do a better analysis on the need and method for fixing.
+ *  Remove the double-slash comments.  The "double_slash" test will
+ *  try to ignore C++ headers by checking for "CC/", "xx/" and "++/"
+ *  in the file name.  There are still the occasional C++ headers
+ *  that have their comments stripped.  Too bad.
  */
 fix = {
     hackname = no_double_slash;
-    /*
-     *  Test that the file-to-fix does not from a C++ directory
-     *  Also, only accept double slashes that are not part of URL's
-     *  and do not appear to be within a single-line C-style comment
-     *  and are not the end of a quoted string.
-     */
-#ifdef NO_C_TESTS
-    test   = ' -z "`echo ${file} | egrep \'(CC|cxx|\+\+)/\'`"';
-    select = '(^|[^:])//[^"*]';
-    sed    = 's,^//.*$,,';
-    sed    = 's,\(/\*.*\)//\(.*\*/\),\1/ /\2,g';
-    sed    = 's,\([^:]\)//[^"].*$,\1,';
-    sed    = 's,[^:]//[^"].*$,,';
-#else
     c_test = "double_slash";
     c_fix  = "no_double_slash";
-#endif
 };
 
 
@@ -495,6 +749,7 @@ fix = {
     files  = "sunwindow/win_cursor.h";
     sed    = "s/ecd.cursor/ecd_cursor/";
 };
+
 
 /*
  *  On SCO OpenServer 5.0.0 through (at least) 5.0.5 <sys/stat.h> contains
@@ -516,7 +771,6 @@ fix = {
         "}\\\n"
         "#endif \/* __cplusplus *\/\\\n";
 };
-
 
 
 /*
@@ -605,6 +859,20 @@ fix = {
     select   = "^extern struct sigevent;";
     sed      = "s/^extern struct sigevent;/struct sigevent;/";
 };
+
+/*
+ *  get rid of bogus inline definitions in HP-UX 8.0
+ */
+fix = {
+    hackname = hpux8_bogus_inlines;
+    files    = math.h;
+    select   = inline;
+    sed = "s@inline int abs(int [a-z][a-z]*) {.*}@extern \"C\" int abs(int);@";
+    sed = "s@inline double abs(double [a-z][a-z]*) {.*}@@";
+    sed = "s@inline int sqr(int [a-z][a-z]*) {.*}@@";
+    sed = "s@inline double sqr(double [a-z][a-z]*) {.*}@@";
+};
+
 
 /* 
  * In inttypes.h on HPUX 11, the use of __CONCAT__ in the definition 
@@ -733,6 +1001,7 @@ fix = {
 fix = {
     hackname = ip_missing_semi;
     files    = netinet/ip.h;
+    select   = "}$";
     sed      = "/^struct/,/^};/s/}$/};/";
 };
 
@@ -1079,6 +1348,7 @@ fix = {
     hackname = math_exception;
     files    = math.h;
     select   = "struct exception";
+    bypass   = "We have a problem when using C++";
     sed      = "/struct exception/i\\\n"
                "#ifdef __cplusplus\\\n"
                "#define exception __math_exception\\\n"
@@ -1088,6 +1358,7 @@ fix = {
                "#undef exception\\\n"
                "#endif\n";
 
+#ifdef MATH_EXCEPTION_FIXED
     sed      = "/matherr/i\\\n"
                "#ifdef __cplusplus\\\n"
                "#define exception __math_exception\\\n"
@@ -1098,14 +1369,21 @@ fix = {
                "#undef exception\\\n"
                "#endif\n";
 
-#ifdef MATH_EXCEPTION_FIXED
-
 I think this patch needs some more thinking.
 This is from SVR4.2 (With '#' replaced with '@').
 Perhaps we could do without the "/matherr/a" entries?
 Can we bypass the entire fix if someone was astute
 enough to have '#ifdef __cplusplus' anywhere in the file?
 
+We can definitely do without the "/matherr/a" entries.  They are
+there to cover the case where matherr is declared with no prototype
+-- extern int matherr(); -- but we don't need a fix then since there
+is no reference to struct exception.
+
+Bypassing on "#ifdef __cplusplus" is too optimistic, but I've stuck
+in a bypass for the comment in the glibc 2.1 header that indicates
+awareness of the problem.  Hmm.  Could we use a shell test that did
+cpp -D__cplusplus | grep "struct exception" ?
 
 *** /usr/include/math.h Fri Apr  3 18:54:59 1998
 --- math.h      Sun May  9 07:28:58 1999
@@ -1149,46 +1427,43 @@ enough to have '#ifdef __cplusplus' anywhere in the file?
 #endif
 };
 
-
-/*
- * In math.h, put #ifndefs around things that might be defined
- * in a gcc specific math-*.h file.
- */
 fix = {
-    hackname = math_gcc_ifndefs;
+    hackname = math_huge_val_from_dbl_max;
     files    = math.h;
+    /*
+     * IF HUGE_VAL is defined to be DBL_MAX *and* DBL_MAX is _not_ defined
+     * in math.h, this fix applies.
+     */
+    select   = "define[ \t]*HUGE_VAL[ \t]*DBL_MAX";
+    bypass   = "define[ \t]*DBL_MAX";
 
     shell    =
     /*
-     *  First see if we have a definition for DBL_MAX in float.h
+     *  See if we have a definition for DBL_MAX in float.h.
      *  If we do, we will replace the one in math.h with that one.
-     */
-
-    /*
-     *  IF we have such a define *and* HUGE_VAL is defined to be DBL_MAX
-     *     *and* DBL_MAX is _not_ defined in the current file (math.h),
-     *  THEN replace the defined value of HUGE_VAL
-     *  ELSE just copy stdin to stdout so the main filter can process it
-     */
-
-    /*
-     *  Put conditional guards around the HUGE_VAL definition.
      */
 
     "\tdbl_max_def=`egrep 'define[ \t]+DBL_MAX[ \t]+.*' float.h "
                 "2>/dev/null`\n\n"
 
-    "\tif ( test -n \"${dbl_max_def}\" \\\n"
-    "\t\t-a -n \"`egrep '#define[ \t]*HUGE_VAL[ \t]+DBL_MAX' $file`\" \\\n"
-    "\t\t-a -z \"`egrep '#define[ \t]+DBL_MAX[ \t]+' $file`\"\n"
-             "\t   ) > /dev/null 2>&1\n"
-    "\tthen sed -e '/define[ \t]HUGE_VAL[ \t]DBL_MAX/s/DBL_MAX/$dbl_max_def/'"
-    "\n\telse cat ; fi |\n"
-
-    "\tsed -e '/define[ \t]HUGE_VAL[ \t]/i\\\n#ifndef HUGE_VAL\n' "
-          "-e '/define[ \t]HUGE_VAL[ \t]/a\\\n#endif\n'";
+    "\tif ( test -n \"${dbl_max_def}\" ) > /dev/null 2>&1\n"
+    "\tthen sed -e '/define[ \t]*HUGE_VAL[ \t]*DBL_MAX/"
+			"s/DBL_MAX/'\"$dbl_max_def/\"\n"
+    "\telse cat\n"
+    "\tfi";
 };
 
+/*
+ * In any case, put #ifndef .. #endif around #define HUGE_VAL in math.h.
+ */
+fix = {
+    hackname = math_huge_val_ifndef;
+    files    = math/math.h;
+    select   = "define[ \t]*HUGE_VAL";
+
+    sed      = "/define[ \t]HUGE_VAL[ \t]/i\\\n#ifndef HUGE_VAL\n";
+    sed      = "/define[ \t]HUGE_VAL[ \t]/a\\\n#endif\n";
+};
 
 /*
  *  nested comment
@@ -1379,6 +1654,7 @@ fix = {
     hackname = rs6000_param;
     files  = "stdio.h";
     files  = "unistd.h";
+    select = 'const char new';
 
     sed = 's@rename(const char \*old, const char \*new)@'
             'rename(const char *_old, const char *_new)@';
@@ -1461,6 +1737,7 @@ fix = {
 fix = {
     hackname = stdio_va_list;
     files    = stdio.h;
+    bypass   = "__gnuc_va_list";
 
     /*
      * Use __gnuc_va_list in arg types in place of va_list.
@@ -1660,6 +1937,8 @@ fix = {
 fix = {
     hackname = sunos_matherr_decl;
     files    = math.h;
+    /*  If matherr has a prototype already, the header needs no fix.  */
+    bypass   = 'matherr.*struct exception';
     /*
      *  Once a declaration for 'struct exception' is found,
      *  stop trying to insert a forward reference for it.
@@ -1675,6 +1954,7 @@ fix = {
 fix = {
     hackname = sunos_strlen;
     files    = strings.h;
+    select   = "int[ \t]*strlen";
     sed = "s/int[ \t]*strlen();/__SIZE_TYPE__ strlen();/";
 };
 
@@ -1709,13 +1989,25 @@ fix = {
 };
 #endif
 
+
 /*
  *  Conditionalize some of <sys/endian.h> on __GNUC__ and __GNUG__.
+ *  On some systems (UnixWare 2, UnixWare 7), the file is byteorder.h
+ *  but we still "hijack" it and redirect it to the GNU byteorder.h..
+ *
+ *
  */
-#ifdef SVR4
+#ifdef SVR5
 fix = {
     hackname = svr4_endian;
     files    = sys/endian.h;
+#ifdef LATER
+    /*
+     * since we emit our own sys/byteorder.h,
+     * this fix can never be applied to that file.
+     */
+    files    = sys/byteorder.h;
+#endif
     bypass   = '__GNUC__';
 
     sed      = "/#\tifdef\t__STDC__/i\\\n"
@@ -1726,7 +2018,8 @@ fix = {
     sed      = "/#   include\t<sys\\/byteorder.h>/i\\\n"
                "#   endif /* !defined (__GNUC__) && !defined (__GNUG__) */\n";
 };
-#endif
+#endif /* SVR5 */
+
 
 /*
  *  Remove useless extern keyword from struct forward declarations
@@ -1841,33 +2134,23 @@ fix = {
 };
 #endif
 
+
 /*
  *  Fix declarations of `makedev', `major', and `minor' in <sys/mkdev.h>.
+ *  They are declared as non-static then immediately redeclared as static.
  */
-#ifdef SVR4
+#ifdef SVR5
 fix = {
     hackname = svr4_mkdev;
     files    = sys/mkdev.h;
+    select   = '^static';
 
-    sed      = "/^dev_t makedev(const/c\\\n"
-               "static dev_t makedev(const major_t, const minor_t);";
-
-    sed      = "/^dev_t makedev()/c\\\n"
-               "static dev_t makedev();";
-
-    sed      = "/^major_t major(const/c\\\n"
-               "static major_t major(const dev_t);";
-
-    sed      = "/^major_t major()/c\\\n"
-               "static major_t major();";
-
-    sed      = "/^minor_t minor(const/c\\\n"
-               "static minor_t minor(const dev_t);";
-
-    sed      = "/^minor_t minor()/c\\\n"
-               "static minor_t minor();";
+    sed	     = "/^dev_t makedev(/s/^/static /";
+    sed	     = "/^major_t major(/s/^/static /";
+    sed	     = "/^minor_t minor(/s/^/static /";
 };
-#endif
+#endif /* SVR5 */
+
 
 /*
  *  Fix reference to NC_NPI_RAW in <sys/netcspace.h>.
@@ -1990,6 +2273,21 @@ fix = {
 };
 #endif
 
+
+/* 
+ *  Like svr4_mach_defines, but with newfangled syntax.
+ *  Source lines are of #define __i386 #machine(i386).   Delete them.
+ */
+#ifdef SVR5
+fix = {
+    hackname = svr5_mach_defines;
+    files    = ieeefp.h;
+    select   = "#define[ \t]*__i386.*\(i386\)";
+    sed      = "/#define[ \t]*__i386.*/d";
+};
+#endif /*  SVR5 */
+
+
 /*
  *  Fix return value of mem{ccpy,chr,cpy,set} and str{len,spn,cspn}
  *  in string.h on sysV68
@@ -2049,9 +2347,9 @@ fix = {
 
 
 /*
- *  Fix return type of exit and abort in <stdlib.h> on SunOS 4.1.
- *  Also wrap protection around size_t for m88k-sysv3 systems.
- *  We use a funny name to ensure it follows 'systypes' fix.
+ *  Fix this file to avoid interfering with stddef.h,
+ *  but don't mistakenly match ssize_t present in AIX for the ps/2,
+ *  or typedefs which use (but do not set) size_t.
  */
 fix = {
     hackname = systypes_for_aix;
@@ -2069,8 +2367,9 @@ fix = {
 
 
 /*
- *  if the #if says _cplusplus, not the double underscore __cplusplus
- *  that it should be
+ *  Fix return type of exit and abort in <stdlib.h> on SunOS 4.1.
+ *  Also wrap protection around size_t for m88k-sysv3 systems.
+ *  We use a funny name to ensure it follows 'systypes' fix.
  */
 fix = {
     hackname = sysv68_string;
@@ -2145,13 +2444,13 @@ fix = {
 
 
 /*
- *  Fix this file to avoid interfering with stddef.h,
- *  but don't mistakenly match ssize_t present in AIX for the ps/2,
- *  or typedefs which use (but do not set) size_t.
+ *  if the #if says _cplusplus, not the double underscore __cplusplus
+ *  that it should be
  */
 fix = {
     hackname = tinfo_cplusplus;
     files    = tinfo.h;
+    select   = "[ \t]_cplusplus";
     sed      = "s/[ \t]_cplusplus/ __cplusplus/";
 };
 
@@ -2183,17 +2482,13 @@ fix = {
 
 /*
  *  parameter to atof not const on DECstation Ultrix V4.0 and NEWS-OS 4.2R.
- *  also get rid of bogus inline definitions in HP-UX 8.0
  */
 fix = {
     hackname = ultrix_atof_param;
     files    = math.h;
+    select   = "atof\\([ \t]*char";
 
     sed = "s@atof(\\([ \t]*char[ \t]*\\*[^)]*\\))@atof(const \\1)@";
-    sed = "s@inline int abs(int [a-z][a-z]*) {.*}@extern \"C\" int abs(int);@";
-    sed = "s@inline double abs(double [a-z][a-z]*) {.*}@@";
-    sed = "s@inline int sqr(int [a-z][a-z]*) {.*}@@";
-    sed = "s@inline double sqr(double [a-z][a-z]*) {.*}@@";
 };
 
 
@@ -2263,6 +2558,29 @@ fix = {
     bypass = "#[ \t]*(ifn|un)def[ \t]*[ \t]NULL($|[ \t])";
     sed    = "/^#[ \t]*define[ \t][ \t]*NULL[ \t]/i\\\n"
                 "#undef NULL\n";
+};
+
+
+/*
+ * If arpa/inet.h prototypes are incompatible with the ones we just
+ * installed in <sys/byteorder.h>, just remove the protos.
+ * Because of this close association, this patch must be applied only
+ * on those systems where the replacement byteorder header is installed.
+ */
+fix = {
+    hackname = unixware7_byteorder_fix;
+    files    = arpa/inet.h;
+    select   = "in_port_t";
+#ifndef SVR5
+	mach = "*-*-sysv4*";
+	mach = "i[34567]86-*-sysv5*";
+	mach = "i[34567]86-*-udk*";
+	mach = "i[34567]86-*-solaris2.[0-4]";
+	mach = "powerpcle-*-solaris2.[0-4]";
+	mach = "sparc-*-solaris2.[0-4]";
+#endif /* SVR5 */
+    sed      =  '/^extern.*htons.*(in_port_t)/d';
+    sed      =  '/^extern.*ntohs.*(in_port_t)/d';
 };
 
 

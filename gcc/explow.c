@@ -1333,6 +1333,33 @@ allocate_dynamic_stack_space (size, target, known_align)
       emit_move_insn (target, virtual_stack_dynamic_rtx);
 #endif
       size = convert_modes (Pmode, ptr_mode, size, 1);
+
+      /* Check stack bounds if necessary.  */
+      if (current_function_limit_stack)
+	{
+	  rtx available;
+	  rtx space_available = gen_label_rtx ();
+#ifdef STACK_GROWS_DOWNWARD
+	  available = expand_binop (Pmode, sub_optab, 
+				    stack_pointer_rtx, stack_limit_rtx,
+				    NULL_RTX, 1, OPTAB_WIDEN);
+#else
+	  available = expand_binop (Pmode, sub_optab, 
+				    stack_limit_rtx, stack_pointer_rtx,
+				    NULL_RTX, 1, OPTAB_WIDEN);
+#endif
+	  emit_cmp_and_jump_insns (available, size, GEU, NULL_RTX, Pmode, 1,
+				   0, space_available);
+#ifdef HAVE_trap
+	  if (HAVE_trap)
+	    emit_insn (gen_trap ());
+	  else
+#endif
+	    error ("stack limits not supported on this target");
+	  emit_barrier ();
+	  emit_label (space_available);
+	}
+
       anti_adjust_stack (size);
 #ifdef SETJMP_VIA_SAVE_AREA
       if (setjmpless_size != NULL_RTX)
@@ -1379,6 +1406,19 @@ allocate_dynamic_stack_space (size, target, known_align)
   return target;
 }
 
+/* A front end may want to override GCC's stack checking by providing a 
+   run-time routine to call to check the stack, so provide a mechanism for
+   calling that routine.  */
+
+static rtx stack_check_libfunc;
+
+void
+set_stack_check_libfunc (libfunc)
+     rtx libfunc;
+{
+  stack_check_libfunc = libfunc;
+}
+
 /* Emit one stack probe at ADDRESS, an address within the stack.  */
 
 static void
@@ -1412,9 +1452,19 @@ probe_stack_range (first, size)
      HOST_WIDE_INT first;
      rtx size;
 {
-  /* First see if we have an insn to check the stack.  Use it if so.  */
+  /* First see if the front end has set up a function for us to call to
+     check the stack.  */
+  if (stack_check_libfunc != 0)
+    emit_library_call (stack_check_libfunc, 0, VOIDmode, 1,
+		       memory_address (QImode,
+				       gen_rtx (STACK_GROW_OP, Pmode,
+						stack_pointer_rtx,
+						plus_constant (size, first))),
+		       ptr_mode);
+
+  /* Next see if we have an insn to check the stack.  Use it if so.  */
 #ifdef HAVE_check_stack
-  if (HAVE_check_stack)
+  else if (HAVE_check_stack)
     {
       insn_operand_predicate_fn pred;
       rtx last_addr
@@ -1428,14 +1478,13 @@ probe_stack_range (first, size)
 	last_addr = copy_to_mode_reg (Pmode, last_addr);
 
       emit_insn (gen_check_stack (last_addr));
-      return;
     }
 #endif
 
   /* If we have to generate explicit probes, see if we have a constant
      small number of them to generate.  If so, that's the easy case.  */
-  if (GET_CODE (size) == CONST_INT
-      && INTVAL (size) < 10 * STACK_CHECK_PROBE_INTERVAL)
+  else if (GET_CODE (size) == CONST_INT
+	   && INTVAL (size) < 10 * STACK_CHECK_PROBE_INTERVAL)
     {
       HOST_WIDE_INT offset;
 
@@ -1519,14 +1568,24 @@ probe_stack_range (first, size)
    in which a scalar value of data type VALTYPE
    was returned by a function call to function FUNC.
    FUNC is a FUNCTION_DECL node if the precise function is known,
-   otherwise 0.  */
+   otherwise 0.
+   OUTGOING is 1 if on a machine with register windows this function
+   should return the register in which the function will put its result
+   and 0 otherwise. */
 
 rtx
-hard_function_value (valtype, func)
+hard_function_value (valtype, func, outgoing)
      tree valtype;
      tree func ATTRIBUTE_UNUSED;
+     int outgoing ATTRIBUTE_UNUSED;
 {
-  rtx val = FUNCTION_VALUE (valtype, func);
+  rtx val;
+#ifdef FUNCTION_OUTGOING_VALUE
+  if (outgoing)
+    val = FUNCTION_OUTGOING_VALUE (valtype, func);
+  else
+#endif
+    val = FUNCTION_VALUE (valtype, func);
   if (GET_CODE (val) == REG
       && GET_MODE (val) == BLKmode)
     {

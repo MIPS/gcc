@@ -1,5 +1,5 @@
 /* Try to unroll loops, and split induction variables.
-   Copyright (C) 1992, 93, 94, 95, 97, 98, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1992, 93-95, 97-99, 2000 Free Software Foundation, Inc.
    Contributed by James E. Wilson, Cygnus Support/UC Berkeley.
 
 This file is part of GNU CC.
@@ -234,7 +234,8 @@ unroll_loop (loop_end, insn_count, loop_start, end_insert_before,
      struct loop_info *loop_info;
      int strength_reduce_p;
 {
-  int i, j, temp;
+  int i, j;
+  unsigned HOST_WIDE_INT temp;
   int unroll_number = 1;
   rtx copy_start, copy_end;
   rtx insn, sequence, pattern, tem;
@@ -289,6 +290,19 @@ unroll_loop (loop_end, insn_count, loop_start, end_insert_before,
 		block_begins++;
 	      else if (NOTE_LINE_NUMBER (insn) == NOTE_INSN_BLOCK_END)
 		block_ends++;
+	      if (NOTE_LINE_NUMBER (insn) == NOTE_INSN_EH_REGION_BEG
+		  || NOTE_LINE_NUMBER (insn) == NOTE_INSN_EH_REGION_END)
+		{
+		  /* Note, would be nice to add code to unroll EH
+		     regions, but until that time, we punt (don't
+		     unroll).  For the proper way of doing it, see
+		     expand_inline_function.  */
+
+		  if (loop_dump_stream)
+		    fprintf (loop_dump_stream,
+			     "Unrolling failure: cannot unroll EH regions.\n");
+		  return;
+		}
 	    }
 	}
 
@@ -354,6 +368,17 @@ unroll_loop (loop_end, insn_count, loop_start, end_insert_before,
 	    delete_insn (prev);
 #endif
 	}
+
+      /* Remove the loop notes since this is no longer a loop.  */
+      if (loop_info->vtop)
+	delete_insn (loop_info->vtop);
+      if (loop_info->cont)
+	delete_insn (loop_info->cont);
+      if (loop_start)
+	delete_insn (loop_start);
+      if (loop_end)
+	delete_insn (loop_end);
+
       return;
     }
   else if (loop_info->n_iterations > 0
@@ -682,22 +707,20 @@ unroll_loop (loop_end, insn_count, loop_start, end_insert_before,
   max_labelno = max_label_num ();
   max_insnno = get_max_uid ();
 
-  map = (struct inline_remap *) alloca (sizeof (struct inline_remap));
+  /* Various paths through the unroll code may reach the "egress" label
+     without initializing fields within the map structure.
 
-  map->integrating = 0;
-  map->const_equiv_varray = 0;
+     To be safe, we use xcalloc to zero the memory.  */
+  map = (struct inline_remap *) xcalloc (1, sizeof (struct inline_remap));
 
   /* Allocate the label map.  */
 
   if (max_labelno > 0)
     {
-      map->label_map = (rtx *) alloca (max_labelno * sizeof (rtx));
+      map->label_map = (rtx *) xmalloc (max_labelno * sizeof (rtx));
 
-      local_label = (char *) alloca (max_labelno);
-      bzero (local_label, max_labelno);
+      local_label = (char *) xcalloc (max_labelno, sizeof (char));
     }
-  else
-    map->label_map = 0;
 
   /* Search the loop and mark all local labels, i.e. the ones which have to
      be distinct labels when copied.  For all labels which might be
@@ -742,7 +765,7 @@ unroll_loop (loop_end, insn_count, loop_start, end_insert_before,
 
   /* Allocate space for the insn map.  */
 
-  map->insn_map = (rtx *) alloca (max_insnno * sizeof (rtx));
+  map->insn_map = (rtx *) xmalloc (max_insnno * sizeof (rtx));
 
   /* Set this to zero, to indicate that we are doing loop unrolling,
      not function inlining.  */
@@ -768,17 +791,12 @@ unroll_loop (loop_end, insn_count, loop_start, end_insert_before,
      preconditioning code and find_splittable_regs will never be used
      to access the splittable_regs[] and addr_combined_regs[] arrays.  */
 
-  splittable_regs = (rtx *) alloca (maxregnum * sizeof (rtx));
-  bzero ((char *) splittable_regs, maxregnum * sizeof (rtx));
-  derived_regs = (char *) alloca (maxregnum);
-  bzero (derived_regs, maxregnum);
-  splittable_regs_updates = (int *) alloca (maxregnum * sizeof (int));
-  bzero ((char *) splittable_regs_updates, maxregnum * sizeof (int));
+  splittable_regs = (rtx *) xcalloc (maxregnum, sizeof (rtx));
+  derived_regs = (char *) xcalloc (maxregnum, sizeof (char));
+  splittable_regs_updates = (int *) xcalloc (maxregnum, sizeof (int));
   addr_combined_regs
-    = (struct induction **) alloca (maxregnum * sizeof (struct induction *));
-  bzero ((char *) addr_combined_regs, maxregnum * sizeof (struct induction *));
-  local_regno = (char *) alloca (maxregnum);
-  bzero (local_regno, maxregnum);
+    = (struct induction **) xcalloc (maxregnum, sizeof (struct induction *));
+  local_regno = (char *) xcalloc (maxregnum, sizeof (char));
 
   /* Mark all local registers, i.e. the ones which are referenced only
      inside the loop.  */
@@ -884,7 +902,7 @@ unroll_loop (loop_end, insn_count, loop_start, end_insert_before,
 	  rtx *labels;
 	  int abs_inc, neg_inc;
 
-	  map->reg_map = (rtx *) alloca (maxregnum * sizeof (rtx));
+	  map->reg_map = (rtx *) xmalloc (maxregnum * sizeof (rtx));
 
 	  VARRAY_CONST_EQUIV_INIT (map->const_equiv_varray, maxregnum,
 				   "unroll_loop");
@@ -930,7 +948,7 @@ unroll_loop (loop_end, insn_count, loop_start, end_insert_before,
 	  /* Now emit a sequence of branches to jump to the proper precond
 	     loop entry point.  */
 
-	  labels = (rtx *) alloca (sizeof (rtx) * unroll_number);
+	  labels = (rtx *) xmalloc (sizeof (rtx) * unroll_number);
 	  for (i = 0; i < unroll_number; i++)
 	    labels[i] = gen_label_rtx ();
 
@@ -1109,6 +1127,9 @@ unroll_loop (loop_end, insn_count, loop_start, end_insert_before,
 	  /* Set unroll type to MODULO now.  */
 	  unroll_type = UNROLL_MODULO;
 	  loop_preconditioned = 1;
+
+	  /* Clean up.  */
+	  free (labels);
 	}
     }
 
@@ -1146,7 +1167,7 @@ unroll_loop (loop_end, insn_count, loop_start, end_insert_before,
      the constant maps also.  */
 
   maxregnum = max_reg_num ();
-  map->reg_map = (rtx *) alloca (maxregnum * sizeof (rtx));
+  map->reg_map = (rtx *) xmalloc (maxregnum * sizeof (rtx));
 
   init_reg_map (map, maxregnum);
 
@@ -1172,8 +1193,8 @@ unroll_loop (loop_end, insn_count, loop_start, end_insert_before,
     }
 
   /* Use our current register alignment and pointer flags.  */
-  map->regno_pointer_flag = current_function->emit->regno_pointer_flag;
-  map->regno_pointer_align = current_function->emit->regno_pointer_align;
+  map->regno_pointer_flag = cfun->emit->regno_pointer_flag;
+  map->regno_pointer_align = cfun->emit->regno_pointer_align;
 
   /* If the loop is being partially unrolled, and the iteration variables
      are being split, and are being renamed for the split, then must fix up
@@ -1286,8 +1307,35 @@ unroll_loop (loop_end, insn_count, loop_start, end_insert_before,
     emit_label_after (exit_label, loop_end);
 
  egress:
-  if (map && map->const_equiv_varray)
+  if (unroll_type == UNROLL_COMPLETELY)
+    {
+      /* Remove the loop notes since this is no longer a loop.  */
+      if (loop_info->vtop)
+	delete_insn (loop_info->vtop);
+      if (loop_info->cont)
+	delete_insn (loop_info->cont);
+      if (loop_start)
+	delete_insn (loop_start);
+      if (loop_end)
+	delete_insn (loop_end);
+    }
+
+  if (map->const_equiv_varray)
     VARRAY_FREE (map->const_equiv_varray);
+  if (map->label_map)
+    {
+      free (map->label_map);
+      free (local_label);
+    }
+  free (map->insn_map);
+  free (splittable_regs);
+  free (derived_regs);
+  free (splittable_regs_updates);
+  free (addr_combined_regs);
+  free (local_regno);
+  if (map->reg_map)
+    free (map->reg_map);
+  free (map);
 }
 
 /* Return true if the loop can be safely, and profitably, preconditioned
@@ -1616,7 +1664,7 @@ initial_reg_note_copy (notes, map)
   PUT_MODE (copy, GET_MODE (notes));
 
   if (GET_CODE (notes) == EXPR_LIST)
-    XEXP (copy, 0) = copy_rtx_and_substitute (XEXP (notes, 0), map);
+    XEXP (copy, 0) = copy_rtx_and_substitute (XEXP (notes, 0), map, 0);
   else if (GET_CODE (notes) == INSN_LIST)
     /* Don't substitute for these yet.  */
     XEXP (copy, 0) = XEXP (notes, 0);
@@ -1657,7 +1705,7 @@ copy_loop_body (copy_start, copy_end, map, exit_label, last_iteration,
      rtx start_label, loop_end, insert_before, copy_notes_from;
 {
   rtx insn, pattern;
-  rtx set, tem, copy;
+  rtx set, tem, copy = NULL_RTX;
   int dest_reg_was_split, i;
 #ifdef HAVE_cc0
   rtx cc0_insn = 0;
@@ -1777,11 +1825,14 @@ copy_loop_body (copy_start, copy_end, map, exit_label, last_iteration,
 			    value = plus_constant (tv->dest_reg,
 						   tv->const_adjust);
 
-			    /* The constant could be too large for an add
-			       immediate, so can't directly emit an insn
-			       here.  */
-			    emit_unrolled_add (dest_reg, XEXP (value, 0),
-					       XEXP (value, 1));
+			    if (GET_CODE (value) == PLUS)
+			      {
+				/* The constant could be too large for an add
+				   immediate, so can't directly emit an insn
+				   here.  */
+				emit_unrolled_add (dest_reg, XEXP (value, 0),
+						   XEXP (value, 1));
+			      }
 			  }
 
 			/* Reset the giv to be just the register again, in case
@@ -1927,7 +1978,7 @@ copy_loop_body (copy_start, copy_end, map, exit_label, last_iteration,
 	    }
 	  else
 	    {
-	      pattern = copy_rtx_and_substitute (pattern, map);
+	      pattern = copy_rtx_and_substitute (pattern, map, 0);
 	      copy = emit_insn (pattern);
 	    }
 	  REG_NOTES (copy) = initial_reg_note_copy (REG_NOTES (insn), map);
@@ -1974,7 +2025,7 @@ copy_loop_body (copy_start, copy_end, map, exit_label, last_iteration,
 	  break;
 
 	case JUMP_INSN:
-	  pattern = copy_rtx_and_substitute (PATTERN (insn), map);
+	  pattern = copy_rtx_and_substitute (PATTERN (insn), map, 0);
 	  copy = emit_jump_insn (pattern);
 	  REG_NOTES (copy) = initial_reg_note_copy (REG_NOTES (insn), map);
 
@@ -2107,14 +2158,15 @@ copy_loop_body (copy_start, copy_end, map, exit_label, last_iteration,
 	  break;
 
 	case CALL_INSN:
-	  pattern = copy_rtx_and_substitute (PATTERN (insn), map);
+	  pattern = copy_rtx_and_substitute (PATTERN (insn), map, 0);
 	  copy = emit_call_insn (pattern);
 	  REG_NOTES (copy) = initial_reg_note_copy (REG_NOTES (insn), map);
 
 	  /* Because the USAGE information potentially contains objects other
 	     than hard registers, we need to copy it.  */
 	  CALL_INSN_FUNCTION_USAGE (copy)
-	    = copy_rtx_and_substitute (CALL_INSN_FUNCTION_USAGE (insn), map);
+	    = copy_rtx_and_substitute (CALL_INSN_FUNCTION_USAGE (insn),
+				       map, 0);
 
 #ifdef HAVE_cc0
 	  if (cc0_insn)
@@ -2342,7 +2394,7 @@ fold_rtx_mult_add (mult1, mult2, add1, mode)
 rtx
 biv_total_increment (bl, loop_start, loop_end)
      struct iv_class *bl;
-     rtx loop_start, loop_end;
+     rtx loop_start ATTRIBUTE_UNUSED, loop_end ATTRIBUTE_UNUSED;
 {
   struct induction *v;
   rtx result;
@@ -3651,11 +3703,9 @@ loop_iterations (loop_start, loop_end, loop_info)
       return 0;
     }
 
-  /* The only new registers that care created before loop iterations are
-     givs made from biv increments, so this should never occur.  */
-
+  /* This can happen due to optimization in load_mems.  */
   if ((unsigned) REGNO (iteration_var) >= reg_iv_type->num_elements)
-    abort ();
+    return 0;
 
   iteration_info (iteration_var, &initial_value, &increment,
 		  loop_start, loop_end);
@@ -4022,7 +4072,7 @@ remap_split_bivs (x)
     {
       if (fmt[i] == 'e')
 	XEXP (x, i) = remap_split_bivs (XEXP (x, i));
-      if (fmt[i] == 'E')
+      else if (fmt[i] == 'E')
 	{
 	  register int j;
 	  for (j = 0; j < XVECLEN (x, i); j++)

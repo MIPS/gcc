@@ -82,17 +82,6 @@ static char *lookup_key		PROTO((char *));
 static HKEY reg_key = (HKEY) INVALID_HANDLE_VALUE;
 #endif
 
-#ifndef DIR_SEPARATOR
-# define IS_DIR_SEPARATOR(ch) ((ch) == '/')
-#else /* DIR_SEPARATOR */
-# ifndef DIR_SEPARATOR_2
-#  define IS_DIR_SEPARATOR(ch) ((ch) == DIR_SEPARATOR)
-# else /* DIR_SEPARATOR && DIR_SEPARATOR_2 */
-#  define IS_DIR_SEPARATOR(ch) \
-	(((ch) == DIR_SEPARATOR) || ((ch) == DIR_SEPARATOR_2))
-# endif /* DIR_SEPARATOR && DIR_SEPARATOR_2 */
-#endif /* DIR_SEPARATOR */
-
 /* Given KEY, as above, return its value.  */
 
 static const char *
@@ -279,8 +268,9 @@ translate_name (name)
   if (prefix == 0)
     prefix = PREFIX;
 
-  /* Remove any trailing directory separator from what we got.  */
-  if (IS_DIR_SEPARATOR (prefix[strlen (prefix) - 1]))
+  /* Remove any trailing directory separator from what we got. First check
+     for an empty prefix.  */
+  if (prefix[0] && IS_DIR_SEPARATOR (prefix[strlen (prefix) - 1]))
     {
       char * temp = xstrdup (prefix);
       temp[strlen (temp) - 1] = 0;
@@ -329,7 +319,7 @@ update_path (path, key)
       do {
 	if (*new_path == '/')
 	  *new_path = DIR_SEPARATOR;
-      } while (*newpath++);
+      } while (*new_path++);
     }
 #endif
 

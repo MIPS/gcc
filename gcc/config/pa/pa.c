@@ -1,5 +1,5 @@
 /* Subroutines for insn-output.c for HPPA.
-   Copyright (C) 1992, 93-98, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1992, 93-99, 2000 Free Software Foundation, Inc.
    Contributed by Tim Moore (moore@cs.utah.edu), based on sparc.c
 
 This file is part of GNU CC.
@@ -39,6 +39,8 @@ Boston, MA 02111-1307, USA.  */
 #include "obstack.h"
 #include "toplev.h"
 #include "ggc.h"
+#include "recog.h"
+#include "tm_p.h"
 
 static void restore_unscaled_index_insn_codes		PROTO((rtx));
 static void record_unscaled_index_insn_codes		PROTO((rtx));
@@ -48,6 +50,12 @@ static int forward_branch_p				PROTO((rtx));
 static int shadd_constant_p				PROTO((int));
 static void pa_add_gc_roots                             PROTO((void));
 static void mark_deferred_plabels                       PROTO((void *));
+static void compute_zdepwi_operands			PROTO((unsigned HOST_WIDE_INT, unsigned *));
+static int compute_movstrsi_length			PROTO((rtx));
+static void remove_useless_addtr_insns			PROTO((rtx, int));
+static void store_reg					PROTO((int, int, int));
+static void load_reg					PROTO((int, int, int));
+static void set_reg_plus_d				PROTO((int, int, int));
 
 /* Save the operands last given to a compare for use when we
    generate a scc or bcc insn.  */
@@ -59,13 +67,13 @@ enum cmp_type hppa_branch_type;
 enum processor_type pa_cpu;
 
 /* String to hold which cpu we are scheduling for.  */
-char *pa_cpu_string;
+const char *pa_cpu_string;
 
 /* Which architecture we are generating code for.  */
 enum architecture_type pa_arch;
 
 /* String to hold which architecture we are generating code for.  */
-char *pa_arch_string;
+const char *pa_arch_string;
 
 /* Set by the FUNCTION_PROFILER macro. */
 int hp_profile_labelno;
@@ -74,7 +82,7 @@ int hp_profile_labelno;
    registers which were saved by the current function's prologue.  */
 static int gr_saved, fr_saved;
 
-static rtx find_addr_reg ();
+static rtx find_addr_reg PARAMS ((rtx));
 
 /* Keep track of the number of bytes we have output in the CODE subspaces
    during this compilation so we'll know when to emit inline long-calls.  */
@@ -205,7 +213,8 @@ call_operand_address (op, mode)
      rtx op;
      enum machine_mode mode ATTRIBUTE_UNUSED;
 {
-  return (CONSTANT_P (op) && ! TARGET_PORTABLE_RUNTIME);
+  return (GET_MODE (op) == word_mode
+	  && CONSTANT_P (op) && ! TARGET_PORTABLE_RUNTIME);
 }
 
 /* Return 1 if X contains a symbolic expression.  We know these
@@ -478,6 +487,15 @@ ireg_or_int5_operand (op, mode)
 	  || (GET_CODE (op) == REG && REGNO (op) > 0 && REGNO (op) < 32));
 }
 
+/* Return nonzero if OP is an integer register, else return zero.  */
+int
+ireg_operand (op, mode)
+     rtx op;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
+{
+  return (GET_CODE (op) == REG && REGNO (op) > 0 && REGNO (op) < 32);
+}
+
 /* Return truth value of whether OP is a integer which fits the
    range constraining immediate operands in three-address insns.  */
 
@@ -633,12 +651,12 @@ pc_or_label_operand (op, mode)
 rtx
 legitimize_pic_address (orig, mode, reg)
      rtx orig, reg;
-     enum machine_mode mode ATTRIBUTE_UNUSED;
+     enum machine_mode mode;
 {
   rtx pic_ref = orig;
 
   /* Labels need special handling.  */
-  if (pic_label_operand (orig))
+  if (pic_label_operand (orig, mode))
     {
       /* We do not want to go through the movXX expanders here since that
 	 would create recursion.
@@ -1606,8 +1624,9 @@ reloc_needed (exp)
    so SYMBOL_REF_FLAG, which is set by ENCODE_SECTION_INFO, will be true.  */
 
 int
-read_only_operand (operand)
+read_only_operand (operand, mode)
      rtx operand;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
 {
   if (GET_CODE (operand) == CONST)
     operand = XEXP (XEXP (operand, 0), 0);
@@ -1627,7 +1646,7 @@ read_only_operand (operand)
 
 /* Return the best assembler insn template
    for moving operands[1] into operands[0] as a fullword.   */
-char *
+const char *
 singlemove_string (operands)
      rtx *operands;
 {
@@ -1673,7 +1692,7 @@ singlemove_string (operands)
 /* Compute position (in OP[1]) and width (in OP[2])
    useful for copying IMM to a register using the zdepi
    instructions.  Store the immediate value to insert in OP[0].  */
-void
+static void
 compute_zdepwi_operands (imm, op)
      unsigned HOST_WIDE_INT imm;
      unsigned *op;
@@ -1712,7 +1731,7 @@ compute_zdepwi_operands (imm, op)
 /* Output assembler code to perform a doubleword move insn
    with operands OPERANDS.  */
 
-char *
+const char *
 output_move_double (operands)
      rtx *operands;
 {
@@ -1989,7 +2008,7 @@ output_move_double (operands)
   return "";
 }
 
-char *
+const char *
 output_fp_move_double (operands)
      rtx *operands;
 {
@@ -2060,7 +2079,7 @@ find_addr_reg (addr)
    OPERANDS[5] is the alignment safe to use, as a CONST_INT. 
    OPERANDS[6] is another temporary register.   */
 
-char *
+const char *
 output_block_move (operands, size_is_constant)
      rtx *operands;
      int size_is_constant ATTRIBUTE_UNUSED;
@@ -2161,7 +2180,7 @@ output_block_move (operands, size_is_constant)
    Basic structure is the same as emit_block_move, except that we
    count insns rather than emit them.  */
 
-int
+static int
 compute_movstrsi_length (insn)
      rtx insn;
 {
@@ -2193,7 +2212,7 @@ compute_movstrsi_length (insn)
 }
 
 
-char *
+const char *
 output_and (operands)
      rtx *operands;
 {
@@ -2244,7 +2263,7 @@ output_and (operands)
     return "and %1,%2,%0";
 }
 
-char *
+const char *
 output_ior (operands)
      rtx *operands;
 {
@@ -2277,7 +2296,7 @@ output_ior (operands)
 void
 output_ascii (file, p, size)
      FILE *file;
-     unsigned char *p;
+     const unsigned char *p;
      int size;
 {
   int i;
@@ -2344,7 +2363,7 @@ output_ascii (file, p, size)
    When CHECK_NOTES is zero we can only eliminate add,tr insns
    when there's a 1:1 correspondence between fcmp and ftest/fbranch
    instructions.  */
-void
+static void
 remove_useless_addtr_insns (insns, check_notes)
      rtx insns;
      int check_notes;
@@ -3936,7 +3955,7 @@ output_global_address (file, x, round_constant)
   if (GET_CODE (x) == HIGH)
     x = XEXP (x, 0);
 
-  if (GET_CODE (x) == SYMBOL_REF && read_only_operand (x))
+  if (GET_CODE (x) == SYMBOL_REF && read_only_operand (x, VOIDmode))
     assemble_name (file, XSTR (x, 0));
   else if (GET_CODE (x) == SYMBOL_REF && !flag_pic)
     {
@@ -3945,7 +3964,7 @@ output_global_address (file, x, round_constant)
     }
   else if (GET_CODE (x) == CONST)
     {
-      char *sep = "";
+      const char *sep = "";
       int offset = 0;		/* assembler wants -$global$ at end */
       rtx base = NULL_RTX;
 
@@ -3994,7 +4013,7 @@ output_global_address (file, x, round_constant)
 	sep = "-";
       else abort ();
 
-      if (!read_only_operand (base) && !flag_pic)
+      if (!read_only_operand (base, VOIDmode) && !flag_pic)
 	fputs ("-$global$", file);
       if (offset)
 	fprintf (file,"%s%d", sep, offset);
@@ -4030,8 +4049,9 @@ output_deferred_plabels (file)
    Keep track of which ones we have used.  */
 
 enum millicodes { remI, remU, divI, divU, mulI, mulU, end1000 };
+static void import_milli			PROTO((enum millicodes));
 static char imported[(int)end1000];
-static char *milli_names[] = {"remI", "remU", "divI", "divU", "mulI", "mulU"};
+static const char * const milli_names[] = {"remI", "remU", "divI", "divU", "mulI", "mulU"};
 static char import_string[] = ".IMPORT $$....,MILLICODE";
 #define MILLI_START 10
 
@@ -4053,7 +4073,7 @@ import_milli (code)
 /* The register constraints have put the operands and return value in
    the proper registers. */
 
-char *
+const char *
 output_mul_insn (unsignedp, insn)
      int unsignedp ATTRIBUTE_UNUSED;
      rtx insn;
@@ -4114,7 +4134,7 @@ emit_hpdiv_const (operands, unsignedp)
   return 0;
 }
 
-char *
+const char *
 output_div_insn (operands, unsignedp, insn)
      rtx *operands;
      int unsignedp;
@@ -4169,7 +4189,7 @@ output_div_insn (operands, unsignedp, insn)
 
 /* Output a $$rem millicode to do mod. */
 
-char *
+const char *
 output_mod_insn (unsignedp, insn)
      int unsignedp;
      rtx insn;
@@ -4192,7 +4212,7 @@ void
 output_arg_descriptor (call_insn)
      rtx call_insn;
 {
-  char *arg_regs[4];
+  const char *arg_regs[4];
   enum machine_mode arg_mode;
   rtx link;
   int i, output_flag = 0;
@@ -4343,7 +4363,7 @@ secondary_reload_class (class, mode, in)
   
   if (!flag_pic
       && is_symbolic
-      && read_only_operand (in))
+      && read_only_operand (in, VOIDmode))
     return NO_REGS;
 
   if (class != R1_REGS && is_symbolic)
@@ -4429,7 +4449,7 @@ hppa_builtin_saveregs ()
 
 void
 hppa_va_start (stdarg_p, valist, nextarg)
-     int stdarg_p;
+     int stdarg_p ATTRIBUTE_UNUSED;
      tree valist;
      rtx nextarg;
 {
@@ -4501,7 +4521,7 @@ hppa_va_arg (valist, type)
    output appropriate to emit the branch corresponding to all given
    parameters.  */
 
-char *
+const char *
 output_cbranch (operands, nullify, length, negated, insn)
   rtx *operands;
   int nullify, length, negated;
@@ -4680,7 +4700,7 @@ output_cbranch (operands, nullify, length, negated, insn)
    varying length branches, negated branches and all combinations of the
    above.  it returns the appropriate output template to emit the branch.  */
 
-char *
+const char *
 output_bb (operands, nullify, length, negated, insn, which)
   rtx *operands ATTRIBUTE_UNUSED;
   int nullify, length, negated;
@@ -4818,7 +4838,7 @@ output_bb (operands, nullify, length, negated, insn, which)
    of the above.  it returns the appropriate output template to emit the
    branch.  */
 
-char *
+const char *
 output_bvb (operands, nullify, length, negated, insn, which)
   rtx *operands ATTRIBUTE_UNUSED;
   int nullify, length, negated;
@@ -4954,7 +4974,7 @@ output_bvb (operands, nullify, length, negated, insn, which)
 
    Note it may perform some output operations on its own before
    returning the final output string.  */
-char *
+const char *
 output_dbra (operands, insn, which_alternative)
      rtx *operands;
      rtx insn;
@@ -5059,7 +5079,7 @@ output_dbra (operands, insn, which_alternative)
 
    Note it may perform some output operations on its own before
    returning the final output string.  */
-char *
+const char *
 output_movb (operands, insn, which_alternative, reverse_comparison)
      rtx *operands;
      rtx insn;
@@ -5174,7 +5194,7 @@ output_movb (operands, insn, which_alternative, reverse_comparison)
 
    CALL_DEST is the routine we are calling.  */
 
-char *
+const char *
 output_millicode_call (insn, call_dest)
   rtx insn;
   rtx call_dest;
@@ -5334,7 +5354,7 @@ extern struct obstack *current_obstack;
 
    CALL_DEST is the routine we are calling.  */
 
-char *
+const char *
 output_call (insn, call_dest)
   rtx insn;
   rtx call_dest;
@@ -5427,7 +5447,7 @@ output_call (insn, call_dest)
 	 we don't have any direct calls in that case.  */
 	{
 	  int i;
-	  char *name = XSTR (call_dest, 0);
+	  const char *name = XSTR (call_dest, 0);
 
 	  /* See if we have already put this function on the list
 	     of deferred plabels.  This list is generally small,
@@ -5592,7 +5612,7 @@ hppa_encode_label (sym, permanent)
      rtx sym;
      int permanent;
 {
-  char *str = XSTR (sym, 0);
+  const char *str = XSTR (sym, 0);
   int len = strlen (str);
   char *newstr;
 
@@ -5894,7 +5914,7 @@ jump_in_call_delay (insn)
 
 /* Output an unconditional move and branch insn.  */
 
-char *
+const char *
 output_parallel_movb (operands, length)
      rtx *operands;
      int length;
@@ -5925,7 +5945,7 @@ output_parallel_movb (operands, length)
 
 /* Output an unconditional add and branch insn.  */
 
-char *
+const char *
 output_parallel_addb (operands, length)
      rtx *operands;
      int length;
@@ -6508,7 +6528,7 @@ pa_can_combine_p (new, anchor, floater, reversed, dest, src1, src2)
   INSN_CODE (new) = -1;
   insn_code_number = recog_memoized (new);
   if (insn_code_number < 0
-      || !constrain_operands (insn_code_number, 1))
+      || !constrain_operands (1))
     return 0;
 
   if (reversed)

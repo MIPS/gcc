@@ -1,5 +1,5 @@
 /* Subroutines shared by all languages that are variants of C.
-   Copyright (C) 1992, 93-98, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1992, 93-98, 1999, 2000 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -30,6 +30,7 @@ Boston, MA 02111-1307, USA.  */
 #include "c-pragma.h"
 #include "rtl.h"
 #include "ggc.h"
+#include "tm_p.h"
 
 #if USE_CPPLIB
 #include "cpplib.h"
@@ -42,7 +43,7 @@ enum cpp_token cpp_token;
 #define WCHAR_TYPE_SIZE TYPE_PRECISION (wchar_type_node)
 
 /* The following symbols are subsumed in the c_global_trees array, and
-   listed here individually for documentation purposes. 
+   listed here individually for documentation purposes.
 
    INTEGER_TYPE and REAL_TYPE nodes for the standard data types.
 
@@ -140,20 +141,21 @@ int skip_evaluation;
 enum attrs {A_PACKED, A_NOCOMMON, A_COMMON, A_NORETURN, A_CONST, A_T_UNION,
 	    A_NO_CHECK_MEMORY_USAGE, A_NO_INSTRUMENT_FUNCTION,
 	    A_CONSTRUCTOR, A_DESTRUCTOR, A_MODE, A_SECTION, A_ALIGNED,
-	    A_UNUSED, A_FORMAT, A_FORMAT_ARG, A_WEAK, A_ALIAS};
+	    A_UNUSED, A_FORMAT, A_FORMAT_ARG, A_WEAK, A_ALIAS, A_MALLOC,
+	    A_NO_LIMIT_STACK};
 
 enum format_type { printf_format_type, scanf_format_type,
 		   strftime_format_type };
 
-static void declare_hidden_char_array	PROTO((const char *, const char *));
-static void add_attribute		PROTO((enum attrs, const char *,
-					       int, int, int));
-static void init_attributes		PROTO((void));
-static void record_function_format	PROTO((tree, tree, enum format_type,
-					       int, int));
-static void record_international_format	PROTO((tree, tree, int));
-static tree c_find_base_decl            PROTO((tree));
-static int default_valid_lang_attribute PROTO ((tree, tree, tree, tree));
+static void declare_hidden_char_array	PARAMS ((const char *, const char *));
+static void add_attribute		PARAMS ((enum attrs, const char *,
+						 int, int, int));
+static void init_attributes		PARAMS ((void));
+static void record_function_format	PARAMS ((tree, tree, enum format_type,
+						 int, int));
+static void record_international_format	PARAMS ((tree, tree, int));
+static tree c_find_base_decl            PARAMS ((tree));
+static int default_valid_lang_attribute PARAMS ((tree, tree, tree, tree));
 
 /* Keep a stack of if statements.  We record the number of compound
    statements seen up to the if keyword, as well as the line number
@@ -167,7 +169,7 @@ typedef struct
   const char *file;
   int needs_warning;
 } if_elt;
-static void tfaff			PROTO((void));
+static void tfaff			PARAMS ((void));
 
 static if_elt *if_stack;
 
@@ -481,6 +483,8 @@ init_attributes ()
   add_attribute (A_ALIAS, "alias", 1, 1, 1);
   add_attribute (A_NO_INSTRUMENT_FUNCTION, "no_instrument_function", 0, 0, 1);
   add_attribute (A_NO_CHECK_MEMORY_USAGE, "no_check_memory_usage", 0, 0, 1);
+  add_attribute (A_MALLOC, "malloc", 0, 0, 1);
+  add_attribute (A_NO_LIMIT_STACK, "no_stack_limit", 0, 0, 1);
 }
 
 /* Default implementation of valid_lang_attribute, below.  By default, there
@@ -499,7 +503,7 @@ default_valid_lang_attribute (attr_name, attr_args, decl, type)
 /* Return a 1 if ATTR_NAME and ATTR_ARGS denote a valid language-specific
    attribute for either declaration DECL or type TYPE and 0 otherwise.  */
 
-int (*valid_lang_attribute) PROTO ((tree, tree, tree, tree))
+int (*valid_lang_attribute) PARAMS ((tree, tree, tree, tree))
      = default_valid_lang_attribute;
 
 /* Process the attributes listed in ATTRIBUTES and PREFIX_ATTRIBUTES
@@ -534,11 +538,11 @@ decl_attributes (node, attributes, prefix_attributes)
      anything done here.  */
   PRAGMA_INSERT_ATTRIBUTES (node, & attributes, & prefix_attributes);
 #endif
-  
+
 #ifdef INSERT_ATTRIBUTES
   INSERT_ATTRIBUTES (node, & attributes, & prefix_attributes);
 #endif
-  
+
   attributes = chainon (prefix_attributes, attributes);
 
   for (a = attributes; a; a = TREE_CHAIN (a))
@@ -613,6 +617,13 @@ decl_attributes (node, attributes, prefix_attributes)
 	      = build_pointer_type
 		(build_type_variant (TREE_TYPE (type),
 				     TREE_READONLY (TREE_TYPE (type)), 1));
+	  else
+	    warning ("`%s' attribute ignored", IDENTIFIER_POINTER (name));
+	  break;
+
+	case A_MALLOC:
+	  if (TREE_CODE (decl) == FUNCTION_DECL)
+	    DECL_IS_MALLOC (decl) = 1;
 	  else
 	    warning ("`%s' attribute ignored", IDENTIFIER_POINTER (name));
 	  break;
@@ -765,7 +776,7 @@ decl_attributes (node, attributes, prefix_attributes)
 	      = (args ? TREE_VALUE (args)
 		 : size_int (BIGGEST_ALIGNMENT / BITS_PER_UNIT));
 	    int align;
-	    
+
 	    /* Strip any NOPs of any kind.  */
 	    while (TREE_CODE (align_expr) == NOP_EXPR
 		   || TREE_CODE (align_expr) == CONVERT_EXPR
@@ -811,7 +822,7 @@ decl_attributes (node, attributes, prefix_attributes)
 			 "argument format specified for non-function `%s'");
 		continue;
 	      }
-	
+
 	    if (TREE_CODE (format_type_id) != IDENTIFIER_NODE)
 	      {
 		error ("unrecognized format specifier");
@@ -820,7 +831,7 @@ decl_attributes (node, attributes, prefix_attributes)
 	    else
 	      {
 		const char *p = IDENTIFIER_POINTER (format_type_id);
-		
+
 		if (!strcmp (p, "printf") || !strcmp (p, "__printf__"))
 		  format_type = printf_format_type;
 		else if (!strcmp (p, "scanf") || !strcmp (p, "__scanf__"))
@@ -1030,6 +1041,23 @@ decl_attributes (node, attributes, prefix_attributes)
 	  else
 	    DECL_NO_INSTRUMENT_FUNCTION_ENTRY_EXIT (decl) = 1;
 	  break;
+
+        case A_NO_LIMIT_STACK:
+	  if (TREE_CODE (decl) != FUNCTION_DECL)
+	    {
+	      error_with_decl (decl,
+			       "`%s' attribute applies only to functions",
+			       IDENTIFIER_POINTER (name));
+	    }
+	  else if (DECL_INITIAL (decl))
+	    {
+	      error_with_decl (decl,
+			       "can't set `%s' attribute after definition",
+			       IDENTIFIER_POINTER (name));
+	    }
+	  else
+	    DECL_NO_LIMIT_STACK (decl) = 1;
+	  break;
 	}
     }
 }
@@ -1168,7 +1196,7 @@ typedef struct {
   /* Type of argument if length modifier `L' is used.
      If NULL, then this modifier is not allowed.  */
   tree *bigllen;
-  /* Type of argument if length modifier `Z' is used.
+  /* Type of argument if length modifiers 'z' or `Z' is used.
      If NULL, then this modifier is not allowed.  */
   tree *zlen;
   /* List of other modifier characters allowed with these options.  */
@@ -1252,7 +1280,7 @@ typedef struct international_format_info
 
 static international_format_info *international_format_list = NULL;
 
-static void check_format_info		PROTO((function_format_info *, tree));
+static void check_format_info	PARAMS ((function_format_info *, tree));
 
 /* Initialize the table of functions to perform format checking on.
    The ANSI functions are always checked (whether <stdio.h> is
@@ -1491,7 +1519,11 @@ check_format_info (info, params)
     {
       /* The user may get multiple warnings if the supplied argument
 	 isn't even a string pointer.  */
-      warning ("format not a string literal, argument types not checked");
+      /* Functions taking a va_list normally pass a non-literal format
+	 string.  These functions typically are declared with
+	 first_arg_num == 0, so avoid warning in those cases.  */
+      if (info->first_arg_num != 0)
+	warning ("format not a string literal, argument types not checked");
       return;
     }
   format_tree = TREE_OPERAND (format_tree, 0);
@@ -1499,7 +1531,11 @@ check_format_info (info, params)
     {
       /* The user may get multiple warnings if the supplied argument
 	 isn't even a string pointer.  */
-      warning ("format not a string literal, argument types not checked");
+      /* Functions taking a va_list normally pass a non-literal format
+	 string.  These functions typically are declared with
+	 first_arg_num == 0, so avoid warning in those cases.  */
+      if (info->first_arg_num != 0)
+	warning ("format not a string literal, argument types not checked");
       return;
     }
   format_chars = TREE_STRING_POINTER (format_tree);
@@ -1729,26 +1765,25 @@ check_format_info (info, params)
 		warning ("ANSI C does not support the `%c' length modifier",
 			 length_char);
 	    }
-	  else if (*format_chars == 'Z')
+	  else if (*format_chars == 'Z' || *format_chars == 'z')
 	    {
 	      length_char = *format_chars++;
-	      if (pedantic)
-		warning ("ANSI C does not support the `Z' length modifier");
+	      if (pedantic && (length_char == 'Z' || !flag_isoc9x))
+		warning ("ANSI C does not support the `%c' length modifier",
+			 length_char);
 	    }
 	  else
 	    length_char = 0;
 	  if (length_char == 'l' && *format_chars == 'l')
 	    {
 	      length_char = 'q', format_chars++;
-	      /* FIXME: Is allowed in ISO C 9x.  */
-	      if (pedantic)
+	      if (pedantic && !flag_isoc9x)
 		warning ("ANSI C does not support the `ll' length modifier");
 	    }
 	  else if (length_char == 'h' && *format_chars == 'h')
 	    {
 	      length_char = 'H', format_chars++;
-	      /* FIXME: Is allowed in ISO C 9x.  */
-	      if (pedantic)
+	      if (pedantic && !flag_isoc9x)
 		warning ("ANSI C does not support the `hh' length modifier");
 	    }
 	  if (*format_chars == 'a' && info->format_type == scanf_format_type)
@@ -1775,10 +1810,10 @@ check_format_info (info, params)
       if (pedantic && info->format_type != strftime_format_type
 	  && (format_char == 'm' || format_char == 'C' || format_char == 'S'))
 	warning ("ANSI C does not support the `%c' format", format_char);
-      /* ??? The a and A formats are C9X extensions, and should be allowed
-	 when a C9X option is added.  */
+      /* The a and A formats are C99 extensions.  */
       if (pedantic && info->format_type != strftime_format_type
-	  && (format_char == 'a' || format_char == 'A'))
+	  && (format_char == 'a' || format_char == 'A')
+	  && !flag_isoc9x)
 	warning ("ANSI C does not support the `%c' format", format_char);
       format_chars++;
       switch (info->format_type)
@@ -1877,7 +1912,7 @@ check_format_info (info, params)
 	case 'l': wanted_type = fci->llen ? *(fci->llen) : 0; break;
 	case 'q': wanted_type = fci->qlen ? *(fci->qlen) : 0; break;
 	case 'L': wanted_type = fci->bigllen ? *(fci->bigllen) : 0; break;
-	case 'Z': wanted_type = fci->zlen ? *fci->zlen : 0; break;
+	case 'z': case 'Z': wanted_type = fci->zlen ? *fci->zlen : 0; break;
 	}
       if (wanted_type == 0)
 	warning ("use of `%c' length character with `%c' type character",
@@ -1917,10 +1952,12 @@ check_format_info (info, params)
 	      continue;
 	    }
 	  if (TREE_CODE (cur_type) != ERROR_MARK)
-	    warning ((fci->pointer_count + aflag == 1
-		      ? "format argument is not a pointer (arg %d)"
-		      : "format argument is not a pointer to a pointer (arg %d)"),
-		     arg_num);
+	    {
+	      if (fci->pointer_count + aflag == 1)
+		warning ("format argument is not a pointer (arg %d)", arg_num);
+	      else
+		warning ("format argument is not a pointer to a pointer (arg %d)", arg_num);
+	    }
 	  break;
 	}
 
@@ -2222,7 +2259,7 @@ type_for_mode (mode, unsignedp)
     return unsignedp ? long_long_unsigned_type_node : long_long_integer_type_node;
 
   if (mode == TYPE_MODE (widest_integer_literal_type_node))
-    return unsignedp ? widest_unsigned_literal_type_node 
+    return unsignedp ? widest_unsigned_literal_type_node
                      : widest_integer_literal_type_node;
 
   if (mode == TYPE_MODE (intQI_type_node))
@@ -2343,16 +2380,16 @@ signed_or_unsigned_type (unsignedp, type)
 
   if (TYPE_PRECISION (type) == TYPE_PRECISION (signed_char_type_node))
     return unsignedp ? unsigned_char_type_node : signed_char_type_node;
-  if (TYPE_PRECISION (type) == TYPE_PRECISION (integer_type_node)) 
+  if (TYPE_PRECISION (type) == TYPE_PRECISION (integer_type_node))
     return unsignedp ? unsigned_type_node : integer_type_node;
-  if (TYPE_PRECISION (type) == TYPE_PRECISION (short_integer_type_node)) 
+  if (TYPE_PRECISION (type) == TYPE_PRECISION (short_integer_type_node))
     return unsignedp ? short_unsigned_type_node : short_integer_type_node;
-  if (TYPE_PRECISION (type) == TYPE_PRECISION (long_integer_type_node)) 
+  if (TYPE_PRECISION (type) == TYPE_PRECISION (long_integer_type_node))
     return unsignedp ? long_unsigned_type_node : long_integer_type_node;
-  if (TYPE_PRECISION (type) == TYPE_PRECISION (long_long_integer_type_node)) 
+  if (TYPE_PRECISION (type) == TYPE_PRECISION (long_long_integer_type_node))
     return (unsignedp ? long_long_unsigned_type_node
 	    : long_long_integer_type_node);
-  if (TYPE_PRECISION (type) == TYPE_PRECISION (widest_integer_literal_type_node)) 
+  if (TYPE_PRECISION (type) == TYPE_PRECISION (widest_integer_literal_type_node))
     return (unsignedp ? widest_unsigned_literal_type_node
 	    : widest_integer_literal_type_node);
   return type;
@@ -3228,9 +3265,9 @@ c_apply_type_quals_to_decl (type_quals, decl)
 	     alias set for the type pointed to by the type of the
 	     decl.  */
 
-	  int pointed_to_alias_set 
+	  int pointed_to_alias_set
 	    = get_alias_set (TREE_TYPE (TREE_TYPE (decl)));
-	  
+
 	  if (!pointed_to_alias_set)
 	    /* It's not legal to make a subset of alias set zero.  */
 	    ;
@@ -3264,7 +3301,7 @@ c_find_base_decl (t)
 
   decl = NULL_TREE;
 
-  if (TREE_CODE (t) == FIELD_DECL 
+  if (TREE_CODE (t) == FIELD_DECL
       || TREE_CODE (t) == PARM_DECL
       || TREE_CODE (t) == VAR_DECL)
     /* Aha, we found a pointer-typed declaration.  */
@@ -3360,7 +3397,7 @@ c_get_alias_set (t)
       && DECL_BIT_FIELD_TYPE (TREE_OPERAND (t, 1)))
     /* Since build_modify_expr calls get_unwidened for stores to
        component references, the type of a bit field can be changed
-       from (say) `unsigned int : 16' to `unsigned short' or from 
+       from (say) `unsigned int : 16' to `unsigned short' or from
        `enum E : 16' to `short'.  We want the real type of the
        bit-field in this case, not some the integral equivalent.  */
     type = DECL_BIT_FIELD_TYPE (TREE_OPERAND (t, 1));
@@ -3397,7 +3434,7 @@ c_get_alias_set (t)
   else if (TREE_CODE (type) == FUNCTION_TYPE)
     /* There are no objects of FUNCTION_TYPE, so there's no point in
        using up an alias set for them.  (There are, of course,
-       pointers and references to functions, but that's 
+       pointers and references to functions, but that's
        different.)  */
     TYPE_ALIAS_SET (type) = 0;
   else if (TREE_CODE (type) == RECORD_TYPE
@@ -3417,7 +3454,7 @@ c_get_alias_set (t)
 	 In particular, if we have `typedef int I', then `int *', and
 	 `I *' are different types.  So, we have to pick a canonical
 	 representative.  We do this below.
-	 
+
 	 Technically, this approach is actually more conservative that
 	 it needs to be.  In particular, `const int *' and `int *'
 	 chould be in different alias sets, according to the C and C++
@@ -3443,7 +3480,7 @@ c_get_alias_set (t)
 	TYPE_ALIAS_SET (type) = c_get_alias_set (t);
     }
 
-  if (!TYPE_ALIAS_SET_KNOWN_P (type)) 
+  if (!TYPE_ALIAS_SET_KNOWN_P (type))
     {
       /* Types that are not allocated on the permanent obstack are not
 	 placed in the type hash table.  Thus, there can be multiple
@@ -3461,9 +3498,9 @@ c_get_alias_set (t)
 }
 
 /* Build tree nodes and builtin functions common to both C and C++ language
-   frontends.  
+   frontends.
    CPLUS_MODE is nonzero if we are called from the C++ frontend, we generate
-   some stricter prototypes in that case. 
+   some stricter prototypes in that case.
    NO_BUILTINS and NO_NONANSI_BUILTINS contain the respective values of
    the language frontend flags flag_no_builtin and
    flag_no_nonansi_builtin.  */
@@ -3489,6 +3526,12 @@ c_common_nodes_and_builtins (cplus_mode, no_builtins, no_nonansi_builtins)
 
   pushdecl (build_decl (TYPE_DECL, get_identifier ("__builtin_va_list"),
 			va_list_type_node));
+
+  pushdecl (build_decl (TYPE_DECL, get_identifier ("__builtin_ptrdiff_t"),
+			ptrdiff_type_node));
+
+  pushdecl (build_decl (TYPE_DECL, get_identifier ("__builtin_size_t"),
+			sizetype));
 
   va_list_ptr_type_node = build_pointer_type (va_list_type_node);
 
@@ -3607,10 +3650,12 @@ c_common_nodes_and_builtins (cplus_mode, no_builtins, no_nonansi_builtins)
      Declare _exit just to mark it as volatile.  */
   if (! no_builtins && ! no_nonansi_builtins)
     {
+#ifndef SMALL_STACK
       temp = builtin_function ("alloca", ptr_ftype_sizetype,
 			       BUILT_IN_ALLOCA, BUILT_IN_NORMAL, NULL_PTR);
       /* Suppress error if redefined as a non-function.  */
       DECL_BUILT_IN_NONANSI (temp) = 1;
+#endif
       temp = builtin_function ("ffs", int_ftype_int, BUILT_IN_FFS,
 			       BUILT_IN_NORMAL, NULL_PTR);
       /* Suppress error if redefined as a non-function.  */
@@ -3718,23 +3763,23 @@ c_common_nodes_and_builtins (cplus_mode, no_builtins, no_nonansi_builtins)
 		    BUILT_IN_STRCPY, BUILT_IN_NORMAL, "strcpy");
   builtin_function ("__builtin_strlen", strlen_ftype,
 		    BUILT_IN_STRLEN, BUILT_IN_NORMAL, "strlen");
-  builtin_function ("__builtin_sqrtf", float_ftype_float, 
+  builtin_function ("__builtin_sqrtf", float_ftype_float,
 		    BUILT_IN_FSQRT, BUILT_IN_NORMAL, "sqrtf");
   builtin_function ("__builtin_fsqrt", double_ftype_double,
 		    BUILT_IN_FSQRT, BUILT_IN_NORMAL, "sqrt");
   builtin_function ("__builtin_sqrtl", ldouble_ftype_ldouble,
 		    BUILT_IN_FSQRT, BUILT_IN_NORMAL, "sqrtl");
-  builtin_function ("__builtin_sinf", float_ftype_float, 
+  builtin_function ("__builtin_sinf", float_ftype_float,
 		    BUILT_IN_SIN, BUILT_IN_NORMAL, "sinf");
-  builtin_function ("__builtin_sin", double_ftype_double, 
+  builtin_function ("__builtin_sin", double_ftype_double,
 		    BUILT_IN_SIN, BUILT_IN_NORMAL, "sin");
-  builtin_function ("__builtin_sinl", ldouble_ftype_ldouble, 
+  builtin_function ("__builtin_sinl", ldouble_ftype_ldouble,
 		    BUILT_IN_SIN, BUILT_IN_NORMAL, "sinl");
-  builtin_function ("__builtin_cosf", float_ftype_float, 
+  builtin_function ("__builtin_cosf", float_ftype_float,
 		    BUILT_IN_COS, BUILT_IN_NORMAL, "cosf");
-  builtin_function ("__builtin_cos", double_ftype_double, 
+  builtin_function ("__builtin_cos", double_ftype_double,
 		    BUILT_IN_COS, BUILT_IN_NORMAL, "cos");
-  builtin_function ("__builtin_cosl", ldouble_ftype_ldouble, 
+  builtin_function ("__builtin_cosl", ldouble_ftype_ldouble,
 		    BUILT_IN_COS, BUILT_IN_NORMAL, "cosl");
 
   if (! no_builtins)
@@ -3837,167 +3882,12 @@ build_va_arg (expr, type)
 {
   return build1 (VA_ARG_EXPR, type, expr);
 }
-
-/* Return nonzero if VALUE is a valid constant-valued expression
-   for use in initializing a static variable; one that can be an
-   element of a "constant" initializer.
-
-   Return null_pointer_node if the value is absolute;
-   if it is relocatable, return the variable that determines the relocation.
-   We assume that VALUE has been folded as much as possible;
-   therefore, we do not need to check for such things as
-   arithmetic-combinations of integers.  */
-
-tree
-initializer_constant_valid_p (value, endtype)
-     tree value;
-     tree endtype;
-{
-  switch (TREE_CODE (value))
-    {
-    case CONSTRUCTOR:
-      if ((TREE_CODE (TREE_TYPE (value)) == UNION_TYPE
-	   || TREE_CODE (TREE_TYPE (value)) == RECORD_TYPE)
-	  && TREE_CONSTANT (value)
-	  && CONSTRUCTOR_ELTS (value))
-	return
-	  initializer_constant_valid_p (TREE_VALUE (CONSTRUCTOR_ELTS (value)),
-					endtype);
-	
-      return TREE_STATIC (value) ? null_pointer_node : 0;
-
-    case INTEGER_CST:
-    case REAL_CST:
-    case STRING_CST:
-    case COMPLEX_CST:
-      return null_pointer_node;
-
-    case ADDR_EXPR:
-      return TREE_OPERAND (value, 0);
-
-    case NON_LVALUE_EXPR:
-      return initializer_constant_valid_p (TREE_OPERAND (value, 0), endtype);
-
-    case CONVERT_EXPR:
-    case NOP_EXPR:
-      /* Allow conversions between pointer types.  */
-      if (POINTER_TYPE_P (TREE_TYPE (value))
-	  && POINTER_TYPE_P (TREE_TYPE (TREE_OPERAND (value, 0))))
-	return initializer_constant_valid_p (TREE_OPERAND (value, 0), endtype);
-
-      /* Allow conversions between real types.  */
-      if (FLOAT_TYPE_P (TREE_TYPE (value))
-	  && FLOAT_TYPE_P (TREE_TYPE (TREE_OPERAND (value, 0))))
-	return initializer_constant_valid_p (TREE_OPERAND (value, 0), endtype);
-
-      /* Allow length-preserving conversions between integer types.  */
-      if (INTEGRAL_TYPE_P (TREE_TYPE (value))
-	  && INTEGRAL_TYPE_P (TREE_TYPE (TREE_OPERAND (value, 0)))
-	  && (TYPE_PRECISION (TREE_TYPE (value))
-	      == TYPE_PRECISION (TREE_TYPE (TREE_OPERAND (value, 0)))))
-	return initializer_constant_valid_p (TREE_OPERAND (value, 0), endtype);
-
-      /* Allow conversions between other integer types only if
-	 explicit value.  */
-      if (INTEGRAL_TYPE_P (TREE_TYPE (value))
-	  && INTEGRAL_TYPE_P (TREE_TYPE (TREE_OPERAND (value, 0))))
-	{
-	  tree inner = initializer_constant_valid_p (TREE_OPERAND (value, 0),
-						     endtype);
-	  if (inner == null_pointer_node)
-	    return null_pointer_node;
-	  break;
-	}
-
-      /* Allow (int) &foo provided int is as wide as a pointer.  */
-      if (INTEGRAL_TYPE_P (TREE_TYPE (value))
-	  && POINTER_TYPE_P (TREE_TYPE (TREE_OPERAND (value, 0)))
-	  && (TYPE_PRECISION (TREE_TYPE (value))
-	      >= TYPE_PRECISION (TREE_TYPE (TREE_OPERAND (value, 0)))))
-	return initializer_constant_valid_p (TREE_OPERAND (value, 0),
-					     endtype);
-
-      /* Likewise conversions from int to pointers, but also allow
-	 conversions from 0.  */
-      if (POINTER_TYPE_P (TREE_TYPE (value))
-	  && INTEGRAL_TYPE_P (TREE_TYPE (TREE_OPERAND (value, 0))))
-	{
-	  if (integer_zerop (TREE_OPERAND (value, 0)))
-	    return null_pointer_node;
-	  else if (TYPE_PRECISION (TREE_TYPE (value))
-		   <= TYPE_PRECISION (TREE_TYPE (TREE_OPERAND (value, 0))))
-	    return initializer_constant_valid_p (TREE_OPERAND (value, 0),
-						 endtype);
-	}
-
-      /* Allow conversions to union types if the value inside is okay.  */
-      if (TREE_CODE (TREE_TYPE (value)) == UNION_TYPE)
-	return initializer_constant_valid_p (TREE_OPERAND (value, 0),
-					     endtype);
-      break;
-
-    case PLUS_EXPR:
-      if (! INTEGRAL_TYPE_P (endtype)
-	  || TYPE_PRECISION (endtype) >= POINTER_SIZE)
-        {
-	  tree valid0 = initializer_constant_valid_p (TREE_OPERAND (value, 0),
-						      endtype);
-	  tree valid1 = initializer_constant_valid_p (TREE_OPERAND (value, 1),
-						      endtype);
-	  /* If either term is absolute, use the other terms relocation.  */
-	  if (valid0 == null_pointer_node)
-	    return valid1;
-	  if (valid1 == null_pointer_node)
-	    return valid0;
-        }
-      break;
-
-    case MINUS_EXPR:
-      if (! INTEGRAL_TYPE_P (endtype)
-	  || TYPE_PRECISION (endtype) >= POINTER_SIZE)
-	{
-	  tree valid0 = initializer_constant_valid_p (TREE_OPERAND (value, 0),
-						      endtype);
-	  tree valid1 = initializer_constant_valid_p (TREE_OPERAND (value, 1),
-						      endtype);
-	  /* Win if second argument is absolute.  */
-	  if (valid1 == null_pointer_node)
-	    return valid0;
-	  /* Win if both arguments have the same relocation.
-	     Then the value is absolute.  */
-	  if (valid0 == valid1)
-	    return null_pointer_node;
-	}
-
-      /* Support differences between labels.  */
-      if (INTEGRAL_TYPE_P (endtype))
-	{
-	  tree op0, op1;
-	  op0 = TREE_OPERAND (value, 0);
-	  op1 = TREE_OPERAND (value, 1);
-	  STRIP_NOPS (op0);
-	  STRIP_NOPS (op1);
-
-	  if (TREE_CODE (op0) == ADDR_EXPR
-	      && TREE_CODE (TREE_OPERAND (op0, 0)) == LABEL_DECL
-	      && TREE_CODE (op1) == ADDR_EXPR
-	      && TREE_CODE (TREE_OPERAND (op1, 0)) == LABEL_DECL)
-	    return null_pointer_node;
-	}
-      break;
-
-    default:
-      break;
-    }
-
-  return 0;
-}
 
 /* Given a type, apply default promotions wrt unnamed function arguments
    and return the new type.  Return NULL_TREE if no change.  */
-/* ??? There is a function of the same name in the C++ front end that 
+/* ??? There is a function of the same name in the C++ front end that
    does something similar, but is more thorough and does not return NULL
-   if no change.  We could perhaps share code, but it would make the 
+   if no change.  We could perhaps share code, but it would make the
    self_promoting_type property harder to identify.  */
 
 tree

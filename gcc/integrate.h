@@ -42,6 +42,8 @@ struct inline_remap
   union tree_node *fndecl;
   /* Place to put insns needed at start of function.  */
   rtx insns_at_start;
+  /* Mapping from old BLOCKs to new BLOCKs.  */
+  varray_type block_map;
   /* Mapping from old registers to new registers.
      It is allocated and deallocated in `expand_inline_function' */
   rtx *reg_map;
@@ -114,11 +116,15 @@ struct inline_remap
 
 /* Return a copy of an rtx (as needed), substituting pseudo-register,
    labels, and frame-pointer offsets as necessary.  */
-extern rtx copy_rtx_and_substitute PROTO((rtx, struct inline_remap *));
+extern rtx copy_rtx_and_substitute PROTO((rtx, struct inline_remap *, int));
+
+/* Copy a declaration when one function is substituted inline into
+   another.  */
+extern union tree_node *copy_decl_for_inlining PROTO((union tree_node *,
+						      union tree_node *,
+						      union tree_node *));
 
 extern void try_constants PROTO((rtx, struct inline_remap *));
-
-extern void mark_stores PROTO((rtx, rtx));
 
 /* Return the label indicated.  */
 extern rtx get_label_from_map PROTO((struct inline_remap *, int));

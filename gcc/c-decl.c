@@ -1,5 +1,5 @@
 /* Process declarations and variables for C compiler.
-   Copyright (C) 1988, 92-98, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1988, 92-99, 2000 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -277,20 +277,20 @@ tree static_ctors, static_dtors;
 
 /* Forward declarations.  */
 
-static struct binding_level * make_binding_level	PROTO((void));
-static void mark_binding_level		PROTO((void *));
-static void clear_limbo_values		PROTO((tree));
-static int duplicate_decls		PROTO((tree, tree, int));
-static int redeclaration_error_message	PROTO((tree, tree));
-static void storedecls			PROTO((tree));
-static void storetags			PROTO((tree));
-static tree lookup_tag			PROTO((enum tree_code, tree,
-					       struct binding_level *, int));
-static tree lookup_tag_reverse		PROTO((tree));
-static tree grokdeclarator		PROTO((tree, tree, enum decl_context,
-					       int));
-static tree grokparms			PROTO((tree, int));
-static void layout_array_type		PROTO((tree));
+static struct binding_level * make_binding_level	PARAMS ((void));
+static void mark_binding_level		PARAMS ((void *));
+static void clear_limbo_values		PARAMS ((tree));
+static int duplicate_decls		PARAMS ((tree, tree, int));
+static int redeclaration_error_message	PARAMS ((tree, tree));
+static void storedecls			PARAMS ((tree));
+static void storetags			PARAMS ((tree));
+static tree lookup_tag			PARAMS ((enum tree_code, tree,
+						 struct binding_level *, int));
+static tree lookup_tag_reverse		PARAMS ((tree));
+static tree grokdeclarator		PARAMS ((tree, tree, enum decl_context,
+						 int));
+static tree grokparms			PARAMS ((tree, int));
+static void layout_array_type		PARAMS ((tree));
 
 /* C-specific option variables.  */
 
@@ -1055,9 +1055,7 @@ poplevel (keep, reverse, functionbody)
   if (block != 0)
     {
       BLOCK_VARS (block) = decls;
-      BLOCK_TYPE_TAGS (block) = tags;
       BLOCK_SUBBLOCKS (block) = subblocks;
-      remember_end_note (block);
     }
 
   /* In each subblock, record that this is its superior.  */
@@ -1821,6 +1819,7 @@ duplicate_decls (newdecl, olddecl, different_binding_level)
 	{
 	  /* Since the type is OLDDECL's, make OLDDECL's size go with.  */
 	  DECL_SIZE (newdecl) = DECL_SIZE (olddecl);
+	  DECL_MODE (newdecl) = DECL_MODE (olddecl);
 	  if (TREE_CODE (olddecl) != FUNCTION_DECL)
 	    if (DECL_ALIGN (olddecl) > DECL_ALIGN (newdecl))
 	      DECL_ALIGN (newdecl) = DECL_ALIGN (olddecl);
@@ -1885,6 +1884,8 @@ duplicate_decls (newdecl, olddecl, different_binding_level)
 	    |= DECL_NO_INSTRUMENT_FUNCTION_ENTRY_EXIT (olddecl);
 	  DECL_NO_CHECK_MEMORY_USAGE (newdecl)
 	    |= DECL_NO_CHECK_MEMORY_USAGE (olddecl);
+	  DECL_NO_LIMIT_STACK (newdecl)
+	    |= DECL_NO_LIMIT_STACK (olddecl);
 	}
 
       pop_obstacks ();
@@ -4263,12 +4264,18 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
 	  ;
 	else
 	  {
-	    error ((decl_context == FIELD
-		    ? "storage class specified for structure field `%s'"
-		    : (decl_context == PARM
-		       ? "storage class specified for parameter `%s'"
-		       : "storage class specified for typename")),
-		   name);
+	    switch (decl_context)
+	      {
+	      case FIELD:
+		error ("storage class specified for structure field `%s'", name);
+		break;
+	      case PARM:
+		error ("storage class specified for parameter `%s'", name);
+		break;
+	      default:
+		error ("storage class specified for typename");
+		break;
+	      }
 	    specbits &= ~ ((1 << (int) RID_TYPEDEF) | (1 << (int) RID_REGISTER)
 			   | (1 << (int) RID_AUTO) | (1 << (int) RID_STATIC)
 			   | (1 << (int) RID_EXTERN));
@@ -5244,8 +5251,8 @@ start_struct (code, name)
       C_TYPE_BEING_DEFINED (ref) = 1;
       TYPE_PACKED (ref) = flag_pack_struct;
       if (TYPE_FIELDS (ref))
-	error ((code == UNION_TYPE ? "redefinition of `union %s'"
-		: "redefinition of `struct %s'"),
+	error ("redefinition of `%s %s'",
+	       code == UNION_TYPE ? "union" : "struct",
 	       IDENTIFIER_POINTER (name));
 
       return ref;
@@ -5317,11 +5324,11 @@ finish_struct (t, fieldlist, attributes)
     if (in_parm_level_p ())
       {
 	if (pedantic)
-	  pedwarn ((TREE_CODE (t) == UNION_TYPE ? "union defined inside parms"
-		    : "structure defined inside parms"));
+	  pedwarn ("%s defined inside parms",
+		   TREE_CODE (t) == UNION_TYPE ? "union" : "structure");
 	else if (! flag_traditional)
-	  warning ((TREE_CODE (t) == UNION_TYPE ? "union defined inside parms"
-		    : "structure defined inside parms"));
+	  warning ("%s defined inside parms",
+		   TREE_CODE (t) == UNION_TYPE ? "union" : "structure");
       }
 
   old_momentary = suspend_momentary ();
@@ -5333,10 +5340,9 @@ finish_struct (t, fieldlist, attributes)
 	  break;
 
       if (x == 0)
-	pedwarn ((fieldlist
-		  ? "%s has no named members"
-		  : "%s has no members"),
-		 TREE_CODE (t) == UNION_TYPE ? "union" : "struct");
+	pedwarn ("%s has no %smembers",
+		 TREE_CODE (t) == UNION_TYPE ? "union" : "struct",
+		 fieldlist ? "named " : "");
     }
 
   /* Install struct as DECL_CONTEXT of each field decl.
@@ -5658,8 +5664,8 @@ finish_enum (enumtype, values, attributes)
 {
   register tree pair, tem;
   tree minnode = 0, maxnode = 0;
-  int lowprec, highprec, precision;
-  int toplevel = global_binding_level == current_binding_level;
+  int precision, unsign;
+  int toplevel = (global_binding_level == current_binding_level);
 
   if (in_parm_level_p ())
     warning ("enum defined inside parms");
@@ -5671,67 +5677,62 @@ finish_enum (enumtype, values, attributes)
   if (values == error_mark_node)
     minnode = maxnode = integer_zero_node;
   else
-    for (pair = values; pair; pair = TREE_CHAIN (pair))
-      {
-	tree value = TREE_VALUE (pair);
-	if (pair == values)
-	  minnode = maxnode = TREE_VALUE (pair);
-	else
-	  {
-	    if (tree_int_cst_lt (maxnode, value))
-	      maxnode = value;
-	    if (tree_int_cst_lt (value, minnode))
-	      minnode = value;
-	  }
-      }
+    {
+      minnode = maxnode = TREE_VALUE (values);
+      for (pair = TREE_CHAIN (values); pair; pair = TREE_CHAIN (pair))
+	{
+	  tree value = TREE_VALUE (pair);
+	  if (tree_int_cst_lt (maxnode, value))
+	    maxnode = value;
+	  if (tree_int_cst_lt (value, minnode))
+	    minnode = value;
+	}
+    }
+
+  /* Construct the final type of this enumeration.  It is the same
+     as one of the integral types - the narrowest one that fits, except
+     that normally we only go as narrow as int - and signed iff any of
+     the values are negative.  */
+  unsign = (tree_int_cst_sgn (minnode) >= 0);
+  precision = MAX (min_precision (minnode, unsign),
+		   min_precision (maxnode, unsign));
+  if (!TYPE_PACKED (enumtype))
+    precision = MAX (precision, TYPE_PRECISION (integer_type_node));
+  if (type_for_size (precision, unsign) == 0)
+    {
+      warning ("enumeration values exceed range of largest integer");
+      precision = TYPE_PRECISION (long_long_integer_type_node);
+    }
 
   TYPE_MIN_VALUE (enumtype) = minnode;
   TYPE_MAX_VALUE (enumtype) = maxnode;
-
-  /* An enum can have some negative values; then it is signed.  */
-  TREE_UNSIGNED (enumtype) = tree_int_cst_sgn (minnode) >= 0;
-
-  /* Determine the precision this type needs.  */
-
-  lowprec = min_precision (minnode, TREE_UNSIGNED (enumtype));
-  highprec = min_precision (maxnode, TREE_UNSIGNED (enumtype));
-  precision = MAX (lowprec, highprec);
-
-  if (TYPE_PACKED (enumtype) || precision > TYPE_PRECISION (integer_type_node))
-    {
-      tree narrowest = type_for_size (precision, 1);
-      if (narrowest == 0)
-	{
-	  warning ("enumeration values exceed range of largest integer");
-	  narrowest = long_long_integer_type_node;
-	}
-
-      TYPE_PRECISION (enumtype) = TYPE_PRECISION (narrowest);
-    }
-  else
-    TYPE_PRECISION (enumtype) = TYPE_PRECISION (integer_type_node);
-
+  TYPE_PRECISION (enumtype) = precision;
+  TREE_UNSIGNED (enumtype) = unsign;
   TYPE_SIZE (enumtype) = 0;
   layout_type (enumtype);
 
   if (values != error_mark_node)
     {
-      /* Change the type of the enumerators to be the enum type.
-	 Formerly this was done only for enums that fit in an int,
-	 but the comment said it was done only for enums wider than int.
-	 It seems necessary to do this for wide enums,
-	 and best not to change what's done for ordinary narrower ones.  */
+      /* Change the type of the enumerators to be the enum type.  We
+	 need to do this irrespective of the size of the enum, for
+	 proper type checking.  Replace the DECL_INITIALs of the
+	 enumerators, and the value slots of the list, with copies
+	 that have the enum type; they cannot be modified in place
+	 because they may be shared (e.g.  integer_zero_node) Finally,
+	 change the purpose slots to point to the names of the decls.  */
       for (pair = values; pair; pair = TREE_CHAIN (pair))
 	{
-	  TREE_TYPE (TREE_PURPOSE (pair)) = enumtype;
-	  DECL_SIZE (TREE_PURPOSE (pair)) = TYPE_SIZE (enumtype);
-	  if (TREE_CODE (TREE_PURPOSE (pair)) != FUNCTION_DECL)
-	    DECL_ALIGN (TREE_PURPOSE (pair)) = TYPE_ALIGN (enumtype);
-	}
+	  tree enu = TREE_PURPOSE (pair);
 
-      /* Replace the decl nodes in VALUES with their names.  */
-      for (pair = values; pair; pair = TREE_CHAIN (pair))
-	TREE_PURPOSE (pair) = DECL_NAME (TREE_PURPOSE (pair));
+	  TREE_TYPE (enu) = enumtype;
+	  DECL_SIZE (enu) = TYPE_SIZE (enumtype);
+	  DECL_ALIGN (enu) = TYPE_ALIGN (enumtype);
+	  DECL_MODE (enu) = TYPE_MODE (enumtype);
+	  DECL_INITIAL (enu) = convert (enumtype, DECL_INITIAL (enu));
+
+	  TREE_PURPOSE (pair) = DECL_NAME (enu);
+	  TREE_VALUE (pair) = DECL_INITIAL (enu);
+	}
 
       TYPE_VALUES (enumtype) = values;
     }
@@ -5739,6 +5740,8 @@ finish_enum (enumtype, values, attributes)
   /* Fix up all variant types of this enum type.  */
   for (tem = TYPE_MAIN_VARIANT (enumtype); tem; tem = TYPE_NEXT_VARIANT (tem))
     {
+      if (tem == enumtype)
+	continue;
       TYPE_VALUES (tem) = TYPE_VALUES (enumtype);
       TYPE_MIN_VALUE (tem) = TYPE_MIN_VALUE (enumtype);
       TYPE_MAX_VALUE (tem) = TYPE_MAX_VALUE (enumtype);

@@ -110,6 +110,9 @@ convert (type, expr)
 {
   register enum tree_code code = TREE_CODE (type);
 
+  if (!expr)
+   return error_mark_node;
+
   if (do_not_fold)
     return build1 (NOP_EXPR, type, expr);
 
@@ -743,21 +746,72 @@ lookup_argument_method (clas, method_name, method_signature)
    (Contrast lookup_argument_method, which ignores return type.) */
 
 tree
-lookup_java_method (clas, method_name, method_signature)
-     tree clas, method_name, method_signature;
+lookup_java_method (searched_class, method_name, method_signature)
+     tree searched_class, method_name, method_signature;
 {
   tree method;
-  while (clas != NULL_TREE)
+  tree currently_searched = searched_class;
+
+  while (currently_searched != NULL_TREE)
     {
-      for (method = TYPE_METHODS (clas);
+      for (method = TYPE_METHODS (currently_searched);
 	   method != NULL_TREE;  method = TREE_CHAIN (method))
 	{
 	  tree method_sig = build_java_signature (TREE_TYPE (method));
-	  if (DECL_NAME (method) == method_name 
+	  tree name = DECL_NAME (method);
+
+	  if ((TREE_CODE (name) == EXPR_WITH_FILE_LOCATION ?
+	       EXPR_WFL_NODE (name) : name) == method_name
 	      && method_sig == method_signature)
 	    return method;
 	}
-      clas = CLASSTYPE_SUPER (clas);
+      currently_searched = CLASSTYPE_SUPER (currently_searched);
+    }
+
+  /* If this class is an interface class, search its superinterfaces as
+   * well.  A superinterface is not an interface's superclass: a
+   * super interface is implemented by the interface.
+   */
+
+  currently_searched = searched_class;
+  if (CLASS_INTERFACE (TYPE_NAME (currently_searched)))
+    {
+      int i;
+      int interface_len = 
+	TREE_VEC_LENGTH (TYPE_BINFO_BASETYPES (currently_searched)) - 1;
+
+      for (i = interface_len; i > 0; i--)
+       {
+         tree child = 
+	   TREE_VEC_ELT (TYPE_BINFO_BASETYPES (currently_searched), i);
+         tree iclass = BINFO_TYPE (child);
+
+         /* If the superinterface hasn't been loaded yet, do so now.  */
+         if (! CLASS_LOADED_P (iclass))
+           load_class (iclass, 1);
+
+         for (method = TYPE_METHODS (iclass);
+              method != NULL_TREE;  method = TREE_CHAIN (method))
+           {
+             tree method_sig = build_java_signature (TREE_TYPE (method));
+	     tree name = DECL_NAME (method);
+
+	     if ((TREE_CODE (name) == EXPR_WITH_FILE_LOCATION ?
+		  EXPR_WFL_NODE (name) : name) == method_name
+		 && method_sig == method_signature)
+               return method;
+           }
+
+         /* it could be defined in a supersuperinterface */
+         if (CLASS_INTERFACE (TYPE_NAME (iclass)))
+           {
+             method = lookup_java_method (iclass, 
+					  method_name, 
+					  method_signature);
+             if (method != NULL_TREE) 
+	       return method;
+           }
+       }
     }
   return NULL_TREE;
 }

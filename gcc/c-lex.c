@@ -1,5 +1,5 @@
 /* Lexical analyzer for C and Objective C.
-   Copyright (C) 1987, 88, 89, 92, 94-98, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1987, 88, 89, 92, 94-99, 2000 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -33,6 +33,7 @@ Boston, MA 02111-1307, USA.  */
 #include "toplev.h"
 #include "intl.h"
 #include "ggc.h"
+#include "tm_p.h"
 
 /* MULTIBYTE_CHARS support only works for native compilers.
    ??? Ideally what we want is to model widechar support after
@@ -58,7 +59,7 @@ extern cpp_options parse_options;
 FILE *finput;
 #endif
 
-extern void yyprint			PROTO((FILE *, int, YYSTYPE));
+extern void yyprint			PARAMS ((FILE *, int, YYSTYPE));
 
 /* The elements of `ridpointers' are identifier nodes
    for the reserved type names and storage classes.
@@ -90,7 +91,7 @@ struct putback_buffer {
 
 static struct putback_buffer putback = {NULL, 0, -1};
 
-static inline int getch PROTO ((void));
+static inline int getch PARAMS ((void));
 
 static inline int
 getch ()
@@ -104,7 +105,7 @@ getch ()
   return getc (finput);
 }
 
-static inline void put_back PROTO ((int));
+static inline void put_back PARAMS ((int));
 
 static inline void
 put_back (ch)
@@ -159,15 +160,15 @@ static int ignore_escape_flag;
 static int end_of_file;
 
 #ifdef HANDLE_GENERIC_PRAGMAS
-static int handle_generic_pragma	PROTO((int));
+static int handle_generic_pragma	PARAMS ((int));
 #endif /* HANDLE_GENERIC_PRAGMAS */
-static int whitespace_cr		PROTO((int));
-static int skip_white_space		PROTO((int));
-static char *extend_token_buffer	PROTO((const char *));
-static int readescape			PROTO((int *));
-static void parse_float			PROTO((PTR));
-static void extend_token_buffer_to	PROTO((int));
-static int read_line_number		PROTO((int *));
+static int whitespace_cr		PARAMS ((int));
+static int skip_white_space		PARAMS ((int));
+static char *extend_token_buffer	PARAMS ((const char *));
+static int readescape			PARAMS ((int *));
+static void parse_float			PARAMS ((PTR));
+static void extend_token_buffer_to	PARAMS ((int));
+static int read_line_number		PARAMS ((int *));
 
 /* Do not insert generated code into the source, instead, include it.
    This allows us to build gcc automatically even for targets that
@@ -525,7 +526,7 @@ extend_token_buffer (p)
 static int
 pragma_getc ()
 {
-  return GETC();
+  return GETC ();
 }
 
 static void
@@ -638,7 +639,7 @@ check_newline ()
 	     (if both are defined), in order to give the back
 	     end a chance to override the interpretation of
 	     SYSV style pragmas.  */
-	  if (HANDLE_PRAGMA (getch, put_back,
+	  if (HANDLE_PRAGMA (pragma_getc, pragma_ungetc,
 			     IDENTIFIER_POINTER (yylval.ttype)))
 	    goto skipline;
 #endif /* HANDLE_PRAGMA */
@@ -1203,7 +1204,7 @@ parse_float (data)
    next token, which screws up feed_input.  So just return a null
    character.  */
 
-static inline int token_getch PROTO ((void));
+static inline int token_getch PARAMS ((void));
 
 static inline int
 token_getch ()
@@ -1215,7 +1216,7 @@ token_getch ()
   return GETC ();
 }
 
-static inline void token_put_back PROTO ((int));
+static inline void token_put_back PARAMS ((int));
 
 static inline void
 token_put_back (ch)
@@ -1569,7 +1570,9 @@ yylex ()
 	       || (ISALNUM (c) && c != 'l' && c != 'L'
 		   && c != 'u' && c != 'U'
 		   && c != 'i' && c != 'I' && c != 'j' && c != 'J'
-		   && (floatflag == NOT_FLOAT || ((c != 'f') && (c != 'F')))))
+		   && (floatflag == NOT_FLOAT
+		       || ((base != 16) && (c != 'f') && (c != 'F'))
+		       || base == 16)))   
 	  {
 	    if (c == '.')
 	      {
@@ -1899,7 +1902,11 @@ yylex ()
 
 	    type = flag_traditional ? traditional_type : ansi_type;
 
-	    if (warn_traditional && traditional_type != ansi_type)
+	    /* We assume that constants specified in a non-decimal
+	       base are bit patterns, and that the programmer really
+	       meant what they wrote.  */
+	    if (warn_traditional && base == 10
+		&& traditional_type != ansi_type)
 	      {
 		if (TYPE_PRECISION (traditional_type)
 		    != TYPE_PRECISION (ansi_type))

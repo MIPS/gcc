@@ -62,6 +62,9 @@ struct eh_entry {
   int label_used;
   rtx false_label;
   rtx rethrow_label;
+  /* If non-zero, this entry is for a handler created when we left an
+     exception-region via goto.  */
+  unsigned goto_entry_p : 1;
 };
 #else
 struct label_node;
@@ -90,6 +93,7 @@ struct eh_stack {
 struct eh_queue {
   struct eh_node *head;
   struct eh_node *tail;
+  struct eh_queue *next;
 };
 
 /* Used to save exception handling status for each function.  */
@@ -108,17 +112,11 @@ struct eh_status
   /* This stack is used to represent what the current eh region is
      for the catch blocks beings processed */
   struct eh_stack x_catchstack;
-  /* A queue used for tracking which exception regions have closed but
-     whose handlers have not yet been expanded. Regions are emitted in
-     groups in an attempt to improve paging performance.
-
+  /* A queue used for tracking which exception regions have closed.
      As we exit a region, we enqueue a new entry. The entries are then
-     dequeued during expand_leftover_cleanups and expand_start_all_catch,
-
-     We should redo things so that we either take RTL for the handler,
-     or we expand the handler expressed as a tree immediately at region
-     end time.  */
-  struct eh_queue x_ehqueue;
+     dequeued during expand_leftover_cleanups and
+     expand_start_all_catch.  */
+  struct eh_queue *x_ehqueue;
   /* Insns for all of the exception handlers for the current function.
      They are currently emitted by the frontend code.  */
   rtx x_catch_clauses;
@@ -128,9 +126,10 @@ struct eh_status
      normal control flow out of a handler (instead of, say, returning to
      the caller of the current function or exiting the program).  */
   struct label_node *x_caught_return_label_stack;
-  /* A TREE_CHAINed list of handlers for regions that are not yet
-     closed. The TREE_VALUE of each entry contains the handler for the
-     corresponding entry on the ehstack.  */
+  /* A stack (TREE_LIST) of lists of handlers.  The TREE_VALUE of each
+     node is itself a TREE_CHAINed list of handlers for regions that
+     are not yet closed. The TREE_VALUE of each entry contains the
+     handler for the corresponding entry on the ehstack.  */
   union tree_node *x_protect_list;
   /* The EH context.  Nonzero if the function has already
      fetched a pointer to the EH context  for exception handling.  */
@@ -139,15 +138,15 @@ struct eh_status
   rtx x_eh_return_stub_label;
 };
 
-#define ehstack (current_function->eh->x_ehstack)
-#define catchstack (current_function->eh->x_catchstack)
-#define ehqueue (current_function->eh->x_ehqueue)
-#define catch_clauses (current_function->eh->x_catch_clauses)
-#define false_label_stack (current_function->eh->x_false_label_stack)
-#define caught_return_label_stack (current_function->eh->x_caught_return_label_stack)
-#define protect_list (current_function->eh->x_protect_list)
-#define current_function_ehc (current_function->eh->ehc)
-#define eh_return_stub_label (current_function->eh->x_eh_return_stub_label)
+#define ehstack (cfun->eh->x_ehstack)
+#define catchstack (cfun->eh->x_catchstack)
+#define ehqueue (cfun->eh->x_ehqueue)
+#define catch_clauses (cfun->eh->x_catch_clauses)
+#define false_label_stack (cfun->eh->x_false_label_stack)
+#define caught_return_label_stack (cfun->eh->x_caught_return_label_stack)
+#define protect_list (cfun->eh->x_protect_list)
+#define current_function_ehc (cfun->eh->ehc)
+#define eh_return_stub_label (cfun->eh->x_eh_return_stub_label)
 
 #ifdef TREE_CODE
 /* Start an exception handling region.  All instructions emitted after
@@ -271,10 +270,6 @@ int rethrow_used                                PROTO((int));
 
 void update_rethrow_references			PROTO((void));
 
-/* Return the region number a this is the rethrow label for. */
-
-int eh_region_from_symbol                       PROTO((rtx));
-
 /* Get a pointer to the first handler in an exception region's list. */
 
 struct handler_info *get_first_handler          PROTO((int));
@@ -375,6 +370,11 @@ extern void expand_start_all_catch		PROTO((void));
 
 extern void expand_end_all_catch		PROTO((void));
 
+/* Begin a region that will contain entries created with
+   add_partial_entry.  */
+
+extern void begin_protect_partials              PROTO((void));
+
 #ifdef TREE_CODE
 /* Create a new exception region and add the handler for the region
    onto a list. These regions will be ended (and their handlers
@@ -443,6 +443,12 @@ extern rtx get_dynamic_cleanup_chain		PROTO((void));
 /* Throw an exception.  */
 
 extern void emit_throw				PROTO((void));
+
+/* Save away the current ehqueue.  */
+extern void push_ehqueue                        PROTO((void));
+
+/* Restore a previously pushed ehqueue.  */
+extern void pop_ehqueue                         PROTO((void));
 
 /* One to use setjmp/longjmp method of generating code.  */
 

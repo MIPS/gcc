@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler.  Gmicro (TRON) version.
-   Copyright (C) 1987, 88, 89, 95-98, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1987, 88, 89, 95-99, 2000 Free Software Foundation, Inc.
    Contributed by Masanobu Yuhara, Fujitsu Laboratories LTD.
    (yuhara@flab.fujitsu.co.jp)
 
@@ -168,7 +168,7 @@ extern int target_flags;
    Unaligned data is allowed on Gmicro, though the access is slow. */
 
 #define STRICT_ALIGNMENT 1
-#define SLOW_UNALIGNED_ACCESS 1
+#define SLOW_UNALIGNED_ACCESS(MODE, ALIGN) 1
 
 /* Make strings word-aligned so strcpy from constants will be faster.  */
 #define CONSTANT_ALIGNMENT(EXP, ALIGN)  \
@@ -236,11 +236,6 @@ extern int target_flags;
    registers will be valid.  */
 /*  This Macro is not defined now.
     #define CONDITIONAL_REGISTER_USAGE */
-
-/* The Gmicro has no overlapping register */
-/* #define OVERLAPPING_REGNO_P(REGNO) */
-
-/* #define INSN_CLOBBERS_REGNO_P(INSN,REGNO)  */
 
 /* Return number of consecutive hard regs needed starting at reg REGNO
    to hold something of mode MODE.
@@ -635,7 +630,7 @@ extern enum reg_class regno_reg_class[];
 { register int regno;						\
   register int mask = 0;					\
   register int nregs = 0;					\
-  static char *reg_names[] = REGISTER_NAMES;			\
+  static const char * const reg_names[] = REGISTER_NAMES;	\
   extern char call_used_regs[];					\
   int fsize = ((SIZE) + 3) & -4;				\
   for (regno = 0; regno < 16; regno++)				\
@@ -737,7 +732,7 @@ extern enum reg_class regno_reg_class[];
   register int nregs, nfregs;					\
   int offset, foffset;						\
   extern char call_used_regs[];					\
-  static char *reg_names[] = REGISTER_NAMES;			\
+  static const char * const reg_names[] = REGISTER_NAMES;	\
   int fsize = ((SIZE) + 3) & -4;				\
   FUNCTION_EXTRA_EPILOGUE (FILE, SIZE);				\
   nfregs = 0;  fmask = 0; 					\

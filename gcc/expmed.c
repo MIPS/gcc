@@ -1,6 +1,6 @@
 /* Medium-level subroutines: convert bit-field store and extract
    and shifts, multiplies and divides to rtl instructions.
-   Copyright (C) 1987, 88, 89, 92-97, 1998 Free Software Foundation, Inc.
+   Copyright (C) 1987, 88, 89, 92-98, 1999, 2000 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -46,8 +46,6 @@ static rtx extract_split_bit_field	PROTO((rtx, int, int, int, int));
 static void do_cmp_and_jump		PROTO((rtx, rtx, enum rtx_code,
 					       enum machine_mode, rtx));
 
-#define CEIL(x,y) (((x) + (y) - 1) / (y))
-
 /* Non-zero means divides or modulus operations are relatively cheap for
    powers of two, so don't use branches; emit the operation instead. 
    Usually, this will mean that the MD file will emit non-branch
@@ -56,7 +54,7 @@ static void do_cmp_and_jump		PROTO((rtx, rtx, enum rtx_code,
 static int sdiv_pow2_cheap, smod_pow2_cheap;
 
 #ifndef SLOW_UNALIGNED_ACCESS
-#define SLOW_UNALIGNED_ACCESS STRICT_ALIGNMENT
+#define SLOW_UNALIGNED_ACCESS(MODE, ALIGN) STRICT_ALIGNMENT
 #endif
 
 /* For compilers that support multiple targets with different word sizes,
@@ -297,7 +295,7 @@ store_bit_field (str_rtx, bitsize, bitnum, fieldmode, value, align, total_size)
      BITPOS is 0 in a REG bigger than a word.  */
   if (GET_MODE_SIZE (fieldmode) >= UNITS_PER_WORD
       && (GET_CODE (op0) != MEM
-	  || ! SLOW_UNALIGNED_ACCESS
+	  || ! SLOW_UNALIGNED_ACCESS (fieldmode, align)
 	  || (offset * BITS_PER_UNIT % bitsize == 0
 	      && align % GET_MODE_SIZE (fieldmode) == 0))
       && bitpos == 0 && bitsize == GET_MODE_BITSIZE (fieldmode))
@@ -511,7 +509,8 @@ store_bit_field (str_rtx, bitsize, bitnum, fieldmode, value, align, total_size)
 	    bestmode = GET_MODE (op0);
 
 	  if (bestmode == VOIDmode
-	      || (SLOW_UNALIGNED_ACCESS && GET_MODE_SIZE (bestmode) > align))
+	      || (SLOW_UNALIGNED_ACCESS (bestmode, align)
+		  && GET_MODE_SIZE (bestmode) > align))
 	    goto insv_loses;
 
 	  /* Adjust address to point to the containing unit of that mode.  */
@@ -634,7 +633,7 @@ store_fixed_bit_field (op0, offset, bitsize, bitpos, value, struct_align)
   int all_zero = 0;
   int all_one = 0;
 
-  if (! SLOW_UNALIGNED_ACCESS)
+  if (! SLOW_UNALIGNED_ACCESS (word_mode, struct_align))
     struct_align = BIGGEST_ALIGNMENT / BITS_PER_UNIT;
     
   /* There is a case not handled here:
@@ -963,6 +962,7 @@ extract_bit_field (str_rtx, bitsize, bitnum, unsignedp,
   register rtx op0 = str_rtx;
   rtx spec_target = target;
   rtx spec_target_subreg = 0;
+  enum machine_mode int_mode;
 #ifdef HAVE_extv
   int extv_bitsize;
   enum machine_mode extv_mode;
@@ -1053,7 +1053,7 @@ extract_bit_field (str_rtx, bitsize, bitnum, unsignedp,
 	&& TRULY_NOOP_TRUNCATION (GET_MODE_BITSIZE (mode),
 				  GET_MODE_BITSIZE (GET_MODE (op0))))
        || (GET_CODE (op0) == MEM
-	   && (! SLOW_UNALIGNED_ACCESS
+	   && (! SLOW_UNALIGNED_ACCESS (mode, align)
 	       || (offset * BITS_PER_UNIT % bitsize == 0
 		   && align * BITS_PER_UNIT % bitsize == 0))))
       && ((bitsize >= BITS_PER_WORD && bitsize == GET_MODE_BITSIZE (mode)
@@ -1168,10 +1168,19 @@ extract_bit_field (str_rtx, bitsize, bitnum, unsignedp,
 			   NULL_RTX, 0);
     }
   
-  /* From here on we know the desired field is smaller than a word
-     so we can assume it is an integer.  So we can safely extract it as one
-     size of integer, if necessary, and then truncate or extend
-     to the size that is wanted.  */
+  /* From here on we know the desired field is smaller than a word.  */
+
+  /* Check if there is a correspondingly-sized integer field, so we can
+     safely extract it as one size of integer, if necessary; then
+     truncate or extend to the size that is wanted; then use SUBREGs or
+     convert_to_mode to get one of the modes we really wanted.  */
+  
+  int_mode = int_mode_for_mode (tmode);
+  if (int_mode == BLKmode)
+    int_mode = int_mode_for_mode (mode);
+  if (int_mode == BLKmode)
+    abort();    /* Should probably push op0 out to memory and then
+		   do a load.  */
 
   /* OFFSET is the number of words or bytes (UNIT says which)
      from STR_RTX to the first word or byte containing part of the field.  */
@@ -1245,7 +1254,8 @@ extract_bit_field (str_rtx, bitsize, bitnum, unsignedp,
 		    bestmode = GET_MODE (xop0);
 
 		  if (bestmode == VOIDmode
-		      || (SLOW_UNALIGNED_ACCESS && GET_MODE_SIZE (bestmode) > align))
+		      || (SLOW_UNALIGNED_ACCESS (bestmode, align)
+			  && GET_MODE_SIZE (bestmode) > align))
 		    goto extzv_loses;
 
 		  /* Compute offset as multiple of this unit,
@@ -1326,15 +1336,15 @@ extract_bit_field (str_rtx, bitsize, bitnum, unsignedp,
 	  else
 	    {
 	      delete_insns_since (last);
-	      target = extract_fixed_bit_field (tmode, op0, offset, bitsize,
+	      target = extract_fixed_bit_field (int_mode, op0, offset, bitsize,
 						bitpos, target, 1, align);
 	    }
 	}
       else
         extzv_loses:
 #endif
-	target = extract_fixed_bit_field (tmode, op0, offset, bitsize, bitpos,
-					  target, 1, align);
+      target = extract_fixed_bit_field (int_mode, op0, offset, bitsize, 
+					bitpos, target, 1, align);
     }
   else
     {
@@ -1382,7 +1392,8 @@ extract_bit_field (str_rtx, bitsize, bitnum, unsignedp,
 		    bestmode = GET_MODE (xop0);
 
 		  if (bestmode == VOIDmode
-		      || (SLOW_UNALIGNED_ACCESS && GET_MODE_SIZE (bestmode) > align))
+		      || (SLOW_UNALIGNED_ACCESS (bestmode, align)
+			  && GET_MODE_SIZE (bestmode) > align))
 		    goto extv_loses;
 
 		  /* Compute offset as multiple of this unit,
@@ -1462,15 +1473,15 @@ extract_bit_field (str_rtx, bitsize, bitnum, unsignedp,
 	  else
 	    {
 	      delete_insns_since (last);
-	      target = extract_fixed_bit_field (tmode, op0, offset, bitsize,
+	      target = extract_fixed_bit_field (int_mode, op0, offset, bitsize,
 						bitpos, target, 0, align);
 	    }
 	} 
       else
 	extv_loses:
 #endif
-	target = extract_fixed_bit_field (tmode, op0, offset, bitsize, bitpos,
-					  target, 0, align);
+      target = extract_fixed_bit_field (int_mode, op0, offset, bitsize, 
+					bitpos, target, 0, align);
     }
   if (target == spec_target)
     return target;
@@ -4219,9 +4230,11 @@ emit_store_flag (target, code, op0, op1, mode, unsignedp, normalizep)
 	 comparison and then the scc insn.
 
 	 compare_from_rtx may call emit_queue, which would be deleted below
-	 if the scc insn fails.  So call it ourselves before setting LAST.  */
+	 if the scc insn fails.  So call it ourselves before setting LAST.
+	 Likewise for do_pending_stack_adjust.  */
 
       emit_queue ();
+      do_pending_stack_adjust ();
       last = get_last_insn ();
 
       comparison

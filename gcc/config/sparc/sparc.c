@@ -1,5 +1,5 @@
 /* Subroutines for insn-output.c for Sun SPARC.
-   Copyright (C) 1987, 88, 89, 92-98, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1987, 88, 89, 92-98, 1999, 2000 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
    64 bit SPARC V9 support by Michael Tiemann, Jim Wilson, and Doug Evans,
    at Cygnus Support.
@@ -63,6 +63,10 @@ Boston, MA 02111-1307, USA.  */
 static int apparent_fsize;
 static int actual_fsize;
 
+/* Number of live general or floating point registers needed to be saved
+   (as 4-byte quantities).  This is only done if TARGET_EPILOGUE.  */
+static int num_gfregs;
+
 /* Save the operands last given to a compare for use when we
    generate a scc or bcc insn.  */
 
@@ -124,7 +128,7 @@ static void sparc_output_deferred_case_vectors PROTO((void));
 static void sparc_add_gc_roots    PROTO ((void));
 static void mark_ultrasparc_pipeline_state PROTO ((void *));
 static int check_return_regs PROTO ((rtx));
-static void epilogue_renumber PROTO ((rtx *));
+static int epilogue_renumber PROTO ((rtx *, int));
 static int ultra_cmove_results_ready_p PROTO ((rtx));
 static int ultra_fpmode_conflict_exists PROTO ((enum machine_mode));
 static rtx *ultra_find_type PROTO ((int, rtx *, int));
@@ -303,9 +307,13 @@ sparc_override_options ()
     }
 
   /* If -mfpu or -mno-fpu was explicitly used, don't override with
-     the processor default.  */
+     the processor default.  Clear MASK_FPU_SET to avoid confusing
+     the reverse mapping from switch values to names.  */
   if (TARGET_FPU_SET)
-    target_flags = (target_flags & ~MASK_FPU) | fpu;
+    {
+      target_flags = (target_flags & ~MASK_FPU) | fpu;
+      target_flags &= ~MASK_FPU_SET;
+    }
 
   /* Use the deprecated v8 insns for sparc64 in 32 bit mode.  */
   if (TARGET_V9 && TARGET_ARCH32)
@@ -335,7 +343,7 @@ sparc_override_options ()
   sparc_init_modes ();
 
   if ((profile_flag || profile_block_flag)
-      && sparc_cmodel != CM_MEDLOW)
+      && sparc_cmodel != CM_32 && sparc_cmodel != CM_MEDLOW)
     {
       error ("profiling does not support code models other than medlow");
     }
@@ -396,6 +404,85 @@ fp_zero_operand (op)
 
   REAL_VALUE_FROM_CONST_DOUBLE (r, op);
   return (REAL_VALUES_EQUAL (r, dconst0) && ! REAL_VALUE_MINUS_ZERO (r));
+}
+
+/* Nonzero if OP is a floating point constant which can
+   be loaded into an integer register using a single
+   sethi instruction.  */
+
+int
+fp_sethi_p (op)
+     rtx op;
+{
+  if (GET_CODE (op) == CONST_DOUBLE)
+    {
+      REAL_VALUE_TYPE r;
+      long i;
+
+      REAL_VALUE_FROM_CONST_DOUBLE (r, op);
+      if (REAL_VALUES_EQUAL (r, dconst0) &&
+	  ! REAL_VALUE_MINUS_ZERO (r))
+	return 0;
+      REAL_VALUE_TO_TARGET_SINGLE (r, i);
+      if (SPARC_SETHI_P (i))
+	return 1;
+    }
+
+  return 0;
+}
+
+/* Nonzero if OP is a floating point constant which can
+   be loaded into an integer register using a single
+   mov instruction.  */
+
+int
+fp_mov_p (op)
+     rtx op;
+{
+  if (GET_CODE (op) == CONST_DOUBLE)
+    {
+      REAL_VALUE_TYPE r;
+      long i;
+
+      REAL_VALUE_FROM_CONST_DOUBLE (r, op);
+      if (REAL_VALUES_EQUAL (r, dconst0) &&
+	  ! REAL_VALUE_MINUS_ZERO (r))
+	return 0;
+      REAL_VALUE_TO_TARGET_SINGLE (r, i);
+      if (SPARC_SIMM13_P (i))
+	return 1;
+    }
+
+  return 0;
+}
+
+/* Nonzero if OP is a floating point constant which can
+   be loaded into an integer register using a high/losum
+   instruction sequence.  */
+
+int
+fp_high_losum_p (op)
+     rtx op;
+{
+  /* The constraints calling this should only be in
+     SFmode move insns, so any constant which cannot
+     be moved using a single insn will do.  */
+  if (GET_CODE (op) == CONST_DOUBLE)
+    {
+      REAL_VALUE_TYPE r;
+      long i;
+
+      REAL_VALUE_FROM_CONST_DOUBLE (r, op);
+      if (REAL_VALUES_EQUAL (r, dconst0) &&
+	  ! REAL_VALUE_MINUS_ZERO (r))
+	return 0;
+      REAL_VALUE_TO_TARGET_SINGLE (r, i);
+      if (! SPARC_SETHI_P (i)
+          && ! SPARC_SIMM13_P (i))
+	return 1;
+    }
+
+  return 0;
 }
 
 /* Nonzero if OP is an integer register.  */
@@ -1071,7 +1158,9 @@ input_operand (op, mode)
 	   && ((SPARC_SETHI_P (INTVAL (op))
 		&& (! TARGET_ARCH64
 		    || (INTVAL (op) >= 0)
-		    || mode == SImode))
+		    || mode == SImode
+		    || mode == HImode
+		    || mode == QImode))
 	       || SPARC_SIMM13_P (INTVAL (op))
 	       || (mode == DImode
 		   && ! TARGET_ARCH64)))
@@ -1100,6 +1189,10 @@ input_operand (op, mode)
     return 1;
 
   if (register_operand (op, mode))
+    return 1;
+
+  if (GET_MODE_CLASS (mode) == MODE_FLOAT
+      && GET_CODE (op) == CONST_DOUBLE)
     return 1;
 
   /* If this is a SUBREG, look inside so that we handle
@@ -2171,6 +2264,22 @@ emit_v9_brxx_insn (code, op0, label)
 				    gen_rtx_LABEL_REF (VOIDmode, label),
 				    pc_rtx)));
 }
+
+/* Generate a DFmode part of a hard TFmode register.
+   REG is the TFmode hard register, LOW is 1 for the
+   low 64bit of the register and 0 otherwise.
+ */
+rtx
+gen_df_reg (reg, low)
+     rtx reg;
+     int low;
+{
+  int regno = REGNO (reg);
+
+  if ((WORDS_BIG_ENDIAN == 0) ^ (low != 0))
+    regno += (TARGET_ARCH64 && regno < 32) ? 1 : 2;
+  return gen_rtx_REG (DFmode, regno);
+}
 
 /* Return nonzero if a return peephole merging return with
    setting of output register is ok.  */
@@ -2204,6 +2313,11 @@ eligible_for_epilogue_delay (trial, slot)
      optimize things as necessary.  */
   if (TARGET_LIVE_G0)
     return 0;
+    
+  /* If there are any call-saved registers, we should scan TRIAL if it
+     does not reference them.  For now just make it easy.  */
+  if (num_gfregs)
+    return 0;
 
   /* In the case of a true leaf function, anything can go into the delay slot.
      A delay slot only exists however if the frame size is zero, otherwise
@@ -2224,7 +2338,7 @@ eligible_for_epilogue_delay (trial, slot)
   pat = PATTERN (trial);
 
   /* Otherwise, only operations which can be done in tandem with
-     a `restore' insn can go into the delay slot.  */
+     a `restore' or `return' insn can go into the delay slot.  */
   if (GET_CODE (SET_DEST (pat)) != REG
       || REGNO (SET_DEST (pat)) >= 32
       || REGNO (SET_DEST (pat)) < 24)
@@ -2243,7 +2357,7 @@ eligible_for_epilogue_delay (trial, slot)
       else
         return GET_MODE_SIZE (GET_MODE (src)) <= GET_MODE_SIZE (SImode);
     }
-    
+
   /* This matches "*return_di".  */
   else if (arith_double_operand (src, GET_MODE (src)))
     return GET_MODE_SIZE (GET_MODE (src)) <= GET_MODE_SIZE (DImode);
@@ -2251,6 +2365,12 @@ eligible_for_epilogue_delay (trial, slot)
   /* This matches "*return_sf_no_fpu".  */
   else if (! TARGET_FPU && restore_operand (SET_DEST (pat), SFmode)
 	   && register_operand (src, SFmode))
+    return 1;
+
+  /* If we have return instruction, anything that does not use
+     local or output registers and can go into a delay slot wins.  */
+  else if (TARGET_V9 && ! epilogue_renumber (&pat, 1)
+	   && (get_attr_in_uncond_branch_delay (trial) == IN_BRANCH_DELAY_TRUE))
     return 1;
 
   /* This matches "*return_addsi".  */
@@ -2267,6 +2387,25 @@ eligible_for_epilogue_delay (trial, slot)
 	   && arith_double_operand (XEXP (src, 1), DImode)
 	   && (register_operand (XEXP (src, 0), DImode)
 	       || register_operand (XEXP (src, 1), DImode)))
+    return 1;
+
+  /* This can match "*return_losum_[sd]i".
+     Catch only some cases, so that return_losum* don't have
+     to be too big.  */
+  else if (GET_CODE (src) == LO_SUM
+	   && ! TARGET_CM_MEDMID
+	   && ((register_operand (XEXP (src, 0), SImode)
+	        && immediate_operand (XEXP (src, 1), SImode))
+	       || (TARGET_ARCH64
+		   && register_operand (XEXP (src, 0), DImode)
+		   && immediate_operand (XEXP (src, 1), DImode))))
+    return 1;
+
+  /* sll{,x} reg,1,reg2 is add reg,reg,reg2 as well.  */
+  else if (GET_CODE (src) == ASHIFT
+	   && (register_operand (XEXP (src, 0), SImode)
+	       || register_operand (XEXP (src, 0), DImode))
+	   && XEXP (src, 1) == const1_rtx)
     return 1;
 
   return 0;
@@ -2640,8 +2779,7 @@ mem_min_alignment (mem, desired)
 	  /* Check if the compiler has recorded some information
 	     about the alignment of the base REG.  If reload has
 	     completed, we already matched with proper alignments.  */
-	  if (((current_function != 0
-		&& REGNO_POINTER_ALIGN (regno) >= desired)
+	  if (((cfun != 0 && REGNO_POINTER_ALIGN (regno) >= desired)
 	       || reload_completed)
 	      && ((INTVAL (offset) & (desired - 1)) == 0))
 	    return 1;
@@ -2691,6 +2829,9 @@ enum sparc_mode_class {
 /* Modes for quad-word and smaller quantities.  */
 #define T_MODES (D_MODES | (1 << (int) T_MODE) | (1 << (int) TF_MODE))
 
+/* Modes for 8-word and smaller quantities.  */
+#define O_MODES (T_MODES | (1 << (int) O_MODE) | (1 << (int) OF_MODE))
+
 /* Modes for single-float quantities.  We must allow any single word or
    smaller quantity.  This is because the fix/float conversion instructions
    take integer inputs/outputs from the float registers.  */
@@ -2699,13 +2840,8 @@ enum sparc_mode_class {
 /* Modes for double-float and smaller quantities.  */
 #define DF_MODES (S_MODES | D_MODES)
 
-#define DF_MODES64 DF_MODES
-
 /* Modes for double-float only quantities.  */
-#define DF_ONLY_MODES ((1 << (int) DF_MODE) | (1 << (int) D_MODE))
-
-/* Modes for double-float and larger quantities.  */
-#define DF_UP_MODES (DF_ONLY_MODES | TF_ONLY_MODES)
+#define DF_MODES_NO_S (D_MODES)
 
 /* Modes for quad-float only quantities.  */
 #define TF_ONLY_MODES (1 << (int) TF_MODE)
@@ -2713,7 +2849,16 @@ enum sparc_mode_class {
 /* Modes for quad-float and smaller quantities.  */
 #define TF_MODES (DF_MODES | TF_ONLY_MODES)
 
-#define TF_MODES64 (DF_MODES64 | TF_ONLY_MODES)
+/* Modes for quad-float and double-float quantities.  */
+#define TF_MODES_NO_S (DF_MODES_NO_S | TF_ONLY_MODES)
+
+/* Modes for quad-float pair only quantities.  */
+#define OF_ONLY_MODES (1 << (int) OF_MODE)
+
+/* Modes for quad-float pairs and smaller quantities.  */
+#define OF_MODES (TF_MODES | OF_ONLY_MODES)
+
+#define OF_MODES_NO_S (TF_MODES_NO_S | OF_ONLY_MODES)
 
 /* Modes for condition codes.  */
 #define CC_MODES (1 << (int) CC_MODE)
@@ -2734,17 +2879,17 @@ static int hard_32bit_mode_classes[] = {
   T_MODES, S_MODES, T_MODES, S_MODES, T_MODES, S_MODES, D_MODES, S_MODES,
   T_MODES, S_MODES, T_MODES, S_MODES, D_MODES, S_MODES, D_MODES, S_MODES,
 
-  TF_MODES, SF_MODES, DF_MODES, SF_MODES, TF_MODES, SF_MODES, DF_MODES, SF_MODES,
-  TF_MODES, SF_MODES, DF_MODES, SF_MODES, TF_MODES, SF_MODES, DF_MODES, SF_MODES,
-  TF_MODES, SF_MODES, DF_MODES, SF_MODES, TF_MODES, SF_MODES, DF_MODES, SF_MODES,
-  TF_MODES, SF_MODES, DF_MODES, SF_MODES, TF_MODES, SF_MODES, DF_MODES, SF_MODES,
+  OF_MODES, SF_MODES, DF_MODES, SF_MODES, OF_MODES, SF_MODES, DF_MODES, SF_MODES,
+  OF_MODES, SF_MODES, DF_MODES, SF_MODES, OF_MODES, SF_MODES, DF_MODES, SF_MODES,
+  OF_MODES, SF_MODES, DF_MODES, SF_MODES, OF_MODES, SF_MODES, DF_MODES, SF_MODES,
+  OF_MODES, SF_MODES, DF_MODES, SF_MODES, TF_MODES, SF_MODES, DF_MODES, SF_MODES,
 
   /* FP regs f32 to f63.  Only the even numbered registers actually exist,
      and none can hold SFmode/SImode values.  */
-  DF_UP_MODES, 0, DF_ONLY_MODES, 0, DF_UP_MODES, 0, DF_ONLY_MODES, 0,
-  DF_UP_MODES, 0, DF_ONLY_MODES, 0, DF_UP_MODES, 0, DF_ONLY_MODES, 0,
-  DF_UP_MODES, 0, DF_ONLY_MODES, 0, DF_UP_MODES, 0, DF_ONLY_MODES, 0,
-  DF_UP_MODES, 0, DF_ONLY_MODES, 0, DF_UP_MODES, 0, DF_ONLY_MODES, 0,
+  OF_MODES_NO_S, 0, DF_MODES_NO_S, 0, OF_MODES_NO_S, 0, DF_MODES_NO_S, 0,
+  OF_MODES_NO_S, 0, DF_MODES_NO_S, 0, OF_MODES_NO_S, 0, DF_MODES_NO_S, 0,
+  OF_MODES_NO_S, 0, DF_MODES_NO_S, 0, OF_MODES_NO_S, 0, DF_MODES_NO_S, 0,
+  OF_MODES_NO_S, 0, DF_MODES_NO_S, 0, TF_MODES_NO_S, 0, DF_MODES_NO_S, 0,
 
   /* %fcc[0123] */
   CCFP_MODES, CCFP_MODES, CCFP_MODES, CCFP_MODES,
@@ -2755,21 +2900,21 @@ static int hard_32bit_mode_classes[] = {
 
 static int hard_64bit_mode_classes[] = {
   D_MODES, D_MODES, T_MODES, D_MODES, T_MODES, D_MODES, T_MODES, D_MODES,
+  O_MODES, D_MODES, T_MODES, D_MODES, T_MODES, D_MODES, T_MODES, D_MODES,
   T_MODES, D_MODES, T_MODES, D_MODES, T_MODES, D_MODES, T_MODES, D_MODES,
-  T_MODES, D_MODES, T_MODES, D_MODES, T_MODES, D_MODES, T_MODES, D_MODES,
-  T_MODES, D_MODES, T_MODES, D_MODES, T_MODES, D_MODES, T_MODES, D_MODES,
+  O_MODES, D_MODES, T_MODES, D_MODES, T_MODES, D_MODES, T_MODES, D_MODES,
 
-  TF_MODES64, SF_MODES, DF_MODES64, SF_MODES, TF_MODES64, SF_MODES, DF_MODES64, SF_MODES,
-  TF_MODES64, SF_MODES, DF_MODES64, SF_MODES, TF_MODES64, SF_MODES, DF_MODES64, SF_MODES,
-  TF_MODES64, SF_MODES, DF_MODES64, SF_MODES, TF_MODES64, SF_MODES, DF_MODES64, SF_MODES,
-  TF_MODES64, SF_MODES, DF_MODES64, SF_MODES, TF_MODES64, SF_MODES, DF_MODES64, SF_MODES,
+  OF_MODES, SF_MODES, DF_MODES, SF_MODES, OF_MODES, SF_MODES, DF_MODES, SF_MODES,
+  OF_MODES, SF_MODES, DF_MODES, SF_MODES, OF_MODES, SF_MODES, DF_MODES, SF_MODES,
+  OF_MODES, SF_MODES, DF_MODES, SF_MODES, OF_MODES, SF_MODES, DF_MODES, SF_MODES,
+  OF_MODES, SF_MODES, DF_MODES, SF_MODES, TF_MODES, SF_MODES, DF_MODES, SF_MODES,
 
   /* FP regs f32 to f63.  Only the even numbered registers actually exist,
      and none can hold SFmode/SImode values.  */
-  DF_UP_MODES, 0, DF_ONLY_MODES, 0, DF_UP_MODES, 0, DF_ONLY_MODES, 0,
-  DF_UP_MODES, 0, DF_ONLY_MODES, 0, DF_UP_MODES, 0, DF_ONLY_MODES, 0,
-  DF_UP_MODES, 0, DF_ONLY_MODES, 0, DF_UP_MODES, 0, DF_ONLY_MODES, 0,
-  DF_UP_MODES, 0, DF_ONLY_MODES, 0, DF_UP_MODES, 0, DF_ONLY_MODES, 0,
+  OF_MODES_NO_S, 0, DF_MODES_NO_S, 0, OF_MODES_NO_S, 0, DF_MODES_NO_S, 0,
+  OF_MODES_NO_S, 0, DF_MODES_NO_S, 0, OF_MODES_NO_S, 0, DF_MODES_NO_S, 0,
+  OF_MODES_NO_S, 0, DF_MODES_NO_S, 0, OF_MODES_NO_S, 0, DF_MODES_NO_S, 0,
+  OF_MODES_NO_S, 0, DF_MODES_NO_S, 0, TF_MODES_NO_S, 0, DF_MODES_NO_S, 0,
 
   /* %fcc[0123] */
   CCFP_MODES, CCFP_MODES, CCFP_MODES, CCFP_MODES,
@@ -2974,12 +3119,6 @@ restore_regs (file, low, high, base, offset, n_regs)
     }
   return n_regs;
 }
-
-/* Static variables we want to share between prologue and epilogue.  */
-
-/* Number of live general or floating point registers needed to be saved
-   (as 4-byte quantities).  This is only done if TARGET_EPILOGUE.  */
-static int num_gfregs;
 
 /* Compute the frame size required by the function.  This function is called
    during the reload pass and also by output_function_prologue().  */
@@ -3279,7 +3418,7 @@ output_function_epilogue (file, size, leaf_function)
 #endif
 
   else if (current_function_epilogue_delay_list == 0)
-    {                                                
+    {
       /* If code does not drop into the epilogue, we need
 	 do nothing except output pending case vectors.  */
       rtx insn = get_last_insn ();                               
@@ -3335,13 +3474,38 @@ output_function_epilogue (file, size, leaf_function)
 	  /* If we wound up with things in our delay slot, flush them here.  */
 	  if (current_function_epilogue_delay_list)
 	    {
-	      rtx insn = emit_jump_insn_after (gen_rtx_RETURN (VOIDmode),
-					       get_last_insn ());
-	      PATTERN (insn) = gen_rtx_PARALLEL (VOIDmode,
-					gen_rtvec (2,
-						   PATTERN (XEXP (current_function_epilogue_delay_list, 0)),
-						   PATTERN (insn)));
-	      final_scan_insn (insn, file, 1, 0, 1);
+	      rtx delay = PATTERN (XEXP (current_function_epilogue_delay_list, 0));
+
+	      if (TARGET_V9 && ! epilogue_renumber (&delay, 1))
+		{
+		  epilogue_renumber (&delay, 0);
+		  fputs (SKIP_CALLERS_UNIMP_P
+			 ? "\treturn\t%i7+12\n"
+			 : "\treturn\t%i7+8\n", file);
+		  final_scan_insn (XEXP (current_function_epilogue_delay_list, 0), file, 1, 0, 0);
+		}
+	      else
+		{
+		  rtx insn = emit_jump_insn_after (gen_rtx_RETURN (VOIDmode),
+						   get_last_insn ());
+		  rtx src;
+
+		  if (GET_CODE (delay) != SET)
+		    abort();
+
+		  src = SET_SRC (delay);
+		  if (GET_CODE (src) == ASHIFT)
+		    {
+		      if (XEXP (src, 1) != const1_rtx)
+			abort();
+		      SET_SRC (delay) = gen_rtx_PLUS (GET_MODE (src), XEXP (src, 0),
+						      XEXP (src, 0));
+		    }
+
+		  PATTERN (insn) = gen_rtx_PARALLEL (VOIDmode,
+					gen_rtvec (2, delay, PATTERN (insn)));
+		  final_scan_insn (insn, file, 1, 0, 1);
+		}
 	    }
 	  else if (TARGET_V9 && ! SKIP_CALLERS_UNIMP_P)
 	    fputs ("\treturn\t%i7+8\n\tnop\n", file);
@@ -3449,7 +3613,7 @@ void
 init_cumulative_args (cum, fntype, libname, indirect)
      CUMULATIVE_ARGS *cum;
      tree fntype;
-     tree libname ATTRIBUTE_UNUSED;
+     rtx libname ATTRIBUTE_UNUSED;
      int indirect ATTRIBUTE_UNUSED;
 {
   cum->words = 0;
@@ -4328,10 +4492,15 @@ sparc_va_arg (valist, type)
       if (TYPE_ALIGN (type) >= 2 * BITS_PER_WORD)
 	align = 2 * UNITS_PER_WORD;
 
-      if (AGGREGATE_TYPE_P (type) && size > 16)
+      if (AGGREGATE_TYPE_P (type))
 	{
-	  indirect = 1;
-	  size = rsize = UNITS_PER_WORD;
+	  if (size > 16)
+	    {
+	      indirect = 1;
+	      size = rsize = UNITS_PER_WORD;
+	    }
+	  else
+	    size = rsize;
 	}
     }
   else
@@ -4618,6 +4787,77 @@ output_cbranch (op, label, reversed, annul, noop, insn)
   return string;
 }
 
+/* Emit a library call comparison between floating point X and Y.
+   COMPARISON is the rtl operator to compare with (EQ, NE, GT, etc.).
+   TARGET_ARCH64 uses _Qp_* functions, which use pointers to TFmode
+   values as arguments instead of the TFmode registers themselves,
+   that's why we cannot call emit_float_lib_cmp.  */
+void
+sparc_emit_float_lib_cmp (x, y, comparison)
+     rtx x, y;
+     enum rtx_code comparison;
+{
+  const char *qpfunc;
+  rtx slot0, slot1, result;
+
+  switch (comparison)
+    {
+    case EQ:
+      qpfunc = "_Qp_feq";
+      break;
+
+    case NE:
+      qpfunc = "_Qp_fne";
+      break;
+
+    case GT:
+      qpfunc = "_Qp_fgt";
+      break;
+
+    case GE:
+      qpfunc = "_Qp_fge";
+      break;
+
+    case LT:
+      qpfunc = "_Qp_flt";
+      break;
+
+    case LE:
+      qpfunc = "_Qp_fle";
+      break;
+
+    default:
+      abort();
+      break;
+    }
+
+  if (GET_CODE (x) != MEM)
+    {
+      slot0 = assign_stack_temp (TFmode, GET_MODE_SIZE(TFmode), 0);
+      emit_insn (gen_rtx_SET (VOIDmode, slot0, x));
+    }
+
+  if (GET_CODE (y) != MEM)
+    {
+      slot1 = assign_stack_temp (TFmode, GET_MODE_SIZE(TFmode), 0);
+      emit_insn (gen_rtx_SET (VOIDmode, slot1, y));
+    }
+
+  emit_library_call (gen_rtx (SYMBOL_REF, Pmode, qpfunc), 1,
+                     DImode, 2,
+                     XEXP (slot0, 0), Pmode,
+                     XEXP (slot1, 0), Pmode);
+
+  /* Immediately move the result of the libcall into a pseudo
+     register so reload doesn't clobber the value if it needs
+     the return register for a spill reg.  */
+  result = gen_reg_rtx (DImode);
+  emit_move_insn (result, hard_libcall_value (DImode));
+
+  emit_cmp_insn (result, const0_rtx, comparison,
+                 NULL_RTX, DImode, 0, 0);
+}
+          
 /* Return the string to output a conditional branch to LABEL, testing
    register REG.  LABEL is the operand number of the label; REG is the
    operand number of the reg.  OP is the conditional expression.  The mode
@@ -4717,56 +4957,59 @@ output_v9branch (op, reg, label, reversed, annul, noop, insn)
   return string;
 }
 
-/* Renumber registers in delay slot.  Replace registers instead of
-   renumbering because they may be shared.
+/* Return 1, if any of the registers of the instruction are %l[0-7] or %o[0-7].
+   Such instructions cannot be used in the delay slot of return insn on v9.
+   If TEST is 0, also rename all %i[0-7] registers to their %o[0-7] counterparts.
+ */
 
-   This does not handle instructions other than move.  */
-
-static void
-epilogue_renumber (where)
-     rtx *where;
+static int
+epilogue_renumber (where, test)
+     register rtx *where;
+     int test;
 {
-  rtx x = *where;
-  enum rtx_code code = GET_CODE (x);
+  register const char *fmt;
+  register int i;
+  register enum rtx_code code;
+
+  if (*where == 0)
+    return 0;
+
+  code = GET_CODE (*where);
 
   switch (code)
     {
-    case MEM:
-      *where = x = copy_rtx (x);
-      epilogue_renumber (&XEXP (x, 0));
-      return;
-
     case REG:
-      {
-	int regno = REGNO (x);
-	if (regno > 8 && regno < 24)
-	  abort ();
-	if (regno >= 24 && regno < 32)
-	  *where = gen_rtx_REG (GET_MODE (x), regno - 16);
-	return;
-      }
+      if (REGNO (*where) >= 8 && REGNO (*where) < 24)      /* oX or lX */
+	return 1;
+      if (! test && REGNO (*where) >= 24 && REGNO (*where) < 32)
+	*where = gen_rtx (REG, GET_MODE (*where), OUTGOING_REGNO (REGNO(*where)));
+    case SCRATCH:
+    case CC0:
+    case PC:
     case CONST_INT:
     case CONST_DOUBLE:
-    case CONST:
-    case SYMBOL_REF:
-    case LABEL_REF:
-      return;
-
-    case IOR:
-    case AND:
-    case XOR:
-    case PLUS:
-    case MINUS:
-      epilogue_renumber (&XEXP (x, 1));
-    case NEG:
-    case NOT:
-      epilogue_renumber (&XEXP (x, 0));
-      return;
+      return 0;
 
     default:
-      debug_rtx (*where);
-      abort ();
+      break;
     }
+
+  fmt = GET_RTX_FORMAT (code);
+
+  for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
+    {
+      if (fmt[i] == 'E')
+	{
+	  register int j;
+	  for (j = XVECLEN (*where, i) - 1; j >= 0; j--)
+	    if (epilogue_renumber (&(XVECEXP (*where, i, j)), test))
+	      return 1;
+	}
+      else if (fmt[i] == 'e'
+	       && epilogue_renumber (&(XEXP (*where, i)), test))
+	return 1;
+    }
+  return 0;
 }
 
 /* Output assembler code to return from a function.  */
@@ -4831,8 +5074,8 @@ output_return (operands)
     {
       if (delay)
 	{
-	  epilogue_renumber (&SET_DEST (PATTERN (delay)));
-	  epilogue_renumber (&SET_SRC (PATTERN (delay)));
+	  epilogue_renumber (&SET_DEST (PATTERN (delay)), 0);
+	  epilogue_renumber (&SET_SRC (PATTERN (delay)), 0);
 	}
       if (SKIP_CALLERS_UNIMP_P)
 	return "return\t%%i7+12%#";
@@ -5284,10 +5527,10 @@ print_operand (file, x, code)
 	       || GET_MODE_CLASS (GET_MODE (x)) == MODE_INT))
     {
       if (CONST_DOUBLE_HIGH (x) == 0)
-	fprintf (file, "%u", CONST_DOUBLE_LOW (x));
+	fprintf (file, "%u", (unsigned int) CONST_DOUBLE_LOW (x));
       else if (CONST_DOUBLE_HIGH (x) == -1
 	       && CONST_DOUBLE_LOW (x) < 0)
-	fprintf (file, "%d", CONST_DOUBLE_LOW (x));
+	fprintf (file, "%d", (int) CONST_DOUBLE_LOW (x));
       else
 	output_operand_lossage ("long long constant not a valid immediate operand");
     }
@@ -5602,10 +5845,10 @@ sparc64_initialize_trampoline (tramp, fnaddr, cxt)
 		  GEN_INT (0xca586010));
   emit_move_insn (gen_rtx_MEM (DImode, plus_constant (tramp, 16)), cxt);
   emit_move_insn (gen_rtx_MEM (DImode, plus_constant (tramp, 24)), fnaddr);
-  emit_insn (gen_flush (validize_mem (gen_rtx_MEM (DImode, tramp))));
+  emit_insn (gen_flushdi (validize_mem (gen_rtx_MEM (DImode, tramp))));
 
   if (sparc_cpu != PROCESSOR_ULTRASPARC)
-    emit_insn (gen_flush (validize_mem (gen_rtx_MEM (DImode, plus_constant (tramp, 8)))));
+    emit_insn (gen_flushdi (validize_mem (gen_rtx_MEM (DImode, plus_constant (tramp, 8)))));
 }
 
 /* Subroutines to support a flat (single) register window calling
@@ -5934,7 +6177,7 @@ sparc_flat_output_function_prologue (file, size)
      FILE *file;
      int size;
 {
-  char *sp_str = reg_names[STACK_POINTER_REGNUM];
+  const char *sp_str = reg_names[STACK_POINTER_REGNUM];
   unsigned long gmask = current_frame_info.gmask;
 
   sparc_output_scratch_registers (file);
@@ -5973,7 +6216,7 @@ sparc_flat_output_function_prologue (file, size)
   if (size > 0)
     {
       unsigned int reg_offset = current_frame_info.reg_offset;
-      char *fp_str = reg_names[FRAME_POINTER_REGNUM];
+      const char *fp_str = reg_names[FRAME_POINTER_REGNUM];
       const char *t1_str = "%g1";
 
       /* Things get a little tricky if local variables take up more than ~4096
@@ -6151,8 +6394,8 @@ sparc_flat_output_function_epilogue (file, size)
     {
       unsigned int reg_offset = current_frame_info.reg_offset;
       unsigned int size1;
-      char *sp_str = reg_names[STACK_POINTER_REGNUM];
-      char *fp_str = reg_names[FRAME_POINTER_REGNUM];
+      const char *sp_str = reg_names[STACK_POINTER_REGNUM];
+      const char *fp_str = reg_names[FRAME_POINTER_REGNUM];
       const char *t1_str = "%g1";
 
       /* In the reload sequence, we don't need to fill the load delay
@@ -6471,7 +6714,8 @@ ultrasparc_adjust_cost (insn, link, dep_insn, cost)
     return 0;
 
 #define SLOW_FP(dep_type) \
-(dep_type == TYPE_FPSQRT || dep_type == TYPE_FPDIVS || dep_type == TYPE_FPDIVD)
+(dep_type == TYPE_FPSQRTS || dep_type == TYPE_FPSQRTD || \
+ dep_type == TYPE_FPDIVS || dep_type == TYPE_FPDIVD)
 
   switch (REG_NOTE_KIND (link))
     {
@@ -6697,7 +6941,8 @@ ultra_code_from_mask (type_mask)
 			TMASK (TYPE_FPSTORE)))
     return LSU;
   else if (type_mask & (TMASK (TYPE_FPMUL) | TMASK (TYPE_FPDIVS) |
-			TMASK (TYPE_FPDIVD) | TMASK (TYPE_FPSQRT)))
+			TMASK (TYPE_FPDIVD) | TMASK (TYPE_FPSQRTS) |
+			TMASK (TYPE_FPSQRTD)))
     return FPM;
   else if (type_mask & (TMASK (TYPE_FPMOVE) | TMASK (TYPE_FPCMOVE) |
 			TMASK (TYPE_FP) | TMASK (TYPE_FPCMP)))
@@ -6720,7 +6965,7 @@ ultra_cmove_results_ready_p (insn)
 
   /* If this got dispatched in the previous
      group, the results are not ready.  */
-  entry = (ultra_cur_hist - 1) % (ULTRA_NUM_HIST - 1);
+  entry = (ultra_cur_hist - 1) & (ULTRA_NUM_HIST - 1);
   up = &ultra_pipe_hist[entry];
   slot = 4;
   while (--slot >= 0)
@@ -6741,7 +6986,7 @@ ultra_fpmode_conflict_exists (fpmode)
   int hist_ent;
   int hist_lim;
 
-  hist_ent = (ultra_cur_hist - 1) % (ULTRA_NUM_HIST - 1);
+  hist_ent = (ultra_cur_hist - 1) & (ULTRA_NUM_HIST - 1);
   if (ultra_cycles_elapsed < 4)
     hist_lim = ultra_cycles_elapsed;
   else
@@ -6776,12 +7021,13 @@ ultra_fpmode_conflict_exists (fpmode)
 	      && GET_CODE (SET_SRC (pat)) != NEG
 	      && ((TMASK (get_attr_type (insn)) &
 		   (TMASK (TYPE_FPDIVS) | TMASK (TYPE_FPDIVD) |
-		    TMASK (TYPE_FPMOVE) | TMASK (TYPE_FPSQRT) |
+		    TMASK (TYPE_FPMOVE) | TMASK (TYPE_FPSQRTS) |
+		    TMASK (TYPE_FPSQRTD) |
                     TMASK (TYPE_LOAD) | TMASK (TYPE_STORE))) == 0))
 	    return 1;
 	}
       hist_lim--;
-      hist_ent = (hist_ent - 1) % (ULTRA_NUM_HIST - 1);
+      hist_ent = (hist_ent - 1) & (ULTRA_NUM_HIST - 1);
     }
 
   /* No conflicts, safe to dispatch.  */
@@ -6934,6 +7180,7 @@ ultra_schedule_insn (ip, ready, this, type)
 {
   int pipe_slot;
   char mask = ultra_pipe.free_slot_mask;
+  rtx temp;
 
   /* Obtain free slot.  */
   for (pipe_slot = 0; pipe_slot < 4; pipe_slot++)
@@ -6955,20 +7202,20 @@ ultra_schedule_insn (ip, ready, this, type)
   ultra_pipe.commit[pipe_slot] = 0;
 
   /* Update ready list.  */
-  if (ip != &ready[this])
+  temp = *ip;
+  while (ip != &ready[this])
     {
-      rtx temp = *ip;
-
-      *ip = ready[this];
-      ready[this] = temp;
+      ip[0] = ip[1];
+      ++ip;
     }
+  *ip = temp;
 }
 
 /* Advance to the next pipeline group.  */
 static void
 ultra_flush_pipeline ()
 {
-  ultra_cur_hist = (ultra_cur_hist + 1) % (ULTRA_NUM_HIST - 1);
+  ultra_cur_hist = (ultra_cur_hist + 1) & (ULTRA_NUM_HIST - 1);
   ultra_cycles_elapsed += 1;
   bzero ((char *) &ultra_pipe, sizeof ultra_pipe);
   ultra_pipe.free_slot_mask = 0xf;
@@ -7166,7 +7413,8 @@ ultrasparc_sched_reorder (dump, sched_verbose, ready, n_ready)
 	  }
 	else if ((ip = ultra_find_type ((TMASK (TYPE_FPDIVS) |
 					 TMASK (TYPE_FPDIVD) |
-					 TMASK (TYPE_FPSQRT)),
+					 TMASK (TYPE_FPSQRTS) |
+					 TMASK (TYPE_FPSQRTD)),
 					ready, this_insn)) != 0)
 	  {
 	    ultra_schedule_insn (ip, ready, this_insn, FPM);
@@ -7847,32 +8095,33 @@ sparc_block_profiler(file, blockno)
      int blockno;
 {
   char LPBX[32];
+  int bbreg = TARGET_ARCH64 ? 4 : 2;
 
   if (profile_block_flag == 2)
     {
       ASM_GENERATE_INTERNAL_LABEL (LPBX, "LPBX", 0);
 
       fprintf (file, "\tsethi\t%%hi(%s__bb),%%g1\n", user_label_prefix);
-      fprintf (file, "\tsethi\t%%hi(%d),%%g2\n", blockno);
+      fprintf (file, "\tsethi\t%%hi(%d),%%g%d\n", blockno, bbreg);
       fprintf (file, "\tor\t%%g1,%%lo(%s__bb),%%g1\n", user_label_prefix);
-      fprintf (file, "\tor\t%%g2,%%lo(%d),%%g2\n", blockno);
+      fprintf (file, "\tor\t%%g%d,%%lo(%d),%%g%d\n", bbreg, blockno, bbreg);
 
-      fputs ("\tst\t%g2,[%g1]\n", file);
+      fprintf (file, "\tst\t%%g%d,[%%g1]\n", bbreg);
 
       fputs ("\tsethi\t%hi(", file);
       assemble_name (file, LPBX);
-      fputs ("),%g2\n", file);
+      fprintf (file, "),%%g%d\n", bbreg);
   
       fputs ("\tor\t%o2,%lo(", file);
       assemble_name (file, LPBX);
-      fputs ("),%g2\n", file);
+      fprintf (file, "),%%g%d\n", bbreg);
   
-      fputs ("\tst\t%g2,[%g1+4]\n", file);
-      fputs ("\tmov\t%o7,%g2\n", file);
+      fprintf (file, "\tst\t%%g%d,[%%g1+4]\n", bbreg);
+      fprintf (file, "\tmov\t%%o7,%%g%d\n", bbreg);
 
       fprintf (file, "\tcall\t%s__bb_trace_func\n\t nop\n", user_label_prefix);
 
-      fputs ("\tmov\t%g2,%o7\n", file);
+      fprintf (file, "\tmov\t%%g%d,%%o7\n", bbreg);
     }
   else if (profile_block_flag != 0)
     {
@@ -7884,13 +8133,19 @@ sparc_block_profiler(file, blockno)
 
       fputs ("\tld\t[%g1+%lo(", file);
       assemble_name (file, LPBX);
-      fprintf (file, "+%d)],%%g2\n", blockno*4);
+      if (TARGET_ARCH64 && USE_AS_OFFSETABLE_LO10)
+	fprintf (file, ")+%d],%%g%d\n", blockno*4, bbreg);
+      else
+	fprintf (file, "+%d)],%%g%d\n", blockno*4, bbreg);
 
-      fputs ("\tadd\t%g2,1,%g2\n", file);
+      fprintf (file, "\tadd\t%%g%d,1,%%g%d\n", bbreg, bbreg);
 
-      fputs ("\tst\t%g2,[%g1+%lo(", file);
+      fprintf (file, "\tst\t%%g%d,[%%g1+%%lo(", bbreg);
       assemble_name (file, LPBX);
-      fprintf (file, "+%d)]\n", blockno*4);
+      if (TARGET_ARCH64 && USE_AS_OFFSETABLE_LO10)
+	fprintf (file, ")+%d]\n", blockno*4);
+      else
+	fprintf (file, "+%d)]\n", blockno*4);
     }
 }
 

@@ -1,5 +1,5 @@
 /* Define per-register tables for data flow info and register allocation.
-   Copyright (C) 1987, 1993, 1994, 1995, 1997, 1998 Free Software Foundation, Inc.
+   Copyright (C) 1987, 93-98, 1999 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -39,13 +39,13 @@ Boston, MA 02111-1307, USA.  */
 extern int max_regno;
 
 /* Register information indexed by register number */
-typedef struct reg_info_def {
-				/* fields set by reg_scan */
+typedef struct reg_info_def
+{				/* fields set by reg_scan */
   int first_uid;		/* UID of first insn to use (REG n) */
   int last_uid;			/* UID of last insn to use (REG n) */
   int last_note_uid;		/* UID of last note to use (REG n) */
 
-				/* fields set by both reg_scan and flow_analysis */
+				/* fields set by reg_scan & flow_analysis */
   int sets;			/* # of times (REG n) is set */
 
 				/* fields set by flow_analysis */
@@ -138,7 +138,7 @@ extern char regs_ever_live[FIRST_PSEUDO_REGISTER];
 
 /* Vector indexed by hardware reg giving its name.  */
 
-extern char *reg_names[FIRST_PSEUDO_REGISTER];
+extern const char *reg_names[FIRST_PSEUDO_REGISTER];
 
 /* For each hard register, the widest mode object that it can contain.
    This will be a MODE_INT mode if the register can hold integers.  Otherwise

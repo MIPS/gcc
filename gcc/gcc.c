@@ -1,5 +1,5 @@
 /* Compiler driver program that can handle many languages.
-   Copyright (C) 1987, 89, 92-98, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1987, 89, 92-99, 2000 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -65,22 +65,13 @@ extern int getrusage PROTO ((int, struct rusage *));
 #define OBJECT_SUFFIX ".o"
 #endif
 
-/* By default, colon separates directories in a path.  */
-#ifndef PATH_SEPARATOR
-#define PATH_SEPARATOR ':'
-#endif
-
-#ifndef DIR_SEPARATOR
-#define DIR_SEPARATOR '/'
-#endif
-
-/* Define IS_DIR_SEPARATOR.  */
-#ifndef DIR_SEPARATOR_2
-# define IS_DIR_SEPARATOR(ch) ((ch) == DIR_SEPARATOR)
-#else /* DIR_SEPARATOR_2 */
-# define IS_DIR_SEPARATOR(ch) \
-	(((ch) == DIR_SEPARATOR) || ((ch) == DIR_SEPARATOR_2))
-#endif /* DIR_SEPARATOR_2 */
+#ifndef VMS
+/* FIXME: the location independence code for VMS is hairier than this,
+   and hasn't been written.  */
+#ifndef DIR_UP
+#define DIR_UP ".."
+#endif /* DIR_UP */
+#endif /* VMS */
 
 static char dir_separator_str[] = {DIR_SEPARATOR, 0};
 
@@ -91,6 +82,11 @@ static char dir_separator_str[] = {DIR_SEPARATOR, 0};
 #define GET_ENV_PATH_LIST(VAR,NAME)	do { (VAR) = getenv (NAME); } while (0)
 #endif
 
+/* Most every one is fine with LIBRARY_PATH.  For some, it conflicts.  */
+#ifndef LIBRARY_PATH_ENV
+#define LIBRARY_PATH_ENV "LIBRARY_PATH"
+#endif
+
 #ifndef HAVE_KILL
 #define kill(p,s) raise(s)
 #endif
@@ -99,6 +95,10 @@ static char dir_separator_str[] = {DIR_SEPARATOR, 0};
    compilation of that file ceases.  */
 
 #define MIN_FATAL_STATUS 1
+
+/* Flag saying to pass the greatest exit code returned by a sub-process
+   to the calling program.  */
+static int pass_exit_codes;
 
 /* Flag saying to print the directories gcc will search through looking for
    programs, libraries, etc.  */
@@ -168,6 +168,10 @@ static char *cross_compile = "0";
    run if this is non-zero.  */
 static int error_count = 0;
 
+/* Greatest exit code of sub-processes that has been encountered up to
+   now.  */
+static int greatest_status = 1;
+
 /* This is the obstack which we use to allocate many strings.  */
 
 static struct obstack obstack;
@@ -191,6 +195,11 @@ extern char *version_string;
 struct path_prefix;
 
 static void init_spec		PROTO((void));
+#ifndef VMS
+static char **split_directories	PROTO((const char *, int *));
+static void free_split_directories PROTO((char **));
+static char *make_relative_prefix PROTO((const char *, const char *, const char *));
+#endif /* VMS */
 static void read_specs		PROTO((const char *, int));
 static void set_spec		PROTO((const char *, const char *));
 static struct compiler *lookup_compiler PROTO((const char *, size_t, const char *));
@@ -236,6 +245,7 @@ static int execute			PROTO ((void));
 static void unused_prefix_warnings	PROTO ((struct path_prefix *));
 static void clear_args			PROTO ((void));
 static void fatal_error			PROTO ((int));
+static void set_input			PROTO ((const char *));
 
 /* Specs are strings containing lines, each of which (if not blank)
 is made up of a program name, and arguments separated by spaces.
@@ -262,11 +272,11 @@ or with constant text in a single argument.
 	chosen in a way that is hard to predict even when previously
 	chosen file names are known.  For example, `%g.s ... %g.o ... %g.s'
 	might turn into `ccUVUUAU.s ccXYAXZ12.o ccUVUUAU.s'.  SUFFIX matches
-	the regexp "[.A-Za-z]*" or the special string "%O", which is
-	treated exactly as if %O had been pre-processed.  Previously, %g
-	was simply substituted with a file name chosen once per compilation,
-	without regard to any appended suffix (which was therefore treated
-	just like ordinary text), making such attacks more likely to succeed.
+	the regexp "[.A-Za-z]*%O"; "%O" is treated exactly as if it
+	had been pre-processed.  Previously, %g was simply substituted
+	with a file name chosen once per compilation, without regard
+	to any appended suffix (which was therefore treated just like
+	ordinary text), making such attacks more likely to succeed.
  %uSUFFIX
 	like %g, but generates a new temporary file name even if %uSUFFIX
 	was already seen.
@@ -296,12 +306,13 @@ or with constant text in a single argument.
 	at all, but they are included among the output files, so they will
 	be linked.
  %O	substitutes the suffix for object files.  Note that this is
-	handled specially when it immediately follows %g, %u, or %U,
-	because of the need for those to form complete file names.  The
-	handling is such that %O is treated exactly as if it had already
-	been substituted, except that %g, %u, and %U do not currently
-	support additional SUFFIX characters following %O as they would
-	following, for example, `.o'.
+        handled specially when it immediately follows %g, %u, or %U
+	(with or without a suffix argument) because of the need for
+	those to form complete file names.  The handling is such that
+	%O is treated exactly as if it had already been substituted,
+	except that %g, %u, and %U do not currently support additional
+	SUFFIX characters following %O as they would following, for
+	example, `.o'.
  %p	substitutes the standard macro predefinitions for the
 	current target machine.  Use this when running cpp.
  %P	like %p, but puts `__' before and after the name of each macro.
@@ -606,7 +617,6 @@ static struct compiler default_compilers[] =
 	%{C:%{!E:%eGNU C does not support -C without using -E}}\
 	%{M} %{MM} %{MD:-MD %b.d} %{MMD:-MMD %b.d} %{MG}\
         %{!no-gcc:-D__GNUC__=%v1 -D__GNUC_MINOR__=%v2}\
-	%{ansi|std=*:%{!std=gnu*:-trigraphs -D__STRICT_ANSI__}}\
 	%{!undef:%{!ansi:%{!std=*:%p}%{std=gnu*:%p}} %P} %{trigraphs}\
         %c %{Os:-D__OPTIMIZE_SIZE__} %{O*:%{!O0:-D__OPTIMIZE__}}\
 	%{ffast-math:-D__FAST_MATH__}\
@@ -621,7 +631,6 @@ static struct compiler default_compilers[] =
                   %{!Q:-quiet} -dumpbase %b.c %{d*} %{m*} %{a*}\
                   %{MD:-MD %b.d} %{MMD:-MMD %b.d} %{MG}\
                   %{!no-gcc:-D__GNUC__=%v1 -D__GNUC_MINOR__=%v2}\
-		  %{ansi|std=*:%{!std=gnu*:-trigraphs -D__STRICT_ANSI__}}\
 		  %{!undef:%{!ansi:%{!std=*:%p}%{std=gnu*:%p}} %P} %{trigraphs}\
                   %c %{Os:-D__OPTIMIZE_SIZE__} %{O*:%{!O0:-D__OPTIMIZE__}}\
 		  %{ffast-math:-D__FAST_MATH__}\
@@ -645,7 +654,6 @@ static struct compiler default_compilers[] =
 	%{C:%{!E:%eGNU C does not support -C without using -E}}\
 	%{M} %{MM} %{MD:-MD %b.d} %{MMD:-MMD %b.d} %{MG}\
         %{!no-gcc:-D__GNUC__=%v1 -D__GNUC_MINOR__=%v2}\
-	%{ansi|std=*:%{!std=gnu*:-trigraphs -D__STRICT_ANSI__}}\
 	%{!undef:%{!ansi:%{!std=*:%p}%{std=gnu*:%p}} %P} %{trigraphs}\
         %c %{Os:-D__OPTIMIZE_SIZE__} %{O*:%{!O0:-D__OPTIMIZE__}}\
 	%{ffast-math:-D__FAST_MATH__}\
@@ -674,7 +682,6 @@ static struct compiler default_compilers[] =
 	%{C:%{!E:%eGNU C does not support -C without using -E}}\
 	%{M} %{MM} %{MD:-MD %b.d} %{MMD:-MMD %b.d} %{MG}\
         %{!no-gcc:-D__GNUC__=%v1 -D__GNUC_MINOR__=%v2}\
-	%{ansi|std=*:%{!std=gnu*:-trigraphs -D__STRICT_ANSI__}}\
 	%{!undef:%{!ansi:%{!std=*:%p}%{std=gnu*:%p}} %P} %{trigraphs}\
         %c %{Os:-D__OPTIMIZE_SIZE__} %{O*:%{!O0:-D__OPTIMIZE__}}\
 	%{ffast-math:-D__FAST_MATH__}\
@@ -692,7 +699,6 @@ static struct compiler default_compilers[] =
 	%{C:%{!E:%eGNU C does not support -C without using -E}}\
 	%{M} %{MM} %{MD:-MD %b.d} %{MMD:-MMD %b.d} %{MG}\
         %{!no-gcc:-D__GNUC__=%v1 -D__GNUC_MINOR__=%v2}\
-	%{std=*:%{!std=gnu*:-trigraphs -D__STRICT_ANSI__}}\
 	%{!undef:%{!std=*:%p}%{std=gnu*:%p} %P} %{trigraphs}\
         %c %{Os:-D__OPTIMIZE_SIZE__} %{O*:%{!O0:-D__OPTIMIZE__}}\
 	%{ffast-math:-D__FAST_MATH__}\
@@ -1390,6 +1396,11 @@ static const char *standard_startfile_prefix_2 = "/usr/lib/";
 static const char *tooldir_base_prefix = TOOLDIR_BASE_PREFIX;
 static const char *tooldir_prefix;
 
+#ifndef STANDARD_BINDIR_PREFIX
+#define STANDARD_BINDIR_PREFIX "/usr/local/bin"
+#endif
+static char *standard_bindir_prefix = STANDARD_BINDIR_PREFIX;
+
 /* Subdirectory to use for locating libraries.  Set by
    set_multilib_dir based on the compilation options.  */
 
@@ -1887,6 +1898,7 @@ build_search_list (paths, prefix, check_dir_p)
   struct prefix_list *pprefix;
 
   obstack_grow (&collect_obstack, prefix, strlen (prefix));
+  obstack_1grow (&collect_obstack, '=');
 
   for (pprefix = paths->plist; pprefix != 0; pprefix = pprefix->next)
     {
@@ -1943,6 +1955,242 @@ putenv_from_prefixes (paths, env_var)
   putenv (build_search_list (paths, env_var, 1));
 }
 
+#ifndef VMS
+
+/* FIXME: the location independence code for VMS is hairier than this,
+   and hasn't been written.  */
+
+/* Split a filename into component directories.  */
+
+static char **
+split_directories (name, ptr_num_dirs)
+     const char *name;
+     int *ptr_num_dirs;
+{
+  int num_dirs = 0;
+  char **dirs;
+  const char *p, *q;
+  int ch;
+
+  /* Count the number of directories.  Special case MSDOS disk names as part
+     of the initial directory.  */
+  p = name;
+#ifdef HAVE_DOS_BASED_FILE_SYSTEM
+  if (name[1] == ':' && IS_DIR_SEPARATOR (name[2]))
+    {
+      p += 3;
+      num_dirs++;
+    }
+#endif /* HAVE_DOS_BASED_FILE_SYSTEM */
+
+  while ((ch = *p++) != '\0')
+    {
+      if (IS_DIR_SEPARATOR (ch))
+	{
+	  num_dirs++;
+	  while (IS_DIR_SEPARATOR (*p))
+	    p++;
+	}
+    }
+
+  dirs = (char **) xmalloc (sizeof (char *) * (num_dirs + 2));
+
+  /* Now copy the directory parts.  */
+  num_dirs = 0;
+  p = name;
+#ifdef HAVE_DOS_BASED_FILE_SYSTEM
+  if (name[1] == ':' && IS_DIR_SEPARATOR (name[2]))
+    {
+      dirs[num_dirs++] = save_string (p, 3);
+      p += 3;
+    }
+#endif /* HAVE_DOS_BASED_FILE_SYSTEM */
+
+  q = p;
+  while ((ch = *p++) != '\0')
+    {
+      if (IS_DIR_SEPARATOR (ch))
+	{
+	  while (IS_DIR_SEPARATOR (*p))
+	    p++;
+
+	  dirs[num_dirs++] = save_string (q, p - q);
+	  q = p;
+	}
+    }
+
+  if (p - 1 - q > 0)
+    dirs[num_dirs++] = save_string (q, p - 1 - q);
+
+  dirs[num_dirs] = NULL_PTR;
+  if (ptr_num_dirs)
+    *ptr_num_dirs = num_dirs;
+
+  return dirs;
+}
+
+/* Release storage held by split directories.  */
+
+static void
+free_split_directories (dirs)
+     char **dirs;
+{
+  int i = 0;
+
+  while (dirs[i] != NULL_PTR)
+    free (dirs[i++]);
+
+  free ((char *)dirs);
+}
+
+/* Given three strings PROGNAME, BIN_PREFIX, PREFIX, return a string that gets
+   to PREFIX starting with the directory portion of PROGNAME and a relative
+   pathname of the difference between BIN_PREFIX and PREFIX.
+
+   For example, if BIN_PREFIX is /alpha/beta/gamma/gcc/delta, PREFIX is
+   /alpha/beta/gamma/omega/, and PROGNAME is /red/green/blue/gcc, then this
+   function will return /reg/green/blue/../omega.
+
+   If no relative prefix can be found, return NULL.  */
+
+static char *
+make_relative_prefix (progname, bin_prefix, prefix)
+     const char *progname;
+     const char *bin_prefix;
+     const char *prefix;
+{
+  char **prog_dirs, **bin_dirs, **prefix_dirs;
+  int prog_num, bin_num, prefix_num, std_loc_p;
+  int i, n, common;
+
+  prog_dirs = split_directories (progname, &prog_num);
+  bin_dirs = split_directories (bin_prefix, &bin_num);
+
+  /* If there is no full pathname, try to find the program by checking in each
+     of the directories specified in the PATH environment variable.  */
+  if (prog_num == 1)
+    {
+      char *temp;
+
+      GET_ENV_PATH_LIST (temp, "PATH");
+      if (temp)
+	{
+	  char *startp, *endp;
+	  char *nstore = (char *) alloca (strlen (temp) + strlen (progname) + 1);
+
+	  startp = endp = temp;
+	  while (1)
+	    {
+	      if (*endp == PATH_SEPARATOR || *endp == 0)
+		{
+		  if (endp == startp)
+		    {
+		      nstore[0] = '.';
+		      nstore[1] = DIR_SEPARATOR;
+		      nstore[2] = '\0';
+		    }
+		  else
+		    {
+		      strncpy (nstore, startp, endp-startp);
+		      if (! IS_DIR_SEPARATOR (endp[-1]))
+			{
+			  nstore[endp-startp] = DIR_SEPARATOR;
+			  nstore[endp-startp+1] = 0;
+			}
+		      else
+			nstore[endp-startp] = 0;
+		    }
+		  strcat (nstore, progname);
+		  if (! access (nstore, X_OK)
+#ifdef HAVE_EXECUTABLE_SUFFIX
+                      || ! access (strcat (nstore, EXECUTABLE_SUFFIX), X_OK)
+#endif
+		      )
+		    {
+		      free_split_directories (prog_dirs);
+		      progname = nstore;
+		      prog_dirs = split_directories (progname, &prog_num);
+		      break;
+		    }
+
+		  if (*endp == 0)
+		    break;
+		  endp = startp = endp + 1;
+		}
+	      else
+		endp++;
+	    }
+	}
+    }
+
+  /* Remove the program name from comparison of directory names.  */
+  prog_num--;
+
+  /* Determine if the compiler is installed in the standard location, and if
+     so, we don't need to specify relative directories.  Also, if argv[0]
+     doesn't contain any directory specifiers, there is not much we can do.  */
+  std_loc_p = 0;
+  if (prog_num == bin_num)
+    {
+      for (i = 0; i < bin_num; i++)
+	{
+	  if (strcmp (prog_dirs[i], bin_dirs[i]) != 0)
+	    break;
+	}
+
+      if (prog_num <= 0 || i == bin_num)
+	{
+	  std_loc_p = 1;
+	  free_split_directories (prog_dirs);
+	  free_split_directories (bin_dirs);
+	  prog_dirs = bin_dirs = (char **)0;
+	  return NULL_PTR;
+	}
+    }
+
+  prefix_dirs = split_directories (prefix, &prefix_num);
+
+  /* Find how many directories are in common between bin_prefix & prefix */
+  n = (prefix_num < bin_num) ? prefix_num : bin_num;
+  for (common = 0; common < n; common++)
+    {
+      if (strcmp (bin_dirs[common], prefix_dirs[common]) != 0)
+	break;
+    }
+
+  /* If there are no common directories, there can be no relative prefix.  */
+  if (common == 0)
+    {
+      free_split_directories (prog_dirs);
+      free_split_directories (bin_dirs);
+      free_split_directories (prefix_dirs);
+      return NULL_PTR;
+    }
+
+  /* Build up the pathnames in argv[0].  */
+  for (i = 0; i < prog_num; i++)
+    obstack_grow (&obstack, prog_dirs[i], strlen (prog_dirs[i]));
+
+  /* Now build up the ..'s.  */
+  for (i = common; i < n; i++)
+    {
+      obstack_grow (&obstack, DIR_UP, sizeof (DIR_UP)-1);
+      obstack_1grow (&obstack, DIR_SEPARATOR);
+    }
+
+  /* Put in directories to move over to prefix.  */
+  for (i = common; i < prefix_num; i++)
+    obstack_grow (&obstack, prefix_dirs[i], strlen (prefix_dirs[i]));
+
+  free_split_directories (prog_dirs);
+  free_split_directories (bin_dirs);
+  free_split_directories (prefix_dirs);
+
+  obstack_1grow (&obstack, '\0');
+  return obstack_finish (&obstack);
+}
+#endif /* VMS */
+
 /* Check whether NAME can be accessed in MODE.  This is like access,
    except that it never considers directories to be executable.  */
 
@@ -1996,7 +2244,7 @@ find_a_file (pprefix, name, mode)
   /* Determine the filename to execute (special case for absolute paths).  */
 
   if (IS_DIR_SEPARATOR (*name)
-#ifdef HAVE_DOS_BASED_FILESYSTEM
+#ifdef HAVE_DOS_BASED_FILE_SYSTEM
       /* Check for disk name on MS-DOS-based systems.  */
       || (name[0] && name[1] == ':' && IS_DIR_SEPARATOR (name[2]))
 #endif
@@ -2316,7 +2564,7 @@ execute ()
     int ret_code = 0;
 #ifdef HAVE_GETRUSAGE
     struct timeval d;
-    double ut, st;
+    double ut = 0.0, st = 0.0;
 #endif
 
     for (i = 0; i < n_commands; )
@@ -2363,7 +2611,11 @@ execute ()
 		    }
 		  else if (WIFEXITED (status)
 			   && WEXITSTATUS (status) >= MIN_FATAL_STATUS)
-		    ret_code = -1;
+		    {
+		      if (WEXITSTATUS (status) > greatest_status)
+			greatest_status = WEXITSTATUS (status);
+		      ret_code = -1;
+		    }
 		}
 #ifdef HAVE_GETRUSAGE
 	      if (report_times && ut + st != 0)
@@ -2490,6 +2742,7 @@ display_help ()
   printf ("Usage: %s [options] file...\n", programname);
   printf ("Options:\n");
 
+  printf ("  -pass-exit-codes         Exit with highest error code from a phase\n");
   printf ("  --help                   Display this information\n");
   if (! verbose_flag)
     printf ("  (Use '-v --help' to display command line options of sub-processes)\n");
@@ -2625,7 +2878,19 @@ process_command (argc, argv)
 	}
     }
 
-  /* Set up the default search paths.  */
+  /* Set up the default search paths.  If there is no GCC_EXEC_PREFIX,
+     see if we can create it from the pathname specified in argv[0].  */
+
+#ifndef VMS
+  /* FIXME: make_relative_prefix doesn't yet work for VMS.  */
+  if (!gcc_exec_prefix)
+    {
+      gcc_exec_prefix = make_relative_prefix (argv[0], standard_bindir_prefix,
+					      standard_exec_prefix);
+      if (gcc_exec_prefix)
+	putenv (concat ("GCC_EXEC_PREFIX=", gcc_exec_prefix, NULL_PTR));
+    }
+#endif
 
   if (gcc_exec_prefix)
     {
@@ -2683,7 +2948,7 @@ process_command (argc, argv)
 	}
     }
 
-  GET_ENV_PATH_LIST (temp, "LIBRARY_PATH");
+  GET_ENV_PATH_LIST (temp, LIBRARY_PATH_ENV);
   if (temp && *cross_compile == '0')
     {
       const char *startp, *endp;
@@ -2792,6 +3057,11 @@ process_command (argc, argv)
 	  add_preprocessor_option ("--help", 6);
 	  add_assembler_option ("--help", 6);
 	  add_linker_option ("--help", 6);
+	}
+      else if (! strcmp (argv[i], "-pass-exit-codes"))
+	{
+	  pass_exit_codes = 1;
+	  n_switches++;
 	}
       else if (! strcmp (argv[i], "-print-search-dirs"))
 	print_search_dirs = 1;
@@ -3086,6 +3356,8 @@ process_command (argc, argv)
   /* Use 2 as fourth arg meaning try just the machine as a suffix,
      as well as trying the machine and the version.  */
 #ifndef OS2
+  add_prefix (&exec_prefixes, standard_exec_prefix, "GCC",
+	      0, 1, warn_std_ptr);
   add_prefix (&exec_prefixes, standard_exec_prefix, "BINUTILS",
 	      0, 2, warn_std_ptr);
   add_prefix (&exec_prefixes, standard_exec_prefix_1, "BINUTILS",
@@ -3160,6 +3432,8 @@ process_command (argc, argv)
       if (! strncmp (argv[i], "-Wa,", 4))
 	;
       else if (! strncmp (argv[i], "-Wp,", 4))
+	;
+      else if (! strcmp (argv[i], "-pass-exit-codes"))
 	;
       else if (! strcmp (argv[i], "-print-search-dirs"))
 	;
@@ -3668,7 +3942,7 @@ do_spec_1 (spec, inswitch, soft_matched_part)
 	      buf = (char *) alloca (p - q + 1);
 	      strncpy (buf, q, p - q);
 	      buf[p - q] = 0;
-	      error (buf);
+	      error ("%s", buf);
 	      return -1;
 	    }
 	    break;
@@ -3691,21 +3965,29 @@ do_spec_1 (spec, inswitch, soft_matched_part)
 		struct temp_name *t;
 		int suffix_length;
 		const char *suffix = p;
+		char *saved_suffix = NULL;
 
+		while (*p == '.' || ISALPHA ((unsigned char)*p))
+		  p++;
+		suffix_length = p - suffix;
 		if (p[0] == '%' && p[1] == 'O')
 		  {
 		    p += 2;
 		    /* We don't support extra suffix characters after %O.  */
 		    if (*p == '.' || ISALPHA ((unsigned char)*p))
 		      abort ();
-		    suffix = OBJECT_SUFFIX;
-		    suffix_length = strlen (OBJECT_SUFFIX);
-		  }
-		else
-		  {
-		    while (*p == '.' || ISALPHA ((unsigned char)*p))
-		      p++;
-		    suffix_length = p - suffix;
+		    if (suffix_length == 0)
+		      suffix = OBJECT_SUFFIX;
+		    else
+		      {
+			saved_suffix
+			  = (char *) xmalloc (suffix_length
+					      + strlen (OBJECT_SUFFIX));
+			strncpy (saved_suffix, suffix, suffix_length);
+			strcpy (saved_suffix + suffix_length,
+				OBJECT_SUFFIX);
+		      }
+		    suffix_length += strlen (OBJECT_SUFFIX);
 		  }
 
 		/* See if we already have an association of %g/%u/%U and
@@ -3733,6 +4015,9 @@ do_spec_1 (spec, inswitch, soft_matched_part)
 		    t->filename = temp_filename;
 		    t->filename_length = temp_filename_length;
 		  }
+
+		if (saved_suffix)
+		  free (saved_suffix);
 
 		obstack_grow (&obstack, t->filename, t->filename_length);
 		delete_this_arg = 1;
@@ -4657,6 +4942,37 @@ is_directory (path1, path2, linker)
 
   return (stat (path, &st) >= 0 && S_ISDIR (st.st_mode));
 }
+
+/* Set up the various global variables to indicate that we're processing
+   the input file named FILENAME.  */
+
+static void
+set_input (filename)
+     const char *filename;
+{
+  register const char *p;
+
+  input_filename = filename;
+  input_filename_length = strlen (input_filename);
+  
+  input_basename = input_filename;
+  for (p = input_filename; *p; p++)
+    if (IS_DIR_SEPARATOR (*p))
+      input_basename = p + 1;
+
+  /* Find a suffix starting with the last period,
+     and set basename_length to exclude that suffix.  */
+  basename_length = strlen (input_basename);
+  p = input_basename + basename_length;
+  while (p != input_basename && *p != '.') --p;
+  if (*p == '.' && p != input_basename)
+    {
+      basename_length = p - input_basename;
+      input_suffix = p + 1;
+    }
+  else
+    input_suffix = "";
+}
 
 /* On fatal signals, delete all the temporary files.  */
 
@@ -4671,6 +4987,8 @@ fatal_error (signum)
      so its normal effect occurs.  */
   kill (getpid (), signum);
 }
+
+extern int main PROTO ((int, char **));
 
 int
 main (argc, argv)
@@ -4881,7 +5199,7 @@ main (argc, argv)
 	 standard_startfile_prefix on that as well.  */
       if (IS_DIR_SEPARATOR (*standard_startfile_prefix)
 	    || *standard_startfile_prefix == '$'
-#ifdef HAVE_DOS_BASED_FILESYSTEM
+#ifdef HAVE_DOS_BASED_FILE_SYSTEM
   	    /* Check for disk name on MS-DOS-based systems.  */
           || (standard_startfile_prefix[1] == ':'
 	      && (IS_DIR_SEPARATOR (standard_startfile_prefix[2])))
@@ -5055,9 +5373,8 @@ main (argc, argv)
 
       /* Tell do_spec what to substitute for %i.  */
 
-      input_filename = infiles[i].name;
-      input_filename_length = strlen (input_filename);
       input_file_number = i;
+      set_input (infiles[i].name);
 
       /* Use the same thing in %o, unless cp->spec says otherwise.  */
 
@@ -5072,30 +5389,11 @@ main (argc, argv)
 	{
 	  /* Ok, we found an applicable compiler.  Run its spec.  */
 	  /* First say how much of input_filename to substitute for %b  */
-	  register const char *p;
 	  int len;
 
 	  if (cp->spec[0][0] == '#')
 	    error ("%s: %s compiler not installed on this system",
 		   input_filename, &cp->spec[0][1]);
-
-	  input_basename = input_filename;
-	  for (p = input_filename; *p; p++)
-	    if (IS_DIR_SEPARATOR (*p))
-	      input_basename = p + 1;
-
-	  /* Find a suffix starting with the last period,
-	     and set basename_length to exclude that suffix.  */
-	  basename_length = strlen (input_basename);
-	  p = input_basename + basename_length;
-	  while (p != input_basename && *p != '.') --p;
-	  if (*p == '.' && p != input_basename)
-	    {
-	      basename_length = p - input_basename;
-	      input_suffix = p + 1;
-	    }
-	  else
-	    input_suffix = "";
 
 	  len = 0;
 	  for (j = 0; j < sizeof cp->spec / sizeof cp->spec[0]; j++)
@@ -5138,6 +5436,12 @@ main (argc, argv)
       clear_failure_queue ();
     }
 
+  /* Reset the output file name to the first input file name, for use
+     with %b in LINK_SPEC on a target that prefers not to emit a.out
+     by default.  */
+  if (n_infiles > 0)
+    set_input (infiles[0].name);
+
   if (error_count == 0)
     {
       /* Make sure INPUT_FILE_NUMBER points to first available open
@@ -5162,8 +5466,8 @@ main (argc, argv)
 	}
       /* Rebuild the COMPILER_PATH and LIBRARY_PATH environment variables
 	 for collect.  */
-      putenv_from_prefixes (&exec_prefixes, "COMPILER_PATH=");
-      putenv_from_prefixes (&startfile_prefixes, "LIBRARY_PATH=");
+      putenv_from_prefixes (&exec_prefixes, "COMPILER_PATH");
+      putenv_from_prefixes (&startfile_prefixes, LIBRARY_PATH_ENV);
 
       value = do_spec (link_command_spec);
       if (value < 0)
@@ -5196,7 +5500,9 @@ main (argc, argv)
       printf ("<URL:http://www.gnu.org/software/gcc/faq.html#bugreport>\n");
     }
   
-  return (error_count > 0 ? (signal_count ? 2 : 1) : 0);
+  return (signal_count != 0 ? 2
+	  : error_count > 0 ? (pass_exit_codes ? greatest_status : 1)
+	  : 0);
 }
 
 /* Find the proper compilation spec for the file name NAME,

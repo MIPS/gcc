@@ -35,9 +35,13 @@ Boston, MA 02111-1307, USA.  */
 #include "config.h"
 #endif
 
+#include <sys/types.h>
+
 #ifdef HAVE_STDLIB_H
 #include <stdlib.h>
 #endif
+
+#include <stdio.h>
 
 #include "libiberty.h"
 #include "hashtab.h"
@@ -266,7 +270,7 @@ clear_hash_table_slot (htab, slot)
 void
 traverse_hash_table (htab, callback, info)
      hash_table_t htab;
-     int (*callback) (hash_table_entry_t, void *);
+     int (*callback) PARAMS ((hash_table_entry_t, void *));
      void *info;
 {
   hash_table_entry_t *entry_ptr;

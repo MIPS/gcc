@@ -1,5 +1,5 @@
 /* Perform various loop optimizations, including strength reduction.
-   Copyright (C) 1987, 88, 89, 91-98, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1987, 88, 89, 91-99, 2000 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -41,6 +41,7 @@ Boston, MA 02111-1307, USA.  */
 #include "obstack.h"
 #include "function.h"
 #include "expr.h"
+#include "basic-block.h"
 #include "insn-config.h"
 #include "insn-flags.h"
 #include "regs.h"
@@ -197,6 +198,11 @@ static int loop_mems_allocated;
 
 static int unknown_address_altered;
 
+/* The above doesn't count any readonly memory locations that are stored.
+   This does.  */
+
+static int unknown_constant_address_altered;
+
 /* Count of movable (i.e. invariant) instructions discovered in the loop.  */
 static int num_movables;
 
@@ -206,6 +212,9 @@ static int num_mem_sets;
 /* Bound on pseudo register number before loop optimization.
    A pseudo has valid regscan info if its number is < max_reg_before_loop.  */
 int max_reg_before_loop;
+
+/* The value to pass to the next call of reg_scan_update.  */
+static int loop_max_reg;
 
 /* This obstack is used in product_cheap_p to allocate its rtl.  It
    may call gen_reg_rtx which, in turn, may reallocate regno_reg_rtx.
@@ -269,9 +278,6 @@ static struct movable *the_movables;
 
 FILE *loop_dump_stream;
 
-/* For communicating return values from note_set_pseudo_multiple_uses.  */
-static int note_set_pseudo_multiple_uses_retval;
-
 /* Forward declarations.  */
 
 static void verify_dominator PROTO((int));
@@ -285,8 +291,8 @@ static void count_one_set PROTO((rtx, rtx, varray_type, rtx *));
 
 static void count_loop_regs_set PROTO((rtx, rtx, varray_type, varray_type,
 				       int *, int)); 
-static void note_addr_stored PROTO((rtx, rtx));
-static void note_set_pseudo_multiple_uses PROTO((rtx, rtx));
+static void note_addr_stored PROTO((rtx, rtx, void *));
+static void note_set_pseudo_multiple_uses PROTO((rtx, rtx, void *));
 static int loop_reg_used_before_p PROTO((rtx, rtx, rtx, rtx, rtx));
 static void scan_loop PROTO((rtx, rtx, rtx, int, int));
 #if 0
@@ -307,12 +313,12 @@ static void strength_reduce PROTO((rtx, rtx, rtx, int, rtx, rtx,
 static void find_single_use_in_loop PROTO((rtx, rtx, varray_type));
 static int valid_initial_value_p PROTO((rtx, rtx, int, rtx));
 static void find_mem_givs PROTO((rtx, rtx, int, int, rtx, rtx));
-static void record_biv PROTO((struct induction *, rtx, rtx, rtx, rtx, rtx *, int, int));
+static void record_biv PROTO((struct induction *, rtx, rtx, rtx, rtx, rtx *, int, int, int));
 static void check_final_value PROTO((struct induction *, rtx, rtx, 
 				     unsigned HOST_WIDE_INT));
 static void record_giv PROTO((struct induction *, rtx, rtx, rtx, rtx, rtx, int, enum g_types, int, int, rtx *, rtx, rtx));
 static void update_giv_derive PROTO((rtx));
-static int basic_induction_var PROTO((rtx, enum machine_mode, rtx, rtx, rtx *, rtx *, rtx **));
+static int basic_induction_var PROTO((rtx, enum machine_mode, rtx, rtx, rtx *, rtx *, rtx **, int *));
 static rtx simplify_giv_expr PROTO((rtx, int *));
 static int general_induction_var PROTO((rtx, rtx *, rtx *, rtx *, int, int *));
 static int consec_sets_giv PROTO((int, rtx, rtx, rtx, rtx *, rtx *, rtx *));
@@ -327,7 +333,7 @@ static int product_cheap_p PROTO((rtx, rtx));
 static int maybe_eliminate_biv PROTO((struct iv_class *, rtx, rtx, int, int, int));
 static int maybe_eliminate_biv_1 PROTO((rtx, rtx, struct iv_class *, int, rtx));
 static int last_use_this_basic_block PROTO((rtx, rtx));
-static void record_initial PROTO((rtx, rtx));
+static void record_initial PROTO((rtx, rtx, void *));
 static void update_reg_last_use PROTO((rtx, rtx));
 static rtx next_insn_in_loop PROTO((rtx, rtx, rtx, rtx));
 static void load_mems_and_recount_loop_regs_set PROTO((rtx, rtx, rtx,
@@ -335,6 +341,9 @@ static void load_mems_and_recount_loop_regs_set PROTO((rtx, rtx, rtx,
 static void load_mems PROTO((rtx, rtx, rtx, rtx));
 static int insert_loop_mem PROTO((rtx *, void *));
 static int replace_loop_mem PROTO((rtx *, void *));
+static int replace_loop_reg PROTO((rtx *, void *));
+static void note_reg_stored PROTO((rtx, rtx, void *));
+static void try_copy_prop PROTO((rtx, rtx, rtx, rtx, int));
 static int replace_label PROTO((rtx *, void *));
 
 typedef struct rtx_and_int {
@@ -461,9 +470,7 @@ loop_optimize (f, dumpfile, unroll_p, bct_p)
   init_recog_no_volatile ();
 
   max_reg_before_loop = max_reg_num ();
-
-  moved_once = (char *) alloca (max_reg_before_loop);
-  bzero (moved_once, max_reg_before_loop);
+  loop_max_reg = max_reg_before_loop;
 
   regs_may_share = 0;
 
@@ -481,31 +488,29 @@ loop_optimize (f, dumpfile, unroll_p, bct_p)
   if (max_loop_num == 0)
     return;
 
+  moved_once = (char *) xcalloc (max_reg_before_loop, sizeof (char));
+
   /* Get size to use for tables indexed by uids.
      Leave some space for labels allocated by find_and_verify_loops.  */
   max_uid_for_loop = get_max_uid () + 1 + max_loop_num * 32;
 
-  uid_luid = (int *) alloca (max_uid_for_loop * sizeof (int));
-  uid_loop_num = (int *) alloca (max_uid_for_loop * sizeof (int));
-
-  bzero ((char *) uid_luid, max_uid_for_loop * sizeof (int));
-  bzero ((char *) uid_loop_num, max_uid_for_loop * sizeof (int));
+  uid_luid = (int *) xcalloc (max_uid_for_loop, sizeof (int));
+  uid_loop_num = (int *) xcalloc (max_uid_for_loop, sizeof (int));
 
   /* Allocate tables for recording each loop.  We set each entry, so they need
      not be zeroed.  */
-  loop_number_loop_starts = (rtx *) alloca (max_loop_num * sizeof (rtx));
-  loop_number_loop_ends = (rtx *) alloca (max_loop_num * sizeof (rtx));
-  loop_number_loop_cont = (rtx *) alloca (max_loop_num * sizeof (rtx));
-  loop_number_cont_dominator = (rtx *) alloca (max_loop_num * sizeof (rtx));
-  loop_outer_loop = (int *) alloca (max_loop_num * sizeof (int));
-  loop_invalid = (char *) alloca (max_loop_num * sizeof (char));
-  loop_number_exit_labels = (rtx *) alloca (max_loop_num * sizeof (rtx));
-  loop_number_exit_count = (int *) alloca (max_loop_num * sizeof (int));
+  loop_number_loop_starts = (rtx *) xmalloc (max_loop_num * sizeof (rtx));
+  loop_number_loop_ends = (rtx *) xmalloc (max_loop_num * sizeof (rtx));
+  loop_number_loop_cont = (rtx *) xmalloc (max_loop_num * sizeof (rtx));
+  loop_number_cont_dominator = (rtx *) xmalloc (max_loop_num * sizeof (rtx));
+  loop_outer_loop = (int *) xmalloc (max_loop_num * sizeof (int));
+  loop_invalid = (char *) xmalloc (max_loop_num * sizeof (char));
+  loop_number_exit_labels = (rtx *) xmalloc (max_loop_num * sizeof (rtx));
+  loop_number_exit_count = (int *) xmalloc (max_loop_num * sizeof (int));
 
 #ifdef HAVE_decrement_and_branch_on_count
   /* Allocate for BCT optimization */
-  loop_used_count_register = (int *) alloca (max_loop_num * sizeof (int));
-  bzero ((char *) loop_used_count_register, max_loop_num * sizeof (int));
+  loop_used_count_register = (int *) xcalloc (max_loop_num, sizeof (int));
 #endif  /* HAVE_decrement_and_branch_on_count */
 
   /* Find and process each loop.
@@ -515,7 +520,7 @@ loop_optimize (f, dumpfile, unroll_p, bct_p)
   /* Now find all register lifetimes.  This must be done after
      find_and_verify_loops, because it might reorder the insns in the
      function.  */
-  reg_scan (f, max_reg_num (), 1);
+  reg_scan (f, max_reg_before_loop, 1);
 
   /* This must occur after reg_scan so that registers created by gcse
      will have entries in the register tables.
@@ -550,8 +555,12 @@ loop_optimize (f, dumpfile, unroll_p, bct_p)
     if (uid_luid[i] == 0)
       uid_luid[i] = uid_luid[i - 1];
 
-  /* Create a mapping from loops to BLOCK tree nodes.  */
-  if (unroll_p && write_symbols != NO_DEBUG)
+  /* If debugging and unrolling loops, we must replicate the tree
+     nodes corresponding to the BLOCKs inside the loop, so that the
+     original one to one mapping will remain.  We sometimes unroll
+     loops even when unroll_p is false, so we must always do this when
+     debugging.  */
+  if (write_symbols != NO_DEBUG)
     find_loop_tree_blocks ();
 
   /* Determine if the function has indirect jump.  On some systems
@@ -565,13 +574,28 @@ loop_optimize (f, dumpfile, unroll_p, bct_p)
       scan_loop (loop_number_loop_starts[i], loop_number_loop_ends[i],
 		 loop_number_loop_cont[i], unroll_p, bct_p);
 
-  /* If debugging and unrolling loops, we must replicate the tree nodes
-     corresponding to the blocks inside the loop, so that the original one
-     to one mapping will remain.  */
-  if (unroll_p && write_symbols != NO_DEBUG)
+  /* Replicate the BLOCKs.  */
+  if (write_symbols != NO_DEBUG)
     unroll_block_trees ();
 
   end_alias_analysis ();
+
+  /* Clean up.  */
+  free (moved_once);
+  free (uid_luid);
+  free (uid_loop_num);
+  free (loop_number_loop_starts);
+  free (loop_number_loop_ends);
+  free (loop_number_loop_cont);
+  free (loop_number_cont_dominator);
+  free (loop_outer_loop);
+  free (loop_invalid);
+  free (loop_number_exit_labels);
+  free (loop_number_exit_count);
+#ifdef HAVE_decrement_and_branch_on_count
+  free (loop_used_count_register);
+#endif  /* HAVE_decrement_and_branch_on_count */
+
 }
 
 /* Returns the next insn, in execution order, after INSN.  START and
@@ -640,7 +664,7 @@ scan_loop (loop_start, end, loop_cont, unroll_p, bct_p)
   int insn_count;
   int in_libcall = 0;
   int tem;
-  rtx temp;
+  rtx temp, update_start, update_end;
   /* The SET from an insn, if it is the only SET in the insn.  */
   rtx set, set1;
   /* Chain describing insns movable in current loop.  */
@@ -1158,12 +1182,24 @@ scan_loop (loop_start, end, loop_cont, unroll_p, bct_p)
   load_mems_and_recount_loop_regs_set (scan_start, end, loop_top,
 				       loop_start, &insn_count);
 
+  for (update_start = loop_start;
+       PREV_INSN (update_start) && GET_CODE (PREV_INSN (update_start)) != CODE_LABEL;
+       update_start = PREV_INSN (update_start))
+    ;
+  update_end = NEXT_INSN (end);
+
+  reg_scan_update (update_start, update_end, loop_max_reg);
+  loop_max_reg = max_reg_num ();
+
   if (flag_strength_reduce)
     {
       the_movables = movables;
       strength_reduce (scan_start, end, loop_top,
 		       insn_count, loop_start, end,
 		       loop_info, loop_cont, unroll_p, bct_p);
+
+      reg_scan_update (update_start, update_end, loop_max_reg);
+      loop_max_reg = max_reg_num ();
     }
 
   VARRAY_FREE (reg_single_usage);
@@ -1435,7 +1471,7 @@ combine_movables (movables, nregs)
      int nregs;
 {
   register struct movable *m;
-  char *matched_regs = (char *) alloca (nregs);
+  char *matched_regs = (char *) xmalloc (nregs);
   enum machine_mode mode;
 
   /* Regs that are set more than once are not allowed to match
@@ -1538,6 +1574,9 @@ combine_movables (movables, nregs)
 	  overlap: ;
 	  }
     }
+
+  /* Clean up.  */
+  free (matched_regs);
 }
 
 /* Return 1 if regs X and Y will become the same if moved.  */
@@ -1739,11 +1778,8 @@ move_movables (movables, threshold, insn_count, loop_start, end, nregs)
   /* Map of pseudo-register replacements to handle combining
      when we move several insns that load the same value
      into different pseudo-registers.  */
-  rtx *reg_map = (rtx *) alloca (nregs * sizeof (rtx));
-  char *already_moved = (char *) alloca (nregs);
-
-  bzero (already_moved, nregs);
-  bzero ((char *) reg_map, nregs * sizeof (rtx));
+  rtx *reg_map = (rtx *) xcalloc (nregs, sizeof (rtx));
+  char *already_moved = (char *) xcalloc (nregs, sizeof (char));
 
   num_movables = 0;
 
@@ -2226,6 +2262,10 @@ move_movables (movables, threshold, insn_count, loop_start, end, nregs)
 	replace_regs (REG_NOTES (p), reg_map, nregs, 0);
 	INSN_CODE (p) = -1;
       }
+
+  /* Clean up.  */
+  free (reg_map);
+  free (already_moved);
 }
 
 #if 0
@@ -2282,7 +2322,7 @@ replace_call_address (x, reg, addr)
     {
       if (fmt[i] == 'e')
 	replace_call_address (XEXP (x, i), reg, addr);
-      if (fmt[i] == 'E')
+      else if (fmt[i] == 'E')
 	{
 	  register int j;
 	  for (j = 0; j < XVECLEN (x, i); j++)
@@ -2334,7 +2374,7 @@ count_nonfixed_reads (x)
     {
       if (fmt[i] == 'e')
 	value += count_nonfixed_reads (XEXP (x, i));
-      if (fmt[i] == 'E')
+      else if (fmt[i] == 'E')
 	{
 	  register int j;
 	  for (j = 0; j < XVECLEN (x, i); j++)
@@ -2389,9 +2429,9 @@ constant_high_bytes (p, loop_start)
 
 /* Scan a loop setting the elements `cont', `vtop', `loops_enclosed',
    `has_call', `has_volatile', and `has_tablejump' within LOOP_INFO.
-   Set the global variables `unknown_address_altered' and
-   `num_mem_sets'.  Also, fill in the array `loop_mems' and the list
-   `loop_store_mems'.  */
+   Set the global variables `unknown_address_altered',
+   `unknown_constant_address_altered', and `num_mem_sets'.  Also, fill
+   in the array `loop_mems' and the list `loop_store_mems'.  */
 
 static void
 prescan_loop (start, end, loop_info)
@@ -2417,6 +2457,7 @@ prescan_loop (start, end, loop_info)
   loop_info->vtop = 0;
 
   unknown_address_altered = 0;
+  unknown_constant_address_altered = 0;
   loop_store_mems = NULL_RTX;
   first_loop_store_insn = NULL_RTX;
   loop_mems_idx = 0;
@@ -2476,7 +2517,7 @@ prescan_loop (start, end, loop_info)
 		  || GET_CODE (PATTERN (insn)) == ADDR_VEC))
 	    loop_info->has_tablejump = 1;
 	  
-	  note_stores (PATTERN (insn), note_addr_stored);
+	  note_stores (PATTERN (insn), note_addr_stored, NULL);
 	  if (! first_loop_store_insn && loop_store_mems)
 	    first_loop_store_insn = insn;
 
@@ -3156,9 +3197,10 @@ labels_in_range_p (insn, end)
 /* Record that a memory reference X is being set.  */
 
 static void
-note_addr_stored (x, y)
+note_addr_stored (x, y, data)
      rtx x;
      rtx y ATTRIBUTE_UNUSED;
+     void *data ATTRIBUTE_UNUSED;
 {
   if (x == 0 || GET_CODE (x) != MEM)
     return;
@@ -3168,11 +3210,15 @@ note_addr_stored (x, y)
   num_mem_sets++;
 
   /* BLKmode MEM means all memory is clobbered.  */
-  if (GET_MODE (x) == BLKmode)
-    unknown_address_altered = 1;
+    if (GET_MODE (x) == BLKmode)
+    {
+      if (RTX_UNCHANGING_P (x))
+	unknown_constant_address_altered = 1;
+      else
+	unknown_address_altered = 1;
 
-  if (unknown_address_altered)
-    return;
+      return;
+    }
 
   loop_store_mems = gen_rtx_EXPR_LIST (VOIDmode, x, loop_store_mems);
 }
@@ -3180,12 +3226,14 @@ note_addr_stored (x, y)
 /* X is a value modified by an INSN that references a biv inside a loop
    exit test (ie, X is somehow related to the value of the biv).  If X
    is a pseudo that is used more than once, then the biv is (effectively)
-   used more than once.  */
+   used more than once.  DATA is really an `int *', and is set if the
+   biv is used more than once.  */
 
 static void
-note_set_pseudo_multiple_uses (x, y)
+note_set_pseudo_multiple_uses (x, y, data)
      rtx x;
      rtx y ATTRIBUTE_UNUSED;
+     void *data;
 {
   if (x == 0)
     return;
@@ -3204,7 +3252,7 @@ note_set_pseudo_multiple_uses (x, y)
   if (REGNO (x) >= max_reg_before_loop
       || ! VARRAY_RTX (reg_single_usage, REGNO (x))
       || VARRAY_RTX (reg_single_usage, REGNO (x)) == const0_rtx)
-    note_set_pseudo_multiple_uses_retval = 1;
+    *((int *) data) = 1;
 }
 
 /* Return nonzero if the rtx X is invariant over the current loop.
@@ -3281,14 +3329,12 @@ invariant_p (x)
       if (MEM_VOLATILE_P (x))
 	return 0;
 
-      /* Read-only items (such as constants in a constant pool) are
-	 invariant if their address is.  */
-      if (RTX_UNCHANGING_P (x))
-	break;
-
-      /* If we had a subroutine call, any location in memory could have been
-	 clobbered.  */
-      if (unknown_address_altered)
+      /* If we had a subroutine call, any location in memory could
+	 have been clobbered.  We used to test here for volatile and
+	 readonly, but true_dependence knows how to do that better
+	 than we do. */
+      if (RTX_UNCHANGING_P (x)
+	  ? unknown_constant_address_altered : unknown_address_altered)
 	return 0;
 
       /* See if there is any dependence between a store and this load.  */
@@ -3298,6 +3344,7 @@ invariant_p (x)
 	  if (true_dependence (XEXP (mem_list_entry, 0), VOIDmode,
 			       x, rtx_varies_p))
 	    return 0;
+
 	  mem_list_entry = XEXP (mem_list_entry, 1);
 	}
 
@@ -3565,11 +3612,10 @@ count_loop_regs_set (from, to, may_not_move, single_usage, count_ptr, nregs)
      int *count_ptr;
      int nregs;
 {
-  register rtx *last_set = (rtx *) alloca (nregs * sizeof (rtx));
+  register rtx *last_set = (rtx *) xcalloc (nregs, sizeof (rtx));
   register rtx insn;
   register int count = 0;
 
-  bzero ((char *) last_set, nregs * sizeof (rtx));
   for (insn = from; insn != to; insn = NEXT_INSN (insn))
     {
       if (GET_RTX_CLASS (GET_CODE (insn)) == 'i')
@@ -3599,6 +3645,9 @@ count_loop_regs_set (from, to, may_not_move, single_usage, count_ptr, nregs)
 	bzero ((char *) last_set, nregs * sizeof (rtx));
     }
   *count_ptr = count;
+
+  /* Clean up.  */
+  free (last_set);
 }
 
 /* Given a loop that is bounded by LOOP_START and LOOP_END
@@ -3755,7 +3804,7 @@ strength_reduce (scan_start, end, loop_top, insn_count,
   /* ??? could set this to last value of threshold in move_movables */
   int threshold = (loop_info->has_call ? 1 : 2) * (3 + n_non_fixed_regs);
   /* Map of pseudo-register replacements.  */
-  rtx *reg_map;
+  rtx *reg_map = NULL;
   int reg_map_size;
   int call_seen;
   rtx test;
@@ -3772,9 +3821,7 @@ strength_reduce (scan_start, end, loop_top, insn_count,
   VARRAY_INT_INIT (reg_iv_type, max_reg_before_loop, "reg_iv_type");
   VARRAY_GENERIC_PTR_INIT (reg_iv_info, max_reg_before_loop, "reg_iv_info");
   reg_biv_class = (struct iv_class **)
-    alloca (max_reg_before_loop * sizeof (struct iv_class *));
-  bzero ((char *) reg_biv_class, (max_reg_before_loop
-				  * sizeof (struct iv_class *)));
+    xcalloc (max_reg_before_loop, sizeof (struct iv_class *));
 
   loop_iv_list = 0;
   addr_placeholder = gen_reg_rtx (Pmode);
@@ -3806,9 +3853,11 @@ strength_reduce (scan_start, end, loop_top, insn_count,
 	      && REGNO (dest_reg) >= FIRST_PSEUDO_REGISTER
 	      && REG_IV_TYPE (REGNO (dest_reg)) != NOT_BASIC_INDUCT)
 	    {
+	      int multi_insn_incr = 0;
+
 	      if (basic_induction_var (SET_SRC (set), GET_MODE (SET_SRC (set)),
 				       dest_reg, p, &inc_val, &mult_val,
-				       &location))
+				       &location, &multi_insn_incr))
 		{
 		  /* It is a possible basic induction variable.
 		     Create and initialize an induction structure for it.  */
@@ -3817,7 +3866,8 @@ strength_reduce (scan_start, end, loop_top, insn_count,
 		    = (struct induction *) alloca (sizeof (struct induction));
 
 		  record_biv (v, p, dest_reg, inc_val, mult_val, location,
-			      not_every_iteration, maybe_multiple);
+			      not_every_iteration, maybe_multiple, 
+			      multi_insn_incr);
 		  REG_IV_TYPE (REGNO (dest_reg)) = BASIC_INDUCT;
 		}
 	      else if (REGNO (dest_reg) < max_reg_before_loop)
@@ -3945,6 +3995,8 @@ strength_reduce (scan_start, end, loop_top, insn_count,
      Make a sanity check against n_times_set.  */
   for (backbl = &loop_iv_list, bl = *backbl; bl; bl = bl->next)
     {
+      int fail = 0;
+
       if (REG_IV_TYPE (bl->regno) != BASIC_INDUCT
 	  /* Above happens if register modified by subreg, etc.  */
 	  /* Make sure it is not recognized as a basic induction var: */
@@ -3952,6 +4004,21 @@ strength_reduce (scan_start, end, loop_top, insn_count,
 	  /* If never incremented, it is invariant that we decided not to
 	     move.  So leave it alone.  */
 	  || ! bl->incremented)
+	fail = 1;
+      else if (bl->biv_count > 1)
+	{
+	  /* ??? If we have multiple increments for this BIV, and any of
+	     them take multiple insns to perform the increment, drop the
+	     BIV, since the bit below that converts the extra increments
+	     into GIVs can't handle the multiple insn increment.  */
+	  
+	  struct induction *v;
+	  for (v = bl->biv; v ; v = v->next_iv)
+	    if (v->multi_insn_incr)
+	      fail = 1;
+	}
+
+      if (fail)
 	{
 	  if (loop_dump_stream)
 	    fprintf (loop_dump_stream, "Reg %d: biv discarded, %s\n",
@@ -3998,7 +4065,7 @@ strength_reduce (scan_start, end, loop_top, insn_count,
 
       if (GET_CODE (p) == INSN || GET_CODE (p) == JUMP_INSN
 	  || GET_CODE (p) == CALL_INSN)
-	note_stores (PATTERN (p), record_initial);
+	note_stores (PATTERN (p), record_initial, NULL);
 
       /* Record any test of a biv that branches around the loop if no store
 	 between it and the start of loop.  We only care about tests with
@@ -4131,7 +4198,7 @@ strength_reduce (scan_start, end, loop_top, insn_count,
 		fprintf (loop_dump_stream, "is giv of biv %d\n", bl2->regno);
 	      /* Let this giv be discovered by the generic code.  */
 	      REG_IV_TYPE (bl->regno) = UNKNOWN_INDUCT;
-	      reg_biv_class[bl->regno] = NULL_PTR;
+	      reg_biv_class[bl->regno] = (struct iv_class *) NULL_PTR;
 	      /* We can get better optimization if we can move the giv setting
 		 before the first giv use.  */
 	      if (dominator
@@ -4413,7 +4480,7 @@ strength_reduce (scan_start, end, loop_top, insn_count,
 		}
     
 	      v->last_use = last_use_insn;
-	      v->lifetime = INSN_LUID (v->insn) - INSN_LUID (last_use_insn);
+	      v->lifetime = INSN_LUID (last_use_insn) - INSN_LUID (v->insn);
 	      /* If the lifetime is zero, it means that this register is really
 		 a dead store.  So mark this as a giv that can be ignored.
 		 This will not prevent the biv from being eliminated.  */
@@ -4422,7 +4489,7 @@ strength_reduce (scan_start, end, loop_top, insn_count,
 
 	      if (loop_dump_stream)
 		fprintf (loop_dump_stream,
-			 "Increment %d of biv %d converted to giv %d.\n\n",
+			 "Increment %d of biv %d converted to giv %d.\n",
 			 INSN_UID (v->insn), old_regno, new_regno);
 	    }
 	}
@@ -4661,8 +4728,7 @@ strength_reduce (scan_start, end, loop_top, insn_count,
      Some givs might have been made from biv increments, so look at
      reg_iv_type for a suitable size.  */
   reg_map_size = reg_iv_type->num_elements;
-  reg_map = (rtx *) alloca (reg_map_size * sizeof (rtx));
-  bzero ((char *) reg_map, reg_map_size * sizeof (rtx));
+  reg_map = (rtx *) xcalloc (reg_map_size, sizeof (rtx));
 
   /* Examine each iv class for feasibility of strength reduction/induction
      variable elimination.  */
@@ -5285,6 +5351,9 @@ strength_reduce (scan_start, end, loop_top, insn_count,
 egress:
   VARRAY_FREE (reg_iv_type);
   VARRAY_FREE (reg_iv_info);
+  free (reg_biv_class);
+  if (reg_map)
+    free (reg_map);
 }
 
 /* Return 1 if X is a valid source for an initial value (or as value being
@@ -5427,7 +5496,7 @@ find_mem_givs (x, insn, not_every_iteration, maybe_multiple, loop_start,
 
 static void
 record_biv (v, insn, dest_reg, inc_val, mult_val, location,
-	    not_every_iteration, maybe_multiple)
+	    not_every_iteration, maybe_multiple, multi_insn_incr)
      struct induction *v;
      rtx insn;
      rtx dest_reg;
@@ -5436,6 +5505,7 @@ record_biv (v, insn, dest_reg, inc_val, mult_val, location,
      rtx *location;
      int not_every_iteration;
      int maybe_multiple;
+     int multi_insn_incr;
 {
   struct iv_class *bl;
 
@@ -5449,6 +5519,7 @@ record_biv (v, insn, dest_reg, inc_val, mult_val, location,
   v->always_computable = ! not_every_iteration;
   v->always_executed = ! not_every_iteration;
   v->maybe_multiple = maybe_multiple;
+  v->multi_insn_incr = multi_insn_incr;
 
   /* Add this to the reg's iv_class, creating a class
      if this is the first incrementation of the reg.  */
@@ -5556,6 +5627,7 @@ record_giv (v, insn, src_reg, dest_reg, mult_val, add_val, benefit,
   v->cant_derive = 0;
   v->combined_with = 0;
   v->maybe_multiple = maybe_multiple;
+  v->multi_insn_incr = 0;
   v->maybe_dead = 0;
   v->derive_adjustment = 0;
   v->same = 0;
@@ -6044,7 +6116,8 @@ update_giv_derive (p)
    If we cannot find a biv, we return 0.  */
 
 static int
-basic_induction_var (x, mode, dest_reg, p, inc_val, mult_val, location)
+basic_induction_var (x, mode, dest_reg, p, inc_val, mult_val, location,
+		     multi_insn_incr)
      register rtx x;
      enum machine_mode mode;
      rtx p;
@@ -6052,6 +6125,7 @@ basic_induction_var (x, mode, dest_reg, p, inc_val, mult_val, location)
      rtx *inc_val;
      rtx *mult_val;
      rtx **location;
+     int *multi_insn_incr;
 {
   register enum rtx_code code;
   rtx *argp, arg;
@@ -6093,7 +6167,8 @@ basic_induction_var (x, mode, dest_reg, p, inc_val, mult_val, location)
 	 value.  */
       if (SUBREG_PROMOTED_VAR_P (x))
 	return basic_induction_var (SUBREG_REG (x), GET_MODE (SUBREG_REG (x)),
-				    dest_reg, p, inc_val, mult_val, location);
+				    dest_reg, p, inc_val, mult_val, location,
+				    multi_insn_incr);
       return 0;
 
     case REG:
@@ -6118,14 +6193,20 @@ basic_induction_var (x, mode, dest_reg, p, inc_val, mult_val, location)
 	       || (GET_CODE (SET_DEST (set)) == SUBREG
 		   && (GET_MODE_SIZE (GET_MODE (SET_DEST (set)))
 		       <= UNITS_PER_WORD)
+		   && (GET_MODE_CLASS (GET_MODE (SET_DEST (set)))
+		       == MODE_INT)
 		   && SUBREG_REG (SET_DEST (set)) == x))
 	      && basic_induction_var (SET_SRC (set),
 				      (GET_MODE (SET_SRC (set)) == VOIDmode
 				       ? GET_MODE (x)
 				       : GET_MODE (SET_SRC (set))),
 				      dest_reg, insn,
-				      inc_val, mult_val, location))
-	    return 1;
+				      inc_val, mult_val, location,
+				      multi_insn_incr))
+	    {
+	      *multi_insn_incr = 1;
+	      return 1;
+	    }
 	}
       /* ... fall through ...  */
 
@@ -6156,7 +6237,8 @@ basic_induction_var (x, mode, dest_reg, p, inc_val, mult_val, location)
 
     case SIGN_EXTEND:
       return basic_induction_var (XEXP (x, 0), GET_MODE (XEXP (x, 0)),
-				  dest_reg, p, inc_val, mult_val, location);
+				  dest_reg, p, inc_val, mult_val, location,
+				  multi_insn_incr);
 
     case ASHIFTRT:
       /* Similar, since this can be a sign extension.  */
@@ -6173,11 +6255,15 @@ basic_induction_var (x, mode, dest_reg, p, inc_val, mult_val, location)
 	  && GET_CODE (XEXP (x, 1)) == CONST_INT
 	  && INTVAL (XEXP (x, 1)) >= 0
 	  && GET_CODE (SET_SRC (set)) == ASHIFT
-	  && XEXP (x, 1) == XEXP (SET_SRC (set), 1))
-	return basic_induction_var (XEXP (SET_SRC (set), 0),
-				    GET_MODE (XEXP (x, 0)),
-				    dest_reg, insn, inc_val, mult_val,
-				    location);
+	  && XEXP (x, 1) == XEXP (SET_SRC (set), 1)
+	  && basic_induction_var (XEXP (SET_SRC (set), 0),
+				  GET_MODE (XEXP (x, 0)),
+				  dest_reg, insn, inc_val, mult_val,
+				  location, multi_insn_incr))
+	{
+	  *multi_insn_incr = 1;
+	  return 1;
+	}
       return 0;
 
     default:
@@ -7111,11 +7197,8 @@ combine_givs (bl)
     if (!g1->ignore)
       giv_array[i++] = g1;
 
-  stats = (struct combine_givs_stats *) alloca (giv_count * sizeof (*stats));
-  bzero ((char *) stats, giv_count * sizeof (*stats));
-
-  can_combine = (rtx *) alloca (giv_count * giv_count * sizeof(rtx));
-  bzero ((char *) can_combine, giv_count * giv_count * sizeof(rtx));
+  stats = (struct combine_givs_stats *) xcalloc (giv_count, sizeof (*stats));
+  can_combine = (rtx *) xcalloc (giv_count, giv_count * sizeof(rtx));
 
   for (i = 0; i < giv_count; i++)
     {
@@ -7245,6 +7328,10 @@ restart:
 	  goto restart;
 	}
     }
+
+  /* Clean up.  */
+  free (stats);
+  free (can_combine);
 }
 
 struct recombine_givs_stats
@@ -7382,8 +7469,8 @@ recombine_givs (bl, loop_start, loop_end, unroll_p)
 	giv_count++;
     }
   giv_array
-    = (struct induction **) alloca (giv_count * sizeof (struct induction *));
-  stats = (struct recombine_givs_stats *) alloca (giv_count * sizeof *stats);
+    = (struct induction **) xmalloc (giv_count * sizeof (struct induction *));
+  stats = (struct recombine_givs_stats *) xmalloc (giv_count * sizeof *stats);
 
   /* Initialize stats and set up the ix field for each giv in stats to name
      the corresponding index into stats.  */
@@ -7595,7 +7682,7 @@ recombine_givs (bl, loop_start, loop_end, unroll_p)
      LAST_GIV.  */
   for (i = giv_count - 1; i >= 0; i = rescan)
     {
-      int life_start, life_end;
+      int life_start = 0, life_end = 0;
 
       for (last_giv = 0, rescan = -1; i >= 0; i--)
 	{
@@ -7674,6 +7761,10 @@ recombine_givs (bl, loop_start, loop_end, unroll_p)
 	    rescan = i;
 	}
     }
+
+  /* Clean up.  */
+  free (giv_array);
+  free (stats);
 }
 
 /* EMIT code before INSERT_BEFORE to set REG = B * M + A.  */
@@ -7862,6 +7953,7 @@ check_dbra_loop (loop_end, insn_count, loop_start, loop_info)
   for (bl = loop_iv_list; bl; bl = bl->next)
     {
       if (bl->biv_count == 1
+	  && ! bl->biv->maybe_multiple
 	  && bl->biv->dest_reg == XEXP (comparison, 0)
 	  && ! reg_used_between_p (regno_reg_rtx[bl->regno], bl->biv->insn,
 				   first_compare))
@@ -7974,8 +8066,9 @@ check_dbra_loop (loop_end, insn_count, loop_start, loop_info)
 		       that has more than one usage, then the biv has uses
 		       other than counting since it's used to derive a value
 		       that is used more than one time.  */
-		    note_set_pseudo_multiple_uses_retval = 0;
-		    note_stores (PATTERN (p), note_set_pseudo_multiple_uses);
+		    int note_set_pseudo_multiple_uses_retval = 0;
+		    note_stores (PATTERN (p), note_set_pseudo_multiple_uses,
+				 &note_set_pseudo_multiple_uses_retval);
 		    if (note_set_pseudo_multiple_uses_retval)
 		      {
 			no_use_except_counting = 0;
@@ -8010,6 +8103,7 @@ check_dbra_loop (loop_end, insn_count, loop_start, loop_info)
 
 	      reversible_mem_store
 		= (! unknown_address_altered
+		   && ! unknown_constant_address_altered
 		   && ! invariant_p (XEXP (XEXP (loop_store_mems, 0), 0)));
 
 	      /* If the store depends on a register that is set after the
@@ -8900,9 +8994,10 @@ last_use_this_basic_block (reg, insn)
    just record the location of the set and process it later.  */
 
 static void
-record_initial (dest, set)
+record_initial (dest, set, data)
      rtx dest;
      rtx set;
+     void *data ATTRIBUTE_UNUSED;
 {
   struct iv_class *bl;
 
@@ -9249,6 +9344,7 @@ insert_bct (loop_start, loop_end, loop_info)
   int i;
   unsigned HOST_WIDE_INT n_iterations;
 
+#if 0
   int increment_direction, compare_direction;
 
   /* If the loop condition is <= or >=, the number of iteration
@@ -9256,6 +9352,7 @@ insert_bct (loop_start, loop_end, loop_info)
   int add_iteration = 0;
 
   enum machine_mode loop_var_mode = word_mode;
+#endif
 
   int loop_num = uid_loop_num [INSN_UID (loop_start)];
 
@@ -9548,9 +9645,17 @@ insert_loop_mem (mem, data)
     case MEM:
       break;
 
+    case CLOBBER:
+      /* We're not interested in MEMs that are only clobbered.  */
+      return -1;
+
     case CONST_DOUBLE:
       /* We're not interested in the MEM associated with a
 	 CONST_DOUBLE, so there's no need to traverse into this.  */
+      return -1;
+
+    case EXPR_LIST:
+      /* We're not interested in any MEMs that only appear in notes.  */
       return -1;
 
     default:
@@ -9678,166 +9783,207 @@ load_mems (scan_start, end, loop_top, start)
   rtx p;
   rtx label = NULL_RTX;
   rtx end_label = NULL_RTX;
+  /* Nonzero if the next instruction may never be executed.  */
+  int next_maybe_never = 0;
+  int last_max_reg = max_reg_num ();
 
-  if (loop_mems_idx > 0) 
+  if (loop_mems_idx == 0)
+    return;
+
+  /* Check to see if it's possible that some instructions in the
+     loop are never executed.  */
+  for (p = next_insn_in_loop (scan_start, scan_start, end, loop_top); 
+       p != NULL_RTX && !maybe_never; 
+       p = next_insn_in_loop (p, scan_start, end, loop_top))
     {
-      /* Nonzero if the next instruction may never be executed.  */
-      int next_maybe_never = 0;
-
-      /* Check to see if it's possible that some instructions in the
-	 loop are never executed.  */
-      for (p = next_insn_in_loop (scan_start, scan_start, end, loop_top); 
-	   p != NULL_RTX && !maybe_never; 
-	   p = next_insn_in_loop (p, scan_start, end, loop_top))
+      if (GET_CODE (p) == CODE_LABEL)
+	maybe_never = 1;
+      else if (GET_CODE (p) == JUMP_INSN
+	       /* If we enter the loop in the middle, and scan
+		  around to the beginning, don't set maybe_never
+		  for that.  This must be an unconditional jump,
+		  otherwise the code at the top of the loop might
+		  never be executed.  Unconditional jumps are
+		  followed a by barrier then loop end.  */
+	       && ! (GET_CODE (p) == JUMP_INSN 
+		     && JUMP_LABEL (p) == loop_top
+		     && NEXT_INSN (NEXT_INSN (p)) == end
+		     && simplejump_p (p)))
 	{
-	  if (GET_CODE (p) == CODE_LABEL)
+	  if (!condjump_p (p))
+	    /* Something complicated.  */
 	    maybe_never = 1;
-	  else if (GET_CODE (p) == JUMP_INSN
-		   /* If we enter the loop in the middle, and scan
-		      around to the beginning, don't set maybe_never
-		      for that.  This must be an unconditional jump,
-		      otherwise the code at the top of the loop might
-		      never be executed.  Unconditional jumps are
-		      followed a by barrier then loop end.  */
-		   && ! (GET_CODE (p) == JUMP_INSN 
-			 && JUMP_LABEL (p) == loop_top
-			 && NEXT_INSN (NEXT_INSN (p)) == end
-			 && simplejump_p (p)))
+	  else
+	    /* If there are any more instructions in the loop, they
+	       might not be reached.  */
+	    next_maybe_never = 1; 
+	} 
+      else if (next_maybe_never)
+	maybe_never = 1;
+    }
+
+  /* Actually move the MEMs.  */
+  for (i = 0; i < loop_mems_idx; ++i) 
+    {
+      regset_head copies;
+      int written = 0;
+      rtx reg;
+      rtx mem = loop_mems[i].mem;
+      rtx mem_list_entry;
+
+      if (MEM_VOLATILE_P (mem) 
+	  || invariant_p (XEXP (mem, 0)) != 1)
+	/* There's no telling whether or not MEM is modified.  */
+	loop_mems[i].optimize = 0;
+
+      /* Go through the MEMs written to in the loop to see if this
+	 one is aliased by one of them.  */
+      mem_list_entry = loop_store_mems;
+      while (mem_list_entry)
+	{
+	  if (rtx_equal_p (mem, XEXP (mem_list_entry, 0)))
+	    written = 1;
+	  else if (true_dependence (XEXP (mem_list_entry, 0), VOIDmode,
+				    mem, rtx_varies_p))
 	    {
-	      if (!condjump_p (p))
-		/* Something complicated.  */
-		maybe_never = 1;
-	      else
-		/* If there are any more instructions in the loop, they
-		   might not be reached.  */
-		next_maybe_never = 1; 
-	    } 
-	  else if (next_maybe_never)
-	    maybe_never = 1;
+	      /* MEM is indeed aliased by this store.  */
+	      loop_mems[i].optimize = 0;
+	      break;
+	    }
+	  mem_list_entry = XEXP (mem_list_entry, 1);
 	}
 
-      /* Actually move the MEMs.  */
-      for (i = 0; i < loop_mems_idx; ++i) 
+      if (flag_float_store && written
+	  && GET_MODE_CLASS (GET_MODE (mem)) == MODE_FLOAT)
+	loop_mems[i].optimize = 0;
+  
+      /* If this MEM is written to, we must be sure that there
+	 are no reads from another MEM that aliases this one.  */ 
+      if (loop_mems[i].optimize && written)
 	{
-	  int written = 0;
-	  rtx reg;
-	  rtx mem = loop_mems[i].mem;
-	  rtx mem_list_entry;
+	  int j;
 
-	  if (MEM_VOLATILE_P (mem) 
-	      || invariant_p (XEXP (mem, 0)) != 1)
-	    /* There's no telling whether or not MEM is modified.  */
-	    loop_mems[i].optimize = 0;
-
-	  /* Go through the MEMs written to in the loop to see if this
-	     one is aliased by one of them.  */
-	  mem_list_entry = loop_store_mems;
-	  while (mem_list_entry)
+	  for (j = 0; j < loop_mems_idx; ++j)
 	    {
-	      if (rtx_equal_p (mem, XEXP (mem_list_entry, 0)))
-		written = 1;
-	      else if (true_dependence (XEXP (mem_list_entry, 0), VOIDmode,
-					mem, rtx_varies_p))
+	      if (j == i)
+		continue;
+	      else if (true_dependence (mem,
+					VOIDmode,
+					loop_mems[j].mem,
+					rtx_varies_p))
 		{
-		  /* MEM is indeed aliased by this store.  */
+		  /* It's not safe to hoist loop_mems[i] out of
+		     the loop because writes to it might not be
+		     seen by reads from loop_mems[j].  */
 		  loop_mems[i].optimize = 0;
 		  break;
 		}
-	      mem_list_entry = XEXP (mem_list_entry, 1);
 	    }
+	}
+
+      if (maybe_never && may_trap_p (mem))
+	/* We can't access the MEM outside the loop; it might
+	   cause a trap that wouldn't have happened otherwise.  */
+	loop_mems[i].optimize = 0;
 	  
-	  /* If this MEM is written to, we must be sure that there
-	     are no reads from another MEM that aliases this one.  */ 
-	  if (loop_mems[i].optimize && written)
+      if (!loop_mems[i].optimize)
+	/* We thought we were going to lift this MEM out of the
+	   loop, but later discovered that we could not.  */
+	continue;
+
+      INIT_REG_SET (&copies);
+
+      /* Allocate a pseudo for this MEM.  We set REG_USERVAR_P in
+	 order to keep scan_loop from moving stores to this MEM
+	 out of the loop just because this REG is neither a
+	 user-variable nor used in the loop test.  */
+      reg = gen_reg_rtx (GET_MODE (mem));
+      REG_USERVAR_P (reg) = 1;
+      loop_mems[i].reg = reg;
+
+      /* Now, replace all references to the MEM with the
+	 corresponding pesudos.  */
+      maybe_never = 0;
+      for (p = next_insn_in_loop (scan_start, scan_start, end, loop_top);
+	   p != NULL_RTX;
+	   p = next_insn_in_loop (p, scan_start, end, loop_top))
+	{
+	  rtx_and_int ri;
+	  rtx set;
+
+	  if (GET_RTX_CLASS (GET_CODE (p)) == 'i')
 	    {
-	      int j;
-
-	      for (j = 0; j < loop_mems_idx; ++j)
-		{
-		  if (j == i)
-		    continue;
-		  else if (true_dependence (mem,
-					    VOIDmode,
-					    loop_mems[j].mem,
-					    rtx_varies_p))
-		    {
-		      /* It's not safe to hoist loop_mems[i] out of
-			 the loop because writes to it might not be
-			 seen by reads from loop_mems[j].  */
-		      loop_mems[i].optimize = 0;
-		      break;
-		    }
-		}
-	    }
-
-	  if (maybe_never && may_trap_p (mem))
-	    /* We can't access the MEM outside the loop; it might
-	       cause a trap that wouldn't have happened otherwise.  */
-	    loop_mems[i].optimize = 0;
-	  
-	  if (!loop_mems[i].optimize)
-	    /* We thought we were going to lift this MEM out of the
-	       loop, but later discovered that we could not.  */
-	    continue;
-
-	  /* Allocate a pseudo for this MEM.  We set REG_USERVAR_P in
-	     order to keep scan_loop from moving stores to this MEM
-	     out of the loop just because this REG is neither a
-	     user-variable nor used in the loop test.  */
-	  reg = gen_reg_rtx (GET_MODE (mem));
-	  REG_USERVAR_P (reg) = 1;
-	  loop_mems[i].reg = reg;
-
-	  /* Now, replace all references to the MEM with the
-	     corresponding pesudos.  */
-	  for (p = next_insn_in_loop (scan_start, scan_start, end, loop_top);
-	       p != NULL_RTX;
-	       p = next_insn_in_loop (p, scan_start, end, loop_top))
-	    {
-	      rtx_and_int ri;
+	      /* See if this copies the mem into a register that isn't
+		 modified afterwards.  We'll try to do copy propagation
+		 a little further on.  */
+	      set = single_set (p);
+	      if (set
+		  /* @@@ This test is _way_ too conservative.  */
+		  && ! maybe_never
+		  && GET_CODE (SET_DEST (set)) == REG
+		  && REGNO (SET_DEST (set)) >= FIRST_PSEUDO_REGISTER
+		  && REGNO (SET_DEST (set)) < last_max_reg
+		  && VARRAY_INT (n_times_set, REGNO (SET_DEST (set))) == 1
+		  && rtx_equal_p (SET_SRC (set), loop_mems[i].mem))
+		SET_REGNO_REG_SET (&copies, REGNO (SET_DEST (set)));
 	      ri.r = p;
 	      ri.i = i;
 	      for_each_rtx (&p, replace_loop_mem, &ri);
 	    }
 
-	  if (!apply_change_group ())
-	    /* We couldn't replace all occurrences of the MEM.  */
-	    loop_mems[i].optimize = 0;
-	  else
+	  if (GET_CODE (p) == CODE_LABEL
+	      || GET_CODE (p) == JUMP_INSN)
+	    maybe_never = 1;
+	}
+
+      if (! apply_change_group ())
+	/* We couldn't replace all occurrences of the MEM.  */
+	loop_mems[i].optimize = 0;
+      else
+	{
+	  int j;
+	  rtx set;
+
+	  /* Load the memory immediately before START, which is
+	     the NOTE_LOOP_BEG.  */
+	  set = gen_move_insn (reg, mem);
+	  emit_insn_before (set, start);
+
+	  if (written)
 	    {
-	      rtx set;
-
-	      /* Load the memory immediately before START, which is
-		 the NOTE_LOOP_BEG.  */
-	      set = gen_move_insn (reg, mem);
-	      emit_insn_before (set, start);
-
-	      if (written)
+	      if (label == NULL_RTX)
 		{
-		  if (label == NULL_RTX)
-		    {
-		      /* We must compute the former
-			 right-after-the-end label before we insert
-			 the new one.  */
-		      end_label = next_label (end);
-		      label = gen_label_rtx ();
-		      emit_label_after (label, end);
-		    }
-
-		  /* Store the memory immediately after END, which is
-		   the NOTE_LOOP_END.  */
-		  set = gen_move_insn (copy_rtx (mem), reg); 
-		  emit_insn_after (set, label);
+		  /* We must compute the former
+		     right-after-the-end label before we insert
+		     the new one.  */
+		  end_label = next_label (end);
+		  label = gen_label_rtx ();
+		  emit_label_after (label, end);
 		}
 
-	      if (loop_dump_stream)
-		{
-		  fprintf (loop_dump_stream, "Hoisted regno %d %s from ",
-			   REGNO (reg), (written ? "r/w" : "r/o"));
-		  print_rtl (loop_dump_stream, mem);
-		  fputc ('\n', loop_dump_stream);
-		}
+	      /* Store the memory immediately after END, which is
+		 the NOTE_LOOP_END.  */
+	      set = gen_move_insn (copy_rtx (mem), reg); 
+	      emit_insn_after (set, label);
 	    }
+
+	  if (loop_dump_stream)
+	    {
+	      fprintf (loop_dump_stream, "Hoisted regno %d %s from ",
+		       REGNO (reg), (written ? "r/w" : "r/o"));
+	      print_rtl (loop_dump_stream, mem);
+	      fputc ('\n', loop_dump_stream);
+	    }
+
+	  /* Attempt a bit of copy propagation.  This helps untangle the
+	     data flow, and enables {basic,general}_induction_var to find
+	     more bivs/givs.  */
+	  EXECUTE_IF_SET_IN_REG_SET
+	    (&copies, FIRST_PSEUDO_REGISTER, j,
+	     {
+	       try_copy_prop (scan_start, loop_top, end, loop_mems[i].reg, j);
+	     });
+	  CLEAR_REG_SET (&copies);
 	}
     }
 
@@ -9862,6 +10008,111 @@ load_mems (scan_start, end, loop_top, start)
 	  if (GET_CODE (p) == JUMP_INSN && JUMP_LABEL (p) == end_label)
 	    JUMP_LABEL (p) = label;
 	}
+    }
+}
+
+/* For communication between note_reg_stored and its caller.  */
+struct note_reg_stored_arg
+{
+  int set_seen;
+  rtx reg;
+};
+
+/* Called via note_stores, record in SET_SEEN whether X, which is written,
+   is equal to ARG.  */
+static void
+note_reg_stored (x, setter, arg)
+     rtx x, setter ATTRIBUTE_UNUSED;
+     void *arg;
+{
+  struct note_reg_stored_arg *t = (struct note_reg_stored_arg *)arg;
+  if (t->reg == x)
+    t->set_seen = 1;
+}
+
+/* Try to replace every occurrence of pseudo REGNO with REPLACEMENT.
+   There must be exactly one insn that sets this pseudo; it will be
+   deleted if all replacements succeed and we can prove that the register
+   is not used after the loop.
+   The arguments SCAN_START, LOOP_TOP and END are as in load_mems.  */
+static void
+try_copy_prop (scan_start, loop_top, end, replacement, regno)
+     rtx scan_start, loop_top, end, replacement;
+     int regno;
+{
+  /* This is the reg that we are copying from.  */
+  rtx reg_rtx = regno_reg_rtx[regno];
+  rtx init_insn = 0;
+  rtx insn;
+  /* These help keep track of whether we replaced all uses of the reg.  */
+  int replaced_last = 0;
+  int store_is_first = 0;
+
+  for (insn = next_insn_in_loop (scan_start, scan_start, end, loop_top);
+       insn != NULL_RTX;
+       insn = next_insn_in_loop (insn, scan_start, end, loop_top))
+    {
+      rtx set;
+
+      /* Only substitute within one extended basic block from the initializing
+         insn.  */
+      if (GET_CODE (insn) == CODE_LABEL && init_insn)
+	break;
+
+      if (GET_RTX_CLASS (GET_CODE (insn)) != 'i')
+	continue;
+
+      /* Is this the initializing insn?  */
+      set = single_set (insn);
+      if (set
+	  && GET_CODE (SET_DEST (set)) == REG
+	  && REGNO (SET_DEST (set)) == regno)
+	{
+	  if (init_insn)
+	    abort ();
+
+	  init_insn = insn;
+	  if (REGNO_FIRST_UID (regno) == INSN_UID (insn))
+	    store_is_first = 1;
+	}
+
+      /* Only substitute after seeing the initializing insn.  */
+      if (init_insn && insn != init_insn)
+	{	
+	  struct note_reg_stored_arg arg;
+	  rtx array[3];
+	  array[0] = reg_rtx;
+	  array[1] = replacement;
+	  array[2] = insn;
+
+	  for_each_rtx (&insn, replace_loop_reg, array);
+	  if (REGNO_LAST_UID (regno) == INSN_UID (insn))
+	    replaced_last = 1;
+
+	  /* Stop replacing when REPLACEMENT is modified.  */
+	  arg.reg = replacement;
+	  arg.set_seen = 0;
+	  note_stores (PATTERN (insn), note_reg_stored, &arg);
+	  if (arg.set_seen)
+	    break;
+	}
+    }
+  if (! init_insn)
+    abort ();
+  if (apply_change_group ())
+    {
+      if (loop_dump_stream)
+	fprintf (loop_dump_stream, "  Replaced reg %d", regno);
+      if (store_is_first && replaced_last)
+	{
+	  PUT_CODE (init_insn, NOTE);
+	  NOTE_LINE_NUMBER (init_insn) = NOTE_INSN_DELETED;
+	  if (loop_dump_stream)
+	    fprintf (loop_dump_stream, ", deleting init_insn (%d)",
+		     INSN_UID (init_insn));
+	}
+      if (loop_dump_stream)
+	fprintf (loop_dump_stream, ".\n");
     }
 }
 
@@ -9909,6 +10160,28 @@ replace_loop_mem (mem, data)
 
   /* Actually replace the MEM.  */
   validate_change (insn, mem, loop_mems[i].reg, 1);
+
+  return 0;
+}
+
+/* Replace one register with another.  Called through for_each_rtx; PX points
+   to the rtx being scanned.  DATA is actually an array of three rtx's; the
+   first one is the one to be replaced, and the second one the replacement.
+   The third one is the current insn.  */
+
+static int
+replace_loop_reg (px, data)
+     rtx *px;
+     void *data;
+{
+  rtx x = *px;
+  rtx *array = (rtx *)data;
+
+  if (x == NULL_RTX)
+    return 0;
+
+  if (x == array[0])
+    validate_change (array[2], px, array[1], 1);
 
   return 0;
 }

@@ -1,3 +1,49 @@
+2000-01-10  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* lex.c: Include tm_p.h.
+
+2000-01-04  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* actions.c (update_else_range_for_int_const): Initialize
+	variables `lowval' and `highval'.
+	(update_else_range_for_range): Likewise for `low_range_val' and
+	`high_range_val'.
+
+1999-12-11  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* typeck.c (apply_chill_array_layout, apply_chill_field_layout):
+	Avoid the use of ANSI string concatenation.
+
+	* expr.c (chill_expand_case_expr): Likewise.
+
+1999-11-23  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* expr.c (build_chill_function_call): Don't call a variadic
+	function with a non-literal format string.
+	
+	* grant.c (write_spec_module): Likewise.
+	
+	* parse.c (require, expect): Likewise.
+
+	* tasking.c (get_struct_type_name, get_struct_debug_type_name,
+	get_tasking_code_name, get_struct_variable_name,
+	get_process_wrapper_name, build_start_process): Likewise.
+
+	* typeck.c (valid_array_index_p): Likewise.
+
+Sun Oct 31 22:33:33 1999  Jeffrey A Law  (law@cygnus.com)
+
+	* Makefile.in (convert.o, typeck.o): Depend on output.h
+	* convert.c: Include output.h.
+	* typeck.c: Include output.h.
+	(initializer_constant_valid_p): Delete fucntion.
+	* ch-tree.h (initializer_constant_valid_p): Delete prototype.
+
+1999-10-26  Mark Mitchell  <mark@codesourcery.com>
+
+	* ch-tree.h (remember_end_note): Remove prototype.
+	* decl.c (poplevel): Don't call remember_end_note.
+
 Fri Sep 24 10:48:10 1999  Bernd Schmidt  <bernds@cygnus.co.uk>
 
 	* ch-tree.h (builtin_function): Don't declare.

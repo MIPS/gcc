@@ -142,6 +142,7 @@ config/float-i64.h
 config/float-sh.h
 config/float-vax.h
 config/fp-bit.c
+config/freebsd.h
 config/fx80/fx80.c
 config/fx80/fx80.h
 config/fx80/xm-fx80.h
@@ -473,6 +474,7 @@ config/rs6000/xm-lynx.h
 config/rs6000/xm-mach.h
 config/rs6000/xm-rs6000.h
 config/rs6000/xm-sysv4.h
+config/rtems.h
 config/sh/elf.h
 config/sh/rtems.h
 config/sh/sh.c
@@ -547,7 +549,6 @@ config/winnt/xm-winnt.h
 config/xm-alloca.h
 config/xm-gnu.h
 config/xm-lynx.h
-config/xm-siglist.h
 config/xm-std32.h
 convert.c
 convert.h
@@ -744,6 +745,7 @@ rtlanal.c
 #scan.c is used only by GCC maintainers and installers
 scan.h
 sdbout.c
+simplify-rtx.c
 stack.h
 stmt.c
 stor-layout.c

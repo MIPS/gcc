@@ -37,50 +37,11 @@ Boston, MA 02111-1307, USA.  */
 #include "function.h"
 #include "obstack.h"
 #include "toplev.h"
+#include "v850-protos.h"
 
 #ifndef streq
 #define streq(a,b) (strcmp (a, b) == 0)
 #endif
-
-/* Function prototypes that cannot exist in v850.h due to dependency
-   compilcations.  */
-extern rtx    function_arg
-  PROTO ((CUMULATIVE_ARGS *, enum machine_mode, tree, int));
-extern int    function_arg_partial_nregs
-  PROTO ((CUMULATIVE_ARGS *, enum machine_mode, tree, int));
-extern void   asm_file_start                PROTO ((FILE *));
-extern void   print_operand                 PROTO ((FILE *, rtx, int ));
-extern void   print_operand_address         PROTO ((FILE *, rtx));
-extern void   v850_output_aligned_bss
-  PROTO ((FILE *, tree, char *, int, int));
-extern void   v850_output_common
-  PROTO ((FILE *, tree, char *, int, int));
-extern void   v850_output_local
-  PROTO ((FILE *, tree, char *, int, int));
-extern int    const_costs                   PROTO ((rtx, enum rtx_code));
-extern char * output_move_double            PROTO ((rtx *));
-extern char * output_move_single            PROTO ((rtx *));
-extern int    ep_memory_operand
-  PROTO ((rtx, enum machine_mode, int));
-extern int    reg_or_0_operand              PROTO ((rtx, enum machine_mode));
-extern int    reg_or_int5_operand           PROTO ((rtx, enum machine_mode));
-extern int    call_address_operand          PROTO ((rtx, enum machine_mode));
-extern int    movsi_source_operand          PROTO ((rtx, enum machine_mode));
-extern int    power_of_two_operand          PROTO ((rtx, enum machine_mode));
-extern int    not_power_of_two_operand      PROTO ((rtx, enum machine_mode));
-extern int    special_symbolref_operand     PROTO ((rtx, enum machine_mode));
-extern void   v850_reorg                    PROTO ((rtx));
-extern void   notice_update_cc              PROTO ((rtx, rtx));
-extern int    v850_valid_machine_decl_attribute
-  PROTO ((tree, tree, tree));
-extern int    v850_interrupt_function_p     PROTO ((tree));
-extern int    pattern_is_ok_for_prologue    PROTO ((rtx, enum machine_mode));
-extern int    pattern_is_ok_for_epilogue    PROTO ((rtx, enum machine_mode));
-extern int    register_is_ok_for_epilogue   PROTO ((rtx, enum machine_mode));
-extern char * construct_save_jarl           PROTO ((rtx));
-extern char * construct_restore_jr          PROTO ((rtx));
-extern void   v850_encode_data_area         PROTO ((tree));
-extern void   v850_set_default_decl_attr    PROTO ((tree));
 
 /* Function prototypes for stupid compilers:  */
 static void const_double_split
@@ -1534,10 +1495,10 @@ expand_prologue ()
 
   actual_fsize = compute_frame_size (size, &reg_saved);
 
-  /* Save/setup global registers for interrupt functions right now */
+  /* Save/setup global registers for interrupt functions right now.  */
   if (interrupt_handler)
     {
-      emit_insn (gen_save_interrupt ());
+	emit_insn (gen_save_interrupt ());
       
       actual_fsize -= INTERRUPT_FIXED_SAVE_SIZE;
       
@@ -1566,7 +1527,7 @@ expand_prologue ()
 	}
     }
 
-  /* Identify all of the saved registers */
+  /* Identify all of the saved registers.  */
   num_save = 0;
   default_stack = 0;
   for (i = 1; i < 31; i++)
@@ -1755,7 +1716,7 @@ expand_epilogue ()
   if (frame_pointer_needed)
     emit_move_insn (stack_pointer_rtx, hard_frame_pointer_rtx);
 
-  /* Identify all of the saved registers */
+  /* Identify all of the saved registers.  */
   num_restore = 0;
   default_stack = 0;
   for (i = 1; i < 31; i++)
@@ -1775,7 +1736,9 @@ expand_epilogue ()
   /* See if we have an insn that restores the particular registers we
      want to.  */
   restore_all = NULL_RTX;
-  if (TARGET_PROLOG_FUNCTION && num_restore > 0
+  
+  if (TARGET_PROLOG_FUNCTION
+      && num_restore > 0
       && actual_fsize >= default_stack
       && !interrupt_handler)
     {
@@ -1787,7 +1750,7 @@ expand_epilogue ()
       if (unalloc_stack)
 	restore_func_len += CONST_OK_FOR_J (unalloc_stack) ? 2 : 4;
 
-      /* see if we would have used ep to restore the registers */
+      /* See if we would have used ep to restore the registers.  */
       if (TARGET_EP && num_restore > 3 && (unsigned)actual_fsize < 255)
 	restore_normal_len = (3 * 2) + (2 * num_restore);
       else
@@ -1820,6 +1783,7 @@ expand_epilogue ()
 	    }
 
 	  code = recog (restore_all, NULL_RTX, NULL_PTR);
+	  
 	  if (code >= 0)
 	    {
 	      rtx insn;
@@ -1857,7 +1821,7 @@ Saved %d bytes via epilogue function (%d vs. %d) in function %s\n",
     }
 
   /* If no epilog save function is available, restore the registers the
-     old fashioned way (one by one). */
+     old fashioned way (one by one).  */
   if (!restore_all)
     {
       /* If the stack is large, we need to cut it down in 2 pieces.  */
@@ -1866,15 +1830,13 @@ Saved %d bytes via epilogue function (%d vs. %d) in function %s\n",
       else
 	init_stack_free = actual_fsize;
 
-      /* Deallocate the rest of the stack if it is > 32K or if extra stack
-	 was allocated for an interrupt handler that makes a call.  */
-      if (actual_fsize > init_stack_free
-	  || (interrupt_handler && actual_fsize))
+      /* Deallocate the rest of the stack if it is > 32K.  */
+      if (actual_fsize > init_stack_free)
 	{
 	  int diff;
 
 	  diff = actual_fsize - ((interrupt_handler) ? 0 : init_stack_free);
-	  
+
 	  if (CONST_OK_FOR_K (diff))
 	    emit_insn (gen_addsi3 (stack_pointer_rtx,
 				   stack_pointer_rtx,
@@ -1897,7 +1859,7 @@ Saved %d bytes via epilogue function (%d vs. %d) in function %s\n",
 	}
       else
 	{
-	  /* Restore registers from the beginning of the stack frame */
+	  /* Restore registers from the beginning of the stack frame.  */
 	  offset = init_stack_free - 4;
 
 	  /* Restore the return pointer first.  */
@@ -1918,6 +1880,7 @@ Saved %d bytes via epilogue function (%d vs. %d) in function %s\n",
 					   plus_constant (stack_pointer_rtx,
 							  offset)));
 
+	      emit_insn (gen_rtx_USE (VOIDmode, restore_regs[i]));
 	      offset -= 4;
 	    }
 
@@ -3156,7 +3119,7 @@ rtx
 v850_va_arg (valist, type)
      tree valist, type;
 {
-  HOST_WIDE_INT size, rsize, align;
+  HOST_WIDE_INT size, rsize;
   tree addr, incr;
   rtx addr_rtx;
   int indirect;

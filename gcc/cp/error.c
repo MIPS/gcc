@@ -892,6 +892,11 @@ dump_decl (t, flags)
       dump_simple_decl (t, TREE_TYPE (t), flags);
       break;
 
+    case RESULT_DECL:
+      OB_PUTS ("{return} ");
+      dump_simple_decl (t, TREE_TYPE (t), flags);
+      break;
+
     case NAMESPACE_DECL:
       dump_scope (CP_DECL_CONTEXT (t), flags);
       if (DECL_NAME (t) == anonymous_namespace_name)
@@ -945,7 +950,9 @@ dump_decl (t, flags)
 	else if (IDENTIFIER_OPNAME_P (t))
 	  {
 	    const char *name_string = operator_name_string (t);
-	    OB_PUTS ("operator ");
+	    OB_PUTS ("operator");
+	    if (ISALPHA (name_string[0]))
+	      OB_PUTC (' ');
 	    OB_PUTCP (name_string);
 	  }
 	else
@@ -1112,7 +1119,7 @@ dump_function_decl (t, flags)
     t = DECL_TEMPLATE_RESULT (t);
 
   /* Pretty print template instantiations only.  */
-  if (DECL_TEMPLATE_INSTANTIATION (t))
+  if (DECL_USE_TEMPLATE (t) && DECL_TEMPLATE_INFO (t))
     {
       template_args = DECL_TI_ARGS (t);
       t = most_general_template (t);
@@ -1134,7 +1141,7 @@ dump_function_decl (t, flags)
     /* OK */;
   else if (DECL_STATIC_FUNCTION_P (t))
     OB_PUTS ("static ");
-  else if (TYPE_VIRTUAL_P (t))
+  else if (TYPE_POLYMORPHIC_P (t))
     OB_PUTS ("virtual ");
   
   /* Print the return type?  */
@@ -1276,13 +1283,16 @@ dump_function_name (t, flags)
   else if (IDENTIFIER_OPNAME_P (name))
     {
       const char *name_string = operator_name_string (name);
-      OB_PUTS ("operator ");
+      OB_PUTS ("operator");
+      if (ISALPHA (name_string[0]))
+	OB_PUTC (' ');
       OB_PUTCP (name_string);
     }
   else
     dump_decl (name, flags);
 
   if (DECL_LANG_SPECIFIC (t) && DECL_TEMPLATE_INFO (t)
+      && !DECL_FRIEND_PSEUDO_TEMPLATE_INSTANTIATION (t)
       && (DECL_TEMPLATE_SPECIALIZATION (t) 
 	  || TREE_CODE (DECL_TI_TEMPLATE (t)) != TEMPLATE_DECL
 	  || DECL_TEMPLATE_SPECIALIZATION (DECL_TI_TEMPLATE (t))
@@ -1816,6 +1826,10 @@ dump_expr (t, flags)
       dump_expr (TREE_OPERAND (t, 0), flags);
       break;
 
+    case EXPR_WITH_FILE_LOCATION:
+      dump_expr (EXPR_WFL_NODE (t), flags);
+      break;
+
     case CONSTRUCTOR:
       if (TREE_TYPE (t) && TYPE_PTRMEMFUNC_P (TREE_TYPE (t)))
 	{
@@ -2200,7 +2214,7 @@ decl_to_string (decl, verbose)
      int verbose;
 {
   enum tree_string_flags flags = 0;
-  
+
   if (TREE_CODE (decl) == TYPE_DECL || TREE_CODE (decl) == RECORD_TYPE
       || TREE_CODE (decl) == UNION_TYPE || TREE_CODE (decl) == ENUMERAL_TYPE)
     flags = TS_AGGR_TAGS;
@@ -2307,7 +2321,7 @@ op_to_string (p, v)
   if (p == 0)
     return "{unknown}";
   
-  strcpy (buf + 9, opname_tab [p]);
+  strcpy (buf + 8, opname_tab [p]);
   return buf;
 }
 

@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler for IA-32.
-   Copyright (C) 1988, 92, 94-98, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1988, 92, 94-99, 2000 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -60,8 +60,11 @@ extern int binary_fp_operator PROTO((rtx, enum machine_mode));
 extern int mult_operator PROTO((rtx, enum machine_mode));
 extern int div_operator PROTO((rtx, enum machine_mode));
 extern int arith_or_logical_operator PROTO((rtx, enum machine_mode));
+extern int promotable_binary_operator PROTO((rtx, enum machine_mode));
 extern int memory_displacement_operand PROTO((rtx, enum machine_mode));
 extern int cmpsi_operand PROTO((rtx, enum machine_mode));
+extern int long_memory_operand PROTO((rtx, enum machine_mode));
+
 
 extern int legitimate_pic_address_disp_p PROTO((rtx));
 extern int legitimate_address_p PROTO((enum machine_mode, rtx, int));
@@ -74,24 +77,24 @@ extern void print_operand_address PROTO((FILE*, rtx));
 
 extern void split_di PROTO((rtx[], int, rtx[], rtx[]));
 
-extern char *output_387_binary_op PROTO((rtx, rtx*));
-extern char *output_fix_trunc PROTO((rtx, rtx*));
-extern char *output_fp_compare PROTO((rtx, rtx*, int, int));
+extern const char *output_387_binary_op PROTO((rtx, rtx*));
+extern const char *output_fix_trunc PROTO((rtx, rtx*));
+extern const char *output_fp_compare PROTO((rtx, rtx*, int, int));
 
 extern void ix86_expand_move PROTO((enum machine_mode, rtx[]));
 extern void ix86_expand_binary_operator PROTO((enum rtx_code,
 					       enum machine_mode, rtx[]));
 extern int ix86_binary_operator_ok PROTO((enum rtx_code, enum machine_mode,
 					  rtx[]));
-extern int ix86_expand_unary_operator PROTO((enum rtx_code, enum machine_mode,
-					     rtx[]));
+extern void ix86_expand_unary_operator PROTO((enum rtx_code, enum machine_mode,
+					      rtx[]));
 extern int ix86_unary_operator_ok PROTO((enum rtx_code, enum machine_mode,
 					 rtx[]));
 extern void ix86_expand_branch PROTO((enum rtx_code, int, rtx));
 extern int ix86_expand_setcc PROTO((enum rtx_code, int, rtx));
 extern int ix86_expand_int_movcc PROTO((rtx[]));
 extern int ix86_expand_fp_movcc PROTO((rtx[]));
-extern int ix86_split_movdi PROTO((rtx[]));
+extern int ix86_split_long_move PROTO((rtx[]));
 extern void ix86_split_ashldi PROTO((rtx *, rtx));
 extern void ix86_split_ashrdi PROTO((rtx *, rtx));
 extern void ix86_split_lshrdi PROTO((rtx *, rtx));

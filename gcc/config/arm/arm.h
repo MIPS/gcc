@@ -146,6 +146,7 @@ Unrecognized value in TARGET_CPU_DEFAULT.
 %{march=arm7:-D__ARM_ARCH_3__} \
 %{march=arm700:-D__ARM_ARCH_3__} \
 %{march=arm710:-D__ARM_ARCH_3__} \
+%{march=arm720:-D__ARM_ARCH_3__} \
 %{march=arm7100:-D__ARM_ARCH_3__} \
 %{march=arm7500:-D__ARM_ARCH_3__} \
 %{march=arm7500fe:-D__ARM_ARCH_3__} \
@@ -179,6 +180,7 @@ Unrecognized value in TARGET_CPU_DEFAULT.
  %{mcpu=arm7:-D__ARM_ARCH_3__} \
  %{mcpu=arm700:-D__ARM_ARCH_3__} \
  %{mcpu=arm710:-D__ARM_ARCH_3__} \
+ %{mcpu=arm720:-D__ARM_ARCH_3__} \
  %{mcpu=arm7100:-D__ARM_ARCH_3__} \
  %{mcpu=arm7500:-D__ARM_ARCH_3__} \
  %{mcpu=arm7500fe:-D__ARM_ARCH_3__} \
@@ -229,8 +231,8 @@ Unrecognized value in TARGET_CPU_DEFAULT.
 %{!mlittle-endian:%{!mbig-endian:%(cpp_endian_default)}}		\
 "
 
-/* Default is little endian, which doesn't define anything except for thumb.*/
-#define CPP_ENDIAN_DEFAULT_SPEC "%{mthumb:-D__THUMBEL__}"
+/* Default is little endian.  */
+#define CPP_ENDIAN_DEFAULT_SPEC "-D__ARMEL__ %{mthumb:-D__THUMBEL__}"
 
 #define CC1_SPEC ""
 
@@ -384,78 +386,80 @@ Unrecognized value in TARGET_CPU_DEFAULT.
 #define SUBTARGET_SWITCHES
 #endif
 
-#define TARGET_SWITCHES						\
-{								\
-  {"apcs",			ARM_FLAG_APCS_FRAME, "" },	\
-  {"apcs-frame",		ARM_FLAG_APCS_FRAME,		\
-     "Generate APCS conformant stack frames" },			\
-  {"no-apcs-frame",	       -ARM_FLAG_APCS_FRAME, "" },	\
-  {"poke-function-name",	ARM_FLAG_POKE,			\
-     "Store function names in object code" },			\
-  {"no-poke-function-name",    -ARM_FLAG_POKE, "" },		\
-  {"fpe",			ARM_FLAG_FPE,  "" },		\
-  {"apcs-32",			ARM_FLAG_APCS_32,		\
-     "Use the 32bit version of the APCS" },			\
-  {"apcs-26",		       -ARM_FLAG_APCS_32,		\
-     "Use the 26bit version of the APCS" },			\
-  {"apcs-stack-check",		ARM_FLAG_APCS_STACK, "" },	\
-  {"no-apcs-stack-check",      -ARM_FLAG_APCS_STACK, "" },	\
-  {"apcs-float",		ARM_FLAG_APCS_FLOAT,		\
-     "Pass FP arguments in FP registers" },			\
-  {"no-apcs-float",	       -ARM_FLAG_APCS_FLOAT, "" },	\
-  {"apcs-reentrant",		ARM_FLAG_APCS_REENT,		\
-     "Generate re-entrant, PIC code" },				\
-  {"no-apcs-reentrant",	       -ARM_FLAG_APCS_REENT, "" },	\
-  {"alignment-traps",           ARM_FLAG_MMU_TRAPS,		\
-     "The MMU will trap on unaligned accesses" },\
-  {"no-alignment-traps",       -ARM_FLAG_MMU_TRAPS, "" },	\
-  {"short-load-bytes",		ARM_FLAG_MMU_TRAPS, "" },	\
-  {"no-short-load-bytes",      -ARM_FLAG_MMU_TRAPS, "" },	\
-  {"short-load-words",	       -ARM_FLAG_MMU_TRAPS, "" },	\
-  {"no-short-load-words",	ARM_FLAG_MMU_TRAPS, "" },	\
-  {"soft-float",		ARM_FLAG_SOFT_FLOAT,		\
-     "Use library calls to perform FP operations" },		\
-  {"hard-float",	       -ARM_FLAG_SOFT_FLOAT,		\
-     "Use hardware floating point instructions" },		\
-  {"big-endian",		ARM_FLAG_BIG_END,		\
-     "Assume target CPU is configured as big endian" },		\
-  {"little-endian",	       -ARM_FLAG_BIG_END,		\
-     "Assume target CPU is configured as little endian" },	\
-  {"words-little-endian",       ARM_FLAG_LITTLE_WORDS,		\
-     "Assume big endian bytes, little endian words" },		\
-  {"thumb-interwork",		ARM_FLAG_INTERWORK,		\
-     "Support calls between THUMB and ARM instructions sets" },	\
-  {"no-thumb-interwork",       -ARM_FLAG_INTERWORK, "" },	\
-  {"abort-on-noreturn",         ARM_FLAG_ABORT_NORETURN,	\
-   "Generate a call to abort if a noreturn function returns"},	\
-  {"no-abort-on-noreturn",     -ARM_FLAG_ABORT_NORETURN, ""},	\
-  {"sched-prolog",             -ARM_FLAG_NO_SCHED_PRO,		\
-     "Do not move instructions into a function's prologue" },	\
-  {"no-sched-prolog",           ARM_FLAG_NO_SCHED_PRO, "" },	\
-  {"single-pic-base",		ARM_FLAG_SINGLE_PIC_BASE,	\
-     "Do not load the PIC register in function prologues" },	\
-  {"no-single-pic-base",       -ARM_FLAG_SINGLE_PIC_BASE, "" },	\
-  {"long-calls",		ARM_FLAG_LONG_CALLS,		\
-   "Generate all call instructions as indirect calls"},		\
-  {"no-long-calls",	       -ARM_FLAG_LONG_CALLS, ""},	\
-  {"thumb",                     ARM_FLAG_THUMB,			\
-     "Compile for the Thumb not the ARM" },			\
-  {"no-thumb",                 -ARM_FLAG_THUMB, "" },		\
-  {"arm",                      -ARM_FLAG_THUMB, "" },		\
-  {"tpcs-frame",		    THUMB_FLAG_BACKTRACE,       \
-     "Thumb: Generate (non-leaf) stack frames even if not needed"},		\
-  {"no-tpcs-frame",                -THUMB_FLAG_BACKTRACE, ""},			\
-  {"tpcs-leaf-frame",	  	    THUMB_FLAG_LEAF_BACKTRACE,  		\
-     "Thumb: Generate (leaf) stack frames even if not needed"},			\
-  {"no-tpcs-leaf-frame",           -THUMB_FLAG_LEAF_BACKTRACE, ""},		\
-  {"callee-super-interworking",	    THUMB_FLAG_CALLEE_SUPER_INTERWORKING,	\
-     "Thumb: Assume that externally visible funcs may be called in ARM mode"}, 	\
-  {"no-callee-super-interworking", -THUMB_FLAG_CALLEE_SUPER_INTERWORKING, ""}, 	\
-  {"caller-super-interworking",	    THUMB_FLAG_CALLER_SUPER_INTERWORKING,	\
-     "Thumb: Assume that function pointers may go to non-Thumb aware code"}, 	\
-  {"no-caller-super-interworking", -THUMB_FLAG_CALLER_SUPER_INTERWORKING, ""}, 	\
-  SUBTARGET_SWITCHES						\
-  {"",				TARGET_DEFAULT, "" }		\
+#define TARGET_SWITCHES							  \
+{									  \
+  {"apcs",			ARM_FLAG_APCS_FRAME, "" },		  \
+  {"apcs-frame",		ARM_FLAG_APCS_FRAME,			  \
+     "Generate APCS conformant stack frames" },				  \
+  {"no-apcs-frame",	       -ARM_FLAG_APCS_FRAME, "" },		  \
+  {"poke-function-name",	ARM_FLAG_POKE,				  \
+     "Store function names in object code" },				  \
+  {"no-poke-function-name",    -ARM_FLAG_POKE, "" },			  \
+  {"fpe",			ARM_FLAG_FPE,  "" },			  \
+  {"apcs-32",			ARM_FLAG_APCS_32,			  \
+     "Use the 32bit version of the APCS" },				  \
+  {"apcs-26",		       -ARM_FLAG_APCS_32,			  \
+     "Use the 26bit version of the APCS" },				  \
+  {"apcs-stack-check",		ARM_FLAG_APCS_STACK, "" },		  \
+  {"no-apcs-stack-check",      -ARM_FLAG_APCS_STACK, "" },		  \
+  {"apcs-float",		ARM_FLAG_APCS_FLOAT,			  \
+     "Pass FP arguments in FP registers" },				  \
+  {"no-apcs-float",	       -ARM_FLAG_APCS_FLOAT, "" },		  \
+  {"apcs-reentrant",		ARM_FLAG_APCS_REENT,			  \
+     "Generate re-entrant, PIC code" },					  \
+  {"no-apcs-reentrant",	       -ARM_FLAG_APCS_REENT, "" },		  \
+  {"alignment-traps",           ARM_FLAG_MMU_TRAPS,			  \
+     "The MMU will trap on unaligned accesses" },			  \
+  {"no-alignment-traps",       -ARM_FLAG_MMU_TRAPS, "" },		  \
+  {"short-load-bytes",		ARM_FLAG_MMU_TRAPS, "" },		  \
+  {"no-short-load-bytes",      -ARM_FLAG_MMU_TRAPS, "" },		  \
+  {"short-load-words",	       -ARM_FLAG_MMU_TRAPS, "" },		  \
+  {"no-short-load-words",	ARM_FLAG_MMU_TRAPS, "" },		  \
+  {"soft-float",		ARM_FLAG_SOFT_FLOAT,			  \
+     "Use library calls to perform FP operations" },			  \
+  {"hard-float",	       -ARM_FLAG_SOFT_FLOAT,			  \
+     "Use hardware floating point instructions" },			  \
+  {"big-endian",		ARM_FLAG_BIG_END,			  \
+     "Assume target CPU is configured as big endian" },			  \
+  {"little-endian",	       -ARM_FLAG_BIG_END,			  \
+     "Assume target CPU is configured as little endian" },		  \
+  {"words-little-endian",       ARM_FLAG_LITTLE_WORDS,			  \
+     "Assume big endian bytes, little endian words" },			  \
+  {"thumb-interwork",		ARM_FLAG_INTERWORK,			  \
+     "Support calls between THUMB and ARM instructions sets" },		  \
+  {"no-thumb-interwork",       -ARM_FLAG_INTERWORK, "" },		  \
+  {"abort-on-noreturn",         ARM_FLAG_ABORT_NORETURN,		  \
+   "Generate a call to abort if a noreturn function returns"},		  \
+  {"no-abort-on-noreturn",     -ARM_FLAG_ABORT_NORETURN, ""},		  \
+  {"sched-prolog",             -ARM_FLAG_NO_SCHED_PRO,			  \
+     "Do not move instructions into a function's prologue" },		  \
+  {"no-sched-prolog",           ARM_FLAG_NO_SCHED_PRO, "" },		  \
+  {"single-pic-base",		ARM_FLAG_SINGLE_PIC_BASE,		  \
+     "Do not load the PIC register in function prologues" },		  \
+  {"no-single-pic-base",       -ARM_FLAG_SINGLE_PIC_BASE, "" },		  \
+  {"long-calls",		ARM_FLAG_LONG_CALLS,			  \
+   "Generate all call instructions as indirect calls"},			  \
+  {"no-long-calls",	       -ARM_FLAG_LONG_CALLS, ""},		  \
+  {"thumb",                     ARM_FLAG_THUMB,				  \
+     "Compile for the Thumb not the ARM" },				  \
+  {"no-thumb",                 -ARM_FLAG_THUMB, "" },			  \
+  {"arm",                      -ARM_FLAG_THUMB, "" },			  \
+  {"tpcs-frame",		    THUMB_FLAG_BACKTRACE,		  \
+   "Thumb: Generate (non-leaf) stack frames even if not needed"},	  \
+  {"no-tpcs-frame",                -THUMB_FLAG_BACKTRACE, ""},		  \
+  {"tpcs-leaf-frame",	  	    THUMB_FLAG_LEAF_BACKTRACE,		  \
+   "Thumb: Generate (leaf) stack frames even if not needed"},		  \
+  {"no-tpcs-leaf-frame",           -THUMB_FLAG_LEAF_BACKTRACE, ""},	  \
+  {"callee-super-interworking",	    THUMB_FLAG_CALLEE_SUPER_INTERWORKING, \
+   "Thumb: Assume non-static functions may be called from ARM code"},	  \
+  {"no-callee-super-interworking", -THUMB_FLAG_CALLEE_SUPER_INTERWORKING, \
+   ""},									  \
+  {"caller-super-interworking",	    THUMB_FLAG_CALLER_SUPER_INTERWORKING, \
+   "Thumb: Assume function pointers may go to non-Thumb aware code"},	  \
+  {"no-caller-super-interworking", -THUMB_FLAG_CALLER_SUPER_INTERWORKING, \
+   ""},									  \
+  SUBTARGET_SWITCHES							  \
+  {"",				TARGET_DEFAULT, "" }			  \
 }
 
 #define TARGET_OPTIONS						\
@@ -1186,52 +1190,52 @@ enum reg_class
    For the ARM, we wish to handle large displacements off a base
    register by splitting the addend across a MOV and the mem insn.
    This can cut the number of reloads needed. */
-#define ARM_LEGITIMIZE_RELOAD_ADDRESS(X, MODE, OPNUM, TYPE, IND_LEVELS, WIN)	\
-  do										\
-    {										\
-      if (GET_CODE (X) == PLUS							\
-	  && GET_CODE (XEXP (X, 0)) == REG					\
-	  && REGNO (XEXP (X, 0)) < FIRST_PSEUDO_REGISTER			\
-	  && REG_MODE_OK_FOR_BASE_P (XEXP (X, 0), MODE)				\
-	  && GET_CODE (XEXP (X, 1)) == CONST_INT)				\
-	{									\
-	  HOST_WIDE_INT val = INTVAL (XEXP (X, 1));				\
-	  HOST_WIDE_INT low, high;						\
-	  									\
-	  if (MODE == DImode || (TARGET_SOFT_FLOAT && MODE == DFmode))		\
-	    low = ((val & 0xf) ^ 0x8) - 0x8;					\
-	  else if (MODE == SImode						\
-		   || (MODE == SFmode && TARGET_SOFT_FLOAT)			\
-		   || ((MODE == HImode || MODE == QImode) && ! arm_arch4))	\
-	    /* Need to be careful, -4096 is not a valid offset */		\
-	    low = val >= 0 ? (val & 0xfff) : -((-val) & 0xfff);			\
-	  else if ((MODE == HImode || MODE == QImode) && arm_arch4)		\
-	    /* Need to be careful, -256 is not a valid offset */		\
-	    low = val >= 0 ? (val & 0xff) : -((-val) & 0xff);			\
-	  else if (GET_MODE_CLASS (MODE) == MODE_FLOAT				\
-		   && TARGET_HARD_FLOAT)					\
-	    /* Need to be careful, -1024 is not a valid offset */		\
-	    low = val >= 0 ? (val & 0x3ff) : -((-val) & 0x3ff);			\
-	  else									\
-	    break;								\
-	  									\
-	  high = ((((val - low) & 0xffffffff) ^ 0x80000000) - 0x80000000);	\
-	  /* Check for overflow or zero */					\
-	  if (low == 0 || high == 0 || (high + low != val))			\
-	    break;								\
-	  									\
-	  /* Reload the high part into a base reg; leave the low part		\
-	     in the mem.  */							\
-	  X = gen_rtx_PLUS (GET_MODE (X),					\
-			    gen_rtx_PLUS (GET_MODE (X), XEXP (X, 0),		\
-					  GEN_INT (high)),			\
-			    GEN_INT (low));					\
-	  push_reload (XEXP (X, 0), NULL_RTX, &XEXP (X, 0), NULL_PTR,		\
-		       BASE_REG_CLASS, GET_MODE (X), VOIDmode, 0, 0,		\
-		       OPNUM, TYPE);						\
-	  goto WIN;								\
-	}									\
-    }										\
+#define ARM_LEGITIMIZE_RELOAD_ADDRESS(X, MODE, OPNUM, TYPE, IND, WIN)	   \
+  do									   \
+    {									   \
+      if (GET_CODE (X) == PLUS						   \
+	  && GET_CODE (XEXP (X, 0)) == REG				   \
+	  && REGNO (XEXP (X, 0)) < FIRST_PSEUDO_REGISTER		   \
+	  && REG_MODE_OK_FOR_BASE_P (XEXP (X, 0), MODE)			   \
+	  && GET_CODE (XEXP (X, 1)) == CONST_INT)			   \
+	{								   \
+	  HOST_WIDE_INT val = INTVAL (XEXP (X, 1));			   \
+	  HOST_WIDE_INT low, high;					   \
+									   \
+	  if (MODE == DImode || (TARGET_SOFT_FLOAT && MODE == DFmode))	   \
+	    low = ((val & 0xf) ^ 0x8) - 0x8;				   \
+	  else if (MODE == SImode					   \
+		   || (MODE == SFmode && TARGET_SOFT_FLOAT)		   \
+		   || ((MODE == HImode || MODE == QImode) && ! arm_arch4)) \
+	    /* Need to be careful, -4096 is not a valid offset */	   \
+	    low = val >= 0 ? (val & 0xfff) : -((-val) & 0xfff);		   \
+	  else if ((MODE == HImode || MODE == QImode) && arm_arch4)	   \
+	    /* Need to be careful, -256 is not a valid offset */	   \
+	    low = val >= 0 ? (val & 0xff) : -((-val) & 0xff);		   \
+	  else if (GET_MODE_CLASS (MODE) == MODE_FLOAT			   \
+		   && TARGET_HARD_FLOAT)				   \
+	    /* Need to be careful, -1024 is not a valid offset */	   \
+	    low = val >= 0 ? (val & 0x3ff) : -((-val) & 0x3ff);		   \
+	  else								   \
+	    break;							   \
+									   \
+	  high = ((((val - low) & 0xffffffff) ^ 0x80000000) - 0x80000000); \
+	  /* Check for overflow or zero */				   \
+	  if (low == 0 || high == 0 || (high + low != val))		   \
+	    break;							   \
+									   \
+	  /* Reload the high part into a base reg; leave the low part	   \
+	     in the mem.  */						   \
+	  X = gen_rtx_PLUS (GET_MODE (X),				   \
+			    gen_rtx_PLUS (GET_MODE (X), XEXP (X, 0),	   \
+					  GEN_INT (high)),		   \
+			    GEN_INT (low));				   \
+	  push_reload (XEXP (X, 0), NULL_RTX, &XEXP (X, 0), NULL_PTR,	   \
+		       BASE_REG_CLASS, GET_MODE (X), VOIDmode, 0, 0,	   \
+		       OPNUM, TYPE);					   \
+	  goto WIN;							   \
+	}								   \
+    }									   \
   while (0)
 
 /* ??? If an HImode FP+large_offset address is converted to an HImode
@@ -1504,7 +1508,7 @@ typedef struct
 
 /* Generate the assembly code for function exit. */
 #define FUNCTION_EPILOGUE(STREAM, SIZE)	\
-  output_func_epilogue (SIZE);		
+  output_func_epilogue (SIZE)
 
 /* Determine if the epilogue should be output as RTL.
    You should override this if you define FUNCTION_EXTRA_EPILOGUE.  */
@@ -2249,7 +2253,7 @@ typedef struct
 /* Nonzero if access to memory by bytes is slow and undesirable.  */
 #define SLOW_BYTE_ACCESS 0
 
-#define SLOW_UNALIGNED_ACCESS 1
+#define SLOW_UNALIGNED_ACCESS(MODE, ALIGN) 1
      
 /* Immediate shift counts are truncated by the output routines (or was it
    the assembler?).  Shift counts in a register are truncated by ARM.  Note
@@ -2519,10 +2523,10 @@ extern int making_const_table;
 
 #define ARM_SIGN_EXTEND(x)  ((HOST_WIDE_INT)		\
   (HOST_BITS_PER_WIDE_INT <= 32 ? (x)			\
-   : (((x) & (unsigned HOST_WIDE_INT) 0xffffffff) |	\
-      (((x) & (unsigned HOST_WIDE_INT) 0x80000000)	\
+   : (((x) & (unsigned HOST_WIDE_INT) 0xffffffffUL) |	\
+      (((x) & (unsigned HOST_WIDE_INT) 0x80000000UL)	\
        ? ((~ (HOST_WIDE_INT) 0)				\
-	  & ~ (unsigned HOST_WIDE_INT) 0xffffffff)	\
+	  & ~ (unsigned HOST_WIDE_INT) 0xffffffffUL)	\
        : 0))))
 
 /* Output the address of an operand.  */
@@ -2739,5 +2743,4 @@ extern int making_const_table;
   {"logical_binary_operator", {AND, IOR, XOR}},				\
   {"dominant_cc_register", {REG}},
 
-
 #endif /* __ARM_H__ */

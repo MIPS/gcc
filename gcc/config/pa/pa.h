@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler, for the HP Spectrum.
-   Copyright (C) 1992, 93-98, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1992, 93-99, 2000 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com) of Cygnus Support
    and Tim Moore (moore@defmacro.cs.utah.edu) of the Center for
    Software Science at the University of Utah.
@@ -44,7 +44,7 @@ enum processor_type
 };
 
 /* For -mschedule= option.  */
-extern char *pa_cpu_string;
+extern const char *pa_cpu_string;
 extern enum processor_type pa_cpu;
 
 #define pa_cpu_attr ((enum attr_cpu)pa_cpu)
@@ -70,7 +70,7 @@ enum architecture_type
 };
 
 /* For -march= option.  */
-extern char *pa_arch_string;
+extern const char *pa_arch_string;
 extern enum architecture_type pa_arch;
 
 /* Print subsidiary information on the compiler version in use.  */
@@ -293,17 +293,6 @@ extern int target_flags;
 
 /* Machine dependent reorg pass.  */
 #define MACHINE_DEPENDENT_REORG(X) pa_reorg(X)
-
-/* Prototype function used in MACHINE_DEPENDENT_REORG macro. */
-void pa_reorg ();
-
-/* Prototype function used in various macros. */
-int symbolic_operand ();
-
-/* Used in insn-*.c. */
-int following_call ();
-int function_label_operand ();
-int lhs_lshift_cint_operand ();
 
 /* Names to predefine in the preprocessor for this target machine.  */
 
@@ -748,9 +737,6 @@ enum reg_class { NO_REGS, R1_REGS, GENERAL_REGS, FPUPPER_REGS, FP_REGS, GENERAL_
    : (C) == 'P' ? and_mask_p (VALUE)				\
    : 0)
 
-/* Prototype function used in macro CONST_OK_FOR_LETTER_P. */
-int zdepi_cint_p ();
-
 /* Similar, but for floating or large integer constants, and defining letters
    G and H.   Here VALUE is the CONST_DOUBLE rtx itself.
 
@@ -1058,13 +1044,15 @@ struct hppa_args {int words, nargs_prototype, indirect; };
    bits, of an argument with the specified mode and type.  If it is
    not defined,  `PARM_BOUNDARY' is used for all arguments.  */
 
-#define FUNCTION_ARG_BOUNDARY(MODE, TYPE)				\
-  (((TYPE) != 0)							\
-	? (((int_size_in_bytes (TYPE)) + UNITS_PER_WORD - 1)		\
-	   / UNITS_PER_WORD) * BITS_PER_WORD				\
-	: ((GET_MODE_ALIGNMENT(MODE) <= PARM_BOUNDARY)			\
-		? PARM_BOUNDARY						\
-		: GET_MODE_ALIGNMENT(MODE)))
+#define FUNCTION_ARG_BOUNDARY(MODE, TYPE)			\
+  (((TYPE) != 0)						\
+   ? ((integer_zerop (TYPE_SIZE (TYPE))				\
+       || ! TREE_CONSTANT (TYPE_SIZE (TYPE)))			\
+      ? BITS_PER_UNIT						\
+      : (((int_size_in_bytes (TYPE)) + UNITS_PER_WORD - 1)	\
+	 / UNITS_PER_WORD) * BITS_PER_WORD)			\
+   : ((GET_MODE_ALIGNMENT(MODE) <= PARM_BOUNDARY)		\
+      ? PARM_BOUNDARY : GET_MODE_ALIGNMENT(MODE)))
 
 /* Arguments larger than eight bytes are passed by invisible reference */
 
@@ -1217,18 +1205,15 @@ extern int may_call_alloca;
    Ordinarily they are not call used registers, but they are for
    _builtin_saveregs, so we must make this explicit.  */
 
-extern struct rtx_def *hppa_builtin_saveregs ();
 #define EXPAND_BUILTIN_SAVEREGS() hppa_builtin_saveregs ()
 
 /* Implement `va_start' for varargs and stdarg.  */
 
-extern void hppa_va_start();
 #define EXPAND_BUILTIN_VA_START(stdarg, valist, nextarg) \
   hppa_va_start (stdarg, valist, nextarg)
 
 /* Implement `va_arg'.  */
 
-extern struct rtx_def *hppa_va_arg();
 #define EXPAND_BUILTIN_VA_ARG(valist, type) \
   hppa_va_arg (valist, type)
 
@@ -1584,7 +1569,6 @@ do { 									\
    It is always safe for this macro to do nothing.  It exists to recognize
    opportunities to optimize the output.  */
 
-extern struct rtx_def *hppa_legitimize_address ();
 #define LEGITIMIZE_ADDRESS(X, OLDX, MODE, WIN)	\
 { rtx orig_x = (X);				\
   (X) = hppa_legitimize_address (X, OLDX, MODE);	\
@@ -1688,6 +1672,9 @@ while (0)
 /* Specify the machine mode that this machine uses
    for the index in the tablejump instruction.  */
 #define CASE_VECTOR_MODE (TARGET_BIG_SWITCH ? TImode : DImode)
+
+/* Jump tables must be 32 bit aligned, no matter the size of the element.  */
+#define ADDR_VEC_ALIGN(ADDR_VEC) 2
 
 /* Specify the tree operation to be used to convert reals to integers.  */
 #define IMPLICIT_FIX_EXPR FIX_ROUND_EXPR
@@ -2148,7 +2135,7 @@ while (0)
       fprintf (FILE, "%d(%s)", offset, reg_names [REGNO (base)]);	\
       break;								\
     case LO_SUM:							\
-      if (!symbolic_operand (XEXP (addr, 1)))				\
+      if (!symbolic_operand (XEXP (addr, 1), VOIDmode))			\
 	fputs ("R'", FILE);						\
       else if (flag_pic == 0)						\
 	fputs ("RR'", FILE);						\
@@ -2169,91 +2156,6 @@ while (0)
     }}
 
 
-/* Define functions in pa.c and used in insn-output.c.  */
-
-extern char *output_and ();
-extern char *output_ior ();
-extern char *output_move_double ();
-extern char *output_fp_move_double ();
-extern char *output_block_move ();
-extern char *output_cbranch ();
-extern char *output_bb ();
-extern char *output_bvb ();
-extern char *output_dbra ();
-extern char *output_movb ();
-extern char *output_parallel_movb ();
-extern char *output_parallel_addb ();
-extern char *output_return ();
-extern char *output_call ();
-extern char *output_millicode_call ();
-extern char *output_mul_insn ();
-extern char *output_div_insn ();
-extern char *output_mod_insn ();
-extern char *singlemove_string ();
-extern void output_arg_descriptor ();
-extern void output_deferred_plabels ();
-extern void override_options ();
-extern void output_ascii ();
-extern void output_function_prologue ();
-extern void output_function_epilogue ();
-extern void output_global_address ();
-extern void print_operand ();
-extern struct rtx_def *legitimize_pic_address ();
-extern struct rtx_def *gen_cmp_fp ();
-extern void hppa_encode_label ();
-extern int arith11_operand ();
-extern int symbolic_expression_p ();
-extern int reloc_needed ();
-extern int compute_frame_size ();
-extern int hppa_address_cost ();
-extern int and_mask_p ();
-extern int symbolic_memory_operand ();
-extern int pa_adjust_cost ();
-extern int pa_adjust_insn_length ();
-extern int int11_operand ();
-extern int reg_or_cint_move_operand ();
-extern int arith5_operand ();
-extern int uint5_operand ();
-extern int pic_label_operand ();
-extern int plus_xor_ior_operator ();
-extern int basereg_operand ();
-extern int shadd_operand ();
-extern int arith_operand ();
-extern int read_only_operand ();
-extern int move_operand ();
-extern int and_operand ();
-extern int ior_operand ();
-extern int arith32_operand ();
-extern int uint32_operand ();
-extern int reg_or_nonsymb_mem_operand ();
-extern int reg_or_0_operand ();
-extern int reg_or_0_or_nonsymb_mem_operand ();
-extern int pre_cint_operand ();
-extern int post_cint_operand ();
-extern int div_operand ();
-extern int int5_operand ();
-extern int movb_comparison_operator ();
-extern int ireg_or_int5_operand ();
-extern int fmpyaddoperands ();
-extern int fmpysuboperands ();
-extern int call_operand_address ();
-extern int cint_ok_for_move ();
-extern int ior_operand ();
-extern void emit_bcond_fp ();
-extern int emit_move_sequence ();
-extern int emit_hpdiv_const ();
-extern void hppa_expand_prologue ();
-extern void hppa_expand_epilogue ();
-extern int hppa_can_use_return_insn_p ();
-extern int is_function_label_plus_const ();
-extern int jump_in_call_delay ();
-extern enum reg_class secondary_reload_class ();
-extern int insn_sets_and_refs_are_delayed ();
-
-/* Declare functions defined in pa.c and used in templates.  */
-
-extern struct rtx_def *return_addr_rtx ();
-
 /* Find the return address associated with the frame given by
    FRAMEADDR.  */
 #define RETURN_ADDR_RTX(COUNT, FRAMEADDR)				 \
@@ -2264,7 +2166,7 @@ extern struct rtx_def *return_addr_rtx ();
 #define MASK_RETURN_ADDR						\
   /* The privilege level is in the two low order bits, mask em out	\
      of the return address.  */						\
-  (GEN_INT (0xfffffffc))
+  (GEN_INT (-4))
 
 /* The number of Pmode words for the setjmp buffer.  */
 #define JMP_BUF_SIZE 50
@@ -2304,4 +2206,5 @@ extern struct rtx_def *return_addr_rtx ();
   {"shadd_operand", {CONST_INT}},					\
   {"basereg_operand", {REG}},						\
   {"div_operand", {REG, CONST_INT}},					\
+  {"ireg_operand", {REG}},						\
   {"movb_comparison_operator", {EQ, NE, LT, GE}},

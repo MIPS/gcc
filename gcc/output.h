@@ -1,6 +1,6 @@
 /* Declarations for insn-output.c.  These functions are defined in recog.c,
    final.c, and varasm.c.
-   Copyright (C) 1987, 1991, 1994, 97-98, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1987, 1991, 1994, 97-99, 2000 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -132,6 +132,7 @@ extern int regno_uninitialized		PROTO((int));
 extern int regno_clobbered_at_setjmp	PROTO((int));
 extern void dump_flow_info		PROTO((FILE *));
 extern void find_basic_blocks         PROTO((rtx, int, FILE *, int));
+extern void calculate_loop_depth      PROTO((FILE *));
 extern void free_basic_block_vars     PROTO((int));
 extern void set_block_num             PROTO((rtx, int));
 extern void life_analysis             PROTO((rtx, int, FILE *, int));
@@ -171,6 +172,21 @@ extern void dtors_section PARAMS ((void));
 extern void bss_section PARAMS ((void));
 #endif
 
+#ifdef CONST_SECTION_ASM_OP
+extern void const_section PARAMS ((void));
+#endif
+
+#ifdef INIT_SECTION_ASM_OP
+extern void init_section PARAMS ((void));
+#endif
+
+#ifdef FINI_SECTION_ASM_OP
+extern void fini_section PARAMS ((void));
+#endif
+
+#ifdef TDESC_SECTION_ASM_OP
+extern void tdesc_section PARAMS ((void));
+#endif
 
 #ifdef TREE_CODE
 /* Tell assembler to change to section NAME for DECL.
@@ -229,21 +245,6 @@ extern void assemble_alias		PROTO((tree, tree));
    for an `asm' keyword used between functions.  */
 extern void assemble_asm		PROTO((tree));
 
-/* Record an element in the table of global destructors.
-   How this is done depends on what sort of assembler and linker
-   are in use.
-
-   NAME should be the name of a global function to be called
-   at exit time.  This name is output using assemble_name.  */
-extern void assemble_destructor		PROTO((char *));
-
-/* Likewise for global constructors.  */
-extern void assemble_constructor	PROTO((char *));
-
-/* Likewise for entries we want to record for garbage collection.
-   Garbage collection is still under development.  */
-extern void assemble_gc_entry		PROTO((char *));
-
 /* Output assembler code for the constant pool of a function and associated
    with defining the name of the function.  DECL describes the function.
    NAME is the function's name.  For the constant pool, we use the current
@@ -252,16 +253,8 @@ extern void assemble_start_function	PROTO((tree, char *));
 
 /* Output assembler code associated with defining the size of the
    function.  DECL describes the function.  NAME is the function's name.  */
-extern void assemble_end_function	PROTO((tree, char *));
+extern void assemble_end_function	PROTO((tree, const char *));
 
-/* Assemble code to leave SIZE bytes of zeros.  */
-extern void assemble_zeros		PROTO((int));
-
-/* Assemble an alignment pseudo op for an ALIGN-bit boundary.  */
-extern void assemble_align		PROTO((int));
-
-/* Assemble a string constant with the specified C string as contents.  */
-extern void assemble_string		PROTO((const char *, int));
 /* Assemble everything that is needed for a variable or function declaration.
    Not used for automatic variables, and not used for function definitions.
    Should not be called for variables of incomplete structure type.
@@ -279,16 +272,40 @@ extern void assemble_variable		PROTO((tree, int, int, int));
 extern void assemble_external		PROTO((tree));
 #endif /* TREE_CODE */
 
+/* Record an element in the table of global destructors.
+   How this is done depends on what sort of assembler and linker
+   are in use.
+
+   NAME should be the name of a global function to be called
+   at exit time.  This name is output using assemble_name.  */
+extern void assemble_destructor		PROTO((const char *));
+
+/* Likewise for global constructors.  */
+extern void assemble_constructor	PROTO((const char *));
+
+/* Likewise for entries we want to record for garbage collection.
+   Garbage collection is still under development.  */
+extern void assemble_gc_entry		PROTO((const char *));
+
+/* Assemble code to leave SIZE bytes of zeros.  */
+extern void assemble_zeros		PROTO((int));
+
+/* Assemble an alignment pseudo op for an ALIGN-bit boundary.  */
+extern void assemble_align		PROTO((int));
+
+/* Assemble a string constant with the specified C string as contents.  */
+extern void assemble_string		PROTO((const char *, int));
+
 #ifdef RTX_CODE
 /* Similar, for calling a library function FUN.  */
 extern void assemble_external_libcall	PROTO((rtx));
 #endif
 
 /* Declare the label NAME global.  */
-extern void assemble_global		PROTO((char *));
+extern void assemble_global		PROTO((const char *));
 
 /* Assemble a label named NAME.  */
-extern void assemble_label		PROTO((char *));
+extern void assemble_label		PROTO((const char *));
 
 /* Output to FILE a reference to the assembler name of a C-level name NAME.
    If NAME starts with a *, the rest of NAME is output verbatim.
@@ -333,7 +350,18 @@ extern rtx peephole			PROTO((rtx));
 
 #ifdef TREE_CODE
 /* Write all the constants in the constant pool.  */
-extern void output_constant_pool	PROTO((char *, tree));
+extern void output_constant_pool	PROTO((const char *, tree));
+
+/* Return nonzero if VALUE is a valid constant-valued expression
+   for use in initializing a static variable; one that can be an
+   element of a "constant" initializer.
+
+   Return null_pointer_node if the value is absolute;
+   if it is relocatable, return the variable that determines the relocation.
+   We assume that VALUE has been folded as much as possible;
+   therefore, we do not need to check for such things as
+   arithmetic-combinations of integers.  */
+extern tree initializer_constant_valid_p	PROTO((tree, tree));
 
 /* Output assembler code for constant EXP to FILE, with no label.
    This includes the pseudo-op such as ".int" or ".byte", and a newline.

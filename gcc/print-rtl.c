@@ -146,8 +146,12 @@ print_rtx (in_rtx)
 	if (XSTR (in_rtx, i) == 0)
 	  fputs (dump_for_graph ? " \\\"\\\"" : " \"\"", outfile);
 	else
-	  fprintf (outfile, dump_for_graph ? " (\\\"%s\\\")" : " (\"%s\")",
-		   XSTR (in_rtx, i));
+	  {
+	    if (dump_for_graph)
+	      fprintf (outfile, " (\\\"%s\\\")", XSTR (in_rtx, i));
+	    else
+	      fprintf (outfile, " (\"%s\")", XSTR (in_rtx, i));
+	  }
 	sawclose = 1;
 	break;
 
@@ -188,13 +192,16 @@ print_rtx (in_rtx)
 	      }
 	    else
 	      {
-		char *str = X0STR (in_rtx, i);
+		const char * const str = X0STR (in_rtx, i);
 		if (str == 0)
 		  fputs (dump_for_graph ? " \\\"\\\"" : " \"\"", outfile);
 		else
-		  fprintf (outfile,
-			   dump_for_graph ? " (\\\"%s\\\")" : " (\"%s\")",
-			   str);
+		  {
+		    if (dump_for_graph)
+		      fprintf (outfile, " (\\\"%s\\\")", str);
+		    else
+		      fprintf (outfile, " (\"%s\")", str);
+		  }
 	      }
 	  }
 	break;
@@ -354,7 +361,11 @@ print_rtx (in_rtx)
 #endif
 
   if (GET_CODE (in_rtx) == CODE_LABEL)
-    fprintf (outfile, " [num uses: %d]", LABEL_NUSES (in_rtx));
+    {
+      fprintf (outfile, " [num uses: %d]", LABEL_NUSES (in_rtx));
+      if (LABEL_ALTERNATE_NAME (in_rtx))
+        fprintf (outfile, " [alternate name: %s]", LABEL_ALTERNATE_NAME (in_rtx));
+    }
   
   if (dump_for_graph
       && (is_insn || GET_CODE (in_rtx) == NOTE

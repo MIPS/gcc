@@ -917,7 +917,7 @@ _Name(const _Expr<_Dom,typename _Dom::value_type>& __e)                 \
 {                                                                       \
     typedef typename _Dom::value_type _Tp;                              \
     typedef _UnFunClos<_Expr,_Dom> _Closure;                            \
-    return _Expr<_Closure,_Tp> (_Closure (__e, (_Tp(*)(_Tp))(&_Name))); \
+    return _Expr<_Closure,_Tp>(_Closure(__e(), (_Tp(*)(_Tp))(&_Name))); \
 }                                                                       \
                                                                         \
 template<typename _Tp>                                                  \
@@ -936,7 +936,8 @@ _Name(const valarray<_Tp>& __v)                                         \
     _DEFINE_EXPR_UNARY_FUNCTION(sin)
     _DEFINE_EXPR_UNARY_FUNCTION(asin)
     _DEFINE_EXPR_UNARY_FUNCTION(sinh)    
-    _DEFINE_EXPR_UNARY_FUNCTION(tan)    
+    _DEFINE_EXPR_UNARY_FUNCTION(tan)
+    _DEFINE_EXPR_UNARY_FUNCTION(tanh)
     _DEFINE_EXPR_UNARY_FUNCTION(atan)
     _DEFINE_EXPR_UNARY_FUNCTION(exp)    
     _DEFINE_EXPR_UNARY_FUNCTION(log)

@@ -1,5 +1,5 @@
 /* Dummy data flow analysis for GNU compiler in nonoptimizing mode.
-   Copyright (C) 1987, 91, 94-96, 1998, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1987, 91, 94-96, 98, 99, 2000 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -54,6 +54,7 @@ Boston, MA 02111-1307, USA.  */
 #include "reload.h"
 #include "flags.h"
 #include "toplev.h"
+#include "tm_p.h"
 
 /* Vector mapping INSN_UIDs to suids.
    The suids are like uids but increase monotonically always.
@@ -128,18 +129,20 @@ static int stupid_reg_compare	PROTO((const PTR,const PTR));
 static int stupid_find_reg	PROTO((int, enum reg_class, enum machine_mode,
 				       int, int, int));
 static void stupid_mark_refs	PROTO((rtx, struct insn_chain *));
-static void find_clobbered_regs	PROTO((rtx, rtx));
+static void find_clobbered_regs	PROTO((rtx, rtx, void *));
+static void mark_hard_ref	PROTO((rtx, int, struct insn_chain *));
 
 /* For communication between stupid_life_analysis and find_clobbered_regs.  */
 static struct insn_chain *current_chain;
 
 /* This function, called via note_stores, marks any hard registers that are
-   clobbered in an insn as being live in the live_after and live_before fields
+   clobbered in an insn as being live in the live_throughout field
    of the appropriate insn_chain structure.  */
 
 static void
-find_clobbered_regs (reg, setter)
+find_clobbered_regs (reg, setter, data)
      rtx reg, setter;
+     void *data ATTRIBUTE_UNUSED;
 {
   int regno, nregs;
   if (setter == 0 || GET_CODE (setter) != CLOBBER)
@@ -160,8 +163,7 @@ find_clobbered_regs (reg, setter)
     nregs = HARD_REGNO_NREGS (regno, GET_MODE (reg));
   while (nregs-- > 0)
     {
-      SET_REGNO_REG_SET (current_chain->live_after, regno);
-      SET_REGNO_REG_SET (current_chain->live_before, regno++);
+      SET_REGNO_REG_SET (&current_chain->live_throughout, regno++);
     }
 }
 
@@ -263,7 +265,7 @@ stupid_life_analysis (f, nregs, file)
   for (insn = last; insn; insn = PREV_INSN (insn))
     {
       register HARD_REG_SET *p = after_insn_hard_regs + INSN_SUID (insn);
-      struct insn_chain *chain;
+      struct insn_chain *chain = 0;
 
       /* Copy the info in regs_live into the element of after_insn_hard_regs
 	 for the current position in the rtl code.  */
@@ -284,7 +286,7 @@ stupid_life_analysis (f, nregs, file)
 	  chain->insn = insn;
 	  for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
 	    if (regs_live[i])
-	      SET_REGNO_REG_SET (chain->live_before, i);
+	      SET_REGNO_REG_SET (&chain->live_throughout, i);
 	}
 
       /* Update which hard regs are currently live
@@ -335,16 +337,12 @@ stupid_life_analysis (f, nregs, file)
 
       if (GET_CODE (insn) != NOTE && GET_CODE (insn) != BARRIER)
 	{	  
-	  for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
-	    if (regs_live[i])
-	      SET_REGNO_REG_SET (chain->live_after, i);
-
 	  /* The regs_live array doesn't say anything about hard registers
 	     clobbered by this insn.  So we need an extra pass over the
 	     pattern.  */
 	  current_chain = chain;
 	  if (GET_RTX_CLASS (GET_CODE (insn)) == 'i')
-	    note_stores (PATTERN (insn), find_clobbered_regs);
+	    note_stores (PATTERN (insn), find_clobbered_regs, NULL);
 	}
 
       if (GET_CODE (insn) == JUMP_INSN && computed_jump_p (insn))
@@ -406,21 +404,14 @@ stupid_life_analysis (f, nregs, file)
 	continue;
 
       chain = reg_where_dead_chain[i];
-      if (reg_where_dead[i] > INSN_SUID (chain->insn))
-	SET_REGNO_REG_SET (chain->live_after, i);
+      SET_REGNO_REG_SET (&chain->dead_or_set, i);
 
-      while (INSN_SUID (chain->insn) > reg_where_born_exact[i])
-	{
-	  SET_REGNO_REG_SET (chain->live_before, i);
-	  chain = chain->prev;
-	  if (!chain)
-	    break;
-	  SET_REGNO_REG_SET (chain->live_after, i);
-	}
+      while ((chain = chain->prev)
+	     && INSN_SUID (chain->insn) > reg_where_born_exact[i])
+	SET_REGNO_REG_SET (&chain->live_throughout, i);
 
-      if (INSN_SUID (chain->insn) == reg_where_born_exact[i]
-	  && reg_where_born_clobber[i])
-	SET_REGNO_REG_SET (chain->live_before, i);
+      if (chain)
+	SET_REGNO_REG_SET (&chain->dead_or_set, i);
     }
 
   if (file)
@@ -446,7 +437,7 @@ stupid_reg_compare (r1p, r2p)
      const PTR r1p;
      const PTR r2p;
 {
-  register int r1 = *(int *)r1p, r2 = *(int *)r2p;
+  register int r1 = *(const int *)r1p, r2 = *(const int *)r2p;
   register int len1 = reg_where_dead[r1] - REG_WHERE_BORN (r1);
   register int len2 = reg_where_dead[r2] - REG_WHERE_BORN (r2);
   int tem;
@@ -541,15 +532,6 @@ stupid_find_reg (call_preserved, class, mode,
       int regno = i;
 #endif
 
-      /* If a register has screwy overlap problems,
-	 don't use it at all if not optimizing.
-	 Actually this is only for the 387 stack register,
-	 and it's because subsequent code won't work.  */
-#ifdef OVERLAPPING_REGNO_P
-      if (OVERLAPPING_REGNO_P (regno))
-	continue;
-#endif
-
       if (! TEST_HARD_REG_BIT (used, regno)
 	  && HARD_REGNO_MODE_OK (regno, mode))
 	{
@@ -576,6 +558,32 @@ stupid_find_reg (call_preserved, class, mode,
   return -1;
 }
 
+/* Note that REG is being set or referenced, and add the appropriate
+   REG_DEAD / REG_UNUSED note(s).  For sets, LIVE_BEFORE_P will be 0,
+   while for references, LIVE_BEFORE_P will be 1.
+   INSN is the instruction that the reg notes have to be added to.  */
+static void
+mark_hard_ref (reg, live_before_p, chain)
+     rtx reg;
+     int live_before_p;
+     struct insn_chain *chain;
+{
+  /* Hard reg: mark it live for continuing scan of previous insns.  */
+  int regno = REGNO (reg);
+  char *live = regs_live;
+  register int j;
+  int nregs = HARD_REGNO_NREGS (regno, GET_MODE (reg));
+
+  for (j = nregs - 1; j >= 0; j--)
+    {
+      if (! fixed_regs[regno+j]
+	  && (! live_before_p || ! live[regno+j]))
+	SET_REGNO_REG_SET (&chain->dead_or_set, regno+j);
+      regs_ever_live[regno+j] = 1;
+      live[regno+j] = live_before_p;
+    }
+}
+
 /* Walk X, noting all assignments and references to registers
    and recording what they imply about life spans.
    INSN is the current insn, supplied so we can find its suid.  */
@@ -605,11 +613,13 @@ stupid_mark_refs (x, chain)
 		      >= FIRST_PSEUDO_REGISTER))))
 	{
 	  /* Register is being assigned.  */
+	  rtx reg = SET_DEST (x);
+
 	  /* If setting a SUBREG, we treat the entire reg as being set.  */
 	  if (GET_CODE (SET_DEST (x)) == SUBREG)
-	    regno = REGNO (SUBREG_REG (SET_DEST (x)));
-	  else
-	    regno = REGNO (SET_DEST (x));
+	    reg = SUBREG_REG (reg);
+
+	  regno = REGNO (reg);
 
 	  /* For hard regs, update the where-live info.  */
 	  if (regno < FIRST_PSEUDO_REGISTER)
@@ -617,14 +627,15 @@ stupid_mark_refs (x, chain)
 	      register int j
 		= HARD_REGNO_NREGS (regno, GET_MODE (SET_DEST (x)));
 
+	      mark_hard_ref (reg, 0, chain);
+
 	      while (--j >= 0)
 		{
-		  regs_ever_live[regno+j] = 1;
-		  regs_live[regno+j] = 0;
-
 		  /* The following line is for unused outputs;
 		     they do get stored even though never used again.  */
 		  MARK_LIVE_AFTER (insn, regno+j);
+
+		  CLEAR_REGNO_REG_SET (&chain->live_throughout, regno + j);
 
 		  /* When a hard reg is clobbered, mark it in use
 		     just before this insn, so it is live all through.  */
@@ -714,15 +725,8 @@ stupid_mark_refs (x, chain)
     {
       regno = REGNO (x);
       if (regno < FIRST_PSEUDO_REGISTER)
-	{
-	  /* Hard reg: mark it live for continuing scan of previous insns.  */
-	  register int j = HARD_REGNO_NREGS (regno, GET_MODE (x));
-	  while (--j >= 0)
-	    {
-	      regs_ever_live[regno+j] = 1;
-	      regs_live[regno+j] = 1;
-	    }
-	}
+	/* Hard reg: mark it live for continuing scan of previous insns.  */
+	mark_hard_ref (x, 1, chain);
       else
 	{
 	  /* Pseudo reg: record first use, last use and number of uses.  */
@@ -747,7 +751,7 @@ stupid_mark_refs (x, chain)
     {
       if (fmt[i] == 'e')
 	stupid_mark_refs (XEXP (x, i), chain);
-      if (fmt[i] == 'E')
+      else if (fmt[i] == 'E')
 	{
 	  register int j;
 	  for (j = XVECLEN (x, i) - 1; j >= 0; j--)

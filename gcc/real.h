@@ -1,5 +1,5 @@
 /* Definitions of floating-point access for GNU compiler.
-   Copyright (C) 1989, 91, 94, 96-98, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1989, 91, 94, 96-99, 2000 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -357,7 +357,7 @@ extern double ldexp ();
 #ifndef REAL_VALUE_ATOF
 #if 1
 /* Use real.c to convert decimal numbers to binary, ... */
-REAL_VALUE_TYPE ereal_atof ();
+extern REAL_VALUE_TYPE ereal_atof PROTO((const char *, enum machine_mode));
 #define REAL_VALUE_ATOF(x, s) ereal_atof (x, s)
 /* Could use ereal_atof here for hexadecimal floats too, but real_hex_to_f
    is OK and it uses faster native fp arithmetic.  */

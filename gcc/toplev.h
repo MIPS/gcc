@@ -51,7 +51,7 @@ extern void _fatal_insn			PROTO ((const char *,
 						const char *))
   ATTRIBUTE_NORETURN;
 
-#if HAVE_GCC_VERSION(2,7)
+#if (GCC_VERSION >= 2007)
 #define fatal_insn(msgid, insn) \
 	_fatal_insn (msgid, insn, __FILE__, __LINE__, __PRETTY_FUNCTION__)
 #define fatal_insn_not_found(insn) \
@@ -127,6 +127,8 @@ extern void fnotice			PROTO ((FILE *, const char *, ...))
 
 extern int wrapup_global_declarations   PROTO ((union tree_node **, int));
 extern void check_global_declarations   PROTO ((union tree_node **, int));
+extern void note_deferral_of_defined_inline_function PROTO ((union tree_node *));
+extern void set_message_length		PROTO ((int));
 extern int errorcount;
 extern int warningcount;
 extern int sorrycount;

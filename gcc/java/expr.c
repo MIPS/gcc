@@ -386,6 +386,10 @@ can_widen_reference_to (source_type, target_type)
 	  int source_depth = class_depth (source_type);
 	  int target_depth = class_depth (target_type);
 
+	  /* class_depth can return a negative depth if an error occurred */
+	  if (source_depth < 0 || target_depth < 0)
+	    return 0;
+
 	  if (CLASS_INTERFACE (TYPE_NAME (target_type)))
 	    {
 	      /* target_type is OK if source_type or source_type ancestors
@@ -523,7 +527,8 @@ java_stack_dup (size, offset)
     }
 }
 
-/* Calls _Jv_Throw.  Discard the contents of the value stack. */
+/* Calls _Jv_Throw or _Jv_Sjlj_Throw.  Discard the contents of the
+   value stack. */
 
 static void
 build_java_athrow (node)
@@ -533,7 +538,7 @@ build_java_athrow (node)
 
   call = build (CALL_EXPR,
 		void_type_node,
-		build_address_of (throw_node),
+		build_address_of (throw_node[exceptions_via_longjmp ? 1 : 0]),
 		build_tree_list (NULL_TREE, node),
 		NULL_TREE);
   TREE_SIDE_EFFECTS (call) = 1;
@@ -874,8 +879,7 @@ expand_java_arraystore (rhs_type_node)
   index = save_expr (index);
   array = save_expr (array);
 
-  if (TREE_CODE (rhs_type_node) == POINTER_TYPE
-      && !CLASS_FINAL (TYPE_NAME (TREE_TYPE (rhs_type_node))))
+  if (TREE_CODE (rhs_type_node) == POINTER_TYPE)
     {
       tree check = build (CALL_EXPR, void_type_node,
 			  build_address_of (soft_checkarraystore_node),
@@ -1006,7 +1010,7 @@ expand_java_NEW (type)
 {
   if (! CLASS_LOADED_P (type))
     load_class (type, 1);
-  layout_class_methods (type);
+  safe_layout_class (type);
   push_value (build (CALL_EXPR, promote_type (type),
 		     build_address_of (alloc_object_node),
 		     tree_cons (NULL_TREE, build_class_ref (type),
@@ -1226,6 +1230,7 @@ lookup_field (typep, name)
   if (CLASS_P (*typep) && !CLASS_LOADED_P (*typep))
     {
       load_class (*typep, 1);
+      safe_layout_class (*typep);
       if (!TYPE_SIZE (*typep) || TREE_CODE (TYPE_SIZE (*typep)) == ERROR_MARK)
 	return error_mark_node;
     }
@@ -1641,6 +1646,7 @@ expand_invoke (opcode, method_ref_index, nargs)
   if (! CLASS_LOADED_P (self_type))
     {
       load_class (self_type, 1);
+      safe_layout_class (self_type);
       if (TREE_CODE (TYPE_SIZE (self_type)) == ERROR_MARK)
 	fatal ("failed to find class '%s'", self_name);
     }
@@ -1812,9 +1818,10 @@ expand_java_field_op (is_static, is_putting, field_ref_index)
 	    }
 	  else
 	    {
-	      if (! DECL_CONSTRUCTOR_P (current_function_decl))
-		error_with_decl (field_decl, "assignment to final field `%s' "
-				 "not in constructor");
+	      tree cfndecl_name = DECL_NAME (current_function_decl);
+	      if (! DECL_CONSTRUCTOR_P (current_function_decl)
+		  && (cfndecl_name != finit_identifier_node))
+		error_with_decl (field_decl, "assignment to final field `%s' not in constructor");
 	    }
 	}
       expand_assignment (field_ref, new_value, 0, 0);
@@ -1937,8 +1944,10 @@ java_lang_expand_expr (exp, target, tmode, modifier)
 	if (TREE_CONSTANT (init)
 	    && ilength >= 10 && JPRIMITIVE_TYPE_P (element_type))
 	  {
-	    tree init_decl = build_decl (VAR_DECL, generate_name (),
-					 TREE_TYPE (init));
+	    tree init_decl;
+	    push_obstacks (&permanent_obstack, &permanent_obstack);
+	    init_decl = build_decl (VAR_DECL, generate_name (),
+				    TREE_TYPE (init));
 	    pushdecl_top_level (init_decl);
 	    TREE_STATIC (init_decl) = 1;
 	    DECL_INITIAL (init_decl) = init;
@@ -1946,6 +1955,7 @@ java_lang_expand_expr (exp, target, tmode, modifier)
 	    TREE_READONLY (init_decl) = 1;
 	    TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (init_decl)) = 1;
 	    make_decl_rtl (init_decl, NULL, 1);
+	    pop_obstacks ();
 	    init = init_decl;
 	  }
 	expand_assignment (build (COMPONENT_REF, TREE_TYPE (data_fld),
@@ -2014,9 +2024,13 @@ java_lang_expand_expr (exp, target, tmode, modifier)
       /* We expand a try[-catch] block */
 
       /* Expand the try block */
+      push_obstacks (&permanent_obstack, &permanent_obstack);
       expand_eh_region_start ();
+      pop_obstacks ();
       expand_expr_stmt (TREE_OPERAND (exp, 0));
+      push_obstacks (&permanent_obstack, &permanent_obstack);
       expand_start_all_catch ();
+      pop_obstacks ();
 
       /* Expand all catch clauses (EH handlers) */
       for (current = TREE_OPERAND (exp, 1); current; 

@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler for IA-32.
-   Copyright (C) 1988, 92, 94-98, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1988, 92, 94-99, 2000 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -62,6 +62,17 @@ struct processor_costs {
   int mult_bit;			/* cost of multiply per each bit set */
   int divide;			/* cost of a divide/mod */
   int large_insn;		/* insns larger than this cost more */
+  int movzbl_load;		/* cost of loading using movzbl */
+  int int_load[3];		/* cost of loading integer registers
+				   in QImode, HImode and SImode relative
+				   to reg-reg move (2).  */
+  int int_store[3];		/* cost of storing integer register
+				   in QImode, HImode and SImode */
+  int fp_move;			/* cost of reg,reg fld/fst */
+  int fp_load[3];		/* cost of loading FP register
+				   in SFmode, DFmode and XFmode */
+  int fp_store[3];		/* cost of storing FP register
+				   in SFmode, DFmode and XFmode */
 };
 
 extern struct processor_costs *ix86_cost;
@@ -140,6 +151,7 @@ extern int target_flags;
 #define TARGET_PENTIUM (ix86_cpu == PROCESSOR_PENTIUM)
 #define TARGET_PENTIUMPRO (ix86_cpu == PROCESSOR_PENTIUMPRO)
 #define TARGET_K6 (ix86_cpu == PROCESSOR_K6)
+#define TARGET_ATHLON (ix86_cpu == PROCESSOR_ATHLON)
 
 #define CPUMASK (1 << ix86_cpu)
 extern const int x86_use_leave, x86_push_memory, x86_zero_extend_with_and;
@@ -149,6 +161,7 @@ extern const int x86_double_with_add, x86_partial_reg_stall, x86_movx;
 extern const int x86_use_loop, x86_use_fiop, x86_use_mov0;
 extern const int x86_use_cltd, x86_read_modify_write;
 extern const int x86_read_modify, x86_split_long_moves;
+extern const int x86_promote_QImode, x86_single_stringop;
 
 #define TARGET_USE_LEAVE (x86_use_leave & CPUMASK)
 #define TARGET_PUSH_MEMORY (x86_push_memory & CPUMASK)
@@ -170,6 +183,8 @@ extern const int x86_read_modify, x86_split_long_moves;
 #define TARGET_SPLIT_LONG_MOVES (x86_split_long_moves & CPUMASK)
 #define TARGET_READ_MODIFY_WRITE (x86_read_modify_write & CPUMASK)
 #define TARGET_READ_MODIFY (x86_read_modify & CPUMASK)
+#define TARGET_PROMOTE_QImode (x86_promote_QImode & CPUMASK)
+#define TARGET_SINGLE_STRINGOP (x86_single_stringop & CPUMASK)
 
 #define TARGET_STACK_PROBE (target_flags & MASK_STACK_PROBE)
 
@@ -234,6 +249,7 @@ enum processor_type
   PROCESSOR_PENTIUM,
   PROCESSOR_PENTIUMPRO,
   PROCESSOR_K6,
+  PROCESSOR_ATHLON,
   PROCESSOR_max
 };
 
@@ -315,6 +331,9 @@ extern int ix86_arch;
 #if TARGET_CPU_DEFAULT == 4
 #define CPP_CPU_DEFAULT_SPEC "-D__tune_k6__"
 #endif
+#if TARGET_CPU_DEFAULT == 5
+#define CPP_CPU_DEFAULT_SPEC "-D__tune_athlon__"
+#endif
 #ifndef CPP_CPU_DEFAULT_SPEC
 #define CPP_CPU_DEFAULT_SPEC "-D__tune_i386__"
 #endif
@@ -331,11 +350,13 @@ extern int ix86_arch;
 %{march=pentiumpro|march=i686:-D__pentiumpro -D__pentiumpro__ \
   %{!mcpu*:-D__tune_pentiumpro__ }}\
 %{march=k6:-D__k6 -D__k6__ %{!mcpu*:-D__tune_k6__ }}\
+%{march=athlon:-D__athlon -D__athlon__ %{!mcpu*:-D__tune_athlon__ }}\
 %{m386|mcpu=i386:-D__tune_i386__ }\
 %{m486|mcpu=i486:-D__tune_i486__ }\
 %{mpentium|mcpu=pentium|mcpu=i586:-D__tune_pentium__ }\
 %{mpentiumpro|mcpu=pentiumpro|mcpu=i686:-D__tune_pentiumpro__ }\
 %{mcpu=k6:-D__tune_k6__ }\
+%{mcpu=athlon:-D__tune_athlon__ }\
 %{!march*:%{!mcpu*:%{!m386:%{!m486:%{!mpentium*:%(cpp_cpu_default)}}}}}"
 #endif
 
@@ -590,14 +611,19 @@ extern int ix86_arch;
    eliminated during reloading in favor of either the stack or frame
    pointer. */
 
-#define FIRST_PSEUDO_REGISTER 19
+#define FIRST_PSEUDO_REGISTER 20
+
+/* Number of hardware registers that go into the DWARF-2 unwind info.
+   If not defined, equals FIRST_PSEUDO_REGISTER.  */
+
+#define DWARF_FRAME_REGISTERS 17
 
 /* 1 for registers that have pervasive standard uses
    and are not available for the register allocator.
    On the 80386, the stack pointer is such, as is the arg pointer. */
 #define FIXED_REGISTERS \
-/*ax,dx,cx,bx,si,di,bp,sp,st,st1,st2,st3,st4,st5,st6,st7,arg,flags,fpsr*/ \
-{  0, 0, 0, 0, 0, 0, 0, 1, 0,  0,  0,  0,  0,  0,  0,  0,  1,    0,   0 }
+/*ax,dx,cx,bx,si,di,bp,sp,st,st1,st2,st3,st4,st5,st6,st7,arg,flags,fpsr, dir*/ \
+{  0, 0, 0, 0, 0, 0, 0, 1, 0,  0,  0,  0,  0,  0,  0,  0,  1,    0,   0,   0 }
 
 /* 1 for registers not available across function calls.
    These must include the FIXED_REGISTERS and also any
@@ -607,8 +633,8 @@ extern int ix86_arch;
    Aside from that, you can include as many other registers as you like.  */
 
 #define CALL_USED_REGISTERS \
-/*ax,dx,cx,bx,si,di,bp,sp,st,st1,st2,st3,st4,st5,st6,st7,arg,flags,fpsr*/ \
-{  1, 1, 1, 0, 0, 0, 0, 1, 1,  1,  1,  1,  1,  1,  1,  1,  1,    1,   1 }
+/*ax,dx,cx,bx,si,di,bp,sp,st,st1,st2,st3,st4,st5,st6,st7,arg,flags,fpsr, dir*/ \
+{  1, 1, 1, 0, 0, 0, 0, 1, 1,  1,  1,  1,  1,  1,  1,  1,  1,    1,   1,   1 }
 
 /* Order in which to allocate registers.  Each register must be
    listed once, even those in FIXED_REGISTERS.  List frame pointer
@@ -630,8 +656,8 @@ extern int ix86_arch;
    generated by allocating edx first, so restore the 'natural' order of things. */
 
 #define REG_ALLOC_ORDER \
-/*ax,dx,cx,bx,si,di,bp,sp,st,st1,st2,st3,st4,st5,st6,st7,arg,cc,fpsr*/ \
-{  0, 1, 2, 3, 4, 5, 6, 7, 8,  9, 10, 11, 12, 13, 14, 15, 16,17,  18 }
+/*ax,dx,cx,bx,si,di,bp,sp,st,st1,st2,st3,st4,st5,st6,st7,arg,cc,fpsr, dir*/ \
+{  0, 1, 2, 3, 4, 5, 6, 7, 8,  9, 10, 11, 12, 13, 14, 15, 16,17,  18,  19 }
 
 /* A C statement (sans semicolon) to choose the order in which to
    allocate hard registers for pseudo-registers local to a basic
@@ -694,13 +720,11 @@ extern int ix86_arch;
    ? ((GET_MODE_CLASS (MODE) == MODE_FLOAT			\
        || GET_MODE_CLASS (MODE) == MODE_COMPLEX_FLOAT)		\
       && GET_MODE_UNIT_SIZE (MODE) <= (LONG_DOUBLE_TYPE_SIZE == 96 ? 12 : 8))\
-   /* Only allow DImode in even registers.  */			\
-   : (MODE) == DImode && ((REGNO) & 1) ? 0			\
-   /* The first four integer regs can hold any mode.  */	\
    : (REGNO) < 4 ? 1						\
    /* Other regs cannot do byte accesses.  */			\
    : (MODE) != QImode ? 1					\
-   : reload_in_progress || reload_completed)
+   : reload_in_progress || reload_completed			\
+     || !TARGET_PARTIAL_REG_STALL)
 
 /* Value is 1 if it is a good idea to tie two pseudo registers
    when one has mode MODE1 and one has mode MODE2.
@@ -741,6 +765,7 @@ extern int ix86_arch;
 
 #define FLAGS_REG 17
 #define FPSR_REG 18
+#define DIRFLAG_REG 19
 
 /* Value should be nonzero if functions must have frame pointers.
    Zero means the frame pointer need not be set up (and parms
@@ -825,12 +850,15 @@ enum reg_class
   GENERAL_REGS,			/* %eax %ebx %ecx %edx %esi %edi %ebp %esp */
   FP_TOP_REG, FP_SECOND_REG,	/* %st(0) %st(1) */
   FLOAT_REGS,
+  FLOAT_INT_REGS,		/* FLOAT_REGS and GENERAL_REGS.  */
   ALL_REGS, LIM_REG_CLASSES
 };
 
 #define N_REG_CLASSES (int) LIM_REG_CLASSES
 
 #define FLOAT_CLASS_P(CLASS) (reg_class_subset_p (CLASS, FLOAT_REGS))
+
+#define Q_CLASS_P(CLASS) (reg_class_subset_p (CLASS, Q_REGS))
 
 /* Give names of register classes as strings for dump file.   */
 
@@ -844,6 +872,7 @@ enum reg_class
    "GENERAL_REGS",			\
    "FP_TOP_REG", "FP_SECOND_REG",	\
    "FLOAT_REGS",			\
+   "FLOAT_INT_REGS",			\
    "ALL_REGS" }
 
 /* Define which registers fit in which classes.
@@ -861,6 +890,7 @@ enum reg_class
  {0x100ff},			/* GENERAL_REGS */		\
   {0x0100}, {0x0200},		/* FP_TOP_REG, FP_SECOND_REG */	\
   {0xff00},			/* FLOAT_REGS */		\
+  {0x1ffff},			/* FLOAT_INT_REGS */		\
  {0x7ffff}							\
 }
 
@@ -895,11 +925,6 @@ enum reg_class
 
 #define CC_REG_P(X) (REG_P (X) && CC_REGNO_P (REGNO (X)))
 #define CC_REGNO_P(X) ((X) == FLAGS_REG || (X) == FPSR_REG)
-
-/* 1 if register REGNO can magically overlap other regs.
-   Note that nonzero values work only in very special circumstances. */
-
-/* #define OVERLAPPING_REGNO_P(REGNO) FP_REGNO_P (REGNO) */
 
 /* The class value for index registers, and the one for base regs.  */
 
@@ -981,11 +1006,11 @@ enum reg_class
 #define PREFERRED_RELOAD_CLASS(X,CLASS)					\
   (GET_CODE (X) == CONST_DOUBLE && GET_MODE (X) != VOIDmode		\
    ? (standard_80387_constant_p (X)					\
-      ? reg_class_subset_p (CLASS, FLOAT_REGS) ? CLASS : FLOAT_REGS	\
-      : NO_REGS)							\
+      ? CLASS								\
+      : (reg_class_subset_p (CLASS, FLOAT_REGS) 			\
+	 ? NO_REGS							\
+	 : reg_class_subset_p (CLASS, GENERAL_REGS) ? CLASS : GENERAL_REGS)) \
    : GET_MODE (X) == QImode && ! reg_class_subset_p (CLASS, Q_REGS) ? Q_REGS \
-   : ((CLASS) == ALL_REGS						\
-      && GET_MODE_CLASS (GET_MODE (X)) == MODE_FLOAT) ? GENERAL_REGS	\
    : (CLASS))
 
 /* If we are copying between general and FP registers, we need a memory
@@ -1044,6 +1069,7 @@ enum reg_class
   do {									      \
     (CLOBBERS) = tree_cons (NULL_TREE, build_string (5, "flags"), (CLOBBERS));\
     (CLOBBERS) = tree_cons (NULL_TREE, build_string (4, "fpsr"), (CLOBBERS)); \
+    (CLOBBERS) = tree_cons (NULL_TREE, build_string (7, "dirflag"), (CLOBBERS)); \
   } while (0)
 
 /* Stack layout; function entry, exit and calling.  */
@@ -1502,8 +1528,7 @@ do {								\
 /* Nonzero if the constant value X is a legitimate general operand.
    It is given that X satisfies CONSTANT_P or is a CONST_DOUBLE.  */
 
-#define LEGITIMATE_CONSTANT_P(X) \
-  (GET_CODE (X) == CONST_DOUBLE ? standard_80387_constant_p (X) : 1)
+#define LEGITIMATE_CONSTANT_P(X) 1
 
 #ifdef REG_OK_STRICT
 #define GO_IF_LEGITIMATE_ADDRESS(MODE, X, ADDR)				\
@@ -1578,27 +1603,30 @@ do {								\
    On i386, if using PIC, mark a SYMBOL_REF for a non-global symbol
    so that we may access it directly in the GOT.  */
 
-#define ENCODE_SECTION_INFO(DECL) \
-do									\
-  {									\
-    if (flag_pic)							\
-      {									\
-	rtx rtl = (TREE_CODE_CLASS (TREE_CODE (DECL)) != 'd'		\
-		   ? TREE_CST_RTL (DECL) : DECL_RTL (DECL));		\
-									\
-	if (TARGET_DEBUG_ADDR						\
-	    && TREE_CODE_CLASS (TREE_CODE (DECL)) == 'd')		\
-	  {								\
-	    fprintf (stderr, "Encode %s, public = %d\n",		\
-		     IDENTIFIER_POINTER (DECL_NAME (DECL)),		\
-		     TREE_PUBLIC (DECL));				\
-	  }								\
-									\
-	SYMBOL_REF_FLAG (XEXP (rtl, 0))					\
-	  = (TREE_CODE_CLASS (TREE_CODE (DECL)) != 'd'			\
-	     || ! TREE_PUBLIC (DECL));					\
-      }									\
-  }									\
+#define ENCODE_SECTION_INFO(DECL)				\
+do								\
+  {								\
+    if (flag_pic)						\
+      {								\
+	rtx rtl = (TREE_CODE_CLASS (TREE_CODE (DECL)) != 'd'	\
+		   ? TREE_CST_RTL (DECL) : DECL_RTL (DECL));	\
+								\
+	if (GET_CODE (rtl) == MEM)				\
+	  {							\
+	    if (TARGET_DEBUG_ADDR				\
+		&& TREE_CODE_CLASS (TREE_CODE (DECL)) == 'd')	\
+	      {							\
+		fprintf (stderr, "Encode %s, public = %d\n",	\
+			 IDENTIFIER_POINTER (DECL_NAME (DECL)),	\
+			 TREE_PUBLIC (DECL));			\
+	      }							\
+	    							\
+	    SYMBOL_REF_FLAG (XEXP (rtl, 0))			\
+	      = (TREE_CODE_CLASS (TREE_CODE (DECL)) != 'd'	\
+		 || ! TREE_PUBLIC (DECL));			\
+	  }							\
+      }								\
+  }								\
 while (0)
 
 /* The `FINALIZE_PIC' macro serves as a hook to emit these special
@@ -1953,22 +1981,28 @@ while (0)
    : REG_P (RTX) ? 1						\
    : 2)
 
-/* A C expression for the cost of moving data of mode M between a
-   register and memory.  A value of 2 is the default; this cost is
-   relative to those in `REGISTER_MOVE_COST'.
+/* A C expression for the cost of moving data from a register in class FROM to
+   one in class TO.  The classes are expressed using the enumeration values
+   such as `GENERAL_REGS'.  A value of 2 is the default; other values are
+   interpreted relative to that.
 
-   If moving between registers and memory is more expensive than
-   between two registers, you should define this macro to express the
-   relative cost.
+   It is not required that the cost always equal 2 when FROM is the same as TO;
+   on some machines it is expensive to move between registers if they are not
+   general registers.
 
    On the i386, copying between floating-point and fixed-point
-   registers is expensive.  */
+   registers is done trough memory.  
+ 
+   Integer -> fp moves are noticeably slower than the opposite direction
+   because of the partial memory stall they cause.  Give it an
+   arbitary high cost.
+ */
 
 #define REGISTER_MOVE_COST(CLASS1, CLASS2)				\
-  (((FLOAT_CLASS_P (CLASS1) && ! FLOAT_CLASS_P (CLASS2))		\
-    || (! FLOAT_CLASS_P (CLASS1) && FLOAT_CLASS_P (CLASS2))) ? 10	\
-   : 2)
-
+  ((FLOAT_CLASS_P (CLASS1) && ! FLOAT_CLASS_P (CLASS2))			\
+   ? (MEMORY_MOVE_COST (DFmode, CLASS1, 0)				\
+     + MEMORY_MOVE_COST (DFmode, CLASS2, 1))				\
+   : (! FLOAT_CLASS_P (CLASS1) && FLOAT_CLASS_P (CLASS2)) ? 10 : 2)
 
 /* A C expression for the cost of moving data of mode M between a
    register and memory.  A value of 2 is the default; this cost is
@@ -1976,9 +2010,28 @@ while (0)
 
    If moving between registers and memory is more expensive than
    between two registers, you should define this macro to express the
-   relative cost.  */
+   relative cost.  
+ 
+   Model also increased moving costs of QImode registers in non
+   Q_REGS classes.
+ */
 
-/* #define MEMORY_MOVE_COST(M,C,I) 2  */
+#define MEMORY_MOVE_COST(MODE,CLASS,IN)					\
+  (FLOAT_CLASS_P (CLASS)						\
+   ? (GET_MODE_SIZE (MODE)==4						\
+      ? (IN ? ix86_cost->fp_load[0] : ix86_cost->fp_store[0])		\
+      : (GET_MODE_SIZE (MODE)==8					\
+	 ? (IN ? ix86_cost->fp_load[1] : ix86_cost->fp_store[1])	\
+	 : (IN ? ix86_cost->fp_load[2] : ix86_cost->fp_store[2])))	\
+   : (GET_MODE_SIZE (MODE)==1						\
+      ? (IN ? (Q_CLASS_P (CLASS) ? ix86_cost->int_load[0]		\
+				 : ix86_cost->movzbl_load)		\
+	    : (Q_CLASS_P (CLASS) ? ix86_cost->int_store[0]		\
+				 : ix86_cost->int_store[0] + 4))	\
+      : (GET_MODE_SIZE (MODE)==2					\
+	 ? (IN ? ix86_cost->int_load[1] : ix86_cost->int_store[1])	\
+	 : ((IN ? ix86_cost->int_load[2] : ix86_cost->int_store[2])	\
+	    * GET_MODE_SIZE (MODE) / 4))))
 
 /* A C expression for the cost of a branch instruction.  A value of 1
    is the default; other values are interpreted relative to that.  */
@@ -2029,7 +2082,7 @@ while (0)
 
    If the value of this macro is always zero, it need not be defined.  */
 
-/* #define SLOW_UNALIGNED_ACCESS 0 */
+/* #define SLOW_UNALIGNED_ACCESS(MODE, ALIGN) 0 */
 
 /* Define this macro to inhibit strength reduction of memory
    addresses.  (On some machines, such strength reduction seems to do
@@ -2119,7 +2172,7 @@ while (0)
 #define HI_REGISTER_NAMES						\
 {"ax","dx","cx","bx","si","di","bp","sp",				\
  "st","st(1)","st(2)","st(3)","st(4)","st(5)","st(6)","st(7)","",	\
- "flags","fpsr" }
+ "flags","fpsr", "dirflag" }
 
 #define REGISTER_NAMES HI_REGISTER_NAMES
 
@@ -2327,11 +2380,13 @@ do { long l;						\
    programs that are not linked with aux-output.o.  */
 
 #define DEBUG_PRINT_REG(X, CODE, FILE)			\
-  do { static char *hi_name[] = HI_REGISTER_NAMES;	\
-       static char *qi_name[] = QI_REGISTER_NAMES;	\
+  do { static const char * const hi_name[] = HI_REGISTER_NAMES;	\
+       static const char * const qi_name[] = QI_REGISTER_NAMES;	\
        fprintf (FILE, "%d ", REGNO (X));		\
        if (REGNO (X) == FLAGS_REG)			\
 	 { fputs ("flags", FILE); break; }		\
+       if (REGNO (X) == DIRFLAG_REG)			\
+	 { fputs ("dirflag", FILE); break; }		\
        if (REGNO (X) == FPSR_REG)			\
 	 { fputs ("fpsr", FILE); break; }		\
        if (REGNO (X) == ARG_POINTER_REGNUM)		\
@@ -2393,6 +2448,7 @@ do { long l;						\
 				 UMIN, UMAX, COMPARE, MINUS, DIV, MOD,	\
 				 UDIV, UMOD, ASHIFT, ROTATE, ASHIFTRT,	\
 				 LSHIFTRT, ROTATERT}},			\
+  {"promotable_binary_operator", {PLUS, MULT, AND, IOR, XOR, ASHIFT}},	\
   {"memory_displacement_operand", {MEM}},				\
   {"cmpsi_operand", {CONST_INT, CONST_DOUBLE, CONST, SYMBOL_REF,	\
 		     LABEL_REF, SUBREG, REG, MEM, AND}},		\

@@ -1,6 +1,6 @@
 /* Get common system includes and various definitions and declarations based
    on autoconf macros.
-   Copyright (C) 1998, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2000 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -176,6 +176,11 @@ extern int errno;
 
 #ifdef HAVE_STDLIB_H
 # include <stdlib.h>
+# ifdef USE_C_ALLOCA
+/* Note that systems that use glibc have a <stdlib.h> that includes
+   <alloca.h> that defines alloca, so let USE_C_ALLOCA override this. */
+# undef alloca
+#endif
 #endif
 
 #ifdef HAVE_UNISTD_H
@@ -266,6 +271,9 @@ extern int errno;
 #define MIN(X,Y) ((X) < (Y) ? (X) : (Y))
 #define MAX(X,Y) ((X) > (Y) ? (X) : (Y))
 
+/* Returns the least number N such that N * Y >= X.  */
+#define CEIL(x,y) (((x) + (y) - 1) / (y))
+
 #ifdef HAVE_SYS_WAIT_H
 #include <sys/wait.h>
 #endif
@@ -291,7 +299,7 @@ extern int errno;
 #ifndef bcopy
 # ifdef HAVE_BCOPY
 #  ifdef NEED_DECLARATION_BCOPY
-extern void bcopy ();
+extern void bcopy PARAMS ((const PTR, PTR, size_t));
 #  endif
 # else /* ! HAVE_BCOPY */
 #  define bcopy(src,dst,len) memmove((dst),(src),(len))
@@ -301,7 +309,7 @@ extern void bcopy ();
 #ifndef bcmp
 # ifdef HAVE_BCMP
 #  ifdef NEED_DECLARATION_BCMP
-extern int bcmp ();
+extern int bcmp PARAMS ((const PTR, const PTR, size_t));
 #  endif
 # else /* ! HAVE_BCMP */
 #  define bcmp(left,right,len) memcmp ((left),(right),(len))
@@ -311,7 +319,7 @@ extern int bcmp ();
 #ifndef bzero
 # ifdef HAVE_BZERO
 #  ifdef NEED_DECLARATION_BZERO
-extern void bzero ();
+extern void bzero PARAMS ((PTR, size_t));
 #  endif
 # else /* ! HAVE_BZERO */
 #  define bzero(dst,len) memset ((dst),0,(len))
@@ -321,7 +329,7 @@ extern void bzero ();
 #ifndef index
 # ifdef HAVE_INDEX
 #  ifdef NEED_DECLARATION_INDEX
-extern char *index ();
+extern char *index PARAMS ((const char *, int));
 #  endif
 # else /* ! HAVE_INDEX */
 #  define index strchr
@@ -331,7 +339,7 @@ extern char *index ();
 #ifndef rindex
 # ifdef HAVE_RINDEX
 #  ifdef NEED_DECLARATION_RINDEX
-extern char *rindex ();
+extern char *rindex PARAMS ((const char *, int));
 #  endif
 # else /* ! HAVE_RINDEX */
 #  define rindex strrchr
@@ -339,35 +347,35 @@ extern char *rindex ();
 #endif
 
 #ifdef NEED_DECLARATION_ATOF
-extern double atof ();
+extern double atof PARAMS ((const char *));
 #endif
 
 #ifdef NEED_DECLARATION_ATOL
-extern long atol();
+extern long atol PARAMS ((const char *));
 #endif
 
 #ifdef NEED_DECLARATION_FREE
-extern void free ();
+extern void free PARAMS ((PTR));
 #endif
 
 #ifdef NEED_DECLARATION_GETCWD
-extern char *getcwd ();
+extern char *getcwd PARAMS ((char *, size_t));
 #endif
 
 #ifdef NEED_DECLARATION_GETENV
-extern char *getenv ();
+extern char *getenv PARAMS ((const char *));
 #endif
 
 #ifdef NEED_DECLARATION_GETWD
-extern char *getwd ();
+extern char *getwd PARAMS ((char *));
 #endif
 
 #ifdef NEED_DECLARATION_SBRK
-extern PTR sbrk ();
+extern PTR sbrk PARAMS ((int));
 #endif
 
 #ifdef NEED_DECLARATION_STRSTR
-extern char *strstr ();
+extern char *strstr PARAMS ((const char *, const char *));
 #endif
 
 #ifdef HAVE_MALLOC_H
@@ -375,21 +383,21 @@ extern char *strstr ();
 #endif
 
 #ifdef NEED_DECLARATION_MALLOC
-extern PTR malloc ();
+extern PTR malloc PARAMS ((size_t));
 #endif
 
 #ifdef NEED_DECLARATION_CALLOC
-extern PTR calloc ();
+extern PTR calloc PARAMS ((size_t, size_t));
 #endif
 
 #ifdef NEED_DECLARATION_REALLOC
-extern PTR realloc ();
+extern PTR realloc PARAMS ((PTR, size_t));
 #endif
 
 #ifdef HAVE_STRERROR
 # ifdef NEED_DECLARATION_STRERROR
 #  ifndef strerror
-extern char *strerror ();
+extern char *strerror PARAMS ((int));
 #  endif
 # endif
 #else /* ! HAVE_STRERROR */
@@ -397,24 +405,21 @@ extern int sys_nerr;
 extern char *sys_errlist[];
 #endif /* HAVE_STRERROR */
 
-#ifdef HAVE_STRSIGNAL
-# ifdef NEED_DECLARATION_STRSIGNAL
-#  ifndef strsignal
-extern char * strsignal ();
-#  endif
+/* If the system doesn't provide strsignal, we get it defined in
+   libiberty but no declaration is supplied. */
+#ifdef NEED_DECLARATION_STRSIGNAL
+# ifndef strsignal
+extern const char *strsignal PARAMS ((int));
 # endif
-#else /* ! HAVE_STRSIGNAL */
-# ifndef SYS_SIGLIST_DECLARED
-#  ifndef NO_SYS_SIGLIST
-extern char * sys_siglist[];
-#  endif
-# endif
-#endif /* HAVE_STRSIGNAL */
+#endif
 
 #ifdef HAVE_GETRLIMIT
 # ifdef NEED_DECLARATION_GETRLIMIT
 #  ifndef getrlimit
-extern int getrlimit ();
+#   ifdef ANSI_PROTOTYPES
+struct rlimit;
+#   endif
+extern int getrlimit PARAMS ((int, struct rlimit *));
 #  endif
 # endif
 #endif
@@ -422,7 +427,10 @@ extern int getrlimit ();
 #ifdef HAVE_SETRLIMIT
 # ifdef NEED_DECLARATION_SETRLIMIT
 #  ifndef setrlimit
-extern int setrlimit ();
+#   ifdef ANSI_PROTOTYPES
+struct rlimit;
+#   endif
+extern int setrlimit PARAMS ((int, const struct rlimit *));
 #  endif
 # endif
 #endif
@@ -434,7 +442,7 @@ extern int setrlimit ();
 #endif
 
 #ifdef NEED_DECLARATION_ABORT
-extern void abort ();
+extern void abort PARAMS ((void));
 #endif
 
 /* Define a STRINGIFY macro that's right for ANSI or traditional C.
@@ -524,6 +532,23 @@ extern void abort ();
      : sizeof (long) == sizeof (char *) ? "%lx" : "%llx")
 # endif
 #endif /* ! HOST_PTR_PRINTF */
+
+/* By default, colon separates directories in a path.  */
+#ifndef PATH_SEPARATOR
+#define PATH_SEPARATOR ':'
+#endif
+
+#ifndef DIR_SEPARATOR
+#define DIR_SEPARATOR '/'
+#endif
+
+/* Define IS_DIR_SEPARATOR.  */
+#ifndef DIR_SEPARATOR_2
+# define IS_DIR_SEPARATOR(ch) ((ch) == DIR_SEPARATOR)
+#else /* DIR_SEPARATOR_2 */
+# define IS_DIR_SEPARATOR(ch) \
+	(((ch) == DIR_SEPARATOR) || ((ch) == DIR_SEPARATOR_2))
+#endif /* DIR_SEPARATOR_2 */
 
 /* Get libiberty declarations. */
 #include "libiberty.h"

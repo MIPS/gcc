@@ -52,6 +52,21 @@ Boston, MA 02111-1307, USA.  */
    do not apply.  */
 
 #include "tm.h"
+
+/* We disable this when inhibit_libc, so that gcc can still be built without
+   needing header files first.  */
+/* ??? This is not a good solution, since prototypes may be required in
+   some cases for correct code.  See also libgcc2.c/frame.c.  */
+#ifndef inhibit_libc
+/* fixproto guarantees these system headers exist. */
+#include <stdlib.h>
+#include <unistd.h>
+#else
+# ifndef atexit
+extern int atexit(void (*)(void));
+# endif
+#endif
+
 #include "defaults.h"
 #include <stddef.h>
 #include "frame.h"
@@ -129,6 +144,19 @@ typedef void (*func_ptr) (void);
 
 #ifdef OBJECT_FORMAT_ELF
 
+/* Declare the __dso_handle variable.  It should have a unique value
+   in every shared-object; in a main program its value is zero.  */
+
+#ifdef CRTSTUFFS_O
+void *__dso_handle = &__dso_handle;
+#else
+void *__dso_handle = 0;
+#endif
+
+/* The __cxa_finalize function may not be available so we use only a
+   weak declaration.  */
+extern void __cxa_finalize (void *) TARGET_ATTRIBUTE_WEAK;
+
 /* Run all the global destructors on exit from the program.  */
  
 /* Some systems place the number of pointers in the first word of the
@@ -158,6 +186,11 @@ __do_global_dtors_aux (void)
 
   if (completed)
     return;
+
+#ifdef CRTSTUFFS_O
+  if (__cxa_finalize)
+    __cxa_finalize (__dso_handle);
+#endif
 
   while (*p)
     {
@@ -385,7 +418,7 @@ init_dummy (void)
     extern char **__environ;
 
     ___brk_addr = __environ;
-    atexit ();
+    atexit (0);
   }
 #endif
 }

@@ -1,5 +1,5 @@
 /* Front-end tree definitions for GNU compiler.
-   Copyright (C) 1989, 93-98, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1989, 93-98, 1999, 2000 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -321,7 +321,7 @@ struct tree_common
 
 /* When checking is enabled, errors will be generated if a tree node
    is accessed incorrectly. The macros abort with a fatal error.  */
-#if defined ENABLE_CHECKING && HAVE_GCC_VERSION(2,7)
+#if defined ENABLE_TREE_CHECKING && (GCC_VERSION >= 2007)
 
 #define TREE_CHECK(t, code)						\
 ({  const tree __t = t;							\
@@ -360,7 +360,7 @@ extern void tree_class_check_failed PROTO((const tree, char,
 					   const char *, int, const char *))
     ATTRIBUTE_NORETURN;
 
-#else /* not ENABLE_CHECKING, or not gcc */
+#else /* not ENABLE_TREE_CHECKING, or not gcc */
 
 #define TREE_CHECK(t, code)		(t)
 #define TREE_CLASS_CHECK(t, code)	(t)
@@ -400,6 +400,18 @@ extern void tree_class_check_failed PROTO((const tree, char,
 	  || TREE_CODE (EXP) == NON_LVALUE_EXPR)		\
 	 && (TYPE_MODE (TREE_TYPE (EXP))			\
 	     == TYPE_MODE (TREE_TYPE (TREE_OPERAND (EXP, 0)))))	\
+    (EXP) = TREE_OPERAND (EXP, 0);
+
+/* Like STRIP_NOPS, but don't let the signedness change either.  */
+
+#define STRIP_SIGN_NOPS(EXP) \
+  while ((TREE_CODE (EXP) == NOP_EXPR				\
+	  || TREE_CODE (EXP) == CONVERT_EXPR			\
+	  || TREE_CODE (EXP) == NON_LVALUE_EXPR)		\
+	 && (TYPE_MODE (TREE_TYPE (EXP))			\
+	     == TYPE_MODE (TREE_TYPE (TREE_OPERAND (EXP, 0))))	\
+	 && (TREE_UNSIGNED (TREE_TYPE (EXP))			\
+	     == TREE_UNSIGNED (TREE_TYPE (TREE_OPERAND (EXP, 0))))) \
     (EXP) = TREE_OPERAND (EXP, 0);
 
 /* Like STRIP_NOPS, but don't alter the TREE_TYPE either.  */
@@ -705,6 +717,11 @@ struct tree_vec
 #define SAVE_EXPR_CONTEXT(NODE) TREE_OPERAND(NODE, 1)
 #define SAVE_EXPR_RTL(NODE) (*(struct rtx_def **) &EXPR_CHECK (NODE)->exp.operands[2])
 #define SAVE_EXPR_NOPLACEHOLDER(NODE) TREE_UNSIGNED (NODE)
+/* Nonzero if the SAVE_EXPRs value should be kept, even if it occurs
+   both in normal code and in a handler.  (Normally, in a handler, all
+   SAVE_EXPRs are unsaved, meaning that there values are
+   recalculated.)  */
+#define SAVE_EXPR_PERSISTENT_P(NODE) TREE_ASM_WRITTEN (NODE)
 
 /* In a RTL_EXPR node.  */
 #define RTL_EXPR_SEQUENCE(NODE) (*(struct rtx_def **) &EXPR_CHECK (NODE)->exp.operands[0])
@@ -733,8 +750,9 @@ struct tree_vec
 
 /* In a EXPR_WITH_FILE_LOCATION node.  */
 #define EXPR_WFL_NODE(NODE) TREE_OPERAND((NODE), 0)
-#define EXPR_WFL_FILENAME(NODE) (IDENTIFIER_POINTER ((NODE)->common.chain))
-#define EXPR_WFL_FILENAME_NODE(NODE) ((NODE)->common.chain)
+#define EXPR_WFL_FILENAME(NODE) \
+  (IDENTIFIER_POINTER (EXPR_WFL_FILENAME_NODE ((NODE))))
+#define EXPR_WFL_FILENAME_NODE(NODE) TREE_OPERAND((NODE), 1)
 #define EXPR_WFL_LINENO(NODE) (EXPR_CHECK (NODE)->exp.complexity >> 12)
 #define EXPR_WFL_COLNO(NODE) (EXPR_CHECK (NODE)->exp.complexity & 0xfff)
 #define EXPR_WFL_LINECOL(NODE) (EXPR_CHECK (NODE)->exp.complexity)
@@ -751,7 +769,6 @@ struct tree_exp
 
 /* In a BLOCK node.  */
 #define BLOCK_VARS(NODE) (BLOCK_CHECK (NODE)->block.vars)
-#define BLOCK_TYPE_TAGS(NODE) (BLOCK_CHECK (NODE)->block.type_tags)
 #define BLOCK_SUBBLOCKS(NODE) (BLOCK_CHECK (NODE)->block.subblocks)
 #define BLOCK_SUPERCONTEXT(NODE) (BLOCK_CHECK (NODE)->block.supercontext)
 /* Note: when changing this, make sure to find the places
@@ -759,19 +776,6 @@ struct tree_exp
 #define BLOCK_CHAIN(NODE) TREE_CHAIN (NODE)
 #define BLOCK_ABSTRACT_ORIGIN(NODE) (BLOCK_CHECK (NODE)->block.abstract_origin)
 #define BLOCK_ABSTRACT(NODE) (BLOCK_CHECK (NODE)->block.abstract_flag)
-#define BLOCK_END_NOTE(NODE) (BLOCK_CHECK (NODE)->block.end_note)
-/* Nonzero means that this block has separate live range regions */
-#define BLOCK_LIVE_RANGE_FLAG(NOTE) (BLOCK_CHECK (NOTE)->block.live_range_flag)
-
-/* Nonzero means that this block has a variable declared in it
-   that is split into separate live ranges.  */
-#define BLOCK_LIVE_RANGE_VAR_FLAG(NOTE) (BLOCK_CHECK (NOTE)->block.live_range_var_flag)
-
-/* Index for marking the start of the block for live ranges.  */
-#define BLOCK_LIVE_RANGE_START(NOTE) (BLOCK_CHECK (NOTE)->block.live_range_start)
-
-/* Index for marking the end of the block for live ranges.  */
-#define BLOCK_LIVE_RANGE_END(NOTE) (BLOCK_CHECK (NOTE)->block.live_range_end)
 
 /* Nonzero means that this block is prepared to handle exceptions
    listed in the BLOCK_VARS slot.  */
@@ -783,17 +787,11 @@ struct tree_block
 
   unsigned handler_block_flag : 1;
   unsigned abstract_flag : 1;
-  unsigned live_range_flag : 1;
-  unsigned live_range_var_flag : 1;
 
   union tree_node *vars;
-  union tree_node *type_tags;
   union tree_node *subblocks;
   union tree_node *supercontext;
   union tree_node *abstract_origin;
-  struct rtx_def *end_note;
-  int live_range_start;
-  int live_range_end;
 };
 
 /* Define fields and accessors for nodes representing data types.  */
@@ -881,9 +879,9 @@ struct tree_block
 
 /* The set of type qualifiers for this type.  */
 #define TYPE_QUALS(NODE)			\
-  ((TYPE_READONLY(NODE) * TYPE_QUAL_CONST) |	\
-   (TYPE_VOLATILE(NODE) * TYPE_QUAL_VOLATILE) |	\
-   (TYPE_RESTRICT(NODE) * TYPE_QUAL_RESTRICT))
+  ((TYPE_READONLY(NODE) * TYPE_QUAL_CONST)	\
+   | (TYPE_VOLATILE(NODE) * TYPE_QUAL_VOLATILE)	\
+   | (TYPE_RESTRICT(NODE) * TYPE_QUAL_RESTRICT))
 
 /* These flags are available for each language front end to use internally.  */
 #define TYPE_LANG_FLAG_0(NODE) (TYPE_CHECK (NODE)->type.lang_flag_0)
@@ -1006,11 +1004,12 @@ struct tree_type
 #define BINFO_VIRTUALS(NODE) TREE_VEC_ELT ((NODE), 3)
 #define TYPE_BINFO_VIRTUALS(NODE) BINFO_VIRTUALS (TYPE_BINFO (NODE))
 
-/* A vector of additional binfos for the types inherited by this basetype.
+/* A vector of binfos for the direct basetypes inherited by this
+   basetype.
 
-   If this basetype describes type D as inherited in C,
-   and if the basetypes of D are E anf F,
-   then this vector contains binfos for inheritance of E and F by C.
+   If this basetype describes type D as inherited in C, and if the
+   basetypes of D are E and F, then this vector contains binfos for
+   inheritance of E and F by C.
 
    ??? This could probably be done by just allocating the
    base types at the end of this TREE_VEC (instead of using
@@ -1018,6 +1017,10 @@ struct tree_type
    of how many basetypes a given type had.  */
 #define BINFO_BASETYPES(NODE) TREE_VEC_ELT ((NODE), 4)
 #define TYPE_BINFO_BASETYPES(NODE) TREE_VEC_ELT (TYPE_BINFO (NODE), 4)
+
+/* The number of basetypes for NODE.  */
+#define BINFO_N_BASETYPES(NODE) \
+  (BINFO_BASETYPES (NODE) ? TREE_VEC_LENGTH (BINFO_BASETYPES (NODE)) : 0)
 
 /* Accessor macro to get to the Nth basetype of this basetype.  */
 #define BINFO_BASETYPE(NODE,N) TREE_VEC_ELT (BINFO_BASETYPES (NODE), (N))
@@ -1167,8 +1170,11 @@ struct tree_type
 
 /* Nonzero for any sort of ..._DECL node means this decl node represents
    an inline instance of some original (abstract) decl from an inline function;
-   suppress any warnings about shadowing some other variable.  */
-#define DECL_FROM_INLINE(NODE) (DECL_ABSTRACT_ORIGIN (NODE) != (tree) 0)
+   suppress any warnings about shadowing some other variable.
+   FUNCTION_DECL nodes can also have their abstract origin set to themselves
+   (see save_for_inline_copying).  */
+#define DECL_FROM_INLINE(NODE) (DECL_ABSTRACT_ORIGIN (NODE) != (tree) 0 \
+				&& DECL_ABSTRACT_ORIGIN (NODE) != (NODE))
 
 /* Nonzero if a _DECL means that the name of this decl should be ignored
    for symbolic debug purposes.  */
@@ -1241,6 +1247,11 @@ struct tree_type
    to redefine for any purpose whatever.  */
 #define DECL_BUILT_IN_NONANSI(NODE) ((NODE)->common.unsigned_flag)
 
+/* Nonzero in a FUNCTION_DECL means this function should be treated
+   as if it were a malloc, meaning it returns a pointer that is
+   not an alias.  */
+#define DECL_IS_MALLOC(NODE) (DECL_CHECK (NODE)->decl.malloc_flag)
+
 /* Nonzero in a FIELD_DECL means it is a bit field, and must be accessed
    specially.  */
 #define DECL_BIT_FIELD(NODE) (DECL_CHECK (NODE)->decl.bit_field_flag)
@@ -1304,6 +1315,10 @@ struct tree_type
 /* Used in FUNCTION_DECLs to indicate that check-memory-usage should be
    disabled in this function.  */
 #define DECL_NO_CHECK_MEMORY_USAGE(NODE) ((NODE)->decl.no_check_memory_usage)
+
+/* Used in FUNCTION_DECLs to indicate that limit-stack-* should be
+   disabled in this function.  */
+#define DECL_NO_LIMIT_STACK(NODE) ((NODE)->decl.no_limit_stack)
 
 /* Additional flags for language-specific uses.  */
 #define DECL_LANG_FLAG_0(NODE) (DECL_CHECK (NODE)->decl.lang_flag_0)
@@ -1373,6 +1388,8 @@ struct tree_decl
   unsigned no_instrument_function_entry_exit : 1;
   unsigned no_check_memory_usage : 1;
   unsigned comdat_flag : 1;
+  unsigned malloc_flag : 1;
+  unsigned no_limit_stack : 1;
 
   /* For a FUNCTION_DECL, if inline, this is the size of frame needed.
      If built-in, this is the code for which built-in function.
@@ -1530,7 +1547,9 @@ extern tree global_trees[TI_MAX];
 #define complex_long_double_type_node	global_trees[TI_COMPLEX_LONG_DOUBLE_TYPE]
 
 #define void_type_node			global_trees[TI_VOID_TYPE]
+/* The C type `void *'.  */
 #define ptr_type_node			global_trees[TI_PTR_TYPE]
+/* The C type `const void *'.  */
 #define const_ptr_type_node		global_trees[TI_CONST_PTR_TYPE]
 #define ptrdiff_type_node		global_trees[TI_PTRDIFF_TYPE]
 #define va_list_type_node		global_trees[TI_VA_LIST_TYPE]
@@ -1848,20 +1867,28 @@ extern tree save_expr			PROTO((tree));
 extern int first_rtl_op			PROTO((enum tree_code));
 
 /* unsave_expr (EXP) returns an expression equivalent to EXP but it
-   can be used multiple times and will evaluate EXP, in its entirety
+   can be used multiple times and will evaluate EXP in its entirety
    each time.  */
 
 extern tree unsave_expr			PROTO((tree));
 
-/* unsave_expr_now (EXP) resets EXP in place, so that it can be
-   expanded again.  */
+/* Reset EXP in place so that it can be expaned again.  Does not
+   recurse into subtrees.  */
+
+extern void unsave_expr_1               PROTO((tree));
+
+/* Like unsave_expr_1, but recurses into all subtrees.  */
 
 extern tree unsave_expr_now		PROTO((tree));
 
-/* If non-null, a language specific helper for unsave_expr_now. */
+/* If non-null, these are language-specific helper functions for
+   unsave_expr_now.  If present, LANG_UNSAVE is called before its
+   argument (an UNSAVE_EXPR) is to be unsaved, and all other
+   processing in unsave_expr_now is aborted.  LANG_UNSAVE_EXPR_NOW is
+   called from unsave_expr_1 for language-specific tree codes.  */
+extern void (*lang_unsave)              PROTO((tree *));
+extern void (*lang_unsave_expr_now)     PROTO((tree));
 
-extern void (*lang_unsave_expr_now)      PROTO((tree));
-  
 /* Return 1 if EXP contains a PLACEHOLDER_EXPR; i.e., if it represents a size
    or offset that depends on a field within a record.
 
@@ -1958,6 +1985,11 @@ extern tree get_inner_reference		PROTO((tree, int *, int *, tree *,
 					       enum machine_mode *, int *,
 					       int *, int *));
 
+/* Given a DECL or TYPE, return the scope in which it was declared, or
+   NUL_TREE if there is no containing scope.  */
+
+extern tree get_containing_scope        PROTO((tree));
+
 /* Return the FUNCTION_DECL which provides this _DECL with its context,
    or zero if none.  */
 extern tree decl_function_context 	PROTO((tree));
@@ -2043,6 +2075,7 @@ extern tree get_set_constructor_bytes		PROTO((tree,
 extern int get_alias_set                        PROTO((tree));
 extern int new_alias_set			PROTO((void));
 extern int (*lang_get_alias_set)                PROTO((tree));
+extern tree get_callee_fndecl                   PROTO((tree));
 
 /* In stmt.c */
 
@@ -2074,7 +2107,9 @@ extern int expand_exit_something		PROTO((void));
 extern void expand_null_return			PROTO((void));
 extern void expand_return			PROTO((tree));
 extern int optimize_tail_recursion		PROTO((tree, struct rtx_def *));
-extern void expand_start_bindings		PROTO((int));
+extern void expand_start_bindings_and_block     PROTO((int, tree));
+#define expand_start_bindings(flags) \
+  expand_start_bindings_and_block(flags, NULL_TREE)
 extern void expand_end_bindings			PROTO((tree, int, int));
 extern void warn_about_unused_variables         PROTO((tree));
 extern void start_cleanup_deferral		PROTO((void));
@@ -2382,6 +2417,10 @@ extern struct rtx_def *emit_line_note_after	PROTO ((char *, int,
 extern struct rtx_def *emit_line_note		PROTO ((char *, int));
 extern struct rtx_def *emit_line_note_force	PROTO ((char *, int));
 
+/* In calls.c */
+extern void special_function_p	        PROTO ((tree, int *, int *,
+						int *, int *));
+
 /* In c-typeck.c */
 extern int mark_addressable		PROTO ((tree));
 extern void incomplete_type_error	PROTO ((tree, tree));
@@ -2439,7 +2478,6 @@ extern void expand_asm_operands		PROTO ((tree, tree, tree, tree, int,
 extern int any_pending_cleanups		PROTO ((int));
 extern void init_stmt			PROTO ((void));
 extern void init_stmt_for_function	PROTO ((void));
-extern void remember_end_note		PROTO ((tree));
 extern int drop_through_at_end_p	PROTO ((void));
 extern void expand_start_target_temps	PROTO ((void));
 extern void expand_end_target_temps	PROTO ((void));
@@ -2517,8 +2555,8 @@ extern void dwarf2out_end_epilogue	PROTO((void));
 
 extern void fancy_abort PROTO((const char *, int, const char *))
     ATTRIBUTE_NORETURN;
-#if ! HAVE_GCC_VERSION(2,7)
-#define abort() fancy_abort (__FILE__, __LINE__, 0)
-#else
+#if (GCC_VERSION >= 2007)
 #define abort() fancy_abort (__FILE__, __LINE__, __PRETTY_FUNCTION__)
+#else
+#define abort() fancy_abort (__FILE__, __LINE__, 0)
 #endif

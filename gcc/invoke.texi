@@ -1,4 +1,4 @@
-@c Copyright (C) 1988, 89, 92-98, 1999 Free Software Foundation, Inc.
+@c Copyright (C) 1988, 89, 92-99, 2000 Free Software Foundation, Inc.
 @c This is part of the GCC manual.
 @c For copying conditions, see the file gcc.texi.
 
@@ -88,13 +88,13 @@ in the following sections.
 @item Overall Options
 @xref{Overall Options,,Options Controlling the Kind of Output}.
 @smallexample
--c  -S  -E  -o @var{file}  -pipe  -v  --help  -x @var{language}
+-c  -S  -E  -o @var{file}  -pipe  -pass-exit-codes  -v  --help  -x @var{language}
 @end smallexample
 
 @item C Language Options
 @xref{C Dialect Options,,Options Controlling C Dialect}.
 @smallexample
--ansi -flang-isoc9x -fallow-single-precision  -fcond-mismatch  -fno-asm
+-ansi -fstd  -fallow-single-precision  -fcond-mismatch  -fno-asm
 -fno-builtin  -ffreestanding  -fhosted  -fsigned-bitfields  -fsigned-char
 -funsigned-bitfields  -funsigned-char  -fwritable-strings
 -traditional  -traditional-cpp  -trigraphs
@@ -109,7 +109,7 @@ in the following sections.
 -fhonor-std -fhuge-objects  -fno-implicit-templates  -finit-priority
 -fno-implement-inlines -fname-mangling-version-@var{n}  -fno-default-inline  
 -foperator-names  -fno-optional-diags  -fpermissive -frepo  -fstrict-prototype
--fsquangle  -ftemplate-depth-@var{n} -fvtable-thunks
+-fsquangle  -ftemplate-depth-@var{n} -fuse-cxa-atexit -fvtable-thunks
 -nostdinc++  -Wctor-dtor-privacy -Wno-deprecated -Weffc++  
 -Wno-non-template-friend 
 -Wnon-virtual-dtor  -Wold-style-cast  -Woverloaded-virtual  
@@ -128,7 +128,7 @@ in the following sections.
 -Werror-implicit-function-declaration  -Wfloat-equal -Winline
 -Wlarger-than-@var{len}  -Wlong-long
 -Wmain  -Wmissing-declarations  -Wmissing-noreturn
--Wmultichar  -Wno-import  
+-Wmultichar  -Wno-import  -Wpacked  -Wpadded
 -Wparentheses -Wpointer-arith  -Wredundant-decls
 -Wreturn-type -Wshadow  -Wsign-compare -Wswitch
 -Wtrigraphs -Wundef  -Wuninitialized  -Wunknown-pragmas -Wunreachable-code 
@@ -221,7 +221,7 @@ in the following sections.
 -m68000  -m68020  -m68020-40  -m68020-60  -m68030  -m68040
 -m68060  -mcpu32 -m5200  -m68881  -mbitfield  -mc68000  -mc68020  
 -mfpa -mnobitfield  -mrtd  -mshort  -msoft-float  -mpcrel
--malign-int
+-malign-int -mstrict-align
 
 @emph{VAX Options}
 -mg  -mgnu  -munix
@@ -231,11 +231,12 @@ in the following sections.
 -mtune=@var{cpu type}
 -mcmodel=@var{code model}
 -m32  -m64
--mapp-regs  -mbroken-saverestore  -mcypress  -mepilogue
--mflat  -mfpu  -mhard-float  -mhard-quad-float
--mimpure-text  -mlive-g0  -mno-app-regs  -mno-epilogue
--mno-flat  -mno-fpu  -mno-impure-text
--mno-stack-bias  -mno-unaligned-doubles
+-mapp-regs  -mbroken-saverestore  -mcypress
+-mepilogue -mfaster-structs -mflat
+-mfpu  -mhard-float  -mhard-quad-float
+-mimpure-text  -mlive-g0  -mno-app-regs
+-mno-epilogue -mno-faster-structs -mno-flat  -mno-fpu
+-mno-impure-text -mno-stack-bias  -mno-unaligned-doubles
 -msoft-float  -msoft-quad-float  -msparclite  -mstack-bias
 -msupersparc  -munaligned-doubles  -mv8
 
@@ -261,7 +262,7 @@ in the following sections.
 -mapcs-reentrant -mno-apcs-reentrant
 -msched-prolog -mno-sched-prolog
 -mlittle-endian -mbig-endian -mwords-little-endian
--malignment-traps
+-malignment-traps -mno-alignment-traps
 -msoft-float -mhard-float -mfpe
 -mthumb-interwork -mno-thumb-interwork
 -mcpu= -march= -mfpe= 
@@ -290,6 +291,8 @@ in the following sections.
 @emph{MN10300 Options}
 -mmult-bug
 -mno-mult-bug
+-mam33
+-mno-am33
 -mrelax
 
 @emph{M32R/D Options}
@@ -334,18 +337,19 @@ in the following sections.
 -mminimum-fp-blocks  -mnohc-struct-return
 
 @emph{MIPS Options}
--mabicalls  -mcpu=@var{cpu type}  -membedded-data
+-mabicalls  -mcpu=@var{cpu type}  -membedded-data -muninit-const-in-rodata
 -membedded-pic  -mfp32  -mfp64  -mgas  -mgp32  -mgp64
 -mgpopt  -mhalf-pic  -mhard-float  -mint64  -mips1
 -mips2  -mips3 -mips4 -mlong64  -mlong32 -mlong-calls  -mmemcpy
 -mmips-as  -mmips-tfile  -mno-abicalls
--mno-embedded-data  -mno-embedded-pic
+-mno-embedded-data  -mno-uninit-const-in-rodata  -mno-embedded-pic
 -mno-gpopt  -mno-long-calls
 -mno-memcpy  -mno-mips-tfile  -mno-rnames  -mno-stats
 -mrnames  -msoft-float
 -m4650  -msingle-float  -mmad
 -mstats  -EL  -EB  -G @var{num}  -nocpp
 -mabi=32 -mabi=n32 -mabi=64 -mabi=eabi
+-mno-crt0
 
 @emph{i386 Options}
 -mcpu=@var{cpu type}
@@ -356,6 +360,7 @@ in the following sections.
 -mreg-alloc=@var{list}  -mregparm=@var{num}
 -malign-jumps=@var{num}  -malign-loops=@var{num}
 -malign-functions=@var{num} -mpreferred-stack-boundary=@var{num}
+-mthreads
 
 @emph{HPPA Options}
 -march=@var{architecture type}
@@ -428,13 +433,14 @@ in the following sections.
 @xref{Code Gen Options,,Options for Code Generation Conventions}.
 @smallexample
 -fcall-saved-@var{reg}  -fcall-used-@var{reg}
--fexceptions -ffixed-@var{reg}  -finhibit-size-directive
+-fexceptions  -funwind-tables  -ffixed-@var{reg}  -finhibit-size-directive
 -fcheck-memory-usage  -fprefix-function-name
 -fno-common  -fno-ident  -fno-gnu-linker
 -fpcc-struct-return  -fpic  -fPIC
 -freg-struct-return  -fshared-data  -fshort-enums
 -fshort-double  -fvolatile  -fvolatile-global -fvolatile-static
 -fverbose-asm -fpack-struct  -fstack-check
+-fstack-limit-register=@var{reg}  -fstack-limit-symbol=@var{sym}
 -fargument-alias  -fargument-noalias
 -fargument-noalias-global
 -fleading-underscore
@@ -527,6 +533,13 @@ assembler  assembler-with-cpp
 Turn off any specification of a language, so that subsequent files are
 handled according to their file name suffixes (as they are if @samp{-x}
 has not been used at all).
+
+@item -pass-exit-codes
+Normally the @code{gcc} program will exit with the code of 1 if any
+phase of the compiler returns a non-success return code.  If you specify
+@samp{-pass-exit-codes}, the @code{gcc} program will instead return with
+numerically highest error produced by any phase that returned an error
+indication.
 @end table
 
 If you only want some of the stages of compilation, you can use
@@ -681,14 +694,37 @@ programs that might use these names for other things.
 The functions @code{alloca}, @code{abort}, @code{exit}, and
 @code{_exit} are not builtin functions when @samp{-ansi} is used.
 
-@item -flang-isoc9x
-Enable support for features found in the C9X standard.  In particular,
-enable support for the C9X @code{restrict} keyword.  
+@item -fstd=
+Determine the language standard.  A value for this option must be provided;
+possible values are 
 
-Even when this option is not specified, you can still use some C9X
-features in so far as they do not conflict with previous C standards.
-For example, you may use @code{__restrict__} even when -flang-isoc9x
-is not specified. 
+@itemize @minus
+@item iso9899:1990
+Same as -ansi
+
+@item iso9899:199409
+ISO C as modified in amend. 1
+
+@item iso9899:199x
+ISO C 9x
+
+@item c89
+same as -std=iso9899:1990
+
+@item c9x
+same as -std=iso9899:199x
+
+@item gnu89
+default, iso9899:1990 + gnu extensions
+
+@item gnu9x
+iso9899:199x + gnu extensions
+@end itemize
+
+Even when this option is not specified, you can still use some of the
+features of newer standards in so far as they do not conflict with
+previous C standards.  For example, you may use @code{__restrict__} even
+when -fstd=c9x is not specified.
 
 @item -fno-asm
 Do not recognize @code{asm}, @code{inline} or @code{typeof} as a
@@ -707,22 +743,34 @@ other, C++-specific, extension keywords such as @code{headof}.
 @findex abs
 @findex alloca
 @findex cos
+@findex cosf
+@findex cosl
 @findex exit
+@findex _exit
 @findex fabs
+@findex fabsf
+@findex fabsl
 @findex ffs
 @findex labs
 @findex memcmp
 @findex memcpy
+@findex memset
 @findex sin
+@findex sinf
+@findex sinl
 @findex sqrt
+@findex sqrtf
+@findex sqrtl
 @findex strcmp
 @findex strcpy
 @findex strlen
 Don't recognize builtin functions that do not begin with @samp{__builtin_}
 as prefix.  Currently, the functions affected include @code{abort},
-@code{abs}, @code{alloca}, @code{cos}, @code{exit}, @code{fabs},
-@code{ffs}, @code{labs}, @code{memcmp}, @code{memcpy}, @code{sin},
-@code{sqrt}, @code{strcmp}, @code{strcpy}, and @code{strlen}.
+@code{abs}, @code{alloca}, @code{cos}, @code{cosf}, @code{cosl},
+@code{exit}, @code{_exit}, @code{fabs}, @code{fabsf}, @code{fabsl},
+@code{ffs}, @code{labs}, @code{memcmp}, @code{memcpy}, @code{memset},
+@code{sin}, @code{sinf}, @code{sinl}, @code{sqrt}, @code{sqrtf},
+@code{sqrtl}, @code{strcmp}, @code{strcpy}, and @code{strlen}.
 
 GCC normally generates special code to handle certain builtin functions
 more efficiently; for instance, calls to @code{alloca} may become single
@@ -732,9 +780,9 @@ and faster, but since the function calls no longer appear as such, you
 cannot set a breakpoint on those calls, nor can you change the behavior
 of the functions by linking with a different library.
 
-The @samp{-ansi} option prevents @code{alloca} and @code{ffs} from being
-builtin functions, since these functions do not have an ANSI standard
-meaning.
+The @samp{-ansi} option prevents @code{alloca}, @code{ffs} and @code{_exit}
+from being builtin functions, since these functions do not have an ANSI
+standard meaning.
 
 @item -fhosted
 @cindex hosted environment
@@ -1170,6 +1218,13 @@ A limit on the template instantiation depth is needed to detect
 endless recursions during template class instantiation. ANSI/ISO C++
 conforming programs must not rely on a maximum depth greater than 17.
 
+@item -fuse-cxa-atexit
+Register destructors for objects with static storage duration with the
+@code{__cxa_atexit} function rather than the @code{atexit} function.
+This option is required for fully standards-compliant handling of static
+destructors, but will only work if your C library supports
+@code{__cxa_atexit}.
+
 @item -fvtable-thunks
 Use @samp{thunks} to implement the virtual function dispatch table
 (@samp{vtable}).  The traditional (cfront-style) approach to
@@ -1407,7 +1462,7 @@ arguments, two, or three arguments of appropriate types.
 Warn if a multicharacter constant (@samp{'FOOF'}) is used.  Usually they
 indicate a typo in the user's code, as they have implementation-defined
 values, and should not be used in portable code.
-  
+
 @item -Wparentheses
 Warn if parentheses are omitted in certain contexts, such
 as when there is an assignment in a context where a truth value
@@ -1672,6 +1727,15 @@ A @code{switch} statement has an operand of type @code{long}.
 @item
 A non-@code{static} function declaration follows a @code{static} one.
 This construct is not accepted by some traditional C compilers.
+
+@item
+The ANSI type of an integer constant has a different width or
+signedness from its traditional type.  This warning is only issued if
+the base of the constant is ten.  I.e. hexadecimal or octal values, which
+typically represent bit patterns, are not warned about.
+
+@item
+Usage of ANSI string concatenation is detected.
 @end itemize
 
 @item -Wundef
@@ -1768,6 +1832,33 @@ Note these are only possible candidates, not absolute ones.  Care should
 be taken to manually verify functions actually do not ever return before
 adding the @code{noreturn} attribute, otherwise subtle code generation
 bugs could be introduced.
+
+@item -Wpacked
+Warn if a structure is given the packed attribute, but the packed
+attribute has no effect on the layout or size of the structure.  
+Such structures may be mis-aligned for little benefit.  For
+instance, in this code, the variable @code{f.x} in @code{struct bar}
+will be misaligned even though @code{struct bar} does not itself
+have the packed attribute:
+
+@smallexample
+@group
+struct foo @{
+  int x;
+  char a, b, c, d;
+@} __attribute__((packed));
+struct bar @{
+  char z;
+  struct foo f;
+@};
+@end group
+@end smallexample
+
+@item -Wpadded
+Warn if padding is included in a structure, either to align an element
+of the structure or to align the whole structure.  Sometimes when this
+happens it is possible to rearrange the fields of the structure to
+reduce the padding and so make the structure smaller.
 
 @item -Wredundant-decls
 Warn if anything is declared more than once in the same scope, even in
@@ -3812,6 +3903,12 @@ allowing at most a 16-bit offset for pc-relative addressing.  -fPIC is
 not presently supported with -mpcrel, though this could be supported for
 68020 and higher processors.
 
+@item -mno-strict-align
+@itemx -mstrict-align
+@kindex -mstrict-align
+Do not (do) assume that unaligned memory references will be handled by
+the system.
+
 @end table
 
 @node VAX Options
@@ -3920,6 +4017,17 @@ absolute address.  Otherwise, it assumes they have 4 byte alignment.
 Specifying this option avoids some rare compatibility problems with code
 generated by other compilers.  It is not the default because it results
 in a performance loss, especially for floating point code.
+
+@item -mno-faster-structs
+@itemx -mfaster-structs
+With @samp{-mfaster-structs}, the compiler assumes that structures
+should have 8 byte alignment.  This enables the use of pairs of
+@code{ldd} and @code{std} instructions for copies in structure
+assignment, in place of twice as many @code{ld} and @code{st} pairs.
+However, the use of this changed alignment directly violates the Sparc
+ABI.  Thus, it's intended only for use on targets where the developer
+acknowledges that their resulting code will not be directly in line with
+the rules of the ABI.
 
 @item -mv8
 @itemx -msparclite
@@ -4597,6 +4705,13 @@ processors.  This is the default.
 @item -mno-mult-bug
 Do not generate code to avoid bugs in the multiply instructions for the
 MN10300 processors.
+
+@item -mam33
+Generate code which uses features specific to the AM33 processor.
+
+@item -mno-am33
+Do not generate code which uses features specific to the AM33 processor.  This
+is the default.
 
 @item -mrelax
 Indicate to the linker that it should perform a relaxation optimization pass
@@ -5582,6 +5697,11 @@ next in the small data section if possible, otherwise in data.  This gives
 slightly slower code than the default, but reduces the amount of RAM required
 when executing, and thus may be preferred for some embedded systems.
 
+@item -muninit-const-in-rodata
+@itemx -mno-uninit-const-in-rodata
+When used together with -membedded-data, it will always store uninitialized
+const variables in the read-only data section.
+  
 @item -msingle-float
 @itemx -mdouble-float
 The @samp{-msingle-float} switch tells gcc to assume that the floating
@@ -5630,6 +5750,9 @@ value.
 @item -nocpp
 Tell the MIPS assembler to not run its preprocessor over user
 assembler files (with a @samp{.s} suffix) when assembling them.
+
+@item -no-crt0
+Do not include the default crt0.
 @end table
 
 @ifset INTERNALS
@@ -5823,6 +5946,14 @@ This extra alignment does consume extra stack space.  Code that is sensitive
 to stack space usage, such as embedded systems and operating system kernels,
 may want to reduce the preferred alignment to
 @samp{-mpreferred-stack-boundary=2}.
+
+@item -mthreads
+@kindex -mthreads
+Support thread-safe exception handling on @samp{Mingw32}. Code that relies 
+on thread-safe exception handling must compile and link all code with the 
+@samp{-mthreads} option. When compiling, @samp{-mthreads} defines 
+@samp{-D_MT}; when linking, it links in a special thread helper library 
+@samp{-lmingwthrd} which cleans up per thread exception handling data.
 @end table
 
 @node HPPA Options
@@ -6720,6 +6851,12 @@ properly with exception handlers written in C++.  You may also wish to
 disable this option if you are compiling older C++ programs that don't
 use exception handling.
 
+@item -funwind-tables
+Similar to @code{-fexceptions}, except that it will just generate any needed
+static data, but will not affect the generated code in any other way.
+You will normally not enable this option; instead, a language processor
+that needs this handling would enable it on your behalf.
+
 @item -fpcc-struct-return
 Return ``short'' @code{struct} and @code{union} values in memory like
 longer ones, rather than in registers.  This convention is less
@@ -6991,6 +7128,25 @@ environment with multiple threads, but only rarely need to specify it in
 a single-threaded environment since stack overflow is automatically
 detected on nearly all systems if there is only one stack.
 
+Note that this switch does not actually cause checking to be done; the
+operating system must do that.  The switch causes generation of code
+to ensure that the operating system sees the stack being extended.
+
+@item -fstack-limit-register=@var{reg}
+@itemx -fstack-limit-symbol=@var{sym}
+@itemx -fno-stack-limit
+Generate code to ensure that the stack does not grow beyond a certain value,
+either the value of a register or the address of a symbol.  If the stack
+would grow beyond the value, a signal is raised.  For most targets,
+the signal is raised before the stack overruns the boundary, so
+it is possible to catch the signal without taking special precautions.
+
+For instance, if the stack starts at address @samp{0x80000000} and grows
+downwards you can use the flags
+@samp{-fstack-limit-symbol=__stack_limit}
+@samp{-Wl,--defsym,__stack_limit=0x7ffe0000} which will enforce a stack
+limit of 128K.
+
 @cindex aliasing of parameters
 @cindex parameters, aliased
 @item -fargument-alias
@@ -7097,6 +7253,9 @@ If @code{GCC_EXEC_PREFIX} is set, it specifies a prefix to use in the
 names of the subprograms executed by the compiler.  No slash is added
 when this prefix is combined with the name of a subprogram, but you can
 specify a prefix that ends with a slash if you wish.
+
+If @code{GCC_EXEC_PREFIX} is not set, GNU CC will attempt to figure out
+an appropriate prefix to use based on the pathname it was invoked with.
 
 If GCC cannot find the subprogram using the specified prefix, it
 tries looking in the usual places for the subprogram.
@@ -7270,9 +7429,9 @@ would produce the wrong kind of output.  These include @samp{-g},
 the @var{compilation-options}, they are ignored.
 
 @item -C
-Rename files to end in @samp{.C} instead of @samp{.c}.
-This is convenient if you are converting a C program to C++.
-This option applies only to @code{protoize}.
+Rename files to end in @samp{.C}, or @samp{.cc} for DOS-based file
+systems, instead of @samp{.c}.  This is convenient if you are converting 
+a C program to C++.  This option applies only to @code{protoize}.
 
 @item -g
 Add explicit global declarations.  This means inserting explicit

@@ -38,6 +38,6 @@ Boston, MA 02111-1307, USA.  */
 #endif
 
 #include "arm/aout.h"
-    
+
 #undef  CPP_APCS_PC_DEFAULT_SPEC
 #define CPP_APCS_PC_DEFAULT_SPEC "-D__APCS_32__"

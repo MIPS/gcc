@@ -24,8 +24,8 @@ Boston, MA 02111-1307, USA.  */
 #include "rtl.h"
 
 static int rtx_addr_can_trap_p	PROTO((rtx));
-static void reg_set_p_1		PROTO((rtx, rtx));
-static void reg_set_last_1	PROTO((rtx, rtx));
+static void reg_set_p_1		PROTO((rtx, rtx, void *));
+static void reg_set_last_1	PROTO((rtx, rtx, void *));
 
 
 /* Forward declarations */
@@ -403,6 +403,7 @@ reg_referenced_p (x, body)
 
     case CALL:
     case USE:
+    case IF_THEN_ELSE:
       return reg_overlap_mentioned_p (x, body);
 
     case TRAP_IF:
@@ -473,9 +474,10 @@ static rtx reg_set_reg;
 static int reg_set_flag;
 
 static void
-reg_set_p_1 (x, pat)
+reg_set_p_1 (x, pat, data)
      rtx x;
      rtx pat ATTRIBUTE_UNUSED;
+     void *data ATTRIBUTE_UNUSED;
 {
   /* We don't want to return 1 if X is a MEM that contains a register
      within REG_SET_REG.  */
@@ -514,7 +516,7 @@ reg_set_p (reg, insn)
 
   reg_set_reg = reg;
   reg_set_flag = 0;
-  note_stores (body, reg_set_p_1);
+  note_stores (body, reg_set_p_1, NULL);
   return reg_set_flag;
 }
 
@@ -610,7 +612,7 @@ modified_between_p (x, start, end)
       if (fmt[i] == 'e' && modified_between_p (XEXP (x, i), start, end))
 	return 1;
 
-      if (fmt[i] == 'E')
+      else if (fmt[i] == 'E')
 	for (j = XVECLEN (x, i) - 1; j >= 0; j--)
 	  if (modified_between_p (XVECEXP (x, i, j), start, end))
 	    return 1;
@@ -665,7 +667,7 @@ modified_in_p (x, insn)
       if (fmt[i] == 'e' && modified_in_p (XEXP (x, i), insn))
 	return 1;
 
-      if (fmt[i] == 'E')
+      else if (fmt[i] == 'E')
 	for (j = XVECLEN (x, i) - 1; j >= 0; j--)
 	  if (modified_in_p (XVECEXP (x, i, j), insn))
 	    return 1;
@@ -980,9 +982,10 @@ static int reg_set_last_first_regno, reg_set_last_last_regno;
 /* Called via note_stores from reg_set_last.  */
 
 static void
-reg_set_last_1 (x, pat)
+reg_set_last_1 (x, pat, data)
      rtx x;
      rtx pat;
+     void *data ATTRIBUTE_UNUSED;
 {
   int first, last;
 
@@ -1047,7 +1050,7 @@ reg_set_last (x, insn)
        insn = PREV_INSN (insn))
     if (GET_RTX_CLASS (GET_CODE (insn)) == 'i')
       {
-	note_stores (PATTERN (insn), reg_set_last_1);
+	note_stores (PATTERN (insn), reg_set_last_1, NULL);
 	if (reg_set_last_unknown)
 	  return 0;
 	else if (reg_set_last_value)
@@ -1066,114 +1069,6 @@ reg_set_last (x, insn)
   return 0;
 }
 
-/* This is 1 until after the rtl generation pass.  */
-int rtx_equal_function_value_matters;
-
-/* Return 1 if X and Y are identical-looking rtx's.
-   This is the Lisp function EQUAL for rtx arguments.  */
-
-int
-rtx_equal_p (x, y)
-     rtx x, y;
-{
-  register int i;
-  register int j;
-  register enum rtx_code code;
-  register const char *fmt;
-
-  if (x == y)
-    return 1;
-  if (x == 0 || y == 0)
-    return 0;
-
-  code = GET_CODE (x);
-  /* Rtx's of different codes cannot be equal.  */
-  if (code != GET_CODE (y))
-    return 0;
-
-  /* (MULT:SI x y) and (MULT:HI x y) are NOT equivalent.
-     (REG:SI x) and (REG:HI x) are NOT equivalent.  */
-
-  if (GET_MODE (x) != GET_MODE (y))
-    return 0;
-
-  /* REG, LABEL_REF, and SYMBOL_REF can be compared nonrecursively.  */
-
-  if (code == REG)
-    /* Until rtl generation is complete, don't consider a reference to the
-       return register of the current function the same as the return from a
-       called function.  This eases the job of function integration.  Once the
-       distinction is no longer needed, they can be considered equivalent.  */
-    return (REGNO (x) == REGNO (y)
-	    && (! rtx_equal_function_value_matters
-		|| REG_FUNCTION_VALUE_P (x) == REG_FUNCTION_VALUE_P (y)));
-  else if (code == LABEL_REF)
-    return XEXP (x, 0) == XEXP (y, 0);
-  else if (code == SYMBOL_REF)
-    return XSTR (x, 0) == XSTR (y, 0);
-  else if (code == SCRATCH || code == CONST_DOUBLE)
-    return 0;
-
-  /* Compare the elements.  If any pair of corresponding elements
-     fail to match, return 0 for the whole things.  */
-
-  fmt = GET_RTX_FORMAT (code);
-  for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
-    {
-      switch (fmt[i])
-	{
-	case 'w':
-	  if (XWINT (x, i) != XWINT (y, i))
-	    return 0;
-	  break;
-
-	case 'n':
-	case 'i':
-	  if (XINT (x, i) != XINT (y, i))
-	    return 0;
-	  break;
-
-	case 'V':
-	case 'E':
-	  /* Two vectors must have the same length.  */
-	  if (XVECLEN (x, i) != XVECLEN (y, i))
-	    return 0;
-
-	  /* And the corresponding elements must match.  */
-	  for (j = 0; j < XVECLEN (x, i); j++)
-	    if (rtx_equal_p (XVECEXP (x, i, j), XVECEXP (y, i, j)) == 0)
-	      return 0;
-	  break;
-
-	case 'e':
-	  if (rtx_equal_p (XEXP (x, i), XEXP (y, i)) == 0)
-	    return 0;
-	  break;
-
-	case 'S':
-	case 's':
-	  if (strcmp (XSTR (x, i), XSTR (y, i)))
-	    return 0;
-	  break;
-
-	case 'u':
-	  /* These are just backpointers, so they don't matter.  */
-	  break;
-
-	case '0':
-	case 't':
-	  break;
-
-	  /* It is believed that rtx's at this level will never
-	     contain anything but integers and other rtx's,
-	     except for within LABEL_REFs and SYMBOL_REFs.  */
-	default:
-	  abort ();
-	}
-    }
-  return 1;
-}
-
 /* Call FUN on each register or MEM that is stored into or clobbered by X.
    (X would be the pattern of an insn).
    FUN receives two arguments:
@@ -1184,9 +1079,10 @@ rtx_equal_p (x, y)
   the SUBREG will be passed.  */
      
 void
-note_stores (x, fun)
+note_stores (x, fun, data)
      register rtx x;
-     void (*fun) PROTO ((rtx, rtx));
+     void (*fun) PROTO ((rtx, rtx, void *));
+     void *data;
 {
   if ((GET_CODE (x) == SET || GET_CODE (x) == CLOBBER))
     {
@@ -1204,10 +1100,10 @@ note_stores (x, fun)
 	{
 	  register int i;
 	  for (i = XVECLEN (dest, 0) - 1; i >= 0; i--)
-	    (*fun) (SET_DEST (XVECEXP (dest, 0, i)), x);
+	    (*fun) (SET_DEST (XVECEXP (dest, 0, i)), x, data);
 	}
       else
-	(*fun) (dest, x);
+	(*fun) (dest, x, data);
     }
   else if (GET_CODE (x) == PARALLEL)
     {
@@ -1231,10 +1127,10 @@ note_stores (x, fun)
 		{
 		  register int i;
 		  for (i = XVECLEN (dest, 0) - 1; i >= 0; i--)
-		    (*fun) (SET_DEST (XVECEXP (dest, 0, i)), y);
+		    (*fun) (SET_DEST (XVECEXP (dest, 0, i)), y, data);
 		}
 	      else
-		(*fun) (dest, y);
+		(*fun) (dest, y, data);
 	    }
 	}
     }
@@ -1623,7 +1519,7 @@ volatile_insn_p (x)
 	    if (volatile_insn_p (XEXP (x, i)))
 	      return 1;
 	  }
-	if (fmt[i] == 'E')
+	else if (fmt[i] == 'E')
 	  {
 	    register int j;
 	    for (j = 0; j < XVECLEN (x, i); j++)
@@ -1689,7 +1585,7 @@ volatile_refs_p (x)
 	    if (volatile_refs_p (XEXP (x, i)))
 	      return 1;
 	  }
-	if (fmt[i] == 'E')
+	else if (fmt[i] == 'E')
 	  {
 	    register int j;
 	    for (j = 0; j < XVECLEN (x, i); j++)
@@ -1764,7 +1660,7 @@ side_effects_p (x)
 	    if (side_effects_p (XEXP (x, i)))
 	      return 1;
 	  }
-	if (fmt[i] == 'E')
+	else if (fmt[i] == 'E')
 	  {
 	    register int j;
 	    for (j = 0; j < XVECLEN (x, i); j++)
@@ -2063,7 +1959,7 @@ replace_regs (x, reg_map, nregs, replace_dest)
     {
       if (fmt[i] == 'e')
 	XEXP (x, i) = replace_regs (XEXP (x, i), reg_map, nregs, replace_dest);
-      if (fmt[i] == 'E')
+      else if (fmt[i] == 'E')
 	{
 	  register int j;
 	  for (j = 0; j < XVECLEN (x, i); j++)
@@ -2118,7 +2014,7 @@ jmp_uses_reg_or_mem (x)
 	  && jmp_uses_reg_or_mem (XEXP (x, i)))
 	return 1;
 
-      if (fmt[i] == 'E')
+      else if (fmt[i] == 'E')
 	for (j = 0; j < XVECLEN (x, i); j++)
 	  if (jmp_uses_reg_or_mem (XVECEXP (x, i, j)))
 	    return 1;

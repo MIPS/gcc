@@ -35,7 +35,7 @@ Boston, MA 02111-1307, USA.  */
 /* We disable this when inhibit_libc, so that gcc can still be built without
    needing header files first.  */
 /* ??? This is not a good solution, since prototypes may be required in
-   some cases for correct code.  See also frame.c.  */
+   some cases for correct code.  See also frame.c/crtstuff.c.  */
 #ifndef inhibit_libc
 /* fixproto guarantees these system headers exist. */
 #include <stdlib.h>
@@ -95,11 +95,22 @@ extern int atexit(void (*)(void));
    because the sizes for those types can be configured to be anything.
    Instead we use the following special type names.  */
 
+typedef		 int QItype	__attribute__ ((mode (QI)));
 typedef unsigned int UQItype	__attribute__ ((mode (QI)));
+typedef		 int HItype	__attribute__ ((mode (HI)));
+typedef unsigned int UHItype	__attribute__ ((mode (HI)));
+#if UNITS_PER_WORD > 1
+/* These typedefs are usually forbidden on dsp's with UNITS_PER_WORD 1 */
 typedef 	 int SItype	__attribute__ ((mode (SI)));
 typedef unsigned int USItype	__attribute__ ((mode (SI)));
+#if UNITS_PER_WORD > 2
+/* These typedefs are usually forbidden on archs with UNITS_PER_WORD 2 */
 typedef		 int DItype	__attribute__ ((mode (DI)));
 typedef unsigned int UDItype	__attribute__ ((mode (DI)));
+#endif
+#endif
+
+#if BITS_PER_UNIT == 8
 
 typedef 	float SFtype	__attribute__ ((mode (SF)));
 typedef		float DFtype	__attribute__ ((mode (DF)));
@@ -110,6 +121,29 @@ typedef		float XFtype	__attribute__ ((mode (XF)));
 #if LIBGCC2_LONG_DOUBLE_TYPE_SIZE == 128
 typedef		float TFtype	__attribute__ ((mode (TF)));
 #endif
+
+#else /* BITS_PER_UNIT != 8 */
+
+/* On dsp's there are usually qf/hf/tqf modes used instead of the above.
+   For now we don't support them in libgcc2.c.  */
+
+#undef L_fixdfdi
+#undef L_fixsfdi
+#undef L_fixtfdi
+#undef L_fixunsdfdi
+#undef L_fixunsdfsi
+#undef L_fixunssfdi
+#undef L_fixunssfsi
+#undef L_fixunstfdi
+#undef L_fixunsxfdi
+#undef L_fixunsxfsi
+#undef L_fixxfdi
+#undef L_floatdidf
+#undef L_floatdisf
+#undef L_floatditf
+#undef L_floatdixf
+
+#endif /* BITS_PER_UNIT != 8 */
 
 typedef int word_type __attribute__ ((mode (__word__)));
 
@@ -127,15 +161,75 @@ typedef int word_type __attribute__ ((mode (__word__)));
 #define float bogus_type
 #define double bogus_type
 
-#define SI_TYPE_SIZE (sizeof (SItype) * BITS_PER_UNIT)
+#if UNITS_PER_WORD > 2
+#define W_TYPE_SIZE (4 * BITS_PER_UNIT)
+#define Wtype	SItype
+#define UWtype	USItype
+#define HWtype	SItype
+#define UHWtype	USItype
+#define DWtype	DItype
+#define UDWtype	UDItype
+#define __NW(a,b)	__ ## a ## si ## b
+#define __NDW(a,b)	__ ## a ## di ## b
+#elif UNITS_PER_WORD > 1
+#define W_TYPE_SIZE (2 * BITS_PER_UNIT)
+#define Wtype	HItype
+#define UWtype	UHItype
+#define HWtype	HItype
+#define UHWtype	UHItype
+#define DWtype	SItype
+#define UDWtype	USItype
+#define __NW(a,b)	__ ## a ## hi ## b
+#define __NDW(a,b)	__ ## a ## si ## b
+#else
+#define W_TYPE_SIZE BITS_PER_UNIT
+#define Wtype	QItype
+#define UWtype  UQItype
+#define HWtype	QItype
+#define UHWtype	UQItype
+#define DWtype	HItype
+#define UDWtype	UHItype
+#define __NW(a,b)	__ ## a ## qi ## b
+#define __NDW(a,b)	__ ## a ## hi ## b
+#endif
 
-/* DIstructs are pairs of SItype values in the order determined by
+#define __muldi3	__NDW(mul,3)
+#define __divdi3	__NDW(div,3)
+#define __udivdi3	__NDW(udiv,3)
+#define __moddi3	__NDW(mod,3)
+#define __umoddi3	__NDW(umod,3)
+#define __negdi2	__NDW(neg,2)
+#define __lshrdi3	__NDW(lshr,3)
+#define __ashldi3	__NDW(ashl,3)
+#define __ashrdi3	__NDW(ashr,3)
+#define __ffsdi2	__NDW(ffs,2)
+#define __cmpdi2	__NDW(cmp,2)
+#define __ucmpdi2	__NDW(ucmp,2)
+#define __udivmoddi4	__NDW(udivmod,4)
+#define __fixunstfdi	__NDW(fixunstf,)
+#define __fixtfdi	__NDW(fixtf,)
+#define __fixunsxfdi	__NDW(fixunsxf,)
+#define __fixxfdi	__NDW(fixxf,)
+#define __fixunsdfdi	__NDW(fixunsdf,)
+#define __fixdfdi	__NDW(fixdf,)
+#define __fixunssfdi	__NDW(fixunssf,)
+#define __fixsfdi	__NDW(fixsf,)
+#define __floatdixf	__NDW(float,xf)
+#define __floatditf	__NDW(float,tf)
+#define __floatdidf	__NDW(float,df)
+#define __floatdisf	__NDW(float,sf)
+#define __fixunsxfsi	__NW(fixunsxf,)
+#define __fixunstfsi	__NW(fixunstf,)
+#define __fixunsdfsi	__NW(fixunsdf,)
+#define __fixunssfsi	__NW(fixunssf,)
+
+/* DWstructs are pairs of Wtype values in the order determined by
    LIBGCC2_WORDS_BIG_ENDIAN.  */
 
 #if LIBGCC2_WORDS_BIG_ENDIAN
-  struct DIstruct {SItype high, low;};
+  struct DWstruct {Wtype high, low;};
 #else
-  struct DIstruct {SItype low, high;};
+  struct DWstruct {Wtype low, high;};
 #endif
 
 /* We need this union to unpack/pack DImode values, since we don't have
@@ -144,9 +238,9 @@ typedef int word_type __attribute__ ((mode (__word__)));
 
 typedef union
 {
-  struct DIstruct s;
-  DItype ll;
-} DIunion;
+  struct DWstruct s;
+  DWtype ll;
+} DWunion;
 
 #if (defined (L_udivmoddi4) || defined (L_muldi3) || defined (L_udiv_w_sdiv)\
      || defined (L_divdi3) || defined (L_udivdi3) \
@@ -156,29 +250,21 @@ typedef union
 
 #endif /* udiv or mul */
 
-extern DItype __fixunssfdi (SFtype a);
-extern DItype __fixunsdfdi (DFtype a);
-#if LIBGCC2_LONG_DOUBLE_TYPE_SIZE == 96
-extern DItype __fixunsxfdi (XFtype a);
-#endif
-#if LIBGCC2_LONG_DOUBLE_TYPE_SIZE == 128
-extern DItype __fixunstfdi (TFtype a);
-#endif
 
 #if defined (L_negdi2) || defined (L_divdi3) || defined (L_moddi3)
 #if defined (L_divdi3) || defined (L_moddi3)
 static inline
 #endif
-DItype
-__negdi2 (DItype u)
+DWtype
+__negdi2 (DWtype u)
 {
-  DIunion w;
-  DIunion uu;
+  DWunion w;
+  DWunion uu;
 
   uu.ll = u;
 
   w.s.low = -uu.s.low;
-  w.s.high = -uu.s.high - ((USItype) w.s.low > 0);
+  w.s.high = -uu.s.high - ((UWtype) w.s.low > 0);
 
   return w.ll;
 }
@@ -187,29 +273,29 @@ __negdi2 (DItype u)
 /* Unless shift functions are defined whith full ANSI prototypes,
    parameter b will be promoted to int if word_type is smaller than an int.  */
 #ifdef L_lshrdi3
-DItype
-__lshrdi3 (DItype u, word_type b)
+DWtype
+__lshrdi3 (DWtype u, word_type b)
 {
-  DIunion w;
+  DWunion w;
   word_type bm;
-  DIunion uu;
+  DWunion uu;
 
   if (b == 0)
     return u;
 
   uu.ll = u;
 
-  bm = (sizeof (SItype) * BITS_PER_UNIT) - b;
+  bm = (sizeof (Wtype) * BITS_PER_UNIT) - b;
   if (bm <= 0)
     {
       w.s.high = 0;
-      w.s.low = (USItype)uu.s.high >> -bm;
+      w.s.low = (UWtype)uu.s.high >> -bm;
     }
   else
     {
-      USItype carries = (USItype)uu.s.high << bm;
-      w.s.high = (USItype)uu.s.high >> b;
-      w.s.low = ((USItype)uu.s.low >> b) | carries;
+      UWtype carries = (UWtype)uu.s.high << bm;
+      w.s.high = (UWtype)uu.s.high >> b;
+      w.s.low = ((UWtype)uu.s.low >> b) | carries;
     }
 
   return w.ll;
@@ -217,29 +303,29 @@ __lshrdi3 (DItype u, word_type b)
 #endif
 
 #ifdef L_ashldi3
-DItype
-__ashldi3 (DItype u, word_type b)
+DWtype
+__ashldi3 (DWtype u, word_type b)
 {
-  DIunion w;
+  DWunion w;
   word_type bm;
-  DIunion uu;
+  DWunion uu;
 
   if (b == 0)
     return u;
 
   uu.ll = u;
 
-  bm = (sizeof (SItype) * BITS_PER_UNIT) - b;
+  bm = (sizeof (Wtype) * BITS_PER_UNIT) - b;
   if (bm <= 0)
     {
       w.s.low = 0;
-      w.s.high = (USItype)uu.s.low << -bm;
+      w.s.high = (UWtype)uu.s.low << -bm;
     }
   else
     {
-      USItype carries = (USItype)uu.s.low >> bm;
-      w.s.low = (USItype)uu.s.low << b;
-      w.s.high = ((USItype)uu.s.high << b) | carries;
+      UWtype carries = (UWtype)uu.s.low >> bm;
+      w.s.low = (UWtype)uu.s.low << b;
+      w.s.high = ((UWtype)uu.s.high << b) | carries;
     }
 
   return w.ll;
@@ -247,30 +333,30 @@ __ashldi3 (DItype u, word_type b)
 #endif
 
 #ifdef L_ashrdi3
-DItype
-__ashrdi3 (DItype u, word_type b)
+DWtype
+__ashrdi3 (DWtype u, word_type b)
 {
-  DIunion w;
+  DWunion w;
   word_type bm;
-  DIunion uu;
+  DWunion uu;
 
   if (b == 0)
     return u;
 
   uu.ll = u;
 
-  bm = (sizeof (SItype) * BITS_PER_UNIT) - b;
+  bm = (sizeof (Wtype) * BITS_PER_UNIT) - b;
   if (bm <= 0)
     {
       /* w.s.high = 1..1 or 0..0 */
-      w.s.high = uu.s.high >> (sizeof (SItype) * BITS_PER_UNIT - 1);
+      w.s.high = uu.s.high >> (sizeof (Wtype) * BITS_PER_UNIT - 1);
       w.s.low = uu.s.high >> -bm;
     }
   else
     {
-      USItype carries = (USItype)uu.s.high << bm;
+      UWtype carries = (UWtype)uu.s.high << bm;
       w.s.high = uu.s.high >> b;
-      w.s.low = ((USItype)uu.s.low >> b) | carries;
+      w.s.low = ((UWtype)uu.s.low >> b) | carries;
     }
 
   return w.ll;
@@ -278,10 +364,10 @@ __ashrdi3 (DItype u, word_type b)
 #endif
 
 #ifdef L_ffsdi2
-DItype
-__ffsdi2 (DItype u)
+DWtype
+__ffsdi2 (DWtype u)
 {
-  DIunion uu, w;
+  DWunion uu, w;
   uu.ll = u;
   w.s.high = 0;
   w.s.low = ffs (uu.s.low);
@@ -290,7 +376,7 @@ __ffsdi2 (DItype u)
   w.s.low = ffs (uu.s.high);
   if (w.s.low != 0)
     {
-      w.s.low += BITS_PER_UNIT * sizeof (SItype);
+      w.s.low += BITS_PER_UNIT * sizeof (Wtype);
       return w.ll;
     }
   return w.ll;
@@ -298,18 +384,18 @@ __ffsdi2 (DItype u)
 #endif
 
 #ifdef L_muldi3
-DItype
-__muldi3 (DItype u, DItype v)
+DWtype
+__muldi3 (DWtype u, DWtype v)
 {
-  DIunion w;
-  DIunion uu, vv;
+  DWunion w;
+  DWunion uu, vv;
 
   uu.ll = u,
   vv.ll = v;
 
   w.ll = __umulsidi3 (uu.s.low, vv.s.low);
-  w.s.high += ((USItype) uu.s.low * (USItype) vv.s.high
-	       + (USItype) uu.s.high * (USItype) vv.s.low);
+  w.s.high += ((UWtype) uu.s.low * (UWtype) vv.s.high
+	       + (UWtype) uu.s.high * (UWtype) vv.s.low);
 
   return w.ll;
 }
@@ -317,15 +403,15 @@ __muldi3 (DItype u, DItype v)
 
 #ifdef L_udiv_w_sdiv
 #if defined (sdiv_qrnnd)
-USItype
-__udiv_w_sdiv (USItype *rp, USItype a1, USItype a0, USItype d)
+UWtype
+__udiv_w_sdiv (UWtype *rp, UWtype a1, UWtype a0, UWtype d)
 {
-  USItype q, r;
-  USItype c0, c1, b1;
+  UWtype q, r;
+  UWtype c0, c1, b1;
 
-  if ((SItype) d >= 0)
+  if ((Wtype) d >= 0)
     {
-      if (a1 < d - a1 - (a0 >> (SI_TYPE_SIZE - 1)))
+      if (a1 < d - a1 - (a0 >> (W_TYPE_SIZE - 1)))
 	{
 	  /* dividend, divisor, and quotient are nonnegative */
 	  sdiv_qrnnd (q, r, a1, a0, d);
@@ -333,18 +419,18 @@ __udiv_w_sdiv (USItype *rp, USItype a1, USItype a0, USItype d)
       else
 	{
 	  /* Compute c1*2^32 + c0 = a1*2^32 + a0 - 2^31*d */
-	  sub_ddmmss (c1, c0, a1, a0, d >> 1, d << (SI_TYPE_SIZE - 1));
+	  sub_ddmmss (c1, c0, a1, a0, d >> 1, d << (W_TYPE_SIZE - 1));
 	  /* Divide (c1*2^32 + c0) by d */
 	  sdiv_qrnnd (q, r, c1, c0, d);
 	  /* Add 2^31 to quotient */
-	  q += (USItype) 1 << (SI_TYPE_SIZE - 1);
+	  q += (UWtype) 1 << (W_TYPE_SIZE - 1);
 	}
     }
   else
     {
       b1 = d >> 1;			/* d/2, between 2^30 and 2^31 - 1 */
       c1 = a1 >> 1;			/* A/2 */
-      c0 = (a1 << (SI_TYPE_SIZE - 1)) + (a0 >> 1);
+      c0 = (a1 << (W_TYPE_SIZE - 1)) + (a0 >> 1);
 
       if (a1 < b1)			/* A < 2^32*b1, so A/2 < 2^31*b1 */
 	{
@@ -415,11 +501,11 @@ __udiv_w_sdiv (USItype *rp, USItype a1, USItype a0, USItype d)
 }
 #else
 /* If sdiv_qrnnd doesn't exist, define dummy __udiv_w_sdiv.  */
-USItype
-__udiv_w_sdiv (USItype *rp __attribute__ ((__unused__)),
-	       USItype a1 __attribute__ ((__unused__)),
-	       USItype a0 __attribute__ ((__unused__)),
-	       USItype d __attribute__ ((__unused__)))
+UWtype
+__udiv_w_sdiv (UWtype *rp __attribute__ ((__unused__)),
+	       UWtype a1 __attribute__ ((__unused__)),
+	       UWtype a0 __attribute__ ((__unused__)),
+	       UWtype d __attribute__ ((__unused__)))
 {
   return 0;
 }
@@ -448,15 +534,15 @@ static const UQItype __clz_tab[] =
      defined (L_umoddi3) || defined (L_moddi3))
 static inline
 #endif
-UDItype
-__udivmoddi4 (UDItype n, UDItype d, UDItype *rp)
+UDWtype
+__udivmoddi4 (UDWtype n, UDWtype d, UDWtype *rp)
 {
-  DIunion ww;
-  DIunion nn, dd;
-  DIunion rr;
-  USItype d0, d1, n0, n1, n2;
-  USItype q0, q1;
-  USItype b, bm;
+  DWunion ww;
+  DWunion nn, dd;
+  DWunion rr;
+  UWtype d0, d1, n0, n1, n2;
+  UWtype q0, q1;
+  UWtype b, bm;
 
   nn.ll = n;
   dd.ll = d;
@@ -515,7 +601,7 @@ __udivmoddi4 (UDItype n, UDItype d, UDItype *rp)
 		 denominator set.  */
 
 	      d0 = d0 << bm;
-	      n1 = (n1 << bm) | (n0 >> (SI_TYPE_SIZE - bm));
+	      n1 = (n1 << bm) | (n0 >> (W_TYPE_SIZE - bm));
 	      n0 = n0 << bm;
 	    }
 
@@ -540,7 +626,7 @@ __udivmoddi4 (UDItype n, UDItype d, UDItype *rp)
 		 leading quotient digit q1 = 1).
 
 		 This special case is necessary, not an optimization.
-		 (Shifts counts of SI_TYPE_SIZE are undefined.)  */
+		 (Shifts counts of W_TYPE_SIZE are undefined.)  */
 
 	      n1 -= d0;
 	      q1 = 1;
@@ -549,7 +635,7 @@ __udivmoddi4 (UDItype n, UDItype d, UDItype *rp)
 	    {
 	      /* Normalize.  */
 
-	      b = SI_TYPE_SIZE - bm;
+	      b = W_TYPE_SIZE - bm;
 
 	      d0 = d0 << bm;
 	      n2 = n1 >> b;
@@ -626,10 +712,10 @@ __udivmoddi4 (UDItype n, UDItype d, UDItype *rp)
 	    }
 	  else
 	    {
-	      USItype m1, m0;
+	      UWtype m1, m0;
 	      /* Normalize.  */
 
-	      b = SI_TYPE_SIZE - bm;
+	      b = W_TYPE_SIZE - bm;
 
 	      d1 = (d1 << bm) | (d0 >> b);
 	      d0 = d0 << bm;
@@ -667,14 +753,12 @@ __udivmoddi4 (UDItype n, UDItype d, UDItype *rp)
 #endif
 
 #ifdef L_divdi3
-UDItype __udivmoddi4 ();
-
-DItype
-__divdi3 (DItype u, DItype v)
+DWtype
+__divdi3 (DWtype u, DWtype v)
 {
   word_type c = 0;
-  DIunion uu, vv;
-  DItype w;
+  DWunion uu, vv;
+  DWtype w;
 
   uu.ll = u;
   vv.ll = v;
@@ -686,7 +770,7 @@ __divdi3 (DItype u, DItype v)
     c = ~c,
     vv.ll = __negdi2 (vv.ll);
 
-  w = __udivmoddi4 (uu.ll, vv.ll, (UDItype *) 0);
+  w = __udivmoddi4 (uu.ll, vv.ll, (UDWtype *) 0);
   if (c)
     w = __negdi2 (w);
 
@@ -695,13 +779,12 @@ __divdi3 (DItype u, DItype v)
 #endif
 
 #ifdef L_moddi3
-UDItype __udivmoddi4 ();
-DItype
-__moddi3 (DItype u, DItype v)
+DWtype
+__moddi3 (DWtype u, DWtype v)
 {
   word_type c = 0;
-  DIunion uu, vv;
-  DItype w;
+  DWunion uu, vv;
+  DWtype w;
 
   uu.ll = u;
   vv.ll = v;
@@ -721,11 +804,10 @@ __moddi3 (DItype u, DItype v)
 #endif
 
 #ifdef L_umoddi3
-UDItype __udivmoddi4 ();
-UDItype
-__umoddi3 (UDItype u, UDItype v)
+UDWtype
+__umoddi3 (UDWtype u, UDWtype v)
 {
-  UDItype w;
+  UDWtype w;
 
   (void) __udivmoddi4 (u, v, &w);
 
@@ -734,19 +816,18 @@ __umoddi3 (UDItype u, UDItype v)
 #endif
 
 #ifdef L_udivdi3
-UDItype __udivmoddi4 ();
-UDItype
-__udivdi3 (UDItype n, UDItype d)
+UDWtype
+__udivdi3 (UDWtype n, UDWtype d)
 {
-  return __udivmoddi4 (n, d, (UDItype *) 0);
+  return __udivmoddi4 (n, d, (UDWtype *) 0);
 }
 #endif
 
 #ifdef L_cmpdi2
 word_type
-__cmpdi2 (DItype a, DItype b)
+__cmpdi2 (DWtype a, DWtype b)
 {
-  DIunion au, bu;
+  DWunion au, bu;
 
   au.ll = a, bu.ll = b;
 
@@ -754,9 +835,9 @@ __cmpdi2 (DItype a, DItype b)
     return 0;
   else if (au.s.high > bu.s.high)
     return 2;
-  if ((USItype) au.s.low < (USItype) bu.s.low)
+  if ((UWtype) au.s.low < (UWtype) bu.s.low)
     return 0;
-  else if ((USItype) au.s.low > (USItype) bu.s.low)
+  else if ((UWtype) au.s.low > (UWtype) bu.s.low)
     return 2;
   return 1;
 }
@@ -764,58 +845,60 @@ __cmpdi2 (DItype a, DItype b)
 
 #ifdef L_ucmpdi2
 word_type
-__ucmpdi2 (DItype a, DItype b)
+__ucmpdi2 (DWtype a, DWtype b)
 {
-  DIunion au, bu;
+  DWunion au, bu;
 
   au.ll = a, bu.ll = b;
 
-  if ((USItype) au.s.high < (USItype) bu.s.high)
+  if ((UWtype) au.s.high < (UWtype) bu.s.high)
     return 0;
-  else if ((USItype) au.s.high > (USItype) bu.s.high)
+  else if ((UWtype) au.s.high > (UWtype) bu.s.high)
     return 2;
-  if ((USItype) au.s.low < (USItype) bu.s.low)
+  if ((UWtype) au.s.low < (UWtype) bu.s.low)
     return 0;
-  else if ((USItype) au.s.low > (USItype) bu.s.low)
+  else if ((UWtype) au.s.low > (UWtype) bu.s.low)
     return 2;
   return 1;
 }
 #endif
 
 #if defined(L_fixunstfdi) && (LIBGCC2_LONG_DOUBLE_TYPE_SIZE == 128)
-#define WORD_SIZE (sizeof (SItype) * BITS_PER_UNIT)
-#define HIGH_WORD_COEFF (((UDItype) 1) << WORD_SIZE)
+#define WORD_SIZE (sizeof (Wtype) * BITS_PER_UNIT)
+#define HIGH_WORD_COEFF (((UDWtype) 1) << WORD_SIZE)
 
-DItype
+DWtype
 __fixunstfdi (TFtype a)
 {
   TFtype b;
-  UDItype v;
+  UDWtype v;
 
   if (a < 0)
     return 0;
 
   /* Compute high word of result, as a flonum.  */
   b = (a / HIGH_WORD_COEFF);
-  /* Convert that to fixed (but not to DItype!),
+  /* Convert that to fixed (but not to DWtype!),
      and shift it into the high word.  */
-  v = (USItype) b;
+  v = (UWtype) b;
   v <<= WORD_SIZE;
   /* Remove high part from the TFtype, leaving the low part as flonum.  */
   a -= (TFtype)v;
-  /* Convert that to fixed (but not to DItype!) and add it in.
+  /* Convert that to fixed (but not to DWtype!) and add it in.
      Sometimes A comes out negative.  This is significant, since
      A has more bits than a long int does.  */
   if (a < 0)
-    v -= (USItype) (- a);
+    v -= (UWtype) (- a);
   else
-    v += (USItype) a;
+    v += (UWtype) a;
   return v;
 }
 #endif
 
 #if defined(L_fixtfdi) && (LIBGCC2_LONG_DOUBLE_TYPE_SIZE == 128)
-DItype
+extern DWtype __fixunstfdi (TFtype a);
+
+DWtype
 __fixtfdi (TFtype a)
 {
   if (a < 0)
@@ -825,39 +908,41 @@ __fixtfdi (TFtype a)
 #endif
 
 #if defined(L_fixunsxfdi) && (LIBGCC2_LONG_DOUBLE_TYPE_SIZE == 96)
-#define WORD_SIZE (sizeof (SItype) * BITS_PER_UNIT)
-#define HIGH_WORD_COEFF (((UDItype) 1) << WORD_SIZE)
+#define WORD_SIZE (sizeof (Wtype) * BITS_PER_UNIT)
+#define HIGH_WORD_COEFF (((UDWtype) 1) << WORD_SIZE)
 
-DItype
+DWtype
 __fixunsxfdi (XFtype a)
 {
   XFtype b;
-  UDItype v;
+  UDWtype v;
 
   if (a < 0)
     return 0;
 
   /* Compute high word of result, as a flonum.  */
   b = (a / HIGH_WORD_COEFF);
-  /* Convert that to fixed (but not to DItype!),
+  /* Convert that to fixed (but not to DWtype!),
      and shift it into the high word.  */
-  v = (USItype) b;
+  v = (UWtype) b;
   v <<= WORD_SIZE;
   /* Remove high part from the XFtype, leaving the low part as flonum.  */
   a -= (XFtype)v;
-  /* Convert that to fixed (but not to DItype!) and add it in.
+  /* Convert that to fixed (but not to DWtype!) and add it in.
      Sometimes A comes out negative.  This is significant, since
      A has more bits than a long int does.  */
   if (a < 0)
-    v -= (USItype) (- a);
+    v -= (UWtype) (- a);
   else
-    v += (USItype) a;
+    v += (UWtype) a;
   return v;
 }
 #endif
 
 #if defined(L_fixxfdi) && (LIBGCC2_LONG_DOUBLE_TYPE_SIZE == 96)
-DItype
+extern DWtype __fixunsxfdi (XFtype a);
+
+DWtype
 __fixxfdi (XFtype a)
 {
   if (a < 0)
@@ -867,39 +952,41 @@ __fixxfdi (XFtype a)
 #endif
 
 #ifdef L_fixunsdfdi
-#define WORD_SIZE (sizeof (SItype) * BITS_PER_UNIT)
-#define HIGH_WORD_COEFF (((UDItype) 1) << WORD_SIZE)
+#define WORD_SIZE (sizeof (Wtype) * BITS_PER_UNIT)
+#define HIGH_WORD_COEFF (((UDWtype) 1) << WORD_SIZE)
 
-DItype
+DWtype
 __fixunsdfdi (DFtype a)
 {
   DFtype b;
-  UDItype v;
+  UDWtype v;
 
   if (a < 0)
     return 0;
 
   /* Compute high word of result, as a flonum.  */
   b = (a / HIGH_WORD_COEFF);
-  /* Convert that to fixed (but not to DItype!),
+  /* Convert that to fixed (but not to DWtype!),
      and shift it into the high word.  */
-  v = (USItype) b;
+  v = (UWtype) b;
   v <<= WORD_SIZE;
   /* Remove high part from the DFtype, leaving the low part as flonum.  */
   a -= (DFtype)v;
-  /* Convert that to fixed (but not to DItype!) and add it in.
+  /* Convert that to fixed (but not to DWtype!) and add it in.
      Sometimes A comes out negative.  This is significant, since
      A has more bits than a long int does.  */
   if (a < 0)
-    v -= (USItype) (- a);
+    v -= (UWtype) (- a);
   else
-    v += (USItype) a;
+    v += (UWtype) a;
   return v;
 }
 #endif
 
 #ifdef L_fixdfdi
-DItype
+extern DWtype __fixunsdfdi (DFtype a);
+
+DWtype
 __fixdfdi (DFtype a)
 {
   if (a < 0)
@@ -909,10 +996,10 @@ __fixdfdi (DFtype a)
 #endif
 
 #ifdef L_fixunssfdi
-#define WORD_SIZE (sizeof (SItype) * BITS_PER_UNIT)
-#define HIGH_WORD_COEFF (((UDItype) 1) << WORD_SIZE)
+#define WORD_SIZE (sizeof (Wtype) * BITS_PER_UNIT)
+#define HIGH_WORD_COEFF (((UDWtype) 1) << WORD_SIZE)
 
-DItype
+DWtype
 __fixunssfdi (SFtype original_a)
 {
   /* Convert the SFtype to a DFtype, because that is surely not going
@@ -920,32 +1007,34 @@ __fixunssfdi (SFtype original_a)
      that avoids converting to DFtype, and verify it really works right.  */
   DFtype a = original_a;
   DFtype b;
-  UDItype v;
+  UDWtype v;
 
   if (a < 0)
     return 0;
 
   /* Compute high word of result, as a flonum.  */
   b = (a / HIGH_WORD_COEFF);
-  /* Convert that to fixed (but not to DItype!),
+  /* Convert that to fixed (but not to DWtype!),
      and shift it into the high word.  */
-  v = (USItype) b;
+  v = (UWtype) b;
   v <<= WORD_SIZE;
   /* Remove high part from the DFtype, leaving the low part as flonum.  */
   a -= (DFtype)v;
-  /* Convert that to fixed (but not to DItype!) and add it in.
+  /* Convert that to fixed (but not to DWtype!) and add it in.
      Sometimes A comes out negative.  This is significant, since
      A has more bits than a long int does.  */
   if (a < 0)
-    v -= (USItype) (- a);
+    v -= (UWtype) (- a);
   else
-    v += (USItype) a;
+    v += (UWtype) a;
   return v;
 }
 #endif
 
 #ifdef L_fixsfdi
-DItype
+extern DWtype __fixunssfdi (SFtype a);
+
+DWtype
 __fixsfdi (SFtype a)
 {
   if (a < 0)
@@ -955,67 +1044,67 @@ __fixsfdi (SFtype a)
 #endif
 
 #if defined(L_floatdixf) && (LIBGCC2_LONG_DOUBLE_TYPE_SIZE == 96)
-#define WORD_SIZE (sizeof (SItype) * BITS_PER_UNIT)
-#define HIGH_HALFWORD_COEFF (((UDItype) 1) << (WORD_SIZE / 2))
-#define HIGH_WORD_COEFF (((UDItype) 1) << WORD_SIZE)
+#define WORD_SIZE (sizeof (Wtype) * BITS_PER_UNIT)
+#define HIGH_HALFWORD_COEFF (((UDWtype) 1) << (WORD_SIZE / 2))
+#define HIGH_WORD_COEFF (((UDWtype) 1) << WORD_SIZE)
 
 XFtype
-__floatdixf (DItype u)
+__floatdixf (DWtype u)
 {
   XFtype d;
 
-  d = (SItype) (u >> WORD_SIZE);
+  d = (Wtype) (u >> WORD_SIZE);
   d *= HIGH_HALFWORD_COEFF;
   d *= HIGH_HALFWORD_COEFF;
-  d += (USItype) (u & (HIGH_WORD_COEFF - 1));
+  d += (UWtype) (u & (HIGH_WORD_COEFF - 1));
 
   return d;
 }
 #endif
 
 #if defined(L_floatditf) && (LIBGCC2_LONG_DOUBLE_TYPE_SIZE == 128)
-#define WORD_SIZE (sizeof (SItype) * BITS_PER_UNIT)
-#define HIGH_HALFWORD_COEFF (((UDItype) 1) << (WORD_SIZE / 2))
-#define HIGH_WORD_COEFF (((UDItype) 1) << WORD_SIZE)
+#define WORD_SIZE (sizeof (Wtype) * BITS_PER_UNIT)
+#define HIGH_HALFWORD_COEFF (((UDWtype) 1) << (WORD_SIZE / 2))
+#define HIGH_WORD_COEFF (((UDWtype) 1) << WORD_SIZE)
 
 TFtype
-__floatditf (DItype u)
+__floatditf (DWtype u)
 {
   TFtype d;
 
-  d = (SItype) (u >> WORD_SIZE);
+  d = (Wtype) (u >> WORD_SIZE);
   d *= HIGH_HALFWORD_COEFF;
   d *= HIGH_HALFWORD_COEFF;
-  d += (USItype) (u & (HIGH_WORD_COEFF - 1));
+  d += (UWtype) (u & (HIGH_WORD_COEFF - 1));
 
   return d;
 }
 #endif
 
 #ifdef L_floatdidf
-#define WORD_SIZE (sizeof (SItype) * BITS_PER_UNIT)
-#define HIGH_HALFWORD_COEFF (((UDItype) 1) << (WORD_SIZE / 2))
-#define HIGH_WORD_COEFF (((UDItype) 1) << WORD_SIZE)
+#define WORD_SIZE (sizeof (Wtype) * BITS_PER_UNIT)
+#define HIGH_HALFWORD_COEFF (((UDWtype) 1) << (WORD_SIZE / 2))
+#define HIGH_WORD_COEFF (((UDWtype) 1) << WORD_SIZE)
 
 DFtype
-__floatdidf (DItype u)
+__floatdidf (DWtype u)
 {
   DFtype d;
 
-  d = (SItype) (u >> WORD_SIZE);
+  d = (Wtype) (u >> WORD_SIZE);
   d *= HIGH_HALFWORD_COEFF;
   d *= HIGH_HALFWORD_COEFF;
-  d += (USItype) (u & (HIGH_WORD_COEFF - 1));
+  d += (UWtype) (u & (HIGH_WORD_COEFF - 1));
 
   return d;
 }
 #endif
 
 #ifdef L_floatdisf
-#define WORD_SIZE (sizeof (SItype) * BITS_PER_UNIT)
-#define HIGH_HALFWORD_COEFF (((UDItype) 1) << (WORD_SIZE / 2))
-#define HIGH_WORD_COEFF (((UDItype) 1) << WORD_SIZE)
-#define DI_SIZE (sizeof (DItype) * BITS_PER_UNIT)
+#define WORD_SIZE (sizeof (Wtype) * BITS_PER_UNIT)
+#define HIGH_HALFWORD_COEFF (((UDWtype) 1) << (WORD_SIZE / 2))
+#define HIGH_WORD_COEFF (((UDWtype) 1) << WORD_SIZE)
+#define DI_SIZE (sizeof (DWtype) * BITS_PER_UNIT)
 
 /* Define codes for all the float formats that we know of.  Note
    that this is copied from real.h.  */
@@ -1046,7 +1135,7 @@ __floatdidf (DItype u)
 #endif
 
 SFtype
-__floatdisf (DItype u)
+__floatdisf (DWtype u)
 {
   /* Do the calculation in DFmode
      so that we don't lose any of the precision of the high word
@@ -1062,18 +1151,18 @@ __floatdisf (DItype u)
   if (DF_SIZE < DI_SIZE
       && DF_SIZE > (DI_SIZE - DF_SIZE + SF_SIZE))
     {
-#define REP_BIT ((USItype) 1 << (DI_SIZE - DF_SIZE))
-      if (! (- ((DItype) 1 << DF_SIZE) < u
-	     && u < ((DItype) 1 << DF_SIZE)))
+#define REP_BIT ((UWtype) 1 << (DI_SIZE - DF_SIZE))
+      if (! (- ((DWtype) 1 << DF_SIZE) < u
+	     && u < ((DWtype) 1 << DF_SIZE)))
 	{
-	  if ((USItype) u & (REP_BIT - 1))
+	  if ((UWtype) u & (REP_BIT - 1))
 	    u |= REP_BIT;
 	}
     }
-  f = (SItype) (u >> WORD_SIZE);
+  f = (Wtype) (u >> WORD_SIZE);
   f *= HIGH_HALFWORD_COEFF;
   f *= HIGH_HALFWORD_COEFF;
-  f += (USItype) (u & (HIGH_WORD_COEFF - 1));
+  f += (UWtype) (u & (HIGH_WORD_COEFF - 1));
 
   return (SFtype) f;
 }
@@ -1092,12 +1181,12 @@ __floatdisf (DItype u)
 #undef MAX
 #include <limits.h>
 
-USItype
+UWtype
 __fixunsxfsi (XFtype a)
 {
   if (a >= - (DFtype) LONG_MIN)
-    return (SItype) (a + LONG_MIN) - LONG_MIN;
-  return (SItype) a;
+    return (Wtype) (a + LONG_MIN) - LONG_MIN;
+  return (Wtype) a;
 }
 #endif
 
@@ -1114,12 +1203,12 @@ __fixunsxfsi (XFtype a)
 #undef MAX
 #include <limits.h>
 
-USItype
+UWtype
 __fixunsdfsi (DFtype a)
 {
   if (a >= - (DFtype) LONG_MIN)
-    return (SItype) (a + LONG_MIN) - LONG_MIN;
-  return (SItype) a;
+    return (Wtype) (a + LONG_MIN) - LONG_MIN;
+  return (Wtype) a;
 }
 #endif
 
@@ -1136,12 +1225,12 @@ __fixunsdfsi (DFtype a)
 #undef MAX
 #include <limits.h>
 
-USItype
+UWtype
 __fixunssfsi (SFtype a)
 {
   if (a >= - (SFtype) LONG_MIN)
-    return (SItype) (a + LONG_MIN) - LONG_MIN;
-  return (SItype) a;
+    return (Wtype) (a + LONG_MIN) - LONG_MIN;
+  return (Wtype) a;
 }
 #endif
 
@@ -1153,6 +1242,12 @@ __fixunssfsi (SFtype a)
 #define UDItype bogus_type
 #define SFtype bogus_type
 #define DFtype bogus_type
+#undef Wtype
+#undef UWtype
+#undef HWtype
+#undef UHWtype
+#undef DWtype
+#undef UDWtype
 
 #undef char
 #undef short
@@ -1185,7 +1280,7 @@ __gcc_bcmp (unsigned char *s1, unsigned char *s2, size_t size)
 
 #ifdef L__dummy
 void
-__dummy () {}
+__dummy (void) {}
 #endif
 
 #ifdef L_varargs
@@ -1401,7 +1496,7 @@ asm ("___builtin_saveregs:");
 #else /* not __mips__, etc.  */
 
 void *
-__builtin_saveregs ()
+__builtin_saveregs (void)
 {
   abort ();
 }
@@ -1514,7 +1609,7 @@ __bb_exit_func (void)
 	  /* If the file exists, and the number of counts in it is the same,
 	     then merge them in.  */
 	     
-	  if ((da_file = fopen (ptr->filename, "r")) != 0)
+	  if ((da_file = fopen (ptr->filename, "rb")) != 0)
 	    {
 	      long n_counts = 0;
 	      
@@ -1547,7 +1642,7 @@ __bb_exit_func (void)
 		fprintf (stderr, "arc profiling: Error closing output file %s.\n",
 			 ptr->filename);
 	    }
-	  if ((da_file = fopen (ptr->filename, "w")) == 0)
+	  if ((da_file = fopen (ptr->filename, "wb")) == 0)
 	    {
 	      fprintf (stderr, "arc profiling: Can't open output file %s.\n",
 		       ptr->filename);
@@ -1621,7 +1716,7 @@ __bb_exit_func (void)
       for (ptr = bb_head; ptr != (struct bb *) 0; ptr = ptr->next)
 	{
 	  int i;
-	  int func_p	= (ptr->nwords >= sizeof (struct bb)
+	  int func_p	= (ptr->nwords >= (long) sizeof (struct bb)
 			   && ptr->nwords <= 1000
 			   && ptr->functions);
 	  int line_p	= (func_p && ptr->line_nums);
@@ -1650,7 +1745,7 @@ __bb_exit_func (void)
 	      if (cnt_max < ptr->counts[i])
 		cnt_max = ptr->counts[i];
 
-	      if (addr_p && addr_max < ptr->addresses[i])
+	      if (addr_p && (unsigned long) addr_max < ptr->addresses[i])
 		addr_max = ptr->addresses[i];
 
 	      if (line_p && line_max < ptr->line_nums[i])
@@ -1890,7 +1985,7 @@ gclose (FILE *f)
 /* Called once per program.  */
 
 static void
-__bb_exit_trace_func ()
+__bb_exit_trace_func (void)
 {
   FILE *file = fopen ("bb.out", "a");
   struct bb_func *f;
@@ -2085,7 +2180,7 @@ found:        ;
 /* Called once per program.  */
 
 static void
-__bb_init_prg ()
+__bb_init_prg (void)
 {
   FILE *file;
   char buf[BBINBUFSIZE];
@@ -2191,7 +2286,7 @@ __bb_init_prg ()
 /* Called upon entering a basic block.  */
 
 void
-__bb_trace_func ()
+__bb_trace_func (void)
 {
   struct bb_edge *bucket;
 
@@ -2264,7 +2359,7 @@ skip:
 /* Called when returning from a function and `__bb_showret__' is set.  */
 
 static void
-__bb_trace_func_ret ()
+__bb_trace_func_ret (void)
 {
   struct bb_edge *bucket;
 
@@ -2362,7 +2457,7 @@ __bb_init_file (struct bb *blocks)
 /* Called when exiting from a function.  */
 
 void
-__bb_trace_ret ()
+__bb_trace_ret (void)
 {
 
   MACHINE_STATE_SAVE("2")
@@ -2484,7 +2579,7 @@ __clear_cache (char *beg __attribute__((__unused__)),
   int offset;
   void *start_addr
   void *end_addr;
-  typedef (*function_ptr) ();
+  typedef (*function_ptr) (void);
 
 #if (INSN_CACHE_SIZE / INSN_CACHE_LINE_WIDTH) < 16
   /* It's cheaper to clear the whole cache.
@@ -2587,7 +2682,8 @@ __clear_cache (char *beg __attribute__((__unused__)),
 
 #if defined(WINNT) && ! defined(__CYGWIN__) && ! defined (_UWIN)
 
-long getpagesize()
+long
+getpagesize (void)
 {
 #ifdef _ALPHA_
   return 8192;
@@ -2596,7 +2692,7 @@ long getpagesize()
 #endif
 }
 
-#ifdef i386
+#ifdef __i386__
 extern int VirtualProtect (char *, int, int, int *) __attribute__((stdcall));
 #endif
 
@@ -2676,7 +2772,7 @@ __enable_execute_stack (char *addr)
 #include <machine/machparam.h>
 
 void
-__enable_execute_stack ()
+__enable_execute_stack (void)
 {
   int fp;
   static unsigned lowest = USRSTACK;
@@ -2703,7 +2799,7 @@ __enable_execute_stack ()
 #include <sys/m88kbcs.h>
 
 void
-__enable_execute_stack ()
+__enable_execute_stack (void)
 {
   int save_errno;
   static unsigned long lowest = USRSTACK;
@@ -2753,7 +2849,7 @@ noerror:\n\
    This is called from FINALIZE_TRAMPOLINE in mot3300.h.  */
 
 void
-__clear_insn_cache ()
+__clear_insn_cache (void)
 {
 #ifdef MCT_TEXT
   int save_errno;
@@ -2784,7 +2880,7 @@ __clear_insn_cache ()
    mremap promises to clear the i-cache.  */
 
 void
-__enable_execute_stack ()
+__enable_execute_stack (void)
 {
   int fp;
   if (mprotect (((unsigned int)&fp/PAGSIZ)*PAGSIZ, PAGSIZ,
@@ -2854,7 +2950,7 @@ extern unsigned char __EH_FRAME_BEGIN__[];
 /* Run all the global destructors on exit from the program.  */
 
 void
-__do_global_dtors ()
+__do_global_dtors (void)
 {
 #ifdef DO_GLOBAL_DTORS_BODY
   DO_GLOBAL_DTORS_BODY;
@@ -2866,7 +2962,7 @@ __do_global_dtors ()
       (*(p-1)) ();
     }
 #endif
-#ifdef EH_FRAME_SECTION
+#if defined (EH_FRAME_SECTION) && !defined (HAS_INIT_SECTION)
   {
     static int completed = 0;
     if (! completed)
@@ -2883,7 +2979,7 @@ __do_global_dtors ()
 /* Run all the global constructors on entry to the program.  */
 
 void
-__do_global_ctors ()
+__do_global_ctors (void)
 {
 #ifdef EH_FRAME_SECTION
   {
@@ -2987,8 +3083,8 @@ atexit (func_ptr func)
   return (0);
 }
 
-extern void _cleanup ();
-extern void _exit () __attribute__ ((noreturn));
+extern void _cleanup (void);
+extern void _exit (int) __attribute__ ((__noreturn__));
 
 void 
 exit (int status)
@@ -3034,15 +3130,16 @@ atexit (func_ptr func)
 extern void __default_terminate (void) __attribute__ ((__noreturn__));
 
 void
-__default_terminate ()
+__default_terminate (void)
 {
   abort ();
 }
 
-void (*__terminate_func)() = __default_terminate;
+void (*__terminate_func)(void) __attribute__ ((__noreturn__)) =
+  __default_terminate;
 
 void
-__terminate ()
+__terminate (void)
 {
   (*__terminate_func)();
 }
@@ -3060,7 +3157,7 @@ __throw_type_match (void *catch_type, void *throw_type, void *obj)
 }
 
 void
-__empty ()
+__empty (void)
 {
 }
 
@@ -3074,10 +3171,11 @@ __empty ()
 
 /* Allocate and return a new EH context structure. */
 
-extern void __throw ();
+extern void __throw (void);
 
+#if __GTHREADS
 static void *
-new_eh_context ()
+new_eh_context (void)
 {
   struct eh_full_context {
     struct eh_context c;
@@ -3101,7 +3199,6 @@ new_eh_context ()
   return &ehfc->c;
 }
 
-#if __GTHREADS
 static __gthread_key_t eh_context_key;
 
 /* Destructor for struct eh_context. */
@@ -3116,19 +3213,19 @@ eh_context_free (void *ptr)
 
 /* Pointer to function to return EH context. */
 
-static struct eh_context *eh_context_initialize ();
-static struct eh_context *eh_context_static ();
+static struct eh_context *eh_context_initialize (void);
+static struct eh_context *eh_context_static (void);
 #if __GTHREADS
-static struct eh_context *eh_context_specific ();
+static struct eh_context *eh_context_specific (void);
 #endif
 
-static struct eh_context *(*get_eh_context) () = &eh_context_initialize;
+static struct eh_context *(*get_eh_context) (void) = &eh_context_initialize;
 
 /* Routine to get EH context.
    This one will simply call the function pointer. */
 
 void *
-__get_eh_context ()
+__get_eh_context (void)
 {
   return (void *) (*get_eh_context) ();
 }
@@ -3136,7 +3233,7 @@ __get_eh_context ()
 /* Get and set the language specific info pointer. */
 
 void **
-__get_eh_info ()
+__get_eh_info (void)
 {
   struct eh_context *eh = (*get_eh_context) ();
   return &eh->info;
@@ -3147,7 +3244,7 @@ static int dwarf_reg_size_table_initialized = 0;
 static char dwarf_reg_size_table[FIRST_PSEUDO_REGISTER];
 
 static void
-init_reg_size_table ()
+init_reg_size_table (void)
 {
   __builtin_init_dwarf_reg_size_table (dwarf_reg_size_table);
   dwarf_reg_size_table_initialized = 1;
@@ -3156,7 +3253,7 @@ init_reg_size_table ()
 
 #if __GTHREADS
 static void
-eh_threads_initialize ()
+eh_threads_initialize (void)
 {
   /* Try to create the key.  If it fails, revert to static method,
      otherwise start using thread specific EH contexts. */
@@ -3172,7 +3269,7 @@ eh_threads_initialize ()
    pointer to another routine. */
 
 static struct eh_context *
-eh_context_initialize ()
+eh_context_initialize (void)
 {
 #if __GTHREADS
 
@@ -3212,7 +3309,7 @@ eh_context_initialize ()
 /* Return a static EH context. */
 
 static struct eh_context *
-eh_context_static ()
+eh_context_static (void)
 {
   static struct eh_context eh;
   static int initialized;
@@ -3231,7 +3328,7 @@ eh_context_static ()
 /* Return a thread specific EH context. */
 
 static struct eh_context *
-eh_context_specific ()
+eh_context_specific (void)
 {
   struct eh_context *eh;
   eh = (struct eh_context *) __gthread_getspecific (eh_context_key);
@@ -3260,7 +3357,7 @@ extern void longjmp (void *, int);
    use for exception handling. */
 
 void ***
-__get_dynamic_handler_chain ()
+__get_dynamic_handler_chain (void)
 {
   struct eh_context *eh = (*get_eh_context) ();
   return &eh->dynamic_handler_chain;
@@ -3277,18 +3374,15 @@ __get_dynamic_handler_chain ()
 extern void __sjthrow (void) __attribute__ ((__noreturn__));
 
 void
-__sjthrow ()
+__sjthrow (void)
 {
   struct eh_context *eh = (*get_eh_context) ();
   void ***dhc = &eh->dynamic_handler_chain;
   void *jmpbuf;
   void (*func)(void *, int);
   void *arg;
-  void ***cleanup;
-
-  /* The cleanup chain is one word into the buffer.  Get the cleanup
-     chain.  */
-  cleanup = (void***)&(*dhc)[1];
+  /* The cleanup chain is one word into the buffer.  Get the cleanup chain. */
+  void ***cleanup = (void***)&(*dhc)[1];
 
   /* If there are any cleanups in the chain, run them now.  */
   if (cleanup[0])
@@ -3355,17 +3449,14 @@ __sjthrow ()
 extern void __sjpopnthrow (void) __attribute__ ((__noreturn__));
 
 void
-__sjpopnthrow ()
+__sjpopnthrow (void)
 {
   struct eh_context *eh = (*get_eh_context) ();
   void ***dhc = &eh->dynamic_handler_chain;
   void (*func)(void *, int);
   void *arg;
-  void ***cleanup;
-
-  /* The cleanup chain is one word into the buffer.  Get the cleanup
-     chain.  */
-  cleanup = (void***)&(*dhc)[1];
+  /* The cleanup chain is one word into the buffer.  Get the cleanup chain. */
+  void ***cleanup = (void***)&(*dhc)[1];
 
   /* If there are any cleanups in the chain, run them now.  */
   if (cleanup[0])
@@ -3614,7 +3705,12 @@ in_reg_window (int reg, frame_state *udata)
 #endif
 }
 #else
-static inline int in_reg_window (int reg, frame_state *udata) { return 0; }
+static inline int
+in_reg_window (int reg __attribute__ ((__unused__)),
+	       frame_state *udata __attribute__ ((__unused__)))
+{
+  return 0;
+}
 #endif /* INCOMING_REGNO */
 
 /* Get the address of register REG as saved in UDATA, where SUB_UDATA is a
@@ -3710,7 +3806,7 @@ next_stack_level (void *pc, frame_state *udata, frame_state *caller_udata)
 
 /* Hook to call before __terminate if only cleanup handlers remain. */
 void 
-__unwinding_cleanup ()
+__unwinding_cleanup (void)
 {
 }
 
@@ -3728,19 +3824,16 @@ __unwinding_cleanup ()
    OFFSET_P is where we return the SP adjustment offset.  */
 
 static void *
-throw_helper (eh, pc, my_udata, offset_p)
-     struct eh_context *eh;
-     void *pc;
-     frame_state *my_udata;
-     long *offset_p;
+throw_helper (struct eh_context *eh, void *pc, frame_state *my_udata,
+	      long *offset_p)
 {
   frame_state ustruct2, *udata = &ustruct2;
   frame_state ustruct;
   frame_state *sub_udata = &ustruct;
   void *saved_pc = pc;
   void *handler;
-  void *handler_p;
-  void *pc_p;
+  void *handler_p = 0;
+  void *pc_p = 0;
   frame_state saved_ustruct;
   int new_eh_model;
   int cleanup = 0;
@@ -3911,7 +4004,7 @@ throw_helper (eh, pc, my_udata, offset_p)
 /*extern void __throw(void) __attribute__ ((__noreturn__));*/
 
 void
-__throw ()
+__throw (void)
 {
   struct eh_context *eh = (*get_eh_context) ();
   void *pc, *handler;
@@ -3956,8 +4049,7 @@ label:
 /*extern void __rethrow(void *) __attribute__ ((__noreturn__));*/
 
 void
-__rethrow (index)
-     void *index;
+__rethrow (void *index)
 {
   struct eh_context *eh = (*get_eh_context) ();
   void *pc, *handler;
@@ -4025,7 +4117,7 @@ label:
 extern void __terminate (void) __attribute__ ((__noreturn__));
 
 void
-__pure_virtual ()
+__pure_virtual (void)
 {
 #ifndef inhibit_libc
   write (2, MESSAGE, sizeof (MESSAGE) - 1);

@@ -1719,7 +1719,7 @@ mips_move_1word (operands, insn, unsignedp)
 		    ret = "mflo\t%0";
 		}
 
-	      else if (ST_REG_P (regno1) && mips_isa >= 4)
+	      else if (ST_REG_P (regno1) && ISA_HAS_8CC)
 		ret = "li\t%0,1\n\tmovf\t%0,%.,%1";
 
 	      else
@@ -1728,7 +1728,7 @@ mips_move_1word (operands, insn, unsignedp)
 		  if (FP_REG_P (regno1))
 		    ret = "mfc1\t%0,%1";
 
-		  else if (regno1 == FPSW_REGNUM && mips_isa < 4)
+		  else if (regno1 == FPSW_REGNUM && ! ISA_HAS_8CC)
 		    ret = "cfc1\t%0,$31";
 		}
 	    }
@@ -1755,7 +1755,7 @@ mips_move_1word (operands, insn, unsignedp)
 		}
 	    }
 
-	  else if (regno0 == FPSW_REGNUM && mips_isa < 4)
+	  else if (regno0 == FPSW_REGNUM && ! ISA_HAS_8CC)
 	    {
 	      if (GP_REG_P (regno1))
 		{
@@ -2218,7 +2218,9 @@ mips_move_2words (operands, insn)
 		       or higher.  For !TARGET_64BIT && gp registers we
 		       need to avoid this by using two li instructions
 		       instead.  */
-		    if (mips_isa >= 3 && !TARGET_64BIT && !FP_REG_P (regno0))
+		    if (ISA_HAS_64BIT_REGS 
+			&& ! TARGET_64BIT
+			&& ! FP_REG_P (regno0))
 		      {
 			split_double (op1, operands + 2, operands + 3);
 			ret = "li\t%0,%2\n\tli\t%D0,%3";
@@ -2871,7 +2873,7 @@ gen_conditional_branch (operands, test_code)
 
     case CMP_SF:
     case CMP_DF:
-      if (mips_isa < 4)
+      if (! ISA_HAS_8CC)
 	reg = gen_rtx_REG (CCmode, FPSW_REGNUM);
       else
 	reg = gen_reg_rtx (CCmode);
@@ -4197,7 +4199,7 @@ mips_va_arg (valist, type)
 	      if (r != addr_rtx)
 		emit_move_insn (addr_rtx, r);
 
-	      emit_jump (gen_jump (lab_over));
+	      emit_jump (lab_over);
 	      emit_barrier ();
 	      emit_label (lab_false);
 	    }
@@ -4223,6 +4225,9 @@ mips_va_arg (valist, type)
       r = expand_expr (t, addr_rtx, Pmode, EXPAND_NORMAL);
       if (r != addr_rtx)
 	emit_move_insn (addr_rtx, r);
+
+      /* Ensure that the above POSTINCREMENT is emitted before lab_over */
+      emit_queue();
 
       if (lab_over)
 	emit_label (lab_over);
@@ -4297,10 +4302,6 @@ override_options ()
   else if (optimize)
     target_flags |= MASK_GPOPT;
 
-#ifndef MIPS_ISA_DEFAULT
-#define MIPS_ISA_DEFAULT 1
-#endif
-
   /* If both single-float and soft-float are set, then clear the one that
      was set by TARGET_DEFAULT, leaving the one that was set by the
      user.  We assume here that the specs prevent both being set by the 
@@ -4367,7 +4368,7 @@ override_options ()
   if (mips_abi_string == 0 && mips_isa_string 
       && mips_abi != ABI_EABI && mips_abi != ABI_O64)
     {
-      if (mips_isa <= 2)
+      if (! ISA_HAS_64BIT_REGS)
 	mips_abi = ABI_32;
       else
 	mips_abi = ABI_64;
@@ -4388,9 +4389,9 @@ override_options ()
   /* If both ABI and ISA were specified, check for conflicts.  */
   else if (mips_isa_string && mips_abi_string)
     {
-      if ((mips_isa <= 2 && (mips_abi == ABI_N32 || mips_abi == ABI_64
+      if ((! ISA_HAS_64BIT_REGS && (mips_abi == ABI_N32 || mips_abi == ABI_64
 			     || mips_abi == ABI_O64))
-	  || (mips_isa >= 3 && mips_abi == ABI_32))
+	  || (ISA_HAS_64BIT_REGS && mips_abi == ABI_32))
 	error ("-mabi=%s does not support -mips%d", mips_abi_string, mips_isa);
     }
 
@@ -4539,24 +4540,24 @@ override_options ()
 	}
     }
 
-  if ((mips_cpu == PROCESSOR_R3000 && mips_isa > 1)
-      || (mips_cpu == PROCESSOR_R6000 && mips_isa > 2)
+  if ((mips_cpu == PROCESSOR_R3000 && (mips_isa != 1))
+      || (mips_cpu == PROCESSOR_R6000 && mips_isa != 1 && mips_isa != 2)
       || ((mips_cpu == PROCESSOR_R4000
            || mips_cpu == PROCESSOR_R4100
            || mips_cpu == PROCESSOR_R4300
 	   || mips_cpu == PROCESSOR_R4600
 	   || mips_cpu == PROCESSOR_R4650)
-	  && mips_isa > 3))
+	  && mips_isa != 1 && mips_isa != 2 && mips_isa != 3))
     error ("-mcpu=%s does not support -mips%d", mips_cpu_string, mips_isa);
 
   /* make sure sizes of ints/longs/etc. are ok */
-  if (mips_isa < 3)
+  if (! ISA_HAS_64BIT_REGS)
     {
       if (TARGET_FLOAT64)
-	fatal ("Only MIPS-III or MIPS-IV CPUs can support 64 bit fp registers");
+	fatal ("-mips%d does not support 64 bit fp registers", mips_isa);
 
       else if (TARGET_64BIT)
-	fatal ("Only MIPS-III or MIPS-IV CPUs can support 64 bit gp registers");
+	fatal ("-mips%d does not support 64 bit gp registers", mips_isa);
     }
 
   if (mips_abi != ABI_32 && mips_abi != ABI_O64)
@@ -4735,7 +4736,7 @@ override_options ()
 
 	  if (mode == CCmode)
 	    {
-	      if (mips_isa < 4)
+	      if (! ISA_HAS_8CC)
 		temp = (regno == FPSW_REGNUM);
 	      else
 		temp = (ST_REG_P (regno) || GP_REG_P (regno)
@@ -7449,9 +7450,18 @@ function_arg_pass_by_reference (cum, mode, type, named)
      ??? This is really a kludge.  We should either fix GCC so that such
      a situation causes an abort and then do something in the MIPS port
      to prevent it, or add code to function.c to properly handle the case.  */
-  if (FUNCTION_ARG (*cum, mode, type, named) != 0
-      && MUST_PASS_IN_STACK (mode, type))
-    return 1;
+  /* ??? cum can be NULL when called from mips_va_arg.  The problem handled
+     here hopefully is not relevant to mips_va_arg.  */
+  if (cum && MUST_PASS_IN_STACK (mode, type))
+     {
+        /* Don't pass the actual CUM to FUNCTION_ARG, because we would 
+           get double copies of any offsets generated for small structs 
+           passed in registers. */
+        CUMULATIVE_ARGS temp = *cum;
+        if (FUNCTION_ARG (temp, mode, type, named) != 0)
+           return 1;
+     }
+
 
   /* Otherwise, we only do this if EABI is selected.  */
   if (mips_abi != ABI_EABI)

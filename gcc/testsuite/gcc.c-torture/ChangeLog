@@ -1,3 +1,37 @@
+1999-12-27  Martin von Löwis  <loewis@informatik.hu-berlin.de>
+
+	* execute/991227-1.c: New test.
+
+1999-12-21  Martin von Löwis  <loewis@informatik.hu-berlin.de>
+
+	* execute/991221-1.c: New test.
+
+1999-12-16  Bernd Schmidt  <bernds@cygnus.co.uk>
+
+	* execute/991216-4.c: New test.
+
+1999-12-16  Michael Meissner  <meissner@cygnus.com>
+
+	* execute/991216-1.c: New test.
+	* execute/991216-2.c: New test.
+	* execute/991216-3.c: New test.
+
+1999-12-14  Bernd Schmidt  <bernds@cygnus.co.uk>
+
+	* compile/991214-1.c: New test.
+	* compile/991214-2.c: New test.
+
+1999-12-02  Bernd Schmidt  <bernds@cygnus.co.uk>
+
+	* compile/991202-1.c: New test.
+	* execute/991202-1.c: New test.
+	* execute/991202-2.c: New test.
+	* execute/991202-3.c: New test.
+
+1999-11-27  Bernd Schmidt  <bernds@cygnus.co.uk>
+
+	* compile/991127-1.c: New test.
+
 Wed Oct 20 16:18:23 1999  Jim Wilson  <wilson@cygnus.com>
 
 	* noncompile/noncompile.exp: For 940510-1.c, change compiler_output

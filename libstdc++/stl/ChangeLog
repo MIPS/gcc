@@ -1,3 +1,19 @@
+1999-12-14  Mumit Khan  <khan@xraylith.wisc.edu>
+
+	* stl_config.h (__MINGW32__): Define __STL_WIN32THREADS for thread
+	safe runtime.
+
+1999-11-10  Benjamin Kosnik  <bkoz@haight.constant.com>
+            Matthias Klose  <doko@cs.tu-berlin.de>
+
+	* stl_rope.h: Fix initialization order.
+	* stl_deque.h: Use static_casts<size_type>(signed_type).
+
+1999-11-06  Martin v. Löwis  <loewis@informatik.hu-berlin.de>
+
+	* bitset (class bitset): Declare reference as our friend.
+	* bitset: Include limits.h.
+
 1999-08-08  Alexandre Oliva  <oliva@dcc.unicamp.br>
 
 	* pthread_alloc: Solaris' ctype.h defines _U to 01; use _Up as

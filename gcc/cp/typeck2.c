@@ -36,6 +36,7 @@ Boston, MA 02111-1307, USA.  */
 #include "cp-tree.h"
 #include "flags.h"
 #include "toplev.h"
+#include "output.h"
 
 static tree process_init_constructor PROTO((tree, tree, tree *));
 static void ack PVPROTO ((const char *, ...)) ATTRIBUTE_PRINTF_1;
@@ -135,10 +136,10 @@ abstract_virtuals_error (decl, type)
   tree u;
   tree tu;
 
-  if (!CLASS_TYPE_P (type) || !CLASSTYPE_ABSTRACT_VIRTUALS (type))
+  if (!CLASS_TYPE_P (type) || !CLASSTYPE_PURE_VIRTUALS (type))
     return 0;
 
-  u = CLASSTYPE_ABSTRACT_VIRTUALS (type);
+  u = CLASSTYPE_PURE_VIRTUALS (type);
   if (decl)
     {
       if (TREE_CODE (decl) == RESULT_DECL)
@@ -830,7 +831,7 @@ process_init_constructor (type, init, elts)
 	      return error_mark_node;
 	    }
 
-	  if (TYPE_VIRTUAL_P (type))
+	  if (TYPE_POLYMORPHIC_P (type))
 	    {
 	      sorry ("initializer list for object using virtual functions");
 	      return error_mark_node;

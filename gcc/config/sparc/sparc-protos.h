@@ -1,5 +1,5 @@
 /* Prototypes of target machine for GNU compiler, for Sun SPARC.
-   Copyright (C) 1987, 88, 89, 92, 94-98, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com).
    64 bit SPARC V9 support by Michael Tiemann, Jim Wilson, and Doug Evans,
    at Cygnus Support.
@@ -26,7 +26,6 @@ Boston, MA 02111-1307, USA.  */
 
 #ifdef TREE_CODE
 extern struct rtx_def *function_value PARAMS ((tree, enum machine_mode, int));
-extern void init_cumulative_args PARAMS ((CUMULATIVE_ARGS *, tree, tree, int));
 extern void function_arg_advance PARAMS ((CUMULATIVE_ARGS *,
 					  enum machine_mode, tree, int));
 extern struct rtx_def *function_arg PARAMS ((const CUMULATIVE_ARGS *,
@@ -40,6 +39,7 @@ extern int function_arg_pass_by_reference PARAMS ((const CUMULATIVE_ARGS *,
 						   tree, int));
 extern struct rtx_def *sparc_builtin_saveregs PARAMS ((void));
 #ifdef RTX_CODE
+extern void init_cumulative_args PARAMS ((CUMULATIVE_ARGS *, tree, rtx, int));
 extern void sparc_va_start PARAMS ((int, tree, rtx));
 #endif
 extern struct rtx_def *sparc_va_arg PARAMS ((tree, tree));
@@ -79,6 +79,7 @@ extern void sparc_flat_save_restore PARAMS ((FILE *, const char *,
 #ifdef RTX_CODE
 /* Define the function that build the compare insn for scc and bcc.  */
 extern rtx gen_compare_reg PARAMS ((enum rtx_code code, rtx, rtx));
+extern void sparc_emit_float_lib_cmp PARAMS ((rtx, rtx, enum rtx_code));
 /* This function handles all v9 scc insns */
 extern int gen_v9_scc PARAMS ((enum rtx_code, rtx *));
 extern void sparc_initialize_trampoline PARAMS ((rtx, rtx, rtx));
@@ -123,6 +124,9 @@ extern int emit_move_sequence PARAMS ((rtx, enum machine_mode));
 extern int extend_op PARAMS ((rtx, enum machine_mode));
 extern int fcc_reg_operand PARAMS ((rtx, enum machine_mode));
 extern int fp_zero_operand PARAMS ((rtx));
+extern int fp_sethi_p PARAMS ((rtx));
+extern int fp_mov_p PARAMS ((rtx));
+extern int fp_high_losum_p PARAMS ((rtx));
 extern int icc_or_fcc_reg_operand PARAMS ((rtx, enum machine_mode));
 extern int label_ref_operand PARAMS ((rtx, enum machine_mode));
 extern int mem_min_alignment PARAMS ((rtx, int));
@@ -158,6 +162,7 @@ extern int eq_or_neq PARAMS ((rtx, enum machine_mode));
 extern int normal_comp_operator PARAMS ((rtx, enum machine_mode));
 extern int uns_arith_operand PARAMS ((rtx, enum machine_mode));
 extern int clobbered_register PARAMS ((rtx, enum machine_mode));
+extern rtx gen_df_reg PARAMS ((rtx, int));
 #endif /* RTX_CODE */
 
 #endif /* __SPARC_PROTOS_H__ */

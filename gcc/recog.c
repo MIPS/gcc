@@ -1020,6 +1020,11 @@ register_operand (op, mode)
       op = SUBREG_REG (op);
     }
 
+  /* If we have an ADDRESSOF, consider it valid since it will be
+     converted into something that will not be a MEM. */
+  if (GET_CODE (op) == ADDRESSOF)
+    return 1;
+
   /* We don't consider registers whose class is NO_REGS
      to be a register operand.  */
   return (GET_CODE (op) == REG
@@ -1045,10 +1050,12 @@ scratch_operand (op, mode)
      register rtx op;
      enum machine_mode mode;
 {
-  return (GET_MODE (op) == mode
-	  && (GET_CODE (op) == SCRATCH
-	      || (GET_CODE (op) == REG
-		  && REGNO (op) < FIRST_PSEUDO_REGISTER)));
+  if (GET_MODE (op) != mode && mode != VOIDmode)
+    return 0;
+
+  return (GET_CODE (op) == SCRATCH
+	  || (GET_CODE (op) == REG
+	      && REGNO (op) < FIRST_PSEUDO_REGISTER));
 }
 
 /* Return 1 if OP is a valid immediate operand for mode MODE.
@@ -1223,7 +1230,7 @@ pop_operand (op, mode)
 
 int
 memory_address_p (mode, addr)
-     enum machine_mode mode;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
      register rtx addr;
 {
   if (GET_CODE (addr) == ADDRESSOF)
@@ -2728,7 +2735,7 @@ peephole2_optimize (dump_file)
 	 care about subsequent life info; recog_last_allowed_insn to
 	 restrict how far forward we will allow the match to proceed.  */
 
-      recog_last_allowed_insn = bb->end;
+      recog_last_allowed_insn = NEXT_INSN (bb->end);
       for (insn = bb->end; ; insn = prev)
 	{
 	  prev = PREV_INSN (insn);
@@ -2747,7 +2754,7 @@ peephole2_optimize (dump_file)
 		  if (insn == bb->head)
 		    bb->head = NEXT_INSN (prev);
 
-		  recog_last_allowed_insn = prev;
+		  recog_last_allowed_insn = NEXT_INSN (prev);
 		  SET_BIT (blocks, i);
 		  changed = 1;
 		}

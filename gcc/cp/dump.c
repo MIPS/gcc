@@ -23,7 +23,6 @@ Boston, MA 02111-1307, USA.  */
 #include "system.h"
 #include "tree.h"
 #include "cp-tree.h"
-#include "splay-tree.h"
 
 /* Flags used with queue functions.  */
 #define DUMP_NONE     0
@@ -483,7 +482,7 @@ dequeue_and_dump (di)
 	{
 	  dump_string (di, "ptrmem");
 	  dump_child ("ptd", TYPE_PTRMEM_POINTED_TO_TYPE (t));
-	  dump_child ("csl", TYPE_PTRMEM_CLASS_TYPE (t));
+	  dump_child ("cls", TYPE_PTRMEM_CLASS_TYPE (t));
 	}
       else
 	dump_child ("ptd", TREE_TYPE (t));
@@ -601,7 +600,10 @@ dequeue_and_dump (di)
 	 and therefore many other macros do not work on it.  */
       if (t == std_node)
 	break;
-      dump_child ("dcls", cp_namespace_decls (t));
+      if (DECL_NAMESPACE_ALIAS (t))
+	dump_child ("alis", DECL_NAMESPACE_ALIAS (t));
+      else
+	dump_child ("dcls", cp_namespace_decls (t));
       break;
 
     case TEMPLATE_DECL:
@@ -644,6 +646,15 @@ dequeue_and_dump (di)
       dump_next_stmt (di, t);
       break;
 
+    case CTOR_STMT:
+      dump_stmt (di, t);
+      if (CTOR_BEGIN_P (t))
+	dump_string (di, "begn");
+      else
+	dump_string (di, "end");
+      dump_next_stmt (di, t);
+      break;
+
     case DECL_STMT:
       dump_stmt (di, t);
       dump_child ("decl", DECL_STMT_DECL (t));
@@ -678,6 +689,12 @@ dequeue_and_dump (di)
       dump_next_stmt (di, t);
       break;
 
+    case HANDLER:
+      dump_stmt (di, t);
+      dump_child ("body", HANDLER_BODY (t));
+      dump_next_stmt (di, t);
+      break;
+
     case IF_STMT:
       dump_stmt (di, t);
       dump_child ("cond", IF_COND (t));
@@ -707,6 +724,8 @@ dequeue_and_dump (di)
 
     case TRY_BLOCK:
       dump_stmt (di, t);
+      if (CLEANUP_P (t))
+	dump_string (di, "cleanup");
       dump_child ("body", TRY_STMTS (t));
       dump_child ("hdlr", TRY_HANDLERS (t));
       dump_next_stmt (di, t);
@@ -727,7 +746,7 @@ dequeue_and_dump (di)
 
     case START_CATCH_STMT:
       dump_stmt (di, t);
-      queue_and_dump_type (di, TREE_TYPE (t));
+      queue_and_dump_type (di, t);
       dump_next_stmt (di, t);
       break;
 
@@ -770,6 +789,7 @@ dequeue_and_dump (di)
     case INDIRECT_REF:
     case THROW_EXPR:
     case CLEANUP_POINT_EXPR:
+    case SAVE_EXPR:
       /* These nodes are unary, but do not have code class `1'.  */
       dump_child ("op 0", TREE_OPERAND (t, 0));
       break;

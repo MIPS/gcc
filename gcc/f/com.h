@@ -306,8 +306,8 @@ tree ffecom_expr_w (tree type, ffebld expr);
 void ffecom_finish_compile (void);
 void ffecom_finish_decl (tree decl, tree init, bool is_top_level);
 void ffecom_finish_progunit (void);
-tree ffecom_get_invented_identifier (const char *pattern, const char *text,
-				     int number);
+tree ffecom_get_invented_identifier (const char *pattern, ...)
+  ATTRIBUTE_PRINTF_1;
 ffeinfoKindtype ffecom_gfrt_basictype (ffecomGfrt ix);
 ffeinfoKindtype ffecom_gfrt_kindtype (ffecomGfrt ix);
 void ffecom_init_0 (void);
@@ -318,8 +318,9 @@ tree ffecom_lookup_label (ffelab label);
 tree ffecom_make_tempvar (const char *commentary, tree type,
 			  ffetargetCharacterSize size, int elements);
 tree ffecom_modify (tree newtype, tree lhs, tree rhs);
+void ffecom_save_tree_forever (tree t);
 #endif	/* FFECOM_targetCURRENT == FFECOM_targetGCC */
-void ffecom_file (char *name);
+void ffecom_file (const char *name);
 void ffecom_notify_init_storage (ffestorag st);
 void ffecom_notify_init_symbol (ffesymbol s);
 void ffecom_notify_primary_entry (ffesymbol fn);

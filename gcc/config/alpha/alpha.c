@@ -114,6 +114,8 @@ static void alpha_init_machine_status
   PROTO((struct function *p));
 static void alpha_mark_machine_status
   PROTO((struct function *p));
+static int alpha_ra_ever_killed PROTO((void));
+static rtx set_frame_related_p PROTO((void));
 
 
 /* Get the number of args of a function in one of two ways.  */
@@ -228,6 +230,12 @@ override_options ()
 	  alpha_cpu = PROCESSOR_EV6;
 	  target_flags |= MASK_BWX | MASK_MAX | MASK_FIX;
 	  target_flags &= ~ (MASK_CIX);
+	}
+      else if (! strcmp (alpha_cpu_string, "ev67")
+	       || ! strcmp (alpha_cpu_string, "21264a"))
+	{
+	  alpha_cpu = PROCESSOR_EV6;
+	  target_flags |= MASK_BWX | MASK_MAX | MASK_FIX | MASK_CIX;
 	}
       else
 	error ("bad value `%s' for -mcpu switch", alpha_cpu_string);
@@ -623,6 +631,7 @@ input_operand (op, mode)
       return mode == ptr_mode || mode == DImode;
 
     case REG:
+    case ADDRESSOF:
       return 1;
 
     case SUBREG:
@@ -937,7 +946,26 @@ reg_no_subreg_operand (op, mode)
     return 0;
   return register_operand (op, mode);
 }
-
+
+/* Recognize a addition operation that includes a constant.  Used to
+   convince reload to canonize (plus (plus reg c1) c2) during register
+   elimination.  */
+
+int
+addition_operation (op, mode)
+     register rtx op;
+     enum machine_mode mode;
+{
+  if (GET_MODE (op) != mode && mode != VOIDmode)
+    return 0;
+  if (GET_CODE (op) == PLUS
+      && register_operand (XEXP (op, 0), mode)
+      && GET_CODE (XEXP (op, 1)) == CONST_INT
+      && CONST_OK_FOR_LETTER_P (INTVAL (XEXP (op, 1)), 'K'))
+    return 1;
+  return 0;
+}
+
 /* Return 1 if this function can directly return via $26.  */
 
 int
@@ -948,7 +976,7 @@ direct_return ()
 	  && current_function_outgoing_args_size == 0
 	  && current_function_pretend_args_size == 0);
 }
-
+
 /* REF is an alignable memory location.  Place an aligned SImode
    reference into *PALIGNED_MEM and the number of bits to shift into
    *PBITNUM.  SCRATCH is a free register for use in reloading out
@@ -1023,6 +1051,57 @@ get_unaligned_address (ref, extra_offset)
     offset += INTVAL (XEXP (base, 1)), base = XEXP (base, 0);
 
   return plus_constant (base, offset + extra_offset);
+}
+
+/* Loading and storing HImode or QImode values to and from memory
+   usually requires a scratch register.  The exceptions are loading
+   QImode and HImode from an aligned address to a general register
+   unless byte instructions are permitted. 
+
+   We also cannot load an unaligned address or a paradoxical SUBREG
+   into an FP register. 
+
+   We also cannot do integral arithmetic into FP regs, as might result
+   from register elimination into a DImode fp register.  */
+
+enum reg_class
+secondary_reload_class (class, mode, x, in)
+     enum reg_class class;
+     enum machine_mode mode;
+     rtx x;
+     int in;
+{
+  if (GET_CODE (x) == MEM
+      || (GET_CODE (x) == REG && REGNO (x) >= FIRST_PSEUDO_REGISTER)
+      || (GET_CODE (x) == SUBREG
+	  && (GET_CODE (SUBREG_REG (x)) == MEM
+	      || (GET_CODE (SUBREG_REG (x)) == REG
+		  && REGNO (SUBREG_REG (x)) >= FIRST_PSEUDO_REGISTER))))
+    {
+      if (class == FLOAT_REGS && mode != DImode)
+	return GENERAL_REGS;
+      if ((mode == QImode || mode == HImode) && ! TARGET_BWX)
+	{
+	  if (!in || !aligned_memory_operand(x, mode))
+	    return GENERAL_REGS;
+	}
+    }
+
+  if (class == FLOAT_REGS)
+    {
+      if (GET_CODE (x) == MEM && GET_CODE (XEXP (x, 0)) == AND)
+	return GENERAL_REGS;
+
+      if (GET_CODE (x) == SUBREG
+	  && (GET_MODE_SIZE (GET_MODE (x))
+	      > GET_MODE_SIZE (GET_MODE (SUBREG_REG (x)))))
+	return GENERAL_REGS;
+
+      if (in && INTEGRAL_MODE_P (mode) && ! general_operand (x, mode))
+	return GENERAL_REGS;
+    }
+
+  return NO_REGS;
 }
 
 /* Subfunction of the following function.  Update the flags of any MEM
@@ -1501,18 +1580,63 @@ alpha_emit_conditional_move (cmp, mode)
     = (GET_MODE (op0) == VOIDmode ? DImode : GET_MODE (op0));
   enum machine_mode cmp_op_mode = fp_p ? DFmode : DImode;
   enum machine_mode cmov_mode = VOIDmode;
+  int local_fast_math = flag_fast_math;
   rtx tem;
 
   /* Zero the operands.  */
   memset (&alpha_compare, 0, sizeof (alpha_compare));
 
   if (fp_p != FLOAT_MODE_P (mode))
-    return 0;
+    {
+      enum rtx_code cmp_code;
+
+      if (! TARGET_FIX)
+	return 0;
+
+      /* If we have fp<->int register move instructions, do a cmov by
+	 performing the comparison in fp registers, and move the
+	 zero/non-zero value to integer registers, where we can then
+	 use a normal cmov, or vice-versa.  */
+
+      switch (code)
+	{
+	case EQ: case LE: case LT: case LEU: case LTU:
+	  /* We have these compares.  */
+	  cmp_code = code, code = NE;
+	  break;
+
+	case NE:
+	  /* This must be reversed.  */
+	  cmp_code = EQ, code = EQ;
+	  break;
+
+	case GE: case GT: case GEU: case GTU:
+	  /* These must be swapped.  */
+	  cmp_code = swap_condition (code);
+	  code = NE;
+	  tem = op0, op0 = op1, op1 = tem;
+	  break;
+
+	default:
+	  abort ();
+	}
+
+      tem = gen_reg_rtx (cmp_op_mode);
+      emit_insn (gen_rtx_SET (VOIDmode, tem,
+			      gen_rtx_fmt_ee (cmp_code, cmp_op_mode,
+					      op0, op1)));
+
+      cmp_mode = cmp_op_mode = fp_p ? DImode : DFmode;
+      op0 = gen_lowpart (cmp_op_mode, tem);
+      op1 = CONST0_RTX (cmp_op_mode);
+      fp_p = !fp_p;
+      local_fast_math = 1;
+    }
 
   /* We may be able to use a conditional move directly.
      This avoids emitting spurious compares. */
   if (signed_comparison_operator (cmp, cmp_op_mode)
-      && (!fp_p || flag_fast_math)
+      && (!fp_p || local_fast_math)
       && (op0 == CONST0_RTX (cmp_mode) || op1 == CONST0_RTX (cmp_mode)))
     return gen_rtx_fmt_ee (code, VOIDmode, op0, op1);
 
@@ -1548,7 +1672,7 @@ alpha_emit_conditional_move (cmp, mode)
   /* ??? We mark the branch mode to be CCmode to prevent the compare
      and cmov from being combined, since the compare insn follows IEEE
      rules that the cmov does not.  */
-  if (fp_p && !flag_fast_math)
+  if (fp_p && !local_fast_math)
     cmov_mode = CCmode;
 
   tem = gen_reg_rtx (cmp_op_mode);
@@ -2615,13 +2739,13 @@ alpha_return_addr (count, frame)
   if (count != 0)
     return const0_rtx;
 
-  reg = current_function->machine->ra_rtx;
+  reg = cfun->machine->ra_rtx;
   if (reg == NULL)
     {
       /* No rtx yet.  Invent one, and initialize it from $26 in
 	 the prologue.  */
       reg = gen_reg_rtx (Pmode);
-      current_function->machine->ra_rtx = reg;
+      cfun->machine->ra_rtx = reg;
       init = gen_rtx_SET (VOIDmode, reg, gen_rtx_REG (Pmode, REG_RA));
 
       /* Emit the insn to the prologue with the other argument copies.  */
@@ -2642,7 +2766,7 @@ alpha_ra_ever_killed ()
   if (current_function_is_thunk)
     return 0;
 #endif
-  if (!current_function->machine->ra_rtx)
+  if (!cfun->machine->ra_rtx)
     return regs_ever_live[REG_RA];
 
   push_topmost_sequence ();
@@ -3092,12 +3216,16 @@ alpha_initialize_trampoline (tramp, fnaddr, cxt, fnofs, cxtofs, jmpofs)
 tree
 alpha_build_va_list ()
 {
-  tree base, ofs, record;
+  tree base, ofs, record, type_decl;
 
   if (TARGET_OPEN_VMS)
     return ptr_type_node;
 
-  record = make_node (RECORD_TYPE);
+  record = make_lang_type (RECORD_TYPE);
+  type_decl = build_decl (TYPE_DECL, get_identifier ("__va_list_tag"), record);
+  TREE_CHAIN (record) = type_decl;
+  TYPE_NAME (record) = type_decl;
+
   /* C++? SET_IS_AGGR_TYPE (record, 1); */
 
   ofs = build_decl (FIELD_DECL, get_identifier ("__offset"),
@@ -3721,7 +3849,7 @@ alpha_expand_prologue ()
 void
 alpha_start_function (file, fnname, decl)
      FILE *file;
-     char *fnname;
+     const char *fnname;
      tree decl ATTRIBUTE_UNUSED;
 {
   unsigned long imask = 0;
@@ -3962,7 +4090,7 @@ alpha_expand_epilogue ()
   fp_is_frame_pointer = ((TARGET_OPEN_VMS && vms_is_stack_procedure)
 			 || (!TARGET_OPEN_VMS && frame_pointer_needed));
 
-  eh_ofs = current_function->machine->eh_epilogue_sp_ofs;
+  eh_ofs = cfun->machine->eh_epilogue_sp_ofs;
   if (sa_size)
     {
       /* If we have a frame pointer, restore SP from it.  */
@@ -4112,7 +4240,7 @@ alpha_expand_epilogue ()
 void
 alpha_end_function (file, fnname, decl)
      FILE *file;
-     char *fnname;
+     const char *fnname;
      tree decl ATTRIBUTE_UNUSED;
 {
   /* End the function.  */
@@ -5104,7 +5232,7 @@ alpha_reorg (insns)
 
 /* Check a floating-point value for validity for a particular machine mode.  */
 
-static char * const float_strings[] =
+static const char * const float_strings[] =
 {
   /* These are for FLOAT_VAX.  */
    "1.70141173319264430e+38", /* 2^127 (2^24 - 1) / 2^24 */
@@ -5236,7 +5364,7 @@ static struct alpha_links *alpha_links_base = 0;
 
 void
 alpha_need_linkage (name, is_local)
-    char *name;
+    const char *name;
     int is_local;
 {
   rtx x;
@@ -5316,7 +5444,7 @@ alpha_write_linkage (stream)
 
 void
 alpha_need_linkage (name, is_local)
-     char *name ATTRIBUTE_UNUSED;
+     const char *name ATTRIBUTE_UNUSED;
      int is_local ATTRIBUTE_UNUSED;
 {
 }

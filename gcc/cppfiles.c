@@ -57,10 +57,11 @@ static void hack_vms_include_specification PROTO ((char *));
 #endif
 
 /* Windows does not natively support inodes, and neither does MSDOS.
+   Cygwin's emulation can generate non-unique inodes, so don't use it.
    VMS has non-numeric inodes. */
 #ifdef VMS
 #define INO_T_EQ(a, b) (!bcmp((char *) &(a), (char *) &(b), sizeof (a)))
-#elif (defined _WIN32 && !defined CYGWIN && ! defined (_UWIN)) \
+#elif (defined _WIN32 && ! defined (_UWIN)) \
        || defined __MSDOS__
 #define INO_T_EQ(a, b) 0
 #else
@@ -437,10 +438,10 @@ read_filename_string (ch, f)
 
   len = 20;
   set = alloc = xmalloc (len + 1);
-  if (! is_space[ch])
+  if (! is_space(ch))
     {
       *set++ = ch;
-      while ((ch = getc (f)) != EOF && ! is_space[ch])
+      while ((ch = getc (f)) != EOF && ! is_space(ch))
 	{
 	  if (set - alloc == len)
 	    {
@@ -503,10 +504,10 @@ read_name_map (pfile, dirname)
 	  char *from, *to;
 	  struct file_name_map *ptr;
 
-	  if (is_space[ch])
+	  if (is_space(ch))
 	    continue;
 	  from = read_filename_string (ch, f);
-	  while ((ch = getc (f)) != EOF && is_hor_space[ch])
+	  while ((ch = getc (f)) != EOF && is_hspace(ch))
 	    ;
 	  to = read_filename_string (ch, f);
 
@@ -976,7 +977,7 @@ read_and_prescan (pfile, fp, desc, len)
 
 	    case SPECCASE_QUESTION: /* ? */
 	      {
-		unsigned int d;
+		unsigned int d, t;
 		/* If we're at the end of the intermediate buffer,
 		   we have to shift the ?'s down to the start and
 		   come back next pass. */
@@ -998,12 +999,27 @@ read_and_prescan (pfile, fp, desc, len)
 		    *--ibase = '?';
 		    goto read_next;
 		  }
-		if (!trigraph_table[d])
+
+		/* Trigraph map:
+		 *	from	to	from	to	from	to
+		 *	?? =	#	?? )	]	?? !	|
+		 *	?? (	[	?? '	^	?? >	}
+		 *	?? /	\	?? <	{	?? -	~
+		 */
+		if (d == '=') t = '#';
+		else if (d == ')') t = ']';
+		else if (d == '!') t = '|';
+		else if (d == '(') t = '[';
+		else if (d == '\'') t = '^';
+		else if (d == '>') t = '}';
+		else if (d == '/') t = '\\';
+		else if (d == '<') t = '{';
+		else if (d == '-') t = '~';
+		else
 		  {
 		    *op++ = '?';
 		    break;
 		  }
-
 		if (CPP_OPTIONS (pfile)->warn_trigraphs)
 		  {
 		    unsigned long col;
@@ -1014,10 +1030,10 @@ read_and_prescan (pfile, fp, desc, len)
 		  }
 		if (CPP_OPTIONS (pfile)->trigraphs)
 		  {
-		    if (trigraph_table[d] == '\\')
+		    if (t == '\\')
 		      goto backslash;
 		    else
-		      *op++ = trigraph_table[d];
+		      *op++ = t;
 		  }
 		else
 		  {

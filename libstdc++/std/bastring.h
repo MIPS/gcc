@@ -1,5 +1,5 @@
 // Main templates for the -*- C++ -*- string classes.
-// Copyright (C) 1994, 1995 Free Software Foundation
+// Copyright (C) 1994, 1995, 1999 Free Software Foundation
 
 // This file is part of the GNU ANSI C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -89,14 +89,19 @@ private:
 	if (__val == 1)
 	  delete this;
       }
-#elif defined __sparcv9__
+#elif defined __sparc_v9__
     void release ()
       {
 	size_t __newval, __oldval = ref;
 	do
 	  {
 	    __newval = __oldval - 1;
-	    __asm__ ("cas	[%4], %2, %0"
+	    __asm__ (
+#ifdef __arch64__
+		     "casx	[%4], %2, %0"
+#else
+		     "cas	[%4], %2, %0"
+#endif
 		     : "=r" (__oldval), "=m" (ref)
 		     : "r" (__oldval), "m" (ref), "r"(&(ref)), "0" (__newval));
 	  }
@@ -180,11 +185,11 @@ public:
     : dat (nilRep.grab ()) { assign (n, c); }
 #ifdef __STL_MEMBER_TEMPLATES
   template<class InputIterator>
-    basic_string(InputIterator begin, InputIterator end)
+    basic_string(InputIterator __begin, InputIterator __end)
 #else
-  basic_string(const_iterator begin, const_iterator end)
+  basic_string(const_iterator __begin, const_iterator __end)
 #endif
-    : dat (nilRep.grab ()) { assign (begin, end); }
+    : dat (nilRep.grab ()) { assign (__begin, __end); }
 
   ~basic_string ()
     { rep ()->release (); }

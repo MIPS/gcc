@@ -141,6 +141,14 @@ extern unsigned larger_than_size;
 
 extern int warn_aggregate_return;
 
+/* Warn if packed attribute on struct is unnecessary and inefficient.  */
+
+extern int warn_packed;
+
+/* Warn when gcc pads a structure to an alignment boundary.  */
+
+extern int warn_padded;
+
 /* Nonzero if generating code to do profiling.  */
 
 extern int profile_flag;
@@ -404,6 +412,10 @@ extern int flag_exceptions;
 
 extern int flag_new_exceptions;
 
+/* Nonzero means generate frame unwind info table when supported */
+
+extern int flag_unwind_tables;
+
 /* Nonzero means don't place uninitialized global data in common storage
    by default.  */
 
@@ -464,8 +476,8 @@ extern int flag_argument_noalias;
    if alias analysis (in general) is enabled.  */
 extern int flag_strict_aliasing;
 
-/* Emit code to check for stack overflow; also may cause large objects
-   to be allocated dynamically.  */
+/* Emit code to probe the stack, to help detect stack overflow; also
+   may cause large objects to be allocated dynamically.  */
 extern int flag_stack_check;
 
 /* Do the full regmove optimization pass.  */
@@ -491,6 +503,11 @@ extern int flag_bounded_pointers;
    For Fortran: defaults to off.
    For CHILL: defaults to off.  */
 extern int flag_bounds_check;
+
+/* If one, renumber instruction UIDs to reduce the number of
+   unused UIDs if there are a lot of instructions.  If greater than
+   one, unconditionally renumber instruction UIDs.  */
+extern int flag_renumber_insns;
 
 /* Other basic status info about current function.  */
 

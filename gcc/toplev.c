@@ -1,5 +1,5 @@
 /* Top level of GNU C compiler
-   Copyright (C) 1987, 88, 89, 92-98, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1987, 88, 89, 92-98, 1999, 2000 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -57,6 +57,8 @@ Boston, MA 02111-1307, USA.  */
 #include "intl.h"
 #include "ggc.h"
 #include "graph.h"
+#include "loop.h"
+#include "regs.h"
 
 #ifdef DWARF_DEBUGGING_INFO
 #include "dwarfout.h"
@@ -136,11 +138,7 @@ You Lose!  You must define PREFERRED_DEBUGGING_TYPE!
 #define PREFERRED_DEBUGGING_TYPE NO_DEBUG
 #endif
 
-#ifndef DIR_SEPARATOR
-#define DIR_SEPARATOR '/'
-#endif
-
-#if ! (defined (VMS) || defined (OS2))
+#ifdef NEED_DECLARATION_ENVIRON
 extern char **environ;
 #endif
 extern char *version_string;
@@ -151,30 +149,9 @@ extern char *version_string;
 extern int size_directive_output;
 extern tree last_assemble_variable_decl;
 
-static void notice PVPROTO((const char *s, ...)) ATTRIBUTE_PRINTF_1;
 static void set_target_switch PROTO((const char *));
 static const char *decl_name PROTO((tree, int));
-static void vmessage PROTO((const char *, const char *, va_list));
-static void v_message_with_file_and_line PROTO((const char *, int, int,
-						const char *, va_list));
-static void v_message_with_decl PROTO((tree, int, const char *, va_list));
-static void file_and_line_for_asm PROTO((rtx, char **, int *));
-static void v_error_with_file_and_line PROTO((const char *, int,
-					      const char *, va_list));
-static void v_error_with_decl PROTO((tree, const char *, va_list));
-static void v_error_for_asm PROTO((rtx, const char *, va_list));
-static void verror PROTO((const char *, va_list));
-static void vfatal PROTO((const char *, va_list)) ATTRIBUTE_NORETURN;
-static void v_warning_with_file_and_line PROTO ((const char *, int,
-						 const char *, va_list));
-static void v_warning_with_decl PROTO((tree, const char *, va_list));
-static void v_warning_for_asm PROTO((rtx, const char *, va_list));
-static void vwarning PROTO((const char *, va_list));
-static void vpedwarn PROTO((const char *, va_list));
-static void v_pedwarn_with_decl PROTO((tree, const char *, va_list));
-static void v_pedwarn_with_file_and_line PROTO((const char *, int,
-						const char *, va_list));
-static void vsorry PROTO((const char *, va_list));
+
 extern void set_fatal_function PROTO((void (*)(const char *, va_list)));
 static void float_signal PROTO((int)) ATTRIBUTE_NORETURN;
 static void pipe_closed PROTO((int)) ATTRIBUTE_NORETURN;
@@ -188,8 +165,6 @@ static void dump_rtl PROTO((const char *, tree, void (*) (FILE *, rtx), rtx));
 static void clean_dump_file PROTO((const char *));
 static void compile_file PROTO((char *));
 static void display_help PROTO ((void));
-static void report_file_and_line PROTO ((const char *, int, int));
-static void vnotice PROTO ((FILE *, const char *, va_list));
 static void mark_file_stack PROTO ((void *));
 
 static void decode_d_option PROTO ((const char *));
@@ -633,6 +608,10 @@ int flag_exceptions;
 
 int flag_new_exceptions = 1;
 
+/* Nonzero means generate frame unwind info table when supported */
+
+int flag_unwind_tables = 0;
+
 /* Nonzero means don't place uninitialized global data in common storage
    by default.  */
 
@@ -716,6 +695,15 @@ int flag_pack_struct = 0;
    to be allocated dynamically.  */
 int flag_stack_check;
 
+/* When non-NULL, indicates that whenever space is allocated on the
+   stack, the resulting stack pointer must not pass this
+   address---that is, for stacks that grow downward, the stack pointer
+   must always be greater than or equal to this address; for stacks
+   that grow upward, the stack pointer must be less than this address.
+   At present, the rtx may be either a REG or a SYMBOL_REF, although
+   the support provided depends on the backend.  */
+rtx stack_limit_rtx;
+
 /* -fcheck-memory-usage causes extra code to be generated in order to check
    memory accesses.  This is used by a detector of bad memory accesses such
    as Checker.  */
@@ -766,6 +754,11 @@ int flag_bounded_pointers = 0;
    For Fortran: defaults to off.
    For CHILL: defaults to off.  */
 int flag_bounds_check = 0;
+
+/* If one, renumber instruction UIDs to reduce the number of
+   unused UIDs if there are a lot of instructions.  If greater than
+   one, unconditionally renumber instruction UIDs.  */
+int flag_renumber_insns = 1;
 
 /* Values of the -falign-* flags: how much to align labels in code. 
    0 means `use default', 1 means `don't align'.  
@@ -937,6 +930,8 @@ lang_independent_options f_options[] =
    "Enable exception handling" },
   {"new-exceptions", &flag_new_exceptions, 1,
    "Use the new model for exception handling" },
+  {"unwind-tables", &flag_unwind_tables, 1,
+    "Just generate unwind tables for exception handling" },
   {"sjlj-exceptions", &exceptions_via_longjmp, 1,
    "Use setjmp/longjmp to handle exceptions" },
   {"asynchronous-exceptions", &asynchronous_exceptions, 1,
@@ -1247,6 +1242,14 @@ int warn_inline;
 
 int warn_aggregate_return;
 
+/* Warn if packed attribute on struct is unnecessary and inefficient.  */
+
+int warn_packed;
+
+/* Warn when gcc pads a structure to an alignment boundary.  */
+
+int warn_padded;
+
 /* Likewise for -W.  */
 
 lang_independent_options W_options[] =
@@ -1265,7 +1268,11 @@ lang_independent_options W_options[] =
   {"uninitialized", &warn_uninitialized, 1,
    "Warn about unitialized automatic variables"},
   {"inline", &warn_inline, 1,
-   "Warn when an inlined function cannot be inlined"}
+   "Warn when an inlined function cannot be inlined"},
+  {"packed", &warn_packed, 1,
+   "Warn when the packed attribute has no effect on struct layout"},
+  {"padded", &warn_padded, 1,
+   "Warn when padding is required to align struct members"}
 };
 
 /* Output files for assembler code (real compiler output)
@@ -1419,52 +1426,6 @@ print_time (str, total)
 	   (double)total / (double)all_time * 100.0);
 }
 
-/* Count an error or warning.  Return 1 if the message should be printed.  */
-
-int
-count_error (warningp)
-     int warningp;
-{
-  if (warningp && inhibit_warnings)
-    return 0;
-
-  if (warningp && !warnings_are_errors)
-    warningcount++;
-  else
-    {
-      static int warning_message = 0;
-
-      if (warningp && !warning_message)
-	{
-	  notice ("%s: warnings being treated as errors\n", progname);
-	  warning_message = 1;
-	}
-      errorcount++;
-    }
-
-  return 1;
-}
-
-/* Print a fatal error message.  NAME is the text.
-   Also include a system error message based on `errno'.  */
-
-void
-pfatal_with_name (name)
-  const char *name;
-{
-  fprintf (stderr, "%s: ", progname);
-  perror (name);
-  exit (FATAL_EXIT_CODE);
-}
-
-void
-fatal_io_error (name)
-  const char *name;
-{
-  notice ("%s: %s: I/O error\n", progname, name);
-  exit (FATAL_EXIT_CODE);
-}
-
 /* This is the default decl_printable_name function.  */
 
 static const char *
@@ -1492,789 +1453,6 @@ mark_file_stack (p)
       ggc_mark_string (stack->name);
       stack = stack->next;
     }
-}
-
-static int need_error_newline;
-
-/* Function of last error message;
-   more generally, function such that if next error message is in it
-   then we don't have to mention the function name.  */
-static tree last_error_function = NULL;
-
-/* Used to detect when input_file_stack has changed since last described.  */
-static int last_error_tick;
-
-/* Called when the start of a function definition is parsed,
-   this function prints on stderr the name of the function.  */
-
-void
-announce_function (decl)
-     tree decl;
-{
-  if (! quiet_flag)
-    {
-      if (rtl_dump_and_exit)
-	fprintf (stderr, "%s ", IDENTIFIER_POINTER (DECL_NAME (decl)));
-      else
-	fprintf (stderr, " %s", (*decl_printable_name) (decl, 2));
-      fflush (stderr);
-      need_error_newline = 1;
-      last_error_function = current_function_decl;
-    }
-}
-
-/* The default function to print out name of current function that caused
-   an error.  */
-
-void
-default_print_error_function (file)
-  const char *file;
-{
-  if (last_error_function != current_function_decl)
-    {
-      if (file)
-	fprintf (stderr, "%s: ", file);
-
-      if (current_function_decl == NULL)
-	notice ("At top level:\n");
-      else
-	notice ((TREE_CODE (TREE_TYPE (current_function_decl)) == METHOD_TYPE
-		 ? "In method `%s':\n"
-		 : "In function `%s':\n"),
-		(*decl_printable_name) (current_function_decl, 2));
-
-      last_error_function = current_function_decl;
-    }
-}
-
-/* Called by report_error_function to print out function name.
- * Default may be overridden by language front-ends.  */
-
-void (*print_error_function) PROTO((const char *)) =
-  default_print_error_function;
-
-/* Prints out, if necessary, the name of the current function
-  that caused an error.  Called from all error and warning functions.
-  We ignore the FILE parameter, as it cannot be relied upon.  */
-
-void
-report_error_function (file)
-  const char *file ATTRIBUTE_UNUSED;
-{
-  struct file_stack *p;
-
-  if (need_error_newline)
-    {
-      fprintf (stderr, "\n");
-      need_error_newline = 0;
-    }
-
-  if (input_file_stack && input_file_stack->next != 0
-      && input_file_stack_tick != last_error_tick)
-    {
-      for (p = input_file_stack->next; p; p = p->next)
-	notice ((p == input_file_stack->next
-		 ?    "In file included from %s:%d"
-		 : ",\n                 from %s:%d"),
-		p->name, p->line);
-      fprintf (stderr, ":\n");
-      last_error_tick = input_file_stack_tick;
-    }
-
-  (*print_error_function) (input_filename);
-}
-
-/* Print a message.  */
-
-static void
-vnotice (file, msgid, ap)
-     FILE *file;
-     const char *msgid;
-     va_list ap;
-{
-  vfprintf (file, _(msgid), ap);
-}
-
-static void
-notice VPROTO((const char *msgid, ...))
-{
-#ifndef ANSI_PROTOTYPES
-  char *msgid;
-#endif
-  va_list ap;
-
-  VA_START (ap, msgid);
-
-#ifndef ANSI_PROTOTYPES
-  msgid = va_arg (ap, char *);
-#endif
-
-  vnotice (stderr, msgid, ap);
-  va_end (ap);
-}
-
-void
-fnotice VPROTO((FILE *file, const char *msgid, ...))
-{
-#ifndef ANSI_PROTOTYPES
-  FILE *file;
-  const char *msgid;
-#endif
-  va_list ap;
-
-  VA_START (ap, msgid);
-
-#ifndef ANSI_PROTOTYPES
-  file = va_arg (ap, FILE *);
-  msgid = va_arg (ap, const char *);
-#endif
-
-  vnotice (file, msgid, ap);
-  va_end (ap);
-}
-
-/* Report FILE and LINE (or program name), and optionally just WARN.  */
-
-static void
-report_file_and_line (file, line, warn)
-     const char *file;
-     int line;
-     int warn;
-{
-  if (file)
-    fprintf (stderr, "%s:%d: ", file, line);
-  else
-    fprintf (stderr, "%s: ", progname);
-
-  if (warn)
-    notice ("warning: ");
-}
-
-/* Print a message.  */
-
-static void
-vmessage (prefix, msgid, ap)
-     const char *prefix;
-     const char *msgid;
-     va_list ap;
-{
-  if (prefix)
-    fprintf (stderr, "%s: ", prefix);
-
-  vfprintf (stderr, msgid, ap);
-}
-
-/* Print a message relevant to line LINE of file FILE.  */
-
-static void
-v_message_with_file_and_line (file, line, warn, msgid, ap)
-     const char *file;
-     int line;
-     int warn;
-     const char *msgid;
-     va_list ap;
-{
-  report_file_and_line (file, line, warn);
-  vnotice (stderr, msgid, ap);
-  fputc ('\n', stderr);
-}
-
-/* Print a message relevant to the given DECL.  */
-
-static void
-v_message_with_decl (decl, warn, msgid, ap)
-     tree decl;
-     int warn;
-     const char *msgid;
-     va_list ap;
-{
-  const char *p;
-
-  report_file_and_line (DECL_SOURCE_FILE (decl),
-			DECL_SOURCE_LINE (decl), warn);
-
-  /* Do magic to get around lack of varargs support for insertion
-     of arguments into existing list.  We know that the decl is first;
-     we ass_u_me that it will be printed with "%s".  */
-
-  for (p = _(msgid); *p; ++p)
-    {
-      if (*p == '%')
-	{
-	  if (*(p + 1) == '%')
-	    ++p;
-	  else if (*(p + 1) != 's')
-	    abort ();
-	  else
-	    break;
-	}
-    }
-
-  if (p > _(msgid))			/* Print the left-hand substring.  */
-    {
-      char fmt[sizeof "%.255s"];
-      long width = p - _(msgid);
-             
-      if (width > 255L) width = 255L;	/* arbitrary */
-      sprintf (fmt, "%%.%lds", width);
-      fprintf (stderr, fmt, _(msgid));
-    }
-
-  if (*p == '%')		/* Print the name.  */
-    {
-      const char *n = (DECL_NAME (decl)
-		 ? (*decl_printable_name) (decl, 2)
-		 : "((anonymous))");
-      fputs (n, stderr);
-      while (*p)
-	{
-	  ++p;
-	  if (ISALPHA (*(p - 1) & 0xFF))
-	    break;
-	}
-    }
-
-  if (*p)			/* Print the rest of the message.  */
-    vmessage ((char *)NULL, p, ap);
-
-  fputc ('\n', stderr);
-}
-
-/* Figure file and line of the given INSN.  */
-
-static void
-file_and_line_for_asm (insn, pfile, pline)
-     rtx insn;
-     char **pfile;
-     int *pline;
-{
-  rtx body = PATTERN (insn);
-  rtx asmop;
-
-  /* Find the (or one of the) ASM_OPERANDS in the insn.  */
-  if (GET_CODE (body) == SET && GET_CODE (SET_SRC (body)) == ASM_OPERANDS)
-    asmop = SET_SRC (body);
-  else if (GET_CODE (body) == ASM_OPERANDS)
-    asmop = body;
-  else if (GET_CODE (body) == PARALLEL
-	   && GET_CODE (XVECEXP (body, 0, 0)) == SET)
-    asmop = SET_SRC (XVECEXP (body, 0, 0));
-  else if (GET_CODE (body) == PARALLEL
-	   && GET_CODE (XVECEXP (body, 0, 0)) == ASM_OPERANDS)
-    asmop = XVECEXP (body, 0, 0);
-  else
-    asmop = NULL;
-
-  if (asmop)
-    {
-      *pfile = ASM_OPERANDS_SOURCE_FILE (asmop);
-      *pline = ASM_OPERANDS_SOURCE_LINE (asmop);
-    }
-  else
-    {
-      *pfile = input_filename;
-      *pline = lineno;
-    }
-}
-
-/* Report an error at line LINE of file FILE.  */
-
-static void
-v_error_with_file_and_line (file, line, msgid, ap)
-     const char *file;
-     int line;
-     const char *msgid;
-     va_list ap;
-{
-  count_error (0);
-  report_error_function (file);
-  v_message_with_file_and_line (file, line, 0, msgid, ap);
-}
-
-void
-error_with_file_and_line VPROTO((const char *file, int line,
-				 const char *msgid, ...))
-{
-#ifndef ANSI_PROTOTYPES
-  const char *file;
-  int line;
-  const char *msgid;
-#endif
-  va_list ap;
-
-  VA_START (ap, msgid);
-
-#ifndef ANSI_PROTOTYPES
-  file = va_arg (ap, const char *);
-  line = va_arg (ap, int);
-  msgid = va_arg (ap, const char *);
-#endif
-
-  v_error_with_file_and_line (file, line, msgid, ap);
-  va_end (ap);
-}
-
-/* Report an error at the declaration DECL.
-   MSGID is a format string which uses %s to substitute the declaration
-   name; subsequent substitutions are a la printf.  */
-
-static void
-v_error_with_decl (decl, msgid, ap)
-     tree decl;
-     const char *msgid;
-     va_list ap;
-{
-  count_error (0);
-  report_error_function (DECL_SOURCE_FILE (decl));
-  v_message_with_decl (decl, 0, msgid, ap);
-}
-
-void
-error_with_decl VPROTO((tree decl, const char *msgid, ...))
-{
-#ifndef ANSI_PROTOTYPES
-  tree decl;
-  const char *msgid;
-#endif
-  va_list ap;
-
-  VA_START (ap, msgid);
-
-#ifndef ANSI_PROTOTYPES
-  decl = va_arg (ap, tree);
-  msgid = va_arg (ap, const char *);
-#endif
-
-  v_error_with_decl (decl, msgid, ap);
-  va_end (ap);
-}
-
-/* Report an error at the line number of the insn INSN.
-   This is used only when INSN is an `asm' with operands,
-   and each ASM_OPERANDS records its own source file and line.  */
-
-static void
-v_error_for_asm (insn, msgid, ap)
-     rtx insn;
-     const char *msgid;
-     va_list ap;
-{
-  char *file;
-  int line;
-
-  count_error (0);
-  file_and_line_for_asm (insn, &file, &line);
-  report_error_function (file);
-  v_message_with_file_and_line (file, line, 0, msgid, ap);
-}
-
-void
-error_for_asm VPROTO((rtx insn, const char *msgid, ...))
-{
-#ifndef ANSI_PROTOTYPES
-  rtx insn;
-  const char *msgid;
-#endif
-  va_list ap;
-
-  VA_START (ap, msgid);
-
-#ifndef ANSI_PROTOTYPES
-  insn = va_arg (ap, rtx);
-  msgid = va_arg (ap, const char *);
-#endif
-
-  v_error_for_asm (insn, msgid, ap);
-  va_end (ap);
-}
-
-/* Report an error at the current line number.  */
-
-static void
-verror (msgid, ap)
-     const char *msgid;
-     va_list ap;
-{
-  v_error_with_file_and_line (input_filename, lineno, msgid, ap);
-}
-
-void
-error VPROTO((const char *msgid, ...))
-{
-#ifndef ANSI_PROTOTYPES
-  const char *msgid;
-#endif
-  va_list ap;
-
-  VA_START (ap, msgid);
-
-#ifndef ANSI_PROTOTYPES
-  msgid = va_arg (ap, const char *);
-#endif
-
-  verror (msgid, ap);
-  va_end (ap);
-}
-
-/* Report a fatal error at the current line number.  Allow a front end to
-   intercept the message.  */
-
-static void (*fatal_function) PROTO ((const char *, va_list));
-
-/* Set the function to call when a fatal error occurs.  */
-
-void
-set_fatal_function (f)
-     void (*f) PROTO ((const char *, va_list));
-{
-  fatal_function = f;
-}
-
-static void
-vfatal (msgid, ap)
-     const char *msgid;
-     va_list ap;
-{
-   if (fatal_function != 0)
-     (*fatal_function) (_(msgid), ap);
-
-  verror (msgid, ap);
-  exit (FATAL_EXIT_CODE);
-}
-
-void
-fatal VPROTO((const char *msgid, ...))
-{
-#ifndef ANSI_PROTOTYPES
-  const char *msgid;
-#endif
-  va_list ap;
-
-  VA_START (ap, msgid);
-
-#ifndef ANSI_PROTOTYPES
-  msgid = va_arg (ap, const char *);
-#endif
-
-  vfatal (msgid, ap);
-  va_end (ap);
-}
-
-void
-_fatal_insn (msgid, insn, file, line, function)
-     const char *msgid;
-     rtx insn;
-     const char *file;
-     int line;
-     const char *function;
-{
-  error (msgid);
-  debug_rtx (insn);
-  fancy_abort (file, line, function);
-}
-
-void
-_fatal_insn_not_found (insn, file, line, function)
-     rtx insn;
-     const char *file;
-     int line;
-     const char *function;
-{
-  if (INSN_CODE (insn) < 0)
-    _fatal_insn ("Unrecognizable insn:", insn, file, line, function);
-  else
-    _fatal_insn ("Insn does not satisfy its constraints:",
-		insn, file, line, function);
-}
-
-/* Report a warning at line LINE of file FILE.  */
-
-static void
-v_warning_with_file_and_line (file, line, msgid, ap)
-     const char *file;
-     int line;
-     const char *msgid;
-     va_list ap;
-{
-  if (count_error (1))
-    {
-      report_error_function (file);
-      v_message_with_file_and_line (file, line, 1, msgid, ap);
-    }
-}
-
-void
-warning_with_file_and_line VPROTO((const char *file, int line,
-				   const char *msgid, ...))
-{
-#ifndef ANSI_PROTOTYPES
-  const char *file;
-  int line;
-  const char *msgid;
-#endif
-  va_list ap;
-
-  VA_START (ap, msgid);
-
-#ifndef ANSI_PROTOTYPES
-  file = va_arg (ap, const char *);
-  line = va_arg (ap, int);
-  msgid = va_arg (ap, const char *);
-#endif
-
-  v_warning_with_file_and_line (file, line, msgid, ap);
-  va_end (ap);
-}
-
-/* Report a warning at the declaration DECL.
-   MSGID is a format string which uses %s to substitute the declaration
-   name; subsequent substitutions are a la printf.  */
-
-static void
-v_warning_with_decl (decl, msgid, ap)
-     tree decl;
-     const char *msgid;
-     va_list ap;
-{
-  if (count_error (1))
-    {
-      report_error_function (DECL_SOURCE_FILE (decl));
-      v_message_with_decl (decl, 1, msgid, ap);
-    }
-}
-
-void
-warning_with_decl VPROTO((tree decl, const char *msgid, ...))
-{
-#ifndef ANSI_PROTOTYPES
-  tree decl;
-  const char *msgid;
-#endif
-  va_list ap;
-
-  VA_START (ap, msgid);
-
-#ifndef ANSI_PROTOTYPES
-  decl = va_arg (ap, tree);
-  msgid = va_arg (ap, const char *);
-#endif
-
-  v_warning_with_decl (decl, msgid, ap);
-  va_end (ap);
-}
-
-/* Report a warning at the line number of the insn INSN.
-   This is used only when INSN is an `asm' with operands,
-   and each ASM_OPERANDS records its own source file and line.  */
-
-static void
-v_warning_for_asm (insn, msgid, ap)
-     rtx insn;
-     const char *msgid;
-     va_list ap;
-{
-  if (count_error (1))
-    {
-      char *file;
-      int line;
-
-      file_and_line_for_asm (insn, &file, &line);
-      report_error_function (file);
-      v_message_with_file_and_line (file, line, 1, msgid, ap);
-    }
-}
-
-void
-warning_for_asm VPROTO((rtx insn, const char *msgid, ...))
-{
-#ifndef ANSI_PROTOTYPES
-  rtx insn;
-  const char *msgid;
-#endif
-  va_list ap;
-
-  VA_START (ap, msgid);
-
-#ifndef ANSI_PROTOTYPES
-  insn = va_arg (ap, rtx);
-  msgid = va_arg (ap, const char *);
-#endif
-
-  v_warning_for_asm (insn, msgid, ap);
-  va_end (ap);
-}
-
-/* Report a warning at the current line number.  */
-
-static void
-vwarning (msgid, ap)
-     const char *msgid;
-     va_list ap;
-{
-  v_warning_with_file_and_line (input_filename, lineno, msgid, ap);
-}
-
-void
-warning VPROTO((const char *msgid, ...))
-{
-#ifndef ANSI_PROTOTYPES
-  const char *msgid;
-#endif
-  va_list ap;
-
-  VA_START (ap, msgid);
-
-#ifndef ANSI_PROTOTYPES
-  msgid = va_arg (ap, const char *);
-#endif
-
-  vwarning (msgid, ap);
-  va_end (ap);
-}
-
-/* These functions issue either warnings or errors depending on
-   -pedantic-errors.  */
-
-static void
-vpedwarn (msgid, ap)
-     const char *msgid;
-     va_list ap;
-{
-  if (flag_pedantic_errors)
-    verror (msgid, ap);
-  else
-    vwarning (msgid, ap);
-}
-
-void
-pedwarn VPROTO((const char *msgid, ...))
-{
-#ifndef ANSI_PROTOTYPES
-  const char *msgid;
-#endif
-  va_list ap;
-
-  VA_START (ap, msgid);
-
-#ifndef ANSI_PROTOTYPES
-  msgid = va_arg (ap, const char *);
-#endif
-
-  vpedwarn (msgid, ap);
-  va_end (ap);
-}
-
-static void
-v_pedwarn_with_decl (decl, msgid, ap)
-     tree decl;
-     const char *msgid;
-     va_list ap;
-{
-  /* We don't want -pedantic-errors to cause the compilation to fail from
-     "errors" in system header files.  Sometimes fixincludes can't fix what's
-     broken (eg: unsigned char bitfields - fixing it may change the alignment
-     which will cause programs to mysteriously fail because the C library
-     or kernel uses the original layout).  There's no point in issuing a
-     warning either, it's just unnecessary noise.  */
-
-  if (! DECL_IN_SYSTEM_HEADER (decl))
-    {
-      if (flag_pedantic_errors)
-	v_error_with_decl (decl, msgid, ap);
-      else
-	v_warning_with_decl (decl, msgid, ap);
-    }
-}
-
-void
-pedwarn_with_decl VPROTO((tree decl, const char *msgid, ...))
-{
-#ifndef ANSI_PROTOTYPES
-  tree decl;
-  const char *msgid;
-#endif
-  va_list ap;
-
-  VA_START (ap, msgid);
-
-#ifndef ANSI_PROTOTYPES
-  decl = va_arg (ap, tree);
-  msgid = va_arg (ap, const char *);
-#endif
-
-  v_pedwarn_with_decl (decl, msgid, ap);
-  va_end (ap);
-}
-
-static void
-v_pedwarn_with_file_and_line (file, line, msgid, ap)
-     const char *file;
-     int line;
-     const char *msgid;
-     va_list ap;
-{
-  if (flag_pedantic_errors)
-    v_error_with_file_and_line (file, line, msgid, ap);
-  else
-    v_warning_with_file_and_line (file, line, msgid, ap);
-}
-
-void
-pedwarn_with_file_and_line VPROTO((const char *file, int line,
-				   const char *msgid, ...))
-{
-#ifndef ANSI_PROTOTYPES
-  const char *file;
-  int line;
-  const char *msgid;
-#endif
-  va_list ap;
-
-  VA_START (ap, msgid);
-
-#ifndef ANSI_PROTOTYPES
-  file = va_arg (ap, const char *);
-  line = va_arg (ap, int);
-  msgid = va_arg (ap, const char *);
-#endif
-
-  v_pedwarn_with_file_and_line (file, line, msgid, ap);
-  va_end (ap);
-}
-
-/* Apologize for not implementing some feature.  */
-
-static void
-vsorry (msgid, ap)
-     const char *msgid;
-     va_list ap;
-{
-  sorrycount++;
-  if (input_filename)
-    fprintf (stderr, "%s:%d: ", input_filename, lineno);
-  else
-    fprintf (stderr, "%s: ", progname);
-  notice ("sorry, not implemented: ");
-  vnotice (stderr, msgid, ap);
-  fputc ('\n', stderr);
-}
-
-void
-sorry VPROTO((const char *msgid, ...))
-{
-#ifndef ANSI_PROTOTYPES
-  const char *msgid;
-#endif
-  va_list ap;
-
-  VA_START (ap, msgid);
-
-#ifndef ANSI_PROTOTYPES
-  msgid = va_arg (ap, const char *);
-#endif
-
-  vsorry (msgid, ap);
-  va_end (ap);
 }
 
 
@@ -3042,13 +2220,15 @@ compile_file (name)
 	asm_out_file = stdout;
       else
 	{
-	  int len = strlen (dump_base_name);
-	  register char *dumpname = (char *) xmalloc (len + 6);
-	  strcpy (dumpname, dump_base_name);
-	  strip_off_ending (dumpname, len);
-	  strcat (dumpname, ".s");
 	  if (asm_file_name == 0)
-	    asm_file_name = xstrdup (dumpname);
+	    {
+	      int len = strlen (dump_base_name);
+	      char *dumpname = (char *) xmalloc (len + 6);
+	      memcpy (dumpname, dump_base_name, len + 1);
+	      strip_off_ending (dumpname, len);
+	      strcat (dumpname, ".s");
+	      asm_file_name = dumpname;
+	    }
 	  if (!strcmp (asm_file_name, "-"))
 	    asm_out_file = stdout;
 	  else
@@ -3200,7 +2380,7 @@ compile_file (name)
   if (yyparse () != 0)
     {
       if (errorcount == 0)
-	notice ("Errors detected in input file (your bison.simple is out of date)\n");
+	fnotice (stderr, "Errors detected in input file (your bison.simple is out of date)\n");
 
       /* In case there were missing closebraces,
 	 get us back to the global binding level.  */
@@ -3227,7 +2407,7 @@ compile_file (name)
 
   {
     int len = list_length (globals);
-    tree *vec = (tree *) alloca (sizeof (tree) * len);
+    tree *vec = (tree *) xmalloc (sizeof (tree) * len);
     int i;
     tree decl;
 
@@ -3254,6 +2434,9 @@ compile_file (name)
     output_exception_table ();
 
     check_global_declarations (vec, len);
+
+    /* Clean up.  */
+    free (vec);
   }
 
   /* Write out any pending weak symbol declarations.  */
@@ -3543,6 +2726,42 @@ rest_of_type_compilation (type, toplev)
 #endif
 }
 
+/* DECL is an inline function, whose body is present, but which is not
+   being output at this point.  (We're putting that off until we need
+   to do it.)  If there are any actions that need to take place,
+   including the emission of debugging information for the function,
+   this is where they should go.  This function may be called by
+   language-dependent code for front-ends that do not even generate
+   RTL for functions that don't need to be put out.  */
+
+void
+note_deferral_of_defined_inline_function (decl)
+     tree decl ATTRIBUTE_UNUSED;
+{
+#ifdef DWARF_DEBUGGING_INFO
+  /* Generate the DWARF info for the "abstract" instance of a function
+     which we may later generate inlined and/or out-of-line instances
+     of.  */
+  if (write_symbols == DWARF_DEBUG)
+    {
+      /* The front-end may not have set CURRENT_FUNCTION_DECL, but the
+	 DWARF code expects it to be set in this case.  Intuitively,
+	 DECL is the function we just finished defining, so setting
+	 CURRENT_FUNCTION_DECL is sensible.  */
+      tree saved_cfd = current_function_decl;
+      current_function_decl = decl;
+
+      /* Let the DWARF code do its work.  */
+      set_decl_abstract_flags (decl, 1);
+      dwarfout_file_scope_decl (decl, 0);
+      set_decl_abstract_flags (decl, 0);
+
+      /* Reset CURRENT_FUNCTION_DECL.  */
+      current_function_decl = saved_cfd;
+    }
+#endif
+}
+
 /* This is called from finish_function (within yyparse)
    after each top-level definition is parsed.
    It is supposed to compile that function or variable
@@ -3556,14 +2775,25 @@ rest_of_compilation (decl)
   register rtx insns;
   int start_time = get_run_time ();
   int tem;
-  /* Nonzero if we have saved the original DECL_INITIAL of the function,
-     to be restored after we finish compiling the function
-     (for use when compiling inline calls to this function).  */
-  tree saved_block_tree = 0;
-  /* Likewise, for DECL_ARGUMENTS.  */
-  tree saved_arguments = 0;
   int failure = 0;
   int rebuild_label_notes_after_reload;
+
+  /* When processing delayed functions, prepare_function_start() won't
+     have been run to re-initialize it.  */
+  cse_not_expected = ! optimize;
+
+  /* First, remove any notes we don't need.  That will make iterating
+     over the instruction sequence faster, and allow the garbage
+     collector to reclaim the memory used by the notes.  */
+  remove_unncessary_notes ();
+
+  /* In function-at-a-time mode, we do not attempt to keep the BLOCK
+     tree in sensible shape.  So, we just recalculate it here.  */
+  if (cfun->x_whole_function_mode_p)
+    {
+      find_loop_tree_blocks ();
+      unroll_block_trees ();
+    }
 
   /* If we are reconsidering an inline function
      at the end of compilation, skip the stuff for making it inline.  */
@@ -3571,7 +2801,22 @@ rest_of_compilation (decl)
   if (DECL_SAVED_INSNS (decl) == 0)
     {
       int inlinable = 0;
+      tree parent;
       const char *lose;
+
+      /* If this is nested inside an inlined external function, pretend
+	 it was only declared.  Since we cannot inline such functions,
+	 generating code for this one is not only not necessary but will
+	 confuse some debugging output writers.  */
+      for (parent = DECL_CONTEXT (current_function_decl);
+	   parent != NULL_TREE; 
+	   parent = get_containing_scope (parent))
+	if (TREE_CODE (parent) == FUNCTION_DECL
+	    && DECL_INLINE (parent) && DECL_EXTERNAL (parent))
+	  {
+	    DECL_INITIAL (decl) = 0;
+	    goto exit_rest_of_compilation;
+	  }
 
       /* If requested, consider whether to make this function inline.  */
       if (DECL_INLINE (decl) || flag_inline_functions)
@@ -3649,28 +2894,7 @@ rest_of_compilation (decl)
 	      optimize = saved_optimize;
 	    }
 
-#ifdef DWARF_DEBUGGING_INFO
-	  /* Generate the DWARF info for the "abstract" instance
-	     of a function which we may later generate inlined and/or
-	     out-of-line instances of.  */
-	  if (write_symbols == DWARF_DEBUG)
-	    {
-	      set_decl_abstract_flags (decl, 1);
-	      TIMEVAR (symout_time, dwarfout_file_scope_decl (decl, 0));
-	      set_decl_abstract_flags (decl, 0);
-	    }
-#endif
-#ifdef DWARF2_DEBUGGING_INFO
-	  /* Generate the DWARF2 info for the "abstract" instance
-	     of a function which we may later generate inlined and/or
-	     out-of-line instances of.  */
-	  if (write_symbols == DWARF2_DEBUG)
-	    {
-	      set_decl_abstract_flags (decl, 1);
-	      TIMEVAR (symout_time, dwarf2out_decl (decl));
-	      set_decl_abstract_flags (decl, 0);
-	    }
-#endif
+	  note_deferral_of_defined_inline_function (decl);
 	  TIMEVAR (integration_time, save_for_inline_nocopy (decl));
 	  DECL_SAVED_INSNS (decl)->inlinable = inlinable;
 	  goto exit_rest_of_compilation;
@@ -3747,12 +2971,26 @@ rest_of_compilation (decl)
   /* Find all the EH handlers.  */
   find_exception_handler_labels ();
 
+  if (jump_opt_dump)
+    open_dump_file (".01.jump", decl_printable_name (decl, 2));
+
   /* Always do one jump optimization pass to ensure that JUMP_LABEL fields
      are initialized and to compute whether control can drop off the end
      of the function.  */
   TIMEVAR (jump_time, reg_scan (insns, max_reg_num (), 0));
   TIMEVAR (jump_time, jump_optimize (insns, !JUMP_CROSS_JUMP, !JUMP_NOOP_MOVES,
 				     JUMP_AFTER_REGSCAN));
+
+  /* Jump optimization, and the removal of NULL pointer checks, may
+     have reduced the number of instructions substantially.  CSE, and
+     future passes, allocate arrays whose dimensions involve the maximum
+     instruction UID, so if we can reduce the maximum UID we'll save big on
+     memory.  */
+  renumber_insns (rtl_dump_file);
+
+  /* Dump rtl code after jump, if we are doing that.  */
+  if (jump_opt_dump)
+    close_dump_file (print_rtl, insns);
 
   /* Now is when we stop if -fsyntax-only and -Wreturn-type.  */
   if (rtl_dump_and_exit || flag_syntax_only || DECL_DEFER_OUTPUT (decl))
@@ -3761,10 +2999,6 @@ rest_of_compilation (decl)
   /* Try to identify useless null pointer tests and delete them.  */
   if (flag_delete_null_pointer_checks)
     TIMEVAR (jump_time, delete_null_pointer_checks (get_insns ()));
-
-  /* Dump rtl code after jump, if we are doing that.  */
-  if (jump_opt_dump)
-    dump_rtl (".01.jump", decl, print_rtl, insns);
 
   if (ggc_p)
     ggc_collect ();
@@ -3803,8 +3037,11 @@ rest_of_compilation (decl)
       if (flag_delete_null_pointer_checks)
 	TIMEVAR (jump_time, delete_null_pointer_checks (get_insns ()));
 
-      /* Dump rtl code after cse, if we are doing that.  */
+      /* The second pass of jump optimization is likely to have
+         removed a bunch more instructions.  */
+      renumber_insns (rtl_dump_file);
 
+      /* Dump rtl code after cse, if we are doing that.  */
       if (cse_dump)
 	{
 	  close_dump_file (print_rtl, insns);
@@ -3937,7 +3174,6 @@ rest_of_compilation (decl)
 	}
 
       /* Dump rtl code after cse, if we are doing that.  */
-
       if (cse2_dump)
 	{
 	  close_dump_file (print_rtl, insns);
@@ -3990,7 +3226,7 @@ rest_of_compilation (decl)
     {
       TIMEVAR (flow_time,
 	       {
-		 regclass (insns, max_reg_num ());
+		 regclass (insns, max_reg_num (), NULL);
 		 stupid_life_analysis (insns, max_reg_num (),
 				       rtl_dump_file);
 	       });
@@ -4004,13 +3240,15 @@ rest_of_compilation (decl)
 	(flow_time,
 	 {
 	   find_basic_blocks (insns, max_reg_num (), rtl_dump_file, 1);
+	   calculate_loop_depth (rtl_dump_file);
 	   life_analysis (insns, max_reg_num (), rtl_dump_file, 1);
 	 });
 
-      if (warn_uninitialized)
+      if (warn_uninitialized || extra_warnings)
 	{
 	  uninitialized_vars_warning (DECL_INITIAL (decl));
-	  setjmp_args_warning ();
+          if (extra_warnings)
+	    setjmp_args_warning ();
 	}
     }
 
@@ -4103,6 +3341,9 @@ rest_of_compilation (decl)
      epilogue thus changing register elimination offsets.  */
   current_function_is_leaf = leaf_function_p ();
 
+  if (local_reg_dump)
+    open_dump_file (".12.lreg", decl_printable_name (decl, 2));
+
   /* Unless we did stupid register allocation,
      allocate pseudo-regs that are used only within 1 basic block. 
 
@@ -4116,7 +3357,7 @@ rest_of_compilation (decl)
 		  of life info during sched.  */
 	       if (! flag_schedule_insns)
 		 recompute_reg_usage (insns, ! optimize_size);
-	       regclass (insns, max_reg_num ());
+	       regclass (insns, max_reg_num (), rtl_dump_file);
 	       rebuild_label_notes_after_reload = local_alloc ();
 	     });
   else
@@ -4126,8 +3367,6 @@ rest_of_compilation (decl)
 
   if (local_reg_dump)
     {
-      open_dump_file (".12.lreg", decl_printable_name (decl, 2));
-
       TIMEVAR (dump_time, dump_flow_info (rtl_dump_file));
       TIMEVAR (dump_time, dump_local_alloc (rtl_dump_file));
 
@@ -4316,7 +3555,11 @@ rest_of_compilation (decl)
       if (dbr_sched_dump)
 	open_dump_file (".19.dbr", decl_printable_name (decl, 2));
 
-      TIMEVAR (dbr_sched_time, dbr_schedule (insns, rtl_dump_file));
+      TIMEVAR
+	(dbr_sched_time,
+	 {
+           dbr_schedule (insns, rtl_dump_file);
+	 });
 
       if (dbr_sched_dump)
 	{
@@ -4330,7 +3573,10 @@ rest_of_compilation (decl)
      ggc_collect ();
 #endif
 
-  /* Shorten branches.  */
+  /* Shorten branches. 
+
+     Note this must run before reg-stack because of death note (ab)use
+     in the ia32 backend.  */
   TIMEVAR (shorten_branch_time,
 	   {
 	     shorten_branches (get_insns ());
@@ -4417,8 +3663,6 @@ rest_of_compilation (decl)
 
  exit_rest_of_compilation:
 
-  free_bb_mem ();
-
   /* In case the function was not output,
      don't leave any temporary anonymous types
      queued up for sdb output.  */
@@ -4426,18 +3670,6 @@ rest_of_compilation (decl)
   if (write_symbols == SDB_DEBUG)
     sdbout_types (NULL_TREE);
 #endif
-
-  /* Put back the tree of subblocks and list of arguments
-     from before we copied them.
-     Code generation and the output of debugging info may have modified
-     the copy, but the original is unchanged.  */
-
-  if (saved_block_tree != 0)
-    {
-      DECL_INITIAL (decl) = saved_block_tree;
-      DECL_ARGUMENTS (decl) = saved_arguments;
-      DECL_ABSTRACT_ORIGIN (decl) = NULL_TREE;
-    }
 
   reload_completed = 0;
   flow2_completed = 0;
@@ -4474,10 +3706,10 @@ rest_of_compilation (decl)
   init_recog_no_volatile ();
 
   /* We're done with this function.  Free up memory if we can.  */
-  free_after_parsing (current_function);
+  free_after_parsing (cfun);
   if (! DECL_DEFER_OUTPUT (decl))
-    free_after_compilation (current_function);
-  current_function = 0;
+    free_after_compilation (cfun);
+  cfun = 0;
 
   if (ggc_p)
     ggc_collect ();
@@ -4833,14 +4065,14 @@ decode_f_option (arg)
       read_integral_parameter (arg + 13, arg - 2, inline_max_insns);
 #ifdef INSN_SCHEDULING
   else if (!strncmp (arg, "sched-verbose=", 14))
-    fix_sched_param ("verbose", (char *)(arg + 14));
+    fix_sched_param ("verbose", (const char *)(arg + 14));
 #endif
   else if (!strncmp (arg, "fixed-", 6))
-    fix_register ((char *)(arg + 6), 1, 1);
+    fix_register ((const char *)(arg + 6), 1, 1);
   else if (!strncmp (arg, "call-used-", 10))
-    fix_register ((char *)(arg + 10), 0, 1);
+    fix_register ((const char *)(arg + 10), 0, 1);
   else if (!strncmp (arg, "call-saved-", 11))
-    fix_register ((char *)(arg + 11), 0, 0);
+    fix_register ((const char *)(arg + 11), 0, 0);
   else if (!strncmp (arg, "align-loops=", 12))
     align_loops = read_integral_parameter (arg + 12, arg - 2, align_loops);
   else if (!strncmp (arg, "align-functions=", 16))
@@ -4850,6 +4082,25 @@ decode_f_option (arg)
     align_jumps = read_integral_parameter (arg + 12, arg - 2, align_jumps);
   else if (!strncmp (arg, "align-labels=", 13))
     align_labels = read_integral_parameter (arg + 13, arg - 2, align_labels);
+  else if (!strncmp (arg, "stack-limit-register=", 21))
+    {
+      int reg = decode_reg_name (arg + 21);
+      if (reg < 0)
+	error ("unrecognized register name `%s'", arg + 21);
+      else
+	stack_limit_rtx = gen_rtx_REG (Pmode, reg);
+    }
+  else if (!strncmp (arg, "stack-limit-symbol=", 19))
+    {
+      char *nm;
+      if (ggc_p)
+	nm = ggc_alloc_string (arg + 19, strlen (arg + 19));
+      else
+	nm = xstrdup (arg + 19);
+      stack_limit_rtx = gen_rtx_SYMBOL_REF (Pmode, nm);
+    }
+  else if (!strcmp (arg, "no-stack-limit"))
+    stack_limit_rtx = NULL_RTX;
   else if (!strcmp (arg, "preprocessed"))
     /* Recognise this switch but do nothing.  This prevents warnings
        about an unrecognised switch if cpplib has not been linked in.  */
@@ -4916,6 +4167,7 @@ decode_W_option (arg)
 /* Parse a -g... comand line switch.  ARG is the value after the -g.
    It is safe to access 'ARG - 2' to generate the full switch name.
    Return the number of strings consumed.  */
+
 static int
 decode_g_option (arg)
      const char * arg;
@@ -4999,8 +4251,7 @@ ignoring option `%s' due to invalid debug level specification",
 	    }
 	  
 	  if (type == NO_DEBUG)
-	    warning ("`%s' not supported by this configuration of GCC",
-		     arg - 2);
+	    warning ("`%s': unknown or unsupported -g option", arg - 2);
 
 	  /* Does it conflict with an already selected type?  */
 	  if (type_explicitly_set_p
@@ -5033,7 +4284,7 @@ ignoring option `%s' due to invalid debug level specification",
     }
   
   if (! da->arg)
-    warning ("`%s' not supported by this configuration of GCC", arg - 2);
+    warning ("`%s': unknown or unsupported -g option", arg - 2);
 
   return 1;
 }
@@ -5258,18 +4509,6 @@ main (argc, argv)
     --p;
   progname = p;
 
-#if defined (RLIMIT_STACK) && defined (HAVE_GETRLIMIT) && defined (HAVE_SETRLIMIT)
-  /* Get rid of any avoidable limit on stack size.  */
-  {
-    struct rlimit rlim;
-
-    /* Set the stack limit huge so that alloca does not fail.  */
-    getrlimit (RLIMIT_STACK, &rlim);
-    rlim.rlim_cur = rlim.rlim_max;
-    setrlimit (RLIMIT_STACK, &rlim);
-  }
-#endif
-
 #ifdef HAVE_LC_MESSAGES
   setlocale (LC_MESSAGES, "");
 #endif
@@ -5295,7 +4534,8 @@ main (argc, argv)
   /* Initialize the garbage-collector.  */
   init_ggc ();
   ggc_add_root (&input_file_stack, 1, sizeof input_file_stack,
-		&mark_file_stack);
+		mark_file_stack);
+  ggc_add_rtx_root (&stack_limit_rtx, 1);
 
   /* Perform language-specific options intialization.  */
   lang_init_options ();
@@ -5438,7 +4678,7 @@ main (argc, argv)
 		break;
 	    }
 
-	  if (option)
+	  if (j != NUM_ELEM (documented_lang_options))
 	    {
 	      if (extra_warnings)
 		{
@@ -5559,7 +4799,7 @@ main (argc, argv)
     {
       char *lim = (char *) sbrk (0);
 
-      notice ("Data size %ld.\n", (long) (lim - (char *) &environ));
+      fnotice (stderr, "Data size %ld.\n", (long) (lim - (char *) &environ));
       fflush (stderr);
 
 #ifndef __MSDOS__

@@ -61,9 +61,6 @@ Boston, MA 02111-1307, USA.  */
 #define PTRDIFF_TYPE	"int"
 */
 
-/* Use memcpy for structure copying, and so forth.  */
-#define TARGET_MEM_FUNCTIONS
-
 /* By default, allow $ to be part of an identifier.  */
 #define DOLLARS_IN_IDENTIFIERS 2
 
@@ -448,7 +445,7 @@ extern int vms_valid_decl_attribute_p ();
 #define ASM_OUTPUT_SECTION_NAME(FILE,DECL,NAME,RELOC)		\
   do								\
     {								\
-      char *flags;					 	\
+      const char *flags;				 	\
       int ovr = 0;						\
       if (DECL && DECL_MACHINE_ATTRIBUTES (DECL)		\
 	  && lookup_attribute					\

@@ -5946,7 +5946,9 @@
 	 (match_operand 1 "" ""))
    (use (match_operand 2 "" ""))
    (clobber (reg:SI 14))]
-  "TARGET_ARM && operands[2] == const0_rtx && (GET_CODE (operands[0]) == SYMBOL_REF)"
+  "TARGET_ARM
+   && operands[2] == const0_rtx
+   && (GET_CODE (operands[0]) == SYMBOL_REF)"
   "*
   {
     return NEED_PLT_RELOC ? \"bl%?\\t%a0(PLT)\" : \"bl%?\\t%a0\";
@@ -8030,12 +8032,12 @@
   extern int lr_save_eliminated;
   int num_saves = XVECLEN (operands[2], 0);
      
-   if (lr_save_eliminated)
+  if (lr_save_eliminated)
     {
       if (num_saves > 1)
 	abort ();
     }
- /* For the StrongARM at least it is faster to
+  /* For the StrongARM at least it is faster to
      use STR to store only a single register.  */
   else if (num_saves == 1)
     output_asm_insn (\"str\\t%1, [%m0, #-4]!\", operands);

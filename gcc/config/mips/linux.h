@@ -18,6 +18,13 @@ along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
+#undef TARGET_VERSION
+#if TARGET_ENDIAN_DEFAULT == 0
+#define TARGET_VERSION fprintf (stderr, " (MIPSel GNU/ELF)");
+#else
+#define TARGET_VERSION fprintf (stderr, " (MIPS GNU/ELF)");
+#endif
+
 /* Required to keep collect2.c happy */
 #undef OBJECT_FORMAT_COFF 
 
@@ -25,6 +32,25 @@ Boston, MA 02111-1307, USA.  */
 #undef TARGET_DEFAULT
 #define TARGET_DEFAULT (MASK_ABICALLS|MASK_GAS)
 
+
+/* Handle #pragma weak and #pragma pack.  */
+#define HANDLE_SYSV_PRAGMA 1
+
+/* Use more efficient ``thunks'' to implement C++ vtables. */
+#undef DEFAULT_VTABLE_THUNKS
+#define DEFAULT_VTABLE_THUNKS 1
+
+/* Specify predefined symbols in preprocessor.  */
+#undef CPP_PREDEFINES
+#if TARGET_ENDIAN_DEFAULT == 0
+#define CPP_PREDEFINES "-DMIPSEL -D_MIPSEL -Dunix -Dmips -D_mips \
+-DR3000 -D_R3000 -Dlinux -Asystem(posix) -Acpu(mips) \
+-Amachine(mips) -D__ELF__"
+#else
+#define CPP_PREDEFINES "-DMIPSEB -D_MIPSEB -Dunix -Dmips -D_mips \
+-DR3000 -D_R3000 -Dlinux -Asystem(posix) -Acpu(mips) \
+-Amachine(mips) -D__ELF__"
+#endif
 
 /* Provide a STARTFILE_SPEC appropriate for GNU/Linux.  Here we add
    the GNU/Linux magical crtbegin.o file (see crtstuff.c) which
@@ -62,7 +88,7 @@ Boston, MA 02111-1307, USA.  */
 
 /* Borrowed from sparc/linux.h */
 #undef LINK_SPEC
-#define LINK_SPEC "-Y P,/usr/lib %{shared:-shared} \
+#define LINK_SPEC "%{shared:-shared} \
   %{!shared: \
     %{!ibcs: \
       %{!static: \

@@ -269,7 +269,7 @@ extern tree soft_newarray_node;
 extern tree soft_anewarray_node;
 extern tree soft_multianewarray_node;
 extern tree soft_badarrayindex_node;
-extern tree throw_node;
+extern tree throw_node[];
 extern tree soft_checkarraystore_node;
 extern tree soft_monitorenter_node;
 extern tree soft_monitorexit_node;
@@ -479,6 +479,7 @@ struct lang_type
 #define JCF_u4 unsigned long
 #define JCF_u2 unsigned short
 
+extern void add_assume_compiled PROTO ((const char *, int));
 extern tree lookup_class PROTO ((tree));
 extern tree lookup_java_constructor PROTO ((tree, tree));
 extern tree lookup_java_method PROTO ((tree, tree, tree));
@@ -636,6 +637,7 @@ extern char* open_class PROTO ((char *, struct JCF *, FILE *, const char *));
 extern char* open_class PROTO ((char *, struct JCF *, int, const char *));
 # endif /* JCF_USE_STDIO */
 #endif
+void java_debug_context PROTO ((void));
 
 /* We use ARGS_SIZE_RTX to indicate that gcc/expr.h has been included
    to declare `enum expand_modifier'. */

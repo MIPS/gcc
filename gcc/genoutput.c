@@ -140,7 +140,7 @@ struct operand_data
 
 static struct operand_data null_operand =
 {
-  0, 0, "", "", VOIDmode, 0, 0, 0, 0
+  0, 0, "", "", VOIDmode, 0, 0, 0, 0, 0
 };
 
 static struct operand_data *odata = &null_operand;
@@ -361,7 +361,7 @@ output_insn_data ()
 	  break;
 	case INSN_OUTPUT_FORMAT_MULTI:
 	case INSN_OUTPUT_FORMAT_FUNCTION:
-	  printf ("    output_%d,\n", d->code_number);
+	  printf ("    (const PTR) output_%d,\n", d->code_number);
 	  break;
 	default:
 	  abort ();

@@ -188,7 +188,9 @@ static rtx add_to_delay_list		PROTO((rtx, rtx));
 static rtx delete_from_delay_slot	PROTO((rtx));
 static void delete_scheduled_jump	PROTO((rtx));
 static void note_delay_statistics	PROTO((int, int));
+#if defined(ANNUL_IFFALSE_SLOTS) || defined(ANNUL_IFTRUE_SLOTS)
 static rtx optimize_skip		PROTO((rtx));
+#endif
 static int get_jump_flags		PROTO((rtx, rtx));
 static int rare_destination		PROTO((rtx));
 static int mostly_true_jump		PROTO((rtx, rtx));
@@ -2748,7 +2750,8 @@ fill_slots_from_thread (insn, condition, thread, opposite_thread, likely,
 	      && GET_CODE (PATTERN (next)) != USE
 	      && ! reg_set_p (SET_DEST (pat), next)
 	      && ! reg_set_p (SET_SRC (pat), next)
-	      && reg_referenced_p (SET_DEST (pat), PATTERN (next)))
+	      && reg_referenced_p (SET_DEST (pat), PATTERN (next))
+	      && ! modified_in_p (SET_DEST (pat), next))
 	    validate_replace_rtx (SET_DEST (pat), SET_SRC (pat), next);
 	}
     }
@@ -3531,7 +3534,7 @@ dbr_schedule (first, file)
 	epilogue_insn = insn;
     }
 
-  uid_to_ruid = (int *) alloca ((max_uid + 1) * sizeof (int));
+  uid_to_ruid = (int *) xmalloc ((max_uid + 1) * sizeof (int));
   for (i = 0, insn = first; insn; i++, insn = NEXT_INSN (insn))
     uid_to_ruid[INSN_UID (insn)] = i;
   
@@ -3623,6 +3626,8 @@ dbr_schedule (first, file)
   if (file)
     {
       register int i, j, need_comma;
+      int total_delay_slots[MAX_DELAY_HISTOGRAM + 1];
+      int total_annul_slots[MAX_DELAY_HISTOGRAM + 1];
 
       for (reorg_pass_number = 0;
 	   reorg_pass_number < MAX_REORG_PASSES;
@@ -3637,7 +3642,7 @@ dbr_schedule (first, file)
 	      fprintf (file, ";; %d insns needing delay slots\n;; ",
 		       num_insns_needing_delays[i][reorg_pass_number]);
 
-	      for (j = 0; j < MAX_DELAY_HISTOGRAM; j++)
+	      for (j = 0; j < MAX_DELAY_HISTOGRAM + 1; j++)
 		if (num_filled_delays[i][j][reorg_pass_number])
 		  {
 		    if (need_comma)
@@ -3649,6 +3654,58 @@ dbr_schedule (first, file)
 	      fprintf (file, "\n");
 	    }
 	}
+      bzero ((char *) total_delay_slots, sizeof total_delay_slots);
+      bzero ((char *) total_annul_slots, sizeof total_annul_slots);
+      for (insn = first; insn; insn = NEXT_INSN (insn))
+	{
+	  if (! INSN_DELETED_P (insn)
+	      && GET_CODE (insn) == INSN
+	      && GET_CODE (PATTERN (insn)) != USE
+	      && GET_CODE (PATTERN (insn)) != CLOBBER)
+	    {
+	      if (GET_CODE (PATTERN (insn)) == SEQUENCE)
+		{
+		  j = XVECLEN (PATTERN (insn), 0) - 1;
+		  if (j > MAX_DELAY_HISTOGRAM)
+		    j = MAX_DELAY_HISTOGRAM;
+		  if (INSN_ANNULLED_BRANCH_P (XVECEXP (PATTERN (insn), 0, 0)))
+		    total_annul_slots[j]++;
+		  else
+		    total_delay_slots[j]++;
+		}
+              else if (num_delay_slots (insn) > 0)
+		total_delay_slots[0]++;
+	    }
+	}
+      fprintf (file, ";; Reorg totals: ");
+      need_comma = 0;
+      for (j = 0; j < MAX_DELAY_HISTOGRAM + 1; j++)
+	{
+	  if (total_delay_slots[j])
+	    {
+	      if (need_comma)
+		fprintf (file, ", ");
+	      need_comma = 1;
+	      fprintf (file, "%d got %d delays", total_delay_slots[j], j);
+	    }
+	}
+      fprintf (file, "\n");
+#if defined (ANNUL_IFTRUE_SLOTS) || defined (ANNUL_IFFALSE_SLOTS)
+      fprintf (file, ";; Reorg annuls: ");
+      need_comma = 0;
+      for (j = 0; j < MAX_DELAY_HISTOGRAM + 1; j++)
+	{
+	  if (total_annul_slots[j])
+	    {
+	      if (need_comma)
+		fprintf (file, ", ");
+	      need_comma = 1;
+	      fprintf (file, "%d got %d delays", total_annul_slots[j], j);
+	    }
+	}
+      fprintf (file, "\n");
+#endif
+      fprintf (file, "\n");
     }
 
   /* For all JUMP insns, fill in branch prediction notes, so that during
@@ -3676,5 +3733,6 @@ dbr_schedule (first, file)
 					    REG_NOTES (insn));
     }
   free_resource_info ();
+  free (uid_to_ruid);
 }
 #endif /* DELAY_SLOTS */

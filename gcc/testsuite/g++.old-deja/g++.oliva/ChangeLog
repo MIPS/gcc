@@ -1,3 +1,23 @@
+1999-12-22  Alexandre Oliva  <oliva@lsd.ic.unicamp.br>
+
+	* nameret2.C: New test.
+
+	* nameret1.C: New test.
+
+	* template10.C: New test.
+
+1999-11-21  Alexandre Oliva  <oliva@lsd.ic.unicamp.br>
+
+	* delete2.C, delete3.C, delete4.C, delete5.C: New tests.
+
+1999-11-19  Alexandre Oliva  <oliva@lsd.ic.unicamp.br>
+
+	* template7.C: Crash test passes, bug error is now bogus.
+
+1999-11-11  Alexandre Oliva  <oliva@lsd.ic.unicamp.br>
+
+	* template9.C: New test.
+
 1999-09-18  Alexandre Oliva  <oliva@lsd.ic.unicamp.br>
 
 	* overload1.C: New test.

@@ -54,6 +54,12 @@ do { fprintf (FILE, "\t%s\t", ASM_LONG);				\
    } while (0)
 #endif
 
+/* Provide default for ASM_OUTPUT_ALTERNATE_LABEL_NAME.  */
+#ifndef ASM_OUTPUT_ALTERNATE_LABEL_NAME
+#define ASM_OUTPUT_ALTERNATE_LABEL_NAME(FILE,INSN) \
+do { ASM_OUTPUT_LABEL(FILE,LABEL_ALTERNATE_NAME (INSN)); } while (0)
+#endif
+
 /* choose a reasonable default for ASM_OUTPUT_ASCII.  */
 
 #ifndef ASM_OUTPUT_ASCII
@@ -181,4 +187,11 @@ do { fprintf (FILE, "\t%s\t", ASM_LONG);				\
 /* Supply a default definition for PROMOTE_PROTOTYPES.  */
 #ifndef PROMOTE_PROTOTYPES
 #define PROMOTE_PROTOTYPES	0
+#endif
+
+/* Number of hardware registers that go into the DWARF-2 unwind info.
+   If not defined, equals FIRST_PSEUDO_REGISTER  */
+
+#ifndef DWARF_FRAME_REGISTERS
+#define DWARF_FRAME_REGISTERS FIRST_PSEUDO_REGISTER
 #endif

@@ -1,5 +1,5 @@
 /* Output sdb-format symbol table information from GNU compiler.
-   Copyright (C) 1988, 92-97, 1998 Free Software Foundation, Inc.
+   Copyright (C) 1988, 92-99, 2000 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -54,6 +54,7 @@ AT&T C compiler.  From the example below I would conclude the following:
 #include "reload.h"
 #include "output.h"
 #include "toplev.h"
+#include "tm_p.h"
 
 /* Mips systems use the SDB functions to dump out symbols, but do not
    supply usable syms.h include files.  Which syms.h file to use is a
@@ -111,8 +112,10 @@ static void sdbout_record_type_name	PROTO((tree));
 static int plain_type_1			PROTO((tree, int));
 static void sdbout_block		PROTO((tree));
 static void sdbout_syms			PROTO((tree));
+#ifdef SDB_ALLOW_FORWARD_REFERENCES
 static void sdbout_queue_anonymous_type	PROTO((tree));
 static void sdbout_dequeue_anonymous_types PROTO((void));
+#endif
 static void sdbout_type			PROTO((tree));
 static void sdbout_field_types		PROTO((tree));
 static void sdbout_one_type		PROTO((tree));
@@ -336,8 +339,8 @@ static struct sdb_file *current_file;
 
 void
 sdbout_init (asm_file, input_file_name, syms)
-     FILE *asm_file;
-     char *input_file_name;
+     FILE *asm_file ATTRIBUTE_UNUSED;
+     char *input_file_name ATTRIBUTE_UNUSED;
      tree syms ATTRIBUTE_UNUSED;
 {
 #ifdef MIPS_DEBUGGING_INFO
@@ -1173,7 +1176,7 @@ sdbout_one_type (type)
       /* Output a structure type.  */
       {
 	int size = int_size_in_bytes (type);
-	int member_scl;
+	int member_scl = 0;
 	tree tem;
 	int i, n_baseclasses = 0;
 
@@ -1524,7 +1527,7 @@ sdbout_reg_parms (parms)
 
 void
 sdbout_begin_block (file, line, n)
-     FILE *file;
+     FILE *file ATTRIBUTE_UNUSED;
      int line;
      int n;
 {
@@ -1564,7 +1567,7 @@ sdbout_begin_block (file, line, n)
 
 void
 sdbout_end_block (file, line, n)
-     FILE *file;
+     FILE *file ATTRIBUTE_UNUSED;
      int line;
      int n ATTRIBUTE_UNUSED;
 {
@@ -1650,7 +1653,7 @@ sdbout_label (insn)
 
 void
 sdbout_start_new_source_file (filename)
-     char *filename;
+     char *filename ATTRIBUTE_UNUSED;
 {
 #ifdef MIPS_DEBUGGING_INFO
   struct sdb_file *n = (struct sdb_file *) xmalloc (sizeof *n);

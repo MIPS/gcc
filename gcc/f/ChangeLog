@@ -1,3 +1,122 @@
+Wed Jan 12 09:32:59 2000  Zack Weinberg  <zack@wolery.cumb.org>
+
+	* lang-specs.h: Pass -lang-fortran to preprocessor.
+
+Thu Dec 30 13:14:31 1999  Richard Henderson  <rth@cygnus.com>
+
+	* stw.h (struct _ffestw_): Change type of uses_ to int.
+
+Thu Dec 30 11:42:05 1999  Geoff Keating  <geoffk@cygnus.com>
+
+	* com.c (ffecom_init_0): Make double_ftype_double,
+	float_ftype_float, ldouble_ftype_ldouble,
+	ffecom_tree_ptr_to_fun_type_void local.
+	(tracker_head): New static variable.
+	(mark_tracker_head): New, marker procedure for tracker_head.
+	(ffecom_save_tree_forever): New procedure.
+	(ffecom_init_zero_): Remove obstack use.
+	(ffecom_make_gfrt_): Remove obstack use.
+	(ffecom_sym_transform_): Remove obstack use, save appropriate trees.
+	(ffecom_transform_common_): Remove obstack use, save appropriate 
+	trees.
+	(ffecom_type_namelist_): Remove obstack use, save appropriate 
+	trees.
+	(ffecom_type_vardesc_): Remove obstack use, save appropriate trees.
+	(ffecom_lookup_label): Remove obstack use, save appropriate trees.
+	(duplicate_decls): Remove obstack use.
+	(finish_function): push & pop ggc context around
+	rest_of_compilation when building nested function.
+	(mark_binding_level): New function.
+	(init_decl_processing): Mark all the GC roots.
+	(ggc_p): Set to 1.
+	(lang_mark_tree): New function.
+	(lang_mark_false_label_stack): New trivial function.
+	* com.h (ffecom_save_tree_forever): Declare as external.
+	* lex.c (ffelex_hash_): Use GC to allocate the filename string
+	even when ffelex_kludge_flag_.
+	* ste.c (ffeste_io_ialist_): Register a static root.
+	(ffeste_io_inlist_): Likewise.
+	(ffeste_io_icilist_): Likewise.
+	(ffeste_io_cllist_): Likewise.
+	(ffeste_io_cilist_): Likewise.
+	(ffeste_io_olist_): Likewise.
+	* Makefile.in (OBJS): Don't use ggc-callbacks.o.
+	(OBJDEPS): Likewise.
+	(GGC_H): New variable.
+	Update dependencies.
+	* where.c (ffewhere_head): New global.
+	(mark_ffewhere_head): New marker procedure for ffewhere_head.
+	(ffewhere_file_kill): Use GC to do memory management.
+	(ffewhere_file_new): Use GC to do memory management.
+	* ggc.j: New file.
+
+Wed Dec 29 19:29:26 1999  Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
+
+	* g77.texi (C Interfacing Tools): Fix an incorrect link.
+
+1999-12-13  Jakub Jelinek  <jakub@redhat.com>
+
+	* target.h: Handle sparc64 the same way as alpha.
+
+Sun Nov 28 21:39:05 1999  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* com.c (ffecom_file_, ffecom_file, file_buf,
+	ffecom_open_include_): Constify a char*.
+	(ffecom_possible_partial_overlap_): Mark parameter `expr2' with
+	ATTRIBUTE_UNUSED.
+	(ffecom_init_0): Use a fully prototyped cast in call to bsearch.
+	(lang_print_error_function): ANSI-fy.
+
+	* com.h (ffecom_file): Constify a char*.
+
+	* fini.c (main): Call return, not exit.
+
+	* g77spec.c (lang_specific_driver): Use non-const *in_argv in
+	assignment.
+
+	* intrin.c (ffeintrin_cmp_name_): Don't needlessly cast away
+	const-ness.
+	
+Sun Nov 28 21:15:29 1999  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* com.c (ffecom_get_invented_identifier): Rewrite to take an ellipses.
+	
+	(ffecom_char_enhance_arg_, ffecom_do_entry_,
+	ffecom_f2c_make_type_, ffecom_gen_sfuncdef_,
+	ffecom_start_progunit_, ffecom_start_progunit_,
+	ffecom_start_progunit_, ffecom_sym_transform_assign_,
+	ffecom_transform_equiv_, ffecom_transform_namelist_,
+	ffecom_vardesc_, ffecom_vardesc_array_, ffecom_vardesc_dims_,
+	ffecom_end_transition, ffecom_lookup_label, ffecom_temp_label):
+	Adjust accordingly.
+
+	* com.h (ffecom_get_invented_identifier): Likewise.
+
+	* sts.c (ffests_printf): New function taking ellipses.
+	(ffests_printf_1D, ffests_printf_1U, ffests_printf_1s,
+	ffests_printf_2Us): Delete.
+
+	* sts.h: Likewise.
+
+	* std.c (ffestd_R1001dump_, ffestd_R1001dump_1005_1_,
+	ffestd_R1001dump_1005_2_, ffestd_R1001dump_1005_3_,
+	ffestd_R1001dump_1005_4_, ffestd_R1001dump_1005_5_,
+	ffestd_R1001dump_1010_2_, ffestd_R1001dump_1010_3_,
+	ffestd_R1001dump_1010_4_, ffestd_R1001dump_1010_5_,
+	ffestd_R1001rtexpr_): Call `ffests_printf', not `ffests_printf_*'.
+
+	* ste.c (ffeste_io_ialist_, ffeste_io_cilist_, ffeste_io_cllist_,
+	ffeste_io_icilist_, ffeste_io_inlist_, ffeste_io_olist_): Likewise.
+
+Wed Nov 10 12:43:21 1999  Philippe De Muyter  <phdm@macqel.be>
+                          Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* proj.h: Test `GCC_VERSION', not `HAVE_GCC_VERSION'.
+
+Tue Oct 26 01:32:19 1999  Mark Mitchell  <mark@codesourcery.com>
+
+	* com.c (poplevel): Don't call remember_end_note.
+
 Fri Oct 15 15:18:12 1999  Greg McGary  <gkm@gnu.org>
 
 	* top.h (ffe_is_subscript_check_): Remove extern decl.

@@ -33,19 +33,19 @@ Boston, MA 02111-1307, USA.  */
 /* TARGET_ARCH{32,64} are the main macros to decide which of the two
    architectures to compile for.  We allow targets to choose compile time or
    runtime selection.  */
-#ifdef SPARC_BI_ARCH
 #ifdef IN_LIBGCC2
-#if defined(__sparcv9) || defined(__sparcv_v9) || defined(__arch64__)
+#if defined(__sparcv9) || defined(__arch64__)
 #define TARGET_ARCH32 0
 #else
 #define TARGET_ARCH32 1
-#endif /* V9 sparc */
+#endif /* sparc64 */
 #else
+#ifdef SPARC_BI_ARCH
 #define TARGET_ARCH32 (! TARGET_64BIT)
-#endif /* IN_LIBGCC2 */
 #else
 #define TARGET_ARCH32 (DEFAULT_ARCH32_P)
 #endif /* SPARC_BI_ARCH */
+#endif /* IN_LIBGCC2 */
 #define TARGET_ARCH64 (! TARGET_ARCH32)
 
 /* Code model selection.
@@ -97,7 +97,7 @@ extern enum cmodel sparc_cmodel;
 #define TARGET_CM_MEDANY    (sparc_cmodel == CM_MEDANY)
 #define TARGET_CM_EMBMEDANY (sparc_cmodel == CM_EMBMEDANY)
 
-#define SPARC_DEFAULT_CMODEL CM_MEDLOW
+#define SPARC_DEFAULT_CMODEL CM_32
 
 /* This is call-clobbered in the normal ABI, but is reserved in the
    home grown (aka upward compatible) embedded ABI.  */
@@ -545,6 +545,11 @@ extern int target_flags;
 #define MASK_V8PLUS 0x2000000
 #define TARGET_V8PLUS (target_flags & MASK_V8PLUS)                            
 
+/* Force a the fastest alignment on structures to take advantage of
+   faster copies.  */
+#define MASK_FASTER_STRUCTS 0x4000000
+#define TARGET_FASTER_STRUCTS (target_flags & MASK_FASTER_STRUCTS)
+
 /* TARGET_HARD_MUL: Use hardware multiply instructions but not %y.
    TARGET_HARD_MUL32: Use hardware multiply instructions with rd %y
    to get high 32 bits.  False in V8+ or V9 because multiply stores
@@ -569,10 +574,10 @@ extern int target_flags;
 #define TARGET_SWITCHES  \
   { {"fpu", MASK_FPU | MASK_FPU_SET,			"Use hardware fp" },		\
     {"no-fpu", -MASK_FPU,				"Do not use hardware fp" },	\
-    {"no-fpu", MASK_FPU_SET,				"Do not use hardware fp" },	\
+    {"no-fpu", MASK_FPU_SET,				NULL, },	\
     {"hard-float", MASK_FPU | MASK_FPU_SET,		"Use hardware fp" },		\
     {"soft-float", -MASK_FPU,				"Do not use hardware fp" },	\
-    {"soft-float", MASK_FPU_SET,			"Do not use hardware fp" },	\
+    {"soft-float", MASK_FPU_SET,			NULL },	\
     {"epilogue", MASK_EPILOGUE,				"Use FUNCTION_EPILOGUE" },	\
     {"no-epilogue", -MASK_EPILOGUE,			"Do not use FUNCTION_EPILOGUE" }, 	\
     {"unaligned-doubles", MASK_UNALIGNED_DOUBLES,	"Assume possible double misalignment" },\
@@ -603,6 +608,8 @@ extern int target_flags;
     {"64", MASK_64BIT,					"Use 64-bit ABI" }, \
     {"stack-bias", MASK_STACK_BIAS,			"Use stack bias" }, \
     {"no-stack-bias", -MASK_STACK_BIAS,			"Do not use stack bias" }, \
+    {"faster-structs", MASK_FASTER_STRUCTS,			"Use structs on stronger alignment for double-word copies" }, \
+    {"no-faster-structs", -MASK_FASTER_STRUCTS,		"Do not use structs on stronger alignment for double-word copies" }, \
     SUBTARGET_SWITCHES			\
     { "", TARGET_DEFAULT, ""}}
 
@@ -770,6 +777,18 @@ if (TARGET_ARCH64				\
    for this value.  */
 #define PROMOTE_FUNCTION_RETURN
 
+/* Define this macro if the promotion described by PROMOTE_MODE
+   should _only_ be performed for outgoing function arguments or
+   function return values, as specified by PROMOTE_FUNCTION_ARGS
+   and PROMOTE_FUNCTION_RETURN, respectively.  */
+/* This is only needed for TARGET_ARCH64, but since PROMOTE_MODE is a no-op
+   for TARGET_ARCH32 this is ok.  Otherwise we'd need to add a runtime test
+   for this value.  For TARGET_ARCH64 we need it, as we don't have instructions
+   for arithmetic operations which do zero/sign extension at the same time,
+   so without this we end up with a srl/sra after every assignment to an
+   user variable,  which means very very bad code.  */
+#define PROMOTE_FOR_CALL_ONLY
+
 /* Allocation boundary (in *bits*) for storing arguments in argument list.  */
 #define PARM_BOUNDARY (TARGET_ARCH64 ? 64 : 32)
 
@@ -798,6 +817,23 @@ if (TARGET_ARCH64				\
 
 /* The best alignment to use in cases where we have a choice.  */
 #define FASTEST_ALIGNMENT 64
+
+/* Define this macro as an expression for the alignment of a structure
+   (given by STRUCT as a tree node) if the alignment computed in the
+   usual way is COMPUTED and the alignment explicitly specified was
+   SPECIFIED.
+
+   The default is to use SPECIFIED if it is larger; otherwise, use
+   the smaller of COMPUTED and `BIGGEST_ALIGNMENT' */
+#define ROUND_TYPE_ALIGN(STRUCT, COMPUTED, SPECIFIED)	\
+ (TARGET_FASTER_STRUCTS ?				\
+  ((TREE_CODE (STRUCT) == RECORD_TYPE			\
+    || TREE_CODE (STRUCT) == UNION_TYPE                 \
+    || TREE_CODE (STRUCT) == QUAL_UNION_TYPE)           \
+   && TYPE_FIELDS (STRUCT) != 0                         \
+     ? MAX (MAX ((COMPUTED), (SPECIFIED)), BIGGEST_ALIGNMENT) \
+     : MAX ((COMPUTED), (SPECIFIED)))			\
+   :  MAX ((COMPUTED), (SPECIFIED)))
 
 /* Make strings word-aligned so strcpy from constants will be faster.  */
 #define CONSTANT_ALIGNMENT(EXP, ALIGN)  \
@@ -938,7 +974,7 @@ if (TARGET_ARCH64				\
 */
 
 #define FIXED_REGISTERS  \
- {1, 0, 0, 0, 0, 0, 1, 1,	\
+ {1, 0, 2, 2, 2, 2, 1, 1,	\
   0, 0, 0, 0, 0, 0, 1, 0,	\
   0, 0, 0, 0, 0, 0, 0, 0,	\
   0, 0, 0, 0, 0, 0, 1, 1,	\
@@ -991,10 +1027,12 @@ do								\
 	fixed_regs[PIC_OFFSET_TABLE_REGNUM] = 1;		\
 	call_used_regs[PIC_OFFSET_TABLE_REGNUM] = 1;		\
       }								\
-    if (TARGET_ARCH32)						\
-      {								\
-	fixed_regs[5] = 1;					\
-      }								\
+    /* If the user has passed -f{fixed,call-{used,saved}}-g5 */	\
+    /* then honour it.  */					\
+    if (TARGET_ARCH32 && fixed_regs[5])				\
+      fixed_regs[5] = 1;					\
+    else if (TARGET_ARCH64 && fixed_regs[5] == 2)		\
+      fixed_regs[5] = 0;					\
     if (TARGET_LIVE_G0)						\
       fixed_regs[0] = 0;					\
     if (! TARGET_V9)						\
@@ -1016,10 +1054,18 @@ do								\
 	for (regno = 32; regno < SPARC_LAST_V9_FCC_REG; regno++) \
 	  fixed_regs[regno] = 1;				\
       }								\
-    /* Don't unfix g2-g4 if they were fixed with -ffixed-.  */	\
-    fixed_regs[2] |= ! TARGET_APP_REGS;				\
-    fixed_regs[3] |= ! TARGET_APP_REGS;				\
-    fixed_regs[4] |= ! TARGET_APP_REGS || TARGET_CM_EMBMEDANY;	\
+    /* If the user has passed -f{fixed,call-{used,saved}}-g2 */	\
+    /* then honour it.  Likewise with g3 and g4.  */		\
+    if (fixed_regs[2] == 2)					\
+      fixed_regs[2] = ! TARGET_APP_REGS;			\
+    if (fixed_regs[3] == 2)					\
+      fixed_regs[3] = ! TARGET_APP_REGS;			\
+    if (TARGET_ARCH32 && fixed_regs[4] == 2)			\
+      fixed_regs[4] = ! TARGET_APP_REGS;			\
+    else if (TARGET_CM_EMBMEDANY)				\
+      fixed_regs[4] = 1;					\
+    else if (fixed_regs[4] == 2)				\
+      fixed_regs[4] = 0;					\
     if (TARGET_FLAT)						\
       {								\
 	/* Let the compiler believe the frame pointer is still	\
@@ -1031,10 +1077,10 @@ do								\
       }								\
     if (profile_block_flag)					\
       {								\
-	/* %g1 and %g2 must be fixed, because BLOCK_PROFILER	\
-	    uses them.  */					\
+	/* %g1 and %g2 (sparc32) resp. %g4 (sparc64) must be	\
+	   fixed, because BLOCK_PROFILER uses them.  */		\
 	fixed_regs[1] = 1;					\
-	fixed_regs[2] = 1;					\
+	fixed_regs[TARGET_ARCH64 ? 4 : 2] = 1;			\
       }								\
   }								\
 while (0)
@@ -1311,11 +1357,12 @@ extern enum reg_class sparc_regno_reg_class[];
   1, 4, 5, 6, 7, 0, 14, 30}
 
 /* This is the order in which to allocate registers for
-   leaf functions.  If all registers can fit in the "i" registers,
+   leaf functions.  If all registers can fit in the "gi" registers,
    then we have the possibility of having a leaf function.  */
 
 #define REG_LEAF_ALLOC_ORDER \
 { 2, 3, 24, 25, 26, 27, 28, 29,		\
+  4, 5, 6, 7, 1,			\
   15, 8, 9, 10, 11, 12, 13,		\
   16, 17, 18, 19, 20, 21, 22, 23,	\
   34, 35, 36, 37, 38, 39,		\
@@ -1328,8 +1375,8 @@ extern enum reg_class sparc_regno_reg_class[];
   88, 89, 90, 91, 92, 93, 94, 95,	\
   32, 33,				\
   96, 97, 98, 99, 100,			\
-  1, 4, 5, 6, 7, 0, 14, 30, 31}
-
+  0, 14, 30, 31}
+  
 #define ORDER_REGS_FOR_LOCAL_ALLOC order_regs_for_local_alloc ()
 
 /* ??? %g7 is not a leaf register to effectively #undef LEAF_REGISTERS when
@@ -1405,7 +1452,8 @@ extern char leaf_reg_remap[];
 /* 13 bit immediate, considering only the low 32 bits */
 #define SMALL_INT32(X) (SPARC_SIMM13_P ((int)INTVAL (X) & 0xffffffff))
 #define SPARC_SETHI_P(X) \
-(((unsigned HOST_WIDE_INT) (X) & ~(unsigned HOST_WIDE_INT) 0xfffffc00) == 0)
+(((unsigned HOST_WIDE_INT) (X) & \
+  (TARGET_ARCH64 ? ~(unsigned HOST_WIDE_INT) 0xfffffc00 : 0x3ff)) == 0)
 
 #define CONST_OK_FOR_LETTER_P(VALUE, C)  \
   ((C) == 'I' ? SPARC_SIMM13_P (VALUE)			\
@@ -1709,6 +1757,13 @@ init_cumulative_args (& (CUM), (FNTYPE), (LIBNAME), (INDIRECT));
 #define FUNCTION_ARG_ADVANCE(CUM, MODE, TYPE, NAMED) \
 function_arg_advance (& (CUM), (MODE), (TYPE), (NAMED))
 
+/* Nonzero if we do not know how to pass TYPE solely in registers.  */
+
+#define MUST_PASS_IN_STACK(MODE,TYPE)			\
+  ((TYPE) != 0						\
+   && (TREE_CODE (TYPE_SIZE (TYPE)) != INTEGER_CST	\
+       || TREE_ADDRESSABLE (TYPE)))
+
 /* Determine where to put an argument to a function.
    Value is zero to push the argument on the stack,
    or a hard register in which to store the argument.
@@ -1792,25 +1847,38 @@ do {									\
 } while (0)
 
 /* Output the special assembly code needed to tell the assembler some
-   register is used as global register variable.  */
+   register is used as global register variable.  
+
+   SPARC 64bit psABI declares registers %g2 and %g3 as application
+   registers and %g6 and %g7 as OS registers.  Any object using them
+   should declare (for %g2/%g3 has to, for %g6/%g7 can) that it uses them
+   and how they are used (scratch or some global variable).
+   Linker will then refuse to link together objects which use those
+   registers incompatibly.
+
+   Unless the registers are used for scratch, two different global
+   registers cannot be declared to the same name, so in the unlikely
+   case of a global register variable occupying more than one register
+   we prefix the second and following registers with .gnu.part1. etc.  */
+
+extern char sparc_hard_reg_printed[8];
 
 #ifdef HAVE_AS_REGISTER_PSEUDO_OP
 #define ASM_DECLARE_REGISTER_GLOBAL(FILE, DECL, REGNO, NAME)		\
 do {									\
   if (TARGET_ARCH64)							\
     {									\
-      int __end = HARD_REGNO_NREGS ((REGNO), DECL_MODE (decl)) + (REGNO); \
-      int __reg;							\
-      extern char sparc_hard_reg_printed[8];				\
-      for (__reg = (REGNO); __reg < 8 && __reg < __end; __reg++)	\
-	if ((__reg & ~1) == 2 || (__reg & ~1) == 6)			\
+      int end = HARD_REGNO_NREGS ((REGNO), DECL_MODE (decl)) + (REGNO); \
+      int reg;								\
+      for (reg = (REGNO); reg < 8 && reg < end; reg++)			\
+	if ((reg & ~1) == 2 || (reg & ~1) == 6)				\
 	  {								\
-	    if (__reg == (REGNO))					\
-	      fprintf ((FILE), "\t.register\t%%g%d, %s\n", __reg, (NAME)); \
+	    if (reg == (REGNO))						\
+	      fprintf ((FILE), "\t.register\t%%g%d, %s\n", reg, (NAME)); \
 	    else							\
 	      fprintf ((FILE), "\t.register\t%%g%d, .gnu.part%d.%s\n",	\
-		       __reg, __reg - (REGNO), (NAME));			\
-	    sparc_hard_reg_printed[__reg] = 1;				\
+		       reg, reg - (REGNO), (NAME));			\
+	    sparc_hard_reg_printed[reg] = 1;				\
 	  }								\
     }									\
 } while (0)
@@ -1865,6 +1933,8 @@ do {									\
 #define FUNCTION_BLOCK_PROFILER_EXIT(FILE) \
   sparc_function_block_profiler_exit(FILE)
 
+#ifdef IN_LIBGCC2
+
 /* The function `__bb_trace_func' is called in every basic block
    and is not allowed to change the machine state. Saving (restoring)
    the state can either be done in the BLOCK_PROFILER macro,
@@ -1884,12 +1954,18 @@ do {									\
    On sparc it is sufficient to save the psw register to memory.
    Unfortunately the psw register can be read in supervisor mode only,
    so we read only the condition codes by using branch instructions
-   and hope that this is enough. */
+   and hope that this is enough.
+   
+   On V9, life is much sweater:  there is a user accessible %ccr
+   register, but we use it for 64bit libraries only.  */
+
+#if TARGET_ARCH32
 
 #define MACHINE_STATE_SAVE(ID)			\
   int ms_flags, ms_saveret;			\
   asm volatile(					\
-	"mov %%g0,%0\n\
+	"mov %%g2,%1\n\
+	mov %%g0,%0\n\
 	be,a LFLGNZ"ID"\n\
 	or %0,4,%0\n\
 LFLGNZ"ID":\n\
@@ -1901,9 +1977,19 @@ LFLGNC"ID":\n\
 LFLGNV"ID":\n\
 	bneg,a LFLGNN"ID"\n\
 	or %0,8,%0\n\
-LFLGNN"ID":\n\
-	mov %%g2,%1"				\
+LFLGNN"ID":"					\
 	: "=r"(ms_flags), "=r"(ms_saveret));
+
+#else
+
+#define MACHINE_STATE_SAVE(ID)			\
+  unsigned long ms_flags, ms_saveret;		\
+  asm volatile(					\
+	"mov %%g4,%1\n\
+	rd %%ccr,%0"				\
+	: "=r"(ms_flags), "=r"(ms_saveret));
+
+#endif
 
 /* On sparc MACHINE_STATE_RESTORE restores the psw register from memory.
    The psw register can be written in supervisor mode only,
@@ -1912,6 +1998,8 @@ LFLGNN"ID":\n\
    proper condition codes, but some flag combinations can not
    be generated in this way. If this happens an unimplemented
    instruction will be executed to abort the program. */
+
+#if TARGET_ARCH32
 
 #define MACHINE_STATE_RESTORE(ID)				\
 { extern char flgtab[] __asm__("LFLGTAB"ID);			\
@@ -1971,7 +2059,20 @@ LFLGRET"ID":\n\
 	: "=r"(scratch)						\
 	: "r"(ms_flags*8), "r"(flgtab), "r"(-1),		\
 	  "r"(0x80000000), "r"(ms_saveret)			\
-	: "cc", "%g2"); }
+	: "cc", "g2"); }
+
+#else
+
+#define MACHINE_STATE_RESTORE(ID)				\
+  asm volatile (						\
+	"wr %0,0,%%ccr\n\
+	mov %1,%%g4"						\
+	: : "r"(ms_flags), "r"(ms_saveret)			\
+	: "cc", "g4");
+
+#endif
+
+#endif /* IN_LIBGCC2 */
 
 /* EXIT_IGNORE_STACK should be nonzero if, when returning from a function,
    the stack pointer does not matter.  The value is tested only in
@@ -2162,7 +2263,9 @@ LFLGRET"ID":\n\
 
 #define LEGITIMATE_CONSTANT_P(X) 					\
   (GET_CODE (X) != CONST_DOUBLE || GET_MODE (X) == VOIDmode || 		\
-   (TARGET_VIS && (GET_MODE (X) == SFmode || GET_MODE (X) == DFmode) &&	\
+   (TARGET_VIS &&							\
+    (GET_MODE (X) == SFmode || GET_MODE (X) == DFmode ||		\
+     GET_MODE (X) == TFmode) &&						\
     fp_zero_operand (X)))
 
 /* The macros REG_OK_FOR..._P assume that the arg is a REG rtx
@@ -2180,11 +2283,26 @@ LFLGRET"ID":\n\
 
 /* Optional extra constraints for this machine.
 
+   'Q' handles floating point constants which can be moved into
+       an integer register with a single sethi instruction.
+
+   'R' handles floating point constants which can be moved into
+       an integer register with a single mov instruction.
+
+   'S' handles floating point constants which can be moved into
+       an integer register using a high/lo_sum sequence.
+
    'T' handles memory addresses where the alignment is known to
        be at least 8 bytes.
 
    `U' handles all pseudo registers or a hard even numbered
        integer register, needed for ldd/std instructions.  */
+
+#define EXTRA_CONSTRAINT_BASE(OP, C)   \
+   ((C) == 'Q' ? fp_sethi_p(OP)        \
+    : (C) == 'R' ? fp_mov_p(OP)        \
+    : (C) == 'S' ? fp_high_losum_p(OP) \
+    : 0)
 
 #ifndef REG_OK_STRICT
 
@@ -2200,12 +2318,13 @@ LFLGRET"ID":\n\
 /* 'T', 'U' are for aligned memory loads which aren't needed for v9.  */
 
 #define EXTRA_CONSTRAINT(OP, C)				\
-   ((! TARGET_ARCH64 && (C) == 'T')			\
-    ? (mem_min_alignment (OP, 8))			\
-    : ((! TARGET_ARCH64 && (C) == 'U')			\
-       ? (register_ok_for_ldd (OP))			\
-       : 0))
- 
+   (EXTRA_CONSTRAINT_BASE(OP, C)                        \
+    || ((! TARGET_ARCH64 && (C) == 'T')			\
+        ? (mem_min_alignment (OP, 8))			\
+        : ((! TARGET_ARCH64 && (C) == 'U')		\
+            ? (register_ok_for_ldd (OP))		\
+            : 0)))
+
 #else
 
 /* Nonzero if X is a hard reg that can be used as an index.  */
@@ -2214,14 +2333,16 @@ LFLGRET"ID":\n\
 #define REG_OK_FOR_BASE_P(X) REGNO_OK_FOR_BASE_P (REGNO (X))
 
 #define EXTRA_CONSTRAINT(OP, C)				\
-   ((! TARGET_ARCH64 && (C) == 'T')			\
-    ? mem_min_alignment (OP, 8) && strict_memory_address_p (Pmode, XEXP (OP, 0)) \
-    : ((! TARGET_ARCH64 && (C) == 'U')			\
-       ? (GET_CODE (OP) == REG				\
-          && (REGNO (OP) < FIRST_PSEUDO_REGISTER	\
-	      || reg_renumber[REGNO (OP)] >= 0)		\
-          && register_ok_for_ldd (OP))			\
-       : 0))
+   (EXTRA_CONSTRAINT_BASE(OP, C)                        \
+    || ((! TARGET_ARCH64 && (C) == 'T')			\
+        ? mem_min_alignment (OP, 8) && strict_memory_address_p (Pmode, XEXP (OP, 0)) \
+        : ((! TARGET_ARCH64 && (C) == 'U')		\
+           ? (GET_CODE (OP) == REG			\
+              && (REGNO (OP) < FIRST_PSEUDO_REGISTER	\
+	          || reg_renumber[REGNO (OP)] >= 0)	\
+              && register_ok_for_ldd (OP))		\
+           : 0)))
+
 #endif
 
 /* Should gcc use [%reg+%lo(xx)+offset] addresses?  */
@@ -2590,26 +2711,25 @@ do {                                                                    \
 #define MULSI3_LIBCALL "*.umul"
 
 /* Define library calls for quad FP operations.  These are all part of the
-   SPARC ABI.
-   ??? ARCH64 still does not work as the _Qp_* routines take pointers.  */
-#define ADDTF3_LIBCALL (TARGET_ARCH64 ? "_Qp_add" : "_Q_add")
-#define SUBTF3_LIBCALL (TARGET_ARCH64 ? "_Qp_sub" : "_Q_sub")
-#define NEGTF2_LIBCALL (TARGET_ARCH64 ? "_Qp_neg" : "_Q_neg")
-#define MULTF3_LIBCALL (TARGET_ARCH64 ? "_Qp_mul" : "_Q_mul")
-#define DIVTF3_LIBCALL (TARGET_ARCH64 ? "_Qp_div" : "_Q_div")
-#define FLOATSITF2_LIBCALL (TARGET_ARCH64 ? "_Qp_itoq" : "_Q_itoq")
-#define FIX_TRUNCTFSI2_LIBCALL (TARGET_ARCH64 ? "_Qp_qtoi" : "_Q_qtoi")
-#define FIXUNS_TRUNCTFSI2_LIBCALL (TARGET_ARCH64 ? "_Qp_qtoui" : "_Q_qtou")
-#define EXTENDSFTF2_LIBCALL (TARGET_ARCH64 ? "_Qp_stoq" : "_Q_stoq")
-#define TRUNCTFSF2_LIBCALL (TARGET_ARCH64 ? "_Qp_qtos" :  "_Q_qtos")
-#define EXTENDDFTF2_LIBCALL (TARGET_ARCH64 ? "_Qp_dtoq" : "_Q_dtoq")
-#define TRUNCTFDF2_LIBCALL (TARGET_ARCH64 ? "_Qp_qtod" : "_Q_qtod")
-#define EQTF2_LIBCALL (TARGET_ARCH64 ? "_Qp_feq" : "_Q_feq")
-#define NETF2_LIBCALL (TARGET_ARCH64 ? "_Qp_fne" : "_Q_fne")
-#define GTTF2_LIBCALL (TARGET_ARCH64 ? "_Qp_fgt" : "_Q_fgt")
-#define GETF2_LIBCALL (TARGET_ARCH64 ? "_Qp_fge" : "_Q_fge")
-#define LTTF2_LIBCALL (TARGET_ARCH64 ? "_Qp_flt" : "_Q_flt")
-#define LETF2_LIBCALL (TARGET_ARCH64 ? "_Qp_fle" : "_Q_fle")
+   SPARC 32bit ABI.  */
+#define ADDTF3_LIBCALL "_Q_add"
+#define SUBTF3_LIBCALL "_Q_sub"
+#define NEGTF2_LIBCALL "_Q_neg"
+#define MULTF3_LIBCALL "_Q_mul"
+#define DIVTF3_LIBCALL "_Q_div"
+#define FLOATSITF2_LIBCALL "_Q_itoq"
+#define FIX_TRUNCTFSI2_LIBCALL "_Q_qtoi"
+#define FIXUNS_TRUNCTFSI2_LIBCALL "_Q_qtou"
+#define EXTENDSFTF2_LIBCALL "_Q_stoq"
+#define TRUNCTFSF2_LIBCALL "_Q_qtos"
+#define EXTENDDFTF2_LIBCALL "_Q_dtoq"
+#define TRUNCTFDF2_LIBCALL "_Q_qtod"
+#define EQTF2_LIBCALL "_Q_feq"
+#define NETF2_LIBCALL "_Q_fne"
+#define GTTF2_LIBCALL "_Q_fgt"
+#define GETF2_LIBCALL "_Q_fge"
+#define LTTF2_LIBCALL "_Q_flt"
+#define LETF2_LIBCALL "_Q_fle"
 
 /* We can define the TFmode sqrt optab only if TARGET_FPU.  This is because
    with soft-float, the SFmode and DFmode sqrt instructions will be absent,
@@ -2617,33 +2737,36 @@ do {                                                                    \
    for calls to the builtin function sqrt, but this fails.  */
 #define INIT_TARGET_OPTABS						\
   do {									\
-    add_optab->handlers[(int) TFmode].libfunc				\
-      = init_one_libfunc (ADDTF3_LIBCALL);				\
-    sub_optab->handlers[(int) TFmode].libfunc				\
-      = init_one_libfunc (SUBTF3_LIBCALL);				\
-    neg_optab->handlers[(int) TFmode].libfunc				\
-      = init_one_libfunc (NEGTF2_LIBCALL);				\
-    smul_optab->handlers[(int) TFmode].libfunc				\
-      = init_one_libfunc (MULTF3_LIBCALL);				\
-    flodiv_optab->handlers[(int) TFmode].libfunc			\
-      = init_one_libfunc (DIVTF3_LIBCALL);				\
-    eqtf2_libfunc = init_one_libfunc (EQTF2_LIBCALL);			\
-    netf2_libfunc = init_one_libfunc (NETF2_LIBCALL);			\
-    gttf2_libfunc = init_one_libfunc (GTTF2_LIBCALL);			\
-    getf2_libfunc = init_one_libfunc (GETF2_LIBCALL);			\
-    lttf2_libfunc = init_one_libfunc (LTTF2_LIBCALL);			\
-    letf2_libfunc = init_one_libfunc (LETF2_LIBCALL);			\
-    trunctfsf2_libfunc = init_one_libfunc (TRUNCTFSF2_LIBCALL);		\
-    trunctfdf2_libfunc = init_one_libfunc (TRUNCTFDF2_LIBCALL);		\
-    extendsftf2_libfunc = init_one_libfunc (EXTENDSFTF2_LIBCALL);	\
-    extenddftf2_libfunc = init_one_libfunc (EXTENDDFTF2_LIBCALL);	\
-    floatsitf_libfunc = init_one_libfunc (FLOATSITF2_LIBCALL);		\
-    fixtfsi_libfunc = init_one_libfunc (FIX_TRUNCTFSI2_LIBCALL);	\
-    fixunstfsi_libfunc							\
-      = init_one_libfunc (FIXUNS_TRUNCTFSI2_LIBCALL);			\
-    if (TARGET_FPU)							\
-      sqrt_optab->handlers[(int) TFmode].libfunc			\
-	= init_one_libfunc ("_Q_sqrt");					\
+    if (TARGET_ARCH32)							\
+      {									\
+	add_optab->handlers[(int) TFmode].libfunc			\
+	  = init_one_libfunc (ADDTF3_LIBCALL);				\
+	sub_optab->handlers[(int) TFmode].libfunc			\
+	  = init_one_libfunc (SUBTF3_LIBCALL);				\
+	neg_optab->handlers[(int) TFmode].libfunc			\
+	  = init_one_libfunc (NEGTF2_LIBCALL);				\
+	smul_optab->handlers[(int) TFmode].libfunc			\
+	  = init_one_libfunc (MULTF3_LIBCALL);				\
+	flodiv_optab->handlers[(int) TFmode].libfunc			\
+	  = init_one_libfunc (DIVTF3_LIBCALL);				\
+	eqtf2_libfunc = init_one_libfunc (EQTF2_LIBCALL);		\
+	netf2_libfunc = init_one_libfunc (NETF2_LIBCALL);		\
+	gttf2_libfunc = init_one_libfunc (GTTF2_LIBCALL);		\
+	getf2_libfunc = init_one_libfunc (GETF2_LIBCALL);		\
+	lttf2_libfunc = init_one_libfunc (LTTF2_LIBCALL);		\
+	letf2_libfunc = init_one_libfunc (LETF2_LIBCALL);		\
+	trunctfsf2_libfunc = init_one_libfunc (TRUNCTFSF2_LIBCALL);	\
+	trunctfdf2_libfunc = init_one_libfunc (TRUNCTFDF2_LIBCALL);	\
+	extendsftf2_libfunc = init_one_libfunc (EXTENDSFTF2_LIBCALL);	\
+	extenddftf2_libfunc = init_one_libfunc (EXTENDDFTF2_LIBCALL);	\
+	floatsitf_libfunc = init_one_libfunc (FLOATSITF2_LIBCALL);	\
+	fixtfsi_libfunc = init_one_libfunc (FIX_TRUNCTFSI2_LIBCALL);	\
+	fixunstfsi_libfunc						\
+	  = init_one_libfunc (FIXUNS_TRUNCTFSI2_LIBCALL);		\
+	if (TARGET_FPU)							\
+	  sqrt_optab->handlers[(int) TFmode].libfunc			\
+	    = init_one_libfunc ("_Q_sqrt");				\
+      }									\
     INIT_SUBTARGET_OPTABS;						\
   } while (0)
 
@@ -2722,7 +2845,7 @@ do {                                                                    \
 
 /* Adjust the cost of dependencies.  */
 #define ADJUST_COST(INSN,LINK,DEP,COST) \
-  sparc_adjust_cost(INSN, LINK, DEP, COST)
+  (COST) = sparc_adjust_cost(INSN, LINK, DEP, COST)
 
 #define MD_SCHED_INIT(DUMP, SCHED_VERBOSE)				\
   if (sparc_cpu == PROCESSOR_ULTRASPARC)				\
@@ -3204,6 +3327,9 @@ do {									\
 #define PREDICATE_CODES							\
 {"reg_or_0_operand", {SUBREG, REG, CONST_INT, CONST_DOUBLE}},		\
 {"fp_zero_operand", {CONST_DOUBLE}},					\
+{"fp_sethi_p", {CONST_DOUBLE}},						\
+{"fp_mov_p", {CONST_DOUBLE}},						\
+{"fp_high_losum_p", {CONST_DOUBLE}},					\
 {"intreg_operand", {SUBREG, REG}},					\
 {"fcc_reg_operand", {REG}},						\
 {"icc_or_fcc_reg_operand", {REG}},					\

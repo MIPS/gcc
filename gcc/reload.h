@@ -224,32 +224,13 @@ struct insn_chain
   /* The rtx of the insn.  */
   rtx insn;
   /* Register life information: record all live hard registers, and all
-     live pseudos that have a hard register.
-     This information is recorded for the point immediately before the insn
-     (in live_before), and for the point within the insn at which all
-     outputs have just been written to (in live_after).  */
-  regset live_before;
-  regset live_after;
+     live pseudos that have a hard register.  */
+  regset_head live_throughout;
+  regset_head dead_or_set;
 
-  /* For each class, size of group of consecutive regs
-     that is needed for the reloads of this class.  */
-  char group_size[N_REG_CLASSES];
-  /* For each class, the machine mode which requires consecutive
-     groups of regs of that class.
-     If two different modes ever require groups of one class,
-     they must be the same size and equally restrictive for that class,
-     otherwise we can't handle the complexity.  */
-  enum machine_mode group_mode[N_REG_CLASSES];
-
-  /* Indicates if a register was counted against the need for
-     groups.  0 means it can count against max_nongroup instead.  */
-  HARD_REG_SET counted_for_groups;
-
-  /* Indicates if a register was counted against the need for
-     non-groups.  0 means it can become part of a new group.
-     During choose_reload_regs, 1 here means don't use this reg
-     as part of a group, even if it seems to be otherwise ok.  */
-  HARD_REG_SET counted_for_nongroups;
+  /* Copies of the global variables computed by find_reloads.  */
+  struct reload *rld;
+  int n_reloads;
 
   /* Indicates which registers have already been used for spills.  */
   HARD_REG_SET used_spill_regs;
@@ -353,6 +334,9 @@ extern rtx find_equiv_reg PROTO((rtx, rtx, enum reg_class, int, short *,
 
 /* Return 1 if register REGNO is the subject of a clobber in insn INSN.  */
 extern int regno_clobbered_p PROTO((int, rtx));
+
+/* Return 1 if X is an operand of an insn that is being earlyclobbered.  */
+int earlyclobber_operand_p PROTO((rtx));
 
 /* Functions in reload1.c:  */
 

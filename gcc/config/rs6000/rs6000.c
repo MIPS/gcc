@@ -185,6 +185,9 @@ rs6000_override_options (default_cpu)
 	 {"power2", PROCESSOR_POWER,
 	    MASK_POWER | MASK_POWER2 | MASK_MULTIPLE | MASK_STRING,
 	    POWERPC_MASKS | MASK_NEW_MNEMONICS},
+	 {"power3", PROCESSOR_PPC630,
+	    MASK_POWERPC | MASK_PPC_GFXOPT | MASK_NEW_MNEMONICS,
+	    POWER_MASKS | MASK_PPC_GPOPT},
 	 {"powerpc", PROCESSOR_POWERPC,
 	    MASK_POWERPC | MASK_NEW_MNEMONICS,
 	    POWER_MASKS | POWERPC_OPT_MASKS | MASK_POWERPC64},
@@ -3508,7 +3511,11 @@ first_reg_to_save ()
 
   /* Find lowest numbered live register.  */
   for (first_reg = 13; first_reg <= 31; first_reg++)
-    if (regs_ever_live[first_reg] && ! call_used_regs[first_reg])
+    if (regs_ever_live[first_reg] 
+	&& (! call_used_regs[first_reg]
+	    || (first_reg == PIC_OFFSET_TABLE_REGNUM
+		&& (DEFAULT_ABI == ABI_V4 || DEFAULT_ABI == ABI_SOLARIS)
+		&& flag_pic == 1)))
       break;
 
   if (profile_flag)
@@ -4172,6 +4179,53 @@ rs6000_allocate_stack_space (file, size, copy_r12)
      int copy_r12;
 {
   int neg_size = -size;
+
+  if (current_function_limit_stack)
+    {
+      if (REG_P (stack_limit_rtx)
+	  && REGNO (stack_limit_rtx) > 1 
+	  && REGNO (stack_limit_rtx) <= 31)
+	{
+	  if (size <= 32767)
+	    asm_fprintf (file, "\t{cal %s,%d(%s)|addi %s,%s,%d}\n",
+			 reg_names[0], reg_names[REGNO (stack_limit_rtx)], 
+			 size);
+	  else
+	    {
+	      asm_fprintf (file, "\t{cau|addis} %s,%s,0x%x\n",
+			   reg_names[0], reg_names[REGNO (stack_limit_rtx)], 
+			   ((size + 0x8000) >> 16) & 0xffff);
+	      asm_fprintf (file, "\t{ai|addic} %s,%s,%d\n",
+			   reg_names[0], reg_names[0], 
+			   (size & 0x7fff) | -(size & 0x8000));
+	    }
+	  if (TARGET_32BIT)
+	    asm_fprintf (file, "\t{t|tw}llt %s,%s\n", 
+			 reg_names[1], reg_names[0]);
+	  else
+	    asm_fprintf (file, "\ttdllt %s,%s\n", reg_names[1], reg_names[0]);
+	}
+      else if (GET_CODE (stack_limit_rtx) == SYMBOL_REF
+	       && (DEFAULT_ABI == ABI_V4 || DEFAULT_ABI == ABI_SOLARIS))
+	{
+	  char * l_name = XSTR (stack_limit_rtx, 0);
+	  const char * stripped_name;
+
+	  STRIP_NAME_ENCODING (stripped_name, l_name);
+	  asm_fprintf (file, "\t{liu|lis} %s,%s@ha+%d\n",
+		       reg_names[0], stripped_name, size);
+	  asm_fprintf (file, "\t{ai|addic} %s,%s,%s@l+%d\n",
+		       reg_names[0], reg_names[0], stripped_name, size);
+	  if (TARGET_32BIT)
+	    asm_fprintf (file, "\t{t|tw}llt %s,%s\n", 
+			 reg_names[1], reg_names[0]);
+	  else
+	    asm_fprintf (file, "\ttdllt %s,%s\n", reg_names[1], reg_names[0]);
+	}
+      else
+	warning ("stack limit expression is not supported");
+    }
+
   if (TARGET_UPDATE)
     {
       if (size < 32767)

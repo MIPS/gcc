@@ -1,5 +1,5 @@
 /* Functions related to invoking methods and overloaded functions.
-   Copyright (C) 1987, 92-97, 1998, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1987, 92-99, 2000 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com) and
    modified by Brendan Kehoe (brendan@cygnus.com).
 
@@ -111,7 +111,7 @@ build_vfield_ref (datum, type)
   if (TREE_CODE (TREE_TYPE (datum)) == REFERENCE_TYPE)
     datum = convert_from_reference (datum);
 
-  if (! TYPE_USES_COMPLEX_INHERITANCE (type))
+  if (! TYPE_BASE_CONVS_MAY_REQUIRE_CODE_P (type))
     rval = build (COMPONENT_REF, TREE_TYPE (TYPE_VFIELD (type)),
 		  datum, TYPE_VFIELD (type));
   else
@@ -928,10 +928,10 @@ convert_class_to_reference (t, s, expr)
   if (!cand)
     return NULL_TREE;
 
-  conv = build_conv (IDENTITY_CONV, s, expr);
+  conv = build1 (IDENTITY_CONV, s, expr);
   conv = build_conv (USER_CONV,
 		     non_reference (TREE_TYPE (TREE_TYPE (cand->fn))),
-		     expr);
+		     conv);
   TREE_OPERAND (conv, 1) = build_expr_ptr_wrapper (cand);
   ICS_USER_FLAG (conv) = 1;
   if (cand->viable == -1)
@@ -1255,7 +1255,7 @@ add_function_candidate (candidates, fn, arglist, flags)
     }
 
   len = list_length (arglist);
-  convs = make_scratch_vec (len);
+  convs = make_tree_vec (len);
 
   /* 13.3.2 - Viable functions [over.match.viable]
      First, to be a viable function, a candidate function shall have enough
@@ -1372,7 +1372,7 @@ add_conv_candidate (candidates, fn, obj, arglist)
   tree totype = TREE_TYPE (TREE_TYPE (fn));
   tree parmlist = TYPE_ARG_TYPES (TREE_TYPE (totype));
   int i, len = list_length (arglist) + 1;
-  tree convs = make_scratch_vec (len);
+  tree convs = make_tree_vec (len);
   tree parmnode = parmlist;
   tree argnode = arglist;
   int viable = 1;
@@ -1444,7 +1444,7 @@ build_builtin_candidate (candidates, fnname, type1, type2,
   types[0] = type1;
   types[1] = type2;
 
-  convs = make_scratch_vec (args[2] ? 3 : (args[1] ? 2 : 1));
+  convs = make_tree_vec (args[2] ? 3 : (args[1] ? 2 : 1));
 
   for (i = 0; i < 2; ++i)
     {
@@ -2097,7 +2097,7 @@ add_template_candidate_real (candidates, tmpl, explicit_targs,
      unification_kind_t strict;
 {
   int ntparms = DECL_NTPARMS (tmpl);
-  tree targs = make_scratch_vec (ntparms);
+  tree targs = make_tree_vec (ntparms);
   struct z_candidate *cand;
   int i;
   tree fn;
@@ -2770,6 +2770,12 @@ build_conditional_expr (arg1, arg2, arg3)
       arg1 = arg2 = save_expr (arg1);
     }
 
+  /* [expr.cond]
+  
+     The first expr ession is implicitly converted to bool (clause
+     _conv_).  */
+  arg1 = cp_convert (boolean_type_node, arg1);
+
   /* If something has already gone wrong, just pass that fact up the
      tree.  */
   if (arg1 == error_mark_node 
@@ -2779,12 +2785,6 @@ build_conditional_expr (arg1, arg2, arg3)
       || TREE_TYPE (arg2) == error_mark_node
       || TREE_TYPE (arg3) == error_mark_node)
     return error_mark_node;
-
-  /* [expr.cond]
-  
-     The first expr ession is implicitly converted to bool (clause
-     _conv_).  */
-  arg1 = cp_convert (boolean_type_node, arg1);
 
   /* Convert from reference types to ordinary types; no expressions
      really have reference type in C++.  */
@@ -3074,11 +3074,7 @@ build_conditional_expr (arg1, arg2, arg3)
      ?: expression.  We used to check for TARGET_EXPRs here, but now we
      sometimes wrap them in NOP_EXPRs so the test would fail.  */
   if (!lvalue_p && IS_AGGR_TYPE (result_type))
-    {
-      tree slot = build (VAR_DECL, result_type);
-      layout_decl (slot, 0);
-      result = build_target_expr (slot, result);
-    }
+    result = build_target_expr_with_type (result, result_type);
   
   /* If this expression is an rvalue, but might be mistaken for an
      lvalue, we must add a NON_LVALUE_EXPR.  */
@@ -3743,10 +3739,7 @@ convert_like (convs, expr)
 	if (NEED_TEMPORARY_P (convs))
 	  {
 	    tree type = TREE_TYPE (TREE_OPERAND (convs, 0));
-	    tree slot = build_decl (VAR_DECL, NULL_TREE, type);
-	    DECL_ARTIFICIAL (slot) = 1;
-	    expr = build_target_expr (slot, expr);
-	    TREE_SIDE_EFFECTS (expr) = 1;
+	    expr = build_target_expr_with_type (expr, type);
 	  }
 
 	/* Take the address of the thing to which we will bind the
@@ -4074,11 +4067,7 @@ build_over_call (cand, args, flags)
 	  if (! real_lvalue_p (arg))
 	    return arg;
 	  else if (TYPE_HAS_TRIVIAL_INIT_REF (DECL_CONTEXT (fn)))
-	    {
-	      val = build_decl (VAR_DECL, NULL_TREE, DECL_CONTEXT (fn));
-	      val = build_target_expr (val, arg);
-	      return val;
-	    }
+	    return build_target_expr_with_type (arg, DECL_CONTEXT (fn));
 	}
       else if (! real_lvalue_p (arg)
 	       || TYPE_HAS_TRIVIAL_INIT_REF (DECL_CONTEXT (fn)))
@@ -4150,7 +4139,8 @@ build_over_call (cand, args, flags)
 
   if (TREE_CODE (fn) == ADDR_EXPR
       && TREE_CODE (TREE_OPERAND (fn, 0)) == FUNCTION_DECL
-      && DECL_BUILT_IN (TREE_OPERAND (fn, 0)))
+      && DECL_BUILT_IN (TREE_OPERAND (fn, 0))
+      && DECL_BUILT_IN_CLASS (TREE_OPERAND (fn, 0)) == BUILT_IN_NORMAL)
     switch (DECL_FUNCTION_CODE (TREE_OPERAND (fn, 0)))
       {
       case BUILT_IN_ABS:
@@ -4329,12 +4319,16 @@ build_new_method_call (instance, name, args, basetype_path, flags)
       return error_mark_node;
     }
 
-  if (DECL_ABSTRACT_VIRTUAL_P (cand->fn)
+  if (DECL_PURE_VIRTUAL_P (cand->fn)
       && instance == current_class_ref
-      && DECL_CONSTRUCTOR_P (current_function_decl)
+      && (DECL_CONSTRUCTOR_P (current_function_decl)
+	  || DECL_DESTRUCTOR_P (current_function_decl))
       && ! (flags & LOOKUP_NONVIRTUAL)
-      && value_member (cand->fn, CLASSTYPE_ABSTRACT_VIRTUALS (basetype)))
-    cp_error ("abstract virtual `%#D' called from constructor", cand->fn);
+      && value_member (cand->fn, CLASSTYPE_PURE_VIRTUALS (basetype)))
+    cp_error ((DECL_CONSTRUCTOR_P (current_function_decl) ? 
+	       "abstract virtual `%#D' called from constructor"
+	       : "abstract virtual `%#D' called from destructor"),
+	      cand->fn);
   if (TREE_CODE (TREE_TYPE (cand->fn)) == METHOD_TYPE
       && is_dummy_object (instance_ptr))
     {
@@ -4842,15 +4836,14 @@ add_warning (winner, loser)
 }
 
 /* Returns true iff functions are equivalent. Equivalent functions are
-   not identical only if one is a function-local extern function.
-   This assumes that function-locals don't have TREE_PERMANENT.  */
+   not identical only if one is a function-local extern function.  */
 
 static inline int
 equal_functions (fn1, fn2)
      tree fn1;
      tree fn2;
 {
-  if (!TREE_PERMANENT (fn1) || !TREE_PERMANENT (fn2))
+  if (DECL_LOCAL_FUNCTION_P (fn1) || DECL_LOCAL_FUNCTION_P (fn2))
     return decls_match (fn1, fn2);
   return fn1 == fn2;
 }

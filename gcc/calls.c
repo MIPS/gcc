@@ -1,5 +1,5 @@
 /* Convert function calls to rtl insns, for GNU C compiler.
-   Copyright (C) 1989, 92-97, 1998, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1989, 92-99, 2000 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -106,6 +106,9 @@ struct arg_data
      word-sized pseudos we made.  */
   rtx *aligned_regs;
   int n_aligned_regs;
+  /* The amount that the stack pointer needs to be adjusted to
+     force alignment for the next argument.  */
+  struct args_size alignment_pad;
 };
 
 #ifdef ACCUMULATE_OUTGOING_ARGS
@@ -126,43 +129,42 @@ static int highest_outgoing_arg_in_use;
 int stack_arg_under_construction;
 #endif
 
-static int calls_function	PROTO ((tree, int));
-static int calls_function_1	PROTO ((tree, int));
-static void emit_call_1		PROTO ((rtx, tree, tree, HOST_WIDE_INT,
-					HOST_WIDE_INT, HOST_WIDE_INT, rtx,
-					rtx, int, rtx, int));
-static void special_function_p	PROTO ((char *, tree, int *, int *,
-					int *, int *));
-static void precompute_register_parameters	PROTO ((int, struct arg_data *,
-							int *));
-static void store_one_arg	PROTO ((struct arg_data *, rtx, int, int,
-					int));
-static void store_unaligned_arguments_into_pseudos PROTO ((struct arg_data *,
-							   int));
-static int finalize_must_preallocate		PROTO ((int, int,
-							struct arg_data *,
-							struct args_size *));
-static void precompute_arguments 		PROTO ((int, int, int,
-							struct arg_data *,
-							struct args_size *));
-static int compute_argument_block_size		PROTO ((int, 
-							struct args_size *));
-static void initialize_argument_information	PROTO ((int,
-							struct arg_data *,
-							struct args_size *,
-							int, tree, tree,
-							CUMULATIVE_ARGS *,
-							int, rtx *, int *,
-							int *, int *));
-static void compute_argument_addresses		PROTO ((struct arg_data *,
-							rtx, int));
-static rtx rtx_for_function_call		PROTO ((tree, tree));
-static void load_register_parameters		PROTO ((struct arg_data *,
-							int, rtx *));
+static int calls_function	PARAMS ((tree, int));
+static int calls_function_1	PARAMS ((tree, int));
+static void emit_call_1		PARAMS ((rtx, tree, tree, HOST_WIDE_INT,
+					 HOST_WIDE_INT, HOST_WIDE_INT, rtx,
+					 rtx, int, rtx, int));
+static void precompute_register_parameters	PARAMS ((int,
+							 struct arg_data *,
+							 int *));
+static void store_one_arg	PARAMS ((struct arg_data *, rtx, int, int,
+					 int));
+static void store_unaligned_arguments_into_pseudos PARAMS ((struct arg_data *,
+							    int));
+static int finalize_must_preallocate		PARAMS ((int, int,
+							 struct arg_data *,
+							 struct args_size *));
+static void precompute_arguments 		PARAMS ((int, int, int,
+							 struct arg_data *,
+							 struct args_size *));
+static int compute_argument_block_size		PARAMS ((int, 
+							 struct args_size *));
+static void initialize_argument_information	PARAMS ((int,
+							 struct arg_data *,
+							 struct args_size *,
+							 int, tree, tree,
+							 CUMULATIVE_ARGS *,
+							 int, rtx *, int *,
+							 int *, int *));
+static void compute_argument_addresses		PARAMS ((struct arg_data *,
+							 rtx, int));
+static rtx rtx_for_function_call		PARAMS ((tree, tree));
+static void load_register_parameters		PARAMS ((struct arg_data *,
+							 int, rtx *));
 
 #if defined(ACCUMULATE_OUTGOING_ARGS) && defined(REG_PARM_STACK_SPACE)
-static rtx save_fixed_argument_area	PROTO ((int, rtx, int *, int *));
-static void restore_fixed_argument_area	PROTO ((rtx, rtx, int, int));
+static rtx save_fixed_argument_area	PARAMS ((int, rtx, int *, int *));
+static void restore_fixed_argument_area	PARAMS ((rtx, rtx, int, int));
 #endif
 
 /* If WHICH is 1, return 1 if EXP contains a call to the built-in function
@@ -218,6 +220,7 @@ calls_function_1 (exp, which)
 	  tree fndecl = TREE_OPERAND (TREE_OPERAND (exp, 0), 0);
 
 	  if ((DECL_BUILT_IN (fndecl)
+	       && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL
 	       && DECL_FUNCTION_CODE (fndecl) == BUILT_IN_ALLOCA)
 	      || (DECL_SAVED_INSNS (fndecl)
 		  && DECL_SAVED_INSNS (fndecl)->calls_alloca))
@@ -530,10 +533,9 @@ emit_call_1 (funexp, fndecl, funtype, stack_size, rounded_stack_size,
    Set MAY_BE_ALLOCA for any memory allocation function that might allocate
    space from the stack such as alloca.  */
 
-static void
-special_function_p (name, fndecl, returns_twice, is_longjmp,
+void
+special_function_p (fndecl, returns_twice, is_longjmp,
 		    is_malloc, may_be_alloca)
-     char *name;
      tree fndecl;
      int *returns_twice;
      int *is_longjmp;
@@ -542,15 +544,20 @@ special_function_p (name, fndecl, returns_twice, is_longjmp,
 {
   *returns_twice = 0;
   *is_longjmp = 0;
-  *is_malloc = 0;
   *may_be_alloca = 0;
 
-  if (name != 0 && IDENTIFIER_LENGTH (DECL_NAME (fndecl)) <= 17
+  /* The function decl may have the `malloc' attribute.  */
+  *is_malloc = fndecl && DECL_IS_MALLOC (fndecl);
+
+  if (! *is_malloc 
+      && fndecl && DECL_NAME (fndecl)
+      && IDENTIFIER_LENGTH (DECL_NAME (fndecl)) <= 17
       /* Exclude functions not at the file scope, or not `extern',
 	 since they are not the magic functions we would otherwise
 	 think they are.  */
       && DECL_CONTEXT (fndecl) == NULL_TREE && TREE_PUBLIC (fndecl))
     {
+      char *name = IDENTIFIER_POINTER (DECL_NAME (fndecl));
       char *tname = name;
 
       /* We assume that alloca will always be called by name.  It
@@ -598,11 +605,13 @@ special_function_p (name, fndecl, returns_twice, is_longjmp,
       else if (tname[0] == 'l' && tname[1] == 'o'
 	       && ! strcmp (tname, "longjmp"))
 	*is_longjmp = 1;
-      /* XXX should have "malloc" attribute on functions instead
-	 of recognizing them by name.  */
+      /* Do not add any more malloc-like functions to this list,
+         instead mark them as malloc functions using the malloc attribute.
+         Note, realloc is not suitable for attribute malloc since
+         it may return the same address across multiple calls. */
       else if (! strcmp (tname, "malloc")
 	       || ! strcmp (tname, "calloc")
-	       || ! strcmp (tname, "realloc")
+	       || ! strcmp (tname, "strdup")
 	       /* Note use of NAME rather than TNAME here.  These functions
 		  are only reserved when preceded with __.  */
 	       || ! strcmp (name, "__vn")	/* mangled __builtin_vec_new */
@@ -735,9 +744,11 @@ save_fixed_argument_area (reg_parm_stack_space, argblock,
       if (save_mode == BLKmode)
 	{
 	  save_area = assign_stack_temp (BLKmode, num_to_save, 0);
-	  emit_block_move (validize_mem (save_area), stack_area,
-			   GEN_INT (num_to_save),
-			   PARM_BOUNDARY / BITS_PER_UNIT);
+	  /* Cannot use emit_block_move here because it can be done by a library
+	     call which in turn gets into this place again and deadly infinite
+	     recursion happens.  */
+	  move_by_pieces (validize_mem (save_area), stack_area, num_to_save,
+			  PARM_BOUNDARY / BITS_PER_UNIT);
 	}
       else
 	{
@@ -773,9 +784,12 @@ restore_fixed_argument_area (save_area, argblock, high_to_save, low_to_save)
   if (save_mode != BLKmode)
     emit_move_insn (stack_area, save_area);
   else
-    emit_block_move (stack_area, validize_mem (save_area),
-		     GEN_INT (high_to_save - low_to_save + 1),
-		     PARM_BOUNDARY / BITS_PER_UNIT);
+    /* Cannot use emit_block_move here because it can be done by a library
+       call which in turn gets into this place again and deadly infinite
+       recursion happens.  */
+    move_by_pieces (stack_area, validize_mem (save_area),
+		    high_to_save - low_to_save + 1,
+		    PARM_BOUNDARY / BITS_PER_UNIT);
 }
 #endif
 	  
@@ -897,6 +911,7 @@ initialize_argument_information (num_actuals, args, args_size, n_named_args,
   /* Count arg position in order args appear.  */
   int argpos;
 
+  struct args_size alignment_pad;
   int i;
   tree p;
   
@@ -1092,11 +1107,13 @@ initialize_argument_information (num_actuals, args, args_size, n_named_args,
 			     args[i].reg != 0,
 #endif
 			     fndecl, args_size, &args[i].offset,
-			     &args[i].size);
+			     &args[i].size, &alignment_pad);
 
 #ifndef ARGS_GROW_DOWNWARD
       args[i].slot_offset = *args_size;
 #endif
+
+      args[i].alignment_pad = alignment_pad;
 
       /* If a part of the arg was put into registers,
 	 don't include that part in the amount pushed.  */
@@ -1251,7 +1268,7 @@ precompute_arguments (is_const, must_preallocate, num_actuals, args, args_size)
 
 	push_temp_slots ();
 
-	args[i].initial_value = args[i].value
+	args[i].value
 	  = expand_expr (args[i].tree_value, NULL_RTX, VOIDmode, 0);
 
 	preserve_temp_slots (args[i].value);
@@ -1262,13 +1279,30 @@ precompute_arguments (is_const, must_preallocate, num_actuals, args, args_size)
 	emit_queue ();
 
 	args[i].initial_value = args[i].value
-	  = protect_from_queue (args[i].initial_value, 0);
+	  = protect_from_queue (args[i].value, 0);
 
 	if (TYPE_MODE (TREE_TYPE (args[i].tree_value)) != args[i].mode)
-	  args[i].value
-	    = convert_modes (args[i].mode, 
-			     TYPE_MODE (TREE_TYPE (args[i].tree_value)),
-			     args[i].value, args[i].unsignedp);
+	  {
+	    args[i].value
+	      = convert_modes (args[i].mode, 
+			       TYPE_MODE (TREE_TYPE (args[i].tree_value)),
+			       args[i].value, args[i].unsignedp);
+#ifdef PROMOTE_FOR_CALL_ONLY
+	    /* CSE will replace this only if it contains args[i].value
+	       pseudo, so convert it down to the declared mode using
+	       a SUBREG.  */
+	    if (GET_CODE (args[i].value) == REG
+		&& GET_MODE_CLASS (args[i].mode) == MODE_INT)
+	      {
+		args[i].initial_value
+		  = gen_rtx_SUBREG (TYPE_MODE (TREE_TYPE (args[i].tree_value)),
+				    args[i].value, 0);
+		SUBREG_PROMOTED_VAR_P (args[i].initial_value) = 1;
+		SUBREG_PROMOTED_UNSIGNED_P (args[i].initial_value)
+		  = args[i].unsignedp;
+	      }
+#endif
+	  }
       }
 }
 
@@ -1627,7 +1661,7 @@ expand_call (exp, target, ignore)
 #ifdef ACCUMULATE_OUTGOING_ARGS
   int initial_highest_arg_in_use = highest_outgoing_arg_in_use;
   char *initial_stack_usage_map = stack_usage_map;
-  int old_stack_arg_under_construction;
+  int old_stack_arg_under_construction = 0;
 #endif
 
   rtx old_stack_level = 0;
@@ -1756,6 +1790,7 @@ expand_call (exp, target, ignore)
 	    d = build_decl (VAR_DECL, NULL_TREE, TREE_TYPE (exp));
 	    DECL_RTL (d) = assign_temp (TREE_TYPE (exp), 1, 0, 1);
 	    mark_addressable (d);
+	    mark_temp_addr_taken (DECL_RTL (d));
 	    structure_value_addr = XEXP (DECL_RTL (d), 0);
 	    TREE_USED (d) = 1;
 	    target = 0;
@@ -1866,7 +1901,7 @@ expand_call (exp, target, ignore)
 
   /* See if this is a call to a function that can return more than once
      or a call to longjmp or malloc.  */
-  special_function_p (name, fndecl, &returns_twice, &is_longjmp,
+  special_function_p (fndecl, &returns_twice, &is_longjmp,
 		      &is_malloc, &may_be_alloca);
 
   if (may_be_alloca)
@@ -2203,9 +2238,9 @@ expand_call (exp, target, ignore)
     {
       if (pcc_struct_value)
 	valreg = hard_function_value (build_pointer_type (TREE_TYPE (exp)),
-				      fndecl);
+				      fndecl, 0);
       else
-	valreg = hard_function_value (TREE_TYPE (exp), fndecl);
+	valreg = hard_function_value (TREE_TYPE (exp), fndecl, 0);
     }
 
   /* Precompute all register parameters.  It isn't safe to compute anything
@@ -2556,8 +2591,8 @@ expand_call (exp, target, ignore)
    move memory references across the non-const call.  */
 
 void
-emit_library_call VPROTO((rtx orgfun, int no_queue, enum machine_mode outmode,
-			  int nargs, ...))
+emit_library_call VPARAMS((rtx orgfun, int no_queue, enum machine_mode outmode,
+			   int nargs, ...))
 {
 #ifndef ANSI_PROTOTYPES
   rtx orgfun;
@@ -2574,6 +2609,7 @@ emit_library_call VPROTO((rtx orgfun, int no_queue, enum machine_mode outmode,
   rtx fun;
   int inc;
   int count;
+  struct args_size alignment_pad;
   rtx argblock = 0;
   CUMULATIVE_ARGS args_so_far;
   struct arg { rtx value; enum machine_mode mode; rtx reg; int partial;
@@ -2687,7 +2723,7 @@ emit_library_call VPROTO((rtx orgfun, int no_queue, enum machine_mode outmode,
       locate_and_pad_parm (mode, NULL_TREE,
 			   argvec[count].reg && argvec[count].partial == 0,
 			   NULL_TREE, &args_size, &argvec[count].offset,
-			   &argvec[count].size);
+			   &argvec[count].size, &alignment_pad);
 
       if (argvec[count].size.var)
 	abort ();
@@ -2916,7 +2952,7 @@ emit_library_call VPROTO((rtx orgfun, int no_queue, enum machine_mode outmode,
 #endif
 	  emit_push_insn (val, mode, NULL_TREE, NULL_RTX, 0, partial, reg, 0,
 			  argblock, GEN_INT (argvec[argnum].offset.constant),
-			  reg_parm_stack_space);
+			  reg_parm_stack_space, ARGS_SIZE_RTX (alignment_pad));
 
 #ifdef ACCUMULATE_OUTGOING_ARGS
 	  /* Now mark the segment we just used.  */
@@ -3052,8 +3088,8 @@ emit_library_call VPROTO((rtx orgfun, int no_queue, enum machine_mode outmode,
    If VALUE is nonzero, VALUE is returned.  */
 
 rtx
-emit_library_call_value VPROTO((rtx orgfun, rtx value, int no_queue,
-				enum machine_mode outmode, int nargs, ...))
+emit_library_call_value VPARAMS((rtx orgfun, rtx value, int no_queue,
+				 enum machine_mode outmode, int nargs, ...))
 {
 #ifndef ANSI_PROTOTYPES
   rtx orgfun;
@@ -3071,6 +3107,7 @@ emit_library_call_value VPROTO((rtx orgfun, rtx value, int no_queue,
   rtx fun;
   int inc;
   int count;
+  struct args_size alignment_pad;
   rtx argblock = 0;
   CUMULATIVE_ARGS args_so_far;
   struct arg { rtx value; enum machine_mode mode; rtx reg; int partial;
@@ -3128,7 +3165,7 @@ emit_library_call_value VPROTO((rtx orgfun, rtx value, int no_queue,
 #ifdef PCC_STATIC_STRUCT_RETURN
       rtx pointer_reg
 	= hard_function_value (build_pointer_type (type_for_mode (outmode, 0)),
-			       0);
+			       0, 0);
       mem_value = gen_rtx_MEM (outmode, pointer_reg);
       pcc_struct_value = 1;
       if (value == 0)
@@ -3191,7 +3228,7 @@ emit_library_call_value VPROTO((rtx orgfun, rtx value, int no_queue,
       locate_and_pad_parm (Pmode, NULL_TREE,
 			   argvec[count].reg && argvec[count].partial == 0,
 			   NULL_TREE, &args_size, &argvec[count].offset,
-			   &argvec[count].size);
+			   &argvec[count].size, &alignment_pad);
 
 
       if (argvec[count].reg == 0 || argvec[count].partial != 0
@@ -3257,7 +3294,7 @@ emit_library_call_value VPROTO((rtx orgfun, rtx value, int no_queue,
       locate_and_pad_parm (mode, NULL_TREE,
 			   argvec[count].reg && argvec[count].partial == 0,
 			   NULL_TREE, &args_size, &argvec[count].offset,
-			   &argvec[count].size);
+			   &argvec[count].size, &alignment_pad);
 
       if (argvec[count].size.var)
 	abort ();
@@ -3485,7 +3522,7 @@ emit_library_call_value VPROTO((rtx orgfun, rtx value, int no_queue,
 #endif
 	  emit_push_insn (val, mode, NULL_TREE, NULL_RTX, 0, partial, reg, 0,
 			  argblock, GEN_INT (argvec[argnum].offset.constant),
-			  reg_parm_stack_space);
+			  reg_parm_stack_space, ARGS_SIZE_RTX (alignment_pad));
 
 #ifdef ACCUMULATE_OUTGOING_ARGS
 	  /* Now mark the segment we just used.  */
@@ -3898,7 +3935,9 @@ store_one_arg (arg, argblock, may_be_alloca, variable_size,
 	 This can either be done with push or copy insns.  */
       emit_push_insn (arg->value, arg->mode, TREE_TYPE (pval), NULL_RTX, 0,
 		      partial, reg, used - size, argblock,
-		      ARGS_SIZE_RTX (arg->offset), reg_parm_stack_space);
+		      ARGS_SIZE_RTX (arg->offset), reg_parm_stack_space,
+		      ARGS_SIZE_RTX (arg->alignment_pad));
+
     }
   else
     {
@@ -3931,7 +3970,8 @@ store_one_arg (arg, argblock, may_be_alloca, variable_size,
       emit_push_insn (arg->value, arg->mode, TREE_TYPE (pval), size_rtx,
 		      TYPE_ALIGN (TREE_TYPE (pval)) / BITS_PER_UNIT, partial,
 		      reg, excess, argblock, ARGS_SIZE_RTX (arg->offset),
-		      reg_parm_stack_space);
+		      reg_parm_stack_space,
+		      ARGS_SIZE_RTX (arg->alignment_pad));
     }
 
 

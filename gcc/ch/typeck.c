@@ -37,6 +37,7 @@ Boston, MA 02111-1307, USA.  */
 #include "expr.h"
 #include "lex.h"
 #include "toplev.h"
+#include "output.h"
 
 /* forward declarations */
 static int chill_l_equivalent PROTO((tree, tree, struct mode_chain*));
@@ -154,7 +155,7 @@ valid_array_index_p (array, idx, error_message, is_varying_lhs)
     {
       if (tree_int_cst_equal (cond, boolean_false_node))
 	return idx;       /* condition met at compile time */
-      error (error_message); /* condition failed at compile time */
+      error ("%s", error_message); /* condition failed at compile time */
       return error_mark_node;
     }
   else if (range_checking)
@@ -2781,8 +2782,7 @@ apply_chill_array_layout (array_type)
 	    stepsize_specified = 1;
 
 	  if (stepsize != natural_length)
-	    sorry ("Stepsize in STEP must be the natural width of "
-		   "the array element mode");
+	    sorry ("Stepsize in STEP must be the natural width of the array element mode");
 	}
     }
 
@@ -2875,8 +2875,7 @@ apply_chill_array_layout (array_type)
 	    }
 	  if (! length_error && length != natural_length)
 	    {
-	      sorry ("The length specified on POS within STEP must be "
-		     "the natural length of the array element type");
+	      sorry ("The length specified on POS within STEP must be the natural length of the array element type");
 	    }
 	}
     }
@@ -3174,8 +3173,7 @@ apply_chill_field_layout (decl, next_struct_offset)
 	    }
 	  if (length != natural_length && ! pos_error)
 	    {
-	      sorry ("The length specified on POS must be the natural length "
-		     "of the field type");
+	      sorry ("The length specified on POS must be the natural length of the field type");
 	      length = natural_length;
 	    }
 	}
@@ -3665,137 +3663,6 @@ mark_addressable (exp)
 	/* drops through */
       default:
 	return 1;
-    }
-}
-
-/* Return nonzero if VALUE is a valid constant-valued expression
-   for use in initializing a static variable; one that can be an
-   element of a "constant" initializer.
-
-   Return null_pointer_node if the value is absolute;
-   if it is relocatable, return the variable that determines the relocation.
-   We assume that VALUE has been folded as much as possible;
-   therefore, we do not need to check for such things as
-   arithmetic-combinations of integers.  */
-
-tree
-initializer_constant_valid_p (value, endtype)
-     tree value;
-     tree endtype;
-{
-  switch (TREE_CODE (value))
-    {
-    case CONSTRUCTOR:
-      if (TREE_CODE (TREE_TYPE (value)) == UNION_TYPE
-	  && TREE_CONSTANT (value))
-	return
-	  initializer_constant_valid_p (TREE_VALUE (CONSTRUCTOR_ELTS (value)),
-					endtype);
-	
-      return TREE_STATIC (value) ? null_pointer_node : 0;
-
-    case INTEGER_CST:
-    case REAL_CST:
-    case STRING_CST:
-    case COMPLEX_CST:
-      return null_pointer_node;
-
-    case ADDR_EXPR:
-      return TREE_OPERAND (value, 0);
-
-    case NON_LVALUE_EXPR:
-      return initializer_constant_valid_p (TREE_OPERAND (value, 0), endtype);
-
-    case CONVERT_EXPR:
-    case NOP_EXPR:
-      /* Allow conversions between pointer types.  */
-      if (TREE_CODE (TREE_TYPE (value)) == POINTER_TYPE
-	  && TREE_CODE (TREE_TYPE (TREE_OPERAND (value, 0))) == POINTER_TYPE)
-	return initializer_constant_valid_p (TREE_OPERAND (value, 0), endtype);
-
-      /* Allow conversions between real types.  */
-      if (TREE_CODE (TREE_TYPE (value)) == REAL_TYPE
-	  && TREE_CODE (TREE_TYPE (TREE_OPERAND (value, 0))) == REAL_TYPE)
-	return initializer_constant_valid_p (TREE_OPERAND (value, 0), endtype);
-
-      /* Allow length-preserving conversions between integer types.  */
-      if (TREE_CODE (TREE_TYPE (value)) == INTEGER_TYPE
-	  && TREE_CODE (TREE_TYPE (TREE_OPERAND (value, 0))) == INTEGER_TYPE
-	  && (TYPE_PRECISION (TREE_TYPE (value))
-	      == TYPE_PRECISION (TREE_TYPE (TREE_OPERAND (value, 0)))))
-	return initializer_constant_valid_p (TREE_OPERAND (value, 0), endtype);
-
-      /* Allow conversions between other integer types only if
-	 explicit value.  */
-      if (TREE_CODE (TREE_TYPE (value)) == INTEGER_TYPE
-	  && TREE_CODE (TREE_TYPE (TREE_OPERAND (value, 0))) == INTEGER_TYPE)
-	{
-	  tree inner = initializer_constant_valid_p (TREE_OPERAND (value, 0),
-						     endtype);
-	  if (inner == null_pointer_node)
-	    return null_pointer_node;
-	  return 0;
-	}
-
-      /* Allow (int) &foo provided int is as wide as a pointer.  */
-      if (TREE_CODE (TREE_TYPE (value)) == INTEGER_TYPE
-	  && TREE_CODE (TREE_TYPE (TREE_OPERAND (value, 0))) == POINTER_TYPE
-	  && (TYPE_PRECISION (TREE_TYPE (value))
-	      >= TYPE_PRECISION (TREE_TYPE (TREE_OPERAND (value, 0)))))
-	return initializer_constant_valid_p (TREE_OPERAND (value, 0),
-					     endtype);
-
-      /* Likewise conversions from int to pointers.  */
-      if (TREE_CODE (TREE_TYPE (value)) == POINTER_TYPE
-	  && TREE_CODE (TREE_TYPE (TREE_OPERAND (value, 0))) == INTEGER_TYPE
-	  && (TYPE_PRECISION (TREE_TYPE (value))
-	      <= TYPE_PRECISION (TREE_TYPE (TREE_OPERAND (value, 0)))))
-	return initializer_constant_valid_p (TREE_OPERAND (value, 0),
-					     endtype);
-
-      /* Allow conversions to union types if the value inside is okay.  */
-      if (TREE_CODE (TREE_TYPE (value)) == UNION_TYPE)
-	return initializer_constant_valid_p (TREE_OPERAND (value, 0),
-					     endtype);
-      return 0;
-
-    case PLUS_EXPR:
-      if (TREE_CODE (endtype) == INTEGER_TYPE
-	  && TYPE_PRECISION (endtype) < POINTER_SIZE)
-	return 0;
-      {
-	tree valid0 = initializer_constant_valid_p (TREE_OPERAND (value, 0),
-						    endtype);
-	tree valid1 = initializer_constant_valid_p (TREE_OPERAND (value, 1),
-						    endtype);
-	/* If either term is absolute, use the other terms relocation.  */
-	if (valid0 == null_pointer_node)
-	  return valid1;
-	if (valid1 == null_pointer_node)
-	  return valid0;
-	return 0;
-      }
-
-    case MINUS_EXPR:
-      if (TREE_CODE (endtype) == INTEGER_TYPE
-	  && TYPE_PRECISION (endtype) < POINTER_SIZE)
-	return 0;
-      {
-	tree valid0 = initializer_constant_valid_p (TREE_OPERAND (value, 0),
-						    endtype);
-	tree valid1 = initializer_constant_valid_p (TREE_OPERAND (value, 1),
-						    endtype);
-	/* Win if second argument is absolute.  */
-	if (valid1 == null_pointer_node)
-	  return valid0;
-	/* Win if both arguments have the same relocation.
-	   Then the value is absolute.  */
-	if (valid0 == valid1)
-	  return null_pointer_node;
-	return 0;
-      }
-    default:
-      return 0;
     }
 }
 

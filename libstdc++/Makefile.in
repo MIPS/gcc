@@ -39,6 +39,7 @@ SHLINK  = libstdc++.so
 MSHLINK = libstdc++.so.`echo $(VERSION) | sed 's/\([0-9]*[.][0-9]*\).*/\1/'`
 SHFLAGS =
 SHDEPS  =
+SHOPT	= -shared
 
 STAMP   = bigstmp
 
@@ -62,6 +63,10 @@ CLEAN_JUNK = $(LIBS)
 
 .PHONY: libs
 libs: $(LIBS)
+
+# The "pic" subdir must be created before we can put any object
+# files into it.
+$(OBJS): stamp-picdir
 
 stdlist: $(IO_DIR)/iostream.list $(OBJS) $(SUBLIBS) $(LIBIBERTY_DIR)/libiberty.a
 	-rm -f tlist
@@ -98,7 +103,7 @@ marlink:
 	@$(MAKE) $(MARLINK) "ARLINK=$(MARLINK)"
 
 $(SHLIB): piclist
-	$(CC) $(LIBCXXFLAGS) $(SHFLAGS) -shared -o $(SHLIB) `cat piclist` $(SHDEPS)
+	$(CC) $(LIBCXXFLAGS) $(SHFLAGS) $(SHOPT) -o $(SHLIB) `cat piclist` $(SHDEPS)
 
 $(SHARLIB): $(SHLIB)
 	-rm -f t$(SHARLIB)
@@ -363,8 +368,8 @@ install:
 .PHONY: force
 force:
 
-MYCXXFLAGS = -g -O2 -Wpointer-arith -Wnested-externs -Woverloaded-virtual -Wbad-function-cast -Winline -Wwrite-strings -pedantic -Wno-long-long
-MYCFLAGS = -g -O2 -Wpointer-arith -Wnested-externs
+MYCXXFLAGS = $(CXXFLAGS) -g -O2 -Wpointer-arith -Wnested-externs -Woverloaded-virtual -Wbad-function-cast -Winline -Wwrite-strings -pedantic -Wno-long-long
+MYCFLAGS = $(CFLAGS) -g -O2 -Wpointer-arith -Wnested-externs
 
 .PHONY: stuff
 stuff:

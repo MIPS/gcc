@@ -192,11 +192,10 @@ call_eh_info ()
 
       /* Declare cp_eh_info * __start_cp_handler (void),
 	 as defined in exception.cc. */
-      push_permanent_obstack ();
 
       /* struct cp_eh_info.  This must match exception.cc.  Note that this
 	 type is not pushed anywhere.  */
-      t1= make_lang_type (RECORD_TYPE);
+      t1= make_aggr_type (RECORD_TYPE);
       fields[0] = build_lang_decl (FIELD_DECL, 
                     get_identifier ("handler_label"), ptr_type_node);
       fields[1] = build_lang_decl (FIELD_DECL, 
@@ -210,7 +209,7 @@ call_eh_info ()
       finish_builtin_type (t1, "eh_context", fields, 3, ptr_type_node);
       t1 = build_pointer_type (t1);
 
-      t1= make_lang_type (RECORD_TYPE);
+      t1= make_aggr_type (RECORD_TYPE);
       fields[0] = build_lang_decl (FIELD_DECL, 
                     get_identifier ("match_function"), ptr_type_node);
       fields[1] = build_lang_decl (FIELD_DECL, 
@@ -220,7 +219,7 @@ call_eh_info ()
       /* N.B.: The fourth field LEN is expected to be
 	 the number of fields - 1, not the total number of fields.  */
       finish_builtin_type (t1, "__eh_info", fields, 2, ptr_type_node);
-      t = make_lang_type (RECORD_TYPE);
+      t = make_aggr_type (RECORD_TYPE);
       fields[0] = build_lang_decl (FIELD_DECL, 
 				   get_identifier ("eh_info"), t1);
       fields[1] = build_lang_decl (FIELD_DECL, get_identifier ("value"),
@@ -251,7 +250,6 @@ call_eh_info ()
       DECL_ARTIFICIAL (fn) = 1;
       pushdecl_top_level (fn);
       make_function_rtl (fn);
-      pop_obstacks ();
     }
   mark_used (fn);
   return build_function_call (fn, NULL_TREE);
@@ -272,7 +270,7 @@ push_eh_info ()
   DECL_ARTIFICIAL (decl) = 1;
   DECL_INITIAL (decl) = fn;
   decl = pushdecl (decl);
-  cp_finish_decl (decl, fn, NULL_TREE, 0, 0);
+  cp_finish_decl (decl, fn, NULL_TREE, 0);
 }
 
 /* Returns a reference to the cp_eh_info node for the current exception.  */
@@ -371,7 +369,7 @@ build_eh_type_type_ref (type)
 }
 
 /* This routine is called to mark all the symbols representing runtime
-   type functions in the exception table as haveing been referenced.
+   type functions in the exception table as having been referenced.
    This will make sure code is emitted for them. Called from finish_file. */
 void 
 mark_all_runtime_matches () 
@@ -414,7 +412,6 @@ do_pop_exception ()
     {
       /* Declare void __cp_pop_exception (void *),
 	 as defined in exception.cc. */
-      push_permanent_obstack ();
       fn = build_lang_decl
 	(FUNCTION_DECL, fn,
 	 build_function_type (void_type_node, tree_cons
@@ -424,7 +421,6 @@ do_pop_exception ()
       DECL_ARTIFICIAL (fn) = 1;
       pushdecl_top_level (fn);
       make_function_rtl (fn);
-      pop_obstacks ();
     }
 
   mark_used (fn);
@@ -440,12 +436,7 @@ do_pop_exception ()
 static void
 push_eh_cleanup ()
 {
-  int yes;
-
-  yes = suspend_momentary ();
-  /* All cleanups must last longer than normal.  */
   finish_decl_cleanup (NULL_TREE, do_pop_exception ());
-  resume_momentary (yes);
 }
 
 /* Build up a call to terminate on the function obstack, for use as an
@@ -454,10 +445,7 @@ push_eh_cleanup ()
 static tree
 build_terminate_handler ()
 {
-  int yes = suspend_momentary ();
-  tree term = build_function_call (terminate_node, NULL_TREE);
-  resume_momentary (yes);
-  return term;
+  return build_function_call (terminate_node, NULL_TREE);
 }
 
 /* Initialize the catch parameter DECL.  */
@@ -509,7 +497,7 @@ initialize_handler_parm (decl)
   decl = pushdecl (decl);
 
   start_decl_1 (decl);
-  cp_finish_decl (decl, init, NULL_TREE, 0,
+  cp_finish_decl (decl, init, NULL_TREE,
 		  LOOKUP_ONLYCONVERTING|DIRECT_BIND);
 }
 
@@ -575,9 +563,9 @@ expand_end_catch_block (blocks)
     finish_expr_stmt (build_throw (NULL_TREE));
 
   /* Cleanup the EH parameter.  */
-  finish_compound_stmt (/*has_no_scope=*/0, compound_stmt_1);
-    /* Cleanup the EH object.  */
   finish_compound_stmt (/*has_no_scope=*/0, compound_stmt_2);
+  /* Cleanup the EH object.  */
+  finish_compound_stmt (/*has_no_scope=*/0, compound_stmt_1);
 }
 
 /* An exception spec is implemented more or less like:
@@ -627,7 +615,8 @@ expand_end_eh_spec (raises, try_block)
   decl = build_decl (VAR_DECL, NULL_TREE, tmp);
   DECL_ARTIFICIAL (decl) = 1;
   DECL_INITIAL (decl) = types;
-  cp_finish_decl (decl, types, NULL_TREE, 0, 0);
+  DECL_CONTEXT (decl) = current_function_decl;
+  cp_finish_decl (decl, types, NULL_TREE, 0);
 
   decl = decay_conversion (decl);
 
@@ -636,8 +625,6 @@ expand_end_eh_spec (raises, try_block)
     fn = IDENTIFIER_GLOBAL_VALUE (fn);
   else
     {
-      push_permanent_obstack ();
-
       tmp = tree_cons
 	(NULL_TREE, integer_type_node, tree_cons
 	 (NULL_TREE, TREE_TYPE (decl), void_list_node));
@@ -650,7 +637,6 @@ expand_end_eh_spec (raises, try_block)
       TREE_THIS_VOLATILE (fn) = 1;
       pushdecl_top_level (fn);
       make_function_rtl (fn);
-      pop_obstacks ();
     }
 
   mark_used (fn);
@@ -671,11 +657,6 @@ void
 expand_exception_blocks ()
 {
   do_pending_stack_adjust ();
-  push_to_sequence (catch_clauses);
-  expand_leftover_cleanups ();
-  do_pending_stack_adjust ();
-  catch_clauses = get_insns ();
-  end_sequence ();
 
   if (catch_clauses)
     {
@@ -694,53 +675,10 @@ expand_exception_blocks ()
       if (exceptions_via_longjmp == 0)
 	expand_eh_region_end (build_terminate_handler ());
 
-      expand_leftover_cleanups ();
-
+      emit_insns (catch_clauses);
+      catch_clauses = NULL_RTX;
       emit_label (funcend);
     }
-}
-
-tree
-start_anon_func ()
-{
-  static int counter = 0;
-  int old_interface_unknown = interface_unknown;
-  char name[32];
-  tree params;
-  tree t;
-
-  push_to_top_level ();
-
-  /* No need to mangle this.  */
-  push_lang_context (lang_name_c);
-
-  interface_unknown = 1;
-
-  params = void_list_node;
-  /* tcf stands for throw clean function.  */
-  sprintf (name, "__tcf_%d", counter++);
-  t = make_call_declarator (get_identifier (name), params, NULL_TREE,
-			    NULL_TREE);
-  start_function (decl_tree_cons (NULL_TREE, get_identifier ("static"),
-				  void_list_node),
-		  t, NULL_TREE, SF_DEFAULT);
-  do_pushlevel ();
-
-  interface_unknown = old_interface_unknown;
-
-  pop_lang_context ();
-
-  return current_function_decl;
-}
-
-void
-end_anon_func ()
-{
-  do_poplevel ();
-
-  expand_body (finish_function (lineno, 0));
-
-  pop_from_top_level ();
 }
 
 /* Return a pointer to a buffer for an exception object of type TYPE.  */
@@ -758,7 +696,6 @@ alloc_eh_object (type)
     {
       /* Declare __eh_alloc (size_t), as defined in exception.cc.  */
       tree tmp;
-      push_permanent_obstack ();
       tmp = tree_cons (NULL_TREE, sizetype, void_list_node);
       fn = build_lang_decl (FUNCTION_DECL, fn,
 			    build_function_type (ptr_type_node, tmp));
@@ -767,7 +704,6 @@ alloc_eh_object (type)
       DECL_ARTIFICIAL (fn) = 1;
       pushdecl_top_level (fn);
       make_function_rtl (fn);
-      pop_obstacks ();
     }
 
   mark_used (fn);
@@ -787,7 +723,7 @@ alloc_eh_object (type)
 		generate a label for the throw block
 	4. jump to the throw block label.  */
 
-tree
+static tree
 expand_throw (exp)
      tree exp;
 {
@@ -826,12 +762,10 @@ expand_throw (exp)
 	  tree object, ptr;
 
 	  /* OK, this is kind of wacky.  The WP says that we call
-	     terminate
-
-	     when the exception handling mechanism, after completing
-	     evaluation of the expression to be thrown but before the
-	     exception is caught (_except.throw_), calls a user function
-	     that exits via an uncaught exception.
+	     terminate when the exception handling mechanism, after
+	     completing evaluation of the expression to be thrown but
+	     before the exception is caught (_except.throw_), calls a
+	     user function that exits via an uncaught exception.
 
 	     So we have to protect the actual initialization of the
 	     exception object with terminate(), but evaluate the expression
@@ -849,7 +783,7 @@ expand_throw (exp)
 	    {
 	      tree temp = create_temporary_var (TREE_TYPE (exp));
 	      DECL_INITIAL (temp) = exp;
-	      cp_finish_decl (temp, exp, NULL_TREE, 0, LOOKUP_ONLYCONVERTING);
+	      cp_finish_decl (temp, exp, NULL_TREE, LOOKUP_ONLYCONVERTING);
 	      exp = temp;
 	    }
 
@@ -902,7 +836,6 @@ expand_throw (exp)
 	  /* Declare __cp_push_exception (void*, void*, void (*)(void*, int)),
 	     as defined in exception.cc.  */
 	  tree tmp;
-	  push_permanent_obstack ();
 	  tmp = tree_cons
 	    (NULL_TREE, ptr_type_node, tree_cons
 	     (NULL_TREE, ptr_type_node, tree_cons
@@ -914,7 +847,6 @@ expand_throw (exp)
 	  DECL_ARTIFICIAL (fn) = 1;
 	  pushdecl_top_level (fn);
 	  make_function_rtl (fn);
-	  pop_obstacks ();
 	}
 
       mark_used (fn);
@@ -936,7 +868,6 @@ expand_throw (exp)
 	{
 	  /* Declare void __uncatch_exception (void)
 	     as defined in exception.cc. */
-	  push_permanent_obstack ();
 	  fn = build_lang_decl (FUNCTION_DECL, fn,
 				build_function_type (void_type_node,
 						     void_list_node));
@@ -945,7 +876,6 @@ expand_throw (exp)
 	  DECL_ARTIFICIAL (fn) = 1;
 	  pushdecl_top_level (fn);
 	  make_function_rtl (fn);
-	  pop_obstacks ();
 	}
 
       mark_used (fn);

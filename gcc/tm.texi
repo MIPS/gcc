@@ -1,4 +1,4 @@
-@c Copyright (C) 1988,89,92,93,94,96,97,98,1999 Free Software Foundation, Inc.
+@c Copyright (C) 1988,89,92-99,2000 Free Software Foundation, Inc.
 @c This is part of the GCC manual.
 @c For copying conditions, see the file gcc.texi.
 
@@ -153,6 +153,9 @@ pass to @code{cc1plus}.  It can also specify how to translate options you
 give to GCC into options for GCC to pass to the @code{cc1plus}.
 
 Do not define this macro if it does not need to do anything.
+Note that everything defined in CC1_SPEC is already passed to
+@code{cc1plus} so there is no need to duplicate the contents of
+CC1_SPEC in CC1PLUS_SPEC.
 
 @findex ASM_SPEC
 @item ASM_SPEC
@@ -410,6 +413,15 @@ if any, in all upper-case letters.  For example, it might be @samp{GCC}
 or @samp{BINUTILS}.  If the package is part of the a vendor-supplied
 operating system, code the component name as @samp{0}.
 
+@findex STRUCT_FORCE_BLK
+@item STRUCT_FORCE_BLK (@var{field})
+Return 1 if a structure containing @var{field} should be accessed using
+@code{BLKMODE}.
+
+Normally, this is not needed.  See the file @file{c4x.h} for an example
+of how to use this macro to prevent a structure having a floating point
+field from being accessed in an integer mode.
+
 
 For example, here is the definition used for VAX/VMS:
 
@@ -458,7 +470,7 @@ The environment variable @code{GCC_EXEC_PREFIX}, if any.
 
 @item
 The directories specified by the environment variable @code{LIBRARY_PATH}
-(native only, cross compilers do not use this).
+(or port-specific name; native only, cross compilers do not use this).
 
 @item
 The macro @code{STANDARD_EXEC_PREFIX}.
@@ -1304,7 +1316,6 @@ For returning values in registers, see @ref{Scalar Return}.
 * Values in Registers::		What kinds of values each reg can hold.
 * Leaf Functions::		Renumbering registers for leaf functions.
 * Stack Registers::		Handling a register stack such as 80387.
-* Obsolete Register Macros::	Macros formerly used for the 80387.
 @end menu
 
 @node Register Basics
@@ -1684,43 +1695,6 @@ of the stack.
 @item LAST_STACK_REG
 The number of the last stack-like register.  This one is the bottom of
 the stack.
-@end table
-
-@node Obsolete Register Macros
-@subsection Obsolete Macros for Controlling Register Usage
-
-These features do not work very well.  They exist because they used to
-be required to generate correct code for the 80387 coprocessor of the
-80386.  They are no longer used by that machine description and may be
-removed in a later version of the compiler.  Don't use them!
-
-@table @code
-@findex OVERLAPPING_REGNO_P
-@item OVERLAPPING_REGNO_P (@var{regno})
-If defined, this is a C expression whose value is nonzero if hard
-register number @var{regno} is an overlapping register.  This means a
-hard register which overlaps a hard register with a different number.
-(Such overlap is undesirable, but occasionally it allows a machine to
-be supported which otherwise could not be.)  This macro must return
-nonzero for @emph{all} the registers which overlap each other.  GCC
-can use an overlapping register only in certain limited ways.  It can
-be used for allocation within a basic block, and may be spilled for
-reloading; that is all.
-
-If this macro is not defined, it means that none of the hard registers
-overlap each other.  This is the usual situation.
-
-@findex INSN_CLOBBERS_REGNO_P
-@item INSN_CLOBBERS_REGNO_P (@var{insn}, @var{regno})
-If defined, this is a C expression whose value should be nonzero if
-the insn @var{insn} has the effect of mysteriously clobbering the
-contents of hard register number @var{regno}.  By ``mysterious'' we
-mean that the insn's RTL expression doesn't describe such an effect.
-
-If this macro is not defined, it means that no insn clobbers registers
-mysteriously.  This is the usual situation; all else being equal,
-it is best for the RTL expression to show all the activity.
-
 @end table
 
 @node Register Classes
@@ -2316,6 +2290,12 @@ during virtual register instantiation.
 
 You only need to define this macro if you want to support call frame
 debugging information like that provided by DWARF 2.
+
+@findex SMALL_STACK
+@item SMALL_STACK
+Define this macro if the stack size for the target is very small.  This
+has the effect of disabling gcc's builtin @samp{alloca}, though
+@samp{__builtin_alloca} is not affected.
 @end table
 
 @node Stack Checking
@@ -4754,10 +4734,11 @@ recognize RTL structures like this:
 and likewise for @code{HImode}.
 
 @findex SLOW_UNALIGNED_ACCESS
-@item SLOW_UNALIGNED_ACCESS
-Define this macro to be the value 1 if unaligned accesses have a cost
-many times greater than aligned accesses, for example if they are
-emulated in a trap handler.
+@item SLOW_UNALIGNED_ACCESS (@var{mode}, @var{alignment})
+Define this macro to be the value 1 if memory accesses described by the
+@var{mode} and @var{alignment} parameters have a cost many times greater
+than aligned accesses, for example if they are emulated in a trap
+handler.
 
 When this macro is non-zero, the compiler will act as if
 @code{STRICT_ALIGNMENT} were non-zero when generating code for block
@@ -4765,7 +4746,9 @@ moves.  This can cause significantly more instructions to be produced.
 Therefore, do not set this macro non-zero if unaligned accesses only add a
 cycle or two to the time for a memory access.
 
-If the value of this macro is always zero, it need not be defined.
+If the value of this macro is always zero, it need not be defined.  If
+this macro is defined, it should produce a non-zero value when
+@code{STRICT_ALIGNMENT} is non-zero.
 
 @findex DONT_REDUCE_ADDR
 @item DONT_REDUCE_ADDR
@@ -5031,7 +5014,9 @@ A C statement to build up a unique section name, expressed as a
 STRING_CST node, and assign it to @samp{DECL_SECTION_NAME (@var{decl})}.
 @var{reloc} indicates whether the initial value of @var{exp} requires
 link-time relocations.  If you do not define this macro, GCC will use
-the symbol name prefixed by @samp{.} as the section name.
+the symbol name prefixed by @samp{.} as the section name.  Note - this
+macro can now be called for unitialised data items as well as
+initialised data and functions.
 @end table
 
 @node PIC
@@ -5545,7 +5530,6 @@ in place of both @code{ASM_OUTPUT_DECL} and
 @code{ASM_OUTPUT_ALIGNED_DECL}.  Define this macro when you need to see
 the variable's decl in order to chose what to output.
 
-
 @findex ASM_OUTPUT_SHARED_LOCAL
 @item ASM_OUTPUT_SHARED_LOCAL (@var{stream}, @var{name}, @var{size}, @var{rounded})
 If defined, it is similar to @code{ASM_OUTPUT_LOCAL}, except that it
@@ -5731,6 +5715,17 @@ The usual definition of this macro is as follows:
 
 @example
 fprintf (@var{stream}, "L%s%d:\n", @var{prefix}, @var{num})
+@end example
+
+@findex ASM_OUTPUT_ALTERNATE_LABEL_NAME
+@item ASM_OUTPUT_ALTERNATE_LABEL_NAME (@var{stream}, @var{string})
+A C statement to output to the stdio stream @var{stream} the string
+@var{string}.
+
+The default definition of this macro is as follows:
+
+@example
+fprintf (@var{stream}, "%s:\n", LABEL_ALTERNATE_NAME (INSN))
 @end example
 
 @findex ASM_GENERATE_INTERNAL_LABEL
@@ -7804,4 +7799,12 @@ in the system math library, or @samp{""} if the target does not have a
 separate math library.
 
 You need only define this macro if the default of @samp{"-lm"} is wrong.
+
+@findex LIBRARY_PATH_ENV
+@item LIBRARY_PATH_ENV
+Define this macro as a C string constant for the environment variable that
+specifies where the linker should look for libraries.
+
+You need only define this macro if the default of @samp{"LIBRARY_PATH"}
+is wrong.
 @end table

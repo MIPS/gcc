@@ -103,8 +103,8 @@ Boston, MA 02111-1307, USA.  */
    a REG_INC element is added to the insn's REG_NOTES list.
 
    life_analysis fills in certain vectors containing information about
-   register usage: reg_n_refs, reg_n_deaths, reg_n_sets, reg_live_length,
-   reg_n_calls_crosses and reg_basic_block.
+   register usage: REG_N_REFS, REG_N_DEATHS, REG_N_SETS, REG_LIVE_LENGTH,
+   REG_N_CALLS_CROSSED and REG_BASIC_BLOCK.
 
    life_analysis sets current_function_sp_is_unchanging if the function
    doesn't modify the stack pointer.  */
@@ -157,13 +157,6 @@ Boston, MA 02111-1307, USA.  */
 #define HAVE_prologue 0
 #endif
 
-#ifdef USE_C_ALLOCA
-#define CLEAN_ALLOCA  alloca (0)
-#else
-#define CLEAN_ALLOCA
-#endif
-
-
 /* The contents of the current function definition are allocated
    in this obstack, and all are freed at the end of the function.
    For top-level functions, this is temporary_obstack.
@@ -185,10 +178,8 @@ varray_type basic_block_info;
 
 /* The special entry and exit blocks.  */
 
-struct basic_block_def entry_exit_blocks[2] = 
-{
-  {
-    NULL,			/* head */
+struct basic_block_def entry_exit_blocks[2]
+= {{NULL,			/* head */
     NULL,			/* end */
     NULL,			/* pred */
     NULL,			/* succ */
@@ -321,14 +312,13 @@ static void merge_blocks_nomove		PROTO((basic_block, basic_block));
 static int merge_blocks			PROTO((edge,basic_block,basic_block));
 static void try_merge_blocks		PROTO((void));
 static void tidy_fallthru_edge		PROTO((edge,basic_block,basic_block));
-static void calculate_loop_depth	PROTO((rtx));
 
 static int verify_wide_reg_1		PROTO((rtx *, void *));
 static void verify_wide_reg		PROTO((int, rtx, rtx));
 static void verify_local_live_at_start	PROTO((regset, basic_block));
 static int set_noop_p			PROTO((rtx));
 static int noop_move_p			PROTO((rtx));
-static void notice_stack_pointer_modification PROTO ((rtx, rtx));
+static void notice_stack_pointer_modification PROTO ((rtx, rtx, void *));
 static void record_volatile_insns	PROTO((rtx));
 static void mark_reg			PROTO((regset, rtx));
 static void mark_regs_live_at_end	PROTO((regset));
@@ -349,28 +339,33 @@ static int try_pre_increment		PROTO((rtx, rtx, HOST_WIDE_INT));
 #endif
 static void mark_used_regs		PROTO((regset, regset, rtx, int, rtx));
 void dump_flow_info			PROTO((FILE *));
+void debug_flow_info			PROTO((void));
 static void dump_edge_info		PROTO((FILE *, edge, int));
-
-static int_list_ptr alloc_int_list_node PROTO ((int_list_block **));
-static int_list_ptr add_int_list_node   PROTO ((int_list_block **,
-						int_list **, int));
-
-static void add_pred_succ		PROTO ((int, int, int_list_ptr *,
-						int_list_ptr *, int *, int *));
 
 static void count_reg_sets_1		PROTO ((rtx));
 static void count_reg_sets		PROTO ((rtx));
 static void count_reg_references	PROTO ((rtx));
-static void notice_stack_pointer_modification PROTO ((rtx, rtx));
 static void invalidate_mems_from_autoinc	PROTO ((rtx));
 static void remove_edge			PROTO ((edge));
 static void remove_fake_successors	PROTO ((basic_block));
+static void flow_nodes_print	PROTO ((const char *, const sbitmap, FILE *));
+static void flow_exits_print PROTO ((const char *, const edge *, int, FILE *));
+static void flow_loops_cfg_dump		PROTO ((const struct loops *, FILE *));
+static int flow_loop_nested_p		PROTO ((struct loop *, struct loop *));
+static int flow_loop_exits_find		PROTO ((const sbitmap, edge **));
+static int flow_loop_nodes_find	PROTO ((basic_block, basic_block, sbitmap));
+static int flow_depth_first_order_compute PROTO ((int *));
+static basic_block flow_loop_pre_header_find PROTO ((basic_block, const sbitmap *));
+static void flow_loop_tree_node_add	PROTO ((struct loop *, struct loop *));
+static void flow_loops_tree_build	PROTO ((struct loops *));
+static int flow_loop_level_compute	PROTO ((struct loop *, int));
+static int flow_loops_level_compute	PROTO ((struct loops *));
 
 /* This function is always defined so it can be called from the
    debugger, and it is declared extern so we don't get warnings about
    it being unused. */
 void verify_flow_info			PROTO ((void));
-
+int flow_loop_outside_edge_p		PROTO ((const struct loop *, edge));
 
 /* Find basic blocks of the current function.
    F is the first insn of the function and NREGS the number of register
@@ -448,10 +443,6 @@ find_basic_blocks (f, nregs, file, do_cleanup)
 
   mark_critical_edges ();
 
-  /* Discover the loop depth at the start of each basic block to aid
-     register allocation.  */
-  calculate_loop_depth (f);
-
   /* Kill the data we won't maintain.  */
   label_value_list = NULL_RTX;
 
@@ -485,18 +476,6 @@ count_basic_blocks (f)
 		  || (prev_code == CALL_INSN && call_had_abnormal_edge))))
 	{
 	  count++;
-
-	  /* If the previous insn was a call that did not create an
-	     abnormal edge, we want to add a nop so that the CALL_INSN
-	     itself is not at basic_block_end.  This allows us to
-	     easily distinguish between normal calls and those which
-	     create abnormal edges in the flow graph.  */
-
-	  if (count > 0 && prev_call != 0 && !call_had_abnormal_edge)
-	    {
-	      rtx nop = gen_rtx_USE (VOIDmode, const0_rtx);
-	      emit_insn_after (nop, prev_call);
-	    }
 	}
 
       /* Record whether this call created an edge.  */
@@ -1408,6 +1387,7 @@ split_edge (edge_in)
 	  pos = emit_jump_insn_after (gen_jump (old_succ->head),
 				      jump_block->end);
 	  jump_block->end = pos;
+	  set_block_for_insn (pos, jump_block);
 	  emit_barrier_after (pos);
 
 	  /* ... let jump know that label is in use, ...  */
@@ -1436,8 +1416,31 @@ split_edge (edge_in)
   BASIC_BLOCK (i) = bb;
   bb->index = i;
 
-  /* Create the basic block note.  */
-  if (old_succ != EXIT_BLOCK_PTR)
+  /* Create the basic block note. 
+
+     Where we place the note can have a noticable impact on the generated
+     code.  Consider this cfg: 
+	
+
+		        E
+			|
+			0
+		       / \
+		   +->1-->2--->E
+                   |  |
+		   +--+
+
+      If we need to insert an insn on the edge from block 0 to block 1,
+      we want to ensure the instructions we insert are outside of any
+      loop notes that physically sit between block 0 and block 1.  Otherwise
+      we confuse the loop optimizer into thinking the loop is a phony.  */
+  if (old_succ != EXIT_BLOCK_PTR
+      && PREV_INSN (old_succ->head)
+      && GET_CODE (PREV_INSN (old_succ->head)) == NOTE
+      && NOTE_LINE_NUMBER (PREV_INSN (old_succ->head)) == NOTE_INSN_LOOP_BEG)
+    bb_note = emit_note_before (NOTE_INSN_BASIC_BLOCK,
+				PREV_INSN (old_succ->head));
+  else if (old_succ != EXIT_BLOCK_PTR)
     bb_note = emit_note_before (NOTE_INSN_BASIC_BLOCK, old_succ->head);
   else
     bb_note = emit_note_after (NOTE_INSN_BASIC_BLOCK, get_last_insn ());
@@ -1578,13 +1581,14 @@ commit_one_edge_insertion (e)
 	   && e->src != ENTRY_BLOCK_PTR)
     {
       bb = e->src;
+      /* It is possible to have a non-simple jump here.  Consider a target
+	 where some forms of unconditional jumps clobber a register.  This
+	 happens on the fr30 for example. 
+
+	 We know this block has a single successor, so we can just emit
+	 the queued insns before the jump.  */
       if (GET_CODE (bb->end) == JUMP_INSN)
 	{
-	  /* ??? Is it possible to wind up with non-simple jumps?  Perhaps
-	     a jump with delay slots already filled?  */
-	  if (! simplejump_p (bb->end))
-	    abort ();
-
 	  before = bb->end;
 	}
       else
@@ -1668,7 +1672,7 @@ delete_unreachable_blocks ()
   int i, n;
 
   n = n_basic_blocks;
-  tos = worklist = (basic_block *) alloca (sizeof (basic_block) * n);
+  tos = worklist = (basic_block *) xmalloc (sizeof (basic_block) * n);
 
   /* Use basic_block->aux as a marker.  Clear them all.  */
 
@@ -1752,6 +1756,8 @@ delete_unreachable_blocks ()
      blocks to remove as well. */
   if (deleted_handler)
     delete_eh_regions ();
+
+  free (worklist);
 }
 
 /* Find EH regions for which there is no longer a handler, and delete them.  */
@@ -2011,12 +2017,11 @@ static int
 merge_blocks_move_predecessor_nojumps (a, b)
      basic_block a, b;
 {
-  rtx start, end, insertpoint, barrier;
+  rtx start, end, barrier;
   int index;
 
   start = a->head;
   end = a->end;
-  insertpoint = PREV_INSN (b->head);
 
   /* We want to delete the BARRIER after the end of the insns we are
      going to move.  If we don't find a BARRIER, then do nothing.  This
@@ -2042,7 +2047,8 @@ merge_blocks_move_predecessor_nojumps (a, b)
   start = squeeze_notes (start, end);
 
   /* Scramble the insn chain.  */
-  reorder_insns (start, end, insertpoint);
+  if (end != PREV_INSN (b->head))
+    reorder_insns (start, end, PREV_INSN (b->head));
 
   if (rtl_dump_file)
     {
@@ -2073,11 +2079,10 @@ static int
 merge_blocks_move_successor_nojumps (a, b)
      basic_block a, b;
 {
-  rtx start, end, insertpoint, barrier;
+  rtx start, end, barrier;
 
   start = b->head;
   end = b->end;
-  insertpoint = a->end;
 
   /* We want to delete the BARRIER after the end of the insns we are
      going to move.  If we don't find a BARRIER, then do nothing.  This
@@ -2103,7 +2108,7 @@ merge_blocks_move_successor_nojumps (a, b)
   start = squeeze_notes (start, end);
 
   /* Scramble the insn chain.  */
-  reorder_insns (start, end, insertpoint);
+  reorder_insns (start, end, a->end);
 
   /* Now blocks A and B are contiguous.  Merge them.  */
   merge_blocks_nomove (a, b);
@@ -2391,37 +2396,19 @@ tidy_fallthru_edge (e, b, c)
 
 /* Discover and record the loop depth at the head of each basic block.  */
 
-static void
-calculate_loop_depth (insns)
-     rtx insns;
+void
+calculate_loop_depth (dump)
+     FILE *dump;
 {
-  basic_block bb;
-  rtx insn;
-  int i = 0, depth = 1;
+  struct loops loops;
 
-  bb = BASIC_BLOCK (i);
-  for (insn = insns; insn ; insn = NEXT_INSN (insn))
-    {
-      if (insn == bb->head)
-	{
-	  bb->loop_depth = depth;
-	  if (++i >= n_basic_blocks)
-	    break;
-	  bb = BASIC_BLOCK (i);
-	}
+  /* The loop infrastructure does the real job for us.  */
+  flow_loops_find (&loops);
 
-      if (GET_CODE (insn) == NOTE)
-	{
-	  if (NOTE_LINE_NUMBER (insn) == NOTE_INSN_LOOP_BEG)
-	    depth++;
-	  else if (NOTE_LINE_NUMBER (insn) == NOTE_INSN_LOOP_END)
-	    depth--;
+  if (dump)
+    flow_loops_dump (&loops, dump, 0);
 
-	  /* If we have LOOP_DEPTH == 0, there has been a bookkeeping error. */
-	  if (depth == 0)
-	    abort ();
-	}
-    }
+  flow_loops_free (&loops);
 }
 
 /* Perform data flow analysis.
@@ -2454,7 +2441,7 @@ life_analysis (f, nregs, file, remove_dead_code)
 #endif
 
   /* Allocate a bitmap to be filled in by record_volatile_insns.  */
-  uid_volatile = BITMAP_ALLOCA ();
+  uid_volatile = BITMAP_XMALLOC ();
 
   /* We want alias analysis information for local dead store elimination.  */
   init_alias_analysis ();
@@ -2472,7 +2459,7 @@ life_analysis (f, nregs, file, remove_dead_code)
   if (file)
     dump_flow_info (file);
 
-  BITMAP_FREE (uid_volatile);
+  BITMAP_XFREE (uid_volatile);
   free_basic_block_vars (1);
 }
 
@@ -2602,8 +2589,6 @@ update_life_info (blocks, extent, prop_flags)
 
       if (extent == UPDATE_LIFE_LOCAL)
 	verify_local_live_at_start (tmp, bb);
-
-      CLEAN_ALLOCA;
     });
 
   FREE_REG_SET (tmp);
@@ -2695,9 +2680,10 @@ noop_move_p (insn)
 }
 
 static void
-notice_stack_pointer_modification (x, pat)
+notice_stack_pointer_modification (x, pat, data)
      rtx x;
      rtx pat ATTRIBUTE_UNUSED;
+     void *data ATTRIBUTE_UNUSED;
 {
   if (x == stack_pointer_rtx
       /* The stack pointer is only modified indirectly as the result
@@ -2760,7 +2746,9 @@ record_volatile_insns (f)
       /* Check if insn modifies the stack pointer.  */
       if ( current_function_sp_is_unchanging
 	   && GET_RTX_CLASS (GET_CODE (insn)) == 'i')
-	note_stores (PATTERN (insn), notice_stack_pointer_modification);
+	note_stores (PATTERN (insn),
+		     notice_stack_pointer_modification,
+		     NULL);
     }
 }
 
@@ -2914,8 +2902,7 @@ life_analysis_1 (f, nregs, flags)
   allocate_reg_life_data ();
   allocate_bb_life_data ();
 
-  reg_next_use = (rtx *) alloca (nregs * sizeof (rtx));
-  memset (reg_next_use, 0, nregs * sizeof (rtx));
+  reg_next_use = (rtx *) xcalloc (nregs, sizeof (rtx));
 
   /* Assume that the stack pointer is unchanging if alloca hasn't been used.
      This will be cleared by record_volatile_insns if it encounters an insn
@@ -2945,6 +2932,7 @@ life_analysis_1 (f, nregs, flags)
     blocks = sbitmap_alloc (n_basic_blocks);
     sbitmap_ones (blocks);
     calculate_global_regs_live (blocks, blocks, flags & PROP_SCAN_DEAD_CODE);
+    sbitmap_free (blocks);
   }
 
   /* The only pseudos that are live at the beginning of the function are
@@ -2969,8 +2957,6 @@ life_analysis_1 (f, nregs, flags)
 
 	COPY_REG_SET (tmp, bb->global_live_at_end);
 	propagate_block (tmp, bb->head, bb->end, (regset) NULL, i, flags);
-
-	CLEAN_ALLOCA;
       }
 
     FREE_REG_SET (tmp);
@@ -2998,6 +2984,8 @@ life_analysis_1 (f, nregs, flags)
   if (reload_completed)
     memcpy (regs_ever_live, save_regs_ever_live, sizeof (regs_ever_live));
 
+  /* Clean up.  */
+  free (reg_next_use);
   reg_next_use = NULL;
 }
 
@@ -3020,9 +3008,13 @@ calculate_global_regs_live (blocks_in, blocks_out, flags)
   /* Create a worklist.  Allocate an extra slot for ENTRY_BLOCK, and one
      because the `head == tail' style test for an empty queue doesn't 
      work with a full queue.  */
-  queue = (basic_block *) alloca ((n_basic_blocks + 2) * sizeof (*queue));
+  queue = (basic_block *) xmalloc ((n_basic_blocks + 2) * sizeof (*queue));
   qtail = queue;
   qhead = qend = queue + n_basic_blocks + 2;
+
+  /* Clear out the garbage that might be hanging out in bb->aux.  */
+  for (i = n_basic_blocks - 1; i >= 0; --i)
+    BASIC_BLOCK (i)->aux = NULL;
 
   /* Queue the blocks set in the initial mask.  Do this in reverse block
      number order so that we are more likely for the first round to do 
@@ -3124,7 +3116,7 @@ calculate_global_regs_live (blocks_in, blocks_out, flags)
 	  /* Rescan the block insn by insn to turn (a copy of) live_at_end
 	     into live_at_start.  */
 	  propagate_block (new_live_at_end, bb->head, bb->end,
-			   bb->local_set, i, flags);
+			   bb->local_set, bb->index, flags);
 
 	  /* If live_at start didn't change, no need to go farther.  */
 	  if (REG_SET_EQUAL_P (bb->global_live_at_start, new_live_at_end))
@@ -3156,6 +3148,8 @@ calculate_global_regs_live (blocks_in, blocks_out, flags)
       basic_block bb = BASIC_BLOCK (i);
       FREE_REG_SET (bb->local_set);
     });
+
+  free (queue);
 }
 
 /* Subroutines of life analysis.  */
@@ -3303,14 +3297,17 @@ propagate_block (old, first, last, significant, bnum, flags)
 
 	  /* We almost certainly don't want to delete prologue or epilogue
 	     instructions.  Warn about probable compiler losage.  */
-	  if ((flags & PROP_KILL_DEAD_CODE)
-	      && insn_is_dead
+	  if (insn_is_dead
 	      && reload_completed
 	      && (HAVE_epilogue || HAVE_prologue)
 	      && prologue_epilogue_contains (insn))
 	    {
-	      warning ("ICE: would have deleted prologue/epilogue insn");
-	      debug_rtx (insn);
+	      if (flags & PROP_KILL_DEAD_CODE)
+	        { 
+	      	  warning ("ICE: would have deleted prologue/epilogue insn");
+	      	  if (!inhibit_warnings)
+	  	    debug_rtx (insn);
+	        }
 	      libcall_is_dead = insn_is_dead = 0;
 	    }
 
@@ -3320,6 +3317,40 @@ propagate_block (old, first, last, significant, bnum, flags)
 	     can cause trouble for first or last insn in a basic block.  */
 	  if ((flags & PROP_KILL_DEAD_CODE) && insn_is_dead)
 	    {
+	      rtx inote;
+	      /* If the insn referred to a label, note that the label is
+		 now less used.  */
+	      for (inote = REG_NOTES (insn); inote; inote = XEXP (inote, 1))
+		{
+		  if (REG_NOTE_KIND (inote) == REG_LABEL)
+		    {
+		      rtx label = XEXP (inote, 0);
+		      rtx next;
+		      LABEL_NUSES (label)--;
+
+		      /* If this label was attached to an ADDR_VEC, it's
+			 safe to delete the ADDR_VEC.  In fact, it's pretty much
+			 mandatory to delete it, because the ADDR_VEC may
+			 be referencing labels that no longer exist.  */
+		      if (LABEL_NUSES (label) == 0
+			  && (next = next_nonnote_insn (label)) != NULL
+			  && GET_CODE (next) == JUMP_INSN
+			  && (GET_CODE (PATTERN (next)) == ADDR_VEC
+			      || GET_CODE (PATTERN (next)) == ADDR_DIFF_VEC))
+			{
+			  rtx pat = PATTERN (next);
+			  int diff_vec_p = GET_CODE (pat) == ADDR_DIFF_VEC;
+			  int len = XVECLEN (pat, diff_vec_p);
+			  int i;
+			  for (i = 0; i < len; i++)
+			    LABEL_NUSES (XEXP (XVECEXP (pat, diff_vec_p, i), 0))--;
+			  PUT_CODE (next, NOTE);
+			  NOTE_LINE_NUMBER (next) = NOTE_INSN_DELETED;
+			  NOTE_SOURCE_FILE (next) = 0;
+			}
+		    }
+		}
+
 	      PUT_CODE (insn, NOTE);
 	      NOTE_LINE_NUMBER (insn) = NOTE_INSN_DELETED;
 	      NOTE_SOURCE_FILE (insn) = 0;
@@ -4002,7 +4033,7 @@ mark_set_1 (needed, dead, x, insn, significant, flags)
 	          /* Count (weighted) references, stores, etc.  This counts a
 		     register twice if it is modified, but that is correct.  */
 	          REG_N_SETS (regno)++;
-	          REG_N_REFS (regno) += loop_depth;
+	          REG_N_REFS (regno) += loop_depth + 1;
 		  
 	          /* The insns where a reg is live are normally counted
 		     elsewhere, but we want the count to include the insn
@@ -4255,7 +4286,7 @@ find_auto_inc (needed, x, insn)
 	      /* Count an extra reference to the reg.  When a reg is
 		 incremented, spilling it is worse, so we want to make
 		 that less likely.  */
-	      REG_N_REFS (regno) += loop_depth;
+	      REG_N_REFS (regno) += loop_depth + 1;
 
 	      /* Count the increment as a setting of the register,
 		 even though it isn't a SET in rtl.  */
@@ -4476,7 +4507,7 @@ mark_used_regs (needed, live, x, flags, insn)
 
 		/* Count (weighted) number of uses of each reg.  */
 
-		REG_N_REFS (regno) += loop_depth;
+		REG_N_REFS (regno) += loop_depth + 1;
 	      }
 	  }
 
@@ -4719,7 +4750,7 @@ try_pre_increment_1 (insn)
 	 less likely.  */
       if (regno >= FIRST_PSEUDO_REGISTER)
 	{
-	  REG_N_REFS (regno) += loop_depth;
+	  REG_N_REFS (regno) += loop_depth + 1;
 	  REG_N_SETS (regno)++;
 	}
       return 1;
@@ -4855,7 +4886,7 @@ find_use_as_address (x, reg, plusconst)
 	  else if (tem != 0)
 	    return (rtx) (HOST_WIDE_INT) 1;
 	}
-      if (fmt[i] == 'E')
+      else if (fmt[i] == 'E')
 	{
 	  register int j;
 	  for (j = XVECLEN (x, i) - 1; j >= 0; j--)
@@ -4929,8 +4960,8 @@ dump_flow_info (file)
       register int regno;
       register edge e;
 
-      fprintf (file, "\nBasic block %d: first insn %d, last %d.\n",
-	       i, INSN_UID (bb->head), INSN_UID (bb->end));
+      fprintf (file, "\nBasic block %d: first insn %d, last %d, loop_depth %d.\n",
+	       i, INSN_UID (bb->head), INSN_UID (bb->end), bb->loop_depth);
 
       fprintf (file, "Predecessors: ");
       for (e = bb->pred; e ; e = e->pred_next)
@@ -4964,6 +4995,12 @@ dump_flow_info (file)
     }
 
   putc('\n', file);
+}
+
+void
+debug_flow_info ()
+{
+  dump_flow_info (stderr);
 }
 
 static void
@@ -5027,15 +5064,11 @@ print_rtl_with_bb (outf, rtx_first)
       enum bb_state { NOT_IN_BB, IN_ONE_BB, IN_MULTIPLE_BB };
       int max_uid = get_max_uid ();
       basic_block *start = (basic_block *)
-	alloca (max_uid * sizeof (basic_block));
+	xcalloc (max_uid, sizeof (basic_block));
       basic_block *end = (basic_block *)
-	alloca (max_uid * sizeof (basic_block));
+	xcalloc (max_uid, sizeof (basic_block));
       enum bb_state *in_bb_p = (enum bb_state *)
-	alloca (max_uid * sizeof (enum bb_state));
-
-      memset (start, 0, max_uid * sizeof (basic_block));
-      memset (end, 0, max_uid * sizeof (basic_block));
-      memset (in_bb_p, 0, max_uid * sizeof (enum bb_state));
+	xcalloc (max_uid, sizeof (enum bb_state));
 
       for (i = n_basic_blocks - 1; i >= 0; i--)
 	{
@@ -5092,6 +5125,10 @@ print_rtl_with_bb (outf, rtx_first)
 	  if (did_output)
 	    putc ('\n', outf);
 	}
+
+      free (start);
+      free (end);
+      free (in_bb_p);
     }
 
   if (current_function_epilogue_delay_list != 0)
@@ -5103,272 +5140,168 @@ print_rtl_with_bb (outf, rtx_first)
     }
 }
 
-
-/* Integer list support.  */
-
-/* Allocate a node from list *HEAD_PTR.  */
-
-static int_list_ptr
-alloc_int_list_node (head_ptr)
-     int_list_block **head_ptr;
-{
-  struct int_list_block *first_blk = *head_ptr;
-
-  if (first_blk == NULL || first_blk->nodes_left <= 0)
-    {
-      first_blk = (struct int_list_block *) xmalloc (sizeof (struct int_list_block));
-      first_blk->nodes_left = INT_LIST_NODES_IN_BLK;
-      first_blk->next = *head_ptr;
-      *head_ptr = first_blk;
-    }
-
-  first_blk->nodes_left--;
-  return &first_blk->nodes[first_blk->nodes_left];
-}
-
-/* Pointer to head of predecessor/successor block list.  */
-static int_list_block *pred_int_list_blocks;
-
-/* Add a new node to integer list LIST with value VAL.
-   LIST is a pointer to a list object to allow for different implementations.
-   If *LIST is initially NULL, the list is empty.
-   The caller must not care whether the element is added to the front or
-   to the end of the list (to allow for different implementations).  */
-
-static int_list_ptr
-add_int_list_node (blk_list, list, val)
-     int_list_block **blk_list;
-     int_list **list;
-     int val;
-{
-  int_list_ptr p = alloc_int_list_node (blk_list);
-
-  p->val = val;
-  p->next = *list;
-  *list = p;
-  return p;
-}
-
-/* Free the blocks of lists at BLK_LIST.  */
-
-void
-free_int_list (blk_list)
-     int_list_block **blk_list;
-{
-  int_list_block *p, *next;
-
-  for (p = *blk_list; p != NULL; p = next)
-    {
-      next = p->next;
-      free (p);
-    }
-
-  /* Mark list as empty for the next function we compile.  */
-  *blk_list = NULL;
-}
-
-/* Predecessor/successor computation.  */
-
-/* Mark PRED_BB a precessor of SUCC_BB,
-   and conversely SUCC_BB a successor of PRED_BB.  */
-
-static void
-add_pred_succ (pred_bb, succ_bb, s_preds, s_succs, num_preds, num_succs)
-     int pred_bb;
-     int succ_bb;
-     int_list_ptr *s_preds;
-     int_list_ptr *s_succs;
-     int *num_preds;
-     int *num_succs;
-{
-  if (succ_bb != EXIT_BLOCK)
-    {
-      add_int_list_node (&pred_int_list_blocks, &s_preds[succ_bb], pred_bb);
-      num_preds[succ_bb]++;
-    }
-  if (pred_bb != ENTRY_BLOCK)
-    {
-      add_int_list_node (&pred_int_list_blocks, &s_succs[pred_bb], succ_bb);
-      num_succs[pred_bb]++;
-    }
-}
-
-/* Convert edge lists into pred/succ lists for backward compatibility.  */
-
-void
-compute_preds_succs (s_preds, s_succs, num_preds, num_succs)
-     int_list_ptr *s_preds;
-     int_list_ptr *s_succs;
-     int *num_preds;
-     int *num_succs;
-{
-  int i, n = n_basic_blocks;
-  edge e;
-
-  memset (s_preds, 0, n_basic_blocks * sizeof (int_list_ptr));
-  memset (s_succs, 0, n_basic_blocks * sizeof (int_list_ptr));
-  memset (num_preds, 0, n_basic_blocks * sizeof (int));
-  memset (num_succs, 0, n_basic_blocks * sizeof (int));
-
-  for (i = 0; i < n; ++i)
-    {
-      basic_block bb = BASIC_BLOCK (i);
-      
-      for (e = bb->succ; e ; e = e->succ_next)
-	add_pred_succ (i, e->dest->index, s_preds, s_succs,
-		       num_preds, num_succs);
-    }
-
-  for (e = ENTRY_BLOCK_PTR->succ; e ; e = e->succ_next)
-    add_pred_succ (ENTRY_BLOCK, e->dest->index, s_preds, s_succs,
-		   num_preds, num_succs);
-}
-
-void
-dump_bb_data (file, preds, succs, live_info)
-     FILE *file;
-     int_list_ptr *preds;
-     int_list_ptr *succs;
-     int live_info;
-{
-  int bb;
-  int_list_ptr p;
-
-  fprintf (file, "BB data\n\n");
-  for (bb = 0; bb < n_basic_blocks; bb++)
-    {
-      fprintf (file, "BB %d, start %d, end %d\n", bb,
-	       INSN_UID (BLOCK_HEAD (bb)), INSN_UID (BLOCK_END (bb)));
-      fprintf (file, "  preds:");
-      for (p = preds[bb]; p != NULL; p = p->next)
-	{
-	  int pred_bb = INT_LIST_VAL (p);
-	  if (pred_bb == ENTRY_BLOCK)
-	    fprintf (file, " entry");
-	  else
-	    fprintf (file, " %d", pred_bb);
-	}
-      fprintf (file, "\n");
-      fprintf (file, "  succs:");
-      for (p = succs[bb]; p != NULL; p = p->next)
-	{
-	  int succ_bb = INT_LIST_VAL (p);
-	  if (succ_bb == EXIT_BLOCK)
-	    fprintf (file, " exit");
-	  else
-	    fprintf (file, " %d", succ_bb);
-	}
-      if (live_info)
-	{
-	  int regno;
-	  fprintf (file, "\nRegisters live at start:");
-	  for (regno = 0; regno < max_regno; regno++)
-	    if (REGNO_REG_SET_P (BASIC_BLOCK (bb)->global_live_at_start, regno))
-	      fprintf (file, " %d", regno);
-	  fprintf (file, "\n");
-	}
-      fprintf (file, "\n");
-    }
-  fprintf (file, "\n");
-}
-
-/* Free basic block data storage.  */
-
-void
-free_bb_mem ()
-{
-  free_int_list (&pred_int_list_blocks);
-}
-
-/* Compute dominator relationships.  */
-void
-compute_dominators (dominators, post_dominators, s_preds, s_succs)
-     sbitmap *dominators;
-     sbitmap *post_dominators;
-     int_list_ptr *s_preds;
-     int_list_ptr *s_succs;
-{
-  int bb, changed, passes;
-  sbitmap *temp_bitmap;
-
-  temp_bitmap = sbitmap_vector_alloc (n_basic_blocks, n_basic_blocks);
-  sbitmap_vector_ones (dominators, n_basic_blocks);
-  sbitmap_vector_ones (post_dominators, n_basic_blocks);
-  sbitmap_vector_zero (temp_bitmap, n_basic_blocks);
-
-  sbitmap_zero (dominators[0]);
-  SET_BIT (dominators[0], 0);
-
-  sbitmap_zero (post_dominators[n_basic_blocks - 1]);
-  SET_BIT (post_dominators[n_basic_blocks - 1], 0);
-
-  passes = 0;
-  changed = 1;
-  while (changed)
-    {
-      changed = 0;
-      for (bb = 1; bb < n_basic_blocks; bb++)
-	{
-	  sbitmap_intersect_of_predecessors (temp_bitmap[bb], dominators,
-					     bb, s_preds);
-	  SET_BIT (temp_bitmap[bb], bb);
-	  changed |= sbitmap_a_and_b (dominators[bb],
-				      dominators[bb],
-				      temp_bitmap[bb]);
-	  sbitmap_intersect_of_successors (temp_bitmap[bb], post_dominators,
-					   bb, s_succs);
-	  SET_BIT (temp_bitmap[bb], bb);
-	  changed |= sbitmap_a_and_b (post_dominators[bb],
-				      post_dominators[bb],
-				      temp_bitmap[bb]);
-	}
-      passes++;
-    }
-
-  free (temp_bitmap);
-}
-
 /* Compute dominator relationships using new flow graph structures.  */
 void
 compute_flow_dominators (dominators, post_dominators)
      sbitmap *dominators;
      sbitmap *post_dominators;
 {
-  int bb, changed, passes;
+  int bb;
   sbitmap *temp_bitmap;
+  edge e;
+  basic_block *worklist, *tos;
+
+  /* Allocate a worklist array/queue.  Entries are only added to the
+     list if they were not already on the list.  So the size is
+     bounded by the number of basic blocks.  */
+  tos = worklist = (basic_block *) xmalloc (sizeof (basic_block)
+		    * n_basic_blocks);
 
   temp_bitmap = sbitmap_vector_alloc (n_basic_blocks, n_basic_blocks);
-  sbitmap_vector_ones (dominators, n_basic_blocks);
-  sbitmap_vector_ones (post_dominators, n_basic_blocks);
   sbitmap_vector_zero (temp_bitmap, n_basic_blocks);
 
-  sbitmap_zero (dominators[0]);
-  SET_BIT (dominators[0], 0);
-
-  sbitmap_zero (post_dominators[n_basic_blocks - 1]);
-  SET_BIT (post_dominators[n_basic_blocks - 1], 0);
-
-  passes = 0;
-  changed = 1;
-  while (changed)
+  if (dominators)
     {
-      changed = 0;
-      for (bb = 1; bb < n_basic_blocks; bb++)
+      /* The optimistic setting of dominators requires us to put every
+	 block on the work list initially.  */
+      for (bb = 0; bb < n_basic_blocks; bb++)
 	{
-	  sbitmap_intersection_of_preds (temp_bitmap[bb], dominators, bb);
-	  SET_BIT (temp_bitmap[bb], bb);
-	  changed |= sbitmap_a_and_b (dominators[bb],
-				      dominators[bb],
-				      temp_bitmap[bb]);
-	  sbitmap_intersection_of_succs (temp_bitmap[bb], post_dominators, bb);
-	  SET_BIT (temp_bitmap[bb], bb);
-	  changed |= sbitmap_a_and_b (post_dominators[bb],
-				      post_dominators[bb],
-				      temp_bitmap[bb]);
+	  *tos++ = BASIC_BLOCK (bb);
+	  BASIC_BLOCK (bb)->aux = BASIC_BLOCK (bb);
 	}
-      passes++;
+
+      /* We want a maximal solution, so initially assume everything dominates
+	 everything else.  */
+      sbitmap_vector_ones (dominators, n_basic_blocks);
+
+      /* Mark successors of the entry block so we can identify them below.  */
+      for (e = ENTRY_BLOCK_PTR->succ; e; e = e->succ_next)
+	e->dest->aux = ENTRY_BLOCK_PTR;
+
+      /* Iterate until the worklist is empty.  */
+      while (tos != worklist)
+	{
+	  /* Take the first entry off the worklist.  */
+	  basic_block b = *--tos;
+	  bb = b->index;
+
+	  /* Compute the intersection of the dominators of all the
+	     predecessor blocks.
+
+	     If one of the predecessor blocks is the ENTRY block, then the
+	     intersection of the dominators of the predecessor blocks is
+	     defined as the null set.  We can identify such blocks by the
+	     special value in the AUX field in the block structure.  */
+	  if (b->aux == ENTRY_BLOCK_PTR)
+	    {
+	      /* Do not clear the aux field for blocks which are
+		 successors of the ENTRY block.  That way we we never
+		 add them to the worklist again.
+
+		 The intersect of dominators of the preds of this block is
+		 defined as the null set.  */
+	      sbitmap_zero (temp_bitmap[bb]);
+	    }
+	  else
+	    {
+	      /* Clear the aux field of this block so it can be added to
+		 the worklist again if necessary.  */
+	      b->aux = NULL;
+	      sbitmap_intersection_of_preds (temp_bitmap[bb], dominators, bb);
+	    }
+
+	  /* Make sure each block always dominates itself.  */
+	  SET_BIT (temp_bitmap[bb], bb);
+
+	  /* If the out state of this block changed, then we need to
+	     add the successors of this block to the worklist if they
+	     are not already on the worklist.  */
+	  if (sbitmap_a_and_b (dominators[bb], dominators[bb], temp_bitmap[bb]))
+	    {
+	      for (e = b->succ; e; e = e->succ_next)
+		{
+		  if (!e->dest->aux && e->dest != EXIT_BLOCK_PTR)
+		    {
+		      *tos++ = e->dest;
+		      e->dest->aux = e;
+		    }
+		}
+	    }
+	}
     }
 
+  if (post_dominators)
+    {
+      /* The optimistic setting of dominators requires us to put every
+	 block on the work list initially.  */
+      for (bb = 0; bb < n_basic_blocks; bb++)
+	{
+	  *tos++ = BASIC_BLOCK (bb);
+	  BASIC_BLOCK (bb)->aux = BASIC_BLOCK (bb);
+	}
+
+      /* We want a maximal solution, so initially assume everything post
+	 dominates everything else.  */
+      sbitmap_vector_ones (post_dominators, n_basic_blocks);
+
+      /* Mark predecessors of the exit block so we can identify them below.  */
+      for (e = EXIT_BLOCK_PTR->pred; e; e = e->pred_next)
+	e->src->aux = EXIT_BLOCK_PTR;
+
+      /* Iterate until the worklist is empty.  */
+      while (tos != worklist)
+	{
+	  /* Take the first entry off the worklist.  */
+	  basic_block b = *--tos;
+	  bb = b->index;
+
+	  /* Compute the intersection of the post dominators of all the
+	     successor blocks.
+
+	     If one of the successor blocks is the EXIT block, then the
+	     intersection of the dominators of the successor blocks is
+	     defined as the null set.  We can identify such blocks by the
+	     special value in the AUX field in the block structure.  */
+	  if (b->aux == EXIT_BLOCK_PTR)
+	    {
+	      /* Do not clear the aux field for blocks which are
+		 predecessors of the EXIT block.  That way we we never
+		 add them to the worklist again.
+
+		 The intersect of dominators of the succs of this block is
+		 defined as the null set.  */
+	      sbitmap_zero (temp_bitmap[bb]);
+	    }
+	  else
+	    {
+	      /* Clear the aux field of this block so it can be added to
+		 the worklist again if necessary.  */
+	      b->aux = NULL;
+	      sbitmap_intersection_of_succs (temp_bitmap[bb],
+					     post_dominators, bb);
+	    }
+
+	  /* Make sure each block always post dominates itself.  */
+	  SET_BIT (temp_bitmap[bb], bb);
+
+	  /* If the out state of this block changed, then we need to
+	     add the successors of this block to the worklist if they
+	     are not already on the worklist.  */
+	  if (sbitmap_a_and_b (post_dominators[bb],
+			       post_dominators[bb],
+			       temp_bitmap[bb]))
+	    {
+	      for (e = b->pred; e; e = e->pred_next)
+		{
+		  if (!e->src->aux && e->src != ENTRY_BLOCK_PTR)
+		    {
+		      *tos++ = e->src;
+		      e->src->aux = e;
+		    }
+		}
+	    }
+	}
+    }
   free (temp_bitmap);
 }
 
@@ -5444,8 +5377,7 @@ count_reg_sets_1 (x)
 	  /* Count (weighted) references, stores, etc.  This counts a
 	     register twice if it is modified, but that is correct.  */
 	  REG_N_SETS (regno)++;
-
-	  REG_N_REFS (regno) += loop_depth;
+	  REG_N_REFS (regno) += loop_depth + 1;
 	}
     }
 }
@@ -5524,7 +5456,7 @@ count_reg_references (x)
 
     case REG:
       if (REGNO (x) >= FIRST_PSEUDO_REGISTER)
-	REG_N_REFS (REGNO (x)) += loop_depth;
+	REG_N_REFS (REGNO (x)) += loop_depth + 1;
       return;
 
     case SET:
@@ -5623,20 +5555,22 @@ count_reg_references (x)
    More accurate reference counts generally lead to better register allocation.
 
    F is the first insn to be scanned.
+
    LOOP_STEP denotes how much loop_depth should be incremented per
-   loop nesting level in order to increase the ref count more for references
-   in a loop.
+   loop nesting level in order to increase the ref count more for
+   references in a loop.
 
    It might be worthwhile to update REG_LIVE_LENGTH, REG_BASIC_BLOCK and
    possibly other information which is used by the register allocators.  */
 
 void
 recompute_reg_usage (f, loop_step)
-     rtx f;
-     int loop_step;
+     rtx f ATTRIBUTE_UNUSED;
+     int loop_step ATTRIBUTE_UNUSED;
 {
   rtx insn;
   int i, max_reg;
+  int index;
 
   /* Clear out the old data.  */
   max_reg = max_reg_num ();
@@ -5648,65 +5582,58 @@ recompute_reg_usage (f, loop_step)
 
   /* Scan each insn in the chain and count how many times each register is
      set/used.  */
-  loop_depth = 1;
-  for (insn = f; insn; insn = NEXT_INSN (insn))
+  for (index = 0; index < n_basic_blocks; index++)
     {
-      /* Keep track of loop depth.  */
-      if (GET_CODE (insn) == NOTE)
-	{
-	  /* Look for loop boundaries.  */
-	  if (NOTE_LINE_NUMBER (insn) == NOTE_INSN_LOOP_END)
-	    loop_depth -= loop_step;
-	  else if (NOTE_LINE_NUMBER (insn) == NOTE_INSN_LOOP_BEG)
-	    loop_depth += loop_step;
-
-	  /* If we have LOOP_DEPTH == 0, there has been a bookkeeping error. 
-	     Abort now rather than setting register status incorrectly.  */
-	  if (loop_depth == 0)
-	    abort ();
-	}
-      else if (GET_RTX_CLASS (GET_CODE (insn)) == 'i')
-	{
-	  rtx links;
-
-	  /* This call will increment REG_N_SETS for each SET or CLOBBER
-	     of a register in INSN.  It will also increment REG_N_REFS
-	     by the loop depth for each set of a register in INSN.  */
-	  count_reg_sets (PATTERN (insn));
-
-	  /* count_reg_sets does not detect autoincrement address modes, so
-	     detect them here by looking at the notes attached to INSN.  */
-	  for (links = REG_NOTES (insn); links; links = XEXP (links, 1))
+      basic_block bb = BASIC_BLOCK (index);
+      loop_depth = bb->loop_depth;
+      for (insn = bb->head; insn; insn = NEXT_INSN (insn))
+ 	{
+	  if (GET_RTX_CLASS (GET_CODE (insn)) == 'i')
 	    {
-	      if (REG_NOTE_KIND (links) == REG_INC)
-		/* Count (weighted) references, stores, etc.  This counts a
-		   register twice if it is modified, but that is correct.  */
-		REG_N_SETS (REGNO (XEXP (links, 0)))++;
+	      rtx links;
+
+	      /* This call will increment REG_N_SETS for each SET or CLOBBER
+		 of a register in INSN.  It will also increment REG_N_REFS
+		 by the loop depth for each set of a register in INSN.  */
+	      count_reg_sets (PATTERN (insn));
+
+	      /* count_reg_sets does not detect autoincrement address modes, so
+		 detect them here by looking at the notes attached to INSN.  */
+	      for (links = REG_NOTES (insn); links; links = XEXP (links, 1))
+		{
+		  if (REG_NOTE_KIND (links) == REG_INC)
+		    /* Count (weighted) references, stores, etc.  This counts a
+		       register twice if it is modified, but that is correct.  */
+		    REG_N_SETS (REGNO (XEXP (links, 0)))++;
+		}
+
+	      /* This call will increment REG_N_REFS by the current loop depth for
+		 each reference to a register in INSN.  */
+	      count_reg_references (PATTERN (insn));
+
+	      /* count_reg_references will not include counts for arguments to
+		 function calls, so detect them here by examining the
+		 CALL_INSN_FUNCTION_USAGE data.  */
+	      if (GET_CODE (insn) == CALL_INSN)
+		{
+		  rtx note;
+
+		  for (note = CALL_INSN_FUNCTION_USAGE (insn);
+		       note;
+		       note = XEXP (note, 1))
+		    if (GET_CODE (XEXP (note, 0)) == USE)
+		      count_reg_references (XEXP (XEXP (note, 0), 0));
+		}
 	    }
-
-	  /* This call will increment REG_N_REFS by the current loop depth for
-	     each reference to a register in INSN.  */
-	  count_reg_references (PATTERN (insn));
-
-	  /* count_reg_references will not include counts for arguments to
-	     function calls, so detect them here by examining the
-	     CALL_INSN_FUNCTION_USAGE data.  */
-	  if (GET_CODE (insn) == CALL_INSN)
-	    {
-	      rtx note;
-
-	      for (note = CALL_INSN_FUNCTION_USAGE (insn);
-		   note;
-		   note = XEXP (note, 1))
-		if (GET_CODE (XEXP (note, 0)) == USE)
-		  count_reg_references (XEXP (XEXP (note, 0), 0));
-	    }
+	  if (insn == bb->end)
+	    break;
 	}
     }
 }
 
 /* Optionally removes all the REG_DEAD and REG_UNUSED notes from a set of
-   blocks.  Returns a count of the number of registers that died.  */
+   blocks.  If BLOCKS is NULL, assume the universal set.  Returns a count
+   of the number of registers that died.  */
 
 int
 count_or_remove_death_notes (blocks, kill)
@@ -5720,7 +5647,7 @@ count_or_remove_death_notes (blocks, kill)
       basic_block bb;
       rtx insn;
 
-      if (! TEST_BIT (blocks, i))
+      if (blocks && ! TEST_BIT (blocks, i))
 	continue;
 
       bb = BASIC_BLOCK (i);
@@ -5835,8 +5762,7 @@ verify_flow_info ()
   rtx x;
   int i, err = 0;
 
-  bb_info = (basic_block *) alloca (max_uid * sizeof (basic_block));
-  memset (bb_info, 0, max_uid * sizeof (basic_block));
+  bb_info = (basic_block *) xcalloc (max_uid, sizeof (basic_block));
 
   /* First pass check head/end pointers and set bb_info array used by
      later passes.  */
@@ -6031,6 +5957,9 @@ verify_flow_info ()
 
   if (err)
     abort ();
+
+  /* Clean up.  */
+  free (bb_info);
 }
 
 /* Functions to access an edge list with a vector representation.
@@ -6071,10 +6000,10 @@ create_edge_list ()
   for (e = ENTRY_BLOCK_PTR->succ; e; e = e->succ_next)
     num_edges++;
 
-  elist = xmalloc (sizeof (struct edge_list));
+  elist = (struct edge_list *) xmalloc (sizeof (struct edge_list));
   elist->num_blocks = block_count;
   elist->num_edges = num_edges;
-  elist->index_to_edge = xmalloc (sizeof (edge) * num_edges);
+  elist->index_to_edge = (edge *) xmalloc (sizeof (edge) * num_edges);
 
   num_edges = 0;
 
@@ -6375,4 +6304,694 @@ add_noreturn_fake_exit_edges ()
   for (x = 0; x < n_basic_blocks; x++)
     if (BASIC_BLOCK (x)->succ == NULL)
       make_edge (NULL, BASIC_BLOCK (x), EXIT_BLOCK_PTR, EDGE_FAKE);
+}
+
+/* Dump the list of basic blocks in the bitmap NODES.  */
+static void 
+flow_nodes_print (str, nodes, file)
+     const char *str;
+     const sbitmap nodes;
+     FILE *file;
+{
+  int node;
+
+  fprintf (file, "%s { ", str);
+  EXECUTE_IF_SET_IN_SBITMAP (nodes, 0, node, {fprintf (file, "%d ", node);});
+  fputs ("}\n", file);
+}
+
+
+/* Dump the list of exiting edges in the array EDGES.  */
+static void 
+flow_exits_print (str, edges, num_edges, file)
+     const char *str;
+     const edge *edges;
+     int num_edges;
+     FILE *file;
+{
+  int i;
+
+  fprintf (file, "%s { ", str);
+  for (i = 0; i < num_edges; i++)
+    fprintf (file, "%d->%d ", edges[i]->src->index, edges[i]->dest->index);
+  fputs ("}\n", file);
+}
+
+
+/* Dump loop related CFG information.  */
+static void
+flow_loops_cfg_dump (loops, file)
+     const struct loops *loops;
+     FILE *file;
+{
+  int i;
+
+  if (! loops->num || ! file || ! loops->cfg.dom)
+    return;
+
+  for (i = 0; i < n_basic_blocks; i++)
+    {
+      edge succ;
+
+      fprintf (file, ";; %d succs { ", i);
+      for (succ = BASIC_BLOCK (i)->succ; succ; succ = succ->succ_next)
+	fprintf (file, "%d ", succ->dest->index);
+      flow_nodes_print ("} dom", loops->cfg.dom[i], file);	
+    }
+
+
+  /* Dump the DFS node order.  */
+  if (loops->cfg.dfs_order)
+    {
+      fputs (";; DFS order: ", file);
+      for (i = 0; i < n_basic_blocks; i++)
+	fprintf (file, "%d ", loops->cfg.dfs_order[i]);
+      fputs ("\n", file);
+    }
+}
+
+
+/* Return non-zero if the nodes of LOOP are a subset of OUTER.  */
+static int
+flow_loop_nested_p (outer, loop)
+     struct loop *outer;
+     struct loop *loop;
+{
+  return sbitmap_a_subset_b_p (loop->nodes, outer->nodes);
+}
+
+
+/* Dump the loop information specified by LOOPS to the stream FILE.  */
+void 
+flow_loops_dump (loops, file, verbose)
+     const struct loops *loops;
+     FILE *file;
+     int verbose;
+{
+  int i;
+  int num_loops;
+
+  num_loops = loops->num;
+  if (! num_loops || ! file)
+    return;
+
+  fprintf (file, ";; %d loops found\n", num_loops);
+
+  for (i = 0; i < num_loops; i++)
+    {
+      struct loop *loop = &loops->array[i];
+
+      fprintf (file, ";; loop %d (%d to %d):\n;;   header %d, latch %d, pre-header %d, depth %d, level %d, outer %ld\n",
+	       i, INSN_UID (loop->header->head), INSN_UID (loop->latch->end),
+	       loop->header->index, loop->latch->index,
+	       loop->pre_header ? loop->pre_header->index : -1, 
+	       loop->depth, loop->level,
+	       (long) (loop->outer ? (loop->outer - loops->array) : -1));
+      fprintf (file, ";;   %d", loop->num_nodes);
+      flow_nodes_print (" nodes", loop->nodes, file);
+      fprintf (file, ";;   %d", loop->num_exits);
+      flow_exits_print (" exits", loop->exits, loop->num_exits, file);
+
+      if (loop->shared)
+	{
+	  int j;
+
+	  for (j = 0; j < i; j++)
+	    {
+	      struct loop *oloop = &loops->array[j];
+
+	      if (loop->header == oloop->header)
+		{
+		  int disjoint;
+		  int smaller;
+
+		  smaller = loop->num_nodes < oloop->num_nodes;
+
+		  /* If the union of LOOP and OLOOP is different than
+		     the larger of LOOP and OLOOP then LOOP and OLOOP
+		     must be disjoint.  */
+		  disjoint = ! flow_loop_nested_p (smaller ? loop : oloop,
+						   smaller ? oloop : loop);
+		  fprintf (file, ";; loop header %d shared by loops %d, %d %s\n",
+			   loop->header->index, i, j,
+			   disjoint ? "disjoint" : "nested");
+		}
+	    }
+	}
+
+      if (verbose)
+	{
+	  /* Print diagnostics to compare our concept of a loop with
+	     what the loop notes say.  */
+	  if (GET_CODE (PREV_INSN (loop->header->head)) != NOTE
+	      || NOTE_LINE_NUMBER (PREV_INSN (loop->header->head))
+	      != NOTE_INSN_LOOP_BEG)
+	    fprintf (file, ";; No NOTE_INSN_LOOP_BEG at %d\n", 
+		     INSN_UID (PREV_INSN (loop->header->head)));
+	  if (GET_CODE (NEXT_INSN (loop->latch->end)) != NOTE
+	      || NOTE_LINE_NUMBER (NEXT_INSN (loop->latch->end))
+	      != NOTE_INSN_LOOP_END)
+	    fprintf (file, ";; No NOTE_INSN_LOOP_END at %d\n",
+		     INSN_UID (NEXT_INSN (loop->latch->end)));
+	}
+    }
+
+  if (verbose)
+    flow_loops_cfg_dump (loops, file);
+}
+
+
+/* Free all the memory allocated for LOOPS.  */
+void 
+flow_loops_free (loops)
+       struct loops *loops;
+{
+  if (loops->array)
+    {
+      int i;
+
+      if (! loops->num)
+	abort ();
+
+      /* Free the loop descriptors.  */
+      for (i = 0; i < loops->num; i++)
+	{
+	  struct loop *loop = &loops->array[i];
+	  
+	  if (loop->nodes)
+	    sbitmap_free (loop->nodes);
+	  if (loop->exits)
+	    free (loop->exits);
+	}
+      free (loops->array);
+      loops->array = NULL;
+      
+      if (loops->cfg.dom)
+	sbitmap_vector_free (loops->cfg.dom);
+      if (loops->cfg.dfs_order)
+	free (loops->cfg.dfs_order);
+
+      sbitmap_free (loops->shared_headers);
+    }
+}
+
+
+/* Find the exits from the loop using the bitmap of loop nodes NODES
+   and store in EXITS array.  Return the number of exits from the
+   loop.  */
+static int
+flow_loop_exits_find (nodes, exits)
+     const sbitmap nodes;
+     edge **exits;
+{
+  edge e;
+  int node;
+  int num_exits;
+
+  *exits = NULL;
+
+  /* Check all nodes within the loop to see if there are any
+     successors not in the loop.  Note that a node may have multiple
+     exiting edges.  */
+  num_exits = 0;
+  EXECUTE_IF_SET_IN_SBITMAP (nodes, 0, node, {
+    for (e = BASIC_BLOCK (node)->succ; e; e = e->succ_next)
+      {
+	basic_block dest = e->dest;	  
+
+	if (dest == EXIT_BLOCK_PTR || ! TEST_BIT (nodes, dest->index))
+	    num_exits++;
+      }
+  });
+
+  if (! num_exits)
+    return 0;
+
+  *exits = (edge *) xmalloc (num_exits * sizeof (edge *));
+
+  /* Store all exiting edges into an array.  */
+  num_exits = 0;
+  EXECUTE_IF_SET_IN_SBITMAP (nodes, 0, node, {
+    for (e = BASIC_BLOCK (node)->succ; e; e = e->succ_next)
+      {
+	basic_block dest = e->dest;	  
+
+	if (dest == EXIT_BLOCK_PTR || ! TEST_BIT (nodes, dest->index))
+	  (*exits)[num_exits++] = e;
+      }
+  });
+
+  return num_exits;
+}
+
+
+/* Find the nodes contained within the loop with header HEADER and
+   latch LATCH and store in NODES.  Return the number of nodes within
+   the loop.  */
+static int 
+flow_loop_nodes_find (header, latch, nodes)
+     basic_block header;
+     basic_block latch;
+     sbitmap nodes;
+{
+  basic_block *stack;
+  int sp;
+  int num_nodes = 0;
+
+  stack = (basic_block *) xmalloc (n_basic_blocks * sizeof (basic_block));
+  sp = 0;
+
+  /* Start with only the loop header in the set of loop nodes.  */
+  sbitmap_zero (nodes);
+  SET_BIT (nodes, header->index);
+  num_nodes++;
+  header->loop_depth++;
+
+  /* Push the loop latch on to the stack.  */
+  if (! TEST_BIT (nodes, latch->index))
+    {
+      SET_BIT (nodes, latch->index);
+      latch->loop_depth++;
+      num_nodes++;
+      stack[sp++] = latch;
+    }
+
+  while (sp)
+    {
+      basic_block node;
+      edge e;
+
+      node = stack[--sp];
+      for (e = node->pred; e; e = e->pred_next)
+	{
+	  basic_block ancestor = e->src;
+	  
+	  /* If each ancestor not marked as part of loop, add to set of
+	     loop nodes and push on to stack.  */
+	  if (ancestor != ENTRY_BLOCK_PTR
+	      && ! TEST_BIT (nodes, ancestor->index))
+	    {
+	      SET_BIT (nodes, ancestor->index);
+	      ancestor->loop_depth++;
+	      num_nodes++;
+	      stack[sp++] = ancestor;
+	    }
+	}
+    }
+  free (stack);
+  return num_nodes;
+}
+
+
+/* Compute the depth first search order and store in the array
+   DFS_ORDER, marking the nodes visited in VISITED.  Returns the
+   number of nodes visited.  */
+static int
+flow_depth_first_order_compute (dfs_order)
+     int *dfs_order;
+{
+  edge e;
+  edge *stack;
+  int sp;
+  int dfsnum = 0;
+  sbitmap visited;
+
+  /* Allocate stack for back-tracking up CFG.  */
+  stack = (edge *) xmalloc (n_basic_blocks * sizeof (edge));
+  sp = 0;
+
+  /* Allocate bitmap to track nodes that have been visited.  */
+  visited = sbitmap_alloc (n_basic_blocks);
+
+  /* None of the nodes in the CFG have been visited yet.  */
+  sbitmap_zero (visited);
+  
+  /* Start with the first successor edge from the entry block.  */
+  e = ENTRY_BLOCK_PTR->succ;
+  while (e)
+    {
+      basic_block src = e->src;
+      basic_block dest = e->dest;
+      
+      /* Mark that we have visited this node.  */
+      if (src != ENTRY_BLOCK_PTR)
+	SET_BIT (visited, src->index);
+
+      /* If this node has not been visited before, push the current
+	 edge on to the stack and proceed with the first successor
+	 edge of this node.  */
+      if (dest != EXIT_BLOCK_PTR && ! TEST_BIT (visited, dest->index)
+	  && dest->succ)
+	{
+	  stack[sp++] = e;
+	  e = dest->succ;
+	}
+      else
+	{
+	  if (dest != EXIT_BLOCK_PTR && ! TEST_BIT (visited, dest->index)
+	      && ! dest->succ)
+	    {
+	      /* DEST has no successors (for example, a non-returning
+                 function is called) so do not push the current edge
+                 but carry on with its next successor.  */
+	      dfs_order[dest->index] = n_basic_blocks - ++dfsnum;
+	      SET_BIT (visited, dest->index);
+	    }
+
+	  while (! e->succ_next && src != ENTRY_BLOCK_PTR)
+	    {
+	      dfs_order[src->index] = n_basic_blocks - ++dfsnum;
+
+	      /* Pop edge off stack.  */
+	      e = stack[--sp];
+	      src = e->src;
+	    }
+	  e = e->succ_next;
+	}
+    }
+  free (stack);
+  sbitmap_free (visited);
+
+  /* The number of nodes visited should not be greater than
+     n_basic_blocks.  */
+  if (dfsnum > n_basic_blocks)
+    abort ();
+
+  /* There are some nodes left in the CFG that are unreachable.  */
+  if (dfsnum < n_basic_blocks)
+    abort ();
+  return dfsnum;
+}
+
+
+/* Return the block for the pre-header of the loop with header
+   HEADER where DOM specifies the dominator information.  Return NULL if
+   there is no pre-header.  */
+static basic_block
+flow_loop_pre_header_find (header, dom)
+     basic_block header;
+     const sbitmap *dom;     
+{
+  basic_block pre_header;
+  edge e;
+
+  /* If block p is a predecessor of the header and is the only block
+     that the header does not dominate, then it is the pre-header.  */
+  pre_header = NULL;
+  for (e = header->pred; e; e = e->pred_next)
+    {
+      basic_block node = e->src;
+      
+      if (node != ENTRY_BLOCK_PTR
+	  && ! TEST_BIT (dom[node->index], header->index))
+	{
+	  if (pre_header == NULL)
+	    pre_header = node;
+	  else
+	    {
+	      /* There are multiple edges into the header from outside 
+		 the loop so there is no pre-header block.  */
+	      pre_header = NULL;
+	      break;
+	    }
+	}
+    }
+  return pre_header;
+}
+
+
+/* Add LOOP to the loop hierarchy tree so that it is a sibling or a
+   descendant of ROOT.  */
+static void
+flow_loop_tree_node_add (root, loop)
+     struct loop *root;
+     struct loop *loop;
+{
+  struct loop *outer;
+
+  if (! loop)
+    return;
+
+  for (outer = root; outer; outer = outer->next)
+    {
+      if (flow_loop_nested_p (outer, loop))
+	{
+	  if (outer->inner)
+	    {
+	      /* Add LOOP as a sibling or descendent of OUTER->INNER.  */
+	      flow_loop_tree_node_add (outer->inner, loop);
+	    }
+	  else
+	    {
+	      /* Add LOOP as child of OUTER.  */
+	      outer->inner = loop;
+	      loop->outer = outer;
+	      loop->next = NULL;
+	    }
+	  return;
+	}
+    }
+  /* Add LOOP as a sibling of ROOT.  */
+  loop->next = root->next;
+  root->next = loop;
+  loop->outer = root->outer;
+}
+
+
+/* Build the loop hierarchy tree for LOOPS.  */
+static void
+flow_loops_tree_build (loops)
+       struct loops *loops;
+{
+  int i;
+  int num_loops;
+
+  num_loops = loops->num;
+  if (! num_loops)
+    return;
+
+  /* Root the loop hierarchy tree with the first loop found.
+     Since we used a depth first search this should be the 
+     outermost loop.  */
+  loops->tree = &loops->array[0];
+  loops->tree->outer = loops->tree->inner = loops->tree->next = NULL;
+
+  /* Add the remaining loops to the tree.  */
+  for (i = 1; i < num_loops; i++)
+    flow_loop_tree_node_add (loops->tree, &loops->array[i]);
+}
+
+
+/* Helper function to compute loop nesting depth and enclosed loop level
+   for the natural loop specified by LOOP at the loop depth DEPTH.   
+   Returns the loop level.  */
+static int
+flow_loop_level_compute (loop, depth)
+     struct loop *loop;
+     int depth;
+{
+  struct loop *inner;
+  int level = 0;
+
+  if (! loop)
+    return 0;
+
+  /* Traverse loop tree assigning depth and computing level as the
+     maximum level of all the inner loops of this loop.  The loop
+     level is equivalent to the height of the loop in the loop tree
+     and corresponds to the number of enclosed loop levels.  */
+  for (inner = loop->inner; inner; inner = inner->next)
+    {
+      int ilevel;
+
+      ilevel = flow_loop_level_compute (inner, depth + 1) + 1;
+
+      if (ilevel > level)
+	level = ilevel;
+    }
+  loop->level = level;
+  loop->depth = depth;
+  return level;
+}
+
+
+/* Compute the loop nesting depth and enclosed loop level for the loop
+   hierarchy tree specfied by LOOPS.  Return the maximum enclosed loop
+   level.  */
+
+static int 
+flow_loops_level_compute (loops)
+     struct loops *loops;
+{
+  return flow_loop_level_compute (loops->tree, 1);
+}
+
+
+/* Find all the natural loops in the function and save in LOOPS structure
+   and recalculate loop_depth information in basic block structures.
+   Return the number of natural loops found.  */
+
+int 
+flow_loops_find (loops)
+       struct loops *loops;
+{
+  int i;
+  int b;
+  int num_loops;
+  edge e;
+  sbitmap headers;
+  sbitmap *dom;
+  int *dfs_order;
+  
+  loops->num = 0;
+  loops->array = NULL;
+  loops->tree = NULL;
+  dfs_order = NULL;
+
+  /* Taking care of this degenerate case makes the rest of
+     this code simpler.  */
+  if (n_basic_blocks == 0)
+    return 0;
+
+  /* Compute the dominators.  */
+  dom = sbitmap_vector_alloc (n_basic_blocks, n_basic_blocks);
+  compute_flow_dominators (dom, NULL);
+
+  /* Count the number of loop edges (back edges).  This should be the
+     same as the number of natural loops.  Also clear the loop_depth
+     and as we work from inner->outer in a loop nest we call
+     find_loop_nodes_find which will increment loop_depth for nodes
+     within the current loop, which happens to enclose inner loops.  */
+
+  num_loops = 0;
+  for (b = 0; b < n_basic_blocks; b++)
+    {
+      BASIC_BLOCK (b)->loop_depth = 0;
+      for (e = BASIC_BLOCK (b)->pred; e; e = e->pred_next)
+	{
+	  basic_block latch = e->src;
+	  
+	  /* Look for back edges where a predecessor is dominated
+	     by this block.  A natural loop has a single entry
+	     node (header) that dominates all the nodes in the
+	     loop.  It also has single back edge to the header
+	     from a latch node.  Note that multiple natural loops
+	     may share the same header.  */
+	  if (latch != ENTRY_BLOCK_PTR && TEST_BIT (dom[latch->index], b))
+	    num_loops++;
+	}
+    }
+  
+  if (num_loops)
+    {
+      /* Compute depth first search order of the CFG so that outer
+	 natural loops will be found before inner natural loops.  */
+      dfs_order = (int *) xmalloc (n_basic_blocks * sizeof (int));
+      flow_depth_first_order_compute (dfs_order);
+
+      /* Allocate loop structures.  */
+      loops->array
+	= (struct loop *) xcalloc (num_loops, sizeof (struct loop));
+      
+      headers = sbitmap_alloc (n_basic_blocks);
+      sbitmap_zero (headers);
+
+      loops->shared_headers = sbitmap_alloc (n_basic_blocks);
+      sbitmap_zero (loops->shared_headers);
+
+      /* Find and record information about all the natural loops
+	 in the CFG.  */
+      num_loops = 0;
+      for (b = 0; b < n_basic_blocks; b++)
+	{
+	  basic_block header;
+
+	  /* Search the nodes of the CFG in DFS order that we can find
+	     outer loops first.  */
+	  header = BASIC_BLOCK (dfs_order[b]);
+	  
+	  /* Look for all the possible latch blocks for this header.  */
+	  for (e = header->pred; e; e = e->pred_next)
+	    {
+	      basic_block latch = e->src;
+	      
+	      /* Look for back edges where a predecessor is dominated
+		 by this block.  A natural loop has a single entry
+		 node (header) that dominates all the nodes in the
+		 loop.  It also has single back edge to the header
+		 from a latch node.  Note that multiple natural loops
+		 may share the same header.  */
+	      if (latch != ENTRY_BLOCK_PTR
+		  && TEST_BIT (dom[latch->index], header->index))
+		{
+		  struct loop *loop;
+		  
+		  loop = loops->array + num_loops;
+		  
+		  loop->header = header;
+		  loop->latch = latch;
+		  
+		  /* Keep track of blocks that are loop headers so
+		     that we can tell which loops should be merged.  */
+		  if (TEST_BIT (headers, header->index))
+		    SET_BIT (loops->shared_headers, header->index);
+		  SET_BIT (headers, header->index);
+		  
+		  /* Find nodes contained within the loop.  */
+		  loop->nodes = sbitmap_alloc (n_basic_blocks);
+		  loop->num_nodes
+		    = flow_loop_nodes_find (header, latch, loop->nodes);
+		  
+		  /* Find edges which exit the loop.  Note that a node
+		     may have several exit edges.  */
+		  loop->num_exits
+		    = flow_loop_exits_find (loop->nodes, &loop->exits);
+
+		  /* Look to see if the loop has a pre-header node.  */
+		  loop->pre_header 
+		    = flow_loop_pre_header_find (header, dom);
+
+		  num_loops++;
+		}
+	    }
+	}
+      
+      /* Natural loops with shared headers may either be disjoint or
+	 nested.  Disjoint loops with shared headers cannot be inner
+	 loops and should be merged.  For now just mark loops that share
+	 headers.  */
+      for (i = 0; i < num_loops; i++)
+	if (TEST_BIT (loops->shared_headers, loops->array[i].header->index))
+	  loops->array[i].shared = 1;
+
+      sbitmap_free (headers);
+    }
+
+  loops->num = num_loops;
+
+  /* Save CFG derived information to avoid recomputing it.  */
+  loops->cfg.dom = dom;
+  loops->cfg.dfs_order = dfs_order;
+
+  /* Build the loop hierarchy tree.  */
+  flow_loops_tree_build (loops);
+
+  /* Assign the loop nesting depth and enclosed loop level for each
+     loop.  */
+  flow_loops_level_compute (loops);
+
+  return num_loops;
+}
+
+
+/* Return non-zero if edge E enters header of LOOP from outside of LOOP.  */
+int
+flow_loop_outside_edge_p (loop, e)
+     const struct loop *loop;
+     edge e;
+{
+  if (e->dest != loop->header)
+    abort ();
+  return (e->src == ENTRY_BLOCK_PTR)
+    || ! TEST_BIT (loop->nodes, e->src->index);
 }

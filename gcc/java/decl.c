@@ -337,7 +337,7 @@ tree soft_newarray_node;
 tree soft_anewarray_node;
 tree soft_multianewarray_node;
 tree soft_badarrayindex_node;
-tree throw_node;
+tree throw_node [2];
 tree soft_checkarraystore_node;
 tree soft_monitorenter_node;
 tree soft_monitorexit_node;
@@ -699,15 +699,25 @@ init_decl_processing ()
   alloc_object_node = builtin_function ("_Jv_AllocObject",
 					build_function_type (ptr_type_node, t),
 					0, NOT_BUILT_IN, NULL_PTR);
+  DECL_IS_MALLOC (alloc_object_node) = 1;
   soft_initclass_node = builtin_function ("_Jv_InitClass",
 					  build_function_type (void_type_node,
 							       t),
 					  0, NOT_BUILT_IN,
 					  NULL_PTR);
   t = tree_cons (NULL_TREE, ptr_type_node, endlink);
-  throw_node = builtin_function ("_Jv_Throw",
-				 build_function_type (ptr_type_node, t),
-				 0, NOT_BUILT_IN, NULL_PTR);
+  throw_node[0] = builtin_function ("_Jv_Throw",
+				    build_function_type (ptr_type_node, t),
+				    0, NOT_BUILT_IN, NULL_PTR);
+  /* Mark throw_nodes as `noreturn' functions with side effects.  */
+  TREE_THIS_VOLATILE (throw_node[0]) = 1;
+  TREE_SIDE_EFFECTS (throw_node[0]) = 1;
+  t = tree_cons (NULL_TREE, ptr_type_node, endlink);
+  throw_node[1] = builtin_function ("_Jv_Sjlj_Throw",
+				    build_function_type (ptr_type_node, t),
+				    0, NOT_BUILT_IN, NULL_PTR);
+  TREE_THIS_VOLATILE (throw_node[1]) = 1;
+  TREE_SIDE_EFFECTS (throw_node[1]) = 1;
   t = build_function_type (int_type_node, endlink);
   soft_monitorenter_node 
     = builtin_function ("_Jv_MonitorEnter", t, 0, NOT_BUILT_IN,
@@ -722,6 +732,7 @@ init_decl_processing ()
       = builtin_function ("_Jv_NewArray",
 			  build_function_type(ptr_type_node, t),
 			  0, NOT_BUILT_IN, NULL_PTR);
+  DECL_IS_MALLOC (soft_newarray_node) = 1;
 
   t = tree_cons (NULL_TREE, int_type_node,
 		 tree_cons (NULL_TREE, class_ptr_type,
@@ -730,6 +741,7 @@ init_decl_processing ()
       = builtin_function ("_Jv_NewObjectArray",
 			  build_function_type (ptr_type_node, t),
 			  0, NOT_BUILT_IN, NULL_PTR);
+  DECL_IS_MALLOC (soft_anewarray_node) = 1;
 
   t = tree_cons (NULL_TREE, ptr_type_node,
 		 tree_cons (NULL_TREE, int_type_node, endlink));
@@ -737,12 +749,15 @@ init_decl_processing ()
       = builtin_function ("_Jv_NewMultiArray",
 			  build_function_type (ptr_type_node, t),
 			  0, NOT_BUILT_IN, NULL_PTR);
+  DECL_IS_MALLOC (soft_multianewarray_node) = 1;
 
   t = build_function_type (void_type_node, 
 			   tree_cons (NULL_TREE, int_type_node, endlink));
   soft_badarrayindex_node
       = builtin_function ("_Jv_ThrowBadArrayIndex", t, 
 			  0, NOT_BUILT_IN, NULL_PTR);
+  /* Mark soft_badarrayindex_node as a `noreturn' function with side
+     effects.  */
   TREE_THIS_VOLATILE (soft_badarrayindex_node) = 1;
   TREE_SIDE_EFFECTS (soft_badarrayindex_node) = 1;
 
@@ -1192,9 +1207,7 @@ poplevel (keep, reverse, functionbody)
   if (block != 0)
     {
       BLOCK_VARS (block) = decls;
-      BLOCK_TYPE_TAGS (block) = NULL_TREE;
       BLOCK_SUBBLOCKS (block) = subblocks;
-      remember_end_note (block);
     }
 
   /* In each subblock, record that this is its superior.  */

@@ -37,9 +37,6 @@ Boston, MA 02111-1307, USA.  */
 
 #include "mips/mips.h"
 
-#undef MULTILIB_DEFAULTS
-#define MULTILIB_DEFAULTS { MULTILIB_ENDIAN_DEFAULT, "mips3" }
-
 #undef CPP_PREDEFINES
 #define CPP_PREDEFINES "-Dmips -DMIPSEB -DR4000 -D_mips -D_MIPSEB -D_R4000"
 
@@ -196,20 +193,24 @@ do {									 \
 do {									   \
   int len, size, sec;							   \
   char *name, *string, *prefix;						   \
-  static char *prefixes[4][2] = {					   \
+  static char *prefixes[5][2] = {					   \
     { ".text.", ".gnu.linkonce.t." },					   \
     { ".rodata.", ".gnu.linkonce.r." },					   \
     { ".data.", ".gnu.linkonce.d." },					   \
-    { ".sdata.", ".gnu.linkonce.s." }					   \
+    { ".sdata.", ".gnu.linkonce.s." },					   \
+    { "", "" }								   \
   };									   \
 									   \
   name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (DECL));		   \
   size = int_size_in_bytes (TREE_TYPE (decl));				   \
 									   \
   /* Determine the base section we are interested in:			   \
-     0=text, 1=rodata, 2=data, 3=sdata.  */				   \
+     0=text, 1=rodata, 2=data, 3=sdata, [4=bss].  */			   \
   if (TREE_CODE (DECL) == FUNCTION_DECL)				   \
     sec = 0;								   \
+  else if (DECL_INITIAL (DECL) == 0					   \
+           || DECL_INITIAL (DECL) == error_mark_node)			   \
+    sec = 4;								   \
   else if ((TARGET_EMBEDDED_PIC || TARGET_MIPS16)			   \
       && TREE_CODE (decl) == STRING_CST					   \
       && !flag_writable_strings)					   \
@@ -280,8 +281,6 @@ do {									   \
 #define EXTRA_SECTIONS in_sdata, in_rdata, in_ctors, in_dtors
  
 #define INVOKE__main
-#define NAME__MAIN "__gccmain"
-#define SYMBOL__MAIN __gccmain
 
 #undef EXTRA_SECTION_FUNCTIONS
 #define EXTRA_SECTION_FUNCTIONS                                         \
@@ -343,7 +342,7 @@ func_ptr __DTOR_END__[1] = { (func_ptr) 0 };
 #define LIB_SPEC ""
 
 #undef  STARTFILE_SPEC
-#define STARTFILE_SPEC "crtbegin%O%s crt0%O%s"
+#define STARTFILE_SPEC "crtbegin%O%s %{!mno-crt0:crt0%O%s}"
 
 #undef  ENDFILE_SPEC
 #define ENDFILE_SPEC "crtend%O%s"

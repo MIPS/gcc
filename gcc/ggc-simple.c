@@ -25,7 +25,6 @@
 #include "tm_p.h"
 #include "flags.h"
 #include "varray.h"
-#include "hash.h"
 #include "ggc.h"
 
 #ifndef offsetof
@@ -48,10 +47,12 @@
 /* Always verify that the to-be-marked memory is collectable.  */
 #undef GGC_ALWAYS_VERIFY
 
-#ifdef ENABLE_CHECKING
+#ifdef ENABLE_GC_CHECKING
 #define GGC_POISON
-#define GGC_ALWAYS_COLLECT
 #define GGC_ALWAYS_VERIFY
+#endif
+#ifdef ENABLE_GC_ALWAYS_COLLECT
+#define GGC_ALWAYS_COLLECT
 #endif
 
 /* Constants for general use.  */
@@ -200,6 +201,10 @@ ggc_alloc_obj (size, zero)
 
   if (zero)
     memset (&x->u, 0, size);
+#ifdef GGC_POISON
+  else
+    memset (&x->u, 0xaf, size);
+#endif
 
   tree_insert (x);
   G.allocated += size;
@@ -232,6 +237,8 @@ ggc_set_mark (p)
   return 0;
 }
 
+/* Mark a node, but check first to see that it's really gc-able memory.  */
+
 void
 ggc_mark_if_gcable (p)
      void *p;
@@ -253,6 +260,19 @@ ggc_mark_if_gcable (p)
   G.objects += 1;
 }
 
+/* Return the size of the gc-able object P.  */
+
+size_t
+ggc_get_size (p)
+     void *p;
+{
+  struct ggc_mem *x 
+    = (struct ggc_mem *) ((char *)p - offsetof (struct ggc_mem, u));
+  return x->size;
+}
+
+/* Unmark all objects.  */
+
 static void
 clear_marks (x)
      struct ggc_mem *x;
@@ -263,6 +283,8 @@ clear_marks (x)
   if (x->sub[1])
     clear_marks (x->sub[1]);
 }
+
+/* Free all objects in the current context that are not marked.  */
 
 static void
 sweep_objs (root)

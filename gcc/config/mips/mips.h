@@ -209,6 +209,8 @@ extern void		sbss_section PARAMS ((void));
 #define MASK_MIPS16	0x01000000	/* Generate mips16 code */
 #define MASK_NO_CHECK_ZERO_DIV 0x04000000	/* divide by zero checking */
 #define MASK_CHECK_RANGE_DIV 0x08000000	/* divide result range checking */
+#define MASK_UNINIT_CONST_IN_RODATA 0x10000000	/* Store uninitialized
+						   consts in rodata */
 
 					/* Dummy switches used only in spec's*/
 #define MASK_MIPS_TFILE	0x00000000	/* flag for mips-tfile usage */
@@ -288,6 +290,11 @@ extern void		sbss_section PARAMS ((void));
 					   fastest code.  */
 #define TARGET_EMBEDDED_DATA	(target_flags & MASK_EMBEDDED_DATA)
 
+					/* always store uninitialized const
+					   variables in rodata, requires
+					   TARGET_EMBEDDED_DATA. */
+#define TARGET_UNINIT_CONST_IN_RODATA	(target_flags & MASK_UNINIT_CONST_IN_RODATA)
+
 					/* generate big endian code.  */
 #define TARGET_BIG_ENDIAN	(target_flags & MASK_BIG_ENDIAN)
 
@@ -322,6 +329,8 @@ extern void		sbss_section PARAMS ((void));
 
 #define TARGET_SWITCHES							\
 {									\
+  {"no-crt0",          0,                                               \
+     "No default crt0.o" },					 	\
   {"int64",		  MASK_INT64 | MASK_LONG64,			\
      "Use 64-bit int type"},						\
   {"long64",		  MASK_LONG64,					\
@@ -392,6 +401,10 @@ extern void		sbss_section PARAMS ((void));
      "Use ROM instead of RAM"},						\
   {"no-embedded-data",	 -MASK_EMBEDDED_DATA,				\
      "Don't use ROM instead of RAM"},					\
+  {"uninit-const-in-rodata", MASK_UNINIT_CONST_IN_RODATA,		\
+     "Put uninitialized constants in ROM (needs -membedded-data)"},	\
+  {"no-uninit-const-in-rodata", -MASK_UNINIT_CONST_IN_RODATA,		\
+     "Don't put uninitialized constants in ROM"},			\
   {"eb",		  MASK_BIG_ENDIAN,				\
      "Use big-endian byte order"},					\
   {"el",		 -MASK_BIG_ENDIAN,				\
@@ -464,6 +477,20 @@ extern void		sbss_section PARAMS ((void));
 #endif
 #endif
 
+#ifndef MIPS_ISA_DEFAULT
+#define MIPS_ISA_DEFAULT 1
+#endif
+
+#ifdef IN_LIBGCC2
+#undef TARGET_64BIT
+/* Make this compile time constant for libgcc2 */
+#ifdef __mips64
+#define TARGET_64BIT		1
+#else
+#define TARGET_64BIT		0
+#endif
+#endif /* IN_LIBGCC2 */
+
 #ifndef MULTILIB_ENDIAN_DEFAULT
 #if TARGET_ENDIAN_DEFAULT == 0
 #define MULTILIB_ENDIAN_DEFAULT "EL"
@@ -472,8 +499,22 @@ extern void		sbss_section PARAMS ((void));
 #endif
 #endif
 
+#ifndef MULTILIB_ISA_DEFAULT
+#if MIPS_ISA_DEFAULT == 1
+#define MULTILIB_ISA_DEFAULT "mips1"
+#elif MIPS_ISA_DEFAULT == 2
+#define MULTILIB_ISA_DEFAULT "mips2"
+#elif MIPS_ISA_DEFAULT == 3
+#define MULTILIB_ISA_DEFAULT "mips3"
+#elif MIPS_ISA_DEFAULT == 4
+#define MULTILIB_ISA_DEFAULT "mips4"
+#else
+#define MULTILIB_ISA_DEFAULT "mips1"
+#endif
+#endif
+
 #ifndef MULTILIB_DEFAULTS
-#define MULTILIB_DEFAULTS { MULTILIB_ENDIAN_DEFAULT, "mips1" }
+#define MULTILIB_DEFAULTS { MULTILIB_ENDIAN_DEFAULT, MULTILIB_ISA_DEFAULT }
 #endif
 
 /* We must pass -EL to the linker by default for little endian embedded
@@ -524,7 +565,7 @@ extern void		sbss_section PARAMS ((void));
 /* This is meant to be redefined in the host dependent files.  */
 #define SUBTARGET_TARGET_OPTIONS
 
-#define GENERATE_BRANCHLIKELY  (!TARGET_MIPS16 && (TARGET_MIPS3900 || (mips_isa >= 2)))
+#define GENERATE_BRANCHLIKELY  (!TARGET_MIPS16 && (TARGET_MIPS3900 || ISA_HAS_BRANCHLIKELY))
 
 /* Generate three-operand multiply instructions for both SImode and DImode.  */
 #define GENERATE_MULT3         (TARGET_MIPS3900				\
@@ -534,7 +575,32 @@ extern void		sbss_section PARAMS ((void));
    depending on the instruction set architecture level.  */
 
 #define BRANCH_LIKELY_P()	GENERATE_BRANCHLIKELY
-#define HAVE_SQRT_P()		(mips_isa >= 2)
+#define HAVE_SQRT_P()		(mips_isa != 1)
+
+/* ISA has instructions for managing 64 bit fp and gp regs (eg. mips3). */
+#define ISA_HAS_64BIT_REGS	(mips_isa == 3 || mips_isa == 4 	\
+                                )
+
+/* ISA has branch likely instructions (eg. mips2). */ 
+#define ISA_HAS_BRANCHLIKELY	(mips_isa != 1)
+
+/* ISA has the conditional move instructions introduced in mips4. */
+#define ISA_HAS_CONDMOVE        (mips_isa == 4				\
+				 )
+
+/* ISA has the mips4 FP condition code instructions: FP-compare to CC,
+   branch on CC, and move (both FP and non-FP) on CC. */
+#define ISA_HAS_8CC		(mips_isa == 4				\
+				)
+
+
+/* This is a catch all for the other new mips4 instructions: indexed load and
+   indexed prefetch instructions, the FP madd,msub,nmadd, and nmsub instructions, 
+   and the FP recip and recip sqrt instructions */
+#define ISA_HAS_FP4             (mips_isa == 4				\
+				)
+
+
 
 /* CC1_SPEC causes -mips3 and -mips4 to set -mfp64 and -mgp64; -mips1 or
    -mips2 sets -mfp32 and -mgp32.  This can be overridden by an explicit
@@ -604,7 +670,7 @@ do									\
 	for (regno = ST_REG_FIRST; regno <= ST_REG_LAST; regno++)	\
 	  fixed_regs[regno] = call_used_regs[regno] = 1;		\
       }									\
-    else if (mips_isa < 4)						\
+    else if (! ISA_HAS_8CC)						\
       {									\
 	int regno;							\
 									\
@@ -753,7 +819,7 @@ while (0)
 /* ASM_SPEC is the set of arguments to pass to the assembler.  */
 
 #define ASM_SPEC "\
-%{G*} %{EB} %{EL} %{mips1} %{mips2} %{mips3} %{mips4} \
+%{!membedded-pic:%{G*}} %{EB} %{EL} %{mips1} %{mips2} %{mips3} %{mips4} \
 %{mips16:%{!mno-mips16:-mips16}} %{mno-mips16:-no-mips16} \
 %(subtarget_asm_optimizing_spec) \
 %(subtarget_asm_debugging_spec) \
@@ -1968,20 +2034,6 @@ extern enum reg_class mips_char_to_class[];
 
 #define CLASS_CANNOT_CHANGE_SIZE					\
   (TARGET_FLOAT64 && ! TARGET_64BIT ? FP_REGS : NO_REGS)
-
-/* If defined, this is a C expression whose value should be
-   nonzero if the insn INSN has the effect of mysteriously
-   clobbering the contents of hard register number REGNO.  By
-   "mysterious" we mean that the insn's RTL expression doesn't
-   describe such an effect.
-
-   If this macro is not defined, it means that no insn clobbers
-   registers mysteriously.  This is the usual situation; all else
-   being equal, it is best for the RTL expression to show all the
-   activity.  */
-
-/* #define INSN_CLOBBERS_REGNO_P(INSN, REGNO) */
-
 
 /* Stack layout; function entry, exit and calling.  */
 
@@ -2752,17 +2804,19 @@ typedef struct mips_args {
       GO_DEBUG_RTX (xinsn);						\
     }									\
 									\
+  /* Check for constant before stripping off SUBREG, so that we don't	\
+     accept (subreg (const_int)) which will fail to reload. */   	\
+  if (CONSTANT_ADDRESS_P (xinsn)					\
+      && ! (mips_split_addresses && mips_check_split (xinsn, MODE))	\
+      && (! TARGET_MIPS16 || mips16_constant (xinsn, MODE, 1, 0)))	\
+    goto ADDR;								\
+									\
   while (GET_CODE (xinsn) == SUBREG)					\
     xinsn = SUBREG_REG (xinsn);						\
 									\
   /* The mips16 can only use the stack pointer as a base register when	\
      loading SImode or DImode values.  */				\
   if (GET_CODE (xinsn) == REG && REG_MODE_OK_FOR_BASE_P (xinsn, MODE))	\
-    goto ADDR;								\
-									\
-  if (CONSTANT_ADDRESS_P (xinsn)					\
-      && ! (mips_split_addresses && mips_check_split (xinsn, MODE))	\
-      && (! TARGET_MIPS16 || mips16_constant (xinsn, MODE, 1, 0)))	\
     goto ADDR;								\
 									\
   if (GET_CODE (xinsn) == LO_SUM && mips_split_addresses)		\
@@ -3155,6 +3209,16 @@ do									\
       }									\
   }									\
 while (0)
+
+/* This handles the magic '..CURRENT_FUNCTION' symbol, which means
+   'the start of the function that this code is output in'.  */
+
+#define ASM_OUTPUT_LABELREF(FILE,NAME)  \
+  if (strcmp (NAME, "..CURRENT_FUNCTION") == 0)				\
+    asm_fprintf ((FILE), "%U%s",					\
+		 XSTR (XEXP (DECL_RTL (current_function_decl), 0), 0));	\
+  else									\
+    asm_fprintf ((FILE), "%U%s", (NAME))
 
 /* The mips16 wants the constant pool to be after the function,
    because the PC relative load instructions use unsigned offsets.  */
@@ -4158,8 +4222,28 @@ while (0)
 
 /* This says how to define a global common symbol.  */
 
-#define ASM_OUTPUT_COMMON(STREAM, NAME, SIZE, ROUNDED)			\
-  mips_declare_object (STREAM, NAME, "\n\t.comm\t", ",%u\n", (SIZE))
+#define ASM_OUTPUT_ALIGNED_DECL_COMMON(STREAM, DECL, NAME, SIZE, ALIGN) \
+  do {									\
+    /* If the target wants uninitialized const declarations in		\
+       .rdata then don't put them in .comm */				\
+    if (TARGET_EMBEDDED_DATA && TARGET_UNINIT_CONST_IN_RODATA		\
+	&& TREE_CODE (DECL) == VAR_DECL && TREE_READONLY (DECL)		\
+	&& (DECL_INITIAL (DECL) == 0					\
+	    || DECL_INITIAL (DECL) == error_mark_node))			\
+      {									\
+	if (TREE_PUBLIC (DECL) && DECL_NAME (DECL))			\
+	  ASM_GLOBALIZE_LABEL (STREAM, NAME);				\
+	    								\
+	READONLY_DATA_SECTION ();					\
+	ASM_OUTPUT_ALIGN (STREAM, floor_log2 (ALIGN / BITS_PER_UNIT));	\
+	mips_declare_object (STREAM, NAME, "", ":\n\t.space\t%u\n",	\
+	    (SIZE));							\
+      }									\
+    else								\
+      mips_declare_object (STREAM, NAME, "\n\t.comm\t", ",%u\n",	\
+	  (SIZE));							\
+  } while (0)
+
 
 /* This says how to define a local common symbol (ie, not visible to
    linker).  */

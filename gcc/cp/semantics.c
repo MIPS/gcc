@@ -3,7 +3,7 @@
    building RTL.  These routines are used both during actual parsing
    and during the instantiation of template functions. 
 
-   Copyright (C) 1998, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2000 Free Software Foundation, Inc.
    Written by Mark Mitchell (mmitchell@usa.net) based on code found
    formerly in parse.y and pt.c.  
 
@@ -32,6 +32,9 @@
 #include "lex.h"
 #include "toplev.h"
 #include "flags.h"
+#include "ggc.h"
+#include "rtl.h"
+#include "output.h"
 
 /* There routines provide a modular interface to perform many parsing
    operations.  They may therefore be used during actual parsing, or
@@ -44,6 +47,7 @@
 
 static tree expand_cond PROTO((tree));
 static tree maybe_convert_cond PROTO((tree));
+static tree simplify_aggr_init_exprs_r PROTO((tree *, int *, void *));
 
 /* Record the fact that STMT was the last statement added to the
    statement tree.  */
@@ -126,17 +130,24 @@ finish_expr_stmt (expr)
   if (expr != NULL_TREE)
     {
       if (building_stmt_tree ())
-	add_tree (build_min_nt (EXPR_STMT, expr));
+	{
+	  /* Do default conversion if safe and possibly important,
+	     in case within ({...}).  */
+	  if (!processing_template_decl
+	      && !stmts_are_full_exprs_p
+	      && ((TREE_CODE (TREE_TYPE (expr)) == ARRAY_TYPE
+		   && lvalue_p (expr))
+		  || TREE_CODE (TREE_TYPE (expr)) == FUNCTION_TYPE))
+	    expr = default_conversion (expr);
+
+	  if (!processing_template_decl)
+	    expr = break_out_cleanups (expr);
+
+	  add_tree (build_min_nt (EXPR_STMT, expr));
+	}
       else
 	{
 	  emit_line_note (input_filename, lineno);
-	  /* Do default conversion if safe and possibly important,
-	     in case within ({...}).  */
-	  if (!stmts_are_full_exprs_p &&
-	      ((TREE_CODE (TREE_TYPE (expr)) == ARRAY_TYPE
-	        && lvalue_p (expr))
-	       || TREE_CODE (TREE_TYPE (expr)) == FUNCTION_TYPE))
-	    expr = default_conversion (expr);
 
 	  if (stmts_are_full_exprs_p)
 	    expand_start_target_temps ();
@@ -144,10 +155,7 @@ finish_expr_stmt (expr)
 	  cplus_expand_expr_stmt (expr);
 
 	  if (stmts_are_full_exprs_p)
-	    {
-	      expand_end_target_temps ();
-	      clear_momentary ();
-	    }
+	    expand_end_target_temps ();
 	}
     }
 
@@ -368,7 +376,6 @@ finish_do_stmt (cond, do_stmt)
       expand_end_loop ();
     }
 
-  clear_momentary ();
   finish_stmt ();
 }
 
@@ -503,10 +510,6 @@ finish_for_expr (expr, for_stmt)
 {
   if (building_stmt_tree ())
     FOR_EXPR (for_stmt) = expr;
-
-  /* Don't let the tree nodes for EXPR be discarded
-     by clear_momentary during the parsing of the next stmt.  */
-  push_momentary ();
 }
 
 /* Finish the body of a for-statement, which may be given by
@@ -531,8 +534,6 @@ finish_for_stmt (expr, for_stmt)
 	finish_expr_stmt (expr);
       expand_end_loop ();
     }
-
-  pop_momentary ();
 
   if (flag_new_for_scope > 0)
     do_poplevel ();
@@ -593,7 +594,37 @@ finish_switch_cond (cond, switch_stmt)
      tree switch_stmt;
 {
   if (building_stmt_tree ())
-    FINISH_COND (cond, switch_stmt, SWITCH_COND (switch_stmt));
+    {
+      if (!processing_template_decl)
+	{
+	  /* Convert the condition to an integer or enumeration type.  */
+	  cond = build_expr_type_conversion (WANT_INT | WANT_ENUM, cond, 1);
+	  if (cond == NULL_TREE)
+	    {
+	      error ("switch quantity not an integer");
+	      cond = error_mark_node;
+	    }
+	  if (cond != error_mark_node)
+	    {
+	      tree idx;
+	      tree type;
+	      
+	      cond = default_conversion (cond);
+	      type = TREE_TYPE (cond);
+	      idx = get_unwidened (cond, 0);
+	      /* We can't strip a conversion from a signed type to an unsigned,
+		 because if we did, int_fits_type_p would do the wrong thing
+		 when checking case values for being in range,
+		 and it's too hard to do the right thing.  */
+	      if (TREE_UNSIGNED (TREE_TYPE (cond)) 
+		  == TREE_UNSIGNED (TREE_TYPE (idx)))
+		cond = idx;
+
+	      cond = fold (build1 (CLEANUP_POINT_EXPR, type, cond));
+	    }
+	}
+      FINISH_COND (cond, switch_stmt, SWITCH_COND (switch_stmt));
+    }
   else if (cond != error_mark_node)
     {
       emit_line_note (input_filename, lineno);
@@ -605,10 +636,6 @@ finish_switch_cond (cond, switch_stmt)
     c_expand_start_case (boolean_false_node);
 
   push_switch ();
-
-  /* Don't let the tree nodes for COND be discarded by
-     clear_momentary during the parsing of the next stmt.  */
-  push_momentary ();
 }
 
 /* Finish the body of a switch-statement, which may be given by
@@ -623,7 +650,6 @@ finish_switch_stmt (cond, switch_stmt)
     RECHAIN_STMTS (switch_stmt, SWITCH_BODY (switch_stmt));
   else
     expand_end_case (cond);
-  pop_momentary ();
   pop_switch (); 
   do_poplevel ();
   finish_stmt ();
@@ -665,7 +691,16 @@ finish_goto_stmt (destination)
     TREE_USED (destination) = 1;
     
   if (building_stmt_tree ())
-    add_tree (build_min_nt (GOTO_STMT, destination));
+    {
+      if (TREE_CODE (destination) != LABEL_DECL)
+	/* We don't inline calls to functions with computed gotos.
+	   Those functions are typically up to some funny business,
+	   and may be depending on the labels being at particular
+	   addresses, or some such.  */
+	DECL_UNINLINABLE (current_function_decl) = 1;
+
+      add_tree (build_min_nt (GOTO_STMT, destination));
+    }
   else
     {
       emit_line_note (input_filename, lineno);
@@ -902,10 +937,10 @@ finish_handler (blocks, handler)
 	}
     }
 
+  do_poplevel ();
+
   if (building_stmt_tree ())
     RECHAIN_STMTS (handler, HANDLER_BODY (handler));
-
-  do_poplevel ();
 }
 
 /* Begin a compound-statement.  If HAS_NO_SCOPE is non-zero, the
@@ -941,12 +976,16 @@ begin_compound_stmt (has_no_scope)
 
   /* If this is the outermost block of the function, declare the
      variables __FUNCTION__, __PRETTY_FUNCTION__, and so forth.  */
-  if (current_function
+  if (cfun
       && !current_function_name_declared 
-      && !processing_template_decl
       && !has_no_scope)
     {
+      /* When we get callbacks from the middle-end, we need to know
+	 we're in the midst of declaring these variables.  */
+      current_function_name_declared = 2;
+      /* Actually insert the declarations.  */
       declare_function_name ();
+      /* And now just remember that we're all done.  */
       current_function_name_declared = 1;
     }
 
@@ -999,17 +1038,7 @@ finish_asm_stmt (cv_qualifier, string, output_operands,
      tree clobbers;
 {
   if (TREE_CHAIN (string))
-    {
-      if (building_stmt_tree ())
-	/* We need to build the combined string on the permanent
-	   obstack so that we can use it during instantiations.  */
-	push_permanent_obstack ();
-
-      string = combine_strings (string);
-
-      if (building_stmt_tree ())
-	pop_obstacks ();
-    }
+    string = combine_strings (string);
 
   if (cv_qualifier != NULL_TREE
       && cv_qualifier != ridpointers[(int) RID_VOLATILE])
@@ -1170,10 +1199,15 @@ finish_named_return_value (return_id, init)
 	add_tree (build_min_nt (RETURN_INIT, return_id, init));
       else
 	{
-	  cp_finish_decl (decl, init, NULL_TREE, 0, 0);
+	  cp_finish_decl (decl, init, NULL_TREE, 0);
 	  store_return_init (decl);
 	}
     }
+
+  /* Don't use tree-inlining for functions with named return values.
+     That doesn't work properly because we don't do any translation of
+     the RETURN_INITs when they are copied.  */
+  DECL_UNINLINABLE (current_function_decl) = 1;
 }
 
 /* Cache the value of this class's main virtual function table pointer
@@ -1196,14 +1230,24 @@ setup_vtbl_ptr ()
 		  (CTOR_INITIALIZER,
 		   current_member_init_list, current_base_init_list));
       else
-	finish_expr_stmt (emit_base_init (current_class_type));
+	{
+	  tree ctor_stmt;
+
+	  /* Mark the beginning of the constructor.  */
+	  ctor_stmt = build_min_nt (CTOR_STMT);
+	  CTOR_BEGIN_P (ctor_stmt) = 1;
+	  add_tree (ctor_stmt);
+	  
+	  /* And actually initialize the base-classes and members.  */
+	  finish_expr_stmt (emit_base_init (current_class_type));
+	}
     }
   else if (DECL_DESTRUCTOR_P (current_function_decl)
 	   && !processing_template_decl)
     {
-      tree binfo = TYPE_BINFO (current_class_type);
       tree if_stmt;
       tree compound_stmt;
+      int saved_cfnd;
 
       /* If the dtor is empty, and we know there is not possible way we
 	 could use any vtable entries, before they are possibly set by
@@ -1219,20 +1263,23 @@ setup_vtbl_ptr ()
       /* If it is not safe to avoid setting up the vtables, then
 	 someone will change the condition to be boolean_true_node.  
          (Actually, for now, we do not have code to set the condition
-	 appropriate, so we just assume that we always need to
+	 appropriately, so we just assume that we always need to
 	 initialize the vtables.)  */
       finish_if_stmt_cond (boolean_true_node, if_stmt);
       current_vcalls_possible_p = &IF_COND (if_stmt);
+
+      /* Don't declare __PRETTY_FUNCTION__ and friends here when we
+	 open the block for the if-body.  */
+      saved_cfnd = current_function_name_declared;
+      current_function_name_declared = 1;
       compound_stmt = begin_compound_stmt (/*has_no_scope=*/0);
+      current_function_name_declared = saved_cfnd;
 
       /* Make all virtual function table pointers in non-virtual base
 	 classes point to CURRENT_CLASS_TYPE's virtual function
 	 tables.  */
-      expand_direct_vtbls_init (binfo, binfo, 1, 0, current_class_ptr);
-
-      if (TYPE_USES_VIRTUAL_BASECLASSES (current_class_type))
-	expand_indirect_vtbls_init (binfo, current_class_ref, 
-				    current_class_ptr);
+      initialize_vtbl_ptrs (current_class_type,
+			    current_class_ptr);
 
       finish_compound_stmt (/*has_no_scope=*/0, compound_stmt);
       finish_then_clause (if_stmt);
@@ -1251,38 +1298,44 @@ setup_vtbl_ptr ()
 /* Add a scope-statement to the statement-tree.  BEGIN_P indicates
    whether this statements opens or closes a scope.  PARTIAL_P is true
    for a partial scope, i.e, the scope that begins after a label when
-   an object that needs a cleanup is created.  */
+   an object that needs a cleanup is created.  If BEGIN_P is nonzero,
+   returns a new TREE_LIST representing the top of the SCOPE_STMT
+   stack.  The TREE_PURPOSE is the new SCOPE_STMT.  If BEGIN_P is
+   zero, returns a TREE_LIST whose TREE_VALUE is the new SCOPE_STMT,
+   and whose TREE_PURPOSE is the matching SCOPE_STMT iwth
+   SCOPE_BEGIN_P set.  */
 
-void
+tree
 add_scope_stmt (begin_p, partial_p)
      int begin_p;
      int partial_p;
 {
   tree ss;
+  tree top;
 
   /* Build the statement.  */
-  ss = build_min_nt (SCOPE_STMT);
+  ss = build_min_nt (SCOPE_STMT, NULL_TREE);
   SCOPE_BEGIN_P (ss) = begin_p;
   SCOPE_PARTIAL_P (ss) = partial_p;
 
-  /* If we're finishing a scope, figure out whether the scope was
-     really necessary.  */
-  if (!begin_p)
-    {
-      SCOPE_NULLIFIED_P (ss) = !kept_level_p ();
-      SCOPE_NULLIFIED_P (TREE_VALUE (current_scope_stmt_stack))
-	= SCOPE_NULLIFIED_P (ss);
-    }
-
   /* Keep the scope stack up to date.  */
   if (begin_p)
-    current_scope_stmt_stack 
-      = tree_cons (NULL_TREE, ss, current_scope_stmt_stack);
+    {
+      current_scope_stmt_stack 
+	= tree_cons (ss, NULL_TREE, current_scope_stmt_stack);
+      top = current_scope_stmt_stack;
+    }
   else
-    current_scope_stmt_stack = TREE_CHAIN (current_scope_stmt_stack);
+    {
+      top = current_scope_stmt_stack;
+      TREE_VALUE (top) = ss;
+      current_scope_stmt_stack = TREE_CHAIN (top);
+    }
 
   /* Add the new statement to the statement-tree.  */
   add_tree (ss);
+
+  return top;
 }
 
 /* Begin a new scope.  */
@@ -1295,14 +1348,14 @@ do_pushlevel ()
       emit_line_note (input_filename, lineno);
       clear_last_expr ();
     }
-  push_momentary ();
   if (stmts_are_full_exprs_p)
     {
       pushlevel (0);
       if (!building_stmt_tree ()
-	  && !current_function->x_whole_function_mode_p)
-	expand_start_bindings (0);
-      else if (building_stmt_tree () && !processing_template_decl)
+	  && !cfun->x_whole_function_mode_p)
+	my_friendly_abort (19991129);
+
+      if (building_stmt_tree () && !processing_template_decl)
 	add_scope_stmt (/*begin_p=*/1, /*partial_p=*/0);
     }
 }
@@ -1312,29 +1365,26 @@ do_pushlevel ()
 tree
 do_poplevel ()
 {
-  tree t = NULL_TREE;
+  tree block = NULL_TREE;
 
   if (stmts_are_full_exprs_p)
     {
-      if (!building_stmt_tree ()
-	  && !current_function->x_whole_function_mode_p)
-	expand_end_bindings (getdecls (), kept_level_p (), 0);
-      else if (building_stmt_tree () && !processing_template_decl)
+      tree scope_stmts;
+
+      if (building_stmt_tree () && !processing_template_decl)
+	scope_stmts = add_scope_stmt (/*begin_p=*/0, /*partial_p=*/0);
+      else
+	scope_stmts = NULL_TREE;
+
+      block = poplevel (kept_level_p (), 1, 0);
+      if (block && !processing_template_decl)
 	{
-	  add_scope_stmt (/*begin_p=*/0, /*partial_p=*/0);
-
-	  /* When not in function-at-a-time mode, expand_end_bindings
-	     will warn about unused variables.  But, in
-	     function-at-a-time mode expand_end_bindings is not passed
-	     the list of variables in the current scope, and therefore
-	     no warning is emitted.  So, we explicitly warn here.  */
-	  warn_about_unused_variables (getdecls ());
+	  SCOPE_STMT_BLOCK (TREE_PURPOSE (scope_stmts)) = block;
+	  SCOPE_STMT_BLOCK (TREE_VALUE (scope_stmts)) = block;
 	}
-
-      t = poplevel (kept_level_p (), 1, 0);
     }
-  pop_momentary ();
-  return t;
+
+  return block;
 }
 
 /* Finish a parenthesized expression EXPR.  */
@@ -1359,7 +1409,7 @@ begin_stmt_expr ()
   /* If we're outside a function, we won't have a statement-tree to
      work with.  But, if we see a statement-expression we need to
      create one.  */
-  if (!current_function && !last_tree)
+  if (! cfun && !last_tree)
     begin_stmt_tree (&scope_chain->x_saved_tree);
 
   keep_next_level (1);
@@ -1403,7 +1453,7 @@ finish_stmt_expr (rtl_expr)
 
   /* If we created a statement-tree for this statement-expression,
      remove it now.  */ 
-  if (!current_function 
+  if (! cfun
       && TREE_CHAIN (scope_chain->x_saved_tree) == NULL_TREE)
     finish_stmt_tree (&scope_chain->x_saved_tree);
 
@@ -1600,6 +1650,9 @@ finish_label_address_expr (label)
       TREE_USED (label) = 1;
       result = build1 (ADDR_EXPR, ptr_type_node, label);
       TREE_CONSTANT (result) = 1;
+      /* This function cannot be inlined.  All jumps to the addressed
+	 label should wind up at the same point.  */
+      DECL_UNINLINABLE (current_function_decl) = 1;
     }
 
   return result;
@@ -1613,7 +1666,13 @@ finish_unary_op_expr (code, expr)
      tree expr;
 {
   tree result = build_x_unary_op (code, expr);
-  if (code == NEGATE_EXPR && TREE_CODE (expr) == INTEGER_CST)
+  /* Inside a template, build_x_unary_op does not fold the
+     expression. So check whether the result is folded before
+     setting TREE_NEGATED_INT.  */
+  if (code == NEGATE_EXPR && TREE_CODE (expr) == INTEGER_CST
+      && TREE_CODE (result) == INTEGER_CST
+      && !TREE_UNSIGNED (TREE_TYPE (result))
+      && INT_CST_LT (result, integer_zero_node))
     TREE_NEGATED_INT (result) = 1;
   overflow_warning (result);
   return result;
@@ -1629,32 +1688,6 @@ finish_id_expr (expr)
     expr = do_identifier (expr, 1, NULL_TREE);
 
   return expr;
-}
-
-/* Begin a new-placement.  */
-
-int
-begin_new_placement ()
-{
-  /* The arguments to a placement new might be passed to a
-     deallocation function, in the event that the allocation throws an
-     exception.  Since we don't expand exception handlers until the
-     end of a function, we must make sure the arguments stay around
-     that long.  */
-  return suspend_momentary ();
-}
-
-/* Finish a new-placement.  The ARGS are the placement arguments.  The
-   COOKIE is the value returned by the previous call to
-   begin_new_placement.  */
-
-tree
-finish_new_placement (args, cookie)
-     tree args;
-     int cookie;
-{
-  resume_momentary (cookie);
-  return args;
 }
 
 /* Begin a function defniition declared with DECL_SPECS and
@@ -1780,12 +1813,10 @@ tree
 begin_class_definition (t)
      tree t;
 {
-  push_permanent_obstack ();
-
   if (t == error_mark_node
       || ! IS_AGGR_TYPE (t))
     {
-      t = make_lang_type (RECORD_TYPE);
+      t = make_aggr_type (RECORD_TYPE);
       pushtag (make_anon_name (), t, 0);
     }
 
@@ -1850,7 +1881,7 @@ begin_class_definition (t)
   
   if (TYPE_BEING_DEFINED (t))
     {
-      t = make_lang_type (TREE_CODE (t));
+      t = make_aggr_type (TREE_CODE (t));
       pushtag (TYPE_IDENTIFIER (t), t, 0);
     }
   maybe_process_partial_specialization (t);
@@ -2002,8 +2033,6 @@ finish_class_definition (t, attributes, semi, pop_scope_p)
       if (semi) 
 	note_got_semicolon (t);
     }
-
-  pop_obstacks ();
 
   if (! semi)
     check_for_missing_semicolon (t); 
@@ -2195,10 +2224,8 @@ finish_typeof (expr)
     {
       tree t;
 
-      push_permanent_obstack ();
-      t = make_lang_type (TYPEOF_TYPE);
+      t = make_aggr_type (TYPEOF_TYPE);
       TYPE_FIELDS (t) = expr;
-      pop_obstacks ();
 
       return t;
     }
@@ -2233,7 +2260,7 @@ finish_stmt_tree (t)
   *t = stmt;
   SET_LAST_STMT (NULL_TREE);
 
-  if (current_function)
+  if (cfun)
     {
       /* The line-number recorded in the outermost statement in a function
 	 is the line number of the end of the function.  */
@@ -2305,7 +2332,6 @@ expand_stmt (t)
 	case DECL_STMT:
 	  {
 	    tree decl;
-	    int i = suspend_momentary ();
 
 	    emit_line_note (input_filename, lineno);
 	    decl = DECL_STMT_DECL (t);
@@ -2328,8 +2354,6 @@ expand_stmt (t)
 	      }
 	    else if (TREE_CODE (decl) == VAR_DECL && TREE_STATIC (decl))
 	      make_rtl_for_local_static (decl);
-
-	    resume_momentary (i);
 	  }
 	  break;
 
@@ -2339,6 +2363,16 @@ expand_stmt (t)
 
 	case START_CATCH_STMT:
 	  begin_catch_block (TREE_TYPE (t));
+	  break;
+
+	case CTOR_STMT:
+	  if (CTOR_BEGIN_P (t))
+	    begin_protect_partials ();
+	  else
+	    /* After this point, any exceptions will cause the
+	       destructor to be executed, so we no longer need to worry
+	       about destroying the various subobjects ourselves.  */
+	    end_protect_partials ();
 	  break;
 
 	case FOR_STMT:
@@ -2478,11 +2512,24 @@ expand_stmt (t)
 	  break;
 
 	case SCOPE_STMT:
-	  if (SCOPE_BEGIN_P (t))
-	    expand_start_bindings (2 * SCOPE_NULLIFIED_P (t));
-	  else if (SCOPE_END_P (t))
-	    expand_end_bindings (NULL_TREE, !SCOPE_NULLIFIED_P (t), 
-				 SCOPE_PARTIAL_P (t));
+	  if (!SCOPE_NO_CLEANUPS_P (t))
+	    {
+	      if (SCOPE_BEGIN_P (t))
+		expand_start_bindings_and_block (2 * SCOPE_NULLIFIED_P (t),
+						 SCOPE_STMT_BLOCK (t));
+	      else if (SCOPE_END_P (t))
+		expand_end_bindings (NULL_TREE, !SCOPE_NULLIFIED_P (t), 
+				     SCOPE_PARTIAL_P (t));
+	    }
+	  else if (!SCOPE_NULLIFIED_P (t))
+	    {
+	      rtx note = emit_note (NULL,
+				    (SCOPE_BEGIN_P (t) 
+				     ? NOTE_INSN_BLOCK_BEG
+				     : NOTE_INSN_BLOCK_END));
+	      NOTE_BLOCK (note) = SCOPE_STMT_BLOCK (t);
+	    }
+	      
 	  break;
 
 	case RETURN_INIT:
@@ -2508,6 +2555,81 @@ expand_stmt (t)
   return rval;
 }
 
+/* Called from expand_body via walk_tree.  Replace all AGGR_INIT_EXPRs
+   will equivalent CALL_EXPRs.  */
+
+static tree
+simplify_aggr_init_exprs_r (tp, walk_subtrees, data)
+     tree *tp;
+     int *walk_subtrees ATTRIBUTE_UNUSED;
+     void *data ATTRIBUTE_UNUSED;
+{
+  tree aggr_init_expr;
+  tree call_expr;
+  tree fn;
+  tree args;
+  tree slot;
+  tree type;
+  tree call_type;
+  int copy_from_buffer_p;
+
+  /* Only AGGR_INIT_EXPRs are interesting.  */
+  aggr_init_expr = *tp;
+  if (TREE_CODE (aggr_init_expr) != AGGR_INIT_EXPR)
+    return NULL_TREE;
+
+  /* Form an appropriate CALL_EXPR.  */
+  fn = TREE_OPERAND (aggr_init_expr, 0);
+  args = TREE_OPERAND (aggr_init_expr, 1);
+  slot = TREE_OPERAND (aggr_init_expr, 2);
+  type = TREE_TYPE (aggr_init_expr);
+  call_type = type;
+  if (AGGR_INIT_VIA_CTOR_P (aggr_init_expr))
+    {
+      /* Replace the first argument with the address of the third
+	 argument to the AGGR_INIT_EXPR.  */
+      call_type = build_pointer_type (type);
+      mark_addressable (slot);
+      args = tree_cons (NULL_TREE, build1 (ADDR_EXPR, call_type, slot),
+			TREE_CHAIN (args));
+    }
+  call_expr = build (CALL_EXPR, call_type, fn, args, NULL_TREE);
+  TREE_SIDE_EFFECTS (call_expr) = 1;
+
+  /* If we're using the non-reentrant PCC calling convention, then we
+     need to copy the returned value out of the static buffer into the
+     SLOT.  */
+  copy_from_buffer_p = 0;
+#ifdef PCC_STATIC_STRUCT_RETURN  
+  if (!AGGR_INIT_VIA_CTOR_P (aggr_init_expr) && aggregate_value_p (type))
+    {
+      int old_ac;
+
+      flag_access_control = 0;
+      call_expr = build_aggr_init (slot, call_expr, LOOKUP_ONLYCONVERTING);
+      flag_access_control = old_ac;
+      copy_from_buffer_p = 1;
+    }
+#endif
+
+  /* If this AGGR_INIT_EXPR indicates the value returned by a
+     function, then we want to use the value of the initialized
+     location as the result.  */
+  if (AGGR_INIT_VIA_CTOR_P (aggr_init_expr) || copy_from_buffer_p)
+    {
+      call_expr = build (COMPOUND_EXPR, type,
+			 call_expr, slot);
+      TREE_SIDE_EFFECTS (call_expr) = 1;
+    }
+
+  /* Replace the AGGR_INIT_EXPR with the CALL_EXPR.  */
+  TREE_CHAIN (call_expr) = TREE_CHAIN (aggr_init_expr);
+  *tp = call_expr;
+
+  /* Keep iterating.  */
+  return NULL_TREE;
+}
+
 /* Generate RTL for FN.  */
 
 void
@@ -2526,12 +2648,60 @@ expand_body (fn)
       || (DECL_LANG_SPECIFIC (fn) 
 	  && DECL_TEMPLATE_INFO (fn)
 	  && uses_template_parms (DECL_TI_ARGS (fn))))
-    return;
+    {
+      /* Normally, collection only occurs in rest_of_compilation.  So,
+	 if we don't collect here, we never collect junk generated
+	 during the processing of templates until we hit a
+	 non-template function.  */
+      ggc_collect ();
+      return;
+    }
+
+  /* Replace AGGR_INIT_EXPRs with appropriate CALL_EXPRs.  */
+  walk_tree (&DECL_SAVED_TREE (fn), simplify_aggr_init_exprs_r, NULL);
 
   /* There's no reason to do any of the work here if we're only doing
      semantic analysis; this code just generates RTL.  */
   if (flag_syntax_only)
     return;
+
+  /* If possible, avoid generating RTL for this function.  Instead,
+     just record it as an inline function, and wait until end-of-file
+     to decide whether to write it out or not.  */
+  if (/* We have to generate RTL if we can't inline trees.  */
+      flag_inline_trees
+      /* Or if it's not an inline function.  */
+      && DECL_INLINE (fn)
+      /* Or if we have to keep all inline functions anyhow.  */
+      && !flag_keep_inline_functions
+      /* Or if we actually have a reference to the function.  */
+      && !DECL_NEEDED_P (fn)
+      /* Or if we're at the end-of-file, and this function is not
+	 DECL_COMDAT.  */
+      && (!at_eof || DECL_COMDAT (fn))
+      /* Or if this is a nested function.  */
+      && !hack_decl_function_context (fn))
+    {
+      /* Give the function RTL now so that we can assign it to a
+	 function pointer, etc.  */
+      make_function_rtl (fn);
+      /* Set DECL_EXTERNAL so that assemble_external will be called as
+	 necessary.  We'll clear it again in finish_file.  */
+      if (!DECL_EXTERNAL (fn))
+	{
+	  DECL_NOT_REALLY_EXTERN (fn) = 1;
+	  DECL_EXTERNAL (fn) = 1;
+	}
+      /* Remember this function.  In finish_file we'll decide if
+	 we actually need to write this function out.  */
+      mark_inline_for_output (fn);
+      /* Let the back-end know that this funtion exists.  */
+      note_deferral_of_defined_inline_function (fn);
+      return;
+    }
+
+  /* Optimize the body of the function before expanding it.  */
+  optimize_function (fn);
 
   /* Save the current file name and line number.  When we expand the
      body of the function, we'll set LINENO and INPUT_FILENAME so that
@@ -2562,6 +2732,19 @@ expand_body (fn)
 
   /* Generate code for the function.  */
   finish_function (lineno, 0);
+
+  /* If possible, obliterate the body of the function so that it can
+     be garbage collected.  */
+  if (flag_dump_translation_unit)
+    /* Keep the body; we're going to dump it.  */
+    ;
+  else if (DECL_INLINE (fn) && flag_inline_trees)
+    /* We might need the body of this function so that we can expand
+       it inline somewhere else.  */
+    ;
+  else
+    /* We don't need the body; blow it away.  */
+    DECL_SAVED_TREE (fn) = NULL_TREE;
 
   /* And restore the current source position.  */
   lineno = saved_lineno;

@@ -542,39 +542,47 @@
   operands[7] = gen_lowpart (SImode, operands[5]);
 }")
 
-(define_insn "adddi3"
-  [(set (match_operand:DI 0 "register_operand" "=r,r,r,r")
-	(plus:DI (match_operand:DI 1 "reg_or_0_operand" "%rJ,rJ,rJ,rJ")
-		 (match_operand:DI 2 "add_operand" "rI,O,K,L")))]
+(define_expand "adddi3"
+  [(set (match_operand:DI 0 "register_operand" "")
+	(plus:DI (match_operand:DI 1 "register_operand" "")
+		 (match_operand:DI 2 "add_operand" "")))]
   ""
-  "*
-{
-  static const char * const pattern[4] = {
-    \"addq %r1,%2,%0\",
-    \"subq %r1,%n2,%0\",
-    \"lda %0,%2(%r1)\",
-    \"ldah %0,%h2(%r1)\"
-  };
+  "")
 
-  /* The NT stack unwind code can't handle a subq to adjust the stack
-     (that's a bug, but not one we can do anything about).  As of NT4.0 SP3,
-     the exception handling code will loop if a subq is used and an
-     exception occurs.
+;; This pattern exists so that register elimination tries to canonize
+;; (plus (plus reg c1) c2).
 
-     The 19980616 change to emit prologues as RTL also confused some
-     versions of GDB, which also interprets prologues.  This has been
-     fixed as of GDB 4.18, but it does not harm to unconditionally
-     use lda here.  */
+(define_insn "*lda"
+  [(set (match_operand:DI 0 "register_operand" "=r")
+        (match_operand:DI 1 "addition_operation" "p"))]
+  ""
+  "lda %0,%a1")
 
-  int which = which_alternative;
+;; We used to expend quite a lot of effort choosing addq/subq/lda.
+;; With complications like
+;;
+;;   The NT stack unwind code can't handle a subq to adjust the stack
+;;   (that's a bug, but not one we can do anything about).  As of NT4.0 SP3,
+;;   the exception handling code will loop if a subq is used and an
+;;   exception occurs.
+;;  
+;;   The 19980616 change to emit prologues as RTL also confused some
+;;   versions of GDB, which also interprets prologues.  This has been
+;;   fixed as of GDB 4.18, but it does not harm to unconditionally
+;;   use lda here.
+;;
+;; and the fact that the three insns schedule exactly the same, it's
+;; just not worth the effort.
 
-  if (operands[0] == stack_pointer_rtx
-      && GET_CODE (operands[2]) == CONST_INT
-      && CONST_OK_FOR_LETTER_P (INTVAL (operands[2]), 'K'))
-    which = 2;
-
-  return pattern[which];
-}")
+(define_insn "*adddi_2"
+  [(set (match_operand:DI 0 "register_operand" "=r,r,r")
+	(plus:DI (match_operand:DI 1 "register_operand" "%r,r,r")
+		 (match_operand:DI 2 "add_operand" "r,K,L")))]
+  ""
+  "@
+   addq %1,%2,%0
+   lda %0,%2(%1)
+   ldah %0,%h2(%1)")
 
 ;; ??? Allow large constants when basing off the frame pointer or some
 ;; virtual register that may eliminate to the frame pointer.  This is
@@ -585,7 +593,19 @@
   [(set (match_operand:DI 0 "register_operand" "=r")
         (plus:DI (match_operand:DI 1 "reg_no_subreg_operand" "r")
 		 (match_operand:DI 2 "const_int_operand" "n")))]
-  "REG_OK_FP_BASE_P (operands[1])"
+  "REG_OK_FP_BASE_P (operands[1])
+   && INTVAL (operands[2]) >= 0
+   /* This is the largest constant an lda+ldah pair can add, minus
+      an upper bound on the displacement between SP and AP during
+      register elimination.  See INITIAL_ELIMINATION_OFFSET.  */
+   && INTVAL (operands[2])
+	< (0x7fff8000
+	   - FIRST_PSEUDO_REGISTER * UNITS_PER_WORD
+	   - ALPHA_ROUND(current_function_outgoing_args_size)
+	   - (ALPHA_ROUND (get_frame_size ()
+			   + max_reg_num () * UNITS_PER_WORD
+			   + current_function_pretend_args_size)
+	      - current_function_pretend_args_size))"
   "#")
 
 ;; Don't do this if we are adjusting SP since we don't want to do it
@@ -606,8 +626,18 @@
   HOST_WIDE_INT low = (val & 0xffff) - 2 * (val & 0x8000);
   HOST_WIDE_INT rest = val - low;
 
-  operands[3] = GEN_INT (rest);
   operands[4] = GEN_INT (low);
+  if (CONST_OK_FOR_LETTER_P (rest, 'L'))
+    operands[3] = GEN_INT (rest);
+  else if (! no_new_pseudos)
+    {
+      operands[3] = gen_reg_rtx (DImode);
+      emit_move_insn (operands[3], operands[2]);
+      emit_insn (gen_adddi3 (operands[0], operands[1], operands[3]));
+      DONE;
+    }
+  else
+    FAIL;
 }")
 
 (define_insn ""
@@ -661,97 +691,6 @@
   "@
    s%2addq %1,%3,%0
    s%2subq %1,%n3,%0")
-
-;; These variants of the above insns can occur if the third operand
-;; is the frame pointer, or other eliminable register.  E.g. some
-;; register holding an offset from the stack pointer.  This is a
-;; kludge, but there doesn't seem to be a way around it.  Only
-;; recognize them while reloading.
-
-(define_insn ""
-  [(set (match_operand:DI 0 "some_ni_operand" "=r,&r")
-	(plus:DI (plus:DI (match_operand:DI 1 "some_operand" "%r,r")
-			  (match_operand:DI 2 "some_operand" "%r,r"))
-		 (match_operand:DI 3 "some_operand" "IOKL,r")))]
-  "reload_in_progress"
-  "#")
-
-(define_split
-  [(set (match_operand:DI 0 "register_operand" "")
-	(plus:DI (plus:DI (match_operand:DI 1 "register_operand" "")
-			  (match_operand:DI 2 "register_operand" ""))
-		 (match_operand:DI 3 "add_operand" "")))]
-  "reload_completed"
-  [(set (match_dup 0) (plus:DI (match_dup 1) (match_dup 2)))
-   (set (match_dup 0) (plus:DI (match_dup 0) (match_dup 3)))]
-  "")
-					   
-(define_insn ""
-  [(set (match_operand:SI 0 "some_ni_operand" "=r,&r")
-	(plus:SI (plus:SI (mult:SI (match_operand:SI 1 "some_operand" "rJ,rJ")
-				   (match_operand:SI 2 "const48_operand" "I,I"))
-			  (match_operand:SI 3 "some_operand" "%r,r"))
-		 (match_operand:SI 4 "some_operand" "IOKL,r")))]
-  "reload_in_progress"
-  "#")
-
-(define_split
-  [(set (match_operand:SI 0 "register_operand" "")
-	(plus:SI (plus:SI (mult:SI (match_operand:SI 1 "reg_or_0_operand" "")
-				   (match_operand:SI 2 "const48_operand" ""))
-			  (match_operand:SI 3 "register_operand" ""))
-		 (match_operand:SI 4 "add_operand" "rIOKL")))]
-  "reload_completed"
-  [(set (match_dup 0)
-	(plus:SI (mult:SI (match_dup 1) (match_dup 2)) (match_dup 3)))
-   (set (match_dup 0) (plus:SI (match_dup 0) (match_dup 4)))]
-  "")
-
-(define_insn ""
-  [(set (match_operand:DI 0 "some_ni_operand" "=r,&r")
-	(sign_extend:DI
-	 (plus:SI (plus:SI
-		   (mult:SI (match_operand:SI 1 "some_operand" "rJ,rJ")
-			    (match_operand:SI 2 "const48_operand" "I,I"))
-		   (match_operand:SI 3 "some_operand" "%r,r"))
-		  (match_operand:SI 4 "some_operand" "IO,r"))))]
-  "reload_in_progress"
-  "#")
-
-(define_split
-  [(set (match_operand:DI 0 "register_operand" "")
-	(sign_extend:DI
-	 (plus:SI (plus:SI
-		   (mult:SI (match_operand:SI 1 "reg_or_0_operand" "")
-			    (match_operand:SI 2 "const48_operand" ""))
-		   (match_operand:SI 3 "register_operand" ""))
-		  (match_operand:SI 4 "sext_add_operand" ""))))]
-  "reload_completed"
-  [(set (match_dup 5)
-	(plus:SI (mult:SI (match_dup 1) (match_dup 2)) (match_dup 3)))
-   (set (match_dup 0) (sign_extend:DI (plus:SI (match_dup 5) (match_dup 4))))]
-  "operands[5] = gen_lowpart (SImode, operands[0]);")
-
-(define_insn ""
-  [(set (match_operand:DI 0 "some_ni_operand" "=r,&r")
-	(plus:DI (plus:DI (mult:DI (match_operand:DI 1 "some_operand" "rJ,rJ")
-				   (match_operand:DI 2 "const48_operand" "I,I"))
-			  (match_operand:DI 3 "some_operand" "%r,r"))
-		 (match_operand:DI 4 "some_operand" "IOKL,r")))]
-  "reload_in_progress"
-  "#")
-
-(define_split
-  [(set (match_operand:DI 0 "register_operand" "")
-	(plus:DI (plus:DI (mult:DI (match_operand:DI 1 "reg_or_0_operand" "")
-				   (match_operand:DI 2 "const48_operand" ""))
-			  (match_operand:DI 3 "register_operand" ""))
-		 (match_operand:DI 4 "add_operand" "")))]
-  "reload_completed"
-  [(set (match_dup 0)
-	(plus:DI (mult:DI (match_dup 1) (match_dup 2)) (match_dup 3)))
-   (set (match_dup 0) (plus:DI (match_dup 0) (match_dup 4)))]
-  "")
 
 (define_insn "negsi2"
   [(set (match_operand:SI 0 "register_operand" "=r")
@@ -4004,8 +3943,8 @@
 ;; they are simpler.
 
 (define_insn ""
-  [(set (match_operand:SF 0 "nonimmediate_operand" "=f,f,r,r,m,m")
-	(match_operand:SF 1 "input_operand" "fG,m,rG,m,fG,r"))]
+  [(set (match_operand:SF 0 "nonimmediate_operand" "=f,f,*r,*r,m,m")
+	(match_operand:SF 1 "input_operand" "fG,m,*rG,m,fG,*r"))]
   "! TARGET_FIX
    && (register_operand (operands[0], SFmode)
        || reg_or_fp0_operand (operands[1], SFmode))"
@@ -4019,8 +3958,8 @@
   [(set_attr "type" "fcpys,fld,ilog,ild,fst,ist")])
 
 (define_insn ""
-  [(set (match_operand:SF 0 "nonimmediate_operand" "=f,f,r,r,m,m,f,*r")
-	(match_operand:SF 1 "input_operand" "fG,m,rG,m,fG,r,r,*f"))]
+  [(set (match_operand:SF 0 "nonimmediate_operand" "=f,f,*r,*r,m,m,f,*r")
+	(match_operand:SF 1 "input_operand" "fG,m,*rG,m,fG,*r,*r,f"))]
   "TARGET_FIX
    && (register_operand (operands[0], SFmode)
        || reg_or_fp0_operand (operands[1], SFmode))"
@@ -4036,8 +3975,8 @@
   [(set_attr "type" "fcpys,fld,ilog,ild,fst,ist,itof,ftoi")])
 
 (define_insn ""
-  [(set (match_operand:DF 0 "nonimmediate_operand" "=f,f,r,r,m,m")
-	(match_operand:DF 1 "input_operand" "fG,m,rG,m,fG,r"))]
+  [(set (match_operand:DF 0 "nonimmediate_operand" "=f,f,*r,*r,m,m")
+	(match_operand:DF 1 "input_operand" "fG,m,*rG,m,fG,*r"))]
   "! TARGET_FIX
    && (register_operand (operands[0], DFmode)
        || reg_or_fp0_operand (operands[1], DFmode))"
@@ -4051,8 +3990,8 @@
   [(set_attr "type" "fcpys,fld,ilog,ild,fst,ist")])
 
 (define_insn ""
-  [(set (match_operand:DF 0 "nonimmediate_operand" "=f,f,r,r,m,m,f,*r")
-	(match_operand:DF 1 "input_operand" "fG,m,rG,m,fG,r,r,*f"))]
+  [(set (match_operand:DF 0 "nonimmediate_operand" "=f,f,*r,*r,m,m,f,*r")
+	(match_operand:DF 1 "input_operand" "fG,m,*rG,m,fG,*r,*r,f"))]
   "TARGET_FIX
    && (register_operand (operands[0], DFmode)
        || reg_or_fp0_operand (operands[1], DFmode))"
@@ -4090,8 +4029,8 @@
 }")
 
 (define_insn ""
-  [(set (match_operand:SI 0 "nonimmediate_operand" "=r,r,r,r,m,f,f,m")
-	(match_operand:SI 1 "input_operand" "rJ,K,L,m,rJ,fJ,m,f"))]
+  [(set (match_operand:SI 0 "nonimmediate_operand" "=r,r,r,r,m,*f,*f,m")
+	(match_operand:SI 1 "input_operand" "rJ,K,L,m,rJ,*fJ,m,*f"))]
   "! TARGET_WINDOWS_NT && ! TARGET_OPEN_VMS && ! TARGET_FIX
    && (register_operand (operands[0], SImode)
        || reg_or_0_operand (operands[1], SImode))"
@@ -4107,8 +4046,8 @@
   [(set_attr "type" "ilog,iadd,iadd,ild,ist,fcpys,fld,fst")])
 
 (define_insn ""
-  [(set (match_operand:SI 0 "nonimmediate_operand" "=r,r,r,r,m,f,f,m,r,*f")
-	(match_operand:SI 1 "input_operand" "rJ,K,L,m,rJ,fJ,m,f,f,*r"))]
+  [(set (match_operand:SI 0 "nonimmediate_operand" "=r,r,r,r,m,*f,*f,m,r,*f")
+	(match_operand:SI 1 "input_operand" "rJ,K,L,m,rJ,*fJ,m,*f,*f,r"))]
   "! TARGET_WINDOWS_NT && ! TARGET_OPEN_VMS && TARGET_FIX
    && (register_operand (operands[0], SImode)
        || reg_or_0_operand (operands[1], SImode))"
@@ -4126,8 +4065,8 @@
   [(set_attr "type" "ilog,iadd,iadd,ild,ist,fcpys,fld,fst,ftoi,itof")])
 
 (define_insn ""
-  [(set (match_operand:SI 0 "nonimmediate_operand" "=r,r,r,r,r,m,f,f,m")
-	(match_operand:SI 1 "input_operand" "rJ,K,L,s,m,rJ,fJ,m,f"))]
+  [(set (match_operand:SI 0 "nonimmediate_operand" "=r,r,r,r,r,m,*f,*f,m")
+	(match_operand:SI 1 "input_operand" "rJ,K,L,s,m,rJ,*fJ,m,*f"))]
   "(TARGET_WINDOWS_NT || TARGET_OPEN_VMS)
     && (register_operand (operands[0], SImode)
         || reg_or_0_operand (operands[1], SImode))"
@@ -4235,8 +4174,8 @@
 }")
 
 (define_insn ""
-  [(set (match_operand:DI 0 "nonimmediate_operand" "=r,r,r,r,r,m,f,f,Q")
-	(match_operand:DI 1 "input_operand" "rJ,K,L,s,m,rJ,fJ,Q,f"))]
+  [(set (match_operand:DI 0 "nonimmediate_operand" "=r,r,r,r,r,m,*f,*f,Q")
+	(match_operand:DI 1 "input_operand" "rJ,K,L,s,m,rJ,*fJ,Q,*f"))]
   "! TARGET_FIX
    && (register_operand (operands[0], DImode)
        || reg_or_0_operand (operands[1], DImode))"
@@ -4253,8 +4192,8 @@
   [(set_attr "type" "ilog,iadd,iadd,ldsym,ild,ist,fcpys,fld,fst")])
 
 (define_insn ""
-  [(set (match_operand:DI 0 "nonimmediate_operand" "=r,r,r,r,r,m,f,f,Q,r,*f")
-	(match_operand:DI 1 "input_operand" "rJ,K,L,s,m,rJ,fJ,Q,f,f,*r"))]
+  [(set (match_operand:DI 0 "nonimmediate_operand" "=r,r,r,r,r,m,*f,*f,Q,r,*f")
+	(match_operand:DI 1 "input_operand" "rJ,K,L,s,m,rJ,*fJ,Q,*f,*f,r"))]
   "TARGET_FIX
    && (register_operand (operands[0], DImode)
        || reg_or_0_operand (operands[1], DImode))"
@@ -5236,7 +5175,7 @@
   "! TARGET_OPEN_VMS"
   "
 {
-  current_function->machine->eh_epilogue_sp_ofs = operands[1];
+  cfun->machine->eh_epilogue_sp_ofs = operands[1];
   if (GET_CODE (operands[2]) != REG || REGNO (operands[2]) != 26)
     {
       rtx ra = gen_rtx_REG (Pmode, 26);

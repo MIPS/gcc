@@ -1,5 +1,5 @@
 /* Define control and data flow tables, and regsets.
-   Copyright (C) 1987, 1997, 1998, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1987, 1997, 1998, 1999, 2000 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -18,12 +18,20 @@ along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
+#ifndef _BASIC_BLOCK_H
+#define _BASIC_BLOCK_H 1
 
 #include "bitmap.h"
 #include "sbitmap.h"
 #include "varray.h"
 
-typedef bitmap regset;		/* Head of register set linked list.  */
+/* Head of register set linked list.  */
+typedef bitmap_head regset_head;
+/* A pointer to a regset_head.  */
+typedef bitmap regset;
+
+/* Initialize a new regset.  */
+#define INIT_REG_SET(HEAD) bitmap_initialize (HEAD)
 
 /* Clear a register set by freeing up the linked list.  */
 #define CLEAR_REG_SET(HEAD) bitmap_clear (HEAD)
@@ -184,46 +192,6 @@ extern regset regs_live_at_setjmp;
 #define REG_BLOCK_GLOBAL -2
 
 #define REG_BASIC_BLOCK(N) (VARRAY_REG (reg_n_info, N)->basic_block)
-
-/* List of integers.
-   These are used for storing things like predecessors, etc.
-
-   This scheme isn't very space efficient, especially on 64 bit machines.
-   The interface is designed so that the implementation can be replaced with
-   something more efficient if desirable.  */
-
-typedef struct int_list {
-  struct int_list *next;
-  int val;
-} int_list;
-
-typedef int_list *int_list_ptr;
-
-/* Integer list elements are allocated in blocks to reduce the frequency
-   of calls to malloc and to reduce the associated space overhead.  */
-
-typedef struct int_list_block {
-  struct int_list_block *next;
-  int nodes_left;
-#define INT_LIST_NODES_IN_BLK 500
-  struct int_list nodes[INT_LIST_NODES_IN_BLK];
-} int_list_block;
-
-/* Given a pointer to the list, return pointer to first element.  */
-#define INT_LIST_FIRST(il) (il)
-
-/* Given a pointer to a list element, return pointer to next element.  */
-#define INT_LIST_NEXT(p) ((p)->next)
-
-/* Return non-zero if P points to the end of the list.  */
-#define INT_LIST_END(p) ((p) == NULL)
-
-/* Return element pointed to by P.  */
-#define INT_LIST_VAL(p) ((p)->val)
-
-#define INT_LIST_SET_VAL(p, new_val) ((p)->val = (new_val))
-
-extern void free_int_list               PROTO ((int_list_block **));
 
 /* Stuff for recording basic block info.  */
 
@@ -243,21 +211,104 @@ extern varray_type basic_block_for_insn;
 #define BLOCK_FOR_INSN(INSN)  VARRAY_BB (basic_block_for_insn, INSN_UID (INSN))
 #define BLOCK_NUM(INSN)	      (BLOCK_FOR_INSN (INSN)->index + 0)
 
-extern void compute_bb_for_insn		PROTO ((int));
-extern void set_block_for_insn		PROTO ((rtx, basic_block));
-extern void set_block_num		PROTO ((rtx, int));
+extern void compute_bb_for_insn		PARAMS ((int));
+extern void set_block_for_insn		PARAMS ((rtx, basic_block));
+extern void set_block_num		PARAMS ((rtx, int));
 
-extern void dump_bb_data		PROTO ((FILE *, int_list_ptr *,
-						int_list_ptr *, int));
-extern void free_bb_mem			PROTO ((void));
-extern void free_basic_block_vars	PROTO ((int));
+extern void free_basic_block_vars	PARAMS ((int));
 
-extern basic_block split_edge		PROTO ((edge));
-extern void insert_insn_on_edge		PROTO ((rtx, edge));
-extern void commit_edge_insertions	PROTO ((void));
-extern void remove_fake_edges		PROTO ((void));
-extern void add_noreturn_fake_exit_edges	PROTO ((void));
-extern void flow_delete_insn_chain	PROTO((rtx, rtx));
+extern basic_block split_edge		PARAMS ((edge));
+extern void insert_insn_on_edge		PARAMS ((rtx, edge));
+extern void commit_edge_insertions	PARAMS ((void));
+extern void remove_fake_edges		PARAMS ((void));
+extern void add_noreturn_fake_exit_edges	PARAMS ((void));
+extern void flow_delete_insn_chain	PARAMS ((rtx, rtx));
+
+
+/* Structure to hold information for each natural loop.  */
+struct loop
+{
+  int num;
+
+  /* Basic block of loop header.  */
+  basic_block header;
+
+  /* Basic block of loop latch.  */
+  basic_block latch;
+
+  /* Basic block of loop pre-header or NULL if it does not exist.  */
+  basic_block pre_header;
+
+  /* Bitmap of blocks contained within the loop.  */
+  sbitmap nodes;
+
+  /* Number of blocks contained within the loop.  */
+  int num_nodes;
+
+  /* Array of edges that exit the loop.  */
+  edge *exits;
+
+  /* Number of edges that exit the loop.  */
+  int num_exits;
+
+  /* The loop nesting depth.  */
+  int depth;
+
+  /* The height of the loop (enclosed loop levels) within the loop
+     hierarchy tree.  */
+  int level;
+
+  /* The outer (parent) loop or NULL if outermost loop.  */
+  struct loop *outer;
+
+  /* The first inner (child) loop or NULL if innermost loop.  */
+  struct loop *inner;
+
+  /* Link to the next (sibling) loop.  */
+  struct loop *next;
+
+  /* Non-zero if the loop shares a header with another loop.  */
+  int shared;
+
+  /* Non-zero if the loop is invalid (e.g., contains setjmp.).  */
+  int invalid;
+
+  /* Auxiliary info specific to a pass.  */
+  void *info;
+};
+
+
+/* Structure to hold CFG information about natural loops within a function.  */
+struct loops
+{
+  /* Number of natural loops in the function.  */
+  int num;
+
+  /* Array of natural loop descriptors (scanning this array in reverse order
+     will find the inner loops before their enclosing outer loops).  */
+  struct loop *array;
+
+  /* Pointer to root of loop heirachy tree.  */
+  struct loop *tree;
+
+  /* Information derived from the CFG.  */
+  struct cfg
+  {
+    /* The bitmap vector of dominators or NULL if not computed.  */
+    sbitmap *dom;
+
+    /* The ordering of the basic blocks in a depth first search.  */
+    int *dfs_order;
+  } cfg;
+
+  /* Headers shared by multiple loops that should be merged.  */
+  sbitmap shared_headers;
+};
+
+extern int flow_loops_find PARAMS ((struct loops *));
+extern void flow_loops_free PARAMS ((struct loops *));
+extern void flow_loops_dump PARAMS ((const struct loops *, FILE *, int));
+
 
 /* This structure maintains an edge list vector.  */
 struct edge_list 
@@ -285,27 +336,22 @@ struct edge_list
 /* Number of edges in the compressed edge list.  */
 #define NUM_EDGES(el)			((el)->num_edges)
 
-struct edge_list * create_edge_list	PROTO ((void));
-void free_edge_list			PROTO ((struct edge_list *));
-void print_edge_list			PROTO ((FILE *, struct edge_list *));
-void verify_edge_list			PROTO ((FILE *, struct edge_list *));
-int find_edge_index			PROTO ((struct edge_list *, 
-						basic_block, basic_block));
+struct edge_list * create_edge_list	PARAMS ((void));
+void free_edge_list			PARAMS ((struct edge_list *));
+void print_edge_list			PARAMS ((FILE *, struct edge_list *));
+void verify_edge_list			PARAMS ((FILE *, struct edge_list *));
+int find_edge_index			PARAMS ((struct edge_list *, 
+						 basic_block, basic_block));
 
-extern void compute_preds_succs		PROTO ((int_list_ptr *, int_list_ptr *,
-						int *, int *));
-extern void compute_dominators		PROTO ((sbitmap *, sbitmap *,
-						int_list_ptr *,
-						int_list_ptr *));
-extern void compute_flow_dominators	PROTO ((sbitmap *, sbitmap *));
-extern void compute_immediate_dominators	PROTO ((int *, sbitmap *));
+extern void compute_flow_dominators	PARAMS ((sbitmap *, sbitmap *));
+extern void compute_immediate_dominators	PARAMS ((int *, sbitmap *));
 
 
 enum update_life_extent
 {
   UPDATE_LIFE_LOCAL = 0,
   UPDATE_LIFE_GLOBAL = 1,
-  UPDATE_LIFE_GLOBAL_RM_NOTES = 2,
+  UPDATE_LIFE_GLOBAL_RM_NOTES = 2
 };
 
 /* Flags for life_analysis and update_life_info.  */
@@ -318,18 +364,24 @@ enum update_life_extent
 #define PROP_AUTOINC		32	/* Create autoinc mem references.  */
 #define PROP_FINAL		63	/* All of the above.  */
 
-extern void update_life_info	PROTO ((sbitmap, enum update_life_extent,
-					int));
-extern int count_or_remove_death_notes	PROTO ((sbitmap, int));
+extern void update_life_info	PARAMS ((sbitmap, enum update_life_extent,
+					 int));
+extern int count_or_remove_death_notes	PARAMS ((sbitmap, int));
 
 /* In lcm.c */
-extern struct edge_list *pre_edge_lcm 	PROTO ((FILE *, int, sbitmap *,
-						sbitmap *, sbitmap *, 
-						sbitmap *, sbitmap **,
-						sbitmap **));
-extern struct edge_list *pre_edge_rev_lcm PROTO ((FILE *, int, sbitmap *,
-						  sbitmap *, sbitmap *, 
-						  sbitmap *, sbitmap **, 
-						  sbitmap **));
-extern int compute_available		PROTO ((sbitmap *, sbitmap *,
-						sbitmap *, sbitmap *));
+extern struct edge_list *pre_edge_lcm 	PARAMS ((FILE *, int, sbitmap *,
+						 sbitmap *, sbitmap *, 
+						 sbitmap *, sbitmap **,
+						 sbitmap **));
+extern struct edge_list *pre_edge_rev_lcm PARAMS ((FILE *, int, sbitmap *,
+						   sbitmap *, sbitmap *, 
+						   sbitmap *, sbitmap **, 
+						   sbitmap **));
+extern void compute_available		PARAMS ((sbitmap *, sbitmap *,
+						 sbitmap *, sbitmap *));
+
+/* In emit-rtl.c.  */
+extern rtx emit_block_insn_after	PARAMS ((rtx, rtx, basic_block));
+extern rtx emit_block_insn_before	PARAMS ((rtx, rtx, basic_block));
+
+#endif /* _BASIC_BLOCK_H */
