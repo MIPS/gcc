@@ -1,3 +1,8 @@
+2003-10-01  Richard Henderson  <rth@redhat.com>
+
+        * c-decl.c (set_decl_nonlocal): New.
+        (store_parm_decls): Use it via walk_tree.
+
 2003-10-01  Jeff Law  <law@redhat.com>
 
 	* tree-ssa-dom.c (cprop_into_stmt): New function extracted from

@@ -5920,6 +5920,25 @@ store_parm_decls_oldstyle (void)
     }
 }
 
+/* A subroutine of store_parm_decls called via walk_tree.  Mark all
+   decls non-local.  */
+
+static tree
+set_decl_nonlocal (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
+{
+  tree t = *tp;
+
+  if (DECL_P (t))
+    {
+      DECL_NONLOCAL (t) = 1;
+      *walk_subtrees = 0;
+    }
+  else if (TYPE_P (t))
+    *walk_subtrees = 0;
+
+  return NULL;
+}
+
 /* Store the parameter declarations into the current function declaration.
    This is called after parsing the parameter declarations, before
    digesting the body of the function.
@@ -5972,18 +5991,11 @@ store_parm_decls (void)
 	   t;
 	   t = TREE_CHAIN (t))
 	{
-	  /* We will have a nonlocal use of this variable.  */
-	  tree var = TREE_OPERAND (TREE_VALUE (t), 0);
+	  /* We will have a nonlocal use of whatever variables are
+	     buried inside here.  */
+	  walk_tree (&TREE_OPERAND (TREE_VALUE (t), 0),
+		     set_decl_nonlocal, NULL, NULL);
 
-	  /* Strip away any NOP_EXPRs, NON_LVALUE_EXPRs and CONVERT_EXPRs.
-	     STRIP_NOPS is not sufficient here since the nodes may have
-	     different modes.  */
-	  while (TREE_CODE (var) == NOP_EXPR
-		 || TREE_CODE (var) == NON_LVALUE_EXPR
-		 || TREE_CODE (var) == CONVERT_EXPR)
-	    var = TREE_OPERAND (var, 0);
-
-	  DECL_NONLOCAL (var) = 1;
 	  SAVE_EXPR_CONTEXT (TREE_VALUE (t)) = context;
 	}
     }
