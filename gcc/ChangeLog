@@ -1,3 +1,7 @@
+2002-05-30  Geoffrey Keating  <geoffk@redhat.com>
+
+	* final.c (insn_addresses_): Move out of ifdef.
+
 2002-05-23  Geoffrey Keating  <geoffk@redhat.com>
 
 	* varray.c (uses_ggc): Make more varray kinds GCable.
