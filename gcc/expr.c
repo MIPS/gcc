@@ -3273,9 +3273,6 @@ emit_push_insn (rtx x, enum machine_mode mode, tree type, rtx size,
       /* Scalar partly in registers.  */
 
       int size = GET_MODE_SIZE (mode) / UNITS_PER_WORD;
-      /* APPLE LOCAL begin partial arguments in mixed mode. */
-      int units_per_word = UNITS_PER_WORD;
-      /* APPLE LOCAL end partial arguments in mixed mode. */
       int i;
       int not_stack;
       /* # words of start of argument
@@ -3283,20 +3280,6 @@ emit_push_insn (rtx x, enum machine_mode mode, tree type, rtx size,
       int offset = partial % (PARM_BOUNDARY / BITS_PER_WORD);
       int args_offset = INTVAL (args_so_far);
       int skip;
-
-      /* APPLE LOCAL begin partial arguments in mixed mode. */
-      if (reg && GET_CODE (reg) == PARALLEL)
-        {
-	  /* Pattern for splitting up a DFmode part in GRP, part on stack 
-	     as well as fully in an FPR. */
-          /* Use the size of the elt to compute offset.  */
-          rtx elt = XEXP (XVECEXP (reg, 0, 0), 0);
-	  int used = partial * GET_MODE_SIZE (GET_MODE (elt));
-	  units_per_word = GET_MODE_SIZE (GET_MODE (elt));
-	  size = GET_MODE_SIZE (mode) / units_per_word;
-          offset = used % (PARM_BOUNDARY / BITS_PER_UNIT);
-        }
-      /* APPLE LOCAL end partial arguments in mixed mode. */
 
       /* Push padding now if padding above and stack grows down,
 	 or if padding below and stack grows up.
@@ -3340,14 +3323,10 @@ emit_push_insn (rtx x, enum machine_mode mode, tree type, rtx size,
 #endif
 	if (i >= not_stack + offset)
 	  emit_push_insn (operand_subword_force (x, i, mode),
-      /* APPLE LOCAL begin partial arguments in mixed mode. */
-			  Pmode, NULL_TREE, NULL_RTX, align, 0, NULL_RTX,
-      /* APPLE LOCAL end partial arguments in mixed mode. */
+			  word_mode, NULL_TREE, NULL_RTX, align, 0, NULL_RTX,
 			  0, args_addr,
 			  GEN_INT (args_offset + ((i - not_stack + skip)
-      /* APPLE LOCAL begin partial arguments in mixed mode. */
-						  * units_per_word)),
-      /* APPLE LOCAL end partial arguments in mixed mode. */
+						  * UNITS_PER_WORD)),
 			  reg_parm_stack_space, alignment_pad);
     }
   else
@@ -4021,7 +4000,7 @@ store_expr (tree exp, rtx target, int call_param_p)
 			 int_size_in_bytes (TREE_TYPE (exp)));
       else if (GET_MODE (temp) == BLKmode)
 	emit_block_move (target, temp, expr_size (exp),
-			 (call_param_p
+	         	 (call_param_p
 			  ? BLOCK_OP_CALL_PARM : BLOCK_OP_NORMAL));
       else
 	{

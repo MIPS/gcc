@@ -1,3 +1,10 @@
+2004-12-22  Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 3765572
+	* expr.c (emit_push_insn): Remove unnecessary apple
+	local stuff which previously handled partial 
+	arguments in mixed mode.
+
 2004-12-20  Dale Johannesen  <dalej@apple.com>
 
 	Radar 3926484
