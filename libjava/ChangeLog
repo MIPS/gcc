@@ -1,3 +1,8 @@
+2004-06-28  Michael Koch  <konqueror@gmx.de>
+
+	* javax/swing/text/AbstractDocument.java:
+	Reformatted.
+
 2004-06-26  Andreas Tobler  <a.tobler@schweiz.ch>
 
 	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkMainThread.c
