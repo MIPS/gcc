@@ -1,3 +1,14 @@
+2002-10-02  Geoffrey Keating  <geoffk@apple.com>
+
+	* ggc-common.c (ggc_mark_roots): Delete 'x'.
+	(ggc_splay_dont_free): Fix warning about unused 'x'.
+	(ggc_print_common_statistics): Remove warnings.
+
+2002-10-01  Mike Stump  <mrs@apple.com>
+
+        * ggc-common.c (ggc_splay_alloc): Actually return the allocated area.
+        * gengtype.c (write_gc_structure_fields): Handle param[digit]_is.
+
 2002-09-01  Geoffrey Keating  <geoffk@redhat.com>
 	    Catherine Moore  <clm@redhat.com>
 

@@ -55,7 +55,6 @@ ggc_htab_delete (slot, info)
 void
 ggc_mark_roots ()
 {
-  struct ggc_root *x;
   const struct ggc_root_tab *const *rt;
   const struct ggc_root_tab *rti;
   const struct ggc_cache_tab *const *ct;
@@ -128,13 +127,13 @@ ggc_splay_alloc (sz, nl)
 {
   if (nl != NULL)
     abort ();
-  ggc_alloc (sz);
+  return ggc_alloc (sz);
 }
 
 void
 ggc_splay_dont_free (x, nl)
-     PTR x;
-     PTR nl ATTRIBUTE_UNUSED;
+     PTR x ATTRIBUTE_UNUSED;
+     PTR nl;
 {
   if (nl != NULL)
     abort ();
@@ -150,11 +149,9 @@ ggc_splay_dont_free (x, nl)
 
 void
 ggc_print_common_statistics (stream, stats)
-     FILE *stream;
+     FILE *stream ATTRIBUTE_UNUSED;
      ggc_statistics *stats;
 {
-  int code;
-
   /* Set the pointer so that during collection we will actually gather
      the statistics.  */
   ggc_stats = stats;

@@ -1553,6 +1553,10 @@ write_gc_structure_fields (of, s, val, prev_val, opts, indent, line, bitmap,
 	  ;
  	else if (strcmp (oo->name, "param_is") == 0)
 	  ;
+	else if (strncmp (oo->name, "param", 5) == 0
+		 && ISDIGIT (oo->name[5])
+		 && strcmp (oo->name + 6, "_is") == 0)
+	  ;
 	else if (strncmp (oo->name, "use_param", 9) == 0
 		 && (oo->name[9] == '\0' || ISDIGIT (oo->name[9])))
 	  use_param_num = oo->name[9] == '\0' ? 0 : oo->name[9] - '0';
