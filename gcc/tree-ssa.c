@@ -1,5 +1,5 @@
 /* SSA for trees.
-   Copyright (C) 2001 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
 This file is part of GNU CC.
@@ -59,7 +59,6 @@ static void insert_phi_terms PARAMS ((sbitmap *));
 static void build_fud_chains PARAMS ((dominance_info));
 static void search_fud_chains PARAMS ((basic_block, dominance_info));
 static void follow_chain PARAMS ((varref, varref));
-static void delete_refs PARAMS ((varray_type));
 
 
 /*  Build the SSA form for the given function. This implements Factored
@@ -376,38 +375,6 @@ delete_ssa ()
 
   for (i = 0; i < NREF_SYMBOLS; i++)
     delete_ref_list (TREE_REFS (REF_SYMBOL (i)));
-}
-
-/* Deallocate memory associated with an array of references.  */
-
-static void
-delete_refs (refs)
-     varray_type refs;
-{
-  size_t i;
-
-  if (refs == NULL)
-    return;
-
-  for (i = 0; i < VARRAY_ACTIVE_SIZE (refs); i++)
-    {
-      varref ref = VARRAY_GENERIC_PTR (refs, i);
-
-      if (VARREF_TYPE (ref) == VARDEF)
-	{
-	  delete_ref_list (VARDEF_IMM_USES (ref));
-	  delete_ref_list (VARDEF_RUSES (ref));
-	  VARDEF_PHI_CHAIN (ref) = NULL;
-	  VARDEF_PHI_CHAIN_BB (ref) = NULL;
-	}
-      else if (VARREF_TYPE (ref) == VARUSE)
-	delete_ref_list (VARUSE_RDEFS (ref));
-      else if (VARREF_TYPE (ref) == EXPRPHI)
-	{
-	  BITMAP_XFREE (EXPRPHI_PROCESSED (ref));
-	  EXPRPHI_PHI_CHAIN (ref) = NULL;
-	}
-    }
 }
 
 

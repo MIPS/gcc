@@ -1,5 +1,13 @@
 2002-07-23  Andreas Jaeger  <aj@suse.de>
 
+	* tree-ssa-pre.c (hash_expr_tree): Remove.
+
+	* c-call-graph.c (write_dtd): Remove.
+
+	* tree-ssa.c (delete_refs): Remove.
+
+2002-07-23  Andreas Jaeger  <aj@suse.de>
+
 	* gengtype.c (open_base_files): Add tree.h.
 
 	* tree-alias-type.h: Remove inclusion of tree.h.

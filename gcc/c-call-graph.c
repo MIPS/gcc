@@ -32,7 +32,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 /* Static declarations.  */
 static void construct_call_graph PARAMS ((output_buffer *, tree, HOST_WIDE_INT));
-static void write_dtd PARAMS ((output_buffer *));
 static void print_callee PARAMS ((output_buffer *, tree, int));
 
 #define INDENT(SPACE) do { \
@@ -53,7 +52,6 @@ print_call_graph (file, t)
   
   init_output_buffer (buffer, /* prefix */NULL, /* line-width */0);
   output_clear_message_text (buffer);
-  /* write_dtd (buffer);  */
   output_printf (buffer, "<file>\n");
   construct_call_graph (buffer, t, 0);
   output_printf (buffer, "</file>\n");
@@ -321,33 +319,4 @@ print_callee (buffer, node, spc)
   output_printf (buffer, "<callee idref = \"");
   print_function_decl (buffer, node, 0);
   output_printf (buffer, "\"/>\n");
-}
-
-/* Write the DTD in the given buffer.  */
-
-static void 
-write_dtd (buffer)
-     output_buffer *buffer;
-{
-  output_printf (buffer, "\
-<?xml version=\"1.0\"?>\n\
-<!DOCTYPE functions [\n\
-  <!ELEMENT file (caller|gvar)*>\n\
-  <!ELEMENT gvar EMPTY>\n\
-    <!ATTLIST gvar vid        ID #REQUIRED>\n\
-  <!ELEMENT caller ((uvar|callee|caller)*, stats)>\n\
-    <!ATTLIST caller fid      ID #REQUIRED>\n\
-  <!ELEMENT callee EMPTY>\n\
-    <!ATTLIST callee fid      IDREF #REQUIRED>\n\
-  <!ELEMENT uvar EMPTY>\n\
-    <!ATTLIST uvar vid        IDREF #REQUIRED>\n\
-  <!ELEMENT stats EMPTY>\n\
-    <!ATTLIST stats calls     CDATA>\n\
-    <!ATTLIST stats decisions CDATA>\n\
-    <!ATTLIST stats stmts     CDATA>\n\
-    <!ATTLIST stats Gilb      CDATA>\n\
-    <!ATTLIST stats CFG-edges CDATA>\n\
-    <!ATTLIST stats CFG-BB    CDATA>\n\
-    <!ATTLIST stats McCabe    CDATA>\n\
-]>\n");
 }

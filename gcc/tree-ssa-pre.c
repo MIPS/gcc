@@ -59,7 +59,6 @@ Boston, MA 02111-1307, USA.  */
 
 */
 struct expr_info;
-static hashval_t hash_expr_tree PARAMS ((const void *));
 static int expr_lexically_eq PARAMS ((tree, tree));
 static void free_expr_info PARAMS ((struct expr_info *));
 static sbitmap compute_idfs PARAMS ((sbitmap *, tree));
@@ -202,36 +201,6 @@ compute_idfs (dfs, stmt)
   
 }
 
-/* We need lexically equivalent expressions to be compared using the 
-   equality function, so the hash needs to make sure they end up
-   colliding.  */
-static hashval_t 
-hash_expr_tree (v)
-     const void *v;
-{
-  tree t = (tree) v;
-  tree op0, op1;
-  hashval_t ret = 0;
-
-  STRIP_NOPS (t);
-  ret += TREE_CODE (t);
-  if (TREE_CODE_CLASS (TREE_CODE (t)) != 'd')
-  {
-  if (TREE_OPERAND (t, 0))
-    {
-       op0 = TREE_OPERAND (t, 0);
-       STRIP_NOPS (op0);
-       ret += TREE_CODE (op0);
-    }
-  if (TREE_OPERAND (t, 1))
-    {
-      op1 = TREE_OPERAND (t, 1);
-      STRIP_NOPS (op1);
-      ret += TREE_CODE (op1);
-    }
-  }
-  return ret;
-}
 
 /* Determine if two expressions are lexically equivalent.
    Return a value like one that would be used for qsort comparisons,
