@@ -1,3 +1,25 @@
+1999-07-27  Bernd Schmidt  <bernds@cygnus.co.uk>
+
+	Merge deletion of constrain_asm_operands into this branch:
+	* reg-stack.c (constrain_asm_operands): Delete.
+	(get_asm_operand_lengths): Delete.
+	(get_asm_operand_n_inputs): New function.
+	(record_asm_reg_life): Delete OPERANDS, CONSTRAINTS, N_INPUTS and
+	N_OUTPUTS args.  All callers changed.
+	Compute number of inputs and outputs here by calling
+	get_asm_operand_n_inputs.
+	Instead of constrain_asm_operands, call extract_insn,
+	constrain_operands and preprocess_constaints.  Use information
+	computed by these functions throughout.
+	(record_reg_life): Delete code that is unused due to changes in
+	record_asm_reg_life.
+	(subst_asm_stack_regs): Delete OPERANDS, OPERAND_LOC, CONSTRAINTS,
+	N_INPUTS and N_OUTPUTS args.  All callers changed.
+	Similar changes as in record_asm_reg_life.
+	(subst_stack_regs): Move n_operands declaration into the if statement
+	where it's used.
+	Delete code that is unused due to changes in subst_asm_stack_regs.
+
 1999-07-26  Bernd Schmidt  <bernds@cygnus.co.uk>
 
 	Merge stack alignment patches into the new_ia32 branch:
