@@ -1,3 +1,15 @@
+2004-03-03  Jan Hubicka  <jh@suse.cz>
+
+	* config.gcc: add support for nocoma/prescott/pentium-m/pentium3m
+	/pentium4m.
+	* i386.c (override_options): add support for new cpus.
+	* i386.h (target_cpu_default_names): new names.
+	(target_cpu_default_pentium_m, target_cpu_default_pentium4e): new
+	constants.
+	* invoke.texi: extend documentation of -mtune/-march for new cpus.
+
+	* i386.c (override_options): add -mcmodel=kernel warning.
+
 2004-02-26  Alan Modra  <amodra@bigpond.net.au>
 
 	* gcse.c (delete_null_pointer_checks_1): Do delete CC setter if
