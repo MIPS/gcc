@@ -1,3 +1,24 @@
+2002-10-07  Vladimir Makarov  <vmakarov@redhat.com>
+
+        * config/ia64/ia64.h (MASK_TUNE_STOP_BITS, TARGET_TUNE_STOP_BITS):
+	New macros.
+	(TARGET_SWITCHES): Add entries for the new option.
+	
+	* config/ia64/ia64.c (dfa_stop_insn, last_scheduled_insn, rtx
+	dfa_pre_cycle_insn, ia64_nop): Don't make them as roots for GC.
+	(stops_p, stop_before_p, clocks_length, clocks, add_cycles): New
+	global variables.
+	(ia64_sched_reorder2): Set up `clocks'.
+	(ia64_variable_issue): Set up `stops_p' and reset `stop_before_p'.
+	(ia64_dfa_new_cycle): Set up add_cycle.  Permit sorting ready
+	queue when TARGET_TUNE_STOP_BITS.
+	(bundling): Insert additional nops for MM-insns.
+	(final_emit_insn_group_barriers): Add insertion of stop bits
+	according `stops_p'.
+	(ia64_reorg): Initiate the new varibales.
+
+	* doc/invoke.texi: Add description of option `-mtune-stop-bits'.
+	
 2002-10-02  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* haifa-sched.c (schedule_block): Modify INSN_TICK of depended

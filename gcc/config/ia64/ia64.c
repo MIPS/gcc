@@ -5395,11 +5395,11 @@ static int pos_1, pos_2, pos_3, pos_4, pos_5, pos_6;
 
 /* The following variable value is an insn group barrier.  */
 
-static GTY (()) rtx dfa_stop_insn;
+static rtx dfa_stop_insn;
 
 /* The following variable value is the last issued insn.  */
 
-static GTY (()) rtx last_scheduled_insn;
+static rtx last_scheduled_insn;
 
 /* The following variable value is size of the DFA state.  */
 
@@ -5414,6 +5414,30 @@ static state_t temp_dfa_state = NULL;
    insn.  */
 
 static state_t prev_cycle_state = NULL;
+
+/* The following array element values are TRUE if the corresponding
+   insn reuqires to add stop bits before it.  */
+
+static char *stops_p;
+
+/* The following variable is used to set up the mentioned above array.  */
+
+static int stop_before_p = 0;
+
+/* The following variable value is length of the arrays `clocks' and
+   `add_cycles'. */
+
+static int clocks_length;
+
+/* The following array element values are cycles on which the
+   corresponding insn will be issued. */
+
+static int *clocks;
+
+/* The following array element values are numbers of cycles should be
+   added to improve insn scheduling for MM_insns for Itanium1. */
+
+static int *add_cycles;
 
 static rtx ia64_single_set PARAMS ((rtx));
 static void ia64_emit_insn_before PARAMS ((rtx, rtx));
@@ -5676,6 +5700,8 @@ ia64_sched_reorder2 (dump, sched_verbose, ready, pn_ready, clock_var)
      int *pn_ready;
      int clock_var;
 {
+  if (reload_completed && last_scheduled_insn)
+    clocks [INSN_UID (last_scheduled_insn)] = clock_var;
   return ia64_dfa_sched_reorder (dump, sched_verbose, ready, pn_ready,
 				 clock_var, 1);
 }
@@ -5698,6 +5724,8 @@ ia64_variable_issue (dump, sched_verbose, insn, can_issue_more)
 	abort ();
       if (GET_CODE (insn) == CALL_INSN)
 	init_insn_group_barriers ();
+      stops_p [INSN_UID (insn)] = stop_before_p;
+      stop_before_p = 0;
     }
   return 1;
 }
@@ -5719,7 +5747,7 @@ ia64_first_cycle_multipass_dfa_lookahead_guard (insn)
    scheduler to change the DFA state when the simulated clock is
    increased.  */
 
-static GTY (()) rtx dfa_pre_cycle_insn;
+static rtx dfa_pre_cycle_insn;
 
 /* We are about to being issuing INSN.  Return nonzero if we can not
    issue it on given cycle CLOCK and return zero if we should not sort
@@ -5733,6 +5761,8 @@ ia64_dfa_new_cycle (dump, verbose, insn, last_clock, clock, sort_p)
      int last_clock, clock;
      int *sort_p;
 {
+  int setup_clocks_p = FALSE;
+
   if (insn == NULL_RTX || !INSN_P (insn))
     abort ();
   if ((reload_completed && safe_group_barrier_needed_p (insn))
@@ -5745,18 +5775,51 @@ ia64_dfa_new_cycle (dump, verbose, insn, last_clock, clock, sort_p)
       if (verbose && dump)
 	fprintf (dump, "//    Stop should be before %d%s\n", INSN_UID (insn),
 		 last_clock == clock ? " + cycle advance" : "");
+      stop_before_p = 1;
       if (last_clock == clock)
 	{
 	  state_transition (curr_state, dfa_stop_insn);
-	  *sort_p = 0;
+	  if (TARGET_TUNE_STOP_BITS)
+	    *sort_p = (last_scheduled_insn == NULL_RTX
+		       || GET_CODE (last_scheduled_insn) != CALL_INSN);
+	  else
+	    *sort_p = 0;
 	  return 1;
 	}
-      else
+      else if (reload_completed)
+	setup_clocks_p = TRUE;
+      memcpy (curr_state, prev_cycle_state, dfa_state_size);
+      state_transition (curr_state, dfa_stop_insn);
+      state_transition (curr_state, dfa_pre_cycle_insn);
+      state_transition (curr_state, NULL);
+    }
+  else if (reload_completed)
+    setup_clocks_p = TRUE;
+  if (setup_clocks_p)
+    {
+      enum attr_itanium_class c = ia64_safe_itanium_class (insn);
+      
+      if (c != ITANIUM_CLASS_MMMUL && c != ITANIUM_CLASS_MMSHF)
 	{
-	  memcpy (curr_state, prev_cycle_state, dfa_state_size);
-	  state_transition (curr_state, dfa_stop_insn);
-	  state_transition (curr_state, dfa_pre_cycle_insn);
-	  state_transition (curr_state, NULL);
+	  rtx link;
+	  int d = -1;
+	  
+	  for (link = LOG_LINKS (insn); link; link = XEXP (link, 1))
+	    if (REG_NOTE_KIND (link) == 0)
+	      {
+		enum attr_itanium_class dep_class;
+		rtx dep_insn = XEXP (link, 0);
+		
+		dep_class = ia64_safe_itanium_class (dep_insn);
+		if ((dep_class == ITANIUM_CLASS_MMMUL
+		     || dep_class == ITANIUM_CLASS_MMSHF)
+		    && last_clock - clocks [INSN_UID (dep_insn)] < 4
+		    && (d < 0
+			|| last_clock - clocks [INSN_UID (dep_insn)] < d))
+		  d = last_clock - clocks [INSN_UID (dep_insn)];
+	      }
+	  if (d >= 0)
+	    add_cycles [INSN_UID (insn)] = 3 - d;
 	}
     }
   return 0;
@@ -5968,7 +6031,7 @@ finish_bundle_state_table ()
 /* The following variable is a insn `nop' used to check bundle states
    with different number of inserted nops.  */
 
-static GTY (()) rtx ia64_nop;
+static rtx ia64_nop;
 
 /* The following function tries to issue NOPS_NUM nops for the current
    state without advancing processor cycle.  If it failed, the
@@ -6467,6 +6530,69 @@ bundling (dump, verbose, prev_head_insn, tail)
 	    }
 	}
     }
+  /* Insert additional cycles for MM-insns: */
+  for (insn = get_next_important_insn (NEXT_INSN (prev_head_insn), tail);
+       insn != NULL_RTX;
+       insn = next_insn)
+    {
+      if (!INSN_P (insn)
+	  || ia64_safe_itanium_class (insn) == ITANIUM_CLASS_IGNORE
+	  || GET_CODE (PATTERN (insn)) == USE
+	  || GET_CODE (PATTERN (insn)) == CLOBBER)
+	abort ();
+      next_insn = get_next_important_insn (NEXT_INSN (insn), tail);
+      if (INSN_UID (insn) < clocks_length && add_cycles [INSN_UID (insn)])
+	{
+	  rtx last;
+	  int i, j, n;
+	  int pred_stop_p;
+
+	  last = prev_active_insn (insn);
+	  pred_stop_p = recog_memoized (last) == CODE_FOR_insn_group_barrier;
+	  if (pred_stop_p)
+	    last = prev_active_insn (last);
+	  n = 0;
+	  for (;; last = prev_active_insn (last))
+	    if (recog_memoized (last) == CODE_FOR_bundle_selector)
+	      {
+		template0 = XINT (XVECEXP (PATTERN (last), 0, 0), 0);
+		break;
+	      }
+	    else if (recog_memoized (last) != CODE_FOR_insn_group_barrier)
+	      n++;
+	  if ((pred_stop_p && n == 0) || n > 2)
+	    abort ();
+	  for (j = 3 - n; j > 0; j --)
+	    ia64_emit_insn_before (gen_nop (), insn);
+	  add_cycles [INSN_UID (insn)]--;
+	  if (!pred_stop_p || add_cycles [INSN_UID (insn)])
+	    ia64_emit_insn_before (gen_insn_group_barrier (GEN_INT (3)), insn);
+	  if (pred_stop_p)
+	    add_cycles [INSN_UID (insn)]--;
+	  for (i = add_cycles [INSN_UID (insn)]; i > 0; i--)
+	    {
+	      /* Insert .MII bundle.  */
+	      ia64_emit_insn_before (gen_bundle_selector (GEN_INT (0)), insn);
+	      ia64_emit_insn_before (gen_nop (), insn);
+	      ia64_emit_insn_before (gen_nop (), insn);
+	      if (i > 1)
+		{
+		  ia64_emit_insn_before (gen_insn_group_barrier (GEN_INT (3)),
+					 insn);
+		  i--;
+		}
+	      ia64_emit_insn_before (gen_nop (), insn);
+	      ia64_emit_insn_before (gen_insn_group_barrier (GEN_INT (3)),
+				     insn);
+	    }
+	  ia64_emit_insn_before (gen_bundle_selector (GEN_INT (template0)),
+				 insn);
+	  for (j = n; j > 0; j --)
+	    ia64_emit_insn_before (gen_nop (), insn);
+	  if (pred_stop_p)
+	    ia64_emit_insn_before (gen_insn_group_barrier (GEN_INT (3)), insn);
+	}
+    }
   free (index_to_bundle_states);
   finish_bundle_state_table ();
   bundling_p = 0;
@@ -6541,8 +6667,36 @@ final_emit_insn_group_barriers (dump)
 	    }
 	  else if (need_barrier_p || group_barrier_needed_p (insn))
 	    {
-	      emit_insn_before (gen_insn_group_barrier (GEN_INT (3)), insn);
-	      init_insn_group_barriers ();
+	      if (TARGET_TUNE_STOP_BITS)
+		{
+		  rtx last;
+		  
+		  for (last = insn;
+		       last != current_sched_info->prev_head;
+		       last = PREV_INSN (last))
+		    if (INSN_P (last) && GET_MODE (last) == TImode
+			&& stops_p [INSN_UID (last)])
+		      break;
+		  if (last == current_sched_info->prev_head)
+		    last = insn;
+		  last = prev_active_insn (last);
+		  if (last
+		      && recog_memoized (last) != CODE_FOR_insn_group_barrier)
+		    emit_insn_after (gen_insn_group_barrier (GEN_INT (3)),
+				     last);
+		  init_insn_group_barriers ();
+		  for (last = NEXT_INSN (last);
+		       last != insn;
+		       last = NEXT_INSN (last))
+		    if (INSN_P (last))
+		      group_barrier_needed_p (last);
+		}
+	      else
+		{
+		  emit_insn_before (gen_insn_group_barrier (GEN_INT (3)),
+				    insn);
+		  init_insn_group_barriers ();
+		}
 	      group_barrier_needed_p (insn);
 	      prev_insn = NULL_RTX;
 	    }
@@ -6759,6 +6913,13 @@ ia64_reorg (insns)
       ia64_nop = make_insn_raw (gen_nop ());
       PREV_INSN (ia64_nop) = NEXT_INSN (ia64_nop) = NULL_RTX;
       recog_memoized (ia64_nop);
+      clocks_length = get_max_uid () + 1;
+      stops_p = (char *) xmalloc (clocks_length);
+      memset (stops_p, 0, clocks_length);
+      clocks = (int *) xmalloc (clocks_length * sizeof (int));
+      memset (clocks, 0, clocks_length * sizeof (int));
+      add_cycles = (int *) xmalloc (clocks_length * sizeof (int));
+      memset (add_cycles, 0, clocks_length * sizeof (int));
       pos_1 = get_cpu_unit_code ("1_1");
       pos_2 = get_cpu_unit_code ("1_2");
       pos_3 = get_cpu_unit_code ("1_3");
@@ -6788,6 +6949,9 @@ ia64_reorg (insns)
       
       schedule_ebbs (rtl_dump_file);
       finish_bundle_states ();
+      free (add_cycles);
+      free (clocks);
+      free (stops_p);
       emit_insn_group_barriers (rtl_dump_file, insns);
 
       ia64_final_schedule = 0;
