@@ -1,3 +1,63 @@
+2003-02-01  Jan Hubicka  <jh@suse.cz>
+
+	PR c/9506
+	* i386.c (override_options): Use DEFAULT_PCC_STRUCT_RETURN.
+
+2003-01-31  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* pa.c (pa_output_function_prologue, pa_output_function_epilogue): Move
+	updating of total_code_bytes from prologue to epilogue.
+
+2003-01-31  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* regclass.c (record_reg_classes): Fix incorrect argument
+	to EXTRA_ADDRESS_CONSTRAINT macro.
+
+2003-01-31  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* reload.c (find_reloads): Do not use the mode specified in the insn
+	pattern as reload mode for address operands.  Do not generate optional
+	reloads for operands where a mandatory reload was already pushed.
+	Generate optional reloads only in the final pass though find_reloads.
+	(have_replacement_p): New function.
+
+2003-01-31  Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
+
+	* doc/install.texi (Testing): Remove a reference to our obsolete
+	/testresults web pages and strip redundant information concerning
+	test results.
+	(Binaries): Refer to Microsoft Windows instead of listing all
+	possible variants.
+
+Sat Feb  1 00:49:00 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+	* loop.c (emit_prefetch_instructions):  Do conversion at right place in
+	RTL chain.
+
+	* combine.c (simplify_set): Reverse order of ragumetns to
+	REG_CANNOT_CHANGE_MODE_P
+	* df.c (df_def_record_1): Likewise.
+	* recog.c (register_operand): Likewise.
+	* simplify-rtx.c (simplify_subreg): Likewise.
+	* hard-reg-set.h (REG_CANNOT_CHANGE_MODE_P): Update use of
+	CANNOT_CHANGE_MODE_CLASS.
+	* regclass.c (cannot_change_mode_set_regs, invalid_mode_change_p):
+	Likewise.
+	* reload.c (push_reload): Likewise.
+	* alpha.h (CANNOT_CHANGE_MODE_CLASS): Update definition.
+	* ia64.h (CANNOT_CHANGE_MODE_CLASS): Update definition.
+	* mips.h (CANNOT_CHANGE_MODE_CLASS): Update definition.
+	* mips-protos.h (mips_cannot_change_mode_class): Update prototype.
+	* mips.c (mips_cannot_change_mode_class): Update.
+	* pa64-regs.h (CANNOT_CHANGE_MODE_CLASS): Update definition.
+	* rs6000.h (CANNOT_CHANGE_MODE_CLASS): Update definition.
+	* s390.h (CANNOT_CHANGE_MODE_CLASS): Update definition.
+	* sh.h (CANNOT_CHANGE_MODE_CLASS): Update definition.
+	* sh-protos.h (sh_cannot_change_mode_class): Update prototype.
+	* sh.c (sh_cannot_change_mode_class): Update.
+	* i386.h (CANNOT_CHANGE_MODE_CLASS): New.
+	* tm.texi (CANNOT_CHANGE_MODE_CLASS): Update documentation.
+
 2003-01-31  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
 
 	* pa32-regs.h (REGNO_REG_CLASS, REG_CLASS_FROM_LETTER): Delete
@@ -358,6 +418,34 @@ Sat Jan 25 21:04:33 CET 2003  Jan Hubicka  <jh@suse.cz>
 2003-01-24  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
 
 	* doc/passes.texi: Fix typo.
+Sat Feb  1 00:46:13 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+	* loop.c (emit_prefetch_instructions):  Do conversion at right place in
+	RTL chain.
+
+	* combine.c (simplify_set): Reverse order of ragumetns to
+	REG_CANNOT_CHANGE_MODE_P
+	* df.c (df_def_record_1): Likewise.
+	* recog.c (register_operand): Likewise.
+	* simplify-rtx.c (simplify_subreg): Likewise.
+	* hard-reg-set.h (REG_CANNOT_CHANGE_MODE_P): Update use of
+	CANNOT_CHANGE_MODE_CLASS.
+	* regclass.c (cannot_change_mode_set_regs, invalid_mode_change_p):
+	Likewise.
+	* reload.c (push_reload): Likewise.
+	* alpha.h (CANNOT_CHANGE_MODE_CLASS): Update definition.
+	* ia64.h (CANNOT_CHANGE_MODE_CLASS): Update definition.
+	* mips.h (CANNOT_CHANGE_MODE_CLASS): Update definition.
+	* mips-protos.h (mips_cannot_change_mode_class): Update prototype.
+	* mips.c (mips_cannot_change_mode_class): Update.
+	* pa64-regs.h (CANNOT_CHANGE_MODE_CLASS): Update definition.
+	* rs6000.h (CANNOT_CHANGE_MODE_CLASS): Update definition.
+	* s390.h (CANNOT_CHANGE_MODE_CLASS): Update definition.
+	* sh.h (CANNOT_CHANGE_MODE_CLASS): Update definition.
+	* sh-protos.h (sh_cannot_change_mode_class): Update prototype.
+	* sh.c (sh_cannot_change_mode_class): Update.
+	* i386.h (CANNOT_CHANGE_MODE_CLASS): New.
+	* tm.texi (CANNOT_CHANGE_MODE_CLASS): Update documentation.
 
 2003-01-24  Gabriel Dos Reis  <gdr@integrable-solutions.net>
 
