@@ -1,7 +1,9 @@
-/* APPLE LOCAL file STABS */
-/* Check if the final SO stab goes into the .text segment */
-/* { dg-do compile { target *-*-darwin* } } */
-/* { dg-options "-g" } */
+/* Check if the final SO STABS record goes into the .text section.  */
+/* Contributed by Ziemowit Laski <zlaski@apple.com> */
+
+/* { dg-do compile } */
+/* { dg-skip-if "No stabs" { mmix-*-* *-*-aix* } { "*" } { "" } } */
+/* { dg-options "-gstabs" } */
 
 @interface MyClass
 + newWithArg: arg;

@@ -1,6 +1,6 @@
 2004-12-16  Ziemowit Laski  <zlaski@apple.com>
 
-	Radar 3921172
+	Radar 3921172 (from mainline)
         * objc.dg/stabs-1.m: New.     
 
 2004-12-15  Dale Johannesen  <dalej@apple.com>
