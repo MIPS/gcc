@@ -4790,6 +4790,8 @@ strength_reduce (scan_start, end, loop_top, insn_count,
 	    }
 	}
 
+#if 0
+/* temporary */
       /* Now that we know which givs will be reduced, try to rearrange the
          combinations to reduce register pressure.
          recombine_givs calls find_life_end, which needs reg_iv_type and
@@ -4808,6 +4810,7 @@ strength_reduce (scan_start, end, loop_top, insn_count,
 	  VARRAY_GROW (reg_iv_info, nregs);
 	}
       recombine_givs (bl, loop_start, loop_end, unroll_p);
+#endif
 
       /* Reduce each giv that we decided to reduce.  */
 

@@ -1,5 +1,9 @@
 1999-06-27  Richard Henderson  <rth@cygnus.com>
 
+	* loop.c (strength_reduce): Disable until it's fixed on mainline.
+
+1999-06-27  Richard Henderson  <rth@cygnus.com>
+
 	* config/i386/i386.md (movsi_insv_1): Mark output as an in-out reload.
 	(movsi_insv_2, addqi_ext_1, addqi_ext_2): Likewise.
 
@@ -21,6 +25,10 @@
 	(andqi_ext_0, andqi_ext_1, andqi_ext_2): Likewise.
 	(xorcqi_ext_1): Likewise.
 
+	* reg-stack.c (next_flags_user): Continue searching til the 
+	end of the block or a call.
+	(swap_rtx_condition): Never abort, just fail.
+
 	From Stan Cox  <scox@cygnus.com>:
         * i386.md (fix_truncdi_1): Check for early clobber on scratch.
         (fix_truncdi_1+1): Don't split if the destination uses the
@@ -35,6 +43,10 @@
 
 	From Andrew Haley  <aph@cygnus.com>:
 	* i386.md (ashlqi3): Correct error in the patch of Jun 9.
+
+	From Anthony Green  <green@cygnus.com>:
+	* loop.c (combine_givs_p): Handle a NULL_RTX result from
+	express_from.
 
 1999-06-26  Richard Henderson  <rth@cygnus.com>
 
