@@ -81,10 +81,11 @@ extern int yychar;		/*  the lookahead symbol		*/
 int warn_traditional = 0;
 int flag_digraphs = 1;
 
-/* the declaration found for the last IDENTIFIER token read in.
-   yylex must look this up to detect typedefs, which get token type TYPENAME,
-   so it is left around in case the identifier is not a typedef but is
-   used in a context which makes it a reference to a variable.  */
+/* the declaration found for the last IDENTIFIER token read in.  yylex
+   must look this up to detect typedefs, which get token type
+   tTYPENAME, so it is left around in case the identifier is not a
+   typedef but is used in a context which makes it a reference to a
+   variable.  */
 tree lastiddecl;
 
 /* Array for holding counts of the numbers of tokens seen.  */
@@ -1035,24 +1036,10 @@ do_identifier (token, parsing, args)
 }
 
 tree
-do_scoped_id (token, parsing)
+do_scoped_id (token, id)
      tree token;
-     int parsing;
+     tree id;
 {
-  tree id;
-  /* during parsing, this is ::name. Otherwise, it is black magic. */
-  if (parsing)
-    {
-      id = make_node (CPLUS_BINDING);
-      if (!qualified_lookup_using_namespace (token, global_namespace, id, 0))
-	id = NULL_TREE;
-      else
-	id = BINDING_VALUE (id);
-    }
-  else
-    id = IDENTIFIER_GLOBAL_VALUE (token);
-  if (parsing && yychar == YYEMPTY)
-    yychar = yylex ();
   if (!id || (TREE_CODE (id) == FUNCTION_DECL
 	      && DECL_ANTICIPATED (id)))
     {

@@ -1,3 +1,43 @@
+Thu Jun 20 00:35:14 2002  Denis Chertykov  <denisc@overta.ru>
+
+	* configure.in: Add support for ip2k.
+
+2002-06-22  Nathanael Nerode  <neroden@twcny.rr.com>
+
+	* configure.in: Fix AIX configury bug.
+
+2002-06-20  Steve Ellcey  <sje@cup.hp.com>
+
+	* MAINTAINERS (Write After Approval): Add self.
+
+2002-06-19  Nathanael Nerode  <neroden@twcny.rr.com>
+
+	* configure.in: replace ${topsrcdir} with ${srcdir}
+
+	* configure.in: Move definition of libstdcxx_flags
+	right above usage, rather than waaay earlier.
+
+	* configure.in: Pull definition of is_cross_compiler earlier.
+
+	* configure.in: Rearrange a little.
+
+	* configure.in: Remove references to librx.
+	* Makefile.in: Remove references to librx.
+
+Tue Jun 18 22:37:35 2002  Denis Chertykov  <denisc@overta.ru>
+
+	* config.sub: Add support for avr target.
+	Import from master sources, rev 1.255
+	
+2002-06-19  Phil Edwards  <pme@gcc.gnu.org>
+
+	* configure, .cvsignore:  Revert previous change...
+	* Makefile:  ...delete.
+
+2002-06-19  Nathanael Nerode  <neroden@twcny.rr.com>
+
+	* configure.in: Eliminate ${gasdir} variable.
+
 2002-06-18  Dave Brolley  <brolley@redhat.com>
 
 	* configure.in: Add support for frv.

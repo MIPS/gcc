@@ -1,3 +1,44 @@
+2002-06-23  Andreas Jaeger  <aj@suse.de>
+
+	* gcc.c-torture/execute/complex-6.c: New.
+
+2002-06-22  Neil Booth  <neil@daikokuya.co.uk>
+
+	* gcc.dg/cpp/trad/comment-2.c. gcc.dg/cpp/trad/funlike-2.c,
+	gcc.dg/cpp/trad/funlike.c, gcc.dg/cpp/trad/funlike-3.c,
+	gcc.dg/cpp/trad/literals-1.c, gcc.dg/cpp/trad/literals-2.c,
+	gcc.dg/cpp/trad/macroargs.c, gcc.dg/cpp/trad/quote.c: New tests.
+
+2002-06-21  Neil Booth  <neil@daikokuya.co.uk>
+
+	* gcc.dg/cpp/trad: New directory with traditional tests copied
+	from parent directory.
+	* gcc.dg/cpp/assert_trad1.c, gcc.dg/cpp/assert_trad2.c,
+	gcc.dg/cpp/assert_trad3.c, gcc.dg/cpp/defined_trad.c,
+	gcc.dg/cpp/hash2.c, gcc.dg/cpp/tr-define.c, gcc.dg/cpp/tr-direct.c,
+	gcc.dg/cpp/tr-sign.c, gcc.dg/cpp/tr-str.c, gcc.dg/cpp/uchar-2.c:
+	Move to trad/ and rename.
+	* gcc.dg/cpp/trad/__STDC__.c, gcc.dg/cpp/trad/comment.c,
+	gcc.dg/cpp/trad/escaped-eof.c, gcc.dg/cpp/trad/redef1.c,
+	gcc.dg/cpp/trad/redef2.c: New tests.
+	* gcc.dg/cpp/trad/trad.exp: New driver.
+
+2002-06-20  Neil Booth  <neil@daikokuya.co.uk>
+
+	* gcc.dg/cpp/assert_trad1.c, gcc.dg/cpp/assert_trad2.c,
+	gcc.dg/cpp/assert_trad3.c, gcc.dg/cpp/defined_trad.c,
+	gcc.dg/cpp/hash2.c, gcc.dg/cpp/tr-define.c, gcc.dg/cpp/tr-direct.c,
+	gcc.dg/cpp/tr-sign.c, gcc.dg/cpp/tr-str.c, gcc.dg/cpp/uchar-2.c:
+	Remove.
+
+2002-06-20  Richard Sandiford  <rsandifo@redhat.com>
+
+	* gcc.dg/20020620-1.c: New test.
+
+2002-06-20  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	* g++.dg/template/ttp4.C: New test.
+
 2002-06-19  Jakub Jelinek  <jakub@redhat.com>
 
 	* g++.dg/opt/vt1.C: Fix regexp.
@@ -10,7 +51,7 @@
 2002-06-18  Hans-Peter Nilsson  <hp@axis.com>
 
 	* gcc.c-torture/execute/20020615-1.c: Fix typo in comment.
-	
+
 2002-06-18  Aldy Hernandez  <aldyh@redhat.com>
 
         * gcc.c-torture/execute/simd-1.c: New.
@@ -108,7 +149,7 @@
 
 2002-06-02  Richard Henderson  <rth@redhat.com>
 
-	* gcc.c-torture/execute/pure-1.c: Don't mark any of the 
+	* gcc.c-torture/execute/pure-1.c: Don't mark any of the
 	test functions static.
 
 2002-06-02  Andreas Jaeger  <aj@suse.de>

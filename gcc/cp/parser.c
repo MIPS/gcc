@@ -7763,10 +7763,6 @@ cp_parser_type_name (parser)
   tree type_decl;
   tree identifier;
 
-  /* FIXME: We probably have to save parser->scope around the call to
-     cp_parser_class_name, since a template-id could contain a
-     nested-name-specifier.  */
-
   /* We can't know yet whether it is a class-name or not.  */
   cp_parser_parse_tentatively (parser);
   /* Try a class-name.  */
@@ -8333,9 +8329,6 @@ cp_parser_using_declaration (parser)
 
   /* If there was a nested-name-specifier, create a SCOPE_REF to
      represent that.  */
-  /* FIXME: It would make more sense for the parser to resolve the
-     name, and hand the resulting declaration directly to the
-     functions that process using-declarations.  */
   if (parser->scope)
     identifier = build_nt (SCOPE_REF, parser->scope, identifier);
 
@@ -8707,12 +8700,6 @@ cp_parser_init_declarator (parser,
   /* Enter the newly declared entry in the symbol table.  If we're
      processing a declaration in a class-specifier, we wait until
      after processing the initializer.  */
-  /* FIXME: Does that really work?  Will names from the declaration
-     actually be in scope?  I bet this program:
-
-       struct S { static const int i = sizeof (i); };
-
-     fails, and did with old versions of GCC, too.  */
   if (!member_p)
     {
       have_extern_spec 

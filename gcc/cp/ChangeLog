@@ -1,5 +1,9 @@
 2002-06-23  Mark Mitchell  <mark@codesourcery.com>
 
+	Merge from cp-parser-merge-3.
+	
+2002-06-23  Mark Mitchell  <mark@codesourcery.com>
+
 	* parser.c: New file.
 	* Make-lang.in (po-generated): Remove parse.c
 	(CXX_OBJS): Replace parse.o with parser.o.
@@ -23,6 +27,56 @@
 	(check_for_missing_semicolon): Likewise.
 	* pt.c (parse.h): Do not include it.
 	* spew.c (parse.h): Likewise.
+
+2002-06-23  Mark Mitchell  <mark@codesourcery.com>
+
+	* parse.y (parse_scoped_id): New function.
+	(primary): Use it.
+	* cp-tree.h (do_scoped_id): Adjust declaration.
+	* lex.c (do_scoped_id): Remove call to yylex.
+	* decl2.c (build_expr_from_tree): Adjust use of do_scoped_id.
+	* typeck2.c (add_exception_specifier): Use tree_cons, rather than
+	expanding it inline.
+	
+2002-06-23  Matt Thomas  <matt@3am-software.com>
+
+	* decl.c (finish_function): Change "#ifdef VMS_TARGET" to
+	"#if VMS_TARGET".
+
+2002-06-21  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* mangle.c (integer_type_codes): Const-ify.
+
+2002-06-20  Richard Henderson  <rth@redhat.com>
+
+	PR c++/6747
+        * typeck.c (mark_addressable): Don't test TREE_ADDRESSABLE early.
+        Call put_var_into_stack.
+
+2002-06-20  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* spew.c (remove_last_token): Use ARRAY_SIZE in lieu of explicit
+	array size calculation.
+
+2002-06-20  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/6892
+	* pt.c (tsubst_expr): Handle FILE_STMT.
+
+2002-06-20  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/6723
+	* pt.c (lookup_template_class): Don't build complete argument of
+	BOUND_TEMPLATE_TEMPLATE_PARM if appeared as a default template
+	argument.
+
+2002-06-19  Akim Demaille  <akim@epita.fr>
+
+	* parse.y (TYPENAME): Rename as tTYPENAME to avoid the clash with
+	decl.h's TYPENAME.
+	* spew.c, lex.c: Adjust.
+	* parse.y (explicit_instantiation): Add empty action to override
+	the default $$ = $1 where it introduces a type clash.
 
 2002-06-14  Jason Merrill  <jason@redhat.com>
 
@@ -101,8 +155,8 @@
 	* mangle.c (start_mangling): Allocate G.substitutions here...
 	(init_mangle): ... rather than here.
 	(finish_mangling): Clear the varray pointer when done with it.
-	* spew.c (yylexstring): Don't use VARRAY_FREE. 
-	* search.c (bfs_walk): Don't use VARRAY_FREE. 
+	* spew.c (yylexstring): Don't use VARRAY_FREE.
+	* search.c (bfs_walk): Don't use VARRAY_FREE.
 	* decl2.c (pending_statics): Use gengtype to mark.
 	(deferred_fns): Likewise.
 	(ssdf_decls): Likewise.
@@ -1014,7 +1068,7 @@
 
 2002-03-21  Aldy Hernandez  <aldyh@redhat.com>
 
-        * tree.c (cp_cannot_inline_tree_fn): Same.
+	* tree.c (cp_cannot_inline_tree_fn): Same.
 
 2002-03-21  Neil Booth  <neil@daikokuya.demon.co.uk>
 
@@ -1332,10 +1386,10 @@
 
 2002-02-21  Aldy Hernandez  <aldyh@redhat.com>
 
-        * cp/decl.c (duplicate_decls): Merge always_inline attribute.
+	* cp/decl.c (duplicate_decls): Merge always_inline attribute.
 
-        * cp/tree.c (cp_cannot_inline_tree_fn): Do not inline at -O0
-        unless DECL_ALWAYS_INLINE.
+	* cp/tree.c (cp_cannot_inline_tree_fn): Do not inline at -O0
+	unless DECL_ALWAYS_INLINE.
 
 2002-02-20  Jakub Jelinek  <jakub@redhat.com>
 
