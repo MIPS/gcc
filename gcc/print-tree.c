@@ -24,6 +24,7 @@ Boston, MA 02111-1307, USA.  */
 #include "system.h"
 #include "tree.h"
 #include "ggc.h"
+#include "flags.h"
 
 /* Define the hash table of nodes already seen.
    Such nodes are not repeated; brief cross-references are used.  */
@@ -313,6 +314,8 @@ print_node (file, prefix, node, indent)
     fputs (" protected", file);
   if (TREE_STATIC (node))
     fputs (" static", file);
+  if (TREE_BOUNDED (node))
+    fputs (" bounded", file);
   if (TREE_LANG_FLAG_0 (node))
     fputs (" tree_0", file);
   if (TREE_LANG_FLAG_1 (node))
@@ -378,6 +381,8 @@ print_node (file, prefix, node, indent)
 	fputs (" virtual", file);
       if (DECL_DEFER_OUTPUT (node))
 	fputs (" defer-output", file);
+      if (DECL_POINTER_DEPTH (node))
+	fprintf (file, " pointer_depth=%d", DECL_POINTER_DEPTH (node));
 
       if (DECL_LANG_FLAG_0 (node))
 	fputs (" decl_0", file);
@@ -484,6 +489,11 @@ print_node (file, prefix, node, indent)
 	fputs (" transparent-union", file);
       if (TYPE_PACKED (node))
 	fputs (" packed", file);
+      if (TYPE_RESTRICT (node))
+	fputs (" restrict", file);
+      if (TYPE_POINTER_DEPTH (node))
+	fprintf (file, " pointer_depth=%d", TYPE_POINTER_DEPTH (node));
+      /* GKM FIXME: handle TYPE_AMBIENT_BOUNDEDNESS */
 
       if (TYPE_LANG_FLAG_0 (node))
 	fputs (" type_0", file);

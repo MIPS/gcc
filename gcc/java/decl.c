@@ -512,12 +512,13 @@ init_decl_processing ()
   pushdecl (build_decl (TYPE_DECL, get_identifier ("void"), void_type_node));
   layout_type (void_type_node);	/* Uses size_zero_node */
   ptr_type_node = build_pointer_type (void_type_node);
+  unbounded_ptr_type_node = build_pointer_type (void_type_node);
   t = make_node (VOID_TYPE);
   layout_type (t); /* Uses size_zero_node */
   return_address_type_node = build_pointer_type (t);
 
-  null_pointer_node = build_int_2 (0, 0);
-  TREE_TYPE (null_pointer_node) = ptr_type_node;
+  null_unbounded_ptr_node = build_null_pointer_node (unbounded_ptr_type_node);
+  null_pointer_node = build_null_pointer_node (ptr_type_node);
 
   /* Used by the parser to represent empty statements and blocks. */
   empty_stmt_node = build1 (NOP_EXPR, void_type_node, size_zero_node);
@@ -1837,4 +1838,54 @@ end_java_method ()
   current_function_decl = NULL_TREE;
   permanent_allocation (1);
   asynchronous_exceptions = flag_asynchronous_exceptions;
+}
+
+void
+compile_bounded_pointer_thunk (decl)
+     tree decl;
+{
+  error ("bounded pointer thunks are unsupported");
+  abort ();
+}
+
+tree
+build_bounded_ptr_field_ref (bp, field_number)
+     tree bp;
+     int field_number;
+{
+  error ("bounded pointers are unsupported");
+  abort ();
+}
+
+tree
+build_bounded_ptr_check (bp, length)
+     tree bp;
+     tree length;
+{
+  return build_bounded_ptr_field_ref (bp, 0);
+}
+
+tree
+build_bounded_ptr_constructor (addr)
+     tree addr;
+{
+  error ("bounded pointers are unsupported");
+  abort ();
+}
+
+tree
+build_bounded_ptr_constructor_2 (addr, bounds)
+     tree addr;
+     tree bounds;
+{
+  return build_bounded_ptr_constructor (addr);
+}
+
+tree
+build_bounded_ptr_constructor_3 (addr, base, extent)
+     tree addr;
+     tree base;
+     tree extent;
+{
+  return build_bounded_ptr_constructor (addr);
 }

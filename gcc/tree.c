@@ -1089,6 +1089,8 @@ make_node (code)
       /* Note that we have not yet computed the alias set for this
 	 type.  */
       TYPE_ALIAS_SET (t) = -1;
+      if (code == FUNCTION_TYPE || code == METHOD_TYPE)
+	TYPE_AMBIENT_BOUNDEDNESS (t) = default_pointer_boundedness;
       break;
 
     case 'c':
@@ -1218,6 +1220,8 @@ copy_node (node)
 	 but the optimizer should catch that.  */
       TYPE_SYMTAB_POINTER (t) = 0;
       TYPE_SYMTAB_ADDRESS (t) = 0;
+      if (code == FUNCTION_TYPE || code == METHOD_TYPE)
+	TYPE_AMBIENT_BOUNDEDNESS (t) = default_pointer_boundedness;
     }
 
   TREE_SET_PERMANENT (t);
@@ -1565,6 +1569,24 @@ build_string (len, str)
     TREE_STRING_POINTER (s) = obstack_copy0 (saveable_obstack, str, len);
 
   return s;
+}
+
+/* Peel away any bounded pointer CONSTRUCTOR nodes, NOP_EXPR nodes and
+   ADDR_EXPR nodes that shround a STRING_CST node.  */
+
+tree
+expose_string_constant (string)
+     tree string;
+{
+  tree orig_string = string;
+  if (TREE_BOUNDED (string) && TREE_CODE (string) == CONSTRUCTOR)
+    string = TREE_VALUE (CONSTRUCTOR_ELTS (string));
+  while (TREE_CODE (string) == NOP_EXPR
+	 || TREE_CODE (string) == ADDR_EXPR)
+    string = TREE_OPERAND (string, 0);
+  if (TREE_CODE (string) == STRING_CST)
+    return string;
+  return orig_string;
 }
 
 /* Return a newly constructed COMPLEX_CST node whose value is
@@ -2275,7 +2297,7 @@ size_in_bytes (type)
   if (type == error_mark_node)
     return integer_zero_node;
 
-  type = TYPE_MAIN_VARIANT (type);
+  type = TYPE_MAIN_PHYSICAL_VARIANT (type);
   t = TYPE_SIZE_UNIT (type);
 
   if (t == 0)
@@ -2302,7 +2324,7 @@ int_size_in_bytes (type)
   if (type == error_mark_node)
     return 0;
 
-  type = TYPE_MAIN_VARIANT (type);
+  type = TYPE_MAIN_PHYSICAL_VARIANT (type);
   t = TYPE_SIZE_UNIT (type);
   if (t == 0
       || TREE_CODE (t) != INTEGER_CST
@@ -2754,6 +2776,15 @@ unsafe_for_reeval (expr)
       unsafeness = 1;
       break;
 
+    case CONSTRUCTOR:
+      for (expr = CONSTRUCTOR_ELTS (expr); expr; expr = TREE_CHAIN (expr))
+	{
+	  tmp = unsafe_for_reeval (TREE_VALUE (expr));
+	  if (tmp > unsafeness)
+	    unsafeness = tmp;
+	}
+      return unsafeness;
+
     default:
       /* ??? Add a lang hook if it becomes necessary.  */
       break;
@@ -3171,6 +3202,20 @@ stabilize_reference (ref)
       break;
 
 
+    case CONSTRUCTOR:
+      if (TREE_BOUNDED (ref))
+	{
+	  tree elts = CONSTRUCTOR_ELTS (ref);
+	  /* GKM FIXME: stabilize_reference_1 is too quick
+	     to add a save_expr, IMO.  */
+	  TREE_VALUE (elts) = stabilize_reference_1 (TREE_VALUE (elts));
+	  elts = TREE_CHAIN (elts);
+	  TREE_VALUE (elts) = stabilize_reference_1 (TREE_VALUE (elts));
+	  elts = TREE_CHAIN (elts);
+	  TREE_VALUE (elts) = stabilize_reference_1 (TREE_VALUE (elts));
+	}
+      return ref;
+
       /* If arg isn't a kind of lvalue we recognize, make no change.
 	 Caller should recognize the error for an invalid lvalue.  */
     default:
@@ -3184,6 +3229,8 @@ stabilize_reference (ref)
   TREE_READONLY (result) = TREE_READONLY (ref);
   TREE_SIDE_EFFECTS (result) = TREE_SIDE_EFFECTS (ref);
   TREE_THIS_VOLATILE (result) = TREE_THIS_VOLATILE (ref);
+  TREE_CONSTANT (result) = TREE_CONSTANT (ref);	/* GKM FIXME: why wasn't this here before? */
+  TREE_BOUNDED (result) = TREE_BOUNDED (ref);
 
   return result;
 }
@@ -3266,6 +3313,8 @@ stabilize_reference_1 (e)
   TREE_READONLY (result) = TREE_READONLY (e);
   TREE_SIDE_EFFECTS (result) = TREE_SIDE_EFFECTS (e);
   TREE_THIS_VOLATILE (result) = TREE_THIS_VOLATILE (e);
+  TREE_CONSTANT (result) = TREE_CONSTANT (e);	/* GKM FIXME: why wasn't this here before? */
+  TREE_BOUNDED (result) = TREE_BOUNDED (e);
 
   return result;
 }
@@ -3352,6 +3401,10 @@ build VPARAMS ((enum tree_code code, tree tt, ...))
 	    }
 	}
     }
+
+  if (tt && code != FUNCTION_DECL)
+    TREE_BOUNDED (t) = BOUNDED_POINTER_TYPE_P (tt);
+
   va_end (p);
   return t;
 }
@@ -3402,6 +3455,11 @@ build1 (code, type, node)
   TREE_OPERAND (t, 0) = node;
   if (node && first_rtl_op (code) != 0 && TREE_SIDE_EFFECTS (node))
     TREE_SIDE_EFFECTS (t) = 1;
+
+  if (type && code != FUNCTION_DECL)
+    TREE_BOUNDED (t) = BOUNDED_POINTER_TYPE_P (type);
+  else if (node && TREE_BOUNDED (node))
+    abort ();
 
   switch (code)
     {
@@ -3528,6 +3586,8 @@ build_decl (code, name, type)
   DECL_NAME (t) = name;
   DECL_ASSEMBLER_NAME (t) = name;
   TREE_TYPE (t) = type;
+  if (type && code != FUNCTION_DECL)
+    TREE_BOUNDED (t) = BOUNDED_POINTER_TYPE_P (type);
 
   if (code == VAR_DECL || code == PARM_DECL || code == RESULT_DECL)
     layout_decl (t, 0);
@@ -3607,13 +3667,15 @@ tree
 build_type_attribute_variant (ttype, attribute)
      tree ttype, attribute;
 {
+  /* GKM FIXME: I think this is OK as it stands.  */
   if ( ! attribute_list_equal (TYPE_ATTRIBUTES (ttype), attribute))
     {
       unsigned int hashcode;
+      int type_quals = TYPE_QUALS (ttype);
       tree ntype;
 
       push_obstacks (TYPE_OBSTACK (ttype), TYPE_OBSTACK (ttype));
-      ntype = copy_node (ttype);
+      ntype = copy_node (TYPE_MAIN_VARIANT (ttype));
 
       TYPE_POINTER_TO (ntype) = 0;
       TYPE_REFERENCE_TO (ntype) = 0;
@@ -3623,6 +3685,8 @@ build_type_attribute_variant (ttype, attribute)
       TYPE_MAIN_VARIANT (ntype) = ntype;
       TYPE_NEXT_VARIANT (ntype) = 0;
       set_type_quals (ntype, TYPE_UNQUALIFIED);
+      /* Preserve TYPE_BOUNDED bit, since it's significant */
+      TYPE_BOUNDED (ntype) = TYPE_BOUNDED (ttype);
 
       hashcode = (TYPE_HASH (TREE_CODE (ntype))
 		  + TYPE_HASH (TREE_TYPE (ntype))
@@ -3642,12 +3706,15 @@ build_type_attribute_variant (ttype, attribute)
 	case REAL_TYPE:
 	  hashcode += TYPE_HASH (TYPE_PRECISION (ntype));
 	  break;
+	case RECORD_TYPE:
+	  hashcode += TYPE_HASH (TYPE_FIELDS (ntype));
+	  break;
 	default:
 	  break;
         }
 
       ntype = type_hash_canon (hashcode, ntype);
-      ttype = build_qualified_type (ntype, TYPE_QUALS (ttype));
+      ttype = build_qualified_type (ntype, type_quals);
       pop_obstacks ();
     }
 
@@ -3925,6 +3992,11 @@ set_type_quals (type, type_quals)
   TYPE_READONLY (type) = (type_quals & TYPE_QUAL_CONST) != 0;
   TYPE_VOLATILE (type) = (type_quals & TYPE_QUAL_VOLATILE) != 0;
   TYPE_RESTRICT (type) = (type_quals & TYPE_QUAL_RESTRICT) != 0;
+  if (MAYBE_BOUNDED_INDIRECT_TYPE_P (type))
+    TYPE_BOUNDED (type) = (BOUNDED_INDIRECT_TYPE_P (type)
+			   || TYPE_BOUNDED (TREE_TYPE (type)));
+  else
+    TYPE_BOUNDED (type) = (type_quals & TYPE_QUAL_BOUNDED) != 0;
 }
 
 /* Given a type node TYPE and a TYPE_QUALIFIER_SET, return a type for
@@ -3932,7 +4004,17 @@ set_type_quals (type, type_quals)
    "main variant" (which has no qualifiers set) via TYPE_MAIN_VARIANT,
    and it points to a chain of other variants so that duplicate
    variants are never made.  Only main variants should ever appear as
-   types of expressions.  */
+   types of expressions.
+
+   When flag_bounded_pointers is nonzero, pointers come in two
+   flavors: bounded and unbouned.  The bounded pointer is a
+   RECORD_TYPE containing three unbounded POINTER_TYPE nodes.  The
+   qualifiers differ only in TYPE_QUAL_BOUNDED.  The unbounded
+   POINTER_TYPE node is always the main variant, with TYPE_QUALS (t)
+   == 0, but TYPE_POINTER_TO (TREE_TYPE (t)) is always the bounded
+   RECORD_TYPE.  Pointers are always created, copied and have their
+   qualifiers modified in pairs: the bounded and unbounded variants
+   travel together.  */
 
 tree
 build_qualified_type (type, type_quals)
@@ -3941,16 +4023,49 @@ build_qualified_type (type, type_quals)
 {
   register tree t;
   
+  /* Tolerate changes in boundedness only for indirect types.  For
+     other types (aggregates, functions, methods), the boundedness
+     must be derived from type components and can't be changed
+     directly.  */
+  if (! MAYBE_BOUNDED_INDIRECT_TYPE_P (type))
+    {
+      /* It often happens that the caller requests an "unqualified"
+	 version of an aggregate type that has bounded members.  In
+	 this case, the bounded qualifier is implicit.  */
+      if (TYPE_BOUNDED (type))
+	type_quals |= TYPE_QUAL_BOUNDED;
+      /* It's a mistake to force an unbounded aggregate to be bounded.  */
+      else if (type_quals & TYPE_QUAL_BOUNDED)
+	abort ();
+    }
+
   /* Search the chain of variants to see if there is already one there just
      like the one we need to have.  If so, use that existing one.  We must
      preserve the TYPE_NAME, since there is code that depends on this.  */
 
   for (t = TYPE_MAIN_VARIANT (type); t; t = TYPE_NEXT_VARIANT (t))
-    if (TYPE_QUALS (t) == type_quals && TYPE_NAME (t) == TYPE_NAME (type))
+    if (TYPE_QUALS (t) == type_quals && TYPE_NAME (t) == TYPE_NAME (type)
+	&& TYPE_POINTER_DEPTH (t) == TYPE_POINTER_DEPTH (type))
       return t;
 
-  /* We need a new one.  */
-  t = build_type_copy (type);
+  if (POINTER_TYPE_P (type) && (type_quals & TYPE_QUAL_BOUNDED))
+    {
+      tree subtype = build_qualified_type (type, type_quals & ~TYPE_QUAL_BOUNDED);
+      tree value = build_decl (FIELD_DECL, get_identifier ("value"), subtype);
+      tree base = build_decl (FIELD_DECL, get_identifier ("base"), subtype);
+      tree extent = build_decl (FIELD_DECL, get_identifier ("extent"), subtype);
+      t = build_type_copy (type);
+      TREE_CODE (t) = RECORD_TYPE;
+      TYPE_SIZE (t) = NULL_TREE;
+      TYPE_SIZE_UNIT (t) = NULL_TREE;
+      TYPE_FIELDS (t) = chainon (value, chainon (base, extent));
+      layout_type (t);
+    }
+  else if (BOUNDED_INDIRECT_TYPE_P (type) && !(type_quals & TYPE_QUAL_BOUNDED))
+    t = build_type_copy (TYPE_BOUNDED_SUBTYPE (type));
+  else
+    t = build_type_copy (type);
+
   set_type_quals (t, type_quals);
   return t;
 }
@@ -3978,6 +4093,21 @@ build_type_copy (type)
 
   return t;
 }
+
+#ifndef BUILD_VA_LIST_TYPE
+
+/* The va_list type is special since it gets TYPE_BOUNDED_AGGR
+   in order to prevent automatic thunk generation when it appears
+   as a function argument type.  Yet, we also wish to avoid choosing it
+   in build_qualified_type, which can happen if there's a bounded-pointer
+   (RECORD_TYPE) counterpart.  */
+tree
+build_va_list_type ()
+{
+  return build_type_copy (unbounded_ptr_type_node);
+}
+
+#endif
 
 /* Hashing of types so that we don't make duplicates.
    The entry point is `type_hash_canon'.  */
@@ -4012,6 +4142,8 @@ type_hash_eq (va, vb)
   if (a->hash == b->hash
       && TREE_CODE (a->type) == TREE_CODE (b->type)
       && TREE_TYPE (a->type) == TREE_TYPE (b->type)
+      && TYPE_BOUNDED (a->type) == TYPE_BOUNDED (b->type)
+      && TYPE_POINTER_DEPTH (a->type) == TYPE_POINTER_DEPTH (b->type)
       && attribute_list_equal (TYPE_ATTRIBUTES (a->type),
 			       TYPE_ATTRIBUTES (b->type))
       && TYPE_ALIGN (a->type) == TYPE_ALIGN (b->type)
@@ -4565,18 +4697,70 @@ compare_tree_int (t, u)
    (RECORD_TYPE, UNION_TYPE and ENUMERAL_TYPE nodes are
    constructed by language-dependent code, not here.)  */
 
-/* Construct, lay out and return the type of pointers to TO_TYPE.
+/* Construct, lay out and return the type of pointers to TO_TYPE
+   possessing the default boundedness for the compilation unit.
    If such a type has already been constructed, reuse it.  */
 
-tree
-build_pointer_type (to_type)
+enum tree_code
+default_pointer_type_code (to_type)
      tree to_type;
 {
-  register tree t = TYPE_POINTER_TO (to_type);
+  if (TREE_CODE (to_type) == FUNCTION_TYPE)
+    return POINTER_TYPE;
+  if (default_pointer_boundedness)
+    return RECORD_TYPE;
+  if (flag_bounds_check
+      && TREE_CODE (to_type) == ARRAY_TYPE
+      && TYPE_SIZE (to_type))
+    return RECORD_TYPE;
+  return POINTER_TYPE;
+}
+
+tree
+build_pointer_type_2 (code, to_type)
+     enum tree_code code;
+     tree to_type;
+{
+  tree t = TYPE_POINTER_TO (to_type);
+  if (!t)
+    {
+      int depth = TYPE_POINTER_DEPTH (to_type);
+      if (depth < MAX_POINTER_DEPTH
+	  /* Special case for the sake of signal: pointers to functions
+	     are always unbounded.  If the function type pointed-to has
+	     no pointers among its return or arg types, then we can consider
+	     this pointer to be as safe for exchange as a scalar, so we
+	     needn't increase its pointer depth.  Time will tell if
+	     this proves a dangerous policy...  */
+	  && !(TREE_CODE (to_type) == FUNCTION_TYPE && depth == 0))
+	depth++;
+      t = make_node (POINTER_TYPE);
+      TREE_TYPE (t) = to_type;
+      layout_type (t);
+      TYPE_POINTER_TO (to_type) = t;
+      TYPE_POINTER_DEPTH (t) = depth;
+    }
+  if (TREE_CODE (t) != POINTER_TYPE)
+    abort();
+
+  /* Pointers to functions are always unbounded, no matter what the
+     caller thinks s/he wants.  */
+  if (TREE_CODE (to_type) == FUNCTION_TYPE)
+    code = POINTER_TYPE;
+  else if (code == VOID_TYPE)
+    code = default_pointer_type_code (to_type);
+
+  if (code == RECORD_TYPE)
+    t = build_qualified_type (t, TYPE_QUAL_BOUNDED);
+  else if (code != POINTER_TYPE)
+    abort ();
+
+  if (!TYPE_POINTER_DEPTH (t) && TREE_CODE (to_type) != FUNCTION_TYPE)
+    abort ();
 
   /* First, if we already have a type for pointers to TO_TYPE, use it.  */
 
-  if (t != 0)
+  if (t)
     return t;
 
   /* We need a new one.  Put this in the same obstack as TO_TYPE.   */
@@ -4586,15 +4770,28 @@ build_pointer_type (to_type)
 
   TREE_TYPE (t) = to_type;
 
-  /* Record this type as the pointer to TO_TYPE.  */
-  TYPE_POINTER_TO (to_type) = t;
-
-  /* Lay out the type.  This function has many callers that are concerned
-     with expression-construction, and this simplifies them all.
-     Also, it guarantees the TYPE_SIZE is in the same obstack as the type.  */
-  layout_type (t);
-
   return t;
+}
+
+tree
+build_null_pointer_node (type)
+     tree type;
+{
+  tree null = build_int_2 (0, 0);
+  if (BOUNDED_POINTER_TYPE_P (type))
+    {
+      tree value = build_tree_list (TYPE_BOUNDED_VALUE (type), null);
+      tree base = build_tree_list (TYPE_BOUNDED_BASE (type), null);
+      tree extent = build_tree_list (TYPE_BOUNDED_EXTENT (type), null);
+      TREE_TYPE (null) = TYPE_BOUNDED_SUBTYPE (type);
+      null = build (CONSTRUCTOR, type, NULL_TREE,
+		    chainon (value, chainon (base, extent)));
+      TREE_CONSTANT (null) = 1;
+      TREE_BOUNDED (null) = 1;
+    }
+  else
+    TREE_TYPE (null) = type;
+  return null;
 }
 
 /* Build the node for the type of references-to-TO_TYPE.  */
@@ -4751,7 +4948,7 @@ build_array_type (elt_type, index_type)
     }
 
   /* Make sure TYPE_POINTER_TO (elt_type) is filled in.  */
-  build_pointer_type (elt_type);
+  build_default_pointer_type (elt_type);
 
   /* Allocate the array after the pointer type,
      in case we free it in type_hash_canon.  */
@@ -4798,8 +4995,11 @@ tree
 build_function_type (value_type, arg_types)
      tree value_type, arg_types;
 {
+  tree arg_types_0 = arg_types;
   register tree t;
   unsigned int hashcode;
+  int depth = TYPE_POINTER_DEPTH (value_type);
+  int boundedp = TYPE_BOUNDED (value_type);
 
   if (TREE_CODE (value_type) == FUNCTION_TYPE)
     {
@@ -4811,6 +5011,30 @@ build_function_type (value_type, arg_types)
   t = make_node (FUNCTION_TYPE);
   TREE_TYPE (t) = value_type;
   TYPE_ARG_TYPES (t) = arg_types;
+
+  /* The pointer depth of a function is the maximum of the depths of
+     its return type and argument type(s).  Functions with empty
+     argument lists, and varargs functions get the maximum depth,
+     since anything could be passed there.  */
+  for (; arg_types; arg_types = TREE_CHAIN (arg_types))
+    {
+      tree type = TREE_VALUE (arg_types);
+      if (type == void_type_node)
+	break;
+      if (TREE_CODE (type) == INTEGER_CST)
+	{
+	  boundedp |= TREE_INT_CST_LOW (type);
+	  break;
+	}
+      depth = MAX (depth, TYPE_POINTER_DEPTH (type));
+      boundedp |= TYPE_BOUNDED (type);
+    }
+  if (arg_types_0 && (!arg_types || TREE_CODE (arg_types) == INTEGER_CST))
+    /* Assume the worst for stdarg/varargs functions.  */
+    depth = MAX_POINTER_DEPTH;
+
+  TYPE_POINTER_DEPTH (t) = depth;
+  TYPE_BOUNDED (t) = boundedp;
 
   /* If we already have such a type, use the old one and free this one.  */
   hashcode = TYPE_HASH (value_type) + type_hash_list (arg_types);
@@ -4847,7 +5071,8 @@ build_method_type (basetype, type)
 
   TYPE_ARG_TYPES (t)
     = tree_cons (NULL_TREE,
-		 build_pointer_type (basetype), TYPE_ARG_TYPES (type));
+		 build_pointer_type (basetype),
+		 TYPE_ARG_TYPES (type));
 
   /* If we already have such a type, use the old one and free this one.  */
   hashcode = TYPE_HASH (basetype) + TYPE_HASH (type);
@@ -5739,13 +5964,22 @@ build_common_tree_nodes_2 (short_double)
      so we might as well not have any types that claim to have it.  */
   TYPE_ALIGN (void_type_node) = BITS_PER_UNIT;
 
-  null_pointer_node = build_int_2 (0, 0);
-  TREE_TYPE (null_pointer_node) = build_pointer_type (void_type_node);
-  layout_type (TREE_TYPE (null_pointer_node));
+  unbounded_ptr_type_node = build_pointer_type_2 (POINTER_TYPE, void_type_node);
+  bounded_ptr_type_node = build_pointer_type_2 (RECORD_TYPE, void_type_node);
+  ptr_type_node = build_pointer_type_2 (VOID_TYPE, void_type_node);
+  {
+    tree to_type = build_qualified_type (void_type_node, TYPE_QUAL_CONST);
+    const_bounded_ptr_type_node = build_pointer_type_2 (RECORD_TYPE, to_type);
+    const_unbounded_ptr_type_node = build_pointer_type_2 (POINTER_TYPE, to_type);
+    const_ptr_type_node =  build_pointer_type_2 (VOID_TYPE, to_type);
+  }
 
-  ptr_type_node = build_pointer_type (void_type_node);
-  const_ptr_type_node
-    = build_pointer_type (build_type_variant (void_type_node, 1, 0));
+  null_unbounded_ptr_node = build_null_pointer_node (unbounded_ptr_type_node);
+  strict_null_bounded_ptr_node = build_null_pointer_node (bounded_ptr_type_node);
+  null_pointer_node = build_null_pointer_node (ptr_type_node);
+  permissive_null_bounded_ptr_node = build_null_pointer_node (bounded_ptr_type_node);
+  TREE_VALUE (TREE_CHAIN (TREE_CHAIN (CONSTRUCTOR_ELTS (permissive_null_bounded_ptr_node))))
+    = build_int_2 (~0, ~0);
 
   float_type_node = make_node (REAL_TYPE);
   TYPE_PRECISION (float_type_node) = FLOAT_TYPE_SIZE;
@@ -5781,6 +6015,7 @@ build_common_tree_nodes_2 (short_double)
 #ifdef BUILD_VA_LIST_TYPE
   BUILD_VA_LIST_TYPE(va_list_type_node);
 #else
-  va_list_type_node = ptr_type_node;
+  va_list_type_node = build_va_list_type ();
 #endif
+  TYPE_POINTER_DEPTH (va_list_type_node) = VA_LIST_POINTER_DEPTH;
 }

@@ -1,5 +1,5 @@
 /* Definitions for Intel 386 running Linux-based GNU systems using a.out.
-   Copyright (C) 1992, 1994, 1995, 1997, 1998 Free Software Foundation, Inc.
+   Copyright (C) 1992, 1994, 1995, 1997, 1998, 1999, 2000 Free Software Foundation, Inc.
    Contributed by H.J. Lu (hjl@nynexst.com)
 
 This file is part of GNU CC.
@@ -59,11 +59,14 @@ Boston, MA 02111-1307, USA.  */
    want to profile or debug the GNU/Linux C library, please add
    -lc_p or -ggdb to LDFLAGS at the link time, respectively.  */
 #define LIB_SPEC \
-"%{mieee-fp:-lieee} %{p:-lgmon} %{pg:-lgmon} %{!ggdb:-lc} %{ggdb:-lg}"
+"%{fbounded-pointer-thunks:-lgccbp}\
+ %{mieee-fp:-lieee} %{p:-lgmon} %{pg:-lgmon} %{!ggdb:-lc} %{ggdb:-lg}"
 #else    
 #define LIB_SPEC \
-"%{mieee-fp:-lieee} %{p:-lgmon -lc_p} %{pg:-lgmon -lc_p} \
- %{!p:%{!pg:%{!g*:-lc} %{g*:-lg -static}}}" 
+"%{fbounded-pointer-thunks:-lgccbp}\
+ %{mieee-fp:-lieee} %{p:-lgmon -lc_p} %{pg:-lgmon -lc_p} \
+ %{fbounded-pointers:-lc_b} \
+ %{!p:%{!pg:%{!g*:%{!fbounded-pointers:-lc}} %{g*:-lg -static}}}" 
 #endif
 
 

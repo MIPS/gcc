@@ -447,7 +447,9 @@ proper position among the other output files.  */
 
 /* config.h can define LIB_SPEC to override the default libraries.  */
 #ifndef LIB_SPEC
-#define LIB_SPEC "%{!shared:%{g*:-lg} %{!p:%{!pg:-lc}}%{p:-lc_p}%{pg:-lc_p}}"
+#define LIB_SPEC "%{fbounded-pointer-thunks:-lgccbp}\
+		  %{!shared:%{g*:-lg} %{!p:%{!pg:%{!fbounded-pointers:-lc}}}\
+		  %{p:-lc_p}%{pg:-lc_p}%{fbounded-pointers:-lc_b}}"
 #endif
 
 /* config.h can define LIBGCC_SPEC to override how and when libgcc.a is
@@ -632,6 +634,8 @@ static struct compiler default_compilers[] =
         %{traditional-cpp:-traditional}\
 	%{fleading-underscore} %{fno-leading-underscore}\
 	%{fshow-column} %{fno-show-column}\
+	%{fbounded-pointers:-D__BOUNDED_POINTERS__=1}\
+	%{fbounded-pointer-thunks:-D__BOUNDED_POINTER_THUNKS__=1}\
 	%{g*} %{W*} %{w} %{pedantic*} %{H} %{d*} %C %{D*} %{U*} %{i*} %Z\
         %i %{E:%W{o*}}%{M:%W{o*}}%{MM:%W{o*}}\n}\
       %{!E:%{!M:%{!MM:cc1 %i %1 \
@@ -648,6 +652,8 @@ static struct compiler default_compilers[] =
                   %{ftraditional:-traditional}\
                   %{traditional-cpp:-traditional}\
 		  %{traditional} %{v:-version} %{pg:-p} %{p} %{f*}\
+		  %{fbounded-pointers:-D__BOUNDED_POINTERS__=1}\
+		  %{fbounded-pointer-thunks:-D__BOUNDED_POINTER_THUNKS__=1}\
 		  %{aux-info*} %{Qn:-fno-ident}\
 		  %{--help:--help}\
 		  %{g*} %{O*} %{W*} %{w} %{pedantic*}\
@@ -670,6 +676,8 @@ static struct compiler default_compilers[] =
         %{traditional-cpp:-traditional}\
 	%{fshow-column} %{fno-show-column}\
 	%{fleading-underscore} %{fno-leading-underscore}\
+	%{fbounded-pointers:-D__BOUNDED_POINTERS__=1}\
+	%{fbounded-pointer-thunks:-D__BOUNDED_POINTER_THUNKS__=1}\
 	%{g*} %{W*} %{w} %{pedantic*} %{H} %{d*} %C %{D*} %{U*} %{i*} %Z\
         %i %{!M:%{!MM:%{!E:%{!pipe:%g.i}}}}%{E:%W{o*}}%{M:%W{o*}}%{MM:%W{o*}} |\n",
    "%{!M:%{!MM:%{!E:cc1 %{!pipe:%g.i} %1 \
@@ -699,6 +707,8 @@ static struct compiler default_compilers[] =
         %{traditional-cpp:-traditional}\
 	%{fshow-column} %{fno-show-column}\
 	%{fleading-underscore} %{fno-leading-underscore}\
+	%{fbounded-pointers:-D__BOUNDED_POINTERS__=1}\
+	%{fbounded-pointer-thunks:-D__BOUNDED_POINTER_THUNKS__=1}\
 	%{g*} %{W*} %{w} %{pedantic*} %{H} %{d*} %C %{D*} %{U*} %{i*} %Z\
         %i %W{o*}}\
     %{!E:%e-E required when input is from standard input}"}},
@@ -718,6 +728,8 @@ static struct compiler default_compilers[] =
         %{traditional-cpp:-traditional}\
 	%{fshow-column} %{fno-show-column}\
 	%{fleading-underscore} %{fno-leading-underscore}\
+	%{fbounded-pointers:-D__BOUNDED_POINTERS__=1}\
+	%{fbounded-pointer-thunks:-D__BOUNDED_POINTER_THUNKS__=1}\
 	%{g*} %{W*} %{w} %{pedantic*} %{H} %{d*} %C %{D*} %{U*} %{i*} %Z\
         %i %W{o*}"}},
   {".i", {"@cpp-output"}},
@@ -749,6 +761,8 @@ static struct compiler default_compilers[] =
         %{traditional-cpp:-traditional}\
 	%{fshow-column} %{fno-show-column}\
 	%{fleading-underscore} %{fno-leading-underscore}\
+	%{fbounded-pointers:-D__BOUNDED_POINTERS__=1}\
+	%{fbounded-pointer-thunks:-D__BOUNDED_POINTER_THUNKS__=1}\
 	%{g*} %{W*} %{w} %{pedantic*} %{H} %{d*} %C %{D*} %{U*} %{i*} %Z\
         %i %{!M:%{!MM:%{!E:%{!pipe:%g.s}}}}%{E:%W{o*}}%{M:%W{o*}}%{MM:%W{o*}} |\n",
     "%{!M:%{!MM:%{!E:%{!S:as %a %Y\
@@ -1119,7 +1133,7 @@ struct spec_list
 {
 				/* The following 2 fields must be first */
 				/* to allow EXTRA_SPECS to be initialized */
-  char *name;			/* name of the spec.  */
+  const char *name;		/* name of the spec.  */
   char *ptr;			/* available ptr if no static pointer */
 
 				/* The following fields are not initialized */
@@ -1164,7 +1178,7 @@ static struct spec_list static_specs[] =
    That is all that the EXTRA_SPECS macro gives us.  */
 struct spec_list_1
 {
-  char *name;
+  const char *name;
   char *ptr;
 };
 

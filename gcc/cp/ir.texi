@@ -339,10 +339,11 @@ type.  There are often several.
 For the most part, different kinds of types have different tree codes.
 (For example, pointer types use a @code{POINTER_TYPE} code while arrays
 use an @code{ARRAY_TYPE} code.)  However, pointers to member functions
-use the @code{RECORD_TYPE} code.  Therefore, when writing a
-@code{switch} statement that depends on the code associated with a
-particular type, you should take care to handle pointers to member
-functions under the @code{RECORD_TYPE} case label.
+and bounded indirect types use the @code{RECORD_TYPE} code.  Therefore,
+when writing a @code{switch} statement that depends on the code
+associated with a particular type, you should take care to handle
+pointers to member functions and bounded indirect types under the
+@code{RECORD_TYPE} case label.
 
 In C++, an array type is not qualified; rather the type of the array
 elements is qualified.  This situation is reflected in the intermediate
@@ -376,6 +377,11 @@ This macro holds if the type is @code{restrict}-qualified.
 This macro returns the unqualified version of a type.  It may be applied
 to an unqualified type, but it is not always the identity function in
 that case.
+
+@item TYPE_MAIN_PHYSICAL_VARIANT
+This macro returns the version of the type that is unqualified with
+respect to @code{const}, @code{volatile} and @code{restrict}, but
+preserves the the @code{bounded} qualification of its argument.
 @end ftable
 
 A few other macros and functions are usable with all types:
@@ -406,6 +412,32 @@ there is no difference between them at the source level, but, for
 whatever reason, a duplicate has been made in the representation.  You
 should never use @code{==} (pointer equality) to compare types; always
 use @code{same_type_p} instead.
+
+@item TYPE_MAIN_VARIANTS_PHYSICALLY_EQUAL_P
+This predicate takes two types as input, and holds if they represent
+the same type, modulo differences in @code{const}, @code{volatile} and
+@code{restrict} qualifiers.  The @code{bounded} qualifiers must match.
+
+@item INDIRECT_TYPE_P
+This predicate holds if the argument type is a @code{POINTER_TYPE} or
+a @code{REFERENCE_TYPE} node.
+
+@item XINDIRECT_TYPE_P
+This predicate holds if the argument type is a @code{POINTER_TYPE}
+or a @code{REFERENCE_TYPE} node or if it is a @code{RECORD_TYPE} node
+for which the @code{BOUNDED_INDIRECT_TYPE_P} predicate holds.
+
+@item XPOINTER_TYPE_P
+This predicate holds if hte argument type is a @code{POINTER_TYPE}
+or if it is a @code{RECORD_TYPE} node for which the
+@code{BOUNDED_INDIRECT_TYPE_P} predicate holds and the
+@code{TYPE_BOUNDED_SUBTYPE} node is a @code{POINTER_TYPE}.
+
+@item XREFERENCE_TYPE_P
+This predicate holds if hte argument type is a @code{REFERENCE_TYPE}
+or if it is a @code{RECORD_TYPE} node for which the
+@code{BOUNDED_INDIRECT_TYPE_P} predicate holds and the
+@code{TYPE_BOUNDED_SUBTYPE} node is a @code{REFERENCE_TYPE}.
 @end ftable
 
 Detailed below are the various kinds of types, and the macros that can
@@ -509,13 +541,20 @@ in the array.
 
 @item RECORD_TYPE
 Used to represent @code{struct} and @code{class} types, as well as
-pointers to member functions.  If @code{TYPE_PTRMEMFUNC_P} holds, then
-this type is a pointer-to-member type.  In that case, the
+pointers to member functions and bounded indirect types (bounded
+pointers and bounded references).  If @code{TYPE_PTRMEMFUNC_P} holds,
+then this type is a pointer-to-member type.  In that case, the
 @code{TYPE_PTRMEMFUNC_FN_TYPE} is a @code{POINTER_TYPE} pointing to a
 @code{METHOD_TYPE}.  The @code{METHOD_TYPE} is the type of a function
 pointed to by the pointer-to-member function.  If
-@code{TYPE_PTRMEMFUNC_P} does not hold, this type is a class type.  For
-more information, see @pxref{Classes}.
+@code{BOUNDED_INDIRECT_TYPE_P} holds, then this type is a bounded
+indirect type.  In that case, @code{TYPE_BOUNDED_SUBTYPE} is the basic
+@code{POINTER_TYPE} or @code{REFERENCE_TYPE}, and
+@code{TYPE_BOUNDED_VALUE}, @code{TYPE_BOUNDED_BASE} and
+@code{TYPE_BOUNDED_EXTENT} are the three @code{FIELD_DECL} members of
+the enclosing @code{RECORD_TYPE}.  If neither @code{TYPE_PTRMEMFUNC_P}
+nor @code{BOUNDED_INDIRECT_TYPE_P} holds, this type is a class type.
+For more information, see @pxref{Classes}.
 
 @item UNION_TYPE
 Used to represent @code{union} types.  For more information, @pxref{Classes}.

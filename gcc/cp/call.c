@@ -421,6 +421,7 @@ build_call (function, parms)
   TREE_TYPE (function) = result_type;
   TREE_SIDE_EFFECTS (function) = 1;
   TREE_NOTHROW (function) = nothrow;
+  TREE_BOUNDED (function) = BOUNDED_POINTER_TYPE_P (TREE_TYPE (function));
   
   return function;
 }

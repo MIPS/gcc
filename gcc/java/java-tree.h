@@ -277,7 +277,7 @@ extern tree field_ptr_type_node;
 extern tree field_info_union_node;
 extern tree method_type_node;
 extern tree method_ptr_type_node;
-#define nativecode_ptr_type_node ptr_type_node
+#define nativecode_ptr_type_node unbounded_ptr_type_node
 
 extern tree end_params_node;
 
@@ -873,7 +873,7 @@ extern int linenumber_count;
 #define TYPE_SECOND void_type_node
 
 /* In type_map, means the null type (i.e. type of a null reference). */ 
-#define TYPE_NULL ptr_type_node
+#define TYPE_NULL unbounded_ptr_type_node
 
 /* In a type map means the type the address subroutine return address. */
 #define TYPE_RETURN_ADDR return_address_type_node

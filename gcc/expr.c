@@ -1721,13 +1721,15 @@ emit_block_move (x, y, size, align)
       if (fn == NULL_TREE)
 	{
 	  tree fntype;
+	  int save_default_pointer_boundedness = default_pointer_boundedness;
+	  default_pointer_boundedness = 0;
 
 	  /* This was copied from except.c, I don't know if all this is
 	     necessary in this context or not.  */
 	  fn = get_identifier ("memcpy");
 	  push_obstacks_nochange ();
 	  end_temporary_allocation ();
-	  fntype = build_pointer_type (void_type_node);
+	  fntype = unbounded_ptr_type_node;
 	  fntype = build_function_type (fntype, NULL_TREE);
 	  fn = build_decl (FUNCTION_DECL, fn, fntype);
  	  ggc_add_tree_root (&fn, 1);
@@ -1737,18 +1739,16 @@ emit_block_move (x, y, size, align)
 	  make_decl_rtl (fn, NULL_PTR, 1);
 	  assemble_external (fn);
 	  pop_obstacks ();
+	  default_pointer_boundedness = save_default_pointer_boundedness;
 	}
 
       /* We need to make an argument list for the function call. 
 
 	 memcpy has three arguments, the first two are void * addresses and
 	 the last is a size_t byte count for the copy.  */
-      arg_list
-	= build_tree_list (NULL_TREE,
-			   make_tree (build_pointer_type (void_type_node), x));
+      arg_list = build_tree_list (NULL_TREE, make_tree (unbounded_ptr_type_node, x));
       TREE_CHAIN (arg_list)
-	= build_tree_list (NULL_TREE,
-			   make_tree (build_pointer_type (void_type_node), y));
+	= build_tree_list (NULL_TREE, make_tree (unbounded_ptr_type_node, y));
       TREE_CHAIN (TREE_CHAIN (arg_list))
 	 = build_tree_list (NULL_TREE, make_tree (sizetype, size));
       TREE_CHAIN (TREE_CHAIN (TREE_CHAIN (arg_list))) = NULL_TREE;
@@ -2483,13 +2483,15 @@ clear_storage (object, size, align)
 	  if (fn == NULL_TREE)
 	    {
 	      tree fntype;
+	      int save_default_pointer_boundedness = default_pointer_boundedness;
+	      default_pointer_boundedness = 0;
 
 	      /* This was copied from except.c, I don't know if all this is
 		 necessary in this context or not.  */
 	      fn = get_identifier ("memset");
 	      push_obstacks_nochange ();
 	      end_temporary_allocation ();
-	      fntype = build_pointer_type (void_type_node);
+	      fntype = unbounded_ptr_type_node;
 	      fntype = build_function_type (fntype, NULL_TREE);
 	      fn = build_decl (FUNCTION_DECL, fn, fntype);
 	      ggc_add_tree_root (&fn, 1);
@@ -2499,6 +2501,7 @@ clear_storage (object, size, align)
 	      make_decl_rtl (fn, NULL_PTR, 1);
 	      assemble_external (fn);
 	      pop_obstacks ();
+	      default_pointer_boundedness = save_default_pointer_boundedness;
 	    }
 
 	  /* We need to make an argument list for the function call. 
@@ -2506,10 +2509,7 @@ clear_storage (object, size, align)
 	     memset has three arguments, the first is a void * addresses, the
 	     second a integer with the initialization value, the last is a
 	     size_t byte count for the copy.  */
-	  arg_list
-	    = build_tree_list (NULL_TREE,
-			       make_tree (build_pointer_type (void_type_node),
-					  object));
+	  arg_list = build_tree_list (NULL_TREE, make_tree (unbounded_ptr_type_node, object));
 	  TREE_CHAIN (arg_list)
 	    = build_tree_list (NULL_TREE,
 			        make_tree (integer_type_node, const0_rtx));
@@ -2518,8 +2518,7 @@ clear_storage (object, size, align)
 	  TREE_CHAIN (TREE_CHAIN (TREE_CHAIN (arg_list))) = NULL_TREE;
 
 	  /* Now we have to build up the CALL_EXPR itself.  */
-	  call_expr = build1 (ADDR_EXPR,
-			      build_pointer_type (TREE_TYPE (fn)), fn);
+	  call_expr = build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (fn)), fn);
 	  call_expr = build (CALL_EXPR, TREE_TYPE (TREE_TYPE (fn)),
 			     call_expr, arg_list, NULL_TREE);
 	  TREE_SIDE_EFFECTS (call_expr) = 1;
@@ -7066,6 +7065,33 @@ expand_expr (exp, target, tmode, modifier)
     case NOP_EXPR:
     case CONVERT_EXPR:
     case REFERENCE_EXPR:
+      /* GKM FIXME: these are the only warnings in the whole file,
+	 which leads me to wonder if they should be pushed back into
+	 the front end.  */
+      if (BOUNDED_POINTER_TYPE_P (type) && ! TREE_BOUNDED (TREE_OPERAND (exp, 0)))
+	{
+	  tree exp0 = TREE_OPERAND (exp, 0);
+	  exp = convert (TYPE_BOUNDED_SUBTYPE (type), exp0);
+	  if (TREE_CODE (TREE_TYPE (exp0)) == POINTER_TYPE)
+	    exp = build_bounded_ptr_constructor (exp);
+	  else
+	    {
+	      warning ("creating bounded pointer from %s",
+		       (TREE_CODE (TREE_TYPE (exp0)) == INTEGER_TYPE
+			&& !integer_zerop (exp0))
+		       ? "integer" : "non-pointer");
+	      exp = build_bounded_ptr_constructor_2 (exp, strict_null_bounded_ptr_node);
+	    }
+	  return expand_expr (exp, target, tmode, modifier);
+	}
+      else if (! BOUNDED_POINTER_TYPE_P (type) && TREE_BOUNDED (TREE_OPERAND (exp, 0)))
+	{
+	  warning ("discarding pointer bounds in type conversion");
+	  exp = build_bounded_ptr_value_ref (TREE_OPERAND (exp, 0));
+	  exp = convert (type, exp);
+	  return expand_expr (exp, target, tmode, modifier);
+	}
+
       if (TREE_CODE (type) == UNION_TYPE)
 	{
 	  tree valtype = TREE_TYPE (TREE_OPERAND (exp, 0));

@@ -29,6 +29,12 @@ __inline, SCSPEC, RID_INLINE
 __inline__, SCSPEC, RID_INLINE
 __label__, LABEL, RID_UNUSED
 __null, CONSTANT, RID_NULL
+__ptrbase, PTR_BASE, RID_UNUSED
+__ptrbase__, PTR_BASE, RID_UNUSED
+__ptrextent, PTR_EXTENT, RID_UNUSED
+__ptrextent__, PTR_EXTENT, RID_UNUSED
+__ptrvalue, PTR_VALUE, RID_UNUSED
+__ptrvalue__, PTR_VALUE, RID_UNUSED
 __real, REALPART, RID_UNUSED
 __real__, REALPART, RID_UNUSED
 __restrict, CV_QUALIFIER, RID_RESTRICT
@@ -37,6 +43,12 @@ __signed, TYPESPEC, RID_SIGNED
 __signed__, TYPESPEC, RID_SIGNED
 __typeof, TYPEOF, RID_UNUSED
 __typeof__, TYPEOF, RID_UNUSED
+/* __bounded & __bounded__ can't be alphabetized because
+   that yields a duplicate-value error from gperf.  */
+__bounded, CV_QUALIFIER, RID_BOUNDED
+__bounded__, CV_QUALIFIER, RID_BOUNDED
+__unbounded, CV_QUALIFIER, RID_UNBOUNDED
+__unbounded__, CV_QUALIFIER, RID_UNBOUNDED
 __volatile, CV_QUALIFIER, RID_VOLATILE
 __volatile__, CV_QUALIFIER, RID_VOLATILE
 __wchar_t, TYPESPEC, RID_WCHAR  /* Unique to ANSI C++ */,

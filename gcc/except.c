@@ -1136,8 +1136,7 @@ call_get_eh_context ()
       fn = get_identifier ("__get_eh_context");
       push_obstacks_nochange ();
       end_temporary_allocation ();
-      fntype = build_pointer_type (build_pointer_type
-				   (build_pointer_type (void_type_node)));
+      fntype = build_pointer_type (build_pointer_type (unbounded_ptr_type_node));
       fntype = build_function_type (fntype, NULL_TREE);
       fn = build_decl (FUNCTION_DECL, fn, fntype);
       DECL_EXTERNAL (fn) = 1;
@@ -2946,12 +2945,10 @@ eh_regs (pcontext, psp, pra, outgoing)
 
 #ifdef FUNCTION_OUTGOING_VALUE
   if (outgoing)
-    rcontext = FUNCTION_OUTGOING_VALUE (build_pointer_type (void_type_node),
-				        current_function_decl);
+    rcontext = FUNCTION_OUTGOING_VALUE (unbounded_ptr_type_node, current_function_decl);
   else
 #endif
-    rcontext = FUNCTION_VALUE (build_pointer_type (void_type_node),
-			       current_function_decl);
+    rcontext = FUNCTION_VALUE (unbounded_ptr_type_node, current_function_decl);
 
 #ifdef STATIC_CHAIN_REGNUM
   if (outgoing)
@@ -2996,8 +2993,7 @@ rtx
 get_reg_for_handler ()
 {
   rtx reg1;
-  reg1 = FUNCTION_VALUE (build_pointer_type (void_type_node),
-			   current_function_decl);
+  reg1 = FUNCTION_VALUE (unbounded_ptr_type_node, current_function_decl);
   return reg1;
 }
 #endif

@@ -1,5 +1,5 @@
 /* top.c -- Implementation File (module.c template V1.0)
-   Copyright (C) 1995, 1996, 1997, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1995, 1996, 1997, 1999, 2000 Free Software Foundation, Inc.
    Contributed by James Craig Burley.
 
 This file is part of GNU Fortran.
@@ -911,4 +911,54 @@ ffe_terminate_4 ()
   ffetarget_terminate_4 ();
   ffetype_terminate_4 ();
   ffewhere_terminate_4 ();
+}
+
+void
+compile_bounded_pointer_thunk (decl)
+     tree decl;
+{
+  error ("bounded pointer thunks are unsupported");
+  abort ();
+}
+
+tree
+build_bounded_ptr_field_ref (bp, field_number)
+     tree bp;
+     int field_number;
+{
+  error ("bounded pointers are unsupported");
+  abort ();
+}
+
+tree
+build_bounded_ptr_check (bp, length)
+     tree bp;
+     tree length;
+{
+  return build_bounded_ptr_field_ref (bp, 0);
+}
+
+tree
+build_bounded_ptr_constructor (addr)
+     tree addr;
+{
+  error ("bounded pointers are unsupported");
+  abort ();
+}
+
+tree
+build_bounded_ptr_constructor_2 (addr, bounds)
+     tree addr;
+     tree bounds;
+{
+  return build_bounded_ptr_constructor (addr);
+}
+
+tree
+build_bounded_ptr_constructor_3 (addr, base, extent)
+     tree addr;
+     tree base;
+     tree extent;
+{
+  return build_bounded_ptr_constructor (addr);
 }

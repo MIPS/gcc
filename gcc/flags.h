@@ -490,6 +490,20 @@ extern int flag_peephole2;
    of the referent object.  The base and extent allow us to perform
    runtime bounds checking.  -fbounded-pointers implies -fcheck-bounds.  */
 extern int flag_bounded_pointers;
+/* Tell build_pointer_type_2 and grokdeclarator what variety of
+   pointers to build in the absence of qualifiers.  This variable is
+   modified for regions of code by the __bounded { ... } and
+   __unbounded { ... } syntax, or for individual declarations by the
+   __bounded and __unbounded attributes.  */
+extern int default_pointer_boundedness;
+
+/* -fbounded-pointer-thunks causes gcc to generate thunks that
+   translate between the bounded-pointer and non-bounded-pointer
+   versions of functions that have argument type(s) or return type
+   that are pointers.  This allows code compiled with bounded pointers
+   to be mixed with code compiled without bounded pointers.  See the
+   comment above the TREE_BOUNDED macro definition for full details.  */
+extern int flag_bounded_pointer_thunks;
 
 /* -fcheck-bounds causes gcc to generate array bounds checks.
    For C, C++: defaults to value of flag_bounded_pointers.

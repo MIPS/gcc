@@ -90,12 +90,12 @@ static rtx expand_builtin_va_start	PARAMS ((int, tree));
 static rtx expand_builtin_va_end	PARAMS ((tree));
 static rtx expand_builtin_va_copy	PARAMS ((tree));
 #ifdef HAVE_cmpstrsi
-static rtx expand_builtin_memcmp	PARAMS ((tree, tree, rtx));
+static rtx expand_builtin_memcmp	PARAMS ((tree, rtx));
 static rtx expand_builtin_strcmp	PARAMS ((tree, rtx));
 #endif
-static rtx expand_builtin_memcpy	PARAMS ((tree));
-static rtx expand_builtin_strcpy	PARAMS ((tree));
-static rtx expand_builtin_memset	PARAMS ((tree));
+static rtx expand_builtin_memcpy	PARAMS ((tree, rtx));
+static rtx expand_builtin_strcpy	PARAMS ((tree, rtx));
+static rtx expand_builtin_memset	PARAMS ((tree, rtx));
 static rtx expand_builtin_bzero		PARAMS ((tree));
 static rtx expand_builtin_strlen	PARAMS ((tree, rtx,
 						 enum machine_mode));
@@ -104,6 +104,8 @@ static rtx expand_builtin_ffs		PARAMS ((tree, rtx, rtx));
 static rtx expand_builtin_frame_address	PARAMS ((tree));
 static tree stabilize_va_list		PARAMS ((tree, int));
 static rtx expand_builtin_expect	PARAMS ((tree, rtx));
+static rtx bounded_ptr_dest		PARAMS ((tree, rtx, rtx));
+static rtx expand_builtin_check_bounds	PARAMS ((tree));
 
 /* Return the alignment in bits of EXP, a pointer valued expression.
    But don't return more than MAX_ALIGN no matter what.
@@ -1156,6 +1158,14 @@ expand_builtin_constant_p (exp)
 	 literal constant.  */
       STRIP_NOPS (arg);
 
+      /* Strip away bounded pointer constructors to avoid a
+	 false-positive for the test that immediately follows.  */
+      if (TREE_CODE (arg) == CONSTRUCTOR && TREE_BOUNDED (arg))
+	{
+	  arg = build_bounded_ptr_value_ref (arg);
+	  STRIP_NOPS (arg);
+	}
+
       /* If we know this is a constant, emit the constant of one.  */
       if (TREE_CODE_CLASS (TREE_CODE (arg)) == 'c'
 	  || (TREE_CODE (arg) == CONSTRUCTOR
@@ -1314,28 +1324,34 @@ expand_builtin_strlen (exp, target, mode)
 {
   tree arglist = TREE_OPERAND (exp, 1);
   enum machine_mode value_mode = TYPE_MODE (TREE_TYPE (exp));
+  tree src;
 
-  if (arglist == 0
-      /* Arg could be non-pointer if user redeclared this fcn wrong.  */
-      || TREE_CODE (TREE_TYPE (TREE_VALUE (arglist))) != POINTER_TYPE)
+  if (arglist == 0)
+    return 0;
+  src = TREE_VALUE (arglist);
+  
+  /* Arg could be non-pointer if user redeclared this fcn wrong.  */
+  if (TREE_CODE (TREE_TYPE (src)) != POINTER_TYPE)
     return 0;
   else
     {
-      rtx pat;
-      tree src = TREE_VALUE (arglist);
-      tree len = c_strlen (src);
-
-      int align
-	= get_pointer_alignment (src, BIGGEST_ALIGNMENT) / BITS_PER_UNIT;
-
-      rtx result, src_reg, char_rtx, before_strlen;
+      tree len;
+      int align;
+      rtx pat, result, src_reg, char_rtx, before_strlen;
       enum machine_mode insn_mode = value_mode, char_mode;
       enum insn_code icode = CODE_FOR_nothing;
+
+      if (TREE_BOUNDED (src))
+	src = build_bounded_ptr_check (src, NULL_TREE);
+
+      len = c_strlen (src);
+      align = get_pointer_alignment (src, BIGGEST_ALIGNMENT) / BITS_PER_UNIT;
 
       /* If the length is known, just return it.  */
       if (len != 0)
 	return expand_expr (len, target, mode, EXPAND_MEMORY_USE_BAD);
 
+      /* GKM FIXME: check if length goes beyond extent of string.  */
       /* If SRC is not a pointer type, don't do this operation inline.  */
       if (align == 0)
 	return 0;
@@ -1367,7 +1383,7 @@ expand_builtin_strlen (exp, target, mode)
 
       /* Mark the beginning of the strlen sequence so we can emit the
 	 source operand later.  */
-      before_strlen = get_last_insn();
+      before_strlen = get_last_insn ();
 
       /* Check the string is readable and has an end.  */
       if (current_function_check_memory_usage)
@@ -1413,31 +1429,73 @@ expand_builtin_strlen (exp, target, mode)
     }
 }
 
+/* return an RTX with a copy of the bounded destination addr
+   for mem & str functions.  */
+static rtx
+bounded_ptr_dest (dest, dest_addr, target)
+     tree dest;
+     rtx dest_addr;
+     rtx target;
+{
+  rtx base_rtx = expand_expr (build_bounded_ptr_base_ref (dest),
+			      NULL_RTX, Pmode, 0);
+  rtx extent_rtx = expand_expr (build_bounded_ptr_extent_ref (dest),
+				NULL_RTX, Pmode, 0);
+  if (!target)
+    target = assign_temp (TREE_TYPE (dest), 1, 0, 0);
+
+  emit_move_insn (change_address (target, ptr_mode, XEXP (target, 0)),
+		  dest_addr);
+  emit_move_insn (change_address (target, ptr_mode,
+				  plus_constant (XEXP (target, 0),
+						 GET_MODE_SIZE (ptr_mode))),
+		  base_rtx);
+  emit_move_insn (change_address (target, ptr_mode,
+				  plus_constant (XEXP (target, 0),
+						 2 * GET_MODE_SIZE (ptr_mode))),
+		  extent_rtx);
+  return target;
+}
+
 /* Expand a call to the memcpy builtin, with arguments in ARGLIST.  */
 static rtx
-expand_builtin_memcpy (arglist)
-     tree arglist;
+expand_builtin_memcpy (exp, target)
+     tree exp;
+     rtx target;
 {
-  if (arglist == 0
-      /* Arg could be non-pointer if user redeclared this fcn wrong.  */
-      || TREE_CODE (TREE_TYPE (TREE_VALUE (arglist))) != POINTER_TYPE
-      || TREE_CHAIN (arglist) == 0
-      || (TREE_CODE (TREE_TYPE (TREE_VALUE (TREE_CHAIN (arglist))))
-	  != POINTER_TYPE)
-      || TREE_CHAIN (TREE_CHAIN (arglist)) == 0
-      || (TREE_CODE (TREE_TYPE (TREE_VALUE
-				(TREE_CHAIN (TREE_CHAIN (arglist)))))
-	  != INTEGER_TYPE))
+  tree arglist = TREE_OPERAND (exp, 1);
+  tree dest, src, len;
+
+  if (arglist == 0)
+    return 0;
+  dest = TREE_VALUE (arglist);
+  if (TREE_CHAIN (arglist) == 0)
+    return 0;
+  src = TREE_VALUE (TREE_CHAIN (arglist));
+  if (TREE_CHAIN (TREE_CHAIN (arglist)) == 0)
+    return 0;
+  len = TREE_VALUE (TREE_CHAIN (TREE_CHAIN (arglist)));
+  
+  /* Arg could be non-pointer if user redeclared this fcn wrong.  */
+  /* Check for strinct POINTER_TYPE so that bounded pointers
+     handled as a function call.  */
+  if (TREE_CODE (TREE_TYPE (dest)) != POINTER_TYPE
+      || TREE_CODE (TREE_TYPE (src)) != POINTER_TYPE
+      || TREE_CODE (TREE_TYPE (len)) != INTEGER_TYPE
+      || TREE_CODE (TREE_TYPE (exp)) != POINTER_TYPE)
     return 0;
   else
     {
-      tree dest = TREE_VALUE (arglist);
-      tree src = TREE_VALUE (TREE_CHAIN (arglist));
-      tree len = TREE_VALUE (TREE_CHAIN (TREE_CHAIN (arglist)));
-
-      int src_align = get_pointer_alignment (src, BIGGEST_ALIGNMENT);
-      int dest_align = get_pointer_alignment (dest, BIGGEST_ALIGNMENT);
       rtx dest_mem, src_mem, dest_addr, len_rtx;
+      int src_align, dest_align;
+
+      if (TREE_BOUNDED (src))
+	src = build_bounded_ptr_check (src, len);
+      if (TREE_BOUNDED (dest))
+	dest = build_bounded_ptr_check (dest, len);
+
+      src_align = get_pointer_alignment (src, BIGGEST_ALIGNMENT);
+      dest_align = get_pointer_alignment (dest, BIGGEST_ALIGNMENT);
 
       /* If either SRC or DEST is not a pointer type, don't do
 	 this operation in-line.  */
@@ -1462,6 +1520,9 @@ expand_builtin_memcpy (arglist)
 
       if (dest_addr == 0)
 	dest_addr = force_operand (XEXP (dest_mem, 0), NULL_RTX);
+      
+      if (TREE_BOUNDED (exp))
+	return bounded_ptr_dest (dest, dest_addr, target);
 
       return dest_addr;
     }
@@ -1471,23 +1532,33 @@ expand_builtin_memcpy (arglist)
    if we failed the caller should emit a normal call.  */
 
 static rtx
-expand_builtin_strcpy (exp)
+expand_builtin_strcpy (exp, target)
      tree exp;
+     rtx target;
 {
   tree arglist = TREE_OPERAND (exp, 1);
+  tree dest, src;
   rtx result;
 
-  if (arglist == 0
-      /* Arg could be non-pointer if user redeclared this fcn wrong.  */
-      || TREE_CODE (TREE_TYPE (TREE_VALUE (arglist))) != POINTER_TYPE
-      || TREE_CHAIN (arglist) == 0
-      || (TREE_CODE (TREE_TYPE (TREE_VALUE (TREE_CHAIN (arglist))))
-	  != POINTER_TYPE))
+  if (arglist == 0)
+    return 0;
+  dest = TREE_VALUE (arglist);
+  if (TREE_CHAIN (arglist) == 0)
+    return 0;
+  src = TREE_VALUE (TREE_CHAIN (arglist));
+
+  /* Arg could be non-pointer if user redeclared this fcn wrong.  */
+  if (TREE_CODE (TREE_TYPE (dest)) != POINTER_TYPE
+      || TREE_CODE (TREE_TYPE (src)) != POINTER_TYPE)
     return 0;
   else
     {
-      tree len = c_strlen (TREE_VALUE (TREE_CHAIN (arglist)));
+      tree len;
 
+      if (TREE_BOUNDED (src))
+	/* Don't check bounds here.  Do it in expand_builtin_memcpy.  */
+	src = build_bounded_ptr_value_ref (src);
+      len = c_strlen (src);
       if (len == 0)
 	return 0;
 
@@ -1495,7 +1566,7 @@ expand_builtin_strcpy (exp)
       chainon (arglist, build_tree_list (NULL_TREE, len));
     }
 
-  result = expand_builtin_memcpy (arglist);
+  result = expand_builtin_memcpy (exp, target);
 
   if (! result)
     TREE_CHAIN (TREE_CHAIN (arglist)) = 0;
@@ -1506,31 +1577,38 @@ expand_builtin_strcpy (exp)
    if we failed the caller should emit a normal call.  */
 
 static rtx
-expand_builtin_memset (exp)
+expand_builtin_memset (exp, target)
      tree exp;
+     rtx target;
 {
   tree arglist = TREE_OPERAND (exp, 1);
+  tree dest, val, len;
 
-  if (arglist == 0
-      /* Arg could be non-pointer if user redeclared this fcn wrong.  */
-      || TREE_CODE (TREE_TYPE (TREE_VALUE (arglist))) != POINTER_TYPE
-      || TREE_CHAIN (arglist) == 0
-      || (TREE_CODE (TREE_TYPE (TREE_VALUE (TREE_CHAIN (arglist))))
-	  != INTEGER_TYPE)
-      || TREE_CHAIN (TREE_CHAIN (arglist)) == 0
-      || (INTEGER_TYPE
-	  != (TREE_CODE (TREE_TYPE
-			 (TREE_VALUE
-			  (TREE_CHAIN (TREE_CHAIN (arglist))))))))
+  if (arglist == 0)
+    return 0;
+  dest = TREE_VALUE (arglist);
+  if (TREE_CHAIN (arglist) == 0)
+    return 0;
+  val = TREE_VALUE (TREE_CHAIN (arglist));
+  if (TREE_CHAIN (TREE_CHAIN (arglist)) == 0)
+    return 0;
+  len = TREE_VALUE (TREE_CHAIN (TREE_CHAIN (arglist)));
+
+  /* Arg could be non-pointer if user redeclared this fcn wrong.  */
+  if (TREE_CODE (TREE_TYPE (dest)) != POINTER_TYPE
+      || TREE_CODE (TREE_TYPE (val)) != INTEGER_TYPE
+      || TREE_CODE (TREE_TYPE (len)) != INTEGER_TYPE
+      || TREE_CODE (TREE_TYPE (exp)) != POINTER_TYPE)
     return 0;
   else
     {
-      tree dest = TREE_VALUE (arglist);
-      tree val = TREE_VALUE (TREE_CHAIN (arglist));
-      tree len = TREE_VALUE (TREE_CHAIN (TREE_CHAIN (arglist)));
-
-      int dest_align = get_pointer_alignment (dest, BIGGEST_ALIGNMENT);
       rtx dest_mem, dest_addr, len_rtx;
+      int dest_align;
+
+      if (TREE_BOUNDED (dest))
+	dest = build_bounded_ptr_check (dest, len);
+
+      dest_align = get_pointer_alignment (dest, BIGGEST_ALIGNMENT);
 
       /* If DEST is not a pointer type, don't do this 
 	 operation in-line.  */
@@ -1568,6 +1646,9 @@ expand_builtin_memset (exp)
       if (dest_addr == 0)
 	dest_addr = force_operand (XEXP (dest_mem, 0), NULL_RTX);
 
+      if (TREE_BOUNDED (exp))
+	return bounded_ptr_dest (dest, dest_addr, target);
+
       return dest_addr;
     }
 }
@@ -1598,7 +1679,7 @@ expand_builtin_bzero (exp)
   newarglist = tree_cons (NULL_TREE, dest, newarglist);
 
   TREE_OPERAND (exp, 1) = newarglist;
-  result = expand_builtin_memset(exp);
+  result = expand_builtin_memset (exp, NULL_RTX);
       
   /* Always restore the original arguments.  */
   TREE_OPERAND (exp, 1) = arglist;
@@ -1612,39 +1693,51 @@ expand_builtin_bzero (exp)
    caller should emit a normal call, otherwise try to get the result in
    TARGET, if convenient.  */
 static rtx
-expand_builtin_memcmp (exp, arglist, target)
+expand_builtin_memcmp (exp, target)
      tree exp;
-     tree arglist;
      rtx target;
 {
+  tree arglist = TREE_OPERAND (exp, 1);
+  tree arg1, arg2, len;
+
+  if (arglist == 0)
+    return 0;
+  arg1 = TREE_VALUE (arglist);
+  if (TREE_CHAIN (arglist) == 0)
+    return 0;
+  arg2 = TREE_VALUE (TREE_CHAIN (arglist));
+  if (TREE_CHAIN (TREE_CHAIN (arglist)) == 0)
+    return 0;
+  len = TREE_VALUE (TREE_CHAIN (TREE_CHAIN (arglist)));
+
   /* If we need to check memory accesses, call the library function.  */
   if (current_function_check_memory_usage)
     return 0;
 
-  if (arglist == 0
       /* Arg could be non-pointer if user redeclared this fcn wrong.  */
-      || TREE_CODE (TREE_TYPE (TREE_VALUE (arglist))) != POINTER_TYPE
-      || TREE_CHAIN (arglist) == 0
-      || TREE_CODE (TREE_TYPE (TREE_VALUE (TREE_CHAIN (arglist)))) != POINTER_TYPE
-      || TREE_CHAIN (TREE_CHAIN (arglist)) == 0
-      || TREE_CODE (TREE_TYPE (TREE_VALUE (TREE_CHAIN (TREE_CHAIN (arglist))))) != INTEGER_TYPE)
+  if (TREE_CODE (TREE_TYPE (arg1)) != POINTER_TYPE
+      || TREE_CODE (TREE_TYPE (arg2)) != POINTER_TYPE
+      || TREE_CODE (TREE_TYPE (len)) != INTEGER_TYPE)
+    return 0;
+  else if (!HAVE_cmpstrsi)
     return 0;
 
   {
     enum machine_mode mode;
-    tree arg1 = TREE_VALUE (arglist);
-    tree arg2 = TREE_VALUE (TREE_CHAIN (arglist));
-    tree len = TREE_VALUE (TREE_CHAIN (TREE_CHAIN (arglist)));
     rtx arg1_rtx, arg2_rtx, arg3_rtx;
     rtx result;
     rtx insn;
-
-    int arg1_align
-      = get_pointer_alignment (arg1, BIGGEST_ALIGNMENT) / BITS_PER_UNIT;
-    int arg2_align
-      = get_pointer_alignment (arg2, BIGGEST_ALIGNMENT) / BITS_PER_UNIT;
     enum machine_mode insn_mode
       = insn_data[(int) CODE_FOR_cmpstrsi].operand[0].mode;
+    int arg1_align, arg2_align;
+
+    if (TREE_BOUNDED (arg1))
+      arg1 = build_bounded_ptr_check (arg1, len);
+    if (TREE_BOUNDED (arg2))
+      arg2 = build_bounded_ptr_check (arg2, len);
+
+    arg1_align = get_pointer_alignment (arg1, BIGGEST_ALIGNMENT) / BITS_PER_UNIT;
+    arg2_align = get_pointer_alignment (arg2, BIGGEST_ALIGNMENT) / BITS_PER_UNIT;
 
     /* If we don't have POINTER_TYPE, call the function.  */
     if (arg1_align == 0 || arg2_align == 0)
@@ -1701,33 +1794,43 @@ expand_builtin_strcmp (exp, target)
      rtx target;
 {
   tree arglist = TREE_OPERAND (exp, 1);
+  tree arg1, arg2;
+
+  if (arglist == 0)
+    return 0;
+  arg1 = TREE_VALUE (arglist);
+  if (TREE_CHAIN (arglist) == 0)
+    return 0;
+  arg2 = TREE_VALUE (TREE_CHAIN (arglist));
 
   /* If we need to check memory accesses, call the library function.  */
   if (current_function_check_memory_usage)
     return 0;
 
-  if (arglist == 0
-      /* Arg could be non-pointer if user redeclared this fcn wrong.  */
-      || TREE_CODE (TREE_TYPE (TREE_VALUE (arglist))) != POINTER_TYPE
-      || TREE_CHAIN (arglist) == 0
-      || (TREE_CODE (TREE_TYPE (TREE_VALUE (TREE_CHAIN (arglist))))
-	  != POINTER_TYPE))
+  /* Arg could be non-pointer if user redeclared this fcn wrong.  */
+  if (TREE_CODE (TREE_TYPE (arg1)) != POINTER_TYPE
+      || TREE_CODE (TREE_TYPE (arg2)) != POINTER_TYPE)
     return 0;
 
   else if (! HAVE_cmpstrsi)
     return 0;
   {
-    tree arg1 = TREE_VALUE (arglist);
-    tree arg2 = TREE_VALUE (TREE_CHAIN (arglist));
-    tree len = c_strlen (arg1);
-    tree len2 = c_strlen (arg2);
+    tree len, len2;
     rtx result;
 
+    if (TREE_BOUNDED (arg1))
+      arg1 = build_bounded_ptr_check (arg1, NULL_TREE);
+    len = c_strlen (arg1);
     if (len)
       len = size_binop (PLUS_EXPR, ssize_int (1), len);
+    /* GKM FIXME: check if length goes beyond extent of string.  */
 
+    if (TREE_BOUNDED (arg2))
+      arg2 = build_bounded_ptr_check (arg2, NULL_TREE);
+    len2 = c_strlen (arg2);
     if (len2)
       len2 = size_binop (PLUS_EXPR, ssize_int (1), len2);
+    /* GKM FIXME: check if length goes beyond extent of string.  */
 
     /* If we don't have a constant length for the first, use the length
        of the second, if we know it.  We don't require a constant for
@@ -1752,7 +1855,7 @@ expand_builtin_strcmp (exp, target)
       len = len2;
 
     chainon (arglist, build_tree_list (NULL_TREE, len));
-    result = expand_builtin_memcmp (exp, arglist, target);
+    result = expand_builtin_memcmp (exp, target);
     if (! result)
       TREE_CHAIN (TREE_CHAIN (arglist)) = 0;
 
@@ -1972,7 +2075,7 @@ std_expand_builtin_va_start (stdarg_p, valist, nextarg)
     nextarg = plus_constant (nextarg, -UNITS_PER_WORD);
 
   t = build (MODIFY_EXPR, TREE_TYPE (valist), valist,
-	     make_tree (ptr_type_node, nextarg));
+	     make_tree (unbounded_ptr_type_node, nextarg));
   TREE_SIDE_EFFECTS (t) = 1;
 
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
@@ -2087,7 +2190,7 @@ expand_builtin_va_arg (valist, type)
 	  have_va_type = TREE_TYPE (have_va_type);
 	}
     }
-  if (TYPE_MAIN_VARIANT (want_va_type) != TYPE_MAIN_VARIANT (have_va_type))
+  if (!TYPE_MAIN_VARIANTS_PHYSICALLY_EQUAL_P (want_va_type, have_va_type))
     {
       error ("first argument to `va_arg' not of type `va_list'");
       addr = const0_rtx;
@@ -2264,22 +2367,40 @@ expand_builtin_frame_address (exp)
    we failed and the caller should emit a normal call, otherwise try to get
    the result in TARGET, if convenient.  */
 static rtx
-expand_builtin_alloca (arglist, target)
-     tree arglist;
+expand_builtin_alloca (exp, target)
+     tree exp;
      rtx target;
 {
-  rtx op0;
+  tree arglist = TREE_OPERAND (exp, 1);
+  tree arg;
 
-  if (arglist == 0
-      /* Arg could be non-integer if user redeclared this fcn wrong.  */
-      || TREE_CODE (TREE_TYPE (TREE_VALUE (arglist))) != INTEGER_TYPE)
+  if (arglist == 0)
+    return 0;
+  arg = TREE_VALUE (arglist);
+
+  /* Arg could be non-integer if user redeclared this fcn wrong.  */
+  if (TREE_CODE (TREE_TYPE (arg)) != INTEGER_TYPE)
     return 0;
 
-  /* Compute the argument.  */
-  op0 = expand_expr (TREE_VALUE (arglist), NULL_RTX, VOIDmode, 0);
+  if (TREE_BOUNDED (exp))
+    {
+      TREE_TYPE (exp) = TYPE_BOUNDED_SUBTYPE (TREE_TYPE (exp));
+      TREE_BOUNDED (exp) = 0;
+      if (TREE_SIDE_EFFECTS (arg))
+	TREE_VALUE (arglist) = arg = save_expr (arg);
+      exp = save_expr (exp);
+      exp = build_bounded_ptr_constructor_3
+	(exp, exp, build (PLUS_EXPR, TREE_TYPE (exp), exp, arg));
+      return expand_expr (exp, target, VOIDmode, EXPAND_NORMAL);
+    }
+  else
+    {
+      /* Compute the argument.  */
+      rtx op0 = expand_expr (arg, NULL_RTX, VOIDmode, 0);
 
-  /* Allocate the desired space.  */
-  return allocate_dynamic_stack_space (op0, target, BITS_PER_UNIT);
+      /* Allocate the desired space.  */
+      return allocate_dynamic_stack_space (op0, target, BITS_PER_UNIT);
+    }
 }
 
 /* Expand a call to the ffs builtin.  The arguments are in ARGLIST.
@@ -2420,24 +2541,34 @@ expand_builtin (exp, target, subtarget, mode, ignore)
 	 computed?  We'll also need a safe worst case value for varargs
 	 functions.  */
     case BUILT_IN_APPLY:
-      if (arglist == 0
-	  /* Arg could be non-pointer if user redeclared this fcn wrong.  */
-	  || ! POINTER_TYPE_P (TREE_TYPE (TREE_VALUE (arglist)))
-	  || TREE_CHAIN (arglist) == 0
-	  || TREE_CODE (TREE_TYPE (TREE_VALUE (TREE_CHAIN (arglist)))) != POINTER_TYPE
-	  || TREE_CHAIN (TREE_CHAIN (arglist)) == 0
-	  || TREE_CODE (TREE_TYPE (TREE_VALUE (TREE_CHAIN (TREE_CHAIN (arglist))))) != INTEGER_TYPE)
+      if (arglist == 0 || TREE_CHAIN (arglist) == 0
+	  || TREE_CHAIN (TREE_CHAIN (arglist)) == 0)
 	return const0_rtx;
       else
 	{
-	  int i;
-	  tree t;
-	  rtx ops[3];
+	  tree func = TREE_VALUE (arglist);
+	  tree args = TREE_VALUE (TREE_CHAIN (arglist));
+	  tree size = TREE_VALUE (TREE_CHAIN (TREE_CHAIN (arglist)));
 
-	  for (t = arglist, i = 0; t; t = TREE_CHAIN (t), i++)
-	    ops[i] = expand_expr (TREE_VALUE (t), NULL_RTX, VOIDmode, 0);
+	  /* If the user stored the function pointer and the result of
+	     __builtin_apply_args in bounded-pointer variables, we
+	     must strip away the bounds.  */
+	  if (TREE_BOUNDED (func))
+	    func = build_bounded_ptr_value_ref (func);
+	  if (TREE_BOUNDED (args))
+	    args = build_bounded_ptr_value_ref (args);
 
-	  return expand_builtin_apply (ops[0], ops[1], ops[2]);
+	  if (! POINTER_TYPE_P (TREE_TYPE (func))
+	      || TREE_CODE (TREE_TYPE (args)) != POINTER_TYPE
+	      || TREE_CODE (TREE_TYPE (size)) != INTEGER_TYPE)
+	    return const0_rtx;
+	  else
+	    {
+	      rtx func_rtx = expand_expr (func, NULL_RTX, VOIDmode, 0);
+	      rtx args_rtx = expand_expr (args, NULL_RTX, VOIDmode, 0);
+	      rtx size_rtx = expand_expr (size, NULL_RTX, VOIDmode, 0);
+	      return expand_builtin_apply (func_rtx, args_rtx, size_rtx);
+	    }
 	}
 
       /* __builtin_return (RESULT) causes the function to return the
@@ -2482,7 +2613,7 @@ expand_builtin (exp, target, subtarget, mode, ignore)
         return XEXP (DECL_RTL (DECL_RESULT (current_function_decl)), 0);
 
     case BUILT_IN_ALLOCA:
-      target = expand_builtin_alloca (arglist, target);
+      target = expand_builtin_alloca (exp, target);
       if (target)
 	return target;
       break;
@@ -2500,19 +2631,19 @@ expand_builtin (exp, target, subtarget, mode, ignore)
       break;
 
     case BUILT_IN_STRCPY:
-      target = expand_builtin_strcpy (exp);
+      target = expand_builtin_strcpy (exp, target);
       if (target)
 	return target;
       break;
       
     case BUILT_IN_MEMCPY:
-      target = expand_builtin_memcpy (arglist);
+      target = expand_builtin_memcpy (exp, target);
       if (target)
 	return target;
       break;
 
     case BUILT_IN_MEMSET:
-      target = expand_builtin_memset (exp);
+      target = expand_builtin_memset (exp, target);
       if (target)
 	return target;
       break;
@@ -2535,7 +2666,7 @@ expand_builtin (exp, target, subtarget, mode, ignore)
 
     case BUILT_IN_BCMP:
     case BUILT_IN_MEMCMP:
-      target = expand_builtin_memcmp (exp, arglist, target);
+      target = expand_builtin_memcmp (exp, target);
       if (target)
 	return target;
       break;

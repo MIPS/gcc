@@ -1,5 +1,25 @@
+define tsti
+set args TST/$arg0.i -o TST/$arg0.s -quiet -O2 -g -W -Wall -fbounded-pointers -fbounded-pointer-thunks
+end
+
+define libi
+set args LIBC/$arg0.i -o LIBC/$arg0.s -quiet -O -g -Wall -Winline -Wstrict-prototypes -Wwrite-strings -fbounded-pointers
+end
+
+define gcci
+set args GCC/$arg0.i -o GCC/$arg0.s -quiet -O2 -g -fbounded-pointers -fno-optimize-sibling-calls
+end
+
 define pr
 set debug_rtx ($)
+end
+
+define pra
+set debug_rtx ($arg0)
+end
+
+define prla
+set debug_rtx_list ($arg0, $arg1)
 end
 
 document pr
@@ -24,6 +44,10 @@ end
 
 define pt
 set debug_tree ($)
+end
+
+define pta
+set debug_tree ($arg0)
 end
 
 document pt
@@ -90,6 +114,8 @@ end
 # to either fprintf/exit or fancy_abort.
 b exit
 b fancy_abort
+b error
+b warning
 
 # Make gdb complain about symbol reading errors.  This is so that gcc
 # developers can see and fix bugs in gcc debug output.

@@ -6322,10 +6322,6 @@ init_decl_processing ()
   default_function_type
     = build_function_type (integer_type_node, NULL_TREE);
 
-  ptr_type_node = build_pointer_type (void_type_node);
-  const_ptr_type_node
-    = build_pointer_type (build_qualified_type (void_type_node,
-						TYPE_QUAL_CONST));
   c_common_nodes_and_builtins (1, flag_no_builtin, flag_no_nonansi_builtin);
   lang_type_promotes_to = convert_type_from_ellipsis;
 
@@ -9432,6 +9428,9 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
   int constp;
   int restrictp;
   int volatilep;
+  int xboundedp;		/* explicit __bounded qualifier */
+  int xunboundedp;		/* explicit __unbounded qualifier */
+  int boundedp;			/* resultant boundedness */
   int type_quals;
   int virtualp, explicitp, friendp, inlinep, staticp;
   int explicit_int = 0;
@@ -10128,9 +10127,26 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
     !! RIDBIT_SETP (RID_RESTRICT, specbits) + CP_TYPE_RESTRICT_P (type);
   volatilep =
     !! RIDBIT_SETP (RID_VOLATILE, specbits) + CP_TYPE_VOLATILE_P (type);
+
+  boundedp = BOUNDED_POINTER_TYPE_P (type);
+  xboundedp = !! RIDBIT_SETP (RID_BOUNDED, specbits);
+  xunboundedp = !! RIDBIT_SETP (RID_UNBOUNDED, specbits);
+  if (xboundedp && xunboundedp)
+    error ("conflict between `__bounded' and `__unbounded'");
+  else if (xboundedp || xunboundedp)
+    {
+      if (MAYBE_BOUNDED_POINTER_TYPE_P (type))
+	boundedp = xboundedp;
+      else if (xboundedp)
+	error ("invalid use of `__bounded' with non-pointer type");
+      else if (xunboundedp)
+	error ("invalid use of `__unbounded' with non-pointer type");
+    }
+
   type_quals = ((constp ? TYPE_QUAL_CONST : 0)
 		| (restrictp ? TYPE_QUAL_RESTRICT : 0)
-		| (volatilep ? TYPE_QUAL_VOLATILE : 0));
+		| (volatilep ? TYPE_QUAL_VOLATILE : 0)
+		| (boundedp ? TYPE_QUAL_BOUNDED : 0));
   type = cp_build_qualified_type (type, type_quals);
   staticp = 0;
   inlinep = !! RIDBIT_SETP (RID_INLINE, specbits);
@@ -10599,6 +10615,8 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 	      constp = 0;
 	      volatilep = 0;
 	      restrictp = 0;
+	      xboundedp = 0;
+	      xunboundedp = 0;
 	      for (typemodlist = TREE_TYPE (declarator); typemodlist;
 		   typemodlist = TREE_CHAIN (typemodlist))
 		{
@@ -10610,6 +10628,10 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 		    volatilep++;
 		  else if (qualifier == ridpointers[(int) RID_RESTRICT])
 		    restrictp++;
+		  else if (qualifier == ridpointers[(int) RID_BOUNDED])
+		    xboundedp++;
+		  else if (qualifier == ridpointers[(int) RID_UNBOUNDED])
+		    xunboundedp++;
 		  else if (!erred)
 		    {
 		      erred = 1;
@@ -10623,17 +10645,27 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 	      if (restrictp > 1)
 		pedwarn ("duplicate `restrict'");
 
+	      if (xboundedp && xunboundedp)
+		error ("conflict between `__bounded' and `__unbounded'");
+	      else if (xboundedp || xunboundedp)
+		boundedp = xboundedp;
+	      else
+		boundedp = default_pointer_boundedness;
+
 	      type_quals = ((constp ? TYPE_QUAL_CONST : 0)
 			    | (restrictp ? TYPE_QUAL_RESTRICT : 0)
-			    | (volatilep ? TYPE_QUAL_VOLATILE : 0));
+			    | (volatilep ? TYPE_QUAL_VOLATILE : 0)
+			    | (boundedp ? TYPE_QUAL_BOUNDED : 0));
 	      if (TREE_CODE (declarator) == ADDR_EXPR
-		  && (constp || volatilep))
+		  && (constp || volatilep || boundedp))
 		{
 		  if (constp)
 		    pedwarn ("discarding `const' applied to a reference");
 		  if (volatilep)
 		    pedwarn ("discarding `volatile' applied to a reference");
-		  type_quals &= ~(TYPE_QUAL_CONST | TYPE_QUAL_VOLATILE);
+		  type_quals &= ~(TYPE_QUAL_CONST
+				  | TYPE_QUAL_VOLATILE
+				  | TYPE_QUAL_BOUNDED);
 		}
 	      type = cp_build_qualified_type (type, type_quals);
 	    }
@@ -11545,9 +11577,9 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
     if (RIDBIT_SETP (RID_STATIC, specbits))
       DECL_THIS_STATIC (decl) = 1;
 
-    /* Record constancy and volatility.  There's no need to do this
-       when processing a template; we'll do this for the instantiated
-       declaration based on the type of DECL.  */
+    /* Record constancy and volatility, restrictedness and boundedness.
+       There's no need to do this when processing a template; we'll do
+       this for the instantiated declaration based on the type of DECL.  */
     if (!processing_template_decl)
       c_apply_type_quals_to_decl (type_quals, decl);
 
@@ -13250,7 +13282,9 @@ start_function (declspecs, declarator, attrs, flags)
 	    fntype = build_function_type (integer_type_node,
 					  TYPE_ARG_TYPES (fntype));
 	  else
-	    fntype = build_cplus_method_type (build_type_variant (TYPE_METHOD_BASETYPE (fntype), TREE_READONLY (decl1), TREE_SIDE_EFFECTS (decl1)),
+	    fntype = build_cplus_method_type (build_type_variant (TYPE_METHOD_BASETYPE (fntype),
+								  TREE_READONLY (decl1),
+								  TREE_SIDE_EFFECTS (decl1)),
 					      integer_type_node,
 					      TYPE_ARG_TYPES (fntype));
 	  TREE_TYPE (decl1) = fntype;
@@ -14782,4 +14816,13 @@ lang_mark_tree (t)
 	   TYPE_LANG_SPECIFIC is really just a tree.  */
 	ggc_mark_tree ((tree) lt);
     }
+}
+
+void
+compile_bounded_pointer_thunk (decl)
+     tree decl;
+{
+  /* GKM FIXME */
+  error ("bounded pointer thunks are unsupported");
+  abort ();
 }

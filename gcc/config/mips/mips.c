@@ -2971,26 +2971,25 @@ gen_int_relational (test_code, result, cmp0, cmp1, p_invert)
    operand[0] is the label to jump to.
    The comparison operands are saved away by cmp{si,di,sf,df}.  */
 
-void
-gen_conditional_branch (operands, test_code)
-     rtx operands[];
+static rtx
+gen_conditional (test_code, p_invert)
      enum rtx_code test_code;
+     int *p_invert;
 {
   enum cmp_type type = branch_type;
   rtx cmp0 = branch_cmp[0];
   rtx cmp1 = branch_cmp[1];
   enum machine_mode mode;
   rtx reg;
-  int invert;
-  rtx label1, label2;
 
+  if (p_invert)
+    *p_invert = 0;
   switch (type)
     {
     case CMP_SI:
     case CMP_DI:
       mode = type == CMP_SI ? SImode : DImode;
-      invert = 0;
-      reg = gen_int_relational (test_code, NULL_RTX, cmp0, cmp1, &invert);
+      reg = gen_int_relational (test_code, NULL_RTX, cmp0, cmp1, p_invert);
 
       if (reg)
 	{
@@ -3024,17 +3023,26 @@ gen_conditional_branch (operands, test_code)
       mode = CCmode;
       cmp0 = reg;
       cmp1 = const0_rtx;
-      invert = 0;
       break;
 
     default:
       abort_with_insn (gen_rtx (test_code, VOIDmode, cmp0, cmp1), "bad test");
     }
 
-  /* Generate the branch.  */
+  return gen_rtx (test_code, mode, cmp0, cmp1);
+}
 
-  label1 = gen_rtx_LABEL_REF (VOIDmode, operands[0]);
-  label2 = pc_rtx;
+void
+gen_conditional_branch (operands, test_code)
+     rtx operands[];
+     enum rtx_code test_code;
+{
+  int invert;
+  rtx cond_rtx = gen_conditional (test_code, &invert);
+  rtx label1 = gen_rtx_LABEL_REF (VOIDmode, operands[0]);
+  rtx label2 = pc_rtx;
+
+  /* Generate the branch.  */
 
   if (invert)
     {
@@ -3043,10 +3051,20 @@ gen_conditional_branch (operands, test_code)
     }
 
   emit_jump_insn (gen_rtx_SET (VOIDmode, pc_rtx,
-			       gen_rtx_IF_THEN_ELSE (VOIDmode,
-						     gen_rtx (test_code, mode,
-							      cmp0, cmp1),
+			       gen_rtx_IF_THEN_ELSE (VOIDmode, cond_rtx,
 						     label1, label2)));
+}
+
+/* Emit the common code for conditional traps.  OPERANDS is the array
+   of operands passed to the conditional_trap define_expand.  */
+
+void
+mips_gen_conditional_trap (operands, test_code)
+     rtx operands[];
+     enum rtx_code test_code;
+{
+  emit_insn (gen_rtx_TRAP_IF (VOIDmode, gen_conditional (test_code, (int *) 0),
+			      operands[1]));
 }
 
 /* Emit the common code for conditional moves.  OPERANDS is the array

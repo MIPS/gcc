@@ -1990,6 +1990,11 @@ warn_if_unused_value (exp)
       }
       goto warn;
 
+    case CONSTRUCTOR:
+      if (TREE_BOUNDED (exp))
+	return 0;
+      goto warn;
+
     case INDIRECT_REF:
       /* Don't warn about automatic dereferencing of references, since
 	 the user cannot control it.  */
@@ -3153,8 +3158,8 @@ tail_recursion_args (actuals, formals)
 
   for (a = actuals, f = formals, i = 0; a && f; a = TREE_CHAIN (a), f = TREE_CHAIN (f), i++)
     {
-      if (TYPE_MAIN_VARIANT (TREE_TYPE (TREE_VALUE (a)))
-	  != TYPE_MAIN_VARIANT (TREE_TYPE (f)))
+      if (TYPE_MAIN_VARIANTS_PHYSICALLY_EQUAL_P (TREE_TYPE (TREE_VALUE (a)),
+						 TREE_TYPE (f)))
 	return 0;
       if (GET_CODE (DECL_RTL (f)) != REG || DECL_MODE (f) == BLKmode)
 	return 0;

@@ -420,6 +420,8 @@ start_record_layout (t)
   rli->record_align = MAX (BITS_PER_UNIT, TYPE_ALIGN (t));
   rli->unpacked_align = rli->record_align;
   rli->offset_align = MAX (rli->record_align, BIGGEST_ALIGNMENT);
+  rli->bounded_flag = 0;
+  rli->pointer_depth = 0;
 
 #ifdef STRUCTURE_SIZE_BOUNDARY
   /* Packed structures don't need to have minimum size.  */
@@ -618,6 +620,10 @@ place_field (rli, field)
   /* The type of this field.  */
   tree type = TREE_TYPE (field);
  
+  /* Pointer depth of rec is the maximum pointer depth of its fields.  */
+  rli->pointer_depth = MAX (rli->pointer_depth, TYPE_POINTER_DEPTH (type));
+  rli->bounded_flag |= TYPE_BOUNDED (type);
+
   /* If FIELD is static, then treat it like a separate variable, not
      really like a structure field.  If it is a FUNCTION_DECL, it's a
      method.  In both cases, all we do is lay out the decl, and we do
@@ -661,6 +667,7 @@ place_field (rli, field)
      the type would want.  */
   desired_align = DECL_ALIGN (field);
   layout_decl (field, known_align);
+
   if (! DECL_PACKED (field))
     desired_align = DECL_ALIGN (field);
 
@@ -1145,10 +1152,15 @@ finalize_type_size (type)
 	   variant != 0;
 	   variant = TYPE_NEXT_VARIANT (variant))
 	{
-	  TYPE_SIZE (variant) = size;
-	  TYPE_SIZE_UNIT (variant) = size_unit;
-	  TYPE_ALIGN (variant) = align;
-	  TYPE_MODE (variant) = mode;
+	  /* Don't propagate sizes and alignments to pointer types
+	     which differ in their boundedness.  */
+	  if (TREE_CODE (type) == TREE_CODE (variant))
+	    {
+	      TYPE_SIZE (variant) = size;
+	      TYPE_SIZE_UNIT (variant) = size_unit;
+	      TYPE_ALIGN (variant) = align;
+	      TYPE_MODE (variant) = mode;
+	    }
 	}
     }
 }
@@ -1161,6 +1173,9 @@ void
 finish_record_layout (rli)
      record_layout_info rli;
 {
+  TYPE_POINTER_DEPTH (rli->t) = rli->pointer_depth;
+  TYPE_BOUNDED (rli->t) = rli->bounded_flag;
+
   /* Compute the final size.  */
   finalize_record_size (rli);
 
@@ -1291,7 +1306,7 @@ layout_type (type)
 	register tree index = TYPE_DOMAIN (type);
 	register tree element = TREE_TYPE (type);
 
-	build_pointer_type (element);
+	build_default_pointer_type (element);
 
 	/* We need to know both bounds in order to compute the size.  */
 	if (index && TYPE_MAX_VALUE (index) && TYPE_MIN_VALUE (index)

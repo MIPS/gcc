@@ -238,9 +238,9 @@ handle_pragma_token (string, token)
 	  if (HANDLE_PRAGMA_WEAK)
 	    {
 	      if (state == ps_name)
-		ret_val = add_weak (name, NULL);
+		ret_val = add_weak (get_identifier (name), NULL);
 	      else if (state == ps_value)
-		ret_val = add_weak (name, value);
+		ret_val = add_weak (get_identifier (name), value);
 	      else
 		warning ("malformed `#pragma weak'");
 	    }

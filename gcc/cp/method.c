@@ -1255,6 +1255,10 @@ process_modifiers (parmtype)
      used for reference types.  And `r' is used for `long double'.  */
   if (TYPE_RESTRICT (parmtype))
     OB_PUTC ('u');
+  /* All of the preferred letters are already taken:
+     `B'ounded, `C'onstrained, `F'at, so we settle for e`X'tended.  */
+  if (BOUNDED_POINTER_TYPE_P (parmtype))
+    OB_PUTC ('X');
 }
 
 /* Check to see if TYPE has been entered into the Bcode typelist.  If

@@ -143,6 +143,10 @@ struct lang_type
    without prototypes.  */
 #define TYPE_ACTUAL_ARG_TYPES(NODE) TYPE_NONCOPIED_PARTS (NODE)
 
+/* For a FUNCTION TYPE
+   that is identical except that it has !TYPE_BOUNDED; and vice versa.  */
+#define TYPE_BOUNDEDLY_OPPOSITE(NODE) TYPE_BINFO (NODE)
+
 /* In a FIELD_DECL, nonzero if the decl was originally a bitfield.  */
 #define DECL_C_BIT_FIELD(NODE) DECL_LANG_FLAG_4 (NODE)
 
@@ -152,6 +156,12 @@ struct lang_type
 /* In a VAR_DECL for an iterator, means we are within
    an explicit loop over that iterator.  */
 #define ITERATOR_BOUND_P(NODE) ((NODE)->common.readonly_flag)
+
+/* For a FUNCTION_DECL node with pointer depth > 0, the decl that has
+   the opposite boundeness.  Used for functions that have va_list as a
+   return type or in their argument list.  The decl we use depends on
+   the value of pointers_bounded_by_default at the point of call.  */
+#define DECL_BOUNDEDLY_OPPOSITE(NODE) ((tree) DECL_CHECK (NODE)->decl.lang_specific)
 
 /* in c-lang.c and objc-act.c */
 extern tree lookup_interface			PARAMS ((tree));
@@ -185,7 +195,7 @@ extern tree c_build_qualified_type              PARAMS ((tree, int));
 			  ((CONST_P) ? TYPE_QUAL_CONST : 0) |	  \
 			  ((VOLATILE_P) ? TYPE_QUAL_VOLATILE : 0))
 extern int  c_decode_option                     PARAMS ((int, char **));
-extern void c_mark_varargs                      PARAMS ((void));
+extern void c_mark_varargs                      PARAMS ((int));
 extern tree check_identifier                    PARAMS ((tree, tree));
 extern void clear_parm_order                    PARAMS ((void));
 extern tree combine_parm_decls                  PARAMS ((tree, tree, int));
@@ -198,7 +208,7 @@ extern void finish_decl_top_level               PARAMS ((tree, tree, tree));
 extern tree finish_enum                         PARAMS ((tree, tree, tree));
 extern void finish_function                     PARAMS ((int));
 extern tree finish_struct                       PARAMS ((tree, tree, tree));
-extern tree get_parm_info                       PARAMS ((int));
+extern tree get_parm_info                       PARAMS ((int, int));
 extern tree getdecls                            PARAMS ((void));
 extern tree gettags                             PARAMS ((void));
 extern int  global_bindings_p                   PARAMS ((void));
@@ -240,8 +250,9 @@ extern void shadow_tag_warned                   PARAMS ((tree, int));
 extern tree start_enum                          PARAMS ((tree));
 extern int  start_function                      PARAMS ((tree, tree, tree,
 							 tree));
+extern int  start_function_decl                 PARAMS ((tree, int));
 extern tree start_decl                          PARAMS ((tree, tree, int,
-							 tree, tree));
+							 tree, tree, tree));
 extern tree start_struct                        PARAMS ((enum tree_code, tree));
 extern void store_parm_decls                    PARAMS ((void));
 extern tree xref_tag                            PARAMS ((enum tree_code, tree));
@@ -252,7 +263,10 @@ extern void incomplete_type_error		PARAMS ((tree, tree));
 /* Given two integer or real types, return the type for their sum.
    Given two compatible ANSI C types, returns the merged type.  */
 extern tree common_type                         PARAMS ((tree, tree));
-extern int comptypes				PARAMS ((tree, tree));
+extern int comptypes_how			PARAMS ((tree, tree, int));
+#define comptypes_logically(a, b) comptypes_how ((a), (b), 1)
+#define comptypes_physically(a, b) comptypes_how ((a), (b), 0)
+#define comptypes(a, b) comptypes_physically (a, b)
 extern tree c_sizeof                            PARAMS ((tree));
 extern tree c_sizeof_nowarn                     PARAMS ((tree));
 extern tree c_size_in_bytes                     PARAMS ((tree));
@@ -289,9 +303,8 @@ extern tree pop_init_level			PARAMS ((int));
 extern void set_init_index			PARAMS ((tree, tree));
 extern void set_init_label			PARAMS ((tree));
 extern void process_init_element		PARAMS ((tree));
-extern void c_expand_asm_operands		PARAMS ((tree, tree, tree,
-							 tree, int, char *,
-							 int));
+extern void c_expand_asm_operands		PARAMS ((tree, tree, tree, tree,
+							 int, char *, int));
 extern void c_expand_return			PARAMS ((tree));
 extern tree c_expand_start_case                 PARAMS ((tree));
 

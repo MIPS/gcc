@@ -997,7 +997,8 @@ convert (type, expr)
 
   intype = TREE_TYPE (expr);
 
-  if (POINTER_TYPE_P (type) && POINTER_TYPE_P (intype))
+  if (POINTER_TYPE_P (type) && POINTER_TYPE_P (intype)
+      && BOUNDED_POINTER_TYPE_P (type) == BOUNDED_POINTER_TYPE_P (intype))
     {
       if (TREE_READONLY_DECL_P (expr))
 	expr = decl_constant_value (expr);

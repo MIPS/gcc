@@ -2020,7 +2020,7 @@ _cpp_init_input_buffer (pfile)
      refill, in case there's a potential trigraph or end-of-line
      digraph at the end of a block. */
 
-  tmp = (U_CHAR *) xmalloc (8192 + 1 + 3);
+  tmp = (U_CHAR *) xmalloc (8192 + 1 + 3 + 2);
   pfile->input_buffer = tmp;
   pfile->input_buffer_len = 8192;
 }

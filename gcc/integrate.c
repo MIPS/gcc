@@ -665,8 +665,13 @@ expand_inline_function (fndecl, parms, target, ignore, type,
 	     They don't match exactly if TREE_TYPE (FORMAL) == ERROR_MARK_NODE,
 	     which could happen if the parameter has incomplete type.  */
 	  || (mode == BLKmode
-	      && (TYPE_MAIN_VARIANT (TREE_TYPE (arg))
-		  != TYPE_MAIN_VARIANT (TREE_TYPE (formal)))))
+	      /* If a function definition has a K&R-style declarator,
+		 convert_arguments doesn't properly convert pointer types,
+		 so we need to make an exception for BP types. */
+	      && ! (MAYBE_BOUNDED_POINTER_TYPE_P (TREE_TYPE (arg))
+		    && MAYBE_BOUNDED_POINTER_TYPE_P (TREE_TYPE (formal)))
+	      && ! TYPE_MAIN_VARIANTS_PHYSICALLY_EQUAL_P (TREE_TYPE (arg),
+							  TREE_TYPE (formal))))
 	return (rtx) (HOST_WIDE_INT) -1;
     }
 

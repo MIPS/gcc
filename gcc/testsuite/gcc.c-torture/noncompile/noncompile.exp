@@ -333,3 +333,21 @@ set compiler_output ".*c:2:.*c:4:.*c:5:.*c:7:.*c:8:.*c:9:.*c:11:.*c:12:.*c:13:.*
 set groups {passed gcc-noncompile}
 
 postbase $src_code $run $groups
+
+# Test bp-1.c
+prebase
+set src_code bp-1.c
+set compiler_output ".*c:1:"
+
+set groups {passed gcc-noncompile}
+
+postbase $src_code $run $groups
+
+# Test bp-2.c
+prebase
+set src_code bp-2.c
+set compiler_output ".*c:1:"
+
+set groups {passed gcc-noncompile}
+
+postbase $src_code $run $groups

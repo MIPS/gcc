@@ -60,18 +60,6 @@ Boston, MA 02111-1307, USA.  */
 #define ASM_STABS_OP ".stabs"
 #endif
 
-/* Define the prefix to use when check_memory_usage_flag is enable.  */
-#ifdef NO_DOLLAR_IN_LABEL
-#ifdef NO_DOT_IN_LABEL
-#define CHKR_PREFIX "chkr_prefix_"
-#else /* !NO_DOT_IN_LABEL */
-#define CHKR_PREFIX "chkr."
-#endif 
-#else /* !NO_DOLLAR_IN_LABEL */
-#define CHKR_PREFIX "chkr$"
-#endif
-#define CHKR_PREFIX_SIZE (sizeof (CHKR_PREFIX) - 1)
-
 /* File in which assembler code is being written.  */
 
 extern FILE *asm_out_file;
@@ -175,7 +163,7 @@ static int output_addressed_constants	PARAMS ((tree));
 static void output_after_function_constants PARAMS ((void));
 static void output_constructor		PARAMS ((tree, int));
 #ifdef ASM_WEAKEN_LABEL
-static void remove_from_pending_weak_list	PARAMS ((char *));
+static void remove_from_pending_weak_list PARAMS ((tree));
 #endif
 #ifdef ASM_OUTPUT_BSS
 static void asm_output_bss		PARAMS ((FILE *, tree, const char *, int, int));
@@ -186,6 +174,7 @@ static void asm_output_aligned_bss	PARAMS ((FILE *, tree, const char *,
 						 int, int));
 #endif
 #endif /* BSS_SECTION_ASM_OP */
+static char *prefix_function_name	PARAMS ((char *, int));
 static void mark_pool_constant          PARAMS ((struct pool_constant *));
 static void mark_pool_sym_hash_table	PARAMS ((struct pool_sym **));
 static void mark_const_hash_entry	PARAMS ((void *));
@@ -511,6 +500,65 @@ exception_section ()
 #endif
 }
 
+/* Define the prefix to use when check_memory_usage_flag is enable.  */
+#ifdef NO_DOLLAR_IN_LABEL
+#ifdef NO_DOT_IN_LABEL
+#define CHKR_PREFIX "chkr_prefix_"
+#else /* !NO_DOT_IN_LABEL */
+#define CHKR_PREFIX "chkr."
+#endif 
+#else /* !NO_DOLLAR_IN_LABEL */
+#define CHKR_PREFIX "chkr$"
+#endif
+#define CHKR_PREFIX_SIZE (sizeof (CHKR_PREFIX) - 1)
+
+#define BP_PREFIX "__BP_"
+#define BP_PREFIX_SIZE (sizeof (BP_PREFIX) - 1)
+#define FUNC_DECL_BOUNDED_P(DECL) \
+  ((DECL_POINTER_DEPTH (DECL) || TYPE_POINTER_DEPTH (TREE_TYPE (DECL)))	\
+   && (TREE_BOUNDED (DECL) || TYPE_BOUNDED (TREE_TYPE (DECL))))
+
+/* When -fprefix-function-name is used, every function name is
+   prefixed.  Even static functions are prefixed because they
+   could be declared latter.  Note that a nested function name
+   is not prefixed.  */
+
+/* GKM FIXME: handle CHKR & BP prefixes separately. */
+
+static char *
+prefix_function_name (name, boundedp)
+     char *name;
+     int boundedp;
+{
+  char *new_name;
+  size_t prefix_len = 0;
+
+  if (boundedp)
+    {
+      if (strstr (name, BP_PREFIX))
+	/* GKM FIXME: reinstate abort here?  Only happens legitimately
+	   when defining an explicit thunk *and* flag_bounded_pointers,
+	   but thunks should be defined when !flag_bounded_pointers.  */
+	/* When explicitly defining a thunk, the source code name
+	   already has the BP_PREFIX, so don't add another. */
+	return name;
+      prefix_len += BP_PREFIX_SIZE;
+    }
+  if (flag_prefix_function_name)
+    prefix_len += CHKR_PREFIX_SIZE;
+      
+  new_name = ggc_alloc_string (NULL, strlen (name) + prefix_len + 1);
+  *new_name = 0;
+
+  if (flag_prefix_function_name)
+    strcat (new_name, CHKR_PREFIX);
+  if (boundedp)
+    strcat (new_name, BP_PREFIX);
+
+  strcat (new_name, name);
+  return new_name;
+}
+
 /* Create the rtl to represent a function, for a function definition.
    DECL is a FUNCTION_DECL node which describes which function.
    The rtl is stored into DECL.  */
@@ -520,7 +568,7 @@ make_function_rtl (decl)
      tree decl;
 {
   char *name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
-  char *new_name = name;
+  int boundedp = FUNC_DECL_BOUNDED_P (decl);
 
   /* Rename a nested function to avoid conflicts, unless it's a member of
      a local class, in which case the class name is already unique.  */
@@ -536,21 +584,13 @@ make_function_rtl (decl)
       name = ggc_alloc_string (label, -1);
       var_labelno++;
     }
-  else
+  else if ((boundedp || flag_prefix_function_name)
+	   && !TREE_BOUNDED (DECL_ASSEMBLER_NAME (decl)))
     {
-      /* When -fprefix-function-name is used, every function name is
-         prefixed.  Even static functions are prefixed because they
-         could be declared latter.  Note that a nested function name
-         is not prefixed.  */
-      if (flag_prefix_function_name)
-        {
-	  size_t name_len = strlen (name);
-
-          new_name = ggc_alloc_string (NULL, name_len + CHKR_PREFIX_SIZE);
-	  memcpy (new_name, CHKR_PREFIX, CHKR_PREFIX_SIZE);
-	  memcpy (new_name + CHKR_PREFIX_SIZE, name, name_len + 1);
-          name = new_name;
-        }
+      /* GKM FIXME: handle CHKR & BP prefixes separately. */
+      name = prefix_function_name (name, boundedp);
+      DECL_ASSEMBLER_NAME (decl) = get_identifier (name);
+      TREE_BOUNDED (DECL_ASSEMBLER_NAME (decl)) = 1;
     }
 
   if (DECL_RTL (decl) == 0)
@@ -580,6 +620,44 @@ make_function_rtl (decl)
       if (REDO_SECTION_INFO_P (decl))
 	ENCODE_SECTION_INFO (decl);
 #endif
+    }
+}
+
+/* For implicit function declarations and for K&R-style function
+   definitions, the function's RTL is generated before we know whether
+   or not the argument list contains bounded pointer types.  If it
+   does, we need to revise the RTL's name to include the
+   bounded-pointer prefix.  Rather than remake the RTL entirely, we
+   simply patch in the new name.  */
+
+void
+remake_function_rtl (decl)
+     tree decl;
+{
+  char *name;
+  int boundedp = -1;
+
+  if (!DECL_ASSEMBLER_NAME (decl))
+    abort ();
+
+  name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
+  if (FUNC_DECL_BOUNDED_P (decl))
+    {
+      name = prefix_function_name (name, 1);
+      boundedp = 1;
+    }
+  else if (TREE_BOUNDED (DECL_ASSEMBLER_NAME (decl)))
+    {
+      name += (sizeof (BP_PREFIX) - 1);
+      boundedp = 0;
+    }
+  if (boundedp >= 0)
+    {
+      DECL_ASSEMBLER_NAME (decl) = get_identifier (name);
+      TREE_BOUNDED (DECL_ASSEMBLER_NAME (decl)) = boundedp;
+
+      if (DECL_RTL (decl))
+	XSTR (XEXP (DECL_RTL (decl), 0), 0) = name;
     }
 }
 
@@ -766,6 +844,7 @@ make_decl_rtl (decl, asmspec, top_level)
 	 Also handle vars declared register invalidly.  */
       if (DECL_RTL (decl) == 0)
 	{
+	  int boundedp = FUNC_DECL_BOUNDED_P (decl);
 	  /* Can't use just the variable's own name for a variable
 	     whose scope is less than the whole file, unless it's a member
 	     of a local class (which will already be unambiguous).
@@ -784,18 +863,14 @@ make_decl_rtl (decl, asmspec, top_level)
 	  if (name == 0)
 	    abort ();
 
-	  /* When -fprefix-function-name is used, the functions
-	     names are prefixed.  Only nested function names are not
-	     prefixed.  */
-	  if (flag_prefix_function_name && TREE_CODE (decl) == FUNCTION_DECL)
+	  if (TREE_CODE (decl) == FUNCTION_DECL
+	      && (boundedp || flag_prefix_function_name)
+	      && !TREE_BOUNDED (DECL_ASSEMBLER_NAME (decl)))
 	    {
-	      size_t name_len = strlen (name);
-	      char *new_name;
-
-	      new_name = ggc_alloc_string (NULL, name_len + CHKR_PREFIX_SIZE);
-	      memcpy (new_name, CHKR_PREFIX, CHKR_PREFIX_SIZE);
-	      memcpy (new_name + CHKR_PREFIX_SIZE, name, name_len + 1);
-	      name = new_name;
+	      /* GKM FIXME: handle CHKR & BP prefixes separately. */
+	      name = prefix_function_name (name, boundedp);
+	      DECL_ASSEMBLER_NAME (decl) = get_identifier (name);
+	      TREE_BOUNDED (DECL_ASSEMBLER_NAME (decl)) = 1;
 	    }
 
 	  DECL_ASSEMBLER_NAME (decl)
@@ -1079,8 +1154,7 @@ assemble_start_function (decl, fnname)
 	  ASM_WEAKEN_LABEL (asm_out_file, fnname);
 	  /* Remove this function from the pending weak list so that
 	     we do not emit multiple .weak directives for it.  */
-	  remove_from_pending_weak_list
-	    (IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl)));
+	  remove_from_pending_weak_list (decl);
 	}
       else
 #endif
@@ -1556,8 +1630,7 @@ assemble_variable (decl, top_level, at_end, dont_output_data)
 	  ASM_WEAKEN_LABEL (asm_out_file, name);
 	   /* Remove this variable from the pending weak list so that
 	      we do not emit multiple .weak directives for it.  */
-	  remove_from_pending_weak_list
-	    (IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl)));
+	  remove_from_pending_weak_list (decl);
 	}
       else
 #endif
@@ -4061,8 +4134,8 @@ initializer_constant_valid_p (value, endtype)
     case CONVERT_EXPR:
     case NOP_EXPR:
       /* Allow conversions between pointer types.  */
-      if (POINTER_TYPE_P (TREE_TYPE (value))
-	  && POINTER_TYPE_P (TREE_TYPE (TREE_OPERAND (value, 0))))
+      if (MAYBE_BOUNDED_INDIRECT_TYPE_P (TREE_TYPE (value))
+	  && MAYBE_BOUNDED_INDIRECT_TYPE_P (TREE_TYPE (TREE_OPERAND (value, 0))))
 	return initializer_constant_valid_p (TREE_OPERAND (value, 0), endtype);
 
       /* Allow conversions between real types.  */
@@ -4099,7 +4172,7 @@ initializer_constant_valid_p (value, endtype)
 
       /* Likewise conversions from int to pointers, but also allow
 	 conversions from 0.  */
-      if (POINTER_TYPE_P (TREE_TYPE (value))
+      if (MAYBE_BOUNDED_INDIRECT_TYPE_P (TREE_TYPE (value))
 	  && INTEGRAL_TYPE_P (TREE_TYPE (TREE_OPERAND (value, 0))))
 	{
 	  if (integer_zerop (TREE_OPERAND (value, 0)))
@@ -4196,7 +4269,8 @@ output_constant (exp, size)
      register tree exp;
      register int size;
 {
-  register enum tree_code code = TREE_CODE (TREE_TYPE (exp));
+  tree type = TREE_TYPE (exp);
+  register enum tree_code code = TREE_CODE (type);
 
   /* Some front-ends use constants other than the standard
      language-indepdent varieties, but which may still be output
@@ -4213,8 +4287,8 @@ output_constant (exp, size)
      NOP_EXPR that converts between two record, union, array, or set types
      or a CONVERT_EXPR that converts to a union TYPE.  */
   while ((TREE_CODE (exp) == NOP_EXPR 
-	  && (TREE_TYPE (exp) == TREE_TYPE (TREE_OPERAND (exp, 0))
-	      || AGGREGATE_TYPE_P (TREE_TYPE (exp))))
+	  && (type == TREE_TYPE (TREE_OPERAND (exp, 0))
+	      || AGGREGATE_TYPE_P (type)))
 	 || (TREE_CODE (exp) == CONVERT_EXPR
 	     && code == UNION_TYPE)
 	 || TREE_CODE (exp) == NON_LVALUE_EXPR)
@@ -4291,11 +4365,15 @@ output_constant (exp, size)
 
     case RECORD_TYPE:
     case UNION_TYPE:
+      if (TREE_CODE (exp) == CONVERT_EXPR && BOUNDED_POINTER_TYPE_P (type))
+	exp = build_bounded_ptr_constructor (TREE_OPERAND (exp, 0));
+      STRIP_NOPS (exp);
       if (TREE_CODE (exp) == CONSTRUCTOR)
 	output_constructor (exp, size);
       else
 	abort ();
-      return;
+      size = 0;
+      break;
 
     case SET_TYPE:
       if (TREE_CODE (exp) == INTEGER_CST)
@@ -4608,8 +4686,8 @@ output_constructor (exp, size)
    associatd with NAME.  */
    
 int
-add_weak (name, value)
-     char *name;
+add_weak (decl, value)
+     tree decl;
      char *value;
 {
   struct weak_syms *weak;
@@ -4620,7 +4698,7 @@ add_weak (name, value)
     return 0;
 
   weak->next = weak_decls;
-  weak->name = name;
+  weak->decl = decl;
   weak->value = value;
   weak_decls = weak;
 
@@ -4641,7 +4719,7 @@ declare_weak (decl)
   else if (SUPPORTS_WEAK)
     DECL_WEAK (decl) = 1;
 #ifdef HANDLE_PRAGMA_WEAK
-   add_weak (IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl)), NULL);
+   add_weak (decl, NULL);
 #endif
 }
 
@@ -4660,11 +4738,14 @@ weak_finish ()
       struct weak_syms *t;
       for (t = weak_decls; t; t = t->next)
 	{
-	  if (t->name)
+	  if (t->decl)
 	    {
-	      ASM_WEAKEN_LABEL (asm_out_file, t->name);
+	      char *name = (DECL_P (t->decl)
+			    ? IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (t->decl))
+			    : IDENTIFIER_POINTER (t->decl));
+	      ASM_WEAKEN_LABEL (asm_out_file, name);
 	      if (t->value)
-		ASM_OUTPUT_DEF (asm_out_file, t->name, t->value);
+		ASM_OUTPUT_DEF (asm_out_file, name, t->value);
 	    }
 	}
     }
@@ -4676,18 +4757,21 @@ weak_finish ()
    some assemblers.  */
 #ifdef ASM_WEAKEN_LABEL
 static void
-remove_from_pending_weak_list (name)
-     char *name ATTRIBUTE_UNUSED;
+remove_from_pending_weak_list (decl)
+     tree decl ATTRIBUTE_UNUSED;
 {
 #ifdef HANDLE_PRAGMA_WEAK
   if (HANDLE_PRAGMA_WEAK)
     {
       struct weak_syms *t;
       for (t = weak_decls; t; t = t->next)
-	{
-	  if (t->name && strcmp (name, t->name) == 0)
-	    t->name = NULL;
-	}
+	if (t->decl
+	    && (DECL_P (t->decl) ? (t->decl == decl)
+		: (! strcmp (IDENTIFIER_POINTER (t->decl),
+			     IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl)))
+		   || ! strcmp (IDENTIFIER_POINTER (t->decl),
+				IDENTIFIER_POINTER (DECL_NAME (decl))))))
+	  t->decl = NULL_TREE;
     }
 #endif
 }
@@ -4713,8 +4797,7 @@ assemble_alias (decl, target)
 	  ASM_WEAKEN_LABEL (asm_out_file, name);
 	  /* Remove this function from the pending weak list so that
 	     we do not emit multiple .weak directives for it.  */
-	  remove_from_pending_weak_list
-	    (IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl)));
+	  remove_from_pending_weak_list (decl);
 	}
       else
 #endif

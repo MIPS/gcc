@@ -1,6 +1,6 @@
 /* Utility routines for data type conversion for GNU C.
    Copyright (C) 1987, 1988, 1991, 1992, 1993, 1994, 1995, 1997,
-   1998 Free Software Foundation, Inc.
+   1998, 2000 Free Software Foundation, Inc.
 
 This file is part of GNU C.
 
@@ -40,28 +40,55 @@ convert_to_pointer (type, expr)
      tree type, expr;
 {
   if (integer_zerop (expr))
-    {
-      expr = build_int_2 (0, 0);
-      TREE_TYPE (expr) = type;
-      return expr;
-    }
+    return build_null_pointer_node (type);
+
+  /* GKM FIXME: should we build CONVERT_EXPR nodes for BP conversions,
+     or instead build BP constructors and field refs?  */
+  if (TREE_BOUNDED (expr) != BOUNDED_POINTER_TYPE_P (TREE_TYPE (expr)))
+    abort ();
 
   switch (TREE_CODE (TREE_TYPE (expr)))
     {
     case POINTER_TYPE:
     case REFERENCE_TYPE:
-      return build1 (NOP_EXPR, type, expr);
+      if (BOUNDED_POINTER_TYPE_P (TREE_TYPE (expr)) == BOUNDED_POINTER_TYPE_P (type))
+	{
+	  expr = build1 (NOP_EXPR, type, expr);
+	  TREE_CONSTANT (expr) = TREE_CONSTANT (TREE_OPERAND (expr, 0));
+	  return expr;
+	}
+      else
+	return build1 (CONVERT_EXPR, type, expr);
 
     case INTEGER_TYPE:
     case ENUMERAL_TYPE:
     case BOOLEAN_TYPE:
     case CHAR_TYPE:
-      if (TYPE_PRECISION (TREE_TYPE (expr)) == POINTER_SIZE)
-	return build1 (CONVERT_EXPR, type, expr);
+      if (TYPE_PRECISION (TREE_TYPE (expr)) != POINTER_SIZE)
+	expr = convert (type_for_size (POINTER_SIZE, 0), expr);
+      if (BOUNDED_POINTER_TYPE_P (type))
+	{
+	  expr = build1 (CONVERT_EXPR, TYPE_BOUNDED_SUBTYPE (type), expr);
+#if 1 /* GKM FIXME: this is experimental */
+	  TREE_CONSTANT (expr) = TREE_CONSTANT (TREE_OPERAND (expr, 0));
+	  return build_bounded_ptr_constructor (expr);
+#endif
+	}
+      return build1 (CONVERT_EXPR, type, expr);
 
-      return
-	convert_to_pointer (type,
-			    convert (type_for_size (POINTER_SIZE, 0), expr));
+    case RECORD_TYPE:
+      if (BOUNDED_POINTER_TYPE_P (TREE_TYPE (expr)))
+	{
+	  if (BOUNDED_POINTER_TYPE_P (type))
+	    {
+	      expr = build1 (NOP_EXPR, type, expr);
+	      TREE_CONSTANT (expr) = TREE_CONSTANT (TREE_OPERAND (expr, 0));
+	      return expr;
+	    }
+	  else
+	    return convert (type, build_bounded_ptr_value_ref (expr));
+	}
+      /* else FALL THROUGH */
 
     default:
       error ("cannot convert to a pointer type");
@@ -133,6 +160,11 @@ convert_to_integer (type, expr)
 
   switch (TREE_CODE (intype))
     {
+    case RECORD_TYPE:
+      if (! BOUNDED_POINTER_TYPE_P (intype))
+	break;
+      /* else FALL THROUGH */
+
     case POINTER_TYPE:
     case REFERENCE_TYPE:
       if (integer_zerop (expr))
@@ -384,9 +416,10 @@ convert_to_integer (type, expr)
 				    TREE_TYPE (TREE_TYPE (expr)), expr)));
 
     default:
-      error ("aggregate value used where an integer was expected");
-      return convert (type, integer_zero_node);
+      break;
     }
+  error ("aggregate value used where an integer was expected");
+  return convert (type, integer_zero_node);
 }
 
 /* Convert EXPR to the complex type TYPE in the usual ways.  */

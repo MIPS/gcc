@@ -132,6 +132,7 @@ static tree shadowed_labels;
    Value not meaningful after store_parm_decls.  */
 
 static int c_function_varargs;
+static int c_function_varargs_boundedness;
 
 /* Set to 0 at beginning of a function definition, set to 1 if
    a return statement that specifies a return value is seen.  */
@@ -285,9 +286,11 @@ static tree lookup_tag			PARAMS ((enum tree_code, tree,
 						 struct binding_level *, int));
 static tree lookup_tag_reverse		PARAMS ((tree));
 static tree grokdeclarator		PARAMS ((tree, tree, enum decl_context,
-						 int));
+					       int, tree));
 static tree grokparms			PARAMS ((tree, int));
 static void layout_array_type		PARAMS ((tree));
+static tree push_parm_tree		PARAMS ((tree, tree, tree));
+static int c_valid_lang_attribute	PARAMS ((tree, tree, tree, tree));
 static tree c_make_fname_decl           PARAMS ((tree, const char *, int));
 
 /* C-specific option variables.  */
@@ -1451,6 +1454,21 @@ duplicate_decls (newdecl, olddecl, different_binding_level)
   else if (TREE_CODE (olddecl) == FUNCTION_DECL
 	   && DECL_BUILT_IN (olddecl))
     {
+      if (!types_match
+	  && TYPE_BOUNDED (oldtype) != TYPE_BOUNDED (newtype)
+	  && comptypes_logically (newtype, oldtype))
+	{
+	  /* Newdecl and olddecl were parsed with different values
+	     of default_pointer_boundedness.  */
+	  /* GKM FIXME: we can lose arg types if the newdecl isn't
+	     a prototype.  It might work better to convert the
+	     boundedness of olddecl's arg types.  */
+	  TREE_TYPE (olddecl) = newtype;
+	  if (!comptypes_physically (newtype, oldtype))
+	    remake_function_rtl (olddecl);
+	  types_match = 1;
+	}
+
       /* A function declaration for a built-in function.  */
       if (!TREE_PUBLIC (newdecl))
 	{
@@ -1801,6 +1819,8 @@ duplicate_decls (newdecl, olddecl, different_binding_level)
 	      DECL_ALIGN (newdecl) = DECL_ALIGN (olddecl);
 	}
 
+      if (TYPE_BOUNDED (newtype) != TYPE_BOUNDED (oldtype))
+	remake_function_rtl (olddecl);
       /* Keep the old rtl since we can safely use it.  */
       DECL_RTL (newdecl) = DECL_RTL (olddecl);
 
@@ -2179,13 +2199,29 @@ pushdecl (x)
 
       if (IDENTIFIER_IMPLICIT_DECL (name) != 0
 	  && IDENTIFIER_GLOBAL_VALUE (name) == 0
-	  && TREE_CODE (x) == FUNCTION_DECL
-	  && ! comptypes (TREE_TYPE (x),
-			  TREE_TYPE (IDENTIFIER_IMPLICIT_DECL (name))))
+	  && TREE_CODE (x) == FUNCTION_DECL)
 	{
-	  warning_with_decl (x, "type mismatch with previous implicit declaration");
-	  warning_with_decl (IDENTIFIER_IMPLICIT_DECL (name),
-			     "previous implicit declaration of `%s'");
+	  tree implicit_decl = IDENTIFIER_IMPLICIT_DECL (name);
+	  /* Mark the implicit decl as defined, so we won't generate a
+	     thunk for it.  This messes up some c-torture tests that
+	     call undeclared string and memory functions, but it can't
+	     be helped since it's too dangerous to make the kind of
+	     assumptions we must make in order to generate usable
+	     thunks.  The proper remedy is to fix legacy code so that
+	     it declares function prototypes.  */
+	  TREE_STATIC (implicit_decl) = 1;
+	  if (comptypes (TREE_TYPE (x), TREE_TYPE (implicit_decl)))
+	    /* Inherit pointer depth from calls if definition also has
+	       non-prototype declarator.  This isn't terribly useful
+	       for real code, and is here largely for the benefit of
+	       abberent c-torture code such as execute/921202-1.c.  */
+	    DECL_POINTER_DEPTH (x) = DECL_POINTER_DEPTH (implicit_decl);
+	  else
+	    {
+	      warning_with_decl (x, "type mismatch with previous implicit declaration");
+	      warning_with_decl (implicit_decl,
+				 "previous implicit declaration of `%s'");
+	    }
 	}
 
       /* In PCC-compatibility mode, extern decls of vars with no current decl
@@ -2994,9 +3030,10 @@ init_decl_processing ()
   boolean_true_node = integer_one_node;
   boolean_false_node = integer_zero_node;
 
-  string_type_node = build_pointer_type (char_type_node);
+  string_type_node = build_default_pointer_type (char_type_node);
   const_string_type_node
-    = build_pointer_type (build_type_variant (char_type_node, 1, 0));
+    = build_default_pointer_type (build_qualified_type (char_type_node,
+							TYPE_QUAL_CONST));
 
   /* Make a type to be the domain of a few array types
      whose domains don't really matter.
@@ -3027,13 +3064,13 @@ init_decl_processing ()
   c_common_nodes_and_builtins (0, flag_no_builtin, flag_no_nonansi_builtin);
 
   endlink = void_list_node;
-  ptr_ftype_void = build_function_type (ptr_type_node, endlink);
+  ptr_ftype_void = build_function_type (unbounded_ptr_type_node, endlink);
   ptr_ftype_ptr
     = build_function_type (ptr_type_node,
 			   tree_cons (NULL_TREE, ptr_type_node, endlink));
 
   builtin_function ("__builtin_aggregate_incoming_address",
-		    build_function_type (ptr_type_node, NULL_TREE),
+		    build_function_type (unbounded_ptr_type_node, NULL_TREE),
 		    BUILT_IN_AGGREGATE_INCOMING_ADDRESS,
 		    BUILT_IN_NORMAL, NULL_PTR);
 
@@ -3055,11 +3092,11 @@ init_decl_processing ()
   builtin_function
     ("__builtin_eh_return",
      build_function_type (void_type_node,
-			  tree_cons (NULL_TREE, ptr_type_node,
+			  tree_cons (NULL_TREE, unbounded_ptr_type_node,
 				     tree_cons (NULL_TREE,
 						type_for_mode (ptr_mode, 0),
 					        tree_cons (NULL_TREE,
-							   ptr_type_node,
+							   unbounded_ptr_type_node,
 							   endlink)))),
      BUILT_IN_EH_RETURN, BUILT_IN_NORMAL, NULL_PTR);
 
@@ -3079,6 +3116,7 @@ init_decl_processing ()
   incomplete_decl_finalize_hook = finish_incomplete_decl;
 
   lang_get_alias_set = c_get_alias_set;
+  valid_lang_attribute = c_valid_lang_attribute;
 
   /* Record our roots.  */
 
@@ -3137,6 +3175,10 @@ c_make_fname_decl (id, name, type_dep)
 
    If LIBRARY_NAME is nonzero, use that for DECL_ASSEMBLER_NAME,
    the name to be called if we can't opencode the function.  */
+
+/* GKM FIXME: we shouldn't declare builtins at init time,
+   but rather declare them lazily when user code has a decl
+   or a use so we know the desired boundedness.  */
 
 tree
 builtin_function (name, type, function_code, class, library_name)
@@ -3265,7 +3307,7 @@ groktypename (typename)
     return typename;
   return grokdeclarator (TREE_VALUE (typename),
 			 TREE_PURPOSE (typename),
-			 TYPENAME, 0);
+			 TYPENAME, 0, NULL_TREE);
 }
 
 /* Return a PARM_DECL node for a given pair of specs and declarator.  */
@@ -3278,7 +3320,7 @@ groktypename_in_parm_context (typename)
     return typename;
   return grokdeclarator (TREE_VALUE (typename),
 			 TREE_PURPOSE (typename),
-			 PARM, 0);
+			 PARM, 0, NULL_TREE);
 }
 
 /* Decode a declarator in an ordinary declaration or data definition.
@@ -3297,17 +3339,18 @@ groktypename_in_parm_context (typename)
    grokfield and not through here.  */
 
 tree
-start_decl (declarator, declspecs, initialized, attributes, prefix_attributes)
+start_decl (declarator, declspecs, initialized, attributes, prefix_attributes,
+	    asmspec)
      tree declarator, declspecs;
      int initialized;
-     tree attributes, prefix_attributes;
+     tree attributes, prefix_attributes, asmspec;
 {
   register tree decl = grokdeclarator (declarator, declspecs,
-				       NORMAL, initialized);
+				       NORMAL, initialized, asmspec);
   register tree tem;
 
   if (warn_main > 0 && TREE_CODE (decl) != FUNCTION_DECL 
-      && !strcmp (IDENTIFIER_POINTER (DECL_NAME (decl)), "main"))
+      && MAIN_NAME_P (DECL_NAME (decl)))
     warning_with_decl (decl, "`%s' is usually a function");
 
   if (initialized)
@@ -3476,6 +3519,8 @@ finish_decl (decl, init, asmspec_tree)
 	}
     }
 
+  DECL_POINTER_DEPTH (decl) = TYPE_POINTER_DEPTH (type);
+
   /* Deduce size of array from initialization, if not already known */
 
   if (TREE_CODE (type) == ARRAY_TYPE
@@ -3643,7 +3688,7 @@ push_parm_decl (parm)
   immediate_size_expand = 0;
 
   decl = grokdeclarator (TREE_VALUE (TREE_PURPOSE (parm)),
-			 TREE_PURPOSE (TREE_PURPOSE (parm)), PARM, 0);
+			 TREE_PURPOSE (TREE_PURPOSE (parm)), PARM, 0, NULL_TREE);
   decl_attributes (decl, TREE_VALUE (TREE_VALUE (parm)),
 		   TREE_PURPOSE (TREE_VALUE (parm)));
 
@@ -3778,12 +3823,16 @@ complete_array_type (type, initial_value, do_default)
    and `extern' are interpreted.  */
 
 static tree
-grokdeclarator (declarator, declspecs, decl_context, initialized)
+grokdeclarator (declarator, declspecs, decl_context, initialized, asmspec)
      tree declspecs;
      tree declarator;
      enum decl_context decl_context;
      int initialized;
+     tree asmspec;
 {
+  tree orig_declarator = declarator;
+  tree orig_declspecs = declspecs;
+  enum decl_context orig_decl_context = decl_context;
   int specbits = 0;
   tree spec;
   tree type = NULL_TREE;
@@ -3791,6 +3840,9 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
   int constp;
   int restrictp;
   int volatilep;
+  int xboundedp;		/* explicit __bounded qualifier */
+  int xunboundedp;		/* explicit __unbounded qualifier */
+  int boundedp;			/* resultant boundedness */
   int type_quals = TYPE_UNQUALIFIED;
   int inlinep;
   int explicit_int = 0;
@@ -4104,17 +4156,34 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
   restrictp = !! (specbits & 1 << (int) RID_RESTRICT) + TYPE_RESTRICT (type);
   volatilep = !! (specbits & 1 << (int) RID_VOLATILE) + TYPE_VOLATILE (type);
   inlinep = !! (specbits & (1 << (int) RID_INLINE));
-  if (constp > 1)
+  if (constp > 1 && !flag_isoc99)
     pedwarn ("duplicate `const'");
-  if (restrictp > 1)
+  if (restrictp > 1 && !flag_isoc99)
     pedwarn ("duplicate `restrict'");
-  if (volatilep > 1)
+  if (volatilep > 1 && !flag_isoc99)
     pedwarn ("duplicate `volatile'");
+
+  boundedp = BOUNDED_POINTER_TYPE_P (type);
+  xboundedp = !! (specbits & 1 << (int) RID_BOUNDED);
+  xunboundedp = !! (specbits & 1 << (int) RID_UNBOUNDED);
+  if (xboundedp && xunboundedp)
+    error ("conflict between `__bounded' and `__unbounded'");
+  else if (xboundedp || xunboundedp)
+    {
+      if (MAYBE_BOUNDED_POINTER_TYPE_P (type))
+	boundedp = xboundedp;
+      else if (xboundedp)
+	error ("invalid use of `__bounded' with non-pointer type");
+      else if (xunboundedp)
+	error ("invalid use of `__unbounded' with non-pointer type");
+    }
+
   if (! flag_gen_aux_info && (TYPE_QUALS (type)))
-    type = TYPE_MAIN_VARIANT (type);
+    type = TYPE_MAIN_PHYSICAL_VARIANT (type);
   type_quals = ((constp ? TYPE_QUAL_CONST : 0)
 		| (restrictp ? TYPE_QUAL_RESTRICT : 0)
-		| (volatilep ? TYPE_QUAL_VOLATILE : 0));
+		| (volatilep ? TYPE_QUAL_VOLATILE : 0)
+		| (boundedp ? TYPE_QUAL_BOUNDED : 0));
 
   /* Warn if two storage classes are given. Default to `auto'.  */
 
@@ -4427,12 +4496,10 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
 	  if (pedantic && TREE_CODE (type) == FUNCTION_TYPE
 	      && type_quals)
 	    pedwarn ("ANSI C forbids qualified function types");
-	  if (type_quals)
+	  if (type_quals != TYPE_QUALS (type))
 	    type = c_build_qualified_type (type, type_quals);
 	  type_quals = TYPE_UNQUALIFIED;
 	  size_varies = 0;
-
-	  type = build_pointer_type (type);
 
 	  /* Process a list of type modifier keywords
 	     (such as const or volatile) that were given inside the `*'.  */
@@ -4445,6 +4512,8 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
 	      constp = 0;
 	      volatilep = 0;
 	      restrictp = 0;
+	      xboundedp = 0;
+	      xunboundedp = 0;
 	      for (typemodlist = TREE_TYPE (declarator); typemodlist;
 		   typemodlist = TREE_CHAIN (typemodlist))
 		{
@@ -4456,6 +4525,10 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
 		    volatilep++;
 		  else if (qualifier == ridpointers[(int) RID_RESTRICT])
 		    restrictp++;
+		  else if (qualifier == ridpointers[(int) RID_BOUNDED])
+		    xboundedp++;
+		  else if (qualifier == ridpointers[(int) RID_UNBOUNDED])
+		    xunboundedp++;
 		  else if (!erred)
 		    {
 		      erred = 1;
@@ -4469,10 +4542,26 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
 	      if (restrictp > 1)
 		pedwarn ("duplicate `restrict'");
 
+	      if (xboundedp && xunboundedp)
+		error ("conflict between `__bounded' and `__unbounded'");
+	      else if (xboundedp || xunboundedp)
+		boundedp = xboundedp;
+	      else
+		boundedp = (default_pointer_type_code (type) == RECORD_TYPE);
+
 	      type_quals = ((constp ? TYPE_QUAL_CONST : 0)
 			    | (restrictp ? TYPE_QUAL_RESTRICT : 0)
 			    | (volatilep ? TYPE_QUAL_VOLATILE : 0));
 	    }
+	  else if (asmspec && (specbits & (1 << (int) RID_REGISTER)))
+	    /* asm register variables must be unbounded.  */
+	    boundedp = 0;
+	  else
+	    boundedp = (default_pointer_type_code (type) == RECORD_TYPE);
+
+	  if (boundedp)
+	    type_quals |= TYPE_QUAL_BOUNDED;
+	  type = build_pointer_type_2 ((boundedp ? RECORD_TYPE : POINTER_TYPE), type);
 
 	  declarator = TREE_OPERAND (declarator, 0);
 	}
@@ -4516,7 +4605,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
      controlled separately by its own initializer.  */
 
   if (type != 0 && typedef_type != 0
-      && TYPE_MAIN_VARIANT (type) == TYPE_MAIN_VARIANT (typedef_type)
+      && TYPE_MAIN_VARIANTS_PHYSICALLY_EQUAL_P (type, typedef_type)
       && TREE_CODE (type) == ARRAY_TYPE && TYPE_DOMAIN (type) == 0)
     {
       type = build_array_type (TREE_TYPE (type), 0);
@@ -4576,7 +4665,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
 	    type = TREE_TYPE (type);
 	    if (type_quals)
 	      type = c_build_qualified_type (type, type_quals);
-	    type = build_pointer_type (type);
+	    type = build_default_pointer_type (type);
 	    type_quals = TYPE_UNQUALIFIED;
 	    size_varies = 0;
 	  }
@@ -4690,7 +4779,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
 	/* Record presence of `inline', if it is reasonable.  */
 	if (inlinep)
 	  {
-	    if (! strcmp (IDENTIFIER_POINTER (declarator), "main"))
+	    if (MAIN_NAME_P (declarator))
 	      warning ("cannot inline function `main'");
 	    else
 	      /* Assume that otherwise the function can be inlined.  */
@@ -4716,6 +4805,9 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
 	    type_quals = TYPE_UNQUALIFIED;
 #endif
 	  }
+
+	if (MAYBE_BOUNDED_POINTER_TYPE_P (type) && (type_quals & TYPE_QUAL_BOUNDED))
+	  type = build_qualified_type (type, TYPE_QUAL_BOUNDED);
 
 	decl = build_decl (VAR_DECL, declarator, type);
 	if (size_varies)
@@ -4753,7 +4845,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
     if (specbits & (1 << (int) RID_REGISTER))
       DECL_REGISTER (decl) = 1;
 
-    /* Record constancy and volatility.  */
+    /* Record constancy, volatility, restrictedness and boundedness.  */
     c_apply_type_quals_to_decl (type_quals, decl);
 
     /* If a type has volatile components, it should be stored in memory.
@@ -4761,6 +4853,20 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
        will be ignored, and would even crash the compiler.  */
     if (C_TYPE_FIELDS_VOLATILE (TREE_TYPE (decl)))
       mark_addressable (decl);
+
+#if 0
+    /* GKM FIXME: this stuff is incomplete.  Is it useful?  */
+    if (TREE_CODE (decl) == FUNCTION_DECL
+	&& DECL_POINTER_DEPTH (decl) == VA_LIST_POINTER_DEPTH
+	&& !default_pointer_boundedness)
+      {
+	default_pointer_boundedness = 1;
+	DECL_BOUNDEDLY_OPPOSITE (decl)
+	  = grokdeclarator (orig_declspecs, orig_declarator,
+			    orig_decl_context, initialized, NULL_TREE);
+	default_pointer_boundedness = 0;
+      }
+#endif
 
     return decl;
   }
@@ -4847,8 +4953,7 @@ grokparms (parms_info, funcdef_flag)
 	      else
 		{
 		  /* Now warn if is a pointer to an incomplete type.  */
-		  while (TREE_CODE (type) == POINTER_TYPE
-			 || TREE_CODE (type) == REFERENCE_TYPE)
+		  while (MAYBE_BOUNDED_INDIRECT_TYPE_P (type))
 		    type = TREE_TYPE (type);
 		  type = TYPE_MAIN_VARIANT (type);
 		  if (!COMPLETE_TYPE_P (type))
@@ -4876,11 +4981,17 @@ grokparms (parms_info, funcdef_flag)
    This tree_list node is later fed to `grokparms'.
 
    VOID_AT_END nonzero means append `void' to the end of the type-list.
-   Zero means the parmlist ended with an ellipsis so don't append `void'.  */
+   Zero means the parmlist ended with an ellipsis so don't append `void'.
+
+   VARARGS_BOUNDEDNESS specifies how to handle pointers in varargs
+   lists at the time the function is called.  -1 = unspecified.  0 =
+   all pointers should be passed unbounded, 1 = all pointers should be
+   passed with bounds.  */
 
 tree
-get_parm_info (void_at_end)
+get_parm_info (void_at_end, varargs_boundedness)
      int void_at_end;
+     int varargs_boundedness;
 {
   register tree decl, t;
   register tree types = 0;
@@ -4963,8 +5074,15 @@ get_parm_info (void_at_end)
       }
 
   if (void_at_end)
-    return tree_cons (new_parms, tags,
-		      nreverse (tree_cons (NULL_TREE, void_type_node, types)));
+    types = tree_cons (NULL_TREE, void_type_node, types);
+#if 0
+  /* GKM FIXME: this is now handled by a flag bit, not an int node at
+     the end of the arglist.  */
+  else if (varargs_boundedness >= 0)
+    types = tree_cons (NULL_TREE, (varargs_boundedness
+				   ? integer_one_node
+				   : integer_zero_node), types);
+#endif
 
   return tree_cons (new_parms, tags, nreverse (types));
 }
@@ -5103,7 +5221,7 @@ grokfield (filename, line, declarator, declspecs, width)
 {
   tree value;
 
-  value = grokdeclarator (declarator, declspecs, width ? BITFIELD : FIELD, 0);
+  value = grokdeclarator (declarator, declspecs, width ? BITFIELD : FIELD, 0, NULL_TREE);
 
   finish_decl (value, NULL_TREE, NULL_TREE);
   DECL_INITIAL (value) = width;
@@ -5337,6 +5455,8 @@ finish_struct (t, fieldlist, attributes)
       TYPE_FIELDS (x) = TYPE_FIELDS (t);
       TYPE_LANG_SPECIFIC (x) = TYPE_LANG_SPECIFIC (t);
       TYPE_ALIGN (x) = TYPE_ALIGN (t);
+      TYPE_POINTER_DEPTH (x) = TYPE_POINTER_DEPTH (t);
+      TYPE_BOUNDED (x) = TYPE_BOUNDED (t);
     }
 
   /* If this was supposed to be a transparent union, but we can't
@@ -5653,7 +5773,7 @@ start_function (declspecs, declarator, prefix_attributes, attributes)
   /* Don't expand any sizes in the return type of the function.  */
   immediate_size_expand = 0;
 
-  decl1 = grokdeclarator (declarator, declspecs, FUNCDEF, 1);
+  decl1 = grokdeclarator (declarator, declspecs, FUNCDEF, 1, NULL_TREE);
 
   /* If the declarator is not suitable for a function definition,
      cause a syntax error.  */
@@ -5694,8 +5814,8 @@ start_function (declspecs, declarator, prefix_attributes, attributes)
   old_decl = lookup_name_current_level (DECL_NAME (decl1));
   if (old_decl != 0 && TREE_CODE (TREE_TYPE (old_decl)) == FUNCTION_TYPE
       && !DECL_BUILT_IN (old_decl)
-      && (TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (decl1)))
-	  == TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (old_decl))))
+      && TYPE_MAIN_VARIANTS_PHYSICALLY_EQUAL_P (TREE_TYPE (TREE_TYPE (decl1)),
+						TREE_TYPE (TREE_TYPE (old_decl)))
       && TYPE_ARG_TYPES (TREE_TYPE (decl1)) == 0)
     {
       TREE_TYPE (decl1) = TREE_TYPE (old_decl);
@@ -5717,7 +5837,7 @@ start_function (declspecs, declarator, prefix_attributes, attributes)
   else if (warn_missing_prototypes
 	   && TREE_PUBLIC (decl1)
 	   && !(old_decl != 0 && TYPE_ARG_TYPES (TREE_TYPE (old_decl)) != 0)
-	   && strcmp ("main", IDENTIFIER_POINTER (DECL_NAME (decl1))))
+	   && !MAIN_NAME_P (DECL_NAME (decl1)))
     warning_with_decl (decl1, "no previous prototype for `%s'");
   /* Optionally warn of any def with no previous prototype
      if the function has already been used.  */
@@ -5730,7 +5850,7 @@ start_function (declspecs, declarator, prefix_attributes, attributes)
   else if (warn_missing_declarations
 	   && TREE_PUBLIC (decl1)
 	   && old_decl == 0
-	   && strcmp ("main", IDENTIFIER_POINTER (DECL_NAME (decl1))))
+	   && !MAIN_NAME_P (DECL_NAME (decl1)))
     warning_with_decl (decl1, "no previous declaration for `%s'");
   /* Optionally warn of any def with no previous declaration
      if the function has already been used.  */
@@ -5758,9 +5878,17 @@ start_function (declspecs, declarator, prefix_attributes, attributes)
   if (current_function_decl != 0)
     TREE_PUBLIC (decl1) = 0;
 
+  /* The pointer depth of main is always 2, by virtue of the char**
+     argv and envp.  We must force it to be 2, because sometimes users
+     declare it with an empty argument list.  */
+  if (MAIN_NAME_P (DECL_NAME (decl1)))
+    {
+      TREE_BOUNDED (decl1) = default_pointer_boundedness;
+      DECL_POINTER_DEPTH (decl1) = 2;
+    }
+
   /* Warn for unlikely, improbable, or stupid declarations of `main'. */
-  if (warn_main > 0
-      && strcmp ("main", IDENTIFIER_POINTER (DECL_NAME (decl1))) == 0)
+  if (warn_main > 0 && MAIN_NAME_P (DECL_NAME (decl1)))
     {
       tree args;
       int argct = 0;
@@ -5787,8 +5915,8 @@ start_function (declspecs, declarator, prefix_attributes, attributes)
 	      break;
 
 	    case 2:
-	      if (TREE_CODE (type) != POINTER_TYPE
-		  || TREE_CODE (TREE_TYPE (type)) != POINTER_TYPE
+	      if (!MAYBE_BOUNDED_POINTER_TYPE_P (type)
+		  || !MAYBE_BOUNDED_POINTER_TYPE_P (TREE_TYPE (type))
 		  || (TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (type)))
 		      != char_type_node))
 		pedwarn_with_decl (decl1,
@@ -5796,8 +5924,8 @@ start_function (declspecs, declarator, prefix_attributes, attributes)
 	      break;
 
 	    case 3:
-	      if (TREE_CODE (type) != POINTER_TYPE
-		  || TREE_CODE (TREE_TYPE (type)) != POINTER_TYPE
+	      if (!MAYBE_BOUNDED_POINTER_TYPE_P (type)
+		  || !MAYBE_BOUNDED_POINTER_TYPE_P (TREE_TYPE (type))
 		  || (TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (type)))
 		      != char_type_node))
 		pedwarn_with_decl (decl1,
@@ -5863,9 +5991,11 @@ start_function (declspecs, declarator, prefix_attributes, attributes)
    to call mark_varargs directly.  */
 
 void
-c_mark_varargs ()
+c_mark_varargs (boundedness)
+     int boundedness;
 {
   c_function_varargs = 1;
+  c_function_varargs_boundedness = boundedness;
 }
 
 /* Store the parameter declarations into the current function declaration.
@@ -6162,8 +6292,8 @@ store_parm_decls ()
 		 with that declared for the arg.  */
 	      if (! comptypes (DECL_ARG_TYPE (parm), TREE_VALUE (type)))
 		{
-		  if (TYPE_MAIN_VARIANT (TREE_TYPE (parm))
-		      == TYPE_MAIN_VARIANT (TREE_VALUE (type)))
+		  if (TYPE_MAIN_VARIANTS_PHYSICALLY_EQUAL_P (TREE_TYPE (parm),
+							     TREE_VALUE (type)))
 		    {
 		      /* Adjust argument to match prototype.  E.g. a previous
 			 `int foo(float);' prototype causes
@@ -6210,22 +6340,35 @@ store_parm_decls ()
 
       else
 	{
-	  tree actual = 0, last = 0, type;
+	  tree actual = NULL_TREE;
+	  tree fntype = TREE_TYPE (fndecl);
+	  int depth = TYPE_POINTER_DEPTH (fntype);
+	  int old_depth = MAX (DECL_POINTER_DEPTH (fndecl),
+			       TYPE_POINTER_DEPTH (fntype));
+	  int old_boundedp = TYPE_BOUNDED (fntype);
+	  int boundedp = old_boundedp;
 
 	  for (parm = DECL_ARGUMENTS (fndecl); parm; parm = TREE_CHAIN (parm))
 	    {
-	      type = tree_cons (NULL_TREE, DECL_ARG_TYPE (parm), NULL_TREE);
-	      if (last)
-		TREE_CHAIN (last) = type;
-	      else
-		actual = type;
-	      last = type;
+	      tree type = DECL_ARG_TYPE (parm);
+	      depth = MAX (depth, TYPE_POINTER_DEPTH (type));
+	      actual = tree_cons (NULL_TREE, type, actual);
+	      boundedp |= TYPE_BOUNDED (type);
 	    }
-	  type = tree_cons (NULL_TREE, void_type_node, NULL_TREE);
-	  if (last)
-	    TREE_CHAIN (last) = type;
-	  else
-	    actual = type;
+	  if (c_function_varargs && depth < MAX_POINTER_DEPTH)
+	    /* Assume the worst for varargs functions.  */
+	    depth = MAX_POINTER_DEPTH;
+	  if (!c_function_varargs)
+	    actual = tree_cons (NULL_TREE, void_type_node, actual);
+#if 0
+	  /* GKM FIXME: this is now handled by a flag bit, not an int
+	     node at the end of the arglist.  */
+	  else if (c_function_varargs_boundedness >= 0)
+	    actual = tree_cons (NULL_TREE, (c_function_varargs_boundedness
+					    ? integer_one_node
+					    : integer_zero_node), actual);
+#endif
+	  actual = nreverse (actual);
 
 	  /* We are going to assign a new value for the TYPE_ACTUAL_ARG_TYPES
 	     of the type of this function, but we need to avoid having this
@@ -6235,10 +6378,20 @@ store_parm_decls ()
 	     will be a variant of the main variant of the original function
 	     type.  */
 
-	  TREE_TYPE (fndecl) = build_type_copy (TREE_TYPE (fndecl));
-
-	  TYPE_ACTUAL_ARG_TYPES (TREE_TYPE (fndecl)) = actual;
+	  fntype = TREE_TYPE (fndecl) = build_type_copy (fntype);
+	  TYPE_ACTUAL_ARG_TYPES (fntype) = actual;
+	  TYPE_POINTER_DEPTH (fntype) = depth;
+	  TYPE_BOUNDED (fntype) = boundedp;
+	  if (!depth != !old_depth || boundedp != old_boundedp)
+	    /* The RTL for a function definition with a non-prototype
+	       declarator is made too early, before we learn its
+	       argument type(s).  */
+	    remake_function_rtl (fndecl);
 	}
+
+      /* The pointer depth of the decl might increase later based on
+	 the depth of args passed in calls. */
+      DECL_POINTER_DEPTH (fndecl) = TYPE_POINTER_DEPTH (TREE_TYPE (fndecl));
 
       /* Now store the final chain of decls for the arguments
 	 as the decl-chain of the current lexical scope.
@@ -6285,7 +6438,7 @@ store_parm_decls ()
   /* If this function is `main', emit a call to `__main'
      to run global initializers, etc.  */
   if (DECL_NAME (fndecl)
-      && strcmp (IDENTIFIER_POINTER (DECL_NAME (fndecl)), "main") == 0
+      && MAIN_NAME_P (DECL_NAME (fndecl))
       && DECL_CONTEXT (fndecl) == NULL_TREE)
     expand_main_function ();
 }
@@ -6465,7 +6618,7 @@ finish_function (nested)
       setjmp_protect_args ();
     }
 
-  if (! strcmp (IDENTIFIER_POINTER (DECL_NAME (fndecl)), "main"))
+  if (MAIN_NAME_P (DECL_NAME (fndecl)))
     {
       if (TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (fndecl)))
 	  != integer_type_node)
@@ -6713,4 +6866,169 @@ lang_mark_tree (t)
     }
   else if (TYPE_P (t) && TYPE_LANG_SPECIFIC (t))
     ggc_mark (TYPE_LANG_SPECIFIC (t));
+}
+
+/* BP_FUNC is a FUNCTION_DECL node that has simple (depth=1) pointer
+   types for its parameter(s) and/or return type.
+
+   If BP_FUNC is external, then we must assume that it was defined in
+   a file that was compiled with simple pointers, so we must define a
+   thunk that accepts bounded pointer parameters, strips away their
+   bounds, passes them to the simple-pointer counterpart of BP_FUNC,
+   collects the return value, and if it is a pointer, adds bounds and
+   returns a bounded pointer.  */
+
+void
+compile_bounded_pointer_thunk (bp_func)
+     tree bp_func;
+{
+  int save_default_pointer_boundedness = default_pointer_boundedness;
+  tree ubp_func, call;
+  tree args, types;
+  tree declspecs, declarator;
+  tree caller, callee;
+  tree value_type = TREE_TYPE (TREE_TYPE (bp_func));
+  tree ubp_value_type = value_type;
+  tree parms = NULL_TREE;
+  tree ubp_parms = NULL_TREE;
+  tree global_decl = IDENTIFIER_GLOBAL_VALUE (DECL_NAME (bp_func));
+  int n = 0;
+
+  if (global_decl && TREE_STATIC (global_decl))
+    return;
+
+  /* Because start_function works on parse trees, cons-up parse trees
+     for declspecs and declarator.  While we're at it, do the same for
+     the called function, whose declarator we create with
+     grokdeclarator.  */
+
+  if (BOUNDED_POINTER_TYPE_P (value_type))
+    ubp_value_type = TYPE_BOUNDED_SUBTYPE (value_type);
+  types = TYPE_ARG_TYPES (TREE_TYPE (bp_func));
+  if (!types)
+    types = TYPE_ACTUAL_ARG_TYPES (TREE_TYPE (bp_func));
+  for (; types; types = TREE_CHAIN (types))
+    {
+      tree parm_type = TREE_VALUE (types);
+      tree ubp_parm_type = parm_type;
+      char parm_name[12];
+
+      if (parm_type == void_type_node)
+	break;
+
+      if (BOUNDED_POINTER_TYPE_P (parm_type))
+	ubp_parm_type = TYPE_BOUNDED_SUBTYPE (parm_type);
+
+      sprintf (parm_name, "parm%d", n++);
+      parms = push_parm_tree (parm_type, get_identifier (parm_name), parms);
+      ubp_parms = push_parm_tree (ubp_parm_type, NULL_TREE, ubp_parms);
+    }
+  ubp_parms = nreverse (ubp_parms);
+  parms = nreverse (parms);
+
+  pushlevel (0);
+  clear_parm_order ();
+  declare_parm_level (1);  
+  for (; ubp_parms; ubp_parms = TREE_CHAIN (ubp_parms))
+    push_parm_decl (ubp_parms);
+  ubp_parms = get_parm_info (1, -1);
+  poplevel (0, 0, 0);
+  declspecs = build_tree_list (NULL_TREE, ubp_value_type);
+  declarator = build_nt (CALL_EXPR, DECL_NAME (bp_func), ubp_parms);
+  IDENTIFIER_GLOBAL_VALUE (DECL_NAME (bp_func)) = NULL_TREE;
+  default_pointer_boundedness = 0;
+  ubp_func = start_decl (declarator, declspecs, 0, NULL_TREE, NULL_TREE, NULL_TREE);
+  finish_decl (ubp_func, NULL_TREE, NULL_TREE);
+  default_pointer_boundedness = 1;
+
+  pushlevel (0);
+  clear_parm_order ();
+  declare_parm_level (1);  
+  for (; parms; parms = TREE_CHAIN (parms))
+    push_parm_decl (parms);
+  parms = get_parm_info (1, -1);
+  poplevel (0, 0, 0);
+  declspecs = build_tree_list (NULL_TREE, value_type);
+  TREE_PUBLIC (DECL_NAME (bp_func)) = 0;
+  declspecs = chainon (declspecs,
+		       build_tree_list (NULL_TREE, ridpointers[(int) RID_STATIC]));
+  declarator = build_nt (CALL_EXPR, DECL_NAME (bp_func), parms);
+  IDENTIFIER_GLOBAL_VALUE (DECL_NAME (bp_func)) = NULL_TREE;
+  DECL_BUILT_IN_CLASS (bp_func) = NOT_BUILT_IN;
+  DECL_RTL (bp_func) = 0;
+  DECL_ASSEMBLER_NAME (bp_func) = NULL_TREE;
+  start_function (declspecs, declarator, NULL_TREE, NULL_TREE);
+  store_parm_decls ();
+
+  pushlevel (0);
+  clear_last_expr ();
+  push_momentary ();
+  expand_start_bindings (0);
+
+  caller = current_function_decl;
+  callee = ubp_func;
+  DECL_INLINE (caller) = DECL_INLINE (callee) = 0;
+  fprintf (asm_out_file, "%s bounded pointer thunk:\n", ASM_COMMENT_START);
+  args = NULL_TREE;
+  types = TYPE_ARG_TYPES (TREE_TYPE (callee));
+  if (!types)
+    types = TYPE_ACTUAL_ARG_TYPES (TREE_TYPE (callee));
+  for (parms = current_function_parms; parms;
+       parms = TREE_CHAIN (parms), types = TREE_CHAIN (types))
+    {
+      tree parm = parms;
+      if (BOUNDED_POINTER_TYPE_P (TREE_TYPE (parm)))
+	parm = build_bounded_ptr_value_ref (parm);
+      else if (BOUNDED_POINTER_TYPE_P (TREE_VALUE (types)))
+	parm = build_bounded_ptr_constructor_2 (parm, permissive_null_bounded_ptr_node);
+      args = tree_cons (NULL_TREE, parm, args);
+    }
+  args = nreverse (args);
+
+  call = build_function_call (callee, args);
+  if (BOUNDED_POINTER_TYPE_P (TREE_TYPE (TREE_TYPE (caller))))
+    call = build_bounded_ptr_constructor_2 (call, permissive_null_bounded_ptr_node);
+  else if (BOUNDED_POINTER_TYPE_P (TREE_TYPE (TREE_TYPE (callee))))
+    call = build_bounded_ptr_value_ref (call);
+  call = build_compound_expr (build_tree_list (NULL_TREE, call));
+  c_expand_return (call);
+  expand_end_bindings (getdecls (), 1, 0);
+  poplevel (1, 0, 0);
+  finish_function (0);
+
+  default_pointer_boundedness = save_default_pointer_boundedness;
+}
+
+static tree
+push_parm_tree (type, name, list)
+     tree type, name, list;
+{
+  return tree_cons (build_tree_list (build_tree_list (NULL_TREE, type), name),
+		    build_tree_list (NULL_TREE, NULL_TREE),
+		    list);
+}
+
+/* Return a 1 if ATTR_NAME and ATTR_ARGS denote a valid C-specific
+   attribute for either declaration DECL or type TYPE and 0 otherwise.
+   Plugged into valid_lang_attribute.  */
+
+static int
+c_valid_lang_attribute (attr_name, attr_args, decl, type)
+  tree attr_name;
+  tree attr_args ATTRIBUTE_UNUSED;
+  tree decl ATTRIBUTE_UNUSED;
+  tree type;
+{
+  if (is_attribute_p ("bounded", attr_name)
+      || is_attribute_p ("unbounded", attr_name))
+    {
+      if (TYPE_POINTER_DEPTH (type) == 0)
+	{
+	  warning ("`%s' attribute only makes sense on pointer types or types containing pointers",
+		   IDENTIFIER_POINTER (attr_name));
+	  return 0;
+	}
+      return 1;
+    }
+  return 0;
 }

@@ -60,10 +60,10 @@ INCLUDES = -I. -I.. -I$(srcdir) -I$(srcdir)/.. -I$(srcdir)/../config -I$(srcdir)
 ## # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
 LIBERTY = ../../libiberty/libiberty.a
-LIBOBJ  = gnu-regex.o fixlib.o $(LIBERTY)
+LIBOBJ  = fixlib.o $(LIBERTY)
 FIOBJ   = fixincl.o server.o procopen.o $(LIBOBJ)
 
-HDR = server.h gnu-regex.h fixlib.h machname.h
+HDR = server.h fixlib.h machname.h
 
 SH_TARGET  = inclhack.sh fixincl.sh
 BIN_TARGET = fixincl fixfixes fixtests
@@ -77,17 +77,17 @@ gen : $(SH_TARGET) fixincl.x
 $(FIOBJ): $(HDR)
 
 fixincl: $(FIOBJ)
-	@echo $(CC) $(FIXINC_DEFS) -o $@ $(FIOBJ) ; \
-	if $(CC) $(FIXINC_DEFS) -o $@ $(FIOBJ) ; then : ; else \
+	@echo $(CC) $(FIXINC_DEFS) $(LDFLAGS) -o $@ $(FIOBJ) ; \
+	if $(CC) $(FIXINC_DEFS) $(LDFLAGS) -o $@ $(FIOBJ) ; then : ; else \
 	rm -f $@ ; (echo "#! /bin/sh" ; echo exit 1 ) > $@ ; \
 	chmod 777 $@ ; fi
 
 fixfixes: fixfixes.c $(LIBOBJ)
-	$(CC) -o $@ $(FIXINC_DEFS) -DMAIN \
+	$(CC) $(LDFLAGS) -o $@ $(FIXINC_DEFS) -DMAIN \
 		$(srcdir)/fixfixes.c $(LIBOBJ) $(LIB)
 
 fixtests: fixtests.c $(LIBOBJ)
-	$(CC) -o $@ $(FIXINC_DEFS) -DMAIN \
+	$(CC) $(LDFLAGS) -o $@ $(FIXINC_DEFS) -DMAIN \
 		$(srcdir)/fixtests.c $(LIBOBJ) $(LIB)
 
 fixincl.o : fixincl.x fixincl.c fixfixes.c fixtests.c

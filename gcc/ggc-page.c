@@ -706,7 +706,10 @@ ggc_alloc_obj (size, zero)
      so that bytes beyond the end, if any, will not necessarily be zero.  */
   memset (result, 0xaf, 1 << order);
 #endif
-
+#if __BOUNDED_POINTERS__
+  __ptrbase (result) = __ptrvalue (result);
+  __ptrextent (result) = ((char *) __ptrbase (result)) + size;
+#endif
   if (zero)
     memset (result, 0, size);
 

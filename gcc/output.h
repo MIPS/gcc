@@ -208,6 +208,10 @@ extern void exception_section		PARAMS ((void));
    The rtl is stored into DECL.  */
 extern void make_function_rtl		PARAMS ((tree));
 
+/* Revise the name in a function's rtl definition to have a
+   bounded-pointer prefix.  */
+extern void remake_function_rtl		PARAMS ((tree));
+
 /* Declare DECL to be a weak symbol.  */
 extern void declare_weak		PARAMS ((tree));
 #endif /* TREE_CODE */

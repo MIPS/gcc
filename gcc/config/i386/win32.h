@@ -2,7 +2,7 @@
    hosting on Windows NT 3.x, using a Unix style C library and tools,
    as distinct from winnt.h, which is used to build GCC for use with a
    windows style library and tool set and uses the Microsoft tools.
-   Copyright (C) 1995, 1996, 1997, 1998, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -266,8 +266,7 @@ do {								\
 
 #define SUBTARGET_PROLOGUE						\
   if (profile_flag 							\
-      && strcmp (IDENTIFIER_POINTER (DECL_NAME (current_function_decl)),\
-		 "main") == 0)						\
+      && MAIN_NAME_P (DECL_NAME (current_function_decl))		\
      {									\
       rtx xops[1];							\
       xops[0] = gen_rtx_MEM (FUNCTION_MODE,				\

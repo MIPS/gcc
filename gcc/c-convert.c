@@ -1,5 +1,5 @@
 /* Language-level data type conversion for GNU C.
-   Copyright (C) 1987, 1988, 1991, 1998 Free Software Foundation, Inc.
+   Copyright (C) 1987, 1988, 1991, 1998, 2000 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -69,7 +69,7 @@ convert (type, expr)
       || code == ERROR_MARK || TREE_CODE (TREE_TYPE (expr)) == ERROR_MARK)
     return expr;
 
-  if (TYPE_MAIN_VARIANT (type) == TYPE_MAIN_VARIANT (TREE_TYPE (expr)))
+  if (TYPE_MAIN_VARIANTS_PHYSICALLY_EQUAL_P (type, TREE_TYPE (expr)))
     return fold (build1 (NOP_EXPR, type, expr));
   if (TREE_CODE (TREE_TYPE (expr)) == ERROR_MARK)
     return error_mark_node;
@@ -88,7 +88,7 @@ convert (type, expr)
 #endif
   if (code == INTEGER_TYPE || code == ENUMERAL_TYPE)
     return fold (convert_to_integer (type, e));
-  if (code == POINTER_TYPE || code == REFERENCE_TYPE)
+  if (MAYBE_BOUNDED_INDIRECT_TYPE_P (type))
     return fold (convert_to_pointer (type, e));
   if (code == REAL_TYPE)
     return fold (convert_to_real (type, e));

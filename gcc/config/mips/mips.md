@@ -10449,3 +10449,28 @@ ld\\t%2,%1-%S1(%2)\;daddu\\t%2,%2,$31\;j\\t%2"
   [(set_attr "type"	"arith")
    (set_attr "mode"	"DI")
    (set_attr "length"	"40")])
+
+
+(define_insn "trap"
+  [(trap_if (const_int 1) (const_int 0))]
+  ""
+  "teq\\t$0,$0")
+
+(define_expand "conditional_trap"
+  [(trap_if (match_operator 0 "cmp_op"
+			    [(match_dup 2) (match_dup 3)])
+	    (match_operand 1 "const_int_operand" ""))]
+  ""
+  "
+{
+  mips_gen_conditional_trap (operands, GET_CODE (operands[0]));
+  DONE;
+}")
+
+(define_insn ""
+  [(trap_if (match_operator:SI 0 "cmp_op"
+                            [(match_operand:SI 1 "reg_or_0_operand" "")
+                             (match_operand:SI 2 "reg_or_0_operand" "")])
+	    (const_int 0))]
+  ""
+  "t%C0\\t%z1,%z2")

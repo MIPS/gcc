@@ -25,6 +25,7 @@ Boston, MA 02111-1307, USA.  */
 #include "cp-tree.h"
 #include "obstack.h"
 #include "toplev.h"
+#include "flags.h"
 
 typedef const char *cp_printer ();
 
@@ -202,6 +203,16 @@ dump_qualifiers (t, p)
             p = before;
             OB_PUTCP (names[ix]);
           }
+      if (TREE_CODE (t) == POINTER_TYPE
+	  && !!(quals & TYPE_QUAL_BOUNDED) != default_pointer_boundedness)
+	{
+	  if (p == before)
+	    OB_PUTC (' ');
+	  if (quals & TYPE_QUAL_BOUNDED)
+	    OB_PUTS ("__bounded");
+	  else
+	    OB_PUTS ("__unbounded");
+	}
       if (do_after)
         OB_PUTC (' ');
     }

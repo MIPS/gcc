@@ -1295,14 +1295,14 @@ stmp-multilib-sub:
 $(T)crtbegin.o: crtstuff.c $(GCC_PASSES) $(CONFIG_H) \
   defaults.h frame.h gbl-ctors.h stmp-int-hdrs tsystem.h
 	$(GCC_FOR_TARGET) $(GCC_CFLAGS) $(INCLUDES) $(MULTILIB_CFLAGS) -g0 \
-	  -finhibit-size-directive -fno-inline-functions \
+	  -finhibit-size-directive -fno-inline-functions -fno-bounded-pointers \
 	  -fno-exceptions $(CRTSTUFF_T_CFLAGS) @inhibit_libc@ \
 	  -c $(srcdir)/crtstuff.c -DCRT_BEGIN -o $(T)crtbegin$(objext)
 
 $(T)crtend.o: crtstuff.c $(GCC_PASSES) $(CONFIG_H) \
   defaults.h frame.h gbl-ctors.h stmp-int-hdrs tsystem.h
 	$(GCC_FOR_TARGET) $(GCC_CFLAGS) $(INCLUDES) $(MULTILIB_CFLAGS) -g0 \
-	  -finhibit-size-directive -fno-inline-functions \
+	  -finhibit-size-directive -fno-inline-functions -fno-bounded-pointers \
 	  -fno-exceptions $(CRTSTUFF_T_CFLAGS) @inhibit_libc@ \
 	  -c $(srcdir)/crtstuff.c -DCRT_END -o $(T)crtend$(objext)
 
@@ -1310,7 +1310,7 @@ $(T)crtend.o: crtstuff.c $(GCC_PASSES) $(CONFIG_H) \
 $(T)crtbeginS.o: crtstuff.c $(GCC_PASSES) $(CONFIG_H) \
   defaults.h frame.h gbl-ctors.h stmp-int-hdrs tsystem.h
 	$(GCC_FOR_TARGET) $(GCC_CFLAGS) $(INCLUDES) $(MULTILIB_CFLAGS) -g0 \
-	  -finhibit-size-directive -fno-inline-functions \
+	  -finhibit-size-directive -fno-inline-functions -fno-bounded-pointers \
 	  -fno-exceptions $(CRTSTUFF_T_CFLAGS_S) @inhibit_libc@ \
 	  -c $(srcdir)/crtstuff.c -DCRT_BEGIN -DCRTSTUFFS_O \
 	  -o $(T)crtbeginS$(objext)
@@ -1318,7 +1318,7 @@ $(T)crtbeginS.o: crtstuff.c $(GCC_PASSES) $(CONFIG_H) \
 $(T)crtendS.o: crtstuff.c $(GCC_PASSES) $(CONFIG_H) \
   defaults.h frame.h gbl-ctors.h stmp-int-hdrs tsystem.h
 	$(GCC_FOR_TARGET) $(GCC_CFLAGS) $(INCLUDES) $(MULTILIB_CFLAGS) -g0 \
-	  -finhibit-size-directive -fno-inline-functions \
+	  -finhibit-size-directive -fno-inline-functions -fno-bounded-pointers \
 	  -fno-exceptions $(CRTSTUFF_T_CFLAGS_S) @inhibit_libc@ \
 	  -c $(srcdir)/crtstuff.c -DCRT_END -DCRTSTUFFS_O \
 	  -o $(T)crtendS$(objext)
@@ -1343,7 +1343,8 @@ s-crt0:	$(CRT0_S) $(MCRT0_S) $(GCC_PASSES) $(CONFIG_H)
 
 c-parse.o : $(srcdir)/c-parse.c $(CONFIG_H) $(TREE_H) c-lex.h $(GGC_H) \
     $(srcdir)/c-parse.h c-tree.h c-common.h input.h flags.h system.h toplev.h
-	$(CC) $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) -c $(srcdir)/c-parse.c
+	$(CC) $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) \
+		-DYYFILE=\"$(srcdir)/c-parse.y\" -c $(srcdir)/c-parse.c
 $(srcdir)/c-parse.h: $(srcdir)/c-parse.c
 $(srcdir)/c-parse.c: $(srcdir)/c-parse.y
 	cd $(srcdir); $(BISON) $(BISONFLAGS) -d -o c-parse.c c-parse.y

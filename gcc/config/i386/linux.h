@@ -1,5 +1,5 @@
 /* Definitions for Intel 386 running Linux-based GNU systems with ELF format.
-   Copyright (C) 1994, 1995, 1996, 1997, 1998, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1994, 1995, 1996, 1997, 1998, 1999, 2000 Free Software Foundation, Inc.
    Contributed by Eric Youngdale.
    Modified for stabs-in-ELF by H.J. Lu.
 
@@ -118,7 +118,7 @@ Boston, MA 02111-1307, USA.  */
 #ifdef USE_GNULIBC_1
 #ifndef LINUX_DEFAULT_ELF
 #define LINK_SPEC "-m elf_i386 %{shared:-shared} \
-  %{!shared: \
+   %{!shared: \
     %{!ibcs: \
       %{!static: \
 	%{rdynamic:-export-dynamic} \

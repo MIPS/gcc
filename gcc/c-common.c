@@ -95,6 +95,7 @@ enum cpp_token cpp_token;
    Nodes for types `void *' and `const void *'.
 
 	tree ptr_type_node, const_ptr_type_node;
+	tree unbounded_ptr_type_node, const_unbounded_ptr_type_node;
 
    Nodes for types `char *' and `const char *'.
 
@@ -145,7 +146,7 @@ enum attrs {A_PACKED, A_NOCOMMON, A_COMMON, A_NORETURN, A_CONST, A_T_UNION,
 	    A_NO_CHECK_MEMORY_USAGE, A_NO_INSTRUMENT_FUNCTION,
 	    A_CONSTRUCTOR, A_DESTRUCTOR, A_MODE, A_SECTION, A_ALIGNED,
 	    A_UNUSED, A_FORMAT, A_FORMAT_ARG, A_WEAK, A_ALIAS, A_MALLOC,
-	    A_NO_LIMIT_STACK, A_PURE};
+	    A_NO_LIMIT_STACK, A_PURE, A_BOUNDED, A_UNBOUNDED};
 
 enum format_type { printf_format_type, scanf_format_type,
 		   strftime_format_type };
@@ -158,6 +159,7 @@ static void record_function_format	PARAMS ((tree, tree, enum format_type,
 static void record_international_format	PARAMS ((tree, tree, int));
 static tree c_find_base_decl            PARAMS ((tree));
 static int default_valid_lang_attribute PARAMS ((tree, tree, tree, tree));
+static tree type_change_boundedness	PARAMS ((tree, int, int));
 
 /* Keep a stack of if statements.  We record the number of compound
    statements seen up to the if keyword, as well as the line number
@@ -379,8 +381,8 @@ combine_strings (strings)
       && (! flag_traditional  && ! flag_writable_strings))
     {
       tree elements
-	= build_type_variant (wide_flag ? wchar_type_node : char_type_node,
-			      1, 0);
+	= build_qualified_type (wide_flag ? wchar_type_node : char_type_node,
+				TYPE_QUAL_CONST);
       TREE_TYPE (value)
 	= build_array_type (elements,
 			    build_index_type (build_int_2 (nchars - 1, 0)));
@@ -458,6 +460,8 @@ init_attributes ()
   add_attribute (A_MALLOC, "malloc", 0, 0, 1);
   add_attribute (A_NO_LIMIT_STACK, "no_stack_limit", 0, 0, 1);
   add_attribute (A_PURE, "pure", 0, 0, 1);
+  add_attribute (A_BOUNDED, "bounded", 0, 1, 1);
+  add_attribute (A_UNBOUNDED, "unbounded", 0, 1, 1);
 }
 
 /* Default implementation of valid_lang_attribute, below.  By default, there
@@ -586,10 +590,15 @@ decl_attributes (node, attributes, prefix_attributes)
 	    TREE_THIS_VOLATILE (decl) = 1;
 	  else if (TREE_CODE (type) == POINTER_TYPE
 		   && TREE_CODE (TREE_TYPE (type)) == FUNCTION_TYPE)
-	    TREE_TYPE (decl) = type
-	      = build_pointer_type
-		(build_type_variant (TREE_TYPE (type),
-				     TREE_READONLY (TREE_TYPE (type)), 1));
+	    {
+	      int type_quals = ((TYPE_QUALS (type) & ~TYPE_QUAL_BOUNDED)
+				| (BOUNDED_POINTER_TYPE_P (TREE_TYPE (type))
+				   ? TYPE_QUAL_BOUNDED : 0)
+				| TYPE_QUAL_VOLATILE);
+	      TREE_TYPE (decl) = type
+		= build_pointer_type (build_qualified_type (TREE_TYPE (type),
+							    type_quals));
+	    }
 	  else
 	    warning ("`%s' attribute ignored", IDENTIFIER_POINTER (name));
 	  break;
@@ -619,10 +628,15 @@ decl_attributes (node, attributes, prefix_attributes)
 	    TREE_READONLY (decl) = 1;
 	  else if (TREE_CODE (type) == POINTER_TYPE
 		   && TREE_CODE (TREE_TYPE (type)) == FUNCTION_TYPE)
-	    TREE_TYPE (decl) = type
-	      = build_pointer_type
-		(build_type_variant (TREE_TYPE (type), 1,
-				     TREE_THIS_VOLATILE (TREE_TYPE (type))));
+	    {
+	      int type_quals = ((TYPE_QUALS (type) & ~TYPE_QUAL_BOUNDED)
+				| (BOUNDED_POINTER_TYPE_P (TREE_TYPE (type))
+				   ? TYPE_QUAL_BOUNDED : 0)
+				| TYPE_QUAL_CONST);
+	      TREE_TYPE (decl) = type
+		= build_pointer_type (build_qualified_type (TREE_TYPE (type),
+							    type_quals));
+	    }
 	  else
 	    warning ( "`%s' attribute ignored", IDENTIFIER_POINTER (name));
 	  break;
@@ -868,9 +882,9 @@ decl_attributes (node, attributes, prefix_attributes)
 		  ;
 
 		if (! argument
-		    || TREE_CODE (TREE_VALUE (argument)) != POINTER_TYPE
-		  || (TYPE_MAIN_VARIANT (TREE_TYPE (TREE_VALUE (argument)))
-		      != char_type_node))
+		    || ! MAYBE_BOUNDED_POINTER_TYPE_P (TREE_VALUE (argument))
+		    || (TYPE_MAIN_VARIANT (TREE_TYPE (TREE_VALUE (argument)))
+			!= char_type_node))
 		  {
 		    error ("format string arg not a string type");
 		    continue;
@@ -881,7 +895,10 @@ decl_attributes (node, attributes, prefix_attributes)
 		    /* Verify that first_arg_num points to the last arg,
 		       the ...  */
 		    while (argument)
-		      arg_num++, argument = TREE_CHAIN (argument);
+		      {
+			arg_num++;
+			argument = TREE_CHAIN (argument);
+		      }
 
 		    if (arg_num != first_arg_num)
 		      {
@@ -938,16 +955,16 @@ decl_attributes (node, attributes, prefix_attributes)
 		  ;
 
 		if (! argument
-		    || TREE_CODE (TREE_VALUE (argument)) != POINTER_TYPE
-		  || (TYPE_MAIN_VARIANT (TREE_TYPE (TREE_VALUE (argument)))
-		      != char_type_node))
+		    || ! MAYBE_BOUNDED_POINTER_TYPE_P (TREE_VALUE (argument))
+		    || (TYPE_MAIN_VARIANT (TREE_TYPE (TREE_VALUE (argument)))
+			!= char_type_node))
 		  {
 		    error ("format string arg not a string type");
 		    continue;
 		  }
 	      }
 
-	    if (TREE_CODE (TREE_TYPE (TREE_TYPE (decl))) != POINTER_TYPE
+	    if (! MAYBE_BOUNDED_POINTER_TYPE_P (TREE_TYPE (TREE_TYPE (decl)))
 		|| (TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (TREE_TYPE (decl))))
 		    != char_type_node))
 	      {
@@ -972,15 +989,25 @@ decl_attributes (node, attributes, prefix_attributes)
 			     "`%s' defined both normally and as an alias");
 	  else if (decl_function_context (decl) == 0)
 	    {
-	      tree id;
+	      tree id, target;
 
-	      id = TREE_VALUE (args);
+	      id = expose_string_constant (TREE_VALUE (args));
 	      if (TREE_CODE (id) != STRING_CST)
 		{
 		  error ("alias arg not a string");
 		  break;
 		}
 	      id = get_identifier (TREE_STRING_POINTER (id));
+	      target = lookup_name (id);
+	      if (target && DECL_P (target))
+		{
+		  /* Since aliases are made at the assembler level, we
+		     should use the assembler name, if one is defined.  */
+		  if (DECL_ASSEMBLER_NAME (target))
+		    id = DECL_ASSEMBLER_NAME (target);
+		  else
+		    id = DECL_NAME (target);
+		}
 	      /* This counts as a use of the object pointed to.  */
 	      TREE_USED (id) = 1;
 
@@ -1044,9 +1071,147 @@ decl_attributes (node, attributes, prefix_attributes)
 	  else
 	    DECL_NO_LIMIT_STACK (decl) = 1;
 	  break;
+	case A_UNBOUNDED:
+	case A_BOUNDED:
+	  {
+	    int boundedp = (id == A_BOUNDED);
+	    int depth = 1;
+	    int save_default_pointer_boundedness = default_pointer_boundedness;
+	    if (args)
+	      {
+		tree expr = TREE_VALUE (args);
+		/* Strip any NOPs of any kind.  */
+		while (TREE_CODE (expr) == NOP_EXPR
+		       || TREE_CODE (expr) == CONVERT_EXPR
+		       || TREE_CODE (expr) == NON_LVALUE_EXPR)
+		  expr = TREE_OPERAND (expr, 0);
+		if (TREE_CODE (expr) != INTEGER_CST)
+		  {
+		    error ("requested boundedness depth is not a constant");
+		    continue;
+		  }
+		depth = TREE_INT_CST_LOW (expr);
+	      }
+	    default_pointer_boundedness = boundedp;
+	    type = TREE_TYPE (decl) = type_change_boundedness (type, boundedp, depth);
+	    default_pointer_boundedness = save_default_pointer_boundedness;
+	  }
+	  break;
 	}
     }
 }
+
+/* Recursively descend TYPE as deeply as DEPTH, changing boundedness
+   to BOUNDEDP.  Negative DEPTH is effectively infinite.  */
+
+static tree
+type_change_boundedness (type, boundedp, depth)
+     tree type;
+     int boundedp;
+     int depth;
+{
+  if (TYPE_POINTER_DEPTH (type) == 0 || depth == 0)
+    return type;
+
+  if (MAYBE_BOUNDED_POINTER_TYPE_P (type))
+    {
+      int type_quals = ((TYPE_QUALS (type) & ~TYPE_QUAL_BOUNDED)
+			| (boundedp * TYPE_QUAL_BOUNDED));
+      if (TYPE_POINTER_DEPTH (type) > 1 && depth > 1)
+	type = build_pointer_type (type_change_boundedness (TREE_TYPE (type),
+							    boundedp, --depth));
+      type = build_qualified_type (type, type_quals);
+    }
+  else if (TREE_CODE (type) == FUNCTION_TYPE)
+    {
+      tree value_type = type_change_boundedness (TREE_TYPE (type),
+						  boundedp, depth);
+      tree old_types;
+      tree new_types = NULL_TREE;
+      int changedp = 0;
+      for (old_types = TYPE_ARG_TYPES (type); old_types; old_types = TREE_CHAIN (old_types))
+	{
+	  tree arg_type = type_change_boundedness (TREE_VALUE (old_types),
+						   boundedp, depth);
+	  if (TREE_PURPOSE (old_types))
+	    abort ();
+	  if (arg_type != TREE_VALUE (old_types))
+	    changedp = 1;
+	  new_types = tree_cons (NULL_TREE, arg_type, new_types);
+	}
+      if (changedp)
+	type = build_function_type (value_type, nreverse (new_types));
+      else if (value_type != TREE_TYPE (type))
+	type = build_function_type (value_type, TYPE_ARG_TYPES (type));
+      TYPE_BOUNDED (type) = boundedp;
+    }
+  else if (TREE_CODE (type) == RECORD_TYPE || TREE_CODE (type) == UNION_TYPE)
+    {
+      tree old_fields;
+      tree new_fields = NULL_TREE;
+      int changedp = 0;
+      for (old_fields = TYPE_FIELDS (type); old_fields; old_fields = TREE_CHAIN (old_fields))
+	{
+	  tree value = TREE_VALUE (old_fields);
+	  if (TREE_PURPOSE (old_fields))
+	    abort ();
+	  if (TREE_CODE (value) == FIELD_DECL)
+	    {
+	      tree field_type = type_change_boundedness (TREE_TYPE (value),
+							 boundedp, depth);
+	      if (field_type != TREE_TYPE (value))
+		{
+		  changedp = 1;
+		  /* GKM FIXME: build new FIELD_DECL */
+		  abort ();
+		}
+	    }
+	  new_fields = tree_cons (NULL_TREE, value, new_fields);
+	}
+      if (changedp)
+	{
+	  type = copy_node (type);
+	  TYPE_FIELDS (type) = nreverse (new_fields);
+	  TYPE_SIZE (type) = TYPE_SIZE_UNIT (type) = NULL_TREE;
+	  layout_type (type);
+	}
+    }
+  else if (TREE_CODE (type) == ARRAY_TYPE)
+    {
+      tree elttype = type_change_boundedness (TREE_TYPE (type), boundedp, depth);
+      if (elttype != TREE_TYPE (type))
+	{
+	  type = copy_node (type);
+	  TREE_TYPE (type) = elttype;
+	  TYPE_SIZE (type) = TYPE_SIZE_UNIT (type) = NULL_TREE;
+	  layout_type (type);
+	}
+    }
+  else if (TREE_CODE (type) == TREE_LIST)
+    {
+      tree node;
+      tree list = NULL_TREE;
+      int changedp = 0;
+      for (node = type; node; node = TREE_CHAIN (node))
+	{
+	  tree value = TREE_VALUE (node);
+	  tree purpose = TREE_PURPOSE (node);
+	  type = type_change_boundedness (TREE_TYPE (value), boundedp, depth);
+	  if (type != TREE_TYPE (value))
+	    {
+	      /* GKM FIXME: redo decl with changed type */
+	      changedp = 1;
+	    }
+	  list = tree_cons (purpose, value, list);
+	}
+      if (changedp)
+	type = nreverse (list);
+    }
+  else
+    abort ();
+  return type;
+}
+
 
 /* Split SPECS_ATTRS, a list of declspecs and prefix attributes, into two
    lists.  SPECS_ATTRS may also be just a typespec (eg: RECORD_TYPE).
@@ -1471,7 +1636,11 @@ check_format_info (info, params)
 
   /* We can only check the format if it's a string constant.  */
   while (TREE_CODE (format_tree) == NOP_EXPR)
-    format_tree = TREE_OPERAND (format_tree, 0); /* strip coercion */
+    format_tree = TREE_OPERAND (format_tree, 0);
+  if (TREE_BOUNDED (format_tree))
+    format_tree = build_bounded_ptr_value_ref (format_tree);
+  while (TREE_CODE (format_tree) == NOP_EXPR)
+    format_tree = TREE_OPERAND (format_tree, 0);
 
   if (TREE_CODE (format_tree) == CALL_EXPR
       && TREE_CODE (TREE_OPERAND (format_tree, 0)) == ADDR_EXPR
@@ -1935,7 +2104,7 @@ check_format_info (info, params)
 	 that precede the "real" argument.  */
       for (i = 0; i < fci->pointer_count + aflag; ++i)
 	{
-	  if (TREE_CODE (cur_type) == POINTER_TYPE)
+	  if (MAYBE_BOUNDED_POINTER_TYPE_P (cur_type))
 	    {
 	      cur_type = TREE_TYPE (cur_type);
 
@@ -3189,18 +3358,25 @@ c_build_qualified_type (type, type_quals)
      int type_quals;
 {
   /* A restrict-qualified pointer type must be a pointer to object or
-     incomplete type.  Note that the use of POINTER_TYPE_P also allows
+     incomplete type.  Note that the use of MAYBE_BOUNDED_INDIRECT_TYPE_P also allows
      REFERENCE_TYPEs, which is appropriate for C++.  Unfortunately,
      the C++ front-end also use POINTER_TYPE for pointer-to-member
      values, so even though it should be illegal to use `restrict'
      with such an entity we don't flag that here.  Thus, special case
      code for that case is required in the C++ front-end.  */
-  if ((type_quals & TYPE_QUAL_RESTRICT)
-      && (!POINTER_TYPE_P (type)
-	  || !C_TYPE_OBJECT_OR_INCOMPLETE_P (TREE_TYPE (type))))
+  if (! MAYBE_BOUNDED_INDIRECT_TYPE_P (type)
+      || !C_TYPE_OBJECT_OR_INCOMPLETE_P (TREE_TYPE (type)))
     {
-      error ("invalid use of `restrict'");
-      type_quals &= ~TYPE_QUAL_RESTRICT;
+      if (type_quals & TYPE_QUAL_RESTRICT)
+	{
+	  error ("invalid use of `restrict'");
+	  type_quals &= ~TYPE_QUAL_RESTRICT;
+	}
+      if (TREE_CODE (type) != ARRAY_TYPE && (type_quals & TYPE_QUAL_BOUNDED))
+	{
+	  error ("invalid use of `__bounded'");
+	  type_quals &= ~TYPE_QUAL_BOUNDED;
+	}
     }
 
   if (TREE_CODE (type) == ARRAY_TYPE)
@@ -3227,7 +3403,7 @@ c_apply_type_quals_to_decl (type_quals, decl)
   if (type_quals & TYPE_QUAL_RESTRICT)
     {
       if (!TREE_TYPE (decl)
-	  || !POINTER_TYPE_P (TREE_TYPE (decl))
+	  || !MAYBE_BOUNDED_INDIRECT_TYPE_P (TREE_TYPE (decl))
 	  || !C_TYPE_OBJECT_OR_INCOMPLETE_P (TREE_TYPE (TREE_TYPE (decl))))
 	error ("invalid use of `restrict'");
       else if (flag_strict_aliasing)
@@ -3254,6 +3430,9 @@ c_apply_type_quals_to_decl (type_quals, decl)
 	    }
 	}
     }
+  if ((type_quals & TYPE_QUAL_BOUNDED)
+      && BOUNDED_POINTER_TYPE_P (TREE_TYPE (decl)))
+    TREE_BOUNDED (decl) = 1;
 }
 
 /* T is an expression with pointer type.  Find the DECL on which this
@@ -3271,7 +3450,7 @@ c_find_base_decl (t)
   if (t == NULL_TREE || t == error_mark_node)
     return NULL_TREE;
 
-  if (!POINTER_TYPE_P (TREE_TYPE (t)))
+  if (! MAYBE_BOUNDED_INDIRECT_TYPE_P (TREE_TYPE (t)))
     return NULL_TREE;
 
   decl = NULL_TREE;
@@ -3411,16 +3590,7 @@ c_get_alias_set (t)
        pointers and references to functions, but that's
        different.)  */
     TYPE_ALIAS_SET (type) = 0;
-  else if (TREE_CODE (type) == RECORD_TYPE
-	   || TREE_CODE (type) == UNION_TYPE)
-    /* If TYPE is a struct or union type then we're reading or
-       writing an entire struct.  Thus, we don't know anything about
-       aliasing.  (In theory, such an access can only alias objects
-       whose type is the same as one of the fields, recursively, but
-       we don't yet make any use of that information.)  */
-    TYPE_ALIAS_SET (type) = 0;
-  else if (TREE_CODE (type) == POINTER_TYPE
-	   || TREE_CODE (type) == REFERENCE_TYPE)
+  else if (MAYBE_BOUNDED_INDIRECT_TYPE_P (type))
     {
       tree t;
 
@@ -3449,10 +3619,19 @@ c_get_alias_set (t)
 	 C++ committee.  */
       t = TYPE_MAIN_VARIANT (TREE_TYPE (type));
       t = ((TREE_CODE (type) == POINTER_TYPE)
-	   ? build_pointer_type (t) : build_reference_type (t));
+	   ? build_pointer_type_2 (TREE_CODE (type), t)
+	   : build_reference_type (t));
       if (t != type)
 	TYPE_ALIAS_SET (type) = c_get_alias_set (t);
     }
+  else if (TREE_CODE (type) == RECORD_TYPE
+	   || TREE_CODE (type) == UNION_TYPE)
+    /* If TYPE is a struct or union type then we're reading or
+       writing an entire struct.  Thus, we don't know anything about
+       aliasing.  (In theory, such an access can only alias objects
+       whose type is the same as one of the fields, recursively, but
+       we don't yet make any use of that information.)  */
+    TYPE_ALIAS_SET (type) = 0;
 
   if (!TYPE_ALIAS_SET_KNOWN_P (type))
     /* TYPE is something we haven't seen before.  Put it in a new
@@ -3493,6 +3672,7 @@ c_common_nodes_and_builtins (cplus_mode, no_builtins, no_nonansi_builtins)
   tree traditional_len_endlink;
   tree va_list_ref_type_node;
   tree va_list_arg_type_node;
+  int save_default_pointer_boundedness = default_pointer_boundedness;
 
   pushdecl (build_decl (TYPE_DECL, get_identifier ("__builtin_va_list"),
 			va_list_type_node));
@@ -3519,8 +3699,11 @@ c_common_nodes_and_builtins (cplus_mode, no_builtins, no_nonansi_builtins)
   double_endlink = tree_cons (NULL_TREE, double_type_node, endlink);
   unsigned_endlink = tree_cons (NULL_TREE, unsigned_type_node, endlink);
 
-  ptr_ftype = build_function_type (ptr_type_node, NULL_TREE);
-  ptr_ftype_unsigned = build_function_type (ptr_type_node, unsigned_endlink);
+  /* GKM FIXME: do we need unbounded_ptr versions of these? */
+  default_pointer_boundedness = 0;
+  ptr_ftype = build_function_type (unbounded_ptr_type_node, NULL_TREE);
+  ptr_ftype_unsigned = build_function_type (unbounded_ptr_type_node, unsigned_endlink);
+  default_pointer_boundedness = save_default_pointer_boundedness;
   sizetype_endlink = tree_cons (NULL_TREE, TYPE_DOMAIN (sizetype), endlink);
   /* We realloc here because sizetype could be int or unsigned.  S'ok.  */
   ptr_ftype_sizetype = build_function_type (ptr_type_node, sizetype_endlink);
@@ -3531,7 +3714,7 @@ c_common_nodes_and_builtins (cplus_mode, no_builtins, no_nonansi_builtins)
   void_ftype_int = build_function_type (void_type_node, int_endlink);
   void_ftype_ptr
     = build_function_type (void_type_node,
- 			   tree_cons (NULL_TREE, ptr_type_node, endlink));
+ 			   tree_cons (NULL_TREE, unbounded_ptr_type_node, endlink));
 
   float_ftype_float
     = build_function_type (float_type_node,
@@ -3683,6 +3866,8 @@ c_common_nodes_and_builtins (cplus_mode, no_builtins, no_nonansi_builtins)
 		    BUILT_IN_NORMAL, NULL_PTR);
   builtin_function ("__builtin_labs", long_ftype_long, BUILT_IN_LABS,
 		    BUILT_IN_NORMAL, NULL_PTR);
+
+  default_pointer_boundedness = 0;
   builtin_function ("__builtin_saveregs", ptr_ftype, BUILT_IN_SAVEREGS,
 		    BUILT_IN_NORMAL, NULL_PTR);
   builtin_function ("__builtin_classify_type", default_function_type,
@@ -3693,18 +3878,19 @@ c_common_nodes_and_builtins (cplus_mode, no_builtins, no_nonansi_builtins)
 		    BUILT_IN_NORMAL, NULL_PTR);
   builtin_function ("__builtin_setjmp",
 		    build_function_type (integer_type_node,
-					 tree_cons (NULL_TREE, ptr_type_node,
+					 tree_cons (NULL_TREE, unbounded_ptr_type_node,
 						    endlink)),
 		    BUILT_IN_SETJMP, BUILT_IN_NORMAL, NULL_PTR);
   builtin_function ("__builtin_longjmp",
 		    build_function_type (void_type_node,
-					 tree_cons (NULL_TREE, ptr_type_node,
+					 tree_cons (NULL_TREE, unbounded_ptr_type_node,
 						    tree_cons (NULL_TREE,
 							       integer_type_node,
 							       endlink))),
 		    BUILT_IN_LONGJMP, BUILT_IN_NORMAL, NULL_PTR);
-  builtin_function ("__builtin_trap", void_ftype, BUILT_IN_TRAP,
-		    BUILT_IN_NORMAL, NULL_PTR);
+  trap_fndecl
+    = builtin_function ("__builtin_trap", void_ftype, BUILT_IN_TRAP,
+			BUILT_IN_NORMAL, NULL_PTR);
 
   /* ISO C99 IEEE Unordered compares.  */
   builtin_function ("__builtin_isgreater", default_function_type,
@@ -3728,12 +3914,12 @@ c_common_nodes_and_builtins (cplus_mode, no_builtins, no_nonansi_builtins)
 		    build_pointer_type (build_function_type (void_type_node,
 							     NULL_TREE)),
 		    tree_cons (NULL_TREE,
-			       ptr_type_node,
+			       unbounded_ptr_type_node,
 			       tree_cons (NULL_TREE,
 					  sizetype,
 					  endlink)));
   builtin_function ("__builtin_apply",
-		    build_function_type (ptr_type_node, temp),
+		    build_function_type (unbounded_ptr_type_node, temp),
 		    BUILT_IN_APPLY, BUILT_IN_NORMAL, NULL_PTR);
   builtin_function ("__builtin_return", void_ftype_ptr,
 		    BUILT_IN_RETURN, BUILT_IN_NORMAL, NULL_PTR);
@@ -3768,6 +3954,7 @@ c_common_nodes_and_builtins (cplus_mode, no_builtins, no_nonansi_builtins)
 						      va_list_arg_type_node,
 						      endlink))),
 		    BUILT_IN_VA_COPY, BUILT_IN_NORMAL, NULL_PTR);
+  default_pointer_boundedness = save_default_pointer_boundedness;
 
   /* ??? Ought to be `T __builtin_expect(T, T)' for any type T.  */
   builtin_function ("__builtin_expect",
@@ -3903,6 +4090,8 @@ c_common_nodes_and_builtins (cplus_mode, no_builtins, no_nonansi_builtins)
   builtin_function ("__builtin_getman", double_ftype_double, BUILT_IN_GETMAN,
 		    BUILT_IN_NORMAL, NULL_PTR);
 #endif
+
+  main_identifier_node = get_identifier ("main");
 
   /* ??? Perhaps there's a better place to do this.  But it is related
      to __builtin_va_arg, so it isn't that off-the-wall.  */

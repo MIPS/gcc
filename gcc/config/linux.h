@@ -1,5 +1,5 @@
 /* Definitions for Linux-based GNU systems with ELF format
-   Copyright (C) 1995, 1996, 1997, 1998, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000 Free Software Foundation, Inc.
    Contributed by Eric Youngdale.
    Modified for stabs-in-ELF by H.J. Lu (hjl@lucon.org).
 
@@ -66,7 +66,8 @@ Boston, MA 02111-1307, USA.  */
   "%{!shared: \
      %{pg:gcrt1.o%s} %{!pg:%{p:gcrt1.o%s} \
 		       %{!p:%{profile:gcrt1.o%s} \
-			 %{!profile:crt1.o%s}}}} \
+			 %{!profile:%{fbounded-pointers:bcrt1.o%s} \
+			    %{!fbounded-pointers:crt1.o%s}}}}} \
    crti.o%s %{!shared:crtbegin.o%s} %{shared:crtbeginS.o%s}"
 
 /* Provide a ENDFILE_SPEC appropriate for GNU/Linux.  Here we tack on
@@ -96,19 +97,24 @@ Boston, MA 02111-1307, USA.  */
 #if 1
 #ifdef USE_GNULIBC_1
 #define LIB_SPEC \
-  "%{!shared: %{p:-lgmon} %{pg:-lgmon} %{profile:-lgmon -lc_p} \
-     %{!profile:%{!ggdb:-lc} %{ggdb:-lg}}}"
+  "%{fbounded-pointer-thunks:-lgccbp}\
+   %{!shared: %{p:-lgmon} %{pg:-lgmon} %{profile:-lgmon -lc_p} \
+     %{fbounded-pointers:-lc_b} \
+     %{!profile:%{!ggdb:%{!fbounded-pointers:-lc}} %{ggdb:-lg}}}"
 #else
 #define LIB_SPEC \
-  "%{shared: -lc} \
+  "%{fbounded-pointer-thunks:-lgccbp}\
+   %{shared: -lc} \
    %{!shared: %{mieee-fp:-lieee} %{pthread:-lpthread} \
-	%{profile:-lc_p} %{!profile: -lc}}"
+	%{fbounded-pointers:-lc_b} \
+	%{profile:-lc_p} %{!profile:%{!fbounded-pointers:-lc}}}"
 #endif
 #else
 #define LIB_SPEC \
-  "%{!shared: \
-     %{p:-lgmon -lc_p} %{pg:-lgmon -lc_p} \
-       %{!p:%{!pg:%{!g*:-lc} %{g*:-lg}}}}"
+  "%{fbounded-pointer-thunks:-lgccbp}\
+   %{!shared: \
+     %{p:-lgmon -lc_p} %{pg:-lgmon -lc_p} %{fbounded-pointers:-lc_b} \
+       %{!p:%{!pg:%{!g*:%{!fbounded-pointers:-lc}} %{g*:-lg}}}}"
 #endif
 
 /* Define this so we can compile MS code for use with WINE.  */

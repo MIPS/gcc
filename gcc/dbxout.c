@@ -1016,7 +1016,8 @@ dbxout_type (type, full, show_arg_types)
 	 
       for (tem = TYPE_MAIN_VARIANT (type); tem; tem = TYPE_NEXT_VARIANT (tem))
 	if (!TYPE_READONLY (tem) && !TYPE_VOLATILE (tem)
-	    && TYPE_NAME (tem) == TYPE_NAME (type))
+	    && TYPE_NAME (tem) == TYPE_NAME (type)
+	    && TREE_CODE (tem) == TREE_CODE (type))
 	  {
 	    type = tem;
 	    break;

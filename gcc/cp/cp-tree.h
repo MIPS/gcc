@@ -1285,6 +1285,10 @@ enum languages { lang_c, lang_cplusplus, lang_java };
 #define CP_TYPE_RESTRICT_P(NODE)			\
   ((CP_TYPE_QUALS (NODE) & TYPE_QUAL_RESTRICT) != 0)
 
+/* Nonzero if this type is bounded-qualified.  */
+#define CP_TYPE_BOUNDED_P(NODE)				\
+  ((CP_TYPE_QUALS (NODE) & TYPE_QUAL_BOUNDED) != 0)
+
 /* Nonzero if this type is const-qualified, but not
    volatile-qualified.  Other qualifiers are ignored.  This macro is
    used to test whether or not it is OK to bind an rvalue to a
@@ -3266,7 +3270,7 @@ extern tree pending_vtables;
 /* Node for "pointer to (virtual) function".
    This may be distinct from ptr_type_node so gdb can distinguish them.  */
 #define vfunc_ptr_type_node \
-  (flag_vtable_thunks ? vtable_entry_type : ptr_type_node)
+  (flag_vtable_thunks ? vtable_entry_type : unbounded_ptr_type_node)
 
 
 /* For building calls to `delete'.  */
@@ -3467,11 +3471,6 @@ extern tree original_function_name;
   sprintf (wbuf, VBASE_NAME_FORMAT, TYPE_ASSEMBLER_NAME_STRING (TYPE));	\
   (BUF) = wbuf;								\
 } while (0)
-
-/* Returns non-zero iff ID_NODE is an IDENTIFIER_NODE whose name is
-   `main'.  */
-#define MAIN_NAME_P(ID_NODE) \
-   (strcmp (IDENTIFIER_POINTER (ID_NODE), "main") == 0)
 
 /* Returns non-zero iff NODE is a declaration for the global function
    `main'.  */

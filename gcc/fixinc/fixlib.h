@@ -29,7 +29,7 @@ Boston, MA 02111-1307, USA.  */
 #include "gansidecl.h"
 #include "system.h"
 
-#include "gnu-regex.h"
+#include "regex.h"
 #include "machname.h"
 
 #ifndef STDIN_FILENO

@@ -4194,7 +4194,7 @@ sh_va_arg (valist, type)
 
   size = int_size_in_bytes (type);
   rsize = (size + UNITS_PER_WORD - 1) & -UNITS_PER_WORD;
-  pptr_type_node = build_pointer_type (ptr_type_node);
+  pptr_type_node = build_pointer_type (unbounded_ptr_type_node);
 
   if ((TARGET_SH3E || TARGET_SH4) && ! TARGET_HITACHI)
     {

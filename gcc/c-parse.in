@@ -94,7 +94,8 @@ end ifc
    yylval contains an IDENTIFIER_NODE which indicates which one.  */
 %token TYPESPEC
 
-/* Reserved words that qualify type: "const", "volatile", or "restrict".
+/* Reserved words that qualify type:
+   "const", "volatile", "restrict", "__bounded" or "__unbounded".
    yylval contains an IDENTIFIER_NODE which indicates which one.  */
 %token TYPE_QUAL
 
@@ -188,6 +189,7 @@ end ifc
 %type <ttype> identifiers_or_typenames
 
 %type <itype> setspecs
+%type <itype> boundedness_qual boundedness_qual_opt
 
 %type <ends_in_label> lineno_stmt_or_label lineno_stmt_or_labels stmt_or_label
 
@@ -229,6 +231,11 @@ static tree declspec_stack;
 /* 1 if we explained undeclared var errors.  */
 static int undeclared_variable_notice;
 
+/* Tree list with no elements that represents a stack of
+   default_pointer_boundedness values saved in the TREE_BOUNDED bit of
+   the list nodes */
+static tree boundedness_stack;
+
 /* For __extension__, save/restore the warning flags which are
    controlled by __extension__.  */
 #define SAVE_WARN_FLAGS()	\
@@ -266,6 +273,7 @@ c_parse_init ()
   ggc_add_tree_root (&declspec_stack, 1);
   ggc_add_tree_root (&current_declspecs, 1);
   ggc_add_tree_root (&prefix_attributes, 1);
+  ggc_add_tree_root (&boundedness_stack, 1);
 ifobjc
   ggc_add_tree_root (&objc_interface_context, 1);
   ggc_add_tree_root (&objc_implementation_context, 1);
@@ -302,6 +310,11 @@ extdefs:
 	| extdefs {$<ttype>$ = NULL_TREE; } extdef
 	;
 
+extdefs_opt:
+	  extdefs
+	| /* empty */
+	;
+
 extdef:
 	fndef
 	| datadef
@@ -318,6 +331,18 @@ end ifobjc
 		    error ("argument of `asm' is not a constant string"); }
 	| extension extdef
 		{ RESTORE_WARN_FLAGS ($1); }
+	| boundedness_qual '{'
+		{
+		  boundedness_stack = tree_cons (NULL_TREE, NULL_TREE, boundedness_stack);
+		  TREE_BOUNDED (boundedness_stack) = default_pointer_boundedness;
+		  default_pointer_boundedness = $1;
+		}
+	  extdefs_opt '}'
+		{
+		  tree node = boundedness_stack;
+		  boundedness_stack = TREE_CHAIN (node);
+		  default_pointer_boundedness = TREE_BOUNDED (node);
+		}
 	;
 
 datadef:
@@ -463,7 +488,7 @@ unary_expr:
 		  else
 		    {
 		      TREE_USED (label) = 1;
-		      $$ = build1 (ADDR_EXPR, ptr_type_node, label);
+		      $$ = build1 (ADDR_EXPR, unbounded_ptr_type_node, label);
 		      TREE_CONSTANT ($$) = 1;
 		    }
 		}
@@ -501,6 +526,13 @@ unary_expr:
 		{ $$ = build_unary_op (REALPART_EXPR, $2, 0); }
 	| IMAGPART cast_expr %prec UNARY
 		{ $$ = build_unary_op (IMAGPART_EXPR, $2, 0); }
+	| PTR_VALUE cast_expr %prec UNARY
+		{ $$ = (TREE_BOUNDED ($2)
+			? build_bounded_ptr_value_ref ($2) : $2); }
+	| PTR_BASE cast_expr %prec UNARY
+		{ $$ = build_bounded_ptr_base_ref ($2); }
+	| PTR_EXTENT cast_expr %prec UNARY
+		{ $$ = build_bounded_ptr_extent_ref ($2); }
 	| VA_ARG '(' expr_no_commas ',' typename ')'
 		{ $$ = build_va_arg ($3, groktypename ($5)); }
 	;
@@ -731,12 +763,13 @@ end ifobjc
 			    if (TREE_CODE ($$) != FUNCTION_DECL)
 			      error ("`%s' implicitly declared as function",
 				     IDENTIFIER_POINTER (DECL_NAME ($$)));
-			  else if ((TYPE_MODE (TREE_TYPE (TREE_TYPE ($$)))
-				    != TYPE_MODE (integer_type_node))
-				   && (TREE_TYPE (TREE_TYPE ($$))
-				       != void_type_node))
-			    pedwarn ("type mismatch in implicit declaration for built-in function `%s'",
-				     IDENTIFIER_POINTER (DECL_NAME ($$)));
+			    else if ((TYPE_MODE (TREE_TYPE (TREE_TYPE ($$)))
+				      != TYPE_MODE (integer_type_node))
+				     && (TREE_TYPE (TREE_TYPE ($$))
+					 != void_type_node)
+				     && ! BOUNDED_POINTER_TYPE_P (TREE_TYPE (TREE_TYPE ($$))))
+			      pedwarn ("type mismatch in implicit declaration for built-in function `%s'",
+				       IDENTIFIER_POINTER (DECL_NAME ($$)));
 			  /* If it really returns void, change that to int.  */
 			  if (TREE_TYPE (TREE_TYPE ($$)) == void_type_node)
 			    TREE_TYPE ($$)
@@ -913,9 +946,9 @@ end ifobjc
 old_style_parm_decls:
 	/* empty */
 	| datadecls
-	| datadecls ELLIPSIS
+	| datadecls ELLIPSIS boundedness_qual_opt
 		/* ... is used here to indicate a varargs function.  */
-		{ c_mark_varargs ();
+		{ c_mark_varargs ($3);
 		  if (pedantic)
 		    pedwarn ("ANSI C does not permit use of `varargs.h'"); }
 	;
@@ -1165,7 +1198,7 @@ maybeasm:
 initdcl:
 	  declarator maybeasm maybe_attribute '='
 		{ $<ttype>$ = start_decl ($1, current_declspecs, 1,
-					  $3, prefix_attributes);
+					  $3, prefix_attributes, $2);
 		  start_init ($<ttype>$, $2, global_bindings_p ()); }
 	  init
 /* Note how the declaration of the variable is in effect while its init is parsed! */
@@ -1173,7 +1206,7 @@ initdcl:
 		  finish_decl ($<ttype>5, $6, $2); }
 	| declarator maybeasm maybe_attribute
 		{ tree d = start_decl ($1, current_declspecs, 0,
-				       $3, prefix_attributes);
+				       $3, prefix_attributes, $2);
 		  finish_decl (d, NULL_TREE, $2); 
                 }
 	;
@@ -1181,7 +1214,7 @@ initdcl:
 notype_initdcl:
 	  notype_declarator maybeasm maybe_attribute '='
 		{ $<ttype>$ = start_decl ($1, current_declspecs, 1,
-					  $3, prefix_attributes);
+					  $3, prefix_attributes, $2);
 		  start_init ($<ttype>$, $2, global_bindings_p ()); }
 	  init
 /* Note how the declaration of the variable is in effect while its init is parsed! */
@@ -1190,7 +1223,7 @@ notype_initdcl:
 		  finish_decl ($<ttype>5, $6, $2); }
 	| notype_declarator maybeasm maybe_attribute
 		{ tree d = start_decl ($1, current_declspecs, 0,
-				       $3, prefix_attributes);
+				       $3, prefix_attributes, $2);
 		  finish_decl (d, NULL_TREE, $2); }
 	;
 /* the * rules are dummies to accept the Apollo extended syntax
@@ -1684,6 +1717,26 @@ type_quals:
 		{ $$ = tree_cons (NULL_TREE, $2, $1); }
 	;
 
+boundedness_qual_opt:
+	  /* empty */
+		{ $$ = -1; }
+	| boundedness_qual
+	;
+boundedness_qual:
+	  TYPE_QUAL
+		{
+		  if ($1 == ridpointers[(int) RID_BOUNDED])
+		    $$ = 1;
+		  else if ($1 == ridpointers[(int) RID_UNBOUNDED])
+		    $$ = 0;
+		  else
+		    {
+		      error ("parse error - expected boundedness qualifier");
+		      $$ = -1;
+		    }
+		}
+	;
+
 absdcl1:  /* a nonempty absolute declarator */
 	  '(' absdcl1 ')'
 		{ $$ = $2; }
@@ -2072,7 +2125,9 @@ stmt:
 		    pedwarn ("ANSI C forbids `goto *expr;'");
 		  stmt_count++;
 		  emit_line_note ($<filename>-1, $<lineno>0);
-		  expand_computed_goto (convert (ptr_type_node, $3)); }
+		  if (TREE_BOUNDED ($3))
+		    $3 = build_bounded_ptr_value_ref ($3);
+		  expand_computed_goto (convert (unbounded_ptr_type_node, $3)); }
 	| ';'
 	;
 
@@ -2295,9 +2350,9 @@ parmlist_1:
 /* This is what appears inside the parens in a function declarator.
    Is value is represented in the format that grokdeclarator expects.  */
 parmlist_2:  /* empty */
-		{ $$ = get_parm_info (0); }
-	| ELLIPSIS
-		{ $$ = get_parm_info (0);
+		{ $$ = get_parm_info (0, -1); }
+	| ELLIPSIS boundedness_qual_opt
+		{ $$ = get_parm_info (0, $2);
 		  /* Gcc used to allow this as an extension.  However, it does
 		     not work for all targets, and thus has been disabled.
 		     Also, since func (...) and func () are indistinguishable,
@@ -2307,9 +2362,9 @@ parmlist_2:  /* empty */
 		  error ("ANSI C requires a named argument before `...'");
 		}
 	| parms
-		{ $$ = get_parm_info (1); }
-	| parms ',' ELLIPSIS
-		{ $$ = get_parm_info (0); }
+		{ $$ = get_parm_info (1, -1); }
+	| parms ',' ELLIPSIS boundedness_qual_opt
+		{ $$ = get_parm_info (0, $4); }
 	;
 
 parms:

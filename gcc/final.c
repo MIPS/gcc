@@ -2008,7 +2008,8 @@ final (first, file, optimize, prescan)
   for (insn = NEXT_INSN (first); insn;)
     {
 #ifdef HAVE_ATTR_length
-      insn_current_address = insn_addresses[INSN_UID (insn)];
+      insn_current_address = (INSN_UID (insn) < insn_lengths_max_uid
+			      ? insn_addresses[INSN_UID (insn)] : 0);
 #endif
       insn = final_scan_insn (insn, file, optimize, prescan, 0);
     }

@@ -346,7 +346,7 @@ function_prologue (FILE *file, int size)
   interrupt_func_p = interrupt_function_p (current_function_decl);
   signal_func_p = signal_function_p (current_function_decl);
   leaf_func_p = leaf_function_p ();
-  main_p = ! strcmp ("main", current_function_name);
+  main_p = MAIN_NAME_P (DECL_NAME (current_function_decl));
   live_seq = sequent_regs_live ();
   minimize = (TARGET_CALL_PROLOGUES
 	      && !interrupt_func_p && !signal_func_p && live_seq);
@@ -505,7 +505,7 @@ function_epilogue (FILE *file, int size)
   interrupt_func_p = interrupt_function_p (current_function_decl);
   signal_func_p = signal_function_p (current_function_decl);
   leaf_func_p = leaf_function_p ();
-  main_p = ! strcmp ("main", current_function_name);
+  main_p = MAIN_NAME_P (DECL_NAME (current_function_decl));
   function_size = (insn_addresses[INSN_UID (get_last_insn ())]
 		   - insn_addresses[INSN_UID (get_insns ())]);
   live_seq = sequent_regs_live ();

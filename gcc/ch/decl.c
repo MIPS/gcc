@@ -3457,10 +3457,6 @@ init_decl_processing ()
   default_function_type
     = build_function_type (integer_type_node, NULL_TREE);
 
-  ptr_type_node = build_pointer_type (void_type_node);
-  const_ptr_type_node
-    = build_pointer_type (build_type_variant (void_type_node, 1, 0));
-
   void_list_node = build_tree_list (NULL_TREE, void_type_node);
 
   boolean_type_node = make_node (BOOLEAN_TYPE);
@@ -5016,4 +5012,54 @@ finish_outer_function ()
 				  module_init_list);
 
   make_decl_rtl (global_function_decl, NULL, 0);
+}
+
+void
+compile_bounded_pointer_thunk (decl)
+     tree decl;
+{
+  error ("bounded pointer thunks are unsupported");
+  abort ();
+}
+
+tree
+build_bounded_ptr_field_ref (bp, field_number)
+     tree bp;
+     int field_number;
+{
+  error ("bounded pointers are unsupported");
+  abort ();
+}
+
+tree
+build_bounded_ptr_check (bp, length)
+     tree bp;
+     tree length;
+{
+  return build_bounded_ptr_field_ref (bp, 0);
+}
+
+tree
+build_bounded_ptr_constructor (addr)
+     tree addr;
+{
+  error ("bounded pointers are unsupported");
+  abort ();
+}
+
+tree
+build_bounded_ptr_constructor_2 (addr, bounds)
+     tree addr;
+     tree bounds;
+{
+  return build_bounded_ptr_constructor (addr);
+}
+
+tree
+build_bounded_ptr_constructor_3 (addr, base, extent)
+     tree addr;
+     tree base;
+     tree extent;
+{
+  return build_bounded_ptr_constructor (addr);
 }

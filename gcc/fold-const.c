@@ -2014,6 +2014,8 @@ fold_convert (t, arg1)
   register tree type = TREE_TYPE (t);
   int overflow = 0;
 
+  if (BOUNDED_INDIRECT_TYPE_P (type))
+    abort ();
   if (POINTER_TYPE_P (type) || INTEGRAL_TYPE_P (type))
     {
       if (TREE_CODE (arg1) == INTEGER_CST)
@@ -3945,6 +3947,9 @@ fold_truthop (code, truth_type, lhs, rhs)
      that can be merged.  Avoid doing this if the RHS is a floating-point
      comparison since those can trap.  */
 
+  /* @@ I'm not sure it wins on the m88110 to do this if the comparisons
+     are with zero (tmw).  */
+
   if (BRANCH_COST >= 2
       && ! FLOAT_TYPE_P (TREE_TYPE (rl_arg))
       && simple_operand_p (rl_arg)
@@ -4667,8 +4672,14 @@ count_cond (expr, lim)
    and application of the associative law.
    NOP_EXPR conversions may be removed freely (as long as we
    are careful not to change the C type of the overall expression)
-   We cannot simplify through a CONVERT_EXPR, FIX_EXPR or FLOAT_EXPR,
-   but we can constant-fold them if they have constant operands.  */
+   We cannot simplify through a FIX_EXPR or FLOAT_EXPR,
+   but we can constant-fold them if they have constant operands.
+
+   We can only simplify CONVERT_EXPR for conversions from bounded
+   pointer to integer and back to bounded pointer.  Such conversions
+   are commonly done in order to avoid casting-away-const warnings,
+   and to perform address rounding operations, and we want to be sure
+   we retain the pointer's bounds.  */
 
 tree
 fold (expr) 
@@ -4699,6 +4710,30 @@ fold (expr)
       return t;
     }
   
+  if (BOUNDED_POINTER_TYPE_P (type))
+    {
+      while ((TREE_CODE (t) == NOP_EXPR
+	      || TREE_CODE (t) == CONVERT_EXPR)
+	     && BOUNDED_POINTER_TYPE_P (TREE_TYPE (t)))
+	t = TREE_OPERAND (t, 0);
+      if (t != expr && !BOUNDED_POINTER_TYPE_P (TREE_TYPE (t)))
+	{
+	  while ((TREE_CODE (t) == NOP_EXPR
+		  || TREE_CODE (t) == CONVERT_EXPR)
+		 && !BOUNDED_POINTER_TYPE_P (TREE_TYPE (t)))
+	    t = TREE_OPERAND (t, 0);
+	  if (t != expr && BOUNDED_POINTER_TYPE_P (TREE_TYPE (t)))
+	    {
+	      while ((TREE_CODE (t) == NOP_EXPR
+		      || TREE_CODE (t) == CONVERT_EXPR)
+		     && BOUNDED_POINTER_TYPE_P (TREE_TYPE (t)))
+		t = TREE_OPERAND (t, 0);
+	      return convert (type, t);
+	    }
+	}
+      t = expr;
+    }
+
 #ifdef MAX_INTEGER_COMPUTATION_MODE
   check_max_integer_computation_mode (expr);
 #endif
@@ -5012,6 +5047,35 @@ fold (expr)
 	  else
 	    return convert (type, test);
 	}
+      else if (code == MINUS_EXPR && !MAYBE_BOUNDED_POINTER_TYPE_P (type))
+	{
+	  /* Elide type conversions to bounded pointer in both args
+	     of a pointer-difference operation.  This prevents spurious
+	     warnings about discarding bounds in type conversion.  */
+	  tree a0 = arg0;
+	  tree a1 = arg1;
+	  while (TREE_CODE (a0) == NOP_EXPR
+		 || TREE_CODE (a0) == CONVERT_EXPR
+		 || TREE_CODE (a0) == NON_LVALUE_EXPR)
+	    a0 = TREE_OPERAND (a0, 0);
+	  while (TREE_CODE (a1) == NOP_EXPR
+		 || TREE_CODE (a1) == CONVERT_EXPR
+		 || TREE_CODE (a1) == NON_LVALUE_EXPR)
+	    a1 = TREE_OPERAND (a1, 0);
+	  if (BOUNDED_POINTER_TYPE_P (TREE_TYPE (a0))
+	      || BOUNDED_POINTER_TYPE_P (TREE_TYPE (a1)))
+	    {
+	      if (BOUNDED_POINTER_TYPE_P (TREE_TYPE (a0)))
+		arg0 = convert (TREE_TYPE (arg0),
+				convert (TYPE_BOUNDED_SUBTYPE (TREE_TYPE (a0)),
+					 a0));
+	      if (BOUNDED_POINTER_TYPE_P (TREE_TYPE (a1)))
+		arg1 = convert (TREE_TYPE (arg1),
+				convert (TYPE_BOUNDED_SUBTYPE (TREE_TYPE (a1)),
+					 a1));
+	      return fold (build (MINUS_EXPR, type, arg0, arg1));
+	    }
+	}
     }
   else if (TREE_CODE_CLASS (code) == '<'
 	   && TREE_CODE (arg0) == COMPOUND_EXPR)
@@ -5043,6 +5107,10 @@ fold (expr)
       if (TREE_TYPE (TREE_OPERAND (t, 0)) == TREE_TYPE (t))
 	return TREE_OPERAND (t, 0);
 
+      if (BOUNDED_INDIRECT_TYPE_P (TREE_TYPE (t))
+	  && TREE_CODE (TREE_OPERAND (t, 0)) == INTEGER_CST)
+	return t;
+
       /* Handle cases of two conversions in a row.  */
       if (TREE_CODE (TREE_OPERAND (t, 0)) == NOP_EXPR
 	  || TREE_CODE (TREE_OPERAND (t, 0)) == CONVERT_EXPR)
@@ -5051,17 +5119,17 @@ fold (expr)
 	  tree inter_type = TREE_TYPE (TREE_OPERAND (t, 0));
 	  tree final_type = TREE_TYPE (t);
 	  int inside_int = INTEGRAL_TYPE_P (inside_type);
-	  int inside_ptr = POINTER_TYPE_P (inside_type);
+	  int inside_ptr = MAYBE_BOUNDED_INDIRECT_TYPE_P (inside_type);
 	  int inside_float = FLOAT_TYPE_P (inside_type);
 	  unsigned int inside_prec = TYPE_PRECISION (inside_type);
 	  int inside_unsignedp = TREE_UNSIGNED (inside_type);
 	  int inter_int = INTEGRAL_TYPE_P (inter_type);
-	  int inter_ptr = POINTER_TYPE_P (inter_type);
+	  int inter_ptr = MAYBE_BOUNDED_INDIRECT_TYPE_P (inter_type);
 	  int inter_float = FLOAT_TYPE_P (inter_type);
 	  unsigned int inter_prec = TYPE_PRECISION (inter_type);
 	  int inter_unsignedp = TREE_UNSIGNED (inter_type);
 	  int final_int = INTEGRAL_TYPE_P (final_type);
-	  int final_ptr = POINTER_TYPE_P (final_type);
+	  int final_ptr = MAYBE_BOUNDED_INDIRECT_TYPE_P (final_type);
 	  int final_float = FLOAT_TYPE_P (final_type);
 	  unsigned int final_prec = TYPE_PRECISION (final_type);
 	  int final_unsignedp = TREE_UNSIGNED (final_type);
@@ -5120,6 +5188,12 @@ fold (expr)
 		    && TYPE_MODE (final_type) == TYPE_MODE (inter_type))
 	      && ! final_ptr)
 	    return convert (final_type, TREE_OPERAND (TREE_OPERAND (t, 0), 0));
+
+	  /* Don't fold consecutive conversions from integer to
+             unbounded pointer to bounded pointer.  */
+	  if (BOUNDED_INDIRECT_TYPE_P (final_type)
+	      && TYPE_BOUNDED_SUBTYPE (final_type) == inter_type)
+	    return t;
 	}
 
       if (TREE_CODE (TREE_OPERAND (t, 0)) == MODIFY_EXPR
@@ -6428,6 +6502,7 @@ fold (expr)
 	    }
 	}
 
+      /* GKM FIXME: handle BP case? */
       /* An unsigned comparison against 0 can be simplified.  */
       if (integer_zerop (arg1)
 	  && (INTEGRAL_TYPE_P (TREE_TYPE (arg1))
