@@ -6603,7 +6603,8 @@ build_asm_expr (tree string, tree outputs, tree inputs, tree clobbers,
       TREE_VALUE (tail) = input;
     }
 
-  args = build_stmt (ASM_EXPR, string, outputs, inputs, clobbers);
+  /* APPLE LOCAL CW asm blocks. */
+  args = build_stmt (ASM_EXPR, string, outputs, inputs, clobbers, NULL);
 
   /* Simple asm statements are treated as volatile.  */
   if (simple)

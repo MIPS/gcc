@@ -1,3 +1,24 @@
+2005-04-05  Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 4063657 (part 1).
+	* c-common.c (print_cw_asm_operand): Added a new argument to
+	track use of hard registers. Return any use of hard register
+	to caller in a tree-list form.
+	(cw_asm_stmt): Add tree-list of hard register register uses to 
+	ASM_EXPR statement tree.
+	(cw_asm_label): Add the extra argument when building ASM_EXPR.
+	(cw_asm_entry): Ditto.
+	* c-typeck.c (build_asm_expr): Ditto.
+	* cp/semantics.c (finish_asm_stmt): Ditto.
+	* recog.c (asm_noperands): Bypass USE seen in asm_operand.
+	(decode_asm_operands): Ditto.
+	* stmt.c (expand_asm_operands): Insert list of use of hard 
+	registers in the asm_operand rtl following the clobber list.
+	(expand_asm_expr): Pass hard register usage tree-list to
+	expand_asm_operands.
+	* tree.def (ASM_EXPR): Tree now takes an extra argument.
+	* tree.h (ASM_USES): New macro defined.
+	
 2005-04-02  Ziemowit Laski  <zlaski@apple.com>
 
 	Radar 4072153
