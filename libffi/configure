@@ -1378,7 +1378,7 @@ else
   if { (eval echo configure:1379: \"$ac_link\") 1>&5; (eval $ac_link) 2>&5; }; then
     for file in conftest.*; do
       case $file in
-      *.c | *.o | *.obj) ;;
+      *.$ac_ext | *.c | *.o | *.obj) ;;
       *) ac_cv_exeext=`echo $file | sed -e s/conftest//` ;;
       esac
     done
@@ -2180,7 +2180,7 @@ else
   if { (eval echo configure:2181: \"$ac_link\") 1>&5; (eval $ac_link) 2>&5; }; then
     for file in conftest.*; do
       case $file in
-      *.c | *.o | *.obj) ;;
+      *.$ac_ext | *.c | *.o | *.obj) ;;
       *) ac_cv_exeext=`echo $file | sed -e s/conftest//` ;;
       esac
     done
@@ -2470,7 +2470,7 @@ ia64*-*-*) TARGET=IA64; TARGETDIR=ia64;;
 m68k-*-linux*) TARGET=M68K; TARGETDIR=m68k;;
 mips64*-*);;
 mips*-*-linux*) TARGET=MIPS_LINUX; TARGETDIR=mips;;
-powerpc-*-linux* | powerpc-*-sysv*) TARGET=POWERPC; TARGETDIR=powerpc;;
+powerpc*-*-linux* | powerpc-*-sysv*) TARGET=POWERPC; TARGETDIR=powerpc;;
 powerpc-*-beos*) TARGET=POWERPC; TARGETDIR=powerpc;;
 powerpc-*-darwin*) TARGET=POWERPC_DARWIN; TARGETDIR=powerpc;;
 powerpc-*-aix*) TARGET=POWERPC_AIX; TARGETDIR=powerpc;;
@@ -3634,6 +3634,34 @@ EOF
     fi
 fi
 
+echo $ac_n "checking whether .eh_frame section should be read-only""... $ac_c" 1>&6
+echo "configure:3639: checking whether .eh_frame section should be read-only" >&5
+if eval "test \"`echo '$''{'libffi_cv_ro_eh_frame'+set}'`\" = set"; then
+  echo $ac_n "(cached) $ac_c" 1>&6
+else
+  
+	libffi_cv_ro_eh_frame=no
+	echo 'extern void foo (void); void bar (void) { foo (); foo (); }' > conftest.c
+	if $CC $CFLAGS -S -fpic -fexceptions -o conftest.s conftest.c > /dev/null 2>&1; then
+	    if grep '.section.*eh_frame.*"a"' conftest.s > /dev/null; then
+		libffi_cv_ro_eh_frame=yes
+	    elif grep '.section.*eh_frame.*#alloc' conftest.c \
+		 | grep -v '#write' > /dev/null; then
+		libffi_cv_ro_eh_frame=yes
+	    fi
+	fi
+	rm -f conftest.*
+    
+fi
+
+echo "$ac_t""$libffi_cv_ro_eh_frame" 1>&6
+if test "x$libffi_cv_ro_eh_frame" = xyes; then
+    cat >> confdefs.h <<\EOF
+#define HAVE_RO_EH_FRAME 1
+EOF
+
+fi
+
 
 
 
@@ -3695,7 +3723,11 @@ else
   toolexecdir='$(libdir)/gcc-lib/$(target_alias)'
   toolexeclibdir='$(libdir)'
 fi
-toolexeclibdir=$toolexeclibdir/`$CC -print-multi-os-directory`
+multi_os_directory=`$CC -print-multi-os-directory`
+case $multi_os_directory in
+  .) ;; # Avoid trailing /.
+  *) toolexeclibdir=$toolexeclibdir/$multi_os_directory ;;
+esac
 
 
 

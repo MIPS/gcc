@@ -1,0 +1,103 @@
+2004-01-24  Alan Modra  <amodra@bigpond.net.au>
+
+	Backport from mainline.
+	2003-10-14  Alan Modra  <amodra@bigpond.net.au>
+	* src/types.c (double, longdouble): Default POWERPC64 to 8 byte size
+	and align.
+
+	2003-09-12  Alan Modra  <amodra@bigpond.net.au>
+	* src/prep_cif.c (initialize_aggregate): Include tail padding in
+	structure size.
+	* src/powerpc/linux64_closure.S (ffi_closure_LINUX64): Correct
+	placement of float result.
+	* testsuite/libffi.special/unwindtest.cc (closure_test_fn1): Correct
+	cast of "resp" for big-endian 64 bit machines.
+
+	2003-09-11  Alan Modra  <amodra@bigpond.net.au>
+	* src/types.c (double, longdouble): Merge identical SH and ARM
+	typedefs, and add POWERPC64.
+	* src/powerpc/ffi.c (ffi_prep_args64): Correct next_arg calc for
+	struct split over gpr and rest.
+	(ffi_prep_cif_machdep): Correct intarg_count for structures.
+	* src/powerpc/linux64.S (ffi_call_LINUX64): Fix gpr offsets.
+
+	2003-09-09  Andreas Tobler  <a.tobler@schweiz.ch>
+	* src/powerpc/ffi.c (ffi_closure_helper_SYSV) Handle struct
+	passing correctly.
+
+	2003-08-02  Alan Modra  <amodra@bigpond.net.au>
+	* src/powerpc/ffi.c (ffi_prep_args64): Modify for changed gcc
+	structure passing.
+	(ffi_closure_helper_LINUX64): Likewise.
+	* src/powerpc/linux64.S: Remove code writing to parm save area.
+	* src/powerpc/linux64_closure.S (ffi_closure_LINUX64): Use return
+	address in lr from ffi_closure_helper_LINUX64 call to calculate
+	table address.  Optimize function tail.
+
+	2003-05-16  Jakub Jelinek  <jakub@redhat.com>
+	* configure.in (HAVE_RO_EH_FRAME): Check whether .eh_frame section
+	should be read-only.
+	* configure: Rebuilt.
+	* fficonfig.h.in: Rebuilt.
+	* include/ffi.h.in (EH_FRAME_FLAGS): Define.
+	* src/alpha/osf.S: Use EH_FRAME_FLAGS.
+	* src/powerpc/linux64.S: Likewise.
+	* src/powerpc/linux64_closure.S: Likewise.  Include ffi.h.
+	* src/powerpc/sysv.S: Use EH_FRAME_FLAGS.  Use pcrel encoding
+	if -fpic/-fPIC/-mrelocatable.
+	* src/powerpc/powerpc_closure.S: Likewise.
+	* src/sparc/v8.S: If HAVE_RO_EH_FRAME is defined, don't include
+	#write in .eh_frame flags.
+	* src/sparc/v9.S: Likewise.
+	* src/x86/unix64.S: Use EH_FRAME_FLAGS.
+	* src/x86/sysv.S: Likewise.  Use pcrel encoding if -fpic/-fPIC.
+	* src/s390/sysv.S: Use EH_FRAME_FLAGS.  Include ffi.h.
+
+	2003-04-18  Jakub Jelinek  <jakub@redhat.com>
+	* include/ffi.h.in (POWERPC64): Define if 64-bit.
+	(enum ffi_abi): Add FFI_LINUX64 on POWERPC.
+	Make it the default on POWERPC64.
+	(FFI_TRAMPOLINE_SIZE): Define to 24 on POWERPC64.
+	* configure.in: Change powerpc-*-linux* into powerpc*-*-linux*.
+	* configure: Rebuilt.
+	* src/powerpc/ffi.c (hidden): Define.
+	(ffi_prep_args_SYSV): Renamed from
+	ffi_prep_args.  Cast pointers to unsigned long to shut up warnings.
+	(NUM_GPR_ARG_REGISTERS64, NUM_FPR_ARG_REGISTERS64,
+	ASM_NEEDS_REGISTERS64): New.
+	(ffi_prep_args64): New function.
+	(ffi_prep_cif_machdep): Handle FFI_LINUX64 ABI.
+	(ffi_call): Likewise.
+	(ffi_prep_closure): Likewise.
+	(flush_icache): Surround by #ifndef POWERPC64.
+	(ffi_dblfl): New union type.
+	(ffi_closure_helper_SYSV): Use it to avoid aliasing problems.
+	(ffi_closure_helper_LINUX64): New function.
+	* src/powerpc/ppc_closure.S: Surround whole file by #ifndef
+	__powerpc64__.
+	* src/powerpc/sysv.S: Likewise.
+	(ffi_call_SYSV): Rename ffi_prep_args to ffi_prep_args_SYSV.
+	* src/powerpc/linux64.S: New file.
+	* src/powerpc/linux64_closure.S: New file.
+	* Makefile.am (EXTRA_DIST): Add src/powerpc/linux64.S and
+	src/powerpc/linux64_closure.S.
+	(TARGET_SRC_POWERPC): Likewise.
+	* src/ffitest.c (closure_test_fn, closure_test_fn1, closure_test_fn2,
+	closure_test_fn3): Fix result printing on big-endian 64-bit
+	machines.
+	(main): Print tst2_arg instead of uninitialized tst2_result.
+	* src/ffitest.c (main): Hide what closure pointer really points to
+	from the compiler.
+
+	2003-03-03  Andreas Tobler <a.tobler@schweiz.ch>
+	* src/powerpc/darwin_closure.S: Recode to fit dynamic libraries.
+
+	Backport from gcc-3_3-rhl-branch
+	2003-06-19  Franz Sirl  <Franz.Sirl-kernel@lauterbach.com>
+	* src/powerpc/ppc_closure.S: Include ffi.h.
+	(ffi_closure_SYSV): Make it hidden.
+	* src/powerpc/sysv.S (ffi_call_SYSV): Make it hidden.
+	* src/powerpc/ffi.c (ffi_closure_SYSV): Declare hidden.
+	(ffi_call_SYSV): Likewise.
+	(ffi_prep_args_SYSV): Make it hidden.
+	(ffi_closure_helper_SYSV): Likewise.

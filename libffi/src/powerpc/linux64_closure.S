@@ -1,5 +1,4 @@
 #define LIBFFI_ASM
-#include <fficonfig.h>
 #include <ffi.h>
 
 	.file	"linux64_closure.S"
