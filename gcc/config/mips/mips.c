@@ -8297,7 +8297,6 @@ mips_expand_epilogue (sibcall_p)
   HOST_WIDE_INT tsize = cfun->machine->frame.total_size;
   rtx tsize_rtx = GEN_INT (tsize);
   rtx tmp_rtx = (rtx)0;
-  int return_regno;
 
   if (!sibcall_p && mips_can_use_return_insn ())
     {
