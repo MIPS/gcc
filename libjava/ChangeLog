@@ -1,3 +1,22 @@
+2004-12-27  Michael Koch  <konqueror@gmx.de>
+
+	* javax/swing/AbstractAction.java,
+	javax/swing/AbstractCellEditor.java,
+	javax/swing/AbstractListModel.java,
+	javax/swing/DefaultBoundedRangeModel.java,
+	javax/swing/DefaultButtonModel.java,
+	javax/swing/DefaultCellEditor.java,
+	javax/swing/DefaultComboBoxModel.java,
+	javax/swing/DefaultDesktopManager.java,
+	javax/swing/JMenu.java,
+	javax/swing/JSlider.java,
+	javax/swing/KeyStroke.java,
+	javax/swing/OverlayLayout.java,
+	javax/swing/ScrollPaneLayout.java,
+	javax/swing/SizeRequirements.java,
+	javax/swing/ViewportLayout.java:
+	Made serialVersionUID private.
+
 2004-12-26  Michael Koch  <konqueror@gmx.de>
 
 	* gnu/java/awt/peer/gtk/GtkComponentPeer.java:
