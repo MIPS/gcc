@@ -87,8 +87,9 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
       Declarations
 
-      All the possible C declarations. The only difference is that in SIMPLE the
-      declarations are not allowed to have initializations in them.
+      All the possible C declarations. The only difference is that in
+      SIMPLE the declarations are not allowed to have initializations in
+      them.
 
       Expressions
 
@@ -141,7 +142,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 	      : simp_expr
 	      | '*' ID
 	      | '&' varname
-	      |call_expr
+	      | call_expr
 	      | unop val
 	      | '(' cast ')' varname
 
@@ -210,14 +211,12 @@ static void simplify_switch_stmt     PARAMS ((tree, tree *, tree *));
 static tree simplify_decl_stmt       PARAMS ((tree, tree *));
 static tree new_simplified_if        PARAMS ((tree, tree, tree, tree *, tree *, int));
 static tree simplify_expr            PARAMS ((tree, tree *, tree *, tree *));
+static tree simplify_binary_expr     PARAMS ((tree, tree *, tree *, tree *));
 static void make_type_writable       PARAMS ((tree));
 static void add_tree                 PARAMS ((tree, tree *));
 static int  keep_stmt_p              PARAMS ((tree));
 static void insert_after_case_labels PARAMS ((tree, tree, int));
 static tree insert_before_continue   PARAMS ((tree, tree));
-static int  simplified_p             PARAMS ((tree));
-static int  simplified_rec_p         PARAMS ((tree, int));
-static int  simplified_condition_p   PARAMS ((tree));
 static tree tree_last_decl           PARAMS ((tree scope));
 
 /* }}} */
@@ -468,7 +467,7 @@ simplify_for_stmt (stmt, before_p, vars)
     }
 
   /* Step 0 : Check wether the loop condition is already simplified.  */
-  if (simplified_condition_p (cond))
+  if (is_simple_expr (cond))
     {
       /* The FOR_COND is already simplified, simplify just the FOR_BODY.  */
       tree reeval;
@@ -550,7 +549,7 @@ simplify_while_stmt (stmt, before_p, vars)
   body = WHILE_BODY (stmt);
 
   /* Step 0 : Check wether the loop condition is already simplified.  */
-  if (simplified_condition_p (cond))
+  if (is_simple_expr (cond))
     /* Simplify just the WHILE_BODY.  */
     {
       simplify_stmt (body, NULL_TREE);
@@ -609,9 +608,9 @@ simplify_do_stmt (stmt)
   body = DO_BODY (stmt);
 
   /* Step 0 : Check wether the loop condition is already simplified.  */
-  if (simplified_p (cond))
-    /* Simplify just the DO_BODY.  */
+  if (is_simple_expr (cond))
     {
+      /* Simplify just the DO_BODY.  */
       simplify_stmt (body, NULL_TREE);
       return stmt;
     }
@@ -760,9 +759,10 @@ new_simplified_if (cond, then_clause, else_clause, before_p, vars, simplify_clau
 	  /* The PRE evaluation of the condition is lifted up to the caller.  */
 	  repl = simplify_expr (cond, before_p, &cond_after, vars);
 	  
-	  if (simplified_rec_p (repl, 1))
+	  if (is_simple_expr (repl))
 	    /* The simplification introduced a new temporary variable.  */
-	    IF_COND (res) = build (NE_EXPR, integer_type_node, repl, integer_zero_node);
+	    IF_COND (res) = build (NE_EXPR, integer_type_node, repl,
+		                   integer_zero_node);
 	}
 		
 	if (cond_after)
@@ -865,8 +865,6 @@ simplify_decl_stmt (t, after_p)
     Simplifies the expression tree rooted at T.  Returns the simplified
     version of T.
 
-    SCOPE indicates where new temporary variables should be created.
-
     BEFORE_P points to the list where side effects that must happen before
 	T should be stored.
 
@@ -891,56 +889,21 @@ simplify_expr (expr, before_p, after_p, new_vars_p)
 
   code = TREE_CODE (expr);
 
+  /* If the expression is already in SIMPLE form, return it unmodified.  */
+  if (is_simple_expr (expr))
+    return expr;
+
+  /* First deal with the special cases.  */
   switch (code)
     {
-      /* Unary expressions that do not compute a new value.  Nothing to do.  */
-    case VAR_DECL:
-    case FUNCTION_DECL:
-    case PARM_DECL:
-    case FIELD_DECL:
-    case COMPLEX_CST:
-    case INTEGER_CST:
-    case LABEL_DECL:
-    case REAL_CST:
-    case RESULT_DECL:
-    case STRING_CST:
-    case ADDR_EXPR:
-      return expr;
-      
-
-      /* Unary expressions that compute a new value.  Re-write the operand
-	 and return the modified expression.  */
-    case ABS_EXPR:
-    case CONJ_EXPR:
-    case CONVERT_EXPR:
-    case FFS_EXPR:
-    case FIX_CEIL_EXPR:
-    case FIX_FLOOR_EXPR:
-    case FIX_ROUND_EXPR:
-    case FIX_TRUNC_EXPR:
-    case FLOAT_EXPR:
-    case IMAGPART_EXPR:
-    case INDIRECT_REF:
-    case NEGATE_EXPR:
-    case NON_LVALUE_EXPR:
-    case NOP_EXPR:
-    case REALPART_EXPR:
-    case REFERENCE_EXPR:
-    case BIT_NOT_EXPR:
-    case TRUTH_NOT_EXPR:
-    case VA_ARG_EXPR:
-      TREE_OPERAND (expr, 0) = simplify_expr (TREE_OPERAND (expr, 0), 
-	                                      before_p, after_p,
-					      new_vars_p);
-      return expr;
-
-
       /* Post-decrement and increment expressions.  Queue the operation in
 	 the AFTER list.  */
     case POSTINCREMENT_EXPR:
     case POSTDECREMENT_EXPR:
-      lhs = simplify_expr (TREE_OPERAND (expr, 0), before_p, after_p, new_vars_p);
-      rhs = simplify_expr (TREE_OPERAND (expr, 1), before_p, after_p, new_vars_p);
+      lhs = simplify_expr (TREE_OPERAND (expr, 0), before_p, after_p,
+	                   new_vars_p);
+      rhs = simplify_expr (TREE_OPERAND (expr, 1), before_p, after_p,
+	                   new_vars_p);
       t1 = build ((code == POSTINCREMENT_EXPR) ? PLUS_EXPR : MINUS_EXPR,
 	          TREE_TYPE (expr), lhs, rhs);
       t2 = build_modify_expr (lhs, NOP_EXPR, t1);
@@ -952,135 +915,80 @@ simplify_expr (expr, before_p, after_p, new_vars_p)
 	 the BEFORE list.  */
     case PREDECREMENT_EXPR:
     case PREINCREMENT_EXPR:
-      lhs = simplify_expr (TREE_OPERAND (expr, 0), before_p, after_p, new_vars_p);
-      rhs = simplify_expr (TREE_OPERAND (expr, 1), before_p, after_p, new_vars_p);
+      lhs = simplify_expr (TREE_OPERAND (expr, 0), before_p, after_p,
+	                   new_vars_p);
+      rhs = simplify_expr (TREE_OPERAND (expr, 1), before_p, after_p,
+	                   new_vars_p);
       t1 = build ((code == PREINCREMENT_EXPR) ? PLUS_EXPR : MINUS_EXPR,
 	          TREE_TYPE (expr), lhs, rhs);
       t2 = build_modify_expr (lhs, NOP_EXPR, t1);
       add_tree (build_stmt (EXPR_STMT, t2), before_p);
       return lhs;
 
-
-      /* Binary arithmetic expressions.  Simplify each operand, assign the
-	 result of the operation to a new temporary T and return T.  */
-    case BIT_AND_EXPR:
-    case BIT_ANDTC_EXPR:
-    case BIT_IOR_EXPR:
-    case BIT_XOR_EXPR:
-    case CEIL_DIV_EXPR:
-    case CEIL_MOD_EXPR:
-    case EXACT_DIV_EXPR:
-    case FLOOR_DIV_EXPR:
-    case FLOOR_MOD_EXPR:
-    case LROTATE_EXPR:
-    case LSHIFT_EXPR:
-    case MINUS_EXPR:
-    case MULT_EXPR:
-    case PLUS_EXPR:
-    case RDIV_EXPR:
-    case ROUND_DIV_EXPR:
-    case ROUND_MOD_EXPR:
-    case RROTATE_EXPR:
-    case RSHIFT_EXPR:
-    case TRUNC_DIV_EXPR:
-    case TRUNC_MOD_EXPR:
-    case TRUTH_AND_EXPR:
-    case TRUTH_OR_EXPR:
-    case TRUTH_XOR_EXPR:
-    case COMPLEX_EXPR:
-    case COMPOUND_EXPR:
-    case CONSTRUCTOR:
-    case EQ_EXPR:
-    case GE_EXPR:
-    case GT_EXPR:
-    case LE_EXPR:
-    case LT_EXPR:
-    case NE_EXPR:
-    case MAX_EXPR:
-    case MIN_EXPR:
-    case ORDERED_EXPR:
-    case UNEQ_EXPR:
-    case UNGE_EXPR:
-    case UNGT_EXPR:
-    case UNLE_EXPR:
-    case UNLT_EXPR:
-    case UNORDERED_EXPR:
-      {
-	int s0, s1;
-	s0 = simplified_rec_p (TREE_OPERAND (expr, 0), 1);
-	s1 = simplified_rec_p (TREE_OPERAND (expr, 1), 1);
-	
-	if (s0 && s1)
-	  /* Don't simplify an expression that is already simple enough.  */
-	  return expr;
-	
-	if (!s0 && !s1)
-	  /* Simplify both sides of the expression.  */
-	  {
-	    lhs = simplify_expr (TREE_OPERAND (expr, 0), before_p,
-				 after_p, new_vars_p);
-	    rhs = simplify_expr (TREE_OPERAND (expr, 1), before_p,
-				 after_p, new_vars_p);
-	    
-	    TREE_OPERAND (expr, 0) = lhs;
-	    TREE_OPERAND (expr, 1) = rhs;
-	    
-	    t1 = create_tmp_var (TREE_TYPE (expr), new_vars_p);
-	    t2 = build_modify_expr (t1, NOP_EXPR, expr);
-	    add_tree (build_stmt (EXPR_STMT, t2), before_p);
-	    return t1;
-	  }
-	
-	if (s0)
-	  /* Simplify just the rhs, and don't construct any temporary variable.  */
-	  {
-	    rhs = simplify_expr (TREE_OPERAND (expr, 1), before_p,
-				 after_p, new_vars_p);
-	    TREE_OPERAND (expr, 1) = rhs;
-	    return expr;
-	  }
-
-	/* if (s1)  */
-	/* Simplify just the lhs, and don't construct any temporary variable.  */
-	lhs = simplify_expr (TREE_OPERAND (expr, 0), before_p,
-			     after_p, new_vars_p);
-	TREE_OPERAND (expr, 0) = lhs;
-	return expr;
-      }
-
+      /* Array references.  Simplify each side of the reference and
+	 re-write the expression.  */
     case ARRAY_REF:
       {
-	lhs = simplify_expr (TREE_OPERAND (expr, 0), before_p,
-			     after_p, new_vars_p);
-	rhs = simplify_expr (TREE_OPERAND (expr, 1), before_p,
-			     after_p, new_vars_p);
-	TREE_OPERAND (expr, 0) = lhs;
-	TREE_OPERAND (expr, 1) = rhs;
-      	
-	return expr;
-      }
+	tree type_p;
 
-    case COMPONENT_REF:
-      /* Simplification of x = a.b.c.d[7] into 
-	 int *T1;  T1 = &a.b.c.d;  x = *T1[7];  */
-      {
-	tree type;
-	type = TREE_TYPE (expr);
-	if (TREE_CODE (type) == ARRAY_TYPE)
+	lhs = simplify_expr (TREE_OPERAND (expr, 0), before_p, after_p,
+	                     new_vars_p);
+	rhs = simplify_expr (TREE_OPERAND (expr, 1), before_p, after_p,
+			     new_vars_p);
+
+        TREE_OPERAND (expr, 0) = lhs;
+        TREE_OPERAND (expr, 1) = rhs;
+
+	if (!is_simple_id (lhs) && !is_simple_arrayref (lhs))
 	  {
-	    tree type_p; 
-	    type_p = build_pointer_type (TREE_TYPE (type));
+	    type_p = build_pointer_type (TREE_TYPE (expr));
 
+	    /* Create a pointer to the base address of the array.  */
 	    t1 = create_tmp_var (type_p, new_vars_p);
-	    t2 = build_modify_expr (t1, NOP_EXPR, build1 (ADDR_EXPR, type_p, expr));
-	    
+	    t2 = build_modify_expr (t1, NOP_EXPR, 
+		                    build1 (ADDR_EXPR, type_p, lhs));
 	    add_tree (build_stmt (EXPR_STMT, t2), before_p);
-	    // FIXME : work, but incorrect ?  
-	    return build1 (INDIRECT_REF, TREE_TYPE (expr), t1); 
+
+	    /* Now create a reference to the original location.  */
+	    t1 = create_tmp_var (type_p, new_vars_p);
+	    t2 = build_modify_expr (t1, NOP_EXPR,
+		                    build1 (ADDR_EXPR, type_p, expr));
+	    add_tree (build_stmt (EXPR_STMT, t2), before_p);
+
+	    return build1 (INDIRECT_REF, TREE_TYPE (expr), t1);
 	  }
 	else
 	  return expr;
       }
+
+    case COMPONENT_REF:
+      {
+	lhs = TREE_OPERAND (expr, 0);
+	rhs = TREE_OPERAND (expr, 1);
+
+	if (!is_simple_id (lhs))
+	  {
+	    lhs = simplify_expr (lhs, before_p, after_p, new_vars_p);
+	    t1 = create_tmp_var (TREE_TYPE (lhs), new_vars_p);
+	    t2 = build_modify_expr (t1, NOP_EXPR, lhs);
+	    add_tree (build_stmt (EXPR_STMT, t2), before_p);
+	    lhs = t1;
+	  }
+
+	if (!is_simple_id (rhs))
+	  {
+	    rhs = simplify_expr (rhs, before_p, after_p, new_vars_p);
+	    t1 = create_tmp_var (TREE_TYPE (rhs), new_vars_p);
+	    t2 = build_modify_expr (t1, NOP_EXPR, rhs);
+	    add_tree (build_stmt (EXPR_STMT, t2), before_p);
+	    rhs = t1;
+	  }
+
+	TREE_OPERAND (expr, 0) = lhs;
+	TREE_OPERAND (expr, 1) = rhs;
+
+	return expr;
+        }
       
     case COND_EXPR:
       {
@@ -1096,7 +1004,8 @@ simplify_expr (expr, before_p, after_p, new_vars_p)
 	debug_c_node (expr);
 	fprintf (stderr, "\n");
 	
-	/* FIXME: What happens if the type is a pointer ? function pointer ? ... */
+	/* FIXME: What happens if the type is a pointer ? function 
+	   pointer ? ... */
 	tmp = create_tmp_var (TREE_TYPE (expr), new_vars_p);
 	
 	/* Build the THEN_CLAUSE.  */
@@ -1119,11 +1028,11 @@ simplify_expr (expr, before_p, after_p, new_vars_p)
 	return tmp;
       }
 
-    case TRUTH_ANDIF_EXPR:
-    case TRUTH_ORIF_EXPR:
       /* Transform this expression into T, 
 	 insert in before_p its definition : the simplified version of 
 	 'if (cond) T = 1; else T = 0;'  */
+    case TRUTH_ANDIF_EXPR:
+    case TRUTH_ORIF_EXPR:
       {
 	tree tmp;
 	
@@ -1149,6 +1058,7 @@ simplify_expr (expr, before_p, after_p, new_vars_p)
 	}
 	return tmp;
       }
+
 
       /* Assignment and initialization.  Simplify both sides, queue up the
 	 simplified expression and return the LHS.  */
@@ -1218,13 +1128,92 @@ simplify_expr (expr, before_p, after_p, new_vars_p)
       return expr;
 
     default:
-      {
-	error ("unhandled expression in simplify_expr():");
-	debug_tree (expr);
-	fputs ("\n", stderr);
-	abort ();
-      }
+      break;
     }
+
+
+  /* If EXPR does not need to be special-cased, handle it according to its
+     class.  */
+  if (TREE_CODE_CLASS (code) == '1')
+    {
+      /* Unary expressions that compute a new value.  Re-write the operand
+	 and return the modified expression.  */
+      TREE_OPERAND (expr, 0) = simplify_expr (TREE_OPERAND (expr, 0), 
+	                                      before_p, after_p,
+					      new_vars_p);
+      return expr;
+    }
+  else if (TREE_CODE_CLASS (code) == '2' || TREE_CODE_CLASS (code) == '<')
+    {
+      /* Binary arithmetic and comparison expressions.  Simplify each operand,
+	 and return the simplified expression.  */
+      return simplify_binary_expr (expr, before_p, after_p, new_vars_p);
+    }
+  else
+    {
+      error ("unhandled expression in simplify_expr():");
+      debug_tree (expr);
+      fputs ("\n", stderr);
+      abort ();
+    }
+}
+
+/* }}} */
+
+/** {{{ simplify_binary_expr()
+
+    Return the simplified version of EXPR.
+
+    BEFORE_P points to the list where side effects that must happen before
+	T should be stored.
+
+    AFTER_P points to the list where side effects that must happen after T
+	should be stored.
+
+    NEW_VARS_P points to the list where any temporary VAR_DECLs needed to
+	model T's side effects should be stored.  */
+
+static tree
+simplify_binary_expr (expr, before_p, after_p, new_vars_p)
+     tree expr;
+     tree *before_p;
+     tree *after_p;
+     tree *new_vars_p;
+{
+  tree t1, t2, lhs, rhs;
+
+  if (is_simple_expr (expr))
+    return expr;
+
+  lhs = TREE_OPERAND (expr, 0);
+  rhs = TREE_OPERAND (expr, 1);
+
+  /* If the LHS is not a SIMPLE unary expression, create a new temporary
+     variable to hold its simplifed version.  */
+  if (!is_simple_unary_expr (lhs))
+    {
+      lhs = simplify_expr (lhs, before_p, after_p, new_vars_p);
+      t1 = create_tmp_var (TREE_TYPE (lhs), new_vars_p);
+      t2 = build_modify_expr (t1, NOP_EXPR, lhs);
+      add_tree (build_stmt (EXPR_STMT, t2), before_p);
+      lhs = t1;
+    }
+
+  /* Ditto with RHS.  */
+  if (!is_simple_unary_expr (rhs))
+    {
+      rhs = simplify_expr (rhs, before_p, after_p, new_vars_p);
+      t1 = create_tmp_var (TREE_TYPE (rhs), new_vars_p);
+      t2 = build_modify_expr (t1, NOP_EXPR, rhs);
+      add_tree (build_stmt (EXPR_STMT, t2), before_p);
+      rhs = t1;
+    }
+
+  /* Re-write both sides of the expression and return it.  */
+  TREE_OPERAND (expr, 0) = lhs;
+  TREE_OPERAND (expr, 1) = rhs;
+  
+  return expr;
 }
 
 /* }}} */
@@ -1476,13 +1465,7 @@ keep_stmt_p (t)
   /* Expression statements that only contain a non-volatile variable
      declaration (e.g., 'a;') should be discarded.  */
   if (TREE_CODE (t) == EXPR_STMT
-      && TREE_OPERAND (t, 0)
-      && (TREE_CODE (TREE_OPERAND (t, 0)) == VAR_DECL ||
-	  TREE_CODE (TREE_OPERAND (t, 0)) == PARM_DECL ||
-	  TREE_CODE (TREE_OPERAND (t, 0)) == INDIRECT_REF ||
-	  TREE_CODE (TREE_OPERAND (t, 0)) == ARRAY_REF ||
-	  TREE_CODE (TREE_OPERAND (t, 0)) == COMPONENT_REF)
-      && !TYPE_VOLATILE (TREE_TYPE (TREE_OPERAND (t, 0))))
+      && is_simple_unary_expr (TREE_OPERAND (t, 0)))
     return 0;
 
   return 1;
@@ -1800,6 +1783,8 @@ copy_stmt (node)
   return res;
 }
 
+/* }}} */
+
 /** {{{ update_line_number()
 
     Updates the STMT_LINENO of each stmt in the tree t to the line number LINE. 
@@ -1820,88 +1805,3 @@ update_line_number (t, line)
 }
 
 /* }}} */
-
-/** {{{ simplified_p()
-
-    Return one if T is an expression that is under its simplified form.  */
-
-static int
-simplified_p (t)
-     tree t;
-{
-  return simplified_rec_p (t, 0);
-}
-
-/* }}} */
-
-/** {{{ simplified_p()
-    
-    Return one if T is an expression that is under its simplified form.
-    DEPTH is the nest level of recursion, call this function with DEPTH=0.  */
-
-static int
-simplified_rec_p (t, depth)
-     tree t;
-     int depth;
-{
-  switch (TREE_CODE (t))
-    {
-    case INTEGER_CST:
-    case REAL_CST:
-    case COMPLEX_CST:
-    case STRING_CST:
-    case CONST_DECL:
-    case VAR_DECL:
-    case PARM_DECL:
-    case FIELD_DECL:
-      return 1;
-
-    case MODIFY_EXPR:
-    case LT_EXPR:
-    case LE_EXPR:
-    case GT_EXPR:
-    case GE_EXPR:
-    case EQ_EXPR:
-    case NE_EXPR:
-    case UNLT_EXPR:
-    case UNLE_EXPR:
-    case UNGT_EXPR:
-    case UNGE_EXPR:
-    case UNEQ_EXPR:
-      /* Binary expressions : both sides must be simplified.  */
-      if (depth == 0 &&
-	  simplified_rec_p (TREE_OPERAND (t, 0), 1) &&
-	  simplified_rec_p (TREE_OPERAND (t, 1), 1))
-	return 1;
-      else 
-	return 0;
-
-    default:
-      return 0;
-    }
-}
-
-/** {{{ simplified_condition_p()
-
-    Return one if T is a condition expression that is under its simplified form.  */
-
-static int
-simplified_condition_p (t)
-     tree t;
-{
-  switch (TREE_CODE (t))
-    {
-    case TRUTH_ORIF_EXPR:
-    case TRUTH_ANDIF_EXPR:
-      if (simplified_condition_p (TREE_OPERAND (t, 0)) 
-	  && simplified_condition_p (TREE_OPERAND (t, 1)))
-	return 1;
-      else 
-	return 0;
-    default:
-      return simplified_p (t);
-    }
-}
-
-/* }}} */
-

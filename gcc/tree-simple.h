@@ -1,5 +1,6 @@
 /* Functions to analyze and validate SIMPLE trees.
    Copyright (C) 2002 Free Software Foundation, Inc.
+   Contributed by Diego Novillo <dnovillo@redhat.com>
 
 This file is part of GNU CC.
 
@@ -29,6 +30,23 @@ extern tree declare_tmp_vars           PARAMS ((tree, tree));
 extern tree copy_stmt_chain            PARAMS ((tree));
 extern tree copy_stmt                  PARAMS ((tree));
 extern tree update_line_number         PARAMS ((tree, int));
+
+/* Validation of SIMPLE trees.  */
+int  is_simple_expr                    PARAMS ((tree));
+int  is_simple_rhs                     PARAMS ((tree));
+int  is_simple_modify_expr             PARAMS ((tree));
+int  is_simple_binary_expr             PARAMS ((tree));
+int  is_simple_binop                   PARAMS ((tree));
+int  is_simple_relop                   PARAMS ((tree));
+int  is_simple_unary_expr              PARAMS ((tree));
+int  is_simple_call_expr               PARAMS ((tree));
+int  is_simple_const                   PARAMS ((tree));
+int  is_simple_id                      PARAMS ((tree));
+int  is_simple_varname                 PARAMS ((tree));
+int  is_simple_val                     PARAMS ((tree));
+int  is_simple_arrayref                PARAMS ((tree));
+int  is_simple_compref                 PARAMS ((tree));
+int  is_simple_cast                    PARAMS ((tree));
 
 #endif /* _TREE_SIMPLE_H */
 

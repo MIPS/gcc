@@ -1,5 +1,47 @@
 2002-03-18  Diego Novillo  <dnovillo@redhat.com>
 
+	* Makefile.in (C_AND_OBJC_OBJS): Add tree-simple.o
+	(tree-simple.o): New rule.
+	* c-simplify.c (simplified_p): Remove.
+	(simplified_rec_p): Remove.
+	(simplified_condition_p): Remove.
+	(simplify_for_stmt): Call is_simple_expr instead of
+	simplified_condition_p.
+	(simplify_while_stmt): Ditto.
+	(simplify_do_stmt): Call is_simple_expr instead of simplified_p.
+	(new_simplified_if): Call is_simple_expr instead of
+	simplified_rec_p.
+	(simplify_decl_stmt): Update comment.
+	(simplify_expr): Return the original expression if it's already
+	in SIMPLE form.
+	Do not special case most binary and unary expressions.
+	When simplifying array references, create temporary variables to
+	hold the base address for the array.
+	Simplify COMPONENT_REF expressions separately.
+	Call simplify_binary_expr to handle most binary expressions.
+	(simplify_binary_expr): New function.
+	(keep_stmt_p): Call is_simple_unary_expr to determine whether the
+	statement should be kept or not.
+	* tree-simple.c: New file.
+	* tree-simple.h (is_simple_expr): Declare.
+	(is_simple_rhs): Declare.
+	(is_simple_modify_expr): Declare.
+	(is_simple_binary_expr): Declare.
+	(is_simple_binop): Declare.
+	(is_simple_relop): Declare.
+	(is_simple_unary_expr): Declare.
+	(is_simple_call_expr): Declare.
+	(is_simple_const): Declare.
+	(is_simple_id): Declare.
+	(is_simple_varname): Declare.
+	(is_simple_val): Declare.
+	(is_simple_arrayref): Declare.
+	(is_simple_compref): Declare.
+	(is_simple_cast): Declare.
+	* cp/Make-lang.in (CXX_C_OBJS): Add tree-simple.o
+
+2002-03-18  Diego Novillo  <dnovillo@redhat.com>
+
 	* tree-simple.h: New file.
 	* Makefile.in (c-simplify.o): Add dependency on tree-simple.h
 	* c-simplify.c: Reformat some comments.
