@@ -4408,6 +4408,9 @@ lib_java_beans_la_LINK = $(LIBLINK)
 lib_java_util_logging_la_LINK = $(LIBLINK)
 lib_javax_naming_la_LINK = $(LIBLINK)
 lib_javax_imageio_la_LINK = $(LIBLINK)
+lib_org_ietf_jgss_la_LINK = $(LIBLINK)
+lib_org_w3c_dom_la_LINK = $(LIBLINK)
+lib_org_xml_sax_la_LINK = $(LIBLINK)
 lib_gnu_awt_xlib_la_SOURCES = \
 	$(xlib_java_source_files) \
 	$(xlib_nat_source_files)
@@ -10163,7 +10166,7 @@ org/ietf/jgss/MessageProp.lo: org/ietf/jgss/$(am__dirstamp) \
 org/ietf/jgss/Oid.lo: org/ietf/jgss/$(am__dirstamp) \
 	org/ietf/jgss/$(DEPDIR)/$(am__dirstamp)
 lib-org-ietf-jgss.la: $(lib_org_ietf_jgss_la_OBJECTS) $(lib_org_ietf_jgss_la_DEPENDENCIES) 
-	$(GCJLINK) -rpath $(toolexeclibdir) $(lib_org_ietf_jgss_la_LDFLAGS) $(lib_org_ietf_jgss_la_OBJECTS) $(lib_org_ietf_jgss_la_LIBADD) $(LIBS)
+	$(lib_org_ietf_jgss_la_LINK) -rpath $(toolexeclibdir) $(lib_org_ietf_jgss_la_LDFLAGS) $(lib_org_ietf_jgss_la_OBJECTS) $(lib_org_ietf_jgss_la_LIBADD) $(LIBS)
 org/w3c/dom/$(am__dirstamp):
 	@$(mkdir_p) org/w3c/dom
 	@: > org/w3c/dom/$(am__dirstamp)
@@ -10239,7 +10242,7 @@ org/w3c/dom/traversal/TreeWalker.lo:  \
 	org/w3c/dom/traversal/$(am__dirstamp) \
 	org/w3c/dom/traversal/$(DEPDIR)/$(am__dirstamp)
 lib-org-w3c-dom.la: $(lib_org_w3c_dom_la_OBJECTS) $(lib_org_w3c_dom_la_DEPENDENCIES) 
-	$(GCJLINK) -rpath $(toolexeclibdir) $(lib_org_w3c_dom_la_LDFLAGS) $(lib_org_w3c_dom_la_OBJECTS) $(lib_org_w3c_dom_la_LIBADD) $(LIBS)
+	$(lib_org_w3c_dom_la_LINK) -rpath $(toolexeclibdir) $(lib_org_w3c_dom_la_LDFLAGS) $(lib_org_w3c_dom_la_OBJECTS) $(lib_org_w3c_dom_la_LIBADD) $(LIBS)
 org/xml/sax/ext/$(am__dirstamp):
 	@$(mkdir_p) org/xml/sax/ext
 	@: > org/xml/sax/ext/$(am__dirstamp)
@@ -10330,7 +10333,7 @@ org/xml/sax/XMLFilter.lo: org/xml/sax/$(am__dirstamp) \
 org/xml/sax/XMLReader.lo: org/xml/sax/$(am__dirstamp) \
 	org/xml/sax/$(DEPDIR)/$(am__dirstamp)
 lib-org-xml-sax.la: $(lib_org_xml_sax_la_OBJECTS) $(lib_org_xml_sax_la_DEPENDENCIES) 
-	$(GCJLINK) -rpath $(toolexeclibdir) $(lib_org_xml_sax_la_LDFLAGS) $(lib_org_xml_sax_la_OBJECTS) $(lib_org_xml_sax_la_LIBADD) $(LIBS)
+	$(lib_org_xml_sax_la_LINK) -rpath $(toolexeclibdir) $(lib_org_xml_sax_la_LDFLAGS) $(lib_org_xml_sax_la_OBJECTS) $(lib_org_xml_sax_la_LIBADD) $(LIBS)
 gnu/gcj/$(am__dirstamp):
 	@$(mkdir_p) gnu/gcj
 	@: > gnu/gcj/$(am__dirstamp)

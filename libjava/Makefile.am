@@ -559,6 +559,9 @@ lib_java_beans_la_LINK = $(LIBLINK)
 lib_java_util_logging_la_LINK = $(LIBLINK)
 lib_javax_naming_la_LINK = $(LIBLINK)
 lib_javax_imageio_la_LINK = $(LIBLINK)
+lib_org_ietf_jgss_la_LINK = $(LIBLINK)
+lib_org_w3c_dom_la_LINK = $(LIBLINK)
+lib_org_xml_sax_la_LINK = $(LIBLINK)
 
 
 lib_gnu_awt_xlib_la_SOURCES = \
