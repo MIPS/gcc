@@ -7889,14 +7889,11 @@ thumb_exit (f, reg_containing_return_addr)
       frame_pointer = number_of_first_bit_set (regs_available_for_popping);
 
       /* Move it into the correct place.  */
-      if (TARGET_BACKTRACE)
-	asm_fprintf (f, "\tmov\t%r, %r\n", ARM_HARD_FRAME_POINTER_REGNUM, frame_pointer);
-      else
-	asm_fprintf (f, "\tmov\t%r, %r\n", FP_REGNUM, frame_pointer);
+      asm_fprintf (f, "\tmov\t%r, %r\n", ARM_HARD_FRAME_POINTER_REGNUM, frame_pointer);
 
       /* (Temporarily) remove it from the mask of popped registers.  */
       regs_available_for_popping &= ~ (1 << frame_pointer);
-      regs_to_pop &= ~ (1 << FP_REGNUM);
+      regs_to_pop &= ~ (1 << ARM_HARD_FRAME_POINTER_REGNUM);
       
       if (regs_available_for_popping)
 	{
