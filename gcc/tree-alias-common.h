@@ -69,7 +69,7 @@ struct tree_alias_ops
      Called to process operators of the form <tt>a = op(....)</tt>, where a is
      a variable.
   */
-  void (*op_assign) (struct tree_alias_ops *, alias_typevar, varray_type);
+  void (*op_assign) (struct tree_alias_ops *, alias_typevar, varray_type, tree);
 
   /**
      @brief Process a heap assignment (<tt>a = alloc (...)</tt>)

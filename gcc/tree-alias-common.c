@@ -164,7 +164,12 @@ get_alias_var_decl (decl)
   if (TREE_CODE (decl) == FUNCTION_DECL)
     newvar = create_fun_alias_var  (decl, 0);
   else
-    newvar = create_alias_var (decl);
+    {
+      if (decl_function_context (decl) == NULL && decl != global_var)
+	newvar = get_alias_var (global_var);
+      else
+	newvar = create_alias_var (decl);
+    }
   
   if (!TREE_PUBLIC (decl))
     {
@@ -502,13 +507,14 @@ find_func_aliases (tp, walk_subtrees, data)
 		    }
 		  if (TREE_CODE (callop0) == ADDR_EXPR)
 		    create_fun_alias_var (TREE_OPERAND (callop0, 0), 0);
-		    
-		  if (current_alias_ops->function_call (current_alias_ops, lhsAV, 
-						    get_alias_var (callop0),
-						    args))
-		    if (!current_alias_ops->ip 
-			&& ! (call_expr_flags (op1) & ECF_NORETURN))
-		      intra_function_call (args);
+		  
+		  /* NORETURN functions have no effect on aliasing. */
+		  if (!(call_expr_flags (op1) & ECF_NORETURN))
+		    if (current_alias_ops->function_call (current_alias_ops, lhsAV, 
+							  get_alias_var (callop0),
+							  args))
+		      if (!current_alias_ops->ip)
+			intra_function_call (args);
 		  *walk_subtrees = 0;
 		}
 
@@ -523,7 +529,7 @@ find_func_aliases (tp, walk_subtrees, data)
 		  VARRAY_GENERIC_PTR_INIT (ops, 1, "Operands");
 		  get_values_from_constructor (op1, &ops);
 		  current_alias_ops->op_assign (current_alias_ops, lhsAV, 
-						ops);
+						ops, op1);
 		  *walk_subtrees = 0;
 		}
 	      else
@@ -549,7 +555,7 @@ find_func_aliases (tp, walk_subtrees, data)
 			    VARRAY_PUSH_GENERIC_PTR (ops, aav);
 			}
 		      current_alias_ops->op_assign (current_alias_ops, lhsAV, 
-						    ops);
+						    ops, op1);
 		      *walk_subtrees = 0;
 		    }
 		    break;
@@ -653,13 +659,13 @@ find_func_aliases (tp, walk_subtrees, data)
 	}
       if (TREE_CODE (TREE_OPERAND (stp, 0)) == ADDR_EXPR)
 	create_fun_alias_var (TREE_OPERAND (TREE_OPERAND (stp, 0), 0), 0);
-      
-      if (current_alias_ops->function_call (current_alias_ops, NULL, 
-				      get_alias_var (TREE_OPERAND (stp, 0)),
-				      args))
-	if (!current_alias_ops->ip 
-	    && ! (call_expr_flags (stp) & ECF_NORETURN))
-	  intra_function_call (args);
+      /* NORETURN functions have no effect on aliasing.  */
+      if (!(call_expr_flags (stp) & ECF_NORETURN))
+	if (current_alias_ops->function_call (current_alias_ops, NULL, 
+					      get_alias_var (TREE_OPERAND (stp, 0)),
+					      args))
+	  if (!current_alias_ops->ip)
+	    intra_function_call (args);
       *walk_subtrees = 0;
   } 
   return NULL_TREE;
@@ -906,9 +912,8 @@ create_alias_var (decl)
       avar = create_fun_alias_var_ptf (decl, TREE_TYPE (TREE_TYPE (decl)));
     }
   else
-    {
-      avar = current_alias_ops->add_var (current_alias_ops, decl);
-    }
+    avar = current_alias_ops->add_var (current_alias_ops, decl);
+
   newentry = ggc_alloc (sizeof (struct alias_annot_entry));
   newentry->key = decl;
   newentry->value = avar;

@@ -38,12 +38,10 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include "expr.h"
 #include "diagnostic.h"
 #include "tree.h"
-#include "c-common.h"
 #include "tree-flow.h"
 #include "tree-inline.h"
 #include "ssa.h"
 #include "varray.h"
-#include "c-tree.h"
 #include "tree-simple.h"
 #include "hashtab.h"
 #include "splay-tree.h"
@@ -71,7 +69,7 @@ static void andersen_addr_assign PARAMS ((struct tree_alias_ops *,
 static void andersen_ptr_assign PARAMS ((struct tree_alias_ops *,
 					 alias_typevar, alias_typevar));
 static void andersen_op_assign PARAMS ((struct tree_alias_ops *,
-					alias_typevar, varray_type));
+					alias_typevar, varray_type, tree));
 static void andersen_heap_assign PARAMS ((struct tree_alias_ops *,
 					  alias_typevar));
 static void andersen_assign_ptr PARAMS ((struct tree_alias_ops *,
@@ -88,7 +86,9 @@ static void andersen_cleanup PARAMS ((struct tree_alias_ops *));
 static bool andersen_may_alias PARAMS ((struct tree_alias_ops *,
 					alias_typevar, alias_typevar));
 static alias_typevar andersen_add_var PARAMS ((struct tree_alias_ops *, tree));
-static alias_typevar andersen_add_var_same PARAMS ((struct tree_alias_ops *, tree, alias_typevar));
+static alias_typevar andersen_add_var_same PARAMS ((struct tree_alias_ops *, 
+						    tree, alias_typevar)); 
+static bool pointer_destroying_op PARAMS ((tree));
 static hashval_t ptset_map_hash PARAMS ((const PTR));
 static int ptset_map_eq PARAMS ((const PTR, const PTR));
 
@@ -142,9 +142,7 @@ static aterm get_ref PARAMS ((aterm));
 static argterm fun_rec_aterm PARAMS ((aterm_list));
 static aterm pta_make_lam PARAMS ((const char *, aterm, aterm_list));
 static aterm pta_make_ref PARAMS ((const char *));
-#if 0
 static aterm pta_bottom PARAMS ((void));
-#endif
 static aterm pta_join PARAMS ((aterm, aterm));
 static aterm pta_deref PARAMS ((aterm));
 static aterm pta_rvalue PARAMS ((aterm));
@@ -257,13 +255,11 @@ pta_make_ref (id)
   return ref (tag, var, var);
 }
 
-#if 0
 static aterm
 pta_bottom ()
 {
   return aterm_zero ();
 }
-#endif
 
 static aterm
 pta_join (t1, t2)
@@ -466,20 +462,11 @@ andersen_cleanup (ops)
 	  fprintf (dump_file, "\nPoints-to stats:\n");
 	  andersen_terms_stats (dump_file);
 	}
-      /*      if (dump_flags & TDF_DOT)
-	      {
-	      
-	      snprintf (name, 512, "%s.dot", get_name (current_function_decl));
-	      dot = fopen (name, "w");
-	      andersen_terms_print_graph (dot);
-	      fclose (dot);
-	      }*/
       
       fprintf (dump_file, "\nPoints-to sets:\n");
       splay_tree_foreach (ptamap, print_out_result, NULL);
       dump_end (TDI_pta, dump_file);
     }
-  
   
   if (!flag_ip)
     {
@@ -629,20 +616,55 @@ andersen_ptr_assign (ops, lhs, ptr)
 		  pta_rvalue (pta_deref (ALIAS_TVAR_ATERM (ptr))));
 
 }
-
+static bool 
+pointer_destroying_op (op)
+     tree op;
+{
+  switch (TREE_CODE (op))
+    {
+    case TRUTH_AND_EXPR:
+    case TRUTH_OR_EXPR:
+    case TRUTH_NOT_EXPR:
+    case LT_EXPR:
+    case GT_EXPR:
+    case GE_EXPR:
+    case LE_EXPR:
+    case EQ_EXPR:
+    case NE_EXPR:
+    case MULT_EXPR:
+    case TRUNC_DIV_EXPR:
+    case LSHIFT_EXPR:
+    case RSHIFT_EXPR:
+    case LROTATE_EXPR:
+    case RROTATE_EXPR:
+      return true;
+    default:
+      return false;
+    }
+  return false;
+}
 /* Inference rule for operations (lhs = operation(operands)) */
 static void
-andersen_op_assign (ops, lhs, operands)
+andersen_op_assign (ops, lhs, operands, operation)
      struct tree_alias_ops *ops ATTRIBUTE_UNUSED;
      alias_typevar lhs;
      varray_type operands;
+     tree operation;
 {
   size_t i;
   
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "Op assignment %s = op(...)\n",
 	     alias_get_name (ALIAS_TVAR_DECL (lhs)));
-  
+
+  /* Pointer destroying operations do not give us a valid pointer
+     back, and thus, are assignment to pta_bottom. */
+  if (pointer_destroying_op (operation))
+    {
+      pta_assignment (ALIAS_TVAR_ATERM (lhs), pta_rvalue (pta_bottom ()));
+      return;
+    }
+
   for (i = 0; i < VARRAY_ACTIVE_SIZE (operands); i++)
     {
       alias_typevar tv = VARRAY_GENERIC_PTR (operands, i);
@@ -650,9 +672,9 @@ andersen_op_assign (ops, lhs, operands)
       if (tv == NULL)
 	continue;
 
-      pta_assignment (ALIAS_TVAR_ATERM (lhs),
-		      pta_rvalue (ALIAS_TVAR_ATERM (tv)));
-/*      pta_join  (ALIAS_TVAR_ATERM (lhs), ALIAS_TVAR_ATERM (tv));*/
+      /*      pta_assignment (ALIAS_TVAR_ATERM (lhs),
+	      pta_rvalue (ALIAS_TVAR_ATERM (tv)));*/
+      pta_join  (ALIAS_TVAR_ATERM (lhs), ALIAS_TVAR_ATERM (tv));
     }
 }
 
