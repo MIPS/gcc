@@ -994,6 +994,50 @@ fix = {
 	      "unsigned long *address);\n";
 };
 
+/* APPLE LOCAL begin stdint.h */
+/*
+ *  To support a fully namespace-clean stdint.h, <machine/types.h> can't
+ *  be included; and that means that the various types.h files must
+ *  cooperate with stdint.h.
+ */
+fix = {
+  hackname  = darwin_stdint_guards_intn;
+  mach      = "*-*-darwin*";
+  files     = ppc/types.h;
+  files     = i386/types.h;
+  bypass    = "_INT32_T_DECLARED";
+  c_fix     = format;
+  c_fix_arg = "#ifndef _INT%2_T_DECLARED\n#define _INT%2_T_DECLARED\n%0\n#endif";
+  c_fix_arg = "typedef[ \t]([_a-z ]*\t+)int([0-9]+)_t;";
+  test_text = "typedef\t__signed char\t\tint8_t;\n";
+};
+
+
+fix = {
+  hackname  = darwin_stdint_guards_intptr;
+  mach      = "*-*-darwin*";
+  files     = ppc/types.h;
+  files     = i386/types.h;
+  bypass    = "_INTPTR_T_DECLARED";
+  c_fix     = format;
+  c_fix_arg = "#ifndef _INTPTR_T_DECLARED\n#define _INTPTR_T_DECLARED\n%0\n#endif";
+  c_fix_arg = "typedef[ \t]([_a-z \t]+)[ \t]+intptr_t;";
+  test_text = "typedef long int\t\tintptr_t;\n";
+};
+
+
+fix = {
+  hackname  = darwin_stdint_guards_uintptr;
+  mach      = "*-*-darwin*";
+  files     = ppc/types.h;
+  files     = i386/types.h;
+  bypass    = "_UINTPTR_T_DECLARED";
+  c_fix     = format;
+  c_fix_arg = "#ifndef _UINTPTR_T_DECLARED\n#define _UINTPTR_T_DECLARED\n%0\n#endif";
+  c_fix_arg = "typedef[ \t]([_a-z \t]+)[ \t]+uintptr_t;";
+  test_text = "typedef unsigned long int\tuintptr_t;\n";
+};
+/* APPLE LOCAL end stdint.h */
 
 /*
  *  Fix <c_asm.h> on Digital UNIX V4.0:
