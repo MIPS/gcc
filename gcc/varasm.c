@@ -826,6 +826,10 @@ make_decl_rtl (decl, asmspec, top_level)
 	  if (flag_volatile_global && TREE_CODE (decl) == VAR_DECL
 	      && TREE_PUBLIC (decl))
 	    TREE_SIDE_EFFECTS (decl) = 1;
+	  else if (flag_volatile_static && TREE_CODE (decl) == VAR_DECL
+	       && (TREE_PUBLIC (decl) || TREE_STATIC (decl)))
+	    TREE_SIDE_EFFECTS (decl) = 1;
+
 	  if (TREE_SIDE_EFFECTS (decl))
 	    MEM_VOLATILE_P (DECL_RTL (decl)) = 1;
 
@@ -1370,6 +1374,7 @@ assemble_variable (decl, top_level, at_end, dont_output_data)
 #if ! defined (ASM_OUTPUT_BSS) && ! defined (ASM_OUTPUT_ALIGNED_BSS)
       && DECL_COMMON (decl)
 #endif
+      && DECL_SECTION_NAME (decl) == 0
       && ! dont_output_data)
     {
       int size = TREE_INT_CST_LOW (size_tree);

@@ -707,6 +707,29 @@ any_memory_operand (op, mode)
 	      && REGNO (SUBREG_REG (op)) >= FIRST_PSEUDO_REGISTER));
 }
 
+/* Return 1 is OP is a memory location that is not an reference (using
+   an AND) to an unaligned location.  Take into account what reload
+   will do.  */
+
+int
+normal_memory_operand (op, mode)
+     register rtx op;
+     enum machine_mode mode;
+{
+  if (reload_in_progress && GET_CODE (op) == REG
+      && REGNO (op) >= FIRST_PSEUDO_REGISTER)
+    {
+      op = reg_equiv_mem[REGNO (op)];
+
+      /* This may not have been assigned an equivalent address if it will
+	 be eliminated.  In that case, it doesn't matter what we do.  */
+      if (op == 0)
+	return 1;
+    }
+
+  return GET_CODE (op) == MEM && GET_CODE (XEXP (op, 0)) != AND;
+}
+
 /* REF is an alignable memory location.  Place an aligned SImode
    reference into *PALIGNED_MEM and the number of bits to shift into
    *PBITNUM.  */
@@ -1298,6 +1321,23 @@ print_operand (file, x, code)
 	 suffix only (cmpt et al).  */
       if (alpha_tp == ALPHA_TP_INSN)
 	fputs ("su", file);
+      break;
+
+    case '`':
+      /* Generates trap-mode suffix for instructions that accept the
+	 v and sv suffix.  The only instruction that needs this is cvtql.  */
+      switch (alpha_fptm)
+	{
+	case ALPHA_FPTM_N:
+	  break;
+	case ALPHA_FPTM_U:
+	  fputs ("v", file);
+	  break;
+	case ALPHA_FPTM_SU:
+	case ALPHA_FPTM_SUI:
+	  fputs ("sv", file);
+	  break;
+	}
       break;
 
     case '(':

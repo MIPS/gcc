@@ -277,7 +277,7 @@ in the following sections.
 -mpowerpc-gfxopt  -mno-powerpc-gfxopt
 -mnew-mnemonics  -mno-new-mnemonics
 -mfull-toc   -mminimal-toc  -mno-fop-in-toc  -mno-sum-in-toc
--mxl-call  -mno-xl-call  -mthreads  -mpe
+-maix64  -maix32  -mxl-call  -mno-xl-call  -mthreads  -mpe
 -msoft-float  -mhard-float  -mmultiple  -mno-multiple
 -mstring  -mno-string  -mupdate  -mno-update
 -mfused-madd  -mno-fused-madd  -mbit-align  -mno-bit-align
@@ -375,7 +375,8 @@ in the following sections.
 -fno-common  -fno-ident  -fno-gnu-linker
 -fpcc-struct-return  -freg-struct-return
 -fshared-data  -fpic  -fPIC  -fexceptions
--fshort-enums  -fshort-double  -fvolatile  -fvolatile-global
+-fshort-enums  -fshort-double
+-fvolatile  -fvolatile-global  -fvolatile-static
 -fverbose-asm  -fpack-struct  -fstack-check  +e0  +e1
 @end smallexample
 @end table
@@ -641,8 +642,8 @@ other, C++-specific, extension keywords such as @code{headof}.
 @findex strcmp
 @findex strcpy
 @findex strlen
-Don't recognize builtin functions that do not begin with two leading
-underscores.  Currently, the functions affected include @code{abort},
+Don't recognize builtin functions that do not begin with @samp{__builtin_}
+as prefix.  Currently, the functions affected include @code{abort},
 @code{abs}, @code{alloca}, @code{cos}, @code{exit}, @code{fabs},
 @code{ffs}, @code{labs}, @code{memcmp}, @code{memcpy}, @code{sin},
 @code{sqrt}, @code{strcmp}, @code{strcpy}, and @code{strlen}.
@@ -3821,11 +3822,14 @@ These @samp{-m} options are defined for the IBM RS/6000 and PowerPC:
 @itemx -mno-powerpc-gpopt
 @itemx -mpowerpc-gfxopt
 @itemx -mno-powerpc-gfxopt
+@itemx -mpowerpc64
+@itemx -mno-powerpc64
 @kindex -mpower
 @kindex -mpower2
 @kindex -mpowerpc
 @kindex -mpowerpc-gpopt
 @kindex -mpowerpc-gfxopt
+@kindex -mpowerpc64
 GNU CC supports two related instruction set architectures for the
 RS/6000 and PowerPC.  The @dfn{POWER} instruction set are those
 instructions supported by the @samp{rios} chip set used in the original
@@ -3859,6 +3863,11 @@ General Purpose group, including floating-point square root.  Specifying
 use the optional PowerPC architecture instructions in the Graphics
 group, including floating-point select.
 
+The @samp{-mpowerpc64} option allows GNU CC to generate the additional
+64-bit instructions that are found in the full PowerPC64 architecture
+and to treat GPRs as 64-bit, doubleword quantities.  GNU CC defaults to
+@samp{-mno-powerpc64}.
+
 If you specify both @samp{-mno-power} and @samp{-mno-powerpc}, GNU CC
 will use only the instructions in the common subset of both
 architectures plus some special AIX common-mode calls, and will not use
@@ -3878,18 +3887,14 @@ Instructions defined in only one architecture have only one mnemonic;
 GNU CC uses that mnemonic irrespective of which of these options is
 specified.
 
-PowerPC assemblers support both the old and new mnemonics, as will later
-POWER assemblers.  Current POWER assemblers only support the old
-mnemonics.  Specify @samp{-mnew-mnemonics} if you have an assembler that
-supports them, otherwise specify @samp{-mold-mnemonics}.
-
-The default value of these options depends on how GNU CC was configured.
-Specifying @samp{-mcpu=@var{cpu_type}} sometimes overrides the value of
-these option.  Unless you are building a cross-compiler, you should
-normally not specify either @samp{-mnew-mnemonics} or
+GNU CC defaults to the mnemonics appropriate for the architecture in
+use.  Specifying @samp{-mcpu=@var{cpu_type}} sometimes overrides the
+value of these option.  Unless you are building a cross-compiler, you
+should normally not specify either @samp{-mnew-mnemonics} or
 @samp{-mold-mnemonics}, but should instead accept the default.
 
 @item -mcpu=@var{cpu_type}
+@kindex -mcpu
 Set architecture type, register usage, choice of mnemonics, and
 instruction scheduling parameters for machine type @var{cpu_type}.
 Supported values for @var{cpu_type} are @samp{rs6000}, @samp{rios1},
@@ -3963,6 +3968,7 @@ instruction scheduling parameters.
 @itemx -mno-fp-in-toc
 @itemx -mno-sum-in-toc
 @itemx -mminimal-toc
+@kindex -mminimal-toc
 Modify generation of the TOC (Table Of Contents), which is created for
 every executable file.  The @samp{-mfull-toc} option is selected by
 default.  In that case, GNU CC will allocate at least one TOC entry for
@@ -3987,26 +3993,39 @@ option, GNU CC will produce code that is slower and larger but which
 uses extremely little TOC space.  You may wish to use this option
 only on files that contain less frequently executed code. @refill
 
+@item -maix64
+@itemx -maix32
+@kindex -maix64
+@kindex -maix32
+Enable AIX 64-bit ABI and calling convention: 64-bit pointers, 64-bit
+@code{long} type, and the infrastructure needed to support them.
+Specifying @samp{-maix64} implies @samp{-mpowerpc64} and
+@samp{-mpowerpc}, while @samp{-maix32} disables the 64-bit ABI and
+implies @samp{-mno-powerpc64}.  GNU CC defaults to @samp{-maix32}.
+
 @item -mxl-call
 @itemx -mno-xl-call
+@kindex -mxl-call
 On AIX, pass floating-point arguments to prototyped functions beyond the
 register save area (RSA) on the stack in addition to argument FPRs.  The
 AIX calling convention was extended but not initially documented to
 handle an obscure K&R C case of calling a function that takes the
 address of its arguments with fewer arguments than declared.  AIX XL
-compilers assume that floating point arguments which do not fit in the
-RSA are on the stack when they compile a subroutine without
+compilers access floating point arguments which do not fit in the
+RSA from the stack when a subroutine is compiled without
 optimization.  Because always storing floating-point arguments on the
 stack is inefficient and rarely needed, this option is not enabled by
 default and only is necessary when calling subroutines compiled by AIX
 XL compilers without optimization.
 
 @item -mthreads
+@kindex -mthreads
 Support @dfn{AIX Threads}.  Link an application written to use
 @dfn{pthreads} with special libraries and startup code to enable the
 application to run.
 
 @item -mpe
+@kindex -mpe
 Support @dfn{IBM RS/6000 SP} @dfn{Parallel Environment} (PE).  Link an
 application written to use message passing with special startup code to
 enable the application to run.  The system must have PE installed in the
@@ -4018,6 +4037,7 @@ option are incompatible.
 
 @item -msoft-float
 @itemx -mhard-float
+@kindex -msoft-float
 Generate code that does not use (uses) the floating-point register set.
 Software floating point emulation is provided if you use the
 @samp{-msoft-float} option, and pass the option to GNU CC when linking.
@@ -4033,6 +4053,7 @@ processor is in little endian mode.
 
 @item -mstring
 @itemx -mno-string
+@kindex -mstring
 Generate code that uses (does not use) the load string instructions and the
 store string word instructions to save multiple registers and do small block
 moves.  These instructions are generated by default on POWER systems, and not
@@ -4042,6 +4063,7 @@ little endian mode.
 
 @item -mupdate
 @itemx -mno-update
+@kindex -mupdate
 Generate code that uses (does not use) the load or store instructions
 that update the base register to the address of the calculated memory
 location.  These instructions are generated by default.  If you use
@@ -4052,12 +4074,14 @@ signals may get corrupted data.
 
 @item -mfused-madd
 @itemx -mno-fused-madd
+@kindex -mfused-madd
 Generate code that uses (does not use) the floating point multiply and
 accumulate instructions.  These instructions are generated by default if
 hardware floating is used.
 
 @item -mno-bit-align
 @itemx -mbit-align
+@kindex -mbit-align
 On System V.4 and embedded PowerPC systems do not (do) force structures
 and unions that contain bit fields to be aligned to the base type of the
 bit field.
@@ -4070,11 +4094,13 @@ size.
 
 @item -mno-strict-align
 @itemx -mstrict-align
+@kindex -mstrict-align
 On System V.4 and embedded PowerPC systems do not (do) assume that
 unaligned memory references will be handled by the system.
 
 @item -mrelocatable
 @itemx -mno-relocatable
+@kindex -mrelocatable
 On embedded PowerPC systems generate code that allows (does not allow)
 the program to be relocated to a different address at runtime.  If you
 use @samp{-mrelocatable} on any module, all objects linked together must
@@ -5300,7 +5326,11 @@ Consider all memory references through pointers to be volatile.
 
 @item -fvolatile-global
 Consider all memory references to extern and global data items to
-be volatile.
+be volatile.  GNU CC does not consider static data items to be volatile
+because of this switch.
+
+@item -fvolatile-static
+Consider all memory references to static data to be volatile.
 
 @item -fpic
 @cindex global offset table
@@ -5474,6 +5504,46 @@ CC.  @xref{Driver}.
 @end ifset
 
 @table @code
+@item LANG
+@itemx LC_CTYPE
+@c @itemx LC_COLLATE
+@itemx LC_MESSAGES
+@c @itemx LC_MONETARY
+@c @itemx LC_NUMERIC
+@c @itemx LC_TIME
+@itemx LC_ALL
+@findex LANG
+@findex LC_CTYPE
+@c @findex LC_COLLATE
+@findex LC_MESSAGES
+@c @findex LC_MONETARY
+@c @findex LC_NUMERIC
+@c @findex LC_TIME
+@findex LC_ALL
+@cindex locale
+These environment variables control the way that GNU CC uses
+localization information that allow GNU CC to work with different
+national conventions.  GNU CC inspects the locale categories
+@code{LC_CTYPE} and @code{LC_MESSAGES} if it has been configured to do
+so.  These locale categories can be set to any value supported by your
+installation.  A typical value is @samp{en_UK} for English in the United
+Kingdom.
+
+The @code{LC_CTYPE} environment variable specifies character
+classification.  GNU CC uses it to determine the character boundaries in
+a string; this is needed for some multibyte encodings that contain quote
+and escape characters that would otherwise be interpreted as a string
+end or escape.
+
+The @code{LC_MESSAGES} environment variable specifies the language to
+use in diagnostic messages.
+
+If the @code{LC_ALL} environment variable is set, it overrides the value
+of @code{LC_CTYPE} and @code{LC_MESSAGES}; otherwise, @code{LC_CTYPE}
+and @code{LC_MESSAGES} default to the value of the @code{LANG}
+environment variable.  If none of these variables are set, GNU CC
+defaults to traditional C English behavior.
+
 @item TMPDIR
 @findex TMPDIR
 If @code{TMPDIR} is set, it specifies the directory to use for temporary

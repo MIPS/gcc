@@ -92,6 +92,7 @@ static tree fold_range_test	PROTO((tree));
 static tree unextend		PROTO((tree, int, int, tree));
 static tree fold_truthop	PROTO((enum tree_code, tree, tree, tree));
 static tree strip_compound_expr PROTO((tree, tree));
+static int count_cond		PROTO((tree, int));
 
 #ifndef BRANCH_COST
 #define BRANCH_COST 1
@@ -2486,8 +2487,8 @@ optimize_bit_field_compare (code, compare_type, lhs, rhs)
 					convert (unsigned_type, rhs),
 					size_int (lbitsize), 0)))
 	{
-	  warning ("comparison is always %s due to width of bitfield",
-		   code == NE_EXPR ? "one" : "zero");
+	  warning ("comparison is always %d due to width of bitfield",
+		   code == NE_EXPR);
 	  return convert (compare_type,
 			  (code == NE_EXPR
 			   ? integer_one_node : integer_zero_node));
@@ -2499,8 +2500,8 @@ optimize_bit_field_compare (code, compare_type, lhs, rhs)
 			      size_int (lbitsize - 1), 0);
       if (! integer_zerop (tem) && ! integer_all_onesp (tem))
 	{
-	  warning ("comparison is always %s due to width of bitfield",
-		   code == NE_EXPR ? "one" : "zero");
+	  warning ("comparison is always %d due to width of bitfield",
+		   code == NE_EXPR);
 	  return convert (compare_type,
 			  (code == NE_EXPR
 			   ? integer_one_node : integer_zero_node));
@@ -3239,8 +3240,8 @@ fold_range_test (exp)
 			  TREE_TYPE (exp), lhs, rhs);
 	}
     }
-  else
-    return 0;
+
+  return 0;
 }
 
 /* Subroutine for fold_truthop: C is an INTEGER_CST interpreted as a P
@@ -3485,8 +3486,7 @@ fold_truthop (code, truth_type, lhs, rhs)
 						      type, ll_mask)),
 					0)))
 	{
-	  warning ("comparison is always %s",
-		   wanted_code == NE_EXPR ? "one" : "zero");
+	  warning ("comparison is always %d", wanted_code == NE_EXPR);
 	  
 	  return convert (truth_type,
 			  wanted_code == NE_EXPR
@@ -3503,9 +3503,8 @@ fold_truthop (code, truth_type, lhs, rhs)
 						      type, rl_mask)),
 					0)))
 	{
-	  warning ("comparison is always %s",
-		   wanted_code == NE_EXPR ? "one" : "zero");
-	  
+	  warning ("comparison is always %d", wanted_code == NE_EXPR);
+
 	  return convert (truth_type,
 			  wanted_code == NE_EXPR
 			  ? integer_one_node : integer_zero_node);
@@ -3603,7 +3602,7 @@ fold_truthop (code, truth_type, lhs, rhs)
 	}
       else
 	{
-	  warning ("`and' of mutually exclusive equal-tests is always zero");
+	  warning ("`and' of mutually exclusive equal-tests is always 0");
 	  return convert (truth_type, integer_zero_node);
 	}
     }
@@ -3658,6 +3657,27 @@ strip_compound_expr (t, s)
     }
 
   return t;
+}
+
+/* Utility function for the following routine, to see how complex a nesting of
+   COND_EXPRs can be.  EXPR is the expression and LIMIT is a count beyond which
+   we don't care (to avoid spending too much time on complex expressions.).  */
+
+static int
+count_cond (expr, lim)
+     tree expr;
+     int lim;
+{
+  int true, false;
+
+  if (TREE_CODE (expr) != COND_EXPR)
+    return 0;
+  else if (lim <= 0)
+    return 0;
+
+  true = count_cond (TREE_OPERAND (expr, 1), lim - 1);
+  false = count_cond (TREE_OPERAND (expr, 2), lim - 1 - true);
+  return MIN (lim, 1 + true + false);
 }
 
 /* Perform constant folding and related simplification of EXPR.
@@ -3879,6 +3899,8 @@ fold (expr)
       else if ((TREE_CODE (arg1) == COND_EXPR
 		|| (TREE_CODE_CLASS (TREE_CODE (arg1)) == '<'
 		    && TREE_CODE_CLASS (code) != '<'))
+	       && (TREE_CODE (arg0) != COND_EXPR
+		   || count_cond (arg0, 25) + count_cond (arg1, 25) <= 25)
 	       && (! TREE_SIDE_EFFECTS (arg0)
 		   || (current_function_decl != 0
 		       && ! contains_placeholder_p (arg0))))
@@ -3952,6 +3974,8 @@ fold (expr)
       else if ((TREE_CODE (arg0) == COND_EXPR
 		|| (TREE_CODE_CLASS (TREE_CODE (arg0)) == '<'
 		    && TREE_CODE_CLASS (code) != '<'))
+	       && (TREE_CODE (arg1) != COND_EXPR
+		   || count_cond (arg0, 25) + count_cond (arg1, 25) <= 25)
 	       && (! TREE_SIDE_EFFECTS (arg1)
 		   || (current_function_decl != 0
 		       && ! contains_placeholder_p (arg1))))
@@ -5521,10 +5545,14 @@ fold (expr)
 	      || TREE_CODE (arg1) == COMPLEX_CST))
 	{
 	  tree subtype = TREE_TYPE (TREE_TYPE (arg0));
-	  tree real0 = fold (build1 (REALPART_EXPR, subtype, arg0));
-	  tree imag0 = fold (build1 (IMAGPART_EXPR, subtype, arg0));
-	  tree real1 = fold (build1 (REALPART_EXPR, subtype, arg1));
-	  tree imag1 = fold (build1 (IMAGPART_EXPR, subtype, arg1));
+	  tree real0, imag0, real1, imag1;
+
+	  arg0 = save_expr (arg0);
+	  arg1 = save_expr (arg1);
+	  real0 = fold (build1 (REALPART_EXPR, subtype, arg0));
+	  imag0 = fold (build1 (IMAGPART_EXPR, subtype, arg0));
+	  real1 = fold (build1 (REALPART_EXPR, subtype, arg1));
+	  imag1 = fold (build1 (IMAGPART_EXPR, subtype, arg1));
 
 	  return fold (build ((code == EQ_EXPR ? TRUTH_ANDIF_EXPR
 			       : TRUTH_ORIF_EXPR),

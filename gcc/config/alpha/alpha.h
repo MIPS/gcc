@@ -701,7 +701,7 @@ enum reg_class { NO_REGS, GENERAL_REGS, FLOAT_REGS, ALL_REGS,
    'S' is a 6-bit constant (valid for a shift insn).  */
 
 #define EXTRA_CONSTRAINT(OP, C)				\
-  ((C) == 'Q' ? GET_CODE (OP) == MEM && GET_CODE (XEXP (OP, 0)) != AND	\
+  ((C) == 'Q' ? normal_memory_operand (OP, VOIDmode)			\
    : (C) == 'R' ? current_file_function_operand (OP, Pmode)		\
    : (C) == 'S' ? (GET_CODE (OP) == CONST_INT				\
 		   && (unsigned HOST_WIDE_INT) INTVAL (OP) < 64)	\
@@ -2057,6 +2057,9 @@ literal_section ()						\
    '	Generates trap-mode suffix for instructions that accept the
         su suffix only (cmpt et al).
 
+   `    Generates trap-mode suffix for instructions that accept the
+	v and sv suffix.  The only instruction that needs this is cvtql.
+
    (	Generates trap-mode suffix for instructions that accept the
 	v, sv, and svi suffix.  The only instruction that needs this
 	is cvttq.
@@ -2076,8 +2079,8 @@ literal_section ()						\
    */
 
 #define PRINT_OPERAND_PUNCT_VALID_P(CODE)				\
-  ((CODE) == '&' || (CODE) == '\'' || (CODE) == '(' || (CODE) == ')'	\
-   || (CODE) == '+' || (CODE) == ',' || (CODE) == '-')
+  ((CODE) == '&' || (CODE) == '`' || (CODE) == '\'' || (CODE) == '('	\
+   || (CODE) == ')' || (CODE) == '+' || (CODE) == ',' || (CODE) == '-')
 
 /* Print a memory address as an operand to reference that memory location.  */
 

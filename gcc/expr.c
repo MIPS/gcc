@@ -4386,6 +4386,9 @@ get_inner_reference (exp, pbitsize, pbitpos, poffset, pmode,
   else
     {
       mode = TYPE_MODE (TREE_TYPE (exp));
+      if (mode == BLKmode)
+	size_tree = TYPE_SIZE (TREE_TYPE (exp));
+
       *pbitsize = GET_MODE_BITSIZE (mode);
       *punsignedp = TREE_UNSIGNED (TREE_TYPE (exp));
     }
@@ -5035,11 +5038,17 @@ expand_expr (exp, target, tmode, modifier)
 
 	    p->forced_labels = gen_rtx (EXPR_LIST, VOIDmode,
 					label_rtx (exp), p->forced_labels);
+	    p->addresses_labels = 1;
 	    pop_obstacks ();
 	  }
-	else if (modifier == EXPAND_INITIALIZER)
-	  forced_labels = gen_rtx (EXPR_LIST, VOIDmode,
-				   label_rtx (exp), forced_labels);
+	else
+	  {
+	    current_function_addresses_labels = 1;
+	    if (modifier == EXPAND_INITIALIZER)
+	      forced_labels = gen_rtx (EXPR_LIST, VOIDmode,
+				       label_rtx (exp), forced_labels);
+	  }
+
 	temp = gen_rtx (MEM, FUNCTION_MODE,
 			gen_rtx (LABEL_REF, Pmode, label_rtx (exp)));
 	if (function != current_function_decl
@@ -8239,7 +8248,16 @@ expand_builtin_setjmp (buf_addr, target)
      rtx target;
 {
   rtx lab1 = gen_label_rtx (), lab2 = gen_label_rtx ();
-  enum machine_mode sa_mode = Pmode, value_mode;
+  enum machine_mode sa_mode
+    = (
+#ifdef HAVE_save_stack_nonlocal
+       (HAVE_save_stack_nonlocal
+	? insn_operand_mode[(int) CODE_FOR_save_stack_nonlocal][0] : Pmode)
+#else
+       Pmode
+#endif
+       );
+  enum machine_mode value_mode = TYPE_MODE (integer_type_node);
   rtx stack_save;
   int old_inhibit_defer_pop = inhibit_defer_pop;
   int return_pops
@@ -8251,7 +8269,9 @@ expand_builtin_setjmp (buf_addr, target)
   rtx op0;
   int i;
 
-  value_mode = TYPE_MODE (integer_type_node);
+#ifdef STACK_SAVEAREA_MODE
+  sa_mode = STACK_SAVEAREA_MODE (sa_mode, SAVE_NONLOCAL);
+#endif
 
 #ifdef POINTERS_EXTEND_UNSIGNED
   buf_addr = convert_memory_address (Pmode, buf_addr);
@@ -8284,10 +8304,6 @@ expand_builtin_setjmp (buf_addr, target)
 					   GET_MODE_SIZE (Pmode)))),
      gen_rtx (LABEL_REF, Pmode, lab1));
 
-#ifdef HAVE_save_stack_nonlocal
-  if (HAVE_save_stack_nonlocal)
-    sa_mode = insn_operand_mode[(int) CODE_FOR_save_stack_nonlocal][0];
-#endif
 
   stack_save = gen_rtx (MEM, sa_mode,
 			plus_constant (buf_addr,
@@ -9338,17 +9354,24 @@ expand_builtin (exp, target, subtarget, mode, ignore)
 	rtx lab = gen_rtx (MEM, Pmode,
 			   plus_constant (buf_addr, GET_MODE_SIZE (Pmode)));
 	enum machine_mode sa_mode
+	  = (
 #ifdef HAVE_save_stack_nonlocal
-	  = (HAVE_save_stack_nonlocal
-	     ? insn_operand_mode[(int) CODE_FOR_save_stack_nonlocal][0]
-	     : Pmode);
+	     (HAVE_save_stack_nonlocal
+	      ? insn_operand_mode[(int) CODE_FOR_save_stack_nonlocal][0]
+	      : Pmode)
 #else
-	= Pmode;
+	     Pmode
 #endif
-	rtx stack = gen_rtx (MEM, sa_mode,
-			     plus_constant (buf_addr,
-					    2 * GET_MODE_SIZE (Pmode)));
+	     );
+	rtx stack;
 
+#ifdef STACK_SAVEAREA_MODE
+	sa_mode = STACK_SAVEAREA_MODE (sa_mode, SAVE_NONLOCAL);
+#endif
+
+	stack = gen_rtx (MEM, sa_mode,
+			 plus_constant (buf_addr,
+					2 * GET_MODE_SIZE (Pmode)));
 	DECL_EXTERNAL (dummy_decl) = 1;
 	TREE_PUBLIC (dummy_decl) = 1;
 	make_decl_rtl (dummy_decl, NULL_PTR, 1);
@@ -10476,24 +10499,29 @@ do_jump (exp, if_false_label, if_true_label)
 
 	if (GET_MODE_CLASS (TYPE_MODE (inner_type)) == MODE_COMPLEX_FLOAT
 	    || GET_MODE_CLASS (TYPE_MODE (inner_type)) == MODE_COMPLEX_INT)
-	  do_jump
-	    (fold
-	     (build (TRUTH_ANDIF_EXPR, TREE_TYPE (exp),
-		     fold (build (EQ_EXPR, TREE_TYPE (exp),
+	  {
+	    tree exp0 = save_expr (TREE_OPERAND (exp, 0));
+	    tree exp1 = save_expr (TREE_OPERAND (exp, 1));
+
+	    do_jump
+	      (fold
+	       (build (TRUTH_ANDIF_EXPR, TREE_TYPE (exp),
+		       fold (build (EQ_EXPR, TREE_TYPE (exp),
+				    fold (build1 (REALPART_EXPR,
+						  TREE_TYPE (inner_type),
+						  exp0)),
 				  fold (build1 (REALPART_EXPR,
 						TREE_TYPE (inner_type),
-						TREE_OPERAND (exp, 0))),
-				  fold (build1 (REALPART_EXPR,
-						TREE_TYPE (inner_type),
-						TREE_OPERAND (exp, 1))))),
-		     fold (build (EQ_EXPR, TREE_TYPE (exp),
-				  fold (build1 (IMAGPART_EXPR,
-						TREE_TYPE (inner_type),
-						TREE_OPERAND (exp, 0))),
-				  fold (build1 (IMAGPART_EXPR,
-						TREE_TYPE (inner_type),
-						TREE_OPERAND (exp, 1))))))),
-	     if_false_label, if_true_label);
+						exp1)))),
+		       fold (build (EQ_EXPR, TREE_TYPE (exp),
+				    fold (build1 (IMAGPART_EXPR,
+						  TREE_TYPE (inner_type),
+						  exp0)),
+				    fold (build1 (IMAGPART_EXPR,
+						  TREE_TYPE (inner_type),
+						  exp1)))))),
+	       if_false_label, if_true_label);
+	  }
 
 	else if (integer_zerop (TREE_OPERAND (exp, 1)))
 	  do_jump (TREE_OPERAND (exp, 0), if_true_label, if_false_label);
@@ -10512,24 +10540,29 @@ do_jump (exp, if_false_label, if_true_label)
 
 	if (GET_MODE_CLASS (TYPE_MODE (inner_type)) == MODE_COMPLEX_FLOAT
 	    || GET_MODE_CLASS (TYPE_MODE (inner_type)) == MODE_COMPLEX_INT)
-	  do_jump
-	    (fold
-	     (build (TRUTH_ORIF_EXPR, TREE_TYPE (exp),
-		     fold (build (NE_EXPR, TREE_TYPE (exp),
-				  fold (build1 (REALPART_EXPR,
-						TREE_TYPE (inner_type),
-						TREE_OPERAND (exp, 0))),
-				  fold (build1 (REALPART_EXPR,
-						TREE_TYPE (inner_type),
-						TREE_OPERAND (exp, 1))))),
-		     fold (build (NE_EXPR, TREE_TYPE (exp),
-				  fold (build1 (IMAGPART_EXPR,
-						TREE_TYPE (inner_type),
-						TREE_OPERAND (exp, 0))),
-				  fold (build1 (IMAGPART_EXPR,
-						TREE_TYPE (inner_type),
-						TREE_OPERAND (exp, 1))))))),
-	     if_false_label, if_true_label);
+	  {
+	    tree exp0 = save_expr (TREE_OPERAND (exp, 0));
+	    tree exp1 = save_expr (TREE_OPERAND (exp, 1));
+
+	    do_jump
+	      (fold
+	       (build (TRUTH_ORIF_EXPR, TREE_TYPE (exp),
+		       fold (build (NE_EXPR, TREE_TYPE (exp),
+				    fold (build1 (REALPART_EXPR,
+						  TREE_TYPE (inner_type),
+						  exp0)),
+				    fold (build1 (REALPART_EXPR,
+						  TREE_TYPE (inner_type),
+						  exp1)))),
+		       fold (build (NE_EXPR, TREE_TYPE (exp),
+				    fold (build1 (IMAGPART_EXPR,
+						  TREE_TYPE (inner_type),
+						  exp0)),
+				    fold (build1 (IMAGPART_EXPR,
+						  TREE_TYPE (inner_type),
+						  exp1)))))),
+	       if_false_label, if_true_label);
+	  }
 
 	else if (integer_zerop (TREE_OPERAND (exp, 1)))
 	  do_jump (TREE_OPERAND (exp, 0), if_false_label, if_true_label);
@@ -11683,7 +11716,7 @@ bc_expand_component_address (exp)
 
   /* For bitfields also push their offset and size */
   if (DECL_BIT_FIELD (TREE_OPERAND (exp, 1)))
-    bc_push_offset_and_size (bitpos, /* DECL_SIZE_UNIT */ (TREE_OPERAND (exp, 1)));
+    bc_push_offset_and_size (bitpos, TREE_INT_CST_LOW (DECL_SIZE (TREE_OPERAND (exp, 1))));
   else
     if (SIval = bitpos / BITS_PER_UNIT)
       bc_emit_instruction (addconstPSI, SIval);
