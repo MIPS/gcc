@@ -83,21 +83,35 @@ get_fields (tree struct_decl, int num_fields)
 /* Record STMT as the access site of the filed with INDEX of DS data
    structure.  OP is the COMPONENT_REF is access to the field in STMT.  */
 static void
-add_field_access_site (struct data_structure *ds, int index,
-		       tree stmt, tree op)
+add_field_access_site (struct data_structure *ds, HOST_WIDE_INT bit_pos,
+		       HOST_WIDE_INT bit_size, tree stmt, tree op, 
+		       sbitmap fields)
 {
-   struct access_site *as;
+  int i;
+  struct access_site *as;
 
-   if (index < 0 )
-     abort ();
+  for (i = 0; i < ds->num_fields; i++)
+    {
+      HOST_WIDE_INT f_bit_pos;
+      tree f_bit_pos_t = bit_position (ds->fields[i].decl);
 
-   as = (struct access_site *)xcalloc (1, sizeof (struct access_site));
-   as->stmt = stmt;
-   as->field_access = op;
-   as->next = ds->fields[index].acc_sites;
-   ds->fields[index].acc_sites = as;
+      if (! host_integerp (f_bit_pos_t, 0))
+	continue;
+
+      f_bit_pos = tree_low_cst (f_bit_pos_t, 0);
+      if (f_bit_pos >= bit_pos && f_bit_pos < (bit_pos + bit_size))
+	{
+	  as = (struct access_site *)xcalloc (1, sizeof (struct access_site));
+	  as->stmt = stmt;
+	  as->field_access = op;
+	  as->next = ds->fields[i].acc_sites;
+	  ds->fields[i].acc_sites = as;
+	  SET_BIT (fields, i);
+	}
+    }
 }
 
+#if 0
 /* Given the field declaration tree (F_DECL) return the 
    appropraite field index in DS.  */
 static int 
@@ -111,13 +125,55 @@ get_field_index (struct data_structure *ds, tree f_decl)
 
   return -1;  
 }
+#endif
 
 /* A helper function for get_stmt_accessed_fields.  */
 static int
-get_stmt_accessed_fields_1 (tree stmt, tree op, struct data_structure *ds)
+get_stmt_accessed_fields_1 (tree stmt, tree op, struct data_structure *ds, 
+			    sbitmap fields)
 {
-  int i, code, total_dist = 0;
+  HOST_WIDE_INT bitsize = 0;
+  HOST_WIDE_INT bitpos; 
+  tree offsetr, struct_var, struct_type;
+  enum machine_mode mode; 
+  int unsignedp, volatilep;
 
+#if 1
+  struct_var = get_inner_reference (op, &bitsize, &bitpos, &offsetr, &mode, 
+				    &unsignedp, &volatilep);
+  if (TREE_CODE (struct_var) == VAR_DECL)
+    struct_type = TREE_TYPE (struct_var);
+  else if (TREE_CODE (struct_var) == INDIRECT_REF)
+    struct_type = TREE_TYPE (TREE_TYPE (TREE_OPERAND (struct_var, 0)));
+
+  if (ds->decl != struct_type )
+    {
+      if ( bitsize < 0 )
+        return  - bitsize / BITS_PER_UNIT;
+      else
+	return bitsize / BITS_PER_UNIT;
+    }
+
+  /* In case of a varaible size field access, invalidate the structure
+     for the optimization*/
+  if ( offsetr)
+    {
+      ds->unresolved_field_access = true;
+      if ( bitsize < 0 )
+        return - bitsize / BITS_PER_UNIT;
+      else
+        return bitsize / BITS_PER_UNIT;
+    }  
+
+
+  /* Add a field access site here.  */
+  add_field_access_site (ds, bitpos, bitsize, stmt, op, fields);
+
+  /* Access to fields of the relevant struct so the distance is 0.  */ 
+  return 0; 
+
+ 
+#else
   code = TREE_CODE (op);
   switch (code)
     {
@@ -190,20 +246,18 @@ get_stmt_accessed_fields_1 (tree stmt, tree op, struct data_structure *ds)
     }
 
   return total_dist;
+#endif
 }
 
 /* Analyze the statement STMT and search for field accesses of the given
-   data structure DS.  Returns the "ID + 1" of the accessed field if there
-   is any, otherwise it returns the accesses distance produced by this
-   instruction as a negative number or zero (if this is not a memory
-   access).  We assume this is a GIMPLE statement meaning that a memory
-   access must be in a MODIFY_EXPR, and the memory can be in one side
-   of the MODIFY_EXPR.  That means that only one field could be
-   accessed within this GIMPLE statement.  */
+   data structure DS, returns zero if there are any.  Otherwise it returns 
+   the accesses distance produced by this instruction.  We assume this is a 
+   GIMPLE statement meaning that a memory access must be in a MODIFY_EXPR.  */
 static int
-get_stmt_accessed_fields (tree stmt, struct data_structure *ds)
+get_stmt_accessed_fields (tree stmt, struct data_structure *ds, sbitmap fields)
 {
-  int code, dist;
+  int code, dist0, dist1;
+    
 
   code = TREE_CODE (stmt);
   if (code != MODIFY_EXPR)
@@ -212,10 +266,14 @@ get_stmt_accessed_fields (tree stmt, struct data_structure *ds)
   /* Analyze the left side of the MODIFY.  If dist is not zero it means
      that the left side (OP0) is a memory access that means that the
      right side cannot be a memory access, so just return DIST.  */
-  dist = get_stmt_accessed_fields_1 (stmt, TREE_OPERAND (stmt, 0), ds);
-  if (dist)
-    return dist;
-  return get_stmt_accessed_fields_1 (stmt, TREE_OPERAND (stmt, 1), ds);
+  dist0 = get_stmt_accessed_fields_1 (stmt, TREE_OPERAND (stmt, 0), ds, fields);
+  dist1 = get_stmt_accessed_fields_1 (stmt, TREE_OPERAND (stmt, 1), ds, fields);
+
+  if (! dist0 || ! dist1)
+    return 0;
+  else
+    return dist0 + dist1;
+
 }
 
 /* return the last access to a field in a given basic block, if there
@@ -238,6 +296,7 @@ build_f_acc_list_for_bb (struct data_structure *ds, basic_block bb)
 {
   struct bb_field_access *head, *crr;
   block_stmt_iterator bsi;
+  sbitmap fields = sbitmap_alloc (ds->num_fields);
 
   /* Create a new dummy item to hold the disntance to the first field
      in the basic block (or hold the distance accross the basic block
@@ -251,22 +310,21 @@ build_f_acc_list_for_bb (struct data_structure *ds, basic_block bb)
   for (bsi = bsi_start (bb); ! bsi_end_p (bsi); bsi_next (&bsi))
     {
       tree stmt = bsi_stmt (bsi);
-      int index;
+      int i;
 
-      index = get_stmt_accessed_fields (stmt, ds);
-      if ( index <= 0)
-        crr->distance_to_next += (- index);
-      else
-        {
-          /* The disntance to the next is zeroed here, if the next
-	     access is in the same statement it will not be advanced
-	     at all, and we will get a distance of zero.  */
-          crr->next = xcalloc (1, sizeof (struct bb_field_access));
-          crr->next->f_indx = index - 1;
-          crr = crr->next;
-          /* Update the access count for a single field.  */
-          ds->fields[crr->f_indx].count += bb->count;
-        }
+      sbitmap_zero (fields);
+      crr->distance_to_next += get_stmt_accessed_fields (stmt, ds, fields);
+
+      EXECUTE_IF_SET_IN_SBITMAP (fields, 0, i, 
+	/* The disntance to the next is zeroed here, if the next
+	   access is in the same statement it will not be advanced
+	   at all, and we will get a distance of zero.  */
+	crr->next = xcalloc (1, sizeof (struct bb_field_access));
+	crr->next->f_indx = i;
+	crr = crr->next;
+	/* Update the access count for a single field.  */
+	ds->fields[crr->f_indx].count += bb->count;
+      );
     }
   return head;
 }
@@ -350,23 +408,83 @@ verify_library_parameters (ATTRIBUTE_UNUSED tree fdecl,
 }
 #endif 
 
-/* Perform data structure peeling.  */
-void
-peel_structs (void)
-{
 
+/* Search the data structure list DS_LIST for a data structure with 
+   SDECL declaration return it if found and return NULL otherwise.  */
+static struct data_structure *
+get_data_struct_by_decl (struct struct_list *ds_list, tree sdecl)
+{
+  for (; ds_list ; ds_list = ds_list->next)
+    if (ds_list->struct_data->decl == sdecl)
+      return ds_list->struct_data;
+
+  return NULL;
+}
+
+/* This should free up all the memory allocated for the information 
+   about the data structure DS.  */
+static
+void free_data_struct (ATTRIBUTE_UNUSED struct data_structure *ds)
+{
+  return;
+}
+
+/* Given a VAR_DECL it checks its type and create an appropriate
+   STRUCT_LIST node if it is of a record type.  */
+static struct struct_list *
+make_data_struct_node (struct struct_list *s_list, tree var_decl)
+{
+  struct struct_list *new_node = NULL;
+  struct data_structure *d_node;
+  tree struct_type = NULL_TREE;
+  tree var_type;
+  int num_fields;
+
+  if (TREE_CODE (var_decl) == PARM_DECL)
+    var_type = DECL_ARG_TYPE (var_decl);
+  else if (TREE_CODE (var_decl) == VAR_DECL)
+    var_type = TREE_TYPE (var_decl);
+  else
+    return NULL;
+
+  if ((TREE_CODE (var_type) == POINTER_TYPE
+       || TREE_CODE (var_type) == ARRAY_TYPE)
+      && TREE_CODE (TREE_TYPE (var_type)) == RECORD_TYPE)
+    struct_type = TREE_TYPE (var_type);
+  else if ( TREE_CODE (var_type) == RECORD_TYPE)
+    struct_type = var_type;
+
+  /* Check to see if this structure is already in there.  */
+  if (! struct_type || get_data_struct_by_decl (s_list, struct_type))
+    return NULL;
+
+  d_node = (struct data_structure *) 
+	   xcalloc (1, sizeof (struct data_structure));
+  num_fields = fields_length (struct_type);
+  d_node->decl = struct_type;
+  d_node->num_fields = num_fields;
+  d_node->fields = get_fields (struct_type, num_fields);
+  d_node->alloc_sites = NULL;
+  d_node->struct_clustering = NULL;
+
+  new_node = (struct struct_list *) xmalloc (sizeof(struct struct_list));
+  new_node->struct_data = d_node;
+  new_node->next = s_list;
+
+  return new_node;
+} 
+
+/* Stage 1:  Find all potential structs for peeling. Perform analysis
+   to decide if transformations are safe/legal.  */
+
+static struct struct_list *
+build_data_structure_list (void)
+{
+  tree var_decl;
+  struct struct_list *tmp; 
   struct struct_list *data_struct_list = NULL;
-  struct struct_list *current_struct;
   struct cgraph_varpool_node *current_varpool;
   struct cgraph_node *c_node;
-  bool reordering_only = false;
-  bool success;
-
-  /* Stage 1:  Find all potential structs for peeling. Perform analysis
-     to decide if transformations are safe/legal.  */
-
-  /* Make sure compiler invocation is of type to use this opt. Not Done yet.  */
-
 
   /* For every global variable in the program:
      - Check to see if it's of a candidate type; if so stuff type into
@@ -376,46 +494,58 @@ peel_structs (void)
   for (current_varpool = cgraph_varpool_nodes_queue; current_varpool;
        current_varpool = current_varpool->next_needed)
     {
-      tree var_decl = current_varpool->decl;
+
+      var_decl = current_varpool->decl;
       if (!var_decl || TREE_CODE (var_decl) != VAR_DECL)
 	continue;
-
-      if ((TREE_CODE (TREE_TYPE (var_decl)) == POINTER_TYPE
-	   || TREE_CODE (TREE_TYPE (var_decl)) == ARRAY_TYPE)
-	  && TREE_CODE (TREE_TYPE (TREE_TYPE (var_decl))) == RECORD_TYPE)
-	{
-	  tree struct_decl;
-	  struct struct_list *temp_node;
-	  struct data_structure *d_node;
-	  int num_fields;
-
-	  struct_decl = TREE_TYPE (TREE_TYPE (var_decl));
-
-	  /* Exclude "FILE" records from consideration.  */
-	  if (TREE_CODE_CLASS (TREE_CODE (struct_decl)) == 't'
-	      && TYPE_NAME (struct_decl)
-	      && TREE_CODE (TYPE_NAME (struct_decl)) == TYPE_DECL
-	      && DECL_NAME (TYPE_NAME (struct_decl))
-	      && strcmp (IDENTIFIER_POINTER (DECL_NAME
-					     (TYPE_NAME (struct_decl))),
-			 "FILE") == 0)
-	    continue;
-
-	  d_node = (struct data_structure *) xcalloc (1, 
-						      sizeof (struct data_structure));
-	  num_fields = fields_length (struct_decl);
-	  d_node->decl = struct_decl;
-	  d_node->num_fields = num_fields;
-	  d_node->fields = get_fields (struct_decl, num_fields);
-	  d_node->alloc_sites = NULL;
-	  d_node->struct_clustering = NULL;
-
-	  temp_node = (struct struct_list *) xmalloc (sizeof(struct struct_list));
-	  temp_node->struct_data = d_node;
-	  temp_node->next = data_struct_list;
-	  data_struct_list = temp_node;
-	}
+      
+      if ((tmp = make_data_struct_node (data_struct_list, var_decl)))
+	data_struct_list = tmp;
     }
+
+  /* Now add data structures of function parameters and local variables */
+  for (c_node = cgraph_nodes; c_node; c_node = c_node->next)
+    {
+      struct function *func = DECL_STRUCT_FUNCTION (c_node->decl);
+
+      /* Function arguments.  */
+      for (var_decl = DECL_ARGUMENTS (c_node->decl); 
+	   var_decl; var_decl = TREE_CHAIN (var_decl)) 
+	if ((tmp = make_data_struct_node (data_struct_list, 
+					  var_decl)))
+	  {
+	    data_struct_list = tmp;
+	    if (! func)
+	      tmp->struct_data->in_extern_definition = true;
+	  }
+	
+      if (! func)
+	continue;
+
+      /* Function local variables. ??? is this the correct way?   */
+      for (var_decl = func->unexpanded_var_list; var_decl; var_decl = TREE_CHAIN (var_decl))
+	if (TREE_CODE (var_decl) == VAR_DECL)
+	  if ((tmp = make_data_struct_node (data_struct_list, var_decl)))
+	    data_struct_list = tmp;
+    }
+  return data_struct_list;
+}
+
+/* Perform data structure peeling.  */
+void
+peel_structs (void)
+{
+  struct struct_list *data_struct_list = NULL;
+  struct struct_list *current_struct;
+  struct cgraph_node *c_node;
+  bool reordering_only = false;
+  bool success;
+
+  /* Make sure compiler invocation is of type to use this opt. Not Done yet.  */
+
+  /* Stage 1: Build DATA_STRUCTURE list of the data structures that are valid
+     for the transformation.  */
+  data_struct_list = build_data_structure_list ();
 
   /* Walk through entire program tree looking for:
        - Any declaration that uses struct type; record variable
@@ -426,37 +556,33 @@ peel_structs (void)
      algorithm, we should optimize this in the future. 
    */
 
-  for (c_node = cgraph_nodes; c_node; c_node = c_node->next)
+  for (current_struct = data_struct_list; current_struct; 
+       current_struct = current_struct->next)
     {
-      struct struct_list *ds_node;
+      struct data_structure *crr_ds = current_struct->struct_data;
 
-      for (ds_node = data_struct_list; ds_node; ds_node = ds_node->next)
-	{
+      /* Stage 2:  Determine what, if anything, we want to transform and how.  */
+      for (c_node = cgraph_nodes; c_node; c_node = c_node->next)
+        {
           struct function *func = DECL_STRUCT_FUNCTION (c_node->decl);
 
           /* Build the access sites list for fields and also the field
 	     access lists for basic blocks.  */
-	  build_bb_access_list_for_struct (ds_node->struct_data, func);
-          update_cpg_for_structure (ds_node->struct_data, func);
-	  free_bb_access_list_for_struct (ds_node->struct_data, func);
+	  build_bb_access_list_for_struct (crr_ds, func);
+          update_cpg_for_structure (crr_ds, func);
+	  free_bb_access_list_for_struct (crr_ds, func);
 	}
-    }
 
-  /* Stage 2:  Determine what, if anything, we want to transform and how.  */
-
-  for (current_struct = data_struct_list; current_struct;
-       current_struct = current_struct->next)
-    {
-      struct data_structure *crr_ds = current_struct->struct_data;
       success = cache_aware_data_reorganization (crr_ds, reordering_only);
       dump_cpg (stdout, crr_ds->cpg);
       free_cpg (crr_ds->cpg);
       crr_ds->cpg = NULL;
-
       /* Stage 3:  Do the actual transformation decided on in stage 2.  */
 
       if (success)
         do_peel (crr_ds);
+      /* Free up the memory allocated for the CRR_DS.  */
+      free_data_struct (crr_ds);
     }
 }
 

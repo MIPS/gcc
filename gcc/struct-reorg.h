@@ -102,6 +102,10 @@ struct data_structure {
      accesses of this structure, meaning that we cannot perform
      data reorganization on them.  */
   bool unresolved_field_access;
+  /* True if an external function declaration has this struct as 
+     type of one of its arguments.  In whole program analysis this 
+     this true only for type of arguments in library function calls.  */
+  bool in_extern_definition;
   /* Number of fields in the structure.  */
   int num_fields;
   /* According to profiling information number of times a field of the

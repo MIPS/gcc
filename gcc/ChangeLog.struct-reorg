@@ -1,3 +1,12 @@
+2004-10-04  Mostafa Hagog  <mustafa@il.ibm.com>
+
+	* struct-reorg.c (peel_structs): Handle data structures of
+	local variables and function arguments.
+        (get_stmt_accessed_fields): Use of get_inner_reference to handle
+        the general case.
+        (build_data_structure_list, make_data_struct_node): New functions.
+	* struct-reorg.h (struct data_structure): Add in_extern_definition.
+
 2004-09-29  Mostafa Hagog  <mustafa@il.ibm.com>
 
 	* struct-reorg-cpg.c (update_cpg_for_bb): Bug fix.
