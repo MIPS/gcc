@@ -1,3 +1,50 @@
+2005-03-10  Chris Burdess  <dog@bluezoo.org>
+
+	* gnu/xml/dom/ls/SAXEventSink.java: Ignore element declarations if
+	not currently parsing the DTD.
+
+2005-03-10  Andrew Haley  <aph@redhat.com>
+
+	* gnu/java/nio/channels/FileChannelImpl.java (smallTransferFrom):
+	New.
+	(smallTransferTo): New.
+	(transferFrom): Loop around smallTransferFrom, copying pageSize
+	bytes each time.
+	(transferTo): Likewise.
+
+2005-03-09  David Daney  <ddaney@avtrex.com>
+
+	PR libgcj/20389
+	Merge BufferedInputStream from GNU Classpath.
+	* java/io/BufferedInputStream.java (marktarget): Field removed.
+	(CHUNKSIZE): Field removed.
+	(bufferSize): New field.
+	(BufferedInputStream): Initialize fields.
+	(close): Invalidate mark and buffer indexes.
+	(mark):  Rewritten.
+	(read()): Move mark handling code to refill.
+	(read(byte[], int, int)): Ditto.
+	(skip): Ditto and simplify EOF testing.
+	(refill): Rewritten.
+	* java/io/InputStreamReader.java (refill): Removed mark and reset
+	of internal BufferedInputStream.
+
+2005-03-09  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/natVMClassLoader.cc (defineClass): Reference
+	'systemClassLoader' field directly.
+	* java/lang/natRuntime.cc (_load): Reference 'systemClassLoader'
+	field directly.
+	* java/lang/natClassLoader.cc (_Jv_RegisterInitiatingLoader):
+	Reference 'systemClassLoader' field directly.
+	(_Jv_UnregisterInitiatingLoader): Likewise.
+	(_Jv_FindClass): Likewise.
+
+2005-03-09  Tom Tromey  <tromey@redhat.com>
+
+	* java/net/URLClassLoader.java (addURLImpl): Reset 'thisString'.
+	(toString): Synchronize.
+
 2005-03-07  Tom Tromey  <tromey@redhat.com>
 
 	* gnu/gcj/tools/gcj_dbtool/Main.java (main): Recognize '-f'.

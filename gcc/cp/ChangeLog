@@ -1,3 +1,30 @@
+2005-03-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/18384, c++/18327
+	* decl.c (reshape_init_array): Use UHWI type for max_index_cst
+	and index.  Convert max_index to size_type_node if it isn't
+	host_integerp (, 1).
+
+2005-03-09  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/20208
+	* pt.c (tsubst_decl): Apply array-to-pointer and
+	function-to-pointer conversions to function arguments.
+	(regenerate_decl_from_template): Likewise.
+
+2005-03-08  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/20186
+	* pt.c (contains_dependent_cast_p): New.
+	(fold_non_dependent_expr): Call it.
+
+2005-03-08  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/20142
+	* init.c (build_vec_init): When determining whether or not the
+	element type has an asignment operator, look through all array
+	dimensions. 
+
 2005-03-07  Mark Mitchell  <mark@codesourcery.com>
 
 	* class.c (finish_struct_1): Do not warn about non-virtual
