@@ -1,3 +1,12 @@
+2003-09-17  Diego Novillo  <dnovillo@redhat.com>
+
+	* pretty-print.c (pp_write_text_to_stream): Export.
+	* pretty-print.h (pp_write_text_to_stream): Declare.
+	* tree-pretty-print.c (print_generic_stmt): Flush to file.
+	(dump_generic_node): Call pp_write_text_to_stream.
+	(maybe_init_pretty_print): Take file argument; associate the
+	stream with the buffer.
+
 2003-09-17  Jeff Law  <law@redhat.com>
 
 	* tree-ssa-dom.c (optimize_stmt): Note that the statement is

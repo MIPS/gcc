@@ -38,7 +38,7 @@ static const char *op_symbol (tree);
 static void pretty_print_string (pretty_printer *, const char*);
 static void print_call_name (pretty_printer *, tree);
 static void newline_and_indent (pretty_printer *, int);
-static void maybe_init_pretty_print (void);
+static void maybe_init_pretty_print (FILE *);
 static void print_declaration (pretty_printer *, tree, int, int);
 static void print_struct_decl (pretty_printer *, tree, int);
 static void dump_block_info (pretty_printer *, basic_block, int);
@@ -105,11 +105,10 @@ debug_generic_stmt (tree t)
 void
 print_generic_stmt (FILE *file, tree t, int flags)
 {
-  maybe_init_pretty_print ();
+  maybe_init_pretty_print (file);
   dumping_stmts = true;
   dump_generic_node (&buffer, t, 0, flags);
-  fprintf (file, "%s", pp_base_formatted_text (&buffer));
-  pp_clear_output_area (&buffer);
+  pp_flush (&buffer);
 }
 
 
@@ -119,11 +118,9 @@ print_generic_stmt (FILE *file, tree t, int flags)
 void
 print_generic_expr (FILE *file, tree t, int flags)
 {
-  maybe_init_pretty_print ();
+  maybe_init_pretty_print (file);
   dumping_stmts = false;
   dump_generic_node (&buffer, t, 0, flags);
-  fprintf (file, "%s", pp_base_formatted_text (&buffer));
-  pp_clear_output_area (&buffer);
 }
 
 
@@ -1368,6 +1365,8 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags)
       NIY;
     }
 
+  pp_write_text_to_stream (buffer);
+
   return spc;
 }
 
@@ -1911,15 +1910,18 @@ pretty_print_string (pretty_printer *buffer, const char *str)
 }
 
 static void
-maybe_init_pretty_print (void)
+maybe_init_pretty_print (FILE *file)
 {
   last_bb = NULL;
 
   if (!initialized)
     {
       pp_construct (&buffer, /* prefix */NULL, /* line-width */0);
+      pp_needs_newline (&buffer) = true;
       initialized = 1;
     }
+
+  buffer.buffer->stream = file;
 }
 
 static void
