@@ -1,5 +1,6 @@
 /* Functions for generic Darwin as target machine for GNU C compiler.
-   Copyright (C) 1989, 1990, 1991, 1992, 1993, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1989, 1990, 1991, 1992, 1993, 2000, 2001, 2002, 2003, 2004,
+   2005
    Free Software Foundation, Inc.
    Contributed by Apple Computer Inc.
 
@@ -90,16 +91,30 @@ name_needs_quotes (const char *name)
   return 0;
 }
 
-/*
- * flag_pic = 1 ... generate only indirections
- * flag_pic = 2 ... generate indirections and pure code
- */
-
+/* Return true if SYM_REF can be used without an indirection.  */
 static int
 machopic_symbol_defined_p (rtx sym_ref)
 {
-  return (SYMBOL_REF_FLAGS (sym_ref) & MACHO_SYMBOL_FLAG_DEFINED)
-    || (SYMBOL_REF_LOCAL_P (sym_ref) && ! SYMBOL_REF_EXTERNAL_P (sym_ref));
+  if (SYMBOL_REF_FLAGS (sym_ref) & MACHO_SYMBOL_FLAG_DEFINED)
+    return true;
+
+  /* If a symbol references local and is not an extern to this
+     file, then the symbol might be able to declared as defined.  */
+  if (SYMBOL_REF_LOCAL_P (sym_ref) && ! SYMBOL_REF_EXTERNAL_P (sym_ref))
+    {
+      /* If the symbol references a variable and the variable is a
+	 common symbol, then this symbol is not defined.  */
+      if (SYMBOL_REF_FLAGS (sym_ref) & MACHO_SYMBOL_FLAG_VARIABLE)
+	{
+	  tree decl = SYMBOL_REF_DECL (sym_ref);
+	  if (!decl)
+	    return true;
+	  if (DECL_COMMON (decl))
+	    return false;
+	}
+      return true;
+    }
+  return false;
 }
 
 /* This module assumes that (const (symbol_ref "foo")) is a legal pic
@@ -127,7 +142,7 @@ machopic_classify_symbol (rtx sym_ref)
 
 /* Indicate when fix-and-continue style code generation is being used
    and when a reference to data should be indirected so that it can be
-   rebound in a new translation unit to refernce the original instance
+   rebound in a new translation unit to reference the original instance
    of that data.  Symbol names that are for code generation local to
    the translation unit are bound to the new translation unit;
    currently this means symbols that begin with L or _OBJC_;
@@ -740,7 +755,8 @@ machopic_legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
 	  else
 #endif  /*  HAVE_lo_sum  */
 	    {
-	      if (GET_CODE (orig) == REG)
+	      if (REG_P (orig)
+	          || GET_CODE (orig) == SUBREG)
 		{
 		  return orig;
 		}
@@ -1022,7 +1038,7 @@ machopic_select_section (tree exp, int reloc,
   else if ((TREE_CODE (exp) == INTEGER_CST || TREE_CODE (exp) == REAL_CST)
 	   && flag_merge_constants)
     {
-      tree size = TYPE_SIZE (TREE_TYPE (exp));
+      tree size = TYPE_SIZE_UNIT (TREE_TYPE (exp));
 
       if (TREE_CODE (size) == INTEGER_CST &&
 	  TREE_INT_CST_LOW (size) == 4 &&
@@ -1213,7 +1229,7 @@ darwin_handle_weak_import_attribute (tree *node, tree name,
 				     int ARG_UNUSED (flags),
 				     bool * no_add_attrs)
 {
-  if (TREE_CODE (*node) != FUNCTION_DECL)
+  if (TREE_CODE (*node) != FUNCTION_DECL && TREE_CODE (*node) != VAR_DECL)
     {
       warning ("%qs attribute ignored", IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
@@ -1329,7 +1345,7 @@ darwin_assemble_visibility (tree decl, int vis)
       fputs ("\n", asm_out_file);
     }
   else
-    warning ("internal and protected visibility attributes not supported"
+    warning ("internal and protected visibility attributes not supported "
 	     "in this configuration; ignored");
 }
 
@@ -1343,21 +1359,22 @@ darwin_assemble_visibility (tree decl, int vis)
 static int darwin_dwarf_label_counter;
 
 void
-darwin_asm_output_dwarf_delta (FILE *file, int size ATTRIBUTE_UNUSED,
+darwin_asm_output_dwarf_delta (FILE *file, int size,
 			       const char *lab1, const char *lab2)
 {
   int islocaldiff = (lab1[0] == '*' && lab1[1] == 'L'
 		     && lab2[0] == '*' && lab2[1] == 'L');
+  const char *directive = (size == 8 ? ".quad" : ".long");
 
   if (islocaldiff)
     fprintf (file, "\t.set L$set$%d,", darwin_dwarf_label_counter);
   else
-    fprintf (file, "\t%s\t", ".long");
-  assemble_name (file, lab1);
+    fprintf (file, "\t%s\t", directive);
+  assemble_name_raw (file, lab1);
   fprintf (file, "-");
-  assemble_name (file, lab2);
+  assemble_name_raw (file, lab2);
   if (islocaldiff)
-    fprintf (file, "\n\t.long L$set$%d", darwin_dwarf_label_counter++);
+    fprintf (file, "\n\t%s L$set$%d", directive, darwin_dwarf_label_counter++);
 }
 
 void

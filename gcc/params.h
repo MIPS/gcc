@@ -1,5 +1,5 @@
 /* params.h - Run-time parameters.
-   Copyright (C) 2001, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2003, 2004, 2005 Free Software Foundation, Inc.
    Written by Mark Mitchell <mark@codesourcery.com>.
 
 This file is part of GCC.
@@ -52,7 +52,7 @@ typedef struct param_info
   /* Minimum acceptable value.  */
   int min_value;
   
-  /* Maxiumum acceptable value, if greater than minimum  */
+  /* Maximum acceptable value, if greater than minimum  */
   int max_value;
   
   /* A short description of the option.  */
@@ -137,4 +137,6 @@ typedef enum compiler_param
   PARAM_VALUE (PARAM_INTEGER_SHARE_LIMIT)
 #define LOOP_CH_MAX_SIZE \
   PARAM_VALUE (PARAM_LOOP_CH_MAX_SIZE)
+#define MAX_LAST_VALUE_RTL \
+  PARAM_VALUE (PARAM_MAX_LAST_VALUE_RTL)
 #endif /* ! GCC_PARAMS_H */

@@ -1,5 +1,5 @@
 /* Process expressions for the GNU compiler for the Java(TM) language.
-   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -1329,6 +1329,9 @@ expand_load_internal (int index, tree type, int pc)
      value into it.  Then we push this new local on the stack.
      Hopefully this all gets optimized out.  */
   copy = build_decl (VAR_DECL, NULL_TREE, type);
+  if (INTEGRAL_TYPE_P (type)
+      && TREE_TYPE (copy) != TREE_TYPE (var))
+    var = convert (type, var);
   java_add_local_var (copy);
   java_add_stmt (build2 (MODIFY_EXPR, TREE_TYPE (var), copy, var));
   
@@ -2546,7 +2549,7 @@ build_jni_stub (tree method)
   args = NULL_TREE;
   for (tem = method_args; tem != NULL_TREE; tem = TREE_CHAIN (tem))
     {
-      int arg_bits = TREE_INT_CST_LOW (TYPE_SIZE_UNIT (TREE_TYPE (tem)));
+      int arg_bits = TREE_INT_CST_LOW (TYPE_SIZE (TREE_TYPE (tem)));
 #ifdef PARM_BOUNDARY
       arg_bits = (((arg_bits + PARM_BOUNDARY - 1) / PARM_BOUNDARY)
                   * PARM_BOUNDARY);

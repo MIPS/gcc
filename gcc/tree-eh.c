@@ -1,5 +1,5 @@
 /* Exception handling semantics and decomposition for trees.
-   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -443,6 +443,8 @@ replace_goto_queue_stmt_list (tree t, struct leh_tf_state *tf)
 static void
 replace_goto_queue (struct leh_tf_state *tf)
 {
+  if (tf->goto_queue_active == 0)
+    return;
   replace_goto_queue_stmt_list (*tf->top_p, tf);
 }
 

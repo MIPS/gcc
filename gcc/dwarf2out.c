@@ -1,6 +1,6 @@
 /* Output Dwarf2 format symbol table information from GCC.
    Copyright (C) 1992, 1993, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002,
-   2003, 2004 Free Software Foundation, Inc.
+   2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Gary Funck (gary@intrepid.com).
    Derived from DWARF 1 implementation of Ron Guilmette (rfg@monkeys.com).
    Extensively modified by Jason Merrill (jason@cygnus.com).
@@ -4632,6 +4632,15 @@ block_ultimate_origin (tree block)
 		       ? BLOCK_ABSTRACT_ORIGIN (ret_val) : NULL);
 	}
       while (lookahead != NULL && lookahead != ret_val);
+      
+      /* The block's abstract origin chain may not be the *ultimate* origin of
+	 the block. It could lead to a DECL that has an abstract origin set.
+	 If so, we want that DECL's abstract origin (which is what DECL_ORIGIN
+	 will give us if it has one).  Note that DECL's abstract origins are
+	 supposed to be the most distant ancestor (or so decl_ultimate_origin
+	 claims), so we don't need to loop following the DECL origins.  */
+      if (DECL_P (ret_val))
+	return DECL_ORIGIN (ret_val);
 
       return ret_val;
     }
@@ -8705,8 +8714,8 @@ static dw_loc_descr_ref
 concat_loc_descriptor (rtx x0, rtx x1)
 {
   dw_loc_descr_ref cc_loc_result = NULL;
-  dw_loc_descr_ref x0_ref = loc_descriptor (x0, true);
-  dw_loc_descr_ref x1_ref = loc_descriptor (x1, true);
+  dw_loc_descr_ref x0_ref = loc_descriptor (x0, false);
+  dw_loc_descr_ref x1_ref = loc_descriptor (x1, false);
 
   if (x0_ref == 0 || x1_ref == 0)
     return 0;
@@ -8925,7 +8934,7 @@ loc_descriptor_from_tree_1 (tree loc, int want_address)
 
 	    /* Certain constructs can only be represented at top-level.  */
 	    if (want_address == 2)
-	      return loc_descriptor (rtl, true);
+	      return loc_descriptor (rtl, false);
 
 	    mode = GET_MODE (rtl);
 	    if (MEM_P (rtl))
@@ -8933,7 +8942,7 @@ loc_descriptor_from_tree_1 (tree loc, int want_address)
 		rtl = XEXP (rtl, 0);
 		have_address = 1;
 	      }
-	    ret = mem_loc_descriptor (rtl, mode, true);
+	    ret = mem_loc_descriptor (rtl, mode, false);
 	  }
       }
       break;
@@ -8965,7 +8974,7 @@ loc_descriptor_from_tree_1 (tree loc, int want_address)
 	int volatilep;
 
 	obj = get_inner_reference (loc, &bitsize, &bitpos, &offset, &mode,
-				   &unsignedp, &volatilep);
+				   &unsignedp, &volatilep, false);
 
 	if (obj == loc)
 	  return 0;
@@ -9012,7 +9021,7 @@ loc_descriptor_from_tree_1 (tree loc, int want_address)
 	  return 0;
 	mode = GET_MODE (rtl);
 	rtl = XEXP (rtl, 0);
-	ret = mem_loc_descriptor (rtl, mode, true);
+	ret = mem_loc_descriptor (rtl, mode, false);
 	have_address = 1;
 	break;
       }
@@ -9962,6 +9971,29 @@ rtl_for_decl_location (tree decl)
   return rtl;
 }
 
+/* Return true if DECL's containing function has a frame base attribute.
+   Return false otherwise.  */
+
+static bool
+containing_function_has_frame_base (tree decl)
+{
+  tree declcontext = decl_function_context (decl);
+  dw_die_ref context;
+  dw_attr_ref attr;
+  
+  if (!declcontext)
+    return false;
+
+  context = lookup_decl_die (declcontext);
+  if (!context)
+    return false;
+
+  for (attr = context->die_attr; attr; attr = attr->dw_attr_next)
+    if (attr->dw_attr == DW_AT_frame_base)
+      return true;
+  return false;
+}
+  
 /* Generate *either* a DW_AT_location attribute or else a DW_AT_const_value
    data attribute for a variable or a parameter.  We generate the
    DW_AT_const_value attribute only in those cases where the given variable
@@ -9980,12 +10012,15 @@ add_location_or_const_value_attribute (dw_die_ref die, tree decl,
   rtx rtl;
   dw_loc_descr_ref descr;
   var_loc_list *loc_list;
-
+  bool can_use_fb;
+  struct var_loc_node *node;
   if (TREE_CODE (decl) == ERROR_MARK)
     return;
 
   gcc_assert (TREE_CODE (decl) == VAR_DECL || TREE_CODE (decl) == PARM_DECL
 	      || TREE_CODE (decl) == RESULT_DECL);
+	     
+  can_use_fb = containing_function_has_frame_base (decl);
 
   /* See if we possibly have multiple locations for this variable.  */
   loc_list = lookup_decl_loc (decl);
@@ -9998,7 +10033,7 @@ add_location_or_const_value_attribute (dw_die_ref die, tree decl,
       const char *endname;
       dw_loc_list_ref list;
       rtx varloc;
-      struct var_loc_node *node;
+
 
       /* We need to figure out what section we should use as the base
 	 for the address ranges where a given location is valid.
@@ -10037,7 +10072,7 @@ add_location_or_const_value_attribute (dw_die_ref die, tree decl,
 
       node = loc_list->first;
       varloc = NOTE_VAR_LOCATION (node->var_loc_note);
-      list = new_loc_list (loc_descriptor (varloc, attr != DW_AT_frame_base),
+      list = new_loc_list (loc_descriptor (varloc, can_use_fb),
 			   node->label, node->next->label, secname, 1);
       node = node->next;
 
@@ -10049,7 +10084,7 @@ add_location_or_const_value_attribute (dw_die_ref die, tree decl,
 	    varloc = NOTE_VAR_LOCATION (node->var_loc_note);
 	    add_loc_descr_to_loc_list (&list,
 				       loc_descriptor (varloc,
-						       attr != DW_AT_frame_base),
+						       can_use_fb),
 				       node->label, node->next->label, secname);
 	  }
 
@@ -10070,7 +10105,7 @@ add_location_or_const_value_attribute (dw_die_ref die, tree decl,
 	    }
 	  add_loc_descr_to_loc_list (&list,
 				     loc_descriptor (varloc,
-						     attr != DW_AT_frame_base),
+						     can_use_fb),
 				     node->label, endname, secname);
 	}
 
@@ -10079,16 +10114,36 @@ add_location_or_const_value_attribute (dw_die_ref die, tree decl,
       return;
     }
 
+  /* Try to get some constant RTL for this decl, and use that as the value of
+     the location.  */
+  
   rtl = rtl_for_decl_location (decl);
   if (rtl && (CONSTANT_P (rtl) || GET_CODE (rtl) == CONST_STRING))
     {
       add_const_value_attribute (die, rtl);
       return;
     }
-
+  
+  /* We couldn't get any rtl, and we had no >1 element location list, so try
+     directly generating the location description from the tree.  */
   descr = loc_descriptor_from_tree (decl);
   if (descr)
-    add_AT_location_description (die, attr, descr);
+    {
+      add_AT_location_description (die, attr, descr);
+      return;
+    }
+  
+  /* Lastly, if we have tried to generate the location otherwise, and it
+     didn't work out (we wouldn't be here if we did), and we have a one entry
+     location list, try generating a location from that.  */
+  if (loc_list && loc_list->first)
+    {
+      node = loc_list->first;
+      descr = loc_descriptor (NOTE_VAR_LOCATION (node->var_loc_note), 
+			      can_use_fb);
+      if (descr)
+	add_AT_location_description (die, attr, descr);
+    }
 }
 
 /* If we don't have a copy of this variable in memory for some reason (such
@@ -10453,9 +10508,17 @@ add_abstract_origin_attribute (dw_die_ref die, tree origin)
   else if (TYPE_P (origin))
     origin_die = lookup_type_die (origin);
 
-  gcc_assert (origin_die);
+  /* XXX: Functions that are never lowered don't always have correct block
+     trees (in the case of java, they simply have no block tree, in some other
+     languages).  For these functions, there is nothing we can really do to
+     output correct debug info for inlined functions in all cases.  Rather
+     than abort, we'll just produce deficient debug info now, in that we will
+     have variables without a proper abstract origin.  In the future, when all
+     functions are lowered, we should re-add a gcc_assert (origin_die)
+     here.  */
 
-  add_AT_die_ref (die, DW_AT_abstract_origin, origin_die);
+  if (origin_die)
+      add_AT_die_ref (die, DW_AT_abstract_origin, origin_die);
 }
 
 /* We do not currently support the pure_virtual attribute.  */
@@ -11190,12 +11253,8 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
 	     It seems reasonable to use AT_specification in this case.  */
 	  && !get_AT (old_die, DW_AT_inline))
 	{
-	  /* ??? This can happen if there is a bug in the program, for
-	     instance, if it has duplicate function definitions.  Ideally,
-	     we should detect this case and ignore it.  For now, if we have
-	     already reported an error, any error at all, then assume that
-	     we got here because of an input error, not a dwarf2 bug.  */
-	  gcc_assert (errorcount);
+	  /* Detect and ignore this case, where we are trying to output
+	     something we have already output.  */
 	  return;
 	}
 
@@ -12225,9 +12284,8 @@ gen_block_die (tree stmt, dw_die_ref context_die, int depth)
   tree decl;
   enum tree_code origin_code;
 
-  /* Ignore blocks never really used to make RTL.  */
-  if (stmt == NULL_TREE || !TREE_USED (stmt)
-      || (!TREE_ASM_WRITTEN (stmt) && !BLOCK_ABSTRACT (stmt)))
+  /* Ignore blocks that are NULL.  */
+  if (stmt == NULL_TREE)
     return;
 
   /* If the block is one fragment of a non-contiguous block, do not
@@ -12273,7 +12331,10 @@ gen_block_die (tree stmt, dw_die_ref context_die, int depth)
 	  if (debug_info_level > DINFO_LEVEL_TERSE)
 	    /* We are not in terse mode so *any* local declaration counts
 	       as being a "significant" one.  */
-	    must_output_die = (BLOCK_VARS (stmt) != NULL);
+	    must_output_die = (BLOCK_VARS (stmt) != NULL 
+			       && (TREE_USED (stmt) 
+				   || TREE_ASM_WRITTEN (stmt)
+				   || BLOCK_ABSTRACT (stmt)));
 	  else
 	    /* We are in terse mode, so only local (nested) function
 	       definitions count as "significant" local declarations.  */
@@ -12315,29 +12376,32 @@ decls_for_scope (tree stmt, dw_die_ref context_die, int depth)
   tree decl;
   tree subblocks;
 
-  /* Ignore blocks never really used to make RTL.  */
-  if (stmt == NULL_TREE || ! TREE_USED (stmt))
+  /* Ignore NULL blocks.  */
+  if (stmt == NULL_TREE)
     return;
 
-  /* Output the DIEs to represent all of the data objects and typedefs
-     declared directly within this block but not within any nested
-     sub-blocks.  Also, nested function and tag DIEs have been
-     generated with a parent of NULL; fix that up now.  */
-  for (decl = BLOCK_VARS (stmt); decl != NULL; decl = TREE_CHAIN (decl))
+  if (TREE_USED (stmt))
     {
-      dw_die_ref die;
-
-      if (TREE_CODE (decl) == FUNCTION_DECL)
-	die = lookup_decl_die (decl);
-      else if (TREE_CODE (decl) == TYPE_DECL && TYPE_DECL_IS_STUB (decl))
-	die = lookup_type_die (TREE_TYPE (decl));
-      else
-	die = NULL;
-
-      if (die != NULL && die->die_parent == NULL)
-	add_child_die (context_die, die);
-      else
-	gen_decl_die (decl, context_die);
+      /* Output the DIEs to represent all of the data objects and typedefs
+	 declared directly within this block but not within any nested
+	 sub-blocks.  Also, nested function and tag DIEs have been
+	 generated with a parent of NULL; fix that up now.  */
+      for (decl = BLOCK_VARS (stmt); decl != NULL; decl = TREE_CHAIN (decl))
+	{
+	  dw_die_ref die;
+	  
+	  if (TREE_CODE (decl) == FUNCTION_DECL)
+	    die = lookup_decl_die (decl);
+	  else if (TREE_CODE (decl) == TYPE_DECL && TYPE_DECL_IS_STUB (decl))
+	    die = lookup_type_die (TREE_TYPE (decl));
+	  else
+	    die = NULL;
+	  
+	  if (die != NULL && die->die_parent == NULL)
+	    add_child_die (context_die, die);
+	  else
+	    gen_decl_die (decl, context_die);
+	}
     }
 
   /* If we're at -g1, we're not interested in subblocks.  */
@@ -13037,6 +13101,7 @@ dwarf2out_var_location (rtx loc_note)
   rtx prev_insn;
   static rtx last_insn;
   static const char *last_label;
+  tree decl;
 
   if (!DECL_P (NOTE_VAR_LOCATION_DECL (loc_note)))
     return;
@@ -13065,8 +13130,10 @@ dwarf2out_var_location (rtx loc_note)
 
   last_insn = loc_note;
   last_label = newloc->label;
-
-  add_var_loc_to_decl (NOTE_VAR_LOCATION_DECL (loc_note), newloc);
+  decl = NOTE_VAR_LOCATION_DECL (loc_note);
+  if (DECL_DEBUG_ALIAS_OF (decl))
+    decl = DECL_DEBUG_ALIAS_OF (decl); 
+  add_var_loc_to_decl (decl, newloc);
 }
 
 /* We need to reset the locations at the beginning of each

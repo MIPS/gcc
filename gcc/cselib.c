@@ -1,6 +1,6 @@
 /* Common subexpression elimination library for GNU compiler.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -1148,8 +1148,9 @@ cselib_invalidate_mem (rtx mem_rtx)
 void
 cselib_invalidate_rtx (rtx dest)
 {
-  while (GET_CODE (dest) == STRICT_LOW_PART || GET_CODE (dest) == SIGN_EXTRACT
-	 || GET_CODE (dest) == ZERO_EXTRACT || GET_CODE (dest) == SUBREG)
+  while (GET_CODE (dest) == SUBREG
+	 || GET_CODE (dest) == ZERO_EXTRACT
+	 || GET_CODE (dest) == STRICT_LOW_PART)
     dest = XEXP (dest, 0);
 
   if (REG_P (dest))

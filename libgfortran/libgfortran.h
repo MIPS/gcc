@@ -3,14 +3,14 @@
    Contributed by Paul Brook <paul@nowt.org>, and
    Andy Vaught <andy@xena.eas.asu.edu>
 
-This file is part of the GNU Fortran 95 runtime library (libgfor).
+This file is part of the GNU Fortran 95 runtime library (libgfortran).
 
-Libgfor is free software; you can redistribute it and/or
+Libgfortran is free software; you can redistribute it and/or
 modify it under the terms of the GNU Lesser General Public
 License as published by the Free Software Foundation; either
 version 2.1 of the License, or (at your option) any later version.
 
-Libgfor is distributed in the hope that it will be useful,
+Libgfortran is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU Lesser General Public License for more details.
@@ -19,6 +19,13 @@ You should have received a copy of the GNU Lesser General Public
 License along with libgfor; see the file COPYING.LIB.  If not,
 write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
+
+/* As a special exception, if you link this library with other files,
+   some of which are compiled with GCC, to produce an executable,
+   this library does not by itself cause the resulting executable
+   to be covered by the GNU General Public License.
+   This exception does not however invalidate any other reasons why
+   the executable file might be covered by the GNU General Public License.  */
 
 
 #ifndef LIBGFOR_H
@@ -185,8 +192,12 @@ isfinite (double x)
 #define IMAGPART(z) (__imag__(z))
 #define COMPLEX_ASSIGN(z_, r_, i_) {__real__(z_) = (r_); __imag__(z_) = (i_);}
 
+typedef int8_t GFC_INTEGER_1;
+typedef int16_t GFC_INTEGER_2;
 typedef int32_t GFC_INTEGER_4;
 typedef int64_t GFC_INTEGER_8;
+typedef uint8_t GFC_UINTEGER_1;
+typedef uint16_t GFC_UINTEGER_2;
 typedef uint32_t GFC_UINTEGER_4;
 typedef uint64_t GFC_UINTEGER_8;
 typedef GFC_INTEGER_4 GFC_LOGICAL_4;
@@ -281,7 +292,7 @@ enum
 
 typedef struct
 {
-  int stdin_unit, stdout_unit, optional_plus;
+  int stdin_unit, stdout_unit, stderr_unit, optional_plus;
   int allocate_init_flag, allocate_init_value;
   int locus;
 
@@ -368,8 +379,8 @@ internal_proto(get_args);
 
 /* error.c */
 
-extern char *itoa (int64_t);
-internal_proto(itoa);
+extern char *gfc_itoa (int64_t);
+internal_proto(gfc_itoa);
 
 extern char *xtoa (uint64_t);
 internal_proto(xtoa);

@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler, for Sun SPARC.
    Copyright (C) 1987, 1988, 1989, 1992, 1994, 1995, 1996, 1997, 1998, 1999
-   2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com).
    64-bit SPARC-V9 support by Michael Tiemann, Jim Wilson, and Doug Evans,
    at Cygnus Support.
@@ -203,6 +203,16 @@ extern enum cmodel sparc_cmodel;
 #define TARGET_CM_EMBMEDANY (sparc_cmodel == CM_EMBMEDANY)
 
 #define SPARC_DEFAULT_CMODEL CM_32
+
+/* The SPARC-V9 architecture defines a relaxed memory ordering model (RMO)
+   which requires the following macro to be true if enabled.  Prior to V9,
+   there are no instructions to even talk about memory synchronization.
+   Note that the UltraSPARC III processors don't implement RMO, unlike the
+   UltraSPARC II processors.
+
+   Default to false; for example, Solaris never enables RMO, only ever uses
+   total memory ordering (TMO).  */
+#define SPARC_RELAXED_ORDERING false
 
 /* This is call-clobbered in the normal ABI, but is reserved in the
    home grown (aka upward compatible) embedded ABI.  */
@@ -471,10 +481,6 @@ extern enum cmodel sparc_cmodel;
 #define CAN_DEBUG_WITHOUT_FP
 
 #define OVERRIDE_OPTIONS  sparc_override_options ()
-
-/* Generate DBX debugging information.  */
-
-#define DBX_DEBUGGING_INFO 1
 
 /* Run-time compilation parameters selecting different hardware subsets.  */
 
@@ -1736,13 +1742,6 @@ function_arg (& (CUM), (MODE), (TYPE), (NAMED), 0)
 
 #define FUNCTION_INCOMING_ARG(CUM, MODE, TYPE, NAMED) \
 function_arg (& (CUM), (MODE), (TYPE), (NAMED), 1)
-
-/* For an arg passed partly in registers and partly in memory,
-   this is the number of registers used.
-   For args passed entirely in registers or entirely in memory, zero.  */
-
-#define FUNCTION_ARG_PARTIAL_NREGS(CUM, MODE, TYPE, NAMED) \
-function_arg_partial_nregs (& (CUM), (MODE), (TYPE), (NAMED))
 
 /* If defined, a C expression which determines whether, and in which direction,
    to pad out an argument with extra space.  The value should be of type

@@ -1,6 +1,6 @@
 /* Tree lowering pass.  Lowers GIMPLE into unstructured form.
 
-   Copyright (C) 2003 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -278,10 +278,16 @@ block_may_fallthru (tree block)
     case GOTO_EXPR:
     case RETURN_EXPR:
     case RESX_EXPR:
-    case SWITCH_EXPR:
       /* Easy cases.  If the last statement of the block implies 
 	 control transfer, then we can't fall through.  */
       return false;
+
+    case SWITCH_EXPR:
+      /* If SWITCH_LABELS is set, this is lowered, and represents a
+	 branch to a selected label and hence can not fall through.
+	 Otherwise SWITCH_BODY is set, and the switch can fall
+	 through.  */
+      return SWITCH_LABELS (stmt) == NULL_TREE;
 
     case COND_EXPR:
       if (block_may_fallthru (COND_EXPR_THEN (stmt)))
@@ -529,6 +535,60 @@ struct tree_opt_pass pass_remove_useless_vars =
   "vars",				/* name */
   NULL,					/* gate */
   remove_useless_vars,			/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  0,					/* tv_id */
+  0,					/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  TODO_dump_func,			/* todo_flags_finish */
+  0					/* letter */
+};
+
+/* Mark BLOCK used if it has a used variable in it, then recurse over its
+   subblocks.  */
+
+static void
+mark_blocks_with_used_vars (tree block)
+{
+  tree var;
+  tree subblock;
+
+  if (!TREE_USED (block))
+    {
+      for (var = BLOCK_VARS (block);
+	   var;
+	   var = TREE_CHAIN (var))
+	{
+	  if (TREE_USED (var))
+	    {
+	      TREE_USED (block) = true;
+	      break;
+	    }
+	}
+    }
+  for (subblock = BLOCK_SUBBLOCKS (block);
+       subblock;
+       subblock = BLOCK_CHAIN (subblock))
+    mark_blocks_with_used_vars (subblock);
+}
+
+/* Mark the used attribute on blocks correctly.  */
+  
+static void
+mark_used_blocks (void)
+{  
+  mark_blocks_with_used_vars (DECL_INITIAL (current_function_decl));
+}
+
+
+struct tree_opt_pass pass_mark_used_blocks = 
+{
+  "blocks",				/* name */
+  NULL,					/* gate */
+  mark_used_blocks,			/* execute */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */

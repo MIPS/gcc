@@ -1,4 +1,4 @@
-/* Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
+/* Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of the GNU Fortran 95 runtime library (libgfortran).
@@ -7,6 +7,15 @@ Libgfortran is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
+
+In addition to the permissions in the GNU General Public License, the
+Free Software Foundation gives you unlimited permission to link the
+compiled version of this file into combinations with other programs,
+and to distribute those combinations without any restriction coming
+from the use of this file.  (The General Public License restrictions
+do apply in other respects; for example, they cover modification of
+the file, and distribution when not linked into a combine
+executable.)
 
 Libgfortran is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -162,7 +171,7 @@ read_sf (int *length)
 
       /* If we have a line without a terminating \n, drop through to
 	 EOR below.  */
-      if (readlen < 1 & n == 0)
+      if (readlen < 1 && n == 0)
 	{
 	  generate_error (ERROR_END, NULL);
 	  return NULL;
@@ -425,16 +434,16 @@ formatted_transfer (bt type, void *p, int len)
   if (type == BT_COMPLEX)
     type = BT_REAL;
 
-  /* If reversion has occurred and there is another real data item,
-     then we have to move to the next record.  */
-
-  if (g.reversion_flag && n > 0)
-    {
-      g.reversion_flag = 0;
-      next_record (0);
-    }
   for (;;)
     {
+      /* If reversion has occurred and there is another real data item,
+         then we have to move to the next record.  */
+      if (g.reversion_flag && n > 0)
+        {
+          g.reversion_flag = 0;
+          next_record (0);
+        }
+
       consume_data_flag = 1 ;
       if (ioparm.library_return != LIBRARY_OK)
 	break;
@@ -827,11 +836,15 @@ transfer_complex (void *p, int kind)
 static void
 us_read (void)
 {
-  gfc_offset *p;
+  char *p;
   int n;
+  gfc_offset i;
 
   n = sizeof (gfc_offset);
-  p = (gfc_offset *) salloc_r (current_unit->s, &n);
+  p = salloc_r (current_unit->s, &n);
+
+  if (n == 0)
+    return;  /* end of file */
 
   if (p == NULL || n != sizeof (gfc_offset))
     {
@@ -839,7 +852,8 @@ us_read (void)
       return;
     }
 
-  current_unit->bytes_left = *p;
+  memcpy (&i, p, sizeof (gfc_offset));
+  current_unit->bytes_left = i;
 }
 
 
@@ -849,11 +863,11 @@ us_read (void)
 static void
 us_write (void)
 {
-  gfc_offset *p;
+  char *p;
   int length;
 
   length = sizeof (gfc_offset);
-  p = (gfc_offset *) salloc_w (current_unit->s, &length);
+  p = salloc_w (current_unit->s, &length);
 
   if (p == NULL)
     {
@@ -861,7 +875,7 @@ us_write (void)
       return;
     }
 
-  *p = 0;			/* Bogus value for now.  */
+  memset (p, '\0', sizeof (gfc_offset));	/* Bogus value for now.  */
   if (sfree (current_unit->s) == FAILURE)
     generate_error (ERROR_OS, NULL);
 
@@ -1207,7 +1221,8 @@ next_record_r (int done)
 
     case FORMATTED_SEQUENTIAL:
       length = 1;
-      if (sf_seen_eor && done)
+      /* sf_read has already terminated input because of an '\n'  */
+      if (sf_seen_eor) 
          break;
 
       do
@@ -1285,7 +1300,7 @@ next_record_w (int done)
       if (p == NULL)
 	goto io_error;
 
-      *((gfc_offset *) p) = m;
+      memcpy (p, &m, sizeof (gfc_offset));
       if (sfree (current_unit->s) == FAILURE)
 	goto io_error;
 
@@ -1296,7 +1311,7 @@ next_record_w (int done)
       if (p == NULL)
 	generate_error (ERROR_OS, NULL);
 
-      *((gfc_offset *) p) = m;
+      memcpy (p, &m, sizeof (gfc_offset));
       if (sfree (current_unit->s) == FAILURE)
 	goto io_error;
 
@@ -1348,6 +1363,9 @@ next_record (int done)
   else
     next_record_w (done);
 
+  /* keep position up to date for INQUIRE */
+  current_unit->flags.position = POSITION_ASIS;
+
   current_unit->current_record = 0;
   if (current_unit->flags.access == ACCESS_DIRECT)
    {
@@ -1371,6 +1389,9 @@ next_record (int done)
 static void
 finalize_transfer (void)
 {
+  if (ioparm.library_return != LIBRARY_OK)
+    return;
+
   if ((ionml != NULL) && (ioparm.namelist_name != NULL))
     {
        if (ioparm.namelist_read_mode)
@@ -1545,9 +1566,13 @@ st_write_done (void)
 	current_unit->endfile = AT_ENDFILE;	/* Just at it now.  */
 	break;
 
-      case NO_ENDFILE:	/* Get rid of whatever is after this record.  */
-	if (struncate (current_unit->s) == FAILURE)
-	  generate_error (ERROR_OS, NULL);
+      case NO_ENDFILE:
+	if (current_unit->current_record > current_unit->last_record)
+          {
+            /* Get rid of whatever is after this record.  */
+            if (struncate (current_unit->s) == FAILURE)
+              generate_error (ERROR_OS, NULL);
+          }
 
 	current_unit->endfile = AT_ENDFILE;
 	break;

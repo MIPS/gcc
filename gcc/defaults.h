@@ -1,5 +1,6 @@
 /* Definitions of various defaults for tm.h macros.
-   Copyright (C) 1992, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1992, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004,
+   2005
    Free Software Foundation, Inc.
    Contributed by Ron Guilmette (rfg@monkeys.com)
 
@@ -137,12 +138,27 @@ do { fputs (integer_asm_op (POINTER_SIZE / BITS_PER_UNIT, TRUE), FILE); \
 #endif
 #endif
 
+/* Decide whether to defer emitting the assembler output for an equate
+   of two values.  The default is to not defer output.  */
+#ifndef TARGET_DEFERRED_OUTPUT_DEFS
+#define TARGET_DEFERRED_OUTPUT_DEFS(DECL,TARGET) false
+#endif
+
 /* This is how to output the definition of a user-level label named
    NAME, such as the label on a static function or variable NAME.  */
 
 #ifndef ASM_OUTPUT_LABEL
 #define ASM_OUTPUT_LABEL(FILE,NAME) \
   do { assemble_name ((FILE), (NAME)); fputs (":\n", (FILE)); } while (0)
+#endif
+
+/* Output the definition of a compiler-generated label named NAME.  */
+#ifndef ASM_OUTPUT_INTERNAL_LABEL
+#define ASM_OUTPUT_INTERNAL_LABEL(FILE,NAME)	\
+  do {						\
+    assemble_name_raw ((FILE), (NAME));		\
+    fputs (":\n", (FILE));			\
+  } while (0)
 #endif
 
 /* This is how to output a reference to a user-level label named NAME.  */
@@ -339,7 +355,7 @@ do { fputs (integer_asm_op (POINTER_SIZE / BITS_PER_UNIT, TRUE), FILE); \
 #endif
 #endif
 
-/* This decision to use a .jcr section can be overriden by defining
+/* This decision to use a .jcr section can be overridden by defining
    USE_JCR_SECTION to 0 in target file.  This is necessary if target
    can define JCR_SECTION_NAME but does not have crtstuff or
    linker support for .jcr section.  */

@@ -389,15 +389,6 @@ set_phi_nodes (basic_block bb, tree l)
     set_bb_for_stmt (phi, bb);
 }
 
-/* Return the phi index number for an edge.  */
-static inline int
-phi_arg_from_edge (tree phi, edge e)
-{
-  gcc_assert (phi);
-  gcc_assert (TREE_CODE (phi) == PHI_NODE);
-  return e->dest_idx;
-}
-
 /* Mark VAR as used, so that it'll be preserved during rtl expansion.  */
 
 static inline void
@@ -621,6 +612,18 @@ mark_call_clobbered (tree var)
   if (ann->mem_tag_kind != NOT_A_TAG)
     DECL_EXTERNAL (var) = 1;
   bitmap_set_bit (call_clobbered_vars, ann->uid);
+  ssa_call_clobbered_cache_valid = false;
+  ssa_ro_call_cache_valid = false;
+}
+
+/* Clear the call-clobbered attribute from variable VAR.  */
+static inline void
+clear_call_clobbered (tree var)
+{
+  var_ann_t ann = var_ann (var);
+  if (ann->mem_tag_kind != NOT_A_TAG)
+    DECL_EXTERNAL (var) = 0;
+  bitmap_clear_bit (call_clobbered_vars, ann->uid);
   ssa_call_clobbered_cache_valid = false;
   ssa_ro_call_cache_valid = false;
 }

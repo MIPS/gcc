@@ -1,6 +1,6 @@
 /* Source code parsing and tree node generation for the GNU compiler
    for the Java(TM) language.
-   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
    Contributed by Alexandre Petit-Bianco (apbianco@cygnus.com)
 
@@ -6955,13 +6955,13 @@ process_imports (void)
       tree to_be_found = EXPR_WFL_NODE (TREE_PURPOSE (import));
       char *original_name;
 
-      original_name = xmemdup (IDENTIFIER_POINTER (to_be_found),
-			       IDENTIFIER_LENGTH (to_be_found),
-			       IDENTIFIER_LENGTH (to_be_found) + 1);
-
       /* Don't load twice something already defined. */
       if (IDENTIFIER_CLASS_VALUE (to_be_found))
 	continue;
+
+      original_name = xmemdup (IDENTIFIER_POINTER (to_be_found),
+			       IDENTIFIER_LENGTH (to_be_found),
+			       IDENTIFIER_LENGTH (to_be_found) + 1);
 
       while (1)
 	{
@@ -13798,7 +13798,9 @@ patch_binop (tree node, tree wfl_op1, tree wfl_op2)
       /* Types have to be either references or the null type. If
          they're references, it must be possible to convert either
          type to the other by casting conversion. */
-      else if (op1 == null_pointer_node || op2 == null_pointer_node
+      else if ((op1 == null_pointer_node && op2 == null_pointer_node)
+               || (op1 == null_pointer_node && JREFERENCE_TYPE_P (op2_type))
+               || (JREFERENCE_TYPE_P (op1_type) && op2 == null_pointer_node)
 	       || (JREFERENCE_TYPE_P (op1_type) && JREFERENCE_TYPE_P (op2_type)
 		   && (valid_ref_assignconv_cast_p (op1_type, op2_type, 1)
 		       || valid_ref_assignconv_cast_p (op2_type,

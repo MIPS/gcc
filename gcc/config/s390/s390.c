@@ -1,5 +1,5 @@
 /* Subroutines used for code generation on IBM S/390 and zSeries
-   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
    Contributed by Hartmut Penner (hpenner@de.ibm.com) and
                   Ulrich Weigand (uweigand@de.ibm.com).
@@ -90,6 +90,7 @@ static enum machine_mode s390_cc_modes_compatible (enum machine_mode,
 
 struct processor_costs 
 {
+  /* multiplication */
   const int m;        /* cost of an M instruction.  */
   const int mghi;     /* cost of an MGHI instruction.  */
   const int mh;       /* cost of an MH instruction.  */
@@ -103,8 +104,22 @@ struct processor_costs
   const int msgr;     /* cost of an MSGR instruction.  */
   const int msr;      /* cost of an MSR instruction.  */
   const int mult_df;  /* cost of multiplication in DFmode.  */
+  /* square root */
   const int sqdbr;    /* cost of square root in DFmode.  */
   const int sqebr;    /* cost of square root in SFmode.  */
+  /* multiply and add */
+  const int madbr;    /* cost of multiply and add in DFmode.  */
+  const int maebr;    /* cost of multiply and add in SFmode.  */
+  /* division */
+  const int ddbr;
+  const int ddr;
+  const int debr;
+  const int der;
+  const int dlgr;
+  const int dlr;
+  const int dr;
+  const int dsgfr;
+  const int dsgr;
 };
 
 const struct processor_costs *s390_cost;
@@ -127,6 +142,17 @@ struct processor_costs z900_cost =
   COSTS_N_INSNS (7),     /* multiplication in DFmode */
   COSTS_N_INSNS (44),    /* SQDBR */
   COSTS_N_INSNS (35),    /* SQEBR */
+  COSTS_N_INSNS (18),    /* MADBR */
+  COSTS_N_INSNS (13),    /* MAEBR */
+  COSTS_N_INSNS (30),    /* DDBR */
+  COSTS_N_INSNS (30),    /* DDR  */
+  COSTS_N_INSNS (27),    /* DEBR */
+  COSTS_N_INSNS (26),    /* DER  */
+  COSTS_N_INSNS (220),   /* DLGR */
+  COSTS_N_INSNS (34),    /* DLR */
+  COSTS_N_INSNS (34),    /* DR */
+  COSTS_N_INSNS (32),    /* DSGFR */
+  COSTS_N_INSNS (32),    /* DSGR */
 };
 
 static const
@@ -147,6 +173,17 @@ struct processor_costs z990_cost =
   COSTS_N_INSNS (1),     /* multiplication in DFmode */
   COSTS_N_INSNS (66),    /* SQDBR */
   COSTS_N_INSNS (38),    /* SQEBR */
+  COSTS_N_INSNS (1),     /* MADBR */
+  COSTS_N_INSNS (1),     /* MAEBR */
+  COSTS_N_INSNS (40),    /* DDBR */
+  COSTS_N_INSNS (44),    /* DDR  */
+  COSTS_N_INSNS (26),    /* DDBR */
+  COSTS_N_INSNS (28),    /* DER  */
+  COSTS_N_INSNS (176),   /* DLGR */
+  COSTS_N_INSNS (31),    /* DLR */
+  COSTS_N_INSNS (31),    /* DR */
+  COSTS_N_INSNS (31),    /* DSGFR */
+  COSTS_N_INSNS (31),    /* DSGR */
 };
 
 
@@ -310,9 +347,6 @@ struct s390_frame_layout GTY (())
 
   /* Set if return address needs to be saved.  */
   bool save_return_addr_p;
-
-  /* Set if backchain needs to be saved.  */
-  bool save_backchain_p;
 
   /* Size of stack frame.  */
   HOST_WIDE_INT frame_size;
@@ -566,7 +600,7 @@ s390_select_ccmode (enum rtx_code code, rtx op0, rtx op1)
 
  	/* If constants are involved in an add instruction it is possible to use
  	   the resulting cc for comparisons with zero. Knowing the sign of the
-	   constant the overflow behaviour gets predictable. e.g.:
+	   constant the overflow behavior gets predictable. e.g.:
  	     int a, b; if ((b = a + c) > 0)  
  	   with c as a constant value: c < 0 -> CCAN and c >= 0 -> CCAP  */
 	if (GET_CODE (op0) == PLUS && GET_CODE (XEXP (op0, 1)) == CONST_INT
@@ -1405,6 +1439,10 @@ override_options (void)
     s390_cost = &z900_cost;
 
 
+  if (TARGET_BACKCHAIN && TARGET_PACKED_STACK && TARGET_HARD_FLOAT)
+    error ("-mbackchain -mpacked-stack -mhard-float are not supported "
+	   "in combination.");
+
   if (s390_warn_framesize_string)
     {
       if (sscanf (s390_warn_framesize_string, HOST_WIDE_INT_PRINT_DEC,
@@ -1883,6 +1921,7 @@ s390_rtx_costs (rtx x, int code, int outer_code, int *total)
     case LABEL_REF:
     case SYMBOL_REF:
     case CONST_DOUBLE:
+    case MEM:
       *total = 0;
       return true;
 
@@ -1902,13 +1941,16 @@ s390_rtx_costs (rtx x, int code, int outer_code, int *total)
     case PLUS:
     case MINUS:
       /* Check for multiply and add.  */
-      if (GET_MODE (x) == DFmode
+      if ((GET_MODE (x) == DFmode || GET_MODE (x) == SFmode)
 	  && GET_CODE (XEXP (x, 0)) == MULT
 	  && TARGET_HARD_FLOAT && TARGET_IEEE_FLOAT && TARGET_FUSED_MADD)
 	{
 	  /* This is the multiply and add case.  */
-	  *total = s390_cost->mult_df 
-	    + rtx_cost (XEXP (XEXP (x, 0), 0), MULT) 
+	  if (GET_MODE (x) == DFmode)
+	    *total = s390_cost->madbr;
+	  else
+	    *total = s390_cost->maebr;
+	  *total += rtx_cost (XEXP (XEXP (x, 0), 0), MULT) 
 	    + rtx_cost (XEXP (XEXP (x, 0), 1), MULT) 
 	    + rtx_cost (XEXP (x, 1), code);
 	  return true;  /* Do not do an additional recursive descent.  */
@@ -1972,11 +2014,51 @@ s390_rtx_costs (rtx x, int code, int outer_code, int *total)
 	}
       return false;
 
-    case DIV:
     case UDIV:
-    case MOD:
     case UMOD:
-      *total = COSTS_N_INSNS (33);
+      if (GET_MODE (x) == TImode) 	       /* 128 bit division */
+	*total = s390_cost->dlgr;
+      else if (GET_MODE (x) == DImode)
+	{
+	  rtx right = XEXP (x, 1);
+	  if (GET_CODE (right) == ZERO_EXTEND) /* 64 by 32 bit division */
+	    *total = s390_cost->dlr;
+	  else 	                               /* 64 by 64 bit division */
+	    *total = s390_cost->dlgr;
+	}
+      else if (GET_MODE (x) == SImode)         /* 32 bit division */
+	*total = s390_cost->dlr;
+      return false;
+
+    case DIV:
+    case MOD:
+      if (GET_MODE (x) == DImode)
+	{
+	  rtx right = XEXP (x, 1);
+	  if (GET_CODE (right) == ZERO_EXTEND) /* 64 by 32 bit division */
+	    if (TARGET_64BIT)
+	      *total = s390_cost->dsgfr;
+	    else
+	      *total = s390_cost->dr;
+	  else 	                               /* 64 by 64 bit division */
+	    *total = s390_cost->dsgr;
+	}
+      else if (GET_MODE (x) == SImode)         /* 32 bit division */
+	*total = s390_cost->dlr;
+      else if (GET_MODE (x) == SFmode)
+	{
+	  if (TARGET_IEEE_FLOAT)
+	    *total = s390_cost->debr;
+	  else /* TARGET_IBM_FLOAT */
+	    *total = s390_cost->der;
+	}
+      else if (GET_MODE (x) == DFmode)
+	{
+	  if (TARGET_IEEE_FLOAT)
+	    *total = s390_cost->ddbr;
+	  else /* TARGET_IBM_FLOAT */
+	    *total = s390_cost->ddr;
+	}
       return false;
 
     case SQRT:
@@ -1988,8 +2070,29 @@ s390_rtx_costs (rtx x, int code, int outer_code, int *total)
 
     case SIGN_EXTEND:
     case ZERO_EXTEND:
-      if (outer_code == MULT)
+      if (outer_code == MULT || outer_code == DIV || outer_code == MOD
+	  || outer_code == PLUS || outer_code == MINUS
+	  || outer_code == COMPARE)
 	*total = 0;
+      return false;
+
+    case COMPARE:
+      *total = COSTS_N_INSNS (1);
+      if (GET_CODE (XEXP (x, 0)) == AND
+	  && GET_CODE (XEXP (x, 1)) == CONST_INT
+	  && GET_CODE (XEXP (XEXP (x, 0), 1)) == CONST_INT)
+	{
+	  rtx op0 = XEXP (XEXP (x, 0), 0);
+	  rtx op1 = XEXP (XEXP (x, 0), 1);
+	  rtx op2 = XEXP (x, 1);
+
+	  if (memory_operand (op0, GET_MODE (op0))
+	      && s390_tm_ccmode (op1, op2, 0) != VOIDmode)
+	    return true;
+	  if (register_operand (op0, GET_MODE (op0))
+	      && s390_tm_ccmode (op1, op2, 1) != VOIDmode)
+	    return true;
+	}
       return false;
 
     default:
@@ -6445,8 +6548,6 @@ s390_frame_info (void)
   if (!TARGET_64BIT && cfun_frame_layout.frame_size > 0x7fff0000)
     fatal_error ("Total size of local variables exceeds architecture limit.");
   
-  cfun_frame_layout.save_backchain_p = TARGET_BACKCHAIN;
-
   if (!TARGET_PACKED_STACK)
     {
       cfun_frame_layout.backchain_offset = 0;
@@ -6516,8 +6617,8 @@ s390_frame_info (void)
 				     + cfun_frame_layout.high_fprs * 8);
   else
     {
-      cfun_frame_layout.frame_size += (cfun_frame_layout.save_backchain_p
-				       * UNITS_PER_WORD);
+      if (TARGET_BACKCHAIN)
+	cfun_frame_layout.frame_size += UNITS_PER_WORD;
 
       /* No alignment trouble here because f8-f15 are only saved under 
 	 64 bit.  */
@@ -6988,7 +7089,7 @@ s390_emit_prologue (void)
 	warning ("%qs uses dynamic stack allocation", current_function_name ());
 
       /* Save incoming stack pointer into temp reg.  */
-      if (cfun_frame_layout.save_backchain_p || next_fpr)
+      if (TARGET_BACKCHAIN || next_fpr)
 	insn = emit_insn (gen_move_insn (temp_reg, stack_pointer_rtx));
 
       /* Subtract frame size from stack pointer.  */
@@ -7019,7 +7120,7 @@ s390_emit_prologue (void)
 
       /* Set backchain.  */
 
-      if (cfun_frame_layout.save_backchain_p)
+      if (TARGET_BACKCHAIN)
 	{
 	  if (cfun_frame_layout.backchain_offset)
 	    addr = gen_rtx_MEM (Pmode, 
@@ -7035,7 +7136,7 @@ s390_emit_prologue (void)
 	 we need to make sure the backchain pointer is set up
 	 before any possibly trapping memory access.  */
 
-      if (cfun_frame_layout.save_backchain_p && flag_non_call_exceptions)
+      if (TARGET_BACKCHAIN && flag_non_call_exceptions)
 	{
 	  addr = gen_rtx_MEM (BLKmode, gen_rtx_SCRATCH (VOIDmode));
 	  emit_insn (gen_rtx_CLOBBER (VOIDmode, addr));
@@ -7673,15 +7774,9 @@ s390_va_start (tree valist, rtx nextarg ATTRIBUTE_UNUSED)
 
   /* Find the register save area.  */
   t = make_tree (TREE_TYPE (sav), return_address_pointer_rtx);
-  if (TARGET_BACKCHAIN && TARGET_PACKED_STACK) /* kernel stack layout */
-    t = build (PLUS_EXPR, TREE_TYPE (sav), t,
-	       build_int_cst (NULL_TREE,
-			      -(RETURN_REGNUM - 2) * UNITS_PER_WORD
-			      - (TARGET_64BIT ? 4 : 2) * 8));
-  else
-    t = build (PLUS_EXPR, TREE_TYPE (sav), t,
-	       build_int_cst (NULL_TREE, -RETURN_REGNUM * UNITS_PER_WORD));
-
+  t = build (PLUS_EXPR, TREE_TYPE (sav), t,
+	     build_int_cst (NULL_TREE, -RETURN_REGNUM * UNITS_PER_WORD));
+  
   t = build (MODIFY_EXPR, TREE_TYPE (sav), sav, t);
   TREE_SIDE_EFFECTS (t) = 1;
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
@@ -7749,8 +7844,7 @@ s390_gimplify_va_arg (tree valist, tree type, tree *pre_p,
       /* kernel stack layout on 31 bit: It is assumed here that no padding
 	 will be added by s390_frame_info because for va_args always an even
 	 number of gprs has to be saved r15-r2 = 14 regs.  */
-      sav_ofs = ((TARGET_BACKCHAIN && TARGET_PACKED_STACK) ?
-		 (TARGET_64BIT ? 4 : 2) * 8 : 2 * UNITS_PER_WORD);
+      sav_ofs = 2 * UNITS_PER_WORD;
       sav_scale = UNITS_PER_WORD;
       size = UNITS_PER_WORD;
       max_reg = 4;
@@ -7767,8 +7861,7 @@ s390_gimplify_va_arg (tree valist, tree type, tree *pre_p,
       indirect_p = 0;
       reg = fpr;
       n_reg = 1;
-      sav_ofs = ((TARGET_BACKCHAIN && TARGET_PACKED_STACK) ?
-		 0 : 16 * UNITS_PER_WORD);
+      sav_ofs = 16 * UNITS_PER_WORD;
       sav_scale = 8;
       /* TARGET_64BIT has up to 4 parameter in fprs */
       max_reg = TARGET_64BIT ? 3 : 1;
@@ -7789,8 +7882,7 @@ s390_gimplify_va_arg (tree valist, tree type, tree *pre_p,
       /* kernel stack layout on 31 bit: It is assumed here that no padding
 	 will be added by s390_frame_info because for va_args always an even
 	 number of gprs has to be saved r15-r2 = 14 regs.  */
-      sav_ofs = ((TARGET_BACKCHAIN && TARGET_PACKED_STACK) ? 
-		 (TARGET_64BIT ? 4 : 2) * 8 : 2 * UNITS_PER_WORD);
+      sav_ofs = 2 * UNITS_PER_WORD;
 
       if (size < UNITS_PER_WORD)
 	sav_ofs += UNITS_PER_WORD - size;
@@ -7807,6 +7899,7 @@ s390_gimplify_va_arg (tree valist, tree type, tree *pre_p,
   lab_false = create_artificial_label ();
   lab_over = create_artificial_label ();
   addr = create_tmp_var (ptr_type_node, "addr");
+  DECL_POINTER_ALIAS_SET (addr) = s390_sr_alias_set;
 
   t = fold_convert (TREE_TYPE (reg), size_int (max_reg));
   t = build2 (GT_EXPR, boolean_type_node, reg, t);

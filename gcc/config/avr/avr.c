@@ -1,5 +1,5 @@
 /* Subroutines for insn-output.c for ATMEL AVR micro controllers
-   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2004
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2004, 2005
    Free Software Foundation, Inc.
    Contributed by Denis Chertykov (denisc@overta.ru)
 
@@ -176,6 +176,9 @@ static const struct mcu_type_s avr_mcu_types[] = {
   { "at90c8534", 2, "__AVR_AT90C8534__" },
   { "at90s8535", 2, "__AVR_AT90S8535__" },
   { "at86rf401", 2, "__AVR_AT86RF401__" },
+    /* Classic + MOVW, <= 8K.  */
+  { "attiny13",   2, "__AVR_ATtiny13__" },
+  { "attiny2313", 2, "__AVR_ATtiny2313__" },
     /* Classic, > 8K.  */
   { "avr3",      3, NULL },
   { "atmega103", 3, "__AVR_ATmega103__" },
@@ -190,8 +193,6 @@ static const struct mcu_type_s avr_mcu_types[] = {
   { "atmega88",   4, "__AVR_ATmega88__" },
   { "atmega8515", 4, "__AVR_ATmega8515__" },
   { "atmega8535", 4, "__AVR_ATmega8535__" },
-  { "attiny13",  4, "__AVR_ATtiny13__" },
-  { "attiny2313",  4, "__AVR_ATtiny2313__" },
     /* Enhanced, > 8K.  */
   { "avr5",      5, NULL },
   { "atmega16",  5, "__AVR_ATmega16__" },
@@ -5120,23 +5121,22 @@ jump_over_one_insn_p (rtx insn, rtx dest)
 int
 avr_hard_regno_mode_ok (int regno, enum machine_mode mode)
 {
-  /* Bug workaround: recog.c (peep2_find_free_register) and probably
-     a few other places assume that the frame pointer is a single hard
-     register, so r29 may be allocated and overwrite the high byte of
-     the frame pointer.  Do not allow any value to start in r29.  */
-  if (regno == REG_Y + 1)
-    return 0;
+  /* The only thing that can go into registers r28:r29 is a Pmode.  */
+  if (regno == REG_Y && mode == Pmode)
+    return 1;
 
-  /* Reload can use r28:r29 for reload register and for frame pointer
-   in one insn. It's wrong. We must disable it.  */
-  if (mode != Pmode && reload_in_progress && frame_pointer_required_p ()
-      && regno <= REG_Y && (regno + GET_MODE_SIZE (mode)) >= (REG_Y + 1))
+  /* Otherwise disallow all regno/mode combinations that span r28:r29.  */
+  if (regno <= (REG_Y + 1) && (regno + GET_MODE_SIZE (mode)) >= (REG_Y + 1))
     return 0;
 
   if (mode == QImode)
     return 1;
-  /*  if (regno < 24 && !AVR_ENHANCED)
-      return 1;*/
+
+  /* Modes larger than QImode occupy consecutive registers.  */
+  if (regno + GET_MODE_SIZE (mode) > FIRST_PSEUDO_REGISTER)
+    return 0;
+
+  /* All modes larger than QImode should start in an even register.  */
   return !(regno & 1);
 }
 

@@ -1,5 +1,5 @@
 /* Declaration statement matcher
-   Copyright (C) 2002, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of GCC.
@@ -21,10 +21,10 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 
 #include "config.h"
+#include "system.h"
 #include "gfortran.h"
 #include "match.h"
 #include "parse.h"
-#include <string.h>
 
 
 /* This flag is set if a an old-style length selector is matched

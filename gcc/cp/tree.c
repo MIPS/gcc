@@ -1,6 +1,6 @@
 /* Language-dependent node constructors for parse phase of GNU compiler.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -241,6 +241,7 @@ build_local_temp (tree type)
 {
   tree slot = build_decl (VAR_DECL, NULL_TREE, type);
   DECL_ARTIFICIAL (slot) = 1;
+  DECL_IGNORED_P (slot) = 1;
   DECL_CONTEXT (slot) = current_function_decl;
   layout_decl (slot, 0);
   return slot;
@@ -735,21 +736,6 @@ hash_tree_chain (tree value, tree chain)
 {
   return hash_tree_cons (NULL_TREE, value, chain);
 }
-
-/* Similar, but used for concatenating two lists.  */
-
-tree
-hash_chainon (tree list1, tree list2)
-{
-  if (list2 == 0)
-    return list1;
-  if (list1 == 0)
-    return list2;
-  if (TREE_CHAIN (list1) == NULL_TREE)
-    return hash_tree_chain (TREE_VALUE (list1), list2);
-  return hash_tree_chain (TREE_VALUE (list1),
-			  hash_chainon (TREE_CHAIN (list1), list2));
-}
 
 void
 debug_binfo (tree elem)
@@ -780,20 +766,6 @@ debug_binfo (tree elem)
       ++n;
       virtuals = TREE_CHAIN (virtuals);
     }
-}
-
-int
-count_functions (tree t)
-{
-  int i;
-  
-  if (TREE_CODE (t) == FUNCTION_DECL)
-    return 1;
-  gcc_assert (TREE_CODE (t) == OVERLOAD);
-  
-  for (i = 0; t; t = OVL_CHAIN (t))
-    i++;
-  return i;
 }
 
 int
@@ -832,16 +804,6 @@ get_first_fn (tree from)
   if (BASELINK_P (from))
     from = BASELINK_FUNCTIONS (from);
   return OVL_CURRENT (from);
-}
-
-/* Returns nonzero if T is a ->* or .* expression that refers to a
-   member function.  */
-
-int
-bound_pmf_p (tree t)
-{
-  return (TREE_CODE (t) == OFFSET_REF
-	  && TYPE_PTRMEMFUNC_P (TREE_TYPE (TREE_OPERAND (t, 1))));
 }
 
 /* Return a new OVL node, concatenating it with the old one.  */
@@ -1544,6 +1506,11 @@ cp_tree_equal (tree t1, tree t2)
 
       return same_type_p (PTRMEM_CST_CLASS (t1), PTRMEM_CST_CLASS (t2));
 
+    case OVERLOAD:
+      if (OVL_FUNCTION (t1) != OVL_FUNCTION (t2))
+	return false;
+      return cp_tree_equal (OVL_CHAIN (t1), OVL_CHAIN (t2));
+
     default:
       break;
     }
@@ -2068,16 +2035,6 @@ cp_add_pending_fn_decls (void* fns_p, tree prev_fn)
   return prev_fn;
 }
 
-/* Determine whether a tree node is an OVERLOAD node.  Used to decide
-   whether to copy a node or to preserve its chain when inlining a
-   function.  */
-
-int
-cp_is_overload_p (tree t)
-{
-  return TREE_CODE (t) == OVERLOAD;
-}
-
 /* Determine whether VAR is a declaration of an automatic variable in
    function FN.  */
 
@@ -2088,20 +2045,6 @@ cp_auto_var_in_fn_p (tree var, tree fn)
 	  && nonstatic_local_decl_p (var));
 }
 
-/* FN body has been duplicated.  Update language specific fields.  */
-
-void
-cp_update_decl_after_saving (tree fn,
-                             void* decl_map_)
-{
-  splay_tree decl_map = (splay_tree)decl_map_;
-  tree nrv = DECL_SAVED_FUNCTION_DATA (fn)->x_return_value;
-  if (nrv)
-    {
-      DECL_SAVED_FUNCTION_DATA (fn)->x_return_value
-	= (tree) splay_tree_lookup (decl_map, (splay_tree_key) nrv)->value;
-    }
-}
 /* Initialize tree.c.  */
 
 void
@@ -2138,22 +2081,6 @@ special_function_p (tree decl)
     return sfk_conversion;
 
   return sfk_none;
-}
-
-/* Returns true if and only if NODE is a name, i.e., a node created
-   by the parser when processing an id-expression.  */
-
-bool
-name_p (tree node)
-{
-  if (TREE_CODE (node) == TEMPLATE_ID_EXPR)
-    node = TREE_OPERAND (node, 0);
-  return (/* An ordinary unqualified name.  */
-	  TREE_CODE (node) == IDENTIFIER_NODE
-	  /* A destructor name.  */
-	  || TREE_CODE (node) == BIT_NOT_EXPR
-	  /* A qualified name.  */
-	  || TREE_CODE (node) == SCOPE_REF);
 }
 
 /* Returns nonzero if TYPE is a character type, including wchar_t.  */

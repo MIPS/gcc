@@ -1,6 +1,6 @@
 /* Global common subexpression elimination/Partial redundancy elimination
    and global constant/copy propagation for GNU compiler.
-   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -524,20 +524,6 @@ static int global_copy_prop_count;
 
 /* For available exprs */
 static sbitmap *ae_kill, *ae_gen;
-
-/* Objects of this type are passed around by the null-pointer check
-   removal routines.  */
-struct null_pointer_info
-{
-  /* The basic block being processed.  */
-  basic_block current_block;
-  /* The first register to be handled in this pass.  */
-  unsigned int min_reg;
-  /* One greater than the last register to be handled in this pass.  */
-  unsigned int max_reg;
-  sbitmap *nonnull_local;
-  sbitmap *nonnull_killed;
-};
 
 static void compute_can_copy (void);
 static void *gmalloc (size_t) ATTRIBUTE_MALLOC;
@@ -1366,7 +1352,6 @@ mems_conflict_for_gcse_p (rtx dest, rtx setter ATTRIBUTE_UNUSED,
 {
   while (GET_CODE (dest) == SUBREG
 	 || GET_CODE (dest) == ZERO_EXTRACT
-	 || GET_CODE (dest) == SIGN_EXTRACT
 	 || GET_CODE (dest) == STRICT_LOW_PART)
     dest = XEXP (dest, 0);
 
@@ -2002,7 +1987,6 @@ canon_list_insert (rtx dest ATTRIBUTE_UNUSED, rtx unused1 ATTRIBUTE_UNUSED,
 
   while (GET_CODE (dest) == SUBREG
       || GET_CODE (dest) == ZERO_EXTRACT
-      || GET_CODE (dest) == SIGN_EXTRACT
       || GET_CODE (dest) == STRICT_LOW_PART)
     dest = XEXP (dest, 0);
 
@@ -2390,7 +2374,6 @@ mark_set (rtx pat, rtx insn)
 
   while (GET_CODE (dest) == SUBREG
 	 || GET_CODE (dest) == ZERO_EXTRACT
-	 || GET_CODE (dest) == SIGN_EXTRACT
 	 || GET_CODE (dest) == STRICT_LOW_PART)
     dest = XEXP (dest, 0);
 
@@ -2739,8 +2722,7 @@ try_replace_reg (rtx from, rtx to, rtx insn)
 	 have a note, and have no special SET, add a REG_EQUAL note to not
 	 lose information.  */
       if (!success && note == 0 && set != 0
-	  && GET_CODE (XEXP (set, 0)) != ZERO_EXTRACT
-	  && GET_CODE (XEXP (set, 0)) != SIGN_EXTRACT)
+	  && GET_CODE (SET_DEST (set)) != ZERO_EXTRACT)
 	note = set_unique_reg_note (insn, REG_EQUAL, copy_rtx (src));
     }
 
@@ -5960,8 +5942,7 @@ store_killed_in_insn (rtx x, rtx x_regs, rtx insn, int after)
       rtx pat = PATTERN (insn);
       rtx dest = SET_DEST (pat);
 
-      if (GET_CODE (dest) == SIGN_EXTRACT
-	  || GET_CODE (dest) == ZERO_EXTRACT)
+      if (GET_CODE (dest) == ZERO_EXTRACT)
 	dest = XEXP (dest, 0);
 
       /* Check for memory stores to aliased objects.  */

@@ -1,5 +1,5 @@
 /* Tree inlining.
-   Copyright 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Alexandre Oliva <aoliva@redhat.com>
 
 This file is part of GCC.
@@ -41,8 +41,10 @@ Boston, MA 02111-1307, USA.  */
 #include "cgraph.h"
 #include "intl.h"
 #include "tree-mudflap.h"
+#include "tree-flow.h"
 #include "function.h"
 #include "diagnostic.h"
+#include "debug.h"
 
 /* I'm not real happy about this, but we need to handle gimple and
    non-gimple trees.  */
@@ -94,8 +96,6 @@ typedef struct inline_data
   /* Nonzero if we are currently within the cleanup for a
      TARGET_EXPR.  */
   int in_target_cleanup_p;
-  /* A list of the functions current function has inlined.  */
-  varray_type inlined_fns;
   /* We use the same mechanism to build clones that we do to perform
      inlining.  However, there are a few places where we need to
      distinguish between those two situations.  This flag is true if
@@ -504,6 +504,7 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
       /* Replace this variable with the copy.  */
       STRIP_TYPE_NOPS (new_decl);
       *tp = new_decl;
+      *walk_subtrees = 0;
     }
   else if (TREE_CODE (*tp) == STATEMENT_LIST)
     copy_statement_list (tp);
@@ -655,6 +656,22 @@ copy_body (inline_data *id)
   return body;
 }
 
+/* Return true if VALUE is an ADDR_EXPR of an automatic variable
+   defined in function FN, or of a data member thereof.  */
+
+static bool
+self_inlining_addr_expr (tree value, tree fn)
+{
+  tree var;
+
+  if (TREE_CODE (value) != ADDR_EXPR)
+    return false;
+
+  var = get_base_address (TREE_OPERAND (value, 0));
+	      
+  return var && lang_hooks.tree_inlining.auto_var_in_fn_p (var, fn);
+}
+
 static void
 setup_one_parameter (inline_data *id, tree p, tree value, tree fn,
 		     tree *init_stmts, tree *vars, bool *gimplify_init_stmts_p)
@@ -679,7 +696,13 @@ setup_one_parameter (inline_data *id, tree p, tree value, tree fn,
 	 It is not big deal to prohibit constant propagation here as
 	 we will constant propagate in DOM1 pass anyway.  */
       if (is_gimple_min_invariant (value)
-	  && lang_hooks.types_compatible_p (TREE_TYPE (value), TREE_TYPE (p)))
+	  && lang_hooks.types_compatible_p (TREE_TYPE (value), TREE_TYPE (p))
+	  /* We have to be very careful about ADDR_EXPR.  Make sure
+	     the base variable isn't a local variable of the inlined
+	     function, e.g., when doing recursive inlining, direct or
+	     mutually-recursive or whatever, which is why we don't
+	     just test whether fn == current_function_decl.  */
+	  && ! self_inlining_addr_expr (value, fn))
 	{
 	  insert_decl_map (id, p, value);
 	  return;
@@ -787,6 +810,8 @@ initialize_inlined_parameters (inline_data *id, tree args, tree static_chain,
 
   /* Initialize the static chain.  */
   p = DECL_STRUCT_FUNCTION (fn)->static_chain_decl;
+  if (fn == current_function_decl)
+    p = DECL_STRUCT_FUNCTION (fn)->saved_static_chain_decl;
   if (p)
     {
       /* No static chain?  Seems like a bug in tree-nested.c.  */
@@ -797,7 +822,7 @@ initialize_inlined_parameters (inline_data *id, tree args, tree static_chain,
     }
 
   if (gimplify_init_stmts_p)
-    gimplify_body (&init_stmts, current_function_decl);
+    gimplify_body (&init_stmts, current_function_decl, false);
 
   declare_inline_vars (bind_expr, vars);
   return init_stmts;
@@ -1169,6 +1194,8 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
     case COMPONENT_REF:
     case BIT_FIELD_REF:
     case INDIRECT_REF:
+    case ALIGN_INDIRECT_REF:
+    case MISALIGNED_INDIRECT_REF:
     case ARRAY_REF:
     case ARRAY_RANGE_REF:
     case OBJ_TYPE_REF:
@@ -1301,6 +1328,8 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
 
     case ASM_EXPR:
 
+    case REALIGN_LOAD_EXPR:
+
     case RESX_EXPR:
       *count += 1;
       break;
@@ -1323,7 +1352,7 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
       {
 	tree decl = get_callee_fndecl (x);
 
-	if (decl && DECL_BUILT_IN (decl))
+	if (decl && DECL_BUILT_IN_CLASS (decl) == BUILT_IN_NORMAL)
 	  switch (DECL_FUNCTION_CODE (decl))
 	    {
 	    case BUILT_IN_CONSTANT_P:
@@ -1545,23 +1574,11 @@ expand_call_inline (tree *tp, int *walk_subtrees, void *data)
      recursing into it.  */
   VARRAY_PUSH_TREE (id->fns, fn);
 
-  /* Record the function we are about to inline if optimize_function
-     has not been called on it yet and we don't have it in the list.  */
-  if (! DECL_INLINED_FNS (fn))
-    {
-      int i;
-
-      for (i = VARRAY_ACTIVE_SIZE (id->inlined_fns) - 1; i >= 0; i--)
-	if (VARRAY_TREE (id->inlined_fns, i) == fn)
-	  break;
-      if (i < 0)
-	VARRAY_PUSH_TREE (id->inlined_fns, fn);
-    }
-
   /* Return statements in the function body will be replaced by jumps
      to the RET_LABEL.  */
   id->ret_label = build_decl (LABEL_DECL, NULL_TREE, NULL_TREE);
   DECL_ARTIFICIAL (id->ret_label) = 1;
+  DECL_IGNORED_P (id->ret_label) = 1;
   DECL_CONTEXT (id->ret_label) = VARRAY_TREE (id->fns, 0);
   insert_decl_map (id, id->ret_label, id->ret_label);
 
@@ -1571,7 +1588,18 @@ expand_call_inline (tree *tp, int *walk_subtrees, void *data)
   /* Find the lhs to which the result of this call is assigned.  */
   modify_dest = tsi_stmt (id->tsi);
   if (TREE_CODE (modify_dest) == MODIFY_EXPR)
-    modify_dest = TREE_OPERAND (modify_dest, 0);
+    {
+      modify_dest = TREE_OPERAND (modify_dest, 0);
+
+      /* The function which we are inlining might not return a value,
+	 in which case we should issue a warning that the function
+	 does not return a value.  In that case the optimizers will
+	 see that the variable to which the value is assigned was not
+	 initialized.  We do not want to issue a warning about that
+	 uninitialized variable.  */
+      if (DECL_P (modify_dest))
+	TREE_NO_WARNING (modify_dest) = 1;
+    }
   else
     modify_dest = NULL;
 
@@ -1583,9 +1611,22 @@ expand_call_inline (tree *tp, int *walk_subtrees, void *data)
      function itself.  */
   {
     struct cgraph_node *old_node = id->current_node;
+    tree copy;
 
     id->current_node = edge->callee;
-    append_to_statement_list (copy_body (id), &BIND_EXPR_BODY (expr));
+    copy = copy_body (id);
+
+    if (warn_return_type
+	&& !TREE_NO_WARNING (fn)
+	&& !VOID_TYPE_P (TREE_TYPE (TREE_TYPE (fn)))
+	&& block_may_fallthru (copy))
+      {
+	warning ("control may reach end of non-void function %qD being inlined",
+		 fn);
+	TREE_NO_WARNING (fn) = 1;
+      }
+
+    append_to_statement_list (copy, &BIND_EXPR_BODY (expr));
     id->current_node = old_node;
   }
   inlined_body = &BIND_EXPR_BODY (expr);
@@ -1603,8 +1644,11 @@ expand_call_inline (tree *tp, int *walk_subtrees, void *data)
   splay_tree_delete (id->decl_map);
   id->decl_map = st;
 
-  /* The new expression has side-effects if the old one did.  */
-  TREE_SIDE_EFFECTS (expr) = TREE_SIDE_EFFECTS (t);
+  /* Although, from the semantic viewpoint, the new expression has
+     side-effects only if the old one did, it is not possible, from
+     the technical viewpoint, to evaluate the body of a function
+     multiple times without serious havoc.  */
+  TREE_SIDE_EFFECTS (expr) = 1;
 
   tsi_link_before (&id->tsi, expr, TSI_SAME_STMT);
 
@@ -1629,6 +1673,12 @@ expand_call_inline (tree *tp, int *walk_subtrees, void *data)
      The easiest solution is to simply recalculate TREE_SIDE_EFFECTS for
      the toplevel expression.  */
   recalculate_side_effects (expr);
+  
+  /* Output the inlining info for this abstract function, since it has been
+     inlined.  If we don't do this now, we can lose the information about the
+     variables in the function when the blocks get blown away as soon as we
+     remove the cgraph node.  */
+  (*debug_hooks->outlining_inline_function) (edge->callee->decl);
 
   /* Update callgraph if needed.  */
   cgraph_remove_node (edge->callee);
@@ -1743,7 +1793,6 @@ optimize_inline_calls (tree fn)
 {
   inline_data id;
   tree prev_fn;
-  tree ifn;
 
   /* There is no point in performing inlining if errors have already
      occurred -- and we might crash if we try to inline invalid
@@ -1768,9 +1817,6 @@ optimize_inline_calls (tree fn)
 
   prev_fn = lang_hooks.tree_inlining.add_pending_fn_decls (&id.fns, prev_fn);
 
-  /* Create the list of functions this call will inline.  */
-  VARRAY_TREE_INIT (id.inlined_fns, 32, "inlined_fns");
-
   /* Keep track of the low-water mark, i.e., the point where the first
      real inlining is represented in ID.FNS.  */
   id.first_inlined_fn = VARRAY_ACTIVE_SIZE (id.fns);
@@ -1782,11 +1828,6 @@ optimize_inline_calls (tree fn)
 
   /* Clean up.  */
   htab_delete (id.tree_pruner);
-  ifn = make_tree_vec (VARRAY_ACTIVE_SIZE (id.inlined_fns));
-  if (VARRAY_ACTIVE_SIZE (id.inlined_fns))
-    memcpy (&TREE_VEC_ELT (ifn, 0), &VARRAY_TREE (id.inlined_fns, 0),
-	    VARRAY_ACTIVE_SIZE (id.inlined_fns) * sizeof (tree));
-  DECL_INLINED_FNS (fn) = ifn;
 
 #ifdef ENABLE_CHECKING
     {

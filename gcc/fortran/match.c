@@ -1,5 +1,5 @@
 /* Matching subroutines in all sizes, shapes and colors.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004 Free Software Foundation,
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation,
    Inc.
    Contributed by Andy Vaught
 
@@ -24,10 +24,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "config.h"
 #include "system.h"
 #include "flags.h"
-
-#include <stdarg.h>
-#include <string.h>
-
 #include "gfortran.h"
 #include "match.h"
 #include "parse.h"
@@ -974,7 +970,7 @@ gfc_match_if (gfc_statement * if_type)
       return MATCH_YES;
     }
 
-  if (gfc_match (" then %t") == MATCH_YES)
+  if (gfc_match (" then%t") == MATCH_YES)
     {
       new_st.op = EXEC_IF;
       new_st.expr = expr;
@@ -1822,7 +1818,7 @@ gfc_match_nullify (void)
       tail->expr = p;
       tail->expr2 = e;
 
-      if (gfc_match_char (')') == MATCH_YES)
+      if (gfc_match (" )%t") == MATCH_YES)
 	break;
       if (gfc_match_char (',') != MATCH_YES)
 	goto syntax;
@@ -2421,9 +2417,6 @@ gfc_match_namelist (void)
 	  if (sym->attr.in_namelist == 0
 	      && gfc_add_in_namelist (&sym->attr, NULL) == FAILURE)
 	    goto error;
-
-	  /* TODO: worry about PRIVATE members of a PUBLIC namelist
-             group.  */
 
 	  nl = gfc_get_namelist ();
 	  nl->sym = sym;

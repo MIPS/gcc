@@ -1,5 +1,5 @@
 /* Deal with I/O statements & related stuff.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004 Free Software Foundation,
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation,
    Inc.
    Contributed by Andy Vaught
 
@@ -23,9 +23,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "config.h"
 #include "system.h"
 #include "flags.h"
-
-#include <string.h>
-
 #include "gfortran.h"
 #include "match.h"
 #include "parse.h"
@@ -1101,7 +1098,7 @@ gfc_resolve_open (gfc_open * open)
 }
 
 
-/* Match an OPEN statmement.  */
+/* Match an OPEN statement.  */
 
 match
 gfc_match_open (void)
@@ -1181,7 +1178,7 @@ gfc_free_close (gfc_close * close)
 }
 
 
-/* Match elements of a CLOSE statment.  */
+/* Match elements of a CLOSE statement.  */
 
 static match
 match_close_element (gfc_close * close)
@@ -1428,7 +1425,7 @@ gfc_match_rewind (void)
 }
 
 
-/******************** Data Transfer Statments *********************/
+/******************** Data Transfer Statements *********************/
 
 typedef enum
 { M_READ, M_WRITE, M_PRINT, M_INQUIRE }

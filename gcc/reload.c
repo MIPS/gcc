@@ -1,6 +1,6 @@
 /* Search an insn for pseudo regs that must be in hard regs and are not.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005  Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -113,6 +113,13 @@ a register with any other reload.  */
   (CONSTANT_P (X)				\
    && GET_CODE (X) != HIGH			\
    && !targetm.cannot_force_const_mem (X))
+
+/* True if C is a non-empty register class that has too few registers
+   to be safely used as a reload target class.  */
+#define SMALL_REGISTER_CLASS_P(C) \
+  (reg_class_size [(C)] == 1 \
+   || (reg_class_size [(C)] >= 1 && CLASS_LIKELY_SPILLED_P (C)))
+
 
 /* All reloads of the current insn are recorded here.  See reload.h for
    comments.  */
@@ -443,7 +450,7 @@ push_secondary_reload (int in_p, rtx x, int opnum, int optional,
 			  == CODE_FOR_nothing))
 		|| (! in_p &&(rld[t_reload].secondary_out_icode
 			      == CODE_FOR_nothing)))
-	    && (reg_class_size[(int) t_class] == 1 || SMALL_REGISTER_CLASSES)
+	    && (SMALL_REGISTER_CLASS_P (t_class) || SMALL_REGISTER_CLASSES)
 	    && MERGABLE_RELOADS (secondary_type,
 				 rld[t_reload].when_needed,
 				 opnum, rld[t_reload].opnum))
@@ -501,7 +508,7 @@ push_secondary_reload (int in_p, rtx x, int opnum, int optional,
 	    || (! in_p && rld[s_reload].secondary_out_reload == t_reload))
 	&& ((in_p && rld[s_reload].secondary_in_icode == t_icode)
 	    || (! in_p && rld[s_reload].secondary_out_icode == t_icode))
-	&& (reg_class_size[(int) class] == 1 || SMALL_REGISTER_CLASSES)
+	&& (SMALL_REGISTER_CLASS_P (class) || SMALL_REGISTER_CLASSES)
 	&& MERGABLE_RELOADS (secondary_type, rld[s_reload].when_needed,
 			     opnum, rld[s_reload].opnum))
       {
@@ -755,7 +762,7 @@ find_reusable_reload (rtx *p_in, rtx out, enum reg_class class,
 	    || (out != 0 && MATCHES (rld[i].out, out)
 		&& (in == 0 || rld[i].in == 0 || MATCHES (rld[i].in, in))))
 	&& (rld[i].out == 0 || ! earlyclobber_operand_p (rld[i].out))
-	&& (reg_class_size[(int) class] == 1 || SMALL_REGISTER_CLASSES)
+	&& (SMALL_REGISTER_CLASS_P (class) || SMALL_REGISTER_CLASSES)
 	&& MERGABLE_RELOADS (type, rld[i].when_needed, opnum, rld[i].opnum))
       return i;
 
@@ -780,7 +787,7 @@ find_reusable_reload (rtx *p_in, rtx out, enum reg_class class,
 		&& GET_RTX_CLASS (GET_CODE (in)) == RTX_AUTOINC
 		&& MATCHES (XEXP (in, 0), rld[i].in)))
 	&& (rld[i].out == 0 || ! earlyclobber_operand_p (rld[i].out))
-	&& (reg_class_size[(int) class] == 1 || SMALL_REGISTER_CLASSES)
+	&& (SMALL_REGISTER_CLASS_P (class) || SMALL_REGISTER_CLASSES)
 	&& MERGABLE_RELOADS (type, rld[i].when_needed,
 			     opnum, rld[i].opnum))
       {
@@ -3484,7 +3491,8 @@ find_reloads (rtx insn, int replace, int ind_levels, int live_known,
 	  if (! win && ! did_match
 	      && this_alternative[i] != (int) NO_REGS
 	      && GET_MODE_SIZE (operand_mode[i]) <= UNITS_PER_WORD
-	      && reg_class_size[(int) preferred_class[i]] > 1)
+	      && reg_class_size [(int) preferred_class[i]] > 0
+	      && ! SMALL_REGISTER_CLASS_P (preferred_class[i]))
 	    {
 	      if (! reg_class_subset_p (this_alternative[i],
 					preferred_class[i]))
@@ -3540,9 +3548,9 @@ find_reloads (rtx insn, int replace, int ind_levels, int live_known,
 		  && !immune_p (recog_data.operand[j], recog_data.operand[i],
 				early_data))
 		{
-		  /* If the output is in a single-reg class,
+		  /* If the output is in a non-empty few-regs class,
 		     it's costly to reload it, so reload the input instead.  */
-		  if (reg_class_size[this_alternative[i]] == 1
+		  if (SMALL_REGISTER_CLASS_P (this_alternative[i])
 		      && (REG_P (recog_data.operand[j])
 			  || GET_CODE (recog_data.operand[j]) == SUBREG))
 		    {
@@ -6726,7 +6734,6 @@ find_equiv_reg (rtx goal, rtx insn, enum reg_class class, int other,
 	      rtx dest = SET_DEST (pat);
 	      while (GET_CODE (dest) == SUBREG
 		     || GET_CODE (dest) == ZERO_EXTRACT
-		     || GET_CODE (dest) == SIGN_EXTRACT
 		     || GET_CODE (dest) == STRICT_LOW_PART)
 		dest = XEXP (dest, 0);
 	      if (REG_P (dest))
@@ -6770,7 +6777,6 @@ find_equiv_reg (rtx goal, rtx insn, enum reg_class class, int other,
 		      rtx dest = SET_DEST (v1);
 		      while (GET_CODE (dest) == SUBREG
 			     || GET_CODE (dest) == ZERO_EXTRACT
-			     || GET_CODE (dest) == SIGN_EXTRACT
 			     || GET_CODE (dest) == STRICT_LOW_PART)
 			dest = XEXP (dest, 0);
 		      if (REG_P (dest))
@@ -6932,14 +6938,20 @@ find_inc_amount (rtx x, rtx inced)
 }
 
 /* Return 1 if register REGNO is the subject of a clobber in insn INSN.
-   If SETS is nonzero, also consider SETs.  */
+   If SETS is nonzero, also consider SETs.  REGNO must refer to a hard
+   register.  */
 
 int
 regno_clobbered_p (unsigned int regno, rtx insn, enum machine_mode mode,
 		   int sets)
 {
-  unsigned int nregs = hard_regno_nregs[regno][mode];
-  unsigned int endregno = regno + nregs;
+  unsigned int nregs, endregno;
+
+  /* regno must be a hard register.  */
+  gcc_assert (regno < FIRST_PSEUDO_REGISTER);
+
+  nregs = hard_regno_nregs[regno][mode];
+  endregno = regno + nregs;
 
   if ((GET_CODE (PATTERN (insn)) == CLOBBER
        || (sets && GET_CODE (PATTERN (insn)) == SET))
@@ -7004,8 +7016,6 @@ static const char *const reload_when_needed_name[] =
   "RELOAD_OTHER",
   "RELOAD_FOR_OTHER_ADDRESS"
 };
-
-static const char * const reg_class_names[] = REG_CLASS_NAMES;
 
 /* These functions are used to print the variables set by 'find_reloads' */
 

@@ -1,5 +1,6 @@
 /* RunTime Type Identification
-   Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004,
+   2005
    Free Software Foundation, Inc.
    Mostly written by Jason Merrill (jason@cygnus.com).
 
@@ -350,6 +351,7 @@ get_tinfo_decl (tree type)
       TREE_TYPE (name) = type;
       DECL_TINFO_P (d) = 1;
       DECL_ARTIFICIAL (d) = 1;
+      DECL_IGNORED_P (d) = 1;
       TREE_READONLY (d) = 1;
       TREE_STATIC (d) = 1;
       /* Mark the variable as undefined -- but remember that we can
@@ -778,6 +780,7 @@ tinfo_base_init (tree desc, tree target)
     name_decl = build_lang_decl (VAR_DECL, name_name, name_type);
     SET_DECL_ASSEMBLER_NAME (name_decl, name_name);
     DECL_ARTIFICIAL (name_decl) = 1;
+    DECL_IGNORED_P (name_decl) = 1;
     TREE_READONLY (name_decl) = 1;
     TREE_STATIC (name_decl) = 1;
     DECL_EXTERNAL (name_decl) = 0;
@@ -1345,22 +1348,34 @@ emit_support_tinfos (void)
   for (ix = 0; fundamentals[ix]; ix++)
     {
       tree bltn = *fundamentals[ix];
-      tree bltn_ptr = build_pointer_type (bltn);
-      tree bltn_const_ptr = build_pointer_type
-              (build_qualified_type (bltn, TYPE_QUAL_CONST));
-      tree tinfo;
-      
-      tinfo = get_tinfo_decl (bltn);
-      TREE_USED (tinfo) = 1;
-      TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (tinfo)) = 1;
-      
-      tinfo = get_tinfo_decl (bltn_ptr);
-      TREE_USED (tinfo) = 1;
-      TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (tinfo)) = 1;
-      
-      tinfo = get_tinfo_decl (bltn_const_ptr);
-      TREE_USED (tinfo) = 1;
-      TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (tinfo)) = 1;
+      tree types[3];
+      int i;
+
+      types[0] = bltn;
+      types[1] = build_pointer_type (bltn);
+      types[2] = build_pointer_type (build_qualified_type (bltn, 
+							   TYPE_QUAL_CONST));
+ 
+      for (i = 0; i < 3; ++i)
+	{
+	  tree tinfo;
+
+	  tinfo = get_tinfo_decl (types[i]);
+	  TREE_USED (tinfo) = 1;
+	  mark_needed (tinfo);
+	  /* The C++ ABI requires that these objects be COMDAT.  But,
+	     On systems without weak symbols, initialized COMDAT 
+	     objects are emitted with internal linkage.  (See
+	     comdat_linkage for details.)  Since we want these objects
+	     to have external linkage so that copies do not have to be
+	     emitted in code outside the runtime library, we make them
+	     non-COMDAT here.  */
+	  if (!flag_weak)
+	    {
+	      gcc_assert (TREE_PUBLIC (tinfo) && !DECL_COMDAT (tinfo));
+	      DECL_INTERFACE_KNOWN (tinfo) = 1;
+	    }
+	}
     }
 }
 

@@ -1,6 +1,6 @@
 /* Subroutines shared by all languages that are variants of C.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -46,6 +46,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "hashtab.h"
 #include "tree-mudflap.h"
 #include "opts.h"
+#include "real.h"
 
 cpp_reader *parse_in;		/* Declared in c-pragma.h.  */
 
@@ -268,7 +269,6 @@ int flag_const_strings;
 /* Nonzero means to treat bitfields as signed unless they say `unsigned'.  */
 
 int flag_signed_bitfields = 1;
-int explicit_flag_signed_bitfields;
 
 /* Nonzero means warn about deprecated conversion from string constant to
    `char *'.  */
@@ -481,14 +481,6 @@ int max_tinst_depth = 500;
 tree *ridpointers;
 
 tree (*make_fname_decl) (tree, int);
-
-/* If non-NULL, the address of a language-specific function that
-   returns 1 for language-specific statement codes.  */
-int (*lang_statement_code_p) (enum tree_code);
-
-/* If non-NULL, the address of a language-specific function that takes
-   any action required right before expand_function_end is called.  */
-void (*lang_expand_function_end) (void);
 
 /* Nonzero means the expression being parsed will never be evaluated.
    This is a count, since unevaluated expressions can nest.  */
@@ -755,7 +747,10 @@ fname_as_string (int pretty_p)
       strname.len = len - 1;
 
       if (cpp_interpret_string (parse_in, &strname, 1, &cstr, false))
-	return (char *) cstr.text;
+	{
+	  XDELETEVEC (namep);
+	  return (char *) cstr.text;
+	}
     }
   else
     namep = xstrdup (name);
@@ -2322,18 +2317,30 @@ c_common_truthvalue_conversion (tree expr)
     case TRUTH_AND_EXPR:
     case TRUTH_OR_EXPR:
     case TRUTH_XOR_EXPR:
+      if (TREE_TYPE (expr) != truthvalue_type_node)
+	return build2 (TREE_CODE (expr), truthvalue_type_node,
+		       TREE_OPERAND (expr, 0), TREE_OPERAND (expr, 1));
+      return expr;
+
     case TRUTH_NOT_EXPR:
-      TREE_TYPE (expr) = truthvalue_type_node;
+      if (TREE_TYPE (expr) != truthvalue_type_node)
+	return build1 (TREE_CODE (expr), truthvalue_type_node,
+		       TREE_OPERAND (expr, 0));
       return expr;
 
     case ERROR_MARK:
       return expr;
 
     case INTEGER_CST:
-      return integer_zerop (expr) ? truthvalue_false_node : truthvalue_true_node;
+      /* Avoid integer_zerop to ignore TREE_CONSTANT_OVERFLOW.  */
+      return (TREE_INT_CST_LOW (expr) != 0 || TREE_INT_CST_HIGH (expr) != 0)
+	     ? truthvalue_true_node
+	     : truthvalue_false_node;
 
     case REAL_CST:
-      return real_zerop (expr) ? truthvalue_false_node : truthvalue_true_node;
+      return real_compare (NE_EXPR, &TREE_REAL_CST (expr), &dconst0)
+	     ? truthvalue_true_node
+	     : truthvalue_false_node;
 
     case ADDR_EXPR:
       {
@@ -3218,6 +3225,26 @@ c_common_nodes_and_builtins (void)
     mudflap_init ();
 
   main_identifier_node = get_identifier ("main");
+}
+
+/* Look up the function in built_in_decls that corresponds to DECL
+   and set ASMSPEC as its user assembler name.  DECL must be a
+   function decl that declares a builtin. */
+
+void
+set_builtin_user_assembler_name (tree decl, const char *asmspec)
+{
+  tree builtin;
+  gcc_assert (TREE_CODE (decl) == FUNCTION_DECL
+	      && DECL_BUILT_IN_CLASS (decl) == BUILT_IN_NORMAL
+	      && asmspec != 0);
+
+  builtin = built_in_decls [DECL_FUNCTION_CODE (decl)];
+  set_user_assembler_name (builtin, asmspec);
+  if (DECL_FUNCTION_CODE (decl) == BUILT_IN_MEMCPY)
+    init_block_move_fn (asmspec);
+  else if (DECL_FUNCTION_CODE (decl) == BUILT_IN_MEMSET)
+    init_block_clear_fn (asmspec);
 }
 
 tree
@@ -4310,6 +4337,7 @@ handle_mode_attribute (tree *node, tree name, tree args,
 	  TYPE_MAX_VALUE (type) = TYPE_MAX_VALUE (typefm);
 	  TYPE_SIZE (type) = TYPE_SIZE (typefm);
 	  TYPE_SIZE_UNIT (type) = TYPE_SIZE_UNIT (typefm);
+	  TYPE_MODE (type) = TYPE_MODE (typefm);
 	  if (!TYPE_USER_ALIGN (type))
 	    TYPE_ALIGN (type) = TYPE_ALIGN (typefm);
 

@@ -1,6 +1,6 @@
 /* Common subexpression elimination for GNU compiler.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -201,15 +201,6 @@ Related expressions:
    is also entered.  These are made to point at each other
    so that it is possible to find out if there exists any
    register equivalent to an expression related to a given expression.  */
-
-/* One plus largest register number used in this function.  */
-
-static int max_reg;
-
-/* One plus largest instruction UID used in this function at time of
-   cse_main call.  */
-
-static int max_insn_uid;
 
 /* Length of qty_table vector.  We know in advance we will not need
    a quantity number this big.  */
@@ -3865,6 +3856,10 @@ fold_rtx (rtx x, rtx insn)
 	 constant, set CONST_ARG0 and CONST_ARG1 appropriately.  We needn't
 	 do anything if both operands are already known to be constant.  */
 
+      /* ??? Vector mode comparisons are not supported yet.  */
+      if (VECTOR_MODE_P (mode))
+	break;
+
       if (const_arg0 == 0 || const_arg1 == 0)
 	{
 	  struct table_elt *p0, *p1;
@@ -3882,8 +3877,6 @@ fold_rtx (rtx x, rtx insn)
 
 	  code = find_comparison_args (code, &folded_arg0, &folded_arg1,
 				       &mode_arg0, &mode_arg1);
-	  const_arg0 = equiv_constant (folded_arg0);
-	  const_arg1 = equiv_constant (folded_arg1);
 
 	  /* If the mode is VOIDmode or a MODE_CC mode, we don't know
 	     what kinds of things are being compared, so we can't do
@@ -3891,6 +3884,9 @@ fold_rtx (rtx x, rtx insn)
 
 	  if (mode_arg0 == VOIDmode || GET_MODE_CLASS (mode_arg0) == MODE_CC)
 	    break;
+
+	  const_arg0 = equiv_constant (folded_arg0);
+	  const_arg1 = equiv_constant (folded_arg1);
 
 	  /* If we do not now have two constants being compared, see
 	     if we can nevertheless deduce some things about the
@@ -4861,7 +4857,7 @@ cse_insn (rtx insn, rtx libcall_insn)
       else
 	SET_SRC (sets[i].rtl) = new;
 
-      if (GET_CODE (dest) == ZERO_EXTRACT || GET_CODE (dest) == SIGN_EXTRACT)
+      if (GET_CODE (dest) == ZERO_EXTRACT)
 	{
 	  validate_change (insn, &XEXP (dest, 1),
 			   canon_reg (XEXP (dest, 1), insn), 1);
@@ -4869,9 +4865,9 @@ cse_insn (rtx insn, rtx libcall_insn)
 			   canon_reg (XEXP (dest, 2), insn), 1);
 	}
 
-      while (GET_CODE (dest) == SUBREG || GET_CODE (dest) == STRICT_LOW_PART
+      while (GET_CODE (dest) == SUBREG
 	     || GET_CODE (dest) == ZERO_EXTRACT
-	     || GET_CODE (dest) == SIGN_EXTRACT)
+	     || GET_CODE (dest) == STRICT_LOW_PART)
 	dest = XEXP (dest, 0);
 
       if (MEM_P (dest))
@@ -4968,8 +4964,7 @@ cse_insn (rtx insn, rtx libcall_insn)
 	 causes later instructions to be mis-optimized.  */
       /* If storing a constant in a bitfield, pre-truncate the constant
 	 so we will be able to record it later.  */
-      if (GET_CODE (SET_DEST (sets[i].rtl)) == ZERO_EXTRACT
-	  || GET_CODE (SET_DEST (sets[i].rtl)) == SIGN_EXTRACT)
+      if (GET_CODE (SET_DEST (sets[i].rtl)) == ZERO_EXTRACT)
 	{
 	  rtx width = XEXP (SET_DEST (sets[i].rtl), 1);
 
@@ -5625,11 +5620,9 @@ cse_insn (rtx insn, rtx libcall_insn)
       /* Now deal with the destination.  */
       do_not_record = 0;
 
-      /* Look within any SIGN_EXTRACT or ZERO_EXTRACT
-	 to the MEM or REG within it.  */
-      while (GET_CODE (dest) == SIGN_EXTRACT
+      /* Look within any ZERO_EXTRACT to the MEM or REG within it.  */
+      while (GET_CODE (dest) == SUBREG
 	     || GET_CODE (dest) == ZERO_EXTRACT
-	     || GET_CODE (dest) == SUBREG
 	     || GET_CODE (dest) == STRICT_LOW_PART)
 	dest = XEXP (dest, 0);
 
@@ -5657,8 +5650,7 @@ cse_insn (rtx insn, rtx libcall_insn)
 	 because the value in it after the store
 	 may not equal what was stored, due to truncation.  */
 
-      if (GET_CODE (SET_DEST (sets[i].rtl)) == ZERO_EXTRACT
-	  || GET_CODE (SET_DEST (sets[i].rtl)) == SIGN_EXTRACT)
+      if (GET_CODE (SET_DEST (sets[i].rtl)) == ZERO_EXTRACT)
 	{
 	  rtx width = XEXP (SET_DEST (sets[i].rtl), 1);
 
@@ -6725,10 +6717,6 @@ cse_main (rtx f, int nregs, FILE *file)
 
   init_recog ();
   init_alias_analysis ();
-
-  max_reg = nregs;
-
-  max_insn_uid = get_max_uid ();
 
   reg_eqv_table = xmalloc (nregs * sizeof (struct reg_eqv_elem));
 

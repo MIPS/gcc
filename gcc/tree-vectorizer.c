@@ -1,5 +1,5 @@
 /* Loop Vectorization
-   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Dorit Naishlos <dorit@il.ibm.com>
 
 This file is part of GCC.
@@ -285,8 +285,10 @@ static unsigned int loops_num;
  *************************************************************************/
 
 /* Utilities for dependence analysis.  */
+#if 0
 static unsigned int vect_build_dist_vector (struct loop *,
 					    struct data_dependence_relation *);
+#endif
 
 /* For each definition in DEFINITIONS this function allocates 
    new ssa name.  */
@@ -537,7 +539,7 @@ slpeel_update_phis_for_duplicate_loop (struct loop *orig_loop,
         {
           gcc_assert (new_loop_exit_e == orig_entry_e);
           SET_PHI_ARG_DEF (phi_orig,
-                           phi_arg_from_edge (phi_orig, new_loop_exit_e),
+                           new_loop_exit_e->dest_idx,
                            new_ssa_name);
         }
     }
@@ -653,8 +655,7 @@ slpeel_update_phi_nodes_for_guard (edge guard_edge,
       /* 3. Update phi in successor block.  */
       gcc_assert (PHI_ARG_DEF_FROM_EDGE (update_phi, e) == loop_arg
                   || PHI_ARG_DEF_FROM_EDGE (update_phi, e) == guard_arg);
-      SET_PHI_ARG_DEF (update_phi, phi_arg_from_edge (update_phi, e),
-                       PHI_RESULT (new_phi));
+      SET_PHI_ARG_DEF (update_phi, e->dest_idx, PHI_RESULT (new_phi));
     }
 
   set_phi_nodes (new_merge_bb, phi_reverse (phi_nodes (new_merge_bb)));
@@ -1192,8 +1193,8 @@ update_vuses_to_preheader (tree stmt, struct loop *loop)
 	    {
 	      if (SSA_NAME_VAR (PHI_RESULT (phi)) == name_var)
 		{
-		  int j = phi_arg_from_edge (phi, preheader_e);
-		  SET_VUSE_OP (vuses, i, PHI_ARG_DEF (phi, j));
+		  SET_VUSE_OP (vuses, i, 
+			       PHI_ARG_DEF (phi, preheader_e->dest_idx));
 		  updated = true;
 		  break;
 		}
@@ -1697,9 +1698,9 @@ vect_analyze_offset_expr (tree expr,
    If VECTYPE is given, also compute the INITIAL_OFFSET from BASE, MISALIGN and 
    STEP.
    E.g., for EXPR a.b[i] + 4B, BASE is a, and OFFSET is the overall offset  
-   'a.b[i] + 4B' from a (can be an expression), MISALIGN is an OFFSET instantiated
-   with initial_conditions of access_functions of variables, modulo alignment,
-   and STEP is the evolution of the DR_REF in this loop.
+   'a.b[i] + 4B' from a (can be an expression), MISALIGN is an OFFSET 
+   instantiated with initial_conditions of access_functions of variables, 
+   modulo alignment, and STEP is the evolution of the DR_REF in this loop.
 
    Function get_inner_reference is used for the above in case of ARRAY_REF and
    COMPONENT_REF.
@@ -1826,7 +1827,7 @@ vect_get_base_and_offset (struct data_reference *dr,
 
       /* Find the base and the offset from it.  */
       next_ref = get_inner_reference (expr, &pbitsize, &pbitpos, &poffset,
-				      &pmode, &punsignedp, &pvolatilep);
+				      &pmode, &punsignedp, &pvolatilep, false);
       if (!next_ref)
 	return NULL_TREE;
 
@@ -2036,7 +2037,7 @@ vect_create_addr_base_for_vector_ref (tree stmt,
 
   if (TREE_CODE (TREE_TYPE (data_ref_base)) != POINTER_TYPE)
     /* After the analysis stage, we expect to get here only with RECORD_TYPE
-       and ARRAY_TYPE.  */
+       and ARRAY_TYPE. */
     /* Add '&' to ref_base.  */
     data_ref_base = build_fold_addr_expr (data_ref_base);
   else
@@ -2596,7 +2597,7 @@ vectorizable_assignment (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
       return true;
     }
 
-  /** Trasform.  **/
+  /** Transform.  **/
   if (vect_debug_details (NULL))
     fprintf (dump_file, "transform assignment.");
 
@@ -3071,8 +3072,8 @@ vect_supportable_dr_alignment (struct data_reference *dr)
 	      || targetm.vectorize.builtin_mask_for_load ()))
 	return dr_unaligned_software_pipeline;
 
-      if (targetm.vectorize.misaligned_mem_ok (mode))
-	/* Can't software pipeline the loads.  */
+      if (movmisalign_optab->handlers[mode].insn_code != CODE_FOR_nothing)
+	/* Can't software pipeline the loads, but can at least do them.  */
 	return dr_unaligned_supported;
     }
 
@@ -3423,7 +3424,7 @@ vect_update_ivs_after_vectorizer (struct loop *loop, tree niters, edge update_e)
       /* Fix phi expressions in the successor bb.  */
       gcc_assert (PHI_ARG_DEF_FROM_EDGE (phi1, update_e) ==
                   PHI_ARG_DEF_FROM_EDGE (phi, EDGE_SUCC (loop->latch, 0)));
-      SET_PHI_ARG_DEF (phi1, phi_arg_from_edge (phi1, update_e), ni_name);
+      SET_PHI_ARG_DEF (phi1, update_e->dest_idx, ni_name);
     }
 }
 
@@ -4382,6 +4383,7 @@ vect_analyze_scalar_cycles (loop_vec_info loop_vinfo)
   return true;
 }
 
+#if 0
 /* Function vect_build_dist_vector.
 
    Build classic dist vector for dependence relation DDR using LOOP's loop
@@ -4408,10 +4410,11 @@ vect_build_dist_vector (struct loop *loop,
 
   /* Compute distance vector.  */
   compute_subscript_distance (ddr);
-  build_classic_dist_vector (ddr, loops_num, loop->num);
+  build_classic_dist_vector (ddr, loops_num, loop->depth);
 
   return loop_depth - 1;
 }
+#endif
 
 /* Function vect_analyze_data_ref_dependence.
 
@@ -4425,12 +4428,14 @@ vect_analyze_data_ref_dependence (struct data_reference *dra,
 {
   bool differ_p; 
   struct data_dependence_relation *ddr;
-  int vectorization_factor = LOOP_VINFO_VECT_FACTOR (loop_info);
   struct loop *loop = LOOP_VINFO_LOOP (loop_info);
+#if 0
   unsigned int loop_depth = 0;
+  int vectorization_factor = LOOP_VINFO_VECT_FACTOR (loop_info);
   stmt_vec_info stmt_info_a = vinfo_for_stmt (DR_STMT (dra));
   stmt_vec_info stmt_info_b = vinfo_for_stmt (DR_STMT (drb));
   int dist;
+#endif
 
   if (!array_base_name_differ_p (dra, drb, &differ_p))
     {
@@ -4454,6 +4459,7 @@ vect_analyze_data_ref_dependence (struct data_reference *dra,
   if (DDR_ARE_DEPENDENT (ddr) == chrec_known)
     return false;
 
+#if 0
   if (DDR_ARE_DEPENDENT (ddr) == chrec_dont_know)
     return true;
 
@@ -4477,6 +4483,7 @@ vect_analyze_data_ref_dependence (struct data_reference *dra,
     /* Dependence distance does not create dependence, as far as vectorization
        is concerned, in this case.  */
     return false;
+#endif
   
   if (vect_debug_stats (loop) || vect_debug_details (loop))
     {
@@ -4857,13 +4864,14 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
         }
 
       DR_MISALIGNMENT (dr0) = 0;
+      if (vect_debug_details (loop) || vect_debug_stats (loop))
+	fprintf (dump_file, "Alignment of access forced using peeling.");
     }
 
 
   /* (2) Versioning to force alignment.  */
 
   /* TODO */
-
 
   /* Finally, check that all the data references in the loop can be
      handled with respect to their alignment.  */
@@ -4878,6 +4886,9 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
             fprintf (dump_file, "not vectorized: unsupported unaligned load.");
           return false;
         }
+      if (supportable_dr_alignment != dr_aligned
+          && (vect_debug_details (loop) || vect_debug_stats (loop)))
+        fprintf (dump_file, "Vectorizing an unaligned access.");
     }
   for (i = 0; i < VARRAY_ACTIVE_SIZE (loop_write_datarefs); i++)
     {
@@ -4889,6 +4900,9 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
             fprintf (dump_file, "not vectorized: unsupported unaligned store.");
           return false;
         }
+      if (supportable_dr_alignment != dr_aligned
+          && (vect_debug_details (loop) || vect_debug_stats (loop)))
+        fprintf (dump_file, "Vectorizing an unaligned access.");
     }
 
   return true;
@@ -5308,7 +5322,7 @@ vect_get_memtag_and_dr (tree memref, tree stmt, bool is_read,
    1.1.1- vect_get_base_and_offset():
       Calculate base, initial_offset, step and alignment.      
       For ARRAY_REFs and COMPONENT_REFs use call get_inner_reference.
-   2- vect_analyze_dependences(): apply dependece testing using ref_stmt.DR
+   2- vect_analyze_dependences(): apply dependence testing using ref_stmt.DR
    3- vect_analyze_drs_alignment(): check that ref_stmt.alignment is ok.
    4- vect_analyze_drs_access(): check that ref_stmt.step is ok.
 
@@ -6385,6 +6399,17 @@ vect_analyze_loop (struct loop *loop)
       return NULL;
     }
 
+  /* Analyze the access patterns of the data-refs in the loop (consecutive,
+     complex, etc.). FORNOW: Only handle consecutive access pattern.  */
+
+  ok = vect_analyze_data_ref_accesses (loop_vinfo);
+  if (!ok)
+    {
+      if (vect_debug_details (loop))
+        fprintf (dump_file, "bad data access.");
+      destroy_loop_vec_info (loop_vinfo);
+      return NULL;
+    }
 
   /* This pass will decide on using loop versioning and/or loop peeling in
      order to enhance the alignment of data references in the loop.  */
@@ -6397,19 +6422,6 @@ vect_analyze_loop (struct loop *loop)
       destroy_loop_vec_info (loop_vinfo);
       return NULL;
     } 
-
-
-  /* Analyze the access patterns of the data-refs in the loop (consecutive,
-     complex, etc.). FORNOW: Only handle consecutive access pattern.  */
-
-  ok = vect_analyze_data_ref_accesses (loop_vinfo);
-  if (!ok)
-    {
-      if (vect_debug_details (loop))
-	fprintf (dump_file, "bad data access.");
-      destroy_loop_vec_info (loop_vinfo);
-      return NULL;
-    }
 
   /* Scan all the operations in the loop and make sure they are
      vectorizable.  */

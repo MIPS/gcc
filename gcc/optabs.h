@@ -1,5 +1,5 @@
 /* Definitions for code generation pass of GNU compiler.
-   Copyright (C) 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -133,6 +133,8 @@ enum optab_index
   OTI_mov,
   /* Move, preserving high part of register.  */
   OTI_movstrict,
+  /* Move, with a misaligned memory.  */
+  OTI_movmisalign,
 
   /* Unary operations */
   /* Negation */
@@ -277,6 +279,7 @@ extern GTY(()) optab optab_table[OTI_MAX];
 
 #define mov_optab (optab_table[OTI_mov])
 #define movstrict_optab (optab_table[OTI_movstrict])
+#define movmisalign_optab (optab_table[OTI_movmisalign])
 
 #define neg_optab (optab_table[OTI_neg])
 #define negv_optab (optab_table[OTI_negv])
@@ -491,11 +494,6 @@ extern enum insn_code can_extend_p (enum machine_mode, enum machine_mode, int);
    into X (with mode MTO).  Do zero-extension if UNSIGNEDP is nonzero.  */
 extern rtx gen_extend_insn (rtx, rtx, enum machine_mode,
 			    enum machine_mode, int);
-
-/* Initialize the tables that control conversion between fixed and
-   floating values.  */
-extern void init_fixtab (void);
-extern void init_floattab (void);
 
 /* Call this to reset the function entry for one optab.  */
 extern void set_optab_libfunc (optab, enum machine_mode, const char *);

@@ -273,14 +273,10 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
    TARGET_SCHED_DFA_NEW_CYCLE,					\
    TARGET_SCHED_IS_COSTLY_DEPENDENCE}
 
-#ifndef TARGET_VECTORIZE_MISALIGNED_MEM_OK
-#define TARGET_VECTORIZE_MISALIGNED_MEM_OK default_vect_misaligned_mem_ok
-#endif
 #define TARGET_VECTORIZE_BUILTIN_MASK_FOR_LOAD 0
 
 #define TARGET_VECTORIZE                                                \
-  {TARGET_VECTORIZE_MISALIGNED_MEM_OK,                                  \
-   TARGET_VECTORIZE_BUILTIN_MASK_FOR_LOAD}
+  {TARGET_VECTORIZE_BUILTIN_MASK_FOR_LOAD}
 
 /* In except.c */
 #define TARGET_EH_RETURN_FILTER_MODE  default_eh_return_filter_mode
@@ -398,8 +394,12 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 #define TARGET_GIMPLIFY_VA_ARG_EXPR std_gimplify_va_arg_expr
 #define TARGET_PASS_BY_REFERENCE hook_bool_CUMULATIVE_ARGS_mode_tree_bool_false
+
+#define TARGET_RELAXED_ORDERING false
+
 #define TARGET_MUST_PASS_IN_STACK must_pass_in_stack_var_size_or_pad
 #define TARGET_CALLEE_COPIES hook_bool_CUMULATIVE_ARGS_mode_tree_bool_false
+#define TARGET_ARG_PARTIAL_BYTES hook_int_CUMULATIVE_ARGS_mode_tree_bool_0
 
 #define TARGET_CALLS {						\
    TARGET_PROMOTE_FUNCTION_ARGS,				\
@@ -415,7 +415,8 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
    TARGET_PRETEND_OUTGOING_VARARGS_NAMED,			\
    TARGET_SPLIT_COMPLEX_ARG,					\
    TARGET_MUST_PASS_IN_STACK,					\
-   TARGET_CALLEE_COPIES						\
+   TARGET_CALLEE_COPIES,					\
+   TARGET_ARG_PARTIAL_BYTES					\
    }
 
 
@@ -537,6 +538,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
   TARGET_ASM_FILE_START_FILE_DIRECTIVE,		\
   TARGET_HANDLE_PRAGMA_REDEFINE_EXTNAME,	\
   TARGET_HANDLE_PRAGMA_EXTERN_PREFIX,		\
+  TARGET_RELAXED_ORDERING,			\
 }
 
 #include "hooks.h"

@@ -1,5 +1,5 @@
 /* Alias analysis for trees.
-   Copyright (C) 2004 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
 This file is part of GCC.
@@ -354,7 +354,8 @@ struct tree_opt_pass pass_may_alias =
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
   TODO_dump_func | TODO_rename_vars
-    | TODO_ggc_collect | TODO_verify_ssa,  /* todo_flags_finish */
+    | TODO_ggc_collect | TODO_verify_ssa
+    | TODO_verify_stmts, 		/* todo_flags_finish */
   0					/* letter */
 };
 
@@ -437,7 +438,6 @@ init_alias_info (void)
   if (aliases_computed_p)
     {
       unsigned i;
-      bitmap_iterator bi;
       basic_block bb;
   
      /* Make sure that every statement has a valid set of operands.
@@ -453,19 +453,6 @@ init_alias_info (void)
 	    get_stmt_operands (bsi_stmt (si));
 	}
 
-      /* Clear the call-clobbered set.  We are going to re-discover
-	  call-clobbered variables.  */
-      EXECUTE_IF_SET_IN_BITMAP (call_clobbered_vars, 0, i, bi)
-	{
-	  tree var = referenced_var (i);
-
-	  /* Variables that are intrinsically call-clobbered (globals,
-	     local statics, etc) will not be marked by the aliasing
-	     code, so we can't remove them from CALL_CLOBBERED_VARS.  */
-	  if (!is_call_clobbered (var))
-	    bitmap_clear_bit (call_clobbered_vars, var_ann (var)->uid);
-	}
-
       /* Similarly, clear the set of addressable variables.  In this
 	 case, we can just clear the set because addressability is
 	 only computed here.  */
@@ -474,9 +461,19 @@ init_alias_info (void)
       /* Clear flow-insensitive alias information from each symbol.  */
       for (i = 0; i < num_referenced_vars; i++)
 	{
-	  var_ann_t ann = var_ann (referenced_var (i));
+	  tree var = referenced_var (i);
+	  var_ann_t ann = var_ann (var);
+
 	  ann->is_alias_tag = 0;
 	  ann->may_aliases = NULL;
+
+	  /* Since we are about to re-discover call-clobbered
+	     variables, clear the call-clobbered flag.  Variables that
+	     are intrinsically call-clobbered (globals, local statics,
+	     etc) will not be marked by the aliasing code, so we can't
+	     remove them from CALL_CLOBBERED_VARS.  */
+	  if (ann->mem_tag_kind != NOT_A_TAG || !is_global_var (var))
+	    clear_call_clobbered (var);
 	}
 
       /* Clear flow-sensitive points-to information from each SSA name.  */
@@ -916,6 +913,7 @@ compute_flow_sensitive_aliasing (struct alias_info *ai)
 	EXECUTE_IF_SET_IN_BITMAP (pi->pt_vars, 0, j, bi)
 	  {
 	    add_may_alias (pi->name_mem_tag, referenced_var (j));
+	    add_may_alias (v_ann->type_mem_tag, referenced_var (j));
 	  }
 
       /* If the name tag is call clobbered, so is the type tag

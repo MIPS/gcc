@@ -1,5 +1,5 @@
 /* gfortran backend interface
-   Copyright (C) 2000, 2001, 2002, 2003, 2004 Free Software Foundation,
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation,
    Inc.
    Contributed by Paul Brook.
 
@@ -25,6 +25,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 /* declare required prototypes: */
 
 #include "config.h"
+#include "system.h"
 #include "ansidecl.h"
 #include "system.h"
 #include "coretypes.h"
@@ -48,8 +49,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "trans.h"
 #include "trans-types.h"
 #include "trans-const.h"
-
-#include <stdio.h>
 
 /* Language-dependent contents of an identifier.  */
 
@@ -780,7 +779,7 @@ gfc_init_builtin_functions (void)
 
 #include "mathbuiltins.def"
 
-  /* We define these seperately as the fortran versions have different
+  /* We define these separately as the fortran versions have different
      semantics (they return an integer type) */
   gfc_define_builtin ("__builtin_floor", mfunc_double[0], 
 		      BUILT_IN_FLOOR, "floor", true);
@@ -864,6 +863,8 @@ gfc_init_builtin_functions (void)
   ftype = build_function_type (pvoid_type_node, tmp);
   gfc_define_builtin ("__builtin_alloca", ftype, BUILT_IN_ALLOCA,
 		      "alloca", false);
+
+  targetm.init_builtins ();
 }
 
 #undef DEFINE_MATH_BUILTIN_C

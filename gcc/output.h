@@ -1,7 +1,7 @@
 /* Declarations for insn-output.c.  These functions are defined in recog.c,
    final.c, and varasm.c.
    Copyright (C) 1987, 1991, 1994, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -143,10 +143,6 @@ extern void leaf_renumber_regs_insn (rtx);
 
 /* Locate the proper template for the given insn-code.  */
 extern const char *get_insn_template (int, rtx);
-
-/* Add function NAME to the weak symbols list.  VALUE is a weak alias
-   associated with NAME.  */
-extern int add_weak (tree, const char *, const char *);
 
 /* Functions in flow.c */
 extern int regno_clobbered_at_setjmp (int);
@@ -291,11 +287,16 @@ extern void assemble_external_libcall (rtx);
 /* Assemble a label named NAME.  */
 extern void assemble_label (const char *);
 
-/* Output to FILE a reference to the assembler name of a C-level name NAME.
-   If NAME starts with a *, the rest of NAME is output verbatim.
-   Otherwise NAME is transformed in an implementation-defined way
-   (usually by the addition of an underscore).
-   Many macros in the tm file are defined to call this function.  */
+/* Output to FILE (an assembly file) a reference to NAME.  If NAME
+   starts with a *, the rest of NAME is output verbatim.  Otherwise
+   NAME is transformed in a target-specific way (usually by the
+   addition of an underscore).  */
+extern void assemble_name_raw (FILE *, const char *);
+
+/* Like assemble_name_raw, but should be used when NAME might refer to
+   an entity that is also represented as a tree (like a function or
+   variable).  If NAME does refer to such an entity, that entity will
+   be marked as referenced.  */
 extern void assemble_name (FILE *, const char *);
 
 /* Return the assembler directive for creating a given kind of integer

@@ -1,5 +1,5 @@
 /* Parse and display command line options.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004 Free Software Foundation,
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation,
    Inc.
    Contributed by Andy Vaught
 
@@ -20,8 +20,6 @@ along with GCC; see the file COPYING.  If not, write to the Free
 Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 02111-1307, USA.  */
 
-#include <string.h>
-#include <stdlib.h>
 
 #include "config.h"
 #include "system.h"

@@ -203,8 +203,12 @@ AM_CPPFLAGS = -I$(top_srcdir) -Iinclude -I$(top_srcdir)/include \
 ##
 
 libgij_la_SOURCES = gij.cc
-libgij_la_LIBADD = libgcj.la
 libgij_la_DEPENDENCIES = libgcj.la libgcj.spec
+## See jv_convert_LDADD.
+libgij_la_LIBADD = -L$(here)/.libs libgcj.la
+## The mysterious backslash in the grep pattern is consumed by make.
+libgij_la_LDFLAGS = -rpath $(toolexeclibdir) \
+        -version-info `grep -v '^\#' $(srcdir)/libtool-version` $(LIBGCJ_LD_SYMBOLIC)
 
 libgcj_la_SOURCES = prims.cc jni.cc exception.cc \
 	link.cc defineclass.cc interpret.cc verify.cc \
@@ -2854,8 +2858,11 @@ gnu/java/locale/LocaleInformation_zh_HK.java \
 gnu/java/locale/LocaleInformation_zh_SG.java \
 gnu/java/locale/LocaleInformation_zh_TW.java \
 gnu/java/math/MPN.java \
+gnu/java/net/BASE64.java \
 gnu/java/net/DefaultContentHandlerFactory.java \
+gnu/java/net/EmptyX509TrustManager.java \
 gnu/java/net/HeaderFieldHelper.java \
+gnu/java/net/LineInputStream.java \
 gnu/java/net/PlainDatagramSocketImpl.java \
 gnu/java/net/PlainSocketImpl.java \
 gnu/java/net/URLParseError.java \
@@ -2866,8 +2873,28 @@ gnu/java/net/protocol/file/Connection.java \
 gnu/java/net/protocol/file/Handler.java \
 gnu/java/net/protocol/gcjlib/Connection.java \
 gnu/java/net/protocol/gcjlib/Handler.java \
-gnu/java/net/protocol/http/Connection.java \
+gnu/java/net/protocol/http/Authenticator.java \
+gnu/java/net/protocol/http/ByteArrayRequestBodyWriter.java \
+gnu/java/net/protocol/http/ByteArrayResponseBodyReader.java \
+gnu/java/net/protocol/http/ChunkedInputStream.java \
+gnu/java/net/protocol/http/Cookie.java \
+gnu/java/net/protocol/http/CookieManager.java \
+gnu/java/net/protocol/http/Credentials.java \
+gnu/java/net/protocol/http/HTTPConnection.java \
+gnu/java/net/protocol/http/HTTPDateFormat.java \
+gnu/java/net/protocol/http/HTTPURLConnection.java \
 gnu/java/net/protocol/http/Handler.java \
+gnu/java/net/protocol/http/Headers.java \
+gnu/java/net/protocol/http/Request.java \
+gnu/java/net/protocol/http/RequestBodyWriter.java \
+gnu/java/net/protocol/http/Response.java \
+gnu/java/net/protocol/http/ResponseBodyReader.java \
+gnu/java/net/protocol/http/ResponseHeaderHandler.java \
+gnu/java/net/protocol/http/SimpleCookieManager.java \
+gnu/java/net/protocol/http/event/ConnectionEvent.java \
+gnu/java/net/protocol/http/event/ConnectionListener.java \
+gnu/java/net/protocol/http/event/RequestEvent.java \
+gnu/java/net/protocol/http/event/RequestListener.java \
 gnu/java/net/protocol/jar/Connection.java \
 gnu/java/net/protocol/jar/Handler.java \
 gnu/java/nio/ChannelInputStream.java \

@@ -1,5 +1,6 @@
 /* Prototypes for pa.c functions used in the md file & elsewhere.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation,
+   Inc.
 
 This file is part of GCC.
 
@@ -79,7 +80,8 @@ extern int arith_operand (rtx, enum machine_mode);
 extern int read_only_operand (rtx, enum machine_mode);
 extern int move_dest_operand (rtx, enum machine_mode);
 extern int move_src_operand (rtx, enum machine_mode);
-extern int prefetch_operand (rtx, enum machine_mode);
+extern int prefetch_cc_operand (rtx, enum machine_mode);
+extern int prefetch_nocc_operand (rtx, enum machine_mode);
 extern int and_operand (rtx, enum machine_mode);
 extern int ior_operand (rtx, enum machine_mode);
 extern int arith32_operand (rtx, enum machine_mode);
@@ -160,9 +162,6 @@ extern rtx function_arg (CUMULATIVE_ARGS *, enum machine_mode,
 			 tree, int);
 extern rtx function_value (tree, tree);
 #endif
-extern int function_arg_partial_nregs (CUMULATIVE_ARGS *,
-				       enum machine_mode,
-				       tree, int);
 extern bool pa_return_in_memory (tree, tree);
 #endif /* TREE_CODE */
 

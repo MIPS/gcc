@@ -1,6 +1,6 @@
 // istream classes -*- C++ -*-
 
-// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
+// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -671,9 +671,6 @@ namespace std
     basic_istream<_CharT, _Traits>::
     ignore(streamsize __n)
     {
-      if (__n == 1)
-	return ignore();
-
       _M_gcount = 0;
       sentry __cerb(*this, true);
       if (__cerb && __n > 0)
@@ -683,13 +680,37 @@ namespace std
             {
               const int_type __eof = traits_type::eof();
               __streambuf_type* __sb = this->rdbuf();
-              int_type __c = __eof;
+              int_type __c = __sb->sgetc();
 
-              if (__n != numeric_limits<streamsize>::max())
-                --__n;
-              while (_M_gcount <= __n
-                     && !traits_type::eq_int_type(__c = __sb->sbumpc(), __eof))
-		++_M_gcount;
+	      // N.B. On LFS-enabled platforms streamsize is still 32 bits
+	      // wide: if we want to implement the standard mandated behavior
+	      // for n == max() (see 27.6.1.3/24) we are at risk of signed
+	      // integer overflow: thus these contortions. Also note that,
+	      // by definition, when more than 2G chars are actually ignored,
+	      // _M_gcount (the return value of gcount, that is) cannot be
+	      // really correct, being unavoidably too small.
+	      bool __large_ignore = false;
+	      while (true)
+		{
+		  while (_M_gcount < __n
+			 && !traits_type::eq_int_type(__c, __eof))
+		    {
+		      ++_M_gcount;
+		      __c = __sb->snextc();
+		    }
+		  if (__n == numeric_limits<streamsize>::max()
+		      && !traits_type::eq_int_type(__c, __eof))
+		    {
+		      _M_gcount = numeric_limits<streamsize>::min();
+		      __large_ignore = true;
+		    }
+		  else
+		    break;
+		}
+
+	      if (__large_ignore)
+		_M_gcount = numeric_limits<streamsize>::max();
+
 	      if (traits_type::eq_int_type(__c, __eof))
                 __err |= ios_base::eofbit;
             }
@@ -706,9 +727,6 @@ namespace std
     basic_istream<_CharT, _Traits>::
     ignore(streamsize __n, int_type __delim)
     {
-      if (traits_type::eq_int_type(__delim, traits_type::eof()))
-	return ignore(__n);
-
       _M_gcount = 0;
       sentry __cerb(*this, true);
       if (__cerb && __n > 0)
@@ -718,19 +736,41 @@ namespace std
             {
               const int_type __eof = traits_type::eof();
               __streambuf_type* __sb = this->rdbuf();
-              int_type __c = __eof;
+              int_type __c = __sb->sgetc();
 
-              if (__n != numeric_limits<streamsize>::max())
-                --__n;
-              while (_M_gcount <= __n
-                     && !traits_type::eq_int_type(__c = __sb->sbumpc(), __eof))
-                {
-                  ++_M_gcount;
-                  if (traits_type::eq_int_type(__c, __delim))
-                    break;
-                }
+	      // See comment above.
+	      bool __large_ignore = false;
+	      while (true)
+		{
+		  while (_M_gcount < __n
+			 && !traits_type::eq_int_type(__c, __eof)
+			 && !traits_type::eq_int_type(__c, __delim))
+		    {
+		      ++_M_gcount;
+		      __c = __sb->snextc();
+		    }
+		  if (__n == numeric_limits<streamsize>::max()
+		      && !traits_type::eq_int_type(__c, __eof)
+		      && !traits_type::eq_int_type(__c, __delim))
+		    {
+		      _M_gcount = numeric_limits<streamsize>::min();
+		      __large_ignore = true;
+		    }
+		  else
+		    break;
+		}
+
+	      if (__large_ignore)
+		_M_gcount = numeric_limits<streamsize>::max();
+
               if (traits_type::eq_int_type(__c, __eof))
                 __err |= ios_base::eofbit;
+	      else if (traits_type::eq_int_type(__c, __delim))
+		{
+		  if (_M_gcount < numeric_limits<streamsize>::max())
+		    ++_M_gcount;
+		  __sb->sbumpc();
+		}
             }
           catch(...)
             { this->_M_setstate(ios_base::badbit); }

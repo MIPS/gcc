@@ -1,5 +1,5 @@
 /* Definitions for describing one tree-ssa optimization pass.
-   Copyright (C) 2004 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005 Free Software Foundation, Inc.
    Contributed by Richard Henderson <rth@redhat.com>
 
 This file is part of GCC.
@@ -144,6 +144,7 @@ extern struct tree_opt_pass pass_del_ssa;
 extern struct tree_opt_pass pass_dominator;
 extern struct tree_opt_pass pass_dce;
 extern struct tree_opt_pass pass_cd_dce;
+extern struct tree_opt_pass pass_merge_phi;
 extern struct tree_opt_pass pass_may_alias;
 extern struct tree_opt_pass pass_split_crit_edges;
 extern struct tree_opt_pass pass_pre;
@@ -160,6 +161,7 @@ extern struct tree_opt_pass pass_redundant_phi;
 extern struct tree_opt_pass pass_dse;
 extern struct tree_opt_pass pass_nrv;
 extern struct tree_opt_pass pass_remove_useless_vars;
+extern struct tree_opt_pass pass_mark_used_blocks;
 extern struct tree_opt_pass pass_rename_ssa_copies;
 extern struct tree_opt_pass pass_expand;
 extern struct tree_opt_pass pass_rest_of_compilation;

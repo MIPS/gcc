@@ -2300,6 +2300,7 @@ cfg_duplicate_sese_region (edge entry, edge exit,
   doms[n_doms++] = entry->dest->rbi->original;
   iterate_fix_dominators (CDI_DOMINATORS, doms, n_doms);
   free (doms);
+  return true;
 }
 /* This is loop_copy_header does but in RTL level.
    Having a loop that executes N times where the loop header
@@ -2332,7 +2333,8 @@ rtl_loop_copy_header (struct loops *loops)
 	exit_e = EDGE_SUCC (loop->header, 0);
       else
 	exit_e = EDGE_SUCC (loop->header, 1);
-      cfg_duplicate_sese_region (e, exit_e, bbs, 1, NULL);
+      if (!cfg_duplicate_sese_region (e, exit_e, bbs, 1, NULL) && dump_file)
+        fprintf (dump_file, "Duplication failed.\n");
     }
   free_dominance_info (CDI_DOMINATORS);
   cleanup_cfg (CLEANUP_CFGLAYOUT);

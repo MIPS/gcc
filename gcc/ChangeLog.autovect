@@ -1,3 +1,7 @@
+2005-01-31  Dorit Naishlos  <dorit@il.ibm.com>
+
+	Merge from mainline (autovect-merge-20050127).
+
 2005-01-19 Mostafa Hagog <mustafa@il.ibm.com>
 
 	* cfg.c (clear_bb_flags): Don't clear BB_DISABLE_SCHEDULE.

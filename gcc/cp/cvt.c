@@ -1,6 +1,6 @@
 /* Language-level data type conversion for GNU C++.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -569,19 +569,6 @@ convert_from_reference (tree val)
   return val;
 }
 
-/* Implicitly convert the lvalue EXPR to another lvalue of type TOTYPE,
-   preserving cv-qualification.  */
-
-tree
-convert_lvalue (tree totype, tree expr)
-{
-  totype = cp_build_qualified_type (totype, TYPE_QUALS (TREE_TYPE (expr)));
-  totype = build_reference_type (totype);
-  expr = convert_to_reference (totype, expr, CONV_IMPLICIT, LOOKUP_NORMAL,
-			       NULL_TREE);
-  return convert_from_reference (expr);
-}
-
 /* Really perform an lvalue-to-rvalue conversion, including copying an
    argument of class type into a temporary.  */
 
@@ -621,7 +608,7 @@ ocp_convert (tree type, tree expr, int convtype, int flags)
   complete_type (type);
   complete_type (TREE_TYPE (expr));
 
-  e = decl_constant_value (e);
+  e = integral_constant_value (e);
 
   if (IS_AGGR_TYPE (type) && (convtype & CONV_FORCE_TEMP)
       /* Some internal structures (vtable_entry_type, sigtbl_ptr_type)
@@ -909,9 +896,46 @@ convert_to_void (tree expr, const char *implicit)
   
   if (expr != error_mark_node && !VOID_TYPE_P (TREE_TYPE (expr)))
     {
-      if (implicit && warn_unused_value
-	  && !TREE_SIDE_EFFECTS (expr) && !TREE_NO_WARNING (expr))
-	warning ("%s has no effect", implicit);
+      if (implicit && warn_unused_value && !TREE_NO_WARNING (expr))
+	{
+	  /* The middle end does not warn about expressions that have
+	     been explicitly cast to void, so we must do so here.  */
+	  if (!TREE_SIDE_EFFECTS (expr))
+	    warning ("%s has no effect", implicit);
+	  else 
+	    { 
+	      tree e;
+	      enum tree_code code;
+	      enum tree_code_class class;
+	      
+	      e = expr;
+	      /* We might like to warn about (say) "(int) f()", as the
+		 cast has no effect, but the compiler itself will
+		 generate implicit conversions under some
+		 circumstances.  (For example a block copy will be
+		 turned into a call to "__builtin_memcpy", with a
+		 conversion of the return value to an appropriate
+		 type.)  So, to avoid false positives, we strip
+		 conversions.  Do not use STRIP_NOPs because it will
+		 not strip conversions to "void", as that is not a
+		 mode-preserving conversion.  */
+	      while (TREE_CODE (e) == NOP_EXPR)
+		e = TREE_OPERAND (e, 0);
+
+	      code = TREE_CODE (e);
+	      class = TREE_CODE_CLASS (code);
+	      if (class == tcc_comparison
+		   || class == tcc_unary
+		   || (class == tcc_binary 
+		       && !(code == MODIFY_EXPR
+			    || code == INIT_EXPR
+			    || code == PREDECREMENT_EXPR
+			    || code == PREINCREMENT_EXPR
+			    || code == POSTDECREMENT_EXPR
+			    || code == POSTINCREMENT_EXPR)))
+		warning ("value computed is not used");
+	    }
+	}
       expr = build1 (CONVERT_EXPR, void_type_node, expr);
     }
   return expr;
@@ -945,10 +969,7 @@ convert (tree type, tree expr)
   intype = TREE_TYPE (expr);
 
   if (POINTER_TYPE_P (type) && POINTER_TYPE_P (intype))
-    {
-      expr = decl_constant_value (expr);
-      return fold_if_not_in_template (build_nop (type, expr));
-    }
+    return fold_if_not_in_template (build_nop (type, expr));
 
   return ocp_convert (type, expr, CONV_OLD_CONVERT,
 		      LOOKUP_NORMAL|LOOKUP_NO_CONVERSION);

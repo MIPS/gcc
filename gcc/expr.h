@@ -1,6 +1,7 @@
 /* Definitions for code generation pass of GNU compiler.
    Copyright (C) 1987, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -41,8 +42,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 /* This is the 4th arg to `expand_expr'.
    EXPAND_STACK_PARM means we are possibly expanding a call param onto
-   the stack.  Choosing a value of 2 isn't special;  It just allows
-   some code optimization in store_expr.
+   the stack.
    EXPAND_SUM means it is ok to return a PLUS rtx or MULT rtx.
    EXPAND_INITIALIZER is similar but also record any labels on forced_labels.
    EXPAND_CONST_ADDRESS means it is ok to return a MEM whose address
@@ -50,7 +50,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    EXPAND_WRITE means we are only going to write to the resulting rtx.
    EXPAND_MEMORY means we are interested in a memory result, even if
     the memory is constant and we could have propagated a constant value.  */
-enum expand_modifier {EXPAND_NORMAL = 0, EXPAND_STACK_PARM = 2, EXPAND_SUM,
+enum expand_modifier {EXPAND_NORMAL = 0, EXPAND_STACK_PARM, EXPAND_SUM,
 		      EXPAND_CONST_ADDRESS, EXPAND_INITIALIZER, EXPAND_WRITE,
 		      EXPAND_MEMORY};
 
@@ -117,6 +117,8 @@ struct locate_and_pad_arg_data
   struct args_size alignment_pad;
   /* Which way we should pad this arg.  */
   enum direction where_pad;
+  /* slot_offset is at least this aligned.  */
+  unsigned int boundary;
 };
 
 /* Add the value of the tree INC to the `struct args_size' TO.  */
@@ -182,10 +184,6 @@ do {							\
 
 #ifndef FUNCTION_ARG_BOUNDARY
 #define FUNCTION_ARG_BOUNDARY(MODE, TYPE)	PARM_BOUNDARY
-#endif
-
-#ifndef FUNCTION_ARG_PARTIAL_NREGS
-#define FUNCTION_ARG_PARTIAL_NREGS(CUM, MODE, TYPE, NAMED) 0
 #endif
 
 /* Supply a default definition of STACK_SAVEAREA_MODE for emit_stack_save.
@@ -643,14 +641,6 @@ extern void set_mem_attributes_minus_bitpos (rtx, tree, int, HOST_WIDE_INT);
 
 /* Assemble the static constant template for function entry trampolines.  */
 extern rtx assemble_trampoline_template (void);
-
-/* Given rtx, return new rtx whose address won't be affected by
-   any side effects.  It has been copied to a new temporary reg.  */
-extern rtx stabilize (rtx);
-
-/* Given an rtx, copy all regs it refers to into new temps
-   and return a modified copy that refers to the new temps.  */
-extern rtx copy_all_regs (rtx);
 
 /* Copy given rtx to a new temp reg and return that.  */
 extern rtx copy_to_reg (rtx);

@@ -1,5 +1,6 @@
 # Top level -*- makefile -*- fragment for GNU C++.
-#   Copyright (C) 1994, 1995, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
+#   Copyright (C) 1994, 1995, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004,
+#   2005
 #   Free Software Foundation, Inc.
 
 #This file is part of GCC.
@@ -88,7 +89,7 @@ CXX_AND_OBJCXX_OBJS = cp/call.o cp/decl.o cp/expr.o cp/pt.o cp/typeck2.o \
 CXX_OBJS = cp/cp-lang.o stub-objc.o $(CXX_AND_OBJCXX_OBJS)
 
 # Use strict warnings for this front end.
-cp-warn = $(STRICT_WARN) $(WERROR)
+cp-warn = $(STRICT_WARN)
 
 cc1plus$(exeext): $(CXX_OBJS) $(BACKEND) $(LIBDEPS)
 	$(CC) $(ALL_CFLAGS) $(LDFLAGS) -o $@ \

@@ -1,5 +1,5 @@
 /* Output routines for GCC for Renesas / SuperH SH.
-   Copyright (C) 1993, 1994, 1995, 1997, 1997, 1998, 1999, 2000, 2001, 2002,
+   Copyright (C) 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002,
    2003, 2004 Free Software Foundation, Inc.
    Contributed by Steve Chamberlain (sac@cygnus.com).
    Improved by Jim Wilson (wilson@cygnus.com).
@@ -47,7 +47,6 @@ Boston, MA 02111-1307, USA.  */
 #include "real.h"
 #include "langhooks.h"
 #include "basic-block.h"
-#include "ra.h"
 #include "cfglayout.h"
 #include "intl.h"
 #include "sched-int.h"
@@ -286,7 +285,10 @@ static bool sh_pass_by_reference (CUMULATIVE_ARGS *, enum machine_mode,
 				  tree, bool);
 static bool sh_callee_copies (CUMULATIVE_ARGS *, enum machine_mode,
 			      tree, bool);
+static int sh_arg_partial_bytes (CUMULATIVE_ARGS *, enum machine_mode,
+			         tree, bool);
 static int sh_dwarf_calling_convention (tree);
+static int hard_regs_intersect_p (HARD_REG_SET *, HARD_REG_SET *);
 
 
 /* Initialize the GCC target structure.  */
@@ -444,6 +446,8 @@ static int sh_dwarf_calling_convention (tree);
 #define TARGET_PASS_BY_REFERENCE sh_pass_by_reference
 #undef TARGET_CALLEE_COPIES
 #define TARGET_CALLEE_COPIES sh_callee_copies
+#undef TARGET_ARG_PARTIAL_BYTES
+#define TARGET_ARG_PARTIAL_BYTES sh_arg_partial_bytes
 
 #undef TARGET_BUILD_BUILTIN_VA_LIST
 #define TARGET_BUILD_BUILTIN_VA_LIST sh_build_builtin_va_list
@@ -6668,6 +6672,30 @@ sh_callee_copies (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 	      % SH_MIN_ALIGN_FOR_CALLEE_COPY == 0));
 }
 
+static int
+sh_arg_partial_bytes (CUMULATIVE_ARGS *cum, enum machine_mode mode,
+		      tree type, bool named ATTRIBUTE_UNUSED)
+{
+  int words = 0;
+
+  if (!TARGET_SH5
+      && PASS_IN_REG_P (*cum, mode, type)
+      && !(TARGET_SH4 || TARGET_SH2A_DOUBLE)
+      && (ROUND_REG (*cum, mode)
+	  + (mode != BLKmode
+	     ? ROUND_ADVANCE (GET_MODE_SIZE (mode))
+	     : ROUND_ADVANCE (int_size_in_bytes (type)))
+	  > NPARM_REGS (mode)))
+    words = NPARM_REGS (mode) - ROUND_REG (*cum, mode);
+
+  else if (!TARGET_SHCOMPACT
+	   && SH5_WOULD_BE_PARTIAL_NREGS (*cum, mode, type, named))
+    words = NPARM_REGS (SImode) - cum->arg_count[SH_ARG_INT];
+
+  return words * UNITS_PER_WORD;
+}
+
+
 /* Define where to put the arguments to a function.
    Value is zero to push the argument on the stack,
    or a hard register in which to store the argument.
@@ -10139,6 +10167,21 @@ sh_init_cumulative_args (CUMULATIVE_ARGS *  pcum,
 	  pcum->force_mem = FALSE;
 	}
     }
+}
+
+/* Determine if two hard register sets intersect.
+   Return 1 if they do.  */
+
+static int
+hard_regs_intersect_p (HARD_REG_SET *a, HARD_REG_SET *b)
+{
+  HARD_REG_SET c;
+  COPY_HARD_REG_SET (c, *a);
+  AND_HARD_REG_SET (c, *b);
+  GO_IF_HARD_REG_SUBSET (c, reg_class_contents[(int) NO_REGS], lose);
+  return 1;
+lose:
+  return 0;
 }
 
 #include "gt-sh.h"

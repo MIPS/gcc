@@ -1,6 +1,6 @@
 /* Subroutines for insn-output.c for HPPA.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001,
-   2002, 2003, 2004 Free Software Foundation, Inc.
+   2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Tim Moore (moore@cs.utah.edu), based on sparc.c
 
 This file is part of GCC.
@@ -123,6 +123,7 @@ static void pa_asm_out_destructor (rtx, int);
 static void pa_init_builtins (void);
 static rtx hppa_builtin_saveregs (void);
 static tree hppa_gimplify_va_arg_expr (tree, tree, tree *, tree *);
+static bool pa_scalar_mode_supported_p (enum machine_mode);
 static void copy_fp_args (rtx) ATTRIBUTE_UNUSED;
 static int length_fp_args (rtx) ATTRIBUTE_UNUSED;
 static struct deferred_plabel *get_plabel (const char *)
@@ -141,8 +142,10 @@ static void output_deferred_plabels (void);
 static void pa_hpux_init_libfuncs (void);
 #endif
 static rtx pa_struct_value_rtx (tree, int);
-static bool pa_pass_by_reference (CUMULATIVE_ARGS *ca, enum machine_mode,
+static bool pa_pass_by_reference (CUMULATIVE_ARGS *, enum machine_mode,
 				  tree, bool);
+static int pa_arg_partial_bytes (CUMULATIVE_ARGS *, enum machine_mode,
+				 tree, bool);
 static struct machine_function * pa_init_machine_status (void);
 
 
@@ -282,11 +285,16 @@ static size_t n_deferred_plabels = 0;
 #define TARGET_PASS_BY_REFERENCE pa_pass_by_reference
 #undef TARGET_CALLEE_COPIES
 #define TARGET_CALLEE_COPIES hook_bool_CUMULATIVE_ARGS_mode_tree_bool_true
+#undef TARGET_ARG_PARTIAL_BYTES
+#define TARGET_ARG_PARTIAL_BYTES pa_arg_partial_bytes
 
 #undef TARGET_EXPAND_BUILTIN_SAVEREGS
 #define TARGET_EXPAND_BUILTIN_SAVEREGS hppa_builtin_saveregs
 #undef TARGET_GIMPLIFY_VA_ARG_EXPR
 #define TARGET_GIMPLIFY_VA_ARG_EXPR hppa_gimplify_va_arg_expr
+
+#undef TARGET_SCALAR_MODE_SUPPORTED_P
+#define TARGET_SCALAR_MODE_SUPPORTED_P pa_scalar_mode_supported_p
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -748,11 +756,24 @@ move_src_operand (rtx op, enum machine_mode mode)
 }
 
 /* Accept anything that can be used as the source operand for a prefetch
-   instruction.  */
+   instruction with a cache-control completer.  */
 int
-prefetch_operand (rtx op, enum machine_mode mode)
+prefetch_cc_operand (rtx op, enum machine_mode mode)
 {
   if (GET_CODE (op) != MEM)
+    return 0;
+
+  op = XEXP (op, 0);
+
+  /* We must reject virtual registers as we don't allow REG+D.  */
+  if (op == virtual_incoming_args_rtx
+      || op == virtual_stack_vars_rtx
+      || op == virtual_stack_dynamic_rtx
+      || op == virtual_outgoing_args_rtx
+      || op == virtual_cfa_rtx)
+    return 0;
+
+  if (!REG_P (op) && !IS_INDEX_ADDR_P (op))
     return 0;
 
   /* Until problems with management of the REG_POINTER flag are resolved,
@@ -760,12 +781,34 @@ prefetch_operand (rtx op, enum machine_mode mode)
      until CSE is not expected.  */
   if (!TARGET_NO_SPACE_REGS
       && !cse_not_expected
-      && GET_CODE (XEXP (op, 0)) == PLUS
-      && REG_P (XEXP (XEXP (op, 0), 0))
-      && REG_P (XEXP (XEXP (op, 0), 1)))
+      && GET_CODE (op) == PLUS
+      && REG_P (XEXP (op, 0)))
     return 0;
 
-  return memory_address_p (mode, XEXP (op, 0));
+  return memory_address_p (mode, op);
+}
+
+/* Accept anything that can be used as the source operand for a prefetch
+   instruction with no cache-control completer.  */
+int
+prefetch_nocc_operand (rtx op, enum machine_mode mode)
+{
+  if (GET_CODE (op) != MEM)
+    return 0;
+
+  op = XEXP (op, 0);
+
+  /* Until problems with management of the REG_POINTER flag are resolved,
+     we need to delay creating prefetch insns with unscaled indexed addresses
+     until CSE is not expected.  */
+  if (!TARGET_NO_SPACE_REGS
+      && !cse_not_expected
+      && GET_CODE (op) == PLUS
+      && REG_P (XEXP (op, 0))
+      && REG_P (XEXP (op, 1)))
+    return 0;
+
+  return memory_address_p (mode, op);
 }
 
 /* Accept REG and any CONST_INT that can be moved in one instruction into a
@@ -6180,6 +6223,50 @@ hppa_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p, tree *post_p)
     }
 }
 
+/* True if MODE is valid for the target.  By "valid", we mean able to
+   be manipulated in non-trivial ways.  In particular, this means all
+   the arithmetic is supported.
+
+   Currently, TImode is not valid as the HP 64-bit runtime documentation
+   doesn't document the alignment and calling conventions for this type. 
+   Thus, we return false when PRECISION is 2 * BITS_PER_WORD and
+   2 * BITS_PER_WORD isn't equal LONG_LONG_TYPE_SIZE.  */
+
+static bool
+pa_scalar_mode_supported_p (enum machine_mode mode)
+{
+  int precision = GET_MODE_PRECISION (mode);
+
+  switch (GET_MODE_CLASS (mode))
+    {
+    case MODE_PARTIAL_INT:
+    case MODE_INT:
+      if (precision == CHAR_TYPE_SIZE)
+	return true;
+      if (precision == SHORT_TYPE_SIZE)
+	return true;
+      if (precision == INT_TYPE_SIZE)
+	return true;
+      if (precision == LONG_TYPE_SIZE)
+	return true;
+      if (precision == LONG_LONG_TYPE_SIZE)
+	return true;
+      return false;
+
+    case MODE_FLOAT:
+      if (precision == FLOAT_TYPE_SIZE)
+	return true;
+      if (precision == DOUBLE_TYPE_SIZE)
+	return true;
+      if (precision == LONG_DOUBLE_TYPE_SIZE)
+	return true;
+      return false;
+
+    default:
+      gcc_unreachable ();
+    }
+}
+
 /* This routine handles all the normal conditional branch sequences we
    might need to generate.  It handles compare immediate vs compare
    register, nullification of delay slots, varying length branches,
@@ -8091,6 +8178,9 @@ pa_asm_output_mi_thunk (FILE *file, tree thunk_fndecl, HOST_WIDE_INT delta,
 static bool
 pa_function_ok_for_sibcall (tree decl, tree exp ATTRIBUTE_UNUSED)
 {
+  if (TARGET_PORTABLE_RUNTIME)
+    return false;
+
   /* Sibcalls are ok for TARGET_ELF32 as along as the linker is used in
      single subspace mode and the call is not indirect.  As far as I know,
      there is no operating system support for the multiple subspace mode.
@@ -8108,9 +8198,8 @@ pa_function_ok_for_sibcall (tree decl, tree exp ATTRIBUTE_UNUSED)
   if (TARGET_64BIT)
     return false;
 
-  return (decl
-	  && !TARGET_PORTABLE_RUNTIME
-	  && !TREE_PUBLIC (decl));
+  /* Sibcalls are only ok within a translation unit.  */
+  return (decl && !TREE_PUBLIC (decl));
 }
 
 /* Returns 1 if the 6 operands specified in OPERANDS are suitable for
@@ -8247,6 +8336,17 @@ pa_asm_output_aligned_common (FILE *stream,
 			      unsigned HOST_WIDE_INT size,
 			      unsigned int align)
 {
+  unsigned int max_common_align;
+
+  max_common_align = TARGET_64BIT ? 128 : (size >= 4096 ? 256 : 64);
+  if (align > max_common_align)
+    {
+      warning ("alignment (%u) for %s exceeds maximum alignment "
+	       "for global common data.  Using %u",
+	       align / BITS_PER_UNIT, name, max_common_align / BITS_PER_UNIT);
+      align = max_common_align;
+    }
+
   bss_section ();
 
   assemble_name (stream, name);
@@ -9067,7 +9167,7 @@ function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode, tree type,
   arg_size = FUNCTION_ARG_SIZE (mode, type);
 
   /* If this arg would be passed partially or totally on the stack, then
-     this routine should return zero.  FUNCTION_ARG_PARTIAL_NREGS will
+     this routine should return zero.  pa_arg_partial_bytes will
      handle arguments which are split between regs and stack slots if
      the ABI mandates split arguments.  */
   if (! TARGET_64BIT)
@@ -9236,14 +9336,17 @@ function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode, tree type,
 
 
 /* If this arg would be passed totally in registers or totally on the stack,
-   then this routine should return zero. It is currently called only for
-   the 64-bit target.  */
-int
-function_arg_partial_nregs (CUMULATIVE_ARGS *cum, enum machine_mode mode,
-			    tree type, int named ATTRIBUTE_UNUSED)
+   then this routine should return zero.  */
+
+static int
+pa_arg_partial_bytes (CUMULATIVE_ARGS *cum, enum machine_mode mode,
+		      tree type, bool named ATTRIBUTE_UNUSED)
 {
   unsigned int max_arg_words = 8;
   unsigned int offset = 0;
+
+  if (!TARGET_64BIT)
+    return 0;
 
   if (FUNCTION_ARG_SIZE (mode, type) > 1 && (cum->words & 1))
     offset = 1;
@@ -9256,7 +9359,7 @@ function_arg_partial_nregs (CUMULATIVE_ARGS *cum, enum machine_mode mode,
     return 0;
   else
     /* Arg is split.  */
-    return max_arg_words - cum->words - offset;
+    return (max_arg_words - cum->words - offset) * UNITS_PER_WORD;
 }
 
 
@@ -9350,8 +9453,7 @@ pa_select_section (tree exp, int reloc,
   else if (TARGET_SOM
 	   && TREE_CODE (exp) == VAR_DECL
 	   && DECL_ONE_ONLY (exp)
-	   && !DECL_WEAK (exp)
-	   && DECL_INITIAL (exp))
+	   && !DECL_WEAK (exp))
     som_one_only_data_section ();
   else
     data_section ();

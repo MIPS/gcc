@@ -8,6 +8,15 @@ it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
+In addition to the permissions in the GNU General Public License, the
+Free Software Foundation gives you unlimited permission to link the
+compiled version of this file into combinations with other programs,
+and to distribute those combinations without any restriction coming
+from the use of this file.  (The General Public License restrictions
+do apply in other respects; for example, they cover modification of
+the file, and distribution when not linked into a combine
+executable.)
+
 Libgfortran is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -314,9 +323,14 @@ new_unit (unit_flags * flags)
       internal_error ("new_unit(): Bad status");
     }
 
-  /* Make sure the file isn't already open someplace else.  */
+  /* Make sure the file isn't already open someplace else.
+     Do not error if opening file preconnected to stdin, stdout, stderr.  */
 
-  if (find_file () != NULL)
+  u = find_file ();
+  if (u != NULL
+      && (options.stdin_unit < 0 || u->unit_number != options.stdin_unit)
+      && (options.stdout_unit < 0 || u->unit_number != options.stdout_unit)
+      && (options.stderr_unit < 0 || u->unit_number != options.stderr_unit))
     {
       generate_error (ERROR_ALREADY_OPEN, NULL);
       goto cleanup;

@@ -1,6 +1,6 @@
 /* Build expressions with type checking for C compiler.
-   Copyright (C) 1987, 1988, 1991, 1992, 1993, 1994, 1995, 1996, 1997,
-   1998, 1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 1987, 1988, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
+   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -43,6 +43,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "target.h"
 #include "tree-iterator.h"
 #include "tree-gimple.h"
+#include "tree-flow.h"
 
 /* Possible cases of implicit bad conversions.  Used to select
    diagnostic messages in convert_for_assignment.  */
@@ -2066,7 +2067,7 @@ convert_arguments (tree typelist, tree values, tree function, tree fundecl)
 	  /* Formal parm type is specified by a function prototype.  */
 	  tree parmval;
 
-	  if (!COMPLETE_TYPE_P (type))
+	  if (type == error_mark_node || !COMPLETE_TYPE_P (type))
 	    {
 	      error ("type of formal parameter %d is incomplete", parmnum + 1);
 	      parmval = val;
@@ -3202,9 +3203,6 @@ build_c_cast (tree type, tree expr)
 	pedwarn ("ISO C forbids conversion of object pointer to function pointer type");
 
       ovalue = value;
-      /* Replace a nonvolatile const static variable with its value.  */
-      if (optimize && TREE_CODE (value) == VAR_DECL)
-	value = decl_constant_value (value);
       value = convert (type, value);
 
       /* Ignore any integer overflow caused by the cast.  */
@@ -3654,7 +3652,7 @@ convert_for_assignment (tree type, tree rhs, enum impl_conv errtype,
 		       || target_cmp)
 		;
 	      /* If there is a mismatch, do warn.  */
-	      else
+	      else if (warn_pointer_sign)
 		WARN_FOR_ASSIGNMENT (N_("pointer targets in passing argument "
 					"%d of %qE differ in signedness"),
 				     N_("pointer targets in assignment "
@@ -4146,18 +4144,32 @@ digest_init (tree type, tree init, bool strict_string, int require_constant)
   /* Build a VECTOR_CST from a *constant* vector constructor.  If the
      vector constructor is not constant (e.g. {1,2,3,foo()}) then punt
      below and handle as a constructor.  */
-    if (code == VECTOR_TYPE
-	&& TREE_CODE (TREE_TYPE (inside_init)) == VECTOR_TYPE
-        && vector_types_convertible_p (TREE_TYPE (inside_init), type)
-        && TREE_CONSTANT (inside_init))
-      {
-	if (TREE_CODE (inside_init) == VECTOR_CST
-            && comptypes (TYPE_MAIN_VARIANT (TREE_TYPE (inside_init)),
-			  TYPE_MAIN_VARIANT (type)))
-	  return inside_init;
-	else
-	  return build_vector (type, CONSTRUCTOR_ELTS (inside_init));
-      }
+  if (code == VECTOR_TYPE
+      && TREE_CODE (TREE_TYPE (inside_init)) == VECTOR_TYPE
+      && vector_types_convertible_p (TREE_TYPE (inside_init), type)
+      && TREE_CONSTANT (inside_init))
+    {
+      if (TREE_CODE (inside_init) == VECTOR_CST
+	  && comptypes (TYPE_MAIN_VARIANT (TREE_TYPE (inside_init)),
+			TYPE_MAIN_VARIANT (type)))
+	return inside_init;
+
+      if (TREE_CODE (inside_init) == CONSTRUCTOR)
+	{
+	  tree link;
+
+	  /* Iterate through elements and check if all constructor
+	     elements are *_CSTs.  */
+	  for (link = CONSTRUCTOR_ELTS (inside_init);
+	       link;
+	       link = TREE_CHAIN (link))
+	    if (! CONSTANT_CLASS_P (TREE_VALUE (link)))
+	      break;
+
+	  if (link == NULL)
+	    return build_vector (type, CONSTRUCTOR_ELTS (inside_init));
+	}
+    }
 
   /* Any type can be initialized
      from an expression of the same type, optionally with braces.  */
@@ -4353,9 +4365,6 @@ static struct init_node *constructor_pending_elts;
 /* The SPELLING_DEPTH of this constructor.  */
 static int constructor_depth;
 
-/* 0 if implicitly pushing constructor levels is allowed.  */
-int constructor_no_implicit = 0; /* 0 for C; 1 for some other languages.  */
-
 /* DECL node for which an initializer is being read.
    0 means we are reading a constructor expression
    such as (struct foo) {...}.  */
@@ -4470,7 +4479,7 @@ start_init (tree decl, tree asmspec_tree ATTRIBUTE_UNUSED, int top_level)
   constructor_designated = 0;
   constructor_top_level = top_level;
 
-  if (decl != 0)
+  if (decl != 0 && decl != error_mark_node)
     {
       require_constant_value = TREE_STATIC (decl);
       require_constant_elements
@@ -5024,12 +5033,6 @@ set_designator (int array)
 	process_init_element (pop_init_level (1));
       constructor_designated = 1;
       return 0;
-    }
-
-  if (constructor_no_implicit)
-    {
-      error_init ("initialization designators may not nest");
-      return 1;
     }
 
   switch (TREE_CODE (constructor_type))
@@ -6002,7 +6005,7 @@ process_init_element (struct c_expr value)
 	    value.value = orig_value;
 	  /* Otherwise, if we have come to a subaggregate,
 	     and we don't have an element of its type, push into it.  */
-	  else if (value.value != 0 && !constructor_no_implicit
+	  else if (value.value != 0
 		   && value.value != error_mark_node
 		   && TYPE_MAIN_VARIANT (TREE_TYPE (value.value)) != fieldtype
 		   && (fieldcode == RECORD_TYPE || fieldcode == ARRAY_TYPE
@@ -6090,7 +6093,7 @@ process_init_element (struct c_expr value)
 	    value.value = orig_value;
 	  /* Otherwise, if we have come to a subaggregate,
 	     and we don't have an element of its type, push into it.  */
-	  else if (value.value != 0 && !constructor_no_implicit
+	  else if (value.value != 0
 		   && value.value != error_mark_node
 		   && TYPE_MAIN_VARIANT (TREE_TYPE (value.value)) != fieldtype
 		   && (fieldcode == RECORD_TYPE || fieldcode == ARRAY_TYPE
@@ -6130,7 +6133,7 @@ process_init_element (struct c_expr value)
 	    value.value = orig_value;
 	  /* Otherwise, if we have come to a subaggregate,
 	     and we don't have an element of its type, push into it.  */
-	  else if (value.value != 0 && !constructor_no_implicit
+	  else if (value.value != 0
 		   && value.value != error_mark_node
 		   && TYPE_MAIN_VARIANT (TREE_TYPE (value.value)) != elttype
 		   && (eltcode == RECORD_TYPE || eltcode == ARRAY_TYPE
@@ -6287,47 +6290,80 @@ build_asm_expr (tree string, tree outputs, tree inputs, tree clobbers,
   tree args;
   int i;
   const char *constraint;
+  const char **oconstraints;
   bool allows_mem, allows_reg, is_inout;
-  int ninputs;
-  int noutputs;
+  int ninputs, noutputs;
 
   ninputs = list_length (inputs);
   noutputs = list_length (outputs);
+  oconstraints = (const char **) alloca (noutputs * sizeof (const char *));
+
+  string = resolve_asm_operand_names (string, outputs, inputs);
 
   /* Remove output conversions that change the type but not the mode.  */
   for (i = 0, tail = outputs; tail; ++i, tail = TREE_CHAIN (tail))
     {
       tree output = TREE_VALUE (tail);
+
+      /* ??? Really, this should not be here.  Users should be using a
+	 proper lvalue, dammit.  But there's a long history of using casts
+	 in the output operands.  In cases like longlong.h, this becomes a
+	 primitive form of typechecking -- if the cast can be removed, then
+	 the output operand had a type of the proper width; otherwise we'll
+	 get an error.  Gross, but ...  */
       STRIP_NOPS (output);
-      TREE_VALUE (tail) = output;
-      lvalue_or_else (output, lv_asm);
+
+      if (!lvalue_or_else (output, lv_asm))
+	output = error_mark_node;
 
       constraint = TREE_STRING_POINTER (TREE_VALUE (TREE_PURPOSE (tail)));
+      oconstraints[i] = constraint;
 
-      if (!parse_output_constraint (&constraint, i, ninputs, noutputs,
-                                    &allows_mem, &allows_reg, &is_inout))
-        {
-          /* By marking this operand as erroneous, we will not try
-          to process this operand again in expand_asm_operands.  */
-          TREE_VALUE (tail) = error_mark_node;
-          continue;
-        }
+      if (parse_output_constraint (&constraint, i, ninputs, noutputs,
+				   &allows_mem, &allows_reg, &is_inout))
+	{
+	  /* If the operand is going to end up in memory,
+	     mark it addressable.  */
+	  if (!allows_reg && !c_mark_addressable (output))
+	    output = error_mark_node;
+	}
+      else
+        output = error_mark_node;
 
-      /* If the operand is a DECL that is going to end up in
-        memory, assume it is addressable.  This is a bit more
-        conservative than it would ideally be; the exact test is
-        buried deep in expand_asm_operands and depends on the
-        DECL_RTL for the OPERAND -- which we don't have at this
-        point.  */
-      if (!allows_reg && DECL_P (output))
-        c_mark_addressable (output);
+      TREE_VALUE (tail) = output;
     }
 
   /* Perform default conversions on array and function inputs.
      Don't do this for other types as it would screw up operands
      expected to be in memory.  */
-  for (tail = inputs; tail; tail = TREE_CHAIN (tail))
-    TREE_VALUE (tail) = default_function_array_conversion (TREE_VALUE (tail));
+  for (i = 0, tail = inputs; tail; ++i, tail = TREE_CHAIN (tail))
+    {
+      tree input;
+
+      constraint = TREE_STRING_POINTER (TREE_VALUE (TREE_PURPOSE (tail)));
+      input = TREE_VALUE (tail);
+
+      input = default_function_array_conversion (input);
+
+      if (parse_input_constraint (&constraint, i, ninputs, noutputs, 0,
+				  oconstraints, &allows_mem, &allows_reg))
+	{
+	  /* If the operand is going to end up in memory,
+	     mark it addressable.  */
+	  if (!allows_reg && allows_mem)
+	    {
+	      /* Strip the nops as we allow this case.  FIXME, this really
+		 should be rejected or made deprecated.  */
+	      STRIP_NOPS (input);
+	      if (!c_mark_addressable (input))
+		input = error_mark_node;
+	  }
+	}
+      else
+	input = error_mark_node;
+
+      TREE_VALUE (tail) = input;
+    }
 
   args = build_stmt (ASM_EXPR, string, outputs, inputs, clobbers);
 
@@ -6337,6 +6373,7 @@ build_asm_expr (tree string, tree outputs, tree inputs, tree clobbers,
       ASM_VOLATILE_P (args) = 1;
       ASM_INPUT_P (args) = 1;
     }
+
   return args;
 }
 
@@ -6726,10 +6763,23 @@ c_finish_loop (location_t start_locus, tree cond, tree incr, tree body,
 tree
 c_finish_bc_stmt (tree *label_p, bool is_break)
 {
+  bool skip;
   tree label = *label_p;
 
+  /* In switch statements break is sometimes stylistically used after
+     a return statement.  This can lead to spurious warnings about
+     control reaching the end of a non-void function when it is
+     inlined.  Note that we are calling block_may_fallthru with
+     language specific tree nodes; this works because
+     block_may_fallthru returns true when given something it does not
+     understand.  */
+  skip = !block_may_fallthru (cur_stmt_list);
+
   if (!label)
-    *label_p = label = create_artificial_label ();
+    {
+      if (!skip)
+	*label_p = label = create_artificial_label ();
+    }
   else if (TREE_CODE (label) != LABEL_DECL)
     {
       if (is_break)
@@ -6738,6 +6788,9 @@ c_finish_bc_stmt (tree *label_p, bool is_break)
         error ("continue statement not within a loop");
       return NULL_TREE;
     }
+
+  if (skip)
+    return NULL_TREE;
 
   return add_stmt (build1 (GOTO_EXPR, void_type_node, label));
 }

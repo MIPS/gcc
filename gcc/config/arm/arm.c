@@ -1,6 +1,6 @@
 /* Output routines for GCC for ARM.
    Copyright (C) 1991, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001,
-   2002, 2003, 2004  Free Software Foundation, Inc.
+   2002, 2003, 2004, 2005  Free Software Foundation, Inc.
    Contributed by Pieter `Tiggr' Schoenmakers (rcpieter@win.tue.nl)
    and Martin Simmons (@harleqn.co.uk).
    More major hacks by Richard Earnshaw (rearnsha@arm.com).
@@ -147,10 +147,15 @@ static rtx arm_expand_binop_builtin (enum insn_code, tree, rtx);
 static rtx arm_expand_unop_builtin (enum insn_code, tree, rtx, int);
 static rtx arm_expand_builtin (tree, rtx, rtx, enum machine_mode, int);
 static void emit_constant_insn (rtx cond, rtx pattern);
+static int arm_arg_partial_bytes (CUMULATIVE_ARGS *, enum machine_mode,
+				  tree, bool);
 
 #ifndef ARM_PE
 static void arm_encode_section_info (tree, rtx, int);
 #endif
+
+static void arm_file_end (void);
+
 #ifdef AOF_ASSEMBLER
 static void aof_globalize_label (FILE *, const char *);
 static void aof_dump_imports (FILE *);
@@ -185,6 +190,9 @@ static unsigned HOST_WIDE_INT arm_shift_truncation_mask (enum machine_mode);
 
 #undef  TARGET_ATTRIBUTE_TABLE
 #define TARGET_ATTRIBUTE_TABLE arm_attribute_table
+
+#undef TARGET_ASM_FILE_END
+#define TARGET_ASM_FILE_END arm_file_end
 
 #ifdef AOF_ASSEMBLER
 #undef  TARGET_ASM_BYTE_OP
@@ -272,6 +280,8 @@ static unsigned HOST_WIDE_INT arm_shift_truncation_mask (enum machine_mode);
 #define TARGET_PROMOTE_PROTOTYPES arm_promote_prototypes
 #undef TARGET_PASS_BY_REFERENCE
 #define TARGET_PASS_BY_REFERENCE arm_pass_by_reference
+#undef TARGET_ARG_PARTIAL_BYTES
+#define TARGET_ARG_PARTIAL_BYTES arm_arg_partial_bytes
 
 #undef TARGET_STRUCT_VALUE_RTX
 #define TARGET_STRUCT_VALUE_RTX arm_struct_value_rtx
@@ -361,6 +371,10 @@ const char * target_abi_name = NULL;
 /* Used to parse -mstructure_size_boundary command line option.  */
 const char * structure_size_string = NULL;
 int    arm_structure_size_boundary = DEFAULT_STRUCTURE_SIZE_BOUNDARY;
+
+/* Used for Thumb call_via trampolines.  */
+rtx thumb_call_via_label[13];
+static int thumb_call_reg_needed;
 
 /* Bit values used to identify processor capabilities.  */
 #define FL_CO_PROC    (1 << 0)        /* Has external co-processor bus */
@@ -1084,7 +1098,7 @@ arm_override_options (void)
   else if (target_float_switch)
     {
       /* This is a bit of a hack to avoid needing target flags for these.  */
-      if (target_float_switch[1] == 'h')
+      if (target_float_switch[0] == 'h')
 	arm_float_abi = ARM_FLOAT_ABI_HARD;
       else
 	arm_float_abi = ARM_FLOAT_ABI_SOFT;
@@ -2292,8 +2306,10 @@ arm_return_in_memory (tree type)
 {
   HOST_WIDE_INT size;
 
-  if (!AGGREGATE_TYPE_P (type))
-    /* All simple types are returned in registers.  */
+  if (!AGGREGATE_TYPE_P (type) &&
+      !(TARGET_AAPCS_BASED && TREE_CODE (type) == COMPLEX_TYPE))
+    /* All simple types are returned in registers.
+       For AAPCS, complex types are treated the same as aggregates.  */
     return 0;
 
   size = int_size_in_bytes (type);
@@ -2525,6 +2541,23 @@ arm_function_arg (CUMULATIVE_ARGS *pcum, enum machine_mode mode,
     return NULL_RTX;
 
   return gen_rtx_REG (mode, pcum->nregs);
+}
+
+static int
+arm_arg_partial_bytes (CUMULATIVE_ARGS *pcum, enum machine_mode mode,
+		       tree type, bool named ATTRIBUTE_UNUSED)
+{
+  int nregs = pcum->nregs;
+
+  if (arm_vector_mode_supported_p (mode))
+    return 0;
+
+  if (NUM_ARG_REGS > nregs
+      && (NUM_ARG_REGS < nregs + ARM_NUM_REGS2 (mode, type))
+      && pcum->can_split)
+    return (NUM_ARG_REGS - nregs) * UNITS_PER_WORD;
+
+  return 0;
 }
 
 /* Variable sized types are passed by reference.  This is a GCC
@@ -4396,6 +4429,15 @@ arm_xscale_rtx_costs (rtx x, int code, int outer_code, int *total)
 
       *total = 8 + (REG_OR_SUBREG_REG (XEXP (x, 0)) ? 0 : 4)
 		 + (REG_OR_SUBREG_REG (XEXP (x, 1)) ? 0 : 4);
+      return true;
+
+    case COMPARE:
+      /* A COMPARE of a MULT is slow on XScale; the muls instruction
+	 will stall until the multiplication is complete.  */
+      if (GET_CODE (XEXP (x, 0)) == MULT)
+	*total = 4 + rtx_cost (XEXP (x, 0), code);
+      else
+	*total = arm_rtx_costs_1 (x, code, outer_code);
       return true;
 
     default:
@@ -9568,6 +9610,23 @@ arm_output_function_epilogue (FILE *file ATTRIBUTE_UNUSED,
 
   if (TARGET_THUMB)
     {
+      int regno;
+
+      /* Emit any call-via-reg trampolines that are needed for v4t support
+	 of call_reg and call_value_reg type insns.  */
+      for (regno = 0; regno < SP_REGNUM; regno++)
+	{
+	  rtx label = cfun->machine->call_via[regno];
+
+	  if (label != NULL)
+	    {
+	      function_section (current_function_decl);
+	      targetm.asm_out.internal_label (asm_out_file, "L",
+					      CODE_LABEL_NUMBER (label));
+	      asm_fprintf (asm_out_file, "\tbx\t%r\n", regno);
+	    }
+	}
+
       /* ??? Probably not safe to set this here, since it assumes that a
 	 function will be emitted as assembly immediately after we generate
 	 RTL for it.  This does not happen for inline functions.  */
@@ -13620,6 +13679,37 @@ thumb_output_move_mem_multiple (int n, rtx *operands)
   return "";
 }
 
+/* Output a call-via instruction for thumb state.  */
+const char *
+thumb_call_via_reg (rtx reg)
+{
+  int regno = REGNO (reg);
+  rtx *labelp;
+
+  gcc_assert (regno < SP_REGNUM);
+
+  /* If we are in the normal text section we can use a single instance
+     per compilation unit.  If we are doing function sections, then we need
+     an entry per section, since we can't rely on reachability.  */
+  if (in_text_section ())
+    {
+      thumb_call_reg_needed = 1;
+
+      if (thumb_call_via_label[regno] == NULL)
+	thumb_call_via_label[regno] = gen_label_rtx ();
+      labelp = thumb_call_via_label + regno;
+    }
+  else
+    {
+      if (cfun->machine->call_via[regno] == NULL)
+	cfun->machine->call_via[regno] = gen_label_rtx ();
+      labelp = cfun->machine->call_via + regno;
+    }
+
+  output_asm_insn ("bl\t%a0", labelp);
+  return "";
+}
+
 /* Routines for generating rtl.  */
 void
 thumb_expand_movmemqi (rtx *operands)
@@ -13728,6 +13818,31 @@ arm_asm_output_labelref (FILE *stream, const char *name)
     fputs (name, stream);
   else
     asm_fprintf (stream, "%U%s", name);
+}
+
+static void
+arm_file_end (void)
+{
+  int regno;
+
+  if (! thumb_call_reg_needed)
+    return;
+
+  text_section ();
+  asm_fprintf (asm_out_file, "\t.code 16\n");
+  ASM_OUTPUT_ALIGN (asm_out_file, 1);
+
+  for (regno = 0; regno < SP_REGNUM; regno++)
+    {
+      rtx label = thumb_call_via_label[regno];
+
+      if (label != 0)
+	{
+	  targetm.asm_out.internal_label (asm_out_file, "L",
+					  CODE_LABEL_NUMBER (label));
+	  asm_fprintf (asm_out_file, "\tbx\t%r\n", regno);
+	}
+    }
 }
 
 rtx aof_pic_label;
@@ -13926,6 +14041,7 @@ aof_file_end (void)
 {
   if (flag_pic)
     aof_dump_pic_table (asm_out_file);
+  arm_file_end ();
   aof_dump_imports (asm_out_file);
   fputs ("\tEND\n", asm_out_file);
 }

@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler, for IBM S/390
-   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
    Contributed by Hartmut Penner (hpenner@de.ibm.com) and
                   Ulrich Weigand (uweigand@de.ibm.com).
@@ -418,7 +418,7 @@ if (INTEGRAL_MODE_P (MODE) &&	        	    	\
    GENERAL_REGNO_P(REGNO)?                                      \
     ((GET_MODE_SIZE(MODE)+UNITS_PER_WORD-1) / UNITS_PER_WORD) : \
    ACCESS_REGNO_P(REGNO)?					\
-    ((GET_MODE_SIZE(MODE)+32-1) / 32) : 			\
+    ((GET_MODE_SIZE(MODE)+4-1) / 4) : 				\
    1)
 
 #define HARD_REGNO_MODE_OK(REGNO, MODE)                             \
@@ -447,7 +447,7 @@ if (INTEGRAL_MODE_P (MODE) &&	        	    	\
      ((CLASS) == FP_REGS ? 						\
       (GET_MODE_CLASS (MODE) == MODE_COMPLEX_FLOAT ? 2 : 1) :  		\
       (CLASS) == ACCESS_REGS ?						\
-      (GET_MODE_SIZE (MODE) + 32 - 1) / 32 :				\
+      (GET_MODE_SIZE (MODE) + 4 - 1) / 4 :				\
       (GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD)
 
 /* If a 4-byte value is loaded into a FPR, it is placed into the
@@ -716,8 +716,6 @@ CUMULATIVE_ARGS;
 
 #define FUNCTION_ARG(CUM, MODE, TYPE, NAMED)   \
   s390_function_arg (&CUM, MODE, TYPE, NAMED)
-
-#define FUNCTION_ARG_PARTIAL_NREGS(CUM, MODE, TYPE, NAMED) 0
 
 /* Arguments can be placed in general registers 2 to 6,
    or in floating point registers 0 and 2.  */

@@ -1,6 +1,7 @@
 /* Output variables, constants and external declarations, for GNU compiler.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997,
-   1998, 1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -1442,9 +1443,16 @@ asm_emit_uninitialised (tree decl, const char *name,
 	destination = asm_dest_common;
     }
 
+  if (destination != asm_dest_common)
+    {
+      resolve_unique_section (decl, 0, flag_data_sections);
+      /* Custom sections don't belong here.  */
+      if (DECL_SECTION_NAME (decl))
+        return false;
+    }
+
   if (destination == asm_dest_bss)
     globalize_decl (decl);
-  resolve_unique_section (decl, 0, flag_data_sections);
 
   if (flag_shared_data)
     {
@@ -1625,16 +1633,6 @@ assemble_variable (tree decl, int top_level ATTRIBUTE_UNUSED,
   if (DECL_PRESERVE_P (decl))
     targetm.asm_out.mark_decl_preserved (name);
 
-  /* Output any data that we will need to use the address of.  */
-  if (DECL_INITIAL (decl) == error_mark_node)
-    reloc = contains_pointers_p (TREE_TYPE (decl)) ? 3 : 0;
-  else if (DECL_INITIAL (decl))
-    {
-      reloc = compute_reloc_for_constant (DECL_INITIAL (decl));
-      output_addressed_constants (DECL_INITIAL (decl));
-    }
-  resolve_unique_section (decl, reloc, flag_data_sections);
-
   /* Handle uninitialized definitions.  */
 
   /* If the decl has been given an explicit section name, then it
@@ -1688,7 +1686,17 @@ assemble_variable (tree decl, int top_level ATTRIBUTE_UNUSED,
   if (TREE_PUBLIC (decl) && DECL_NAME (decl))
     globalize_decl (decl);
 
+  /* Output any data that we will need to use the address of.  */
+  if (DECL_INITIAL (decl) == error_mark_node)
+    reloc = contains_pointers_p (TREE_TYPE (decl)) ? 3 : 0;
+  else if (DECL_INITIAL (decl))
+    {
+      reloc = compute_reloc_for_constant (DECL_INITIAL (decl));
+      output_addressed_constants (DECL_INITIAL (decl));
+    }
+
   /* Switch to the appropriate section.  */
+  resolve_unique_section (decl, reloc, flag_data_sections);
   variable_section (decl, reloc);
 
   /* dbxout.c needs to know this.  */
@@ -1882,11 +1890,24 @@ mark_decl_referenced (tree decl)
      which do not need to be marked.  */
 }
 
-/* Output to FILE a reference to the assembler name of a C-level name NAME.
-   If NAME starts with a *, the rest of NAME is output verbatim.
-   Otherwise NAME is transformed in an implementation-defined way
-   (usually by the addition of an underscore).
-   Many macros in the tm file are defined to call this function.  */
+/* Output to FILE (an assembly file) a reference to NAME.  If NAME
+   starts with a *, the rest of NAME is output verbatim.  Otherwise
+   NAME is transformed in a target-specific way (usually by the
+   addition of an underscore).  */
+
+void
+assemble_name_raw (FILE *file, const char *name)
+{
+  if (name[0] == '*')
+    fputs (&name[1], file);
+  else
+    ASM_OUTPUT_LABELREF (file, name);
+}
+
+/* Like assemble_name_raw, but should be used when NAME might refer to
+   an entity that is also represented as a tree (like a function or
+   variable).  If NAME does refer to such an entity, that entity will
+   be marked as referenced.  */
 
 void
 assemble_name (FILE *file, const char *name)
@@ -1900,10 +1921,7 @@ assemble_name (FILE *file, const char *name)
   if (id)
     mark_referenced (id);
 
-  if (name[0] == '*')
-    fputs (&name[1], file);
-  else
-    ASM_OUTPUT_LABELREF (file, name);
+  assemble_name_raw (file, name);
 }
 
 /* Allocate SIZE bytes writable static space with a gensym name
@@ -3004,6 +3022,7 @@ force_const_mem (enum machine_mode mode, rtx x)
   /* Construct the MEM.  */
   desc->mem = def = gen_const_mem (mode, symbol);
   set_mem_attributes (def, lang_hooks.types.type_for_mode (mode, 0), 1);
+  set_mem_align (def, align);
 
   /* If we're dropping a label to the constant pool, make sure we
      don't delete it.  */
@@ -3482,6 +3501,12 @@ initializer_constant_valid_p (tree value, tree endtype)
 	  && TREE_CODE (value) == INDIRECT_REF
 	  && TREE_CONSTANT (TREE_OPERAND (value, 0)))
 	return null_pointer_node;
+      /* Taking the address of a nested function involves a trampoline.  */
+      if (value
+	  && TREE_CODE (value) == FUNCTION_DECL
+	  && ((decl_function_context (value) && !DECL_NO_STATIC_CHAIN (value))
+	      || DECL_NON_ADDR_CONST_P (value)))
+	return NULL_TREE;
       return value;
 
     case VIEW_CONVERT_EXPR:
@@ -4322,19 +4347,66 @@ globalize_decl (tree decl)
   targetm.asm_out.globalize_label (asm_out_file, name);
 }
 
+/* Some targets do not allow a forward or undefined reference in a
+   ASM_OUTPUT_DEF.  Thus, a mechanism is needed to defer the output of
+   this assembler code.  The following struct holds the declaration
+   and target for a deferred output define.  */
+struct output_def_pair GTY(())
+{
+  tree decl;
+  tree target;
+};
+typedef struct output_def_pair *output_def_pair;
+
+/* Define gc'd vector type.  */
+DEF_VEC_GC_P(output_def_pair);
+
+/* Vector of output_def_pair pointers.  */
+static GTY(()) VEC(output_def_pair) *output_defs;
+
+#ifdef ASM_OUTPUT_DEF
+/* Output the assembler code for a define (equate) using ASM_OUTPUT_DEF
+   or ASM_OUTPUT_DEF_FROM_DECLS.  The function defines the symbol whose
+   tree node is DECL to have the value of the tree node TARGET.  */
+
+static void
+assemble_output_def (tree decl ATTRIBUTE_UNUSED, tree target ATTRIBUTE_UNUSED)
+{
+#ifdef ASM_OUTPUT_DEF_FROM_DECLS
+  ASM_OUTPUT_DEF_FROM_DECLS (asm_out_file, decl, target);
+#else
+  ASM_OUTPUT_DEF (asm_out_file,
+		  IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl)),
+		  IDENTIFIER_POINTER (target));
+#endif
+}
+#endif
+
+/* Process the vector of pending assembler defines.  */
+
+void
+process_pending_assemble_output_defs (void)
+{
+#ifdef ASM_OUTPUT_DEF
+  unsigned i;
+  output_def_pair p;
+
+  for (i = 0; VEC_iterate (output_def_pair, output_defs, i, p); i++)
+    assemble_output_def (p->decl, p->target);
+
+  output_defs = NULL;
+#endif
+}
+
 /* Emit an assembler directive to make the symbol for DECL an alias to
    the symbol for TARGET.  */
 
 void
-assemble_alias (tree decl, tree target ATTRIBUTE_UNUSED)
+assemble_alias (tree decl, tree target)
 {
-  const char *name;
-
   /* We must force creation of DECL_RTL for debug info generation, even though
      we don't use it here.  */
   make_decl_rtl (decl);
-
-  name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
 
 #ifdef ASM_OUTPUT_DEF
   /* Make name accessible from other files, if appropriate.  */
@@ -4345,16 +4417,25 @@ assemble_alias (tree decl, tree target ATTRIBUTE_UNUSED)
       maybe_assemble_visibility (decl);
     }
 
-#ifdef ASM_OUTPUT_DEF_FROM_DECLS
-  ASM_OUTPUT_DEF_FROM_DECLS (asm_out_file, decl, target);
-#else
-  ASM_OUTPUT_DEF (asm_out_file, name, IDENTIFIER_POINTER (target));
-#endif
+  if (TARGET_DEFERRED_OUTPUT_DEFS (decl, target))
+    {
+      output_def_pair p;
+
+      p = ggc_alloc (sizeof (struct output_def_pair));
+      p->decl = decl;
+      p->target = target;
+      VEC_safe_push (output_def_pair, output_defs, p);
+    }
+  else
+    assemble_output_def (decl, target);
 #else /* !ASM_OUTPUT_DEF */
 #if defined (ASM_OUTPUT_WEAK_ALIAS) || defined (ASM_WEAKEN_DECL)
   if (DECL_WEAK (decl))
     {
+      const char *name;
       tree *p, t;
+
+      name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
 #ifdef ASM_WEAKEN_DECL
       ASM_WEAKEN_DECL (asm_out_file, decl, name, IDENTIFIER_POINTER (target));
 #else
@@ -4376,6 +4457,44 @@ assemble_alias (tree decl, tree target ATTRIBUTE_UNUSED)
   warning ("alias definitions not supported in this configuration; ignored");
 #endif
 #endif
+
+  /* Tell cgraph that the aliased symbol is needed.  We *could* be more
+     specific and tell cgraph about the relationship between the two
+     symbols, but given that aliases virtually always exist for a reason,
+     it doesn't seem worthwhile.  */
+  if (flag_unit_at_a_time)
+    {
+      struct cgraph_node *fnode = NULL;
+      struct cgraph_varpool_node *vnode = NULL;
+
+      if (TREE_CODE (decl) == FUNCTION_DECL)
+	{
+	  fnode = cgraph_node_for_asm (target);
+	  if (fnode != NULL)
+	    cgraph_mark_needed_node (fnode);
+	  else
+	    {
+	      vnode = cgraph_varpool_node_for_asm (target);
+	      if (vnode != NULL)
+		cgraph_varpool_mark_needed_node (vnode);
+	    }
+	}
+      else
+	{
+	  vnode = cgraph_varpool_node_for_asm (target);
+	  if (vnode != NULL)
+	    cgraph_varpool_mark_needed_node (vnode);
+	  else
+	    {
+	      fnode = cgraph_node_for_asm (target);
+	      if (fnode != NULL)
+		cgraph_mark_needed_node (fnode);
+	    }
+	}
+
+      if (fnode == NULL && vnode == NULL)
+	warning ("%qD aliased to undefined symbol %qE", decl, target);
+    }
 
   TREE_USED (decl) = 1;
   TREE_ASM_WRITTEN (decl) = 1;
@@ -4553,16 +4672,18 @@ default_section_type_flags_1 (tree decl, const char *name, int reloc,
       || strncmp (name, ".gnu.linkonce.b.", 16) == 0
       || strcmp (name, ".sbss") == 0
       || strncmp (name, ".sbss.", 6) == 0
-      || strncmp (name, ".gnu.linkonce.sb.", 17) == 0
-      || strcmp (name, ".tbss") == 0
-      || strncmp (name, ".gnu.linkonce.tb.", 17) == 0)
+      || strncmp (name, ".gnu.linkonce.sb.", 17) == 0)
     flags |= SECTION_BSS;
 
   if (strcmp (name, ".tdata") == 0
-      || strcmp (name, ".tbss") == 0
-      || strncmp (name, ".gnu.linkonce.td.", 17) == 0
-      || strncmp (name, ".gnu.linkonce.tb.", 17) == 0)
+      || strncmp (name, ".tdata.", 7) == 0
+      || strncmp (name, ".gnu.linkonce.td.", 17) == 0)
     flags |= SECTION_TLS;
+
+  if (strcmp (name, ".tbss") == 0
+      || strncmp (name, ".tbss.", 6) == 0
+      || strncmp (name, ".gnu.linkonce.tb.", 17) == 0)
+    flags |= SECTION_TLS | SECTION_BSS;
 
   /* These three sections have special ELF types.  They are neither
      SHT_PROGBITS nor SHT_NOBITS, so when changing sections we don't
@@ -5197,7 +5318,7 @@ default_internal_label (FILE *stream, const char *prefix,
 {
   char *const buf = alloca (40 + strlen (prefix));
   ASM_GENERATE_INTERNAL_LABEL (buf, prefix, labelno);
-  ASM_OUTPUT_LABEL (stream, buf);
+  ASM_OUTPUT_INTERNAL_LABEL (stream, buf);
 }
 
 /* This is the default behavior at the beginning of a file.  It's
