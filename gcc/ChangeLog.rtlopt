@@ -1,3 +1,7 @@
+Fri Nov 22 13:16:16 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* bb-reorder.c (connect_traces): Never connect something before trace 0.
+
 Fri Nov 22 00:55:55 CET 2002  Josef Zlomek <zlomj9am@artax.karlin.mff.cuni.cz>
 
 	* bb-reorder.c (make_reorder_chain): Deleted.
