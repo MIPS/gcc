@@ -85,12 +85,12 @@ public class JEditorPane extends JTextComponent
     return new PlainEditorKit();
   }
 
-  static EditorKit createEditorKitForContentType(String type)
+  protected static EditorKit createEditorKitForContentType(String type)
   {
     return new PlainEditorKit();
   }
 
-  void fireHyperlinkUpdate(HyperlinkEvent e)
+  public void fireHyperlinkUpdate(HyperlinkEvent e)
   {
   }
 
@@ -99,22 +99,22 @@ public class JEditorPane extends JTextComponent
     return null;
   }
 
-  String getContentType()
+  public String getContentType()
   {
     return ctype;
   }
 
-  EditorKit getEditorKit()
+  public EditorKit getEditorKit()
   {
     return kit;
   }
 
-  static String getEditorKitClassNameForContentType(String type)
+  public static String getEditorKitClassNameForContentType(String type)
   {
     return "text/plain";
   }
 
-  EditorKit getEditorKitForContentType(String type)
+  public EditorKit getEditorKitForContentType(String type)
   {
     return kit;
   }
@@ -135,7 +135,7 @@ public class JEditorPane extends JTextComponent
     return false;
   }
 
-  URL getPage()
+  public URL getPage()
   {
     return page_url;
   }
@@ -188,23 +188,25 @@ public class JEditorPane extends JTextComponent
     //Make sure that TAB and Shift-TAB events get consumed, so that awt doesn't attempt focus traversal.  
   }
 
-  void read(InputStream in, Object desc)
+  public void read(InputStream in, Object desc)
   {
     //This method initializes from a stream. 
   }
 
-  static void registerEditorKitForContentType(String type, String classname)
+  public static void registerEditorKitForContentType(String type,
+                                                     String classname)
   {
     //Establishes the default bindings of type to classname. 
   }
 
-  static void registerEditorKitForContentType(String type, String classname,
-                                              ClassLoader loader)
+  public static void registerEditorKitForContentType(String type,
+                                                     String classname,
+                                                     ClassLoader loader)
   {
     //Establishes the default bindings of type to classname.  
   }
 
-  void replaceSelection(String content)
+  public void replaceSelection(String content)
   {
     //Replaces the currently selected content with new content represented by the given string. 
   }
@@ -214,32 +216,32 @@ public class JEditorPane extends JTextComponent
     //Scrolls the view to the given reference location (that is, the value returned by the UL.getRef method for the URL being displayed).  
   }
 
-  void setContentType(String type)
+  public void setContentType(String type)
   {
     ctype = type;
     invalidate();
     repaint();
   }
 
-  void setEditorKit(EditorKit kit)
+  public void setEditorKit(EditorKit kit)
   {
     this.kit = kit;
     invalidate();
     repaint();
   }
 
-  void setEditorKitForContentType(String type, EditorKit k)
+  public void setEditorKitForContentType(String type, EditorKit k)
   {
     ctype = type;
     setEditorKit(k);
   }
 
-  void setPage(String url) throws IOException
+  public void setPage(String url) throws IOException
   {
     //  Sets the current URL being displayed.  
   }
 
-  void setPage(URL page) throws IOException
+  public void setPage(URL page) throws IOException
   {
     //    Sets the current URL being displayed.  
   }

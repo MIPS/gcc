@@ -1,5 +1,21 @@
 2004-06-10  Michael Koch  <konqueror@gmx.de>
 
+	* javax/swing/JEditorPane.java
+	(createEditorKitForContentType): Fixed visibility.
+	(fireHyperlinkUpdate): Likewise.
+	(getContentType): Likewise.
+	(getEditorKit): Likewise.
+	(getEditorKitForContentType): Likewise.
+	(getPage): Likewise.
+	(read): Likewise.
+	(registerEditorKitForContentTyoe): Likewise.
+	(replaceSelection): Likewise.
+	(setContentType): Likewise.
+	(setEditorKit): Likewise.
+	(setPage): Likewise.
+
+2004-06-10  Michael Koch  <konqueror@gmx.de>
+
 	* javax/swing/Timer.java
 	(Timer): New constructor.
 	* javax/swing/plaf/basic/BasicProgressBarUI.java
