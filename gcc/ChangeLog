@@ -1,3 +1,8 @@
+2000-02-18  Nick Clifton  <nickc@cygnus.com>
+
+	* config/arm/elf.h (ASM_OUTPUT_ALIGN): Do not generate
+	anything for an alignment of zero.
+
 2000-02-10  Richard Earnshaw  <rearnsha@arm.com>
 
 	* arm.c (find_barrier): Find the last barrier within the allowed 
