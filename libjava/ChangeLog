@@ -1,3 +1,13 @@
+2004-02-16  Graydon Hoare  <graydon@redhat.com>
+
+	* javax/swing/plaf/basic/BasicLabelUI.java 
+	(getPreferredSize): Use layoutCL.
+	* javax/swing/plaf/basic/BasicGraphicsUtils.java 
+	(getPreferredButtonSize): Start with empty view rect, layout using
+	component's preferred alignment.
+	* javax/swing/plaf/basic/BasicLookAndFeel.java: Add some Label and
+	List defaults.
+
 2004-02-16  David Jee  <djee@redhat.com>
 
 	* java/awt/Component.java
@@ -39,7 +49,7 @@
 	* javax/swing/plaf/basic/BasicLookAndFeel.java:
 	Added constant.
 
-2004-02-16Â  Kim HoÂ  <kho@redhat.com>
+2004-02-16  Kim Ho  <kho@redhat.com>
 
 	* javax/swing/JSlider.java: Fix indentation and comments.
 	(setModel): Remove null check to conform with Sun's.
@@ -76,7 +86,7 @@
         (hide): Only do something if component is visible at the moment.
         (reshape): If lightweight, erase old bounds and repaint new bounds.
 
-2004-02-13Â  Kim HoÂ  <kho@redhat.com>
+2004-02-13  Kim Ho  <kho@redhat.com>
 
 	* Makefile.am: Updated for new file.
 	* Makefile.in: Regenerated.

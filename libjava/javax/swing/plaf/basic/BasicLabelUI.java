@@ -91,18 +91,27 @@ public class BasicLabelUI extends LabelUI implements PropertyChangeListener
   }
 
   /**
-   * This method returns the preferred size of the {@link JComponent} given.
-   * If this method returns null (which it does by default), then it is up to
-   * the Layout Manager to give this component a size.
+   * Returns the preferred size of this component as calculated by the
+   * {@link layoutCL} method.
    *
    * @param c This {@link JComponent} to get a preferred size for.
    *
    * @return The preferred size.
    */
-  public Dimension getPreferredSize(JComponent c)
+  public Dimension getPreferredSize(JComponent c) 
   {
-    return null;
-  }
+    JLabel lab = (JLabel)c;
+    Rectangle vr = new Rectangle();
+    Rectangle ir = new Rectangle();
+    Rectangle tr = new Rectangle();
+    Insets insets = lab.getInsets();      
+    FontMetrics fm = lab.getToolkit().getFontMetrics(lab.getFont());
+    layoutCL(lab, fm, lab.getText(), lab.getIcon(), vr, ir, tr);
+    Rectangle cr = tr.union(ir);
+    return new Dimension(insets.left + cr.width + insets.right,
+                         insets.top + cr.height + insets.bottom);
+    
+  }  
 
   /**
    * This method returns the minimum size of the {@link JComponent} given. If
@@ -256,8 +265,6 @@ public class BasicLabelUI extends LabelUI implements PropertyChangeListener
                                   int textY)
   {
     Color saved_color = g.getColor();
-    if (l.getForeground() == null)
-      System.out.println("CRAP");
     g.setColor(l.getForeground());
 
     int mnemIndex = l.getDisplayedMnemonicIndex();
