@@ -3214,7 +3214,8 @@ check_bitfield_type_and_width (tree *type, tree *width, const char *orig_name)
   if (TREE_CODE (*type) == ENUMERAL_TYPE)
     {
       struct lang_type *lt = TYPE_LANG_SPECIFIC (*type);
-      if (w < min_precision (lt->enum_min, TREE_UNSIGNED (*type))
+      if (!lt 
+          || w < min_precision (lt->enum_min, TREE_UNSIGNED (*type))
 	  || w < min_precision (lt->enum_max, TREE_UNSIGNED (*type)))
 	warning ("`%s' is narrower than values of its type", name);
     }

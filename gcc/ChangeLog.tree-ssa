@@ -1,4 +1,10 @@
-2004-03-09  Andrew Pinski <apinski@apple.com>
+2004-03-10  Andrew Pinski  <apinski@apple.com
+
+	PR c/14475
+	* c-decl.c (check_bitfield_type_and_width): Check for null
+	lang_type_specific when check the precision of an enum.
+
+2004-03-09  Andrew Pinski  <apinski@apple.com>
 
 	* Makefile.in (tree-ssa-forwprop.o): Fix the dependences.
 
