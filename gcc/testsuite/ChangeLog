@@ -1,3 +1,117 @@
+2004-08-09  Falk Hueffner  <falk@debian.org>
+
+	PR tree-optimization/12517
+	* gcc.c-torture/compile/pr12517.c: New test.
+
+	PR tree-optimization/12578
+	* gcc.c-torture/compile/pr12578.c: New test.
+
+	PR tree-optimization/12899
+	* gcc.c-torture/compile/pr12899.c: New test.
+
+	PR rtl-optimization/14692
+	* gcc.c-torture/compile/pr14692.c: New test.
+
+	PR tree-optimization/16461
+	* gcc.c-torture/compile/pr16461.c: New test.
+
+2004-08-06  Janne Blomqvist  <jblomqvi@cc.hut.fi>
+
+	* gfortran.dg/getenv_1.f90: New test.
+
+2004-08-06  Mark Mitchell  <mark@codesourcery.com>
+
+	* gcc.dg/symbian4.c: Expect a 2-byte wchar_t, not a 4-byte
+	wchar_t.
+	* gcc.dg/symbian5.c: Test -fno-short-wchar.
+
+2004-08-06  Paul Brook  <paul@codesourcery.com>
+
+	* gfortran.dg/ret_array_1.f90: New test.
+	* gfortran.dg/ret_pointer_1.f90: New test.
+
+2004-08-06  Richard Sandiford  <rsandifo@redhat.com>
+
+	* gcc.dg/missing-field-init-[12].c: New tests.
+	* g++.dg/warn/missing-field-init-[12].C: New tests.
+
+2004-08-06  Mark Mitchell  <mark@codesourcery.com>
+
+	* gcc.dg/enum2.c: New test.
+	* gcc.dg/symbian3.c: Likewise.
+	* gcc.dg/symbian4.c: Likewise.
+	* gcc.dg/wchar_t-2.c: Likewise.
+
+2004-08-05  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/ext/visibility/visibility-8.C: Add constructor and
+	destructor tests.
+
+2004-08-05  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/ext/visibility/assign1.C: Use scan-hidden and
+	dg-require-visiblity.
+	* g++.dg/ext/visibility/fvisibility-inlines-hidden.C: Likewise.
+	* g++.dg/ext/visibility/fvisibility.C: Likewise.
+	* g++.dg/ext/visibility/memfuncts.C: Likewise.
+	* g++.dg/ext/visibility/new1.C: Likewise.
+	* g++.dg/ext/visibility/pragma.C: Likewise.
+	* g++.dg/ext/visibility/staticmemfuncts.C: Likewise.
+	* g++.dg/ext/visibility/virtual.C: Likewise.
+	* g++/dg/ext/visibility/visibility-1.C: Likewise.
+	* g++/dg/ext/visibility/visibility-2.C: Likewise.
+	* g++/dg/ext/visibility/visibility-3.C: Likewise.
+	* g++/dg/ext/visibility/visibility-4.C: Likewise.
+	* g++/dg/ext/visibility/visibility-5.C: Likewise.
+	* g++/dg/ext/visibility/visibility-6.C: Likewise.
+	* g++/dg/ext/visibility/visibility-7.C: Likewise.
+	* g++/dg/ext/visibility/visibility-8.C: New test.
+	* gcc.c-torture/compile/dll.x: Remove.
+	* gcc.dg/dll-2.c: Use dg-require-dll
+	* gcc.dg/visibility-10.c: New test.
+	* lib/gcc-dg.exp (dg-require-dll): Add Symbian to list of targets
+	supporting DLLs.
+	* testsuite/lib/scanasm.exp (scan_hidden): New function.
+	(scan_not_hidden): Likewise.
+
+2004-08-05  David Edelsohn  <edelsohn@gnu.org>
+
+	* gcc.dg/sh4a-fprun.c: Fix dg-do typo.
+
+2004-08-05  Richard Sandiford  <rsandifo@redhat.com>
+
+	* gcc.c-torture/execute/20040805-1.c: New test.
+
+2004-08-04  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* gcc.dg/20020118-1.c: Declare abort.
+	* gcc.dg/altivec_check.h: Likewise.
+	* gcc.dg/iftrap-2.c: Likewise.
+	* gcc.dg/pragma-darwin.c: Likewise.
+	* gcc.dg/rs6000-ldouble-1.c: Declare abort and exit.
+
+2004-08-04  Geoffrey Keating  <geoffk@apple.com>
+
+	* g++.dg/ext/altivec_check.h: Declare exit as extern "C".
+
+2004-08-05  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* gcc.c-torture/execute/builtins/abs-2.c,
+	gcc.c-torture/execute/builtins/abs-3.c,
+	gcc.c-torture/execute/builtins/lib/abs.c, gcc.dg/format/format.h,
+	gcc.dg/torture/builtin-attr-1.c: Use predefined macros for
+	intmax_t, uintmax_t and their limits.
+	* gcc.dg/intmax_t-1.c: New test.
+
+2004-08-04  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+
+	* g++.dg/tc1/dr147.C: Add reference to PR.
+
+2004-08-03  Richard Sandiford  <rsandifo@redhat.com>
+
+	* gcc.dg/mips-args-[23].c: Declare abort() and exit().
+	* gcc.dg/torture/mips-hilo-[12].c: Likewise.
+
 2004-08-03  David Edelsohn  <edelsohn@gnu.org>
 
 	* gcc.dg/compat/struct-layout-1.exp: Fix error message typo.
@@ -14,6 +128,9 @@
 	* gcc.c-torture/execute/pr16790-1.c: New test case.
 
 2004-08-03  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/ext/visibility/assign1.C: New test.
+	* g++.dg/ext/visibility/new1.C: Likewise.
 
 	* gcc.dg/symbian1.c: New test.
 	* gcc.dg/symbian2.c: Likewise.
