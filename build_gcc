@@ -88,7 +88,7 @@ CONFIGFLAGS="--disable-checking \
   --disable-libmudflap \
   --mandir=\${prefix}/share/man \
   --enable-languages=c,objc,c++ --disable-libada \
-  --program-transform-name=/^[cg][^.-]*$/s/$/-$MAJ_VERS/ \
+  --program-transform-name=/^[cg][^+.-]*$/s/$/-$MAJ_VERS/ \
   --with-gxx-include-dir=\${prefix}/include/gcc/darwin/$MAJ_VERS/c++ \
   --build=$BUILD-apple-darwin"
 
@@ -248,9 +248,9 @@ lipo -output .$DEST_ROOT/bin/gcov-$MAJ_VERS -create \
 # The fully-named drivers, which have the same target on every host.
 for t in $TARGETS ; do
   lipo -output .$DEST_ROOT/bin/$t-apple-darwin-gcc-$VERS -create \
-    $DIR/dst-*-$t$DEST_ROOT/bin/$t-apple-darwin-gcc-$MAJ_VERS || exit 1
+    $DIR/dst-*-$t$DEST_ROOT/bin/$t-apple-darwin-gcc || exit 1
   lipo -output .$DEST_ROOT/bin/$t-apple-darwin-g++-$VERS -create \
-    $DIR/dst-*-$t$DEST_ROOT/bin/$t-apple-darwin-g++-$MAJ_VERS || exit 1
+    $DIR/dst-*-$t$DEST_ROOT/bin/$t-apple-darwin-g++ || exit 1
 done
 
 # lib
@@ -313,6 +313,12 @@ for h in `echo [^C]*` ; do
       exit 1
   done
 done
+
+# Install man pages using version number.
+# Only g++ man page needs rename. gcc, cpp and gcov man page are already 
+# installed using proper name.
+mv $DEST_DIR$DEST_ROOT/share/man/man1/g++.1 \
+   $DEST_DIR$DEST_ROOT/share/man/man1/g++-$MAJ_VERS.1
 
 # Build driver-driver using fully-named drivers
 for t in $TARGETS ; do
