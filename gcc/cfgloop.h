@@ -265,6 +265,7 @@ extern void flow_loop_free (struct loop *);
 extern int flow_loop_nodes_find (basic_block, struct loop *);
 void fix_loop_structure (struct loops *);
 void mark_single_exit_loops (struct loops *);
+void update_single_exits_after_duplication (basic_block *, unsigned, struct loop *);
 extern void create_loop_notes (void);
 extern void mark_irreducible_loops (struct loops *loops);
 
@@ -327,7 +328,7 @@ extern int duplicate_loop_to_header_edge (struct loop *, edge, struct loops *,
 extern struct loop *loopify (struct loops *, edge, edge, basic_block, bool);
 extern void unloop (struct loops *, struct loop *);
 extern bool remove_path (struct loops *, edge);
-extern edge split_loop_bb (basic_block, rtx);
+extern edge split_loop_bb (basic_block, void *);
 
 /* Induction variable analysis.  */
 

@@ -507,6 +507,11 @@ extern tree tree_block_label (basic_block bb);
 extern void extract_true_false_edges_from_block (basic_block, edge *, edge *);
 extern bool tree_duplicate_sese_region (edge, edge, basic_block *, unsigned,
 					basic_block *);
+extern void add_phi_args_after_copy_bb (basic_block);
+extern void add_phi_args_after_copy (basic_block *, unsigned);
+extern void rewrite_to_new_ssa_names_bb (basic_block, struct htab *);
+extern void rewrite_to_new_ssa_names (basic_block *, unsigned, htab_t);
+extern void allocate_ssa_names (bitmap, struct htab **);
 extern bool tree_purge_dead_eh_edges (basic_block);
 extern bool tree_purge_all_dead_eh_edges (bitmap);
 
@@ -663,6 +668,8 @@ tree can_count_iv_in_wider_type (struct loop *, tree, tree, tree, tree);
 void free_numbers_of_iterations_estimates (struct loops *);
 void loop_commit_inserts (void);
 bool for_each_index (tree *, bool (*) (tree, tree *, void *), void *);
+void split_loop_exit_edge (edge);
+basic_block bsi_insert_on_edge_immediate_loop (edge, tree);
 
 /* In tree-ssa-dce.c.  */
 void tree_ssa_dce_no_cfg_changes (void);
@@ -678,8 +685,10 @@ bool tree_duplicate_loop_to_header_edge (struct loop *, edge, struct loops *,
 					 unsigned int, sbitmap,
 					 edge, edge *,
 					 unsigned int *, int);
+struct loop *tree_split_loop_iterations (struct loop *, edge, tree, struct loops *);
+struct loop *tree_align_loop_iterations (struct loop *, edge, tree, unsigned,
+					 struct loops *);
 void tree_unroll_loops_completely (struct loops *);
-bool tree_duplicate_loop_to_exit (struct loop *loop, struct loops *loops);
 void create_iv (tree, tree, tree, struct loop *, block_stmt_iterator *, bool,
 		tree *, tree *);
 void standard_iv_increment_position (struct loop *, block_stmt_iterator *,

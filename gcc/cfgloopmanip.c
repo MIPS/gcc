@@ -53,7 +53,7 @@ static void fix_irreducible_loops (basic_block);
 /* Splits basic block BB after INSN, returns created edge.  Updates loops
    and dominators.  */
 edge
-split_loop_bb (basic_block bb, rtx insn)
+split_loop_bb (basic_block bb, void *insn)
 {
   edge e;
 
@@ -827,7 +827,7 @@ can_duplicate_loop_p (struct loop *loop)
 /* The NBBS blocks in BBS will get duplicated and the copies will be placed
    to LOOP.  Update the single_exit information in superloops of LOOP.  */
 
-static void
+void
 update_single_exits_after_duplication (basic_block *bbs, unsigned nbbs,
 				       struct loop *loop)
 {

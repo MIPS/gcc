@@ -1,3 +1,48 @@
+2004-08-04  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* basic-block.h (get_dominated_by_region): Declare.
+	* cfgloop.h (update_single_exits_after_duplication): Declare.
+	(split_loop_bb): Declaration changed.
+	* cfgloopmanip.c (split_loop_bb): Take void * argument instead of
+	rtx one.
+	(update_single_exits_after_duplication): Export.
+	* dominance.c (get_dominated_by_region): New function.
+	* tree-cfg.c (add_phi_args_after_copy_bb): Split out from ...
+	(add_phi_args_after_copy): ... here.
+	(allocate_ssa_names): Export.  Allocate the ssa names map if
+	necessary.
+	(rewrite_to_new_ssa_names_bb): Split out from ...
+	(rewrite_to_new_ssa_names): ... here.
+	(tree_duplicate_sese_region): Changed due to allocate_ssa_names
+	change.  Use get_dominated_by_region.
+	* tree-flow.h (add_phi_args_after_copy_bb, add_phi_args_after_copy,
+	rewrite_to_new_ssa_names_bb, rewrite_to_new_ssa_names,
+	allocate_ssa_names, split_loop_exit_edge,
+	bsi_insert_on_edge_immediate_loop, tree_split_loop_iterations,
+	tree_align_loop_iterations): Declare.
+	(tree_duplicate_loop_to_exit): Declaration removed.
+	* tree-ssa-loop-ivopts.c (create_iv): Use
+	bsi_insert_on_edge_immediate_loop.
+	(split_loop_exit_edge): Moved to tree-ssa-loop-manip.c.
+	* tree-ssa-loop-manip.c (copy_phi_nodes): Renamed to
+	copy_phi_node_args.  Use add_phi_args_after_copy_bb.
+	(allocate_new_names, rename_use_op, rename_def_op,
+	rename_variables_in_bb, rename_variables, free_new_names,
+	tdlte_rename_variables_in_loop, tdlte_copy_phi_nodes,
+	tree_duplicate_loop_to_exit_cfg, tree_duplicate_loop_to_exit):
+	Moved to tree-vectorize.c.
+	(extend_exit_phi_nodes): Removed.
+	(tree_duplicate_loop_to_header_edge): Use the functions from
+	tree-cfg.c.
+	(tree_split_loop_iterations, tree_align_loop_iterations,
+	bsi_insert_on_edge_immediate_loop): New functions.
+	(split_loop_exit_edge): Moved from tree-ssa-loop-ivopts.c.
+	* tree-vectorizer.c ((allocate_new_names, rename_use_op,
+	rename_def_op, rename_variables_in_bb, rename_variables, free_new_names,
+	tdlte_rename_variables_in_loop, tdlte_copy_phi_nodes,
+	tree_duplicate_loop_to_exit_cfg, tree_duplicate_loop_to_exit):
+	Moved from tree-ssa-loop-manip.c.
+
 2004-08-04  Dorit Naishlos <dorit@il.ibm.com>
 
 	* tree-vectorizer.c (vect_create_index_for_array_ref): Remove

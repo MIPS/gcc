@@ -4066,12 +4066,9 @@ create_iv (tree base, tree step, tree var, struct loop *loop,
   initial = force_gimple_operand (base, &stmts, false, var);
   if (stmts)
     {
-      basic_block new_bb;
       edge pe = loop_preheader_edge (loop);
-      
-      new_bb = bsi_insert_on_edge_immediate (pe, stmts);
-      if (new_bb)
-	add_bb_to_loop (new_bb, new_bb->pred->src->loop_father);
+
+      bsi_insert_on_edge_immediate_loop (pe, stmts);
     }
 
   stmt = create_phi_node (vb, loop->header);
@@ -4359,29 +4356,6 @@ rewrite_use_compare (struct ivopts_data *data,
     bsi_insert_before (&bsi, stmts, BSI_SAME_STMT);
 
   *op_p = op;
-}
-
-/* Split loop exit edge EXIT.  The things are a bit complicated by a need to
-   preserve the loop closed ssa form.  */
-
-static void
-split_loop_exit_edge (edge exit)
-{
-  basic_block dest = exit->dest;
-  basic_block bb = loop_split_edge_with (exit, NULL);
-  tree phi, new_phi, new_name;
-  use_operand_p op_p;
-
-  for (phi = phi_nodes (dest); phi; phi = TREE_CHAIN (phi))
-    {
-      op_p = PHI_ARG_DEF_PTR_FROM_EDGE (phi, bb->succ);
-
-      new_name = duplicate_ssa_name (USE_FROM_PTR (op_p), NULL);
-      new_phi = create_phi_node (new_name, bb);
-      SSA_NAME_DEF_STMT (new_name) = new_phi;
-      add_phi_arg (&new_phi, USE_FROM_PTR (op_p), exit);
-      SET_USE (op_p, new_name);
-    }
 }
 
 /* Ensure that operand *OP_P may be used at the end of EXIT without

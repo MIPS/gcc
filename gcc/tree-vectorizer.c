@@ -224,6 +224,402 @@ int tree_nargs[] = {
 
 #undef DEFTREECODE
 
+/* tree_duplicate_loop_to_exit and the helper functions for it used to be
+   placed in tree-ssa-loop-manip.c.  However tree_duplicate_loop_to_exit does
+   not preserve semantics of the program.  As one of the consequences it
+   modifies the SSA form to some ad-hoc undocumented state.  Both semantics and
+   SSA form is then magically restored in vect_transform_loop.
+
+   The function is unsuitable for generic use, and therefore is moved here.
+   If needed, use tree_split_loop_iterations or tree_align_loop_iterations,
+   which provide similar functionality, but actually preserve semantics of the
+   program and keep ssa form in a consistent state.  */
+
+/* Releases the structures holding the new ssa names. 
+   The original ssa names are released if ORIGIN is true.
+   Otherwise they are saved for initial loop copy.  */
+
+static void
+free_new_names (bitmap definitions, bool origin)
+{
+  tree def;
+  unsigned ver;
+
+  EXECUTE_IF_SET_IN_BITMAP (definitions, 0, ver,
+    {
+      def = ssa_name (ver);
+
+      if (SSA_NAME_AUX (def))
+	{
+	  free (SSA_NAME_AUX (def));
+	  SSA_NAME_AUX (def) = NULL;
+	}
+
+      if (origin)
+	release_ssa_name_force (def);
+    });
+}
+
+/* For each definition in DEFINITIONS allocates:
+
+   NDUPL + 1 copies if ORIGIN is true
+   NDUPL copies if ORIGIN is false
+
+   (one for each duplicate of the loop body).  
+   If ORIGIN is true, additional set of DEFINITIONS 
+   is allocated for initial loop copy. */
+
+static void
+allocate_new_names (bitmap definitions, unsigned ndupl, bool origin)
+{
+  tree def;
+  unsigned i, ver;
+  tree *new_names;
+  bool abnormal;
+
+  EXECUTE_IF_SET_IN_BITMAP (definitions, 0, ver,
+    {
+      def = ssa_name (ver);
+      new_names = xmalloc (sizeof (tree) * (ndupl + (origin ? 1 : 0)));
+
+      abnormal = SSA_NAME_OCCURS_IN_ABNORMAL_PHI (def);
+      for (i = (origin ? 0 : 1); i <= ndupl; i++)
+	{
+	  new_names[i] = duplicate_ssa_name (def, SSA_NAME_DEF_STMT (def));
+	  SSA_NAME_OCCURS_IN_ABNORMAL_PHI (new_names[i]) = abnormal;
+	}
+     /* Delay this until now so it doesn't get propagated to the copies.
+	That would cause problems in the next outer loop.  */
+      SSA_NAME_AUX (def) = new_names;
+    });
+}
+
+/* Renames the variable *OP_P in statement STMT.  If DEF is true,
+   *OP_P is defined by the statement.  N_COPY is the number of the
+   copy of the loop body we are renaming.  */
+
+static void
+rename_use_op (use_operand_p op_p, unsigned n_copy)
+{
+  tree *new_names;
+
+  if (TREE_CODE (USE_FROM_PTR (op_p)) != SSA_NAME)
+    return;
+
+  new_names = SSA_NAME_AUX (USE_FROM_PTR (op_p));
+
+  /* Something defined outside of the loop.  */
+  if (!new_names)
+    return;
+
+  /* An ordinary ssa name defined in the loop.  */
+
+  SET_USE (op_p, new_names[n_copy]);
+}
+
+/* Renames the variable *OP_P in statement STMT.  If DEF is true,
+   *OP_P is defined by the statement.  N_COPY is the number of the
+   copy of the loop body we are renaming.  */
+
+static void
+rename_def_op (def_operand_p op_p, tree stmt, unsigned n_copy)
+{
+  tree *new_names;
+
+  if (TREE_CODE (DEF_FROM_PTR (op_p)) != SSA_NAME)
+    return;
+
+  new_names = SSA_NAME_AUX (DEF_FROM_PTR (op_p));
+
+  /* Something defined outside of the loop.  */
+  if (!new_names)
+    return;
+
+  /* An ordinary ssa name defined in the loop.  */
+
+  SET_DEF (op_p, new_names[n_copy]);
+  SSA_NAME_DEF_STMT (DEF_FROM_PTR (op_p)) = stmt;
+}
+
+/* Renames the variables in basic block BB.  */
+
+static void
+rename_variables_in_bb (basic_block bb)
+{
+  tree phi;
+  block_stmt_iterator bsi;
+  tree stmt;
+  stmt_ann_t ann;
+  use_optype uses;
+  vuse_optype vuses;
+  def_optype defs;
+  v_may_def_optype v_may_defs;
+  v_must_def_optype v_must_defs;
+  unsigned i, nbb = bb->rbi->copy_number;
+  edge e;
+
+  for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
+    rename_def_op (PHI_RESULT_PTR (phi), phi, nbb);
+
+  for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+    {
+      stmt = bsi_stmt (bsi);
+      get_stmt_operands (stmt);
+      ann = stmt_ann (stmt);
+
+      uses = USE_OPS (ann);
+      for (i = 0; i < NUM_USES (uses); i++)
+	rename_use_op (USE_OP_PTR (uses, i), nbb);
+
+      defs = DEF_OPS (ann);
+      for (i = 0; i < NUM_DEFS (defs); i++)
+	rename_def_op (DEF_OP_PTR (defs, i), stmt, nbb);
+
+      vuses = VUSE_OPS (ann);
+      for (i = 0; i < NUM_VUSES (vuses); i++)
+	rename_use_op (VUSE_OP_PTR (vuses, i), nbb);
+
+      v_may_defs = V_MAY_DEF_OPS (ann);
+      for (i = 0; i < NUM_V_MAY_DEFS (v_may_defs); i++)
+	{
+	  rename_use_op (V_MAY_DEF_OP_PTR (v_may_defs, i), nbb);
+	  rename_def_op (V_MAY_DEF_RESULT_PTR (v_may_defs, i), stmt, nbb);
+	}
+
+      v_must_defs = V_MUST_DEF_OPS (ann);
+      for (i = 0; i < NUM_V_MUST_DEFS (v_must_defs); i++)
+	rename_def_op (V_MUST_DEF_OP_PTR (v_must_defs, i), stmt, nbb);
+
+    }
+
+  for (e = bb->succ; e; e = e->succ_next)
+    for (phi = phi_nodes (e->dest); phi; phi = TREE_CHAIN (phi))
+      rename_use_op (PHI_ARG_DEF_PTR_FROM_EDGE (phi, e), nbb);
+}
+/* Renames variables in new generated LOOP.  */
+
+static void
+tdlte_rename_variables_in_loop (struct loop *loop)
+{
+  unsigned i;
+  basic_block *bbs;
+
+  bbs = get_loop_body (loop);
+
+  for (i = 0; i < loop->num_nodes; i++)
+    {
+      rename_variables_in_bb (bbs[i]);
+    }
+
+  free (bbs);
+}
+
+/* This function copies phis from loop to new_loop 
+   as they were not generated by duplication of bbs.  */
+
+static void
+tdlte_copy_phi_nodes (struct loop *loop, struct loop *new_loop)
+{
+  tree phi, new_phi, def;
+  edge new_e;
+  edge latch = loop_latch_edge (loop);
+
+     
+  for (phi = phi_nodes (loop->header), 
+	 new_phi = phi_nodes (new_loop->header); 
+       phi; 
+       phi = TREE_CHAIN (phi), 
+	 new_phi = TREE_CHAIN (new_phi))
+    {
+      new_e = new_loop->header->pred;
+      def = PHI_ARG_DEF_FROM_EDGE (phi, latch);
+      add_phi_arg (&new_phi, def, new_e);
+    }
+
+}
+
+/* This function: 
+   - copies basic blocks of the loop LOOP;
+   - locate them at the only exit of LOOP; 
+   - redirect edges so that two loops are produced: 
+             initial LOOP and newly generated;
+   - update dominators;
+   - returns pointer to new loop in NEW_LOOP_P.
+
+   FORNOW: only innermost loops with 
+           1 exit are handled. 
+*/
+
+static bool
+tree_duplicate_loop_to_exit_cfg (struct loop *loop, struct loops *loops,
+				 struct loop **new_loop_p)
+{
+  struct loop *target;
+  basic_block *new_bbs, *bbs;
+  edge latch_edge;
+
+  unsigned i; 
+  unsigned  n = loop->num_nodes;
+  struct loop *new_loop;
+  basic_block exit_dest;
+  bool was_imm_dom;
+  
+  if (!loop->single_exit)
+    {
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	  fprintf (dump_file,
+		   "Loop does not have a single exit.\n");
+      return false;
+    }
+
+  exit_dest = loop->single_exit->dest;
+  was_imm_dom = (get_immediate_dominator 
+		       (CDI_DOMINATORS, exit_dest) == loop->header ? 
+		       true : false);
+
+  bbs = get_loop_body (loop);
+
+  /* Check whether duplication is possible.  */
+  if (!can_copy_bbs_p (bbs, loop->num_nodes))
+    {
+      free (bbs);
+      return false;
+    }
+  new_bbs = xmalloc (sizeof (basic_block) * loop->num_nodes);
+
+  /* Find edge from latch.  */
+  latch_edge = loop_latch_edge (loop);
+
+  /* We duplicate only innermost loops */
+  if(loop->inner)
+    {
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	  fprintf (dump_file,
+		   "Loop duplication failed. Loop is not innermost.\n");
+      free (bbs);
+      return false;
+    }
+
+  /* FORNOW: only loops with 1 exit. */
+  if(loop->num_exits != 1)
+    {
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	  fprintf (dump_file,
+		   "More than one exit from loop.\n");
+      return false;
+    }    
+
+  /* Loop the new bbs will belong to.  */
+  target = loop->outer;
+  if(!target)
+    {
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	  fprintf (dump_file,
+		   "Loop is outer-most loop.\n");
+      return false;
+    }    
+    
+  /* Generate new loop structure. */
+  new_loop = duplicate_loop (loops, loop, target); 
+  if(!new_loop)
+    {
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	  fprintf (dump_file,
+		   "duplicate_loop returns NULL.\n");
+      return false;
+
+    }
+
+  /* FIXME: Should we copy contents of the loop structure
+     to the new loop?  */
+
+  copy_bbs (bbs, n, new_bbs, NULL, 0, NULL, NULL);
+  for (i = 0; i < n; i++)
+    new_bbs[i]->rbi->copy_number = 1;
+
+  /* Redirect the special edges.  */
+  exit_dest = loop->single_exit->dest;
+
+  redirect_edge_and_branch_force (loop->single_exit, new_bbs[0]);
+  set_immediate_dominator (CDI_DOMINATORS, new_bbs[0], loop->single_exit->src); 
+  if (was_imm_dom)
+    set_immediate_dominator (CDI_DOMINATORS, exit_dest, new_loop->header);
+
+  free (new_bbs);
+  free (bbs);
+
+
+  *new_loop_p = new_loop;
+  return true;
+}
+
+/* This function generate pure copy of LOOP 
+   and locate it immediately after given LOOP.
+   It fixes phis of copy loop so that they inherit 
+   one of their values from exit edge of initial LOOP.  */
+
+static bool
+tree_duplicate_loop_to_exit (struct loop *loop, struct loops *loops)
+{
+  struct loop *new_loop = NULL;
+  bitmap definitions;
+  edge pred;
+  tree *new_names, new_var;
+  tree phi, def;
+  unsigned first_new_block;
+
+  if (any_marked_for_rewrite_p ())
+    abort ();
+
+  first_new_block = last_basic_block;
+  if(!tree_duplicate_loop_to_exit_cfg (loop, loops, &new_loop))
+    {
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	fprintf (dump_file,
+		 "tree_duplicate_loop_to_exit failed.\n");
+      return false;
+    }
+
+  if(!new_loop)
+    abort();
+
+  definitions = marked_ssa_names ();
+  allocate_new_names (definitions, 1, false);
+
+  /* Copy phis from loop->header to new_loop->header.  */
+  tdlte_copy_phi_nodes (loop, new_loop);
+
+  /* Fix phis to inherit values from loop exit edge.  */
+  for (phi = phi_nodes (new_loop->header); phi; phi = TREE_CHAIN (phi))
+    {
+      pred = new_loop->header->pred;
+      def = PHI_ARG_DEF_FROM_EDGE (phi, pred);
+
+      if (TREE_CODE (def) != SSA_NAME)
+	continue;
+
+      new_names = SSA_NAME_AUX (def);
+
+      /* Something defined outside of the loop.  */
+      if (!new_names)
+	continue;
+
+      /* An ordinary ssa name defined in the loop.  */
+      new_var = new_names[new_loop->header->rbi->copy_number];
+      
+      add_phi_arg (&phi, new_var, loop_latch_edge(new_loop));
+    }
+
+  /* Rename the variables.  */
+  tdlte_rename_variables_in_loop (new_loop);
+
+  free_new_names (definitions, false);
+
+  BITMAP_XFREE (definitions);
+  unmark_all_for_rewrite ();
+
+  return true;
+}
 
 /* Function new_stmt_vec_info.
 

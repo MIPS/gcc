@@ -4466,52 +4466,72 @@ tree_duplicate_bb (basic_block bb)
   return new_bb;
 }
 
+/* Basic block BB_COPY was created by code duplication.  Add phi node
+   arguments for edges going out of BB_COPY.  The blocks that were
+   duplicated have rbi->duplicated set to one.  */
+
+void
+add_phi_args_after_copy_bb (basic_block bb_copy)
+{
+  basic_block bb, dest;
+  edge e, e_copy;
+  tree phi, phi_copy, phi_next, def;
+      
+  bb = bb_copy->rbi->original;
+
+  for (e_copy = bb_copy->succ; e_copy; e_copy = e_copy->succ_next)
+    {
+      if (!phi_nodes (e_copy->dest))
+	continue;
+
+      if (e_copy->dest->rbi->duplicated)
+	dest = e_copy->dest->rbi->original;
+      else
+	dest = e_copy->dest;
+
+      e = find_edge (bb, dest);
+      if (!e)
+	{
+	  /* During loop unrolling the target of the latch edge is copied.
+	     In this case we are not looking for edge to dest, but to
+	     duplicated block whose original was dest.  */
+	  for (e = bb->succ; e; e = e->succ_next)
+	    if (e->dest->rbi->duplicated
+		&& e->dest->rbi->original == dest)
+	      break;
+
+	  if (!e)
+	    abort ();
+	}
+
+      for (phi = phi_nodes (e->dest), phi_copy = phi_nodes (e_copy->dest);
+	   phi;
+	   phi = phi_next, phi_copy = TREE_CHAIN (phi_copy))
+	{
+	  phi_next = TREE_CHAIN (phi);
+
+	  if (PHI_RESULT (phi) != PHI_RESULT (phi_copy))
+	    abort ();
+	  def = PHI_ARG_DEF_FROM_EDGE (phi, e);
+	  add_phi_arg (&phi_copy, def, e_copy);
+	}
+    }
+}
+
 /* Blocks in REGION_COPY array of length N_REGION were created by
    duplication of basic blocks.  Add phi node arguments for edges
    going from these blocks.  */
 
-static void
+void
 add_phi_args_after_copy (basic_block *region_copy, unsigned n_region)
 {
-  basic_block bb, bb_copy;
-  edge e, e_copy;
-  tree phi, phi_copy, phi_next, def;
   unsigned i;
 
   for (i = 0; i < n_region; i++)
     region_copy[i]->rbi->duplicated = 1;
 
   for (i = 0; i < n_region; i++)
-    {
-      bb_copy = region_copy[i];
-      bb = bb_copy->rbi->original;
-
-      for (e_copy = bb_copy->succ; e_copy; e_copy = e_copy->succ_next)
-	{
-	  if (!phi_nodes (e_copy->dest))
-	    continue;
-
-	  if (e_copy->dest->rbi->duplicated)
-	    e = find_edge (bb, e_copy->dest->rbi->original);
-	  else
-	    e = find_edge (bb, e_copy->dest);
-
-	  if (!e)
-	    abort ();
-
-	  for (phi = phi_nodes (e->dest), phi_copy = phi_nodes (e_copy->dest);
-	       phi;
-	       phi = phi_next, phi_copy = TREE_CHAIN (phi_copy))
-	    {
-	      phi_next = TREE_CHAIN (phi);
-
-	      if (PHI_RESULT (phi) != PHI_RESULT (phi_copy))
-		abort ();
-	      def = PHI_ARG_DEF_FROM_EDGE (phi, e);
-	      add_phi_arg (&phi_copy, def, e_copy);
-	    }
-	}
-    }
+    add_phi_args_after_copy_bb (region_copy[i]);
 
   for (i = 0; i < n_region; i++)
     region_copy[i]->rbi->duplicated = 0;
@@ -4547,18 +4567,21 @@ ssa_name_map_entry_eq (const void *in_table, const void *ssa_name)
 /* Allocate duplicates of ssa names in list DEFINITIONS and store the mapping
    to MAP.  */
 
-static void
-allocate_ssa_names (bitmap definitions, htab_t map)
+void
+allocate_ssa_names (bitmap definitions, htab_t *map)
 {
   tree name;
   struct ssa_name_map_entry *entry;
   PTR *slot;
   unsigned ver;
 
+  if (!*map)
+    *map = htab_create (10, ssa_name_map_entry_hash,
+			ssa_name_map_entry_eq, free);
   EXECUTE_IF_SET_IN_BITMAP (definitions, 0, ver,
     {
       name = ssa_name (ver);
-      slot = htab_find_slot_with_hash (map, name, SSA_NAME_VERSION (name),
+      slot = htab_find_slot_with_hash (*map, name, SSA_NAME_VERSION (name),
 				       INSERT);
       if (*slot)
 	entry = *slot;
@@ -4610,14 +4633,13 @@ rewrite_to_new_ssa_names_use (use_operand_p use, htab_t map)
   SET_USE (use, entry->to_name);
 }
 
-/* Rewrite the ssa names in N_REGION blocks REGION to the new ones as specified
-   by the mapping MAP.  */
+/* Rewrite the ssa names in basic block BB to new ones as specified by the
+   mapping MAP.  */
 
-static void
-rewrite_to_new_ssa_names (basic_block *region, unsigned n_region, htab_t map)
+void
+rewrite_to_new_ssa_names_bb (basic_block bb, htab_t map)
 {
-  basic_block bb;
-  unsigned i, r;
+  unsigned i;
   edge e;
   tree phi, stmt;
   block_stmt_iterator bsi;
@@ -4628,67 +4650,74 @@ rewrite_to_new_ssa_names (basic_block *region, unsigned n_region, htab_t map)
   v_must_def_optype v_must_defs;
   stmt_ann_t ann;
 
-  for (r = 0; r < n_region; r++)
+  for (e = bb->pred; e; e = e->pred_next)
+    if (e->flags & EDGE_ABNORMAL)
+      break;
+
+  for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
     {
-      bb = region[r];
-
-      for (e = bb->pred; e; e = e->pred_next)
-	if (e->flags & EDGE_ABNORMAL)
-	  break;
-
-      for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
-	{
-	  rewrite_to_new_ssa_names_def (PHI_RESULT_PTR (phi), phi, map);
-	  if (e)
-	    SSA_NAME_OCCURS_IN_ABNORMAL_PHI (PHI_RESULT (phi)) = 1;
-	}
-
-      for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
-	{
-	  stmt = bsi_stmt (bsi);
-	  get_stmt_operands (stmt);
-	  ann = stmt_ann (stmt);
-
-	  uses = USE_OPS (ann);
-	  for (i = 0; i < NUM_USES (uses); i++)
-	    rewrite_to_new_ssa_names_use (USE_OP_PTR (uses, i), map);
-
-	  defs = DEF_OPS (ann);
-	  for (i = 0; i < NUM_DEFS (defs); i++)
-	    rewrite_to_new_ssa_names_def (DEF_OP_PTR (defs, i), stmt, map);
-
-	  vuses = VUSE_OPS (ann);
-	  for (i = 0; i < NUM_VUSES (vuses); i++)
-	    rewrite_to_new_ssa_names_use (VUSE_OP_PTR (vuses, i), map);
-
-	  v_may_defs = V_MAY_DEF_OPS (ann);
-	  for (i = 0; i < NUM_V_MAY_DEFS (v_may_defs); i++)
-	    {
-	      rewrite_to_new_ssa_names_use
-		      (V_MAY_DEF_OP_PTR (v_may_defs, i), map);
-	      rewrite_to_new_ssa_names_def
-		      (V_MAY_DEF_RESULT_PTR (v_may_defs, i), stmt, map);
-	    }
-
-	  v_must_defs = V_MUST_DEF_OPS (ann);
-	  for (i = 0; i < NUM_V_MUST_DEFS (v_must_defs); i++)
-	    rewrite_to_new_ssa_names_def
-		    (V_MUST_DEF_OP_PTR (v_must_defs, i), stmt, map);
-	}
-
-      for (e = bb->succ; e; e = e->succ_next)
-	for (phi = phi_nodes (e->dest); phi; phi = TREE_CHAIN (phi))
-	  {
-	    rewrite_to_new_ssa_names_use
-		    (PHI_ARG_DEF_PTR_FROM_EDGE (phi, e), map);
-
-	    if (e->flags & EDGE_ABNORMAL)
-	      {
-		tree op = PHI_ARG_DEF_FROM_EDGE (phi, e);
-		SSA_NAME_OCCURS_IN_ABNORMAL_PHI (op) = 1;
-	      }
-	  }
+      rewrite_to_new_ssa_names_def (PHI_RESULT_PTR (phi), phi, map);
+      if (e)
+	SSA_NAME_OCCURS_IN_ABNORMAL_PHI (PHI_RESULT (phi)) = 1;
     }
+
+  for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+    {
+      stmt = bsi_stmt (bsi);
+      get_stmt_operands (stmt);
+      ann = stmt_ann (stmt);
+
+      uses = USE_OPS (ann);
+      for (i = 0; i < NUM_USES (uses); i++)
+	rewrite_to_new_ssa_names_use (USE_OP_PTR (uses, i), map);
+
+      defs = DEF_OPS (ann);
+      for (i = 0; i < NUM_DEFS (defs); i++)
+	rewrite_to_new_ssa_names_def (DEF_OP_PTR (defs, i), stmt, map);
+
+      vuses = VUSE_OPS (ann);
+      for (i = 0; i < NUM_VUSES (vuses); i++)
+	rewrite_to_new_ssa_names_use (VUSE_OP_PTR (vuses, i), map);
+
+      v_may_defs = V_MAY_DEF_OPS (ann);
+      for (i = 0; i < NUM_V_MAY_DEFS (v_may_defs); i++)
+	{
+	  rewrite_to_new_ssa_names_use
+		  (V_MAY_DEF_OP_PTR (v_may_defs, i), map);
+	  rewrite_to_new_ssa_names_def
+		  (V_MAY_DEF_RESULT_PTR (v_may_defs, i), stmt, map);
+	}
+
+      v_must_defs = V_MUST_DEF_OPS (ann);
+      for (i = 0; i < NUM_V_MUST_DEFS (v_must_defs); i++)
+	rewrite_to_new_ssa_names_def
+		(V_MUST_DEF_OP_PTR (v_must_defs, i), stmt, map);
+    }
+
+  for (e = bb->succ; e; e = e->succ_next)
+    for (phi = phi_nodes (e->dest); phi; phi = TREE_CHAIN (phi))
+      {
+	rewrite_to_new_ssa_names_use
+		(PHI_ARG_DEF_PTR_FROM_EDGE (phi, e), map);
+
+	if (e->flags & EDGE_ABNORMAL)
+	  {
+	    tree op = PHI_ARG_DEF_FROM_EDGE (phi, e);
+	    SSA_NAME_OCCURS_IN_ABNORMAL_PHI (op) = 1;
+	  }
+      }
+}
+
+/* Rewrite the ssa names in N_REGION blocks REGION to the new ones as specified
+   by the mapping MAP.  */
+
+void
+rewrite_to_new_ssa_names (basic_block *region, unsigned n_region, htab_t map)
+{
+  unsigned r;
+
+  for (r = 0; r < n_region; r++)
+    rewrite_to_new_ssa_names_bb (region[r], map);
 }
 
 /* Duplicates a REGION (set of N_REGION basic blocks) with just a single
@@ -4712,8 +4741,8 @@ tree_duplicate_sese_region (edge entry, edge exit,
   edge exit_copy;
   bitmap definitions;
   tree phi, var;
-  basic_block *doms, dom;
-  htab_t ssa_name_map;
+  basic_block *doms;
+  htab_t ssa_name_map = NULL;
 
   if (!can_copy_bbs_p (region, n_region))
     return false;
@@ -4765,17 +4794,7 @@ tree_duplicate_sese_region (edge entry, edge exit,
   /* Record blocks outside the region that are duplicated by something
      inside.  */
   doms = xmalloc (sizeof (basic_block) * n_basic_blocks);
-  n_doms = 0;
-  for (i = 0; i < n_region; i++)
-    region[i]->rbi->duplicated = 1;
-  for (i = 0; i < n_region; i++)
-    for (dom = first_dom_son (CDI_DOMINATORS, region[i]);
-	 dom;
-	 dom = next_dom_son (CDI_DOMINATORS, dom))
-      if (!dom->rbi->duplicated)
-	doms[n_doms++] = dom;
-  for (i = 0; i < n_region; i++)
-    region[i]->rbi->duplicated = 0;
+  n_doms = get_dominated_by_region (CDI_DOMINATORS, region, n_region, doms);
 
   copy_bbs (region, n_region, region_copy, &exit, 1, &exit_copy, loop);
   definitions = marked_ssa_names ();
@@ -4824,11 +4843,9 @@ tree_duplicate_sese_region (edge entry, edge exit,
      have immediate uses, it might be better to leave definitions in region
      unchanged, create new ssa names for phi nodes on exit, and rewrite
      the uses, to avoid changing the copied region.  */
-  ssa_name_map = htab_create (10, ssa_name_map_entry_hash,
-			      ssa_name_map_entry_eq, free);
-  allocate_ssa_names (definitions, ssa_name_map);
+  allocate_ssa_names (definitions, &ssa_name_map);
   rewrite_to_new_ssa_names (region, n_region, ssa_name_map);
-  allocate_ssa_names (definitions, ssa_name_map);
+  allocate_ssa_names (definitions, &ssa_name_map);
   rewrite_to_new_ssa_names (region_copy, n_region, ssa_name_map);
   htab_delete (ssa_name_map);
 

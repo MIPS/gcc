@@ -43,246 +43,51 @@ static void lv_update_pending_stmts (edge e);
 static void lv_adjust_loop_header_phi (basic_block, basic_block, basic_block, 
 				       edge);
 
-/* Copies phi nodes in newly created copies of the LOOP.  The new blocks start
-   since FIRST_NEW_BLOCK index.  PEELING is true if we were peeling
-   the loop.  */
+/* Copies phi node arguments for duplicated blocks.  The index of the first
+   duplicated block is FIRST_NEW_BLOCK.  */
 
 static void
-copy_phi_nodes (struct loop *loop, unsigned first_new_block, bool peeling)
+copy_phi_node_args (unsigned first_new_block)
 {
   unsigned i;
-  basic_block bb, orig;
-  tree phi, new_phi, def;
-  edge e, new_e;
-  edge latch = loop_latch_edge (loop), entry = loop_preheader_edge (loop);
 
   for (i = first_new_block; i < (unsigned) last_basic_block; i++)
-    {
-      bb = BASIC_BLOCK (i);
-      orig = bb->rbi->original;
+    BASIC_BLOCK (i)->rbi->duplicated = 1;
 
-      for (phi = phi_nodes (orig), new_phi = phi_nodes (bb);
-	   phi;
-	   phi = TREE_CHAIN (phi), new_phi = TREE_CHAIN (new_phi))
-	{
-	  if (orig == loop->header)
-	    {
-	      if (!bb->pred || bb->pred->pred_next)
-		abort ();
+  for (i = first_new_block; i < (unsigned) last_basic_block; i++)
+    add_phi_args_after_copy_bb (BASIC_BLOCK (i));
 
-	      new_e = bb->pred;
-	      e = (peeling && bb->rbi->copy_number == 1 ? entry : latch);
-	      def = PHI_ARG_DEF_FROM_EDGE (phi, e);
-	      add_phi_arg (&new_phi, def, new_e);
-	      continue;
-	    }
-
-	  for (new_e = bb->pred; new_e; new_e = new_e->pred_next)
-	    {
-	      e = find_edge (new_e->src->rbi->original, orig);
-	      if (!e)
-		abort ();
-
-	      def = PHI_ARG_DEF_FROM_EDGE (phi, e);
-	      add_phi_arg (&new_phi, def, new_e);
-	    }
-	}
-    }
-
-  if (peeling)
-    {
-      /* Update the phi nodes in the header so that the latch value comes from
-	 both edges.  */
-      for (phi = phi_nodes (loop->header); phi; phi = TREE_CHAIN (phi))
-	{
-	  int i;
-	  def = PHI_ARG_DEF_FROM_EDGE (phi, latch);
-	  i = phi_arg_from_edge (phi, entry);
-	  SET_PHI_ARG_DEF (phi, i, def);
-	}
-    }
-}
-
-/* For each definition in DEFINITIONS allocates:
-
-   NDUPL + 1 copies if ORIGIN is true
-   NDUPL copies if ORIGIN is false
-
-   (one for each duplicate of the loop body).  
-   If ORIGIN is true, additional set of DEFINITIONS 
-   is allocated for initial loop copy. */
-
-static void
-allocate_new_names (bitmap definitions, unsigned ndupl, bool origin)
-{
-  tree def;
-  unsigned i, ver;
-  tree *new_names;
-  bool abnormal;
-
-  EXECUTE_IF_SET_IN_BITMAP (definitions, 0, ver,
-    {
-      def = ssa_name (ver);
-      new_names = xmalloc (sizeof (tree) * (ndupl + (origin ? 1 : 0)));
-
-      abnormal = SSA_NAME_OCCURS_IN_ABNORMAL_PHI (def);
-      for (i = (origin ? 0 : 1); i <= ndupl; i++)
-	{
-	  new_names[i] = duplicate_ssa_name (def, SSA_NAME_DEF_STMT (def));
-	  SSA_NAME_OCCURS_IN_ABNORMAL_PHI (new_names[i]) = abnormal;
-	}
-     /* Delay this until now so it doesn't get propagated to the copies.
-	That would cause problems in the next outer loop.  */
-      SSA_NAME_AUX (def) = new_names;
-    });
-}
-
-/* Renames the variable *OP_P in statement STMT.  If DEF is true,
-   *OP_P is defined by the statement.  N_COPY is the number of the
-   copy of the loop body we are renaming.  */
-
-static void
-rename_use_op (use_operand_p op_p, unsigned n_copy)
-{
-  tree *new_names;
-
-  if (TREE_CODE (USE_FROM_PTR (op_p)) != SSA_NAME)
-    return;
-
-  new_names = SSA_NAME_AUX (USE_FROM_PTR (op_p));
-
-  /* Something defined outside of the loop.  */
-  if (!new_names)
-    return;
-
-  /* An ordinary ssa name defined in the loop.  */
-
-  SET_USE (op_p, new_names[n_copy]);
-}
-
-/* Renames the variable *OP_P in statement STMT.  If DEF is true,
-   *OP_P is defined by the statement.  N_COPY is the number of the
-   copy of the loop body we are renaming.  */
-
-static void
-rename_def_op (def_operand_p op_p, tree stmt, unsigned n_copy)
-{
-  tree *new_names;
-
-  if (TREE_CODE (DEF_FROM_PTR (op_p)) != SSA_NAME)
-    return;
-
-  new_names = SSA_NAME_AUX (DEF_FROM_PTR (op_p));
-
-  /* Something defined outside of the loop.  */
-  if (!new_names)
-    return;
-
-  /* An ordinary ssa name defined in the loop.  */
-
-  SET_DEF (op_p, new_names[n_copy]);
-  SSA_NAME_DEF_STMT (DEF_FROM_PTR (op_p)) = stmt;
-}
-
-/* Renames the variables in basic block BB.  */
-
-static void
-rename_variables_in_bb (basic_block bb)
-{
-  tree phi;
-  block_stmt_iterator bsi;
-  tree stmt;
-  stmt_ann_t ann;
-  use_optype uses;
-  vuse_optype vuses;
-  def_optype defs;
-  v_may_def_optype v_may_defs;
-  v_must_def_optype v_must_defs;
-  unsigned i, nbb = bb->rbi->copy_number;
-  edge e;
-
-  for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
-    rename_def_op (PHI_RESULT_PTR (phi), phi, nbb);
-
-  for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
-    {
-      stmt = bsi_stmt (bsi);
-      get_stmt_operands (stmt);
-      ann = stmt_ann (stmt);
-
-      uses = USE_OPS (ann);
-      for (i = 0; i < NUM_USES (uses); i++)
-	rename_use_op (USE_OP_PTR (uses, i), nbb);
-
-      defs = DEF_OPS (ann);
-      for (i = 0; i < NUM_DEFS (defs); i++)
-	rename_def_op (DEF_OP_PTR (defs, i), stmt, nbb);
-
-      vuses = VUSE_OPS (ann);
-      for (i = 0; i < NUM_VUSES (vuses); i++)
-	rename_use_op (VUSE_OP_PTR (vuses, i), nbb);
-
-      v_may_defs = V_MAY_DEF_OPS (ann);
-      for (i = 0; i < NUM_V_MAY_DEFS (v_may_defs); i++)
-	{
-	  rename_use_op (V_MAY_DEF_OP_PTR (v_may_defs, i), nbb);
-	  rename_def_op (V_MAY_DEF_RESULT_PTR (v_may_defs, i), stmt, nbb);
-	}
-
-      v_must_defs = V_MUST_DEF_OPS (ann);
-      for (i = 0; i < NUM_V_MUST_DEFS (v_must_defs); i++)
-	rename_def_op (V_MUST_DEF_OP_PTR (v_must_defs, i), stmt, nbb);
-
-    }
-
-  for (e = bb->succ; e; e = e->succ_next)
-    for (phi = phi_nodes (e->dest); phi; phi = TREE_CHAIN (phi))
-      rename_use_op (PHI_ARG_DEF_PTR_FROM_EDGE (phi, e), nbb);
+  for (i = first_new_block; i < (unsigned) last_basic_block; i++)
+    BASIC_BLOCK (i)->rbi->duplicated = 0;
 }
 
 /* Renames variables in the area copied by tree_duplicate_loop_to_header_edge.
-   FIRST_NEW_BLOCK is the first block in the copied area.   */
+   FIRST_NEW_BLOCK is the first block in the copied area.   DEFINITIONS is
+   a bitmap of all ssa names defined inside the loop.  */
 
 static void
-rename_variables (unsigned first_new_block)
+rename_variables (unsigned first_new_block, bitmap definitions)
 {
-  unsigned i;
+  unsigned i, copy_number = 0;
   basic_block bb;
+  htab_t ssa_name_map = NULL;
 
   for (i = first_new_block; i < (unsigned) last_basic_block; i++)
     {
       bb = BASIC_BLOCK (i);
 
-      rename_variables_in_bb (bb);
-
-      if (bb->rbi->copy_number == 1)
-	rename_variables_in_bb (bb->rbi->original);
-    }
-}
-
-/* Releases the structures holding the new ssa names. 
-   The original ssa names are released if ORIGIN is true.
-   Otherwise they are saved for initial loop copy.  */
-
-static void
-free_new_names (bitmap definitions, bool origin)
-{
-  tree def;
-  unsigned ver;
-
-  EXECUTE_IF_SET_IN_BITMAP (definitions, 0, ver,
-    {
-      def = ssa_name (ver);
-
-      if (SSA_NAME_AUX (def))
+      /* We assume that first come all blocks from the first copy, then all
+	 blocks from the second copy, etc.  */
+      if (copy_number != (unsigned) bb->rbi->copy_number)
 	{
-	  free (SSA_NAME_AUX (def));
-	  SSA_NAME_AUX (def) = NULL;
+	  allocate_ssa_names (definitions, &ssa_name_map);
+	  copy_number = bb->rbi->copy_number;
 	}
 
-      if (origin)
-	release_ssa_name_force (def);
-    });
+      rewrite_to_new_ssa_names_bb (bb, ssa_name_map);
+    }
+
+  htab_delete (ssa_name_map);
 }
 
 /* Sets SSA_NAME_DEF_STMT for results of all phi nodes in BB.  */
@@ -294,32 +99,6 @@ set_phi_def_stmts (basic_block bb)
 
   for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
     SSA_NAME_DEF_STMT (PHI_RESULT (phi)) = phi;
-}
-
-/* Extends phi nodes on EXIT to the newly created edges.  */
-
-static void
-extend_exit_phi_nodes (unsigned first_new_block, edge exit)
-{
-  basic_block exit_block = exit->dest;
-  edge ae;
-  tree phi, def;
-
-  for (phi = phi_nodes (exit_block); phi; phi = TREE_CHAIN (phi))
-    {
-      def = PHI_ARG_DEF_FROM_EDGE (phi, exit);
-
-      for (ae = exit_block->pred; ae; ae = ae->pred_next)
-	{
-	  if (ae->src->index < (int) first_new_block)
-	    continue;
-
-	  if (ae->src->rbi->original != exit->src)
-	    continue;
-
-	  add_phi_arg (&phi, def, ae);
-	}
-    }
 }
 
 /* The same ad cfgloopmanip.c:duplicate_loop_to_header_edge, but also updates
@@ -340,12 +119,8 @@ tree_duplicate_loop_to_header_edge (struct loop *loop, edge e,
   unsigned first_new_block;
   basic_block bb;
   unsigned i;
-  bool peeling = (e != loop_latch_edge (loop));
-  edge latch, latch_copy;
   tree phi, arg, map, def;
   bitmap definitions;
-  edge *exits;
-  unsigned n_exits;
 
   if (!(loops->state & LOOPS_HAVE_SIMPLE_LATCHES))
     return false;
@@ -356,8 +131,6 @@ tree_duplicate_loop_to_header_edge (struct loop *loop, edge e,
   verify_loop_closed_ssa ();
 #endif
 
-  exits = get_loop_exit_edges (loop, &n_exits);
-
   if (any_marked_for_rewrite_p ())
     abort ();
 
@@ -366,38 +139,28 @@ tree_duplicate_loop_to_header_edge (struct loop *loop, edge e,
 				      orig, to_remove, n_to_remove, flags))
     return false;
 
-  definitions = marked_ssa_names ();
-  allocate_new_names (definitions, ndupl, true);
-
   /* Readd the removed phi args for e.  */
-  latch = loop_latch_edge (loop);
-  latch_copy = peeling ? loop_preheader_edge (loop) : latch;
   map = PENDING_STMT (e);
   PENDING_STMT (e) = NULL;
 
-  for (phi = phi_nodes (loop->header), arg = map;
+  for (phi = phi_nodes (e->dest), arg = map;
        phi;
        phi = TREE_CHAIN (phi), arg = TREE_CHAIN (arg))
     {
       def = TREE_VALUE (arg);
-      add_phi_arg (&phi, def, latch_copy);
+      add_phi_arg (&phi, def, e);
     }
   if (arg)
     abort ();
 
-  /* Extend exit phi nodes.  */
-  for (i = 0; i < n_exits; i++)
-    extend_exit_phi_nodes (first_new_block, exits[i]);
-  free (exits);
-
-  /* Copy the phi nodes.  */
-  copy_phi_nodes (loop, first_new_block, peeling);
+  /* Copy the phi node arguments.  */
+  copy_phi_node_args (first_new_block);
 
   /* Rename the variables.  */
-  rename_variables (first_new_block);
-  free_new_names (definitions, true);
-  BITMAP_XFREE (definitions);
+  definitions = marked_ssa_names ();
+  rename_variables (first_new_block, definitions);
   unmark_all_for_rewrite ();
+  BITMAP_XFREE (definitions);
 
   /* For some time we have the identical ssa names as results in multiple phi
      nodes.  When phi node is resized, it sets SSA_NAME_DEF_STMT of its result
@@ -952,228 +715,354 @@ verify_loop_closed_ssa (void)
     }
 }
 
-/* Renames variables in new generated LOOP.  */
 
-static void
-tdlte_rename_variables_in_loop (struct loop *loop)
+/* Duplicates LOOP to the exit edge EXIT.  The original loops exit condition
+   is changed to EXIT_ON.  The newly created loop is returned.  In case
+   duplication fails, NULL is returned instead.
+
+   I.e.
+
+   while (1)
+     {
+       before;
+       if (cond)
+         break;
+       after;
+     }
+
+   is transformed into
+
+   while (1)
+     {
+       before;
+       if (exit_on)
+         break;
+       after;
+     }
+
+   while (!cond)
+     {
+       after;
+       before;
+     } */
+
+struct loop *
+tree_split_loop_iterations (struct loop *loop, edge exit, tree exit_on,
+			    struct loops *loops)
 {
-  unsigned i;
-  basic_block *bbs;
-
-  bbs = get_loop_body (loop);
-
-  for (i = 0; i < loop->num_nodes; i++)
-    {
-      rename_variables_in_bb (bbs[i]);
-    }
-
-  free (bbs);
-}
-
-/* This function copies phis from loop to new_loop 
-   as they were not generated by duplication of bbs.  */
-
-static void
-tdlte_copy_phi_nodes (struct loop *loop, struct loop *new_loop)
-{
-  tree phi, new_phi, def;
-  edge new_e;
-  edge latch = loop_latch_edge (loop);
-
-     
-  for (phi = phi_nodes (loop->header), 
-	 new_phi = phi_nodes (new_loop->header); 
-       phi; 
-       phi = TREE_CHAIN (phi), 
-	 new_phi = TREE_CHAIN (new_phi))
-    {
-      new_e = new_loop->header->pred;
-      def = PHI_ARG_DEF_FROM_EDGE (phi, latch);
-      add_phi_arg (&new_phi, def, new_e);
-    }
-
-}
-
-/* This function: 
-   - copies basic blocks of the loop LOOP;
-   - locate them at the only exit of LOOP; 
-   - redirect edges so that two loops are produced: 
-             initial LOOP and newly generated;
-   - update dominators;
-   - returns pointer to new loop in NEW_LOOP_P.
-
-   FORNOW: only innermost loops with 
-           1 exit are handled. 
-*/
-
-static bool
-tree_duplicate_loop_to_exit_cfg (struct loop *loop, struct loops *loops,
-				 struct loop **new_loop_p)
-{
-  struct loop *target;
-  basic_block *new_bbs, *bbs;
-  edge latch_edge;
-
-  unsigned i; 
-  unsigned  n = loop->num_nodes;
-  struct loop *new_loop;
-  basic_block exit_dest;
-  bool was_imm_dom;
-  
-  if (!loop->single_exit)
-    {
-      if (dump_file && (dump_flags & TDF_DETAILS))
-	  fprintf (dump_file,
-		   "Loop does not have a single exit.\n");
-      return false;
-    }
-
-  exit_dest = loop->single_exit->dest;
-  was_imm_dom = (get_immediate_dominator 
-		       (CDI_DOMINATORS, exit_dest) == loop->header ? 
-		       true : false);
-
-  bbs = get_loop_body (loop);
-
-  /* Check whether duplication is possible.  */
-  if (!can_copy_bbs_p (bbs, loop->num_nodes))
-    {
-      free (bbs);
-      return false;
-    }
-  new_bbs = xmalloc (sizeof (basic_block) * loop->num_nodes);
-
-  /* Find edge from latch.  */
-  latch_edge = loop_latch_edge (loop);
-
-  /* We duplicate only innermost loops */
-  if(loop->inner)
-    {
-      if (dump_file && (dump_flags & TDF_DETAILS))
-	  fprintf (dump_file,
-		   "Loop duplication failed. Loop is not innermost.\n");
-      free (bbs);
-      return false;
-    }
-
-  /* FORNOW: only loops with 1 exit. */
-  if(loop->num_exits != 1)
-    {
-      if (dump_file && (dump_flags & TDF_DETAILS))
-	  fprintf (dump_file,
-		   "More than one exit from loop.\n");
-      return false;
-    }    
-
-  /* Loop the new bbs will belong to.  */
-  target = loop->outer;
-  if(!target)
-    {
-      if (dump_file && (dump_flags & TDF_DETAILS))
-	  fprintf (dump_file,
-		   "Loop is outer-most loop.\n");
-      return false;
-    }    
-    
-  /* Generate new loop structure. */
-  new_loop = duplicate_loop (loops, loop, target); 
-  if(!new_loop)
-    {
-      if (dump_file && (dump_flags & TDF_DETAILS))
-	  fprintf (dump_file,
-		   "duplicate_loop returns NULL.\n");
-      return false;
-
-    }
-
-  /* FIXME: Should we copy contents of the loop structure
-     to the new loop?  */
-
-  copy_bbs (bbs, n, new_bbs, NULL, 0, NULL, NULL);
-  for (i = 0; i < n; i++)
-    new_bbs[i]->rbi->copy_number = 1;
-
-  /* Redirect the special edges.  */
-  exit_dest = loop->single_exit->dest;
-
-  redirect_edge_and_branch_force (loop->single_exit, new_bbs[0]);
-  set_immediate_dominator (CDI_DOMINATORS, new_bbs[0], loop->single_exit->src); 
-  if (was_imm_dom)
-    set_immediate_dominator (CDI_DOMINATORS, exit_dest, new_loop->header);
-
-  free (new_bbs);
-  free (bbs);
-
-
-  *new_loop_p = new_loop;
-  return true;
-}
-
-/* This function generate pure copy of LOOP 
-   and locate it immediately after given LOOP.
-   It fixes phis of copy loop so that they inherit 
-   one of their values from exit edge of initial LOOP.  */
-
-bool
-tree_duplicate_loop_to_exit (struct loop *loop, struct loops *loops)
-{
-  struct loop *new_loop = NULL;
-  bitmap definitions;
-  edge pred;
-  tree *new_names, new_var;
-  tree phi, def;
-  unsigned first_new_block;
+  basic_block *bbs, *new_bbs, *doms, new_latch_orig;
+  struct loop *new_loop, *aloop;
+  block_stmt_iterator bsi;
+  tree stmt;
+  edge new_exit, e;
+  unsigned n_bbs, n_doms, i;
+  tree phi;
+  bitmap definitions_before, all_definitions;
+  unsigned exit_bb_index;
+  htab_t ssa_name_map = NULL;
 
   if (any_marked_for_rewrite_p ())
     abort ();
 
-  first_new_block = last_basic_block;
-  if(!tree_duplicate_loop_to_exit_cfg (loop, loops, &new_loop))
+  /* Check whether duplication is possible.  */
+
+  if (!just_once_each_iteration_p (loop, exit->src))
+    return NULL;
+
+  if (loop->inner)
+    return NULL;
+
+  if (!can_duplicate_loop_p (loop))
+    return NULL;
+
+  /* Ensure that the exit is in a separate basic block.  */
+  bsi = bsi_last (exit->src);
+  if (bsi_end_p (bsi))
+    return NULL;
+  stmt = bsi_stmt (bsi);
+  if (TREE_CODE (stmt) != COND_EXPR)
+    return NULL;
+  bsi_prev (&bsi);
+  if (!bsi_end_p (bsi))
     {
-      if (dump_file && (dump_flags & TDF_DETAILS))
-	fprintf (dump_file,
-		 "tree_duplicate_loop_to_exit failed.\n");
-      return false;
+      stmt = bsi_stmt (bsi);
+      split_loop_bb (exit->src, stmt);
     }
 
-  if(!new_loop)
-    abort();
+  /* And that it has just a single predecessor that has just a single
+     successor, and that it contains no phi nodes.  */
+  if (exit->src->pred->pred_next
+      || exit->src->pred->src->succ->succ_next
+      || phi_nodes (exit->src))
+    split_loop_bb (exit->src, NULL);
+  new_latch_orig = exit->src->pred->src;
 
-  definitions = marked_ssa_names ();
-  allocate_new_names (definitions, 1, false);
+  /* The duplication itself.  */
+  n_bbs = loop->num_nodes;
+  bbs = get_loop_body_in_dom_order (loop);
+  for (exit_bb_index = 0; bbs[exit_bb_index] != exit->src; exit_bb_index++)
+    continue;
 
-  /* Copy phis from loop->header to new_loop->header.  */
-  tdlte_copy_phi_nodes (loop, new_loop);
-
-  /* Fix phis to inherit values from loop exit edge.  */
-  for (phi = phi_nodes (new_loop->header); phi; phi = TREE_CHAIN (phi))
+  if (loops->state & LOOPS_HAVE_MARKED_SINGLE_EXITS)
     {
-      pred = new_loop->header->pred;
-      def = PHI_ARG_DEF_FROM_EDGE (phi, pred);
-
-      if (TREE_CODE (def) != SSA_NAME)
-	continue;
-
-      new_names = SSA_NAME_AUX (def);
-
-      /* Something defined outside of the loop.  */
-      if (!new_names)
-	continue;
-
-      /* An ordinary ssa name defined in the loop.  */
-      new_var = new_names[new_loop->header->rbi->copy_number];
-      
-      add_phi_arg (&phi, new_var, loop_latch_edge(new_loop));
+      /* Exclude the EXIT from consideration for now, since it is not going to
+	 be really duplicated.  */
+      update_single_exits_after_duplication (bbs, exit_bb_index,
+					     loop->outer);
+      update_single_exits_after_duplication (bbs + exit_bb_index + 1,
+					     n_bbs - exit_bb_index - 1,
+					     loop->outer);
     }
 
-  /* Rename the variables.  */
-  tdlte_rename_variables_in_loop (new_loop);
+  new_loop = duplicate_loop (loops, loop, loop->outer);
+  new_bbs = xmalloc (sizeof (basic_block) * n_bbs);
 
-  free_new_names (definitions, false);
+  copy_bbs (bbs, exit_bb_index, new_bbs, NULL, 0, NULL, loop->outer);
+  definitions_before = marked_ssa_names ();
+  copy_bbs (bbs + exit_bb_index, n_bbs - exit_bb_index, new_bbs + exit_bb_index,
+	    &exit, 1, &new_exit, loop->outer);
+  all_definitions = marked_ssa_names ();
 
-  BITMAP_XFREE (definitions);
+  /* Due to copying the loop in two parts some edges were not redirected.  */
+  redirect_edge_and_branch_force (new_latch_orig->rbi->copy->succ,
+				  new_exit->src);
+  redirect_edge_and_branch_force (loop->latch->rbi->copy->succ,
+				  loop->header->rbi->copy);
+
+  add_phi_args_after_copy (new_bbs, n_bbs);
+
+  set_immediate_dominator (CDI_DOMINATORS, new_exit->src, exit->src);
+  set_immediate_dominator (CDI_DOMINATORS, new_loop->header, new_loop->latch);
+  new_loop->header = new_exit->src;
+  new_loop->latch = new_latch_orig->rbi->copy;
+
+  if (loops->state & LOOPS_HAVE_MARKED_SINGLE_EXITS)
+    {
+      if (loop->single_exit == exit)
+	new_loop->single_exit = new_exit;
+
+      for (aloop = loop->outer;
+	   !flow_bb_inside_loop_p (aloop, exit->dest);
+	   aloop = aloop->outer)
+	if (aloop->single_exit == exit)
+	  aloop->single_exit = new_exit;
+    }
+
+  redirect_edge_and_branch_force (exit, new_exit->src);
+  /* Forget the phi nodes on the exit of the original loop, since they are no
+     longer used.  */
+  PENDING_STMT (exit) = NULL;
+
+  stmt = last_stmt (exit->src);
+  COND_EXPR_COND (stmt) = exit_on;
+  if (exit->flags & EDGE_FALSE_VALUE)
+    {
+      exit->flags &= ~EDGE_FALSE_VALUE;
+      exit->flags |= EDGE_TRUE_VALUE;
+
+      e = exit->src->succ;
+      if (e == exit)
+	e = e->succ_next;
+
+      exit->flags &= ~EDGE_TRUE_VALUE;
+      exit->flags |= EDGE_FALSE_VALUE;
+    }
+
+  /* Update the dominators.  */
+  doms = xmalloc (sizeof (basic_block) * n_basic_blocks);
+  n_doms = get_dominated_by_region (CDI_DOMINATORS, bbs, n_bbs, doms);
+  iterate_fix_dominators (CDI_DOMINATORS, doms, n_doms);
+  free (doms);
+
+  /* Rewrite the ssa names in the copy of the loop.  But first create the phi
+     nodes that transfer values from LOOP to NEW_LOOP.  TODO -- for now we
+     transfer all values defined before the exit, it is sufficient to transfer
+     those that are used after the exit.  */
+  EXECUTE_IF_SET_IN_BITMAP (definitions_before, 0, i,
+    {
+      phi = create_phi_node (ssa_name (i), new_loop->header);
+      add_phi_arg (&phi, ssa_name (i), new_loop->header->pred);
+      add_phi_arg (&phi, ssa_name (i), new_loop->header->pred->pred_next);
+    });
+  allocate_ssa_names (all_definitions, &ssa_name_map);
+  rewrite_to_new_ssa_names (new_bbs, exit_bb_index, ssa_name_map);
+  allocate_ssa_names (definitions_before, &ssa_name_map);
+  rewrite_to_new_ssa_names (new_bbs + exit_bb_index, n_bbs - exit_bb_index,
+			    ssa_name_map);
+
+  /* Ensure that NEW_LOOP has a simple preheader.  */
+  split_loop_exit_edge (exit);
+
+#ifdef ENABLE_CHECKING
+  verify_dominators (CDI_DOMINATORS);
+  verify_loop_structure (loops);
+  verify_loop_closed_ssa ();
+#endif
+
+  free (new_bbs);
+  free (bbs);
+
   unmark_all_for_rewrite ();
+  BITMAP_XFREE (definitions_before);
+  BITMAP_XFREE (all_definitions);
+  htab_delete (ssa_name_map);
 
-  return true;
+  return new_loop;
 }
 
+/* Split loop exit edge EXIT.  The things are a bit complicated by a need to
+   preserve the loop closed ssa form.  */
+
+void
+split_loop_exit_edge (edge exit)
+{
+  basic_block dest = exit->dest;
+  basic_block bb = loop_split_edge_with (exit, NULL);
+  tree phi, new_phi, new_name;
+  use_operand_p op_p;
+
+  for (phi = phi_nodes (dest); phi; phi = TREE_CHAIN (phi))
+    {
+      op_p = PHI_ARG_DEF_PTR_FROM_EDGE (phi, bb->succ);
+
+      new_name = duplicate_ssa_name (USE_FROM_PTR (op_p), NULL);
+      new_phi = create_phi_node (new_name, bb);
+      SSA_NAME_DEF_STMT (new_name) = new_phi;
+      add_phi_arg (&new_phi, USE_FROM_PTR (op_p), exit);
+      SET_USE (op_p, new_name);
+    }
+}
+
+/* Insert statement STMT to the edge E and update the loop structures.
+   Returns the newly created block (if any).  */
+
+basic_block
+bsi_insert_on_edge_immediate_loop (edge e, tree stmt)
+{
+  basic_block src, dest, new_bb;
+  struct loop *loop_c;
+
+  src = e->src;
+  dest = e->dest;
+
+  loop_c = find_common_loop (src->loop_father, dest->loop_father);
+
+  new_bb = bsi_insert_on_edge_immediate (e, stmt);
+
+  if (!new_bb)
+    return NULL;
+
+  add_bb_to_loop (new_bb, loop_c);
+  if (dest->loop_father->latch == src)
+    dest->loop_father->latch = new_bb;
+
+  return new_bb;
+}
+
+/* Ensure that the number of iterations of LOOP is divisible by MOD,
+   by moving a few last iterations to the new loop.  EXIT is the exit edge
+   on that the new loop is created.  NITER is the number of iterations
+   of the LOOP before it exits through EXIT.  LOOPS is the loop tree.
+   MOD must be a power of two.
+   
+   For example
+   
+   while (1)
+     {
+       before;
+       if (cond)
+         break;
+       after;
+     }
+
+   is transformed into
+
+   niter1 = (niter + 1) & ~(mod - 1);
+   if (niter < mod - 1)
+     before;
+   else
+     {
+       while (1)
+         {
+            before;
+	    if (--niter1 == 0)
+	      break;
+	    after;
+	 }
+     }
+   while (!cond)
+     {
+       after;
+       before;
+     }
+   */ 
+
+struct loop *
+tree_align_loop_iterations (struct loop *loop, edge exit, tree niter,
+			    unsigned mod, struct loops *loops)
+{
+  tree niter1, stmts, type, tmod, niter_count, exit_cond_stmt;
+  tree var_base, exit_cond, init_cond, always_exit;
+  struct loop *new_loop;
+  block_stmt_iterator bsi;
+  bool after;
+  basic_block init_cond_bb;
+
+  /* MOD must be a power of two.  */
+  if (mod & (mod - 1))
+    abort ();
+
+  /* Prepare the expression for # of iterations.  */
+  type = TREE_TYPE (niter);
+  var_base = create_tmp_var (type, "unaligned_niter_tmp");
+  add_referenced_tmp_var (var_base);
+
+  niter = force_gimple_operand (unshare_expr (niter), &stmts, false, var_base);
+  if (stmts)
+    bsi_insert_on_edge_immediate_loop (loop_preheader_edge (loop),
+				       stmts);
+
+  niter1 = build2 (PLUS_EXPR, type,
+		   unshare_expr (niter), build_int_cst (type, 1));
+  tmod = fold (build1 (BIT_NOT_EXPR, type, build_int_cst (type, mod - 1)));
+  niter1 = build2 (BIT_AND_EXPR, type, niter1, tmod);
+  niter1 = fold (niter1);
+
+  var_base = create_tmp_var (type, "aligned_niter_tmp");
+  add_referenced_tmp_var (var_base);
+  niter1 = force_gimple_operand (niter1, &stmts, false, var_base);
+  if (stmts)
+    bsi_insert_on_edge_immediate_loop (loop_preheader_edge (loop),
+				       stmts);
+
+  /* Prepare the counter of iterations of the loop.  */
+  var_base = create_tmp_var (type, "align_niter_iv");
+  add_referenced_tmp_var (var_base);
+  standard_iv_increment_position (loop, &bsi, &after);
+  create_iv (niter1, build_int_cst (type, (HOST_WIDE_INT) -1),
+	     var_base, loop, &bsi, after, &niter_count, NULL);
+
+  /* Split out the new loop and insert the niter1 != 1 exit condition to
+     the original loop.  */
+  exit_cond = build2 (EQ_EXPR, boolean_type_node,
+		      niter_count, build_int_cst (type, 1));
+  new_loop = tree_split_loop_iterations (loop, exit, exit_cond, loops);
+  if (!new_loop)
+    return NULL;
+
+  /* Use loop versioning to create the niter < mod - 1 guard.  */
+  init_cond = build2 (GE_EXPR, boolean_type_node,
+		      niter,  build_int_cst (type, mod - 1));
+  tree_ssa_loop_version (loops, loop, init_cond, &init_cond_bb);
+  
+  /* Make the "after" part of the second version of the loop
+     unreachable.  */
+  if (exit->flags & EDGE_TRUE_VALUE)
+    always_exit = boolean_true_node;
+  else
+    always_exit = boolean_false_node;
+  exit_cond_stmt = last_stmt (exit->src->rbi->copy);
+  COND_EXPR_COND (exit_cond_stmt) = always_exit;
+
+  return new_loop;
+}
