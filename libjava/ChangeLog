@@ -1,3 +1,19 @@
+2004-03-04  Olga Rodimina  <rodimina@redhat.com>
+
+	* java/awt/image/AffineTransformOp.java:
+	Removed unnecessary field interpolationType.
+	Formatted some of the lines to be consistent with 
+	the GNU style.
+	(AffineTransformOp): Create new RenderingHints 
+	containing specified interpolation type.
+	(createCompatibleDestImage): Implemented.
+	(createCompatibleDestRaster): Implemented.
+	(filter): Implemented.
+	(getBounds2D(BufferedImage)): Implemented.
+	(getBounds2D(Raster)): Implemented.
+	(getInterpolationType): Get interpolation value from 
+	rendering hints.
+
 2004-03-04  David Jee  <djee@redhat.com>
 
 	* gnu/java/awt/peer/gtk/GtkContainerPeer.java

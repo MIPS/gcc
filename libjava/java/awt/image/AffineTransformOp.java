@@ -40,8 +40,8 @@ package java.awt.image;
 
 import java.awt.*;
 import java.awt.Graphics;
-import java.awt.Graphics2D;
 import java.awt.geom.*;
+import gnu.java.awt.peer.gtk.GdkGraphics2D;
 
 
 /**
@@ -58,7 +58,6 @@ public class AffineTransformOp implements BufferedImageOp, RasterOp
     public static final int TYPE_NEAREST_NEIGHBOR = 1;
 
     private AffineTransform transform;
-    private int interpolationType;
     private RenderingHints hints;
 
     
@@ -70,10 +69,18 @@ public class AffineTransformOp implements BufferedImageOp, RasterOp
      * @param interpolationType type of interpolation used
      */
 
-    AffineTransformOp(AffineTransform xform, int interpolationType)
+    AffineTransformOp (AffineTransform xform, int interpolationType)
     {
       this.transform = xform;
-      this.interpolationType = interpolationType;
+
+      if (interpolationType == 0) 
+        hints = new RenderingHints (RenderingHints.KEY_INTERPOLATION, 
+                                    RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+				   
+      else
+        hints = new RenderingHints (RenderingHints.KEY_INTERPOLATION,
+                                    RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
+
     }
 
     /**
@@ -83,16 +90,17 @@ public class AffineTransformOp implements BufferedImageOp, RasterOp
      * @param hints rendering hints that will be used during transformation
      */
 
-    AffineTransformOp(AffineTransform xform, RenderingHints hints)
+    AffineTransformOp (AffineTransform xform, RenderingHints hints)
     {
       this.transform = xform;
       this.hints = hints;
     }
 
     /**
-     * Creates empty BufferedImage with the same size and number of bands as the
-     * source image. The newly created image is created with the specified 
-     * ColorModel. If the ColorModel is equal to null, then image is created 
+     * Creates empty BufferedImage with the size equal to that of the 
+     * transformed image and correct number of bands. The newly created 
+     * image is created with the specified ColorModel. 
+     * If the ColorModel is equal to null, then image is created 
      * with the ColorModel of the source image.
      *
      * @param src source image
@@ -100,23 +108,35 @@ public class AffineTransformOp implements BufferedImageOp, RasterOp
      * @return new compatible destination image
      */
 
-    public BufferedImage createCompatibleDestImage(BufferedImage src,
-                                                   ColorModel destCM)
+    public BufferedImage createCompatibleDestImage (BufferedImage src,
+                                                    ColorModel destCM)
     {
-      throw new UnsupportedOperationException("not implemented yet");	
+
+      // if destCm is not specified, use color model of the source image
+
+      if (destCM == null) 
+        destCM = src.getColorModel ();
+
+      return new BufferedImage (destCM, 
+                                createCompatibleDestRaster (src.getRaster ()),
+                                src.isAlphaPremultiplied (),
+                                null);		             
+
     }
 
     /**
-     * Creates empty WritableRaster with the same size and number of bands 
-     * as the source image. 
+     * Creates empty WritableRaster with the size equal to the transformed 
+     * source raster and correct number of bands 
      *
      * @param src source raster
      * @return new compatible raster
      */
 
-    public WritableRaster createCompatibleDestRaster(Raster src)
+    public WritableRaster createCompatibleDestRaster (Raster src)
     {
-      throw new UnsupportedOperationException("not implemented yet");	
+      Rectangle rect = (Rectangle) getBounds2D (src);
+      return src.createCompatibleWritableRaster ((int) rect.getWidth (), 
+                                                 (int) rect.getHeight ());
     }
 
     /**
@@ -128,9 +148,27 @@ public class AffineTransformOp implements BufferedImageOp, RasterOp
      * @return transformed source image
      */
 
-    public BufferedImage filter(BufferedImage src, BufferedImage dst)
+    public BufferedImage filter (BufferedImage src, BufferedImage dst)
     {
-      throw new UnsupportedOperationException("not implemented yet");	
+
+      if (dst == src)
+        throw new IllegalArgumentException ("src image cannot be the same as the dst image");
+
+      // If the destination image is null, then BufferedImage is 
+      // created with ColorModel of the source image
+
+      if (dst == null)
+        dst = createCompatibleDestImage(src, src.getColorModel ());
+
+      // FIXME: Must check if color models of src and dst images are the same.
+      // If it is not, then source image should be converted to color model
+      // of the destination image
+
+      GdkGraphics2D gr = (GdkGraphics2D) dst.createGraphics ();
+      gr.setRenderingHints (hints);	
+      gr.drawImage (src, transform, null);
+      return dst;
+
     }
 
     /**
@@ -142,9 +180,9 @@ public class AffineTransformOp implements BufferedImageOp, RasterOp
      * @return transformed raster
      */
 
-    public WritableRaster filter(Raster src, WritableRaster dst)
+    public WritableRaster filter (Raster src, WritableRaster dst)
     {
-      throw new UnsupportedOperationException("not implemented yet");	
+      throw new UnsupportedOperationException ("not implemented yet");	
     }
 
     /**
@@ -155,22 +193,30 @@ public class AffineTransformOp implements BufferedImageOp, RasterOp
      * @return bounds of the transformed image.
      */
 
-    public Rectangle2D getBounds2D(BufferedImage src)
+    public Rectangle2D getBounds2D (BufferedImage src)
     {
-      throw new UnsupportedOperationException("not implemented yet");	
+      return getBounds2D (src.getRaster());
     }
    
     /**
-     * Transforms source raster using transform specified at the constructor
-     * and returns bounds of the transformed raster.
+     * Returns bounds of the transformed raster.
      *
      * @param src raster to be transformed
      * @return bounds of the transformed raster.
      */
 
-    public Rectangle2D getBounds2D(Raster src)
+    public Rectangle2D getBounds2D (Raster src)
     {
-      throw new UnsupportedOperationException("not implemented yet");	
+      // determine new size for the transformed raster.
+      // Need to calculate transformed coordinates of the lower right
+      // corner of the raster. The upper left corner is always (0,0)
+              
+      double x2 = (double) src.getWidth () + src.getMinX ();
+      double y2 = (double) src.getHeight () + src.getMinY ();
+      Point2D p2 = getPoint2D (new Point2D.Double (x2,y2), null);
+
+      Rectangle2D rect = new Rectangle (0, 0, (int) p2.getX (), (int) p2.getY ());
+      return rect.getBounds ();
     }
 
     /**
@@ -179,9 +225,12 @@ public class AffineTransformOp implements BufferedImageOp, RasterOp
      * @return interpolation type
      */
 
-    public int getInterpolationType()
+    public int getInterpolationType ()
     {
-      return interpolationType;
+      if(hints.containsValue (RenderingHints.VALUE_INTERPOLATION_BILINEAR))
+        return TYPE_BILINEAR;
+      else 
+        return TYPE_NEAREST_NEIGHBOR;
     }
 
     /** 
@@ -193,9 +242,9 @@ public class AffineTransformOp implements BufferedImageOp, RasterOp
      * @return the location of the transformed source point.
      */
      
-    public Point2D getPoint2D(Point2D srcPt, Point2D dstPt)
+    public Point2D getPoint2D (Point2D srcPt, Point2D dstPt)
     {
-      throw new UnsupportedOperationException("not implemented yet");	
+      return transform.transform (srcPt, dstPt);
     }
 
     /** Returns rendering hints that are used during transformation.
@@ -203,7 +252,7 @@ public class AffineTransformOp implements BufferedImageOp, RasterOp
      * @return rendering hints
      */
 
-    public RenderingHints getRenderingHints()
+    public RenderingHints getRenderingHints ()
     {
       return hints;
     }
@@ -214,7 +263,7 @@ public class AffineTransformOp implements BufferedImageOp, RasterOp
      * @return transform
      */
      
-    public AffineTransform getTransform()
+    public AffineTransform getTransform ()
     {
       return transform;
     }
