@@ -1,3 +1,10 @@
+2004-02-18  David Jee  <djee@redhat.com>
+
+	* java/awt/CardLayout.java
+	(addLayoutComponent): Show the first component added as the default.
+	(removeLayoutComponent): After removing, show the next component.
+	(gotoComponent): If there is only one component, show it and return.
+
 2004-02-18  Kim Ho  <kho@redhat.com>
 
 	* javax/swing/JSlider.java: Re-order
