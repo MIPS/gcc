@@ -1,5 +1,10 @@
 2003-02-03  Diego Novillo  <dnovillo@redhat.com>
 
+	* c-common.h (GOTO_DESTINATION): Remove.  Fix botched
+	merge.
+
+2003-02-03  Diego Novillo  <dnovillo@redhat.com>
+
 	Fix warnings to allow bootstrapping with -Werror.
 
 	* Makefile.in (c-semantics.o-warn): Add -Wno-error.
