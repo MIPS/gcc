@@ -1,3 +1,8 @@
+2004-10-13  Bryce McKinlay  <mckinlay@redhat.com>
+
+	* verify-impl.c: Formatting fixes. Reformat C++-style comments to 
+	C-style.
+
 2004-10-06  Ulrich Weigand  <uweigand@de.ibm.com>
 
 	* parse.y (issue_warning_error_from_context): Use va_list *

@@ -169,43 +169,43 @@ typedef struct vfy_string_list
 
 typedef struct verifier_context
 {
-  // The current PC.
+  /* The current PC.  */
   int PC;
-  // The PC corresponding to the start of the current instruction.
+  /* The PC corresponding to the start of the current instruction.  */
   int start_PC;
 
-  // The current state of the stack, locals, etc.
+  /* The current state of the stack, locals, etc.  */
   state *current_state;
 
-  // At each branch target we keep a linked list of all the states we
-  // can process at that point.  We'll only have multiple states at a
-  // given PC if they both have different return-address types in the
-  // same stack or local slot.  This array is indexed by PC and holds
-  // the list of all such states.
+  /* At each branch target we keep a linked list of all the states we
+     can process at that point.  We'll only have multiple states at a
+     given PC if they both have different return-address types in the
+     same stack or local slot.  This array is indexed by PC and holds
+     the list of all such states.  */
   state_list **states;
 
-  // We keep a linked list of all the states which we must reverify.
-  // This is the head of the list.
+  /* We keep a linked list of all the states which we must reverify.
+     This is the head of the list.  */
   state *next_verify_state;
 
-  // We keep some flags for each instruction.  The values are the
-  // FLAG_* constants defined above.  This is an array indexed by PC.
+  /* We keep some flags for each instruction.  The values are the
+     FLAG_* constants defined above.  This is an array indexed by PC.  */
   char *flags;
 
-  // The bytecode itself.
+  /* The bytecode itself.  */
   unsigned char *bytecode;
-  // The exceptions.
+  /* The exceptions.  */
   vfy_exception *exception;
 
-  // Defining class.
+  /* Defining class.  */
   vfy_jclass current_class;
-  // This method.
+  /* This method.  */
   vfy_method *current_method;
 
-  // A linked list of utf8 objects we allocate.
+  /* A linked list of utf8 objects we allocate.  */
   vfy_string_list *utf8_list;
 
-  // A linked list of all ref_intersection objects we allocate.
+  /* A linked list of all ref_intersection objects we allocate.  */
   ref_intersection *isect_list;
 } verifier_context;
 
@@ -220,8 +220,8 @@ bool type_initialized (type *t);
 int ref_count_dimensions (ref_intersection *ref);
 
 #if 0
-  // Create a new Utf-8 constant and return it.  We do this to avoid
-  // having our Utf-8 constants prematurely collected.
+  /* Create a new Utf-8 constant and return it.  We do this to avoid
+     having our Utf-8 constants prematurely collected.  */
   static vfy_string
   make_utf8_const (const char *s, int len)
   {
@@ -235,81 +235,81 @@ int ref_count_dimensions (ref_intersection *ref);
   }
 #endif
 
-  static void
-  verify_fail_pc (const char *s, int pc)
+static void
+verify_fail_pc (const char *s, int pc)
+{
+  if (pc == -1)
+    pc = vfr->start_PC;
+  vfy_fail (s, pc, vfr->current_class, vfr->current_method);  
+}
+
+static void
+verify_fail (const char *s)
+{
+  verify_fail_pc (s, -1);
+}
+
+/* This enum holds a list of tags for all the different types we
+   need to handle.  Reference types are treated specially by the
+   type class.  */
+typedef enum type_val
+{
+  void_type,
+
+  /* The values for primitive types are chosen to correspond to values
+     specified to newarray. */
+  boolean_type = 4,
+  char_type = 5,
+  float_type = 6,
+  double_type = 7,
+  byte_type = 8,
+  short_type = 9,
+  int_type = 10,
+  long_type = 11,
+
+  /* Used when overwriting second word of a double or long in the
+     local variables.  Also used after merging local variable states
+     to indicate an unusable value.  */
+  unsuitable_type,
+  return_address_type,
+  /* This is the second word of a two-word value, i.e., a double or
+     a long.  */
+  continuation_type,
+
+  /* Everything after `reference_type' must be a reference type.  */
+  reference_type,
+  null_type,
+  uninitialized_reference_type
+} type_val;
+
+/* This represents a merged class type.  Some verifiers (including
+   earlier versions of this one) will compute the intersection of
+   two class types when merging states.  However, this loses
+   critical information about interfaces implemented by the various
+   classes.  So instead we keep track of all the actual classes that
+   have been merged.  */
+struct ref_intersection
+{
+  /* Whether or not this type has been resolved.  */
+  bool is_resolved;
+
+  /* Actual type data.  */
+  union
   {
-    if (pc == -1)
-      pc = vfr->start_PC;
-    vfy_fail (s, pc, vfr->current_class, vfr->current_method);  
-  }
-  
-  static void
-  verify_fail (const char *s)
-  {
-    verify_fail_pc (s, -1);
-  }
+    /* For a resolved reference type, this is a pointer to the class.  */
+    vfy_jclass klass;
+    /* For other reference types, this it the name of the class.  */
+    vfy_string name;
+  } data;
 
-  // This enum holds a list of tags for all the different types we
-  // need to handle.  Reference types are treated specially by the
-  // type class.
-  typedef enum type_val
-  {
-    void_type,
+  /* Link to the next reference in the intersection.  */
+  ref_intersection *ref_next;
 
-    // The values for primitive types are chosen to correspond to values
-    // specified to newarray.
-    boolean_type = 4,
-    char_type = 5,
-    float_type = 6,
-    double_type = 7,
-    byte_type = 8,
-    short_type = 9,
-    int_type = 10,
-    long_type = 11,
-
-    // Used when overwriting second word of a double or long in the
-    // local variables.  Also used after merging local variable states
-    // to indicate an unusable value.
-    unsuitable_type,
-    return_address_type,
-    // This is the second word of a two-word value, i.e., a double or
-    // a long.
-    continuation_type,
-
-    // Everything after `reference_type' must be a reference type.
-    reference_type,
-    null_type,
-    uninitialized_reference_type
-  } type_val;
-
-  // This represents a merged class type.  Some verifiers (including
-  // earlier versions of this one) will compute the intersection of
-  // two class types when merging states.  However, this loses
-  // critical information about interfaces implemented by the various
-  // classes.  So instead we keep track of all the actual classes that
-  // have been merged.
-  struct ref_intersection
-  {
-    // Whether or not this type has been resolved.
-    bool is_resolved;
-
-    // Actual type data.
-    union
-    {
-      // For a resolved reference type, this is a pointer to the class.
-      vfy_jclass klass;
-      // For other reference types, this it the name of the class.
-      vfy_string name;
-    } data;
-
-    // Link to the next reference in the intersection.
-    ref_intersection *ref_next;
-
-    // This is used to keep track of all the allocated
-    // ref_intersection objects, so we can free them.
-    // FIXME: we should allocate these in chunks.
-    ref_intersection *alloc_next;
-  };
+  /* This is used to keep track of all the allocated
+     ref_intersection objects, so we can free them.
+     FIXME: we should allocate these in chunks.  */
+  ref_intersection *alloc_next;
+};
 
 static ref_intersection *
 make_ref (void)
@@ -395,7 +395,7 @@ ref_compatible (ref_intersection *ref1, ref_intersection *ref2)
 
       for (; ref2_iter != NULL; ref2_iter = ref2_iter->ref_next)
 	{
-	  // Avoid resolving if possible.
+	  /* Avoid resolving if possible.  */
 	  if (! ref1->is_resolved
 	      && ! ref2_iter->is_resolved
 	      && vfy_strings_equal (ref1->data.name,
@@ -419,7 +419,7 @@ ref_compatible (ref_intersection *ref1, ref_intersection *ref2)
 static bool 
 ref_isarray (ref_intersection *ref)
 {
-  // assert (ref_next == NULL);
+  /* assert (ref_next == NULL);  */
   if (ref->is_resolved)
     return vfy_is_array (ref->data.klass);
   else
@@ -429,7 +429,7 @@ ref_isarray (ref_intersection *ref)
 static bool
 ref_isinterface (ref_intersection *ref)
 {
-  // assert (ref_next == NULL);
+  /* assert (ref_next == NULL);  */
   if (! ref->is_resolved)
     resolve_ref (ref);
   return vfy_is_interface (ref->data.klass);
@@ -438,7 +438,7 @@ ref_isinterface (ref_intersection *ref)
 static bool
 ref_isabstract (ref_intersection *ref)
 {
-  // assert (ref_next == NULL);
+  /* assert (ref_next == NULL); */
   if (! ref->is_resolved)
     resolve_ref (ref);
   return vfy_is_abstract (ref->data.klass);
@@ -474,8 +474,8 @@ ref_count_dimensions (ref_intersection *ref)
   return ndims;
 }
 
-// Return the type_val corresponding to a primitive signature
-// character.  For instance `I' returns `int.class'.
+/* Return the type_val corresponding to a primitive signature
+   character.  For instance `I' returns `int.class'.  */
 static type_val
 get_type_val_for_signature (char sig)
 {
@@ -516,29 +516,29 @@ get_type_val_for_signature (char sig)
   return rt;
 }
 
-// Return the type_val corresponding to a primitive class.
+/* Return the type_val corresponding to a primitive class.  */
 static type_val
 get_type_val_for_primtype (vfy_jclass k)
 {
   return get_type_val_for_signature (vfy_get_primitive_char (k));
 }
 
-// This is like _Jv_IsAssignableFrom, but it works even if SOURCE or
-// TARGET haven't been prepared.
+/* This is like _Jv_IsAssignableFrom, but it works even if SOURCE or
+   TARGET haven't been prepared.  */
 bool
 is_assignable_from_slow (vfy_jclass target, vfy_jclass source)
 {
-  // First, strip arrays.
+  /* First, strip arrays.  */
   while (vfy_is_array (target))
     {
-      // If target is array, source must be as well.
+      /* If target is array, source must be as well.  */
       if (! vfy_is_array (source))
 	return false;
       target = vfy_get_component_type (target);
       source = vfy_get_component_type (source);
     }
 
-  // Quick success.
+  /* Quick success.  */
   if (target == vfy_object_type ())
     return true;
 
@@ -555,8 +555,8 @@ is_assignable_from_slow (vfy_jclass target, vfy_jclass source)
 	{
 	  for (i = 0; i < vfy_get_interface_count (source); ++i)
 	    {
-	      // We use a recursive call because we also need to
-	      // check superinterfaces.
+	      /* We use a recursive call because we also need to
+	         check superinterfaces.  */
 	      if (is_assignable_from_slow (target,
 					   vfy_get_interface (source, i)))
 		return true;
@@ -569,26 +569,25 @@ is_assignable_from_slow (vfy_jclass target, vfy_jclass source)
   return false;
 }
 
-// The `type' class is used to represent a single type in the
-// verifier.
+/* The `type' class is used to represent a single type in the verifier.  */
 struct type
 {
-  // The type key.
+  /* The type key.  */
   type_val key;
 
-  // For reference types, the representation of the type.
+  /* For reference types, the representation of the type.  */
   ref_intersection *klass;
 
-  // This is used in two situations.
-  //
-  // First, when constructing a new object, it is the PC of the
-  // `new' instruction which created the object.  We use the special
-  // value UNINIT to mean that this is uninitialized, and the
-  // special value SELF for the case where the current method is
-  // itself the <init> method.
-  //
-  // Second, when the key is return_address_type, this holds the PC
-  // of the instruction following the `jsr'.
+  /* This is used in two situations.
+  
+     First, when constructing a new object, it is the PC of the
+     `new' instruction which created the object.  We use the special
+     value UNINIT to mean that this is uninitialized, and the
+     special value SELF for the case where the current method is
+     itself the <init> method.
+
+     Second, when the key is return_address_type, this holds the PC
+     of the instruction following the `jsr'.  */
   int pc;
 
   #define UNINIT -2
@@ -596,7 +595,7 @@ struct type
 };
 
 #if 0
-// Basic constructor.
+/* Basic constructor.  */
 static void
 init_type (type *t)
 {
@@ -606,15 +605,15 @@ init_type (type *t)
 }
 #endif
 
-// Make a new instance given the type tag.  We assume a generic
-// `reference_type' means Object.
+/* Make a new instance given the type tag.  We assume a generic
+   `reference_type' means Object.  */
 static void
 init_type_from_tag (type *t, type_val k)
 {
   t->key = k;
-  // For reference_type, if KLASS==NULL then that means we are
-  // looking for a generic object of any kind, including an
-  // uninitialized reference.
+  /* For reference_type, if KLASS==NULL then that means we are
+     looking for a generic object of any kind, including an
+     uninitialized reference.  */
   t->klass = NULL;
   t->pc = UNINIT;
 }
@@ -628,7 +627,7 @@ make_type (type_val k)
   return t;
 }
 
-// Make a new instance given a class.
+/* Make a new instance given a class.  */
 static void
 init_type_from_class (type *t, vfy_jclass k)
 {
@@ -664,7 +663,7 @@ make_type_from_string (vfy_string n)
 }
 
 #if 0
-    // Make a new instance given the name of a class.
+    /* Make a new instance given the name of a class.  */
     type (vfy_string n)
     {
       key = reference_type;
@@ -672,7 +671,7 @@ make_type_from_string (vfy_string n)
       pc = UNINIT;
     }
 
-    // Copy constructor.
+    /* Copy constructor.  */
     static type copy_type (type *t)
     {
       type copy;
@@ -693,7 +692,7 @@ vfy_promote_type (type *t)
 }
 #define promote_type vfy_promote_type
 
-// Mark this type as the uninitialized result of `new'.
+/* Mark this type as the uninitialized result of `new'.  */
 static void
 type_set_uninitialized (type *t, int npc)
 {
@@ -704,7 +703,7 @@ type_set_uninitialized (type *t, int npc)
   t->pc = npc;
 }
 
-// Mark this type as now initialized.
+/* Mark this type as now initialized.  */
 static void
 type_set_initialized (type *t, int npc)
 {
@@ -715,17 +714,17 @@ type_set_initialized (type *t, int npc)
     }
 }
 
-// Mark this type as a particular return address.
+/* Mark this type as a particular return address.  */
 static void type_set_return_address (type *t, int npc)
 {
   t->pc = npc;
 }
 
-// Return true if this type and type OTHER are considered
-// mergeable for the purposes of state merging.  This is related
-// to subroutine handling.  For this purpose two types are
-// considered unmergeable if they are both return-addresses but
-// have different PCs.
+/* Return true if this type and type OTHER are considered
+   mergeable for the purposes of state merging.  This is related
+   to subroutine handling.  For this purpose two types are
+   considered unmergeable if they are both return-addresses but
+   have different PCs.  */
 static bool
 type_state_mergeable_p (type *t1, type *t2)
 {
@@ -734,41 +733,41 @@ type_state_mergeable_p (type *t1, type *t2)
 	  || t1->pc == t2->pc);
 }
 
-// Return true if an object of type K can be assigned to a variable
-// of type T.  Handle various special cases too.  Might modify
-// T or K.  Note however that this does not perform numeric
-// promotion.
+/* Return true if an object of type K can be assigned to a variable
+   of type T.  Handle various special cases too.  Might modify
+   T or K.  Note however that this does not perform numeric
+   promotion.  */
 static bool 
 types_compatible (type *t, type *k)
 {
-  // Any type is compatible with the unsuitable type.
+  /* Any type is compatible with the unsuitable type.  */
   if (k->key == unsuitable_type)
     return true;
 
   if (t->key < reference_type || k->key < reference_type)
     return t->key == k->key;
 
-  // The `null' type is convertible to any initialized reference
-  // type.
+  /* The `null' type is convertible to any initialized reference
+     type.  */
   if (t->key == null_type)
     return k->key != uninitialized_reference_type;
   if (k->key == null_type)
     return t->key != uninitialized_reference_type;
 
-  // A special case for a generic reference.
+  /* A special case for a generic reference.  */
   if (t->klass == NULL)
     return true;
   if (k->klass == NULL)
     verify_fail ("programmer error in type::compatible");
 
-  // An initialized type and an uninitialized type are not
-  // compatible.
+  /* An initialized type and an uninitialized type are not
+     compatible.  */
   if (type_initialized (t) != type_initialized (k))
     return false;
 
-  // Two uninitialized objects are compatible if either:
-  // * The PCs are identical, or
-  // * One PC is UNINIT.
+  /* Two uninitialized objects are compatible if either:
+     * The PCs are identical, or
+     * One PC is UNINIT.  */
   if (type_initialized (t))
     {
       if (t->pc != k->pc && t->pc != UNINIT && k->pc != UNINIT)
@@ -829,7 +828,7 @@ type_isabstract (type *t)
   return ref_isabstract (t->klass);
 }
 
-// Return the element type of an array.
+/* Return the element type of an array.  */
 static type
 type_array_element (type *t)
 {
@@ -846,9 +845,9 @@ type_array_element (type *t)
   return et;
 }
 
-// Return the array type corresponding to an initialized
-// reference.  We could expand this to work for other kinds of
-// types, but currently we don't need to.
+/* Return the array type corresponding to an initialized
+   reference.  We could expand this to work for other kinds of
+   types, but currently we don't need to.  */
 static type 
 type_to_array (type *t)
 {
@@ -894,7 +893,7 @@ type_isresolved (type *t)
 static void
 type_verify_dimensions (type *t, int ndims)
 {
-  // The way this is written, we don't need to check isarray().
+  /* The way this is written, we don't need to check isarray().  */
   if (t->key != reference_type)
     verify_fail ("internal error in verify_dimensions:"
 			   " not a reference type");
@@ -904,8 +903,8 @@ type_verify_dimensions (type *t, int ndims)
 			   " than required");
 }
 
-// Merge OLD_TYPE into this.  On error throw exception.  Return
-// true if the merge caused a type change.
+/* Merge OLD_TYPE into this.  On error throw exception.  Return
+   true if the merge caused a type change.  */
 static bool
 merge_types (type *t, type *old_type, bool local_semantics)
 {
@@ -947,8 +946,8 @@ merge_types (type *t, type *old_type, bool local_semantics)
     {
       if (local_semantics)
 	{
-	  // If we already have an `unsuitable' type, then we
-	  // don't need to change again.
+	  /* If we already have an `unsuitable' type, then we
+	     don't need to change again.  */
 	  if (t->key != unsuitable_type)
 	    {
 	      t->key = unsuitable_type;
@@ -988,40 +987,40 @@ print (void)
 }
 #endif /* VERIFY_DEBUG */
 
-// This class holds all the state information we need for a given
-// location.
+/* This class holds all the state information we need for a given
+   location. */
 struct state
 {
-  // The current top of the stack, in terms of slots.
+  /* The current top of the stack, in terms of slots.  */
   int stacktop;
-  // The current depth of the stack.  This will be larger than
-  // STACKTOP when wide types are on the stack.
+  /* The current depth of the stack.  This will be larger than
+     STACKTOP when wide types are on the stack.  */
   int stackdepth;
-  // The stack.
+  /* The stack.  */
   type *stack;
-  // The local variables.
+  /* The local variables.  */
   type *locals;
-  // We keep track of the type of `this' specially.  This is used to
-  // ensure that an instance initializer invokes another initializer
-  // on `this' before returning.  We must keep track of this
-  // specially because otherwise we might be confused by code which
-  // assigns to locals[0] (overwriting `this') and then returns
-  // without really initializing.
+  /* We keep track of the type of `this' specially.  This is used to
+     ensure that an instance initializer invokes another initializer
+     on `this' before returning.  We must keep track of this
+     specially because otherwise we might be confused by code which
+     assigns to locals[0] (overwriting `this') and then returns
+     without really initializing.  */
   type this_type;
 
-  // The PC for this state.  This is only valid on states which are
-  // permanently attached to a given PC.  For an object like
-  // `current_state', which is used transiently, this has no
-  // meaning.
+  /* The PC for this state.  This is only valid on states which are
+     permanently attached to a given PC.  For an object like
+     `current_state', which is used transiently, this has no
+     meaning.  */
   int pc;
-  // We keep a linked list of all states requiring reverification.
-  // If this is the special value INVALID_STATE then this state is
-  // not on the list.  NULL marks the end of the linked list.
-  state *next;
+  /* We keep a linked list of all states requiring reverification.
+     If this is the special value INVALID_STATE then this state is
+     not on the list.  NULL marks the end of the linked list.
+     state *next;  */
 };
 
-// NO_NEXT is the PC value meaning that a new state must be
-// acquired from the verification list.
+/* NO_NEXT is the PC value meaning that a new state must be
+   acquired from the verification list.  */
 #define NO_NEXT -1
 
 #if 0
@@ -1122,7 +1121,7 @@ free_state (state *s)
     }
 #endif
 
-// Modify this state to reflect entry to an exception handler.
+/* Modify this state to reflect entry to an exception handler.  */
 static void
 state_set_exception (state *s, type *t, int max_stack)
 {
@@ -1148,22 +1147,22 @@ set_pc (state *s, int npc)
 }
 #endif
 
-// Merge STATE_OLD into this state.  Destructively modifies this
-// state.  Returns true if the new state was in fact changed.
-// Will throw an exception if the states are not mergeable.
+/* Merge STATE_OLD into this state.  Destructively modifies this
+   state.  Returns true if the new state was in fact changed.
+   Will throw an exception if the states are not mergeable.  */
 static bool
 merge_states (state *s, state *state_old, int max_locals)
 {
   int i;
   bool changed = false;
 
-  // Special handling for `this'.  If one or the other is
-  // uninitialized, then the merge is uninitialized.
+  /* Special handling for `this'.  If one or the other is
+     uninitialized, then the merge is uninitialized.  */
   if (type_initialized (&s->this_type))
     s->this_type = state_old->this_type;
 
-  // Merge stacks.
-  if (state_old->stacktop != s->stacktop)  // FIXME stackdepth instead?
+  /* Merge stacks.  */
+  if (state_old->stacktop != s->stacktop)  /* FIXME stackdepth instead?  */
     verify_fail ("stack sizes differ");
   for (i = 0; i < state_old->stacktop; ++i)
     {
@@ -1171,7 +1170,7 @@ merge_states (state *s, state *state_old, int max_locals)
 	changed = true;
     }
 
-  // Merge local variables.
+  /* Merge local variables.  */
   for (i = 0; i < max_locals; ++i)
     {
       if (merge_types (&s->locals[i], &state_old->locals[i], true))
@@ -1181,7 +1180,7 @@ merge_states (state *s, state *state_old, int max_locals)
   return changed;
 }
 
-// Ensure that `this' has been initialized.
+/* Ensure that `this' has been initialized.  */
 static void
 state_check_this_initialized (state *s)
 {
@@ -1189,10 +1188,10 @@ state_check_this_initialized (state *s)
     verify_fail ("`this' is uninitialized");
 }
 
-// Throw an exception if there is an uninitialized object on the
-// stack or in a local variable.  EXCEPTION_SEMANTICS controls
-// whether we're using backwards-branch or exception-handing
-// semantics.
+/* Throw an exception if there is an uninitialized object on the
+   stack or in a local variable.  EXCEPTION_SEMANTICS controls
+   whether we're using backwards-branch or exception-handing
+   semantics.  */
 static void 
 state_check_no_uninitialized_objects (state *s, int max_locals,
 				      bool exception_semantics)
@@ -1214,15 +1213,15 @@ state_check_no_uninitialized_objects (state *s, int max_locals,
   state_check_this_initialized (s);
 }
 
-// Set type of `this'.
+/* Set type of `this'.  */
 static void
 state_set_this_type (state *s, type *k)
 {
   s->this_type = *k;
 }
 
-// Mark each `new'd object we know of that was allocated at PC as
-// initialized.
+/* Mark each `new'd object we know of that was allocated at PC as
+   initialized.  */
 static void
 state_set_initialized (state *s, int pc, int max_locals)
 {
@@ -1234,20 +1233,20 @@ state_set_initialized (state *s, int pc, int max_locals)
   type_set_initialized (&s->this_type, pc);
 }
 
-// This tests to see whether two states can be considered "merge
-// compatible".  If both states have a return-address in the same
-// slot, and the return addresses are different, then they are not
-// compatible and we must not try to merge them.
+/* This tests to see whether two states can be considered "merge
+   compatible".  If both states have a return-address in the same
+   slot, and the return addresses are different, then they are not
+   compatible and we must not try to merge them.  */
 static bool
 state_mergeable_p (state *s, state *other, int max_locals)
 
 {
   int i;
 
-  // This is tricky: if the stack sizes differ, then not only are
-  // these not mergeable, but in fact we should give an error, as
-  // we've found two execution paths that reach a branch target
-  // with different stack depths.  FIXME stackdepth instead?
+  /* This is tricky: if the stack sizes differ, then not only are
+     these not mergeable, but in fact we should give an error, as
+     we've found two execution paths that reach a branch target
+     with different stack depths.  FIXME stackdepth instead?  */
   if (s->stacktop != other->stacktop)
     verify_fail ("stack sizes differ");
 
@@ -1338,9 +1337,9 @@ vfy_pop_type (type_val match)
 #define pop_type vfy_pop_type
 #define pop_type_t vfy_pop_type_t
 
-// Pop a reference which is guaranteed to be initialized.  MATCH
-// doesn't have to be a reference type; in this case this acts like
-// pop_type.
+/* Pop a reference which is guaranteed to be initialized.  MATCH
+   doesn't have to be a reference type; in this case this acts like
+   pop_type.  */
 static type
 pop_init_ref_t (type match)
 {
@@ -1359,7 +1358,7 @@ pop_init_ref (type_val match)
   return pop_init_ref_t (t);
 }
 
-// Pop a reference type or a return address.
+/* Pop a reference type or a return address.  */
 static type
 pop_ref_or_return (void)
 {
@@ -1373,7 +1372,7 @@ static void
 vfy_push_type_t (type t)
 {
   state *s = vfr->current_state;
-  // If T is a numeric type like short, promote it to int.
+  /* If T is a numeric type like short, promote it to int.  */
   promote_type (&t);
 
   int depth = type_depth (&t);
@@ -1398,7 +1397,7 @@ static void
 set_variable (int index, type t)
 {
   state *s = vfr->current_state;
-  // If T is a numeric type like short, promote it to int.
+  /* If T is a numeric type like short, promote it to int.  */
   promote_type (&t);
 
   int depth = type_depth (&t);
@@ -1437,15 +1436,15 @@ get_variable (int index, type_val v)
   return get_variable_t (index, &t);
 }
 
-// Make sure ARRAY is an array type and that its elements are
-// compatible with type ELEMENT.  Returns the actual element type.
+/* Make sure ARRAY is an array type and that its elements are
+   compatible with type ELEMENT.  Returns the actual element type.  */
 static type
 require_array_type_t (type array, type element)
 {
   type t;
-  // An odd case.  Here we just pretend that everything went ok.  If
-  // the requested element type is some kind of reference, return
-  // the null type instead.
+  /* An odd case.  Here we just pretend that everything went ok.  If
+     the requested element type is some kind of reference, return
+     the null type instead.  */
   if (type_isnull (&array))
     return type_isreference (&element) ? make_type (null_type) : element;
 
@@ -1455,8 +1454,8 @@ require_array_type_t (type array, type element)
   t = type_array_element (&array);
   if (! types_compatible (&element, &t))
     {
-      // Special case for byte arrays, which must also be boolean
-      // arrays.
+      /* Special case for byte arrays, which must also be boolean
+         arrays.  */
       bool ok = true;
       if (element.key == byte_type)
 	{
@@ -1467,7 +1466,7 @@ require_array_type_t (type array, type element)
 	verify_fail ("incompatible array element type");
     }
 
-  // Return T and not ELEMENT, because T might be specialized.
+  /* Return T and not ELEMENT, because T might be specialized.  */
   return t;
 }
 
@@ -1522,7 +1521,7 @@ compute_jump (int offset)
   return npc;
 }
 
-// Add a new state to the state list at NPC.
+/* Add a new state to the state list at NPC.  */
 static state *
 add_new_state (int npc, state *old_state)
 {
@@ -1541,22 +1540,22 @@ add_new_state (int npc, state *old_state)
   return new_state;
 }
 
-// Merge the indicated state into the state at the branch target and
-// schedule a new PC if there is a change.  NPC is the PC of the
-// branch target, and FROM_STATE is the state at the source of the
-// branch.  This method returns true if the destination state
-// changed and requires reverification, false otherwise.
+/* Merge the indicated state into the state at the branch target and
+   schedule a new PC if there is a change.  NPC is the PC of the
+   branch target, and FROM_STATE is the state at the source of the
+   branch.  This method returns true if the destination state
+   changed and requires reverification, false otherwise.  */
 static void
 merge_into (int npc, state *from_state)
 {
-  // Iterate over all target states and merge our state into each,
-  // if applicable.  FIXME one improvement we could make here is
-  // "state destruction".  Merging a new state into an existing one
-  // might cause a return_address_type to be merged to
-  // unsuitable_type.  In this case the resulting state may now be
-  // mergeable with other states currently held in parallel at this
-  // location.  So in this situation we could pairwise compare and
-  // reduce the number of parallel states.
+  /* Iterate over all target states and merge our state into each,
+     if applicable.  FIXME one improvement we could make here is
+     "state destruction".  Merging a new state into an existing one
+     might cause a return_address_type to be merged to
+     unsuitable_type.  In this case the resulting state may now be
+     mergeable with other states currently held in parallel at this
+     location.  So in this situation we could pairwise compare and
+     reduce the number of parallel states.  */
   state_list *iter;
   bool applicable = false;
   for (iter = vfr->states[npc]; iter != NULL; iter = iter->next)
@@ -1586,11 +1585,11 @@ merge_into (int npc, state *from_state)
 
   if (! applicable)
     {
-      // Either we don't yet have a state at NPC, or we have a
-      // return-address type that is in conflict with all existing
-      // state.  So, we need to create a new entry.
+      /* Either we don't yet have a state at NPC, or we have a
+         return-address type that is in conflict with all existing
+         state.  So, we need to create a new entry.  */
       state *new_state = add_new_state (npc, from_state);
-      // A new state added in this way must always be reverified.
+      /* A new state added in this way must always be reverified.  */
       state_reverify (new_state);
     }
 }
@@ -1644,9 +1643,9 @@ invalidate_pc (void)
 static void
 note_branch_target (int pc)
 {
-  // Don't check `pc <= PC', because we've advanced PC after
-  // fetching the target and we haven't yet checked the next
-  // instruction.
+  /* Don't check `pc <= PC', because we've advanced PC after
+     fetching the target and we haven't yet checked the next
+     instruction.  */
   if (pc < vfr->PC && ! (vfr->flags[pc] & FLAG_INSN_START))
     verify_fail_pc ("branch not to instruction start", vfr->start_PC);
   vfr->flags[pc] |= FLAG_BRANCH_TARGET;
@@ -1660,23 +1659,23 @@ skip_padding (void)
       verify_fail ("found nonzero padding byte");
 }
 
-// Do the work for a `ret' instruction.  INDEX is the index into the
-// local variables.
+/* Do the work for a `ret' instruction.  INDEX is the index into the
+   local variables.  */
 static void
 handle_ret_insn (int index)
 {
   type ret = make_type (return_address_type);
   type ret_addr = get_variable_t (index, &ret);
-  // It would be nice if we could do this.  However, the JVM Spec
-  // doesn't say that this is what happens.  It is implied that
-  // reusing a return address is invalid, but there's no actual
-  // prohibition against it.
-  // set_variable (index, unsuitable_type);
+  /* It would be nice if we could do this.  However, the JVM Spec
+     doesn't say that this is what happens.  It is implied that
+     reusing a return address is invalid, but there's no actual
+     prohibition against it.  */
+  /* set_variable (index, unsuitable_type); */
 
   int npc = type_get_pc (&ret_addr);
-  // We might be returning to a `jsr' that is at the end of the
-  // bytecode.  This is ok if we never return from the called
-  // subroutine, but if we see this here it is an error.
+  /* We might be returning to a `jsr' that is at the end of the
+     bytecode.  This is ok if we never return from the called
+     subroutine, but if we see this here it is an error.  */
   if (npc >= vfr->current_method->code_length)
     verify_fail ("fell off end");
 
@@ -1696,7 +1695,7 @@ static void handle_jsr_insn (int offset)
 					  vfr->current_method->max_locals,
 					  false);
 
-  // Modify our state as appropriate for entry into a subroutine.
+  /* Modify our state as appropriate for entry into a subroutine.  */
   type ret_addr = make_type (return_address_type);
   type_set_return_address (&ret_addr, vfr->PC);
   vfy_push_type_t (ret_addr);
@@ -1721,8 +1720,8 @@ construct_primitive_array_type (type_val prim)
       k = vfy_get_primitive_type ((int) prim);
       break;
 
-    // These aren't used here but we call them out to avoid
-    // warnings.
+    /* These aren't used here but we call them out to avoid
+       warnings.  */
     case void_type:
     case unsuitable_type:
     case return_address_type:
@@ -1737,8 +1736,8 @@ construct_primitive_array_type (type_val prim)
   return k;
 }
 
-// This pass computes the location of branch targets and also
-// instruction starts.
+/* This pass computes the location of branch targets and also
+   instruction starts.  */
 static void
 branch_prepass (void)
 {
@@ -1751,8 +1750,8 @@ branch_prepass (void)
   vfr->PC = 0;
   while (vfr->PC < vfr->current_method->code_length)
     {
-      // Set `start_PC' early so that error checking can have the
-      // correct value.
+      /* Set `start_PC' early so that error checking can have the
+         correct value.  */
       vfr->start_PC = vfr->PC;
       vfr->flags[vfr->PC] |= FLAG_INSN_START;
 
@@ -2018,8 +2017,8 @@ branch_prepass (void)
 	  break;
 
 #if 0
-	// These are unused here, but we call them out explicitly
-	// so that -Wswitch-enum doesn't complain.
+	/* These are unused here, but we call them out explicitly
+	   so that -Wswitch-enum doesn't complain.  */
 	case op_putfield_1:
 	case op_putfield_2:
 	case op_putfield_4:
@@ -2042,14 +2041,14 @@ branch_prepass (void)
 	case op_getstatic_4:
 	case op_getstatic_8:
 	case op_getstatic_a:
-#endif // VFY_FAST_OPCODES
+#endif /* VFY_FAST_OPCODES  */
 	default:
 	  verify_fail_pc ("unrecognized instruction in branch_prepass",
 			  vfr->start_PC);
 	}
 
-      // See if any previous branch tried to branch to the middle of
-      // this instruction.
+      /* See if any previous branch tried to branch to the middle of
+         this instruction.  */
       for (pc = vfr->start_PC + 1; pc < vfr->PC; ++pc)
 	{
 	  if ((vfr->flags[pc] & FLAG_BRANCH_TARGET))
@@ -2057,7 +2056,7 @@ branch_prepass (void)
 	}
     }
 
-  // Verify exception handlers.
+  /* Verify exception handlers.  */
   for (i = 0; i < vfr->current_method->exc_count; ++i)
     {
       int handler, start, end, htype;
@@ -2130,8 +2129,8 @@ check_wide_constant (int index)
   return t;
 }
 
-// Helper for both field and method.  These are laid out the same in
-// the constant pool.
+/* Helper for both field and method.  These are laid out the same in
+   the constant pool.  */
 static type
 handle_field_or_method (int index, int expected,
 			vfy_string *name, vfy_string *fmtype)
@@ -2140,9 +2139,9 @@ handle_field_or_method (int index, int expected,
   vfy_constants *pool = vfy_get_constants (current_class);
   if (vfy_tag (pool, index) != expected)
     verify_fail_pc ("didn't see expected constant", vfr->start_PC);
-  // Once we know we have a Fieldref or Methodref we assume that it
-  // is correctly laid out in the constant pool.  I think the code
-  // in defineclass.cc guarantees this.
+  /* Once we know we have a Fieldref or Methodref we assume that it
+     is correctly laid out in the constant pool.  I think the code
+     in defineclass.cc guarantees this.  */
   vfy_uint_16 class_index, name_and_type_index;
   vfy_load_indexes (pool, index, &class_index, &name_and_type_index);
   vfy_uint_16 name_index, desc_index;
@@ -2154,7 +2153,7 @@ handle_field_or_method (int index, int expected,
   return check_class_constant (class_index);
 }
 
-// Return field's type, compute class' type if requested.
+/* Return field's type, compute class' type if requested.  */
 static type
 check_field_constant (int index, type *class_type)
 {
@@ -2212,14 +2211,14 @@ get_one_type (const char *p)
       return make_type_from_string (name);
     }
 
-  // Casting to jchar here is ok since we are looking at an ASCII
-  // character.
+  /* Casting to jchar here is ok since we are looking at an ASCII
+     character.  */
   type_val rt = get_type_val_for_signature (v);
 
   if (arraycount == 0)
     {
-      // Callers of this function eventually push their arguments on
-      // the stack.  So, promote them here.
+      /* Callers of this function eventually push their arguments on
+         the stack.  So, promote them here.  */
       type t = make_type (rt);
       vfy_promote_type (&t);
       return t;
@@ -2236,7 +2235,7 @@ compute_argument_types (vfy_string signature, type *types)
 {
   char *p = (char *) vfy_string_bytes (signature);
 
-  // Skip `('.
+  /* Skip `('.  */
   ++p;
 
   int i = 0;
@@ -2262,8 +2261,8 @@ check_return_type (type onstack)
     verify_fail ("incompatible return type");
 }
 
-// Initialize the stack for the new method.  Returns true if this
-// method is an instance initializer.
+/* Initialize the stack for the new method.  Returns true if this
+   method is an instance initializer.  */
 static bool
 initialize_stack (void)
 {
@@ -2294,7 +2293,7 @@ initialize_stack (void)
 	verify_fail ("<init> method must be non-static");
     }
 
-  // We have to handle wide arguments specially here.
+  /* We have to handle wide arguments specially here.  */
   arg_count = vfy_count_arguments (vfy_get_signature (vfr->current_method));
   type arg_types[arg_count];
   compute_argument_types (vfy_get_signature (vfr->current_method), arg_types);
@@ -2320,7 +2319,7 @@ verify_instructions_0 (void)
   vfr->PC = 0;
   vfr->start_PC = 0;
 
-  // True if we are verifying an instance initializer.
+  /*  True if we are verifying an instance initializer.  */
   bool this_is_init = initialize_stack ();
 
   vfr->states = (state_list **) vfy_alloc (sizeof (state_list *)
@@ -2333,60 +2332,60 @@ verify_instructions_0 (void)
 
   while (true)
     {
-      // If the PC was invalidated, get a new one from the work list.
+      /* If the PC was invalidated, get a new one from the work list.  */
       if (vfr->PC == NO_NEXT)
 	{
 	  state *new_state = pop_jump ();
-	  // If it is null, we're done.
+	  /* If it is null, we're done.  */
 	  if (new_state == NULL)
 	    break;
 
 	  vfr->PC = state_get_pc (new_state);
 	  debug_print ("== State pop from pending list\n");
-	  // Set up the current state.
+	  /* Set up the current state.  */
 	  copy_state (vfr->current_state, new_state, 
 	    vfr->current_method->max_stack, vfr->current_method->max_locals);
 	}
       else
 	{
-	  // We only have to do this checking in the situation where
-	  // control flow falls through from the previous
-	  // instruction.  Otherwise merging is done at the time we
-	  // push the branch.
+	  /* We only have to do this checking in the situation where
+	     control flow falls through from the previous
+	     instruction.  Otherwise merging is done at the time we
+	     push the branch.  */
 	  if (vfr->states[vfr->PC] != NULL)
 	    {
-	      // We've already visited this instruction.  So merge
-	      // the states together.  It is simplest, but not most
-	      // efficient, to just always invalidate the PC here.
+	      /* We've already visited this instruction.  So merge
+	         the states together.  It is simplest, but not most
+	         efficient, to just always invalidate the PC here.  */
 	      merge_into (vfr->PC, vfr->current_state);
 	      invalidate_pc ();
 	      continue;
 	    }
 	}
 
-      // Control can't fall off the end of the bytecode.  We need to
-      // check this in both cases, not just the fall-through case,
-      // because we don't check to see whether a `jsr' appears at
-      // the end of the bytecode until we process a `ret'.
+      /* Control can't fall off the end of the bytecode.  We need to
+         check this in both cases, not just the fall-through case,
+         because we don't check to see whether a `jsr' appears at
+         the end of the bytecode until we process a `ret'.  */
       if (vfr->PC >= vfr->current_method->code_length)
 	verify_fail ("fell off end");
 
-      // We only have to keep saved state at branch targets.  If
-      // we're at a branch target and the state here hasn't been set
-      // yet, we set it now.  You might notice that `ret' targets
-      // won't necessarily have FLAG_BRANCH_TARGET set.  This
-      // doesn't matter, since those states will be filled in by
-      // merge_into.
+      /* We only have to keep saved state at branch targets.  If
+         we're at a branch target and the state here hasn't been set
+         yet, we set it now.  You might notice that `ret' targets
+         won't necessarily have FLAG_BRANCH_TARGET set.  This
+         doesn't matter, since those states will be filled in by
+         merge_into.  */
       if (vfr->states[vfr->PC] == NULL && (vfr->flags[vfr->PC] & FLAG_BRANCH_TARGET))
 	add_new_state (vfr->PC, vfr->current_state);
 
-      // Set this before handling exceptions so that debug output is
-      // sane.
+      /* Set this before handling exceptions so that debug output is
+         sane.  */
       vfr->start_PC = vfr->PC;
 
-      // Update states for all active exception handlers.  Ordinarily
-      // there are not many exception handlers.  So we simply run
-      // through them all.
+      /* Update states for all active exception handlers.  Ordinarily
+         there are not many exception handlers.  So we simply run
+         through them all.  */
       for (i = 0; i < vfr->current_method->exc_count; ++i)
 	{
 	  int hpc, start, end, htype;
@@ -2929,7 +2928,7 @@ verify_instructions_0 (void)
 	    push_jump (get_int ());
 	    jint low = get_int ();
 	    jint high = get_int ();
-	    // Already checked LOW -vs- HIGH.
+	    /* Already checked LOW -vs- HIGH.  */
 	    for (i = low; i <= high; ++i)
 	      push_jump (get_int ());
 	    invalidate_pc ();
@@ -2943,7 +2942,7 @@ verify_instructions_0 (void)
 	    skip_padding ();
 	    push_jump (get_int ());
 	    jint npairs = get_int ();
-	    // Already checked NPAIRS >= 0.
+	    /* Already checked NPAIRS >= 0.  */
 	    jint lastkey = 0;
 	    for (i = 0; i < npairs; ++i)
 	      {
@@ -2977,8 +2976,8 @@ verify_instructions_0 (void)
 	  invalidate_pc ();
 	  break;
 	case op_return:
-	  // We only need to check this when the return type is
-	  // void, because all instance initializers return void.
+	  /* We only need to check this when the return type is
+	     void, because all instance initializers return void.  */
 	  if (this_is_init)
 	    state_check_this_initialized (vfr->current_state);
 	  check_return_type (make_type (void_type));
@@ -3004,9 +3003,9 @@ verify_instructions_0 (void)
 	    type field = check_field_constant (get_ushort (), &klass);
 	    pop_type_t (field);
 
-	    // We have an obscure special case here: we can use
-	    // `putfield' on a field declared in this class, even if
-	    // `this' has not yet been initialized.
+	    /* We have an obscure special case here: we can use
+	       `putfield' on a field declared in this class, even if
+	       `this' has not yet been initialized.  */
 	    if (! type_initialized (&vfr->current_state->this_type)
 		&& vfr->current_state->this_type.pc == SELF)
 	      type_set_uninitialized (&klass, SELF);
@@ -3028,9 +3027,9 @@ verify_instructions_0 (void)
 				       opcode == op_invokeinterface,
 				       &method_name,
 				       &method_signature);
-	    // NARGS is only used when we're processing
-	    // invokeinterface.  It is simplest for us to compute it
-	    // here and then verify it later.
+	    /* NARGS is only used when we're processing
+	       invokeinterface.  It is simplest for us to compute it
+	       here and then verify it later.  */
 	    int nargs = 0;
 	    if (opcode == op_invokeinterface)
 	      {
@@ -3051,14 +3050,14 @@ verify_instructions_0 (void)
 	    else if (namec[0] == '<')
 	      verify_fail ("can't invoke method starting with `<'");
 
-	    // Pop arguments and check types.
+	    /* Pop arguments and check types.  */
 	    int arg_count = vfy_count_arguments (method_signature);
 	    type arg_types[arg_count];
 	    compute_argument_types (method_signature, arg_types);
 	    for (i = arg_count - 1; i >= 0; --i)
 	      {
-		// This is only used for verifying the byte for
-		// invokeinterface.
+		/* This is only used for verifying the byte for
+		   invokeinterface.  */
 		nargs -= type_depth (&arg_types[i]);
 		pop_init_ref_t (arg_types[i]);
 	      }
@@ -3072,12 +3071,12 @@ verify_instructions_0 (void)
 		type t = class_type;
 		if (is_init)
 		  {
-		    // In this case the PC doesn't matter.
+		    /* In this case the PC doesn't matter.  */
 		    type_set_uninitialized (&t, UNINIT);
-		    // FIXME: check to make sure that the <init>
-		    // call is to the right class.
-		    // It must either be super or an exact class
-		    // match.
+		    /* FIXME: check to make sure that the <init>
+		       call is to the right class.
+		       It must either be super or an exact class
+		       match.  */
 		  }
 		type raw = pop_raw ();
 		if (! types_compatible (&t, &raw))
@@ -3109,8 +3108,8 @@ verify_instructions_0 (void)
 	  {
 	    int atype = get_byte ();
 	    type t;
-	    // We intentionally have chosen constants to make this
-	    // valid.
+	    /* We intentionally have chosen constants to make this
+	       valid.  */
 	    if (atype < boolean_type || atype > long_type)
 	      verify_fail_pc ("type not primitive", vfr->start_PC);
 	    pop_type (int_type);
@@ -3226,8 +3225,8 @@ verify_instructions_0 (void)
 	  break;
 
 #if 0
-	// These are unused here, but we call them out explicitly
-	// so that -Wswitch-enum doesn't complain.
+	/* These are unused here, but we call them out explicitly
+	   so that -Wswitch-enum doesn't complain.  */
 	case op_putfield_1:
 	case op_putfield_2:
 	case op_putfield_4:
@@ -3252,7 +3251,7 @@ verify_instructions_0 (void)
 	case op_getstatic_a:
 #endif
 	default:
-	  // Unrecognized opcode.
+	  /* Unrecognized opcode.  */
 	  verify_fail_pc ("unrecognized instruction in verify_instructions_0",
 		       vfr->start_PC);
 	}
@@ -3268,8 +3267,8 @@ static void verify_instructions (void)
 #if 0
 _Jv_BytecodeVerifier (_Jv_InterpMethod *m)
 {
-  // We just print the text as utf-8.  This is just for debugging
-  // anyway.
+  /* We just print the text as utf-8.  This is just for debugging
+     anyway.  */
   debug_print ("--------------------------------\n");
   debug_print ("-- Verifying method `%s'\n", m->self->name->chars());
 
