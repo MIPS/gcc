@@ -2170,9 +2170,12 @@ struct tree_binfo GTY (())
    pointer, the value returned does not cause the type to escape.  */
 #define DECL_IS_MALLOC(NODE) (FUNCTION_DECL_CHECK (NODE)->decl.malloc_flag)
 
-/* Nonzero in a FUNCTION_DECL means this function should be treated
-   as if it were a free, meaning it takes a pointer to a void* but the cast for this pararmeter does not cause the type to escape.  */
-#define DECL_IS_FREE(NODE) (FUNCTION_DECL_CHECK (NODE)->decl.free_flag)
+/* Nonzero in a FUNCTION_DECL means this function should be treated as
+   if pointers passed to it effectively die, meaning it takes a
+   pointer to a void* but the cast for this pararmeter does not cause
+   the type to escape.  */
+#define DECL_IS_POINTER_NO_ESCAPE(NODE) \
+  (FUNCTION_DECL_CHECK (NODE)->decl.pointer_no_escape_flag)
 
 /* Nonzero in a FUNCTION_DECL means this function should be treated
    as "pure" function (like const function, but may read global memory).  */
@@ -2374,7 +2377,7 @@ struct tree_decl GTY(())
   unsigned possibly_inlined : 1;
   unsigned preserve_flag: 1;
   unsigned gimple_formal_temp : 1;
-  unsigned free_flag : 1;
+  unsigned pointer_no_escape_flag : 1;
   /* 11 unused bits.  */
 
   union tree_decl_u1 {
@@ -3684,8 +3687,9 @@ extern rtx emit_line_note (location_t);
 #define ECF_ALWAYS_RETURN	512
 /* Create libcall block around the call.  */
 #define ECF_LIBCALL_BLOCK	1024
-/* Nonzero if this is a call to free or a related function.  */
-#define ECF_FREE		2048
+/* Nonzero if this is a call to a function that does not allow the
+   pointers to escape or a related function.  */
+#define ECF_POINTER_NO_ESCAPE	2048
 
 extern int flags_from_decl_or_type (tree);
 extern int call_expr_flags (tree);

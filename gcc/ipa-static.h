@@ -123,6 +123,7 @@ bitmap ipa_get_statics_not_written_global (tree fn);
 bool   ipa_static_type_contained_p (tree type);
 bool   ipa_static_address_not_taken_of_field (tree record_type, tree field_type);
 int    ipa_static_star_count_of_interesting_type (tree type); 
+int ipa_static_star_count_of_interesting_or_array_type (tree type);
 
 
 #endif  /* GCC_IPA_STATIC_H  */

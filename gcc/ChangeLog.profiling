@@ -1,34 +1,67 @@
+2005-01-22  Kenneth Zadeck <zadeck@naturalbridge.com>
+	* alias.c : Fixed typos in header comment.
+
+	* alias.c (nonoverlapping_memrefs_p): Added code to use
+	ipa_static_vars_analysis infomation to determine if a
+	pointer and a structure may alias.
+	* builtin-attrs.def, builtins.def, c-common.c, tree.h:
+	Renamed "free" attribute to "pointer_no_escape" and made the
+	free libc function have this attribute by adding a builtin for
+	it.
+	* calls.c (flag_from_decl_or_type): Ditto.
+	* ipa_static_vars_anal.c (ipa_static_star_count_of_interesting_or_array_type): 
+	New function.
+	* ipa_static_vars_anal.c (mark_any_type_seen, mark_type, close_type_seen,
+	close_type_full_escape, do_type_analysis): 
+	Added code to properly handle array types.
+	* ipa_static_vars_anal.c (parent_type_p): Fixed problems in
+	not properly determining if a class was a parent class.
+	* ipa_static_vars_anal.c (check_cast, look_for_address_of, look_for_casts, 
+	check_call): Missed marking some types as seen.
+	* ipa_static_vars_anal.c
+	* (check_function_parameter_and_return_type): Was invalidly
+	taking apart a gimple tree.
+	* ipa_static_vars_anal.c (check_call): Added code to process 
+	pointer_no_escape flag.
+	* ipa_static_vars_anal.c (okay_pointer_operation, scan_for_static_refs): 
+	Preliminary code to allow some pointer increments as ok.
+	* ipa_static.h: Added ipa_static_star_count_of_interesting_or_array_type.
+
 2005-01-18  Kenneth Zadeck <zadeck@naturalbridge.com>
 	
 	* alias.c: Fixed header comment.
 	* c-common.c: (handle_free_attribure) 
-	new function to handle "free" attribute. 
-	* c=decl.c (merge_decls): process "free" attribute.
+	New function to handle "free" attribute. 
+	* c=decl.c (merge_decls): Process "free" attribute.
 	* calls.c (flags_from_decl_or_type): process "free" attribute.
 	* ipa-static-vars-anal.c (unique_type_id_for, 
 	ipa_static_star_count_of_interesting_type, ipa_static_type_contained_p,
-	ipa_static_address_not_taken_of_field, mark_any_type_seen, mark_type_seen, 
-	mark_type, mark_interesting_type, parent_type_p, count_stars, check_cast_type,
-	check_cast, check_function_parameter_and_return_types, 
+	ipa_static_address_not_taken_of_field, mark_any_type_seen, 
+	mark_type_seen, mark_type, mark_interesting_type, parent_type_p, 
+	count_stars, check_cast_type, check_cast, 
+	check_function_parameter_and_return_types, 
 	mark_interesting_addressof, type_for_uid, subtype_map_for_uid, 
-	close_type_seen, compare_type_brand, get_name_of_type, discover_unique_type
-	close_type_exposed_parameter, close_type_full_escape, delete_addressof_map,
-	close_addressof, do_type_analysis, ): new function for type escape analysis.
-	* ipa-static-vars-anal.c (check_operand, check_tree, look_for_address_of,
-	check_call, scan_for_static_refs, ipa_init, analyze_function, 
-	static_execute): fixed to perform type escape analysis.
-	* ipa-static-vars-anal.c (convert_UIDs_in_bitmap, propagate_bits): fixed typo.
-	* ipa-static-vars-anal.c (searchc_env): added missing cast.
-	* ipa-static-vars-anal.c (get_base_var): moved from tree-gimple.c.
-	* ipa-static-vars-anal.c (check_call): renamed from 
+	close_type_seen, compare_type_brand, get_name_of_type, 
+	discover_unique_type, close_type_exposed_parameter, 
+	close_type_full_escape, delete_addressof_map,close_addressof, 
+	do_type_analysis): New function for type escape analysis.
+	* ipa-static-vars-anal.c (check_operand, check_tree, 
+	look_for_address_of, check_call, scan_for_static_refs, ipa_init, 
+	analyze_function, static_execute): Fixed to perform type escape 
+	analysis.
+	* ipa-static-vars-anal.c (convert_UIDs_in_bitmap, propagate_bits): 
+	Fixed typo.
+	* ipa-static-vars-anal.c (searchc_env): Added missing cast.
+	* ipa-static-vars-anal.c (get_base_var): Moved from tree-gimple.c.
+	* ipa-static-vars-anal.c (check_call): Renamed from 
 	process_call_for_static_vars.
-	* ipa-static-vars-anal.c (analyze_variable): added debugging.
-	* ipa-static-vars-anal.c (static_execute): removed debugging.
-	* tree-dfa.c (create_stmt_ann) fixed typo.
-	* tree.c (build4_stat) fixed typo.
-	* tree-inline-flow.h: fixed typo.
-	* tree-ssa-alias.c (may_alias_p): improvements to aliasing based on type 
-	escape analysis.
+	* ipa-static-vars-anal.c (analyze_variable): Added debugging.
+	* ipa-static-vars-anal.c (static_execute): Removed debugging.
+	* tree-dfa.c (create_stmt_ann) Fixed typo.
+	* tree.c (build4_stat) Fixed typo.
+	* tree-inline-flow.h: Fixed typo.
+	* tree-ssa-alias.c (may_alias_p): Improvements to aliasing based on 
+	type escape analysis.
 	* tree.h: added free attribute. 
 
 2005-01-18  Daniel Berlin  <dberlin@dberlin.org> (committed by Kenneth Zadeck <zadeck@naturalbridge.com>)

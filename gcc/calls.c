@@ -578,9 +578,9 @@ flags_from_decl_or_type (tree exp)
       if (DECL_IS_MALLOC (exp))
 	flags |= ECF_MALLOC;
 
-      /* The function exp may have the `free' attribute.  */
-      if (DECL_IS_FREE (exp))
-	flags |= ECF_FREE;
+      /* The function exp may have the `pointer_no_escape' attribute.  */
+      if (DECL_IS_POINTER_NO_ESCAPE (exp))
+	flags |= ECF_POINTER_NO_ESCAPE;
 
       /* The function exp may have the `pure' attribute.  */
       if (DECL_IS_PURE (exp))

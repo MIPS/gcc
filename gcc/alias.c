@@ -45,7 +45,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "cgraph.h"
 #include "varray.h"
 
-/* The aliasing api provided here solves related but different problems:
+/* The aliasing API provided here solves related but different problems:
 
    Say there exists (in c) 
 
@@ -59,15 +59,17 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 
    py = &px1.y1;
+   px2 = &x1;
 
    Consider the four questions:
 
-   can a store to x1 interfere with px2->y2?
-   can a store to x1 interfere with px2->z2?
-   can a store to x1 change the value pointed to by with py?
-   can a store to x1 change the value pointed to by with pz?
+   Can a store to x1 interfere with px2->y2?
+   Can a store to x1 interfere with px2->z2?
+   (*px2).z2
+   Can a store to x1 change the value pointed to by with py?
+   Can a store to x1 change the value pointed to by with pz?
 
-   the answer to these questions can be yes, yes, yes, no
+   The answer to these questions can be yes, yes, yes, and no.
 
    The first two questions can be answered with a simple examination
    of the type system.  If structure X contains a field of type Y then
@@ -2045,22 +2047,34 @@ nonoverlapping_memrefs_p (rtx x, rtx y)
   /* Unless both have exprs, we can't tell anything.  */
   if (exprx == 0 || expry == 0)
     return 0;
-
+  
   /* If both are field references, we may be able to determine something.  */
   if (TREE_CODE (exprx) == COMPONENT_REF
       && TREE_CODE (expry) == COMPONENT_REF
       && nonoverlapping_component_refs_p (exprx, expry))
     return 1;
 
+  
   /* If the field reference test failed, look at the DECLs involved.  */
   moffsetx = MEM_OFFSET (x);
   if (TREE_CODE (exprx) == COMPONENT_REF)
     {
-      tree t = decl_for_component_ref (exprx);
-      if (! t)
-	return 0;
-      moffsetx = adjust_offset_for_component_ref (exprx, moffsetx);
-      exprx = t;
+      if (TREE_CODE (expry) == VAR_DECL
+	  && POINTER_TYPE_P (TREE_TYPE (expry)))
+	{
+	 tree field = TREE_OPERAND (exprx, 1);
+	 tree fieldcontext = DECL_FIELD_CONTEXT (field);
+	 if (ipa_static_address_not_taken_of_field (fieldcontext,
+						    TREE_TYPE (field)))
+	   return 1;	 
+	}
+      {
+	tree t = decl_for_component_ref (exprx);
+	if (! t)
+	  return 0;
+	moffsetx = adjust_offset_for_component_ref (exprx, moffsetx);
+	exprx = t;
+      }
     }
   else if (INDIRECT_REF_P (exprx))
     {
@@ -2073,11 +2087,22 @@ nonoverlapping_memrefs_p (rtx x, rtx y)
   moffsety = MEM_OFFSET (y);
   if (TREE_CODE (expry) == COMPONENT_REF)
     {
-      tree t = decl_for_component_ref (expry);
-      if (! t)
-	return 0;
-      moffsety = adjust_offset_for_component_ref (expry, moffsety);
-      expry = t;
+      if (TREE_CODE (exprx) == VAR_DECL
+	  && POINTER_TYPE_P (TREE_TYPE (exprx)))
+	{
+	 tree field = TREE_OPERAND (expry, 1);
+	 tree fieldcontext = DECL_FIELD_CONTEXT (field);
+	 if (ipa_static_address_not_taken_of_field (fieldcontext,
+						    TREE_TYPE (field)))
+	   return 1;	 
+	}
+      {
+	tree t = decl_for_component_ref (expry);
+	if (! t)
+	  return 0;
+	moffsety = adjust_offset_for_component_ref (expry, moffsety);
+	expry = t;
+      }
     }
   else if (INDIRECT_REF_P (expry))
     {

@@ -1677,7 +1677,7 @@ merge_decls (tree newdecl, tree olddecl, tree newtype, tree oldtype)
       TREE_THIS_VOLATILE (newdecl) |= TREE_THIS_VOLATILE (olddecl);
       TREE_READONLY (newdecl) |= TREE_READONLY (olddecl);
       DECL_IS_MALLOC (newdecl) |= DECL_IS_MALLOC (olddecl);
-      DECL_IS_FREE (newdecl) |= DECL_IS_FREE (olddecl);
+      DECL_IS_POINTER_NO_ESCAPE (newdecl) |= DECL_IS_POINTER_NO_ESCAPE (olddecl);
       DECL_IS_PURE (newdecl) |= DECL_IS_PURE (olddecl);
     }
 
