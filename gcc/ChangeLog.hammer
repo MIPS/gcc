@@ -1,3 +1,7 @@
+Wed Jul 30 19:01:39 CEST 2003  Jan Hubicka  <jh@suse.cz>
+
+	* gcse.c (insert_store): Ignore fake edges.
+
 2003-07-30  Michael Matz  <matz@suse.de>
 
 	* semantics.c (finish_hander_parms): Don't segfault.
